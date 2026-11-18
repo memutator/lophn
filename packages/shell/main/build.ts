@@ -88,7 +88,8 @@ function buildExtensions(): Promise<void> {
   ).then(() => {});
 }
 
-// node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없다. Linux에서만 source로 compile한다.
+// node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없다. Linux에서만 source로 compile한다. 개발 실행의 core가 띄우는
+// PTY host도 저장소의 이 build를 load한다(설치본은 tools/package/가 platform/에 따로 build한다).
 function rebuildNodePty(): number {
   if (process.platform !== "linux") return 0;
   return (

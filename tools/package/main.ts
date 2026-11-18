@@ -8,7 +8,7 @@
 //
 // 세 OS 모두 같은 순서다: shell·renderer build → electron-builder `dir`(풀린 앱) → 그 안에 platform/, extensions/,
 // desktop/, skills/를 넣는다 → target별로 묶는다(linux.ts, mac.ts, win.ts).
-//   platform/    packages source, npm production node_modules/
+//   platform/    packages source, npm production node_modules/(core가 load하는 node-pty 포함)
 //   extensions/  본체 안 extension(manifest.json과 빌드한 dist/)
 //   desktop/     빌드된 desktop 화면
 //   skills/      coding agent skill 배포 원본
@@ -140,7 +140,7 @@ async function copyLinkedMembers(modules: string) {
   }
 }
 
-// core와 CLI는 Node로 뜨므로 platform/ 안에서 풀리는 npm production 의존이 있어야 한다.
+// core와 CLI는 Node로 뜨므로 platform/ 안에서 풀리는 npm production 의존이 있어야 한다. core의 PTY host가 쓰는 node-pty도 여기서 푼다.
 async function stagePlatform(bundle: string, copyMembers: boolean) {
   const platform = join(bundle, "platform");
   await cp(join(repo, "packages"), join(platform, "packages"), {
@@ -175,6 +175,21 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
     { cwd: platform },
   );
   if (copyMembers) await copyLinkedMembers(join(platform, "node_modules"));
+  // core가 띄우는 PTY host가 node-pty를 load한다. node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없어(위
+  // `--ignore-scripts`라 build도 없다) Linux에서만 core가 도는 Electron에 맞춰 source로 compile한다.
+  if (process.platform === "linux") {
+    const shell = JSON.parse(
+      await readFile(join(shellMain, "package.json"), "utf8"),
+    );
+    await run(process.execPath, [
+      join(repo, "node_modules", "@electron", "rebuild", "lib", "cli.js"),
+      "-f",
+      "-v",
+      shell.devDependencies.electron,
+      "-m",
+      join(platform, "node_modules", "node-pty"),
+    ]);
+  }
 }
 
 // 본체 안 extension은 manifest와 따로 빌드한 entry(dist/)만 간다. registry가 거기서 찾는다.

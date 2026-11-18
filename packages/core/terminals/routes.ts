@@ -1,0 +1,203 @@
+// `terminals/*` route의 처리. 누가 칠 수 있는지(입력 자격), 같은 key의 한 번, 날 출력 lease를 갖는다. 터미널 일 자체는
+// `Terminals`가 하고 Bus·탭 열기·자격 표는 wiring이 deps로 끼운다.
+import { type Clock, err, ok, type Result } from "../../base/mod.ts";
+import type { Id } from "../../protocol/base/mod.ts";
+import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
+import type { TabRelation } from "../../protocol/lophn-agent/host-queue.ts";
+import type { Terminals } from "./ports.ts";
+
+// 화면이 10초마다 갱신하고 core는 30초 안에 갱신이 없으면 lease를 거둔다.
+export const LEASE_MS = 30_000;
+// 다시 보낸 open(전체)과 input(터미널마다)을 알아보는 key 수.
+const KEYS_MAX = 200;
+
+const forbidden = (message: string) =>
+  err({ code: "forbidden" as const, message });
+const gone = () =>
+  err({ code: "not_found" as const, message: "terminal is not open" });
+
+// 같은 key는 한 번만 한다. 보내는 중이거나 성공한 것의 답을 주고, 실패한 key는 잊어 다시 보낼 수 있게 한다.
+function once<T>(
+  table: Map<string, Promise<Result<T>>>,
+  key: string | undefined,
+  run: () => Promise<Result<T>>,
+): Promise<Result<T>> {
+  if (key === undefined) return run();
+  const seen = table.get(key);
+  if (seen !== undefined) return seen;
+  const sending = run().then((done) => {
+    if (!done.ok && table.get(key) === sending) table.delete(key);
+    return done;
+  });
+  table.set(key, sending);
+  while (table.size > KEYS_MAX) table.delete(table.keys().next().value!);
+  return sending;
+}
+
+export type TerminalRoutes = ReturnType<typeof createTerminalRoutes>;
+
+export function createTerminalRoutes(deps: {
+  terminals: Terminals;
+  clock: Clock;
+  // 기기 principal이 이 기계에서 터미널 입력 허락을 받았다. 기기가 아니면 false다.
+  granted(principal: string): boolean;
+  // control `connect {client: shell}`이 준 살아 있는 capability다(focus 검사를 거친 shell main만 싣는다).
+  capability(value: string): boolean;
+  // project에 터미널 탭을 연다. 그 project를 보이는 창이 없으면 탭은 기다리고 터미널은 그대로 돈다.
+  openTab(
+    project: Id<"prj">,
+    terminal: string,
+    relation: TabRelation | null,
+  ): void;
+}) {
+  const { terminals } = deps;
+  const leases = new Map<string, { terminal: string; expiresAt: number }>();
+  const opens = new Map<
+    string,
+    Promise<Result<{ terminal: string; runtime: TerminalRuntime }>>
+  >();
+  const inputs = new Map<
+    string,
+    Map<string, Promise<Result<Record<string, never>>>>
+  >();
+  const runtimeOf = (result: Result<TerminalRuntime>) =>
+    result.ok ? ok({ runtime: result.value }) : result;
+
+  return {
+    list(input: { project?: Id<"prj"> }) {
+      return ok({ terminals: [...terminals.list(input.project)] });
+    },
+
+    open(input: {
+      project: Id<"prj">;
+      folder_ref?: string;
+      cwd?: string;
+      command?: string;
+      resume?: { harness: string; external_session: string };
+      key?: string;
+      tab?: { relation: TabRelation | null };
+    }) {
+      return once(opens, input.key, async () => {
+        const { key: _key, tab, ...open } = input;
+        const opened = await terminals.open(open);
+        if (!opened.ok) return opened;
+        const terminal = opened.value.terminal_ref;
+        if (tab !== undefined)
+          deps.openTab(input.project, terminal, tab.relation);
+        return ok({ terminal, runtime: opened.value });
+      });
+    },
+
+    async close(input: { terminal: string; generation: number }) {
+      return runtimeOf(await terminals.close(input.terminal, input.generation));
+    },
+
+    // 다시 띄우기는 focus한 창의 사람만 한다. focus 검사는 shell main이 하고 capability를 싣는다.
+    async restart(input: {
+      terminal: string;
+      generation: number;
+      shell_capability: string;
+    }) {
+      if (!deps.capability(input.shell_capability)) {
+        return forbidden("only the focused desktop window may restart");
+      }
+      return runtimeOf(
+        await terminals.restart(input.terminal, input.generation),
+      );
+    },
+
+    // 기기는 그 기기의 터미널 입력 허락이, 기기가 아니면 살아 있는 shell capability가 있어야 친다. agent 자격은 dispatch가 막는다.
+    input(
+      principal: string,
+      input: {
+        terminal: string;
+        generation?: number;
+        text: string;
+        key?: string;
+        respond?: boolean;
+        shell_capability?: string;
+      },
+    ): Promise<Result<Record<string, never>>> {
+      const allowed =
+        deps.granted(principal) ||
+        (input.shell_capability !== undefined &&
+          deps.capability(input.shell_capability));
+      if (!allowed) {
+        return Promise.resolve(
+          forbidden("this caller may not type into the terminal"),
+        );
+      }
+      let table = inputs.get(input.terminal);
+      if (table === undefined) inputs.set(input.terminal, (table = new Map()));
+      return once(table, input.key, async () => {
+        const done = await terminals.write(input.terminal, input.text, {
+          generation: input.generation,
+          // xterm이 출력의 질의에 답한 것은 사람 입력이 아니다.
+          human: input.respond !== true,
+        });
+        return done.ok ? ok({}) : done;
+      });
+    },
+
+    async resize(input: {
+      terminal: string;
+      generation: number;
+      columns: number;
+      rows: number;
+    }) {
+      return runtimeOf(
+        await terminals.resize(
+          input.terminal,
+          input.generation,
+          { columns: input.columns, rows: input.rows },
+          { remote: false },
+        ),
+      );
+    },
+
+    snapshot(input: { terminal: string; after_seq?: number }) {
+      return terminals.snapshot(input.terminal, input.after_seq);
+    },
+
+    // lease는 (principal, watcher)가 터미널마다 하나다. 한 principal의 여러 화면이 따로 잡고 놓는다.
+    watch(
+      principal: string,
+      input: { terminal: string; watcher: string; on: boolean },
+    ) {
+      const key = `${principal}\n${input.watcher}\n${input.terminal}`;
+      if (!input.on) {
+        leases.delete(key);
+        return ok({});
+      }
+      if (terminals.runtime(input.terminal) === null) return gone();
+      leases.set(key, {
+        terminal: input.terminal,
+        expiresAt: deps.clock.nowMs() + LEASE_MS,
+      });
+      return ok({});
+    },
+
+    name(input: { terminal: string; name: string }) {
+      if (terminals.runtime(input.terminal) === null) return gone();
+      terminals.patch(input.terminal, { tab_name: input.name });
+      return ok({});
+    },
+
+    // 이 터미널에 기한이 남은 lease가 하나라도 있다. 있는 동안만 날 출력을 Bus에 낸다.
+    watched(terminal: string): boolean {
+      const now = deps.clock.nowMs();
+      for (const lease of leases.values()) {
+        if (lease.terminal === terminal && lease.expiresAt > now) return true;
+      }
+      return false;
+    },
+
+    // 기한이 지난 lease를 거둔다(주기로 부른다).
+    expire(): void {
+      const now = deps.clock.nowMs();
+      for (const [key, lease] of leases) {
+        if (lease.expiresAt <= now) leases.delete(key);
+      }
+    },
+  };
+}

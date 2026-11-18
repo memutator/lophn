@@ -616,6 +616,34 @@ files:
     covers: [terminal-view-input:forbidden]
     note: "terminalInputGrant 칸이 채워지지 않았으면 입력은 어떤 principal이든 forbidden이고 host에 요청이 나가지 않는다"
 
+  - path: packages/core/main/daemon/wiring/terminals_test.ts
+    covers: [terminals-input:sent, terminals-input:forbidden, terminals-restart:forbidden, terminals-watch:watching, terminals-watch:stopped, terminals-read:ok]
+    note: "PTY host를 같은 process에서 fake PTY로 돌린다. agent 자격, 허락 없는 기기, capability 없는 사람 token은 forbidden이고 PTY에 아무것도 가지 않으며 허락 있는 기기와 capability를 실은 shell main의 글은 PTY까지 간다. closeWork가 host stdin을 닫으면 host가 모든 PTY를 끝낸다. watch lease가 있는 동안만 TerminalOutputAppended가 가고, lease를 놓쳐 seq가 건너뛴 뒤 snapshot으로 맞추면 붙은 쪽이 쓴 seq에 빠짐도 겹침도 없다"
+
+  - path: packages/core/terminals/supervisor_test.ts
+    covers: []
+    note: "core 쪽 PTY host 감독(shell 원본의 사본). pipe에서 읽은 줄 나누기가 갈린 UTF-8과 큰 JSON 한 줄을 보존하고, host가 exit 없이 error를 내도 기다리던 요청이 host_lost로 끝나며, 10초 안에 답이 없는 요청은 host_lost로 끝나고 늦은 답은 무시한다"
+
+  - path: packages/core/terminals/cwd_test.ts
+    covers: [terminals-open:invalid_input]
+    note: "터미널 시작 폴더가 등록 폴더 안인지 보는 순수 함수(shell 원본의 사본). `..`와 밖으로 나가는 symlink는 거절"
+
+  - path: packages/core/terminals/host/env_test.ts
+    covers: [terminal-shell-env:env-built]
+    note: "core의 PTY host(shell 원본의 사본). 터미널 shell env에 COLORTERM=truecolor, 허용 이름은 local port 값이어도 남고 플랫폼 token·endpoint는 지운다"
+
+  - path: packages/core/terminals/host/main_test.ts
+    covers: []
+    note: "core의 PTY host(shell 원본의 사본). 요청 하나가 던져도 host가 끝나지 않고 다른 터미널의 입력·resize가 그대로 답한다. 던진 요청은 host_lost로 답한다"
+
+  - path: packages/core/terminals/host/shell-integration_test.ts
+    covers: [terminal-shell-env:user-rc-kept]
+    note: "core의 PTY host(shell 원본의 사본). bash·zsh 시작 층 file이 없으면 원래 login shell로 띄워 사용자 rc를 읽는다"
+
+  - path: packages/core/terminals/host/screen_test.ts
+    covers: [terminals-read:ok]
+    note: "core의 PTY host(shell 원본의 사본). 다시 붙은 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살리고, 폰에 주는 화면은 색·굵게·폭 2 글자·자동 줄바꿈이 run에 맞게 나온다"
+
   - path: packages/core/main/daemon/wiring/remote_test.ts
     covers: [roster-forget:forgotten, roster-forget:removed-from-roster, roster-forget:kept, roster-identity:created, roster-identity:adopted, remote-host-key-machine:stamped, roster-join:conflict, roster-join:forbidden, roster-invite:forbidden, roster-remove:forbidden, roster-rename:forbidden, roster-set-terminal-input:forbidden, roster-list:forbidden, roster-leave:forbidden, core-machines-list:forbidden, core-machines-call:forbidden, core-machines-watch:forbidden, shell-viewer-roster:moved, shell-viewer-roster:dropped]
     note: "agent 자격으로 remote wiring이 등록하는 roster/*·machines/* memory route를 실제 dispatchHttp에 넣으면 모두 forbidden이고 handler에 닿지 않는다. 임시 data root와 file sqlite로 remote wiring의 build·start를 돌린다(listener·relay는 열지 않는다). 옛 host key와 push token 있는 폰 행에 서명 key data step을 돌린 뒤 기동하면 key·폰 행·push token·shell.devices가 그대로이고 자기 항목과 폰 항목이 서명된다. 다른 컴퓨터가 이 컴퓨터를 뺀 statement가 저장된 뒤의 기동은 명단·기기 행·shell.devices를 버리고 새 key와 새 id의 자기 항목 하나로 뜬다. 다른 기계 id로 뜨면(복사된 data root) 지금 id를 찍은 새 key 둘과 새 자기 항목으로 뜬다. roster/join은 wiring에 넘긴 dial의 메모리 전송으로 acceptRemote 하나(초대한 컴퓨터)에 붙고, 그 컴퓨터가 used로 거절하면 명단에 자기 항목 말고 아무것도 남지 않는다. viewer data step은 창 자리를 남기고 시작 기계를 start.json으로 옮긴 뒤 옛 key와 기계 목록을 지우고(두 번 돌아도 같다), 다른 기계가 쓴 목록은 옮기지 않고 지운다"

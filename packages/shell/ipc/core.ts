@@ -9,8 +9,12 @@ const bytes = z.custom<Uint8Array>(
   (value) => Object.prototype.toString.call(value) === "[object Uint8Array]",
 );
 
+// 다른 기계의 id(`mch_<ULID>`). 이 file은 zod만 import하므로 꼴을 여기서 본다. 없으면 이 컴퓨터, 있으면 그 기계다.
+const machine = z.string().regex(/^mch_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
+
 export const coreCallSchema = z
   .object({
+    machine: machine.optional(),
     kind: z.enum(["read", "command", "memory", "upload", "file"]),
     resource: z.string().regex(/^[a-z][a-z0-9_-]*$/),
     method: z.string().regex(/^[a-z][a-z0-9_-]*$/),
@@ -54,11 +58,18 @@ export const CORE_WATCH_CHANNEL = "shell:core-watch";
 
 // event 본문은 renderer가 protocol의 busEventSchema로 읽는다. shell은 protocol을 import하지 않는다.
 export const coreEventMessageSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("ready") }).strict(),
-  z.object({ kind: z.literal("event"), event: z.unknown() }).strict(),
+  z.object({ kind: z.literal("ready"), machine: machine.optional() }).strict(),
+  z
+    .object({
+      kind: z.literal("event"),
+      event: z.unknown(),
+      machine: machine.optional(),
+    })
+    .strict(),
   z
     .object({
       kind: z.literal("closed"),
+      machine: machine.optional(),
       reason: z.enum(["slow_consumer", "credential_revoked", "shutdown"]),
     })
     .strict(),
@@ -69,6 +80,7 @@ export type CoreEventMessage = z.infer<typeof coreEventMessageSchema>;
 // 조건 전체를 통째로 바꾼다. main은 연결이 새로 붙을 때마다 이 조건으로 다시 걸고 ready를 다시 민다.
 export const coreWatchSchema = z
   .object({
+    machine: machine.optional(),
     conditions: z.array(
       z
         .object({

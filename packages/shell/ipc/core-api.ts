@@ -22,7 +22,11 @@ export interface CoreApi {
   /** allowlist의 read·command 하나를 부른다. */
   call(input: CoreCall): Promise<CoreReply>;
   /** 이 renderer의 구독 조건을 통째로 바꾼다. */
-  watch(conditions: CoreWatch["conditions"]): Promise<void>;
+  /** `machine`이 있으면 그 기계의 조건이고, 없으면 이 컴퓨터 core의 조건이다. */
+  watch(
+    conditions: CoreWatch["conditions"],
+    machine?: CoreWatch["machine"],
+  ): Promise<void>;
   /** main이 중계한 Gateway 메시지를 듣는다. 해제는 반환 함수다. */
   onEvent(listener: (message: CoreEventMessage) => void): () => void;
 }

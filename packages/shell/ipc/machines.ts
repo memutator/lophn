@@ -53,6 +53,18 @@ export const machineRowSchema = z.strictObject({
 });
 export type MachineRow = z.infer<typeof machineRowSchema>;
 
+// 다른 기계의 연결 상태. IPC로 묻지 않고 목록의 줄에서 읽는다. 목록에 없는 기계(명단에서 빠짐)는 stale이다.
+export function machineConnectionState(row: MachineRow | undefined): {
+  state: "starting" | "ready" | "stale";
+  confirmedAt: number | null;
+} {
+  const confirmedAt =
+    row?.last_seen_at == null ? null : Date.parse(row.last_seen_at);
+  if (row?.status === "connecting") return { state: "starting", confirmedAt };
+  if (row?.status === "connected") return { state: "ready", confirmedAt };
+  return { state: "stale", confirmedAt };
+}
+
 // `starting`: this machine's id or the core's machine list is not known yet. A window whose machine is not in a `ready`
 // list views a machine that left the device list.
 export const machineListSchema = z.strictObject({

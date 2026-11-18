@@ -30,8 +30,15 @@ const subject = z
   .max(80)
   .regex(/^[^\p{Cc}]+$/u);
 
+// 값이 갈 기계(`mch_<ULID>`). 없으면 이 컴퓨터(기계에 묶인 창이면 그 기계)다.
+const machine = z
+  .string()
+  .regex(/^mch_[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+  .optional();
+
 const secretInputNameOpenSchema = z
   .object({
+    machine,
     /** 저장할 secret 이름. */
     name: secretName,
     purpose,
@@ -66,7 +73,7 @@ const providerTarget = z.union([
 
 /** 새 provider를 key로 잇는다. 이름이 없다: 값은 core가 id를 정해 잇는다(`providers/connect-key`). */
 const secretInputProviderOpenSchema = z
-  .object({ provider: providerTarget, subject })
+  .object({ machine, provider: providerTarget, subject })
   .strict();
 
 /**
@@ -75,6 +82,7 @@ const secretInputProviderOpenSchema = z
  */
 const secretInputRequestOpenSchema = z
   .object({
+    machine,
     request: z
       .object({
         session: z.string().min(1).max(64),

@@ -301,11 +301,12 @@ export function TerminalTab({
       void open(folderRef);
       return;
     }
-    // 읽는 동안 다시 mount돼도 두 번 열지 않는다.
-    if (!store.beginOpen(tabKey)) return;
+    // 읽는 동안에도 항목을 둔다. 없으면 창의 displays가 이 탭의 화면을 놓고, 다시 mount돼도 두 번 열지 않는다.
+    store.update(tabKey, { phase: { kind: "opening" } });
     void core.list().then((list) => {
-      store.endOpen(tabKey);
-      if (store.get(tabKey)) return;
+      // 그 사이 탭이 닫혔거나 이미 붙었다.
+      const now = store.get(tabKey);
+      if (now === undefined || now.terminalRef) return;
       const found = list?.find((one) => one.terminal_ref === attach);
       if (found !== undefined && endingOf(found) === null) {
         store.adopt(tabKey, {

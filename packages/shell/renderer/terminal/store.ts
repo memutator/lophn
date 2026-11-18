@@ -78,14 +78,20 @@ export class TerminalStore {
       }
     });
     // coding session 목록은 붙을 때와 `StateChanged{coding_sessions}`마다 다시 읽는다.
-    const readCoding = async () => {
+    // core가 막 떠 동시 요청 한도를 넘으면 unavailable이다. 조금 뒤 몇 번 더 읽는다.
+    const readCoding = async (left = 3): Promise<void> => {
       const reply = await core!.events.core.call({
         kind: codingSessionsList.kind,
         resource: codingSessionsList.resource,
         method: codingSessionsList.method,
         body: {},
       });
-      if (!reply.ok) return;
+      if (!reply.ok) {
+        if (reply.error?.code === "unavailable" && left > 0) {
+          setTimeout(() => void readCoding(left - 1), 500);
+        }
+        return;
+      }
       const { sessions } = reply.value as { sessions: CodingSession[] };
       this.#coding = new Map(sessions.map((one) => [one.terminal, one]));
       this.#agentsChanged();

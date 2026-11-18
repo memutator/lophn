@@ -233,6 +233,7 @@ async function open(
   });
   if (!migrated.ok) return migrated;
   ctx.provide("migrationsApplied", migrated.value);
+  const ids = createIdSource({ clock, random });
   // data step(`remote.host-key.machine`)이 machine.json을 읽으므로 그 앞이다.
   const machine = await ensureMachine({
     root: root.path,
@@ -250,7 +251,7 @@ async function open(
           ),
       }),
     hostname,
-    ids: createIdSource({ clock, random }),
+    ids,
     clock,
     logger: telemetry.logger,
   });
@@ -261,6 +262,7 @@ async function open(
     root.path,
     wirings.flatMap((wiring) => wiring.dataSteps ?? []),
     !ledgerExisted,
+    { ids },
   );
   if (!files.ok) return files;
   const ledgerId = await ensureLedgerId(root.path, ledgerExisted);

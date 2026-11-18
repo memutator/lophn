@@ -3,7 +3,11 @@ export {
   startFailureReason,
   stepContent,
 } from "./migrations.ts";
-export { applyDataSteps, type DataStep } from "./data-steps.ts";
+export {
+  applyDataSteps,
+  type DataStep,
+  type DataStepDeps,
+} from "./data-steps.ts";
 export {
   confirmStartup,
   createRecoveryCopy,

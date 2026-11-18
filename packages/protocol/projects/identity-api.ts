@@ -51,7 +51,8 @@ export type ProjectMatch = z.infer<typeof projectMatchSchema>;
 const projectInputSchema = z.strictObject({ project: projectIdSchema });
 
 export const projectIdentityApi = {
-  // found가 false면 아무것도 바꾸지 않는다. file_identity가 null이면 ledger의 id를 잊지 않는다. revision은 올리지 않는다.
+  // found가 false면 아무것도 바꾸지 않는다. file_identity가 null이면 ledger의 id를 잊지 않는다. repo가 none(폴더가 없는
+  // project 포함)이고 id가 없으면 ledger에서 새 id를 낸다. revision은 올리지 않는다.
   recordIdentity: defineCommand({
     resource: "projects",
     method: "record_identity",

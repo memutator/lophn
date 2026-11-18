@@ -636,7 +636,7 @@ flows:
     title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
     actor: system
     entries: [system:data-steps-apply]
-    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved, system:remote-host-key-machine]
+    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved, system:remote-host-key-machine, system:projects-born-identity]
     boundary: [core]
     code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
     steps:

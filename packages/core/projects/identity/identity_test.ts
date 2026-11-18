@@ -30,6 +30,7 @@ import {
 } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 import { createProjectCommands } from "../registry/commands.ts";
+import { assignBornIdentities } from "../registry/store.ts";
 import { createFolderResolver } from "../registry/folder-resolver.ts";
 import { folderResolverPort } from "../registry/ports.ts";
 import {
@@ -76,7 +77,15 @@ function setup() {
     [TargetAuthorization, () => ok(undefined)],
     [folderResolverPort, createFolderResolver()],
   ]);
-  const tx = { sql, port: (key: unknown) => ports.get(key) } as unknown as Tx;
+  const ids = createIdSource({
+    clock: manualClock(Date.parse("2026-11-16T00:00:00Z")),
+    random: seededRandom(7),
+  });
+  const tx = {
+    sql,
+    port: (key: unknown) => ports.get(key),
+    newId: (prefix: string) => ids.newId(prefix),
+  } as unknown as Tx;
   const commands = createProjectCommands();
   const git: GitReader = {
     topLevel: (dir) =>
@@ -97,10 +106,6 @@ function setup() {
       );
     },
   } as Writer;
-  const ids = createIdSource({
-    clock: manualClock(Date.parse("2026-11-16T00:00:00Z")),
-    random: seededRandom(7),
-  });
   const service = createIdentityService({
     git,
     fs: createIdentityFs(ids),
@@ -110,13 +115,13 @@ function setup() {
     folders: createFolderResolver(),
     logger: silent,
   });
-  const register = (folder: string | null) => {
+  const register = (folder: string | null, id = PROJECT) => {
     const done = commands.register.handle(
       tx,
       user,
       {
-        id: PROJECT,
-        name: "notes",
+        id,
+        name: `notes-${id.slice(-4)}`,
         title: "Notes",
         purpose: "",
         folders: folder === null ? [] : [{ path: folder, description: "" }],
@@ -129,7 +134,7 @@ function setup() {
     db.close();
     rmSync(root, { recursive: true, force: true });
   };
-  return { root, service, register, close };
+  return { root, sql, ids, service, register, close };
 }
 
 // 폴더 안 file 이름과 byte. `.git`은 가짜 표지라 뺀다.
@@ -265,5 +270,89 @@ test("폴더가 없거나 git이 아닌 폴더에서 create는 아무 file도 �
     } finally {
       close();
     }
+  }
+});
+
+test("git이 아닌 폴더와 폴더 없는 project는 읽을 때 ledger에서 id를 얻고 다시 읽어도 그대로이며, git 폴더는 file 없이 id를 얻지 않는다", async () => {
+  for (const name of ["plain", "folderless", "git"] as const) {
+    const { root, service, register, close } = setup();
+    try {
+      const folder = join(root, name);
+      if (name === "plain") mkdirSync(folder);
+      if (name === "git") gitFolder(root, name, {});
+      register(name === "folderless" ? null : folder);
+      const first = await service.status(PROJECT);
+      const again = await service.status(PROJECT);
+      assert.ok(first.ok && again.ok, name);
+      if (name === "git") {
+        assert.equal(first.value.identity, null);
+        assert.equal(first.value.file, "none");
+      } else {
+        assert.match(first.value.identity ?? "", /^pri_/, name);
+        assert.equal(again.value.identity, first.value.identity, name);
+        assert.equal(first.value.repo, "none", name);
+        assert.equal(first.value.file, "none", name);
+      }
+      assert.deepEqual(
+        readdirSync(root).sort(),
+        name === "folderless" ? [] : [name],
+      );
+    } finally {
+      close();
+    }
+  }
+});
+
+test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project에만 서로 다른 id를 주고 git·아직 읽지 않은 project와 이미 가진 id는 두며, 다시 돌아도 같다", () => {
+  const { root, sql, ids, register, close } = setup();
+  try {
+    const project = (n: number) => `prj_0000000000000000000000000${n}`;
+    const folder = (n: number) => {
+      const path = join(root, `p${n}`);
+      mkdirSync(path);
+      return path;
+    };
+    // 1 git이 아님, 2 폴더 없음, 3 git(file 없음), 4 아직 읽지 않음, 5 git이 아니고 이미 id가 있음, 6 폴더 없고 보관됨
+    register(folder(1), project(1));
+    register(null, project(2));
+    register(folder(3), project(3));
+    register(folder(4), project(4));
+    register(folder(5), project(5));
+    register(null, project(6));
+    const set = (n: number, column: string, value: string) =>
+      sql.run(`UPDATE projects SET ${column} = ? WHERE id = ?`, [
+        value,
+        project(n),
+      ]);
+    set(1, "repo", "none");
+    set(3, "repo", "git");
+    set(5, "repo", "none");
+    set(5, "identity", LOW);
+    set(6, "status", "archived");
+    const identities = () =>
+      Object.fromEntries(
+        sql
+          .all("SELECT id, identity FROM projects ORDER BY id", [])
+          .map((row) => [row.id, row.identity]),
+      );
+
+    assert.equal(assignBornIdentities(sql, ids), 3);
+    const after = identities();
+    for (const n of [1, 2, 6]) {
+      assert.match(String(after[project(n)]), /^pri_/, `project ${n}`);
+    }
+    assert.equal(
+      new Set([1, 2, 6].map((n) => after[project(n)])).size,
+      3,
+      "distinct",
+    );
+    assert.equal(after[project(3)], null);
+    assert.equal(after[project(4)], null);
+    assert.equal(after[project(5)], LOW);
+
+    assert.equal(assignBornIdentities(sql, ids), 0);
+    assert.deepEqual(identities(), after);
+  } finally {
+    close();
   }
 });

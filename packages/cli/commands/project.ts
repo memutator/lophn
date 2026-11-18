@@ -41,7 +41,7 @@ function projectOf(
 }
 
 const statusSummary = (status: ProjectIdentityStatus): string =>
-  `${status.identity ?? "no id"} · ${FILE_STATE[status.file]}`;
+  `${status.identity ?? "no id"} · ${status.repo === "none" ? "not in git, stays on this computer" : FILE_STATE[status.file]}`;
 
 const projectInput = z.strictObject({ project: projectIdSchema.optional() });
 
@@ -97,7 +97,7 @@ const identity = defineCommand({
   name: "project.identity",
   summary: "Read the cross-computer ID of a project",
   description:
-    "Read a project's ID that is the same on every computer (`pri_…`), the state of its `.lophn-project.json` (none, committed, uncommitted, ignored, conflict, missing, unreadable), and its git remote.",
+    "Read a project's ID that is the same on every computer (`pri_…`), the state of its `.lophn-project.json` (none, committed, uncommitted, ignored, conflict, missing, unreadable), and its git remote. A project outside git (repo none) also has an ID, but it stays on this computer.",
   input: projectInput,
   effect: "read",
   routes: [projectIdentityApi.identity],

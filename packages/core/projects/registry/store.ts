@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, type IdSource, ok, type Result } from "../../../base/mod.ts";
 import type { IconImage } from "../../../protocol/base/icon.ts";
 import type { ProjectFolder } from "../../../protocol/projects/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
@@ -144,4 +144,28 @@ export function storeIdentity(
 
 export function clearIdentity(tx: Pick<Tx, "sql">, project: string): void {
   tx.sql.run("UPDATE projects SET identity = NULL WHERE id = ?", [project]);
+}
+
+// git이 아닌 것으로 읽은 project와 폴더가 없는 project 가운데 id가 없는 것에 ledger에서 난 id를 준다. git project는
+// file에서만 id를 얻으므로 건드리지 않는다. 아직 폴더를 읽지 않은 project(repo NULL, 폴더 있음)는 다음 읽기가 준다.
+// 이미 준 것은 다시 고르지 않아 끊겨 다시 돌아도 같다.
+export function assignBornIdentities(
+  sql: Pick<Sql, "all" | "run">,
+  ids: IdSource,
+): number {
+  const rows = sql.all(
+    `SELECT id FROM projects
+     WHERE identity IS NULL
+       AND (repo = 'none'
+         OR NOT EXISTS (SELECT 1 FROM project_folders WHERE project = projects.id))
+     ORDER BY id`,
+    [],
+  );
+  for (const row of rows) {
+    sql.run("UPDATE projects SET identity = ? WHERE id = ?", [
+      ids.newId("pri"),
+      row.id,
+    ]);
+  }
+  return rows.length;
 }

@@ -296,9 +296,14 @@ export function createProjectCommands(): {
         if (!input.found) return ok(recordOf(before, resolver.value));
         const identity = recordedIdentity(tx, before, input.file_identity);
         if (!identity.ok) return identity;
+        // git이 아닌 project는 옮길 file이 없어 id가 ledger에서 난다. git project의 id는 file에서만 온다.
+        const born =
+          identity.value === null && input.repo === "none"
+            ? tx.newId("pri")
+            : identity.value;
         const project: Project = {
           ...before,
-          identity: identity.value,
+          identity: born,
           repo: input.repo,
           remote: input.remote,
         };

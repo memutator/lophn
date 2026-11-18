@@ -71,21 +71,20 @@ export function createIdentityService(deps: IdentityServiceDeps) {
       : ok(found.value);
   };
 
-  // 첫 폴더를 읽어 적는다. 폴더가 없는 project는 읽을 것이 없다.
+  // 첫 폴더를 읽어 적는다. 폴더가 없는 project는 읽을 것이 없고 git이 아닌 것으로 적는다(read는 null).
   async function reconcile(
     project: Pick<Project, "id" | "folders">,
-  ): Promise<Result<{ record: ProjectRecord; read: FolderIdentity } | null>> {
+  ): Promise<Result<{ record: ProjectRecord; read: FolderIdentity | null }>> {
     const folder = project.folders[0]?.path;
-    if (folder === undefined) return ok(null);
-    const found = await read(folder);
+    const found = folder === undefined ? null : await read(folder);
     const done = await deps.writer().command(PROJECT_IDENTITY_CONTEXT, {
       command: projectIdentityApi.recordIdentity.name,
       input: {
         project: project.id,
-        found: found.found,
-        repo: found.repo,
-        file_identity: found.file_identity,
-        remote: found.remote,
+        found: found?.found ?? true,
+        repo: found === null ? "none" : found.repo,
+        file_identity: found?.file_identity ?? null,
+        remote: found?.remote ?? null,
       },
       idempotency_key: deps.ids.newId("idk"),
       compare: {},
@@ -102,8 +101,7 @@ export function createIdentityService(deps: IdentityServiceDeps) {
     if (!current.ok) return current;
     const done = await reconcile(current.value);
     if (!done.ok) return done;
-    const record = done.value?.record ?? recordOf(current.value, deps.folders);
-    const found = done.value?.read;
+    const { record, read: found } = done.value;
     const fileIdentity = found?.file_identity ?? null;
     // 같은 file을 읽었는데 id를 갖지 못했으면 먼저 가진 project의 copy다.
     let duplicate: string | null = null;
@@ -115,10 +113,13 @@ export function createIdentityService(deps: IdentityServiceDeps) {
       duplicate = holder.value === project ? null : holder.value;
     }
     const file = found?.file ?? "none";
+    // git이 아닌 project의 id는 ledger에서 났고 file이 없는 것이 맞다.
+    const missing =
+      file === "none" && record.identity !== null && record.repo !== "none";
     return ok({
       project,
       identity: record.identity,
-      file: file === "none" && record.identity !== null ? "missing" : file,
+      file: missing ? "missing" : file,
       repo: record.repo,
       folder: record.folders[0]?.path ?? null,
       found: found?.found ?? false,

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 
-import { createIdSource, ok, type Result } from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
   projectApi,
   projectIdentityApi,
@@ -14,10 +14,12 @@ import {
   type IdentityService,
 } from "../../../projects/identity/mod.ts";
 import {
+  assignBornIdentities,
   loadProjects,
   type Project,
   PROJECT_IDENTITY_CONTEXT,
 } from "../../../projects/registry/mod.ts";
+import type { DataStep, DataStepDeps } from "../../../storage/migration/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 type ReadSql = Pick<Sql, "get" | "all">;
@@ -49,12 +51,34 @@ const FOLDER_CHANGES = new Set<string>([
 
 const STARTUP_PARALLEL = 4;
 
+// 이 판 전에 등록한 git이 아닌 project와 폴더가 없는 project에 ledger에서 난 id를 준다. id가 IdSource에서 나야 해서
+// SQL schema step이 아니라 data step이다. runtime이 열리기 전에 돌아 writer와 겹치지 않는다.
+export const projectsBornIdentityStep = {
+  id: "projects.born-identity",
+  async run(root: string, { ids }: DataStepDeps): Promise<Result<void>> {
+    const opened = openConnection(`${root}/lophn.db`);
+    if (!opened.ok) return opened;
+    try {
+      assignBornIdentities(opened.value.sql, ids);
+      return ok(undefined);
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "projects outside git could not be given an identity",
+      });
+    } finally {
+      opened.value.close();
+    }
+  },
+} satisfies DataStep;
+
 export const projectsWiring: WiringFactory = () => {
   let startup: Promise<void> = Promise.resolve();
   let reconcileActive = (): Promise<void> => Promise.resolve();
   let stopping = false;
   return {
     name: "projects",
+    dataSteps: [projectsBornIdentityStep],
     // project 키워드 검색이 project 폴더를 찾는 ledger snapshot.
     environment: (ctx) => ({
       projectSearch: {

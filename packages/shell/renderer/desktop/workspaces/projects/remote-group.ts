@@ -2,11 +2,12 @@
 // `project.list` replies; the caller keeps the last good one of each, so a failed read never drops a group.
 import { matchProjects } from "../../../../../protocol/projects/identity.ts";
 
-/** The fields of a `project.list` record this needs. An older M has no `identity` or `remote`: both read as null. */
+/** The fields of a `project.list` record this needs. An older M has no `identity`, `repo` or `remote`: all read as null. */
 export interface ProjectRow {
   readonly id: string;
   readonly title: string;
   readonly identity?: string | null;
+  readonly repo?: "git" | "none" | null;
   readonly remote?: { readonly key: string; readonly url: string } | null;
 }
 
@@ -16,7 +17,7 @@ export type RemoteGroup =
       readonly kind: "same";
       readonly here: { readonly id: string; readonly title: string };
     }
-  /** Only on M, with an id: it can be cloned here. `url` is null when M's repository has no remote to clone from. */
+  /** Only on M, a git project with an id: it can be cloned here. `url` is null when M's repository has no remote to clone from. */
   | {
       readonly kind: "remoteOnly";
       readonly identity: string;
@@ -28,7 +29,8 @@ export type RemoteGroup =
       readonly here: { readonly id: string; readonly title: string };
     };
 
-/** M's project id → its group. Projects of M without an id and without a match have none. */
+/** M's project id → its group. Projects of M without an id and without a match have none, and neither have projects
+ * outside git: their id was born on M and nothing carries them to another computer yet. */
 export function groupProjects(
   here: readonly ProjectRow[],
   there: readonly ProjectRow[],
@@ -58,7 +60,9 @@ export function groupProjects(
   }
   for (const row of there) {
     const identity = row.identity ?? null;
-    if (identity === null || groups.has(row.id)) continue;
+    if (identity === null || row.repo !== "git" || groups.has(row.id)) {
+      continue;
+    }
     groups.set(row.id, {
       kind: "remoteOnly",
       identity,

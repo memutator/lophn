@@ -171,7 +171,7 @@ if (role === "shell") {
   );
   // [Memory]: memory 파일을 같은 편집기 길로 연다. 경로는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnMemory", createMemoryApi(ipcRenderer));
-  // The machines this computer views. Connections and the saved list are in main.
+  // The machines this computer views. Main reads them from this computer's core (`machines/list`).
   contextBridge.exposeInMainWorld(
     "lophnMachines",
     createMachinesApi(ipcRenderer),

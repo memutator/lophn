@@ -1,7 +1,8 @@
 // Windows of other machines: one window per machine, opened with its own preload (`preload-remote.cjs`) on the same desktop
-// page. Main binds the window to the machine (machine-route), pushes that machine's connection state and events to it
-// alone, tells the machine what the window shows (presence) and keeps its title on the machine's name. These windows are
-// not in `ctx.windows`: this computer's notices, presence, surface and global keys never see them.
+// page. Main binds the window to the machine (machine-route), pushes that machine's link state and frames to it alone,
+// tells the machine what the window shows (presence) and keeps its title on the machine's name. A machine that leaves the
+// device list keeps its window, which shows the removed gate. These windows are not in `ctx.windows`: this computer's
+// notices, presence, surface and global keys never see them.
 import {
   app,
   BrowserWindow,
@@ -12,7 +13,6 @@ import {
 import { isAbsolute, join } from "node:path";
 
 import type { Id } from "../../../../protocol/base/ids.ts";
-import type { Connection } from "../../../../remote-client/mod.ts";
 import { CORE_EVENT_CHANNEL, CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
@@ -48,6 +48,7 @@ import {
   wrap,
 } from "./desktop-window.ts";
 import type { Machines } from "./machines.ts";
+import type { MachineLink } from "../viewer/machine-route.ts";
 
 const THIS_COMPUTER_ROUTES: Record<
   ThisComputerRead,
@@ -62,9 +63,9 @@ type Opened = {
   window: BrowserWindow;
   machine: Id<"mch">;
   name: string;
-  // The connection whose state and events this window gets; it can arrive after the window (the list opens later).
-  connection: Connection | undefined;
-  release: () => void;
+  link: MachineLink;
+  // The last core state sent to the window.
+  shown: string;
   // Sessions the window says it shows.
   visible: Set<string>;
   presence: ReturnType<typeof createPresenceReporter>;
@@ -86,45 +87,27 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       entry.window.webContents.send(channel, payload);
     }
   };
-  const stateOf = (connection: Connection | undefined) => {
-    const current = connection?.current();
-    return current === undefined
-      ? { state: "starting", confirmedAt: null }
-      : { state: current.state, confirmedAt: current.confirmedAt };
-  };
-  const reportOver = (connection: Connection | undefined, body: unknown) => {
+  const reportOver = (link: MachineLink, body: unknown) => {
     // headless has no person in front of it.
-    if (headless.headless || connection?.current().state !== "ready") return;
-    void connection.call({ resource: "presence", method: "report", body });
+    if (headless.headless || link.current().state !== "ready") return;
+    void link.call({ resource: "presence", method: "report", body });
   };
 
-  // Follows the machine's live connection: the list opens after the first window, and a re-paired machine gets a new one.
-  function attach(entry: Opened): void {
-    const connection = machines.connection(entry.machine);
-    if (connection === entry.connection) return;
-    entry.release();
-    entry.release = () => {};
-    entry.connection = connection;
-    send(entry, CORE_STATE_CHANNEL, stateOf(connection));
-    if (connection === undefined) return;
-    void connection.watch(
-      ctx.machineRoute.watching(entry.window.webContents.id),
-    );
-    let ready = connection.current().state === "ready";
-    const offState = connection.subscribe((state) => {
-      send(entry, CORE_STATE_CHANNEL, stateOf(connection));
-      const now = state.state === "ready";
-      if (now && !ready) entry.presence.report();
-      ready = now;
-    });
-    const offEvent = connection.onEvent((message) =>
-      send(entry, CORE_EVENT_CHANNEL, message),
-    );
-    entry.release = () => {
-      offState();
-      offEvent();
-    };
+  // Pushes the link state when it changed; a window that became connected tells the machine what it shows.
+  function pushState(entry: Opened): void {
+    const state = entry.link.current();
+    const text = JSON.stringify(state);
+    if (text === entry.shown) return;
+    const was = (JSON.parse(entry.shown) as { state: string }).state;
+    entry.shown = text;
+    send(entry, CORE_STATE_CHANNEL, state);
+    if (state.state === "ready" && was !== "ready") entry.presence.report();
   }
+
+  machines.onFrame((machine, message) => {
+    const entry = opened.get(machine);
+    if (entry !== undefined) send(entry, CORE_EVENT_CHANNEL, message);
+  });
 
   function openMachine(machine: Id<"mch">, name: string): void {
     const found = opened.get(machine);
@@ -143,6 +126,7 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
     const place = places.get(machine);
     const workspace =
       place === undefined ? restoredWorkspace(ctx) : onScreen(place);
+    const link = machines.link(machine);
     let window: BrowserWindow | undefined;
     openWindow({
       platform: process.platform,
@@ -155,9 +139,7 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       windows: {
         create: (config) => {
           window = createShellWindow(ctx, config, preload);
-          ctx.machineRoute.bind(window.webContents.id, machine, () =>
-            machines.connection(machine),
-          );
+          ctx.machineRoute.bind(window.webContents.id, machine, link);
           return wrap(window);
         },
       },
@@ -170,8 +152,8 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       window: created,
       machine,
       name: title,
-      connection: undefined,
-      release: () => {},
+      link,
+      shown: JSON.stringify(link.current()),
       visible: new Set(),
       presence: createPresenceReporter({
         view: () =>
@@ -179,7 +161,7 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
             ? { focused: false, looking: [] }
             : { focused: true, looking: [...entry.visible] },
         idleMs: () => powerMonitor.getSystemIdleTime() * 1000,
-        send: (report) => reportOver(entry.connection, report),
+        send: (report) => reportOver(link, report),
         every(ms, fn) {
           const timer = setInterval(fn, ms);
           timer.unref?.();
@@ -191,13 +173,13 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
     ctx.topWindows.add(created);
     const contentsId = created.webContents.id;
     created.webContents.on("did-finish-load", () =>
-      send(entry, CORE_STATE_CHANNEL, stateOf(entry.connection)),
+      send(entry, CORE_STATE_CHANNEL, link.current()),
     );
     created.on("focus", () => {
       ctx.topWindows.delete(created);
       ctx.topWindows.add(created);
       // Only a switch that reached the machine counts as the last used one.
-      if (entry.connection?.current().state === "ready") {
+      if (link.current().state === "ready") {
         machines.markUsed(machine);
       }
       entry.presence.changed();
@@ -208,15 +190,13 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       ctx.topWindows.delete(created);
       if (opened.get(machine) === entry) opened.delete(machine);
       entry.presence.stop();
-      reportOver(entry.connection, {
+      reportOver(link, {
         focused: false,
         idle_ms: Math.round(powerMonitor.getSystemIdleTime() * 1000),
         looking: [],
       });
-      void entry.connection?.watch([]);
-      entry.release();
+      link.watch([]);
     });
-    attach(entry);
   }
   ctx.machineWindows.open = openMachine;
 
@@ -229,31 +209,16 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
   });
 
   const unsubscribe = machines.subscribe((list) => {
-    const closing = new Set<BrowserWindow>();
-    for (const entry of [...opened.values()]) {
+    for (const entry of opened.values()) {
       if (entry.window.isDestroyed()) continue;
       send(entry, MACHINES_CHANGED_CHANNEL, list);
+      pushState(entry);
       const row = list.machines.find((one) => one.id === entry.machine);
-      if (row === undefined) {
-        // Left the list (removed here, or a saved list dropped as another machine's). A machine that removed this desktop
-        // stays listed as `removed` and its window shows that.
-        if (list.state !== "starting") {
-          closing.add(entry.window);
-          entry.window.close();
-        }
-        continue;
-      }
-      if (row.name !== entry.name) {
+      if (row !== undefined && row.name !== entry.name) {
         entry.name = row.name;
         entry.window.setTitle(windowTitle(row.name));
       }
-      attach(entry);
     }
-    // The last window closed this way: this computer's window opens in its place.
-    const left = [...ctx.topWindows].some(
-      (window) => !window.isDestroyed() && !closing.has(window),
-    );
-    if (closing.size > 0 && !left) openDesktopWindow(ctx);
   });
 
   const allowed = (event: IpcEvent): boolean => {
@@ -389,10 +354,7 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       ]) {
         ipc.removeHandler(channel);
       }
-      for (const entry of opened.values()) {
-        entry.presence.stop();
-        entry.release();
-      }
+      for (const entry of opened.values()) entry.presence.stop();
     },
   };
 }

@@ -1,6 +1,6 @@
 // Which machine a window views, found by the webContents that sent an IPC, and what a window of another machine may call.
-// A window of another machine talks to that machine's core over its connection on the same `shell:core-*` channels; the
-// rest of what this computer's shell host serves (terminal, files, browser, app views, secrets, layout…) is refused here,
+// A window of another machine talks to that machine's core on the same `shell:core-*` channels, through this computer's
+// core (`machines/call`·`machines/watch`, see `MachineLink`); the rest of what this computer's shell host serves (terminal, files, browser, app views, secrets, layout…) is refused here,
 // in one place, before any area's handler runs. The renderer cannot claim a machine: main binds the window when it opens it.
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
@@ -23,7 +23,6 @@ import {
 } from "../../../ipc/machines.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
-import type { Connection } from "../../../../remote-client/mod.ts";
 
 // What a window of another machine may call on this computer's shell besides the core channels: the machine list and
 // switching windows, two narrow calls to this computer's core (reading its projects, agents and sessions; clone here), its own window
@@ -54,6 +53,21 @@ function thisComputerRead(input: unknown): boolean {
 
 type WatchConditions = CoreWatch["conditions"];
 
+// A machine's core as a window of it sees it, built on this computer's core as the person: one route of that machine
+// (`machines/call`), its Gateway conditions (`machines/watch`) and its link state (`machines/list`).
+export type MachineLink = {
+  call(input: {
+    resource: string;
+    method: string;
+    body: unknown;
+  }): Promise<CoreReply>;
+  watch(conditions: WatchConditions): void;
+  current(): {
+    state: "starting" | "ready" | "stale";
+    confirmedAt: number | null;
+  };
+};
+
 const FORBIDDEN = {
   ok: false,
   error: {
@@ -70,28 +84,12 @@ const NOT_A_MACHINE_WINDOW = {
   },
 } as const;
 
-const UNAVAILABLE: CoreReply = {
-  ok: false,
-  error: { code: "unavailable", message: "the machine is not connected" },
-};
-
-type Binding = {
-  machine: Id<"mch">;
-  // The machine's live connection; undefined until the machine list is open (or once the machine left it).
-  connection(): Connection | undefined;
-  // The last watch the window asked for, so a connection that comes later still gets it.
-  conditions: WatchConditions;
-};
+type Binding = { machine: Id<"mch">; link: MachineLink };
 
 export type MachineRoute = {
-  bind(
-    contentsId: number,
-    machine: Id<"mch">,
-    connection: () => Connection | undefined,
-  ): void;
+  bind(contentsId: number, machine: Id<"mch">, link: MachineLink): void;
   unbind(contentsId: number): void;
   machineOf(contentsId: number): Id<"mch"> | null;
-  watching(contentsId: number): WatchConditions;
   // An `ipcMain.handle` call: this computer's handler (`local`) for a window of this computer, else the rule above.
   handle(
     channel: string,
@@ -114,15 +112,9 @@ export function createMachineRoute(): MachineRoute {
         error: { code: "invalid_input", message: "not a core call" },
       };
     }
-    const connection = binding.connection();
-    if (connection === undefined || connection.current().state !== "ready") {
-      // The window's Retry calls the core too: reconnect now instead of waiting for the backoff.
-      connection?.resume();
-      return UNAVAILABLE;
-    }
-    // Over the connection the core knows each route's kind from its route table, and bytes travel as base64.
+    // The machine knows each route's kind from its route table, and bytes travel as base64.
     const { kind, resource, method, body, bytes } = parsed.data;
-    const reply = await connection.call({
+    const reply = await binding.link.call({
       resource,
       method,
       body:
@@ -142,14 +134,13 @@ export function createMachineRoute(): MachineRoute {
   }
 
   return {
-    bind(contentsId, machine, connection) {
-      bound.set(contentsId, { machine, connection, conditions: [] });
+    bind(contentsId, machine, link) {
+      bound.set(contentsId, { machine, link });
     },
     unbind(contentsId) {
       bound.delete(contentsId);
     },
     machineOf: (contentsId) => bound.get(contentsId)?.machine ?? null,
-    watching: (contentsId) => bound.get(contentsId)?.conditions ?? [],
     handle(channel, contentsId, input, local) {
       const binding = bound.get(contentsId);
       if (binding === undefined) {
@@ -161,15 +152,10 @@ export function createMachineRoute(): MachineRoute {
       if (channel === CORE_WATCH_CHANNEL) {
         const parsed = coreWatchSchema.safeParse(input);
         if (!parsed.success) return undefined;
-        binding.conditions = parsed.data.conditions;
-        return binding.connection()?.watch(binding.conditions);
+        binding.link.watch(parsed.data.conditions);
+        return undefined;
       }
-      if (channel === CORE_STATE_GET_CHANNEL) {
-        const state = binding.connection()?.current();
-        return state === undefined
-          ? { state: "starting", confirmedAt: null }
-          : { state: state.state, confirmedAt: state.confirmedAt };
-      }
+      if (channel === CORE_STATE_GET_CHANNEL) return binding.link.current();
       if (channel === MACHINES_THIS_READ_CHANNEL && !thisComputerRead(input)) {
         return FORBIDDEN;
       }

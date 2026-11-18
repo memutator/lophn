@@ -9,6 +9,7 @@
 // 화면이 다른 기계를 부르는 `machines/*`를 그 link로 낸다.
 // remote key 둘(host key, 서명 key)에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key거나 하나만
 // 읽히면 명단을 버리고 둘 다 지운다. 명단에서 이 컴퓨터가 빠진 것을 알아도 같은 길로 버리고 새 key로 다시 선다.
+import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import process from "node:process";
 import type { z } from "zod";
@@ -239,6 +240,67 @@ export const signingKeyStep: DataStep = {
       return err({
         code: "unavailable",
         message: "the remote signing key could not be written",
+      });
+    }
+    return ok(undefined);
+  },
+};
+
+// shell main이 다른 컴퓨터에 따로 붙던 기기 key와 기계 목록(`shell/viewer/key.json`, `machines.json`)을 지운다. 이제 core가 명단으로
+// 붙고, 컴퓨터끼리는 초대로 한 번 다시 잇는다. 시작 기계(`start`·`last`와 `last`인 기계의 보이는 이름)는 `viewer/start.json`으로
+// 옮기고 창 자리(`viewer/windows.json`)는 그대로 둔다. 표지가 이 기계와 다른 file(복사된 data root)은 옮기지 않고 지운다.
+export const viewerRosterStep: DataStep = {
+  id: "shell.viewer.roster",
+  async run(root) {
+    const dir = `${root}/shell/viewer`;
+    const machine = await readMachineId(root);
+    if (!machine.ok) return machine;
+    let saved:
+      | {
+          machine?: unknown;
+          start?: unknown;
+          last?: unknown;
+          computers?: {
+            machine?: unknown;
+            name?: unknown;
+            announced?: unknown;
+          }[];
+        }
+      | undefined;
+    try {
+      saved = JSON.parse(await readFile(`${dir}/machines.json`, "utf8"));
+    } catch {
+      saved = undefined;
+    }
+    try {
+      if (saved?.machine === machine.value && saved.start !== undefined) {
+        const last = typeof saved.last === "string" ? saved.last : null;
+        const computer = Array.isArray(saved.computers)
+          ? saved.computers.find((each) => each?.machine === last)
+          : undefined;
+        const name = computer?.name ?? computer?.announced;
+        const start = {
+          machine: machine.value,
+          start: saved.start,
+          last,
+          last_name: typeof name === "string" ? name : null,
+        };
+        await writeFile(
+          `${dir}/start.json.tmp`,
+          `${JSON.stringify(start, null, 2)}\n`,
+          { mode: 0o600 },
+        );
+        await rename(`${dir}/start.json.tmp`, `${dir}/start.json`);
+      }
+      for (const file of ["key.json", "machines.json"]) {
+        await unlink(`${dir}/${file}`).catch((thrown: unknown) => {
+          if ((thrown as NodeJS.ErrnoException).code !== "ENOENT") throw thrown;
+        });
+      }
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "the old desktop viewer files could not be moved",
       });
     }
     return ok(undefined);
@@ -641,7 +703,7 @@ export function remoteWiring(
       ...rewindUnknownSchemaSteps,
       ...ROSTER_SCHEMA_STEPS,
     ],
-    dataSteps: [hostKeyMachineStep, signingKeyStep],
+    dataSteps: [hostKeyMachineStep, signingKeyStep, viewerRosterStep],
     operations: () => [
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },
       { name: devicesClearPush.name, actors: ["machine"], kind: "command" },

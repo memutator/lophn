@@ -1,74 +1,53 @@
-// The machine list the renderer reads, built from the saved list and the live link states, and the start machine rule.
+// The machine list the renderer reads, built from this computer's core (`machines/list`) and the saved start machine.
+import type { z } from "zod";
+
 import type { Id } from "../../../../protocol/base/ids.ts";
-import {
-  type ComputerItem,
-  defaultName,
-} from "../../../../remote-client/mod.ts";
-import type { MachineList, MachineRow } from "../../../ipc/machines.ts";
-import type { Saved } from "./store.ts";
+import type { machinesList } from "../../../../protocol/remote/routes.ts";
+import type { MachineList } from "../../../ipc/machines.ts";
+import type { StartFile } from "./start.ts";
+
+/** One row of `machines/list`. */
+export type LinkedMachine = z.infer<
+  typeof machinesList.output
+>["machines"][number];
+
+export type Saved = Pick<StartFile, "start" | "last" | "last_name">;
 
 export function machineList(input: {
   state: MachineList["state"];
   self: MachineList["this"];
+  machines: readonly LinkedMachine[];
   saved: Saved;
-  // The computer store's items (by core key): live status and path.
-  items: readonly ComputerItem[];
 }): MachineList {
-  const { saved } = input;
-  const machines: MachineRow[] = [];
-  for (const computer of saved.computers) {
-    // Every entry this desktop pairs has the machine id from the hello.
-    if (computer.machine === undefined) continue;
-    const item = input.items.find((one) => one.key === computer.key);
-    const status = item?.status ?? "connecting";
-    machines.push({
-      id: computer.machine,
-      name: computer.name ?? computer.announced ?? defaultName(computer),
-      announced: computer.announced ?? null,
-      alias: computer.name ?? null,
-      status: status === "revoked" ? "removed" : status,
-      update: item?.update ?? null,
-      path: item?.path ?? null,
-      last_seen_at: saved.seen[computer.machine] ?? null,
-    });
-  }
   return {
     state: input.state,
     this: input.self,
-    machines,
-    start: saved.start,
-    last: saved.last,
+    machines: input.machines.map((one) => ({
+      id: one.machine as Id<"mch">,
+      name: one.name,
+      status: one.status,
+      update: one.update,
+      path: one.path,
+      last_seen_at: one.last_seen_at,
+    })),
+    start: input.saved.start,
+    last: input.saved.last,
   };
 }
 
-// The machine the first window opens on: the chosen one, else the last used one, else this machine. One that left the
-// list or was removed (it unpaired this desktop) does not count. Null while this machine's id is not known.
-export function startMachine(list: MachineList): Id<"mch"> | null {
-  if (list.this === null) return null;
-  const usable = (id: Id<"mch"> | null) =>
-    id !== null &&
-    list.machines.some((one) => one.id === id && one.status !== "removed");
-  if (list.start.mode === "machine" && usable(list.start.machine)) {
-    return list.start.machine;
-  }
-  if (usable(list.last)) return list.last as Id<"mch">;
-  return list.this.id;
-}
-
-// After a machine leaves the list: a start pinned to it goes back to "last used", and "last used" becomes this machine.
+// After this computer removes a machine from the device list: a start pinned to it goes back to "last used", and "last
+// used" becomes this machine.
 export function afterRemove(
   saved: Saved,
   machine: Id<"mch">,
   self: Id<"mch">,
 ): Saved {
-  const { [machine]: _gone, ...seen } = saved.seen;
   return {
-    ...saved,
     start:
       saved.start.mode === "machine" && saved.start.machine === machine
         ? { mode: "last" }
         : saved.start,
     last: saved.last === machine ? self : saved.last,
-    seen,
+    last_name: saved.last === machine ? null : saved.last_name,
   };
 }

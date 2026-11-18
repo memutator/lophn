@@ -1,101 +1,99 @@
-// The machines this desktop views: its device key and saved list, one connection per paired machine, pasted-text pairing,
-// and the `shell:machines-*` IPC. Nothing starts until this machine's own id is known (`machine/status` from the local
-// core): the saved files carry it and a pairing text from this machine is refused by it.
-import { cryptoRandom } from "../../../../base/mod.ts";
+// The other computers this desktop views and the start machine. This computer's core holds a link to every other computer in
+// the device list; shell main reads their state (`machines/list`, again on every `StateChanged{remote_devices}`) and gives a
+// window of another machine a `MachineLink` over `machines/call`·`machines/watch`. That machine's Gateway frames come back on
+// this computer's Gateway as `MachineFrameReceived` and go to that machine's window alone (machine-windows).
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { MachineStatus } from "../../../../protocol/machine/mod.ts";
-import {
-  type Computers,
-  type Connection,
-  createComputers,
-  type JoinFailure,
-  parseInviteText,
-} from "../../../../remote-client/mod.ts";
+import type { CoreEventMessage, CoreWatch } from "../../../ipc/core.ts";
+import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   MACHINES_CHANGED_CHANNEL,
   MACHINES_LIST_CHANNEL,
-  MACHINES_PAIR_CHANNEL,
-  MACHINES_REMOVE_CHANNEL,
-  MACHINES_RENAME_CHANNEL,
   MACHINES_START_CHANNEL,
   type MachineList,
-  type MachinePairReason,
-  type MachinePairReply,
   machineStartSchema,
   type MachinesFailure,
   type MachinesReply,
-  machinesPairSchema,
-  machinesRemoveSchema,
-  machinesRenameSchema,
 } from "../../../ipc/machines.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
-import { openLink } from "../viewer/links.ts";
 import {
   afterRemove,
+  type LinkedMachine,
   machineList,
-  startMachine as startRule,
-} from "../viewer/list.ts";
-import {
-  createViewerStore,
   type Saved,
-  type ViewerStore,
-} from "../viewer/store.ts";
-import type { Registered, ShellContext } from "./context.ts";
+} from "../viewer/list.ts";
+import type { MachineLink } from "../viewer/machine-route.ts";
+import { createStartStore, readStart } from "../viewer/start.ts";
+import { changedIds, type Registered, type ShellContext } from "./context.ts";
 
 export type Machines = {
   list(): MachineList;
   subscribe(listener: (list: MachineList) => void): () => void;
-  // The live connection to a viewed machine; undefined for this machine, an unknown one, or one that removed this desktop.
-  connection(machine: Id<"mch">): Connection | undefined;
+  link(machine: Id<"mch">): MachineLink;
+  // A frame of that machine's Gateway, as the window gets it on `shell:core-event`.
+  onFrame(
+    listener: (machine: Id<"mch">, message: CoreEventMessage) => void,
+  ): void;
   // A window of this machine got focus while connected: it becomes the "last used" start machine.
   markUsed(machine: Id<"mch">): void;
-  startMachine(): Id<"mch"> | null;
 };
 
-function pairReason(failure: JoinFailure): MachinePairReason {
-  if (failure.kind === "update") return `update_${failure.update}`;
-  if (failure.kind === "untrusted" || failure.kind === "wrong_kind") {
-    return "refused";
-  }
-  if (failure.kind !== "refused") return failure.kind;
-  return failure.reason === "expired" || failure.reason === "used"
-    ? "expired"
-    : "refused";
+type Frame =
+  | { type: "ready" }
+  | { type: "event"; event: unknown }
+  | {
+      type: "closed";
+      reason: "slow_consumer" | "credential_revoked" | "shutdown";
+    };
+
+function messageOf(frame: Frame): CoreEventMessage {
+  if (frame.type === "event") return { kind: "event", event: frame.event };
+  if (frame.type === "closed") return { kind: "closed", reason: frame.reason };
+  return { kind: "ready" };
+}
+
+// The window's core state from the link's status. A machine that is not in the list (left the device list) is stale; its
+// window shows the removed gate.
+function stateOf(
+  row: LinkedMachine | undefined,
+): ReturnType<MachineLink["current"]> {
+  const confirmedAt =
+    row?.last_seen_at == null ? null : Date.parse(row.last_seen_at);
+  if (row?.status === "connecting") return { state: "starting", confirmedAt };
+  if (row?.status === "connected") return { state: "ready", confirmedAt };
+  return { state: "stale", confirmedAt };
 }
 
 export function register(ctx: ShellContext): Machines & Registered {
   const { ipc, windows } = ctx;
   const registry = ctx.overlays.overlayRegistry();
   const listeners = new Set<(list: MachineList) => void>();
-  const connections = new Set<Connection>();
-  let state: MachineList["state"] = "starting";
+  const frames = new Set<
+    (machine: Id<"mch">, message: CoreEventMessage) => void
+  >();
+  // Each machine's last watch. Sent again when this computer's Gateway (re)connects: a core that started again lost it.
+  const watching = new Map<Id<"mch">, CoreWatch["conditions"]>();
+  const store = createStartStore(ctx.dataRoot, ctx.log);
   let self: { id: Id<"mch">; name: string } | null = null;
-  let store: ViewerStore | undefined;
-  let saved: Saved = {
-    computers: [],
-    start: { mode: "last" },
-    last: null,
-    seen: {},
-  };
-  let computers: Computers<Connection> | undefined;
+  let rows: LinkedMachine[] = [];
+  let listed = false;
+  let saved: Saved = { start: { mode: "last" }, last: null, last_name: null };
   let current = build();
   let pushed = JSON.stringify(current);
-  let begun = false;
-  let stopped = false;
 
   function build(): MachineList {
     return machineList({
-      state,
+      state: self !== null && listed ? "ready" : "starting",
       self,
+      machines: rows,
       saved,
-      items: computers?.get().computers ?? [],
     });
   }
 
   function publish() {
     current = build();
     const text = JSON.stringify(current);
-    // Every `ready` frame of every link lands here; the renderer only hears real changes.
+    // Every link status change lands here; the renderer only hears real changes.
     if (text === pushed) return;
     pushed = text;
     for (const window of windows) {
@@ -108,183 +106,123 @@ export function register(ctx: ShellContext): Machines & Registered {
 
   function persist(next: Saved) {
     saved = next;
-    void store
-      ?.save(next)
-      .catch((error: Error) => ctx.log(`viewer: ${error.message}`));
+    if (self !== null) store.save({ machine: self.id, ...next });
     publish();
   }
 
-  const keyOf = (machine: Id<"mch">) =>
-    saved.computers.find((c) => c.machine === machine)?.key;
+  async function read(): Promise<void> {
+    if (self === null) {
+      const status = await ctx.coreInternal("memory", "machine", "status", {});
+      if (!status.ok) return;
+      const machine = status.value as MachineStatus;
+      self = { id: machine.id as Id<"mch">, name: machine.name };
+      const file = await readStart(ctx.dataRoot);
+      // A file another machine wrote (a copied data root) is not this machine's start.
+      if (file !== null && file.machine === self.id) {
+        saved = {
+          start: file.start,
+          last: file.last,
+          last_name: file.last_name,
+        };
+      }
+    }
+    const listedNow = await ctx.coreInternal("memory", "machines", "list", {});
+    if (!listedNow.ok) return;
+    rows = (listedNow.value as { machines: LinkedMachine[] }).machines;
+    listed = true;
+    const last = rows.find((row) => row.machine === saved.last);
+    if (last !== undefined && last.name !== saved.last_name) {
+      persist({ ...saved, last_name: last.name });
+    } else publish();
+  }
 
-  async function begin(): Promise<void> {
-    const status = await ctx.coreInternal("memory", "machine", "status", {});
-    if (!status.ok) {
-      // The next `ready` tries again.
-      begun = false;
+  // One read at a time; changes during a read read once more, so an older answer never lands last.
+  let reading: Promise<void> | undefined;
+  let again = false;
+  function refresh(): void {
+    if (reading !== undefined) {
+      again = true;
       return;
     }
-    const machine = status.value as MachineStatus;
-    self = { id: machine.id as Id<"mch">, name: machine.name };
-    const opened = createViewerStore({
-      dataRoot: ctx.dataRoot,
-      machine: self.id,
-      random: cryptoRandom,
-      log: ctx.log,
+    reading = read()
+      .catch((error: Error) => ctx.log(`machines: ${error.message}`))
+      .finally(() => {
+        reading = undefined;
+        if (again) {
+          again = false;
+          refresh();
+        }
+      });
+  }
+
+  const watch = (machine: Id<"mch">, conditions: CoreWatch["conditions"]) =>
+    void ctx.coreInternal("memory", "machines", "watch", {
+      machine,
+      conditions,
     });
-    const read = await opened.open().catch((error: Error) => {
-      ctx.log(`viewer: ${error.message}`);
-      return { ok: false } as const;
-    });
-    if (stopped) return;
-    if (!read.ok) {
-      ctx.log(
-        "viewer: shell/viewer files are unreadable; viewing other machines is off",
-      );
-      state = "unreadable";
+
+  ctx.relay.conditions.push({ types: ["MachineFrameReceived"] });
+  ctx.relay.ready.push(() => {
+    refresh();
+    for (const [machine, conditions] of watching) watch(machine, conditions);
+  });
+  ctx.relay.events.push((event) => {
+    if (event.type === "MachineFrameReceived") {
+      const { machine, frame } = event.payload as {
+        machine: Id<"mch">;
+        frame: Frame;
+      };
+      const message = messageOf(frame);
+      for (const listener of frames) listener(machine, message);
+      return;
+    }
+    if (changedIds(event, "remote_devices").length > 0) refresh();
+  });
+
+  // `machine/rename` sends no event; its answer carries the name in effect.
+  ctx.relay.calls.push((call, reply) => {
+    if (!reply.ok || self === null) return;
+    if (call.resource === "machine" && call.method === "rename") {
+      const name = (reply.value as MachineStatus).name;
+      if (name === self.name) return;
+      self = { ...self, name };
       publish();
       return;
     }
-    store = opened;
-    saved = read.saved;
-    const thisMachine = self;
-    computers = createComputers<Connection>({
-      // The desktop viewer does not hold the roster yet (`roster-desktop`): it starts and saves none.
-      load: async () => ({
-        key: read.key,
-        computers: read.saved.computers,
-        roster: { statements: [], reach: [] },
-        name: thisMachine.name,
-      }),
-      save: async (next) => persist({ ...saved, computers: next.computers }),
-      forgetKey: async () => read.key,
-      now: Date.now,
-      // The hello name is this machine's name, changed in Settings › Remote "This computer" and followed through
-      // `relay.calls` below.
-      saveName: async (name) => name,
-      open: (computer, key, on) => {
-        const link = openLink(computer, key, on, {
-          random: cryptoRandom,
-          now: Date.now,
-          wait: (ms, fn) => {
-            const timer = setTimeout(fn, ms);
-            return () => clearTimeout(timer);
-          },
-          newKey: () => crypto.randomUUID(),
-          seen: (id, at) =>
-            persist({ ...saved, seen: { ...saved.seen, [id]: at } }),
-        });
-        connections.add(link.data);
-        return link;
-      },
-      // Joining the roster from the desktop viewer comes with `roster-desktop`.
-      join: async () => ({ ok: false, failure: { kind: "closed" } }),
-    });
-    computers.subscribe(publish);
-    await computers.start();
-    state = "ready";
-    publish();
-  }
-
-  ctx.relay.ready.push(() => {
-    if (begun || stopped) return;
-    begun = true;
-    void begin();
-  });
-
-  // `machine/rename` sends no event; its answer carries the name in effect. Viewed machines hear it in a new hello.
-  ctx.relay.calls.push((call, reply) => {
-    if (call.resource !== "machine" || call.method !== "rename") return;
-    if (!reply.ok || self === null) return;
-    const name = (reply.value as MachineStatus).name;
-    if (name === self.name) return;
-    self = { ...self, name };
-    publish();
-    void computers?.setDeviceName(name);
+    if (call.resource === "roster" && call.method === "remove") {
+      const device = (reply.value as { id: string }).id;
+      const row = rows.find((one) => one.device === device);
+      if (row !== undefined) {
+        persist(afterRemove(saved, row.machine as Id<"mch">, self.id));
+      }
+    }
   });
 
   const allowed = (event: IpcEvent): boolean => {
     const caller = checkCaller(registry, event);
     return caller.ok && caller.value.origin.host === "desktop";
   };
-  const forbidden: MachinesFailure = { ok: false, code: "forbidden" };
-  const invalid: MachinesFailure = { ok: false, code: "invalid_input" };
-  const unavailable: MachinesFailure = { ok: false, code: "unavailable" };
 
   ipc.handle(
     MACHINES_LIST_CHANNEL,
     (event: IpcEvent): MachineList | MachinesFailure =>
-      allowed(event) ? current : forbidden,
-  );
-
-  ipc.handle(
-    MACHINES_PAIR_CHANNEL,
-    async (
-      event: IpcEvent,
-      input: unknown,
-    ): Promise<MachinePairReply | MachinesFailure> => {
-      if (!allowed(event)) return forbidden;
-      const parsed = checkInput(machinesPairSchema, input);
-      if (!parsed.ok) return invalid;
-      if (!computers) return { ok: false, reason: "unavailable" };
-      const invite = parseInviteText(parsed.value.text.trim());
-      if (!invite) return { ok: false, reason: "invalid_text" };
-      const failure = await computers.add(invite);
-      if (failure) return { ok: false, reason: pairReason(failure) };
-      // `add` selects the entry it saved.
-      const added = computers.get().current;
-      const machine = saved.computers.find((c) => c.key === added)?.machine;
-      return machine
-        ? { ok: true, machine }
-        : { ok: false, reason: "unavailable" };
-    },
-  );
-
-  ipc.handle(
-    MACHINES_REMOVE_CHANNEL,
-    (event: IpcEvent, input: unknown): MachinesReply => {
-      if (!allowed(event)) return forbidden;
-      const parsed = checkInput(machinesRemoveSchema, input);
-      if (!parsed.ok) return invalid;
-      if (!computers || !self) return unavailable;
-      const { machine } = parsed.value;
-      const key = keyOf(machine);
-      if (key === undefined) return { ok: false, code: "not_found" };
-      // Unpairs first when connected; one that is not reached just leaves the list, as on the phone.
-      computers.remove(key);
-      persist(afterRemove(saved, machine, self.id));
-      return { ok: true };
-    },
-  );
-
-  ipc.handle(
-    MACHINES_RENAME_CHANNEL,
-    (event: IpcEvent, input: unknown): MachinesReply => {
-      if (!allowed(event)) return forbidden;
-      const parsed = checkInput(machinesRenameSchema, input);
-      if (!parsed.ok) return invalid;
-      if (!computers) return unavailable;
-      const key = keyOf(parsed.value.machine);
-      if (key === undefined) return { ok: false, code: "not_found" };
-      computers.rename(key, parsed.value.alias);
-      return { ok: true };
-    },
+      allowed(event) ? current : { ok: false, code: "forbidden" },
   );
 
   ipc.handle(
     MACHINES_START_CHANNEL,
     (event: IpcEvent, input: unknown): MachinesReply => {
-      if (!allowed(event)) return forbidden;
+      if (!allowed(event)) return { ok: false, code: "forbidden" };
       const parsed = checkInput(machineStartSchema, input);
-      if (!parsed.ok) return invalid;
-      if (!computers || !self) return unavailable;
+      if (!parsed.ok) return { ok: false, code: "invalid_input" };
+      if (self === null || !listed) return { ok: false, code: "unavailable" };
       const start = parsed.value;
       if (
         start.mode === "machine" &&
         start.machine !== self.id &&
-        keyOf(start.machine) === undefined
+        !rows.some((row) => row.machine === start.machine)
       ) {
-        return invalid;
+        return { ok: false, code: "invalid_input" };
       }
       persist({ ...saved, start });
       return { ok: true };
@@ -297,27 +235,34 @@ export function register(ctx: ShellContext): Machines & Registered {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    connection(machine) {
-      const key = keyOf(machine);
-      return key === undefined ? undefined : computers?.link(key)?.data;
+    link: (machine) => ({
+      call: (input) =>
+        ctx.coreInternal("memory", "machines", "call", {
+          machine,
+          ...input,
+        }) as Promise<CoreReply>,
+      watch(conditions) {
+        if (conditions.length === 0) watching.delete(machine);
+        else watching.set(machine, conditions);
+        watch(machine, conditions);
+      },
+      current: () => stateOf(rows.find((row) => row.machine === machine)),
+    }),
+    onFrame(listener) {
+      frames.add(listener);
     },
     markUsed(machine) {
-      if (state !== "ready" || saved.last === machine) return;
-      persist({ ...saved, last: machine });
+      if (self === null || !listed || saved.last === machine) return;
+      persist({
+        ...saved,
+        last: machine,
+        last_name: rows.find((row) => row.machine === machine)?.name ?? null,
+      });
     },
-    startMachine: () => startRule(current),
     stop() {
-      stopped = true;
-      for (const channel of [
-        MACHINES_LIST_CHANNEL,
-        MACHINES_PAIR_CHANNEL,
-        MACHINES_REMOVE_CHANNEL,
-        MACHINES_RENAME_CHANNEL,
-        MACHINES_START_CHANNEL,
-      ]) {
+      for (const channel of [MACHINES_LIST_CHANNEL, MACHINES_START_CHANNEL]) {
         ipc.removeHandler(channel);
       }
-      for (const connection of connections) connection.close();
     },
   };
 }

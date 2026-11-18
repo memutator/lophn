@@ -1,19 +1,19 @@
 // RemoteSettingsSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output schema로 이미 검사했다.
+import type { z } from "zod";
 import {
-  devicesRename,
-  devicesRevoke,
   devicesSetPrimary,
-  devicesSetTerminalInput,
   type RemoteDevice as ListedDevice,
+  type rosterInvite,
+  type rosterList,
 } from "../../../../../protocol/remote/routes.ts";
 import type { AlwaysOnStatus } from "../../../../../protocol/always-on/mod.ts";
 import type { MachineStatus } from "../../../../../protocol/machine/mod.ts";
-import type { RemotePairing } from "../../../../../protocol/remote/frames.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "../core-call.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import type {
   AlwaysOnView,
+  JoinOutcome,
   RemoteMachine,
   RemoteRelayStatus,
   RemoteSettingsSource,
@@ -21,6 +21,19 @@ import type {
 } from "./source.ts";
 
 const ENABLED_KEY = "remote.enabled";
+
+// `roster/join`의 거절 이유(`details.reason`). 화면이 이유마다 다른 글을 보인다.
+const JOIN_REFUSED = {
+  expired: true,
+  used: true,
+  untrusted: true,
+  removed: true,
+  this_computer: true,
+  id_taken: true,
+  key_taken: true,
+} as const satisfies Partial<
+  Record<Extract<JoinOutcome, { ok: false }>["reason"], true>
+>;
 
 const done = (sent: SourceResult<unknown>): SourceResult<null> =>
   sent.ok ? { ok: true, value: null } : sent;
@@ -103,78 +116,95 @@ export function coreRemoteSource(
 
     setEnabled: (on) => chooseSetting(core, ENABLED_KEY, on),
 
-    async startPairing(terminalInput) {
-      const started = await call<RemotePairing & { expires_at: string }>(
+    async invite({ kind, terminalInput, lifetime }) {
+      const made = await call<z.infer<typeof rosterInvite.output>>(
         core,
         "memory",
-        "pairing",
-        "start",
-        { terminal_input: terminalInput },
+        "roster",
+        "invite",
+        { kind, terminal_input: terminalInput, lifetime },
       );
-      if (!started.ok) return started;
-      // QR은 `remotePairingSchema`(strict)가 읽는 칸만 싣는다. 끝나는 때는 폰이 쓰지 않는다.
-      const { addresses, port, key, code, relay } = started.value;
-      const pairing: RemotePairing = {
-        addresses,
-        port,
-        key,
-        code,
-        ...(relay === undefined ? {} : { relay }),
-      };
+      if (!made.ok) return made;
       return {
         ok: true,
         value: {
-          qr: JSON.stringify(pairing),
-          expiresAt: started.value.expires_at,
+          text: JSON.stringify(made.value.invite),
+          expiresAt: made.value.expires_at,
         },
       };
+    },
+
+    async join(text) {
+      let reply: Awaited<ReturnType<CoreSource["call"]>>;
+      try {
+        reply = await core.call({
+          kind: "memory",
+          resource: "roster",
+          method: "join",
+          body: { text },
+        });
+      } catch {
+        return { ok: false, reason: "unavailable" };
+      }
+      if (reply.ok) {
+        return {
+          ok: true,
+          pending: (reply.value as { pending: boolean }).pending,
+        };
+      }
+      const reason = reply.error?.details?.["reason"];
+      if (typeof reason === "string" && reason in JOIN_REFUSED) {
+        return { ok: false, reason: reason as keyof typeof JOIN_REFUSED };
+      }
+      const code = reply.error?.code;
+      if (code === "invalid_input")
+        return { ok: false, reason: "invalid_text" };
+      if (code === "unavailable") return { ok: false, reason: "unavailable" };
+      return { ok: false, reason: "failed" };
     },
 
     relayStatus: () =>
       call<RemoteRelayStatus>(core, "memory", "remote_relay", "status", {}),
 
     async devices() {
-      const read = await call<{ devices: ListedDevice[] }>(
-        core,
-        "read",
-        "devices",
-        "list",
-        {},
-      );
-      if (!read.ok) return read;
+      const [roster, rows] = await Promise.all([
+        call<z.infer<typeof rosterList.output>>(
+          core,
+          "memory",
+          "roster",
+          "list",
+          {},
+        ),
+        call<{ devices: ListedDevice[] }>(core, "read", "devices", "list", {}),
+      ]);
+      if (!roster.ok) return roster;
+      // 기준 폰은 이 컴퓨터의 기기 행에만 있다.
+      const primary = rows.ok
+        ? rows.value.devices.find((row) => row.primary)?.id
+        : undefined;
       return {
         ok: true,
-        value: read.value.devices.map((device) => ({
+        value: roster.value.devices.map((device) => ({
           id: device.id,
           kind: device.kind,
           name: device.name,
-          announcedName: device.announced_name,
-          alias: device.alias,
           os: device.os,
+          machine: device.machine,
+          thisComputer: device.this,
           lastConnectedAt: device.last_connected_at,
-          primary: device.primary,
+          primary: device.id === primary,
           terminalInput: device.terminal_input,
+          // `roster/list`의 `pending`은 같이 도는 다른 변경이 더하는 칸이라 아직 없을 수 있다.
+          pending: (device as { pending?: boolean }).pending === true,
         })),
       };
     },
 
     rename: async (id, name) =>
-      done(
-        await command(core, devicesRename, {
-          input: { id, name },
-          compare: {},
-          key: `device-rename-${random()}`,
-        }),
-      ),
+      done(await call(core, "memory", "roster", "rename", { id, name })),
 
-    revoke: async (id) =>
-      done(
-        await command(core, devicesRevoke, {
-          input: { id },
-          compare: {},
-          key: `device-revoke-${random()}`,
-        }),
-      ),
+    remove: async (id) =>
+      done(await call(core, "memory", "roster", "remove", { id })),
 
     setPrimary: async (id) =>
       done(
@@ -187,11 +217,7 @@ export function coreRemoteSource(
 
     setTerminalInput: async (id, on) =>
       done(
-        await command(core, devicesSetTerminalInput, {
-          input: { id, on },
-          compare: {},
-          key: `device-terminal-input-${random()}`,
-        }),
+        await call(core, "memory", "roster", "set_terminal_input", { id, on }),
       ),
   };
 }

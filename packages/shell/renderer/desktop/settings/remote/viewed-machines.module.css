@@ -1,8 +1,0 @@
-/* 지우기 dialog 본문의 문단. 시작 기계를 지우면 한 문단이 더 붙는다. */
-.dialogText {
-  margin: var(--space-0);
-}
-
-.dialogText + .dialogText {
-  margin-top: var(--space-3);
-}

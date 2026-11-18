@@ -5,15 +5,11 @@ import {
   MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_LIST_CHANNEL,
   MACHINES_OPEN_CHANNEL,
-  MACHINES_PAIR_CHANNEL,
-  MACHINES_REMOVE_CHANNEL,
-  MACHINES_RENAME_CHANNEL,
   MACHINES_START_CHANNEL,
   MACHINES_THIS_READ_CHANNEL,
   MACHINES_THIS_WINDOW_CHANNEL,
   type MachineList,
   machineListSchema,
-  type MachinePairReply,
   type MachinesFailure,
   type MachinesReply,
   type MachineWindow,
@@ -65,28 +61,6 @@ export function createMachinesApi(
       transport.on(MACHINES_CHANGED_CHANNEL, callback);
       return () => transport.removeListener(MACHINES_CHANGED_CHANNEL, callback);
     },
-    async pair(text) {
-      const reply = await invoke<MachinePairReply>(
-        transport,
-        MACHINES_PAIR_CHANNEL,
-        { text },
-      );
-      if ("code" in reply) {
-        return {
-          ok: false,
-          reason:
-            reply.code === "invalid_input" ? "invalid_text" : "unavailable",
-        };
-      }
-      return reply;
-    },
-    remove: (machine) =>
-      invoke<MachinesReply>(transport, MACHINES_REMOVE_CHANNEL, { machine }),
-    rename: (machine, alias) =>
-      invoke<MachinesReply>(transport, MACHINES_RENAME_CHANNEL, {
-        machine,
-        alias,
-      }),
     setStart: (start) =>
       invoke<MachinesReply>(transport, MACHINES_START_CHANNEL, start),
     open: (machine, session) =>

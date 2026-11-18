@@ -5,6 +5,7 @@ import { click, find, press, type, wait } from "../../mock/drive.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { appPanelBindingId } from "../../../../packages/protocol/shell/keybindings.ts";
 import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
+import { sampleDevices } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
 export const SettingsBack = () => <SettingsFrame pane="agents" />;
@@ -314,13 +315,16 @@ export const SettingsExtensionRemove = () => (
   />
 );
 
-/** Settings › Remote: 폰 연결이 켜져 있고 폰 둘(iPhone 16은 기준)이 pairing되어 있다. */
-export const SettingsRemote = () => <SettingsFrame pane="remote" />;
+/** Settings › Remote: 연결이 켜져 있고 My devices에 다섯(이 컴퓨터 Studio, 컴퓨터 둘은 relay로 붙음·꺼짐, 폰 둘 가운데 iPhone 16은 기준)이 있다. 아래에 Open at start와 Add a device가 있다. */
+export const SettingsRemote = () => (
+  <SettingsFrame pane="remote" machines={{}} />
+);
 
 /** Settings › Remote: "Keep running"과 "Keep this computer awake"가 켜져 있고 OS가 등록됨을 답했다("Starts when you log in"). */
 export const SettingsRemoteKeepRunning = () => (
   <SettingsFrame
     pane="remote"
+    machines={{}}
     remote={{
       alwaysOn: {
         keepRunning: true,
@@ -336,6 +340,7 @@ export const SettingsRemoteKeepRunning = () => (
 export const SettingsRemoteLoginFailed = () => (
   <SettingsFrame
     pane="remote"
+    machines={{}}
     remote={{
       alwaysOn: { keepRunning: true, startAtLogin: "not_registered" },
     }}
@@ -346,6 +351,7 @@ export const SettingsRemoteLoginFailed = () => (
 export const SettingsRemoteLoginOff = () => (
   <SettingsFrame
     pane="remote"
+    machines={{}}
     remote={{
       alwaysOn: {
         keepRunning: true,
@@ -360,6 +366,7 @@ export const SettingsRemoteLoginOff = () => (
 export const SettingsRemoteDevelopment = () => (
   <SettingsFrame
     pane="remote"
+    machines={{}}
     remote={{
       alwaysOn: {
         startAtLogin: "unavailable",
@@ -370,55 +377,88 @@ export const SettingsRemoteDevelopment = () => (
   />
 );
 
-/** Settings › Remote: 폰 연결이 꺼져 있어 QR과 목록 대신 안내 한 줄만 있다. */
+/** Settings › Remote: 연결이 꺼져 있어 명단과 더하기 대신 안내 한 줄만 있다. */
 export const SettingsRemoteOff = () => (
-  <SettingsFrame pane="remote" remote={{ enabled: false }} />
+  <SettingsFrame pane="remote" machines={{}} remote={{ enabled: false }} />
 );
 
-/** Settings › Remote: [Add phone]을 눌러 QR과 남은 시간, [New code]가 보인다. */
-export const SettingsRemotePairing = () => (
+/** Settings › Remote: [Invite a phone]을 눌러 QR과 남은 시간(30분), [New invite], 새 기기의 터미널 입력 스위치가 보인다. */
+export const SettingsRemoteInvitePhone = () => (
   <SettingsFrame
     pane="remote"
-    remote={{ devices: [] }}
-    steps={[() => click("[data-remote-pair]")]}
+    machines={{}}
+    steps={[() => click("[data-remote-invite-phone]")]}
   />
 );
 
-/** Settings › Remote: Pixel 9의 [Unpair]를 눌러 확인 dialog가 열렸다. */
-export const SettingsRemoteRevoke = () => (
-  <SettingsFrame pane="remote" steps={[() => click("[data-remote-revoke]")]} />
-);
-
-const VIEWED_START = { mode: "machine", machine: "mch_homeserver" } as const;
-
-/** Settings › Remote: Computers you view. 짝지은 기계 셋(Home server는 relay로 붙어 있고 별명이 있다, Work laptop은 꺼져 있다, Old desktop은 상대가 지웠다)과 시작 기계 select(Home server로 고정). */
-export const SettingsRemoteViewed = () => (
-  <SettingsFrame pane="remote" machines={{ start: VIEWED_START }} />
-);
-
-/** Settings › Remote: [Add computer]를 눌러 pairing text를 붙여 넣는 칸이 열렸다. 칸 아래에 그 컴퓨터에서 복사해 오는 길이 있다. */
-export const SettingsRemoteViewedAdd = () => (
+/** Settings › Remote: [Invite a computer]를 누르고 "같은 때 켜질 수 없다"를 켜 7일짜리 초대장이 보인다. "Show as text"를 펼쳤다. */
+export const SettingsRemoteInviteComputer = () => (
   <SettingsFrame
     pane="remote"
-    machines={{ start: VIEWED_START }}
+    machines={{}}
     steps={[
-      () => click("[data-machines-add-button]"),
-      () =>
-        type(
-          "[data-machines-text]",
-          '{"addresses":["192.168.0.31"],"port":7432,"key":"q0nT3vVZ6yWm0z0cX8yFJr6dYb0p5QeTq3m7kXc1Hn4","code":"4f1c2b9e0d7a63851f2e9c4b7a0d3e6f"}',
-        ),
+      () => click("[data-remote-invite-computer]"),
+      () => click('[data-remote-row="invite-long"] [role="switch"]'),
+      // 스위치가 새 초대장을 내는 동안 "Show as text" 단추가 없다.
+      () => wait(300),
+      () => click("[data-remote-show-text]"),
     ]}
   />
 );
 
-/** Settings › Remote: 시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 시작 기계라서 지운 뒤 일을 한 줄 더 알린다. */
-export const SettingsRemoteViewedRemoveStart = () => (
+const PASTED_INVITE = '{"invite":{"body":{"type":"invite","kind":"computer"}}}';
+
+/** Settings › Remote: [Join with an invite]에 다른 컴퓨터의 초대장을 붙여 [Join]했는데 수명이 지나 거절되었다. 칸 아래에 이유가 선다. */
+export const SettingsRemoteJoinFailed = () => (
   <SettingsFrame
     pane="remote"
-    machines={{ start: VIEWED_START }}
+    machines={{}}
+    remote={{ join: { ok: false, reason: "expired" } }}
     steps={[
-      () => click('[data-machine-row="mch_homeserver"] [data-machine-remove]'),
+      () => click("[data-remote-join-open]"),
+      () => type("[data-remote-join-text]", PASTED_INVITE),
+      () => click("[data-remote-join-send]"),
+    ]}
+  />
+);
+
+/** Settings › Remote: 초대장으로 들었지만 초대한 컴퓨터가 꺼져 있어 기다리는 중이다. 그 컴퓨터를 아는 기기(폰)가 붙으면 끝난다는 글이 선다. */
+export const SettingsRemoteJoinPending = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{}}
+    remote={{ join: { ok: true, pending: true } }}
+    steps={[
+      () => click("[data-remote-join-open]"),
+      () => type("[data-remote-join-text]", PASTED_INVITE),
+      () => click("[data-remote-join-send]"),
+    ]}
+  />
+);
+
+/** Settings › Remote: 초대한 컴퓨터가 꺼져 있을 때 들어온 Work laptop이 Waiting이다. 그 소식이 닿으면 사라진다. */
+export const SettingsRemoteWaiting = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{}}
+    remote={{
+      devices: sampleDevices().map((one) =>
+        one.name === "Work laptop" ? { ...one, pending: true } : one,
+      ),
+    }}
+  />
+);
+
+/** Settings › Remote: 시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 시작 기계라서 한 줄이 더 붙는다. */
+export const SettingsRemoteRemove = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{ start: { mode: "machine", machine: "mch_homeserver" } }}
+    steps={[
+      () =>
+        click(
+          '[data-remote-device="dev_01jd0000000000000000000002"] [data-remote-remove]',
+        ),
     ]}
   />
 );

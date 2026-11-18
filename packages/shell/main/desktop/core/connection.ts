@@ -295,7 +295,10 @@ export function startCoreConnection(
           if (frame.type === "ready") relay({ kind: "ready" }, to);
           else if (frame.type === "event") {
             options.own?.event(frame.event);
-            relay({ kind: "event", event: frame.event });
+            // 다른 기계의 frame은 main이 그 기계의 창에만 나눠 보낸다(wiring/machines).
+            if (frame.event.type !== "MachineFrameReceived") {
+              relay({ kind: "event", event: frame.event });
+            }
           } else if (frame.type === "closed") {
             relay({ kind: "closed", reason: frame.reason });
             // core가 내려간다는 frame이다. 이 shell은 core를 다시 띄우지 않는다.

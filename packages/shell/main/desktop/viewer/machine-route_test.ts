@@ -12,37 +12,29 @@ import {
 import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
 import { TERMINAL_OPEN_CHANNEL } from "../../../ipc/terminal.ts";
 import { WORKSPACE_LAYOUT_SAVE_CHANNEL } from "../../../ipc/workspace.ts";
-import type { Connection } from "../../../../remote-client/mod.ts";
-import { createMachineRoute } from "./machine-route.ts";
+import { createMachineRoute, type MachineLink } from "./machine-route.ts";
 
 const HOST = "mch_01jx0000000000000000000000" as Id<"mch">;
 const REMOTE_WINDOW = 7;
 const LOCAL_WINDOW = 3;
 
-type Sent = Parameters<Connection["call"]>[0];
+type Sent = Parameters<MachineLink["call"]>[0];
 
-function readyConnection(sent: Sent[]): Connection {
+function readyLink(sent: Sent[]): MachineLink {
   return {
     current: () => ({ state: "ready", confirmedAt: 1 }),
-    subscribe: () => () => {},
-    onEvent: () => () => {},
     call: (input) => {
       sent.push(input);
       return Promise.resolve({ ok: true, value: { from: "host" } });
     },
-    watch: () => Promise.resolve(),
-    path: () => "direct",
-    update: () => null,
-    pause: () => {},
-    resume: () => {},
-    close: () => {},
+    watch: () => {},
   };
 }
 
-test("a window of another machine reaches only that machine's connection; this computer's own channels refuse it", async () => {
+test("a window of another machine reaches only that machine's core; this computer's own channels refuse it", async () => {
   const route = createMachineRoute();
   const sent: Sent[] = [];
-  route.bind(REMOTE_WINDOW, HOST, () => readyConnection(sent));
+  route.bind(REMOTE_WINDOW, HOST, readyLink(sent));
   const local: string[] = [];
   const handler = (channel: string) => () => {
     local.push(channel);
@@ -99,7 +91,7 @@ test("a window of another machine reaches only that machine's connection; this c
 
 test("only a window of another machine reaches this computer's core, and only for this computer's project, agent and session lists", async () => {
   const route = createMachineRoute();
-  route.bind(REMOTE_WINDOW, HOST, () => readyConnection([]));
+  route.bind(REMOTE_WINDOW, HOST, readyLink([]));
   const cases: {
     channel: string;
     window: number;

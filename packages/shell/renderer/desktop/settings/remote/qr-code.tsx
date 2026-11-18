@@ -1,4 +1,4 @@
-// pairing code의 QR. module을 path 하나로 그린다(innerHTML을 쓰지 않는다).
+// 초대장의 QR. module을 path 하나로 그린다(innerHTML을 쓰지 않는다).
 import { useMemo } from "react";
 import { encode } from "uqr";
 

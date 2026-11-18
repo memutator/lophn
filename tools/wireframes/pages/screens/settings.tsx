@@ -43,11 +43,12 @@ import {
   SettingsRemoteLoginFailed,
   SettingsRemoteLoginOff,
   SettingsRemoteOff,
-  SettingsRemotePairing,
-  SettingsRemoteRevoke,
-  SettingsRemoteViewed,
-  SettingsRemoteViewedAdd,
-  SettingsRemoteViewedRemoveStart,
+  SettingsRemoteInvitePhone,
+  SettingsRemoteInviteComputer,
+  SettingsRemoteJoinFailed,
+  SettingsRemoteJoinPending,
+  SettingsRemoteWaiting,
+  SettingsRemoteRemove,
   SettingsKeyboardApps,
   SettingsKeyboardChanged,
   SettingsKeyboardConflicts,
@@ -239,7 +240,7 @@ export const settingsArea: Area = {
       id: "settings-remote",
       title: "Settings · Remote",
       description:
-        "폰 연결을 켜는 Switch와 Add a phone, Phones 구역이다. 폰마다 OS와 마지막 연결, 기준 표시와 [Rename]·[Make primary]·[Unpair]가 있다. 위에 This computer와 Keep running 구역(두 스위치가 꺼진 처음 상태)이 있다.",
+        "연결을 켜는 Switch와 My devices, Add a device 구역이다. 명단의 기기마다 종류와 OS, 이 컴퓨터 표시, 컴퓨터의 연결 상태나 폰의 마지막 연결, 터미널 입력 스위치와 [Rename]·[Make primary](폰)·[Remove]가 있다. 아래에 Open at start, [Invite a phone]·[Invite a computer]·[Join with an invite]가 있다. 위에 This computer와 Keep running 구역이 있다.",
       render: () => <SettingsRemote />,
     },
     {
@@ -274,43 +275,50 @@ export const settingsArea: Area = {
       id: "settings-remote-off",
       title: "Settings · Remote · off",
       description:
-        "폰 연결이 꺼진 상태다. QR과 폰 목록 대신 켜라는 안내 한 줄만 있다.",
+        "연결이 꺼진 상태다. 명단과 더하기 대신 켜라는 안내 한 줄만 있다.",
       render: () => <SettingsRemoteOff />,
     },
     {
-      id: "settings-remote-pairing",
-      title: "Settings · Remote · pairing",
+      id: "settings-remote-invite-phone",
+      title: "Settings · Remote · invite a phone",
       description:
-        "[Add phone]을 눌러 QR이 열렸다. 남은 시간(5분에서 줄어든다)과 [New code]가 있고, 새 폰이 pairing되면 QR이 닫히고 목록에 선다.",
-      render: () => <SettingsRemotePairing />,
+        "[Invite a phone]을 눌러 초대장 QR이 열렸다. 남은 시간(30분에서 줄어든다), Show as text, [New invite]와 새 기기의 터미널 입력 스위치가 있다. 새 폰이 들어오면 초대장이 닫히고 My devices에 선다.",
+      render: () => <SettingsRemoteInvitePhone />,
     },
     {
-      id: "settings-remote-revoke",
-      title: "Settings · Remote · unpair",
+      id: "settings-remote-invite-computer",
+      title: "Settings · Remote · invite a computer (7 days)",
       description:
-        "[Unpair]를 눌러 확인 dialog가 열렸다. 끊은 폰은 새 code로 다시 pairing해야 붙는다.",
-      render: () => <SettingsRemoteRevoke />,
+        '[Invite a computer]를 누르고 "The new device can\'t be on at the same time as this computer"를 켰다. 초대장은 7일짜리이고 글을 펼쳐 다른 컴퓨터의 Join with an invite에 붙여 넣는다(dual boot, 집과 직장).',
+      render: () => <SettingsRemoteInviteComputer />,
     },
     {
-      id: "settings-remote-viewed",
-      title: "Settings · Remote · Computers you view",
+      id: "settings-remote-join-failed",
+      title: "Settings · Remote · join refused",
       description:
-        "이 컴퓨터가 보려고 짝지은 다른 기계의 목록이다. 기계마다 상태(relay로 붙음, 꺼짐과 마지막으로 본 때, 상대가 지움)와 [Rename]·[Remove]가 있고, 아래에 시작 때 여는 기계 select(Home server로 고정)와 [Add computer]가 있다.",
-      render: () => <SettingsRemoteViewed />,
+        "[Join with an invite]에 붙인 초대장이 수명이 지나 거절되었다. 칸 아래에 이유(지남, 이미 쓰임, 확인 안 됨, 빠진 컴퓨터, 이 컴퓨터의 초대장 등)가 선다.",
+      render: () => <SettingsRemoteJoinFailed />,
     },
     {
-      id: "settings-remote-viewed-add",
-      title: "Settings · Remote · Add computer",
+      id: "settings-remote-join-pending",
+      title: "Settings · Remote · join pending",
       description:
-        "[Add computer]를 눌러 다른 컴퓨터가 보여 준 pairing text를 붙여 넣는 여러 줄 칸이 열렸다. 그 컴퓨터의 Settings › Remote에서 Add phone or computer, Show as text를 복사해 온다. [Pair]를 누르면 결과 글이 칸 아래에 선다.",
-      render: () => <SettingsRemoteViewedAdd />,
+        "초대장으로 들었지만 초대한 컴퓨터가 꺼져 있다. 그 컴퓨터를 아는 기기(폰)가 이 컴퓨터에 붙으면 끝난다는 글이 선다.",
+      render: () => <SettingsRemoteJoinPending />,
     },
     {
-      id: "settings-remote-viewed-remove-start",
-      title: "Settings · Remote · Remove the start computer",
+      id: "settings-remote-waiting",
+      title: "Settings · Remote · device waiting",
       description:
-        "시작 기계의 [Remove]를 눌러 확인 dialog가 열렸다. 지우면 다시 짝지어야 보이고, 시작 기계였으니 지운 뒤에는 마지막에 쓴 기계를 연다는 한 줄이 더 붙는다.",
-      render: () => <SettingsRemoteViewedRemoveStart />,
+        "초대한 컴퓨터가 꺼져 있을 때 들어온 Work laptop 줄에 Waiting과 그 이유가 선다.",
+      render: () => <SettingsRemoteWaiting />,
+    },
+    {
+      id: "settings-remote-remove",
+      title: "Settings · Remote · remove a device",
+      description:
+        "시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 시작 기계라서 지운 뒤에는 마지막에 쓴 기계를 연다는 한 줄이 더 붙는다.",
+      render: () => <SettingsRemoteRemove />,
     },
     {
       id: "settings-keyboard",

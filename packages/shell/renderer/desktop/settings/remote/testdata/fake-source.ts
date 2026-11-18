@@ -1,6 +1,7 @@
 // Remote 항목의 가짜 통로. core를 부르지 않고 메모리에 둔다.
 import type {
   AlwaysOnView,
+  JoinOutcome,
   RemoteDevice,
   RemoteMachine,
   RemoteSettingsSource,
@@ -10,52 +11,106 @@ import type {
 interface FakeRemoteOptions {
   /** 처음 `remote.enabled`. 없으면 켜져 있다. */
   enabled?: boolean;
-  /** 처음 기기 목록. 없으면 화면 확인용 대표 둘이다. */
+  /** 처음 명단. 없으면 화면 확인용 대표 다섯(이 컴퓨터, 컴퓨터 둘, 폰 둘)이다. */
   devices?: RemoteDevice[];
-  /** 처음 이 컴퓨터. 없으면 hostname을 따른다. 복제 note는 `clonedFrom`을 주고 `devices: []`로 본다. */
+  /** 처음 이 컴퓨터. 없으면 hostname을 따른다. 복제 note는 `clonedFrom`을 주고 이 컴퓨터만 든 `devices`로 본다. */
   machine?: RemoteMachine;
   /** 처음 "Keep running" 상태에서 바꿀 칸. 없으면 설치본에서 꺼져 있고 systemd다. */
   alwaysOn?: Partial<AlwaysOnView>;
   /** 표시를 켰을 때 OS 등록이 낳는 답. 없으면 `registered`다. 등록 실패나 개발 build는 이것으로 본다. */
   loginOnSet?: AlwaysOnView["startAtLogin"];
+  /** `join`의 결과. 없으면 초대한 컴퓨터에 닿아 끝난다. */
+  join?: JoinOutcome;
 }
 
 const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
 
-function sampleDevices(now: number): RemoteDevice[] {
+/** 기계 id는 기계 보기 fake(`machines/testdata`)의 대표와 같아 컴퓨터 줄에 그 상태가 선다. */
+export function sampleDevices(now = Date.now()): RemoteDevice[] {
+  const device = (
+    id: string,
+    fields: Omit<RemoteDevice, "id" | "pending" | "thisComputer"> &
+      Partial<Pick<RemoteDevice, "pending" | "thisComputer">>,
+  ): RemoteDevice => ({
+    id: `dev_01jd00000000000000000000${id}`,
+    pending: false,
+    thisComputer: false,
+    ...fields,
+  });
   return [
-    {
-      id: "dev_01jd0000000000000000000001",
+    device("01", {
+      kind: "computer",
+      name: "Studio",
+      os: "linux",
+      machine: "mch_studio",
+      thisComputer: true,
+      lastConnectedAt: null,
+      primary: false,
+      terminalInput: true,
+    }),
+    device("02", {
+      kind: "computer",
+      name: "Home server",
+      os: "macos",
+      machine: "mch_homeserver",
+      lastConnectedAt: new Date(now).toISOString(),
+      primary: false,
+      terminalInput: true,
+    }),
+    device("03", {
+      kind: "computer",
+      name: "Work laptop",
+      os: "windows",
+      machine: "mch_laptop",
+      lastConnectedAt: new Date(now - 3 * HOUR).toISOString(),
+      primary: false,
+      terminalInput: false,
+    }),
+    device("04", {
       kind: "phone",
       name: "Pixel 9",
-      announcedName: "SM-S918N",
-      alias: "Pixel 9",
       os: "android",
+      machine: null,
       lastConnectedAt: new Date(now - 26 * HOUR).toISOString(),
       primary: false,
       terminalInput: false,
-    },
-    {
-      id: "dev_01jd0000000000000000000002",
+    }),
+    device("05", {
       kind: "phone",
       name: "iPhone 16",
-      announcedName: "iPhone 16",
-      alias: null,
       os: "ios",
+      machine: null,
       lastConnectedAt: new Date(now - 2 * HOUR).toISOString(),
       primary: true,
       terminalInput: true,
-    },
+    }),
   ];
 }
 
-// QR에 싣는 모양 그대로다(`remotePairingSchema`).
-const SAMPLE_PAIRING = {
-  addresses: ["192.168.0.12", "fd12:3456:789a::12"],
-  port: 7432,
-  key: "q0nT3vVZ6yWm0z0cX8yFJr6dYb0p5QeTq3m7kXc1Hn4",
-  code: "4f1c2b9e0d7a63851f2e9c4b7a0d3e6f",
-};
+// 초대장 글의 모양(`rosterInviteTextSchema`)만 흉내 낸다. 서명은 맞지 않는다.
+function sampleInvite(kind: "phone" | "computer", expiresAt: string): string {
+  return JSON.stringify({
+    invite: {
+      body: {
+        type: "invite",
+        key: "Jx3m0QeTq3m7kXc1Hn4q0nT3vVZ6yWm0z0cX8yFJr6c",
+        by: "dev_01jd0000000000000000000001",
+        kind,
+        terminal_input: true,
+        expires_at: expiresAt,
+      },
+      signature: `${"s".repeat(85)}A`,
+    },
+    secret: "q0nT3vVZ6yWm0z0cX8yFJr6dYb0p5QeTq3m7kXc1Hn4",
+    reach: {
+      device: "dev_01jd0000000000000000000001",
+      addresses: ["192.168.0.12"],
+      port: 7432,
+      relay: null,
+    },
+  });
+}
 
 const SAMPLE_MACHINE: RemoteMachine = {
   name: "studio",
@@ -133,13 +188,14 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
       enabled = on;
       return ok(null);
     },
-    startPairing: () =>
-      enabled
-        ? ok({
-            qr: JSON.stringify(SAMPLE_PAIRING),
-            expiresAt: new Date(Date.now() + 300_000).toISOString(),
-          })
-        : Promise.resolve({ ok: false, code: "unavailable" }),
+    invite({ kind, lifetime }) {
+      if (!enabled) return Promise.resolve({ ok: false, code: "unavailable" });
+      const expiresAt = new Date(
+        Date.now() + (lifetime === "long" ? 7 * 24 * HOUR : 30 * MINUTE),
+      ).toISOString();
+      return ok({ text: sampleInvite(kind, expiresAt), expiresAt });
+    },
+    join: () => Promise.resolve(options.join ?? { ok: true, pending: false }),
     relayStatus: () =>
       ok({
         url: "wss://relay.example",
@@ -148,12 +204,10 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
     devices: () => ok(devices),
     rename(id, name) {
       if (!devices.some((d) => d.id === id)) return missing();
-      devices = devices.map((d) =>
-        d.id === id ? { ...d, alias: name, name: name ?? d.announcedName } : d,
-      );
+      devices = devices.map((d) => (d.id === id ? { ...d, name } : d));
       return ok(null);
     },
-    revoke(id) {
+    remove(id) {
       if (!devices.some((d) => d.id === id)) return missing();
       devices = devices.filter((d) => d.id !== id);
       return ok(null);

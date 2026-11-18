@@ -1,25 +1,17 @@
-// Settings › Remote. 폰 연결(`remote.enabled`)을 켜고, QR로 폰을 pairing하고, pairing한 폰을 관리한다.
-// 새 기기의 터미널 입력 허락은 code와 같이 정한다(기본 켬). 바꾸면 그 값으로 새 code를 만든다.
-// 기기가 바뀌면(`remote_devices`) 목록을 다시 읽고, QR이 보이는 동안 새 폰이 보이면 QR을 닫는다.
+// Settings › Remote. 폰과 다른 컴퓨터의 연결(`remote.enabled`)을 켜고, 내 기기 명단(My devices)을 보고 고치고, 초대장으로 기기를
+// 들이거나 이 컴퓨터가 다른 컴퓨터의 명단에 든다(Add a device). 명단이 바뀌면(`remote_devices`) 목록을 다시 읽는다.
 
 import { t } from "@lophn/i18n";
 import { Switch } from "@lophn/ui/input";
-import { Toast } from "@lophn/ui/overlay";
-import { Button, CopyButton } from "@lophn/ui/primitives";
-import { systemClipboard } from "@lophn/ui/shared";
 import { useCallback, useEffect, useState } from "react";
 
-import { actionIcons, modalityIcons } from "../../../icons/mod.ts";
 import { useStateChanged } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
-import { RemoteDeviceRows } from "./device-rows.tsx";
+import { AddDevice } from "./add-device.tsx";
 import { KeepRunningSection } from "./keep-running-section.tsx";
-import { QrCode } from "./qr-code.tsx";
-import remoteStyles from "./remote.module.css";
-import { ViewedMachines } from "./viewed-machines.tsx";
+import { MyDevices } from "./my-devices.tsx";
 import type {
   RemoteDevice,
-  RemotePairingCode,
   RemoteRelayStatus,
   RemoteSettingsSource,
 } from "./source.ts";
@@ -27,42 +19,14 @@ import { ThisComputer } from "./this-computer.tsx";
 
 type Loaded<T> = T | "failed" | null;
 
-type Pairing =
-  | { readonly state: "idle" }
-  // 켠 직후에는 core가 listener를 여는 중이라 code를 못 만든다(`unavailable`). 그동안 기다리며 다시 부른다.
-  | { readonly state: "starting" }
-  | { readonly state: "failed" }
-  | {
-      readonly state: "shown";
-      readonly code: RemotePairingCode;
-      /** code를 만들 때 있던 기기. 이 밖의 기기가 보이면 pairing이 끝난 것이다. */
-      readonly known: ReadonlySet<string>;
-    };
-
-const START_TRIES = 5;
 // relay 상태는 event가 없는 memory route라 켜 있는 동안 이 간격으로 다시 읽는다.
 const RELAY_POLL_MS = 5000;
-const START_WAIT_MS = 1000;
-
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-function remainingText(ms: number): string {
-  const seconds = Math.ceil(ms / 1000);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
 
 export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const [enabled, setEnabled] = useState<Loaded<boolean>>(null);
   const [devices, setDevices] = useState<Loaded<readonly RemoteDevice[]>>(null);
-  const [pairing, setPairing] = useState<Pairing>({ state: "idle" });
-  const [now, setNow] = useState(() => Date.now());
-  const [paired, setPaired] = useState<string | null>(null);
   const [toggleFailed, setToggleFailed] = useState(false);
   const [relay, setRelay] = useState<RemoteRelayStatus | null>(null);
-  // 카메라를 못 쓰는 폰은 QR에 든 글을 붙여 넣는다. 한 번 펼치면 새 code에도 펼친 채다.
-  const [asText, setAsText] = useState(false);
-  const [terminalInput, setTerminalInput] = useState(true);
 
   const loadDevices = useCallback(async () => {
     const read = await source.devices();
@@ -73,7 +37,6 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const load = useCallback(() => {
     void source.enabled().then((read) => {
       setEnabled(read.ok ? read.value : "failed");
-      if (read.ok && !read.value) setPairing({ state: "idle" });
     });
     void loadDevices();
   }, [source, loadDevices]);
@@ -90,64 +53,23 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
     return () => clearInterval(poll);
   }, [source, enabled]);
 
-  // QR이 보이는 동안 남은 시간을 1초마다 센다.
-  useEffect(() => {
-    if (pairing.state !== "shown") return;
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, [pairing]);
-
-  // QR이 보이는 동안 다시 읽은 목록에 새 기기가 있으면 pairing이 끝난 것이다.
-  useEffect(() => {
-    if (pairing.state !== "shown" || devices === null || devices === "failed")
-      return;
-    const fresh = devices.find((one) => !pairing.known.has(one.id));
-    if (fresh === undefined) return;
-    setPairing({ state: "idle" });
-    setPaired(fresh.name);
-  }, [pairing, devices]);
-
   async function choose(on: boolean): Promise<void> {
     const saved = await source.setEnabled(on);
     setToggleFailed(!saved.ok);
     if (!saved.ok) return;
     setEnabled(on);
-    if (!on) setPairing({ state: "idle" });
-  }
-
-  async function startPairing(typing = terminalInput): Promise<void> {
-    setPairing({ state: "starting" });
-    const before = await loadDevices();
-    const known = new Set(before.ok ? before.value.map((one) => one.id) : []);
-    for (let attempt = 1; attempt <= START_TRIES; attempt += 1) {
-      const started = await source.startPairing(typing);
-      if (started.ok) {
-        setNow(Date.now());
-        setPairing({ state: "shown", code: started.value, known });
-        return;
-      }
-      if (started.code !== "unavailable" || attempt === START_TRIES) break;
-      await delay(START_WAIT_MS);
-    }
-    setPairing({ state: "failed" });
   }
 
   return (
     <div data-remote-settings="">
-      {paired === null ? null : (
-        <div className={styles.toastSlot} data-remote-paired="">
-          <Toast
-            title={t("settings.notice.remote-paired", { name: paired })}
-            duration="brief"
-            onClose={() => setPaired(null)}
-          />
-        </div>
-      )}
       <h1 className={styles.paneTitle}>{t("settings.label.tab-remote")}</h1>
       <p className={styles.lead}>{t("settings.intro.remote")}</p>
-      <ThisComputer source={source} devices={devices} />
+      <ThisComputer
+        source={source}
+        devices={devices}
+        onRenamed={() => void loadDevices()}
+      />
       <KeepRunningSection source={source} />
-      <ViewedMachines />
       {enabled === null ? null : enabled === "failed" ? (
         <p className={styles.notice} data-remote="failed">
           {t("settings.error.remote-load-failed")}
@@ -203,48 +125,22 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
             <>
               <section className={styles.groupBlock}>
                 <h2 className={styles.groupTitle}>
-                  {t("settings.heading.remote-pair")}
-                </h2>
-                <ul className={styles.lines}>
-                  <li
-                    className={styles.line}
-                    data-remote-row="pair-terminal-input"
-                  >
-                    <div className={styles.lineMain}>
-                      <span className={styles.lineName}>
-                        {t("settings.label.remote-pair-terminal-input")}
-                      </span>
-                      <span className={styles.lineHelp}>
-                        {t("settings.note.remote-pair-terminal-input")}
-                      </span>
-                    </div>
-                    <div className={styles.endSlot}>
-                      <Switch
-                        label={t(
-                          terminalInput
-                            ? "settings.label.value-on"
-                            : "settings.label.value-off",
-                        )}
-                        checked={terminalInput}
-                        onCheckedChange={(on) => {
-                          setTerminalInput(on);
-                          // 보이는 code는 옛 값으로 만든 것이라 새 값으로 바꾼다.
-                          if (pairing.state === "shown") void startPairing(on);
-                        }}
-                      />
-                    </div>
-                  </li>
-                  {pairingLine()}
-                </ul>
-              </section>
-              <section className={styles.groupBlock}>
-                <h2 className={styles.groupTitle}>
                   {t("settings.heading.remote-devices")}
                 </h2>
-                <RemoteDeviceRows
+                <MyDevices
                   source={source}
                   devices={devices}
                   reload={() => void loadDevices()}
+                />
+              </section>
+              <section className={styles.groupBlock}>
+                <h2 className={styles.groupTitle}>
+                  {t("settings.heading.remote-add")}
+                </h2>
+                <AddDevice
+                  source={source}
+                  devices={devices}
+                  reload={loadDevices}
                 />
               </section>
             </>
@@ -260,122 +156,4 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
       )}
     </div>
   );
-
-  function pairingLine() {
-    switch (pairing.state) {
-      case "idle":
-        return (
-          <li className={styles.line} data-remote-pairing="idle">
-            <div className={styles.lineMain}>
-              <span className={styles.lineHelp}>
-                {t("settings.note.remote-pair")}
-              </span>
-            </div>
-            <div className={styles.lineControl}>
-              <Button
-                icon={actionIcons.add}
-                data-remote-pair=""
-                onClick={() => void startPairing()}
-              >
-                {t("settings.button.remote-pair")}
-              </Button>
-            </div>
-          </li>
-        );
-      case "starting":
-        return (
-          <li className={styles.line} data-remote-pairing="starting">
-            <div className={styles.lineMain}>
-              <span className={styles.lineHelp}>
-                {t("settings.notice.remote-starting")}
-              </span>
-            </div>
-          </li>
-        );
-      case "failed":
-        return (
-          <li className={styles.line} data-remote-pairing="failed">
-            <div className={styles.lineMain}>
-              <p className={styles.rejected} role="alert">
-                {t("settings.error.remote-pair-failed")}
-              </p>
-            </div>
-            <div className={styles.lineControl}>
-              <Button
-                icon={actionIcons.retry}
-                onClick={() => void startPairing()}
-              >
-                {t("common.button.retry")}
-              </Button>
-            </div>
-          </li>
-        );
-      case "shown": {
-        const left = Date.parse(pairing.code.expiresAt) - now;
-        return (
-          <li className={styles.line} data-remote-pairing="shown">
-            <div className={styles.lineMain}>
-              {left > 0 ? (
-                <>
-                  <QrCode
-                    text={pairing.code.qr}
-                    label={t("settings.label.remote-qr")}
-                  />
-                  <span className={styles.lineName}>
-                    {t("settings.label.remote-expires", {
-                      time: remainingText(left),
-                    })}
-                  </span>
-                  <span className={styles.lineHelp}>
-                    {t("settings.note.remote-scan")}
-                  </span>
-                  {asText ? (
-                    <div className={remoteStyles.asText}>
-                      <code className={remoteStyles.text} data-remote-text="">
-                        {pairing.code.qr}
-                      </code>
-                      <CopyButton
-                        text={pairing.code.qr}
-                        label={t("common.button.copy")}
-                        clipboard={systemClipboard}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <Button
-                        size="sm"
-                        icon={modalityIcons.text}
-                        data-remote-show-text=""
-                        onClick={() => setAsText(true)}
-                      >
-                        {t("settings.button.remote-show-text")}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <span className={styles.notice} data-remote-expired="">
-                  {t("settings.notice.remote-expired")}
-                </span>
-              )}
-            </div>
-            <div className={styles.lineControl}>
-              <div className={styles.actions}>
-                <Button onClick={() => setPairing({ state: "idle" })}>
-                  {t("settings.button.cancel")}
-                </Button>
-                <Button
-                  icon={actionIcons.refresh}
-                  data-remote-new-code=""
-                  onClick={() => void startPairing()}
-                >
-                  {t("settings.button.remote-new-code")}
-                </Button>
-              </div>
-            </div>
-          </li>
-        );
-      }
-    }
-  }
 }

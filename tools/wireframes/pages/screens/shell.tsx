@@ -313,7 +313,7 @@ export const shellArea: Area = {
       id: "shell-machine-gate-removed",
       title: "Shell · Other machine · removed",
       description:
-        "그 기계가 이 desktop을 지운 창. 이 컴퓨터의 Settings › Remote에서 다시 pairing하라는 안내와 [This computer]만 있다.",
+        "명단에서 빠진 기계의 창. 이 컴퓨터의 Settings › Remote에서 다시 초대하라는 안내와 [This computer]만 있다.",
       render: () => (
         <ShellScene
           variant="empty"

@@ -1,5 +1,6 @@
-// The machines this desktop views (other machines' lophn it is paired with as a desktop device) and the start machine.
-// shell main holds the connections and the saved list; the renderer reads the whole list and gets it again on every change.
+// The other computers in the person's device list that this desktop can view, and the start machine. This computer's core
+// holds the connections (`machines/list`); shell main builds the list from it and the renderer reads the whole list and gets
+// it again on every change. Adding, removing and renaming devices is Settings › Remote calling `roster/*` on the core.
 import { z } from "zod";
 
 import { type Id, idSchema } from "../../protocol/base/ids.ts";
@@ -8,9 +9,6 @@ import type { CoreReply } from "./core-api.ts";
 export const MACHINES_LIST_CHANNEL = "shell:machines-list";
 // main → renderer push: the whole list.
 export const MACHINES_CHANGED_CHANNEL = "shell:machines-changed";
-export const MACHINES_PAIR_CHANNEL = "shell:machines-pair";
-export const MACHINES_REMOVE_CHANNEL = "shell:machines-remove";
-export const MACHINES_RENAME_CHANNEL = "shell:machines-rename";
 export const MACHINES_START_CHANNEL = "shell:machines-start";
 // Opens that machine's window or brings it to the front; this machine's id opens a window of this computer, and with a
 // session that window opens the session (the popover of a project that is on both machines).
@@ -44,40 +42,27 @@ export type MachineStart = z.infer<typeof machineStartSchema>;
 
 export const machineRowSchema = z.strictObject({
   id: machineIdSchema,
-  // Shown: the alias, else the announced name, else the address.
+  // The name in the device list, the same on every machine.
   name: z.string(),
-  announced: z.string().nullable(),
-  alias: z.string().nullable(),
   // `update`: the machine answers but the remote protocol versions do not meet; `update` says who must update (`client`:
   // lophn on this computer, `host`: lophn on that machine). Null in every other status.
-  status: z.enum(["connecting", "connected", "offline", "update", "removed"]),
+  status: z.enum(["connecting", "connected", "offline", "update"]),
   update: z.enum(["client", "host"]).nullable(),
   path: z.enum(["direct", "relay"]).nullable(),
   last_seen_at: z.string().nullable(),
 });
 export type MachineRow = z.infer<typeof machineRowSchema>;
 
-// `starting`: this machine's id is not known yet (core has not answered). `unreadable`: the saved files could not be read;
-// they are left as they are and viewing other machines is off.
+// `starting`: this machine's id or the core's machine list is not known yet. A window whose machine is not in a `ready`
+// list views a machine that left the device list.
 export const machineListSchema = z.strictObject({
-  state: z.enum(["starting", "ready", "unreadable"]),
+  state: z.enum(["starting", "ready"]),
   this: z.strictObject({ id: machineIdSchema, name: z.string() }).nullable(),
   machines: z.array(machineRowSchema),
   start: machineStartSchema,
   last: machineIdSchema.nullable(),
 });
 export type MachineList = z.infer<typeof machineListSchema>;
-
-export const machinesPairSchema = z.strictObject({
-  text: z.string().min(1).max(4096),
-});
-export const machinesRemoveSchema = z.strictObject({
-  machine: machineIdSchema,
-});
-export const machinesRenameSchema = z.strictObject({
-  machine: machineIdSchema,
-  alias: z.string().trim().min(1).max(64).nullable(),
-});
 
 export const machinesOpenSchema = z.strictObject({
   machine: machineIdSchema,
@@ -108,29 +93,11 @@ export type MachinesFailure = {
 };
 export type MachinesReply = { ok: true } | MachinesFailure;
 
-export type MachinePairReason =
-  | "invalid_text"
-  | "unreachable"
-  | "refused"
-  | "expired"
-  | "closed"
-  | "this_computer"
-  | "update_client"
-  | "update_host"
-  | "unavailable";
-export type MachinePairReply =
-  | { ok: true; machine: Id<"mch"> }
-  | { ok: false; reason: MachinePairReason };
-
 /** The shell preload's `lophnMachines`. */
 export interface LophnMachinesApi {
   /** Rejects with the error code when main refuses. */
   list(): Promise<MachineList>;
   onChanged(listener: (list: MachineList) => void): () => void;
-  pair(text: string): Promise<MachinePairReply>;
-  remove(machine: Id<"mch">): Promise<MachinesReply>;
-  /** null clears the alias and the machine's announced name shows again. */
-  rename(machine: Id<"mch">, alias: string | null): Promise<MachinesReply>;
   setStart(start: MachineStart): Promise<MachinesReply>;
   /**
    * Opens that machine's window or brings it to the front. This machine's id opens a window of this computer; with a session

@@ -1,5 +1,5 @@
 // The preload of a window that views another machine. It opens only what such a window may use: that machine's core
-// (main sends `lophnCore` over the machine's connection), the machine list, overlays, window buttons, shortcuts and links
+// (main sends `lophnCore` through this computer's core, `machines/call`), the machine list, overlays, window buttons, shortcuts and links
 // to the OS browser. Everything that needs this computer's shell host (terminal, files, browser, app views, secrets,
 // layout, …) has no bridge here, so the renderer takes its "no bridge" path; main refuses those channels too.
 import { contextBridge, ipcRenderer } from "electron";

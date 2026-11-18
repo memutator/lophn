@@ -1,6 +1,6 @@
 // Where each other machine's window was last: `<root>/shell/viewer/windows.json`, machine id → bounds and maximized. Kept
-// apart from `machines.json`: it is rewritten on every move, and the file holding the pairings should not be. A file that
-// cannot be read starts empty (the windows open where this computer's last window was).
+// apart from `start.json`: it is rewritten on every move. A file that cannot be read starts empty (the windows open where
+// this computer's last window was).
 import { join } from "node:path";
 import { z } from "zod";
 

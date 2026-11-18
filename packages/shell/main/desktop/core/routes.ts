@@ -7,27 +7,38 @@ import {
 import { ALL_ROUTES } from "../../../../protocol/mod.ts";
 import {
   devicesList,
-  devicesRename,
-  devicesRevoke,
   devicesSetPrimary,
-  devicesSetTerminalInput,
-  pairingStart,
+  machinesCall,
+  machinesList,
+  machinesWatch,
+  rosterInvite,
+  rosterJoin,
+  rosterList,
+  rosterRemove,
+  rosterRename,
+  rosterSetTerminalInput,
 } from "../../../../protocol/remote/routes.ts";
 import type { Route } from "../../../../protocol/base/mod.ts";
 
 // approvals와 remote의 route는 core 등록이 내므로 protocol 전체 목록(ALL_ROUTES)에 없다. 사람 화면이 부르는 것만 더한다:
-// turn request 결정, 에이전트 할당 읽기·바꾸기, 앱 공유 요청 읽기·결정, 폰 pairing과 기기 관리(Settings › Remote).
+// turn request 결정, 에이전트 할당 읽기·바꾸기, 앱 공유 요청 읽기·결정, 내 기기 명단과 기기 관리(Settings › Remote), 다른 기계의 창이
+// 쓰는 `machines/*`(shell main만 부른다).
 export const SHELL_ROUTES: readonly Route[] = [
   ...(ALL_ROUTES as readonly Route[]),
   turnRequestDecide as Route,
   ...(ASSIGNMENT_ROUTES as readonly Route[]),
   ...(SHARE_REQUEST_ROUTES as readonly Route[]),
-  pairingStart as Route,
   devicesList as Route,
-  devicesRename as Route,
-  devicesRevoke as Route,
   devicesSetPrimary as Route,
-  devicesSetTerminalInput as Route,
+  rosterList as Route,
+  rosterInvite as Route,
+  rosterJoin as Route,
+  rosterRemove as Route,
+  rosterSetTerminalInput as Route,
+  rosterRename as Route,
+  machinesList as Route,
+  machinesCall as Route,
+  machinesWatch as Route,
 ];
 
 const BY_NAME = new Map<string, Route>();

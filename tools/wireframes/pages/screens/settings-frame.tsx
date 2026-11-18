@@ -22,6 +22,7 @@ import {
 } from "../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
 import type {
   AlwaysOnView,
+  JoinOutcome,
   RemoteDevice,
 } from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
 import { fakeRemote } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
@@ -52,14 +53,16 @@ interface SettingsFrameProps {
     /** Logins 구역의 login. 안 쓰면 비어 있다. */
     readonly logins?: LoginRow[];
   };
-  /** Remote 항목. 안 쓰면 켜져 있고 폰 둘이 pairing되어 있다. */
+  /** Remote 항목. 안 쓰면 켜져 있고 명단에 이 컴퓨터, 컴퓨터 둘, 폰 둘이 있다. */
   readonly remote?: {
     readonly enabled?: boolean;
     readonly devices?: RemoteDevice[];
+    /** [Join with an invite]의 결과. 안 쓰면 초대한 컴퓨터에 닿아 끝난다. */
+    readonly join?: JoinOutcome;
     /** "Keep running"의 처음 상태에서 바꿀 칸. 안 쓰면 설치본에서 두 스위치가 꺼져 있다. */
     readonly alwaysOn?: Partial<AlwaysOnView>;
   };
-  /** Remote 항목의 "Computers you view". 안 쓰면 이 section이 없다(기계 보기를 쓰지 않는 창). */
+  /** 기계 보기(My devices의 컴퓨터 상태와 Open at start). 안 쓰면 없다(기계 보기를 쓰지 않는 창). */
   readonly machines?: FakeMachinesOptions;
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;

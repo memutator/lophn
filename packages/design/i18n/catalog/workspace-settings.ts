@@ -146,7 +146,6 @@ export const workspaceSettings = {
   "settings.button.computer-name-reset": "Use computer name",
   "settings.button.open-keep-running-settings": "Open settings",
   "settings.button.turn-on-again": "Turn on again",
-  "settings.button.device-name-reset": "Use the device's name",
   "settings.button.back-to": "Back to {workspace}",
   "settings.button.back-to-home": "Back to Home",
   "settings.button.add-rule": "Add rule",
@@ -171,10 +170,13 @@ export const workspaceSettings = {
   "settings.button.key-search-by-key": "Search by pressing keys",
   "settings.button.keys-reset-all": "Reset all shortcuts",
   "settings.button.remote-make-primary": "Make primary",
-  "settings.button.remote-new-code": "New code",
-  "settings.button.remote-pair": "Add phone or computer",
+  "settings.button.remote-invite-computer": "Invite a computer",
+  "settings.button.remote-invite-phone": "Invite a phone",
+  "settings.button.remote-join": "Join with an invite",
+  "settings.button.remote-join-send": "Join",
+  "settings.button.remote-new-invite": "New invite",
+  "settings.button.remote-remove": "Remove",
   "settings.button.remote-rename": "Rename",
-  "settings.button.remote-revoke": "Unpair",
   "settings.button.remote-show-text": "Show as text",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
@@ -217,12 +219,30 @@ export const workspaceSettings = {
     "lophn or your OS already uses this key for something else.",
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
   "settings.error.remote-device-failed":
-    "Could not change the phone. Try again.",
-  "settings.error.remote-devices-failed":
-    "Could not read paired phones and computers.",
+    "Could not change the device. Try again.",
+  "settings.error.remote-invite-failed": "Could not make an invite.",
+  "settings.error.remote-join-expired":
+    "This invite has expired. Make a new one on the other computer.",
+  "settings.error.remote-join-failed": "Could not join. Try again.",
+  "settings.error.remote-join-id-taken":
+    "Another device in that list already has this computer's id.",
+  "settings.error.remote-join-invalid-text":
+    "That is not an invite for a computer. Copy the whole text again with “Show as text” after “Invite a computer”.",
+  "settings.error.remote-join-key-taken":
+    "This computer's key is already in that list as another device.",
+  "settings.error.remote-join-removed":
+    "This computer was removed from that list, so it cannot join it again.",
+  "settings.error.remote-join-this-computer":
+    "This invite was made on this computer. Paste it on the other computer.",
+  "settings.error.remote-join-unavailable":
+    "Connections are still starting or are off. Try again in a moment.",
+  "settings.error.remote-join-untrusted":
+    "This invite does not check out. Copy the whole text again, or make a new one.",
+  "settings.error.remote-join-used":
+    "Another device already used this invite. Make a new one on the other computer.",
+  "settings.error.remote-devices-failed": "Could not read your devices.",
   "settings.error.remote-load-failed":
     "Could not read the phone connection setting.",
-  "settings.error.remote-pair-failed": "Could not make a pairing code.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
   "settings.error.value-not-saved":
@@ -251,8 +271,8 @@ export const workspaceSettings = {
   "settings.heading.quick-tray": "Tray",
   "settings.heading.this-computer": "This computer",
   "settings.heading.keep-running": "Keep running",
-  "settings.heading.remote-devices": "Devices",
-  "settings.heading.remote-pair": "Add a phone or computer",
+  "settings.heading.remote-devices": "My devices",
+  "settings.heading.remote-add": "Add a device",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-global": "Global",
@@ -271,7 +291,7 @@ export const workspaceSettings = {
   "settings.intro.quick-launch":
     "The buttons at the bottom of the left sidebar. Hover Terminal, Browser or App to open a favorite coding agent, a bookmark or an app panel directly. A project can keep its own buttons in Project settings.",
   "settings.intro.remote":
-    "Use lophn from your phone or from lophn on another computer. They connect to this computer over your local network or the relay.",
+    "Use lophn from your phone or from lophn on your other computers. Your devices form one list: a device you invite here joins every computer in it, and they connect over your local network or the relay.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -287,9 +307,9 @@ export const workspaceSettings = {
   "settings.label.computer-name": "Name",
   "settings.label.keep-awake": "Keep this computer awake",
   "settings.label.keep-running": "Keep lophn running on this computer",
-  "settings.label.device-announced-name": "Calls itself {name}",
-  "settings.label.device-kind-desktop": "Desktop",
   "settings.label.device-linux": "Linux",
+  "settings.label.device-kind-computer": "Computer",
+  "settings.label.device-kind-phone": "Phone",
   "settings.label.device-macos": "macOS",
   "settings.label.device-windows": "Windows",
   "settings.label.light-theme": "Light theme",
@@ -300,17 +320,23 @@ export const workspaceSettings = {
   "settings.label.open-themes-folder": "Open folder",
   "settings.label.remote-device-name": "Name",
   "settings.label.remote-enabled": "Allow phone and computer connections",
-  "settings.label.remote-expires": "Code expires in {time}",
+  "settings.label.remote-expires": "Expires in {time}",
+  "settings.label.remote-expires-later": "Expires {time}",
+  "settings.label.remote-invite-long":
+    "The new device can't be on at the same time as this computer",
+  "settings.label.remote-invite-terminal-input":
+    "Let the new device type in terminals",
+  "settings.label.remote-invite-text": "Invite",
   "settings.label.remote-last-connected": "Last connected {time}",
   "settings.label.remote-never-connected": "Never connected",
+  "settings.label.remote-pending": "Waiting",
   "settings.label.remote-primary": "Primary",
-  "settings.label.remote-qr": "Pairing code",
+  "settings.label.remote-qr": "Invite code",
   "settings.label.remote-relay-connected":
     "Reachable from anywhere through the relay",
   "settings.label.remote-relay-unreachable": "Can't reach the relay",
   "settings.label.remote-terminal-input": "Allow typing in terminals",
-  "settings.label.remote-pair-terminal-input":
-    "Let the new device type in terminals",
+  "settings.label.remote-this-computer": "This computer",
   "settings.label.tab-remote": "Remote",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
@@ -318,7 +344,7 @@ export const workspaceSettings = {
   "settings.note.computer-name-follows":
     "Follows this computer's name ({hostname})",
   "settings.note.computer-name-next-connect":
-    "A new name shows on paired devices from their next connection. A device that gave this computer its own name keeps showing that name.",
+    "Your other devices see the new name.",
   "settings.note.keep-awake":
     "Stops this computer from going to sleep on its own while lophn runs. Closing the lid or choosing Sleep still puts it to sleep.",
   "settings.note.keep-running":
@@ -345,28 +371,39 @@ export const workspaceSettings = {
   "settings.warning.login-still-registered":
     "lophn is still set to start at login.",
   "settings.note.remote-enabled":
-    "While on, lophn listens for paired phones and computers on every network interface and keeps running when idle.",
-  "settings.note.remote-pair":
-    "Show a code and scan it with the lophn phone app, or copy it as text into lophn on another computer.",
-  "settings.note.remote-revoke":
-    "{name} disconnects now. To use it again, pair it with a new code.",
-  "settings.note.remote-scan":
-    "Scan this code with the lophn phone app, or use Show as text and paste it into Settings › Remote in lophn on another computer. A new code replaces this one.",
-  "settings.note.remote-pair-terminal-input":
-    "On by default: the phone or computer you pair next can type into terminals on this computer and run commands as you. Changing this makes a new code. You can change it later for each device.",
+    "While on, lophn listens for your phones and computers on every network interface, connects to your other computers, and keeps running when idle.",
+  "settings.note.remote-add":
+    "Invite a phone or another computer. It joins every computer in your devices. To bring this computer into another computer's devices, join with an invite made there.",
+  "settings.note.remote-invite-computer":
+    "On the other computer, open Settings › Remote, press “Join with an invite” and paste the text. Or run lophn remote join there. A new invite replaces this one.",
+  "settings.note.remote-invite-long":
+    "The invite lasts 7 days instead of 30 minutes. Use it for the other system of a dual-boot computer, or for a home and a work computer.",
+  "settings.note.remote-invite-phone":
+    "Scan this code with the lophn phone app, or enter it there with “Show as text”. A new invite replaces this one.",
+  "settings.note.remote-invite-terminal-input":
+    "On by default: the new device can type into terminals on your computers and run commands as you. Changing this makes a new invite. You can change it later for each device.",
+  "settings.note.remote-join":
+    "On the other computer, open Settings › Remote, press “Invite a computer”, then “Show as text”. Copy the text and paste it here.",
+  "settings.note.remote-join-start":
+    "Bring this computer into the devices of another computer with an invite made there.",
+  "settings.note.remote-pending":
+    "The computer that invited it was off. It finishes when a device that knows that computer, such as your phone, connects.",
+  "settings.note.remote-remove":
+    "{name} is cut off on every computer in your devices and cannot join again with its current key. To add it back, invite it again: it joins as a new device.",
   "settings.note.remote-device-terminal-input":
-    "While on, anyone holding this device can type into terminals on this computer and run commands as you.",
-  "settings.note.remote-terminal-input":
-    "Off by default; while on, anyone holding this phone can type into coding agent terminals on this computer and run commands as you.",
+    "While on, anyone holding this device can type into terminals on your computers and run commands as you.",
   "settings.notice.computer-cloned":
-    "This lophn was copied from another computer, so it is now a new computer. Phones and computers paired with the other computer need to pair again here.",
-  "settings.notice.remote-devices-empty": "No phones or computers paired yet.",
-  "settings.notice.remote-expired":
-    "This code expired. Make a new code to pair a phone or computer.",
+    "This lophn was copied from another computer, so it is now a new computer. Invite it again from a computer in your devices.",
+  "settings.notice.remote-devices-empty": "No devices yet. Invite one below.",
+  "settings.notice.remote-device-joined": "{name} joined your devices.",
+  "settings.notice.remote-join-done":
+    "This computer joined the devices of the other computer.",
+  "settings.notice.remote-join-pending":
+    "This computer joined, but the inviting computer was not reached yet. It finishes when a device that knows that computer, such as your phone, connects to this one.",
+  "settings.notice.remote-expired": "This invite expired. Make a new one.",
   "settings.notice.remote-off":
-    "Turn on connections to pair a phone or computer and see what is paired.",
-  "settings.notice.remote-paired": "{name} is paired.",
-  "settings.notice.remote-starting": "Starting phone connections…",
+    "Turn on connections to see your devices and add one.",
+  "settings.notice.remote-starting": "Starting connections…",
   "settings.reason.theme-bad_id":
     "the file name can only use lowercase letters, digits, and -.",
   "settings.reason.theme-bad_shape":
@@ -792,6 +829,6 @@ export const workspaceSettings = {
     "This deletes the files {name} wrote on this computer. Files you put in its folder stay.",
   "settings.title.extension-remove": "Remove {name}?",
   "settings.title.not-set": "{name} is not set",
-  "settings.title.remote-revoke": "Unpair {name}?",
+  "settings.title.remote-remove": "Remove {name}?",
   "settings.title.screen": "Settings",
 } as const;

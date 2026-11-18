@@ -29,8 +29,6 @@ function viewOf(list: MachineList): MachinesView {
     machines: list.machines.map((row) => ({
       id: row.id,
       name: row.name,
-      announcedName: row.announced,
-      alias: row.alias,
       status: row.status,
       update: row.update,
       path: row.path,
@@ -100,7 +98,7 @@ export async function windowMachinesSource(): Promise<MachinesSource | null> {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    // 이름은 별명을 바꾸면 따라간다.
+    // 이름은 명단에서 바꾸면 따라간다.
     thisWindow: () =>
       win === null
         ? null
@@ -109,15 +107,6 @@ export async function windowMachinesSource(): Promise<MachinesSource | null> {
             name:
               view.machines.find((one) => one.id === win.id)?.name ?? win.name,
           },
-    async pair(text) {
-      try {
-        return await api.pair(text);
-      } catch {
-        return { ok: false, reason: "unavailable" };
-      }
-    },
-    remove: (machine) => result(api.remove(id(machine))),
-    rename: (machine, alias) => result(api.rename(id(machine), alias)),
     setStart: (start) =>
       result(
         api.setStart(

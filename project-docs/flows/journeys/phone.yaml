@@ -5,7 +5,7 @@ journeys:
     actor: person
     goal: "컴퓨터의 QR이나 글로 폰이 pairing해 Home에서 컴퓨터의 session 목록을 본다"
     steps:
-      - {do: "desktop Settings › Remote에서 QR과 \"Show as text\"를 연다. 새 폰 초대장(30분, 한 번)이 만들어진다", screen: settings-remote-pairing, flow: roster-invite:ok}
+      - {do: "desktop Settings › Remote에서 QR과 \"Show as text\"를 연다. 새 폰 초대장(30분, 한 번)이 만들어진다", screen: settings-remote-invite-phone, flow: roster-invite:ok}
       - {do: "폰의 Welcome에서 QR을 찍거나 글을 붙여 넣는다. 폰이 초대장의 비밀로 자기 항목에 서명해 join으로 내밀고 명단에 든다. 폰은 연결마다 hello로 자기 이름과 화면을, 컴퓨터는 자기 id와 이름을 알린다", screen: phone-start, flow: remote-join:joined}
       - {do: "폰이 컴퓨터가 알린 이름으로 Paired 화면을 보인다(Shown as를 채우면 그 별명). 사람이 확인한 뒤 Home으로 간다. 연결이 기기 자격으로 붙고 watch의 ready를 받는다", screen: phone-shell, flow: remote-connection:watch-ready}
       - {do: "desktop의 기기 목록에 그 폰이 자기가 알린 이름으로 보인다", screen: settings-remote, flow: devices-list:ok}
@@ -53,8 +53,8 @@ journeys:
     actor: person
     goal: "집 컴퓨터에 앉은 사람이 회사 컴퓨터의 lophn을 그 컴퓨터의 창으로 열어 대화하고 승인에 답하며, 그 컴퓨터가 꺼져도 창이 막히지 않는다"
     steps:
-      - {do: "다른 컴퓨터의 Settings › Remote에서 \"Add phone or computer\"를 누르고 \"Show as text\"의 글을 복사한다", screen: settings-remote-pairing, flow: roster-invite:ok}
-      - {do: "이 컴퓨터의 Settings › Remote \"Computers you view\"에서 [Add computer]에 글을 붙여 넣고 [Pair]를 누른다. 이 desktop이 kind desktop 기기로 등록된다", screen: settings-remote-viewed-add, flow: machines-pair:ok}
+      - {do: "다른 컴퓨터의 Settings › Remote에서 [Invite a computer]를 누르고 \"Show as text\"의 글을 복사한다", screen: settings-remote-invite-computer, flow: roster-invite:ok}
+      - {do: "이 컴퓨터의 Settings › Remote에서 [Join with an invite]에 글을 붙여 넣고 [Join]을 누른다. 이 컴퓨터가 그 명단에 들고 core끼리 붙는다", screen: settings-remote-join-pending, flow: roster-join:joined}
       - {do: "title bar의 기계 고르기를 열고 그 컴퓨터를 고른다", screen: shell-machine-menu, flow: machine-switcher:opened}
       - {do: "그 컴퓨터의 창이 \"<이름> — lophn\"으로 열리고 Home에 그 컴퓨터의 session 목록이 보인다. 터미널, 편집기, 앱 화면, 설정 단추는 없다", screen: shell-machine-window, flow: machine-window:shown}
       - {do: "그 창에서 대화를 열고 메시지를 보낸다", screen: shell-machine-window, flow: session-send:ok}

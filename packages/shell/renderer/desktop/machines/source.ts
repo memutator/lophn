@@ -10,15 +10,11 @@ export type MachineStatus =
   | "update"
   | "removed";
 
-/** 짝지은 기계 하나. */
+/** 명단의 다른 컴퓨터 하나. removed는 이 창의 기계가 명단에서 빠졌다(목록에는 없다). */
 export interface MachineItem {
   readonly id: string;
-  /** 보이는 이름: 별명이 있으면 별명, 없으면 그 기계가 알린 이름. */
+  /** 명단의 이름. 모든 기계에 같다. */
   readonly name: string;
-  /** 그 기계가 알린 이름. */
-  readonly announcedName: string | null;
-  /** 사람이 붙인 별명. 없으면 null이다. */
-  readonly alias: string | null;
   readonly status: MachineStatus;
   /** status가 update일 때 올려야 하는 쪽: client는 이 컴퓨터의 lophn, host는 그 기계의 lophn. 그 밖에는 null이다. */
   readonly update: "client" | "host" | null;
@@ -29,8 +25,8 @@ export interface MachineItem {
 }
 
 export interface MachinesView {
-  /** starting은 이 컴퓨터의 id를 아직 모른다. unreadable은 저장 file을 못 읽었다(덮지 않고 기계 보기를 끈다). */
-  readonly state: "starting" | "ready" | "unreadable";
+  /** starting은 이 컴퓨터의 id나 core의 기계 목록을 아직 모른다. */
+  readonly state: "starting" | "ready";
   readonly thisComputer: { readonly id: string; readonly name: string } | null;
   readonly machines: readonly MachineItem[];
   /** 시작 때 여는 기계. last는 연결된 채 focus를 받은 마지막 창의 기계다. */
@@ -39,22 +35,6 @@ export interface MachinesView {
     | { readonly mode: "machine"; readonly machine: string };
   readonly last: string | null;
 }
-
-export type PairOutcome =
-  | { readonly ok: true; readonly machine: string }
-  | {
-      readonly ok: false;
-      readonly reason:
-        | "invalid_text"
-        | "unreachable"
-        | "refused"
-        | "expired"
-        | "closed"
-        | "this_computer"
-        | "update_client"
-        | "update_host"
-        | "unavailable";
-    };
 
 /** The result of cloning another machine's project onto this computer. */
 export type CloneHereOutcome =
@@ -75,11 +55,6 @@ export interface MachinesSource {
   subscribe(listener: () => void): () => void;
   /** 이 창이 보는 기계. null이면 이 컴퓨터의 창이다. */
   thisWindow(): { readonly id: string; readonly name: string } | null;
-  /** 붙여 넣은 pairing text로 짝짓는다. */
-  pair(text: string): Promise<PairOutcome>;
-  remove(id: string): Promise<SourceResult<void>>;
-  /** 별명을 둔다. null이면 별명을 지워 알린 이름이 다시 보인다. */
-  rename(id: string, alias: string | null): Promise<SourceResult<void>>;
   setStart(start: MachinesView["start"]): Promise<SourceResult<void>>;
   /** 그 기계의 창을 열거나 앞으로 가져온다. 이 컴퓨터의 id면 이 컴퓨터의 창이고, session을 주면 그 창이 그 session을 연다. */
   open(id: string, session?: string): Promise<SourceResult<void>>;

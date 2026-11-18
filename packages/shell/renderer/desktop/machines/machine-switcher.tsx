@@ -1,5 +1,5 @@
-// title bar 왼쪽의 기계 고르기. 지금 창이 어느 기계를 보는지 이름으로 늘 보이고, 누르면 이 컴퓨터와 짝지은 기계의 목록이다.
-// 짝지은 기계가 없고 이 창이 이 컴퓨터면 그리지 않는다(한 대만 쓰는 사람의 화면은 그대로다).
+// title bar 왼쪽의 기계 고르기. 지금 창이 어느 기계를 보는지 이름으로 늘 보이고, 누르면 이 컴퓨터와 명단의 다른 컴퓨터 목록이다.
+// 다른 컴퓨터가 없고 이 창이 이 컴퓨터면 그리지 않는다(한 대만 쓰는 사람의 화면은 그대로다).
 import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
 import { Icon } from "@lophn/ui/primitives";
@@ -84,7 +84,7 @@ export function MachineSwitcher({
             data-machine-pair-another=""
             onClick={() => {
               setOpen(false);
-              // pairing은 이 컴퓨터 창의 Settings › Remote가 한다. 다른 기계의 창은 그 창을 앞으로 가져오기만 한다.
+              // 컴퓨터 초대는 이 컴퓨터 창의 Settings › Remote가 한다. 다른 기계의 창은 그 창을 앞으로 가져오기만 한다.
               if (win !== null && view.thisComputer !== null) {
                 void source.open(view.thisComputer.id);
               } else onPairAnother();

@@ -2622,10 +2622,10 @@ flows:
     docs: [architecture/remote.md, architecture/workspace-layout.md, architecture/settings.md]
 
   - id: machine-window-gate
-    title: "다른 기계의 창이 처음 붙기 전과 그 기계가 이 desktop을 지웠을 때 창 전체 gate를 보인다"
+    title: "다른 기계의 창이 처음 붙기 전과 그 기계가 명단에서 빠졌을 때 창 전체 gate를 보인다"
     actor: person
     entries: [ui:machine-window-gate]
-    when: "다른 기계의 창이 한 번도 ready가 아니었거나 그 기계의 status가 removed다"
+    when: "다른 기계의 창이 한 번도 ready가 아니었거나 그 기계가 기계 목록(ready)에 없다"
     boundary: [shell]
     code:
       - packages/shell/renderer/desktop/main.tsx
@@ -2634,9 +2634,9 @@ flows:
       - packages/shell/renderer/desktop/connection/connection.tsx
     steps:
       - "한 번도 ready가 아니면 HomeGate 자리에 기계 gate가 선다: connecting은 \"Connecting to <이름>…\", offline은 \"<이름> is offline\"과 마지막으로 본 때, update는 누가 올릴지(\"Update lophn on this computer…\" 또는 \"Update lophn on <이름>…\"), [Try again]·[This computer]. 기계 고르기와 Settings의 줄도 같은 status를 보인다"
-      - "[Try again]은 platform/status를 한 번 불러 main이 그 기계의 연결을 다시 붙이게 한다. [This computer]는 이 컴퓨터의 창을 열거나 앞으로 가져온다"
+      - "[Try again]은 platform/status를 한 번 불러 그 기계의 연결을 다시 확인한다(이 컴퓨터 core의 link는 저절로 다시 붙는다). [This computer]는 이 컴퓨터의 창을 열거나 앞으로 가져온다"
       - "한 번 ready가 된 뒤의 끊김은 마지막 화면을 그대로 두고 Home 위에 끊김 한 줄(ConnectionNotice)이다. 그 기계의 status가 update면 그 한 줄이 누가 올려야 하는지 말한다. 다시 붙으면 저절로 사라진다"
-      - "기계 목록의 status가 removed가 되면 언제든 지금 화면 대신 removed gate(\"<이름> removed this desktop…\"과 [This computer])다"
+      - "기계 목록이 ready인데 그 기계가 없으면(명단에서 빠졌다) 언제든 지금 화면 대신 removed gate(\"<이름> is not in your devices…\"와 [This computer])다"
     uses: [ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: connecting
@@ -2648,7 +2648,7 @@ flows:
         when: "그 기계와 remote protocol 판 범위가 겹치지 않는다(core-platform remote-connection:version-out-of-range). 창은 막히지 않는다"
         observe: ["screen:shell-machine-gate-offline"]
       - id: removed
-        when: "그 기계에서 이 desktop을 Unpair했다"
+        when: "그 기계가 명단에서 빠졌다(어느 컴퓨터에서 뺐거나, 이 컴퓨터가 빠져 명단을 버렸다)"
         observe: ["screen:shell-machine-gate-removed"]
       - id: disconnected
         when: "한 번 붙은 뒤 연결이 끊겼다"
@@ -2671,16 +2671,16 @@ flows:
       - packages/shell/renderer/shell/shell-frame.tsx
     steps:
       - "workspace 창, Settings, 시작 gate가 title bar 왼쪽에 이 창의 기계 이름을 보인다. 고르기가 서면 logo 옆 제품 이름 글자는 빠진다"
-      - "누르면 menu다: 맨 위 이 컴퓨터, 그 아래 짝지은 기계(보이는 이름, 상태와 길이나 마지막으로 본 때), 지금 창의 기계 표시, 맨 아래 \"Pair another computer…\""
+      - "누르면 menu다: 맨 위 이 컴퓨터, 그 아래 명단의 다른 컴퓨터(이름, 상태와 길이나 마지막으로 본 때), 지금 창의 기계 표시, 맨 아래 \"Add a computer…\""
       - "줄을 누르면 main이 그 기계의 창을 열거나 앞으로 가져온다(이 컴퓨터면 이 컴퓨터의 창)"
-      - "\"Pair another computer…\"는 이 컴퓨터의 창이면 그 창의 Settings › Remote로 가고, 다른 기계의 창이면 이 컴퓨터의 창을 앞으로 가져오기만 한다"
+      - "\"Add a computer…\"는 이 컴퓨터의 창이면 그 창의 Settings › Remote로 가고, 다른 기계의 창이면 이 컴퓨터의 창을 앞으로 가져오기만 한다"
     uses: [ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: opened
         observe: ["screen:shell-machine-menu"]
       - id: pair-another
-        when: "\"Pair another computer…\"를 눌렀다"
-        observe: ["screen:settings-remote-viewed-add"]
+        when: "\"Add a computer…\"를 눌렀다"
+        observe: ["screen:settings-remote"]
     crosses_process: true
     docs: [architecture/remote.md]
 

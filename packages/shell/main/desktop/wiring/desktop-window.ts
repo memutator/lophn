@@ -28,7 +28,7 @@ import {
   openWindow,
   type WindowConfig,
 } from "../window.ts";
-import { readStartMachine } from "../viewer/store.ts";
+import { startMachine } from "../viewer/start.ts";
 import { clampToWorkAreas } from "../work-area.ts";
 import { stateOf } from "../window-controls.ts";
 import type { WindowBounds } from "../../workspace/schema.ts";
@@ -146,11 +146,11 @@ export function openDesktop(ctx: ShellContext): void {
 }
 
 /**
- * 창이 없을 때 여는 창. 시작 기계는 core를 기다리지 않고 저장된 목록에서 고른다. 못 읽거나 이 컴퓨터면 이 컴퓨터의 창이다.
- * 나중에 표지가 달라 저장이 버려지면 그 기계의 창은 목록에서 빠져 닫히고 이 컴퓨터의 창이 열린다(machine-windows).
+ * 창이 없을 때 여는 창. 시작 기계는 core를 기다리지 않고 `viewer/start.json`에서 고른다. 못 읽거나, 다른 기계가 쓴 file이거나,
+ * 이 컴퓨터면 이 컴퓨터의 창이다. 그 기계가 명단에 없으면 그 창은 removed gate를 보인다(machine-windows).
  */
 function openStartWindow(ctx: ShellContext): void {
-  void readStartMachine(ctx.dataRoot).then((start) => {
+  void startMachine(ctx.dataRoot).then((start) => {
     if (start === null) openDesktopWindow(ctx);
     else ctx.machineWindows.open(start.machine, start.name);
   });

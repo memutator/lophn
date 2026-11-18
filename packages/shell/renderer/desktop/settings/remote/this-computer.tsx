@@ -1,4 +1,4 @@
-// Settings › Remote 맨 위의 "This computer". 폰과 다른 기기에 알리는 이 컴퓨터의 이름을 보고 바꾼다(비우면 hostname을
+// Settings › Remote 맨 위의 "This computer". 명단과 다른 기기에 보이는 이 컴퓨터의 이름을 보고 바꾼다(비우면 hostname을
 // 다시 따른다). 다른 컴퓨터에서 복사된 data root면 새 기계가 되었다는 사실을 알린다.
 import { t } from "@lophn/i18n";
 import { Input } from "@lophn/ui/input";
@@ -17,11 +17,17 @@ import type {
 
 interface ThisComputerProps {
   source: RemoteSettingsSource;
-  /** 복제 note는 기기가 하나도 없을 때만 보인다(하나 pairing하면 사라진다). */
+  /** 복제 note는 이 컴퓨터 밖의 기기가 하나도 없을 때만 보인다(하나 들이면 사라진다). */
   devices: readonly RemoteDevice[] | "failed" | null;
+  /** 이름을 바꿨다. 명단의 이 컴퓨터 항목도 그 이름을 따른다. */
+  onRenamed: () => void;
 }
 
-export function ThisComputer({ source, devices }: ThisComputerProps) {
+export function ThisComputer({
+  source,
+  devices,
+  onRenamed,
+}: ThisComputerProps) {
   const [machine, setMachine] = useState<RemoteMachine | null>(null);
   const [text, setText] = useState("");
   const [failed, setFailed] = useState(false);
@@ -42,6 +48,7 @@ export function ThisComputer({ source, devices }: ThisComputerProps) {
     if (!saved.ok) return;
     setMachine(saved.value);
     setText(saved.value.name);
+    onRenamed();
   }
 
   function commit(): void {
@@ -55,7 +62,7 @@ export function ThisComputer({ source, devices }: ThisComputerProps) {
     machine.clonedFrom !== null &&
     devices !== null &&
     devices !== "failed" &&
-    devices.length === 0;
+    devices.every((one) => one.thisComputer);
 
   return (
     <section

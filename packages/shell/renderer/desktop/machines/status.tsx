@@ -1,4 +1,4 @@
-// 기계의 상태를 색·아이콘·글로 보인다. 기계 고르기와 Settings의 Computers you view가 같은 글을 쓴다.
+// 기계의 상태를 색·아이콘·글로 보인다. 기계 고르기와 Settings › Remote의 My devices가 같은 글을 쓴다.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { StatusMark } from "@lophn/ui/feedback";
 

@@ -352,168 +352,38 @@ flows:
       - "core.ts 주석은 어떤 route를 받을지 main allowlist가 정한다고 하나, connection.ts에서 allowlist 검사를 찾지 못했다. 그 검사가 session call 쪽인지 확인할 것"
       - "schema 틀림이 invalid_input이 아니라 unavailable인 것은 코드가 그렇다. 의도인지 확인할 것"
 
-  # ---------- 이 컴퓨터가 보는 다른 기계 (shell main이 연결과 목록을 든다) ----------
+  # ---------- 이 컴퓨터가 보는 다른 기계 (이 컴퓨터 core가 연결을 들고 shell main이 목록을 짓는다) ----------
   - id: machines-list
-    title: "이 컴퓨터가 보는 기계 목록을 읽고, 바뀔 때마다 통째로 받는다"
+    title: "명단의 다른 컴퓨터 목록을 읽고, 바뀔 때마다 통째로 받는다"
     actor: person
     entries: [ipc:shell:machines-list, ipc:shell:machines-changed]
-    boundary: [shell, remote-client]
+    uses: [route:machine/status, route:machines/list]
+    boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/machines.ts
       - packages/shell/main/desktop/viewer/list.ts
-      - packages/shell/main/desktop/viewer/store.ts
-      - packages/shell/main/desktop/viewer/links.ts
+      - packages/shell/main/desktop/viewer/start.ts
       - packages/shell/ipc/machines.ts
       - packages/shell/preload/machines-api.ts
     steps:
-      - "core가 처음 붙으면 shell main이 machine/status로 이 기계의 id와 이름을 받는다. 그 전 목록은 state starting이다"
-      - "<data root>/shell/viewer/의 key.json·machines.json을 연다. 적힌 machine이 이 기계가 아니면 둘 다 지우고 새 key와 빈 목록으로 시작한다(복제된 data root). 못 읽으면 덮지 않고 state unreadable이다"
-      - "짝지은 기계마다 연결 하나를 열어 앱이 도는 동안 든다(꺼진 기계는 backoff로 다시 붙는다). 연결 상태가 status·path가 되고, 연결되거나 끊길 때 seen에 그때를 적는다. 판 범위가 겹치지 않으면 status update와 update(client: 이 컴퓨터, host: 그 기계)다"
-      - "목록(이 기계, 기계마다 보이는 이름·알린 이름·별명·status·path·last_seen_at, start, last)이 바뀌면 이 컴퓨터의 창과 다른 기계의 창에 shell:machines-changed로 통째로 민다"
+      - "core Gateway가 (다시) 붙을 때와 StateChanged{remote_devices}가 올 때마다 shell main이 읽는다. 읽기는 한 번에 하나이고 그 사이 바뀜은 한 번 더 읽는다"
+      - "처음에 machine/status로 이 기계의 id와 이름을 받고 <data root>/shell/viewer/start.json을 읽는다. 적힌 machine이 이 기계가 아니면(복사된 data root) 쓰지 않는다"
+      - "이 컴퓨터 core의 machines/list(명단의 다른 컴퓨터마다 이름, status, update, path, last_seen_at)로 목록을 짓는다. 둘을 다 받기 전 목록은 state starting이다"
+      - "목록(이 기계, 기계마다 이름·status·update·path·last_seen_at, start, last)이 바뀌면 이 컴퓨터의 창과 다른 기계의 창에 shell:machines-changed로 통째로 민다"
       - "shell:machines-list는 sender가 desktop 창 본문인지 보고(ipc-caller-guard) 지금 목록을 돌려준다"
     outcomes:
       - id: ok
-        when: "지금 목록을 돌려줬다. state가 starting(이 기계의 id를 아직 모름)이나 unreadable(저장 file을 못 읽음)이면 machines가 비어 있다"
+        when: "지금 목록을 돌려줬다. state가 starting이면 machines가 비어 있다"
         observe: [response]
       - id: pushed
-        when: "연결 상태, 알린 이름, 별명, start, last, seen이 바뀌어 목록이 달라졌다. 같은 목록이면 밀지 않는다"
-        observe: [screen:settings-remote-viewed]
+        when: "연결 상태, 이름, start, last가 바뀌어 목록이 달라졌다. 같은 목록이면 밀지 않는다"
+        observe: [screen:settings-remote]
       - id: forbidden
         code: forbidden
         when: "desktop 창 본문이 아닌 caller다"
         observe: [response]
     crosses_process: true
-    risk: [data-loss]
-
-  - id: machines-pair
-    title: "붙여 넣은 pairing text로 다른 기계에 kind desktop 기기로 pairing한다"
-    actor: person
-    entries: [ipc:shell:machines-pair]
-    uses: [machines-list:pushed]
-    boundary: [shell, remote-client, remote-protocol]
-    code:
-      - packages/shell/main/desktop/wiring/machines.ts
-      - packages/remote-client/pairing.ts
-      - packages/remote-client/computers.ts
-      - packages/shell/ipc/machines.ts
-    steps:
-      - "sender가 desktop 창 본문인지 보고 입력 { text(1..4096) }을 strict schema로 본다"
-      - "기계 목록이 아직 열리지 않았으면(이 기계의 id를 모름, 저장 file을 못 읽음) unavailable이다"
-      - "text를 pairing text로 읽는다. 못 읽으면 invalid_text다"
-      - "주소들과 relay를 같이 걸어 먼저 handshake를 마친 길을 쓴다. core hello의 machine id가 이 기계의 것이면 pair frame을 보내지 않고 닫는다"
-      - "pair frame { kind: desktop, os }와 code를 보낸다. hello name은 이 기계의 이름(machine/status)이다"
-      - "성공하면 같은 core key나 같은 machine id의 옛 항목을 새 항목으로 접고(별명은 남는다) machines.json에 쓰고 연결을 연다"
-    outcomes:
-      - id: ok
-        when: "그 기계의 기기 목록에 desktop 기기로 들었고 이 컴퓨터의 목록에 그 machine id로 들었다"
-        observe: [response, disk:<data root>/shell/viewer/machines.json]
-      - id: invalid-text
-        when: "pairing text JSON이 아니거나 모양이 틀렸다"
-        observe: [response]
-      - id: unreachable
-        when: "어느 주소나 relay로도 handshake를 마치지 못했다"
-        observe: [response]
-      - id: update
-        when: "그 기계가 답했지만 remote protocol 판 범위가 겹치지 않는다. reason update_client(이 컴퓨터의 lophn을 올려라)나 update_host(그 기계의 lophn을 올려라)다. pair frame은 가지 않았다"
-        observe: [response]
-      - id: this-computer
-        when: "core hello의 machine id가 이 기계의 것이다(자기 자신의 pairing text)"
-        observe: [response]
-      - id: expired
-        when: "core가 code를 not_found로 거절했다(지났거나 이미 쓴 code)"
-        observe: [response]
-      - id: refused
-        when: "core가 not_found 밖의 오류로 pair를 거절했다"
-        observe: [response]
-      - id: closed
-        when: "pair의 답이 오기 전에 연결이 닫혔다"
-        observe: [response]
-      - id: unavailable
-        when: "기계 목록이 아직 열리지 않았다(state starting이나 unreadable)"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "desktop 창 본문이 아닌 caller다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "입력이 strict schema에 맞지 않거나 text가 비었거나 4096자를 넘는다"
-        observe: [response]
-    crosses_process: true
-    risk: [permission, data-loss]
-    docs: [architecture/remote.md]
-
-  - id: machines-remove
-    title: "보는 기계 하나를 목록에서 지운다(연결돼 있으면 그 기계에서 이 기기를 먼저 unpair한다)"
-    actor: person
-    entries: [ipc:shell:machines-remove]
-    uses: [route:devices/unpair, machines-list:pushed]
-    boundary: [shell, remote-client]
-    code:
-      - packages/shell/main/desktop/wiring/machines.ts
-      - packages/shell/main/desktop/viewer/list.ts
-      - packages/remote-client/computers.ts
-    steps:
-      - "sender가 desktop 창 본문인지 보고 입력 { machine }을 strict schema로 본다"
-      - "목록이 열리지 않았으면 unavailable, 그 machine id가 목록에 없으면 not_found다"
-      - "연결돼 있으면 그 기계에 devices/unpair를 보낸 뒤 연결을 닫는다. 닿지 않으면 그 기계의 등록은 남고 목록에서만 뺀다"
-      - "start가 그 기계였으면 start를 last로, last가 그 기계였으면 last를 이 기계로 바꾸고 seen에서 뺀다"
-    outcomes:
-      - id: ok
-        when: "machines.json에서 그 기계가 빠졌다"
-        observe: [response, disk:<data root>/shell/viewer/machines.json]
-      - id: not_found
-        code: not_found
-        when: "그 machine id가 목록에 없다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "기계 목록이 아직 열리지 않았다(state starting이나 unreadable)"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "desktop 창 본문이 아닌 caller다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "입력이 strict schema에 맞지 않는다(mch_ id가 아니다)"
-        observe: [response]
-    crosses_process: true
-    risk: [data-loss]
-
-  - id: machines-rename
-    title: "보는 기계에 이 컴퓨터만의 별명을 두거나 지운다"
-    actor: person
-    entries: [ipc:shell:machines-rename]
-    uses: [machines-list:pushed]
-    boundary: [shell, remote-client]
-    code:
-      - packages/shell/main/desktop/wiring/machines.ts
-      - packages/remote-client/computers.ts
-    steps:
-      - "sender가 desktop 창 본문인지 보고 입력 { machine, alias: string(1..64, trim) | null }을 strict schema로 본다"
-      - "목록이 열리지 않았으면 unavailable, 그 machine id가 목록에 없으면 not_found다"
-      - "별명을 두거나(null이면 지워 알린 이름이 다시 보인다) machines.json에 쓴다"
-    outcomes:
-      - id: ok
-        observe: [response, disk:<data root>/shell/viewer/machines.json]
-      - id: not_found
-        code: not_found
-        when: "그 machine id가 목록에 없다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "기계 목록이 아직 열리지 않았다(state starting이나 unreadable)"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "desktop 창 본문이 아닌 caller다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "입력이 strict schema에 맞지 않거나 별명이 비었거나 64자를 넘는다"
-        observe: [response]
-    crosses_process: false
+    risk: []
 
   - id: machines-start
     title: "시작 때 여는 기계(마지막에 쓴 기계나 고른 기계)를 정한다"
@@ -523,17 +393,18 @@ flows:
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/machines.ts
+      - packages/shell/main/desktop/viewer/start.ts
       - packages/shell/main/desktop/viewer/list.ts
     steps:
       - "sender가 desktop 창 본문인지 보고 입력 { mode: last } | { mode: machine, machine }을 strict schema로 본다"
       - "목록이 열리지 않았으면 unavailable이다. machine이 목록에도 없고 이 기계도 아니면 invalid_input이다"
-      - "start를 machines.json에 쓴다. 시작 기계는 고른 기계가 목록에 있고 removed가 아니면 그것, 아니면 last가 그러면 그것, 아니면 이 기계다"
+      - "start를 start.json(0600, temp에 쓰고 rename)에 쓴다. 이 컴퓨터의 창이 roster/remove로 뺀 기계면 start는 last로, last는 이 기계로 돌아간다"
     outcomes:
       - id: ok
-        observe: [response, disk:<data root>/shell/viewer/machines.json]
+        observe: [response, disk:<data root>/shell/viewer/start.json]
       - id: unavailable
         code: unavailable
-        when: "기계 목록이 아직 열리지 않았다(state starting이나 unreadable)"
+        when: "기계 목록이 아직 열리지 않았다(state starting)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -545,13 +416,13 @@ flows:
         observe: [response]
     crosses_process: false
 
-  # ---------- 다른 기계의 창 (기계마다 창 하나, main이 연결을 든다) ----------
+  # ---------- 다른 기계의 창 (기계마다 창 하나, 이 컴퓨터 core의 machines/*로 그 기계에 닿는다) ----------
   - id: machine-window-ipc
-    title: "다른 기계의 창이 보낸 IPC를 고른다: core 통로는 그 기계의 연결로, 정한 몇 channel만 이 컴퓨터로, 나머지는 거절"
+    title: "다른 기계의 창이 보낸 IPC를 고른다: core 통로는 이 컴퓨터 core의 machines/*로 그 기계에, 정한 몇 channel만 이 컴퓨터로, 나머지는 거절"
     actor: system
     entries: [system:machine-window-ipc]
-    uses: [ipc:shell:core-call, ipc:shell:core-watch, ipc:shell:core-state-get]
-    boundary: [shell, remote-client]
+    uses: [ipc:shell:core-call, ipc:shell:core-watch, ipc:shell:core-state-get, route:machines/call, route:machines/watch]
+    boundary: [shell]
     code:
       - packages/shell/main/desktop/viewer/machine-route.ts
       - packages/shell/main/desktop/wiring/context.ts
@@ -559,19 +430,23 @@ flows:
       - packages/shell/preload/remote.ts
     steps:
       - "모든 ctx.ipc.handle·on과 core 연결의 shell:core-* handler가 영역의 listener 앞에서 보낸 webContents id로 기계를 찾는다. main이 다른 기계의 창을 열 때 묶은 표이고 renderer가 기계를 주장하지 못한다. 묶이지 않은 sender(이 컴퓨터의 창, overlay)는 지금 handler로 간다"
-      - "shell:core-call은 그 기계의 연결로 { resource, method, body }를 보낸다(kind는 core가 route 표로 안다). upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
-      - "연결이 아직 없거나 ready가 아니면 unavailable이고 그 연결에 resume()을 걸어 backoff를 기다리지 않고 다시 붙는다(창의 다시 시도가 이 길이다)"
-      - "shell:core-watch는 조건을 창마다 남기고 그 연결의 watch로 건다(연결이 나중에 오면 그때 건다). shell:core-state-get은 그 연결의 지금 상태(starting|ready|stale, confirmedAt)다"
+      - "shell:core-call은 이 컴퓨터 core의 machines/call { machine, resource, method, body }로 보낸다(그 기계가 kind를 route 표로 안다). 답은 그 기계의 value나 오류 그대로다. upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
+      - "shell:core-watch는 machines/watch { machine, conditions }로 그 기계의 Gateway 조건을 통째로 바꾼다. shell main은 기계마다 마지막 조건을 들고 이 컴퓨터 Gateway가 다시 붙으면 다시 건다. 그 기계의 frame은 이 컴퓨터 bus의 MachineFrameReceived로 와서 그 기계의 창에만 shell:core-event로 간다(이 컴퓨터의 창에는 가지 않는다)"
+      - "shell:core-state-get은 machines/list의 그 기계 status로 지은 상태다(connecting → starting, connected → ready, offline·update·목록에 없음 → stale. confirmedAt은 last_seen_at)"
       - "machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다"
       - "그 밖에 지나는 channel은 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external뿐이다. overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
       - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
     outcomes:
       - id: to-machine
-        when: "다른 기계의 창이 보낸 core 통로가 그 기계의 연결로 갔다. 이 컴퓨터의 core는 불리지 않는다"
+        when: "다른 기계의 창이 보낸 core 통로가 machines/call·watch로 그 기계에 갔다. 이 컴퓨터의 core에서 그 기계의 route가 불리지 않는다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "그 기계와의 연결이 아직 없거나 ready가 아니다(기계 목록이 열리기 전, 꺼진 기계, 이 desktop을 지운 기계)"
+        when: "machines/call이 그 기계와의 link가 없다고 답했다(꺼진 기계, 거절된 link, 이 컴퓨터 core가 아직 없다)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 기계가 명단에 없다(machines/call의 답 그대로)"
         observe: [response]
       - id: invalid_input
         code: invalid_input

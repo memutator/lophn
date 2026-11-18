@@ -1,4 +1,4 @@
-// 다른 기계 창의 Settings 자리. 그 기계의 설정은 그 기계에서 바꾸고, 짝지은 기계의 관리는 이 컴퓨터 창의 Settings › Remote가 한다.
+// 다른 기계 창의 Settings 자리. 그 기계의 설정은 그 기계에서 바꾸고, 내 기기 명단의 관리는 이 컴퓨터 창의 Settings › Remote가 한다.
 import { t } from "@lophn/i18n";
 import { Button } from "@lophn/ui/primitives";
 

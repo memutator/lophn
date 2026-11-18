@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -41,6 +48,7 @@ import {
   REMOTE_COMMANDS,
   remoteWiring,
   signingKeyStep,
+  viewerRosterStep,
 } from "./remote.ts";
 
 const PERSON: AuthenticatedContext = {
@@ -481,4 +489,83 @@ test("초대한 컴퓨터가 roster/join을 거절하면(used) 명단에 아무�
     booted.statements.map((each) => each.body.key),
     [booted.self?.key],
   );
+});
+
+// shell main이 들던 옛 기기 key와 기계 목록은 core가 명단으로 붙으며 쓸모가 없다. 창 자리와 시작 기계까지 지우면 사람이 고른 것을 잃는다.
+test("data step은 창 자리와 시작 기계를 남기고 옛 viewer key와 기계 목록 file만 지운다. 복사된 data root의 목록은 옮기지 않는다", async () => {
+  const self = `mch_0${"1".repeat(25)}`;
+  const other = `mch_0${"3".repeat(25)}`;
+  const at = "2026-11-16T00:00:00.000Z";
+  function rootWith(stamp: string) {
+    const root = mkdtempSync(join(tmpdir(), "lophn-viewer-step-"));
+    writeFileSync(
+      join(root, "machine.json"),
+      JSON.stringify({
+        id: self,
+        name: null,
+        binding: null,
+        created_at: at,
+        cloned_from: null,
+        cloned_at: null,
+      }),
+    );
+    const dir = join(root, "shell", "viewer");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "key.json"),
+      JSON.stringify({ machine: stamp, secret_key: "k" }),
+    );
+    writeFileSync(
+      join(dir, "machines.json"),
+      JSON.stringify({
+        machine: stamp,
+        computers: [
+          {
+            addresses: ["192.168.0.31"],
+            port: 7432,
+            key: "k",
+            machine: other,
+            name: "Home server",
+            announced: "Mac mini",
+          },
+        ],
+        start: { mode: "machine", machine: other },
+        last: other,
+        seen: { [other]: at },
+      }),
+    );
+    writeFileSync(join(dir, "windows.json"), '{"places":"kept"}');
+    return { root, dir };
+  }
+
+  const { root, dir } = rootWith(self);
+  // 끊겨 다시 돌아도 같은 결과다.
+  for (let run = 0; run < 2; run += 1) {
+    assert.ok((await viewerRosterStep.run(root)).ok);
+    assert.equal(existsSync(join(dir, "key.json")), false);
+    assert.equal(existsSync(join(dir, "machines.json")), false);
+    assert.equal(
+      readFileSync(join(dir, "windows.json"), "utf8"),
+      '{"places":"kept"}',
+    );
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(dir, "start.json"), "utf8")),
+      {
+        machine: self,
+        start: { mode: "machine", machine: other },
+        last: other,
+        last_name: "Home server",
+      },
+    );
+  }
+  if (process.platform !== "win32") {
+    assert.equal(statSync(join(dir, "start.json")).mode & 0o777, 0o600);
+  }
+
+  const copied = rootWith(`mch_0${"2".repeat(25)}`);
+  assert.ok((await viewerRosterStep.run(copied.root)).ok);
+  assert.equal(existsSync(join(copied.dir, "key.json")), false);
+  assert.equal(existsSync(join(copied.dir, "machines.json")), false);
+  assert.equal(existsSync(join(copied.dir, "start.json")), false);
+  assert.equal(existsSync(join(copied.dir, "windows.json")), true);
 });

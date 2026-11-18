@@ -41,7 +41,7 @@ export function useMachinesView(): MachinesView | null {
 
 /**
  * 이 창이 보는 다른 기계. null이면 이 컴퓨터의 창이다. 다른 기계의 창은 이 값으로 그 기계에서 부를 수 없는 기능을 감추고
- * 그 자리에 기계 이름을 보인다. 목록에 아직 없으면(starting) 붙는 중으로 본다.
+ * 그 자리에 기계 이름을 보인다. 목록을 아직 모르면(starting) 붙는 중이고, 아는 목록에 없으면 명단에서 빠진 것(removed)이다.
  */
 export function useWindowMachine(): MachineItem | null {
   const source = useMachines();
@@ -52,9 +52,7 @@ export function useWindowMachine(): MachineItem | null {
     view?.machines.find((one) => one.id === win.id) ?? {
       id: win.id,
       name: win.name,
-      announcedName: null,
-      alias: null,
-      status: "connecting",
+      status: view?.state === "ready" ? "removed" : "connecting",
       update: null,
       path: null,
       lastSeenAt: null,

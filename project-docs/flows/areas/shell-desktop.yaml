@@ -311,29 +311,29 @@ flows:
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/desktop-window.ts
-      - packages/shell/main/desktop/viewer/store.ts
+      - packages/shell/main/desktop/viewer/start.ts
       - packages/shell/main/desktop/wiring/context.ts
       - packages/shell/main/desktop/wiring/desktop.ts
     steps:
       - "앱 시작, tray Open·Home, 두 번째 실행, macOS activate가 창(어느 기계든)이 하나도 없을 때 이 길로 온다. agent 창(openInactive), intent, 알림, surface는 이 컴퓨터의 창만 본다"
-      - "<data root>/shell/viewer/machines.json의 start·last만 읽는다. 고른 기계(start machine)가 목록에 있고 removed가 아니면 그것, 아니면 last가 그러면 그것이다. key와 machine 표지는 보지 않는다(core가 아직 없다)"
-      - "못 읽거나 고를 기계가 없거나 이 컴퓨터면 이 컴퓨터의 창을 연다. 기계면 저장된 보이는 이름으로 그 기계의 창을 연다(꺼진 기계여도 창을 바로 연다)"
-      - "나중에 core가 답해 저장이 다른 기계의 것으로 버려지면 그 창은 목록에서 빠져 닫히고 이 컴퓨터의 창이 열린다(machine-window-close)"
+      - "<data root>/shell/viewer/start.json(machine 표지, start, last, last_name)을 읽는다. 고른 기계(start machine)가 있으면 그것, 아니면 last다. core가 아직 없어 명단은 보지 않는다"
+      - "못 읽거나 고를 기계가 없거나 그 기계가 표지(이 file을 쓴 기계)와 같으면 이 컴퓨터의 창을 연다. 다른 기계면 last_name(last일 때)을 제목으로 그 기계의 창을 연다(꺼진 기계여도 창을 바로 연다)"
+      - "그 기계가 명단에 없으면 목록이 선 뒤 그 창은 removed gate다(machine-window-open)"
     outcomes:
       - id: machine
         when: "시작 기계가 다른 기계라 그 기계의 창을 열었다"
         observe: ["process:<이름> — lophn 창 하나가 생긴다"]
       - id: this-computer
-        when: "machines.json이 없거나 못 읽거나, 시작 기계가 이 컴퓨터이거나 목록에 없다. 이 컴퓨터의 창을 열었다"
+        when: "start.json이 없거나 못 읽거나, 고를 기계가 없거나, 시작 기계가 이 컴퓨터(표지와 같은 기계)다. 이 컴퓨터의 창을 열었다"
         observe: ["process:desktop 창 하나가 생긴다"]
     crosses_process: false
     docs: [architecture/remote.md]
 
   - id: machine-window-open
-    title: "다른 기계의 창을 연다(기계마다 하나, remote preload, 그 기계의 연결 상태와 event만 받는다)"
+    title: "다른 기계의 창을 연다(기계마다 하나, remote preload, 그 기계의 link 상태와 frame만 받는다)"
     actor: person
-    uses: [ipc:shell:machines-open, ipc:shell:core-state, ipc:shell:core-event, ipc:shell:machines-changed]
-    boundary: [shell, remote-client]
+    uses: [ipc:shell:machines-open, ipc:shell:core-state, ipc:shell:core-event, ipc:shell:machines-changed, route:machines/call]
+    boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/machine-windows.ts
       - packages/shell/main/desktop/wiring/desktop-window.ts
@@ -345,11 +345,11 @@ flows:
     steps:
       - "그 기계의 창이 이미 있으면 앞으로 가져온다. 기계마다 창은 하나다"
       - "없으면 preload-remote.cjs로 이 컴퓨터 창과 같은 lophn-shell://desktop 주소를 연다. 기계는 주소가 아니라 main의 표(machine-route)가 정한다. 제목은 '<보이는 이름> — lophn', 자리는 그 기계의 창이 마지막으로 있던 자리(shell data `shell/viewer/windows.json`, 기계 id마다 bounds와 최대화. 없거나 못 읽으면 이 컴퓨터의 마지막 창 자리)이고 옮길 때마다 저장한다"
-      - "navigation guard, overlay, 창 단추 상태, appearance CSS는 이 컴퓨터의 창과 같다. windows·detached·appWindows에 넣지 않고 windowHooks.created(core 상태 push, 편집기 guard 등)를 부르지 않는다. topWindows에는 든다"
-      - "remote preload는 lophnCore, lophnMachines, lophnShell(overlay와 openExternal), lophnShortcuts, lophnIntents, lophnWindow, lophnNotice(visible만 shell:machines-visible로, toast·reveal 없음)만 연다. overlay view에는 lophnShell만 연다"
-      - "그 기계의 연결 상태(starting|ready|stale)와 event(ready·event·closed)를 그 창에만 shell:core-state·core-event로 민다. 기계 목록이 열리기 전이면 starting이고 연결이 생기면 그때 붙는다(다시 pairing해 연결이 바뀌어도 따라간다). 목록이 바뀌면 shell:machines-changed도 민다"
-      - "보이는 이름(별명 ?? 알린 이름)이 바뀌면 창 제목을 고친다"
-      - "창이 focus를 받을 때 그 기계의 연결이 ready면 그 기계가 '마지막에 쓴 기계'가 된다. 이 컴퓨터의 창이 focus를 받으면 이 컴퓨터다"
+      - "navigation guard, overlay, 창 단추 상태, appearance CSS는 이 컴퓨터의 창과 같다. windows·detached·appWindows에 넣지 않고 windowHooks.created(core 상태 push, 편집기 guard 등)를 부르지 않는다. topWindows에는 든다. remote preload는 lophnCore, lophnMachines, lophnShell(overlay와 openExternal), lophnShortcuts, lophnIntents, lophnWindow, lophnNotice(visible만 shell:machines-visible로, toast·reveal 없음)만 연다. overlay view에는 lophnShell만 연다"
+      - "목록이 바뀔 때마다 그 기계의 link 상태(machines/list의 status: connecting → starting, connected → ready, offline·update·목록에 없음 → stale)가 달라졌으면 그 창에만 shell:core-state로 민다. ready가 되면 그 기계에 presence를 보낸다(machines/call presence/report). 목록은 shell:machines-changed로도 민다"
+      - "이 컴퓨터 bus의 MachineFrameReceived(그 기계의 Gateway frame ready·event·closed)를 그 기계의 창에만 shell:core-event로 민다"
+      - "명단의 이름이 바뀌면 창 제목을 고친다. 그 기계가 명단에서 빠져도 창은 닫지 않고 removed gate를 보인다(renderer가 ready 목록에 없는 기계를 removed로 본다)"
+      - "창이 focus를 받을 때 그 기계의 link가 ready면 그 기계가 '마지막에 쓴 기계'가 된다(start.json의 last·last_name). 이 컴퓨터의 창이 focus를 받으면 이 컴퓨터다"
     outcomes:
       - id: opened
         when: "그 기계의 창이 새로 열렸다"
@@ -362,25 +362,20 @@ flows:
     docs: [architecture/remote.md]
 
   - id: machine-window-close
-    title: "다른 기계의 창이 닫힌다(사람이 닫거나, 그 기계가 목록에서 빠졌다)"
+    title: "다른 기계의 창이 닫힌다"
     actor: system
     entries: [system:machine-window-close]
-    uses: [desktop-window-open:opened]
-    boundary: [shell, remote-client]
+    boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/machine-windows.ts
       - packages/shell/main/desktop/viewer/machine-route.ts
     steps:
-      - "기계 목록이 열린 뒤(starting이 아님) 그 기계가 목록에 없으면 창을 닫는다(이 컴퓨터에서 지움, 다른 기계의 것으로 버려진 저장). 이 desktop을 지운 기계는 removed로 남고 창은 그 gate를 보인다"
-      - "그렇게 닫은 창 뒤에 창이 하나도 남지 않으면 이 컴퓨터의 창을 연다"
-      - "닫힌 창은 표에서 빠지고, 그 기계에 presence focused false를 한 번 보내고, 그 연결의 watch를 비운다. 연결은 앱이 도는 동안 남는다"
+      - "사람이 창을 닫는다. 명단에서 빠진 기계의 창도 닫지 않는다(removed gate)"
+      - "닫힌 창은 표에서 빠지고, 그 기계에 presence focused false를 한 번 보내고, machines/watch를 빈 조건으로 보내 그 기계의 Gateway 조건을 끈다. 이 컴퓨터 core의 link는 남는다"
     outcomes:
       - id: closed
-        when: "창이 닫혔고 다른 창이 남아 있다"
+        when: "창이 닫혔다"
         observe: ["process:창 하나가 사라진다"]
-      - id: replaced
-        when: "목록에서 빠진 기계의 창이 마지막 창이라 이 컴퓨터의 창이 대신 열렸다"
-        observe: ["process:desktop 창 하나가 생긴다"]
     crosses_process: true
 
   # ---------- shell 기본 session 정책 ----------

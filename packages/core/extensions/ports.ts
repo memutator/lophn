@@ -15,12 +15,13 @@ export type ExtensionHost = {
   remove(id: string): Promise<Result<void>>;
   // `ext.<id>.<name>` command.
   run(command: string): Promise<Result<void>>;
-  // 켜진 extension이 `ctx.tools.handle`로 둔 handler를 부른다. caller는 부른 agent session과 그 자리다. 없으면 not_found다.
+  // 켜진 extension이 `ctx.tools.handle`로 둔 handler를 부른다. caller는 부른 agent session과 그 자리이고, credential은 그 호출에만
+  // 빌려 준 agent 자격이다(handler의 `core`가 이것으로 부른다). 없으면 not_found다.
   callTool(
     extension: string,
     tool: string,
     input: unknown,
-    caller: Omit<ExtensionToolCall, "core">,
+    caller: Omit<ExtensionToolCall, "core"> & { credential: string },
   ): Promise<Result<ExtensionToolContent[]>>;
   // 판이 맞는 manifest의 tool 전부(켜진 것과 꺼진 것). 켜진 것만 고르는 것은 부르는 쪽이 설정으로 한다.
   catalog(): readonly PublishedExtension[];

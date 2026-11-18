@@ -91,6 +91,20 @@ const OTHER_MACHINE = {
   },
 } as const;
 
+const NOT_ALLOWED = {
+  ok: false,
+  error: { code: "forbidden", message: "sender is not a desktop window" },
+} as const;
+
+// The same answer this computer's core channel gives before its core is ready; the renderer retries it.
+const SELF_UNKNOWN = {
+  ok: false,
+  error: {
+    code: "unavailable",
+    message: "this computer's id is not known yet",
+  },
+} as const;
+
 const INVALID = {
   ok: false,
   error: { code: "invalid_input", message: "not a core call" },
@@ -107,20 +121,25 @@ const NOT_A_MACHINE_WINDOW = {
 type Binding = { machine: Id<"mch">; link: MachineLink };
 
 export type MachineRoute = {
-  // How to reach a named machine and which id is this computer (null until known). wiring/machines gives it.
+  // How to reach a named machine and which id is this computer (null until known; `selfKnown` settles when it is).
+  // wiring/machines gives it.
   attach(machines: {
     link(machine: Id<"mch">): MachineLink;
     self(): Id<"mch"> | null;
+    selfKnown: Promise<void>;
   }): void;
   bind(contentsId: number, machine: Id<"mch">, link: MachineLink): void;
   unbind(contentsId: number): void;
   machineOf(contentsId: number): Id<"mch"> | null;
   // An `ipcMain.handle` call: this computer's handler (`local`) for a window of this computer, else the rule above.
+  // `allowed` is the sender check (a live registered desktop main frame); a call or watch is refused before any link
+  // gets it when the sender fails it.
   handle(
     channel: string,
     contentsId: number,
     input: unknown,
     local: () => unknown,
+    allowed: () => boolean,
   ): unknown;
   // An `ipcMain.on` message: whether this computer's listener hears it.
   passes(channel: string, contentsId: number): boolean;
@@ -177,21 +196,36 @@ export function createMachineRoute(): MachineRoute {
       bound.delete(contentsId);
     },
     machineOf: (contentsId) => bound.get(contentsId)?.machine ?? null,
-    handle(channel, contentsId, input, local) {
+    handle(channel, contentsId, input, local, allowed) {
       const binding = bound.get(contentsId);
+      // Until this computer's id is known a named machine may be this computer: a call is answered unavailable and a
+      // watch waits for the id (this computer's core channel likewise holds a watch until its core is ready).
+      const selfUnknown = (machine: string | undefined) =>
+        binding === undefined &&
+        machine !== undefined &&
+        machines!.self() === null;
       if (channel === CORE_CALL_CHANNEL) {
         const parsed = coreCallSchema.safeParse(input);
         if (!parsed.success) return binding === undefined ? local() : INVALID;
+        if (selfUnknown(parsed.data.machine)) return SELF_UNKNOWN;
         const link = target(binding, parsed.data.machine as Id<"mch">);
         if (link === undefined) return local();
-        return link === null ? OTHER_MACHINE : call(link, parsed.data);
+        if (link === null) return OTHER_MACHINE;
+        return allowed() ? call(link, parsed.data) : NOT_ALLOWED;
       }
       if (channel === CORE_WATCH_CHANNEL) {
         const parsed = coreWatchSchema.safeParse(input);
         if (!parsed.success) return binding === undefined ? local() : undefined;
-        const link = target(binding, parsed.data.machine as Id<"mch">);
-        if (link === undefined) return local();
-        if (link !== null) link.watch(contentsId, parsed.data.conditions);
+        const watch = () => {
+          const link = target(binding, parsed.data.machine as Id<"mch">);
+          if (link === undefined) return void local();
+          if (link !== null && allowed()) {
+            link.watch(contentsId, parsed.data.conditions);
+          }
+        };
+        if (selfUnknown(parsed.data.machine)) {
+          void machines!.selfKnown.then(watch);
+        } else watch();
         return undefined;
       }
       if (binding === undefined) {

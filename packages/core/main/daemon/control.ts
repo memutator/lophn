@@ -204,7 +204,12 @@ export async function createCoreControl(
     has: (capability) =>
       attached !== undefined && attached.capabilities.has(capability),
     end: (capability) => attached?.capabilities.end(capability),
-    onEnd: (listener) => attached?.capabilities.onEnd(listener) ?? (() => {}),
+    onEnd(listener) {
+      if (attached === undefined) {
+        throw new Error("core control이 아직 ready가 아니다");
+      }
+      return attached.capabilities.onEnd(listener);
+    },
   };
 
   const deps: ControlDeps = {

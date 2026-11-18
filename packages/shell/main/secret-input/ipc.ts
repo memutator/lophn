@@ -205,9 +205,11 @@ export function registerSecretInputIpc(
                 request: { mode: request.mode, label: request.label },
               };
       } else {
+        // 창에 보이는 기계는 값이 정말 다른 기계로 갈 때의 이름뿐이다(아래). 열기 요청의 id를 그대로 보이지 않는다.
+        const { machine: _, ...named } = parsed.data;
         display = {
-          ...parsed.data,
-          configured: await isConfigured(core, parsed.data.name),
+          ...named,
+          configured: await isConfigured(core, named.name),
         };
       }
       if (target.machine !== undefined) {

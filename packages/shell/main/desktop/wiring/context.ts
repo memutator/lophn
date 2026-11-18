@@ -22,6 +22,7 @@ import {
   createMachineRoute,
   type MachineRoute,
 } from "../viewer/machine-route.ts";
+import { checkCaller, type IpcEvent } from "../ipc-guard.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
 import { appIconPath, type InstalledTray } from "../tray.ts";
 import {
@@ -181,11 +182,19 @@ export function createShellContext(): ShellContext {
   const appWindows = new Set<BrowserWindow>();
   const topWindows = new Set<BrowserWindow>();
   const machineRoute = createMachineRoute();
-  // 모든 IPC가 영역의 listener 앞에서 보낸 창의 기계를 본다. 다른 기계의 창이면 machine-route의 규칙을 탄다.
+  const registry = overlays.overlayRegistry();
+  // 모든 IPC가 영역의 listener 앞에서 보낸 창의 기계를 본다. 다른 기계로 가는 core 통로와 다른 기계의 창은 machine-route의 규칙을 탄다.
   const handle: Ipc["handle"] = (channel, listener) =>
     ipcMain.handle(channel, (event, ...args: unknown[]) =>
-      machineRoute.handle(channel, event.sender.id, args[0], () =>
-        (listener as (...all: unknown[]) => unknown)(event, ...args),
+      machineRoute.handle(
+        channel,
+        event.sender.id,
+        args[0],
+        () => (listener as (...all: unknown[]) => unknown)(event, ...args),
+        () => {
+          const caller = checkCaller(registry, event as unknown as IpcEvent);
+          return caller.ok && caller.value.origin.host === "desktop";
+        },
       ),
     );
   const log = (message: string) => console.log(`[lophn] ${message}`);

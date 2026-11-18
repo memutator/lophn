@@ -359,7 +359,7 @@ flows:
       - packages/shell/preload/core-api.ts
       - packages/shell/preload/remote.ts
     steps:
-      - "모든 ctx.ipc.handle·on과 core 연결의 shell:core-* handler가 영역의 listener 앞에서 보낸 webContents id로 묶인 기계를 찾는다. main이 다른 기계의 창을 열 때 묶은 표이고 renderer가 묶기를 주장하지 못한다. shell:core-call·core-watch는 입력의 machine(mch_<ULID>, optional)으로 고른다. 묶이지 않은 창(이 컴퓨터의 창, overlay)은 machine이 없거나 이 컴퓨터의 id면 이 컴퓨터 core(core-call-relay, gateway-stream)로만, 다른 기계면 그 기계로만 간다. 다른 기계에 묶인 창은 machine이 없거나 묶인 기계일 때만 그 기계로 가고, 다른 기계(이 컴퓨터 포함)를 실으면 아무 데도 가지 않고 forbidden이다"
+      - "모든 ctx.ipc.handle·on과 core 연결의 shell:core-* handler가 영역의 listener 앞에서 보낸 webContents id로 묶인 기계를 찾는다. main이 다른 기계의 창을 열 때 묶은 표이고 renderer가 묶기를 주장하지 못한다. shell:core-call·core-watch는 입력의 machine(mch_<ULID>, optional)으로 고른다. 묶이지 않은 창(이 컴퓨터의 창, overlay)은 machine이 없거나 이 컴퓨터의 id면 이 컴퓨터 core(core-call-relay, gateway-stream)로만, 다른 기계면 그 기계로만 간다. 다른 기계에 묶인 창은 machine이 없거나 묶인 기계일 때만 그 기계로 가고, 다른 기계(이 컴퓨터 포함)를 실으면 아무 데도 가지 않고 forbidden이다. 기계로 가기 전에 보낸 창이 등록된 desktop 창 본문인지 본다(아니면 forbidden). 이 컴퓨터의 id를 아직 모르면 machine을 실은 core-call은 unavailable이고 core-watch는 id를 안 뒤에 고른다"
       - "그 기계로 가는 shell:core-call은 이 컴퓨터 core의 machines/call { machine, resource, method, body }로 보낸다(그 기계가 kind를 route 표로 안다). 답은 그 기계의 value나 오류 그대로다. upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
       - "그 기계로 가는 shell:core-watch는 (보낸 창, 기계)마다의 조건이다. machines/watch { machine, watcher: w<webContents id>, conditions }로 그 창의 조건만 통째로 바꾸고(빈 배열은 그 창을 뺀다) core가 구독자들의 합을 그 기계에 건다(core-machines-watch). shell main 안의 구독자도 자기 이름을 watcher로 같은 길을 쓴다. shell main은 기계마다 구독자별 마지막 조건을 들고 이 컴퓨터 Gateway가 다시 붙으면 모두 다시 걸고, 창이 닫히면 그 창의 것을 뺀다"
       - "그 기계의 frame은 이 컴퓨터 bus의 MachineFrameReceived로 와서 machine을 달고 shell:core-event로 그 기계를 보는 창(그 기계에 조건을 든 창)에만 간다. watcher가 한 창인 ready는 그 창에만, 그 밖의 ready와 event·closed는 그 기계를 보는 모든 창에 간다. machine 없는 message는 이 컴퓨터 core의 것이다"
@@ -376,7 +376,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "machines/call이 그 기계와의 link가 없다고 답했다(꺼진 기계, 거절된 link, 이 컴퓨터 core가 아직 없다)"
+        when: "machines/call이 그 기계와의 link가 없다고 답했다(꺼진 기계, 거절된 link, 이 컴퓨터 core가 아직 없다). 또는 shell main이 이 컴퓨터의 id를 아직 모른다"
         observe: [response]
       - id: not_found
         code: not_found

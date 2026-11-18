@@ -44,6 +44,7 @@ test("a core call naming machine A reaches only A's link; one without a machine 
   route.attach({
     link: (machine) => readyLink(sent.get(machine)!),
     self: () => SELF,
+    selfKnown: Promise.resolve(),
   });
   route.bind(REMOTE_WINDOW, OTHER, readyLink(sent.get(OTHER)!));
   const local: unknown[] = [];
@@ -73,6 +74,7 @@ test("a core call naming machine A reaches only A's link; one without a machine 
       LOCAL_WINDOW,
       { ...call, machine: HOST },
       here(call),
+      () => true,
     );
     assert.deepEqual(reply, { ok: true, value: { from: "host" } });
   }
@@ -89,6 +91,7 @@ test("a core call naming machine A reaches only A's link; one without a machine 
       LOCAL_WINDOW,
       call,
       here(call),
+      () => true,
     );
     assert.deepEqual(reply, { ok: true, value: { from: "this computer" } });
   }
@@ -101,6 +104,7 @@ test("a core call naming machine A reaches only A's link; one without a machine 
       REMOTE_WINDOW,
       { ...writes[2]!, machine },
       here(machine),
+      () => true,
     )) as { ok: boolean; error?: { code: string } };
     assert.equal(reply.error?.code, "forbidden", machine);
   }
@@ -130,6 +134,7 @@ test("a window of another machine reaches only that machine's core; this compute
     REMOTE_WINDOW,
     call,
     handler(CORE_CALL_CHANNEL),
+    () => true,
   );
   assert.deepEqual(remote, { ok: true, value: { from: "host" } });
   assert.deepEqual(sent, [{ resource: "sessions", method: "list", body: {} }]);
@@ -144,6 +149,7 @@ test("a window of another machine reaches only that machine's core; this compute
       REMOTE_WINDOW,
       {},
       handler(channel),
+      () => true,
     )) as { ok: boolean; error?: { code: string } };
     assert.equal(reply.ok, false, channel);
     assert.equal(reply.error?.code, "forbidden", channel);
@@ -156,6 +162,7 @@ test("a window of another machine reaches only that machine's core; this compute
     LOCAL_WINDOW,
     call,
     handler(CORE_CALL_CHANNEL),
+    () => true,
   );
   assert.deepEqual(own, { ok: true, value: { from: "this computer" } });
   assert.deepEqual(local, [CORE_CALL_CHANNEL]);
@@ -255,6 +262,7 @@ test("only a window of another machine reaches this computer's core, and only fo
         ran = true;
         return { ok: true, value: "this computer" };
       },
+      () => true,
     )) as { ok: boolean; error?: { code: string } };
     const label = `${each.channel} ${JSON.stringify(each.input)} from ${each.window}`;
     assert.equal(ran, each.passes, label);

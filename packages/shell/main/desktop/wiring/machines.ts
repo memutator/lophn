@@ -90,6 +90,10 @@ export function register(ctx: ShellContext): Machines & Registered {
   const watching = new Map<Id<"mch">, Map<string, Conditions>>();
   const store = createStartStore(ctx.dataRoot, ctx.log);
   let self: { id: Id<"mch">; name: string } | null = null;
+  let knowSelf = () => {};
+  const selfKnown = new Promise<void>((resolve) => {
+    knowSelf = resolve;
+  });
   let rows: LinkedMachine[] = [];
   let listed = false;
   let saved: Saved = { start: { mode: "last" }, last: null, last_name: null };
@@ -131,6 +135,7 @@ export function register(ctx: ShellContext): Machines & Registered {
       if (!status.ok) return;
       const machine = status.value as MachineStatus;
       self = { id: machine.id as Id<"mch">, name: machine.name };
+      knowSelf();
       const file = await readStart(ctx.dataRoot);
       // A file another machine wrote (a copied data root) is not this machine's start.
       if (file !== null && file.machine === self.id) {
@@ -170,8 +175,18 @@ export function register(ctx: ShellContext): Machines & Registered {
       });
   }
 
-  const send = (machine: Id<"mch">, watcher: string, conditions: Conditions) =>
-    void ctx.core.machineCall("watch", { machine, watcher, conditions });
+  // One watch at a time: each is its own request, and core must apply a subscriber's changes in the order they were made
+  // (a later one overtaken by an earlier one leaves the old conditions in core).
+  let sending: Promise<unknown> = Promise.resolve();
+  const send = (
+    machine: Id<"mch">,
+    watcher: string,
+    conditions: Conditions,
+  ) => {
+    const run = () =>
+      ctx.core.machineCall("watch", { machine, watcher, conditions });
+    sending = sending.then(run, run);
+  };
 
   function watch(machine: Id<"mch">, watcher: string, conditions: Conditions) {
     const owners = watching.get(machine) ?? new Map<string, Conditions>();
@@ -295,7 +310,11 @@ export function register(ctx: ShellContext): Machines & Registered {
         current.machines.find((row) => row.id === machine),
       ),
   });
-  ctx.machineRoute.attach({ link, self: () => self?.id ?? null });
+  ctx.machineRoute.attach({
+    link,
+    self: () => self?.id ?? null,
+    selfKnown,
+  });
 
   const machines: Machines & Registered = {
     list: () => current,

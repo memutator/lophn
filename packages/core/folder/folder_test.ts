@@ -35,7 +35,7 @@ import {
   rosterFilePath,
   rosterFileSchema,
   signManifest,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 import {
   appRecordPath,
   appRecordSchema,

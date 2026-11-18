@@ -18,7 +18,7 @@
   - review `reports/multi-device/review-device-roster.md` F1·F3·F13
   - 본보기: 자기 하위 폴더에 쓰기와 이름 검사(`fs.ts`), 기록 file 쓰기(`export/record.ts`), 쓴 file의 sha256(`folder_written`, `export/stream.ts`), compaction과 release 지우기(`export/compact.ts`, `apps/releases.ts`의 `pruneReleases`), 읽기 scan과 계기(`wiring/folder.ts`)
 - 계약:
-  - 쓰는 것: `packages/protocol/folder/carry.ts` 전부, `ctx.peek.rosterCarry`·`manifestSign`·`computerSigningKey`·`eventArrived`, 표 `folder_events_seen`
+  - 쓰는 것: `packages/protocol/remote/carry.ts` 전부, `ctx.peek.rosterCarry`·`manifestSign`·`computerSigningKey`·`eventArrived`, 표 `folder_events_seen`
   - 내놓는 것: `ctx.folderReplica`, `ctx.crossEvents`의 구현, route `carry/manifests|wants|file|put`의 handler. carry-settings가 읽을 `FolderReplica`의 기계마다 상태(받아 들인 revision, 때, 길)
 
 시작 전에 다시 볼 것: `fix-roster`의 `ROSTER_UNKNOWN_MAX`가 `roster.receive`의 keep에 걸렸는지(`packages/protocol/remote/roster.ts`) 본다. 없으면 멈추고 lead에게 알린다: 폴더에 쓸 수 있는 누구나 명단을 상한까지 채울 수 있다(F3). `fix-setup`이 `wiring/remote.ts`의 `machines/*`를 바꿨어도 이 task는 그 file을 고치지 않는다.
@@ -68,7 +68,7 @@
 
 ## (lead가 더함)
 
-`carry-contract`가 review를 거치며 계약이 바뀌었다. 아래가 위 글보다 앞선다. 계약의 글은 `project-docs/architecture/folder-sync.md`의 "내 컴퓨터들"과 `packages/protocol/folder/carry.ts`다.
+`carry-contract`가 review를 거치며 계약이 바뀌었다. 아래가 위 글보다 앞선다. 계약의 글은 `project-docs/architecture/folder-sync.md`의 "내 컴퓨터들"과 `packages/protocol/remote/carry.ts`다.
 
 - 기계마다의 지금 목록: 든 `manifest.json`이 목록이지만 받아들일지는 ledger 표 `folder_carry_marks`(origin, 서명 key마다 가장 높은 revision)가 정한다. 받기 전에 mark를 읽고, 받으면 쓰고, 지우지 않는다. key는 `verifyManifest(...).signingKey`다.
 - 자기 manifest가 되돌아오면(연결, 폰, 같이 보는 폴더) 저장하지 않는다. 검증되고 자기 mark보다 높으면 자기 mark만 올린다. 다음 revision은 `nextManifestRevision(max(자기 file의 revision, 자기 mark), now)`다.

@@ -19,7 +19,7 @@ import {
   carryFile,
   carryManifests,
   manifestPath,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 import {
   BACKOFF_FIRST_MS,
   BACKOFF_MAX_MS,

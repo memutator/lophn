@@ -9,7 +9,7 @@ import {
   type EventFile,
   eventsDir,
   readEventFile,
-} from "../../../protocol/folder/carry.ts";
+} from "../../../protocol/remote/carry.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { DestinationsView } from "../destinations.ts";
 import { createFolderReader } from "../fs.ts";

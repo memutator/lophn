@@ -17,7 +17,7 @@ import {
   EVENT_FILE_MAX_BYTES,
   eventFilePath,
   eventFileSchema,
-} from "../../../protocol/folder/carry.ts";
+} from "../../../protocol/remote/carry.ts";
 import { encodeRecord } from "../../../protocol/folder/records.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import type { DestinationsView } from "../destinations.ts";

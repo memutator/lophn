@@ -103,7 +103,7 @@ import {
   COMPUTERS_DESTINATION,
   COMPUTERS_DIR,
   SHARED_FOLDER_KEY,
-} from "../../../../protocol/folder/carry.ts";
+} from "../../../../protocol/remote/carry.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 import { lanAddresses } from "./remote.ts";

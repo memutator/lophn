@@ -25,7 +25,7 @@ import {
   carryWants,
   MANIFEST_MAX_BYTES,
   manifestPathMachine,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 import { CARRY_STAGING_KEEP_MS } from "../../protocol/folder/limits.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {

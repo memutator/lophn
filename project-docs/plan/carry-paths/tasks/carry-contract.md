@@ -5,7 +5,7 @@
 - 단위: carry (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
-  - `packages/protocol/folder/carry.ts`(새 file), `packages/protocol/folder/carry_test.ts`(새 file)
+  - `packages/protocol/remote/carry.ts`(새 file), `packages/protocol/remote/carry_test.ts`(새 file)
   - `packages/protocol/apps/events.ts`(`data.changed` 이름과 payload만)
   - `packages/protocol/events/changes.ts`(`CHANGE_NAMES`에 한 이름)
   - `packages/protocol/remote/frames.ts`(판 두 줄만)
@@ -36,7 +36,7 @@
 - `body = {format: 1, machine, revision, written_at, files: [{path, size, sha256}]}`. path는 destination 기준이고 모두 `machines/<machine>/`로 시작한다. 싣는 것: `record.json`, `roster.json`, `apps/<app>/app.json`, `apps/<app>/data/<n>.*`, `apps/<app>/source/<n>.json`, `apps/<app>/releases/<hash>/release.json`, `apps/<app>/events/<id>.json`. 싣지 않고 "덮인" file: release의 `files/<path>`(그 `release.json`의 `files[]`가 크기와 sha256을 싣는다), `source/<n>.bundle`(그 `<n>.json`이 싣는다).
 - `revision`은 `max(지난 revision + 1, 지금 ms)`다(ledger 없이 늘기만 한다. 지난 것은 자기 manifest file에서 읽는다).
 - 서명 bytes: `utf8(MANIFEST_SIGN_CONTEXT + "\n" + canonicalize(body))`, `MANIFEST_SIGN_CONTEXT = "lophn-folder-manifest/1"`, 그 기계의 명단 서명 key(Ed25519, `remote/signing-key.json`), 글자는 `remoteKeyText`.
-- 순수 함수(`packages/protocol/folder/carry.ts`, 폰도 읽으니 Node 내장 없이): `signManifest(body, secretKey)`, `verifyManifest(text, signingKeyOf)` → 믿는 `body | null`(signingKeyOf(machine)는 받는 기계의 명단 view에서 `machine`이 그 값인 컴퓨터 항목의 `signing_key`, 없으면 null), `newerManifest(held, incoming)`(revision이 엄격히 클 때만), `expectedFile(body, path, heldBytes)` → `{size, sha256} | null`(목록에 있거나, 받은 쪽이 이미 든 맞는 `release.json`·`source/<n>.json`이 덮는 path).
+- 순수 함수(`packages/protocol/remote/carry.ts`, 폰도 읽으니 Node 내장 없이): `signManifest(body, secretKey)`, `verifyManifest(text, signingKeyOf)` → 믿는 `body | null`(signingKeyOf(machine)는 받는 기계의 명단 view에서 `machine`이 그 값인 컴퓨터 항목의 `signing_key`, 없으면 null), `newerManifest(held, incoming)`(revision이 엄격히 클 때만), `expectedFile(body, path, heldBytes)` → `{size, sha256} | null`(목록에 있거나, 받은 쪽이 이미 든 맞는 `release.json`·`source/<n>.json`이 덮는 path).
 
 **받는 쪽 규칙**(carry-folder가 한 자리에서 지킨다. 길과 상관없다):
 - 자기 기계(`machine`이 이 기계)의 manifest와 file은 받지 않는다. 자기 하위 폴더는 export만 쓴다(남의 writer 검사가 그대로 맞는다).
@@ -46,7 +46,7 @@
 - 새 manifest에 없게 된 그 기계의 file(compaction, 지운 release)은 지운다. 명단 view에서 빠진 컴퓨터의 하위 폴더는 통째로 지운다(이미 적용한 data는 남는다).
 - `roster.json`은 manifest가 없어도 받아 명단에 넘긴다(아직 믿지 못하는 컴퓨터의 들어오기 statement가 이 길로 온다. 명단 규칙이 스스로 거른다). 하위 폴더에 두는 것은 manifest에 있을 때만이다.
 
-**route**(`packages/protocol/folder/carry.ts`, 모두 actors user, 기기 route 목록에 든다. 등록과 handler는 carry-folder):
+**route**(`packages/protocol/remote/carry.ts`, 모두 actors user, 기기 route 목록에 든다. 등록과 handler는 carry-folder):
 - `carry/manifests`(read): `{}` → `{manifests: [{machine, revision, text}]}`. 이 기계 것과 든 다른 기계 것.
 - `carry/wants`(read): `{limit?: ≤1000}` → `{files: [{machine, path, size, sha256}]}`. 믿는 manifest가 싣거나 덮는데 아직 없는 file.
 - `carry/file`(file): `{machine, path, offset, length ≤ CARRY_CHUNK_MAX_BYTES(8 MiB)}` → bytes. 들고 있고 믿는 manifest가 싣는 file만, 아니면 `not_found`.
@@ -75,7 +75,7 @@
 
 ## 할 일
 
-1. `packages/protocol/folder/carry.ts`: 위 상수, schema(manifest, 명단 file, event file, route 넷), path 함수, 순수 함수 넷. route 배열 `CARRY_ROUTES`는 만들되 등록하지 않는다(handler를 다는 carry-folder가 보고한다).
+1. `packages/protocol/remote/carry.ts`: 위 상수, schema(manifest, 명단 file, event file, route 넷), path 함수, 순수 함수 넷. route 배열 `CARRY_ROUTES`는 만들되 등록하지 않는다(handler를 다는 carry-folder가 보고한다).
 2. `packages/protocol/apps/events.ts`에 `data.changed`, `changes.ts`에 `carry_files`, `frames.ts` 판.
 3. `packages/core/folder/ports.ts`에 `FolderReplica`와 event port type. `schema.ts`·`events/schema.ts`에 step 하나씩.
 4. `wiring/context.ts`의 Late 칸 여섯과 그 표. `wiring/remote.ts`에 `rosterCarry`(`roster.snapshot`·`receive`), `manifestSign`(`keys.signing`), `computerSigningKey`(`roster.view()`) provide.

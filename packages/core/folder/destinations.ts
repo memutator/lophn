@@ -28,7 +28,7 @@ import {
   COMPUTERS_DESTINATION,
   COMPUTERS_DIR,
   SHARED_FOLDER_KEY,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 
 export const DESTINATIONS_KEY = "folder.destinations";
 

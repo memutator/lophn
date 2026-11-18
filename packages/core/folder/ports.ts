@@ -2,7 +2,7 @@
 import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { JsonValue } from "../../protocol/base/json-values.ts";
-import type { CarryPutStatus, CarryVia } from "../../protocol/folder/carry.ts";
+import type { CarryPutStatus, CarryVia } from "../../protocol/remote/carry.ts";
 
 /** 받은 변경 하나. operation과 시작 시각은 주인 기계의 invocation 것이다. */
 export type FolderChange = {

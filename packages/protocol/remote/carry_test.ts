@@ -4,14 +4,14 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { seededRandom } from "../../base/mod.ts";
 import type { Id } from "../base/ids.ts";
-import { generateKeyPair, remoteKeyText } from "../remote/noise.ts";
+import { generateKeyPair, remoteKeyText } from "./noise.ts";
 import {
   generateSigningKey,
   type RosterEntryBody,
   type RosterStatement,
   rosterView,
   signRoster,
-} from "../remote/roster.ts";
+} from "./roster.ts";
 import {
   appFilesPath,
   appFilesSchema,
@@ -35,12 +35,12 @@ import {
   releaseFilePath,
   releaseRecordPath,
   sourcePath,
-} from "./layout.ts";
+} from "../folder/layout.ts";
 import {
   encodeRecord,
   releaseRecordSchema,
   sourceMetaSchema,
-} from "./records.ts";
+} from "../folder/records.ts";
 
 const random = seededRandom(11);
 const AT = "2026-11-18T00:00:00.000Z";

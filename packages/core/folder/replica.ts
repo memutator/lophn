@@ -45,7 +45,7 @@ import {
   newerManifest,
   parseCarryPath,
   verifyManifest,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 import {
   isMachineDirName,
   MACHINES_DIR,

@@ -27,6 +27,7 @@ import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
 import { MACHINE_ROUTES } from "./machine/mod.ts";
 import { ALWAYS_ON_ROUTES } from "./always-on/mod.ts";
 import { FOLDER_ROUTES } from "./folder/mod.ts";
+import { CARRY_ROUTES } from "./remote/carry.ts";
 import { EXTENSION_ROUTES } from "./extensions/routes.ts";
 import { PAGE_VIEW_ROUTES } from "./lophn-agent/page-view.ts";
 
@@ -59,6 +60,7 @@ export const ROUTES = [
   ...MACHINE_ROUTES,
   ...ALWAYS_ON_ROUTES,
   ...FOLDER_ROUTES,
+  ...CARRY_ROUTES,
   ...EXTENSION_ROUTES,
 ] as const;
 

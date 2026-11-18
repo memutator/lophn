@@ -11,7 +11,7 @@ import {
   ROSTER_FILE_MAX_BYTES,
   rosterFilePath,
   rosterFileSchema,
-} from "../../../protocol/folder/carry.ts";
+} from "../../../protocol/remote/carry.ts";
 import { CARRY_UNKNOWN_ROSTER_FILES_MAX } from "../../../protocol/folder/limits.ts";
 import { decodeRecord } from "../../../protocol/folder/records.ts";
 import {

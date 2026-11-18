@@ -23,7 +23,7 @@ import {
 } from "../../../protocol/apps/events.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { JsonValue } from "../../../protocol/base/json-values.ts";
-import { CROSS_EVENT_MAX_AGE_MS } from "../../../protocol/folder/carry.ts";
+import { CROSS_EVENT_MAX_AGE_MS } from "../../../protocol/remote/carry.ts";
 import { CLOCK_AHEAD_MAX_MS } from "../../../protocol/folder/limits.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";

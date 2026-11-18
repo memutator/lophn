@@ -91,7 +91,7 @@ import type {
   EventArrived,
   FolderReplica,
 } from "../../../folder/ports.ts";
-import type { ManifestBody } from "../../../../protocol/folder/carry.ts";
+import type { ManifestBody } from "../../../../protocol/remote/carry.ts";
 import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";

@@ -4,7 +4,7 @@
 // 못하게). 명단의 터미널 허락(`terminal_input`)으로 묻지 않는 길은 두지 않았다: 컴퓨터가 자기 항목에 그 허락을 스스로
 // 서명할 수 있고, 받은 항목에 컴퓨터마다 저절로 같이 서명하므로 명단 view로는 "이 컴퓨터의 사람이 허락했다"를 가를 수 없다.
 import type { Id } from "../../../protocol/base/ids.ts";
-import { COMPUTERS_DESTINATION } from "../../../protocol/folder/carry.ts";
+import { COMPUTERS_DESTINATION } from "../../../protocol/remote/carry.ts";
 
 /** 그 release를 활성 release로 싣는 다른 기계의 앱 기록(출처와 읽은 destination). */
 export type ReleaseOffer = { machine: Id<"mch">; destination: string };

@@ -22,7 +22,7 @@ import {
   nextManifestRevision,
   ROSTER_FILE_MAX_BYTES,
   rosterFilePath,
-} from "../../../protocol/folder/carry.ts";
+} from "../../../protocol/remote/carry.ts";
 import {
   decodeRecord,
   encodeRecord,

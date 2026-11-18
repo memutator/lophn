@@ -2771,7 +2771,7 @@ flows:
     actor: system
     entries: [route:carry/manifests, route:carry/wants]
     boundary: [folder]
-    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/folder/carry.ts]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
     docs: [architecture/folder-sync.md]
     steps:
       - "dispatch가 actors(user, 기기 연결의 컴퓨터와 폰)를 본다"
@@ -2795,7 +2795,7 @@ flows:
     actor: system
     entries: [route:carry/file]
     boundary: [folder]
-    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/folder/carry.ts]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
     docs: [architecture/folder-sync.md]
     steps:
       - "dispatch가 actors(user)와 입력(path가 그 machine의 옮기는 file이거나 manifest, length 8 MiB까지)을 본다"
@@ -2823,7 +2823,7 @@ flows:
     actor: system
     entries: [route:carry/put]
     boundary: [folder]
-    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/folder/carry.ts]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
     docs: [architecture/folder-sync.md]
     steps:
       - "dispatch가 actors(user)와 입력(조각 8 MiB까지)을 본다"

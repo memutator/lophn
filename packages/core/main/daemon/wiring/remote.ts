@@ -53,7 +53,7 @@ import {
   machineRemoved,
   machineSigningKey,
   signManifest,
-} from "../../../../protocol/folder/carry.ts";
+} from "../../../../protocol/remote/carry.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type Dial,

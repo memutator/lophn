@@ -5,7 +5,7 @@ import type { Id } from "../../protocol/base/ids.ts";
 import {
   CARRY_CHUNK_MAX_BYTES,
   CARRY_WANTS_MAX,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 import type { FolderReplica } from "../folder/ports.ts";
 import { carryFrom, type PeerCall } from "./carry.ts";
 

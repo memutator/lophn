@@ -11,13 +11,13 @@ import { jsonValueSchema } from "../base/json-values.ts";
 import { type Id, idSchema } from "../base/ids.ts";
 import { defineFile, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { remoteKeyBytes, remoteKeyText } from "../remote/noise.ts";
+import { remoteKeyBytes, remoteKeyText } from "./noise.ts";
 import {
   ROSTER_STATEMENTS_MAX,
   type RosterView,
   rosterStatementSchema,
   signatureTextSchema,
-} from "../remote/roster.ts";
+} from "./roster.ts";
 import {
   appDir,
   isAppDirName,
@@ -28,13 +28,16 @@ import {
   machineDir,
   parseDataEntry,
   parseSourceEntry,
-} from "./layout.ts";
-import { CLOCK_AHEAD_MAX_MS, RELEASE_RECORD_MAX_BYTES } from "./limits.ts";
+} from "../folder/layout.ts";
+import {
+  CLOCK_AHEAD_MAX_MS,
+  RELEASE_RECORD_MAX_BYTES,
+} from "../folder/limits.ts";
 import {
   decodeRecord,
   releaseRecordSchema,
   sourceMetaSchema,
-} from "./records.ts";
+} from "../folder/records.ts";
 
 const KIB = 1024;
 const MIB = 1024 * KIB;

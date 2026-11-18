@@ -118,6 +118,9 @@ files:
   - path: packages/core/folder/folder_test.ts
     covers:
       - settings-update:rejected
+      - carry-put:accepted
+      - carry-put:have
+      - carry-put:rejected
     note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다"
 
   - path: packages/core/folder/environment_test.ts

@@ -11,7 +11,7 @@ import {
   expectedFiles,
   MANIFEST_MAX_BYTES,
   manifestPath,
-} from "../../protocol/folder/carry.ts";
+} from "../../protocol/remote/carry.ts";
 import { machineDir } from "../../protocol/folder/layout.ts";
 import { createFolderReader, createFolderWriter } from "./fs.ts";
 import { createShaCache, parseManifestText, type Replica } from "./replica.ts";

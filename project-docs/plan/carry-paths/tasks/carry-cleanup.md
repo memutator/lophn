@@ -32,7 +32,7 @@
    - `machine.md`: 기계 id가 폴더 하위 폴더와 manifest의 이름이고, 명단 서명 key가 manifest에 서명한다(경계와 계약 한 줄).
    - `app-call.md`: 다른 기계에서 온 event의 caller `machine`.
 3. flows(`flows` skill): link로 받기, 폰이 나르기, 거울, 명단 file, event file을 `system:` flow로 올리고(본보기 `system:folder-release-follow`, `app-release.yaml`), 이 계획이 더한 test file과 위험 test를 그 outcome에 잇는다. `node tools/flows.ts check`와 `node tools/flows.ts report`로 빈 곳을 본다.
-4. catalog: module catalog에 새 file·폴더(`packages/protocol/folder/carry.ts`, `packages/core/folder/{replica,mirror,carry-routes,carry-status}.ts`, `packages/core/remote/carry.ts`, `packages/mobile/src/apps/carry/`)가 맞는 module에 들었는지, boundary `folder`·`remote-protocol`·`mobile`·`events` 설명이 새 동작과 맞는지 고친다.
+4. catalog: module catalog에 새 file·폴더(`packages/protocol/remote/carry.ts`, `packages/core/folder/{replica,mirror,carry-routes,carry-status}.ts`, `packages/core/remote/carry.ts`, `packages/mobile/src/apps/carry/`)가 맞는 module에 들었는지, boundary `folder`·`remote-protocol`·`mobile`·`events` 설명이 새 동작과 맞는지 고친다.
 5. 이슈로 올릴 것을 보고에 적는다(lead가 `issue` skill로 올린다. 이 task는 `project-docs/issues/`를 고치지 않는다):
    - 폰 화면이 있는 앱은 폰이 컴퓨터마다 사본을 따로 들고 같은 node로 clock을 찍는다. 폰의 변경은 그 컴퓨터에 들어간 뒤 컴퓨터들 사이로 퍼진다. 사본을 하나로 합치는 것은 이 계획이 하지 않았다(README "남는 한계").
    - 그 밖에 각 task의 "알려진 미완 동작" 가운데 고치지 않고 넘어가는 것.

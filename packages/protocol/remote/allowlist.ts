@@ -54,6 +54,7 @@ import {
   terminalViewWatch,
 } from "../coding-agent/terminal-view.ts";
 import { terminalsInput, terminalsOpen } from "../coding-agent/terminals.ts";
+import { CARRY_ROUTES } from "./carry.ts";
 import { PAGE_VIEW_ROUTES } from "../lophn-agent/page-view.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
@@ -317,6 +318,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   appSyncPull,
   appSyncSnapshot,
   appSyncSnapshotFile,
+  // 컴퓨터끼리 맞추는 file을 나른다(연결된 컴퓨터, 폰). 받는 쪽은 명단의 컴퓨터가 서명한 manifest에 맞는 file만 둔다
+  ...CARRY_ROUTES,
   // 기기가 자기를 내 기기 명단에서 뺀다
   rosterLeave,
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다

@@ -9,7 +9,7 @@ desktop Settings에 "Sync" 항목을 둔다: 사람이 이름 붙인 폴더들�
   - `packages/shell/renderer/desktop/settings/sync/`(새 폴더: 화면, `source.ts`, `core-source.ts`, `testdata/fake-source.ts`)
   - `packages/shell/renderer/desktop/settings/model.ts`, `packages/shell/renderer/desktop/settings/settings-screen.tsx`
   - `packages/design/i18n/catalog/settings-sync.ts`(새 file), `packages/design/i18n/en.ts`(한 줄)
-  - `packages/protocol/folder/carry.ts`(`carry/status`만), `packages/core/folder/carry-status.ts`(새 file), `packages/core/main/daemon/wiring/folder.ts`(route 한 줄)
+  - `packages/protocol/remote/carry.ts`(`carry/status`만), `packages/core/folder/carry-status.ts`(새 file), `packages/core/main/daemon/wiring/folder.ts`(route 한 줄)
   - `packages/core/agent-workspaces/skills/connect-computers/`(새 내장 skill), `packages/protocol/lophn-agent/skill-settings.ts`(`BUILTIN_SKILLS` 한 항목)
   - `project-docs/flows/areas/app-runtime.yaml`, `project-docs/flows/areas/agents.yaml`, `project-docs/flows/areas/shell-desktop.yaml`
 - 읽을 것:

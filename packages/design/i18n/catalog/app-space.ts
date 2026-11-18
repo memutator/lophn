@@ -299,6 +299,7 @@ export const appSpace = {
   "app-space.label.annotate-mode": "Annotate",
   "app-space.label.sending-annotations": "Sending…",
   "app-space.label.this-app": "this app",
+  "app-space.label.on-machine": "On {name}",
   "app-space.text.preview-notice":
     "Preview: fixture data, and network and secrets are stand-ins.",
   "app-space.title.preview-tab": "Preview",

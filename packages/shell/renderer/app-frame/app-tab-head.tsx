@@ -3,6 +3,7 @@
 // detached 창, 세션 카드)이면 그리지 않고 page에 shown=false를 알려 앱이 스스로 그리게 한다.
 // tray popup과 sidebar panel은 card가 아니지만 자기 머리 줄을 가져, CardHeadContext를 직접 달고(useHeadSlot, HeadSlotScope)
 // 같은 spec을 HeadControls로 그린다. 그 둘은 같은 spec을 만드는 길(cardHeadOf)을 쓴다.
+// 다른 기계의 앱 화면이면 머리 줄에 그 기계의 꼬리표("On <이름>")가 늘 선다(앱이 머리 줄을 올리지 않아도).
 import {
   createContext,
   type ReactNode,
@@ -23,6 +24,12 @@ import {
   type CardHeadSetter,
   type CardHeadSpec,
 } from "../parts/card-head/card-head.tsx";
+import {
+  machineItemOf,
+  useMachines,
+  useMachinesView,
+  useScopeMachine,
+} from "../desktop/machines/context.tsx";
 import { actionIcons, shellIcons } from "../icons/mod.ts";
 import type { WebviewHost } from "./webview-host.tsx";
 import styles from "./app-tab-head.module.css";
@@ -130,6 +137,14 @@ export function useAppTabHead(input: {
   const shellHead = useRef(input.shellHead);
   shellHead.current = input.shellHead;
   const shellKey = input.shellHead?.key ?? null;
+  const machine = useScopeMachine();
+  const machines = useMachines();
+  const machinesView = useMachinesView();
+  const machineName =
+    machine === null
+      ? null
+      : machineItemOf(machines, machinesView, machine).name ||
+        t("machines.label.unknown-name");
 
   useEffect(() => {
     if (!live) return;
@@ -154,13 +169,20 @@ export function useAppTabHead(input: {
       setCardHead({ center: shell.center, actions: shell.actions });
       return () => setCardHead(null);
     }
-    if (head === null && shell === undefined) return;
+    if (head === null && shell === undefined && machineName === null) return;
     const send = (event: TabHeadEvent) => host!.sendTabHead(viewKey, event);
+    const tag =
+      machineName === null ? undefined : (
+        <span className={styles.machine} data-machine-tag="">
+          {t("app-space.label.on-machine", { name: machineName })}
+        </span>
+      );
     setCardHead(
-      cardHeadOf(head ?? {}, root ?? label, send, shell, actionsOnly),
+      cardHeadOf(head ?? {}, root ?? label, send, shell, actionsOnly, tag),
     );
     return () => setCardHead(null);
   }, [
+    machineName,
     live,
     host,
     viewKey,
@@ -179,6 +201,7 @@ function cardHeadOf(
   send: (event: TabHeadEvent) => void,
   shell: ShellHead | undefined,
   actionsOnly: boolean,
+  tag: ReactNode | undefined,
 ): CardHeadSpec {
   if (actionsOnly) return actionsOnlyHeadOf(head, send);
   const extra = shell?.actions;
@@ -200,9 +223,10 @@ function cardHeadOf(
   ) {
     spec.center = <HeadCenter head={head} label={label} send={send} />;
   }
-  if (head.actions !== undefined || extra !== undefined) {
+  if (head.actions !== undefined || extra !== undefined || tag !== undefined) {
     spec.actions = (
       <span className={styles.actions}>
+        {tag}
         {extra}
         {head.actions?.map((action) => (
           <Button

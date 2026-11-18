@@ -6,7 +6,7 @@ import { createAppCall } from "./app-call.ts";
 import type { CoreCaller } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
-const view = { view_session: "view-0001-0002" } as BoundView;
+const view = { view_session: "view-0001-0002", machine: null } as BoundView;
 
 test("화면이 준 입력의 undefined 칸은 빠지고 core 통로의 입력 검사를 통과한다", async () => {
   const sent: unknown[] = [];
@@ -17,7 +17,11 @@ test("화면이 준 입력의 undefined 칸은 빠지고 core 통로의 입력 �
       ? { ok: true, value: { outcome: { ok: true, value: 1 } } }
       : { ok: false, error: { code: "invalid_input", message: "invalid" } };
   };
-  const calls = createAppCall({ call, resume: () => {}, rejected: () => {} });
+  const calls = createAppCall({
+    call: () => call,
+    resume: () => {},
+    rejected: () => {},
+  });
   // IPC(structured clone)는 값이 undefined인 칸을 그대로 넘긴다.
   const fromPage = structuredClone({
     operation: "usage.sessions",

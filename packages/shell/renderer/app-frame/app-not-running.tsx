@@ -62,25 +62,29 @@ function AppNotRunning({ app, label, reopen, retried }: NotRunningProps) {
     );
   }
   if (!run.enabled) {
+    const enableRun = deps?.enableRun;
     return (
       <div className={styles.state} data-app-off="">
         <p className={styles.text}>{t("app-space.empty.app-off")}</p>
         {failed ? (
           <p className={styles.text}>{t("app-detail.error.run-failed-on")}</p>
         ) : null}
-        <Button
-          disabled={busy || deps === null}
-          onClick={() => {
-            setBusy(true);
-            setFailed(false);
-            void deps?.enableRun(app).then((result) => {
-              setBusy(false);
-              setFailed(!result.ok);
-            });
-          }}
-        >
-          {t("app-space.button.turn-on")}
-        </Button>
+        {/* 다른 기계의 앱은 그 기계에서 켠다(App details는 이 컴퓨터만). */}
+        {enableRun === undefined ? null : (
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setFailed(false);
+              void enableRun(app).then((result) => {
+                setBusy(false);
+                setFailed(!result.ok);
+              });
+            }}
+          >
+            {t("app-space.button.turn-on")}
+          </Button>
+        )}
       </div>
     );
   }

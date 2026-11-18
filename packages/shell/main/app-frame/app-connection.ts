@@ -23,6 +23,9 @@ export type CoreCaller = (
   body: unknown,
 ) => Promise<CallResult>;
 
+/** 기계 하나의 core 통로. null은 이 컴퓨터다. 앱 view가 부른 것은 그 view의 기계로만 간다. */
+export type MachineCaller = (machine: string | null) => CoreCaller;
+
 type AppFrameErrorCode =
   | "invalid_input"
   | "forbidden"
@@ -158,7 +161,12 @@ export function createAppConnector(call: CoreCaller) {
           limit: GRANT_PAGE_LIMIT,
           ...(cursor === undefined ? {} : { cursor }),
         });
-        if (!reply.ok) return failure("unavailable", "grants are unavailable");
+        // 다른 기계가 기기에 grant 읽기를 열지 않았으면 그 거절을 그대로 화면에 낸다.
+        if (!reply.ok) {
+          return reply.error.code === "forbidden"
+            ? failure("forbidden", reply.error.message)
+            : failure("unavailable", "grants are unavailable");
+        }
         const value = record(reply.value);
         const grants = Array.isArray(value?.grants) ? value.grants : [];
         for (const grant of grants) {

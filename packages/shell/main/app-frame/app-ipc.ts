@@ -1,6 +1,7 @@
 // 앱 view의 preload IPC를 main service에 잇는다. 매 IPC마다 sender가 registry의 살아 있는 앱
 // view이고 그 main frame이 자기 앱 주소(같은 screen)인지 본다. 페이지는 자기가 어느 앱인지 모른다.
-// 신원은 sender view에서 main이 정한다. 앱 view가 아닌 sender는 어느 통로도 쓰지 못한다.
+// 신원은 sender view에서 main이 정한다. 앱 view가 아닌 sender는 어느 통로도 쓰지 못한다. 앱이 부른 것은 그 view의
+// 기계(`BoundView.machine`)의 core로만 간다.
 import {
   APP_AGENT_OPEN_CHANNEL,
   APP_AGENT_SEND_CHANNEL,
@@ -44,7 +45,7 @@ interface AppIpcDeps {
   agentOpen(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   agentSnapshot(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   agentSend(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
-  projectsList(): Promise<CallOutcome<unknown>>;
+  projectsList(view: BoundView): Promise<CallOutcome<unknown>>;
   sessionsList(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   sessionsStatus(
     view: BoundView,
@@ -80,7 +81,10 @@ function senderView(
   const view = lookup(event.sender.id);
   const frame = isMainFrame(event);
   if (view === undefined || frame === undefined) return undefined;
-  const parsed = parseAppUrl(frame.url, appHostLabel(view.target.app));
+  const parsed = parseAppUrl(
+    frame.url,
+    appHostLabel(view.target.app, view.machine),
+  );
   return parsed !== undefined && parsed.screen === view.target.screen
     ? view
     : undefined;
@@ -132,7 +136,7 @@ export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
   }
   ipc.handle(APP_PROJECTS_LIST_CHANNEL, async (event) => {
     const view = senderView(deps.view, event);
-    return view === undefined ? NOT_APP_VIEW : await deps.projectsList();
+    return view === undefined ? NOT_APP_VIEW : await deps.projectsList(view);
   });
   ipc.on(APP_VIEW_ERROR_CHANNEL, (event, input) => {
     const view = senderView(deps.view, event);

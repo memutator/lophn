@@ -30,9 +30,14 @@ import styles from "./webview-host.module.css";
 // main의 BROWSER_PARTITION(main/browser/session.ts)과 같은 이름이다. 다르면 main이 attach를 거절한다.
 const PARTITION = "persist:lophn-browser";
 
-/** 앱 화면의 주소(`lophn-app://app-<id 소문자>/…`)에서 앱 id(`app_<id>`)를 낸다. main의 appHostLabel을 거꾸로 푼 것이다. */
+/**
+ * 앱 화면의 주소(`lophn-app://app-<id 소문자>/…`, 다른 기계의 앱은 `app-<id>-<기계 id>`)에서 앱 id(`app_<id>`)를 낸다.
+ * main의 appHostLabel을 거꾸로 푼 것이다.
+ */
 function appOfSrc(src: string): string | undefined {
-  const label = /^lophn-app:\/\/app-([0-9a-z]+)\//.exec(src)?.[1];
+  const label = /^lophn-app:\/\/app-([0-9a-z]+)(?:-[0-9a-z]+)?\//.exec(
+    src,
+  )?.[1];
   return label === undefined ? undefined : `app_${label}`;
 }
 

@@ -11,6 +11,8 @@ import type { ViewHealth, ViewHealthSignal } from "./crash.ts";
 import type { FetchHost } from "./network-policy.ts";
 
 interface AppFrameOpen {
+  /** 다른 기계의 앱 화면이면 그 기계. 없으면 이 컴퓨터다. */
+  machine?: string;
   app: string;
   mode: ViewMode;
   release: string | null;
@@ -29,6 +31,8 @@ export type ConnectionState =
 /** IPC를 보낸 view. main이 sender view에서 정한 신원과 묶음이다. */
 export interface BoundView {
   view_session: string;
+  /** view가 묶인 기계. null은 이 컴퓨터다. 앱 호출은 이 기계로만 간다. */
+  machine: string | null;
   generation: number;
   target: ConnectTarget;
   binding: AppBinding;
@@ -101,6 +105,7 @@ export interface ViewListing {
 }
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const MACHINE_ID = /^mch_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const PLACES: readonly string[] = [
   "tab",
@@ -117,6 +122,7 @@ const SAFE_TEXT = (value: unknown): value is string =>
   !/\p{Cc}/u.test(value);
 
 const OPEN_KEYS: Record<string, true> = {
+  machine: true,
   app: true,
   card: true,
   mode: true,
@@ -127,7 +133,7 @@ const OPEN_KEYS: Record<string, true> = {
   workspace: true,
 };
 // 없어도 되는 칸. 나머지는 모두 있어야 한다.
-const OPTIONAL_KEYS = ["card", "params", "workspace"] as const;
+const OPTIONAL_KEYS = ["machine", "card", "params", "workspace"] as const;
 const REQUIRED_KEY_COUNT = Object.keys(OPEN_KEYS).length - OPTIONAL_KEYS.length;
 
 function plainObject(value: unknown): value is Record<string, unknown> {
@@ -167,6 +173,8 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
     return undefined;
   }
   if (
+    (input.machine !== undefined &&
+      (typeof input.machine !== "string" || !MACHINE_ID.test(input.machine))) ||
     typeof input.app !== "string" ||
     !APP_ID.test(input.app) ||
     !MODES.includes(input.mode as string) ||
@@ -216,6 +224,7 @@ export function sameConnection(entry: Bound, next: Bound): boolean {
 /** registry가 view 하나에 쥐는 것 중 밖으로 보이는 값. */
 interface ViewEntry extends Bound {
   view_session: string;
+  machine: string | null;
   generation: number;
   src: string;
   connectionState: ConnectionState;
@@ -240,6 +249,7 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
 export function boundViewOf(entry: ViewEntry): BoundView {
   return {
     view_session: entry.view_session,
+    machine: entry.machine,
     generation: entry.generation,
     target: { ...entry.target },
     binding: entry.binding,

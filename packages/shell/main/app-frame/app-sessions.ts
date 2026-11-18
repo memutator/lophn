@@ -1,11 +1,11 @@
-// 앱 view의 session 목록·상태·멈추기 main service. 사람 자격(`coreInternal`)으로 core의 `app_sessions.*`에 가고, 어느 앱인지는 sender view에서
+// 앱 view의 session 목록·상태·멈추기 main service. 사람 자격(`coreInternal`. 다른 기계의 view는 그 기계가 보는 이 컴퓨터의 기기 자격)으로 core의 `app_sessions.*`에 가고, 어느 앱인지는 sender view에서
 // main이 정해 싣는다(page가 고르지 못한다). 어느 session이 보이는지는 core가 판정한다.
 import type { CallOutcome } from "./app-call.ts";
-import type { CoreCaller } from "./app-connection.ts";
+import type { MachineCaller } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 interface AppSessionsDeps {
-  call: CoreCaller;
+  call: MachineCaller;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -25,7 +25,7 @@ export function createAppSessions(deps: AppSessionsDeps) {
     method: "list" | "status" | "stop",
     input: Record<string, unknown>,
   ): Promise<CallOutcome<unknown>> =>
-    deps.call("memory", "app_sessions", method, {
+    deps.call(view.machine)("memory", "app_sessions", method, {
       ...input,
       app: view.target.app,
     });

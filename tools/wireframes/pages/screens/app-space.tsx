@@ -11,6 +11,8 @@ import {
   ActivityLog,
   AnnotateList,
   AnnotatePicking,
+  AppScreenOtherMachine,
+  AppScreenOtherMachineOffline,
   AppWorkspaceMenu,
   AppWorkspaceNewTabMenu,
   AppWorkspaceScreen,
@@ -51,6 +53,20 @@ export const appSpaceArea: Area = {
       description:
         "앱 workspace를 처음 연 모양. 같은 shell 안에서 가운데 tab은 앱 화면 하나(앱 화면은 고정 그림), 왼쪽은 workspace·session이고 지금 앱 줄 오른쪽 끝 톱니가 App details 탭을 연다. 오른쪽은 Logs panel이고, Annotate는 앱 화면 머리 줄 ⋯ 메뉴에 있다. title bar에 desk 단추가 없다.",
       render: () => <AppWorkspaceScreen />,
+    },
+    {
+      id: "app-screen-other-machine",
+      title: "App screen · on another machine",
+      description:
+        "다른 기계(Home server)의 앱 화면 탭. 이 컴퓨터의 창이 그 기계의 core가 준 화면을 그리고 앱이 부르는 것은 그 기계로 간다. 탭 머리 줄의 앱 단추 앞에 On Home server 꼬리표가 선다(앱 화면은 고정 그림). 그 기계에서 앱이 꺼져 있으면 [Turn on] 없이 안내만 있다(켜기는 그 기계에서).",
+      render: () => <AppScreenOtherMachine />,
+    },
+    {
+      id: "app-screen-other-machine-offline",
+      title: "App screen · other machine offline",
+      description:
+        "앱 화면 탭의 기계(Work laptop)가 꺼져 있다. 탭 본문 대신 그 기계가 꺼져 있다는 한 줄이 서고, 붙으면 화면이 저절로 다시 열린다.",
+      render: () => <AppScreenOtherMachineOffline />,
     },
     {
       id: "new-app-menu",

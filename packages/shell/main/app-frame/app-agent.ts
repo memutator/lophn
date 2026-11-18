@@ -1,14 +1,14 @@
 // 앱 view의 agent 길 main service. 앱 화면이 session을 열고, ACP 상태를 읽고, 입력을 보내고, 갱신을 받는다. 열기는 core의
 // `app_sessions.open`이 하고(core가 `opened_by_app`을 단다), 붙을 수 있는 session은 그 앱이 call로 닿을 수 있는 workspace의 session
-// 전부다(core의 시야 판정). 앱 화면에서 보낸 것은 그 앱을 쓰는 사람의 메시지라 operation처럼 사람 자격(`coreInternal`)으로 core에
+// 전부다(core의 시야 판정). 앱 화면에서 보낸 것은 그 앱을 쓰는 사람의 메시지라 operation처럼 사람 자격(`coreInternal`. 다른 기계의 view는 그 기계가 보는 이 컴퓨터의 기기 자격)으로 core에
 // 가고 따로 허락 단계가 없다. 앱 id는 sender view에서 main이 정한다(page가 고르지 못한다).
 import { APP_AGENT_UPDATE_CHANNEL } from "../../ipc/app-agent.ts";
 import type { CallOutcome } from "./app-call.ts";
-import type { CoreCaller } from "./app-connection.ts";
+import type { MachineCaller } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 interface AppAgentDeps {
-  call: CoreCaller;
+  call: MachineCaller;
   /** view의 page로 보낸다. 그 view가 이미 없으면 false다. */
   send(view_session: string, channel: string, payload: unknown): boolean;
 }
@@ -47,10 +47,15 @@ export function createAppAgent(deps: AppAgentDeps) {
     if (typeof session !== "string") {
       return fail("invalid_input", "session is invalid");
     }
-    const listed = await deps.call("memory", "app_sessions", "list", {
-      app: view.target.app,
-      session,
-    });
+    const listed = await deps.call(view.machine)(
+      "memory",
+      "app_sessions",
+      "list",
+      {
+        app: view.target.app,
+        session,
+      },
+    );
     if (!listed.ok) {
       switch (listed.error.code) {
         case "invalid_input":
@@ -86,15 +91,20 @@ export function createAppAgent(deps: AppAgentDeps) {
       ) {
         return fail("invalid_input", "input is invalid");
       }
-      const opened = await deps.call("memory", "app_sessions", "open", {
-        app: view.target.app,
-        agent: input.agent,
-        ...(title === undefined ? {} : { title }),
-        // 앱이 call로 닿을 수 있는 workspace인지는 core가 판정한다(core의 strict schema가 모양을 거른다).
-        ...(input.workspace === undefined
-          ? {}
-          : { workspace: input.workspace }),
-      });
+      const opened = await deps.call(view.machine)(
+        "memory",
+        "app_sessions",
+        "open",
+        {
+          app: view.target.app,
+          agent: input.agent,
+          ...(title === undefined ? {} : { title }),
+          // 앱이 call로 닿을 수 있는 workspace인지는 core가 판정한다(core의 strict schema가 모양을 거른다).
+          ...(input.workspace === undefined
+            ? {}
+            : { workspace: input.workspace }),
+        },
+      );
       if (!opened.ok) return opened;
       const session = record(opened.value)?.session;
       if (typeof session !== "string") {
@@ -111,7 +121,9 @@ export function createAppAgent(deps: AppAgentDeps) {
       const session = record(value)?.session;
       const refused = await check(view, session);
       if (refused !== undefined) return refused;
-      return await deps.call("read", "acp", "snapshot", { session });
+      return await deps.call(view.machine)("read", "acp", "snapshot", {
+        session,
+      });
     },
 
     async send(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
@@ -125,7 +137,12 @@ export function createAppAgent(deps: AppAgentDeps) {
       const input = record(value);
       const labelled =
         input?.type === "send" ? { ...input, via_app: view.target.app } : value;
-      const sent = await deps.call("memory", "acp", "send", labelled);
+      const sent = await deps.call(view.machine)(
+        "memory",
+        "acp",
+        "send",
+        labelled,
+      );
       return sent.ok ? { ok: true, value: undefined } : sent;
     },
 

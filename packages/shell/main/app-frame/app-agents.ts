@@ -1,12 +1,12 @@
-// 앱 view의 agent 길 중 call과 명함, session 끝내기. 사람 자격(`coreInternal`)으로 core의 `app_calls.*`·`app_agents.list`·`app_sessions.end`에
+// 앱 view의 agent 길 중 call과 명함, session 끝내기. 사람 자격(`coreInternal`. 다른 기계의 view는 그 기계가 보는 이 컴퓨터의 기기 자격)으로 core의 `app_calls.*`·`app_agents.list`·`app_sessions.end`에
 // 가고, 어느 앱인지는 sender view에서 main이 정해 싣는다(page가 고르지 못한다). 입력 검사와 시야 판정은 core가 한다.
 import { APP_AGENTS_OPS, type AppAgentsOp } from "../../ipc/app-agents.ts";
 import type { CallOutcome } from "./app-call.ts";
-import type { CoreCaller } from "./app-connection.ts";
+import type { MachineCaller } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 interface AppAgentsDeps {
-  call: CoreCaller;
+  call: MachineCaller;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -43,7 +43,7 @@ export function createAppAgents(deps: AppAgentsDeps) {
       const [resource, method] = ROUTE_OF[op as AppAgentsOp];
       // 앱은 page가 못 고른다: main이 sender view의 앱으로 덮는다.
       const { app: _ignored, ...rest } = input;
-      return await deps.call("memory", resource, method, {
+      return await deps.call(view.machine)("memory", resource, method, {
         ...rest,
         app: view.target.app,
       });

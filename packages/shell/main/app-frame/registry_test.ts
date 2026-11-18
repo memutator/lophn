@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { createAppCall } from "./app-call.ts";
 import type { CoreCaller } from "./app-connection.ts";
 import type { ViewHealthSignal } from "./crash.ts";
 import { createViewDiagnostics } from "./diagnostics.ts";
@@ -21,6 +22,9 @@ const OPEN = {
 } as const;
 
 const NEWER = "rel_00000000000000000000000002";
+const SELF = "mch_00000000000000000000000000";
+const MACHINE_A = "mch_0000000000000000000000000a";
+const MACHINE_B = "mch_0000000000000000000000000b";
 
 // fake core의 view 표. view를 기억하지 않는다(core가 view를 잃은 뒤와 같다). open은 지금 도는 release에 묶고, 준 release가
 // 그것과 다르면 conflict다. params는 core가 정규화한 값(기본값 `page: 1`을 채운다)을 돌려준다. 받은 요청은 `calls`에 남는다.
@@ -32,6 +36,9 @@ function fakeCore() {
     const input = body as Record<string, unknown>;
     calls.push({ method, body: input });
     if (method === "close") return { ok: true, value: { closed: true } };
+    if (method === "call") {
+      return { ok: true, value: { outcome: { ok: true, value: null } } };
+    }
     if (input.release !== null && input.release !== state.running) {
       return {
         ok: false,
@@ -56,19 +63,32 @@ function fakeCore() {
   return { call, calls, state };
 }
 
-// fake 창·guest. guest id는 실제 Electron처럼 그 webContents id를 그대로 쓴다.
+// fake 창·guest. guest id는 실제 Electron처럼 그 webContents id를 그대로 쓴다. 기계마다 따로 fake core가 선다(null은 이 컴퓨터).
 function createFrame() {
   let contentsId = 0;
   const health = new Map<number, (signal: ViewHealthSignal) => void>();
   const destroyed = new Map<number, () => void>();
-  const core = fakeCore();
+  const cores = new Map<string | null, ReturnType<typeof fakeCore>>();
+  const coreOf = (machine: string | null) => {
+    let found = cores.get(machine);
+    if (found === undefined) {
+      found = fakeCore();
+      cores.set(machine, found);
+    }
+    return found;
+  };
+  const core = coreOf(null);
   const frame = createAppFrame({
-    call: core.call,
-    connector: {
-      async hosts() {
-        return { ok: true as const, value: [] };
+    core: (machine) => ({
+      call: coreOf(machine).call,
+      connector: {
+        async hosts() {
+          return { ok: true as const, value: [] };
+        },
       },
-    },
+      upstream: async () => ({ status: 200, headers: {}, body: null }),
+    }),
+    self: () => SELF,
     views: {
       hasWindow: (window) => window === WINDOW || window === OTHER,
       guest(guest, rules) {
@@ -92,7 +112,6 @@ function createFrame() {
       handleProtocol() {},
       async clearCache() {},
     }),
-    upstream: async () => ({ status: 200, headers: {}, body: null }),
     platformPorts: () => [],
     diagnostics: createViewDiagnostics({
       send: () => true,
@@ -105,7 +124,15 @@ function createFrame() {
     },
     clock: { nowMs: () => 0 },
   });
-  return { frame, health, destroyed, calls: core.calls, core: core.state };
+  return {
+    frame,
+    health,
+    destroyed,
+    calls: core.calls,
+    core: core.state,
+    callsOf: (machine: string | null) => coreOf(machine).calls,
+    callerOf: (machine: string | null) => coreOf(machine).call,
+  };
 }
 
 test("open은 src를 내고, acceptGuest는 그 창의 그 src만 한 번 받는다", async () => {
@@ -251,8 +278,8 @@ test("core가 view를 잃은 뒤 앱이 새 release를 돌리면, card가 아닌
   );
   if (!tab.ok || !card.ok) return assert.fail("views did not open");
   core.running = NEWER;
-  frame.viewEvent({ view: tab.value.view_session, kind: "lost" });
-  frame.viewEvent({ view: card.value.view_session, kind: "lost" });
+  frame.viewEvent({ view: tab.value.view_session, kind: "lost" }, null);
+  frame.viewEvent({ view: card.value.view_session, kind: "lost" }, null);
   await frame.refresh();
 
   const tabState = frame.state(tab.value.view_session);
@@ -262,4 +289,54 @@ test("core가 view를 잃은 뒤 앱이 새 release를 돌리면, card가 아닌
   const cardState = frame.state(card.value.view_session);
   assert.equal(cardState?.release, RELEASE);
   assert.equal(cardState?.connectionState, "unavailable");
+});
+
+// 같은 앱 id라도 기계가 다르면 저장소(partition)와 origin(host label)을 같이 쓰지 않고, 앱 호출은 view가 묶인 기계로만 간다.
+test("같은 앱을 이 컴퓨터·기계 A·기계 B에서 열면 partition과 origin이 셋 다 다르고, A의 view가 부른 호출은 A로만 간다", async () => {
+  const { frame, callsOf, callerOf } = createFrame();
+  const here = await frame.open(WINDOW, OPEN);
+  // 이 컴퓨터의 id를 적은 열기는 이 컴퓨터의 것이다.
+  const self = await frame.open(WINDOW, { ...OPEN, machine: SELF });
+  const a = await frame.open(WINDOW, { ...OPEN, machine: MACHINE_A });
+  const b = await frame.open(WINDOW, { ...OPEN, machine: MACHINE_B });
+  if (!here.ok || !self.ok || !a.ok || !b.ok) {
+    return assert.fail("views did not open");
+  }
+  const guests = [here, self, a, b].map((opened, index) => {
+    const accepted = frame.acceptGuest(WINDOW, opened.value.src);
+    assert.ok(accepted !== undefined);
+    frame.bindGuest(accepted, { id: 100 + index });
+    return {
+      partition: accepted.partition,
+      origin: new URL(accepted.src).host,
+    };
+  });
+  const [onHere, onSelf, onA, onB] = guests as [
+    (typeof guests)[0],
+    (typeof guests)[0],
+    (typeof guests)[0],
+    (typeof guests)[0],
+  ];
+  assert.deepEqual(onSelf, onHere);
+  assert.equal(new Set([onHere, onA, onB].map((g) => g.partition)).size, 3);
+  assert.equal(new Set([onHere, onA, onB].map((g) => g.origin)).size, 3);
+
+  const view = frame.senderView(102);
+  assert.equal(view?.machine, MACHINE_A);
+  const appCall = createAppCall({
+    call: callerOf,
+    resume() {},
+    rejected() {},
+  });
+  const before = [null, MACHINE_A, MACHINE_B].map((m) => callsOf(m).length);
+  await appCall.call(view!, { operation: "list_orders", input: {} });
+  const after = [null, MACHINE_A, MACHINE_B].map((m) => callsOf(m).length);
+  assert.deepEqual(
+    after.map((count, index) => count - before[index]!),
+    [0, 1, 0],
+  );
+  assert.deepEqual(callsOf(MACHINE_A).at(-1), {
+    method: "call",
+    body: { view: a.value.view_session, operation: "list_orders", input: {} },
+  });
 });

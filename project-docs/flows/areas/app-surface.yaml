@@ -771,6 +771,7 @@ flows:
       - "core의 view 표가 release 채택이나 되돌리기(AppViewChanged) 뒤 그 앱의 view를 다시 묶고 view마다 AppViewEvent rebound나 lost를 낸다(view-table-events)"
       - "shell main이 그 view를 처음 연 요청으로 app_views/open을 다시 보내(resume) 지금 binding을 받고 grant host를 다시 읽는다. card가 아닌 live view는 release를 비워 보내 core가 view를 잃었어도 지금 도는 release로 열리고, card와 preview는 처음 release 그대로다(card는 만든 때 release에 고정)"
       - "core에 다시 붙었을 때(core가 다시 떴으면 표가 비어 있다)와 core가 그 view를 모른다고 답한 operation 호출 뒤에도 같은 resume을 한다"
+      - "다른 기계의 view는 shell main의 구독자 app-views가 기계마다 건 AppViewEvent로 같은 일을 하고, 그 기계에 다시 붙으면(watcher 없는 ready. link가 끊기면 그 기계가 이 컴퓨터의 view를 닫았다) 그 기계의 view를 같은 요청으로 다시 연다"
       - "연결이 같으면 running으로 둔다. 바뀌었으면 새 process에 다시 붙이고(remount) 상태를 창에 민다"
       - "다시 묶지 못하면(card의 release가 바뀌어 conflict가 나는 것도 포함) unavailable로 둔다"
     outcomes:
@@ -1026,12 +1027,13 @@ flows:
     entries: []
     uses: [ipc:shell:view-open-app, ipc:shell:view-state, route:app_views/open, route:app_views/close]
     boundary: [shell, app-runtime]
-    code: [packages/shell/main/app-frame/view-ipc.ts, packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/app-frame/electron-app-frame.ts, packages/shell/main/app-frame/network-policy.ts, packages/shell/renderer/app-frame/webview-host.tsx]
+    code: [packages/shell/main/app-frame/view-ipc.ts, packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/app-frame/session-policy.ts, packages/shell/main/app-frame/app-protocol.ts, packages/shell/main/app-frame/electron-app-frame.ts, packages/shell/main/app-frame/network-policy.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/shell/renderer/app-frame/webview-host.tsx, packages/shell/renderer/app-frame/machine-deps.ts, packages/shell/renderer/app-frame/app-machine.tsx]
     steps:
-      - "renderer가 shell:view-open-app을 보낸다. view-ipc가 sender가 살아 있는 desktop 창 본문인지, 입력이 schema에 맞는지 본다(sender를 먼저 본다)"
-      - "registry가 요청 모양을 한 번 보고 창이 열려 있는지 본 뒤 view id를 정해 core app_views/open으로 묶는다(view-table-open). 화면·자리·params 검사와 release·process는 core가 정하고, 정규화한 params만 화면 주소로 간다. core의 invalid_input·forbidden·conflict는 그대로 돌려주고 나머지(not_found 포함)는 unavailable이다"
-      - "registry가 grant host를 읽는다. 읽지 못했거나 그 사이 창이 닫혔으면 방금 연 core view를 닫고 실패를 돌려준다"
-      - "view entry를 만들고 renderer가 <webview>를 붙인다. guest가 붙을 때 acceptGuest가 1회용으로 받아 partition을 붙인다"
+      - "renderer가 shell:view-open-app을 보낸다. 탭의 기계 범위가 다른 기계면 그 기계를 실어 보낸다(machine-deps). 이 컴퓨터에 같은 앱이 있으면 탭의 기계가 달라도 이 컴퓨터의 것을 연다(app-machine). view-ipc가 sender가 살아 있는 desktop 창 본문인지, 입력이 schema에 맞는지 본다(sender를 먼저 본다)"
+      - "registry가 요청 모양을 한 번 보고 창이 열려 있는지 본다. 기계가 있으면 live만 받고, 이 컴퓨터의 id를 아직 모르면 unavailable이고, 이 컴퓨터의 id면 이 컴퓨터의 것으로 연다"
+      - "view id를 정해 그 기계의 core app_views/open으로 묶는다(view-table-open). 다른 기계는 machines/call로 가고 그 기계가 이 컴퓨터를 기기(device:<이 컴퓨터>)로 보고 기기 route 목록으로 거른다. 화면·자리·params 검사와 release·process는 core가 정하고, 정규화한 params만 화면 주소로 간다. core의 invalid_input·forbidden·conflict는 그대로 돌려주고 나머지(not_found 포함)는 unavailable이다"
+      - "registry가 그 기계의 grant host(app_grants/list, apps/tools)를 읽는다. 그 기계가 grant 읽기를 거절하면 forbidden, 그 밖에 읽지 못했거나 그 사이 창이 닫혔으면 unavailable이고 방금 연 core view를 닫는다"
+      - "view entry를 만들고 renderer가 <webview>를 붙인다. guest가 붙을 때 acceptGuest가 1회용으로 받아 partition을 붙인다. 이 컴퓨터의 앱은 persist:app-<app>:live, 다른 기계의 앱은 persist:app-<app>:machine-<기계>이고 host label도 기계마다 다르다(app-<app>-<기계>). 화면 byte는 그 기계의 apps/screen_file이 준다(다른 기계는 machines/call의 base64, 한 file 8 MiB)"
       - "session 정책: 새 window 열기 거부, 권한 요청 거부, lophn-app scheme과 자기 host 밖의 network 요청 차단(network-policy)"
       - "상태(view_session·연결·health)를 shell:view-state로 창에 보낸다"
     outcomes:
@@ -1039,11 +1041,11 @@ flows:
         observe: [response, screen:app-space]
       - id: invalid-input
         code: invalid_input
-        when: "입력 schema나 view 요청 모양이 맞지 않다, 창이 열려 있지 않다, 또는 core가 invalid_input을 돌려줬다(params가 화면 선언과 맞지 않다, 화면이 선언에 없다, 자리가 화면의 places에 없다)"
+        when: "입력 schema나 view 요청 모양이 맞지 않다, 창이 열려 있지 않다, 다른 기계에 preview를 열려 했다, 또는 core가 invalid_input을 돌려줬다(params가 화면 선언과 맞지 않다, 화면이 선언에 없다, 자리가 화면의 places에 없다)"
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "sender가 살아 있는 desktop 창 본문이 아니다(view-ipc guard), 또는 core가 forbidden을 돌려줬다"
+        when: "sender가 살아 있는 desktop 창 본문이 아니다(view-ipc guard), core가 forbidden을 돌려줬다, 또는 다른 기계가 기기 route 목록에 없는 route(grant 읽기 등)를 거절했다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -1051,7 +1053,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "core가 unavailable·not_found를 돌려줬다(release 없는 preview에 params를 줬다, preview나 앱 process가 돌지 않는다, 앱이 없거나 보관했다), grant host를 읽지 못했다, 그 밖의 core 실패(core가 준비되지 않은 것 포함)"
+        when: "core가 unavailable·not_found를 돌려줬다(release 없는 preview에 params를 줬다, preview나 앱 process가 돌지 않는다, 앱이 없거나 보관했다), grant host를 읽지 못했다, 기계를 적었는데 이 컴퓨터의 id를 아직 모른다, 다른 기계에 닿지 못한다, 그 밖의 core 실패(core가 준비되지 않은 것 포함)"
         observe: [response]
     crosses_process: true
     risk: [sandbox]

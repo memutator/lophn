@@ -11,6 +11,7 @@ const OTHER_APP = "app_00000000000000000000000002";
 function view(view_session: string, app: string): BoundView {
   return {
     view_session,
+    machine: null,
     generation: 1,
     target: { app, mode: "live", release: null, screen: "main", place: "tab" },
     binding: { release: null, bundleHash: "a".repeat(64), processNonce: "n" },
@@ -52,7 +53,7 @@ function setup() {
   };
   const pushed: Array<{ view: string; payload: unknown }> = [];
   const agent = createAppAgent({
-    call,
+    call: () => call,
     send: (view_session, _channel, payload) => {
       pushed.push({ view: view_session, payload });
       return true;

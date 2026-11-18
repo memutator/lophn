@@ -56,8 +56,11 @@ export interface AppViewsDeps {
    * 않는다.
    */
   screens?(): Promise<ScreensRead>;
-  /** 사람이 앱 실행을 켠다(app detail의 Run과 같은 길). 앱이 꺼져 있어 화면을 못 여는 자리의 [Turn on]이 쓴다. */
-  enableRun(app: string): Promise<{ readonly ok: boolean }>;
+  /**
+   * 사람이 앱 실행을 켠다(app detail의 Run과 같은 길). 앱이 꺼져 있어 화면을 못 여는 자리의 [Turn on]이 쓴다. 다른 기계는
+   * 없다(App details는 이 컴퓨터만).
+   */
+  enableRun?(app: string): Promise<{ readonly ok: boolean }>;
   /** 앱 icon 이미지의 data URL(apps/icon). 사람이 올린 것이 선언한 것보다 앞선다. 없거나 읽지 못하면 undefined다. */
   icon?: IconReader;
 }

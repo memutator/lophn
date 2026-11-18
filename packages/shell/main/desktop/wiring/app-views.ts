@@ -1,4 +1,6 @@
 // 앱 view·frame·guest 붙이기와 view IPC, 외부 링크, view 오류, 앱 전용 창, 창 열기 intent.
+// 다른 기계의 앱 화면은 그 기계의 core가 view 표·화면 byte·grant를 내준다(`machines/call`). 그 기계의 `AppViewEvent`와
+// `AppRemoved`는 shell main의 구독자 `app-views`로 기계마다 걸어 받는다.
 import { app, session, shell } from "electron";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -6,18 +8,32 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { appLogViewError } from "../../../../protocol/apps/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   VIEW_STATE_CHANNEL,
   type AppViewOpen,
 } from "../../../ipc/app-frame.ts";
-import { createCoreUpstream } from "../../app-frame/app-protocol.ts";
+import {
+  createAppConnector,
+  type CoreCaller,
+  type MachineCaller,
+} from "../../app-frame/app-connection.ts";
+import {
+  createCoreUpstream,
+  createMachineUpstream,
+} from "../../app-frame/app-protocol.ts";
 import { clearAppStorage } from "../../app-frame/app-storage.ts";
 import { createEntryScreen } from "../../app-frame/declaration-source.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 import { electronAppViews } from "../../app-frame/electron-app-frame.ts";
 import { createExternalLinks } from "../../app-frame/external-link.ts";
 import type { Outcome } from "../../app-frame/app-connection.ts";
-import { createAppFrame } from "../../app-frame/registry.ts";
+import {
+  type AppViewSignal,
+  createAppFrame,
+  type MachineCore,
+} from "../../app-frame/registry.ts";
 import { createViewErrors } from "../../app-frame/view-error.ts";
 import {
   createViewIpc,
@@ -47,6 +63,8 @@ import { openDesktopWindow } from "./desktop-window.ts";
 /** 뒤 영역이 쓰는 앱 view 값. */
 export type AppViews = Registered & {
   appFrame: ReturnType<typeof createAppFrame>;
+  /** 앱 view가 부른 것이 갈 core. null은 이 컴퓨터, 아니면 그 기계의 `machines/call`이다. */
+  caller: MachineCaller;
   externalLinks: ReturnType<typeof createExternalLinks>;
   viewErrors: ReturnType<typeof createViewErrors>;
   /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
@@ -60,6 +78,9 @@ export type AppViews = Registered & {
     view_sessions: readonly string[],
   ): Outcome<null>;
 };
+
+// 이 영역이 다른 기계에 거는 구독자 이름(`machines/watch`의 watcher). 창의 `w<id>`와 겹치지 않는다.
+const APP_VIEWS_WATCHER = "app-views";
 
 export function register(
   ctx: ShellContext,
@@ -79,18 +100,35 @@ export function register(
     windowOfRef,
   } = ctx;
 
-  // 앱 view registry. view의 binding은 core의 view 표가 쥐고, 화면은 renderer의 `<webview>`다.
-  const appViews = electronAppViews({
-    windowOf: (ref) => windowOfRef(ref),
-    packaged: app.isPackaged,
-    headless,
-  });
-  const appFrame = createAppFrame({
+  // 다른 기계의 route 하나. 그 기계가 기기 목록으로 거른 답과 오류가 그대로 온다.
+  const machineCaller =
+    (machine: string): CoreCaller =>
+    async (_kind, resource, method, body) => {
+      const reply = await ctx.machines
+        .link(machine as Id<"mch">)
+        .call({ resource, method, body })
+        .catch(
+          (): CoreReply => ({
+            ok: false,
+            error: { code: "unavailable", message: "machine call failed" },
+          }),
+        );
+      return reply.ok
+        ? { ok: true, value: reply.value }
+        : {
+            ok: false,
+            error: {
+              code: reply.error?.code ?? "internal",
+              message: reply.error?.message ?? "machine call failed",
+            },
+          };
+    };
+  const caller: MachineCaller = (machine) =>
+    machine === null ? coreInternal : machineCaller(machine);
+  // 화면 byte는 core의 file route `app.screen_file`이 내준다.
+  const local: MachineCore = {
     call: coreInternal,
     connector: ctx.appConnector,
-    views: appViews.views,
-    sessionHandle: appViews.sessionHandle,
-    // 화면 byte는 core의 file route `app.screen_file`이 내준다.
     upstream: createCoreUpstream((input, signal) => {
       const session = core.session();
       return session
@@ -101,6 +139,35 @@ export function register(
             body: null,
           });
     }),
+  };
+  const machineCores = new Map<string, MachineCore>();
+  function machineCore(machine: string): MachineCore {
+    let found = machineCores.get(machine);
+    if (found === undefined) {
+      const call = machineCaller(machine);
+      found = {
+        call,
+        connector: createAppConnector(call),
+        upstream: createMachineUpstream((input) =>
+          call("file", "apps", "screen_file", input),
+        ),
+      };
+      machineCores.set(machine, found);
+    }
+    return found;
+  }
+
+  // 앱 view registry. view의 binding은 core의 view 표가 쥐고, 화면은 renderer의 `<webview>`다.
+  const appViews = electronAppViews({
+    windowOf: (ref) => windowOfRef(ref),
+    packaged: app.isPackaged,
+    headless,
+  });
+  const appFrame = createAppFrame({
+    core: (machine) => (machine === null ? local : machineCore(machine)),
+    self: () => ctx.machines.list().this?.id ?? null,
+    views: appViews.views,
+    sessionHandle: appViews.sessionHandle,
     // 앱 view가 loopback으로 core API에 닿지 못하게 한다. 부여된 host여도 막는다.
     platformPorts: () => {
       const session = core.session();
@@ -188,7 +255,16 @@ export function register(
     log,
   });
   const viewErrors = createViewErrors({
-    send: async (forward) => {
+    send: async (machine, forward) => {
+      if (machine !== null) {
+        const reply = await machineCaller(machine)(
+          "memory",
+          appLogViewError.resource,
+          appLogViewError.method,
+          forward,
+        );
+        return reply.ok;
+      }
       const session = core.session();
       if (!session) return false;
       try {
@@ -297,27 +373,67 @@ export function register(
   // rewind) 묶음을 잃은 view는 다시 묶는다. 이 event는 남지 않는다.
   ctx.relay.conditions.push({ types: ["AppViewEvent"] });
   ctx.relay.events.push((event) => {
-    if (event.type === "AppViewEvent") appFrame.viewEvent(event.payload);
+    if (event.type === "AppViewEvent") {
+      appFrame.viewEvent(event.payload as AppViewSignal, null);
+    }
   });
   // core에 다시 붙었다. core가 다시 떴으면 view 표가 비어 있으니 열린 view를 같은 요청으로 다시 연다.
   ctx.relay.ready.push(() => void appFrame.refresh());
   // 앱이 영구히 지워지면 그 앱의 browser 저장소(cookie, localStorage, IndexedDB, cache)도 비운다. 보관한 앱이라 열린 view는 이미 없다.
-  ctx.relay.conditions.push({ types: ["AppRemoved"] });
-  ctx.relay.events.push((event) => {
-    if (event.type !== "AppRemoved" || event.subject === null) return;
+  const clearStorage = (removed: string, machine: string | null) =>
     void clearAppStorage(
       {
         userData: app.getPath("userData"),
         partition: (name) => session.fromPartition(name),
         log,
       },
-      event.subject,
+      removed,
+      machine,
     );
+  ctx.relay.conditions.push({ types: ["AppRemoved"] });
+  ctx.relay.events.push((event) => {
+    if (event.type !== "AppRemoved" || event.subject === null) return;
+    clearStorage(event.subject, null);
+  });
+  // 다른 기계마다 같은 둘을 건다. 그 기계가 지운 앱은 이 컴퓨터에 둔 그 기계 partition만 비운다. 그 기계에 다시 붙으면(link가 끊기면
+  // 그 기계가 이 컴퓨터의 view를 닫았다) 그 기계의 view를 같은 요청으로 다시 연다. 자기 watch에 답한 `ready`(watcher 있음)는 아니다.
+  const watched = new Set<string>();
+  const watchMachines = (list: { machines: readonly { id: Id<"mch"> }[] }) => {
+    for (const row of list.machines) {
+      if (watched.has(row.id)) continue;
+      watched.add(row.id);
+      ctx.machines.watch(row.id, APP_VIEWS_WATCHER, [
+        { types: ["AppViewEvent", "AppRemoved"] },
+      ]);
+    }
+  };
+  ctx.machines.subscribe(watchMachines);
+  watchMachines(ctx.machines.list());
+  ctx.machines.onFrame((machine, message, watcher) => {
+    if (message.kind === "ready") {
+      if (watcher === undefined) void appFrame.refresh(machine);
+      return;
+    }
+    if (message.kind !== "event") return;
+    const event = message.event as {
+      type?: unknown;
+      subject?: unknown;
+      payload?: unknown;
+    };
+    if (event.type === "AppViewEvent") {
+      appFrame.viewEvent(event.payload as AppViewSignal, machine);
+    } else if (
+      event.type === "AppRemoved" &&
+      typeof event.subject === "string"
+    ) {
+      clearStorage(event.subject, machine);
+    }
   });
   ctx.windowHooks.closed.push(({ ref }) => appFrame.closeWindow(ref));
 
   return {
     appFrame,
+    caller,
     externalLinks,
     viewErrors,
     owns: browser.nativeBounds.owns,

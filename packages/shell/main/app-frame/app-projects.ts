@@ -1,12 +1,13 @@
 // 앱 view의 project 읽기 main service. 앱이 project를 따로 만들지 않고 lophn project를 기준으로 쓰게 한다.
-// agent 길처럼 사람 자격(`coreInternal`)으로 core에 간다. 앱 code(AI가 만든 code일 수 있다)에는 이름과
+// agent 길처럼 사람 자격(`coreInternal`. 다른 기계의 view는 그 기계가 보는 이 컴퓨터의 기기 자격)으로 core에 간다. 앱 code(AI가 만든 code일 수 있다)에는 이름과
 // 상태, 기계를 넘는 id와 옛 id만 주고 폴더 path는 주지 않는다. 폴더는 지금 열린 project의 것만 `place.workspace`로 간다.
 import type { AppProject } from "../../../protocol/shell/app-bridge-types.ts";
 import type { CallOutcome } from "./app-call.ts";
-import type { CoreCaller } from "./app-connection.ts";
+import type { MachineCaller } from "./app-connection.ts";
+import type { BoundView } from "./registry.ts";
 
 interface AppProjectsDeps {
-  call: CoreCaller;
+  call: MachineCaller;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -42,13 +43,20 @@ function projectOf(value: unknown): AppProject | undefined {
 export function createAppProjects(deps: AppProjectsDeps) {
   return {
     /** 모든 project(보관 포함). 페이지를 끝까지 읽는다. 읽는 사이 목록이 바뀌면 conflict라 앱이 다시 읽는다. */
-    async list(): Promise<CallOutcome<{ projects: AppProject[] }>> {
+    async list(
+      view: BoundView,
+    ): Promise<CallOutcome<{ projects: AppProject[] }>> {
       const projects: AppProject[] = [];
       let cursor: string | undefined;
       do {
-        const reply = await deps.call("read", "projects", "list", {
-          ...(cursor === undefined ? {} : { cursor }),
-        });
+        const reply = await deps.call(view.machine)(
+          "read",
+          "projects",
+          "list",
+          {
+            ...(cursor === undefined ? {} : { cursor }),
+          },
+        );
         if (!reply.ok) {
           return reply.error.code === "conflict"
             ? {

@@ -14,24 +14,34 @@ import {
 } from "./network-policy.ts";
 
 // ── 앱 session ──────────────────────────────────────────────────────────────
-// 운영 앱은 `persist:app-<app>:live`, preview는 `persist:app-<app>:preview-<bundle hash>`다.
-// 같은 앱·모드 view는 partition을 함께 쓰고, 다른 앱·preview·문서·shell과는 cookie·
+// 이 컴퓨터의 운영 앱은 `persist:app-<app>:live`, preview는 `persist:app-<app>:preview-<bundle hash>`다. 다른 기계의 앱
+// 화면(live만 연다)은 `persist:app-<app>:machine-<기계 ULID>`이다: 같은 앱 id라도 기계가 다르면 저장소를 같이 쓰지 않는다.
+// 같은 앱·모드·기계 view는 partition을 함께 쓰고, 다른 앱·기계·preview·문서·shell과는 cookie·
 // localStorage·IndexedDB·cache를 나누지 않는다. webRequest listener는
 // session마다 하나라서 network 판정·view header·protocol handler를 여기서 한 번만 단다.
+
+const ulidOf = (id: string) => id.slice(id.indexOf("_") + 1).toLowerCase();
 
 export function appPartition(
   app: string,
   mode: "live" | "preview",
   bundleHash: string,
+  machine: string | null,
 ): string {
+  if (machine !== null) return `persist:app-${app}:machine-${ulidOf(machine)}`;
   return mode === "live"
     ? `persist:app-${app}:live`
     : `persist:app-${app}:preview-${bundleHash}`;
 }
 
-/** `app_<ULID>` → `app-<ULID 소문자>`. custom scheme host는 소문자 DNS label이다. */
-export function appHostLabel(app: string): string {
-  return `app-${app.slice("app_".length).toLowerCase()}`;
+/**
+ * `app_<ULID>` → `app-<ULID 소문자>`, 다른 기계의 앱이면 `app-<앱 ULID>-<기계 ULID>`(57자). custom scheme host는
+ * 소문자 DNS label(63자 안)이다. label이 기계까지 정하므로 protocol handler와 network 판정이 label을 견주면 기계도 견준다.
+ */
+export function appHostLabel(app: string, machine: string | null): string {
+  return machine === null
+    ? `app-${ulidOf(app)}`
+    : `app-${ulidOf(app)}-${ulidOf(machine)}`;
 }
 
 interface Preventable {

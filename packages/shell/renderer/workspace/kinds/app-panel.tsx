@@ -1,8 +1,11 @@
-// app_panel 탭 kind. 앱이 선언한 panel 화면 하나를 탭에 연다.
+// app_panel 탭 kind. 앱이 선언한 panel 화면 하나를 탭에 연다. 탭의 기계의 앱을 열고(고르는 목록도 그 기계의 것이다), 이
+// 컴퓨터에 그 앱이 있으면 이 컴퓨터의 것을 연다(`AppOnMachine`).
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
+import { AppOnMachine } from "../../app-frame/app-machine.tsx";
+import { AppViewsProvider } from "../../app-frame/app-views.tsx";
 import type { AppLaunch } from "../../desktop/settings/quick-launch/source.ts";
 import { AppPanelPicker, AppPanelTab } from "../app-panel-tab.tsx";
 import type { TabHost } from "./host.ts";
@@ -56,13 +59,18 @@ export function openPinnedAppPanel(
 }
 
 export const appPanelKind: TabKindDef = {
-  thisComputerOnly: true,
   kind: "app_panel",
   labelKey: "project-workspace.label.kind-app-panel",
   icon: workspaceIcons.appPanel,
   anyWorkspace: true,
   // 앱이 선언한 icon이 있으면 그것이다. 저장하지 않고 그릴 때 읽는다.
-  iconOf: (tab) => <AppTabIcon app={tab.app} />,
+  iconOf: (tab, host) => (
+    <AppViewsProvider
+      value={host.machineData(tab.machine ?? host.machine).appViews}
+    >
+      <AppTabIcon app={tab.app} />
+    </AppViewsProvider>
+  ),
   fromStored(stored, { key }) {
     const { app, surface, title } = stored;
     if (
@@ -117,14 +125,23 @@ export const appPanelKind: TabKindDef = {
         />
       );
     }
+    const { app, screen } = tab;
     return (
-      <AppPanelTab
-        app={tab.app}
-        screen={tab.screen}
-        shown={shown}
-        keepKey={tab.key}
-        onOpenAppSpace={onOpenApp}
-      />
+      <AppOnMachine
+        app={app}
+        machine={tab.machine ?? host.machine}
+        here={host.machineData(null).apps}
+      >
+        {() => (
+          <AppPanelTab
+            app={app}
+            screen={screen}
+            shown={shown}
+            keepKey={tab.key}
+            onOpenAppSpace={onOpenApp}
+          />
+        )}
+      </AppOnMachine>
     );
   },
 };

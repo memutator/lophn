@@ -5,6 +5,7 @@ import {
   CodingCoachView,
   REPLY,
 } from "../../../mock/app-space/coding-coach-view.tsx";
+import { OtherMachineAppScene } from "./other-machine.tsx";
 import { AppSpace } from "./space.tsx";
 
 // 코치 앱 화면은 앱이 그리는 view만 그린다(lophn 창은 없다). 상태는 ACP 모양의 가짜 값이다.
@@ -46,6 +47,16 @@ export function CoachFailed() {
       <CodingCoachView phase="failed" />
     </CoachFrame>
   );
+}
+
+/** 다른 기계(Home server)의 앱 화면 탭. 머리 줄에 그 기계의 꼬리표가 선다. */
+export function AppScreenOtherMachine() {
+  return <OtherMachineAppScene offline={false} />;
+}
+
+/** 그 기계(Work laptop)가 꺼져 있다. 탭 본문 대신 그 기계의 상태 한 줄이다. */
+export function AppScreenOtherMachineOffline() {
+  return <OtherMachineAppScene offline />;
 }
 
 /** 앱 workspace를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 Logs panel. */

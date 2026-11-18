@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { CoreCaller } from "./app-connection.ts";
+import type { BoundView } from "./registry.ts";
 import { createAppProjects } from "./app-projects.ts";
 
 function row(
@@ -37,7 +38,9 @@ test("앱 화면은 모든 page의 project와 기계를 넘는 id, 잇기나 ren
       ReturnType<CoreCaller>
     >;
   };
-  const listed = await createAppProjects({ call }).list();
+  const listed = await createAppProjects({ call: () => call }).list({
+    machine: null,
+  } as BoundView);
   assert.ok(listed.ok);
   assert.deepEqual(listed.value.projects, [
     {

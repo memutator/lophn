@@ -1,7 +1,7 @@
-// `app:call-operation`의 main service. 앱 preload가 보낸 `{operation, input}`만 꺼내 core `app_views/call`로
-// 보낸다. 신원은 IPC를 보낸 실제 view의 id 하나다(페이지는 자기가 어느 앱인지 모른다). 그 view가 어느
+// `app:call-operation`의 main service. 앱 preload가 보낸 `{operation, input}`만 꺼내 그 view가 묶인 기계의 core
+// `app_views/call`로 보낸다. 신원은 IPC를 보낸 실제 view의 id 하나다(페이지는 자기가 어느 앱인지 모른다). 그 view가 어느
 // 앱·release에 묶였는지, 어떤 operation을 부를 수 있는지는 core의 view 표가 정한다.
-import type { CoreCaller } from "./app-connection.ts";
+import type { MachineCaller } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 /** 페이지에 보일 결과. 앱이 낸 오류는 앱의 code와 message를 그대로 싣는다. */
@@ -14,7 +14,7 @@ function fail(code: string, message: string): CallOutcome<never> {
 }
 
 interface AppCallDeps {
-  call: CoreCaller;
+  call: MachineCaller;
   /** core가 그 view를 모른다(core 재시작, 표에서 내보냄). 같은 요청으로 다시 연다. */
   resume(view_session: string): void;
   /** core의 view 표에 닿기 전에 거절한 호출. core에는 기록이 없으므로 그 앱 log에 남긴다. */
@@ -62,7 +62,7 @@ export function createAppCall(deps: AppCallDeps) {
         return invalid((value as { operation?: unknown } | null)?.operation);
       }
       const reply = await deps
-        .call("memory", "app_views", "call", {
+        .call(view.machine)("memory", "app_views", "call", {
           view: view.view_session,
           operation: call.operation,
           input: call.input,
@@ -75,6 +75,10 @@ export function createAppCall(deps: AppCallDeps) {
         return (reply.value as { outcome: CallOutcome<unknown> }).outcome;
       }
       if (reply.error.code === "invalid_input") return invalid(call.operation);
+      // 다른 기계가 이 컴퓨터의 호출을 거절했다(기기 목록). 화면이 그 까닭을 보인다.
+      if (reply.error.code === "forbidden") {
+        return fail("forbidden", reply.error.message);
+      }
       if (reply.error.code === "not_found") deps.resume(view.view_session);
       return fail("unavailable", "app is not available");
     },

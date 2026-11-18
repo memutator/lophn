@@ -19,6 +19,8 @@ export type ScreenTarget =
 /** protocol 요청이 쓰는 view 하나의 고정 값. 페이지는 자기가 어느 앱인지 모르고 registry가 정한다. */
 export interface ProtocolView {
   view_session: string;
+  /** 화면 byte를 내줄 기계. null은 이 컴퓨터다. */
+  machine: string | null;
   appLabel: string;
   screen: string;
   target: ScreenTarget;
@@ -26,6 +28,7 @@ export interface ProtocolView {
 }
 
 interface UpstreamRequest {
+  machine: string | null;
   target: ScreenTarget;
   screen: string;
   /** screen 아래 상대 경로. */
@@ -201,6 +204,7 @@ export function createAppProtocolHandler(
     let upstream: UpstreamResponse;
     try {
       upstream = await deps.upstream({
+        machine: view.machine,
         target: view.target,
         screen: parsed.screen,
         path: parsed.asset.join("/"),
@@ -273,6 +277,51 @@ export function createCoreUpstream(open: ScreenFileOpen): Upstream {
       status: response.status === 400 ? 404 : response.status,
       headers: Object.fromEntries(response.headers),
       body: response.body,
+    };
+  };
+}
+
+/** 다른 기계의 route 하나(`machines/call`). 답과 오류는 그 기계의 것 그대로다. */
+type MachineFileCall = (input: {
+  target: ScreenTarget;
+  screen: string;
+  path: string;
+}) => Promise<
+  | { ok: true; value: unknown }
+  | { ok: false; error: { code: string; message: string } }
+>;
+
+// 그 기계가 거절한 code를 화면 byte 응답의 status로. unavailable은 503이라 registry가 묶음을 다시 읽는다.
+const MACHINE_FILE_STATUS: Record<string, number> = {
+  invalid_input: 404,
+  not_found: 404,
+  forbidden: 403,
+  unavailable: 503,
+};
+
+/**
+ * 다른 기계의 `apps/screen_file`. 기기 call은 JSON뿐이라 file 답은 `{content_type, base64}`이고 그 기계가 한 file을
+ * 8 MiB로 자른다(넘으면 invalid_input). 받은 byte를 한 덩어리 stream으로 낸다.
+ */
+export function createMachineUpstream(call: MachineFileCall): Upstream {
+  return async (request) => {
+    const reply = await call({
+      target: request.target,
+      screen: request.screen,
+      path: request.path,
+    });
+    if (!reply.ok) {
+      return {
+        status: MACHINE_FILE_STATUS[reply.error.code] ?? 502,
+        headers: {},
+        body: null,
+      };
+    }
+    const file = reply.value as { content_type: string; base64: string };
+    return {
+      status: 200,
+      headers: { "content-type": file.content_type },
+      body: new Response(Buffer.from(file.base64, "base64")).body,
     };
   };
 }

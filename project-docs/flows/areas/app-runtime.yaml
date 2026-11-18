@@ -904,7 +904,7 @@ flows:
     code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/gate.ts, packages/core/apps/views/call.ts, packages/shell/main/app-frame/app-call.ts, packages/shell/main/app-frame/view-error.ts]
     steps:
       - "shell main이 페이지가 보낸 값에서 operation과 input만 꺼낸다. 객체가 아니거나 다른 칸이 있으면 core에 보내지 않는다. input은 JSON 값으로 만든다(없으면 null, 값이 undefined인 칸은 빠진다. 폰 bridge와 같다). 신원은 IPC를 보낸 view의 id 하나다."
-      - "shell main이 core app_views/call {view, operation, input}을 보낸다. core가 operation 이름(빈 값, 앞뒤 공백, 제어 문자, 와일드카드 없음)과 input(JSON 값, 64 KiB 이하)을 본다(view-table-call)."
+      - "shell main이 그 view가 묶인 기계의 core에 app_views/call {view, operation, input}을 보낸다(다른 기계의 view는 그 기계의 machines/call로만 간다. 앱 preload의 다른 통로 agent·sessions·agents·projects도 같다). core가 operation 이름(빈 값, 앞뒤 공백, 제어 문자, 와일드카드 없음)과 input(JSON 값, 64 KiB 이하)을 본다(view-table-call)."
       - "core가 view에 묶인 release(preview는 preview bundle)의 선언에서 operation을 찾는다. 없으면(command 이름 포함, 이 앱 밖 포함) forbidden이다."
       - "core가 사람 자격으로 app.call_tool(kind operation)을 부른다. 대상은 view 표의 mode, app, release(또는 preview nonce)다. 사람의 호출은 Gate를 거치지 않는다."
       - "core의 답을 페이지 code로 옮긴다. 앱 handler의 실패는 앱이 정한 code와 message를 그대로 싣는다. 호출 경로가 오류로 끝나거나 끊기면 invalid_input은 invalid_input, forbidden·unauthorized는 forbidden, 그 밖은 unavailable이다(쓰기는 result unknown)."
@@ -942,7 +942,7 @@ flows:
         observe: [response]
       - id: core-refused
         code: forbidden
-        when: "core가 호출자 확인에서 거절함(forbidden, unauthorized)"
+        when: "core가 호출자 확인에서 거절함(forbidden, unauthorized), 또는 다른 기계가 이 컴퓨터의 호출을 거절함(그 까닭을 그대로 싣는다)"
         observe: [response]
       - id: invalid-input
         code: invalid_input

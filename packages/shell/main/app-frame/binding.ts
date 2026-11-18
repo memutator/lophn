@@ -1,6 +1,6 @@
 // view 하나를 core의 view 표에 묶는다(`app_views/open`). 앱 process(release·bundle·nonce)와 정규화한 params는
 // core가 정하고, 화면의 바깥 host는 shell이 grant에서 읽는다. 같은 요청을 다시 보내면 core가 지금 binding을 다시
-// 읽어 준다(resume).
+// 읽어 준다(resume). 다른 기계의 view는 그 기계의 core가 같은 일을 한다(owner는 그 기계가 보는 이 컴퓨터).
 import {
   type AppConnector,
   type CoreCaller,
@@ -46,10 +46,11 @@ function mapped(error: { code: string; message: string }): Outcome<never> {
 }
 
 export async function bindView(
-  call: CoreCaller,
-  connector: Pick<AppConnector, "hosts">,
+  core: { call: CoreCaller; connector: Pick<AppConnector, "hosts"> },
+  machine: string | null,
   request: OpenRequest,
 ): Promise<Outcome<Bound>> {
+  const { call, connector } = core;
   const reply = await call("memory", "app_views", "open", request);
   if (!reply.ok) return mapped(reply.error);
   const opened = reply.value as OpenOutput;
@@ -75,7 +76,12 @@ export async function bindView(
         processNonce: opened.process_nonce,
       },
       hosts: hosts.value,
-      partition: appPartition(request.app, request.mode, opened.bundle_hash),
+      partition: appPartition(
+        request.app,
+        request.mode,
+        opened.bundle_hash,
+        machine,
+      ),
     },
   };
 }

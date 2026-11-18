@@ -1,4 +1,5 @@
-// 앱 호출과 앱 preload IPC. operation 호출은 core의 view 표(`app_views/call`)로 간다.
+// 앱 호출과 앱 preload IPC. operation 호출은 core의 view 표(`app_views/call`)로 간다. 다른 기계의 view가 부른 것은 그 기계의
+// core로만 가고(`views.caller`), 기기 목록에 없는 route는 그 기계가 거절한다.
 import { createAppAgent } from "../../app-frame/app-agent.ts";
 import { createAppAgents } from "../../app-frame/app-agents.ts";
 import { createAppCall } from "../../app-frame/app-call.ts";
@@ -19,13 +20,13 @@ type AppCalls = Registered & {
 // log에 쓴다.
 export function register(ctx: ShellContext, views: AppViews): AppCalls {
   const appCall = createAppCall({
-    call: ctx.coreInternal,
+    call: views.caller,
     resume: (view_session) => views.appFrame.resume(view_session),
     rejected: (view, operation, error) =>
       void views.viewErrors.callRejected(view, operation, error),
   });
   const appAgent = createAppAgent({
-    call: ctx.coreInternal,
+    call: views.caller,
     send: (view_session, channel, payload) => {
       const port = views.appFrame.annotateView(view_session);
       if (port === undefined) return false;
@@ -33,9 +34,9 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
       return true;
     },
   });
-  const appProjects = createAppProjects({ call: ctx.coreInternal });
-  const appSessionsApi = createAppSessions({ call: ctx.coreInternal });
-  const appAgents = createAppAgents({ call: ctx.coreInternal });
+  const appProjects = createAppProjects({ call: views.caller });
+  const appSessionsApi = createAppSessions({ call: views.caller });
+  const appAgents = createAppAgents({ call: views.caller });
   // 앱 화면이 연 session의 ACP 갱신. 어느 view로 보낼지는 appAgent가 고른다.
   ctx.relay.conditions.push({ types: ["AcpUpdated"] });
   ctx.relay.events.push((event) => {
@@ -49,7 +50,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
     agentOpen: (view, input) => appAgent.open(view, input),
     agentSnapshot: (view, input) => appAgent.snapshot(view, input),
     agentSend: (view, input) => appAgent.send(view, input),
-    projectsList: () => appProjects.list(),
+    projectsList: (view) => appProjects.list(view),
     sessionsList: (view, input) => appSessionsApi.list(view, input),
     sessionsStatus: (view, input) => appSessionsApi.status(view, input),
     sessionsStop: (view, input) => appSessionsApi.stop(view, input),

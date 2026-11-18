@@ -4,6 +4,8 @@
 // 쥐고, 붙이기 판정(acceptGuest)과 신원 묶기(bindGuest)만 한다. 위치·보임은 renderer CSS다.
 // view가 있다는 것만으로 권한이 생기지 않는다: view는 자기 대상의 화면 byte만 받는다.
 // operation은 `app:call-operation`(app-call.ts)이 이 view의 id로만 부른다.
+// 다른 기계의 앱 화면(live만)은 그 기계의 core가 view 표·화면 byte·grant를 내준다(`machines/call`). 그 view의 partition과
+// host label에 기계가 들어 이 컴퓨터와 다른 기계의 같은 앱이 저장소와 origin을 나누지 않는다(session-policy.ts).
 import { APP_EVENT_CHANNEL } from "../../ipc/app-events.ts";
 import {
   appEntryUrl,
@@ -69,13 +71,20 @@ export type AppViewSignal =
     }
   | { view: string; kind: "rebound" | "lost" };
 
-interface AppFrameDeps {
-  /** core 통로. view 표(`app_views/open|close`)를 부른다. */
+/** 기계 하나의 core 길: view 표(`app_views/open|close`), grant, 화면 byte. */
+export interface MachineCore {
   call: CoreCaller;
   connector: Pick<AppConnector, "hosts">;
+  upstream: Upstream;
+}
+
+interface AppFrameDeps {
+  /** view가 묶이는 기계의 core. null은 이 컴퓨터다. */
+  core(machine: string | null): MachineCore;
+  /** 이 컴퓨터의 기계 id. 아직 모르면 null이다(그동안 기계를 적은 열기는 unavailable). */
+  self(): string | null;
   views: AppViewHost;
   sessionHandle(partition: string): AppSessionHandle;
-  upstream: Upstream;
   /** loopback에서 막을 플랫폼 port. */
   platformPorts(): readonly number[];
   diagnostics: ViewDiagnostics;
@@ -87,6 +96,8 @@ interface AppFrameDeps {
 
 interface Entry extends Bound {
   view_session: string;
+  /** view가 묶인 기계. null은 이 컴퓨터다. */
+  machine: string | null;
   /** core `app_views/open`에 처음 보낸 요청 그대로. 다시 묶기(resume)는 이것으로 보낸다. */
   request: OpenRequest;
   /** 화면 세대. mount마다 오르고 진단 기록·sender 신원에 쓴다. */
@@ -127,6 +138,10 @@ function screenTargetOf(entry: Entry): ScreenTarget {
 }
 
 // view 하나가 새 화면을 열 때의 주소. `mount`가 바뀔 때마다 renderer가 guest를 새로 만든다.
+function labelOf(entry: Entry): string {
+  return appHostLabel(entry.target.app, entry.machine);
+}
+
 function entryUrl(label: string, entry: Entry, mount: number): string {
   const { screen, place, params, workspace } = entry.target;
   return `${appEntryUrl(label, screen, entry.view_session, {
@@ -163,7 +178,7 @@ export function createAppFrame(deps: AppFrameDeps) {
       if (entry === undefined) return undefined;
       return {
         token: entry.token,
-        appLabel: appHostLabel(entry.target.app),
+        appLabel: labelOf(entry),
         hosts: entry.hosts,
       };
     },
@@ -171,21 +186,19 @@ export function createAppFrame(deps: AppFrameDeps) {
     protocol: {
       viewFor(token, appLabel): ProtocolView | undefined {
         const entry = token === null ? undefined : byToken.get(token);
-        if (
-          entry === undefined ||
-          appHostLabel(entry.target.app) !== appLabel
-        ) {
+        if (entry === undefined || labelOf(entry) !== appLabel) {
           return undefined;
         }
         return {
           view_session: entry.view_session,
+          machine: entry.machine,
           appLabel,
           screen: entry.target.screen,
           target: screenTargetOf(entry),
           hosts: entry.hosts,
         };
       },
-      upstream: deps.upstream,
+      upstream: (request) => deps.core(request.machine).upstream(request),
       stale: resume,
     },
   });
@@ -197,7 +210,7 @@ export function createAppFrame(deps: AppFrameDeps) {
   // 화면을 새로 연다. 새 세대·새 token·새 src를 내고, 옛 guest 묶음은 즉시 버린다(그 뒤 그 guest의
   // 요청은 session 정책이 막는다). load는 renderer의 `<webview>`가 src로 한다.
   function mount(entry: Entry): void {
-    const label = appHostLabel(entry.target.app);
+    const label = labelOf(entry);
     sessions.ensure(entry.partition, label);
     unmount(entry);
     entry.generation += 1;
@@ -273,7 +286,11 @@ export function createAppFrame(deps: AppFrameDeps) {
         entry.request.mode === "live" && entry.request.place !== "card"
           ? { ...entry.request, release: null }
           : entry.request;
-      const next = await bindView(deps.call, deps.connector, request);
+      const next = await bindView(
+        deps.core(entry.machine),
+        entry.machine,
+        request,
+      );
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
       if (
         entries.get(entry.view_session) !== entry ||
@@ -303,9 +320,11 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry !== undefined) void refreshEntry(entry);
   }
 
-  // core 표의 view를 닫는다. 기다리지 않고 실패도 무시한다(core가 다시 뜨면 표는 어차피 비어 있다).
-  function closeCore(view: string): void {
+  // core 표의 view를 닫는다. 기다리지 않고 실패도 무시한다(core가 다시 뜨면 표는 어차피 비어 있다. 다른 기계는 link가
+  // 끊기면 그 기계가 이 컴퓨터의 view를 모두 닫는다).
+  function closeCore(machine: string | null, view: string): void {
     void deps
+      .core(machine)
       .call("memory", "app_views", "close", { view })
       .catch(() => undefined);
   }
@@ -317,7 +336,7 @@ export function createAppFrame(deps: AppFrameDeps) {
     entries.delete(view_session);
     unmount(entry);
     record(entry, "disposed");
-    closeCore(view_session);
+    closeCore(entry.machine, view_session);
   }
 
   // 만든 때의 guest·generation을 고정한다. 그 사이 교체·폐기되면 `current()`가 false다.
@@ -372,6 +391,21 @@ export function createAppFrame(deps: AppFrameDeps) {
       if (!deps.views.hasWindow(window)) {
         return failure("invalid_input", "window is not open");
       }
+      // 다른 기계의 앱은 live 화면만 연다. preview는 개발이라 이 컴퓨터만이다.
+      if (input.machine !== undefined && input.mode !== "live") {
+        return failure(
+          "invalid_input",
+          "another machine opens live views only",
+        );
+      }
+      const self = deps.self();
+      if (input.machine !== undefined && self === null) {
+        return failure("unavailable", "this computer's id is not known yet");
+      }
+      const machine =
+        input.machine === undefined || input.machine === self
+          ? null
+          : input.machine;
       const request: OpenRequest = {
         view: deps.ids.viewSession(),
         mode: input.mode,
@@ -384,10 +418,10 @@ export function createAppFrame(deps: AppFrameDeps) {
           ? {}
           : { workspace: input.workspace }),
       };
-      const bound = await bindView(deps.call, deps.connector, request);
+      const bound = await bindView(deps.core(machine), machine, request);
       // core에 열렸지만 쓰지 못하는 view(host를 못 읽음, 그 사이 창이 닫힘)는 core 표에서도 닫는다.
       if (!bound.ok || !deps.views.hasWindow(window)) {
-        closeCore(request.view);
+        closeCore(machine, request.view);
         return bound.ok
           ? failure("invalid_input", "window is not open")
           : bound;
@@ -396,6 +430,7 @@ export function createAppFrame(deps: AppFrameDeps) {
         ...bound.value,
         request,
         view_session: request.view,
+        machine,
         token: "",
         window,
         src: "",
@@ -429,7 +464,7 @@ export function createAppFrame(deps: AppFrameDeps) {
         if (entry.window !== window || entry.src !== src) continue;
         if (entry.srcUsed || entry.contents !== undefined) return undefined;
         try {
-          sessions.ensure(entry.partition, appHostLabel(entry.target.app));
+          sessions.ensure(entry.partition, labelOf(entry));
         } catch {
           return undefined;
         }
@@ -469,11 +504,7 @@ export function createAppFrame(deps: AppFrameDeps) {
       let bound: AppViewContents | undefined;
       const contents = deps.views.guest(guest, {
         allowNavigation: (url) =>
-          navigationAllowed(
-            url,
-            appHostLabel(entry.target.app),
-            entry.target.screen,
-          ),
+          navigationAllowed(url, labelOf(entry), entry.target.screen),
         onHealth(signal) {
           if (entries.get(entry.view_session) !== entry) return;
           if (bound === undefined || entry.contents !== bound) return;
@@ -520,12 +551,12 @@ export function createAppFrame(deps: AppFrameDeps) {
 
     /**
      * 연결과 grant를 다시 읽는다. release·프로세스·bundle·host가 바뀐 view는 다시 연다.
-     * app을 주지 않으면 모든 view다(core에 다시 붙었을 때).
+     * machine을 주지 않으면 모든 view다(이 컴퓨터의 core에 다시 붙었을 때). 주면 그 기계의 view다(그 기계에 다시 붙었을 때).
      */
-    async refresh(app?: string): Promise<void> {
+    async refresh(machine?: string | null): Promise<void> {
       await Promise.all(
         [...entries.values()]
-          .filter((entry) => app === undefined || entry.target.app === app)
+          .filter((entry) => machine === undefined || entry.machine === machine)
           .map(refreshEntry),
       );
     },
@@ -534,12 +565,12 @@ export function createAppFrame(deps: AppFrameDeps) {
     resume,
 
     /**
-     * core의 `AppViewEvent` 하나. 앱 event는 그 view의 page로 보내고(page가 아직 안 붙었으면 버린다), 다시 묶였거나
-     * 묶음을 잃었으면 같은 요청으로 다시 묶어 본다. 모르는 view의 것은 버린다.
+     * `machine`(null은 이 컴퓨터)의 core가 낸 `AppViewEvent` 하나. 앱 event는 그 view의 page로 보내고(page가 아직 안
+     * 붙었으면 버린다), 다시 묶였거나 묶음을 잃었으면 같은 요청으로 다시 묶어 본다. 모르는 view와 다른 기계에 묶인 view의 것은 버린다.
      */
-    viewEvent(payload: AppViewSignal): void {
+    viewEvent(payload: AppViewSignal, machine: string | null): void {
       const entry = entries.get(payload.view);
-      if (entry === undefined) return;
+      if (entry === undefined || entry.machine !== machine) return;
       if (payload.kind === "event") {
         entry.contents?.send(APP_EVENT_CHANNEL, {
           source: payload.source,

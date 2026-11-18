@@ -64,8 +64,8 @@ interface ViewErrorForward {
 }
 
 interface ViewErrorDeps {
-  /** 인증된 client로 core에 보낸다. 받지 못했으면 false다. */
-  send(forward: ViewErrorForward): Promise<boolean>;
+  /** 그 view의 기계(null은 이 컴퓨터) core에 보낸다. 받지 못했으면 false다(다른 기계는 기기에 이 route를 열지 않아 거절한다). */
+  send(machine: string | null, forward: ViewErrorForward): Promise<boolean>;
   clock: { nowMs(): number };
   log(line: string): void;
 }
@@ -131,7 +131,7 @@ export function createViewErrors(deps: ViewErrorDeps) {
   ): Promise<void> {
     let sent = false;
     try {
-      sent = await deps.send({
+      sent = await deps.send(view.machine, {
         app: view.target.app,
         release: view.binding.release,
         mode: view.target.mode,

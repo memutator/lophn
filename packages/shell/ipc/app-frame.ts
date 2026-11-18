@@ -5,6 +5,7 @@ import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const appId = z.string().regex(new RegExp(`^app_${ULID}$`));
+const machineId = z.string().regex(new RegExp(`^mch_${ULID}$`));
 const releaseId = z.string().regex(new RegExp(`^rel_${ULID}$`));
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const viewSession = z.string().min(1).refine(noControl);
@@ -61,8 +62,10 @@ const placeWorkspaceSchema = z.union([
     .strict(),
 ]);
 
-// 화면이 열리는 자리와 인자. 판(release)은 mode에 따라 다르다.
+// 화면이 열리는 자리와 인자. 판(release)은 mode에 따라 다르다. `machine`이 있으면 그 기계의 앱 화면이고(live만), 그 기계의
+// core가 view를 묶고 화면 byte를 내준다. 이 컴퓨터의 id면 이 컴퓨터의 것이다.
 const openBase = {
+  machine: machineId.optional(),
   app: appId,
   screen: screenKey,
   place,

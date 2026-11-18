@@ -236,6 +236,10 @@ export const workspaceSettings = {
     "This invite was made on this computer. Paste it on the other computer.",
   "settings.error.remote-join-unavailable":
     "Connections are still starting or are off. Try again in a moment.",
+  "settings.error.remote-join-update-client":
+    "The other computer runs a newer lophn. Update lophn on this computer, then join again.",
+  "settings.error.remote-join-update-host":
+    "The other computer runs an older lophn. Update lophn there, then join again. If the invite has expired by then, make a new one.",
   "settings.error.remote-join-untrusted":
     "This invite does not check out. Copy the whole text again, or make a new one.",
   "settings.error.remote-join-used":

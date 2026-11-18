@@ -156,6 +156,9 @@ export function coreRemoteSource(
       if (typeof reason === "string" && reason in JOIN_REFUSED) {
         return { ok: false, reason: reason as keyof typeof JOIN_REFUSED };
       }
+      const update = reply.error?.details?.["update"];
+      if (update === "client") return { ok: false, reason: "update_client" };
+      if (update === "host") return { ok: false, reason: "update_host" };
       const code = reply.error?.code;
       if (code === "invalid_input")
         return { ok: false, reason: "invalid_text" };
@@ -194,8 +197,7 @@ export function coreRemoteSource(
           lastConnectedAt: device.last_connected_at,
           primary: device.id === primary,
           terminalInput: device.terminal_input,
-          // `roster/list`의 `pending`은 같이 도는 다른 변경이 더하는 칸이라 아직 없을 수 있다.
-          pending: (device as { pending?: boolean }).pending === true,
+          pending: device.pending,
         })),
       };
     },

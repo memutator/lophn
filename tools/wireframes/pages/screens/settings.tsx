@@ -47,6 +47,7 @@ import {
   SettingsRemoteInviteComputer,
   SettingsRemoteJoinFailed,
   SettingsRemoteJoinPending,
+  SettingsRemoteJoinUpdate,
   SettingsRemoteWaiting,
   SettingsRemoteRemove,
   SettingsKeyboardApps,
@@ -298,6 +299,13 @@ export const settingsArea: Area = {
       description:
         "[Join with an invite]에 붙인 초대장이 수명이 지나 거절되었다. 칸 아래에 이유(지남, 이미 쓰임, 확인 안 됨, 빠진 컴퓨터, 이 컴퓨터의 초대장 등)가 선다.",
       render: () => <SettingsRemoteJoinFailed />,
+    },
+    {
+      id: "settings-remote-join-update",
+      title: "Settings · Remote · join needs an update",
+      description:
+        "초대한 컴퓨터가 답했지만 remote protocol 판이 어긋났다. 칸 아래에 어느 쪽 lophn을 올릴지(이 컴퓨터, 그 컴퓨터)가 선다. 기다리는 중이 아니고 명단에 아무것도 남지 않는다.",
+      render: () => <SettingsRemoteJoinUpdate />,
     },
     {
       id: "settings-remote-join-pending",

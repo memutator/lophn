@@ -2441,14 +2441,14 @@ flows:
       - "컴퓨터 초대장이어야 한다. issuer가 이 컴퓨터(같은 host key나 기계 id)면 거절한다"
       - "이 컴퓨터의 자기 항목을 rev+1, 초대장의 terminal_input과 초대 key로 지어 초대장의 비밀로 서명한다(초대 서명 statement). issuer의 서명 key를 root로 더한 view에서 checkInvited(지금 시각)로 issuer 자기 서명, 초대장 서명, 수명, 쓰인 초대, 빠진 key를 본다"
       - "아직 저장하지 않고 remote-client join으로 issuer에 붙어 초대 서명 statement를 join으로 낸다(20초 기한)"
-      - "issuer가 거절하면 아무것도 저장하지 않는다. 그 밖(받아들임, 못 닿음, 기한 지남)이면 issuer 항목, 이 컴퓨터가 issuer 항목에 한 서명, 초대 서명 statement, issuer의 주소를 저장하고(roster-commit) 닿았으면 받은 명단을 합친다. 사람이 글을 넣은 것이 issuer를 믿는 근거다. 명단에 issuer가 들어 link가 열린다(machine-links)"
+      - "issuer가 거절하거나 remote protocol 판이 어긋나면 아무것도 저장하지 않는다. 그 밖(받아들임, 못 닿음, 답 전에 닫힘, 기한 지남)이면 issuer 항목, 이 컴퓨터가 issuer 항목에 한 서명, 초대 서명 statement, issuer의 주소를 저장하고(roster-commit) 닿았으면 받은 명단을 합친다. 사람이 글을 넣은 것이 issuer를 믿는 근거다. 명단에 issuer가 들어 link가 열린다(machine-links)"
       - "pending은 이 컴퓨터를 다른 컴퓨터가 아직 받아들이지 않았는지다. 못 닿았으면 초대 서명 statement를 수명까지 든 채 true로 끝나고, 그 statement는 issuer link가 다시 붙을 때의 join이나 폰이 issuer를 믿는 컴퓨터에 나를 때 받아들여진다. 수명은 그때 그 컴퓨터의 시계로 본다"
     outcomes:
       - id: joined
         when: "issuer에 닿아 받아들여졌다. pending false"
         observe: ["response", "ledger:roster_statements", "event:StateChanged"]
       - id: pending
-        when: "issuer에 닿지 못했다(꺼짐, 주소 없음, 판이 어긋남, 답 전에 닫힘). pending true"
+        when: "issuer에 닿지 못했다(꺼짐, 주소 없음, 답 전에 닫힘, 20초 기한). pending true"
         observe: ["response", "ledger:roster_statements"]
       - id: not-invite
         code: invalid_input
@@ -2465,6 +2465,10 @@ flows:
       - id: conflict
         code: conflict
         when: "이 컴퓨터가 낸 초대장(this_computer), 같은 초대로 다른 key가 이미 들었음(used), id나 서명 key가 다른 key로 있음(id_taken, key_taken). issuer의 거절도 같고 명단에 아무것도 남지 않는다"
+        observe: ["response"]
+      - id: update
+        code: conflict
+        when: "issuer가 답했지만 remote protocol 판 범위가 겹치지 않는다. details.update가 client(이 컴퓨터의 lophn을 올려라) 또는 host(초대한 컴퓨터의 lophn을 올려라)이고 명단에 아무것도 남지 않는다"
         observe: ["response"]
       - id: forbidden
         code: forbidden

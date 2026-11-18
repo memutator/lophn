@@ -57,6 +57,8 @@ const JOIN_ERRORS = {
   this_computer: "settings.error.remote-join-this-computer",
   id_taken: "settings.error.remote-join-id-taken",
   key_taken: "settings.error.remote-join-key-taken",
+  update_client: "settings.error.remote-join-update-client",
+  update_host: "settings.error.remote-join-update-host",
   unavailable: "settings.error.remote-join-unavailable",
   failed: "settings.error.remote-join-failed",
 } as const;

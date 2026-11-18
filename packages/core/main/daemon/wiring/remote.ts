@@ -957,6 +957,14 @@ export function remoteWiring(
             ...(reason === undefined ? {} : { details: { reason } }),
           });
         }
+        // 판이 어긋난 것은 기다려도 끝나지 않는다. 저장하지 않고 어느 쪽 lophn을 올릴지 알린다.
+        if (!joined.ok && joined.failure.kind === "update") {
+          return err({
+            code: "conflict" as const,
+            message: `the remote protocol versions do not meet; update lophn on ${joined.failure.update === "client" ? "this computer" : "the inviting computer"}`,
+            details: { update: joined.failure.update },
+          });
+        }
         const stored = await roster.storeJoin(prepared.value);
         if (!stored.ok) return stored;
         if (joined.ok) {

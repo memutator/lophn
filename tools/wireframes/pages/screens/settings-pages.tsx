@@ -422,6 +422,20 @@ export const SettingsRemoteJoinFailed = () => (
   />
 );
 
+/** Settings › Remote: 초대한 컴퓨터가 답했지만 판이 어긋나 거절되었다. 칸 아래에 어느 쪽 lophn을 올릴지(여기는 그 컴퓨터)가 선다. 명단에는 아무것도 남지 않는다. */
+export const SettingsRemoteJoinUpdate = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{}}
+    remote={{ join: { ok: false, reason: "update_host" } }}
+    steps={[
+      () => click("[data-remote-join-open]"),
+      () => type("[data-remote-join-text]", PASTED_INVITE),
+      () => click("[data-remote-join-send]"),
+    ]}
+  />
+);
+
 /** Settings › Remote: 초대장으로 들었지만 초대한 컴퓨터가 꺼져 있어 기다리는 중이다. 그 컴퓨터를 아는 기기(폰)가 붙으면 끝난다는 글이 선다. */
 export const SettingsRemoteJoinPending = () => (
   <SettingsFrame

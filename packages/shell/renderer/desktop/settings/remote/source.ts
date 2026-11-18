@@ -80,6 +80,9 @@ export type JoinOutcome =
         | "this_computer"
         | "id_taken"
         | "key_taken"
+        /** 판이 어긋났다. client는 이 컴퓨터의 lophn을, host는 초대한 컴퓨터의 lophn을 올린다. */
+        | "update_client"
+        | "update_host"
         | "unavailable"
         | "failed";
     };

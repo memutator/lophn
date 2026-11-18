@@ -66,6 +66,7 @@ import {
   type DeviceCredential,
   devicePrincipal,
 } from "./call.ts";
+import { createLinks } from "./links.ts";
 import {
   createMachineAppTools,
   createMachineRoutes,
@@ -657,4 +658,53 @@ test("machines/app_tools는 session 없는 agent로 묻고, 닿지 않는 앱은
     assert.deepEqual(hidden.value.apps, []);
   }
   assert.deepEqual(asked, []);
+});
+
+// 받는 기계의 apps/remote_call은 보낸 컴퓨터를 기기 id로 이름 풀기에서 찾는다. 명단의 컴퓨터만 찾고(폰은 없다), 이 컴퓨터는 self로 표시되며,
+// 같은 기계 id의 컴퓨터 둘도 기기 id로는 하나씩 고른다.
+test("명단의 컴퓨터 목록은 컴퓨터만 담고 이 컴퓨터를 self로 표시하며 기기 id로 하나를 고른다", () => {
+  const entry = (n: number, kind: "computer" | "phone", machine: string) => ({
+    body: {
+      type: "entry",
+      id: `dev_0${String(n).repeat(25)}`,
+      kind,
+      machine,
+      name: `n${n}`,
+    },
+  });
+  const MACHINE = `mch_0${"1".repeat(25)}`;
+  const devices = [
+    entry(1, "computer", MACHINE),
+    entry(2, "computer", MACHINE),
+    entry(3, "phone", `mch_0${"3".repeat(25)}`),
+    entry(4, "computer", `mch_0${"4".repeat(25)}`),
+  ];
+  const links = createLinks({
+    roster: {
+      view: () => ({ devices }),
+      self: () => ({ id: devices[3].body.id }),
+    },
+  } as never);
+  const computers = links.computers();
+  assert.deepEqual(
+    computers.map((one) => [one.device, one.self]),
+    [
+      [devices[0].body.id, false],
+      [devices[1].body.id, false],
+      [devices[3].body.id, true],
+    ],
+  );
+  for (const [index, found] of [
+    [0, true],
+    [1, true],
+    [2, false],
+  ] as const) {
+    const resolved = resolveMachine(devices[index].body.id, computers);
+    assert.equal(resolved.ok, found);
+    if (resolved.ok)
+      assert.equal(resolved.value.device, devices[index].body.id);
+  }
+  // 같은 기계 id를 기계 id로 고르면 모호하다(기기 id로 고르라고 한다).
+  const byMachine = resolveMachine(MACHINE, computers);
+  assert.equal(!byMachine.ok && byMachine.error.code, "invalid_input");
 });

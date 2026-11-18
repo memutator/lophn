@@ -1,5 +1,5 @@
 id: device-roster
-version: 0.23.82
+version: 0.23.83
 title: 폰과 컴퓨터가 서명한 내 기기 명단 하나를 같이 들고, 한 컴퓨터의 초대로 모든 기계와 이어진다
 modules: [packages/protocol, packages/remote-client, packages/core/remote, packages/core/main, packages/core/apps/sync, packages/cli, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tools]
 change: |

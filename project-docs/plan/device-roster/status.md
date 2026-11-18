@@ -8,6 +8,6 @@ lead만 고친다. `tools/status.py device-roster build`가 `tasks/*.md`에서 i
 | `roster-client` | roster | 2 | roster-contract | merged | roster/roster-client | 8a833daba |  |
 | `roster-core` | roster | 2 | roster-contract | merged | roster/roster-core | bc2d27dfd |  |
 | `roster-cli` | roster | 3 | roster-core | merged | roster/roster-cli | 1314a3c78 |  |
-| `roster-links` | roster | 3 | roster-core | running | roster/roster-links |  |  |
+| `roster-links` | roster | 3 | roster-core | merged | roster/roster-links | c99596b58 |  |
 | `roster-desktop` | roster | 4 | roster-links | todo |  |  |  |
 | `roster-cleanup` | roster | 5 | roster-client, roster-cli, roster-desktop | todo |  |  |  |

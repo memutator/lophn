@@ -243,6 +243,10 @@ export const signingKeyStep: DataStep = {
 
 const DEVICE_PRINCIPAL = "device:";
 
+// `roster/join`이 초대한 컴퓨터에 붙어 답을 기다리는 한도. WebSocket 열기(10초)와 host의 handshake 한도(10초)를 더한 것이다.
+// 넘으면 못 닿은 것과 같이 pending으로 끝난다: 초대 서명 statement는 이미 저장했고 link나 폰이 나중에 나른다.
+const JOIN_DEADLINE_MS = 20_000;
+
 export const remoteWiring: WiringFactory = () => {
   let listener: RemoteListener | undefined;
   let relay: RelayClient | undefined;
@@ -833,7 +837,16 @@ export const remoteWiring: WiringFactory = () => {
         const accepted = await roster.acceptInvite(text);
         if (!accepted.ok) return accepted;
         const { body, issuer } = accepted.value;
-        const joined = await join(text, {
+        let timer: NodeJS.Timeout | undefined;
+        const deadline = new Promise<Awaited<ReturnType<typeof join>>>(
+          (resolve) => {
+            timer = setTimeout(
+              () => resolve({ ok: false, failure: { kind: "unreachable" } }),
+              JOIN_DEADLINE_MS,
+            ).unref();
+          },
+        );
+        const attempt = join(text, {
           key: hostKey,
           dial: dialNodeWebSocket,
           random: ctx.random,
@@ -851,6 +864,8 @@ export const remoteWiring: WiringFactory = () => {
           },
           self: ctx.machine.id,
         });
+        const joined = await Promise.race([attempt, deadline]);
+        clearTimeout(timer);
         if (joined.ok) {
           const merged = await roster.receive(joined.joined.roster);
           if (!merged.ok) return merged;

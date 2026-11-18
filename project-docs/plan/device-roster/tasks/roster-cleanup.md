@@ -8,11 +8,10 @@
   - `packages/protocol/remote/{frames.ts,routes.ts,client.ts,channel.ts,roster.ts}`
   - `packages/remote-client/`
   - `packages/core/remote/`, `packages/core/main/daemon/wiring/remote.ts`
-  - `packages/shell/main/desktop/`, `packages/shell/renderer/desktop/settings/remote/`(남은 옛 이름만)
   - `packages/mobile/src/`(남은 옛 이름만)
-  - `tools/check-deps.ts`, `tools/dev.ts`(주석만)
+  - `tools/dev.ts`(주석만)
   - `packages/core/main/daemon/wiring/context.ts`, `packages/core/apps/views/ports.ts`, `packages/core/attention/presence.ts`, `packages/core/attention/mod.ts`(넷 다 `deviceKind` type의 `"desktop"`을 `"computer"`로 바꾸는 줄만. `roster-core`에서 옮겼다)
-  - `project-docs/flows/`, `project-docs/module-catalog.yaml`, `project-docs/boundary-catalog.yaml`
+  - `project-docs/flows/areas/{core-platform,cli,app-surface,app-runtime}.yaml`, `project-docs/flows/scenarios/multi-machine.yaml`, `project-docs/flows/tests/{core-rest,libs-tooling}.yaml`, `project-docs/flows/journeys/phone.yaml`, `project-docs/boundary-catalog.yaml`(shell 쪽 flows는 다른 계획의 `term-desktop`이 고치는 중이라 뺐다. 거기 남은 옛 이름은 보고에 적는다)
 - 읽을 것:
   - 계획 README 전부(특히 "옮기기"의 "`v2` 길을 만들지 않는다")
   - `project-docs/plan/device-roster/tasks/` 앞 task들의 brief와 보고(lead가 prompt로 준 "안 쓰게 된 export" 목록)
@@ -63,3 +62,4 @@
 
 - `roster-client`: `packages/remote-client`의 `pair`, `parsePairingText`, `unpair`, `PairDevice`, `PairFailure`는 부르는 곳이 없다(지운다). `packages/mobile/README.md`의 protocol 판 문단(아직 2)과 개발 단계 2~3(`pairing/start` code)을 `roster/invite`와 판 3으로 고친다(추가 소유: 그 README). `mobile.settings.note.phone-name` 문구가 지금 동작(폰 이름은 hello로 알리고 컴퓨터가 명단 이름으로 서명한다)과 맞는지 보고 고칠 key를 보고에 적는다.
 - 실제 core 확인(lead): 옮긴 뒤 `devices` 표에 `alias` 칸 값이 남는다(이름은 명단이 든다). 칸을 지우지는 않되(표 다시 만들기를 이 판에 또 하지 않는다) `devices/list` 출력과 읽는 code에서 `alias`를 뺀다(위 3과 같다).
+- 소유 줄이기(lead): 다른 계획의 `term-desktop`이 `packages/shell/main/desktop/`, `tools/check-deps.ts`, `project-docs/module-catalog.yaml`, `packages/shell/renderer/desktop/`, shell 쪽 flows를 고치는 중이라 이 task 소유에서 뺐다. `roster-desktop`가 shell main에서 remote-client 사용을 이미 다 지웠다. 4의 `check-deps.ts` `shell` 목록과 module catalog notes(`packages/remote-client`, `packages/core/remote`, `packages/shell/main` desktop/viewer)는 lead가 마지막 문서에서 고친다. 보고에 고칠 줄을 적는다.

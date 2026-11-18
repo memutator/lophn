@@ -1,6 +1,7 @@
 // 전역 float 층. Desktop이 `{space}` 옆에 한 번 놓는다(workspace 창 밖이라 workspace를 바꿔도 다시 mount되지 않고, 그 안의
-// <webview> page도 다시 load되지 않는다). 본문은 탭이 나온 workspace의 TabHost로 그린다(detached 창이 탭 하나를 그리는 것과
-// 같은 방식). 바깥을 누르면 고정 안 한 펼친 것이 접힌다.
+// <webview> page도 다시 load되지 않는다). 본문은 탭이 나온 workspace의 TabHost로 그리고(detached 창이 탭 하나를 그리는 것과
+// 같은 방식), 탭의 기계 범위(TabScope)에 선다: 다른 기계의 탭은 그 기계의 통로로 그리고 그 기계가 꺼져 있으면 한 줄이다.
+// 바깥을 누르면 고정 안 한 펼친 것이 접힌다.
 
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels, useObservedSize } from "@lophn/ui/shared";
@@ -30,6 +31,11 @@ import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
 import { TabBoundary } from "../../workspace/tab-boundary.tsx";
 import { useWindowMachine } from "../../desktop/machines/context.tsx";
 import { OnlyHere } from "../../desktop/machines/only-here.tsx";
+import {
+  type MachineRef,
+  useScopeMachine,
+} from "../../desktop/machines/scope.tsx";
+import { TabScope } from "../../desktop/machines/tab-scope.tsx";
 import { useTabHostSlices } from "../../workspace/use-tab-host-slices.ts";
 import type { WorkspaceWindowProps } from "../../workspace/workspace-window.tsx";
 import { clampFloatRect } from "../../workspace/model.ts";
@@ -62,6 +68,25 @@ export interface GlobalFloatEnv {
 }
 
 const noop = () => {};
+
+// float의 workspace가 다른 기계의 것이면 그 기계의 통로 묶음으로 바꾼 env. 이 컴퓨터의 env는 창이 이미 지닌 것(문서 편집, 터미널)이다.
+function envOn(env: GlobalFloatEnv, machine: MachineRef): GlobalFloatEnv {
+  if (machine === env.hostMachine.machine) return env;
+  const data = env.hostMachine.machineData(machine);
+  return {
+    source: data.workspace,
+    hostMachine: { machine, machineData: env.hostMachine.machineData },
+    ...(data.editor === undefined ? {} : { editor: data.editor }),
+    ...(data.terminal === undefined ? {} : { terminal: data.terminal }),
+    agentViewSource: data.agentViewSource,
+    apps: data.apps,
+    ...(env.onOpenApp === undefined ? {} : { onOpenApp: env.onOpenApp }),
+    onSettings: env.onSettings,
+  };
+}
+
+const envOf = (env: GlobalFloatEnv, float: GlobalFloatView) =>
+  envOn(env, float.workspace.machine ?? env.hostMachine.machine);
 
 // kind가 host로 읽는 값 가운데 이 창에 없는 것(탭 줄, project 설정, 앱 화면 목록)은 비워 둔다.
 function hostOf(
@@ -109,16 +134,36 @@ function hostOf(
   };
 }
 
-// float 하나의 본문. 이 float의 workspace로 slice를 만들어 kind의 keep·render를 부른다.
-function GlobalFloatBody({
+// float 하나의 본문. 탭의 기계 범위 안에서 그린다. 그 기계가 붙어 있지 않으면 본문 대신 그 기계의 상태 한 줄이다.
+function GlobalFloatBody(props: {
+  float: GlobalFloatView;
+  env: GlobalFloatEnv;
+  area: { width: number; height: number };
+}) {
+  const scope = useScopeMachine();
+  const { tab, workspace } = props.float;
+  return (
+    <TabScope
+      tab={tab}
+      workspaceMachine={workspace.machine ?? scope}
+      hereApp={tabKindOf(tab.kind)?.hereApp?.(tab)}
+    >
+      <GlobalFloatContent {...props} />
+    </TabScope>
+  );
+}
+
+// 이 float의 workspace로 slice를 만들어 kind의 keep·render를 부른다.
+function GlobalFloatContent({
   float,
-  env,
+  env: layerEnv,
   area,
 }: {
   float: GlobalFloatView;
   env: GlobalFloatEnv;
   area: { width: number; height: number };
 }) {
+  const env = envOf(layerEnv, float);
   const globalFloats = useGlobalFloats();
   const pool = useGlobalFloatsHost();
   const { workspace, tab } = float;
@@ -243,7 +288,7 @@ export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
   ): { icon: ReactNode; dot: SessionDot | null } => {
     const def = tabKindOf(item.tab.kind);
     if (def === undefined) return { icon: null, dot: null };
-    const light = hostOf(env, item, {
+    const light = hostOf(envOf(env, item), item, {
       desk: floats.desk,
       viewKeeps: host.keeps,
       agents: null,

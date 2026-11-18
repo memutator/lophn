@@ -3,6 +3,7 @@
 // tab 읽기·쓰기 보조는 옛 workspace/layout-map.ts와 같은 규칙이다(그 파일은 옛 layout을 지울 때 같이 없어진다).
 // 저장하지 않는 kind(Agent 탭)의 탭은 파일에 없고, 이 창이 workspace마다 마지막으로 읽거나 쓴 layout을 메모리에 들고 있다가
 // 파일이 그 layout 그대로일 때 돌려준다(아래 createLayoutSource). 창을 닫거나 다시 켜면 사라진다.
+// 탭이 보는 기계(`TabItem.machine`)는 kind마다가 아니라 탭 공통 칸 `machine`으로 저장한다(없으면 그 workspace의 기계).
 import type {
   WorkspaceLayoutReadResult,
   WorkspaceLayoutSaveResult,
@@ -168,7 +169,7 @@ export function createLayoutSource(
   };
 }
 
-/** 메모리에 두는 통로. dev mock, gallery와 다른 기계의 창(layout을 저장하지 않고 창이 사는 동안만 든다)이 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 workspace가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
+/** 메모리에 두는 통로. dev mock과 gallery가 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 workspace가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
 export function memoryWorkspaceLayoutBridge(
   initial?: WorkspaceLayout,
 ): WorkspaceLayoutBridge {
@@ -222,23 +223,28 @@ export function tabFromStored(value: unknown): TabItem | null {
   ) {
     return null;
   }
-  return kind.fromStored(tab, {
+  const item = kind.fromStored(tab, {
     key: tab.key,
     position: readPosition(tab.read_position),
   });
+  return item !== null && typeof tab.machine === "string"
+    ? { ...item, machine: tab.machine }
+    : item;
 }
 
 /**
- * transient 탭, 다른 기계의 탭, 저장하지 않는 kind(Agent 탭)의 탭, 맞출 수 없는 탭은 null이다. 부르는 쪽이 그 탭을 빼고 남은
- * 배치를 맞춘다. 다른 기계의 탭은 저장 값에 기계가 없어 되살리면 이 컴퓨터의 것(터미널 참조 등)이 된다.
+ * transient 탭, 저장하지 않는 kind(Agent 탭)의 탭, 맞출 수 없는 탭은 null이다. 부르는 쪽이 그 탭을 빼고 남은 배치를 맞춘다.
+ * 다른 기계의 탭은 `machine`을 달아 저장한다(그 기계가 꺼져 있어도 탭은 남는다).
  */
 export function tabToStored(tab: TabItem): Record<string, unknown> | null {
-  if (tab.transient === true || tab.machine !== undefined) return null;
-  return (
+  if (tab.transient === true) return null;
+  const stored =
     tabKindOf(tab.kind)?.toStored?.(tab, {
       position: readPosition(tab.readPosition),
-    }) ?? null
-  );
+    }) ?? null;
+  return stored !== null && tab.machine !== undefined
+    ? { ...stored, machine: tab.machine }
+    : stored;
 }
 
 function rectOf(value: unknown): FloatRect | null {

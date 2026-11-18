@@ -69,7 +69,7 @@ export interface DeskTarget {
 
 /**
  * 전역 float으로 올릴 수 있는 탭인지. kind가 Detach를 막거나(`noDetach`) 이 탭만 막거나(`noGlobal`), layout 파일로
- * 저장하지 못하는 탭(앱을 아직 고르지 않은 앱 panel)이면 아니다. 저장하지 않는 kind(Agent 탭)는 이 창 메모리의 전역 float으로
+ * 저장하지 못하는 탭(앱을 아직 고르지 않은 앱 panel)이면 아니다. 다른 기계의 탭은 올릴 수 있다: 층이 탭의 기계로 본문을 그린다. 저장하지 않는 kind(Agent 탭)는 이 창 메모리의 전역 float으로
  * 살고 파일에는 쓰지 않으므로 저장 검사를 건너뛴다.
  */
 export function canGoGlobal(tab: TabItem): boolean {
@@ -79,8 +79,6 @@ export function canGoGlobal(tab: TabItem): boolean {
     def.noDetach !== true &&
     def.noGlobal?.(tab) !== true &&
     tab.transient !== true &&
-    // 층은 본문을 이 창의 범위에서 그린다. 다른 기계의 탭은 층이 탭의 기계를 볼 때까지 올리지 않는다.
-    tab.machine === undefined &&
     (def.toStored === undefined || tabToStored(tab) !== null)
   );
 }
@@ -237,7 +235,8 @@ export function GlobalFloatsProvider({
     };
   }, [enabled, store]);
 
-  // 앱이 영구히 지워지면 그 앱의 전역 float을 닫는다(없는 앱의 화면은 열려 있어도 쓸모가 없다).
+  // 앱이 영구히 지워지면 그 앱의 전역 float을 닫는다(없는 앱의 화면은 열려 있어도 쓸모가 없다). 이 이벤트는 이 컴퓨터의 core가
+  // 보낸 것이라 다른 기계의 같은 앱 id는 그 기계의 것으로 남긴다.
   const events = useOptionalEventClient();
   useEffect(() => {
     if (!enabled || events === null) return;
@@ -251,10 +250,12 @@ export function GlobalFloatsProvider({
           .filter((item) => {
             const from = workspaces[item.tab.key];
             return (
-              ((item.tab.kind === "app_panel" ||
+              from?.machine === undefined &&
+              (((item.tab.kind === "app_panel" ||
                 item.tab.kind === "app_screen") &&
+                item.tab.machine === undefined &&
                 item.tab.app === removed) ||
-              (from?.kind === "app" && from.id === removed)
+                (from?.kind === "app" && from.id === removed))
             );
           })
           .reduce((next, item) => closeFloat(next, item.tab.key), desk),

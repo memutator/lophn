@@ -28,7 +28,7 @@ export interface TabItem {
   readonly transient?: boolean;
   /**
    * 탭이 보는 기계(`mch_`). 없으면 그 workspace의 기계다(이 컴퓨터의 workspace면 이 컴퓨터, "Home · X"면 X). 같은 project 한 줄
-   * 안에서 다른 기계의 session·터미널을 열 때 단다. 아직 layout에 저장하지 않는다.
+   * 안에서 다른 기계의 session·터미널을 열 때 단다. layout 파일의 탭 공통 칸 `machine`으로 저장한다.
    */
   readonly machine?: string;
 }

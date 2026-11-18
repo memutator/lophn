@@ -24,10 +24,6 @@ import {
   coreProjectIcons,
   type ProjectIconsDeps,
 } from "../../parts/project-icon/project-icon.tsx";
-import {
-  createLayoutSource,
-  memoryWorkspaceLayoutBridge,
-} from "../../shell/layout-source.ts";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import { machineTerminalDeps } from "../../terminal/machine-deps.ts";
 import { coreAgentsSource } from "../../workspace/agents/core-source.ts";
@@ -82,7 +78,7 @@ export interface MachineData {
   /** 이 기계의 event 연결. 범위의 store가 이 위에 선다. */
   readonly events: EventClient;
   readonly stores: EventStores;
-  /** 다른 기계의 layout은 저장하지 않고 창이 사는 동안 메모리에만 든다. 팔레트 파일 묶음(문서 목록)은 그 기계에서만 연다. */
+  /** 다른 기계 workspace의 layout은 이 컴퓨터의 layout store에 기계와 함께 key해 저장한다(`workspaceKey`). 팔레트 파일 묶음(문서 목록)은 그 기계에서만 연다. */
   readonly workspace: WorkspaceSource;
   readonly projects: ProjectsSource;
   readonly apps: AppsSource;
@@ -188,7 +184,6 @@ function otherMachineData(
   const apps = coreAppsSource(core);
   // 보호 secret 창의 값은 그 기계의 link로만 간다.
   const openSecret = windowSecretInputOpener(machine);
-  const layouts = memoryWorkspaceLayoutBridge();
   const { list, runs, setEnabled } = coreJobsSource(core);
   // 이 컴퓨터의 창 통로(디스크 file, OS 폴더 고르기, 지침·memory file)는 이 묶음에 하나도 없다. 그 통로는 이 컴퓨터의 것을 열고
   // 고치므로 다른 기계에서는 unavailable이다.
@@ -207,7 +202,6 @@ function otherMachineData(
         memory: undefined,
         openSecret,
       }),
-      layout: createLayoutSource(() => layouts),
     },
     projects,
     apps,

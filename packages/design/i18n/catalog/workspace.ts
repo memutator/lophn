@@ -161,6 +161,10 @@ export const workspace = {
     "{project} becomes the same project as {title} on {machine}.",
   "projects.link.title": "Link to a project on this computer",
   "projects.notice.saved": "Saved.",
+  "projects.notice.tab-machine-offline":
+    "{name} is offline. Last seen {time}. This tab continues when it is back.",
+  "projects.notice.tab-machine-removed":
+    "{name} is not in your devices. Close this tab.",
   "projects.state.identity-committed":
     "The same project on your other computers",
   "projects.state.identity-conflict":

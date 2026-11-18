@@ -8,6 +8,7 @@ import { createGlobalFloatsStore } from "./global-floats.ts";
 
 const APP = "app_00000000000000000000000000";
 const PRJ = "prj_00000000000000000000000000";
+const MACHINE = "mch_00000000000000000000000000";
 const HOME = { kind: "home" } as const;
 const panel = (screen: string) => ({
   kind: "app_panel",
@@ -32,6 +33,17 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
     assert.deepEqual(await store.read(), []);
     const floats = [
       { workspace: HOME, tab: panel("main"), rect: RECT, minimized: false },
+      {
+        workspace: { kind: "project", id: PRJ, machine: MACHINE },
+        tab: {
+          kind: "terminal",
+          key: "terminal-0",
+          project_folder: "/work",
+          machine: MACHINE,
+        },
+        rect: RECT,
+        minimized: false,
+      },
       {
         workspace: { kind: "project", id: PRJ },
         tab: {
@@ -64,8 +76,11 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
     const unknown = { ...floats[0], tab: { kind: "nope", key: "x" } };
     await writeFile(
       file,
-      JSON.stringify({ schema_version: 2, floats: [unknown, floats[1]] }),
+      JSON.stringify({ schema_version: 3, floats: [unknown, floats[1]] }),
     );
     assert.deepEqual(await store.read(), [floats[1]]);
+    // 판 2는 core의 data step이 올리기 전에는 읽지 않는다.
+    await writeFile(file, JSON.stringify({ schema_version: 2, floats }));
+    assert.deepEqual(await store.read(), []);
   });
 });

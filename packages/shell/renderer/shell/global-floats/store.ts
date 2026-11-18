@@ -61,14 +61,20 @@ const EMPTY: GlobalFloatsState = {
 
 const HOME: WorkspaceRef = { kind: "home" };
 
-/** 저장한 float을 읽는다. 이 kind를 모르거나 값이 맞지 않는 탭은 그 float만 빠진다. */
+/**
+ * 저장한 float을 읽는다. 이 kind를 모르거나 값이 맞지 않는 탭은 그 float만 빠진다. `keep`은 이 컴퓨터의 탭에만 묻는다: 다른
+ * 기계의 탭은 그 기계의 터미널 store가 아는 것이라 이 창의 store로는 판단하지 못하고, 그 기계가 꺼져 있어도 float은 남는다.
+ */
 function loadedOf(
   records: readonly GlobalFloatRecord[],
   keep: (tab: TabItem) => boolean,
 ): Pick<GlobalFloatsState, "desk" | "workspaces"> {
   const items = records.flatMap((item) => {
     const tab = tabFromStored(item.tab);
-    return tab === null || !keep(tab) ? [] : [{ item, tab }];
+    if (tab === null) return [];
+    const elsewhere =
+      (tab.machine ?? (item.workspace as WorkspaceRef).machine) !== undefined;
+    return elsewhere || keep(tab) ? [{ item, tab }] : [];
   });
   return {
     desk: {
@@ -127,7 +133,7 @@ const RETRY_DELAY = 10_000;
 
 export function createGlobalFloatsStore(
   bridge: () => GlobalFloatsBridge | undefined,
-  // 읽은 float 가운데 둘 것. 살아 있는 PTY가 없는 터미널을 뺀다(파일에서는 다음 저장 때 지워진다).
+  // 읽은 float 가운데 이 컴퓨터의 것에서 둘 것. 살아 있는 PTY가 없는 터미널을 뺀다(파일에서는 다음 저장 때 지워진다).
   keep: (tab: TabItem) => boolean = () => true,
 ) {
   let state = EMPTY;

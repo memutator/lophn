@@ -1,6 +1,8 @@
-// 탭 본문의 범위. 탭의 기계(없으면 그 workspace의 기계)로 읽고 부른다. 그 기계가 붙어 있지 않으면 본문 대신 이름과 상태 한
-// 줄이고, 붙으면 본문이 선다. 탭이 앱이고(`hereApp`) 이 컴퓨터에 그 앱이 있으면 탭의 기계와 상관없이 이 컴퓨터의 범위다.
-import { t } from "@lophn/i18n";
+// 탭 본문의 범위. 탭의 기계(없으면 그 workspace의 기계)로 읽고 부른다. 그 기계가 붙어 있지 않으면 본문 대신 기계 이름, 상태,
+// 마지막으로 본 때 한 줄이고(탭과 저장한 값은 그대로다), 붙으면 본문을 새로 mount해 이어진다(터미널은 `terminal_ref`로 다시 붙는다).
+// 명단에서 빠진 기계의 탭은 removed 한 줄이고 사람이 닫는다. 탭이 앱이고(`hereApp`) 이 컴퓨터에 그 앱이 있으면 탭의 기계와
+// 상관없이 이 컴퓨터의 범위다.
+import { formatRelativeTime, t } from "@lophn/i18n";
 import type { ReactNode } from "react";
 
 import { useAppHere } from "../../app-frame/app-machine.tsx";
@@ -34,8 +36,7 @@ export function TabScope({
   const here = useAppHere(hereApp, machine);
   if (here === undefined) return null;
   if (here) return <MachineScope machine={null}>{children}</MachineScope>;
-  // 이미 그 기계의 범위다(workspace의 탭). 범위가 붙음을 이미 본다.
-  if (machine === scope) return <>{children}</>;
+  if (machine === null && scope === null) return <>{children}</>;
   if (machine !== null) {
     const item = machineItemOf(source, view, machine);
     if (item.status !== "connected") {
@@ -51,14 +52,19 @@ export function TabScope({
   return <MachineScope machine={machine}>{children}</MachineScope>;
 }
 
-// 창 전체 gate(`machine-gate.tsx`)와 같은 글이다.
 function gateLine(machine: MachineItem): string {
-  const name = machine.name;
+  const name =
+    machine.name === "" ? t("machines.label.unknown-name") : machine.name;
   switch (machine.status) {
     case "removed":
-      return t("machines.gate.removed", { name });
+      return t("projects.notice.tab-machine-removed", { name });
     case "offline":
-      return t("machines.gate.offline", { name });
+      return machine.lastSeenAt === null
+        ? t("machines.gate.offline", { name })
+        : t("projects.notice.tab-machine-offline", {
+            name,
+            time: formatRelativeTime(new Date(machine.lastSeenAt), new Date()),
+          });
     case "update":
       return machine.update === "client"
         ? t("machine-update.viewer.desktop-client", { name })

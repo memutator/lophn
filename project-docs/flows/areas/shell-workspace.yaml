@@ -1035,7 +1035,7 @@ flows:
       - "kind의 transfer를 부른다. null이면 옮기지 않는다. 그 사이 float이 닫혔으면 아무 일도 없다"
       - "global-floats.tsx의 add가 탭, 탭이 나온 workspace, rect, 접힘, 고정을 전역 목록에 더한다(앱 panel은 같은 화면이 있으면, 다른 kind는 같은 key가 있으면 먼저 뺀다). transfer는 본문이 처음 그리기 전에 kind의 receive로 받는다. 전역 목록을 아직 읽기 전이면 바뀌지 않고 false다"
       - "더하기에 성공하면 desk float을 닫는다. 전역 목록이 20개 상한이면 옮기지 않아 desk float은 그대로 남는다"
-      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다(탭은 kind의 toStored 값)"
+      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다(탭은 kind의 toStored 값에 다른 기계의 탭이면 `machine`을 단 것, workspace도 다른 기계의 것이면 `machine`을 가진다)"
     uses: [ipc:shell:global-floats-save, ipc:shell:workspace-layout-save]
     outcomes:
       - id: moved
@@ -1405,7 +1405,7 @@ flows:
     steps:
       - "전역 float 목록이 바뀌면 store가 저장을 예약하고(SAVE_DELAY 뒤 flush) shell:global-floats-save로 보낸다"
       - "main이 보낸 쪽이 desktop 창이 아니면 거절한다"
-      - "main이 schema(전역 float 20개 상한 포함, 탭은 workspace layout의 kind registry)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
+      - "main이 schema(판 3, 전역 float 20개 상한 포함, 탭은 workspace layout의 kind registry와 공통 칸 `machine`)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
       - "쓰기가 실패하면 파일은 그대로다. renderer는 결과를 무시한다"
     uses: [ipc:shell:global-floats-save]
     outcomes:
@@ -1441,7 +1441,7 @@ flows:
       - "Desktop에 전역 float 층이 붙을 때 store.load가 shell:global-floats-read로 목록을 읽는다"
       - "처음 읽기 전에 바뀐 것은 읽은 목록 위에 얹는다"
       - "읽기가 실패하면(forbidden 포함) 빈 목록으로 시작한다"
-      - "main은 판 2 파일의 float을 하나씩 검증해 모르는 kind나 틀린 탭은 그 float만 뺀다. renderer는 kind의 fromStored로 탭을 되살린다(터미널은 layout 복원과 같다)"
+      - "main은 판 3 파일의 float을 하나씩 검증해 모르는 kind나 틀린 탭은 그 float만 뺀다. renderer는 kind의 fromStored로 탭을 되살리고 탭의 공통 칸 `machine`을 `TabItem.machine`으로 붙인다(터미널은 layout 복원과 같다). 이 컴퓨터의 살아 있는 PTY가 없는 터미널 float은 뺀다. 다른 기계의 float은 그 기계가 꺼져 있어도 남는다"
     uses: [ipc:shell:global-floats-read]
     outcomes:
       - id: loaded
@@ -1466,7 +1466,8 @@ flows:
       - packages/shell/main/desktop/core/layout-ipc.ts
     steps:
       - "WorkspaceWindow가 mount될 때(창을 열거나 workspace를 옮길 때) shell:workspace-layout-read로 그 workspace 파일을 읽는다. project 목록과 파일은 기다리지 않는다"
-      - "값이 있으면 desk layout으로 쓴다. 없거나 읽기가 실패하면 freshLayout을 쓴다(Main 하나, 앱 workspace는 앱 화면 탭 하나)"
+      - "파일 이름은 workspace key다: 이 컴퓨터의 workspace는 `home` | project id | app id, 다른 기계의 workspace(\"Home · X\", 그 기계에만 있는 project·앱)는 그 뒤에 `-<mch>`를 붙인다. 판 11만 읽는다(판 10은 core의 data step shell.layout-machines가 판만 올린다)"
+      - "값이 있으면 desk layout으로 쓴다. 탭의 공통 칸 `machine`이 있으면 `TabItem.machine`이다(없으면 그 workspace의 기계). 없거나 읽기가 실패하면 freshLayout을 쓴다(Main 하나, 앱 workspace는 앱 화면 탭 하나)"
       - "읽기가 실패했거나(IPC 오류, 거절) 판이 다르면(unsupported_schema) layout source가 그 workspace의 쓰기를 막는다: 기본 layout이 사람의 파일을 덮지 않는다. 창의 알림 줄에 저장하지 않는다는 알림 card가 서고 다음 읽기가 되면 다시 쓴다. 손상(corrupt)은 잃을 것이 없어 막지 않는다. main이 읽을 때 <workspace>.json.bak으로 한 벌 남긴다"
       - "보이는 desk의 detached 창을 transfer 없이 되살린다. 다른 desk의 창은 그 desk로 갈 때 연다"
       - "읽는 동안 card는 빈 채로 둔다"
@@ -1506,7 +1507,7 @@ flows:
     steps:
       - "core가 앱을 영구히 지우면 AppRemoved 이벤트가 main에 온다"
       - "main이 그 앱 workspace의 layout 파일을 지운다. 파일이 없으면 그대로 성공이다"
-      - "전역 float 목록에서 그 앱의 float을 지운다. 열린 창의 전역 float 층도 그 float을 닫는다"
+      - "전역 float 목록에서 그 앱의 float을 지운다. 열린 창의 전역 float 층도 그 float을 닫는다. 다른 기계 workspace의 같은 앱 id float과 layout 파일(`<app>-<mch>.json`)은 그 기계의 것이라 남는다"
     outcomes:
       - id: removed
         observe: ["disk:<data>/shell/workspaces/<app>.json (지워짐)", "disk:<data>/shell/global-floats.json"]
@@ -1514,6 +1515,33 @@ flows:
     docs: [architecture/workspace-layout.md]
     unclear:
       - "지우기가 실패할 때 처리(재시도, 남김)는 코드로 확인이 필요하다. outcome을 아직 쓰지 못했다"
+
+  - id: tab-machine-gate
+    title: "다른 기계의 탭은 그 기계가 붙어 있지 않으면 본문 대신 한 줄로 서고, 붙으면 이어진다"
+    actor: person
+    entries: [ui:tab-machine-gate]
+    when: "탭의 기계(탭의 `machine`, 없으면 그 workspace의 기계)가 이 컴퓨터가 아니다. desk의 탭과 전역 float 모두 같다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/machines/tab-scope.tsx
+      - packages/shell/renderer/shell/global-floats/global-float-layer.tsx
+      - packages/shell/renderer/shell/layout-source.ts
+    steps:
+      - "탭 범위(TabScope)가 탭의 기계의 상태를 기계 목록에서 읽는다. 이 컴퓨터에 그 앱이 있는 앱 탭(hereApp)은 기계와 상관없이 이 컴퓨터의 범위로 그린다"
+      - "connected면 그 기계의 범위(통로, event, 앱 view)에서 본문을 그린다. 터미널 탭은 저장한 `terminal_ref`로 그 기계의 터미널에 다시 붙는다"
+      - "connected가 아니면 본문 대신 기계 이름, 상태, 마지막으로 본 때 한 줄을 그린다. 탭과 그 저장 값(layout 파일, 전역 float 파일)은 그대로다. 붙으면 본문을 새로 mount해 이어진다"
+      - "기계 목록(ready)에 없는 기계의 탭은 removed 한 줄이다. 탭은 사람이 닫는다"
+    outcomes:
+      - id: shown
+        when: "그 기계가 connected다"
+      - id: offline
+        when: "그 기계가 꺼져 있거나 붙는 중이거나 lophn 판이 맞지 않는다"
+        observe: ["screen:project-tab-machine-offline"]
+      - id: removed
+        when: "그 기계가 기계 목록에서 빠졌다"
+        observe: ["screen:project-tab-machine-removed"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
 
   # ---- window state ----
   - id: window-state-save
@@ -2668,7 +2696,7 @@ flows:
       - packages/shell/renderer/desktop/jobs/jobs-page.tsx
     steps:
       - "entry가 mount 전에 이 창의 기계를 한 번 묻는다. 기계가 있으면 같은 core 통로(main이 그 기계의 연결로 보낸다) 위에 core, event, project 목록과 등록, 앱 목록, Jobs(켜고 끄기만), 작업대, Agent 탭(sign_in card의 로그인 포함), project icon, 팔레트(file 검색은 projects/search), 그 기계의 core에 걸린 Settings 항목(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 짓는다. 빠른 실행 설정의 core 쓰기, App details 관리, 편집기, 터미널, 이 컴퓨터에 붙은 Settings 항목은 짓지 않는다. 빠른 실행 값은 기본값을 메모리에만 둔다. 폴더 고르기(등록 dialog의 [Add folder], project 폴더 다시 잡기, skill 폴더)는 OS 선택기 대신 그 기계의 폴더 목록 dialog다: projects/browse로 home부터 열고, 폴더를 누르면 들어가고, [Up]과 [Choose]가 있다"
-      - "preload가 이 컴퓨터의 shell host bridge(터미널, file, folder, layout, browser, artifact, detached, 앱 view, coding, extension, thread bookmark, surface)를 열지 않아 그 단추는 bridge가 없을 때처럼 없다(빈 desk의 [Open file]도 없다). layout은 창이 사는 동안 메모리에만 두어 Settings에 갔다 와도 탭이 남고, 다시 열면 Home이다"
+      - "preload가 이 컴퓨터의 shell host bridge(터미널, file, folder, layout, browser, artifact, detached, 앱 view, coding, extension, thread bookmark, surface)를 열지 않아 그 단추는 bridge가 없을 때처럼 없다(빈 desk의 [Open file]도 없다). 그 기계 workspace의 layout은 이 컴퓨터의 layout store에 `<id>-<mch>` key로 저장한다(layout-restore)"
       - "기계 context로 더 감춘다: 새 탭 menu와 빠른 실행의 앱 화면·Agents, 앱 workspace의 앱 화면 탭(처음 layout에도 없다), 앱 줄은 앱 화면 대신 앱 workspace로 간다, workspace 줄의 설정 단추, Agents 줄, 앱 만들기와 앱 보관·되살리기·지우기(Workspaces panel의 앱은 목록뿐이다), coding agent 고르기, Files·Artifacts panel, tray, 끌어 놓은 file 열기, 팔레트의 project 설정 행. Jobs 줄은 스위치와 기록만이고 Edit·Delete·Take over가 없다. 대화의 session 고르기에 Delete가 없고 입력칸에 권한 mode 메뉴(와 mode 순환 키)가 없다(기기는 sessions/delete·sessions/change-skip을 부르지 못한다)"
       - "저장된 링크, 팔레트의 file 결과, 대화 안 file 링크로 이 컴퓨터가 있어야 하는 kind(thisComputerOnly: 문서, 터미널, browser, artifact, 앱 화면·panel·preview, project 설정, App details, Agents)의 탭이 열리면 본문 대신 \"This opens only on <이름>\"이 선다. desk와 전역 float 모두 같다"
       - "Settings는 이 컴퓨터 창과 같은 항목 목록이다. 그 기계의 core에 걸린 항목은 그 기계의 설정을 읽고 쓴다. 이 컴퓨터의 shell이나 OS에 붙은 항목(Appearance, Browser, Remote, Keyboard, Quick launch, Coding agents, Extension packages)은 이 컴퓨터의 설정이라는 한 줄과 [Open this computer]다. 열 때마다 settings/list를 한 번 읽어 forbidden이면(그 기계에서 이 컴퓨터의 터미널 입력 허락이 없다) 그 기계의 항목 자리와 등록 dialog에 까닭과 허락을 켜는 곳(Settings › Remote › My devices) 한 줄을 보인다"
@@ -2677,22 +2705,18 @@ flows:
     uses: [route:unseen/list, route:unseen/dismiss, route:settings/list, route:projects/browse, route:projects/add, route:providers/disconnect, ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open, ipc:shell:secret-input-open]
     outcomes:
       - id: shown
-        observe: ["screen:shell-machine-window"]
       - id: only-here
         when: "이 컴퓨터가 있어야 하는 kind의 탭이 열렸다"
         observe: ["screen:shell-machine-only-here"]
       - id: settings
         when: "Settings로 가서 그 기계의 core에 걸린 항목을 골랐다"
-        observe: ["screen:shell-machine-settings", "screen:shell-machine-sign-in"]
       - id: settings-this-computer
         when: "이 컴퓨터에 붙은 항목을 골랐다"
-        observe: ["screen:shell-machine-settings-this-computer"]
       - id: settings-no-grant
         when: "settings/list가 forbidden이다(그 기계가 이 컴퓨터에 사람의 route를 열지 않았다)"
-        observe: ["screen:shell-machine-settings-no-grant"]
       - id: register
         when: "Workspaces panel의 등록에서 [Add folder]로 그 기계의 폴더를 골라 등록했다"
-        observe: ["screen:shell-machine-register", "ledger:projects"]
+        observe: ["ledger:projects"]
     crosses_process: true
     docs: [architecture/remote.md, architecture/workspace-layout.md, architecture/settings.md]
 
@@ -2715,22 +2739,16 @@ flows:
     uses: [ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: connecting
-        observe: ["screen:shell-machine-gate-offline"]
       - id: offline
         when: "그 기계가 꺼져 있다. 창은 막히지 않는다"
-        observe: ["screen:shell-machine-gate-offline"]
       - id: update
         when: "그 기계와 remote protocol 판 범위가 겹치지 않는다(core-platform remote-connection:version-out-of-range). 창은 막히지 않는다"
-        observe: ["screen:shell-machine-gate-offline"]
       - id: removed
         when: "그 기계가 명단에서 빠졌다(어느 컴퓨터에서 뺐거나, 이 컴퓨터가 빠져 명단을 버렸다)"
-        observe: ["screen:shell-machine-gate-removed"]
       - id: disconnected
         when: "한 번 붙은 뒤 연결이 끊겼다"
-        observe: ["screen:shell-machine-window"]
       - id: reconnected
         when: "끊긴 기계가 다시 붙었다. gate나 끊김 줄이 저절로 사라진다"
-        observe: ["screen:shell-machine-window"]
     crosses_process: true
     docs: [architecture/remote.md]
 
@@ -2752,7 +2770,6 @@ flows:
     uses: [ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: opened
-        observe: ["screen:shell-machine-menu"]
       - id: pair-another
         when: "\"Add a computer…\"를 눌렀다"
         observe: ["screen:settings-remote"]
@@ -2780,19 +2797,14 @@ flows:
     uses: [ipc:shell:machines-this-read, ipc:shell:machines-clone-here, ipc:shell:machines-open, route:projects/list, route:agents/list, route:sessions/list]
     outcomes:
       - id: grouped
-        observe: ["screen:shell-machine-projects"]
       - id: sessions
         when: "\"Also on this computer\"를 눌렀다"
-        observe: ["screen:shell-machine-projects-sessions"]
       - id: cloned
         when: "[Clone here]가 이 컴퓨터에 받아 등록했다. 이 컴퓨터의 목록을 다시 읽어 그 줄이 \"Also on this computer\"가 된다"
-        observe: ["screen:shell-machine-projects"]
       - id: git-auth
         when: "이 컴퓨터의 git에 자격이 없다. \"Run `<command>` in a terminal on this computer, then try again\""
-        observe: ["screen:shell-machine-projects-git-auth"]
       - id: clone-failed
         when: "그 밖의 이유로 받지 못했다. core의 글을 보인다. 폴더 선택기를 그만두면 아무것도 보이지 않는다"
-        observe: ["screen:shell-machine-projects"]
     crosses_process: true
     docs: [architecture/remote.md, architecture/project-identity.md]
 

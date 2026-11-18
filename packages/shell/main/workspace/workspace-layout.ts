@@ -1,5 +1,5 @@
-// workspace(Home, project, app) layout 파일의 값. 파일 하나가 workspace 하나이고 desk 여럿을 가진다. 판 10이다(판 9 파일은
-// core의 data step이 `shell/places/`에서 옮겨 판 10으로 쓴다). 다른 판은 읽지 않는다.
+// workspace(Home, project, app) layout 파일의 값. 파일 하나가 workspace 하나이고 desk 여럿을 가진다. 판 11이다(판 10은 core의
+// data step `shell.layout-machines`가 판만 올린다: 판 11이 탭 공통 칸 `machine`을 더했을 뿐이라 탭 값은 그대로다). 다른 판은 읽지 않는다.
 // Agent 탭은 저장하지 않는다(renderer의 창 메모리에만 산다). 여기 kind가 없고 옛 파일의 Agent 탭은 core의 data step `shell.agent-tabs-unsaved`가 걷어냈다.
 // 파일이 없으면 기본 layout으로 시작한다.
 // 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이고 tabs에서
@@ -15,7 +15,7 @@ import {
 import { tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const WORKSPACE_SCHEMA_VERSION = 10;
+export const WORKSPACE_SCHEMA_VERSION = 11;
 
 // 파일 이름이 되는 key라 폴더 밖으로 나갈 수 있는 글자(`.`, `/`, `\`)는 아예 받지 않는다.
 export function isWorkspaceKey(value: unknown): value is string {

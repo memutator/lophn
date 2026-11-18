@@ -3,7 +3,10 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { shellAgentTabsStep } from "./shell-agent-tabs.ts";
+import {
+  shellAgentTabsStep,
+  shellLayoutMachinesStep,
+} from "./shell-agent-tabs.ts";
 import {
   createIdSource,
   manualClock,
@@ -113,6 +116,78 @@ test("저장된 layout과 전역 float에서 Agent 탭만 걷어내고 group·�
       value: undefined,
     });
     assert.equal(await readFile(layoutFile, "utf8"), again);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("판 10 layout과 판 2 전역 float은 탭 값 그대로 판만 11·3으로 오르고, 판이 다르거나 손상된 파일은 바뀌지 않으며 다시 돌아도 같다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-shell-layout-machines-"));
+  try {
+    const folder = join(root, "shell", "workspaces");
+    await mkdir(folder, { recursive: true });
+    const desk = {
+      label: "Main",
+      tabs: [doc("d1"), doc("d2")],
+      selected_tab: "d2",
+      groups: [
+        {
+          layout: {
+            dir: "row",
+            ratio: 0.4,
+            a: { tab: "d1" },
+            b: { tab: "d2" },
+          },
+          focus: "d2",
+        },
+      ],
+      floats: [{ tab: doc("d3"), rect: RECT, minimized: true }],
+      detached: [],
+    };
+    const old = (version: number) =>
+      JSON.stringify({
+        schema_version: version,
+        active_desk: "_default",
+        desks: { _default: desk },
+      });
+    const floats = (version: number) =>
+      JSON.stringify({
+        schema_version: version,
+        floats: [
+          {
+            workspace: { kind: "home" },
+            tab: doc("d9"),
+            rect: RECT,
+            minimized: false,
+            pinned: true,
+          },
+        ],
+      });
+    await writeFile(join(folder, "home.json"), old(10));
+    await writeFile(join(folder, "other.json"), old(9));
+    await writeFile(join(folder, "broken.json"), '{"schema_version": 10, ');
+    const floatsFile = join(root, "shell", "global-floats.json");
+    await writeFile(floatsFile, floats(2));
+
+    assert.deepEqual(await shellLayoutMachinesStep.run(root, stepDeps), {
+      ok: true,
+      value: undefined,
+    });
+    // 판만 바뀐다: 탭 값과 group, 고른 탭이 그대로다.
+    assert.equal(await readFile(join(folder, "home.json"), "utf8"), old(11));
+    assert.equal(await readFile(floatsFile, "utf8"), floats(3));
+    assert.equal(await readFile(join(folder, "other.json"), "utf8"), old(9));
+    assert.equal(
+      await readFile(join(folder, "broken.json"), "utf8"),
+      '{"schema_version": 10, ',
+    );
+
+    assert.deepEqual(await shellLayoutMachinesStep.run(root, stepDeps), {
+      ok: true,
+      value: undefined,
+    });
+    assert.equal(await readFile(join(folder, "home.json"), "utf8"), old(11));
+    assert.equal(await readFile(floatsFile, "utf8"), floats(3));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

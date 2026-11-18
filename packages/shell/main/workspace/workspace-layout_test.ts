@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { createWorkspaceLayoutStore } from "./workspace-layout-store.ts";
 
 const PROJECT = "prj_00000000000000000000000000";
+const MACHINE = "mch_00000000000000000000000000";
 const BOUNDS = { x: 0, y: 0, width: 400, height: 300 };
 
 function tab(path: string) {
@@ -36,7 +37,7 @@ test("옛 layouts/ 파일이 있어도 읽지 않고 workspace 파일이 없으�
   });
 });
 
-test("판 9 파일은 쓴 대로 읽힌다", async () => {
+test("판 11 파일에서 이 컴퓨터의 탭은 machine 없이, 다른 기계의 탭은 machine과 함께 쓴 대로 읽힌다", async () => {
   await withRoot(async (root) => {
     const store = createWorkspaceLayoutStore(root);
     const layout = {
@@ -44,7 +45,7 @@ test("판 9 파일은 쓴 대로 읽힌다", async () => {
       desks: {
         _default: {
           label: "Main",
-          tabs: [tab("/a.md"), tab("/b.md")],
+          tabs: [tab("/a.md"), { ...tab("/b.md"), machine: MACHINE }],
           selected_tab: "/b.md",
           groups: [
             {
@@ -57,7 +58,13 @@ test("판 9 파일은 쓴 대로 읽힌다", async () => {
               focus: "/b.md",
             },
           ],
-          floats: [{ tab: tab("/f.md"), rect: BOUNDS, minimized: false }],
+          floats: [
+            {
+              tab: { ...tab("/f.md"), machine: MACHINE },
+              rect: BOUNDS,
+              minimized: false,
+            },
+          ],
           detached: [],
         },
       },
@@ -68,8 +75,15 @@ test("판 9 파일은 쓴 대로 읽힌다", async () => {
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 10, ...layout } },
+      value: { ok: true, layout: { schema_version: 11, ...layout } },
     });
+    // 기계 id가 아닌 값은 저장하지 않는다.
+    const wrong = structuredClone(layout);
+    wrong.desks._default.tabs[0] = {
+      ...tab("/a.md"),
+      machine: "nope",
+    } as never;
+    assert.equal((await store.write("home", wrong)).ok, false);
   });
 });
 
@@ -104,7 +118,7 @@ test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 10, ...layout } },
+      value: { ok: true, layout: { schema_version: 11, ...layout } },
     });
   });
 });
@@ -233,7 +247,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 10, ...stacked } },
+      value: { ok: true, layout: { schema_version: 11, ...stacked } },
     });
 
     // 숨은 tab이 group 밖에 떨어져 있으면 저장하지 않는다.
@@ -249,7 +263,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     await writeFile(
       join(root, "shell", "workspaces", "home.json"),
       JSON.stringify({
-        schema_version: 10,
+        schema_version: 11,
         ...desk(
           [tab("/t.md"), gone, tab("/x.md"), tab("/a.md"), tab("/b.md")],
           { tab: "/c.md", stack: ["/a.md", "/b.md", "/c.md"] },
@@ -290,7 +304,7 @@ test("손상된 파일은 읽을 때 .bak으로 한 벌 남긴다", async () => 
   await withRoot(async (root) => {
     const file = join(root, "shell", "workspaces", "home.json");
     await mkdir(join(root, "shell", "workspaces"), { recursive: true });
-    const text = '{"schema_version": 10, "desks": ';
+    const text = '{"schema_version": 11, "desks": ';
     await writeFile(file, text);
     assert.deepEqual(await createWorkspaceLayoutStore(root).read("home"), {
       ok: true,
@@ -335,7 +349,7 @@ test("quick 필드가 없는 파일도 읽히고, quick이 있는 파일은 쓴 
     };
     await writeFile(
       join(dir, `${PROJECT}.json`),
-      JSON.stringify({ schema_version: 10, active_desk: "_default", desks }),
+      JSON.stringify({ schema_version: 11, active_desk: "_default", desks }),
     );
     const store = createWorkspaceLayoutStore(root);
     const old = await store.read(PROJECT);
@@ -398,7 +412,7 @@ test("browser 탭의 keep_alive는 쓴 대로 읽히고 없는 옛 탭도 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 10, ...layout } },
+      value: { ok: true, layout: { schema_version: 11, ...layout } },
     });
   });
 });

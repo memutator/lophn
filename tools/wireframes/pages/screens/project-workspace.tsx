@@ -78,6 +78,7 @@ import {
   ScopeMachineProvider,
 } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
 import { MachineSwitcher } from "../../../../packages/shell/renderer/desktop/machines/machine-switcher.tsx";
+import { TabScope } from "../../../../packages/shell/renderer/desktop/machines/tab-scope.tsx";
 import {
   fakeMachines,
   sampleMachines,
@@ -271,6 +272,75 @@ function OtherMachineTerminal({ viewOnly }: { viewOnly: boolean }) {
   );
 }
 
+/**
+ * 다른 기계의 터미널 탭이 그 기계가 붙어 있지 않을 때. 탭은 탭 줄에 그대로 있고 본문 자리를 탭 범위(TabScope)가 그 기계의
+ * 이름, 상태, 마지막으로 본 때 한 줄로 채운다. `machine`은 꺼진 Work laptop이거나 기계 목록에서 빠진 Old desktop이다.
+ */
+function OtherMachineTabGate({ machine }: { machine: string }) {
+  const [machines] = useState(
+    () => fakeMachines({ machines: sampleMachines() }).source,
+  );
+  const [deps] = useState<TerminalDeps>(fakeTerminalDeps);
+  const tab = {
+    key: OTHER_TERMINAL,
+    kind: "terminal",
+    title: "grocery",
+    machine,
+  };
+  const entry = {
+    key: tab.key,
+    title: tab.title,
+    icon: <Icon icon={workspaceIcons.terminal} pixels={14} />,
+  };
+  return (
+    <MachinesProvider source={machines}>
+      <ShellFrame
+        left={false}
+        onToggleLeft={noop}
+        right={false}
+        tabs={
+          <TabStrip
+            entries={[{ key: entry.key, tabs: [entry] }]}
+            selected={entry.key}
+            minimized={[]}
+            floating={[]}
+            onSelect={noop}
+            onClose={noop}
+            onToggleFloat={noop}
+          />
+        }
+        leftSidebar={null}
+      >
+        <ContentCard
+          panes={[
+            {
+              key: entry.key,
+              crumbs: ["Grocery", entry.title],
+              body: (
+                <TabScope tab={tab} workspaceMachine={null}>
+                  <TerminalTab
+                    tabKey={OTHER_TERMINAL}
+                    project={PROJECT_GROCERY}
+                    folderRef={null}
+                    attach={null}
+                    active
+                    deps={deps}
+                  />
+                </TabScope>
+              ),
+            },
+          ]}
+          focus={entry.key}
+          deskLabel="Main"
+          onFocus={noop}
+          onAction={noop}
+          onEmptyAction={noop}
+        />
+      </ShellFrame>
+    </MachinesProvider>
+  );
+}
+
 export const projectWorkspaceArea: Area = {
   id: "project-workspace",
   title: "Project workspace",
@@ -319,6 +389,20 @@ export const projectWorkspaceArea: Area = {
       description:
         "다른 기계(Home server)의 터미널 탭. card 머리 줄에 그 기계 이름이 서고, 화면은 그 기계가 파싱한 화면 사본을 같은 xterm에 그린다. 탭을 고르거나 누르면 그 기계의 PTY 크기를 이 칸에 맞춘다.",
       render: () => <OtherMachineTerminal viewOnly={false} />,
+    },
+    {
+      id: "project-tab-machine-offline",
+      title: "Project workspace · tab on an offline machine",
+      description:
+        "꺼진 기계(Work laptop)의 터미널 탭. 탭은 탭 줄에 그대로 남고 본문 자리에 그 기계 이름, 꺼짐, 마지막으로 본 때가 한 줄로 선다. 기계가 붙으면 탭이 저장한 터미널 참조로 이어진다.",
+      render: () => <OtherMachineTabGate machine="mch_laptop" />,
+    },
+    {
+      id: "project-tab-machine-removed",
+      title: "Project workspace · tab on a removed machine",
+      description:
+        "기계 목록에서 빠진 기계(Old desktop)의 탭. 본문 자리에 목록에 없다는 한 줄이 서고 탭은 사람이 닫는다.",
+      render: () => <OtherMachineTabGate machine="mch_olddesk" />,
     },
     {
       id: "project-terminal-view-only",

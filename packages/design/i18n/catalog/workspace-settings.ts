@@ -395,7 +395,7 @@ export const workspaceSettings = {
   "settings.note.remote-remove":
     "{name} is cut off on every computer in your devices and cannot join again with its current key. To add it back, invite it again: it joins as a new device.",
   "settings.note.remote-device-terminal-input":
-    "While on, anyone holding this device can type into terminals on your computers and run commands as you.",
+    "While “Allow typing in terminals” is on for a device, anyone holding that device can type into terminals on your computers and run commands as you.",
   "settings.notice.computer-cloned":
     "This lophn was copied from another computer, so it is now a new computer. Invite it again from a computer in your devices.",
   "settings.notice.remote-devices-empty": "No devices yet. Invite one below.",

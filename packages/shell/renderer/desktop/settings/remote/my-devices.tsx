@@ -124,6 +124,9 @@ export function MyDevices({
   return (
     <>
       {removedNotice}
+      <p className={`${styles.lineHelp} ${remoteStyles.listNote}`}>
+        {t("settings.note.remote-device-terminal-input")}
+      </p>
       <ul className={styles.lines} data-remote-devices="ok">
         {devices.map((device) => {
           if (renaming?.id === device.id) {
@@ -210,41 +213,38 @@ export function MyDevices({
                       void act(source.setTerminalInput(device.id, on))
                     }
                   />
-                  <p className={styles.lineHelp}>
-                    {t("settings.note.remote-device-terminal-input")}
-                  </p>
                 </div>
-                {device.thisComputer ? null : (
-                  <div className={styles.actions}>
-                    <Button
-                      icon={actionIcons.edit}
-                      data-remote-rename=""
-                      onClick={() =>
-                        setRenaming({ id: device.id, name: device.name })
-                      }
-                    >
-                      {t("settings.button.remote-rename")}
-                    </Button>
-                    {device.primary || device.kind !== "phone" ? null : (
-                      <Button
-                        icon={actionIcons.confirm}
-                        data-remote-primary=""
-                        onClick={() => void act(source.setPrimary(device.id))}
-                      >
-                        {t("settings.button.remote-make-primary")}
-                      </Button>
-                    )}
-                    <Button
-                      variant="secondary"
-                      icon={actionIcons.remove}
-                      data-remote-remove=""
-                      onClick={() => setRemoving(device)}
-                    >
-                      {t("settings.button.remote-remove")}
-                    </Button>
-                  </div>
-                )}
               </div>
+              {device.thisComputer ? null : (
+                <div className={remoteStyles.deviceActions}>
+                  <Button
+                    icon={actionIcons.edit}
+                    data-remote-rename=""
+                    onClick={() =>
+                      setRenaming({ id: device.id, name: device.name })
+                    }
+                  >
+                    {t("settings.button.remote-rename")}
+                  </Button>
+                  {device.primary || device.kind !== "phone" ? null : (
+                    <Button
+                      icon={actionIcons.confirm}
+                      data-remote-primary=""
+                      onClick={() => void act(source.setPrimary(device.id))}
+                    >
+                      {t("settings.button.remote-make-primary")}
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    icon={actionIcons.remove}
+                    data-remote-remove=""
+                    onClick={() => setRemoving(device)}
+                  >
+                    {t("settings.button.remote-remove")}
+                  </Button>
+                </div>
+              )}
             </li>
           );
         })}

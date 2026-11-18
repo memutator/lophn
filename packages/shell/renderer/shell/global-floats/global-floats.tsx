@@ -79,6 +79,8 @@ export function canGoGlobal(tab: TabItem): boolean {
     def.noDetach !== true &&
     def.noGlobal?.(tab) !== true &&
     tab.transient !== true &&
+    // 층은 본문을 이 창의 범위에서 그린다. 다른 기계의 탭은 층이 탭의 기계를 볼 때까지 올리지 않는다.
+    tab.machine === undefined &&
     (def.toStored === undefined || tabToStored(tab) !== null)
   );
 }

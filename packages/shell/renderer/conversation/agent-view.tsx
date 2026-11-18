@@ -103,6 +103,7 @@ import {
   InputRequestCard,
   openInputRequestWindow,
 } from "./input-request-card/input-request-card.tsx";
+import { useScopeMachine } from "../desktop/machines/scope.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
@@ -352,13 +353,17 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const caps = capabilitiesOf(meta);
   const failedProvider = providerOfModel(meta);
   const authKind = useProviderAuthKind(source, failedProvider?.id ?? null);
+  const scopeMachine = useScopeMachine();
   const providerKey = useMemo(
     () =>
       providerKeyFix(
         failedProvider,
         authKind,
         host.openConnections,
-        host.desktop?.enterProviderKey,
+        host.desktop === undefined
+          ? undefined
+          : (provider) =>
+              host.desktop?.enterProviderKey(provider, scopeMachine),
       ),
     // meta는 갱신마다 새 객체라 값(id, 이름)으로만 다시 만든다. AgentThread가 memo다.
     [
@@ -367,6 +372,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       authKind,
       host.openConnections,
       host.desktop,
+      scopeMachine,
     ],
   );
   // thread index: harness는 CLI 자신의 session id가 bookmark의 session key이고 lophn은 session id다.

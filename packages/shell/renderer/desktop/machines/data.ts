@@ -30,9 +30,10 @@ import {
 } from "../../shell/layout-source.ts";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import { machineTerminalDeps } from "../../terminal/machine-deps.ts";
+import { coreAgentsSource } from "../../workspace/agents/core-source.ts";
 import { coreWorkspaceSource } from "../../workspace/core-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
-import type { CoreSource } from "../connection/connection.ts";
+import { type CoreSource, windowCoreSource } from "../connection/connection.ts";
 import {
   createEventClient,
   type EventClient,
@@ -124,32 +125,44 @@ export interface MachineHubDeps {
   readonly views: LophnShellViewsApi | undefined;
 }
 
-/** 다른 기계의 묶음은 처음 쓸 때 짓고, 그 기계가 명단에서 빠지면 버린다(다시 들어오면 새로 짓는다). */
+/**
+ * 다른 기계의 묶음은 처음 쓸 때 짓고, 그 기계가 명단에서 빠지면 그 구독을 거두고 버린다(다시 들어오면 새로 짓는다).
+ * 이 컴퓨터의 id로 물으면 이 컴퓨터의 묶음이다.
+ */
 export function createMachineHub(deps: MachineHubDeps): MachineHub {
   let here: MachineData | undefined;
   const others = new Map<string, MachineData>();
   let stopList: (() => void) | null = null;
+  // 다른 기계의 연결 상태가 함께 보는 이 컴퓨터의 core 연결.
+  let local: CoreSource | undefined;
   function prune() {
     const view = deps.machines?.get();
     if (view?.state !== "ready") return;
-    for (const machine of others.keys()) {
+    for (const [machine, data] of others) {
       if (!view.machines.some((one) => one.id === machine)) {
         others.delete(machine);
+        void data.core.watch?.([]).catch(() => {});
       }
     }
   }
   return {
     get(machine) {
-      if (machine === null) return (here ??= deps.here());
+      if (
+        machine === null ||
+        machine === deps.machines?.get().thisComputer?.id
+      ) {
+        return (here ??= deps.here());
+      }
       const known = others.get(machine);
       if (known !== undefined) return known;
       if (deps.bridge === undefined || deps.machines === null) {
         throw new Error("this window has no other machines");
       }
       stopList ??= deps.machines.subscribe(prune);
+      local ??= windowCoreSource();
       const data = otherMachineData(
         machine,
-        machineCoreSource(machine, deps.bridge, deps.machines),
+        machineCoreSource(machine, deps.bridge, deps.machines, local),
         deps.views,
       );
       others.set(machine, data);
@@ -177,6 +190,9 @@ function otherMachineData(
   const openSecret = windowSecretInputOpener(machine);
   const layouts = memoryWorkspaceLayoutBridge();
   const { list, runs, setEnabled } = coreJobsSource(core);
+  // 이 컴퓨터의 창 통로(디스크 file, OS 폴더 고르기, 지침·memory file)는 이 묶음에 하나도 없다. 그 통로는 이 컴퓨터의 것을 열고
+  // 고치므로 다른 기계에서는 unavailable이다.
+  const local = { instructions: undefined, files: undefined } as const;
   return {
     machine,
     here: false,
@@ -185,7 +201,12 @@ function otherMachineData(
     stores: createEventStores(events),
     workspace: {
       ...coreWorkspaceSource(core),
-      files: async () => ({ ok: true, value: [] }),
+      ...NO_LOCAL_FILES,
+      agentsSource: coreAgentsSource(core, {
+        ...local,
+        memory: undefined,
+        openSecret,
+      }),
       layout: createLayoutSource(() => layouts),
     },
     projects,
@@ -198,7 +219,7 @@ function otherMachineData(
         machine: true,
         openSecret,
       }),
-      agents: coreAgentsSettingsSource(core, { picker, openSecret }),
+      agents: coreAgentsSettingsSource(core, { ...local, picker, openSecret }),
       diagnostics: coreDiagnosticsSource(core),
       shellRules: coreShellRulesSource(core),
     },
@@ -216,6 +237,23 @@ function otherMachineData(
     grant: () => machineGrant(core),
   };
 }
+
+const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
+const unavailable = () => Promise.resolve(UNAVAILABLE);
+
+// 이 컴퓨터의 디스크와 OS 폴더 고르기로 가는 작업대 칸. 다른 기계의 workspace는 팔레트 파일 묶음(문서 목록)도 읽지 않는다.
+const NO_LOCAL_FILES = {
+  files: () => Promise.resolve({ ok: true as const, value: [] }),
+  list: () => Promise.resolve({ ok: false as const, message: "unavailable" }),
+  addFolder: () =>
+    Promise.resolve({ ok: false as const, message: "unavailable" }),
+  create: unavailable,
+  rename: unavailable,
+  copy: unavailable,
+  writeBytes: unavailable,
+  trash: unavailable,
+  reveal: unavailable,
+} satisfies Partial<WorkspaceSource>;
 
 // 같은 기계의 범위가 여럿 서도(그 기계의 탭 여럿) 폴더 dialog는 먼저 선 자리 하나에만 그린다.
 function oneHost(browser: FolderBrowser): FolderBrowser {

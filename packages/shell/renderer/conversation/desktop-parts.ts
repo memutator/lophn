@@ -17,8 +17,11 @@ export interface DesktopParts {
   }>;
   /** 링크를 창 밖 browser로 여는 길. 통로가 없는 창(gallery)이면 undefined다. */
   linkOpener(): OpenExternalApi["openExternal"] | undefined;
-  /** API key로 연결된 provider의 key를 보호 입력 창으로 받는다. */
-  enterProviderKey(provider: { id: string; name: string }): void;
+  /** API key로 연결된 provider의 key를 보호 입력 창으로 받는다. `machine`은 대화가 선 범위의 기계다(null이면 이 컴퓨터). */
+  enterProviderKey(
+    provider: { id: string; name: string },
+    machine: string | null,
+  ): void;
 }
 
 const DesktopPartsContext = createContext<DesktopParts | null>(null);

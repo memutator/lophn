@@ -289,7 +289,7 @@ export function coreAgentsSettingsSource(
   ): SourceResult<T> =>
     result.ok ? result : { ok: false, code: result.message };
   const link = createLink(core, random);
-  const editor = coreAgentsSource(core);
+  const editor = coreAgentsSource(core, { instructions, files, openSecret });
 
   return {
     editor,

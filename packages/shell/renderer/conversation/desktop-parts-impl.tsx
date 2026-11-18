@@ -25,8 +25,8 @@ export const desktopParts: DesktopParts = {
     />
   ),
   linkOpener: windowLinkOpener,
-  enterProviderKey: (provider) =>
-    void enterSecret(windowSecretInputOpener(), {
+  enterProviderKey: (provider, machine) =>
+    void enterSecret(windowSecretInputOpener(machine), {
       name: providerSecretName(provider.id),
       purpose: "provider",
       subject: provider.name,

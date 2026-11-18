@@ -247,7 +247,12 @@ import {
   useMachines,
   useMachinesView,
 } from "../desktop/machines/context.tsx";
-import { useHostMachine, useMachineData } from "../desktop/machines/scope.tsx";
+import {
+  MachineScope,
+  useHostMachine,
+  useMachineData,
+  useScopeMachine,
+} from "../desktop/machines/scope.tsx";
 import { TabScope } from "../desktop/machines/tab-scope.tsx";
 import { MachineSwitcher } from "../desktop/machines/machine-switcher.tsx";
 import { OnlyHere } from "../desktop/machines/only-here.tsx";
@@ -402,7 +407,23 @@ const sameStop = (a: Stop, b: Stop) =>
 
 // workspace(Home, project, 앱) 창. 새 shell 틀(title bar의 desk 단추·tab 줄, 가운데 card, float 층, 양쪽 sidebar)에 desk 하나를 그린다.
 // Home과 앱은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
+//
+// workspace의 기계는 `workspace.machine`이 정하고(없으면 창의 범위, 곧 이 컴퓨터나 기계에 묶인 창의 그 기계) 본문은 그 기계의
+// 범위에서 그린다. 범위는 이 한 곳에서만 workspace에서 나온다: 다른 기계의 workspace를 여는 쪽은 `machine`을 단 ref만 넘긴다.
+// 그 workspace의 통로(props의 source 등)는 여는 쪽이 그 기계의 묶음에서 꺼내 넘긴다.
 export function WorkspaceWindow(props: WorkspaceWindowProps) {
+  const scope = useScopeMachine();
+  const machine = props.workspace.machine ?? scope;
+  return machine === scope ? (
+    <WorkspaceBody {...props} />
+  ) : (
+    <MachineScope machine={machine}>
+      <WorkspaceBody {...props} />
+    </MachineScope>
+  );
+}
+
+function WorkspaceBody(props: WorkspaceWindowProps) {
   const { workspace, source, windowWidth, onHome, onSettings, terminal } =
     props;
   const windowTerminal = props.windowTerminal ?? terminal;
@@ -419,6 +440,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const data = useMachineData();
   const machinesSource = useMachines();
   const machinesView = useMachinesView();
+  // detached 창과 전역 float은 탭 본문을 이 컴퓨터의 창 범위에서 그린다(탭의 기계를 보지 않는다). 그래서 다른 기계의 탭은
+  // 그쪽으로 옮기지 않는다(layout이 탭의 기계를 저장하고 그 자리가 기계를 볼 때까지).
+  const onThisComputer = (tab: TabItem) => (tab.machine ?? machine) === null;
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
   const pool = useMemo(
@@ -1312,7 +1336,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const detach = async (key: string) => {
     const api = props.detached;
     const first = deskTabs(latestDesk()).find((tab) => tab.key === key);
-    if (api === undefined || first === undefined) return;
+    if (api === undefined || first === undefined || !onThisComputer(first)) {
+      return;
+    }
     if (whereInDesk(latestDesk(), key) === "detached") return;
     const def = tabKindOf(first.kind);
     if (def?.noDetach === true) return;
@@ -1692,7 +1718,13 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // 성공했을 때만 desk에서 닫기다. 전역 float이 상한이거나 transfer가 거절하면 desk float은 그대로다.
   const floatToGlobal = async (key: string) => {
     const first = latestDesk().floats.find((float) => float.tab.key === key);
-    if (first === undefined || !canGoGlobal(first.tab)) return;
+    if (
+      first === undefined ||
+      !canGoGlobal(first.tab) ||
+      !onThisComputer(first.tab)
+    ) {
+      return;
+    }
     const def = tabKindOf(first.tab.kind);
     const transfer = (await def?.transfer?.(first.tab, hostRef.current)) ?? {
       value: null,
@@ -2303,7 +2335,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       preview: tab.preview === true,
       file: pathOfTab(tab) !== null,
       canDetach:
-        props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
+        props.detached !== undefined &&
+        tabKindOf(tab.kind)?.noDetach !== true &&
+        onThisComputer(tab),
       group: own === null ? 0 : leavesOf(own.layout).length,
       stacked: paneStackOf(desk, tab.key).length > 1,
       // 칸에 숨은 tab은 나눌 자리가 없다.
@@ -3187,7 +3221,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                         dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
                         rect: item.rect,
                         pinned: item.pinned,
-                        ...(globalFloats.enabled && canGoGlobal(item.tab)
+                        ...(globalFloats.enabled &&
+                        canGoGlobal(item.tab) &&
+                        onThisComputer(item.tab)
                           ? { global: false }
                           : {}),
                         ...(item.tab.kind === "app_panel"

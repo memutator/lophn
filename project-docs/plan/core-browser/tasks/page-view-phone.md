@@ -19,7 +19,7 @@
   - 쓰는 것: `page_view/list|snapshot|watch|input|control|open`, `PageInput`, `PageFrame`, `PAGE_VIEW_RENEW_MS`(`packages/protocol/lophn-agent/page-view.ts`), event `PageViewChanged`, `StateChanged{browser_pages}`
   - 내놓는 것: 없음
 
-시작 전에 다시 볼 것: `device-roster`의 `roster-client`가 폰의 컴퓨터 목록과 연결을, `core-terminals`의 `term-phone`과 `core-setup`의 `setup-phone`이 `nav.ts`·`routes.tsx`·`sidebar.tsx`를 고쳤을 수 있다. merge된 file 위에서 짓는다.
+시작 전에 다시 볼 것(lead가 2026-11-18 main 0.23.84에 대 보았다: 아래 file과 `LEASE_EVERY_MS`, flow 12 `phone-terminal`이 그대로다. `device-roster`와 `core-terminals`는 land되었고 `core-setup`은 아직 열려 있다): `device-roster`의 `roster-client`가 폰의 컴퓨터 목록과 연결을, `core-terminals`의 `term-phone`과 `core-setup`의 `setup-phone`이 `nav.ts`·`routes.tsx`·`sidebar.tsx`를 고쳤을 수 있다. merge된 file 위에서 짓는다.
 
 ## 할 일
 

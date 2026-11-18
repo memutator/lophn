@@ -28,7 +28,7 @@ spike로 확인한 것 위에 선다: display 없는 Linux에서 Electron은 `--
 
 | wave | id | 선행 | 한 줄 |
 |---|---|---|---|
-| 1 | `page-contract` | 없음 | protocol: host에 시키는 것(frame 켜고 끄기, 입력, 잡기)과 host가 미는 frame, `page_view/*` route, event. `architecture/browser-tab.md` 초안 |
+| 1 | `page-contract` | 없음 | protocol: host에 시키는 것(frame 켜고 끄기, 입력, 잡기)과 host가 미는 frame, `page_view/*` route, event. `core-terminals`가 지운 연결 요청 길(`callLink`, host-link `onFrame`·`onOpen`) 되살리기. `architecture/browser-tab.md` 초안 |
 | 2 | `page-view-core` | `page-contract` | core: lease, 마지막 frame, `page_view/*` route, event, 입력 자격, 사람이 탭을 여는 길 |
 | 2 | `page-stream` | `page-contract` | desktop 앱의 host 쪽: page의 screencast 켜고 끄기, 입력 넣기, 멀리서 잡기를 take control에 잇기, 그리지 않는 상태 알리기 |
 | 3 | `page-host` | `page-stream` | 창 없는 page host: offscreen page, 탭과 page 잇기, 같은 driver와 stream, core가 display 없을 때 띄우기, profile, 화면 없다는 옛 오류 문장 고치기 |

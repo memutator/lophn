@@ -13,12 +13,12 @@ desktop 앱(host) 쪽에서 agent page를 멀리서 보이게 한다: 보는 쪽
   - 계획 README "정한 것 › 멀리서 보기"
   - architecture: `project-docs/architecture/browser-tab.md` 37·40·41과 page-contract가 쓴 "멀리서 보기" 절
   - spike: `reports/multi-device/spike-headless-browser.md` 4(b)(screencast, ack, 첫 frame), 5(최소화·숨김이면 frame이 없고 `win.show()`로 돌아온다, Wayland에서 `restore()`는 돌아오지 않는다), 6(10 fps에 core 하나의 약 16%)
-  - 본보기: `packages/shell/main/terminal/terminal-view.ts`(host가 보는 동안만 밀기), `packages/shell/main/browser/agent/driver.ts`(`attach`, `key`, `charEvents`, `mouse`), `agent/control.ts`, `agent/keys.ts`
+  - 본보기: `git show 9e6394f3f^:packages/shell/main/terminal/terminal-view.ts`(host가 보는 동안만 밀기. 지금은 지워진 옛 판), `packages/shell/main/browser/agent/driver.ts`(`attach`, `key`, `charEvents`, `mouse`), `agent/control.ts`, `agent/keys.ts`
 - 계약:
   - 쓰는 것: 연결 요청 `page_stream`·`page_read`·`page_input`·`page_control`, host frame `page_frame`·`page_state`, `PageInput`·`PageFrame`(`packages/protocol/lophn-agent/page-view.ts`), `Page` port(`agent/page.ts`), `TabControl`
   - 내놓는 것(`page-host`가 쓴다): `createPageStream(deps)`. deps는 `page(tab): Page | undefined`, `control: TabControl`, `send(frame)`(host-link `send`), `nowMs()`, `schedule(run, ms): cancel`. 돌려주는 것은 네 요청의 handler(`stream`, `read`, `input`, `control`. 결과는 `HostToolOutput`)와 `controlChanged(tab, state)`, `blank(tab)`, `wake(tab)`, `forget(tab)`, `reset()`.
 
-시작 전에 다시 볼 것: `core-terminals`의 `term-desktop`이 같은 `surface.ts`에서 터미널·coding·tool 줄을 지운다. 그 task가 이미 merge되었으면 바뀐 file 위에서 짓는다.
+시작 전에 다시 볼 것(lead가 2026-11-18 main 0.23.84에 대 보았다): `core-terminals`가 land되어 `surface.ts`에는 터미널·coding·tool 줄이 없고 host link 요청은 `tab_open|tab_close|tab_show|browser_call`만 단다. shell host link(`packages/shell/main/desktop/core/host-link.ts`)의 `onRequest`·`onOpen`·`send`는 그대로다. 터미널을 host가 밀던 본보기는 지워져 옛 판을 읽는다("읽을 것"). `core-setup`이 아직 열려 있다.
 
 ## 할 일
 

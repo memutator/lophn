@@ -16,12 +16,12 @@ display가 없는 Linux에서 core가 띄우는 창 없는 page host를 짓는�
   - 계획 README "정한 것 › 화면 없는 browser"
   - spike: `reports/multi-device/spike-headless-browser.md` 1(flag), 2(offscreen 창만 그린다, 크기 emulation을 먼저), 3(cookie가 남는다), 4(`setFrameRate`), 6(비용). script `.dev-data/spike-browser/q2.cjs`, `q4.cjs`
   - architecture: `project-docs/architecture/browser-tab.md`(page-contract가 쓴 "화면 없는 기계의 page" 절, 37, 41, 44~49), `platform.md` "core 수명"의 앱 띄우기와 launch intent
-  - 본보기: `packages/shell/main/desktop/main.ts`의 `ensureCoreOnly`(창 없이 끝나는 launch mode), `desktop/wiring/surface.ts`(driver와 stream을 잇는 법, `BIND_OK`), `desktop/wiring/core.ts`의 `connectCore`, `desktop/wiring/context.ts`의 host link 만들기, `desktop/wiring/browser.ts`의 `installBrowserSession`
+  - 본보기: `packages/shell/main/desktop/main.ts`의 `ensureCoreOnly`(창 없이 끝나는 launch mode), `desktop/wiring/surface.ts`(driver와 stream을 잇는 법, `BIND_OK`), `desktop/wiring/core.ts`의 `connectCore`, `desktop/wiring/context.ts`의 host link 만들기, `desktop/wiring/browser.ts`가 `installBrowserSession`(`browser/session.ts`)을 거는 법
 - 계약:
   - 쓰는 것: `PAGE_HOST_INTENT`(`packages/protocol/lophn-agent/host-queue.ts`), `createPageStream`(`agent/stream.ts`), `createBrowserDriver`, `createTabControl`, `Page`·`PageLookup`, host-link 요청 `tab_open`·`tab_close`·`tab_show`·`browser_call`·`page_*`와 frame `report`·`page_frame`·`page_state`
   - 내놓는 것: 없음(끝 task)
 
-시작 전에 다시 볼 것: `core-terminals`가 link에서 터미널·coding 요청을 지웠고 `queue.ts`·`shell-launcher.ts` 둘레를 고쳤을 수 있다. page host가 답할 요청 목록은 merge된 `hostRequestSchema`에서 다시 센다.
+시작 전에 다시 볼 것(lead가 2026-11-18 main 0.23.84에 대 보았다): `core-terminals`가 link에서 터미널·coding 요청을 지워 `hostRequestSchema`는 `tab_open|tab_close|tab_show|browser_call`과 page-contract가 더한 `page_*`다. merge된 schema에서 다시 센다. `visible`은 `{workspaces}` 하나다(TUI 칸이 없어졌다). `installBrowserSession`은 `packages/shell/main/browser/session.ts`에 있다.
 
 ## 할 일
 
@@ -30,7 +30,7 @@ display가 없는 Linux에서 core가 띄우는 창 없는 page host를 짓는�
 3. `page-host/main.ts`의 `startPageHost()`:
    - `resolveDataRoot()`, `app.setPath("userData", browserDataPath(dataRoot))`, `acquireSingleInstance`. 같은 userData의 lock이라 desktop 앱과 page host는 한 기계에서 같이 돌지 않는다(나중에 뜬 쪽이 끝난다). page host가 second-instance를 받으면 `--quit`과 `--page-host`가 아닌 것은 page host를 끝낸다(화면이 생긴 기계에서 사람이 다시 누르면 desktop 앱이 선다).
    - `app.on("window-all-closed", () => {})`: 마지막 page를 닫아도 끝나지 않게 한다(Electron 기본은 끝난다).
-   - `connectCore`(창 집합은 빈 것, relay는 빈 목록, `handle`은 아무것도 하지 않는 것)와 `createHostLink`로 붙는다. `visible`은 workspace와 TUI가 빈 목록이다(workspace에 묶인 탭 요청은 page host로 오지 않는다). host link가 60초 넘게 닫혀 있으면 끝난다(core가 없다).
+   - `connectCore`(창 집합은 빈 것, relay는 빈 목록, `handle`은 아무것도 하지 않는 것)와 `createHostLink`로 붙는다. `visible`은 workspaces가 빈 목록이다(workspace에 묶인 탭 요청은 page host로 오지 않는다). host link가 60초 넘게 닫혀 있으면 끝난다(core가 없다).
    - `installBrowserSession`을 desktop과 같은 규칙으로 한 번 건다(permission, download, user agent).
    - `createTabControl`(push는 `stream.controlChanged`만), `createBrowserDriver`(`viewSession(tab)`은 page가 있으면 tab 자체, `lookup.guest`만 page를 주고 app·artifact는 undefined, `releaseLogin`은 core 연결의 것), `createPageStream`.
    - 요청: browser target의 `tab_open`은 page를 만들고 `BIND_OK`와 같은 답을 준다. `tab_close`는 page를 닫고 done, `tab_show`는 done, `browser_call`은 `driver.run`, `page_*`는 stream. 처리기가 없는 요청은 host link가 `unavailable`로 답한다.

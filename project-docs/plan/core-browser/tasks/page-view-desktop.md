@@ -19,7 +19,7 @@ desktop의 다른 기계 창에 agent page를 보는 탭 kind 하나를 짓는�
   - 쓰는 것: `page_view/list|snapshot|watch|input|control|open`, `PageInput`, `PageFrame`, `PAGE_VIEW_RENEW_MS`(`packages/protocol/lophn-agent/page-view.ts`), event `PageViewChanged`, `StateChanged{browser_pages}`
   - 내놓는 것: 없음
 
-시작 전에 다시 볼 것: `roster-desktop`이 다른 기계 창이 그 기계를 부르는 길을 core의 `machines/call`·`machines/watch`로 바꿨다. 창의 core source(`windowCoreSource`)와 기계 context(`machine`)의 이름이 바뀌었으면 바뀐 이름을 쓴다. `core-setup`의 `setup-viewer`가 `shell.tsx`의 다른 기계 page를 고쳤을 수 있다.
+시작 전에 다시 볼 것(lead가 2026-11-18 main 0.23.84에 대 보았다: `windowCoreSource`, 창의 `machine`, `shell:core-call|core-watch`는 그대로다. 다른 기계로 넘긴 call은 그 기계의 기기 route 목록으로 걸러지므로 `page_view/*`가 그 목록에 있어야 한다. page-view-core merge 때 lead가 더한다): `roster-desktop`이 다른 기계 창이 그 기계를 부르는 길을 core의 `machines/call`·`machines/watch`로 바꿨다. 창의 core source(`windowCoreSource`)와 기계 context(`machine`)의 이름이 바뀌었으면 바뀐 이름을 쓴다. `core-setup`의 `setup-viewer`가 `shell.tsx`의 다른 기계 page를 고쳤을 수 있다.
 
 ## 할 일
 

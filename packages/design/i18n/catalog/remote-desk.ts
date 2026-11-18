@@ -57,4 +57,26 @@ export const remoteDesk = {
   "machines.group.sessions-on": "On {name}",
   "machines.title.choose-folder": "Choose a folder on {name}",
   "machines.title.clone-parent": "Choose a folder for projects you clone",
+  "machines.page.kind": "Pages",
+  "machines.page.title": "Pages on {name}",
+  "machines.page.target": "the pages on {name}",
+  "machines.page.target-one": "this page",
+  "machines.page.empty": "No pages are open on {name}.",
+  "machines.page.untitled": "Untitled",
+  "machines.page.by-agent": "Opened by {agent}",
+  "machines.page.by-you": "Opened by you",
+  "machines.page.open": "Open",
+  "machines.page.open-label": "Address of a page to open on {name}",
+  "machines.page.open-placeholder":
+    "Open a page on {name}, for example to sign in",
+  "machines.page.agent-using": "{agent} is using this page",
+  "machines.page.agent-using-unnamed": "An agent is using this page",
+  "machines.page.held": "You have control",
+  "machines.page.not-painting":
+    "{name} is not drawing this page now. Its window may be minimized or hidden.",
+  "machines.page.waiting": "Waiting for the page…",
+  "machines.page.view-only":
+    "You can only watch pages on {name}. To use them, turn on “Allow typing in terminals” for this computer in Settings › Remote › My devices.",
+  "machines.page.error.action": "{name} did not do that. Try again.",
+  "machines.page.error.open": "Could not open the page on {name}.",
 } as const;

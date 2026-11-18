@@ -1,0 +1,133 @@
+/* 다른 기계의 page 탭. 가운데 기둥에 목록이나 page 그림 하나가 선다. 알림은 탭 위쪽 toast다. */
+.page {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  max-width: var(--page-overview);
+  margin: var(--space-0) auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide) var(--space-12);
+  font-family: var(--font-sans);
+}
+
+/* page 그림은 기둥을 frame 폭까지 넓힌다. */
+.wide {
+  max-width: var(--page-dashboard-max);
+}
+
+.title {
+  margin: var(--space-0) var(--space-0) var(--space-5);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 이유·안내 한 줄(그리지 않음, 다룰 수 없는 기기, 기다림). 색 다른 띠 없이 글만이다. */
+.line {
+  margin: var(--space-0) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.toastSlot {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--layout-pane-padding-wide);
+  z-index: var(--z-sticky);
+}
+
+/* 새 page 열기: 주소 칸이 남는 폭을 채우고 [Open]이 오른쪽 끝이다. */
+.open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-0) var(--space-0) var(--space-6);
+}
+
+.open > :first-child {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
+.emptyLine {
+  padding: var(--space-6) var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* card 밖(float)에서 본문 위에 서는 머리 줄. card 안이면 card 머리 줄에 올린다. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-0) var(--space-0) var(--space-4);
+}
+
+.address {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
+.address > * {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
+.url {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.agent {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.agentText {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: nowrap;
+}
+
+/* page 그림. 비율은 frame의 width·height이고 기둥 폭에 맞춘다. 다룰 수 있으면 focus를 받아 key를 보낸다. */
+.screen {
+  width: 100%;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.screen:focus-visible {
+  border-color: var(--color-focus);
+}
+
+.screen[data-control] {
+  cursor: default;
+}
+
+.picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 그리지 않는 page의 마지막 그림은 흐리게 둔다. */
+.screen[data-still] .picture {
+  opacity: 0.5;
+}

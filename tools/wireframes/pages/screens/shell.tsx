@@ -6,6 +6,7 @@ import {
 } from "./shell/project-identity-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 import { MachineProjectsScene } from "./shell/machine-projects-scene.tsx";
+import { MachinePageScene } from "./shell/machine-page-scene.tsx";
 import { MachineRegisterScene } from "./shell/machine-register-scene.tsx";
 import { MachineGrantProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
 import { press } from "../../mock/drive.ts";
@@ -411,6 +412,41 @@ export const shellArea: Area = {
       description:
         "[Clone here]가 이 컴퓨터의 git 자격이 없어 실패한 상태. 이 컴퓨터의 터미널에서 실행할 명령을 보인다. 묻는 창은 띄우지 않는다.",
       render: () => <MachineProjectsScene open="git-auth" />,
+    },
+    {
+      id: "shell-machine-pages",
+      title: "Shell · Other machine · Pages",
+      description:
+        "다른 기계(Home server) 창의 새 탭 menu에서 연 Pages 탭. 그 기계의 browser page(agent가 연 것과 사람이 연 것)마다 제목, 주소, 연 쪽(agent 이름이나 you)이 한 줄이고, 누르면 그 page의 탭이 열린다. 위의 주소 칸이 그 기계에 새 page를 연다(화면 없는 기계의 로그인). 이 컴퓨터의 창에는 이 탭이 없다.",
+      render: () => <MachinePageScene state="list" />,
+    },
+    {
+      id: "shell-machine-page",
+      title: "Shell · Other machine · Page",
+      description:
+        'page 하나의 탭. 가운데 기둥에 그 기계가 민 그림이 frame 비율로 서고, 누르기·끌기·굴리기와 key가 그 page에 간다. card 머리 줄에 뒤로·다시 읽기·주소 칸이 있고, agent가 다루는 중이면 "<agent> is using this page"와 [Take control]이 오른쪽 끝에 선다.',
+      render: () => <MachinePageScene state="page" />,
+    },
+    {
+      id: "shell-machine-page-held",
+      title: "Shell · Other machine · Page, taken",
+      description:
+        '[Take control]을 누른 뒤. 그동안 agent의 쓰기는 막히고(그 기계의 화면에도 잡힘이 보인다) 머리 줄에 "You have control"과 [Hand back]이 선다.',
+      render: () => <MachinePageScene state="held" />,
+    },
+    {
+      id: "shell-machine-page-not-painting",
+      title: "Shell · Other machine · Page not drawn",
+      description:
+        "그 기계의 창이 최소화되거나 숨겨져 page가 그리지 않는 때. 그림 위에 이유 한 줄이 서고 마지막 그림은 흐리게 남는다.",
+      render: () => <MachinePageScene state="not-painting" />,
+    },
+    {
+      id: "shell-machine-page-view-only",
+      title: "Shell · Other machine · Page, watch only",
+      description:
+        "그 기계가 이 컴퓨터에 터미널 입력을 허락하지 않은 때. 그림은 보이지만 입력, 머리 줄의 단추와 주소 칸, [Take control]이 없고 허락을 켜는 곳을 한 줄로 보인다. Pages 탭의 새 page 주소 칸도 같은 줄로 바뀐다.",
+      render: () => <MachinePageScene state="view-only" />,
     },
     {
       id: "shell-tabs-close",

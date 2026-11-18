@@ -26,6 +26,8 @@ interface NewTabMenuProps {
   onAppPanel?: () => void;
   appItems?: readonly QuickHoverItem[];
   onAppScreen?: () => void;
+  /** 다른 기계의 창에서만 준다: 그 기계의 browser page 목록. */
+  onPages?: () => void;
 }
 
 const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
@@ -118,6 +120,12 @@ export function NewTabMenu(props: NewTabMenuProps) {
       label: t("app-space.label.menu-app-screen"),
       leading: lead(workspaceIcons.appPanel),
     });
+  if (props.onPages)
+    root.push({
+      id: "pages",
+      label: t("machines.page.kind"),
+      leading: lead(browserIcons.globe),
+    });
   if (props.onAppPanel)
     root.push({
       id: "app-panel-menu",
@@ -149,6 +157,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
         else if (id === "search") props.onSearch?.();
         else if (id === "app-screen") props.onAppScreen?.();
         else if (id === "app-panel") props.onAppPanel?.();
+        else if (id === "pages") props.onPages?.();
         else actions.get(id)?.();
       }}
     />

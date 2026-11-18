@@ -16,6 +16,7 @@ import { documentEditorKind } from "./document-editor.tsx";
 import { inboxKind } from "./inbox.tsx";
 import { jobsKind } from "./jobs.tsx";
 import type { TabKindDef } from "./kind.ts";
+import { pageViewKind } from "./page-view.tsx";
 import { projectSettingsKind } from "./project-settings.tsx";
 import { searchKind } from "./search.tsx";
 import { terminalKind } from "./terminal.tsx";
@@ -38,6 +39,7 @@ const BUILT_IN_TAB_KINDS = [
   inboxKind,
   projectSettingsKind,
   appDetailKind,
+  pageViewKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

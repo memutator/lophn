@@ -170,6 +170,7 @@ import {
 } from "./kinds/app-screen.tsx";
 import { openInbox } from "./kinds/inbox.tsx";
 import { openJobs } from "./kinds/jobs.tsx";
+import { openPages } from "./kinds/page-view.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -2976,6 +2977,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                       {...(isApp && machine === null
                         ? { onAppScreen: () => openAppScreen(host) }
                         : {})}
+                      {...(machine === null
+                        ? {}
+                        : { onPages: () => openPages(host) })}
                       {...(host.appScreens
                         ? {
                             onAppPanel: () => openAppPanel(host),

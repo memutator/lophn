@@ -14,7 +14,7 @@ const who = (principal: string): AuthenticatedContext => ({
   credential_ref: principal,
 });
 
-// 허락 칸을 채우는 쪽이 없으면(기기 허락이 아직 없으면) 어떤 principal도 터미널에 칠 수 없고 host에 아무것도 가지 않는다.
+// 허락 칸을 채우는 쪽이 없으면(기기 허락이 아직 없으면) 어떤 principal도 터미널에 칠 수 없고 터미널에 아무것도 가지 않는다.
 test("terminalInputGrant 칸이 채워지지 않았으면 terminal_view/input은 늘 forbidden이다", async () => {
   const slots: Record<string, unknown> = {};
   const sent: unknown[] = [];
@@ -28,14 +28,15 @@ test("terminalInputGrant 칸이 채워지지 않았으면 terminal_view/input은
       slots[name] = value;
     },
     bus: { publish() {} },
-    hostQueue: {
-      callCoding: (request: unknown) => {
-        sent.push(request);
-        return Promise.resolve(ok([]));
+    terminals: {
+      write: (terminal: string, text: string) => {
+        sent.push({ terminal, text });
+        return Promise.resolve(ok(undefined));
       },
     },
-    codingRelay: { terminalKnown: () => true, onChange() {} },
-    hostLink: { onFrame() {}, onOpen() {}, onClose() {} },
+    terminalAgents: {
+      coding: { terminalKnown: () => true, onChange: () => () => {} },
+    },
   };
   const wiring = terminalViewWiring();
   wiring.prepare!(ctx as never);

@@ -395,7 +395,7 @@ files:
 
   - path: packages/shell/main/terminal/coding-relay_test.ts
     covers:
-      - coding-relay-sync:folded
+      - coding-session-sync:folded
       - coding-session-input:sent
       - coding-session-input:not_found
       - coding-session-input:invalid_input

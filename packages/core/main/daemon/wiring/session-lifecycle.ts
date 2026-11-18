@@ -1,7 +1,7 @@
 // session lifecycle: 앱에 주는 session 목록·상태·멈추기와 core가 낸 `session.*` event(발행자 `lophn`)다.
 // 상태 파생은 lophn-agent/session/state.ts 한 곳이고, 여기는 그 사실을 모으는 port(메모리의 대기 요청·질문, ledger, call 정책, host queue)를
-// 꽂고 앱 event 전달(`ctx.eventDelivery`)에 잇는다. 터미널 coding agent는 shell main이 `/host-link`의 `coding_report`로
-// 알린 집합이다. 같은 집합을 coding relay(`ctx.codingRelay`)에도 넘겨 폰의 coding session 목록이 된다.
+// 꽂고 앱 event 전달(`ctx.eventDelivery`)에 잇는다. 터미널 coding agent는 core의 tracker와 GUI handle이 아는 집합이다
+// (`ctx.terminalAgents`의 coding session 목록과 같다).
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -21,7 +21,6 @@ import {
   appSessionsOpen,
   appSessionsStatus,
   appSessionsStop,
-  type TerminalSessionReport,
 } from "../../../../protocol/lophn-agent/session-lifecycle.ts";
 import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
@@ -80,13 +79,10 @@ const APP_SESSIONS_OPEN_CONTEXT: AuthenticatedContext = {
   credential_ref: APP_SESSIONS_OPEN_PRINCIPAL,
 };
 
-// `/host-link`가 닫힌 뒤 터미널 표를 비우기 전에 기다리는 시간이다. 그 안에 다시 붙은 host는 보고를 다시 보내 표가 이어진다.
-const LINK_GRACE_MS = 3000;
-
 export const sessionLifecycleWiring: WiringFactory = () => {
   let connection: LedgerConnection | undefined;
   let unsubscribe: (() => void) | undefined;
-  let graceTimer: ReturnType<typeof setTimeout> | undefined;
+  let offTerminals: (() => void) | undefined;
   return {
     name: "session-lifecycle",
     records: () => [
@@ -145,14 +141,9 @@ export const sessionLifecycleWiring: WiringFactory = () => {
             });
         },
         anySubscriber: () => ctx.eventDelivery.hasSubscribers("lophn"),
-        shellAttached: () => ctx.hostQueue.attached(),
-        async interruptTerminal(tab) {
-          const called = ctx.hostQueue.callTerminalInterrupt({
-            terminal_ref: tab,
-          });
-          const done = await called.result;
-          return done.ok ? ok(undefined) : done;
-        },
+        // 터미널 session은 core의 tracker가 알아 shell 연결과 상관없다(`sweep`을 부르지 않는다).
+        shellAttached: () => true,
+        interruptTerminal: (tab) => ctx.terminalAgents.interrupt(tab),
         async stopTurn(turn, stateSeq) {
           const done = await ctx.writer.command(LIFECYCLE_CONTEXT, {
             command: stopTurn.name,
@@ -193,21 +184,10 @@ export const sessionLifecycleWiring: WiringFactory = () => {
           close() {},
         },
       );
-      const report = (sessions: readonly TerminalSessionReport[]) => {
-        lifecycle.reportTerminals(sessions);
-        ctx.codingRelay.reported(sessions);
-      };
-      ctx.hostLink.onFrame("coding_report", (frame) => report(frame.sessions));
-      // 연결이 닫힌 뒤 유예 안에 다시 붙지 않았으면 터미널 표와 coding relay를 같이 비운다.
-      ctx.hostLink.onClose(() => {
-        clearTimeout(graceTimer);
-        graceTimer = setTimeout(() => {
-          if (ctx.hostQueue.attached()) return;
-          lifecycle.sweep();
-          ctx.codingRelay.clear();
-        }, LINK_GRACE_MS);
-        graceTimer.unref?.();
-      });
+      const coding = ctx.terminalAgents.coding;
+      offTerminals = coding.onChange(() =>
+        lifecycle.reportTerminals(coding.reports()),
+      );
 
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const sessionCommand = async (
@@ -373,8 +353,8 @@ export const sessionLifecycleWiring: WiringFactory = () => {
     closeWork() {
       unsubscribe?.();
       unsubscribe = undefined;
-      clearTimeout(graceTimer);
-      graceTimer = undefined;
+      offTerminals?.();
+      offTerminals = undefined;
       connection?.close();
       connection = undefined;
     },

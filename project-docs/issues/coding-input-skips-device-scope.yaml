@@ -3,7 +3,7 @@ title: coding session에서는 폰이 lophn session에서 못 하는 입력(권�
 kind: bug
 status: open
 topic: remote
-modules: [packages/core/main, packages/core/coding-relay]
+modules: [packages/core/main, packages/core/terminal-agents]
 now: |
   기기가 보내는 대화 입력은 `acp/send` 하나다. lophn agent session이면 부른 쪽의 자격 범위 안에서 command로 갈려서(`packages/core/main/daemon/wiring/acp-send.ts`) 폰은 권한 mode(skip)를 바꾸지 못하고 shell 메시지를 남기지 못한다. coding session이면 `ctx.codingRelay.has(session)`에 걸려 자격을 보지 않고 `relay.send`로 host에 그대로 넘어간다(`packages/core/main/daemon/wiring/acp.ts`). 그래서 `set_mode`(Claude의 `setPermissionMode`), `run_shell`, `!`로 시작하는 글이 기기에서 와도 adapter가 그대로 한다. 폰 화면은 이런 입력을 내놓지 않지만 route는 받는다.
 impact: |

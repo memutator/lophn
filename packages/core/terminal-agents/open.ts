@@ -1,29 +1,19 @@
-// 폰이 컴퓨터에 coding session을 새로 열거나(`coding_sessions/open`) 앱을 깨운다(`coding_sessions/wake`). 여는 일은 host(shell main)가
-// 한다: core는 입력을 걸러 `coding_open`을 연결로 보내고 host가 연 터미널을 session id로 옮긴다. 되살리기는 ledger의 harness agent
-// session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
+// 폰이 컴퓨터에 coding session을 새로 열거나(`coding_sessions/open`) 앱을 깨운다(`coding_sessions/wake`). 여는 일은 core가
+// 한다: 새 터미널을 열고 사람이 치는 것과 같은 `<harness> gui [--resume <id>]`를 친다. 창이 없어도 열린다. 되살리기는 ledger의
+// harness agent session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import { isGuiHarness } from "../../protocol/extensions/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
-import { passed } from "./relay.ts";
 
 // 다시 보낸 open을 알아보는 key 수(전체).
 const OPEN_KEYS_MAX = 200;
 
-type OpenRequest = {
-  kind: "coding_open";
-  payload: {
-    project: string;
-    harness: string;
-    resume?: { session: string; cli_session: string };
-  };
-};
-
-// shell이 터미널에 `--resume <id>`로 치는 글자다(`coding_open` payload와 같은 규칙).
+// 터미널에 `--resume <id>`로 치는 글자다. shell 함수가 받는 글자(`[A-Za-z0-9._-]` 200자)만 싣는다.
 const CLI_SESSION = /^[A-Za-z0-9._-]{1,200}$/;
 
 export type CodingOpenDeps = {
-  // 연결 요청(`HostQueue.callCoding`). 연결이 없거나 닫히거나 기한(60초)이 지나면 unavailable이다.
-  call(request: OpenRequest): Promise<Result<unknown>>;
+  // project에 새 터미널을 열고 command를 친다(탭도 연다). 연 터미널 참조다.
+  open(project: string, command: string): Promise<Result<string>>;
   // ledger session. harness는 harness agent session이면 그 adapter id(`claude`), 아니면 null이다. 없으면 undefined.
   session(session: string):
     | {
@@ -32,10 +22,12 @@ export type CodingOpenDeps = {
         cli_session: string | null;
       }
     | undefined;
-  // host가 보고한 지금 터미널의 coding agent(`CodingRelay.list`).
+  // 지금 터미널의 coding agent(`CodingSessions.list`).
   listed(): readonly { harness: string; cli_session: string | null }[];
   // TUI hold를 건다(`HarnessHold.open`). TUI로 열려 있거나 headless turn이 돌면 conflict다. 통과하면 여는 동안 headless turn이 시작하지 않는다.
   hold(session: string): Result<unknown>;
+  // 연 터미널이 끝날 때까지 그 ledger session을 쥔다.
+  held(terminal: string, session: string): void;
   attached(): boolean;
   // shell을 띄운다(`HostQueue.startShell`). 띄울 길이 없으면(앱이 띄운 core가 아니다) 없다. 앞선 실패 뒤 쉬는 중이면 false다.
   startShell?: () => boolean;
@@ -43,19 +35,6 @@ export type CodingOpenDeps = {
 
 const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
-
-// host의 답은 JSON `{"terminal_ref":"…"}` 글 하나다.
-function terminalOf(content: unknown): string | null {
-  const first = Array.isArray(content) ? content[0] : undefined;
-  if (first?.type !== "text") return null;
-  try {
-    const ref = (JSON.parse(first.text) as { terminal_ref?: unknown })
-      .terminal_ref;
-    return typeof ref === "string" && ref.startsWith("trm_") ? ref : null;
-  } catch {
-    return null;
-  }
-}
 
 export function createCodingOpen(deps: CodingOpenDeps) {
   const opens = new Map<string, Promise<Result<{ session: string }>>>();
@@ -126,19 +105,11 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       if (!found.ok) return found;
       resume = found.value;
     }
-    const done = await deps.call({
-      kind: "coding_open",
-      payload: {
-        project: input.project,
-        harness: input.harness,
-        ...(resume === undefined ? {} : { resume }),
-      },
-    });
-    if (!done.ok) return err(passed(done.error));
-    const terminal = terminalOf(done.value);
-    return terminal === null
-      ? unavailable("The lophn app answered without a terminal.")
-      : ok({ session: guiSessionId(terminal) });
+    const command = `${input.harness} gui${resume === undefined ? "" : ` --resume ${resume.cli_session}`}`;
+    const opened = await deps.open(input.project, command);
+    if (!opened.ok) return opened;
+    if (resume !== undefined) deps.held(opened.value, resume.session);
+    return ok({ session: guiSessionId(opened.value) });
   }
 
   return {

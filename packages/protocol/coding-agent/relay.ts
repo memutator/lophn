@@ -6,9 +6,9 @@ import type {
   AcpRewindPreview,
 } from "../extensions/acp-session.ts";
 
-// coding session: 사람 터미널 탭에서 도는 coding agent CLI 하나다. shell main(host)이 탭과 GUI handle을 갖고, core는
-// host가 `/host-link`로 올린 보고와 ACP 상태 사본을 메모리에 둔다. ledger에는 행이 없다. session id는 desktop GUI 화면과 같은
-// `ses_<터미널 탭 ULID>`(`guiSessionId`)이고 대화는 기존 `acp/snapshot`·`acp/send`·`AcpUpdated`로 읽고 쓴다.
+// coding session: 사람 터미널에서 도는 coding agent CLI 하나다. core가 터미널과 tracker, GUI handle과 그 ACP 상태를 원본으로
+// 메모리에 둔다. ledger에는 행이 없다. session id는 desktop GUI 화면과 같은 `ses_<터미널 ULID>`(`guiSessionId`)이고 대화는 기존
+// `acp/snapshot`·`acp/send`·`AcpUpdated`로 읽고 쓴다.
 
 // switch가 지금 막힌 까닭이다. no_session: CLI session id를 몰라 GUI로 다시 열 수 없다. not_running: 터미널에 GUI가 되는 coding
 // agent가 돌지 않는다. extension_off: harness GUI extension이 꺼졌다. unsupported_os: 이 OS에서 GUI 전환을 못 한다.
@@ -50,7 +50,7 @@ const errors = [
   "unavailable",
 ] as const;
 
-// shell이 붙어 있지 않으면 `shell: absent`이고 목록이 비었다(폰이 깨우기를 보인다).
+// 목록은 shell 연결과 상관없다. `shell`은 desktop 앱(`/host-link`)이 붙어 있는가다.
 export const codingSessionsList = defineRead({
   resource: "coding_sessions",
   method: "list",
@@ -87,8 +87,8 @@ export const codingSessionsSwitchPlan = defineRead({
 });
 
 // 탭의 view를 바꾼다. 도는 turn이 끊기고 desktop 탭도 바뀌는 일이라 사람이 확인한 뒤에만 부른다: `confirmed: true`가 없으면
-// `invalid_input`이다. 이미 그 view면 conflict, host가 없거나 연결이 닫히면 unavailable이다. host가 거절하면 그 code와
-// `details.reason`(no_session|not_running|extension_off|unsupported_os|failed) 그대로다. 같은 key는 한 번만 보낸다.
+// `invalid_input`이다. 이미 그 view면 conflict다. 바꾸지 못하면 `details.reason`(no_session|not_running는 invalid_input,
+// extension_off|unsupported_os|failed는 unavailable)이다. 같은 key는 한 번만 바꾼다.
 export const codingSessionsSwitch = defineMemory({
   resource: "coding_sessions",
   method: "switch",
@@ -105,11 +105,11 @@ export const codingSessionsSwitch = defineMemory({
   errors,
 });
 
-// project에 coding session을 컴퓨터의 새 터미널 탭에서 GUI(chat)로 연다. harness는 GUI가 되는 coding agent(`HARNESS_ADAPTERS`의 id:
+// project에 coding session을 컴퓨터의 새 터미널에서 GUI(chat)로 연다(창이 없어도 열리고, 그 project를 보이는 창이 있으면 탭으로 보인다). harness는 GUI가 되는 coding agent(`HARNESS_ADAPTERS`의 id:
 // claude, codex, opencode, omp)이고 아니면 invalid_input이다. resume은 그 project의 harness agent ledger session이고 그 CLI session을
 // 이어 연다: 없거나 다른 project면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면
 // invalid_input, 그 CLI session이 이미 터미널에서 돌거나(목록에 있다) TUI로 열려 있거나 headless turn이 돌면 conflict다.
-// 연결이 없으면 unavailable이다(폰은 `wake`를 먼저 부른다). 성공하면 연 터미널의 session(`ses_<터미널 ULID>`)이다. 같은 key는 한 번만 연다.
+// 터미널을 열지 못하면 그 code다. 성공하면 연 터미널의 session(`ses_<터미널 ULID>`)이다. 같은 key는 한 번만 연다.
 export const codingSessionsOpen = defineMemory({
   resource: "coding_sessions",
   method: "open",
@@ -189,4 +189,6 @@ export const CODING_RELAY_ROUTES = [
   codingSessionsSwitch,
   codingSessionsOpen,
   codingSessionsWake,
+  codingSessionsCliSessions,
+  codingSessionsRewindPreview,
 ] as const;

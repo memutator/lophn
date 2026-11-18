@@ -1053,31 +1053,29 @@ flows:
     unclear: []
 
   - id: acp-coding-tool-body
-    title: "폰이 coding session의 tool 줄을 펼칠 때 그 tool 하나의 입력이나 출력을 컴퓨터에서 읽는다"
+    title: "화면과 폰이 coding session의 tool 줄을 펼칠 때 그 tool 하나의 입력이나 출력을 읽는다"
     actor: person
     entries: [route:acp/tool_body]
-    uses: [system:host-link]
-    boundary: [acp, host-queue-interface]
+    boundary: [acp, core]
     code:
-      - packages/core/main/daemon/wiring/coding-relay.ts
-      - packages/core/coding-relay/relay.ts
-      - packages/shell/main/terminal/coding-relay.ts
-      - packages/shell/main/terminal/gui.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
+      - packages/core/terminal-agents/coding-sessions.ts
+      - packages/core/terminal-agents/gui.ts
       - packages/mobile/src/data/coding.ts
     steps:
-      - "coding session의 사본(acp/snapshot)에는 tool 본문이 없다. 사본이 없는 session이면 not_found다"
-      - "core는 coding_body {session, tool_call, part}로 host에 묻는다. shell main은 그 session의 handle 상태에서 그 tool을 찾아(자식 대화와 숨긴 구간 안까지) 본문 한 쪽을 JSON 글로 답한다"
-      - "core는 답을 사본과 같은 제품 redactor로 거른 뒤 낸다. 알려진 secret을 아직 다 모르면 내지 않는다"
+      - "coding session의 snapshot(acp/snapshot)에는 tool 본문이 없다. 그 session의 GUI handle이 없으면 not_found다"
+      - "core가 handle 상태에서 그 tool을 찾아(자식 대화와 숨긴 구간 안까지) 본문 한 쪽을 준다"
+      - "snapshot과 같은 제품 redactor로 거른 뒤 낸다. 알려진 secret을 아직 다 모르면 내지 않는다"
     outcomes:
       - id: ok
-        observe: [request:shell, response]
+        observe: [response]
       - id: not_found
         code: not_found
-        when: "사본이 없거나, host에 그 handle이 없거나, 그 tool이나 그 쪽 본문이 없다(도는 tool의 출력)"
+        when: "handle이 없거나, 그 tool이나 그 쪽 본문이 없다(도는 tool의 출력)"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없거나 답 전에 닫혔거나 기한(10초)이 지났다, host의 답을 읽지 못했다, 알려진 secret을 아직 다 모른다"
+        when: "알려진 secret을 아직 다 모른다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
@@ -1087,28 +1085,26 @@ flows:
         code: forbidden
         when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     risk: [secret]
     docs: [architecture/harness-gui.md, architecture/acp.md]
     unclear: []
 
   - id: acp-coding-image
-    title: "폰이 coding session에 그림을 붙이면 컴퓨터가 그 탭의 임시 폴더에 쓰고, 대화의 그림 링크를 다시 읽는다"
+    title: "폰이 coding session에 그림을 붙이면 컴퓨터가 그 터미널의 임시 폴더에 쓰고, 대화의 그림 링크를 다시 읽는다"
     actor: person
     entries: [route:acp/image_upload, route:acp/image_read]
-    uses: [system:host-link]
-    boundary: [acp, host-queue-interface]
+    boundary: [acp, core]
     code:
-      - packages/core/main/daemon/wiring/coding-relay.ts
-      - packages/core/coding-relay/relay.ts
-      - packages/shell/main/terminal/coding-relay.ts
-      - packages/shell/main/terminal/gui.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
+      - packages/core/terminal-agents/coding-sessions.ts
+      - packages/core/terminal-agents/gui.ts
       - packages/mobile/src/data/attach.ts
     steps:
-      - "image_upload: 폰이 bytes(5 MiB까지, png·jpeg·gif·webp)를 보낸다. core는 선언한 길이와 body가 맞는지 보고 coding_image_write {session, data(base64)}로 host에 넘긴다"
-      - "shell main은 bytes가 그림일 때만 그 session 탭의 tmpdir 아래 lophn-gui/<터미널 ref>/에 uuid와 형식 확장자를 붙인 file로 쓰고 절대 경로를 답한다. 폰은 이름을 보내지 않는다"
+      - "image_upload: 폰이 bytes(5 MiB까지, png·jpeg·gif·webp)를 보낸다. core는 선언한 길이와 body가 맞는지 본다"
+      - "그 session의 GUI handle이 있고 bytes가 그림일 때만 tmpdir 아래 lophn-gui/<터미널 ref>/에 uuid와 형식 확장자를 붙인 file로 쓰고 절대 경로를 답한다. 폰은 이름을 보내지 않는다"
       - "폰은 그 경로의 file:// resource_link를 메시지에 싣고 acp/send로 보낸다(desktop GUI의 붙이기와 같다)"
-      - "image_read: 대화의 file:// 그림 링크를 coding_image_read로 host에 묻는다. shell main은 그 탭의 임시 폴더 바로 아래 file이 그림일 때만 image content로 답하고 core는 그 bytes를 file로 낸다"
+      - "image_read: 대화의 file:// 그림 링크가 그 터미널의 임시 폴더 바로 아래 file이고 그림일 때만 그 bytes를 file로 낸다"
     outcomes:
       - id: saved
         observe: ["disk:<os tmp>/lophn-gui/<terminal ref>/", response]
@@ -1116,24 +1112,19 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "사본이 없거나 host에 그 handle이 없다. image_read는 그 폴더 밖 경로거나 file이 없거나 그림이 아니다"
+        when: "handle이 없다. image_read는 그 폴더 밖 경로거나 file이 없거나 그림이 아니다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "입력 schema가 맞지 않거나, 선언한 길이와 body가 다르거나, host가 bytes를 그림으로 읽지 못했다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "연결이 없거나 답 전에 닫혔거나 기한(30초)이 지났다, host의 답을 읽지 못했다"
+        when: "입력 schema가 맞지 않거나, 선언한 길이와 body가 다르거나, bytes가 그림이 아니거나 쓰지 못했다"
         observe: [response]
       - id: forbidden
         code: forbidden
         when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     risk: [data-loss]
     docs: [architecture/harness-gui.md, architecture/remote.md]
-    unclear: []
 
   - id: acp-send
     title: "화면의 대화 조작 하나(ACP 입력)를 지금 있는 route로 넘긴다"
@@ -1857,14 +1848,14 @@ flows:
     title: "앱이 볼 수 있는 session의 도는 turn을 멈춘다"
     actor: app
     entries: [route:app_sessions/stop]
-    uses: [route:turns/stop, host-link:done]
+    uses: [route:turns/stop]
     boundary: [agent-sessions, run-loop, core-api]
-    code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/core/host-queue/queue.ts]
+    code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/core/terminal-agents/service.ts]
     steps:
       - "app-sessions-list와 같이 앱을 정하고 session이 앱에 보이는지 본다(안 보이면 not_found). 승인·rewind·fork·지움은 이 길에 없다"
       - "lophn·harness session은 도는 turn을 core 안 machine 자격으로 StopTurn한다(turn이 interrupted로 닫히고 model 요청과 도는 shell.run이 끊긴다. harness runtime은 turn이 닫히면 host가 CLI를 group째 끊는다). 도는 turn이 없으면 stopped false다"
       - "멈췄으면 앱이 멈췄다는 program 기록(session_stopped_by_app, 앱과 session 제목)을 남긴다"
-      - "터미널 session은 host queue에 terminal_interrupt를 넣고 shell main의 결과를 기다린다. shell main이 그 harness의 끊기 key를 치고 tracker가 사람이 친 것과 같이 상태를 unknown으로 내린다. key가 없는 harness, 탭이 없음, shell이 붙어 있지 않거나 기한(10초)이 지남은 오류로 돌아온다"
+      - "터미널 session은 core가 그 harness의 끊기 key를 사람 입력으로 PTY에 치고 tracker가 사람이 친 것과 같이 상태를 unknown으로 내린다. shell 연결과 상관없다. key가 없는 harness, 터미널이나 coding agent가 없음, PTY가 거절함은 오류로 돌아온다"
     outcomes:
       - id: stopped
         when: "도는 turn을 멈췄다(터미널은 끊기 key를 쳤다)"
@@ -1878,7 +1869,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "터미널: 그 harness에 끊기 key가 없음, shell main이 붙어 있지 않거나 기한 안에 답하지 않음"
+        when: "터미널: 그 harness에 끊기 key가 없음, 또는 PTY host가 답하지 않음"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1896,22 +1887,18 @@ flows:
     docs: [architecture/workspace-session.md]
 
   - id: terminal-sessions-report
-    title: "shell main이 터미널 coding agent의 지금 집합을 core에 알린다"
-    actor: shell
+    title: "core가 터미널 coding agent의 지금 집합을 session lifecycle 표에 넣는다"
+    actor: system
     entries: [system:terminal-sessions-report]
-    uses: [system:host-link]
-    boundary: [agent-sessions, core-api]
-    code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/shell/main/desktop/wiring/agent.ts]
+    uses: [system:coding-session-sync]
+    boundary: [agent-sessions, core]
+    code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/core/terminal-agents/coding-sessions.ts]
     steps:
-      - "shell main이 /host-link의 coding_report frame으로 집합(터미널 탭, project, harness, 상태, CLI session id, 제목, cwd, PTY shell pid, view, handoff, foreground, 최대 64)을 바뀔 때와 연결이 열릴 때마다 보낸다(coding-relay-sync). core는 메모리를 통째로 바꾼다. schema에 맞지 않는 frame은 연결이 닫는다(host-link:bad-frame)"
-      - "새로 생긴 탭은 session.started(상태가 running·waiting이면 그 상태 event도), 사라진 탭은 session.ended, 상태가 바뀐 탭은 session.<상태>를 낸다(session-lifecycle-publish). unknown 상태로 바뀌는 것은 event가 없다"
-      - "같은 집합이 coding relay(폰의 coding session 목록)에도 간다"
-      - "연결이 닫히고 3초 유예 안에 다시 붙지 않으면 표와 coding relay를 비운다. core를 다시 켜면 비고 다시 붙은 연결이 채운다"
+      - "core의 coding session 목록(터미널, project, harness, 상태, CLI session id, 제목, cwd, PTY shell pid, view, handoff, foreground)이 바뀔 때마다 표를 통째로 바꾼다. 목록은 tracker와 GUI handle이 정하고 shell 연결과 상관없다"
+      - "새로 생긴 터미널은 session.started(상태가 running·waiting이면 그 상태 event도), 사라진 터미널은 session.ended, 상태가 바뀐 터미널은 session.<상태>를 낸다(session-lifecycle-publish). unknown 상태로 바뀌는 것은 event가 없다"
+      - "core를 다시 켜면 표가 비고 PTY도 core와 함께 끝났다"
     outcomes:
       - id: reported
-        observe: [event:StateChanged]
-      - id: cleared
-        when: "연결이 닫히고 3초 유예 안에 다시 붙지 않았다"
         observe: [event:StateChanged]
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/workspace-session.md]

@@ -100,15 +100,15 @@ modules:
 
   - path: packages/core/host-queue
     boundary: core
-    notes: core가 shell에 시킬 일(탭 열기·닫기, tool·browser 호출, 폰이 청한 coding·터미널 요청)의 메모리 queue와 agent가 연 탭의 표. shell main이 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다.
+    notes: core가 shell에 시킬 일(탭 열기·닫기, tool·browser 호출)의 메모리 queue와 agent가 연 탭의 표. shell main이 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다.
 
-  - path: packages/core/coding-relay
+  - path: packages/core/terminal-agents
     boundary: core
-    notes: shell main(host)이 `/host-link`로 올린 터미널 coding agent 보고와 GUI handle의 ACP 상태 사본(redaction, 접기, keyed 입력 dedupe, 끊김 뒤 비우기). 다른 module을 import하지 않고 base와 protocol만 쓴다. host 요청·Bus·redactor는 ports.ts이고 wiring/coding-relay.ts가 끼운다.
+    notes: 터미널 안 coding agent의 원본. tracker와 hook(socket, key), GUI handle(harness-gui가 연 ACP handle을 터미널마다 하나), coding session 목록과 대화(redaction을 지나 `acp/*`·`coding_sessions/*`로 낸다), 저장한 session(`<data root>/terminal-agents/sessions/`), resume으로 연 터미널의 hold, per-run 폴더(`core-<pid>`)와 `$BROWSER` bridge, harness 감지와 hook 설치. base, protocol과 core/terminals(port), core/extensions(ACP handle type)만 쓴다. Bus·attention·extension host·host queue는 deps이고 core/main의 wiring/terminal-agents.ts가 끼운다.
 
   - path: packages/core/terminal-view
     boundary: core
-    notes: 폰이 보는 coding session 터미널의 최신 화면(메모리), 보는 principal의 lease(30초), 입력 key 기억. 다른 module을 import하지 않고 base와 protocol만 쓴다. host 요청·Bus·입력 허락은 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
+    notes: 폰이 보는 터미널(coding session 터미널, 폰이 연 터미널)의 최신 화면(메모리, lease 동안 PTY host에서 읽는다), 보는 principal의 lease(30초), 입력 key 기억, 폰이 잡은 PTY 크기를 놓기. base, protocol과 core/terminals(port)만 쓴다. Bus·입력 허락·탭 열기는 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
 
   - path: packages/core/terminals
     boundary: core

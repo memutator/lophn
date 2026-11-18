@@ -3,7 +3,7 @@ title: 폰에서 컴퓨터에 터미널 탭을 새로 열 수 없다
 kind: bug
 status: fixed
 topic: remote
-modules: [packages/mobile, packages/core/coding-relay, packages/shell/main]
+modules: [packages/mobile, packages/core/terminal-agents, packages/shell/main]
 now: |
   폰이 컴퓨터에 새로 여는 것은 coding agent session뿐이다(`coding_sessions/open {project, harness, resume?}`, `packages/shell/main/terminal/coding-open.ts`가 터미널 탭을 열어 GUI로 띄운다). harness 없이 shell만 도는 터미널 탭을 여는 route와 화면이 없다. 폰이 보는 터미널도 coding session의 터미널뿐이다(`terminal_view/*`).
 impact: |

@@ -3,7 +3,7 @@ title: 폰이 채팅과 터미널 사이 바꾸기를 확인한 뒤에 다른 �
 kind: bug
 status: open
 topic: remote
-modules: [packages/core/coding-relay, packages/protocol, packages/mobile]
+modules: [packages/core/terminal-agents, packages/protocol, packages/mobile]
 now: |
   폰은 바꾸기 전에 `coding_sessions/switch_plan`으로 무엇이 멈추는지(도는 turn, background task, 줄 선 메시지)를 읽어 사람에게 보이고, 사람이 누르면 `coding_sessions/switch`를 `confirmed: true`로 부른다(`packages/protocol/coding-agent/relay.ts`). relay(`packages/core/coding-relay/relay.ts`의 `switch`)는 그 사이 계획이 달라졌는지 보지 않는다. 폰이 계획을 읽은 뒤 다른 기기가 turn을 시작하거나 메시지를 줄 세웠어도 그대로 끊는다.
 impact: |

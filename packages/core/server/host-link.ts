@@ -1,6 +1,6 @@
 // shell main(host)과 core의 양방향 연결 `/host-link`다. frame은 `protocol/host-link/frames.ts`.
-// 연결이 `hello`로 열리면 host queue가 요청을 `request` frame으로 바로 밀고, `response`·`report`는 queue로, TUI 목록은 hold로 간다.
-// coding session과 터미널 frame은 다른 wiring이 `onFrame`으로 받는다. 연결은 한 번에 하나이고 새 연결이 옛 연결을 닫는다.
+// 연결이 `hello`로 열리면 host queue가 요청을 `request` frame으로 바로 밀고, `response`·`report`는 queue로 간다.
+// 그 밖의 frame은 다른 wiring이 `onFrame`으로 받는다. 연결은 한 번에 하나이고 새 연결이 옛 연결을 닫는다.
 import type { Buffer } from "node:buffer";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -28,8 +28,7 @@ import { refuseSocket } from "./socket.ts";
 const CLOSE_SLOW = 1013;
 const CLOSE_REPLACED = 1000;
 const CLOSE_SHUTDOWN = 1001;
-// 연결이 열린 동안 기한이 지난 요청을 거두고, 다시 대기한 요청(retry, 빌린 기한이 지난 탭 요청)을 밀고, TUI hold를 갱신하는 간격이다.
-// hold 갱신(10초)보다 넉넉히 짧다.
+// 연결이 열린 동안 기한이 지난 요청을 거두고, 다시 대기한 요청(retry, 빌린 기한이 지난 탭 요청)을 미는 간격이다.
 const TICK_MS = 1_000;
 
 // 이 file이 직접 처리하는 frame이다. 나머지는 다른 wiring이 `onFrame`으로 받는다.
@@ -74,14 +73,11 @@ type Connection = {
   done: boolean;
   // `hello`를 받은 뒤의 queue 연결이다.
   queue: ReturnType<HostLinkQueue["connect"]> | null;
-  tui: readonly Id<"ses">[];
   tick: ReturnType<typeof setInterval> | undefined;
 };
 
 export function createHostLink(deps: {
   queue: HostLinkQueue;
-  // TUI 탭이 열린 session 전부로 hold를 갱신한다.
-  heartbeat(tui: readonly Id<"ses">[]): void;
   logger?: Logger;
 }): HostLink {
   const handlers = new Map<string, (frame: HostFrame) => void>();
@@ -135,8 +131,6 @@ export function createHostLink(deps: {
     connection: Connection,
     frame: HostFrameOf<"hello"> | HostFrameOf<"visible">,
   ) {
-    connection.tui = frame.tui as Id<"ses">[];
-    deps.heartbeat(connection.tui);
     connection.queue?.visible(frame.workspaces);
   }
 
@@ -149,7 +143,6 @@ export function createHostLink(deps: {
     connection.tick = setInterval(() => {
       deps.queue.expire();
       connection.queue?.pump();
-      deps.heartbeat(connection.tui);
     }, TICK_MS);
     connection.tick.unref?.();
     for (const handler of openHandlers) guarded(handler);
@@ -204,7 +197,6 @@ export function createHostLink(deps: {
         socket,
         done: false,
         queue: null,
-        tui: [],
         tick: undefined,
       };
       current = connection;

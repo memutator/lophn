@@ -87,7 +87,7 @@ test("자격이 없거나 사람 자격이 아니거나 Origin이 다른 upgrade
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
   });
-  const link = createHostLink({ queue, heartbeat: () => {} });
+  const link = createHostLink({ queue });
   const admission = createAdmission();
   const hostLink = createHostLinkUpgrade({ link });
   t.after(() => hostLink.shutdown());
@@ -130,24 +130,17 @@ test("자격이 없거나 사람 자격이 아니거나 Origin이 다른 upgrade
   assert.equal(hostLink.activity().arrivals, 1);
 });
 
-// 끊긴 연결로 보낸 호출을 다시 내주면 extension handler나 coding 입력이 두 번 실행되고, 거두지 않으면 부른 쪽이 기한까지 멈춘다.
+// 끊긴 연결로 보낸 호출을 다시 내주면 extension handler가 두 번 실행되고, 거두지 않으면 부른 쪽이 기한까지 멈춘다.
 // 탭 요청은 다시 대기해야 다음 host가 연다.
-test("연결이 닫히면 진행 중인 tool_call·browser_call·coding_* 요청이 unavailable로 끝나고, 빌려 간 탭 요청은 다시 대기한다", async () => {
+test("연결이 닫히면 진행 중인 tool_call·browser_call 요청이 unavailable로 끝나고, 빌려 간 탭 요청은 다시 대기한다", async () => {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
   });
-  const link = createHostLink({ queue, heartbeat: () => {} });
+  const link = createHostLink({ queue });
   let closes = 0;
   link.onClose(() => closes++);
-
-  // 연결이 없으면 coding 요청은 넣지 않고 바로 끝난다.
-  const early = await queue.callCoding({
-    kind: "terminal_stream",
-    payload: { terminal_ref: "trm_a", on: true, tail: 10 },
-  });
-  assert.equal(!early.ok && early.error.code, "unavailable");
 
   const sent: CoreFrame[] = [];
   const peer = link.attach({
@@ -174,13 +167,6 @@ test("연결이 닫히면 진행 중인 tool_call·browser_call·coding_* 요청
     view: "browser",
     action: { kind: "snapshot" },
   });
-  const coding = queue.callCoding({
-    kind: "coding_input",
-    payload: {
-      session: SESSION,
-      input: { type: "stop", session: SESSION, turn: TURN, key: "k" },
-    },
-  });
   const tab = queue.openTab({
     owner: SESSION,
     workspace: HOME,
@@ -193,20 +179,15 @@ test("연결이 닫히면 진행 중인 tool_call·browser_call·coding_* 요청
     [
       ["request", "tool_call"],
       ["request", "browser_call"],
-      ["request", "coding_input"],
       ["request", "tab_open"],
     ],
   );
-  const opened = sent[3]!;
+  const opened = sent[2]!;
 
   peer.closed();
   assert.equal(link.attached(), false);
   assert.equal(closes, 1);
-  for (const result of await Promise.all([
-    tool.result,
-    browser.result,
-    coding,
-  ])) {
+  for (const result of await Promise.all([tool.result, browser.result])) {
     assert.equal(!result.ok && result.error.code, "unavailable");
   }
   // 빌린 기한(10초)을 기다리지 않고 다음 host가 바로 가져간다. 거둔 호출은 다시 나가지 않는다.

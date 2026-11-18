@@ -560,31 +560,33 @@ flows:
     docs: [architecture/artifact.md, architecture/browser-tab.md, architecture/workspace-layout.md]
 
   - id: host-coding-handoff-open
-    title: agent가 사람이 이어서 만질 일을 즐겨찾기 coding agent의 TUI 탭으로 넘긴다
+    title: agent가 사람이 이어서 만질 일을 즐겨찾기 coding agent의 TUI 터미널로 넘긴다
     actor: agent
     uses: [route:tabs/open]
     when: "target이 coding일 때"
-    boundary: [host-queue-interface, host-queue-core]
+    boundary: [host-queue-interface, host-queue-core, core]
     code:
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/core/host-queue/handoff.ts
-      - packages/shell/renderer/shell/agent-sections.tsx
+      - packages/protocol/coding-agent/handoff.ts
+      - packages/core/terminals/service.ts
     steps:
       - "agent가 `lophn tab open --coding <harness> --handoff <글>`로 부른다. 사람 token은 받지 않는다"
       - "부른 session의 workspace가 project가 아니면 거절한다(home과 앱은 터미널이 없다)"
       - "harness가 `shell.coding_agents.favorites`에 없거나 adapter에 첫 prompt 인자 꼴이 없으면 거절하고 열 수 있는 harness id를 message에 싣는다"
-      - "글을 `<data root>/handoffs/<tab>.md`(0600)에 쓰고 tab_open(target coding, handoff {harness, file})을 넣는다. lophn session과 hold는 만들지 않는다"
-      - "창은 사람의 즐겨찾기 명령 뒤에 고정 글 \"Read the handoff at <file> …\"만 첫 prompt로 붙여 새 터미널 탭에서 친다. agent가 쓴 글은 터미널에 치지 않는다"
+      - "글을 `<data root>/handoffs/<tab>.md`(0600)에 쓴다. lophn session과 hold는 만들지 않는다"
+      - "core가 사람의 즐겨찾기 명령(`shell.coding_agents.commands`, 없으면 harness의 첫 명령) 뒤에 고정 글 \"Read the handoff at <file> …\"만 첫 prompt로 붙여 그 project에 새 터미널을 열고 그 명령을 친다. agent가 쓴 글은 터미널에 치지 않는다. 경로를 따옴표 안에 칠 수 없으면 거절한다"
+      - "열린 터미널을 tab_open(target terminal {terminal_ref})으로 넣는다. 그 project를 보이는 창이 없어도 터미널은 돈다"
     outcomes:
       - id: accepted
-        observe: ["disk:<data>/handoffs/<tab>.md", response]
+        observe: ["disk:<data>/handoffs/<tab>.md", process:pty, response]
       - id: invalid_input
         code: invalid_input
-        when: "사람 token이 불렀다, project가 아닌 session이다, 즐겨찾기에 없거나 첫 prompt 꼴이 없는 harness다, 글이 상한(64 KiB)을 넘는다"
+        when: "사람 token이 불렀다, project가 아닌 session이다, 즐겨찾기에 없거나 첫 prompt 꼴이 없는 harness다, 글이 상한(64 KiB)을 넘는다, 또는 project에 등록 폴더가 없다(터미널 열기)"
         observe: [response]
       - id: not_found
         code: not_found
-        when: "호출 session이 없다"
+        when: "호출 session이 없다, 또는 터미널을 열 project가 없다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -592,31 +594,32 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "handoff file을 쓰지 못했다"
+        when: "handoff file을 쓰지 못했다, 그 경로를 터미널에 칠 수 없다, 또는 PTY를 띄우지 못했다"
         observe: [response]
     crosses_process: true
     risk: [sandbox]
     docs: [architecture/coding-agent.md, architecture/workspace-layout.md]
     unclear:
-      - "handoff file은 탭이 닫혀도 지우지 않는다. 창이 없어 요청이 기다리는 동안 core가 다시 뜨면 요청은 사라지고 file만 남는다"
+      - "handoff file은 터미널이 끝나도 지우지 않는다"
 
   - id: harness-tui-open
-    title: harness agent session을 TUI 탭으로 연다(CLI session을 hold한다)
+    title: harness agent session을 TUI 터미널로 연다(CLI session을 hold한다)
     actor: agent
     uses: [route:tabs/open]
     when: "target이 tui일 때"
     pre: [harness-turn-start:started]
-    boundary: [host-queue-interface, host-queue-core, harness-host-core]
+    boundary: [host-queue-interface, host-queue-core, harness-host-core, core]
     code:
       - packages/core/main/daemon/wiring/harness.ts
       - packages/core/main/daemon/wiring/host-queue.ts
-      - packages/shell/main/terminal/harness-tui.ts
+      - packages/core/terminals/service.ts
+      - packages/core/terminal-agents/hold.ts
     steps:
       - "host-tab-open과 같은 판정을 거친다. 사람 token이면 invalid_input, session이 없거나 닫혔거나 다른 workspace면 not_found"
       - "harness session이 아니거나 project workspace가 아니면 invalid_input. home과 app은 터미널이 없다"
       - "CLI session id가 아직 없으면(첫 turn 전) conflict. turn이 돌거나 이미 hold되어 있어도 conflict"
-      - "통과하면 그 자리에서 30초 hold를 예약하고 resume 값(adapter id, CLI session id)을 tab_open 요청에 싣는다"
-      - "shell host가 터미널 탭을 열고 CLI resume 명령을 친다. 탭이 있는 동안 그 session의 headless turn은 시작하지 않는다"
+      - "통과하면 그 자리에서 30초 hold를 예약하고, core가 그 project에 새 터미널을 열어 그 harness의 resume 명령(adapter id, CLI session id)을 친다"
+      - "그 터미널이 그 session을 쥐고(harness-tui-hold) tab_open(target terminal {terminal_ref})을 넣는다. 창이 없어도 터미널은 돈다. 터미널이 쥔 동안 그 session의 headless turn은 시작하지 않는다"
     outcomes:
       - id: accepted
         observe: [response, process:cli-tui]
@@ -626,11 +629,15 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "대상이 harness session이 아니거나 project workspace가 아니다. 또는 사람 token이 불렀다(사람 token은 browser·preview·artifact 탭만 연다)"
+        when: "대상이 harness session이 아니거나 project workspace가 아니다, 사람 token이 불렀다(사람 token은 browser·preview·artifact 탭만 연다), 또는 project에 등록 폴더가 없다"
         observe: [response]
       - id: conflict
         code: conflict
         when: "CLI session id가 없거나, turn이 돌거나, 이미 hold되어 있다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY를 띄우지 못했다(spawn_failed, host_lost)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -641,7 +648,7 @@ flows:
     refs: [P6]
     docs: [architecture/coding-agent.md]
     unclear:
-      - "TUI가 끝내 뜨지 않으면 사람이 탭을 닫을 때까지 hold가 남는다. 그 release 경로는 system:harness-tui-hold가 맡는다"
+      - "TUI가 끝내 뜨지 않으면 터미널이 끝날 때까지 hold가 남는다. 그 release 경로는 system:harness-tui-hold가 맡는다"
 
   - id: host-tab-close
     title: agent나 사람 token이 자기가 연 탭을 닫는다
@@ -1263,20 +1270,21 @@ flows:
       - "offered 결과 화면은 프레임 project-terminal로 근사했다. agent가 연 탭의 정확한 프레임은 확인하지 않았다"
 
   - id: harness-tui-hold
-    title: TUI 탭이 열린 harness session의 hold를 연장하거나 푼다
+    title: core가 resume으로 연 터미널이 쥔 harness session의 hold를 연장하거나 푼다
     actor: system
     entries: [system:harness-tui-hold]
-    uses: [harness-tui-open:accepted, host-link:open]
-    boundary: [harness-host-core, host-queue-core]
+    uses: [harness-tui-open:accepted, coding-session-open:opened]
+    boundary: [harness-host-core, host-queue-core, core]
     code:
       - packages/core/host-queue/hold.ts
       - packages/core/main/daemon/wiring/harness.ts
-      - packages/shell/main/terminal/harness-tui.ts
+      - packages/core/terminal-agents/hold.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
-      - "tabs/open의 tui 판정을 통과하면 그 자리에서 30초 예약한다(첫 heartbeat까지의 틈)"
-      - "shell main이 /host-link의 hello·visible에 실은 TUI 탭 session 목록을 core가 연결이 열린 동안 1초마다 heartbeat로 넣는다. 목록에 실린 session은 10초로 연장한다. 연결이 닫히면 갱신이 멈춰 10초 뒤 풀린다"
-      - "한 번 목록에 실렸던 session이 빠지면 바로 푼다. 탭 닫힘, 창 닫힘, CLI가 foreground를 떠남이 여기서 드러난다"
-      - "폰이 resume으로 되살린 coding session(coding-session-open)도 같은 목록에 든다. 그 터미널이 끝날 때(process가 끝났거나 terminal host가 사라졌다) 빠진다. 사람이 그 채팅을 터미널로 바꿔 GUI handle이 닫혀도 같은 CLI session을 TUI가 이어 쓰므로 빠지지 않는다"
+      - "tabs/open의 tui나 coding_sessions/open의 resume 판정을 통과하면 그 자리에서 30초 예약한다(첫 heartbeat까지의 틈)"
+      - "core가 resume으로 연 터미널이 쥔 session 목록을 쥔 것이 바뀔 때와 3초마다 heartbeat로 넣는다. 목록에 실린 session은 10초로 연장한다. core가 끝나면 갱신이 멈춰 10초 뒤 풀린다"
+      - "TUI로 연 터미널은 그 harness가 foreground에 보인 뒤 떠나면(tracker) 놓는다. 터미널이 끝나면(process가 끝났거나 PTY host가 사라졌다) 놓는다. 한 번 목록에 실렸던 session이 빠지면 바로 푼다"
+      - "폰이 resume으로 되살린 coding session(coding-session-open)은 그 터미널이 끝날 때까지 쥔다. 사람이 그 채팅을 터미널로 바꿔 GUI handle이 닫혀도 같은 CLI session을 TUI가 이어 쓰므로 놓지 않는다"
       - "한 번도 실리지 않은 session은 30초 뒤 만료된다"
       - "hold된 동안 harness/take는 그 session을 건너뛰고 harness/start_turn은 conflict다"
     outcomes:
@@ -1363,6 +1371,8 @@ flows:
       - packages/shell/main/extensions/bundled/harness-gui/index.ts
       - packages/shell/main/extensions/bundled/harness-gui/adapter.ts
       - packages/shell/renderer/terminal/terminal-gui.tsx
+      - packages/core/terminal-agents/gui.ts
+      - packages/core/extensions/bundled/harness-gui/index.ts
     steps:
       - "사람이 터미널에서 claude gui, codex gui, opencode gui, omp gui, agy gui(gui --resume id 포함)를 친다. 셸 함수가 lophn hook으로 resume 값을 보낸다"
       - "shell main이 key로 탭을 찾는다. harness가 GUI를 지원하고 터미널이 살아 있을 때만 extension의 onTab.gui를 부른다. 아니면 무시한다"
@@ -1370,7 +1380,7 @@ flows:
       - "이미 그 터미널에 GUI를 여는 중이면 이 요청은 아무 일도 하지 않는다"
       - "TUI가 떠 있으면 adapter.exitTui로 끄고 5초 안에 foreground가 shell이 되기를 기다린다. 못 기다리면 실패"
       - "extension spawner가 사람의 login env를 읽기를 기다린 뒤(최대 5초) adapter.start로 CLI를 그 env와 탭 폴더에서 띄우고 ACP handle을 만든다. 시작하는 사이 탭이나 터미널이 닫혔으면 CLI를 세운다. adapter나 TUI 끄기가 던지면 internal 실패로 turn 오류를 보인다"
-      - "탭을 가진 창에 GUI 열림을 push하고 1.5초 안에 ack가 와야 탭이 GUI view가 된다. 없으면 handle을 닫는다"
+      - "탭을 가진 창에 GUI 열림을 push하고 1.5초 안에 ack가 와야 탭이 GUI view가 된다. 없으면 handle을 닫는다. core가 연 터미널은 core의 GUI handle(terminal-agents)이 받는다. 창의 ack는 없고 handle은 창과 상관없이 core에 있다"
     outcomes:
       - id: opened
         observe: [screen:harness-gui-terminal-tab]
@@ -1413,6 +1423,10 @@ flows:
       - packages/shell/main/terminal/agent/ingress.ts
       - packages/shell/main/desktop/wiring/agent.ts
       - packages/protocol/coding-agent/hook-signal.ts
+      - packages/core/terminal-agents/tracker.ts
+      - packages/core/terminal-agents/osc-title.ts
+      - packages/core/terminal-agents/ingress.ts
+      - packages/core/terminal-agents/service.ts
     steps:
       - "hook 줄을 socket에서 받아 key로 터미널을 찾는다. 모르는 key, 상한을 넘는 줄, 깨진 줄은 버린다. lophn-gui는 harness-gui-open으로 넘긴다"
       - "terminal-host가 1초마다 보내는 foreground argv로 harnessOfProcess가 harness를 고른다. 다른 harness의 hook은 버린다"
@@ -1420,7 +1434,7 @@ flows:
       - "보이는 상태는 권한 물음이 있으면 waiting, main turn이나 child가 있으면 running, 아니면 idle이다. hook을 한 번도 못 들었으면 unknown이다"
       - "Esc나 Ctrl-C를 사람이 치면 끊김 hook이 없는 harness에 한해 unknown으로 짐작(guessed)한다. 뒤따르는 PermissionResolved가 오면 running으로 되돌린다"
       - "child는 10분 동안 신호가 없으면 뺀다. foreground를 떠나면 집합을 비운다. PTY 출력의 OSC 0·2 터미널 제목은 main이 읽어(상태 글리프를 뗀다) agent의 screen_title로 싣는다"
-      - "상태나 제목이 바뀌면 runtime(agent와 탭 이름 포함)을 모든 창에 push하고 탭 점을 갱신한다. 새로 뜨거나 다시 읽은 창은 ipc:shell:terminal-agents로 지금 agent가 도는 터미널의 runtime을 한 번 읽는다"
+      - "상태나 제목이 바뀌면 runtime(agent와 탭 이름 포함)을 모든 창에 push하고 탭 점을 갱신한다. 새로 뜨거나 다시 읽은 창은 ipc:shell:terminal-agents로 지금 agent가 도는 터미널의 runtime을 한 번 읽는다. core가 연 터미널(terminals/*)은 core의 tracker가 같은 일을 하고 바뀐 agent를 runtime에 실어 TerminalRuntimeChanged로 낸다"
     outcomes:
       - id: running
         observe: [screen:project-terminal]
@@ -1500,6 +1514,9 @@ flows:
       - packages/shell/main/terminal/agent/hook-install.ts
       - packages/shell/main/terminal/agent/hook-ask.ts
       - packages/shell/ipc/coding.ts
+      - packages/core/terminal-agents/hook-install.ts
+      - packages/core/terminal-agents/hook-ask.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "사람 터미널에서 harness를 foreground로 처음 알아본 때 harness마다 앱 실행당 한 번 돈다"
       - "lophn harness install을 dry_run으로 불러 hook과 옛 skill 상태를 본다. 둘 다 missing이 아니면 끝난다"
@@ -1507,6 +1524,7 @@ flows:
       - "거절이면 기억하지 않는다. 이 앱 실행에서는 다시 묻지 않고 다음 실행에서 묻는다"
       - "허락하면 lophn harness install을 실행한다. 성공은 toast 하나, 실패는 까닭과 file을 담은 dialog다"
       - "놓은 뒤 공유 skill 사본을 맞춘다(harness sync-skills). 묻기나 놓기가 실패해도 터미널은 그대로 돈다"
+      - "core가 연 터미널은 core가 같은 판정을 하고 HookInstallAsked로 묻는다(coding-agents-hook-ask)"
     outcomes:
       - id: skipped
         when: "hook 자리가 없는 harness이거나, CLI 경로를 모르거나, 이 앱 실행에서 이미 물었다, 같은 harness를 묻는 중이다"
@@ -1539,11 +1557,14 @@ flows:
     boundary: [shell]
     code:
       - packages/shell/main/terminal/agent/session-store.ts
+      - packages/core/terminal-agents/session-store.ts
+      - packages/core/terminal-agents/sessions-move.ts
     steps:
       - "hook이 session id를 알린 session의 identity를 만든다(harness, session id, folder, cwd, 첫 prompt, harness가 붙인 이름, 시각)"
       - "project별 파일 <data root>/shell/agent-sessions/<project>.json에 원자 교체로 쓴다. 상태(running 등)는 저장하지 않는다"
       - "같은 session은 갱신하고, 50개를 넘으면 가장 오래된 것부터 뺀다"
       - "저장본 목록은 ipc:shell:terminal-agent-sessions로 읽는다. 저장본을 여는 길은 이 flow 밖이다"
+      - "core가 연 터미널의 identity는 core가 <data root>/terminal-agents/sessions/<project>.json에 쓴다. 옛 <data root>/shell/agent-sessions/는 data step terminal-agents.sessions-move가 내용과 mode 그대로 옮긴다(새 자리의 file은 두고, 다시 돌아도 같다)"
     outcomes:
       - id: saved
         observe: ["disk:<data root>/shell/agent-sessions/<project>.json"]
@@ -1564,6 +1585,7 @@ flows:
       - packages/shell/ipc/harness-gui.ts
       - packages/shell/main/terminal/gui.ts
       - packages/shell/main/extensions/bundled/harness-gui/index.ts
+      - packages/core/terminal-agents/gui.ts
     steps:
       - "GUI에서 TUI로 갈 때 handoff가 restart(Claude, omp, Antigravity)이면 돌던 turn이나 task, 대기 입력을 modal(harness-gui-restart-modal)로 보여 주고 확인받는다. shared(Codex, OpenCode)는 묻지 않는다"
       - "renderer가 harness-gui:tab-toggle을 {terminal_ref, to}로 main에 보낸다. 화면의 Open as chat도 같은 길이다"
@@ -1571,7 +1593,7 @@ flows:
       - "to tui인데 handle이 없으면 view만 tui로 바꾸고 끝낸다"
       - "to gui: handle이 있으면 view만 바꾼다. 없으면 TUI의 session id를 읽는다. id가 없으면 no-session, TUI가 떠 있지 않으면 not-running"
       - "handle이 없을 때 gui로 가는 길은 harness-gui-open과 같은 open이다. harness-gui가 꺼져 있으면 Settings를 연다"
-      - "to tui에서 CLI의 stop()이 8초 안에 끝나지 않거나 던지면 TUI 명령을 치지 않고 handle을 닫은 뒤 failed다(앞 process가 끝났는지 모르면 TUI를 띄우지 않는다). extension handler가 던져도 failed다"
+      - "to tui에서 CLI의 stop()이 8초 안에 끝나지 않거나 던지면 TUI 명령을 치지 않고 handle을 닫은 뒤 failed다(앞 process가 끝났는지 모르면 TUI를 띄우지 않는다). extension handler가 던져도 failed다. core가 연 터미널의 바꾸기는 coding_sessions/switch(coding-session-switch)로 간다"
     outcomes:
       - id: to-tui
         observe: [process:cli-tui, screen:project-terminal]
@@ -1625,52 +1647,48 @@ flows:
       - "adapter별 입력 전달(claude.ts, codex.ts 등)은 읽지 않았다. ACP 입력 종류(interrupt, rewind 등)는 sessions 쪽 ACP flow가 맡는다"
 
   # ---- 폰의 coding session: host가 올린 GUI 대화를 core가 사본으로 낸다 ----
-  - id: coding-relay-sync
-    title: core가 host가 올린 GUI 대화 상태를 사본으로 접고 갱신을 낸다
-    actor: shell
-    entries: [system:coding-relay-sync]
-    uses: [system:host-link]
-    boundary: [host-queue-interface, acp]
+  - id: coding-session-sync
+    title: core가 GUI handle의 대화 갱신을 redaction을 거쳐 내고 coding session 목록이 바뀌면 알린다
+    actor: system
+    entries: [system:coding-session-sync]
+    boundary: [core, acp]
     code:
-      - packages/core/coding-relay/relay.ts
-      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/core/terminal-agents/coding-sessions.ts
+      - packages/core/terminal-agents/gui.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
       - packages/core/main/daemon/wiring/session-lifecycle.ts
-      - packages/shell/main/terminal/coding-relay.ts
-      - packages/shell/main/desktop/wiring/agent.ts
     steps:
-      - "shell main은 GUI handle이 열리면 coding_sync snapshot을 먼저, 이어서 창과 같은 20ms 묶음의 updates를 보내고 handle이 닫히면 coding_closed를 보낸다. 창과 같이 tool 본문은 빼고 보낸다(사람이 친 명령은 명령 글만 남는다). coding_report는 tracker·GUI 탭이 바뀔 때 보낸다. 연결이 없을 때는 쌓지 않고, 연결이 열릴 때마다 coding_report와 모든 handle의 snapshot을 다시 보낸다"
-      - "host가 coding_report로 터미널 coding agent 집합(view, handoff, foreground 포함)을 보내면 session lifecycle 표와 coding relay가 같은 집합으로 바뀐다"
-      - "coding_sync의 snapshot은 그 session(ses_<터미널 ULID>)의 사본을 갈아 끼우고 updates는 reduceAcp로 접는다. 둘 다 먼저 제품 redactor로 모든 글을 거른다. 알려진 secret을 아직 다 모르면 그 session의 사본을 버리고 아무것도 내지 않는다"
-      - "updates는 하나씩 AcpUpdated {session, update}로 Bus에 낸다. snapshot이 사본을 갈아 끼우면 StateChanged {coding_sessions, id: session}을, 목록이 바뀌면 StateChanged {coding_sessions}를 낸다"
-      - "사본은 64 session까지다. 넘으면 가장 오래 쓰지 않은 것부터 버린다. snapshot 없이 온 updates는 접을 바탕이 없어 버린다"
-      - "coding_closed는 그 사본을 지운다. 연결이 닫히면 3초 유예 뒤(그 사이 다시 붙지 않았으면) 보고와 사본을 모두 비운다"
+      - "harness-gui가 터미널에 handle을 열면 core가 그 handle에 붙어 20ms 묶음의 updates를 받는다. tool 본문은 뺀다(사람이 친 명령은 명령 글만 남는다)"
+      - "updates는 제품 redactor로 모든 글을 거른 뒤 하나씩 AcpUpdated {session: ses_<터미널 ULID>, update}로 Bus에 낸다. 알려진 secret을 아직 다 모르면 내지 않고 StateChanged {coding_sessions, id: session}만 내 화면이 snapshot을 다시 읽게 한다"
+      - "handle이 열리거나 닫히면 StateChanged {coding_sessions, id: session}을 낸다. tracker의 agent, GUI view, 터미널 runtime, `/host-link` 연결이 바뀌어 목록이 달라지면 StateChanged {coding_sessions}를 내고 같은 목록을 session lifecycle 표에 넘긴다"
     outcomes:
       - id: folded
         observe: [event:AcpUpdated, event:StateChanged]
       - id: withheld
-        when: "알려진 secret을 아직 다 모른다(사본을 버리고 내지 않는다)"
+        when: "알려진 secret을 아직 다 모른다(갱신을 내지 않는다)"
         observe: [event:StateChanged]
       - id: cleared
-        when: "handle이 닫혔다(coding_closed), 또는 연결이 닫히고 유예가 지났다"
+        when: "handle이 닫혔다(터미널이 끝났거나 restart, TUI로 바꿨다)"
         observe: [event:StateChanged]
     crosses_process: false
     risk: [secret]
     docs: [architecture/harness-gui.md, architecture/acp.md]
 
   - id: coding-sessions-read
-    title: 폰이 컴퓨터의 coding session 목록과 view 바꾸기 계획을 읽는다
+    title: 화면과 폰이 컴퓨터의 coding session 목록, view 바꾸기 계획, CLI의 지난 session, rewind 미리보기를 읽는다
     actor: person
     entries: [route:coding_sessions/list, route:coding_sessions/switch_plan, route:coding_sessions/cli_sessions, route:coding_sessions/rewind_preview]
-    boundary: [host-queue-interface, acp]
+    boundary: [core, acp]
     code:
-      - packages/core/coding-relay/relay.ts
-      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/core/terminal-agents/coding-sessions.ts
+      - packages/core/terminal-agents/gui.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
       - packages/protocol/coding-agent/relay.ts
     steps:
-      - "list는 host가 보고한 터미널마다 한 줄이다(project로 거를 수 있다). 사본이 있으면 상태는 사본의 승인·질문·turn으로 덮는다. shell은 /host-link가 열려 있으면 attached다. 연결이 닫히고 유예가 지나면 목록이 빈다"
-      - "switch는 GUI면 null이다. TUI면 Windows는 unsupported_os, GUI handle(사본)이 있으면 null, foreground TUI나 handoff가 없으면 not_running, CLI session id가 없으면 no_session이다"
-      - "switch_plan은 TUI면 to gui(도는 turn은 보고의 running), GUI면 to tui(사본의 도는 turn, 도는 task 수, 줄 선 메시지 수)다"
-      - "cli_sessions는 그 session의 CLI가 이 폴더에서 가진 지난 session(최근 순), rewind_preview는 그 사람 메시지로 rewind하면 되돌아갈 file이다. GUI의 run이 없으면 빈 목록과 null이다"
+      - "list는 core가 가진 터미널 가운데 coding agent가 도는 것(tracker가 runtime에 실은 agent나 GUI handle)마다 한 줄이다(project로 거를 수 있다). GUI view의 줄은 handle의 제목·CLI session·turn 단계를 쓴다. 목록은 shell 연결과 상관없고 shell은 /host-link가 열려 있으면 attached다"
+      - "switch는 GUI면 null이다. TUI면 Windows는 unsupported_os, GUI handle이 있으면 null, foreground TUI나 handoff가 없으면 not_running, CLI session id가 없으면 no_session이다"
+      - "switch_plan은 TUI면 to gui(도는 turn은 목록의 running), GUI면 to tui(handle의 도는 turn, 도는 task 수, 줄 선 메시지 수)다"
+      - "cli_sessions는 그 터미널의 GUI run이 이 폴더에서 가진 지난 CLI session(최근 순), rewind_preview는 그 사람 메시지로 rewind하면 되돌아갈 file이다. handle이나 run이 없으면 빈 목록과 null이다"
     outcomes:
       - id: ok
         observe: [response]
@@ -1684,36 +1702,33 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/harness-gui.md]
-    unclear:
-      - "cli_sessions·rewind_preview의 handler는 아직 없다(계약만). 지금 desktop은 shell IPC(harness-gui:tab-sessions, tab-rewind-preview)를 쓴다"
 
   - id: coding-session-switch
-    title: 폰에서 사람이 확인한 뒤 coding session의 탭을 chat과 터미널 사이에서 바꾼다
+    title: 사람이 확인한 뒤 coding session의 터미널을 chat과 TUI 사이에서 바꾼다
     actor: person
     entries: [route:coding_sessions/switch]
-    uses: [system:host-link, ipc:harness-gui:tab-toggle]
-    boundary: [host-queue-interface, host-queue-core]
+    boundary: [core, extension-host]
     code:
-      - packages/core/coding-relay/relay.ts
-      - packages/core/main/daemon/wiring/coding-relay.ts
-      - packages/core/host-queue/queue.ts
-      - packages/shell/main/terminal/coding-relay.ts
-      - packages/shell/main/terminal/gui.ts
+      - packages/core/terminal-agents/coding-sessions.ts
+      - packages/core/terminal-agents/gui.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
+      - packages/core/extensions/bundled/harness-gui/index.ts
     steps:
-      - "입력에 confirmed: true가 없으면 schema에서 invalid_input이고 host 요청은 나가지 않는다. 사람 자격만 부른다"
-      - "같은 key는 한 번만 보낸다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 보낼 수 있다)"
-      - "session이 보고에 없으면 not_found, 이미 그 view면 conflict다. 아니면 연결로 coding_switch {terminal_ref, to}를 보내고 host의 답을 기다린다(60초)"
-      - "shell main은 Windows면 unavailable(unsupported_os), 터미널이 없으면 not_found, 이미 그 view면 conflict로 답한다. 아니면 탭 toggle을 폰 출처로 부른다: 창의 ack를 기다리지 않고 바로 GUI view다(창이 탭을 다시 그리면 tab-current로 되찾는다). harness-gui가 꺼져 있으면 Settings를 열지 않고 unavailable(extension_off), TUI가 없거나 session id를 모르면 invalid_input(not_running, no_session)이다. extension은 TUI를 먼저 끈 뒤 adapter를 시작하고, 어느 쪽이든 실패하면 handle을 닫아 unavailable(failed)이며 TUI는 그대로 남는다"
-      - "host의 오류는 code와 details.reason(no_session, not_running, extension_off, unsupported_os, failed) 그대로 준다. 연결이 없거나 답 전에 닫히면 unavailable이다. 성공하면 StateChanged {coding_sessions, id}가 나가고 host가 바뀐 보고와 snapshot을 다시 올린다"
+      - "입력에 confirmed: true가 없으면 schema에서 invalid_input이고 view를 바꾸지 않는다. 사람 자격만 부른다"
+      - "같은 key는 한 번만 바꾼다(바꾸는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 부를 수 있다)"
+      - "session이 목록에 없으면 not_found, 이미 그 view면 conflict, Windows면 unavailable(unsupported_os)이다"
+      - "to gui: handle이 있으면(shared 대화) view만 바꾼다. 없으면 foreground TUI가 GUI가 되는 harness이고 session id를 알아야 한다(아니면 invalid_input의 not_running, no_session). harness-gui가 꺼져 있으면 unavailable(extension_off)이다. extension은 TUI를 먼저 끈 뒤 adapter를 시작하고, run이 서지 않으면 core가 handle을 닫아 unavailable(failed)이며 TUI는 그대로 남는다"
+      - "to tui: extension이 TUI로 돌린다(restart는 handle을 닫고, shared는 handle을 남기고 view만 바꾼다). 던지면 unavailable(failed)이다"
+      - "바뀌면 StateChanged {coding_sessions}가 나간다(coding-session-sync)"
     outcomes:
       - id: switched
-        observe: [request:shell, event:StateChanged, response]
+        observe: [event:StateChanged, response]
       - id: deduplicated
-        when: "같은 key를 다시 보냈다(host에 다시 가지 않는다)"
+        when: "같은 key를 다시 보냈다(다시 바꾸지 않는다)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "confirmed: true가 없다, 입력 schema가 틀렸다, 또는 host가 no_session·not_running으로 거절했다"
+        when: "confirmed: true가 없다, 입력 schema가 틀렸다, 또는 no_session·not_running이다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1721,7 +1736,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "session이 보고에 없다, 또는 host가 그 터미널을 못 찾았다"
+        when: "session이 목록에 없다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -1729,42 +1744,37 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없다, 답 전에 닫혔다, 기한이 지났다, 또는 host가 extension_off·unsupported_os·failed로 거절했다"
+        when: "extension_off·unsupported_os·failed다"
         observe: [response]
     crosses_process: true
     risk: [permission]
     docs: [architecture/harness-gui.md]
 
   - id: coding-session-open
-    title: 폰이 컴퓨터의 project에 coding session을 새 터미널 탭의 chat으로 연다
+    title: 폰이 컴퓨터의 project에 coding session을 새 터미널의 chat으로 연다(창이 없어도 열린다)
     actor: person
     entries: [route:coding_sessions/open]
-    uses: [system:host-link]
-    boundary: [host-queue-interface, host-queue-core]
+    boundary: [core, host-queue-core]
     code:
-      - packages/core/coding-relay/open.ts
-      - packages/core/main/daemon/wiring/coding-relay.ts
-      - packages/shell/main/terminal/coding-open.ts
-      - packages/shell/main/desktop/wiring/coding-relay.ts
-      - packages/shell/main/desktop/wiring/surface.ts
-      - packages/shell/main/terminal/harness-tui.ts
-      - packages/shell/renderer/workspace/use-surface-requests.ts
+      - packages/core/terminal-agents/open.ts
+      - packages/core/terminal-agents/hold.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
+      - packages/core/terminals/service.ts
     steps:
-      - "같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다). 사람 자격만 부른다"
+      - "같은 key는 한 번만 연다(여는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다). 사람 자격만 부른다"
       - "harness가 GUI가 되는 coding agent(claude, codex, opencode, omp)가 아니면 invalid_input이다"
-      - "resume이면 ledger session이 없거나 그 project의 것이 아니면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면 invalid_input, host 목록에 같은 CLI session이 있으면 conflict다. 그 뒤 TUI hold를 건다: TUI로 열려 있거나 headless turn이 돌면 conflict다"
-      - "연결로 coding_open {project, harness, resume?: {session, cli_session}}을 보내고 답(60초)의 terminal_ref를 ses_<터미널 ULID>로 옮긴다. 성공하면 StateChanged {coding_sessions}가 나간다"
-      - "shell main은 Windows면 unavailable, 그 CLI session이 이미 GUI 탭에서 돌면 conflict다. resume이면 그 ledger session을 TUI 탭과 같은 hold 목록(/host-link visible의 tui)에 넣는다. 그 project를 보이는 창에 coding 탭 열기(펴진 float, handoff 없음)를 넣으면 창이 새 터미널에 <harness> gui(resume이면 --resume <cli_session>)를 친다. 그 project를 보이는 창이 없으면 그 project의 창을 focus 없이 하나 열고 그 창이 workspace를 알릴 때까지(15초) 기다린다"
-      - "창이 탭을 열지 못하면 unavailable이다. 열면 그 project 터미널에 그 harness의 새 GUI handle이 생길 때까지(55초) 기다려 그 터미널로 답하고, 기한이 지나면 unavailable이다. resume의 hold는 실패하면 바로, 성공하면 그 터미널이 끝날 때 풀린다(채팅을 터미널로 바꿔 handle이 닫혀도 잡혀 있다)"
+      - "resume이면 ledger session이 없거나 그 project의 것이 아니면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면 invalid_input, 목록에 같은 CLI session이 있으면 conflict다. 그 뒤 TUI hold를 건다: TUI로 열려 있거나 headless turn이 돌면 conflict다"
+      - "core가 그 project에 새 터미널을 열고 사람이 치는 것과 같은 `<harness> gui`(resume이면 --resume <cli_session>)를 친다. 터미널의 shell 함수가 hook socket으로 GUI를 청하면 harness-gui-open이 이어 받는다. tab_open(target terminal {terminal_ref})을 넣어 그 project를 보이는 창이 있으면 탭으로 보인다"
+      - "연 터미널의 session(ses_<터미널 ULID>)으로 답한다. resume이면 그 터미널이 끝날 때까지 그 ledger session을 쥔다(harness-tui-hold)"
     outcomes:
       - id: opened
-        observe: [request:shell, event:StateChanged, response]
+        observe: [process:pty, response]
       - id: deduplicated
-        when: "같은 key를 다시 보냈다(host에 다시 가지 않는다)"
+        when: "같은 key를 다시 보냈다(다시 열지 않는다)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "입력 schema가 틀렸다, GUI가 되지 않는 harness다, 또는 resume session이 harness agent session이 아니거나 harness가 다르거나 CLI session id가 없다"
+        when: "입력 schema가 틀렸다, GUI가 되지 않는 harness다, resume session이 harness agent session이 아니거나 harness가 다르거나 CLI session id가 없다, 또는 project에 등록 폴더가 없다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1772,19 +1782,21 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "resume session이 ledger에 없거나 그 project의 것이 아니다"
+        when: "resume session이 ledger에 없거나 그 project의 것이 아니다, 또는 project가 없다"
         observe: [response]
       - id: conflict
         code: conflict
-        when: "그 CLI session이 이미 컴퓨터의 터미널에서 돈다(core 목록이나 shell의 GUI 탭), TUI로 열려 있다, 또는 headless turn이 돈다"
+        when: "그 CLI session이 이미 컴퓨터의 터미널에서 돈다, TUI로 열려 있다, 또는 headless turn이 돈다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없다, 답 전에 닫혔다, 기한이 지났다, Windows다, 그 project의 창을 열지 못했다, 또는 GUI가 기한 안에 시작하지 않았다"
+        when: "PTY를 띄우지 못했다(spawn_failed, host_lost)"
         observe: [response]
     crosses_process: true
     risk: [permission]
     docs: [architecture/harness-gui.md]
+    unclear:
+      - "GUI가 시작하지 못해도(harness-gui가 꺼짐, adapter 실패) 열기는 성공이고 그 터미널에 실패가 보인다"
 
   - id: coding-session-wake
     title: 폰이 컴퓨터의 lophn 앱을 띄운다
@@ -1792,14 +1804,14 @@ flows:
     entries: [route:coding_sessions/wake]
     boundary: [host-queue-core]
     code:
-      - packages/core/coding-relay/open.ts
-      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/core/terminal-agents/open.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
       - packages/core/host-queue/queue.ts
       - packages/core/main/daemon/shell-launcher.ts
     steps:
       - "shell이 붙어 있으면 attached다. 아니면 queue.startShell로 앱을 focus 없는 창으로 띄우고 starting이다. 폰은 coding_sessions/list의 shell이 attached가 되길 기다린다"
       - "띄울 길이 없거나(앱이 띄운 core가 아니다), 앞선 실패 뒤 5분 안이거나, 띄우자마자 실패하면 unavailable이다"
-      - "새로 뜬 앱에는 PTY가 없어(앱과 함께 죽었다) 목록이 비어 있다. 열기와 함께일 때만 쓸모 있다"
+      - "터미널과 coding session은 core가 가져 앱이 없어도 목록과 열기가 된다. 깨우기는 desktop 창이 필요할 때만 쓸모 있다"
     outcomes:
       - id: attached
         observe: [response]
@@ -1821,63 +1833,63 @@ flows:
     docs: [architecture/platform.md]
 
   - id: coding-session-input
-    title: 폰이 coding session의 대화를 읽고 입력을 컴퓨터의 CLI에 넘긴다
+    title: 화면과 폰이 coding session의 대화를 읽고 입력을 그 터미널의 GUI handle에 넘긴다
     actor: person
-    uses: [route:acp/snapshot, route:acp/send, system:host-link]
-    when: "session이 coding relay 사본에 있다(ledger session이 아니다)"
-    boundary: [acp, host-queue-interface]
+    uses: [route:acp/snapshot, route:acp/send]
+    when: "session이 core의 GUI handle에 있다(ledger session이 아니다)"
+    boundary: [acp, core]
     code:
       - packages/core/main/daemon/wiring/acp.ts
-      - packages/core/coding-relay/relay.ts
-      - packages/shell/main/terminal/coding-relay.ts
+      - packages/core/terminal-agents/coding-sessions.ts
+      - packages/core/terminal-agents/gui.ts
     steps:
-      - "acp/snapshot은 사본(redaction을 거친 것)을 그대로 준다"
-      - "acp/send는 입력 전체를 coding_input {session, input}으로 host에 보내고 답을 그대로 올린다. core는 입력을 사본에 적용하지 않는다(결과는 host가 coding_sync로 올린다). 승인 card의 decide도 host로 가고 core의 turn_requests는 건드리지 않는다"
-      - "key가 있는 입력(send의 id와 key, stop·set_model 등의 key)은 session마다 200개를 기억해 같은 것은 host에 다시 보내지 않고 처음 답을 준다. 실패한 시도는 잊는다"
-      - "사본이 없으면 ledger 길(acp-read, acp-send)로 가고 그 session은 ledger에 없어 not_found다"
+      - "acp/snapshot은 handle의 상태에서 tool 본문을 빼고 제품 redactor로 모든 글을 거른 것이다. 알려진 secret을 아직 다 모르면 unavailable이다"
+      - "acp/send는 입력 전체를 handle에 넘긴다(adapter가 CLI로 보낸다). core는 ledger에 쓰지 않는다. 승인 card의 decide도 handle로 가고 core의 turn_requests는 건드리지 않는다"
+      - "key가 있는 입력(send의 id와 key, stop·set_model 등의 key)은 session마다 200개를 기억해 같은 것은 다시 넘기지 않는다"
+      - "handle이 없으면 ledger 길(acp-read, acp-send)로 가고 그 session은 ledger에 없어 not_found다"
     outcomes:
       - id: sent
-        observe: [request:shell, response]
+        observe: [process:cli-gui, response]
       - id: deduplicated
         when: "같은 key의 입력을 다시 보냈다"
         observe: [response]
       - id: not_found
         code: not_found
-        when: "host에 그 handle이 없다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "연결이 없거나 답 전에 닫혔거나 기한(10초)이 지났다"
+        when: "handle이 없다(닫혔다). ledger 길로 가고 그 session은 ledger에 없다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "host가 입력을 거절했다(shell main이 ACP 입력 schema로 읽지 못했다)"
+        when: "입력이 ACP 입력 schema에 맞지 않는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "snapshot: 알려진 secret을 아직 다 모른다"
         observe: [response]
     crosses_process: true
-    risk: [data-loss]
+    risk: [data-loss, secret]
     docs: [architecture/harness-gui.md, architecture/acp.md]
 
   # ---- 폰의 raw 터미널 화면: host가 밀어 올린 최신 화면을 core가 들고 폰이 읽는다 ----
   - id: terminal-view-screen
-    title: core가 보는 중인 터미널의 최신 화면을 메모리에 두고 바뀌었다고 알린다
-    actor: shell
+    title: core가 보는 중인 터미널의 최신 화면을 PTY host에서 읽어 메모리에 두고 바뀌었다고 알린다
+    actor: system
     entries: [system:terminal-view-screen]
-    uses: [system:host-link]
-    boundary: [host-queue-interface]
+    boundary: [core]
     code:
       - packages/core/terminal-view/view.ts
       - packages/core/main/daemon/wiring/terminal-view.ts
+      - packages/core/terminals/service.ts
     steps:
-      - "host가 terminal_screen frame을 올리면 그 터미널에 lease가 있고 coding session 목록에 있거나 폰이 연 터미널일 때만 최신 화면으로 바꾼다(옛 것을 대신한다). 그렇지 않으면 버린다"
-      - "화면을 두면 TerminalScreenChanged {terminal, seq}를 subject terminal:<ref>로 Bus에 낸다. 화면 내용은 싣지 않고 폰이 terminal_view/snapshot을 다시 읽는다"
-      - "터미널이 coding session 목록에서 빠지면(연결이 닫히고 유예가 지나 목록이 비는 것 포함) 그 터미널의 화면과 lease와 입력 key를 지운다"
-      - "마지막 lease가 끝나면 화면을 지운다. lease는 5초마다 기한(30초)을 본다"
+      - "lease가 있는 터미널만 250ms마다 PTY host가 파싱해 둔 화면(lease들의 tail 최대)을 읽어 최신 화면으로 바꾼다(옛 것을 대신한다)"
+      - "seq·generation·크기가 바뀌었으면 TerminalScreenChanged {terminal, seq}를 subject terminal:<ref>로 Bus에 낸다. 화면 내용은 싣지 않고 폰이 terminal_view/snapshot을 다시 읽는다"
+      - "터미널이 coding session 목록에서 빠지면 그 터미널의 화면과 lease와 입력 key를 지운다"
+      - "마지막 lease가 끝나면 읽기를 멈추고 화면을 지우며, 폰이 PTY 크기를 잡았으면 그 표지를 놓아 desktop 탭이 자기 크기로 되돌린다. lease는 5초마다 기한(30초)을 본다"
     outcomes:
       - id: changed
         observe: [event:TerminalScreenChanged]
       - id: dropped
-        when: "lease가 없거나 목록에 없는 터미널의 화면이다"
-    crosses_process: false
+        when: "lease가 없거나 목록에 없는 터미널이다(읽지 않는다)"
+    crosses_process: true
     risk: [secret]
     docs: [architecture/remote.md, architecture/terminal-agent.md]
 
@@ -1885,30 +1897,28 @@ flows:
     title: 폰이 coding session 터미널을 보겠다고 lease를 켜고 갱신하고 끈다
     actor: person
     entries: [route:terminal_view/watch]
-    uses: [system:host-link]
-    boundary: [host-queue-interface]
+    boundary: [core]
     code:
       - packages/core/terminal-view/view.ts
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
     steps:
-      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(폰이 10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다. 터미널이 coding session 목록에 없고 폰이 terminal_view/open으로 연 것도 아니면 not_found다. host가 폰이 연 터미널을 못 찾으면 그 터미널을 잊는다"
-      - "터미널마다 lease가 하나라도 있으면 host에 terminal_stream {on: true, tail: lease들의 tail 최대}를 보낸다. host가 아는 값이 같으면 다시 보내지 않는다. 진행 중이면 끝난 뒤 다시 맞춘다"
-      - "host에 닿지 않아도 lease는 남고 호출은 unavailable이다. 연결이 다시 열리면 살아 있는 lease마다 terminal_stream을 다시 보낸다"
-      - "off이거나 기한이 지나 마지막 lease가 끝나면 terminal_stream {on: false}를 보낸다(host는 폰이 잡은 PTY 크기를 놓는다). host의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
+      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(폰이 10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다. 터미널이 coding session 목록에 없고 폰이 연 터미널(terminal_view/open, 기기가 부른 terminals/open)도 아니면 not_found다"
+      - "켜면 화면을 한 번 읽고 lease가 있는 동안 계속 읽는다(terminal-view-screen). 폰이 연 터미널을 PTY host가 모르면 그 터미널을 잊는다. 읽기의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
+      - "off이거나 기한이 지나 마지막 lease가 끝나면 읽기를 멈추고 폰이 잡은 PTY 크기를 놓는다"
     outcomes:
       - id: watching
-        observe: [request:shell, response]
+        observe: [event:TerminalScreenChanged, response]
       - id: stopped
         when: "on이 false이거나 lease 기한이 지났다"
-        observe: [request:shell, response]
+        observe: [response]
       - id: not_found
         code: not_found
-        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 host가 그 터미널을 못 찾았다"
+        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 PTY host가 그 터미널을 모른다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없거나 답 전에 닫혔거나 기한(5초)이 지났다"
+        when: "PTY host가 답하지 않았다(host_lost)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1921,13 +1931,13 @@ flows:
     title: 폰이 보는 중인 터미널의 지금 화면과 입력 가능 여부를 읽는다
     actor: person
     entries: [route:terminal_view/snapshot]
-    boundary: [host-queue-interface]
+    boundary: [core]
     code:
       - packages/core/terminal-view/view.ts
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
     steps:
-      - "화면은 host가 올린 최신 것 그대로다(generation, seq, columns, rows, cursor, scrollback, lines). input은 부른 principal이 이 터미널에 칠 수 있는가(terminalInputGrant: 기기 device:<id>이고 그 기기의 terminal_input이 켜져 있다)이다"
+      - "화면은 core가 PTY host에서 읽은 최신 것 그대로다(generation, seq, columns, rows, cursor, scrollback, lines). input은 부른 principal이 이 터미널에 칠 수 있는가(terminalInputGrant: 기기 device:<id>이고 그 기기의 terminal_input이 켜져 있다)이다"
     outcomes:
       - id: ok
         observe: [response]
@@ -1951,21 +1961,20 @@ flows:
     title: 입력을 허락받은 기기만 폰에서 coding session 터미널에 글을 친다
     actor: person
     entries: [route:terminal_view/input]
-    uses: [system:host-link]
-    boundary: [host-queue-interface]
+    boundary: [core]
     code:
       - packages/core/terminal-view/view.ts
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
     steps:
-      - "terminalInputGrant(principal)이 true를 돌려준 principal만 부를 수 있다: terminal_input이 켜진 기기다(초대장과 같이 정하고 기본 켬(roster-invite), 그 뒤 roster-set-terminal-input으로 바꾼다). 그 밖이면 forbidden이고 host에 아무것도 가지 않는다"
-      - "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니면 not_found다. 같은 key는 터미널마다 200개를 기억해 다시 보내면 host에 가지 않고 처음 답을 준다. 실패한 시도는 잊는다"
-      - "연결로 terminal_input {terminal_ref, text}를 보내고 host의 답이 성공이면 성공이다. host의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
+      - "terminalInputGrant(principal)이 true를 돌려준 principal만 부를 수 있다: terminal_input이 켜진 기기다(초대장과 같이 정하고 기본 켬(roster-invite), 그 뒤 roster-set-terminal-input으로 바꾼다). 그 밖이면 forbidden이고 터미널에 아무것도 가지 않는다"
+      - "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니면 not_found다. 같은 key는 터미널마다 200개를 기억해 다시 보내면 다시 치지 않고 처음 답을 준다. 실패한 시도는 잊는다"
+      - "사람 입력으로 PTY에 친다(terminals/input과 같은 길. tracker가 끊기 key를 본다). 터미널의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
     outcomes:
       - id: sent
-        observe: [request:shell, response]
+        observe: [process:pty, response]
       - id: deduplicated
-        when: "같은 key를 다시 보냈다(host에 다시 가지 않는다)"
+        when: "같은 key를 다시 보냈다(다시 치지 않는다)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1973,15 +1982,15 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 host가 그 터미널을 못 찾았다"
+        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 PTY host가 그 터미널을 모른다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없거나 답 전에 닫혔거나 기한(5초)이 지났다"
+        when: "PTY host가 답하지 않았다(host_lost)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "host가 입력을 거절했다"
+        when: "PTY host가 입력을 거절했다"
         observe: [response]
     crosses_process: true
     risk: [permission]
@@ -1991,24 +2000,24 @@ flows:
     title: 폰이 보는 터미널의 PTY 크기를 자기 화면의 열과 줄 수로 잡는다
     actor: person
     entries: [route:terminal_view/resize]
-    uses: [system:host-link]
-    boundary: [host-queue-interface]
+    boundary: [core]
     code:
       - packages/core/terminal-view/view.ts
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
+      - packages/core/terminals/service.ts
       - packages/mobile/src/data/terminal.ts
       - packages/mobile/src/screens/terminal/index.tsx
     steps:
       - "폰은 터미널 화면을 열 때(watch를 새로 잡을 때마다), 화면을 누를 때, 자기가 크기를 쥔 동안 화면 크기가 바뀔 때(keyboard, 회전) 자기 화면의 열(10~512)과 줄(4~256)로 부른다. lease 갱신은 부르지 않는다"
       - "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니면 not_found, 이 principal이 그 터미널의 lease를 갖지 않으면 conflict다"
-      - "연결로 terminal_resize {terminal_ref, columns, rows}를 보낸다. host의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다. 마지막에 잡은 쪽이 이긴다: desktop 탭은 사람이 그 탭을 고르거나 누르면 칸 크기로 다시 잡고, lease가 모두 끝나면 host가 폰의 크기를 놓아 탭이 칸에 다시 맞춘다"
+      - "그 터미널의 지금 generation으로 PTY 크기를 폰 크기 표지(remote_size)와 함께 잡는다. 터미널의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다. 마지막에 잡은 쪽이 이긴다: desktop 탭은 사람이 그 탭을 고르거나 누르면 칸 크기로 다시 잡고, lease가 모두 끝나면 core가 폰의 크기 표지를 놓아 탭이 칸에 다시 맞춘다"
     outcomes:
       - id: resized
-        observe: [request:shell, response]
+        observe: [event:TerminalRuntimeChanged, response]
       - id: not_found
         code: not_found
-        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 host가 도는 터미널을 못 찾았다"
+        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 PTY host가 그 터미널을 모른다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -2016,7 +2025,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없거나 답 전에 닫혔거나 기한(5초)이 지났다, 또는 terminal host가 크기 바꾸기를 거절했다"
+        when: "PTY host가 답하지 않았거나 크기 바꾸기를 거절했다(터미널이 돌지 않는다)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -2028,34 +2037,38 @@ flows:
       - "invalid_input은 선언만 있고 입력 schema 밖에서는 내지 않는다"
 
   - id: terminal-view-open
-    title: 폰이 컴퓨터의 project에 shell만 도는 터미널 탭을 연다
+    title: 폰이 컴퓨터의 project에 shell만 도는 터미널을 연다(창이 없어도 열린다)
     actor: person
     entries: [route:terminal_view/open]
-    uses: [system:host-link]
-    boundary: [host-queue-interface]
+    boundary: [core, host-queue-core]
     code:
       - packages/core/terminal-view/view.ts
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
-      - packages/shell/main/desktop/wiring/terminal-view.ts
-      - packages/shell/main/terminal/coding-open.ts
-      - packages/shell/main/desktop/wiring/surface.ts
-      - packages/shell/renderer/workspace/use-surface-requests.ts
+      - packages/core/terminals/service.ts
       - packages/mobile/src/data/terminal.ts
     steps:
       - "폰의 새 session 화면 agent sheet에서 coding agent 묶음 끝의 Terminal 줄이 부른다. 열리면 그 터미널(term:<terminal>)의 터미널 화면으로 간다"
-      - "같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다)"
-      - "연결로 terminal_open {project}를 보낸다(60초). shell main은 그 project를 보이는 창에(없으면 그 project의 창을 focus 없이 하나 열어 workspace를 알릴 때까지 15초 기다린다) 터미널 탭 열기(target terminal, 펴진 float)를 넣고, 탭을 연 뒤 그 project에 처음 생긴 터미널로 답한다(55초)"
-      - "답의 terminal_ref를 폰이 연 터미널로 기억해 coding session 목록에 없어도 terminal_view/watch·snapshot·input·resize가 받는다. 입력은 그 기기의 허락이 있을 때만이다"
+      - "같은 key는 한 번만 연다(여는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다)"
+      - "core가 그 project에 터미널을 열고(terminals/open과 같은 길) tab_open(target terminal {terminal_ref})을 넣는다. 그 project를 보이는 창이 있으면 탭으로 보인다"
+      - "연 터미널을 폰이 연 터미널로 기억해 coding session 목록에 없어도 terminal_view/watch·snapshot·input·resize가 받는다. 입력은 그 기기의 허락이 있을 때만이다"
     outcomes:
       - id: opened
-        observe: [request:shell, response]
+        observe: [process:pty, response]
       - id: deduplicated
-        when: "같은 key를 다시 보냈다(host에 다시 가지 않는다)"
+        when: "같은 key를 다시 보냈다(다시 열지 않는다)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "project가 없다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 schema가 틀렸다, 또는 project에 등록 폴더가 없다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "연결이 없다, 답 전에 닫혔다, 기한이 지났다, 그 project의 창을 열지 못했거나 창이 탭을 열지 못했다, 터미널이 기한 안에 시작하지 않았다, 또는 답에 터미널이 없다"
+        when: "PTY를 띄우지 못했다(spawn_failed, host_lost)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -2065,7 +2078,7 @@ flows:
     risk: [permission]
     docs: [architecture/remote.md, architecture/terminal-agent.md]
     unclear:
-      - "not_found·conflict·invalid_input은 선언만 있고 내지 않는다(입력 schema 밖)"
+      - "conflict는 선언만 있고 내지 않는다"
 
   # ---- core가 가진 터미널(terminals/*): desktop 화면과 폰이 같이 쓴다 ----
   - id: terminals-read
@@ -2075,7 +2088,11 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
+      - packages/core/terminal-agents/session-store.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "list는 core가 가진 터미널의 runtime이다(project로 거를 수 있다). 창이 없을 때 연 터미널도 있다"
       - "snapshot은 PTY host가 파싱해 둔 화면이다. after_seq 뒤 출력이 있으면 화면을 직렬화한 chunk 하나와 그 화면이 담은 마지막 seq, 없으면 빈 output이다. 화면은 이 seq 뒤 TerminalOutputAppended만 이어 쓴다"
@@ -2097,8 +2114,6 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-snapshot, terminal-agent-session-list)를 쓴다"
 
   - id: terminals-open
     title: 사람의 화면이나 폰이 project 폴더에 터미널을 연다(창이 없어도 열린다)
@@ -2107,7 +2122,9 @@ flows:
     boundary: [core, host-queue-interface]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "같은 key는 같은 답이다(PTY를 다시 열지 않는다)"
       - "project의 등록 폴더를 다시 읽고 cwd가 그 안인지 본다. folder_ref는 core가 정한다(<project>_<index>)"
@@ -2141,8 +2158,6 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-open), 폰은 terminal_view/open을 쓴다"
 
   - id: terminals-close
     title: 화면이 터미널을 끝낸다
@@ -2151,7 +2166,9 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "지금 generation의 터미널만 끝낸다. PTY host가 SIGHUP 뒤 SIGKILL까지 보내고 exited runtime을 준다"
       - "터미널마다 더했던 env(hook key, bridge)는 그 터미널이 끝나면 거둔다"
@@ -2176,8 +2193,6 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-close)를 쓴다"
 
   - id: terminals-restart
     title: focus한 창의 사람이 같은 터미널의 shell을 다시 띄운다
@@ -2186,7 +2201,9 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "shell main이 focus 검사를 한 뒤 control connect {client: shell}이 준 capability를 실어 부른다. 살아 있는 capability가 아니면 거절한다"
       - "지금 generation의 터미널을 같은 env로 다시 띄운다. generation이 오르고 옛 출력은 버린다"
@@ -2212,8 +2229,6 @@ flows:
     crosses_process: true
     risk: [permission]
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-restart)를 쓴다"
 
   - id: terminals-input
     title: focus한 창의 사람이나 입력을 허락받은 기기가 터미널에 친다
@@ -2222,7 +2237,9 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "부른 principal이 기기면 그 기기의 터미널 입력 허락(terminalInputGrant)이 있어야 한다. 기기가 아니면 살아 있는 shell_capability(focus 검사를 거친 shell main)가 있어야 한다. 둘 다 아니면 PTY에 아무것도 가지 않는다. agent 자격은 dispatch가 막는다"
       - "generation을 주면 지금 generation일 때만 친다. 같은 key는 터미널마다 기억해 한 번만 친다"
@@ -2252,8 +2269,6 @@ flows:
     crosses_process: true
     risk: [permission]
     docs: [architecture/terminal-agent.md, architecture/remote.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-input, terminal-response), 폰은 terminal_view/input을 쓴다"
 
   - id: terminals-resize
     title: 화면이 보이는 칸의 크기를 PTY에 준다(폰이 잡은 크기를 놓는다)
@@ -2262,7 +2277,9 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "보이는 칸은 focus와 상관없이 크기를 보낸다. 폰이 잡은 크기(remote_size)가 있으면 놓는다: 마지막에 잡은 쪽이 이긴다"
     outcomes:
@@ -2286,8 +2303,6 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-resize)를 쓴다"
 
   - id: terminals-watch
     title: 화면이 터미널의 날 출력을 받겠다고 lease를 켜고 갱신하고 끈다
@@ -2298,7 +2313,9 @@ flows:
     code:
       - packages/protocol/coding-agent/terminals.ts
       - packages/protocol/events/transient.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "on이면 (principal, watcher)의 lease를 30초로 만들거나 갱신한다. 화면은 10초마다 같은 호출을 한다. off이거나 기한이 지나면 그 lease를 지운다"
       - "그 터미널에 lease가 하나라도 있는 동안 host가 묶은 출력 chunk 하나마다 TerminalOutputAppended {subject terminal:<ref>}를 Bus에 낸다. lease가 없으면 내지 않고 host의 화면만 이어진다"
@@ -2319,8 +2336,6 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/event.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-snapshot의 watch, terminal-output push)를 쓴다"
 
   - id: terminals-name
     title: 화면이 탭 줄에 보이는 터미널 이름을 core에 둔다
@@ -2329,7 +2344,9 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminals/routes.ts
+      - packages/core/terminals/service.ts
+      - packages/core/main/daemon/wiring/terminals.ts
     steps:
       - "이름을 runtime의 tab_name으로 싣는다. 빈 이름은 이름 없음이다. 알림 제목과 다른 화면의 탭 이름, Finished 줄이 이것을 쓴다"
     outcomes:
@@ -2345,8 +2362,6 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-tab-name)를 쓴다"
 
   - id: terminals-rename-saved
     title: 사람이 저장한 coding agent session에 이름을 쓰고 고정한다
@@ -2355,13 +2370,15 @@ flows:
     boundary: [core]
     code:
       - packages/protocol/coding-agent/terminals.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminal-agents/service.ts
+      - packages/core/terminal-agents/session-store.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "그 project에 저장한 session의 name을 쓰고 pinned로 둔다. name이 null이면 고정을 푼다. 이후 hook이 준 이름은 고정된 이름을 덮지 않는다"
       - "바뀐 목록을 주고 StateChanged{terminal_saved_sessions, id: project}를 낸다"
     outcomes:
       - id: renamed
-        observe: ["disk:<data root>의 저장한 session file", response, event:StateChanged]
+        observe: ["disk:<data root>/terminal-agents/sessions/<project>.json", response, event:StateChanged]
       - id: not_found
         code: not_found
         when: "그 project에 그 session이 저장돼 있지 않다"
@@ -2376,8 +2393,6 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/terminal-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-agent-session-rename)를 쓴다"
 
   - id: terminal-agent-signal
     title: 터미널의 coding agent가 알릴 계기를 core가 event로 낸다
@@ -2386,17 +2401,16 @@ flows:
     boundary: [core, events]
     code:
       - packages/protocol/events/transient.ts
-      - packages/core/terminals/ports.ts
+      - packages/core/terminal-agents/tracker.ts
+      - packages/core/terminal-agents/service.ts
     steps:
       - "tracker가 권한 물음, 일 끝(main turn과 child가 다 끝나 1.5초 idle), 실패를 정한 순간 TerminalAgentSignaled {terminal, project, harness, kind, name, body}를 낸다. 보고 있는지는 보지 않는다"
-      - "shell main이 이것을 듣고 보고 있지 않으면 toast나 OS 알림을 고른다. 못 본 끝(unseen)과 폰 push는 core의 attention이 같은 계기로 정한다"
+      - "shell main이 이것을 듣고 보고 있지 않으면 toast나 OS 알림을 고른다. 못 본 끝(unseen)과 폰 push는 core가 같은 계기에 attention을 바로 불러 정한다(terminal_sessions/signal을 거치지 않는다). 새 turn과 터미널 끝에는 그 터미널의 못 본 끝을 지운다"
     outcomes:
       - id: signaled
         observe: [event:TerminalAgentSignaled]
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/attention.md]
-    unclear:
-      - "아직 core가 내지 않는다(계약만). 지금은 shell main의 tracker가 알림을 고르고 terminal_sessions/signal을 부른다"
 
   # ---- Settings › Coding agents(coding_agents/*) ----
   - id: coding-agents-read
@@ -2407,6 +2421,9 @@ flows:
     boundary: [core, coding-agent-cli]
     code:
       - packages/protocol/coding-agent/coding-agents.ts
+      - packages/core/terminal-agents/coding-connection.ts
+      - packages/core/terminal-agents/hook-install.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "list는 처음 한 번만 core가 사람의 env로 lophn harness detect를 부르고 이후는 성공한 마지막 결과다. 실패하면 모든 harness가 unknown이다"
       - "hook_status는 lophn harness status를 dry run으로 불러 harness마다 installed·missing·unsupported·failed를 준다. 아무것도 쓰지 않는다"
@@ -2419,8 +2436,6 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/coding-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
 
   - id: coding-agents-refresh
     title: 사람이 [Detect again]을 눌러 harness를 다시 찾는다
@@ -2430,6 +2445,8 @@ flows:
     boundary: [core, coding-agent-cli]
     code:
       - packages/protocol/coding-agent/coding-agents.ts
+      - packages/core/terminal-agents/coding-connection.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "core가 사람의 env로 lophn harness refresh를 불러 찾은 제품의 version까지 읽고 결과를 쥔다. 실패하면 모든 harness가 unknown이고 쥐지 않는다"
     outcomes:
@@ -2441,8 +2458,6 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/coding-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
 
   - id: coding-agents-install-hooks
     title: 사람이 Settings에서 [Install hooks]를 눌러 그 harness에 전역 hook을 놓는다
@@ -2452,6 +2467,9 @@ flows:
     boundary: [core, coding-agent-cli]
     code:
       - packages/protocol/coding-agent/coding-agents.ts
+      - packages/core/terminal-agents/hook-install.ts
+      - packages/core/terminal-agents/skill-sync.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "누른 것이 허락이라 다시 묻지 않는다. lophn harness install을 부르고 놓은 뒤 공유 skill 사본을 맞춘다"
       - "결과는 그 harness의 hook 상태와 쓴 file이다. 놓지 못하면 status failed다"
@@ -2468,8 +2486,6 @@ flows:
     crosses_process: true
     risk: [data-loss]
     docs: [architecture/coding-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
 
   - id: coding-agents-uninstall-hooks
     title: 사람이 Settings에서 [Uninstall hooks]를 눌러 lophn 항목만 지운다
@@ -2479,6 +2495,9 @@ flows:
     boundary: [core, coding-agent-cli]
     code:
       - packages/protocol/coding-agent/coding-agents.ts
+      - packages/core/terminal-agents/hook-install.ts
+      - packages/core/terminal-agents/skill-sync.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "누른 것이 허락이다. lophn harness uninstall이 lophn 항목만 지우고 사람 항목은 남긴다. 지운 뒤 공유 skill 사본을 맞춘다"
     outcomes:
@@ -2494,8 +2513,6 @@ flows:
     crosses_process: true
     risk: [data-loss]
     docs: [architecture/coding-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
 
   - id: coding-agents-hook-ask
     title: core가 처음 알아본 harness에 hook을 놓을지 묻고 사람의 답을 받는다
@@ -2506,8 +2523,11 @@ flows:
     code:
       - packages/protocol/coding-agent/coding-agents.ts
       - packages/protocol/events/transient.ts
+      - packages/core/terminal-agents/hook-ask.ts
+      - packages/core/terminal-agents/hook-install.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
-      - "사람 터미널에서 harness를 foreground로 처음 알아본 때(실행마다 harness당 한 번) dry run으로 보고, 없으면 HookInstallAsked {request, terminal, harness, label, files}를 낸다. 그 터미널을 고른 창이 dialog로 묻는다"
+      - "사람 터미널에서 harness를 foreground로 처음 알아본 때(core 실행마다 harness당 한 번) dry run으로 보고, 없으면 HookInstallAsked {request, terminal, harness, label, files}를 낸다. 그 터미널을 고른 창이 dialog로 묻는다. shell이 붙어 있지 않으면 묻지 않고 놓지 않는다. 답하기 전에 연결이 닫히면 거절이다"
       - "창이 hook_answer {request, accepted}로 답한다. 이미 답했거나 모르는 request는 아무 일도 없다"
       - "거절이면 이 실행에서 다시 묻지 않고 기억하지 않는다. 허락이면 lophn harness install을 부르고 공유 skill 사본을 맞춘 뒤 HookInstallFinished를 낸다"
     outcomes:
@@ -2529,8 +2549,6 @@ flows:
     crosses_process: true
     risk: [data-loss, permission]
     docs: [architecture/terminal-agent.md, architecture/coding-agent.md]
-    unclear:
-      - "handler는 아직 없다(계약만). 지금은 shell main이 묻는다(terminal-hook-install)"
 
   # ---- lophn CLI의 local 명령: 감지, hook 설치, skill 사본 ----
   - id: harness-detect

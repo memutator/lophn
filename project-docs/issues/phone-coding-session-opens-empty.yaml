@@ -3,7 +3,7 @@ title: 폰에서 연 coding session 하나가 아무 내용 없이 열린다(원
 kind: bug
 status: open
 topic: remote
-modules: [packages/core/coding-relay, packages/mobile]
+modules: [packages/core/terminal-agents, packages/mobile]
 now: |
   사람이 본 것: 긴 Claude Code session 하나를 폰에서 열면 대화가 하나도 그려지지 않는다. 답이 frame 한도(16 MiB)를 넘어 버려진 것으로 짐작했지만, 큰 transcript 다섯을 replay해 잰 snapshot은 0.3~1.2 MB라 그 원인이 아닐 가능성이 높다(이슈 `remote-reply-over-frame-limit-is-dropped`). 원인은 확인하지 못했다. code에서 본 후보 하나: core가 알려진 secret을 다 알기 전에는 relay가 대화 사본을 내주지 않고 보류한다(`packages/core/coding-relay/relay.ts`의 `sync`, 가릴 수 없어서다). 그때 폰은 빈 대화를 본다. 그 session이 그때 GUI 탭으로 열려 있었는지, 터미널로 돌고 있었는지도 모른다.
 impact: |

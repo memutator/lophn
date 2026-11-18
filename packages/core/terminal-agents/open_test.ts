@@ -11,13 +11,9 @@ function setup(listed: { harness: string; cli_session: string | null }[]) {
   const calls: unknown[] = [];
   const holds: string[] = [];
   const deps: CodingOpenDeps = {
-    call(request) {
-      calls.push(request);
-      return Promise.resolve(
-        ok([
-          { type: "text", text: JSON.stringify({ terminal_ref: TERMINAL }) },
-        ]) as Result<unknown>,
-      );
+    open(project, command) {
+      calls.push({ project, command });
+      return Promise.resolve(ok(TERMINAL) as Result<string>);
     },
     session: (session) =>
       session === LEDGER
@@ -28,13 +24,14 @@ function setup(listed: { harness: string; cli_session: string | null }[]) {
       holds.push(session);
       return ok({});
     },
+    held: () => {},
     attached: () => true,
   };
   return { opener: createCodingOpen(deps), calls, holds };
 }
 
 // 한 CLI session에 process 둘이 붙으면 대화 기록이 엇갈려 망가진다.
-test("이미 다른 탭에서 도는 CLI session을 resume으로 열면 conflict이고 host에 열기가 나가지 않는다", async () => {
+test("이미 다른 탭에서 도는 CLI session을 resume으로 열면 conflict이고 터미널이 열리지 않는다", async () => {
   const { opener, calls, holds } = setup([
     { harness: "claude", cli_session: "cli-1" },
   ]);
@@ -51,7 +48,7 @@ test("이미 다른 탭에서 도는 CLI session을 resume으로 열면 conflict
 });
 
 // 폰은 다시 붙은 뒤 같은 key로 다시 보낸다. 컴퓨터에 터미널 탭이 둘 생기면 안 된다.
-test("같은 key의 open은 host에 한 번만 가고 같은 session을 돌려준다", async () => {
+test("같은 key의 open은 터미널을 한 번만 열고 같은 session을 돌려준다", async () => {
   const { opener, calls } = setup([]);
   const input = { project: PROJECT, harness: "codex", key: "k2" };
   const [first, second] = await Promise.all([

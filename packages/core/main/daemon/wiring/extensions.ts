@@ -168,8 +168,8 @@ export const extensionsWiring: WiringFactory = () => {
         },
         // 사람의 env는 terminals wiring이 prepare에서 낸다.
         person: ctx.personEnv,
-        // GUI 화면이 붙는 handle은 coding agent 쪽(`coding-core`)이 받는다. 그 전에는 열린 handle을 보일 곳이 없다.
-        acpOpened: () => {},
+        // GUI 화면이 붙는 handle은 터미널 coding agent 쪽이 쥔다.
+        acpOpened: (handle) => ctx.terminalAgents.opened(handle),
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
         log,

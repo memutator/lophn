@@ -6,6 +6,7 @@ import {
   acpSnapshot,
   acpToolBodyRead,
 } from "./acp/routes.ts";
+import { CODING_AGENT_ROUTES } from "./coding-agent/coding-agents.ts";
 import { CODING_RELAY_ROUTES } from "./coding-agent/relay.ts";
 import { TERMINAL_VIEW_ROUTES } from "./coding-agent/terminal-view.ts";
 import { TERMINAL_ROUTES } from "./coding-agent/terminals.ts";
@@ -44,12 +45,9 @@ export const ROUTES = [
   acpImageUpload,
   acpImageRead,
   ...CODING_RELAY_ROUTES,
+  ...CODING_AGENT_ROUTES,
   ...TERMINAL_VIEW_ROUTES,
-  // 저장한 session 둘은 coding-core가 handler를 둘 때 든다.
-  ...TERMINAL_ROUTES.filter(
-    (route) =>
-      route.method !== "saved_sessions" && route.method !== "rename_saved",
-  ),
+  ...TERMINAL_ROUTES,
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,
   ...SETTINGS_FILE_ROUTES,

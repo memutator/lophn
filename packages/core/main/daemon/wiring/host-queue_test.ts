@@ -85,6 +85,7 @@ function setup(
   phone: FakePhone = fakePhone(),
 ) {
   const clock = manualClock(1_700_000_000_000);
+  const terminals: { project: string; command?: string }[] = [];
   const queue = createHostQueue({
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
@@ -109,8 +110,13 @@ function setup(
     deviceNames: () => ["Pixel"],
     harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
     // pi는 즐겨찾기지만 TUI 첫 prompt 인자가 없다. cursor는 있어도 즐겨찾기가 아니다.
-    codingFavorites: () => ["claude", "pi"],
+    codingAgents: () => ({ favorites: ["claude", "pi"], commands: {} }),
     handoffs: fileHandoffs(root),
+    openTerminal: (input) => {
+      terminals.push(input);
+      return Promise.resolve(ok(`trm_${terminals.length}`));
+    },
+    holdTui: () => {},
     ...(launchShell === undefined ? {} : { launchShell }),
     login: (login) =>
       Promise.resolve(ok(login === LOGIN ? LOGIN_ENTRY : undefined)),
@@ -122,7 +128,7 @@ function setup(
     },
     agentName: (session) => (session === id("ses", 1) ? "Builder" : null),
   });
-  return { clock, queue, ...handlers };
+  return { clock, queue, terminals, ...handlers };
 }
 const target = { target: { preview: { app: APP } } };
 
@@ -372,7 +378,7 @@ test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마
 test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에 없는 harness면 invalid_input이고 file도 요청도 남지 않는다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   try {
-    const { queue, open } = setup(true, root);
+    const { queue, open, terminals } = setup(true, root);
     const host = connect(queue, [PROJECT_1]);
     const coding = (harness: string) => ({
       target: { coding: { harness, handoff: "text" } },
@@ -388,15 +394,16 @@ test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에
     assert.equal(code(await open(agent(3), coding("pi"))), "invalid_input");
     assert.deepEqual(await readdir(root), []);
     assert.equal(host.next(), null);
+    assert.deepEqual(terminals, []);
   } finally {
     await rm(root, { recursive: true });
   }
 });
 
-test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open payload에는 글이 아니라 file path만 있다", async () => {
+test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 터미널에 치는 명령과 tab_open에는 글이 아니라 file path만 있다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   try {
-    const { queue, open } = setup(true, root);
+    const { queue, open, terminals } = setup(true, root);
     const host = connect(queue, [PROJECT_1]);
     const text = "goal: fix the login\nnext: run it";
     const opened = await open(agent(3), {
@@ -408,12 +415,15 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open pay
     assert.equal(await readFile(file, "utf8"), text);
     assert.equal((await stat(file)).mode & 0o777, 0o600);
     assert.equal((await stat(join(root, "handoffs"))).mode & 0o777, 0o700);
+    assert.equal(terminals.length, 1);
+    assert.ok(terminals[0]!.command!.includes(file));
+    assert.ok(!JSON.stringify(terminals).includes("login"));
     const request = host.next();
     assert.equal(request?.kind, "tab_open");
     assert.ok(!JSON.stringify(request).includes("login"));
     assert.deepEqual(
-      (request as { payload: { handoff: unknown } }).payload.handoff,
-      { harness: "claude", file },
+      (request as { payload: { target: unknown } }).payload.target,
+      { terminal: { terminal_ref: "trm_1" } },
     );
   } finally {
     await rm(root, { recursive: true });

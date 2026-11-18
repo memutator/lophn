@@ -66,7 +66,7 @@ import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { AppViews } from "../../../apps/views/mod.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
-import type { CodingRelay } from "../../../coding-relay/mod.ts";
+import type { TerminalAgents } from "../../../terminal-agents/mod.ts";
 import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
 import type { ExtensionHost } from "../../../extensions/ports.ts";
@@ -81,7 +81,7 @@ import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.
 import type { RunService } from "../../../runs/mod.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
-import type { Attention } from "../../../attention/mod.ts";
+import type { AttentionCore } from "../../../attention/mod.ts";
 import type { MachineIdentity } from "../../../machine/mod.ts";
 import type { AlwaysOn } from "../../../always-on/mod.ts";
 import type { NoticeRecorder } from "./notices.ts";
@@ -277,10 +277,11 @@ type Late = {
   queue: Queue;
   // host-queue wiring이 낸다. core가 shell에 시킬 일(탭 열기·닫기)의 메모리 queue다. 뒤 task가 쓴다.
   hostQueue: HostQueue;
-  // host-queue wiring이 낸다. shell main과의 `/host-link` 연결이다. 다른 wiring이 coding·터미널 frame을 받는다.
+  // host-queue wiring이 낸다. shell main과의 `/host-link` 연결이다. 다른 wiring이 열림·닫힘을 듣는다.
   hostLink: HostLink;
-  // coding-relay wiring이 낸다. host가 올린 터미널 coding agent 목록과 GUI 대화 사본이다. acp·session-lifecycle·터미널 보기가 쓴다.
-  codingRelay: CodingRelay;
+  // terminal-agents wiring이 낸다. 터미널 coding agent의 tracker, GUI handle, coding session 목록과 대화다. acp·session-lifecycle·
+  // 터미널 보기·extension host(`acpOpened`)가 쓴다.
+  terminalAgents: TerminalAgents;
   // terminal-view wiring이 낸다. 폰이 보는 coding session 터미널의 최신 화면과 보는 principal의 lease다.
   terminalView: TerminalView;
   // terminals wiring이 낸다. core가 띄운 PTY host의 터미널이다. route handler, coding agent tracker, 폰의 터미널 보기가 쓴다.
@@ -316,8 +317,9 @@ type Late = {
   flowHost: WorkflowFlows;
   // notices wiring이 낸다. program이 사람에게 남기는 기록을 쓴다. 다른 wiring이 부를 때 읽는다.
   noticeRecorder: NoticeRecorder;
-  // attention wiring이 낸다. 기기 목록과 push 보내기를 꽂고(`bindPush`) 기기가 끊길 때 보고를 지운다(`forgetReporter`).
-  attention: Attention;
+  // attention wiring이 낸다. 기기 목록과 push 보내기를 꽂고(`bindPush`) 기기가 끊길 때 보고를 지운다(`forgetReporter`). 터미널
+  // coding agent의 계기(`signal`)와 못 본 끝 지우기(`dismiss`)는 terminal-agents가 부른다.
+  attention: AttentionCore;
   // always-on wiring이 낸다. 이 기계의 "늘 켜 둠" 표시와 OS가 답한 사실. idle-exit가 표시를 읽는다.
   alwaysOn: AlwaysOn;
   // apps가 낸다. 폴더 교환이 앱 DB와 sync log에 닿는 길(받은 변경 적용, held 풀기, write 줄 쥐기).
@@ -378,7 +380,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   queue: true,
   hostQueue: true,
   hostLink: true,
-  codingRelay: true,
+  terminalAgents: true,
   terminalView: true,
   terminals: true,
   personEnv: true,

@@ -56,6 +56,7 @@ import { stateChangesWiring } from "./wiring/state-changes.ts";
 import { flowsWiring } from "./wiring/flows.ts";
 import { idleWiring } from "./wiring/idle.ts";
 import { terminalsWiring } from "./wiring/terminals.ts";
+import { terminalAgentsWiring } from "./wiring/terminal-agents.ts";
 import { alwaysOnWiring } from "./wiring/always-on.ts";
 import { jobsWiring } from "./wiring/jobs.ts";
 import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
@@ -92,7 +93,6 @@ import { serverWiring } from "./wiring/server.ts";
 import { appCallsWiring } from "./wiring/app-calls.ts";
 import { folderWiring } from "./wiring/folder.ts";
 import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
-import { codingRelayWiring } from "./wiring/coding-relay.ts";
 import { terminalViewWiring } from "./wiring/terminal-view.ts";
 import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
@@ -217,6 +217,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   inputRequestWiring,
   // approvals와 host queue 뒤다: 호출 때 Gate와 queue를 쓴다.
   extensionsWiring,
+  // 터미널과 extension host 뒤다: 터미널마다 hook env를 꽂고 harness-gui가 연 handle을 쥔다.
+  terminalAgentsWiring,
   extensionToolsWiring,
   workflowsWiring,
   flowsWiring,
@@ -226,7 +228,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   sessionSnapshotsWiring,
   sessionLifecycleWiring,
   attentionWiring,
-  codingRelayWiring,
   terminalViewWiring,
   appCallsWiring,
   folderWiring,

@@ -3,7 +3,7 @@ title: 폰에서 coding session의 대화에 이미지를 붙일 수 없다
 kind: bug
 status: fixed
 topic: remote
-modules: [packages/mobile, packages/core/coding-relay, packages/shell/main]
+modules: [packages/mobile, packages/core/terminal-agents, packages/shell/main]
 now: |
   폰의 대화 화면(`packages/mobile/src/screens/session/conversation.tsx`)은 컴퓨터의 coding session(`relayed`)이면 그림 붙이기를 내놓지 않는다(`pictures = caps.images && relayed === null`). lophn agent session은 폰이 그림을 `uploadImage`로 core에 올리고 그 image block을 실어 보낸다(`data/attach.ts`의 `uploadAttached`). coding session의 입력은 core의 relay(`packages/core/coding-relay/relay.ts`의 `send`)가 shell main의 harness GUI adapter에 그대로 넘기는데, 폰이 올린 그림을 adapter가 읽을 수 있는 꼴(탭 임시 폴더의 file)로 놓는 길이 없다. `architecture/remote.md`는 coding session에서 폰의 이미지 붙이기를 비목표로 적었다.
 impact: |

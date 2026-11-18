@@ -2,9 +2,8 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 
-// 폰이 컴퓨터 터미널의 raw 화면을 보는 route다. 화면은 host(shell main)가 `/host-link`의 `terminal_screen` frame으로 올리고
-// core는 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
-// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널(그 목록은 `coding_sessions/list`)과 폰이 `open`으로 연 터미널뿐이다.
+// 폰이 컴퓨터 터미널의 raw 화면을 보는 route다. 보는 동안 core가 PTY host의 화면을 읽어 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
+// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널(그 목록은 `coding_sessions/list`)과 폰이 연 터미널뿐이다.
 
 // `#rrggbb`이거나 xterm 256색 palette 번호(`p0`~`p255`)다.
 const terminalColorSchema = z
@@ -71,7 +70,7 @@ export const terminalViewSnapshot = defineRead({
 });
 
 // 이 principal이 이 터미널을 본다(lease 30초). 폰이 10초마다 같은 호출로 갱신한다. 터미널마다 lease가 하나라도 있는 동안
-// core가 host에 화면을 밀어 올리게 한다. tail은 viewport 위 scrollback 줄 수다.
+// core가 그 화면을 읽는다. tail은 viewport 위 scrollback 줄 수다.
 export const terminalViewWatch = defineMemory({
   resource: "terminal_view",
   method: "watch",
@@ -87,7 +86,7 @@ export const terminalViewWatch = defineMemory({
   errors,
 });
 
-// 터미널에 글을 친다. 이 principal이 입력을 허락받았을 때만이고(아니면 forbidden) 같은 key는 한 번만 host에 간다.
+// 터미널에 글을 친다. 이 principal이 입력을 허락받았을 때만이고(아니면 forbidden) 같은 key는 한 번만 친다.
 export const terminalViewInput = defineMemory({
   resource: "terminal_view",
   method: "input",
@@ -120,8 +119,8 @@ export const terminalViewResize = defineMemory({
   errors,
 });
 
-// project의 폴더에서 shell만 도는 터미널 탭을 컴퓨터에 새로 열고 그 터미널을 준다. 그 project를 보이는 창이 없으면 컴퓨터가 focus 없이
-// 그 project의 창을 하나 연다. 연결이 없으면 unavailable이다(폰은 `coding_sessions/wake`를 먼저 부른다). 같은 key는 한 번만 연다.
+// project의 폴더에서 shell만 도는 터미널을 컴퓨터에 새로 열고 그 터미널을 준다(`terminals/open`과 같은 길). 창이 없어도 열리고, 그
+// project를 보이는 창이 있으면 탭으로 보인다. 같은 key는 한 번만 연다.
 export const terminalViewOpen = defineMemory({
   resource: "terminal_view",
   method: "open",

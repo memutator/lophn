@@ -72,18 +72,7 @@ type BrowserCallPayload = Extract<
   HostRequest,
   { kind: "browser_call" }
 >["payload"];
-type TerminalInterruptPayload = Extract<
-  HostRequest,
-  { kind: "terminal_interrupt" }
->["payload"];
 type CallResult = Result<ExtensionToolContent[]>;
-// 연결로만 가는 요청이다. id는 queue가 붙인다.
-export type LinkRequest = {
-  [K in LinkRequestKind]: {
-    kind: K;
-    payload: Extract<HostRequest, { kind: K }>["payload"];
-  };
-}[LinkRequestKind];
 
 // 뒤 task(surf-team, ext-tools)가 쓰는 port다.
 export type HostQueue = {
@@ -98,14 +87,6 @@ export type HostQueue = {
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
-  // 터미널 탭의 coding agent를 끊는 요청을 넣고 shell main의 결과를 기다린다. shell이 없거나 기한(TERMINAL_INTERRUPT_MS)이 지나면 `unavailable`이다.
-  callTerminalInterrupt(payload: TerminalInterruptPayload): {
-    id: Id<"hrq">;
-    result: Promise<CallResult>;
-  };
-  // 연결로만 가는 요청(coding session, 터미널 보기)을 넣고 host의 답을 기다린다. 연결이 없거나, 닫히거나,
-  // 기한(LINK_CALL_MS)이 지나면 `unavailable`이다.
-  callCoding(request: LinkRequest): Promise<CallResult>;
   abandon(id: Id<"hrq">, message?: string): void;
   // 기한이 지난 호출(extension tool, browser 등)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
@@ -170,24 +151,7 @@ const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
 
 // browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
-// 터미널 끊기 요청의 기한이다. key를 치는 일이라 짧다.
-const TERMINAL_INTERRUPT_MS = 10_000;
-// 연결 요청마다 host의 답을 기다리는 기한이다. switch와 open은 CLI를 끝내고 다시 띄우는 일이라 길다.
-export const LINK_CALL_MS: Record<LinkRequestKind, number> = {
-  coding_input: 10_000,
-  coding_switch: 60_000,
-  coding_open: 60_000,
-  coding_body: 10_000,
-  coding_image_write: 30_000,
-  coding_image_read: 30_000,
-  terminal_stream: 5_000,
-  terminal_input: 5_000,
-  terminal_resize: 5_000,
-  terminal_open: 60_000,
-};
-const LINK_ABSENT = "The lophn app on the computer is not connected.";
 const LINK_LOST = "The lophn app disconnected before it answered.";
-const LINK_TIMED_OUT = "The lophn app did not answer in time.";
 export const SHELL_NOT_ATTACHED =
   "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
 const QUEUE_FULL =
@@ -497,24 +461,6 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         { id, kind: "browser_call", payload },
         deps.clock.nowMs() + BROWSER_CALL_MS,
       );
-    },
-    callTerminalInterrupt(payload: TerminalInterruptPayload) {
-      const id = deps.ids.newId("hrq") as Id<"hrq">;
-      return call(
-        { id, kind: "terminal_interrupt", payload },
-        deps.clock.nowMs() + TERMINAL_INTERRUPT_MS,
-        () =>
-          "The lophn app did not answer in time, so the terminal was not interrupted.",
-      );
-    },
-    callCoding(request: LinkRequest): Promise<CallResult> {
-      if (link === null) return Promise.resolve(unavailable(LINK_ABSENT));
-      const id = deps.ids.newId("hrq") as Id<"hrq">;
-      return call(
-        { id, ...request } as HostRequest,
-        deps.clock.nowMs() + LINK_CALL_MS[request.kind],
-        () => LINK_TIMED_OUT,
-      ).result;
     },
     // `/host-link` 연결 하나가 열렸다. 그 동안 닿는 요청을 send로 바로 밀어 준다. 옛 연결이 있으면 먼저 닫힌 것으로 본다.
     // `visible`이 그리는 workspace를 바꾸고, `pump`는 다시 대기한 요청(retry, 빌린 기한이 지난 탭 요청)을 밀어 준다(부른 쪽이 주기로).

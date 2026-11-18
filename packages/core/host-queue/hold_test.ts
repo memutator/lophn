@@ -18,7 +18,7 @@ test("TUI hold는 heartbeat가 이어 주고 끊기면 저절로 풀린다", () 
   clock.advance(2_000);
   assert.equal(hold.held(SES), false);
 
-  // 연결의 heartbeat가 오는 동안 이어지고, 끊기면 10초 뒤 풀린다(shell이 죽은 경우).
+  // heartbeat가 오는 동안 이어지고, 끊기면 10초 뒤 풀린다(core가 죽은 경우).
   hold.beat([SES]);
   clock.advance(9_000);
   hold.beat([SES]);
@@ -32,7 +32,7 @@ test("TUI hold는 heartbeat가 이어 주고 끊기면 저절로 풀린다", () 
   hold.beat([]);
   assert.equal(hold.held(SES), false);
 
-  // 예약만 하고 아직 목록에 없는 session은 빈 목록에 풀리지 않는다(shell이 터미널을 아직 묶는 중이다).
+  // 예약만 하고 아직 목록에 없는 session은 빈 목록에 풀리지 않는다(터미널을 아직 여는 중이다).
   hold.reserve(SES);
   hold.beat([]);
   assert.equal(hold.held(SES), true);

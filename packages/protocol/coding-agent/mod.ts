@@ -6,6 +6,8 @@ export {
   hookStdout,
   hookStdoutRows,
 } from "./harness-adapter.ts";
+export * from "./coding-agents.ts";
+export { codingCommand, handoffCommand } from "./handoff.ts";
 export * from "./harness-install.ts";
 export { harnessOfProcess } from "./harness-process.ts";
 export {

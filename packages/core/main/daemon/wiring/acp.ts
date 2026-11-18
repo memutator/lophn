@@ -2,7 +2,7 @@
 // 여기서는 Bus의 agent event를 ACP 갱신으로 바꿔 내고(`acpUpdatesOf`), 항목이 대화에 들 때 session 순번을
 // 저장하며(`AllocateAcpItems`), rewind가 끝나면 숨긴 구간을 낸다. event를 하나씩 차례로 처리해 갱신 순서가 event 순서다.
 // 화면의 대화 조작은 `AcpSend` 하나로 받아 지금 route로 보낸다(`acp-send.ts`).
-// 터미널 coding agent(harness GUI handle)의 session은 ledger에 없다. snapshot과 입력은 host가 올린 사본(`ctx.codingRelay`)이 맡는다.
+// 터미널 coding agent(harness GUI handle)의 session은 ledger에 없다. snapshot과 입력은 core의 GUI handle(`ctx.terminalAgents`)이 맡는다.
 import process from "node:process";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
@@ -431,10 +431,9 @@ export const acpWiring: WiringFactory = () => {
             key(acpSend),
             async (who, body) => {
               const input = body as AcpInput;
-              // 터미널 coding agent의 대화는 ledger에 없다. 입력을 그 handle을 가진 host에 그대로 넘긴다.
-              if (ctx.codingRelay.has(input.session)) {
-                return await ctx.codingRelay.send(input);
-              }
+              // 터미널 coding agent의 대화는 ledger에 없다. 입력을 그 GUI handle에 그대로 넘긴다.
+              const coding = ctx.terminalAgents.coding;
+              if (coding.has(input.session)) return coding.send(input);
               return await send(who, input);
             },
           ],
@@ -446,8 +445,10 @@ export const acpWiring: WiringFactory = () => {
               if (!parsed.success) {
                 return err({ code: "invalid_input", message: "invalid input" });
               }
-              const relayed = ctx.codingRelay.snapshot(parsed.data.session);
-              if (relayed !== undefined) return ok(relayed);
+              const coding = ctx.terminalAgents.coding.snapshot(
+                parsed.data.session,
+              );
+              if (coding !== undefined) return coding;
               return await snapshot(parsed.data.session, who);
             })
             .set(key(acpDraft), async (who, input) => {

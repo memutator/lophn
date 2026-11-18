@@ -20,7 +20,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp, Antigr
 | 계약 | `packages/protocol/acp/`, `packages/protocol/extensions/acp-session.ts` |
 | CLI 하나의 동작 | `packages/shell/main/extensions/bundled/harness-gui/`의 `<harness>.ts`, 그 test, `fixtures/<harness>/` |
 | 탭(handle, toggle, view, 되살리기) | `packages/shell/main/terminal/gui.ts`, `packages/shell/ipc/harness-gui.ts`, `packages/shell/renderer/terminal/terminal-gui.tsx` |
-| 폰으로 올리기(handle의 snapshot·갱신을 `/host-link`로, 폰의 입력·switch·열기 받기) | `packages/shell/main/terminal/coding-relay.ts`, `coding-open.ts`, core 쪽 `packages/core/coding-relay/` |
+| 폰으로 올리기(handle의 snapshot·갱신을 `/host-link`로, 폰의 입력·switch·열기 받기) | `packages/shell/main/terminal/coding-relay.ts`, `coding-open.ts`. core가 터미널을 가진 길은 `packages/core/terminal-agents/`(handle, coding session, switch, 열기) |
 | 화면이 GUI에 묻는 읽기 | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 화면 | `packages/shell/renderer/conversation/` (lophn agent와 같이 쓴다) |
 | 터미널 함수 | `packages/shell/terminal-host/shell-integration.ts` |

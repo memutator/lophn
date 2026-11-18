@@ -177,8 +177,16 @@ export const terminalsWiring: WiringFactory = () => {
         memory: [
           [
             key(terminalsOpen),
-            (_who, input) =>
-              routes.open(input as Parameters<typeof routes.open>[0]),
+            async (who, input) => {
+              const opened = await routes.open(
+                input as Parameters<typeof routes.open>[0],
+              );
+              // 기기가 연 터미널은 coding session이 아니어도 그 폰이 본다(터미널 보기).
+              if (opened.ok && ctx.peek.deviceKind?.(who.principal)) {
+                ctx.terminalView.adopt(opened.value.terminal);
+              }
+              return opened;
+            },
           ],
           [
             key(terminalsClose),

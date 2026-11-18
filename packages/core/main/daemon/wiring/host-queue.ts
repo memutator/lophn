@@ -7,6 +7,8 @@ import {
   devicesSetting,
 } from "../../../config/shell-settings.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import { handoffCommand } from "../../../../protocol/coding-agent/handoff.ts";
+import type { HarnessId } from "../../../../protocol/coding-agent/harnesses.ts";
 import type { Login } from "../../../../protocol/secrets/mod.ts";
 import { appTools } from "../../../../protocol/apps/declaration/read.ts";
 import { devicesList } from "../../../../protocol/remote/routes.ts";
@@ -118,9 +120,20 @@ type TabDeps = {
   // 사람이 등록한 기기 이름들(설정 `shell.devices`).
   deviceNames(): readonly string[];
   harnessHold: Pick<HarnessHold, "open">;
-  // 사람이 고른 coding agent 즐겨찾기 harness id(설정 `shell.coding_agents`).
-  codingFavorites(): readonly string[];
+  // 사람이 고른 coding agent 즐겨찾기 harness id와 바꾼 실행 명령어(설정 `shell.coding_agents`).
+  codingAgents(): {
+    favorites: readonly string[];
+    commands: Readonly<Record<string, string>>;
+  };
   handoffs: HandoffFiles;
+  // project에 터미널을 연다(`ctx.terminals.open`). command는 첫 prompt 뒤 치고, resume은 그 harness의 resume 명령을 친다.
+  openTerminal(input: {
+    project: Id<"prj">;
+    command?: string;
+    resume?: { harness: string; external_session: string };
+  }): Promise<Result<string>>;
+  // `tui`로 연 터미널이 그 ledger session을 쥔다. 그 harness가 foreground에 보인 뒤 떠나면 푼다.
+  holdTui(terminal: string, session: Id<"ses">): void;
   // shell(앱)을 띄운다. 시작이 실패하면 받은 `failed`를 부른다. 없으면 shell이 없을 때 browser 탭 열기는 SHELL_NOT_ATTACHED로
   // 끝난다(시험, 사람이 띄우지 않은 core, 띄울 길을 모르는 core).
   launchShell?: (failed: () => void) => void;
@@ -304,7 +317,6 @@ export function createTabHandlers(deps: TabDeps) {
     if (!person && from === undefined) {
       return err({ code: "not_found", message: "session not found" });
     }
-    let resume: { harness: string; external_session: string } | undefined;
     if ("coding" in input.target) {
       const here = workspaceOf(from!);
       if (here?.kind !== "project") {
@@ -315,13 +327,11 @@ export function createTabHandlers(deps: TabDeps) {
         });
       }
       const { harness, handoff } = input.target.coding;
-      const openable = deps
-        .codingFavorites()
-        .filter(
-          (id) =>
-            HARNESS_ADAPTERS[id as keyof typeof HARNESS_ADAPTERS]?.session
-              .prompt,
-        );
+      const agents = deps.codingAgents();
+      const openable = agents.favorites.filter(
+        (id) =>
+          HARNESS_ADAPTERS[id as keyof typeof HARNESS_ADAPTERS]?.session.prompt,
+      );
       if (!openable.includes(harness)) {
         return err({
           code: "invalid_input",
@@ -339,13 +349,30 @@ export function createTabHandlers(deps: TabDeps) {
             "The handoff file could not be written. Try once more; if it fails again, tell the person.",
         });
       }
+      // 터미널에 치는 글은 사람의 실행 명령어와 lophn이 정한 handoff 문장, file 경로뿐이다.
+      const command = handoffCommand(
+        agents.commands,
+        harness as HarnessId,
+        file,
+      );
+      if (command === null) {
+        return err({
+          code: "unavailable",
+          message:
+            "The handoff file path cannot be typed into a terminal. Tell the person.",
+        });
+      }
+      const terminal = await deps.openTerminal({
+        project: here.id as Id<"prj">,
+        command,
+      });
+      if (!terminal.ok) return terminal;
       queue.openTab({
         owner: caller.value,
         workspace: here,
-        target: { coding: { harness } },
+        target: { terminal: { terminal_ref: terminal.value } },
         relation: input.relation ?? null,
         source: caller.value as Id<"ses">,
-        handoff: { harness, file },
         tab,
       });
       return ok({ tab, status: "accepted" as const });
@@ -366,9 +393,24 @@ export function createTabHandlers(deps: TabDeps) {
         return err({ code: "not_found", message: "session not found" });
       }
       if ("tui" in input.target) {
-        const held = deps.harnessHold.open(input.target.tui as Id<"ses">);
+        const session = input.target.tui as Id<"ses">;
+        const held = deps.harnessHold.open(session);
         if (!held.ok) return held;
-        resume = held.value;
+        // hold가 project의 session만 통과시킨다. core가 터미널을 열고 그 harness의 resume 명령을 친다.
+        const terminal = await deps.openTerminal({
+          project: there!.id as Id<"prj">,
+          resume: held.value,
+        });
+        if (!terminal.ok) return terminal;
+        deps.holdTui(terminal.value, session);
+        const tab = queue.openTab({
+          owner: caller.value,
+          workspace: hostWorkspaceOf(there!),
+          target: { terminal: { terminal_ref: terminal.value } },
+          relation: input.relation ?? null,
+          source: caller.value === "person" ? null : caller.value,
+        });
+        return ok({ tab, status: "accepted" as const });
       }
     } else if ("browser" in input.target) {
       const protocol = URL.canParse(input.target.browser.url)
@@ -390,7 +432,6 @@ export function createTabHandlers(deps: TabDeps) {
       target: input.target,
       relation: input.relation ?? null,
       source: caller.value === "person" ? null : caller.value,
-      ...(resume === undefined ? {} : { resume }),
     };
     if (!("browser" in input.target)) {
       const tab = queue.openTab(opening);
@@ -699,11 +740,7 @@ export const hostQueueWiring: WiringFactory = () => {
       ctx.provide("hostQueue", made);
       ctx.provide(
         "hostLink",
-        createHostLink({
-          queue: made,
-          heartbeat: (tui) => ctx.harnessHold.heartbeat(tui),
-          logger: ctx.telemetry.logger,
-        }),
+        createHostLink({ queue: made, logger: ctx.telemetry.logger }),
       );
       const { launchShell } = ctx.options;
 
@@ -769,9 +806,18 @@ export const hostQueueWiring: WiringFactory = () => {
         deviceNames: () =>
           (ctx.settings.get(devicesSetting) ?? []).map((d) => d.name),
         harnessHold: ctx.harnessHold,
-        codingFavorites: () =>
-          ctx.settings.get(codingAgentsSetting)?.favorites ?? [],
+        codingAgents: () =>
+          ctx.settings.get(codingAgentsSetting) ?? {
+            favorites: [],
+            commands: {},
+          },
         handoffs: fileHandoffs(ctx.root.path),
+        async openTerminal(input) {
+          const opened = await ctx.terminals.open(input);
+          return opened.ok ? ok(opened.value.terminal_ref) : opened;
+        },
+        holdTui: (terminal, session) =>
+          ctx.terminalAgents.holds.hold(terminal, session, "tui"),
         ...(launchShell === undefined
           ? {}
           : {

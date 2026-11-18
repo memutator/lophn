@@ -21,6 +21,7 @@ import {
   carryPut,
   carryWants,
   expectedFiles,
+  isCover,
   type ManifestBody,
   manifestBodySchema,
   manifestPath,
@@ -51,10 +52,6 @@ const fileAt = (path: string) => `files/${path}`;
 const keyOf = (file: { machine: string; path: string }) => `${file.machine}\n${file.path}`;
 const hex = (bytes: Uint8Array) => bytesToHex(sha256(bytes));
 const same = (a: Expected, b: Expected) => a.size === b.size && a.sha256 === b.sha256;
-// A list file (an app's files.json, a release.json, a source/<n>.json): the phone keeps it while it is young, to check
-// what it lists (the same names parseCarryPath gives as `coveredBy`).
-const isList = (path: string) =>
-  /\/(apps\/[^/]+\/files|releases\/[0-9a-f]{64}\/release|source\/[0-9]{12})\.json$/.test(path);
 const isEvent = (path: string) => path.split("/")[4] === "events";
 
 export function ensureTables(db: SyncDb): void {
@@ -331,7 +328,7 @@ export async function carryWith(
         // Meeting a machine's manifest for the first time, the phone does not know what is new: it takes only the lists.
         const fresh =
           old === null
-            ? isList(path) || parseCarryPath(path)?.coveredBy === null
+            ? isCover(path) || parseCarryPath(path)?.coveredBy === null
             : was === undefined || !same(was, now);
         if (fresh) targets.push({ machine, path, ...now });
       }
@@ -376,7 +373,7 @@ export async function carryWith(
           computer,
         ],
       );
-      if (isList(file.path)) {
+      if (isCover(file.path)) {
         gotList = true;
         expected.delete(file.machine);
       }
@@ -415,7 +412,7 @@ export function prune(deps: CarryDeps, roster: readonly string[]): void {
       const file = heldFile(db, String(row.machine), String(row.path))!;
       const age = now - file.received_at;
       const delivered =
-        !isList(file.path) &&
+        !isCover(file.path) &&
         computers.every(
           (each) =>
             (each.revisions[file.machine] ?? 0) >= file.revision && !each.wants.has(keyOf(file)),

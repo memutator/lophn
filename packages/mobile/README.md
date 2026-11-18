@@ -59,7 +59,7 @@ AVD `lophn-phone` 하나를 여럿이 쓴다.
 
 ## 화면 이동
 
-React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱이 더 쓰는 native module은 `react-native-screens`, `react-native-gesture-handler`(drawer), `expo-camera`, `expo-notifications`(알림, 아래)다.
+React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱이 더 쓰는 native module은 `react-native-screens`, `react-native-gesture-handler`(drawer), `expo-camera`, `expo-notifications`(알림, 아래), `expo-network`(폰이 컴퓨터 사이로 file을 나를 때 Wi-Fi인지 보기, `src/apps/carry/`)다.
 
 - root stack(`src/app/root.tsx`): 컴퓨터가 하나도 없으면 연결 흐름(`src/screens/start/`: Welcome, Scan, Pairing, Paired, 실패 둘, Paste the invite sheet)에서 시작하고, 있으면 frame이다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
 - frame(`src/app/frame.tsx`): 왼쪽 drawer가 sidebar(`src/app/sidebar.tsx`)이고 옆이 place의 stack이다. 폭 600 이상에 높이 480 이상이면 sidebar가 늘 열려 있고 stack은 그 옆 card에 들며, 화면은 menu 단추를 두지 않는다. 가로로 든 폰은 폭이 넘어도 낮아서 drawer로 둔다. sidebar에서 고르면 stack이 [Home, 그 곳]으로 바뀌고, 화면 안에서 연 곳은 stack에 쌓인다. sidebar는 project 아래에 lophn session 다음으로 그 project에서 도는 컴퓨터의 coding agent session(터미널 탭의 Claude Code, Codex 등. 터미널(TUI)로 도는 것은 Terminal 표시)을 보인다. 목록은 `useCodingSessions()` 읽기 하나(project 없이)이고 `coding_sessions` 변경에 따라 다시 읽는다. 컴퓨터의 lophn 앱이 붙어 있지 않으면 줄이 없다. 각 workspace 줄 끝의 +는 그 workspace의 New session을 연다(project에서는 agent 줄 옆 Coding agents 칩이 컴퓨터의 coding agent 목록을 연다).

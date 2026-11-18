@@ -399,7 +399,7 @@ function coverEntries(
   ];
 }
 
-const isCover = (path: string) =>
+export const isCover = (path: string) =>
   /\/(apps\/[^/]+\/files|releases\/[0-9a-f]{64}\/release|source\/[0-9]{12})\.json$/.test(
     path,
   );

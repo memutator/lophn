@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import {
@@ -958,7 +958,7 @@ test("폴더의 명단 file에 믿는 서명이 없는 항목이 있어도 읽�
       },
       log: () => undefined,
     });
-    await files.readFrom(shared, "shared");
+    await files.readKnown(shared);
     const keys = roster.view().devices.map((device) => device.body.key);
     assert.ok(keys.includes(laptop.key), "the trusted entry was read");
     assert.ok(!keys.includes(stranger.key));
@@ -1197,30 +1197,20 @@ test("carry/put의 같은 조각이 겹쳐 오거나 다시 와도 맞는 file�
   });
 });
 
-// 다른 컴퓨터의 release를 따라가면 그 code가 이 컴퓨터에서 사람이 준 권한으로 돈다. 터미널을 쓸 수 없는 컴퓨터가 그것으로
-// 이 컴퓨터에서 code를 돌리면 안 된다.
-test("computers로 온 release는 이 컴퓨터의 터미널을 쓸 수 있는 컴퓨터의 것만 묻지 않고 따라간다", () => {
-  const trusted = (machine: Id<"mch">) => machine === OTHER;
+// 다른 컴퓨터의 release를 따라가면 그 code가 이 컴퓨터에서 사람이 준 권한으로 돈다. 명단의 컴퓨터(도둑맞은 노트북 포함)가
+// 그것으로 이 컴퓨터에서 code를 돌리면 안 된다. 명단의 터미널 허락은 그 컴퓨터가 스스로 서명할 수 있어 기준이 되지 않는다.
+test("computers로만 온 release는 낸 컴퓨터와 상관없이 사람에게 묻고, 이름 붙인 폴더로 온 것은 묻지 않는다", () => {
   const cases: [
     string,
     { machine: Id<"mch">; destination: string }[],
     boolean,
   ][] = [
-    [
-      "터미널 허락이 있는 컴퓨터",
-      [{ machine: OTHER, destination: "computers" }],
-      false,
-    ],
-    [
-      "터미널 허락이 없는 컴퓨터",
-      [{ machine: OUTSIDER, destination: "computers" }],
-      true,
-    ],
+    ["명단의 컴퓨터", [{ machine: OTHER, destination: "computers" }], true],
     ["이름 붙인 폴더", [{ machine: OUTSIDER, destination: "personal" }], false],
     [
-      "허락 없는 컴퓨터와 이름 붙인 폴더가 같은 release",
+      "같은 release가 이름 붙인 폴더에도",
       [
-        { machine: OUTSIDER, destination: "computers" },
+        { machine: OTHER, destination: "computers" },
         { machine: OUTSIDER, destination: "personal" },
       ],
       false,
@@ -1228,6 +1218,97 @@ test("computers로 온 release는 이 컴퓨터의 터미널을 쓸 수 있는 �
     ["출처를 모름", [], true],
   ];
   for (const [label, offers, asks] of cases) {
-    assert.equal(followAsksPerson(offers, trusted), asks, label);
+    assert.equal(followAsksPerson(offers), asks, label);
   }
+  // 명단의 컴퓨터는 자기 항목에 터미널 허락을 스스로 서명할 수 있다: 그런 명단에서도 위 규칙은 묻는다.
+  const plain = { ...computerEntry(laptop), terminal_input: false };
+  const granted = rosterView(
+    [
+      signedBy(computerEntry(desk), desk),
+      signedBy(plain, desk),
+      signedBy({ ...plain, rev: 2, terminal_input: true }, laptop),
+    ],
+    [deskKey],
+    deskKey,
+  );
+  assert.equal(
+    granted.devices.find((device) => device.body.machine === OTHER)?.body
+      .terminal_input,
+    true,
+  );
+  assert.equal(
+    followAsksPerson([{ machine: OTHER, destination: "computers" }]),
+    true,
+  );
+});
+
+// 새 목록 file은 다른 길로 언제든 온다. 앞 manifest의 정리가 도는 사이 그것이 오면, 옛 사슬로 정한 지우기가 새 목록이 싣는
+// file을 지워 다시 받아야 한다(가진 사람이 닿지 않으면 읽기가 멈춘다).
+test("앞 목록의 정리가 도는 사이 새 앱 목록이 와도 새 목록이 싣는 file은 지워지지 않는다", async () => {
+  await carryEnv(async (env) => {
+    const data: Record<string, Uint8Array> = {
+      [dataEntryPath(OTHER, APP, 1, "snapshot")]: text("snapshot 1"),
+    };
+    for (let n = 2; n <= 40; n++) {
+      data[dataEntryPath(OTHER, APP, n, "changes")] = text(`changes ${n}`);
+    }
+    const list = (at: string) =>
+      encodeRecord(appFilesSchema, {
+        format: 1,
+        machine: OTHER,
+        app: APP,
+        written_at: at,
+        files: Object.entries(data).map(([path, bytes]) => listed(path, bytes)),
+      });
+    const v1 = list(AT);
+    const v2 = list("2026-11-18T00:00:05.000Z");
+    const manifest = (files: Uint8Array, revision: number) =>
+      signManifest(
+        {
+          format: 1,
+          machine: OTHER,
+          revision,
+          written_at: AT,
+          files: [listed(appFilesPath(OTHER, APP), files)],
+        },
+        laptop.signing.secretKey,
+      );
+    assert.deepEqual(
+      await env.replica.offerManifest(manifest(v1, 1), "link"),
+      ok("accepted"),
+    );
+    await env.link(OTHER, appFilesPath(OTHER, APP), v1);
+    for (const [path, bytes] of Object.entries(data)) {
+      await env.link(OTHER, path, bytes);
+    }
+    const held = env.held();
+
+    // 정리가 명단을 다시 볼 때 다른 길(폰)이 새 앱 목록을 넘긴다.
+    const plain = env.roster.signingKey;
+    let deliver: Promise<unknown> | null = null;
+    let armed = false;
+    env.roster.signingKey = (machine) => {
+      if (armed && deliver === null) {
+        deliver = Promise.resolve().then(() =>
+          env.link(OTHER, appFilesPath(OTHER, APP), v2),
+        );
+      }
+      return plain(machine);
+    };
+    const offered = env.replica.offerManifest(manifest(v2, 2), "phone");
+    await Promise.resolve();
+    await Promise.resolve();
+    armed = true;
+    assert.deepEqual(await offered, ok("accepted"));
+    assert.ok(deliver !== null, "the new list arrived during the prune");
+    assert.deepEqual(await deliver, ok("accepted"));
+    env.roster.signingKey = plain;
+
+    const after = env.held();
+    for (const path of Object.keys(data)) {
+      const key = path.split("/").join(sep);
+      assert.equal(after[key], held[key], path);
+    }
+    assert.deepEqual(await env.replica.wants(100), ok([]));
+  });
 });

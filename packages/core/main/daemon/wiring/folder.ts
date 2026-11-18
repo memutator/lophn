@@ -592,10 +592,7 @@ export const folderWiring: WiringFactory = () => {
                       ? [{ machine: row.machine, destination: row.destination }]
                       : [],
                   );
-          const ask = followAsksPerson(
-            offers,
-            (machine) => ctx.peek.computerTerminalInput?.(machine) ?? false,
-          );
+          const ask = followAsksPerson(offers);
           return (
             ctx.appsControl.activation?.activate(release, { ask }) ??
             Promise.resolve(
@@ -797,9 +794,9 @@ export const folderWiring: WiringFactory = () => {
           const shared = sharedFolder();
           if (shared !== null) {
             await mirror.takeIn(shared);
-            await rosterFiles.readFrom(shared, "shared");
+            await rosterFiles.readUnknown(shared);
           }
-          await rosterFiles.readFrom(computersRoot, "computers");
+          await rosterFiles.readKnown(computersRoot);
         } catch (thrown) {
           log("carry_in_threw", thrown);
         }

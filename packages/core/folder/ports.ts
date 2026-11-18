@@ -83,7 +83,8 @@ export type CarryReceived = Exclude<CarryPutStatus, "partial">;
  *   manifest는 두지 않고, 자기 key로 맞고 더 크면 자기 표시만 올린다.
  * - 명단 view가 바뀔 때마다 든 manifest를 지금 key로 다시 검증한다. 맞지 않게 된 기계(빼기가 정해지지 않음, 충돌, 같은
  *   기계 이름의 컴퓨터가 둘, key가 바뀜)에서는 새것을 받지 않되 든 file은 둔다. 하위 폴더는 `ctx.computerRemoved`가 참일
- *   때(정해진 빼기)만 통째로 지운다.
+ *   때(정해진 빼기)만 `computers` 밖으로 치워 두고(받지도 내주지도 읽지도 않는다), 처음 본 때부터
+ *   `CARRY_REMOVED_GRACE_MS`(7일)가 지나야 지운다. 그 사이 빼기가 풀리면 되돌린다.
  * - file은 staging에 받고, rename 직전에 그때의 지금 manifest 사슬(`expectedFile`)과 크기·sha256을 다시 견준다. rename과
  *   `wants`·`holds`에서 든 목록 file은 그것을 검증한 서명 key가 지금 `ctx.computerSigningKey(machine)`일 때만 센다.
  * - 목록 file 아래의 file은 그 목록 file의 지금 판을 든 뒤에만, 그 판이 더는 싣지 않는 것만 지운다. 지금 판이 오기 전에는

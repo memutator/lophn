@@ -12,7 +12,8 @@ review의 finding을 그대로 고친다. finding에 없는 것을 넓혀 고치
 - **터미널을 열면서 치는 것도 입력이다.** `terminals/open`의 `command`와 `resume`은 `terminals/input`과 같은 자격을 본다. 허락이 없는 기기는 빈 터미널만 연다. (agent: 계획이 정한 "입력 자격"의 빠진 입구다)
 - **터미널 입력을 허락받은 기기는 그 기계의 어느 터미널에나 친다.** 보이는 터미널로 좁히지 않는다. 그 허락이 그 기계를 온전히 다루는 권한이다(`core-setup`이 같은 선으로 사람의 route를 열었다). 문서에 적는다. (agent)
 - **다른 기계를 부르는 route는 그 기계의 화면만 부른다.** `machines/call`·`machines/watch`는 shell main이 받은 capability가 있어야 한다. 사람의 CLI token으로는 못 부른다(지금은 CLI가 허락받은 컴퓨터를 거쳐 다른 기계의 사람 route와 자동 확인에 닿는다). CLI에서 다른 기계를 부르는 것은 `remote-use`가 요청한 쪽을 실어서 연다. (agent: "agent와 CLI에는 열지 않는다")
-- **허락이 있어도 열지 않는 것에 저장소의 이름도 든다.** 기기 자격은 `secrets/*`로 site login vault(`login.`)와 구독 token(`provider-oauth.`) 이름을 쓰거나 지우지 못한다. `remote.*` 설정도 기기 자격으로는 바꾸지 못한다(기기·명단 관리와 같은 종류다). (agent)
+- **허락이 있어도 열지 않는 것에 저장소의 이름도 든다.** 기기 자격은 `secrets/*`로 site login vault(`login.`) 이름을 쓰거나 지우지 못한다. provider의 key와 token 이름은 막지 않는다: 허락받은 기기는 provider의 key를 바꾸고 끊을 수 있어서 그 이름을 덮어도 더 열리는 것이 없다(review가 든 `provider-oauth.` 이름은 code에 없다). `remote.*` 설정도 기기 자격으로는 바꾸지 못한다(기기·명단 관리와 같은 종류다). (agent)
+- **도중에 허락을 거두면 그 기기가 시작한 로그인도 끝난다.** 기기가 시작한 구독 로그인이 끝나기 전에 허락이 꺼지면 provider를 잇지 않는다. (agent: review가 확인한 것)
 - **명단을 바꾸는 CLI 명령은 lophn의 터미널 탭 안에서 거절한다**(`lophn remote invite|join|remove`). 그 안에서는 사람과 거기서 도는 coding agent를 가릴 수 없다. 읽는 명령(`devices`)은 된다. 화면 없는 기계는 SSH의 터미널에서 한다. 먼저 터미널 탭의 `lophn`이 어떤 자격을 받는지 code로 확인하고, 사람 자격이 아니면 이 항목은 하지 않고 보고한다. (agent: review가 확인하지 못한 것)
 
 명단:

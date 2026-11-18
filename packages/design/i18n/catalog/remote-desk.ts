@@ -74,6 +74,8 @@ export const remoteDesk = {
   "machines.page.held": "You have control",
   "machines.page.not-painting":
     "{name} is not drawing this page now. Its window may be minimized or hidden.",
+  "machines.page.closed": "This page was closed on {name}.",
+  "machines.page.keys": "Type into the page",
   "machines.page.waiting": "Waiting for the page…",
   "machines.page.view-only":
     "You can only watch pages on {name}. To use them, turn on “Allow typing in terminals” for this computer in Settings › Remote › My devices.",

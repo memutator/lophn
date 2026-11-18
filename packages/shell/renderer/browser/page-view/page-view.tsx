@@ -1,7 +1,8 @@
 // 다른 기계의 page 하나를 보고 다루는 탭 본문(`browser-tab.md` "멀리서 보기"). 보는 동안 `page_view/watch` lease를 잡고
 // PAGE_VIEW_RENEW_MS마다 갱신하며, 탭이 닫히거나 창이 안 보이면 놓는다. 그 탭의 `PageViewChanged`가 오면 snapshot을 다시 읽고,
 // 읽는 중이면 끝난 뒤 한 번만 더 읽는다(읽어 간 만큼만 다음 frame이 온다). 다룰 수 있으면(snapshot의 control) 그림의
-// 누르기·끌기·굴리기와 key가 `page_view/input`이 되고, 머리 줄에 뒤로·다시 읽기·주소 칸과 잡기·놓기가 선다.
+// 누르기·끌기·굴리기, key, 쳐진 글(IME 포함)과 이 컴퓨터에서 붙여넣은 글이 `page_view/input`이 되고, 머리 줄에 뒤로·다시 읽기·
+// 주소 칸과 잡기·놓기가 선다. 그 기계에서 page가 닫히면(not_found) 닫혔다는 한 줄만 남고 lease를 놓는다.
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -35,19 +36,22 @@ const MOVE_EVERY_MS = 1000 / 30;
 
 const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta"]);
 
+// `text` 입력 하나의 글자 상한(`pageInputSchema`).
+const TEXT_MAX = 1000;
+
 function subscribeVisibility(listener: () => void): () => void {
   document.addEventListener("visibilitychange", listener);
   return () => document.removeEventListener("visibilitychange", listener);
 }
 
-/** 보이는 동안 lease를 잡고 갱신한다. */
-function useLease(source: PageViewSource, tab: string): void {
+/** on이고 창이 보이는 동안 lease를 잡고 갱신한다. */
+function useLease(source: PageViewSource, tab: string, on: boolean): void {
   const visible = useSyncExternalStore(
     subscribeVisibility,
     () => document.visibilityState === "visible",
   );
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !on) return;
     const renew = () => void source.watch(tab, true);
     renew();
     const timer = setInterval(renew, PAGE_VIEW_RENEW_MS);
@@ -55,21 +59,26 @@ function useLease(source: PageViewSource, tab: string): void {
       clearInterval(timer);
       void source.watch(tab, false);
     };
-  }, [source, tab, visible]);
+  }, [source, tab, visible, on]);
 }
 
-/** keydown 하나를 page 입력으로. Ctrl·Meta·Alt 없는 글자 하나는 text, 그 밖은 agent `press`의 key 이름이다. */
-function inputOfKey(event: KeyboardEvent): PageInput | null {
-  if (event.nativeEvent.isComposing || MODIFIER_KEYS.has(event.key)) {
+/**
+ * keydown 하나를 page의 key 입력으로. 글자는 여기서 보내지 않고 숨은 입력칸의 input·compositionend가 `text`로 보낸다(IME 글이
+ * 한 길로 온다). Ctrl·Meta·Alt를 낀 조합과 이름 있는 key(Enter, Backspace, 화살표, Tab…)만 agent `press`의 key 이름이 된다.
+ * Ctrl·Cmd+V는 paste가 이 컴퓨터의 clipboard 글을 보내도록 지나간다.
+ */
+function keyOf(event: KeyboardEvent): PageInput | null {
+  if (
+    event.nativeEvent.isComposing ||
+    event.key === "Process" ||
+    MODIFIER_KEYS.has(event.key)
+  ) {
     return null;
   }
-  if (
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.altKey &&
-    [...event.key].length === 1
-  ) {
-    return { type: "text", text: event.key };
+  const chord = event.ctrlKey || event.metaKey || event.altKey;
+  if (!chord && [...event.key].length === 1) return null;
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+    return null;
   }
   const parts = [
     ...(event.ctrlKey ? ["Control"] : []),
@@ -79,6 +88,19 @@ function inputOfKey(event: KeyboardEvent): PageInput | null {
     event.key === " " ? "Space" : event.key,
   ];
   return { type: "key", key: parts.join("+") };
+}
+
+/** 글을 `text` 입력으로. 한 입력의 상한(1000자)을 넘으면 나눈다. */
+function textInputs(text: string): PageInput[] {
+  const chars = [...text];
+  const inputs: PageInput[] = [];
+  for (let at = 0; at < chars.length; at += TEXT_MAX) {
+    inputs.push({
+      type: "text",
+      text: chars.slice(at, at + TEXT_MAX).join(""),
+    });
+  }
+  return inputs;
 }
 
 /** 그린 그림 위의 점을 frame의 page CSS px로 옮긴다. */
@@ -109,14 +131,20 @@ function Screen({
   const pressed = useRef(false);
   const lastMove = useRef(0);
   const wheel = useRef({ dx: 0, dy: 0, at: 0 });
+  const keys = useRef<HTMLTextAreaElement>(null);
+  const composing = useRef(false);
+  const sendText = (text: string) => {
+    for (const input of textInputs(text)) onInput?.(input);
+  };
   const handlers =
     onInput === null
       ? {}
       : {
-          tabIndex: 0,
           onPointerDown(event: PointerEvent<HTMLDivElement>) {
             if (event.button !== 0) return;
-            event.currentTarget.focus();
+            // 그림을 누르면 key와 글을 받는 숨은 입력칸에 focus가 간다.
+            event.preventDefault();
+            keys.current?.focus();
             event.currentTarget.setPointerCapture(event.pointerId);
             pressed.current = true;
             onInput({
@@ -155,14 +183,6 @@ function Screen({
             if (dx === 0 && dy === 0) return;
             onInput({ type: "scroll", ...pointOf(event, frame), dx, dy });
           },
-          // 창의 단축키가 먼저 가져간 key(defaultPrevented)는 보내지 않는다.
-          onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-            if (event.defaultPrevented) return;
-            const input = inputOfKey(event);
-            if (input === null) return;
-            event.preventDefault();
-            onInput(input);
-          },
         };
   return (
     <div
@@ -179,6 +199,42 @@ function Screen({
         alt=""
         draggable={false}
       />
+      {onInput === null ? null : (
+        // 글은 이 칸에 쳐진 대로(IME 조합이 끝난 글 포함) 보내고 칸을 비운다.
+        <textarea
+          ref={keys}
+          className={styles.keys}
+          aria-label={t("machines.page.keys")}
+          autoComplete="off"
+          spellCheck={false}
+          data-page-keys=""
+          // 창의 단축키가 먼저 가져간 key(defaultPrevented)는 보내지 않는다.
+          onKeyDown={(event) => {
+            if (event.defaultPrevented) return;
+            const input = keyOf(event);
+            if (input === null) return;
+            event.preventDefault();
+            onInput(input);
+          }}
+          onCompositionStart={() => {
+            composing.current = true;
+          }}
+          onCompositionEnd={(event) => {
+            composing.current = false;
+            sendText(event.data);
+            event.currentTarget.value = "";
+          }}
+          onInput={(event) => {
+            if (composing.current) return;
+            sendText(event.currentTarget.value);
+            event.currentTarget.value = "";
+          }}
+          onPaste={(event) => {
+            event.preventDefault();
+            sendText(event.clipboardData.getData("text/plain"));
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -245,14 +301,23 @@ export function PageView({
   source,
   tab,
   machineName,
+  onTitle,
 }: {
   source: PageViewSource;
   tab: string;
   machineName: string;
+  /** page 제목이 바뀌었다(탭 이름이 따라간다). */
+  onTitle?(title: string): void;
 }) {
   const client = useEventClient();
+  // 그 기계에서 page가 닫혔다(not_found). 옛 그림 대신 닫혔다는 한 줄을 보이고 lease를 놓는다.
+  const [closed, setClosed] = useState(false);
   const { loaded, reload } = useFollowedRead(
-    () => source.snapshot(tab),
+    async () => {
+      const read = await source.snapshot(tab);
+      if (!read.ok && read.code === "not_found") setClosed(true);
+      return read;
+    },
     [],
     tab,
   );
@@ -269,11 +334,15 @@ export function PageView({
       }),
     [client, tab, reload],
   );
-  useLease(source, tab);
+  useLease(source, tab, !closed);
   const [notice, setNotice] = useState<string | null>(null);
   const name = { name: machineName };
-  const snapshot = loaded.state === "ready" ? loaded.value : null;
+  const snapshot = closed || loaded.state !== "ready" ? null : loaded.value;
   const control = snapshot?.control === true;
+  const title = snapshot?.title ?? "";
+  useEffect(() => {
+    if (title !== "") onTitle?.(title);
+  }, [title, onTitle]);
 
   // 허락이 빠졌으면(forbidden) snapshot을 다시 읽어 보기만 하는 화면이 된다. 누르기·key의 다른 실패는 다음 입력이 다시 해 보므로
   // 알리지 않고, 사람이 고른 행동(주소, 뒤로, 다시 읽기, 잡기)의 실패만 알린다.
@@ -282,7 +351,8 @@ export function PageView({
     chosen: boolean,
   ) => {
     if (sent.ok) return;
-    if (sent.code === "forbidden") reload();
+    if (sent.code === "not_found") setClosed(true);
+    else if (sent.code === "forbidden") reload();
     else if (chosen) setNotice(t("machines.page.error.action", name));
   };
   const send = (input: PageInput) =>
@@ -343,6 +413,13 @@ export function PageView({
     ],
   );
 
+  if (closed) {
+    return (
+      <div className={styles.page} data-page-closed={tab}>
+        <p className={styles.line}>{t("machines.page.closed", name)}</p>
+      </div>
+    );
+  }
   if (loaded.state === "failed") {
     return (
       <ErrorState target={t("machines.page.target-one")} onRetry={reload} />

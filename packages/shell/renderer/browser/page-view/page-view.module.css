@@ -103,6 +103,7 @@
 
 /* page 그림. 비율은 frame의 width·height이고 기둥 폭에 맞춘다. 다룰 수 있으면 focus를 받아 key를 보낸다. */
 .screen {
+  position: relative;
   width: 100%;
   overflow: hidden;
   border: var(--border-width) solid var(--color-border-subtle);
@@ -112,12 +113,26 @@
   user-select: none;
 }
 
-.screen:focus-visible {
+.screen:focus-within {
   border-color: var(--color-focus);
 }
 
 .screen[data-control] {
   cursor: default;
+}
+
+/* key와 글(IME 조합, 붙여넣기)을 받는 숨은 입력칸. 그림을 누르면 focus가 온다. */
+.keys {
+  position: absolute;
+  top: var(--space-0);
+  left: var(--space-0);
+  width: var(--space-1);
+  height: var(--space-1);
+  padding: var(--space-0);
+  border: none;
+  opacity: 0;
+  resize: none;
+  pointer-events: none;
 }
 
 .picture {

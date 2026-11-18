@@ -1,7 +1,7 @@
 // page-view 탭 kind. 다른 기계의 창에서 그 기계의 browser page를 보고 다룬다(`browser-tab.md` "멀리서 보기"). key `pages`의
 // 탭은 page 목록이고, 목록에서 고른 page는 key `page-view:<탭 id>`의 탭이다. 다른 기계의 창의 layout은 메모리에만 있어
 // fromStored·toStored가 없다. 이 컴퓨터의 agent page는 browser 탭이라 새 탭 menu가 다른 기계의 창에서만 이 탭을 연다.
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { t } from "@lophn/i18n";
 
 import { corePageViewSource } from "../../browser/page-view/core-source.ts";
@@ -31,6 +31,13 @@ function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
   const client = useEventClient();
   const source = useMemo(() => corePageViewSource(client.core), [client]);
   const machineName = useWindowMachine()?.name ?? "";
+  // page 탭의 이름은 그 page의 제목을 따라간다.
+  const onTitle = useCallback(
+    (title: string) => {
+      if (title !== tab.title) host.patchTab(tab.key, { title });
+    },
+    [host, tab.key, tab.title],
+  );
   return (
     <PaddedTab bare>
       {tab.key === PAGES_KEY ? (
@@ -50,6 +57,7 @@ function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
           source={source}
           tab={tab.key.slice(PAGE_PREFIX.length)}
           machineName={machineName}
+          onTitle={onTitle}
         />
       )}
     </PaddedTab>

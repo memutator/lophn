@@ -45,6 +45,7 @@ function setup() {
   const calls: LinkRequest[] = [];
   const opened: string[] = [];
   const published: BusEvent[] = [];
+  const grants = new Set(["device:yes"]);
   const view = createPageView({
     clock,
     publish: (event) => published.push(event),
@@ -65,14 +66,15 @@ function setup() {
       },
     ],
     agentName: () => "Coder",
-    mayControl: (principal) => principal === "device:yes",
+    mayControl: (principal) => grants.has(principal),
+    deviceKind: () => "phone",
     open: (_who, url) => {
       opened.push(url);
       return Promise.resolve(ok({ tab: TAB }));
     },
     redact: (text) => text,
   });
-  return { view, clock, calls, opened, published };
+  return { view, clock, calls, opened, published, grants };
 }
 
 // 로그인된 browser를 다루는 것은 터미널에 치는 것만큼 센 권한이다. 허락 없는 호출은 host에 닿으면 안 된다.
@@ -172,4 +174,51 @@ test("마지막 lease가 끝나거나 기한이 지나면 host에 page_stream {o
   assert.deepEqual(streams().at(-1), { tab: TAB, on: false });
   const after = view.snapshot(p1, TAB);
   assert.ok(after.ok && after.value.frame === null);
+});
+
+// 멀리서 잡은 것이 남으면 보는 쪽이 떠난 뒤(앱을 내림, 연결이 끊김, 기기를 뺌) agent의 act·navigate·evaluate가 누군가 그 page를
+// 다시 열어 돌려줄 때까지 conflict다. 화면 없는 기계에서는 돌려줄 화면도 없다.
+test("멀리서 잡은 기기의 lease가 끝나면 잡은 것이 풀려 agent의 쓰기 동작이 다시 된다", async () => {
+  const { view, clock, calls, grants } = setup();
+  const controls = () =>
+    calls.filter((call) => call.kind === "page_control").map((c) => c.payload);
+  const other = context("device:other", "user");
+  grants.add("device:other");
+
+  // 보지 않고는 잡지 못한다(잡은 것이 묶일 lease가 없다).
+  const unwatched = await view.control(allowed, { tab: TAB, held: true });
+  assert.ok(!unwatched.ok && unwatched.error.code === "conflict");
+  assert.deepEqual(controls(), []);
+
+  // 기한: 잡은 기기가 갱신을 멈추면 다음 주기에 놓는다. 다른 기기가 보고 있어도 그렇다.
+  await view.watch(allowed, { tab: TAB, on: true });
+  await view.watch(other, { tab: TAB, on: true });
+  assert.ok((await view.control(allowed, { tab: TAB, held: true })).ok);
+  const list = view.list(other);
+  assert.ok(list.ok);
+  assert.equal(list.value.pages.find((p) => p.tab === TAB)?.held_by, "phone");
+  clock.advance(PAGE_VIEW_LEASE_MS - 1);
+  await view.watch(other, { tab: TAB, on: true });
+  view.expire();
+  assert.deepEqual(controls(), [{ tab: TAB, held: true }]);
+  clock.advance(1);
+  view.expire();
+  assert.deepEqual(controls().at(-1), { tab: TAB, held: false });
+  const after = view.list(other);
+  assert.ok(after.ok && after.value.pages[0]?.held_by === null);
+
+  // 보기를 끔: 바로 놓는다.
+  await view.watch(other, { tab: TAB, on: true });
+  await view.control(other, { tab: TAB, held: true });
+  await view.watch(other, { tab: TAB, on: false });
+  assert.deepEqual(controls().at(-1), { tab: TAB, held: false });
+
+  // 명단에서 빠지거나 허락을 거둠: lease가 남아도 다음 주기에 놓는다.
+  await view.watch(other, { tab: TAB, on: true });
+  await view.control(other, { tab: TAB, held: true });
+  const before = controls().length;
+  grants.delete("device:other");
+  view.expire();
+  assert.equal(controls().length, before + 1);
+  assert.deepEqual(controls().at(-1), { tab: TAB, held: false });
 });

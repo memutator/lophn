@@ -8,7 +8,10 @@ import type {
   HostRequest,
   HostToolOutput,
 } from "../../../../protocol/lophn-agent/host-queue.ts";
-import type { PageInput } from "../../../../protocol/lophn-agent/page-view.ts";
+import {
+  PAGE_FRAME_MAX_BYTES,
+  type PageInput,
+} from "../../../../protocol/lophn-agent/page-view.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { ControlState, TabControl } from "./control.ts";
 import { type CdpSend, pressKey, typeText } from "./keys.ts";
@@ -18,6 +21,9 @@ import type { Page } from "./page.ts";
 export const FRAME_MIN_MS = 100;
 // 켜거나 깨운 뒤 이만큼 frame이 없으면 그리지 않는 것으로 본다. Wayland에서 최소화했다 되살린 창은 보인다고 답하면서 그리지 않는다.
 export const PAINT_WAIT_MS = 2000;
+
+// core는 계약(`pageFrameSchema`)에 맞지 않는 frame을 버린다. 그런 frame은 보내지 않고 ack만 해 다음 frame을 받는다.
+const BASE64_MAX = Math.ceil(PAGE_FRAME_MAX_BYTES / 3) * 4;
 
 const SCREENCAST = {
   format: "jpeg",
@@ -160,12 +166,21 @@ export function createPageStream(deps: PageStreamDeps) {
       metadata: { deviceWidth: number; deviceHeight: number };
       sessionId: number;
     };
+    const width = Math.round(metadata.deviceWidth);
+    const height = Math.round(metadata.deviceHeight);
+    if (
+      data.length === 0 ||
+      data.length > BASE64_MAX ||
+      width < 1 ||
+      height < 1
+    ) {
+      void stream.page
+        .send("Page.screencastFrameAck", { sessionId })
+        .catch(() => {});
+      return;
+    }
     stream.acks.push(sessionId);
-    stream.latest = {
-      data,
-      width: Math.round(metadata.deviceWidth),
-      height: Math.round(metadata.deviceHeight),
-    };
+    stream.latest = { data, width, height };
     stream.framed = true;
     setPainting(tab, stream, true);
     flush(tab, stream);

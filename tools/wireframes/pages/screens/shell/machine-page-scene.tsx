@@ -39,6 +39,7 @@ const PAGES: readonly PageRow[] = [
     title: "Sign in to Example Cloud",
     loading: false,
     by: "lophn",
+    held_by: null,
   },
   {
     tab: "tab_docs",
@@ -46,6 +47,7 @@ const PAGES: readonly PageRow[] = [
     title: "Deploy guide · Example Cloud",
     loading: false,
     by: "Deployer",
+    held_by: null,
   },
   {
     tab: "tab_github",
@@ -53,6 +55,7 @@ const PAGES: readonly PageRow[] = [
     title: "Device activation · GitHub",
     loading: false,
     by: null,
+    held_by: null,
   },
 ];
 

@@ -1,7 +1,8 @@
 // 같은 데이터 root의 Electron main은 하나다. 두 번째 시작은 기존 main에 창을 요청할 뿐이고,
 // argv의 URL·파일·명령은 실행 권한으로 읽지 않는다. second-instance argv에서 읽는 것은
-// open-intent.ts의 intent(`--quit`, `--open-app <app ID>`, `--core`, `--agent-window`)뿐이고
-// `--core`는 창을 열지 않고 `--agent-window`는 창이 없을 때만 focus 없이 연다. 나머지는 새 기본 창 요청이다. OS 앱 바로가기가 `--open-app`으로
+// open-intent.ts의 intent(`--quit`, `--open-app <app ID>`, `--core`, `--agent-window`, `--page-host`)뿐이고
+// `--core`는 창을 열지 않고 `--agent-window`와 `--page-host`(떠 있는 desktop 앱이 host다)는 창이 없을 때만 focus 없이 연다.
+// 나머지는 새 기본 창 요청이다. OS 앱 바로가기가 `--open-app`으로
 // 이미 떠 있는 main에 창을 요청하는 데 쓴다.
 import { readOpenIntent } from "./open-intent.ts";
 

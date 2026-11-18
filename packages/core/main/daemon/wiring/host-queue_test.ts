@@ -25,7 +25,16 @@ import {
   type HostQueueService,
 } from "../../../host-queue/mod.ts";
 import type { AgentSessionRow } from "../../../lophn-agent/session/model.ts";
-import { createTabHandlers } from "./host-queue.ts";
+import { routePath } from "../../../../protocol/base/mod.ts";
+import {
+  PAGE_VIEW_ROUTES,
+  pageViewControl,
+  pageViewInput,
+  pageViewOpen,
+} from "../../../../protocol/lophn-agent/page-view.ts";
+import { dispatchHttp } from "../../../server/dispatch.ts";
+import type { MemoryHandler, ReadHandler } from "../../../server/mod.ts";
+import { createTabHandlers, hostQueueWiring } from "./host-queue.ts";
 
 // preview 탭은 그 앱 workspace의 session과 사람만 열고, 주인만 닫는다. 깨지면 다른 앱·project의 agent가 남의 앱 화면을
 // 사람 화면에 띄우거나 남의 탭을 닫는다.
@@ -735,4 +744,101 @@ test("phone 탭: open → snapshot → click → screenshot", async () => {
     "invalid_input",
   );
   assert.equal(queue.attached(), false);
+});
+
+// 로그인된 browser를 다루는 것은 터미널에 치는 것만큼 센 권한이다. page-view의 test는 허락을 가짜로 주므로, 실제 wiring이 기기의
+// 터미널 입력 허락(remote wiring이 채우는 칸)을 읽는지와 route가 agent 자격을 막는지를 여기서 본다.
+test("터미널 입력 허락이 없는 기기는 page를 다루지 못하고 agent 자격은 page_view route를 부르지 못한다", async () => {
+  const clock = manualClock(1_700_000_000_000);
+  const ctx = {
+    clock,
+    random: seededRandom(1),
+    provide() {},
+    telemetry: { logger: undefined },
+    options: {},
+    root: { path: "/nonexistent" },
+    bus: { publish() {} },
+    // 기기 dev_b만 허락받았다.
+    peek: {
+      terminalInputGrant: (principal: string) => principal === "device:dev_b",
+      deviceKind: () => "phone",
+    },
+  };
+  const wiring = hostQueueWiring();
+  const built = await wiring.build!(ctx as never);
+  assert.ok(built.ok);
+  const memory = new Map(
+    built.value.memory as Iterable<[string, MemoryHandler]>,
+  );
+  const reads = new Map<string, ReadHandler>();
+  built.value.reads!(reads);
+  const tab = id("tab", 9);
+  const call = async (
+    route: (typeof PAGE_VIEW_ROUTES)[number],
+    actor: string,
+    principal: string,
+  ) => {
+    const body =
+      route === pageViewInput
+        ? { tab, key: "k", input: { type: "text", text: "x" } }
+        : route === pageViewControl
+          ? { tab, held: true }
+          : route === pageViewOpen
+            ? { url: "https://a.test", key: "k" }
+            : route.name === "PageViewList"
+              ? {}
+              : route.name === "PageViewWatch"
+                ? { tab, on: true }
+                : { tab };
+    const done = await dispatchHttp(
+      new Request(`http://127.0.0.1${routePath(route)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      { route, path: routePath(route) },
+      {
+        principal,
+        actor,
+        scope: {
+          operations: PAGE_VIEW_ROUTES.map((one) => one.name),
+          targets: {},
+        },
+        conditions: actor === "user" ? {} : { session: id("ses", 1) },
+        credential_ref: principal,
+      } as AuthenticatedContext,
+      {
+        credentials: undefined as never,
+        clock,
+        memory,
+        reads,
+        bodyTimeoutMs: 1000,
+        jsonMaxBytes: 65_536,
+      },
+    );
+    return (done as { json: { error?: { code: string } } }).json.error?.code;
+  };
+  try {
+    for (const route of PAGE_VIEW_ROUTES) {
+      assert.equal(
+        await call(route, `agent:${id("ses", 1)}`, "device:dev_b"),
+        "forbidden",
+        route.name,
+      );
+    }
+    for (const route of [pageViewInput, pageViewControl, pageViewOpen]) {
+      assert.equal(
+        await call(route, "user", "device:dev_a"),
+        "forbidden",
+        route.name,
+      );
+    }
+    // 허락받은 기기는 허락 확인을 지나 탭을 찾는다(없는 탭이다).
+    assert.equal(
+      await call(pageViewControl, "user", "device:dev_b"),
+      "not_found",
+    );
+  } finally {
+    await wiring.closeWork?.();
+  }
 });

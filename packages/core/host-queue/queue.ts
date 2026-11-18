@@ -302,6 +302,8 @@ export function createHostQueue(deps: {
 
   // 연결이 닫혔다. 그 연결로 빌려 간 결과 요청은 실행됐는지 모르니 거두고(두 번 실행하면 안 된다), 탭 요청은 다시 대기한다.
   // 연결 요청은 그 연결의 page에 대한 것이라 아직 빌려 가지 않은 것까지 모두 거둔다(늦은 입력이 다음 host의 page에 들어가지 않게).
+  // browser 탭의 page는 host가 든다. host가 죽거나 끝나면 닫혔다고 알리는 길이 없으므로 연결이 닫힐 때 표에서 뺀다(멀리서 보는
+  // 목록에 없는 page가 남지 않게). preview·artifact 탭은 앱이 다시 뜨면 layout에서 다시 열려 그대로 둔다.
   function unlink(current: NonNullable<typeof link>): void {
     if (link !== current) return;
     link = null;
@@ -316,6 +318,9 @@ export function createHostQueue(deps: {
       if (linkOnly(entry.request)) {
         abandon(entry.request.id as Id<"hrq">, LINK_LOST);
       }
+    }
+    for (const [tab, entry] of [...tabs]) {
+      if (entry.kind === "browser") forget(tab);
     }
   }
 
@@ -343,13 +348,6 @@ export function createHostQueue(deps: {
     return ok(entry);
   }
 
-  // browser 탭의 page는 shell이 든다. 앱이 끝나면 창이 닫혔다고 알리는 길이 없어 표에 탭이 남으므로, shell이 없을 때 그 탭을 부르면
-  // page가 이미 사라진 것으로 보고 표에서 뺀다. preview·artifact 탭은 앱이 다시 뜨면 layout에서 다시 열려 그대로 둔다.
-  function pageAlive(tab: Id<"tab">, entry: TabEntry): boolean {
-    if (entry.kind !== "browser" || attached()) return true;
-    forget(tab);
-    return false;
-  }
   const noSuchTab = () =>
     err({ code: "not_found" as const, message: NO_SUCH_TAB });
 
@@ -520,7 +518,6 @@ export function createHostQueue(deps: {
     browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
-      if (!pageAlive(tab, found.value)) return noSuchTab();
       const { kind, phone } = found.value;
       if (kind === "agent") return noSuchTab();
       return kind === "phone"
@@ -631,7 +628,6 @@ export function createHostQueue(deps: {
     read(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabState> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
-      if (!pageAlive(tab, found.value)) return noSuchTab();
       return found.value.kind === "browser" && found.value.state !== null
         ? ok(found.value.state)
         : err({ code: "not_found", message: "tab has no browser state" });

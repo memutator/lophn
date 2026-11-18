@@ -718,7 +718,7 @@ function pageRoutes(emit: (event: BusEvent) => void): Record<string, Answer> {
     } as BusEvent);
   };
   return {
-    "page_view/list": () => ({ pages: pages.map(({ held: _, ...page }) => page), control: true }),
+    "page_view/list": () => ({ pages: pages.map(({ held, ...page }) => ({ ...page, held_by: held ? "you" : null })), control: true }),
     "page_view/snapshot": (body) => {
       const page = find(body);
       if (page === undefined) return undefined;

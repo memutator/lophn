@@ -86,13 +86,21 @@ const pageFields = {
 };
 
 // core가 아는 browser 탭이다. control은 부른 principal이 page를 다룰 수 있는가다(열기 칸을 그릴지 화면이 미리 안다).
+// held_by는 멀리서 잡은 기기다: 부른 기기 자신이면 "you", 다른 기기면 그 종류, 아무도 멀리서 잡지 않았으면 null이다(그 기계의
+// 화면에서 잡은 것은 snapshot의 held만 안다). 다룰 수 있는 기기는 누구든 `control {held:false}`로 놓는다.
 export const pageViewList = defineRead({
   resource: "page_view",
   method: "list",
   name: "PageViewList",
   input: z.strictObject({}),
   output: z.strictObject({
-    pages: z.array(z.strictObject({ tab: tabSchema, ...pageFields })),
+    pages: z.array(
+      z.strictObject({
+        tab: tabSchema,
+        ...pageFields,
+        held_by: z.enum(["you", "phone", "computer"]).nullable(),
+      }),
+    ),
     control: z.boolean(),
   }),
   actors: ["user"],
@@ -149,6 +157,8 @@ export const pageViewInput = defineMemory({
 });
 
 // 사람이 멀리서 탭을 가져오거나(held true) 돌려준다. 그 기계의 take control과 같아 가져온 동안 agent의 쓰기 동작이 `conflict`다.
+// 가져오기는 그 탭을 보고 있어야 하고(없으면 `conflict`), 가져온 것은 그 기기의 lease에 묶인다: lease가 끝나거나(`watch {on:false}`,
+// 기한) 그 기기가 다룰 수 없게 되면 core가 돌려준다.
 export const pageViewControl = defineMemory({
   resource: "page_view",
   method: "control",

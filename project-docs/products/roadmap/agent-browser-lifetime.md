@@ -17,10 +17,10 @@
 구현 전의 코드와 지금이다. 문서(architecture)는 지금만 적는다.
 
 - **열기는 그 workspace를 띄운 창에만 갔다. 지금은 browser 탭만 어느 창이든 간다.** core host queue는 `tab_open`을 shell이 알린 보이는 `workspaces`(그때는 `host/take`의 인자, 지금은 `/host-link`의 `visible`)에 그 탭의 workspace가 있을 때만 빌려 줬다. 이제 browser 탭의 `tab_open`·`tab_close`는 workspace를 가리지 않고 아무 shell main이 가져가고, shell main이 그 workspace를 보이는 창, 없으면 가장 최근 일반 창, 그것도 없으면 focus 없이 연 새 창에 보낸다. 다른 target(preview, artifact, session, coding)은 그대로 그 workspace를 보이는 창에만 가고 기다린다(`workspace-layout.md` 결정 18).
-- **shell이 없으면 browser 호출이 바로 끝났다. 지금은 열기가 shell을 띄운다.** `tab open --url`은 shell이 없으면 core가 앱을 띄우고 기다린다(조건은 아래 3번). 이미 연 browser 탭에 shell 없이 온 `browser.*`는 page가 사라진 것으로 보고 그 탭을 core 표에서 빼고 `not_found`를 답한다. preview·artifact 탭의 호출은 전과 같이 `unavailable` "the lophn app is not connected"다.
+- **shell이 없으면 browser 호출이 바로 끝났다. 지금은 열기가 shell을 띄운다.** `tab open --url`은 shell이 없으면 core가 앱을 띄우고 기다린다(조건은 아래 3번). shell(host)의 `/host-link`가 닫히면 core가 browser 탭을 표에서 빼고, 그 뒤 온 `browser.*`는 `not_found`다(전에는 shell 없이 온 호출이 그 탭을 뺐다). preview·artifact 탭의 호출은 전과 같이 `unavailable` "the lophn app is not connected"다.
 - **core만 뜨는 때가 평소다(그대로).** 로그인 시작(늘 켜 둠 표시를 켠 기계의 OS 등록)은 core만 띄운다(`platform.md` "늘 켜 둠"). 앱의 Quit은 shell만 정리하고 core는 남는다. 켜진 job이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`platform.md` "core 수명", `job.md` 14).
 - **browser 엔진과 로그인은 shell main의 것이다(그대로).** partition `persist:lophn-browser`는 shell userData에 있고 Chromium profile은 한 번에 한 process만 연다.
-- **창 없이 도는 shell main은 개발용뿐이다(그대로).** `LOPHN_SHELL_HEADLESS=1`은 개발 확인용이다. 제품에 "page만 든 shell"은 없다. 대신 `--agent-window` intent가 일반 창을 focus 없이 연다.
+- **화면 있는 기계에서 창 없이 도는 shell main은 개발용뿐이다.** `LOPHN_SHELL_HEADLESS=1`은 개발 확인용이고, 화면 있는 기계에서는 `--agent-window` intent가 일반 창을 focus 없이 연다. display가 없는 Linux에서는 계획 `core-browser`가 "page만 든 shell"을 더했다: core가 띄우는 page host(`--page-host`, 아래 D)다.
 - **shell main은 창이 알린 workspace만 안다(그대로).** renderer가 layout을 다 읽은 뒤 `shell:surface-workspace`로 알리고 main이 창마다 하나를 `shown`에 둔다. detached 창은 세지 않는다. browser 탭 열기는 이 정보가 없어도(보이는 창이 없어도) 가장 최근 일반 창으로 간다.
 - **page를 찾는 길은 renderer의 bind다(그대로). 지금은 창 단위로 보고한다.** host browser 탭의 bind와 상태(url, title, loading) 보고를 `WorkspaceViewsProvider`가 하므로 그 workspace가 mount되지 않아도 간다. driver가 page를 못 찾으면 browser 탭에는 "page가 사라졌다, `tab open --url`로 다시 열라"를 `unavailable`로 답한다.
 - **창 하나는 workspace 하나만 mount한다(그대로). 지금은 agent page가 workspace를 떠나도 산다.** 떠나는 workspace의 `<webview>`를 남기는 조건 `wantsKeep`에 "agent가 연 browser 탭의 page"(`agent`)가 들었다. 이 page는 6개 상한 밖이고 창마다 12개 상한을 따로 센다(guest가 붙은 것만).
@@ -69,7 +69,7 @@
    - (단계 2에서 더했다) `browser.*`의 `not_found`도 고정 문장이 model에 간다. 없는 탭, 닫힌 탭, 남의 탭이 같은 문장이라 존재가 새지 않고, page가 없어졌으면 다시 열라고 알린다.
 7. **로그인.** agent 탭은 사람 탭과 같은 partition을 쓴다(`browser-tab.md`의 2026-11-09 결정). 로그인이 없거나 만료되면 agent는 사람에게 올리고, 사람이 그 탭에서 take control로 로그인한다. 비밀번호 입력 길은 `browser-vault.md`다.
    - 사람이 자리에 없는 job에는 run 도중 사람을 기다리는 길이 지금 없다(job의 hold는 놓친 차례 정책이고 이 용도가 아니다, `job.md`). 추천: 새 장치를 만들지 않는다. agent는 "로그인이 필요하다"를 그 차례의 결과로 남기고 차례를 끝낸다. 사람이 lophn browser에서 로그인하면 partition에 남아 다음 차례가 쓴다.
-8. **두 process의 수명 맞추기.** (구현, 일부) 탭 표는 core 메모리에, page는 창에 있다. page가 탭 닫기 말고 없어질 때(상한, page를 든 창이 닫힘) 창이나 main이 `closed`를 보고해 core 표에서 탭을 뺀다. 앱이 끝나 알릴 길이 없으면 shell 없이 온 browser 호출이 그 탭을 빼고 `not_found`를 답한다.
+8. **두 process의 수명 맞추기.** (구현, 일부) 탭 표는 core 메모리에, page는 창에 있다. page가 탭 닫기 말고 없어질 때(상한, page를 든 창이 닫힘) 창이나 main이 `closed`를 보고해 core 표에서 탭을 뺀다. 앱이 끝나 알릴 길이 없으면 `/host-link`가 닫힐 때 core가 browser 탭을 모두 뺀다(전에는 shell 없이 온 browser 호출이 그 탭을 뺐다).
    - 하지 않았다: core가 다시 떠서 표가 사라졌을 때 shell main이 `core_epoch`로 agent page를 모두 놓는 것. 지금은 주인 없는 page가 창이 닫히거나 상한에 밀릴 때까지 남고, layout에 자리가 있던 탭은 사람의 탭으로 남는다.
 
 범위는 `tab open --url`로 연 browser 탭이다. `browser.*`가 같이 다루는 preview 탭과 artifact 탭은 앱·artifact view registry의 `<webview>`로 남고 지금 규칙(그 workspace가 mount되어 있어야 한다)을 따른다. 6번의 오류 문장은 이 둘에도 적용해 "그 workspace를 띄운 창이 없다, 사람에게 올려라"를 model이 받는다. 뺀 이유는 하지 않는 것에 적는다.

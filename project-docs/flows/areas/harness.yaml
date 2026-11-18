@@ -244,9 +244,9 @@ flows:
       - "shell main이 GET /host-link(subprotocol lophn.host-link.1)로 upgrade를 건다. Gateway와 같은 gate다: 헤더가 한도를 넘거나 host가 허용되지 않으면 invalid_input, 자격이 없으면 unauthorized, Origin이 있으면 forbidden이다. 사람 자격(actor user)이 아니면 forbidden, GET이 아니거나 subprotocol이 없으면 invalid_input으로 거절한다. event 연결 한도(사람 token의 Gateway·CLI watch 몫)는 쓰지 않는다. 연결은 한 번에 하나라 새 연결이 오면 옛 연결을 닫는다(아래 닫힘과 같다)"
       - "첫 frame은 hello {version 1, workspaces}다. 받으면 queue가 그 연결에 붙고(attached. 연결이 열려 있는 동안만이다) 보이는 workspace에 닿는 대기 요청을 request frame으로 바로 밀며, 새 요청도 들어오는 대로 민다. 붙으면 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지우고 onOpen 처리기를 부른다(다시 붙을 때마다). 요청은 tab_open·tab_close·tab_show·browser_call과 연결 요청(page_stream·page_read·page_input·page_control)이다. browser_call은 workspace 없이 간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). 터미널 탭(target terminal)은 core가 이미 연 터미널에 붙는 탭이다"
       - "연결이 열린 동안 1초마다 기한이 지난 호출을 거두고, 다시 대기한 요청(retry, 빌린 지 10초가 지난 탭 요청)을 다시 민다. 결과를 기다리는 요청(browser_call, browser tab_open, 연결 요청)은 두 번 실행하면 안 되어 다시 밀지 않는다. 연결 요청은 연결이 없으면 넣지 않고 바로 unavailable이고 기한(page_input 10초, 나머지 5초)이 지나도 unavailable이다"
-      - "visible은 보이는 workspace를 바꾼다. response는 요청을 끝내거나(done) 맨 뒤로 보내 다시 대기시킨다(retry). done이면 결과를 기다리던 쪽(browser/* route, browser 탭 열기)에 output을 넘기고(content는 성공, error는 실패), output이 없으면 그쪽은 unavailable로 끝난다. 없는 id면 아무것도 하지 않는다. 연결이 닫히면 그 연결로 빌려 간 결과 요청(browser_call, browser tab_open)과 모든 연결 요청을 unavailable로 거두고(연결 요청은 다음 연결로 가지 않는다), 빌려 간 탭 요청은 바로 다시 대기시키고, onClose 처리기(hook 설치 물음의 거절)를 부른다. server가 내려갈 때 1001로 닫는다"
+      - "visible은 보이는 workspace를 바꾼다. response는 요청을 끝내거나(done) 맨 뒤로 보내 다시 대기시킨다(retry). done이면 결과를 기다리던 쪽(browser/* route, browser 탭 열기)에 output을 넘기고(content는 성공, error는 실패), output이 없으면 그쪽은 unavailable로 끝난다. 없는 id면 아무것도 하지 않는다. 연결이 닫히면 그 연결로 빌려 간 결과 요청(browser_call, browser tab_open)과 모든 연결 요청을 unavailable로 거두고(연결 요청은 다음 연결로 가지 않는다), 빌려 간 탭 요청은 바로 다시 대기시키고, browser 탭을 모두 표에서 빼고(그 page는 host가 들어 host가 끝나면 닫혔다고 알릴 길이 없다. 멀리서 보는 목록이 바뀐다), onClose 처리기(hook 설치 물음의 거절)를 부른다. server가 내려갈 때 1001로 닫는다"
       - "report는 host 탭의 browser 상태(url, title, loading)를 적거나, closed면 탭을 표에서 뺀다(이후 browser/*는 not_found). closed는 사람이 탭을 닫거나 browser 탭의 page가 상한(창마다 12개)이나 page를 든 창의 닫힘으로 없어졌을 때 온다. 모르는 탭이면 아무것도 하지 않는다. 그 밖의 frame(page_frame, page_state)은 그 종류의 onFrame 처리기(한 종류에 하나)에 넘기고 처리기가 없으면 버린다"
-      - "frame이 JSON이 아니거나 schema에 맞지 않거나, 첫 frame이 hello가 아니거나 hello가 다시 오거나, binary frame이면 1008로 닫는다. 16 MiB를 넘는 frame은 ws가 1009로 닫는다. 보내는 버퍼가 1 MiB를 넘으면 1013으로 닫는다"
+      - "frame이 JSON이 아니거나 schema에 맞지 않거나, 첫 frame이 hello가 아니거나 hello가 다시 오거나, binary frame이면 1008로 닫는다. 다만 hello 뒤에 온 page_frame이 schema에 맞지 않으면(그림 상한을 넘음, 크기 0) 그 frame만 버리고 warn log를 남기고 연결을 둔다(진행 중인 browser 호출이 끝나지 않게). 16 MiB를 넘는 frame은 ws가 1009로 닫는다. 보내는 버퍼가 1 MiB를 넘으면 1013으로 닫는다"
     outcomes:
       - id: open
         when: "hello를 받아 queue가 연결에 붙었다"
@@ -278,8 +278,11 @@ flows:
       - id: bad-frame
         when: "frame이 틀렸거나 순서가 틀려(hello 앞의 다른 frame, 두 번째 hello) 1008로 닫았다"
         observe: [response]
+      - id: bad-page-frame
+        when: "hello 뒤의 page_frame이 schema에 맞지 않아 그 frame만 버렸다. 연결과 진행 중인 요청은 그대로다"
+        observe: ["log:host-link page_frame_invalid"]
       - id: closed
-        when: "연결이 닫혔다(끊김, 새 연결, 느린 host, 내려감). 그 연결로 나간 결과 요청과 모든 연결 요청은 unavailable로 끝나고 빌려 간 탭 요청은 다시 대기한다"
+        when: "연결이 닫혔다(끊김, 새 연결, 느린 host, 내려감). 그 연결로 나간 결과 요청과 모든 연결 요청은 unavailable로 끝나고 빌려 간 탭 요청은 다시 대기하며 browser 탭은 표에서 빠진다"
         observe: [response]
     crosses_process: false
     risk: [permission, secret]
@@ -452,7 +455,7 @@ flows:
       - "browser 탭의 tab_open은 탭마다 offscreen 창 하나(browser partition, sandbox)를 만들고 frame rate를 10으로 둔다. 빈 page를 먼저 연 뒤 debugger를 emulation owner로 붙여 1280x800 크기를 주고(아무것도 load하지 않은 page에 보내면 process가 죽는다. main frame이 옮길 때마다 다시 건다: 안 걸면 screencast가 1x1 창을 찍고 멈춘다) opened로 답하고 첫 주소를 load한다. 첫 주소와 page 안의 main frame 이동·redirect는 navigation 규칙을 지난다(첫 주소가 못 지나면 빈 page). popup과 webview 붙이기는 거절한다. 이미 page가 있는 탭이면 다시 만들지 않는다"
       - "page가 12개면 가장 오래 쓰지 않은 page(browser_call과 열기가 쓴 때)를 닫는다. url·title·loading이 바뀌면 report를, page가 닫히거나 renderer가 죽으면 report closed를 보내고 그 탭의 take control과 stream을 지운다"
       - "tab_close는 page를 닫고 done, tab_show는 done이다. browser_call은 desktop과 같은 driver로 돌린다(browser-call-run). page_stream·page_read·page_input·page_control은 desktop과 같은 stream이 받는다. 연결이 다시 열리면 stream을 다 끈다(core가 lease마다 다시 켠다)"
-      - "/host-link가 60초 넘게 닫혀 있으면 core가 없는 것으로 보고 끝난다. second-instance로 `--quit`이 오면 끝난다. `--page-host`·`--core`가 아닌 그 밖의 시작(사람이 앱을 누름)은 그 시작이 lock 요청에 실어 보낸 env에 display가 있으면 page host 자신의 data root(`--home`과 LOPHN_HOME)로 desktop 앱을 다시 띄우게 해 두고 끝난다. 그 env에서는 화면 값만 가져온다(page host의 env에는 display가 없다). 그 시작의 argv와 LOPHN_HOME은 쓰지 않는다(Chromium이 switch를 다시 늘어놓아 `--home` 값이 떨어질 수 있다). display가 없는 시작이면 page host가 남는다. 이미 떠 있는 desktop 앱이 second-instance로 `--page-host`를 받으면 `--agent-window`와 같게 읽는다"
+      - "core 연결은 desktop 앱과 같아 core가 죽으면 다시 띄운다(선 지 60초 안에 죽는 일이 5번 이어지면 그만 띄운다). core가 내려간다고 알렸으면(core stop) 다시 띄우지 않는다. /host-link가 60초 넘게 닫혀 있으면 core가 없는 것으로 보고 끝난다. second-instance로 `--quit`이 오면 끝난다. `--page-host`·`--core`가 아닌 그 밖의 시작(사람이 앱을 누름)은 그 시작이 lock 요청에 실어 보낸 env에 display가 있으면 page host 자신의 data root(`--home`과 LOPHN_HOME)로 desktop 앱을 다시 띄우게 해 두고 끝난다. 그 env에서는 화면 값만 가져온다(page host의 env에는 display가 없다). 그 시작의 argv와 LOPHN_HOME은 쓰지 않는다(Chromium이 switch를 다시 늘어놓아 `--home` 값이 떨어질 수 있다). display가 없는 시작이면 page host가 남는다. 이미 떠 있는 desktop 앱이 second-instance로 `--page-host`를 받으면 `--agent-window`와 같게 읽는다"
     outcomes:
       - id: opened
         when: "browser 탭 열기에 offscreen page를 만들었다"
@@ -471,7 +474,7 @@ flows:
         when: "browser가 아닌 탭 열기가 왔다(보이는 workspace가 없어 오지 않는다)"
         observe: [response]
       - id: core-gone
-        when: "/host-link가 60초 넘게 닫혀 있었다"
+        when: "/host-link가 60초 넘게 닫혀 있었다(core stop, 또는 다시 띄운 core가 이어 죽어 그만 띄움)"
         observe: ["process:page host가 끝난다", "log:core is gone; quitting"]
       - id: yielded
         when: "page host가 떠 있는데 display가 있는 env에서 사람이 lophn 앱을 눌렀다"
@@ -2054,9 +2057,13 @@ flows:
       - "PageViewChanged {tab, seq}를 subject page:<tab>로 Bus에 낸다. frame은 싣지 않고 보는 쪽이 page_view/snapshot을 다시 읽는다"
       - "browser 탭이 표에 생기거나 빠지거나 renderer가 그 상태(url·title·loading)를 알리면 StateChanged browser_pages를 내고, 표에서 빠진 탭의 lease·frame·입력 key를 지운다"
       - "lease는 5초마다 기한(30초)을 본다. 마지막 lease가 끝나면 그 탭의 frame을 지우고 host에 page_stream {on: false}를 보낸다. 연결이 다시 열리면 살아 있는 lease마다 page_stream {on: true}를 다시 보낸다"
+      - "같은 5초마다 멀리서 잡은 탭(page-view-control)을 본다. 잡은 기기의 그 탭 lease가 없거나(기한이 지남) 그 기기가 더는 다룰 수 없으면(명단에서 빠짐, 터미널 입력 허락을 거둠) host에 page_control {held: false}를 보내 agent의 쓰기 동작을 다시 열고 잡은 기록을 지운다. page_state의 held가 false로 오면(그 기계의 화면에서 놓음) 잡은 기록만 지운다"
     outcomes:
       - id: changed
         observe: [event:PageViewChanged]
+      - id: hold-released
+        when: "멀리서 잡은 기기의 lease가 끝났거나 그 기기가 더는 다룰 수 없어 core가 놓았다"
+        observe: [request:shell]
       - id: dropped
         when: "lease가 없거나 표에 없는 탭의 frame·상태다(버린다)"
       - id: listed
@@ -2083,6 +2090,7 @@ flows:
     steps:
       - "core 표의 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null. 주인 session마다 한 번 읽어 둔다)를 낸다. url·title은 redaction을 지난다. renderer가 아직 상태를 알리지 않은 탭은 url·title이 빈 글이고 loading이 true다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
       - "control은 부른 principal이 page를 다룰 수 있는가다(기기의 터미널 입력 허락). 폰의 Pages와 다른 기계 창의 Pages 탭은 이것으로 열기 칸을 그리거나 감춘다"
+      - "탭마다 held_by는 멀리서 잡은 기기다: 부른 principal 자신이면 you, 다른 기기면 그 종류(phone, computer), 멀리서 잡지 않았거나 종류를 모르면 null이다. 그 기계의 화면에서 잡은 것은 여기 없다(snapshot의 held). 화면은 아직 그리지 않는다"
     outcomes:
       - id: ok
         observe: [response, "screen:phone-pages", "screen:shell-machine-pages"]
@@ -2152,11 +2160,15 @@ flows:
       - "탭에 첫 lease가 생기면 core가 host에 page_stream {on: true}를 연결 요청으로 보낸다(켜고 끄는 요청은 탭마다 한 줄로 서서 순서가 뒤집히지 않는다). host는 지금 frame 하나와 page_state를 보내고, 그 뒤로 page가 바뀔 때마다 page_frame을 민다(page-view-frame). host에 닿지 않아도 lease는 남아 연결이 다시 열리면 켠다"
       - "host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖의 code는 unavailable로 준다"
       - "off이거나 기한이 지나 마지막 lease가 끝나면 그 탭의 frame을 지우고 page_stream {on: false}로 끈다. 보는 쪽이 없으면 host는 frame을 만들지 않는다. off는 탭이 없어도 성공이다"
+      - "off한 principal이 그 탭을 멀리서 잡고 있었으면 host에 page_control {held: false}를 바로 보낸다(폰에서 뒤로 가거나 앱을 내림, desktop 탭을 닫거나 창이 보이지 않음). 보는 쪽은 따로 돌려주지 않는다"
     outcomes:
       - id: watching
         observe: [event:PageViewChanged, request:shell, response]
       - id: stopped
         when: "on이 false이거나 lease 기한이 지났다"
+        observe: [request:shell, response]
+      - id: hold-released
+        when: "on이 false이고 이 principal이 그 탭을 멀리서 잡고 있었다. host에 page_control {held: false}가 간다"
         observe: [request:shell, response]
       - id: not_found
         code: not_found
@@ -2227,8 +2239,8 @@ flows:
       - packages/protocol/lophn-agent/page-view.ts
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
-      - "사람 자격이어야 하고 기기 device:<id>의 터미널 입력 허락이 켜져 있어야 한다. lease는 없어도 된다. core 표의 browser 탭이 아니면 not_found다"
-      - "core가 host에 page_control {tab, held}를 연결 요청으로 보낸다. 그 기계의 [Take control]·[Hand back]과 같은 상태라 가져온 동안 agent의 쓰기 동작(act, navigate, evaluate)이 conflict이고 그 기계의 화면에도 잡혀 있음이 보인다. host가 page_state로 바뀐 held를 알려 보는 중이면 PageViewChanged가 난다. host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖은 unavailable이다"
+      - "사람 자격이어야 하고 기기 device:<id>의 터미널 입력 허락이 켜져 있어야 한다. core 표의 browser 탭이 아니면 not_found다. 가져오기(held true)는 이 principal이 그 탭을 보고 있어야 한다(lease. 없으면 conflict). 돌려주기는 lease가 없어도 되고 다룰 수 있는 기기 누구나 한다(다른 기기가 잡은 것도)"
+      - "core가 host에 page_control {tab, held}를 연결 요청으로 보낸다. 성공하면 core가 누가 잡았는지 메모리에 들고(page_view/list의 held_by), 잡은 기기의 lease가 끝나면 놓는다(page-view-watch, page-view-frame). 그 기계의 [Take control]·[Hand back]과 같은 상태라 가져온 동안 agent의 쓰기 동작(act, navigate, evaluate)이 conflict이고 그 기계의 화면에도 잡혀 있음이 보인다. host가 page_state로 바뀐 held를 알려 보는 중이면 PageViewChanged가 난다. host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖은 unavailable이다"
     outcomes:
       - id: held
         observe: [event:PageViewChanged, request:shell, response, "screen:shell-machine-page-held"]
@@ -2238,7 +2250,7 @@ flows:
         observe: [response]
       - id: host-rejected
         code: conflict
-        when: "host가 conflict로 거절했다(그대로 준다)"
+        when: "가져오려는 principal이 그 탭을 보고 있지 않다(lease가 없다), 또는 host가 conflict로 거절했다(그대로 준다)"
         observe: [response]
       - id: unavailable
         code: unavailable

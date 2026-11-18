@@ -887,6 +887,7 @@ export const hostQueueWiring: WiringFactory = () => {
         // 입력 허락은 remote wiring이 늦게 채운다. 채워지지 않았으면 아무도 다루지 못한다.
         mayControl: (principal) =>
           ctx.peek.terminalInputGrant?.(principal) ?? false,
+        deviceKind: (principal) => ctx.peek.deviceKind?.(principal) ?? null,
         // 사람 token이 연 것처럼 연다: 주인 "person", home workspace, shell이나 page host가 없으면 띄운다.
         async open(who, url) {
           const opened = await handlers.open(who, {

@@ -169,7 +169,7 @@ DetachedItem { tab, bounds }
   - 창이 요청을 ack하면 shell main이 page가 붙기(guest의 dom-ready, bind)를 기다렸다가 core에 `done`으로 답한다. 그래서 첫 응답이 기한보다 늦는 site는 열기가 실패한다. 기한은 shell이 붙어 있으면 10초, 앱을 띄워야 했으면 30초(앱 시작, 창 열기, page까지 한 번에)다. 실패는 모두 `unavailable`이고 고정 문장이다(앱을 띄우지 못함, 시간 안에 page가 시작하지 않음, 받을 창을 만들지 못함, page를 둘 창이 답하기 전에 닫힘, 도중에 shell이 떨어짐). 실패하면 core가 표에서 탭을 빼고 page가 만들어졌을지 모르는 창에는 닫기를 보낸다. 탭이 남지 않는다.
   - shell이 없으면(앱이 꺼져 있음) core가 앱을 띄운다. 띄우는 조건과 한 번에 하나만 띄우는 규칙, 실패 뒤 쉬는 시간은 `platform.md` "core 수명"이다. 띄운 앱은 첫 창을 focus 없이 열고(`--agent-window`), 이미 떠 있는 앱은 창이 없을 때만 같은 창을 연다.
   - 이 모든 길이 사람이 하던 일을 끊지 않는다. 창을 앞으로 가져오거나 focus하지 않고 선택도 바꾸지 않는다.
-- 사람이 host 탭을 닫거나 layout에서 사라지면 renderer가 `shell:surface-report`로 `closed`를 알리고 main이 `/host-link`의 `report` frame으로 core 표에서 뺀다. browser 탭은 page가 탭 닫기 말고 다른 이유로 없어져도 같다: 상한으로 놓았을 때는 창이, 그 page를 든 창이 닫혔을 때는 main이 알린다(앱을 끌 때는 알릴 길이 없어 core가 shell 없이 온 browser 호출에서 그 탭을 빼고, 아래 not_found를 답한다). 그 뒤 그 탭에 온 `browser/*`는 없는 탭, 닫힌 탭, 남의 탭에 같은 `not_found` 한 문장으로 답한다. 이 문장은 model에 그대로 가서 agent가 다시 열게 한다. state(url, title, loading)와 bind는 창 단위로 알리므로 그 workspace가 mount되지 않은 동안에도 간다. agent가 연 browser 탭의 상태는 `browser-tab.md`다.
+- 사람이 host 탭을 닫거나 layout에서 사라지면 renderer가 `shell:surface-report`로 `closed`를 알리고 main이 `/host-link`의 `report` frame으로 core 표에서 뺀다. browser 탭은 page가 탭 닫기 말고 다른 이유로 없어져도 같다: 상한으로 놓았을 때는 창이, 그 page를 든 창이 닫혔을 때는 main이 알린다(앱을 끌 때는 알릴 길이 없어 core가 `/host-link`가 닫힐 때 browser 탭을 모두 빼고, 그 뒤 호출에 아래 not_found를 답한다). 그 뒤 그 탭에 온 `browser/*`는 없는 탭, 닫힌 탭, 남의 탭에 같은 `not_found` 한 문장으로 답한다. 이 문장은 model에 그대로 가서 agent가 다시 열게 한다. state(url, title, loading)와 bind는 창 단위로 알리므로 그 workspace가 mount되지 않은 동안에도 간다. agent가 연 browser 탭의 상태는 `browser-tab.md`다.
 
 ### 빠른 실행
 

@@ -1,7 +1,7 @@
 id: worker-env-points-at-real-root
 title: lead와 worker의 shell이 사람의 `LOPHN_HOME=~/.lophn`을 물려받아, data root를 잃은 개발 앱이 사람의 root로 갔다
 kind: mistake
-status: open
+status: fixed
 topic: mistakes
 modules: [packages/shell/main, tools]
 now: |
@@ -15,3 +15,7 @@ cause: |
   worker 지침은 "실제 `~/.lophn`은 절대 건드리지 않는다"만 말하고, shell이 이미 그 경로를 env로 들고 있다는 것과 data root를 놓친 code가 그 env로 떨어진다는 것을 말하지 않았다. lead의 확인 brief도 data root를 `.dev-data/` 아래에 두라고만 했다.
 prevent: |
   prompt.py와 orchestrate skill에 위 문장을 더한다. 제품 code는 data root를 env에서 읽기 전에 명시 값을 늘 넘기게 하고(이번 fix), 그 경계에 test를 둔다.
+closed: |
+  제품 쪽: page host가 desktop 앱을 다시 띄울 때 인자와 env를 자기 쪽에서 만든다(`packages/shell/main/page-host/relaunch.ts`의 `relaunchOf`). data root는 page host 자신의 것(`--home`과 `LOPHN_HOME`)이고 누른 시작에서는 display 값만 가져온다.
+  지침 쪽: worker prompt(`project-docs/plan/tools/lead/prompt.py`)와 orchestrate skill(core 확인 줄)이 "shell은 `LOPHN_HOME=~/.lophn`을 물려받는다. `boot.sh` 밖에서 Electron·core·CLI를 띄우는 명령은 `LOPHN_HOME`을 `.dev-data/<id>/` 아래로 정한다"를 싣는다.
+guard: packages/shell/main/page-host/relaunch_test.ts(제품 쪽). 지침 쪽은 check가 없다

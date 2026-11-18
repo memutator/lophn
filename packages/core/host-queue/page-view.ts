@@ -2,6 +2,8 @@
 // lease가 있는 탭만 host가 frame을 밀고(`page_stream`), core는 최신 하나만 두고 내용 없는 `PageViewChanged`로 알린다. 보는 쪽이
 // snapshot으로 frame을 읽어 가면 host에 `page_read`를 보내고, host는 그것이 올 때까지 다음 frame을 보내지 않는다.
 // 대상은 core 표의 browser 탭이다. 보는 것은 사람 자격 모두, 다루는 것(input·control·open)은 터미널 입력을 허락받은 기기다.
+// 멀리서 잡은 것(take control)은 잡은 기기의 그 탭 lease에 묶인다: lease가 끝나거나(끄기, 기한) 그 기기가 다룰 수 없게 되면(명단에서
+// 빠짐, 허락을 거둠) core가 host에 놓으라고 보낸다. 그렇지 않으면 보는 쪽이 떠난 뒤 agent가 누군가 그 page를 다시 열 때까지 멈춘다.
 import {
   type Clock,
   err,
@@ -42,6 +44,8 @@ export type PageViewDeps = {
   agentName(session: string): string | null;
   // 이 principal이 page를 다룰 수 있다(터미널 입력 허락).
   mayControl(principal: string): boolean;
+  // 기기 principal의 종류. 모르면 null이다(목록의 잡은 쪽).
+  deviceKind(principal: string): "phone" | "computer" | null;
   // 사람이 이 기계에 browser 탭을 연다.
   open(who: Who, url: string): Promise<Result<{ tab: Id<"tab"> }>>;
   // page가 정한 url·title이 보는 쪽에 가기 전에 지나는 redaction. 알려진 값을 아직 다 모르면 null이다.
@@ -102,6 +106,8 @@ export function createPageView(deps: PageViewDeps) {
   // 키는 `<principal>\n<tab>`이다.
   const leases = new Map<string, { tab: Id<"tab">; expiresAt: number }>();
   const views = new Map<Id<"tab">, View>();
+  // 멀리서 잡은 탭과 잡은 principal. 그 기계의 화면에서 잡은 것은 core를 지나지 않아 여기 없다.
+  const holders = new Map<Id<"tab">, string>();
   // host에 켜 달라고 한 탭(성공한 것만). 연결이 닫히면 host가 잃으므로 비운다.
   const sent = new Set<Id<"tab">>();
   const flying = new Map<Id<"tab">, Promise<Result<unknown>>>();
@@ -143,11 +149,21 @@ export function createPageView(deps: PageViewDeps) {
     return call;
   }
 
+  // 잡은 principal이 그 탭을 더 보지 않거나 다룰 수 없으면 host에 놓으라고 보낸다.
+  function letGo(tab: Id<"tab">) {
+    const holder = holders.get(tab);
+    if (holder === undefined) return;
+    if (leases.has(`${holder}\n${tab}`) && deps.mayControl(holder)) return;
+    holders.delete(tab);
+    void deps.call({ kind: "page_control", payload: { tab, held: false } });
+  }
+
   function drop(tab: Id<"tab">) {
     for (const [key, lease] of leases) {
       if (lease.tab === tab) leases.delete(key);
     }
     views.delete(tab);
+    holders.delete(tab);
     keys.delete(tab);
     sent.delete(tab);
   }
@@ -201,7 +217,14 @@ export function createPageView(deps: PageViewDeps) {
         if (shown === null) {
           return err({ code: "unavailable" as const, message: UNCHECKED });
         }
-        pages.push({ tab: found.tab, ...shown });
+        const holder = holders.get(found.tab);
+        const held_by =
+          holder === undefined
+            ? null
+            : holder === who.principal
+              ? ("you" as const)
+              : deps.deviceKind(holder);
+        pages.push({ tab: found.tab, ...shown, held_by });
       }
       return ok({ pages, control: deps.mayControl(who.principal) });
     },
@@ -251,6 +274,7 @@ export function createPageView(deps: PageViewDeps) {
       if (!input.on) {
         leases.delete(key);
         if (!wanted(tab)) views.delete(tab);
+        letGo(tab);
         void sync(tab);
         return ok({});
       }
@@ -286,19 +310,29 @@ export function createPageView(deps: PageViewDeps) {
       return done.ok ? ok({}) : err(passed(done.error));
     },
 
+    // 잡기는 그 탭을 보고 있어야 한다(잡은 것이 그 lease에 묶인다). 놓기는 다룰 수 있는 기기 누구나 한다.
     async control(
       who: Who,
       input: { tab: Id<"tab">; held: boolean },
     ): Promise<Result<Record<string, never>>> {
       if (who.actor !== "user") return notUser();
       if (!deps.mayControl(who.principal)) return mayNot();
-      const { tab } = input;
+      const { tab, held } = input;
       if (page(tab) === null) return gone();
+      if (held && !leases.has(`${who.principal}\n${tab}`)) {
+        return err({
+          code: "conflict" as const,
+          message: "Watch the page before taking control of it.",
+        });
+      }
       const done = await deps.call({
         kind: "page_control",
-        payload: { tab, held: input.held },
+        payload: { tab, held },
       });
-      return done.ok ? ok({}) : err(passed(done.error));
+      if (!done.ok) return err(passed(done.error));
+      if (held) holders.set(tab, who.principal);
+      else holders.delete(tab);
+      return ok({});
     },
 
     // 같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다).
@@ -319,6 +353,8 @@ export function createPageView(deps: PageViewDeps) {
     },
 
     state(frame: HostFrameOf<"page_state">): void {
+      // 그 기계의 화면에서 놓았다.
+      if (!frame.held) holders.delete(frame.tab as Id<"tab">);
       change(frame.tab as Id<"tab">, (view) => {
         view.painting = frame.painting;
         view.agent = frame.agent;
@@ -326,7 +362,7 @@ export function createPageView(deps: PageViewDeps) {
       });
     },
 
-    // 기한이 지난 lease를 거둔다(주기로 부른다).
+    // 기한이 지난 lease를 거두고, 더 보지 않거나 다룰 수 없게 된 기기가 잡은 것을 놓는다(주기로 부른다).
     expire(): void {
       const now = deps.clock.nowMs();
       const touched = new Set<Id<"tab">>();
@@ -340,6 +376,7 @@ export function createPageView(deps: PageViewDeps) {
         if (!wanted(tab)) views.delete(tab);
         void sync(tab);
       }
+      for (const tab of [...holders.keys()]) letGo(tab);
     },
 
     // browser 탭 표가 바뀌었다. 표에서 빠진 탭의 lease·frame·key와 남은 탭이 없는 session의 이름을 지운다.
@@ -352,6 +389,7 @@ export function createPageView(deps: PageViewDeps) {
       }
       const all = new Set([
         ...views.keys(),
+        ...holders.keys(),
         ...sent,
         ...keys.keys(),
         ...[...leases.values()].map((lease) => lease.tab),

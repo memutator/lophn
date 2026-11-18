@@ -167,8 +167,12 @@ files:
       - page-view-snapshot:forbidden
       - page-view-watch:forbidden
       - page-view-watch:stopped
+      - page-view-watch:hold-released
       - page-view-frame:dropped
-    note: "createPageView 직접 호출(가짜 연결 요청, 수동 clock). agent 자격(입력 허락이 있는 principal이라도)과 허락 없는 기기의 input·control·open은 forbidden이고 host에 요청이 가지 않는다. agent 자격은 자기 session의 탭과 다른 session의 탭 모두 list·snapshot·watch가 forbidden이다. 마지막 lease를 끄거나 기한이 지나면 page_stream {on:false}가 가고 lease 없는 frame은 남지 않는다"
+      - page-view-frame:hold-released
+      - page-view-control:host-rejected
+      - page-view-list:ok
+    note: "createPageView 직접 호출(가짜 연결 요청, 수동 clock). agent 자격(입력 허락이 있는 principal이라도)과 허락 없는 기기의 input·control·open은 forbidden이고 host에 요청이 가지 않는다. agent 자격은 자기 session의 탭과 다른 session의 탭 모두 list·snapshot·watch가 forbidden이다. 마지막 lease를 끄거나 기한이 지나면 page_stream {on:false}가 가고 lease 없는 frame은 남지 않는다. 보지 않는 기기는 잡지 못하고(conflict), 멀리서 잡은 기기의 lease가 기한으로 끝나거나 보기를 끄거나 허락을 잃으면 page_control {held:false}가 가며 목록의 held_by가 지워진다(agent 쓰기가 다시 되는 host 쪽은 stream_test)"
 
   - path: packages/core/host-queue/phone_test.ts
     covers:
@@ -414,7 +418,10 @@ files:
       - host-phone-drive:unsupported
       - host-phone-drive:not-showing
       - host-tab-show:invalid_input
-    note: "createTabHandlers 직접 호출. phone 탭은 그 앱 workspace의 session과 사람 token만 열고, 남의 session이 연 phone 탭은 없는 탭과 같은 not_found이며 폰에 아무것도 묻지 않는다. 기기는 메모리 view 표(createAppViews)에서 기기 owner의 그 앱 preview view만 고르고 live view·shell owner의 view·다른 앱의 view는 고르지 않으며, preview view가 없으면 폰에 묻지 않고 unavailable이다. 정상 경로(open, snapshot 글과 redaction, click의 node, JPEG screenshot, read)는 가짜 phoneLink로 본다. fill_login은 없는 login id가 not_found이고 queue 항목에 login id만 있으며 username은 metadata의 글로 fill이 되고 결과에 filled가 붙는다. browser 결과의 알려진 secret 값은 지워진다. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖. browser 탭 열기는 workspace를 띄운 창 없이도 shell에 가고 page가 붙어야 성공하며 기한이 지나면 unavailable에 탭이 남지 않는다. shell이 없으면 한 번만 띄우고 붙어서 bind되면 성공하고, 30초 안에 붙지 않거나 spawn이 실패하면 같은 시도가 함께 unavailable이며 5분은 다시 띄우지 않고 바로 실패한다. 앱이 끝나 shell이 없으면 browser 탭은 표에서 빠지고 없는 탭과 같은 not_found 문장이다. preview·artifact 탭은 shell이 없어도 띄우지 않는다"
+      - page-view-input:forbidden
+      - page-view-control:forbidden
+      - page-view-open:forbidden
+    note: "page_view route는 hostQueueWiring을 실제로 build해 dispatchHttp로 부른다: 터미널 입력 허락(ctx.peek.terminalInputGrant)이 없는 기기의 input·control·open과 agent 자격의 page_view/* 모두 forbidden이다. 나머지는 createTabHandlers 직접 호출. phone 탭은 그 앱 workspace의 session과 사람 token만 열고, 남의 session이 연 phone 탭은 없는 탭과 같은 not_found이며 폰에 아무것도 묻지 않는다. 기기는 메모리 view 표(createAppViews)에서 기기 owner의 그 앱 preview view만 고르고 live view·shell owner의 view·다른 앱의 view는 고르지 않으며, preview view가 없으면 폰에 묻지 않고 unavailable이다. 정상 경로(open, snapshot 글과 redaction, click의 node, JPEG screenshot, read)는 가짜 phoneLink로 본다. fill_login은 없는 login id가 not_found이고 queue 항목에 login id만 있으며 username은 metadata의 글로 fill이 되고 결과에 filled가 붙는다. browser 결과의 알려진 secret 값은 지워진다. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖. browser 탭 열기는 workspace를 띄운 창 없이도 shell에 가고 page가 붙어야 성공하며 기한이 지나면 unavailable에 탭이 남지 않는다. shell이 없으면 한 번만 띄우고 붙어서 bind되면 성공하고, 30초 안에 붙지 않거나 spawn이 실패하면 같은 시도가 함께 unavailable이며 5분은 다시 띄우지 않고 바로 실패한다. 앱이 끝나 shell이 없으면 browser 탭은 표에서 빠지고 없는 탭과 같은 not_found 문장이다. preview·artifact 탭은 shell이 없어도 띄우지 않는다"
 
   - path: packages/core/main/daemon/wiring/lophn-agent-registration_test.ts
     covers: [call-send:ambiguous-app]
@@ -692,7 +699,7 @@ files:
     note: "agent 자격으로 remote wiring이 등록하는 roster/*·machines/* memory route를 실제 dispatchHttp에 넣으면 모두 forbidden이고 handler에 닿지 않는다. 임시 data root와 file sqlite로 remote wiring의 build·start를 돌린다(listener·relay는 열지 않는다). 옛 host key와 push token 있는 폰 행에 서명 key data step을 돌린 뒤 기동하면 key·폰 행·push token·shell.devices가 그대로이고 자기 항목과 폰 항목이 서명된다. 다른 컴퓨터가 이 컴퓨터를 뺀 statement가 저장된 뒤의 기동은 명단·기기 행·shell.devices를 버리고 새 key와 새 id의 자기 항목 하나로 뜬다. 다른 기계 id로 뜨면(복사된 data root) 지금 id를 찍은 새 key 둘과 새 자기 항목으로 뜬다. roster/join은 wiring에 넘긴 dial의 메모리 전송으로 acceptRemote 하나(초대한 컴퓨터)에 붙고, 그 컴퓨터가 used로 거절하면 명단에 자기 항목 말고 아무것도 남지 않는다. viewer data step은 창 자리를 남기고 시작 기계를 start.json으로 옮긴 뒤 옛 key와 기계 목록을 지우고(두 번 돌아도 같다), 다른 기계가 쓴 목록은 옮기지 않고 지운다"
 
   - path: packages/core/server/host-link_test.ts
-    covers: [host-link:unauthorized, host-link:forbidden, host-link:closed]
+    covers: [host-link:unauthorized, host-link:forbidden, host-link:closed, host-link:bad-page-frame]
     note: "upgrade는 메모리 socket으로 server.ts의 acceptUpgrade를 지난다(server를 띄우지 않는다)"
 
   - path: packages/core/server/identity/registry_test.ts

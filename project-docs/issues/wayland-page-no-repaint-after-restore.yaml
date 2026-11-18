@@ -1,0 +1,16 @@
+id: wayland-page-no-repaint-after-restore
+title: Wayland에서 agent page를 든 창을 최소화했다 되살리면 그 page가 다시 그려지지 않는다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/shell/main]
+now: |
+  desktop 앱은 agent page(`<webview>` guest)를 든 창이 최소화되면 그 탭의 stream을 `blank`로, 되살아나면(`restore`, `show`) `wake`로 돌린다(`packages/shell/main/desktop/wiring/surface.ts`의 `windowHooks.created`). `wake`는 screencast를 다시 켜고(`packages/shell/main/browser/agent/stream.ts`의 `start`) `PAINT_WAIT_MS`(2초) 안에 frame이 없으면 `page_state {painting: false}`를 보낸다. 다시 그리게 하는 길은 이것뿐이다.
+  spike(Wayland session, ozone auto, `<webview>` guest를 1px로 걸쳐 둔 창)에서 `win.minimize()` 뒤 `win.restore()`는 guest를 다시 그리게 하지 못했다: `isMinimized()` false, `isVisible()` true인데 screencast frame 0, `captureScreenshot`은 2초 넘게 끝나지 않고 rAF 0이었다. `show()`, `focus()`, 걸쳐 두기를 껐다 켜도 같았고 세 번 되풀이해 같았다. `hide()` 뒤 `show()`는 돌아왔고, `--ozone-platform=x11`(XWayland)에서는 `restore()`로 돌아왔다. 제품 창에서는 아직 보지 않았다.
+impact: |
+  Wayland desktop에서 사람이 agent page를 든 lophn 창을 한 번 최소화했다 되살리면:
+  - 폰과 다른 기계의 Pages 화면이 그 page를 "창이 최소화되거나 숨겨져 그리지 않는다"고 계속 보이고 그림이 돌아오지 않는다. 창은 화면에 보이므로 사람은 무엇을 해야 하는지 모른다.
+  - 그 page에 대한 agent의 `lophn browser screenshot`이 8초 기다린 뒤 `unavailable`("The page was not drawn … Run `lophn tab show`")로 끝나고, `tab show`로도 풀리지 않는다.
+fix: |
+  - 작음(추천): Wayland에서 `restore`가 오면 창을 `hide()` 뒤 `show()`해 guest를 다시 그리게 한다(spike에서 돌아온 길). 잃는 것: 창이 한 번 깜빡인다. 사람이 눈으로 확인한 뒤 한다.
+  - 작음: Linux desktop 앱을 늘 `--ozone-platform=x11`로 띄운다. 잃는 것: Wayland의 HiDPI·입력 처리를 XWayland로 대신한다.

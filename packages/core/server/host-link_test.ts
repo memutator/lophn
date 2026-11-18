@@ -206,3 +206,61 @@ test("연결이 닫히면 진행 중인 browser_call 요청이 unavailable로 �
     tab,
   );
 });
+
+// 연결을 닫으면 그 연결로 간 agent의 browser 호출이 모두 SHELL_LOST로 끝난다. 그림 한 장이 틀린 것으로 그러면 안 된다.
+test("계약에 맞지 않는 page frame 한 장은 버리고 연결과 진행 중인 browser 호출은 그대로 둔다", async () => {
+  const clock = manualClock(1_700_000_000_000);
+  const queue = createHostQueue({
+    clock,
+    ids: createIdSource({ clock, random: seededRandom(1) }),
+  });
+  const link = createHostLink({ queue });
+  const frames: unknown[] = [];
+  link.onFrame("page_frame", (frame) => frames.push(frame));
+  const closed: number[] = [];
+  const sent: CoreFrame[] = [];
+  const peer = link.attach({
+    send: (text) => sent.push(JSON.parse(text)),
+    close: (code) => closed.push(code),
+    bufferedAmount: () => 0,
+  });
+  peer.receive(
+    JSON.stringify({ type: "hello", version: 1, workspaces: [HOME] }),
+  );
+  const browser = queue.callBrowser({
+    tab: "tab_x" as Id<"tab">,
+    view: "browser",
+    action: { kind: "snapshot" },
+  });
+  const pageFrame = (width: number) =>
+    JSON.stringify({
+      type: "page_frame",
+      tab: `tab_0${"1".repeat(25)}`,
+      seq: 1,
+      frame: {
+        media_type: "image/jpeg",
+        data_base64: "AAAA",
+        width,
+        height: 600,
+      },
+    });
+
+  peer.receive(pageFrame(0));
+  assert.deepEqual(closed, []);
+  assert.equal(link.attached(), true);
+  assert.deepEqual(frames, []);
+  peer.receive(pageFrame(800));
+  assert.equal(frames.length, 1);
+
+  const id = sent[0]!.id;
+  peer.receive(
+    JSON.stringify({
+      type: "response",
+      id,
+      result: "done",
+      output: { content: [{ type: "text", text: "ok" }] },
+    }),
+  );
+  const result = await browser.result;
+  assert.ok(result.ok);
+});

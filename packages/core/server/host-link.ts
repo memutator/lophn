@@ -76,6 +76,16 @@ type Connection = {
   tick: ReturnType<typeof setInterval> | undefined;
 };
 
+function pageFrame(text: string): boolean {
+  try {
+    return (
+      (JSON.parse(text) as { type?: unknown } | null)?.type === "page_frame"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function createHostLink(deps: {
   queue: HostLinkQueue;
   logger?: Logger;
@@ -151,7 +161,18 @@ export function createHostLink(deps: {
   function receive(connection: Connection, text: string) {
     if (connection.done) return;
     const parsed = parseHostFrame(text);
-    if (!parsed.ok) return end(connection, HOST_LINK_CLOSE_INVALID);
+    if (!parsed.ok) {
+      // 틀린 page frame 한 장(상한을 넘은 그림, 크기 0)은 그 frame만 버린다. 연결을 닫으면 진행 중인 agent의 browser 호출이 모두 끝난다.
+      if (connection.queue !== null && pageFrame(text)) {
+        deps.logger?.warn({
+          component: "host-link",
+          event: "page_frame_invalid",
+          fields: { bytes: text.length },
+        });
+        return;
+      }
+      return end(connection, HOST_LINK_CLOSE_INVALID);
+    }
     const frame = parsed.value;
     // 첫 frame은 `hello`이고 그 뒤로는 다시 오지 않는다.
     if ((connection.queue === null) !== (frame.type === "hello")) {

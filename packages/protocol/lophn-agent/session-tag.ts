@@ -1,6 +1,7 @@
 // session 표지: 앱이 process 목록에서 session의 process를 찾는 환경 변수다. 의존이 없어 terminal-host(PTY를 띄우는 process)도 쓴다.
 // 값은 session 목록의 `session`과 같다. core session은 `ses_…`(agent의 shell과 headless CLI), 터미널 탭은 `term:<탭>`이다.
-// secret이 아니다. 이 값을 읽어 "agent session 안이다"로 판단하는 code는 없다(`LOPHN_AGENT_SHELL`이 그 표시다).
+// secret이 아니다. CLI는 `term:`으로 시작하는 값으로 lophn 터미널 탭 안인지 본다(명단을 바꾸는 명령을 거절한다). agent session
+// 안인지는 이 값으로 보지 않는다(`LOPHN_AGENT_SHELL`이 그 표시다).
 export const SESSION_ENV_NAME = "LOPHN_SESSION_ID";
 export const TERMINAL_SESSION_PREFIX = "term:";
 

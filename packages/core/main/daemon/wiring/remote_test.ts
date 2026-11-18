@@ -151,6 +151,8 @@ async function boot(
       attention: { bindPush() {}, forgetReporter() {} },
       bus: { subscribe: () => () => undefined, publish() {} },
       allRoutes: [],
+      // shell main이 붙지 않았다: 살아 있는 shell capability가 없다.
+      peek: {},
     };
     const wiring = remoteWiring(options.dial);
     const built = await wiring.build!(ctx as never);
@@ -501,6 +503,46 @@ test("초대한 컴퓨터가 roster/join을 거절하면(used) 명단에 아무�
     booted.statements.map((each) => each.body.key),
     [booted.self?.key],
   );
+});
+
+// 다른 기계는 이 컴퓨터를 사람으로 받는다. wiring이 capability를 보지 않으면 사람의 CLI token이 그 기계의 사람 route에 닿는다.
+test("살아 있는 shell capability 없이 부른 machines/call·machines/watch는 forbidden이다", async () => {
+  const root = mkdtempSync(join(tmpdir(), "lophn-remote-machines-"));
+  mkdirSync(join(root, "remote"));
+  const db = open(root);
+  for (const step of [
+    ...DEVICES_SCHEMA_STEPS,
+    ...DEVICES_KIND_STEPS,
+    ...ROSTER_SCHEMA_STEPS,
+  ])
+    db.exec(step.sql);
+  db.close();
+  const answers: unknown[] = [];
+  await boot(root, `mch_0${"6".repeat(25)}`, seededRandom(41), {
+    during: async (memory) => {
+      const machine = `mch_0${"7".repeat(25)}`;
+      answers.push(
+        await memory.get("machines/call")!(PERSON, {
+          machine,
+          resource: "providers",
+          method: "disconnect",
+          body: {},
+          shell_capability: "cli",
+        }),
+        memory.get("machines/watch")!(PERSON, {
+          machine,
+          conditions: [],
+          shell_capability: "cli",
+        }),
+      );
+    },
+  });
+  for (const answer of answers) {
+    assert.equal(
+      (answer as { error?: { code: string } }).error?.code,
+      "forbidden",
+    );
+  }
 });
 
 // 같은 폰이 컴퓨터마다 다른 id로 pairing되어 있었다. 명단이 id를 접을 때 앱 sync log나 `shell.devices`가 옛 id에 남으면 그 폰의

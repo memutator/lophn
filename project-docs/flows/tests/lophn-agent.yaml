@@ -121,8 +121,8 @@ files:
     note: "실패 호출 evidence는 allow-list header와 판정 길만 남기고, Responses 최상위 error event는 code 달린 실패다(순수 invoke). 비일시 실패 호출의 기록은 model-call-run:failed"
 
   - path: packages/core/lophn-agent/providers/login_test.ts
-    covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:forbidden, provider-login-finish:unavailable, provider-login-finish:conflict]
-    note: "ChatGPT·Claude·Antigravity 구독 로그인을 core가 기다려 끝낸다. 고정 callback 교환, 계정 claim 없으면 secret과 provider를 남기지 않고, tier 없으면 onboarding 뒤 마지막 project로만 연결한다. 이미 이어진 id면 conflict이고 그 provider의 key·token은 그대로다"
+    covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:forbidden, provider-login-finish:unavailable, provider-login-finish:conflict, provider-login-finish:grant-lost]
+    note: "ChatGPT·Claude·Antigravity 구독 로그인을 core가 기다려 끝낸다. 고정 callback 교환, 계정 claim 없으면 secret과 provider를 남기지 않고, tier 없으면 onboarding 뒤 마지막 project로만 연결한다. 이미 이어진 id면 conflict이고 그 provider의 key·token은 그대로다. 기기가 시작한 device code 로그인은 발급자가 답하기 전에 그 기기의 허락이 꺼지면 아무것도 잇지 않고 secret을 남기지 않으며, 이 기계에서 시작한 같은 로그인은 잇는다"
 
   - path: packages/core/lophn-agent/providers/model-list_test.ts
     covers: [provider-models-refresh:refreshed, provider-models-refresh:unavailable, provider-models-refresh:invalid_input, provider-models-record:recorded]

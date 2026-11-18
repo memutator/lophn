@@ -143,7 +143,7 @@ export function FramePage({ onBack }: { onBack: () => void }) {
           right={<IconButton icon={Ellipsis} label="Menu" />}
         />
         <TopBar left="back" title="2026-w41.md" under="docs/reports · +38 −2" right={<IconButton icon={Monitor} label="Open" tone="muted" />} />
-        <TopBar left="close" title="Add a phone" />
+        <TopBar left="close" title="Add a device" />
         <TopBar left="none" title="New session" />
       </View>
       <Label end="Inbox · 3">Label</Label>

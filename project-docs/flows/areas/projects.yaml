@@ -2108,7 +2108,7 @@ flows:
     crosses_process: false
     risk: [sandbox, twice-fixed]
 
-  # ---- terminal bridge (shell main, coding agent의 $BROWSER) ----
+  # ---- terminal bridge (core, coding agent의 $BROWSER) ----
 
   - id: browser-bridge-start
     title: "앱을 켤 때 terminal bridge의 run 폴더와 socket을 준비한다"
@@ -2122,18 +2122,18 @@ flows:
       - packages/core/terminal-agents/bridge/bridge.ts
     docs: [architecture/browser-tab.md]
     steps:
-      - "app ready 뒤 single-instance lock을 가진 process만 run 폴더(shell-<pid>)를 만든다. 자기 pid나 죽은 pid의 폴더만 지운다"
+      - "data root의 instance lock을 잡은 core만 terminal-agents wiring의 prepare에서 run 폴더(core-<pid>)를 만든다. 같은 자리의 옛 실행 폴더는 자기 pid나 죽은 pid의 것만 지운다(옛 판 shell이 만들던 shell-<pid> 포함)"
       - "shim을 per-run 폴더에 쓴다(POSIX sh 0700, 공통 browser.js 0600, Electron Node로 실행)"
       - "bridge socket을 0600 file로 listen한다(Windows는 named pipe)"
       - "두 endpoint 경로가 ipcPathLimit을 넘으면 hook과 bridge를 끄고 로그 한 줄만 남긴다. 앱과 shell 탭은 그대로 뜬다"
-      - "앱을 끌 때 자기 폴더만 동기로 지운다"
+      - "core가 끝날 때(closeWork) 자기 폴더만 동기로 지운다"
     outcomes:
       - id: listening
-        observe: ["disk:run/shell-<pid>/"]
+        observe: ["disk:run/core-<pid>/"]
         when: "lock을 가졌고 폴더, shim, socket이 모두 준비됐다(bridge가 켜졌다)"
       - id: no-lock
-        observe: ["disk:run/shell-<pid>/"]
-        when: "single-instance lock을 얻지 못했다(두 번째 instance). 폴더를 만들지 않고 bridge를 끈다. 로그는 없다"
+        observe: ["disk:run/core-<pid>/"]
+        when: "data root의 instance lock을 얻지 못했다(두 번째 core). wiring까지 가지 않아 폴더를 만들지 않는다"
       - id: path-too-long
         observe: ["log:bridge"]
         when: "두 endpoint 경로가 ipcPathLimit을 넘는다. 폴더를 건드리지 않고 hook과 bridge를 끈다"
@@ -2147,8 +2147,8 @@ flows:
         observe: ["log:bridge"]
         when: "bridge socket listen이 실패했다, 또는 0600 chmod가 실패했다. 폴더와 hook은 남고 bridge만 꺼진다"
       - id: cleaned
-        observe: ["disk:run/shell-<pid>/"]
-        when: "앱을 끌 때 자기 폴더를 동기로 지운다(지우지 못하면 다음 실행이 정리한다)"
+        observe: ["disk:run/core-<pid>/"]
+        when: "core가 끝날 때 자기 폴더를 동기로 지운다(지우지 못하면 다음 실행이 정리한다)"
     crosses_process: false
     risk: [sandbox]
 

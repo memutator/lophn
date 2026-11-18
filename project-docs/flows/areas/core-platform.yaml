@@ -2567,9 +2567,10 @@ flows:
     entries: [route:machines/call]
     uses: [system:machine-links, system:remote-connection]
     boundary: [core-api, remote]
-    code: [packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/remote/host.ts, packages/core/remote/call.ts, packages/shell/main/desktop/wiring/machines.ts]
+    code: [packages/core/remote/machine-routes.ts, packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/remote/host.ts, packages/core/remote/call.ts, packages/shell/main/desktop/wiring/machines.ts]
     docs: [architecture/remote.md, architecture/approval.md]
     steps:
+      - "입력의 shell_capability가 이 core가 shell main에 준 살아 있는 capability여야 한다. 사람의 CLI token(actor user)은 이것이 없어 막힌다. capability는 빼고 넘긴다(다른 기계로 가지 않는다)"
       - "machine으로 명단의 다른 컴퓨터를 찾는다(이 컴퓨터는 없다)"
       - "그 컴퓨터의 link로 call frame {resource, method, body}를 보낸다. body는 그 route의 HTTP body 그대로다(command는 envelope). 한 link에 동시에 8개까지 가고 나머지는 기다린다"
       - "받는 host에서 이 call은 이 컴퓨터의 기기 항목으로 붙은 연결의 보통 call이다: actor user, principal device:<이 컴퓨터 id>, scope REMOTE_ALLOWED_ROUTES의 자격으로 같은 createRemoteCall과 authorize를 지난다(remote-connection). 넘긴 call만의 자격이나 거르기는 없고, machines/*가 목록 밖이라 넘긴 call을 다시 넘기지 못한다"
@@ -2593,6 +2594,10 @@ flows:
         code: forbidden
         when: "user 아닌 actor다. 또는 그 기계가 기기 route 목록 밖이라 거절했다(설정·secret·명단 고치기, machines/*)"
         observe: ["response"]
+      - id: no-shell-capability
+        code: forbidden
+        when: "입력 shell_capability가 살아 있는 shell capability가 아니다(CLI의 사람 token, 끝난 shell). link에 아무것도 가지 않는다"
+        observe: ["response"]
       - id: conflict
         code: conflict
         when: "그 기계의 route가 conflict로 답했다"
@@ -2610,9 +2615,10 @@ flows:
     entries: [route:machines/watch]
     uses: [system:machine-links]
     boundary: [core-api, remote, event-stream]
-    code: [packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/main/desktop/wiring/machines.ts, packages/shell/main/desktop/wiring/machine-windows.ts]
+    code: [packages/core/remote/machine-routes.ts, packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/main/desktop/wiring/machines.ts, packages/shell/main/desktop/wiring/machine-windows.ts]
     docs: [architecture/remote.md]
     steps:
+      - "입력의 shell_capability가 이 core가 shell main에 준 살아 있는 capability여야 한다. 사람의 CLI token은 막힌다. capability는 다른 기계로 가지 않는다"
       - "machine으로 명단의 다른 컴퓨터를 찾아 그 기계의 조건을 통째로 바꾼다(빈 배열은 끔). link가 붙어 있으면 watch frame을 보내고, 아니면 붙을 때 건다. 그 기계의 frame은 MachineFrameReceived로 이 컴퓨터의 bus에 온다(machine-links:frame-received)"
     outcomes:
       - id: ok
@@ -2628,6 +2634,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "user 아닌 actor다. 기기 자격도 route 목록 밖이다"
+        observe: ["response"]
+      - id: no-shell-capability
+        code: forbidden
+        when: "입력 shell_capability가 살아 있는 shell capability가 아니다(CLI의 사람 token, 끝난 shell). 조건을 걸지 않는다"
         observe: ["response"]
     declared_only: [unavailable]
     crosses_process: false

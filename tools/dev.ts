@@ -313,7 +313,7 @@ async function writeDevCli(root: string): Promise<string> {
   );
   await rename(`${path}.tmp`, path);
   // Windows의 cmd·PowerShell 터미널과 harness 감지(execFile)는 sh launcher를 못 돌린다. 같은 폴더에 .cmd를 같이 두고
-  // shell main에는 그 경로를 준다. Git Bash 터미널은 확장자 없는 sh launcher를 쓴다.
+  // Windows의 core는 그것을 찾아 쓴다(lophnCliPath). Git Bash 터미널은 확장자 없는 sh launcher를 쓴다.
   if (process.platform !== "win32") return path;
   const cmd = `${path}.cmd`;
   await writeFile(

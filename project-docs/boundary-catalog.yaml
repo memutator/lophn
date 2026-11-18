@@ -34,6 +34,7 @@ elements:
     depends_on:
       - protocol
       - base
+      - remote-client
     children:
 
       - id: projects
@@ -112,7 +113,7 @@ elements:
 
           - id: host-queue-core
             kind: component
-            description: core가 shell에 시킬 일(agent가 연 탭의 열기·닫기)의 메모리 queue와 agent가 연 탭의 표. shell main이 가져간다. phone 탭(사람의 폰에 뜬 preview 화면)은 shell에 가지 않고 core가 폰 link의 `drive.*`로 다룬다(ref 번호, snapshot 글, 오류 문장, redaction은 core).
+            description: core가 shell에 시킬 일의 메모리 queue와 agent가 연 탭의 표. shell main이 `/host-link`로 받는다. 요청은 창이 있어야 하는 것(탭 열기·닫기·보이기, browser 호출)뿐이고 터미널과 coding session은 core가 갖는다. phone 탭(사람의 폰에 뜬 preview 화면)은 shell에 가지 않고 core가 폰 link의 `drive.*`로 다룬다(ref 번호, snapshot 글, 오류 문장, redaction은 core).
 
           - id: harness-host-core
             kind: component
@@ -185,8 +186,6 @@ elements:
       - protocol
       - base
       - design
-      - coding-agent-harness-api
-      - remote-client
 
   - id: shell-extension
     kind: extension
@@ -295,7 +294,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 기기(폰, 다른 컴퓨터의 core)와 core 사이의 연결과 내 기기 명단. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, 명단에 들거나 붙는 첫 frame `join`, 명단을 주고받는 `roster`, call, result, watch와 Gateway frame), 명단의 모양과 검증(서명한 항목과 빼기, 초대장, 합치기와 view), 사람이 명단을 보고 고치는 `roster/*`와 이 컴퓨터의 link로 다른 기계를 부르는 `machines/*`, 기기가 부를 수 있는 route 목록(자기를 명단에서 빼는 `roster/leave`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/list|switch_plan|switch|open`, core가 여는 터미널 `terminals/open|input`(입력은 사람이 켠 기기만)과 터미널 화면 `terminal_view/snapshot|watch|resize`, 컴퓨터의 browser page `page_view/list|snapshot|watch|input|control|open`(input·control·open은 터미널 입력을 켠 기기만)과 그 event `PageViewChanged`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 기기(폰, 다른 컴퓨터의 core)와 core 사이의 연결과 내 기기 명단. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, 명단에 들거나 붙는 첫 frame `join`, 명단을 주고받는 `roster`, call, result, watch와 Gateway frame), 명단의 모양과 검증(서명한 항목과 빼기, 초대장, 합치기와 view), 사람이 명단을 보고 고치는 `roster/*`와 이 컴퓨터의 link로 다른 기계를 부르는 `machines/*`, 기기가 부를 수 있는 route 목록(자기를 명단에서 빼는 `roster/leave`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/list|switch_plan|switch|open`, core가 여는 터미널 `terminals/open|input`(입력과 명령을 실은 열기는 사람이 켠 기기만)과 터미널 화면 `terminal_view/snapshot|watch|resize`, 컴퓨터의 browser page `page_view/list|snapshot|watch|input|control|open`(input·control·open은 터미널 입력을 켠 기기만)과 그 event `PageViewChanged`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함)와 사람이 터미널 입력을 허락한 기기에만 더 여는 목록 `REMOTE_PERSON_ROUTES`(secret, provider·model, 설정 쓰기, agent·project 만들고 고치기. 허락이 있어도 기기·명단 관리, `remote.*` 설정, site login vault 이름은 열지 않는다), remote protocol 판 4(하한 4), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
@@ -419,17 +418,17 @@ interfaces:
     provided_by:
       - coding-agent
     used_by:
-      - shell
+      - coding-agent-cli
 
   - id: harness-host-interface
     kind: interface
-    description: shell main의 harness host가 사람 token으로 부르는 core의 memory route(`harness/take`, `start_turn`, `record`, `finish_turn`, `set_external_id`). TUI 탭이 hold한 session은 take가 건너뛰고 start_turn이 `conflict`다. renderer의 호출 통로에는 없다.
+    description: core 안 extension host의 harness host(bundled extension `harness`)가 `ctx.core`의 자격(`machine:extensions`, actor user)으로 부르는 core의 memory route(`harness/take`, `start_turn`, `record`, `finish_turn`, `set_external_id`). TUI 탭이 hold한 session은 take가 건너뛰고 start_turn이 `conflict`다. renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:
       - harness-host-core
     used_by:
-      - shell
+      - core
 
   - id: host-queue-interface
     kind: interface

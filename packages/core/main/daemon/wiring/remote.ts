@@ -83,6 +83,7 @@ import {
   addSigningKey,
   createDeviceCredentials,
   createLinks,
+  createMachineRoutes,
   createPhoneLink,
   createRemoteCall,
   createRemoteHost,
@@ -1034,6 +1035,10 @@ export function remoteWiring(
           pending: rosterPending(roster.view(), body.key),
         });
       };
+      const machines = createMachineRoutes({
+        links,
+        capability: (value) => ctx.peek.shellCapabilities?.has(value) ?? false,
+      });
       return ok({
         memory: [
           [key(remoteRelayStatus), relayStatus],
@@ -1047,17 +1052,13 @@ export function remoteWiring(
           [key(machinesList), () => ok({ machines: links.list() })],
           [
             key(machinesCall),
-            (_who: unknown, input: unknown) =>
-              links.call(input as z.infer<typeof machinesCall.input>),
+            (who: unknown, input: unknown) =>
+              machines.call(who, input as z.infer<typeof machinesCall.input>),
           ],
           [
             key(machinesWatch),
-            (_who: unknown, input: unknown) => {
-              const { machine, conditions } = input as z.infer<
-                typeof machinesWatch.input
-              >;
-              return links.watch(machine, conditions);
-            },
+            (who: unknown, input: unknown) =>
+              machines.watch(who, input as z.infer<typeof machinesWatch.input>),
           ],
         ],
         writer: (inner) =>

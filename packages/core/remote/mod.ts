@@ -44,6 +44,7 @@ export {
   type Links,
 } from "./links.ts";
 export { openRemoteListener, type RemoteListener } from "./listener.ts";
+export { createMachineRoutes } from "./machine-routes.ts";
 export {
   createPhoneLink,
   type PhoneCall,

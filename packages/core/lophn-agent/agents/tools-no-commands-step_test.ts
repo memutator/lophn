@@ -5,6 +5,16 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { parseAgentFile } from "./definition-file.ts";
 import { agentToolsNoCommandsStep } from "./tools-no-commands-step.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 // custom 정의의 `tools`에서 옛 명령 이름만 빼고 사람의 다른 선택·본문·다른 칸은 건드리지 않는다. 틀리게 지우면 사람의 tool 선택이 사라진다.
 test("tools에서 lophn 명령·앱 command 이름만 빠지고 나머지와 본문은 그대로이며 다시 돌려도 같다", async () => {
@@ -31,7 +41,7 @@ test("tools에서 lophn 명령·앱 command 이름만 빠지고 나머지와 본
       "---\nhandle: ok\nname: Ok\nruntime: custom\ntools: [file.read]\n---\nx\n";
     await writeFile(clean, kept);
 
-    assert.ok((await agentToolsNoCommandsStep.run(root)).ok);
+    assert.ok((await agentToolsNoCommandsStep.run(root, stepDeps)).ok);
     const text = await readFile(path, "utf8");
     assert.ok(
       text.endsWith("---\ntools:\n  - call.reply\n"),
@@ -49,7 +59,7 @@ test("tools에서 lophn 명령·앱 command 이름만 빠지고 나머지와 본
     assert.ok(!nav.includes("tools:"), "an empty tools list is dropped");
     assert.equal(await readFile(clean, "utf8"), kept);
 
-    assert.ok((await agentToolsNoCommandsStep.run(root)).ok);
+    assert.ok((await agentToolsNoCommandsStep.run(root, stepDeps)).ok);
     assert.equal(await readFile(path, "utf8"), text);
   } finally {
     await rm(root, { recursive: true, force: true });

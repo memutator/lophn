@@ -17,6 +17,16 @@ import {
   denyRuleSlugStep,
   readAssignment,
 } from "./assignment-file.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const NOTES = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const LEDGER = "app_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -101,7 +111,7 @@ test("data step이 옛 할당을 정의 파일로 옮기면 judge가 같은 판�
       "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
     );
 
-    const ran = await assignmentFileStep.run(root);
+    const ran = await assignmentFileStep.run(root, stepDeps);
     assert.ok(ran.ok);
 
     const file = await readFile(join(root, "agents", `${REVIEWER}.md`), "utf8");
@@ -221,7 +231,7 @@ test("deny step은 앱 둘째 domain의 규칙을 앱 slug 규칙으로 바꾸�
     }
 
     for (let run = 0; run < 2; run += 1) {
-      const ran = await denyRuleSlugStep.run(root);
+      const ran = await denyRuleSlugStep.run(root, stepDeps);
       assert.ok(ran.ok);
     }
 

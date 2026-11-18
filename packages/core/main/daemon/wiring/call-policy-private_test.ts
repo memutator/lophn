@@ -9,6 +9,16 @@ import {
 } from "../../../../protocol/lophn-agent/call-policy.ts";
 import { callPolicyPrivateStep } from "./call-policy-private.ts";
 import { callPolicyWorkspacesStep } from "./workspace-rename.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 // 사람의 규칙을 잃으면 곤란하다. 옛 정책은 규칙과 다른 설정을 그대로 두고 새 schema로 읽혀야 한다(틀리면 settings 전체가 거절된다).
 test("an old call policy keeps its rules and other settings and parses after the data steps, run twice", async () => {
@@ -29,8 +39,11 @@ test("an old call policy keeps its rules and other settings and parses after the
       }),
     );
     for (let round = 0; round < 2; round += 1) {
-      assert.equal((await callPolicyPrivateStep.run(root)).ok, true);
-      assert.equal((await callPolicyWorkspacesStep.run(root)).ok, true);
+      assert.equal((await callPolicyPrivateStep.run(root, stepDeps)).ok, true);
+      assert.equal(
+        (await callPolicyWorkspacesStep.run(root, stepDeps)).ok,
+        true,
+      );
     }
     const settings = JSON.parse(await readFile(path, "utf8"));
     assert.deepEqual(settings["shell.theme"], "dark");

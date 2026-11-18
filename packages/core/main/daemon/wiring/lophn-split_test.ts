@@ -11,7 +11,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { manualClock } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
 import {
   callPolicySchema,
   CALL_POLICY_SETTING_KEY,
@@ -21,6 +25,11 @@ import { applyMigrations } from "../../../storage/migration/mod.ts";
 import { TEAMS, WIRINGS } from "../assembly.ts";
 import { assemble } from "../registration.ts";
 import { lophnSplitDataStep } from "./lophn-split.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const ARCHIVED = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -218,7 +227,7 @@ test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 �
     // ledger step은 실제 목록 그대로 split step부터 적용하고, data step은 그 뒤에 돈다.
     const applied = await applyMigrations(ledger, steps, deps);
     assert.deepStrictEqual(applied, { ok: true, value: steps.length - split });
-    const first = await lophnSplitDataStep.run(root);
+    const first = await lophnSplitDataStep.run(root, stepDeps);
     assert.ok(first.ok);
 
     const check = new DatabaseSync(ledger);
@@ -334,7 +343,7 @@ test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 �
         await layout(PRJ),
       ]);
     const once = await snapshot();
-    const second = await lophnSplitDataStep.run(root);
+    const second = await lophnSplitDataStep.run(root, stepDeps);
     assert.ok(second.ok);
     assert.equal(await snapshot(), once);
     assert.deepStrictEqual(await applyMigrations(ledger, steps, deps), {

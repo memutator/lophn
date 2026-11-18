@@ -11,6 +11,16 @@ import {
 } from "../../../lophn-agent/providers/mod.ts";
 import { listProviders } from "../../../lophn-agent/providers/store.ts";
 import { opencodeGoMergeStep } from "./opencode-go-merge.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const CHAT = "pvd_00000000000000000000000001";
 const RESPONSES = "pvd_00000000000000000000000002";
@@ -94,12 +104,15 @@ test("OpenCode Go 옛 provider 셋은 하나로 합쳐지고 가리키던 것은
   const root = await mkdtemp(join(tmpdir(), "lophn-opencode-go-merge-"));
   try {
     await setup(root);
-    assert.deepStrictEqual(await opencodeGoMergeStep.run(root), {
+    assert.deepStrictEqual(await opencodeGoMergeStep.run(root, stepDeps), {
       ok: true,
       value: undefined,
     });
     // 다시 돌아도 같다.
-    assert.deepStrictEqual((await opencodeGoMergeStep.run(root)).ok, true);
+    assert.deepStrictEqual(
+      (await opencodeGoMergeStep.run(root, stepDeps)).ok,
+      true,
+    );
 
     const db = new DatabaseSync(join(root, "lophn.db"));
     const rows = (q: string) =>

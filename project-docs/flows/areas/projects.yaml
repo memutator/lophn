@@ -329,7 +329,7 @@ flows:
       - "found가 false(폴더를 읽지 못함)면 아무것도 바꾸지 않고 지금 record를 돌려준다"
       - "repo와 remote는 받은 값으로 바꾼다. file_identity가 null이면(file이 없거나 못 읽음) ledger의 identity를 그대로 둔다"
       - "file의 id를 다른 project(holder)가 갖고 있으면: holder가 보관됐고 이 project가 active면 holder의 값을 지우고 이 project에 준다. 그 밖이면 이 project의 identity를 null로 한다(같은 저장소의 두 번째 copy)"
-      - "repo가 none(git이 아닌 폴더, 또는 core가 none으로 적는 폴더 없는 project)이고 그때까지 identity가 없으면 tx.newId로 새 pri_를 낸다. git project에는 내지 않는다"
+      - "repo가 none(git이 아닌 폴더, 또는 core가 none으로 적는 폴더 없는 project)이고 그때까지 identity가 없으면 tx.newId로 새 pri_를 낸다. git project에는 내지 않는다. 폴더나 그 위에 .git이 있는데 git이 답하지 않으면 읽는 쪽이 unavailable로 멈추고 이 command를 부르지 않는다(project-identity-read:git-unreadable)"
       - "revision은 올리지 않고 project_folders·session 같은 다른 표는 건드리지 않는다. projects change를 낸다"
     outcomes:
       - id: recorded
@@ -389,7 +389,7 @@ flows:
       - id: reconciled
         observe: ["ledger:projects", "event:StateChanged"]
       - id: read-failed
-        when: "ledger를 열지 못했거나 project 하나의 폴더·git 읽기나 record_identity가 실패했다"
+        when: "ledger를 열지 못했거나 project 하나의 폴더·git 읽기(.git이 있는데 git이 답하지 않음 포함)나 record_identity가 실패했다. 실패한 project는 적지 않는다"
         observe: ["log:projects-identity"]
     crosses_process: false
     docs: [architecture/project-identity.md]
@@ -405,6 +405,7 @@ flows:
     steps:
       - "data step projects.born-identity. ledger(`<root>/lophn.db`)를 열어 identity가 없고 repo가 none이거나 폴더가 없는 project마다 data step이 받은 IdSource로 새 pri_를 적는다"
       - "git project와 아직 폴더를 읽지 않은 project(repo null, 폴더 있음)는 건드리지 않는다. 뒤의 것은 다음 읽기(project-identity-record)가 준다. 이미 준 project는 다시 고르지 않아 다시 돌아도 같다"
+      - "repo가 none이어도 폴더 하나라도 그 폴더나 위 폴더에 .git이 있으면 건너뛴다. 앞서 git이 답하지 않아 none으로 적혔을 수 있어 다음 읽기에 맡긴다"
       - "runtime이 열리기 전에 돌아 writer와 겹치지 않는다. event를 내지 않는다"
     outcomes:
       - id: assigned
@@ -413,7 +414,7 @@ flows:
       - id: failed
         code: unavailable
         observe: ["process:stdout start_failed other"]
-        when: "ledger를 열지 못했거나 쓰지 못했다"
+        when: "ledger를 열지 못했거나 쓰지 못했다. 던진 원인을 message에 싣는다"
     crosses_process: false
     risk: [data-loss]
 
@@ -432,7 +433,7 @@ flows:
     steps:
       - "user·agent가 부른다. 그 밖의 actor는 dispatch가 forbidden으로 거절한다"
       - "ledger에서 project를 읽는다. 없으면 not_found다"
-      - "첫 폴더가 있으면 읽는다: 폴더가 없으면 found false, git work tree가 아니면 repo none이고 file을 보지 않는다. git이면 fetch remote로 remote key(하위 폴더는 #<subpath>)를 내고, 폴더 바로 아래 .lophn-project.json을 읽는다. file 안에 merge 충돌 표지가 있으면 conflict이고, 아니면 git status로 committed·uncommitted·ignored를 가른다(merge가 끝나지 않았어도 표지가 없으면 uncommitted: [Resolve] 뒤 남은 일은 commit이다). 위로 올라가 찾지 않는다. git은 읽기만 한다(GIT_OPTIONAL_LOCKS=0)"
+      - "첫 폴더가 있으면 읽는다: 폴더가 없으면 found false, git work tree가 아니라는 답이면 폴더와 그 위 폴더에 .git(폴더든 file이든)이 있는지 본다. 있으면 git을 읽지 못한 것이라 unavailable이고 아무것도 적지 않는다. 없을 때만 repo none이고 file을 보지 않는다. git이면 fetch remote로 remote key(하위 폴더는 #<subpath>)를 내고, 폴더 바로 아래 .lophn-project.json을 읽는다. file 안에 merge 충돌 표지가 있으면 conflict이고, 아니면 git status로 committed·uncommitted·ignored를 가른다(merge가 끝나지 않았어도 표지가 없으면 uncommitted: [Resolve] 뒤 남은 일은 commit이다). 위로 올라가 찾지 않는다. git은 읽기만 한다(GIT_OPTIONAL_LOCKS=0)"
       - "읽은 값을 project.record_identity로 적고(project-identity-record) 그 record로 상태를 만든다. 폴더가 없는 project는 repo none으로 적는다(found는 false로 돌려준다)"
       - "file이 없고 ledger에 id가 있으며 repo가 none이 아니면 missing이다. git이 아닌 project는 id가 있어도 file none이다. file의 id를 이 project가 갖지 못했고 다른 project가 가졌으면 duplicate_of에 그 project를 둔다"
     outcomes:
@@ -456,11 +457,16 @@ flows:
         code: unavailable
         when: "ledger를 열지 못했다, git이나 file 읽기가 던졌다(권한, 10초 timeout), 또는 writer가 record_identity를 받지 못했다"
         observe: ["response"]
+      - id: git-unreadable
+        code: unavailable
+        when: "폴더나 그 위에 .git이 있는데 git이 work tree가 아니라고 답했다(git이 PATH에 없다, dubious ownership, 깨진 저장소). ledger의 repo와 identity를 바꾸지 않는다"
+        observe: ["response"]
       - id: internal
         code: internal
         when: "project를 읽는 중 깨진 저장을 만났다"
         observe: ["response"]
     crosses_process: false
+    risk: [data-loss]
     docs: [architecture/project-identity.md]
 
   - id: project-identity-create

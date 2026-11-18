@@ -11,7 +11,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { manualClock, ok, seededRandom } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../../../base/mod.ts";
 import { routePath } from "../../../../protocol/base/mod.ts";
 import {
   acceptRemote,
@@ -50,6 +55,11 @@ import {
   signingKeyStep,
   viewerRosterStep,
 } from "./remote.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const PERSON: AuthenticatedContext = {
   principal: "user:local",
@@ -226,7 +236,7 @@ test("옛 data root는 key와 폰을 그대로 옮기고, 명단에서 빠진 �
     machine: original,
   })}\n`;
   writeFileSync(join(root, "remote", "host-key.json"), key, { mode: 0o600 });
-  assert.ok((await signingKeyStep.run(root)).ok);
+  assert.ok((await signingKeyStep.run(root, stepDeps)).ok);
 
   const same = await boot(root, original);
   assert.deepEqual(same.rows, [[phoneId, "ExponentPushToken[a]"]]);
@@ -541,7 +551,7 @@ test("data step은 창 자리와 시작 기계를 남기고 옛 viewer key와 �
   const { root, dir } = rootWith(self);
   // 끊겨 다시 돌아도 같은 결과다.
   for (let run = 0; run < 2; run += 1) {
-    assert.ok((await viewerRosterStep.run(root)).ok);
+    assert.ok((await viewerRosterStep.run(root, stepDeps)).ok);
     assert.equal(existsSync(join(dir, "key.json")), false);
     assert.equal(existsSync(join(dir, "machines.json")), false);
     assert.equal(
@@ -563,7 +573,7 @@ test("data step은 창 자리와 시작 기계를 남기고 옛 viewer key와 �
   }
 
   const copied = rootWith(`mch_0${"2".repeat(25)}`);
-  assert.ok((await viewerRosterStep.run(copied.root)).ok);
+  assert.ok((await viewerRosterStep.run(copied.root, stepDeps)).ok);
   assert.equal(existsSync(join(copied.dir, "key.json")), false);
   assert.equal(existsSync(join(copied.dir, "machines.json")), false);
   assert.equal(existsSync(join(copied.dir, "start.json")), false);

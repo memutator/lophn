@@ -12,6 +12,16 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { domainsRetireStep, domainsSchemaSteps } from "./domains-retire.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const exists = (path: string) =>
   stat(path).then(
@@ -46,7 +56,7 @@ test("domains.retire는 file이 남은 domains 폴더를 지우지 않고 표와
     await writeFile(stranded, "mine");
     await mkdir(join(root, "domains/dom_b/skills"), { recursive: true });
 
-    assert.deepStrictEqual(await domainsRetireStep.run(root), {
+    assert.deepStrictEqual(await domainsRetireStep.run(root, stepDeps), {
       ok: true,
       value: undefined,
     });
@@ -58,7 +68,10 @@ test("domains.retire는 file이 남은 domains 폴더를 지우지 않고 표와
       false,
     );
     // 다시 돌아도 같다.
-    assert.deepStrictEqual((await domainsRetireStep.run(root)).ok, true);
+    assert.deepStrictEqual(
+      (await domainsRetireStep.run(root, stepDeps)).ok,
+      true,
+    );
     assert.deepStrictEqual(await readFile(stranded, "utf8"), "mine");
   } finally {
     await rm(root, { recursive: true, force: true });

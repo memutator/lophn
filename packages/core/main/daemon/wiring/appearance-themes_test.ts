@@ -4,6 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { appearanceThemesStep } from "./appearance-themes.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 // 옛 값이 남으면 settings 전체가 거절된다. 사람이 고른 모양은 새 key로 이어지고 다른 설정은 그대로여야 한다.
 test("old theme, background and accent move to mode, themes and an accent color, run twice", async () => {
@@ -31,7 +41,7 @@ test("old theme, background and accent move to mode, themes and an accent color,
     for (const [before, after] of cases) {
       await writeFile(path, JSON.stringify(before));
       for (let round = 0; round < 2; round += 1) {
-        assert.equal((await appearanceThemesStep.run(root)).ok, true);
+        assert.equal((await appearanceThemesStep.run(root, stepDeps)).ok, true);
       }
       assert.deepEqual(JSON.parse(await readFile(path, "utf8")), after);
     }

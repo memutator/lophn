@@ -13,7 +13,12 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { ok } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../../../base/mod.ts";
 import type {
   RequestContext,
   Sql,
@@ -33,6 +38,11 @@ import {
 import { observeFiles } from "../../../lophn-agent/session/rewind/prepare.ts";
 import { artifactMoveStep } from "./artifact-move.ts";
 import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const OTHER = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -162,7 +172,7 @@ test("artifact 옮기기는 이름이 겹쳐도 file을 잃지 않고 다시 돌
       }),
     );
 
-    const first = await artifactMoveStep.run(root);
+    const first = await artifactMoveStep.run(root, stepDeps);
     assert.ok(first.ok);
 
     const projectFolder = join(root, "projects", PRJ, "artifacts");
@@ -215,7 +225,7 @@ test("artifact 옮기기는 이름이 겹쳐도 file을 잃지 않고 다시 돌
       await snapshot(join(root, "projects")),
       await snapshot(join(root, "apps")),
     ];
-    const again = await artifactMoveStep.run(root);
+    const again = await artifactMoveStep.run(root, stepDeps);
     assert.ok(again.ok);
     assert.deepStrictEqual(
       [
@@ -370,9 +380,9 @@ test("artifact 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새
     await record(domainA, "skills/x/SKILL.md", "msg_1", null, "k");
     db.close();
 
-    const first = await artifactMoveStep.run(root);
+    const first = await artifactMoveStep.run(root, stepDeps);
     assert.ok(first.ok);
-    const again = await artifactMoveStep.run(root);
+    const again = await artifactMoveStep.run(root, stepDeps);
     assert.ok(again.ok);
 
     const reopened = new DatabaseSync(file);

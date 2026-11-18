@@ -136,7 +136,7 @@
 
 | 순서 | 계획 | 무엇 | 기대는 것 |
 |---|---|---|---|
-| 1 | 가리키는 법(끝남. 계획 폴더 없이 한 줄. 아래 "순서 1") | 모든 project가 기계를 건너는 정체를 갖고, 앱이 그 정체로 data를 key한다 | 없음 |
+| 1 | 가리키는 법(끝남. 계획 폴더 없이 한 줄. 아래 "순서 1") | project가 기계를 건너는 정체를 갖고(git이 아니면 ledger에서, git이면 id file에서), 앱이 그 정체로 data를 key한다 | 없음 |
 | 2 | `device-roster`(끝남) | 내 기기 명단. 한 번 들이면 다 이어진다 | 없음 |
 | 3 | `core-terminals`(끝남), `core-setup`(끝남), `core-browser`(끝남, `shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
 | 고침 | `multi-device-fixes` | 순서 1~3의 review에서 확인한 구멍: 권한 경계, 명단의 서명 규칙, data를 옮기는 길, 설치본 | 1, 2, 3 |
@@ -153,7 +153,8 @@
 정한 것:
 - **project의 id는 지금처럼 둘이다.** 기록의 key는 기계마다 다른 `prj_`이고, 기계를 건널 때는 `pri_`를 쓴다(`architecture/project-identity.md`). `prj_`를 기계 사이에 하나로 맞추지 않는다. 맞추려면 모든 표와 file과 앱 DB 안의 key를 고쳐야 하고 `events`는 고칠 수 없다. (agent)
 - **다른 기계의 것은 그 기계의 id로 부른다.** 화면과 agent는 그 기계에 목록을 물어 그 기계의 id를 받아 쓴다(지금 다른 기계 창이 하는 방식). 그래서 주소에 새 type이 필요 없고 "어느 기계"만 붙는다. "내 project와 같은 project"는 `pri_`로 찾는다(`project.list { identity }`). (agent)
-- **모든 project가 `pri_`를 갖는다.** git이 아닌 project는 지금 정체가 없다. ledger에 정체를 만들어 주고, 다른 기계의 project와 같은 것으로 잇는 것은 사람이 고른다(잇는 화면은 `one-screen`). (agent)
+- **모든 project가 `pri_`를 가질 수 있다.** git이 아닌 project는 ledger에서 정체를 얻고, 다른 기계의 project와 같은 것으로 잇는 것은 사람이 고른다(잇는 화면은 `one-screen`). (agent)
+- **git project는 id를 file에서만 얻는다**(change-log `project-address` 결정 2). ledger에서 id를 내지 않아 id file이 없는 git project는 `identity`가 null이다. git이 답하지 않는 폴더(`.git`이 있다)는 git이 아닌 것으로 보지 않고 아무것도 쓰지 않는다. (agent)
 - **앱은 기계 사이에 맞추는 data를 `pri_`로 key한다.** 지금 앱은 `prj_`로 key해서, 맞춰진 data가 다른 기계에서는 주인 없는 줄이 된다. 앱이 받는 project에 정체를 더하고(`AppProject`, `place.workspace`), 지침을 고치고, 이미 있는 앱을 옮기는 `migrate-sdk` 메모를 쓴다(`sdk-note` skill). (agent)
 - 앱 id는 이미 기계를 건넌다. Home은 기계마다 따로다. 둘 다 고칠 것이 없다.
 
@@ -180,9 +181,9 @@
 **가리키는 법**
 - 기계 id(`mch_`)는 `<data root>/machine.json`에 있고, 어떤 주소에도 들어 있지 않다. workspace, session, project, 앱, agent의 id와 bus event, route, CLI 어디에도 기계가 없다. 기계가 나오는 곳은 remote의 hello, folder sync의 path와 표, `jobs.machine`, `app_sync_log.machine`뿐이다.
 - workspace를 가리키는 type `Workspace`(`packages/protocol/lophn-agent/workspaces.ts`)를 150개 file이 import한다(core 44, shell 37, protocol 31, mobile 19, cli 18). Home은 `null`이다.
-- project는 id가 둘이다. 기계마다 다른 `prj_`가 모든 기록의 key이고, 기계를 건너는 `pri_`는 git 저장소 안 `.lophn-project.json`에 있다. git이 아닌 project는 건너는 id가 없다.
+- project는 id가 둘이다. 기계마다 다른 `prj_`가 모든 기록의 key이고, 기계를 건너는 `pri_`는 git 저장소 안 `.lophn-project.json`에 있다. git이 아닌 project는 건너는 id가 없다. (순서 1 뒤) git이 아닌 project와 폴더 없는 project는 ledger에서 난 `pri_`를 갖는다.
 - 앱 id는 이미 기계를 건넌다. 다른 기계의 앱을 들일 때 같은 id로 등록한다. slug는 기계 안에서만 하나다.
-- 앱은 자기 data를 `prj_`로 key한다(SDK가 그렇게 준다). 그래서 기계마다 다른 id가 맞춰지는 앱 data 안에 실려 다닌다.
+- 앱은 자기 data를 `prj_`로 key한다(SDK가 그렇게 준다). 그래서 기계마다 다른 id가 맞춰지는 앱 data 안에 실려 다닌다. (순서 1 뒤) 앱은 project의 `identity`를 받고 `identity ?? id`로 key한다(`@lophn/app-ui` 2.19.0).
 - agent를 부르는 주소(`{agent, workspace}`)는 그 기계 안의 이름으로 푼다. CLI는 자기 data root의 core에만 붙고 기계를 고르는 인자가 없다(명령 76개).
 
 **기기와 믿음**

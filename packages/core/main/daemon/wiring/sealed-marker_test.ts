@@ -4,6 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { sealedMarkerStep } from "./sealed-marker.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const exists = (path: string) =>
   access(path).then(
@@ -27,7 +37,7 @@ test("옛 봉인 사본에는 표지를 쓰고 쓰기 가능한 사본에는 쓰
     await chmod(`${old}/main.js`, 0o444);
     await chmod(old, 0o555);
     for (let round = 0; round < 2; round += 1) {
-      assert.ok((await sealedMarkerStep.run(root)).ok);
+      assert.ok((await sealedMarkerStep.run(root, stepDeps)).ok);
       assert.ok(await exists(`${old}.sealed`));
       assert.equal(await exists(`${open}.sealed`), false);
     }

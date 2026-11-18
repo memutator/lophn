@@ -11,7 +11,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { manualClock } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
 import { jobActionSchema } from "../../../../protocol/jobs/mod.ts";
 import { callTargetSchema } from "../../../../protocol/lophn-agent/calls.ts";
 import type { SchemaStep } from "../../../../protocol/server/mod.ts";
@@ -27,6 +31,11 @@ import {
   workspaceLayoutsStep,
 } from "./workspace-rename.ts";
 import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -174,7 +183,7 @@ test("판 9 layout은 workspace 자리로 옮겨 판 10이 되고, 이미 있는
     await writeFile(join(from, "home.json"), "old home");
     await writeFile(join(to, "home.json"), "new home");
 
-    assert.equal((await workspaceLayoutsStep.run(root)).ok, true);
+    assert.equal((await workspaceLayoutsStep.run(root, stepDeps)).ok, true);
     const moved = JSON.parse(await readFile(join(to, `${PRJ}.json`), "utf8"));
     const { work_place: _, ...rest } = agentTab;
     const renamed = { ...rest, workspace: { kind: "app", id: APP } };
@@ -191,7 +200,7 @@ test("판 9 layout은 workspace 자리로 옮겨 판 10이 되고, 이미 있는
     assert.equal(await readFile(join(to, "home.json"), "utf8"), "new home");
     assert.deepEqual(await readdir(from), ["home.json"]);
     // 다시 돌아도 같다.
-    assert.equal((await workspaceLayoutsStep.run(root)).ok, true);
+    assert.equal((await workspaceLayoutsStep.run(root, stepDeps)).ok, true);
     assert.deepEqual(
       JSON.parse(await readFile(join(to, `${PRJ}.json`), "utf8")),
       moved,
@@ -243,8 +252,8 @@ test("call 정책과 workflow 파일의 place는 workspace로 바뀌고 나머�
     ].join("\n");
     await writeFile(join(folder, "flow.ts"), flow);
 
-    assert.equal((await callPolicyWorkspacesStep.run(root)).ok, true);
-    assert.equal((await workflowWorkspaceStep.run(root)).ok, true);
+    assert.equal((await callPolicyWorkspacesStep.run(root, stepDeps)).ok, true);
+    assert.equal((await workflowWorkspaceStep.run(root, stepDeps)).ok, true);
 
     assert.deepEqual(
       JSON.parse(await readFile(join(root, "settings.json"), "utf8")),

@@ -1,0 +1,13 @@
+id: project-born-identity-before-git-read
+title: git이 실패하던 기계에서 git project가 ledger에서 난 id를 받았을 수 있다
+kind: bug
+status: open
+topic: project-identity
+modules: [packages/core/projects, packages/core/main]
+now: |
+  이 고침 전에는 git이 work tree가 아니라고 답하면(git이 PATH에 없다, dubious ownership, 깨진 저장소: `packages/core/projects/identity/git.ts`의 `topLevel`이 null) `inspectFolder`가 그 폴더를 `repo: none`으로 읽었고, `project.record_identity`(`packages/core/projects/registry/commands.ts`)가 id 없는 git project에 ledger에서 `pri_`를 냈다. data step `projects.born-identity`(`packages/core/main/daemon/wiring/projects.ts`)도 그렇게 `repo = 'none'`으로 남은 행에 id를 주었다. 지금은 폴더나 그 위에 `.git`이 있으면 두 길 모두 쓰지 않는다. 다만 이미 붙은 id는 ledger에 "git이 아니다"와 "git이 실패했다"를 가를 기록이 없어 찾아 고칠 수 없다.
+impact: |
+  그런 git project는 git이 다시 돌면 file 상태가 `none`([Set up]) 대신 `missing`([Restore])으로 보이고, 다른 기계의 같은 저장소가 file id를 가지면 remote가 같아도 `suggested`로 짝지어지지 않는다(양쪽 id가 있고 다르다). [Restore]는 그 id를 file에 써(`packages/core/projects/identity/service.ts`의 `create`, `project.identity ?? newId`) id는 그 뒤로 안정하다. 앱은 그 id로 줄을 key했을 수 있다. 다른 기계에서 이미 그 저장소에 file id를 만들어 commit했다면 pull 뒤 file의 id가 ledger id를 대신해 앱이 옛 id로 key한 줄은 주인을 잃는다.
+fix: |
+  - (작음, 추천) 그대로 둔다. 사람이 그 project에서 [Separate project]를 누르면 새 id를 쓰고, 다른 기계의 id에 맞추려면 그쪽 file을 pull한다. 잃는 것: 찾아 알리지 않는다.
+  - (중간) 기동 때 `repo = 'git'`으로 읽히는데 file이 없고 ledger id가 있는 project를 log나 화면에 "이 id는 git을 읽지 못하던 때 났을 수 있다"로 보인다. 잃는 것: 사람이 지운 file(`missing`)과 가르지 못해 틀린 알림이 섞인다.

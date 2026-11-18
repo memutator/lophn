@@ -6,6 +6,16 @@ import { createNodeSkillFiles } from "../extensions/adapters/node-fs.ts";
 import { discoverSkills, skillReceived } from "../extensions/skills.ts";
 import { parseAgentFile } from "./definition-file.ts";
 import { createSkillsOffStep } from "./skills-off-step.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 // 옛 `skills`를 가진 agent 파일을 옮긴 뒤에도 그 agent가 받는 skill이 같아야 한다. 어긋나면 agent가 갑자기 skill을 잃거나
 // 받지 않던 skill을 받는다.
@@ -60,7 +70,7 @@ test("옛 skills를 옮긴 뒤에도 agent가 받는 skill 집합이 같다", as
       .map((one) => one.name);
 
     const step = createSkillsOffStep(`${root}/bundled`);
-    assert.deepStrictEqual((await step.run(root)).ok, true);
+    assert.deepStrictEqual((await step.run(root, stepDeps)).ok, true);
 
     const text = await readFile(file, "utf8");
     assert.ok(!/^skills:/m.test(text), text);

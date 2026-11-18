@@ -30,14 +30,14 @@ import {
 } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 import { createProjectCommands } from "../registry/commands.ts";
-import { assignBornIdentities } from "../registry/store.ts";
+import { assignBornIdentities, loadProject } from "../registry/store.ts";
 import { createFolderResolver } from "../registry/folder-resolver.ts";
 import { folderResolverPort } from "../registry/ports.ts";
 import {
   PROJECTS_IDENTITY_STEPS,
   projectsSchemaSteps,
 } from "../registry/schema.ts";
-import { createIdentityFs } from "./file.ts";
+import { createIdentityFs, hasGitAbove } from "./file.ts";
 import type { GitReader } from "./git.ts";
 import { createIdentityService } from "./service.ts";
 
@@ -62,7 +62,7 @@ const silent = {
 };
 
 // 실제 project 표와 command, 실제 임시 폴더. git은 가짜다: `.git`이 있는 폴더를 work tree로 본다.
-function setup() {
+function setup(answers: "git" | "fails" = "git") {
   const root = mkdtempSync(join(tmpdir(), "lophn-identity-"));
   const db = new DatabaseSync(":memory:");
   for (const step of [...projectsSchemaSteps, ...PROJECTS_IDENTITY_STEPS]) {
@@ -89,7 +89,9 @@ function setup() {
   const commands = createProjectCommands();
   const git: GitReader = {
     topLevel: (dir) =>
-      Promise.resolve(readdirSync(dir).includes(".git") ? dir : null),
+      Promise.resolve(
+        answers === "git" && readdirSync(dir).includes(".git") ? dir : null,
+      ),
     remotes: () => Promise.resolve([]),
     fileState: () => Promise.resolve("untracked"),
   };
@@ -303,7 +305,7 @@ test("git이 아닌 폴더와 폴더 없는 project는 읽을 때 ledger에서 i
   }
 });
 
-test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project에만 서로 다른 id를 주고 git·아직 읽지 않은 project와 이미 가진 id는 두며, 다시 돌아도 같다", () => {
+test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project에만 서로 다른 id를 주고 git·`.git`이 있는 none·아직 읽지 않은 project와 이미 가진 id는 두며, 다시 돌아도 같다", () => {
   const { root, sql, ids, register, close } = setup();
   try {
     const project = (n: number) => `prj_0000000000000000000000000${n}`;
@@ -312,13 +314,15 @@ test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project�
       mkdirSync(path);
       return path;
     };
-    // 1 git이 아님, 2 폴더 없음, 3 git(file 없음), 4 아직 읽지 않음, 5 git이 아니고 이미 id가 있음, 6 폴더 없고 보관됨
+    // 1 git이 아님, 2 폴더 없음, 3 git(file 없음), 4 아직 읽지 않음, 5 git이 아니고 이미 id가 있음, 6 폴더 없고 보관됨,
+    // 7 git이 답하지 않아 none으로 적혔지만 `.git`이 있음
     register(folder(1), project(1));
     register(null, project(2));
     register(folder(3), project(3));
     register(folder(4), project(4));
     register(folder(5), project(5));
     register(null, project(6));
+    register(gitFolder(root, "p7", {}), project(7));
     const set = (n: number, column: string, value: string) =>
       sql.run(`UPDATE projects SET ${column} = ? WHERE id = ?`, [
         value,
@@ -329,6 +333,7 @@ test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project�
     set(5, "repo", "none");
     set(5, "identity", LOW);
     set(6, "status", "archived");
+    set(7, "repo", "none");
     const identities = () =>
       Object.fromEntries(
         sql
@@ -336,7 +341,7 @@ test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project�
           .map((row) => [row.id, row.identity]),
       );
 
-    assert.equal(assignBornIdentities(sql, ids), 3);
+    assert.equal(assignBornIdentities(sql, ids, hasGitAbove), 3);
     const after = identities();
     for (const n of [1, 2, 6]) {
       assert.match(String(after[project(n)]), /^pri_/, `project ${n}`);
@@ -348,11 +353,45 @@ test("migration은 이전 판의 git이 아닌 project와 폴더 없는 project�
     );
     assert.equal(after[project(3)], null);
     assert.equal(after[project(4)], null);
+    assert.equal(after[project(7)], null);
     assert.equal(after[project(5)], LOW);
 
-    assert.equal(assignBornIdentities(sql, ids), 0);
+    assert.equal(assignBornIdentities(sql, ids, hasGitAbove), 0);
     assert.deepEqual(identities(), after);
   } finally {
     close();
+  }
+});
+
+test("git이 답하지 않는 project는 폴더에 `.git`이 있으면 unavailable이고 ledger를 바꾸지 않으며, `.git`이 없는 폴더만 git이 아닌 것으로 id를 얻는다", async () => {
+  for (const name of ["repo", "inside", "plain"] as const) {
+    const { root, sql, service, register, close } = setup("fails");
+    try {
+      // inside: monorepo의 project 폴더처럼 `.git`이 위 폴더에만 있다.
+      const folder =
+        name === "repo"
+          ? gitFolder(root, name, {})
+          : name === "inside"
+            ? join(gitFolder(root, "mono", {}), "app")
+            : join(root, name);
+      mkdirSync(folder, { recursive: true });
+      register(folder);
+      const project = loadProject(sql, PROJECT);
+      assert.ok(project.ok && project.value !== null);
+      const done = await service.reconcile(project.value);
+      const row = sql.get("SELECT identity, repo FROM projects WHERE id = ?", [
+        PROJECT,
+      ]);
+      if (name === "plain") {
+        assert.ok(done.ok, name);
+        assert.match(String(row?.identity), /^pri_/, name);
+        assert.equal(row?.repo, "none", name);
+      } else {
+        assert.equal(!done.ok && done.error.code, "unavailable", name);
+        assert.deepEqual({ ...row }, { identity: null, repo: null }, name);
+      }
+    } finally {
+      close();
+    }
   }
 });

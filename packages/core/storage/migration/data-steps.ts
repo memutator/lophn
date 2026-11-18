@@ -10,12 +10,12 @@ import {
 // ledger 밖 data root 파일(agents/*.md, settings.json, secrets.json 등)의 모양을 바꾸는 step.
 // 새 판의 core가 처음 뜰 때 적용하지 않은 step만 차례로 돌린다. step은 옛 모양을 새 모양으로 옮기고
 // 파일을 temp에 쓴 뒤 rename한다. 중간에 끊겨 다시 돌아도 같은 결과여야 한다(기록 전에 끊기면 다시 돈다).
-// 새 id가 필요한 step은 ids로 만든다. applyDataSteps는 늘 넘기고, id를 만들지 않는 step은 받지 않아도 된다.
+// 새 id가 필요한 step은 ids로 만든다. applyDataSteps는 늘 넘기고, id를 만들지 않는 step은 인자를 적게 받아도 된다.
 export type DataStepDeps = { ids: IdSource };
 
 export type DataStep = {
   id: string;
-  run(root: string, deps?: DataStepDeps): Promise<Result<void>>;
+  run(root: string, deps: DataStepDeps): Promise<Result<void>>;
 };
 
 const RECORD_FILE = "data-migrations.json";

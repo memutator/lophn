@@ -476,6 +476,11 @@ files:
       - shell-agent-tabs-unsaved:stripped
     note: "저장된 layout과 전역 float에서 Agent 탭만 걷어내고 group·고른 탭을 맞추며 다시 돌아도 같다"
 
+  - path: packages/core/main/daemon/wiring/projects_test.ts
+    covers:
+      - projects-born-identity:assigned
+    note: "projects wiring의 dataSteps를 실제 lophn.db의 옛 data root에 applyDataSteps로 돌린다. git이 아닌·폴더 없는·보관한 project에만 서로 다른 id를 주고 git·.git이 있는 none·이미 id가 있는 project는 두며, 두 번째는 바꾸지 않고 새 root에서는 돌지 않는다"
+
   - path: packages/core/main/daemon/workspace-folders-glue_test.ts
     covers:
       - workspace-file-scope:project
@@ -520,8 +525,8 @@ files:
       - project-identity-create:not-found
       - project-identity-renew:renewed
       - project-identity-record:born
-      - projects-born-identity:assigned
-    note: "create는 폴더에 .lophn-project.json 하나만 더하고 있는 file(못 읽는 것 포함)의 byte를 바꾸지 않는다. renew와 충돌 create만 덮고 충돌은 양쪽 순서와 상관없이 작은 id다. 폴더가 없거나 git이 아니면 file을 만들지 않는다. git이 아닌 폴더와 폴더 없는 project는 읽을 때 ledger에서 id를 얻고 다시 읽어도 그대로이며 git 폴더는 얻지 않는다. migration은 git이 아닌·폴더 없는(보관 포함) project에만 서로 다른 id를 주고 git·아직 읽지 않은 project와 있는 id는 두며 다시 돌아도 같다. git은 가짜, 폴더는 임시"
+      - project-identity-read:git-unreadable
+    note: "create는 폴더에 .lophn-project.json 하나만 더하고 있는 file(못 읽는 것 포함)의 byte를 바꾸지 않는다. renew와 충돌 create만 덮고 충돌은 양쪽 순서와 상관없이 작은 id다. 폴더가 없거나 git이 아니면 file을 만들지 않는다. git이 아닌 폴더와 폴더 없는 project는 읽을 때 ledger에서 id를 얻고 다시 읽어도 그대로이며 git 폴더는 얻지 않는다. migration은 git이 아닌·폴더 없는(보관 포함) project에만 서로 다른 id를 주고 git·.git이 있는 none·아직 읽지 않은 project와 있는 id는 두며 다시 돌아도 같다. git이 답하지 않는데 폴더나 위 폴더에 .git이 있으면 unavailable이고 ledger를 바꾸지 않는다. git은 가짜, 폴더는 임시"
 
   - path: packages/core/projects/files/files_test.ts
     covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]

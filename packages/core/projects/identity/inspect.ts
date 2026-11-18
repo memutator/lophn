@@ -35,16 +35,23 @@ const NOT_FOUND: FolderIdentity = {
 
 // git이 아닌 폴더는 기계를 넘지 않으므로 file을 보지 않는다. 위로 올라가 다른 폴더의 file을 찾지 않는다(monorepo는
 // project 폴더마다 자기 file).
+// git이 답하지 않았는데 `.git`이 있으면(git이 PATH에 없다, dubious ownership, 깨진 저장소) 던진다: "git이 아니다"로
+// 적으면 git project가 ledger에서 id를 얻는다. 부르는 쪽은 timeout처럼 unavailable로 보고 아무것도 쓰지 않는다.
 export async function inspectFolder(
   folder: string,
   deps: {
     git: GitReader;
-    fs: Pick<IdentityFs, "isFolder" | "realpath" | "read">;
+    fs: Pick<IdentityFs, "isFolder" | "realpath" | "read" | "hasGit">;
   },
 ): Promise<FolderIdentity> {
   if (!(await deps.fs.isFolder(folder))) return NOT_FOUND;
   const top = await deps.git.topLevel(folder);
   if (top === null) {
+    if (await deps.fs.hasGit(folder)) {
+      throw new Error(
+        `git could not read ${folder}, which is inside a git repository; check that git is installed and trusts this folder`,
+      );
+    }
     return {
       found: true,
       repo: "none",

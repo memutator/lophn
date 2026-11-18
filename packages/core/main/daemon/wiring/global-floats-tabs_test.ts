@@ -4,6 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { globalFloatsTabsStep } from "./global-floats-tabs.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const RECT = { x: 10, y: 20, width: 400, height: 300 };
@@ -29,7 +39,7 @@ test("판 1 전역 float 파일은 앱 panel 탭 판 2로 옮겨 rect, 접힘, �
         ],
       }),
     );
-    assert.deepEqual(await globalFloatsTabsStep.run(root), {
+    assert.deepEqual(await globalFloatsTabsStep.run(root, stepDeps), {
       ok: true,
       value: undefined,
     });
@@ -62,7 +72,7 @@ test("판 1 전역 float 파일은 앱 panel 탭 판 2로 옮겨 rect, 접힘, �
         },
       ],
     });
-    await globalFloatsTabsStep.run(root);
+    await globalFloatsTabsStep.run(root, stepDeps);
     assert.deepEqual(JSON.parse(await readFile(file, "utf8")), moved);
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -6,6 +6,7 @@ topic: project-identity
 modules: [packages/core/main, packages/core/projects]
 now: |
   `project.identity`와 `project.create_identity`는 actor user·agent의 memory route다. dispatch(`packages/core/server/dispatch.ts`의 `memory`)는 memory route에 target 검사를 하지 않고, handler(`packages/core/main/daemon/wiring/projects.ts`의 memory 표)는 부른 쪽(`_who`)을 보지 않는다. 그래서 project A의 session에서 도는 agent도 `lophn project share --project <B의 prj id>`로 project B의 첫 폴더에 file을 만들 수 있다. 다른 memory route도 같은 꼴이다.
+  `project.identity`는 CLI와 agent route 목록에서 `effect: "read"`이지만 git이 아닌 project에 id가 없으면 읽으면서 ledger에서 id를 낸다(`project.record_identity`). 그래서 agent가 다른 project의 id를 낼 수도 있다.
 impact: |
   쓰는 것은 등록된 project 폴더의 `.lophn-project.json` 하나이고 읽을 수 있는 file은 덮지 않아 data를 잃지는 않는다. 다만 사람이 그 project에서 agent에게 맡기지 않은 저장소에 untracked file이 생긴다.
 fix: |

@@ -26,6 +26,7 @@ import {
   createIdentityService,
   type IdentityService,
 } from "../../../projects/identity/mod.ts";
+import { hasGitAbove } from "../../../projects/identity/file.ts";
 import {
   assignBornIdentities,
   loadProjects,
@@ -83,12 +84,12 @@ export const projectsBornIdentityStep = {
     const opened = openConnection(`${root}/lophn.db`);
     if (!opened.ok) return opened;
     try {
-      assignBornIdentities(opened.value.sql, ids);
+      assignBornIdentities(opened.value.sql, ids, hasGitAbove);
       return ok(undefined);
-    } catch {
+    } catch (thrown) {
       return err({
         code: "unavailable",
-        message: "projects outside git could not be given an identity",
+        message: `projects outside git could not be given an identity: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
       });
     } finally {
       opened.value.close();

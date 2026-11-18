@@ -30,6 +30,7 @@ ledger projects 줄 (기계별)
 
 - **두 id.** `prj_…`는 기계별 id이고 session, 문서, 설정 같은 모든 기록이 이것을 key로 쓴다. `pri_…`는 기계를 넘는 id다. git project의 것은 저장소 file에 있고 ledger의 `identity` 칸은 그 cache다. git이 아닌 project의 것은 ledger의 `identity` 칸이 원본이다. 한 기계에서 `identity`는 유일하다. 값이 바뀌거나 지워져도 `prj_` 기록은 잃지 않는다. `prj_`는 기계 사이에 맞추지 않는다.
 - **git이 아닌 project의 id.** 폴더를 읽어 git이 아니거나(`repo: none`) 폴더가 없는 project는 id가 없으면 `project.record_identity`가 ledger에서 새 `pri_`를 낸다. 폴더가 없는 project는 git이 아닌 것으로 적는다(`repo: none`). 등록·폴더 변경·보관 해제 뒤와 기동 때 다시 읽으므로 새 project도 그때 id를 얻는다. 한 번 얻은 id는 다시 읽어도 그대로다. 나중에 `git init`한 project는 그 id를 그대로 갖고 `missing`으로 보이며, [Restore]·`lophn project share`가 같은 id로 file을 만든다. `.git`이 없어진 git project는 가진 id를 그대로 둔다(git이 아니게 된 project가 id가 없었으면 그때 새로 난다). 지금은 이 id를 다른 기계로 옮기는 길이 없다.
+- **git을 읽지 못한 것은 "git이 아니다"가 아니다.** git이 work tree가 아니라고 답해도(git이 PATH에 없다, dubious ownership, 깨진 저장소) 폴더나 그 위 폴더에 `.git`(폴더든 file이든)이 있으면 읽지 못한 것이다. git이 저장소를 찾는 길처럼 위로 올라가 본다(monorepo의 project 폴더에는 `.git`이 없다). 그 읽기는 git timeout과 같이 `unavailable`이고 `repo`와 `identity`를 쓰지 않는다. `.git`이 없을 때만 `repo: none`이다.
 - **file.** project의 첫 등록 폴더 바로 아래 `.lophn-project.json`이다. 꼴은 `{ "lophn_project": 1, "id": "pri_<ULID>" }`뿐이고 2칸 들여쓰기와 끝 줄바꿈이다. 이름, 폴더 이름, remote, 경로, 기계 id를 넣지 않는다. 읽을 때 모르는 칸은 무시한다. `lophn_project`가 1보다 크거나, 비었거나, JSON이 아니거나, 꼴이 틀리면 읽지 못한 것이다. git merge 충돌 표지가 있으면 양쪽에서 읽은 id 가운데 가장 작은 것이 id다. 위 폴더로 올라가 찾지 않는다: monorepo는 project 폴더마다 자기 file이 있다.
 - **file 상태.** `project.identity`가 돌려주는 `file`은 다음 가운데 하나다.
   - `none`: file이 없고 ledger에도 id가 없다. [Set up]이 만든다. git이 아닌 project는 id가 있어도 늘 `none`이다(file을 두지 않는다).
@@ -80,7 +81,7 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 9. clone은 묻는 창을 띄우지 않고 자격을 저장하지 않으며, 자격이 박힌 URL을 받지 않는다. 받다가 실패하면 임시 폴더를 지운다. 받은 뒤 등록이 실패해도 받은 폴더는 지우지 않는다.
 10. 다른 기계의 창은 그 기계에 쓰지 않는다. 이 컴퓨터의 core에는 `project.list`·`ListAgents`·`ListSessions` 읽기와 `project.clone`만 부르고, 그 둘은 이 컴퓨터의 창에서 부르면 거절된다(`remote.md` 지키는 것 24).
 11. 두 기계의 session 목록은 합치지 않는다. 각자의 core에서 읽고 나란히 보일 뿐이며, 묶기의 열쇠는 기계가 붙은 `this:<prj>`·`<mch>:<prj>`라 한 기계의 `prj_`가 다른 기계의 기록을 가리키지 않는다.
-12. git이 아닌 project(폴더가 git이 아니거나 폴더가 없다)는 `pri_`를 갖고 그 id는 ledger에서 IdSource로 난다. git project는 ledger에서 id를 내지 않는다: id는 file에서만 오고 file은 사람이나 agent가 고른 때에만 생긴다. git이 아닌 project의 id는 다시 읽어도, `git init` 뒤에도 바뀌지 않는다.
+12. git이 아닌 project(폴더가 git이 아니거나 폴더가 없다)는 `pri_`를 갖고 그 id는 ledger에서 IdSource로 난다. git project는 ledger에서 id를 내지 않는다: id는 file에서만 오고 file은 사람이나 agent가 고른 때에만 생긴다. 폴더에 `.git`이 있는데 git이 답하지 않으면 아무것도 쓰지 않는다. git이 아닌 project의 id는 다시 읽어도, `git init` 뒤에도 폴더에 id file이 생기지 않는 한 바뀌지 않는다. id file이 생기면(clone이 들여오거나 pull) file의 id가 ledger의 id를 대신한다.
 
 ## 경계와 계약
 
@@ -92,9 +93,10 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - shell IPC(다른 기계의 창, `remote.md`): `shell:machines-this-read { route: "project.list" | "ListAgents" | "ListSessions", input }`, `shell:machines-clone-here { url, identity, title }`(답은 core의 `project.clone` 답 그대로), `shell:machines-open { machine, session? }`(session은 이 컴퓨터의 id에만).
 - 설정: `projects.folder`(이 기계에서 clone한 project를 두는 폴더. 값에 기계 id를 붙이지 않는다).
 - 순수 함수: file 꼴 읽기·쓰기, remote key, 힌트 짝짓기(identity가 같은 짝 `same`, identity로 짝이 되지 않았고 remote key가 같으며 하나 이상 identity가 없는 짝 `suggested`. 한 목록에 같은 key가 둘 이상이면 제안하지 않는다)는 protocol에 있어 renderer, remote 보기, 폴더 sync가 같이 쓴다.
-- 저장: ledger schema step `projects.registry.identity`(projects 표에 칸 넷과 `identity` unique index). 칸만 더하고 값은 null이다. data step `projects.born-identity`가 이 판 전의 git이 아닌 project(`repo = 'none'`)와 폴더가 없는 project 가운데 id가 없는 것에 새 id를 준다. 아직 폴더를 읽지 않은 project는 다음 읽기가 준다.
+- 저장: ledger schema step `projects.registry.identity`(projects 표에 칸 넷과 `identity` unique index). 칸만 더하고 값은 null이다. data step `projects.born-identity`가 이 판 전의 git이 아닌 project(`repo = 'none'`)와 폴더가 없는 project 가운데 id가 없는 것에 새 id를 준다. `repo = 'none'`이어도 폴더에 `.git`이 있으면 건너뛴다: 앞서 git이 답하지 않아 none으로 적혔을 수 있다. 아직 폴더를 읽지 않은 project는 다음 읽기가 준다. 기동 때 다시 읽기는 active project만 하므로 아직 폴더를 읽지 않은 보관 project는 보관을 풀 때까지 `identity`가 null이다.
 - 앱 slug `project`는 예약 이름이다(`lophn project` 명령과 겹치지 않게).
 - 앱: 앱 화면이 받는 project(`lophnApp.projects.list()`의 project, project workspace의 `place.workspace`)에 `identity`가 실린다. 앱은 기계 사이에 맞추는 data를 `identity ?? id`로 key한다(`app-call.md` "앱 화면의 project 읽기", SDK `@lophn/app-ui` 2.19.0).
+- 앱이 받는 `identity`는 바뀔 수 있다. null에서 id가 되는 것(SDK guide가 다루는 `id` → `identity`) 밖에 둘이 있다: 폴더에 id file이 생기면(clone이 들여오거나 pull) file의 id가 ledger에서 난 id를 대신하고, [Separate project]는 새 id를 쓴다. 그때 앱이 옛 id로 key한 줄은 어느 project에도 속하지 않는다. SDK guide는 아직 이것을 말하지 않는다: 두 project를 잇는 일(roadmap `multi-device`의 `one-screen`)이 id가 바뀌는 규칙을 다시 정할 때 guide를 같이 고친다.
 
 ## 결정
 
@@ -111,7 +113,7 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - watcher를 두지 않고 정해진 때에 다시 읽는다. 이유: pull 뒤 다음 읽기에서 따라오면 충분하고 저장소마다 watcher를 두는 비용이 크다. (planner)
 - 기록을 고쳐도 project `revision`을 올리지 않는다. 이유: 열려 있는 편집 form의 비교와 부딪치지 않게(project 아이콘과 같다). (planner)
 - git이 아닌 폴더는 기계를 넘지 않는다. 등록 dialog에 켬 줄이 없고 상세에 "Not in git, so this project stays on this computer"를 보인다. (planner)
-- git이 아닌 project도 `pri_`를 갖고 그 id는 ledger에서 난다. 이유: 앱이 기계 사이에 맞추는 data를 project마다 key할 칸이 git 여부와 상관없이 하나여야 한다(roadmap `multi-device` "순서 1"). 그 id는 지금 이 기계에 머물고 다른 기계의 project와 잇는 것은 사람이 고른다(`one-screen`). git project에는 ledger에서 id를 내지 않는다: 낸 id가 있으면 `matchProjects`의 `suggested`(하나 이상 id가 없는 짝)와 file 상태 `none`·`missing`이 뜻을 잃고, file은 사람이 고른 때에만 생긴다는 규칙이 그대로다. 버린 길: `prj_`를 기계 사이에 맞추기(모든 표와 file, 앱 DB의 key를 고쳐야 하고 `events`는 고칠 수 없다). (lead)
+- git이 아닌 project도 `pri_`를 갖고 그 id는 ledger에서 난다. 이유: 앱이 기계 사이에 맞추는 data를 project마다 key할 칸이 git 여부와 상관없이 하나여야 한다(roadmap `multi-device` "순서 1"). 그 id는 지금 이 기계에 머물고 다른 기계의 project와 잇는 것은 사람이 고른다(`one-screen`). git project에는 ledger에서 id를 내지 않는다: 낸 id가 있으면 `matchProjects`의 `suggested`(하나 이상 id가 없는 짝)와 file 상태 `none`·`missing`이 뜻을 잃고, file은 사람이 고른 때에만 생긴다는 규칙이 그대로다. 그래서 git을 읽지 못하면(폴더나 그 위에 `.git`이 있는데 git이 답하지 않는다) "git이 아니다"로 적지 않고 아무것도 쓰지 않는다. 이 규칙 전에 git이 실패한 기계에서 git project가 받은 ledger id는 가려낼 기록이 없어 그대로 둔다(이슈 `project-born-identity-before-git-read`). 버린 길: `prj_`를 기계 사이에 맞추기(모든 표와 file, 앱 DB의 key를 고쳐야 하고 `events`는 고칠 수 없다). (lead)
 - id를 내는 자리는 `project.record_identity` 하나다. 폴더가 없는 project도 다시 읽는 때에 git이 아닌 것으로 적어 같은 길을 탄다. 이유: 등록, 폴더 변경, 보관 해제, 기동이 이미 이 command를 부르므로 규칙이 한 곳에 있다. 이 판 전의 project는 data step이 준다: id가 IdSource에서 나야 해서 SQL schema step으로 하지 못하고, runtime이 열리기 전에 돌아 writer와 겹치지 않는다. 이를 위해 data step이 `ids`를 받는다. (agent)
 - remote key는 origin이 먼저다. 이유: 같은 사람의 clone끼리는 origin이 같고, fork를 그 upstream으로 제안하지 않는다. `ssh -G`로 alias를 풀지 않는다(기계마다 설정이 달라 key가 갈린다). (planner, T3 Code·Paseo 규칙의 합)
 - clone은 그 기계의 git 자격만 쓰고 묻지 않으며, 자격이 없으면 실행할 명령을 돌려준다. 이유: 자격은 기계를 넘지 않는다(roadmap 원칙). 묻는 창은 agent가 부른 git을 멈춰 세운다. (planner)

@@ -148,10 +148,12 @@ export function clearIdentity(tx: Pick<Tx, "sql">, project: string): void {
 
 // git이 아닌 것으로 읽은 project와 폴더가 없는 project 가운데 id가 없는 것에 ledger에서 난 id를 준다. git project는
 // file에서만 id를 얻으므로 건드리지 않는다. 아직 폴더를 읽지 않은 project(repo NULL, 폴더 있음)는 다음 읽기가 준다.
-// 이미 준 것은 다시 고르지 않아 끊겨 다시 돌아도 같다.
+// `repo = 'none'`은 "git이 아니다"와 "git이 답하지 않았다"(이 고침 전의 읽기)를 가르지 못해 폴더에 `.git`이 있으면 두고
+// 다음 읽기에 맡긴다. 이미 준 것은 다시 고르지 않아 끊겨 다시 돌아도 같다.
 export function assignBornIdentities(
   sql: Pick<Sql, "all" | "run">,
   ids: IdSource,
+  hasGit: (folder: string) => boolean,
 ): number {
   const rows = sql.all(
     `SELECT id FROM projects
@@ -161,11 +163,18 @@ export function assignBornIdentities(
      ORDER BY id`,
     [],
   );
+  let given = 0;
   for (const row of rows) {
+    const folders = sql.all(
+      "SELECT path FROM project_folders WHERE project = ?",
+      [row.id],
+    );
+    if (folders.some((folder) => hasGit(String(folder.path)))) continue;
     sql.run("UPDATE projects SET identity = ? WHERE id = ?", [
       ids.newId("pri"),
       row.id,
     ]);
+    given += 1;
   }
-  return rows.length;
+  return given;
 }

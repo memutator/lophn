@@ -4,6 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { shellAgentTabsStep } from "./shell-agent-tabs.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
+
+// 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const RECT = { x: 10, y: 20, width: 400, height: 300 };
 const agent = (key: string) => ({
@@ -76,7 +86,7 @@ test("저장된 layout과 전역 float에서 Agent 탭만 걷어내고 group·�
         ],
       }),
     );
-    assert.deepEqual(await shellAgentTabsStep.run(root), {
+    assert.deepEqual(await shellAgentTabsStep.run(root, stepDeps), {
       ok: true,
       value: undefined,
     });
@@ -98,7 +108,7 @@ test("저장된 layout과 전역 float에서 Agent 탭만 걷어내고 group·�
     );
 
     const again = await readFile(layoutFile, "utf8");
-    assert.deepEqual(await shellAgentTabsStep.run(root), {
+    assert.deepEqual(await shellAgentTabsStep.run(root, stepDeps), {
       ok: true,
       value: undefined,
     });

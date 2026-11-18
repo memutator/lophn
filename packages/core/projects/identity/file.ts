@@ -1,4 +1,5 @@
 // project 폴더의 `.lophn-project.json`을 읽고 쓴다. 사람의 저장소에 file을 만드는 길은 이 file뿐이고 그 file 하나만 쓴다.
+import { existsSync } from "node:fs";
 import {
   link,
   open,
@@ -8,7 +9,7 @@ import {
   rm,
   stat,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import {
   err,
@@ -26,6 +27,7 @@ import {
 
 export type IdentityFs = {
   isFolder(path: string): Promise<boolean>;
+  hasGit(folder: string): Promise<boolean>;
   realpath(path: string): Promise<string>;
   read(folder: string): Promise<"absent" | IdentityFileRead>;
   create(folder: string, id: string): Promise<Result<"created" | "exists">>;
@@ -46,6 +48,15 @@ async function writeTemp(path: string, id: string): Promise<void> {
     await file.datasync();
   } finally {
     await file.close();
+  }
+}
+
+// 폴더나 그 위 폴더에 `.git`(폴더든 worktree·submodule의 file이든)이 있나. git이 저장소를 찾는 길과 같아서 위로
+// 올라간다(monorepo의 project 폴더에는 `.git`이 없다). git이 답하지 않을 때 "git이 아니다"와 "git을 읽지 못했다"를 가른다.
+export function hasGitAbove(folder: string): boolean {
+  for (let dir = resolve(folder); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, ".git"))) return true;
+    if (dirname(dir) === dir) return false;
   }
 }
 
@@ -120,6 +131,7 @@ export function createIdentityFs(ids: IdSource): IdentityFs {
       }
     },
     realpath: (path) => realpath(path),
+    hasGit: (folder) => Promise.resolve(hasGitAbove(folder)),
     read: readIdentityFile,
     create: (folder, id) => createIdentityFile(folder, id, ids.newId("tmp")),
     replace: (folder, id) => replaceIdentityFile(folder, id, ids.newId("tmp")),

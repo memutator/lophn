@@ -1,5 +1,5 @@
 id: remote-use
-version: 0.23.90
+version: 0.23.91
 title: agent와 앱이 내 다른 컴퓨터의 앱 command를 부르고 그 앱의 event를 받는다. 터미널 입력 허락은 받는 컴퓨터가 정한다
 modules: [packages/protocol, packages/core/remote, packages/core/apps, packages/core/approvals, packages/core/jobs, packages/core/events, packages/core/folder, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/core/storage, packages/cli, packages/remote-client, packages/sdk, packages/design, packages/shell/renderer, packages/shell/main, packages/mobile]
 change: |

@@ -116,7 +116,7 @@ modules:
 
   - path: packages/core/extensions
     boundary: extension-host
-    notes: core 안 extension host(registry, CLI를 띄우는 spawner, ACP handle, tool 호출). 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `ExtensionHost`로 닿고 core/main의 wiring/extensions.ts가 끼운다. bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
+    notes: core 안 extension host(registry, CLI를 띄우는 spawner, ACP handle, tool 호출). base, protocol과 core/terminals(사람의 env와 session 표지 이름)만 쓴다. 다른 쪽은 ports.ts의 `ExtensionHost`로 닿고 core/main의 wiring/extensions.ts가 끼운다. bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
 
   - path: packages/core/projects
     boundary: projects
@@ -179,7 +179,7 @@ modules:
 
   - path: packages/shell/main
     boundary: shell
-    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(core의 `machines/*`로 창마다 기계를 고르는 통로, 기계 목록 규칙, 시작 기계 file `viewer/start.json`과 창 자리, 보낸 창으로 기계를 고르는 IPC guard)다. 다른 기계에 붙는 key와 연결은 core가 들고 shell은 `@lophn/remote-client`를 import하지 않는다. extensions/는 extension registry(extension-host)이고 extensions/bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
+    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(core의 `machines/*`로 창마다 기계를 고르는 통로, 기계 목록 규칙, 시작 기계 file `viewer/start.json`과 창 자리, 보낸 창으로 기계를 고르는 IPC guard)다. 다른 기계에 붙는 key와 연결은 core가 들고 shell은 `@lophn/remote-client`를 import하지 않는다. extensions/는 shell PTY 탭의 harness GUI만 켜는 registry 사본이다(extension host는 packages/core/extensions에 있다). 사본은 shell이 core의 터미널로 옮겨 갈 때 지운다.
 
   - path: packages/shell/renderer
     boundary: shell

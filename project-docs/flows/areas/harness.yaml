@@ -2075,11 +2075,17 @@ flows:
       - packages/core/host-queue/page-view.ts
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
+      - packages/mobile/src/data/page.ts
+      - packages/mobile/src/screens/page/index.tsx
+      - packages/shell/renderer/browser/page-view/page-list.tsx
+      - packages/shell/renderer/browser/page-view/core-source.ts
+      - packages/shell/renderer/workspace/kinds/page-view.tsx
     steps:
-      - "core 표의 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null)를 낸다. url·title은 redaction을 지난다. renderer가 아직 상태를 알리지 않은 탭은 url·title이 빈 글이고 loading이 true다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
+      - "core 표의 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null. 주인 session마다 한 번 읽어 둔다)를 낸다. url·title은 redaction을 지난다. renderer가 아직 상태를 알리지 않은 탭은 url·title이 빈 글이고 loading이 true다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
+      - "control은 부른 principal이 page를 다룰 수 있는가다(기기의 터미널 입력 허락). 폰의 Pages와 다른 기계 창의 Pages 탭은 이것으로 열기 칸을 그리거나 감춘다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, "screen:phone-pages", "screen:shell-machine-pages"]
       - id: unavailable
         code: unavailable
         when: "알려진 secret을 아직 다 몰라 url·title을 가리지 못했다"
@@ -2101,13 +2107,18 @@ flows:
       - packages/core/host-queue/page-view.ts
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
+      - packages/mobile/src/data/page.ts
+      - packages/mobile/src/screens/page/index.tsx
+      - packages/mobile/src/screens/page/picture.tsx
+      - packages/shell/renderer/browser/page-view/page-view.tsx
     steps:
       - "core가 그 탭에 든 최신 frame 하나(JPEG, viewport CSS px 크기, 아직 없거나 lease가 없으면 null)와 seq, 상태(painting, agent, held, url, title, loading, by)를 낸다. host 상태를 아직 못 받았으면 painting true, agent·held false다. painting이 false면 그 page를 그리지 않는 것이다(창이 최소화되거나 숨겨짐). url·title은 redaction을 지나고 그림은 가리지 않는다(screenshot과 같다)"
       - "control은 부른 principal이 이 탭을 다룰 수 있는가다: 기기 device:<id>이고 그 기기의 터미널 입력 허락이 켜져 있어야 한다"
-      - "내준 frame의 host seq를 아직 알리지 않았으면 host에 page_read {tab, seq}를 연결 요청으로 보낸다(실패는 버린다). host는 그것이 오기 전에는 그 탭의 다음 frame을 보내지 않는다"
+      - "내준 frame의 host seq가 마지막으로 알린 seq와 다르면 host에 page_read {tab, seq}를 연결 요청으로 보낸다(실패는 버린다. 크기가 아니라 다름을 본다: 다시 뜬 host는 seq를 처음부터 센다). host는 그것이 오기 전에는 그 탭의 다음 frame을 보내지 않는다"
+      - "보는 화면은 painting이 false면 그리지 않는다는 한 줄을, control이 false면 입력·주소·잡기 없이 볼 수만 있다는 한 줄을 보인다"
     outcomes:
       - id: ok
-        observe: [request:shell, response]
+        observe: [request:shell, response, "screen:phone-pages", "screen:shell-machine-page", "screen:shell-machine-page-not-painting", "screen:shell-machine-page-view-only"]
       - id: not_found
         code: not_found
         when: "core 표의 browser 탭이 아니다(없는 탭, 닫힌 탭, browser 탭이 아닌 탭)"
@@ -2220,7 +2231,7 @@ flows:
       - "core가 host에 page_control {tab, held}를 연결 요청으로 보낸다. 그 기계의 [Take control]·[Hand back]과 같은 상태라 가져온 동안 agent의 쓰기 동작(act, navigate, evaluate)이 conflict이고 그 기계의 화면에도 잡혀 있음이 보인다. host가 page_state로 바뀐 held를 알려 보는 중이면 PageViewChanged가 난다. host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖은 unavailable이다"
     outcomes:
       - id: held
-        observe: [event:PageViewChanged, request:shell, response]
+        observe: [event:PageViewChanged, request:shell, response, "screen:shell-machine-page-held"]
       - id: not_found
         code: not_found
         when: "core 표의 browser 탭이 아니다, 또는 host가 그 page를 모른다"

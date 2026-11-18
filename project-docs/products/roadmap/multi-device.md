@@ -1,6 +1,6 @@
 # multi-device: 한 사람의 여러 기기가 주고받는 것
 
-상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 순서 1~3은 끝났다(2026-11-18. `core-browser`만 도는 중). review에서 나온 구멍을 `multi-device-fixes`가 먼저 고치고, 순서 4~6을 연다(아래 "순서와 계획"). `paths-by-environment.md`(초안)를 이 문서가 대신한다. `multi-machine.md`(끝남)가 만든 것 위에 선다. 일을 core로 옮기는 것은 `shell-as-client.md`가 따로 다룬다.
+상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 순서 1~3은 끝났다(2026-11-18). review에서 나온 구멍을 `multi-device-fixes`가 먼저 고치고, 순서 4~6을 연다(아래 "순서와 계획"). `paths-by-environment.md`(초안)를 이 문서가 대신한다. `multi-machine.md`(끝남)가 만든 것 위에 선다. 일을 core로 옮기는 것은 `shell-as-client.md`가 따로 다룬다.
 배경 문서: `project-docs/architecture/remote.md`, `machine.md`, `folder-sync.md`, `app-sync.md`, `event.md`, `approval.md`, `agent-call.md`, `project-identity.md`, `attention.md`. 조사: `reports/multi-device/`(다른 제품의 기기 들이기 `device-enrollment-survey.md`, Paseo의 터미널 `reports/phone-native-ui/paseo-terminal.md`, 두 기기가 같은 session을 다룰 때 `/tmp`에 있던 조사는 이슈 여덟으로 옮겼다, 지금 code `survey-s1`~`s6`).
 
 ## 사람의 말 (원문)
@@ -138,7 +138,7 @@
 |---|---|---|---|
 | 1 | 가리키는 법(끝남. 계획 폴더 없이 한 줄. 아래 "순서 1") | 모든 project가 기계를 건너는 정체를 갖고, 앱이 그 정체로 data를 key한다 | 없음 |
 | 2 | `device-roster`(끝남) | 내 기기 명단. 한 번 들이면 다 이어진다 | 없음 |
-| 3 | `core-terminals`(끝남), `core-setup`(끝남), `core-browser`(`shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
+| 3 | `core-terminals`(끝남), `core-setup`(끝남), `core-browser`(끝남, `shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
 | 고침 | `multi-device-fixes` | 순서 1~3의 review에서 확인한 구멍: 권한 경계, 명단의 서명 규칙, data를 옮기는 길, 설치본 | 1, 2, 3 |
 | 4 | `one-screen` | 지금 있는 화면에서 다른 기계의 대화, coding agent, 터미널, 앱 화면, browser를 본다 | 고침, `core-browser`(page만) |
 | 5 | `carry-paths` | 맡겨 두는 길: 폰이 나른다, 컴퓨터끼리 연결로 맞춘다, 같이 보는 폴더, 들어온 변경을 앱에 알린다, 폴더 길의 설정 화면 | 고침 |

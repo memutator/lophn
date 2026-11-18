@@ -1,6 +1,6 @@
 # agent browser: page 수명을 사람의 화면에서 뗀다
 
-상태: 단계 1~3을 구현했다(2026-11-10). 단계 4(사람 browser 탭)만 계획으로 열지 않았다. 아래 "왜"는 구현 전 상황이고, "지금 코드"는 구현 전 코드에 지금을 덧붙였다. 설계는 `architecture/browser-tab.md`·`workspace-layout.md`·`platform.md`가 지금 코드를 적는다.
+상태: 단계 1~3을 구현했다(2026-11-10). 단계 4(사람 browser 탭)만 계획으로 열지 않았다. 여기서 "하지 않는다"로 둔 D(화면 없는 머신)와 screencast로 보기는 계획 `core-browser`가 했다(2026-11-18, 아래 D). 아래 "왜"는 구현 전 상황이고, "지금 코드"는 구현 전 코드에 지금을 덧붙였다. 설계는 `architecture/browser-tab.md`·`workspace-layout.md`·`platform.md`가 지금 코드를 적는다.
 배경 문서: `project-docs/architecture/browser-tab.md`("agent가 다루는 탭", 결정 4·5·6·41), `project-docs/architecture/workspace-layout.md`("agent가 연 탭", 결정 18), `project-docs/architecture/platform.md`("core 수명", autostart), `project-docs/architecture/job.md`, `project-docs/products/roadmap/app-webview.md`(native view에서 `<webview>`로 옮긴 이유), `project-docs/products/roadmap/browser-vault.md`(로그인), `harness-lab/_report/browser-use/README.md`.
 
 ## 왜
@@ -117,9 +117,11 @@ A2로 가고, 창이 하나도 없을 때 browser가 필요하면 core가 shell�
 
 추천: 이번에는 지침(6번)과 오류 문장으로 막는다. `shell.run`에는 OS sandbox가 없어서 shell 규칙은 문자열 판정이고, 지금 막아도 우회가 쉽다. 그래서 값에 비해 얻는 것이 적다. 같은 일이 한 번 더 생기면 그때 shell 규칙에 사람 browser profile 폴더 읽기와 `--remote-debugging-port`를 단 browser 실행을 넣는다.
 
-### D. 화면 없는 머신 (하지 않는다)
+### D. 화면 없는 머신 (그때는 하지 않았다. `core-browser`가 했다)
 
-A2는 보이는 창이 있어야 해서 display 없는 Linux에서는 browser를 쓸 수 없다. 그때는 이유 문장으로 끝난다. frame 있는 `BrowserWindow`는 `--ozone-platform=headless`에서 segfault가 났다(확인한 것). 서버에서 browser가 필요해지면 A1(frame 없는 ghost 창은 거기서도 그렸다)과 같이 다시 연다.
+A2는 보이는 창이 있어야 해서 display 없는 Linux에서는 browser를 쓸 수 없었다. 그때는 이유 문장으로 끝났다. frame 있는 `BrowserWindow`는 `--ozone-platform=headless`에서 segfault가 났다(확인한 것). 서버에서 browser가 필요해지면 A1(frame 없는 ghost 창은 거기서도 그렸다)과 같이 다시 열기로 했다.
+
+계획 `core-browser`(2026-11-18, roadmap `shell-as-client.md`)가 열었다: display가 없는 Linux에서는 core가 같은 binary를 창 없는 page host(`--page-host --ozone-platform=headless --disable-gpu`)로 띄우고 page host가 탭마다 offscreen 창을 든다. driver, take control, browser profile은 desktop 앱과 같다. 사람은 그 page를 폰이나 다른 기계의 창에서 CDP screencast로 보고 다룬다. 설계는 `architecture/browser-tab.md`의 "화면 없는 기계의 page"와 "멀리서 보기"다.
 
 ### E. 사람이 없을 때 agent가 사람의 로그인으로 browser를 쓴다 (정했다)
 
@@ -151,7 +153,7 @@ Electron 44.5.1(Chrome 152), Linux에서 throwaway script로 봤다(2026-11-10).
 - **옮기기.** 떼어 낸 view나 숨은 창의 view를 창으로, 창에서 다른 창으로, 다시 떼었다 붙여도 다시 load하지 않는다. page의 JS 상태, 붙여 둔 debugger, 옮기기 전에 얻은 `backendNodeId`가 그대로다. view가 든 창을 닫아도 view의 webContents는 살아 있어 다른 창에 붙일 수 있다.
 - **창 없는 앱과 second-instance.** `BrowserWindow`가 하나도 없어도 앱은 살아 있다. single-instance lock을 쥔 창 없는 main에 두 번째 실행이 오면 `second-instance`가 오고, 창을 만들어 있던 view를 붙여도 다시 load하지 않는다.
 - **partition.** 같은 partition의 `WebContentsView`와 `<webview>`는 같은 session이다(cookie를 서로 본다). 그래서 agent 탭과 사람 탭의 그릇이 달라도 로그인은 같다.
-- **display 없는 Linux.** D에 적었다.
+- **display 없는 Linux.** D에 적었다(지금은 page host가 든다).
 - **조심할 것.** 떼어 낸 view에 첫 load 전에 debugger를 붙이고 `Emulation.setDeviceMetricsOverride`를 부르면 segfault가 난다(load 뒤에는 괜찮다). 한 번도 그리지 않은 page의 첫 `Input.dispatchMouseEvent`가 5초 동안 돌아오지 않은 적이 있다(event는 닿았다).
 - **확인하지 못한 것.** ghost 창이 사람 눈에 띄는지(1px 점, 작업 표시줄, alt-tab), macOS dock과 Windows 작업 표시줄, macOS와 Windows에서 ghost 창이 그리는지, 실제 site가 그리지 않는 page에서 얼마나 멈추는지(만든 page 하나로만 봤다).
 
@@ -175,7 +177,7 @@ A2를 구현하며 `<webview>` guest가 어떤 창에서 그리는지 다시 봤
 ## 하지 않는 것
 
 - 사람의 Chrome·Brave profile에서 쿠키 가져오기. 로그인은 lophn browser에서 사람이 하고, 비밀번호는 `browser-vault.md`다.
-- 따로 띄운 Chromium process, screencast viewer.
+- 따로 띄운 Chromium process. screencast viewer는 계획 `core-browser`가 했다(따로 띄운 Chromium이 아니라 창의 `<webview>`와 page host의 page를 CDP screencast로 다른 기기에 보인다. `architecture/browser-tab.md` "멀리서 보기").
 - core 안에 browser 엔진 두기. browser는 shell main의 것이다(Chromium profile을 한 process만 연다).
 - preview 탭의 수명 바꾸기. 앱 view는 registry, ticket, 앱별 partition, preload가 `<webview>` 붙이기에 묶여 있어(`app-webview.md`) 그릇을 옮기는 값이 크다. preview는 agent가 앱을 만드는 동안 쓰고 대개 사람이 그 workspace에 있다. 창 없이 preview를 다뤄야 하는 일이 실제로 생기면 따로 연다.
 - artifact 탭의 수명 바꾸기(사람, 2026-11-10: 이번에는 뺀다). 그래서 agent는 그 workspace를 띄운 창이 없으면 artifact 탭을 열지도 다루지도 못하고, job이 만든 artifact는 화면 확인 없이 나간다. 남는 한계와 고치는 안은 이슈 `agent-artifact-tab-needs-mounted-workspace`다.

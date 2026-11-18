@@ -62,3 +62,27 @@ journeys:
       - {do: "그 컴퓨터가 꺼지면 창은 마지막 화면 위에 끊김 한 줄을 보인다", screen: shell-machine-window, flow: machine-window-gate:disconnected}
       - {do: "desktop을 다시 켜면 그 컴퓨터의 창이 offline gate로 바로 열리고 [This computer]로 이 컴퓨터의 창을 연다", screen: shell-machine-gate-offline, flow: machine-window-gate:offline}
       - {do: "그 컴퓨터가 다시 켜지면 창이 저절로 붙는다", screen: shell-machine-window, flow: machine-window-gate:reconnected}
+
+  - id: phone-agent-page
+    title: "사람이 폰에서 화면 없는 컴퓨터의 agent browser page를 보고 로그인하고 끼어든다"
+    actor: person
+    goal: "VM에서 도는 job의 agent가 연 page를 폰에서 보고, 로그인이 필요한 site는 폰에서 그 컴퓨터에 page를 열어 직접 로그인하며, agent가 잘못 가면 가져왔다 돌려준다"
+    steps:
+      - {do: "agent가 화면 없는 컴퓨터에서 page를 연다. core가 창 없는 page host를 띄우고 page host가 offscreen page를 든다", flow: host-shell-launch:launched-page-host}
+      - {do: "폰 sidebar의 Pages를 연다. 그 컴퓨터의 page 목록과 연 agent의 이름이 보인다", screen: phone-pages, flow: page-view-list:ok}
+      - {do: "줄을 누른다. 폰이 lease를 잡고 컴퓨터가 그 page의 그림을 밀기 시작한다", screen: phone-pages, flow: page-view-watch:watching}
+      - {do: "그림이 바뀔 때마다 폰이 snapshot을 다시 읽는다", screen: phone-pages, flow: page-view-snapshot:ok}
+      - {do: "목록 위 열기 칸에 로그인 page 주소를 넣어 그 컴퓨터에 page를 연다", screen: phone-pages, flow: page-view-open:opened}
+      - {do: "그 page에서 칸을 누르고 글 칸으로 아이디와 비밀번호를 친 뒤 key 줄의 Enter를 누른다", screen: phone-pages, flow: page-view-input:sent}
+      - {do: "agent의 page로 돌아가 [Take control]을 누른다. agent의 쓰기 동작이 막힌다. 고친 뒤 [Hand back]을 누른다", screen: phone-pages, flow: page-view-control:held}
+
+  - id: desktop-other-computer-page
+    title: "이 desktop에서 다른 컴퓨터의 agent browser page를 탭으로 보고 다룬다"
+    actor: person
+    goal: "다른 컴퓨터의 창에서 그 컴퓨터의 agent가 쓰는 page를 탭으로 열어 mouse와 keyboard(IME 포함)로 다루고, 그 창이 최소화되면 왜 그림이 없는지 안다"
+    steps:
+      - {do: "다른 컴퓨터의 창에서 새 탭 menu의 Pages를 연다. 그 컴퓨터의 page 목록 탭이 열린다", screen: shell-machine-pages, flow: page-view-list:ok}
+      - {do: "줄을 골라 page 탭을 연다. 탭이 보이는 동안 lease를 잡고 그림을 받는다", screen: shell-machine-page, flow: page-view-watch:watching}
+      - {do: "그림을 click하고 한글을 친다. 쳐진 글이 그 page에 간다", screen: shell-machine-page, flow: page-view-input:sent}
+      - {do: "[Take control]로 가져오고 [Hand back]으로 돌려준다", screen: shell-machine-page-held, flow: page-view-control:held}
+      - {do: "그 컴퓨터에서 page를 든 창이 최소화되면 그리지 않는다는 한 줄이 선다", screen: shell-machine-page-not-painting, flow: page-view-snapshot:ok}

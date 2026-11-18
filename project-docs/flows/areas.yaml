@@ -225,6 +225,7 @@ areas:
       - 앱 process 감독(시작, crash, 다시 띄우기)
       - 앱 호출(operation, command, 앱끼리의 call)과 호출 기록, 앱 data rewind
       - 앱 event의 발행과 구독 handler 호출, 발행 기록
+      - 폴더 교환 가운데 computers 폴더(manifest 쓰기, 사람의 폴더 거울, 명단 file, 기계를 건너는 event file, 빠진 컴퓨터의 하위 폴더 치우기)와 core event data.changed
       - capability broker(fs, net, secret, store, notify, problem)
       - 앱 OAuth, grant, 앱 log
       - 폰에서도 도는 앱(sync 앱)의 sync log와 폰의 push·pull·snapshot
@@ -324,6 +325,7 @@ areas:
       - control socket과 ensureCore(붙기, 띄우기, 멈추기)
       - user token, credential, identity
       - remote listener, 내 기기 명단(초대장, join, 빼기), 기기 연결과 그 자격, 다른 컴퓨터로 가는 link(machines/*)
+      - 컴퓨터 사이로 file을 옮기는 길 가운데 link와 폰(carry/*, 폰의 나르기)과 그 route
       - 기계 신분(machine.json), 복제 판정, 컴퓨터 이름
       - 늘 켜 둠 표시(always-on.json)와 OS 로그인 시작 등록·keep-awake 맞추기
       - child process 감독과 crash 진단

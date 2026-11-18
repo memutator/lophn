@@ -1,6 +1,6 @@
 # app-sync
 
-폰에서 도는 앱(선언의 `runs_on`에 `phone`이 든 앱)과 기계 사이로 data를 보내는 앱(선언의 `sync_to`)의 사본 맞추기 설계다. 폰 앱은 backend와 data가 폰에 있어 컴퓨터가 꺼져도 폰에서 읽고 쓰고, 컴퓨터에 닿으면 폰의 사본과 컴퓨터의 사본이 같아진다. 폰에게는 컴퓨터가 hub이고 ledger의 순서 있는 sync log가 두 사본의 변경을 이어 준다. 기계끼리는 hub가 없고 폴더가 잇는다: 컴퓨터는 sync log의 변경을 폴더의 자기 하위 폴더로 내보내고 다른 기계의 변경과 snapshot을 같은 칸 단위 규칙으로 받는다(폴더 쪽은 `folder-sync.md`). 폰의 write는 컴퓨터에 닿을 때 invocation이 되어 Activity와 rewind에 든다. 앱의 호출 경로와 기록은 `app-call.md`, 폰 화면과 guest runtime은 `phone-screen.md`, 폰 gate와 폰 앱은 `remote.md`, release가 바뀌는 순간은 `activation.md`, 앱 SDK 판은 `package.md`가 맡는다.
+폰에서 도는 앱(선언의 `runs_on`에 `phone`이 든 앱)과 기계 사이로 data를 보내는 앱(선언의 `sync_to`)의 사본 맞추기 설계다. 폰 앱은 backend와 data가 폰에 있어 컴퓨터가 꺼져도 폰에서 읽고 쓰고, 컴퓨터에 닿으면 폰의 사본과 컴퓨터의 사본이 같아진다. 폰에게는 컴퓨터가 hub이고 ledger의 순서 있는 sync log가 두 사본의 변경을 이어 준다. 기계끼리는 hub가 없고 폴더 꼴이 잇는다: 컴퓨터는 sync log의 변경을 폴더의 자기 하위 폴더로 내보내고 다른 기계의 변경과 snapshot을 같은 칸 단위 규칙으로 받는다. 앱이 `sync_to: "computers"`로 맞추면 그 폴더의 file은 컴퓨터 사이 연결, 폰(내용을 읽지 않고 나른다), 사람이 정한 같이 보는 폴더가 옮기고, 이름 붙인 폴더는 사람이 고른 바깥 도구가 옮긴다(폴더 쪽은 `folder-sync.md`). 폰과 컴퓨터 사이의 `app_sync`는 그대로다. 폰의 write는 컴퓨터에 닿을 때 invocation이 되어 Activity와 rewind에 든다. 앱의 호출 경로와 기록은 `app-call.md`, 폰 화면과 guest runtime은 `phone-screen.md`, 폰 gate와 폰 앱은 `remote.md`, release가 바뀌는 순간은 `activation.md`, 앱 SDK 판은 `package.md`가 맡는다.
 
 ## 문제
 
@@ -14,7 +14,7 @@
 ## 목표와 비목표
 
 - 목표: 선언의 `runs_on` 하나로 앱이 어디서 도는지 가른다. 폰의 read와 write는 컴퓨터에 닿을 때도 늘 폰에서 돈다. 두 사본은 칸 단위 last-write-wins로 같아진다. 폰의 write는 컴퓨터에서 invocation이 된다. 컴퓨터에 안 간 변경과 폰에만 있는 앱의 data는 지우지 않는다.
-- 비목표: iOS(내려받은 code로 앱 기능을 바꾸는 것과 native API를 내주는 것은 Apple 지침 2.5.2와 4.7.2에 걸려 사람이 Apple에 물어야 한다). 컴퓨터가 꺼진 동안 relay가 변경을 맡아 두는 것(그래서 폰 둘은 컴퓨터를 거쳐서만 맞고, 컴퓨터가 꺼진 동안은 맞지 않는다). 충돌을 보이는 화면. background sync(폰 앱이 앞에 있고 컴퓨터에 닿은 동안만 맞춘다). 폰에서 도는 앱의 위젯, 홈 화면 아이콘, 폰 기능. 폰에서 network, secret, 알림, event 발행, command, agent, job. 폰에만 있는 앱 data의 backup. core가 Hermes bytecode를 만드는 것(아래 결정의 fallback).
+- 비목표: iOS(내려받은 code로 앱 기능을 바꾸는 것과 native API를 내주는 것은 Apple 지침 2.5.2와 4.7.2에 걸려 사람이 Apple에 물어야 한다). 컴퓨터가 꺼진 동안 relay가 변경을 맡아 두는 것(그래서 폰 둘은 컴퓨터를 거쳐서만 맞고, 컴퓨터가 꺼진 동안은 맞지 않는다. 폰이 두 컴퓨터 사이에서 컴퓨터가 낸 file을 나르는 것은 이 비목표 밖이다: 폰은 `app_sync`로 폰 앱의 사본을 맞추는 일과 따로 `computers`의 file을 읽지 않고 나른다). 충돌을 보이는 화면. background sync(폰 앱이 앞에 있고 컴퓨터에 닿은 동안만 맞춘다). 폰에서 도는 앱의 위젯, 홈 화면 아이콘, 폰 기능. 폰에서 network, secret, 알림, event 발행, command, agent, job. 폰에만 있는 앱 data의 backup. core가 Hermes bytecode를 만드는 것(아래 결정의 fallback).
 
 ## 모델
 
@@ -46,7 +46,7 @@
 - **폰의 sync.** 폰 host가 한다. push는 clock이 없는 outbox 줄에 clock을 commit 순서로 찍고(write는 outbox 줄과 같이 commit되고 clock은 나중에 찍힌다) 컴퓨터가 답한 줄만 outbox에서 지운다. pull은 cursor 뒤를 받아 묶음마다 transaction 하나에서 "찍기, 적용, cursor 올리기"를 하고 도중에 실패하면 cursor가 그대로다. 들어온 변경은 guest 호출 사이에만 적용된다(`busy_timeout`). 계기는 local 변경, 연결됨, `AppSyncChanged`, 목록 읽기다. 폰 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다. pairing한 컴퓨터마다 store가 하나이고 화면에 고른 컴퓨터만이 아니라 연결이 선 모든 컴퓨터의 앱이 각자의 `AppSyncChanged`로 push와 pull을 한다(그 store는 화면이 바뀌어도 앱이 도는 동안 산다). 새로 깔기와 새 release로 옮기기는 목록을 읽을 때 하므로 화면에 없는 컴퓨터의 앱은 그 컴퓨터를 고를 때까지 기다린다.
 - **컴퓨터 node의 기계 표지.** 컴퓨터의 sync 앱 DB는 `lophn_sync_state`에 node를 처음 적은 기계의 id(key `machine`)를 같이 둔다. 앱 process가 열 때 표지가 지금 기계 id와 다르면(다른 기계에서 복사된 data root, `machine.md`) node를 새것으로 바꾸고 표지를 고친다. data, row·칸 clock, log는 그대로다. 표지가 없으면 이 판 전에 이 기계에서 만든 DB라 지금 id를 적고 node를 지킨다. 두 기계가 같은 node로 clock을 찍으면 서로의 변경을 같은 replica의 것으로 보기 때문이다. 폰은 이 key를 쓰지 않는다(폰의 node는 기기 id다).
 - **컴퓨터의 write.** sync 앱의 컴퓨터 write는 호출이 끝난 뒤 같은 write 줄 안에서 log에 줄을 쓴다(그래서 log의 순서가 DB에 적용된 순서다). 앱이 뜨며 한 write는 ready 통보에 실어 log에 남긴다. changeset이 너무 크거나 결과를 알 수 없는 변경은 보낼 수 없으니 "다시 snapshot" 줄을 남기고, 그 줄에 닿은 폰은 새 snapshot을 받는다. core가 앱의 commit과 log 줄 사이에서 죽었으면 core가 뜰 때 같은 줄로 메운다.
-- **다른 기계의 변경.** 폴더로 온 변경은 폰 변경과 같은 길이다. 변경 하나가 invocation 하나(caller `{kind: person, view_session: <주인 log seq>, machine: <출처>}`, operation과 시작 시각은 주인 것)이고 file 하나가 앱 DB transaction 하나다. 같은 (출처 기계, 변경 id)는 한 번만 적용된다. log에 origin `machine` 줄로 남아 폰이 pull하고(`app_sync/pull`의 `origin`에 `machine`), 폴더로는 다시 내보내지 않는다. 폰에서 온 변경은 내보낸다: 컴퓨터가 폰의 폴더 길이다.
+- **다른 기계의 변경.** 폴더 꼴로 온 변경(이름 붙인 폴더, 연결, 폰이 나른 것, 같이 보는 폴더 어느 길이든)은 폰 변경과 같은 길이다. 변경 하나가 invocation 하나(caller `{kind: person, view_session: <주인 log seq>, machine: <출처>}`, operation과 시작 시각은 주인 것)이고 file 하나가 앱 DB transaction 하나다. 같은 (출처 기계, 변경 id)는 한 번만 적용된다. log에 origin `machine` 줄로 남아 폰이 pull하고(`app_sync/pull`의 `origin`에 `machine`), 폴더로는 다시 내보내지 않는다. 폰에서 온 변경은 내보낸다: 컴퓨터가 폰의 폴더 길이다. 폰이 나르는 `computers`의 file과는 다른 것이다: 폰이 쓴 row는 `app_sync/push`로 컴퓨터에 들어가 그 컴퓨터의 변경으로 나가고, 폰이 나르는 file은 다른 컴퓨터가 낸 변경과 release를 폰이 내용을 읽지 않고 옮기는 것이다.
 - **snapshot 합치기.** 기계 사이 snapshot은 덮지 않고 row·칸 clock으로 합친다. source의 상태를 변경(row마다 row clock의 INSERT, 칸 clock마다 UPDATE, 흔적마다 DELETE, 없는 row의 kept 칸마다 UPDATE)으로 다시 지어 칸 단위 적용에 그대로 넘기므로 그 snapshot까지의 변경을 하나씩 받은 것과 같다. 앱 표의 모양이 다르면 아무것도 쓰지 않는다. 합치기는 invocation 하나(`lophn.snapshot_merge`)이고 바뀐 것이 있으면 '다시 snapshot' 줄을 남겨 폰이 새 snapshot을 받는다(합친 변경은 clock이 여럿이라 pull 줄 하나가 될 수 없다). 그 줄과 결과 모르는 받은 변경의 '다시 snapshot' 줄은 origin `machine`이라 폴더 내보내기가 건너뛴다.
 - **흔적 정리와 horizon.** 컴퓨터는 core가 정한 경계(`before`)보다 옛 흔적(묘비와 kept 칸)을 row 단위로 지우고 지운 가장 큰 clock을 앱 DB의 `horizon`으로 올린다(내려가지 않는다). 경계는 `max(min(알려진 모든 기계와 자기의 settled), now − 90일)`이다(`folder-sync.md`). 그물: clock이 자기 horizon 이하인 변경이 row도 흔적도 없는 row를 만들거나 지우려 하면 적용하지 않고 held 줄로 남긴다(지운 뒤 흔적이 정리된 row일 수 있다). 폰에서 온 것도 같고, 폰의 push에는 `skipped`로 답한다. snapshot 합치기도 받는 쪽 horizon 이하 clock의 source row가 받는 쪽에 row도 흔적도 없으면 held로 돌려준다. 폰은 받은 snapshot을 제 사본으로 삼을 때 horizon을 지운다(폰은 흔적을 정리하지 않고 held를 다루지 않는다. 부딪는 폰 변경은 컴퓨터가 받을 때 held로 남긴다).
 - **held 줄.** 그물에 걸린 변경과, 다른 기계의 horizon 밖으로 떨어졌던 이 기계가 내보내지 않은 자기 변경은 kind `held` 줄이 된다. changeset blob과 출처를 쥐고 폰에 보내지 않고 폴더로 내보내지 않는다. 사람이나 그 앱의 agent가 `apps/sync_held`로 푼다: apply는 이 기계가 낸 변경이면 다시 적용하지 않고 건드린 row·칸의 지금 값을 새 clock으로 찍어 보통 change 줄로 보내고, 받은 변경이면 다시 적용한다. discard는 `resolved_at`을 적고 bytes를 남긴다. 저절로 풀리지 않는다.
@@ -59,7 +59,7 @@
 - **폰의 앱 폴더.** 컴퓨터와 앱마다 `files/apps/<computer key>/<app>/`에 `app.sqlite`(data, clock, outbox), release 폴더(backend, manifest, migration, 화면 bundle), release 바뀜의 backup, 설치 기록(마지막에 쓴다. 없는 폴더는 멈춘 설치라 지운다)이 있다. 설치가 실패하면 화면은 어느 단계에서 멈췄는지의 폰 문장과 오류 code를 보이고 컴퓨터가 낸 오류 글은 log에만 남긴다. 받은 file은 크기와 sha256이 manifest와 같을 때만 쓴다.
 - **지우는 때.** 앱이 컴퓨터의 목록에서 빠지거나 컴퓨터를 지워도 sync 앱의 폴더는 outbox가 비었을 때만 지운다. standalone 앱의 data는 자동으로 지우지 않는다(컴퓨터의 목록에서 빠져도 폰의 목록에 남고 열린다). 옛 release 폴더는 바꾼 뒤에 지운다.
 - **폰에서 못 하는 것.** 폰의 backend는 network, secret, 알림, event 발행, 다른 앱의 command, agent, job을 부르면 `unavailable`이다. 컴퓨터가 필요한 일은 `external` operation에 둔다. 폰에서 한 write가 낸 앱 event는 전달되지 않는다(폰의 호출이 event를 내지 못하고 컴퓨터가 적용한 변경도 event를 내지 않는다). 폰 write와 컴퓨터 write가 같은 칸을 고치면 나중 것이 말없이 이긴다.
-- **폰 gate.** 폰 자격에 `app_sync/push|pull|snapshot|snapshot_file`, `apps/phone_file`, event `AppSyncChanged`(앱 id와 번호만 싣는다)를 연다. `app_sync/push`와 `snapshot`은 짝지은 기기만 받는다. 그 밖의 앱 route는 닫힌 채다.
+- **폰 gate.** 폰 자격에 `app_sync/push|pull|snapshot|snapshot_file`, `apps/phone_file`, event `AppSyncChanged`(앱 id와 번호만 싣는다)를 연다. 컴퓨터 사이 file을 나르는 `carry/manifests|wants|file|put`도 같은 목록에 있다(`folder-sync.md`). `app_sync/push`와 `snapshot`은 짝지은 기기만 받는다. 그 밖의 앱 route는 닫힌 채다.
 - **폰에 보이는 것.** 앱 화면 위 줄이 sync 앱은 "On this phone · synced <시각>", standalone은 "Only on this phone · not backed up"을 말한다(`phone-screen.md`). 충돌은 보이지 않는다.
 
 ## 지키는 것
@@ -105,7 +105,7 @@
 - 폰 backend bundle은 plain JS이고 core는 Hermes bytecode를 만들지 않는다. 이유: 실제 크기 backend(약 20 KB)는 release build에서 mount부터 첫 호출까지 55–139 ms였다. 200 KB의 plain JS는 machine 부하 아래에서 372–535 ms로 300 ms를 넘었고 같은 크기의 bytecode는 83–129 ms였다. 그래서 backend가 크게 나와 느리면 bytecode가 fallback이다(폰 앱의 Hermes와 맞는 `hermesc`를 core가 들어야 한다). (planner, spike)
 - sync 앱의 read와 write는 컴퓨터가 닿아도 폰에서 돌고, 컴퓨터에 닿을 때만 맞춘다. external이 가는 길은 컴퓨터의 기존 view 표다. 이유: 한 길로 두어 online과 offline이 같고 전환 경합이 없다. (planner)
 - 컴퓨터 sync DB의 node에 만든 기계의 id를 표지로 찍고, 다르면 앱 process가 열 때 node를 새로 받는다. 이유: 복제 판정이 앱 DB를 열 수 없고(앱 process만 연다) 소비자 목록을 몰라도 각 상태가 스스로 맞춘다. 앱 DB는 data step으로 옮길 수 없어 표지가 없는 옛 DB는 이 기계의 것으로 본다. (planner, agent)
-- 폰에게는 컴퓨터가 hub이고 폰 둘은 컴퓨터를 거쳐서만 맞는다. 기계끼리는 hub가 없고 폴더가 잇는다(`folder-sync.md`). 폰은 폴더를 쓰지 않는다. relay는 변경을 맡지 않는다. 이유: 암호문을 relay가 맡는 것은 relay에 저장과 키 관리를 더하는 일이고, 사람이 컴퓨터를 켜 둔다는 전제로 충분하다고 보았다. 대가: 컴퓨터가 꺼진 동안 폰 둘이 같은 앱을 고치면 컴퓨터가 켜진 뒤에야 맞는다. (planner)
+- 폰에게는 컴퓨터가 hub이고 폰 둘은 컴퓨터를 거쳐서만 맞는다. 기계끼리는 hub가 없고 폴더가 잇는다(`folder-sync.md`). 폰은 폴더를 쓰지 않고, 컴퓨터가 낸 file을 읽지 않고 나르기만 한다(`folder-sync.md`). relay는 변경을 맡지 않는다. 이유: 암호문을 relay가 맡는 것은 relay에 저장과 키 관리를 더하는 일이고, 사람이 컴퓨터를 켜 둔다는 전제로 충분하다고 보았다. 대가: 컴퓨터가 꺼진 동안 폰 둘이 같은 앱을 고치면 컴퓨터가 켜진 뒤에야 맞는다. (planner)
 
 - `sync_to`가 있는 앱은 컴퓨터에서도 sync 앱이다. 이유: 폴더로 나가는 변경에 clock과 순서 있는 log가 있어야 하고, 폰 앱과 같은 길을 쓰면 Activity와 rewind가 그대로 덮는다. 대가: 그 앱도 정수 PK를 쓰지 못한다. (planner)
 - 맞추기 규칙은 "write는 자기 clock으로만 순서가 정해지고, delete는 자기보다 옛 것만 지운다"다. delete보다 새 칸 값은 `lophn_sync_kept`에 남는다. 버린 안: delete가 그 row의 칸 clock을 모두 지우기(A가 3에 지우고 4에 다시 넣는 사이 B가 5에 칸을 고치면 도착 순서에 따라 A는 B의 값, B는 A의 값으로 갈렸다). 셋째 node가 생기는 기계 사이에서 처음 보였다. (planner, agent)
@@ -123,3 +123,5 @@
 - 폰에서 한 write의 앱 event는 전달되지 않는다(이슈 `phone-write-events-not-delivered`).
 - 이 판 전에 다른 기계로 복사한 sync DB는 표지가 없어 두 기계 모두 node를 지킨다. 두 기계가 같은 node를 쓴다(`machine.md`의 열린 것).
 - App details는 `["phone"]` 앱이 폰에서만 돈다고 따로 말하지 않는다. 컴퓨터에서 그 앱을 부르면 "the app is not ready"(`unavailable`)다.
+- 폰 화면이 있는 앱(`runs_on`에 `phone`)을 컴퓨터가 `computers`로도 맞추면 폰은 컴퓨터마다 사본을 따로 들고 같은 node로 clock을 찍는다. 폰에서 한 변경은 그 폰이 맞춘 컴퓨터에 들어간 뒤 컴퓨터들 사이로 퍼진다. 사본을 하나로 합치는 것은 하지 않았다.
+- 폰이 나르는 file은 화면이 있는 앱만이 아니라 `computers`로 맞추는 모든 앱의 것이다. 폰이 그 앱의 data를 읽거나 적용하지는 않는다.

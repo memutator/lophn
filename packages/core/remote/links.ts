@@ -1,8 +1,9 @@
 // 이 컴퓨터 core가 명단의 다른 컴퓨터마다 드는 연결(link). 붙는 쪽 engine은 폰과 같은 `@lophn/remote-client`이고, 받는 쪽은 그
 // 컴퓨터의 host가 폰과 같이 맡는다: 이 컴퓨터는 거기서 `device:<이 컴퓨터 id>`인 기기다. 컴퓨터 둘은 서로에게 따로 link를 든다
-// (한쪽만 닿는 network에서도 닿는 쪽 link 하나로 명단이 오간다). link로 명단을 주고받고, 이 기계의 화면이 부른
+// (한쪽만 닿는 network에서도 닿는 쪽 link 하나로 명단과 옮기는 file이 오간다). link로 명단을 주고받고, 이 기계의 화면이 부른
 // `machines/call`·`machines/watch`를 넘긴다. 그 기계의 Gateway frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 싣는다.
-// link마다 화면의 조건에 `StateChanged`를 더해 걸어, 그 컴퓨터가 든 옮기는 file이 바뀐 것(`carry_files`)을 나르기(carry.ts)에 알린다.
+// 옮기는 file(앱 data, release, 명단 file, event file)은 이 file이 나르지 않고 나르기(carry.ts)가 같은 연결의 `carry/*` call로 받는다.
+// link마다 화면의 조건에 `StateChanged`를 더해 걸어, 그 컴퓨터가 든 옮기는 file이 바뀐 것(`carry_files`)을 나르기에 알린다.
 import { WebSocket } from "ws";
 import {
   type Clock,

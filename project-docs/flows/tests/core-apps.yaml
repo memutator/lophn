@@ -25,8 +25,8 @@ files:
     note: "ledger 저장 규칙: 끝난 invocation은 표 trigger로 못 바꾸고 못 지움, 되돌림 표시 한 번, 큰 changeset은 결과를 살리고 changeset_dropped로 닫음, activation 뒤 이전 release의 changeset 지우기. activation 뒤 changeset 지우기는 release-activate:active"
 
   - path: packages/core/apps/events/publish_test.ts
-    covers: [app-event-publish:published, app-event-publish:delivered, app-event-publish:loop-refused, app-event-publish:undeclared-or-mismatched]
-    note: "선언하지 않은 event와 schema에 맞지 않는 payload는 invalid_input이고 아무에게도 가지 않으며 기록도 없다. 그 (source, event)를 구독으로 선언한 켜진 앱에만 가고 꺼진 구독자는 unreachable로, event의 chain에 이미 있는 구독자(A → B → A)는 refused로 센다. 발행 기록에 payload 칸이 없다. across_machines event는 발행 앱 workspace가 그 기계에서 private이면 event file로 쓰지 않고, 다른 기계에서 온 event는 받는 기계에서 private이면 내지 않으며 아니면 난 기계를 발행 기록과 caller에 싣는다(기계를 건너는 flow는 아직 catalog에 없어 covers 밖). 호출 경로와 broker는 가짜 port"
+    covers: [app-event-publish:published, app-event-publish:delivered, app-event-publish:loop-refused, app-event-publish:undeclared-or-mismatched, carry-event-write:not-carried, carry-event-arrive:skipped]
+    note: "선언하지 않은 event와 schema에 맞지 않는 payload는 invalid_input이고 아무에게도 가지 않으며 기록도 없다. 그 (source, event)를 구독으로 선언한 켜진 앱에만 가고 꺼진 구독자는 unreachable로, event의 chain에 이미 있는 구독자(A → B → A)는 refused로 센다. 발행 기록에 payload 칸이 없다. across_machines event는 발행 앱 workspace가 그 기계에서 private이면 event file로 쓰지 않고, 다른 기계에서 온 event는 받는 기계에서 private이면 내지 않으며 아니면 난 기계를 발행 기록과 caller에 싣는다(carry-event-write, carry-event-arrive). 호출 경로와 broker는 가짜 port"
 
   - path: packages/core/apps/invocations/schema_test.ts
     covers: []

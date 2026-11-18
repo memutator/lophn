@@ -121,6 +121,16 @@ files:
       - carry-put:accepted
       - carry-put:have
       - carry-put:rejected
+      - carry-file:not_found
+      - carry-mirror-take-in:taken-in
+      - carry-mirror-take-in:skipped
+      - carry-roster-file-read:statements-offered
+      - carry-roster-file-read:ignored
+      - carry-event-arrive:arrived
+      - carry-removed-computer:parked
+      - carry-removed-computer:restored
+      - carry-removed-computer:deleted
+      - folder-release-follow:waiting-consent
     note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다"
 
   - path: packages/core/folder/environment_test.ts
@@ -783,8 +793,8 @@ files:
     note: "임시 폴더의 host-key.json에 data step의 찍기와 서명 key 더하기를 돌려, machine이 없는 key에 id를 찍고 host key 값·0600이 그대로이며 같은 machine의 서명 key가 한 번 생기고 다시 돌아도 같고, 못 읽는 file은 덮지 않고, 새로 만드는 key 둘에는 machine이 찍히며 다른 기계 id면 drop으로 보는 것을 본다"
 
   - path: packages/core/remote/carry_test.ts
-    covers: []
-    note: "가짜 link 호출과 가짜 받는 자리로 link 나르기 한 번을 돌린다. 8 MiB를 넘는 file은 조각이 offset 순서로 receive 하나에 가고, 상대가 not_found로 답한 file은 건너뛴다. 상대가 갖지 않은 file 1,000개로 찬 wants page 뒤의 page도 cursor로 받는다. 받는 자리가 믿지 않은 manifest 글은 다음 pass에서 다시 받지 않는다. carry route handler가 아직 없어 outcome이 없다"
+    covers: [carry-link-pull:received, carry-link-pull:not-trusted]
+    note: "가짜 link 호출과 가짜 받는 자리로 link 나르기 한 번을 돌린다. 8 MiB를 넘는 file은 조각이 offset 순서로 receive 하나에 가고, 상대가 not_found로 답한 file은 건너뛴다. 상대가 갖지 않은 file 1,000개로 찬 wants page 뒤의 page도 cursor로 받는다. 받는 자리가 믿지 않은 manifest 글은 다음 pass에서 다시 받지 않는다"
 
   - path: packages/core/remote/relay-client_test.ts
     covers:

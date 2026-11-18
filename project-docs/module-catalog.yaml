@@ -17,7 +17,7 @@ modules:
 
   - path: packages/protocol
     boundary: protocol
-    notes: 구현을 두지 않는다. phone/은 core와 폰이 주고받는 `request`·`response` frame, kind 표(`PHONE_KINDS`), `unavailable`의 이유를 고정한다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
+    notes: 구현을 두지 않는다. remote/carry.ts는 기계 사이로 옮기는 file(서명한 manifest와 목록 사슬, 명단 file, event file, route `carry/*`)의 계약이고 폰도 읽어 Node 내장이 없다(폴더 계약과 remote 계약이 서로를 import하지 않게 remote에 둔다). phone/은 core와 폰이 주고받는 `request`·`response` frame, kind 표(`PHONE_KINDS`), `unavailable`의 이유를 고정한다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
 
   - path: packages/protocol/apps/sync
     boundary: app-sync
@@ -157,15 +157,15 @@ modules:
 
   - path: packages/core/folder
     boundary: folder
-    notes: export/(data stream, snapshot, compaction, settled, 기계 기록), import/(기록 사본, stream 따라가기, held 복사), apps/(앱 기록, release·source 교환, take-in), environment.ts(읽기 명령과 section 자리)다. 앱 DB와 sync log에는 ports.ts의 port(`FolderApply`, sync log)로만 닿고 core/main의 wiring/folder.ts가 core/apps의 구현을 꽂는다. 계기(감시, timer, 물러남)도 그 wiring이 갖는다. 자기 하위 폴더 밖에 쓰지 못하게 writer가 막는다.
+    notes: export/(data stream, snapshot, compaction, settled, 기계 기록), import/(기록 사본, stream 따라가기, held 복사), apps/(앱 기록, release·source 교환, take-in), environment.ts(읽기 명령과 section 자리)다. `computers`("내 컴퓨터들") 폴더는 replica.ts(link·폰·거울이 가져온 다른 기계의 manifest와 file을 검사해 두는 받는 자리. 읽기는 이 폴더를 이름 붙인 폴더처럼 읽는다), mirror.ts(사람의 폴더 `folder.shared`를 그 폴더의 거울로), carry-routes.ts(route `carry/manifests|wants|file|put`), carry-status.ts(route `carry/status`), export/manifest.ts·roster.ts·events.ts(manifest와 앱 목록, 명단 file, event file 쓰기), import/roster.ts·events.ts(폴더의 명단 file과 기계를 건너는 event 읽기), import/follow.ts(따라갈 때 묻는 규칙)가 맡는다. 앱 DB와 sync log에는 ports.ts의 port(`FolderApply`, sync log)로만 닿고 core/main의 wiring/folder.ts가 core/apps의 구현을 꽂는다. 계기(감시, timer, 물러남)도 그 wiring이 갖는다. 자기 하위 폴더 밖에 쓰지 못하게 writer가 막고, 다른 기계의 하위 폴더는 받는 자리만 서명한 목록에 맞는 file로 쓴다.
 
   - path: packages/protocol/folder
     boundary: folder
-    notes: 폴더 배치와 file 이름, changes·snapshot 꼴, 기록 schema(모르는 칸을 버린다), 꼴 판 범위, 수치(limits.ts), 상태와 `machine.environment` 출력 schema, route `machine/environment`·`machine/forget`·`apps/take_in`·`apps/sync_held`·`apps/sync_resume`. 구현을 두지 않는다.
+    notes: 폴더 배치와 file 이름(manifest, 앱 목록, 명단 file, event file 포함), changes·snapshot 꼴, 기록 schema(모르는 칸을 버린다), 꼴 판 범위, 수치(limits.ts), 상태와 `machine.environment` 출력 schema, route `machine/environment`·`machine/forget`·`apps/take_in`·`apps/sync_held`·`apps/sync_resume`. 구현을 두지 않는다.
 
   - path: packages/core/remote
     boundary: remote
-    notes: roster.ts는 내 기기 명단의 main thread 사본이다(받기, 서명, 저장을 하나씩. 서명 key는 writer Worker로 넘기지 않고 machine 자격 `roster/store`로 쓴다). links.ts는 명단의 다른 컴퓨터마다 드는 link이고 붙는 engine은 `packages/remote-client`다. host.ts는 붙는 연결(폰, 다른 컴퓨터) 하나하나를 `join`과 명단으로 받아들인다. host-key.ts는 host key와 서명 key 둘을 같이 만들고 지운다. phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. phone-link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
+    notes: roster.ts는 내 기기 명단의 main thread 사본이다(받기, 서명, 저장을 하나씩. 서명 key는 writer Worker로 넘기지 않고 machine 자격 `roster/store`로 쓴다). links.ts는 명단의 다른 컴퓨터마다 드는 link이고 붙는 engine은 `packages/remote-client`다. carry.ts는 붙은 컴퓨터마다 상대가 든 manifest와 file 가운데 이 컴퓨터에 없는 것을 `carry/*`로 받아 폴더의 받는 자리에 넘긴다(검증하거나 쓰지 않는다). host.ts는 붙는 연결(폰, 다른 컴퓨터) 하나하나를 `join`과 명단으로 받아들인다. host-key.ts는 host key와 서명 key 둘을 같이 만들고 지운다. phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. phone-link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
 
   - path: packages/core/attention
     boundary: attention
@@ -192,7 +192,7 @@ modules:
 
   - path: packages/mobile
     boundary: mobile
-    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다. modules/lophn-widgets는 폰의 홈 화면 native 층(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기, 앱 아이콘 pin·disable·enable)이다. widgets/, shortcuts/, open/, link/는 위젯 store, 아이콘, open target, 컴퓨터의 `request`에 답하는 handler다. modules/lophn-drive는 guest의 Android view tree를 읽고 누르는 Kotlin Expo module이다(그 view가 이 폰이 연 preview인지는 `src/apps/drive`가 먼저 본다). `guest/`는 사용자 앱의 폰 화면을 돌리는 guest runtime의 base bundle(폰 앱 build가 Hermes bytecode로 컴파일해 APK에 싣는다)이고 `patches/`의 patch가 `@callstack/react-native-sandbox`를 고친다(`npm ci`의 postinstall이 적용한다). `src/apps/local/`이 폰에서 도는 앱의 설치, sync, release 바뀜, 지우기 규칙을 React Native 없이 두고(`node --test`로 돈다) `src/data/local-apps.ts`와 `local-stores.ts`가 그것을 화면에 잇는다.
+    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다. modules/lophn-widgets는 폰의 홈 화면 native 층(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기, 앱 아이콘 pin·disable·enable)이다. widgets/, shortcuts/, open/, link/는 위젯 store, 아이콘, open target, 컴퓨터의 `request`에 답하는 handler다. modules/lophn-drive는 guest의 Android view tree를 읽고 누르는 Kotlin Expo module이다(그 view가 이 폰이 연 preview인지는 `src/apps/drive`가 먼저 본다). `guest/`는 사용자 앱의 폰 화면을 돌리는 guest runtime의 base bundle(폰 앱 build가 Hermes bytecode로 컴파일해 APK에 싣는다)이고 `patches/`의 patch가 `@callstack/react-native-sandbox`를 고친다(`npm ci`의 postinstall이 적용한다). `src/apps/carry/`는 폰이 컴퓨터 사이에서 `computers`의 file을 읽지 않고 나르는 규칙(받아 두기, 넘기기, 지우기, 모바일 데이터의 크기 선택)을 React Native 없이 두고(`carry.test.ts`가 `node --test`로 돈다), `src/apps/local/`이 폰에서 도는 앱의 설치, sync, release 바뀜, 지우기 규칙을 React Native 없이 두고(`node --test`로 돈다) `src/data/local-apps.ts`와 `local-stores.ts`가 그것을 화면에 잇는다.
 
   - path: packages/mobile/modules/lophn-app-db
     boundary: mobile

@@ -2766,118 +2766,180 @@ flows:
     crosses_process: false
     risk: [permission]
 
-  - id: carry-read
-    title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 목록과, 믿는 목록이 싣는데 이 컴퓨터에 아직 없는 file을 읽는다"
+  - id: carry-manifest-write
+    title: "computers 폴더의 자기 하위 폴더에 명단 file과 앱 목록을 쓰고 이 컴퓨터의 서명 key로 manifest에 서명한다"
     actor: system
-    entries: [route:carry/manifests, route:carry/wants]
-    boundary: [folder]
-    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
+    entries: [system:carry-manifest]
+    boundary: [folder, remote-protocol]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/export/manifest.ts, packages/core/folder/export/roster.ts, packages/core/folder/export/events.ts]
     docs: [architecture/folder-sync.md]
     steps:
-      - "dispatch가 actors(user, 기기 연결의 컴퓨터와 폰)를 본다"
-      - "manifests: 이 컴퓨터의 manifest와, 받아 들였고 그것을 검증한 서명 key가 지금 명단의 key인 다른 컴퓨터의 manifest마다 machine, revision, 크기, sha256. 글은 carry/file로 읽는다"
-      - "wants: 지금 목록인 다른 컴퓨터의 manifest에서 시작한 목록 사슬(앱 목록, release.json, source/<n>.json)이 싣는데 computers 폴더에 그 크기·sha256으로 없는 file을 (machine, path) 순서로 after 뒤부터 limit(기본 1,000)개"
-      - "이 컴퓨터가 든 manifest가 바뀌면(받아 들임, 내보내기, 명단이 바뀌어 다시 검증) StateChanged(carry_files)로 다시 읽는다"
+      - "계기: 내보내기, 앱 기록·release·source 쓰기, 기계 기록 쓰기가 끝난 뒤. 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다"
+      - "7일보다 옛 자기 event file(과 folder_written 행)을 지운다. remote가 켜져 있고 자기 항목이 있으면 명단 file roster.json(statement만, 주소 없음)을 쓴다"
+      - "앱마다 apps/<app>/files.json(그 앱의 app.json, 가장 새 snapshot과 그 뒤 data file, source json, release.json, events)과 그 위 manifest.json(record.json, roster.json, 앱 목록)을 이번 내보내기가 쓴 file의 기록(folder_written)으로 만든다. 폴더를 훑지 않는다. 목록이 같으면 다시 쓰지 않는다"
+      - "snapshot 뒤 data file이 2,000을 넘으면 내보내기가 computers에 새 snapshot을 쓴다. 앱 목록이나 manifest가 8 MiB를 넘게 되면 그 file을 쓰지 않고 지난 것을 두고 그 앱 stream에 too_large를 남긴다"
+      - "revision은 max(지난 revision + 1, 지금 ms)이고 지난 revision은 자기 manifest file과 다른 기계가 되돌려 준 자기 manifest의 표시 가운데 큰 것이다. 이 컴퓨터의 명단 서명 key로 서명하고 temp에 쓴 뒤 rename한다. 바뀌었으면 StateChanged(carry_files)를 낸다"
+      - "같이 보는 폴더가 있으면 이어서 거울에 복사한다(carry-mirror-copy)"
     outcomes:
-      - id: ok
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
-        observe: [response]
-    declared_only: [unavailable]
-    unclear:
-      - "manifests·wants의 unavailable은 선언만 있다: 받는 자리가 읽지 못한 file은 없는 것으로 본다"
-    crosses_process: false
-
-  - id: carry-status
-    title: "사람이 Settings › Sync에서 컴퓨터마다 마지막으로 받은 file의 길과 때, 앱마다 마지막으로 맞춘 때를 읽는다"
-    actor: person
-    entries: [route:carry/status]
-    boundary: [folder]
-    code: [packages/core/folder/carry-status.ts, packages/core/main/daemon/wiring/folder.ts, packages/protocol/remote/carry.ts]
-    docs: [architecture/folder-sync.md]
-    steps:
-      - "dispatch가 actors(user)를 본다. 기기 route 목록에 없어 연결의 컴퓨터와 폰은 부르지 못한다"
-      - "machines: 받는 자리가 든 manifest마다 machine, revision, 마지막으로 받아 들인 때(received_at)와 길(via: link, phone, folder). 이 컴퓨터 것은 때와 길이 null이다. 때와 길은 메모리에만 있어 core를 다시 띄우면 null이고, 명단에서 빠진 컴퓨터는 목록에 없다"
-      - "apps: sync_to가 있는 활성 앱마다 name, sync_to, 다른 기계의 변경을 마지막으로 읽은 때(그 앱 folder_reads의 가장 늦은 imported_at, 읽은 적이 없으면 null)"
-      - "shared: 쓸 수 있는 같이 보는 폴더(folder.shared)의 path와 상태(ok, missing, not_writable. 폴더가 있는 directory이고 쓸 수 있는지 그때 본다). 정하지 않았거나 겹쳐 쓰지 못하는 값이면 null"
-      - "든 manifest가 바뀌면(StateChanged carry_files)와 앱 상태가 바뀌면(app_runtime) 화면이 다시 읽는다"
-    outcomes:
-      - id: ok
-        observe: [response, "screen:settings-sync", "screen:settings-sync-empty"]
-      - id: forbidden
-        code: forbidden
-        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
-        observe: [response]
-    declared_only: [unavailable]
-    unclear:
-      - "unavailable은 선언만 있다: 받는 자리의 manifests는 읽지 못해도 빈 목록이다"
-    crosses_process: false
-
-  - id: carry-file
-    title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 글이나 지금 목록이 싣는 file의 한 구간을 받는다"
-    actor: system
-    entries: [route:carry/file]
-    boundary: [folder]
-    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
-    docs: [architecture/folder-sync.md]
-    steps:
-      - "dispatch가 actors(user)와 입력(path가 그 machine의 옮기는 file이거나 manifest, length 8 MiB까지)을 본다"
-      - "machines/<m>/manifest.json: 이 컴퓨터 것이면 내보내기가 쓴 file, 다른 컴퓨터 것이면 지금 목록일 때만 준다"
-      - "그 밖: 그 기계의 지금 목록 사슬이 그 path를 싣고 computers 폴더의 file이 그 크기·sha256일 때 offset부터 length까지(끝이면 짧다). 이 컴퓨터가 낸 file과 다른 컴퓨터에서 받은 file 모두 준다"
-    outcomes:
-      - id: ok
-        observe: [response]
-      - id: not_found
-        code: not_found
-        when: "그 file을 들지 않았거나, 지금 목록이 싣지 않거나, 크기·sha256이 다르거나, 그 기계의 목록이 지금 명단의 key로 맞지 않는다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "path가 그 machine의 옮기는 file도 manifest도 아니다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
-        observe: [response]
-    crosses_process: false
-
-  - id: carry-put
-    title: "폰이 들고 온 다른 컴퓨터의 manifest와 file을 조각으로 넘기고, 받는 자리가 서명한 목록에 맞는 것만 computers 폴더에 둔다"
-    actor: system
-    entries: [route:carry/put]
-    boundary: [folder]
-    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
-    docs: [architecture/folder-sync.md]
-    steps:
-      - "dispatch가 actors(user)와 입력(조각 8 MiB까지)을 본다"
-      - "조각은 data root의 carry-staging에 (machine, path)마다 한 file로 offset대로 잇는다. offset 0은 처음부터다. 한 시간 지난 끝나지 않은 staging은 지운다"
-      - "첫 조각(file): 이 컴퓨터 자신의 file이면 들었을 때 have, 아니면 rejected. 다른 컴퓨터의 지금 목록 사슬에 그 크기·sha256의 entry가 없으면 아무것도 쓰지 않고 rejected, 이미 들었으면 have"
-      - "다 차면(file): 받는 자리가 크기·sha256을 보고 rename 바로 앞에 그때의 목록과 다시 견준 뒤 computers/machines/<m>/에 둔다. 목록 file이면 그 판이 더는 싣지 않는 file을 지운다. 읽기 scan을 깨운다"
-      - "다 차면(machines/<m>/manifest.json): 글의 body.machine, 크기, sha256이 입력과 같아야 한다. 명단에서 그 machine의 하나뿐인 컴퓨터가 서명했고 (그 기계, 그 서명 key)의 표시(folder_carry_marks)보다 revision이 크면 지금 목록이 되고 표시를 올린다. 이 컴퓨터 자신의 manifest면 두지 않고 표시만 올린다(have). 같거나 옛 것이면 have. 바뀌면 StateChanged(carry_files)"
-    outcomes:
-      - id: partial
-        observe: [response, "disk:carry-staging/"]
-      - id: accepted
-        observe: [response, "disk:computers/machines/<m>/", "ledger:folder_carry_marks", "event:StateChanged"]
-      - id: have
-        when: "같은 file을 이미 든다, 같거나 옛 revision의 manifest, 이 컴퓨터 자신의 manifest나 든 file"
-        observe: [response]
-      - id: rejected
-        when: "지금 목록 사슬에 그 path가 없거나 크기·sha256이 다르다, 받은 bytes가 크기·sha256과 다르다, 받는 사이 목록이 바뀌었다, 명단에 없거나 빠졌거나 다른 이름을 단 컴퓨터가 서명한 manifest, 글과 다른 machine·크기·sha256, 이 컴퓨터 자신의 들지 않은 file"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "offset이 받아 둔 크기를 잇지 않는다(staging이 지워졌거나 core가 다시 떴다. offset 0부터 다시)"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "staging이나 computers 폴더에 쓰지 못했다, 표시를 ledger에 쓰지 못했다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
-        observe: [response]
+      - id: written
+        observe: ["disk:computers/machines/<mch>/manifest.json", "disk:computers/machines/<mch>/apps/<app>/files.json", "ledger:folder_written", "event:StateChanged"]
+      - id: unchanged
+        when: "목록이 지난번과 같다. 아무것도 쓰지 않는다"
+        observe: ["disk:computers/machines/<mch>/manifest.json"]
+      - id: no-signing-key
+        when: "이 컴퓨터에 서명 key가 없다(remote를 켠 적이 없다). manifest를 쓰지 않아 다른 컴퓨터가 이 컴퓨터의 file을 받지 못한다. 이 컴퓨터는 다른 컴퓨터의 것은 받는다"
+        observe: ["log:core"]
+      - id: too-large
+        when: "앱 목록이나 manifest가 8 MiB를 넘게 된다. 지난 것을 두고 그 앱 stream에 too_large 오류가 남아 machine.environment에 보인다. 받는 쪽은 지난 목록으로 계속 받는다"
+        observe: ["ledger:folder_streams", "log:core"]
     crosses_process: false
     risk: [data-loss, sandbox]
+    refs: []
+    unclear:
+      - "명단이 바뀌어 자기 항목의 서명 key가 바뀌어도 manifest는 다음 내보내기 계기에야 새 key로 다시 서명된다"
+
+  - id: carry-mirror-copy
+    title: "사람의 같이 보는 폴더에 이 컴퓨터의 하위 폴더를 manifest 사슬대로 복사한다"
+    actor: system
+    entries: [system:carry-mirror-copy]
+    uses: [system:carry-manifest]
+    boundary: [folder]
+    code: [packages/core/folder/mirror.ts, packages/core/main/daemon/wiring/folder.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "folder.shared가 쓸 수 있는 폴더일 때만 돈다. 이 컴퓨터의 manifest 사슬이 싣는 file을 그 폴더의 같은 path로 복사한다. 이미 같은 크기·sha256이면 건너뛰고, 아직 computers 폴더에 없는 file(쓰는 중인 내보내기)은 다음 번으로 미룬다"
+      - "manifest는 마지막에 쓴다. 그 뒤 이 컴퓨터의 하위 폴더에서 사슬에 없는 file(compaction, 지운 release, 옛 event)을 지운다. 다른 기계의 하위 폴더에는 쓰지도 지우지도 않는다(writer가 자기 하위 폴더 밖을 막는다)"
+    outcomes:
+      - id: copied
+        observe: ["disk:<folder.shared>/machines/<mch>/"]
+      - id: not-written
+        when: "같이 보는 폴더에 쓰지 못한다(없거나 쓸 수 없음). 이 컴퓨터의 computers 폴더와 다른 길은 그대로이고 로그만 남는다"
+        observe: ["log:core"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
+  - id: carry-mirror-take-in
+    title: "사람의 같이 보는 폴더에 있는 다른 컴퓨터의 manifest와 file을 받는 자리에 넘긴다"
+    actor: system
+    entries: [system:carry-mirror-take-in]
+    boundary: [folder]
+    code: [packages/core/folder/mirror.ts, packages/core/main/daemon/wiring/folder.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "계기: 읽기 scan(감시 2초 debounce, 2분 timer, 설정 바뀜). folder.shared가 있을 때만"
+      - "명단 view에 하나뿐인 컴퓨터 항목이 없는 기계(서명 key가 없다)의 하위 폴더는 열기 전에 건너뛴다. 그 폴더는 누구나 쓸 수 있어 지어낸 기계마다 읽게 되기 때문이다"
+      - "그 밖의 기계마다 manifest 글을 받는 자리에 넘기고, 받는 자리가 지금 목록 사슬이 싣는데 없다고 하는 file 가운데 폴더에 같은 크기로 있는 것을 넘긴다. 새로 받은 목록 file이 그 아래 file을 바라게 하므로 더 받을 것이 없을 때까지 돌되 scan마다 8번까지이고 이번에 이미 받은 path를 또 받으면 멈춘다. 검사(서명, revision 표시, 사슬, 크기·sha256)는 받는 자리가 길과 상관없이 한다"
+      - "명단 file은 별도다(carry-roster-file-read)"
+    outcomes:
+      - id: taken-in
+        observe: ["disk:computers/machines/<mch>/", "ledger:folder_carry_marks"]
+      - id: skipped
+        when: "받는 자리가 믿지 않거나 사슬에 없는 것, 서명 key가 없는 기계, 폴더를 읽지 못함. 아무것도 받지 않고 다음 scan에 다시 본다"
+        observe: ["log:core"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
+  - id: carry-roster-file-read
+    title: "폴더로 온 다른 컴퓨터의 명단 file에서 statement만 명단에 넘긴다"
+    actor: system
+    entries: [system:carry-roster-file]
+    boundary: [folder, remote]
+    code: [packages/core/folder/import/roster.ts, packages/core/main/daemon/wiring/folder.ts, packages/core/main/daemon/wiring/remote.ts]
+    docs: [architecture/folder-sync.md, architecture/remote.md]
+    steps:
+      - "계기: 읽기 scan. 명단에 든 컴퓨터의 roster.json은 computers 폴더에서만 읽는다(그 기계가 서명한 목록이 싣는 file이다). 사람의 폴더에서 바로 읽는 것은 명단에 없는 기계의 것뿐이다"
+      - "명단에 없는 기계(아직 믿지 못하는 컴퓨터, dual boot의 다른 OS)의 roster.json은 scan마다 4개만 돌아가며 읽고, 그 기계 이름의 컴퓨터 항목이 다루는 key의 statement만 들어오기에 드는 수까지 넘긴다"
+      - "statement만 명단에 넘긴다. 주소(reach)는 읽지 않는다. 믿는 서명이 없는 statement는 명단 규칙이 거르고 모르는 서명자 상한 안에서만 남아 기기가 되지 않는다. 지난번과 같은 bytes는 다시 넘기지 않는다"
+    outcomes:
+      - id: statements-offered
+        observe: ["ledger:roster_statements", "event:StateChanged"]
+      - id: ignored
+        when: "file이 크거나 모양이 틀림, 같은 bytes, 믿는 서명이 없음. 명단은 그대로다"
+        observe: ["ledger:roster_statements"]
+    crosses_process: false
+    risk: [permission, sandbox]
+
+  - id: carry-event-write
+    title: "across_machines로 선언한 event를 이 컴퓨터에서 전달한 뒤 다른 컴퓨터로 갈 event file로 쓴다"
+    actor: app
+    entries: [system:carry-event-write]
+    uses: [route:app_events/publish]
+    boundary: [app-runtime, folder]
+    code: [packages/core/apps/events/publish.ts, packages/core/folder/export/events.ts, packages/core/main/daemon/wiring/folder.ts]
+    docs: [architecture/event.md, architecture/folder-sync.md]
+    steps:
+      - "발행은 이 컴퓨터의 구독자에게 먼저 간다(app-event-publish). 선언에 across_machines가 있고(sync_to가 있는 앱만 선언할 수 있다) 그 앱 workspace가 이 컴퓨터의 call 정책에서 private이 아닐 때만 event file을 쓴다"
+      - "machines/<이 컴퓨터>/apps/<app>/events/<ULID>.json(machine, app, id, bundle_hash, name, payload, at, 64 KiB까지)을 그 앱의 sync_to 폴더에 쓰고 folder_written에 적는다. 앱 목록이 싣고 manifest가 서명하면 다른 컴퓨터로 간다"
+      - "쓰지 못해도(너무 큼, 폴더를 쓸 수 없음) 이 컴퓨터의 발행은 이미 끝났다. log 한 줄만 남는다"
+    outcomes:
+      - id: written
+        observe: ["disk:<destination>/machines/<mch>/apps/<app>/events/<id>.json", "ledger:folder_written"]
+      - id: not-carried
+        when: "workspace가 private이거나 event를 file로 쓰지 못한다(64 KiB 초과, 폴더 오류). 이 컴퓨터의 구독자는 그대로 받는다"
+        observe: ["log:app"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: carry-event-arrive
+    title: "다른 컴퓨터가 낸 event file을 이 컴퓨터에서 한 번 낸다"
+    actor: system
+    entries: [system:carry-event-arrive]
+    boundary: [folder, app-runtime]
+    code: [packages/core/folder/import/events.ts, packages/core/apps/events/publish.ts, packages/core/main/daemon/wiring/folder.ts]
+    docs: [architecture/event.md, architecture/folder-sync.md]
+    steps:
+      - "계기: 읽기 scan 끝. 이 컴퓨터에 든 sync 앱마다 그 sync_to 폴더의 다른 기계 apps/<app>/events/를 읽는다. 난 기계, 앱, id는 path에서 얻고 내용의 값이 path와 다르거나 모양이 틀리면 거절한다. at이 7일보다 옛 것이나 5분 넘게 앞선 것, bundle hash가 이 컴퓨터 활성 release와 다른 것은 내지 않는다(다른 release의 것은 센 것으로 적지 않아 이 컴퓨터가 그 release가 되고 나이 안이면 그때 난다)"
+      - "folder_events_seen에 없는 것만 한 transaction에서 그 표에 적은 뒤 내는 쪽(apps)에 넘긴다. 같은 file이 연결, 폰, 같이 보는 폴더로 여러 번 와도 한 번이다. 그 행은 14일 뒤에 지운다"
+      - "내는 쪽이 앱이 이 컴퓨터에 있고 보관하지 않았는지, 그 workspace가 이 컴퓨터에서 private이 아닌지, 활성 release 선언이 그 event를 across_machines로 두고 payload가 schema에 맞는지 다시 본다. 맞으면 그 앱의 구독자에게 난 기계를 싣고 낸다(chain은 그 앱 하나)"
+    outcomes:
+      - id: arrived
+        observe: ["ledger:folder_events_seen", "ledger:app_event_publications", "ledger:invocations"]
+      - id: skipped
+        when: "앱이 없음·보관함, 이 컴퓨터에서 private, 나이 범위 밖, 다른 release, 선언이 맞지 않음, payload가 schema에 맞지 않음. 낸 것으로 센다(다시 보지 않는다). log 한 줄"
+        observe: ["ledger:folder_events_seen", "log:app"]
+      - id: refused
+        when: "path와 내용이 다르거나 모양이 틀림, 나이 범위 밖, 다른 release의 file. 센 것으로 적지 않는다"
+        observe: ["log:core"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: carry-removed-computer
+    title: "정해진 빼기로 명단에서 빠진 컴퓨터의 하위 폴더를 7일 동안 치워 두었다가 지운다"
+    actor: system
+    entries: [system:carry-removed]
+    boundary: [folder, remote]
+    code: [packages/core/folder/replica.ts, packages/core/main/daemon/wiring/remote.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "계기: 명단 view가 바뀜. 그 기계 이름의 컴퓨터가 지금 없고 정해진 빼기로 빠졌고 그 이름의 정해지지 않은 빼기도 없을 때만 빠진 것으로 본다(새 key로 돌아온 기계가 다툼에 걸려 있으면 아니다)"
+      - "그 하위 폴더를 computers 폴더 밖 data root로 옮겨 두고(받지도 내주지도 읽지도 않는다) 처음 본 때를 적는다. 7일이 지나면 지운다. 그 사이 빼기가 풀리면 되돌린다. 이미 적용한 data는 남고 revision 표시는 지우지 않는다"
+      - "빼기가 정해지지 않았거나 충돌이거나 key가 맞지 않게 된 컴퓨터는 이 flow가 아니다: 새 manifest와 file을 받지 않고 든 file은 누구에게도 내주지 않으며 지우지 않는다"
+    outcomes:
+      - id: parked
+        observe: ["disk:carry-removed/<mch>/"]
+      - id: deleted
+        when: "치워 둔 지 7일이 지났다"
+        observe: ["disk:carry-removed/"]
+      - id: restored
+        when: "7일 안에 빼기가 풀렸다. 하위 폴더를 computers 폴더로 되돌린다"
+        observe: ["disk:computers/machines/<mch>/"]
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: app-data-changed
+    title: "폰이나 다른 기계에서 온 변경이 앱 DB에 적용되면 그 앱에 data.changed를 낸다"
+    actor: system
+    entries: [system:app-data-changed]
+    boundary: [app-runtime, events]
+    code: [packages/core/apps/calls/service.ts, packages/core/main/daemon/wiring/apps.ts]
+    docs: [architecture/event.md]
+    steps:
+      - "폰의 push 하나, 폴더 file 하나(연결, 폰, 같이 보는 폴더, 이름 붙인 폴더 어느 길이든), snapshot 합치기 하나가 앱 DB에 적용된 뒤(실제로 바뀐 것이 있을 때만) 한 번 낸다"
+      - "lophn이 발행자인 event data.changed(payload 없음)를 그 앱 하나에만 보낸다. 그 앱의 구독 handler와 열린 앱 화면이 받고 무엇이 바뀌었는지는 싣지 않는다(앱이 다시 읽는다). 뒤 기록이 실패해도 적용이 끝났으면 낸다"
+    outcomes:
+      - id: published
+        observe: ["event:AppEventPublished", "ledger:invocations"]
+      - id: not-published
+        when: "적용된 것이 없다(전부 건너뜀, held, 이미 받은 변경). 낼 구독자가 없으면 기록도 남기지 않는다"
+        observe: []
+    crosses_process: false

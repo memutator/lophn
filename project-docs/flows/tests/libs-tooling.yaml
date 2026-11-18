@@ -177,8 +177,8 @@ files:
     note: "폴더 변경 file 꼴. 끝을 자른 것, payload·header를 1 byte 바꾼 것, 뒤에 붙인 것, path와 번호가 다른 header, 1행 판 2는 변경을 하나도 내놓지 않고(invalid_file, newer_format), 맞는 file은 넣은 변경을 bytes 그대로 돌려준다. 모르는 칸이 더해진 header와 기록은 읽히고 format 2는 newer_format이다. 아직 폴더 교환 route가 없어 outcome이 없다"
 
   - path: packages/protocol/remote/carry_test.ts
-    covers: []
-    note: "기계 사이로 옮기는 file의 manifest(진짜 Ed25519 key와 명단 view). 명단에 없는 컴퓨터, 빠진 컴퓨터, 같은 기계 이름의 컴퓨터가 둘인 기계, 서명 뒤 고친 목록, 다른 기계 이름을 단 manifest는 믿지 않고, 표시보다 크지 않은 revision은 받지 않으며, 하위 폴더는 정해진 빼기만 지운다. 앱 목록과 release.json의 사슬이 맞지 않으면 그 아래 path는 기대값이 없다. 폴더의 명단 file은 주소를 버리고, event file은 path와 다른 기계·앱·id와 범위 밖의 때를 거절한다. carry route handler가 아직 없어 outcome이 없다"
+    covers: [carry-put:rejected, carry-removed-computer:deleted, carry-event-arrive:refused]
+    note: "기계 사이로 옮기는 file의 manifest(진짜 Ed25519 key와 명단 view). 명단에 없는 컴퓨터, 빠진 컴퓨터, 같은 기계 이름의 컴퓨터가 둘인 기계, 서명 뒤 고친 목록, 다른 기계 이름을 단 manifest는 믿지 않고, 표시보다 크지 않은 revision은 받지 않으며, 하위 폴더는 정해진 빼기만 지운다. 앱 목록과 release.json의 사슬이 맞지 않으면 그 아래 path는 기대값이 없다. 폴더의 명단 file은 주소를 버리고, event file은 path와 다른 기계·앱·id와 범위 밖의 때를 거절한다."
 
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]

@@ -2644,5 +2644,193 @@ flows:
     unclear:
       - "선언한 unavailable은 내지 않는다. link가 없으면 조건을 들고 있다가 link가 열릴 때 건다"
 
+  - id: carry-link-pull
+    title: "link로 붙은 컴퓨터가 든 manifest와 file 가운데 이 컴퓨터에 없는 것을 받아 computers 폴더의 받는 자리에 넘긴다"
+    actor: system
+    entries: [system:carry-link]
+    uses: [route:carry/manifests, route:carry/wants, route:carry/file]
+    boundary: [remote, folder]
+    code: [packages/core/remote/carry.ts, packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts]
+    docs: [architecture/folder-sync.md, architecture/remote.md]
+    steps:
+      - "계기: link가 붙음, 상대의 StateChanged(carry_files)(2초 debounce), 이 컴퓨터의 같은 신호, 5분 timer. 컴퓨터마다 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. remote가 켜진 동안만 돈다"
+      - "상대의 carry/manifests에서 이 컴퓨터가 든 revision보다 새 기계의 manifest 글을 carry/file(8 MiB 조각)로 받아 받는 자리에 넘긴다. 받는 자리가 믿지 않은 글은 같은 sha256이면 명단이 바뀔 때까지 다시 받지 않는다"
+      - "받는 자리의 wants(믿는 목록 사슬이 싣는데 없는 file)를 cursor로 빈 page까지 넘기며 file마다 상대의 조각을 받는 자리의 한 번의 받기로 흘린다. 상대가 다른 컴퓨터의 file을 들고 있으면 그것도 받는다. 상대가 들고 있지 않은 file은 건너뛴다. 새로 받은 목록 file이 더 바라게 할 수 있어 받은 것이 있으면 한 번 더 돈다"
+      - "서명, revision 표시, 사슬, 크기·sha256 검사는 받는 자리가 한다. 이 flow는 검증하거나 쓰지 않는다"
+    outcomes:
+      - id: received
+        when: "받는 자리가 manifest나 file을 받아 들였다"
+        observe: ["disk:computers/machines/<mch>/", "ledger:folder_carry_marks", "event:StateChanged"]
+      - id: nothing-new
+        when: "상대가 새 manifest도 이 컴퓨터가 바라는 file도 갖지 않았다"
+        observe: ["response"]
+      - id: peer-cannot-carry
+        when: "상대가 carry/manifests에 not_found로 답한다(나르기를 모르는 옛 lophn). 아무것도 하지 않고 다음 계기에 다시 묻는다"
+        observe: ["response"]
+      - id: not-trusted
+        when: "받는 자리가 manifest를 믿지 않았다(명단에 없거나 빠진 컴퓨터, 같은 이름의 컴퓨터가 둘, 표시보다 크지 않은 revision, 서명이 안 맞음). 아무것도 두지 않는다"
+        observe: ["ledger:folder_carry_marks"]
+      - id: failed
+        when: "연결이 끊김, 상대의 오류, 받는 자리가 쓰지 못함. 그 컴퓨터는 1분부터 두 배씩 1시간까지 물러나고 log 한 줄(link_carry_failed)"
+        observe: ["log:core"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
+  - id: carry-phone
+    title: "폰이 한 컴퓨터에서 받은 manifest와 file을 읽지 않고 들고 있다가 다른 컴퓨터에 붙으면 넘긴다"
+    actor: system
+    entries: [system:carry-phone]
+    uses: [route:carry/manifests, route:carry/wants, route:carry/file, route:carry/put]
+    boundary: [mobile, remote-protocol]
+    code:
+      - packages/mobile/src/apps/carry/carry.ts
+      - packages/mobile/src/apps/carry/carrier.ts
+      - packages/mobile/src/apps/carry/native.ts
+      - packages/mobile/src/data/local-stores.ts
+    docs: [architecture/folder-sync.md, architecture/remote.md]
+    steps:
+      - "계기(폰 앱이 앞에 있고 컴퓨터에 붙은 동안만): 컴퓨터의 link가 붙음, 그 컴퓨터의 StateChanged(carry_files), 붙어 있는 동안 5분마다, Wi-Fi로 돌아옴. 폰이 저장한 컴퓨터의 목록을 안 뒤부터 돌고 컴퓨터 모두에 줄 하나다"
+      - "그 컴퓨터가 든 manifest 가운데 폰이 든 것보다 revision이 큰 것의 글을 받아 두고, 폰이 든 더 새 manifest를 carry/put으로 넘긴다. 폰은 서명을 확인하지 않고 크기와 sha256만 든 목록 사슬에 맞춰 본다"
+      - "그 컴퓨터가 carry/wants로 바라는 file(cursor로 끝까지 읽는다)을 폰이 들고 있으면 carry/put으로 8 MiB 조각씩 넘긴다. 받은 컴퓨터가 rejected로 답한 사본은 지운다"
+      - "다른 컴퓨터가 마지막에 바란 file과 이번에 받은 manifest가 새로 싣는 file을 그 컴퓨터에서 carry/file로 받아 두고 크기·sha256이 맞을 때만 든다. 크기가 모바일 데이터 선택(256 KiB, 1 MiB, 8 MiB, 제한 없음)과 256 MiB를 넘는 file은 나르지 않는다"
+      - "지운다: 폰이 아는 모든 컴퓨터가 그 file이 실린 manifest를 갖고 그 file을 바라지 않으면, 나이 30일(event file은 7일)이 지나면, 목록에서 빠진 기계의 것, 드는 양이 256 MiB를 넘으면 먼저 받은 것부터. 목록 file은 확인용으로 나이가 될 때까지 둔다"
+    outcomes:
+      - id: handed
+        when: "컴퓨터가 manifest나 file을 accepted나 have로 답했다"
+        observe: ["request:컴퓨터"]
+      - id: taken
+        when: "폰이 컴퓨터의 manifest나 file을 크기·sha256이 맞게 받아 두었다"
+        observe: ["disk:폰의 carry 폴더", "request:컴퓨터"]
+      - id: skipped-large
+        when: "file이 모바일 데이터 선택이나 256 MiB를 넘는다. 폰은 그 file을 나르지 않고 따로 기억하지 않는다"
+        observe: []
+      - id: pruned
+        when: "모든 컴퓨터가 가졌거나 나이·양·목록 밖이라 폰이 지웠다"
+        observe: ["disk:폰의 carry 폴더"]
+      - id: peer-cannot-carry
+        when: "컴퓨터가 carry/manifests나 carry/wants에 not_found로 답한다(옛 lophn). 그 컴퓨터는 건너뛴다"
+        observe: ["request:컴퓨터"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+    unclear:
+      - "폰의 test(packages/mobile/src/apps/carry/carry.test.ts)는 *.test.ts라 tests/*.yaml에 오르지 않는다(git이 아는 *_test.ts만 오른다)"
+
+  - id: carry-read
+    title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 목록과, 믿는 목록이 싣는데 이 컴퓨터에 아직 없는 file을 읽는다"
+    actor: system
+    entries: [route:carry/manifests, route:carry/wants]
+    boundary: [folder]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user, 기기 연결의 컴퓨터와 폰)를 본다"
+      - "manifests: 이 컴퓨터의 manifest와, 받아 들였고 그것을 검증한 서명 key가 지금 명단의 key인 다른 컴퓨터의 manifest마다 machine, revision, 크기, sha256. 글은 carry/file로 읽는다"
+      - "wants: 지금 목록인 다른 컴퓨터의 manifest에서 시작한 목록 사슬(앱 목록, release.json, source/<n>.json)이 싣는데 computers 폴더에 그 크기·sha256으로 없는 file을 (machine, path) 순서로 after 뒤부터 limit(기본 1,000)개"
+      - "이 컴퓨터가 든 manifest가 바뀌면(받아 들임, 내보내기, 명단이 바뀌어 다시 검증) StateChanged(carry_files)로 다시 읽는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    declared_only: [unavailable]
+    unclear:
+      - "manifests·wants의 unavailable은 선언만 있다: 받는 자리가 읽지 못한 file은 없는 것으로 본다"
+    crosses_process: false
+
+  - id: carry-status
+    title: "사람이 Settings › Sync에서 컴퓨터마다 마지막으로 받은 file의 길과 때, 앱마다 마지막으로 맞춘 때를 읽는다"
+    actor: person
+    entries: [route:carry/status]
+    boundary: [folder]
+    code: [packages/core/folder/carry-status.ts, packages/core/main/daemon/wiring/folder.ts, packages/protocol/remote/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user)를 본다. 기기 route 목록에 없어 연결의 컴퓨터와 폰은 부르지 못한다"
+      - "machines: 받는 자리가 든 manifest마다 machine, revision, 마지막으로 받아 들인 때(received_at)와 길(via: link, phone, folder). 이 컴퓨터 것은 때와 길이 null이다. 때와 길은 메모리에만 있어 core를 다시 띄우면 null이고, 명단에서 빠진 컴퓨터는 목록에 없다"
+      - "apps: sync_to가 있는 활성 앱마다 name, sync_to, 다른 기계의 변경을 마지막으로 읽은 때(그 앱 folder_reads의 가장 늦은 imported_at, 읽은 적이 없으면 null)"
+      - "shared: 쓸 수 있는 같이 보는 폴더(folder.shared)의 path와 상태(ok, missing, not_writable. 폴더가 있는 directory이고 쓸 수 있는지 그때 본다). 정하지 않았거나 겹쳐 쓰지 못하는 값이면 null"
+      - "든 manifest가 바뀌면(StateChanged carry_files)와 앱 상태가 바뀌면(app_runtime) 화면이 다시 읽는다"
+    outcomes:
+      - id: ok
+        observe: [response, "screen:settings-sync", "screen:settings-sync-empty"]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    declared_only: [unavailable]
+    unclear:
+      - "unavailable은 선언만 있다: 받는 자리의 manifests는 읽지 못해도 빈 목록이다"
+    crosses_process: false
+
+  - id: carry-file
+    title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 글이나 지금 목록이 싣는 file의 한 구간을 받는다"
+    actor: system
+    entries: [route:carry/file]
+    boundary: [folder]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user)와 입력(path가 그 machine의 옮기는 file이거나 manifest, length 8 MiB까지)을 본다"
+      - "machines/<m>/manifest.json: 이 컴퓨터 것이면 내보내기가 쓴 file, 다른 컴퓨터 것이면 지금 목록일 때만 준다"
+      - "그 밖: 그 기계의 지금 목록 사슬이 그 path를 싣고 computers 폴더의 file이 그 크기·sha256일 때 offset부터 length까지(끝이면 짧다). 이 컴퓨터가 낸 file과 다른 컴퓨터에서 받은 file 모두 준다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 file을 들지 않았거나, 지금 목록이 싣지 않거나, 크기·sha256이 다르거나, 그 기계의 목록이 지금 명단의 key로 맞지 않는다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "path가 그 machine의 옮기는 file도 manifest도 아니다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    crosses_process: false
+
+  - id: carry-put
+    title: "폰이 들고 온 다른 컴퓨터의 manifest와 file을 조각으로 넘기고, 받는 자리가 서명한 목록에 맞는 것만 computers 폴더에 둔다"
+    actor: system
+    entries: [route:carry/put]
+    boundary: [folder]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/remote/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user)와 입력(조각 8 MiB까지)을 본다"
+      - "조각은 data root의 carry-staging에 (machine, path)마다 한 file로 offset대로 잇는다. offset 0은 처음부터다. 한 시간 지난 끝나지 않은 staging은 지운다"
+      - "첫 조각(file): 이 컴퓨터 자신의 file이면 들었을 때 have, 아니면 rejected. 다른 컴퓨터의 지금 목록 사슬에 그 크기·sha256의 entry가 없으면 아무것도 쓰지 않고 rejected, 이미 들었으면 have"
+      - "다 차면(file): 받는 자리가 크기·sha256을 보고 rename 바로 앞에 그때의 목록과 다시 견준 뒤 computers/machines/<m>/에 둔다. 목록 file이면 그 판이 더는 싣지 않는 file을 지운다. 읽기 scan을 깨운다"
+      - "다 차면(machines/<m>/manifest.json): 글의 body.machine, 크기, sha256이 입력과 같아야 한다. 명단에서 그 machine의 하나뿐인 컴퓨터가 서명했고 (그 기계, 그 서명 key)의 표시(folder_carry_marks)보다 revision이 크면 지금 목록이 되고 표시를 올린다. 이 컴퓨터 자신의 manifest면 두지 않고 표시만 올린다(have). 같거나 옛 것이면 have. 바뀌면 StateChanged(carry_files)"
+    outcomes:
+      - id: partial
+        observe: [response, "disk:carry-staging/"]
+      - id: accepted
+        observe: [response, "disk:computers/machines/<m>/", "ledger:folder_carry_marks", "event:StateChanged"]
+      - id: have
+        when: "같은 file을 이미 든다, 같거나 옛 revision의 manifest, 이 컴퓨터 자신의 manifest나 든 file"
+        observe: [response]
+      - id: rejected
+        when: "지금 목록 사슬에 그 path가 없거나 크기·sha256이 다르다, 받은 bytes가 크기·sha256과 다르다, 받는 사이 목록이 바뀌었다, 명단에 없거나 빠졌거나 다른 이름을 단 컴퓨터가 서명한 manifest, 글과 다른 machine·크기·sha256, 이 컴퓨터 자신의 들지 않은 file"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "offset이 받아 둔 크기를 잇지 않는다(staging이 지워졌거나 core가 다시 떴다. offset 0부터 다시)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "staging이나 computers 폴더에 쓰지 못했다, 표시를 ledger에 쓰지 못했다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
+
 links: []
 ignore: []

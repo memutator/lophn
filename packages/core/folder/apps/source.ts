@@ -58,7 +58,7 @@ function hex16(random: RandomSource): string {
   );
 }
 
-// data root 아래의 임시 file. 폴더(바깥 도구가 옮긴다)에 반쯤 쓴 file을 두지 않으려고 여기서 만든 뒤 writer로 옮긴다.
+// data root 아래의 임시 file. 폴더(다른 기계로 옮겨지는 곳)에 반쯤 쓴 file을 두지 않으려고 여기서 만든 뒤 writer로 옮긴다.
 async function tempFile(
   dataRoot: string,
   random: RandomSource,

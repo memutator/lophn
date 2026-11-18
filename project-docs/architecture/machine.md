@@ -71,7 +71,7 @@ host key와 서명 key는 같이 만들고 같이 지운다. 서명 key만 새�
 
 ## 지키는 것
 
-1. `machine.json`은 어디로도 내보내지 않는다. ledger만 담는 recovery 복구본에 실리지 않고, backup·export·폴더로 내보내는 길에 들지 않는다. 다른 기계로 가는 기록은 id 값을 출처로만 싣는다.
+1. `machine.json`은 어디로도 내보내지 않는다. ledger만 담는 recovery 복구본에 실리지 않고, backup·export·폴더로 내보내는 길에 들지 않는다. 다른 기계로 가는 기록은 id 값을 출처로만 싣는다(폴더의 하위 폴더 이름 `machines/<id>/`, manifest와 event file의 `machine`).
 2. 깨지거나 읽지 못하는 `machine.json`은 덮지 않고 기동을 거절한다. 새 id로 덮으면 remote key 표지가 어긋나 명단과 key가 모두 버려진다.
 3. 같은 기계인지 알 수 없으면 같은 기계다. OS 값을 못 읽거나 binding이 없으면 id를 그대로 둔다. 복제는 OS 값이 binding과 맞지 않을 때만이다.
 4. data root의 path와 hostname은 판정에 들지 않는다. 같은 기계에서 data root를 옮기거나 hostname을 바꿔도 id가 그대로다.
@@ -85,6 +85,7 @@ host key와 서명 key는 같이 만들고 같이 지운다. 서명 key만 새�
 - 저장: `<data root>/machine.json`(위 표). 기계에 묶인 상태의 표지: `remote/host-key.json`과 `remote/signing-key.json`의 `machine`, sync 앱 DB `lophn_sync_state`의 key `machine`.
 - route: `machine/status`(memory, actor user, 출력 `{id, name, name_source: hostname|person, hostname, cloned_from, cloned_at}`), `machine/rename`(memory, actor user, 입력 `{name: 1~64자 trim | null}`, 출력은 status. file을 쓰지 못하면 `unavailable`이고 메모리 값도 그대로다. 되면 `StateChanged{remote_devices}`를 내 명단의 자기 항목을 다시 서명하게 한다). desktop renderer만 부른다. 기기 route 목록에는 없다.
 - 앱 process 시작 줄의 `machine`(id).
+- 기계 id는 폴더 교환에서 기계가 쓰는 하위 폴더의 이름이고 그 기계가 서명하는 manifest의 `machine`이다. manifest는 그 기계의 명단 서명 key(명단 항목의 `signing_key`)로 서명하고, 받는 쪽은 자기 명단 view에서 `machine`이 그 id인 컴퓨터 항목이 하나뿐일 때만 그 key로 검증한다(`folder-sync.md`). 기계 id만으로는 폴더에 쓰거나 서명할 권한이 생기지 않는다.
 - hello의 `machine {id, name}`과 client `name`, 명단 항목의 `machine`과 이름은 `remote.md`의 계약이다.
 
 ## 결정

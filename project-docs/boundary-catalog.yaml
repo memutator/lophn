@@ -52,7 +52,7 @@ elements:
 
           - id: app-runtime
             kind: component
-            description: 앱의 실행과 capability(사람에게 알리는 cap-notify 포함). 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이, 앱 화면(view)을 어느 앱·release에 묶는 core의 view 표(`app_views/*`, 기기 owner 거르기 포함)와 기준 폰·폰 화면 목록 읽기, 앱의 위젯 값(core memory, `app_widget.set`과 폰이 읽는 `app_widgets.list`), 앱 backend가 폰에 묻는 길(broker `phone/request`와 core의 `app_phone.request`, grant `phone.use`)을 포함한다.
+            description: 앱의 실행과 capability(사람에게 알리는 cap-notify 포함), 앱 event의 발행과 구독 전달(선언 `across_machines`로 다른 기계에서 온 event를 도착한 기계에서 한 번 내기, 폰이나 다른 기계에서 온 변경이 적용된 앱에 내는 core event `data.changed` 포함). 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이, 앱 화면(view)을 어느 앱·release에 묶는 core의 view 표(`app_views/*`, 기기 owner 거르기 포함)와 기준 폰·폰 화면 목록 읽기, 앱의 위젯 값(core memory, `app_widget.set`과 폰이 읽는 `app_widgets.list`), 앱 backend가 폰에 묻는 길(broker `phone/request`와 core의 `app_phone.request`, grant `phone.use`)을 포함한다.
 
           - id: app-data
             kind: component
@@ -121,7 +121,7 @@ elements:
 
       - id: events
         kind: component
-        description: commit 뒤 agent event와 남지 않는 event를 화면에 내는 Bus와 Gateway.
+        description: commit 뒤 agent event와 남지 않는 event(`StateChanged`의 `carry_files` 같은 바뀜 신호 포함)를 화면과 연결된 컴퓨터에 내는 Bus와 Gateway.
 
       - id: router
         kind: component
@@ -137,7 +137,7 @@ elements:
 
       - id: remote
         kind: component
-        description: 내 기기 명단(서명 key, 서명한 항목과 빼기, 초대장 내기, 받아들여 합치고 붙은 연결에 퍼뜨리기)과 명단의 기기(폰, 다른 컴퓨터)가 붙는 암호화된 바깥 listener, 이 컴퓨터에 붙은 폰의 기기 행(화면, 기준, push), 복사된 data root나 명단에서 빠진 이 컴퓨터의 명단과 key 버리기, 기기 자격과 route 목록, 명단의 다른 컴퓨터마다 거는 link와 그 위로 다른 기계를 부르는 `machines/*`, core가 폰에 일을 묻고 답을 받는 `PhoneLink`(기기의 연결 찾기, deadline, 답 거르기).
+        description: 내 기기 명단(서명 key, 서명한 항목과 빼기, 초대장 내기, 받아들여 합치고 붙은 연결에 퍼뜨리기)과 명단의 기기(폰, 다른 컴퓨터)가 붙는 암호화된 바깥 listener, 이 컴퓨터에 붙은 폰의 기기 행(화면, 기준, push), 복사된 data root나 명단에서 빠진 이 컴퓨터의 명단과 key 버리기, 기기 자격과 route 목록, 명단의 다른 컴퓨터마다 거는 link와 그 위로 다른 기계를 부르는 `machines/*`, 같은 link로 다른 컴퓨터가 든 file을 받는 나르기(`carry/*`를 부른다), core가 폰에 일을 묻고 답을 받는 `PhoneLink`(기기의 연결 찾기, deadline, 답 거르기).
 
       - id: attention
         kind: component
@@ -169,7 +169,7 @@ elements:
 
       - id: folder
         kind: component
-        description: 바깥 도구가 옮기는 폴더(destination, 기계마다의 설정 `folder.destinations`)로 sync 앱(선언 `sync_to`)의 data stream(changes·snapshot file), release, source(증분 git bundle), 앱·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓰고, 읽은 file은 전부 검사한 뒤 한 transaction으로 적용하거나 다른 release면 held로 복사했다가 이 기계가 그 release가 되면 출처마다 번호 순서로 적용한다(held 한도 포함). 흔적 정리의 settled·horizon, 다른 기계의 앱을 들이는 take-in, 기계 사이 폴더 꼴 판 범위, 읽기 명령 `machine.environment`와 뒤 계획이 칸을 꽂는 section 자리를 포함한다.
+        description: 폴더(destination, 기계마다의 설정 `folder.destinations`)로 sync 앱(선언 `sync_to`)의 data stream(changes·snapshot file), release, source(증분 git bundle), 앱·기계 기록을 내보내고 읽어 들이기. 이름 붙인 폴더는 바깥 도구가 옮기고, 미리 있는 갈 곳 `computers`("내 컴퓨터들", data root 안)의 file은 lophn이 고른 길(컴퓨터 사이 연결, 폰, 사람이 정한 같이 보는 폴더 `folder.shared`의 거울)로 옮긴다. 기계마다 자기 하위 폴더에만 쓰고(`computers`에서 다른 기계의 하위 폴더는 받는 자리가 그 기계가 서명한 목록에 맞는 file만 쓴다), 낸 기계가 서명하는 file 목록(manifest)과 앱 목록, 명단 file, 기계를 건너는 event file을 쓰고 받는다. 읽은 file은 전부 검사한 뒤 한 transaction으로 적용하거나 다른 release면 held로 복사했다가 이 기계가 그 release가 되면 출처마다 번호 순서로 적용한다(held 한도 포함). 흔적 정리의 settled·horizon, 다른 기계의 앱을 들이는 take-in, 기계 사이 폴더 꼴 판 범위, 읽기 명령 `machine.environment`와 뒤 계획이 칸을 꽂는 section 자리, Settings › Sync가 읽는 지금 길 `carry/status`를 포함한다.
 
       - id: extension-host
         kind: component
@@ -239,7 +239,7 @@ elements:
 
   - id: mobile
     kind: application
-    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면), 폰에서 도는 앱의 설치·sync·release 바뀜을 하는 폰 host와 guest 안의 backend와 앱 DB native module, 홈 화면의 위젯(binding과 cache file, 새로 하기, "Choose a widget", Android native module)과 앱 아이콘(pinned shortcut), 밖에서 온 누름과 URL을 한 곳으로 해석하는 open target, 컴퓨터에서 도는 preview를 여는 preview 화면, 컴퓨터의 `request`에 답하는 폰의 handler(위치, 그리고 이 폰이 연 preview view의 guest만 읽고 누르고 치는 native module `lophn-drive`와 take control을 쓰는 `drive.*`). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
+    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면), 폰에서 도는 앱의 설치·sync·release 바뀜을 하는 폰 host와 guest 안의 backend와 앱 DB native module, 컴퓨터 사이 file 나르기(한 컴퓨터에서 받아 둔 file을 읽지 않고 다른 컴퓨터에 넘기고, 상한과 모바일 데이터의 크기 선택을 지킨다), 홈 화면의 위젯(binding과 cache file, 새로 하기, "Choose a widget", Android native module)과 앱 아이콘(pinned shortcut), 밖에서 온 누름과 URL을 한 곳으로 해석하는 open target, 컴퓨터에서 도는 preview를 여는 preview 화면, 컴퓨터의 `request`에 답하는 폰의 handler(위치, 그리고 이 폰이 연 preview view의 guest만 읽고 누르고 치는 native module `lophn-drive`와 take control을 쓰는 `drive.*`). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
     depends_on:
       - protocol
       - design-native
@@ -294,7 +294,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 기기(폰, 다른 컴퓨터의 core)와 core 사이의 연결과 내 기기 명단. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, 명단에 들거나 붙는 첫 frame `join`, 명단을 주고받는 `roster`, call, result, watch와 Gateway frame), 명단의 모양과 검증(서명한 항목과 빼기, 초대장, 합치기와 view), 사람이 명단을 보고 고치는 `roster/*`와 이 컴퓨터의 link로 다른 기계를 부르는 `machines/*`, 기기가 부를 수 있는 route 목록(자기를 명단에서 빼는 `roster/leave`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/list|switch_plan|switch|open`, core가 여는 터미널 `terminals/open|input`(입력과 명령을 실은 열기는 사람이 켠 기기만)과 터미널 화면 `terminal_view/snapshot|watch|resize`, 컴퓨터의 browser page `page_view/list|snapshot|watch|input|control|open`(input·control·open은 터미널 입력을 켠 기기만)과 그 event `PageViewChanged`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함)와 사람이 터미널 입력을 허락한 기기에만 더 여는 목록 `REMOTE_PERSON_ROUTES`(secret, provider·model, 설정 쓰기, agent·project 만들고 고치기. 허락이 있어도 기기·명단 관리, `remote.*` 설정, site login vault 이름은 열지 않는다), remote protocol 판 4(하한 4), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 기기(폰, 다른 컴퓨터의 core)와 core 사이의 연결과 내 기기 명단. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, 명단에 들거나 붙는 첫 frame `join`, 명단을 주고받는 `roster`, call, result, watch와 Gateway frame), 명단의 모양과 검증(서명한 항목과 빼기, 초대장, 합치기와 view), 사람이 명단을 보고 고치는 `roster/*`와 이 컴퓨터의 link로 다른 기계를 부르는 `machines/*`, 기기가 부를 수 있는 route 목록(자기를 명단에서 빼는 `roster/leave`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/list|switch_plan|switch|open`, core가 여는 터미널 `terminals/open|input`(입력과 명령을 실은 열기는 사람이 켠 기기만)과 터미널 화면 `terminal_view/snapshot|watch|resize`, 컴퓨터의 browser page `page_view/list|snapshot|watch|input|control|open`(input·control·open은 터미널 입력을 켠 기기만)과 그 event `PageViewChanged`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged`, 컴퓨터 사이로 file을 나르는 `carry/manifests|wants|file|put` 포함. 서명한 manifest와 목록 사슬, 명단 file, event file의 계약도 이 protocol이 정한다(`carry/status`는 사람의 화면만 부른다)와 사람이 터미널 입력을 허락한 기기에만 더 여는 목록 `REMOTE_PERSON_ROUTES`(secret, provider·model, 설정 쓰기, agent·project 만들고 고치기. 허락이 있어도 기기·명단 관리, `remote.*` 설정, site login vault 이름은 열지 않는다), remote protocol 판 4(하한 4), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:

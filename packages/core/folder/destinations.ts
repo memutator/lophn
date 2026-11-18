@@ -221,7 +221,7 @@ export type DestinationsView = {
   resolve(name: string): ResolvedDestination | null;
 };
 
-function stateOf(path: string): DestinationState {
+export function stateOf(path: string): DestinationState {
   try {
     if (!statSync(path).isDirectory()) return "missing";
   } catch {

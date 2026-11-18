@@ -375,6 +375,8 @@ export const machinesCall = defineMemory({
     resource: z.string().min(1),
     method: z.string().min(1),
     body: z.unknown(),
+    // 이 기계의 화면(shell main)만 부른다. 사람의 CLI token으로는 다른 기계를 부르지 못한다.
+    shell_capability: z.string().min(1),
   }),
   output: z.unknown(),
   actors: ["user"],
@@ -397,6 +399,7 @@ export const machinesWatch = defineMemory({
   input: z.strictObject({
     machine: machineIdSchema,
     conditions: z.array(eventConditionSchema).max(64),
+    shell_capability: z.string().min(1),
   }),
   output: z.strictObject({}),
   actors: ["user"],

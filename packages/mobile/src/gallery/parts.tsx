@@ -583,7 +583,7 @@ export function ConversationPage({ onBack }: { onBack: () => void }) {
         <SecretCard
           title="lophn needs a secret"
           secret="PAYMENTS_KEY → api.payments.example"
-          note="Secrets are typed on the computer so they never pass through this phone. Open lophn on mina-desktop to enter it."
+          note="Site logins are saved on the computer. Open lophn on mina-desktop to enter it."
         />
         <AskCard compact>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

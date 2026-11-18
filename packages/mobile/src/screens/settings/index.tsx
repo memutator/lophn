@@ -1,5 +1,6 @@
 // The phone app's own settings (tools/wireframes/drafts/phone/more.tsx SettingsFlow): the paired computers, this
-// phone, its look. lophn's own settings (providers, agents) stay on the computer. Notifications is its own screen (src/push).
+// phone, its look, and each computer's providers (providers.tsx). The rest of lophn's settings (agents, models) stay on the
+// computer. Notifications is its own screen (src/push).
 import { t } from "@lophn/i18n";
 import {
   AgentTurn,
@@ -49,6 +50,8 @@ import { type ComputerItem, useComputers } from "../../data/mod.ts";
 import { Face, LOPHN } from "../../parts/mod.ts";
 import { PHONE_NAME_MAX } from "../../pairing/store.ts";
 import { usePush } from "../../push/provider.tsx";
+
+export { ProvidersScreen } from "./providers.tsx";
 
 function Lead({ icon }: { icon: LucideIcon }) {
   return (
@@ -302,7 +305,7 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
 
 export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
   const nav = useNav();
-  const { computers, rename, remove } = useComputers();
+  const { computers, current, select, rename, remove } = useComputers();
   const computer = computers.find((one) => one.key === place.key);
   const [naming, setNaming] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -364,6 +367,18 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
           {t("mobile.computer.note.relay")}
         </Text>
       )}
+      <Label>{t("mobile.computer.heading.setup")}</Label>
+      <Group>
+        <Row
+          title={t("settings.label.tab-providers")}
+          end={NEXT}
+          onPress={() => {
+            // The data layer serves the computer on screen, so setting one up makes it that computer.
+            if (current !== computer.key) select(computer.key);
+            nav.open({ name: "providers", key: computer.key });
+          }}
+        />
+      </Group>
       <Label>{t("mobile.computer.heading.on-phone")}</Label>
       <Group>
         <Row

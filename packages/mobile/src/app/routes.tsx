@@ -28,6 +28,7 @@ import {
   AppearanceScreen,
   ComputerScreen,
   GalleryScreen,
+  ProvidersScreen,
   SettingsScreen,
 } from "../screens/settings/index.tsx";
 import { TerminalScreen } from "../screens/terminal/index.tsx";
@@ -65,6 +66,7 @@ const SCREENS: Screens = {
   "new-session": NewSessionScreen,
   settings: SettingsScreen,
   computer: ComputerScreen,
+  providers: ProvidersScreen,
   appearance: AppearanceScreen,
   notifications: NotificationsScreen,
   gallery: GalleryScreen,

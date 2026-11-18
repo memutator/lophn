@@ -84,6 +84,7 @@ export * from "./local-apps.ts";
 export * from "./ops.ts";
 export * from "./places.ts";
 export * from "./search.ts";
+export * from "./setup.ts";
 export { sessionIn, toneOf } from "./workspaces.ts";
 export type {
   SessionGroup,

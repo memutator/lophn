@@ -1,12 +1,15 @@
 // Flows 7 to 9. Jobs and agents, settings, and the same app on a wide screen.
 import {
   Bell,
+  Check,
   ChevronRight,
   CircleCheck,
   Clock,
   Copy,
   Ellipsis,
+  ExternalLink,
   Info,
+  KeyRound,
   Laptop,
   type LucideIcon,
   MessageSquarePlus,
@@ -17,6 +20,7 @@ import {
   Server,
   Smartphone,
   Trash2,
+  X,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
@@ -37,6 +41,7 @@ import {
   Shot,
   s,
   TopBar,
+  Vend,
 } from "./kit.tsx";
 import { SidebarBody } from "./shell.tsx";
 
@@ -450,6 +455,10 @@ function Computer({ over }: { over?: ReactNode }) {
         <p className={s.note} style={{ margin: "8px 20px 0" }}>
           The relay only passes sealed messages along. It cannot read them.
         </p>
+        <Label>Set up</Label>
+        <div className={s.group}>
+          <Row title="Providers" end={NEXT} />
+        </div>
         <Label>On this phone</Label>
         <div className={s.group}>
           <Row
@@ -526,6 +535,176 @@ function PhoneNameSheet() {
       </div>
       <Keyboard />
     </Sheet>
+  );
+}
+
+// ── Providers of one computer ─────────────────────────
+
+function Providers({ over }: { over?: ReactNode }) {
+  return (
+    <Phone tone="floor" over={over}>
+      <TopBar left="back" title="Providers" under="My Galaxy" />
+      <div className={s.body} style={{ gap: 0 }}>
+        <Label>Connected</Label>
+        <div className={s.group}>
+          <Row
+            lead={<Vend vendor="anthropic" />}
+            title="Anthropic"
+            sub="API key"
+            end={
+              <span
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Dot tone="good" /> Connected
+              </span>
+            }
+          />
+          <div className={s.hair} />
+          <Row
+            lead={<Vend vendor="google" />}
+            title="Google Gemini"
+            sub="API key"
+            end={
+              <span
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Dot tone="good" /> Connected
+              </span>
+            }
+          />
+        </div>
+        <Label>Add a provider</Label>
+        <div className={s.group}>
+          <Row lead={<Vend vendor="openai" />} title="OpenAI" end={NEXT} />
+          <div className={s.hair} />
+          <Row lead={<Vend vendor="xai" />} title="xAI" end={NEXT} />
+          <div className={s.hair} />
+          <Row
+            lead={<Vend vendor="openrouter" />}
+            title="OpenRouter"
+            end={NEXT}
+          />
+          <div className={s.hair} />
+          <Row lead={<Vend vendor="groq" />} title="Groq" end={NEXT} />
+          <div className={s.hair} />
+          <Row lead={<Vend vendor="deepseek" />} title="DeepSeek" end={NEXT} />
+          <div className={s.hair} />
+          <Row
+            lead={<Vend vendor="antigravity" />}
+            title="Google Antigravity"
+            sub="Sign in on My Galaxy"
+            dim
+          />
+        </div>
+        <p className={s.note} style={{ margin: "8px 20px 0" }}>
+          A provider is a service you connect with one key or sign-in. Custom
+          providers and disconnecting are on the computer.
+        </p>
+      </div>
+    </Phone>
+  );
+}
+
+// The key is typed into a hidden field and sent to the computer by Save; the phone keeps nothing.
+function KeySheet() {
+  return (
+    <Sheet title="Connect OpenRouter">
+      <div
+        className={s.pad}
+        style={{ display: "grid", gap: 10, paddingBottom: 14 }}
+      >
+        <div className={s.factLabel}>API key</div>
+        <div className={s.field} data-focus="">
+          <span style={{ letterSpacing: 2 }}>••••••••••••••••••</span>
+          <span className={s.caret} />
+        </div>
+        <p className={s.note} style={{ margin: 0 }}>
+          The value goes straight to My Galaxy. It is never shown in the app or
+          in a conversation.
+        </p>
+        <div className={s.btnRow}>
+          <Btn block>Cancel</Btn>
+          <Btn block variant="primary" icon={Check}>
+            Save
+          </Btn>
+        </div>
+      </div>
+      <Keyboard />
+    </Sheet>
+  );
+}
+
+// A definition with both ways: the key, or a sign-in that ends in any browser.
+function WaysSheet() {
+  return (
+    <Sheet title="Connect xAI">
+      <div
+        className={s.pad}
+        style={{ display: "grid", gap: 10, paddingBottom: 14 }}
+      >
+        <Row lead={<Ic icon={KeyRound} />} title="API key" end={NEXT} />
+        <Row
+          lead={<Vend vendor="xai" />}
+          title="Sign in with SuperGrok"
+          sub="With a code, in any browser"
+          end={NEXT}
+        />
+      </div>
+    </Sheet>
+  );
+}
+
+function CodeSheet() {
+  return (
+    <Sheet title="Connect xAI">
+      <div
+        className={s.pad}
+        style={{ display: "grid", gap: 12, paddingBottom: 14 }}
+      >
+        <div className={s.factLabel}>Code</div>
+        <div className={s.between}>
+          <span
+            className={s.mono}
+            style={{ fontSize: 24, lineHeight: "32px", letterSpacing: 2 }}
+          >
+            WDJB-MJHT
+          </span>
+          <Btn size="sm" icon={Copy}>
+            Copy
+          </Btn>
+        </div>
+        <div className={s.working}>
+          <Dot tone="working" />
+          Enter the code on the page, then come back.
+        </div>
+        <div className={s.btnRow}>
+          <Btn block>Cancel</Btn>
+          <Btn block variant="primary" icon={ExternalLink}>
+            Open the page
+          </Btn>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// The phone may only set up a computer that lets it type in terminals; the computer says no, and the screen says where
+// to allow it.
+function ProvidersDenied() {
+  return (
+    <Phone tone="floor">
+      <TopBar left="back" title="Providers" under="My Galaxy" />
+      <div className={s.body}>
+        <p
+          className={s.note}
+          style={{ margin: "20px 20px 0", fontSize: 15, lineHeight: "22px" }}
+        >
+          My Galaxy doesn’t let this phone change its settings. To allow it,
+          turn on “Allow typing in terminals” for this phone in Settings ›
+          Remote › My devices on that computer.
+        </p>
+      </div>
+    </Phone>
   );
 }
 
@@ -724,7 +903,7 @@ export function SettingsFlow() {
   return (
     <Flow
       title="8 · Settings"
-      note="sidebar 맨 아래. 폰 앱 자체의 설정만 있다: 붙은 컴퓨터, 이 폰의 이름, 알림, 모양. provider key나 agent 같은 lophn의 설정은 컴퓨터에 있다."
+      note="sidebar 맨 아래. 폰 앱 자체의 설정(붙은 컴퓨터, 이 폰의 이름, 알림, 모양)과 컴퓨터마다의 Providers. agent, model 관리, Custom provider 같은 그 밖의 lophn 설정은 컴퓨터에 있다."
     >
       <Shot
         title="Settings"
@@ -734,9 +913,39 @@ export function SettingsFlow() {
       </Shot>
       <Shot
         title="A computer"
-        text="어떻게 붙어 있는지와 이 폰에서의 이름. 별명을 붙였으면 그 컴퓨터가 스스로 알린 이름이 그 아래 작게 보인다. Remove는 양쪽 등록을 다 지운다."
+        text="어떻게 붙어 있는지, 그 컴퓨터의 Providers, 이 폰에서의 이름. 별명을 붙였으면 그 컴퓨터가 스스로 알린 이름이 그 아래 작게 보인다. Remove는 양쪽 등록을 다 지운다."
       >
         <Computer />
+      </Shot>
+      <Shot
+        title="Providers"
+        text="그 컴퓨터에 연결된 provider와 더 연결할 수 있는 것. 폰에서는 API key와 code로 끝나는 로그인으로 잇는다. 컴퓨터의 browser로 돌아와야 하는 로그인만 있는 것은 흐리게 두고 컴퓨터에서 하라고 말한다."
+      >
+        <Providers />
+      </Shot>
+      <Shot
+        title="Connect with a key"
+        text="key는 가려진 칸에 친다. Save가 값을 컴퓨터로 보내고 연결까지 한다. 폰에는 아무것도 남지 않는다."
+      >
+        <Providers over={<KeySheet />} />
+      </Shot>
+      <Shot
+        title="Key or sign-in"
+        text="key와 code 로그인을 둘 다 가진 provider는 어느 쪽으로 이을지 먼저 고른다."
+      >
+        <Providers over={<WaysSheet />} />
+      </Shot>
+      <Shot
+        title="Sign in with a code"
+        text="고르면 바로 로그인이 시작되어 code가 나온다. code를 복사하고 Open the page로 연 곳에 넣는다. 기다리는 것은 컴퓨터다. 끝나면 sheet가 닫히고 그 provider가 Connected에 든다."
+      >
+        <Providers over={<CodeSheet />} />
+      </Shot>
+      <Shot
+        title="Not allowed"
+        text="이 폰에 터미널 입력 허락이 없으면 컴퓨터가 거절한다. 까닭과 허락을 켜는 곳(컴퓨터의 Settings › Remote › My devices)을 한 줄로 말한다."
+      >
+        <ProvidersDenied />
       </Shot>
       <Shot
         title="Shown as"

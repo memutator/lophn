@@ -10,6 +10,7 @@ import {
   CircleX,
   Copy,
   Ellipsis,
+  ExternalLink,
   FilePen,
   FileText,
   FolderOpen,
@@ -17,6 +18,7 @@ import {
   Image,
   KeyRound,
   ListTodo,
+  LogIn,
   Monitor,
   Paperclip,
   Pencil,
@@ -607,16 +609,18 @@ function Coding({ over }: { over?: ReactNode }) {
   );
 }
 
+// What stays on the computer: a site login, a sign-in that comes back to the computer's own browser (ChatGPT, Claude,
+// Antigravity) and an app's or an MCP server's sign-in. The card says so in one line and only cancels.
 function Stuck() {
   return (
     <Phone>
-      <Head title="Add a CSV export" />
+      <Head title="Order the printer paper" />
       <div className={s.thread}>
         <div className={s.turn}>
           <Who />
           <p className={s.p}>
-            The export works on the sample data. To send it to the payments
-            service I need its key.
+            The cart is ready on shop.example. To check out I need your login
+            there.
           </p>
         </div>
         <div className={s.working} style={{ alignItems: "flex-start" }}>
@@ -640,18 +644,125 @@ function Stuck() {
       <div className={s.ask}>
         <div className={s.askTitle}>
           <Ic icon={KeyRound} size={17} />
-          lophn needs a secret
+          lophn asks you to save a login for this page
         </div>
         <div className={s.fact}>
-          <div className={s.factLabel}>Secret</div>
-          <div className={s.pre}>PAYMENTS_KEY → api.payments.example</div>
+          <div className={s.factLabel}>Page origin</div>
+          <div className={s.pre}>https://shop.example</div>
         </div>
         <p className={s.note} style={{ margin: "10px 0 0" }}>
-          Secrets are typed on the computer so they never pass through this
-          phone. Open lophn on mina-desktop to enter it.
+          Site logins are saved on the computer. Open lophn on mina-desktop to
+          enter it.
         </p>
         <div className={s.btnRow} data-end="" style={{ marginTop: 12 }}>
           <Btn icon={X}>Cancel the request</Btn>
+        </div>
+      </div>
+      <Composer placeholder="Reply…" chips={MODEL} />
+    </Phone>
+  );
+}
+
+// A secret the agent asks for, typed here. The field hides what is typed; Save sends it to the computer and empties the
+// field. The value is not kept on the phone.
+function SecretAsk() {
+  return (
+    <Phone>
+      <Head title="Add a CSV export" />
+      <div className={s.thread}>
+        <div className={s.turn}>
+          <Who />
+          <p className={s.p}>
+            The export works on the sample data. To send it to the payments
+            service I need its key.
+          </p>
+        </div>
+        <Working tone="warning">Waiting for you</Working>
+      </div>
+      <div className={s.ask}>
+        <div className={s.askTitle}>
+          <Ic icon={KeyRound} size={17} />
+          lophn asks you to enter a secret for the app Payments
+        </div>
+        <div className={s.fact}>
+          <div className={s.factLabel}>Sent to</div>
+          <div className={s.pre}>api.payments.example</div>
+        </div>
+        <div className={s.fact}>
+          <div className={s.factLabel}>PAYMENTS_KEY</div>
+          <div className={s.field} data-focus="" style={{ minHeight: 44 }}>
+            <span style={{ letterSpacing: 2 }}>••••••••••••••</span>
+            <span className={s.caret} />
+          </div>
+        </div>
+        <p className={s.note} style={{ margin: "8px 0 0" }}>
+          The value goes straight to mina-desktop. It is never shown in the app
+          or in a conversation.
+        </p>
+        <div className={s.btnRow} style={{ marginTop: 12 }}>
+          <Btn block icon={X}>
+            Cancel the request
+          </Btn>
+          <Btn block variant="primary" icon={Check}>
+            Save
+          </Btn>
+        </div>
+      </div>
+      <Keyboard />
+    </Phone>
+  );
+}
+
+// A provider sign-in that ends in any browser (device code). Sign in starts it on the computer; the card then shows the
+// code to copy and opens the page. The computer waits for the provider, so the card only follows.
+function SignInAsk() {
+  return (
+    <Phone>
+      <Head title="Compare the Grok answers" />
+      <div className={s.thread}>
+        <div className={s.turn}>
+          <Who />
+          <p className={s.p}>
+            To run the comparison I need Grok. You have SuperGrok, so sign in
+            and I will use it.
+          </p>
+        </div>
+        <Working tone="warning">Waiting for you</Working>
+      </div>
+      <div className={s.ask}>
+        <div className={s.askTitle}>
+          <Ic icon={LogIn} size={17} />
+          lophn asks you to sign in to xAI
+        </div>
+        <div className={s.fact}>
+          <div className={s.factLabel}>Sign in at</div>
+          <div className={s.pre}>https://accounts.x.ai</div>
+        </div>
+        <div className={s.fact}>
+          <div className={s.factLabel}>Code</div>
+          <div className={s.between}>
+            <span
+              className={s.mono}
+              style={{ fontSize: 22, lineHeight: "30px", letterSpacing: 2 }}
+            >
+              WDJB-MJHT
+            </span>
+            <Btn size="sm" icon={Copy}>
+              Copy
+            </Btn>
+          </div>
+        </div>
+        <div className={s.working} style={{ marginTop: 10 }}>
+          <Dot tone="working" />
+          Enter the code on the page, then come back.
+        </div>
+        <div className={s.btnRow} style={{ marginTop: 12 }}>
+          <Btn block icon={X}>
+            Cancel the request
+          </Btn>
+          <Btn block variant="primary" icon={ExternalLink}>
+            Open the page
+          </Btn>
         </div>
       </div>
       <Composer placeholder="Reply…" chips={MODEL} />
@@ -812,8 +923,20 @@ export function SessionFlow() {
         <Coding over={<Subagent />} />
       </Shot>
       <Shot
+        title="A secret"
+        text="agent가 secret을 청하면 card 안 입력 칸에 바로 친다. 친 글은 가려지고, Save가 값을 컴퓨터로 보내고 칸을 비운다. 값이 들어가면 card가 사라지고 agent가 이어 간다."
+      >
+        <SecretAsk />
+      </Shot>
+      <Shot
+        title="Sign in with a code"
+        text="SuperGrok처럼 code로 끝나는 로그인은 폰에서 한다. Sign in을 누르면 code가 나오고, code를 복사해 Open the page로 연 곳에 넣는다. 로그인이 끝나면 card가 사라지고 agent가 이어 간다."
+      >
+        <SignInAsk />
+      </Shot>
+      <Shot
         title="When the phone cannot do it"
-        text="provider 오류는 한 줄과 Retry. secret은 폰에서 넣지 않는다. 무엇이 필요한지 보이고 컴퓨터에서 넣으라고 말한다."
+        text="provider 오류는 한 줄과 Retry. site login, 컴퓨터의 browser로 돌아와야 하는 로그인(ChatGPT, Claude, Antigravity), 앱과 MCP server의 로그인은 무엇이 필요한지 보이고 컴퓨터에서 하라고 말한다."
       >
         <Stuck />
       </Shot>

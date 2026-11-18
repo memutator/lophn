@@ -54,8 +54,8 @@ const FLOWS: readonly FlowPage[] = [
     id: "phone-session",
     title: "Phone · 4 Session",
     description:
-      "agent와의 대화. 끝난 답, 일하는 중, 승인, 질문, 한 일 상세, diff, 첨부, model, session menu, coding agent, 폰에서 못 하는 것, 새 session.",
-    height: rows(13),
+      "agent와의 대화. 끝난 답, 일하는 중, 승인, 질문, 한 일 상세, diff, 첨부, model, session menu, coding agent, secret 넣기, code로 로그인, 폰에서 못 하는 것, 새 session.",
+    height: rows(18),
     render: () => <SessionFlow />,
   },
   {
@@ -84,8 +84,9 @@ const FLOWS: readonly FlowPage[] = [
   {
     id: "phone-settings",
     title: "Phone · 8 Settings",
-    description: "폰 앱의 설정. 컴퓨터, 알림, 모양.",
-    height: rows(4),
+    description:
+      "폰 앱의 설정. 컴퓨터, 컴퓨터마다의 Providers(key로 잇기, code로 로그인, 허락 없음), 알림, 모양.",
+    height: rows(11),
     render: () => <SettingsFlow />,
   },
   {

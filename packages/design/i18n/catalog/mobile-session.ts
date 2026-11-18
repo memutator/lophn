@@ -35,8 +35,8 @@ export const mobileSession = {
   "mobile.session.notice.command-on-computer": "Use /{name} on {computer}.",
   "mobile.session.notice.coding-on-computer":
     "This session continues on {computer}. Open lophn there to work in it.",
-  "mobile.session.notice.secret-on-computer":
-    "Secrets are typed on the computer so they never pass through this phone. Open lophn on {computer} to enter it.",
+  "mobile.session.notice.login-on-computer":
+    "Site logins are saved on the computer. Open lophn on {computer} to enter it.",
   "mobile.session.notice.sign-in-on-computer":
     "Signing in happens on the computer so your account never passes through this phone. Open lophn on {computer} to sign in.",
   "mobile.session.placeholder.new": "Describe a task or ask a question…",

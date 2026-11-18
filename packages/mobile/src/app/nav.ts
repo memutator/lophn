@@ -73,6 +73,8 @@ export type Place =
     }
   | { readonly name: "settings" }
   | { readonly name: "computer"; readonly key: string }
+  /** A computer's providers: connect one with an API key or a sign-in by code. Shown for the computer on screen. */
+  | { readonly name: "providers"; readonly key: string }
   | { readonly name: "appearance" }
   | { readonly name: "notifications" }
   /** Dev builds only: the kit gallery. */

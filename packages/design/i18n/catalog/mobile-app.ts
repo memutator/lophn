@@ -11,6 +11,7 @@ export const mobileApp = {
   "mobile.computer.heading.computers": "Computers",
   "mobile.computer.heading.connection": "Connection",
   "mobile.computer.heading.on-phone": "On this phone",
+  "mobile.computer.heading.setup": "Set up",
   "mobile.computer.heading.remove-confirm":
     "Remove this phone from your devices?",
   "mobile.computer.label.announced-name": "Calls itself {name}",
@@ -37,6 +38,10 @@ export const mobileApp = {
     "The connection is opening. Sessions and apps show up as soon as it is ready.",
   "mobile.offline.title": "{name} is offline",
   "mobile.offline.title-connecting": "Connecting to {name}…",
+  "mobile.providers.label.both": "With a code, in any browser",
+  "mobile.providers.label.on-computer": "Sign in on {computer}",
+  "mobile.providers.note.lead":
+    "A provider is a service you connect with one key or sign-in. Custom providers and disconnecting are on the computer.",
   "mobile.settings.button.gallery": "UI kit gallery",
   "mobile.settings.heading.about": "About",
   "mobile.settings.heading.phone": "This phone",
@@ -47,6 +52,12 @@ export const mobileApp = {
     "Colors and fonts follow lophn. The theme you picked on a computer stays on that computer.",
   "mobile.settings.note.phone-name":
     "Computers show this name for your phone. Renaming the phone on a computer changes it everywhere until you change it here.",
+  "mobile.setup.button.open-page": "Open the page",
+  "mobile.setup.label.code": "Code",
+  "mobile.setup.notice.code-waiting":
+    "Enter the code on the page, then come back.",
+  "mobile.setup.notice.not-allowed":
+    "{computer} doesn’t let this phone change its settings. To allow it, turn on “Allow typing in terminals” for this phone in Settings › Remote › My devices on that computer.",
   "mobile.start.button.continue": "Continue",
   "mobile.start.button.enter-code": "Paste the invite instead",
   "mobile.start.button.flashlight": "Flashlight",

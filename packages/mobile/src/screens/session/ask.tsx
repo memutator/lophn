@@ -1,6 +1,7 @@
 // What waits on the person, docked above the composer: a permission request with exactly the choices its source offers,
-// the agent's questions one at a time (pick, write your own, or skip), and a request for a secret, a login or a sign-in,
-// which the phone only describes: those values are typed on the computer.
+// the agent's questions one at a time (pick, write your own, or skip), and a request for a secret, a login or a sign-in.
+// A secret is typed here and a provider sign-in by code is done here; a site login and the other sign-ins are done on the
+// computer.
 import { t } from "@lophn/i18n";
 import {
   AskCard,
@@ -10,10 +11,14 @@ import {
   QuestionCard,
   Text,
 } from "@lophn/ui-native";
-import { Check, KeyRound, LogIn, TriangleAlert, X } from "lucide-react-native";
+import { Check, ExternalLink, KeyRound, LogIn, TriangleAlert, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
-import type { InputRequestView } from "../../../../protocol/lophn-agent/input-request.ts";
+import { Linking, View } from "react-native";
+import type {
+  InputRequestView,
+  SecretRequestView,
+  SignInRequestView,
+} from "../../../../protocol/lophn-agent/input-request.ts";
 import type {
   ApprovalCardRequest,
   AskedGroup,
@@ -26,7 +31,8 @@ import {
   titleOf,
 } from "../../../../shell/renderer/conversation/approval-card/subject-text.ts";
 import { inputRequestTitle } from "../../../../shell/renderer/conversation/input-request-card/title.ts";
-import type { Conversation } from "../../data/mod.ts";
+import { type Conversation, oauthFlowOf, type SignInStarted, useSetup } from "../../data/mod.ts";
+import { SignInCode, signInFailure, useSecretField } from "../settings/setup-parts.tsx";
 import { DenySheet } from "./sheets.tsx";
 
 type Choice = ApprovalCardRequest["choices"][number];
@@ -231,7 +237,170 @@ function Questions({
   );
 }
 
-/** A secret, a login or a sign-in: what is asked and where it goes, typed on the computer, with Cancel. */
+type RequestTarget = { readonly session: string; readonly toolCall: string };
+
+/** Cancel the request: ends it without a value, and the agent hears so. */
+function CancelRequest({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
+  return (
+    <Button block icon={X} disabled={disabled} onPress={onPress}>
+      {t("mobile.kit.button.cancel-request")}
+    </Button>
+  );
+}
+
+/** Why the last Save or Sign in did not go through, over the buttons. */
+function Failure({ text }: { text: string | null }) {
+  if (text === null) return null;
+  return (
+    <Text variant="note" tone="critical" style={{ marginTop: 10 }}>
+      {text}
+    </Text>
+  );
+}
+
+function secretFailure(code: string, computer: string): string {
+  if (code === "forbidden") return t("mobile.setup.notice.not-allowed", { computer });
+  return t(code === "invalid_input" ? "secret-input.error.invalid" : "secret-input.error.unavailable");
+}
+
+/** A secret typed on the phone. Save sends it to the computer, which stores it and ends the request. */
+function SecretRequest({
+  agent,
+  computer,
+  target,
+  view,
+  cancel,
+}: {
+  agent: string;
+  computer: string;
+  target: RequestTarget;
+  view: SecretRequestView;
+  cancel: (() => void) | undefined;
+}) {
+  const setup = useSetup();
+  const secret = useSecretField({ label: view.name });
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const save = async () => {
+    setBusy(true);
+    setFailed(null);
+    const sent = await setup.answerSecret(target, secret.take());
+    setBusy(false);
+    if (!sent.ok) setFailed(secretFailure(sent.code, computer));
+  };
+  return (
+    <AskCard>
+      <AskTitle icon={KeyRound}>{inputRequestTitle(view, agent)}</AskTitle>
+      <Fact
+        label={t("conversation.label.input-request-destinations")}
+        value={
+          view.destinations.length === 0
+            ? t("conversation.notice.input-request-no-destination")
+            : view.destinations.join("\n")
+        }
+      />
+      <View style={{ marginTop: 10, gap: 4 }}>
+        <Text variant="caption" tone="muted">
+          {view.name}
+        </Text>
+        {secret.field}
+      </View>
+      <Text variant="note" tone="muted" style={{ marginTop: 8 }}>
+        {t(view.configured ? "conversation.notice.input-request-replaces" : "secret-input.help.value")}
+      </Text>
+      <Failure text={failed} />
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+        {cancel !== undefined && <CancelRequest disabled={busy} onPress={cancel} />}
+        <Button block variant="primary" icon={Check} disabled={busy || !secret.filled} onPress={() => void save()}>
+          {t("secret-input.button.save")}
+        </Button>
+      </View>
+    </AskCard>
+  );
+}
+
+/**
+ * A provider sign-in that ends in any browser (device code). Sign in starts it on the computer and shows the code; the
+ * person opens the page. The computer waits for the provider and ends the request when it connects.
+ */
+function CodeSignInRequest({
+  agent,
+  computer,
+  target,
+  view,
+  cancel,
+}: {
+  agent: string;
+  computer: string;
+  target: RequestTarget;
+  view: SignInRequestView;
+  cancel: (() => void) | undefined;
+}) {
+  const setup = useSetup();
+  const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState<SignInStarted | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  useEffect(() => {
+    if (started === null) return;
+    return setup.followSignIn(started.login, (outcome) => {
+      setStarted(null);
+      if (typeof outcome === "object") setFailed(signInFailure(outcome.failed));
+    });
+  }, [setup, started]);
+  const start = async () => {
+    setBusy(true);
+    setFailed(null);
+    const begun = await setup.startSignIn({ request: { session: target.session, tool_call: target.toolCall } });
+    setBusy(false);
+    if (begun.ok) setStarted(begun.value);
+    else setFailed(begun.code === "forbidden" ? t("mobile.setup.notice.not-allowed", { computer }) : signInFailure(begun.code));
+  };
+  const stop = async () => {
+    if (started !== null) await setup.cancelSignIn(started);
+    cancel?.();
+  };
+  return (
+    <AskCard>
+      <AskTitle icon={LogIn}>{inputRequestTitle(view, agent)}</AskTitle>
+      <Fact
+        label={t("conversation.label.input-request-sign-in-at")}
+        value={view.destinations.join("\n") || view.subject}
+      />
+      {started === null ? (
+        <Text variant="note" tone="muted" style={{ marginTop: 10 }}>
+          {t("conversation.notice.input-request-sign-in-help", { agent })}
+        </Text>
+      ) : (
+        <SignInCode code={started.code} />
+      )}
+      <Failure text={failed} />
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+        {cancel !== undefined && <CancelRequest disabled={busy} onPress={() => void stop()} />}
+        {started === null ? (
+          <Button block variant="primary" icon={LogIn} disabled={busy} onPress={() => void start()}>
+            {t("conversation.button.input-request-sign-in")}
+          </Button>
+        ) : (
+          <Button block variant="primary" icon={ExternalLink} onPress={() => void Linking.openURL(started.url)}>
+            {t("mobile.setup.button.open-page")}
+          </Button>
+        )}
+      </View>
+    </AskCard>
+  );
+}
+
+/** A provider sign-in the phone can finish: one whose definition signs in with a code. */
+function byCode(view: SignInRequestView): boolean {
+  if (view.target.type !== "provider") return false;
+  const { oauth } = view.target.login.definition;
+  return oauth !== null && oauthFlowOf(oauth.product) === "device_code";
+}
+
+/**
+ * What an agent asks the person to enter. A secret is typed here, and a provider sign-in by code is done here; a site login
+ * and a sign-in that must come back to the computer's browser (or an app's, an MCP server's) are only described, with Cancel.
+ */
 function InputRequest({
   agent,
   computer,
@@ -257,27 +426,33 @@ function InputRequest({
     };
   }, [source, session, toolCall]);
   if (view === null) return null;
+  const cancel =
+    source.cancelInputRequest === undefined
+      ? undefined
+      : () => void source.cancelInputRequest?.({ session, toolCall });
+  const target = { session, toolCall };
+  if (view.kind === "secret") {
+    return <SecretRequest agent={agent} computer={computer} target={target} view={view} cancel={cancel} />;
+  }
+  if (view.kind === "sign_in" && byCode(view)) {
+    return <CodeSignInRequest agent={agent} computer={computer} target={target} view={view} cancel={cancel} />;
+  }
   const fact =
     view.kind === "login"
       ? { label: t("conversation.label.input-request-origin"), value: view.origin }
-      : view.kind === "sign_in"
-        ? { label: t("conversation.label.input-request-sign-in-at"), value: view.destinations.join("\n") || view.subject }
-        : {
-            label: t("conversation.label.input-request-secret"),
-            value: view.destinations.length === 0 ? view.name : `${view.name} → ${view.destinations.join(", ")}`,
-          };
+      : { label: t("conversation.label.input-request-sign-in-at"), value: view.destinations.join("\n") || view.subject };
   return (
     <AskCard>
       <AskTitle icon={view.kind === "sign_in" ? LogIn : KeyRound}>{inputRequestTitle(view, agent)}</AskTitle>
       <Fact label={fact.label} value={fact.value} />
       <Text variant="note" tone="muted" style={{ marginTop: 10 }}>
-        {t(view.kind === "sign_in" ? "mobile.session.notice.sign-in-on-computer" : "mobile.session.notice.secret-on-computer", {
+        {t(view.kind === "sign_in" ? "mobile.session.notice.sign-in-on-computer" : "mobile.session.notice.login-on-computer", {
           computer,
         })}
       </Text>
-      {source.cancelInputRequest !== undefined && (
+      {cancel !== undefined && (
         <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
-          <Button icon={X} onPress={() => void source.cancelInputRequest?.({ session, toolCall })}>
+          <Button icon={X} onPress={cancel}>
             {t("mobile.kit.button.cancel-request")}
           </Button>
         </View>

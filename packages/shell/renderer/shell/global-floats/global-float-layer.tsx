@@ -9,6 +9,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -29,7 +30,11 @@ import type { TabHost } from "../../workspace/kinds/host.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
 import { TabBoundary } from "../../workspace/tab-boundary.tsx";
-import { useWindowMachine } from "../../desktop/machines/context.tsx";
+import {
+  useMachinesView,
+  useWindowMachine,
+} from "../../desktop/machines/context.tsx";
+import { useMachineHub } from "../../desktop/machines/scope.tsx";
 import { OnlyHere } from "../../desktop/machines/only-here.tsx";
 import {
   type MachineRef,
@@ -269,14 +274,31 @@ export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
   const host = useGlobalFloatsHost();
   const ref = useRef<HTMLDivElement>(null);
   const size = useObservedSize(ref);
-  // 터미널 탭의 아이콘과 점이 agent 상태를 따라 바뀐다.
-  const terminalStore = env.terminal?.store;
+  // 터미널 탭의 아이콘과 점이 agent 상태를 따라 바뀐다. float의 터미널은 어느 기계의 것이든 그 기계의 store가 안다.
+  const hub = useMachineHub();
+  const machineIds = (useMachinesView()?.machines ?? [])
+    .filter((one) => one.status !== "removed")
+    .map((one) => one.id)
+    .join();
+  const terminalStores = useMemo(
+    () =>
+      [
+        env.terminal?.store,
+        ...(machineIds === "" ? [] : machineIds.split(",")).map(
+          (id) => hub?.get(id).terminal?.store,
+        ),
+      ].flatMap((store) => (store === undefined ? [] : [store])),
+    [env.terminal?.store, machineIds, hub],
+  );
   useSyncExternalStore(
     useCallback(
-      (listener) => terminalStore?.subscribe(listener) ?? (() => {}),
-      [terminalStore],
+      (listener: () => void) => {
+        const stops = terminalStores.map((store) => store.subscribe(listener));
+        return () => stops.forEach((stop) => stop());
+      },
+      [terminalStores],
     ),
-    () => terminalStore?.version() ?? 0,
+    () => terminalStores.map((store) => store.version()).join(),
   );
   if (host === null) return null;
   // 0이면 못 잰 것과 같다(0x0으로 가둔 rect는 저장이 거절된다).

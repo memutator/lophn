@@ -1,4 +1,4 @@
-// terminal view: 폰이 coding session 터미널과 자기가 연 터미널의 raw 화면을 보고(`terminal_view/snapshot`), 보는 동안 core가 PTY
+// terminal view: 기기(폰, 연결된 컴퓨터)가 이 기계 터미널의 raw 화면을 보고(`terminal_view/snapshot`), 보는 동안 core가 PTY
 // host의 화면을 읽는다(`terminal_view/watch`의 lease). 화면은 메모리에 최신 하나만 두고 ledger에는 아무것도 없다. 여는 것과 입력은
 // `terminals/open|input`이 한다. snapshot의 `input`은 늦게 채우는 칸 `terminalInputGrant`이고 채워지지 않았으면 false다.
 import { ok } from "../../../../base/mod.ts";
@@ -37,8 +37,6 @@ export const terminalViewWiring: WiringFactory = () => {
             once.unref?.();
             return () => clearTimeout(once);
           },
-          known: (terminal) =>
-            ctx.terminalAgents.coding.terminalKnown(terminal),
           mayType: (principal) =>
             ctx.peek.terminalInputGrant?.(principal) ?? false,
         }),
@@ -47,8 +45,8 @@ export const terminalViewWiring: WiringFactory = () => {
     build(ctx) {
       const shown = ctx.terminalView;
       view = shown;
-      // 목록에서 빠지는 터미널(끝난 터미널, coding agent가 떠난 터미널)의 화면과 lease를 지운다.
-      offList = ctx.terminalAgents.coding.onChange(() => shown.pruned());
+      // 없어진 터미널의 화면과 lease를 지운다.
+      offList = ctx.terminals.onRuntime(() => shown.pruned());
       timer = setInterval(() => shown.expire(), EXPIRE_MS);
       timer.unref?.();
       return ok({

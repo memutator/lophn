@@ -153,8 +153,6 @@ export const terminalsWiring: WiringFactory = () => {
       });
       const publish = (event: BusEvent) => ctx.bus.publish(event);
       terminals.onRuntime((runtime) => {
-        // 내 기기는 이 기계의 어느 터미널이든 화면 사본으로 본다(다른 컴퓨터의 터미널 탭, 폰).
-        ctx.terminalView.adopt(runtime.terminal_ref);
         publish({
           type: "TerminalRuntimeChanged",
           subject: `terminal:${runtime.terminal_ref}`,

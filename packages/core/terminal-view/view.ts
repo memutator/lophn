@@ -1,5 +1,5 @@
-// terminal view: 폰이 보는 터미널(coding session의 터미널과 폰이 연 터미널)의 최신 화면(메모리)과 보는 principal의 lease다. 여는 것과
-// 입력은 `terminals/open|input`이 한다.
+// terminal view: 기기(폰, 연결된 컴퓨터)가 보는 터미널의 최신 화면(메모리)과 보는 principal의 lease다. 이 기계의 어느 터미널이든
+// 본다. 여는 것과 입력은 `terminals/open|input`이 한다.
 // lease가 있는 터미널만 core가 PTY host의 화면을 주기로 읽어 최신 하나를 둔다. 내용은 event에 싣지 않고 seq만 알린다(폰이 snapshot을
 // 다시 읽는다). PTY 크기는 마지막에 잡은 쪽이 이긴다: 폰이 `resize`로 잡고(폰 크기 표지) desktop 탭은 focus가 오면 다시 잡는다. lease가
 // 모두 끝나면 core가 폰의 크기를 놓아 desktop 탭이 자기 크기로 되돌린다(지킴 18).
@@ -25,8 +25,6 @@ export type TerminalViewDeps = {
   terminals: Pick<Terminals, "resize" | "screen" | "runtime">;
   // ms 뒤에 한 번 부른다. 취소하는 함수를 돌려준다.
   after(ms: number, run: () => void): () => void;
-  // 그 터미널이 coding session 목록에 있다. 기기가 `terminals/open`으로 연 터미널은 이 모듈이 따로 안다(`adopt`).
-  known(terminal: string): boolean;
   // 이 principal이 터미널에 칠 수 있다(`snapshot`의 input. 폰이 입력 칸을 그릴지 정한다).
   mayType(principal: string): boolean;
 };
@@ -52,10 +50,7 @@ export function createTerminalView(deps: TerminalViewDeps) {
   const screens = new Map<string, TerminalScreen>();
   // 화면을 읽는 timer. lease가 있는 터미널만 있다.
   const polls = new Map<string, () => void>();
-  // 폰이 연 터미널. coding session 목록에 없어도 본다. 터미널이 없다고 답하면 뺀다.
-  const opened = new Set<string>();
-  const known = (terminal: string) =>
-    opened.has(terminal) || deps.known(terminal);
+  const known = (terminal: string) => terminals.runtime(terminal) !== null;
 
   // lease들의 tail 최대다. lease가 없으면 null(읽지 않는다).
   function wanted(terminal: string): number | null {
@@ -132,7 +127,6 @@ export function createTerminalView(deps: TerminalViewDeps) {
       if (lease.terminal === terminal) leases.delete(key);
     }
     quiet(terminal);
-    opened.delete(terminal);
   }
 
   const gone = () => err({ code: "not_found" as const, message: GONE });
@@ -173,10 +167,7 @@ export function createTerminalView(deps: TerminalViewDeps) {
         poll(terminal);
         return ok({});
       }
-      // 폰이 연 터미널이 컴퓨터에서 닫혔다.
-      if (done.error.code === "not_found" && !deps.known(terminal)) {
-        drop(terminal);
-      }
+      if (done.error.code === "not_found") drop(terminal);
       return err(passed(done.error));
     },
 
@@ -204,11 +195,6 @@ export function createTerminalView(deps: TerminalViewDeps) {
       return done.ok ? ok({}) : err(passed(done.error));
     },
 
-    // 기기가 `terminals/open`으로 연 터미널이다. 목록에 없어도 본다.
-    adopt(terminal: string): void {
-      opened.add(terminal);
-    },
-
     // 기한이 지난 lease를 거둔다(주기로 부른다).
     expire(): void {
       const now = deps.clock.nowMs();
@@ -222,7 +208,7 @@ export function createTerminalView(deps: TerminalViewDeps) {
       for (const terminal of touched) quiet(terminal);
     },
 
-    // coding session 목록이 바뀌었다. 목록에서 빠진 터미널의 화면과 lease를 지운다.
+    // 터미널이 바뀌었다. 없어진 터미널의 화면과 lease를 지운다.
     pruned(): void {
       const all = new Set([
         ...screens.keys(),

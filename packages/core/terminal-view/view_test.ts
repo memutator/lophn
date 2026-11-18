@@ -8,7 +8,6 @@ import { createTerminalView, LEASE_MS } from "./view.ts";
 
 const TERMINAL = "trm_01hzx3k4m5n6p7q8r9s0t1v2w3";
 // 기기가 `terminals/open`으로 연 터미널이다.
-const OPENED = "trm_01hzx3k4m5n6p7q8r9s0t1v2w4";
 
 const screen = (seq: number): TerminalScreen => ({
   generation: 1,
@@ -52,13 +51,13 @@ function setup() {
         calls.push({ screen: terminal, tail });
         return Promise.resolve(ok(screen(seq)));
       },
-      runtime: (terminal) => runtime(terminal, remote),
+      runtime: (terminal) =>
+        known.has(terminal) ? runtime(terminal, remote) : null,
     },
     after: (_ms, run) => {
       timers.push(run);
       return () => {};
     },
-    known: (terminal) => known.has(terminal),
     mayType: () => false,
   });
   return {
@@ -76,8 +75,7 @@ function setup() {
   };
 }
 
-// 폰은 coding session의 터미널과 자기가 연 터미널만 본다. 목록에 없는 desktop 터미널의 화면이 폰에 가면 안 된다.
-test("목록에 없는 터미널은 snapshot도 watch도 not_found다", async () => {
+test("없는 터미널은 snapshot도 watch도 not_found다", async () => {
   const { view, forget } = setup();
   forget();
   const seen = view.snapshot("device:yes", TERMINAL);
@@ -134,15 +132,9 @@ test("lease가 있는 동안만 화면을 읽고, lease가 다 끝나면 읽기�
   assert.ok(!gone.ok && gone.error.code === "unavailable");
 });
 
-// 폰은 coding session의 터미널과 자기가 연 터미널만 본다. 남이 보는 desktop 터미널의 크기는 보지 않는 principal이 바꾸지 못한다.
-test("폰이 연 터미널은 목록에 없어도 보이고, 크기는 그 터미널을 보는 principal만 잡는다", async () => {
+// 남이 보는 desktop 터미널의 크기는 보지 않는 principal이 바꾸지 못한다.
+test("크기는 그 터미널을 보는 principal만 잡는다", async () => {
   const { view, calls } = setup();
-  const before = await view.watch("p1", { terminal: OPENED, on: true });
-  assert.ok(!before.ok && before.error.code === "not_found");
-
-  view.adopt(OPENED);
-  assert.ok((await view.watch("p1", { terminal: OPENED, on: true })).ok);
-
   const resized = await view.resize("p1", {
     terminal: TERMINAL,
     columns: 40,

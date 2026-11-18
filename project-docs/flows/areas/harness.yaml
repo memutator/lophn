@@ -1933,7 +1933,7 @@ flows:
       - id: changed
         observe: [event:TerminalScreenChanged]
       - id: dropped
-        when: "lease가 없거나 목록에 없는 터미널이다(읽지 않는다)"
+        when: "lease가 없거나 없는 터미널이다(읽지 않는다)"
     crosses_process: true
     risk: [secret]
     docs: [architecture/remote.md, architecture/terminal-agent.md]

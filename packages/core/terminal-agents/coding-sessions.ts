@@ -339,10 +339,6 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       return ok({ preview: await gui.rewindPreview(terminal, message) });
     },
 
-    // 그 터미널이 지금 목록에 있다.
-    terminalKnown: (terminalRef: string) =>
-      reports().some((one) => one.terminal_ref === terminalRef),
-
     switchPlan(session: string): Result<SwitchPlan> {
       const report = reportOf(session);
       if (report === undefined) return gone();

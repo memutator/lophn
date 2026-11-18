@@ -43,8 +43,10 @@ import { appRuntime } from "../apps/runtime.ts";
 import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
 import { appWidgetsList } from "../apps/widget.ts";
 import {
+  codingSessionsCliSessions,
   codingSessionsList,
   codingSessionsOpen,
+  codingSessionsRewindPreview,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
 } from "../coding-agent/relay.ts";
@@ -53,7 +55,13 @@ import {
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../coding-agent/terminal-view.ts";
-import { terminalsInput, terminalsOpen } from "../coding-agent/terminals.ts";
+import {
+  terminalsClose,
+  terminalsInput,
+  terminalsList,
+  terminalsOpen,
+  terminalsRestart,
+} from "../coding-agent/terminals.ts";
 import { CARRY_ROUTES } from "./carry.ts";
 import { PAGE_VIEW_ROUTES } from "../lophn-agent/page-view.ts";
 import type { BusEvent } from "../events/bus.ts";
@@ -215,11 +223,15 @@ export const REMOTE_ALLOWED_ROUTES = [
   codingSessionsSwitchPlan,
   codingSessionsSwitch,
   codingSessionsOpen,
+  // 다른 컴퓨터의 coding agent GUI가 읽는 것: 그 CLI의 지난 session 목록, rewind로 되돌아갈 file 이름
+  codingSessionsCliSessions,
+  codingSessionsRewindPreview,
   // 터미널 화면: 화면 읽기, 보는 동안의 lease, 보는 터미널의 PTY 크기를 폰에 맞추기
   terminalViewSnapshot,
   terminalViewWatch,
   terminalViewResize,
-  // core가 여는 터미널: 열기와 입력. 입력은 허락받은 기기만 core가 받는다
+  // core가 여는 터미널: 목록, 열기와 입력. 입력은 허락받은 기기만 core가 받는다
+  terminalsList,
   terminalsOpen,
   terminalsInput,
   // agent의 browser page를 멀리서 보기: 목록, 그림, lease, 입력·잡기·열기. 다루는 것은 터미널 입력을 허락받은 기기만 core가 받는다
@@ -333,6 +345,9 @@ export const REMOTE_ALLOWED_ROUTES = [
 // MCP 로그인 상태 읽기(`agent-mcp-auth/state`)는 Tools and skills가 보이므로 연다.
 // 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
 export const REMOTE_PERSON_ROUTES = [
+  // 터미널 닫기와 다시 띄우기(다른 컴퓨터의 터미널 탭). 다시 띄우기는 core가 입력과 같은 허락을 한 번 더 본다
+  terminalsClose,
+  terminalsRestart,
   // secret: 값은 upload body로 오고 secret 저장소에만 간다
   secretPut,
   secretDelete,
@@ -419,6 +434,8 @@ export const REMOTE_ALLOWED_EVENTS = [
   "AppViewEvent",
   // 보는 터미널의 화면이 바뀌었다(내용 없이 seq만. 폰이 `terminal_view/snapshot`을 다시 읽는다)
   "TerminalScreenChanged",
+  // 터미널이 열리고 끝나고 크기와 이름이 바뀌었다(출력은 싣지 않는다). 다른 컴퓨터의 터미널 탭이 따라간다
+  "TerminalRuntimeChanged",
   // 보는 browser page의 그림이나 상태가 바뀌었다(내용 없이 seq만. `page_view/snapshot`을 다시 읽는다)
   "PageViewChanged",
   // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다

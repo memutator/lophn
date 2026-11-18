@@ -685,10 +685,10 @@ files:
 
   - path: packages/core/terminal-view/view_test.ts
     covers: [terminal-view-snapshot:not_found, terminal-view-watch:watching, terminal-view-watch:stopped, terminal-view-watch:not_found, terminal-view-screen:changed, terminal-view-screen:dropped, terminal-view-snapshot:unavailable, terminal-view-resize:resized, terminal-view-resize:conflict]
-    note: "목록에 없는 터미널은 snapshot·watch가 not_found다. lease가 있는 동안만 lease들의 tail 최대로 화면을 읽고, 갱신하지 않은 lease는 30초 뒤 거두며, lease가 다 끝나면 읽기를 멈추고 폰이 잡은 크기를 놓는다. 기기가 terminals/open으로 연 터미널(adopt)은 목록에 없어도 보이고, 크기는 lease를 가진 principal만 폰 크기 표지로 잡는다"
+    note: "없는 터미널은 snapshot·watch가 not_found다. lease가 있는 동안만 lease들의 tail 최대로 화면을 읽고, 갱신하지 않은 lease는 30초 뒤 거두며, lease가 다 끝나면 읽기를 멈추고 폰이 잡은 크기를 놓는다. 크기는 lease를 가진 principal만 폰 크기 표지로 잡는다"
 
   - path: packages/core/main/daemon/wiring/terminals_test.ts
-    covers: [terminals-input:sent, terminals-input:forbidden, terminals-restart:forbidden, terminals-watch:watching, terminals-watch:stopped, terminals-read:ok, terminals-open:device-types-refused]
+    covers: [terminals-input:sent, terminals-input:forbidden, terminals-restart:forbidden, terminals-restart:restarted, terminals-watch:watching, terminals-watch:stopped, terminals-read:ok, terminals-open:device-types-refused]
     note: "PTY host를 같은 process에서 fake PTY로 돌린다. agent 자격, 허락 없는 기기, capability 없는 사람 token은 forbidden이고 PTY에 아무것도 가지 않으며 허락 있는 기기와 capability를 실은 shell main의 글은 PTY까지 간다. 허락 없는 기기가 terminals/open에 command나 resume을 실으면 forbidden이고 터미널이 열리지 않으며, 빈 열기는 되고 허락 있는 기기와 사람의 command는 친다. closeWork가 host stdin을 닫으면 host가 모든 PTY를 끝낸다. watch lease가 있는 동안만 TerminalOutputAppended가 가고, after_seq snapshot은 그 seq 뒤의 출력(lease를 놓친 사이 것 포함)을 준다"
 
   - path: packages/core/terminals/supervisor_test.ts

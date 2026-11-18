@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { defineMemory, defineRead } from "../base/route.ts";
 
-// 폰이 컴퓨터 터미널의 raw 화면을 보는 route다. 보는 동안 core가 PTY host의 화면을 읽어 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
-// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널(그 목록은 `coding_sessions/list`)과 기기가 `terminals/open`으로 연
-// 터미널뿐이다. 여는 것과 입력은 `terminals/open|input`(`coding-agent/terminals.ts`)이다.
+// 기기(폰, 연결된 컴퓨터)가 이 기계 터미널의 raw 화면을 보는 route다. 보는 동안 core가 PTY host의 화면을 읽어 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
+// 기기가 `snapshot`을 다시 읽는다. 그 기계의 어느 터미널이든 본다. 여는 것과 입력은 `terminals/open|input`(`coding-agent/terminals.ts`)이다.
 
 // `#rrggbb`이거나 xterm 256색 palette 번호(`p0`~`p255`)다.
 const terminalColorSchema = z

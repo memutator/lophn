@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py core-setup build`가 `tasks/*.md`에서 id, 
 | `setup-provider` | setup | 1 | 없음 | merged | setup/setup-provider | 95983e1e2 |  |
 | `setup-scope` | setup | 1 | 없음 | merged | setup/setup-scope | adbc5c027 |  |
 | `setup-phone` | setup | 2 | setup-provider, setup-scope | merged | setup/setup-phone | 420e298b4 |  |
-| `setup-viewer` | setup | 2 | setup-provider, setup-project, setup-scope | running | setup/setup-viewer |  |  |
+| `setup-viewer` | setup | 2 | setup-provider, setup-project, setup-scope | merged | setup/setup-viewer | 17cc17752 |  |

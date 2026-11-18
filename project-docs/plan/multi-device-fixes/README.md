@@ -37,7 +37,7 @@ data:
 |---|---|---|---|
 | 1 | `fix-identity` | 없음 | git을 읽지 못한 project에 id를 만들지 않기, data step의 test, 앱이 받는 id가 바뀌는 경우의 문서 |
 | 1 | `fix-roster` | 없음 | 명단 규칙 넷(쓰인 초대, key로 세는 빼기, 모르는 서명자 상한, 엇갈린 빼기 다시 빼기), id 모으기 다시 하기와 test, 폰 target 이름, lophn 터미널 탭에서 명단 CLI 거절, protocol 판, 남은 옛 문구 |
-| 1 | `fix-terminals` | 없음 | `terminals/open`의 입력 자격, 터미널 응답 channel의 검사, extension CLI의 env, 틀린 `resume`, mac `spawn-helper`, core가 죽을 때 남는 CLI, 남은 옛것과 문서 |
+| 1 | `fix-terminals` | 없음 | `terminals/open`의 입력 자격, 터미널 응답 channel의 검사, extension CLI의 env, 틀린 `resume`, mac `spawn-helper`, core가 죽을 때 CLI가 남는지 확인해 이슈로, 남은 옛것과 문서 |
 | 1 | `fix-setup` | 없음 | `machines/*`를 shell capability로, 기기 자격의 vault·token 이름과 `remote.*` 설정 거절, "허락이 있어도 열지 않는 것"의 test, 임시 secret 정리, 화면만 막던 로그인 종류를 core에서 거절 |
 
 소유는 겹치지 않는다: `fix-roster`는 `packages/protocol/remote/roster*`와 `packages/core/remote/`의 명단 file, `fix-setup`은 `packages/core/remote/call.ts`와 `machines/*`의 자격, `fix-terminals`는 `packages/core/terminals`·`packages/core/extensions`·packaging. brief가 file 단위로 정한다.
@@ -56,6 +56,7 @@ data:
 
 ## lead가 할 일
 
+- 띄우기 전에 계약 commit 하나를 한다: `packages/protocol/remote/routes.ts`의 `machines/call`·`machines/watch` 입력에 `shell_capability`를 더한다(모양은 `fix-setup`의 brief에 있다). 이 file은 `fix-roster`의 것인데 `fix-setup`도 그 한 줄이 필요해서 lead가 먼저 고정한다. `fix-setup`이 merge되기 전에는 plan branch에서 다른 기계의 창이 열리지 않는다(입력이 거절된다).
 - `fix-roster`는 믿음 규칙을 고친다. merge하기 전에 다른 worker(opus) 하나에게 review를 맡긴다. 볼 것: 고친 규칙으로 review의 F1~F4가 막히는가, 새로 생긴 길(다시 빼기)로 도둑이 정직한 컴퓨터를 뺄 수 있는가, 받은 순서가 달라도 같은 결과인가.
 - 네 task는 서로 기대지 않는다. 한꺼번에 띄운다. `core-browser`가 같은 `allowlist.ts`를 고치고 있으니 `status.py ready`가 거르는 대로 따른다.
 - review가 올리라고 한 것 가운데 이 계획이 고치지 않는 것은 이슈로 올린다(`issue` skill의 "올릴지"를 거친다): 이미 잘못 붙었을 수 있는 project id, 개발 앱의 터미널에서 친 `lophn`이 `~/.lophn`을 잡는 것.

@@ -1,0 +1,13 @@
+id: roster-full-frame-view-slow
+title: 상한까지 찬 명단 frame 하나의 첫 view 계산이 node에서 4초쯤 걸리고 폰 engine에서는 재지 않았다
+kind: bug
+status: open
+topic: remote
+modules: [packages/protocol, packages/core/remote, packages/remote-client, packages/mobile]
+now: |
+  명단을 받으면 `mergeRoster` 뒤 `rosterView`(`packages/protocol/remote/roster.ts`)가 서명 확인, T0·K0 넓히기, grounded labelling, keep 줄이기를 되풀이한다. 컴퓨터는 core의 main thread(`packages/core/remote/roster.ts`의 `receive`)에서, 폰은 JS thread(`packages/remote-client/computers.ts`의 `apply`)에서 돈다. `roster` frame은 `ROSTER_STATEMENTS_MAX`(4096)개까지 싣는다. review가 만든 statement 4,600개쯤의 frame(폰 40대와 빠진 서명자의 쓰레기)은 node에서 첫 계산이 3.6초 걸렸다(모든 pass와 같이 쓰는 서명 확인 cache 포함). 그 뒤 keep은 작아진다(639). 폰의 Hermes에서는 재지 않았다.
+impact: |
+  그런 frame이 닿는 동안 컴퓨터의 core가 4초쯤 다른 요청(화면, 폰, CLI, 터미널 route)에 답하지 못하고, 폰은 그보다 길게 화면이 멈출 수 있다. 상한까지 찬 frame은 정상 명단에서는 나지 않고 믿는 동안의 도둑이나 그런 명단을 나르는 폰이 만든다.
+fix: |
+  - (작음, 추천) 폰 release build(Hermes)에서 같은 frame을 한 번 재고, 1초를 넘으면 아래로 간다. 재기 전에는 고치지 않는다.
+  - (중간) view 계산을 core의 Worker와 폰의 background로 옮기거나, 받은 frame에서 이미 든 statement를 빼고 계산한다. 잃는 것: 명단 사본 하나가 고치기를 하나씩 하는 지금 순서에 비동기 경계가 생긴다.

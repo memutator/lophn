@@ -3,7 +3,7 @@ title: 폰에서 새 coding session을 열어도 컴퓨터의 lophn 창이 그 p
 kind: bug
 status: fixed
 topic: harness-gui
-modules: [packages/shell/main, packages/mobile]
+modules: [packages/core/terminal-agents, packages/mobile]
 now: |
   폰이 `coding_sessions/open`으로 여는 coding session은 컴퓨터의 터미널 탭이다. shell main(`packages/shell/main/terminal/coding-open.ts`)이 창 요청 길(`desktop/wiring/surface.ts`의 `bindTabOpen`)로 그 project를 보이는 창에 탭을 열게 한다. 그 project를 보이는 창이 없으면, 일반 창이 하나도 없을 때만 창을 focus 없이 하나 열어 기다리고, 다른 workspace를 보이는 창이 하나라도 있으면 열지 않고 `unavailable`("No lophn window on the computer shows this project … Open the project on the computer")로 답한다. PTY는 terminal-host process가 들지만 터미널을 여는 것(`shell:terminal-open`)과 크기를 정하는 것은 창의 탭이고 탭은 창의 layout에 속해서, 창 없이 열 길이 없다. agent가 연 artifact 탭이 mount된 workspace가 있어야 열리는 것(이슈 `agent-artifact-tab-needs-mounted-workspace`)과 같은 뿌리다.
 impact: |
@@ -14,5 +14,5 @@ fix: |
 decided: |
   사람이 정했다: 그 project를 보이는 창이 없으면 그 project의 창을 focus 없이 하나 열고 거기에 탭을 연다. 터미널이 창 없이 도는 구조는 이 이슈에서 하지 않는다.
 closed: |
-  그 project를 보이는 창이 없으면 shell main이 그 project의 창을 focus 없이 열고 15초까지 기다려 거기에 탭을 연다.
+  처음에는 shell main이 그 project의 창을 focus 없이 열어 탭을 열게 고쳤다. 터미널이 core로 옮겨진 뒤로는 `coding_sessions/open`을 core(`packages/core/terminal-agents/open.ts`)가 받아 창 없이 터미널을 열고, 그 project를 보이는 창이 있으면 탭으로 보인다. 창이 없어서 거절하는 길이 없다.
 guard: 없음

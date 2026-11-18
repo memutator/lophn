@@ -1,7 +1,7 @@
 id: shell-copies-protocol-types-for-tsconfig
 title: shell main이 protocol의 TerminalLine과 coding frame 모양을 type 검사 때문에 손으로 베껴 둔다
 kind: defect
-status: kept
+status: fixed
 topic: harness-gui
 modules: [packages/shell/main, packages/shell/ipc, packages/protocol]
 now: |
@@ -12,5 +12,5 @@ fix: |
   - 작음: 그대로 둔다(kept). 어긋나면 컴파일이 실패하고 베낀 type은 둘뿐이다.
   - 중간: 그 type이 필요한 module(`terminal/coding-relay.ts`, `terminal/terminal-view.ts`, `ipc/terminal.ts`)을 `desktop/wiring` 쪽으로 옮기거나, protocol에서 이 옵션에 걸리는 file의 index 접근을 고쳐 import를 열어 둘 다 protocol type을 쓰게 한다. 어느 file이 걸리는지 세어 본 뒤 정한다.
 closed: |
-  베낀 type은 둘(`ipc/terminal.ts`의 `TerminalLine`, `terminal/coding-relay.ts`의 frame 모양)이고, 어긋나면 그 둘을 protocol type과 이어 주는 `desktop/wiring/terminal-view.ts`·`coding-relay.ts`가 컴파일에 실패한다. 이유는 두 file의 주석에 있다. protocol을 아예 못 읽는 것은 아니다(`ipc/surface.ts`는 `protocol/lophn-agent/host-queue.ts`의 type을 import한다). 막히는 것은 host-link frame을 따라 들어오는 file들이다.
-guard: "`npm run check`의 tsc(shell main, `desktop/wiring`)"
+  터미널, 터미널 화면, coding session이 core로 옮겨지며 `packages/shell/main/terminal/`이 없어졌고 shell에 베낀 `TerminalLine`·`CodingFrame` type이 남지 않았다. core는 protocol의 type을 그대로 import한다.
+guard: 없음

@@ -3,7 +3,7 @@ title: 메시지를 보내지 않은 TUI session에서 GUI로 넘기면 resume�
 kind: bug
 status: fixed
 topic: harness-gui
-modules: [packages/shell/main]
+modules: [packages/core/extensions]
 now: |
   TUI→GUI toggle은 tracker가 아는 TUI session id를 `resume`으로 넘긴다(`packages/shell/main/terminal/gui.ts`의 `open` → `index.ts`의 `gui` → `adapter.start`). 첫 메시지 전의 session은 CLI가 저장하지 않는다.
   - Claude: `claude.ts`의 `start`가 없는 id로 `resume`을 열고, `replay`도 그 id를 읽는다. 다시 보내도 같은 id로 다시 열어 계속 실패한다.
@@ -15,4 +15,4 @@ fix: |
   `start`가 resume 대상이 저장돼 있는지 먼저 보고, 없으면 조용히 새 session을 연다. Claude는 `getSessionInfo`가 없으면 `sessionId: resume`(같은 id, 새 session)으로 연다. Codex는 rollout이 없으면 `thread/start`다. OpenCode는 빈 session이면 실패 줄을 내지 않는다. omp도 `--resume`의 같은 경우를 확인한다. 작음. 추천.
 closed: |
   Claude는 `getSessionInfo`가 없으면 같은 id로 새 session(`sessionId`)을 연다(`start`, `open_session`). Codex는 `thread/resume`이 "no rollout found"면 `thread/start`다. OpenCode는 `api.get`이 404면 실패 줄 없이 새로 연다. omp는 `--resume`으로 띄운 process가 ready 전에 끝나면 `--resume` 없이 다시 띄운다.
-guard: '`claude_test.ts`·`codex_test.ts`·`opencode_test.ts`·`omp_test.ts`의 unsaved session test'
+guard: '`packages/core/extensions/bundled/harness-gui/`의 `claude_test.ts`·`codex_test.ts`·`opencode_test.ts`·`omp_test.ts`의 unsaved session test'

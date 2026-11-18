@@ -1,0 +1,16 @@
+id: phone-roster-dispute-saved-thief
+title: 도둑의 컴퓨터를 저장한 폰은 엇갈림에서 두 컴퓨터 모두와 끊기거나, 그 컴퓨터를 뺀 컴퓨터를 저장하지 않았으면 도둑의 빼기를 따른다
+kind: bug
+status: open
+topic: remote
+modules: [packages/protocol, packages/remote-client, packages/mobile]
+now: |
+  폰의 view(`packages/protocol/remote/rosterView`, `self = null`)는 저장한 컴퓨터(root)가 서명한 빼기를 처음부터 IN으로 두되, 다른 저장한 컴퓨터가 서명한 빼기가 그것을 공격하면 정해지지 않은 채로 두고, 그 밖은 grounded labelling이다. 폰에는 자기 판단이 없어 정해지지 않은 빼기에 걸린 저장한 컴퓨터는 `disputed`로 남기되 붙지 않는다(`packages/remote-client/computers.ts`의 `apply`·`sync`). 저장한 컴퓨터는 정해진 빼기로만 지운다. 그래서 두 경우가 남는다.
+  - 폰이 도둑의 컴퓨터 R과 그것을 뺀 컴퓨터 X를 둘 다 저장했다: X→R과 R→X가 서로 공격해 둘 다 정해지지 않고 폰은 X와 R 모두와 끊긴다. X를 포함해 아무 컴퓨터에도 붙지 않으므로 다른 컴퓨터의 다시 빼기도 듣지 못한다. 사람은 폰을 다시 들여 푼다: 폰에서 나가(`computers.remove`, 붙은 컴퓨터가 없으면 key만 잊는다) X의 새 초대장으로 다시 들면 R은 저장되지 않는다(빠진 컴퓨터는 view에서 목록에 더해지지 않는다). `architecture/remote.md`의 "폰과 엇갈림"이 이 길을 적는다.
+  - 폰이 R을 저장했고 X(R을 뺀 컴퓨터)는 저장하지 않았다: X→R은 root의 서명이 아니어서 IN으로 시작하지 않고, R이 낸 맞빼기 R→X는 처음부터 IN이다. 폰은 R을 계속 믿고 R의 빼기를 따른다. R이 폰이 저장한 다른 컴퓨터 Y도 빼면 그 빼기도 정해져 폰이 Y를 저장 목록에서 지운다. 저장한 컴퓨터 Y가 R을 다시 빼고(Y→R) 그것이 Y가 지워지기 전에 폰에 닿으면 풀린다. 그 전에 Y가 지워지면 폰은 R만 믿는다.
+impact: |
+  컴퓨터를 도둑맞은 사람의 폰이 정직한 컴퓨터와 끊겨(session, 앱, 알림, 터미널을 쓰지 못한다) 사람이 폰을 다시 들이기 전까지 그대로이고, 다시 들이면 새 기기 id가 된다. 둘째 경우에는 빠진 도둑의 컴퓨터가 그 폰에서는 믿는 컴퓨터로 남아 화면, 앱 sync, 폰에 묻는 `request`(위치, preview drive)에 닿고 폰이 저장한 정직한 컴퓨터를 지울 수 있다.
+fix: |
+  - (작음, 추천) 지금대로 두고 폰 화면이 끊긴 이유와 다시 들이는 길을 말하게 한다(Settings의 컴퓨터 줄에 "Disputed"와 "Pair again with a computer you trust"). 잃는 것: 다시 들이는 손일과 새 기기 id.
+  - (중간) 폰이 이 폰에서 직접 초대장을 읽어 들인 컴퓨터만 root로 둔다(명단에서 배운 컴퓨터는 root가 아니다). 사람이 도둑의 컴퓨터를 폰으로 직접 들였던 경우는 남는다. 잃는 것: 한 컴퓨터에 들면 다른 컴퓨터를 믿게 되는 지금 동작이 root에서는 사라진다(목록에는 선다).
+  - (큼) 폰에서 사람이 믿을 컴퓨터를 고르는 anchor(사람이 고른 컴퓨터의 빼기가 이긴다). 화면과 저장 모양이 새로 든다.

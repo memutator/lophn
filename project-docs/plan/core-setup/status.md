@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py core-setup build`가 `tasks/*.md`에서 id, 
 | `setup-project` | setup | 1 | 없음 | merged | setup/setup-project | 8d325796e |  |
 | `setup-provider` | setup | 1 | 없음 | merged | setup/setup-provider | 95983e1e2 |  |
 | `setup-scope` | setup | 1 | 없음 | merged | setup/setup-scope | adbc5c027 |  |
-| `setup-phone` | setup | 2 | setup-provider, setup-scope | todo |  |  |  |
-| `setup-viewer` | setup | 2 | setup-provider, setup-project, setup-scope | todo |  |  |  |
+| `setup-phone` | setup | 2 | setup-provider, setup-scope | running | setup/setup-phone |  |  |
+| `setup-viewer` | setup | 2 | setup-provider, setup-project, setup-scope | running | setup/setup-viewer |  |  |

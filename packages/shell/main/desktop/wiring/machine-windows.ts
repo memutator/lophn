@@ -120,8 +120,10 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       void places.loaded.then(() => openMachine(machine, name));
       return;
     }
+    // The start window can open on a pinned machine whose name was never saved and that is not in the list.
     const title =
-      machines.list().machines.find((row) => row.id === machine)?.name ?? name;
+      machines.list().machines.find((row) => row.id === machine)?.name ??
+      (name || word("machines.label.unknown-name"));
     // This machine's own last place; one never saved opens where this computer's last window was.
     const place = places.get(machine);
     const workspace =

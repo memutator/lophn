@@ -8,6 +8,7 @@ export const remoteDesk = {
   "machines.gate.offline": "{name} is offline",
   "machines.gate.removed":
     "{name} is not in your devices. To view it again, invite it from Settings › Remote on this computer.",
+  "machines.label.unknown-name": "Another computer",
   "machines.label.start": "Open at start",
   "machines.note.remove-start":
     "lophn opens {name} at start. After removing it, lophn opens the computer you used last.",

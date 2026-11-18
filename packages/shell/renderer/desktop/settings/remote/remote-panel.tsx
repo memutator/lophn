@@ -27,6 +27,8 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const [listed, setListed] = useState<Loaded<RemoteDevices>>(null);
   const devices =
     listed === null || listed === "failed" ? listed : listed.devices;
+  const removedAt =
+    listed === null || listed === "failed" ? null : listed.removedAt;
   const [toggleFailed, setToggleFailed] = useState(false);
   const [relay, setRelay] = useState<RemoteRelayStatus | null>(null);
 
@@ -132,11 +134,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                 <MyDevices
                   source={source}
                   devices={devices}
-                  removedAt={
-                    listed === null || listed === "failed"
-                      ? null
-                      : listed.removedAt
-                  }
+                  removedAt={removedAt}
                   reload={() => void loadDevices()}
                 />
               </section>
@@ -147,6 +145,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                 <AddDevice
                   source={source}
                   devices={devices}
+                  removedAt={removedAt}
                   reload={loadDevices}
                 />
               </section>

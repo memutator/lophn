@@ -438,7 +438,7 @@ flows:
     actor: person
     entries: [route:machine/status]
     boundary: [core-api, machine]
-    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts, packages/shell/renderer/desktop/settings/remote/this-computer.tsx, packages/shell/main/desktop/core/allowlist.ts]
+    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/machine/identity.ts, packages/shell/renderer/desktop/settings/remote/this-computer.tsx, packages/shell/main/desktop/core/allowlist.ts]
     steps:
       - "Settings › Remote의 \"This computer\"가 열릴 때 부른다(renderer allowlist의 memory:machine/status). 이름 input과 복제 note(cloned_from이 있고 기기가 하나도 없을 때)를 이 답으로 그린다"
       - "dispatch가 body(빈 객체)와 actors(user)를 본다"
@@ -461,15 +461,15 @@ flows:
     actor: person
     entries: [route:machine/rename]
     boundary: [core-api, machine]
-    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts, packages/shell/renderer/desktop/settings/remote/this-computer.tsx, packages/shell/main/desktop/core/allowlist.ts]
+    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/machine/identity.ts, packages/shell/renderer/desktop/settings/remote/this-computer.tsx, packages/shell/main/desktop/core/allowlist.ts]
     steps:
       - "사람이 Settings › Remote의 \"This computer\" Name input에서 Enter나 blur로 저장하면 이름을 보내고(비우면 보내지 않고 지금 이름으로 돌아간다), 사람이 지은 이름이면 [Use computer name]이 null을 보낸다(renderer allowlist의 memory:machine/rename). 실패하면 이 pane의 다른 줄과 같은 오류 글(settings.error.value-not-saved)이 보인다"
       - "dispatch가 body({ name: 1~64자 trim | null })와 actors(user)를 본다"
       - "null이면 사람이 지은 이름을 지우고 hostname을 다시 따른다. 아니면 trim한 이름을 고정한다"
-      - "machine.json을 temp에 쓰고 rename한 뒤에만 메모리 값을 바꾸고 새 status를 답한다"
+      - "machine.json을 temp에 쓰고 rename한 뒤에만 메모리 값을 바꾸고 새 status를 답한다. 바뀌었으면 StateChanged{remote_devices}를 내고, remote wiring이 그것을 들어 key가 있으면 자기 항목을 새 이름의 rev로 바로 서명해 link에 민다(roster-identity:renamed). 열린 Name 칸은 사람이 친 글이 없으면 새 이름을 따른다"
     outcomes:
       - id: renamed
-        observe: ["response", "disk:machine.json"]
+        observe: ["response", "disk:machine.json", "event:StateChanged"]
         when: "이름을 두었다"
       - id: cleared
         observe: ["response", "disk:machine.json"]

@@ -522,6 +522,26 @@ export function remoteWiring(
     return self.ok ? ok(undefined) : self;
   }
 
+  // 기계 이름이 자기 항목의 이름과 다르면(machine/rename) 바로 새 rev로 서명한다. 저장이 명단을 link에 밀고 StateChanged를 낸다.
+  // 이름은 ensureSelf가 차례가 왔을 때 읽으므로, 다른 컴퓨터가 바꾼 이름을 기계 이름으로 옮기는 중이면 그 뒤의 이름이다.
+  function resignSelf(ctx: WiringContext) {
+    if (keys === undefined) return;
+    const id = roster.self()?.id;
+    const body = roster
+      .view()
+      .devices.find((each) => each.body.id === id)?.body;
+    if (body === undefined || body.name === ctx.machine.status().name) return;
+    void roster
+      .ensureSelf({
+        machine: ctx.machine.id,
+        name: () => ctx.machine.status().name,
+        os: computerOs(),
+      })
+      .then((self) => {
+        if (!self.ok) logError(ctx, "roster_not_signed", self.error.message);
+      });
+  }
+
   // 명단이 바뀌어 저장된 뒤. 빠진 기기가 붙어 있으면 그 빼기가 든 명단을 먼저 민 뒤 자격을 거두고 연결을 닫는다.
   // 다른 컴퓨터가 이 컴퓨터의 이름을 바꿨으면(roster/rename) 기계 이름으로 받는다. 명단의 이름과 기계 이름이 한 값으로 남고
   // 다음 기동의 ensureSelf가 되돌리지 않는다. 명단은 이것이 끝날 때까지 다음 고치기를 하지 않는다.
@@ -1088,6 +1108,7 @@ export function remoteWiring(
           }
           if (changes.some((change) => change.name === "remote_devices")) {
             refreshPushDevices(ctx);
+            resignSelf(ctx);
           }
         },
         close: () => undefined,

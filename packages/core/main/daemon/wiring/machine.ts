@@ -1,4 +1,5 @@
 import { ok } from "../../../../base/mod.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   machineRename,
   machineStatus,
@@ -17,8 +18,19 @@ export const machineWiring: WiringFactory = () => ({
         [key(machineStatus), () => ok(ctx.machine.status())],
         [
           key(machineRename),
-          (_auth: unknown, input: unknown) =>
-            ctx.machine.rename((input as { name: string | null }).name),
+          async (_auth: unknown, input: unknown) => {
+            const renamed = await ctx.machine.rename(
+              (input as { name: string | null }).name,
+            );
+            // 이 컴퓨터의 이름은 명단의 자기 항목이기도 하다. remote wiring이 이것을 듣고 새 rev로 다시 서명해 다른 기계에
+            // 퍼뜨리고, 열린 화면은 다시 읽는다.
+            if (renamed.ok) {
+              publishStateChanged(ctx.bus, ctx.clock.now(), [
+                { name: "remote_devices", id: null },
+              ]);
+            }
+            return renamed;
+          },
         ],
       ],
     });

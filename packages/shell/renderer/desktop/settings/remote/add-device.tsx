@@ -74,10 +74,13 @@ function remainingText(ms: number): string {
 export function AddDevice({
   source,
   devices,
+  removedAt,
   reload,
 }: {
   source: RemoteSettingsSource;
   devices: readonly RemoteDevice[] | "failed" | null;
+  /** 다른 컴퓨터가 이 컴퓨터를 뺀 때. 서면 들기의 결과 글을 지운다. */
+  removedAt: string | null;
   reload: () => Promise<unknown>;
 }) {
   const [invite, setInvite] = useState<Invite>({ state: "idle" });
@@ -92,6 +95,11 @@ export function AddDevice({
   const [joinNotice, setJoinNotice] = useState<"joined" | "pending" | null>(
     null,
   );
+
+  // 이 컴퓨터가 명단에서 빠졌으면 앞서 들었다는 글은 더 맞지 않는다.
+  useEffect(() => {
+    if (removedAt !== null) setJoinNotice(null);
+  }, [removedAt]);
 
   // 초대장이 보이는 동안 남은 시간을 1초마다 센다.
   useEffect(() => {

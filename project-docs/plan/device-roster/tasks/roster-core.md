@@ -7,7 +7,6 @@ core가 명단을 든다: 서명 key, ledger의 명단과 `devices`에서 옮기
 - 소유(이 task만 고친다):
   - `packages/core/remote/`
   - `packages/core/main/daemon/wiring/remote.ts`, `packages/core/main/daemon/wiring/remote_test.ts`
-  - `packages/core/main/daemon/wiring/context.ts`, `packages/core/apps/views/ports.ts`, `packages/core/attention/presence.ts`, `packages/core/attention/mod.ts`(넷 다 `deviceKind` type의 `"desktop"`을 `"computer"`로 바꾸는 줄만)
   - `packages/core/apps/sync/device-fold.ts`(새 file)
   - `tools/remote-dev.ts`
   - `project-docs/flows/areas/core-platform.yaml`, `project-docs/flows/tests/core-rest.yaml`
@@ -45,7 +44,7 @@ core가 명단을 든다: 서명 key, ledger의 명단과 `devices`에서 옮기
    - 새 빼기가 컴퓨터 R을 뺐으면, 바뀌기 전 view에서 믿었는데 바뀐 뒤 빠진 항목(그 key가 빠진 것은 아닌 것)에 이 컴퓨터가 서명해 둔다. README "뺀 컴퓨터가 서명한 항목은 빼기를 알기 전에 받은 것만 남긴다".
    - `folded`의 from → to: `roster/store`의 `folds`로 넘겨 같은 transaction에서 local `devices` 행 id, `app_sync_log.device`(`packages/core/apps/sync/device-fold.ts`의 함수. remote가 그 표를 SQL로 직접 만지지 않는다), 설정 `shell.devices[].device`를 바꾸고 옛 id의 자격과 연결을 거둔다.
    - 이 컴퓨터의 key가 빠졌으면(view의 `removed`에 있다) 복사된 data root 길과 같이 한다: `roster/forget_all`, host key·서명 key file 지우기, 붙은 연결 닫기, 경고 log. 다음 reconcile이 새 key와 새 자기 항목(새 id)을 만들고, 사람은 그 컴퓨터를 새 기기로 다시 초대한다(`roster-contract` "빠진 기기가 돌아오기"). 이 컴퓨터를 root로 둔 폰은 새 key의 항목을 다른 컴퓨터의 명단으로 받는다.
-7. 자격과 허락. 기기 자격은 지금 모양 그대로(actor user, principal `device:<id>`, scope `REMOTE_ALLOWED_ROUTES`)이고 kind computer에도 같다. 터미널 입력 허락(`ctx.terminalInputGrant`)과 kind(`ctx.deviceKind`, phone|computer)는 view에서 채운다.
+7. 자격과 허락. 기기 자격은 지금 모양 그대로(actor user, principal `device:<id>`, scope `REMOTE_ALLOWED_ROUTES`)이고 kind computer에도 같다. 터미널 입력 허락(`ctx.terminalInputGrant`)과 kind(`ctx.deviceKind`)는 view에서 채운다. `ctx.deviceKind`의 type은 아직 `phone|desktop`이다(`wiring/context.ts`는 다른 계획의 task가 고치는 중이라 lead가 소유에서 뺐다). 명단의 computer를 `"desktop"`으로 넘기고, type을 `"computer"`로 바꾸는 것은 `roster-cleanup`이 한다.
 8. route handler: `roster/list`(view + local 행의 마지막 연결), `roster/remove`(빼기를 서명해 저장. 이 컴퓨터면 `invalid_input`), `roster/set_terminal_input`(rev+1 서명), `roster/rename`(이름을 바꾼 rev+1 서명), `roster/leave`(principal의 기기를 뺀다), `roster/statements`, `roster/store`, `roster/forget_all`. 옛 `devices/register|revoke|unpair|set_terminal_input|forget_all|rename` handler와 `REMOTE_CONTEXT`의 그 이름을 지운다(route 정의는 cleanup이 지운다). `devices/list|set_primary|set_push|clear_push|push_targets|connected`는 남는다. `devices/list`의 `name`은 명단의 이름을 낸다.
 9. `tools/remote-dev.ts`를 `roster/invite`로 바꿔 초대장 글을 찍는다(`remote.relay`를 비우는 줄은 그대로).
 10. flows(`flows` skill): `core-platform.yaml`의 pairing flow(`remote-pairing-start`, pair frame flow, 연결 받기)를 `roster/invite`·`join`·`roster/*`로 고치고, `core-rest.yaml`에 바꾸거나 더한 test file을 적는다.

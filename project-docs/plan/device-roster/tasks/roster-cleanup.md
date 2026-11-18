@@ -11,6 +11,7 @@
   - `packages/shell/main/desktop/`, `packages/shell/renderer/desktop/settings/remote/`(남은 옛 이름만)
   - `packages/mobile/src/`(남은 옛 이름만)
   - `tools/check-deps.ts`, `tools/dev.ts`(주석만)
+  - `packages/core/main/daemon/wiring/context.ts`, `packages/core/apps/views/ports.ts`, `packages/core/attention/presence.ts`, `packages/core/attention/mod.ts`(넷 다 `deviceKind` type의 `"desktop"`을 `"computer"`로 바꾸는 줄만. `roster-core`에서 옮겼다)
   - `project-docs/flows/`, `project-docs/module-catalog.yaml`, `project-docs/boundary-catalog.yaml`
 - 읽을 것:
   - 계획 README 전부(특히 "옮기기"의 "`v2` 길을 만들지 않는다")
@@ -29,7 +30,7 @@
    - `client.ts`: 지운 것의 export를 뺀다.
    - `mod.ts`와 `allowlist.ts`는 lead가 고친다(보고의 "등록할 것"에 지울 export와 `devicesUnpair`를 적는다).
 2. `packages/remote-client/`: `pair`, `parsePairingText`, `unpair`, `PairDevice`, `Computer.revoked`(명단에서 정해지면), shell만 쓰던 옵션과 type을 지운다. module catalog의 notes를 "폰과 core가 같이 쓴다"로 고친다.
-3. core: `devices` local 행은 폰만 남는다. `devices/list` 출력에서 `kind`와 `terminal_input`을 뺀다(명단이 든다. 표의 칸은 지우지 않는다: 표 다시 만들기를 이 판에 한 번 더 하지 않는다). `devices.ts`의 desktop 갈래, `createDeviceKinds`가 옛 kind를 쓰면 지운다. `ctx.deviceKind`의 남은 `"desktop"`을 grep한다.
+3. core: `devices` local 행은 폰만 남는다. `devices/list` 출력에서 `kind`와 `terminal_input`을 뺀다(명단이 든다. 표의 칸은 지우지 않는다: 표 다시 만들기를 이 판에 한 번 더 하지 않는다). `devices.ts`의 desktop 갈래, `createDeviceKinds`가 옛 kind를 쓰면 지운다. `ctx.deviceKind` type의 `"desktop"`을 `"computer"`로 바꾸고(`roster-core`는 명단의 computer를 `"desktop"`으로 넘겼다) 남은 `"desktop"`을 grep한다.
 4. shell: `tools/check-deps.ts`의 `shell` 목록에서 `remote-client`를 쓰지 않게 됐으면 뺀다. `packages/shell/main/desktop/`에 남은 remote-client import와 기기 key 이야기를 지운다. module catalog의 `packages/shell/main` notes에서 "desktop/viewer/는 ... 기기 key와 기계 목록 file의 유일한 주인"을 지금 일(창과 core 길로 기계 고르기, 시작 기계)로 고친다.
 5. `tools/dev.ts`의 `--viewer` 주석("pairing이 남는다")을 명단으로 고친다.
 6. flows(`flows` skill): `node tools/flows.ts check`와 `report`를 돌려 지운 route·frame·IPC·test file을 가리키는 줄, 옛 이름(pairing code, `pair`, `devices/register|revoke|unpair|set_terminal_input|forget_all|rename`, `pairing/start`, viewer key)을 고친다. `areas.yaml`의 remote 묶음 설명("remote listener, pairing, 기기 연결")을 명단으로 고친다.

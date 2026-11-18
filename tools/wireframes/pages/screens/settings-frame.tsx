@@ -59,6 +59,8 @@ interface SettingsFrameProps {
     readonly devices?: RemoteDevice[];
     /** [Join with an invite]의 결과. 안 쓰면 초대한 컴퓨터에 닿아 끝난다. */
     readonly join?: JoinOutcome;
+    /** 다른 컴퓨터가 이 컴퓨터를 뺀 때(ISO). */
+    readonly removedAt?: string;
     /** "Keep running"의 처음 상태에서 바꿀 칸. 안 쓰면 설치본에서 두 스위치가 꺼져 있다. */
     readonly alwaysOn?: Partial<AlwaysOnView>;
   };

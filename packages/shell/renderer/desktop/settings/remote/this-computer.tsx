@@ -3,9 +3,16 @@
 import { t } from "@lophn/i18n";
 import { Input } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
-import { useEffect, useState, type KeyboardEvent } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { actionIcons } from "../../../icons/mod.ts";
+import { useStateChanged } from "../../connection/core-read.ts";
 import { NamedControl } from "../general/named-control.tsx";
 import styles from "../settings.module.css";
 import remoteStyles from "./remote.module.css";
@@ -31,14 +38,20 @@ export function ThisComputer({
   const [machine, setMachine] = useState<RemoteMachine | null>(null);
   const [text, setText] = useState("");
   const [failed, setFailed] = useState(false);
+  // 사람이 칸에 친 글이 있다. 없으면 칸은 지금 이름을 따르고, 떠날 때 아무것도 저장하지 않는다. 다른 곳(다른 컴퓨터의 명단,
+  // CLI)이 이름을 바꾼 뒤 옛 글을 사람이 지은 이름으로 되써 넣지 않게 한다.
+  const edited = useRef(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     void source.machine().then((read) => {
       if (!read.ok) return;
       setMachine(read.value);
-      setText(read.value.name);
+      if (!edited.current) setText(read.value.name);
     });
   }, [source]);
+  useEffect(load, [load]);
+  // `machine/rename`은 event가 없다. 다른 컴퓨터가 바꾼 이름은 명단(`remote_devices`)을 따라 이 기계 이름이 된다.
+  useStateChanged(["settings", "remote_devices"], load);
 
   if (machine === null) return null;
 
@@ -46,6 +59,7 @@ export function ThisComputer({
     const saved = await source.renameMachine(name);
     setFailed(!saved.ok);
     if (!saved.ok) return;
+    edited.current = false;
     setMachine(saved.value);
     setText(saved.value.name);
     onRenamed();
@@ -54,8 +68,10 @@ export function ThisComputer({
   function commit(): void {
     const next = text.trim();
     // 비우면 저장하지 않고 지금 이름으로 돌아간다. hostname으로 되돌리는 길은 단추다.
-    if (next === "") setText(machine!.name);
-    else if (next !== machine!.name) void save(next);
+    if (!edited.current || next === "" || next === machine!.name) {
+      edited.current = false;
+      setText(machine!.name);
+    } else void save(next);
   }
 
   const cloned =
@@ -85,7 +101,10 @@ export function ThisComputer({
                   <Input
                     value={text}
                     maxLength={64}
-                    onChange={(event) => setText(event.target.value)}
+                    onChange={(event) => {
+                      edited.current = true;
+                      setText(event.target.value);
+                    }}
                     onBlur={commit}
                     onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
                       if (event.key === "Enter") event.currentTarget.blur();

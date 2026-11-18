@@ -17,6 +17,7 @@ export const remoteDesk = {
   "machines.notice.settings-elsewhere":
     "{name}'s settings are changed on {name}.",
   "machines.option.last": "The computer I used last",
+  "machines.option.not-in-list": "A computer not in your devices",
   "machines.status.connected": "Connected",
   "machines.status.connecting": "Connecting…",
   "machines.status.direct": "Direct",

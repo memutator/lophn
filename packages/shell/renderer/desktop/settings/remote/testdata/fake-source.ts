@@ -21,6 +21,8 @@ interface FakeRemoteOptions {
   loginOnSet?: AlwaysOnView["startAtLogin"];
   /** `join`의 결과. 없으면 초대한 컴퓨터에 닿아 끝난다. */
   join?: JoinOutcome;
+  /** 다른 컴퓨터가 이 컴퓨터를 뺀 때(ISO). 없으면 빠진 적이 없다. */
+  removedAt?: string;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -201,7 +203,7 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
         url: "wss://relay.example",
         state: enabled ? ("connected" as const) : ("off" as const),
       }),
-    devices: () => ok(devices),
+    devices: () => ok({ devices, removedAt: options.removedAt ?? null }),
     rename(id, name) {
       if (!devices.some((d) => d.id === id)) return missing();
       devices = devices.map((d) => (d.id === id ? { ...d, name } : d));

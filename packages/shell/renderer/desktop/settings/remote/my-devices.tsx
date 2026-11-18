@@ -55,10 +55,13 @@ function detailText(device: RemoteDevice): string {
 export function MyDevices({
   source,
   devices,
+  removedAt,
   reload,
 }: {
   source: RemoteSettingsSource;
   devices: readonly RemoteDevice[] | "failed" | null;
+  /** 다른 컴퓨터가 이 컴퓨터를 빼 명단을 버렸다. 그 뒤로는 이 컴퓨터만 남은 명단이라 왜 비었는지 말한다. */
+  removedAt: string | null;
   /** 바꾼 뒤 목록을 다시 읽는다. */
   reload: () => void;
 }) {
@@ -69,6 +72,15 @@ export function MyDevices({
   );
   const [removing, setRemoving] = useState<RemoteDevice | null>(null);
   const [failed, setFailed] = useState(false);
+
+  const removedNotice =
+    removedAt === null ? null : (
+      <p className={styles.notice} data-remote-removed="">
+        {t("settings.notice.remote-this-removed", {
+          time: formatRelativeTime(new Date(removedAt), new Date()),
+        })}
+      </p>
+    );
 
   if (devices === null) return null;
   if (devices === "failed") {
@@ -111,6 +123,7 @@ export function MyDevices({
 
   return (
     <>
+      {removedNotice}
       <ul className={styles.lines} data-remote-devices="ok">
         {devices.map((device) => {
           if (renaming?.id === device.id) {
@@ -302,7 +315,7 @@ function StartLine({
   view: MachinesView;
   act: (run: Promise<SourceResult<unknown>>) => void;
 }) {
-  const startId = view.start.mode === "machine" ? view.start.machine : LAST;
+  const chosen = view.start.mode === "machine" ? view.start.machine : LAST;
   const options = [
     { value: LAST, label: t("machines.option.last") },
     ...(view.thisComputer === null
@@ -310,6 +323,12 @@ function StartLine({
       : [{ value: view.thisComputer.id, label: view.thisComputer.name }]),
     ...view.machines.map((one) => ({ value: one.id, label: one.name })),
   ];
+  // 고른 기계가 명단에 없으면(옮긴 시작 기계를 아직 다시 들이지 않았다) 그대로 그 기계를 열고 그 창이 removed gate를 보인다.
+  // 그 사실을 한 줄로 보인다.
+  if (!options.some((one) => one.value === chosen)) {
+    options.push({ value: chosen, label: t("machines.option.not-in-list") });
+  }
+  const startId = chosen;
   return (
     <li className={styles.line} data-machines-start="">
       <NamedControl

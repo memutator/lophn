@@ -322,6 +322,8 @@ export function remoteWiring(
   let host: RemoteHost | undefined;
   // 이 컴퓨터의 key 둘. remote를 켤 때 만들고, 있으면 기동 때 읽는다. 명단을 버릴 때 지운다.
   let keys: RemoteKeys | undefined;
+  // 다른 컴퓨터가 이 컴퓨터를 빼 명단과 key를 버린 때. 화면이 알리려고 `roster/list`에 싣는다. 다시 들면 지운다.
+  let removedAt: string | null = null;
   let unsubscribe: (() => void) | undefined;
   // push를 보낼 기기의 메모리 사본(`devices/push_targets`). `StateChanged{remote_devices}`가 오면 다시 읽는다.
   let pushDevices: readonly PushDevice[] = [];
@@ -485,6 +487,7 @@ export function remoteWiring(
     await roster.useKeys(undefined);
     const loaded = await roster.load();
     if (!loaded.ok) return loaded;
+    if (event === "removed_from_roster") removedAt = ctx.clock.now();
     ctx.telemetry.logger.warn({
       component: "remote",
       event,
@@ -829,6 +832,7 @@ export function remoteWiring(
         const self = roster.self()?.id;
         return ok({
           this: self ?? null,
+          removed_at: removedAt,
           devices: roster.view().devices.map(({ body }) => ({
             id: body.id,
             kind: body.kind,
@@ -967,6 +971,7 @@ export function remoteWiring(
         }
         const stored = await roster.storeJoin(prepared.value);
         if (!stored.ok) return stored;
+        removedAt = null;
         if (joined.ok) {
           const merged = await roster.receive(joined.joined.roster);
           if (!merged.ok) return merged;

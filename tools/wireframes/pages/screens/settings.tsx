@@ -48,6 +48,8 @@ import {
   SettingsRemoteJoinFailed,
   SettingsRemoteJoinPending,
   SettingsRemoteJoinUpdate,
+  SettingsRemoteRemovedHere,
+  SettingsRemoteStartMissing,
   SettingsRemoteWaiting,
   SettingsRemoteRemove,
   SettingsKeyboardApps,
@@ -320,6 +322,20 @@ export const settingsArea: Area = {
       description:
         "초대한 컴퓨터가 꺼져 있을 때 들어온 Work laptop 줄에 Waiting과 그 이유가 선다.",
       render: () => <SettingsRemoteWaiting />,
+    },
+    {
+      id: "settings-remote-removed-here",
+      title: "Settings · Remote · this computer was removed",
+      description:
+        "다른 컴퓨터가 이 컴퓨터를 명단에서 뺐다. 이 컴퓨터는 명단과 key를 버리고 자기만 든 명단으로 섰고, My devices 위에 그 일과 다시 들려면 새 초대장을 쓰라는 한 줄이 선다.",
+      render: () => <SettingsRemoteRemovedHere />,
+    },
+    {
+      id: "settings-remote-start-missing",
+      title: "Settings · Remote · start machine not in the list",
+      description:
+        'Open at start가 명단에 없는 기계를 가리킨다(옮긴 시작 기계를 아직 다시 들이지 않았다). 비지 않고 "A computer not in your devices"로 보인다.',
+      render: () => <SettingsRemoteStartMissing />,
     },
     {
       id: "settings-remote-remove",

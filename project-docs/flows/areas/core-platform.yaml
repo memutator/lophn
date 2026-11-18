@@ -2295,6 +2295,7 @@ flows:
     steps:
       - "key가 있으면 기계 이름이 바뀌었는지 보고 자기 항목을 다시 서명한다(roster-identity:renamed)"
       - "view의 기기마다 id, kind, 명단의 이름, os, machine, 터미널 입력 허락, 이 컴퓨터인지, pending(초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않음: 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터. 초대 없이 선 혼자인 컴퓨터는 아니다), 마지막 연결(폰은 이 컴퓨터의 기기 행, 컴퓨터는 이 core가 사는 동안 그 컴퓨터와의 link가 마지막으로 붙었거나 끊긴 때. 없으면 null)을 id 순서로 준다. this는 이 컴퓨터의 id이고 key가 없으면 null이다"
+      - "removed_at은 다른 컴퓨터가 이 컴퓨터를 빼 명단과 key를 버린 때다(roster-forget:removed-from-roster). core의 메모리에만 있어 다시 뜨면 null이고 roster/join으로 다시 들면 null이 된다. 화면은 My devices 위에 그 일을 알린다"
     outcomes:
       - id: ok
         observe: ["response"]

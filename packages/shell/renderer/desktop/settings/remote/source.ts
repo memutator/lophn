@@ -23,6 +23,12 @@ export interface RemoteDevice {
   readonly pending: boolean;
 }
 
+/** 명단과, 다른 컴퓨터가 이 컴퓨터를 빼 명단을 버린 때(ISO. core가 다시 뜨거나 다시 들면 null). */
+export interface RemoteDevices {
+  readonly devices: readonly RemoteDevice[];
+  readonly removedAt: string | null;
+}
+
 /** 이 컴퓨터의 이름과 복제 여부(`machine/status`). */
 export interface RemoteMachine {
   /** 알리는 이름: 사람이 지은 이름이 있으면 그것, 없으면 hostname이다. */
@@ -118,7 +124,7 @@ export interface RemoteSettingsSource {
   join(text: string): Promise<JoinOutcome>;
   relayStatus(): Promise<SourceResult<RemoteRelayStatus>>;
   /** 이 컴퓨터가 믿는 명단의 기기들. */
-  devices(): Promise<SourceResult<readonly RemoteDevice[]>>;
+  devices(): Promise<SourceResult<RemoteDevices>>;
   /** 명단의 이름을 바꾼다. 이 컴퓨터의 이름은 `renameMachine`이다. */
   rename(id: string, name: string): Promise<SourceResult<null>>;
   /** 명단에서 뺀다. 모든 기계에서 끊기고 그 key는 다시 들지 못한다. */

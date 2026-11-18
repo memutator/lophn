@@ -187,18 +187,21 @@ export function coreRemoteSource(
         : undefined;
       return {
         ok: true,
-        value: roster.value.devices.map((device) => ({
-          id: device.id,
-          kind: device.kind,
-          name: device.name,
-          os: device.os,
-          machine: device.machine,
-          thisComputer: device.this,
-          lastConnectedAt: device.last_connected_at,
-          primary: device.id === primary,
-          terminalInput: device.terminal_input,
-          pending: device.pending,
-        })),
+        value: {
+          removedAt: roster.value.removed_at,
+          devices: roster.value.devices.map((device) => ({
+            id: device.id,
+            kind: device.kind,
+            name: device.name,
+            os: device.os,
+            machine: device.machine,
+            thisComputer: device.this,
+            lastConnectedAt: device.last_connected_at,
+            primary: device.id === primary,
+            terminalInput: device.terminal_input,
+            pending: device.pending,
+          })),
+        },
       };
     },
 

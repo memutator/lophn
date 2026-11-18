@@ -463,6 +463,26 @@ export const SettingsRemoteWaiting = () => (
   />
 );
 
+/** Settings › Remote: 다른 컴퓨터가 이 컴퓨터를 빼 명단과 key를 버렸다. 명단에는 이 컴퓨터만 남고 위에 그 일을 알리는 한 줄이 선다. */
+export const SettingsRemoteRemovedHere = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{ machines: [] }}
+    remote={{
+      removedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+      devices: sampleDevices().filter((one) => one.thisComputer),
+    }}
+  />
+);
+
+/** Settings › Remote: Open at start가 명단에 없는 기계(옮긴 뒤 아직 다시 들이지 않은 Old laptop)를 가리킨다. "A computer not in your devices"로 보인다. */
+export const SettingsRemoteStartMissing = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{ start: { mode: "machine", machine: "mch_oldlaptop" } }}
+  />
+);
+
 /** Settings › Remote: 시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 시작 기계라서 한 줄이 더 붙는다. */
 export const SettingsRemoteRemove = () => (
   <SettingsFrame

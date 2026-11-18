@@ -11,7 +11,7 @@ import { AddDevice } from "./add-device.tsx";
 import { KeepRunningSection } from "./keep-running-section.tsx";
 import { MyDevices } from "./my-devices.tsx";
 import type {
-  RemoteDevice,
+  RemoteDevices,
   RemoteRelayStatus,
   RemoteSettingsSource,
 } from "./source.ts";
@@ -24,13 +24,15 @@ const RELAY_POLL_MS = 5000;
 
 export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const [enabled, setEnabled] = useState<Loaded<boolean>>(null);
-  const [devices, setDevices] = useState<Loaded<readonly RemoteDevice[]>>(null);
+  const [listed, setListed] = useState<Loaded<RemoteDevices>>(null);
+  const devices =
+    listed === null || listed === "failed" ? listed : listed.devices;
   const [toggleFailed, setToggleFailed] = useState(false);
   const [relay, setRelay] = useState<RemoteRelayStatus | null>(null);
 
   const loadDevices = useCallback(async () => {
     const read = await source.devices();
-    setDevices(read.ok ? read.value : "failed");
+    setListed(read.ok ? read.value : "failed");
     return read;
   }, [source]);
 
@@ -130,6 +132,11 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                 <MyDevices
                   source={source}
                   devices={devices}
+                  removedAt={
+                    listed === null || listed === "failed"
+                      ? null
+                      : listed.removedAt
+                  }
                   reload={() => void loadDevices()}
                 />
               </section>

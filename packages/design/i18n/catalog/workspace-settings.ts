@@ -407,6 +407,8 @@ export const workspaceSettings = {
   "settings.notice.remote-expired": "This invite expired. Make a new one.",
   "settings.notice.remote-off":
     "Turn on connections to see your devices and add one.",
+  "settings.notice.remote-this-removed":
+    "Another computer removed this computer from your devices {time}. This computer now starts its own list. To join again, use a new invite from a computer in your devices.",
   "settings.notice.remote-starting": "Starting connections…",
   "settings.reason.theme-bad_id":
     "the file name can only use lowercase letters, digits, and -.",

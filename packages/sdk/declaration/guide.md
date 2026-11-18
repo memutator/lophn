@@ -88,15 +88,22 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   - key는 화면이 `@lophn/app-ui`의 `useCommand`로 같은 `id`에 handler를 건 동안만 돈다. handler가 없으면 줄만 보이고
     아무 일도 없다. 앱 안에서 맞은 key는 앱이 가져가고, 앱이 맞추지 않은 shell key(탭 이동, palette 등)는 shell이 돈다.
     `main`이 먼저 받는 key(탭 닫기 Ctrl+W 등)는 앱에 닿기 전에 shell이 가져가므로 앱 key로 주지 않는다.
-- `events` — 이 앱이 내는 event 목록이다. 항목은 `{name, description, payloadSchema}`다. `name`은 1~64자
+- `events` — 이 앱이 내는 event 목록이다. 항목은 `{name, description, payloadSchema, across_machines?}`다. `name`은 1~64자
   (영문·숫자·`_ - .`)이고 겹치지 못한다. `payloadSchema`는 payload의 schema이고 root type은 object이며 command
   `inputSchema`와 같은 규칙(설명을 단다)이다. 앱 process가 `@lophn/cap-tool`의 `publish(name, payload)`로 내고, 선언하지 않았거나
   payload가 schema와 맞지 않으면 core가 `invalid_input`으로 거절한다.
   - event는 일이 일어난 **뒤의 알림**이다. 한 번 전달되고 저장되지 않는다. 그 순간 켜져 있는 구독 앱만 받는다.
     그래서 event만으로 상태를 만들지 말고, 발행 앱은 지금 값을 읽는 read command를 따로 내놓는다. 구독 앱은 켜질 때 그 command를
     한 번 읽는다.
+  - `across_machines: true`면 그 event가 앱의 data와 같은 길로 사람의 다른 기계에도 가서, 그 앱이 같은 release로 있는 기계마다
+    한 번 난다(발행 앱, 구독 handler, 화면, payload는 그 기계에서 낸 것과 같다). `sync_to`가 없는 선언에 쓰면 선언 오류다(event는
+    data와 같이 간다). 칸이 없거나 false면 이 기계에서만 나고, 칸이 없는 옛 선언의 hash는 그대로다. data처럼 늦게 닿을 수 있고
+    7일보다 옛 event는 내지 않는다. 사람이 이 앱 workspace를 private으로 둔 기계에서는 그 기계가 낸 event가 다른 기계로 가지
+    않고, 다른 기계에서 온 event도 그 기계에서 나지 않는다. 다른 기계에서 온 data의 변경은 이 칸 없이 `data.changed`로 안다.
 - `subscriptions` — 이 앱이 듣는 event 목록이다. 항목은 `{source, event}`다. `source`는 event를 낸 앱의 slug이거나
-  lophn이 내는 event의 `"lophn"`이다(lophn이 내는 event는 session lifecycle의 `session.started|running|waiting|idle|ended`다. `@lophn/agent` guide). 사람 허락은 없다. 받는 handler 이름은 `on.<source>.<event>`로 정해지고
+  lophn이 내는 event의 `"lophn"`이다(lophn이 내는 event는 session lifecycle의 `session.started|running|waiting|idle|ended`(`@lophn/agent` guide)와
+  `data.changed`다. `data.changed`는 폰이나 사람의 다른 컴퓨터에서 온 변경을 lophn이 이 앱의 DB에 적용한 뒤 이 앱에만 한 번 가고
+  payload는 `{}`다. 무엇이 바뀌었는지는 싣지 않으니 화면과 앱 process는 받으면 보이는 data를 다시 읽는다). 사람 허락은 없다. 받는 handler 이름은 `on.<source>.<event>`로 정해지고
   operation·command와 같은 handler 이름 공간을 쓴다(64자 안, 겹치면 선언 오류). 앱 process가 `@lophn/cap-tool`의
   `subscribe(source, event, handler)`로 그 handler를 등록한다. handler 등록은 필수가 아니다: 등록하지 않은 앱(화면만 구독하는 앱)의 process에는 그 event가 가지 않는다. 선언하지 않은 구독의 handler를 등록하면 앱이 시작하지 못한다.
   - 전달은 구독 앱의 handler 호출(invocation) 하나다. 앱 호출 기록(`lophn app invocations`)에 어느 앱의 어느 event가
@@ -115,11 +122,15 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   폰에서 도는 backend는 text id(`newId()`)를 쓰고, `node:` import·trigger·정수 PK·PK 밖의 UNIQUE와 CHECK를 쓰지 못하며
   (release 준비가 거절한다), 컴퓨터 전용 일(network, secret, 알림, event 발행, agent)은 `external` operation에 둔다.
   `external`은 컴퓨터에 닿지 않으면 `unavailable`이다. 규칙 전부는 `design-app` skill의 bundled file `phone-apps.md`("Apps that run on the phone")다.
-- `sync_to` — 이 앱의 data를 어느 destination으로 내보내는가. destination 이름 하나다(`"personal"`).
-  소문자로 시작하고 소문자·숫자·`-`로 32자까지다. 칸이 없으면 data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다.
-  값은 이름뿐이다: 이름이 가리키는 폴더 경로는 사람이 기계마다 따로 정하는 설정이라 같은 선언이 어느 기계에서나 맞고,
-  이 기계에 그 이름의 destination이 없으면 이 기계는 그 앱의 data를 내보내지도 읽지도 않는다. 바깥 도구가 그 폴더를
-  다른 기계로 옮긴다. `["phone"]`인 앱은 쓰지 못한다(폰의 data는 컴퓨터를 거쳐서만 나가는데 그 앱은 컴퓨터 사본이 없다).
+- `sync_to` — 이 앱의 data를 어느 destination으로 내보내는가. destination 이름 하나다. 소문자로 시작하고 소문자·숫자·`-`로
+  32자까지다. 칸이 없으면 data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다.
+  - 사람의 다른 컴퓨터로 보낼 앱은 먼저 `"computers"`(내 컴퓨터들)를 고른다. 사람의 기기 명단에 있는 컴퓨터들이고, 옮기는
+    길은 lophn이 고른다(컴퓨터끼리의 연결, 폰, 사람이 Settings에서 더한 같이 보는 폴더). 바깥 도구를 붙일 필요가 없다.
+  - 그 밖의 이름(`"personal"`)은 사람이 따로 정한 이름 붙인 폴더다. 이름이 가리키는 폴더 경로는 사람이 기계마다 따로 정하는
+    설정이라 같은 선언이 어느 기계에서나 맞고, 이 기계에 그 이름의 destination이 없으면 이 기계는 그 앱의 data를 내보내지도
+    읽지도 않는다. 바깥 도구가 그 폴더를 다른 기계로 옮긴다.
+  - `["phone"]`인 앱은 쓰지 못한다(폰의 data는 컴퓨터를 거쳐서만 나가는데 그 앱은 컴퓨터 사본이 없다). 다른 기계와 폰에서 온
+    변경은 `lophn`의 `data.changed`로 안다(`subscriptions`).
   `sync_to`가 있는 앱은 컴퓨터에서 sync 앱이라 `runs_on`에 phone이 있는 앱과 같은 schema 규칙(text id, 정수 PK·
   AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK 없음)을 release 준비가 보고, `@lophn/cap-store` 2.0.0 이상을 고정해야 한다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
@@ -183,7 +194,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.9.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.10.0" }],
 });
 
 const result = validateDeclaration(declaration);

@@ -4,9 +4,18 @@ Read this before you set `sync_to` in `lophn.ts`, before you set up a sync folde
 or the tool that moves it, and when `lophn machine environment` shows an error.
 `sync_to` names a destination: a folder on each computer. lophn writes the app's
 changes, releases and source into that folder and reads what the other computers
-wrote there. lophn does not move the folder. A tool the person runs (Syncthing,
-rclone) does, and you set that tool up with the person. lophn has no code, setting
-or credential for any storage service, and you never put one into lophn.
+wrote there. There are two kinds:
+
+- `computers` ("my computers"): the computers in the person's device list. lophn
+  keeps this folder itself and picks how its files travel: a direct link between
+  the computers, the paired phone carrying them, or a folder all the person's
+  computers see that the person added in Settings. Nothing to set up.
+- A named destination (`personal`, `work`): a folder the person set up themselves
+  on each computer. lophn does not move it. A tool the person runs (Syncthing,
+  rclone) does, and you set that tool up with the person.
+
+lophn has no code, setting or credential for any storage service, and you never
+put one into lophn.
 
 ## Pick `sync_to`
 
@@ -29,9 +38,11 @@ another computer too, or the data must exist on another machine.
      the store: keep it in `localStorage`.
    - Secrets never go in the store. Use `@lophn/cap-secret`; the person enters
      them again on each computer.
-4. Use the name of a destination that already exists if it fits. A new name is
-   short and means something to the person (`personal`, `work`), and it is the
-   same name on every computer: the path behind it may differ per computer.
+4. Pick `sync_to: "computers"` first. Use a named destination only when the
+   person set one up for this kind of data (it shows in `destinations`) or asks
+   for one. A new name is short and means something to the person (`personal`,
+   `work`), and it is the same name on every computer: the path behind it may
+   differ per computer.
 
 Write the choice and the reason in DESIGN.md (Model): which data goes where, which
 tool moves it, whether it is encrypted.
@@ -61,9 +72,35 @@ Know and design for these:
   release by themselves (see "Bring an app to another machine").
 - Keep the app's data well under 1 GiB: a larger store cannot go to the folder.
 
+## Know when data changed
+
+lophn applies the changes that come from the person's other computers and from
+the phone. The app is not called for them; instead it gets the `lophn` event
+`data.changed` (payload `{}`) once after each batch is applied. It does not say
+what changed: read again what you show or hold.
+
+```ts
+// lophn.ts
+subscriptions: [{ source: "lophn", event: "data.changed" }],
+// app process (@lophn/cap-tool)
+subscribe("lophn", "data.changed", async () => { /* refresh caches */ });
+// screen (@lophn/app-ui or @lophn/app-ui-native)
+useEvent("lophn", "data.changed", () => void reload());
+```
+
+An event the app publishes stays on this computer unless its declaration says
+`across_machines: true` (allowed only with `sync_to`). Such an event travels with
+the app's data and fires once on every other computer that runs the same release,
+with the same payload, to the same subscribers and screens. It can arrive late;
+one older than 7 days does not fire. When the person made the app's workspace
+private on a computer, that computer neither sends its events nor fires the ones
+that arrive. Do not mark an event only to tell other computers the data changed:
+`data.changed` does that.
+
 ## Set up a destination on this machine
 
-A destination is the setting `folder.destinations`: a name mapped to an absolute
+Skip this section for `computers`: it needs no setting. A named destination is
+the setting `folder.destinations`: a name mapped to an absolute
 local path, on this computer only. Only the person sets, changes or removes it,
 because it starts sending their data out of lophn. If `lophn machine environment`
 already shows a destination of that name with state `ok`, skip this section.
@@ -105,8 +142,8 @@ Where it runs:
 - A coding agent outside lophn (in a terminal) cannot ask either; it is refused
   with `needs_approval`. The person runs the command in their own terminal, which
   is never asked.
-- There is no Settings screen for destinations yet. The person's own way is
-  `lophn settings set` in their terminal.
+- The person can also add, change or remove a folder themselves in Settings ›
+  Sync, or with `lophn settings set` in their own terminal.
 
 Every other computer needs a destination of the same name, set there by the person
 or that computer's lophn agent. A computer without it neither sends nor reads the
@@ -114,7 +151,8 @@ app's data.
 
 ## Move the folder with a tool
 
-lophn only writes files into the folder and reads them. Pick the tool in this order:
+For a named destination, lophn only writes files into the folder and reads them.
+Pick the tool in this order:
 
 1. **Syncthing**, when the person's computers reach each other (same network, or
    Syncthing's relays). It moves files directly between the person's devices,
@@ -220,8 +258,9 @@ Say it in their words, once, when you set `sync_to` or set up a destination:
 
 - what goes where: which app's data, to which folder, moved by which tool, to which
   computers or cloud, and whether it is encrypted;
-- it is not live: changes arrive as fast as the tool moves the folder (lophn writes
-  a few seconds after a change and reads within minutes);
+- it is not live: changes arrive as fast as the files travel (with `computers`,
+  soon while the computers are connected, otherwise when the phone or the shared
+  folder carries them; with a named folder, as fast as the tool moves it);
 - what they write on the phone reaches other computers only through a computer it
   is paired with, and only while that computer is on; the phone does not use the
   folder;

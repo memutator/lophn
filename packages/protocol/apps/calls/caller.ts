@@ -64,6 +64,8 @@ export const appToolCallerSchema = z.discriminatedUnion("kind", [
     trace_id: traceIdSchema,
     chain: z.array(appIdSchema).max(APP_CALL_DEPTH_LIMIT),
     parent_invocation: invocationIdSchema.nullable(),
+    // 다른 기계에서 온 event(선언 `across_machines`)면 그 난 기계. payload는 발행 앱이 선언한 schema라 core가 칸을 더하지 않는다.
+    machine: idSchema("mch").optional(),
   }),
 ]);
 export type AppToolCaller = z.infer<typeof appToolCallerSchema>;

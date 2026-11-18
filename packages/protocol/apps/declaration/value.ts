@@ -199,7 +199,7 @@ function validateEvents(items: unknown): ValidationResult<EventDeclaration[]> {
     if (!isObject(item)) return invalid("event must be an object");
     const bad = exactKeys(
       item,
-      ["description", "name", "payloadSchema"],
+      ["across_machines", "description", "name", "payloadSchema"],
       ["description", "name", "payloadSchema"],
     );
     if (bad) return invalid(`event ${bad}`);
@@ -216,10 +216,17 @@ function validateEvents(items: unknown): ValidationResult<EventDeclaration[]> {
       `event ${item.name} payloadSchema`,
     );
     if (!payload.ok) return payload;
+    if (
+      item.across_machines !== undefined &&
+      typeof item.across_machines !== "boolean"
+    ) {
+      return invalid(`event ${item.name} across_machines must be boolean`);
+    }
     events.push({
       name: item.name,
       description: item.description,
       payloadSchema: payload.value,
+      ...(item.across_machines === true ? { across_machines: true } : {}),
     });
   }
   const dup = unique(
@@ -415,6 +422,14 @@ export function validateDeclaration(
   if (!runsOn.ok) return runsOn;
   const syncTo = validateSyncTo(value.sync_to, runsOn.value);
   if (!syncTo.ok) return syncTo;
+  if (
+    syncTo.value === undefined &&
+    events.value.some((event) => event.across_machines === true)
+  ) {
+    return invalid(
+      "an event that goes to other machines needs sync_to: it travels with the app's data",
+    );
+  }
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([

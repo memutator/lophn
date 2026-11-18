@@ -98,6 +98,7 @@ const appEventSchema = z.object({
   description: z.string().min(1),
   // 정규 InputSchema(root는 object).
   payloadSchema: jsonValueSchema,
+  across_machines: z.boolean().optional(),
 });
 const appSubscriptionSchema = z.object({
   // 다른 앱의 slug이거나 `lophn`.

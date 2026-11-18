@@ -77,6 +77,8 @@ export type AppCallsDeps = CallGateDeps & {
   timers?: Timers;
   // sync 앱의 sync log. 없으면 폰이나 다른 기계에서 온 변경을 받지 않는다.
   sync?: SyncCalls;
+  // 폰이나 다른 기계에서 온 변경이 그 앱 DB를 바꾼 뒤 적용 묶음 하나에 한 번 부른다(앱에 `data.changed`를 낸다).
+  dataChanged?(app: Id<"app">): void;
 };
 
 // 호출 길이 쓰는 sync log의 면: 기록하기와 held 줄 풀기.
@@ -695,7 +697,8 @@ export function createAppCalls(deps: AppCallsDeps): {
     if (!attached.ok) return attached;
     const sync = attached.value;
     const { app, release, change } = input;
-    return inLane<PhoneApplied>(app, release, async (job) => {
+    let changed = false;
+    const done = await inLane<PhoneApplied>(app, release, async (job) => {
       const active = activeIs(app, release);
       if (!active.ok) return active;
       const known = sync.duplicate(change.device, change.id);
@@ -729,6 +732,7 @@ export function createAppCalls(deps: AppCallsDeps): {
         return closeFailed([open!], notSync());
       }
       const result = applied.value.results[0]!;
+      changed = result.status === "applied";
       if (result.status === "held") {
         const closed = await finish(
           open!,
@@ -759,6 +763,8 @@ export function createAppCalls(deps: AppCallsDeps): {
       if (!logged.ok) return logged;
       return ok({ status: result.status, seq: logged.value });
     });
+    if (changed) deps.dataChanged?.(app);
+    return done;
   }
 
   // 폴더에서 온 변경 file 하나: 이미 받은 변경(같은 기계의 같은 id)은 건너뛰고, 남은 변경마다 invocation을 연 뒤 앱 DB
@@ -785,7 +791,8 @@ export function createAppCalls(deps: AppCallsDeps): {
       });
     }
     if (changes.length === 0) return ok(counts);
-    return inLane(app, release, async (job) => {
+    let changed = false;
+    const done = await inLane(app, release, async (job) => {
       const active = activeIs(app, release);
       if (!active.ok) return active;
       const fresh: FolderChange[] = [];
@@ -835,6 +842,10 @@ export function createAppCalls(deps: AppCallsDeps): {
       if (applied.value.status === "not_sync") {
         return closeFailed(opened, notSync());
       }
+      // 앱 DB transaction은 이미 끝났다. 뒤 기록이 실패해도 앱은 바뀐 data를 다시 읽어야 한다.
+      changed = applied.value.results.some(
+        (result) => result.status === "applied",
+      );
       for (const [i, result] of applied.value.results.entries()) {
         const change = fresh[i]!;
         const received = {
@@ -866,6 +877,8 @@ export function createAppCalls(deps: AppCallsDeps): {
       }
       return ok(counts);
     });
+    if (changed) deps.dataChanged?.(app);
+    return done;
   }
 
   // 다른 기계의 snapshot 합치기: invocation 하나, 앱 DB transaction 하나. 정리된 흔적과 부딪어 적용하지 않은 row는 held 줄로
@@ -877,7 +890,8 @@ export function createAppCalls(deps: AppCallsDeps): {
     if (!attached.ok) return attached;
     const sync = attached.value;
     const { app, release, origin } = input;
-    return inLane(app, release, async (job) => {
+    let changed = false;
+    const done = await inLane(app, release, async (job) => {
       const active = activeIs(app, release);
       if (!active.ok) return active;
       const base: CallRecordBase = {
@@ -919,6 +933,7 @@ export function createAppCalls(deps: AppCallsDeps): {
         return closeFailed([open!], notSync());
       }
       const out = merged.value;
+      changed = out.effective !== null || out.effective_dropped !== undefined;
       const closed = await finish(
         open!,
         "succeeded",
@@ -942,14 +957,14 @@ export function createAppCalls(deps: AppCallsDeps): {
         );
         if (!held.ok) return held;
       }
-      const changed =
-        out.effective !== null || out.effective_dropped !== undefined;
       if (changed) {
         const marked = await sync.merged(closed.value);
         if (!marked.ok) return marked;
       }
       return ok({ changed, deleted: out.deleted });
     });
+    if (changed) deps.dataChanged?.(app);
+    return done;
   }
 
   function heldRow(app: Id<"app">, seq: number): Result<SyncLogRow> {

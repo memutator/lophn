@@ -72,6 +72,8 @@ export const eventPublicationSchema = z.object({
   trace_id: traceIdSchema,
   at: atSchema,
   ...publishCountsSchema,
+  // 다른 기계에서 온 event(선언 `across_machines`)를 이 기계가 냈으면 그 난 기계다. 이 기계에서 난 것은 null이다.
+  machine: idSchema("mch").nullable(),
 });
 export type EventPublication = z.infer<typeof eventPublicationSchema>;
 

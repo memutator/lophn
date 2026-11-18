@@ -79,7 +79,10 @@ no network.
 - Register exactly the handlers the declaration lists, as `registerHandlers` in
   the template does.
 - Commands and subscriptions run only on the computer. Events that a write on the
-  phone would publish are not delivered.
+  phone would publish are not delivered. When a write from the phone reaches the
+  computer, the app there gets the `lophn` event `data.changed` once (declare
+  `{source: "lophn", event: "data.changed"}` in `subscriptions`), so its
+  process and open screens can read the data again.
 
 ## Screens
 

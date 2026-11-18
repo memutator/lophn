@@ -174,6 +174,9 @@ export type EventDeclaration = {
   name: string;
   description: string;
   payloadSchema: InputSchema;
+  // true면 그 앱의 data와 같은 길로 사람의 다른 기계에 가서 거기서도 한 번 난다(그래서 `sync_to`가 있어야 한다).
+  // 없으면 이 기계에서만 난다. false는 칸을 두지 않아 칸이 없는 옛 선언의 hash가 그대로다.
+  across_machines?: boolean;
 };
 
 // 다른 앱(그 앱의 slug)이나 lophn(`lophn`)이 낸 event를 받겠다는 선언. handler 이름은 `on.<source>.<event>`로 정해지고

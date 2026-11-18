@@ -1,6 +1,8 @@
 export {
+  createEventArrival,
   createEventDelivery,
   createEventPublisher,
+  type EventArrivalDeps,
   type EventDelivery,
   type EventDeliveryDeps,
   type EventPublishDeps,

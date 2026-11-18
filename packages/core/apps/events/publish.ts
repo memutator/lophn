@@ -2,6 +2,8 @@
 // 지금 켜져 있는 앱마다 구독 handler를 앱 호출 경로(`app.call_tool`과 같은 길)로 부른다. 구독자의 답을 기다리지 않는다. 저장도
 // 재시도도 없다: 켜져 있지 않은 구독자는 받지 못하고 그 수가 발행 기록에 남는다.
 // 발행(`createEventPublisher`)은 발행 앱의 active release가 선언한 event이고 payload가 선언한 schema와 맞는지 보고 전달에 넘긴다.
+// 선언이 `across_machines`인 event는 이 기계에서 전달한 뒤 event file로도 쓴다(folder가 다른 기계로 나른다). 다른 기계에서 온
+// event file은 `createEventArrival`이 같은 검사를 거쳐 이 기계에서 낸다. private 판단은 각 기계가 자기 call 정책으로 한다.
 import {
   err,
   type IdSource,
@@ -20,14 +22,19 @@ import {
   type EventPublication,
 } from "../../../protocol/apps/events.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { JsonValue } from "../../../protocol/base/json-values.ts";
+import { CROSS_EVENT_MAX_AGE_MS } from "../../../protocol/folder/carry.ts";
+import { CLOCK_AHEAD_MAX_MS } from "../../../protocol/folder/limits.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import type { CrossEvents, EventArrived } from "../../folder/ports.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 import type { CallAuth } from "../calls/caller.ts";
 import type { Flight } from "../calls/intake.ts";
 import { checkCallChain } from "../calls/loop.ts";
 import {
   type AppDeclaration,
+  type EventDeclaration,
   subscriptionHandlerName,
   validateInput,
 } from "../declaration/mod.ts";
@@ -81,6 +88,8 @@ export type EventToDeliver = {
   parent: Flight | null;
   // 있으면 이 앱만 받는다(core event의 가시성: 앱이 볼 수 있는 session의 event만).
   audience?: (app: Id<"app">) => boolean;
+  // 다른 기계에서 온 event면 그 난 기계. 발행 기록과 구독자 호출의 caller에 싣는다.
+  machine?: Id<"mch">;
 };
 
 type Subscriber = { app: Id<"app">; release: Id<"rel"> };
@@ -195,6 +204,7 @@ export function createEventDelivery(deps: EventDeliveryDeps): EventDelivery {
         reachable: running.length,
         unreachable: down,
         refused: running.length - handed.length,
+        machine: event.machine ?? null,
       };
       const recorded = deps.transaction((tx) => {
         insertPublication(tx, publication);
@@ -238,6 +248,9 @@ export function createEventDelivery(deps: EventDeliveryDeps): EventDelivery {
                 trace_id: publication.trace_id,
                 chain: [...event.chain],
                 parent_invocation: event.parent?.id ?? null,
+                ...(event.machine === undefined
+                  ? {}
+                  : { machine: event.machine }),
               },
             },
             {
@@ -270,14 +283,46 @@ export function createEventDelivery(deps: EventDeliveryDeps): EventDelivery {
   };
 }
 
-export type EventPublishDeps = {
+// 발행과 도착이 같이 쓰는 면.
+type AppEventDeps = {
   delivery: EventDelivery;
   // 그 앱의 slug와 보관 여부. 없는 앱은 null이다.
   app(id: string): Result<{ slug: string; archived: boolean } | null>;
-  // active release와 그 고정 선언. 없으면 null이다.
-  activeDeclaration(
-    app: string,
-  ): Result<{ release: Id<"rel">; declaration: AppDeclaration } | null>;
+  // active release와 그 봉인 bundle hash, 고정 선언. 없으면 null이다.
+  activeDeclaration(app: string): Result<{
+    release: Id<"rel">;
+    bundle_hash: string;
+    declaration: AppDeclaration;
+  } | null>;
+  // 이 기계의 call 정책에서 그 앱 workspace가 private인가. private인 앱의 event는 기계를 건너지 않는다.
+  isPrivate(app: Id<"app">): boolean;
+  warn(event: string, fields: Record<string, string>): void;
+};
+
+// payload가 선언한 schema와 크기 한도에 맞으면 정규화한 값.
+function checkPayload(
+  declared: EventDeclaration,
+  payload: unknown,
+): Result<unknown> {
+  const checked = validateInput(declared.payloadSchema, payload);
+  if (!checked.ok) {
+    return err({ code: "invalid_input", message: checked.error.message });
+  }
+  if (
+    new TextEncoder().encode(JSON.stringify(checked.value)).length >
+    EVENT_PAYLOAD_MAX_BYTES
+  ) {
+    return err({
+      code: "invalid_input",
+      message: `event payload exceeds ${EVENT_PAYLOAD_MAX_BYTES} bytes`,
+    });
+  }
+  return ok(checked.value);
+}
+
+export type EventPublishDeps = AppEventDeps & {
+  // folder가 낸다. `across_machines` event를 다른 기계로 갈 event file로 쓴다.
+  crossEvents: CrossEvents;
   flight(id: Id<"inv">): Flight | undefined;
   // 발행한 앱의 호출(`parent`, 이 앱의 것일 때만 본다. 다른 앱의 호출 id를 주면 빈 목록이다)까지 이어진 인과의 앱들(발행자 제외, 먼저 나온 순).
   // 그 호출이 event로 불린 것이면 그 event의 chain을 잇는다(호출 기록에서 읽는다: 앞선 발행자의 호출은 이미 끝났을 수 있다).
@@ -325,19 +370,8 @@ export function createEventPublisher(deps: EventPublishDeps): MemoryHandler {
         message: `event ${input.event} is not declared by the active release`,
       });
     }
-    const checked = validateInput(declared.payloadSchema, input.payload);
-    if (!checked.ok) {
-      return err({ code: "invalid_input", message: checked.error.message });
-    }
-    if (
-      new TextEncoder().encode(JSON.stringify(checked.value)).length >
-      EVENT_PAYLOAD_MAX_BYTES
-    ) {
-      return err({
-        code: "invalid_input",
-        message: `event payload exceeds ${EVENT_PAYLOAD_MAX_BYTES} bytes`,
-      });
-    }
+    const checked = checkPayload(declared, input.payload);
+    if (!checked.ok) return checked;
     const ancestors = deps.ancestry(
       parent === null
         ? (input.parent_invocation as Id<"inv"> | null)
@@ -358,7 +392,85 @@ export function createEventPublisher(deps: EventPublishDeps): MemoryHandler {
     if (published.value === null) {
       return err({ code: "internal", message: "app event was not recorded" });
     }
-    const { id, reachable, unreachable, refused } = published.value;
+    const { id, reachable, unreachable, refused, at } = published.value;
+    if (declared.across_machines === true && !deps.isPrivate(publisher)) {
+      // 다른 기계로 못 가도 이 기계의 발행은 이미 끝났다.
+      const written = await deps.crossEvents.write(
+        publisher,
+        active.value.release,
+        { name: input.event, payload: checked.value as JsonValue, at },
+      );
+      if (!written.ok) {
+        deps.warn("cross_event_write_failed", {
+          app: publisher,
+          name: input.event,
+          message: written.error.message,
+        });
+      }
+    }
     return ok({ publication: id, reachable, unreachable, refused });
+  };
+}
+
+export type EventArrivalDeps = AppEventDeps & { nowMs(): number };
+
+/**
+ * 다른 기계에서 온 event file 하나를 이 기계에서 낸다. 이 기계에 그 앱이 있고, 이 기계의 call 정책에서 그 앱 workspace가
+ * private이 아니고, `at`이 나이 한도 안이고, 이 기계 활성 release가 같은 bundle이고 그 선언이 그 event를 `across_machines`로
+ * 두며 payload가 schema에 맞을 때만이다. 아니면 log 한 줄을 남기고 내지 않는다. 한 번만 내는 것은 부르는 쪽(folder)이 지킨다.
+ */
+export function createEventArrival(deps: EventArrivalDeps): EventArrived {
+  async function arrive(input: Parameters<EventArrived>[0]): Promise<void> {
+    const skip = (reason: string) =>
+      deps.warn("cross_event_skipped", {
+        app: input.app,
+        name: input.name,
+        machine: input.origin,
+        reason,
+      });
+    const app = deps.app(input.app);
+    if (!app.ok || app.value === null || app.value.archived) {
+      return skip("app");
+    }
+    if (deps.isPrivate(input.app)) return skip("private");
+    const at = Date.parse(input.at);
+    const now = deps.nowMs();
+    if (
+      !(now - at <= CROSS_EVENT_MAX_AGE_MS && at - now <= CLOCK_AHEAD_MAX_MS)
+    ) {
+      return skip("age");
+    }
+    const active = deps.activeDeclaration(input.app);
+    if (!active.ok || active.value === null) return skip("release");
+    if (active.value.bundle_hash !== input.bundle_hash) {
+      return skip("release");
+    }
+    const declared = active.value.declaration.events?.find(
+      (event) => event.name === input.name,
+    );
+    if (declared?.across_machines !== true) return skip("not_declared");
+    const checked = checkPayload(declared, input.payload);
+    if (!checked.ok) return skip("payload");
+    const published = await deps.delivery.publish({
+      publisher: input.app,
+      release: active.value.release,
+      source: app.value.slug,
+      event: input.name,
+      payload: checked.value,
+      chain: [input.app],
+      parent: null,
+      machine: input.origin,
+    });
+    if (!published.ok) skip(`publish: ${published.error.message}`);
+  }
+  return (input) => {
+    void arrive(input).catch((thrown: unknown) =>
+      deps.warn("cross_event_skipped", {
+        app: input.app,
+        name: input.name,
+        machine: input.origin,
+        reason: thrown instanceof Error ? thrown.name : "thrown",
+      }),
+    );
   };
 }

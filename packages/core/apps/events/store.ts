@@ -11,8 +11,8 @@ export function insertPublication(
 ): void {
   tx.sql.run(
     `INSERT INTO app_event_publications
-      (id, publisher, release, event, trace_id, at, reachable, unreachable, refused)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, publisher, release, event, trace_id, at, reachable, unreachable, refused, machine)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       publication.id,
       publication.publisher,
@@ -23,6 +23,7 @@ export function insertPublication(
       publication.reachable,
       publication.unreachable,
       publication.refused,
+      publication.machine,
     ],
   );
   tx.sql.run(
@@ -71,6 +72,10 @@ export function listPublications(
         reachable: Number(row["reachable"]),
         unreachable: Number(row["unreachable"]),
         refused: Number(row["refused"]),
+        machine:
+          row["machine"] === null
+            ? null
+            : (String(row["machine"]) as EventPublication["machine"]),
       }),
     );
 }

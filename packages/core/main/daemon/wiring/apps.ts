@@ -121,9 +121,13 @@ import {
 } from "../../../apps/sdk-status/mod.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
 import {
+  createEventArrival,
   createEventDelivery,
   createEventPublisher,
 } from "../../../apps/events/mod.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import { APP_DATA_CHANGED_EVENT } from "../../../../protocol/apps/events.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
 import { createWidgets } from "../../../apps/widgets/mod.ts";
 import { phoneRequestHandler } from "../../../apps/phone-request/mod.ts";
@@ -361,6 +365,29 @@ export const appsWiring: WiringFactory = () => {
         clock: ctx.clock,
         ids,
         sync,
+        // 폰이나 다른 기계에서 온 변경이 앱 DB를 바꿨다. `call.settled`와 같은 길로 그 앱에만 낸다.
+        dataChanged(app) {
+          void ctx.eventDelivery
+            .publish({
+              publisher: "lophn",
+              release: null,
+              source: "lophn",
+              event: APP_DATA_CHANGED_EVENT,
+              payload: {},
+              chain: [],
+              parent: null,
+              audience: (one) => one === app,
+            })
+            .then((published) => {
+              if (!published.ok) {
+                ctx.telemetry.logger.warn({
+                  component: "apps/events",
+                  event: "data_changed_publish_failed",
+                  fields: { app, message: published.error.message },
+                });
+              }
+            });
+        },
       });
       ctx.provide("appCallPath", path);
       ctx.provide("folderPorts", {
@@ -559,9 +586,10 @@ export const appsWiring: WiringFactory = () => {
         },
       });
       ctx.provide("eventDelivery", eventDelivery);
-      const publishEvent = createEventPublisher({
+      // 발행과 다른 기계에서 온 event가 같이 쓰는 면. private은 이 기계의 call 정책이다.
+      const appEventDeps = {
         delivery: eventDelivery,
-        app(app) {
+        app(app: string) {
           const loaded = loadApp(link.sql, app);
           if (!loaded.ok) return loaded;
           return ok(
@@ -573,7 +601,7 @@ export const appsWiring: WiringFactory = () => {
                 },
           );
         },
-        activeDeclaration(app) {
+        activeDeclaration(app: string) {
           const loaded = loadActiveDeclaration(link.sql, app);
           if (!loaded.ok) return loaded;
           return ok(
@@ -581,9 +609,45 @@ export const appsWiring: WiringFactory = () => {
               ? null
               : {
                   release: loaded.value.release.id as Id<"rel">,
+                  bundle_hash: loaded.value.release.bundle_hash,
                   declaration: loaded.value.declaration,
                 },
           );
+        },
+        isPrivate(app: Id<"app">) {
+          const policy =
+            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
+          return policy.private.some(
+            (workspace) => workspace.kind === "app" && workspace.id === app,
+          );
+        },
+        warn(event: string, fields: Record<string, string>) {
+          ctx.telemetry.logger.warn({
+            component: "apps/events",
+            event,
+            fields,
+          });
+        },
+      };
+      ctx.provide(
+        "eventArrived",
+        createEventArrival({
+          ...appEventDeps,
+          nowMs: () => ctx.clock.nowMs(),
+        }),
+      );
+      const publishEvent = createEventPublisher({
+        ...appEventDeps,
+        // folder wiring이 낸다. 없으면 이 기계는 다른 기계로 event를 나르지 않는다.
+        crossEvents: {
+          write: (app, release, event) =>
+            ctx.peek.crossEvents?.write(app, release, event) ??
+            Promise.resolve(
+              err({
+                code: "unavailable",
+                message: "events are not carried to other machines here",
+              }),
+            ),
         },
         flight: intake.flight,
         // 지금 도는 호출의 사슬(살아 있는 호출)과, 그 호출이 event로 불린 것이면 그 event가 싣고 온 chain(기록에서 읽는다).

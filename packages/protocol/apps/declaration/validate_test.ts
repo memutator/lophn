@@ -191,9 +191,9 @@ test("icon 선언은 bundle 안 svg·png·webp 경로나 lucide:<kebab-case 이�
   assert.ok(without.ok && !("icon" in without.value));
 });
 
-// event와 구독은 선택 칸이다. 비면 정규형에 칸이 없어 옛 선언의 hash가 그대로이고, 구독 handler 이름
-// (`on.<source>.<event>`)은 operation·command와 한 이름 공간이다.
-test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object schema여야 하며 구독 handler 이름은 다른 handler와 겹치지 못한다", () => {
+// event와 구독은 선택 칸이다. 비면 정규형에 칸이 없어 옛 선언의 hash가 그대로이고(event의 across_machines false도 같다),
+// 구독 handler 이름(`on.<source>.<event>`)은 operation·command와 한 이름 공간이다.
+test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object schema여야 하며 구독 handler 이름은 다른 handler와 겹치지 못하고 across_machines는 sync_to가 있어야 한다", () => {
   const event = {
     name: "usage.limit",
     description: "A limit was reached.",
@@ -216,6 +216,10 @@ test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object s
     ],
     ["duplicate event", { events: [event, { ...event }] }],
     ["event without description", { events: [{ ...event, description: " " }] }],
+    [
+      "across_machines without sync_to",
+      { events: [{ ...event, across_machines: true }] },
+    ],
     ["bad source", { subscriptions: [{ ...subscription, source: "Mas up" }] }],
     [
       "duplicate subscription",
@@ -249,6 +253,16 @@ test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object s
     "on.lophn.session.idle",
     "on.masup.usage.limit",
   ]);
+  const local = validateDeclaration({
+    ...declarationWith([]),
+    events: [{ ...event, across_machines: false }],
+  });
+  const plainEvent = validateDeclaration({
+    ...declarationWith([]),
+    events: [event],
+  });
+  assert.ok(local.ok && plainEvent.ok);
+  assert.deepStrictEqual(local.value, plainEvent.value);
 });
 
 // widgets와 phone.use는 grant가 될 수 있는 것을 선언 검사가 정하는 경계다. widgets 칸이 없는 옛 선언의 hash는 그대로다.

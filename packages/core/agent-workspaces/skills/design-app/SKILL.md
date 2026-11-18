@@ -297,12 +297,12 @@ you saw on the desktop, on the phone, and what you could not check. If the
 phone app is older than the kit the screen was built with, the phone shows
 "update the lophn app"; tell the person.
 
-To check those on the person's phone (`lophn tab open --phone`), first read the
-bundled `phone-check.md`; for home screen widgets (`widgets`) and phone location
-(`phone.use`), first read `phone-features.md`; when the app's backend and data
-also run on the phone (`runs_on`), first read `phone-apps.md`; when the app's
-data must reach the person's other computers (`sync_to`), first read
-`folder-sync.md`. Read each with
+First read the bundled `phone-check.md` to check those on the person's
+phone (`lophn tab open --phone`); `phone-features.md` for home screen widgets
+and phone location (`phone.use`); `phone-apps.md` when the app's backend and
+data also run on the phone (`runs_on`); `folder-sync.md` when its data must
+reach the person's other computers (`sync_to`, `"computers"` first; changes
+from there arrive as `data.changed`). Use
 `skill.read({ name: "design-app", path: "<file>" })`.
 
 ## Talking to an agent from a screen

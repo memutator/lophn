@@ -18,6 +18,15 @@ import {
   signRoster,
 } from "./roster.ts";
 
+// root가 하나면 그 컴퓨터 자신의 view(self)이고, 여럿이면 저장한 컴퓨터들을 root로 둔 폰의 view다.
+function viewOf(statements: readonly RosterStatement[], roots: string[]) {
+  return rosterView(
+    statements,
+    roots,
+    roots.length === 1 ? (roots[0] as string) : null,
+  );
+}
+
 const random = seededRandom(7);
 let serial = 0;
 
@@ -156,7 +165,7 @@ function phoneKey(): string {
 }
 
 function keysOf(statements: RosterStatement[], roots: string[]): string[] {
-  return rosterView(statements, roots).devices.map((d) => d.body.key);
+  return viewOf(statements, roots).devices.map((d) => d.body.key);
 }
 
 // A가 B를 믿고 B가 A를 믿는 두 컴퓨터. 서로의 항목에 서명했다.
@@ -189,7 +198,7 @@ test("믿는 컴퓨터의 서명이 없는 항목, 수명이 지난 초대장(�
   );
   const fresh = inviteOf(a);
   const invitedOnly = invitedWith(fresh, phoneEntry(newId(), phoneKey()));
-  const view0 = rosterView(
+  const view0 = viewOf(
     [...base, fromStranger, forged, fakeRoot, invitedOnly],
     [root(a)],
   );
@@ -223,7 +232,7 @@ test("믿는 컴퓨터의 서명이 없는 항목, 수명이 지난 초대장(�
     signed(removeComputer(goneComputer), a),
     invitedWith(waiting, phoneEntry(newId(), waitingKey)),
   ];
-  const view = rosterView(known, [root(a)]);
+  const view = viewOf(known, [root(a)]);
   const now = Date.parse(EXPIRES) - 1;
   const fromNew = (made: ReturnType<typeof inviteOf>, over = {}) =>
     invitedWith(made, phoneEntry(newId(), phoneKey()), over);
@@ -340,7 +349,7 @@ test("빼기보다 늦게 도착한 뺀 기기의 항목이 빼기를 되돌리�
   const { a, b, base } = pair();
   const phone = newId();
   const key = phoneKey();
-  const before = rosterView(
+  const before = viewOf(
     [
       ...base,
       signed(phoneEntry(phone, key), a),
@@ -384,12 +393,12 @@ test("빼기보다 늦게 도착한 뺀 기기의 항목이 빼기를 되돌리�
   for (const row of rows) {
     // 폰은 R도 root로 저장해 두었을 수 있다. 뺀 서명 key는 root도 되지 못한다.
     for (const roots of [[root(a)], [root(b)], [root(a), root(b), root(r)]]) {
-      const view = rosterView(row.statements, roots);
+      const view = viewOf(row.statements, roots);
       const keys = view.devices.map((d) => d.body.key);
       for (const k of row.gone) assert.ok(!keys.includes(k), row.name);
       assert.ok(keys.includes(a.key) && keys.includes(b.key), row.name);
       // keep만으로 다시 계산해도 빼기가 남는다.
-      const again = rosterView(view.keep, roots);
+      const again = viewOf(view.keep, roots);
       assert.deepEqual(again.removed, view.removed, row.name);
       assert.deepEqual(again.devices, view.devices, row.name);
     }
@@ -421,7 +430,7 @@ test("뺀 컴퓨터가 서명한 항목은 받아들이지 않는다", () => {
     ...afterRemoval,
   ];
   for (const roots of [[root(a)], [root(b)]]) {
-    const view = rosterView(all, roots);
+    const view = viewOf(all, roots);
     const keys = view.devices.map((d) => d.body.key);
     assert.deepEqual(
       [keys.includes(c.key), keys.includes(late), keys.includes(early)],
@@ -514,7 +523,7 @@ test("빠진 컴퓨터의 빼기는 자기를 뺀 쪽과 서로 물고 도는 �
   const everyone = [x, y, z, r, f];
   for (const row of rows) {
     for (const e of row.expect) {
-      const view = rosterView(row.statements, [root(e.root)]);
+      const view = viewOf(row.statements, [root(e.root)]);
       const keys = view.devices.map((d) => d.body.key);
       const present = new Set(
         row.statements.flatMap((s) => ("by" in s ? [s.body.key] : [])),
@@ -533,7 +542,7 @@ test("빠진 컴퓨터의 빼기는 자기를 뺀 쪽과 서로 물고 도는 �
         e.settled,
         row.name,
       );
-      assert.deepEqual(rosterView(view.keep, [root(e.root)]), view, row.name);
+      assert.deepEqual(viewOf(view.keep, [root(e.root)]), view, row.name);
     }
   }
 });
@@ -556,7 +565,7 @@ test("엇갈린 빼기에 걸린 key를 사람이 다시 빼면 빠진 쪽만 �
   const [x, y, r] = [computer(), computer(), computer()];
   // 사람이 X에서 R을 뺐다. 그 소식이 Y에 닿기 전에 도둑이 R로 X와 Y를 뺀 것이 같이 닿았다.
   const before = [...mesh([x, y, r]), out(x, r), out(r, y), out(r, x)];
-  const disputed = rosterView(before, [root(y)]);
+  const disputed = viewOf(before, [root(y)]);
   assert.deepEqual(deviceKeys(disputed), [y.key]);
   assert.deepEqual(
     disputed.removed
@@ -564,17 +573,17 @@ test("엇갈린 빼기에 걸린 key를 사람이 다시 빼면 빠진 쪽만 �
       .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
     [x.id, r.id].sort().map((id) => [id, false]),
   );
-  assert.deepEqual(rosterView(disputed.keep, [root(y)]), disputed);
+  assert.deepEqual(viewOf(disputed.keep, [root(y)]), disputed);
   // Y의 사람이 R을 다시 뺀다(Y가 서명한 빼기). X에서는 처음부터 R만 빠졌다.
   const after = [...disputed.keep, out(y, r)];
   for (const at of [y, x]) {
-    const view = rosterView(after, [root(at)]);
+    const view = viewOf(after, [root(at)]);
     assert.deepEqual(deviceKeys(view).sort(), [x.key, y.key].sort());
     assert.deepEqual(
       view.removed.map((one) => [one.entry?.id, one.settled]),
       [[r.id, true]],
     );
-    assert.deepEqual(rosterView(view.keep, [root(at)]), view);
+    assert.deepEqual(viewOf(view.keep, [root(at)]), view);
   }
 });
 
@@ -584,11 +593,49 @@ test("남의 id를 실은 빼기가 그 id의 기기를 지우지 못한다", ()
   const forged = signed(removal(y.id, x.key, root(x)), r);
   const statements = [...mesh([x, y, z, r]), out(x, r), forged];
   for (const at of [y, z]) {
-    const view = rosterView(statements, [root(at)]);
+    const view = viewOf(statements, [root(at)]);
     assert.ok(deviceKeys(view).includes(y.key), `root ${at === y ? "y" : "z"}`);
     assert.ok(!view.removed.some((one) => one.entry?.id === y.id));
-    assert.deepEqual(rosterView(view.keep, [root(at)]), view);
+    assert.deepEqual(viewOf(view.keep, [root(at)]), view);
   }
+});
+
+test("빠진 서명자가 단 id와 이름은 엇갈린 줄을 바꾸지 못해 다시 빼기가 고른 key를 뺀다", () => {
+  const [x, y, r] = [computer(), computer(), computer()];
+  // 도둑 R이 빠진 뒤: X를 빼고, 자기와 X의 항목에 같은 가장 작은 id와 서로 바꾼 이름을 단다.
+  const low = `dev_0${"0".padStart(25, "0")}`;
+  const steer = [
+    signed(
+      {
+        ...removal(low, x.key, root(x)),
+        at: "2000-01-01T00:00:00.000Z",
+      } as RosterStatement["body"],
+      r,
+    ),
+    signed({ ...computerEntry(r, 50), id: low, name: "X" }, r),
+    signed({ ...computerEntry(x, 50), id: low, name: "R-stolen" }, r),
+  ];
+  const statements = [...mesh([x, y, r]), out(x, r), ...steer];
+  const disputed = viewOf(statements, [root(y)]);
+  const rows = disputed.removed.map((one) => ({
+    key: one.body.key,
+    id: one.entry?.id,
+    name: one.entry?.name,
+  }));
+  assert.deepEqual(
+    rows.sort((a, b) => a.key.localeCompare(b.key)),
+    [
+      { key: x.key, id: x.id, name: "computer" },
+      { key: r.key, id: r.id, name: "computer" },
+    ].sort((a, b) => a.key.localeCompare(b.key)),
+  );
+  // 사람이 R의 줄을 고르면 Y는 R의 key로 뺀다. X가 돌아오고 R만 빠진다.
+  const after = viewOf([...disputed.keep, out(y, r)], [root(y)]);
+  assert.deepEqual(deviceKeys(after).sort(), [x.key, y.key].sort());
+  assert.deepEqual(
+    after.removed.map((one) => [one.body.key, one.settled]),
+    [[r.key, true]],
+  );
 });
 
 test("쓰인 초대장으로 든 기기를 뺀 뒤에도 그 초대장으로 다른 key가 들지 못한다", () => {
@@ -604,34 +651,57 @@ test("쓰인 초대장으로 든 기기를 뺀 뒤에도 그 초대장으로 다
   const now = Date.parse(EXPIRES) - 1;
   const thief = invitedWith(made, phoneEntry(newId(), phoneKey()));
   for (const at of [a, b]) {
-    const view = rosterView(statements, [root(at)]);
-    for (const v of [view, rosterView(view.keep, [root(at)])]) {
+    const view = viewOf(statements, [root(at)]);
+    for (const v of [view, viewOf(view.keep, [root(at)])]) {
       const checked = checkInvited(thief, { now, view: v });
       assert.equal(checked.ok, false);
       if (!checked.ok) assert.equal(checked.error.details?.reason, "used");
     }
   }
-  // 빼기 전의 사용을 모르는 컴퓨터가 받아들였어도, 만나는 곳에서 그 key는 invite 충돌로 빠진다.
-  const admitted = signed({ ...thief.body }, b);
-  const met = rosterView([...statements, admitted], [root(a)]);
-  assert.ok(!deviceKeys(met).includes(thief.body.key));
-  // 빠진 컴퓨터가 자기 항목에 남의 초대 key를 달아도 그 초대로 든 기기를 빼지 못한다.
+});
+
+test("컴퓨터가 자기 항목에 다른 기기의 초대 key를 달아도 그 기기를 빼지 못한다", () => {
+  const { a, b, base } = pair();
   const r = computer();
   const q = { id: newId(), key: phoneKey() };
   const qInvite = inviteOf(a);
-  const claimed = [
+  // R이 믿는 동안 자기 항목에 Q의 초대 key를 달았고 A와 B가 같이 서명했다. 그 뒤 A가 R을 뺐다.
+  const claim = { ...computerEntry(r, 2), invite: qInvite.invite.body.key };
+  const statements = [
     ...base,
     signed(computerEntry(r), a),
     signed(computerEntry(r), r),
     signed(phoneEntry(q.id, q.key, 1, qInvite.invite.body.key), a),
+    signed(phoneEntry(q.id, q.key, 1, qInvite.invite.body.key), b),
+    signed(claim, r),
+    signed(claim, a),
+    signed(claim, b),
     out(a, r),
-    signed({ ...computerEntry(r, 2), invite: qInvite.invite.body.key }, r),
   ];
   for (const at of [a, b]) {
-    const view = rosterView(claimed, [root(at)]);
+    const view = viewOf(statements, [root(at)]);
     assert.ok(deviceKeys(view).includes(q.key));
     assert.deepEqual(view.conflicts, []);
   }
+});
+
+test("폰이 도둑과 구경꾼 컴퓨터를 저장했어도 도둑만 믿게 되지 않고, 다시 뺀 컴퓨터를 따른다", () => {
+  const [x, y, r, z] = [computer(), computer(), computer(), computer()];
+  // X가 R을 뺐고 도둑 R이 X와 Y를 뺐다. 폰은 Y와 R을 저장했다.
+  const statements = [...mesh([x, y, r, z]), out(x, r), out(r, x), out(r, y)];
+  const phone = viewOf(statements, [root(y), root(r)]);
+  assert.ok(!deviceKeys(phone).includes(r.key));
+  assert.ok(phone.removed.every((one) => !one.settled));
+  // R이 빼지 않은 Z가 R을 다시 뺐다. Z도 저장한 폰은 그 결정을 따른다.
+  const resolved = viewOf(
+    [...statements, out(z, r)],
+    [root(y), root(r), root(z)],
+  );
+  assert.deepEqual(deviceKeys(resolved).sort(), [x.key, y.key, z.key].sort());
+  assert.deepEqual(
+    resolved.removed.map((one) => [one.body.key, one.settled]),
+    [[r.key, true]],
+  );
 });
 
 test("모르는 서명자의 항목이 상한에 닿아도 빼기가 저장된다", () => {
@@ -648,7 +718,7 @@ test("모르는 서명자의 항목이 상한에 닿아도 빼기가 저장된�
     signature,
   }));
   for (const at of [a, b]) {
-    const view = rosterView([...junk, ...trusted], [root(at)]);
+    const view = viewOf([...junk, ...trusted], [root(at)]);
     const kept = new Set(view.keep.map((s) => JSON.stringify(s)));
     for (const s of [...base, gone]) assert.ok(kept.has(JSON.stringify(s)));
     assert.equal(
@@ -656,8 +726,65 @@ test("모르는 서명자의 항목이 상한에 닿아도 빼기가 저장된�
       ROSTER_UNKNOWN_MAX,
     );
     assert.ok(view.keep.length <= ROSTER_STATEMENTS_MAX);
-    assert.deepEqual(rosterView(view.keep, [root(at)]), view);
   }
+});
+
+test("빠진 컴퓨터가 서명한 것으로는 저장 상한에 닿지 못하고 믿는 컴퓨터의 빼기는 저장된다", () => {
+  const { a, b, base } = pair();
+  const r = computer();
+  const phone = { id: newId(), key: phoneKey() };
+  // R은 믿는 동안이나 빠진 뒤에 아무 key의 빼기와 컴퓨터 항목, 자기가 낸 초대장의 초대 서명 statement를 많이 서명했다.
+  const flood: RosterStatement[] = [];
+  for (let i = 0; i < 300; i++) {
+    flood.push(signed(removal(newId(), phoneKey()), r));
+    flood.push(signed(computerEntry(computer()), r));
+    // 아는 key(폰)에 모르는 서명 key를 단 빼기.
+    flood.push(signed(removal(phone.id, phone.key, root(computer())), r));
+  }
+  for (let i = 0; i < 60; i++) {
+    flood.push(invitedWith(inviteOf(r), phoneEntry(newId(), phoneKey())));
+  }
+  // R이 스스로 서명한 자기 항목도 R의 것이라 상한 안이다.
+  flood.push(signed(computerEntry(r), r));
+  const gone = signed(removal(phone.id, phone.key), a);
+  const honest = [
+    ...base,
+    signed(computerEntry(r), a),
+    signed(computerEntry(r), b),
+    signed(phoneEntry(phone.id, phone.key), a),
+    out(a, r),
+    gone,
+  ];
+  for (const at of [a, b]) {
+    const view = viewOf([...flood, ...honest], [root(at)]);
+    const kept = new Set(view.keep.map((s) => JSON.stringify(s)));
+    for (const s of honest) assert.ok(kept.has(JSON.stringify(s)));
+    // R이 서명한 것은 상한 안이다: 믿는 쪽이 쓴 것 말고는 ROSTER_UNKNOWN_MAX를 넘지 않는다.
+    assert.ok(view.keep.length <= honest.length + ROSTER_UNKNOWN_MAX);
+    assert.ok(deviceKeys(view).includes(a.key));
+    assert.deepEqual(
+      view.removed.map((one) => one.body.key).sort(),
+      [phone.key, r.key].sort(),
+    );
+  }
+});
+
+test("상한을 넘는 statement가 있어도 keep만으로 다시 계산하면 같은 view다", () => {
+  const { a, base } = pair();
+  const signature = (base[0] as { signature: string }).signature;
+  // 가장 작은 id를 단 쓰레기가 앞서 상한을 채운다. 모르는 컴퓨터가 낸 초대장의 초대 서명 statement는 그 뒤에 밀려난다.
+  const junk: RosterStatement[] = Array.from({ length: 600 }, (_, i) => ({
+    body: phoneEntry(`dev_0${String(i).padStart(25, "0")}`, phoneKey()),
+    by: newId(),
+    signature,
+  }));
+  const stranger = invitedWith(
+    inviteOf(computer()),
+    phoneEntry(newId(), phoneKey()),
+  );
+  const view = viewOf([...junk, stranger, ...base], [root(a)]);
+  assert.deepEqual(view.invites, []);
+  assert.deepEqual(viewOf(view.keep, [root(a)]), view);
 });
 
 test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
@@ -768,7 +895,7 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
         assert.deepEqual(view.folded, [{ from: onB, to: onA }]);
         const revoked = view.devices.find((d) => d.body.key === otherKey);
         assert.equal(revoked?.body.terminal_input, false);
-        assert.deepEqual(rosterView(folds, [root(b)]).devices, view.devices);
+        assert.deepEqual(viewOf(folds, [root(b)]).devices, view.devices);
       },
     },
     {
@@ -832,12 +959,12 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
     ];
     const merged = orders.map((lists) => mergeRoster(...lists));
     for (const m of merged) assert.deepEqual(m, merged[0], s.name);
-    const views = orders.map((lists) => rosterView(lists.flat(), s.roots));
+    const views = orders.map((lists) => viewOf(lists.flat(), s.roots));
     for (const v of views) assert.deepEqual(v, views[0], s.name);
     const view = views[0] as ReturnType<typeof rosterView>;
     s.check(view);
     // keep만으로 다시 계산해도 같은 view다(저장하고 나른 뒤에도 명단이 그대로다).
-    assert.deepEqual(rosterView(view.keep, s.roots), view, s.name);
+    assert.deepEqual(viewOf(view.keep, s.roots), view, s.name);
   }
   // 무작위로 지은 명단(고정 seed): 항목, 접히는 id, 모양이 다른 항목, 초대 서명 statement, 컴퓨터와 폰의 빼기를 섞는다.
   // 어느 root로 보아도 순서를 뒤집어도, keep만으로 다시 계산해도 같은 view다.
@@ -901,9 +1028,9 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
       }
     }
     for (const roots of [...cs.map((c) => [root(c)]), cs.map(root)]) {
-      const view = rosterView(statements, roots);
-      assert.deepEqual(rosterView([...statements].reverse(), roots), view);
-      assert.deepEqual(rosterView(view.keep, roots), view, `round ${round}`);
+      const view = viewOf(statements, roots);
+      assert.deepEqual(viewOf([...statements].reverse(), roots), view);
+      assert.deepEqual(viewOf(view.keep, roots), view, `round ${round}`);
     }
   }
 });

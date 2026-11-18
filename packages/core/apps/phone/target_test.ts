@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { canonicalize } from "../../../base/mod.ts";
 import {
   DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
@@ -25,11 +24,6 @@ test("app.phone_target은 기준 기기의 크기와 명단의 이름만 싣고 
         db.prepare(text).get(...(params as never[])) as
           | Record<string, unknown>
           | undefined,
-      all: (text: string, params: unknown[]) =>
-        db.prepare(text).all(...(params as never[])) as Record<
-          string,
-          unknown
-        >[],
     },
   };
   const read = () => phoneTargetRead.handle(snapshot as never, {} as never, {});
@@ -46,18 +40,11 @@ test("app.phone_target은 기준 기기의 크기와 명단의 이름만 싣고 
   assert.ok(unnamed.ok);
   assert.equal(unnamed.value.device?.name, "Pixel");
 
-  // 다른 컴퓨터에서 바꾼 이름(더 높은 rev)이 이긴다.
-  const entry = (rev: number, name: string) => ({
-    body: { type: "entry", id: "dev_b", key: "KEY_B", name, rev },
-    by: "dev_c",
-    signature: "s",
-  });
-  for (const statement of [entry(1, "Pixel"), entry(2, "Work phone")]) {
-    db.prepare("insert into roster_statements (text, key) values (?, ?)").run(
-      canonicalize(statement),
-      "KEY_B",
-    );
-  }
+  // 명단을 저장하면 view의 이름이 행의 alias에 든다(다른 컴퓨터에서 바꾼 이름).
+  db.prepare("update devices set alias = ? where id = ?").run(
+    "Work phone",
+    "dev_b",
+  );
   const found = read();
   assert.ok(found.ok);
   assert.deepStrictEqual(found.value.device, {

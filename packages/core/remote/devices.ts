@@ -1,6 +1,7 @@
 // 기기 표 `devices`(이 컴퓨터에 붙은 폰의, 이 컴퓨터만의 칸: push, 기준, 화면, 마지막 연결, 마지막으로 받은 알린 이름)와 명단 표,
-// 그 command·read. 종류, 이름, 터미널 입력 허락은 명단이 든다. `kind`(늘 phone)·`alias`·`terminal_input` 칸은 표를 다시 만들지
-// 않으려 남겼고, 옮긴 폰 행의 별명과 허락을 이 컴퓨터가 처음 서명할 때만 읽는다(rosterStatements의 `adopt`).
+// 그 command·read. 종류, 이름, 터미널 입력 허락은 명단이 든다. `kind`(늘 phone)·`terminal_input` 칸은 표를 다시 만들지 않으려
+// 남겼고, 옮긴 폰 행의 허락을 이 컴퓨터가 처음 서명할 때만 읽는다(rosterStatements의 `adopt`). `alias`는 이 컴퓨터의 view가 그
+// 기기에 보이는 명단의 이름이다: 명단을 저장할 때마다 view의 이름으로 고친다(옮긴 폰 행에서는 옛 별명이었다).
 // writer·reader Worker에서 돈다. 명단의 믿음 계산과 서명은 main thread가 한다(remote/roster.ts). 여기는 정한 것을 저장한다.
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import { pushPrefsSchema } from "../../protocol/attention/mod.ts";
@@ -193,25 +194,15 @@ export function screensFolded<T extends Screen>(
 // 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal).
 const DEVICE_PRINCIPAL = "device:";
 
-// 저장한 명단. `key`를 주면 그 key의 statement만 읽는다.
-export function storedStatements(
-  sql: Pick<Sql, "all">,
-  key?: string,
-): RosterStatement[] {
-  return (
-    key === undefined
-      ? sql.all("select text from roster_statements order by text", [])
-      : sql.all(
-          "select text from roster_statements where key = ? order by text",
-          [key],
-        )
-  ).map((row) => JSON.parse(row.text as string) as RosterStatement);
+function storedStatements(sql: Pick<Sql, "all">): RosterStatement[] {
+  return sql
+    .all("select text from roster_statements order by text", [])
+    .map((row) => JSON.parse(row.text as string) as RosterStatement);
 }
 
-// 컴퓨터가 서명한 항목 가운데 key마다 앞서는 것(rev가 큰 것, 같으면 허락을 끈 것, 같으면 body 글이 작은 것). 저장한 명단은
-// main thread가 계산한 keep이라 남은 기기마다 이 컴퓨터가 서명한 이긴 항목이 들어 있다. 기기 표 읽기와 앱의 폰 target이 이름과
-// 허락을 여기서 얻는다.
-export function entriesByKey(
+// 컴퓨터가 서명한 항목 가운데 key마다 앞서는 것(rev가 큰 것, 같으면 허락을 끈 것, 같으면 body 글이 작은 것). 저장할 때 서명한
+// 항목이 남지 않은 key의 행을 지우는 데 쓴다.
+function entriesByKey(
   statements: readonly RosterStatement[],
 ): Map<string, RosterEntryBody> {
   const best = new Map<string, RosterEntryBody>();
@@ -230,17 +221,14 @@ export function entriesByKey(
   return best;
 }
 
-// 아직 서명하지 않은 옮긴 행의 이름은 옛 이름(별명이 있으면 별명)이다.
-const oldName = (row: Record<string, unknown>) =>
+// 보이는 이름: view의 이름(`alias`). 아직 명단을 저장하지 않은 행은 폰이 알린 이름이다.
+export const shownName = (row: Record<string, unknown>) =>
   (row.alias as string | null) ?? (row.name as string);
 
-function rowOf(
-  row: Record<string, unknown>,
-  entries: ReadonlyMap<string, RosterEntryBody>,
-): RemoteDevice {
+function rowOf(row: Record<string, unknown>): RemoteDevice {
   return {
     id: row.id as RemoteDevice["id"],
-    name: entries.get(row.public_key as string)?.name ?? oldName(row),
+    name: shownName(row),
     os: row.os as RemoteDevice["os"],
     width: Number(row.width),
     height: Number(row.height),
@@ -319,7 +307,9 @@ export type DeviceFold = (
 // - 접힌 id(같은 key의 큰 id → 작은 id)로 기기 행과 다른 표의 기기 칸(fold)을 바꾼다. 접힘은 큰 id의 항목이 남는 동안 저장마다
 //   다시 오므로 다시 해도 같다. 행이 옮겨졌든 아니든 접힌 쌍마다 `folded`를 내어 commit 뒤의 `shell.devices` 고치기도 저장마다
 //   다시 한다(commit과 설정 쓰기 사이에 죽어도 다음 저장이 고친다).
-// - 명단에서 빠진 기기(view가 뺀 key, 서명한 항목이 남지 않은 key)의 행을 지운다. push token도 같이 간다.
+// - 명단에서 빠진 기기(view의 정해진 빼기가 뺀 key, 서명한 항목이 남지 않은 key)의 행을 지운다. push token도 같이 간다.
+//   엇갈림으로 빠진(정해지지 않은) 기기의 행은 남긴다: 풀리면 기준과 push token 그대로 돌아온다.
+// - view의 기기 이름을 그 행의 `alias`에 둔다(기기 표 읽기와 앱의 폰 target이 읽는다).
 export const rosterStoreCommand = (
   fold: DeviceFold,
 ): CommandDefinition<typeof rosterStore> => ({
@@ -346,6 +336,12 @@ export const rosterStoreCommand = (
         from,
       ]);
       push(tx, { type: "folded", from, to });
+    }
+    for (const { key, name } of input.names) {
+      tx.sql.run("update devices set alias = ? where public_key = ?", [
+        name,
+        key,
+      ]);
     }
     const kept = entriesByKey(input.statements);
     const removed = new Set(input.removed);
@@ -426,10 +422,9 @@ export const DEVICES_COMMANDS = [
 export const devicesListRead: ReadDefinition<typeof devicesList> = {
   route: devicesList,
   handle(snapshot) {
-    const entries = entriesByKey(storedStatements(snapshot.sql));
     const devices = snapshot.sql
       .all("select * from devices order by created_at, id", [])
-      .map((row) => rowOf(row, entries));
+      .map(rowOf);
     return ok({ devices, as_of_seq: snapshot.as_of_seq, next_cursor: null });
   },
 };
@@ -448,7 +443,7 @@ export const rosterStatementsRead: ReadDefinition<typeof rosterStatements> = {
       .map((row) => ({
         id: row.id as RemoteDevice["id"],
         key: row.public_key as string,
-        name: oldName(row),
+        name: shownName(row),
         os: row.os as RemoteDevice["os"],
         terminal_input: Number(row.terminal_input) === 1,
       }));

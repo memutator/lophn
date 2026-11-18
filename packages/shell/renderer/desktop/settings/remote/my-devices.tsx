@@ -130,10 +130,10 @@ export function MyDevices({
       </p>
       <ul className={styles.lines} data-remote-devices="ok">
         {devices.map((device) => {
-          if (renaming?.id === device.id) {
+          if (renaming?.id === device.id && !device.disputed) {
             return (
               <li
-                key={device.id}
+                key={device.key}
                 className={styles.line}
                 data-remote-device-form=""
               >
@@ -171,7 +171,7 @@ export function MyDevices({
           const machine = device.disputed ? undefined : machineOf(device);
           return (
             <li
-              key={device.id}
+              key={device.key}
               className={styles.line}
               data-remote-device={device.id}
             >
@@ -300,9 +300,9 @@ export function MyDevices({
               data-remote-remove-confirm=""
               onClick={() => {
                 if (removing === null) return;
-                const id = removing.id;
+                const { key } = removing;
                 setRemoving(null);
-                void act(source.remove(id));
+                void act(source.remove(key));
               }}
             >
               {t("settings.button.remote-remove")}

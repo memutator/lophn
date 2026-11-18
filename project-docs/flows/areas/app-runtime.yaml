@@ -1519,7 +1519,7 @@ flows:
     code: [packages/core/apps/phone/target.ts]
     docs: [architecture/remote.md]
     steps:
-      - "devices 표에서 is_primary인 기기의 os, width, height, dpr과, 그 행의 key로 roster_statements의 그 key 항목 가운데 이긴 것의 이름(명단의 이름. 없으면 폰이 알린 devices.name)을 읽는다. 기기 id와 공개 key는 싣지 않는다(agent가 기기 key를 보지 못하게 앱 쪽에 좁은 읽기를 둔다)."
+      - "devices 표에서 is_primary인 기기의 os, width, height, dpr과 이름을 읽는다. 이름은 명단을 저장할 때 view의 이름을 둔 alias이고, 아직 없으면 폰이 알린 name이다. 기기 id와 공개 key는 싣지 않는다(agent가 기기 key를 보지 못하게 앱 쪽에 좁은 읽기를 둔다)."
       - "agent는 이 크기(CSS px, 폰 화면 전체)에 맞춰 폰 화면을 그린다. 기기가 없으면 사람에게 폰을 pairing하라고 말한다."
     outcomes:
       - id: found

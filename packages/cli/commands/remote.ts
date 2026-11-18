@@ -7,6 +7,7 @@ import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { settingsUpdate } from "../../protocol/config/mod.ts";
 import {
+  keyTextSchema,
   machinesList,
   rosterInvite,
   rosterJoin,
@@ -15,6 +16,8 @@ import {
   rosterRemove,
 } from "../../protocol/remote/mod.ts";
 import { defineCommand } from "./types.ts";
+
+const DEVICE_ID = idSchema("dev");
 
 const IN_TAB =
   "It is refused (forbidden) inside a lophn terminal tab, where a coding agent may be the one typing: use Settings › Remote, or a terminal outside lophn (SSH on a computer without a screen).";
@@ -148,6 +151,8 @@ const devices = defineCommand({
     "List every phone and computer this computer trusts: id, kind, name, os, terminal_input (it may type in coding agent terminals), this (this computer), " +
     "pending (it joined with an invite and no other computer has taken it in yet, e.g. this computer after a join that did not reach the inviting computer). " +
     "For another computer it adds status (connecting, connected, offline, update) and path (direct or relay); update means one side runs an older lophn (update: client is this computer, host is that one). " +
+    "disputed: true marks a computer that is out because two computers removed each other and this computer cannot tell which to trust (one may be a stolen computer). " +
+    "Resolve it here: remove the one you do not trust with `lophn remote remove <key>`, using the row's key, and the other comes back. " +
     "Add one with `lophn remote invite`, take one out with `lophn remote remove`.",
   input: z.strictObject({}),
   effect: "read",
@@ -163,13 +168,15 @@ const devices = defineCommand({
       const link = byDevice.get(d.id);
       return {
         id: d.id,
+        key: d.key,
         kind: d.kind,
         name: d.name,
         os: d.os,
         terminal_input: d.terminal_input,
         this: d.this,
         pending: d.pending,
-        ...(d.kind === "computer" && !d.this
+        disputed: d.disputed,
+        ...(d.kind === "computer" && !d.this && !d.disputed
           ? {
               status: link?.status ?? "offline",
               update: link?.update ?? null,
@@ -178,10 +185,16 @@ const devices = defineCommand({
           : {}),
       };
     });
+    const disputed = rows.filter((row) => row.disputed).length;
     return ok({
       summary: `${rows.length} ${rows.length === 1 ? "device" : "devices"}`,
       content: { devices: rows },
       arrayKeys: ["devices"],
+      ...(disputed === 0
+        ? {}
+        : {
+            note: `${disputed} disputed: two computers removed each other. Remove the one you do not trust with \`lophn remote remove <key>\` and the other comes back.`,
+          }),
     });
   },
 });
@@ -190,18 +203,30 @@ const remove = defineCommand({
   name: "remote.remove",
   summary: "Take a device out of the device list",
   description:
-    "Remove a device (its dev_ id from `lophn remote devices`) from the device list. It spreads to every computer in the list: the device is cut off everywhere and its key cannot join again (a new invite makes it a new device). " +
-    "This computer cannot remove itself (invalid_input). " +
+    "Remove a device from the device list, by its dev_ id or its key from `lophn remote devices`. It spreads to every computer in the list: the device is cut off everywhere and its key cannot join again (a new invite makes it a new device). " +
+    "A disputed row (two computers removed each other) is removed by its key: the one removed here stays out and the other comes back. " +
+    "An id that more than one row carries is refused (conflict); use the key. This computer cannot remove itself (invalid_input). " +
     IN_TAB,
-  input: z.strictObject({ device: idSchema("dev") }),
+  input: z.strictObject({ device: z.string().min(1) }),
   positional: ["device"],
   effect: "write",
   routes: [rosterRemove],
   workspaces: [],
   run: async (input, ctx) => {
-    const done = await ctx.core.read(rosterRemove, { id: input.device });
+    const target = DEVICE_ID.safeParse(input.device).success
+      ? { id: input.device as z.infer<typeof DEVICE_ID> }
+      : keyTextSchema.safeParse(input.device).success
+        ? { key: input.device }
+        : undefined;
+    if (target === undefined) {
+      return err({
+        code: "invalid_input",
+        message: `${input.device} is neither a dev_ id nor a device key from \`lophn remote devices\``,
+      });
+    }
+    const done = await ctx.core.read(rosterRemove, target);
     if (!done.ok) return done;
-    return ok({ summary: `removed ${input.device}`, content: done.value });
+    return ok({ summary: `removed ${done.value.id}`, content: done.value });
   },
 });
 

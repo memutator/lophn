@@ -306,6 +306,7 @@ test("옛 data root는 key와 폰을 그대로 옮기고, 명단에서 빠진 �
       reach: [],
       folds: [],
       removed: [],
+      names: [],
     } as never,
     {} as never,
   );
@@ -573,6 +574,7 @@ test("폰 하나에 id가 둘이던 data root에서 id를 모은 뒤 app_sync_lo
       reach: [],
       folds: [],
       removed: [],
+      names: [],
     } as never,
     {} as never,
   );

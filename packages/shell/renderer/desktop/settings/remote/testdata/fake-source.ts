@@ -32,10 +32,14 @@ const MINUTE = 60 * 1000;
 export function sampleDevices(now = Date.now()): RemoteDevice[] {
   const device = (
     id: string,
-    fields: Omit<RemoteDevice, "id" | "pending" | "thisComputer" | "disputed"> &
+    fields: Omit<
+      RemoteDevice,
+      "id" | "key" | "pending" | "thisComputer" | "disputed"
+    > &
       Partial<Pick<RemoteDevice, "pending" | "thisComputer" | "disputed">>,
   ): RemoteDevice => ({
     id: `dev_01jd00000000000000000000${id}`,
+    key: `key-${id}`,
     pending: false,
     disputed: false,
     thisComputer: false,
@@ -210,9 +214,9 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
       devices = devices.map((d) => (d.id === id ? { ...d, name } : d));
       return ok(null);
     },
-    remove(id) {
-      if (!devices.some((d) => d.id === id)) return missing();
-      devices = devices.filter((d) => d.id !== id);
+    remove(key) {
+      if (!devices.some((d) => d.key === key)) return missing();
+      devices = devices.filter((d) => d.key !== key);
       return ok(null);
     },
     setPrimary(id) {

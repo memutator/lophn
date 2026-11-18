@@ -191,6 +191,7 @@ export function coreRemoteSource(
           removedAt: roster.value.removed_at,
           devices: roster.value.devices.map((device) => ({
             id: device.id,
+            key: device.key,
             kind: device.kind,
             name: device.name,
             os: device.os,
@@ -209,8 +210,8 @@ export function coreRemoteSource(
     rename: async (id, name) =>
       done(await call(core, "memory", "roster", "rename", { id, name })),
 
-    remove: async (id) =>
-      done(await call(core, "memory", "roster", "remove", { id })),
+    remove: async (key) =>
+      done(await call(core, "memory", "roster", "remove", { key })),
 
     setPrimary: async (id) =>
       done(

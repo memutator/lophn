@@ -227,7 +227,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   let deviceKey: KeyPair | undefined;
   let saved: Computer[] = [];
   let held: RosterSnapshot = NO_ROSTER;
-  let view: RosterView = rosterView([], []);
+  let view: RosterView = rosterView([], [], null);
   // Computers that refused this device; in memory only, so the next app start tries them again.
   const revoked = new Set<string>();
   let ready = false;
@@ -251,6 +251,16 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     deviceKey === undefined ? undefined : remoteKeyText(deviceKey.publicKey);
   const roots = () =>
     saved.flatMap((c) => (c.signing_key === undefined ? [] : [c.signing_key]));
+  // A saved computer caught in a disputed removal (two computers removed each other): kept saved so this device follows the
+  // resolution once a computer removes the other side again, but not reached and shown as cut off until then.
+  const disputed = (computer: Computer) =>
+    view.removed.some(
+      (r) =>
+        !r.settled &&
+        (r.body.key === computer.key ||
+          (computer.signing_key !== undefined &&
+            r.body.signing_key === computer.signing_key)),
+    );
   const listed = (key: string) =>
     view.devices.find((d) => d.body.kind === "computer" && d.body.key === key)
       ?.body;
@@ -269,7 +279,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     }
     for (const computer of saved) {
       const live = links.get(computer.key)?.link.state();
-      const cut = revoked.has(computer.key);
+      const cut = revoked.has(computer.key) || disputed(computer);
       computers.push({
         key: computer.key,
         name: computer.name ?? computer.announced ?? defaultName(computer),
@@ -297,7 +307,9 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   // One link per saved computer that has not refused this device; a link whose computer left the list is closed.
   function sync() {
     const wanted = new Set(
-      saved.filter((c) => !revoked.has(c.key)).map((c) => c.key),
+      saved
+        .filter((c) => !revoked.has(c.key) && !disputed(c))
+        .map((c) => c.key),
     );
     for (const key of [...links.keys()]) {
       if (!wanted.has(key)) closeLink(key);
@@ -324,14 +336,15 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   }
 
   // Takes in a roster: merges it into what this device holds and keeps what the view keeps, less invite statements past
-  // their lifetime (the phone's clock). Computers the view trusts join the list, ones it removed leave, and this device
-  // forgets everything when the view says it was removed. Returns whether what it holds changed; a change goes to every
+  // their lifetime (the phone's clock). Computers the view trusts join the list, ones a settled removal took out leave
+  // (a disputed one stays saved but is not reached), and this device forgets everything when a settled removal takes it out. Returns whether what it holds changed; a change goes to every
   // computer, so one computer's news reaches the next one this device connects to.
   function apply(roster: RosterSnapshot = NO_ROSTER): boolean {
     const merged = mergeRoster(held.statements, roster.statements);
-    view = rosterView(merged, roots());
+    view = rosterView(merged, roots(), null);
     const key = me();
-    if (view.removed.some((r) => r.body.key === key)) {
+    // Only a settled removal: a disputed one may be the thief's and resolves when a computer removes it again.
+    if (view.removed.some((r) => r.settled && r.body.key === key)) {
       forget();
       return false;
     }
@@ -340,9 +353,10 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     for (const computer of saved) {
       const gone = view.removed.some(
         (r) =>
-          r.body.key === computer.key ||
-          (computer.signing_key !== undefined &&
-            r.body.signing_key === computer.signing_key),
+          r.settled &&
+          (r.body.key === computer.key ||
+            (computer.signing_key !== undefined &&
+              r.body.signing_key === computer.signing_key)),
       );
       if (gone) {
         changed = true;
@@ -389,7 +403,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     if (changed) {
       saved = next;
       // The new roots can trust more of what is held.
-      view = rosterView(merged, roots());
+      view = rosterView(merged, roots(), null);
     }
     const statements = rosterFresh(view.keep, deps.now());
     const ids = new Set(
@@ -447,7 +461,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     for (const key of [...links.keys()]) closeLink(key);
     saved = [];
     held = NO_ROSTER;
-    view = rosterView([], []);
+    view = rosterView([], [], null);
     revoked.clear();
     persist();
     deviceKey = undefined;
@@ -533,8 +547,10 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
           const checked = rosterView(
             mergeRoster(held.statements, [invite.issuer, failure.removal]),
             [...roots(), issuer.signing_key],
+            null,
           );
-          if (checked.removed.some((r) => r.body.key === key)) forget();
+          if (checked.removed.some((r) => r.settled && r.body.key === key))
+            forget();
         }
         return failure;
       }

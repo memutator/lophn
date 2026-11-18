@@ -6,6 +6,8 @@ export type { SourceResult };
 /** 내 기기 명단의 기기 하나. 이름과 터미널 입력 허락은 명단에 있어 모든 기계에 같다. */
 export interface RemoteDevice {
   readonly id: string;
+  /** 기기의 key. 줄마다 하나라 빼기는 이것으로 고른다(엇갈린 줄의 id는 빠진 쪽이 단 값일 수 있다). */
+  readonly key: string;
   readonly kind: "phone" | "computer";
   readonly name: string;
   readonly os: "ios" | "android" | "linux" | "macos" | "windows";
@@ -132,8 +134,8 @@ export interface RemoteSettingsSource {
   devices(): Promise<SourceResult<RemoteDevices>>;
   /** 명단의 이름을 바꾼다. 이 컴퓨터의 이름은 `renameMachine`이다. */
   rename(id: string, name: string): Promise<SourceResult<null>>;
-  /** 명단에서 뺀다. 모든 기계에서 끊기고 그 key는 다시 들지 못한다. */
-  remove(id: string): Promise<SourceResult<null>>;
+  /** 명단에서 key로 뺀다. 모든 기계에서 끊기고 그 key는 다시 들지 못한다. 엇갈린 줄도 같다. */
+  remove(key: string): Promise<SourceResult<null>>;
   setPrimary(id: string): Promise<SourceResult<null>>;
   setTerminalInput(id: string, on: boolean): Promise<SourceResult<null>>;
 }

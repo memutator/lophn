@@ -1376,9 +1376,11 @@ test("옛 기기 표에서 옮긴 뒤 이미 pairing한 폰은 다시 pairing하
   );
   // 폰은 이 서명 key를 root로 받은 명단에서 자기를 찾는다.
   assert.ok(
-    rosterView(value.roster.statements, [
-      value.computer.signing_key,
-    ]).devices.some(
+    rosterView(
+      value.roster.statements,
+      [value.computer.signing_key],
+      null,
+    ).devices.some(
       (each) => each.body.id === m.phoneId && each.body.key === m.phoneText,
     ),
   );
@@ -1401,7 +1403,7 @@ test("뺀 기기는 붙어 있던 연결이 빼기가 든 명단을 받은 뒤 �
   });
   assert.ok(invite.ok);
 
-  assert.ok((await m.roster.remove(m.phoneId)).ok);
+  assert.ok((await m.roster.remove({ id: m.phoneId })).ok);
   await settle();
   assert.equal(c.closed(), true);
   const tail = c.frames.slice(-2);

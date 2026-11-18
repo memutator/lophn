@@ -350,7 +350,7 @@ flows:
     code: [packages/cli/commands/remote.ts, packages/cli/main.ts]
     steps:
       - "lophn의 터미널 탭 안이면 core에 붙기 전에 거절한다"
-      - "dev_ id로 roster/remove를 부른다(roster-remove). 엇갈린 빼기로 빠진 기기도 뺀다"
+      - "dev_ id나 기기 key로 roster/remove를 부른다(roster-remove). 둘 다 아니면 invalid_input이다. 엇갈린 빼기로 빠진 기기는 key로 뺀다"
     outcomes:
       - id: terminal-tab
         code: forbidden
@@ -358,8 +358,12 @@ flows:
         observe: ["response"]
       - id: removed
         observe: ["response"]
+      - id: not-a-device
+        code: invalid_input
+        when: "dev_ id도 기기 key도 아닌 글이다"
+        observe: ["response"]
       - id: refused
-        when: "roster/remove가 거절했다(이 컴퓨터 자신, 없는 기기, remote를 켠 적 없음). 그 오류를 그대로 낸다"
+        when: "roster/remove가 거절했다(이 컴퓨터 자신, 없는 기기, 두 줄에 맞는 id, remote를 켠 적 없음). 그 오류를 그대로 낸다"
         observe: ["response"]
     crosses_process: true
     risk: [permission]
@@ -373,10 +377,13 @@ flows:
     boundary: [coding-agent-cli, remote]
     code: [packages/cli/commands/remote.ts]
     steps:
-      - "roster/list와 machines/list를 읽는다. 기기마다 id, kind, 명단의 이름, os, 터미널 입력, 이 컴퓨터인지, pending을 낸다"
+      - "roster/list와 machines/list를 읽는다. 기기마다 id, key, kind, 명단의 이름, os, 터미널 입력, 이 컴퓨터인지, pending, disputed를 낸다. disputed 줄이 있으면 lophn remote remove <key>로 믿지 않는 쪽을 빼라고 note로 말한다(화면 없는 기계는 여기서만 엇갈림을 푼다)"
       - "이 컴퓨터가 아닌 컴퓨터는 machines/list의 status, update, path를 더한다. 그 목록에 없으면 offline이다"
     outcomes:
       - id: listed
+        observe: ["response"]
+      - id: disputed
+        when: "엇갈린 빼기로 빠진 컴퓨터가 있다. 그 줄이 disputed true이고 stderr note가 lophn remote remove <key>를 말한다"
         observe: ["response"]
       - id: unavailable
         code: unavailable

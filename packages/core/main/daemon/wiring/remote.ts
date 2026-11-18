@@ -854,6 +854,7 @@ export function remoteWiring(
         const view = roster.view();
         const row = (body: RosterEntryBody) => ({
           id: body.id,
+          key: body.key,
           kind: body.kind,
           name: body.name,
           os: body.os,
@@ -872,7 +873,7 @@ export function remoteWiring(
               pending: rosterPending(view, body.key),
               disputed: false,
             })),
-            // 정해지지 않은 빼기로 빠진 기기. 사람이 여기서 다시 빼면 풀린다.
+            // 정해지지 않은 빼기로 빠진 기기. 사람이 여기서 key로 다시 빼면 풀린다. 칸은 지금 믿는 서명자의 항목에서 온다.
             ...view.removed.flatMap(({ settled, entry }) =>
               settled || entry === null
                 ? []
@@ -903,8 +904,10 @@ export function remoteWiring(
         });
       };
       const remove = async (_who: unknown, input: unknown) => {
-        const { id } = input as z.infer<typeof rosterRemove.input>;
-        return idOf(await roster.remove(id), id);
+        const { id, key } = input as z.infer<typeof rosterRemove.input>;
+        const target = key === undefined ? { id: id as string } : { key };
+        const done = await roster.remove(target);
+        return done.ok ? ok({ id: done.value }) : done;
       };
       const setTerminalInput = async (_who: unknown, input: unknown) => {
         const { id, on } = input as z.infer<
@@ -939,7 +942,8 @@ export function remoteWiring(
           });
         }
         const id = who.principal.slice(DEVICE_PRINCIPAL.length);
-        return idOf(await roster.remove(id), id);
+        const done = await roster.remove({ id });
+        return done.ok ? ok({ id: done.value }) : done;
       };
       // 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다. 확인하고, 초대한 컴퓨터에 붙어 본 뒤 저장한다. 거절하면 아무것도 저장하지
       // 않는다(믿지도 않을 issuer와 죽은 초대 서명 statement를 남기지 않게). 못 닿으면 저장하고 초대 서명 statement를 든 채

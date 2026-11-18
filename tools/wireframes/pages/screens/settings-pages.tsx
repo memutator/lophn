@@ -476,6 +476,7 @@ export const SettingsRemoteDisputed = () => (
           .map((one) => ({ ...one, disputed: true, lastConnectedAt: null })),
         {
           id: "dev_01jd00000000000000000000x9",
+          key: "key-x9",
           kind: "computer" as const,
           name: "Travel laptop",
           os: "windows" as const,

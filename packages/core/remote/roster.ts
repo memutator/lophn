@@ -54,6 +54,7 @@ export type RosterDeps = {
     reach: RosterReach[];
     folds: { from: string; to: string }[];
     removed: string[];
+    names: { key: string; name: string }[];
   }): Promise<Result<void>>;
   // 저장한 명단(statement나 주소)이 바뀐 뒤 부른다. 돌려준 promise가 끝날 때까지 다음 고치기를 하지 않는다(이 컴퓨터의
   // 이름을 기계 이름으로 받는 동안 ensureSelf가 옛 이름으로 되돌리지 않게).
@@ -106,7 +107,7 @@ export function createRoster(deps: RosterDeps) {
   let statements: RosterStatement[] = [];
   let reach: RosterReach[] = [];
   let keys: RemoteKeys | undefined;
-  let view = rosterView([], []);
+  let view = rosterView([], [], null);
   // 고치는 일은 하나씩 한다. 받은 statement 둘이 같이 와도 한쪽이 다른 쪽의 저장을 덮지 않는다.
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -116,8 +117,12 @@ export function createRoster(deps: RosterDeps) {
     return next;
   }
 
-  const roots = () =>
-    keys === undefined ? [] : [remoteKeyText(keys.signing.publicKey)];
+  const own = () =>
+    keys === undefined ? null : remoteKeyText(keys.signing.publicKey);
+  const roots = () => {
+    const key = own();
+    return key === null ? [] : [key];
+  };
 
   function selfOf(v: RosterView): RosterSelf | undefined {
     if (keys === undefined) return undefined;
@@ -147,7 +152,7 @@ export function createRoster(deps: RosterDeps) {
   ): { statements: RosterStatement[]; view: RosterView } {
     let all = mergeRoster(rosterFresh(input, now));
     for (;;) {
-      const v = rosterView(all, roots());
+      const v = rosterView(all, roots(), own());
       if (id === undefined) return { statements: v.keep, view: v };
       const added: RosterStatement[] = [];
       const dropped = new Set<RosterStatement>();
@@ -211,7 +216,14 @@ export function createRoster(deps: RosterDeps) {
       statements: settled.statements,
       reach: nextReach,
       folds: settled.view.folded,
-      removed: settled.view.removed.map((r) => r.body.key),
+      // 정해진 빼기만 기기 행을 지운다: 엇갈림으로 빠진 폰은 풀리면 기준과 push token 그대로 돌아온다.
+      removed: settled.view.removed
+        .filter((r) => r.settled)
+        .map((r) => r.body.key),
+      names: settled.view.devices.map((d) => ({
+        key: d.body.key,
+        name: d.body.name,
+      })),
     });
     if (!stored.ok) return stored;
     statements = settled.statements;
@@ -277,7 +289,7 @@ export function createRoster(deps: RosterDeps) {
         if (!read.ok) return read;
         statements = read.value.statements;
         reach = read.value.reach;
-        view = rosterView(statements, roots());
+        view = rosterView(statements, roots(), own());
         return ok(undefined);
       });
     },
@@ -286,7 +298,7 @@ export function createRoster(deps: RosterDeps) {
     useKeys(next: RemoteKeys | undefined): Promise<void> {
       return run(async () => {
         keys = next;
-        view = rosterView(statements, roots());
+        view = rosterView(statements, roots(), own());
       });
     },
 
@@ -404,22 +416,36 @@ export function createRoster(deps: RosterDeps) {
       revise(id, { terminal_input: on }),
 
     // 기기를 뺀다(이 컴퓨터가 서명한 빼기). 이 컴퓨터 자신이면 invalid_input이다. 정해지지 않은 빼기로 빠진 기기(엇갈림)도
-    // 뺀다: root가 서명한 빼기라 이 view에서 처음부터 효력이 있고, 그 기기가 낸 빼기가 효력을 잃어 그것이 뺀 쪽이 돌아온다.
-    remove(id: string): Promise<Result<void>> {
+    // 뺀다: 이 컴퓨터가 서명한 빼기라 이 view에서 처음부터 효력이 있고, 그 기기가 낸 빼기가 효력을 잃어 그것이 뺀 쪽이 돌아온다.
+    // 엇갈린 줄의 id는 빠진 서명자가 스스로 단 것일 수 있어, key로 고르고 id가 두 줄에 맞으면 고르지 않는다(conflict).
+    remove(target: { id: string } | { key: string }): Promise<Result<string>> {
       return run(async () => {
         const self = selfOf(view);
         if (self === undefined) return unavailable();
-        if (id === self.id) {
+        const rows = [
+          ...view.devices.map((d) => d.body),
+          ...view.removed.flatMap((r) =>
+            r.settled || r.entry === null ? [] : [r.entry],
+          ),
+        ];
+        const matched = rows.filter((row) =>
+          "key" in target ? row.key === target.key : row.id === target.id,
+        );
+        if (matched.length > 1) {
+          return err({
+            code: "conflict",
+            message:
+              "more than one device in the roster has this id; remove it by its key",
+          });
+        }
+        const found = matched[0];
+        if (found === undefined) return notFound();
+        if (found.key === self.hostKey) {
           return err({
             code: "invalid_input",
             message: "this computer cannot remove itself from the roster",
           });
         }
-        const found =
-          device(id)?.body ??
-          view.removed.find((r) => !r.settled && r.entry?.id === id)?.entry ??
-          undefined;
-        if (found === undefined) return notFound();
         const body: RosterRemovalBody = {
           type: "removal",
           id: found.id,
@@ -427,7 +453,8 @@ export function createRoster(deps: RosterDeps) {
           signing_key: found.signing_key,
           at: deps.clock.now(),
         };
-        return add([signed(body, self.id)]);
+        const done = await add([signed(body, self.id)]);
+        return done.ok ? ok(found.id) : done;
       });
     },
 
@@ -483,10 +510,11 @@ export function createRoster(deps: RosterDeps) {
           invite,
           signature: signRoster(body, secretKey),
         };
-        const trial = rosterView(mergeRoster(statements, [issuer]), [
-          ...roots(),
-          signer.signing_key,
-        ]);
+        const trial = rosterView(
+          mergeRoster(statements, [issuer]),
+          [...roots(), signer.signing_key],
+          own(),
+        );
         const checked = checkInvited(invited, {
           now: deps.clock.nowMs(),
           view: trial,

@@ -160,8 +160,9 @@ export const devicesPushTargets = defineRead({
 // 이 컴퓨터가 믿는 명단의 기기들. 이름은 명단의 이름 하나다(기기마다 따로 붙이는 별명이 없다). `this`는 이 컴퓨터의 id다.
 // `removed_at`은 다른 컴퓨터가 이 컴퓨터를 빼 명단과 key를 버린 때다. core의 메모리에만 있어 다시 뜨거나 다시 들면 null이다.
 // `pending`은 초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않은 기기다(`rosterPending`): 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터 등.
-// `disputed`는 정해지지 않은 빼기(두 컴퓨터가 서로 뺐다)로 빠진 기기다. 명단에는 없고 사람이 이 컴퓨터에서 `roster/remove`로
-// 다시 빼면 그 빼기가 이 컴퓨터의 판단이 되어 풀린다.
+// `disputed`는 정해지지 않은 빼기(두 컴퓨터가 서로 뺐다)로 빠진 기기다. 명단에는 없고 사람이 이 컴퓨터에서 `roster/remove {key}`로
+// 다시 빼면 그 빼기가 이 컴퓨터의 판단이 되어 풀린다. 그 줄의 id와 이름은 지금 믿는 서명자의 항목(없으면 그 기기 자신의 서명)에서
+// 온다. `key`는 기기의 key다(엇갈린 줄을 고르는 값).
 export const rosterList = defineMemory({
   resource: "roster",
   method: "list",
@@ -174,6 +175,7 @@ export const rosterList = defineMemory({
     devices: z.array(
       z.strictObject({
         id: deviceIdSchema,
+        key: keyTextSchema,
         kind: rosterKindSchema,
         name: deviceNameSchema,
         os: rosterEntryBodySchema.shape.os,
@@ -235,16 +237,30 @@ export const rosterJoin = defineMemory({
 });
 
 // 기기를 명단에서 뺀다(서명한 빼기). 이 컴퓨터 자신이면 invalid_input이다. 뺀 key는 다시 들지 못한다. `disputed`인 기기(정해지지
-// 않은 빼기로 빠진 기기)도 뺄 수 있다.
+// 않은 빼기로 빠진 기기)도 뺄 수 있다. `id`나 `key` 하나로 고른다. 엇갈린 줄의 id는 빠진 서명자가 단 것일 수 있어 화면은 그 줄을
+// key로 빼고, id가 두 줄에 맞으면 conflict다.
 export const rosterRemove = defineMemory({
   resource: "roster",
   method: "remove",
   name: "roster.remove",
   changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.strictObject({ id: deviceIdSchema }),
+  input: z
+    .strictObject({
+      id: deviceIdSchema.optional(),
+      key: keyTextSchema.optional(),
+    })
+    .refine((input) => (input.id === undefined) !== (input.key === undefined), {
+      message: "give either id or key",
+    }),
   output: z.strictObject({ id: deviceIdSchema }),
   actors: ["user"],
-  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
 });
 
 // 기기의 터미널 입력 허락을 바꾼다. 이 컴퓨터가 서명한 새 rev라 모든 기계에 같다.
@@ -312,8 +328,9 @@ export const rosterStatements = defineRead({
 });
 
 // 저장할 명단을 통째로 둔다. main thread가 서명하고 합쳐 정한 뒤 부른다. `folds`는 같은 key의 여러 id를 접은 것이고
-// 같은 write에서 그 id를 쓰는 곳을 고친다. `removed`는 view가 뺀 key다(keep은 빠진 기기의 항목도 남겨 statement만으로는
-// 모른다). 같은 write에서 그 기기 행을 지운다. core 안 machine 자격만 낸다.
+// 같은 write에서 그 id를 쓰는 곳을 고친다. `removed`는 view의 정해진 빼기가 뺀 key다(keep은 빠진 기기의 항목도 남겨 statement만으로는
+// 모른다). 같은 write에서 그 기기 행을 지운다. `names`는 view의 기기 이름이고 기기 행의 `alias`(이 컴퓨터가 보이는 이름)에 둔다.
+// core 안 machine 자격만 낸다.
 export const rosterStore = defineCommand({
   resource: "roster",
   method: "store",
@@ -326,6 +343,9 @@ export const rosterStore = defineCommand({
       z.strictObject({ from: deviceIdSchema, to: deviceIdSchema }),
     ),
     removed: z.array(keyTextSchema).max(ROSTER_STATEMENTS_MAX),
+    names: z
+      .array(z.strictObject({ key: keyTextSchema, name: deviceNameSchema }))
+      .max(ROSTER_STATEMENTS_MAX),
   }),
   output: z.object({ count: z.number().int().min(0) }),
   actors: ["machine"],

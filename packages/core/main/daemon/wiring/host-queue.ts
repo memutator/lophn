@@ -13,6 +13,7 @@ import type { Login } from "../../../../protocol/secrets/mod.ts";
 import { appTools } from "../../../../protocol/apps/declaration/read.ts";
 import { devicesList } from "../../../../protocol/remote/routes.ts";
 import type { ExtensionToolContent } from "../../../../protocol/extensions/manifest.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
   type BrowserAction,
@@ -26,6 +27,12 @@ import {
   browserSnapshot,
   browserWait,
   type HostWorkspace,
+  pageViewControl,
+  pageViewInput,
+  pageViewList,
+  pageViewOpen,
+  pageViewSnapshot,
+  pageViewWatch,
   tabsClose,
   tabsOpen,
   tabsShow,
@@ -55,6 +62,10 @@ import {
 } from "../../../host-queue/phone.ts";
 import type { PhoneTab } from "../../../host-queue/queue.ts";
 import {
+  createPageView,
+  type PageView,
+} from "../../../host-queue/page-view.ts";
+import {
   type AgentSessionRow,
   loadSession,
   workspaceOf,
@@ -79,6 +90,8 @@ const BROWSER_RESULT = {
 
 // 부른 쪽이 shell이 떨어졌는지 보고 기한이 지났는지 보는 간격이다.
 const WATCH_MS = 1000;
+// 멀리서 보는 lease 기한(30초)을 이 주기로 본다.
+const EXPIRE_MS = 5000;
 
 // 기준 폰(`devices`의 primary)을 찾는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
 const PRINCIPAL = "machine:host-queue";
@@ -729,19 +742,29 @@ export function createTabHandlers(deps: TabDeps) {
 
 export const hostQueueWiring: WiringFactory = () => {
   let tabs: ReturnType<typeof createTabHandlers> | undefined;
+  let timer: ReturnType<typeof setInterval> | undefined;
   return {
     name: "host-queue",
     records: () => [CONTEXT],
     build(ctx) {
+      // 멀리서 보기(page view)는 browser 탭 표가 바뀌면 빠진 탭을 지우고 목록이 바뀌었다고 알린다.
+      let pages: PageView | undefined;
       const made = createHostQueue({
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+        changed() {
+          pages?.pruned();
+          publishStateChanged(ctx.bus, ctx.clock.now(), [
+            { name: "browser_pages", id: null },
+          ]);
+        },
       });
       ctx.provide("hostQueue", made);
-      ctx.provide(
-        "hostLink",
-        createHostLink({ queue: made, logger: ctx.telemetry.logger }),
-      );
+      const hostLink = createHostLink({
+        queue: made,
+        logger: ctx.telemetry.logger,
+      });
+      ctx.provide("hostLink", hostLink);
       const { launchShell } = ctx.options;
 
       const sessionRow = (session: string) => {
@@ -752,6 +775,17 @@ export const hostQueueWiring: WiringFactory = () => {
       };
       const loginStore = createLoginStore({ root: ctx.root.path });
       const redactor = createProductRedactor(ctx.knownSecrets);
+      const redact = (text: string) =>
+        redactor(BROWSER_RESULT, "text/plain", text);
+      const agentName = (session: string) => {
+        const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+          const row = loadSession(lookup, session);
+          return row === undefined
+            ? null
+            : workspaceDepsOf(lookup.sql).names.describe(row.agent).name;
+        });
+        return found.ok ? found.value : null;
+      };
       const handlers = createTabHandlers({
         queue: made,
         sessionRow,
@@ -836,21 +870,41 @@ export const hostQueueWiring: WiringFactory = () => {
           const logins = await loginStore.list();
           return logins.ok ? ok(logins.value.find((l) => l.id === id)) : logins;
         },
-        redact: (text) => redactor(BROWSER_RESULT, "text/plain", text),
+        redact,
         // view 표와 폰 link는 다른 wiring이 낸다. 부를 때 읽는다.
         previewViews: (app) => ctx.appViews.previewViews(app),
         phoneCall: (request) => ctx.phoneLink.call(request),
-        agentName: (session) => {
-          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
-            const row = loadSession(lookup, session);
-            return row === undefined
-              ? null
-              : workspaceDepsOf(lookup.sql).names.describe(row.agent).name;
-          });
-          return found.ok ? found.value : null;
-        },
+        agentName,
       });
       tabs = handlers;
+
+      const view = createPageView({
+        clock: ctx.clock,
+        publish: (event) => ctx.bus.publish(event),
+        call: (request) => made.callLink(request),
+        pages: () => made.pages(),
+        agentName,
+        // 입력 허락은 remote wiring이 늦게 채운다. 채워지지 않았으면 아무도 다루지 못한다.
+        mayControl: (principal) =>
+          ctx.peek.terminalInputGrant?.(principal) ?? false,
+        // 사람 token이 연 것처럼 연다: 주인 "person", home workspace, shell이나 page host가 없으면 띄운다.
+        async open(who, url) {
+          const opened = await handlers.open(who, {
+            target: { browser: { url } },
+          });
+          return opened.ok
+            ? ok({ tab: (opened.value as { tab: Id<"tab"> }).tab })
+            : opened;
+        },
+        redact,
+      });
+      pages = view;
+      hostLink.onFrame("page_frame", (frame) => view.frame(frame));
+      hostLink.onFrame("page_state", (frame) => view.state(frame));
+      hostLink.onOpen(() => view.opened());
+      hostLink.onClose(() => view.closed());
+      timer = setInterval(() => view.expire(), EXPIRE_MS);
+      timer.unref?.();
 
       return ok({
         memory: [
@@ -865,12 +919,42 @@ export const hostQueueWiring: WiringFactory = () => {
           [key(browserEvaluate), handlers.evaluate],
           [key(browserLogs), handlers.logs],
           [key(browserWait), handlers.wait],
+          [
+            key(pageViewWatch),
+            (who, input) =>
+              view.watch(who, input as { tab: Id<"tab">; on: boolean }),
+          ],
+          [
+            key(pageViewInput),
+            (who, input) =>
+              view.input(who, input as Parameters<PageView["input"]>[1]),
+          ],
+          [
+            key(pageViewControl),
+            (who, input) =>
+              view.control(who, input as { tab: Id<"tab">; held: boolean }),
+          ],
+          [
+            key(pageViewOpen),
+            (who, input) =>
+              view.open(who, input as { url: string; key: string }),
+          ],
         ],
+        reads: (reads) => {
+          reads.set(key(pageViewList), (who) => view.list(who));
+          reads.set(key(pageViewSnapshot), (who, input) =>
+            view.snapshot(who, (input as { tab: Id<"tab"> }).tab),
+          );
+        },
       });
     },
     // 기다리는 browser 호출은 서버가 멈추기 전에 끝낸다.
     closeIntake() {
       tabs?.abandonCalls();
+    },
+    closeWork() {
+      if (timer !== undefined) clearInterval(timer);
+      timer = undefined;
     },
   };
 };

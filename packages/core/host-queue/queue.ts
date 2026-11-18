@@ -174,9 +174,19 @@ export const SHELL_LOST =
 const NO_SUCH_TAB =
   "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";
 
-export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
+export function createHostQueue(deps: {
+  clock: Clock;
+  ids: IdSource;
+  // browser 탭이 생기거나 빠지거나 그 상태가 바뀌었다(멀리서 보는 목록). 다른 kind는 부르지 않는다.
+  changed?(): void;
+}) {
   const pending: Entry[] = [];
   const tabs = new Map<Id<"tab">, TabEntry>();
+  const forget = (tab: Id<"tab">) => {
+    const entry = tabs.get(tab);
+    tabs.delete(tab);
+    if (entry?.kind === "browser") deps.changed?.();
+  };
   // 결과를 기다리는 browser_call과 browser 탭 열기, 연결 요청. deadline이 null이면 기한이 없다.
   const waiting = new Map<
     Id<"hrq">,
@@ -250,7 +260,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const [entry] = pending.splice(at, 1);
       // shell이 열기를 가져간 적이 없으면 page가 없으니 닫으라고 알릴 것도 없다(받는 shell이 없을 때 쌓이지 않게).
       if (entry!.request.kind === "tab_open" && entry!.borrowedAt === null) {
-        tabs.delete(entry!.request.payload.tab as Id<"tab">);
+        forget(entry!.request.payload.tab as Id<"tab">);
       }
     }
     settle(id, unavailable(message));
@@ -336,7 +346,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   // page가 이미 사라진 것으로 보고 표에서 뺀다. preview·artifact 탭은 앱이 다시 뜨면 layout에서 다시 열려 그대로 둔다.
   function pageAlive(tab: Id<"tab">, entry: TabEntry): boolean {
     if (entry.kind !== "browser" || attached()) return true;
-    tabs.delete(tab);
+    forget(tab);
     return false;
   }
   const noSuchTab = () =>
@@ -399,21 +409,23 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       }
     }
     const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
+    const kind =
+      "preview" in target
+        ? "preview"
+        : "artifact" in target
+          ? "artifact"
+          : "browser" in target
+            ? "browser"
+            : "agent";
     tabs.set(tab, {
       owner: input.owner,
       workspace: input.workspace,
-      kind:
-        "preview" in target
-          ? "preview"
-          : "artifact" in target
-            ? "artifact"
-            : "browser" in target
-              ? "browser"
-              : "agent",
+      kind,
       single,
       state: null,
       phone: null,
     });
+    if (kind === "browser") deps.changed?.();
     return { tab, sent: open(tab) };
   }
 
@@ -527,6 +539,20 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       return launchedAt !== null;
     },
     newTabId: () => deps.ids.newId("tab") as Id<"tab">,
+    // browser 탭 전부다(멀리서 보기의 대상). state는 renderer가 아직 알리지 않았으면 null이다.
+    pages(): {
+      tab: Id<"tab">;
+      owner: TabOwner;
+      state: BrowserTabState | null;
+    }[] {
+      return [...tabs]
+        .filter(([, entry]) => entry.kind === "browser")
+        .map(([tab, entry]) => ({
+          tab,
+          owner: entry.owner,
+          state: entry.state,
+        }));
+    },
     openTab: (input: OpenInput) => place(input, false).tab,
     openPhone(input: {
       owner: TabOwner;
@@ -559,16 +585,18 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     done,
     // renderer가 host 탭의 상태나 닫힘을 알린다. 모르는 탭은 무시한다.
     report(tab: Id<"tab">, state: BrowserTabState | "closed"): void {
-      if (state === "closed") tabs.delete(tab);
+      if (state === "closed") forget(tab);
       else {
         const entry = tabs.get(tab);
-        if (entry !== undefined) entry.state = state;
+        if (entry === undefined) return;
+        entry.state = state;
+        if (entry.kind === "browser") deps.changed?.();
       }
     },
     close(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
       const found = owned(tab, caller, "close");
       if (!found.ok) return found;
-      tabs.delete(tab);
+      forget(tab);
       if (found.value.kind === "phone") return ok(tab);
       enqueue(
         {

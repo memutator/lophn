@@ -28,6 +28,7 @@ import { MACHINE_ROUTES } from "./machine/mod.ts";
 import { ALWAYS_ON_ROUTES } from "./always-on/mod.ts";
 import { FOLDER_ROUTES } from "./folder/mod.ts";
 import { EXTENSION_ROUTES } from "./extensions/routes.ts";
+import { PAGE_VIEW_ROUTES } from "./lophn-agent/page-view.ts";
 
 // 지금 있는 route. 다른 파일의 route 배열(BLOB_ROUTES 등)도 여기로 모은다.
 // approvals의 route는 core 등록(`core/approvals/registration.ts`)이 낸다. 여기 두면 겹친다.
@@ -48,6 +49,7 @@ export const ROUTES = [
   ...CODING_AGENT_ROUTES,
   ...TERMINAL_VIEW_ROUTES,
   ...TERMINAL_ROUTES,
+  ...PAGE_VIEW_ROUTES,
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,
   ...SETTINGS_FILE_ROUTES,

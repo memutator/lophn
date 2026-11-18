@@ -158,6 +158,18 @@ files:
       - harness-tui-hold:expired
       - harness-tui-hold:released
 
+  - path: packages/core/host-queue/page-view_test.ts
+    covers:
+      - page-view-input:forbidden
+      - page-view-control:forbidden
+      - page-view-open:forbidden
+      - page-view-list:forbidden
+      - page-view-snapshot:forbidden
+      - page-view-watch:forbidden
+      - page-view-watch:stopped
+      - page-view-frame:dropped
+    note: "createPageView 직접 호출(가짜 연결 요청, 수동 clock). agent 자격(입력 허락이 있는 principal이라도)과 허락 없는 기기의 input·control·open은 forbidden이고 host에 요청이 가지 않는다. agent 자격은 자기 session의 탭과 다른 session의 탭 모두 list·snapshot·watch가 forbidden이다. 마지막 lease를 끄거나 기한이 지나면 page_stream {on:false}가 가고 lease 없는 frame은 남지 않는다"
+
   - path: packages/core/host-queue/phone_test.ts
     covers:
       - host-phone-drive:stale-ref

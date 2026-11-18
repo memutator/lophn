@@ -1979,45 +1979,86 @@ flows:
       - "invalid_input은 선언만 있고 입력 schema 밖에서는 내지 않는다"
 
   # ---- 멀리서 page 보기: host가 민 최신 frame을 core가 들고 사람의 다른 기기가 읽고 다룬다(page_view/*) ----
+  - id: page-view-frame
+    title: core가 보는 중인 browser 탭의 최신 frame과 상태를 host에서 받아 메모리에 두고 바뀌었다고 알린다
+    actor: system
+    entries: [system:page-view-frame]
+    boundary: [core, host-queue-interface]
+    code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/protocol/host-link/frames.ts
+    steps:
+      - "host가 /host-link로 page_frame(JPEG 한 장과 host seq)이나 page_state(painting, agent, held)를 보낸다. core는 lease가 있고 표에 있는 browser 탭이면 그 탭의 최신 frame이나 상태로 바꾸고(옛 것을 대신한다) view seq를 올린다"
+      - "PageViewChanged {tab, seq}를 subject page:<tab>로 Bus에 낸다. frame은 싣지 않고 보는 쪽이 page_view/snapshot을 다시 읽는다"
+      - "browser 탭이 표에 생기거나 빠지거나 renderer가 그 상태(url·title·loading)를 알리면 StateChanged browser_pages를 내고, 표에서 빠진 탭의 lease·frame·입력 key를 지운다"
+      - "lease는 5초마다 기한(30초)을 본다. 마지막 lease가 끝나면 그 탭의 frame을 지우고 host에 page_stream {on: false}를 보낸다. 연결이 다시 열리면 살아 있는 lease마다 page_stream {on: true}를 다시 보낸다"
+    outcomes:
+      - id: changed
+        observe: [event:PageViewChanged]
+      - id: dropped
+        when: "lease가 없거나 표에 없는 탭의 frame·상태다(버린다)"
+      - id: listed
+        when: "browser 탭 표가 바뀌었다"
+        observe: [event:StateChanged]
+    crosses_process: true
+    risk: [secret]
+    docs: [architecture/browser-tab.md, architecture/remote.md]
+
   - id: page-view-list
     title: 사람의 기기가 이 기계의 core가 아는 browser 탭 목록을 읽는다
     actor: person
     entries: [route:page_view/list]
     boundary: [core]
     code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
     steps:
-      - "core가 아는 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null)를 낸다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
+      - "core 표의 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null)를 낸다. url·title은 redaction을 지난다. renderer가 아직 상태를 알리지 않은 탭은 url·title이 빈 글이고 loading이 true다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
     outcomes:
       - id: ok
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "알려진 secret을 아직 다 몰라 url·title을 가리지 못했다"
+        observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch). agent 자격은 자기 탭도 이 길로 보지 못한다"
+        when: "사람 자격(actor user)이 아니다(dispatch와 page view 둘 다). agent 자격은 자기 탭도 이 길로 보지 못한다"
         observe: [response]
     crosses_process: false
+    risk: [secret]
     docs: [architecture/browser-tab.md, architecture/remote.md]
 
   - id: page-view-snapshot
     title: 사람의 기기가 보는 browser 탭의 최신 frame과 상태를 읽는다
     actor: person
     entries: [route:page_view/snapshot]
-    boundary: [core]
+    boundary: [core, host-queue-interface]
     code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
     steps:
-      - "core가 그 탭에 든 최신 frame 하나(JPEG, viewport CSS px 크기, 아직 없으면 null)와 seq, 상태(painting, agent, held, url, title, loading, by)를 낸다. painting이 false면 그 page를 그리지 않는 것이다(창이 최소화되거나 숨겨짐)"
-      - "control은 부른 principal이 이 탭을 다룰 수 있는가다: 기기는 그 기기의 터미널 입력 허락이 켜져 있어야 한다"
+      - "core가 그 탭에 든 최신 frame 하나(JPEG, viewport CSS px 크기, 아직 없거나 lease가 없으면 null)와 seq, 상태(painting, agent, held, url, title, loading, by)를 낸다. host 상태를 아직 못 받았으면 painting true, agent·held false다. painting이 false면 그 page를 그리지 않는 것이다(창이 최소화되거나 숨겨짐). url·title은 redaction을 지나고 그림은 가리지 않는다(screenshot과 같다)"
+      - "control은 부른 principal이 이 탭을 다룰 수 있는가다: 기기 device:<id>이고 그 기기의 터미널 입력 허락이 켜져 있어야 한다"
+      - "내준 frame의 host seq를 아직 알리지 않았으면 host에 page_read {tab, seq}를 연결 요청으로 보낸다(실패는 버린다). host는 그것이 오기 전에는 그 탭의 다음 frame을 보내지 않는다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [request:shell, response]
       - id: not_found
         code: not_found
-        when: "core가 아는 browser 탭이 아니다(없는 탭, 닫힌 탭, browser 탭이 아닌 탭)"
+        when: "core 표의 browser 탭이 아니다(없는 탭, 닫힌 탭, browser 탭이 아닌 탭)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "알려진 secret을 아직 다 몰라 url·title을 가리지 못했다"
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch)"
+        when: "사람 자격(actor user)이 아니다(dispatch와 page view 둘 다). agent 자격은 다른 session이 연 탭도 자기 탭도 읽지 못한다"
         observe: [response]
     crosses_process: false
     risk: [secret]
@@ -2029,31 +2070,38 @@ flows:
     entries: [route:page_view/watch]
     boundary: [core, host-queue-interface]
     code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
       - packages/protocol/lophn-agent/host-queue.ts
       - packages/protocol/host-link/frames.ts
     steps:
-      - "on이면 이 principal과 탭의 lease를 30초로 만들거나 갱신한다(보는 쪽이 10초마다 같은 호출을 한다)"
-      - "탭에 첫 lease가 생기면 core가 host에 page_stream {on: true}를 연결 요청으로 보낸다. host는 지금 frame 하나와 page_state를 보내고, 그 뒤로 page가 바뀔 때마다 page_frame을 민다"
-      - "page_frame·page_state가 오면 core는 최신 하나로 바꾸고 seq를 올려 PageViewChanged {tab, seq}(subject page:<tab>)를 낸다. 보는 쪽이 snapshot으로 frame을 읽어 가면 core가 host에 page_read {tab, seq}를 보내고, host는 그것이 오기 전에는 다음 frame을 보내지 않는다"
-      - "off이거나 기한이 지나 마지막 lease가 끝나면 page_stream {on: false}로 끈다. 보는 쪽이 없으면 host는 frame을 만들지 않는다"
+      - "on이면 이 principal과 탭의 lease를 30초로 만들거나 갱신한다(보는 쪽이 10초마다 같은 호출을 한다). core 표의 browser 탭이 아니면 not_found다"
+      - "탭에 첫 lease가 생기면 core가 host에 page_stream {on: true}를 연결 요청으로 보낸다(켜고 끄는 요청은 탭마다 한 줄로 서서 순서가 뒤집히지 않는다). host는 지금 frame 하나와 page_state를 보내고, 그 뒤로 page가 바뀔 때마다 page_frame을 민다(page-view-frame). host에 닿지 않아도 lease는 남아 연결이 다시 열리면 켠다"
+      - "host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖의 code는 unavailable로 준다"
+      - "off이거나 기한이 지나 마지막 lease가 끝나면 그 탭의 frame을 지우고 page_stream {on: false}로 끈다. 보는 쪽이 없으면 host는 frame을 만들지 않는다. off는 탭이 없어도 성공이다"
     outcomes:
       - id: watching
-        observe: [event:PageViewChanged, response]
+        observe: [event:PageViewChanged, request:shell, response]
       - id: stopped
         when: "on이 false이거나 lease 기한이 지났다"
-        observe: [response]
+        observe: [request:shell, response]
       - id: not_found
         code: not_found
-        when: "core가 아는 browser 탭이 아니다, 또는 host가 그 page를 모른다"
+        when: "core 표의 browser 탭이 아니다, 또는 host가 그 page를 모른다"
         observe: [response]
       - id: unavailable
         code: unavailable
         when: "page를 든 host가 연결되어 있지 않거나, 답하기 전에 끊겼거나, 기한(5초) 안에 답하지 않았다"
         observe: [response]
+      - id: host-rejected
+        code: conflict
+        when: "host가 conflict로 거절했다(그대로 준다)"
+        observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch)"
+        when: "사람 자격(actor user)이 아니다(dispatch와 page view 둘 다)"
         observe: [response]
     crosses_process: true
     risk: [secret]
@@ -2065,22 +2113,25 @@ flows:
     entries: [route:page_view/input]
     boundary: [core, host-queue-interface]
     code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
-      - "기기는 그 기기의 터미널 입력 허락이 켜져 있어야 한다. 로그인된 browser를 다루는 것은 터미널에 치는 것만큼 센 권한이다"
-      - "같은 key는 한 번만 넣는다(다시 보낸 호출은 넣지 않고 성공으로 답한다)"
-      - "core가 host에 page_input {tab, input}을 연결 요청으로 보내고 host가 CDP Input.*으로 넣는다. 좌표는 보는 쪽이 본 frame의 page CSS px다. 연결이 없거나 끊기면 넣지 않고 다음 연결로 다시 보내지 않는다(늦은 입력이 page에 들어가지 않게)"
+      - "사람 자격이어야 하고 기기 device:<id>의 터미널 입력 허락이 켜져 있어야 한다(로그인된 browser를 다루는 것은 터미널에 치는 것만큼 센 권한이다). 아니면 host에 아무것도 보내지 않는다"
+      - "core 표의 browser 탭이 아니면 not_found, 이 principal이 그 탭의 lease를 갖지 않으면 conflict다(좌표는 본 frame에 대한 것이다)"
+      - "같은 key는 탭마다 200개를 기억해 한 번만 넣는다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다)"
+      - "core가 host에 page_input {tab, input}을 연결 요청으로 보내고 host가 CDP Input.*으로 넣는다. 좌표는 보는 쪽이 본 frame의 page CSS px다. 연결이 없거나 끊기면 넣지 않고 다음 연결로 다시 보내지 않는다(늦은 입력이 page에 들어가지 않게). host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖은 unavailable이다"
     outcomes:
       - id: sent
         observe: [request:shell, response]
       - id: not_found
         code: not_found
-        when: "core가 아는 browser 탭이 아니다, 또는 host가 그 page를 모른다"
+        when: "core 표의 browser 탭이 아니다, 또는 host가 그 page를 모른다"
         observe: [response]
       - id: conflict
         code: conflict
-        when: "이 principal이 그 탭을 보고 있지 않다(lease가 없다). 좌표는 본 frame에 대한 것이다"
+        when: "이 principal이 그 탭을 보고 있지 않다(lease가 없다), 또는 host가 conflict로 거절했다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -2088,7 +2139,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch: agent 자격), 또는 터미널 입력 허락이 없는 기기다"
+        when: "사람 자격(actor user)이 아니다(dispatch와 page view 둘 다: agent 자격), 또는 터미널 입력 허락이 없는 기기다(기기가 아닌 사람 token 포함)"
         observe: [response]
     crosses_process: true
     risk: [permission]
@@ -2100,21 +2151,23 @@ flows:
     entries: [route:page_view/control]
     boundary: [core, host-queue-interface]
     code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
-      - "기기는 그 기기의 터미널 입력 허락이 켜져 있어야 한다"
-      - "core가 host에 page_control {tab, held}를 연결 요청으로 보낸다. 그 기계의 [Take control]·[Hand back]과 같은 상태라 가져온 동안 agent의 쓰기 동작(act, navigate, evaluate)이 conflict이고 그 기계의 화면에도 잡혀 있음이 보인다. host가 page_state로 바뀐 held를 알려 PageViewChanged가 난다"
+      - "사람 자격이어야 하고 기기 device:<id>의 터미널 입력 허락이 켜져 있어야 한다. lease는 없어도 된다. core 표의 browser 탭이 아니면 not_found다"
+      - "core가 host에 page_control {tab, held}를 연결 요청으로 보낸다. 그 기계의 [Take control]·[Hand back]과 같은 상태라 가져온 동안 agent의 쓰기 동작(act, navigate, evaluate)이 conflict이고 그 기계의 화면에도 잡혀 있음이 보인다. host가 page_state로 바뀐 held를 알려 보는 중이면 PageViewChanged가 난다. host의 not_found·invalid_input·conflict·unavailable은 그대로, 그 밖은 unavailable이다"
     outcomes:
       - id: held
-        observe: [event:PageViewChanged, response]
+        observe: [event:PageViewChanged, request:shell, response]
       - id: not_found
         code: not_found
-        when: "core가 아는 browser 탭이 아니다, 또는 host가 그 page를 모른다"
+        when: "core 표의 browser 탭이 아니다, 또는 host가 그 page를 모른다"
         observe: [response]
-      - id: conflict
+      - id: host-rejected
         code: conflict
-        when: "이 principal이 그 탭을 보고 있지 않다(lease가 없다)"
+        when: "host가 conflict로 거절했다(그대로 준다)"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -2122,7 +2175,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch: agent 자격), 또는 터미널 입력 허락이 없는 기기다"
+        when: "사람 자격(actor user)이 아니다(dispatch와 page view 둘 다: agent 자격), 또는 터미널 입력 허락이 없는 기기다(기기가 아닌 사람 token 포함)"
         observe: [response]
     crosses_process: true
     risk: [permission]
@@ -2134,12 +2187,14 @@ flows:
     entries: [route:page_view/open]
     boundary: [core, host-queue-interface]
     code:
+      - packages/core/host-queue/page-view.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
-      - "기기는 그 기기의 터미널 입력 허락이 켜져 있어야 한다. url은 http·https만 받는다"
-      - "같은 key는 한 번만 연다(다시 보낸 호출은 처음 연 탭을 돌려준다)"
-      - "core가 사람이 연 browser 탭(by null)을 표에 올리고 host에 tab_open을 보낸다. 화면 있는 기계에서는 desktop 앱의 창이, display가 없는 기계에서는 page host가 page를 든다. 목록이 바뀌어 StateChanged browser_pages가 난다"
+      - "사람 자격이어야 하고 기기 device:<id>의 터미널 입력 허락이 켜져 있어야 한다"
+      - "같은 key는 한 번만 연다(200개를 기억한다. 보내는 중이거나 성공한 것은 처음 연 탭을 돌려주고, 실패한 key는 잊는다)"
+      - "사람 token이 tabs/open --url로 연 것과 같다: url은 http·https만 받고, 주인 person(by null)과 home workspace로 표에 올리고 host에 tab_open을 보내 page가 생길 때까지 기다린다. shell이나 page host가 없으면 띄운다. 실패하면 표에서 거둔다. 표가 바뀌어 StateChanged browser_pages가 난다"
     outcomes:
       - id: opened
         observe: [event:StateChanged, request:shell, response]
@@ -2149,11 +2204,11 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "page를 든 host가 없거나 기한 안에 page를 만들지 못했다"
+        when: "page를 든 host가 없고 띄울 길이 없거나 띄우지 못했다, 또는 기한 안에 page를 만들지 못했다"
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch: agent 자격), 또는 터미널 입력 허락이 없는 기기다"
+        when: "사람 자격(actor user)이 아니다(dispatch와 page view 둘 다: agent 자격), 또는 터미널 입력 허락이 없는 기기다(기기가 아닌 사람 token 포함)"
         observe: [response]
     crosses_process: true
     risk: [permission]

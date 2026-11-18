@@ -247,6 +247,92 @@ flows:
     crosses_process: true
     docs: [architecture/project-identity.md]
 
+  - id: remote-on-command
+    title: "사람이 터미널에서 remote를 켠다(화면 없는 기계를 명단에 넣기 전)"
+    actor: person
+    entries: [cli:remote.on]
+    uses: [route:settings/update]
+    boundary: [coding-agent-cli, config]
+    code: [packages/cli/commands/remote.ts]
+    steps:
+      - "settings/update로 remote.enabled를 true로 쓴다. relay 설정은 건드리지 않는다. user token이라 locked 설정도 쓴다"
+      - "거절(rejected)이 있으면 그 이유를 오류로 낸다"
+      - "binary만 부른다(lophn tool에 없다). agent shell은 cli-core-connect:agent-shell에서 막힌다"
+    outcomes:
+      - id: on
+        when: "켰거나 이미 켜져 있었다(changed로 가른다). core가 listener와 relay를 연다"
+        observe: ["response", "event:StateChanged"]
+      - id: rejected
+        code: invalid_input
+        when: "settings/update가 값을 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "settings/update가 unavailable이다(settings.json을 쓰지 못했다)"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md, architecture/approval.md]
+
+  - id: remote-join-command
+    title: "사람이 터미널에서 다른 컴퓨터의 초대장으로 이 컴퓨터를 명단에 넣는다"
+    actor: person
+    entries: [cli:remote.join]
+    uses: [route:roster/join]
+    boundary: [coding-agent-cli, remote]
+    code: [packages/cli/commands/remote.ts]
+    steps:
+      - "초대장 글 한 줄을 그대로 roster/join에 넘긴다"
+      - "pending이면 초대한 컴퓨터에 아직 닿지 못했다고 stderr에 알린다. 그 컴퓨터를 믿는 컴퓨터에 닿거나 폰이 소식을 나르면 끝난다"
+      - "거절이면 details.reason(expired, used, untrusted, removed, this_computer, id_taken, key_taken)을 사람이 읽을 글로 바꿔 message에 싣는다. code와 details는 그대로다"
+      - "binary만 부른다(lophn tool에 없다). agent shell은 cli-core-connect:agent-shell에서 막힌다"
+    outcomes:
+      - id: joined
+        when: "초대한 컴퓨터에 닿아 서로의 항목에 서명했다"
+        observe: ["response"]
+      - id: pending
+        when: "초대한 컴퓨터에 닿지 못했다. 초대 서명 statement를 들고 기다린다"
+        observe: ["response"]
+      - id: refused-unauthorized
+        code: unauthorized
+        when: "초대장이나 서명이 맞지 않거나 issuer를 믿지 못한다(untrusted), 수명이 지났다(expired), 이 컴퓨터가 명단에서 빠졌다(removed)"
+        observe: ["response"]
+      - id: refused-conflict
+        code: conflict
+        when: "초대장이 이미 쓰였다(used), 이 컴퓨터가 낸 초대장이다(this_computer), 이 컴퓨터의 id나 key가 다른 기기로 명단에 있다(id_taken, key_taken)"
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        when: "초대장 글을 읽지 못했거나 폰 초대장이다"
+        observe: ["response"]
+      - id: remote-off
+        code: unavailable
+        when: "remote가 꺼져 있다. lophn remote on을 먼저 한다"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md]
+
+  - id: remote-devices-command
+    title: "사람이 터미널에서 내 기기 명단과 다른 컴퓨터와의 연결 상태를 본다"
+    actor: person
+    entries: [cli:remote.devices]
+    uses: [route:roster/list, route:machines/list]
+    boundary: [coding-agent-cli, remote]
+    code: [packages/cli/commands/remote.ts]
+    steps:
+      - "roster/list와 machines/list를 읽는다. 기기마다 id, kind, 명단의 이름, os, 터미널 입력, 이 컴퓨터인지를 낸다"
+      - "이 컴퓨터가 아닌 컴퓨터는 machines/list의 status, update, path를 더한다. 그 목록에 없으면 offline이다"
+    outcomes:
+      - id: listed
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "roster/list나 machines/list가 unavailable이다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/remote.md]
+
 links:
   - {entry: "cli:agent.models", flow: agent-models-list}
   - {entry: "cli:agent.card", flow: agent-card-read}
@@ -301,6 +387,8 @@ links:
   - {entry: "cli:release.get", flow: release-state-read}
   - {entry: "cli:release.prepare", flow: release-prepare}
   - {entry: "cli:release.activate", flow: release-activate}
+  - {entry: "cli:remote.invite", flow: roster-invite}
+  - {entry: "cli:remote.remove", flow: roster-remove}
   - {entry: "cli:run.wait", flow: run-wait}
   - {entry: "cli:run.show", flow: run-read}
   - {entry: "cli:run.cancel", flow: run-cancel}

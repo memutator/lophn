@@ -15,6 +15,7 @@ import { PACKAGE_COMMANDS } from "./package.ts";
 import { PREVIEW_COMMANDS } from "./preview.ts";
 import { PROJECT_COMMANDS } from "./project.ts";
 import { RELEASE_COMMANDS } from "./release.ts";
+import { REMOTE_COMMANDS } from "./remote.ts";
 import { RUN_COMMANDS } from "./run.ts";
 import { SESSION_COMMANDS } from "./session.ts";
 import { SETTINGS_COMMANDS } from "./settings.ts";
@@ -48,6 +49,7 @@ export const COMMANDS: readonly Command[] = [
   ...PREVIEW_COMMANDS,
   ...PROJECT_COMMANDS,
   ...RELEASE_COMMANDS,
+  ...REMOTE_COMMANDS,
   ...RUN_COMMANDS,
   ...SESSION_COMMANDS,
   ...SETTINGS_COMMANDS,

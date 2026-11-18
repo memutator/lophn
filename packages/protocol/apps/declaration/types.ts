@@ -357,6 +357,7 @@ export const RESERVED_APP_SLUGS: readonly string[] = [
   "lophn",
   "login",
   "machine",
+  "remote",
 ];
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;

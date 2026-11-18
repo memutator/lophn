@@ -156,31 +156,19 @@ export function createRoster(deps: RosterDeps) {
     input: readonly RosterStatement[],
     now: number,
     id: string | undefined,
-  ): {
-    statements: RosterStatement[];
-    view: RosterView;
-    invited: { key: string; terminal_input: boolean }[];
-  } {
+  ): { statements: RosterStatement[]; view: RosterView } {
     let all = mergeRoster(rosterFresh(input, now));
-    const invited: { key: string; terminal_input: boolean }[] = [];
     for (;;) {
       const v = rosterView(all, roots(), own());
-      if (id === undefined) return { statements: v.keep, view: v, invited };
+      if (id === undefined) return { statements: v.keep, view: v };
       const added: RosterStatement[] = [];
       const dropped = new Set<RosterStatement>();
       const held = new Set(v.devices.map((d) => d.body.key));
       for (const statement of v.keep) {
         if (isSigned(statement) || held.has(statement.body.key)) continue;
         const checked = checkInvited(statement, { now, view: v });
-        if (checked.ok) {
-          added.push(signed(checked.value, id));
-          if (statement.invite.body.by === id) {
-            invited.push({
-              key: statement.body.key,
-              terminal_input: statement.invite.body.terminal_input,
-            });
-          }
-        } else if (checked.error.details?.reason !== "untrusted") {
+        if (checked.ok) added.push(signed(checked.value, id));
+        else if (checked.error.details?.reason !== "untrusted") {
           dropped.add(statement);
         }
       }
@@ -192,7 +180,7 @@ export function createRoster(deps: RosterDeps) {
           added.push(signed(r.body, id));
       }
       if (added.length === 0 && dropped.size === 0) {
-        return { statements: v.keep, view: v, invited };
+        return { statements: v.keep, view: v };
       }
       all = mergeRoster(
         v.keep.filter((s) => !dropped.has(s)),
@@ -218,11 +206,7 @@ export function createRoster(deps: RosterDeps) {
   }
 
   async function commit(
-    settled: {
-      statements: RosterStatement[];
-      view: RosterView;
-      invited: { key: string; terminal_input: boolean }[];
-    },
+    settled: { statements: RosterStatement[]; view: RosterView },
     incoming: readonly RosterReach[] = [],
     own?: RosterReach,
   ): Promise<Result<void>> {
@@ -252,14 +236,27 @@ export function createRoster(deps: RosterDeps) {
     statements = settled.statements;
     reach = nextReach;
     view = settled.view;
+    // 이 컴퓨터가 낸 초대장으로 든 기기가 이 view에 처음 선 때다. 누구의 서명이 그 항목을 들였든(다른 컴퓨터가 먼저 서명한
+    // 항목과 같이 닿아도) 같다. 이미 view에 있던 key는 사람이 끈 허락을 같은 statement가 다시 켜지 못하게 늘 거른다.
     const held = new Set(before.devices.map((d) => d.body.key));
     const now = new Set(view.devices.map((d) => d.body.key));
+    const mine = selfOf(view)?.id;
     await deps.changed({
       before,
       after: view,
       snapshot: snapshot(),
-      invited: settled.invited.filter(
-        (each) => !held.has(each.key) && now.has(each.key),
+      invited: statements.flatMap((each) =>
+        !isSigned(each) &&
+        each.invite.body.by === mine &&
+        !held.has(each.body.key) &&
+        now.has(each.body.key)
+          ? [
+              {
+                key: each.body.key,
+                terminal_input: each.invite.body.terminal_input,
+              },
+            ]
+          : [],
       ),
     });
     return ok(undefined);

@@ -10,7 +10,9 @@ import type {
   SpawnDetached,
 } from "../protocol/client/mod.ts";
 import { CORE_CONTROL_PROTOCOL_VERSION } from "../protocol/supervision/mod.ts";
+import { ROSTER_CHANGING_COMMANDS } from "./commands/remote.ts";
 import { cliMain } from "./main.ts";
+import { wordsOf } from "./parser.ts";
 
 function sink(): { stream: WritableStream<Uint8Array>; text(): string } {
   const chunks: string[] = [];
@@ -368,3 +370,37 @@ for (const item of cases) {
     }
   });
 }
+
+// lophn 터미널 탭의 coding agent는 사람 token을 받는다. 명단을 바꾸는 명령(허락 켜기 포함)은 core에 붙기 전에 거절된다.
+test("명단을 바꾸는 명령은 lophn 터미널 탭 안에서 core에 붙기 전에 forbidden이다", async () => {
+  const args: Record<string, string[]> = {
+    "remote.invite": ["computer"],
+    "remote.join": ["x"],
+    "remote.terminal_input": ["dev_00000000000000000000000000"],
+    "remote.remove": ["dev_00000000000000000000000000"],
+  };
+  assert.deepStrictEqual(
+    [...ROSTER_CHANGING_COMMANDS].sort(),
+    Object.keys(args).sort(),
+  );
+  for (const name of ROSTER_CHANGING_COMMANDS) {
+    const control = fakeControl({
+      identify: { apiUrl: CORE_A },
+      connect: { token: USER_TOKEN, apiUrl: CORE_A },
+    });
+    const fetcher = fakeFetch({ status: 200, body: {} });
+    const code = await cliMain([...wordsOf(name), ...args[name]!], {
+      env: {
+        get: (key) => (key === "LOPHN_SESSION_ID" ? "term:t1" : undefined),
+      },
+      home: HOME,
+      fetch: fetcher.fetch,
+      dial: control.dial,
+      stdout: sink().stream,
+      stderr: sink().stream,
+    });
+    assert.deepStrictEqual(code, 3, name);
+    assert.deepStrictEqual(control.calls, [], name);
+    assert.deepStrictEqual(fetcher.calls, [], name);
+  }
+});

@@ -895,6 +895,7 @@ test("초대장의 허락은 초대장을 낸 컴퓨터에만 서고, 같은 sta
     { id: b.entry.id, secret: b.signing.secretKey },
     true,
   );
+  const late = invitedPhone(random, 9, { id: me.id, secret: mine }, true);
   await boot(root, machine, random, {
     during: async (memory: Memory, provided: Provided) => {
       const inList = async (id: string) =>
@@ -912,6 +913,21 @@ test("초대장의 허락은 초대장을 낸 컴퓨터에만 서고, 같은 sta
       assert.equal(granted(provided)(`device:${noInvite.entry.id}`), false);
       // B가 낸 초대장의 허락은 B에게만 선다. 이 컴퓨터는 그 기기에 서명하지만 허락하지 않는다.
       assert.equal(granted(provided)(`device:${bInvite.entry.id}`), false);
+
+      // 다른 컴퓨터(B)가 먼저 서명한 항목과 같이 닿아도 이 컴퓨터가 낸 초대장으로 처음 선 기기는 허락을 받고, 사람이 끈 뒤
+      // 같은 둘이 다시 닿아도 켜지지 않는다.
+      const counter = [
+        signedWith(late.entry, b.entry.id, b.signing.secretKey),
+        late.statement,
+      ];
+      assert.ok((await receive(provided, counter)).ok);
+      assert.equal(granted(provided)(`device:${late.entry.id}`), true);
+      await memory.get("roster/set_terminal_input")!(PERSON, {
+        id: late.entry.id,
+        on: false,
+      });
+      assert.ok((await receive(provided, counter)).ok);
+      assert.equal(granted(provided)(`device:${late.entry.id}`), false);
 
       // 사람이 끈 뒤에 같은 초대 statement가 다시 닿아도 켜지지 않는다.
       await memory.get("roster/set_terminal_input")!(PERSON, {

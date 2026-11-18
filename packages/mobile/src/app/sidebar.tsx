@@ -1,6 +1,5 @@
-// The sidebar: the desktop's list on the phone (tools/wireframes/drafts/phone/shell.tsx SidebarBody; the Pages line is
-// page.tsx). The computer it belongs to, Inbox, Jobs, Agents, its browser Pages, then every workspace with its sessions,
-// and Settings at the bottom.
+// The sidebar: the desktop's list on the phone (tools/wireframes/drafts/phone/shell.tsx SidebarBody). The computer it
+// belongs to, Inbox, Jobs, Agents, its browser Pages, then every workspace with its sessions, and Settings at the bottom.
 import { t } from "@lophn/i18n";
 import {
   Badge,

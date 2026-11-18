@@ -63,6 +63,14 @@ export {
   useWorkspaces,
   type TerminalView,
 } from "./hooks.tsx";
+export {
+  type PageItem,
+  type PageSnapshot,
+  type PageView,
+  useOpenPage,
+  usePage,
+  usePages,
+} from "./page.ts";
 export type {
   TerminalLine,
   TerminalRun,

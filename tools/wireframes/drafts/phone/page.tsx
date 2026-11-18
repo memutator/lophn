@@ -3,26 +3,16 @@
 import {
   ArrowLeft,
   ArrowUp,
-  Bell,
   ChevronRight,
-  ChevronsUpDown,
-  Clock,
   EyeOff,
   Globe,
   KeyboardOff,
-  Monitor,
-  Plus,
   RotateCw,
-  Search,
-  Settings,
-  Users,
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { AgentCharacter } from "../../../../packages/shell/renderer/parts/avatar/character.tsx";
 import c from "./coding.module.css";
 import {
   Btn,
-  Dot,
   Flow,
   Ic,
   IconBtn,
@@ -34,7 +24,7 @@ import {
   s,
   TopBar,
 } from "./kit.tsx";
-import { COMPUTER } from "./shell.tsx";
+import { COMPUTER, Sidebar } from "./shell.tsx";
 
 const GITHUB = {
   title: "Sign in to GitHub",
@@ -101,78 +91,6 @@ function PageList({ open, typed }: { open?: boolean; typed?: string }) {
           }
         />
       ))}
-    </>
-  );
-}
-
-// The sidebar's top part: Pages sits with the computer's other places, under Agents.
-function SidebarTop() {
-  return (
-    <>
-      <div className={s.scrim} />
-      <div className={s.drawer}>
-        <div style={{ height: 46, flex: "none" }} />
-        <div className={s.brand}>
-          <span className={s.box} style={{ width: 26, height: 26 }}>
-            <AgentCharacter
-              profile={{ kind: "character", shape: "square", color: "coral" }}
-            />
-          </span>
-          <span className={s.grow}>lophn</span>
-          <IconBtn icon={Search} tone="muted" size={20} />
-        </div>
-        <div className={s.computer}>
-          <Ic icon={Monitor} size={20} />
-          <div className={s.grow}>
-            <div style={{ fontSize: 15, fontWeight: 500, lineHeight: "20px" }}>
-              {COMPUTER}
-            </div>
-            <div
-              className={s.muted}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                lineHeight: "16px",
-              }}
-            >
-              <Dot tone="good" />
-              Connected
-            </div>
-          </div>
-          <Ic icon={ChevronsUpDown} size={16} className={s.muted} />
-        </div>
-        <div className={s.drawerScroll}>
-          <div className={s.dRow}>
-            <Ic icon={Bell} size={19} />
-            <span className={s.dText}>Inbox</span>
-          </div>
-          <div className={s.dRow}>
-            <Ic icon={Clock} size={19} />
-            <span className={s.dText}>Jobs</span>
-          </div>
-          <div className={s.dRow}>
-            <Ic icon={Users} size={19} />
-            <span className={s.dText}>Agents</span>
-          </div>
-          <div className={s.dRow} data-on="">
-            <Ic icon={Globe} size={19} />
-            <span className={s.dText}>Pages</span>
-          </div>
-          <div className={s.dLabel}>
-            Workspaces
-            <IconBtn icon={Plus} tone="muted" size={18} />
-          </div>
-        </div>
-        <div className={s.drawerFoot}>
-          <div className={s.dRow}>
-            <Ic icon={Settings} size={19} />
-            <span className={s.dText}>Settings</span>
-          </div>
-        </div>
-        <div style={{ height: 26, flex: "none" }} />
-      </div>
     </>
   );
 }
@@ -473,7 +391,7 @@ export function PageFlow() {
         title="The sidebar"
         text="Pages는 Agents 아래, 그 컴퓨터의 곳들과 같이 있다. 고르면 그 컴퓨터의 page 목록이다."
       >
-        <Phone tone="shell" over={<SidebarTop />}>
+        <Phone tone="shell" over={<Sidebar on="pages" />}>
           <PageList open />
         </Phone>
       </Shot>

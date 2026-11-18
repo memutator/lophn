@@ -10,6 +10,7 @@ import {
   Clock,
   FileText,
   FolderOpen,
+  Globe,
   Home,
   Laptop,
   type LucideIcon,
@@ -126,12 +127,13 @@ export type Place =
   | "inbox"
   | "jobs"
   | "agents"
+  | "pages"
   | "weekly-report"
   | "phroner"
   | "orders"
   | "calendar";
 
-/** The same list as the desktop sidebar: Inbox, Jobs, Agents, then every workspace with its sessions. */
+/** The same list as the desktop sidebar: Inbox, Jobs, Agents, the computer's Pages, then every workspace with its sessions. */
 export function SidebarBody({ on }: { on: Place }) {
   return (
     <>
@@ -175,6 +177,9 @@ export function SidebarBody({ on }: { on: Place }) {
         </Nav>
         <Nav icon={Users} on={on === "agents"}>
           Agents
+        </Nav>
+        <Nav icon={Globe} on={on === "pages"}>
+          Pages
         </Nav>
 
         <div className={s.dLabel}>

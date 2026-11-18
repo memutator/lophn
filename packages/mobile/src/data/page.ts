@@ -3,8 +3,8 @@
 // PAGE_VIEW_RENEW_MS; while it holds, the computer pushes pictures, the core keeps only the latest and says that it changed
 // (`PageViewChanged`, no content), and the phone reads the snapshot again. The core lets the next picture go only after
 // the phone read the last one, so on a slow link pictures are skipped rather than queued.
-// Using the page (input, take control, opening one) is for a phone the computer lets type in terminals; the snapshot's
-// `control` says whether this one may.
+// Using the page (input, take control, opening one) is for a phone the computer lets type in terminals; `control` in the
+// list and in the snapshot says whether this one may.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import {
@@ -32,7 +32,9 @@ import { newId } from "../../../shell/renderer/prefixed-id.ts";
 import type { Every } from "./terminal.ts";
 
 export type PageSnapshot = z.output<(typeof pageViewSnapshot)["output"]>;
-export type PageItem = z.output<(typeof pageViewList)["output"]>["pages"][number];
+/** The pages, and whether this phone may use them (open one, type, take control). */
+export type PageList = z.output<(typeof pageViewList)["output"]>;
+export type PageItem = PageList["pages"][number];
 
 export interface PageState {
   /** The latest snapshot read; kept while the page is gone or the computer is away. */
@@ -202,7 +204,7 @@ export function usePage(tab: string | null): PageView {
 }
 
 /** The computer's browser pages, read again when one opens or closes and after a reconnect. */
-export function usePages(): ReadHandle<{ pages: PageItem[] }> {
+export function usePages(): ReadHandle<PageList> {
   return useFollowedRead(
     (core) => readRoute(core, pageViewList, {}),
     ["browser_pages"],

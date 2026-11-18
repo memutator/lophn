@@ -18,7 +18,6 @@ import {
 } from "@lophn/ui-native";
 import {
   ArrowLeft,
-  ArrowUp,
   ChevronRight,
   EyeOff,
   Globe,
@@ -26,33 +25,24 @@ import {
   RotateCw,
   WifiOff,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { AppState, Pressable, TextInput, View } from "react-native";
+import { useState } from "react";
+import { View } from "react-native";
 import type { PageInput } from "../../../../protocol/lophn-agent/page-view.ts";
 import { normalizeAddress } from "../../../../shell/main/browser/address.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
-import { type SourceResult, useCurrentComputer } from "../../data/mod.ts";
 import {
   type PageItem,
   type PageView,
+  type SourceResult,
+  useCurrentComputer,
   useOpenPage,
   usePage,
   usePages,
-} from "../../data/page.ts";
+} from "../../data/mod.ts";
 import { DIM, EmptyNote, OfflineBanner, useLocked } from "../../parts/mod.ts";
+import { KeyCap, KeyRow, NoticeLine, TypeBox, useForeground } from "../../parts/typing.tsx";
 import { ReadFailed } from "../jobs/parts.tsx";
 import { PagePicture } from "./picture.tsx";
-
-function useForeground(): boolean {
-  const [on, setOn] = useState(AppState.currentState !== "background");
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) =>
-      setOn(state === "active"),
-    );
-    return () => subscription.remove();
-  }, []);
-  return on;
-}
 
 const shortUrl = (url: string) => url.replace(/^https?:\/\//, "");
 
@@ -65,20 +55,16 @@ export function PagesScreen(_: { place: PlaceOf<"pages"> }) {
   const { loaded, reload } = usePages();
   const open = useOpenPage();
   const [address, setAddress] = useState("");
-  // The list does not say whether this phone may open pages; the first refusal does, and the field gives way to why.
-  const [watchOnly, setWatchOnly] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const submit = async () => {
     const url = normalizeAddress(address);
     if (url === null) return;
     const done = await open(url);
-    setFailed(!done.ok && done.code !== "forbidden");
+    setFailed(!done.ok);
     if (done.ok) {
       setAddress("");
       nav.open({ name: "page", tab: done.value });
-    } else if (done.code === "forbidden") {
-      setWatchOnly(true);
     }
   };
 
@@ -113,11 +99,12 @@ export function PagesScreen(_: { place: PlaceOf<"pages"> }) {
     >
       <OfflineBanner note={t("mobile.offline.note")} />
       <View style={{ opacity: locked ? DIM : 1 }}>
-        {watchOnly ? (
-          <Line icon={KeyboardOff}>
+        {loaded.state === "ready" && !loaded.value.control && (
+          <NoticeLine icon={KeyboardOff}>
             {t("mobile.page.notice.view-only", { computer })}
-          </Line>
-        ) : (
+          </NoticeLine>
+        )}
+        {loaded.state === "ready" && loaded.value.control && (
           <View style={{ paddingTop: 4, paddingHorizontal: 20, paddingBottom: 8 }}>
             <Input
               value={address}
@@ -171,21 +158,21 @@ export function PageScreen({ place }: { place: PlaceOf<"page"> }) {
   let bottom = null;
   if (page.status === "gone") {
     bottom = (
-      <Line icon={Globe}>{t("mobile.page.notice.gone", { computer })}</Line>
+      <NoticeLine icon={Globe}>{t("mobile.page.notice.gone", { computer })}</NoticeLine>
     );
   } else if (page.status === "offline") {
     bottom = (
-      <Line icon={WifiOff}>
+      <NoticeLine icon={WifiOff}>
         {t("mobile.page.notice.unreachable", { computer })}
-      </Line>
+      </NoticeLine>
     );
   } else if (control) {
     bottom = <Typing send={page.send} />;
   } else if (shot !== null) {
     bottom = (
-      <Line icon={KeyboardOff}>
+      <NoticeLine icon={KeyboardOff}>
         {t("mobile.page.notice.view-only", { computer })}
-      </Line>
+      </NoticeLine>
     );
   }
 
@@ -383,29 +370,6 @@ function Driver({ page }: { page: PageView }) {
   );
 }
 
-/** One quiet line: why the phone cannot use the page, or why the picture is not live. */
-function Line({ icon, children }: { icon: typeof KeyboardOff; children: string }) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "flex-start",
-        gap: 8,
-        paddingTop: 6,
-        paddingHorizontal: 20,
-        paddingBottom: 10,
-      }}
-    >
-      <View style={{ marginTop: 1 }}>
-        <Icon icon={icon} size={16} tone="muted" />
-      </View>
-      <Text variant="note" tone="muted" grow>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
 // The key row. Names are the ones the computer's `press` takes (shell/main/browser/agent/keys.ts).
 const KEYS: readonly { key: string; label: MessageKey; cap: string | null }[] = [
   { key: "Enter", label: "mobile.terminal.key.enter", cap: null },
@@ -423,9 +387,7 @@ function Typing({
 }: {
   send: (input: PageInput) => Promise<SourceResult<void>>;
 }) {
-  const theme = useTheme();
   const [text, setText] = useState("");
-  const [focused, setFocused] = useState(false);
   const [failed, setFailed] = useState(false);
   const type = async (input: PageInput) => {
     const done = await send(input);
@@ -438,110 +400,25 @@ function Typing({
   };
   return (
     <View>
-      <View style={{ paddingTop: 6, paddingHorizontal: 12 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            minHeight: 44,
-            paddingLeft: 14,
-            paddingRight: 6,
-            borderWidth: 1,
-            borderColor: focused ? theme.color.focus : theme.color.border.base,
-            borderRadius: 12,
-            backgroundColor: theme.color.surface.base,
-          }}
-        >
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={t("mobile.page.placeholder.type")}
-            placeholderTextColor={theme.color.text.muted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onSubmitEditing={() => void submit()}
-            submitBehavior="submit"
-            cursorColor={theme.color.text.primary}
-            selectionColor={theme.color.ink.soft}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: 0,
-              fontFamily: theme.font.sans,
-              ...theme.type.body,
-              color: theme.color.text.primary,
-            }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("mobile.page.button.send")}
-            disabled={text === ""}
-            onPress={() => void submit()}
-            hitSlop={4}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor:
-                text === "" ? theme.color.surface.muted : theme.color.ink.background,
-            }}
-          >
-            <Icon
-              icon={ArrowUp}
-              size={20}
-              strokeWidth={2}
-              color={text === "" ? theme.color.text.disabled : theme.color.ink.text}
-            />
-          </Pressable>
-        </View>
-        {failed && (
-          <Text variant="caption" tone="critical" style={{ marginTop: 4, marginLeft: 4 }}>
-            {t("mobile.page.error.send-failed")}
-          </Text>
-        )}
-      </View>
-      <View
-        style={{
-          flexDirection: "row",
-          gap: 5,
-          paddingTop: 6,
-          paddingHorizontal: 12,
-          paddingBottom: 8,
-        }}
-      >
+      <TypeBox
+        value={text}
+        onChangeText={setText}
+        onSend={() => void submit()}
+        placeholder={t("mobile.page.placeholder.type")}
+        sendLabel={t("mobile.page.button.send")}
+        failed={failed ? t("mobile.page.error.send-failed") : null}
+      />
+      <KeyRow last>
         {KEYS.map((one) => (
-          <Pressable
+          <KeyCap
             key={one.key}
-            accessibilityRole="button"
-            accessibilityLabel={t(one.label)}
+            label={t(one.label)}
             onPress={() => void type({ type: "key", key: one.key })}
-            style={({ pressed }) => ({
-              flexGrow: 1,
-              flexShrink: 1,
-              flexBasis: 0,
-              height: 34,
-              paddingHorizontal: 4,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: theme.color.border.base,
-              borderRadius: 8,
-              backgroundColor: pressed
-                ? theme.color.surface.muted
-                : theme.color.surface.base,
-            })}
           >
-            <Text variant="small" weight="medium" tone="secondary" numberOfLines={1}>
-              {one.cap ?? t(one.label)}
-            </Text>
-          </Pressable>
+            {one.cap ?? t(one.label)}
+          </KeyCap>
         ))}
-      </View>
+      </KeyRow>
     </View>
   );
 }

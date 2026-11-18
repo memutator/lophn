@@ -8,7 +8,6 @@ import { type MessageKey, t } from "@lophn/i18n";
 import { Icon, IconButton, Screen, Tag, Text, TopBar, type TopBarProps, useTheme } from "@lophn/ui-native";
 import * as Clipboard from "expo-clipboard";
 import {
-  ArrowUp,
   ClipboardPaste,
   Ellipsis,
   KeyboardOff,
@@ -16,7 +15,7 @@ import {
   WifiOff,
 } from "lucide-react-native";
 import { type ComponentRef, type RefObject, useEffect, useRef, useState } from "react";
-import { AppState, Pressable, TextInput, View } from "react-native";
+import { type TextInput, View } from "react-native";
 import { TERMINAL_SESSION_PREFIX } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
@@ -27,23 +26,13 @@ import {
   useTerminal,
 } from "../../data/mod.ts";
 import { Face, OfflineBanner } from "../../parts/mod.ts";
+import { KeyCap, KeyRow, NoticeLine, TypeBox, useForeground } from "../../parts/typing.tsx";
 import { harnessProfile, stateOf } from "../coding/parts.tsx";
 import { type BarKey, barKeyBytes, charBytes, type Mods, NO_MODS } from "./keys.ts";
 import { type Grid, TerminalRows } from "./rows.tsx";
 
 // Grid changes while the keyboard slides or the phone turns come in a burst; the last one is claimed.
 const GRID_SETTLE_MS = 150;
-
-function useForeground(): boolean {
-  const [on, setOn] = useState(AppState.currentState !== "background");
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) =>
-      setOn(state === "active"),
-    );
-    return () => subscription.remove();
-  }, []);
-  return on;
-}
 
 export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
   const nav = useNav();
@@ -137,21 +126,21 @@ export function TerminalView({
   let bottom = null;
   if (gone) {
     bottom = (
-      <Line icon={SquareTerminal}>
+      <NoticeLine icon={SquareTerminal}>
         {t("mobile.terminal.notice.gone", { computer })}
-      </Line>
+      </NoticeLine>
     );
   } else if (view.status === "offline") {
     bottom = (
-      <Line icon={WifiOff}>
+      <NoticeLine icon={WifiOff}>
         {t("mobile.terminal.notice.unreachable", { computer })}
-      </Line>
+      </NoticeLine>
     );
   } else if (view.input) {
     bottom = <Typing send={view.send} input={typing} />;
   } else if (screen !== null) {
     bottom = (
-      <Line icon={KeyboardOff}>{t("mobile.terminal.notice.typing-off")}</Line>
+      <NoticeLine icon={KeyboardOff}>{t("mobile.terminal.notice.typing-off")}</NoticeLine>
     );
   }
 
@@ -213,35 +202,6 @@ export function TerminalView({
   );
 }
 
-/** One quiet line under the screen: why the phone cannot type, or why the screen is not live. */
-function Line({
-  icon,
-  children,
-}: {
-  icon: typeof KeyboardOff;
-  children: string;
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "flex-start",
-        gap: 8,
-        paddingTop: 6,
-        paddingHorizontal: 20,
-        paddingBottom: 10,
-      }}
-    >
-      <View style={{ marginTop: 1 }}>
-        <Icon icon={icon} size={16} tone="muted" />
-      </View>
-      <Text variant="note" tone="muted" grow>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
 type Modifier = keyof Mods;
 
 // The key bar in two rows. Ctrl, Alt and Shift hold for the next key, from the bar or the text box, then let go.
@@ -277,9 +237,7 @@ function Typing({
   send: (text: string) => Promise<SourceResult<void>>;
   input: RefObject<ComponentRef<typeof TextInput> | null>;
 }) {
-  const theme = useTheme();
   const [text, setText] = useState("");
-  const [focused, setFocused] = useState(false);
   const [failed, setFailed] = useState(false);
   const [mods, setMods] = useState<Mods>(NO_MODS);
   const armed = mods.ctrl || mods.alt || mods.shift;
@@ -316,129 +274,34 @@ function Typing({
   };
   return (
     <View>
-      <View style={{ paddingTop: 6, paddingHorizontal: 12 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            minHeight: 44,
-            paddingLeft: 14,
-            paddingRight: 6,
-            borderWidth: 1,
-            borderColor: focused ? theme.color.focus : theme.color.border.base,
-            borderRadius: 12,
-            backgroundColor: theme.color.surface.base,
-          }}
-        >
-          <TextInput
-            ref={input}
-            value={text}
-            onChangeText={change}
-            placeholder={t("mobile.terminal.placeholder.type")}
-            placeholderTextColor={theme.color.text.muted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onSubmitEditing={() => void submit()}
-            submitBehavior="submit"
-            cursorColor={theme.color.text.primary}
-            selectionColor={theme.color.ink.soft}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: 0,
-              fontFamily: theme.font.sans,
-              ...theme.type.body,
-              color: theme.color.text.primary,
-            }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("mobile.terminal.button.send")}
-            disabled={text === ""}
-            onPress={() => void submit()}
-            hitSlop={4}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor:
-                text === "" ? theme.color.surface.muted : theme.color.ink.background,
-            }}
-          >
-            <Icon
-              icon={ArrowUp}
-              size={20}
-              strokeWidth={2}
-              color={text === "" ? theme.color.text.disabled : theme.color.ink.text}
-            />
-          </Pressable>
-        </View>
-        {failed && (
-          <Text variant="caption" tone="critical" style={{ marginTop: 4, marginLeft: 4 }}>
-            {t("mobile.terminal.error.send-failed")}
-          </Text>
-        )}
-      </View>
+      <TypeBox
+        value={text}
+        onChangeText={change}
+        onSend={() => void submit()}
+        placeholder={t("mobile.terminal.placeholder.type")}
+        sendLabel={t("mobile.terminal.button.send")}
+        failed={failed ? t("mobile.terminal.error.send-failed") : null}
+        input={input}
+      />
       {ROWS.map((row, at) => (
-        <View
-          key={at}
-          style={{
-            flexDirection: "row",
-            gap: 5,
-            paddingTop: 6,
-            paddingHorizontal: 12,
-            paddingBottom: at === ROWS.length - 1 ? 8 : 0,
-          }}
-        >
-          {row.map((key) => {
-            const on = key.kind === "mod" && mods[key.mod];
-            return (
-              <Pressable
-                key={key.label}
-                accessibilityRole="button"
-                accessibilityLabel={t(key.label)}
-                accessibilityState={key.kind === "mod" ? { selected: on } : undefined}
-                onPress={() => void press(key)}
-                style={({ pressed }) => ({
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                  height: 34,
-                  paddingHorizontal: 4,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 1,
-                  borderColor: on ? theme.color.ink.background : theme.color.border.base,
-                  borderRadius: 8,
-                  backgroundColor: on
-                    ? theme.color.ink.background
-                    : pressed
-                      ? theme.color.surface.muted
-                      : theme.color.surface.base,
-                })}
-              >
-                {key.kind === "paste" ? (
-                  <Icon icon={ClipboardPaste} size={16} tone="secondary" />
-                ) : (
-                  <Text
-                    variant="small"
-                    weight="medium"
-                    tone="secondary"
-                    numberOfLines={1}
-                    style={on ? { color: theme.color.ink.text } : undefined}
-                  >
-                    {key.kind === "key" && key.cap !== null ? key.cap : t(key.label)}
-                  </Text>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+        <KeyRow key={at} last={at === ROWS.length - 1}>
+          {row.map((key) => (
+            <KeyCap
+              key={key.label}
+              label={t(key.label)}
+              on={key.kind === "mod" ? mods[key.mod] : undefined}
+              onPress={() => void press(key)}
+            >
+              {key.kind === "paste" ? (
+                <Icon icon={ClipboardPaste} size={16} tone="secondary" />
+              ) : key.kind === "key" && key.cap !== null ? (
+                key.cap
+              ) : (
+                t(key.label)
+              )}
+            </KeyCap>
+          ))}
+        </KeyRow>
       ))}
     </View>
   );

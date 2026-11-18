@@ -1950,7 +1950,7 @@ flows:
       - packages/protocol/coding-agent/terminal-view.ts
       - packages/shell/renderer/terminal/screen-copy.ts
     steps:
-      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다(다른 컴퓨터의 탭은 200). core가 연 터미널(runtime이 한 번이라도 난 것)과 coding session 목록의 터미널이 아니면 not_found다"
+      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다(다른 컴퓨터의 탭은 200). core가 모르는 터미널이면 not_found다"
       - "다른 컴퓨터의 탭은 machines/call로 부르고 탭을 놓아도 끄지 않는다(그 컴퓨터의 창들이 기기 principal 하나의 lease를 같이 쓴다). TerminalScreenChanged의 seq가 받은 것보다 크면 terminal_view/snapshot을 읽어 xterm을 비우고 사본을 다시 쓴다"
       - "켜면 화면을 한 번 읽고 lease가 있는 동안 계속 읽는다(terminal-view-screen). core가 연 터미널을 PTY host가 모르면 그 터미널을 잊는다. 읽기의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
       - "off이거나 기한이 지나 마지막 lease가 끝나면 읽기를 멈추고 폰이 잡은 PTY 크기를 놓는다"
@@ -1962,7 +1962,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "core가 그 터미널을 연 적이 없고 coding session 목록에도 없다, 또는 PTY host가 그 터미널을 모른다"
+        when: "core나 PTY host가 그 터미널을 모른다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -2027,7 +2027,7 @@ flows:
         observe: [event:TerminalRuntimeChanged, response]
       - id: not_found
         code: not_found
-        when: "core가 그 터미널을 연 적이 없고 coding session 목록에도 없다, 또는 PTY host가 그 터미널을 모른다"
+        when: "core나 PTY host가 그 터미널을 모른다"
         observe: [response]
       - id: conflict
         code: conflict

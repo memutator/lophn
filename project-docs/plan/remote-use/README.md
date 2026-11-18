@@ -9,7 +9,7 @@
 
 - **대상은 앱의 command와 앱의 event다.** 정해진 동작을 가진 것만 부른다. 다른 기계의 agent에게 판단을 맡기는 것은 a2a다. (사람: remote와 a2a를 나눴다)
 - **요청에 누가 시켰는지가 실린다.** 지금 다른 기계로 넘기는 call에는 요청한 쪽이 없고, 받는 기계는 모두를 "그 컴퓨터의 사람"으로 본다. 넘기는 call에 요청한 쪽(사람의 화면, 사람의 터미널, 어느 agent, 어느 앱)을 싣고, 받는 기계는 그것을 기록하고 종류마다 다르게 대한다. 사람의 화면이 아닌 요청은 사람의 route(secret, 설정)와 자동 확인을 받지 못한다. (agent: `core-setup` review의 지적)
-- **허락은 부르는 기계에서 본다.** agent가 다른 기계의 앱을 쓰려면 사람이 부르는 기계에서 그 앱을 그 agent에 할당한다(할당에 "어느 기계의"가 붙는다). 물을 것은 그 agent의 대화에 같은 승인 card로 묻는다. card는 지금처럼 사람이 있는 기기로 간다. (사람: "기존의 approval이랑 크게 다를 게 없을 거 같은데")
+- **허락은 부르는 기계에서 본다.** agent가 다른 기계의 앱을 쓰려면 사람이 부르는 기계에서 그 앱을 그 agent에 할당한다(할당에 "어느 기계의"가 붙는다). 할당된 앱의 command는 지금처럼 묻지 않고 돈다(이 기계의 앱도 그렇다. 승인 card는 지금 앱 command에 뜨지 않는다). 호출 기록에는 어느 기계의 누가 불렀는지가 남는다. (사람: "기존의 approval이랑 크게 다를 게 없을 거 같은데")
 - **받는 기계는 자기 규칙을 본다.** 받는 기계는 요청한 기계가 명단의 컴퓨터이고 터미널 입력 허락이 있는지(앱에 시키는 것은 그 기계를 다루는 것이다), 대상 앱의 workspace가 private이 아닌지, command가 밖에 내놓은 것인지를 본다. 부른 기계의 할당을 다시 따지지 않는다: 명단의 컴퓨터는 대등하고 그 사람의 것이다. (agent)
 - **private은 기계 사이에도 선다.** private인 workspace의 agent와 앱은 다른 기계를 부르지 못하고(부르는 기계가 막는다), 다른 기계에서 불리지 않는다(받는 기계가 막는다). 각자 자기 workspace의 설정으로 본다. 사람의 화면과 터미널은 private이어도 된다. agent가 같은 기계의 앱을 부를 때는 지금처럼 할당만 본다. (사람, 2026-11-17)
 - **기계는 인자 하나로 고른다.** CLI와 agent의 `lophn` tool에 `--on <기계 이름>`이 붙는다. 안 붙이면 이 기계다. 이름은 명단의 컴퓨터 이름이고, 같은 이름이 둘이면 고르지 않고 후보를 보인다(기기 id로도 고른다). `--machine`은 그 이름의 입력을 가진 명령과 부딪혀 쓰지 않는다. (agent)
@@ -27,7 +27,7 @@
 | 2 | `use-send` | `use-contract` | 부르는 기계: agent의 tool과 앱의 호출이 다른 기계의 앱으로 가는 길, 할당과 승인, private, 닿지 않을 때 |
 | 2 | `use-cli` | `use-contract` | CLI의 `--on`과 기계 이름 풀기, 사람의 터미널에서 다른 기계로 |
 | 3 | `use-events` | `use-receive`, `use-send` | 다른 기계의 앱 event 구독: 선언에서 구독 걸기, 이 기계에서 내기, job trigger와 앱의 구독, SDK |
-| 3 | `use-screens` | `use-send` | 다른 기계의 앱을 agent에 할당하는 화면, 승인 card와 호출 기록에 "어느 기계의" 보이기 |
+| 3 | `use-screens` | `use-send` | 다른 기계의 앱을 agent에 할당하는 화면, 호출 기록에 "어느 기계의" 보이기 |
 | 4 | `use-cleanup` | `use-events`, `use-screens`, `use-cli` | 요청한 쪽 없이 넘기던 옛 길, flows·catalog, 문서 |
 
 ## 위험 test (brief에 있다)
@@ -44,6 +44,9 @@
 
 - `one-screen`과 `carry-paths`가 main에 올라간 뒤에 시작한다(같은 연결과 route 목록 file을 고치고, 구독의 바닥이 `one-screen`에 있다). brief는 그 전에 썼다: 띄우기 전에 brief마다 "시작 전에 다시 볼 것"을 그때의 code와 대고 달라진 이름을 고친다.
 - 권한 경계를 바꾸는 계획이다. `use-contract`가 끝나면 merge하기 전에 다른 worker(opus)에게 review를 맡긴다. 볼 것: 요청한 쪽을 누가 실을 수 있는가, 받는 기계가 믿는 것과 다시 보는 것, 한 hop을 더 건너 넓어지는 길(A가 B를 거쳐 C).
+- `use-contract`는 크다(SDK 판, 손으로 맞춘 caller parser 사본들, ledger step을 한 번에 든다). 한 session에 안 끝나면 SDK와 사본 부분을 wave 1의 둘째 task로 뗀다.
+- `multi-device-fixes`가 둔 test "CLI의 사람 token으로 `machines/call`을 부르지 못한다"는 이 계획이 대신한다: 사람의 터미널은 "터미널"로 실려 부르게 되고, 그 요청이 사람의 route와 자동 확인을 받지 못하는 것을 새 test가 본다(`use-send`).
+- 다른 기계로 보낸 긴 command가 연결의 한도(같이 도는 call 8개, call 하나 120초)에 걸리는 것은 알려진 미완이다. 걸리면 이슈로 올린다.
 - SDK와 앱 지침을 바꾸는 task는 `sdk-note` skill을 따른다. 화면 task는 `ui-design` skill대로 wireframe을 먼저 고친다.
 - 실제 relay와 실제 provider를 쓰지 않는다. subprocess를 띄우는 test와 E2E는 새로 만들기 전에 사람에게 묻는다.
 - 끝나면: `architecture/app-call.md`, `agent-call.md`, `approval.md`, `event.md`, `job.md`, `remote.md`, flows, change-log, roadmap `multi-device.md`.

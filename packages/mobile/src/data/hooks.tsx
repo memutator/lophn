@@ -175,6 +175,13 @@ export function useCurrentComputer(): ComputerItem | null {
   return computers.find((one) => one.key === current) ?? null;
 }
 
+/** One paired computer's data, whether or not it is on screen; null when it is not paired. Reading it switches nothing. */
+export function useComputerData(key: string): ComputerData | null {
+  const { computers } = useData();
+  useSyncExternalStore(computers.subscribe, computers.get);
+  return computers.link(key)?.data ?? null;
+}
+
 /** Only on the sample computer: switches the Weekly report conversation between done, working, approval and question. */
 export function useSampleConversation():
   | ((state: SampleConversation) => void)

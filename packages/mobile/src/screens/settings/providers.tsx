@@ -63,7 +63,7 @@ export function ProvidersScreen({ place }: { place: PlaceOf<"providers"> }) {
   const nav = useNav();
   const { computers } = useComputers();
   const computer = computers.find((one) => one.key === place.key)?.name ?? "";
-  const loaded = useProviders();
+  const loaded = useProviders(place.key);
   const [connecting, setConnecting] = useState<ProviderDefinitionView | null>(null);
   let body: ReactNode;
   if (loaded.state === "loading") body = null;
@@ -141,7 +141,12 @@ export function ProvidersScreen({ place }: { place: PlaceOf<"providers"> }) {
         title={connecting === null ? undefined : t("settings.title.connect-provider", { name: connecting.display_name })}
       >
         {connecting !== null && (
-          <Connect definition={connecting} computer={computer} onClose={() => setConnecting(null)} />
+          <Connect
+            definition={connecting}
+            computerKey={place.key}
+            computer={computer}
+            onClose={() => setConnecting(null)}
+          />
         )}
       </Sheet>
     </Screen>
@@ -151,15 +156,16 @@ export function ProvidersScreen({ place }: { place: PlaceOf<"providers"> }) {
 type Step = "choose" | "key" | "code";
 
 /** The Connect sheet's body. Mounted only while the sheet is open, so a typed key and a started sign-in end with it. */
-function Connect({
-  definition,
-  computer,
-  onClose,
-}: {
+interface ConnectProps {
   definition: ProviderDefinitionView;
+  /** The computer's key; `computer` is its name. */
+  computerKey: string;
   computer: string;
   onClose: () => void;
-}) {
+}
+
+function Connect(props: ConnectProps) {
+  const { definition } = props;
   const ways = waysOf(definition);
   const [step, setStep] = useState<Step>(ways.key && ways.code ? "choose" : ways.key ? "key" : "code");
   return (
@@ -176,9 +182,9 @@ function Connect({
           />
         </>
       ) : step === "key" ? (
-        <KeyForm definition={definition} computer={computer} onClose={onClose} />
+        <KeyForm {...props} />
       ) : (
-        <CodeSignIn definition={definition} computer={computer} onClose={onClose} />
+        <CodeSignIn {...props} />
       )}
     </View>
   );
@@ -189,16 +195,8 @@ function keyFailure(code: string, computer: string): string {
   return t(code === "invalid_input" ? "secret-input.error.invalid" : "settings.error.connect-failed");
 }
 
-function KeyForm({
-  definition,
-  computer,
-  onClose,
-}: {
-  definition: ProviderDefinitionView;
-  computer: string;
-  onClose: () => void;
-}) {
-  const setup = useSetup();
+function KeyForm({ definition, computerKey, computer, onClose }: ConnectProps) {
+  const setup = useSetup(computerKey);
   const secret = useSecretField({ label: t("settings.label.auth-api-key"), autoFocus: true });
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -235,16 +233,8 @@ function KeyForm({
  * Starts the sign-in as it opens and closes the sheet once the computer is connected (the list then shows it). Closing it
  * before the end stops the sign-in on the computer.
  */
-function CodeSignIn({
-  definition,
-  computer,
-  onClose,
-}: {
-  definition: ProviderDefinitionView;
-  computer: string;
-  onClose: () => void;
-}) {
-  const setup = useSetup();
+function CodeSignIn({ definition, computerKey, computer, onClose }: ConnectProps) {
+  const setup = useSetup(computerKey);
   const [started, setStarted] = useState<SignInStarted | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   // The sign-in to stop if the sheet goes away before it ends.

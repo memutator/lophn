@@ -1,8 +1,8 @@
-// Setting up the computer on screen from the phone: a secret an agent asked for, a provider connected with an API key, a
+// Setting up a paired computer from the phone (the one on screen, or another by its key, without switching to it): a secret an agent asked for, a provider connected with an API key, a
 // provider sign-in that ends in any browser (device code), and the providers read. The order of each (ids, the value, the
 // connect) is the core's; the phone only calls its routes. A value typed here goes once, as the upload body, and is not
 // kept: callers hold it only until they call.
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { z } from "zod";
 import type { MemoryRoute, ReadRoute, UploadRoute } from "../../../protocol/base/route.ts";
 import { inputRequestAnswerSecret } from "../../../protocol/lophn-agent/input-request.ts";
@@ -24,13 +24,16 @@ import type { SourceResult } from "../../../shell/renderer/conversation/agent-ta
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import {
   followCoreRead,
+  followRead,
   type Loaded,
+  type Read,
   readsOf,
-  useFollowedRead,
 } from "../../../shell/renderer/desktop/connection/core-read.ts";
+import type { EventClient } from "../../../shell/renderer/desktop/connection/events/client.ts";
 import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import { commandBody } from "../../../shell/renderer/command-call.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
+import { useComputerData } from "./hooks.tsx";
 import { base64Of } from "./images.ts";
 
 export type { ProviderRecord } from "../../../protocol/lophn-agent/provider-values.ts";
@@ -85,10 +88,24 @@ export interface Setup {
   cancelSignIn(started: SignInStarted): Promise<void>;
 }
 
-export function useSetup(): Setup {
-  const client = useEventClient();
+// A computer that is not paired (any more): every call is unavailable.
+const UNPAIRED: CoreSource = {
+  subscribe: () => () => {},
+  call: () => Promise.resolve({ ok: false, error: { code: "unavailable", message: "not paired" } }),
+};
+
+/** The event client of `key`'s computer, or of the computer on screen without a key. Neither switches which is on screen. */
+function useClient(key: string | undefined): EventClient | null {
+  const onScreen = useEventClient();
+  const data = useComputerData(key ?? "");
+  return key === undefined ? onScreen : (data?.client ?? null);
+}
+
+/** Setting up `computer` (a paired computer's key), or the computer on screen without one. */
+export function useSetup(computer?: string): Setup {
+  const client = useClient(computer);
   return useMemo(() => {
-    const { core } = client;
+    const core = client?.core ?? UNPAIRED;
     return {
       async answerSecret(target, value) {
         const sent = await upload(core, inputRequestAnswerSecret, { session: target.session, tool_call: target.toolCall }, value);
@@ -105,6 +122,10 @@ export function useSetup(): Setup {
         return { ok: true, value: { provider, login, url: sign_in.url, code: sign_in.user_code } };
       },
       followSignIn(login, onEnd) {
+        if (client === null) {
+          onEnd({ failed: "unavailable" });
+          return () => {};
+        }
         let ended = false;
         let follow: { stop(): void } | null = null;
         const end = (outcome: SignInOutcome) => {
@@ -156,30 +177,46 @@ export type ProvidersView =
     }
   | "forbidden";
 
-export function useProviders(): Loaded<ProvidersView> {
-  return useFollowedRead<ProvidersView>(
-    async (core) => {
-      const connected: ProviderRecord[] = [];
-      let cursor: string | null = null;
-      do {
-        const page: SourceResult<z.output<typeof providerList.output>> = await callRoute(
-          core,
-          providerList,
-          cursor === null ? {} : { cursor },
-        );
-        if (!page.ok) return page.code === "forbidden" ? { ok: true, value: "forbidden" } : { ok: false };
-        connected.push(...page.value.providers);
-        cursor = page.value.next_cursor;
-      } while (cursor !== null);
-      const read = await callRoute<z.output<typeof providerDefinitions.output>>(core, providerDefinitions, {});
-      if (!read.ok) return read.code === "forbidden" ? { ok: true, value: "forbidden" } : { ok: false };
-      const used = new Set(connected.map((one) => one.definition.key));
-      return {
-        ok: true,
-        value: { connected, available: read.value.definitions.filter((one) => !used.has(one.key)) },
-      };
-    },
-    [...readsOf(providerList, {}), ...readsOf(providerDefinitions, {})],
-    "providers",
-  ).loaded;
+/** `computer`'s providers, read again when they change. */
+export function useProviders(computer: string): Loaded<ProvidersView> {
+  const client = useClient(computer);
+  const [loaded, setLoaded] = useState<Loaded<ProvidersView>>({ state: "loading" });
+  useEffect(() => {
+    if (client === null) {
+      setLoaded({ state: "failed" });
+      return;
+    }
+    setLoaded({ state: "loading" });
+    const follow = followRead(
+      client,
+      readProviders,
+      [...readsOf(providerList, {}), ...readsOf(providerDefinitions, {})],
+      setLoaded,
+      () => new Date(),
+    );
+    return () => follow.stop();
+  }, [client]);
+  return loaded;
+}
+
+async function readProviders(core: CoreSource): Read<ProvidersView> {
+  const connected: ProviderRecord[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: SourceResult<z.output<typeof providerList.output>> = await callRoute(
+      core,
+      providerList,
+      cursor === null ? {} : { cursor },
+    );
+    if (!page.ok) return page.code === "forbidden" ? { ok: true, value: "forbidden" } : { ok: false };
+    connected.push(...page.value.providers);
+    cursor = page.value.next_cursor;
+  } while (cursor !== null);
+  const read = await callRoute<z.output<typeof providerDefinitions.output>>(core, providerDefinitions, {});
+  if (!read.ok) return read.code === "forbidden" ? { ok: true, value: "forbidden" } : { ok: false };
+  const used = new Set(connected.map((one) => one.definition.key));
+  return {
+    ok: true,
+    value: { connected, available: read.value.definitions.filter((one) => !used.has(one.key)) },
+  };
 }

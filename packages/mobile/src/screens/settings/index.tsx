@@ -305,7 +305,7 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
 
 export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
   const nav = useNav();
-  const { computers, current, select, rename, remove } = useComputers();
+  const { computers, rename, remove } = useComputers();
   const computer = computers.find((one) => one.key === place.key);
   const [naming, setNaming] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -372,11 +372,7 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
         <Row
           title={t("settings.label.tab-providers")}
           end={NEXT}
-          onPress={() => {
-            // The data layer serves the computer on screen, so setting one up makes it that computer.
-            if (current !== computer.key) select(computer.key);
-            nav.open({ name: "providers", key: computer.key });
-          }}
+          onPress={() => nav.open({ name: "providers", key: computer.key })}
         />
       </Group>
       <Label>{t("mobile.computer.heading.on-phone")}</Label>

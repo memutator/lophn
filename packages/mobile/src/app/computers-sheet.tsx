@@ -1,5 +1,6 @@
-// Every paired computer, how it is reached and what waits on it; picking one moves the whole frame to it
-// (tools/wireframes/drafts/phone/shell.tsx Computers).
+// The filter of the one list (tools/wireframes/drafts/phone/shell.tsx Computers): every computer, or one of them with how
+// it is reached and what waits on it. Picking one shows only its lines and makes it the computer on screen; every
+// connection stays as it is.
 import { t } from "@lophn/i18n";
 import {
   Badge,
@@ -11,10 +12,10 @@ import {
   Text,
   useTheme,
 } from "@lophn/ui-native";
-import { Check, type LucideIcon, Monitor, Plus } from "lucide-react-native";
+import { Check, Layers, type LucideIcon, Monitor, Plus } from "lucide-react-native";
 import { View } from "react-native";
-import { useComputers } from "../data/mod.ts";
-import { stateWithPathOf } from "./computer-state.ts";
+import { useComputers, useEveryComputer } from "../data/mod.ts";
+import { filterStateOf, stateWithPathOf } from "./computer-state.ts";
 
 function Device({ icon, plain }: { icon: LucideIcon; plain?: boolean }) {
   const theme = useTheme();
@@ -42,19 +43,40 @@ export function ComputersSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  /** After the store selected it. */
-  onPick: (key: string) => void;
+  /** After a computer that was not on screen was picked: it is on screen now. */
+  onPick: () => void;
   onPair: () => void;
 }) {
-  const { computers, current, select } = useComputers();
+  const { computers, current } = useComputers();
+  const { filter, setFilter } = useEveryComputer();
+  const all = filterStateOf(computers);
   return (
     <Sheet
       open={open}
       onClose={onClose}
       title={t("mobile.computer.heading.computers")}
     >
+      {computers.length > 1 && (
+        <Row
+          lead={<Device icon={Layers} />}
+          title={t("mobile.computer.filter.all")}
+          strong
+          sub={
+            <>
+              <Dot tone={all.tone} />
+              <Text variant="small">{all.text}</Text>
+            </>
+          }
+          end={filter === null ? <Icon icon={Check} /> : undefined}
+          onPress={() => {
+            onClose();
+            setFilter(null);
+          }}
+        />
+      )}
       {computers.map((computer) => {
         const state = stateWithPathOf(computer);
+        const picked = computer.key === filter || computers.length === 1;
         return (
           <Row
             key={computer.key}
@@ -68,7 +90,7 @@ export function ComputersSheet({
               </>
             }
             end={
-              computer.key === current ? (
+              picked ? (
                 <Icon icon={Check} />
               ) : computer.waiting > 0 ? (
                 <Badge count={computer.waiting} />
@@ -76,9 +98,9 @@ export function ComputersSheet({
             }
             onPress={() => {
               onClose();
-              if (computer.key === current) return;
-              select(computer.key);
-              onPick(computer.key);
+              if (computers.length === 1) return;
+              setFilter(computer.key);
+              if (computer.key !== current) onPick();
             }}
           />
         );

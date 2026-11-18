@@ -43,3 +43,18 @@ export function stateWithPathOf(computer: ComputerItem): {
     ),
   };
 }
+
+/** Every computer at once, for the filter showing them all: "2 of 3 connected", good while one is. */
+export function filterStateOf(computers: readonly ComputerItem[]): {
+  tone: DotTone;
+  text: string;
+} {
+  const connected = computers.filter((one) => one.status === "connected").length;
+  return {
+    tone: connected > 0 ? "good" : "off",
+    text: t("mobile.computer.filter.connected", {
+      connected,
+      count: computers.length,
+    }),
+  };
+}

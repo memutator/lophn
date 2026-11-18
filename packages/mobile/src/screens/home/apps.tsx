@@ -1,24 +1,29 @@
 import { t } from "@lophn/i18n";
 import { Text } from "@lophn/ui-native";
 import { Pressable, View } from "react-native";
-import type { WorkspaceView } from "../../data/mod.ts";
+import { ComputerScope, type WorkspaceView } from "../../data/mod.ts";
 import { WorkspaceMark } from "../../parts/mod.ts";
 
+/** An app of one computer on Home. */
+export interface AppTile {
+  readonly computer: string;
+  readonly app: WorkspaceView;
+  /** Opens its running preview, and says so under its name. */
+  readonly preview: boolean;
+  /** Runs on a computer that is away: dimmed, and it does not open. */
+  readonly dim: boolean;
+}
+
 /**
- * The apps as marks in rows of five (tools/wireframes/drafts/phone/shell.tsx Apps). Offline, the ones that run on the
- * computer (`away`) dim and do not open; the ones that run on this phone stay as they are. An app in `previews` opens its
- * running preview, and says so under its name.
+ * The apps as marks in rows of five (tools/wireframes/drafts/phone/shell.tsx Apps), of every computer the list shows.
+ * Offline, the ones that run on the computer dim and do not open; the ones that run on this phone stay as they are.
  */
 export function Apps({
   apps,
-  away,
-  previews,
   onOpen,
 }: {
-  apps: readonly WorkspaceView[];
-  away?: (app: WorkspaceView) => boolean;
-  previews?: ReadonlySet<string>;
-  onOpen: (app: WorkspaceView) => void;
+  apps: readonly AppTile[];
+  onOpen: (tile: AppTile) => void;
 }) {
   return (
     <View
@@ -29,18 +34,17 @@ export function Apps({
         paddingHorizontal: 12,
       }}
     >
-      {apps.map((app) => {
+      {apps.map((tile) => {
+        const { app, preview, dim } = tile;
         const name = app.name ?? "";
-        const dim = away?.(app) ?? false;
-        const preview = previews?.has(app.key) === true;
         const mode = t("common.label.app-mode-preview");
         return (
           <Pressable
-            key={app.key}
+            key={`${tile.computer}:${app.key}`}
             accessibilityRole="button"
             accessibilityLabel={preview ? t("mobile.drive.list.app", { name }) : name}
             disabled={dim}
-            onPress={() => onOpen(app)}
+            onPress={() => onOpen(tile)}
             style={{
               width: "20%",
               alignItems: "center",
@@ -50,7 +54,10 @@ export function Apps({
               opacity: dim ? 0.4 : 1,
             }}
           >
-            <WorkspaceMark icon={app.icon} name={name} size="lg" />
+            {/* The scope gives the mark its computer's kept icon. */}
+            <ComputerScope computer={tile.computer}>
+              <WorkspaceMark icon={app.icon} name={name} size="lg" />
+            </ComputerScope>
             <Text variant="caption" numberOfLines={1}>
               {name}
             </Text>

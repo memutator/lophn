@@ -1,5 +1,7 @@
-// Home (tools/wireframes/drafts/phone/shell.tsx HomeScreen and Offline): what needs the person, the apps, what is working
-// now, and a message box that starts a session in a workspace.
+// Home (tools/wireframes/drafts/phone/shell.tsx HomeScreen and Offline) over every computer the list shows: what needs the
+// person, the apps, what is working now, and a message box that starts a session in a workspace. While more than one
+// computer shows each line says its computer, and a computer that is not reached is one line on top that opens its own
+// Home. With one computer shown and away, Home is that computer's offline page. A line opens on its own computer.
 import { t } from "@lophn/i18n";
 import {
   Dot,
@@ -11,60 +13,70 @@ import {
   Text,
   Toast,
   TopBar,
+  useTheme,
 } from "@lophn/ui-native";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, Monitor } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
-import { stateOf } from "../../app/computer-state.ts";
+import { filterStateOf, stateOf } from "../../app/computer-state.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
-  installedOf,
-  useCurrentComputer,
-  useInbox,
-  useLocalApps,
-  useNames,
-  previewOnly,
-  usePhoneApps,
-  useWithSavedLists,
-  useWorkspaces,
-  withLocalApps,
+  type ComputerItem,
+  type ComputerLines,
+  ComputerScope,
+  useComputers,
+  useEveryComputer,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { ago, EmptyScreen, Face, LOPHN, SessionDot, useUnreachable } from "../../parts/mod.ts";
-import { Apps } from "./apps.tsx";
-import { HomeComposer } from "./compose.tsx";
+import { ago, EmptyScreen, Face, LOPHN, SessionDot, unreachableOf } from "../../parts/mod.ts";
+import { type AppTile, Apps } from "./apps.tsx";
+import { type Choice, choiceKey, HomeComposer } from "./compose.tsx";
 import { frontOf, NeedsYou } from "./needs.tsx";
 import { OfflineBody } from "./offline.tsx";
 
 export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const nav = useNav();
-  const computer = useCurrentComputer();
-  const installed = installedOf(useLocalApps());
-  const onPhone = new Set(installed.map((one) => one.app));
-  const workspaces = withLocalApps(useWithSavedLists(useWorkspaces()), installed);
-  const names = useNames();
-  const inbox = useInbox();
+  const { computers, current } = useComputers();
+  const { shown, many, filter } = useEveryComputer();
   const [failed, setFailed] = useState(false);
+  const [picked, setPicked] = useState<string | null>(null);
 
-  const status = computer?.status ?? "offline";
-  const online = status === "connected";
-  // Out of the version range it says who must update, like every other message box.
-  const unreachable = useUnreachable();
-  // When the phone last heard from the computer: set the moment a connection ends.
-  const [leftAt, setLeftAt] = useState<number | null>(null);
-  useEffect(() => {
-    if (status !== "connected") return;
-    return () => setLeftAt(Date.now());
-  }, [status]);
+  const reached = shown.filter((one) => one.computer.status === "connected");
+  const away = shown.filter((one) => one.computer.status !== "connected");
+  // One computer shown and away: its own offline page.
+  const alone = !many && away.length === 1 ? away[0]! : null;
 
-  const apps = workspaces.filter((workspace) => workspace.kind === "app");
-  const working = workingOf(workspaces);
-  const shown = online || computer === null;
+  const choices = reached.flatMap((lines) =>
+    lines.workspaces.map(
+      (workspace): Choice => ({
+        computer: lines.computer.key,
+        tag: many ? lines.computer.name : null,
+        workspace,
+      }),
+    ),
+  );
+  // The Home of the computer on screen until the person picks another workspace.
+  const choice =
+    choices.find((one) => choiceKey(one) === picked) ??
+    choices.find((one) => one.computer === current && one.workspace.kind === "home") ??
+    choices[0];
+  const quiet = computers.find((one) => one.key === (choice?.computer ?? current)) ?? null;
+
+  // The filter on the top bar: the computer it shows (or the only one), else every computer.
+  const one =
+    computers.find((each) => each.key === filter) ??
+    (computers.length === 1 ? computers[0]! : null);
+  const filterState = one === null ? filterStateOf(computers) : stateOf(one);
   const empty =
-    shown && inbox.count === 0 && apps.length === 0 && working.length === 0;
-  const state = computer === null ? null : stateOf(computer);
-  const name = computer?.name ?? "";
+    alone === null &&
+    away.length === 0 &&
+    reached.every(
+      (lines) =>
+        lines.computer.waiting === 0 &&
+        !lines.workspaces.some((workspace) => workspace.kind === "app") &&
+        workingOf([lines]).length === 0,
+    );
 
   return (
     <Screen
@@ -73,28 +85,29 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
           {...nav.menuButton}
           title={t("left-sidebar.label.home")}
           right={
-            computer === null ? undefined : (
-              <View style={{ marginRight: 8 }}>
-                <Pill
-                  lead={<Dot tone={state?.tone} />}
-                  onPress={nav.openComputers}
-                >
-                  {name}
-                </Pill>
-              </View>
-            )
+            <View style={{ marginRight: 8 }}>
+              <Pill lead={<Dot tone={filterState.tone} />} onPress={nav.openComputers}>
+                {one?.name ?? t("mobile.computer.filter.all")}
+              </Pill>
+            </View>
           }
         />
       }
       scroll={!empty}
       footer={
-        <HomeComposer
-          workspaces={workspaces}
-          locked={!online}
-          unreachable={unreachable ?? t("mobile.start.heading.unreachable", { name })}
-          onStarted={(target) => nav.open({ name: "session", ...target })}
-          onFailed={setFailed}
-        />
+        <ComputerScope computer={choice?.computer ?? current ?? ""}>
+          <HomeComposer
+            choices={choices}
+            picked={choice}
+            onPick={(next) => setPicked(choiceKey(next))}
+            locked={choice === undefined}
+            unreachable={quiet === null ? "" : unreachableOf(quiet)}
+            onStarted={(target) =>
+              choice !== undefined && nav.openOn(choice.computer, { name: "session", ...target })
+            }
+            onFailed={setFailed}
+          />
+        </ComputerScope>
       }
       over={
         failed ? <Toast>{t("waiting.notice.action-failed")}</Toast> : undefined
@@ -104,81 +117,108 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
         <EmptyScreen title={t("waiting.notice.empty")}>
           {t("mobile.home.empty.caption")}
         </EmptyScreen>
-      ) : shown ? (
-        <Online
-          apps={apps}
-          onPhone={onPhone}
-          working={working}
-          workspaces={workspaces}
-          inbox={inbox}
-          names={names}
-        />
+      ) : alone !== null ? (
+        <ComputerScope computer={alone.computer.key}>
+          <Alone lines={alone} />
+        </ComputerScope>
       ) : (
-        <OfflineBody
-          apps={apps}
-          onPhone={onPhone}
-          onOpen={(app) => nav.open({ name: "app", id: app.key })}
-          workspaces={workspaces}
-          leftAt={leftAt}
-        />
+        <Lines reached={reached} away={away} many={many} />
       )}
     </Screen>
   );
 }
 
-/** Every session working now, newest first, with its workspace. */
-function workingOf(workspaces: readonly WorkspaceView[]) {
-  return workspaces
-    .flatMap((workspace) =>
-      workspace.groups
-        .flatMap((group) => group.rows)
-        .filter((row) => row.status === "working")
-        .map((row) => ({ row, workspace })),
+/** The one computer shown, while it is away. */
+function Alone({ lines }: { lines: ComputerLines }) {
+  const nav = useNav();
+  const { status } = lines.computer;
+  // When the phone last heard from the computer: set the moment a connection ends.
+  const [leftAt, setLeftAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (status !== "connected") return;
+    return () => setLeftAt(Date.now());
+  }, [status]);
+  return (
+    <OfflineBody
+      lines={lines}
+      onOpen={(tile) => nav.openOn(tile.computer, { name: "app", id: tile.app.key })}
+      leftAt={leftAt}
+    />
+  );
+}
+
+/** Every session working now on the reached computers, newest first, with its workspace and computer. */
+function workingOf(reached: readonly ComputerLines[]) {
+  return reached
+    .flatMap(({ computer, workspaces }) =>
+      workspaces.flatMap((workspace) =>
+        workspace.groups
+          .flatMap((group) => group.rows)
+          .filter((row) => row.status === "working")
+          .map((row) => ({ row, workspace, computer })),
+      ),
     )
     .sort((a, b) => b.row.at - a.row.at);
 }
 
-function Online({
-  apps,
-  onPhone,
-  working,
-  workspaces,
-  inbox,
-  names,
+function Lines({
+  reached,
+  away,
+  many,
 }: {
-  apps: readonly WorkspaceView[];
-  onPhone: ReadonlySet<string>;
-  working: ReturnType<typeof workingOf>;
-  workspaces: readonly WorkspaceView[];
-  inbox: ReturnType<typeof useInbox>;
-  names: ReturnType<typeof useNames>;
+  reached: readonly ComputerLines[];
+  away: readonly ComputerLines[];
+  many: boolean;
 }) {
   const nav = useNav();
+  const { setFilter } = useEveryComputer();
   const now = Date.now();
+  const needs = frontOf(reached);
+  const waiting = reached.reduce((sum, one) => sum + one.computer.waiting, 0);
   // An app with a phone screen or on this phone opens it, one whose only phone screen is in its running preview opens
   // the preview, and any other app opens its workspace.
-  const phoneApps = usePhoneApps().apps;
-  const phone = new Set([
-    ...phoneApps.filter((one) => !previewOnly(one)).map((one) => one.app),
-    ...onPhone,
-  ]);
-  const previews = new Set(
-    phoneApps.filter((one) => previewOnly(one) && !phone.has(one.app)).map((one) => one.app),
+  const apps = reached.flatMap((lines) =>
+    lines.workspaces
+      .filter((one) => one.kind === "app")
+      .map(
+        (app): AppTile => ({
+          computer: lines.computer.key,
+          app,
+          preview: lines.phone.get(app.key) === "preview",
+          dim: false,
+        }),
+      ),
   );
+  const phoneOf = (tile: AppTile) =>
+    reached.find((one) => one.computer.key === tile.computer)?.phone.get(tile.app.key);
+  const working = workingOf(reached);
   return (
     <>
-      {inbox.count > 0 && (
+      {away.map(({ computer }) => (
+        <Away
+          key={computer.key}
+          computer={computer}
+          // Its own Home says why it is away and has Try again.
+          onPress={() => {
+            setFilter(computer.key);
+            nav.openOn(computer.key, { name: "home" });
+          }}
+        />
+      ))}
+      {waiting > 0 && (
         <>
           <Label
             end={
               <Pressable
                 accessibilityRole="button"
                 hitSlop={8}
-                onPress={() => nav.open({ name: "inbox" })}
+                onPress={() =>
+                  nav.openOn(needs[0]?.lines.computer.key ?? reached[0]!.computer.key, { name: "inbox" })
+                }
                 style={{ flexDirection: "row", alignItems: "center", gap: 2 }}
               >
                 <Text variant="small" weight="medium">
-                  {t("mobile.home.button.inbox-count", { count: inbox.count })}
+                  {t("mobile.home.button.inbox-count", { count: waiting })}
                 </Text>
                 <Icon icon={ChevronRight} size={15} />
               </Pressable>
@@ -187,12 +227,10 @@ function Online({
             {t("mobile.home.heading.needs-you")}
           </Label>
           <NeedsYou
-            entries={frontOf(inbox.entries)}
-            inbox={inbox}
-            names={names}
-            workspaces={workspaces}
-            onInbox={() => nav.open({ name: "inbox" })}
-            onUpdate={(id) => nav.open({ name: "app-update", id })}
+            needs={needs}
+            many={many}
+            onInbox={(computer) => nav.openOn(computer, { name: "inbox" })}
+            onUpdate={(computer, id) => nav.openOn(computer, { name: "app-update", id })}
           />
         </>
       )}
@@ -201,38 +239,40 @@ function Online({
           <Label>{t("common.heading.apps")}</Label>
           <Apps
             apps={apps}
-            previews={previews}
-            onOpen={(app) =>
-              app.workspace !== null &&
-              nav.open(
-                phone.has(app.key)
-                  ? { name: "app", id: app.key }
-                  : previews.has(app.key)
-                    ? { name: "app", id: app.key, preview: true }
-                    : { name: "workspace", workspace: app.workspace },
-              )
-            }
+            onOpen={(tile) => {
+              const phone = phoneOf(tile);
+              if (tile.app.workspace === null) return;
+              nav.openOn(
+                tile.computer,
+                phone === "screen"
+                  ? { name: "app", id: tile.app.key }
+                  : phone === "preview"
+                    ? { name: "app", id: tile.app.key, preview: true }
+                    : { name: "workspace", workspace: tile.app.workspace },
+              );
+            }}
           />
         </>
       )}
       {working.length > 0 && (
         <>
           <Label>{t("mobile.home.heading.working")}</Label>
-          {working.map(({ row, workspace }) => (
+          {working.map(({ row, workspace, computer }) => (
             <Row
-              key={row.id}
+              key={`${computer.key}:${row.id}`}
               lead={<Face profile={row.who?.profile ?? LOPHN} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={[
                 row.who?.name,
-                workspace.name ?? t("left-sidebar.label.home"),
+                nameOf(workspace),
+                many ? computer.name : undefined,
                 row.at > 0 ? ago(row.at, now) : undefined,
               ]
                 .filter((part) => part !== undefined)
                 .join(" · ")}
               end={<SessionDot status={row.status} />}
               onPress={() =>
-                nav.open({
+                nav.openOn(computer.key, {
                   name: "session",
                   session: row.id,
                   agent: row.agent ?? lophnIdOf(row.workspace),
@@ -244,5 +284,41 @@ function Online({
         </>
       )}
     </>
+  );
+}
+
+const nameOf = (workspace: WorkspaceView) => workspace.name ?? t("left-sidebar.label.home");
+
+/** A computer that is not reached: its name and state. */
+function Away({ computer, onPress }: { computer: ComputerItem; onPress: () => void }) {
+  const theme = useTheme();
+  const state = stateOf(computer);
+  return (
+    <Row
+      lead={
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.color.surface.muted,
+          }}
+        >
+          <Icon icon={Monitor} />
+        </View>
+      }
+      title={computer.name}
+      strong
+      sub={
+        <>
+          <Dot tone={state.tone} />
+          <Text variant="small">{state.text}</Text>
+        </>
+      }
+      end={<Icon icon={ChevronRight} size={18} />}
+      onPress={onPress}
+    />
   );
 }

@@ -48,6 +48,7 @@ export {
   type CodingSessionsView,
   type Conversation,
   type ConversationTarget,
+  ComputerScope,
   DataProvider,
   type Inbox,
   useComputers,
@@ -88,6 +89,12 @@ export {
 export type { ComputerData, SampleConversation } from "./link.ts";
 export { callOnce, createPhoneComputers } from "./phone.ts";
 export * from "./apps.ts";
+export {
+  type ComputerLines,
+  EveryComputer,
+  type PhoneLine,
+  useEveryComputer,
+} from "./every.tsx";
 export * from "./local-apps.ts";
 export * from "./ops.ts";
 export * from "./places.ts";

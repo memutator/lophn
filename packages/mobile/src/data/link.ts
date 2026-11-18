@@ -1,5 +1,5 @@
-// What one computer's screens read, built the way the desktop window builds it: the event client, the Inbox store and the
-// conversation source over a `CoreSource`. The phone's connection already has the CoreSource shape, so the desktop code
+// What one computer's screens read, built the way the desktop window builds it: the event client, its stores (sessions,
+// Inbox) and the conversation source over a `CoreSource`. The phone's connection already has the CoreSource shape, so the desktop code
 // runs on it unchanged. After a drop the connection sends the last watch again and the core answers `ready`; the event
 // client then re-reads every snapshot (architecture/event.md).
 import { coreAgentTabSourceFactory } from "../../../shell/renderer/conversation/agent-tab-core-source.ts";
@@ -9,7 +9,10 @@ import {
   createEventClient,
   type EventClient,
 } from "../../../shell/renderer/desktop/connection/events/client.ts";
-import { createWaitingStore } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
+import {
+  createEventStores,
+  type EventStores,
+} from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import {
   type createConnection,
   type Link,
@@ -19,13 +22,12 @@ import {
 import { type Coding, codingOf } from "./coding.ts";
 import { remoteImages } from "./images.ts";
 
-export type WaitingStore = ReturnType<typeof createWaitingStore>;
-
 export interface ComputerData {
   readonly core: CoreSource;
   readonly client: EventClient;
-  // Kept for every computer, not only the one on screen, so the computer list can show what waits on each.
-  readonly waiting: WaitingStore;
+  // The sessions, Inbox and unseen stores. They run for every computer, not only the one on screen: the one list shows
+  // every computer's sessions and the computer list what waits on each.
+  readonly stores: EventStores;
   readonly sources: AgentTabSourceFactory;
   /** The computer's coding sessions: the conversation source of a chat-view one and the actions on them. */
   readonly coding: Coding;
@@ -42,7 +44,7 @@ export interface ComputerData {
 
 export type SampleConversation = "done" | "working" | "approval" | "question";
 
-/** The Inbox store and conversation source over any CoreSource. The sample computer builds the same over its fake core. */
+/** The event stores and conversation source over any CoreSource. The sample computer builds the same over its fake core. */
 export function dataOf(
   core: CoreSource,
   sources: AgentTabSourceFactory = coreAgentTabSourceFactory(core, {
@@ -50,14 +52,10 @@ export function dataOf(
   }),
 ): { data: ComputerData; stop: () => void } {
   const client = createEventClient(core);
-  const waiting = createWaitingStore(
-    client,
-    () => new Date().toISOString(),
-    null,
-  );
+  const stores = createEventStores(client);
   return {
-    data: { core, client, waiting, sources, coding: codingOf(client) },
-    stop: waiting.start(),
+    data: { core, client, stores, sources, coding: codingOf(client) },
+    stop: stores.start(),
   };
 }
 
@@ -67,10 +65,10 @@ export function linkOf(
   const { data, stop } = dataOf(connection);
   return {
     data,
-    state: () => linkStateOf(connection, data.waiting.get().count),
+    state: () => linkStateOf(connection, data.stores.waiting.get().count),
     subscribe(listener) {
       const offState = connection.subscribe(listener);
-      const offWaiting = data.waiting.subscribe(listener);
+      const offWaiting = data.stores.waiting.subscribe(listener);
       return () => {
         offState();
         offWaiting();

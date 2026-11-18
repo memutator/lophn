@@ -13,6 +13,7 @@ import {
   Globe,
   Home,
   Laptop,
+  Layers,
   type LucideIcon,
   Monitor,
   Plus,
@@ -51,13 +52,35 @@ import {
 } from "./kit.tsx";
 
 export const COMPUTER = "mina-desktop";
+// The other paired computers: one reached through the relay, one that is off.
+const OTHER = "mini-pc";
+const AWAY = "work-laptop";
 
-export function ComputerChip({ off }: { off?: boolean }) {
+/** What the list shows: every computer, or the one the filter picked. */
+type Filter = "all" | typeof OTHER;
+
+/** The filter on Home's top bar: every computer, or the one it shows. */
+export function ComputerChip({
+  off,
+  label = COMPUTER,
+}: {
+  off?: boolean;
+  label?: string;
+}) {
   return (
     <span className={s.pill} style={{ marginRight: 8 }}>
       <Dot tone={off ? "off" : "good"} />
-      {COMPUTER}
+      {label}
       <Ic icon={ChevronDown} size={14} />
+    </span>
+  );
+}
+
+/** The computer a line belongs to, at its end, while the list shows more than one computer. */
+function Tag({ children }: { children: string }) {
+  return (
+    <span className={s.muted} style={{ flex: "none", fontSize: 12 }}>
+      {children}
     </span>
   );
 }
@@ -87,16 +110,32 @@ function Nav({
 function Space({
   lead,
   children,
+  end,
   on,
 }: {
   lead: ReactNode;
   children: ReactNode;
+  /** The computer's name, while the list shows more than one. */
+  end?: string;
   on?: boolean;
 }) {
   return (
     <div className={s.dRow} data-kind="space" data-on={on || undefined}>
       {lead}
       <span className={s.dText}>{children}</span>
+      {end !== undefined && <Tag>{end}</Tag>}
+    </div>
+  );
+}
+
+/** A computer that is not reached: its name and state, one line in place of its workspaces. */
+function Away() {
+  return (
+    <div className={s.dRow} data-kind="space">
+      <Ic icon={Laptop} size={19} />
+      <span className={s.dText}>{AWAY}</span>
+      <Dot tone="off" />
+      <Tag>Offline</Tag>
     </div>
   );
 }
@@ -133,8 +172,21 @@ export type Place =
   | "orders"
   | "calendar";
 
-/** The same list as the desktop sidebar: Inbox, Jobs, Agents, the computer's Pages, then every workspace with its sessions. */
-export function SidebarBody({ on }: { on: Place }) {
+/**
+ * The desktop sidebar's list with every paired computer in it. The filter row on top shows all computers or one; the
+ * Inbox, Jobs, Agents and Pages rows are the computer last opened from (its name over them while more than one shows).
+ * Each computer's Home is its own line, and while more than one computer shows a workspace line ends with its computer.
+ * A computer that is not reached keeps one line: its name and state.
+ */
+export function SidebarBody({
+  on,
+  filter = "all",
+}: {
+  on: Place;
+  filter?: Filter;
+}) {
+  const all = filter === "all";
+  const tag = all ? COMPUTER : undefined;
   return (
     <>
       <div className={s.brand}>
@@ -150,7 +202,7 @@ export function SidebarBody({ on }: { on: Place }) {
         <Ic icon={Monitor} size={20} />
         <div className={s.grow}>
           <div style={{ fontSize: 15, fontWeight: 500, lineHeight: "20px" }}>
-            {COMPUTER}
+            {all ? "All computers" : OTHER}
           </div>
           <div
             className={s.muted}
@@ -163,13 +215,14 @@ export function SidebarBody({ on }: { on: Place }) {
             }}
           >
             <Dot tone="good" />
-            Connected
+            {all ? "2 of 3 connected" : "Connected"}
           </div>
         </div>
         <Ic icon={ChevronsUpDown} size={16} className={s.muted} />
       </div>
       <div className={s.drawerScroll}>
-        <Nav icon={Bell} end={<Badge n={3} />} on={on === "inbox"}>
+        {all && <div className={s.dLabel}>{COMPUTER}</div>}
+        <Nav icon={Bell} end={<Badge n={all ? 2 : 1} />} on={on === "inbox"}>
           Inbox
         </Nav>
         <Nav icon={Clock} on={on === "jobs"}>
@@ -186,67 +239,95 @@ export function SidebarBody({ on }: { on: Place }) {
           Workspaces
           <IconBtn icon={Plus} tone="muted" size={18} />
         </div>
-        <Space lead={<Ic icon={Home} size={19} />} on={on === "home"}>
-          Home
-        </Space>
-        <Session who="lophn" dot="finished">
-          Plan the week
-        </Session>
+        {all && (
+          <>
+            <Space lead={<Ic icon={Home} size={19} />} on={on === "home"}>
+              Home · {COMPUTER}
+            </Space>
+            <Session who="lophn" dot="finished">
+              Plan the week
+            </Session>
 
-        <Space lead={<Ic icon={FolderOpen} size={19} />} on={on === "phroner"}>
-          phroner
-        </Space>
-        <div className={s.dSub}>Main</div>
-        <Session who="lophn" dot="waiting" on={on === "weekly-report"}>
-          Weekly report
-        </Session>
-        <Session who="Claude Code" dot="working">
-          Fix flaky retry in the scenario runner
-        </Session>
-        <div className={s.dSub}>weekly-review</div>
-        <div className={s.dRow} data-kind="session">
-          <span className={s.box} style={{ width: 20, height: 20 }}>
-            <Ic icon={Workflow} size={17} />
-          </span>
-          <span className={s.dText}>weekly-review</span>
-          <Dot tone="warning" />
-        </div>
-        <Session who="Codex" dot="working">
-          Split the eval board loader
-        </Session>
-        {(on === "phroner" || on === "weekly-report") && (
-          // The workspace on screen keeps the rest of its last 7 days under a folded Recent, as on the desktop.
-          <div className={s.dRow} data-kind="session">
-            <span className={s.box} style={{ width: 20, height: 20 }}>
-              <Ic icon={ChevronRight} size={15} />
-            </span>
-            <span className={s.dText}>Recent · 13</span>
-          </div>
+            <Space
+              lead={<Ic icon={FolderOpen} size={19} />}
+              end={tag}
+              on={on === "phroner"}
+            >
+              phroner
+            </Space>
+            <div className={s.dSub}>Main</div>
+            <Session who="lophn" dot="waiting" on={on === "weekly-report"}>
+              Weekly report
+            </Session>
+            <Session who="Claude Code" dot="working">
+              Fix flaky retry in the scenario runner
+            </Session>
+            <div className={s.dSub}>weekly-review</div>
+            <div className={s.dRow} data-kind="session">
+              <span className={s.box} style={{ width: 20, height: 20 }}>
+                <Ic icon={Workflow} size={17} />
+              </span>
+              <span className={s.dText}>weekly-review</span>
+              <Dot tone="warning" />
+            </div>
+            <Session who="Codex" dot="working">
+              Split the eval board loader
+            </Session>
+            {(on === "phroner" || on === "weekly-report") && (
+              // The workspace on screen keeps the rest of its last 7 days under a folded Recent, as on the desktop.
+              <div className={s.dRow} data-kind="session">
+                <span className={s.box} style={{ width: 20, height: 20 }}>
+                  <Ic icon={ChevronRight} size={15} />
+                </span>
+                <span className={s.dText}>Recent · 13</span>
+              </div>
+            )}
+
+            <Space
+              lead={<Mark kind="app" name="Orders" tone={1} />}
+              end={tag}
+              on={on === "orders"}
+            >
+              Orders
+            </Space>
+            <Session who="lophn" dot="waiting">
+              Add a CSV export
+            </Session>
+            <Space
+              lead={
+                <Mark kind="app" name="Calendar" tone={0} icon={CalendarDays} />
+              }
+              end={tag}
+              on={on === "calendar"}
+            >
+              Calendar
+            </Space>
+            <Space
+              lead={<Mark kind="app" name="Meal planner" tone={3} />}
+              end={tag}
+            >
+              Meal planner
+            </Space>
+          </>
         )}
 
-        <Space
-          lead={<Mark kind="app" name="Orders" tone={1} />}
-          on={on === "orders"}
-        >
-          Orders
+        <Space lead={<Ic icon={Home} size={19} />} on={!all && on === "home"}>
+          {all ? `Home · ${OTHER}` : "Home"}
         </Space>
-        <Session who="lophn" dot="waiting">
-          Add a CSV export
+        <Session who="Codex" dot="working">
+          Back up the photo library
         </Session>
         <Space
-          lead={
-            <Mark kind="app" name="Calendar" tone={0} icon={CalendarDays} />
-          }
-          on={on === "calendar"}
+          lead={<Ic icon={FolderOpen} size={19} />}
+          end={all ? OTHER : undefined}
         >
-          Calendar
+          homelab
         </Space>
-        <Space lead={<Mark kind="app" name="Meal planner" tone={3} />}>
-          Meal planner
-        </Space>
-        <Space lead={<Mark kind="app" name="Reading list" tone={2} />}>
-          Reading list
-        </Space>
+        <Session who="lophn" dot="waiting">
+          Renew the TLS certificates
+        </Session>
+
+        {all && <Away />}
       </div>
       <div className={s.drawerFoot}>
         <Nav icon={Settings}>Settings</Nav>
@@ -255,13 +336,13 @@ export function SidebarBody({ on }: { on: Place }) {
   );
 }
 
-export function Sidebar({ on }: { on: Place }) {
+export function Sidebar({ on, filter }: { on: Place; filter?: Filter }) {
   return (
     <>
       <div className={s.scrim} />
       <div className={s.drawer}>
         <div style={{ height: 46, flex: "none" }} />
-        <SidebarBody on={on} />
+        <SidebarBody on={on} filter={filter} />
         <div style={{ height: 26, flex: "none" }} />
       </div>
     </>
@@ -315,42 +396,73 @@ function Apps({ offline }: { offline?: boolean }) {
   );
 }
 
-export function HomeScreen({ over }: { over?: ReactNode }) {
+/**
+ * Home over every computer the filter shows. Cards, apps and working sessions of all of them in one list; while more than
+ * one shows, each line says its computer. A computer that is not reached is one line on top; it opens that computer's
+ * Home (Computer offline).
+ */
+export function HomeScreen({
+  over,
+  filter = "all",
+}: {
+  over?: ReactNode;
+  filter?: Filter;
+}) {
+  const all = filter === "all";
   return (
     <Phone over={over}>
-      <TopBar title="Home" right={<ComputerChip />} />
+      <TopBar
+        title="Home"
+        right={<ComputerChip label={all ? "All computers" : OTHER} />}
+      />
       <div className={s.body}>
+        {all && (
+          <Row
+            lead={<Device icon={Laptop} />}
+            title={AWAY}
+            sub={
+              <span
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                <Dot tone="off" /> Offline · last seen yesterday
+              </span>
+            }
+            end={<Ic icon={ChevronRight} size={18} className={s.muted} />}
+          />
+        )}
         <Label
           end={
             <>
-              Inbox · 3
+              Inbox · {all ? 3 : 1}
               <Ic icon={ChevronRight} size={15} />
             </>
           }
         >
           Needs you
         </Label>
-        <div className={s.need}>
-          <div className={s.needHead}>
-            <Face who="lophn" size={22} />
-            <span className={s.grow}>Run a command</span>
-            <span className={s.note}>now</span>
+        {all && (
+          <div className={s.need}>
+            <div className={s.needHead}>
+              <Face who="lophn" size={22} />
+              <span className={s.grow}>Run a command</span>
+              <span className={s.note}>now</span>
+            </div>
+            <div className={s.note} style={{ marginTop: 2 }}>
+              Weekly report · phroner · {COMPUTER}
+            </div>
+            <div className={s.pre} style={{ marginTop: 8 }}>
+              rm -r docs/reports/2026-w40
+            </div>
+            <div className={s.btnRow} style={{ marginTop: 10 }}>
+              <Btn block icon={X}>
+                Deny
+              </Btn>
+              <Btn block variant="primary" icon={Check}>
+                Allow once
+              </Btn>
+            </div>
           </div>
-          <div className={s.note} style={{ marginTop: 2 }}>
-            Weekly report · phroner
-          </div>
-          <div className={s.pre} style={{ marginTop: 8 }}>
-            rm -r docs/reports/2026-w40
-          </div>
-          <div className={s.btnRow} style={{ marginTop: 10 }}>
-            <Btn block icon={X}>
-              Deny
-            </Btn>
-            <Btn block variant="primary" icon={Check}>
-              Allow once
-            </Btn>
-          </div>
-        </div>
+        )}
         <div className={s.need}>
           <div className={s.needHead}>
             <Face who="lophn" size={22} />
@@ -358,27 +470,45 @@ export function HomeScreen({ over }: { over?: ReactNode }) {
             <span className={s.note}>4m</span>
           </div>
           <div className={s.note} style={{ marginTop: 2 }}>
-            Add a CSV export · Orders
+            {all
+              ? `Renew the TLS certificates · homelab · ${OTHER}`
+              : "Renew the TLS certificates · homelab"}
           </div>
           <p className={s.needText}>
-            Should the export include orders that were cancelled?
+            Should the new certificates also cover the NAS?
           </p>
         </div>
 
-        <Label>Apps</Label>
-        <Apps />
+        {all && (
+          <>
+            <Label>Apps</Label>
+            <Apps />
+          </>
+        )}
 
         <Label>Working now</Label>
+        {all && (
+          <Row
+            lead={<Face who="Codex" />}
+            title="Split the eval board loader"
+            sub={`Codex · phroner · ${COMPUTER} · 4m`}
+            end={<TabStateDot dot="working" />}
+          />
+        )}
         <Row
           lead={<Face who="Codex" />}
-          title="Split the eval board loader"
-          sub="Codex · phroner · 4m"
+          title="Back up the photo library"
+          sub={all ? `Codex · Home · ${OTHER} · 12m` : "Codex · Home · 12m"}
           end={<TabStateDot dot="working" />}
         />
       </div>
       <Composer
         placeholder="Ask lophn…"
-        chips={<Chip lead={<Ic icon={Home} size={15} />}>Home</Chip>}
+        chips={
+          <Chip lead={<Ic icon={Home} size={15} />}>
+            {all ? `Home · ${COMPUTER}` : "Home"}
+          </Chip>
+        }
       />
     </Phone>
   );
@@ -400,12 +530,20 @@ function Device({ icon }: { icon: LucideIcon }) {
   );
 }
 
+/** The filter: every computer, or one. Picking one shows only its lines and makes it the computer Inbox and Jobs are of. */
 function Computers() {
   return (
     <Sheet title="Computers">
       <Row
+        lead={<Device icon={Layers} />}
+        title="All computers"
+        strong
+        sub="2 of 3 connected"
+        end={<Ic icon={Check} />}
+      />
+      <Row
         lead={<Device icon={Monitor} />}
-        title="mina-desktop"
+        title={COMPUTER}
         strong
         sub={
           <span
@@ -414,11 +552,11 @@ function Computers() {
             <Dot tone="good" /> Connected · same network
           </span>
         }
-        end={<Ic icon={Check} />}
+        end={<Badge n={2} />}
       />
       <Row
         lead={<Device icon={Server} />}
-        title="mini-pc"
+        title={OTHER}
         strong
         sub={
           <span
@@ -431,7 +569,7 @@ function Computers() {
       />
       <Row
         lead={<Device icon={Laptop} />}
-        title="work-laptop"
+        title={AWAY}
         strong
         sub={
           <span
@@ -457,12 +595,12 @@ function Computers() {
 function Offline() {
   return (
     <Phone>
-      <TopBar title="Home" right={<ComputerChip off />} />
+      <TopBar title="Home" right={<ComputerChip off label={AWAY} />} />
       <div className={s.body}>
         <div className={s.banner}>
           <Ic icon={WifiOff} size={20} style={{ marginTop: 1 }} />
           <div className={s.grow}>
-            <div style={{ fontWeight: 600 }}>mina-desktop is offline</div>
+            <div style={{ fontWeight: 600 }}>{AWAY} is offline</div>
             <div className={s.muted} style={{ marginTop: 2 }}>
               Sessions and apps that run on it are paused here. Apps that live
               on this phone keep working and sync when it is back.
@@ -499,7 +637,7 @@ function Offline() {
           end={<Dot tone="warning" />}
         />
       </div>
-      <Composer placeholder="Cannot reach mina-desktop" attach={false} />
+      <Composer placeholder={`Cannot reach ${AWAY}`} attach={false} />
     </Phone>
   );
 }
@@ -576,29 +714,38 @@ export function ShellFlow() {
   return (
     <Flow
       title="2 · Home and the sidebar"
-      note="앱의 뼈대. 왼쪽 위 단추나 왼쪽 가장자리를 밀어 sidebar를 연다. sidebar는 desktop과 같은 목록이다: 컴퓨터, Inbox, Jobs, Agents, Workspaces(Home, project, 앱)와 그 아래 session. 본문에는 거기서 고른 것 하나가 뜬다. 아래 tab bar는 없다. 폭이 넓은 기기(600 이상)에서는 sidebar가 늘 열려 있다."
+      note="앱의 뼈대. 왼쪽 위 단추나 왼쪽 가장자리를 밀어 sidebar를 연다. sidebar는 desktop과 같은 목록이다: 거르기, Inbox, Jobs, Agents, Workspaces(Home, project, 앱)와 그 아래 session. 짝지은 모든 컴퓨터의 것이 한 목록에 서고, 컴퓨터가 둘 이상 보이면 줄마다 컴퓨터 이름이 붙는다. 줄을 누르면 그 컴퓨터의 것으로 열린다. 아래 tab bar는 없다. 폭이 넓은 기기(600 이상)에서는 sidebar가 늘 열려 있다."
     >
       <Shot
         title="Home"
-        text="켜면 여기다. 나를 기다리는 것(그 자리에서 답한다), 내 앱, 지금 일하는 session, 그리고 맨 아래에서 바로 lophn에게 말을 건다. 오른쪽 위는 지금 붙은 컴퓨터다."
+        text="켜면 여기다. 모든 컴퓨터에서 나를 기다리는 것(그 자리에서 답한다), 내 앱, 지금 일하는 session, 그리고 맨 아래에서 바로 lophn에게 말을 건다. 줄 끝이나 둘째 줄에 그 컴퓨터가 붙는다. 꺼진 컴퓨터는 맨 위에 이름과 상태 한 줄이다. 오른쪽 위는 거르기다."
       >
         <HomeScreen />
       </Shot>
       <Shot
         title="Sidebar"
-        text="desktop sidebar 그대로다. workspace마다 그 안의 session이 달리고 점이 상태다(노랑은 나를 기다림, 초록은 일하는 중). 앱 workspace를 누르면 그 앱 화면이 열린다. 위에서 컴퓨터를 바꾸고, 아래에 설정이 있다."
+        text="desktop sidebar 그대로다. 컴퓨터마다 Home이 따로 한 줄이고(Home · 컴퓨터), project와 앱 줄 끝에 컴퓨터 이름이 붙는다. workspace마다 그 안의 session이 달리고 점이 상태다(노랑은 나를 기다림, 초록은 일하는 중). Inbox, Jobs, Agents, Pages는 마지막으로 연 컴퓨터의 것이라 그 이름이 위에 선다. 꺼진 컴퓨터는 이름과 상태 한 줄만 남는다."
       >
         <HomeScreen over={<Sidebar on="home" />} />
       </Shot>
       <Shot
         title="Computers"
-        text="컴퓨터마다 lophn이 하나다. 고르면 sidebar 전체가 그 컴퓨터의 것으로 바뀐다. 다른 컴퓨터에서 기다리는 것이 있으면 수가 붙는다."
+        text="거르기. 모든 컴퓨터를 보이거나 하나만 보인다. 하나를 고르면 목록이 그 컴퓨터의 것만 남고 Inbox, Jobs도 그 컴퓨터의 것이 된다. 연결은 그대로다. 기다리는 것이 있으면 수가 붙는다. 고른 것은 이 폰에 남는다."
       >
         <HomeScreen over={<Computers />} />
       </Shot>
       <Shot
+        title="One computer"
+        text="거르기로 컴퓨터 하나만 볼 때. 꼬리표 없이 그 컴퓨터의 Home, project, 앱, session이다."
+      >
+        <HomeScreen
+          filter={OTHER}
+          over={<Sidebar on="home" filter={OTHER} />}
+        />
+      </Shot>
+      <Shot
         title="Computer offline"
-        text="컴퓨터가 꺼졌거나 닿지 않을 때. 무엇이 멈췄고 무엇이 되는지 말한다. 폰에서 도는 앱은 그대로 열리고, 컴퓨터가 필요한 것은 흐리게 보인다."
+        text="꺼진 컴퓨터의 줄을 누르거나 거르기로 그 컴퓨터만 볼 때. 무엇이 멈췄고 무엇이 되는지 말한다. 폰에서 도는 앱은 그대로 열리고, 컴퓨터가 필요한 것은 흐리게 보인다."
       >
         <Offline />
       </Shot>

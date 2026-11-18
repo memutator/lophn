@@ -39,8 +39,8 @@ const FLOWS: readonly FlowPage[] = [
     id: "phone-shell",
     title: "Phone · 2 Home and the sidebar",
     description:
-      "앱의 뼈대. Home, desktop과 같은 sidebar, 컴퓨터 바꾸기, 컴퓨터가 꺼졌을 때, 검색.",
-    height: rows(5),
+      "앱의 뼈대. 모든 컴퓨터의 것이 한 목록인 Home과 sidebar, 컴퓨터 거르기, 컴퓨터 하나만 볼 때, 컴퓨터가 꺼졌을 때, 검색.",
+    height: rows(6),
     render: () => <ShellFlow />,
   },
   {

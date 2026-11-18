@@ -1,5 +1,6 @@
-// What waits on the person, the front of the Inbox (tools/wireframes/drafts/phone/shell.tsx HomeScreen). A permission
-// request is answered here with Deny and Allow once; everything else opens in the Inbox.
+// What waits on the person, the front of the Inbox of every computer the list shows (tools/wireframes/drafts/phone/shell.tsx
+// HomeScreen). A permission request is answered here with Deny and Allow once, on its own computer; everything else opens
+// in that computer's Inbox.
 import { t } from "@lophn/i18n";
 import { Button, Card, Pre, Text } from "@lophn/ui-native";
 import { Check, X } from "lucide-react-native";
@@ -7,13 +8,15 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import {
   type CardView,
+  type ComputerLines,
+  ComputerScope,
   cardOf,
   type Inbox,
-  type useNames,
+  sessionIn,
+  useInbox,
+  useNames,
   type WaitingEntry,
   type Who,
-  sessionIn,
-  type WorkspaceView,
 } from "../../data/mod.ts";
 import { ago, Face, LOPHN } from "../../parts/mod.ts";
 import { DenySheet } from "../session/sheets.tsx";
@@ -31,9 +34,17 @@ const GROUP: Record<WaitingEntry["kind"], number> = {
   job_hold: 4,
 };
 
-export function frontOf(entries: readonly WaitingEntry[]): WaitingEntry[] {
-  return [...entries]
-    .sort((a, b) => GROUP[a.kind] - GROUP[b.kind])
+/** One thing waiting, with the computer it waits on. */
+export interface Need {
+  readonly lines: ComputerLines;
+  readonly entry: WaitingEntry;
+}
+
+/** The front of every shown computer's Inbox, in the desktop Inbox's order of groups. */
+export function frontOf(shown: readonly ComputerLines[]): Need[] {
+  return shown
+    .flatMap((lines) => lines.inbox.map((entry) => ({ lines, entry })))
+    .sort((a, b) => GROUP[a.entry.kind] - GROUP[b.entry.kind])
     .slice(0, NEEDS_SHOWN);
 }
 
@@ -45,71 +56,92 @@ const cardStyle = {
 } as const;
 
 export function NeedsYou({
-  entries,
-  inbox,
-  names,
-  workspaces,
+  needs,
+  many,
   onInbox,
   onUpdate,
 }: {
-  entries: readonly WaitingEntry[];
-  inbox: Inbox;
-  names: ReturnType<typeof useNames>;
-  workspaces: readonly WorkspaceView[];
-  onInbox: () => void;
-  onUpdate: (release: string) => void;
+  needs: readonly Need[];
+  /** More than one computer shows: each card says its computer. */
+  many: boolean;
+  onInbox: (computer: string) => void;
+  onUpdate: (computer: string, release: string) => void;
 }) {
   return (
     <>
-      {entries.map((entry) => {
-        const view = cardOf(entry, names);
-        const found = sessionIn(workspaces, entry.session);
-        // The session's own name and place, as the sidebar says them; the card model's line is for the desktop.
-        const meta =
-          found === undefined
-            ? view.meta
-            : [
-                found.row.title ?? t("left-sidebar.label.untitled"),
-                found.workspace.name,
-              ]
-                .filter((part) => part !== null)
-                .join(" · ");
-        const head = (
-          <Head
-            who={found?.row.who ?? null}
-            title={view.title}
-            age={ago(entry.receivedAt)}
+      {needs.map(({ lines, entry }) => (
+        // The card answers through its own computer's Inbox and reads its names there.
+        <ComputerScope key={`${lines.computer.key}:${entry.id}`} computer={lines.computer.key}>
+          <NeedCard
+            lines={lines}
+            entry={entry}
+            many={many}
+            onInbox={() => onInbox(lines.computer.key)}
+            onUpdate={(release) => onUpdate(lines.computer.key, release)}
           />
-        );
-        if (entry.kind === "permission" && view.choices.includes("once")) {
-          return (
-            <PermissionCard
-              key={entry.id}
-              entry={entry}
-              view={view}
-              meta={meta}
-              head={head}
-              inbox={inbox}
-            />
-          );
-        }
-        const open = () =>
-          entry.kind === "activation" ? onUpdate(entry.id) : onInbox();
-        return (
-          <Pressable key={entry.id} accessibilityRole="button" onPress={open}>
-            <Card tone="base" style={cardStyle}>
-              {head}
-              <Meta>{meta}</Meta>
-              {entry.kind === "question" ? (
-                <QuestionText entry={entry} view={view} inbox={inbox} />
-              ) : (
-                <Description>{view.description}</Description>
-              )}
-            </Card>
-          </Pressable>
-        );
-      })}
+        </ComputerScope>
+      ))}
     </>
+  );
+}
+
+function NeedCard({
+  lines,
+  entry,
+  many,
+  onInbox,
+  onUpdate,
+}: {
+  lines: ComputerLines;
+  entry: WaitingEntry;
+  many: boolean;
+  onInbox: () => void;
+  onUpdate: (release: string) => void;
+}) {
+  const inbox = useInbox();
+  const view = cardOf(entry, useNames());
+  const found = sessionIn(lines.workspaces, entry.session);
+  // The session's own name and place, as the sidebar says them; the card model's line is for the desktop.
+  const meta = [
+    ...(found === undefined
+      ? [view.meta]
+      : [found.row.title ?? t("left-sidebar.label.untitled"), found.workspace.name]),
+    many ? lines.computer.name : null,
+  ]
+    .filter((part) => part !== null && part !== "")
+    .join(" · ");
+  const head = (
+    <Head
+      who={found?.row.who ?? null}
+      title={view.title}
+      age={ago(entry.receivedAt)}
+    />
+  );
+  if (entry.kind === "permission" && view.choices.includes("once")) {
+    return (
+      <PermissionCard
+        entry={entry}
+        view={view}
+        meta={meta}
+        head={head}
+        inbox={inbox}
+      />
+    );
+  }
+  const open = () =>
+    entry.kind === "activation" ? onUpdate(entry.id) : onInbox();
+  return (
+    <Pressable accessibilityRole="button" onPress={open}>
+      <Card tone="base" style={cardStyle}>
+        {head}
+        <Meta>{meta}</Meta>
+        {entry.kind === "question" ? (
+          <QuestionText entry={entry} view={view} inbox={inbox} />
+        ) : (
+          <Description>{view.description}</Description>
+        )}
+      </Card>
+    </Pressable>
   );
 }
 

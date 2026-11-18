@@ -8,6 +8,8 @@ export const mobileApp = {
   "mobile.computer.button.pair-another": "Pair another computer",
   "mobile.computer.button.remove": "Remove this phone from my devices",
   "mobile.computer.button.use-computer-name": "Use the computer’s name",
+  "mobile.computer.filter.all": "All computers",
+  "mobile.computer.filter.connected": "{connected} of {count} connected",
   "mobile.computer.heading.computers": "Computers",
   "mobile.computer.heading.connection": "Connection",
   "mobile.computer.heading.on-phone": "On this phone",
@@ -15,6 +17,7 @@ export const mobileApp = {
   "mobile.computer.heading.remove-confirm":
     "Remove this phone from your devices?",
   "mobile.computer.label.announced-name": "Calls itself {name}",
+  "mobile.computer.label.home-on": "Home · {computer}",
   "mobile.computer.label.key": "Key",
   "mobile.computer.label.path": "Path",
   "mobile.computer.label.shown-as": "Shown as",

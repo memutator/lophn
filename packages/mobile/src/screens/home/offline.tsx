@@ -2,9 +2,9 @@
 // (dimmed but for the ones on this phone, which open), and the sessions as they were the last time the phone heard from it.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { Label, Row } from "@lophn/ui-native";
-import type { SessionRow, WorkspaceView } from "../../data/mod.ts";
+import type { ComputerLines, SessionRow } from "../../data/mod.ts";
 import { Face, LOPHN, OfflineBanner, SessionDot } from "../../parts/mod.ts";
-import { Apps } from "./apps.tsx";
+import { type AppTile, Apps } from "./apps.tsx";
 
 function wasOf(row: SessionRow) {
   if (row.status === "working") return t("mobile.home.row.was-working");
@@ -17,22 +17,30 @@ function wasOf(row: SessionRow) {
   );
 }
 
+/** The computer's Home while it is away. Mount inside its `ComputerScope`: the banner says that computer. */
 export function OfflineBody({
-  apps,
-  onPhone,
+  lines,
   onOpen,
-  workspaces,
   leftAt,
 }: {
-  apps: readonly WorkspaceView[];
-  /** The apps installed on this phone: they open without the computer. */
-  onPhone: ReadonlySet<string>;
-  onOpen: (app: WorkspaceView) => void;
-  workspaces: readonly WorkspaceView[];
+  lines: ComputerLines;
+  onOpen: (app: AppTile) => void;
   /** When the phone last heard from it, if it did while this screen was up. */
   leftAt: number | null;
 }) {
   const now = Date.now();
+  const { workspaces, installed } = lines;
+  // The apps installed on this phone open without the computer.
+  const apps = workspaces
+    .filter((one) => one.kind === "app")
+    .map(
+      (app): AppTile => ({
+        computer: lines.computer.key,
+        app,
+        preview: false,
+        dim: !installed.has(app.key),
+      }),
+    );
   const rows = workspaces
     .flatMap((workspace) => workspace.groups.flatMap((group) => group.rows))
     .filter((row) => row.status === "waiting" || row.status === "working")
@@ -47,12 +55,12 @@ export function OfflineBody({
   return (
     <>
       <OfflineBanner
-        note={t(onPhone.size > 0 ? "mobile.local.note.offline" : "mobile.home.note.offline")}
+        note={t(installed.size > 0 ? "mobile.local.note.offline" : "mobile.home.note.offline")}
       />
       {apps.length > 0 && (
         <>
           <Label>{t("common.heading.apps")}</Label>
-          <Apps apps={apps} away={(app) => !onPhone.has(app.key)} onOpen={onOpen} />
+          <Apps apps={apps} onOpen={onOpen} />
         </>
       )}
       {rows.length > 0 && (

@@ -1,7 +1,8 @@
 // The frame every place lives in: the sidebar as a drawer from the left edge, and a stack of places beside it.
 // 600 wide or more (an unfolded phone, a tablet) the sidebar stays open and the stack sits in a card beside it
 // (tools/wireframes/drafts/phone/more.tsx WideFlow). A phone held sideways is wide but too short for that: the
-// sidebar would show two rows of workspaces and the screen half a card, so it keeps the drawer. No tab bar.
+// sidebar would show two rows of workspaces and the screen half a card, so it keeps the drawer. No tab bar. The one
+// list of every computer (`EveryComputer`) lives here, under the sidebar and Home, for as long as the frame does.
 import { useTheme } from "@lophn/ui-native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import {
@@ -13,6 +14,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useMemo, useRef, useState } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { EveryComputer } from "../data/mod.ts";
 import { ComputersSheet } from "./computers-sheet.tsx";
 import { type Frame as FrameValue, FrameContext } from "./nav.ts";
 import { ROUTES } from "./routes.tsx";
@@ -54,6 +56,7 @@ export function Frame({
   );
   return (
     <FrameContext value={frame}>
+    <EveryComputer>
       <View style={{ flex: 1, backgroundColor: theme.color.surface.shell }}>
       <Drawer.Navigator
         drawerContent={(props) => <Sidebar {...props} />}
@@ -96,6 +99,7 @@ export function Frame({
         }
         onPair={() => navigation.dispatch(CommonActions.navigate("scan"))}
       />
+    </EveryComputer>
     </FrameContext>
   );
 }

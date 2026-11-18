@@ -12,7 +12,7 @@ import {
 import { forgetApps, forgetComputers } from "../apps/bundle.ts";
 import { bundleFiles } from "../apps/bundle-files.ts";
 import { disableRemovedComputers } from "../shortcuts/sync.ts";
-import { useComputers } from "./hooks.tsx";
+import { useComputers, useCurrentComputer } from "./hooks.tsx";
 
 // The kept lists and icons of each computer: the phone's light store, read by the same screens.
 export * from "./lists.ts";
@@ -100,7 +100,8 @@ export interface PhoneApps {
 
 /** The computer on screen's apps with a phone screen. Also drops cached screens of apps and computers that are gone. */
 export function usePhoneApps(): PhoneApps {
-  const { ready, current, computers } = useComputers();
+  const { ready, computers } = useComputers();
+  const current = useCurrentComputer()?.key ?? null;
   // The list carries the computer it was read from, so a list still on screen after a switch is not taken as the new one's.
   const { loaded, reload } = useFollowedRead(
     async (core) => {

@@ -32,6 +32,11 @@ export function updateText(
 export function useUnreachable(): string | null {
   const computer = useCurrentComputer();
   if (computer === null || computer.status === "connected") return null;
+  return unreachableOf(computer);
+}
+
+/** Who cannot be reached, or who must update to reach it, as a sentence. */
+export function unreachableOf(computer: ComputerItem): string {
   return computer.update === null
     ? t("mobile.start.heading.unreachable", { name: computer.name })
     : updateText(computer.update, computer.name);

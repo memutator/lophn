@@ -1,5 +1,6 @@
 // The hooks screens read. `DataProvider` holds the computer store and mounts the desktop `EventsProvider` for the computer
-// on screen, so the desktop conversation hooks (useAgentTabData) run unchanged on the phone.
+// on screen, so the desktop conversation hooks (useAgentTabData) run unchanged on the phone. `ComputerScope` points the
+// same hooks at another paired computer: the one list reads every computer's lines through it.
 import {
   createContext,
   type ReactNode,
@@ -51,6 +52,7 @@ import {
 import {
   EventsProvider,
   useSessions,
+  useWaiting,
 } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import type { SessionEntry } from "../../../shell/renderer/desktop/connection/events/sessions-store.ts";
 import type {
@@ -90,6 +92,8 @@ import { type Known, type WorkspaceView, workspacesOf } from "./workspaces.ts";
 
 interface Data {
   readonly computers: Computers<ComputerData>;
+  /** The computer the hooks below read: the one on screen, or the one a `ComputerScope` names. */
+  readonly key: string | null;
   readonly data: ComputerData;
 }
 
@@ -130,15 +134,53 @@ export function DataProvider({
     });
     return () => subscription.remove();
   }, [computers]);
+  return (
+    <Scope computers={computers} computer={state.current}>
+      {children}
+    </Scope>
+  );
+}
+
+function Scope({
+  computers,
+  computer,
+  children,
+}: {
+  computers: Computers<ComputerData>;
+  computer: string | null;
+  children: ReactNode;
+}) {
   const data =
-    (state.current === null
-      ? undefined
-      : computers.link(state.current)?.data) ?? NO_COMPUTER;
-  const value = useMemo(() => ({ computers, data }), [computers, data]);
+    (computer === null ? undefined : computers.link(computer)?.data) ??
+    NO_COMPUTER;
+  const value = useMemo(
+    () => ({ computers, key: computer, data }),
+    [computers, computer, data],
+  );
   return (
     <DataContext.Provider value={value}>
-      <EventsProvider client={data.client}>{children}</EventsProvider>
+      <EventsProvider stores={data.stores}>{children}</EventsProvider>
     </DataContext.Provider>
+  );
+}
+
+/**
+ * The hooks inside read `computer` instead of the computer on screen, without switching to it: a line of another
+ * computer in the one list, or the card that answers its Inbox.
+ */
+export function ComputerScope({
+  computer,
+  children,
+}: {
+  computer: string;
+  children: ReactNode;
+}) {
+  const { computers } = useData();
+  useSyncExternalStore(computers.subscribe, computers.get);
+  return (
+    <Scope computers={computers} computer={computer}>
+      {children}
+    </Scope>
   );
 }
 
@@ -170,9 +212,11 @@ export function useComputers(): ComputersView {
   };
 }
 
+/** The computer on screen, or the one the enclosing `ComputerScope` names. */
 export function useCurrentComputer(): ComputerItem | null {
-  const { computers, current } = useComputers();
-  return computers.find((one) => one.key === current) ?? null;
+  const { key } = useData();
+  const { computers } = useComputers();
+  return computers.find((one) => one.key === key) ?? null;
 }
 
 /** One paired computer's data, whether or not it is on screen; null when it is not paired. Reading it switches nothing. */
@@ -280,16 +324,11 @@ function useKnown(entries: readonly SessionEntry[]): Known {
   return read.state === "ready" ? read.value : NOTHING;
 }
 
-function useWaitingState(): WaitingState {
-  const { waiting } = useData().data;
-  return useSyncExternalStore(waiting.subscribe, waiting.get);
-}
-
 /** Home, every project and every app of the computer on screen, each with its sessions and Recent. */
 export function useWorkspaces(): readonly WorkspaceView[] {
   const { data } = useData();
   const { sessions } = useSessions();
-  const { entries } = useWaitingState();
+  const { entries } = useWaiting();
   const names = useNames();
   const known = useKnown(sessions);
   return useMemo(
@@ -345,7 +384,7 @@ export interface Inbox extends WaitingState {
 /** What waits on the person on the computer on screen, in the desktop waiting model's own types, and the answers to it. */
 export function useInbox(): Inbox {
   const { core } = useData().data;
-  const state = useWaitingState();
+  const state = useWaiting();
   return useMemo(
     () => ({
       ...state,

@@ -1,7 +1,7 @@
 // The lists and icons the phone keeps of each computer (saved.ts), in the app's files folder, and the hooks that keep and
-// read them. The sidebar keeps them: it is always mounted, so the computer on screen's lists and icons are read again
-// when they change (`StateChanged` of apps, projects or releases) and after every reconnect. No hash: every read takes
-// every icon again.
+// read them. The one list keeps them (every.tsx): it is always mounted and reads each paired computer in its scope, so every
+// computer's lists and icons are read again when they change (`StateChanged` of apps, projects or releases) and after
+// every reconnect. No hash: every read takes every icon again.
 import { Directory, File, Paths } from "expo-file-system";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { appList } from "../../../protocol/apps/apps.ts";
@@ -59,11 +59,12 @@ interface Read {
 }
 
 /**
- * Keeps the computer on screen's app and project lists and their icons on the phone, and drops what a computer the phone
- * no longer has kept. Mount once where it stays (the sidebar).
+ * Keeps the computer's app and project lists and their icons on the phone, and drops what a computer the phone no longer
+ * has kept. Mount once per computer where it stays (the one list).
  */
 export function useKeepLists(): void {
-  const { ready, current, computers } = useComputers();
+  const { ready, computers } = useComputers();
+  const current = useCurrentComputer()?.key ?? null;
   const keys = computers.map((one) => one.key).join("\n");
   useEffect(() => {
     if (ready) saved.forget(keys === "" ? [] : keys.split("\n"));

@@ -10,7 +10,13 @@ import {
   useNavigation,
 } from "@react-navigation/native";
 import { createContext, useContext, useMemo } from "react";
-import type { AgentId, CodingTarget, ConversationTarget, Workspace } from "../data/mod.ts";
+import {
+  type AgentId,
+  type CodingTarget,
+  type ConversationTarget,
+  useComputers,
+  type Workspace,
+} from "../data/mod.ts";
 
 export type Place =
   | { readonly name: "home" }
@@ -92,7 +98,7 @@ export interface Frame {
   /** 600 wide or more and tall enough: the sidebar stays open beside the screen, and screens drop their menu button. */
   readonly wide: boolean;
   openComputers(): void;
-  /** The frame's stack, kept by its screens, so the sidebar and the computer picker can replace what it shows. */
+  /** The frame's stack, kept by its screens, so the sidebar and the computer filter can replace what it shows. */
   readonly stack: { current: NavigationProp<ParamListBase> | null };
 }
 
@@ -105,9 +111,14 @@ export const FrameContext = createContext<Frame>({
 export interface Nav {
   /** Opens a place on top of the current screen. */
   open(place: Place): void;
+  /**
+   * Opens a place of `computer` from the one list. Another computer than the one on screen becomes the one on screen and
+   * the place opens over Home: no screen of the computer before stays under it.
+   */
+  openOn(computer: string, place: Place): void;
   back(): void;
   openSidebar(): void;
-  /** The Computers sheet (the computer chip on Home, the sidebar's computer line). */
+  /** The Computers sheet, the one list's filter (the pill on Home, the sidebar's filter row). */
   openComputers(): void;
   readonly wide: boolean;
   /** For a top-level screen's TopBar: the menu button, or none when the sidebar stays open. `<TopBar {...nav.menuButton} …/>` */
@@ -122,15 +133,27 @@ export function paramsOf(place: Place): object {
 export function useNav(): Nav {
   const navigation = useNavigation();
   const frame = useContext(FrameContext);
+  const { current, select } = useComputers();
   return useMemo(() => {
     const openSidebar = () => navigation.dispatch(DrawerActions.openDrawer());
+    const open = (place: Place) =>
+      navigation.dispatch(
+        place.name === "pair"
+          ? CommonActions.navigate({ name: "scan" })
+          : StackActions.push(place.name, paramsOf(place)),
+      );
     return {
-      open(place) {
-        navigation.dispatch(
-          place.name === "pair"
-            ? CommonActions.navigate({ name: "scan" })
-            : StackActions.push(place.name, paramsOf(place)),
-        );
+      open,
+      openOn(computer, place) {
+        if (computer === current) return open(place);
+        select(computer);
+        frame.stack.current?.reset({
+          index: place.name === "home" ? 0 : 1,
+          routes: [
+            { name: "home" },
+            ...(place.name === "home" ? [] : [{ name: place.name, params: paramsOf(place) }]),
+          ],
+        });
       },
       back: () => navigation.goBack(),
       openSidebar,
@@ -140,5 +163,5 @@ export function useNav(): Nav {
         ? { left: "none" }
         : { left: "menu", onLeft: openSidebar },
     };
-  }, [navigation, frame]);
+  }, [navigation, frame, current, select]);
 }

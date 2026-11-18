@@ -1,16 +1,30 @@
-// The message box at the bottom of Home: a message starts a new session in the chosen workspace (Home by default) and
-// opens it. Offline it is locked and says who cannot be reached.
+// The message box at the bottom of Home: a message starts a new session in the chosen workspace (the Home of the computer
+// on screen by default) and opens it. The workspaces are those of every reached computer the list shows; the box sends
+// through the chosen one's computer (mount it inside that computer's `ComputerScope`). Offline it is locked and says who
+// cannot be reached.
 import { t } from "@lophn/i18n";
 import { Chip, Composer, Icon, Mark, Row, Sheet } from "@lophn/ui-native";
 import { Check, FolderOpen, Home } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import {
+  ComputerScope,
   type ConversationTarget,
   useStartSession,
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { WorkspaceMark } from "../../parts/mod.ts";
+
+/** A workspace the box can start a session in, and its computer. */
+export interface Choice {
+  readonly computer: string;
+  /** The computer's name, said while more than one computer shows; null otherwise. */
+  readonly tag: string | null;
+  readonly workspace: WorkspaceView;
+}
+
+export const choiceKey = (choice: Choice) =>
+  `${choice.computer}:${choice.workspace.key}`;
 
 function ChipLead({ workspace }: { workspace: WorkspaceView }) {
   switch (workspace.icon.kind) {
@@ -29,17 +43,25 @@ function ChipLead({ workspace }: { workspace: WorkspaceView }) {
   }
 }
 
-const nameOf = (workspace: WorkspaceView) =>
-  workspace.name ?? t("left-sidebar.label.home");
+const nameOf = ({ workspace, tag }: Choice) =>
+  workspace.name ??
+  (tag === null
+    ? t("left-sidebar.label.home")
+    : t("mobile.computer.label.home-on", { computer: tag }));
 
 export function HomeComposer({
-  workspaces,
+  choices,
+  picked,
+  onPick,
   locked,
   unreachable,
   onStarted,
   onFailed,
 }: {
-  workspaces: readonly WorkspaceView[];
+  choices: readonly Choice[];
+  /** The chosen workspace; the box sends through its computer's scope. */
+  picked: Choice | undefined;
+  onPick: (choice: Choice) => void;
   /** The computer cannot be reached: nothing can be sent. */
   locked: boolean;
   /** What the box says while locked. */
@@ -50,18 +72,15 @@ export function HomeComposer({
 }) {
   const start = useStartSession();
   const [draft, setDraft] = useState("");
-  const [picked, setPicked] = useState("home");
   const [choosing, setChoosing] = useState(false);
   const [sending, setSending] = useState(false);
-  const workspace =
-    workspaces.find((one) => one.key === picked) ?? workspaces[0];
 
   async function send() {
-    if (workspace === undefined) return;
+    if (picked === undefined) return;
     setSending(true);
     onFailed(false);
     const started = await start({
-      workspace: workspace.workspace,
+      workspace: picked.workspace.workspace,
       text: draft.trim(),
     });
     setSending(false);
@@ -87,12 +106,12 @@ export function HomeComposer({
         }
         disabled={locked || sending}
         chips={
-          locked || workspace === undefined ? undefined : (
+          locked || picked === undefined ? undefined : (
             <Chip
-              lead={<ChipLead workspace={workspace} />}
+              lead={<ChipLead workspace={picked.workspace} />}
               onPress={() => setChoosing(true)}
             >
-              {nameOf(workspace)}
+              {nameOf(picked)}
             </Chip>
           )
         }
@@ -102,19 +121,26 @@ export function HomeComposer({
         onClose={() => setChoosing(false)}
         title={t("left-sidebar.heading.workspaces")}
       >
-        {workspaces.map((one) => (
+        {choices.map((one) => (
           <Row
-            key={one.key}
+            key={choiceKey(one)}
             lead={
               <View style={{ width: 24, alignItems: "center" }}>
-                <WorkspaceMark icon={one.icon} name={nameOf(one)} />
+                <ComputerScope computer={one.computer}>
+                  <WorkspaceMark icon={one.workspace.icon} name={nameOf(one)} />
+                </ComputerScope>
               </View>
             }
             title={nameOf(one)}
+            sub={one.workspace.name === null ? undefined : (one.tag ?? undefined)}
             strong
-            end={one.key === workspace?.key ? <Icon icon={Check} /> : undefined}
+            end={
+              picked !== undefined && choiceKey(one) === choiceKey(picked) ? (
+                <Icon icon={Check} />
+              ) : undefined
+            }
             onPress={() => {
-              setPicked(one.key);
+              onPick(one);
               setChoosing(false);
             }}
           />

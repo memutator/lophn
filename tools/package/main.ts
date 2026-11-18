@@ -194,7 +194,7 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
 
 // 본체 안 extension은 manifest와 따로 빌드한 entry(dist/)만 간다. registry가 거기서 찾는다.
 async function stageExtensions(bundle: string) {
-  const bundled = join(shellMain, "extensions", "bundled");
+  const bundled = join(repo, "packages", "core", "extensions", "bundled");
   for (const entry of await readdir(bundled, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const from = join(bundled, entry.name);

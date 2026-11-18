@@ -64,8 +64,9 @@ function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
     .then(() => {});
 }
 
-// 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. registry가 manifest의 `entry`로 require한다.
-const bundledExtensions = join(here, "extensions/bundled");
+// 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. core의 extension host(와 shell의 harness-gui)가
+// manifest의 `entry`로 require한다.
+const bundledExtensions = join(root, "packages/core/extensions/bundled");
 const extensionEntries = [
   join(bundledExtensions, "harness/index.ts"),
   join(bundledExtensions, "harness-gui/index.ts"),

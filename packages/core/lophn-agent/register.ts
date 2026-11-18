@@ -956,7 +956,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       messageImagePrepare,
       // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
       ...QUEUED_INPUT_ROUTES,
-      // shell main의 harness host가 부르는 입구. handler는 wiring/harness.ts가 붙인다.
+      // core 안 extension host의 harness extension이 부르는 입구. handler는 wiring/harness.ts가 붙인다.
       ...HARNESS_HOST_MEMORY_ROUTES,
       // 앱이 보는 session 목록·상태·멈추기와 shell main이 알리는 터미널 coding agent. handler는 wiring/session-lifecycle.ts가 붙인다.
       ...SESSION_LIFECYCLE_ROUTES,

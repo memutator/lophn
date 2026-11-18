@@ -39,7 +39,7 @@ const ACTIVITY_READS = [
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
-// module별 activity read, 도는 lophn agent turn, 열린 터미널, 켜 둔 remote 연결, 늘 켜 둠 표시, server의 client 수를 합쳐 idle-exit를 건다. ready 뒤에 세기 시작하고,
+// module별 activity read, 도는 turn(lophn agent와 harness), 열린 터미널, 켜 둔 remote 연결, 늘 켜 둠 표시, server의 client 수를 합쳐 idle-exit를 건다. ready 뒤에 세기 시작하고,
 // idle-exit는 core.ts의 shutdown barrier를 그대로 쓴다.
 export const idleWiring: WiringFactory = () => {
   let monitor: IdleMonitor | undefined;
@@ -60,6 +60,8 @@ export const idleWiring: WiringFactory = () => {
           if (ctx.alwaysOn.status().keep_running) return ok(true);
           // 도는 lophn agent turn은 ledger의 activity가 아니라 core 메모리의 queue가 정본이다.
           if (ctx.queue.anyRunning()) return ok(true);
+          // 화면 없이 도는 harness turn은 그 queue 밖이다. TurnStarted 뒤 TurnEnded가 오지 않은 turn이 있으면 일하는 중이다.
+          if (ctx.liveTurns.trackedTurns().length > 0) return ok(true);
           // 열린 터미널은 앱을 Quit해도 돈다. GUI coding session도 터미널 위에 있어 같이 덮인다.
           if (ctx.terminals.anyOpen()) return ok(true);
           for (const each of ACTIVITY_READS) {

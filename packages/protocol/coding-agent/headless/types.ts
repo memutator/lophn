@@ -1,5 +1,5 @@
 // harness의 headless CLI 하나를 돌리는 규칙의 모양이다. 순수 값이고 IO는 없다.
-// 실행(spawn, 기록)은 shell main의 harness host(extension `harness`)가 한다.
+// 실행(spawn, 기록)은 core 안 extension host에서 도는 extension `harness`가 한다.
 
 // 구조 출력의 한 줄이 내는 것. 끝은 `end`가 없으면 process 종료(exit 0이면 completed)다.
 export type HeadlessEvent =

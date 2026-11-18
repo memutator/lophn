@@ -19,7 +19,6 @@ import { extensionSettingKey } from "../../../../protocol/extensions/manifest.ts
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { z } from "zod";
 import type { ExtensionGrant } from "../../../approvals/mod.ts";
-import type { ToolCaller } from "../../../extensions/host.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { createHarnessCredentials } from "./harness-credential.ts";
@@ -155,17 +154,16 @@ export const extensionToolsWiring: WiringFactory = () => {
           process: EXTENSION_PROCESS,
         });
         if (!credential.ok) return credential;
-        const caller: ToolCaller = {
-          session,
-          workspace: workspace === null ? { kind: "home" } : workspace,
-          credential: credential.value.token,
-        };
         try {
           const result = await ctx.extensionHost.callTool(
             named.extension,
             named.tool,
             input.input,
-            caller,
+            {
+              session,
+              workspace: workspace === null ? { kind: "home" } : workspace,
+              credential: credential.value.token,
+            },
           );
           if (!result.ok) return result;
           // 모양이 틀린 결과를 agent에 넘기지 않는다.

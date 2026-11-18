@@ -72,7 +72,7 @@ export const ROUTES = [
   recordShellMessage,
   ...QUEUED_INPUT_ROUTES,
   ...ASK_ROUTES,
-  // shell main의 harness host가 부르는 memory route와 그것이 쓰는 machine command다.
+  // core 안 extension host의 harness extension이 부르는 memory route와 그것이 쓰는 machine command다.
   ...HARNESS_HOST_ROUTES,
   // core 메모리 host queue를 agent와 사람에게 여는 tabs/*, browser/*.
   ...HOST_QUEUE_MEMORY_ROUTES,

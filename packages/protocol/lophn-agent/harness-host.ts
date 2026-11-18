@@ -8,7 +8,7 @@ import { callFromOutputSchema, callReplySchema } from "./calls.ts";
 import { workspaceOutputSchema } from "./workspaces.ts";
 import { turnOutcomeSchema } from "./turn-values.ts";
 
-// shell main의 harness host가 core를 부르는 길이다. host는 사람 token(actor user)으로 부르고, memory route라서
+// core 안 extension host에서 도는 harness extension이 core를 부르는 길이다. host는 사람 권한의 core 안 자격(actor user)으로 부르고, memory route라서
 // renderer의 호출 통로(allowlist)에는 없다. Take와 StartTurn은 설정 `extensions.harness.enabled`가 꺼져 있으면 `unavailable`이다.
 // 나머지(Record, FinishTurn, SetExternalId)는 꺼져 있어도 일해서, 꺼질 때 돌던 turn이 끝날 수 있다.
 // 모든 route는 runtime이 harness인 session이 아니면 `forbidden`이다.

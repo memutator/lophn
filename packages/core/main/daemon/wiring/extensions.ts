@@ -166,17 +166,8 @@ export const extensionsWiring: WiringFactory = () => {
             );
           },
         },
-        // 사람의 env는 terminals wiring이 낸다. 아직 없으면 core의 env와 PATH만으로 돈다.
-        env: () =>
-          ctx.peek.personEnv?.env() ??
-          Promise.resolve(
-            Object.fromEntries(
-              Object.entries(process.env).filter(
-                (entry): entry is [string, string] => entry[1] !== undefined,
-              ),
-            ),
-          ),
-        cli: () => ctx.peek.personEnv?.cli ?? null,
+        // 사람의 env는 terminals wiring이 prepare에서 낸다.
+        person: ctx.personEnv,
         // GUI 화면이 붙는 handle은 coding agent 쪽(`coding-core`)이 받는다. 그 전에는 열린 handle을 보일 곳이 없다.
         acpOpened: () => {},
         clock: ctx.clock,

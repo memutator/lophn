@@ -7,33 +7,13 @@ import { dirname, isAbsolute } from "node:path";
 import { nodeTreeDeps, prependPath, signalTree } from "../../base/os/mod.ts";
 import type { ExtensionSpawn } from "../../protocol/extensions/manifest.ts";
 import { SESSION_ENV_NAME } from "../../protocol/lophn-agent/session-tag.ts";
+import { SESSION_MARKER_NAME } from "../terminals/host/env.ts";
+import type { PersonEnv } from "../terminals/ports.ts";
 
 // SIGTERM 뒤 group에 남은 process를 SIGKILL하기까지 기다리는 시간이다.
 const KILL_GRACE_MS = 3000;
 // `exit` 뒤 `close`(stdio가 다 닫힘)를 기다리는 시간이다. CLI가 띄운 손자가 pipe를 물려받으면 `close`가 오지 않는다.
 const DRAIN_MS = 250;
-
-// 터미널 host의 SESSION_MARKER_NAME과 같은 목록이다. 그 file이 core로 오면(`term-host`) 그것을 import한다.
-// core를 띄운 process가 agent session 안에서 돌면 그 session이 자식 env에 넣은 표지다. 남기면 CLI가 중첩 session이라며
-// 시작하지 않거나 대화를 저장하지 않는다.
-const SESSION_MARKER_NAME = new Set([
-  "AI_AGENT",
-  "CLAUDECODE",
-  "CLAUDE_CODE_CHILD_SESSION",
-  "CLAUDE_CODE_SESSION_ID",
-  "CLAUDE_CODE_SESSION_ATTENDED",
-  "CLAUDE_CODE_ENTRYPOINT",
-  "CLAUDE_CODE_EXECPATH",
-  "CLAUDE_CODE_MESSAGING_SOCKET",
-  "CLAUDE_PID",
-  "CLAUDE_EFFORT",
-  "CODEX_THREAD_ID",
-  "CODEX_TOOL_CALL_ID",
-  "CODEX_VERSION",
-  "CODEX_PERMISSION_PROFILE",
-  "CODEX_SANDBOX",
-  "CODEX_SANDBOX_NETWORK_DISABLED",
-]);
 
 /**
  * extension이 띄우는 CLI(Agent SDK, `codex app-server`, headless harness)의 env. `given`은 extension이 넘긴 값(탭의 hook env,
@@ -60,20 +40,14 @@ export function cliEnv(input: {
   return out;
 }
 
-export function createSpawner(deps: {
-  dataRoot: string;
-  // 사람의 env. 한 번 읽어 둔다.
-  env(): Promise<Record<string, string>>;
-  // `lophn` launcher의 절대 경로. 모르면 null이다.
-  cli(): string | null;
-}) {
+export function createSpawner(deps: { dataRoot: string; person: PersonEnv }) {
   const live = new Set<() => void>();
   let person: Record<string, string> | undefined;
 
   const start: ExtensionSpawn = (command, args, options) => {
     // `ready` 뒤에만 extension이 켜지므로 비어 있을 일은 없다.
     const base = person ?? {};
-    const cli = deps.cli();
+    const cli = deps.person.cli;
     const path =
       cli !== null && isAbsolute(cli)
         ? prependPath(base, dirname(cli), process.platform)
@@ -167,7 +141,7 @@ export function createSpawner(deps: {
     spawn: start,
     // spawn은 기다릴 수 없어 extension을 켜기 전에 사람의 env를 읽어 둔다.
     async ready(): Promise<void> {
-      person ??= await deps.env();
+      person ??= await deps.person.env();
     },
     // core가 끝나기 전에 동기로 보낸다.
     stopAll() {

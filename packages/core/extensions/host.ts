@@ -11,12 +11,8 @@ import {
 import { dirname } from "node:path";
 import type { Clock } from "../../base/clock.ts";
 import type { IdSource } from "../../base/id.ts";
-import type { Result } from "../../base/result.ts";
-import type {
-  ExtensionContext,
-  ExtensionToolCall,
-  ExtensionToolContent,
-} from "../../protocol/extensions/manifest.ts";
+import type { ExtensionContext } from "../../protocol/extensions/manifest.ts";
+import type { PersonEnv } from "../terminals/ports.ts";
 import { type AcpHandle, createAcp } from "./acp.ts";
 import type { ExtensionHost } from "./ports.ts";
 import { createExtensionRegistry, type ExtensionFiles } from "./registry.ts";
@@ -43,11 +39,6 @@ const nodeFiles: ExtensionFiles = {
   },
 };
 
-/** tool 호출을 부른 쪽. `credential`은 그 호출만 쓰는 agent 자격이다. handler의 `core`가 이것으로 부른다. */
-export type ToolCaller = Omit<ExtensionToolCall, "core"> & {
-  credential: string;
-};
-
 export function createExtensionHost(deps: {
   // `<root>/<id>/manifest.json` 꼴의 폴더들.
   roots: readonly string[];
@@ -59,9 +50,8 @@ export function createExtensionHost(deps: {
   // 그 agent 자격으로 부르는 route 호출(tool handler의 `core`).
   coreAs(credential: string): ExtensionContext["core"];
   settings: ExtensionContext["settings"];
-  // 사람의 env와 `lophn` 경로.
-  env(): Promise<Record<string, string>>;
-  cli(): string | null;
+  // 사람의 env와 `lophn` 경로. 띄우는 CLI가 받는다.
+  person: PersonEnv;
   // harness-gui가 연 handle. GUI 화면이 붙는 쪽이 받는다.
   acpOpened(handle: AcpHandle): void;
   clock: Clock;
@@ -70,8 +60,7 @@ export function createExtensionHost(deps: {
 }): ExtensionHost {
   const spawner = createSpawner({
     dataRoot: deps.dataRoot,
-    env: deps.env,
-    cli: deps.cli,
+    person: deps.person,
   });
   const { acp, tab } = createAcp(deps.ids, deps.acpOpened);
   const registry = createExtensionRegistry({
@@ -92,19 +81,12 @@ export function createExtensionHost(deps: {
     install: (id) => registry.install(id),
     remove: (id) => registry.remove(id),
     run: (command) => registry.run(command),
-    // port의 caller에는 자격이 없다(계약 바꾸기 요청). extension-tools wiring이 `credential`을 실어 부른다.
-    callTool(
-      extension: string,
-      tool: string,
-      input: unknown,
-      caller: ToolCaller,
-    ): Promise<Result<ExtensionToolContent[]>> {
-      return registry.callTool(extension, tool, input, {
+    callTool: (extension, tool, input, caller) =>
+      registry.callTool(extension, tool, input, {
         session: caller.session,
         workspace: caller.workspace,
         core: deps.coreAs(caller.credential),
-      });
-    },
+      }),
     catalog: () => registry.catalog(),
     tabHandlers: () => tab() ?? null,
     // extension이 activate될 때 사람의 env가 있어야 띄우는 CLI가 사람의 PATH를 얻는다.

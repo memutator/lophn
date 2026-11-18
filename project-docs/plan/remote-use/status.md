@@ -12,4 +12,4 @@ lead만 고친다. `tools/status.py remote-use build`가 `tasks/*.md`에서 id, 
 | `use-send` | use | 2 | use-contract | merged | use/use-send | b4e3e3a49 |  |
 | `use-events` | use | 3 | use-receive, use-send | merged | use/use-events | caa194245 |  |
 | `use-screens` | use | 3 | use-send | merged | use/use-screens | 160c7f294 |  |
-| `use-cleanup` | use | 4 | use-events, use-screens, use-cli | todo |  |  |  |
+| `use-cleanup` | use | 4 | use-events, use-screens, use-cli | running | use/use-cleanup |  |  |

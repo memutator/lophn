@@ -52,3 +52,7 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 계약 review 뒤 바뀐 것 (lead가 더함)
+
+`roster/invite` 입력에 `kind`(computer | phone)가 생겼다(샌 폰 초대장으로 컴퓨터가 들지 못하게). 명령은 `lophn remote invite <phone|computer> [--terminal-input …] [--long]`이다(positional kind, 기본 없음). `join`의 거절 reason에 `id_taken`, `key_taken`이 더해졌다.

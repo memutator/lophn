@@ -60,3 +60,9 @@ core가 다른 컴퓨터에 붙는다. remote가 켜진 컴퓨터의 core는 명
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 계약 review 뒤 바뀐 것 (lead가 더함)
+
+`roster-contract.md` 끝 "설계 review 뒤 바뀐 것"과 merge된 `roster.ts`, `remote.md` 명단 절이 위 할 일보다 앞선다. 이 task에 닿는 것:
+- 3: `roster/join`은 `kind: "computer"` 초대장만 받는다(아니면 `invalid_input`). 초대장의 `issuer` 항목 서명 key를 root로 더해 확인한다. `pending`은 `rosterPending(view, 이 컴퓨터 key)`다. 들고 있는 초대 서명 statement는 수명까지 `keep`에 남는다(`rosterFresh`).
+- 2: link가 붙은 `join` 답의 `computer.signing_key`는 명단 항목의 `signing_key`와 같아야 한다. 다르면 그 link를 닫고 log를 남긴다.

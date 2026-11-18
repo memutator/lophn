@@ -124,3 +124,17 @@ route(`routes.ts`. resource `roster`, `machines`):
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 설계 review 뒤 바뀐 것 (lead가 더함)
+
+merge 전에 다른 worker가 설계를 review했고(합치는 순서, 초대장 새기·다시 쓰기, 빼기와 들이기의 엇갈림, 복사한 data root), 같은 task에서 고쳤다. 뒤 task는 위 "모양"보다 merge된 `roster.ts`와 `architecture/remote.md` 명단 절을 따른다. 바뀐 것:
+- `rosterView(statements, roots)`의 roots는 **서명 key**다(host key가 아니다). host key는 서명을 못 하므로 host key root는 누구나 "그 host key + 내 서명 key" 항목을 스스로 서명해 흉내 낼 수 있다.
+- 빼기 body에 `signing_key: keyText | null`(빠진 컴퓨터의 서명 key, 폰은 null). 뺀 서명 key는 root·서명자·항목의 `signing_key`로 다 막힌다. 서명 key 하나 ↔ host key 하나, 어긋나면 둘 다 뺀다.
+- 초대장 body와 `roster/invite` 입력에 `kind`(computer | phone). `checkInvited`가 `entry.kind`를 대조한다. 샌 폰 초대장으로 컴퓨터(서명자)가 들어오지 못한다.
+- `rosterJoinedSchema = {device, computer: {id, signing_key}, roster}`. 이미 pairing한 폰은 host key만 들었으므로 Noise로 확인된 답에서 그 컴퓨터의 서명 key를 root로 배운다.
+- `RosterView = {devices: {body, signed_by, pending}[], removed: {body, signed_by}[](셈에 드는 빼기만), conflicts: {key, ids, reason: id|signing_key|shape|invite}[], invites: {invite, key}[], folded, keep}`. 새 export `rosterPending(view, key)`, `rosterFresh(statements, now)`.
+- `checkInvited(statement, {now, view})`. 거절 reason에 `conflict/id_taken`, `conflict/key_taken`이 더해졌다.
+- 빼기 셈: T0에서 믿은 빼기(K0)의 대상이 서명한 빼기는, 서명자 가운데 대상이 아닌 컴퓨터가 있거나 서로 뺀 경우(둘 다 빠진다)에만 센다. 두 번(둘째는 첫째에서 센 빼기의 대상만) 한다. 빠진 도둑은 자기를 뺀 컴퓨터 말고는 빼지 못한다. (lead: 시각이 없어 "빠진 뒤"와 "엇갈림"을 못 가르니 서로 뺀 경우는 둘 다 빼서 닫힌 쪽으로 간다)
+- 같은 rev의 다툼에서 `terminal_input: false`가 이긴다.
+- `keep`은 view를 다시 만들 수 있다(`rosterView(view.keep) = view`). 초대 서명 statement는 수명까지, 서명자가 이긴 rev에도 서명했을 때만 진 rev를 버린다.
+- 컴퓨터의 공동 서명 규칙: `view.devices[].body`와 `view.removed[].body`만 서명한다. conflict 항목과 셈에 안 드는 빼기는 서명하지 않는다.

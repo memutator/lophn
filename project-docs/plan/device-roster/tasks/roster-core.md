@@ -76,3 +76,12 @@ core가 명단을 든다: 서명 key, ledger의 명단과 `devices`에서 옮기
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 계약 review 뒤 바뀐 것 (lead가 더함)
+
+`roster-contract.md` 끝 "설계 review 뒤 바뀐 것"과 merge된 `roster.ts`, `remote.md` 명단 절이 위 할 일보다 앞선다. 이 task에 닿는 것:
+- 3: `rosterView(statements, [이 컴퓨터의 서명 key])`. 명단이 바뀌면 view → 이 컴퓨터가 아직 서명하지 않은 `view.devices[].body`·`view.removed[].body`에 서명 → view 다시 → `keep`을 `folds`와 저장. conflict 항목과 셈에 안 드는 빼기는 서명하지 않는다.
+- 2(옮기기): 계약에는 "서명하지 않았지만 믿는 항목"이 없다. 옮긴 폰 행은 remote를 켤 때 listener·relay를 열기 **전에** 서명해 명단에 넣는다. 위험 test "옮긴 뒤 이미 pairing한 폰이 다시 pairing하지 않고 붙는다"는 이 순서를 지난다.
+- 4: 닿은 statement 받기 규칙(계약의 `join` frame 주석): `join` statement는 모두 그 연결의 Noise key에 대한 것이어야 한다. 아직 들지 않은 연결의 초대 서명 statement는 `checkInvited`를 지날 때만 저장한다. 저장 전에 `rosterFresh(statements, now)`. `checkInvited(statement, {now, view})`. `join` 답은 `{device, computer: {id, signing_key}, roster}`.
+- 5: `roster/invite` 입력에 `kind`가 있고 초대장 body에 싣는다.
+- 6: 빼기 body에 빠진 컴퓨터의 `signing_key`를 채운다(폰은 null). 자격·연결 거두기는 id만이 아니라 **key로도** 한다(view의 `removed`와 `conflicts`의 key). conflict인 key는 받아들이지 않는다. `folded`는 큰 id의 항목이 `keep`에 남는 동안 계속 나오므로 fold 고치기는 다시 돌아도 같은 결과여야 한다. `roster/forget_all`은 이 컴퓨터의 자기 id도 버린다.

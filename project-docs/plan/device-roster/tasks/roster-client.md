@@ -69,3 +69,12 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 계약 review 뒤 바뀐 것 (lead가 더함)
+
+`roster-contract.md` 끝 "설계 review 뒤 바뀐 것"과 merge된 `roster.ts`, `remote.md` 명단 절이 위 할 일보다 앞선다. 이 task에 닿는 것:
+- 3: root는 저장한 컴퓨터의 **서명 key**다. 컴퓨터 항목은 Noise로 붙을 host key와 root인 서명 key를 같이 든다. 서명 key는 초대장의 `issuer`, `join` 답의 `computer.signing_key`(이 답은 pinning한 host key로 Noise가 확인한 연결에서 온다), 믿는 컴퓨터 항목에서 배운다.
+- 4(옮기기): 옛 `computers` 원소에는 서명 key가 없다. 그 컴퓨터에 처음 붙은 `join` 답의 `computer.signing_key`를 root로 저장한다. 그 전에 받은 snapshot 안의 "그 host key를 주장하는" 자기 서명 항목을 root로 쓰지 않는다.
+- 폰이 든 statement는 저장할 때 `rosterFresh(statements, 폰 시계)`를 거친 `keep`이다.
+- 1: 폰은 `kind: "phone"` 초대장만 받는다. 컴퓨터용 초대장을 찍으면 그렇다고 말한다(문구 key). 거절 reason에 `id_taken`, `key_taken`이 더해졌다.
+- `pending`(초대한 컴퓨터에 아직 닿지 않음)은 `rosterPending(view, 이 폰 key)`로 본다.

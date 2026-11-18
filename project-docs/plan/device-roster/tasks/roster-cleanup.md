@@ -62,3 +62,4 @@
 ## 앞 task가 남긴 것 (lead가 더함)
 
 - `roster-client`: `packages/remote-client`의 `pair`, `parsePairingText`, `unpair`, `PairDevice`, `PairFailure`는 부르는 곳이 없다(지운다). `packages/mobile/README.md`의 protocol 판 문단(아직 2)과 개발 단계 2~3(`pairing/start` code)을 `roster/invite`와 판 3으로 고친다(추가 소유: 그 README). `mobile.settings.note.phone-name` 문구가 지금 동작(폰 이름은 hello로 알리고 컴퓨터가 명단 이름으로 서명한다)과 맞는지 보고 고칠 key를 보고에 적는다.
+- 실제 core 확인(lead): 옮긴 뒤 `devices` 표에 `alias` 칸 값이 남는다(이름은 명단이 든다). 칸을 지우지는 않되(표 다시 만들기를 이 판에 또 하지 않는다) `devices/list` 출력과 읽는 code에서 `alias`를 뺀다(위 3과 같다).

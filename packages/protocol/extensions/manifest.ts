@@ -1,5 +1,5 @@
 import { z } from "zod";
-// shell main tsc는 noUncheckedIndexedAccess를 켠 채 보므로 base/mod.ts 전체 대신 쓰는 file만 import한다.
+// shell main tsc도 host-queue.ts를 거쳐 noUncheckedIndexedAccess를 켠 채 보므로 base/mod.ts 전체 대신 쓰는 file만 import한다.
 import type { Clock } from "../../base/clock.ts";
 import type { IdSource } from "../../base/id.ts";
 import type { Result } from "../../base/result.ts";

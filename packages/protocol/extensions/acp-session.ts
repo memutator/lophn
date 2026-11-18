@@ -1,5 +1,5 @@
 // extension이 CLI session 하나를 ACP로 내고 그 화면의 입력을 받는 계약이다. 터미널 탭 하나가 handle 하나다.
-// shell main tsc가 읽는 file이라 schema(zod)는 두지 않고 type만 import한다.
+// shell main tsc도 읽는 file이라(host-queue.ts → manifest.ts를 거쳐) schema(zod)는 두지 않고 type만 import한다.
 import type { AcpInput } from "../acp/input.ts";
 import type { AcpUpdate } from "../acp/state.ts";
 

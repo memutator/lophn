@@ -146,7 +146,7 @@ test("run 폴더 정리는 죽은 core만 지우고 POSIX private mode를 유지
     const keyDir = dirname(first.value.dir);
     mkdirSync(join(keyDir, "core-7777"));
     mkdirSync(join(keyDir, "core-9999"));
-    // shell main의 per-run 폴더는 core가 정리하지 않는다.
+    // `core-<pid>`가 아닌 이름(옛 판 shell이 남긴 `shell-<pid>` 등)은 정리하지 않는다.
     mkdirSync(join(keyDir, "shell-9999"));
     mkdirSync(join(keyDir, "core"));
     writeFileSync(join(keyDir, "b0.sock"), "");

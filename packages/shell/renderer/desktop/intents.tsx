@@ -35,6 +35,10 @@ export function DesktopIntents({
     () =>
       intents.subscribe((intent) => {
         const current = latest.current;
+        if (intent === "extension-settings") {
+          current.onSettings("extension-packages");
+          return;
+        }
         if (intent === "remote-settings") {
           current.onSettings("remote");
           return;

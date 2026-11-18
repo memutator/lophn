@@ -86,8 +86,8 @@ function workspaceOf(app: string): { broker: string; control: string } {
 }
 
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다. 정지할 때는 아무것도 지우지 않는다.
-// 이 폴더는 core socket과 shell의 `shell-<pid>/`가 같이 쓴다. 판이 바뀌어 옛 core를 멈출 때 옛 supervisor가 폴더를
-// 지우면 이미 떠 있는 새 shell의 init file·hook socket이 사라진다.
+// 이 폴더는 core socket과 core 터미널 bridge의 `core-<pid>/`가 같이 쓴다. 판이 바뀌어 옛 core를 멈출 때 옛 supervisor가
+// 폴더를 지우면 이미 떠 있는 새 core의 init file·hook socket이 사라진다.
 function socketPathsOf(app: string): { broker: string; control: string } {
   const made = workspaceOf(app);
   // Windows의 named pipe는 파일이 아니라 낡은 것이 남지 않는다.

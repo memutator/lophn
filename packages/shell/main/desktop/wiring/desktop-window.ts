@@ -45,7 +45,8 @@ export type DesktopWindows = {
   openInactive(project?: string): Promise<BrowserWindow | undefined>;
   /** 가장 최근 창(어느 기계든)을 앞으로 가져온다. 창이 없으면 시작 기계의 창을 연다. */
   show(): void;
-  send(intent: DesktopIntent): void;
+  /** `window`를 주면 그 창에, 아니면 가장 최근 창에 보낸다. */
+  send(intent: DesktopIntent, window?: BrowserWindow): void;
 };
 
 let shotSerial = 0;
@@ -85,12 +86,16 @@ export function onScreen(saved: Workspace, shift = 0): Workspace {
 }
 
 /**
- * 창 밖에서 온 일(전역 팔레트 키)을 가장 최근 창에 시킨다. 사람이
+ * 창 밖에서 온 일(전역 팔레트 키)을 `window`나 가장 최근 창에 시킨다. 사람이
  * 직접 누른 것이라 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. 막 연 창은
  * preload가 받아 두었다가 renderer가 구독하면 넘긴다.
  */
-export function sendIntent(ctx: ShellContext, intent: DesktopIntent): void {
-  const target = recentWindow(ctx) ?? openDesktopWindow(ctx);
+export function sendIntent(
+  ctx: ShellContext,
+  intent: DesktopIntent,
+  window?: BrowserWindow,
+): void {
+  const target = window ?? recentWindow(ctx) ?? openDesktopWindow(ctx);
   if (target === undefined) return;
   reveal(target, ctx.headless);
   const send = () => {

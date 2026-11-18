@@ -1,6 +1,7 @@
 // 터미널 탭이 shell main에 오는 짧은 통로와 터미널의 OS 쪽 일. 터미널은 core가 갖고 화면은 `terminals/*` route로 붙는다.
 // 여기 남는 것: 사람의 입력·질의 응답·다시 시작(그 창이 그 터미널에 focus를 가졌는지 본 뒤 shell capability를 실어 core에
-// 넘긴다), focus 표, clipboard, link를 어디에서 열지, 진단 기록, 그리고 core의 `TerminalAgentSignaled`로 띄우는 알림.
+// 넘긴다), focus 표, clipboard, link를 어디에서 열지, 진단 기록, core의 `TerminalAgentSignaled`로 띄우는 알림, 그리고
+// `TerminalGuiOff`로 여는 Settings › Extensions.
 import { basename, join } from "node:path";
 import { clipboard, shell } from "electron";
 
@@ -92,7 +93,11 @@ export function register(
   );
 
   ctx.relay.conditions.push({
-    types: ["TerminalRuntimeChanged", "TerminalAgentSignaled"],
+    types: [
+      "TerminalRuntimeChanged",
+      "TerminalAgentSignaled",
+      "TerminalGuiOff",
+    ],
   });
   ctx.relay.ready.push(() => {
     void listTerminals().then((list) => {
@@ -104,6 +109,18 @@ export function register(
   ctx.relay.events.push((event) => {
     if (event.type === "TerminalRuntimeChanged") {
       note(event.payload.runtime);
+      return;
+    }
+    if (event.type === "TerminalGuiOff") {
+      // 그 탭을 고른 창에 연다. 모르면(detached 창 포함) 가장 최근 창이다.
+      const owner = focus.contentsOf(event.payload.terminal);
+      const window = [...ctx.windows].find(
+        (item) =>
+          !item.isDestroyed() &&
+          !ctx.detached.has(item) &&
+          item.webContents.id === owner,
+      );
+      ctx.desktop.send("extension-settings", window);
       return;
     }
     if (event.type !== "TerminalAgentSignaled") return;

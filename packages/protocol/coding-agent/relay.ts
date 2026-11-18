@@ -108,7 +108,8 @@ export const codingSessionsSwitch = defineMemory({
 // claude, codex, opencode, omp)이고 아니면 invalid_input이다. resume은 그 project의 harness agent ledger session이고 그 CLI session을
 // 이어 연다: 없거나 다른 project면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면
 // invalid_input, 그 CLI session이 이미 터미널에서 돌거나(목록에 있다) TUI로 열려 있거나 headless turn이 돌면 conflict다.
-// 터미널을 열지 못하면 그 code다. 성공하면 연 터미널의 session(`ses_<터미널 ULID>`)이다. 같은 key는 한 번만 연다.
+// harness GUI extension이 꺼져 있으면 터미널을 열지 않고 unavailable(`details.reason: extension_off`)이다. 터미널을 열지 못하면 그
+// code다. 성공하면 연 터미널의 session(`ses_<터미널 ULID>`)이다. 같은 key는 한 번만 연다.
 export const codingSessionsOpen = defineMemory({
   resource: "coding_sessions",
   method: "open",

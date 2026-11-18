@@ -48,6 +48,8 @@ export class TerminalStore {
   readonly #entries = new Map<string, TerminalEntry>();
   // 탭 layout에서 읽은 터미널 참조. 탭 화면이 아직 그려지지 않아 항목이 없는 탭의 agent·알림 고르기에 쓴다.
   readonly #remembered = new Map<string, string>();
+  // 다른 workspace의 저장된 layout에서 읽은 탭의 터미널 참조. sidebar가 agent를 읽는 데만 쓰고 이 창의 탭으로 치지 않는다.
+  readonly #elsewhere = new Map<string, string>();
   readonly #listeners = new Set<() => void>();
   readonly #selectors = new Set<(key: string) => void>();
   readonly #runtimeListeners = new Set<(runtime: TerminalRuntime) => void>();
@@ -118,7 +120,10 @@ export class TerminalStore {
   /** 탭의 터미널 참조. 그려진 탭은 항목의 것, 아직 그리지 않은 탭은 layout에서 읽은 것이다. */
   refOf(key: string): string | null {
     return (
-      this.#entries.get(key)?.terminalRef ?? this.#remembered.get(key) ?? null
+      this.#entries.get(key)?.terminalRef ??
+      this.#remembered.get(key) ??
+      this.#elsewhere.get(key) ??
+      null
     );
   }
 
@@ -126,6 +131,16 @@ export class TerminalStore {
   remember(key: string, terminalRef: string): void {
     if (this.#remembered.get(key) === terminalRef) return;
     this.#remembered.set(key, terminalRef);
+    this.#agentsChanged();
+  }
+
+  /**
+   * 다른 workspace의 저장된 탭의 터미널 참조를 기억한다. 앱을 다시 켠 뒤 이 창이 아직 그리지 않은 workspace의 탭도 core의 살아
+   * 있는 터미널과 그 agent를 안다. 이 창의 탭이 아니라 hook 물음과 알림 고르기(`has`, `reveal`)에는 들지 않는다.
+   */
+  rememberElsewhere(key: string, terminalRef: string): void {
+    if (this.#elsewhere.get(key) === terminalRef) return;
+    this.#elsewhere.set(key, terminalRef);
     this.#agentsChanged();
   }
 

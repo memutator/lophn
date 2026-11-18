@@ -51,6 +51,7 @@ import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import type { TabItem } from "../model.ts";
 import {
   terminalTabTitle,
+  terminalRefOf,
   pinAgentSessionName,
   terminalNamed,
 } from "../kinds/terminal.tsx";
@@ -201,6 +202,16 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
   );
+  // 이 창이 아직 그리지 않은 workspace(앱을 다시 켠 뒤)의 탭도 저장된 터미널 참조로 core의 살아 있는 터미널과 agent를 안다.
+  useEffect(() => {
+    if (store === undefined) return;
+    for (const tabs of elsewhere.terminals.values()) {
+      for (const tab of tabs) {
+        const ref = terminalRefOf(tab);
+        if (ref !== null) store.rememberElsewhere(tab.key, ref);
+      }
+    }
+  }, [elsewhere.terminals, store]);
   const otherTerminals = useMemo(
     () =>
       new Map(

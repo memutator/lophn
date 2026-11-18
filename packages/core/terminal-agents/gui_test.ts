@@ -120,16 +120,16 @@ function fakeHandle(
   };
 }
 
-// 앱이 GUI가 띄운 CLI(shell main의 자식이라 shell_pid로 못 찾는다)를 session에 잇는 길이다. 이 표지가 빠지거나 shell main이
-// 물려받은 값이 새면 앱이 엉뚱한 session에 process를 붙인다.
-test("GUI가 띄우는 CLI는 그 탭의 session 표지를 받고 shell main이 물려받은 표지는 받지 않는다", async () => {
+// 앱이 GUI가 띄운 CLI(extension host의 자식이라 shell_pid로 못 찾는다)를 session에 잇는 길이다. 이 표지가 빠지거나 extension
+// host가 물려받은 값이 새면 앱이 엉뚱한 session에 process를 붙인다.
+test("GUI가 띄우는 CLI는 그 탭의 session 표지를 받고 extension host가 물려받은 표지는 받지 않는다", async () => {
   const t = setup();
   t.line(KEY_A, { cwd: "/work/a" });
   await t.settle();
   const given = t.requests[0]?.terminal.env;
   assert.equal(given?.LOPHN_SESSION_ID, "term:trm_a");
   const env = cliEnv({
-    base: { PATH: "/usr/bin", LOPHN_SESSION_ID: "ses_from_shell_main" },
+    base: { PATH: "/usr/bin", LOPHN_SESSION_ID: "ses_from_host" },
     dataRoot: "/data",
     given,
   });

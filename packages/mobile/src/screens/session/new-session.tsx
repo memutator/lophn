@@ -154,7 +154,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
     let opened = codingOpened?.project === project && codingOpened.harness === harness ? codingOpened.session : null;
     if (opened === null) {
       const open = await coding.open({ project, harness });
-      if (!open.ok) return problemText(open.code, open.message, label, computer);
+      if (!open.ok) return problemText(open, label, computer);
       opened = open.value.session;
       setCodingOpened({ project, harness, session: opened });
     }
@@ -175,7 +175,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
     const opened = await coding.openTerminal(project);
     setBusy(false);
     if (!opened.ok) {
-      setProblem(problemText(opened.code, opened.message, t("terminal.label.output"), computer));
+      setProblem(problemText(opened, t("terminal.label.output"), computer));
       return;
     }
     navigation.dispatch(

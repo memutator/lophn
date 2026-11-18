@@ -227,7 +227,7 @@ function standing(client: EventClient, env: Env, session: string): Promise<boole
 /** A coding route's answer. A refusal carries the sentence the computer gave, to show as it is (`open`: "Open the project on the computer"). */
 export type CodingResult<T> =
   | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly code: string; readonly message?: string };
+  | { readonly ok: false; readonly code: string; readonly message?: string; readonly reason?: string };
 
 export interface CodingActions {
   /** What switching the session's view would stop and whether it is blocked. Ask before `switchView`. */
@@ -261,7 +261,7 @@ export interface Coding extends CodingActions {
 
 /** One computer's coding sessions: the conversation sources and the actions, over its event client. */
 export function codingOf(client: EventClient): Coding {
-  // `env.read` keeps only the error code; open also needs the sentence the computer gave.
+  // `env.read` keeps only the error code; open also needs the sentence and the reason the computer gave.
   async function ask<T>(
     route: { kind: string; resource: string; method: string },
     body: unknown,
@@ -270,7 +270,12 @@ export function codingOf(client: EventClient): Coding {
       const reply = await client.core.call({ kind: route.kind as "memory", resource: route.resource, method: route.method, body });
       return reply.ok
         ? { ok: true, value: reply.value as T }
-        : { ok: false, code: reply.error?.code ?? "unavailable", message: reply.error?.message };
+        : {
+            ok: false,
+            code: reply.error?.code ?? "unavailable",
+            message: reply.error?.message,
+            reason: typeof reply.error?.details?.reason === "string" ? reply.error.details.reason : undefined,
+          };
     } catch {
       return { ok: false, code: "unavailable" };
     }

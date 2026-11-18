@@ -84,8 +84,6 @@ interface ConnectionOptions {
     /** Gateway가 붙어 event가 다시 온다. 끊긴 동안 놓친 것이 있을 수 있어 main이 가진 사본을 다시 읽는다. */
     ready?(): void;
     event(event: BusEvent): void;
-    /** renderer로 가지 않는 main 전용 frame(coding 터미널 요청 등). */
-    frame?(frame: { type: string }): void;
     /** 이 컴퓨터의 창이 부른 core 호출의 답. event가 따르지 않는 바뀜(이 기계의 이름)을 main이 따라간다. */
     called?(
       call: { kind: string; resource: string; method: string },
@@ -305,7 +303,7 @@ export function startCoreConnection(
           push();
           options.own?.ready?.();
         },
-        // renderer에 가는 것은 ready·event·closed뿐이다. 터미널 요청 같은 frame은 main 전용이다.
+        // renderer에 가는 것은 ready·event·closed뿐이다.
         frame: (frame, to) => {
           if (frame.type === "ready") relay({ kind: "ready" }, to);
           else if (frame.type === "event") {
@@ -318,7 +316,7 @@ export function startCoreConnection(
             relay({ kind: "closed", reason: frame.reason });
             // core가 내려간다는 frame이다. 이 shell은 core를 다시 띄우지 않는다.
             if (frame.reason === "shutdown") shutdownObserved();
-          } else options.own?.frame?.(frame);
+          }
         },
       },
     });

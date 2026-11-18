@@ -114,8 +114,8 @@ const SESSION_CHANGING: ReadonlySet<string> = new Set([
 ]);
 
 export type TabGui = {
-  /** 탭에서 친 `<harness> gui`(hook socket). */
-  request(hook: RoutedHook): Promise<void>;
+  /** 탭에서 친 `<harness> gui`(hook socket). 무시한 요청이면 null이다. */
+  request(hook: RoutedHook): Promise<ToggleReply | null>;
   /** extension이 탭에 묶인 handle을 열었다. 그 터미널의 view는 GUI가 된다. */
   opened(handle: TabHandle): void;
   /** handle이 열릴 때마다 부른다. 이미 열린 handle도 바로 한 번씩 받는다. 닫힘은 `handle.attach`의 `closed`로 안다. */
@@ -326,9 +326,9 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         !isGuiHarness(hook.harness) ||
         !payload.success
       ) {
-        return;
+        return null;
       }
-      await open(
+      return open(
         hook.terminal_ref,
         hook.harness,
         payload.data.cwd,

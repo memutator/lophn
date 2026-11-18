@@ -12,6 +12,8 @@ const OPEN_KEYS_MAX = 200;
 const CLI_SESSION = /^[A-Za-z0-9._-]{1,200}$/;
 
 export type CodingOpenDeps = {
+  // harness GUI extension이 켜져 있다. 꺼져 있으면 `<harness> gui`를 쳐도 GUI가 서지 않는다.
+  guiOn(): boolean;
   // project에 새 터미널을 열고 command를 친다(탭도 연다). 연 터미널 참조다.
   open(project: string, command: string): Promise<Result<string>>;
   // ledger session. harness는 harness agent session이면 그 adapter id(`claude`), 아니면 null이다. 없으면 undefined.
@@ -91,6 +93,13 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       return err({
         code: "invalid_input",
         message: `${input.harness} cannot open as chat; use one of: claude, codex, opencode, omp.`,
+      });
+    }
+    if (!deps.guiOn()) {
+      return err({
+        code: "unavailable",
+        message: "The coding agents extension is off on this computer.",
+        details: { reason: "extension_off" },
       });
     }
     let resume: { session: string; cli_session: string } | undefined;

@@ -594,8 +594,8 @@ files:
       - control-connect:ok
 
   - path: packages/core/terminal-agents/open_test.ts
-    covers: [coding-session-open:conflict, coding-session-open:deduplicated]
-    note: "resume할 CLI session이 목록에 있으면 conflict이고 hold도 터미널도 없다. 같은 key의 open은 터미널을 한 번만 연다"
+    covers: [coding-session-open:conflict, coding-session-open:deduplicated, coding-session-open:unavailable]
+    note: "resume할 CLI session이 목록에 있으면 conflict이고 hold도 터미널도 없다. 같은 key의 open은 터미널을 한 번만 연다. harness-gui가 꺼져 있으면 extension_off의 unavailable이고 hold도 터미널도 없다"
 
   - path: packages/core/main/daemon/wiring/terminal-agents_test.ts
     covers: [coding-session-sync:folded, coding-session-sync:withheld, coding-session-input:unavailable, acp-coding-tool-body:ok, acp-coding-tool-body:unavailable, coding-session-switch:invalid_input, coding-session-switch:forbidden, coding-session-switch:switched]
@@ -603,7 +603,7 @@ files:
 
   - path: packages/core/terminal-agents/agent_test.ts
     covers: [terminal-agent-track:running, terminal-agent-track:waiting, terminal-agent-track:idle, terminal-agent-track:unknown, terminal-agent-track:ignored, terminal-agent-notice:signaled, terminal-agent-notice:mark-dismissed, terminal-agent-notice:cancelled]
-    note: "core 쪽 사본(shell 원본과 같은 단정). hook 줄 ingress(모르는 key, bind 안 된 key, 틀린 줄, 크기 초과는 버림, revoke 뒤 버림)와 coding agent 상태 tracker. Esc·Ctrl-C로 unknown, 다른 harness hook은 탭을 안 바꿈, 1.5초 안의 TurnStarted는 완료 알림을 취소, subagent가 끝나야 알림"
+    note: "hook 줄 ingress(모르는 key, bind 안 된 key, 틀린 줄, 크기 초과는 버림, revoke 뒤 버림)와 coding agent 상태 tracker. Esc·Ctrl-C로 unknown, 다른 harness hook은 탭을 안 바꿈, 1.5초 안의 TurnStarted는 완료 알림을 취소, subagent가 끝나야 알림"
 
   - path: packages/core/terminal-agents/gui_test.ts
     covers: [harness-gui-open:opened, harness-gui-open:ignored, harness-gui-cli-env:spawned, coding-session-switch:unavailable, harness-gui-publish:snapshot, harness-gui-publish:batched, harness-gui-tab-tool-body:read, harness-gui-tab-tool-body:missing, acp-coding-image:saved, acp-coding-image:not_found]
@@ -635,7 +635,7 @@ files:
 
   - path: packages/core/terminal-agents/bridge/run-dir_test.ts
     covers: []
-    note: "core의 per-run 폴더(core-<pid>). socket 경로가 OS byte 한도를 넘으면 폴더를 만지기 전에 거절. Windows pipe 이름 길이, 죽은 core의 run 폴더만 정리하고 shell의 shell-<pid>는 두며, POSIX 권한을 지킨다"
+    note: "core의 per-run 폴더(core-<pid>). socket 경로가 OS byte 한도를 넘으면 폴더를 만지기 전에 거절. Windows pipe 이름 길이, 죽은 core의 run 폴더(core-<pid>)만 정리하고 다른 이름은 두며, POSIX 권한을 지킨다"
 
   - path: packages/core/terminal-view/view_test.ts
     covers: [terminal-view-snapshot:not_found, terminal-view-watch:watching, terminal-view-watch:stopped, terminal-view-watch:not_found, terminal-view-screen:changed, terminal-view-screen:dropped, terminal-view-snapshot:unavailable, terminal-view-resize:resized, terminal-view-resize:conflict]

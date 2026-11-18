@@ -28,10 +28,15 @@ export const GLOBAL_PALETTE_ACCELERATOR = "CommandOrControl+Shift+K";
 export const DESKTOP_INTENT_CHANNEL = "shell:intent";
 
 /**
- * main이 창 밖에서 일어난 일로 창에 시키는 것. `global-palette`는 전역 팔레트 키이고,
+ * main이 창 밖에서 일어난 일로 창에 시키는 것. `global-palette`는 전역 팔레트 키이고, `extension-settings`는
+ * harness-gui가 꺼져 있어 탭에서 친 `<harness> gui`가 열리지 않았으니(core의 `TerminalGuiOff`) Settings › Extensions를 열라는 것이다.
  * `remote-settings`는 옮겨진 로그인 시작 알림의 [Open settings]가 Settings › Remote를 열라는 것이다.
  */
-const DESKTOP_INTENTS = ["global-palette", "remote-settings"] as const;
+const DESKTOP_INTENTS = [
+  "global-palette",
+  "extension-settings",
+  "remote-settings",
+] as const;
 
 export type DesktopIntent = (typeof DESKTOP_INTENTS)[number];
 

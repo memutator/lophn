@@ -23,7 +23,7 @@ desktop(shell main) ─ presence/report ─┐
                                         ▼
                      presence 표(host마다 마지막 보고, 메모리)
 Bus event ─────────┐                    │
-terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateChanged{unseen})
+터미널 tracker(core) ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateChanged{unseen})
                                   └▶ 기기마다 알릴지 정하기 ─▶ 글 만들기 ─▶ Expo Push ─▶ 폰
 ```
 
@@ -31,7 +31,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - **앞에 있다.** kind `phone` 기기는 앱이 앞에 있을 때다. desktop(shell main과, 다른 기계의 lophn이 kind `computer` 기기로 붙어 보고한 것)은 창에 focus가 있고 마지막 입력 뒤 2분이 지나지 않았을 때다(idle을 모르면 지나지 않은 것으로 본다). 그래서 다른 기계의 desktop 앞에 앉은 사람도 `quiet_when_present`의 "앞에 있는 desktop"이다. push는 token이 있는 기기, 곧 phone에만 간다. 90초 넘게 보고가 없는 host는 앞에 없다.
 - **unseen.** 못 본 turn 끝이다. session 참조마다 `finished`나 `failed`와 시각을 메모리에 둔다.
   - 서는 때: 완료나 실패로 끝난 turn(끊은 turn과 앱이 연 session의 turn은 뺀다)과 터미널의 끝·실패 signal. 앞에 있는 host가 그 session을 보고 있으면 서지 않는다. 승인과 질문의 대기는 unseen이 아니다(waiting 표시가 맡는다).
-  - 꺼지는 때: 앞에 있는 host가 그 session을 새로 보고 있다고 알릴 때, 다음 turn이 시작할 때, session이 끝날 때, 터미널의 waiting signal이 올 때, 사람이 지울 때(`unseen/dismiss`). 터미널은 core가 turn 시작과 끝남을 모르므로 shell이 새 turn과 종료를 알려 지우게 한다.
+  - 꺼지는 때: 앞에 있는 host가 그 session을 새로 보고 있다고 알릴 때, 다음 turn이 시작할 때, session이 끝날 때, 터미널의 waiting signal이 올 때, 사람이 지울 때(`unseen/dismiss`). 터미널은 turn이 ledger에 없으므로 core의 tracker가 새 turn과 종료를 알아 지운다.
   - 서고 꺼질 때마다 `StateChanged{unseen}`이 나간다(`id`는 session 참조). desktop은 `unseen/list`를 읽고 `unseen/dismiss`로 지우기만 한다. 폰은 읽지 않는다. 폰이 session을 보고 있다고 알리면 그 점이 꺼진다.
 - **계기.** 무엇을 알릴 계기로 치는지의 표는 한 곳이다.
 
@@ -55,7 +55,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 1. push 글에는 대화 내용, 명령, 질문 글, 마지막 답, notice의 본문, 컴퓨터 이름을 싣지 않는다. 싣는 것은 고정 문장과 session 제목, agent 이름, 앱 이름, job 이름, notice 제목뿐이고 `show_names`가 꺼져 있으면 고정 문장만이다.
 2. 사람이 보고 있는 기기에는 알리지 않는다: 앞에 있는 폰에는 그 폰에 보내지 않고, 앞에 있는 desktop이 있고 `quiet_when_present`이면 그 폰에 보내지 않는다.
 3. 90초 넘게 보고가 없는 host는 앞에 없다. 죽은 desktop이 push를 영원히 막지 않는다. 기기가 마지막 연결을 닫으면 그 기기의 보고를 잊어 연결이 끊긴 폰이 앞에 있는 것으로 남지 않는다.
-4. 누가 보고했는지와 어느 규칙(폰, desktop)을 따르는지는 자격과 그 기기의 kind가 정한다. 입력으로 고르지 못한다. 폰은 자기 이름으로만 보고하고 `terminal_sessions/signal`은 사람 자격(shell main)만 부른다.
+4. 누가 보고했는지와 어느 규칙(폰, desktop)을 따르는지는 자격과 그 기기의 kind가 정한다. 입력으로 고르지 못한다. 폰은 자기 이름으로만 보고한다. 터미널의 계기는 route가 아니라 core 안의 tracker만 낸다.
 5. `unseen`의 정본은 core 하나이고, 서는 때와 꺼지는 때의 규칙은 한 곳에 있다. desktop은 읽고 지우기만 한다.
 6. 개발과 test는 실제 Expo endpoint를 부르지 않는다. `remote.push`가 가리키는 곳만 부르고, 그 설정은 locked라 사람만 바꾼다. 개발 core는 fake push server를 가리키고 test용 core는 비워 push를 끈다.
 7. push는 기록이 아니다. 못 보낸 글은 다시 보내지 않고 버린다(일시 오류의 재시도 셋만 빼고). 놓친 것은 Inbox가 기록으로 남긴다.
@@ -64,7 +64,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 
 ## 경계와 계약
 
-- boundary `attention`. route: `presence/report`(desktop은 shell main, 폰은 기기 route 목록에 있다), `unseen/list`, `unseen/dismiss`, `terminal_sessions/signal`(사람 자격만).
+- boundary `attention`. route: `presence/report`(desktop은 shell main, 폰은 기기 route 목록에 있다), `unseen/list`, `unseen/dismiss`. 터미널의 계기는 route 없이 core의 tracker가 attention을 부른다.
 - 기기 쪽 route `devices/set_push`(폰), `devices/clear_push`, `devices/push_targets`(core 안 machine)는 `remote.md`가 맡는다.
 - event: `JobHeld`(새 held 줄이 commit된 뒤 한 번. 이미 있는 줄이 갱신될 때는 내지 않는다. Inbox는 `StateChanged{jobs}`로 다시 읽으므로 폰 event 목록에는 없다). `StateChanged`의 change 이름 `unseen`(`event.md`).
 - 설정 `remote.push`(locked). 폰의 설정 칸 일곱(`pushPrefsSchema`).
@@ -76,7 +76,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - 알림 설정은 폰 하나에 한 벌 있고 pairing한 모든 컴퓨터에 사본으로 보낸다. 이유: 컴퓨터마다 따로 두면 화면이 늘고, 폰 하나가 컴퓨터 둘에서 다르게 울릴 이유가 없다. (agent)
 - 앞에 있는 host가 있으면 보내지 않는다. 알릴지는 host 단위(`present`)로만 정하고 보는 session은 `unseen`을 위해서만 쓴다. 이유: session까지 맞추면 보고가 session 화면마다 오가고, 사람이 desktop 앞에 있으면 어느 session이든 직접 본다. (agent)
 - 창이 앞에 있어도 마지막 입력 뒤 2분이 지나면 앞에 없는 것이다. 이유: 창을 띄워 놓고 자리를 비운 사람에게 push가 가야 한다. 대가: 보이는 창이 쉬는 사이 끝난 session에도 `unseen`이 선다(의도). (agent)
-- 터미널 coding agent의 대기와 끝은 core가 `coding_report`(터미널 집합 보고)의 변화를 비교해 알아내지 않고 shell main의 tracker가 1.5초 debounce 뒤 `terminal_sessions/signal`로 알린다. 이유: 상태 해석은 tracker 한 곳에 두고 core는 순간만 받는다. 버린 안: report 변화 비교(같은 해석이 core에 두 벌이 된다). (agent)
+- 터미널 coding agent의 대기와 끝은 터미널 집합의 변화를 비교해 알아내지 않고 core의 tracker가 1.5초 debounce 뒤 attention을 바로 부른다(같은 순간 `TerminalAgentSignaled`도 내고 shell main이 그것으로 desktop 알림을 고른다). 이유: 상태 해석은 tracker 한 곳에 두고 attention은 순간만 받는다. 버린 안: 집합 변화 비교(같은 해석이 두 벌이 된다). 처음에는 tracker가 shell main에 있어 `terminal_sessions/signal`로 core에 알렸다. (agent)
 - push 글은 영어 고정 문장이다. 이유: core에 i18n이 없고 글을 OS가 그린다. 폰 화면의 문구는 `@lophn/i18n`이다. (agent)
 - session 제목을 싣는 것이 기본이고(`show_names`) 스위치 부제에 제목이 Expo와 Google을 지난다고 쓴다. 이유: 제목은 대화에서 나온 글이라 사람이 알고 고르게 한다. 컴퓨터 이름은 싣지 않는다(QR에 이름이 없다). (agent)
 - Expo의 "enhanced push security"(access token)를 켜지 않는다. 이유: 열린 build에 token을 실을 수 없다. 대가: 폰의 push token을 아는 사람은 그 폰에 push를 보낼 수 있다. token은 사용자의 core와 Expo에만 있어 받아들인다. (agent)

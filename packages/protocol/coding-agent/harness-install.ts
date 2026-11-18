@@ -1,5 +1,5 @@
 // `lophn harness install|status|uninstall`의 입력과 결과 종류다. 명령 표는 `packages/cli`가 아니라
-// `packages/coding-agent/local`에 있고, 여기는 shell main(Settings)과 harness 설치 code가 같이 쓰는 값만 둔다.
+// `packages/coding-agent/local`에 있고, 여기는 그 명령 표와 harness 설치 code가 같이 쓰는 값만 둔다.
 import { z } from "zod";
 import { harnessIdSchema } from "./harnesses.ts";
 

@@ -603,6 +603,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
       );
 
       const opener = createCodingOpen({
+        guiOn: () => ctx.extensionHost.tabHandlers() !== null,
         async open(project, command) {
           const opened = await ctx.terminals.open({
             project: project as Id<"prj">,

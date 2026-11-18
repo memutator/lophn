@@ -7,10 +7,14 @@ const PROJECT = `prj_${"0".repeat(26)}`;
 const LEDGER = `ses_${"1".repeat(26)}`;
 const TERMINAL = `trm_${"2".repeat(26)}`;
 
-function setup(listed: { harness: string; cli_session: string | null }[]) {
+function setup(
+  listed: { harness: string; cli_session: string | null }[],
+  guiOn = true,
+) {
   const calls: unknown[] = [];
   const holds: string[] = [];
   const deps: CodingOpenDeps = {
+    guiOn: () => guiOn,
     open(project, command) {
       calls.push({ project, command });
       return Promise.resolve(ok(TERMINAL) as Result<string>);
@@ -57,4 +61,20 @@ test("같은 key의 open은 터미널을 한 번만 열고 같은 session을 돌
   assert.deepEqual(first, ok({ session: `ses_${"2".repeat(26)}` }));
   assert.deepEqual(second, first);
   assert.equal(calls.length, 1);
+});
+
+// GUI가 서지 않는 터미널을 열면 폰은 한참 기다린 뒤에야 실패를 안다.
+test("harness-gui가 꺼져 있으면 extension_off로 곧 실패하고 터미널도 hold도 열지 않는다", async () => {
+  const { opener, calls, holds } = setup([], false);
+  const done = await opener.open({
+    project: PROJECT,
+    harness: "claude",
+    resume: { session: LEDGER },
+    key: "k3",
+  });
+  assert.equal(done.ok, false);
+  assert.equal(!done.ok && done.error.code, "unavailable");
+  assert.deepEqual(!done.ok && done.error.details, { reason: "extension_off" });
+  assert.deepEqual(calls, []);
+  assert.deepEqual(holds, []);
 });

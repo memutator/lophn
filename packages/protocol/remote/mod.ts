@@ -4,7 +4,9 @@ export {
   REMOTE_AGENT_ROUTES,
   REMOTE_ALLOWED_EVENTS,
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
+  REMOTE_TERMINAL_DENIED,
 } from "./allowlist.ts";
 export {
   acceptRemote,

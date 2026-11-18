@@ -82,6 +82,11 @@ import {
   remotePushSetting,
   remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
 import { EVENT_PUBLICATIONS_MACHINE_STEPS } from "../../../apps/events/schema.ts";
 import { invocationsRemoteCallerSchemaSteps } from "../../../apps/invocations/mod.ts";
 import {
@@ -762,6 +767,14 @@ export function remoteWiring(
         onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
         granted: (principal) => ctx.terminalInputGrant(principal),
         kind: (principal) => ctx.deviceKind(principal),
+        privateApp: (app) =>
+          isPrivate(
+            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+            {
+              kind: "app",
+              id: app,
+            },
+          ),
         async confirm(request) {
           const issued = await ctx.runtime.confirmation({
             action: "issue",

@@ -65,7 +65,12 @@ import {
   terminalsRestart,
 } from "../coding-agent/terminals.ts";
 import { CARRY_ROUTES } from "./carry.ts";
-import { PAGE_VIEW_ROUTES } from "../lophn-agent/page-view.ts";
+import {
+  PAGE_VIEW_ROUTES,
+  pageViewControl,
+  pageViewInput,
+  pageViewOpen,
+} from "../lophn-agent/page-view.ts";
 import {
   appSessionsEnd,
   appSessionsList,
@@ -201,7 +206,8 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // 기기가 부를 수 있는 route는 두 목록이다. 기기 자격의 scope는 두 목록의 합이고, 밖의 route는 `forbidden`이다.
 // - REMOTE_ALLOWED_ROUTES(아래): 모든 기기의 목록. 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
 // - REMOTE_PERSON_ROUTES(이 file 끝): 사람이 이 기기의 터미널 입력을 허락한 기기에만 여는 목록(secret, provider·model, 설정 쓰기,
-//   agent·project 만들고 고치기). 허락은 그 기기를 사람으로 본다는 뜻이다. 거르기는 core/remote/call.ts가 한다.
+//   agent·project 만들고 고치기). 허락은 이 컴퓨터가 그 기기의 화면(`by`가 없는 폰, 컴퓨터의 `screen` 요청)에게만 사람의 route를 연다는 뜻이다. 컴퓨터의 `terminal`·`agent`·`app` 요청은
+//   허락이 있어도 못 받는다. 거르기는 core/remote/call.ts가 한다.
 // 모든 기기의 목록에 넣지 않는 것: 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
 // `roster/leave`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
@@ -442,6 +448,32 @@ export const REMOTE_AGENT_ROUTES = [
   appGet,
   appTools,
   appRemoteCall,
+] as const;
+
+// 컴퓨터가 요청한 쪽(`by`) 없이 보내는 frame은 그 컴퓨터의 core가 스스로 하는 일이다(사람이나 agent가 시킨 것이 아니다). 받는 기계는 이 목록
+// 하나만 연다. 컴퓨터의 `by` 없는 call이 이 밖이면 `invalid_input`이고, `by`가 있는 call은 이 목록 때문에 더 받는 것이 없다.
+// 지금은 폴더로 나르는 file의 pull과 push(`carry/*`)다.
+export const REMOTE_CORE_ROUTES = [...CARRY_ROUTES] as const;
+
+// 터미널에서 친 요청(`by: terminal`)이 기기 목록에서 받지 못하는 route다. `terminal`은 사람이 친 것인지 그 사람의 CLI token을 쥔 coding
+// agent가 친 것인지 가를 수 없고, 터미널 입력 허락은 그 컴퓨터의 화면에게 준 것이지 그 컴퓨터의 shell에서 도는 것에게 준 것이 아니다.
+// 그래서 (가) 터미널·browser page를 움직이는 route는 컴퓨터의 허락이 있어도 `screen` 요청만 받고(`terminals/open`은 빈 터미널도
+// 같이 막는다. `terminals/close|restart`는 REMOTE_PERSON_ROUTES라 어차피 못 받는다), (나) agent가 사람에게 물은 것에 사람의 결정을
+// 남기는 route(turn request, 질문 답, job 승인, 동의, 공유 요청)는 받지 않는다. `acp/send`는 안에서 그 결정 route들을 부르는 입구라
+// 같이 막는다. 요청한 쪽이 `screen`이거나 `by`가 없는 폰이면 이 목록을 보지 않는다. `agent`·`app` 요청은 REMOTE_AGENT_ROUTES뿐이다.
+export const REMOTE_TERMINAL_DENIED = [
+  terminalsInput,
+  terminalsOpen,
+  pageViewInput,
+  pageViewControl,
+  pageViewOpen,
+  turnRequestDecide,
+  askAnswer,
+  jobDecideHold,
+  jobApprove,
+  activationConsent,
+  shareRequestDecide,
+  acpSend,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.

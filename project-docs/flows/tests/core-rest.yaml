@@ -852,7 +852,7 @@ files:
 
   - path: packages/core/remote/forwarded_test.ts
     covers: [app-remote-call:succeeded, app-remote-call:forbidden, app-remote-call:invalid-input, remote-connection:call-forbidden]
-    note: "받는 기계의 createRemoteCall과 apps/remote_call handler와 앱 호출 경로를 잇고 앱 process·ledger·명단만 가짜로 둔다. 허락받은 컴퓨터여도 요청한 쪽이 terminal·agent·앱이면 사람의 route와 확인이 필요한 명령은 forbidden이고(screen만 닿는다), agent·앱은 앱 목록과 입구 밖의 기기 route도 못 받는다. 폰이 by를 실었거나 컴퓨터가 by 없이 부르면 invalid_input으로 route에 닿지 않는다. roster·machines/call은 허락이 있어도 목록 밖이다. 허락이 없는 컴퓨터와 폰은 입구 handler에 닿지 못하고, body의 by는 invalid_input이다. handler는 요청한 쪽이 없거나 명단의 컴퓨터가 아니거나 허락이 없으면 호출 경로에 보내지 않는다. 허락받은 컴퓨터의 call은 요청한 쪽과 부른 컴퓨터를 remote caller로 앱 process와 기록에 남긴다"
+    note: "받는 기계의 createRemoteCall과 apps/remote_call handler와 앱 호출 경로를 잇고 앱 process·ledger·명단만 가짜로 둔다. 허락받은 컴퓨터여도 요청한 쪽이 terminal·agent·앱이면 사람의 route와 확인이 필요한 명령은 forbidden이고(screen만 닿는다), agent·앱은 앱 목록과 입구 밖의 기기 route도 못 받는다. 폰이 by를 실었거나 컴퓨터가 by 없이 부르면 invalid_input으로 route에 닿지 않는다. roster·machines/call은 허락이 있어도 목록 밖이다. 컴퓨터의 by 없는 frame은 carry route만 받는다. 허락받은 컴퓨터의 terminal 요청은 터미널 입력·열기, page 조작, 결정을 남기는 route(turn request, 질문 답, job 승인, 동의, 공유 요청, acp/send)에 닿지 못하고 screen 요청은 닿는다. agent·앱의 요청에는 private인 앱이 목록에서 빠지고 읽기는 not_found다. 받은 call을 돌리는 앱이 broker로 다른 컴퓨터를 부르면 forbidden이다. 허락이 없는 컴퓨터와 폰은 입구 handler에 닿지 못하고, body의 by는 invalid_input이다. handler는 요청한 쪽이 없거나 명단의 컴퓨터가 아니거나 허락이 없으면 호출 경로에 보내지 않는다. 허락받은 컴퓨터의 call은 요청한 쪽과 부른 컴퓨터를 remote caller로 앱 process와 기록에 남긴다"
 
   - path: packages/core/remote/host_test.ts
     covers:

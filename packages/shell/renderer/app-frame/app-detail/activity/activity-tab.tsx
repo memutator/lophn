@@ -148,6 +148,12 @@ function CalledBy({
           })}
         </span>
       );
+    case "remote":
+      return (
+        <span>
+          {callerText(caller)} · <Mono>{caller.machine}</Mono>
+        </span>
+      );
     case "start":
       return (
         <span>

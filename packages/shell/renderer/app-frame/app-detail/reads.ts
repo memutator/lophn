@@ -635,9 +635,13 @@ async function callerOf(
       return { kind: "program" };
     case "flow":
       return { kind: "flow" };
-    // 어느 기계의 누가 불렀는지 보이는 모양은 `use-screens`가 정한다.
+    // 다른 컴퓨터가 부른 것이다. 사람이 한 것으로 보이면 안 된다. 보이는 모양은 `use-screens`가 정한다.
     case "remote":
-      return { kind: "person" };
+      return {
+        kind: "remote",
+        machine: caller.machine,
+        requester: caller.requester.kind,
+      };
     case "event":
       return {
         kind: "event",

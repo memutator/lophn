@@ -1,8 +1,9 @@
 // 기기 연결의 자격과 `call`. 기기는 actor user, principal `device:<id>`이고 scope는 REMOTE_ALLOWED_ROUTES와 REMOTE_PERSON_ROUTES의
 // 합이다. `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다. frame은 JSON뿐이라 file·upload route의 bytes는 base64로 싣는다.
-// 무엇을 여는지는 요청한 쪽(frame의 `by`)이 정한다. 폰은 `by`가 없고 컴퓨터는 늘 있다(컴퓨터가 `by` 없이, 폰이 `by`를 싣고 부르면
-// `invalid_input`). 사람 route와 확인이 필요한 command는 `by`가 없는 폰이나 `screen`이고 터미널 입력을 허락받은 기기에만 연다.
-// `terminal`은 사람의 route를 못 받고(그 터미널에서 치는 coding agent도 같은 token이다), `agent`와 `app`은 REMOTE_AGENT_ROUTES만 받는다.
+// 무엇을 여는지는 요청한 쪽(frame의 `by`)이 정한다. 폰은 `by`가 없고 컴퓨터는 있다(폰이 `by`를 싣고 부르면 `invalid_input`이다. 컴퓨터가
+// `by` 없이 부르면 그 컴퓨터의 core가 스스로 하는 일이라 REMOTE_CORE_ROUTES만 열고 그 밖은 `invalid_input`이다). 사람 route와 확인이 필요한 command는 `by`가 없는 폰이나 `screen`이고 터미널 입력을 허락받은 기기에만 연다.
+// `terminal`은 사람의 route와 REMOTE_TERMINAL_DENIED를 못 받고(그 터미널에서 치는 coding agent도 같은 token이다), `agent`와 `app`은
+// REMOTE_AGENT_ROUTES만 받는다. 그 가운데 앱 목록·읽기는 private인 앱을 빼고 준다.
 // `by`는 부른 컴퓨터가 자기 자격에서 정한 값이라 이 기계는 그 종류만 믿고 `agent`의 name 같은 글로는 아무것도 정하지 않는다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
@@ -13,13 +14,16 @@ import {
   RPC_JSON_MAX_BYTES,
   UPLOAD_INPUT_HEADER,
 } from "../../protocol/base/mod.ts";
-import { appRemoteCall } from "../../protocol/apps/mod.ts";
+import { appGet, appList, appRemoteCall } from "../../protocol/apps/mod.ts";
+import { appTools } from "../../protocol/apps/declaration/read.ts";
 import { jobUpdate } from "../../protocol/jobs/mod.ts";
 import type { Requester } from "../../protocol/machine/requester.ts";
 import {
   REMOTE_AGENT_ROUTES,
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
+  REMOTE_TERMINAL_DENIED,
 } from "../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
@@ -57,6 +61,12 @@ const PERSON_OPERATIONS = new Set<string>(
 );
 const AGENT_OPERATIONS = new Set<string>(
   REMOTE_AGENT_ROUTES.map((route) => route.name),
+);
+const CORE_OPERATIONS = new Set<string>(
+  REMOTE_CORE_ROUTES.map((route) => route.name),
+);
+const TERMINAL_DENIED = new Set<string>(
+  REMOTE_TERMINAL_DENIED.map((route) => route.name),
 );
 
 // 받은 call의 요청한 쪽은 입력 body가 아니라 이 자격 옆에 실어 handler에 준다(body의 `by`는 route schema가 거절한다).
@@ -138,6 +148,8 @@ type RemoteCallDeps = Pick<
   granted(principal: string): boolean;
   // 이 기계의 명단이 아는 기기의 종류. 명단에 없으면 null이다. `by`는 이 값으로 맞춰 본다.
   kind(principal: string): "phone" | "computer" | null;
+  // 이 기계의 call 정책에서 그 앱의 workspace가 private인가. private인 앱은 agent와 앱의 요청에 보이지 않는다.
+  privateApp(app: string): boolean;
   // 사람 결정 handle을 발급한다(control의 shell 등록과 같은 core 확인 registry).
   confirm(
     request: ConfirmationHandleRegister,
@@ -190,7 +202,12 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     const { principal } = current.value;
     const kind = deps.kind(principal);
     const by = call.by;
-    if ((kind === "computer") === (by === undefined)) {
+    // `by` 없는 컴퓨터는 core가 스스로 하는 일(`carry/*`)만 한다.
+    const coreOwn =
+      kind === "computer" &&
+      by === undefined &&
+      CORE_OPERATIONS.has(entry.route.name);
+    if (!coreOwn && (kind === "computer") === (by === undefined)) {
       return err({
         code: "invalid_input",
         message:
@@ -219,6 +236,25 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
         code: "forbidden",
         message: "an agent or an app on another computer does not reach this",
       });
+    }
+    if (by !== undefined && by.kind !== "screen") {
+      if (TERMINAL_DENIED.has(entry.route.name)) {
+        return err({
+          code: "forbidden",
+          message: "a request typed in a shell does not reach this",
+        });
+      }
+    }
+    const hidesPrivate = by?.kind === "agent" || by?.kind === "app";
+    const askedApp = (call.body as { app?: unknown } | null)?.app;
+    if (
+      hidesPrivate &&
+      (entry.route.name === appGet.name ||
+        entry.route.name === appTools.name) &&
+      typeof askedApp === "string" &&
+      deps.privateApp(askedApp)
+    ) {
+      return err({ code: "not_found", message: "app not found" });
     }
     if (entry.route.name === jobUpdate.name && !onlyToggles(call.body)) {
       return err({
@@ -283,7 +319,13 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
           base64: Buffer.from(result.bytes).toString("base64"),
         });
       }
-      if (result.status === 200) return ok(result.json);
+      if (result.status === 200) {
+        return ok(
+          hidesPrivate && entry.route.name === appList.name
+            ? withoutPrivateApps(result.json, deps.privateApp)
+            : result.json,
+        );
+      }
       // details도 싣는다: 폰과 다른 기계의 창도 desktop처럼 `details.reason`(예: `changed_elsewhere`)으로 안내한다.
       const { error } = result.json as { error: LophnError };
       return err({
@@ -295,6 +337,14 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
       arrival.value.release();
     }
   };
+}
+
+function withoutPrivateApps(
+  json: unknown,
+  privateApp: (app: string) => boolean,
+): unknown {
+  const listed = json as { apps: { id: string }[] };
+  return { ...listed, apps: listed.apps.filter((app) => !privateApp(app.id)) };
 }
 
 // 허락받은 기기의 확인이 필요한 command는 사람이 확인한 것으로 본다. 기기가 보낸 `confirmation`은 버리고 core가 대상과 내용에 묶은

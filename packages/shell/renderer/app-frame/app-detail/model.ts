@@ -183,6 +183,9 @@ export function callerText(caller: Caller): string {
       return t("app-detail.label.caller-flow");
     case "event":
       return t("app-detail.label.caller-event", { event: caller.event });
+    // 문구와 번역은 `use-screens`가 정한다.
+    case "remote":
+      return `another computer (${caller.requester})`;
     case "start":
       return t("app-detail.label.caller-start");
   }

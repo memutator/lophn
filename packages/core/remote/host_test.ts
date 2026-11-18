@@ -512,6 +512,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       // 이 file의 기기는 터미널 입력 허락이 없다. 허락받은 기기는 call_test.ts가 본다.
       granted: () => false,
       kind: () => "phone",
+      privateApp: () => false,
       confirm: async () => err({ code: "internal", message: "not issued" }),
     }),
     admission,

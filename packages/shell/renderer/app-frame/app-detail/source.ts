@@ -187,6 +187,12 @@ export type Caller =
     }
   | { readonly kind: "program" }
   | { readonly kind: "flow" }
+  /** 다른 컴퓨터가 불렀다. requester는 그 컴퓨터가 알린 종류(그 컴퓨터가 쓴 값이라 표시만 한다). */
+  | {
+      readonly kind: "remote";
+      readonly machine: string;
+      readonly requester: "screen" | "terminal" | "agent" | "app";
+    }
   | {
       readonly kind: "event";
       /** 발행한 앱의 이름. core(`lophn`)가 낸 것이면 `lophn`, 못 읽으면 null. */

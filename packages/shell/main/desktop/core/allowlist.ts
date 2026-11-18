@@ -17,7 +17,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 이 컴퓨터를 로그인 때 띄우고 계속 돌리는 표시 읽기·바꾸기(`always_on/status`·`always_on/set`. Settings › Remote의 Keep running)
 // - 못 본 turn 끝 읽기와 지우기(`unseen/list`·`unseen/dismiss`. 탭의 finished 점과 알림 panel의 Finished 줄). presence 보고는
 //   shell main만 부른다.
-// - project id file 상태와 만들기·나누기, 등록 전 폴더 읽기(`projects/identity`·`create_identity`·`renew_identity`·`match`). project 등록 dialog와 상세
+// - project id file 상태와 만들기·나누기, 등록 전 폴더 읽기(`projects/identity`·`create_identity`·`renew_identity`·`match`), 등록(`projects/add`). project 등록 dialog와 상세
 // - 터미널 탭의 열기·닫기·크기·출력 lease·탭 이름과 저장한 coding agent session의 이름(`terminals/*`). 사람의 입력(`terminals/input`)과
 //   다시 시작(`restart`)은 그 창의 focus를 본 shell main이 capability를 실어 부르므로 넣지 않는다.
 // - 터미널 탭의 GUI·TUI 바꾸기(`coding_sessions/switch`)
@@ -88,6 +88,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:coding_agents/install_hooks",
   "memory:coding_agents/uninstall_hooks",
   "memory:coding_agents/hook_answer",
+  "memory:projects/add",
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.

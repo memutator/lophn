@@ -127,7 +127,7 @@ import {
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
-import { devicesSetPush, devicesUnpair } from "./routes.ts";
+import { devicesSetPush, devicesUnpair, rosterLeave } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
 // 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
@@ -272,6 +272,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   appSyncSnapshotFile,
   // 폰이 이 컴퓨터를 지울 때 자기 등록을 지운다
   devicesUnpair,
+  // 기기가 자기를 내 기기 명단에서 뺀다
+  rosterLeave,
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다
   devicesSetPush,
   presenceReport,

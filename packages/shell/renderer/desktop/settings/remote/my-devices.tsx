@@ -2,18 +2,16 @@
 // 연결, 터미널 입력 스위치와 [Rename]·[Make primary](폰)·[Remove]다. 이름과 터미널 입력은 명단에 있어 모든 기계에 같다. 이 컴퓨터의
 // 이름은 위 This computer에서 바꾸고 이 컴퓨터는 뺄 수 없다. 빼면 그 기기는 모든 기계에서 끊기고 그 key로 다시 들지 못해 먼저 한 번
 // 묻는다. 두 컴퓨터가 서로 뺀 엇갈림으로 빠진 기기는 "Disputed"와 한 줄 설명, [Remove]만 선다: 믿지 않는 쪽을 여기서 빼면
-// 다른 쪽이 돌아온다. 다른 컴퓨터가 있으면 아래에 시작 때 여는 기계 고르기가 선다.
+// 다른 쪽이 돌아온다.
 import { useState } from "react";
 import { formatRelativeTime, t } from "@lophn/i18n";
-import { Field, Input, Select, Switch } from "@lophn/ui/input";
+import { Field, Input, Switch } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 
 import { actionIcons } from "../../../icons/mod.ts";
-import { useMachines, useMachinesView } from "../../machines/context.tsx";
-import type { MachinesSource, MachinesView } from "../../machines/source.ts";
+import { useMachinesView } from "../../machines/context.tsx";
 import { MachineStatus } from "../../machines/status.tsx";
-import { NamedControl } from "../general/named-control.tsx";
 import styles from "../settings.module.css";
 import remoteStyles from "./remote.module.css";
 import type {
@@ -29,8 +27,6 @@ const OS_LABEL = {
   macos: "settings.label.device-macos",
   windows: "settings.label.device-windows",
 } as const;
-
-const LAST = "last";
 
 function detailText(device: RemoteDevice): string {
   const kind = t(
@@ -66,7 +62,6 @@ export function MyDevices({
   /** 바꾼 뒤 목록을 다시 읽는다. */
   reload: () => void;
 }) {
-  const machines = useMachines();
   const view = useMachinesView();
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
     null,
@@ -113,14 +108,9 @@ export function MyDevices({
     }
   }
 
-  // 다른 기계의 창에는 기계 목록이 없다(Settings가 없다). gallery가 기계 목록 없이 그리면 상태 줄이 없다.
+  // gallery가 기계 목록 없이 그리면 상태 줄이 없다.
   const machineOf = (device: RemoteDevice) =>
     view?.machines.find((one) => one.id === device.machine);
-  const startable =
-    machines !== null &&
-    view !== null &&
-    machines.thisWindow() === null &&
-    view.machines.length > 0;
 
   return (
     <>
@@ -268,13 +258,6 @@ export function MyDevices({
             </li>
           );
         })}
-        {startable ? (
-          <StartLine
-            machines={machines}
-            view={view}
-            act={(run) => void act(run)}
-          />
-        ) : null}
       </ul>
       {failed ? (
         <p className={styles.rejected} role="alert">
@@ -313,76 +296,7 @@ export function MyDevices({
         <p className={remoteStyles.dialogText}>
           {t("settings.note.remote-remove", { name: removing?.name ?? "" })}
         </p>
-        {removing !== null &&
-        view?.start.mode === "machine" &&
-        view.start.machine === removing.machine ? (
-          <p className={remoteStyles.dialogText} data-remote-remove-start="">
-            {t("machines.note.remove-start", { name: removing.name })}
-          </p>
-        ) : null}
       </Dialog>
     </>
-  );
-}
-
-// 시작 때 여는 기계. 고른 기계가 꺼져 있으면 그 창이 그렇게 말하고 이 컴퓨터를 여는 길을 준다.
-function StartLine({
-  machines,
-  view,
-  act,
-}: {
-  machines: MachinesSource;
-  view: MachinesView;
-  act: (run: Promise<SourceResult<unknown>>) => void;
-}) {
-  const chosen = view.start.mode === "machine" ? view.start.machine : LAST;
-  const options = [
-    { value: LAST, label: t("machines.option.last") },
-    ...(view.thisComputer === null
-      ? []
-      : [{ value: view.thisComputer.id, label: view.thisComputer.name }]),
-    ...view.machines.map((one) => ({ value: one.id, label: one.name })),
-  ];
-  // 고른 기계가 명단에 없으면(옮긴 시작 기계를 아직 다시 들이지 않았다) 그대로 그 기계를 열고 그 창이 removed gate를 보인다.
-  // 그 사실을 한 줄로 보인다.
-  if (!options.some((one) => one.value === chosen)) {
-    options.push({ value: chosen, label: t("machines.option.not-in-list") });
-  }
-  const startId = chosen;
-  return (
-    <li className={styles.line} data-machines-start="">
-      <NamedControl
-        name={t("machines.label.start")}
-        labelClass={styles.lineName}
-      >
-        {({ label, provide }) => (
-          <>
-            <div className={styles.lineMain}>
-              {label}
-              <span className={styles.lineHelp}>
-                {t("machines.note.start")}
-              </span>
-            </div>
-            <div className={styles.lineControl}>
-              {provide(
-                <Select
-                  options={options}
-                  value={startId}
-                  onValueChange={(value) =>
-                    act(
-                      machines.setStart(
-                        value === LAST
-                          ? { mode: "last" }
-                          : { mode: "machine", machine: value },
-                      ),
-                    )
-                  }
-                />,
-              )}
-            </div>
-          </>
-        )}
-      </NamedControl>
-    </li>
   );
 }

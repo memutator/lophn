@@ -10,7 +10,7 @@
 // (remote/carry.ts. remote가 켜진 동안만 돈다).
 // remote key 둘(host key, 서명 key)에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key거나 하나만
 // 읽히면 명단을 버리고 둘 다 지운다. 명단에서 이 컴퓨터가 빠진 것을 알아도 같은 길로 버리고 새 key로 다시 선다.
-import { readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { readFile, rename, rmdir, unlink, writeFile } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import process from "node:process";
 import type { z } from "zod";
@@ -264,7 +264,7 @@ export const signingKeyStep: DataStep = {
 
 // shell main이 다른 컴퓨터에 따로 붙던 기기 key와 기계 목록(`shell/viewer/key.json`, `machines.json`)을 지운다. 이제 core가 명단으로
 // 붙고, 컴퓨터끼리는 초대로 한 번 다시 잇는다. 시작 기계(`start`·`last`와 `last`인 기계의 보이는 이름)는 `viewer/start.json`으로
-// 옮기고 창 자리(`viewer/windows.json`)는 그대로 둔다. 표지가 이 기계와 다른 file(복사된 data root)은 옮기지 않고 지운다.
+// 옮기고 창 자리(`viewer/windows.json`)는 그대로 둔다(둘 다 `shell.viewer.drop`이 이어서 지운다). 표지가 이 기계와 다른 file(복사된 data root)은 옮기지 않고 지운다.
 export const viewerRosterStep: DataStep = {
   id: "shell.viewer.roster",
   async run(root) {
@@ -317,6 +317,32 @@ export const viewerRosterStep: DataStep = {
       return err({
         code: "unavailable",
         message: "the old desktop viewer files could not be moved",
+      });
+    }
+    return ok(undefined);
+  },
+};
+
+// 한 창이 모든 기계를 보이므로 기계마다의 창과 시작 기계(`shell/viewer/start.json`, `windows.json`)를 다시 읽는 code가 없다. 두
+// file을 지우고 폴더가 비면 폴더도 지운다. 다른 file이 있으면 둔다. 없으면 아무것도 하지 않는다.
+export const viewerDropStep: DataStep = {
+  id: "shell.viewer.drop",
+  async run(root) {
+    const dir = `${root}/shell/viewer`;
+    const ignore = (codes: string[]) => (thrown: unknown) => {
+      if (!codes.includes((thrown as NodeJS.ErrnoException).code ?? "")) {
+        throw thrown;
+      }
+    };
+    try {
+      for (const file of ["start.json", "windows.json"]) {
+        await unlink(`${dir}/${file}`).catch(ignore(["ENOENT"]));
+      }
+      await rmdir(dir).catch(ignore(["ENOENT", "ENOTEMPTY", "EEXIST"]));
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "the old desktop window files could not be removed",
       });
     }
     return ok(undefined);
@@ -754,7 +780,12 @@ export function remoteWiring(
       ...FOLDER_CARRY_MARKS_STEPS,
       ...PROJECTS_FORMER_IDENTITY_STEPS,
     ],
-    dataSteps: [hostKeyMachineStep, signingKeyStep, viewerRosterStep],
+    dataSteps: [
+      hostKeyMachineStep,
+      signingKeyStep,
+      viewerRosterStep,
+      viewerDropStep,
+    ],
     operations: () => [
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },
       { name: devicesClearPush.name, actors: ["machine"], kind: "command" },

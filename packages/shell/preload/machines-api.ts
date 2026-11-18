@@ -4,15 +4,9 @@ import {
   MACHINES_CHANGED_CHANNEL,
   MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_LIST_CHANNEL,
-  MACHINES_OPEN_CHANNEL,
-  MACHINES_START_CHANNEL,
-  MACHINES_THIS_READ_CHANNEL,
-  MACHINES_THIS_WINDOW_CHANNEL,
   type MachineList,
   machineListSchema,
   type MachinesFailure,
-  type MachinesReply,
-  type MachineWindow,
 } from "../ipc/machines.ts";
 import type { BrowserTransport } from "./browser-api.ts";
 
@@ -61,24 +55,6 @@ export function createMachinesApi(
       transport.on(MACHINES_CHANGED_CHANNEL, callback);
       return () => transport.removeListener(MACHINES_CHANGED_CHANNEL, callback);
     },
-    setStart: (start) =>
-      invoke<MachinesReply>(transport, MACHINES_START_CHANNEL, start),
-    open: (machine, session) =>
-      invoke<MachinesReply>(
-        transport,
-        MACHINES_OPEN_CHANNEL,
-        session === undefined ? { machine } : { machine, session },
-      ),
-    async thisWindow() {
-      const reply = await invoke<MachineWindow>(
-        transport,
-        MACHINES_THIS_WINDOW_CHANNEL,
-      );
-      // A refusal reads as a window of this computer.
-      return "ok" in reply ? { machine: null } : reply;
-    },
-    thisRead: (route, input) =>
-      invokeCore(transport, MACHINES_THIS_READ_CHANNEL, { route, input }),
     cloneHere: (input) =>
       invokeCore(transport, MACHINES_CLONE_HERE_CHANNEL, input),
   } satisfies LophnMachinesApi);

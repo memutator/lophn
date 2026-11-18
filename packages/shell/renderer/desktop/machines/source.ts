@@ -1,4 +1,4 @@
-// 다른 기계를 보는 화면이 읽고 쓰는 통로. 화면은 이 interface만 보고, 실제 통로(shell main의 `lophnMachines`)는 따로 짓는다.
+// 다른 기계를 보는 화면이 읽는 통로. 화면은 이 interface만 보고, 실제 통로(shell main의 `lophnMachines`)는 따로 짓는다.
 import type { SourceResult } from "../../source-result.ts";
 
 export type { SourceResult };
@@ -10,7 +10,7 @@ export type MachineStatus =
   | "update"
   | "removed";
 
-/** 명단의 다른 컴퓨터 하나. removed는 이 창의 기계가 명단에서 빠졌다(목록에는 없다). */
+/** 명단의 다른 컴퓨터 하나. removed는 보던 기계가 명단에서 빠졌다(목록에는 없다). */
 export interface MachineItem {
   readonly id: string;
   /** 명단의 이름. 모든 기계에 같다. */
@@ -29,11 +29,6 @@ export interface MachinesView {
   readonly state: "starting" | "ready";
   readonly thisComputer: { readonly id: string; readonly name: string } | null;
   readonly machines: readonly MachineItem[];
-  /** 시작 때 여는 기계. last는 연결된 채 focus를 받은 마지막 창의 기계다. */
-  readonly start:
-    | { readonly mode: "last" }
-    | { readonly mode: "machine"; readonly machine: string };
-  readonly last: string | null;
 }
 
 /** The result of cloning another machine's project onto this computer. */
@@ -53,17 +48,7 @@ export interface MachinesSource {
   /** 지금 목록. 바뀌지 않았으면 같은 값을 돌려준다(useSyncExternalStore가 비교한다). */
   get(): MachinesView;
   subscribe(listener: () => void): () => void;
-  /** 이 창이 보는 기계. null이면 이 컴퓨터의 창이다. */
-  thisWindow(): { readonly id: string; readonly name: string } | null;
-  setStart(start: MachinesView["start"]): Promise<SourceResult<void>>;
-  /** 그 기계의 창을 열거나 앞으로 가져온다. 이 컴퓨터의 id면 이 컴퓨터의 창이고, session을 주면 그 창이 그 session을 연다. */
-  open(id: string, session?: string): Promise<SourceResult<void>>;
-  /** 다른 기계의 창에서 이 컴퓨터의 core를 읽는다. 이 세 read만 된다. */
-  thisRead(
-    route: "project.list" | "ListAgents" | "ListSessions",
-    input: unknown,
-  ): Promise<SourceResult<unknown>>;
-  /** 다른 기계의 project를 이 컴퓨터에 clone한다(목록의 [Clone here], 다른 기계의 창). */
+  /** 다른 기계의 project를 이 컴퓨터에 clone한다(목록의 [Clone here]). */
   cloneHere(input: {
     readonly url: string;
     readonly identity: string;

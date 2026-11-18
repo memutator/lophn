@@ -11,7 +11,6 @@ import { PageView } from "../../browser/page-view/page-view.tsx";
 import { useEventClient } from "../../desktop/connection/events/hooks.tsx";
 import {
   machineItemOf,
-  useMachines,
   useMachinesView,
 } from "../../desktop/machines/context.tsx";
 import { browserIcons } from "../../icons/mod.ts";
@@ -34,10 +33,8 @@ function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
   const client = useEventClient();
   const source = useMemo(() => corePageViewSource(client.core), [client]);
   const machine = tab.machine ?? host.machine;
-  const machines = useMachines();
   const view = useMachinesView();
-  const machineName =
-    machine === null ? "" : machineItemOf(machines, view, machine).name;
+  const machineName = machine === null ? "" : machineItemOf(view, machine).name;
   const page = tab.fields?.page;
   // page 탭의 이름은 그 page의 제목을 따라간다.
   const onTitle = useCallback(

@@ -19,7 +19,6 @@ import * as desktop from "./wiring/desktop.ts";
 import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as layout from "./wiring/layout.ts";
-import * as machineWindows from "./wiring/machine-windows.ts";
 import * as machines from "./wiring/machines.ts";
 import * as surface from "./wiring/surface.ts";
 import * as terminal from "./wiring/terminal.ts";
@@ -100,8 +99,7 @@ function startDesktop(): void {
 
   add(crash.register(ctx));
   add(core.register(ctx));
-  const viewed = add(machines.register(ctx));
-  add(machineWindows.register(ctx, viewed));
+  add(machines.register(ctx));
   const browserViews = add(browser.register(ctx));
   const artifacts = add(artifact.register(ctx, browserViews));
   const views = add(appViews.register(ctx, browserViews, artifacts));

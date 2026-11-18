@@ -346,8 +346,7 @@ export function register(
         // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
         const host =
           contents.getType() === "webview" ? contents.hostWebContents : null;
-        // 다른 기계의 창(`topWindows`에만 든다)도 팔레트·Home 키를 받는다.
-        const window = [...windows, ...ctx.topWindows].find(
+        const window = [...windows].find(
           (window) =>
             !window.isDestroyed() &&
             (window.webContents === contents ||

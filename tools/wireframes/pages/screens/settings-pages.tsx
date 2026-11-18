@@ -506,19 +506,10 @@ export const SettingsRemoteRemovedHere = () => (
   />
 );
 
-/** Settings › Remote: Open at start가 명단에 없는 기계(옮긴 뒤 아직 다시 들이지 않은 Old laptop)를 가리킨다. "A computer not in your devices"로 보인다. */
-export const SettingsRemoteStartMissing = () => (
-  <SettingsFrame
-    pane="remote"
-    machines={{ start: { mode: "machine", machine: "mch_oldlaptop" } }}
-  />
-);
-
-/** Settings › Remote: 시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 시작 기계라서 한 줄이 더 붙는다. */
+/** Settings › Remote: Home server의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못한다. */
 export const SettingsRemoteRemove = () => (
   <SettingsFrame
     pane="remote"
-    machines={{ start: { mode: "machine", machine: "mch_homeserver" } }}
     steps={[
       () =>
         click(

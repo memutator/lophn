@@ -1,6 +1,6 @@
-// The other computers this desktop views and the start machine. This computer's core holds a link to every other computer in
+// The other computers this desktop views. This computer's core holds a link to every other computer in
 // the device list; shell main reads their state (`machines/list`, again on every `StateChanged{remote_devices}`) and reaches
-// one over `machines/call`·`machines/watch` (`MachineLink`, which machine-route picks by the machine a window names).
+// one over `machines/call`·`machines/watch` (`MachineLink`, which machine-route picks by the machine a core call or watch names).
 // Each subscriber of a machine (a window as `w<webContents id>`, or one inside shell main by its own name) sends its own
 // conditions as its `watcher`; this computer's core watches the sum. That machine's Gateway frames come back on this
 // computer's Gateway as `MachineFrameReceived` and go, with the machine on them, to the windows watching it alone.
@@ -20,24 +20,14 @@ import {
   MACHINES_CHANGED_CHANNEL,
   MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_LIST_CHANNEL,
-  MACHINES_START_CHANNEL,
-  machineConnectionState,
   machinesCloneHereSchema,
   type MachineList,
-  machineStartSchema,
   type MachinesFailure,
-  type MachinesReply,
 } from "../../../ipc/machines.ts";
 import { word } from "../i18n.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
-import {
-  afterRemove,
-  type LinkedMachine,
-  machineList,
-  type Saved,
-} from "../viewer/list.ts";
+import { type LinkedMachine, machineList } from "../viewer/list.ts";
 import type { MachineLink } from "../viewer/machine-route.ts";
-import { createStartStore, readStart } from "../viewer/start.ts";
 import { changedIds, type Registered, type ShellContext } from "./context.ts";
 
 type Conditions = CoreWatch["conditions"];
@@ -58,8 +48,6 @@ export type Machines = {
       watcher: string | undefined,
     ) => void,
   ): void;
-  // A window of this machine got focus while connected: it becomes the "last used" start machine.
-  markUsed(machine: Id<"mch">): void;
 };
 
 type Frame =
@@ -93,7 +81,6 @@ export function register(ctx: ShellContext): Machines & Registered {
   // Each machine's subscribers (watcher → its last conditions). Sent again when this computer's Gateway (re)connects: the
   // shell capability they were bound to ended with the old Gateway, or the core started again.
   const watching = new Map<Id<"mch">, Map<string, Conditions>>();
-  const store = createStartStore(ctx.dataRoot, ctx.log);
   let self: { id: Id<"mch">; name: string } | null = null;
   let knowSelf = () => {};
   const selfKnown = new Promise<void>((resolve) => {
@@ -101,7 +88,6 @@ export function register(ctx: ShellContext): Machines & Registered {
   });
   let rows: LinkedMachine[] = [];
   let listed = false;
-  let saved: Saved = { start: { mode: "last" }, last: null, last_name: null };
   let current = build();
   let pushed = JSON.stringify(current);
 
@@ -110,7 +96,6 @@ export function register(ctx: ShellContext): Machines & Registered {
       state: self !== null && listed ? "ready" : "starting",
       self,
       machines: rows,
-      saved,
     });
   }
 
@@ -128,12 +113,6 @@ export function register(ctx: ShellContext): Machines & Registered {
     for (const listener of [...listeners]) listener(current);
   }
 
-  function persist(next: Saved) {
-    saved = next;
-    if (self !== null) store.save({ machine: self.id, ...next });
-    publish();
-  }
-
   async function read(): Promise<void> {
     if (self === null) {
       const status = await ctx.coreInternal("memory", "machine", "status", {});
@@ -141,24 +120,12 @@ export function register(ctx: ShellContext): Machines & Registered {
       const machine = status.value as MachineStatus;
       self = { id: machine.id as Id<"mch">, name: machine.name };
       knowSelf();
-      const file = await readStart(ctx.dataRoot);
-      // A file another machine wrote (a copied data root) is not this machine's start.
-      if (file !== null && file.machine === self.id) {
-        saved = {
-          start: file.start,
-          last: file.last,
-          last_name: file.last_name,
-        };
-      }
     }
     const listedNow = await ctx.coreInternal("memory", "machines", "list", {});
     if (!listedNow.ok) return;
     rows = (listedNow.value as { machines: LinkedMachine[] }).machines;
     listed = true;
-    const last = rows.find((row) => row.machine === saved.last);
-    if (last !== undefined && last.name !== saved.last_name) {
-      persist({ ...saved, last_name: last.name });
-    } else publish();
+    publish();
   }
 
   // One read at a time; changes during a read read once more, so an older answer never lands last.
@@ -259,14 +226,6 @@ export function register(ctx: ShellContext): Machines & Registered {
       if (name === self.name) return;
       self = { ...self, name };
       publish();
-      return;
-    }
-    if (call.resource === "roster" && call.method === "remove") {
-      const device = (reply.value as { id: string }).id;
-      const row = rows.find((one) => one.device === device);
-      if (row !== undefined) {
-        persist(afterRemove(saved, row.machine as Id<"mch">, self.id));
-      }
     }
   });
 
@@ -279,26 +238,6 @@ export function register(ctx: ShellContext): Machines & Registered {
     MACHINES_LIST_CHANNEL,
     (event: IpcEvent): MachineList | MachinesFailure =>
       allowed(event) ? current : { ok: false, code: "forbidden" },
-  );
-
-  ipc.handle(
-    MACHINES_START_CHANNEL,
-    (event: IpcEvent, input: unknown): MachinesReply => {
-      if (!allowed(event)) return { ok: false, code: "forbidden" };
-      const parsed = checkInput(machineStartSchema, input);
-      if (!parsed.ok) return { ok: false, code: "invalid_input" };
-      if (self === null || !listed) return { ok: false, code: "unavailable" };
-      const start = parsed.value;
-      if (
-        start.mode === "machine" &&
-        start.machine !== self.id &&
-        !rows.some((row) => row.machine === start.machine)
-      ) {
-        return { ok: false, code: "invalid_input" };
-      }
-      persist({ ...saved, start });
-      return { ok: true };
-    },
   );
 
   // A parent folder for the clone when this computer has no projects folder yet. headless never shows a dialog.
@@ -319,8 +258,7 @@ export function register(ctx: ShellContext): Machines & Registered {
     return path !== undefined && isAbsolute(path) ? path : null;
   }
 
-  // This computer's `project.clone` as the person. machine-route lets every desktop window through, a window of another
-  // machine included.
+  // This computer's `project.clone` as the person.
   ipc.handle(
     MACHINES_CLONE_HERE_CHANNEL,
     async (event: IpcEvent, input: unknown): Promise<CoreReply> => {
@@ -355,11 +293,6 @@ export function register(ctx: ShellContext): Machines & Registered {
       }) as Promise<CoreReply>,
     watch: (owner, conditions) =>
       watch(machine, windowWatcher(owner), conditions),
-    // A machine that is not in the list (left the device list) is stale; its window shows the removed gate.
-    current: () =>
-      machineConnectionState(
-        current.machines.find((row) => row.id === machine),
-      ),
   });
   ctx.machineRoute.attach({
     link,
@@ -378,18 +311,9 @@ export function register(ctx: ShellContext): Machines & Registered {
     onFrame(listener) {
       frames.add(listener);
     },
-    markUsed(machine) {
-      if (self === null || !listed || saved.last === machine) return;
-      persist({
-        ...saved,
-        last: machine,
-        last_name: rows.find((row) => row.machine === machine)?.name ?? null,
-      });
-    },
     stop() {
       for (const channel of [
         MACHINES_LIST_CHANNEL,
-        MACHINES_START_CHANNEL,
         MACHINES_CLONE_HERE_CHANNEL,
       ]) {
         ipc.removeHandler(channel);

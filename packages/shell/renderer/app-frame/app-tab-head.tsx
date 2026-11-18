@@ -26,7 +26,6 @@ import {
 } from "../parts/card-head/card-head.tsx";
 import {
   machineItemOf,
-  useMachines,
   useMachinesView,
   useScopeMachine,
 } from "../desktop/machines/context.tsx";
@@ -138,12 +137,11 @@ export function useAppTabHead(input: {
   shellHead.current = input.shellHead;
   const shellKey = input.shellHead?.key ?? null;
   const machine = useScopeMachine();
-  const machines = useMachines();
   const machinesView = useMachinesView();
   const machineName =
     machine === null
       ? null
-      : machineItemOf(machines, machinesView, machine).name ||
+      : machineItemOf(machinesView, machine).name ||
         t("machines.label.unknown-name");
 
   useEffect(() => {

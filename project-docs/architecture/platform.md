@@ -115,7 +115,7 @@ host(desktop 앱의 shell main, display가 없는 Linux에서는 page host)와 c
 ### shell 창과 IPC 둘레
 
 - **창의 기계.** shell main의 IPC는 영역의 handler보다 먼저 한 둘레를 지난다: 보낸 webContents가 다른 기계의 창이면(창을 열 때 main이 그 기계에 묶는다) `shell:core-call|core-watch|core-state-get`은 그 기계의 연결로 가고, 허락한 channel(`shell:machines-list|open|this-window|visible`, 창 단추, 외부 링크) 밖은 handler를 부르지 않고 `forbidden`이다(`ipcMain.on`은 듣지 않는다). 이 컴퓨터의 창은 그대로 자기 handler로 간다. 영역이 sender 검사(`checkCaller`)를 따로 하는 것은 그대로다.
-- **preload.** 이 컴퓨터의 창은 `preload-shell`, 다른 기계의 창은 `preload-remote`(core, 기계 목록, overlay, 창 단추, 단축키, 외부 링크만)를 받는다. 다른 기계의 창이 없는 bridge의 기능은 renderer가 bridge가 없을 때의 길로 감춘다(`remote.md`).
+- **preload.** 모든 창이 `preload-shell`을 받는다. 창은 기계에 묶이지 않는다(`remote.md`).
 - **창이 없을 때 여는 창.** 시작, tray Open, 두 번째 실행은 창이 하나도 없으면 시작 기계의 창을 연다. 시작 기계는 core를 기다리지 않고 shell data의 기계 목록 file에서 고르고, 못 읽거나 이 컴퓨터면 이 컴퓨터의 창이다. agent와 이 컴퓨터의 core가 쓰는 창(browser, 탭, 알림, 전역 키, agent 창)은 늘 이 컴퓨터의 창이다.
 
 ### 폰이 붙는 listener

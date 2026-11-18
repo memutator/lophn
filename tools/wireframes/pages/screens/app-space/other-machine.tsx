@@ -25,7 +25,6 @@ import type {
   MachineData,
   MachineHub,
 } from "../../../../../packages/shell/renderer/desktop/machines/data.ts";
-import { MachineSwitcher } from "../../../../../packages/shell/renderer/desktop/machines/machine-switcher.tsx";
 import { MachineHubProvider } from "../../../../../packages/shell/renderer/desktop/machines/scope.tsx";
 import { TabScope } from "../../../../../packages/shell/renderer/desktop/machines/tab-scope.tsx";
 import {
@@ -123,7 +122,6 @@ export function OtherMachineAppScene({ offline }: { offline: boolean }) {
               left={false}
               onToggleLeft={noop}
               right={false}
-              machineSwitcher={<MachineSwitcher onPairAnother={noop} />}
               tabs={
                 <TabStrip
                   entries={[

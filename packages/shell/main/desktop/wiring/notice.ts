@@ -157,7 +157,6 @@ export function createNoticeWiring(
       live.find((item) => item.webContents.id === owner) ??
       live.filter((item) => !ctx.detached.has(item)).at(-1) ??
       live.at(-1);
-    // This computer's notice opens a window of this computer, never a window of another machine (nor the start machine).
     // A new window gets the same reveal once its page has loaded; the notice preload holds it until the screen subscribes.
     const window = found ?? openDesktopWindow(ctx);
     if (window === undefined) return;

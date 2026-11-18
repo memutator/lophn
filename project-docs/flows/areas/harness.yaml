@@ -2094,7 +2094,7 @@ flows:
       - packages/shell/renderer/workspace/kinds/page-view.tsx
     steps:
       - "core 표의 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null. 주인 session마다 한 번 읽어 둔다)를 낸다. url·title은 redaction을 지난다. renderer가 아직 상태를 알리지 않은 탭은 url·title이 빈 글이고 loading이 true다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
-      - "control은 부른 principal이 page를 다룰 수 있는가다(기기의 터미널 입력 허락). 폰의 Pages와 다른 기계 창의 Pages 탭은 이것으로 열기 칸을 그리거나 감춘다"
+      - "control은 부른 principal이 page를 다룰 수 있는가다(기기의 터미널 입력 허락). 폰의 Pages와 다른 기계의 Pages 탭은 이것으로 열기 칸을 그리거나 감춘다"
       - "탭마다 held_by는 멀리서 잡은 기기다: 부른 principal 자신이면 you, 다른 기기면 그 종류(phone, computer), 멀리서 잡지 않았거나 종류를 모르면 null이다. 그 기계의 화면에서 잡은 것은 여기 없다(snapshot의 held). 화면은 아직 그리지 않는다"
     outcomes:
       - id: ok

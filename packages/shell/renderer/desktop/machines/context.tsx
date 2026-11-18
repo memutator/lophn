@@ -43,34 +43,27 @@ export function useMachinesView(): MachinesView | null {
 }
 
 // 화면이 지금 그리는 기계. `MachineScope`가 준다.
-const ScopeMachineContext = createContext<MachineRef | undefined>(undefined);
+const ScopeMachineContext = createContext<MachineRef>(null);
 
 export const ScopeMachineProvider = ScopeMachineContext.Provider;
 
 /**
- * 범위의 기계. null이면 이 컴퓨터다. 범위 밖(범위를 두지 않고 그리는 gallery page)이면 창이 보는 기계다.
+ * 범위의 기계. null이면 이 컴퓨터다. 범위 밖(범위를 두지 않고 그리는 gallery page)도 이 컴퓨터다.
  * `scope.tsx`가 이 이름으로 내놓는다.
  */
 export function useScopeMachine(): MachineRef {
-  const scope = useContext(ScopeMachineContext);
-  const source = useMachines();
-  return scope === undefined ? (source?.thisWindow()?.id ?? null) : scope;
+  return useContext(ScopeMachineContext);
 }
 
-/**
- * 명단의 기계 하나. 목록을 아직 모르면(starting) 붙는 중이고, 아는 목록에 없으면 명단에서 빠진 것(removed)이다.
- * 이름을 모르면 창이 처음 받은 그 기계의 이름이다.
- */
+/** 명단의 기계 하나. 목록을 아직 모르면(starting) 붙는 중이고, 아는 목록에 없으면 명단에서 빠진 것(removed)이다. */
 export function machineItemOf(
-  source: MachinesSource | null,
   view: MachinesView | null,
   machine: string,
 ): MachineItem {
-  const win = source?.thisWindow() ?? null;
   return (
     view?.machines.find((one) => one.id === machine) ?? {
       id: machine,
-      name: win?.id === machine ? win.name : "",
+      name: "",
       status: view?.state === "ready" ? "removed" : "connecting",
       update: null,
       path: null,
@@ -84,9 +77,8 @@ export function machineItemOf(
  */
 export function useWindowMachine(): MachineItem | null {
   const machine = useScopeMachine();
-  const source = useMachines();
   const view = useMachinesView();
-  return machine === null ? null : machineItemOf(source, view, machine);
+  return machine === null ? null : machineItemOf(view, machine);
 }
 
 /** 그 기계가 이 컴퓨터에 사람의 route(설정, provider, project 더하기)를 열었는지 묻는다. 거절(forbidden)이면 false다. */

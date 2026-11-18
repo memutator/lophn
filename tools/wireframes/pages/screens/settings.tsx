@@ -49,7 +49,6 @@ import {
   SettingsRemoteJoinPending,
   SettingsRemoteJoinUpdate,
   SettingsRemoteRemovedHere,
-  SettingsRemoteStartMissing,
   SettingsRemoteWaiting,
   SettingsRemoteDisputed,
   SettingsRemoteRemove,
@@ -343,17 +342,10 @@ export const settingsArea: Area = {
       render: () => <SettingsRemoteRemovedHere />,
     },
     {
-      id: "settings-remote-start-missing",
-      title: "Settings · Remote · start machine not in the list",
-      description:
-        'Open at start가 명단에 없는 기계를 가리킨다(옮긴 시작 기계를 아직 다시 들이지 않았다). 비지 않고 "A computer not in your devices"로 보인다.',
-      render: () => <SettingsRemoteStartMissing />,
-    },
-    {
       id: "settings-remote-remove",
       title: "Settings · Remote · remove a device",
       description:
-        "시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 시작 기계라서 지운 뒤에는 마지막에 쓴 기계를 연다는 한 줄이 더 붙는다.",
+        "Home server의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못한다.",
       render: () => <SettingsRemoteRemove />,
     },
     {

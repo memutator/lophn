@@ -28,7 +28,6 @@ import {
   openWindow,
   type WindowConfig,
 } from "../window.ts";
-import { startMachine } from "../viewer/start.ts";
 import { clampToWorkAreas } from "../work-area.ts";
 import { stateOf } from "../window-controls.ts";
 import type { WindowBounds } from "../../workspace/schema.ts";
@@ -36,14 +35,14 @@ import type { ShellContext } from "./context.ts";
 
 /** 영역이 창을 열고 보이게 할 때 쓰는 통로. */
 export type DesktopWindows = {
-  /** 창이 하나도 없으면 시작 기계의 창을, 있으면 이 컴퓨터의 새 창을 연다. */
+  /** 새 창을 연다. */
   open(): void;
   /**
    * 이 컴퓨터의 일반 창이 있으면 그 창을, 없으면 focus 없이 새 창을 연다. project를 주면 늘 그 project를 보이는 새 창을 focus 없이
    * 연다. 앱과 저장한 창 자리가 준비된 뒤 돌려준다.
    */
   openInactive(project?: string): Promise<BrowserWindow | undefined>;
-  /** 가장 최근 창(어느 기계든)을 앞으로 가져온다. 창이 없으면 시작 기계의 창을 연다. */
+  /** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 창을 연다. */
   show(): void;
   /** `window`를 주면 그 창에, 아니면 가장 최근 창에 보낸다. */
   send(intent: DesktopIntent, window?: BrowserWindow): void;
@@ -65,14 +64,14 @@ const SAVE_DEBOUNCE_MS = 500;
  * 새 desktop 창의 자리. 마지막으로 저장한 자리를 지금 화면 안으로 당긴다. 다른 desktop 창이 떠 있으면 그만큼
  * 비켜 연다. 저장한 적 없으면 undefined이고 OS가 기본 크기 창을 놓는다.
  */
-export function restoredWorkspace(ctx: ShellContext) {
+function restoredWorkspace(ctx: ShellContext) {
   const saved = ctx.windowState.current;
   if (saved === null) return undefined;
   return onScreen(saved, recentWindow(ctx) === undefined ? 0 : CASCADE_STEP);
 }
 
-/** 저장한 자리를 `shift`만큼 비켜 지금 화면 안으로 당긴다. 다른 기계의 창은 기계마다 저장한 자리를 그대로(0) 쓴다. */
-export function onScreen(saved: Workspace, shift = 0): Workspace {
+/** 저장한 자리를 `shift`만큼 비켜 지금 화면 안으로 당긴다. */
+function onScreen(saved: Workspace, shift = 0): Workspace {
   const bounds = clampToWorkAreas(
     {
       ...saved.bounds,
@@ -135,30 +134,10 @@ export async function openInactiveWindow(
   );
 }
 
-function recentTopWindow(ctx: ShellContext): BrowserWindow | undefined {
-  return [...ctx.topWindows].filter((window) => !window.isDestroyed()).at(-1);
-}
-
 export function showDesktopWindow(ctx: ShellContext): void {
-  const recent = recentTopWindow(ctx);
-  if (recent === undefined) openStartWindow(ctx);
+  const recent = recentWindow(ctx);
+  if (recent === undefined) openDesktopWindow(ctx);
   else reveal(recent, ctx.headless);
-}
-
-export function openDesktop(ctx: ShellContext): void {
-  if (recentTopWindow(ctx) === undefined) openStartWindow(ctx);
-  else openDesktopWindow(ctx);
-}
-
-/**
- * 창이 없을 때 여는 창. 시작 기계는 core를 기다리지 않고 `viewer/start.json`에서 고른다. 못 읽거나, 다른 기계가 쓴 file이거나,
- * 이 컴퓨터면 이 컴퓨터의 창이다. 그 기계가 명단에 없으면 그 창은 removed gate를 보인다(machine-windows).
- */
-function openStartWindow(ctx: ShellContext): void {
-  void startMachine(ctx.dataRoot).then((start) => {
-    if (start === null) openDesktopWindow(ctx);
-    else ctx.machineWindows.open(start.machine, start.name);
-  });
 }
 
 /** shell 창의 시작 값. detached 탭 창과 앱 전용 창이 쓴다. */
@@ -230,13 +209,7 @@ export function openDesktopWindow(
         created = window;
         for (const reaction of ctx.windowHooks.created) reaction(window);
         if (start === undefined) {
-          rememberWorkspace(
-            ctx,
-            window,
-            workspace,
-            options.inactive === true,
-            (state) => ctx.windowState.save(state),
-          );
+          rememberWorkspace(ctx, window, workspace, options.inactive === true);
         }
         const contentsId = window.webContents.id;
         const ref = ctx.windowRef(window);
@@ -250,14 +223,6 @@ export function openDesktopWindow(
           windows.add(window);
         });
         window.on("closed", () => windows.delete(window));
-        if (start === undefined) {
-          ctx.topWindows.add(window);
-          window.on("focus", () => {
-            ctx.topWindows.delete(window);
-            ctx.topWindows.add(window);
-          });
-          window.on("closed", () => ctx.topWindows.delete(window));
-        }
         return wrap(window);
       },
     },
@@ -266,10 +231,10 @@ export function openDesktopWindow(
 }
 
 /**
- * shell 창 하나를 만든다: navigation guard, headless 그림, overlay, 창 단추 상태. 이 컴퓨터의 창과 다른 기계의 창이 같이
- * 쓴다. 어느 목록에 넣을지와 영역 반응(`windowHooks`)은 부르는 쪽이 정한다.
+ * shell 창 하나를 만든다: navigation guard, headless 그림, overlay, 창 단추 상태. 어느 목록에 넣을지와 영역 반응
+ * (`windowHooks`)은 부르는 쪽이 정한다.
  */
-export function createShellWindow(
+function createShellWindow(
   ctx: ShellContext,
   config: WindowConfig,
   preload: string,
@@ -335,16 +300,15 @@ export function createShellWindow(
 }
 
 /**
- * 저장한 크기·최대화를 되살리고, 옮기거나 크기를 바꾸거나 최대화·되돌리거나 닫을 때 그 자리를 `store`로 저장한다. 최대화한
+ * 저장한 크기·최대화를 되살리고, 옮기거나 크기를 바꾸거나 최대화·되돌리거나 닫을 때 그 자리를 `ctx.windowState`로 저장한다. 최대화한
  * 창은 되돌렸을 때의 자리(`getNormalBounds`)를 함께 둔다. 최소화와 전체 화면은 저장하지 않는다(다시 열 때 그
- * 모양이면 창이 안 보이거나 상단 바가 없다). 이 컴퓨터의 창은 앱 하나의 자리에, 다른 기계의 창은 기계마다의 자리에 둔다.
+ * 모양이면 창이 안 보이거나 상단 바가 없다).
  */
-export function rememberWorkspace(
+function rememberWorkspace(
   ctx: ShellContext,
   window: BrowserWindow,
   workspace: Workspace | undefined,
   inactive: boolean,
-  store: (state: Workspace) => void,
 ): void {
   revealRestored(ctx, window, workspace, inactive);
   // focus 없이 연 창은 maximize하지 않았으므로 그 창의 상태가 사람이 고른 것이 아니다. 사람이 그 창을 최대화하거나 되돌리기
@@ -359,7 +323,7 @@ export function rememberWorkspace(
       return;
     }
     const { x, y, width, height } = window.getNormalBounds();
-    store({
+    ctx.windowState.save({
       bounds: { x, y, width, height },
       maximized: kept ?? window.isMaximized(),
     });
@@ -403,7 +367,7 @@ function revealRestored(
   });
 }
 
-export function wrap(window: BrowserWindow): CreatedWindow {
+function wrap(window: BrowserWindow): CreatedWindow {
   return {
     setTitle: (title) => window.setTitle(title),
     loadURL: (url) => window.loadURL(url),

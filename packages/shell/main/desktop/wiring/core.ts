@@ -15,7 +15,7 @@ type ConnectInput = {
   dataRoot: string;
   windows: Set<BrowserWindow>;
   relay: CoreRelay;
-  // context의 IPC 둘레(`ctx.ipc.handle`). 다른 기계의 창이 보낸 `shell:core-*`는 그 기계의 연결로 가고 이 core에 닿지 않는다.
+  // context의 IPC 둘레(`ctx.ipc.handle`). `machine`을 실은 `shell:core-*`는 그 기계의 연결로 가고 이 core에 닿지 않는다.
   handle: (
     channel: string,
     listener: (event: never, input: never) => Promise<unknown>,

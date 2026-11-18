@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/ui/shared";
 import { matchKey } from "../../../../../packages/protocol/shell/keybindings.ts";
 import { MachinesProvider } from "../../../../../packages/shell/renderer/desktop/machines/context.tsx";
-import { MachineGate } from "../../../../../packages/shell/renderer/desktop/machines/machine-gate.tsx";
-import { MachineSwitcher } from "../../../../../packages/shell/renderer/desktop/machines/machine-switcher.tsx";
 import { OnlyHere } from "../../../../../packages/shell/renderer/desktop/machines/only-here.tsx";
 import {
   fakeMachines,
@@ -139,12 +137,12 @@ export function ShellScene({
   /** mount 뒤 차례로 누를 단축키(예: "Ctrl+Alt+ArrowRight"). */
   keys?: readonly string[];
   /**
-   * 기계 보기. 짝지은 기계 셋(sample)이 있는 fake source를 끼운다. window를 주면 이 창은 그 기계의 창이고(title bar에 그 이름),
-   * body를 주면 card 자리에 gate나 자리 표시("This opens only on …")가 선다. 안 쓰면 짝지은 기계가 없는 창이다.
+   * 기계 보기. 짝지은 기계 셋(sample)이 있는 fake source를 끼운다. window는 자리 표시가 말하는 기계이고, body를 주면 card 자리에
+   * 자리 표시("This opens only on …")가 선다. 안 쓰면 짝지은 기계가 없는 창이다.
    */
   machine?: {
     window?: "mch_homeserver" | "mch_laptop" | "mch_olddesk";
-    body?: "gate" | "only-here";
+    body?: "only-here";
   };
 }) {
   const [machines] = useState(() => {
@@ -153,10 +151,7 @@ export function ShellScene({
     const shown = machineList.find((one) => one.id === machine.window);
     return {
       shown,
-      source: fakeMachines({
-        machines: machineList,
-        window: shown === undefined ? null : { id: shown.id, name: shown.name },
-      }).source,
+      source: fakeMachines({ machines: machineList }).source,
     };
   });
   const [desks, setDesks] = useState(() => mockDesks(variant));
@@ -352,29 +347,16 @@ export function ShellScene({
   const menuTab =
     menu === null ? undefined : desk.tabs.find((tab) => tab.key === menu.key);
   const group = groupOf(desk, desk.selected);
-  const machineBody = (() => {
-    if (machine?.body === undefined || machines?.shown === undefined) {
-      return null;
-    }
-    switch (machine.body) {
-      case "gate":
-        return (
-          <MachineGate
-            machine={machines.shown}
-            connection={{ state: "ready", confirmedAt: null }}
-            onRetry={() => {}}
-          />
-        );
-      case "only-here":
-        return <OnlyHere machine={machines.shown} />;
-    }
-  })();
+  const machineBody =
+    machine?.body === undefined || machines?.shown === undefined ? null : (
+      <OnlyHere machine={machines.shown} />
+    );
   const panes =
     machineBody !== null
       ? [
           {
             key: "machine",
-            crumbs: machine?.body === "only-here" ? ["Terminal"] : [],
+            crumbs: ["Terminal"],
             body: machineBody,
           },
         ]
@@ -408,28 +390,25 @@ export function ShellScene({
         onToggleLeft={() => setLeft(!leftOpen)}
         right={rightOpen}
         onToggleRight={() => setRight(!rightOpen)}
-        machineSwitcher={<MachineSwitcher onPairAnother={() => {}} />}
         deskSwitcher={
-          machine?.body === "gate" ? undefined : (
-            <DeskSwitcher
-              desks={desks.map((d) => ({
-                key: d.key,
-                label: d.label,
-                workflow: d.workflow,
-                status: d.status,
-                manageable: d.key !== "_default" && !d.workflow,
-              }))}
-              current={mock.key}
-              onSelect={setDeskKey}
-              onNewDesk={() => {}}
-              onRename={(key, label) =>
-                setDesks((all) =>
-                  all.map((d) => (d.key === key ? { ...d, label } : d)),
-                )
-              }
-              onDelete={setClosing}
-            />
-          )
+          <DeskSwitcher
+            desks={desks.map((d) => ({
+              key: d.key,
+              label: d.label,
+              workflow: d.workflow,
+              status: d.status,
+              manageable: d.key !== "_default" && !d.workflow,
+            }))}
+            current={mock.key}
+            onSelect={setDeskKey}
+            onNewDesk={() => {}}
+            onRename={(key, label) =>
+              setDesks((all) =>
+                all.map((d) => (d.key === key ? { ...d, label } : d)),
+              )
+            }
+            onDelete={setClosing}
+          />
         }
         tabs={
           <TabStrip

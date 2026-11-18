@@ -245,7 +245,6 @@ import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import {
   machineItemOf,
-  useMachines,
   useMachinesView,
 } from "../desktop/machines/context.tsx";
 import {
@@ -255,7 +254,6 @@ import {
   useScopeMachine,
 } from "../desktop/machines/scope.tsx";
 import { TabScope } from "../desktop/machines/tab-scope.tsx";
-import { MachineSwitcher } from "../desktop/machines/machine-switcher.tsx";
 import { OnlyHere } from "../desktop/machines/only-here.tsx";
 import styles from "./workspace-window.module.css";
 
@@ -447,10 +445,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 관리 route가 필요한 것(설정, Agents, tray)은 `here`, 앱 화면은 `appViews`가 있어야 선다.
   const { machine, machineData } = useHostMachine();
   const data = useMachineData();
-  const machinesSource = useMachines();
   const machinesView = useMachinesView();
-  // 창의 기계. 기계를 달지 않은 workspace ref는 이 기계의 것이다.
-  const rootMachine = machinesSource?.thisWindow()?.id ?? null;
   // detached 창과 전역 float은 탭 본문을 이 컴퓨터의 창 범위에서 그린다(탭의 기계를 보지 않는다). 그래서 다른 기계의 탭은
   // 그쪽으로 옮기지 않는다(layout이 탭의 기계를 저장하고 그 자리가 기계를 볼 때까지).
   const onThisComputer = (tab: TabItem) => (tab.machine ?? machine) === null;
@@ -1474,9 +1469,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         hereApp={def?.hereApp?.(tab)}
       >
         {tabMachine !== null && def?.thisComputerOnly ? (
-          <OnlyHere
-            machine={machineItemOf(machinesSource, machinesView, tabMachine)}
-          />
+          <OnlyHere machine={machineItemOf(machinesView, tabMachine)} />
         ) : (
           <TabBoundary>
             {def?.keep?.(tab, true, host) ??
@@ -3004,9 +2997,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               onToggleLeft={() => setLeftOpen(!leftOpen)}
               right={rightOpen}
               onToggleRight={() => setRightOpen(!rightOpen)}
-              machineSwitcher={
-                <MachineSwitcher onPairAnother={() => onSettings("remote")} />
-              }
               deskSwitcher={
                 projectId === null ? undefined : (
                   <DeskSwitcher
@@ -3189,10 +3179,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   }
                   onWorkspaceRow={(ref) => {
                     // 앱 줄은 앱 화면으로 간다. 이 앱이면 앱 화면 탭을 열거나 고른다. 앱 화면이 없는 기계는 앱 workspace로만 간다.
-                    const views =
-                      ref.machine === undefined
-                        ? machineData(rootMachine).appViews
-                        : machineData(ref.machine).appViews;
+                    const views = machineData(ref.machine ?? null).appViews;
                     if (ref.kind === "home" && ref.machine === undefined) {
                       onHome();
                     } else if (ref.kind === "app" && views === null) {

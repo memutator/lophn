@@ -68,7 +68,6 @@ import {
   coreProjectsSource,
   windowFolderPicker,
 } from "./workspaces/projects/core-source.ts";
-import { RemoteGroupsProvider } from "./workspaces/projects/remote-group.tsx";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -90,9 +89,8 @@ const seed =
     : null;
 // 시드 작업대와 mock 모드는 둘 다 가짜 작업대와 문서 탭 통로를 쓴다(core·편집 파일 통로 없음).
 const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
-// 기계 목록과 이 창이 보는 기계(main이 정한다). 기계에 묶인 창은 root 범위가 그 기계다(그런 창이 없어지면 늘 이 컴퓨터다).
+// 다른 기계의 목록. 창은 기계에 묶이지 않아 root 범위는 늘 이 컴퓨터다.
 const machines = mock ? null : await windowMachinesSource();
-const rootMachine = machines?.thisWindow()?.id ?? null;
 const bridges = globalThis as {
   lophnCore?: CoreApi;
   lophnShell?: OverlayApi &
@@ -183,7 +181,7 @@ const hub = createMachineHub({
   machines,
   views,
 });
-const root = hub.get(rootMachine);
+const root = hub.get(null);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
 const conversation = { drafts: new DraftStore() };
 
@@ -245,7 +243,7 @@ const highlighter = createWorkerHighlighter();
 
 const tree = (
   <MachineHubProvider hub={hub}>
-    <MachineScope machine={rootMachine}>
+    <MachineScope machine={null}>
       <div className={styles.root}>
         <HighlighterProvider value={highlighter}>
           <BrowserApiProvider value={browser}>
@@ -254,17 +252,15 @@ const tree = (
                 <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
                   <ConversationProvider deps={conversation}>
                     <QuickPrefsProvider source={root.quickPrefs}>
-                      <RemoteGroupsProvider>
-                        <Desktop
-                          initial={start}
-                          windowWidth={seed ? 1440 : undefined}
-                          palette={palette}
-                          intents={bridges.lophnIntents}
-                          views={views}
-                          overlay={bridges.lophnShell}
-                          detached={bridges.lophnDetached}
-                        />
-                      </RemoteGroupsProvider>
+                      <Desktop
+                        initial={start}
+                        windowWidth={seed ? 1440 : undefined}
+                        palette={palette}
+                        intents={bridges.lophnIntents}
+                        views={views}
+                        overlay={bridges.lophnShell}
+                        detached={bridges.lophnDetached}
+                      />
                     </QuickPrefsProvider>
                   </ConversationProvider>
                 </BrowserOverlayProvider>

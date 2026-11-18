@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -53,6 +54,7 @@ import {
   REMOTE_COMMANDS,
   remoteWiring,
   signingKeyStep,
+  viewerDropStep,
   viewerRosterStep,
 } from "./remote.ts";
 
@@ -731,4 +733,31 @@ test("data step은 창 자리와 시작 기계를 남기고 옛 viewer key와 �
   assert.equal(existsSync(join(copied.dir, "machines.json")), false);
   assert.equal(existsSync(join(copied.dir, "start.json")), false);
   assert.equal(existsSync(join(copied.dir, "windows.json")), true);
+});
+
+// 사람의 data root에서 쓸모없어진 file만 지운다. 같은 폴더의 다른 file이나 remote key를 지우면 사람의 것을 잃는다.
+test("shell.viewer.drop은 start.json과 windows.json만 지우고 같은 폴더의 다른 file과 remote key는 그대로 둔다. 두 번 돌려도 같고, 비면 폴더도 지운다", async () => {
+  const root = mkdtempSync(join(tmpdir(), "lophn-viewer-drop-"));
+  const dir = join(root, "shell", "viewer");
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(root, "remote"), { recursive: true });
+  writeFileSync(join(root, "remote", "host.key"), "key");
+  writeFileSync(join(dir, "start.json"), "{}");
+  writeFileSync(join(dir, "windows.json"), "{}");
+  writeFileSync(join(dir, "other.json"), "kept");
+
+  for (let run = 0; run < 2; run += 1) {
+    assert.ok((await viewerDropStep.run(root, stepDeps)).ok);
+    assert.equal(existsSync(join(dir, "start.json")), false);
+    assert.equal(existsSync(join(dir, "windows.json")), false);
+    assert.equal(readFileSync(join(dir, "other.json"), "utf8"), "kept");
+    assert.equal(readFileSync(join(root, "remote", "host.key"), "utf8"), "key");
+  }
+
+  unlinkSync(join(dir, "other.json"));
+  assert.ok((await viewerDropStep.run(root, stepDeps)).ok);
+  assert.equal(existsSync(dir), false);
+  assert.equal(readFileSync(join(root, "remote", "host.key"), "utf8"), "key");
+  // 폴더가 아예 없어도 아무것도 하지 않는다.
+  assert.ok((await viewerDropStep.run(root, stepDeps)).ok);
 });

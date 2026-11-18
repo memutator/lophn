@@ -23,7 +23,7 @@ import {
 } from "../desktop/connection/core-read.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
-import { useMachines, useMachinesView } from "../desktop/machines/context.tsx";
+import { useMachinesView } from "../desktop/machines/context.tsx";
 import type { MachineData, OnMachine } from "../desktop/machines/data.ts";
 import {
   MachineScope,
@@ -143,21 +143,15 @@ function Reader({
 
 /**
  * 창이 사는 동안 모든 기계의 목록을 읽어 들고 있다(workspace를 옮겨도 다시 읽지 않는다). 꺼진 기계는 이 실행 동안 마지막으로 본
- * 목록을 남긴다(저장하지 않는다). 기계에 묶인 창(그 기계만 보는 창)은 그 기계 하나만 읽는다.
+ * 목록을 남긴다(저장하지 않는다).
  */
 export function MachineListsProvider({ children }: { children: ReactNode }) {
-  const source = useMachines();
   const view = useMachinesView();
   const hub = useMachineHub();
   if (hub === null) throw new Error("MachineHubProvider is missing");
-  // 창의 기계. 줄과 ref에서 기계가 없으면 이 기계다.
-  const root = source?.thisWindow()?.id ?? null;
   const roster = useMemo(
-    () =>
-      root !== null
-        ? []
-        : (view?.machines ?? []).filter((one) => one.status !== "removed"),
-    [root, view],
+    () => (view?.machines ?? []).filter((one) => one.status !== "removed"),
+    [view],
   );
   // 목록(project·앱)과 session을 따로 든다: session은 자주 바뀌고 줄(rows)은 목록만으로 짓는다.
   const [seen, setSeen] = useState<ReadonlyMap<string, Seen>>(new Map());
@@ -183,10 +177,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
       });
     }
   }, []);
-  const dataOf = useCallback(
-    (machine: MachineRef) => hub.get(machine ?? root),
-    [hub, root],
-  );
+  const dataOf = useCallback((machine: MachineRef) => hub.get(machine), [hub]);
   const lists = useMemo(
     (): readonly Omit<MachineSnapshot, "sessions">[] =>
       [
@@ -233,7 +224,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
     ...value.lists.map((list) =>
       createElement(MachineScope, {
         key: list.machine ?? "",
-        machine: list.machine ?? root,
+        machine: list.machine,
         children: createElement(Reader, {
           machine: list.machine,
           live: list.live,

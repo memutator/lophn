@@ -3,7 +3,7 @@
 // 가지 않는다. 이 파일은 main·preload·renderer가 함께 부르므로 zod 말고는 import하지 않는다.
 import { z } from "zod";
 
-/** 일반 창 → main: 보호 창을 연다. 다른 기계의 창도 연다: 그때 값은 이 컴퓨터의 core를 거쳐 그 기계의 core로만 간다(`machines/call`). */
+/** 일반 창 → main: 보호 창을 연다. 다른 기계를 골라 열 수도 있다(`machine`): 그때 값은 이 컴퓨터의 core를 거쳐 그 기계의 core로만 간다(`machines/call`). */
 export const SECRET_INPUT_OPEN_CHANNEL = "shell:secret-input-open";
 /** 보호 창 → main: 창에 그릴 것을 읽는다. */
 export const SECRET_INPUT_DISPLAY_CHANNEL = "secret-input:display";
@@ -157,7 +157,7 @@ export type SecretInputDisplay = {
   configured: boolean;
   /** agent의 login 요청이다. 있으면 `name`은 비고 `subject`가 shell main이 잰 origin이다. 창이 mode의 칸들을 그린다. */
   request?: { mode: "save" | "once"; label: string };
-  /** 다른 기계의 창에서 열었으면 값이 갈 그 기계의 이름. 창이 한 줄로 보인다. */
+  /** 다른 기계를 골라 열었으면 값이 갈 그 기계의 이름. 창이 한 줄로 보인다. */
   machine?: string;
 };
 
@@ -166,7 +166,7 @@ export type SecretInputSubmitReply =
   | { ok: true }
   | { ok: false; code: "invalid_input" | "unavailable" };
 
-/** 일반 desktop 창과 다른 기계의 창이 보호 창을 여는 통로. */
+/** 일반 desktop 창이 보호 창을 여는 통로. */
 export interface SecretInputOpenApi {
   open(input: SecretInputOpen): Promise<SecretInputOpenReply>;
 }

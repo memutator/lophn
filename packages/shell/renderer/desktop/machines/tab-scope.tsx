@@ -7,12 +7,7 @@ import type { ReactNode } from "react";
 
 import { useAppHere } from "../../app-frame/app-machine.tsx";
 import type { TabItem } from "../../workspace/model.ts";
-import {
-  machineItemOf,
-  useMachines,
-  useMachinesView,
-  useScopeMachine,
-} from "./context.tsx";
+import { machineItemOf, useMachinesView, useScopeMachine } from "./context.tsx";
 import styles from "./only-here.module.css";
 import { type MachineRef, MachineScope } from "./scope.tsx";
 import type { MachineItem } from "./source.ts";
@@ -31,14 +26,13 @@ export function TabScope({
 }) {
   const machine = tab.machine ?? workspaceMachine;
   const scope = useScopeMachine();
-  const source = useMachines();
   const view = useMachinesView();
   const here = useAppHere(hereApp, machine);
   if (here === undefined) return null;
   if (here) return <MachineScope machine={null}>{children}</MachineScope>;
   if (machine === null && scope === null) return <>{children}</>;
   if (machine !== null) {
-    const item = machineItemOf(source, view, machine);
+    const item = machineItemOf(view, machine);
     if (item.status !== "connected") {
       return (
         <div className={styles.column}>

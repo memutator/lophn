@@ -49,19 +49,16 @@ journeys:
       - {do: "새 초대장으로 다시 들면 새 key의 새 기기로 명단에 든다", screen: phone-start, flow: remote-join:joined}
 
   - id: desktop-view-other-computer
-    title: "이 desktop에서 다른 컴퓨터의 lophn을 연다"
+    title: "이 desktop의 한 창에서 다른 컴퓨터의 lophn을 연다"
     actor: person
-    goal: "집 컴퓨터에 앉은 사람이 회사 컴퓨터의 lophn을 그 컴퓨터의 창으로 열어 대화하고 승인에 답하며, 그 컴퓨터가 꺼져도 창이 막히지 않는다"
+    goal: "집 컴퓨터에 앉은 사람이 회사 컴퓨터의 project와 session을 같은 창의 목록에서 열어 대화하고 승인에 답하며, 그 컴퓨터가 꺼져도 창이 막히지 않는다"
     steps:
       - {do: "다른 컴퓨터의 Settings › Remote에서 [Invite a computer]를 누르고 \"Show as text\"의 글을 복사한다", screen: settings-remote-invite-computer, flow: roster-invite:ok}
       - {do: "이 컴퓨터의 Settings › Remote에서 [Join with an invite]에 글을 붙여 넣고 [Join]을 누른다. 이 컴퓨터가 그 명단에 들고 core끼리 붙는다", screen: settings-remote-join-pending, flow: roster-join:joined}
-      - {do: "title bar의 기계 고르기를 열고 그 컴퓨터를 고른다", flow: machine-switcher:opened}
-      - {do: "그 컴퓨터의 창이 \"<이름> — lophn\"으로 열리고 Home에 그 컴퓨터의 session 목록이 보인다. 터미널, 편집기, 앱 화면, 설정 단추는 없다", flow: machine-window:shown}
-      - {do: "그 창에서 대화를 열고 메시지를 보낸다", flow: session-send:ok}
+      - {do: "왼쪽 목록에 그 컴퓨터의 Home, project, session이 기계 꼬리표와 함께 보인다", flow: machine-lists:merged}
+      - {do: "그 컴퓨터의 session을 눌러 대화를 열고 메시지를 보낸다", flow: session-send:ok}
       - {do: "Inbox의 shell 규칙 승인을 한 번만 허락한다", flow: turn-request-decide:once}
-      - {do: "그 컴퓨터가 꺼지면 창은 마지막 화면 위에 끊김 한 줄을 보인다", flow: machine-window-gate:disconnected}
-      - {do: "desktop을 다시 켜면 그 컴퓨터의 창이 offline gate로 바로 열리고 [This computer]로 이 컴퓨터의 창을 연다", flow: machine-window-gate:offline}
-      - {do: "그 컴퓨터가 다시 켜지면 창이 저절로 붙는다", flow: machine-window-gate:reconnected}
+      - {do: "그 컴퓨터가 꺼지면 그 줄이 흐려지고 열리지 않는다. 다른 기계의 줄은 그대로다", flow: machine-lists:offline}
 
   - id: phone-agent-page
     title: "사람이 폰에서 화면 없는 컴퓨터의 agent browser page를 보고 로그인하고 끼어든다"

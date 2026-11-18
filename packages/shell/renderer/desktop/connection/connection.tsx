@@ -61,7 +61,7 @@ export function ConnectionNotice({
   formatTime = absoluteTime,
 }: ConnectionNoticeProps) {
   if (connection.state !== "stale") return null;
-  // MachineGate와 같은 글이다. 다시 연결은 판을 맞춘 뒤에야 된다.
+  // 다시 연결은 판을 맞춘 뒤에야 된다.
   const message =
     machine?.status !== "update"
       ? t("home.connection.disconnected")

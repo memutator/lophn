@@ -1,6 +1,5 @@
-// secret 보호 입력 창. 일반 desktop 창이나 다른 기계의 창이 `openSecretInput`을 부르면 그 창의 child modal로 연다.
-// 창마다 메모리 partition이고 설치된 secret-input 페이지만 그 partition에서 연다. 다른 기계를 골라 연 것(열기 요청의 `machine`,
-// 없으면 다른 기계의 창)은 값이 그 기계의 core로만 간다: 읽기와 값 모두 이 컴퓨터 core의 `machines/call`로 그 기계에 가고(값은
+// secret 보호 입력 창. 일반 desktop 창이 `openSecretInput`을 부르면 그 창의 child modal로 연다.
+// 창마다 메모리 partition이고 설치된 secret-input 페이지만 그 partition에서 연다. 다른 기계를 골라 연 것(열기 요청의 `machine`)은 값이 그 기계의 core로만 간다: 읽기와 값 모두 이 컴퓨터 core의 `machines/call`로 그 기계에 가고(값은
 // upload `{input, base64}`), 이 컴퓨터의 secret 저장소에 닿지 않는다.
 // 같은 영역에 창 없는 사람 결정 handle IPC도 둔다: 둘 다 사람 자격이 필요한 입력을 shell main이 받는 길이다.
 import {
@@ -64,8 +63,7 @@ function machineCore(link: MachineLink): SecretInputCore {
 
 export function register(ctx: ShellContext, typeOnce: OnceTyper): Registered {
   const { here, headless, windows, core, ipc, windowRef } = ctx;
-  // 보호 창을 여는 창: 이 컴퓨터의 창과 다른 기계의 창(`topWindows`에만 있다).
-  const parents = () => [...windows, ...ctx.topWindows];
+  const parents = () => [...windows];
   let shots = 0;
   const host: SecretInputHost = {
     create(config) {
@@ -166,21 +164,17 @@ export function register(ctx: ShellContext, typeOnce: OnceTyper): Registered {
         },
       };
     },
-    // 고른 기계(없으면 다른 기계의 창이 묶인 기계)의 link가 값이 갈 곳이다. 묶인 창은 자기 기계만 고른다(core 호출과 같다).
-    // 이름은 창에 한 줄로 보인다.
-    coreOf(event, named) {
-      const bound = ctx.machineOf(event.sender);
-      if (bound !== null && named !== undefined && named !== bound) return null;
+    // 열기 요청이 고른 기계의 link가 값이 갈 곳이다(없거나 이 컴퓨터면 이 컴퓨터의 core). 이름은 창에 한 줄로 보인다.
+    coreOf(named) {
       const list = ctx.machines.list();
-      const machine = (named ?? bound) as Id<"mch"> | null;
-      if (machine === null || machine === list.this?.id) {
+      if (named === undefined || named === list.this?.id) {
         return { core: () => core.session() };
       }
-      const remote = machineCore(ctx.machines.link(machine));
+      const remote = machineCore(ctx.machines.link(named as Id<"mch">));
       return {
         core: () => remote,
         machine:
-          list.machines.find((row) => row.id === machine)?.name ??
+          list.machines.find((row) => row.id === named)?.name ??
           word("machines.label.unknown-name"),
       };
     },

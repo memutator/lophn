@@ -636,7 +636,7 @@ flows:
     title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
     actor: system
     entries: [system:data-steps-apply]
-    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved, system:remote-host-key-machine, system:projects-born-identity, system:shell-viewer-roster]
+    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved, system:remote-host-key-machine, system:projects-born-identity, system:shell-viewer-roster, system:shell-viewer-drop]
     boundary: [core]
     code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
@@ -2106,6 +2106,28 @@ flows:
         code: unavailable
         observe: ["process:stdout start_failed other"]
         when: "machine.json을 읽지 못했거나 start.json을 쓰지 못했거나 옛 file을 지우지 못했다"
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: shell-viewer-drop
+    title: "한 창이 모든 기계를 보이므로 기계마다의 창 자리와 시작 기계 file을 지운다(data step)"
+    actor: system
+    entries: [system:shell-viewer-drop]
+    pre: [system:shell-viewer-roster]
+    boundary: [core]
+    code: [packages/core/main/daemon/wiring/remote.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "data step shell.viewer.drop. `<root>/shell/viewer/start.json`과 `windows.json`을 지운다(없으면 넘어간다)"
+      - "`shell/viewer/` 폴더가 비면 폴더도 지운다. 다른 file이 있으면 폴더와 그 file을 둔다. 기기 자격(`remote/`)과 ledger는 건드리지 않는다. 다시 돌아도 같다"
+    outcomes:
+      - id: dropped
+        observe: ["disk:<root>/shell/viewer/start.json 없음", "disk:<root>/shell/viewer/windows.json 없음"]
+        when: "두 file을 지웠다. file이 없으면 아무것도 하지 않는다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "file이나 폴더를 지우지 못했다(없거나 폴더가 비지 않은 것은 실패가 아니다)"
     crosses_process: false
     risk: [data-loss]
 

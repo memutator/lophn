@@ -1,6 +1,6 @@
-// 보호 입력 창 IPC 등록. 창 열기는 일반 shell 창과 다른 기계의 창만, 표시·제출·취소는 그 보호 창만 부른다.
-// 부모는 renderer가 보낸 값이 아니라 IPC를 보낸 창이다. 열린 보호 창은 한 번에 하나다. 값이 가는 core는 열기 요청의 `machine`이고,
-// 없으면 보낸 창이 정한다: 다른 기계면 그 기계의 core다(이 컴퓨터 core의 `machines/call`). 다른 기계로 가는 창은 이 컴퓨터의
+// 보호 입력 창 IPC 등록. 창 열기는 일반 shell 창만, 표시·제출·취소는 그 보호 창만 부른다.
+// 부모는 renderer가 보낸 값이 아니라 IPC를 보낸 창이다. 열린 보호 창은 한 번에 하나다. 값이 가는 core는 열기 요청의 `machine`이다:
+// 없거나 이 컴퓨터면 이 컴퓨터의 core, 다른 기계면 그 기계의 core다(이 컴퓨터 core의 `machines/call`). 다른 기계로 가는 창은 이 컴퓨터의
 // browser로 치는 login 요청을 열지 못한다.
 // 제출 입력(secret 값)은 log·오류에 넣지 않는다.
 import {
@@ -54,16 +54,13 @@ interface SecretInputDeps {
   /** IPC를 보낸 webContents가 일반 shell 창 본문이면 그 창. 아니면 undefined다. */
   parentOf(event: SecretInputIpcEvent): ParentWindow | undefined;
   /**
-   * 값이 갈 core. `machine`은 열기 요청이 고른 기계이고 없으면 보낸 창의 기계다. 준비 전에는 core가 null이다. 다른 기계면
-   * 그 기계로 가는 core와 창에 보일 그 기계의 이름이다. 보낸 창이 열 수 없는 기계면(묶인 기계와 다르다) null이다.
+   * 값이 갈 core. `machine`은 열기 요청이 고른 기계이고 없으면 이 컴퓨터다. 준비 전에는 core가 null이다. 다른 기계면
+   * 그 기계로 가는 core와 창에 보일 그 기계의 이름이다.
    */
-  coreOf(
-    event: SecretInputIpcEvent,
-    machine: string | undefined,
-  ): {
+  coreOf(machine: string | undefined): {
     core: () => SecretInputCore | null;
     machine?: string;
-  } | null;
+  };
   /** agent의 한 번 넣기가 ref 칸에 치는 통로(이 컴퓨터의 browser driver). */
   typeOnce?: OnceTyper;
   preload: string;
@@ -144,10 +141,7 @@ export function registerSecretInputIpc(
     }
     opening = true;
     try {
-      const target = deps.coreOf(event, parsed.data.machine);
-      if (target === null) {
-        return { ok: false, code: "forbidden" } satisfies SecretInputOpenReply;
-      }
+      const target = deps.coreOf(parsed.data.machine);
       const core = target.core();
       if (core === null) {
         return {
@@ -176,7 +170,7 @@ export function registerSecretInputIpc(
           } satisfies SecretInputOpenReply;
         }
         request = read.value;
-        // login은 이 컴퓨터의 browser 탭에 치고 이 컴퓨터의 login 목록에 둔다. 다른 기계의 창에는 열지 않는다.
+        // login은 이 컴퓨터의 browser 탭에 치고 이 컴퓨터의 login 목록에 둔다. 다른 기계로 가는 요청에는 열지 않는다.
         if (target.machine !== undefined && request.kind !== "secret") {
           return {
             ok: false,

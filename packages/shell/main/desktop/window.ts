@@ -15,8 +15,7 @@ export const TOP_BAR_HEIGHT = 36;
 const TITLE_SUFFIX = " — lophn";
 
 /**
- * renderer가 보낸 문자열이 아니라 main이 아는 이름만 받는다: 공간 이름, 또는 다른 기계의 창이면 그 기계의 보이는 이름
- * (별명 ?? 알린 이름). 어느 기계를 보는지 OS 창 목록에서도 보인다. 런처는 공간이 아니라서 제품 이름만 쓴다.
+ * renderer가 보낸 문자열이 아니라 main이 아는 이름만 받는다: 공간 이름이나 앱 이름이다. 런처는 공간이 아니라서 제품 이름만 쓴다.
  */
 export function windowTitle(spaceName?: string): string {
   return spaceName ? `${spaceName}${TITLE_SUFFIX}` : "lophn";

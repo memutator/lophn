@@ -477,7 +477,7 @@ components:
     path: project-docs/architecture/remote.md
     change_reasons:
       boundaries: [remote, remote-protocol, remote-client, relay, mobile]
-      paths: [packages/shell/main/desktop/viewer/, packages/shell/preload/remote.ts]
+      paths: [packages/shell/main/desktop/viewer/]
 
   - id: architecture-attention
     kind: doc

@@ -4,7 +4,6 @@ import { app, type BrowserWindow, ipcMain } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import type { Id } from "../../../../protocol/base/ids.ts";
 import type { ChangeName } from "../../../../protocol/events/changes.ts";
 import type {
   BusEvent,
@@ -34,7 +33,6 @@ import type { Machines } from "./machines.ts";
 import {
   type DesktopWindows,
   openDesktopWindow,
-  openDesktop,
   openInactiveWindow,
   sendIntent,
   showDesktopWindow,
@@ -111,19 +109,10 @@ export type ShellContext = {
   detached: Set<BrowserWindow>;
   /** 앱 전용 창들. `windows`에도 들어 있다. 창 밖에서 온 일은 이 창으로 가지 않는다. */
   appWindows: Set<BrowserWindow>;
-  /**
-   * 사람이 여는 창 전부: 이 컴퓨터의 일반 창과 다른 기계의 창(detached·앱 전용 창은 없다). 최근 focus가 끝이다.
-   * 창이 없을 때 시작 기계를 열고, 있으면 어느 기계든 가장 최근 창을 앞으로 가져올 때 본다.
-   */
-  topWindows: Set<BrowserWindow>;
-  /** 다른 기계의 창이면 그 기계. 그 창은 `windows`·`detached`·`appWindows`에 들지 않는다. */
-  machineOf(contents: { id: number }): Id<"mch"> | null;
-  /** core 호출과 구독이 갈 기계를 고르는 표. machines가 기계에 닿는 길을 주고, machine-windows가 창을 묶고, IPC 둘레(`ipc`)가 본다. */
+  /** core 호출과 구독이 갈 기계를 고르는 표. machines가 기계에 닿는 길을 주고, IPC 둘레(`ipc`)가 본다. */
   machineRoute: MachineRoute;
   /** 다른 기계들: 목록, 그 기계에 닿는 link, shell main 안 구독자의 watch. machines wiring이 등록 때 채운다. */
   machines: Machines;
-  /** 다른 기계의 창을 연다. machine-windows가 등록 때 채운다. 이름은 목록이 아직 없을 때의 창 제목이다. */
-  machineWindows: { open(machine: Id<"mch">, name: string): void };
   /**
    * 이 컴퓨터의 창에서 그 session을 연다. 알림을 누른 것과 같은 길이다: 그 session을 보이는 창, 없으면 가장 최근 창을 앞으로
    * 가져와 고르게 한다. notice wiring이 등록 때 채운다.
@@ -180,10 +169,9 @@ export function createShellContext(): ShellContext {
   const overlays = electronOverlays(headless);
   const windows = new Set<BrowserWindow>();
   const appWindows = new Set<BrowserWindow>();
-  const topWindows = new Set<BrowserWindow>();
   const machineRoute = createMachineRoute();
   const registry = overlays.overlayRegistry();
-  // 모든 IPC가 영역의 listener 앞에서 보낸 창의 기계를 본다. 다른 기계로 가는 core 통로와 다른 기계의 창은 machine-route의 규칙을 탄다.
+  // 모든 IPC가 영역의 listener 앞에서 machine-route를 거친다: 다른 기계로 가는 core 통로는 그 기계로 간다.
   const handle: Ipc["handle"] = (channel, listener) =>
     ipcMain.handle(channel, (event, ...args: unknown[]) =>
       machineRoute.handle(
@@ -260,12 +248,9 @@ export function createShellContext(): ShellContext {
     windows,
     detached: new Set(),
     appWindows,
-    topWindows,
-    machineOf: (contents) => machineRoute.machineOf(contents.id),
     machineRoute,
     // machines.register가 다른 영역보다 먼저 채운다(main.ts). 그 앞에는 아무도 읽지 않는다.
     machines: undefined as unknown as Machines,
-    machineWindows: { open: () => void openDesktopWindow(ctx) },
     sessionWindows: { reveal: () => void openDesktopWindow(ctx) },
     log,
     core,
@@ -275,11 +260,9 @@ export function createShellContext(): ShellContext {
     ipc: {
       handle,
       on: (channel, listener) =>
-        void ipcMain.on(channel, (event, ...args: unknown[]) => {
-          if (machineRoute.passes(channel, event.sender.id)) {
-            (listener as (...all: unknown[]) => void)(event, ...args);
-          }
-        }),
+        void ipcMain.on(channel, (event, ...args: unknown[]) =>
+          (listener as (...all: unknown[]) => void)(event, ...args),
+        ),
       removeHandler: (channel) => ipcMain.removeHandler(channel),
       removeAllListeners: (channel) => void ipcMain.removeAllListeners(channel),
     },
@@ -300,7 +283,7 @@ export function createShellContext(): ShellContext {
       },
     },
     desktop: {
-      open: () => openDesktop(ctx),
+      open: () => void openDesktopWindow(ctx),
       openInactive: (project) => openInactiveWindow(ctx, project),
       show: () => showDesktopWindow(ctx),
       send: (intent, window) => sendIntent(ctx, intent, window),
@@ -308,7 +291,7 @@ export function createShellContext(): ShellContext {
     windowRef,
     windowOfRef,
     shellWindowOf: (sender) =>
-      [...windows, ...topWindows].find(
+      [...windows].find(
         (window) => !window.isDestroyed() && window.webContents === sender,
       ),
     rendererDist: () => {

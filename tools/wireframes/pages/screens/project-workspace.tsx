@@ -77,7 +77,6 @@ import {
   MachinesProvider,
   ScopeMachineProvider,
 } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
-import { MachineSwitcher } from "../../../../packages/shell/renderer/desktop/machines/machine-switcher.tsx";
 import { TabScope } from "../../../../packages/shell/renderer/desktop/machines/tab-scope.tsx";
 import {
   fakeMachines,
@@ -191,7 +190,7 @@ const OTHER_TERMINAL = "term_home";
  */
 function OtherMachineTerminal({ viewOnly }: { viewOnly: boolean }) {
   const [machines] = useState(
-    () => fakeMachines({ machines: sampleMachines(), window: null }).source,
+    () => fakeMachines({ machines: sampleMachines() }).source,
   );
   const [refused] = useState(() => new Set<(terminal: string) => void>());
   const [deps] = useState<TerminalDeps>(() => {
@@ -228,7 +227,6 @@ function OtherMachineTerminal({ viewOnly }: { viewOnly: boolean }) {
         left={false}
         onToggleLeft={noop}
         right={false}
-        machineSwitcher={<MachineSwitcher onPairAnother={noop} />}
         tabs={
           <TabStrip
             entries={[{ key: tab.key, tabs: [tab] }]}

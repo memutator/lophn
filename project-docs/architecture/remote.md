@@ -94,7 +94,7 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - **그 기계의 browser page.** 다른 기계의 범위에서는 새 탭 menu에 Pages가 있다. 그 기계의 core가 아는 browser 탭의 목록 탭(key `pages`)이 열리고, 줄을 고르면 그 page의 탭(key `page-view:<탭 id>`)이 열린다(`browser-tab.md` "멀리서 보기"). 탭은 보이는 동안 lease를 잡아 그림을 받고, 이 컴퓨터의 터미널 입력 허락이 그 명단 항목에 켜져 있으면 click·끌기·wheel, key, 쳐진 글(IME 포함)과 붙여 넣은 글, 주소·뒤로·다시 읽기, [Take control]·[Hand back]이 그 page에 간다. 꺼져 있으면 보기만 하고 허락을 켜는 곳을 한 줄로 보인다.
 - **앱 화면.** 다른 기계의 앱 화면은 그 기계의 core가 주는 화면 file을 이 창이 그리고 앱에 시키는 것은 그 기계로 간다(폰이 같은 길로 받는다). 격리 자리에 기계가 들어 같은 앱 id라도 기계가 다르면 저장소가 섞이지 않는다. 그 통로가 서기 전에는 다른 기계의 묶음에 앱 화면 통로가 없어 앱 panel, 앱 창, 앱 view가 없다.
 - **이 컴퓨터의 일은 이 컴퓨터의 shell이.** 이 컴퓨터의 알림, presence, surface, 전역 키, agent가 여는 창은 이 컴퓨터의 것이다. 다른 기계의 범위가 보이거나 보이는 session이 바뀌면 shell main이 `machines/call`로 그 기계에 `presence/report`를 보낸다(`attention.md`).
-- **기계에 묶인 창(계획이 끝나면 없어진다).** 지금은 아직 기계마다 창 하나를 열 수 있다. 그 창은 따로 preload(core, 기계 목록, overlay, 창 단추, 단축키, 외부 링크만)를 받고 root 범위가 그 기계다. main이 창을 열 때 묶은 표가 기계를 정해 그 창의 core 부르기는 기계가 없거나 묶인 기계일 때만 지나고 다른 기계면 `forbidden`이다. 그 밖의 IPC는 모든 handler 앞의 guard 한 곳이 허락 목록(`shell:machines-list|open|this-window|visible|this-read|clone-here`, 창 단추, 외부 링크, 보호 secret 창)만 넘긴다. `this-read`와 `clone-here`는 이 컴퓨터의 core에 닿는 좁은 길이다(`project.list`, `ListAgents`, `ListSessions` 읽기와 `project.clone`. `project-identity.md`의 "다른 기계의 창"). title bar의 기계 고르기, 창 전체 gate(한 번도 붙지 않았거나 명단에서 빠진 기계), 시작 기계 `viewer/start.json`과 창 자리 `viewer/windows.json`도 이 창의 것이다. 이 창들과 그 file은 목록이 기계를 건너 한 창에 모이면 지운다.
+- **기계에 묶인 창은 없다.** 창은 기계에 묶이지 않고 모든 창이 같은 범위들을 쓴다(창마다 다른 preload도, 기계를 고르는 title bar 단추도, 창 전체 gate도, 시작 기계도 없다). 이 컴퓨터의 core에 닿는 shell IPC는 `shell:machines-clone-here`(다른 기계의 project를 이 컴퓨터에 받는 `project.clone`. 어느 desktop 창이든 부른다. `project-identity.md`의 "한 창의 목록") 하나뿐이다. 다른 기계에 붙는 일은 늘 `machines/call`·`machines/watch`다.
 - **읽음은 host에.** 다 본 session의 표시(`unseen/list|dismiss`)는 기기 route다. 보는 것이 읽음을 만들고 읽음은 그 기계에 있어 어느 기기에서 봐도 같이 꺼진다. 폰도 같이 받는다.
 - **두 기기가 한 session에 쓸 때.** 보내기는 그 화면이 아는 마지막 사람 메시지(`seen`)를 싣고, 그 뒤에 다른 사람 메시지가 있으면 core가 같은 transaction에서 거절한다(`acp.md`). 대화의 첫 snapshot을 받기 전에는 `seen`을 싣지 않아 이 검사를 하지 않는다. 꺼진 기계에 맡겨 두는 queue는 없다: 연결이 없으면 보내기는 `unavailable`이고 쓴 글은 입력칸에 남는다.
 
@@ -169,7 +169,7 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 
 - 기기 표의 phone 행은 그 컴퓨터가 서명한 항목이 된다(id, key, 이름, 허락 그대로, rev 1, 초대 없음). SQL은 서명하지 못하므로 schema step `remote.roster`는 표 둘을 만들고 kind desktop 행만 지운다. core는 key가 있는 기동과 remote를 켤 때 listener와 relay를 열기 전에 자기 항목과 함께 그 행들에 서명한다.
 - 이 판 전의 host key에는 data step `remote.signing-key`가 짝 서명 key를 더한다. host key는 바뀌지 않는다.
-- 다른 desktop에 붙던 key는 shell의 것이라 없어진다. data step `shell.viewer.roster`가 `shell/viewer/key.json`과 `machines.json`을 지우고 시작 기계(`start`, `last`와 그 기계의 이름)를 `viewer/start.json`으로 옮긴다. 표지가 이 기계와 다른 file은 옮기지 않고 지운다. 창 자리 `viewer/windows.json`은 그대로다. 컴퓨터끼리는 초대로 한 번 다시 잇는다.
+- 다른 desktop에 붙던 key는 shell의 것이라 없어진다. data step `shell.viewer.roster`가 `shell/viewer/key.json`과 `machines.json`을 지우고(표지가 이 기계와 다른 file도 지운다) 시작 기계를 `viewer/start.json`으로 옮긴 뒤, 창이 기계에 묶이지 않아 data step `shell.viewer.drop`이 `viewer/start.json`과 `windows.json`을 지우고 폴더가 비면 폴더도 지운다. 컴퓨터끼리는 초대로 한 번 다시 잇는다.
 
 **옮긴 폰.** 이 판 전에 pairing한 폰은 컴퓨터의 host key만 저장했다. 판 3으로 처음 붙을 때 `join`의 답 `computer.signing_key`를 받는다. 그 답은 저장한 host key로 확인한 Noise 연결에서 온 것이라, 폰은 그 컴퓨터의 서명 key를 root로 저장하고 답의 명단에 든 그 컴퓨터의 항목(host key와 서명 key가 같아야 한다)을 본다. 컴퓨터 쪽은 옮기는 step이 기기 표의 줄마다 그 컴퓨터가 서명한 항목을 만들어 두므로(id, key, 허락 그대로) 폰은 다시 pairing하지 않는다. 같은 폰을 여러 컴퓨터에 pairing했으면 컴퓨터마다 따로 배우고, 명단이 합쳐지면 id가 접힌다.
 
@@ -249,7 +249,7 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 21. kind로 가르는 것은 phone 장치(기준, `shell.devices`, push token, phone 탭의 preview view, presence의 폰 규칙)뿐이다. 컴퓨터는 다른 컴퓨터의 기기 표에 행이 없어 기준이 되지 못하고 push token을 두지 못하며, 그 밖의 권한은 폰과 같다.
 22. 기기의 이름은 명단에 하나다. 폰의 연결은 폰이 알린 이름이 마지막으로 받은 것과 다를 때만 명단 이름을 고치고, 컴퓨터의 이름은 기계 이름과 한 값이다(`machine.md`). 폰이 컴퓨터에 붙인 별명은 그 폰 안에만 있고 연결이 고치지 않는다.
 23. remote key 둘에 찍힌 기계 id가 지금 id와 다르거나 하나만 읽히면 그 key와 명단을 쓰지 않는다. key를 먼저 지우고 명단을 버리므로 중간에 죽어도 다음 기동이 key 없이 남은 명단을 보고 다시 버린다. 둘 다 못 읽는 key file은 덮지 않는다.
-24. 창이 보낸 core 부르기·구독·보호 secret 창은 실린 기계로만 간다: 기계가 있으면 이 컴퓨터 core의 `machines/call`·`machines/watch`로 그 기계에만, 없으면 이 컴퓨터의 core에만. 한 범위에서 부른 것(보내기, 승인, 터미널 입력)이 다른 기계로 가지 않고, 한 기계의 event가 다른 기계의 범위에 닿지 않는다. 기계에 묶인 창(계획 `one-screen`이 끝나면 없어진다)은 main이 그 창(webContents)으로 기계를 정해 다른 기계를 실은 부르기는 `forbidden`이고, 허락 목록 밖의 channel은 어느 handler보다 먼저 `forbidden`이다. 이 컴퓨터의 core에 닿는 `shell:machines-this-read|clone-here`는 기계에 묶인 창에서만 지나고 `this-read`는 `project.list`, `ListAgents`, `ListSessions`만 넘긴다. `shell:machines-open`이 싣는 session은 이 컴퓨터의 id에만 받는다.
+24. 창이 보낸 core 부르기·구독·보호 secret 창은 실린 기계로만 간다: 기계가 있으면 이 컴퓨터 core의 `machines/call`·`machines/watch`로 그 기계에만, 없으면 이 컴퓨터의 core에만. 한 범위에서 부른 것(보내기, 승인, 터미널 입력)이 다른 기계로 가지 않고, 한 기계의 event가 다른 기계의 범위에 닿지 않는다. 창은 기계에 묶이지 않아 기계를 정하는 것은 실린 기계 하나뿐이다. 이 컴퓨터의 core에 닿는 shell IPC는 `shell:machines-clone-here` 하나이고 어느 desktop 창이든 부른다.
 25. 명단은 statement 집합의 함수다. 받은 순서, 받은 길, 받은 때와 무관하고, keep만으로 다시 계산해도 같다.
 26. 빼기가 이긴다. 늦게 온 더 새 rev, 같은 key의 새 id, 같은 key의 초대 서명 statement, 같은 서명 key를 단 새 host key가 되살리지 못한다.
 27. 뺀 key와 서명 key는 항목으로도, 서명자로도, root로도 돌아오지 않는다. 돌아오려면 새 key다. 빼기는 key와 서명 key로만 빼고 body의 `id`로는 아무것도 빼지 않는다.
@@ -285,7 +285,7 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - 폰의 기기 행: ledger 표 `devices`(이 컴퓨터에 붙은 폰의 local 행). route `devices/list`, `devices/set_primary`, `devices/set_push`(기기 자격), core 안 machine 자격만 부르는 `devices/connected {id, name, phone?}`, `devices/clear_push`, `devices/push_targets`.
 - remote key: `<data root>/remote/host-key.json`과 `signing-key.json`, 칸 `machine`(만든 기계 id). data step `remote.host-key.machine`(이 판 전의 host key에 찍는다)과 `remote.signing-key`(짝 서명 key를 더한다)가 remote wiring에 있다.
 - 폰의 보안 저장소: 기기 key, 컴퓨터 목록(`machine`, `signing_key`, `announced`(명단의 이름), `name`(별명), `disputed`), 폰 이름 `phone-name`. 든 명단(statement와 주소. 공개 key와 서명뿐이다)은 앱 file `roster.json`이다.
-- 다른 기계 보기: renderer가 읽는 `MachineList`(`{state: starting|ready, this, machines[{id, name, status: connecting|connected|offline|update, update: client|host|null, path, last_seen_at}], start: {mode: last} | {mode: machine, machine}, last}`, id는 모두 `mch_`), preload bridge `lophnMachines`와 IPC `shell:machines-list|changed|start|open|this-window|visible|this-read|clone-here`(`open { machine, session? }`, `this-read { route: "project.list" | "ListAgents" | "ListSessions", input }`, `clone-here { url, identity, title }`), 따로 preload `preload-remote`, shell data `viewer/start.json`·`viewer/windows.json`과 data step `shell.viewer.roster`. 기기 route `unseen/list|dismiss`.
+- 다른 기계 보기: renderer가 읽는 `MachineList`(`{state: starting|ready, this, machines[{id, name, status: connecting|connected|offline|update, update: client|host|null, path, last_seen_at}]}`, id는 모두 `mch_`), preload bridge `lophnMachines`와 IPC `shell:machines-list|changed|clone-here`(`clone-here { url, identity, title }`). 기기 route `unseen/list|dismiss`.
 - CLI `lophn remote on|invite|join|devices|remove`(사람의 터미널만).
 - 앱 안의 길: place union 하나. 화면은 `open(place)`, `back()`, sidebar 열기, 컴퓨터 고르기만 부른다.
 
@@ -335,7 +335,6 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - 화면의 갈래는 기계가 아니라 그 기계 묶음의 능력(이 컴퓨터의 shell host가 있는가, 앱 화면 통로, 터미널 통로)으로 본다. 이유: 기계마다 여는 일이 그 통로를 채우기만 하면 갈래가 저절로 열린다. 막는 것은 받는 기계다. (agent)
 - 다른 기계의 event는 보는 것마다 따로 구독하고 core가 구독자들의 합을 보낸다. 버린 안: 기계 하나에 구독 목록 하나를 통째로 갈아 끼우기(앞의 판. 창이 여럿이거나 core 안의 구독자가 생기면 서로 덮는다). (agent)
 - 다른 기계와의 연결은 core가 들고 화면은 `machines/call`·`machines/watch`로 부른다. 이유: 컴퓨터의 정체를 core의 key 하나로 두어 화면 없는 기계도 같은 정체로 붙고, 붙는 code와 key가 shell과 core에 두 벌이 되지 않는다. 버린 안: shell main이 기계마다 연결과 붙는 key(`viewer/key.json`, `viewer/machines.json`)를 들기(앞의 판). (agent)
-- 다른 기계의 창은 따로 preload를 받고 main이 그 밖 IPC를 한 곳에서 거절한다. renderer는 bridge가 없을 때의 길로 기능을 감춘다. 이유: 거절이 handler마다 흩어지면 하나를 빠뜨린다. (planner)
 - 다른 기계의 탭과 workspace의 layout은 저장 모양이 기계를 들 때까지 메모리에만 둔다. 이유: 지금 저장 값에는 기계가 없어 되살리면 이 컴퓨터의 터미널·폴더를 가리킨다. (agent)
 - 컴퓨터의 key 둘은 OS keyring이 아니라 core data의 0600 file에 기계 표지와 같이 둔다. 이유: keyring 없는 Linux와 화면 없는 기계에서 실패 갈래만 는다. (planner)
 - 컴퓨터가 다른 컴퓨터의 명단에 드는 길은 초대장 글 붙여 넣기(Settings의 [Join with an invite], `lophn remote join`)뿐이다. 카메라 길은 없다. (planner)

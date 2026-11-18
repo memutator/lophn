@@ -297,6 +297,8 @@ function CustomProviderBody({
 }): ReactNode {
   const idOk = CUSTOM_ID_SHAPE.test(fields.id);
   const urlOk = baseUrlOk(fields.baseUrl);
+  // http는 core가 있는 기계 자신의 주소만 된다. 다른 기계의 창에서는 그 기계다.
+  const machine = useWindowMachine();
   return (
     <div className={styles.form}>
       <p className={styles.formLead}>{t("settings.notice.custom-lead")}</p>
@@ -350,7 +352,9 @@ function CustomProviderBody({
         help={t("settings.notice.custom-url-help")}
         error={
           fields.baseUrl !== "" && !urlOk
-            ? t("settings.error.custom-url")
+            ? machine === null
+              ? t("settings.error.custom-url")
+              : t("machines.error.custom-url", { name: machine.name })
             : undefined
         }
       >

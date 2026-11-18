@@ -169,9 +169,9 @@ export interface WorkspaceLeftSidebarProps {
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { workspace: current } = props;
-  // 다른 기계의 창은 project 등록과 앱 만들기가 없고, coding agent는 그 기계의 터미널에 있어 고를 수 없다.
+  // 다른 기계의 창은 앱 만들기가 없고(project 등록은 그 기계의 폴더 목록으로 한다), coding agent는 그 기계의 터미널에 있어 고를 수 없다.
   const machine = useWindowMachine();
-  const projects = machine === null ? props.projects : undefined;
+  const { projects } = props;
   const apps = machine === null ? props.apps : undefined;
   const projectId = current.kind === "project" ? current.id : null;
   const list = useSidebarWorkspaceList();

@@ -11,6 +11,7 @@ export const remoteDesk = {
   "machines.gate.removed":
     "{name} is not in your devices. To view it again, invite it from Settings › Remote on this computer.",
   "machines.empty.no-folders": "No folders here",
+  "machines.error.custom-url": "Use https, or http only for {name} itself.",
   "machines.label.folders": "the folders",
   "machines.label.unknown-name": "Another computer",
   "machines.label.start": "Open at start",

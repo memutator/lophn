@@ -13,6 +13,8 @@ import type { VerifiedCaller } from "./caller.ts";
 export type CallGateDeps = {
   assignmentOf(agent: AgentId): Result<Assignment>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
+  // 이 기계의 call 정책에서 그 앱의 workspace가 private인가.
+  isPrivate(app: Id<"app">): boolean;
 };
 
 function assignmentOf(
@@ -41,8 +43,16 @@ export async function callAllowed(
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
   if (caller.kind === "program") return ok(true);
-  // 다른 컴퓨터가 넘긴 호출의 허락(명단, 터미널 입력 허락, private)은 받는 기계의 입구가 본다. 그것이 서기 전에는 아무것도 지나가지 못한다.
-  if (caller.kind === "remote") return ok(false);
+  // 다른 컴퓨터가 넘긴 호출. 명단과 터미널 입력 허락은 입구(`apps/remote_call`)가 본다. 여기서는 이 기계가 내놓은 command만 지나가고,
+  // 요청한 쪽이 agent나 앱이면 그 앱의 workspace가 private이 아니어야 한다. 사람의 화면과 터미널은 private도 부른다.
+  // 요청한 쪽의 name과 agent 글은 다른 컴퓨터가 쓴 표시값이라 판정에 쓰지 않는다.
+  if (caller.kind === "remote") {
+    if (!target.public) return ok(false);
+    const { kind } = caller.requester;
+    return ok(
+      !((kind === "agent" || kind === "app") && deps.isPrivate(target.app)),
+    );
+  }
   // 구독은 발행한 앱이 내놓은 event를 받겠다고 선언한 것이다. 사람 허락도 grant도 묻지 않는다(roadmap 정한 것 16).
   if (caller.kind === "event") return ok(true);
   if (caller.kind === "flow") {

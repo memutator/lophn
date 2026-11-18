@@ -31,7 +31,8 @@ import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../../protocol/storage/mod.ts";
-import { createAppCalls } from "../../../apps/calls/mod.ts";
+import { createAppCalls, remoteCallHandler } from "../../../apps/calls/mod.ts";
+import { requesterOf } from "../../../remote/call.ts";
 import { agentAssignment } from "../../../apps/usage/users.ts";
 import {
   APPS_CONTROL_CONTEXT,
@@ -126,7 +127,10 @@ import {
   createEventPublisher,
 } from "../../../apps/events/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
-import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
 import { APP_DATA_CHANGED_EVENT } from "../../../../protocol/apps/events.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
 import { createWidgets } from "../../../apps/widgets/mod.ts";
@@ -346,7 +350,14 @@ export const appsWiring: WiringFactory = () => {
           }),
       });
       syncLog = sync;
+      // 이 기계의 call 정책에서 그 앱의 workspace가 private인가. 호출 Gate와 앱 event가 같은 읽기를 쓴다.
+      const appIsPrivate = (app: Id<"app">) =>
+        isPrivate(ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY, {
+          kind: "app",
+          id: app,
+        });
       const { path, intake, phone, folder, syncHeld } = createAppCalls({
+        isPrivate: appIsPrivate,
         callers,
         lookup: appToolLookupOf(link.sql, appsControl.previews),
         apps: states,
@@ -622,13 +633,7 @@ export const appsWiring: WiringFactory = () => {
                 },
           );
         },
-        isPrivate(app: Id<"app">) {
-          const policy =
-            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
-          return policy.private.some(
-            (workspace) => workspace.kind === "app" && workspace.id === app,
-          );
-        },
+        isPrivate: appIsPrivate,
         warn(event: string, fields: Record<string, string>) {
           ctx.telemetry.logger.warn({
             component: "apps/events",
@@ -792,6 +797,17 @@ export const appsWiring: WiringFactory = () => {
                 ? called
                 : ok({ ...output, outcome: { ...output.outcome, missing } });
             },
+          ],
+          // 다른 컴퓨터가 넘긴 앱 command의 입구. 명단과 허락은 remote wiring이 낸 것을 부를 때 읽는다.
+          [
+            "apps/remote_call",
+            remoteCallHandler({
+              path,
+              kind: (principal) => ctx.deviceKind(principal),
+              granted: (principal) => ctx.terminalInputGrant(principal),
+              resolve: (device) => ctx.machineLinks.resolve(device),
+              requesterOf,
+            }),
           ],
           ["apps/rewind", rewindHandler(rewind, link.sql)],
           ...syncRoutes.memory,

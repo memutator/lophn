@@ -247,6 +247,7 @@ function computer() {
     assignmentOf: () => err({ code: "internal", message: "unused" }),
     appGrantsOf: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
+    isPrivate: () => false,
     clock,
     ids,
     forward: () =>

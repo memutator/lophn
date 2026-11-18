@@ -267,6 +267,7 @@ function setup(
     },
     admission: createAdmission(),
     granted: (principal) => principal !== devicePrincipal(PLAIN),
+    kind: () => "phone",
     async confirm(request) {
       const made = confirmations.issue(request);
       if (!made.ok) return made;

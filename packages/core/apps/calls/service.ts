@@ -296,8 +296,8 @@ export function createAppCalls(deps: AppCallsDeps): {
     const archived = deps.apps.archived(app);
     if (!archived.ok) return archived;
     if (archived.value) {
-      // archived 앱은 agent에게 없는 앱과 같다. 사람(화면)은 그대로 app_archived다.
-      return auth.actor === "agent"
+      // archived 앱은 agent와 다른 컴퓨터에게 없는 앱과 같다. 사람(화면)은 그대로 app_archived다.
+      return auth.actor === "agent" || auth.actor === "remote"
         ? err({ code: "not_found", message: "app not found" })
         : ok(denied("app_archived", null));
     }

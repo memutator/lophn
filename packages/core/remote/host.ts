@@ -210,6 +210,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       cleanups.push(() => deps.phoneLink.closed(phone));
       return (frame) => {
         if (frame.type === "call") {
+          // frame의 `by`(컴퓨터가 싣는 요청한 쪽)도 같이 간다. call이 기기 종류와 맞춰 보고 입구 handler가 쓴다.
           void deps
             .call(credential.value, frame)
             .catch(

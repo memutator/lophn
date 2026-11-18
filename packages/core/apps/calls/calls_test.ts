@@ -110,6 +110,8 @@ function setup() {
     // agentToolCall이 돌려주는 agent와 workspace. agent가 null이면 tool call을 모른다.
     agent: "lophn_home" as AgentId | null,
     workspace: null as Workspace | null,
+    // 이 기계의 call 정책이 private으로 둔 앱.
+    privateApps: new Set<Id<"app">>(),
     // 다른 기계로 넘긴 호출.
     forwarded: [] as Parameters<AppCallsDeps["forward"]>[0][],
   };
@@ -202,6 +204,7 @@ function setup() {
             ),
         ),
       ),
+    isPrivate: (app) => state.privateApps.has(app),
     clock,
     ids,
     forward: (call) => {
@@ -988,7 +991,7 @@ test("받은 remote call은 다른 기계로 다시 넘기지 않고 이 기계�
     actor: "remote",
     remote: { machine, device, requester },
   };
-  // 받은 call을 돌리는 중인 호출과 이 기계의 호출. 받은 call의 입구가 아직 없어 도는 호출 표에 직접 넣는다.
+  // 받은 call을 돌리는 중인 호출과 이 기계의 호출. 입구(`apps/remote_call`) 없이 도는 호출 표에 직접 넣는다.
   const flight = (id: Id<"inv">, remote: boolean) =>
     (t.intake as unknown as { enter(f: unknown): void }).enter({
       id,
@@ -1042,6 +1045,70 @@ test("받은 remote call은 다른 기계로 다시 넘기지 않고 이 기계�
     t.state.forwarded.map((call) => call.caller.kind),
     ["app", "agent"],
   );
+});
+
+// 받는 기계의 Gate는 이 기계의 자료만 본다. 다른 컴퓨터의 agent와 앱은 private인 앱을 부르지 못하고(사람의 화면과 터미널은 부른다),
+// 누가 불러도 내놓지 않은 command는 부르지 못한다. 요청한 쪽의 name은 판정에 쓰지 않는다.
+test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 내놓지 않은 command에 닿지 못하고, 사람의 화면과 터미널은 private인 앱의 내놓은 command를 부른다", async () => {
+  const t = setup();
+  const app = newApp();
+  const other = newApp();
+  t.state.privateApps.add(app);
+  const machine = ids.newId("mch") as Id<"mch">;
+  const device = ids.newId("dev") as Id<"dev">;
+  const requesters = {
+    screen: { kind: "screen" },
+    terminal: { kind: "terminal" },
+    // name이 무엇이든 agent는 agent다.
+    agent: { kind: "agent", agent: "lophn_home", session: null, name: "human" },
+    app: { kind: "app", app: other },
+  } as const;
+  const via = (
+    requester: (typeof requesters)[keyof typeof requesters],
+    to: Id<"app">,
+    name: string,
+  ) =>
+    t.path.call(
+      {
+        target: { mode: "live", app: to, release: null },
+        kind: "command",
+        name,
+        caller: { kind: "remote", machine, device, requester },
+      },
+      { actor: "remote", remote: { machine, device, requester } },
+    );
+
+  for (const [label, requester] of Object.entries(requesters)) {
+    const onPrivate = await via(requester, app, "r.get");
+    const hidden = await via(requester, other, "priv.r.get");
+    const open = await via(requester, other, "r.get");
+    const human = label === "screen" || label === "terminal";
+    assert.equal(
+      status(onPrivate),
+      human ? "succeeded" : "gate_blocked",
+      label,
+    );
+    assert.equal(status(hidden), "gate_blocked", `${label} not public`);
+    assert.equal(status(open), "succeeded", `${label} open app`);
+  }
+  // 막힌 호출은 앱 process에 가지 않았고 remote caller로 기록에 남았다.
+  assert.deepStrictEqual(
+    t.sent.map((s) => [s.app, s.request.name]),
+    [
+      [app, "r.get"],
+      [other, "r.get"],
+      [app, "r.get"],
+      [other, "r.get"],
+      [other, "r.get"],
+      [other, "r.get"],
+    ],
+  );
+  assert.ok(
+    [...t.records.values()].some(
+      (row) => row.status === "denied" && row.caller?.kind === "remote",
+    ),
+  );
+  assert.equal(t.state.forwarded.length, 0);
 });
 
 test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
@@ -1379,6 +1446,7 @@ function receiver(schema: string, node = "receiver") {
     assignmentOf: () => err({ code: "internal", message: "unused" }),
     appGrantsOf: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
+    isPrivate: () => false,
     clock,
     ids,
     forward: () =>

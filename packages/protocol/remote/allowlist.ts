@@ -28,6 +28,7 @@ import {
   appSyncSnapshotFile,
 } from "../apps/app-sync.ts";
 import { appGet, appList } from "../apps/apps.ts";
+import { appRemoteCall } from "../apps/calls/remote.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
 import { appScreenFile } from "../apps/calls/screen.ts";
@@ -430,6 +431,15 @@ export const REMOTE_PERSON_ROUTES = [
   projectIdentityApi.match,
   projectAdd,
   projectBrowse,
+] as const;
+
+// 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):
+// 앱 목록과 그 command 목록(`machines/app_tools`가 읽는다)과 앱 command 입구. 사람의 route와 확인이 필요한 command는 이 밖이다.
+export const REMOTE_AGENT_ROUTES = [
+  appList,
+  appGet,
+  appTools,
+  appRemoteCall,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.

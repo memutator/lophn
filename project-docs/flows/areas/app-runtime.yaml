@@ -764,10 +764,10 @@ flows:
     boundary: [app-runtime, core-api]
     code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/apps/calls/intake.ts, packages/core/apps/calls/forward.ts, packages/core/apps/calls/record.ts, packages/core/apps/calls/loop.ts, packages/core/apps/routes.ts]
     steps:
-      - "core가 부른 쪽을 확인한다(verifyCaller). credential 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하며, app은 활성 release와 지금 도는 부모 호출이어야 한다. program·flow·event는 core 안 연산이 만든 자격과 맞아야 한다(event는 구독 handler를 operation 자리의 `on.<source>.<event>`로 부르고 Gate는 묻지 않으며, 사람이 그 이름을 부르면 denied(not_declared)다. app-event-publish). preview 전용 credential은 live를 부르지 못한다(본문 검사보다 앞). target이 remote(다른 기계의 앱)이면 이 확인 바로 뒤에 갈린다: command가 아니거나 caller가 agent·app이 아니거나 받은 call을 돌리는 중인 앱(부모 호출이 remote)이면 forbidden이고, 아니면 이 기계의 앱처럼 조회·기록하지 않고 forward로 넘긴다(아직 `unavailable`만 돌려준다)."
-      - "보관한 앱은 agent에게 not_found, 사람과 app에게 denied(app_archived)다. 활성 release의 command 선언에서 찾고 없으면 denied(not_declared)다(기록 없음)."
+      - "core가 부른 쪽을 확인한다(verifyCaller). credential 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하며, app은 활성 release와 지금 도는 부모 호출이어야 한다. program·flow·event는 core 안 연산이 만든 자격과 맞아야 한다(event는 구독 handler를 operation 자리의 `on.<source>.<event>`로 부르고 Gate는 묻지 않으며, 사람이 그 이름을 부르면 denied(not_declared)다. app-event-publish). preview 전용 credential은 live를 부르지 못한다(본문 검사보다 앞). target이 remote(다른 기계의 앱)이면 이 확인 바로 뒤에 갈린다: command가 아니거나 caller가 agent·app이 아니거나 받은 call을 돌리는 중인 앱(부모 호출이 remote)이면 forbidden이고, 아니면 이 기계의 앱처럼 조회·기록하지 않고 forward로 넘긴다(아직 `unavailable`만 돌려준다). caller 종류 remote는 받는 기계의 입구(app-remote-call)만 만든다."
+      - "보관한 앱은 agent와 다른 컴퓨터의 요청(remote)에게 not_found, 사람과 app에게 denied(app_archived)다. 활성 release의 command 선언에서 찾고 없으면 denied(not_declared)다(기록 없음)."
       - "같은 앱이 호출 사슬에 다시 나오거나 깊이 8을 넘으면 handler에 가지 않고 denied(call_loop, call_too_deep)로 기록한다. 본문이 CALL_BODY_MAX_BYTES를 넘으면 invalid_input이고 기록은 남기지 않는다."
-      - "막기(Gate): agent는 지금 할당(judge)으로 본다. 앱 workspace의 agent는 자기 앱이 할당에 자동으로 들어 있어(agentAssignment) 그 앱의 command는 할당 없이 통과하고, 다른 앱은 할당에 있어야 하며 deny로 뺀 command는 막힌다. app은 부른 앱의 active grant app.call이 그 tool을 덮는지로 본다. program은 판정 없이 통과하고, flow는 PM의 할당과 비공개 규칙을 본다. 묻지 않는다. 막히면 denied(gate_blocked)다. 사람은 Gate를 거치지 않는다."
+      - "막기(Gate): agent는 지금 할당(judge)으로 본다. 앱 workspace의 agent는 자기 앱이 할당에 자동으로 들어 있어(agentAssignment) 그 앱의 command는 할당 없이 통과하고, 다른 앱은 할당에 있어야 하며 deny로 뺀 command는 막힌다. app은 부른 앱의 active grant app.call이 그 tool을 덮는지로 본다. program은 판정 없이 통과하고, flow는 PM의 할당과 비공개 규칙을 본다. remote(다른 컴퓨터가 넘긴 호출)는 command가 내놓은 것이어야 하고, 요청한 쪽이 agent나 앱이면 대상 앱이 이 기계의 call 정책에서 private이 아니어야 한다(app-remote-call). 묻지 않는다. 막히면 denied(gate_blocked)다. 사람은 Gate를 거치지 않는다."
       - "write와 external이면 앱별 줄을 얻고 invocation 시작을 남긴다. read는 줄 없이 바로 간다. 성공한 read는 기록을 남기지 않는다."
       - "접수가 닫힌 동안(활성화나 rewind) 온 호출은 접수가 열릴 때까지 붙잡혔다가 그때의 활성 release로 정해 보낸다. 앱 process에 보낸다. 보내기 전에 막히면 denied(app_unavailable), 보냈는데 답이 없으면 unknown이다. 활성화 drain이 기다리던 호출을 끊으면 같은 답이 된다."
       - "응답의 결과와 changeset으로 invocation을 끝내고 부른 쪽에 succeeded, failed, denied, unknown 가운데 하나를 준다. 그 호출이 쓰려던 secret의 값이나 sign-in이 비어 있었으면(app-secret-value가 적은 빈 자리) failed 결과에 `missing: [{app, secret}]`을 싣는다. agent의 `lophn <slug> <command>`는 그 자리를 `lophn ask secret --app <id> --secret <name>` 문장과 함께 결과에 보인다. 앱이 쓴 오류 글과 따로 lophn이 쓴 것이다. changeset은 write 구간의 DB 변경이다(cap-store가 잡고 lophn_data_schema 표는 뺀다). frame 한도, release 상한, blob 준비 중 하나에 걸리면 changeset만 빼고 changeset_dropped로 알린다."
@@ -794,7 +794,7 @@ flows:
         when: "접수가 닫힌 동안 온 호출이 접수가 열린 뒤 그때의 활성 release로 실행됨. write면 기록의 release가 새 release다(read는 기록이 없다)"
         observe: [response, "ledger:invocations"]
       - id: denied-gate-blocked
-        when: "할당이나 app.call grant가 그 tool을 덮지 않음(사람은 Gate를 거치지 않는다)"
+        when: "할당이나 app.call grant가 그 tool을 덮지 않음, 또는 다른 컴퓨터가 넘긴 호출이 내놓지 않은 command를 부르거나 agent·앱이 요청한 호출의 대상 앱이 private임(사람은 Gate를 거치지 않는다)"
         observe: ["ledger:invocations", response]
       - id: denied-call-loop
         when: "대상 앱이 이미 호출 사슬에 있음"
@@ -806,7 +806,7 @@ flows:
         when: "앱 process에 보내기 전에 막힘(read는 denied 기록, write는 failed 기록), 또는 대기 중이던 호출을 활성화 drain이 끊음"
         observe: [response, "ledger:invocations"]
       - id: denied-app-archived
-        when: "보관한 앱을 사람이나 app이 부름(agent에게는 not_found). 기록은 남기지 않는다"
+        when: "보관한 앱을 사람이나 app이 부름(agent와 다른 컴퓨터의 요청에는 not_found). 기록은 남기지 않는다"
         observe: [response]
       - id: denied-not-declared
         when: "활성 release의 command 선언에 없음(기록 없음)"
@@ -816,7 +816,7 @@ flows:
         observe: ["ledger:invocations", response]
       - id: forbidden
         code: forbidden
-        when: "remote target을 command가 아닌 호출이나 agent·app이 아닌 caller가 부름, 받은 call을 돌리는 중인 앱이 remote target을 부름, caller 종류 remote를 이 route로 부름(credential이 user·agent·app이라 종류가 다름), caller 종류가 credential과 다름, agent의 tool call을 모름, preview 전용 credential이 live를 부름, program의 job run이 credential과 다름, flow의 instance가 credential과 다름, app 호출에서 credential의 app이 caller app과 다름, app 호출의 release가 활성 release가 아님, parent_invocation이 그 앱·release의 도는 호출이 아님(preview 쪽 거절은 app-preview-command-call)"
+        when: "remote target을 command가 아닌 호출이나 agent·app이 아닌 caller가 부름, 받은 call을 돌리는 중인 앱이 remote target을 부름, caller 종류 remote를 이 route로 부름(credential이 user·agent·app이라 종류가 다름. 받는 기계의 입구 app-remote-call만 만든다), caller 종류가 credential과 다름, agent의 tool call을 모름, preview 전용 credential이 live를 부름, program의 job run이 credential과 다름, flow의 instance가 credential과 다름, app 호출에서 credential의 app이 caller app과 다름, app 호출의 release가 활성 release가 아님, parent_invocation이 그 앱·release의 도는 호출이 아님(preview 쪽 거절은 app-preview-command-call)"
         observe: [response]
       - id: invalid-input
         code: invalid_input
@@ -824,7 +824,7 @@ flows:
         observe: [response]
       - id: not-found
         code: not_found
-        when: "agent가 보관한 앱을 부름"
+        when: "agent나 다른 컴퓨터가 넘긴 호출이 보관한 앱을 부름"
         observe: [response]
       - id: dependency-failed
         when: "호출자 확인의 port(agentToolCall, activeRelease), 보관 여부나 선언 읽기, Gate의 할당·grant 읽기, 기록 쓰기(begin·finish)가 낸 오류 그대로"
@@ -848,19 +848,39 @@ flows:
     entries: [route:apps/remote_call]
     uses: [route:apps/call_tool]
     boundary: [app-runtime, core-api, remote]
-    code: [packages/protocol/apps/calls/remote.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts]
+    code: [packages/protocol/apps/calls/remote.ts, packages/core/remote/call.ts, packages/core/apps/calls/remote-entry.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/main/daemon/wiring/apps.ts]
     docs: [architecture/app-call.md, architecture/approval.md]
     steps:
-      - "route 정의만 있다. handler는 아직 없다(`use-receive`가 짓는다): 명단의 컴퓨터인 device principal이 아니면 forbidden이고, call frame의 요청한 쪽(by)은 입력이 아니라 core 안 길로만 받고 frame에 by가 없으면 invalid_input이다. caller 종류 remote(machine, device, requester)로 같은 호출 경로를 지난다. 허락 검사가 서기 전까지 Gate는 remote caller를 모두 막는다"
+      - "받는 기계의 remote call 처리(createRemoteCall)가 먼저 건다: call frame의 요청한 쪽(by)은 컴퓨터가 늘 싣고 폰은 싣지 않는다(어긋나면 invalid_input). 이 입구는 by가 있는 컴퓨터가 터미널 입력을 허락받았을 때만 handler에 닿는다(아니면 forbidden. 폰은 by가 없어 forbidden). by는 입력 body가 아니라 이 처리가 자격 옆에 실어 handler에 준다. body에 by를 실으면 route schema가 invalid_input으로 거절한다."
+      - "handler는 이 기계의 자료로 다시 본다: device principal이 명단의 컴퓨터여야 하고(kind), 자격 옆에 요청한 쪽이 있어야 하고(HTTP API 같은 다른 길은 없다), 그 컴퓨터가 이 기계에서 터미널 입력을 허락받았어야 하고, 기기 id로 명단의 컴퓨터(machine, device)를 찾을 수 있어야 한다. 아니면 forbidden이다. 요청한 쪽의 name과 agent 글은 다른 컴퓨터가 쓴 표시값이라 아무것도 정하지 않는다."
+      - "통과하면 handler가 caller `remote`(machine, device, requester)와 같은 값의 자격(actor remote)을 직접 만들어 앱 호출 경로(app-command-call)에 live 대상, kind command로 넘긴다. 받은 call은 다른 기계로 다시 넘기지 않는다. 호출 경로의 Gate가 command가 내놓은 것(public)인지, 요청한 쪽이 agent나 앱이면 대상 앱의 workspace가 이 기계의 call 정책에서 private이 아닌지 본다(사람의 화면과 터미널은 private도 부른다). 부른 컴퓨터의 할당이나 grant는 다시 따지지 않는다. 막히면 denied(gate_blocked)이고 기록이 남는다. 기록의 caller는 remote다."
     outcomes:
+      - id: succeeded
+        when: "허락받은 컴퓨터가 내놓은 command를 불러 앱이 처리함. 응답은 app-command-call과 같다(succeeded, failed, unknown 등을 outcome에 싣는다)"
+        observe: [response, "ledger:invocations"]
+      - id: denied
+        when: "Gate가 막음(내놓지 않은 command, 또는 agent·앱이 요청한 call의 대상 앱이 private), 선언에 없음, 보관한 앱, 앱이 꺼져 있음 등 app-command-call의 denied 갈래(보관한 앱은 not_found)"
+        observe: [response, "ledger:invocations"]
       - id: forbidden
         code: forbidden
-        when: "호출 경로의 Gate가 remote caller를 막는다(denied gate_blocked). 입구 handler가 없어 이 route로는 닿지 않는다"
+        when: "폰이나 명단 밖 기기, 이 기계의 loopback·사람 token 같은 다른 길(요청한 쪽이 없음), 터미널 입력 허락이 없는 컴퓨터, 기기 id로 컴퓨터를 찾지 못함"
         observe: [response]
-    declared_only: [invalid_input, unauthorized, not_found, unavailable]
+      - id: invalid-input
+        code: invalid_input
+        when: "컴퓨터가 by 없이 부름, 폰이 by를 실음, body가 schema와 맞지 않음(body에 by를 실은 것 포함), 대상이 live가 아님"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "보관한 앱을 부름(app-command-call과 같다)"
+        observe: [response]
+      - id: dependency-failed
+        when: "호출 경로의 port(선언 읽기, 기록 쓰기)가 낸 오류 그대로"
+        observe: [response]
+    declared_only: [unauthorized, unavailable]
     crosses_process: true
+    risk: [permission]
     unclear:
-      - "handler가 아직 없어 route가 등록되지 않았다. outcome은 `use-receive`가 짓는 handler가 정한다"
+      - "기기 id로 컴퓨터를 찾는 길(`ctx.machineLinks.resolve`)은 `use-send`가 낸다. 그 전에는 이 handler가 internal로 끝난다."
 
   - id: app-preview-command-call
     title: "앱 preview의 command를 기록과 Gate 없이 부른다"

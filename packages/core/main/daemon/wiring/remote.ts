@@ -761,6 +761,7 @@ export function remoteWiring(
         admission,
         onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
         granted: (principal) => ctx.terminalInputGrant(principal),
+        kind: (principal) => ctx.deviceKind(principal),
         async confirm(request) {
           const issued = await ctx.runtime.confirmation({
             action: "issue",

@@ -1,6 +1,9 @@
 // 기기 연결의 자격과 `call`. 기기는 actor user, principal `device:<id>`이고 scope는 REMOTE_ALLOWED_ROUTES와 REMOTE_PERSON_ROUTES의
-// 합이다. 사람 route는 `call`이 터미널 입력을 허락받은 기기에만 연다. `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다.
-// frame은 JSON뿐이라 file·upload route의 bytes는 base64로 싣는다.
+// 합이다. `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다. frame은 JSON뿐이라 file·upload route의 bytes는 base64로 싣는다.
+// 무엇을 여는지는 요청한 쪽(frame의 `by`)이 정한다. 폰은 `by`가 없고 컴퓨터는 늘 있다(컴퓨터가 `by` 없이, 폰이 `by`를 싣고 부르면
+// `invalid_input`). 사람 route와 확인이 필요한 command는 `by`가 없는 폰이나 `screen`이고 터미널 입력을 허락받은 기기에만 연다.
+// `terminal`은 사람의 route를 못 받고(그 터미널에서 치는 coding agent도 같은 token이다), `agent`와 `app`은 REMOTE_AGENT_ROUTES만 받는다.
+// `by`는 부른 컴퓨터가 자기 자격에서 정한 값이라 이 기계는 그 종류만 믿고 `agent`의 name 같은 글로는 아무것도 정하지 않는다.
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   CONFIRMATION_HANDLE_TTL_MS,
@@ -10,8 +13,11 @@ import {
   RPC_JSON_MAX_BYTES,
   UPLOAD_INPUT_HEADER,
 } from "../../protocol/base/mod.ts";
+import { appRemoteCall } from "../../protocol/apps/mod.ts";
 import { jobUpdate } from "../../protocol/jobs/mod.ts";
+import type { Requester } from "../../protocol/machine/requester.ts";
 import {
+  REMOTE_AGENT_ROUTES,
   REMOTE_ALLOWED_ROUTES,
   REMOTE_PERSON_ROUTES,
 } from "../../protocol/remote/mod.ts";
@@ -49,6 +55,16 @@ const DEVICE_OPERATIONS = [
 const PERSON_OPERATIONS = new Set<string>(
   REMOTE_PERSON_ROUTES.map((route) => route.name),
 );
+const AGENT_OPERATIONS = new Set<string>(
+  REMOTE_AGENT_ROUTES.map((route) => route.name),
+);
+
+// 받은 call의 요청한 쪽은 입력 body가 아니라 이 자격 옆에 실어 handler에 준다(body의 `by`는 route schema가 거절한다).
+// symbol 칸이라 body나 JSON으로는 만들어지지 않고, 이 file의 `call`만 싣는다.
+const REQUESTER = Symbol("requester");
+export function requesterOf(ctx: AuthenticatedContext): Requester | undefined {
+  return (ctx as { [REQUESTER]?: Requester })[REQUESTER];
+}
 
 // 기기마다 core 한 번 사는 동안 자격 하나를 쓴다. 다시 붙을 때마다 ledger에 credential 행을 쌓지 않으려는 것이다.
 export function createDeviceCredentials(deps: {
@@ -94,7 +110,13 @@ export const REMOTE_FILE_MAX_BYTES = 8 * 1024 * 1024;
 
 export type RemoteCall = (
   credential: DeviceCredential,
-  call: { resource: string; method: string; body: unknown },
+  call: {
+    resource: string;
+    method: string;
+    body: unknown;
+    // frame의 `by`. 컴퓨터가 부른 call에만 있다.
+    by?: Requester;
+  },
 ) => Promise<Result<unknown>>;
 
 type RemoteCallDeps = Pick<
@@ -114,6 +136,8 @@ type RemoteCallDeps = Pick<
   admission: Admission;
   // 사람이 이 기기의 터미널 입력을 허락했는지. call마다 읽어 허락을 바꾸면 다음 call부터 따른다.
   granted(principal: string): boolean;
+  // 이 기계의 명단이 아는 기기의 종류. 명단에 없으면 null이다. `by`는 이 값으로 맞춰 본다.
+  kind(principal: string): "phone" | "computer" | null;
   // 사람 결정 handle을 발급한다(control의 shell 등록과 같은 core 확인 registry).
   confirm(
     request: ConfirmationHandleRegister,
@@ -122,7 +146,8 @@ type RemoteCallDeps = Pick<
 
 // HTTP API의 gate 대신 여기서 자격을 다시 보고 scope로 거른다. dispatchHttp는 command만 ledger에서 scope를 보고
 // read·memory route는 actor만 본다. 그래서 route 목록 밖은 여기서 `forbidden`이다. 사람 route와 확인이 필요한 command는
-// 터미널 입력을 허락받은 기기만 부른다. upload의 body는 이 검사 뒤에야 읽는다.
+// 요청한 쪽이 `by` 없는 폰이나 `screen`이고 터미널 입력을 허락받은 기기만 부른다. 앱 command 입구(`apps/remote_call`)는
+// 허락받은 컴퓨터만 부른다. upload의 body는 이 검사 뒤에야 읽는다.
 export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
   const dispatch: DispatchDeps = {
     credentials: deps.registry,
@@ -162,6 +187,39 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     if (!current.ok) return current;
     const allowed = authorize(current.value, entry.route.name);
     if (!allowed.ok) return allowed;
+    const { principal } = current.value;
+    const kind = deps.kind(principal);
+    const by = call.by;
+    if ((kind === "computer") === (by === undefined)) {
+      return err({
+        code: "invalid_input",
+        message:
+          kind === "computer"
+            ? "a call from a computer carries the requester"
+            : "only a computer carries a requester",
+      });
+    }
+    const granted =
+      current.value.actor === "user" &&
+      principal.startsWith("device:") &&
+      deps.granted(principal);
+    // `by`가 있으면 위에서 컴퓨터로 맞춰졌다. 폰은 이 입구를 못 쓴다.
+    if (entry.route.name === appRemoteCall.name && !(granted && by)) {
+      return err({
+        code: "forbidden",
+        message:
+          "only a computer with a terminal input grant calls an app command",
+      });
+    }
+    if (
+      (by?.kind === "agent" || by?.kind === "app") &&
+      !AGENT_OPERATIONS.has(entry.route.name)
+    ) {
+      return err({
+        code: "forbidden",
+        message: "an agent or an app on another computer does not reach this",
+      });
+    }
     if (entry.route.name === jobUpdate.name && !onlyToggles(call.body)) {
       return err({
         code: "forbidden",
@@ -172,29 +230,25 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
       entry.route.kind === "command" && entry.route.confirmation === "required";
     if (
       (PERSON_OPERATIONS.has(entry.route.name) || confirming) &&
-      !(
-        current.value.actor === "user" &&
-        current.value.principal.startsWith("device:") &&
-        deps.granted(current.value.principal)
-      )
+      !(granted && (by === undefined || by.kind === "screen"))
     ) {
       return err({
         code: "forbidden",
-        message: "this device has no terminal input grant for this route",
+        message: "this call has no terminal input grant for this route",
       });
     }
     let body = call.body;
     if (confirming) {
       const confirmed = await confirmFor(
         deps,
-        current.value.principal,
+        principal,
         entry.route,
         call.body,
       );
       if (!confirmed.ok) return confirmed;
       body = confirmed.value;
     }
-    const arrival = deps.admission.enterHttp(current.value.principal);
+    const arrival = deps.admission.enterHttp(principal);
     if (!arrival.ok) return arrival;
     try {
       const request =
@@ -217,7 +271,9 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
       const result = await dispatchHttp(
         request,
         entry,
-        current.value,
+        entry.route.name === appRemoteCall.name && by
+          ? Object.assign({}, current.value, { [REQUESTER]: by })
+          : current.value,
         dispatch,
       );
       if ("stream" in result) return await fileAnswer(result);

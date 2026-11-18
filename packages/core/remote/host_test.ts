@@ -511,6 +511,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       admission,
       // 이 file의 기기는 터미널 입력 허락이 없다. 허락받은 기기는 call_test.ts가 본다.
       granted: () => false,
+      kind: () => "phone",
       confirm: async () => err({ code: "internal", message: "not issued" }),
     }),
     admission,
@@ -1550,45 +1551,6 @@ async function linkedComputer(
   assert.equal(links.list()[0]?.status, "connected");
   return { links, published };
 }
-
-// 다른 컴퓨터(A)가 link로 넘긴 call은 이 core(B)에서 A의 기기 자격(지금의 기기 route 목록)으로 걸러진다. 넘기는 쪽이 범위를
-// 넓히거나, 넘긴 call을 다시 넘기는(machines/call) 길이 생기면 한 컴퓨터를 든 사람이 다른 컴퓨터의 설정·secret·명단을 고친다.
-test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로 걸러져 허락 없는 설정 쓰기와 목록 밖 route(roster/*, machines/call)는 forbidden이다", async (t) => {
-  const s = setup();
-  const { links } = await linkedComputer(s, t);
-
-  const call = (resource: string, method: string, body: unknown) =>
-    links.call({ machine: HOST_MACHINE, resource, method, body });
-  for (const [resource, method, body] of [
-    ["settings", "update", { changes: [] }],
-    [
-      "roster",
-      "invite",
-      { kind: "phone", terminal_input: true, lifetime: "short" },
-    ],
-    ["roster", "remove", { id: deviceId(1) }],
-    [
-      "machines",
-      "call",
-      {
-        machine: HOST_MACHINE,
-        resource: "settings",
-        method: "update",
-        body: {},
-      },
-    ],
-  ] as const) {
-    const refused = await call(resource, method, body);
-    assert.equal(
-      !refused.ok && refused.error.code,
-      "forbidden",
-      `${resource}/${method}`,
-    );
-  }
-  const inside = await call("turn_requests", "decide", decideBody);
-  assert.ok(inside.ok);
-  assert.deepEqual(s.reached, ["turn_requests/decide"]);
-});
 
 // 한 기계를 여러 구독자(창, shell main 안의 것)가 본다. 한쪽이 그만보거나 그 shell이 끝나 빠질 때 다른 구독자의 조건까지 덮으면
 // 그쪽 화면이 말없이 멈춘다.

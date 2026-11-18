@@ -1,6 +1,7 @@
 // 기기(폰, 다른 컴퓨터의 core)와 core 사이 암호화된 연결: Noise IK handshake, 암호화한 frame, frame schema.
 
 export {
+  REMOTE_AGENT_ROUTES,
   REMOTE_ALLOWED_EVENTS,
   REMOTE_ALLOWED_ROUTES,
   REMOTE_PERSON_ROUTES,

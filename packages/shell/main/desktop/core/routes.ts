@@ -22,7 +22,7 @@ import type { Route } from "../../../../protocol/base/mod.ts";
 
 // approvals와 remote의 route는 core 등록이 내므로 protocol 전체 목록(ALL_ROUTES)에 없다. 사람 화면이 부르는 것만 더한다:
 // turn request 결정, 에이전트 할당 읽기·바꾸기, 앱 공유 요청 읽기·결정, 내 기기 명단과 기기 관리(Settings › Remote), 다른 기계를
-// 보는 `machines/*`(shell main만 부른다).
+// 보는 `machines/*`(renderer는 `machines/list`만 읽고 나머지는 shell main만 부른다).
 export const SHELL_ROUTES: readonly Route[] = [
   ...(ALL_ROUTES as readonly Route[]),
   turnRequestDecide as Route,

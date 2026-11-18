@@ -12,7 +12,8 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 대화 조작(`acp/send`). 보내기, 멈춤, 다시 하기, 질문 답, 허락 결정, queue 고치기를 core가 지금 route로 나눈다.
 // - workflow 목록 읽기와 시작·멈춤(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
 // - 앱 tray 값 읽기(`app_tray/list`. 작업 표시줄 tray). `app_tray/set`은 앱 process만 부른다.
-// - 내 기기 명단 읽기·초대장 내기·초대장으로 들기·빼기·터미널 입력·이름 바꾸기(`roster/*`. Settings › Remote). `machines/*`는 shell main만 부른다.
+// - 내 기기 명단 읽기·초대장 내기·초대장으로 들기·빼기·터미널 입력·이름 바꾸기(`roster/*`. Settings › Remote)
+// - 명단의 다른 컴퓨터 이름 읽기(`machines/list`. 앱 상세의 Activity와 되돌리기 미리보기가 부른 컴퓨터를 이름으로 말한다). `machines/call`·`machines/watch`는 shell main만 부른다.
 // - 이 컴퓨터의 이름 읽기·바꾸기(`machine/status`·`machine/rename`. Settings › Remote)
 // - 이 컴퓨터를 로그인 때 띄우고 계속 돌리는 표시 읽기·바꾸기(`always_on/status`·`always_on/set`. Settings › Remote의 Keep running)
 // - 못 본 turn 끝 읽기와 지우기(`unseen/list`·`unseen/dismiss`. 탭의 finished 점과 알림 panel의 Finished 줄). presence 보고는
@@ -69,6 +70,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:roster/remove",
   "memory:roster/set_terminal_input",
   "memory:roster/rename",
+  "memory:machines/list",
   "memory:machine/status",
   "memory:machine/rename",
   "memory:always_on/status",

@@ -6,5 +6,5 @@ lead만 고친다. `tools/status.py multi-device-fixes build`가 `tasks/*.md`에
 |---|---|---|---|---|---|---|---|
 | `fix-identity` | fix | 1 | 없음 | merged | fix/fix-identity | f70c7ea5e |  |
 | `fix-roster` | fix | 1 | 없음 | running | fix/fix-roster |  |  |
-| `fix-setup` | fix | 1 | 없음 | running | fix/fix-setup |  |  |
+| `fix-setup` | fix | 1 | 없음 | merged | fix/fix-setup | 5e39afe49 |  |
 | `fix-terminals` | fix | 1 | 없음 | running | fix/fix-terminals |  |  |

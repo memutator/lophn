@@ -1,4 +1,4 @@
-// Page port의 Electron 구현과, bind가 가리킨 view_session에서 webContents를 찾는 곳.
+// Page port의 Electron 구현과, bind가 가리킨 view_session에서 webContents를 찾는 곳(desktop 앱). 창 없는 page host는 createPages만 쓴다.
 import { session, type WebContents, webContents } from "electron";
 
 import type { AppFrameService } from "../../app-frame/registry.ts";
@@ -7,7 +7,7 @@ import { BROWSER_PARTITION } from "../session.ts";
 import type { DebuggerOwner, Page, PageLookup } from "./page.ts";
 
 // driver와 emulation이 같은 webContents에 같은 Page로 닿아야 debugger 소유를 같이 센다. 그래서 webContents마다 하나만 만든다.
-function createPages(): (contents: WebContents) => Page {
+export function createPages(): (contents: WebContents) => Page {
   const pages = new Map<number, Page>();
   return (contents) => {
     const known = pages.get(contents.id);

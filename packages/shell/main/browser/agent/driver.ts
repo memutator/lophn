@@ -712,7 +712,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       throw fail(
         "unavailable",
         view === "browser"
-          ? "The browser page is gone: the lophn window that held it was closed or the page was destroyed. Open the page again with `lophn tab open --url`, then use the new tab id."
+          ? "The browser page is gone: the lophn window or windowless browser that held it was closed, or the page was destroyed. Open the page again with `lophn tab open --url`, then use the new tab id."
           : "The tab is not open in a window: no window is showing this tab's workspace right now. Retrying does not help until a person opens that workspace in lophn; tell the person.",
       );
     }

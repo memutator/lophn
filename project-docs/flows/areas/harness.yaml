@@ -387,7 +387,7 @@ flows:
       - "열기가 끝난 뒤 ack 1.5초나 창 안 열기 실패는 retry로 되돌려 다시 시도하고 기한이 끝나면 위 unavailable 가운데 하나가 된다"
 
   - id: host-shell-launch
-    title: browser 탭을 열려는데 shell이 없으면 core가 앱을 띄운다(--agent-window)
+    title: browser 탭을 열려는데 shell이 없으면 core가 앱(--agent-window)을, display 없는 Linux면 page host(--page-host)를 띄운다
     actor: system
     entries: [system:host-shell-launch]
     boundary: [host-queue-core, core-control-protocol]
@@ -402,13 +402,17 @@ flows:
     steps:
       - "launcher는 그 core를 띄운 쪽(shell main의 core 감독, CLI의 detached 시작)이 환경 LOPHN_LAUNCH_SHELL=1을 준 core에만 있다. test, boot, E2E가 띄운 core에는 없다. 설치본이 아닌 개발 저장소에서 shell entry를 build하지 않았으면 없다"
       - "browser 탭 열기가 shell 없이 오면 queue가 launcher를 부른다. 이미 시도 중이고 30초가 안 지났으면 부르지 않고 그 시도를 같이 기다린다. 앞선 실패 뒤 5분 안이면 부르지 않고 실패로 답한다"
-      - "launcher가 core의 platform 배치에서 명령을 만든다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry 추가). ELECTRON_RUN_AS_NODE를 빼고 `--home <data root> --agent-window`를 붙여 detached로 띄우고 놓는다. Linux에서 OS service가 띄운 core(LOPHN_SERVICE=1)이고 env에 DISPLAY와 WAYLAND_DISPLAY가 둘 다 없으면, 띄우기 전에 `systemctl --user show-environment`(기한 2초)에서 DISPLAY, WAYLAND_DISPLAY, XAUTHORITY, XDG_SESSION_TYPE, XDG_CURRENT_DESKTOP, DBUS_SESSION_BUS_ADDRESS만 가져와 띄우는 env에 넣는다. 가져오지 못하면 그냥 띄운다(화면 없는 Linux는 browser 탭이 실패한다)"
+      - "launcher가 core의 platform 배치에서 명령을 만든다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry 추가). ELECTRON_RUN_AS_NODE를 빼고 `--home <data root>`를 붙여 detached로 띄우고 놓는다. Linux에서 OS service가 띄운 core(LOPHN_SERVICE=1)이고 env에 DISPLAY와 WAYLAND_DISPLAY가 둘 다 없으면, 띄우기 전에 `systemctl --user show-environment`(기한 2초)에서 DISPLAY, WAYLAND_DISPLAY, XAUTHORITY, XDG_SESSION_TYPE, XDG_CURRENT_DESKTOP, DBUS_SESSION_BUS_ADDRESS만 가져와 띄우는 env에 넣는다. 가져오지 못하면 그 값 없이 띄운다"
+      - "다 만든 env에 DISPLAY와 WAYLAND_DISPLAY가 둘 다 없는 Linux면 `--page-host --ozone-platform=headless --disable-gpu`를 붙여 창 없는 page host로 띄운다(page-host-serve). 그 밖(display가 있거나 Linux가 아님)은 `--agent-window`로 desktop 앱을 띄운다. 개발에서 ELECTRON_NO_SANDBOX=1이면 어느 쪽이든 `--no-sandbox`를 앞에 붙인다"
       - "spawn이 던지거나 error event가 오면 로그를 한 줄 남기고 기다리던 열기를 바로 끝낸다. 띄운 뒤의 일은 알 길이 없어 shell이 /host-link로 붙는지로 본다. 30초 안에 붙지 않으면 시도가 실패다"
       - "shell이 /host-link로 붙으면 시도와 실패 기록을 지운다"
     outcomes:
       - id: launched
-        when: "launcher가 앱을 띄웠다(처음 시도이거나 앞 시도가 끝났다)"
+        when: "launcher가 앱을 띄웠다(처음 시도이거나 앞 시도가 끝났다). display가 있거나 Linux가 아니다"
         observe: ["process:앱 process가 detached로 뜬다(--agent-window)"]
+      - id: launched-page-host
+        when: "display 없는 Linux라 launcher가 page host를 띄웠다"
+        observe: ["process:창 없는 page host process가 detached로 뜬다(--page-host --ozone-platform=headless --disable-gpu)"]
       - id: shared
         when: "30초 안에 이미 띄운 시도가 있다. 다시 띄우지 않고 그 시도에 같이 기다린다"
         observe: ["process:띄운 앱이 하나뿐이다"]
@@ -423,9 +427,61 @@ flows:
         observe: [response]
     crosses_process: true
     risk: [sandbox]
-    docs: [architecture/platform.md, architecture/workspace-layout.md]
+    docs: [architecture/platform.md, architecture/workspace-layout.md, architecture/browser-tab.md]
     unclear:
       - "앱 Quit 뒤에도 띄운다. 사람이 앱을 껐다고 의도하지 않았는지를 판단하는 장치는 없다(승인한 job의 browser 사용으로 본다, 사람 2026-11-10)"
+
+  - id: page-host-serve
+    title: display 없는 Linux의 page host가 /host-link에 host로 붙어 browser 탭을 offscreen page로 들고 요청에 답한다
+    actor: shell
+    entries: [system:page-host-serve]
+    uses: [host-link:open, host-link:done, system:browser-call-run]
+    boundary: [shell, host-queue-interface]
+    code:
+      - packages/shell/main/page-host/main.ts
+      - packages/shell/main/page-host/pages.ts
+      - packages/shell/main/desktop/main.ts
+      - packages/shell/main/desktop/launch-mode.ts
+      - packages/shell/main/desktop/open-intent.ts
+      - packages/shell/main/browser/agent/electron-page.ts
+      - packages/shell/main/browser/agent/stream.ts
+    steps:
+      - "shell main entry가 argv의 `--page-host`를 보고 desktop 조립(창, tray, renderer, terminal host, extension, 전역 단축키)을 거치지 않고 page host로 선다. userData를 data root의 browser 자리로 잡고 single instance lock을 잡는다. desktop 앱과 같은 lock이라 한 기계에서 같이 돌지 않는다(나중에 뜬 쪽이 끝난다)"
+      - "core에 붙고(core 연결) /host-link에 host로 붙는다. 보이는 workspace는 빈 목록이라 workspace에 묶인 탭 요청은 오지 않는다. browser session 규칙(permission, user agent)을 desktop과 같이 한 번 건다. 저장 dialog를 띄울 화면이 없어 download는 모두 거절한다"
+      - "browser 탭의 tab_open은 탭마다 offscreen 창 하나(browser partition, sandbox)를 만들고 frame rate를 10으로 둔다. 빈 page를 먼저 연 뒤 debugger를 emulation owner로 붙여 1280x800 크기를 주고(아무것도 load하지 않은 page에 보내면 process가 죽는다) opened로 답하고 첫 주소를 load한다. 첫 주소와 page 안의 main frame 이동·redirect는 navigation 규칙을 지난다(첫 주소가 못 지나면 빈 page). popup과 webview 붙이기는 거절한다. 이미 page가 있는 탭이면 다시 만들지 않는다"
+      - "page가 12개면 가장 오래 쓰지 않은 page(browser_call과 열기가 쓴 때)를 닫는다. url·title·loading이 바뀌면 report를, page가 닫히거나 renderer가 죽으면 report closed를 보내고 그 탭의 take control과 stream을 지운다"
+      - "tab_close는 page를 닫고 done, tab_show는 done이다. browser_call은 desktop과 같은 driver로 돌린다(browser-call-run). page_stream·page_read·page_input·page_control은 desktop과 같은 stream이 받는다. 연결이 다시 열리면 stream을 다 끈다(core가 lease마다 다시 켠다)"
+      - "/host-link가 60초 넘게 닫혀 있으면 core가 없는 것으로 보고 끝난다. second-instance로 `--page-host`나 `--core`가 아닌 시작(사람이 앱을 누름, `--quit`)이 오면 끝난다. 이미 떠 있는 desktop 앱이 second-instance로 `--page-host`를 받으면 `--agent-window`와 같게 읽는다"
+    outcomes:
+      - id: opened
+        when: "browser 탭 열기에 offscreen page를 만들었다"
+        observe: [response, "process:page host에 offscreen renderer가 하나 는다"]
+      - id: evicted
+        when: "page가 12개라 가장 오래 쓰지 않은 page를 닫았다"
+        observe: ["request:core /host-link report closed"]
+      - id: page-gone
+        when: "page의 renderer가 죽었다"
+        observe: ["request:core /host-link report closed"]
+      - id: closed
+        when: "tab_close로 page를 닫았다"
+        observe: [response, "request:core /host-link report closed"]
+      - id: not-browser
+        code: unavailable
+        when: "browser가 아닌 탭 열기가 왔다(보이는 workspace가 없어 오지 않는다)"
+        observe: [response]
+      - id: core-gone
+        when: "/host-link가 60초 넘게 닫혀 있었다"
+        observe: ["process:page host가 끝난다", "log:core is gone; quitting"]
+      - id: yielded
+        when: "page host가 떠 있는데 사람이 lophn 앱을 눌렀거나 `--quit`이 왔다"
+        observe: ["process:page host가 끝나고 새 시작도 lock을 못 잡아 끝난다. 다시 누르면 desktop 앱이 선다"]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md, architecture/platform.md]
+    unclear:
+      - "설치본이 `--no-sandbox` 없이 최소 server image에서 뜨는지(setuid chrome-sandbox, X11 library)는 확인하지 못했다"
+      - "page host에는 `lophn login request`의 보호 입력 창이 없다. 사람은 멀리서 보며 직접 친다"
+      - "core가 다시 떠 탭 표를 잃으면 page host의 page는 상한에 밀려 닫힐 때까지 남는다"
 
   - id: host-preview-tab-open
     title: agent나 사람 token이 앱의 지금 preview를 앱마다 하나인 preview 탭으로 열어 달라고 요청한다

@@ -2,10 +2,12 @@ import { join } from "node:path";
 import {
   AGENT_WINDOW_INTENT,
   LAUNCH_SHELL_ENV,
+  PAGE_HOST_INTENT,
 } from "../../../protocol/lophn-agent/host-queue.ts";
 import { installedLayout, shellFolder } from "./entry-layout.ts";
 
 // core가 shell(Electron 앱)을 띄우는 길이다. browser가 필요한데 shell이 없을 때 host-queue wiring이 부른다.
+// display가 없는 Linux에서는 같은 binary를 창 없는 page host(`--page-host`)로 띄운다. 그 밖은 desktop 앱(`--agent-window`)이다.
 // core는 shell의 child가 아니다: detached로 띄우고 놓아 core가 끝나도 앱은 남는다.
 // 시작이 실패하면(spawn이 던지거나 `error` event) `onError`로 알린다. 띄운 뒤의 일은 stdio를 놓아 알 길이 없고, shell이 붙는지로 판단한다.
 type Child = {
@@ -74,17 +76,22 @@ export function createShellLauncher(input: {
   return async (dataRoot, onError) => {
     // core가 Node로 도는 표시를 물려주면 앱이 아니라 Node로 뜬다.
     const { ELECTRON_RUN_AS_NODE: _, ...base } = input.env;
-    // 가져오지 못하면(user manager 없음, 기한) 지금처럼 띄운다. 화면이 없으면 browser 탭이 실패하는 지금 길로 간다.
+    // 가져오지 못하면(user manager 없음, 기한) 화면 값 없이 띄운다. 그러면 아래에서 page host가 된다.
     const env = needsSessionEnv
       ? { ...base, ...(await sessionEnv(input.exec)) }
       : base;
+    // flag는 spike에서 `XDG_SESSION_TYPE`까지 없는 기계에서도 뜨고 `--headless`보다 page마다 가볍고 GPU 오류가 없던 것이다.
+    const pageHost =
+      input.platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY;
     const args = [
       // 개발 launcher(tools/dev.ts)와 같이 sandbox를 못 쓰는 Linux 개발 환경은 이 env로 끈다.
       ...(dev && env.ELECTRON_NO_SANDBOX === "1" ? ["--no-sandbox"] : []),
       ...(dev ? [entry] : []),
       "--home",
       dataRoot,
-      AGENT_WINDOW_INTENT,
+      ...(pageHost
+        ? [PAGE_HOST_INTENT, "--ozone-platform=headless", "--disable-gpu"]
+        : [AGENT_WINDOW_INTENT]),
     ];
     try {
       // windowsHide를 주지 않는다: 시작 정보의 SW_HIDE가 앱의 첫 창에 걸려 창이 안 보일 수 있다.

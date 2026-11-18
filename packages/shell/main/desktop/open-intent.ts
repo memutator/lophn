@@ -1,9 +1,13 @@
-// 창 열기 intent. OS가 넘기는 실행 인자에서 읽는 것은 `--quit`, `--open-app <app ID>`, `--core`, `--agent-window`뿐이다. 모양이
+// 창 열기 intent. OS가 넘기는 실행 인자에서 읽는 것은 `--quit`, `--open-app <app ID>`, `--core`, `--agent-window`, `--page-host`뿐이다. 모양이
 // 조금이라도 다르면 아무 대상도 열지 않고 기본 창 요청으로 읽는다. 앱 코드·token·port는 받을 자리가 없다.
 // 모양은 node test가 zod를 풀지 못해 여기서 정규식으로 본다.
 // `--open-app <app ID>`는 이미 떠 있는 앱의 second-instance argv에서 Chromium이 스위치를 앞에, 값을 뒤에 다시
 // 늘어놓아 값이 flag 옆에 남지 않을 수 있지만, OS 바로가기 IPC를 부르는 화면이 아직 없어 그때까지 그대로 둔다.
-import { AGENT_WINDOW_INTENT, CORE_INTENT } from "./launch-mode.ts";
+import {
+  AGENT_WINDOW_INTENT,
+  CORE_INTENT,
+  PAGE_HOST_INTENT,
+} from "./launch-mode.ts";
 
 export const OPEN_APP_FLAG = "--open-app";
 const QUIT_FLAG = "--quit";
@@ -49,7 +53,10 @@ function flagValue(
 export function readOpenIntent(argv: readonly string[]): OpenIntent {
   if (argv.includes(QUIT_FLAG)) return { kind: "quit" };
   if (argv.includes(CORE_INTENT)) return { kind: "core" };
-  if (argv.includes(AGENT_WINDOW_INTENT)) return { kind: "agent-window" };
+  // 떠 있는 desktop 앱에 core가 page host를 띄우려 했다면 이 앱이 host다. 창을 띄우는 시작과 같게 읽는다.
+  if (argv.includes(AGENT_WINDOW_INTENT) || argv.includes(PAGE_HOST_INTENT)) {
+    return { kind: "agent-window" };
+  }
   const app = flagValue(argv, OPEN_APP_FLAG);
   if (typeof app !== "string") return WINDOW;
   return APP_ID.test(app) ? { kind: "app", app } : WINDOW;

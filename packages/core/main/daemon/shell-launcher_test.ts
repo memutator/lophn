@@ -42,8 +42,10 @@ const run = async (input: {
   return { launch, calls, errors, shown };
 };
 
+const SHOWN = { DISPLAY: ":0" };
+
 test("앱을 띄우는 명령은 개발과 설치본이 다르고, Node 표시를 빼며, 켜지 않은 core는 만들지 않는다", async () => {
-  const dev = await run({ files: ["/repo/packages/shell", ENTRY] });
+  const dev = await run({ files: ["/repo/packages/shell", ENTRY], env: SHOWN });
   assert.deepEqual(dev.calls[0]?.args, [
     ENTRY,
     "--home",
@@ -56,12 +58,12 @@ test("앱을 띄우는 명령은 개발과 설치본이 다르고, Node 표시�
 
   const sandbox = await run({
     files: ["/repo/packages/shell", ENTRY],
-    env: { ELECTRON_NO_SANDBOX: "1" },
+    env: { ...SHOWN, ELECTRON_NO_SANDBOX: "1" },
   });
   assert.equal(sandbox.calls[0]?.args[0], "--no-sandbox");
 
   // 설치본의 platform/에는 packages/shell이 없다.
-  const packaged = await run({ files: [] });
+  const packaged = await run({ files: [], env: SHOWN });
   assert.deepEqual(packaged.calls[0]?.args, [
     "--home",
     "/data",
@@ -130,4 +132,43 @@ test("Linux service core는 화면 env가 없을 때만 user manager에서 화�
     assert.equal(asked.shown.length, 0);
     assert.equal(asked.calls.length, 1);
   }
+});
+
+// display 없는 기계에서 창을 띄우면 Electron이 죽고 agent는 browser를 못 쓴다. display가 있는 기계에 page host가 뜨면 사람의 로그인과 갈린다.
+test("display 없는 Linux에서만 page host를 headless flag로 띄운다", async () => {
+  const PAGE_HOST = [
+    "--home",
+    "/data",
+    "--page-host",
+    "--ozone-platform=headless",
+    "--disable-gpu",
+  ];
+  const WINDOW = ["--home", "/data", "--agent-window"];
+  const argsOf = async (
+    env: Record<string, string>,
+    platform: NodeJS.Platform = "linux",
+    environment = "",
+  ) => (await run({ files: [], env, platform, environment })).calls[0]?.args;
+
+  assert.deepEqual(await argsOf({}), PAGE_HOST);
+  assert.deepEqual(await argsOf({ DISPLAY: ":0" }), WINDOW);
+  assert.deepEqual(await argsOf({ WAYLAND_DISPLAY: "wayland-0" }), WINDOW);
+  // service core는 user manager에서 가져온 화면 값으로 고른다.
+  const service = { LOPHN_SERVICE: "1" };
+  assert.deepEqual(
+    await argsOf(service, "linux", "WAYLAND_DISPLAY=wayland-0\n"),
+    WINDOW,
+  );
+  assert.deepEqual(
+    await argsOf(service, "linux", "PATH=/usr/bin\n"),
+    PAGE_HOST,
+  );
+  assert.deepEqual(await argsOf({}, "darwin"), WINDOW);
+  assert.deepEqual(await argsOf({}, "win32"), WINDOW);
+
+  const dev = await run({
+    files: ["/repo/packages/shell", ENTRY],
+    env: { ELECTRON_NO_SANDBOX: "1" },
+  });
+  assert.deepEqual(dev.calls[0]?.args, ["--no-sandbox", ENTRY, ...PAGE_HOST]);
 });

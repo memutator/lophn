@@ -1,6 +1,6 @@
 // 조립만 한다. 창·single instance·scheme 규칙은 각 모듈에 있고, 영역마다 `wiring/`의
 // 한 file이 자기 값을 등록한다. 순서는 core 연결 → browser 탭 → artifact 탭 → 앱 view → 나머지, 창 열기는 맨 끝이다.
-// core만 띄우는 intent(`--core`)는 이 조립 전에 ensure만 하고 끝난다.
+// core만 띄우는 intent(`--core`)는 이 조립 전에 ensure만 하고 끝난다. page host(`--page-host`)도 이 조립을 거치지 않는다(page-host/main.ts).
 import { app } from "electron";
 
 import * as appearance from "./wiring/appearance.ts";
@@ -29,14 +29,16 @@ import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
 import { readOpenIntent } from "./open-intent.ts";
 import { acquireSingleInstance } from "./single-instance.ts";
+import { startPageHost } from "../page-host/main.ts";
 
 // shell이 띄우는 core가 이 env를 물려받으므로 어느 것보다 먼저 둔다.
 const loginPath = loginPathOf(process.platform, process.env);
 if (loginPath) process.env.PATH = loginPath;
 
-// `--core` intent는 창·tray를 조립하지 않는다.
+// `--core`와 `--page-host` intent는 창·tray를 조립하지 않는다.
 const mode = resolveLaunchMode({ argv: process.argv });
 if (mode.core) void ensureCoreOnly();
+else if (mode.pageHost) startPageHost();
 else startDesktop();
 
 // core만 ensure하고 끝난다. shell 자원은 하나도 만들지 않는다.

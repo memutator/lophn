@@ -155,8 +155,9 @@ const LINK_LOST = "The browser host disconnected before it answered.";
 const LINK_TIMED_OUT = "The browser host did not answer in time.";
 
 // browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
+// browser는 lophn 앱의 창이거나, display 없는 기계에서 lophn이 띄우는 창 없는 browser(page host)다.
 export const SHELL_NOT_ATTACHED =
-  "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
+  "lophn's browser is not connected (the lophn app, or the windowless browser lophn starts on a computer without a display), so there is no browser to use. Retrying does not help until a person opens the lophn app or starts lophn again; tell the person.";
 const QUEUE_FULL =
   "Too many requests are waiting for the lophn app, so this one was dropped. They wait because the app is not taking them. Retrying may help once the app is running; if it fails again, tell the person.";
 const NO_RESULT =
@@ -166,10 +167,10 @@ const TIMED_OUT =
 const OPEN_TIMED_OUT =
   "The browser page did not start loading in time (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 export const SHELL_START_FAILED =
-  "The lophn app could not be started, so there is no browser to use. Retrying may help once; if it fails again, tell the person.";
+  "lophn's browser (the lophn app, or the windowless browser on a computer without a display) could not be started, so there is no browser to use. Retrying may help once; if it fails again, tell the person.";
 // 이미 연 탭에 부른 browser 호출이나 열던 중 shell이 떨어졌을 때다(browser·preview·artifact 탭 모두).
 export const SHELL_LOST =
-  "The lophn app is not connected, so this tab has no page. Open the tab again with the command you used to open it; if that fails, tell the person.";
+  "lophn's browser (the lophn app, or the windowless browser on a computer without a display) is not connected, so this tab has no page. Open the tab again with the command you used to open it; if that fails, tell the person.";
 // 없는 탭, 닫힌 탭, 남의 탭에 같은 문장을 써서 남의 탭이 있는지 새지 않게 한다.
 const NO_SUCH_TAB =
   "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";

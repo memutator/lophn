@@ -364,9 +364,10 @@ files:
   - path: packages/core/main/daemon/shell-launcher_test.ts
     covers:
       - host-shell-launch:launched
+      - host-shell-launch:launched-page-host
       - host-shell-launch:not-enabled
       - host-shell-launch:spawn-failed
-    note: "앱을 띄우는 명령은 개발(build한 shell entry 필요)과 설치본(실행 file만)이 다르고 ELECTRON_RUN_AS_NODE를 빼고 --agent-window를 붙인다. 켜지 않은 core(test, boot)와 build하지 않은 개발 저장소는 launcher가 없고 spawn 오류는 알린다. test·boot가 띄운 core가 사람 장치에 앱을 띄우면 안 되어서다. Linux service core는 화면 env(DISPLAY 등)가 없을 때만 user manager의 화면 값 여섯을 가져와 띄우고, 가져오지 못해도 그냥 띄운다"
+    note: "앱을 띄우는 명령은 개발(build한 shell entry 필요)과 설치본(실행 file만)이 다르고 ELECTRON_RUN_AS_NODE를 뺀다. 켜지 않은 core(test, boot)와 build하지 않은 개발 저장소는 launcher가 없고 spawn 오류는 알린다. test·boot가 띄운 core가 사람 장치에 앱을 띄우면 안 되어서다. Linux service core는 화면 env(DISPLAY 등)가 없을 때만 user manager의 화면 값 여섯을 가져와 띄우고, 가져오지 못해도 그냥 띄운다. display(env나 user manager의 값)가 있거나 Linux가 아니면 --agent-window, display 없는 Linux에서만 --page-host와 headless flag로 띄운다"
 
   - path: packages/core/main/daemon/wiring/secret-slot_test.ts
     covers:

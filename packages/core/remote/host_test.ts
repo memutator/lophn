@@ -26,7 +26,7 @@ import {
 } from "../../protocol/apps/apps.ts";
 import { appCallTool } from "../../protocol/apps/calls/call.ts";
 import { appRewind } from "../../protocol/apps/calls/rewind.ts";
-import { appGrantRevoke, appGrantsList } from "../../protocol/apps/grants.ts";
+import { appGrantRevoke } from "../../protocol/apps/grants.ts";
 import {
   releaseActivate,
   releasePrepare,
@@ -278,7 +278,6 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     workspaceModelChange,
     tabsOpen,
     appCallTool,
-    appGrantsList,
     appGrantRevoke,
     appArchive,
     appUnarchive,
@@ -732,7 +731,6 @@ test("터미널 입력 허락이 없는 기기는 route 목록을 넓힌 뒤에�
     "tabs/open",
     // 폰 화면은 view로만 앱을 부른다. 앱을 직접 부르거나 허락·판·되돌리기를 바꾸거나 남의 앱 log에 쓰지 못한다.
     "apps/call_tool",
-    "app_grants/list",
     "app_grants/revoke",
     "apps/archive",
     "apps/unarchive",

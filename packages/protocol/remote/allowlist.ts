@@ -40,6 +40,7 @@ import {
 } from "../apps/notice.ts";
 import { appPhoneFile, appPhoneScreens } from "../apps/phone.ts";
 import { appRuntime } from "../apps/runtime.ts";
+import { appGrantsList } from "../apps/grants.ts";
 import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
 import { appWidgetsList } from "../apps/widget.ts";
 import {
@@ -64,6 +65,13 @@ import {
 } from "../coding-agent/terminals.ts";
 import { CARRY_ROUTES } from "./carry.ts";
 import { PAGE_VIEW_ROUTES } from "../lophn-agent/page-view.ts";
+import {
+  appSessionsEnd,
+  appSessionsList,
+  appSessionsOpen,
+  appSessionsStatus,
+  appSessionsStop,
+} from "../lophn-agent/session-lifecycle.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -92,6 +100,13 @@ import {
   workspaceSessionOpen,
   workspaceSessionRead,
 } from "../lophn-agent/agent-sessions.ts";
+import {
+  appAgentsList,
+  appCallsCancel,
+  appCallsList,
+  appCallsRead,
+  appCallsSend,
+} from "../lophn-agent/app-calls.ts";
 import { askAnswer, askRead } from "../lophn-agent/ask-tool.ts";
 import { agentCallRead, callCancel } from "../lophn-agent/calls.ts";
 import { extensionToolsCatalog } from "../lophn-agent/extension-tools.ts";
@@ -199,8 +214,10 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
 // 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), 폰 backend file(`apps/phone_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
 // view id로만 앱을 부르고, 부를 수 있는 operation은 core가 그 view에 묶인 release의 선언에 있는 것만으로 판정한다. 그래서
-// 앱을 직접 부르는 `apps/call_tool`과 grant(`app_grants/*`)는 넣지 않는다. 화면 오류를 쓰는 `apps/log_view_error`도 넣지 않는다:
-// 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다.
+// 앱을 직접 부르는 `apps/call_tool`과 grant를 바꾸는 `app_grants/*`는 넣지 않는다(읽기 `app_grants/list`만 둔다). 화면 오류를 쓰는
+// `apps/log_view_error`도 넣지 않는다: 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다.
+// 다른 컴퓨터의 창에 뜬 이 기계의 앱 화면: 그 화면의 agent 길(`app_sessions/*`, `app_calls/*`, `app_agents/list`)을 둔다. 기기는 자기가 연
+// view를 실어야 하고 앱은 core가 그 view로 정한다(입력의 앱을 믿지 않는다).
 // 폰에서 도는 앱: 폰이 앱 backend와 migration file(`apps/phone_file`)을 받고 자기 사본을 컴퓨터와 맞춘다(`app_sync/*`). `app_sync/push`는
 // 기기 자격(principal `device:<id>`)만 받는다.
 export const REMOTE_ALLOWED_ROUTES = [
@@ -323,6 +340,18 @@ export const REMOTE_ALLOWED_ROUTES = [
   appViewsOpen,
   appViewsCall,
   appViewsClose,
+  // 다른 컴퓨터의 창에 뜬 앱 화면: 그 앱이 받은 허락 읽기, 화면의 agent session과 call(기기는 자기가 연 view의 앱으로만)
+  appGrantsList,
+  appSessionsList,
+  appSessionsStatus,
+  appSessionsStop,
+  appSessionsOpen,
+  appSessionsEnd,
+  appCallsSend,
+  appCallsRead,
+  appCallsCancel,
+  appCallsList,
+  appAgentsList,
   // 폰 홈 화면 위젯의 값: 폰이 위젯을 그리려면 읽어야 한다
   appWidgetsList,
   // 폰에서 도는 앱: 설치(snapshot)와 맞추기(push, pull)
@@ -341,7 +370,7 @@ export const REMOTE_ALLOWED_ROUTES = [
 
 // 터미널 입력을 허락받은 기기에만 여는 사람의 route다. 허락이 있어도 넣지 않는 것: 기기·pairing·명단 관리(`devices/*`, `roster/*`),
 // 터미널 입력 허락 바꾸기, `always_on/*`, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
-// `terminal_sessions/*`, `apps/call_tool`, `app_grants/*`, 할당 쓰기, 그 기계의 loopback으로 돌아오는 로그인(`agent-mcp-auth/*`의 시작·완료·취소, `apps/oauth_*`).
+// `terminal_sessions/*`, `apps/call_tool`, grant 바꾸기(`app_grants/*`의 쓰기), 할당 쓰기, 그 기계의 loopback으로 돌아오는 로그인(`agent-mcp-auth/*`의 시작·완료·취소, `apps/oauth_*`).
 // MCP 로그인 상태 읽기(`agent-mcp-auth/state`)는 Tools and skills가 보이므로 연다.
 // 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
 export const REMOTE_PERSON_ROUTES = [
@@ -432,6 +461,8 @@ export const REMOTE_ALLOWED_EVENTS = [
   "StateChanged",
   // 앱의 폰 화면
   "AppViewEvent",
+  // 앱이 지워졌다. 다른 컴퓨터의 창이 그 앱의 화면을 닫는다
+  "AppRemoved",
   // 보는 터미널의 화면이 바뀌었다(내용 없이 seq만. 폰이 `terminal_view/snapshot`을 다시 읽는다)
   "TerminalScreenChanged",
   // 터미널이 열리고 끝나고 크기와 이름이 바뀌었다(출력은 싣지 않는다). 다른 컴퓨터의 터미널 탭이 따라간다

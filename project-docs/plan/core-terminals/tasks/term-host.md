@@ -56,3 +56,9 @@ PTY host를 core의 자식으로 띄우고 `terminals/*` route와 날 출력 str
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"(desktop은 `term-desktop` 전까지 shell의 PTY를 쓰므로 core가 연 터미널은 화면에 탭으로 그려지지 않는다. 이것은 예정된 것이라 적지 않아도 된다)
+
+## lead가 더함
+
+- lead가 개발 실행에서 확인했다: worktree의 `node_modules/node-pty`(Electron ABI로 rebuild된 것)를 `ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron`으로 `require`해 `/bin/sh -c 'echo ok'`의 출력과 exit 0을 받았다. 할 일 1은 이 결과를 다시 확인하고(짧게) 설치본(`platform/`)에서 어느 node-pty를 쓸지 정하는 데 집중한다.
+- 계약의 `Terminals.useEnv(hook)`가 터미널마다 env를 더하는 길이다(`TerminalEnvHook`은 `{env, opened(runtime|null)}`). 오류 code 대응은 `packages/protocol/coding-agent/terminals.ts` 머리 주석을 따른다.
+- `TERMINAL_ROUTES`는 아직 `registry.ts`에 없다. handler를 둔 뒤 등록과 기기 목록(`terminals/open`·`terminals/input`)은 보고에 적는다. lead가 merge 때 넣는다. 이 task의 위험 test가 route의 actor 검사를 지나는 층에서 돌아야 하면 test 안에서 route 정의를 바로 쓴다.

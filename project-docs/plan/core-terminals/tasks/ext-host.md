@@ -55,3 +55,9 @@ extension host(registry, CLI를 띄우는 spawner, ACP handle, tool 호출)와 �
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- 추가 소유: `project-docs/flows/areas/shell-desktop.yaml`에서 이 task가 지운 `ipc:shell:extensions`와 shell extension code path를 가리키는 줄만 고친다.
+- `packages/protocol/extensions/mod.ts`는 shell main의 strict tsc가 읽는다. `routes.ts`는 route machinery를 끌어오므로 그 mod.ts에 export하지 말고 쓰는 곳에서 `routes.ts`를 바로 import한다. route 등록(`EXTENSION_ROUTES`를 `packages/protocol/registry.ts`에)은 보고의 "등록할 것"에 적는다.
+- `ctx.personEnv`는 `term-host`가 같은 wave에서 낸다. 이 task는 `ctx.peek.personEnv`나 늦게 읽기로 쓰고, 그 값이 아직 없는 plan branch에서도 type check와 기동이 통과해야 한다(없으면 core의 `process.env`와 `cli: null`로 돈다). `term-host`가 먼저 merge된다.

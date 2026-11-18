@@ -1,5 +1,7 @@
 // `lophn remote on|invite|join|devices|remove`: 화면 없는 기계를 사람의 터미널에서 내 기기 명단에 넣고 다룬다.
 // 모두 `workspaces: []`라 lophn agent의 `lophn` tool에 없고, agent의 shell에서 부르면 route의 actor user에서 막힌다.
+// lophn의 터미널 탭은 사람 token을 받아 거기서 도는 coding agent와 사람을 가릴 수 없으므로, 명단을 바꾸는 명령
+// (`ROSTER_CHANGING_COMMANDS`)은 그 안에서 core에 붙기 전에 거절한다(cli/main.ts).
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -13,6 +15,9 @@ import {
   rosterRemove,
 } from "../../protocol/remote/mod.ts";
 import { defineCommand } from "./types.ts";
+
+const IN_TAB =
+  "It is refused (forbidden) inside a lophn terminal tab, where a coding agent may be the one typing: use Settings › Remote, or a terminal outside lophn (SSH on a computer without a screen).";
 
 const on = defineCommand({
   name: "remote.on",
@@ -50,11 +55,12 @@ const invite = defineCommand({
   summary: "Make an invite for a new phone or computer",
   description:
     "Make a one-time invite that lets a new device into this person's device list. <kind> is the device it is for: phone or computer; the invite does not work for the other kind. " +
-    "It prints the invite, one line of text: paste it whole into `lophn remote join '<invite>'` on the other computer, or into Enter code on the phone. " +
+    "It prints the invite, one line of text: paste it whole into `lophn remote join '<invite>'` on the other computer, or into Paste the invite instead on the phone. " +
     "Once the device is in, every computer in the list trusts it. " +
     "--no-terminal-input keeps the new device from typing in coding agent terminals (it may by default). " +
     "The invite lasts 30 minutes; --long makes it last 7 days, for a computer that cannot be on at the same time as this one (dual boot, a home and a work computer). " +
-    "Remote must be on: run `lophn remote on` first, or this is unavailable.",
+    "Remote must be on: run `lophn remote on` first, or this is unavailable. " +
+    IN_TAB,
   input: z.strictObject({
     kind: rosterKindSchema,
     terminal_input: z.boolean().optional(),
@@ -75,7 +81,7 @@ const invite = defineCommand({
     const { expires_at } = made.value;
     const where =
       input.kind === "phone"
-        ? "into Enter code on the phone"
+        ? "into Paste the invite instead on the phone"
         : "into `lophn remote join '<invite>'` on the other computer";
     return ok({
       summary: `invite for a ${input.kind}, expires ${expires_at}`,
@@ -108,7 +114,8 @@ const join = defineCommand({
     "Join with an invite made by `lophn remote invite computer` on another computer. Quote the whole line: `lophn remote join '<invite>'`. " +
     "After it, this computer and every device in that list trust each other. Remote must be on here (`lophn remote on`). " +
     "pending: true means the inviting computer was not reached yet; it completes when this computer reaches a computer that trusts it, or a phone carries the news. " +
-    "A refusal names why in details.reason: expired, used, untrusted, removed, this_computer, id_taken or key_taken.",
+    "A refusal names why in details.reason: expired, used, untrusted, removed, this_computer, id_taken or key_taken. " +
+    IN_TAB,
   input: z.strictObject({ text: z.string().min(1) }),
   positional: ["text"],
   effect: "write",
@@ -184,7 +191,8 @@ const remove = defineCommand({
   summary: "Take a device out of the device list",
   description:
     "Remove a device (its dev_ id from `lophn remote devices`) from the device list. It spreads to every computer in the list: the device is cut off everywhere and its key cannot join again (a new invite makes it a new device). " +
-    "This computer cannot remove itself (invalid_input).",
+    "This computer cannot remove itself (invalid_input). " +
+    IN_TAB,
   input: z.strictObject({ device: idSchema("dev") }),
   positional: ["device"],
   effect: "write",
@@ -198,3 +206,9 @@ const remove = defineCommand({
 });
 
 export const REMOTE_COMMANDS = [on, invite, join, devices, remove];
+
+export const ROSTER_CHANGING_COMMANDS: readonly string[] = [
+  invite.name,
+  join.name,
+  remove.name,
+];

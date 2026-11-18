@@ -22,6 +22,9 @@ export const ROSTER_INVITE_SHORT_MS = 1_800_000;
 // 새 기기가 초대한 컴퓨터와 같은 때 켜질 수 없을 때(dual boot, 집과 직장) 사람이 고른다.
 export const ROSTER_INVITE_LONG_MS = 604_800_000;
 export const ROSTER_STATEMENTS_MAX = 4096;
+// keep이 남기는 믿음에 들지 않은 statement(모르는 서명자, 모르는 초대장)의 상한. 붙은 기기 하나가 저장소를
+// `ROSTER_STATEMENTS_MAX`까지 채워 빼기와 믿는 항목이 저장되지 못하게 하지 못한다.
+export const ROSTER_UNKNOWN_MAX = 512;
 export const ROSTER_JOIN_STATEMENTS_MAX = 8;
 // 붙기 전 연결이 받는 frame 상한. 아직 누구인지 모르는 쪽이 메모리를 정하지 못하게 한다.
 export const ROSTER_JOIN_MAX_BYTES = 16 * 1024;
@@ -82,7 +85,8 @@ export const rosterEntryBodySchema = z
 export type RosterEntryBody = z.infer<typeof rosterEntryBodySchema>;
 
 // 컴퓨터를 빼면 `signing_key`에 그 서명 key를 싣는다(폰은 null). 뺀 서명 key는 root도 서명자도 어느 항목의 서명 key도
-// 되지 못한다: host key만 빼면 같은 서명 key로 새 host key의 항목을 만들어 돌아온다.
+// 되지 못한다: host key만 빼면 같은 서명 key로 새 host key의 항목을 만들어 돌아온다. 빼기는 `key`와 `signing_key`만
+// 뺀다. `id`는 서명자가 아무 값이나 달 수 있어 보지 않는다(이미 저장한 빼기의 서명이 덮으므로 칸은 남긴다).
 export const rosterRemovalBodySchema = z.strictObject({
   type: z.literal("removal"),
   id: deviceIdSchema,
@@ -119,7 +123,6 @@ export const rosterInviteSchema = z.strictObject({
   body: rosterInviteBodySchema,
   signature: signatureTextSchema,
 });
-export type RosterInvite = z.infer<typeof rosterInviteSchema>;
 
 // 새 기기가 초대장의 key로 스스로 서명한 자기 항목. 믿음 계산에 쓰지 않는다: 검증하는 컴퓨터가 닿은 때
 // `checkInvited`로 한 번 보고 자기 key로 다시 서명한 것이 퍼진다.
@@ -297,12 +300,11 @@ function verifier(): Verify {
 }
 
 // 믿음 계산에서 빼는 것. key는 host key(폰은 기기 key), signing은 서명 key다.
-type Excluded = { keys: Set<string>; signing: Set<string>; ids: Set<string> };
+type Excluded = { keys: Set<string>; signing: Set<string> };
 
 function excluded(body: RosterEntryBody, out: Excluded): boolean {
   return (
     out.keys.has(body.key) ||
-    out.ids.has(body.id) ||
     (body.signing_key !== null && out.signing.has(body.signing_key))
   );
 }
@@ -387,8 +389,12 @@ export type RosterConflict = {
   reason: "id" | "signing_key" | "shape" | "invite";
 };
 
-// 믿는 항목끼리 부딪는 key를 찾는다. 어느 쪽이 맞는지 모르므로 둘 다 뺀다(root의 자기 key만 남긴다).
-function conflictsOf(t: Trust): Map<string, RosterConflict> {
+// 믿는 항목끼리 부딪는 key를 찾는다. 어느 쪽이 맞는지 모르므로 둘 다 뺀다(root의 자기 key만 남긴다). `usedBy`는 빠진 key가
+// 초대로 든 항목이다: 그 초대로 든 다른 key도 `invite` 충돌이다(빠진 key는 이미 빠져 따로 표시하지 않는다).
+function conflictsOf(
+  t: Trust,
+  usedBy: readonly Item[],
+): Map<string, RosterConflict> {
   const entries = [...t.accepted].filter(
     (item) => item.statement.body.type === "entry",
   );
@@ -400,9 +406,12 @@ function conflictsOf(t: Trust): Map<string, RosterConflict> {
       .map((item) => entryOf(item).id);
     found.set(key, { key, ids: [...new Set(ids)].sort(compare), reason });
   };
-  const groups = (field: (body: RosterEntryBody) => string | null) => {
+  const groups = (
+    field: (body: RosterEntryBody) => string | null,
+    items: readonly Item[] = entries,
+  ) => {
     const map = new Map<string, Set<string>>();
-    for (const item of entries) {
+    for (const item of items) {
       const value = field(entryOf(item));
       if (value === null) continue;
       map.set(value, (map.get(value) ?? new Set()).add(entryOf(item).key));
@@ -430,17 +439,33 @@ function conflictsOf(t: Trust): Map<string, RosterConflict> {
   for (const keys of groups((body) => body.id)) {
     for (const key of keys) flag(key, "id");
   }
-  for (const keys of groups((body) => body.invite)) {
-    for (const key of keys) flag(key, "invite");
+  for (const keys of groups((body) => body.invite, [...entries, ...usedBy])) {
+    for (const key of keys) if (signings.has(key)) flag(key, "invite");
   }
   return found;
 }
 
-// 충돌한 key를 빼고 다시 넓히기를 더 빠지는 것이 없을 때까지 한다. 빼는 것만 늘어 끝난다.
+// 믿는 서명자(t의 서명 key)가 서명한 statement인가. `signedWith`는 T0에서 맞춘 서명 key다.
+function signedByTrusted(
+  item: Item,
+  signedWith: ReadonlyMap<Item, string>,
+  t: Trust,
+): boolean {
+  const key = signedWith.get(item);
+  return (
+    key !== undefined && [...t.signers.values()].some((ks) => ks.includes(key))
+  );
+}
+
+// 충돌한 key를 빼고 다시 넓히기를 더 빠지는 것이 없을 때까지 한다. 빼는 것만 늘어 끝난다. `removedInvited`는 빠진 key가
+// 초대로 든 T0 항목이고, 그 가운데 지금 믿는 서명자가 서명한 것만 `invite` 충돌에 센다: 빠진 컴퓨터가 자기 항목에 남의
+// 초대 key를 달아 그 초대로 든 기기를 빼지 못하게 한다.
 function settle(
   items: readonly Item[],
   roots: ReadonlySet<string>,
   removed: Excluded,
+  removedInvited: readonly Item[],
+  signedWith: ReadonlyMap<Item, string>,
   verify: Verify,
 ): { t: Trust; conflicts: Map<string, RosterConflict> } {
   const conflicts = new Map<string, RosterConflict>();
@@ -451,11 +476,13 @@ function settle(
       {
         keys: new Set([...removed.keys, ...conflicts.keys()]),
         signing: removed.signing,
-        ids: removed.ids,
       },
       verify,
     );
-    const found = [...conflictsOf(t).values()].filter(
+    const usedBy = removedInvited.filter((item) =>
+      signedByTrusted(item, signedWith, t),
+    );
+    const found = [...conflictsOf(t, usedBy).values()].filter(
       (c) => !conflicts.has(c.key),
     );
     if (found.length === 0) return { t, conflicts };
@@ -476,12 +503,19 @@ export type RosterView = {
   devices: RosterDevice[];
   // 효력이 있는 빼기. 뺀 key마다 하나(canonical 글이 앞선 body)다. `settled`(IN)인 것만 컴퓨터가 같이 서명한다.
   // 정해지지 않은 것(서로 물고 도는 빼기)은 대상을 빼되(fail-closed) 서명하지 않는다: 아무도 빼지 않은 서명자의
-  // 서명이 붙으면 IN이 되어 퍼진다.
-  removed: { body: RosterRemovalBody; signed_by: string[]; settled: boolean }[];
+  // 서명이 붙으면 IN이 되어 퍼진다. 사람이 그 key를 이 컴퓨터에서 다시 빼면 root의 빼기라 풀린다. `entry`는 그 key의
+  // T0 이긴 항목(id는 접힌 id)이고 빠진 기기의 id는 여기서 얻는다. 그 key의 항목이 없으면 null이다.
+  removed: {
+    body: RosterRemovalBody;
+    signed_by: string[];
+    settled: boolean;
+    entry: RosterEntryBody | null;
+  }[];
   folded: { from: string; to: string }[];
   // 충돌로 뺀 key. devices에 없다.
   conflicts: RosterConflict[];
-  // 쓰인 초대장: 믿는 항목(어느 rev든)과 남겨 둔 초대 서명 statement가 든 (초대 key, 기기 key).
+  // 쓰인 초대장: 빼기 전 믿음(T0)의 항목 가운데 지금 믿는 컴퓨터가 서명한 것(빠진 기기의 것 포함)과 초대 key의 서명이
+  // 맞는 초대 서명 statement가 든 (초대 key, 기기 key). 쓰인 초대장은 그것으로 든 기기를 빼도 쓰인 것이다.
   invites: { invite: string; key: string }[];
   keep: RosterStatement[];
 };
@@ -503,11 +537,7 @@ export function rosterView(
   const all = itemsOf(statements);
   const rootSet = new Set(roots);
   const verify = verifier();
-  const nothing: Excluded = {
-    keys: new Set(),
-    signing: new Set(),
-    ids: new Set(),
-  };
+  const nothing: Excluded = { keys: new Set(), signing: new Set() };
 
   // 규칙 3: 빼기는 빼기를 모르는 채 넓힌 믿음(T0)으로 모은다(K0).
   const t0 = trust(all, rootSet, nothing, verify);
@@ -570,6 +600,7 @@ export function rosterView(
           !rootHosts.has(r.body.key) &&
           !(r.body.signing_key !== null && rootSet.has(r.body.signing_key))),
     );
+  // 빼기는 key와 서명 key로만 뺀다. 빠진 기기의 id는 그 key의 T0 항목에서 얻는다(접기 규칙대로 가장 작은 id).
   const removedOut: Excluded = {
     keys: new Set(counting.map((r) => r.body.key)),
     signing: new Set(
@@ -577,7 +608,20 @@ export function rosterView(
         r.body.signing_key === null ? [] : [r.body.signing_key],
       ),
     ),
-    ids: new Set(counting.map((r) => r.body.id)),
+  };
+  const t0Entries = new Map<string, Item[]>();
+  for (const item of all) {
+    if (!t0.accepted.has(item) || item.statement.body.type !== "entry")
+      continue;
+    const key = item.statement.body.key;
+    t0Entries.set(key, [...(t0Entries.get(key) ?? []), item]);
+  }
+  const entryOfKey = (key: string): RosterEntryBody | null => {
+    const list = t0Entries.get(key);
+    if (list === undefined) return null;
+    const winner = [...list].sort(ahead)[0] as Item;
+    const id = list.map((item) => entryOf(item).id).sort(compare)[0] as string;
+    return { ...entryOf(winner), id };
   };
   const removed: RosterView["removed"] = [];
   for (const key of new Set(counting.map((r) => r.body.key))) {
@@ -595,11 +639,30 @@ export function rosterView(
       body: first.body,
       signed_by: [...new Set(signedBy)].sort(compare),
       settled,
+      entry: entryOfKey(key),
     });
   }
+  const removedIds = new Set(
+    removed.flatMap((r) => (r.entry === null ? [] : [r.entry.id])),
+  );
+  // 빠진 key가 초대로 든 T0 항목. 쓰인 초대와 `invite` 충돌에 센다(믿는 서명자의 것만).
+  const removedInvited = all.filter(
+    (item) =>
+      t0.accepted.has(item) &&
+      item.statement.body.type === "entry" &&
+      entryOf(item).invite !== null &&
+      excluded(entryOf(item), removedOut),
+  );
 
-  // 규칙 4~6: 뺀 key·서명 key·id와 충돌한 key를 빼고 다시 넓힌다.
-  const { t, conflicts } = settle(all, rootSet, removedOut, verify);
+  // 규칙 4~6: 뺀 key·서명 key와 충돌한 key를 빼고 다시 넓힌다.
+  const { t, conflicts } = settle(
+    all,
+    rootSet,
+    removedOut,
+    removedInvited,
+    t0.signedWith,
+    verify,
+  );
   const byKey = new Map<string, Item[]>();
   for (const item of all) {
     if (!t.accepted.has(item) || item.statement.body.type !== "entry") continue;
@@ -642,21 +705,22 @@ export function rosterView(
   folded.sort((a, b) => compare(a.from, b.from));
   const deviceKeys = new Set(devices.map((d) => d.body.key));
 
-  // 초대 서명 statement는 그 초대 key의 서명이 맞을 때만 남기고 쓰인 초대로 센다(초대장의 비밀을 가진 쪽만 만든다).
-  const invitedValid = (item: Item) => {
-    const statement = item.statement as RosterInvitedStatement;
-    return (
-      !excluded(statement.body, removedOut) &&
-      verify(item, statement.invite.body.key)
-    );
-  };
+  // 쓰인 초대는 빼기 전 믿음(T0)으로 센다: 기기를 빼도 그 초대장은 쓰인 것이다. 항목은 지금 믿는 컴퓨터가 서명한 것만 센다
+  // (빠진 컴퓨터가 자기 항목에 남의 초대 key를 달아도 세지 않는다). 초대 서명 statement는 초대 key의 서명이 맞으면 센다
+  // (초대장의 비밀을 가진 쪽만 만든다).
+  const invitedValid = (item: Item) =>
+    verify(item, (item.statement as RosterInvitedStatement).invite.body.key);
+  const usedEntry = (item: Item) =>
+    t0.accepted.has(item) &&
+    item.statement.body.type === "entry" &&
+    entryOf(item).invite !== null &&
+    signedByTrusted(item, t0.signedWith, t);
   const used = new Set<string>();
   for (const item of all) {
     const { statement } = item;
     if (isSigned(statement)) {
-      if (t.accepted.has(item) && statement.body.type === "entry") {
-        const { invite, key } = statement.body;
-        if (invite !== null) used.add(`${invite}\n${key}`);
+      if (usedEntry(item)) {
+        used.add(`${entryOf(item).invite}\n${entryOf(item).key}`);
       }
     } else if (invitedValid(item)) {
       used.add(`${statement.invite.body.key}\n${statement.body.key}`);
@@ -687,27 +751,51 @@ export function rosterView(
     if (other === undefined || ahead(item, other) < 0) best.set(group, item);
   }
   const bestItems = new Set(best.values());
+  // 초대장의 서명자가 T0의 컴퓨터이고 그 서명이 맞다.
+  const issuerKnown = (statement: RosterInvitedStatement) =>
+    t0.signers
+      .get(statement.invite.body.by)
+      ?.some((k) =>
+        verifyRoster(statement.invite.body, statement.invite.signature, k),
+      ) === true;
+  // "unknown"은 믿음에 들지 않은 statement다(모르는 서명자, 모르는 초대장). 나중에 믿게 될 수 있어 남기되
+  // `ROSTER_UNKNOWN_MAX`까지만 canonical 글 순서로 앞선 것을 남긴다: 받은 순서와 상관없이 모든 기계가 같은 것을 남기고,
+  // 믿는 statement와 빼기를 밀어내지 못한다.
+  const fate = (item: Item): "keep" | "drop" | "unknown" => {
+    const { statement } = item;
+    if (!isSigned(statement)) {
+      if (!invitedValid(item)) return "drop";
+      return issuerKnown(statement) ? "keep" : "unknown";
+    }
+    if (t0.accepted.has(item)) {
+      if (statement.body.type === "removal") return "keep";
+      if (!bestItems.has(item)) return "drop";
+      // 컴퓨터 항목은 빠졌어도 남긴다: 그 컴퓨터가 서명한 K0 빼기를 다시 맞춰 보는 데 든다. 빠진 기기의 항목도 남긴다:
+      // 빠진 기기의 id(`removed[].entry`)와 쓰인 초대의 기록이다.
+      return statement.body.kind === "computer" ||
+        deviceKeys.has(statement.body.key) ||
+        conflicts.has(statement.body.key) ||
+        removedOut.keys.has(statement.body.key) ||
+        usedEntry(item)
+        ? "keep"
+        : "drop";
+    }
+    // 믿는 서명자의 id인데 맞지 않으면 틀린 statement다.
+    if (t0.signers.has(statement.by) || removedIds.has(statement.by)) {
+      return "drop";
+    }
+    return statement.body.type === "entry" &&
+      excluded(statement.body, removedOut)
+      ? "drop"
+      : "unknown";
+  };
+  let unknown = 0;
   const keep = all
     .filter((item) => {
-      const { statement } = item;
-      if (!isSigned(statement)) return invitedValid(item);
-      if (t0.accepted.has(item)) {
-        if (statement.body.type === "removal") return true;
-        if (!bestItems.has(item)) return false;
-        // 컴퓨터 항목은 빠졌어도 남긴다: 그 컴퓨터가 서명한 K0 빼기를 다시 맞춰 보는 데 든다.
-        return (
-          statement.body.kind === "computer" ||
-          deviceKeys.has(statement.body.key) ||
-          conflicts.has(statement.body.key)
-        );
-      }
-      // 믿는 서명자의 id인데 맞지 않으면 틀린 statement다. 모르는 서명자의 것은 나중에 믿게 될 수 있어 남긴다.
-      if (t0.signers.has(statement.by) || removedOut.ids.has(statement.by)) {
-        return false;
-      }
-      return !(
-        statement.body.type === "entry" && excluded(statement.body, removedOut)
-      );
+      const f = fate(item);
+      if (f !== "unknown") return f === "keep";
+      unknown += 1;
+      return unknown <= ROSTER_UNKNOWN_MAX;
     })
     .map((item) => item.statement);
 
@@ -798,9 +886,9 @@ export function checkInvited(
   // 뺀 기기가 수명이 남은 초대장을 다시 내도 "새 초대장을 받아라"가 아니라 "key를 버려라"를 알게 한다.
   if (
     view.removed.some(
-      ({ body: r }) =>
+      ({ body: r, entry }) =>
         r.key === body.key ||
-        r.id === body.id ||
+        entry?.id === body.id ||
         (r.signing_key !== null && r.signing_key === body.signing_key),
     )
   ) {

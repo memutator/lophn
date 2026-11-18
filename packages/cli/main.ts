@@ -29,9 +29,14 @@ import {
 import type { RpcFetch } from "../protocol/client/mod.ts";
 import type { ControlDial, SpawnDetached } from "../protocol/client/mod.ts";
 import { HOOK_STDIN_MAX_BYTES } from "../protocol/coding-agent/mod.ts";
+import {
+  SESSION_ENV_NAME,
+  TERMINAL_SESSION_PREFIX,
+} from "../protocol/lophn-agent/session-tag.ts";
 import { loadAppCommands } from "./commands/app-command.ts";
 import { CORE_COMMANDS, type CoreCommand } from "./commands/core.ts";
 import { COMMANDS } from "./commands/mod.ts";
+import { ROSTER_CHANGING_COMMANDS } from "./commands/remote.ts";
 import { parseWorkspaceText } from "./commands/tab.ts";
 import type { Command, CommandCore, CommandResult } from "./commands/types.ts";
 import { openConnection, stopCore } from "./connection/mod.ts";
@@ -237,6 +242,17 @@ export async function cliMain(
   }
 
   const { command, input } = line;
+  // lophn의 터미널 탭은 사람 token을 받는다(agent 자격 env가 없다). 그 안의 coding agent가 명단을 바꾸지 못하게 막는다.
+  // agent가 env를 지우면 지나가는 실수 막기다.
+  if (
+    ROSTER_CHANGING_COMMANDS.includes(command.name) &&
+    (env.get(SESSION_ENV_NAME) ?? "").startsWith(TERMINAL_SESSION_PREFIX)
+  ) {
+    return await fail({
+      code: "forbidden",
+      message: `lophn ${wordsOf(command.name).join(" ")} is refused inside a lophn terminal tab, where a coding agent may be the one typing; use Settings › Remote, or a terminal outside lophn (SSH on a computer without a screen)`,
+    });
+  }
   if (!("routes" in command)) {
     const ran =
       "binary" in command

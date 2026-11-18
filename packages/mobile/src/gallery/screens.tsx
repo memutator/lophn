@@ -123,7 +123,7 @@ export function WelcomeScreen() {
           <Button variant="primary" size="lg" icon={QrCode}>
             Scan the code
           </Button>
-          <Button variant="ghost">Enter a pairing code instead</Button>
+          <Button variant="ghost">Paste the invite instead</Button>
           <Text variant="note" tone="muted" align="center" style={{ marginTop: 4 }}>
             End-to-end encrypted. Only this phone and your computer can read what passes between them.
           </Text>
@@ -151,7 +151,7 @@ export function WelcomeScreen() {
           <Step n={3}>
             {"Choose "}
             <Text variant="control" weight="semibold">
-              Add a phone
+              Add a device
             </Text>
             {" and scan the code it shows"}
           </Step>

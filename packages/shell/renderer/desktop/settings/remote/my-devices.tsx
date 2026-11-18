@@ -1,7 +1,8 @@
 // Settings › Remote의 My devices. 내 기기 명단의 기기마다 이름, 종류와 OS, 이 컴퓨터 표시, 컴퓨터면 연결 상태, 폰이면 마지막
 // 연결, 터미널 입력 스위치와 [Rename]·[Make primary](폰)·[Remove]다. 이름과 터미널 입력은 명단에 있어 모든 기계에 같다. 이 컴퓨터의
 // 이름은 위 This computer에서 바꾸고 이 컴퓨터는 뺄 수 없다. 빼면 그 기기는 모든 기계에서 끊기고 그 key로 다시 들지 못해 먼저 한 번
-// 묻는다. 다른 컴퓨터가 있으면 아래에 시작 때 여는 기계 고르기가 선다.
+// 묻는다. 두 컴퓨터가 서로 뺀 엇갈림으로 빠진 기기는 "Disputed"와 한 줄 설명, [Remove]만 선다: 믿지 않는 쪽을 여기서 빼면
+// 다른 쪽이 돌아온다. 다른 컴퓨터가 있으면 아래에 시작 때 여는 기계 고르기가 선다.
 import { useState } from "react";
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { Field, Input, Select, Switch } from "@lophn/ui/input";
@@ -166,7 +167,8 @@ export function MyDevices({
               </li>
             );
           }
-          const machine = machineOf(device);
+          // 엇갈림으로 빠진 컴퓨터는 link가 없다.
+          const machine = device.disputed ? undefined : machineOf(device);
           return (
             <li
               key={device.id}
@@ -191,11 +193,21 @@ export function MyDevices({
                       {t("settings.label.remote-pending")}
                     </span>
                   ) : null}
+                  {device.disputed ? (
+                    <span className={styles.caption} data-remote-disputed="">
+                      {t("settings.label.remote-disputed")}
+                    </span>
+                  ) : null}
                 </span>
                 <span className={styles.lineHelp}>{detailText(device)}</span>
                 {device.pending ? (
                   <span className={styles.lineHelp}>
                     {t("settings.note.remote-pending")}
+                  </span>
+                ) : null}
+                {device.disputed ? (
+                  <span className={styles.lineHelp}>
+                    {t("settings.note.remote-disputed")}
                   </span>
                 ) : null}
                 {machine === undefined ? null : (
@@ -205,28 +217,36 @@ export function MyDevices({
                 )}
               </div>
               <div className={styles.lineControl}>
-                <div data-remote-terminal-input={String(device.terminalInput)}>
-                  <Switch
-                    label={t("settings.label.remote-terminal-input")}
-                    checked={device.terminalInput}
-                    onCheckedChange={(on) =>
-                      void act(source.setTerminalInput(device.id, on))
-                    }
-                  />
-                </div>
+                {device.disputed ? null : (
+                  <div
+                    data-remote-terminal-input={String(device.terminalInput)}
+                  >
+                    <Switch
+                      label={t("settings.label.remote-terminal-input")}
+                      checked={device.terminalInput}
+                      onCheckedChange={(on) =>
+                        void act(source.setTerminalInput(device.id, on))
+                      }
+                    />
+                  </div>
+                )}
               </div>
               {device.thisComputer ? null : (
                 <div className={remoteStyles.deviceActions}>
-                  <Button
-                    icon={actionIcons.edit}
-                    data-remote-rename=""
-                    onClick={() =>
-                      setRenaming({ id: device.id, name: device.name })
-                    }
-                  >
-                    {t("settings.button.remote-rename")}
-                  </Button>
-                  {device.primary || device.kind !== "phone" ? null : (
+                  {device.disputed ? null : (
+                    <Button
+                      icon={actionIcons.edit}
+                      data-remote-rename=""
+                      onClick={() =>
+                        setRenaming({ id: device.id, name: device.name })
+                      }
+                    >
+                      {t("settings.button.remote-rename")}
+                    </Button>
+                  )}
+                  {device.primary ||
+                  device.disputed ||
+                  device.kind !== "phone" ? null : (
                     <Button
                       icon={actionIcons.confirm}
                       data-remote-primary=""

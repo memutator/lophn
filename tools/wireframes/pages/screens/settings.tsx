@@ -51,6 +51,7 @@ import {
   SettingsRemoteRemovedHere,
   SettingsRemoteStartMissing,
   SettingsRemoteWaiting,
+  SettingsRemoteDisputed,
   SettingsRemoteRemove,
   SettingsKeyboardApps,
   SettingsKeyboardChanged,
@@ -322,6 +323,13 @@ export const settingsArea: Area = {
       description:
         "초대한 컴퓨터가 꺼져 있을 때 들어온 Work laptop 줄에 Waiting과 그 이유가 선다.",
       render: () => <SettingsRemoteWaiting />,
+    },
+    {
+      id: "settings-remote-disputed",
+      title: "Settings · Remote · disputed removal",
+      description:
+        "두 컴퓨터가 서로 뺀 소식이 같이 닿아 둘 다 Disputed로 선다. 줄에는 설명 한 줄과 Remove만 있고, 믿지 않는 쪽을 빼면 다른 쪽이 돌아온다.",
+      render: () => <SettingsRemoteDisputed />,
     },
     {
       id: "settings-remote-removed-here",

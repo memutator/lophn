@@ -22,7 +22,7 @@ export const mobileApp = {
   "mobile.computer.note.relay":
     "The relay only passes sealed messages along. It cannot read them.",
   "mobile.computer.note.remove":
-    "Every computer stops reaching this phone, and this phone forgets them all. To use them again, pair with a new code.",
+    "Every computer stops reaching this phone, and this phone forgets them all. To use them again, join with a new invite from one of your computers.",
   "mobile.computer.path.direct": "Same network",
   "mobile.computer.path.relay": "Through the relay",
   "mobile.computer.status.connecting": "Connecting…",
@@ -76,19 +76,19 @@ export const mobileApp = {
   "mobile.start.heading.unreachable": "Cannot reach {name}",
   "mobile.start.heading.welcome": "lophn on your phone",
   "mobile.start.intro.expired":
-    "Codes last five minutes. Choose New code in Settings › Remote on your computer and scan again.",
+    "An invite works once and lasts 30 minutes. Choose New invite in Settings › Remote on your computer and scan again.",
   "mobile.start.intro.paired":
     "This phone now shows under Settings › Remote on that computer. You can remove it from either side.",
   "mobile.start.intro.unreachable":
     "The code is fine but the connection did not open. Check that lophn is running on the computer and that it is online.",
   "mobile.start.intro.welcome":
     "Use your apps, talk to your agents and answer what they ask, wherever you are.",
-  "mobile.start.label.scan-path": "Settings › Remote › Add a phone",
+  "mobile.start.label.scan-path": "Settings › Remote › Invite a phone",
   "mobile.start.label.settings-remote": "Settings › Remote",
   "mobile.start.note.encrypted":
     "End-to-end encrypted. Only this phone and your computer can read what passes between them.",
   "mobile.start.note.enter-code":
-    "Under the QR code on your computer choose {button}, copy it and paste it here. A code works once, for five minutes.",
+    "Under the QR code on your computer choose {button}, copy it and paste it here. An invite works once, for 30 minutes.",
   "mobile.start.notice.no-camera":
     "lophn can’t use the camera. Allow it in the phone’s settings, or enter the code instead.",
   "mobile.start.step.add": "Choose {button} and scan the code it shows",

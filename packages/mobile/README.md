@@ -61,7 +61,7 @@ AVD `lophn-phone` 하나를 여럿이 쓴다.
 
 React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱이 더 쓰는 native module은 `react-native-screens`, `react-native-gesture-handler`(drawer), `expo-camera`, `expo-notifications`(알림, 아래)다.
 
-- root stack(`src/app/root.tsx`): 컴퓨터가 하나도 없으면 연결 흐름(`src/screens/start/`: Welcome, Scan, Pairing, Paired, 실패 둘, Enter a pairing code sheet)에서 시작하고, 있으면 frame이다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
+- root stack(`src/app/root.tsx`): 컴퓨터가 하나도 없으면 연결 흐름(`src/screens/start/`: Welcome, Scan, Pairing, Paired, 실패 둘, Paste the invite sheet)에서 시작하고, 있으면 frame이다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
 - frame(`src/app/frame.tsx`): 왼쪽 drawer가 sidebar(`src/app/sidebar.tsx`)이고 옆이 place의 stack이다. 폭 600 이상에 높이 480 이상이면 sidebar가 늘 열려 있고 stack은 그 옆 card에 들며, 화면은 menu 단추를 두지 않는다. 가로로 든 폰은 폭이 넘어도 낮아서 drawer로 둔다. sidebar에서 고르면 stack이 [Home, 그 곳]으로 바뀌고, 화면 안에서 연 곳은 stack에 쌓인다. sidebar는 project 아래에 lophn session 다음으로 그 project에서 도는 컴퓨터의 coding agent session(터미널 탭의 Claude Code, Codex 등. 터미널(TUI)로 도는 것은 Terminal 표시)을 보인다. 목록은 `useCodingSessions()` 읽기 하나(project 없이)이고 `coding_sessions` 변경에 따라 다시 읽는다. 컴퓨터의 lophn 앱이 붙어 있지 않으면 줄이 없다. 각 workspace 줄 끝의 +는 그 workspace의 New session을 연다(project에서는 agent 줄 옆 Coding agents 칩이 컴퓨터의 coding agent 목록을 연다).
 - 갈 곳은 `src/app/nav.ts`의 `Place` 하나로 말한다. 화면은 `useNav()`의 `open(place)`, `back()`, `openSidebar()`, `openComputers()`와 `menuButton`(top-level 화면의 TopBar에 펼친다)을 쓴다. place마다 화면은 `src/app/routes.tsx`에 등록되어 있고, 그 화면은 `src/screens/<영역>/index.tsx`가 export하며 place를 `place` prop으로 받는다.
 - 얼굴과 workspace 표식은 `src/parts/`다. vendor 아이콘은 desktop의 svg(`packages/shell/renderer/parts/vendor-icon/`)를 사본 없이 쓴다: Metro가 `.svg`를 글로 읽는다(`src/parts/svg-text-transformer.js`).
@@ -70,7 +70,7 @@ React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱�
 
 ## pairing
 
-처음 열면 Welcome이다. Scan the code로 camera 권한을 묻고 QR(core `roster/invite`의 초대장 JSON, kind `phone`)을 `expo-camera`로 읽거나, Enter a pairing code instead로 그 JSON을 붙여 넣는다(desktop Settings › Remote의 QR 아래 "Show as text"가 그 글이다). 컴퓨터용 초대장이면 그렇다고 말하고 넘어가지 않는다. Pairing 화면이 초대장으로 명단에 들어가고(`join`: 초대장의 비밀로 서명한 자기 항목, hello의 `phone` 화면 칸) 첫 연결이 열리기를 기다린 뒤 Paired에서 "Paired with <컴퓨터 이름>"을 보인다. 이름 칸은 비어 있고 placeholder가 명단의 컴퓨터 이름이며, 무엇을 쓰면 이 폰에서 부르는 별명("Shown as")이 된다. 지난·쓰인 code는 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 컴퓨터 목록(root인 서명 key 포함)은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에, 든 명단(공개 key와 서명뿐)은 앱 문서 폴더의 `roster.json`에 둔다. 모양(theme, 글자 크기) 설정은 SecureStore에 둔다.
+처음 열면 Welcome이다. Scan the code로 camera 권한을 묻고 QR(core `roster/invite`의 초대장 JSON, kind `phone`)을 `expo-camera`로 읽거나, Paste the invite instead로 그 JSON을 붙여 넣는다(desktop Settings › Remote의 QR 아래 "Show as text"가 그 글이다). 컴퓨터용 초대장이면 그렇다고 말하고 넘어가지 않는다. Pairing 화면이 초대장으로 명단에 들어가고(`join`: 초대장의 비밀로 서명한 자기 항목, hello의 `phone` 화면 칸) 첫 연결이 열리기를 기다린 뒤 Paired에서 "Paired with <컴퓨터 이름>"을 보인다. 이름 칸은 비어 있고 placeholder가 명단의 컴퓨터 이름이며, 무엇을 쓰면 이 폰에서 부르는 별명("Shown as")이 된다. 지난·쓰인 초대장은 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 컴퓨터 목록(root인 서명 key 포함)은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에, 든 명단(공개 key와 서명뿐)은 앱 문서 폴더의 `roster.json`에 둔다. 모양(theme, 글자 크기) 설정은 SecureStore에 둔다.
 
 컴퓨터 목록은 명단에서 온다: 한 컴퓨터와 pairing하면 그 컴퓨터의 명단에 든 다른 컴퓨터가 목록에 뜨고 link가 열리며, 명단에서 빠진 컴퓨터는 목록에서 빠진다. 폰은 운반자라 받은 명단을 다른 컴퓨터에 넘긴다. Settings의 "Remove this phone from my devices"는 붙은 컴퓨터 하나에 `roster/leave`를 부르고 모든 컴퓨터, 명단, 기기 key를 잊고 Welcome으로 돌아간다. 믿는 컴퓨터가 서명한 빼기로 이 폰이 빠진 것을 알아도 같다. 다음 pairing은 새 key로 새 기기가 된다.
 
@@ -82,7 +82,7 @@ React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱�
 
 ### 폰 앱과 core는 같이 올린다
 
-remote protocol 판은 3이고 하한도 3이다(hello가 판 범위, 기계 id와 이름, 컴퓨터의 지금 주소 후보를 싣는다. 판 3에서 pairing code가 명단의 초대장이 되었고 연결의 첫 frame은 `join`이다). 판 2인 옛 폰 build는 판 3 core에 붙지 못한다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하고, 폰은 초대장으로 들어갈 때 그 실패 화면으로, 붙어 있던 컴퓨터는 목록에서 올리라는 상태로 보인다.
+remote protocol 판은 4이고 하한도 4다(hello가 판 범위, 기계 id와 이름, 컴퓨터의 지금 주소 후보를 싣는다. 판 3에서 pairing code가 명단의 초대장이 되었고 연결의 첫 frame은 `join`이다. 판 4는 명단 규칙을 고쳤다). 판 3 이하인 옛 폰 build는 판 4 core에 붙지 못한다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하고, 폰은 초대장으로 들어갈 때 그 실패 화면으로, 붙어 있던 컴퓨터는 목록에서 올리라는 상태로 보인다.
 
 ### 개발 core와 pairing
 
@@ -90,7 +90,7 @@ remote protocol 판은 3이고 하한도 3이다(hello가 판 범위, 기계 id�
 
 1. 저장소 root에서 개발 core를 띄운다: `npm run dev:core`(창 없이 core만. 창까지는 `npm run dev`).
 2. 다른 터미널에서 `npm run dev:remote`. 개발 core의 remote를 켜고(port 47432) 폰 초대장 글(`roster/invite`, kind `phone`)을 찍는다. 초대장은 30분, 한 번이다. 다시 받으려면 다시 띄운다.
-3. 폰이나 emulator에서 Enter a pairing code instead를 열어 그 글을 붙여 넣는다. emulator에서는 `adb -s emulator-<port> shell "input text '<초대장 글>'"`(`</dev/null`을 붙여 스크립트에서 돌린다). emulator에는 camera 장면이 없다.
+3. 폰이나 emulator에서 Paste the invite instead를 열어 그 글을 붙여 넣는다. emulator에서는 `adb -s emulator-<port> shell "input text '<초대장 글>'"`(`</dev/null`을 붙여 스크립트에서 돌린다). emulator에는 camera 장면이 없다.
 4. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문에 Metro를 `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2`로 띄운다(dev build에서만. 이 주소를 저장한 주소들과 같이 걸어 먼저 붙는 것을 쓴다. 이 주소로 열린 연결은 컴퓨터가 알린 주소 목록 앞에 이 주소를 남겨 저장한다). 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
 
 ## 연결

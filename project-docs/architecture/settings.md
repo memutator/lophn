@@ -47,7 +47,7 @@ shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어
 - **명령.** `lophn settings get [key]`는 목록(값과 한 줄 설명)이나 설정 하나(설명 전체, 값, 기본값, JSON Schema)를 보인다. `settings set <key> <value>`와 `settings unset <key>`가 바꾼다. 설정마다 명령을 두지 않는다. 답은 바꾸기 전 값(`previous`)을 싣는다.
 - **shell의 사본.** shell main은 core가 붙으면 설정 전체를 읽고, `settings` 변경(`StateChanged`)이 오거나 다시 붙으면 다시 읽는다. 설정을 적용하는 곳(모양 CSS, main이 먼저 받는 단축키)은 이 사본을 듣는다. 창은 같은 event로 자기가 그리는 설정(모드, 단축키, 빠른 실행, 읽기 폭, 열려 있는 Settings 화면)을 다시 읽는다. 값을 창에서 main으로 보내는 통로는 없다.
 - **shell이 꺼져 있을 때.** 값은 저장되고 다음에 켤 때 적용된다. 설정을 바꾸려고 shell을 띄우지 않는다.
-- **Computers you view.** 이 컴퓨터 창의 Settings › Remote에 이 desktop이 보는 다른 기계의 묶음이 있다(`remote.md`의 "desktop에서 다른 기계 보기"): 기계 줄(보이는 이름, 상태와 길), 별명 바꾸기, 지우기, [Add computer]의 붙여 넣기 pairing, "Open at start". 이 값들은 core 설정이 아니라 shell data의 기계 목록 file이고 shell main만 쓴다. 시작 기계는 보는 쪽마다 하나다: 고른 기계, 아니면 "The computer I used last"(기본. 연결된 채 focus를 받은 마지막 창의 기계), 고른 기계가 목록에서 빠졌거나 지워졌으면 이 컴퓨터다. 시작 기계를 지울 때 확인 dialog가 그것을 알리고 지운 뒤에는 "마지막에 쓴 기계"로 돌아간다.
+- **My devices.** 이 컴퓨터 창의 Settings › Remote에 내 기기 명단의 기기 줄(이름, 종류와 OS, 컴퓨터면 link 상태, 터미널 입력, [Rename], [Remove], 엇갈림으로 빠진 기기의 "Disputed"), Add a device의 초대장, [Join with an invite]가 있다(`remote.md`의 "내 기기 명단"). 명단과 이름은 core의 것이고 이 화면은 `roster/*`를 부른다. 다른 컴퓨터가 있으면 그 아래 "Open at start"가 시작 때 여는 기계를 고른다: 고른 기계, 아니면 "The computer I used last"(기본. 연결된 채 focus를 받은 마지막 창의 기계), 고른 기계가 명단에서 빠졌으면 이 컴퓨터다. 시작 기계는 shell data의 `viewer/start.json`에 두고 shell main만 쓴다. 시작 기계를 빼는 확인 dialog가 그것을 알리고 뺀 뒤에는 "마지막에 쓴 기계"로 돌아간다.
 - **다른 기계의 창.** 그 창에는 설정 화면이 없다. Settings 자리에는 "<이름>'s settings are changed on <이름>"과 이 컴퓨터 창을 여는 단추만 있다(`RemoteSettings`). 기기는 설정을 읽지도 쓰지도 못하고(`settings/*`는 기기 route가 아니다) 빠른 실행 값은 기본값을 그 창의 메모리에만 둔다.
 
 ## 지키는 것

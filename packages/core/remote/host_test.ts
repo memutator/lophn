@@ -571,7 +571,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
 const results = (frames: RemoteServerFrame[]) =>
   frames.filter((frame) => frame.type === "result");
 
-test("등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지 않는다", async (t) => {
+test("명단에 없는 key의 연결은 join 말고 아무 frame도 통하지 않는다", async (t) => {
   const s = setup();
   const cases: { name: string; frame: RemoteClientFrame }[] = [
     {
@@ -599,7 +599,7 @@ test("등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지
       });
       await settle();
       assert.deepEqual(s.reached, []);
-      // 등록되지 않은 key는 다시 pairing하라는 이유를 받는다(꺼져 있는 동안 끊긴 폰).
+      // 명단에 없는 key는 자격이 거둬졌다는 이유를 받는다(꺼져 있는 동안 빠진 폰).
       assert.deepEqual(c.frames, [
         { type: "closed", reason: "credential_revoked" },
       ]);

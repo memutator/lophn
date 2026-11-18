@@ -32,11 +32,12 @@ const MINUTE = 60 * 1000;
 export function sampleDevices(now = Date.now()): RemoteDevice[] {
   const device = (
     id: string,
-    fields: Omit<RemoteDevice, "id" | "pending" | "thisComputer"> &
-      Partial<Pick<RemoteDevice, "pending" | "thisComputer">>,
+    fields: Omit<RemoteDevice, "id" | "pending" | "thisComputer" | "disputed"> &
+      Partial<Pick<RemoteDevice, "pending" | "thisComputer" | "disputed">>,
   ): RemoteDevice => ({
     id: `dev_01jd00000000000000000000${id}`,
     pending: false,
+    disputed: false,
     thisComputer: false,
     ...fields,
   });

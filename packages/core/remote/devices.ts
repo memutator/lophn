@@ -193,15 +193,25 @@ export function screensFolded<T extends Screen>(
 // 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal).
 const DEVICE_PRINCIPAL = "device:";
 
-function storedStatements(sql: Pick<Sql, "all">): RosterStatement[] {
-  return sql
-    .all("select text from roster_statements order by text", [])
-    .map((row) => JSON.parse(row.text as string) as RosterStatement);
+// 저장한 명단. `key`를 주면 그 key의 statement만 읽는다.
+export function storedStatements(
+  sql: Pick<Sql, "all">,
+  key?: string,
+): RosterStatement[] {
+  return (
+    key === undefined
+      ? sql.all("select text from roster_statements order by text", [])
+      : sql.all(
+          "select text from roster_statements where key = ? order by text",
+          [key],
+        )
+  ).map((row) => JSON.parse(row.text as string) as RosterStatement);
 }
 
 // 컴퓨터가 서명한 항목 가운데 key마다 앞서는 것(rev가 큰 것, 같으면 허락을 끈 것, 같으면 body 글이 작은 것). 저장한 명단은
-// main thread가 계산한 keep이라 남은 기기마다 이 컴퓨터가 서명한 이긴 항목이 들어 있다. 기기 표 읽기가 이름과 허락을 여기서 얻는다.
-function entriesByKey(
+// main thread가 계산한 keep이라 남은 기기마다 이 컴퓨터가 서명한 이긴 항목이 들어 있다. 기기 표 읽기와 앱의 폰 target이 이름과
+// 허락을 여기서 얻는다.
+export function entriesByKey(
   statements: readonly RosterStatement[],
 ): Map<string, RosterEntryBody> {
   const best = new Map<string, RosterEntryBody>();
@@ -307,8 +317,9 @@ export type DeviceFold = (
 
 // main thread가 서명하고 합쳐 정한 명단(keep)을 통째로 둔다. 같은 write에서:
 // - 접힌 id(같은 key의 큰 id → 작은 id)로 기기 행과 다른 표의 기기 칸(fold)을 바꾼다. 접힘은 큰 id의 항목이 남는 동안 저장마다
-//   다시 오므로 다시 해도 같다.
-// - 명단에서 빠진 기기(서명한 항목이 남지 않은 key)의 행을 지운다. push token도 같이 간다.
+//   다시 오므로 다시 해도 같다. 행이 옮겨졌든 아니든 접힌 쌍마다 `folded`를 내어 commit 뒤의 `shell.devices` 고치기도 저장마다
+//   다시 한다(commit과 설정 쓰기 사이에 죽어도 다음 저장이 고친다).
+// - 명단에서 빠진 기기(view가 뺀 key, 서명한 항목이 남지 않은 key)의 행을 지운다. push token도 같이 간다.
 export const rosterStoreCommand = (
   fold: DeviceFold,
 ): CommandDefinition<typeof rosterStore> => ({
@@ -330,15 +341,17 @@ export const rosterStoreCommand = (
     }
     for (const { from, to } of input.folds) {
       fold(tx.sql, from, to);
-      const moved = tx.sql.run(
-        "update or ignore devices set id = ? where id = ?",
-        [to, from],
-      );
-      if (Number(moved.changes) > 0) push(tx, { type: "folded", from, to });
+      tx.sql.run("update or ignore devices set id = ? where id = ?", [
+        to,
+        from,
+      ]);
+      push(tx, { type: "folded", from, to });
     }
     const kept = entriesByKey(input.statements);
+    const removed = new Set(input.removed);
     for (const row of tx.sql.all("select id, public_key from devices", [])) {
-      if (!kept.has(row.public_key as string)) remove(tx, row.id as string);
+      const key = row.public_key as string;
+      if (removed.has(key) || !kept.has(key)) remove(tx, row.id as string);
     }
     return ok({ count: input.statements.length });
   },

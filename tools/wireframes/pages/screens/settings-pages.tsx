@@ -463,6 +463,35 @@ export const SettingsRemoteWaiting = () => (
   />
 );
 
+/** Settings › Remote: 도둑맞은 Travel laptop과 Home server가 서로 뺀 소식이 같이 닿아 둘 다 Disputed다. 믿지 않는 쪽의 Remove를 누르면 다른 쪽이 돌아온다. */
+export const SettingsRemoteDisputed = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{}}
+    remote={{
+      devices: [
+        ...sampleDevices().filter((one) => one.name !== "Home server"),
+        ...sampleDevices()
+          .filter((one) => one.name === "Home server")
+          .map((one) => ({ ...one, disputed: true, lastConnectedAt: null })),
+        {
+          id: "dev_01jd00000000000000000000x9",
+          kind: "computer" as const,
+          name: "Travel laptop",
+          os: "windows" as const,
+          machine: "mch_travel",
+          thisComputer: false,
+          lastConnectedAt: null,
+          primary: false,
+          terminalInput: true,
+          pending: false,
+          disputed: true,
+        },
+      ],
+    }}
+  />
+);
+
 /** Settings › Remote: 다른 컴퓨터가 이 컴퓨터를 빼 명단과 key를 버렸다. 명단에는 이 컴퓨터만 남고 위에 그 일을 알리는 한 줄이 선다. */
 export const SettingsRemoteRemovedHere = () => (
   <SettingsFrame

@@ -7,6 +7,8 @@ import {
   generateSigningKey,
   mergeRoster,
   ROSTER_INVITE_LONG_MS,
+  ROSTER_STATEMENTS_MAX,
+  ROSTER_UNKNOWN_MAX,
   type RosterEntryBody,
   type RosterInvitedStatement,
   type RosterStatement,
@@ -478,15 +480,6 @@ test("빠진 컴퓨터의 빼기는 자기를 뺀 쪽과 서로 물고 도는 �
       ],
     },
     {
-      // R이 빠진 뒤 X와 Y를 뺐다. X에서는 X의 빼기가 이긴다. Y에서는 서로 물어 정해지지 않아 둘 다 빠지되 Y는 남는다.
-      name: "빠진 뒤의 빼기",
-      statements: [...mesh([x, y, r]), out(x, r), out(r, y), out(r, x)],
-      expect: [
-        { root: x, gone: [r], settled: true },
-        { root: y, gone: [x, r], settled: false },
-      ],
-    },
-    {
       // 사람: Y가 F를, X가 R을 뺐다. 그 뒤 도둑: F가 X를, R이 Z를 뺐다. Z는 아무것도 하지 않았다.
       name: "도둑 둘(Q2T)",
       statements: [
@@ -542,6 +535,128 @@ test("빠진 컴퓨터의 빼기는 자기를 뺀 쪽과 서로 물고 도는 �
       );
       assert.deepEqual(rosterView(view.keep, [root(e.root)]), view, row.name);
     }
+  }
+});
+
+function mesh(cs: Computer[]): RosterStatement[] {
+  return cs.flatMap((one) =>
+    cs.map((other) => signed(computerEntry(one), other)),
+  );
+}
+
+function out(from: Computer, gone: Computer): RosterStatement {
+  return signed(removeComputer(gone), from);
+}
+
+function deviceKeys(view: ReturnType<typeof rosterView>): string[] {
+  return view.devices.map((d) => d.body.key);
+}
+
+test("엇갈린 빼기에 걸린 key를 사람이 다시 빼면 빠진 쪽만 남고 뺀 쪽이 돌아온다", () => {
+  const [x, y, r] = [computer(), computer(), computer()];
+  // 사람이 X에서 R을 뺐다. 그 소식이 Y에 닿기 전에 도둑이 R로 X와 Y를 뺀 것이 같이 닿았다.
+  const before = [...mesh([x, y, r]), out(x, r), out(r, y), out(r, x)];
+  const disputed = rosterView(before, [root(y)]);
+  assert.deepEqual(deviceKeys(disputed), [y.key]);
+  assert.deepEqual(
+    disputed.removed
+      .map((one) => [one.entry?.id, one.settled])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    [x.id, r.id].sort().map((id) => [id, false]),
+  );
+  assert.deepEqual(rosterView(disputed.keep, [root(y)]), disputed);
+  // Y의 사람이 R을 다시 뺀다(Y가 서명한 빼기). X에서는 처음부터 R만 빠졌다.
+  const after = [...disputed.keep, out(y, r)];
+  for (const at of [y, x]) {
+    const view = rosterView(after, [root(at)]);
+    assert.deepEqual(deviceKeys(view).sort(), [x.key, y.key].sort());
+    assert.deepEqual(
+      view.removed.map((one) => [one.entry?.id, one.settled]),
+      [[r.id, true]],
+    );
+    assert.deepEqual(rosterView(view.keep, [root(at)]), view);
+  }
+});
+
+test("남의 id를 실은 빼기가 그 id의 기기를 지우지 못한다", () => {
+  const [x, y, z, r] = [computer(), computer(), computer(), computer()];
+  // X가 R을 뺐고, 도둑이 R로 X를 빼며 빼기의 id 칸에 Y의 id를 실었다.
+  const forged = signed(removal(y.id, x.key, root(x)), r);
+  const statements = [...mesh([x, y, z, r]), out(x, r), forged];
+  for (const at of [y, z]) {
+    const view = rosterView(statements, [root(at)]);
+    assert.ok(deviceKeys(view).includes(y.key), `root ${at === y ? "y" : "z"}`);
+    assert.ok(!view.removed.some((one) => one.entry?.id === y.id));
+    assert.deepEqual(rosterView(view.keep, [root(at)]), view);
+  }
+});
+
+test("쓰인 초대장으로 든 기기를 뺀 뒤에도 그 초대장으로 다른 key가 들지 못한다", () => {
+  const { a, b, base } = pair();
+  const made = inviteOf(a);
+  const phone = { id: newId(), key: phoneKey() };
+  const statements = [
+    ...base,
+    signed(phoneEntry(phone.id, phone.key, 1, made.invite.body.key), a),
+    signed(phoneEntry(phone.id, phone.key, 1, made.invite.body.key), b),
+    signed(removal(phone.id, phone.key), a),
+  ];
+  const now = Date.parse(EXPIRES) - 1;
+  const thief = invitedWith(made, phoneEntry(newId(), phoneKey()));
+  for (const at of [a, b]) {
+    const view = rosterView(statements, [root(at)]);
+    for (const v of [view, rosterView(view.keep, [root(at)])]) {
+      const checked = checkInvited(thief, { now, view: v });
+      assert.equal(checked.ok, false);
+      if (!checked.ok) assert.equal(checked.error.details?.reason, "used");
+    }
+  }
+  // 빼기 전의 사용을 모르는 컴퓨터가 받아들였어도, 만나는 곳에서 그 key는 invite 충돌로 빠진다.
+  const admitted = signed({ ...thief.body }, b);
+  const met = rosterView([...statements, admitted], [root(a)]);
+  assert.ok(!deviceKeys(met).includes(thief.body.key));
+  // 빠진 컴퓨터가 자기 항목에 남의 초대 key를 달아도 그 초대로 든 기기를 빼지 못한다.
+  const r = computer();
+  const q = { id: newId(), key: phoneKey() };
+  const qInvite = inviteOf(a);
+  const claimed = [
+    ...base,
+    signed(computerEntry(r), a),
+    signed(computerEntry(r), r),
+    signed(phoneEntry(q.id, q.key, 1, qInvite.invite.body.key), a),
+    out(a, r),
+    signed({ ...computerEntry(r, 2), invite: qInvite.invite.body.key }, r),
+  ];
+  for (const at of [a, b]) {
+    const view = rosterView(claimed, [root(at)]);
+    assert.ok(deviceKeys(view).includes(q.key));
+    assert.deepEqual(view.conflicts, []);
+  }
+});
+
+test("모르는 서명자의 항목이 상한에 닿아도 빼기가 저장된다", () => {
+  const { a, b, base } = pair();
+  const phone = { id: newId(), key: phoneKey() };
+  const gone = signed(removal(phone.id, phone.key), a);
+  const trusted = [...base, signed(phoneEntry(phone.id, phone.key), a), gone];
+  // 붙은 기기가 모르는 id로 서명했다는 항목 수천 개를 민다. 서명자를 모르니 서명은 검증되지 않는다.
+  const junkKey = phoneKey();
+  const signature = (base[0] as { signature: string }).signature;
+  const junk: RosterStatement[] = Array.from({ length: 5000 }, () => ({
+    body: phoneEntry(newId(), junkKey),
+    by: newId(),
+    signature,
+  }));
+  for (const at of [a, b]) {
+    const view = rosterView([...junk, ...trusted], [root(at)]);
+    const kept = new Set(view.keep.map((s) => JSON.stringify(s)));
+    for (const s of [...base, gone]) assert.ok(kept.has(JSON.stringify(s)));
+    assert.equal(
+      view.keep.filter((s) => junk.includes(s)).length,
+      ROSTER_UNKNOWN_MAX,
+    );
+    assert.ok(view.keep.length <= ROSTER_STATEMENTS_MAX);
+    assert.deepEqual(rosterView(view.keep, [root(at)]), view);
   }
 });
 

@@ -149,7 +149,7 @@ async function boot(
       },
       telemetry: { logger: { error() {}, warn() {} } },
       attention: { bindPush() {}, forgetReporter() {} },
-      bus: { subscribe: () => () => undefined },
+      bus: { subscribe: () => () => undefined, publish() {} },
       allRoutes: [],
     };
     const wiring = remoteWiring(options.dial);
@@ -305,6 +305,7 @@ test("옛 data root는 key와 폰을 그대로 옮기고, 명단에서 빠진 �
       statements: [...statementsOf(stored), ...arrived],
       reach: [],
       folds: [],
+      removed: [],
     } as never,
     {} as never,
   );
@@ -499,6 +500,114 @@ test("초대한 컴퓨터가 roster/join을 거절하면(used) 명단에 아무�
     booted.statements.map((each) => each.body.key),
     [booted.self?.key],
   );
+});
+
+// 같은 폰이 컴퓨터마다 다른 id로 pairing되어 있었다. 명단이 id를 접을 때 앱 sync log나 `shell.devices`가 옛 id에 남으면 그 폰의
+// 변경이 다른 기기의 것이 되고 preview 기기를 잃는다. commit 뒤 설정을 쓰기 전에 죽으면 행은 이미 옮겨져 있다.
+test("폰 하나에 id가 둘이던 data root에서 id를 모은 뒤 app_sync_log와 shell.devices가 같은 id를 가리킨다", async () => {
+  const random = seededRandom(37);
+  const root = mkdtempSync(join(tmpdir(), "lophn-remote-fold-"));
+  mkdirSync(join(root, "remote"));
+  const db = open(root);
+  for (const step of [
+    ...DEVICES_SCHEMA_STEPS,
+    ...DEVICES_KIND_STEPS,
+    ...ROSTER_SCHEMA_STEPS,
+  ])
+    db.exec(step.sql);
+  // fold가 고치는 칸만 둔 sync log.
+  db.exec("create table app_sync_log (device text, change_id text)");
+  db.prepare(
+    `insert into devices (id, kind, name, os, width, height, dpr, public_key, created_at, is_primary)
+       values (?, 'phone', 'Pixel', 'android', 412, 915, 2.625, ?, 'at', 1)`,
+  ).run(phoneId, remoteKeyText(generateKeyPair(random).publicKey));
+  db.prepare("insert into app_sync_log values (?, 'c1')").run(phoneId);
+  db.close();
+  const machine = `mch_0${"6".repeat(25)}`;
+  const first = await boot(root, machine, random);
+  const me = first.self!;
+  const mine = remoteKeyBytes(JSON.parse(first.signing).secret_key)!;
+  const phone = first.statements.find(
+    (each) => each.body.type === "entry" && each.body.id === phoneId,
+  )!.body as RosterEntryBody;
+
+  // 다른 컴퓨터 B가 같은 폰을 더 작은 id로 들였고, 이 컴퓨터는 B를 믿는다.
+  const bHost = generateKeyPair(random);
+  const bSigning = generateSigningKey(random);
+  const bId = `dev_0${"9".padStart(25, "0")}` as RosterEntryBody["id"];
+  const smaller = `dev_0${"0".padStart(25, "0")}` as RosterEntryBody["id"];
+  const bEntry: RosterEntryBody = {
+    type: "entry",
+    id: bId,
+    kind: "computer",
+    key: remoteKeyText(bHost.publicKey),
+    signing_key: remoteKeyText(bSigning.publicKey),
+    machine: `mch_0${"7".repeat(25)}` as RosterEntryBody["machine"],
+    name: "laptop",
+    os: "linux",
+    terminal_input: true,
+    rev: 1,
+    invite: null,
+  };
+  const onB = { ...phone, id: smaller };
+  const stored = open(root);
+  const done = REMOTE_COMMANDS.find(
+    (each) => each.route.name === rosterStore.name,
+  )!.handle(
+    {
+      sql: createSql(stored, () => true),
+      port: () => ({ push() {} }),
+    } as never,
+    MACHINE,
+    {
+      statements: [
+        ...statementsOf(stored),
+        { body: bEntry, by: me.id, signature: signRoster(bEntry, mine) },
+        {
+          body: bEntry,
+          by: bId,
+          signature: signRoster(bEntry, bSigning.secretKey),
+        },
+        { body: onB, by: bId, signature: signRoster(onB, bSigning.secretKey) },
+      ],
+      reach: [],
+      folds: [],
+      removed: [],
+    } as never,
+    {} as never,
+  );
+  stored.close();
+  assert.ok(done.ok);
+
+  const syncLog = () => {
+    const check = open(root);
+    try {
+      return check
+        .prepare("select device from app_sync_log")
+        .all()
+        .map((row) => row.device);
+    } finally {
+      check.close();
+    }
+  };
+  // 기동의 저장이 접는다. 기기 행, sync log, shell.devices가 같은 write와 그 commit 뒤에 작은 id로 간다.
+  const folded = await boot(root, machine, random);
+  assert.deepEqual(folded.rows, [[smaller, null]]);
+  assert.deepEqual(syncLog(), [smaller]);
+  assert.equal((folded.screens as { device: string }[])[0]?.device, smaller);
+
+  // 행과 sync log는 이미 옮겨졌는데 shell.devices는 옛 id다(설정을 쓰기 전에 죽었다). 다음 저장이 고친다.
+  const again = await boot(root, machine, random, {
+    during: async (memory) => {
+      await memory.get("roster/rename")!(PERSON, {
+        id: smaller,
+        name: "Pixel 9",
+      });
+    },
+  });
+  assert.deepEqual(again.rows, [[smaller, null]]);
+  assert.deepEqual(syncLog(), [smaller]);
+  assert.equal((again.screens as { device: string }[])[0]?.device, smaller);
 });
 
 // shell main이 들던 옛 기기 key와 기계 목록은 core가 명단으로 붙으며 쓸모가 없다. 창 자리와 시작 기계까지 지우면 사람이 고른 것을 잃는다.

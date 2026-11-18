@@ -285,8 +285,12 @@ flows:
       - "초대장 글 한 줄을 그대로 roster/join에 넘긴다"
       - "pending이면 초대한 컴퓨터에 아직 닿지 못했다고 stderr에 알린다. 그 컴퓨터를 믿는 컴퓨터에 닿거나 폰이 소식을 나르면 끝난다"
       - "거절이면 details.reason(expired, used, untrusted, removed, this_computer, id_taken, key_taken)을 사람이 읽을 글로 바꿔 message에 싣는다. code와 details는 그대로다"
-      - "binary만 부른다(lophn tool에 없다). agent shell은 cli-core-connect:agent-shell에서 막힌다"
+      - "binary만 부른다(lophn tool에 없다). agent shell은 cli-core-connect:agent-shell에서 막힌다. lophn의 터미널 탭 안이면 core에 붙기 전에 거절한다"
     outcomes:
+      - id: terminal-tab
+        code: forbidden
+        when: "lophn의 터미널 탭 안이다(LOPHN_SESSION_ID가 term:으로 시작). 그 탭은 사람 token을 받아 거기서 도는 coding agent와 사람을 가릴 수 없다. core에 붙기 전에 끝나고 Settings › Remote나 lophn 밖의 터미널(SSH)을 말한다"
+        observe: ["response"]
       - id: joined
         when: "초대한 컴퓨터에 닿아 서로의 항목에 서명했다"
         observe: ["response"]
@@ -308,6 +312,54 @@ flows:
       - id: remote-off
         code: unavailable
         when: "remote가 꺼져 있다. lophn remote on을 먼저 한다"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md]
+
+  - id: remote-invite-command
+    title: "사람이 터미널에서 새 폰이나 컴퓨터의 초대장을 낸다"
+    actor: person
+    entries: [cli:remote.invite]
+    uses: [route:roster/invite]
+    boundary: [coding-agent-cli, remote]
+    code: [packages/cli/commands/remote.ts, packages/cli/main.ts]
+    steps:
+      - "lophn의 터미널 탭 안이면 core에 붙기 전에 거절한다"
+      - "kind, 터미널 입력(기본 켬), 수명(--long이면 7일)으로 roster/invite를 부르고 초대장 한 줄을 stdout에 찍는다(roster-invite)"
+    outcomes:
+      - id: terminal-tab
+        code: forbidden
+        when: "lophn의 터미널 탭 안이다(LOPHN_SESSION_ID가 term:으로 시작). 그 탭은 사람 token을 받아 거기서 도는 coding agent와 사람을 가릴 수 없다. core에 붙기 전에 끝나고 Settings › Remote나 lophn 밖의 터미널(SSH)을 말한다"
+        observe: ["response"]
+      - id: invited
+        observe: ["response"]
+      - id: refused
+        when: "roster/invite가 거절했다(remote 꺼짐 등). 그 오류를 그대로 낸다"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md]
+
+  - id: remote-remove-command
+    title: "사람이 터미널에서 기기를 명단에서 뺀다"
+    actor: person
+    entries: [cli:remote.remove]
+    uses: [route:roster/remove]
+    boundary: [coding-agent-cli, remote]
+    code: [packages/cli/commands/remote.ts, packages/cli/main.ts]
+    steps:
+      - "lophn의 터미널 탭 안이면 core에 붙기 전에 거절한다"
+      - "dev_ id로 roster/remove를 부른다(roster-remove). 엇갈린 빼기로 빠진 기기도 뺀다"
+    outcomes:
+      - id: terminal-tab
+        code: forbidden
+        when: "lophn의 터미널 탭 안이다(LOPHN_SESSION_ID가 term:으로 시작). 그 탭은 사람 token을 받아 거기서 도는 coding agent와 사람을 가릴 수 없다. core에 붙기 전에 끝나고 Settings › Remote나 lophn 밖의 터미널(SSH)을 말한다"
+        observe: ["response"]
+      - id: removed
+        observe: ["response"]
+      - id: refused
+        when: "roster/remove가 거절했다(이 컴퓨터 자신, 없는 기기, remote를 켠 적 없음). 그 오류를 그대로 낸다"
         observe: ["response"]
     crosses_process: true
     risk: [permission]
@@ -387,8 +439,6 @@ links:
   - {entry: "cli:release.get", flow: release-state-read}
   - {entry: "cli:release.prepare", flow: release-prepare}
   - {entry: "cli:release.activate", flow: release-activate}
-  - {entry: "cli:remote.invite", flow: roster-invite}
-  - {entry: "cli:remote.remove", flow: roster-remove}
   - {entry: "cli:run.wait", flow: run-wait}
   - {entry: "cli:run.show", flow: run-read}
   - {entry: "cli:run.cancel", flow: run-cancel}

@@ -1913,7 +1913,7 @@ flows:
     code: [packages/core/attention/presence.ts, packages/core/attention/mod.ts, packages/core/main/daemon/wiring/attention.ts]
     steps:
       - "보고한 쪽은 입력이 아니라 자격(principal)이 정한다: shell main은 사람 자격, 기기는 device:<id>(보고를 받을 때 기기의 kind를 ctx.deviceKind로 읽어 phone인지 정한다). 보고(focused, idle_ms, 보고 중인 session 최대 32)로 그 쪽의 이전 보고를 바꾼다(메모리뿐, 표가 없다)"
-      - "90초가 지난 보고는 없는 것이다(죽은 desktop이 push를 막지 않게). kind phone 기기는 focused일 때, 그 밖(사람의 shell main, kind desktop 기기)은 focused이고 idle이 120초 아래일 때 앞에 있다"
+      - "90초가 지난 보고는 없는 것이다(죽은 desktop이 push를 막지 않게). kind phone 기기는 focused일 때, 그 밖(사람의 shell main, kind computer 기기)은 focused이고 idle이 120초 아래일 때 앞에 있다"
       - "앞에 있는 host가 새로 보는 session의 unseen을 끈다(StateChanged unseen)"
     outcomes:
       - id: recorded

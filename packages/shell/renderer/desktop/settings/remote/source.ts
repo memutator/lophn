@@ -21,6 +21,11 @@ export interface RemoteDevice {
   readonly terminalInput: boolean;
   /** 초대한 컴퓨터가 꺼져 있을 때 들어와 그 소식이 아직 닿지 않았다(기다리는 중). */
   readonly pending: boolean;
+  /**
+   * 두 컴퓨터가 서로 뺀 엇갈림으로 빠진 기기다(명단에는 없다). 믿지 않는 쪽을 이 컴퓨터에서 다시 빼면 그 빼기가 이 컴퓨터의
+   * 판단이 되어 다른 쪽이 돌아온다.
+   */
+  readonly disputed: boolean;
 }
 
 /** 명단과, 다른 컴퓨터가 이 컴퓨터를 빼 명단을 버린 때(ISO. core가 다시 뜨거나 다시 들면 null). */

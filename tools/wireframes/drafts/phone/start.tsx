@@ -58,7 +58,7 @@ function Welcome({ over }: { over?: ReactNode }) {
           </Step>
           <div className={s.hair} style={{ margin: "0 16px" }} />
           <Step n={3}>
-            Choose <b>Add a phone</b> and scan the code it shows
+            Choose <b>Add a device</b> and scan the code it shows
           </Step>
         </div>
       </div>
@@ -66,7 +66,7 @@ function Welcome({ over }: { over?: ReactNode }) {
         <Btn variant="primary" size="lg" icon={QrCode}>
           Scan the code
         </Btn>
-        <Btn variant="ghost">Enter a pairing code instead</Btn>
+        <Btn variant="ghost">Paste the invite instead</Btn>
         <p
           className={s.note}
           style={{ margin: "4px 0 0", textAlign: "center" }}
@@ -102,7 +102,7 @@ function Scanner() {
             lineHeight: "20px",
           }}
         >
-          Settings › Remote › Add a phone
+          Settings › Remote › Invite a phone
         </p>
       </div>
       <div
@@ -119,7 +119,7 @@ function Scanner() {
             fontSize: 14,
           }}
         >
-          Enter a pairing code instead
+          Paste the invite instead
         </span>
       </div>
     </Phone>
@@ -311,17 +311,17 @@ function EnterCode() {
   return (
     <Welcome
       over={
-        <Sheet title="Enter a pairing code">
+        <Sheet title="Paste the invite">
           <div
             className={s.pad}
             style={{ display: "grid", gap: 12, paddingBottom: 14 }}
           >
             <p className={s.note} style={{ margin: 0 }}>
               Under the QR code on your computer choose <b>Show as text</b>,
-              copy it and paste it here. A code works once, for five minutes.
+              copy it and paste it here. An invite works once, for 30 minutes.
             </p>
             <div className={s.field} data-focus="">
-              <span className={s.muted}>Pairing code</span>
+              <span className={s.muted}>Invite</span>
             </div>
             <div className={s.btnRow}>
               <Btn block>Paste</Btn>
@@ -369,14 +369,14 @@ export function StartFlow() {
       </Shot>
       <Shot
         title="Code expired"
-        text="code는 5분, 한 번만 쓴다. 지난 code를 읽으면 무엇을 다시 하면 되는지 말한다."
+        text="초대장은 30분, 한 번만 쓴다. 지난 초대장을 읽으면 무엇을 다시 하면 되는지 말한다."
       >
         <Failed
           icon={ClockAlert}
           title="This code has expired"
-          text="Codes last five minutes. Choose New code in Settings › Remote on your computer and scan again."
+          text="An invite works once and lasts 30 minutes. Choose New invite in Settings › Remote on your computer and scan again."
           primary="Scan again"
-          secondary="Enter a pairing code instead"
+          secondary="Paste the invite instead"
         />
       </Shot>
       <Shot
@@ -393,7 +393,7 @@ export function StartFlow() {
         />
       </Shot>
       <Shot
-        title="Enter a pairing code"
+        title="Paste the invite"
         text="camera가 없거나 고장 났을 때. 컴퓨터가 보여 주는 글 code를 붙여 넣는다."
       >
         <EnterCode />

@@ -14,6 +14,7 @@ import { networkInterfaces } from "node:os";
 import process from "node:process";
 import type { z } from "zod";
 import {
+  canonicalize,
   createIdSource,
   cryptoRandom,
   type ErrorCode,
@@ -376,10 +377,13 @@ export function remoteWiring(
   }
 
   // 설정 `shell.devices`를 고친다. preview 기기 고르기와 `--device`가 이름으로 본다. 기기의 항목은 `device`로 찾는다.
+  // 고친 목록이 지금과 같으면 쓰지 않는다: id 접기는 명단을 저장할 때마다 다시 온다.
   function editScreens(ctx: WiringContext, edit: (list: Screen[]) => Screen[]) {
     const list = ctx.settings.get(devicesSetting) ?? [];
+    const next = edit(list);
+    if (canonicalize(next) === canonicalize(list)) return;
     const written = ctx.settingsUpdate([
-      { key: devicesSetting.key, action: "set", value: edit(list) },
+      { key: devicesSetting.key, action: "set", value: next },
     ]);
     if (!written.ok || written.value.rejected.length > 0) {
       logError(ctx, "devices_setting_not_saved", "shell.devices");
@@ -847,21 +851,41 @@ export function remoteWiring(
           rows.value.map((row) => [row.id as string, row.last_connected_at]),
         );
         const self = roster.self()?.id;
+        const view = roster.view();
+        const row = (body: RosterEntryBody) => ({
+          id: body.id,
+          kind: body.kind,
+          name: body.name,
+          os: body.os,
+          machine: body.machine,
+          terminal_input: body.terminal_input,
+          // 컴퓨터는 기기 행이 없다. 이 컴퓨터의 link가 마지막으로 붙었거나 끊긴 때다.
+          last_connected_at: last.get(body.id) ?? links.seen(body.id),
+        });
         return ok({
           this: self ?? null,
           removed_at: removedAt,
-          devices: roster.view().devices.map(({ body }) => ({
-            id: body.id,
-            kind: body.kind,
-            name: body.name,
-            os: body.os,
-            machine: body.machine,
-            terminal_input: body.terminal_input,
-            this: body.id === self,
-            pending: rosterPending(roster.view(), body.key),
-            // 컴퓨터는 기기 행이 없다. 이 컴퓨터의 link가 마지막으로 붙었거나 끊긴 때다.
-            last_connected_at: last.get(body.id) ?? links.seen(body.id),
-          })),
+          devices: [
+            ...view.devices.map(({ body }) => ({
+              ...row(body),
+              this: body.id === self,
+              pending: rosterPending(view, body.key),
+              disputed: false,
+            })),
+            // 정해지지 않은 빼기로 빠진 기기. 사람이 여기서 다시 빼면 풀린다.
+            ...view.removed.flatMap(({ settled, entry }) =>
+              settled || entry === null
+                ? []
+                : [
+                    {
+                      ...row(entry),
+                      this: false,
+                      pending: false,
+                      disputed: true,
+                    },
+                  ],
+            ),
+          ],
         });
       };
       const invite = (_who: unknown, input: unknown) => {
@@ -905,6 +929,13 @@ export function remoteWiring(
           return err({
             code: "forbidden" as const,
             message: "only a device in the roster leaves it",
+          });
+        }
+        // 컴퓨터는 사람이 다른 컴퓨터에서 빼기로만 나간다. 연결된 컴퓨터의 화면이 넘긴 call로 자기를 빼지 못하게 한다.
+        if (deviceOf(who.principal)?.kind === "computer") {
+          return err({
+            code: "forbidden" as const,
+            message: "a computer leaves the roster only when it is removed",
           });
         }
         const id = who.principal.slice(DEVICE_PRINCIPAL.length);

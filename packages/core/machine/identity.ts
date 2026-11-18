@@ -65,7 +65,7 @@ export type MachineDeps = {
 function unreadable(path: string): Result<never> {
   return err({
     code: "unavailable",
-    message: `${path}를 읽지 못했다. 지우면 이 컴퓨터는 새 기계가 되고 폰을 다시 pairing해야 한다`,
+    message: `${path}를 읽지 못했다. 지우면 이 컴퓨터는 새 기계가 되고 내 기기 명단의 다른 컴퓨터에서 새 초대장으로 다시 들어야 한다`,
   });
 }
 

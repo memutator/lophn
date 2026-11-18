@@ -53,6 +53,7 @@ export type RosterDeps = {
     statements: RosterStatement[];
     reach: RosterReach[];
     folds: { from: string; to: string }[];
+    removed: string[];
   }): Promise<Result<void>>;
   // 저장한 명단(statement나 주소)이 바뀐 뒤 부른다. 돌려준 promise가 끝날 때까지 다음 고치기를 하지 않는다(이 컴퓨터의
   // 이름을 기계 이름으로 받는 동안 ensureSelf가 옛 이름으로 되돌리지 않게).
@@ -210,6 +211,7 @@ export function createRoster(deps: RosterDeps) {
       statements: settled.statements,
       reach: nextReach,
       folds: settled.view.folded,
+      removed: settled.view.removed.map((r) => r.body.key),
     });
     if (!stored.ok) return stored;
     statements = settled.statements;
@@ -401,7 +403,8 @@ export function createRoster(deps: RosterDeps) {
     setTerminalInput: (id: string, on: boolean) =>
       revise(id, { terminal_input: on }),
 
-    // 기기를 뺀다(이 컴퓨터가 서명한 빼기). 이 컴퓨터 자신이면 invalid_input이다.
+    // 기기를 뺀다(이 컴퓨터가 서명한 빼기). 이 컴퓨터 자신이면 invalid_input이다. 정해지지 않은 빼기로 빠진 기기(엇갈림)도
+    // 뺀다: root가 서명한 빼기라 이 view에서 처음부터 효력이 있고, 그 기기가 낸 빼기가 효력을 잃어 그것이 뺀 쪽이 돌아온다.
     remove(id: string): Promise<Result<void>> {
       return run(async () => {
         const self = selfOf(view);
@@ -412,13 +415,16 @@ export function createRoster(deps: RosterDeps) {
             message: "this computer cannot remove itself from the roster",
           });
         }
-        const found = device(id);
+        const found =
+          device(id)?.body ??
+          view.removed.find((r) => !r.settled && r.entry?.id === id)?.entry ??
+          undefined;
         if (found === undefined) return notFound();
         const body: RosterRemovalBody = {
           type: "removal",
-          id: found.body.id,
-          key: found.body.key,
-          signing_key: found.body.signing_key,
+          id: found.id,
+          key: found.key,
+          signing_key: found.signing_key,
           at: deps.clock.now(),
         };
         return add([signed(body, self.id)]);

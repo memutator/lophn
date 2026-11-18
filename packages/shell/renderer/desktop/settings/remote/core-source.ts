@@ -200,6 +200,7 @@ export function coreRemoteSource(
             primary: device.id === primary,
             terminalInput: device.terminal_input,
             pending: device.pending,
+            disputed: device.disputed,
           })),
         },
       };

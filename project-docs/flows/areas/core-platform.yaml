@@ -1732,7 +1732,7 @@ flows:
     code: [packages/core/remote/host.ts, packages/core/remote/call.ts, packages/core/remote/roster.ts, packages/core/remote/devices.ts, packages/core/server/identity/registry.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/apps/views/table.ts]
     docs: [architecture/approval.md, architecture/event.md, architecture/remote.md]
     steps:
-      - "기기로 붙지 않은 연결(handshake 중과 join 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 16 KiB(ROSTER_JOIN_MAX_BYTES)까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름), phone?(폰의 os·화면)}, core는 판이 맞든 아니든 그 뒤에 {version 3, min_version 3, capabilities [], machine {id, name, addresses}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. addresses는 연결마다 다시 계산한 direct 주소 후보다: 설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 겹친 것을 빼고 16개까지. 모르는 칸은 버린다"
+      - "기기로 붙지 않은 연결(handshake 중과 join 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 16 KiB(ROSTER_JOIN_MAX_BYTES)까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름), phone?(폰의 os·화면)}, core는 판이 맞든 아니든 그 뒤에 {version 4, min_version 4, capabilities [], machine {id, name, addresses}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. addresses는 연결마다 다시 계산한 direct 주소 후보다: 설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 겹친 것을 빼고 16개까지. 모르는 칸은 버린다"
       - "판 범위: 붙는 쪽 version이 core min_version보다 낮으면 update client, core version이 붙는 쪽 min_version보다 낮으면 update host다. 양쪽 다 두 hello를 보고 conflict {details.update}로 닫고 core는 log에 같은 값을 남긴다. 붙는 쪽(폰, 다른 컴퓨터 core의 link, tools/remote-client.ts)은 저장한 core의 machine id를 connectRemote에 준다. core hello의 id가 다르면 hello 말고 아무 frame도 보내지 않고 conflict로 닫는다. 같은 key를 가진 복제된 기계에 join이나 call이 가지 않는다. 저장한 id를 대조한 연결에서만 core hello의 addresses로 저장한 주소 목록을 바꾼다(열린 direct 주소가 그 목록에 없으면 앞에 남긴다). id를 아직 모르는 연결은 주소를 바꾸지 않는다"
       - "받은 공개 key(base64url)를 main thread의 명단 view에서 찾는다. 있으면 frame 상한을 16 MiB로 올린다. 첫 frame이 join이면 remote-join이다. 명단의 key는 첫 frame이 join이 아니어도 그 기기로 붙는다. 명단에 없는 key가 join 아닌 frame(call, watch)을 보내면 closed(credential_revoked)를 보내고 닫는다(꺼져 있는 동안 빠진 기기가 다시 들어오기로 보이게 한다). 60초 안에 붙지 못해도 닫는다"
       - "붙으면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES와 REMOTE_PERSON_ROUTES의 합인 자격을 core 한 번에 하나 발급해 ledger에 기록한다(컴퓨터도 같다). 발급 뒤 key를 다시 찾아 그 사이 빠진 기기면 자격을 거두고 닫는다. 명단의 phone이면 devices/connected {id, name, phone}으로 이 컴퓨터의 행에 마지막 연결 시각과 알린 이름을 적는다. 행이 없으면(이 컴퓨터에 처음 붙는 폰) hello의 화면으로 행을 만들고(새 폰이 기준이 된다) commit 뒤 설정 shell.devices에 명단 이름의 항목을 더한다. devices/connected가 행의 마지막 알린 이름과 달랐다고 답하면(renamed: 폰에서 이름을 바꿨다) 이 컴퓨터가 그 이름으로 rev를 올려 서명한다(roster-rename과 같은 길). event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기가 빠지면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
@@ -2263,8 +2263,8 @@ flows:
     docs: [architecture/remote.md]
     steps:
       - "main thread의 명단 사본 하나가 고치기를 하나씩 한다. 기동 때 roster/statements(machine 자격)로 읽고 이 컴퓨터의 서명 key를 root로 view를 계산한다. 터미널 입력 허락(terminalInputGrant)과 기기 kind(deviceKind: phone, computer)는 이 view로 답한다"
-      - "저장한 것과 받은 것을 합치고 수명이 지난 초대 서명 statement를 버린 뒤 view를 계산한다. 초대 서명 statement는 checkInvited가 맞으면 서명하고, 서명자를 모르는 것만 남기고 나머지(expired, used, removed, id_taken, key_taken)는 버린다. view의 devices body와 settled인 removed body 가운데 아직 서명하지 않은 것에 서명한다. 서명이 늘지 않을 때까지 되풀이한다"
-      - "keep과 주소(기기마다 마지막에 받은 것, 이 컴퓨터의 것은 이 컴퓨터만)가 달라졌으면 roster/store(machine 자격)로 통째로 둔다. 같은 write에서 folded(같은 key의 큰 id → 작은 id)로 기기 행 id와 앱 sync log의 기기 칸을 바꾸고, 서명한 항목이 남지 않은 key의 기기 행을 지운다(push token도 같이). commit 뒤 shell.devices의 항목이 따라간다(접힌 id, 지운 행)"
+      - "저장한 것과 받은 것을 합치고 수명이 지난 초대 서명 statement를 버린 뒤 view를 계산한다. keep은 믿음에 들지 않은 statement(모르는 서명자, 모르는 초대장)를 canonical 글 순서로 앞선 ROSTER_UNKNOWN_MAX(512)개까지만 남겨 믿는 statement와 빼기가 4096 상한에 밀리지 않는다. 초대 서명 statement는 checkInvited가 맞으면 서명하고, 서명자를 모르는 것만 남기고 나머지(expired, used, removed, id_taken, key_taken)는 버린다. view의 devices body와 settled인 removed body 가운데 아직 서명하지 않은 것에 서명한다. 서명이 늘지 않을 때까지 되풀이한다"
+      - "keep과 주소(기기마다 마지막에 받은 것, 이 컴퓨터의 것은 이 컴퓨터만)가 달라졌으면 roster/store(machine 자격)로 통째로 둔다. 같은 write에서 folded(같은 key의 큰 id → 작은 id)로 기기 행 id와 앱 sync log의 기기 칸을 바꾸고, view가 뺀 key(removed)와 서명한 항목이 남지 않은 key의 기기 행을 지운다(push token도 같이). commit 뒤 shell.devices의 항목이 따라간다(접힌 id, 지운 행). 접힌 쌍은 기기 행이 이미 옮겨졌어도 저장마다 shell.devices를 다시 고친다(바뀌지 않으면 쓰지 않는다)"
       - "저장한 뒤 붙은 연결마다 roster frame을 민다. 그 다음 view에서 빠진 id의 자격을 거두고, key가 더는 그 id의 기기가 아닌 연결(뺀 key, 충돌한 key, 접힌 id)을 closed(credential_revoked)로 닫는다. 이름이 바뀐 기기의 shell.devices 항목 이름을 바꾼다. 빠진 것이 이 컴퓨터면 roster-forget이다"
     outcomes:
       - id: stored
@@ -2272,8 +2272,11 @@ flows:
       - id: unchanged
         when: "합쳐도 keep과 주소가 같다. 저장하지 않는다"
         observe: ["ledger:roster_statements"]
+      - id: unknown-capped
+        when: "믿음에 들지 않은 statement가 ROSTER_UNKNOWN_MAX를 넘었다. canonical 글 순서로 앞선 것만 남고 빼기와 믿는 항목은 그대로 저장된다"
+        observe: ["ledger:roster_statements"]
       - id: folded
-        when: "같은 key에 id가 여럿이다. 작은 id로 기기 행, 앱 sync log, shell.devices를 고친다. 다시 해도 같다"
+        when: "같은 key에 id가 여럿이다. 작은 id로 기기 행, 앱 sync log, shell.devices를 고친다. 저장마다 다시 하고 다시 해도 같다(commit과 설정 쓰기 사이에 죽어도 다음 저장이 shell.devices를 고친다)"
         observe: ["ledger:devices", "ledger:app_sync_log", "disk:<root>/settings.json"]
       - id: device-dropped
         when: "기기가 명단에서 빠졌다(빼기, 뺀 컴퓨터만 서명한 항목, 충돌). 기기 행과 push token, shell.devices 항목이 지워지고 붙은 연결은 빼기가 든 명단을 받은 뒤 닫힌다"
@@ -2302,7 +2305,8 @@ flows:
     docs: [architecture/remote.md]
     steps:
       - "key가 있으면 기계 이름이 바뀌었는지 보고 자기 항목을 다시 서명한다(roster-identity:renamed)"
-      - "view의 기기마다 id, kind, 명단의 이름, os, machine, 터미널 입력 허락, 이 컴퓨터인지, pending(초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않음: 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터. 초대 없이 선 혼자인 컴퓨터는 아니다), 마지막 연결(폰은 이 컴퓨터의 기기 행, 컴퓨터는 이 core가 사는 동안 그 컴퓨터와의 link가 마지막으로 붙었거나 끊긴 때. 없으면 null)을 id 순서로 준다. this는 이 컴퓨터의 id이고 key가 없으면 null이다"
+      - "view의 기기마다 id, kind, 명단의 이름, os, machine, 터미널 입력 허락, 이 컴퓨터인지, disputed false, pending(초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않음: 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터. 초대 없이 선 혼자인 컴퓨터는 아니다), 마지막 연결(폰은 이 컴퓨터의 기기 행, 컴퓨터는 이 core가 사는 동안 그 컴퓨터와의 link가 마지막으로 붙었거나 끊긴 때. 없으면 null)을 id 순서로 준다. this는 이 컴퓨터의 id이고 key가 없으면 null이다"
+      - "그 뒤에 정해지지 않은 빼기(두 컴퓨터가 서로 뺐다)로 빠진 기기를 disputed true, pending false, this false로 싣는다. 칸은 그 key의 T0 이긴 항목(접힌 id)에서 온다. 화면은 그 줄에 Disputed, 한 줄 설명, Remove만 보인다"
       - "removed_at은 다른 컴퓨터가 이 컴퓨터를 빼 명단과 key를 버린 때다(roster-forget:removed-from-roster). core의 메모리에만 있어 다시 뜨면 null이고 roster/join으로 다시 들면 null이 된다. 화면은 My devices 위에 그 일을 알린다"
     outcomes:
       - id: ok
@@ -2326,17 +2330,21 @@ flows:
     code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts, packages/shell/renderer/desktop/settings/remote/my-devices.tsx]
     docs: [architecture/remote.md]
     steps:
-      - "view에서 그 id의 기기를 찾아 빼기 {id, key, signing_key(컴퓨터면 그 서명 key, 폰은 null), at}에 이 컴퓨터가 서명해 저장한다(roster-commit:device-dropped)"
+      - "view에서 그 id의 기기를 찾아 빼기 {id, key, signing_key(컴퓨터면 그 서명 key, 폰은 null), at}에 이 컴퓨터가 서명해 저장한다(roster-commit:device-dropped). 빼기는 key와 서명 key로만 빼고 id 칸으로는 아무것도 빼지 않는다"
+      - "devices에 없으면 settled가 아닌 removed(엇갈린 빼기로 빠진 기기) 가운데 entry의 id가 같은 것을 찾아 그 key와 서명 key로 빼기에 서명한다. root가 서명한 빼기라 이 view에서 처음부터 효력이 있고, 그 기기가 낸 빼기가 효력을 잃어 그것이 뺀 쪽이 돌아온다(disputed)"
     outcomes:
       - id: ok
         observe: ["response", "ledger:roster_statements", "ledger:devices"]
+      - id: disputed
+        when: "엇갈린 빼기로 빠진 기기를 뺐다. 그 기기만 빠지고 그 기기가 뺀 쪽이 명단에 돌아온다"
+        observe: ["response", "ledger:roster_statements"]
       - id: invalid_input
         code: invalid_input
         when: "이 컴퓨터 자신이다"
         observe: ["response"]
       - id: not_found
         code: not_found
-        when: "명단에 그 id의 기기가 없다"
+        when: "명단에 그 id의 기기가 없고 엇갈린 빼기로 빠진 기기도 아니다"
         observe: ["response"]
       - id: unavailable
         code: unavailable
@@ -2358,13 +2366,13 @@ flows:
     code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts]
     docs: [architecture/remote.md]
     steps:
-      - "부른 principal이 device:<id>여야 한다. 그 id에 roster-remove와 같은 빼기를 이 컴퓨터가 서명해 저장한다. 그 key는 다시 들지 못하고 폰은 다음에 새 key로 든다"
+      - "부른 principal이 device:<id>여야 하고 그 기기가 컴퓨터가 아니어야 한다(컴퓨터는 다른 컴퓨터에서 빼기로만 나간다). 그 id에 roster-remove와 같은 빼기를 이 컴퓨터가 서명해 저장한다. 그 key는 다시 들지 못하고 폰은 다음에 새 key로 든다"
     outcomes:
       - id: ok
         observe: ["response", "ledger:roster_statements"]
       - id: forbidden
         code: forbidden
-        when: "기기 자격이 아니다(사람 token, machine)"
+        when: "기기 자격이 아니다(사람 token, machine), 또는 부른 기기가 컴퓨터다(연결된 컴퓨터의 화면이 넘긴 call)"
         observe: ["response"]
       - id: not_found
         code: not_found

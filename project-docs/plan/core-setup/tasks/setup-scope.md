@@ -59,3 +59,9 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## wave 1이 merge된 뒤 (lead가 더함)
+
+- 사람 route 목록에 더한다(`setup-provider`, `setup-project`가 낸 것): `providerConnectKey`(`providers/connect-key`, upload), `providerConnectLocal`, `providerSignIn`, `providerSignInState`(`packages/protocol/lophn-agent/providers.ts`), `inputRequestAnswerSecret`(`input_request/answer_secret`, upload, `packages/protocol/lophn-agent/input-request.ts`), `projectAdd`·`projectBrowse`(`packages/protocol/projects/add-api.ts`). 이 route들은 안에서 부른 사람(기기)의 자격으로 `providers/list`를 읽고 `providers/connect`·`projects/create`를 writer에 보내므로 `providerList`, `connectProvider`, `projectApi.register`는 목록에 남는다.
+- 기기에서 시작한 로그인·연결 뒤 core가 model 목록을 그 자격으로 기록한다(`RecordProviderModels`). 그 command가 기기 자격의 scope 밖이면 기록이 조용히 실패하고 처음 쓸 때 다시 읽는다. code에서 actor를 보고 scope에 넣을지 정한다(actor user면 사람 목록에, machine만이면 보고한다).
+- 위험 test의 "허락 없는 기기" 표에 `providers/connect-key`와 `input_request/answer_secret`을 더한다(값이 handler에 닿지 않는다).

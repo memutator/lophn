@@ -5,8 +5,8 @@ lead만 고친다. `tools/status.py core-browser build`가 `tasks/*.md`에서 id
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `page-contract` | page | 1 | 없음 | merged | page/page-contract | 95de8ac17 |  |
-| `page-stream` | page | 2 | page-contract | todo |  |  |  |
-| `page-view-core` | page | 2 | page-contract | todo |  |  |  |
+| `page-stream` | page | 2 | page-contract | running | page/page-stream |  |  |
+| `page-view-core` | page | 2 | page-contract | running | page/page-view-core |  |  |
 | `page-host` | page | 3 | page-stream | todo |  |  |  |
 | `page-view-desktop` | page | 3 | page-view-core | todo |  |  |  |
 | `page-view-phone` | page | 3 | page-view-core | todo |  |  |  |

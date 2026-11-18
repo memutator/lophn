@@ -81,7 +81,8 @@ function startDesktop(): void {
   // 떠 있는 것이 page host면 물러나며 이 시작을 다시 띄운다. page host의 env에는 display가 없어 이 env를 같이 보낸다(page-host/main.ts).
   const lock = {
     requestSingleInstanceLock: (data: { dataRoot: string }) =>
-      app.requestSingleInstanceLock({ ...data, env: process.env }),
+      // Electron의 process.env는 structured clone이 안 돼 lock 요청이 던진다. 평범한 객체로 옮긴다.
+      app.requestSingleInstanceLock({ ...data, env: { ...process.env } }),
     quit: () => app.quit(),
   };
   if (!acquireSingleInstance(lock, dataRoot)) return;

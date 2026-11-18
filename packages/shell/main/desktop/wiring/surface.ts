@@ -276,9 +276,9 @@ export function register(
   function visibleWorkspaces(): Workspace[] {
     const found: Workspace[] = [];
     for (const window of ctx.windows) {
+      if (window.isDestroyed()) continue;
       const at = shown.get(window.webContents.id);
       if (
-        !window.isDestroyed() &&
         !ctx.detached.has(window) &&
         at !== undefined &&
         !found.some((item) => sameWorkspace(item, at))

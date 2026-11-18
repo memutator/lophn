@@ -440,6 +440,7 @@ flows:
     code:
       - packages/shell/main/page-host/main.ts
       - packages/shell/main/page-host/pages.ts
+      - packages/shell/main/page-host/relaunch.ts
       - packages/shell/main/desktop/main.ts
       - packages/shell/main/desktop/launch-mode.ts
       - packages/shell/main/desktop/open-intent.ts
@@ -448,10 +449,10 @@ flows:
     steps:
       - "shell main entry가 argv의 `--page-host`를 보고 desktop 조립(창, tray, renderer, terminal host, extension, 전역 단축키)을 거치지 않고 page host로 선다. userData를 data root의 browser 자리로 잡고 single instance lock을 잡는다. desktop 앱과 같은 lock이라 한 기계에서 같이 돌지 않는다(나중에 뜬 쪽이 끝난다)"
       - "core에 붙고(core 연결) /host-link에 host로 붙는다. 보이는 workspace는 빈 목록이라 workspace에 묶인 탭 요청은 오지 않는다. browser session 규칙(permission, user agent)을 desktop과 같이 한 번 건다. 저장 dialog를 띄울 화면이 없어 download는 모두 거절한다"
-      - "browser 탭의 tab_open은 탭마다 offscreen 창 하나(browser partition, sandbox)를 만들고 frame rate를 10으로 둔다. 빈 page를 먼저 연 뒤 debugger를 emulation owner로 붙여 1280x800 크기를 주고(아무것도 load하지 않은 page에 보내면 process가 죽는다) opened로 답하고 첫 주소를 load한다. 첫 주소와 page 안의 main frame 이동·redirect는 navigation 규칙을 지난다(첫 주소가 못 지나면 빈 page). popup과 webview 붙이기는 거절한다. 이미 page가 있는 탭이면 다시 만들지 않는다"
+      - "browser 탭의 tab_open은 탭마다 offscreen 창 하나(browser partition, sandbox)를 만들고 frame rate를 10으로 둔다. 빈 page를 먼저 연 뒤 debugger를 emulation owner로 붙여 1280x800 크기를 주고(아무것도 load하지 않은 page에 보내면 process가 죽는다. main frame이 옮길 때마다 다시 건다: 안 걸면 screencast가 1x1 창을 찍고 멈춘다) opened로 답하고 첫 주소를 load한다. 첫 주소와 page 안의 main frame 이동·redirect는 navigation 규칙을 지난다(첫 주소가 못 지나면 빈 page). popup과 webview 붙이기는 거절한다. 이미 page가 있는 탭이면 다시 만들지 않는다"
       - "page가 12개면 가장 오래 쓰지 않은 page(browser_call과 열기가 쓴 때)를 닫는다. url·title·loading이 바뀌면 report를, page가 닫히거나 renderer가 죽으면 report closed를 보내고 그 탭의 take control과 stream을 지운다"
       - "tab_close는 page를 닫고 done, tab_show는 done이다. browser_call은 desktop과 같은 driver로 돌린다(browser-call-run). page_stream·page_read·page_input·page_control은 desktop과 같은 stream이 받는다. 연결이 다시 열리면 stream을 다 끈다(core가 lease마다 다시 켠다)"
-      - "/host-link가 60초 넘게 닫혀 있으면 core가 없는 것으로 보고 끝난다. second-instance로 `--quit`이 오면 끝난다. `--page-host`·`--core`가 아닌 그 밖의 시작(사람이 앱을 누름)은 그 시작이 lock 요청에 실어 보낸 env에 display가 있으면 그 env와 인자·자리로 그 시작을 다시 띄우게 해 두고 끝난다(page host의 env에는 display가 없다). display가 없는 시작이면 page host가 남는다. 이미 떠 있는 desktop 앱이 second-instance로 `--page-host`를 받으면 `--agent-window`와 같게 읽는다"
+      - "/host-link가 60초 넘게 닫혀 있으면 core가 없는 것으로 보고 끝난다. second-instance로 `--quit`이 오면 끝난다. `--page-host`·`--core`가 아닌 그 밖의 시작(사람이 앱을 누름)은 그 시작이 lock 요청에 실어 보낸 env에 display가 있으면 page host 자신의 data root(`--home`과 LOPHN_HOME)로 desktop 앱을 다시 띄우게 해 두고 끝난다. 그 env에서는 화면 값만 가져온다(page host의 env에는 display가 없다). 그 시작의 argv와 LOPHN_HOME은 쓰지 않는다(Chromium이 switch를 다시 늘어놓아 `--home` 값이 떨어질 수 있다). display가 없는 시작이면 page host가 남는다. 이미 떠 있는 desktop 앱이 second-instance로 `--page-host`를 받으면 `--agent-window`와 같게 읽는다"
     outcomes:
       - id: opened
         when: "browser 탭 열기에 offscreen page를 만들었다"
@@ -474,7 +475,7 @@ flows:
         observe: ["process:page host가 끝난다", "log:core is gone; quitting"]
       - id: yielded
         when: "page host가 떠 있는데 display가 있는 env에서 사람이 lophn 앱을 눌렀다"
-        observe: ["process:page host가 끝나고 그 시작이 desktop 앱으로 다시 뜬다(한 번 누름)"]
+        observe: ["process:page host가 끝나고 같은 data root의 desktop 앱이 뜬다(한 번 누름)"]
       - id: quit
         when: "`--quit`이 왔다"
         observe: ["process:page host가 끝난다"]

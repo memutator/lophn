@@ -67,17 +67,20 @@ export function createPageHostPages(
     contents.on("render-process-gone", () => close(tab));
 
     // 아무것도 load하지 않은 page에 크기 emulation을 보내면 process가 죽는다(headless, 확인함). 빈 page를 먼저 연다.
-    // override는 그 뒤 다른 site로 옮겨 renderer가 바뀌어도 남는다. owner는 page가 사는 동안 떼지 않는다(떼면 풀린다).
+    // owner는 page가 사는 동안 떼지 않는다(떼면 override가 풀린다).
+    const page = pageOf(contents);
+    const emulate = () => page.send("Emulation.setDeviceMetricsOverride", SIZE);
     try {
       await contents.loadURL("about:blank");
-      const page = pageOf(contents);
       page.attach("emulation");
-      await page.send("Emulation.setDeviceMetricsOverride", SIZE);
+      await emulate();
     } catch (thrown) {
       close(tab);
       throw thrown;
     }
     if (contents.isDestroyed()) return;
+    // 이동한 뒤에도 screenshot과 innerWidth는 override를 따르지만 screencast는 1x1 창을 찍고 멈춘다. main frame이 옮길 때마다 다시 건다.
+    contents.on("did-navigate", () => void emulate().catch(() => {}));
 
     let last = "";
     const changed = () => {

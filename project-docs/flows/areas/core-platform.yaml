@@ -2673,7 +2673,7 @@ flows:
     entries: [route:machines/app_tools]
     uses: [system:machine-links]
     boundary: [core-api, remote]
-    code: [packages/protocol/remote/routes.ts, packages/protocol/remote/requester.ts]
+    code: [packages/protocol/remote/routes.ts, packages/protocol/machine/requester.ts]
     docs: [architecture/app-call.md, architecture/approval.md]
     steps:
       - "route 정의만 있다. handler는 아직 없다(`use-send`가 짓는다): core 안 machine 자격만 부르고, 그 agent의 할당 가운데 다른 기계 앱마다 그 기계에 요청한 쪽 {kind: agent, session: null}로 apps/tools를 부른다"

@@ -218,6 +218,7 @@ const EMPTY_DEFAULT_LISTS = [
   "mcp_off",
   "mcp_servers",
   "apps",
+  "remote_apps",
   "extensions",
 ] as const;
 

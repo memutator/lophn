@@ -96,7 +96,7 @@ import type { ManifestBody } from "../../../../protocol/remote/carry.ts";
 import type {
   MachineCandidate,
   Requester,
-} from "../../../../protocol/remote/requester.ts";
+} from "../../../../protocol/machine/requester.ts";
 import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";

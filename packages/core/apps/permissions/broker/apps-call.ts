@@ -38,8 +38,13 @@ export function createAppsCallService(deps: {
           message: "only a live app process calls other apps",
         });
       }
+      // `machine`이 있으면 다른 컴퓨터의 앱이다. 같은 id의 이 컴퓨터 앱을 부르면 안 되므로 remote target으로 core에 넘긴다.
+      const target: ToolCallInput["target"] =
+        input.machine === undefined
+          ? { mode: "live", app: input.target_app, release: null }
+          : { mode: "remote", machine: input.machine, app: input.target_app };
       const called = await deps.core.call(child, {
-        target: { mode: "live", app: input.target_app, release: null },
+        target,
         kind: "command",
         name: input.command,
         ...(input.input === undefined ? {} : { input: input.input }),

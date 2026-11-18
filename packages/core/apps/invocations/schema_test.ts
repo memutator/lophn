@@ -130,9 +130,9 @@ test("remote-caller step은 표를 다시 짜도 모든 행과 index와 trigger�
   const insert = db.prepare(
     `INSERT INTO invocations
        (id, app, release, mode, operation, caller, caller_kind, session, turn, effect, status,
-        started_at, finished_at, input_hash, summary, changeset_hash, changeset_size, reverted_by)
+        started_at, finished_at, input_hash, summary, detail_hash, changeset_hash, changeset_size, reverted_by)
      VALUES (?, 'app_1', 'rel_1', 'live', '{"kind":"command","name":"x"}', ?, ?, ?, ?, 'write', 'succeeded',
-        '2026-10-16T00:00:00.000Z', '2026-10-16T00:00:01.000Z', ?, '{}', ?, 10, 'rwd_1')`,
+        '2026-10-16T00:00:00.000Z', '2026-10-16T00:00:01.000Z', ?, '{}', ?, ?, 10, 'rwd_1')`,
   );
   callers.forEach((caller, index) => {
     insert.run(
@@ -143,16 +143,32 @@ test("remote-caller step은 표를 다시 짜도 모든 행과 index와 trigger�
       caller.kind === "agent" ? "trn_1" : null,
       hash,
       hash,
+      hash,
     );
   });
-  const schemaOf = () =>
-    db
+  // 어느 열을 옮기다 빠뜨려도 잡히려면 모든 열이 어느 행에선가 값을 가져야 한다.
+  const columns = db.prepare("PRAGMA table_info(invocations)").all() as {
+    name: string;
+  }[];
+  for (const { name } of columns) {
+    const filled = db
       .prepare(
-        `SELECT name, sql FROM sqlite_master
-          WHERE tbl_name = 'invocations' AND type IN ('index', 'trigger') AND sql IS NOT NULL
-          ORDER BY name`,
+        `SELECT count(*) AS n FROM invocations WHERE ${name} IS NOT NULL`,
       )
-      .all();
+      .get() as { n: number };
+    assert.ok(filled.n > 0, `column ${name} is filled in a fixture row`);
+  }
+  // 표의 정의(열과 CHECK)도 index·trigger와 같이 본다. caller 종류 목록만 달라야 한다.
+  const schemaOf = (callerKinds = "") =>
+    (
+      db
+        .prepare(
+          `SELECT name, sql FROM sqlite_master
+            WHERE tbl_name = 'invocations' AND sql IS NOT NULL
+            ORDER BY name`,
+        )
+        .all() as { name: string; sql: string }[]
+    ).map((row) => ({ ...row, sql: row.sql.replace(callerKinds, "") }));
   const rowsOf = () =>
     db.prepare("SELECT * FROM invocations ORDER BY id").all();
   const beforeRows = rowsOf();
@@ -168,7 +184,7 @@ test("remote-caller step은 표를 다시 짜도 모든 행과 index와 trigger�
   db.exec(invocationsRemoteCallerSchemaSteps[0].sql);
 
   assert.deepStrictEqual(rowsOf(), beforeRows);
-  assert.deepStrictEqual(schemaOf(), beforeSchema);
+  assert.deepStrictEqual(schemaOf(", 'remote'"), beforeSchema);
   db.exec(
     `INSERT INTO invocations (id, app, release, mode, operation, caller, caller_kind, effect, status, finished_at, summary)
      VALUES ('inv_remote', 'app_1', 'rel_1', 'live', '{"kind":"command","name":"x"}',

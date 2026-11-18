@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Requester } from "../../../protocol/remote/requester.ts";
+import type { Requester } from "../../../protocol/machine/requester.ts";
 import type {
   AgentId,
   Workspace,

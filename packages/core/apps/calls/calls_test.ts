@@ -110,7 +110,8 @@ function setup() {
     // agentToolCall이 돌려주는 agent와 workspace. agent가 null이면 tool call을 모른다.
     agent: "lophn_home" as AgentId | null,
     workspace: null as Workspace | null,
-    // 이름에 "priv."가 붙은 tool만 비공개다. 기본 tool은 공개다.
+    // 다른 기계로 넘긴 호출.
+    forwarded: [] as Parameters<AppCallsDeps["forward"]>[0][],
   };
 
   const ledger: Pick<InvocationLedger, "begin" | "finish" | "recordOnce"> = {
@@ -203,8 +204,15 @@ function setup() {
       ),
     clock,
     ids,
-    forward: () =>
-      Promise.resolve(err({ code: "internal", message: "unused" })),
+    forward: (call) => {
+      state.forwarded.push(call);
+      return Promise.resolve(
+        ok({
+          invocation: null,
+          outcome: { status: "succeeded", result: null },
+        }),
+      );
+    },
   };
   const calls = createAppCalls(deps);
   return { ...calls, sent, records, state };
@@ -960,6 +968,80 @@ test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할
       assert.deepStrictEqual(t.sent.length, 1, name);
     }
   }
+});
+
+// 받은 call이 A에서 B를 거쳐 C로 닿으면 B의 허락이 A에 넓어진다. 받은 call을 돌리는 중인 앱도 다른 기계로 넘기지 못한다.
+test("받은 remote call은 다른 기계로 다시 넘기지 않고 이 기계의 agent의 call만 넘긴다", async () => {
+  const t = setup();
+  const from = newApp();
+  const to = newApp();
+  const remoteTarget = { mode: "remote", machine: "work", app: to } as const;
+  const base = {
+    target: remoteTarget,
+    kind: "command",
+    name: "r.get",
+  } as const;
+  const requester = { kind: "screen" } as const;
+  const machine = ids.newId("mch") as Id<"mch">;
+  const device = ids.newId("dev") as Id<"dev">;
+  const remoteAuth: CallAuth = {
+    actor: "remote",
+    remote: { machine, device, requester },
+  };
+  // 받은 call을 돌리는 중인 호출과 이 기계의 호출. 받은 call의 입구가 아직 없어 도는 호출 표에 직접 넣는다.
+  const flight = (id: Id<"inv">, remote: boolean) =>
+    (t.intake as unknown as { enter(f: unknown): void }).enter({
+      id,
+      app: from,
+      release: REL,
+      mode: "live",
+      parent: null,
+      remote,
+      abandon: () => Promise.resolve(),
+    });
+  const served = ids.newId("inv") as Id<"inv">;
+  const local = ids.newId("inv") as Id<"inv">;
+  flight(served, true);
+  flight(local, false);
+  const appCall = (parent: Id<"inv">) =>
+    t.path.call(
+      {
+        ...base,
+        caller: {
+          kind: "app",
+          app: from,
+          release: REL,
+          parent_invocation: parent,
+        },
+      },
+      { actor: "app", app: from },
+    );
+
+  const viaRemote = await t.path.call(
+    { ...base, caller: { kind: "remote", machine, device, requester } },
+    remoteAuth,
+  );
+  assert.ok(!viaRemote.ok, "remote caller");
+  const viaServedApp = await appCall(served);
+  assert.ok(
+    !viaServedApp.ok && viaServedApp.error.code === "forbidden",
+    "app serving a received call",
+  );
+  assert.equal(t.state.forwarded.length, 0);
+
+  assert.ok((await appCall(local)).ok, "app on its own");
+  const byAgent = await t.path.call(
+    {
+      ...base,
+      caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+    },
+    { actor: "agent" },
+  );
+  assert.ok(byAgent.ok, "local agent");
+  assert.deepStrictEqual(
+    t.state.forwarded.map((call) => call.caller.kind),
+    ["app", "agent"],
+  );
 });
 
 test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {

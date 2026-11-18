@@ -76,6 +76,10 @@ files:
     covers: []
     note: "currentAccess: activation이 띄운 후보(채택 commit 전)의 시작 code는 읽기(sessions)는 그 release 선언으로 받고 쓰기는 unavailable이며, 교체된 옛 release의 자식은 받지 못함. broker 공통 판정 내부 함수라 flow outcome이 없다"
 
+  - path: packages/core/apps/permissions/broker/apps-call_test.ts
+    covers: []
+    note: "broker의 앱 호출 본문에 machine이 있으면 core에 remote target으로만 가고 같은 id의 이 컴퓨터 앱(live target)으로 가지 않는다. machine이 없으면 live 활성 release다"
+
   - path: packages/core/apps/permissions/broker/net-fetch_test.ts
     covers: [app-broker-net-fetch:fetched, app-broker-net-fetch:refused, app-broker-net-fetch:invalid-input]
     note: "loopback host는 http, 그 밖은 https, 플랫폼 port는 막음, https에서 loopback http로 내려가는 redirect는 거절, secret은 같은 invocation의 정확한 목적지 요청에만 붙음(redirect hop에는 안 붙음은 app-broker-net-fetch:fetched), credential header는 invalid_input"

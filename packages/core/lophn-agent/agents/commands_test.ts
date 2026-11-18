@@ -31,7 +31,7 @@ const lookups: AgentLookups = {
   workspaceModel: () => null,
 };
 
-test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·extensions·permissions을 넣지 못한다", async () => {
+test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·remote_apps·extensions·permissions을 넣지 못한다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const files = createNodeAgentFiles();
@@ -125,6 +125,14 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
       skip: true,
       mcp_servers: [],
       apps: ["notes"],
+      remote_apps: [
+        {
+          machine: "mch_00000000000000000000000001",
+          app: "app_00000000000000000000000001",
+          name: "notes",
+          removed: [],
+        },
+      ],
       extensions: ["web"],
       permissions: { deny: ["lophn(notes read)"] },
     };
@@ -158,6 +166,22 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
     );
     assert.ok(!refusedChange.ok);
     assert.equal(refusedChange.error.code, "forbidden");
+    const refusedRemote = commands.change.handle(
+      tx,
+      agent,
+      {
+        agent: LOPHN_HOME_ID,
+        definition: {
+          handle: "lophn",
+          name: "lophn",
+          body: "x",
+          remote_apps: humanOnly.remote_apps,
+        },
+      } as never,
+      { hash: beforeHash },
+    );
+    assert.ok(!refusedRemote.ok);
+    assert.equal(refusedRemote.error.code, "forbidden");
 
     const after = store.read(lophnSlot);
     assert.ok(after.ok && after.value?.hash === beforeHash);

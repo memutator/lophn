@@ -299,13 +299,7 @@ const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 // workspaces.ts → harness-adapter.ts뿐이고 둘 다 terminals.ts에 닿지 않아 실행 순환이 아니다(관계 목록을 한 곳에 두려고 복사하지 않는다).
 // phone/drive.ts가 view id 규칙(appViewIdSchema)을 views.ts에서 받는다. apps/phone-request.ts가 phone의 PhoneKind type만 import하고
 // views.ts는 phone을 import하지 않아 실행 순환이 아니다(id 규칙을 한 곳에 두려고 복사하지 않는다).
-// apps/calls가 요청한 쪽과 기계를 고르는 글의 schema를 remote/requester.ts에서 받는다. requester.ts는 base·machine·lophn-agent/workspaces.ts(base만
-// import)의 leaf라 실행 순환이 아니다. 두 쪽(call frame의 `by`, 호출 기록의 caller)이 같은 schema를 쓰려고 복사하지 않는다.
 const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
-  "packages/protocol/apps/calls/broker.ts\0../../remote/requester.ts",
-  "packages/protocol/apps/calls/call.ts\0../../remote/requester.ts",
-  "packages/protocol/apps/calls/caller.ts\0../../remote/requester.ts",
-  "packages/protocol/apps/calls/remote.ts\0../../remote/requester.ts",
   "packages/protocol/phone/drive.ts\0../apps/views.ts",
   "packages/protocol/base/route.ts\0../events/changes.ts",
   "packages/protocol/apps/annotation.ts\0../lophn-agent/workspaces.ts",

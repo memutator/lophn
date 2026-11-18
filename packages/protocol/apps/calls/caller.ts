@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../../base/ids.ts";
 import { appIdSchema } from "../../projects/values.ts";
-import { requesterSchema } from "../../remote/requester.ts";
+import { requesterSchema } from "../../machine/requester.ts";
 import {
   APP_CALL_DEPTH_LIMIT,
   invocationIdSchema,

@@ -7,7 +7,7 @@ import {
   toolKeySchema,
 } from "../channel-values.ts";
 import { appIdSchema } from "../../projects/values.ts";
-import { machineRefSchema } from "../../remote/requester.ts";
+import { machineRefSchema } from "../../machine/requester.ts";
 import { toolCallOutputSchema } from "./call.ts";
 
 // 앱 process가 broker socket으로 부르는 경로.

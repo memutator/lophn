@@ -63,12 +63,21 @@ test("modality는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도
 });
 
 // serializer는 whitelist라 `extensions`를 빠뜨리면 사람이 할당한 extension이 저장 때 조용히 사라진다.
-test("extensions는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도 읽힌다", () => {
+test("extensions와 remote_apps는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도 읽힌다", () => {
   const target = { agent: AGENT } as const;
   const definition = {
     handle: "browser-user",
     name: "browser-user",
     extensions: ["browser-use", "web"],
+    // 다른 기계의 앱 할당도 같은 whitelist를 지난다.
+    remote_apps: [
+      {
+        machine: "mch_00000000000000000000000001",
+        app: "app_00000000000000000000000001",
+        name: "monitor",
+        removed: ["stop"],
+      },
+    ],
     body: "Use the tools.",
   };
   const saved = serializeAgentFile(definition, target);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineMemory } from "../../base/route.ts";
 import { appIdSchema } from "../../projects/values.ts";
-import { machineRefSchema } from "../../remote/requester.ts";
+import { machineRefSchema } from "../../machine/requester.ts";
 import { secretNameSchema } from "../../secrets/secrets.ts";
 import {
   invocationIdSchema,

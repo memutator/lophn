@@ -15,7 +15,10 @@ import {
   remoteDeviceSchema,
   remotePhoneSchema,
 } from "./frames.ts";
-import { machineCandidateSchema, machineRefSchema } from "./requester.ts";
+import {
+  machineCandidateSchema,
+  machineRefSchema,
+} from "../machine/requester.ts";
 import {
   ROSTER_STATEMENTS_MAX,
   rosterEntryBodySchema,
@@ -394,6 +397,7 @@ export const machinesList = defineMemory({
 });
 
 // 다른 기계의 route 하나를 이 컴퓨터 core의 연결로 부른다. `machine`은 컴퓨터 이름, `mch_`, `dev_` 가운데 하나다(화면은 `mch_`를 준다).
+// `mch_`·`dev_`로 시작하는 글은 id로만 찾는다(id를 먼저 시도하고 이름으로는 찾지 않는다). 이름이 id처럼 생긴 컴퓨터는 그 id로만 닿는다.
 // 받는 기계는 `device:<이 컴퓨터의 id>`인 컴퓨터가 부른 것으로 보고, 요청한 쪽(call frame의 `by`)으로 지금의 기기 route 목록을
 // 거르고 그 종류마다 대한다. 요청한 쪽은 core가 부른 자격으로 정한다. 살아 있는 `shell_capability`면 `screen`(이 기계의 화면),
 // 칸이 없으면 사람의 CLI token이라 `terminal`이고, 있는데 살아 있지 않으면 forbidden이다. 입력의 다른 칸으로 요청한 쪽을 싣는 길은 없다.

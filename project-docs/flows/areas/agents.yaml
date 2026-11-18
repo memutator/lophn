@@ -36,7 +36,7 @@ flows:
     code: [packages/core/lophn-agent/agents/commands.ts, packages/core/lophn-agent/agents/validate.ts, packages/core/lophn-agent/agents/definition-file.ts]
     steps:
       - Agents 화면이 정의 전체(handle, name, workspace, profile, runtime 등과 본문)를 agents/create로 보낸다
-      - agent 자격이 부르면 mcp_servers, skip, apps, extensions, permissions를 거절하고, 범위는 부른 session의 workspace로 정한다(home이면 전역)
+      - agent 자격이 부르면 mcp_servers, skip, apps, remote_apps, extensions, permissions를 거절하고, 범위는 부른 session의 workspace로 정한다(home이면 전역)
       - 사람이 낸 id가 이미 있으면 거절하고, id가 없으면 core가 새로 정한다
       - checkAgent가 파일 모양, 도구 이름, handle 중복과 예약 이름, 새 handle 모양, 범위 workspace의 존재를 검사한다
       - 통과하면 agents/<id>.md를 쓰고 저장하지 않은 옛 avatar 이미지를 지운다
@@ -45,7 +45,7 @@ flows:
         observe: [disk:agents/<id>.md, disk:agents/<id>/avatar.<ext>]
       - id: human-only-field
         code: forbidden
-        when: agent 자격이 mcp_servers, skip, apps, extensions, permissions 가운데 하나를 냈다
+        when: agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions 가운데 하나를 냈다
         observe: [response]
       - id: agent-exists
         code: conflict
@@ -75,7 +75,7 @@ flows:
     steps:
       - 정의 전체와 읽을 때의 hash(compare)를 agents/change로 보낸다
       - hash가 file과 다르면 conflict로 거절한다
-      - agent 자격이 mcp_servers, skip, apps, extensions, permissions 가운데 하나를 바꾸면 거절한다
+      - agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions 가운데 하나를 바꾸면 거절한다
       - lophn의 profile이 고정 값과 다르면 거절한다
       - 정의가 있는 agent의 handle과(lophn 포함) 범위 workspace는 만들 때 정한 값과 같아야 한다
       - checkAgent 뒤 파일 전체를 새 내용으로 쓴다. 쓰지 않은 칸은 지워진다

@@ -9,7 +9,7 @@ import {
   phoneRequestFrameSchema,
   phoneResponseFrameSchema,
 } from "../phone/link.ts";
-import { requesterSchema } from "./requester.ts";
+import { requesterSchema } from "../machine/requester.ts";
 import {
   deviceNameSchema,
   keyTextSchema,

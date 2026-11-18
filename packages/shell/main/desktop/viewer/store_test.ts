@@ -43,8 +43,6 @@ test("the device key is made once (0600) and kept; a copied data root starts ove
           port: 47432,
           key: "k".repeat(43),
           machine: HOST,
-          device: "dev_01hzzzzzzzzzzzzzzzzzzzzzzz",
-          revoked: false,
         },
       ],
       start: { mode: "machine", machine: HOST },

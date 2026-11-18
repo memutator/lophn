@@ -8,10 +8,11 @@ export {
   type ComputerStatus,
   createComputers,
   defaultName,
+  type JoinSelf,
   type Link,
   linkStateOf,
   type LinkState,
-  type PairResult,
+  ownStatements,
   type SampleComputer,
   sampleFor,
 } from "./computers.ts";
@@ -28,6 +29,7 @@ export {
   createConnection,
   type Dial,
   type Endpoint,
+  type Joined,
   type Opened,
   openFirst,
   type Outdated,
@@ -35,9 +37,15 @@ export {
   type WatchConditions,
 } from "./connection.ts";
 export {
+  type JoinEntry,
+  type JoinFailure,
+  type JoinResult,
+  join,
+  leave,
   type PairDevice,
   type PairFailure,
   pair,
+  parseInviteText,
   parsePairingText,
   unpair,
 } from "./pairing.ts";

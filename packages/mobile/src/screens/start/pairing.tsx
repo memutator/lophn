@@ -133,19 +133,20 @@ function Progress({
   );
 }
 
-// The code was read: pair with it, then wait for the first connection to open.
+// The code was read: join with it, then wait for the first connection to open.
 export function PairingScreen({
   navigation,
   route,
 }: NativeStackScreenProps<RootParams, "pairing">) {
-  const { qr } = route.params;
+  const { invite } = route.params;
   const { add, computers } = useComputers();
   const [paired, setPaired] = useState(false);
-  const status = computers.find((one) => one.key === qr.key)?.status;
+  const key = invite.issuer.body.key;
+  const status = computers.find((one) => one.key === key)?.status;
 
   useEffect(() => {
     let live = true;
-    void add(qr).then((failure) => {
+    void add(invite).then((failure) => {
       if (!live) return;
       if (failure === undefined) setPaired(true);
       else if (failure.kind === "update")
@@ -153,27 +154,29 @@ export function PairingScreen({
           why: "update",
           update: failure.update,
           name: failure.name,
-          qr,
+          invite,
         });
       else
         navigation.replace("pair-failed", {
-          // The core answers a wrong, used or expired code with unauthorized (core/remote/host.ts).
+          // The computer refuses an expired, used or broken invite (unauthorized or conflict, with the reason in details).
           why:
-            failure.kind === "refused" && failure.code === "unauthorized"
+            failure.kind === "untrusted" ||
+            failure.kind === "wrong_kind" ||
+            (failure.kind === "refused" &&
+              (failure.code === "unauthorized" || failure.code === "conflict"))
               ? "expired"
               : "unreachable",
-          qr,
+          invite,
         });
     });
     return () => {
       live = false;
     };
-  }, [add, qr, navigation]);
+  }, [add, invite, navigation]);
 
   useEffect(() => {
-    if (paired && status === "connected")
-      navigation.replace("paired", { key: qr.key });
-  }, [paired, status, navigation, qr.key]);
+    if (paired && status === "connected") navigation.replace("paired", { key });
+  }, [paired, status, navigation, key]);
 
   return (
     <Screen
@@ -192,7 +195,7 @@ export function PairingScreen({
           <Device icon={Monitor} />
         </View>
         <Hero size="h1" top={28}>
-          {t("mobile.start.heading.pairing", { name: nameOf(qr) })}
+          {t("mobile.start.heading.pairing", { name: nameOf(invite) })}
         </Hero>
         <View style={{ gap: 12, marginTop: 28 }}>
           <Progress state="done">
@@ -344,7 +347,7 @@ export function PairFailedScreen({
   route,
 }: NativeStackScreenProps<RootParams, "pair-failed">) {
   const params = route.params;
-  const { why, qr } = params;
+  const { why, invite } = params;
   const [entering, setEntering] = useState(false);
   if (why === "unreachable" || why === "update") {
     return (
@@ -353,7 +356,7 @@ export function PairFailedScreen({
         title={
           why === "update"
             ? updateText(params.update, params.name)
-            : t("mobile.start.heading.unreachable", { name: nameOf(qr) })
+            : t("mobile.start.heading.unreachable", { name: nameOf(invite) })
         }
         text={
           why === "update"
@@ -365,7 +368,7 @@ export function PairFailedScreen({
             variant="primary"
             size="lg"
             icon={RefreshCw}
-            onPress={() => navigation.replace("pairing", { qr })}
+            onPress={() => navigation.replace("pairing", { invite })}
           >
             {t("common.button.retry")}
           </Button>
@@ -402,7 +405,7 @@ export function PairFailedScreen({
         <EnterCodeSheet
           open={entering}
           onClose={() => setEntering(false)}
-          onCode={(next) => navigation.replace("pairing", { qr: next })}
+          onCode={(next) => navigation.replace("pairing", { invite: next })}
         />
       }
     />

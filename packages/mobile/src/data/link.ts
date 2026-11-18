@@ -11,10 +11,10 @@ import {
 } from "../../../shell/renderer/desktop/connection/events/client.ts";
 import { createWaitingStore } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
 import {
-  type Connection,
+  type createConnection,
   type Link,
+  leave,
   linkStateOf,
-  unpair,
 } from "../../../remote-client/mod.ts";
 import { type Coding, codingOf } from "./coding.ts";
 import { remoteImages } from "./images.ts";
@@ -61,7 +61,9 @@ export function dataOf(
   };
 }
 
-export function linkOf(connection: Connection): Link<ComputerData> {
+export function linkOf(
+  connection: ReturnType<typeof createConnection>,
+): Link<ComputerData> {
   const { data, stop } = dataOf(connection);
   return {
     data,
@@ -76,7 +78,8 @@ export function linkOf(connection: Connection): Link<ComputerData> {
     },
     pause: () => connection.pause(),
     resume: () => connection.resume(),
-    unpair: () => unpair(connection, crypto.randomUUID()),
+    leave: () => leave(connection),
+    sendRoster: (roster) => connection.sendRoster(roster),
     close() {
       stop();
       connection.close();

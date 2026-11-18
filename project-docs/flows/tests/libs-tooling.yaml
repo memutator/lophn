@@ -133,11 +133,11 @@ files:
 
   - path: packages/remote-client/connection_test.ts
     covers: [remote-connection:other-machine, remote-connection:addresses-learned]
-    note: "메모리 전송 위의 createConnection(폰과 desktop이 같이 쓴다). 저장한 machine id와 다른 기계가 답하면 hello 뒤로 watch도 call도 보내지 않고 stale로 남고, 같은 기계가 답하면 watch를 보내고 ready다. id가 없는 항목은 처음 만난 id를 알리고 그 뒤로 다른 기계를 거절한다. 다음에 거는 주소는 저장한 id를 대조한 연결의 hello addresses로만 바뀌고 id를 모르는 연결의 addresses는 쓰지 않는다. 끊기거나 죽은 채 resume하면 다시 붙어 마지막 watch를 다시 보내고, core가 거절할 session id는 watch에서 뺀다"
+    note: "메모리 전송 위의 createConnection(폰과 desktop이 같이 쓴다). 저장한 machine id와 다른 기계가 답하면 hello 뒤로 watch도 call도 보내지 않고 stale로 남고, 같은 기계가 답하면 watch를 보내고 ready다. id가 없는 항목은 처음 만난 id를 알리고 그 뒤로 다른 기계를 거절한다. 다음에 거는 주소는 저장한 id를 대조한 연결의 hello addresses로만 바뀌고 id를 모르는 연결의 addresses는 쓰지 않는다. 끊기거나 죽은 채 resume하면 다시 붙어 마지막 watch를 다시 보내고, core가 거절할 session id는 watch에서 뺀다. join을 주면 channel마다 join이 첫 frame이고 그 답(명단, 컴퓨터의 서명 key) 뒤에 watch가 가며, unauthorized로 거절되면 다시 붙지 않고 거절의 details.removal을 넘긴다"
 
   - path: packages/remote-client/computers_test.ts
     covers: []
-    note: "기계 목록 store: 지운 컴퓨터는 연결을 닫고 저장 목록에서 빠지고, 거둬진 컴퓨터는 revoked로 저장되어 다시 붙지 않는다. 별명은 남고 알린 이름과 id를 배우며, 같은 machine id로 다시 pairing하면 항목 하나로 접는다. sample 컴퓨터는 폰 dev build에서만 보인다"
+    note: "명단으로 짓는 컴퓨터 목록 store(가짜 link, 실제 서명). root로 확인하지 못한 거절(빼기 없음, 모르는 컴퓨터가 서명한 빼기)로는 그 link만 멈추고(revoked) 컴퓨터 목록과 기기 key를 잊지 않으며, 저장한 컴퓨터가 서명한 빼기는 거절로 왔든 민 명단으로 왔든 목록·명단·key를 잊는다. 명단 전에 pairing한 컴퓨터는 서명 key를 join 답에서만 배우고(그 host key를 주장하는 명단만으로는 root가 아니다) 그 뒤 명단의 다른 컴퓨터가 reach로 목록에 뜨고 link가 열리며, 명단에서 빠지면 목록과 link에서 빠진다. sample 컴퓨터는 폰 dev build에서만 보인다"
 
   - path: packages/protocol/acp/reduce_test.ts
     covers: [acp-projection:ok, acp-read:reread]

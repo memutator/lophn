@@ -6,11 +6,12 @@ import { appDir, paths } from "../apps/local/folder.ts";
 import { nativeDeps } from "../apps/local/native.ts";
 import { pruneApp } from "../apps/local/prune.ts";
 import { createLocalApps, type LocalApps } from "../apps/local/store.ts";
-import { loadComputers } from "../pairing/store.ts";
 import type { ComputerData } from "./link.ts";
 
 // One store per computer for the app's life: the sync work of a computer goes on while its screens come and go.
 const stores = new Map<string, LocalApps>();
+// This phone's id in the roster, the same on every computer: from the computer store `followLocalComputers` follows.
+let device: () => string | null = () => null;
 
 export function storeFor(computer: string): LocalApps {
   let store = stores.get(computer);
@@ -19,9 +20,9 @@ export function storeFor(computer: string): LocalApps {
       ...nativeDeps,
       computer,
       node: async () => {
-        const saved = (await loadComputers()).find((one) => one.key === computer);
-        if (saved === undefined) throw new Error("the computer is not paired");
-        return saved.device;
+        const id = device();
+        if (id === null) throw new Error("no computer has let this phone in yet");
+        return id;
       },
     });
     stores.set(computer, store);
@@ -36,6 +37,7 @@ export function storeFor(computer: string): LocalApps {
  * computers; returns the stop.
  */
 export function followLocalComputers(computers: Computers<ComputerData>): () => void {
+  device = () => computers.get().device;
   const followed = new Map<string, { link: Link<ComputerData>; off: () => void }>();
   let paired: string | null = null;
   const follow = () => {

@@ -39,7 +39,7 @@ export type {
   ComputerPath,
   ComputerStatus,
   Computers,
-  PairFailure,
+  JoinFailure,
 } from "../../../remote-client/mod.ts";
 export type { CodingActions, CodingTarget } from "./coding.ts";
 export type { CodingSession } from "../../../protocol/coding-agent/relay.ts";

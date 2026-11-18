@@ -1,24 +1,26 @@
-import type { RemotePairing } from "../remote.ts";
+import type { RosterInviteText } from "../remote.ts";
 
-/** The root stack: the frame (sidebar and its stack) and the start flow that pairs a computer. */
+/** The root stack: the frame (sidebar and its stack) and the start flow that joins this phone to the person's devices. */
 export type RootParams = {
   frame: undefined;
   welcome: undefined;
   scan: undefined;
-  pairing: { qr: RemotePairing };
+  pairing: { invite: RosterInviteText };
   paired: { key: string };
   "pair-failed":
-    | { why: "expired" | "unreachable"; qr: RemotePairing }
+    | { why: "expired" | "unreachable"; invite: RosterInviteText }
     // The computer answered but one side must update first; `name` is what it called itself.
     | {
         why: "update";
         update: "client" | "host";
         name: string;
-        qr: RemotePairing;
+        invite: RosterInviteText;
       };
 };
 
-/** What a computer goes by before it is named: the first address it was paired on (as the computer store names it). */
-export function nameOf(qr: RemotePairing): string {
-  return qr.addresses[0] ?? qr.key.slice(0, 8);
+/** What the inviting computer goes by: its name in the roster, else the first address it is reached at. */
+export function nameOf(invite: RosterInviteText): string {
+  const { body } = invite.issuer;
+  if (body.type === "entry") return body.name;
+  return invite.reach.addresses[0] ?? body.key.slice(0, 8);
 }

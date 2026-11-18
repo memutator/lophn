@@ -66,7 +66,7 @@ export function openLink(
     subscribe: (listener) => connection.subscribe(() => listener()),
     pause: () => connection.pause(),
     resume: () => connection.resume(),
-    unpair: () => unpair(connection, deps.newKey()),
+    leave: () => unpair(connection, deps.newKey()),
     close: () => connection.close(),
   };
 }

@@ -50,8 +50,6 @@ const computerSchema = z.object({
   key: z.string(),
   relay: z.string().optional(),
   machine: machineId.optional(),
-  device: z.string(),
-  revoked: z.boolean(),
   name: z.string().optional(),
   announced: z.string().optional(),
 });
@@ -178,9 +176,7 @@ export async function readStartMachine(
     return null;
   }
   const usable = (id: Id<"mch"> | null) =>
-    saved.computers.find(
-      (computer) => computer.machine === id && !computer.revoked,
-    );
+    saved.computers.find((computer) => computer.machine === id);
   const computer =
     (saved.start.mode === "machine"
       ? usable(saved.start.machine)

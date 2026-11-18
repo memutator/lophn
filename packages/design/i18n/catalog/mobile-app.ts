@@ -6,12 +6,13 @@ export const mobileApp = {
   "mobile.age.minutes": "{count}m",
   "mobile.age.now": "now",
   "mobile.computer.button.pair-another": "Pair another computer",
-  "mobile.computer.button.remove": "Remove this computer",
+  "mobile.computer.button.remove": "Remove this phone from my devices",
   "mobile.computer.button.use-computer-name": "Use the computer’s name",
   "mobile.computer.heading.computers": "Computers",
   "mobile.computer.heading.connection": "Connection",
   "mobile.computer.heading.on-phone": "On this phone",
-  "mobile.computer.heading.remove-confirm": "Remove this computer?",
+  "mobile.computer.heading.remove-confirm":
+    "Remove this phone from your devices?",
   "mobile.computer.label.announced-name": "Calls itself {name}",
   "mobile.computer.label.key": "Key",
   "mobile.computer.label.path": "Path",
@@ -20,7 +21,7 @@ export const mobileApp = {
   "mobile.computer.note.relay":
     "The relay only passes sealed messages along. It cannot read them.",
   "mobile.computer.note.remove":
-    "Also takes this phone off the computer’s list. If the computer can’t be reached now, pairing with it again replaces the old entry.",
+    "Every computer stops reaching this phone, and this phone forgets them all. To use them again, pair with a new code.",
   "mobile.computer.path.direct": "Same network",
   "mobile.computer.path.relay": "Through the relay",
   "mobile.computer.status.connecting": "Connecting…",
@@ -53,6 +54,8 @@ export const mobileApp = {
   "mobile.start.button.scan": "Scan the code",
   "mobile.start.button.scan-again": "Scan again",
   "mobile.start.button.scan-different": "Scan a different code",
+  "mobile.start.error.computer-invite":
+    "This code adds a computer. On your computer, choose Add a phone to get a code for this phone.",
   "mobile.start.error.not-a-code": "This is not a pairing code.",
   "mobile.start.heading.enter-code": "Enter a pairing code",
   "mobile.start.heading.expired": "This code has expired",

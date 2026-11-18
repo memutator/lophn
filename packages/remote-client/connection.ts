@@ -10,11 +10,19 @@ import {
   type RemoteClientChannel,
   type RemoteClientFrame,
   type RemotePeer,
+  type RemotePhone,
   type RemoteServerFrame,
   type RemoteTransport,
+  type RosterSnapshot,
+  type RosterStatement,
   relayPhoneUrl,
   remoteKeyBytes,
+  rosterJoinedSchema,
 } from "../protocol/remote/client.ts";
+import {
+  rosterSnapshotSchema,
+  rosterStatementSchema,
+} from "../protocol/remote/roster.ts";
 
 // Same shape as the desktop renderer's CoreSource (packages/shell/renderer/desktop/connection), so remote screens take either.
 export type ConnectionState = {
@@ -94,13 +102,15 @@ export type Announced = RemotePeer["machine"];
 export type Dial = (url: string) => Promise<RemoteTransport>;
 
 // This device as it meets a computer. `key` is its key pair, which the computer knows it by; `name` is what it calls itself
-// in the hello, and the computer lists it by that name; `capabilities` are the `request` kinds it answers (none on desktop).
+// in the hello, and the computer lists it by that name; `capabilities` are the `request` kinds it answers (none on desktop);
+// `phone` is a phone's screen, sent in every hello.
 export type Client = {
   key: KeyPair;
   dial: Dial;
   random: RandomSource;
   name: string;
   capabilities: string[];
+  phone?: RemotePhone;
 };
 
 type RequestFrame = Extract<RemoteServerFrame, { type: "request" }>;
@@ -163,6 +173,7 @@ export function openFirst(
       remoteStatic,
       capabilities: client.capabilities,
       name: client.name,
+      ...(client.phone === undefined ? {} : { phone: client.phone }),
       machine: endpoint.machine,
       random: client.random,
     });
@@ -201,13 +212,27 @@ function reachable(announced: string[], opened: string | undefined) {
     : [opened, ...announced].slice(0, 16);
 }
 
+// What the computer said when it let this device in: the device's id and the computer's own id and signing key. It comes
+// over a channel Noise checked against the saved host key, so the signing key can be trusted as a root.
+export type Joined = {
+  device: string;
+  computer: { id: string; signing_key: string };
+};
+
 export function createConnection(
   deps: Client & {
     endpoint: Endpoint;
     now: () => number;
     // Runs fn after ms; returns a cancel function.
     wait: (ms: number, fn: () => void) => () => void;
-    onRevoked: () => void;
+    // The computer cut this device off: its `closed` frame, or a refused `join`. `removal` is the removal statement the
+    // refusal carried, for the caller to check against its own roots; nothing is trusted here.
+    onRevoked: (removal?: RosterStatement) => void;
+    // This device's own roster statements, sent as the first frame (`join`) of every channel. Without it no join goes out
+    // and the channel is used as soon as it opens (the desktop viewer).
+    join?: () => RosterStatement[];
+    // The computer's roster: the `join` answer (with `joined`), the answer to `sendRoster`, and every `roster` it pushes.
+    onRoster?: (roster: RosterSnapshot, joined?: Joined) => void;
     // Every channel that opens reports who answered, so the store can keep the computer's id, its current name and, when
     // the channel checked the saved id, its current addresses.
     onPeer?: (machine: Announced) => void;
@@ -218,9 +243,14 @@ export function createConnection(
       isActive: () => boolean,
     ) => Promise<ResponseFrame | undefined>;
   },
-): Connection {
+): Connection & {
+  // Sends everything this device holds of the roster; the computer's answer goes to `onRoster`. Dropped when not connected.
+  sendRoster(roster: RosterSnapshot): void;
+} {
   let state: ConnectionState = { state: "starting", confirmedAt: null };
   let channel: RemoteClientChannel | undefined;
+  // The open channel's `join` has not been answered yet: nothing else goes out on it.
+  let joining = false;
   let path: ConnectionPath | null = null;
   let update: Update | null = null;
   let connecting = false;
@@ -239,6 +269,8 @@ export function createConnection(
   let watching: WatchConditions = [];
   let nextId = 0;
   const pending = new Map<string, (reply: CoreReply) => void>();
+  // Ids of the `roster` frames sent and not answered yet.
+  const rosters = new Set<string>();
   // Calls past IN_FLIGHT wait here for an answer to free a place.
   const queued: { input: CoreCall; resolve: (reply: CoreReply) => void }[] = [];
   const stateListeners = new Set<(state: ConnectionState) => void>();
@@ -291,11 +323,41 @@ export function createConnection(
     path = opened.path;
     channel.onClose(() => dropped(opened.channel));
     channel.onFrame(received);
-    channel.send({ type: "watch", conditions: watching });
+    if (deps.join) {
+      joining = true;
+      channel.send({ type: "join", id: "join", statements: deps.join() });
+    } else {
+      channel.send({ type: "watch", conditions: watching });
+    }
+  }
+
+  function joined(frame: Extract<RemoteServerFrame, { type: "result" }>) {
+    const current = channel;
+    if (!current) return;
+    if (!frame.ok) {
+      if (frame.error.code === "unauthorized") {
+        stopped = true;
+        const removal = rosterStatementSchema.safeParse(
+          frame.error.details?.removal,
+        );
+        deps.onRevoked(removal.success ? removal.data : undefined);
+      }
+      // Anything else is tried again on a new channel.
+      current.close();
+      return;
+    }
+    const value = rosterJoinedSchema.safeParse(frame.value);
+    if (!value.success) return current.close();
+    joining = false;
+    const { roster, ...rest } = value.data;
+    deps.onRoster?.(roster, rest);
+    current.send({ type: "watch", conditions: watching });
   }
 
   function lose() {
     channel = undefined;
+    joining = false;
+    rosters.clear();
     path = null;
     cancelProbe?.();
     cancelProbe = undefined;
@@ -324,6 +386,7 @@ export function createConnection(
   // After the background the socket may have died without a close event. The core answers a watch with `ready`;
   // if that does not come in time, drop the channel and connect again now instead of waiting for a backoff.
   function probe(current: RemoteClientChannel) {
+    if (joining) return;
     current.send({ type: "watch", conditions: watching });
     cancelProbe = deps.wait(PROBE_MS, () => {
       cancelProbe = undefined;
@@ -335,7 +398,7 @@ export function createConnection(
   }
 
   function send(input: CoreCall): Promise<CoreReply> {
-    if (!channel) {
+    if (!channel || joining) {
       return Promise.resolve({
         ok: false,
         error: { code: "unavailable", message: "not connected" },
@@ -375,7 +438,16 @@ export function createConnection(
   }
 
   function received(frame: RemoteServerFrame) {
-    if (frame.type === "result") {
+    if (frame.type === "result" && frame.id === "join" && joining) {
+      joined(frame);
+    } else if (frame.type === "result" && rosters.delete(frame.id)) {
+      const roster = frame.ok
+        ? rosterSnapshotSchema.safeParse(frame.value)
+        : undefined;
+      if (roster?.success) deps.onRoster?.(roster.data);
+    } else if (frame.type === "roster") {
+      deps.onRoster?.(frame.roster);
+    } else if (frame.type === "result") {
       answered(
         frame.id,
         frame.ok
@@ -427,7 +499,7 @@ export function createConnection(
       watching = conditions.filter(
         (one) => eventConditionSchema.safeParse(one).success,
       );
-      channel?.send({ type: "watch", conditions: watching });
+      if (!joining) channel?.send({ type: "watch", conditions: watching });
       return Promise.resolve();
     },
     onEvent(listener) {
@@ -446,6 +518,11 @@ export function createConnection(
       cancelRetry = undefined;
       if (channel && !cancelProbe) probe(channel);
       else void connect();
+    },
+    sendRoster(roster) {
+      if (!channel || joining) return;
+      const id = `r${++nextId}`;
+      if (channel.send({ type: "roster", id, roster }).ok) rosters.add(id);
     },
     close() {
       stopped = true;

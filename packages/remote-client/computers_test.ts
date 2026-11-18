@@ -1,35 +1,95 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cryptoRandom } from "../base/mod.ts";
-import { generateKeyPair } from "../protocol/remote/client.ts";
+import {
+  generateKeyPair,
+  remoteKeyText,
+  type RosterEntryBody,
+  type RosterSnapshot,
+  type RosterStatement,
+  signRoster,
+} from "../protocol/remote/client.ts";
+import {
+  generateSigningKey,
+  type RosterRemovalBody,
+} from "../protocol/remote/roster.ts";
 import {
   type Computer,
   type ComputersDeps,
   createComputers,
   type Link,
-  type PairResult,
   sampleFor,
 } from "./computers.ts";
 
-const computer = (key: string): Computer => ({
-  addresses: ["10.0.0.1"],
-  port: 7432,
-  key,
-  device: `dev_${key}`,
-  revoked: false,
+type Machine = {
+  id: string;
+  host: string;
+  signing: ReturnType<typeof generateSigningKey>;
+  machine: `mch_${string}`;
+  name: string;
+};
+
+function machine(n: number, name: string): Machine {
+  return {
+    id: `dev_01m7dp1jqw47d55vdyzxv5wd${n}0`,
+    host: remoteKeyText(generateKeyPair(cryptoRandom).publicKey),
+    signing: generateSigningKey(cryptoRandom),
+    machine: `mch_01m7dp1jqw47d55vdyzxv5wd${n}0`,
+    name,
+  };
+}
+
+const signingOf = (m: Machine) => remoteKeyText(m.signing.publicKey);
+
+const entryOf = (m: Machine): RosterEntryBody => ({
+  type: "entry",
+  id: m.id,
+  kind: "computer",
+  key: m.host,
+  signing_key: signingOf(m),
+  machine: m.machine,
+  name: m.name,
+  os: "linux",
+  terminal_input: false,
+  rev: 1,
+  invite: null,
 });
 
-function harness(saved: Computer[]) {
-  const opened: {
-    key: string;
-    closed: boolean;
-    revoke: () => void;
-    peer: (machine: { id: `mch_${string}`; name: string }) => void;
-  }[] = [];
-  const pairing: { result: PairResult } = {
-    result: { ok: false, failure: { kind: "unreachable" } },
-  };
-  const saves: Computer[][] = [];
+const signed = (
+  body: RosterEntryBody | RosterRemovalBody,
+  by: Machine,
+): RosterStatement => ({
+  body,
+  by: by.id,
+  signature: signRoster(body, by.signing.secretKey),
+});
+
+const reachOf = (m: Machine) => ({
+  device: m.id,
+  addresses: ["10.0.0.9"],
+  port: 7432,
+  relay: null,
+});
+
+const saved = (m: Machine, signing = true): Computer => ({
+  addresses: ["10.0.0.1"],
+  port: 7432,
+  key: m.host,
+  machine: m.machine,
+  ...(signing ? { signing_key: signingOf(m) } : {}),
+});
+
+type On = Parameters<ComputersDeps<null>["open"]>[2];
+
+function harness(start: {
+  computers: Computer[];
+  roster?: RosterSnapshot;
+  phone?: ReturnType<typeof generateKeyPair>;
+}) {
+  const phone = start.phone ?? generateKeyPair(cryptoRandom);
+  const opened: { key: string; closed: boolean; on: On }[] = [];
+  const saves: { computers: Computer[]; roster: RosterSnapshot }[] = [];
+  let forgotten = 0;
   const link = (record: { closed: boolean }): Link<null> => ({
     data: null,
     state: () => ({
@@ -47,71 +107,180 @@ function harness(saved: Computer[]) {
   });
   const deps: ComputersDeps<null> = {
     load: async () => ({
-      key: generateKeyPair(cryptoRandom),
-      computers: saved,
+      key: phone,
+      computers: start.computers,
+      roster: start.roster ?? { statements: [], reach: [] },
       name: "Mina's phone",
     }),
     saveName: async (name) => name,
     save: async (next) => {
       saves.push(next);
     },
+    forgetKey: async () => {
+      forgotten += 1;
+      return generateKeyPair(cryptoRandom);
+    },
+    now: () => Date.parse("2026-11-18T00:00:00.000Z"),
     open(one, _key, on) {
-      const record = {
-        key: one.key,
-        closed: false,
-        revoke: on.onRevoked,
-        peer: on.onPeer,
-      };
+      const record = { key: one.key, closed: false, on };
       opened.push(record);
       return link(record);
     },
-    pair: async () => pairing.result,
+    join: async () => ({ ok: false, failure: { kind: "unreachable" } }),
   };
-  return { deps, opened, saves, link, pairing };
+  return { deps, opened, saves, link, phone, forgotten: () => forgotten };
 }
 
-test("a removed computer has its connection closed and leaves the saved list", async () => {
-  const { deps, opened, saves } = harness([computer("a"), computer("b")]);
-  const store = createComputers(deps);
-  await store.start();
-  assert.deepEqual(
-    opened.map((one) => one.key),
-    ["a", "b"],
-  );
-
-  store.remove("a");
-  assert.equal(opened[0]?.closed, true);
-  assert.equal(opened[1]?.closed, false);
-  assert.deepEqual(
-    saves.at(-1)?.map((one) => one.key),
-    ["b"],
-  );
-  assert.deepEqual(
-    store.get().computers.map((one) => one.key),
-    ["b"],
-  );
+test("a refusal this phone's roots cannot check leaves its computers and key; a removal they trust forgets both", async () => {
+  const a = machine(1, "mina-desktop");
+  const stranger = machine(2, "elsewhere");
+  const phone = generateKeyPair(cryptoRandom);
+  const phoneEntry: RosterEntryBody = {
+    type: "entry",
+    id: "dev_01m7dp1jqw47d55vdyzxv5wd90",
+    kind: "phone",
+    key: remoteKeyText(phone.publicKey),
+    signing_key: null,
+    machine: null,
+    name: "Mina's phone",
+    os: "android",
+    terminal_input: false,
+    rev: 1,
+    invite: null,
+  };
+  const roster: RosterSnapshot = {
+    statements: [signed(entryOf(a), a), signed(phoneEntry, a)],
+    reach: [],
+  };
+  const removal: RosterRemovalBody = {
+    type: "removal",
+    id: phoneEntry.id,
+    key: phoneEntry.key,
+    signing_key: null,
+    at: "2026-11-18T00:00:00.000Z",
+  };
+  const cases: {
+    name: string;
+    refuse: (on: On) => void;
+    forgets: boolean;
+  }[] = [
+    { name: "no removal", refuse: (on) => on.onRevoked(), forgets: false },
+    {
+      name: "a removal signed by a computer no root trusts",
+      refuse: (on) => on.onRevoked(signed(removal, stranger)),
+      forgets: false,
+    },
+    {
+      name: "a removal signed by the computer it saved",
+      refuse: (on) => on.onRevoked(signed(removal, a)),
+      forgets: true,
+    },
+    {
+      name: "the same removal in a roster the computer pushed",
+      refuse: (on) =>
+        on.onRoster({ statements: [signed(removal, a)], reach: [] }),
+      forgets: true,
+    },
+  ];
+  for (const one of cases) {
+    const { deps, opened, saves, forgotten } = harness({
+      computers: [saved(a)],
+      roster,
+      phone,
+    });
+    const store = createComputers(deps);
+    await store.start();
+    assert.equal(store.get().device, phoneEntry.id, one.name);
+    const on = opened[0]?.on;
+    assert.ok(on, one.name);
+    one.refuse(on);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(opened[0]?.closed, true, one.name);
+    assert.equal(forgotten(), one.forgets ? 1 : 0, one.name);
+    assert.deepEqual(
+      store.get().computers.map((c) => [c.key, c.status]),
+      one.forgets ? [] : [[a.host, "revoked"]],
+      one.name,
+    );
+    assert.deepEqual(
+      saves.at(-1)?.computers.map((c) => c.key),
+      one.forgets ? [] : [a.host],
+      one.name,
+    );
+    assert.equal(
+      saves.at(-1)?.roster.statements.length === 0,
+      one.forgets,
+      one.name,
+    );
+  }
 });
 
-test("a revoked computer is closed, saved as revoked and never connected again", async () => {
-  const { deps, opened, saves } = harness([computer("a")]);
+test("a computer paired before the roster learns its signing key only from its join answer, then the other computers it lists appear and leave with the roster", async () => {
+  const a = machine(1, "mina-desktop");
+  const b = machine(2, "mina-laptop");
+  const { deps, opened, saves } = harness({ computers: [saved(a, false)] });
   const store = createComputers(deps);
   await store.start();
-  opened[0]?.revoke();
+  const fromA = opened[0]?.on;
+  assert.ok(fromA);
+  const roster: RosterSnapshot = {
+    statements: [
+      signed(entryOf(a), a),
+      signed(entryOf(b), a),
+      signed(entryOf(b), b),
+    ],
+    reach: [reachOf(b)],
+  };
 
-  assert.equal(opened[0]?.closed, true);
-  assert.equal(saves.at(-1)?.[0]?.revoked, true);
-  assert.equal(store.get().computers[0]?.status, "revoked");
-  store.resume();
-  assert.equal(opened.length, 1);
+  // A roster that only claims A's host key is not a root.
+  fromA.onRoster(roster);
+  assert.deepEqual(
+    store.get().computers.map((c) => c.key),
+    [a.host],
+  );
 
-  // Next start of the app reads it back revoked and does not dial it.
-  const again = harness(saves.at(-1) ?? []);
-  await createComputers(again.deps).start();
-  assert.equal(again.opened.length, 0);
+  fromA.onRoster(roster, {
+    device: "dev_01m7dp1jqw47d55vdyzxv5wd90",
+    computer: { id: a.id, signing_key: signingOf(a) },
+  });
+  assert.deepEqual(
+    store.get().computers.map((c) => [c.key, c.name]),
+    [
+      [a.host, "mina-desktop"],
+      [b.host, "mina-laptop"],
+    ],
+  );
+  assert.deepEqual(
+    opened.map((one) => one.key),
+    [a.host, b.host],
+  );
+  assert.deepEqual(saves.at(-1)?.computers[1], {
+    addresses: ["10.0.0.9"],
+    port: 7432,
+    key: b.host,
+    machine: b.machine,
+    signing_key: signingOf(b),
+    announced: "mina-laptop",
+  });
+
+  const removal: RosterRemovalBody = {
+    type: "removal",
+    id: b.id,
+    key: b.host,
+    signing_key: signingOf(b),
+    at: "2026-11-18T00:00:00.000Z",
+  };
+  fromA.onRoster({ statements: [signed(removal, a)], reach: [] });
+  assert.deepEqual(
+    store.get().computers.map((c) => c.key),
+    [a.host],
+  );
+  assert.equal(opened[1]?.closed, true);
 });
 
 test("the sample computer is listed first in a dev build with the flag, and nowhere else", async () => {
-  const { deps, link } = harness([computer("a")]);
+  const a = machine(1, "mina-desktop");
+  const { deps, link } = harness({ computers: [saved(a)] });
   const make = () => ({
     key: "sample",
     name: "mina-desktop",
@@ -122,54 +291,7 @@ test("the sample computer is listed first in a dev build with the flag, and nowh
     await store.start();
     return store.get().computers.map((one) => one.key);
   };
-  assert.deepEqual(await listed({ dev: true, flag: "1" }), ["sample", "a"]);
-  assert.deepEqual(await listed({ dev: false, flag: "1" }), ["a"]);
-  assert.deepEqual(await listed({ dev: true, flag: undefined }), ["a"]);
-});
-
-test("an entry paired before computers announced themselves keeps its alias, learns the id and name on connecting, and pairing again by machine id leaves one entry", async () => {
-  // The old stored shape: an alias and nothing else new.
-  const old: Computer = { ...computer("a"), name: "My Galaxy" };
-  const { deps, opened, saves, pairing } = harness([old]);
-  const store = createComputers(deps);
-  await store.start();
-  const machine = {
-    id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const,
-    name: "mina-desktop",
-  };
-  opened[0]?.peer(machine);
-
-  assert.deepEqual(saves.at(-1), [
-    { ...old, machine: machine.id, announced: "mina-desktop" },
-  ]);
-  assert.equal(store.get().computers[0]?.name, "My Galaxy");
-  assert.equal(store.get().computers[0]?.announced, "mina-desktop");
-
-  // The computer is renamed: the alias stays, the announced name follows.
-  opened[0]?.peer({ ...machine, name: "mina-pc" });
-  assert.equal(store.get().computers[0]?.name, "My Galaxy");
-  assert.equal(store.get().computers[0]?.announced, "mina-pc");
-
-  // Its key changed (a data root of its own), so only the machine id says it is the same computer.
-  pairing.result = {
-    ok: true,
-    computer: { ...computer("b"), machine: machine.id, announced: "mina-pc" },
-  };
-  const failure = await store.add({
-    addresses: [],
-    port: 1,
-    key: "b",
-    code: "x",
-  });
-  assert.equal(failure, undefined);
-  assert.deepEqual(
-    store.get().computers.map((one) => [one.key, one.name]),
-    [["b", "My Galaxy"]],
-  );
-  assert.equal(opened[0]?.closed, true);
-  assert.equal(store.get().current, "b");
-
-  // Clearing the alias brings the announced name back.
-  store.rename("b", null);
-  assert.equal(store.get().computers[0]?.name, "mina-pc");
+  assert.deepEqual(await listed({ dev: true, flag: "1" }), ["sample", a.host]);
+  assert.deepEqual(await listed({ dev: false, flag: "1" }), [a.host]);
+  assert.deepEqual(await listed({ dev: true, flag: undefined }), [a.host]);
 });

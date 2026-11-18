@@ -20,8 +20,7 @@ export function machineList(input: {
     // Every entry this desktop pairs has the machine id from the hello.
     if (computer.machine === undefined) continue;
     const item = input.items.find((one) => one.key === computer.key);
-    const status =
-      item?.status ?? (computer.revoked ? "revoked" : "connecting");
+    const status = item?.status ?? "connecting";
     machines.push({
       id: computer.machine,
       name: computer.name ?? computer.announced ?? defaultName(computer),

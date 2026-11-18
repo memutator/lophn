@@ -8,10 +8,8 @@ import {
   type Computers,
   type Connection,
   createComputers,
-  dialWebSocket,
-  type PairFailure,
-  pair,
-  parsePairingText,
+  type JoinFailure,
+  parseInviteText,
 } from "../../../../remote-client/mod.ts";
 import {
   MACHINES_CHANGED_CHANNEL,
@@ -54,15 +52,15 @@ export type Machines = {
   startMachine(): Id<"mch"> | null;
 };
 
-const OS = { darwin: "macos", win32: "windows" } as const;
-const os: "linux" | "macos" | "windows" =
-  OS[process.platform as keyof typeof OS] ?? "linux";
-
-function pairReason(failure: PairFailure): MachinePairReason {
+function pairReason(failure: JoinFailure): MachinePairReason {
   if (failure.kind === "update") return `update_${failure.update}`;
+  if (failure.kind === "untrusted" || failure.kind === "wrong_kind") {
+    return "refused";
+  }
   if (failure.kind !== "refused") return failure.kind;
-  // An expired or already used code.
-  return failure.code === "not_found" ? "expired" : "refused";
+  return failure.reason === "expired" || failure.reason === "used"
+    ? "expired"
+    : "refused";
 }
 
 export function register(ctx: ShellContext): Machines & Registered {
@@ -151,12 +149,16 @@ export function register(ctx: ShellContext): Machines & Registered {
     saved = read.saved;
     const thisMachine = self;
     computers = createComputers<Connection>({
+      // The desktop viewer does not hold the roster yet (`roster-desktop`): it starts and saves none.
       load: async () => ({
         key: read.key,
         computers: read.saved.computers,
+        roster: { statements: [], reach: [] },
         name: thisMachine.name,
       }),
-      save: async (list) => persist({ ...saved, computers: list }),
+      save: async (next) => persist({ ...saved, computers: next.computers }),
+      forgetKey: async () => read.key,
+      now: Date.now,
       // The hello name is this machine's name, changed in Settings › Remote "This computer" and followed through
       // `relay.calls` below.
       saveName: async (name) => name,
@@ -175,16 +177,8 @@ export function register(ctx: ShellContext): Machines & Registered {
         connections.add(link.data);
         return link;
       },
-      pair: (qr, key, name) =>
-        pair(qr, {
-          key,
-          dial: dialWebSocket,
-          random: cryptoRandom,
-          name,
-          capabilities: [],
-          device: { kind: "desktop", os },
-          self: thisMachine.id,
-        }),
+      // Joining the roster from the desktop viewer comes with `roster-desktop`.
+      join: async () => ({ ok: false, failure: { kind: "closed" } }),
     });
     computers.subscribe(publish);
     await computers.start();
@@ -233,9 +227,9 @@ export function register(ctx: ShellContext): Machines & Registered {
       const parsed = checkInput(machinesPairSchema, input);
       if (!parsed.ok) return invalid;
       if (!computers) return { ok: false, reason: "unavailable" };
-      const qr = parsePairingText(parsed.value.text.trim());
-      if (!qr) return { ok: false, reason: "invalid_text" };
-      const failure = await computers.add(qr);
+      const invite = parseInviteText(parsed.value.text.trim());
+      if (!invite) return { ok: false, reason: "invalid_text" };
+      const failure = await computers.add(invite);
       if (failure) return { ok: false, reason: pairReason(failure) };
       // `add` selects the entry it saved.
       const added = computers.get().current;

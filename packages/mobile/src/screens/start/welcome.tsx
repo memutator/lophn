@@ -109,7 +109,7 @@ export function WelcomeScreen({
       <EnterCodeSheet
         open={entering}
         onClose={() => setEntering(false)}
-        onCode={(qr) => navigation.navigate("pairing", { qr })}
+        onCode={(invite) => navigation.navigate("pairing", { invite })}
       />
     </Screen>
   );

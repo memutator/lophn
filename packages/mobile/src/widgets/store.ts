@@ -85,7 +85,7 @@ export function createWidgetStore(deps: WidgetDeps) {
     const bindings = parse<Bindings>(await native.dropUnplaced(), EMPTY_BINDINGS);
     // The saved list is written a moment after the person removes a computer; the running app already knows.
     const computers = (await deps.paired()).filter(
-      (one) => !one.revoked && (live === null || live.known(one.key)),
+      (one) => live === null || live.known(one.key),
     );
     const bound = new Set(Object.values(bindings.widgets).map((one) => one.host));
     const lists = new Map<string, readonly AppWidget[] | null>();
@@ -152,7 +152,7 @@ export function createWidgetStore(deps: WidgetDeps) {
     /** The widgets one computer has now (running or not); null when it is not paired or cannot be asked. */
     async list(host: string) {
       const computer = (await deps.paired()).find(
-        (one) => one.key === host && !one.revoked,
+        (one) => one.key === host,
       );
       return computer === undefined ? null : listOf(host, computer);
     },

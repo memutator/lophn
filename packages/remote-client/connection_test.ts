@@ -437,3 +437,116 @@ test("the addresses a device dials change only through a channel that checked th
   assert.deepEqual(rounds.at(-1), ["100.64.0.5"]);
   connection.close();
 });
+
+test("with join every channel opens with it and the watch follows its answer; a refused join stops the link and hands over the removal", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const frames: RemoteClientFrame[][] = [];
+  const signing = remoteKeyText(generateKeyPair(cryptoRandom).publicKey);
+  const removal = {
+    body: {
+      type: "removal" as const,
+      id: "dev_01m7dp1jqw47d55vdyzxv5wd90",
+      key: signing,
+      signing_key: null,
+      at: "2026-11-18T00:00:00.000Z",
+    },
+    by: "dev_01m7dp1jqw47d55vdyzxv5wd10",
+    signature: `${"A".repeat(85)}A`,
+  };
+  let refuse = false;
+  const channels: RemoteServerChannel[] = [];
+  const dial = async () => {
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: MACHINE,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      const mine: RemoteClientFrame[] = [];
+      frames.push(mine);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        mine.push(frame);
+        if (frame.type === "join") {
+          opened.value.send(
+            refuse
+              ? {
+                  type: "result",
+                  id: frame.id,
+                  ok: false,
+                  error: {
+                    code: "unauthorized",
+                    message: "removed",
+                    details: { reason: "removed", removal },
+                  },
+                }
+              : {
+                  type: "result",
+                  id: frame.id,
+                  ok: true,
+                  value: {
+                    device: "dev_01m7dp1jqw47d55vdyzxv5wd90",
+                    computer: {
+                      id: "dev_01m7dp1jqw47d55vdyzxv5wd10",
+                      signing_key: signing,
+                    },
+                    roster: { statements: [], reach: [] },
+                  },
+                },
+          );
+        }
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+  const retries: (() => void)[] = [];
+  const rosters: unknown[] = [];
+  const revoked: unknown[] = [];
+  const connection = createConnection({
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
+    dial,
+    random: cryptoRandom,
+    name: "Mina's phone",
+    now: () => 1,
+    wait: (_ms, fn) => {
+      retries.push(fn);
+      return () => {};
+    },
+    onRevoked: (one) => revoked.push(one),
+    join: () => [],
+    onRoster: (_roster, joined) => rosters.push(joined?.computer.signing_key),
+  });
+  await settle();
+  assert.deepEqual(
+    frames[0]?.map((frame) => frame.type),
+    ["join", "watch"],
+  );
+  assert.deepEqual(rosters, [signing]);
+  assert.equal(connection.current().state, "ready");
+
+  // The phone was taken off the roster while the channel was down.
+  refuse = true;
+  channels[0]?.close();
+  await settle();
+  const scheduled = retries.length;
+  retries.at(-1)?.();
+  await settle();
+  assert.deepEqual(
+    frames[1]?.map((frame) => frame.type),
+    ["join"],
+  );
+  assert.deepEqual(revoked, [removal]);
+  assert.equal(connection.current().state, "stale");
+  assert.equal(retries.length, scheduled);
+  connection.close();
+});

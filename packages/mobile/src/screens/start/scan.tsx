@@ -1,4 +1,4 @@
-// Scanning the computer's pairing code. The camera is asked for when this screen opens, not before.
+// Scanning the computer's invite code. The camera is asked for when this screen opens, not before.
 import { t } from "@lophn/i18n";
 import { IconButton, Text } from "@lophn/ui-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { RootParams } from "../../app/root-params.ts";
-import { parsePairingText } from "../../../../remote-client/mod.ts";
+import { parseInviteText } from "../../../../remote-client/mod.ts";
 import { EnterCodeSheet } from "./enter-code.tsx";
 
 // The camera screen stays dark in either theme (phone.module.css [data-tone="camera"]).
@@ -52,6 +52,8 @@ export function ScanScreen({
   const [permission, request] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [entering, setEntering] = useState(false);
+  // The last code read was an invite for a computer, not for this phone.
+  const [computerInvite, setComputerInvite] = useState(false);
   const read = useRef(false);
 
   useEffect(() => {
@@ -119,10 +121,14 @@ export function ScanScreen({
                 enableTorch={torch}
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                 onBarcodeScanned={({ data }) => {
-                  const qr = parsePairingText(data);
-                  if (qr === undefined || read.current) return;
+                  const invite = parseInviteText(data);
+                  if (invite === undefined || read.current) return;
+                  if (invite.invite.body.kind !== "phone") {
+                    setComputerInvite(true);
+                    return;
+                  }
                   read.current = true;
-                  navigation.replace("pairing", { qr });
+                  navigation.replace("pairing", { invite });
                 }}
               />
             ) : (
@@ -157,6 +163,15 @@ export function ScanScreen({
         >
           {t("mobile.start.label.scan-path")}
         </Text>
+        {computerInvite && (
+          <Text
+            variant="detail"
+            align="center"
+            style={{ color: INK, marginTop: 12, paddingHorizontal: 28 }}
+          >
+            {t("mobile.start.error.computer-invite")}
+          </Text>
+        )}
       </View>
       <View
         style={{
@@ -187,7 +202,7 @@ export function ScanScreen({
       <EnterCodeSheet
         open={entering}
         onClose={() => setEntering(false)}
-        onCode={(qr) => navigation.replace("pairing", { qr })}
+        onCode={(invite) => navigation.replace("pairing", { invite })}
       />
     </View>
   );

@@ -1,12 +1,12 @@
-// When the camera cannot be used: the pairing text the computer shows, pasted in.
+// When the camera cannot be used: the invite text the computer shows, pasted in.
 import { t } from "@lophn/i18n";
 import { Button, Input, Sheet, Text } from "@lophn/ui-native";
 import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
 import { View } from "react-native";
 import { Rich } from "../../app/rich.tsx";
-import { parsePairingText } from "../../../../remote-client/mod.ts";
-import type { RemotePairing } from "../../remote.ts";
+import { parseInviteText } from "../../../../remote-client/mod.ts";
+import type { RosterInviteText } from "../../remote.ts";
 
 export function EnterCodeSheet({
   open,
@@ -15,20 +15,20 @@ export function EnterCodeSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  onCode: (qr: RemotePairing) => void;
+  onCode: (invite: RosterInviteText) => void;
 }) {
   const [text, setText] = useState("");
-  const [wrong, setWrong] = useState(false);
+  const [wrong, setWrong] = useState<"not-a-code" | "computer-invite" | null>(null);
   const pair = () => {
-    const qr = parsePairingText(text.trim());
-    if (qr === undefined) {
-      setWrong(true);
+    const invite = parseInviteText(text.trim());
+    if (invite === undefined || invite.invite.body.kind !== "phone") {
+      setWrong(invite === undefined ? "not-a-code" : "computer-invite");
       return;
     }
     setText("");
-    setWrong(false);
+    setWrong(null);
     onClose();
-    onCode(qr);
+    onCode(invite);
   };
   return (
     <Sheet
@@ -48,15 +48,19 @@ export function EnterCodeSheet({
           value={text}
           onChangeText={(next) => {
             setText(next);
-            setWrong(false);
+            setWrong(null);
           }}
           placeholder={t("settings.label.remote-qr")}
           autoFocus
           onSubmit={pair}
         />
-        {wrong && (
+        {wrong !== null && (
           <Text variant="note" tone="critical">
-            {t("mobile.start.error.not-a-code")}
+            {t(
+              wrong === "not-a-code"
+                ? "mobile.start.error.not-a-code"
+                : "mobile.start.error.computer-invite",
+            )}
           </Text>
         )}
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -65,7 +69,7 @@ export function EnterCodeSheet({
             onPress={() =>
               void Clipboard.getStringAsync().then((pasted) => {
                 setText(pasted);
-                setWrong(false);
+                setWrong(null);
               })
             }
           >

@@ -141,8 +141,6 @@ export const sessionLifecycleWiring: WiringFactory = () => {
             });
         },
         anySubscriber: () => ctx.eventDelivery.hasSubscribers("lophn"),
-        // 터미널 session은 core의 tracker가 알아 shell 연결과 상관없다(`sweep`을 부르지 않는다).
-        shellAttached: () => true,
         interruptTerminal: (tab) => ctx.terminalAgents.interrupt(tab),
         async stopTurn(turn, stateSeq) {
           const done = await ctx.writer.command(LIFECYCLE_CONTEXT, {

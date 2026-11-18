@@ -24,7 +24,6 @@ export {
   createHostLink,
   type HostLink,
   type HostLinkSocket,
-  type RelayedFrameType,
 } from "./host-link.ts";
 export {
   isCommandRoute,

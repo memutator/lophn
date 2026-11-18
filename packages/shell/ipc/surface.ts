@@ -27,15 +27,8 @@ export const surfaceAckSchema = z
   .object({ request: id("hrq"), opened: z.boolean() })
   .strict();
 
-const terminalRef = z
-  .string()
-  .min(1)
-  .max(80)
-  .regex(/^[A-Za-z0-9_-]+$/);
-
 /**
- * host 탭(key가 `host:<tab>`)의 browser 상태나 닫힘, 또는 agent가 `--tui`로 연 TUI 탭이 생겼다는 것(터미널은 아직 없다)과
- * 그 터미널이 열렸다는 것(terminal_ref). main은 탭이 열려 있는 동안 session을 hold하고 TUI가 떠나면 푼다.
+ * host 탭(key가 `host:<tab>`)의 browser 상태나 닫힘.
  * bind는 browser·preview 탭의 view session을 알 때와 바뀔 때 알린다(main만 쓰고 core에는 가지 않는다). 닫힘은 `state: "closed"`가 푼다.
  */
 export const surfaceReportSchema = z.union([
@@ -58,17 +51,6 @@ export const surfaceReportSchema = z.union([
     .object({
       bind: z
         .object({ tab: id("tab"), view_session: z.string().min(1).max(200) })
-        .strict(),
-    })
-    .strict(),
-  z
-    .object({
-      tui: z
-        .object({
-          tab: id("tab"),
-          session: id("ses"),
-          terminal_ref: terminalRef.optional(),
-        })
         .strict(),
     })
     .strict(),
@@ -116,7 +98,7 @@ export type SurfaceTake = z.infer<typeof surfaceTakeSchema>;
 /** main이 창에 push하는 탭의 take control 상태. agent가 그 탭을 다루는 중이면 agent, 사람이 가져왔으면 held다. */
 export type SurfaceControl = { tab: string; agent: boolean; held: boolean };
 
-/** main이 창에 push하는 요청. extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 main이 처리하므로 창에 오지 않는다. */
+/** main이 창에 push하는 요청. browser 호출(`browser_call`)은 main이 처리하므로 창에 오지 않는다. */
 export type SurfaceRequest = {
   request: Extract<
     HostRequest,

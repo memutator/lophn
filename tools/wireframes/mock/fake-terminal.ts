@@ -186,10 +186,7 @@ export function fakeTerminalCore(
       case "terminals/rename_saved":
         return { sessions: [] };
       case "coding_sessions/list":
-        return {
-          shell: "attached",
-          sessions: coding === null ? [] : [coding],
-        };
+        return { sessions: coding === null ? [] : [coding] };
       case "coding_sessions/switch_plan":
         return {
           to: coding?.view === "gui" ? "tui" : "gui",

@@ -133,7 +133,7 @@ files:
     note: "일반 shell 창 본문이 아닌 sender와 고정되지 않은 결정은 forbidden, shell 창의 고정 결정은 handle을 받는다"
 
   - path: packages/shell/main/desktop/core/host-link_test.ts
-    covers: [host-queue-poll:tool-call, host-queue-poll:unhandled, host-queue-poll:reconnect]
+    covers: [host-queue-poll:browser-call, host-queue-poll:unhandled, host-queue-poll:reconnect]
     note: "가짜 socket으로 연결이 열리면 hello부터 보내고, 끊기면 1초·2초로 늘려 다시 붙어 hello를 다시 보내며, request가 처리기를 거쳐 response로 가고 처리기가 없는 종류는 unavailable, 끊긴 연결로 받은 요청의 답은 보내지 않는다"
 
   - path: packages/shell/main/desktop/detached/ipc_test.ts

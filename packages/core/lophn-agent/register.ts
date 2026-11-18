@@ -958,7 +958,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...QUEUED_INPUT_ROUTES,
       // core 안 extension host의 harness extension이 부르는 입구. handler는 wiring/harness.ts가 붙인다.
       ...HARNESS_HOST_MEMORY_ROUTES,
-      // 앱이 보는 session 목록·상태·멈추기와 shell main이 알리는 터미널 coding agent. handler는 wiring/session-lifecycle.ts가 붙인다.
+      // 앱이 보는 session 목록·상태·멈추기와 core가 아는 터미널 coding agent. handler는 wiring/session-lifecycle.ts가 붙인다.
       ...SESSION_LIFECYCLE_ROUTES,
       // 앱이 보내는 call과 읽기. handler는 wiring/app-calls.ts가 붙인다.
       ...APP_CALL_ROUTES,

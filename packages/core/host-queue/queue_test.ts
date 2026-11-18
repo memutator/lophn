@@ -115,55 +115,8 @@ test("retry한 요청은 다음 pump에 다시 나간다", () => {
   assert.equal(host.next()?.id, first.id);
 });
 
-// 같은 호출을 두 번 실행하면 extension handler의 효과(탭 조작, 결제 같은 외부 일)가 겹친다.
-test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지나도 다시 내놓지 않으며, 결과나 abandon으로 끝난다", async () => {
-  const { clock, queue } = setup();
-  const payload = (tool: string) => ({
-    extension: "web",
-    tool,
-    input: {},
-    session: OWNER,
-    workspace: HOME,
-    credential: "token",
-  });
-
-  const host = connect(queue);
-  const first = queue.callTool(payload("a"));
-  assert.equal(host.next()?.id, first.id);
-  clock.advance(60_000);
-  host.link.pump();
-  assert.equal(host.next(), null, "a borrowed tool call is not lent twice");
-
-  queue.done(first.id, "done", {
-    content: [{ type: "text", text: "ok" }],
-  });
-  const done = await first.result;
-  assert.ok(done.ok && done.value[0]?.type === "text");
-
-  // 부른 쪽이 거두면 unavailable로 끝나고 다시 나가지 않는다.
-  const second = queue.callTool(payload("b"));
-  assert.equal(host.next()?.id, second.id);
-  queue.abandon(second.id);
-  const gone = await second.result;
-  assert.ok(!gone.ok && gone.error.code === "unavailable");
-  host.link.pump();
-  assert.equal(host.next(), null);
-
-  // 빌려 간 뒤 답이 없으면 5분 뒤 거두고, 늦은 done은 무시된다.
-  const third = queue.callTool(payload("c"));
-  assert.equal(host.next()?.id, third.id);
-  clock.advance(299_000);
-  queue.expire();
-  clock.advance(2_000);
-  queue.expire();
-  const timedOut = await third.result;
-  assert.ok(!timedOut.ok && timedOut.error.code === "unavailable");
-  assert.match(timedOut.error.message, /within 5 minutes/);
-  queue.done(third.id, "done", { content: [{ type: "text", text: "late" }] });
-});
-
-// 기한을 넘은 browser 호출이 pending에 남으면 shell이 오래 뒤 낡은 click을 실행한다.
-test("기한을 넘은 browser_call은 unavailable로 끝나고 pending에서 빠지며 늦은 done은 무시된다", async () => {
+// 기한을 넘은 browser 호출이 pending에 남거나 빌려 간 호출이 다시 나가면 shell이 낡은 click을 (두 번) 실행한다.
+test("빌려 간 browser_call은 다시 나가지 않고, 기한을 넘으면 unavailable로 끝나 pending에서 빠지며 늦은 done은 무시된다", async () => {
   const { clock, queue } = setup();
   const host = connect(queue);
   const call = queue.callBrowser({
@@ -173,6 +126,8 @@ test("기한을 넘은 browser_call은 unavailable로 끝나고 pending에서 �
   });
   assert.equal(host.next()?.id, call.id);
   clock.advance(29_000);
+  host.link.pump();
+  assert.equal(host.next(), null, "a borrowed call is not lent twice");
   queue.expire();
   clock.advance(2_000);
   queue.expire();

@@ -1,4 +1,5 @@
-// terminal view: 폰이 보는 터미널(coding session의 터미널과 폰이 연 터미널)의 최신 화면(메모리), 보는 principal의 lease, 입력 key 기억이다.
+// terminal view: 폰이 보는 터미널(coding session의 터미널과 폰이 연 터미널)의 최신 화면(메모리)과 보는 principal의 lease다. 여는 것과
+// 입력은 `terminals/open|input`이 한다.
 // lease가 있는 터미널만 core가 PTY host의 화면을 주기로 읽어 최신 하나를 둔다. 내용은 event에 싣지 않고 seq만 알린다(폰이 snapshot을
 // 다시 읽는다). PTY 크기는 마지막에 잡은 쪽이 이긴다: 폰이 `resize`로 잡고(폰 크기 표지) desktop 탭은 focus가 오면 다시 잡는다. lease가
 // 모두 끝나면 core가 폰의 크기를 놓아 desktop 탭이 자기 크기로 되돌린다(지킴 18).
@@ -15,27 +16,18 @@ import type { TerminalScreen, Terminals } from "../terminals/ports.ts";
 // 폰이 10초마다 갱신하고 core는 30초 안에 갱신이 없으면 lease를 거둔다.
 export const LEASE_MS = 30_000;
 export const TAIL_DEFAULT = 100;
-// 터미널마다 기억하는 입력 key 수.
-export const INPUT_KEYS_MAX = 200;
 // lease가 있는 동안 화면을 읽는 간격.
 export const SCREEN_MS = 250;
-// 다시 보낸 open을 알아보는 key 수(전체).
-const OPEN_KEYS_MAX = 200;
 
 export type TerminalViewDeps = {
   clock: Clock;
   publish(event: BusEvent): void;
-  terminals: Pick<
-    Terminals,
-    "open" | "write" | "resize" | "screen" | "runtime"
-  >;
-  // project에 그 터미널의 탭을 연다(창이 없으면 탭은 기다리고 터미널은 그대로 돈다).
-  openTab(project: string, terminal: string): void;
+  terminals: Pick<Terminals, "resize" | "screen" | "runtime">;
   // ms 뒤에 한 번 부른다. 취소하는 함수를 돌려준다.
   after(ms: number, run: () => void): () => void;
-  // 그 터미널이 coding session 목록에 있다. 폰이 `open`으로 연 터미널은 이 모듈이 따로 안다.
+  // 그 터미널이 coding session 목록에 있다. 기기가 `terminals/open`으로 연 터미널은 이 모듈이 따로 안다(`adopt`).
   known(terminal: string): boolean;
-  // 이 principal이 터미널에 칠 수 있다.
+  // 이 principal이 터미널에 칠 수 있다(`snapshot`의 input. 폰이 입력 칸을 그릴지 정한다).
   mayType(principal: string): boolean;
 };
 
@@ -60,10 +52,8 @@ export function createTerminalView(deps: TerminalViewDeps) {
   const screens = new Map<string, TerminalScreen>();
   // 화면을 읽는 timer. lease가 있는 터미널만 있다.
   const polls = new Map<string, () => void>();
-  const keys = new Map<string, Map<string, Promise<Result<unknown>>>>();
   // 폰이 연 터미널. coding session 목록에 없어도 본다. 터미널이 없다고 답하면 뺀다.
   const opened = new Set<string>();
-  const opens = new Map<string, Promise<Result<{ terminal: string }>>>();
   const known = (terminal: string) =>
     opened.has(terminal) || deps.known(terminal);
 
@@ -142,7 +132,6 @@ export function createTerminalView(deps: TerminalViewDeps) {
       if (lease.terminal === terminal) leases.delete(key);
     }
     quiet(terminal);
-    keys.delete(terminal);
     opened.delete(terminal);
   }
 
@@ -215,75 +204,9 @@ export function createTerminalView(deps: TerminalViewDeps) {
       return done.ok ? ok({}) : err(passed(done.error));
     },
 
-    // project에 터미널을 열고 그 탭을 연다(`terminals/open`과 같은 길). 같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을
-    // 준다. 실패한 key는 잊는다).
-    open(input: {
-      project: string;
-      key: string;
-    }): Promise<Result<{ terminal: string }>> {
-      const seen = opens.get(input.key);
-      if (seen !== undefined) return seen;
-      const sending = terminals
-        .open({ project: input.project as never })
-        .then((done): Result<{ terminal: string }> => {
-          if (!done.ok) return err(passed(done.error));
-          const terminal = done.value.terminal_ref;
-          deps.openTab(input.project, terminal);
-          opened.add(terminal);
-          return ok({ terminal });
-        });
-      opens.set(input.key, sending);
-      while (opens.size > OPEN_KEYS_MAX) {
-        opens.delete(opens.keys().next().value!);
-      }
-      void sending.then((done) => {
-        if (!done.ok && opens.get(input.key) === sending) {
-          opens.delete(input.key);
-        }
-      });
-      return sending;
-    },
-
     // 기기가 `terminals/open`으로 연 터미널이다. 목록에 없어도 본다.
     adopt(terminal: string): void {
       opened.add(terminal);
-    },
-
-    // 허락 확인은 부른 쪽이 아니라 여기서 한다. 사람 입력으로 친다(`terminals/input`과 같은 길). 같은 key는 터미널마다 200개를
-    // 기억해 다시 치지 않는다.
-    input(
-      principal: string,
-      input: { terminal: string; text: string; key: string },
-    ): Promise<Result<Record<string, never>>> {
-      if (!deps.mayType(principal)) {
-        return Promise.resolve(
-          err({
-            code: "forbidden" as const,
-            message: "This device may not type into terminals.",
-          }),
-        );
-      }
-      const { terminal } = input;
-      if (!known(terminal)) return Promise.resolve(gone());
-      let seen = keys.get(terminal);
-      if (seen === undefined) keys.set(terminal, (seen = new Map()));
-      const before = seen.get(input.key);
-      if (before !== undefined) return before as never;
-      const table = seen;
-      const typed = terminals
-        .write(terminal, input.text, { human: true })
-        .then((done): Result<Record<string, never>> => {
-          if (!done.ok) {
-            if (table.get(input.key) === typed) table.delete(input.key);
-            return err(passed(done.error));
-          }
-          return ok({});
-        });
-      table.set(input.key, typed);
-      while (table.size > INPUT_KEYS_MAX) {
-        table.delete(table.keys().next().value!);
-      }
-      return typed;
     },
 
     // 기한이 지난 lease를 거둔다(주기로 부른다).
@@ -304,7 +227,6 @@ export function createTerminalView(deps: TerminalViewDeps) {
       const all = new Set([
         ...screens.keys(),
         ...polls.keys(),
-        ...keys.keys(),
         ...[...leases.values()].map((lease) => lease.terminal),
       ]);
       for (const terminal of all) {

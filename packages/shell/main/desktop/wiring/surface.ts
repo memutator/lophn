@@ -5,8 +5,6 @@
 // `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
 // agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
 // preview 탭이 기기를 고르면 창이 emulate로 알리고, 같은 debugger를 driver와 나눠 그 view에 건다(browser/agent/emulation.ts).
-// extension `harness`의 tick과 한 loop로 합치지 못한다. 그 tick은 extension 안에서 설정 `extensions.harness.enabled`가 꺼지면
-// 돌지 않고, extension은 shell main 내부를 import하지 못한다(check-deps rule `extension`).
 import {
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
@@ -188,8 +186,6 @@ export function register(
       if (now !== undefined) pushControl(tab, now);
       return;
     }
-    // TUI 탭의 hold는 core가 든다. 창이 아직 보내는 옛 보고는 버린다.
-    if ("tui" in parsed.value) return;
     if (parsed.value.state === "closed") {
       hostBrowser.delete(parsed.value.tab);
       bound.delete(parsed.value.tab);
@@ -351,9 +347,9 @@ export function register(
       ...(output === undefined ? {} : { output }),
     });
 
-  // 보이는 workspace를 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다. TUI 목록은 core가 든다(칸은 비운다).
+  // 보이는 workspace를 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다.
   function syncVisible(): void {
-    ctx.hostLink.visible({ workspaces: visibleWorkspaces(), tui: [] });
+    ctx.hostLink.visible({ workspaces: visibleWorkspaces() });
   }
   syncVisible();
   const visibleTimer = setInterval(syncVisible, VISIBLE_MS);

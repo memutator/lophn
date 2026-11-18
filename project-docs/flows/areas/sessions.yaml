@@ -1964,7 +1964,7 @@ flows:
     title: "사람을 기다리는 일이 생기면 보고 있지 않은 폰에 Expo Push를 보낸다"
     actor: system
     entries: [system:push-send]
-    uses: [route:presence/report, route:terminal_sessions/signal, route:devices/clear_push, route:devices/push_targets]
+    uses: [route:presence/report, system:terminal-agent-signal, route:devices/clear_push, route:devices/push_targets]
     boundary: [attention, remote, events]
     code:
       - packages/core/attention/triggers.ts
@@ -1999,29 +1999,6 @@ flows:
     docs: [architecture/attention.md, architecture/remote.md]
     unclear:
       - "GUI 탭의 승인은 계기가 아니다. 이슈 push-misses-gui-tab-approvals"
-
-  - id: terminal-sessions-signal
-    title: "shell main이 터미널 coding agent의 계기(대기, 끝, 실패)를 core에 알린다"
-    actor: shell
-    entries: [route:terminal_sessions/signal]
-    boundary: [attention, core-api]
-    code: [packages/core/attention/mod.ts, packages/core/attention/triggers.ts, packages/core/main/daemon/wiring/attention.ts]
-    steps:
-      - "사람 token(shell main)만 부른다. report가 목록이라면 이 route는 순간이다: tracker의 debounce 뒤 한 번씩 보낸다"
-      - "waiting이면 그 터미널의 unseen을 끄고 push 계기(needs_you)가 된다. finished·failed이면 보고 있는 present host가 없을 때 unseen을 세우고, active_ms가 60초 이상이면 push 계기(long_finish)가 된다"
-    outcomes:
-      - id: signaled
-        observe: [response, event:StateChanged]
-      - id: forbidden
-        code: forbidden
-        when: "사람 token이 아닌 자격이 부른다"
-        observe: [response]
-      - id: invalid-input
-        code: invalid_input
-        when: "입력이 schema에 맞지 않는다"
-        observe: [response]
-    crosses_process: false
-    docs: [architecture/terminal-agent.md]
 
   # ---------- 앱이 A2A의 한쪽이 된다(call 보내기, 답 받기, session 열기·끝내기) ----------
 

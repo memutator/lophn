@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 
 // 폰이 컴퓨터 터미널의 raw 화면을 보는 route다. 보는 동안 core가 PTY host의 화면을 읽어 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
-// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널(그 목록은 `coding_sessions/list`)과 폰이 연 터미널뿐이다.
+// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널(그 목록은 `coding_sessions/list`)과 기기가 `terminals/open`으로 연
+// 터미널뿐이다. 여는 것과 입력은 `terminals/open|input`(`coding-agent/terminals.ts`)이다.
 
 // `#rrggbb`이거나 xterm 256색 palette 번호(`p0`~`p255`)다.
 const terminalColorSchema = z
@@ -86,22 +86,6 @@ export const terminalViewWatch = defineMemory({
   errors,
 });
 
-// 터미널에 글을 친다. 이 principal이 입력을 허락받았을 때만이고(아니면 forbidden) 같은 key는 한 번만 친다.
-export const terminalViewInput = defineMemory({
-  resource: "terminal_view",
-  method: "input",
-  name: "TerminalViewInput",
-  changes: [],
-  input: z.strictObject({
-    terminal: terminalSchema,
-    text: z.string().min(1).max(8192),
-    key: z.string().min(1).max(200),
-  }),
-  output: z.strictObject({}),
-  actors: ["user"],
-  errors,
-});
-
 // 이 principal이 보는(lease가 있는) 터미널의 PTY 크기를 폰 화면의 열과 줄 수로 잡는다. 마지막에 잡은 쪽이 이긴다: 컴퓨터에서 그 탭에
 // focus가 오면 컴퓨터가 다시 잡고, 그 터미널의 lease가 모두 끝나면 컴퓨터의 탭이 자기 크기로 되돌린다. lease가 없으면 conflict다.
 export const terminalViewResize = defineMemory({
@@ -119,26 +103,8 @@ export const terminalViewResize = defineMemory({
   errors,
 });
 
-// project의 폴더에서 shell만 도는 터미널을 컴퓨터에 새로 열고 그 터미널을 준다(`terminals/open`과 같은 길). 창이 없어도 열리고, 그
-// project를 보이는 창이 있으면 탭으로 보인다. 같은 key는 한 번만 연다.
-export const terminalViewOpen = defineMemory({
-  resource: "terminal_view",
-  method: "open",
-  name: "TerminalViewOpen",
-  changes: [],
-  input: z.strictObject({
-    project: idSchema("prj"),
-    key: z.string().min(1).max(200),
-  }),
-  output: z.strictObject({ terminal: terminalSchema }),
-  actors: ["user"],
-  errors,
-});
-
 export const TERMINAL_VIEW_ROUTES = [
   terminalViewSnapshot,
   terminalViewWatch,
-  terminalViewInput,
   terminalViewResize,
-  terminalViewOpen,
 ] as const;

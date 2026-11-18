@@ -13,8 +13,8 @@ import { readOf } from "../run-loop/core-call.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { SpillableResult } from "./spill.ts";
 
-// shell extension이 manifest로 선언한 tool의 정의다. 사람이 정의 `extensions`로 할당한 extension의 tool 전부를 싣고(custom은
-// `tools`가 고른 이름만 prepare가 거른다), 실행은 `extension_tools/call` 한 곳으로 간다: Gate 판정, host queue, shell main의
+// extension이 manifest로 선언한 tool의 정의다. 사람이 정의 `extensions`로 할당한 extension의 tool 전부를 싣고(custom은
+// `tools`가 고른 이름만 prepare가 거른다), 실행은 `extension_tools/call` 한 곳으로 간다: Gate 판정과 extension host의
 // handler는 그 route가 한다. 그래서 정의에는 `gate`를 두지 않는다. 할당이 곧 허락이라 결과를 감싸지 않는다.
 const OBJECT_INPUT: z.ZodType = z.unknown().superRefine((value, context) => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

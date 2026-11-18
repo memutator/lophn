@@ -57,7 +57,7 @@ function upgradeRequest(headers: Record<string, string>): IncomingMessage {
   } as unknown as IncomingMessage;
 }
 
-// 다른 process의 agent나 web page가 host 자리를 차지하면 core가 시키는 일(탭, extension tool, coding 입력)을 가로챈다.
+// 다른 process의 agent나 web page가 host 자리를 차지하면 core가 시키는 일(탭, browser 호출)을 가로챈다.
 test("자격이 없거나 사람 자격이 아니거나 Origin이 다른 upgrade는 /host-link에서 거절된다", async (t) => {
   const credentials = new CredentialRegistry({
     epoch: "epoch",
@@ -130,9 +130,9 @@ test("자격이 없거나 사람 자격이 아니거나 Origin이 다른 upgrade
   assert.equal(hostLink.activity().arrivals, 1);
 });
 
-// 끊긴 연결로 보낸 호출을 다시 내주면 extension handler가 두 번 실행되고, 거두지 않으면 부른 쪽이 기한까지 멈춘다.
+// 끊긴 연결로 보낸 호출을 다시 내주면 browser 조작이 두 번 실행되고, 거두지 않으면 부른 쪽이 기한까지 멈춘다.
 // 탭 요청은 다시 대기해야 다음 host가 연다.
-test("연결이 닫히면 진행 중인 tool_call·browser_call 요청이 unavailable로 끝나고, 빌려 간 탭 요청은 다시 대기한다", async () => {
+test("연결이 닫히면 진행 중인 browser_call 요청이 unavailable로 끝나고, 빌려 간 탭 요청은 다시 대기한다", async () => {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
     clock,
@@ -149,19 +149,11 @@ test("연결이 닫히면 진행 중인 tool_call·browser_call 요청이 unavai
     bufferedAmount: () => 0,
   });
   peer.receive(
-    JSON.stringify({ type: "hello", version: 1, workspaces: [HOME], tui: [] }),
+    JSON.stringify({ type: "hello", version: 1, workspaces: [HOME] }),
   );
   assert.equal(link.attached(), true);
   assert.equal(queue.attached(), true);
 
-  const tool = queue.callTool({
-    extension: "web",
-    tool: "a",
-    input: {},
-    session: SESSION,
-    workspace: HOME,
-    credential: "token",
-  });
   const browser = queue.callBrowser({
     tab: "tab_x" as Id<"tab">,
     view: "browser",
@@ -177,19 +169,17 @@ test("연결이 닫히면 진행 중인 tool_call·browser_call 요청이 unavai
   assert.deepStrictEqual(
     sent.map((frame) => [frame.type, frame.kind]),
     [
-      ["request", "tool_call"],
       ["request", "browser_call"],
       ["request", "tab_open"],
     ],
   );
-  const opened = sent[2]!;
+  const opened = sent[1]!;
 
   peer.closed();
   assert.equal(link.attached(), false);
   assert.equal(closes, 1);
-  for (const result of await Promise.all([tool.result, browser.result])) {
-    assert.equal(!result.ok && result.error.code, "unavailable");
-  }
+  const result = await browser.result;
+  assert.equal(!result.ok && result.error.code, "unavailable");
   // 빌린 기한(10초)을 기다리지 않고 다음 host가 바로 가져간다. 거둔 호출은 다시 나가지 않는다.
   const again: CoreFrame[] = [];
   link
@@ -203,7 +193,6 @@ test("연결이 닫히면 진행 중인 tool_call·browser_call 요청이 unavai
         type: "hello",
         version: 1,
         workspaces: [HOME],
-        tui: [],
       }),
     );
   assert.deepStrictEqual(

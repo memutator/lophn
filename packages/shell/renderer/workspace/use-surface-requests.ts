@@ -256,29 +256,15 @@ export function useSurfaceRequests(args: Args): void {
         const terminal = host().props.terminal;
         const ref = target.terminal.terminal_ref;
         if (terminal === undefined) return;
-        const have =
-          ref !== undefined &&
-          host()
-            .windowTabs()
-            .some(
-              (tab) =>
-                tab.kind === "terminal" &&
-                terminal.store.refOf(tab.key) === ref,
-            );
-        if (
-          have ||
-          openTerminal(host(), {
-            open,
-            ...(ref === undefined ? {} : { terminal: ref }),
-          }) !== null
-        ) {
+        const have = host()
+          .windowTabs()
+          .some(
+            (tab) =>
+              tab.kind === "terminal" && terminal.store.refOf(tab.key) === ref,
+          );
+        if (have || openTerminal(host(), { open, terminal: ref }) !== null) {
           done();
         }
-        return;
-      }
-      // core는 옛 coding·TUI 탭을 더 시키지 않는다(`term-cleanup`이 target을 지운다).
-      if (!("browser" in target)) {
-        done();
         return;
       }
       openBrowserTab(host(), target.browser.url, open);

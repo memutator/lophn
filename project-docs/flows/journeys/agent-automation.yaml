@@ -624,13 +624,13 @@ journeys:
   # ---- shell extension tool ----
 
   - id: extension-tool-assigned-call
-    title: "정의에 할당한 shell extension tool을 부른다"
+    title: "정의에 할당한 extension tool을 부른다"
     actor: agent
-    goal: "agent가 extensions로 할당받은 extension tool을 부르면 묻지 않고 shell main handler가 실행해 결과를 돌려준다"
+    goal: "agent가 extensions로 할당받은 extension tool을 부르면 묻지 않고 extension host의 handler가 실행해 결과를 돌려준다"
     refs: [H3]
     steps:
       - {do: "agent가 ext 이름으로 extension tool을 부른다", flow: extension-tool-judge:handed-to-host}
-      - {do: "shell main handler가 결과를 돌려준다", flow: extension-tool-call:ran}
+      - {do: "extension host의 handler가 결과를 돌려준다", flow: extension-tool-call:ran}
 
   - id: extension-tool-not-assigned
     title: "할당하지 않은 extension tool은 forbidden으로 막힌다"

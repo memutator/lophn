@@ -19,7 +19,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { err, ok } from "../../../../base/mod.ts";
-import { describeThrown } from "../../../../base/telemetry/mod.ts";
 import {
   acpImageRead,
   acpImageUpload,
@@ -46,7 +45,6 @@ import {
   codingSessionsRewindPreview,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
-  codingSessionsWake,
 } from "../../../../protocol/coding-agent/relay.ts";
 import {
   TERMINAL_GUI_EVENT,
@@ -294,7 +292,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
         attention: () => ctx.attention,
         handlers: () => ctx.extensionHost.tabHandlers(),
         redact,
-        attached: () => ctx.hostLink.attached(),
         platform: process.platform,
         store: createAgentSessionStore({
           dataRoot: ctx.root.path,
@@ -566,9 +563,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
         }),
       );
 
-      ctx.hostLink.onOpen(() => coding.changed());
       ctx.hostLink.onClose(() => {
-        coding.changed();
         for (const runGone of [...gone]) runGone();
       });
       beatTimer = setInterval(() => agents.holds.beat(), BEAT_MS);
@@ -607,7 +602,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
         }),
       );
 
-      const { launchShell } = ctx.options;
       const opener = createCodingOpen({
         async open(project, command) {
           const opened = await ctx.terminals.open({
@@ -645,22 +639,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
         hold: (session) => ctx.harnessHold.open(session as Id<"ses">),
         held: (terminal, session) =>
           agents.holds.hold(terminal, session, "gui"),
-        attached: () => queue.attached(),
-        ...(launchShell === undefined
-          ? {}
-          : {
-              startShell: () =>
-                queue.startShell((failed) =>
-                  launchShell(ctx.root.path, (thrown) => {
-                    ctx.telemetry.logger.warn({
-                      component: "terminal-agents",
-                      event: "shell_launch_failed",
-                      fields: describeThrown(thrown),
-                    });
-                    failed();
-                  }),
-                ),
-            }),
       });
 
       return ok({
@@ -724,7 +702,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 },
               ),
           ],
-          [key(codingSessionsWake), () => opener.wake()],
         ],
         uploads: [
           [
@@ -787,7 +764,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
             )
             .set(key(codingSessionsList), (_who, input) =>
               ok({
-                shell: coding.shell(),
                 sessions: coding.list((input as { project?: string }).project),
               }),
             )

@@ -124,7 +124,6 @@ function setup(view: "gui" | "tui", ready = true) {
         return index < 0 ? undefined : { index, length: SECRET.length };
       },
     })),
-    attached: () => true,
     platform: "linux",
   });
   return {

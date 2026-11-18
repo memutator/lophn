@@ -1008,7 +1008,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       return await closeUnstarted(start, made.value, limits.value, mode);
     }
     const agent = made.value.agent;
-    // harness runtime의 session은 shell host가 돌린다. 이 입력이 run-loop에 닿았으면 turn을 시작하지 않고 닫는다.
+    // harness runtime의 session은 core 안 extension host의 `harness` extension이 돌린다. 이 입력이 run-loop에 닿았으면 turn을 시작하지 않고 닫는다.
     if (isHarnessRuntime(agent.runtime)) {
       return await closeUnstarted(
         start,

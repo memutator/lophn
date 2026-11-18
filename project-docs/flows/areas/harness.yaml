@@ -230,7 +230,7 @@ flows:
 
   # ---- host queue: core 메모리의 host 요청과 agent가 연 탭 ----
   - id: host-link
-    title: shell main이 /host-link로 붙어 host 요청을 받고 답·보고·coding·터미널 frame을 올린다
+    title: shell main이 /host-link로 붙어 host 요청(탭 열기·닫기·보이기, browser 호출)을 받고 답·탭 보고를 올린다
     actor: shell
     entries: [system:host-link]
     boundary: [host-queue-interface, host-queue-core, server]
@@ -242,11 +242,10 @@ flows:
       - packages/protocol/host-link/frames.ts
     steps:
       - "shell main이 GET /host-link(subprotocol lophn.host-link.1)로 upgrade를 건다. Gateway와 같은 gate다: 헤더가 한도를 넘거나 host가 허용되지 않으면 invalid_input, 자격이 없으면 unauthorized, Origin이 있으면 forbidden이다. 사람 자격(actor user)이 아니면 forbidden, GET이 아니거나 subprotocol이 없으면 invalid_input으로 거절한다. event 연결 한도(사람 token의 Gateway·CLI watch 몫)는 쓰지 않는다. 연결은 한 번에 하나라 새 연결이 오면 옛 연결을 닫는다(아래 닫힘과 같다)"
-      - "첫 frame은 hello {version 1, workspaces, tui}다. 받으면 queue가 그 연결에 붙고(attached. 연결이 열려 있는 동안만이다) 보이는 workspace에 닿는 대기 요청을 request frame으로 바로 밀며, 새 요청도 들어오는 대로 민다. 붙으면 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다. tool_call·browser_call·terminal_interrupt·coding_*·terminal_stream·terminal_input은 workspace 없이 간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). coding_*·terminal_stream·terminal_input은 연결이 없으면 넣지 않고 바로 unavailable이다"
-      - "연결이 열린 동안 1초마다 기한이 지난 호출을 거두고, 다시 대기한 요청(retry, 빌린 지 10초가 지난 탭 요청)을 다시 밀고, 마지막 tui 목록으로 TUI hold를 갱신한다. 결과를 기다리는 요청(tool_call, browser_call, terminal_interrupt, browser tab_open, 연결 요청)은 두 번 실행하면 안 되어 다시 밀지 않는다"
-      - "visible은 보이는 workspace와 tui 목록을 바꾼다. response는 요청을 끝내거나(done) 맨 뒤로 보내 다시 대기시킨다(retry). done이면 결과를 기다리던 쪽(extension tool 호출, browser/* route, 앱의 session stop, coding route)에 output을 넘기고(content는 성공, error는 실패), output이 없으면 그쪽은 unavailable로 끝난다. 없는 id면 아무것도 하지 않는다. 연결이 닫히면 그 연결로 빌려 간 결과 요청(tool_call, browser_call, browser tab_open, terminal_interrupt)과 모든 연결 요청을 unavailable로 거두고, 빌려 간 탭 요청은 바로 다시 대기시키고, onClose 처리기를 부른다. TUI hold 갱신이 멈춰 10초 뒤 풀린다. server가 내려갈 때 1001로 닫는다"
+      - "첫 frame은 hello {version 1, workspaces}다. 받으면 queue가 그 연결에 붙고(attached. 연결이 열려 있는 동안만이다) 보이는 workspace에 닿는 대기 요청을 request frame으로 바로 밀며, 새 요청도 들어오는 대로 민다. 붙으면 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다. 요청은 tab_open·tab_close·tab_show·browser_call뿐이다. browser_call은 workspace 없이 간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). 터미널 탭(target terminal)은 core가 이미 연 터미널에 붙는 탭이다"
+      - "연결이 열린 동안 1초마다 기한이 지난 호출을 거두고, 다시 대기한 요청(retry, 빌린 지 10초가 지난 탭 요청)을 다시 민다. 결과를 기다리는 요청(browser_call, browser tab_open)은 두 번 실행하면 안 되어 다시 밀지 않는다"
+      - "visible은 보이는 workspace를 바꾼다. response는 요청을 끝내거나(done) 맨 뒤로 보내 다시 대기시킨다(retry). done이면 결과를 기다리던 쪽(browser/* route, browser 탭 열기)에 output을 넘기고(content는 성공, error는 실패), output이 없으면 그쪽은 unavailable로 끝난다. 없는 id면 아무것도 하지 않는다. 연결이 닫히면 그 연결로 빌려 간 결과 요청(browser_call, browser tab_open)을 unavailable로 거두고, 빌려 간 탭 요청은 바로 다시 대기시키고, onClose 처리기(hook 설치 물음의 거절)를 부른다. server가 내려갈 때 1001로 닫는다"
       - "report는 host 탭의 browser 상태(url, title, loading)를 적거나, closed면 탭을 표에서 뺀다(이후 browser/*는 not_found). closed는 사람이 탭을 닫거나 browser 탭의 page가 상한(창마다 12개)이나 page를 든 창의 닫힘으로 없어졌을 때 온다. 모르는 탭이면 아무것도 하지 않는다"
-      - "coding_report·coding_sync·coding_closed·terminal_screen은 onFrame으로 단 wiring에 넘긴다"
       - "frame이 JSON이 아니거나 schema에 맞지 않거나, 첫 frame이 hello가 아니거나 hello가 다시 오거나, binary frame이면 1008로 닫는다. 16 MiB를 넘는 frame은 ws가 1009로 닫는다. 보내는 버퍼가 1 MiB를 넘으면 1013으로 닫는다"
     outcomes:
       - id: open
@@ -280,13 +279,11 @@ flows:
         when: "frame이 틀렸거나 순서가 틀려(hello 앞의 다른 frame, 두 번째 hello) 1008로 닫았다"
         observe: [response]
       - id: closed
-        when: "연결이 닫혔다(끊김, 새 연결, 느린 host, 내려감). 그 연결로 나간 결과 요청과 연결 요청은 unavailable로 끝나고 빌려 간 탭 요청은 다시 대기한다"
+        when: "연결이 닫혔다(끊김, 새 연결, 느린 host, 내려감). 그 연결로 나간 결과 요청은 unavailable로 끝나고 빌려 간 탭 요청은 다시 대기한다"
         observe: [response]
     crosses_process: false
     risk: [permission, secret]
     docs: [architecture/coding-agent.md, architecture/browser-tab.md]
-    unclear:
-      - "tool_call 요청 payload에 credential이 실려 shell로 간다. 이 credential을 실제로 누가 받는지는 extension-tools 쪽 flow가 정한다"
 
   - id: host-tab-open
     title: agent나 사람 token이 session 탭을 열어 달라고 요청한다
@@ -1223,7 +1220,7 @@ flows:
       - "extension 종료(stop) 때 실행 중 turn은 target-unavailable로 finish한다. 설정이 꺼진 뒤의 finish는 core가 conflict로 거절할 수 있다"
 
   - id: host-queue-poll
-    title: shell main이 /host-link로 받은 host 요청을 창에 열거나 extension tool·browser 호출을 돌린다
+    title: shell main이 /host-link로 받은 host 요청을 창에 열거나 browser 호출을 돌린다
     actor: shell
     entries: [system:host-queue-poll]
     uses: [host-link:open, host-link:closed]
@@ -1233,18 +1230,17 @@ flows:
       - packages/shell/main/desktop/wiring/surface.ts
       - packages/shell/ipc/surface.ts
     steps:
-      - "Gateway가 처음 ready가 되면 사람 token으로 /host-link를 열고 hello에 보이는 workspace와 TUI 목록을 싣는다. 끊기면 1초에서 30초까지 두 배씩 늘려 다시 붙고 hello부터 다시 보낸다. core가 다시 떠 주소나 token이 바뀌면 Gateway ready 때 새 값으로 바로 붙는다"
-      - "보이는 workspace와 TUI 목록을 창이 알릴 때와 1초마다 보고, 바뀌었으면 visible을 보낸다"
-      - "request가 오면 종류마다 단 처리기로 돌린다. tool_call이면 extension tool을, browser_call이면 browser driver를, terminal_interrupt이면 터미널의 끊기 key를 따로 돌리고 끝나면 결과를 response에 싣는다. 처리기가 없는 종류는 unavailable로 답한다"
+      - "Gateway가 처음 ready가 되면 사람 token으로 /host-link를 열고 hello에 보이는 workspace를 싣는다. 끊기면 1초에서 30초까지 두 배씩 늘려 다시 붙고 hello부터 다시 보낸다. core가 다시 떠 주소나 token이 바뀌면 Gateway ready 때 새 값으로 바로 붙는다"
+      - "보이는 workspace를 창이 알릴 때와 1초마다 보고, 바뀌었으면 visible을 보낸다"
+      - "request가 오면 종류마다 단 처리기로 돌린다. browser_call이면 browser driver를 따로 돌리고 끝나면 결과를 response에 싣는다. 처리기가 없는 종류는 unavailable로 답한다"
       - "탭 요청은 받은 차례로 하나씩 그 workspace를 보이는 창 가운데 focus를 가장 최근에 받은 하나에만 push하고 창의 ack를 1.5초 기다린다(두 창이 같은 탭을 열지 않는다). browser 탭 열기는 보이는 창이 없으면 가장 최근 일반 창에 보내고, 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive). browser 탭 닫기는 page를 가진 창에 보낸다"
-      - "TUI 탭 열기는 창에 보내기 전에 그 session을 TUI 목록에 넣어(visible) hold를 잇고 session_snapshots로 그 session에 turn이 도는지 본다. 돌면(running, waiting) 목록에서 빼고 1초 쉰 뒤 retry로 답한다. 창이 열지 못하면 목록에서 뺀다"
       - "ack가 오면 response done. browser 탭 열기는 ack 뒤 page가 붙는(bind) 때 done으로 core에 답한다(page를 둘 창이 닫히면 오류로 답한다). 창이 없거나 ack가 없으면 1초 쉰 뒤 retry로 답한다(core가 바로 다시 밀지 않게). 창을 끝내 만들지 못한 browser 탭 열기는 retry가 아니라 unavailable로 답한다"
       - "창이 알린 host 탭의 browser 상태와 닫힘은 report frame으로 올린다. 연결이 끊긴 동안의 답과 보고는 버린다(core가 결과 요청을 이미 unavailable로 끝냈고 탭 요청은 다시 민다)"
     outcomes:
       - id: offered
         observe: [screen:project-terminal]
       - id: retry
-        when: "창이 없거나, 창이 1.5초 안에 ack하지 않았거나, 창이 열지 못했다고 답했다(browser 탭 열기는 창을 열어 보고도 없을 때만 오류로 끝난다), 또는 TUI 탭 열기의 session에 headless turn이 돈다"
+        when: "창이 없거나, 창이 1.5초 안에 ack하지 않았거나, 창이 열지 못했다고 답했다(browser 탭 열기는 창을 열어 보고도 없을 때만 오류로 끝난다)"
         observe: [response]
       - id: browser-open-answered
         when: "browser 탭 열기를 창이 ack했고 page가 bind되어 done으로 답했다. 일반 창이 없었으면 focus 없이 창을 열고 거기 보냈다"
@@ -1252,14 +1248,11 @@ flows:
       - id: browser-open-failed
         when: "browser 탭 열기에 받을 창을 만들지 못했거나 page를 둘 창이 답하기 전에 닫혔다. unavailable과 고정 문장으로 done한다"
         observe: [response]
-      - id: tool-call
-        when: "tool_call 요청이다. extension tool을 따로 돌리고 끝나면 response에 결과를 싣는다"
-        observe: [response]
       - id: browser-call
         when: "browser_call 요청이다. browser driver(browser-call-run)를 따로 돌리고 끝나면 response에 결과를 싣는다"
         observe: [response]
       - id: unhandled
-        when: "이 shell에 처리기가 없는 종류의 요청이다(coding_open). unavailable로 답한다"
+        when: "이 shell에 처리기가 없는 종류의 요청이다. unavailable로 답한다"
         observe: [response]
       - id: reconnect
         when: "연결이 열리지 않았거나 끊겼다. 1초에서 30초까지 두 배씩 늘려 다시 붙는다. 끊긴 연결로 받은 요청의 답은 보내지 않는다"
@@ -1781,40 +1774,6 @@ flows:
     unclear:
       - "GUI가 시작하지 못해도(harness-gui가 꺼짐, adapter 실패) 열기는 성공이고 그 터미널에 실패가 보인다"
 
-  - id: coding-session-wake
-    title: 폰이 컴퓨터의 lophn 앱을 띄운다
-    actor: person
-    entries: [route:coding_sessions/wake]
-    boundary: [host-queue-core]
-    code:
-      - packages/core/terminal-agents/open.ts
-      - packages/core/main/daemon/wiring/terminal-agents.ts
-      - packages/core/host-queue/queue.ts
-      - packages/core/main/daemon/shell-launcher.ts
-    steps:
-      - "shell이 붙어 있으면 attached다. 아니면 queue.startShell로 앱을 focus 없는 창으로 띄우고 starting이다. 폰은 coding_sessions/list의 shell이 attached가 되길 기다린다"
-      - "띄울 길이 없거나(앱이 띄운 core가 아니다), 앞선 실패 뒤 5분 안이거나, 띄우자마자 실패하면 unavailable이다"
-      - "터미널과 coding session은 core가 가져 앱이 없어도 목록과 열기가 된다. 깨우기는 desktop 창이 필요할 때만 쓸모 있다"
-    outcomes:
-      - id: attached
-        observe: [response]
-      - id: starting
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch)"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "띄울 길이 없다, 앞선 실패 뒤 쉬는 중이다, 또는 띄우자마자 실패했다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "입력 schema가 틀렸다(빈 객체가 아니다)"
-        observe: [response]
-    crosses_process: true
-    docs: [architecture/platform.md]
-
   - id: coding-session-input
     title: 화면과 폰이 coding session의 대화를 읽고 입력을 그 터미널의 GUI handle에 넘긴다
     actor: person
@@ -1886,7 +1845,7 @@ flows:
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
     steps:
-      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(폰이 10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다. 터미널이 coding session 목록에 없고 폰이 연 터미널(terminal_view/open, 기기가 부른 terminals/open)도 아니면 not_found다"
+      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(폰이 10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다. 터미널이 coding session 목록에 없고 폰이 연 터미널(기기가 부른 terminals/open)도 아니면 not_found다"
       - "켜면 화면을 한 번 읽고 lease가 있는 동안 계속 읽는다(terminal-view-screen). 폰이 연 터미널을 PTY host가 모르면 그 터미널을 잊는다. 읽기의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
       - "off이거나 기한이 지나 마지막 lease가 끝나면 읽기를 멈추고 폰이 잡은 PTY 크기를 놓는다"
     outcomes:
@@ -1940,45 +1899,6 @@ flows:
     risk: [secret]
     docs: [architecture/remote.md, architecture/terminal-agent.md]
 
-  - id: terminal-view-input
-    title: 입력을 허락받은 기기만 폰에서 coding session 터미널에 글을 친다
-    actor: person
-    entries: [route:terminal_view/input]
-    boundary: [core]
-    code:
-      - packages/core/terminal-view/view.ts
-      - packages/core/main/daemon/wiring/terminal-view.ts
-      - packages/protocol/coding-agent/terminal-view.ts
-    steps:
-      - "terminalInputGrant(principal)이 true를 돌려준 principal만 부를 수 있다: terminal_input이 켜진 기기다(초대장과 같이 정하고 기본 켬(roster-invite), 그 뒤 roster-set-terminal-input으로 바꾼다). 그 밖이면 forbidden이고 터미널에 아무것도 가지 않는다"
-      - "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니면 not_found다. 같은 key는 터미널마다 200개를 기억해 다시 보내면 다시 치지 않고 처음 답을 준다. 실패한 시도는 잊는다"
-      - "사람 입력으로 PTY에 친다(terminals/input과 같은 길. tracker가 끊기 key를 본다). 터미널의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
-    outcomes:
-      - id: sent
-        observe: [process:pty, response]
-      - id: deduplicated
-        when: "같은 key를 다시 보냈다(다시 치지 않는다)"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "입력을 허락받지 않은 principal이다, 또는 사람 자격(actor user)이 아니다"
-        observe: [response]
-      - id: not_found
-        code: not_found
-        when: "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니다, 또는 PTY host가 그 터미널을 모른다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "PTY host가 답하지 않았다(host_lost)"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "PTY host가 입력을 거절했다"
-        observe: [response]
-    crosses_process: true
-    risk: [permission]
-    docs: [architecture/remote.md, architecture/terminal-agent.md]
-
   - id: terminal-view-resize
     title: 폰이 보는 터미널의 PTY 크기를 자기 화면의 열과 줄 수로 잡는다
     actor: person
@@ -2018,50 +1938,6 @@ flows:
     docs: [architecture/remote.md, architecture/terminal-agent.md]
     unclear:
       - "invalid_input은 선언만 있고 입력 schema 밖에서는 내지 않는다"
-
-  - id: terminal-view-open
-    title: 폰이 컴퓨터의 project에 shell만 도는 터미널을 연다(창이 없어도 열린다)
-    actor: person
-    entries: [route:terminal_view/open]
-    boundary: [core, host-queue-core]
-    code:
-      - packages/core/terminal-view/view.ts
-      - packages/core/main/daemon/wiring/terminal-view.ts
-      - packages/protocol/coding-agent/terminal-view.ts
-      - packages/core/terminals/service.ts
-      - packages/mobile/src/data/terminal.ts
-    steps:
-      - "폰의 새 session 화면 agent sheet에서 coding agent 묶음 끝의 Terminal 줄이 부른다. 열리면 그 터미널(term:<terminal>)의 터미널 화면으로 간다"
-      - "같은 key는 한 번만 연다(여는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다)"
-      - "core가 그 project에 터미널을 열고(terminals/open과 같은 길) tab_open(target terminal {terminal_ref})을 넣는다. 그 project를 보이는 창이 있으면 탭으로 보인다"
-      - "연 터미널을 폰이 연 터미널로 기억해 coding session 목록에 없어도 terminal_view/watch·snapshot·input·resize가 받는다. 입력은 그 기기의 허락이 있을 때만이다"
-    outcomes:
-      - id: opened
-        observe: [process:pty, response]
-      - id: deduplicated
-        when: "같은 key를 다시 보냈다(다시 열지 않는다)"
-        observe: [response]
-      - id: not_found
-        code: not_found
-        when: "project가 없다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "입력 schema가 틀렸다, 또는 project에 등록 폴더가 없다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "PTY를 띄우지 못했다(spawn_failed, host_lost)"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch)"
-        observe: [response]
-    crosses_process: true
-    risk: [permission]
-    docs: [architecture/remote.md, architecture/terminal-agent.md]
-    unclear:
-      - "conflict는 선언만 있고 내지 않는다"
 
   # ---- core가 가진 터미널(terminals/*): desktop 화면과 폰이 같이 쓴다 ----
   - id: terminals-read
@@ -2388,7 +2264,7 @@ flows:
       - packages/core/terminal-agents/service.ts
     steps:
       - "tracker가 권한 물음, 일 끝(main turn과 child가 다 끝나 1.5초 idle), 실패를 정한 순간 TerminalAgentSignaled {terminal, project, harness, kind, name, body}를 낸다. 보고 있는지는 보지 않는다"
-      - "shell main이 이것을 듣고 보고 있지 않으면 toast나 OS 알림을 고른다. 못 본 끝(unseen)과 폰 push는 core가 같은 계기에 attention을 바로 불러 정한다(terminal_sessions/signal을 거치지 않는다). 새 turn과 터미널 끝에는 그 터미널의 못 본 끝을 지운다"
+      - "shell main이 이것을 듣고 보고 있지 않으면 toast나 OS 알림을 고른다. 못 본 끝(unseen)과 폰 push는 core가 같은 계기에 attention을 바로 불러 정한다. 새 turn과 터미널 끝에는 그 터미널의 못 본 끝을 지운다"
     outcomes:
       - id: signaled
         observe: [event:TerminalAgentSignaled]
@@ -2939,50 +2815,6 @@ flows:
         observe: [screen:project-terminal]
     crosses_process: true
     risk: [data-loss]
-    docs: [architecture/terminal-agent.md]
-
-  - id: terminal-view-host
-    title: "shell main이 폰이 보는 터미널의 화면을 /host-link로 올리고 폰의 입력을 그 터미널에 친다"
-    actor: system
-    entries: [system:terminal-view-host]
-    uses: [system:host-link]
-    boundary: [host-queue-interface, shell]
-    code:
-      - packages/core/main/daemon/wiring/terminal-view.ts
-      - packages/core/main/daemon/wiring/terminal-view.ts
-      - packages/core/terminals/host/screen.ts
-      - packages/core/terminals/host/main.ts
-      - packages/shell/renderer/terminal/terminal-tab.tsx
-    steps:
-      - "core가 terminal_stream {on: true, tail}을 보내면 그 터미널을 보는 중으로 두고 terminal-host의 screen 요청으로 지금 화면(viewport 전체와 그 위 scrollback의 마지막 tail줄, 서식이 같은 칸을 이은 run)을 읽어 terminal_screen frame 하나로 보낸다"
-      - "그 터미널에 출력이 오면 첫 출력은 바로, 250ms 안에 더 온 출력은 250ms 끝에 하나로 묶어 화면 전체를 다시 보낸다. 마지막 출력 뒤 한 번은 꼭 보낸다. 연결이 없으면 보내지도 쌓지도 않는다"
-      - "on: false가 오거나 터미널이 끝나거나(exited, unknown) terminal host가 사라지면 멈춘다. 연결이 (다시) 열리면 모두 멈추고 core가 살아 있는 lease마다 terminal_stream을 다시 보낼 때 다시 켠다"
-      - "terminal_input {terminal_ref, text}는 core가 허락을 본 것이다. 도는 터미널이면 main의 입력 길(focus 검사 없음)로 치고 사람이 친 것처럼 coding agent 상태에 알린다"
-      - "terminal_resize {terminal_ref, columns, rows}는 도는 터미널의 PTY를 그 크기로 바꾸고 runtime에 remote_size를 단다. 그 runtime이 창에 가면 탭은 칸에 맞추지 않고 그 크기로 그리며 한 줄(Sized for a phone)을 보인다. 사람이 그 탭을 고르거나 누르면 탭이 칸 크기로 다시 잡아 remote_size가 빠진다. 바뀐 화면을 바로 보낸다"
-      - "보기를 멈출 때(on: false, 연결이 다시 열림) 그 터미널이 폰의 크기면 host에 release를 보내 remote_size를 빼고, 그 runtime이 창에 가면 탭이 칸에 다시 맞춘다"
-      - "terminal_open {project}는 terminal-view-open의 shell 쪽이다"
-    outcomes:
-      - id: streamed
-        when: "terminal_stream on이고 그 터미널이 있다. 지금 화면을 보내고 ok로 답한다"
-        observe: [response, "request:core"]
-      - id: stopped
-        when: "terminal_stream off다. 보내기를 멈추고 ok로 답한다"
-        observe: [response]
-      - id: typed
-        when: "terminal_input이 도는 터미널에 왔다. 친 뒤 ok로 답한다"
-        observe: [response]
-      - id: resized
-        when: "terminal_resize가 도는 터미널에 왔다. PTY를 바꾸고 ok로 답한다"
-        observe: [response, "screen:project-terminal"]
-      - id: not_found
-        code: not_found
-        when: "terminal_stream on의 터미널이 없거나, terminal_input·terminal_resize의 터미널이 없거나 돌지 않는다"
-        observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "terminal host가 입력이나 크기 바꾸기를 거절했다(그 사이 끝남, host가 사라짐)"
-        observe: [response]
-    crosses_process: true
     docs: [architecture/terminal-agent.md]
 
   - id: terminal-output

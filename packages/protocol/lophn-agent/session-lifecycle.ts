@@ -19,7 +19,7 @@ export const SESSION_EVENTS = [
 export type SessionEventName = (typeof SESSION_EVENTS)[number];
 
 // lophn은 lophn runtime, harness는 headless harness runtime(claude-code·codex·opencode)의 session, terminal은 사람 터미널 탭에서
-// 도는 coding agent CLI다. terminal은 core의 session이 아니라 shell main이 알려 준 것이라 id가 `term:<탭>`이다.
+// 도는 coding agent CLI다. terminal은 ledger의 session이 아니라 core의 tracker가 메모리에 아는 것이라 id가 `term:<탭>`이다.
 export const SESSION_KINDS = ["lophn", "harness", "terminal"] as const;
 export const sessionKindSchema = z.enum(SESSION_KINDS);
 export type SessionKind = z.infer<typeof sessionKindSchema>;
@@ -73,7 +73,7 @@ export const sessionInfoSchema = z.object({
 });
 export type SessionInfo = z.infer<typeof sessionInfoSchema>;
 
-// shell main이 core에 알리는 터미널 coding agent 하나다. core는 메모리에만 두고 shell이 떨어지면 비운다.
+// core의 tracker와 GUI handle이 아는 터미널 coding agent 하나다. 메모리에만 두고 터미널이 끝나면 빠진다.
 export const terminalSessionReportSchema = z.strictObject({
   terminal_ref: z.string().min(1),
   project: idSchema("prj"),

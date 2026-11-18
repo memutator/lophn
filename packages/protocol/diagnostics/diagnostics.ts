@@ -48,7 +48,7 @@ export const diagnosticsList = defineRead({
 
 export const DIAGNOSTIC_ROUTES = [diagnosticsList] as const;
 
-// core가 점검하는 구성 요소만이다. 터미널은 shell main이 안다.
+// core가 점검하는 구성 요소만이다.
 export const DIAGNOSTIC_COMPONENTS = [
   "core",
   "ledger",

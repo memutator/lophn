@@ -5,10 +5,9 @@ import { defineMemory } from "../base/route.ts";
 import { extensionToolContentSchema } from "../extensions/manifest.ts";
 import { artifactNameSchema } from "../projects/values.ts";
 import { loginIdSchema } from "../secrets/logins.ts";
-import { MESSAGE_IMAGE_MAX_BYTES } from "./message-images.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
-// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이 붙은
+// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기·보이기, browser 호출)을 담고, shell main이 붙은
 // `/host-link` 연결(`protocol/host-link/frames.ts`)로 받아 그 workspace를 보이는 창에 push한다. 답과 탭 상태도 그 연결로 온다.
 // shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고, core가 다시 뜨면 사라진다.
 //
@@ -48,16 +47,13 @@ export const TAB_RELATIONS = [
 export const tabRelationSchema = z.enum(TAB_RELATIONS);
 export type TabRelation = z.infer<typeof tabRelationSchema>;
 
-// `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
 // `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
 // device는 설정 `shell.devices`의 이름이다. 없으면 null이고 desktop 크기다. core가 이름을 확인해 보낸다.
 // screen은 preview release 선언의 화면 key다. 없으면 null이고 앱의 첫 `tab` 화면이다. 폰 화면(`places`가 `["phone"]`)이면
 // core가 device를 채워 보낸다(없으면 기준 폰에 대응하는 `shell.devices` 항목의 이름).
 // `artifact`는 요청 workspace(project나 앱)의 artifact `artifacts/<name>/`을 artifact 탭으로 연다.
-// `coding`은 project 터미널 탭에서 그 harness의 TUI를 띄운다. handoff 글은 core가 file로 쓰고 payload의 `handoff`에는 file만 간다.
 const sharedTargets = [
   z.strictObject({ session: idSchema("ses") }),
-  z.strictObject({ tui: idSchema("ses") }),
   z.strictObject({
     browser: z.strictObject({ url: z.string().min(1).max(8192) }),
   }),
@@ -70,18 +66,19 @@ const sharedTargets = [
   }),
   z.strictObject({ artifact: z.strictObject({ name: artifactNameSchema }) }),
 ] as const;
-// `terminal`은 터미널 탭이다. terminal_ref가 있으면 core가 이미 연 그 터미널(`terminals/open`의 `tab`)에 붙고, 없으면 shell만 도는
-// 터미널을 shell main이 연다(폰이 연 터미널, `terminal_open`).
+// `terminal`은 core가 이미 연 터미널(`terminals/open`의 `tab`, `tabs/open`의 `tui`·`coding`)의 탭이다. shell은 새 터미널을 열지 않고
+// 그 터미널에 붙는다.
 export const hostTabTargetSchema = z.union([
   ...sharedTargets,
   z.strictObject({
-    coding: z.strictObject({ harness: z.string().min(1).max(64) }),
-  }),
-  z.strictObject({
-    terminal: z.strictObject({ terminal_ref: z.string().min(1).optional() }),
+    terminal: z.strictObject({ terminal_ref: z.string().min(1) }),
   }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
+
+// `tabs/open` 입력의 `tui`는 harness agent session을 core가 연 터미널에서 그 CLI의 resume으로 연다(project workspace의 session만).
+// shell에는 `terminal` target으로 간다.
+const tuiTargetSchema = z.strictObject({ tui: idSchema("ses") });
 
 // `phone`은 폰에 뜬 그 앱의 preview 화면이다. shell에 가는 탭이 아니라 core가 폰 link로 다루므로 `hostTabTargetSchema`에는 없고
 // `tabs/open` 입력에만 있다. screen은 폰 화면의 key이고 null이면 폰이 지금 보이는 화면이다.
@@ -92,7 +89,8 @@ const phoneTabTargetSchema = z.strictObject({
   }),
 });
 
-// `tabs/open` 입력의 coding target이다. payload의 target과 달리 handoff 글을 싣는다.
+// `tabs/open` 입력의 coding target이다. core가 handoff 글을 file로 쓰고 project에 터미널을 열어 그 harness의 TUI를 띄운다. shell에는
+// `terminal` target으로 간다.
 export const HANDOFF_MAX_BYTES = 64 * 1024;
 const codingOpenSchema = z.strictObject({
   coding: z.strictObject({
@@ -117,29 +115,6 @@ const tabOpenPayloadSchema = z.strictObject({
   relation: tabRelationSchema.nullable(),
   // 연 agent session이다. renderer가 그 session의 탭 옆에 놓는다.
   source: idSchema("ses").nullable(),
-  // target이 tui일 때 CLI를 다시 여는 값이다. harness는 `HARNESS_ADAPTERS`의 id, external_session은 그 CLI의 session id다.
-  // renderer는 session의 CLI id를 읽을 길이 없어 core가 실어 보낸다.
-  resume: z
-    .strictObject({
-      harness: z.string().min(1),
-      external_session: z.string().min(1),
-    })
-    .nullable(),
-  // target이 coding일 때 handoff 글을 쓴 file이다(data root `handoffs/<tab>.md`). 글 자체는 싣지 않는다.
-  handoff: z
-    .strictObject({ harness: z.string().min(1), file: z.string().min(1) })
-    .nullable(),
-});
-
-// extension tool 호출이다. 어느 workspace의 일이 아니라 아무 shell main이나 가져간다(요청에 workspace 칸이 없다).
-// `workspace`는 부른 session의 자리이고 handler의 호출 맥락이 된다. `credential`은 그 호출만 쓰는 agent token이다.
-const toolCallPayloadSchema = z.strictObject({
-  extension: z.string().min(1).max(64),
-  tool: z.string().min(1).max(64),
-  input: z.json(),
-  session: idSchema("ses"),
-  workspace: hostWorkspaceSchema,
-  credential: z.string().min(1),
 });
 
 // browser 호출의 act 하나다. ref는 snapshot마다 새로 나고, 낡은 ref는 shell이 `conflict`로 답한다.
@@ -192,8 +167,6 @@ export const BROWSER_WAIT_DEFAULT_MS = 10_000;
 export const BROWSER_WAIT_MAX_MS = 25_000;
 // core가 browser 호출의 답을 기다리는 기한이다. 넘으면 거두고 `unavailable`이다. wait의 최대(25초)가 이 안에 든다.
 export const BROWSER_CALL_MS = 30_000;
-// core가 extension tool 호출의 답을 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
-export const EXTENSION_TOOL_CALL_MS = 5 * 60_000;
 // core가 browser를 쓰려고 shell(앱)을 띄우는 약속이다. 앱의 실행 intent와, 그 길을 켜 달라고 core를 띄운 쪽(shell main, CLI)이
 // core env에 주는 표시다. test·boot처럼 사람이 아닌 쪽이 띄운 core는 이 표시가 없어 shell을 띄우지 않는다.
 export const AGENT_WINDOW_INTENT = "--agent-window";
@@ -224,85 +197,11 @@ export const browserActionSchema = z.discriminatedUnion("kind", [
 ]);
 export type BrowserAction = z.infer<typeof browserActionSchema>;
 
-// browser 탭을 CDP로 다루는 호출이다. `tool_call`처럼 workspace 칸이 없고 아무 shell main이 가져간다. 결과는 연결의 `response` output이다.
+// browser 탭을 CDP로 다루는 호출이다. workspace 칸이 없고 아무 shell main이 가져간다. 결과는 연결의 `response` output이다.
 const browserCallPayloadSchema = z.strictObject({
   tab: idSchema("tab"),
   view: z.enum(["browser", "preview", "artifact"]),
   action: browserActionSchema,
-});
-
-// 터미널 탭의 coding agent CLI를 끊는다(그 harness의 끊기 key를 친다). 앱이 터미널 session을 멈출 때 core가 넣는다. workspace 칸이 없고 아무
-// shell main이 가져간다. key가 없는 harness나 없는 탭은 `response`의 error(unavailable·not_found)로 답한다.
-const terminalInterruptPayloadSchema = z.strictObject({
-  terminal_ref: z.string().min(1),
-});
-
-// 아래 열은 연결이 있을 때만 넣는다. 연결이 없을 때 대기하지 않고 연결이 끊기면 `unavailable`로 끝난다(`LINK_REQUEST_KINDS`).
-// workspace 칸이 없고 답은 `response`의 output이다.
-// coding session(GUI handle)에 입력 하나를 넘긴다. handle이 없으면 error `not_found`다.
-// input은 `AcpInput`(`protocol/acp/input.ts`)이다. acp가 lophn-agent를 import해 여기서 그 schema를 쓰면 순환이라 모양만 보고,
-// core는 이미 검사한 입력만 넣고 받는 host가 `acpInputSchema`로 다시 검사한다.
-const codingInputPayloadSchema = z.strictObject({
-  session: idSchema("ses"),
-  input: z.record(z.string(), z.unknown()),
-});
-// 터미널 탭의 coding agent를 GUI와 TUI 사이에서 바꾼다. 실패는 error의 `details.reason`
-// (`no_session|not_running|extension_off|unsupported_os|failed`)이다.
-const codingSwitchPayloadSchema = z.strictObject({
-  terminal_ref: z.string().min(1),
-  to: z.enum(["gui", "tui"]),
-});
-// project에 coding session을 새로 열거나 저장된 session을 되살린다. 답은 JSON `{"terminal_ref":"…"}` 글 하나다.
-// resume의 session은 되살리는 ledger session이고 cli_session은 그 CLI session id다(ledger만 알아 core가 싣는다).
-const codingOpenPayloadSchema = z.strictObject({
-  project: idSchema("prj"),
-  harness: z.string().min(1).max(64),
-  resume: z
-    .strictObject({
-      session: idSchema("ses"),
-      cli_session: z.string().regex(/^[A-Za-z0-9._-]{1,200}$/),
-    })
-    .optional(),
-});
-// coding session의 tool 본문 한 쪽을 읽는다(core가 내는 상태에는 본문이 없다). 답은 JSON `{"value":"…","truncated":false}` 글
-// 하나다. 그 tool이나 그 쪽 본문이 없으면 error `not_found`다.
-const codingBodyPayloadSchema = z.strictObject({
-  session: idSchema("ses"),
-  tool_call: z.string().min(1).max(200),
-  part: z.enum(["input", "output"]),
-});
-// 폰이 붙인 그림(base64)을 그 coding session 탭의 임시 폴더에 쓴다. 답은 JSON `{"path":"…"}` 글 하나다. 그림이 아니면 `invalid_input`이다.
-const codingImageWritePayloadSchema = z.strictObject({
-  session: idSchema("ses"),
-  data: z
-    .string()
-    .min(1)
-    .max(Math.ceil(MESSAGE_IMAGE_MAX_BYTES / 3) * 4),
-});
-// 그 탭의 임시 폴더 바로 아래 그림을 읽는다. 답은 image content 하나다. 그 밖이거나 그림이 아니면 `not_found`다.
-const codingImageReadPayloadSchema = z.strictObject({
-  session: idSchema("ses"),
-  path: z.string().min(1).max(4096),
-});
-// 그 터미널의 화면을 `terminal_screen` frame으로 밀어 올리기를 켜고 끈다. tail은 viewport 위 scrollback 줄 수다.
-const terminalStreamPayloadSchema = z.strictObject({
-  terminal_ref: z.string().min(1),
-  on: z.boolean(),
-  tail: z.number().int().min(0).max(500),
-});
-const terminalInputPayloadSchema = z.strictObject({
-  terminal_ref: z.string().min(1),
-  text: z.string().min(1).max(8192),
-});
-// 폰이 그 터미널의 PTY 크기를 잡는다. 화면 밀기(`terminal_stream`)가 꺼지면 host가 놓고 desktop 탭이 자기 크기로 되돌린다.
-const terminalResizePayloadSchema = z.strictObject({
-  terminal_ref: z.string().min(1),
-  columns: z.number().int().min(1).max(512),
-  rows: z.number().int().min(1).max(256),
-});
-// project에 shell만 도는 터미널 탭을 연다. 답은 JSON `{"terminal_ref":"…"}` 글 하나다.
-const terminalOpenPayloadSchema = z.strictObject({
-  project: idSchema("prj"),
 });
 
 export const hostRequestSchema = z.discriminatedUnion("kind", [
@@ -327,86 +226,11 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
   }),
   z.strictObject({
     id: idSchema("hrq"),
-    kind: z.literal("tool_call"),
-    payload: toolCallPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
     kind: z.literal("browser_call"),
     payload: browserCallPayloadSchema,
   }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("terminal_interrupt"),
-    payload: terminalInterruptPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("coding_input"),
-    payload: codingInputPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("coding_switch"),
-    payload: codingSwitchPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("coding_open"),
-    payload: codingOpenPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("coding_body"),
-    payload: codingBodyPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("coding_image_write"),
-    payload: codingImageWritePayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("coding_image_read"),
-    payload: codingImageReadPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("terminal_stream"),
-    payload: terminalStreamPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("terminal_input"),
-    payload: terminalInputPayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("terminal_resize"),
-    payload: terminalResizePayloadSchema,
-  }),
-  z.strictObject({
-    id: idSchema("hrq"),
-    kind: z.literal("terminal_open"),
-    payload: terminalOpenPayloadSchema,
-  }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
-
-// 연결이 없으면 대기하지 않는 요청 종류다.
-export const LINK_REQUEST_KINDS = [
-  "coding_input",
-  "coding_switch",
-  "coding_open",
-  "coding_body",
-  "coding_image_write",
-  "coding_image_read",
-  "terminal_stream",
-  "terminal_input",
-  "terminal_resize",
-  "terminal_open",
-] as const;
-export type LinkRequestKind = (typeof LINK_REQUEST_KINDS)[number];
 
 // browser 탭의 마지막 상태다. renderer가 host 탭만 알려 준다.
 export const browserTabStateSchema = z.strictObject({
@@ -416,7 +240,7 @@ export const browserTabStateSchema = z.strictObject({
 });
 export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
-// extension handler나 browser 호출의 결과다. 결과를 기다리는 요청(`tool_call`·`browser_call`·`terminal_interrupt`·연결 요청)의 `response`에만 싣는다.
+// browser 호출과 browser 탭 열기의 결과다. 결과를 기다리는 요청(`browser_call`, browser 탭의 `tab_open`)의 `response`에만 싣는다.
 export const hostToolOutputSchema = z.union([
   z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
   z.strictObject({
@@ -455,7 +279,12 @@ export const tabsOpen = defineMemory({
   name: "OpenTab",
   changes: [],
   input: z.strictObject({
-    target: z.union([...sharedTargets, phoneTabTargetSchema, codingOpenSchema]),
+    target: z.union([
+      ...sharedTargets,
+      tuiTargetSchema,
+      phoneTabTargetSchema,
+      codingOpenSchema,
+    ]),
     relation: tabRelationSchema.optional(),
     // 사람 token이 browser 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
     workspace: workspaceSchema.optional(),

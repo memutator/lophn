@@ -1,6 +1,6 @@
 // core가 켜질 때마다 만드는 per-run 폴더. hook·bridge endpoint, `$BROWSER` shim, 시작 층 file이 여기 산다.
 // POSIX는 공통 socket 자리(`socketDirectoryPath`) 아래 `core-<pid>/`, Windows는 pipe가 아니라 shim file만
-// 두는 `<data root>/run/core-<pid>/`다(shell main의 `shell-<pid>/`와 같은 규칙, 이름만 다르다). endpoint는 base의 `ipcPath`가 만든다(Windows는 data root로 나눈
+// 두는 `<data root>/run/core-<pid>/`다. endpoint는 base의 `ipcPath`가 만든다(Windows는 data root로 나눈
 // common namespace의 named pipe). file 폴더와 pipe의 수명은 서로 상관없다.
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";

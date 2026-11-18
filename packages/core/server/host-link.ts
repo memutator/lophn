@@ -1,6 +1,6 @@
 // shell main(host)과 core의 양방향 연결 `/host-link`다. frame은 `protocol/host-link/frames.ts`.
-// 연결이 `hello`로 열리면 host queue가 요청을 `request` frame으로 바로 밀고, `response`·`report`는 queue로 간다.
-// 그 밖의 frame은 다른 wiring이 `onFrame`으로 받는다. 연결은 한 번에 하나이고 새 연결이 옛 연결을 닫는다.
+// 연결이 `hello`로 열리면 host queue가 요청을 `request` frame으로 바로 밀고, `visible`·`response`·`report`는 queue로 간다.
+// 연결은 한 번에 하나이고 새 연결이 옛 연결을 닫는다.
 import type { Buffer } from "node:buffer";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -14,9 +14,7 @@ import {
   HOST_LINK_CLOSE_INVALID,
   HOST_LINK_FRAME_MAX_BYTES,
   HOST_LINK_SUBPROTOCOL,
-  type HostFrame,
   type HostFrameOf,
-  type HostFrameType,
   parseHostFrame,
 } from "../../protocol/host-link/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
@@ -30,10 +28,6 @@ const CLOSE_REPLACED = 1000;
 const CLOSE_SHUTDOWN = 1001;
 // 연결이 열린 동안 기한이 지난 요청을 거두고, 다시 대기한 요청(retry, 빌린 기한이 지난 탭 요청)을 미는 간격이다.
 const TICK_MS = 1_000;
-
-// 이 file이 직접 처리하는 frame이다. 나머지는 다른 wiring이 `onFrame`으로 받는다.
-type OwnFrameType = "hello" | "visible" | "response" | "report";
-export type RelayedFrameType = Exclude<HostFrameType, OwnFrameType>;
 
 // 실제 WebSocket과 test의 메모리 socket이 둘 다 맞춘다.
 export type HostLinkSocket = {
@@ -51,13 +45,6 @@ export type HostLinkQueue = Pick<
 export type HostLink = {
   // `hello`를 받은 연결이 열려 있다.
   attached(): boolean;
-  // 한 종류에 처리기 하나다. 연결이 바뀌어도 그대로다.
-  onFrame<T extends RelayedFrameType>(
-    type: T,
-    handler: (frame: HostFrameOf<T>) => void,
-  ): void;
-  // `hello`를 받아 queue가 붙은 뒤 부른다. 다시 붙을 때마다 부른다.
-  onOpen(handler: () => void): void;
   // 열렸던 연결이 닫힌 바로 뒤(queue가 그 연결의 요청을 거둔 뒤) 부른다.
   onClose(handler: () => void): void;
   // server가 받은 socket 하나를 연결로 삼는다. 옛 연결은 닫는다.
@@ -80,8 +67,6 @@ export function createHostLink(deps: {
   queue: HostLinkQueue;
   logger?: Logger;
 }): HostLink {
-  const handlers = new Map<string, (frame: HostFrame) => void>();
-  const openHandlers: (() => void)[] = [];
   const closeHandlers: (() => void)[] = [];
   let current: Connection | null = null;
 
@@ -145,7 +130,6 @@ export function createHostLink(deps: {
       connection.queue?.pump();
     }, TICK_MS);
     connection.tick.unref?.();
-    for (const handler of openHandlers) guarded(handler);
   }
 
   function receive(connection: Connection, text: string) {
@@ -170,24 +154,11 @@ export function createHostLink(deps: {
         );
       case "report":
         return deps.queue.report(frame.tab as Id<"tab">, frame.state);
-      default: {
-        const handler = handlers.get(frame.type);
-        if (handler !== undefined) guarded(() => handler(frame));
-      }
     }
   }
 
   return {
     attached: () => current !== null && current.queue !== null,
-    onFrame(type, handler) {
-      if (handlers.has(type)) {
-        throw new Error(`host-link frame ${type} already has a handler`);
-      }
-      handlers.set(type, handler as (frame: HostFrame) => void);
-    },
-    onOpen(handler) {
-      openHandlers.push(handler);
-    },
     onClose(handler) {
       closeHandlers.push(handler);
     },

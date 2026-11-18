@@ -8,7 +8,6 @@ const WORKSPACE = {
   kind: "project",
   id: "prj_01h0000000000000000000000a",
 } as const;
-const SESSION = "ses_01h0000000000000000000000b";
 const REQUEST = "hrq_01h0000000000000000000000c";
 
 function fakeSockets() {
@@ -68,7 +67,7 @@ test("열리면 지금 보이는 것을 실은 hello부터 보내고, 끊기면 
   const { link, sockets, waits } = setup();
   const opens: number[] = [];
   link.onOpen(() => opens.push(sockets.opened.at(-1)!.sent.length));
-  link.visible({ workspaces: [WORKSPACE], tui: [SESSION] });
+  link.visible({ workspaces: [WORKSPACE] });
   link.refresh();
   const first = sockets.opened[0]!;
   assert.equal(first.url, "ws://127.0.0.1:4100/host-link");
@@ -77,7 +76,6 @@ test("열리면 지금 보이는 것을 실은 hello부터 보내고, 끊기면 
     type: "hello",
     version: 1,
     workspaces: [WORKSPACE],
-    tui: [SESSION],
   };
   assert.deepEqual(first.sent, [hello]);
   // onOpen은 hello 뒤에 불린다.
@@ -111,11 +109,11 @@ test("열리면 지금 보이는 것을 실은 hello부터 보내고, 끊기면 
 test("request는 그 종류의 처리기를 거쳐 response로 가고, 처리기가 없는 종류와 끊긴 뒤의 답은 그렇게 다뤄진다", async () => {
   const { link, sockets, waits } = setup();
   let finish: (() => void) | undefined;
-  link.onRequest("tool_call", (payload) =>
-    Promise.resolve({ content: [{ type: "text", text: payload.tool }] }),
+  link.onRequest("browser_call", (payload) =>
+    Promise.resolve({ content: [{ type: "text", text: payload.view }] }),
   );
   link.onRequest(
-    "terminal_interrupt",
+    "tab_show",
     () =>
       new Promise((resolve) => {
         finish = () => resolve({ content: [{ type: "text", text: "late" }] });
@@ -127,13 +125,13 @@ test("request는 그 종류의 처리기를 거쳐 response로 가고, 처리기
   socket.message({
     type: "request",
     id: REQUEST,
-    kind: "tool_call",
-    payload: { tool: "lint" },
+    kind: "browser_call",
+    payload: { view: "browser" },
   });
   socket.message({
     type: "request",
     id: "hrq_01h0000000000000000000000e",
-    kind: "coding_input",
+    kind: "tab_close",
     payload: {},
   });
   await settle();
@@ -145,7 +143,7 @@ test("request는 그 종류의 처리기를 거쳐 response로 가고, 처리기
       output: {
         error: {
           code: "unavailable",
-          message: "This lophn app cannot handle coding_input requests yet.",
+          message: "This lophn app cannot handle tab_close requests yet.",
         },
       },
     },
@@ -153,7 +151,7 @@ test("request는 그 종류의 처리기를 거쳐 response로 가고, 처리기
       type: "response",
       id: REQUEST,
       result: "done",
-      output: { content: [{ type: "text", text: "lint" }] },
+      output: { content: [{ type: "text", text: "browser" }] },
     },
   ]);
 
@@ -161,8 +159,8 @@ test("request는 그 종류의 처리기를 거쳐 response로 가고, 처리기
   socket.message({
     type: "request",
     id: "hrq_01h0000000000000000000000f",
-    kind: "terminal_interrupt",
-    payload: { terminal_ref: "trm_1" },
+    kind: "tab_show",
+    payload: { tab: "tab_01h0000000000000000000000d" },
   });
   await settle();
   socket.close();

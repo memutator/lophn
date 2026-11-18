@@ -1,5 +1,5 @@
 // session lifecycle: 앱이 보는 session의 목록, 상태 event, 멈추기. session의 상태는 `state.ts` 한 곳이 정한다.
-// 목록은 lophn·harness runtime의 session(ledger의 sessions 표)과 shell main이 알려 준 터미널 coding agent(메모리)를 한 모양
+// 목록은 lophn·harness runtime의 session(ledger의 sessions 표)과 core가 아는 터미널 coding agent(메모리)를 한 모양
 // (`SessionInfo`)으로 합친다. event는 agent event(turn·요청·질문·session 시작과 끝)가 올 때 상태를 다시 파생해 바뀌었으면 낸다.
 // 앱이 보는 것은 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 session뿐이다(`mayReachWorkspace`).
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -63,8 +63,6 @@ export type LifecycleDeps = {
   ): void;
   // lophn의 event를 구독하겠다고 선언한 앱이 있나. 없으면 session 한 줄을 만들지도 않는다.
   anySubscriber(): boolean;
-  // shell main이 core에 붙어 있나(터미널 session은 shell이 있는 동안만 안다).
-  shellAttached(): boolean;
   // 터미널 탭의 끊기 key를 보낸다. key가 없는 harness는 unavailable이다.
   interruptTerminal(tab: string): Promise<Result<void>>;
   // 도는 turn을 멈춘다(StopTurn).
@@ -242,7 +240,7 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
       }
     },
 
-    // shell main이 알린 터미널 coding agent 집합으로 통째로 바꾼다.
+    // core의 tracker와 GUI handle이 아는 터미널 coding agent 집합으로 통째로 바꾼다.
     reportTerminals(reports: readonly TerminalSessionReport[]): void {
       const next = new Map(reports.map((one) => [one.terminal_ref, one]));
       for (const [ref, before] of terminals) {
@@ -267,11 +265,6 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
           emit(`session.${report.state}`, info);
         }
       }
-    },
-
-    // shell이 떨어졌으면 터미널 session을 비운다(그 사이 일은 알 길이 없다).
-    sweep(): void {
-      if (terminals.size > 0 && !deps.shellAttached()) this.reportTerminals([]);
     },
 
     async stop(

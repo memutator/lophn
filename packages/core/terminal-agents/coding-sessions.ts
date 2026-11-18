@@ -53,8 +53,6 @@ export type CodingSessionsDeps = {
   publish(event: BusEvent): void;
   // 제품 redactor로 값 안의 모든 글을 거른다. 알려진 secret을 아직 다 모르면 null이다(내지 않는다).
   redact<T>(value: T): T | null;
-  // `/host-link`가 열려 있다(목록의 `shell` 칸).
-  attached(): boolean;
   // core가 도는 OS(`process.platform`). 터미널과 같은 기계다.
   platform: string;
 };
@@ -229,10 +227,10 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
     reports,
     list,
 
-    // 목록이 바뀌었을 수 있다(tracker의 agent, GUI handle, 터미널 runtime, 연결). 바뀌었으면 `StateChanged{coding_sessions}`를 내고
+    // 목록이 바뀌었을 수 있다(tracker의 agent, GUI handle, 터미널 runtime). 바뀌었으면 `StateChanged{coding_sessions}`를 내고
     // 듣는 쪽에 알린다.
     changed(): void {
-      const next = JSON.stringify([deps.attached(), list()]);
+      const next = JSON.stringify(list());
       if (next === listed) return;
       listed = next;
       publishChanges([{ name: "coding_sessions", id: null }]);
@@ -244,9 +242,6 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-
-    shell: (): "attached" | "absent" =>
-      deps.attached() ? "attached" : "absent",
 
     has: (session: string) => handleOf(session) !== undefined,
 

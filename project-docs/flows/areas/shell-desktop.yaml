@@ -235,7 +235,7 @@ flows:
       - packages/shell/main/desktop/wiring/context.ts
       - packages/shell/ipc/shortcuts.ts
     steps:
-      - "전역 팔레트 key(keys 소유)나 harness-gui 탭이 꺼져 있을 때의 요청이 desktop.send로 온다. intent는 global-palette 또는 extension-settings다"
+      - "전역 팔레트 key(keys 소유)나 옮겨진 로그인 시작 알림의 [Open settings]가 desktop.send로 온다. intent는 global-palette 또는 remote-settings다"
       - "최근 desktop 창이 있으면 최소화를 풀고 앞으로 가져온다. 창이 아직 로딩 중이면 did-finish-load 뒤에 intent를 보낸다"
       - "창이 없으면 새 기본 창을 연 뒤 같은 방식으로 보낸다. 창이 구독하기 전에 막 연 창은 preload가 받아 두었다가 넘긴다"
     outcomes:

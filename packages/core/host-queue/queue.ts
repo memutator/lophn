@@ -10,14 +10,11 @@ import type { ExtensionToolContent } from "../../protocol/extensions/manifest.ts
 import { PHONE_TAB_TEXT } from "../../protocol/phone/drive.ts";
 import {
   BROWSER_CALL_MS,
-  EXTENSION_TOOL_CALL_MS,
   type BrowserTabState,
   type HostRequest,
   type HostTabTarget,
   type HostToolOutput,
   type HostWorkspace,
-  LINK_REQUEST_KINDS,
-  type LinkRequestKind,
   type TabRelation,
 } from "../../protocol/lophn-agent/host-queue.ts";
 
@@ -67,28 +64,22 @@ export type BrowserTabView =
   | { view: "browser" | "preview" | "artifact" }
   | { view: "phone"; phone: PhoneTab };
 
-type ToolCallPayload = Extract<HostRequest, { kind: "tool_call" }>["payload"];
 type BrowserCallPayload = Extract<
   HostRequest,
   { kind: "browser_call" }
 >["payload"];
 type CallResult = Result<ExtensionToolContent[]>;
 
-// 뒤 task(surf-team, ext-tools)가 쓰는 port다.
+// 다른 wiring(browser·tab route, 터미널 탭 열기)이 쓰는 port다.
 export type HostQueue = {
   enqueue(request: HostRequest): void;
-  // extension tool 호출을 넣고 shell main의 handler 결과를 기다린다. EXTENSION_TOOL_CALL_MS 안에 답이 없으면 `expire()`가 거두고, `abandon(id)`로 거둬도 `unavailable`로 끝난다.
-  callTool(payload: ToolCallPayload): {
-    id: Id<"hrq">;
-    result: Promise<CallResult>;
-  };
   // browser 호출을 넣고 shell main의 결과를 기다린다. BROWSER_CALL_MS 안에 답이 없으면 `expire()`가 거두고 `unavailable`로 끝낸다.
   callBrowser(payload: BrowserCallPayload): {
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
   abandon(id: Id<"hrq">, message?: string): void;
-  // 기한이 지난 호출(extension tool, browser 등)을 거둔다. 부른 쪽이 주기로 부른다.
+  // 기한이 지난 호출(browser 호출, browser 탭 열기)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
   // 자기가 연 browser·preview·artifact·phone 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
   browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView>;
@@ -125,33 +116,23 @@ type OpenInput = {
   target: HostTabTarget;
   relation: TabRelation | null;
   source: Id<"ses"> | null;
-  // target이 tui일 때 CLI를 다시 여는 값.
-  resume?: { harness: string; external_session: string };
-  // target이 coding일 때 handoff 글을 쓴 file이다. `tab`은 그 file 이름에 쓴 `newTabId()`다.
-  handoff?: { harness: string; file: string };
+  // 미리 받은 `newTabId()`다(handoff file 이름에 쓴 탭 id).
   tab?: Id<"tab">;
 };
 
 const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
 
-const linkOnly = (request: HostRequest) =>
-  (LINK_REQUEST_KINDS as readonly string[]).includes(request.kind);
-
-// 결과를 기다리는 요청이다. 빌려 가면 done이 올 때까지 다시 내놓지 않는다(두 번 실행하면 안 된다). tool_call·browser_call과,
-// browser 탭의 tab_open(page 만들기를 기다린다), 연결 요청이다.
+// 결과를 기다리는 요청이다. 빌려 가면 done이 올 때까지 다시 내놓지 않는다(두 번 실행하면 안 된다). browser_call과
+// browser 탭의 tab_open(page 만들기를 기다린다)이다.
 const isCall = (request: HostRequest) =>
-  request.kind === "tool_call" ||
   request.kind === "browser_call" ||
-  request.kind === "terminal_interrupt" ||
-  linkOnly(request) ||
   (request.kind === "tab_open" && "browser" in request.payload.target);
 
 const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
 
 // browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
-const LINK_LOST = "The lophn app disconnected before it answered.";
 export const SHELL_NOT_ATTACHED =
   "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
 const QUEUE_FULL =
@@ -160,8 +141,6 @@ const NO_RESULT =
   "The lophn app returned no result for this call. Try once more; if it fails again, tell the person.";
 const TIMED_OUT =
   "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
-const EXTENSION_TOOL_TIMED_OUT =
-  "The extension tool did not answer within 5 minutes, so lophn stopped waiting. It may still be running in the lophn app; check its effect before calling it again, and tell the person if it happens again.";
 const OPEN_TIMED_OUT =
   "The browser page did not start loading in time (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 export const SHELL_START_FAILED =
@@ -176,7 +155,7 @@ const NO_SUCH_TAB =
 export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   const pending: Entry[] = [];
   const tabs = new Map<Id<"tab">, TabEntry>();
-  // 결과를 기다리는 tool_call·browser_call. deadline이 null이면 기한이 없다.
+  // 결과를 기다리는 browser_call과 browser 탭 열기. deadline이 null이면 기한이 없다.
   const waiting = new Map<
     Id<"hrq">,
     {
@@ -289,21 +268,14 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   }
 
   // 연결이 닫혔다. 그 연결로 빌려 간 결과 요청은 실행됐는지 모르니 거두고(두 번 실행하면 안 된다), 탭 요청은 다시 대기한다.
-  // 연결 요청은 받을 host가 없어 모두 거둔다.
   function unlink(current: NonNullable<typeof link>): void {
     if (link !== current) return;
     link = null;
     for (const id of current.lent) {
       const entry = pending.find((found) => found.request.id === id);
       if (entry === undefined) continue;
-      if (isCall(entry.request)) {
-        abandon(id, linkOnly(entry.request) ? LINK_LOST : SHELL_LOST);
-      } else entry.borrowedAt = null;
-    }
-    for (const entry of [...pending]) {
-      if (linkOnly(entry.request)) {
-        abandon(entry.request.id as Id<"hrq">, LINK_LOST);
-      }
+      if (isCall(entry.request)) abandon(id, SHELL_LOST);
+      else entry.borrowedAt = null;
     }
   }
 
@@ -366,8 +338,6 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
           target: input.target,
           relation: input.relation,
           source: input.source,
-          resume: input.resume ?? null,
-          handoff: input.handoff ?? null,
         },
       };
       if (!wait) {
@@ -447,14 +417,6 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
 
   return {
     enqueue,
-    callTool(payload: ToolCallPayload) {
-      const id = deps.ids.newId("hrq") as Id<"hrq">;
-      return call(
-        { id, kind: "tool_call", payload },
-        deps.clock.nowMs() + EXTENSION_TOOL_CALL_MS,
-        () => EXTENSION_TOOL_TIMED_OUT,
-      );
-    },
     callBrowser(payload: BrowserCallPayload) {
       const id = deps.ids.newId("hrq") as Id<"hrq">;
       return call(

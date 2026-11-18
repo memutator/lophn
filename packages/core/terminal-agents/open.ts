@@ -1,5 +1,5 @@
-// 폰이 컴퓨터에 coding session을 새로 열거나(`coding_sessions/open`) 앱을 깨운다(`coding_sessions/wake`). 여는 일은 core가
-// 한다: 새 터미널을 열고 사람이 치는 것과 같은 `<harness> gui [--resume <id>]`를 친다. 창이 없어도 열린다. 되살리기는 ledger의
+// 폰이 컴퓨터에 coding session을 새로 연다(`coding_sessions/open`). 여는 일은 core가 한다: 새 터미널을 열고 사람이 치는 것과 같은
+// `<harness> gui [--resume <id>]`를 친다. 창이 없어도 열린다(그 project를 보이는 창이 있으면 탭으로 보인다). 되살리기는 ledger의
 // harness agent session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import { isGuiHarness } from "../../protocol/extensions/mod.ts";
@@ -28,13 +28,7 @@ export type CodingOpenDeps = {
   hold(session: string): Result<unknown>;
   // 연 터미널이 끝날 때까지 그 ledger session을 쥔다.
   held(terminal: string, session: string): void;
-  attached(): boolean;
-  // shell을 띄운다(`HostQueue.startShell`). 띄울 길이 없으면(앱이 띄운 core가 아니다) 없다. 앞선 실패 뒤 쉬는 중이면 false다.
-  startShell?: () => boolean;
 };
-
-const unavailable = (message: string) =>
-  err({ code: "unavailable" as const, message });
 
 export function createCodingOpen(deps: CodingOpenDeps) {
   const opens = new Map<string, Promise<Result<{ session: string }>>>();
@@ -131,20 +125,6 @@ export function createCodingOpen(deps: CodingOpenDeps) {
         if (!done.ok && opens.get(input.key) === sent) opens.delete(input.key);
       });
       return sent;
-    },
-
-    wake(): Result<{ shell: "attached" | "starting" }> {
-      if (deps.attached()) return ok({ shell: "attached" });
-      if (deps.startShell === undefined) {
-        return unavailable(
-          "This lophn cannot start the app on the computer. Open lophn on the computer.",
-        );
-      }
-      return deps.startShell()
-        ? ok({ shell: "starting" })
-        : unavailable(
-            "The lophn app on the computer did not start. Open lophn on the computer.",
-          );
     },
   };
 }

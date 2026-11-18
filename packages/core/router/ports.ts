@@ -31,7 +31,7 @@ import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 // 받는 session 하나. Router가 배달 길을 고르는 데 쓴다.
 export type TargetSession = {
   session: Id<"ses">;
-  // lophn은 queue를 run-loop가 가져가고, harness는 runtime이 harness인 session의 queue를 shell host가 가져간다.
+  // lophn은 queue를 run-loop가 가져가고, harness는 runtime이 harness인 session의 queue를 core 안 extension host의 `harness` extension이 가져간다.
   transport: "lophn" | "harness";
   agent: AgentAtWorkspace;
   // archive, 지움, workspace 보관이면 false(새 입력을 받지 않는다).

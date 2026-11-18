@@ -96,7 +96,7 @@ export type HarnessAdapter = {
   commands: readonly string[];
   process: HarnessProcessRule;
   version_probe: { argv: readonly string[] } | null;
-  // lophn agent로 돌릴 때 쓰는 headless 명령, 권한 표, 출력 parser다. 없으면 shell host가 띄우지 않는다.
+  // lophn agent로 돌릴 때 쓰는 headless 명령, 권한 표, 출력 parser다. 없으면 `harness` extension이 띄우지 않는다.
   headless?: HeadlessSpec;
   // 도는 turn을 끊는 키다. 단독 키 입력을 보고 상태를 unknown으로 내린다. 중단을 hook으로 알리는 harness는 비운다.
   // 이 키는 입력 지우기나 팝업 닫기에도 쓰여, turn이 도는데 상태만 unknown으로 내려가고 다음 turn까지 못 돌아온다.

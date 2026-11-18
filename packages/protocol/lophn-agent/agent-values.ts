@@ -128,7 +128,7 @@ const mcpServersSchema = z
   );
 
 // runtime: 없으면 lophn이다. custom은 정의 본문과 `tools`, `skills`가 고른 것만 싣는다. harness 값은 third-party harness의
-// CLI를 shell host가 돌리는 agent다(run-loop는 돌리지 않는다).
+// CLI를 extension host의 `harness` extension이 돌리는 agent다(run-loop는 돌리지 않는다).
 export const HARNESS_RUNTIMES = ["claude-code", "codex", "opencode"] as const;
 export type HarnessRuntime = (typeof HARNESS_RUNTIMES)[number];
 export const AGENT_RUNTIMES = ["lophn", "custom", ...HARNESS_RUNTIMES] as const;

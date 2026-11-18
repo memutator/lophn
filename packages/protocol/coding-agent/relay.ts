@@ -50,14 +50,13 @@ const errors = [
   "unavailable",
 ] as const;
 
-// 목록은 shell 연결과 상관없다. `shell`은 desktop 앱(`/host-link`)이 붙어 있는가다.
+// 목록은 desktop 앱이 떠 있는지와 상관없다.
 export const codingSessionsList = defineRead({
   resource: "coding_sessions",
   method: "list",
   name: "CodingSessionsList",
   input: z.strictObject({ project: idSchema("prj").optional() }),
   output: z.strictObject({
-    shell: z.enum(["attached", "absent"]),
     sessions: z.array(codingSessionSchema),
   }),
   reads: ["coding_sessions"],
@@ -126,19 +125,6 @@ export const codingSessionsOpen = defineMemory({
   errors,
 });
 
-// 컴퓨터의 lophn 앱을 띄운다. 이미 붙어 있으면 attached, 띄우기 시작했으면 starting이고 폰은 `list`의 shell이 attached가 되길
-// 기다린다. 띄울 길이 없거나(앱이 띄운 core가 아니다) 앞선 실패 뒤 쉬는 중이면 unavailable이다.
-export const codingSessionsWake = defineMemory({
-  resource: "coding_sessions",
-  method: "wake",
-  name: "CodingSessionsWake",
-  changes: [],
-  input: z.strictObject({}),
-  output: z.strictObject({ shell: z.enum(["attached", "starting"]) }),
-  actors: ["user"],
-  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
-});
-
 // 그 session의 CLI가 이 폴더에서 가진 지난 session, 최근 순이다. GUI의 run이 없거나 못 주면 비어 있다.
 export const codingSessionsCliSessions = defineRead({
   resource: "coding_sessions",
@@ -188,7 +174,6 @@ export const CODING_RELAY_ROUTES = [
   codingSessionsSwitchPlan,
   codingSessionsSwitch,
   codingSessionsOpen,
-  codingSessionsWake,
   codingSessionsCliSessions,
   codingSessionsRewindPreview,
 ] as const;

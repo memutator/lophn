@@ -25,7 +25,6 @@ function setup(listed: { harness: string; cli_session: string | null }[]) {
       return ok({});
     },
     held: () => {},
-    attached: () => true,
   };
   return { opener: createCodingOpen(deps), calls, holds };
 }

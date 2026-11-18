@@ -2,7 +2,6 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   extensionToolsCall,
   extensionToolsCatalog,
-  extensionToolsPublish,
   parseExtensionToolName,
 } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -93,12 +92,9 @@ export const extensionToolsWiring: WiringFactory = () => {
         });
       });
 
-      // 부르는 쪽이 없다(`extension_tools/publish` route가 지워질 때 같이 지운다). 목록은 extension host가 쥔다.
-      const publish: MemoryHandler = (who) =>
-        who.actor === "user" ? ok({}) : forbidden("only the shell host");
       const catalog: MemoryHandler = (who) => {
         if (who.actor !== "user" && who.actor !== "machine") {
-          return forbidden("only the shell host or the runtime");
+          return forbidden("only the person or the runtime");
         }
         return ok({ extensions: enabledCatalog(ctx.settings) });
       };
@@ -183,7 +179,6 @@ export const extensionToolsWiring: WiringFactory = () => {
 
       return ok({
         memory: [
-          [key(extensionToolsPublish), publish],
           [key(extensionToolsCatalog), catalog],
           [key(extensionToolsCall), call],
         ],

@@ -100,7 +100,7 @@ modules:
 
   - path: packages/core/host-queue
     boundary: core
-    notes: core가 shell에 시킬 일(탭 열기·닫기, tool·browser 호출)의 메모리 queue와 agent가 연 탭의 표. shell main이 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다.
+    notes: core가 shell에 시킬 일(탭 열기·닫기·보이기, browser 호출)의 메모리 queue와 agent가 연 탭의 표. shell main이 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다.
 
   - path: packages/core/terminal-agents
     boundary: core
@@ -108,7 +108,7 @@ modules:
 
   - path: packages/core/terminal-view
     boundary: core
-    notes: 폰이 보는 터미널(coding session 터미널, 폰이 연 터미널)의 최신 화면(메모리, lease 동안 PTY host에서 읽는다), 보는 principal의 lease(30초), 입력 key 기억, 폰이 잡은 PTY 크기를 놓기. base, protocol과 core/terminals(port)만 쓴다. Bus·입력 허락·탭 열기는 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
+    notes: 폰이 보는 터미널(coding session 터미널, 기기가 `terminals/open`으로 연 터미널)의 최신 화면(메모리, lease 동안 PTY host에서 읽는다), 보는 principal의 lease(30초), 폰이 잡은 PTY 크기를 놓기. 여는 것과 입력은 `terminals/*`가 한다. base, protocol과 core/terminals(port)만 쓴다. Bus·입력 허락(snapshot의 input)은 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
 
   - path: packages/core/terminals
     boundary: core

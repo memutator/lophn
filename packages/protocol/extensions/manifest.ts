@@ -179,7 +179,7 @@ export type ExtensionToolHandler = (
   call: ExtensionToolCall,
 ) => Promise<Result<ExtensionToolContent[]>>;
 
-/** extension code가 lophn에 닿는 유일한 길이다. shell main 내부 module은 import하지 못한다. */
+/** extension code가 lophn에 닿는 유일한 길이다. core 내부 module은 import하지 못한다. */
 export type ExtensionContext = {
   /** core protocol route 호출. 사람 권한이다. */
   core: {

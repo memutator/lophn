@@ -44,8 +44,6 @@ export type TerminalAgentsDeps = {
   // 켜진 harness-gui의 탭 전환. 꺼져 있으면 null이다.
   handlers(): AcpTabHandlers | null;
   redact<T>(value: T): T | null;
-  // `/host-link`가 열려 있다.
-  attached(): boolean;
   platform: string;
   store: AgentSessionStore;
   images: TabGuiDeps["images"];
@@ -176,7 +174,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     after: deps.after,
     publish: deps.publish,
     redact: deps.redact,
-    attached: deps.attached,
     platform: deps.platform,
   });
 

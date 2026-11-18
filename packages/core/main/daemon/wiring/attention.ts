@@ -1,10 +1,9 @@
 // 주의(attention)의 조립. Bus event를 듣고 host가 보고한 presence를 받아 `unseen`을 들고 push가 필요한지 정한다.
 // 기기 목록과 push 보내기는 뒤 단위가 `ctx.attention.bindPush`로 꽂는다(그 전에는 아무것도 보내지 않는다).
-import { err, ok } from "../../../../base/mod.ts";
+import { ok } from "../../../../base/mod.ts";
 import {
   ROUTES as ATTENTION_ROUTES,
   presenceReport,
-  terminalSessionsSignal,
   unseenDismiss,
   unseenList,
 } from "../../../../protocol/attention/mod.ts";
@@ -110,19 +109,6 @@ export const attentionWiring: WiringFactory = () => {
                 (body as { session: string }).session,
               ),
             }),
-        ],
-        [
-          routeKey(terminalSessionsSignal),
-          (who, body) => {
-            if (who.actor !== "user") {
-              return err({
-                code: "forbidden",
-                message: "only shell main signals terminal sessions",
-              });
-            }
-            attention.signal(body as Parameters<typeof attention.signal>[0]);
-            return ok({});
-          },
         ],
       ];
       return ok({ memory });

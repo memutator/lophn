@@ -20,7 +20,7 @@ import { dataRootOf } from "../agents/store.ts";
 import { reject, requireMachine, sessionNotFound } from "./guards.ts";
 import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 
-// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 shell main의 host가 하고
+// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 extension host의 `harness` extension이 하고
 // core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
 
 // 켜기는 extension `harness`의 설정이다. 꺼져 있으면(기본) harness session은 새 입력을 받지 않는다.

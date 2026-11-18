@@ -68,8 +68,6 @@ export type CoreRelay = {
   ready: Array<() => void>;
   /** 조건에 맞아 도착한 event. renderer에도 같이 가지만 main이 먼저 쓴다. */
   events: Array<(event: BusEvent) => void>;
-  /** renderer로 가지 않는 main 전용 frame. 영역이 자기 type만 골라 쓴다. */
-  frames: Array<(frame: { type: string }) => void>;
   /** 이 컴퓨터의 창이 부른 core 호출의 답. event가 따르지 않는 바뀜을 영역이 따라간다. */
   calls: Array<
     (
@@ -136,7 +134,7 @@ export type ShellContext = {
     method: string,
     body: unknown,
   ): Promise<CallResult>;
-  /** core의 `/host-link` 연결. core가 시킬 일(`request`)을 받고 답·보고·상태를 올린다. */
+  /** core의 `/host-link` 연결. core가 시킬 일(`request`)을 받고 보이는 workspace와 답·탭 보고를 올린다. */
   hostLink: HostLink;
   /** core 설정의 살아 있는 사본. 설정을 적용하는 영역이 듣는다. */
   settings: ShellSettings;
@@ -200,7 +198,6 @@ export function createShellContext(): ShellContext {
     conditions: [],
     ready: [],
     events: [],
-    frames: [],
     calls: [],
   };
   const core = connectCore({ here, dataRoot, windows, relay, handle });

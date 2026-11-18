@@ -38,8 +38,8 @@ export type HostRequestHandler<K extends HostRequestKind> = (
   request: HostRequestOf<K>,
 ) => Promise<HostToolOutput | null>;
 
-/** host가 지금 그리는 workspace와 TUI 탭이 열린 session. `hello`와 `visible`에 싣는다. */
-export type HostVisible = { workspaces: HostWorkspace[]; tui: string[] };
+/** host가 지금 그리는 workspace. `hello`와 `visible`에 싣는다. */
+export type HostVisible = { workspaces: HostWorkspace[] };
 
 export type HostLink = {
   /** 연결이 열려 있고 frame이 schema에 맞으면 보내고 true다. */
@@ -83,7 +83,7 @@ export function createHostLink(deps: {
     ) => Promise<HostToolOutput | null>
   >();
   const openHandlers: (() => void)[] = [];
-  let shown: HostVisible = { workspaces: [], tui: [] };
+  let shown: HostVisible = { workspaces: [] };
   let socket: EventSocket | undefined;
   // 지금 socket이 붙은 대상. 같으면 refresh가 다시 열지 않는다.
   let socketKey = "";

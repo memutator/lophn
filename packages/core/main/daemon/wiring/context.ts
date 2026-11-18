@@ -275,9 +275,9 @@ type Late = {
   annotationDelivery: AnnotationDelivery;
   // lophn-agent runtime이 낸다. 메모리 queue 하나를 Router와 turn source가 나눠 쓴다.
   queue: Queue;
-  // host-queue wiring이 낸다. core가 shell에 시킬 일(탭 열기·닫기)의 메모리 queue다. 뒤 task가 쓴다.
+  // host-queue wiring이 낸다. core가 shell에 시킬 일(탭 열기·닫기·보이기, browser 호출)의 메모리 queue다.
   hostQueue: HostQueue;
-  // host-queue wiring이 낸다. shell main과의 `/host-link` 연결이다. 다른 wiring이 열림·닫힘을 듣는다.
+  // host-queue wiring이 낸다. shell main과의 `/host-link` 연결이다. 다른 wiring이 붙었는지 보고 닫힘을 듣는다.
   hostLink: HostLink;
   // terminal-agents wiring이 낸다. 터미널 coding agent의 tracker, GUI handle, coding session 목록과 대화다. acp·session-lifecycle·
   // 터미널 보기·extension host(`acpOpened`)가 쓴다.

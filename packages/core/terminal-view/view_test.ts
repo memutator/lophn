@@ -7,7 +7,7 @@ import type { TerminalScreen } from "../terminals/ports.ts";
 import { createTerminalView, LEASE_MS } from "./view.ts";
 
 const TERMINAL = "trm_01hzx3k4m5n6p7q8r9s0t1v2w3";
-// `terminals.open`이 여는 터미널이다.
+// 기기가 `terminals/open`으로 연 터미널이다.
 const OPENED = "trm_01hzx3k4m5n6p7q8r9s0t1v2w4";
 
 const screen = (seq: number): TerminalScreen => ({
@@ -31,7 +31,7 @@ const runtime = (ref: string, remote = false) =>
     ...(remote ? { remote_size: true } : {}),
   }) as TerminalRuntime;
 
-function setup(typing: (principal: string) => boolean = () => false) {
+function setup() {
   const clock = manualClock(0);
   const calls: unknown[] = [];
   const published: BusEvent[] = [];
@@ -43,11 +43,6 @@ function setup(typing: (principal: string) => boolean = () => false) {
     clock,
     publish: (event) => published.push(event),
     terminals: {
-      open: () => Promise.resolve(ok(runtime(OPENED))),
-      write: (terminal, text, options) => {
-        calls.push({ write: terminal, text, human: options.human });
-        return Promise.resolve(ok(undefined));
-      },
       resize: (terminal, _generation, size, options) => {
         calls.push({ resize: terminal, ...size, remote: options.remote });
         remote = options.remote;
@@ -59,13 +54,12 @@ function setup(typing: (principal: string) => boolean = () => false) {
       },
       runtime: (terminal) => runtime(terminal, remote),
     },
-    openTab: (project, terminal) => calls.push({ tab: terminal, project }),
     after: (_ms, run) => {
       timers.push(run);
       return () => {};
     },
     known: (terminal) => known.has(terminal),
-    mayType: typing,
+    mayType: () => false,
   });
   return {
     view,
@@ -82,26 +76,10 @@ function setup(typing: (principal: string) => boolean = () => false) {
   };
 }
 
-// 폰이 터미널에 글을 치면 컴퓨터에서 명령이 돈다. 허락받지 않은 기기의 입력은 터미널에 가면 안 된다.
-test("terminal_view/input은 허락받은 principal만 사람 입력으로 치고 나머지는 forbidden이며, 목록에 없는 터미널은 not_found다", async () => {
-  const { view, calls, forget } = setup(
-    (principal) => principal === "device:yes",
-  );
-  const input = { terminal: TERMINAL, text: "ls\n", key: "k1" };
-
-  const refused = await view.input("device:no", input);
-  assert.ok(!refused.ok && refused.error.code === "forbidden");
-  assert.deepEqual(calls, []);
-
-  const sent = await view.input("device:yes", input);
-  assert.ok(sent.ok);
-  // 같은 key를 다시 보내면 다시 치지 않고 성공이다.
-  assert.ok((await view.input("device:yes", input)).ok);
-  assert.deepEqual(calls, [{ write: TERMINAL, text: "ls\n", human: true }]);
-
+// 폰은 coding session의 터미널과 자기가 연 터미널만 본다. 목록에 없는 desktop 터미널의 화면이 폰에 가면 안 된다.
+test("목록에 없는 터미널은 snapshot도 watch도 not_found다", async () => {
+  const { view, forget } = setup();
   forget();
-  const input2 = await view.input("device:yes", { ...input, key: "k2" });
-  assert.ok(!input2.ok && input2.error.code === "not_found");
   const seen = view.snapshot("device:yes", TERMINAL);
   assert.ok(!seen.ok && seen.error.code === "not_found");
   const watched = await view.watch("device:yes", {
@@ -162,12 +140,8 @@ test("폰이 연 터미널은 목록에 없어도 보이고, 크기는 그 터�
   const before = await view.watch("p1", { terminal: OPENED, on: true });
   assert.ok(!before.ok && before.error.code === "not_found");
 
-  const opened = await view.open({ project: "prj_x", key: "o1" });
-  assert.ok(opened.ok && opened.value.terminal === OPENED);
+  view.adopt(OPENED);
   assert.ok((await view.watch("p1", { terminal: OPENED, on: true })).ok);
-  // 같은 key는 다시 열지 않는다.
-  await view.open({ project: "prj_x", key: "o1" });
-  assert.equal(calls.filter((call) => "tab" in (call as object)).length, 1);
 
   const resized = await view.resize("p1", {
     terminal: TERMINAL,

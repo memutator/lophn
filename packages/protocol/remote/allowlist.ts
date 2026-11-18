@@ -47,11 +47,8 @@ import {
   codingSessionsOpen,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
-  codingSessionsWake,
 } from "../coding-agent/relay.ts";
 import {
-  terminalViewInput,
-  terminalViewOpen,
   terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
@@ -135,10 +132,10 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
 // `roster/leave`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
-// 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 열고 컴퓨터의 앱을 깨운다. 폰이 시작한 switch도
-// `confirmed: true`가 있어야 하고(도는 turn이 끊긴다). coding session의 터미널 화면은 `terminal_view/*`로 보고 친다. `terminal_view/input`은
-// 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치(`roster/set_terminal_input`)와
-// `host/*`·`terminal_sessions/*`는 넣지 않는다.
+// 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 연다. 폰이 시작한 switch도
+// `confirmed: true`가 있어야 한다(도는 turn이 끊긴다). 터미널은 `terminals/open|input`으로 열고 치고, 화면은 `terminal_view/*`로 본다.
+// `terminals/input`은 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치
+// (`roster/set_terminal_input`)와 `host/*`는 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // 다 본 session의 표시(`unseen/list|dismiss`)를 둔다: 보는 것이 읽음을 만들고 읽음은 host에 있다(어느 기기에서 봐도 같이 꺼진다).
@@ -164,19 +161,15 @@ export const REMOTE_ALLOWED_ROUTES = [
   appIcon,
   // 새 session: 그 workspace에서 일할 수 있는 agent
   agentList,
-  // 컴퓨터의 coding agent: 목록, view 바꾸기(미리 보기와 바꾸기), 새로 열기, 앱 깨우기. 대화는 아래 `acp/*`다
+  // 컴퓨터의 coding agent: 목록, view 바꾸기(미리 보기와 바꾸기), 새로 열기. 대화는 아래 `acp/*`다
   codingSessionsList,
   codingSessionsSwitchPlan,
   codingSessionsSwitch,
   codingSessionsOpen,
-  codingSessionsWake,
-  // coding session의 터미널: 화면 읽기, 보는 동안의 lease, 허락받은 기기의 입력
+  // 터미널 화면: 화면 읽기, 보는 동안의 lease, 보는 터미널의 PTY 크기를 폰에 맞추기
   terminalViewSnapshot,
   terminalViewWatch,
-  terminalViewInput,
-  // 보는 터미널의 PTY 크기를 폰에 맞추기, project에 터미널 탭 열기
   terminalViewResize,
-  terminalViewOpen,
   // core가 여는 터미널: 열기와 입력. 입력은 허락받은 기기만 core가 받는다
   terminalsOpen,
   terminalsInput,

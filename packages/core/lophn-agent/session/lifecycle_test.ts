@@ -41,7 +41,6 @@ function setup() {
     emit: (name, info, audience) =>
       emitted.push({ name, info, sees: audience(ME) }),
     anySubscriber: () => true,
-    shellAttached: () => true,
     interruptTerminal: async (tab) => {
       interrupted.push(tab);
       return ok(undefined);

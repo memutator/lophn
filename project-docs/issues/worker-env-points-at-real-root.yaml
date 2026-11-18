@@ -1,0 +1,17 @@
+id: worker-env-points-at-real-root
+title: lead와 worker의 shell이 사람의 `LOPHN_HOME=~/.lophn`을 물려받아, data root를 잃은 개발 앱이 사람의 root로 갔다
+kind: mistake
+status: open
+topic: mistakes
+modules: [packages/shell/main, tools]
+now: |
+  lead와 worker는 설치본 lophn 앱의 터미널에서 돌아 env에 `LOPHN_HOME=/home/<사람>/.lophn`, `LOPHN_CLI=/usr/bin/lophn`이 있다. core-browser의 끝 확인에서 page host가 desktop 앱을 다시 띄우는 길(`packages/shell/main/page-host/main.ts`)이 Electron이 바꾼 argv 순서 때문에 `--home` 값을 잃었고, `resolveDataRoot`가 누른 쪽 env의 `LOPHN_HOME`으로 넘어갔다. 확인 worker가 `LOPHN_HOME`을 따로 정하지 않고 다섯 번 띄워 다섯 번 모두 사람의 `~/.lophn`을 data root로 잡았다. 설치본 앱이 lock을 쥐고 있어 바로 끝났지만 설치본 앱에 second-instance 요청(새 창)이 갔을 수 있다. data는 읽거나 쓰지 않았다.
+impact: |
+  개발 code가 data root를 하나 잃으면 사람의 실제 `~/.lophn`이 그 자리를 채운다. 이번에는 lock이 막았지만 설치본이 꺼져 있었으면 개발 판의 앱이 사람의 data root로 떠 migration이나 쓰기를 했을 수 있다(AGENTS.md "사람의 `~/.lophn`을 바꾸는 일"은 늘 묻는다).
+fix: |
+  - 제품 쪽: page host의 다시 띄우기가 자기 data root를 늘 실어 보내게 고친다(fix/page-host-fixes, 위험 test 포함).
+  - 지침 쪽(추천): worker prompt(`project-docs/plan/tools/lead/prompt.py`)와 orchestrate skill의 "worker 띄우기"에 "Electron·core·CLI를 띄우는 모든 명령은 `LOPHN_HOME`을 worktree의 `.dev-data/<id>/` 아래로 정한다. 물려받은 `LOPHN_HOME`은 사람의 root다"를 더한다. 확인 worker의 brief에도 같은 줄을 넣는다.
+cause: |
+  worker 지침은 "실제 `~/.lophn`은 절대 건드리지 않는다"만 말하고, shell이 이미 그 경로를 env로 들고 있다는 것과 data root를 놓친 code가 그 env로 떨어진다는 것을 말하지 않았다. lead의 확인 brief도 data root를 `.dev-data/` 아래에 두라고만 했다.
+prevent: |
+  prompt.py와 orchestrate skill에 위 문장을 더한다. 제품 code는 data root를 env에서 읽기 전에 명시 값을 늘 넘기게 하고(이번 fix), 그 경계에 test를 둔다.

@@ -298,13 +298,15 @@ export const rosterList = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// 초대장을 낸다. 수명은 short(`ROSTER_INVITE_SHORT_MS`)와 long(`ROSTER_INVITE_LONG_MS`. 새 기기가 이 컴퓨터와 같은 때
-// 켜질 수 없을 때). remote가 꺼져 있으면 unavailable이다.
+// 초대장을 낸다. `kind`는 들일 기기의 종류이고(사람이 폰과 컴퓨터 가운데 고른다) 다른 종류는 그 초대장으로 들지 못한다.
+// 수명은 short(`ROSTER_INVITE_SHORT_MS`)와 long(`ROSTER_INVITE_LONG_MS`. 새 기기가 이 컴퓨터와 같은 때 켜질 수 없을 때).
+// remote가 꺼져 있으면 unavailable이다.
 export const rosterInvite = defineMemory({
   resource: "roster",
   method: "invite",
   name: "roster.invite",
   input: z.strictObject({
+    kind: rosterKindSchema,
     terminal_input: z.boolean(),
     lifetime: z.enum(["short", "long"]),
   }),

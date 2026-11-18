@@ -108,7 +108,11 @@ const pairFrameSchema = z.discriminatedUnion("kind", [
 ]);
 
 // 붙는 쪽의 첫 frame. statements는 붙는 쪽 key에 대한 항목이다(컴퓨터가 서명한 것과, 처음 들어올 때는 초대 서명
-// statement). 답은 같은 id의 `result`이고 value는 `rosterJoinedSchema`다.
+// statement). 답은 같은 id의 `result`이고 value는 `rosterJoinedSchema`다. 아직 누구인지 모르는 쪽이 core의 저장소를
+// 채우지 못하게 core는 이렇게 받는다:
+// - statements의 항목이 모두 이 연결의 Noise key에 대한 것이어야 한다. 아니면 거절한다.
+// - 붙기 전 연결에서 온 초대 서명 statement는 `checkInvited`가 맞을 때만 저장한다(서명자를 모르는 것은 저장하지 않는다).
+// - 수명이 지났거나 지금부터 `ROSTER_INVITE_LONG_MS`보다 먼 초대 서명 statement는 저장하지 않는다(`rosterFresh`).
 const joinFrameSchema = z.strictObject({
   type: z.literal("join"),
   id: frameIdSchema,

@@ -537,16 +537,21 @@ export function rosterView(
         },
       };
     });
-  // 빼기는 서명자 가운데 하나라도 K0가 빼지 않은 컴퓨터이면 효력이 있다. 서명자가 빠진 컴퓨터면, 그 빼기가 뺀 기기가
+  // 빼기는 서명자 가운데 하나라도 빠지지 않은 컴퓨터이면 효력이 있다. 서명자가 빠진 컴퓨터면, 그 빼기가 뺀 기기가
   // 그 서명자를 뺀 K0 빼기에 서명했을 때만(서로 뺐다: 둘 다 빠진다) 효력이 있다. 시각이 없어 "빠진 뒤"와 "엇갈림"을
   // 가르지 못하므로 둘 다 빼는 쪽(fail-closed)을 고른다. 뺀 쪽은 다시 초대하면 되지만 남은 도둑은 되돌릴 수 없다.
-  const counting = k0.filter(
-    ({ body, signer }) =>
-      !k0.some((other) => targets(other.body, signer)) ||
-      k0.some(
-        (other) => targets(body, other.signer) && targets(other.body, signer),
-      ),
-  );
+  // "빠진"은 두 번 본다: 먼저 K0의 모든 대상으로, 다음은 첫 번에 효력이 있던 빼기의 대상으로만. 그래야 빠진 도둑이
+  // 효력 없는 빼기에 서명하는 것만으로 다른 컴퓨터의 빼기를 막지 못한다. 고정점까지 돌리지 않는 것은 서로 물고 도는
+  // 빼기(X가 Y, Y가 Z, Z가 X)에서 답이 오가며 끝나지 않기 때문이다. 두 번으로 정해 statement 집합의 함수로 둔다.
+  const countWith = (by: typeof k0) =>
+    k0.filter(
+      ({ body, signer }) =>
+        !by.some((other) => targets(other.body, signer)) ||
+        k0.some(
+          (other) => targets(body, other.signer) && targets(other.body, signer),
+        ),
+    );
+  const counting = countWith(countWith(k0));
   const removedOut: Excluded = {
     keys: new Set(counting.map((r) => r.body.key)),
     signing: new Set(

@@ -434,6 +434,21 @@ test("뺀 컴퓨터가 서명한 항목은 받아들이지 않는다", () => {
       [c.key],
     );
   }
+  // 빠진 C가 효력 없는 빼기를 B에 걸어도 B가 혼자 하는 빼기는 효력이 있다.
+  const x = computer();
+  const blocked = [
+    ...base,
+    ...cJoined,
+    signed(computerEntry(x), a),
+    signed(removeComputer(c), a),
+    signed(removeComputer(b), c),
+    signed(removeComputer(x), b),
+  ];
+  const left = keysOf(blocked, [root(a)]);
+  assert.deepEqual(
+    [b.key, c.key, x.key].map((k) => left.includes(k)),
+    [true, false, false],
+  );
   // 서로 뺐으면 둘 다 빠진다(뺀 쪽은 다시 초대받는다).
   const mutual = [
     ...base,

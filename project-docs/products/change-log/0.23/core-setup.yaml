@@ -1,5 +1,5 @@
 id: core-setup
-version: 0.23.84
+version: 0.23.85
 title: 한 기계의 처음 설정(secret, provider 연결과 로그인, project 더하기, Settings)을 그 기계의 창 없이 다른 컴퓨터의 창과 폰에서 한다
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/host-queue, packages/core/projects, packages/core/remote, packages/core/secrets, packages/core/main, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tests]
 change: |

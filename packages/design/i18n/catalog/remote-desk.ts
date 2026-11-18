@@ -14,6 +14,7 @@ export const remoteDesk = {
   "machines.error.custom-url": "Use https, or http only for {name} itself.",
   "machines.label.folders": "the folders",
   "machines.label.unknown-name": "Another computer",
+  "machines.label.way-local": "On {name}",
   "machines.label.start": "Open at start",
   "machines.note.remove-start":
     "lophn opens {name} at start. After removing it, lophn opens the computer you used last.",

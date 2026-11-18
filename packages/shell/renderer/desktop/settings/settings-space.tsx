@@ -70,7 +70,7 @@ export function SettingsSpace({
   );
   const [left, setLeft] = useSidebarOpen("left", true);
   const machine = useWindowMachine();
-  const grant = useMachineGrant();
+  const grant = useMachineGrant(true, settingsPane);
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 

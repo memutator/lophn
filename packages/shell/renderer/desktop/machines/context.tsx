@@ -81,10 +81,12 @@ export function MachineGrantProvider({
 
 /**
  * 이 창에서 그 기계의 설정을 바꿀 수 있는지. 이 컴퓨터의 창과 묻는 길이 없는 화면(gallery)은 granted다. 허락은 사람이 아무 컴퓨터에서나
- * 바꾸므로 쓰는 화면이 열릴 때마다(`open`이 켜질 때마다) 다시 묻는다.
+ * 바꾸므로 쓰는 화면이 열릴 때마다(`open`이 켜질 때마다, Settings는 항목을 열 때마다 `at`이 바뀐다) 다시 묻는다. 다시 묻는 동안은
+ * 앞의 답을 그대로 보인다.
  */
 export function useMachineGrant(
   open = true,
+  at?: string,
 ): "checking" | "granted" | "denied" {
   const machine = useWindowMachine();
   const check = useContext(GrantContext);
@@ -94,7 +96,6 @@ export function useMachineGrant(
   );
   useEffect(() => {
     if (!asks) return;
-    setState("checking");
     let live = true;
     void check().then((granted) => {
       if (live) setState(granted ? "granted" : "denied");
@@ -102,6 +103,6 @@ export function useMachineGrant(
     return () => {
       live = false;
     };
-  }, [asks, check]);
+  }, [asks, check, at]);
   return asks ? state : "granted";
 }

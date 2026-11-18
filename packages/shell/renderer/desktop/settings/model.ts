@@ -155,14 +155,17 @@ export function waysOf(ways: readonly AuthWay[]): Exclude<AuthWay, "none">[] {
   return order.filter((way) => ways.includes(way));
 }
 
-export function wayLabel(way: AuthWay): string {
+/** 인증 없음은 core가 있는 기계 자신의 주소다. 다른 기계의 창이면 그 기계의 이름(`machine`)으로 말한다. */
+export function wayLabel(way: AuthWay, machine?: string): string {
   switch (way) {
     case "oauth":
       return t("settings.label.way-sign-in");
     case "api_key":
       return t("settings.label.way-api-key");
     case "none":
-      return t("settings.label.way-local");
+      return machine === undefined
+        ? t("settings.label.way-local")
+        : t("machines.label.way-local", { name: machine });
   }
 }
 

@@ -15,6 +15,7 @@ import {
   readsOf,
   useFollowedRead,
 } from "../../connection/core-read.ts";
+import { useWindowMachine } from "../../machines/context.tsx";
 import { wayLabel } from "../model.ts";
 import { AvailableList, useAvailable } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
@@ -182,12 +183,13 @@ function ConnectedItem({
   onDisconnect: () => void;
 }): ReactNode {
   const status = statusOf(row);
+  const machine = useWindowMachine();
   return (
     <li className={styles.item} data-provider={row.id}>
       <span className={styles.identity}>
         <ProviderName name={row.name} />
         <span className={styles.badge} data-login-methods="">
-          {loginMethod(row)}
+          {loginMethod(row, machine?.name)}
         </span>
       </span>
       <Button
@@ -251,11 +253,11 @@ function ConnectedItem({
   );
 }
 
-/** 이 연결의 로그인 방법. 로그인한 연결은 "Signed in"이다. */
-function loginMethod(row: ProviderRow): string {
+/** 이 연결의 로그인 방법. 로그인한 연결은 "Signed in"이다. machine은 다른 기계의 창이 보는 그 기계의 이름이다. */
+function loginMethod(row: ProviderRow, machine: string | undefined): string {
   return row.way === "oauth"
     ? t("settings.label.login-signed-in")
-    : wayLabel(row.way);
+    : wayLabel(row.way, machine);
 }
 
 /**

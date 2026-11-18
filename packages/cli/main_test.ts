@@ -404,3 +404,147 @@ test("명단을 바꾸는 명령은 lophn 터미널 탭 안에서 core에 붙기
     assert.deepStrictEqual(fetcher.calls, [], name);
   }
 });
+
+// --- `--on <기계>`: 사람의 터미널이 다른 기계에 보낸다 ---
+
+type SentCall = { path: string; body: Record<string, unknown> };
+
+// `machines/call`의 답은 그 기계의 값이라 route output 검사가 없다. 요청을 그대로 모으고 path별 값을 돌려준다.
+function machineFetch(values: Record<string, unknown>): {
+  fetch: RpcFetch;
+  sent: SentCall[];
+} {
+  const sent: SentCall[] = [];
+  const encoder = new TextEncoder();
+  return {
+    sent,
+    fetch: (url, init) => {
+      const body = JSON.parse(init.body ?? "{}") as Record<string, unknown>;
+      const path = new URL(url).pathname;
+      sent.push({ path, body });
+      const inner = `${String(body.resource)}/${String(body.method)}`;
+      return Promise.resolve({
+        status: 200,
+        headers: new Headers(),
+        bytes: encoder.encode(JSON.stringify(values[inner] ?? {})),
+      });
+    },
+  };
+}
+
+async function runOn(
+  argv: string[],
+  fetch: RpcFetch,
+  env: Record<string, string> = {},
+): Promise<{ code: number; calls: string[]; printed: string }> {
+  const control = fakeControl({
+    identify: { apiUrl: CORE_A },
+    connect: { token: USER_TOKEN, apiUrl: CORE_A },
+  });
+  const stdout = sink();
+  const stderr = sink();
+  const code = await cliMain(argv, {
+    env: { get: (name) => env[name] },
+    home: HOME,
+    fetch,
+    dial: control.dial,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+  });
+  return { code, calls: control.calls, printed: stdout.text() + stderr.text() };
+}
+
+test("--on은 이 core의 machines/call로만 가고 capability 칸을 싣지 않는다", async () => {
+  const machine = machineFetch({ "runs/read": runReply("remote answer") });
+  const ran = await runOn(
+    ["run", "show", RUN_ID, "--on", "laptop"],
+    machine.fetch,
+    {
+      LOPHN_WORKSPACE: "project:/tmp/here",
+      LOPHN_SHELL_CAPABILITY: "cap-from-env",
+    },
+  );
+  assert.deepStrictEqual(ran.code, 0);
+  // 칸이 정확히 이 넷이다: `shell_capability`가 있으면 core가 화면(`screen`)으로 정해 사람의 화면이 하는 일이 된다.
+  assert.deepStrictEqual(machine.sent, [
+    {
+      path: "/machines/call",
+      body: {
+        machine: "laptop",
+        resource: "runs",
+        method: "read",
+        body: { run: RUN_ID },
+      },
+    },
+  ]);
+});
+
+test("--on은 binary 명령, 빈 값, `--on=x`를 core에 붙기 전에 invalid_input으로 거절한다", async () => {
+  for (const argv of [
+    ["version", "--on", "laptop"],
+    ["core", "stop", "--on", "laptop"],
+    ["hook", "claude", "Stop", "--on", "laptop"],
+    ["run", "show", RUN_ID, "--on", ""],
+    ["run", "show", RUN_ID, "--on=laptop"],
+  ]) {
+    const machine = machineFetch({});
+    const ran = await runOn(argv, machine.fetch);
+    assert.deepStrictEqual(ran.code, 2, argv.join(" "));
+    assert.deepStrictEqual(ran.calls, [], argv.join(" "));
+    assert.deepStrictEqual(machine.sent, [], argv.join(" "));
+  }
+});
+
+test("--on으로 다른 기계의 앱 command를 부르면 그 기계의 선언을 읽고 apps/remote_call 하나로 부르며 실패는 exit 4다", async () => {
+  const APP = "app_00000000000000000000000000";
+  const machine = machineFetch({
+    "apps/list": {
+      apps: [{ id: APP, slug: "notes" }],
+      next_cursor: null,
+    },
+    "apps/tools": {
+      tools: [
+        {
+          name: "add",
+          description: "Add a note",
+          effect: "write",
+          inputSchema: {
+            type: "object",
+            properties: { text: { type: "string" } },
+            required: ["text"],
+            additionalProperties: false,
+          },
+        },
+      ],
+    },
+    "apps/remote_call": {
+      invocation: null,
+      outcome: {
+        status: "denied",
+        denial: { code: "gate_blocked", message: "no" },
+      },
+    },
+  });
+  const ran = await runOn(
+    ["notes", "add", "--text", "hi", "--on", "laptop"],
+    machine.fetch,
+  );
+  assert.deepStrictEqual(ran.code, 4);
+  assert.deepStrictEqual(
+    machine.sent.map((call) => [
+      call.body.machine,
+      call.body.resource,
+      call.body.method,
+    ]),
+    [
+      ["laptop", "apps", "list"],
+      ["laptop", "apps", "tools"],
+      ["laptop", "apps", "remote_call"],
+    ],
+  );
+  assert.deepStrictEqual(machine.sent[2]?.body.body, {
+    app: APP,
+    command: "add",
+    input: { text: "hi" },
+  });
+});

@@ -15,6 +15,7 @@ const COMMON_FLAGS = [
   "  --input <json>            JSON object merged into the fields above",
   "  --input-file <path>       like --input, from a file",
   "  --idempotency-key <key>   retry key for write commands",
+  "  --on <machine>            run on another computer (its name, or its device id when several share a name)",
 ];
 
 function typeText(field: Field): string {

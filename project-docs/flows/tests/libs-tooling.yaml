@@ -70,6 +70,10 @@ files:
       - terminal-hook-forward:skipped
       - cli-argv:help
       - cli-argv:result
+      - cli-argv:on-sent
+      - cli-argv:on-app-command
+      - cli-argv:on-binary-command
+      - cli-argv:on-empty
       - cli-core-connect:attached
       - cli-core-connect:joined-agent
       - cli-core-connect:joined-address

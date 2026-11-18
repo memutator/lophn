@@ -42,7 +42,13 @@ import type { Command, CommandCore, CommandResult } from "./commands/types.ts";
 import { openConnection, stopCore } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
-import { parseCommandLine, unknownCommandError, wordsOf } from "./parser.ts";
+import {
+  parseCommandLine,
+  splitOn,
+  unknownCommandError,
+  wordsOf,
+} from "./parser.ts";
+import { remoteCore } from "./remote-core.ts";
 
 // 시험이 끼우는 환경이다. 없으면 process의 것이다.
 type CliOptions = {
@@ -129,8 +135,16 @@ function saveImage(
   return ok({ ...result, content: { ...rest, image_path: path }, text: path });
 }
 
+function coreCommandsOnly(): LophnError {
+  return {
+    code: "invalid_input",
+    message:
+      "--on runs core commands only (version, harness, hook and core commands run on this computer)",
+  };
+}
+
 export async function cliMain(
-  argv: readonly string[],
+  rawArgv: readonly string[],
   options: CliOptions = {},
 ): Promise<number> {
   const env = options.env ?? ambientEnv();
@@ -147,7 +161,7 @@ export async function cliMain(
       process.platform,
     ) ??
     "";
-  const json = argv.includes("--json");
+  const json = rawArgv.includes("--json");
   const stdoutStream = options.stdout ?? Writable.toWeb(process.stdout);
   const stderrStream = options.stderr ?? Writable.toWeb(process.stderr);
   // 자격은 연결한 뒤에야 안다. 아는 자격은 그때부터 stdout·stderr(오류 포함)에서 지운다.
@@ -159,7 +173,22 @@ export async function cliMain(
       stderr: stderrStream,
       secrets: secret === undefined ? [] : [secret],
     });
+  const fail = async (error: LophnError) => {
+    await output().failure(error);
+    return exitOf(error);
+  };
+  // `--on <기계>`는 어떤 parse보다 먼저 뗀다. 기계로 가는 길은 이 값뿐이고 capability는 env에서도 읽지 않는다.
+  const split = splitOn(rawArgv);
+  if (!split.ok) return await fail(split.error);
+  const { on, argv } = split.value;
+  if (on === "") {
+    return await fail({
+      code: "invalid_input",
+      message: "--on needs a computer name or id",
+    });
+  }
   if (argv[0] === "version") {
+    if (on !== null) return await fail(coreCommandsOnly());
     await output().result({ version: productPackage.version });
     return 0;
   }
@@ -200,10 +229,10 @@ export async function cliMain(
       return connected.value.read(route, input);
     },
   };
-  const fail = async (error: LophnError) => {
-    await output().failure(error);
-    return exitOf(error);
-  };
+  // `--on`이면 명령의 core 호출이 그 기계의 `machines/call`로 간다. core는 capability 없는 이 호출을 사람의 터미널(`terminal`)로 본다.
+  // lophn 터미널 탭 안의 coding agent가 `--on`을 쳐도 같다. 거절하지 않는다: 받는 기계의 허락(기기별 터미널 입력)이 막는다.
+  const target = (connected: CommandCore): CommandCore =>
+    on === null ? connected : remoteCore(connected, on);
 
   let commands: readonly (Command | LocalCommand | CoreCommand)[] = all;
   let core: Result<CommandCore, LophnError> | undefined;
@@ -215,9 +244,11 @@ export async function cliMain(
     !word.startsWith("--") &&
     !all.some((item) => wordsOf(item.name)[0] === word)
   ) {
-    core = await connect();
-    if (!core.ok) return await fail(core.error);
-    const app = await loadAppCommands(core.value, word);
+    const connected = await connect();
+    if (!connected.ok) return await fail(connected.error);
+    const targeted = target(connected.value);
+    core = ok(targeted);
+    const app = await loadAppCommands(targeted, word, on !== null);
     if (!app.ok) return await fail(app.error);
     if (app.value.length > 0) {
       commands = [...all, ...app.value];
@@ -254,6 +285,7 @@ export async function cliMain(
     });
   }
   if (!("routes" in command)) {
+    if (on !== null) return await fail(coreCommandsOnly());
     const ran =
       "binary" in command
         ? await command.run(input, {
@@ -278,13 +310,19 @@ export async function cliMain(
     return CLI_EXITS.success;
   }
 
-  core ??= await connect();
+  if (core === undefined) {
+    const connected = await connect();
+    core = connected.ok ? ok(target(connected.value)) : connected;
+  }
   if (!core.ok) return await fail(core.error);
   const ran = await command.run(input, {
     core: core.value,
     key: line.key ?? crypto.randomUUID(),
-    // project 터미널의 env다. `tab open --url`이 사람 token일 때 놓을 자리로 쓴다.
-    workspace: parseWorkspaceText(env.get("LOPHN_WORKSPACE") ?? ""),
+    // project 터미널의 env다. `tab open --url`이 사람 token일 때 놓을 자리로 쓴다. `LOPHN_WORKSPACE`는 이 기계의 것이라 다른 기계에는 넘기지 않는다.
+    workspace:
+      on === null
+        ? parseWorkspaceText(env.get("LOPHN_WORKSPACE") ?? "")
+        : undefined,
     cwd: process.cwd(),
     clock: systemClock,
     signal: new AbortController().signal,

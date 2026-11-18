@@ -111,10 +111,11 @@ flows:
     title: "lophn 명령줄 한 줄을 명령 하나로 읽는다. 틀리면 invalid_input으로 끝내고, 결과는 줄이나 --json으로 쓴다"
     actor: person
     entries: []
-    uses: [system:core-ensure, route:apps/list, route:apps/tools]
+    uses: [system:core-ensure, route:apps/list, route:apps/tools, route:machines/call, route:apps/remote_call]
     boundary: [coding-agent-cli-interface, core-api]
     code:
       - packages/cli/main.ts
+      - packages/cli/remote-core.ts
       - packages/cli/parser.ts
       - packages/cli/output.ts
       - packages/cli/help.ts
@@ -123,11 +124,11 @@ flows:
     steps:
       - "첫 낱말이 help면 명령 표로 help 글을 낸다. 인자가 없으면 같은 글을 exit 2로 낸다. version은 core 없이 제품 판을 낸다"
       - "명령 표의 점 이름을 argv 낱말로 맞춘다(app.link_source는 app link-source). 맞는 명령이 없고 첫 낱말이 표에 없으면 system:core-ensure로 core에 붙어 그 slug의 앱 command를 표에 더해 다시 맞춘다. 그래도 없으면 unknown command다. 현재 command의 점·underscore 표기를 그대로 쓴 경우 정확한 CLI 문법과 help 경로를 안내하며 실행하지 않는다"
-      - "flag와 위치 인자를 칸에 맞춘다. 모르는 flag, 값 없는 flag, 중복, 위치 인자 초과, 숫자·boolean·JSON 변환 실패는 usage 한 줄과 함께 invalid_input이다"
-      - "--input은 JSON object여야 하고 칸과 겹치면 안 된다. 칸 schema가 막으면 빠진 칸과 틀린 칸을 항목별로 적은 invalid_input이다. 명령의 run은 실행 전에 인자 조합을 한 번 더 거른다"
-      - "run이 돌려준 오류는 code 그대로 쓴다. 갈래는 그 명령의 flow가 정한다. 결과는 --json이면 JSON 한 줄, 아니면 text나 줄로 푼 글을 stdout에 쓴다"
-      - "끝난 일이 failed면 결과를 쓴 뒤 사유를 stderr에 쓰고 exit 4다. note는 stderr에 한 줄 쓰고 exit 0이다. 오류는 stderr에 code와 message를 쓰고 code를 exit으로 바꾼다(invalid_input 2, forbidden·unauthorized 3, unavailable 5, effect_unknown 6, internal 1, 그 밖 4)"
-      - "받은 user token과 agent 자격은 stdout·stderr 어디에도 남기지 않는다"
+      - "flag와 위치 인자를 칸에 맞춘다. 모르는 flag, 값 없는 flag, 중복, 위치 인자 초과, 숫자·boolean·JSON 변환 실패는 usage 한 줄과 함께 invalid_input이다. --input은 JSON object여야 하고 칸과 겹치면 안 된다. 칸 schema가 막으면 빠진 칸과 틀린 칸을 항목별로 적은 invalid_input이다. 명령의 run은 실행 전에 인자 조합을 한 번 더 거른다"
+      - "run이 돌려준 오류는 code 그대로 쓴다. 갈래는 그 명령의 flow가 정한다. 결과는 --json이면 JSON 한 줄, 아니면 text나 줄로 푼 글을 stdout에 쓴다. 끝난 일이 failed면 결과를 쓴 뒤 사유를 stderr에 쓰고 exit 4다. note는 stderr에 한 줄 쓰고 exit 0이다. 오류는 stderr에 code와 message를 쓰고 code를 exit으로 바꾼다(invalid_input 2, forbidden·unauthorized 3, unavailable 5, effect_unknown 6, internal 1, 그 밖 4). 받은 user token과 agent 자격은 stdout·stderr 어디에도 남기지 않는다"
+      - "`--on <기계>`는 어떤 parse보다 앞서 argv에서 뗀다(앱 command의 동적 parse도 그 뒤다). 값이 비었거나 `--on=x` 꼴이면 invalid_input이고 `--on=x`는 모르는 flag다. 없으면 위와 같다. 있으면 core 명령만 간다: version, binary 명령(harness, hook, core 등)과 같이 쓰면 core에 붙기 전에 invalid_input이다. 명단을 바꾸는 명령의 터미널 탭 거절은 이 앞에 선다"
+      - "`--on`이면 이 기계의 core에 user token으로 붙고 명령의 core 호출(read, memory, command)을 이 core의 machines/call {machine, resource, method, body}로 바꾼다. shell_capability 칸은 싣지 않는다(칸이 없는 호출을 core가 사람의 터미널로 정해 받는 기계에 알린다. CLI는 capability를 환경에서도 읽지 않는다). body는 그 route의 HTTP body 그대로다(command는 envelope). LOPHN_WORKSPACE는 이 기계의 것이라 넘기지 않는다. 받는 기계가 거절할 명령을 CLI가 미리 거르지 않는다: 기기 route 목록과 허락은 받는 기계의 것이다. 오류는 그 기계의 code로 그대로 쓴다(이 컴퓨터를 고르면 invalid_input, 이름을 못 풂 not_found, 같은 이름 여럿 invalid_input의 details.candidates, 기기 목록 밖·허락 없음 forbidden, 닿지 않음 unavailable)"
+      - "표에 없는 첫 낱말이면 `--on`일 때 그 기계의 앱 목록과 선언을 읽어 그 기계의 앱 command를 표에 더한다(`lophn <slug> --help --on <기계>`가 그 기계의 command를 보인다). 부르기는 run이 아니라 apps/remote_call {app, command, input} 하나이고 입력은 받는 기계가 검사한다. 결과 outcome이 succeeded면 result를 쓰고 failed·denied·unknown이면 사유를 stderr에 쓰고 exit 4다. 이 기계에는 run 기록이 없다(그 기계의 호출 기록이 remote caller로 남는다)"
     outcomes:
       - id: result
         observe: [response]
@@ -171,8 +172,38 @@ flows:
         code: unavailable
         observe: [response]
         when: "표에 없는 첫 낱말이라 core에 붙었는데 붙지 못했다(cli-core-connect의 unavailable)"
+      - id: on-sent
+        observe: [response]
+        when: "`--on <기계>`의 명령이 machines/call로 그 기계에 가 ok로 돌아왔다. exit 0"
+      - id: on-app-command
+        observe: [response]
+        when: "`lophn <slug> <command> --on <기계>`가 그 기계의 앱 command를 apps/remote_call로 불러 결과를 받았다. 실패·막힘·결과 모름은 failed(exit 4)와 같은 꼴이다"
+      - id: on-binary-command
+        code: invalid_input
+        observe: [response]
+        when: "`--on`을 version, binary 명령과 함께 썼다. core에 붙기 전에 거절한다"
+      - id: on-empty
+        code: invalid_input
+        observe: [response]
+        when: "`--on`의 값이 비었다. 값이 없거나 `--on`이 겹친 것은 invalid-argument다"
+      - id: on-unresolved
+        code: not_found
+        observe: [response]
+        when: "core가 그 기계를 명단에서 못 풀었다(machines/call의 답 그대로)"
+      - id: on-ambiguous
+        code: invalid_input
+        observe: [response]
+        when: "같은 이름의 컴퓨터가 여럿이거나 이 컴퓨터를 골랐다. 여럿이면 details.candidates의 기기 id로 다시 부른다(machines/call의 답 그대로)"
+      - id: on-refused
+        code: forbidden
+        observe: [response]
+        when: "받는 기계가 거절했다(기기 route 목록 밖, 사람 route의 허락 없음). 그 기계가 정한 것이라 CLI는 미리 거르지 않는다"
+      - id: on-unavailable
+        code: unavailable
+        observe: [response]
+        when: "그 기계와의 link가 없거나 답이 없다(machines/call의 답 그대로)"
     crosses_process: false
-    risk: [secret]
+    risk: [secret, permission]
     unclear:
       - "표에 없는 첫 낱말이면 core를 띄운다(system:core-ensure). lophn 뒤의 틀린 명령 이름만으로 core가 뜨는 것이 의도인지 확인할 것"
 

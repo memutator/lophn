@@ -772,6 +772,10 @@ files:
       - phone-link:response-dropped
     note: "메모리 전송으로 실제 connectRemote client 둘을 core host와 link에 붙인다. 기기 표·자격·call·timer만 가짜다. 요청이 지정한 기기의 연결로만 가는지, 적지 않은 kind를 보내지 않는지, 모르는 id·다른 기기·deadline 뒤의 response를 버리는지, 기다리는 사이 닫힘을 본다"
 
+  - path: packages/core/remote/call_test.ts
+    covers: [remote-connection:call-forbidden, remote-connection:call-confirmed, decision-handle-consume:consumed]
+    note: "createRemoteCall을 실제 CredentialRegistry·ConfirmationRegistry와 가짜 handler·writer(확인을 executor처럼 예약·소비)로 돌린다. 터미널 입력 허락이 없는 기기의 secrets/put, providers/connect-key, input_request/answer_secret, providers/disconnect, settings/update, agents/create, projects/create는 forbidden이고 handler·writer에 닿지 않으며 값이 오류에 없다. 허락받은 기기는 같은 표가 닿고 providers/disconnect는 core가 붙인 handle을 소비한다. agent 자격과 principal user인 사람 자격은 secrets/put과 providers/disconnect가 forbidden이고 handle이 생기지 않는다"
+
   - path: packages/core/remote/host_test.ts
     covers:
       - remote-connection:not-listed-refused

@@ -65,10 +65,16 @@ import {
   jobRunList,
   jobUpdate,
 } from "../jobs/jobs.ts";
+import { settingsList, settingsUpdate } from "../config/file.ts";
+import { diagnosticsStatus } from "../diagnostics/diagnostics.ts";
 import {
   agentCard,
+  agentChange,
+  agentCreate,
+  agentDelete,
   agentList,
   agentProfileImageRead,
+  agentProfileImageUpload,
   agentRead,
 } from "../lophn-agent/agent-definitions.ts";
 import {
@@ -78,7 +84,9 @@ import {
 } from "../lophn-agent/agent-sessions.ts";
 import { askAnswer, askRead } from "../lophn-agent/ask-tool.ts";
 import { agentCallRead, callCancel } from "../lophn-agent/calls.ts";
+import { extensionToolsCatalog } from "../lophn-agent/extension-tools.ts";
 import {
+  inputRequestAnswerSecret,
   inputRequestCancel,
   inputRequestRead,
 } from "../lophn-agent/input-request.ts";
@@ -94,8 +102,34 @@ import {
   messageImageUpload,
 } from "../lophn-agent/message-images.ts";
 import { messageSearch } from "../lophn-agent/message-search.ts";
+import { workspaceExtensionSettingsChange } from "../lophn-agent/mcp-settings.ts";
 import { messageBody } from "../lophn-agent/messages.ts";
-import { providerRead } from "../lophn-agent/providers.ts";
+import {
+  changeShownModels,
+  modelCatalogRead,
+  modelDefaultChange,
+  modelDefaultRead,
+  removeUserModelInfo,
+  saveUserModelInfo,
+  shownModelsRead,
+  userModelInfoRead,
+  workspaceModelChange,
+  workspaceModelRead,
+} from "../lophn-agent/models.ts";
+import {
+  connectProvider,
+  disconnectProvider,
+  loginCancel,
+  providerConnectKey,
+  providerConnectLocal,
+  providerDefinitions,
+  providerList,
+  providerRead,
+  providerSignIn,
+  providerSignInState,
+  recordProviderModels,
+  refreshProviderModels,
+} from "../lophn-agent/providers.ts";
 import { receivedMessageRead } from "../lophn-agent/received-messages.ts";
 import {
   sessionRewind,
@@ -111,6 +145,8 @@ import {
 import { skillsRead } from "../lophn-agent/skill-settings.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
 import { stopTurn } from "../lophn-agent/turns.ts";
+import { projectAdd, projectBrowse } from "../projects/add-api.ts";
+import { projectIdentityApi } from "../projects/identity-api.ts";
 import { projectApi } from "../projects/project-api.ts";
 import {
   projectFilesList,
@@ -118,6 +154,11 @@ import {
 } from "../projects/project-files.ts";
 import { projectSearch } from "../projects/project-search.ts";
 import { runList, runRead } from "../runs/runs.ts";
+import {
+  secretDelete,
+  secretPut,
+  secretStatus,
+} from "../secrets/secret-file.ts";
 import {
   workflowInstanceList,
   workflowInstanceRead,
@@ -127,9 +168,11 @@ import {
 } from "../workflows/routes.ts";
 import { devicesSetPush, rosterLeave } from "./routes.ts";
 
-// 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
-// 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
-// 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
+// 기기가 부를 수 있는 route는 두 목록이다. 기기 자격의 scope는 두 목록의 합이고, 밖의 route는 `forbidden`이다.
+// - REMOTE_ALLOWED_ROUTES(아래): 모든 기기의 목록. 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
+// - REMOTE_PERSON_ROUTES(이 file 끝): 사람이 이 기기의 터미널 입력을 허락한 기기에만 여는 목록(secret, provider·model, 설정 쓰기,
+//   agent·project 만들고 고치기). 허락은 그 기기를 사람으로 본다는 뜻이다. 거르기는 core/remote/call.ts가 한다.
+// 모든 기기의 목록에 넣지 않는 것: 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
 // `roster/leave`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
 // 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 연다. 폰이 시작한 switch도
@@ -137,7 +180,7 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // `terminals/input`은 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치
 // (`roster/set_terminal_input`)와 `host/*`는 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
-// 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
+// 두 목록 모두 user가 부를 수 있는 route여야 하고(아니면 core가 기기 자격을 만들지 못한다), 서로 겹치지 않는다.
 // 다 본 session의 표시(`unseen/list|dismiss`)를 둔다: 보는 것이 읽음을 만들고 읽음은 host에 있다(어느 기기에서 봐도 같이 꺼진다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
 // 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), 폰 backend file(`apps/phone_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
@@ -272,6 +315,64 @@ export const REMOTE_ALLOWED_ROUTES = [
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다
   devicesSetPush,
   presenceReport,
+] as const;
+
+// 터미널 입력을 허락받은 기기에만 여는 사람의 route다. 허락이 있어도 넣지 않는 것: 기기·pairing·명단 관리(`devices/*`, `roster/*`),
+// 터미널 입력 허락 바꾸기, `always_on/*`, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
+// `terminal_sessions/*`, `apps/call_tool`, `app_grants/*`, 할당 쓰기, 그 기계의 loopback으로 돌아오는 로그인(`agent-mcp-auth/*`, `apps/oauth_*`).
+// 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
+export const REMOTE_PERSON_ROUTES = [
+  // secret: 값은 upload body로 오고 secret 저장소에만 간다
+  secretPut,
+  secretDelete,
+  secretStatus,
+  // provider: 연결과 끊기, 로그인. 안에서 부른 사람의 자격으로 `providers/connect`와 `provider-credentials/record-models`를 writer에 보낸다
+  connectProvider,
+  disconnectProvider,
+  providerList,
+  providerDefinitions,
+  refreshProviderModels,
+  recordProviderModels,
+  loginCancel,
+  providerConnectKey,
+  providerConnectLocal,
+  providerSignIn,
+  providerSignInState,
+  inputRequestAnswerSecret,
+  // model
+  changeShownModels,
+  shownModelsRead,
+  saveUserModelInfo,
+  removeUserModelInfo,
+  userModelInfoRead,
+  modelCatalogRead,
+  modelDefaultRead,
+  modelDefaultChange,
+  workspaceModelRead,
+  workspaceModelChange,
+  // 설정: General, Shell rules, Diagnostics, Tools and skills
+  settingsList,
+  settingsUpdate,
+  diagnosticsStatus,
+  workspaceExtensionSettingsChange,
+  extensionToolsCatalog,
+  // agent
+  agentCreate,
+  agentChange,
+  agentDelete,
+  agentProfileImageUpload,
+  // project. `project.add`는 안에서 부른 사람의 자격으로 `projects/create`를 writer에 보낸다
+  projectApi.register,
+  projectApi.edit,
+  projectApi.relinkFolder,
+  projectApi.archive,
+  projectApi.unarchive,
+  projectIdentityApi.identity,
+  projectIdentityApi.createIdentity,
+  projectIdentityApi.renewIdentity,
+  projectIdentityApi.match,
+  projectAdd,
+  projectBrowse,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.

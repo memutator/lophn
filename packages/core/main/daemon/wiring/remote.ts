@@ -46,6 +46,7 @@ import {
   rosterStatements,
   rosterStore,
 } from "../../../../protocol/remote/mod.ts";
+import { confirmationRefSchema } from "../../../../protocol/base/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type Dial,
@@ -653,6 +654,20 @@ export function remoteWiring(
         bus: ctx.bus,
         admission,
         onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
+        granted: (principal) => ctx.terminalInputGrant(principal),
+        async confirm(request) {
+          const issued = await ctx.runtime.confirmation({
+            action: "issue",
+            request,
+          });
+          if (!issued.ok) return issued;
+          const ref = confirmationRefSchema.safeParse(
+            (issued.value as { confirmation?: unknown }).confirmation,
+          );
+          return ref.success
+            ? ok(ref.data)
+            : err({ code: "internal", message: "confirmation was not issued" });
+        },
       }),
       admission,
       deviceGone: (device) =>

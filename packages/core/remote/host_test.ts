@@ -85,6 +85,7 @@ import {
   rosterView,
   signRoster,
 } from "../../protocol/remote/mod.ts";
+import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
 import { workflowEdit } from "../../protocol/workflows/routes.ts";
 import { appViewHandlers, createAppViews } from "../apps/views/mod.ts";
 import { devicesSetting } from "../config/shell-settings.ts";
@@ -287,7 +288,12 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     appRewind,
     appLogViewError,
   ];
-  for (const route of [...ROUTES, ...REMOTE_ALLOWED_ROUTES, ...outside]) {
+  for (const route of [
+    ...ROUTES,
+    ...REMOTE_ALLOWED_ROUTES,
+    ...REMOTE_PERSON_ROUTES,
+    ...outside,
+  ]) {
     allRoutes.set(routePath(route), route);
   }
   // 사람 token 상한과 같다(wiring/server.ts): user가 부를 수 있는 route 전부다.
@@ -493,6 +499,9 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       ]),
       uploads: new Map([["message-images/upload", upload]]),
       admission,
+      // 이 file의 기기는 터미널 입력 허락이 없다. 허락받은 기기는 call_test.ts가 본다.
+      granted: () => false,
+      confirm: async () => err({ code: "internal", message: "not issued" }),
     }),
     admission,
     views,
@@ -670,7 +679,7 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });
 
-test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*(set_push 말고), roster/*(leave 말고), agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
+test("터미널 입력 허락이 없는 기기는 route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*(set_push 말고), roster/*(leave 말고), agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   s.register(key);
@@ -1460,7 +1469,7 @@ test("뺀 기기는 붙어 있던 연결이 빼기가 든 명단을 받은 뒤 �
 
 // 다른 컴퓨터(A)가 link로 넘긴 call은 이 core(B)에서 A의 기기 자격(지금의 기기 route 목록)으로 걸러진다. 넘기는 쪽이 범위를
 // 넓히거나, 넘긴 call을 다시 넘기는(machines/call) 길이 생기면 한 컴퓨터를 든 사람이 다른 컴퓨터의 설정·secret·명단을 고친다.
-test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록으로 걸러져 목록 밖 route(설정 쓰기, roster/*, machines/call)는 forbidden이다", async (t) => {
+test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로 걸러져 허락 없는 설정 쓰기와 목록 밖 route(roster/*, machines/call)는 forbidden이다", async (t) => {
   const s = setup();
   // A의 host key를 B의 명단에 둔다(가짜 명단). A 쪽은 B 하나가 든 명단이다.
   const aKey = generateKeyPair(s.random);

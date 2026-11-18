@@ -30,7 +30,7 @@ git이 아닌 이 컴퓨터의 project에 다른 기계의 project 정체(`pri_`
     - `ProjectsSource.linkIdentity(project: ProjectItem, identity: string): Promise<SourceResult<ProjectItem>>`
     - `LinkProjectDialog({remote: {machineName, title, identity}, candidates: readonly ProjectItem[], onLink, onClose})`: 다른 기계의 git이 아닌 project 하나를 이 컴퓨터의 git이 아닌 project 가운데 하나와 잇는다. `candidates`는 부르는 쪽(`screen-lists`)이 `repo === "none"`이고 그 id가 아닌 이 컴퓨터의 project로 거른다.
 
-시작 전에 다시 볼 것: `multi-device-fixes`의 `fix-identity`(`project-docs/plan/multi-device-fixes/tasks/fix-identity.md`)가 git을 못 읽은 project의 `repo`와 id를 다루는 길(`identity/inspect.ts`, `file.ts`)과 `project-identity.md`의 "앱이 받는 id가 바뀌는 경우"를 고쳤다. "git이 아닌 것"의 판정과 그 문단을 merge된 모양에 맞춘다.
+시작 전에 다시 볼 것: `multi-device-fixes`의 `fix-identity`(change-log `project-docs/products/change-log/0.23/multi-device-fixes.yaml`(끝난 task `fix-identity`. brief는 `git show ffe208f94^:project-docs/plan/multi-device-fixes/tasks/fix-identity.md`))가 git을 못 읽은 project의 `repo`와 id를 다루는 길(`identity/inspect.ts`, `file.ts`)과 `project-identity.md`의 "앱이 받는 id가 바뀌는 경우"를 고쳤다. "git이 아닌 것"의 판정과 그 문단을 merge된 모양에 맞춘다.
 
 ## 할 일
 

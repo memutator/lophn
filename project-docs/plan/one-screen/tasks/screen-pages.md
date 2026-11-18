@@ -51,3 +51,9 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+- `core-browser`와 그 뒤 고침(`project-docs/products/change-log/0.23/core-browser.yaml`, `browser-control-release.yaml`)이 main에 올라갔다. brief가 가리키는 그 계획의 task brief는 지워졌다: `git show 651e76856^:project-docs/plan/core-browser/tasks/<file>`로 읽는다.
+- `page_view/list`의 page마다 `held_by`(`"you" | "phone" | "computer" | null`)가 온다. page 목록(desktop과 폰)에 "누가 잡고 있나"를 그린다. 잡기는 그 page를 보고 있어야 되고(lease), 보는 쪽이 떠나면 core가 푼다.
+- 기계마다의 창이 없어지므로 다시 볼 것(review `reports/multi-device/review-core-browser.md` 10): page 보기가 기계 이름을 창에서 가져오던 곳, route가 가는 core(창의 core가 아니라 범위의 기계), 다른 기계의 event가 `MachineFrameReceived`로 오는 것, 이 컴퓨터의 단축키와 부딪히는 key 잡기.

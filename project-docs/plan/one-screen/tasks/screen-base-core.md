@@ -14,7 +14,7 @@
   - 계획 README "정한 것 › 화면의 바닥"
   - 조사 `reports/multi-device/survey-n1-one-screen.md` 1.1·1.2·1.6, G1, 4(seam), 9의 3·8
   - architecture: `project-docs/architecture/remote.md` "desktop에서 다른 기계 보기"(초안은 `screen-base-scope`가 쓴다), `event.md`(ready와 snapshot)
-  - `multi-device-fixes`의 `project-docs/plan/multi-device-fixes/tasks/fix-setup.md`(`createMachineRoutes`, `CoreConnection.machineCall`, `machinesCall`·`machinesWatch`의 `shell_capability`)
+  - `multi-device-fixes`의 change-log `project-docs/products/change-log/0.23/multi-device-fixes.yaml`(끝난 task `fix-setup`. brief는 `git show ffe208f94^:project-docs/plan/multi-device-fixes/tasks/fix-setup.md`)(`createMachineRoutes`, `CoreConnection.machineCall`, `machinesCall`·`machinesWatch`의 `shell_capability`)
   - 지금 code: `packages/shell/main/desktop/core/events.ts`(창마다 watch와 `ready`를 누구에게 보내나: 같은 규칙을 기계에도 쓴다), `packages/remote-client/connection.ts`의 `watch`
 - 계약:
   - 쓰는 것: 아래 "같이 쓰는 계약", `createMachineRoutes`(`packages/core/remote/machine-routes.ts`), `CoreConnection.machineCall`

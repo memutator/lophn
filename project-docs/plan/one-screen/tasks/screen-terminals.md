@@ -21,7 +21,7 @@
   - 쓰는 것: `machineTerminalDeps`(screen-base-scope가 만든 자리), `useMachineData`, `TabScope`, `TabItem.machine`, `terminals/*` route와 `TerminalOutputAppended`·`TerminalRuntimeChanged`
   - 내놓는 것: `machineTerminalDeps(machine, …)`가 다른 기계에도 `TerminalDeps`를 준다. `screen-lists`는 그 `store`로 다른 기계의 coding agent·터미널 줄을 그린다.
 
-시작 전에 다시 볼 것: `multi-device-fixes`의 `fix-terminals`(`project-docs/plan/multi-device-fixes/tasks/fix-terminals.md`)가 `routes.ts`의 `open`이 `input`처럼 principal을 받아 기기(`deps.isDevice`)이고 `deps.granted`가 아니면 `command`·`resume`을 거절하게 했고, `wiring/terminals_test.ts`에 입력 자격 표를 두었다. restart를 그 모양(`isDevice`·`granted`)으로 맞추고 위험 test를 그 표에 더한다. 기기 목록 줄은 `fix-setup` 뒤의 `allowlist.ts`에 댄다.
+시작 전에 다시 볼 것: `multi-device-fixes`의 `fix-terminals`(change-log `project-docs/products/change-log/0.23/multi-device-fixes.yaml`(끝난 task `fix-terminals`. brief는 `git show ffe208f94^:project-docs/plan/multi-device-fixes/tasks/fix-terminals.md`))가 `routes.ts`의 `open`이 `input`처럼 principal을 받아 기기(`deps.isDevice`)이고 `deps.granted`가 아니면 `command`·`resume`을 거절하게 했고, `wiring/terminals_test.ts`에 입력 자격 표를 두었다. restart를 그 모양(`isDevice`·`granted`)으로 맞추고 위험 test를 그 표에 더한다. 기기 목록 줄은 `fix-setup` 뒤의 `allowlist.ts`에 댄다.
 
 ## 할 일
 

@@ -379,11 +379,11 @@ export const workspaceSettings = {
   "settings.note.remote-add":
     "Invite a phone or another computer. It joins every computer in your devices. To bring this computer into another computer's devices, join with an invite made there.",
   "settings.note.remote-invite-computer":
-    "On the other computer, open Settings › Remote, press “Join with an invite” and paste the text. Or run lophn remote join there. A new invite replaces this one.",
+    "On the other computer, open Settings › Remote, press “Join with an invite” and paste the text. Or run lophn remote join there. The invite works once, until it expires.",
   "settings.note.remote-invite-long":
     "The invite lasts 7 days instead of 30 minutes. Use it for the other system of a dual-boot computer, or for a home and a work computer.",
   "settings.note.remote-invite-phone":
-    "Scan this code with the lophn phone app, or enter it there with “Show as text”. A new invite replaces this one.",
+    "Scan this code with the lophn phone app, or enter it there with “Show as text”. The invite works once, until it expires.",
   "settings.note.remote-invite-terminal-input":
     "On by default: the new device can type into terminals on your computers and run commands as you. Changing this makes a new invite. You can change it later for each device.",
   "settings.note.remote-join":

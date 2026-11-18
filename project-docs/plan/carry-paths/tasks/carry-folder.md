@@ -65,3 +65,19 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+`carry-contract`가 review를 거치며 계약이 바뀌었다. 아래가 위 글보다 앞선다. 계약의 글은 `project-docs/architecture/folder-sync.md`의 "내 컴퓨터들"과 `packages/protocol/folder/carry.ts`다.
+
+- 기계마다의 지금 목록: 든 `manifest.json`이 목록이지만 받아들일지는 ledger 표 `folder_carry_marks`(origin, 서명 key마다 가장 높은 revision)가 정한다. 받기 전에 mark를 읽고, 받으면 쓰고, 지우지 않는다. key는 `verifyManifest(...).signingKey`다.
+- 자기 manifest가 되돌아오면(연결, 폰, 같이 보는 폴더) 저장하지 않는다. 검증되고 자기 mark보다 높으면 자기 mark만 올린다. 다음 revision은 `nextManifestRevision(max(자기 file의 revision, 자기 mark), now)`다.
+- `StateChanged{remote_devices}`마다 든 manifest를 `ctx.computerSigningKey`로 다시 검증한다. 검증되지 않게 된 기계의 새 manifest와 file은 받지 않되 가진 file은 둔다. subtree를 지우는 것은 `ctx.computerRemoved(machine)`이 참일 때뿐이다("`computerSigningKey`가 null이 되면 지운다"를 대신한다).
+- manifest 쓰기: manifest는 `record.json`, `roster.json`, 앱마다 `apps/<app>/files.json` 하나만 싣는다. `files.json`이 그 앱의 `app.json`, data(가장 새 snapshot과 그 뒤), `source/<n>.json`, `release.json`, `events/*`를 싣는다. 둘 다 이번 export가 쓴 것(`folder_written` 줄과 이번에 쓴 record file)으로 만들고 폴더를 훑어 만들지 않는다. snapshot 뒤의 data file이 `CARRY_DATA_FILES_MAX`를 넘으면 `computers`에 새 snapshot을 쓴다. 목록이 8 MiB를 넘게 되면 앞의 목록을 두고 그 앱의 stream에 `too_large` 오류를 남긴다.
+- 받을 것은 `expectedFiles`(사슬 전체)로 고르고, 첫 조각에서와 자리로 옮기기 바로 전에 `expectedFile`로 크기와 sha256을 다시 본다. 사슬에서 빠진 file(덮던 file이 바뀐 것 포함)은 지운다.
+- route: `carry/manifests`는 `{machine, revision, size, sha256}`만 답한다. `carry/file`과 `holds`·`read`는 `machines/<m>/manifest.json`도 준다. `carry/wants`는 `after`를 받고 (machine, path) 순서로 답한다. `carry/put`의 `machines/<m>/manifest.json`은 글을 다 모아 `machine`·`size`·`sha256`이 글과 맞지 않으면 `rejected`, 맞으면 `offerManifest`다.
+- 명단 file: `{format, machine, written_at, statements: rosterCarry.statements()}`를 쓴다(null이면 쓰지 않는다). 읽을 때는 statements만 `rosterCarry.receive(statements)`에 넘긴다. 주소(reach)는 폴더에서 읽지 않는다.
+- event file: `readEventFile(path, bytes, now)`로 읽고 `bundle_hash`를 지금 release와 댄다. 본 줄은 `CROSS_EVENT_SEEN_KEEP_MS`(14일) 뒤에만 지운다.
+- `layout.ts`·`fs.ts`의 이름 검사에 `manifest.json`, `roster.json`, `apps/<app>/files.json`, `events/<id>.json`을 더한다.
+- 등록(이미 lead가 넣었다): ledger step `folder.events-seen`, `apps.event-publications.machine`, `folder.carry-marks`. 이 task가 하는 등록은 그대로다: `CARRY_ROUTES`를 등록하고 기기 route 목록에 올릴 이름을 보고에 적기, `folder.shared` 설정, `app-runtime.yaml`의 `ignore:` 줄을 진짜 flow로 바꾸기, `StateChanged{carry_files}`를 낼 때 `tools/check-reads.ts`의 `PUBLISHED_OUTSIDE_ROUTES`에 `"carry_files"`를 더하고 두 읽기 route에 `reads: ["carry_files"]`를 돌려놓기.
+- 먼저 확인할 것: 다른 기계가 낸 새 release를 따라갈 때 사람의 확인 없이 code가 깔리는지(`packages/core/folder/apps/`, `architecture/folder-sync.md`). 확인 없이 깔리면 멈추고 보고한다(받는 file의 출처가 이제 연결과 폰까지 넓어진다).

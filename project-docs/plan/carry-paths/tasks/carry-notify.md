@@ -62,3 +62,12 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+`carry-contract`가 review를 거치며 계약이 바뀌었다. 아래가 위 글보다 앞선다.
+
+- event file의 난 기계, 앱, id는 path에서 온다. `carry-folder`가 `readEventFile`을 통과한 file만 넘긴다. `eventArrived`의 `origin`은 path의 기계다.
+- 도착한 event는 7일보다 오래된 것뿐 아니라 `at`이 5분 넘게 앞선 것(`CLOCK_AHEAD_MAX_MS`)도 내지 않는다.
+- 내는 쪽: event file의 `id`는 ULID 그대로이고 file 이름과 같아야 한다.
+- 그대로인 것: `data.changed`, `CrossEvents.write(app, release, {name, payload, at})`, step `apps.event-publications.machine`.

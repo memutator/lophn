@@ -65,3 +65,13 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+`carry-contract`가 review를 거치며 계약이 바뀌었다. 아래가 위 글보다 앞선다.
+
+- manifest를 넣는 path는 `machines/<m>/manifest.json`이다(`manifest.json`이 아니다). `machine`, `size`, `sha256`이 글의 `body.machine`, byte 길이, hash와 같아야 한다.
+- manifest 글은 그 path의 `carry/file`로 읽되, `carry/manifests`의 revision이 폰이 든 것보다 새로운 기계만 읽는다. `{revision, size, sha256}`으로 견준다.
+- `carry/wants`는 `after` cursor로 끝까지 읽는다(첫 1,000개에서 멈추지 않는다).
+- 폰의 크기와 hash 검사는 세 단 사슬이다: manifest → `apps/<app>/files.json` → `release.json`·`source/<n>.json`. `packages/protocol/folder/carry.ts`의 `expectedFile`·`expectedFiles`를 폰이 든 목록 file로 부른다.
+- remote protocol 판은 바뀌지 않는다(4). 폰에서 판을 올릴 것이 없다.

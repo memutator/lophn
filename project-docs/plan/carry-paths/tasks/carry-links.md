@@ -57,3 +57,12 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+`carry-contract`가 review를 거치며 계약이 바뀌었다. 아래가 위 글보다 앞선다.
+
+- `carry/manifests`는 `{machine, revision, size, sha256}`만 답한다. 상대의 revision이 더 새로운 기계마다 글을 `carry/file`(path `machines/<m>/manifest.json`, 8 MiB 조각)로 받아 `offerManifest(text, "link")`에 넘긴다.
+- `wants(1000, after)`를 cursor(마지막 항목의 `{machine, path}`)로 빈 page가 나올 때까지 넘긴다. file마다의 `not_found`는 건너뛰고 계속 넘긴다.
+- 상대가 `carry/manifests`에 `not_found`로 답하면(옛 lophn) "이 상대는 나르지 않는다"다. 다음 계기까지 쉰다. protocol 판으로 가르지 않는다(판은 4 그대로다).
+- 위험 test 하나를 더한다: "상대가 갖지 않은 file로 찬 page가 다음 page를 막지 않는다".

@@ -125,6 +125,19 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
   },
 ];
 
+/**
+ * 다른 기계의 창에서 여는 항목: 그 기계의 core만 읽고 쓰고 그 기계에서 효과가 나는 것. 나머지(Appearance, Browser, Remote,
+ * Keyboard, Quick launch, Coding agents, Extension packages)는 이 컴퓨터의 shell main이나 OS에 붙어 있어 그 창에서는 한 줄이다.
+ */
+export const MACHINE_PANES: ReadonlySet<SettingsPane> = new Set([
+  "general",
+  "providers",
+  "agents",
+  "tools",
+  "shell-rules",
+  "diagnostics",
+]);
+
 /** 항목의 이름. 상단 바 breadcrumbs가 쓴다. */
 export function paneLabel(pane: SettingsPane): string {
   const entry = SETTINGS_GROUPS.flatMap((group) => group.panes).find(

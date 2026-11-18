@@ -7,7 +7,6 @@ import { MachinesProvider } from "../../../../../packages/shell/renderer/desktop
 import { MachineGate } from "../../../../../packages/shell/renderer/desktop/machines/machine-gate.tsx";
 import { MachineSwitcher } from "../../../../../packages/shell/renderer/desktop/machines/machine-switcher.tsx";
 import { OnlyHere } from "../../../../../packages/shell/renderer/desktop/machines/only-here.tsx";
-import { RemoteSettings } from "../../../../../packages/shell/renderer/desktop/machines/remote-settings.tsx";
 import {
   fakeMachines,
   sampleMachines,
@@ -141,11 +140,11 @@ export function ShellScene({
   keys?: readonly string[];
   /**
    * 기계 보기. 짝지은 기계 셋(sample)이 있는 fake source를 끼운다. window를 주면 이 창은 그 기계의 창이고(title bar에 그 이름),
-   * body를 주면 card 자리에 gate, 자리 표시("This opens only on …"), Settings 자리가 선다. 안 쓰면 짝지은 기계가 없는 창이다.
+   * body를 주면 card 자리에 gate나 자리 표시("This opens only on …")가 선다. 안 쓰면 짝지은 기계가 없는 창이다.
    */
   machine?: {
     window?: "mch_homeserver" | "mch_laptop" | "mch_olddesk";
-    body?: "gate" | "only-here" | "settings";
+    body?: "gate" | "only-here";
   };
 }) {
   const [machines] = useState(() => {
@@ -368,8 +367,6 @@ export function ShellScene({
         );
       case "only-here":
         return <OnlyHere machine={machines.shown} />;
-      case "settings":
-        return <RemoteSettings machine={machines.shown} />;
     }
   })();
   const panes =
@@ -377,12 +374,7 @@ export function ShellScene({
       ? [
           {
             key: "machine",
-            crumbs:
-              machine?.body === "settings"
-                ? ["Settings"]
-                : machine?.body === "only-here"
-                  ? ["Terminal"]
-                  : [],
+            crumbs: machine?.body === "only-here" ? ["Terminal"] : [],
             body: machineBody,
           },
         ]

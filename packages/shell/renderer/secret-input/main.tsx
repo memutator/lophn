@@ -52,6 +52,7 @@ function body(api: SecretInputApi, display: SecretInputDisplay) {
       subject={display.subject}
       name={display.name}
       configured={display.configured}
+      {...(display.machine === undefined ? {} : { machine: display.machine })}
       onSubmit={(value) => api.submit({ value })}
       onCancel={() => void api.cancel()}
     />

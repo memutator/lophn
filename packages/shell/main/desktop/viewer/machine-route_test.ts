@@ -59,7 +59,6 @@ test("a window of another machine reaches only that machine's core; this compute
   for (const channel of [
     TERMINAL_INPUT_CHANNEL,
     FILE_READ_CHANNEL,
-    SECRET_INPUT_OPEN_CHANNEL,
     WORKSPACE_LAYOUT_SAVE_CHANNEL,
   ]) {
     const reply = (await route.handle(
@@ -89,7 +88,7 @@ test("a window of another machine reaches only that machine's core; this compute
   );
 });
 
-test("only a window of another machine reaches this computer's core, and only for this computer's project, agent and session lists", async () => {
+test("only a window of another machine reaches this computer's core, and only for this computer's project, agent and session lists; it may open the secret window", async () => {
   const route = createMachineRoute();
   route.bind(REMOTE_WINDOW, HOST, readyLink([]));
   const cases: {
@@ -152,6 +151,13 @@ test("only a window of another machine reaches this computer's core, and only fo
       channel: MACHINES_OPEN_CHANNEL,
       window: REMOTE_WINDOW,
       input: { machine: HOST, session: "ses_01jx0000000000000000000000" },
+      passes: true,
+    },
+    // The protected secret window opens over a window of another machine; its handler sends the value to that machine.
+    {
+      channel: SECRET_INPUT_OPEN_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { name: "K", purpose: "app", subject: "s" },
       passes: true,
     },
     {

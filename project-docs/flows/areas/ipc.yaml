@@ -361,7 +361,7 @@ flows:
       - "shell:core-watch는 machines/watch { machine, conditions }로 그 기계의 Gateway 조건을 통째로 바꾼다. shell main은 기계마다 마지막 조건을 들고 이 컴퓨터 Gateway가 다시 붙으면 다시 건다. 그 기계의 frame은 이 컴퓨터 bus의 MachineFrameReceived로 와서 그 기계의 창에만 shell:core-event로 간다(이 컴퓨터의 창에는 가지 않는다)"
       - "shell:core-state-get은 machines/list의 그 기계 status로 지은 상태다(connecting → starting, connected → ready, offline·update·목록에 없음 → stale. confirmedAt은 last_seen_at)"
       - "machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다"
-      - "그 밖에 지나는 channel은 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external뿐이다. overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
+      - "그 밖에 지나는 channel은 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external, secret-input-open뿐이다. secret-input-open은 보호 창을 그 창 위에 열고 값은 그 창에 묶인 link(machines/call)로 그 기계에만 간다(shell-desktop의 secret-input). overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
       - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
     outcomes:
       - id: to-machine
@@ -381,7 +381,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "다른 기계의 창이 허락 목록 밖의 handle channel(터미널, file, secret 입력, layout, browser, 앱 view…)을 불렀다. on 메시지는 답 없이 버린다"
+        when: "다른 기계의 창이 허락 목록 밖의 handle channel(터미널, file, folder 고르기, layout, browser, 앱 view…)을 불렀다. on 메시지는 답 없이 버린다"
         observe: [response]
       - id: allowed
         when: "다른 기계의 창이 허락 목록의 channel을 불렀다. 이 컴퓨터의 handler가 자기 sender 검사를 그대로 한다"

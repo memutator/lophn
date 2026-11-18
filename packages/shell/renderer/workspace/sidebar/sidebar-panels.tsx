@@ -35,7 +35,7 @@ export type SidebarKind = "project" | "home" | "app";
 /** panel이 그릴 때 쓰는 것. workspace 종류마다 있는 칸이 다르고, 없는 종류의 panel은 목록에서 걸러져 읽히지 않는다. */
 export interface SidebarCtx {
   readonly kind: SidebarKind;
-  /** 다른 기계의 창이다. 이 컴퓨터의 file과 artifact, project·앱 관리(Workspaces) panel이 없다. */
+  /** 다른 기계의 창이다. 이 컴퓨터의 file과 artifact panel이 없다. */
   readonly otherMachine?: boolean;
   /** Jobs panel의 통로. 없으면 Jobs panel을 두지 않는다. */
   readonly jobs?: JobsSource;
@@ -132,7 +132,6 @@ function builtinPanels(): readonly SidebarPanel[] {
       label: t("shell.heading.workspaces"),
       icon: shellIcons.app,
       kinds: ["home"],
-      available: (ctx) => ctx.otherMachine !== true,
       render: ({ home }) =>
         home === null ? null : <WorkspacesPanel {...home} />,
     },

@@ -7,7 +7,8 @@
 // (정의 key나 Custom)으로 열면 shell main이 값을 core `providers/connect-key`로 올려 끝낸다. 이 컴퓨터의 주소에 인증 없이
 // 잇는 Custom은 `providers/connect-local`이다. 구독 로그인은 `providers/sign-in`이 시작하고 core가 기다린다(sign-in.ts).
 // 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다: shell main에서 결정 handle(`provider_disconnect`)을
-// 받아 DisconnectProvider에 싣는다. 값은 core가 지운다.
+// 받아 DisconnectProvider에 싣는다. 값은 core가 지운다. 다른 기계의 창은 handle 없이 보낸다: 터미널 입력을 허락받은 기기가
+// 보낸 확인 command에는 그 기계의 core가 handle을 붙인다(이 컴퓨터의 shell main은 그 기계의 handle을 받지 못한다).
 import { t } from "@lophn/i18n";
 
 import type {
@@ -17,7 +18,10 @@ import type {
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import { disconnectProvider } from "../../../../../protocol/lophn-agent/providers.ts";
-import type { ProviderDefinition } from "../../../../../protocol/lophn-agent/provider-values.ts";
+import {
+  oauthFlowOf,
+  type ProviderDefinition,
+} from "../../../../../protocol/lophn-agent/provider-values.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import {
   call,
@@ -99,7 +103,10 @@ function definitionRowOf(value: BuiltinDefinition): ProviderDefinitionRow {
     signIn:
       value.oauth === null
         ? null
-        : { product: PRODUCTS[value.oauth.product] ?? value.display_name },
+        : {
+            product: PRODUCTS[value.oauth.product] ?? value.display_name,
+            deviceCode: oauthFlowOf(value.oauth.product) === "device_code",
+          },
     custom: false,
   };
 }
@@ -172,6 +179,8 @@ interface ProviderDeps {
   requestHandle: DecisionHandleApi["requestDecisionHandle"] | undefined;
   /** command key를 만든다. 테스트가 고정한다. */
   random: () => string;
+  /** 다른 기계의 창이다. 끊기는 결정 handle 없이 보내고 그 기계의 core가 붙인다. */
+  machine: boolean;
 }
 
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
@@ -186,6 +195,7 @@ export function coreProviderSettingsSource(
   const requestHandle =
     "requestHandle" in deps ? deps.requestHandle : windowDecisionHandle();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
+  const machine = deps.machine ?? false;
 
   function listDefinitions(): Promise<
     SourceResult<{ definitions: BuiltinDefinition[] }>
@@ -201,7 +211,7 @@ export function coreProviderSettingsSource(
 
     // 끊기는 화면 안 Dialog가 한 번 물은 뒤 부른다. 결정은 shell main이 정본을 다시 읽어 묶은 handle로 싣는다.
     async disconnect(provider) {
-      if (requestHandle === undefined) return UNAVAILABLE;
+      if (!machine && requestHandle === undefined) return UNAVAILABLE;
       const read = await call<{ provider: { revision: number } }>(
         core,
         "read",
@@ -210,22 +220,24 @@ export function coreProviderSettingsSource(
         { provider },
       );
       if (!read.ok) return read;
-      let handle: DecisionHandleReply;
-      try {
-        handle = await requestHandle({
-          concern: PROVIDER_CONCERN,
-          decision: PROVIDER_DISCONNECT,
-          targets: [provider],
-        });
-      } catch {
-        return UNAVAILABLE;
+      let handle: DecisionHandleReply | null = null;
+      if (!machine) {
+        try {
+          handle = await requestHandle!({
+            concern: PROVIDER_CONCERN,
+            decision: PROVIDER_DISCONNECT,
+            targets: [provider],
+          });
+        } catch {
+          return UNAVAILABLE;
+        }
+        if ("error" in handle) return { ok: false, code: handle.error.code };
       }
-      if ("error" in handle) return { ok: false, code: handle.error.code };
       const sent = await command(core, disconnectProvider, {
         input: { provider },
         key: `provider-disconnect-${random()}`,
         compare: { revision: read.value.provider.revision },
-        confirmation: handle.confirmation,
+        ...(handle === null ? {} : { confirmation: handle.confirmation }),
       });
       return sent.ok ? { ok: true, value: null } : sent;
     },

@@ -18,6 +18,7 @@ import {
   WaitingShare,
   WaitingToasts,
 } from "./waiting/waiting-pages.tsx";
+import { MachineSecretInputScene } from "./shell/machine-secret-input-scene.tsx";
 
 export const questionsArea: Area = {
   id: "questions",
@@ -121,6 +122,13 @@ export const questionsArea: Area = {
       description:
         "shell이 띄우는 작은 secret 보호 입력 창이다. 값은 점으로만 보이고, 저장하면 이름과 설정 여부만 남는다. 빈 칸이면 Save가 꺼져 있다.",
       render: () => <SecretInputProvider />,
+    },
+    {
+      id: "new-secret-input-machine",
+      title: "Secret input · other machine",
+      description:
+        "다른 기계(Home server)의 창에서 연 같은 보호 입력 창이다. 제목 아래에 값이 이 컴퓨터가 아니라 그 기계로 간다는 줄이 있다. 값은 이 컴퓨터의 core를 거쳐 그 기계의 core에만 간다.",
+      render: () => <MachineSecretInputScene />,
     },
     {
       id: "new-secret-input-app",

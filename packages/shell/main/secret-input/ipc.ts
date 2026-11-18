@@ -1,5 +1,6 @@
-// 보호 입력 창 IPC 등록. 창 열기는 일반 shell 창만, 표시·제출·취소는 그 보호 창만 부른다.
-// 부모는 renderer가 보낸 값이 아니라 IPC를 보낸 창이다. 열린 보호 창은 한 번에 하나다.
+// 보호 입력 창 IPC 등록. 창 열기는 일반 shell 창과 다른 기계의 창만, 표시·제출·취소는 그 보호 창만 부른다.
+// 부모는 renderer가 보낸 값이 아니라 IPC를 보낸 창이다. 열린 보호 창은 한 번에 하나다. 값이 가는 core도 보낸 창이 정한다:
+// 다른 기계의 창이면 그 기계의 core다(이 컴퓨터 core의 `machines/call`). 그 창은 이 컴퓨터의 browser로 치는 login 요청을 열지 못한다.
 // 제출 입력(secret 값)은 log·오류에 넣지 않는다.
 import {
   SECRET_INPUT_CANCEL_CHANNEL,
@@ -51,14 +52,21 @@ interface SecretInputDeps {
   host: SecretInputHost;
   /** IPC를 보낸 webContents가 일반 shell 창 본문이면 그 창. 아니면 undefined다. */
   parentOf(event: SecretInputIpcEvent): ParentWindow | undefined;
-  /** 준비된 core. 준비 전에는 null이다. */
-  core(): (RequestCore & StatusCore) | null;
-  /** agent의 한 번 넣기가 ref 칸에 치는 통로(browser driver). */
+  /**
+   * 보낸 창의 값이 갈 core. 준비 전에는 core가 null이다. 다른 기계의 창이면 그 기계로 가는 core와 창에 보일 그 기계의 이름이다.
+   */
+  coreOf(event: SecretInputIpcEvent): Promise<{
+    core: () => SecretInputCore | null;
+    machine?: string;
+  }>;
+  /** agent의 한 번 넣기가 ref 칸에 치는 통로(이 컴퓨터의 browser driver). */
   typeOnce?: OnceTyper;
   preload: string;
   packaged: boolean;
   headless?: HeadlessMode;
 }
+
+export type SecretInputCore = RequestCore & StatusCore;
 
 /** 설정 여부만 읽는다. 값은 읽지 못한다. */
 interface StatusCore {
@@ -74,6 +82,10 @@ interface StatusCore {
 
 interface Active {
   readonly contentsId: number;
+  /** 열 때 정한 core. 부모 창이 닫혀도 값은 이 core로만 간다. */
+  readonly core: () => SecretInputCore | null;
+  /** 이 컴퓨터의 창에서 연 것만 browser로 친다. */
+  readonly typeOnce: OnceTyper | undefined;
   readonly display: SecretInputDisplay;
   /** agent의 입력 요청이면 그 내용이다. 제출은 종류와 mode대로 끝난다. */
   readonly request: OpenRequest | undefined;
@@ -125,15 +137,16 @@ export function registerSecretInputIpc(
     if (active !== null || opening) {
       return { ok: false, code: "conflict" } satisfies SecretInputOpenReply;
     }
-    const core = deps.core();
-    if (core === null) {
-      return {
-        ok: false,
-        code: "unavailable",
-      } satisfies SecretInputOpenReply;
-    }
     opening = true;
     try {
+      const target = await deps.coreOf(event);
+      const core = target.core();
+      if (core === null) {
+        return {
+          ok: false,
+          code: "unavailable",
+        } satisfies SecretInputOpenReply;
+      }
       // 요청 card에서 온 열기는 origin·mode를 core의 열린 요청에서 읽는다(renderer가 보낸 글이 아니다).
       let request: OpenRequest | undefined;
       let provider: ProviderConnectTarget | undefined;
@@ -155,6 +168,13 @@ export function registerSecretInputIpc(
           } satisfies SecretInputOpenReply;
         }
         request = read.value;
+        // login은 이 컴퓨터의 browser 탭에 치고 이 컴퓨터의 login 목록에 둔다. 다른 기계의 창에는 열지 않는다.
+        if (target.machine !== undefined && request.kind !== "secret") {
+          return {
+            ok: false,
+            code: "forbidden",
+          } satisfies SecretInputOpenReply;
+        }
         display =
           request.kind === "secret"
             ? {
@@ -181,6 +201,9 @@ export function registerSecretInputIpc(
           ...parsed.data,
           configured: await isConfigured(core, parsed.data.name),
         };
+      }
+      if (target.machine !== undefined) {
+        display = { ...display, machine: target.machine };
       }
       return await new Promise<SecretInputOpenReply>((resolve) => {
         let finished = false;
@@ -210,6 +233,8 @@ export function registerSecretInputIpc(
         shown.opened = opened;
         active = {
           contentsId: opened.window.webContents.id,
+          core: target.core,
+          typeOnce: target.machine === undefined ? deps.typeOnce : undefined,
           display,
           request,
           provider,
@@ -243,7 +268,7 @@ export function registerSecretInputIpc(
         code: "invalid_input",
       } satisfies SecretInputSubmitReply;
     }
-    const core = deps.core();
+    const core = one.core();
     if (core === null || one.submitting) {
       return {
         ok: false,
@@ -266,7 +291,7 @@ export function registerSecretInputIpc(
     }
     const reply =
       one.request !== undefined
-        ? await submitRequest(core, deps.typeOnce, one.request, parsed.data)
+        ? await submitRequest(core, one.typeOnce, one.request, parsed.data)
         : "value" in parsed.data && one.provider === undefined
           ? await submitSecret(core, {
               name: one.display.name,

@@ -1,7 +1,8 @@
 // Which machine a window views, found by the webContents that sent an IPC, and what a window of another machine may call.
 // A window of another machine talks to that machine's core on the same `shell:core-*` channels, through this computer's
-// core (`machines/call`·`machines/watch`, see `MachineLink`); the rest of what this computer's shell host serves (terminal, files, browser, app views, secrets, layout…) is refused here,
+// core (`machines/call`·`machines/watch`, see `MachineLink`); the rest of what this computer's shell host serves (terminal, files, browser, app views, layout…) is refused here,
 // in one place, before any area's handler runs. The renderer cannot claim a machine: main binds the window when it opens it.
+// The protected secret window opens from such a window too; its value goes to that machine over the same link (`linkOf`).
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
@@ -22,11 +23,12 @@ import {
   THIS_COMPUTER_READS,
 } from "../../../ipc/machines.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
+import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 
 // What a window of another machine may call on this computer's shell besides the core channels: the machine list and
 // switching windows, two narrow calls to this computer's core (reading its projects, agents and sessions; clone here), its own window
-// buttons and opening a link in the OS browser. Overlay channels, shortcuts and intents
+// buttons, opening a link in the OS browser and opening the protected secret window (the value goes to that machine). Overlay channels, shortcuts and intents
 // do not pass through here (overlays register on ipcMain themselves; shortcuts and intents are pushed by main).
 export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([
   MACHINES_LIST_CHANNEL,
@@ -37,6 +39,7 @@ export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([
   MACHINES_CLONE_HERE_CHANNEL,
   WINDOW_CONTROL_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
+  SECRET_INPUT_OPEN_CHANNEL,
 ]);
 
 // Channels that reach this computer's core for a window of another machine. A window of this computer has its own core
@@ -90,6 +93,8 @@ export type MachineRoute = {
   bind(contentsId: number, machine: Id<"mch">, link: MachineLink): void;
   unbind(contentsId: number): void;
   machineOf(contentsId: number): Id<"mch"> | null;
+  // The link of the machine a window views; undefined for a window of this computer.
+  linkOf(contentsId: number): MachineLink | undefined;
   // An `ipcMain.handle` call: this computer's handler (`local`) for a window of this computer, else the rule above.
   handle(
     channel: string,
@@ -141,6 +146,7 @@ export function createMachineRoute(): MachineRoute {
       bound.delete(contentsId);
     },
     machineOf: (contentsId) => bound.get(contentsId)?.machine ?? null,
+    linkOf: (contentsId) => bound.get(contentsId)?.link,
     handle(channel, contentsId, input, local) {
       const binding = bound.get(contentsId);
       if (binding === undefined) {

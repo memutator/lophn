@@ -34,8 +34,14 @@ export interface ProviderDefinitionRow {
   readonly hint: string | null;
   /** 정의가 알려 준 인증 방식. 화면은 이 안에 있는 것만 고르게 한다. */
   readonly ways: readonly AuthWay[];
-  /** 구독 로그인이 있는 정의만. product는 단추에 쓰는 제품 이름(예: "ChatGPT")이다. */
-  readonly signIn: { readonly product: string } | null;
+  /**
+   * 구독 로그인이 있는 정의만. product는 단추에 쓰는 제품 이름(예: "ChatGPT")이다. deviceCode면 어느 browser에서나 끝나고,
+   * 아니면 core가 있는 기계의 browser로 돌아와야 한다(다른 기계의 창은 그 단추를 두지 않는다).
+   */
+  readonly signIn: {
+    readonly product: string;
+    readonly deviceCode: boolean;
+  } | null;
   /** 사람이 직접 만드는 provider(ID·이름·Base URL·API 입력). */
   readonly custom: boolean;
 }
@@ -59,7 +65,7 @@ export interface ProviderSettingsSource {
   connected(): Promise<SourceResult<readonly ProviderRow[]>>;
   /**
    * 연결을 끊는다. provider와 연결(credential)을 함께 지운다. 화면이 Dialog로 사람에게 한 번 묻고 부르며,
-   * 그 결정은 source가 결정 handle로 core에 싣는다.
+   * 그 결정은 source가 결정 handle로 core에 싣는다(다른 기계의 창은 그 기계의 core가 붙인다).
    */
   disconnect(provider: string): Promise<SourceResult<null>>;
   /**

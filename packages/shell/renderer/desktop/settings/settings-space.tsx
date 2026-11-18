@@ -12,12 +12,13 @@ import { desktopScope, type FileOpen } from "../palette/desktop-scope.ts";
 import { type SettingsPanels, SettingsScreen } from "./settings-screen.tsx";
 import {
   DEFAULT_PANE,
+  MACHINE_PANES,
   paneLabel,
   SETTINGS_GROUPS,
   type SettingsPane,
 } from "./model.ts";
 import type { SettingsSource } from "./source.ts";
-import { useWindowMachine } from "../machines/context.tsx";
+import { useMachineGrant, useWindowMachine } from "../machines/context.tsx";
 import { MachineSwitcher } from "../machines/machine-switcher.tsx";
 import { RemoteSettings } from "../machines/remote-settings.tsx";
 import styles from "./settings-space.module.css";
@@ -49,7 +50,8 @@ interface SettingsSpaceProps {
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 // Settings 공간. 왼쪽 sidebar가 항목 목록을 들고 본문은 고른 항목 하나만 그린다. 대화는 이 화면에 기대지 않는다.
-// 다른 기계의 창이면 항목이 없고 본문은 "그 기계의 설정은 그 기계에서 바꾼다" 한 줄이다.
+// 다른 기계의 창도 같은 항목 목록이다. 그 기계의 core에 걸린 항목(`MACHINE_PANES`)은 그 기계의 설정을 열고, 이 컴퓨터에 붙은
+// 항목은 한 줄과 [Open this computer]다. 이 컴퓨터가 그 기계에서 터미널 입력을 허락받지 못했으면 열 항목 자리도 그 까닭 한 줄이다.
 export function SettingsSpace({
   source,
   settingsPane: initialPane,
@@ -68,6 +70,7 @@ export function SettingsSpace({
   );
   const [left, setLeft] = useSidebarOpen("left", true);
   const machine = useWindowMachine();
+  const grant = useMachineGrant();
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
@@ -164,7 +167,7 @@ export function SettingsSpace({
               {waiting}
             </div>
             <div className={styles.navList}>
-              {(machine === null ? SETTINGS_GROUPS : []).map((group) => (
+              {SETTINGS_GROUPS.map((group) => (
                 <div key={group.id} className={styles.navGroup}>
                   <div className={styles.sectionHead}>{t(group.label)}</div>
                   {group.panes.map((entry) => (
@@ -190,18 +193,18 @@ export function SettingsSpace({
           <div className={styles.cardHead}>
             <span className={styles.crumbs}>
               <span className={styles.crumb}>{title}</span>
-              {machine === null ? (
-                <span className={styles.crumb}>
-                  <span className={styles.sep}>/</span>
-                  {paneLabel(settingsPane)}
-                </span>
-              ) : null}
+              <span className={styles.crumb}>
+                <span className={styles.sep}>/</span>
+                {paneLabel(settingsPane)}
+              </span>
             </span>
           </div>
           <div className={styles.cardBody}>
-            {machine !== null ? (
-              <RemoteSettings machine={machine} />
-            ) : settings ? (
+            {machine !== null && !MACHINE_PANES.has(settingsPane) ? (
+              <RemoteSettings machine={machine} reason="this-computer" />
+            ) : machine !== null && grant === "denied" ? (
+              <RemoteSettings machine={machine} reason="no-grant" />
+            ) : grant === "checking" ? null : settings ? (
               <SettingsScreen
                 {...settingsPanels}
                 pane={settingsPane}

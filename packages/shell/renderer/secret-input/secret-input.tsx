@@ -18,6 +18,8 @@ interface SecretInputProps {
   name: string;
   /** 이미 값이 있다. 저장하면 값을 바꾼다. */
   configured: boolean;
+  /** 다른 기계의 창에서 열었으면 값이 갈 그 기계의 이름. */
+  machine?: string;
   /** 칸에 값을 넣은 채 시작한다(gallery용). 점으로만 보인다. */
   initialValue?: string;
   onSubmit?: (value: string) => Promise<SecretInputSubmitReply>;
@@ -36,6 +38,7 @@ export function SecretInput({
   subject,
   name,
   configured,
+  machine,
   initialValue = "",
   onSubmit,
   onCancel,
@@ -69,6 +72,12 @@ export function SecretInput({
       <div className={styles.bar}>{t("secret-input.title.bar")}</div>
       <div className={styles.body}>
         <h1 className={styles.title}>{title}</h1>
+        {/* 이 컴퓨터가 아닌 곳에 넣는다는 것을 사람이 알아야 한다. */}
+        {machine === undefined ? null : (
+          <p className={styles.machine} data-secret-machine="">
+            {t("secret-input.label.goes-to", { name: machine })}
+          </p>
+        )}
         {purpose === "login" ? (
           // 값이 갈 site다. 속아서 넣는 것을 사람이 origin으로 거른다.
           <div className={styles.site} data-secret-origin="">

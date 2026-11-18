@@ -84,7 +84,12 @@ import {
   type QuickPrefsSource,
 } from "./settings/quick-launch/source.ts";
 import type { JobsSource } from "./jobs/source.ts";
-import { MachinesProvider } from "./machines/context.tsx";
+import { MachineGrantProvider, MachinesProvider } from "./machines/context.tsx";
+import {
+  coreBrowseFolders,
+  createFolderBrowser,
+} from "./workspaces/folder-browser.tsx";
+import { settingsList } from "../../../protocol/config/file.ts";
 import {
   createLayoutSource,
   memoryWorkspaceLayoutBridge,
@@ -121,9 +126,11 @@ const core = mock?.core ?? windowCoreSource();
 const editor = remote ? undefined : windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
 const events = createEventClient(mock?.events ?? core);
+// 폴더 고르기. 이 컴퓨터의 창은 OS 선택기, 다른 기계의 창은 그 기계의 폴더 목록 dialog다(OS 선택기는 이 컴퓨터의 폴더를 보인다).
+const folders = remote ? createFolderBrowser(coreBrowseFolders(core)) : null;
+const picker = folders?.picker ?? windowFolderPicker();
 // Home Workspaces panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
-const projects =
-  mock?.projects ?? coreProjectsSource(core, windowFolderPicker());
+const projects = mock?.projects ?? coreProjectsSource(core, picker);
 // Home Workspaces panel의 앱 목록·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 // 팔레트의 project·앱 행.
@@ -131,16 +138,20 @@ const catalog = mock?.catalog ?? catalogSource(projects, apps);
 const appDetail = remote
   ? undefined
   : (mock?.appDetail ?? coreAppDetailSource(core));
-// settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
-const settings = remote
-  ? undefined
-  : (mock?.settings ?? coreSettingsSource(core));
+// settings 화면의 일반 설정·확장. credential은 보호 창이 받는다. 다른 기계의 창이면 그 기계의 설정이다.
+const settings = mock?.settings ?? coreSettingsSource(core);
 // workspace 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
 const jobs =
   mock?.jobs ?? (remote ? jobsSwitchOnly(core) : coreJobsSource(core));
 // settings 항목마다의 통로. key·로그인 응답은 보호 창이 받는다.
+// 다른 기계의 창은 그 기계의 core에 걸린 항목만 그 기계로 짓는다(settings/model.ts의 MACHINE_PANES). 나머지는 이 컴퓨터에 붙어 있다.
 const settingsPanels = remote
-  ? undefined
+  ? {
+      providers: coreProviderSettingsSource(core, { machine: true }),
+      agents: coreAgentsSettingsSource(core, { picker }),
+      diagnostics: coreDiagnosticsSource(core),
+      shellRules: coreShellRulesSource(core),
+    }
   : (mock?.settingsPanels ?? {
       providers: coreProviderSettingsSource(core),
       agents: coreAgentsSettingsSource(core),
@@ -160,7 +171,7 @@ const settingsPanels = remote
       browser: windowBrowserSettings(),
     });
 // 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
-// 다른 기계의 설정은 기기가 읽지도 쓰지도 못해 그 창은 기본값을 메모리에만 둔다.
+// 빠른 실행은 이 컴퓨터의 창에 붙은 설정이라(그 창의 Settings에서 Quick launch는 한 줄이다) 다른 기계의 창은 기본값을 메모리에만 둔다.
 const quickPrefs =
   mock?.quickPrefs ??
   (remote ? memoryQuickPrefs() : coreQuickPrefsSource(core));
@@ -178,12 +189,25 @@ const workspace =
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
 const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
+// 다른 기계의 창도 sign_in card의 로그인을 돌린다(provider 로그인은 그 기계의 core가 기다린다). card가 device code만 단추로 둔다.
 const agentViewSource =
   mock?.agentViewSource ??
   coreAgentTabSourceFactory(
     core,
-    remote ? { device: true } : { signIn: signInInputRequest },
+    remote
+      ? { device: true, signIn: signInInputRequest }
+      : { signIn: signInInputRequest },
   );
+// 그 기계가 이 컴퓨터에 사람의 route를 열었는지. 판정은 `settings/list`의 forbidden이다(터미널 입력 허락이 없는 기기).
+async function machineGrant(): Promise<boolean> {
+  const reply = await core.call({
+    kind: settingsList.kind,
+    resource: settingsList.resource,
+    method: settingsList.method,
+    body: {},
+  });
+  return reply.ok || reply.error?.code !== "forbidden";
+}
 // main이 띄우는 앱 전용 창의 hash. `#app-window=<app>/<release>/<screen>`이고 각 부분은
 // encodeURIComponent된 값이다.
 function appWindowRoute(value: string): Route | undefined {
@@ -353,6 +377,7 @@ const tree = (
                             agentViewSource={agentViewSource}
                             detached={bridges.lophnDetached}
                           />
+                          {folders === null ? null : <folders.Host />}
                         </RemoteGroupsProvider>
                       </QuickPrefsProvider>
                     </EventsProvider>
@@ -370,6 +395,8 @@ mount(
   machines === null ? (
     tree
   ) : (
-    <MachinesProvider source={machines}>{tree}</MachinesProvider>
+    <MachinesProvider source={machines}>
+      <MachineGrantProvider check={machineGrant}>{tree}</MachineGrantProvider>
+    </MachinesProvider>
   ),
 );

@@ -5,6 +5,7 @@ import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { actionIcons, commonIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
+import { useMachineGrant, useWindowMachine } from "../machines/context.tsx";
 import { addFolder, missingFolder, usableTitle } from "./model.ts";
 import type { FolderDraft, FolderMatch, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
@@ -16,9 +17,10 @@ interface RegisterDialogProps {
   onRegistered: (created: { id: string }) => void;
 }
 
-// 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 OS 선택기로만 고르고
-// 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
+// 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 source의 고르기로만 고르고(이 컴퓨터의 창은
+// OS 선택기, 다른 기계의 창은 그 기계의 폴더 목록 dialog) 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
 // 첫 폴더를 읽어(match) 폴더 목록 아래에 저장소의 상태를 한 줄로 알린다. 읽지 못하면 줄 없이 등록한다.
+// 다른 기계의 창이 그 기계에서 사람의 route를 허락받지 못했으면 form 대신 그 까닭과 허락을 켜는 곳을 한 줄로 보인다.
 export function RegisterDialog({
   open,
   source,
@@ -35,6 +37,8 @@ export function RegisterDialog({
   const [match, setMatch] = useState<FolderMatch | null>(null);
   const [share, setShare] = useState(true);
   const [relinkFailed, setRelinkFailed] = useState(false);
+  const machine = useWindowMachine();
+  const denied = useMachineGrant(open) === "denied";
 
   const firstPath = folders[0]?.path;
   useEffect(() => {
@@ -148,7 +152,7 @@ export function RegisterDialog({
             variant="primary"
             icon={actionIcons.add}
             onClick={() => void submit()}
-            disabled={busy}
+            disabled={busy || denied}
             data-register=""
           >
             {t("home.button.register")}
@@ -156,168 +160,176 @@ export function RegisterDialog({
         </>
       }
     >
-      <div className={styles.form} data-register-form="">
-        <p className={styles.note}>{t("home.dialog.register-note")}</p>
-        <Field label={t("home.label.name")} error={nameError}>
-          <Input
-            value={title}
-            autoFocus
-            data-field="name"
-            onChange={(event) => setTitle(event.currentTarget.value)}
-          />
-        </Field>
-        <Field
-          label={t("home.label.purpose")}
-          help={t("home.field.purpose-help")}
-        >
-          <Textarea
-            value={purpose}
-            rows={3}
-            data-field="purpose"
-            onChange={(event) => setPurpose(event.currentTarget.value)}
-          />
-        </Field>
-        <section className={styles.folders} data-folders="">
-          <div className={styles.foldersHead}>
-            <span className={styles.foldersLabel}>
-              {t("home.label.folders")}
-            </span>
-            <Tooltip content={addLabel}>
-              <IconButton
-                icon={homeIcons.addFolder}
-                label={addLabel}
-                size="sm"
-                data-add-folder=""
-                onClick={() => void pick()}
-              />
-            </Tooltip>
-          </div>
-          {folders.length === 0 ? (
-            <p className={styles.empty} data-folders-empty="">
-              {t("home.empty.no-folders")}
-            </p>
-          ) : (
-            <ul className={styles.folderList}>
-              {folders.map((folder, index) => (
-                <li
-                  key={folder.path}
-                  className={styles.folder}
-                  data-folder={folder.path}
-                >
-                  <div className={styles.folderHead}>
-                    <span className={styles.path}>{folder.path}</span>
-                    <Tooltip content={removeLabel}>
-                      <IconButton
-                        icon={homeIcons.remove}
-                        label={removeLabel}
+      {denied ? (
+        <p className={styles.note} data-register-no-grant="">
+          {t("machines.notice.settings-no-grant", {
+            name: machine?.name ?? "",
+          })}
+        </p>
+      ) : (
+        <div className={styles.form} data-register-form="">
+          <p className={styles.note}>{t("home.dialog.register-note")}</p>
+          <Field label={t("home.label.name")} error={nameError}>
+            <Input
+              value={title}
+              autoFocus
+              data-field="name"
+              onChange={(event) => setTitle(event.currentTarget.value)}
+            />
+          </Field>
+          <Field
+            label={t("home.label.purpose")}
+            help={t("home.field.purpose-help")}
+          >
+            <Textarea
+              value={purpose}
+              rows={3}
+              data-field="purpose"
+              onChange={(event) => setPurpose(event.currentTarget.value)}
+            />
+          </Field>
+          <section className={styles.folders} data-folders="">
+            <div className={styles.foldersHead}>
+              <span className={styles.foldersLabel}>
+                {t("home.label.folders")}
+              </span>
+              <Tooltip content={addLabel}>
+                <IconButton
+                  icon={homeIcons.addFolder}
+                  label={addLabel}
+                  size="sm"
+                  data-add-folder=""
+                  onClick={() => void pick()}
+                />
+              </Tooltip>
+            </div>
+            {folders.length === 0 ? (
+              <p className={styles.empty} data-folders-empty="">
+                {t("home.empty.no-folders")}
+              </p>
+            ) : (
+              <ul className={styles.folderList}>
+                {folders.map((folder, index) => (
+                  <li
+                    key={folder.path}
+                    className={styles.folder}
+                    data-folder={folder.path}
+                  >
+                    <div className={styles.folderHead}>
+                      <span className={styles.path}>{folder.path}</span>
+                      <Tooltip content={removeLabel}>
+                        <IconButton
+                          icon={homeIcons.remove}
+                          label={removeLabel}
+                          size="sm"
+                          data-remove-folder=""
+                          onClick={() =>
+                            setFolders(folders.filter((_, at) => at !== index))
+                          }
+                        />
+                      </Tooltip>
+                    </div>
+                    <Field label={t("home.label.folder-description")}>
+                      <Input
                         size="sm"
-                        data-remove-folder=""
-                        onClick={() =>
-                          setFolders(folders.filter((_, at) => at !== index))
-                        }
+                        value={folder.description}
+                        data-folder-description=""
+                        onChange={(event) => {
+                          const description = event.currentTarget.value;
+                          setFolders(
+                            folders.map((item, at) =>
+                              at === index ? { ...item, description } : item,
+                            ),
+                          );
+                        }}
                       />
-                    </Tooltip>
+                    </Field>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {pickFailed ? (
+              <p className={styles.error} role="alert" data-pick-failed="">
+                {t("home.error.picker-failed")}
+              </p>
+            ) : null}
+          </section>
+          {match === null ? null : (
+            <div className={styles.identity} data-identity="">
+              {match.repo === "none" ? (
+                <p className={styles.note} data-identity-note="not-git">
+                  {t("home.note.identity-not-git")}
+                </p>
+              ) : null}
+              {match.same === null ? null : (
+                <>
+                  <p className={styles.note} data-identity-note="registered">
+                    {t("home.note.identity-registered", {
+                      title: match.same.title,
+                    })}
+                  </p>
+                  <p className={styles.note} data-identity-note="another-copy">
+                    {t("home.note.identity-another-copy")}
+                  </p>
+                </>
+              )}
+              {match.repo === "git" &&
+              match.same === null &&
+              match.file !== "none" &&
+              match.file !== "unreadable" ? (
+                <p className={styles.note} data-identity-note="existing">
+                  {t("home.note.identity-existing")}
+                </p>
+              ) : null}
+              {lost === undefined ? null : (
+                <div className={styles.line} data-identity-note="relink">
+                  <p className={styles.note}>
+                    {t("home.note.identity-relink", { title: lost.title })}
+                  </p>
+                  <Button
+                    size="sm"
+                    icon={commonIcons.openLink}
+                    disabled={busy}
+                    data-relink=""
+                    onClick={() => void relink()}
+                  >
+                    {t("home.button.identity-relink", { title: lost.title })}
+                  </Button>
+                </div>
+              )}
+              {relinkFailed ? (
+                <p className={styles.error} role="alert" data-relink-failed="">
+                  {t("home.error.relink-failed")}
+                </p>
+              ) : null}
+              {canShare ? (
+                <div data-identity-note="share">
+                  <div className={styles.line}>
+                    <span className={styles.shareLabel}>
+                      {t("home.label.share-identity")}
+                    </span>
+                    <span className={styles.toggleCell}>
+                      <Switch
+                        label={t("home.label.share-identity")}
+                        checked={share}
+                        onCheckedChange={setShare}
+                      />
+                    </span>
                   </div>
-                  <Field label={t("home.label.folder-description")}>
-                    <Input
-                      size="sm"
-                      value={folder.description}
-                      data-folder-description=""
-                      onChange={(event) => {
-                        const description = event.currentTarget.value;
-                        setFolders(
-                          folders.map((item, at) =>
-                            at === index ? { ...item, description } : item,
-                          ),
-                        );
-                      }}
-                    />
-                  </Field>
-                </li>
-              ))}
-            </ul>
+                  <p className={styles.note}>
+                    {t("home.note.identity-adds-file")}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           )}
-          {pickFailed ? (
-            <p className={styles.error} role="alert" data-pick-failed="">
-              {t("home.error.picker-failed")}
+          {failure !== null ? (
+            <p className={styles.error} role="alert" data-register-failed="">
+              {t("home.error.register-failed", { name: failure })}
             </p>
           ) : null}
-        </section>
-        {match === null ? null : (
-          <div className={styles.identity} data-identity="">
-            {match.repo === "none" ? (
-              <p className={styles.note} data-identity-note="not-git">
-                {t("home.note.identity-not-git")}
-              </p>
-            ) : null}
-            {match.same === null ? null : (
-              <>
-                <p className={styles.note} data-identity-note="registered">
-                  {t("home.note.identity-registered", {
-                    title: match.same.title,
-                  })}
-                </p>
-                <p className={styles.note} data-identity-note="another-copy">
-                  {t("home.note.identity-another-copy")}
-                </p>
-              </>
-            )}
-            {match.repo === "git" &&
-            match.same === null &&
-            match.file !== "none" &&
-            match.file !== "unreadable" ? (
-              <p className={styles.note} data-identity-note="existing">
-                {t("home.note.identity-existing")}
-              </p>
-            ) : null}
-            {lost === undefined ? null : (
-              <div className={styles.line} data-identity-note="relink">
-                <p className={styles.note}>
-                  {t("home.note.identity-relink", { title: lost.title })}
-                </p>
-                <Button
-                  size="sm"
-                  icon={commonIcons.openLink}
-                  disabled={busy}
-                  data-relink=""
-                  onClick={() => void relink()}
-                >
-                  {t("home.button.identity-relink", { title: lost.title })}
-                </Button>
-              </div>
-            )}
-            {relinkFailed ? (
-              <p className={styles.error} role="alert" data-relink-failed="">
-                {t("home.error.relink-failed")}
-              </p>
-            ) : null}
-            {canShare ? (
-              <div data-identity-note="share">
-                <div className={styles.line}>
-                  <span className={styles.shareLabel}>
-                    {t("home.label.share-identity")}
-                  </span>
-                  <span className={styles.toggleCell}>
-                    <Switch
-                      label={t("home.label.share-identity")}
-                      checked={share}
-                      onCheckedChange={setShare}
-                    />
-                  </span>
-                </div>
-                <p className={styles.note}>
-                  {t("home.note.identity-adds-file")}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        )}
-        {failure !== null ? (
-          <p className={styles.error} role="alert" data-register-failed="">
-            {t("home.error.register-failed", { name: failure })}
-          </p>
-        ) : null}
-      </div>
+        </div>
+      )}
     </Dialog>
   );
 }

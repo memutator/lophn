@@ -13,6 +13,7 @@ export const data = {
   "secret-input.label.field-app": "Value",
   "secret-input.label.field-mcp": "Access token",
   "secret-input.label.field-provider": "API key",
+  "secret-input.label.goes-to": "Goes to {name}, not this computer",
   "secret-input.help.request-once":
     "Typed into the page once and not saved. It is hidden from the agent for the rest of the session.",
   "secret-input.label.field-login-password": "Password",

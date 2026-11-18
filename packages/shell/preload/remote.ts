@@ -1,7 +1,8 @@
 // The preload of a window that views another machine. It opens only what such a window may use: that machine's core
-// (main sends `lophnCore` through this computer's core, `machines/call`), the machine list, overlays, window buttons, shortcuts and links
-// to the OS browser. Everything that needs this computer's shell host (terminal, files, browser, app views, secrets,
-// layout, …) has no bridge here, so the renderer takes its "no bridge" path; main refuses those channels too.
+// (main sends `lophnCore` through this computer's core, `machines/call`), the machine list, overlays, window buttons, shortcuts, links
+// to the OS browser and the protected secret window (main sends its value to that machine). Everything that needs this computer's
+// shell host (terminal, files, browser, app views, layout, …) has no bridge here, so the renderer takes its "no bridge" path;
+// main refuses those channels too.
 import { contextBridge, ipcRenderer } from "electron";
 
 import { MACHINES_VISIBLE_CHANNEL } from "../ipc/machines.ts";
@@ -12,6 +13,7 @@ import {
 } from "../ipc/open-external.ts";
 import { createCoreApi } from "./core-api.ts";
 import { createMachinesApi } from "./machines-api.ts";
+import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createWindowControlsApi } from "./window-controls-api.ts";
@@ -31,6 +33,12 @@ if (role === "overlay") {
     "lophnShell",
     Object.freeze({
       ...createShellApi(ipcRenderer, role),
+      // The value never passes this window: the protected window sends it through main to that machine's core.
+      openSecretInput: createSecretInputOpener(ipcRenderer, (open) => {
+        const root = document.documentElement;
+        if (open) root.dataset.secretModal = "";
+        else delete root.dataset.secretModal;
+      }),
       async openExternal(url: string): Promise<OpenExternalReply> {
         try {
           return (await ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, {

@@ -4,6 +4,8 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
+  useState,
   useSyncExternalStore,
 } from "react";
 
@@ -58,4 +60,48 @@ export function useWindowMachine(): MachineItem | null {
       lastSeenAt: null,
     }
   );
+}
+
+/** 그 기계가 이 컴퓨터에 사람의 route(설정, provider, project 더하기)를 열었는지 묻는다. 거절(forbidden)이면 false다. */
+export type MachineGrantCheck = () => Promise<boolean>;
+
+const GrantContext = createContext<MachineGrantCheck | null>(null);
+
+export function MachineGrantProvider({
+  check,
+  children,
+}: {
+  check: MachineGrantCheck;
+  children: ReactNode;
+}) {
+  return (
+    <GrantContext.Provider value={check}>{children}</GrantContext.Provider>
+  );
+}
+
+/**
+ * 이 창에서 그 기계의 설정을 바꿀 수 있는지. 이 컴퓨터의 창과 묻는 길이 없는 화면(gallery)은 granted다. 허락은 사람이 아무 컴퓨터에서나
+ * 바꾸므로 쓰는 화면이 열릴 때마다(`open`이 켜질 때마다) 다시 묻는다.
+ */
+export function useMachineGrant(
+  open = true,
+): "checking" | "granted" | "denied" {
+  const machine = useWindowMachine();
+  const check = useContext(GrantContext);
+  const asks = open && machine !== null && check !== null;
+  const [state, setState] = useState<"checking" | "granted" | "denied">(
+    asks ? "checking" : "granted",
+  );
+  useEffect(() => {
+    if (!asks) return;
+    setState("checking");
+    let live = true;
+    void check().then((granted) => {
+      if (live) setState(granted ? "granted" : "denied");
+    });
+    return () => {
+      live = false;
+    };
+  }, [asks, check]);
+  return asks ? state : "granted";
 }

@@ -6,6 +6,10 @@ import {
 } from "./shell/project-identity-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 import { MachineProjectsScene } from "./shell/machine-projects-scene.tsx";
+import { MachineRegisterScene } from "./shell/machine-register-scene.tsx";
+import { MachineGrantProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import { press } from "../../mock/drive.ts";
+import { SettingsFrame } from "./settings-frame.tsx";
 import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
 import { TrayScene } from "./shell/tray-scene.tsx";
@@ -339,13 +343,53 @@ export const shellArea: Area = {
       id: "shell-machine-settings",
       title: "Shell · Other machine · Settings",
       description:
-        "다른 기계 창의 Settings 자리. 그 기계의 설정은 그 기계에서 바꾼다는 한 줄과 이 컴퓨터 창을 여는 단추뿐이다. 짝지은 기계의 관리는 이 컴퓨터 창의 Settings › Remote가 한다.",
+        "다른 기계(Home server) 창의 Settings. 이 컴퓨터 창과 같은 항목 목록이고 Providers를 연 상태다. General, Providers, Agents, Tools and skills, Shell rules, Diagnostics는 그 기계의 설정을 읽고 쓴다. 끊기는 같은 확인 Dialog를 거친다.",
       render: () => (
-        <ShellScene
-          variant="empty"
-          machine={{ window: "mch_homeserver", body: "settings" }}
+        <SettingsFrame pane="providers" machines={MACHINE_WINDOW} />
+      ),
+    },
+    {
+      id: "shell-machine-settings-this-computer",
+      title: "Shell · Other machine · Settings, this computer's pane",
+      description:
+        "다른 기계 창에서 이 컴퓨터의 shell이나 OS에 붙은 항목(Appearance, Browser, Remote, Keyboard, Quick launch, Coding agents, Extension packages)을 고른 상태. 본문은 이 컴퓨터의 설정이라는 한 줄과 이 컴퓨터 창을 여는 단추뿐이다.",
+      render: () => (
+        <SettingsFrame pane="appearance" machines={MACHINE_WINDOW} />
+      ),
+    },
+    {
+      id: "shell-machine-settings-no-grant",
+      title: "Shell · Other machine · Settings, not allowed",
+      description:
+        "이 컴퓨터가 그 기계에서 터미널 입력을 허락받지 못한 상태. 그 기계의 항목 자리에 까닭과 허락을 켜는 곳(Settings › Remote › My devices)이 한 줄로 선다.",
+      render: () => (
+        <MachineGrantProvider check={() => Promise.resolve(false)}>
+          <SettingsFrame pane="general" machines={MACHINE_WINDOW} />
+        </MachineGrantProvider>
+      ),
+    },
+    {
+      id: "shell-machine-sign-in",
+      title: "Shell · Other machine · connect a provider",
+      description:
+        "다른 기계 창에서 OpenAI의 [+ Connect]를 누른 상태. API key는 보호 입력 창으로 그 기계에 넣는다. ChatGPT 로그인은 그 기계의 browser로 돌아와야 해서 단추 자리에 그 기계에서 하라는 한 줄이 있다. device code 로그인(SuperGrok)은 단추로 남는다.",
+      render: () => (
+        <SettingsFrame
+          pane="providers"
+          providers="some"
+          machines={MACHINE_WINDOW}
+          steps={[
+            () => press('[data-available="openai"] [data-action="connect"]'),
+          ]}
         />
       ),
+    },
+    {
+      id: "shell-machine-register",
+      title: "Shell · Other machine · register project",
+      description:
+        "다른 기계 창의 project 등록. [Add folder]가 OS 선택기 대신 그 기계의 폴더 목록을 연다. home부터 열고, 폴더를 누르면 들어가고, [Up]이 위로, [Choose]가 지금 폴더를 고른다. 그 기계의 home 밖은 보이지 않는다.",
+      render: () => <MachineRegisterScene />,
     },
     {
       id: "shell-machine-projects",
@@ -500,3 +544,7 @@ export const shellArea: Area = {
     },
   ],
 };
+
+const MACHINE_WINDOW = {
+  window: { id: "mch_homeserver", name: "Home server" },
+} as const;

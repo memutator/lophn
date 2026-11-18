@@ -1,5 +1,7 @@
 // Home의 오른쪽 sidebar Workspaces panel. 옛 launcher가 하던 일을 맡는다: project와 앱 목록, 보관한 것 되살리기, project 등록, 새 앱.
 // project·앱 목록은 core 읽기로 따라가고(다른 창·CLI가 바꿔도 다시 읽는다), 쓰기는 `ProjectsSource`·`AppsSource`로 한다. 누른 줄은 callback으로 알린다.
+// 다른 기계의 창에서는 project 등록·고치기·보관이 그 기계에서 되고(폴더는 그 기계의 목록에서 고른다) 앱은 목록뿐이다: 새 앱, 앱 보관·지우기는
+// 기기가 부를 수 없다.
 import type { LucideIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
@@ -18,6 +20,7 @@ import type {
   ProjectsSource,
 } from "../desktop/workspaces/projects/source.ts";
 import { RegisterDialog } from "../desktop/workspaces/register-dialog.tsx";
+import { useWindowMachine } from "../desktop/machines/context.tsx";
 import { actionIcons, commonIcons, homeIcons } from "../icons/mod.ts";
 import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
 import { ProjectWorkspaceMark } from "../parts/project-icon/project-icon.tsx";
@@ -115,6 +118,7 @@ export function WorkspacesPanel({
   // 보관한 것까지 모두 읽고 화면에서 가른다.
   const cards = useProjectList();
   const rows = useAppList();
+  const appWrites = useWindowMachine() === null;
   const [registering, setRegistering] = useState(false);
   const [creatingApp, setCreatingApp] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
@@ -253,11 +257,13 @@ export function WorkspacesPanel({
       }
       hoverTrailing
       trailing={
-        <RowMenuButton
-          name={row.name}
-          items={[ARCHIVE()]}
-          onSelect={() => setAppArchived(row, true)}
-        />
+        appWrites ? (
+          <RowMenuButton
+            name={row.name}
+            items={[ARCHIVE()]}
+            onSelect={() => setAppArchived(row, true)}
+          />
+        ) : undefined
       }
       onClick={() => onApp(row.id)}
     />
@@ -269,7 +275,7 @@ export function WorkspacesPanel({
     kind: "project" | "app",
     id: string,
     name: string,
-    restore: () => void,
+    restore?: () => void,
     remove?: () => void,
   ) => (
     <PanelRow
@@ -291,15 +297,17 @@ export function WorkspacesPanel({
               />
             </Tooltip>
           )}
-          <Tooltip content={unarchive}>
-            <IconButton
-              icon={commonIcons.unarchive}
-              label={unarchive}
-              size="sm"
-              data-action="unarchive"
-              onClick={restore}
-            />
-          </Tooltip>
+          {restore === undefined ? null : (
+            <Tooltip content={unarchive}>
+              <IconButton
+                icon={commonIcons.unarchive}
+                label={unarchive}
+                size="sm"
+                data-action="unarchive"
+                onClick={restore}
+              />
+            </Tooltip>
+          )}
         </>
       }
     />
@@ -343,15 +351,17 @@ export function WorkspacesPanel({
           title={t("home.heading.apps")}
           count={activeApps.length}
           actions={
-            <Tooltip content={newApp}>
-              <IconButton
-                icon={homeIcons.register}
-                label={newApp}
-                size="sm"
-                data-new-app=""
-                onClick={() => setCreatingApp(true)}
-              />
-            </Tooltip>
+            appWrites ? (
+              <Tooltip content={newApp}>
+                <IconButton
+                  icon={homeIcons.register}
+                  label={newApp}
+                  size="sm"
+                  data-new-app=""
+                  onClick={() => setCreatingApp(true)}
+                />
+              </Tooltip>
+            ) : undefined
           }
         >
           <Body
@@ -382,13 +392,15 @@ export function WorkspacesPanel({
               ),
             )}
             {archivedApps.map((item) =>
-              archivedRow(
-                "app",
-                item.id,
-                item.name,
-                () => setAppArchived(item, false),
-                () => askDelete(item),
-              ),
+              appWrites
+                ? archivedRow(
+                    "app",
+                    item.id,
+                    item.name,
+                    () => setAppArchived(item, false),
+                    () => askDelete(item),
+                  )
+                : archivedRow("app", item.id, item.name),
             )}
           </PanelRows>
         </PanelSection>

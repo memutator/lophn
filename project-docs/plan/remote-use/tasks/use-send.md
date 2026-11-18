@@ -5,9 +5,9 @@
 - 단위: use (wave 2)
 - 선행: use-contract. 계약의 이름으로 짓는다.
 - 소유(이 task만 고친다):
-  - `packages/core/remote/links.ts`, `packages/core/remote/machine-routes.ts`(`fix-setup`이 만든 file), `packages/core/remote/call_test.ts`(`fix-setup`의 `machines/call` test만 바꾼다), `packages/remote-client/connection.ts`
+  - `packages/core/remote/links.ts`, `packages/core/remote/machine-routes.ts`(`multi-device-fixes`가 만든 file), `packages/core/remote/call_test.ts`(`multi-device-fixes`의 `machines/call` test(441줄)만 바꾼다. `use-receive`가 `createRemoteCall` 준비의 `kind` 한 줄을 넘길 줄로 맞춘다), `packages/remote-client/connection.ts`
   - `packages/core/main/daemon/wiring/remote.ts`
-  - `packages/core/apps/calls/forward.ts`, `packages/core/apps/calls/forward_test.ts`(새 file)
+  - `packages/core/apps/calls/forward.ts`(`use-contract`가 type만 둔 새 file), `packages/core/apps/calls/forward_test.ts`(새 file)
   - `packages/core/apps/permissions/broker/apps-call.ts`, `packages/core/apps/preview/adapters/apps.ts`
   - `packages/core/approvals/gate/judge.ts`, `packages/core/approvals/gate/judge_test.ts`
   - `packages/core/main/daemon/wiring/assignment-file.ts`, `packages/core/apps/usage/users.ts`
@@ -22,14 +22,14 @@
   - 조사 `reports/multi-device/survey-n3-remote-use.md` 1.2(7~13), 1.3, 1.4, 1.7
   - boundary·module: `agent-tool-spi`, `remote-client`, `child-supervision-protocol`; module `remote`, `apps`, `approvals`, `lophn-agent`
 - 계약:
-  - 쓰는 것: `Requester`, `resolveMachine`·`MachineCandidate`, call frame `by`, `machinesCall`, `machinesAppTools`, `appRemoteCall`, target `remote`, `RemoteForward`, `brokerAppCallInputSchema.machine`, `assignmentEntrySchema`의 `machine`·`name`, 정의 칸 `remote_apps`, `isPrivate`, `splitOn`, `ctx.machineLinks`, `fix-setup`의 `createMachineRoutes`와 `machinesCall.input.shell_capability`(계약이 optional로 바꿨다)
+  - 쓰는 것: `Requester`, `resolveMachine`·`MachineCandidate`, call frame `by`, `machinesCall`, `machinesAppTools`, `appRemoteCall`, target `remote`, `RemoteForward`, `brokerAppCallInputSchema.machine`, `assignmentEntrySchema`의 `machine`·`name`, 정의 칸 `remote_apps`, `isPrivate`, `splitOn`, `ctx.machineLinks`, `multi-device-fixes`의 `createMachineRoutes`와 `machinesCall.input.shell_capability`(계약이 optional로 바꿨다)
   - 내놓는 것: `ctx.machineLinks`(remote wiring이 낸다), `createRemoteForward`(apps wiring이 forward 자리에 꽂는다), `machines/call`의 요청한 쪽(`screen`·`terminal`), `machines/app_tools`
 
 ## 할 일
 
-1. 보내는 길: `connection.ts`의 `call`이 `by`를 받아 frame에 싣는다. `links.ts`의 `call(machine, call, by)`은 `mch_`로 고르고, 보내지 못했으면(link 없음, refused) `unavailable`에 `details.sent: false`, 보낸 뒤 답을 잃었으면 `details.sent: true`를 단다. `wiring/remote.ts`가 `ctx.provide("machineLinks", …)`를 낸다: `computers()`는 명단의 컴퓨터(이 컴퓨터 포함, `self`), `resolve`는 `resolveMachine`, `call`은 links.
-2. `machine-routes.ts`의 `createMachineRoutes`가 `call`에서 요청한 쪽을 정한다: input의 `shell_capability`가 살아 있는 capability면 `screen`, 칸이 없으면 `terminal`(사람의 CLI token), 칸이 있는데 살아 있지 않으면 지금처럼 `forbidden`이고 link에 닿지 않는다. `ctx.machineLinks.resolve(input.machine)` 뒤에 `by`를 실어 부르고 capability는 다른 기계로 보내지 않는다. 그래서 `fix-setup`의 거절은 `call`에서 갈래가 된다(CLI는 `terminal`로 닿는다). `watch`는 그대로 capability가 있어야 한다. agent·앱 자격은 `machines/call`의 actor가 아니라 여기 닿지 않는다.
-3. `machines/app_tools` handler(`wiring/remote.ts`, 이 file의 `memoryRoutes`에 더한다): 그 agent의 할당(`assignmentGet`을 machine 자격으로)에서 `machine`이 있는 줄마다 그 기계의 `apps/tools {app}`를 `by: {kind:"agent", agent, session: null, name}`으로 읽는다. 기계마다 동시에 읽고, 닿지 않거나 거절되면 `view: null`. workspace가 private이면 `apps`를 비운다. `machines`는 `computers()`다. 이 route를 `runtime-access.ts`의 `RUNTIME_MACHINE_ROUTES`에 더한다(빠지면 turn이 `configuration_unavailable`로 끝난다, orchestrate 함정).
+1. 보내는 길: `connection.ts`의 `call(input: CoreCall)`(59줄의 type, 지금 `{resource, method, body}`)이 `by`를 받아 frame에 싣는다. `links.ts`의 `call(input)`(지금 `{machine, resource, method, body}`. 기계는 `computer(machine)`이 명단에서 `mch_`로 찾는다)의 입력에 optional `by`를 더한다(optional이라 이 함수를 부르는 `host_test.ts`의 `links.call({...})`가 그대로 컴파일된다). 보내지 못했으면(link 없음 `not connected`, refused) `unavailable`에 `details.sent: false`, 보낸 뒤 답을 잃었으면 `details.sent: true`를 단다. 이 컴퓨터를 고른 call은 `resolve`가 `self`로 먼저 거른다: `links.ts`의 `notFound`가 내는 "this machine is this computer; call its routes directly, not through machines/call"은 `watch`만 쓰게 되므로 문구에서 `machines/call`을 뺀다(이 task의 "남지 않음" grep). `wiring/remote.ts`가 `ctx.provide("machineLinks", …)`를 낸다: `computers()`는 명단의 컴퓨터(이 컴퓨터 포함, `self`), `resolve`는 `resolveMachine`, `call`은 links.
+2. `machine-routes.ts`의 `createMachineRoutes`(지금 deps `{links, capability, onEnd}`)가 `call`에서 요청한 쪽을 정한다: input의 `shell_capability`가 살아 있는 capability면 `screen`, 칸이 없으면 `terminal`(사람의 CLI token), 칸이 있는데 살아 있지 않으면 지금처럼 `forbidden`이고 link에 닿지 않는다. `ctx.machineLinks.resolve(input.machine)` 뒤에 `by`를 실어 부르고 capability는 다른 기계로 보내지 않는다. 그래서 `multi-device-fixes`의 거절은 `call`에서 갈래가 된다(CLI는 `terminal`로 닿는다). `machines/call`의 `machine`은 이름·`mch_`·`dev_`이므로 `deps`에 `resolve`를 더해 `links.call` 앞에서 푼다(`watch`는 화면의 `mch_`만 받는다). `watch`는 그대로 capability가 있어야 한다. agent·앱 자격은 `machines/call`의 actor가 아니라 여기 닿지 않는다.
+3. `machines/app_tools` handler(`wiring/remote.ts`의 `return ok({ memory: [...] })` 목록에 `machines/call`·`machines/watch` 옆에 더한다): 그 agent의 할당(`assignmentGet`을 machine 자격으로)에서 `machine`이 있는 줄마다 그 기계의 `apps/tools {app}`를 `by: {kind:"agent", agent, session: null, name}`으로 읽는다. 기계마다 동시에 읽고, 닿지 않거나 거절되면 `view: null`. workspace가 private이면 `apps`를 비운다. `machines`는 `computers()`다. 이 route를 `runtime-access.ts`의 `RUNTIME_MACHINE_ROUTES`에 더한다(빠지면 turn이 `configuration_unavailable`로 끝난다, orchestrate 함정).
 4. `forward.ts`의 `createRemoteForward(deps)`(`RemoteForward`):
    - private: agent는 그 session의 workspace, 앱은 `{kind:"app", id}`가 이 기계의 정책에서 private이면 `forbidden`.
    - hop: 앱 caller의 부모 flight가 `remote`(계약의 `Flight.remote`)면 `forbidden`(받은 call은 다시 넘기지 않는다).
@@ -58,7 +58,7 @@
 
 - `npm run check`가 통과한다.
 - 위험 test:
-  - "요청한 쪽을 속여 '사람의 화면'이라고 실어 보낼 수 있는 것은 그 기계의 shell뿐이다(agent와 CLI의 자격으로는 그 값을 싣지 못한다)." (`call_test.ts`의 `fix-setup` test "CLI의 사람 token으로 `machines/call`을 부르지 못한다"를 지우고 그 자리에 표 하나: capability 없는 사람 token은 `terminal`로 닿고, 죽은 capability는 link에 닿지 않고, 살아 있는 capability만 `screen`이다. `forward_test.ts`가 frame에 실은 `by`는 `agent`·`app`뿐이다)
+  - "요청한 쪽을 속여 '사람의 화면'이라고 실어 보낼 수 있는 것은 그 기계의 shell뿐이다(agent와 CLI의 자격으로는 그 값을 싣지 못한다)." (`call_test.ts` 441줄의 `multi-device-fixes` test "CLI의 사람 token으로 machines/call을 부르지 못하고 shell main의 capability는 다른 기계로 가지 않는다"를 지우고 그 자리에 표 하나: capability 없는 사람 token은 `terminal`로 닿고, 죽은 capability는 link에 닿지 않고, 살아 있는 capability만 `screen`이다. `forward_test.ts`가 frame에 실은 `by`는 `agent`·`app`뿐이다)
   - "할당이 없는 agent는 다른 기계의 앱을 부르지 못한다." (`forward_test.ts`, link에 아무것도 가지 않는다)
   - "private인 workspace의 agent와 앱은 다른 기계를 부르지 못한다." (`forward_test.ts`, README 위험 test 넷째의 부르는 쪽 반)
   - "다른 기계에서 받은 호출 안에서 부른 앱 호출은 또 다른 기계로 넘어가지 않는다." (`forward_test.ts`, 권한이 한 hop 넓어지는 길)
@@ -81,4 +81,4 @@
 
 ## 시작 전에 다시 볼 것
 
-- `fix-setup`이 main에 올린 `createMachineRoutes`와 `shell_capability` 칸, `call_test.ts`의 그 test 이름(이것이 `screen`의 근거이고 이 task가 바꾼다), 그 test가 `multi-device-fixes`의 위험 test라 lead가 이 바꿈을 알고 있는지, `one-screen`의 `screen-base`가 바꾼 `links.ts`의 watch와 shell main이 기계를 고르는 길, `carry-paths`의 `carry-links`가 `links.ts`·`connection.ts`에 더한 것, `prepare.ts`의 `apps()`·`dispatch` 자리(여러 계획이 고친다), `RUNTIME_MACHINE_ROUTES`의 위치, `fix-roster`가 확인한 터미널 탭의 `lophn` 자격(host가 `LOPHN_*`를 지우고 `LOPHN_SESSION_ID=term:<trm_>`만 넣어 사람 token이다. 그러니 `terminal`이다).
+- 없음(이 brief를 쓴 날 code로 확인했다). 확인한 것: 터미널 탭의 `lophn`은 host가 core의 `LOPHN_*`를 지우고 `LOPHN_SESSION_ID=term:<trm_>`만 넣어 사람 token이다(`terminals/host/main.ts` 131줄). 그러므로 그 탭 안에서 부른 `--on`은 `terminal`로 실린다(그 안에서 coding agent가 쳐도 받는 기계는 구별하지 못한다. 보고의 "알려진 미완 동작"에 적는다). `links.watch`는 구독자 `{capability, watcher}`별이고 core 안 구독자는 `capability: null`이다(`use-events`). `RUNTIME_MACHINE_ROUTES`는 `lophn-agent/run-loop/runtime-access.ts` 67줄이다. `prepare.ts`의 `apps()`·`dispatch`(645~660줄의 `called`)는 다른 계획이 같이 고칠 수 있으니 시작할 때 한 번 다시 연다.

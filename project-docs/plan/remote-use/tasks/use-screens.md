@@ -19,11 +19,12 @@
   - 본보기(화면): `tools/wireframes/pages/screens/agent-settings.tsx`의 `new-agent-grants`·`new-agent-grants-app`, `tools/wireframes/pages/screens/app-space.tsx`의 `new-app-activity`
   - boundary·module: `core-api`; module `shell`(renderer)
 - 계약:
-  - 쓰는 것: `assignmentGet`·`assignmentSet`(줄의 `machine`·`name`), `machines/list`, `one-screen`이 낸 화면의 기계 범위(그 범위의 `apps/list`·`apps/tools`는 그 기계로 간다), `appInvocations`의 caller `remote`
+  - 쓰는 것: `assignmentGet`·`assignmentSet`(줄의 `machine`·`name`), `machines/list`, `one-screen`이 낸 화면의 기계 범위(`packages/shell/renderer/desktop/machines/`: `useMachineData(machine)`는 그 기계의 `MachineData`를 준다. 그 `core`로 읽은 `apps/list`·`apps/tools`는 그 기계로 간다. `MachineHub.get(<mch_>)`, `useMachinesView()`와 `machineItemOf`가 기계 이름과 상태), 기계 꼬리표 `MachineTag`(`packages/shell/renderer/shell/left-sidebar.tsx` 223줄), `appInvocations`의 caller `remote`
   - 내놓는 것: 없음
 
 ## 할 일
 
+0. 범위: Agents 탭(Grants 탭이 든 곳)과 App details(Activity가 든 곳)는 이 컴퓨터에서만 열리는 kind다(`one-screen`: "This opens only on <이름>"). 그래서 Grants의 "Other computers" 묶음은 이 컴퓨터의 agent에 붙이는 것이고 다른 컴퓨터를 고른 Settings › Agents(`MACHINE_PANES`의 `agents`, `settings/agents/agents-panel.tsx`)에는 Grants가 없어 이 task가 거기를 만지지 않는다. 다른 컴퓨터의 앱을 읽는 것은 `useMachineData(<mch_>).core`다(사람의 화면이라 받는 기계에 `screen`으로 닿는다).
 1. wireframe 먼저(`ui-design`). 고친 page 가운데 사람에게 보일 것: `agent-settings`의 `new-agent-grants-other-machine`(새 page: "Other computers" 묶음, 기계마다 앱 줄과 command 빼기, 꺼진 기계의 앱은 이름과 "offline" 꼬리표로 남고 빼기는 된다)과 `app-space`의 `new-app-activity`(fake data에 다른 기계가 부른 줄 하나를 더한다). 새 page는 영역 file이 낸다(`pages/index.ts`는 그대로).
 2. Grants 탭(`core-grants.ts`, `source.ts`, `grants-model.ts`, `grants-panel.tsx`):
    - 붙일 수 있는 다른 기계의 앱은 `machines/list`의 컴퓨터마다 그 기계 범위로 `apps/list`·`apps/tools`를 읽은 것이다. `public` command만 보인다(받는 기계가 비공개를 거절한다).
@@ -32,6 +33,7 @@
 3. Activity(`reads.ts`, `model.ts`, `activity-tab.tsx`): `remote` caller는 "<기계 이름> · <요청한 쪽>"이다.
    - 기계 이름은 이 기계의 `machines/list`에서 `machine`으로 찾고, 없으면 짧은 id다.
    - 요청한 쪽: `screen`은 "You (screen)", `terminal`은 "You (terminal)", `agent`는 실린 `name`, `app`은 이 기계에 그 앱이 있으면 이름이고 없으면 짧은 id다.
+   - `event` caller의 `machine`(`carry-paths`가 기록만 하고 보이지 않는다. `reads.ts` 638줄)도 같은 기계 이름으로 보인다: 다른 기계에서 온 event로 돈 호출임을 알게 한다.
    - `use-contract`가 둔 최소 갈래를 이것으로 바꾼다.
 4. 글은 i18n catalog(`agents.ts`, `app-space.ts`)에 두고 박아 두지 않는다.
 5. `grants-model_test.ts`가 있는 판정(같은 줄은 `(app, machine)`)이 바뀌면 그 test만 맞춘다. 화면과 문구는 test하지 않는다.
@@ -62,4 +64,4 @@
 
 ## 시작 전에 다시 볼 것
 
-- `one-screen`의 `screen-base`가 낸 화면의 기계 범위(이름과 쓰는 법)와 `screen-lists`가 바꾼 기계 꼬리표 component(같은 것을 쓴다). Grants 탭과 Activity의 그때 file 위치. `use-send`가 정한 꺼진 기계의 줄 모양.
+- `use-send`가 정한 꺼진 기계의 줄 모양(`remote_apps`의 `name`과 `app`)과 `machines/app_tools`의 출력만 시작할 때 `use-send`의 보고로 맞춘다. 나머지는 확인했다: 화면의 기계 범위는 `desktop/machines/`의 `MachineHub`·`MachineScope`이고 기계 꼬리표는 `shell/left-sidebar.tsx`의 `MachineTag`다(`one-screen`이 낸 것). Grants 탭은 `workspace/agents/editor/grants-panel.tsx`(`agent-editor.tsx`가 쓴다), 읽기는 `workspace/agents/core-grants.ts`(`appCatalog`가 `apps/list`와 `apps/tools`를 한 앱씩 읽는다), Activity는 `app-frame/app-detail/activity/activity-tab.tsx`와 `reads.ts`의 `callerOf`(603줄)다.

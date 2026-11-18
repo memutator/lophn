@@ -2,7 +2,7 @@
 
 - 목표: agent와 앱이 다른 기계의 앱을 쓰고 그 앱의 event를 받는다. 내 PC의 agent가 VM의 monitoring 앱 command를 부르고, 그 앱이 낸 event로 내 PC의 job이 돈다. 사람은 터미널에서 다른 기계에 명령을 보낸다. workspace의 private 설정이 기계 사이에도 선다.
 - 재료: `project-docs/products/roadmap/multi-device.md`("주고받는 것 네 가지"의 remote와 event, "해도 되나", "사람이 정한 것"), `project-docs/architecture/agent-call.md`(call 정책, private), `app-call.md`, `approval.md`, `event.md`, `job.md`, `remote.md`, 조사 `reports/multi-device/survey-n3-remote-use.md`(지금 code, file 묶음 G1~G10, 열린 물음), review `reports/multi-device/review-core-setup.md`("Facts the next plans build on")
-- 기대는 것: `multi-device-fixes`(`machines/*`의 자격), `one-screen`(다른 기계의 event를 구독자마다 따로 구독하는 바닥), `carry-paths`(끊긴 동안의 event가 늦게 오는 길)
+- 기대는 것(셋 모두 main에 올라갔다. 기록은 `project-docs/products/change-log/0.23/<이름>.yaml`): `multi-device-fixes`(0.23.88. `machines/call|watch`가 살아 있는 shell capability를 요구하고 사람의 CLI token으로는 다른 기계를 부르지 못한다), `one-screen`(0.23.90. 창 하나가 모든 컴퓨터를 보고 다른 기계의 event 구독이 구독자마다의 합으로 걸린다. 기기 route 목록이 넓어졌고 Settings에 기계 고르기가 있다), `carry-paths`(0.23.89. 앱이 `across_machines`로 낸 event와 `data.changed`가 file로 가 도착한 기계에서 한 번 나온다. 따라가기는 `computers`로만 온 release를 늘 묻는다)
 - 범위 밖: a2a(다른 기계의 agent에게 일을 맡기기, handoff), 꺼진 기계의 것을 쓰기, agent가 다른 기계의 터미널·browser page·file·job을 다루기(사람의 화면은 `one-screen`이 한다), 다른 기계에 job 만들기
 
 ## 정한 것
@@ -23,7 +23,7 @@
 
 | wave | id | 선행 | 한 줄 |
 |---|---|---|---|
-| 1 | `use-grant` | 없음 | 터미널 입력 허락을 받는 컴퓨터의 ledger로 옮긴다: 명단의 칸을 없애고, 초대장과 My devices의 스위치가 이 컴퓨터의 허락만 바꾼다. 여기서 허락한 컴퓨터의 새 release는 묻지 않고 따라간다 |
+| 1 | `use-grant` | 없음 | 터미널 입력 허락을 받는 컴퓨터의 ledger로 옮긴다: 명단의 칸을 없애고, 초대장과 My devices의 스위치(과 화면 없는 컴퓨터를 위한 CLI)가 이 컴퓨터의 허락만 바꾼다. 쓰던 허락은 첫 기동에서 옮긴다. 여기서 허락한 컴퓨터의 새 release는 묻지 않고 따라간다 |
 | 1 | `use-contract` | 없음 | 넘기는 call에 싣는 요청한 쪽, 받는 쪽의 새 입구 route와 기록(호출 기록의 새 종류와 ledger step), 할당·trigger·구독에 붙는 기계, 기계 이름 풀기, `--on`. `architecture/app-call.md`·`approval.md` 초안 |
 | 2 | `use-receive` | `use-contract`, `use-grant` | 받는 기계: 입구 route, 요청한 쪽을 종류마다 대하기, 터미널 입력 허락·private·내놓은 command 검사, 기록 |
 | 2 | `use-send` | `use-contract` | 부르는 기계: agent의 tool과 앱의 호출이 다른 기계의 앱으로 가는 길, 할당과 승인, private, 닿지 않을 때 |
@@ -43,14 +43,32 @@
 - private인 workspace의 앱 event는 다른 기계의 구독자에게 가지 않는다.
 - 호출 기록을 옮긴 뒤 지난 기록이 그대로 읽힌다.
 
+## 시작할 때의 code
+
+0.23.90 main(세 계획이 올라간 뒤)에서 확인한 것이다. brief의 "시작 전에 다시 볼 것"은 여기서 남은 것만 적는다.
+
+- **판**: remote protocol 판은 4(하한 4)다. 세 계획 가운데 `multi-device-fixes`만 올렸다(`packages/protocol/remote/frames.ts`). `use-contract`가 call frame에 `by`를 더하며 5로 올리고, `use-grant`가 바꾸는 명단 항목 모양도 같은 5에 얹는다.
+- **기계를 고르는 길**: `machines/call`·`machines/watch`는 입력의 살아 있는 `shell_capability`를 요구한다(`createMachineRoutes`, `packages/core/remote/machine-routes.ts`). 창은 기계에 묶이지 않고 shell main이 IPC의 `machine` 칸으로 그 기계의 core를 고른다(`packages/shell/main/desktop/viewer/machine-route.ts`). 사람의 CLI token은 capability가 없어 지금 `forbidden`이다(`call_test.ts` 441줄의 test). `use-send`가 이것을 `terminal`로 연다.
+- **link와 구독**: `packages/core/remote/links.ts`는 기계마다 구독자별 조건 `{capability | null, watcher}`를 모아 그 합을 건다(core 안 구독자는 `capability: null`). 나르기가 `StateChanged` 조건을 늘 더해 걸고 구독자가 원하지 않으면 화면에 싣지 않는다. 받은 frame은 bus의 `MachineFrameReceived {machine, frame, watcher?}`이고 `watcher`는 `ready`에만 실린다. link 하나의 call은 같이 8개, 하나 120초다(`remote-client/connection.ts`).
+- **기기 route 목록**(`packages/protocol/remote/allowlist.ts`): 모든 기기의 목록에 `terminals/list`, `coding_sessions/cli_sessions|rewind_preview`, `app_grants/list`, `app_sessions/*`, `app_calls/*`, `app_agents/list`, `carry/*`가 들어 있고 사람 route 목록(허락받은 기기만)에 `terminals/close|restart`가 있다. event 목록에 `TerminalRuntimeChanged`, `TerminalAgentSignaled`, `AppRemoved`가 있고 `AppEventPublished`는 없다. `apps/call_tool`은 어느 목록에도 없다. 앱 session·call route는 기기가 자기가 연 view로만 부른다(`packages/core/main/daemon/wiring/app-principal.ts`).
+- **허락**: `ctx.terminalInputGrant(principal)`는 명단 항목의 `terminal_input`을 읽는다(`wiring/remote.ts` 855줄 한 자리). `use-grant`가 이 컴퓨터의 ledger 표로 옮긴다. 따라가기 규칙은 `followAsksPerson`(`packages/core/folder/import/follow.ts`)이고 지금은 `computers`로만 온 release를 늘 묻는다.
+- **다른 기계의 event(늦은 길)**: 선언 `across_machines: true`(`sync_to`가 있는 앱)의 event는 file로 가고 도착한 기계가 `readArrivedEvents`(`folder/import/events.ts`)로 읽어 `folder_events_seen`에 적은 새 줄만 `createEventArrival`(`apps/events/publish.ts`)로 낸다. 난 기계는 발행 기록의 `machine`과 event caller의 `machine`에 실린다. 앱 event가 연결(live)로도 오게 하는 `use-events`는 이 길과 한 번만 내는 자리를 맞춘다(brief의 "늦은 길과 만나는 곳").
+- **ledger step**: 맨 뒤 wiring은 `remote`(`wiring/remote.ts`의 `schemaStepsAfterTeams`)이고 `schema-steps.lock.json`의 끝은 `folder.events-seen`, `apps.event-publications.machine`, `folder.carry-marks`, `projects.registry.former-identities`다. `use-grant`와 `use-contract`가 각각 step을 더하므로 lead가 둘의 차례를 정해 둘 다에 같은 차례로 넣는다.
+- **화면**: Settings의 기계 고르기(`packages/shell/renderer/desktop/settings/machine-picker.tsx`)는 `MACHINE_PANES`(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 다른 컴퓨터로 연다. Remote와 Sync는 이 컴퓨터의 것이다. 기계 범위는 `desktop/machines/`(`MachineHub`, `MachineScope`, `useMachineData`), 기계 꼬리표는 `MachineTag`(`shell/left-sidebar.tsx`), 목록은 `MachineListsProvider`다. Agents 탭과 App details는 이 컴퓨터에서만 열린다.
+- **SDK 판**: `@lophn/declaration` 4.10.0, `@lophn/app-ui` 2.21.0, `@lophn/app-ui-native` 1.8.0, `@lophn/cap-tool` 2.2.0.
+- **이미 있는 안내**: 허락이 없는 컴퓨터를 만나면 화면은 그 컴퓨터의 Settings › Remote › My devices에서 켜라고 말한다(`machines.gate.*`·`remote-desk.ts`, 터미널의 "View only"). 이 계획이 허락을 컴퓨터마다의 것으로 바꿔도 문구는 맞다.
+- 이슈 `remote-call-errors-drop-details`는 `multi-device-fixes`가 고쳐 fixed다(`call.ts`가 `details`를 싣는다).
+
 ## lead가 할 일
 
-- `one-screen`과 `carry-paths`가 main에 올라간 뒤에 시작한다(같은 연결과 route 목록 file을 고치고, 구독의 바닥이 `one-screen`에 있다). brief는 그 전에 썼다: 띄우기 전에 brief마다 "시작 전에 다시 볼 것"을 그때의 code와 대고 달라진 이름을 고친다.
-- 권한 경계를 바꾸는 계획이다. `use-contract`와 `use-grant`가 끝나면 merge하기 전에 다른 worker에게 review를 맡긴다. 볼 것: 요청한 쪽을 누가 실을 수 있는가, 받는 기계가 믿는 것과 다시 보는 것, 한 hop을 더 건너 넓어지는 길(A가 B를 거쳐 C).
-- `use-contract`는 크다(SDK 판, 손으로 맞춘 caller parser 사본들, ledger step을 한 번에 든다). 한 session에 안 끝나면 SDK와 사본 부분을 wave 1의 둘째 task로 뗀다.
-- `multi-device-fixes`가 둔 test "CLI의 사람 token으로 `machines/call`을 부르지 못한다"는 이 계획이 대신한다: 사람의 터미널은 "터미널"로 실려 부르게 되고, 그 요청이 사람의 route와 자동 확인을 받지 못하는 것을 새 test가 본다(`use-send`).
+- 세 계획이 올라간 뒤의 code로 brief를 다시 맞췄다(2026-11-19). brief마다 "시작 전에 다시 볼 것"에 남은 것만 있다. 띄울 때 `git log --oneline -5`로 그 사이 바뀐 곳만 본다.
+- 권한 경계를 바꾸는 계획이다. `use-contract`와 `use-grant`가 끝나면 merge하기 전에 다른 worker에게 review를 맡긴다. 볼 것: 요청한 쪽을 누가 실을 수 있는가, 받는 기계가 믿는 것과 다시 보는 것, 한 hop을 더 건너 넓어지는 길(A가 B를 거쳐 C), 허락이 명단 view로 다시 새지 않는가.
+- wave 1을 합칠 때 lead가 맞출 줄: `schemaStepsAfterTeams`와 `schema-steps.lock.json`에 두 task의 step을 같은 차례로, `wiring/context.ts`(`use-contract`의 `machineLinks`와 `use-grant`의 `computerGranted`를 둘 다), `protocol/remote/mod.ts`·`core/remote/mod.ts`의 export, `protocol/remote/routes.ts`의 허락 주석(`use-grant`가 문장을 적는다), `approval.md`의 허락 문장(`use-grant`가 문장을 적는다), `REMOTE_PROTOCOL_VERSION` 5(`use-contract`가 올리고 `use-grant`는 그 5에 얹는다). wave 2에서 `use-receive`가 `call_test.ts`와 `wiring/remote.ts`에 맞추는 `kind` 한 줄, `use-send`가 `wiring/apps.ts`의 forward 자리.
+- `use-contract`는 크다(SDK 판, 손으로 맞춘 caller parser 사본들, ledger step을 한 번에 든다). 한 session에 안 끝나면 SDK와 손 사본 부분(brief의 7)을 wave 1의 둘째 task `use-contract-sdk`로 뗀다. 그 부분은 brief가 적은 모양만 쓰므로 다른 부분을 기다리지 않는다.
+- `use-grant`의 새 CLI 명령(`remote terminal-input`)은 화면 없는 컴퓨터(VM)가 PC의 허락을 켜는 유일한 길이다. 이 계획의 목표가 필요로 해서 넣었으니 사람이 필요 없다고 하면 뺀다.
+- `multi-device-fixes`가 둔 test "CLI의 사람 token으로 machines/call을 부르지 못하고 shell main의 capability는 다른 기계로 가지 않는다"(`call_test.ts`)는 이 계획이 대신한다: 사람의 터미널은 "터미널"로 실려 부르게 되고, 그 요청이 사람의 route와 자동 확인을 받지 못하는 것을 새 test가 본다(`use-send`).
 - 다른 기계로 보낸 긴 command가 연결의 한도(같이 도는 call 8개, call 하나 120초)에 걸리는 것은 알려진 미완이다. 걸리면 이슈로 올린다.
 - SDK와 앱 지침을 바꾸는 task는 `sdk-note` skill을 따른다. 화면 task는 `ui-design` skill대로 wireframe을 먼저 고친다.
 - 실제 relay와 실제 provider를 쓰지 않는다. subprocess를 띄우는 test와 E2E는 새로 만들기 전에 사람에게 묻는다.
-- 끝나면: `architecture/app-call.md`, `agent-call.md`, `approval.md`, `event.md`, `job.md`, `remote.md`, flows, change-log, roadmap `multi-device.md`.
-- 사람에게: 끝난 뒤 컴퓨터 둘로 확인을 부탁한다(한 컴퓨터의 agent가 다른 컴퓨터의 앱 command를 부르고, 그 앱의 event로 job이 도는지).
+- 끝나면: `architecture/app-call.md`, `agent-call.md`, `approval.md`, `event.md`, `job.md`, `remote.md`, flows, change-log, roadmap `multi-device.md`. 이슈 `roster-computer-self-grants-terminal-input`을 닫는다.
+- 사람에게: 끝난 뒤 컴퓨터 둘로 확인을 부탁한다(한 컴퓨터의 agent가 다른 컴퓨터의 앱 command를 부르고, 그 앱의 event로 job이 돈다. 화면 없는 컴퓨터가 끼면 그 컴퓨터에서 허락을 켜는 법도 본다).

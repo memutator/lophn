@@ -28,7 +28,7 @@
    - 남은 것이 있으면 고친다. 구조를 바꿔야 하면 고치지 않고 보고한다.
 2. architecture(`project-docs/architecture/`):
    - `remote.md`: 넘기는 call의 요청한 쪽과 그 표, 받은 call은 다시 넘기지 않는다, 이름 풀기, `--on`, 기계 사이 구독과 그 거르기. "desktop에서 다른 기계 보기"의 `machines/call` 설명.
-   - `approval.md`: `use-contract` 초안을 지은 대로 맞춘다(할당의 기계, private 두 자리, 할당한 앱 command는 다른 기계의 것도 묻지 않고 돈다).
+   - `approval.md`: `use-contract` 초안을 지은 대로 맞춘다(할당의 기계, private 두 자리, 할당한 앱 command는 다른 기계의 것도 묻지 않고 돈다). `use-grant`가 보고에 적은 새 문장(터미널 입력 허락이 받는 컴퓨터의 것이라는 것, 결정의 "버린 안: 컴퓨터마다 따로인 허락"이 채택된 것)이 들어갔는지 본다.
    - `app-call.md`: caller 일곱, `remote` target과 받는 기계 입구, 손 사본, `connectCommands`의 `on`. "여섯"이 남은 문장을 고친다.
    - `agent-call.md`: call 정책의 private이 기계 사이에도 서는 것(부르는 기계는 부른 쪽의 workspace, 받는 기계는 대상 앱의 workspace, 쌍 규칙은 기계 사이에 보지 않는다, 사람의 화면과 터미널은 예외).
    - `event.md`: 다른 기계의 앱 event(내주는 것, core의 구독자, 난 기계를 싣고 낸다, 늦은 길과 한 번만 내기).
@@ -36,7 +36,7 @@
    - 각 문서의 "결정"에 README "정한 것"과 task의 "정한 것"을 근거(사람·agent)와 함께 옮긴다. 열린 것(link의 call 자리와 기한, 꺼진 기계의 앱)을 "열린 것"에 둔다.
 3. catalog: `boundary-catalog.yaml`의 `remote-protocol`(call frame의 `by`, 판), `core-api`(`apps/remote_call`, `machines/app_tools`, `machines/call`의 요청한 쪽), `sdk-api`(`connectCommands`의 `on`, 선언 구독의 `machine`), `event-stream`(컴퓨터에 내주는 `AppEventPublished`). `module-catalog.yaml`의 `packages/core/remote` notes(구독, 요청한 쪽).
 4. flows(`flows` skill): `node tools/flows.ts report`로 이 계획이 더한 entry의 `unclear`와 덮이지 않은 risk outcome을 본다. 각 task가 쓴 flow가 지은 동작과 맞는지 맞추고, journey 하나를 더한다(`journeys/agent-automation.yaml`: 한 컴퓨터의 agent가 다른 컴퓨터의 앱 command를 부르고, 그 앱의 event로 job이 돈다).
-5. 이슈: `remote-call-errors-drop-details`가 고쳐졌으면 닫을 근거를 보고에 적는다(닫기는 lead가 `issue` skill로 한다). 계획 중에 생긴 "무겁게 짠 것"과 "알려진 미완 동작"은 lead가 이슈로 올린다.
+5. 이슈: `roster-computer-self-grants-terminal-input`이 `use-grant`로 고쳐졌는지 보고 닫을 근거를 보고에 적는다(닫기는 lead가 `issue` skill로 한다). `remote-call-errors-drop-details`는 `multi-device-fixes`가 고쳐 이미 fixed다. 계획 중에 생긴 "무겁게 짠 것"과 "알려진 미완 동작"은 lead가 이슈로 올린다.
 
 ## 끝남
 
@@ -62,4 +62,4 @@
 
 ## 시작 전에 다시 볼 것
 
-- 이 계획의 worker 보고(lead가 모은 "정한 것", "넘길 줄", 계약 바꾸기 commit)와 그것이 바꾼 이름. `one-screen`·`carry-paths`가 같은 architecture 문서(`remote.md`, `event.md`)에 쓴 절(겹치지 않게 그 절 옆에 쓴다). 그때 `node tools/flows.ts report`의 모양.
+- 이 계획의 worker 보고(lead가 모은 "정한 것", "넘길 줄", 계약 바꾸기 commit)와 그것이 바꾼 이름. 이 brief를 쓴 날 확인한 것: `one-screen`·`carry-paths`가 `remote.md`(desktop에서 다른 기계 보기, 연결로 나르기), `event.md`(73줄 "다른 기계로"), `app-call.md`(74줄과 254줄), `folder-sync.md`(103줄 event file, 249줄 route)에 쓴 절이 있어 이 계획의 절은 그 옆에 쓴다. 끝난 두 계획의 `project-docs/plan/` 폴더는 없다: 변경 기록 `project-docs/products/change-log/0.23/{multi-device-fixes,carry-paths,one-screen}.yaml`을 가리킨다. 그때 `node tools/flows.ts report`의 모양은 시작할 때 본다.

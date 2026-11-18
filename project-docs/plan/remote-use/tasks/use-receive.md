@@ -5,11 +5,12 @@
 - 단위: use (wave 2)
 - 선행: use-contract, use-grant. 계약의 이름으로 짓는다. 터미널 입력 허락은 `use-grant`가 옮긴 이 컴퓨터의 표다(`ctx.terminalInputGrant`).
 - 소유(이 task만 고친다):
-  - `packages/core/remote/call.ts`, `packages/core/remote/forwarded_test.ts`(새 file. `call_test.ts`는 `use-send`가 `fix-setup`의 test를 바꾸느라 가진다)
+  - `packages/core/remote/call.ts`, `packages/core/remote/forwarded_test.ts`(새 file. `call_test.ts`는 `use-send`가 `multi-device-fixes`의 `machines/call` test(441줄)를 바꾸느라 가진다)
   - `packages/core/remote/host.ts`, `packages/core/remote/host_test.ts`
   - `packages/core/apps/calls/{caller,gate,service,record}.ts`, `packages/core/apps/calls/calls_test.ts`
   - `packages/core/main/daemon/wiring/apps.ts`
   - `project-docs/flows/areas/app-runtime.yaml`, `project-docs/flows/tests/{core-rest,core-apps}.yaml`
+- 남의 file 한 줄(소유가 아니다. 보고의 "넘길 줄"에 적는다): `packages/core/remote/call_test.ts`(`use-send` 소유)의 `createRemoteCall` 준비에 `kind`를 채우는 줄, `packages/core/main/daemon/wiring/remote.ts`(`use-send` 소유)의 `createRemoteCall({...})` 호출에 `kind: (principal) => ctx.deviceKind(principal)` 한 줄. `use-send`와 같은 wave라 자리가 겹치지 않는 줄만 고친다.
 - 읽을 것:
   - `project-docs/plan/remote-use/tasks/use-contract.md`의 "내놓는 것"과 받는 기계의 표
   - 계획 README "정한 것"의 "요청에 누가 시켰는지가 실린다", "받는 기계는 자기 규칙을 본다", "private은 기계 사이에도 선다"
@@ -17,31 +18,31 @@
   - 조사 `reports/multi-device/survey-n3-remote-use.md` 1.1(7~11), 1.2(4~6), 1.3, 6절. review `reports/multi-device/review-core-setup.md` finding 1
   - boundary·module: `remote-protocol`, `core-api`; module `remote`, `apps`
 - 계약:
-  - 쓰는 것: `Requester`·`requesterSchema`, call frame `by`, `appRemoteCall`, `appToolCallerSchema`의 `remote`, `CallAuth.remote`, `VerifiedCaller`의 `remote`, `isPrivate`, `REMOTE_AGENT_ROUTES`, `ctx.machineLinks.resolve`, `ctx.deviceKind`, `createRemoteCall`의 dep `kind`(계약이 두고 `wiring/remote.ts`에서 채웠다)
-  - 내놓는 것: `apps/remote_call`의 동작(`use-send`와 `use-cli`가 그 기계에서 부른다), `RemoteCall`의 새 꼴 `(credential, call: {resource, method, body, by?})`
+  - 쓰는 것: `Requester`·`requesterSchema`, call frame `by`, `appRemoteCall`, `appToolCallerSchema`의 `remote`, `CallAuth.remote`, `VerifiedCaller`의 `remote`, `isPrivate`, `REMOTE_AGENT_ROUTES`, `ctx.machineLinks.resolve`, `ctx.deviceKind`(`wiring/context.ts`에 이미 있다), `ctx.terminalInputGrant`(`use-grant`가 이 컴퓨터의 표로 옮겼다. `createRemoteCall`의 dep `granted`가 그것을 부른다)
+  - 내놓는 것: `apps/remote_call`의 동작(`use-send`와 `use-cli`가 그 기계에서 부른다), `RemoteCall`의 새 꼴 `(credential, call: {resource, method, body, by?})`, `createRemoteCall`의 새 dep `kind(principal): "phone" | "computer" | null`
 
 ## 할 일
 
-1. `host.ts`: `call` frame의 `by`를 `deps.call`에 그대로 넘긴다(frame type이 이미 싣는다).
-2. `call.ts` `createRemoteCall`: 계약이 둔 dep `kind(principal)`로 `use-contract`의 표대로 거른다.
+1. `host.ts`: `call` frame의 `by`를 `deps.call`에 그대로 넘긴다(`use-contract`가 frame type에 실었다. 지금 `host.ts`는 `deps.call(credential.value, frame)`로 frame 전체를 넘기므로 `RemoteCall`의 type이 `by`를 받게만 하면 된다).
+2. `call.ts` `createRemoteCall`: 새 dep `kind(principal): "phone" | "computer" | null`을 두고(`wiring/remote.ts`는 `ctx.deviceKind`로 채운다. 위 "남의 file 한 줄") `use-contract`의 표대로 거른다.
    - 폰이 `by`를 실었거나 컴퓨터가 `by` 없이 불렀으면 `invalid_input`.
    - 사람 목록과 확인이 필요한 command는 `by`가 없는 폰이나 `screen`이고 허락이 있을 때만이다. `terminal`, `agent`, `app`은 허락이 있어도 `forbidden`.
    - `agent`·`app`은 `REMOTE_AGENT_ROUTES` 밖이면 `forbidden`.
    - `apps/remote_call`은 컴퓨터이고 허락이 있을 때만이다. 통과하면 body의 `by`를 frame의 `by`로 덮어 쓴다(기기가 보낸 값은 버린다).
-   - 오류를 다시 만들 때 `details`를 버리지 않는다(이슈 `remote-call-errors-drop-details`, `call.ts`의 `err({code, message})`).
+   - 오류의 `details`는 이미 싣는다(`call.ts`의 `err({code, message, ...details})`, `call_test.ts` 424줄의 test. 이슈 `remote-call-errors-drop-details`는 `multi-device-fixes`가 고쳐 fixed다). 새로 만드는 오류도 같은 꼴을 지킨다.
    - `call.ts` 머리 주석과 `createRemoteCall` 위 주석(사람 route는 허락받은 기기에 연다)을 요청한 쪽 기준으로 고친다.
 3. `wiring/apps.ts`에 `apps/remote_call` handler: principal이 `device:`이고 `ctx.deviceKind`가 `computer`가 아니면 `forbidden`. 부른 기계는 `ctx.machineLinks.resolve(<dev_ id>)`로 얻는다. `ctx.appCallPath.call`에 target `{mode:"live", app, release:null}`, kind `command`, caller `{kind:"remote", machine, device, requester: by}`, auth `{actor:"remote", remote: {...같은 것}}`로 넘긴다. 등록은 lead다(보고).
 4. `caller.ts`/`gate.ts`/`service.ts`: `remote` caller.
    - 확인: `use-contract`가 둔 본문과 `auth.remote` 대조를 그대로 둔다. route로는 이 자격이 생기지 않는다.
-   - 막기(`callAllowed`): command가 `public`이어야 한다(README "command가 밖에 내놓은 것"). 요청한 쪽이 `agent`·`app`이면 대상 앱의 workspace `{kind:"app", id}`가 이 기계의 call 정책에서 private이 아니어야 한다(`isPrivate`. `CallGateDeps`에 정책 읽기를 더한다. 읽는 곳은 `callPolicyAt`). `screen`·`terminal`은 private을 보지 않는다(README "사람의 화면과 터미널은 private이어도 된다").
+   - 막기(`callAllowed`): command가 `public`이어야 한다(README "command가 밖에 내놓은 것"). 요청한 쪽이 `agent`·`app`이면 대상 앱의 workspace `{kind:"app", id}`가 이 기계의 call 정책에서 private이 아니어야 한다(`isPrivate`. `CallGateDeps`에 정책 읽기를 더한다. main thread는 `ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY`로 읽고 `wiring/apps.ts` 617줄의 `isPrivate(app)`이 같은 읽기다. `callPolicyAt(root)`은 Worker용이라 쓰지 않는다). `screen`·`terminal`은 private을 보지 않는다(README "사람의 화면과 터미널은 private이어도 된다").
    - operation과 구독 handler는 지금 non-person 갈래대로 막힌다. 보관한 앱은 agent처럼 `not_found`다.
    - 막히면 `denied(gate_blocked)`이고 기록이 남는다.
 5. `record.ts`: caller JSON과 `caller_kind 'remote'`가 그대로 남는지 본다(session·turn은 null).
 6. test(`write-test` 기준, 표로):
-   - `call_test.ts`(`fix-setup`의 test가 있다)는 `use-send`의 file이다. 바꾼 `call.ts` 때문에 거기 test가 깨지면 고치지 말고 고칠 줄을 보고에 적는다. 새 test file은 `core-rest.yaml`에 적는다.
+   - `call_test.ts`(`multi-device-fixes`의 test가 있다)는 `use-send`의 file이다. 바꾼 `call.ts` 때문에 거기 test가 깨지면 고치지 말고 고칠 줄을 보고에 적는다. 새 test file은 `core-rest.yaml`에 적는다.
    - 새 `forwarded_test.ts`: 위험 test 둘과 "폰이 실은 `by`와 `by` 없는 컴퓨터의 call은 dispatch까지 가지 않는다"를 한 표로.
    - `calls_test.ts`: 위험 test 하나.
-   - `host_test.ts`의 "다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로 걸러져 …"(지금 1472줄)는 옛 설계("넘긴 call = 그 컴퓨터의 사람")를 지킨다. 지우고, 그 test가 보던 경계(`roster/*`·`machines/call`이 `forbidden`, 목록 밖이 handler에 닿지 않음)는 새 표 test에 남긴다.
+   - `host_test.ts`의 "다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로 걸러져 …"(지금 1547줄)는 옛 설계("넘긴 call = 그 컴퓨터의 사람")를 지킨다. 지우고, 그 test가 보던 경계(`roster/*`·`machines/call`이 `forbidden`, 목록 밖이 handler에 닿지 않음)는 새 표 test에 남긴다. 그 test가 쓰는 `linkedComputer(s, t)`(같은 file 1475줄. 진짜 `createLinks`를 가짜 전송으로 이은 두 core의 준비)를 새 표 test가 같이 쓸 수 있다. 그 helper의 `links.call({machine, resource, method, body})`는 `use-send`가 `by?`를 더해도 그대로 컴파일된다.
 7. flows(`flows` skill): `app-runtime.yaml`에 `apps/remote_call` flow(성공, `forbidden`(폰·로컬 자격·허락 없음·private·비공개 command), `not_found`, 앱이 꺼짐). `core-rest.yaml`·`core-apps.yaml`의 `covers`를 바꾼 test에 맞춘다.
 
 정한 것:
@@ -73,4 +74,4 @@
 
 ## 시작 전에 다시 볼 것
 
-- `fix-setup`이 `call.ts`에 더한 거절(vault·token 이름, `remote.*` 설정)과 그 test 이름, `carry-paths`가 `service.ts`·`host.ts`에 더한 것, `one-screen`의 `screen-terminals`가 기기 목록에 더한 route, `core-browser`의 `page_view/*`(기기 목록이라 `terminal`은 닿고 `agent`·`app`은 닿지 않는다), 그때 `createRemoteCall`의 줄 번호와 이슈 `remote-call-errors-drop-details`가 아직 열려 있는지. 컴퓨터가 부른 `roster/leave`의 거절(`fix-roster`, review-device-roster F12)이 main에 있는지(`terminal`이 열리면 실제 길이 된다. 없으면 lead에게 알린다).
+- 없음(이 brief를 쓴 날 code로 확인했다). 확인한 것: 컴퓨터가 `roster/leave`를 부르는 거절은 main에 있다(`wiring/remote.ts`의 `leave`: "a computer leaves the roster only when it is removed"). `multi-device-fixes`의 vault 이름·`remote.*` 설정 거절은 `call.ts`가 아니라 `secrets/routes.ts`·`config/routes.ts`·`providers/login.ts`의 handler에 있다(기기 principal이면 허락이 있어도 거절한다). 그러므로 `terminal` 요청이 사람 목록을 못 받아도 그 거절에 기대지 않는다. `page_view/*`·`terminals/*`·`app_sessions/*`·`app_calls/*`는 기기 목록(`allowlist.ts`)이라 `terminal`은 닿고 `agent`·`app`은 닿지 않는다(`REMOTE_AGENT_ROUTES` 밖). `app_sessions/*`·`app_calls/*`·`app_agents/list`는 기기가 자기가 연 view로만 부른다(`wiring/app-principal.ts`). `agent`·`app`은 `app_views/open`도 `REMOTE_AGENT_ROUTES` 밖이라 view를 열지 못한다.

@@ -1,5 +1,5 @@
 id: carry-paths
-version: 0.23.88
+version: 0.23.89
 title: 한쪽만 켜져 있어도 늦게라도 닿는다 - 앱 data와 release와 명단과 event가 컴퓨터 사이를 연결, 폰, 사람의 폴더로 간다
 modules: [packages/protocol, packages/protocol/folder, packages/core/folder, packages/core/remote, packages/core/apps, packages/core/events, packages/core/agent-workspaces, packages/core/main, packages/core/storage, packages/shell/renderer, packages/design, packages/sdk, packages/mobile, tools]
 change: |

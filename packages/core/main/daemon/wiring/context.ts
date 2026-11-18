@@ -349,7 +349,8 @@ type Late = {
   manifestSign: (body: ManifestBody) => string | null;
   // remote가 낸다. 명단 view에서 그 machine의 컴퓨터 항목이 하나뿐일 때 그 서명 key. 없거나 둘 이상이면 null이다.
   computerSigningKey: (machine: string) => string | null;
-  // remote가 낸다. 그 machine의 컴퓨터가 정해진 빼기로 빠졌고 그 이름의 컴퓨터가 지금 없다. 받는 자리가 하위 폴더를 지우는 때다.
+  // remote가 낸다. 그 machine의 컴퓨터가 정해진 빼기로 빠졌고, 그 이름의 컴퓨터도 정해지지 않은 빼기도 지금 없다. 받는 자리가
+  // 하위 폴더를 지우는 때다.
   computerRemoved: (machine: string) => boolean;
   // folder가 낸다. link·폰·거울이 가져온 file을 받는 `computers` 폴더의 자리.
   folderReplica: FolderReplica;

@@ -230,6 +230,39 @@ test("하위 폴더는 정해진 빼기로 빠진 컴퓨터의 것만 지운다"
   assert.equal(machineRemoved(view, c.machine), true);
   assert.equal(machineRemoved(view, b.machine), false);
   assert.equal(machineRemoved(view, d.machine), false, "빼기가 없다");
+
+  // C가 옛 key를 정해진 빼기로 잃은 뒤 같은 기계 이름의 새 key로 돌아왔고, 도둑 T와 새 key가 서로 뺐다(정해지지 않음).
+  const fresh = computer();
+  const thief = computer();
+  const removal = (target: Computer): RosterStatement["body"] => ({
+    type: "removal",
+    id: target.id,
+    key: target.key,
+    signing_key: remoteKeyText(target.signing.publicKey),
+    at: AT,
+  });
+  const disputed = rosterView(
+    [
+      ...statements,
+      signed(entry(fresh, c.machine), a),
+      signed(entry(thief), a),
+      signed(removal(fresh), thief),
+      signed(removal(thief), fresh),
+    ],
+    [self],
+    self,
+  );
+  assert.equal(
+    disputed.devices.some((each) => each.body.machine === c.machine),
+    false,
+    "새 key는 다툼으로 빠져 있다",
+  );
+  assert.ok(
+    disputed.removed.some(
+      (each) => !each.settled && each.entry?.machine === c.machine,
+    ),
+  );
+  assert.equal(machineRemoved(disputed, c.machine), false);
 });
 
 test("표시보다 revision이 크지 않은 manifest는 받지 않는다", () => {

@@ -250,15 +250,17 @@ export function machineSigningKey(
   return found.length === 1 ? found[0]!.body.signing_key : null;
 }
 
-/** 그 기계가 명단에서 정해진 빼기로 빠졌고 지금 그 기계 이름의 컴퓨터가 없다. 그때만 받는 쪽이 그 하위 폴더를 지운다. */
+/**
+ * 그 기계가 명단에서 정해진 빼기로 빠졌고, 지금 그 기계 이름의 컴퓨터가 없고, 그 이름의 정해지지 않은 빼기도 없다. 그때만
+ * 받는 쪽이 그 하위 폴더를 지운다. 옛 key를 정해진 빼기로 뺀 뒤 새 key로 돌아온 기계가 빼기 다툼에 걸려 있으면 지우지 않는다.
+ */
 export function machineRemoved(view: RosterView, machine: string): boolean {
+  const named = (each: {
+    entry: { kind: string; machine: string | null } | null;
+  }) => each.entry?.kind === "computer" && each.entry.machine === machine;
   return (
-    view.removed.some(
-      (each) =>
-        each.settled &&
-        each.entry?.kind === "computer" &&
-        each.entry.machine === machine,
-    ) &&
+    view.removed.some((each) => each.settled && named(each)) &&
+    !view.removed.some((each) => !each.settled && named(each)) &&
     !view.devices.some(
       (each) => each.body.kind === "computer" && each.body.machine === machine,
     )

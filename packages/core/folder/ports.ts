@@ -84,8 +84,10 @@ export type CarryReceived = Exclude<CarryPutStatus, "partial">;
  * - 명단 view가 바뀔 때마다 든 manifest를 지금 key로 다시 검증한다. 맞지 않게 된 기계(빼기가 정해지지 않음, 충돌, 같은
  *   기계 이름의 컴퓨터가 둘, key가 바뀜)에서는 새것을 받지 않되 든 file은 둔다. 하위 폴더는 `ctx.computerRemoved`가 참일
  *   때(정해진 빼기)만 통째로 지운다.
- * - file은 staging에 받고, rename 직전에 그때의 지금 manifest 사슬(`expectedFile`)과 크기·sha256을 다시 견준다. 사슬에서
- *   빠진 file(덮던 목록 file이 빠지거나 바뀐 것 포함)은 지운다.
+ * - file은 staging에 받고, rename 직전에 그때의 지금 manifest 사슬(`expectedFile`)과 크기·sha256을 다시 견준다. rename과
+ *   `wants`·`holds`에서 든 목록 file은 그것을 검증한 서명 key가 지금 `ctx.computerSigningKey(machine)`일 때만 센다.
+ * - 목록 file 아래의 file은 그 목록 file의 지금 판을 든 뒤에만, 그 판이 더는 싣지 않는 것만 지운다. 지금 판이 오기 전에는
+ *   앞 판이 싣던 file을 두고 읽기도 그것을 읽는다.
  */
 export type FolderReplica = {
   /**

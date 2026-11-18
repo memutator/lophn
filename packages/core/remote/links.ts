@@ -2,6 +2,7 @@
 // 컴퓨터의 host가 폰과 같이 맡는다: 이 컴퓨터는 거기서 `device:<이 컴퓨터 id>`인 기기다. 컴퓨터 둘은 서로에게 따로 link를 든다
 // (한쪽만 닿는 network에서도 닿는 쪽 link 하나로 명단이 오간다). link로 명단을 주고받고, 이 기계의 화면이 부른
 // `machines/call`·`machines/watch`를 넘긴다. 그 기계의 Gateway frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 싣는다.
+// link마다 화면의 조건에 `StateChanged`를 더해 걸어, 그 컴퓨터가 든 옮기는 file이 바뀐 것(`carry_files`)을 나르기(carry.ts)에 알린다.
 import { WebSocket } from "ws";
 import {
   type Clock,
@@ -109,7 +110,22 @@ export type LinksDeps = {
   wait(ms: number, fn: () => void): () => void;
   publish(event: BusEvent): void;
   logger: Logger;
+  // 그 컴퓨터와의 link가 붙었다(붙을 때마다).
+  onPeerReady(machine: Id<"mch">): void;
+  // 그 컴퓨터가 든 옮기는 file이 바뀌었다(그 컴퓨터의 `StateChanged{carry_files}`).
+  onPeerCarry(machine: Id<"mch">): void;
 };
+
+// 나르기가 link마다 화면의 조건에 더해 거는 조건. 화면이 원하지 않은 `StateChanged`는 bus에 싣지 않는다.
+const CARRY_CONDITION: EventCondition = { types: ["StateChanged"] };
+
+// 화면의 조건이 `StateChanged`(session 없는 event)에 맞는가.
+const screenWantsStateChanged = (conditions: EventCondition[] | undefined) =>
+  conditions?.some(
+    (each) =>
+      each.session === undefined &&
+      (each.types === undefined || each.types.includes("StateChanged")),
+  ) ?? false;
 
 type Link = {
   body: RosterEntryBody;
@@ -126,8 +142,12 @@ export type Links = ReturnType<typeof createLinks>;
 
 export function createLinks(deps: LinksDeps) {
   const links = new Map<string, Link>();
-  // 기계마다 하나인 watch 조건(기기 id로). link를 새로 열어도 다시 건다.
+  // 기계마다 하나인 화면의 watch 조건(기기 id로). link를 새로 열어도 다시 건다.
   const watching = new Map<string, EventCondition[]>();
+  const conditionsOf = (device: string) => [
+    ...(watching.get(device) ?? []),
+    CARRY_CONDITION,
+  ];
   // 기기 id → 마지막으로 붙었거나 끊긴 때. core가 사는 동안만 든다.
   const seen = new Map<string, string>();
   let key: KeyPair | undefined;
@@ -158,6 +178,9 @@ export function createLinks(deps: LinksDeps) {
     }
     link.shown = text;
     changed(link.body.id);
+    if (state.status === "connected" && was.status !== "connected") {
+      deps.onPeerReady(link.body.machine as Id<"mch">);
+    }
   }
 
   // 붙을 때 내미는 이 컴퓨터 key의 statement: 초대 서명 statement(아직 받아들여지지 않았을 때 그 컴퓨터가 확인한다) 먼저,
@@ -269,11 +292,24 @@ export function createLinks(deps: LinksDeps) {
       refused: false,
       shown: canonicalize({ status: "connecting", update: null, path: null }),
     };
-    const conditions = watching.get(body.id);
-    if (conditions !== undefined) void connection.watch(conditions);
+    void connection.watch(conditionsOf(body.id));
     connection.subscribe(() => report(link));
     connection.onEvent((message) => {
       const machine = body.machine as Id<"mch">;
+      if (message.kind === "event") {
+        const event = message.event as {
+          type?: unknown;
+          payload?: { changes?: { name: string }[] };
+        };
+        if (event.type === "StateChanged") {
+          if (
+            event.payload?.changes?.some((each) => each.name === "carry_files")
+          ) {
+            deps.onPeerCarry(machine);
+          }
+          if (!screenWantsStateChanged(watching.get(body.id))) return;
+        }
+      }
       deps.publish({
         type: "MachineFrameReceived",
         subject: `machine:${machine}`,
@@ -427,7 +463,7 @@ export function createLinks(deps: LinksDeps) {
       const body = computer(machine);
       if (body === undefined) return notFound(machine);
       watching.set(body.id, conditions);
-      void links.get(body.id)?.connection.watch(conditions);
+      void links.get(body.id)?.connection.watch(conditionsOf(body.id));
       return ok({});
     },
   };

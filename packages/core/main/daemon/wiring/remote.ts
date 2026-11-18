@@ -6,7 +6,8 @@
 // (`ctx.deviceKind`)를 그 view로 채운다. 명단을 고치는 `roster/*` route는 여기서 서명한 뒤 machine 자격 `roster/store`로 쓴다.
 // core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
 // remote가 켜진 동안 명단의 다른 컴퓨터마다 link(remote/links.ts)를 들고, 이 컴퓨터가 초대장으로 드는 `roster/join`과 이 기계의
-// 화면이 다른 기계를 부르는 `machines/*`를 그 link로 낸다.
+// 화면이 다른 기계를 부르는 `machines/*`를 그 link로 낸다. 같은 link로 상대가 든 옮기는 file을 받아 폴더의 받는 자리에 넘긴다
+// (remote/carry.ts. remote가 켜진 동안만 돈다).
 // remote key 둘(host key, 서명 key)에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key거나 하나만
 // 읽히면 명단을 버리고 둘 다 지운다. 명단에서 이 컴퓨터가 빠진 것을 알아도 같은 길로 버리고 새 key로 다시 선다.
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
@@ -87,6 +88,7 @@ import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
 import { readMachineId } from "../../../machine/mod.ts";
 import { PROJECTS_IDENTITY_STEPS } from "../../../projects/registry/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
+import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
 import {
   addSigningKey,
   createDeviceCredentials,
@@ -351,6 +353,7 @@ export function remoteWiring(
   let roster: Roster;
   // 명단의 다른 컴퓨터마다 하나인 link. remote가 켜진 동안만 붙는다.
   let links: Links;
+  let carry: CarryLinks;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -611,6 +614,7 @@ export function remoteWiring(
     if (!enabled) {
       // 끈 뒤에는 push도 멈춘다. bindPush의 기기 목록이 hostText로 갈린다. 다시 켜면 key를 풀어 다시 선다.
       hostText = undefined;
+      carry.stop();
       links.sync(undefined);
       return;
     }
@@ -712,6 +716,7 @@ export function remoteWiring(
     // 명단의 자기 주소를 지금 listener·relay로 맞춘다. 다른 컴퓨터와 폰이 명단으로 이 컴퓨터에 닿는다.
     const reached = await identify(ctx, ownReach(ctx));
     if (!reached.ok) logError(ctx, "roster_not_signed", reached.error.message);
+    carry.start();
     links.sync(keys.host);
   }
 
@@ -844,18 +849,34 @@ export function remoteWiring(
         machineRemoved(roster.view(), machine),
       );
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
+      const wait = (ms: number, fn: () => void) => {
+        const timer = setTimeout(fn, ms).unref();
+        return () => clearTimeout(timer);
+      };
+      carry = createCarryLinks({
+        call: (machine, resource, method, body) =>
+          links.call({ machine, resource, method, body }),
+        peers: () =>
+          links
+            .list()
+            .filter((each) => each.status === "connected")
+            .map((each) => each.machine),
+        replica: () => ctx.peek.folderReplica,
+        clock: ctx.clock,
+        wait,
+        logger: ctx.telemetry.logger,
+      });
       links = createLinks({
         roster,
         name: () => ctx.machine.status().name,
         dial,
         random: ctx.random,
         clock: ctx.clock,
-        wait(ms, fn) {
-          const timer = setTimeout(fn, ms).unref();
-          return () => clearTimeout(timer);
-        },
+        wait,
         publish: (event) => ctx.bus.publish(event),
         logger: ctx.telemetry.logger,
+        onPeerReady: (machine) => carry.ready(machine),
+        onPeerCarry: (machine) => carry.peerChanged(machine),
       });
       ctx.provide("phoneLink", {
         call: phoneLink.call,
@@ -1178,6 +1199,9 @@ export function remoteWiring(
             refreshPushDevices(ctx);
             resignSelf(ctx);
           }
+          if (changes.some((change) => change.name === "carry_files")) {
+            carry.changed();
+          }
         },
         close: () => undefined,
       });
@@ -1191,6 +1215,7 @@ export function remoteWiring(
       unsubscribe?.();
       sender?.close();
       await reconciling;
+      carry.stop();
       links.sync(undefined);
       host?.shutdown();
       await listener?.close();

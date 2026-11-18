@@ -1527,6 +1527,8 @@ test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 �
     },
     publish: () => undefined,
     logger: { error() {}, warn() {} } as never,
+    onPeerReady: () => undefined,
+    onPeerCarry: () => undefined,
   });
   links.sync(aKey);
   t.after(() => links.sync(undefined));

@@ -24,6 +24,7 @@ import {
 } from "@lophn/ui-native";
 import * as Clipboard from "expo-clipboard";
 import {
+  ArrowLeftRight,
   Bell,
   ChevronRight,
   Copy,
@@ -44,6 +45,9 @@ import {
   useAppearance,
 } from "../../app/appearance.tsx";
 import { stateOf } from "../../app/computer-state.ts";
+import { formatSize } from "../../../../shell/renderer/editor/model.ts";
+import { CARRY_LIMITS } from "../../apps/carry/carry.ts";
+import { useCarry } from "../../apps/carry/native.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { Gallery } from "../../gallery/gallery.tsx";
 import { type ComputerItem, useComputers } from "../../data/mod.ts";
@@ -105,6 +109,52 @@ const SIZE_LABEL = {
   default: "settings.label.size-default",
   large: "settings.label.size-large",
 } as const;
+
+const LIMIT_LABEL = [
+  "mobile.carry.limit.small",
+  "mobile.carry.limit.medium",
+  "mobile.carry.limit.large",
+  "mobile.carry.limit.any",
+] as const;
+
+// Files the phone carries between the computers, and the biggest it carries over mobile data (apps/carry).
+function Carrying() {
+  const carry = useCarry();
+  return (
+    <>
+      <Label>{t("mobile.carry.heading")}</Label>
+      <Group>
+        <Row
+          lead={<Lead icon={ArrowLeftRight} />}
+          title={t("mobile.carry.label.holding")}
+          end={
+            <Value>
+              {t("mobile.carry.value.holding", {
+                files: carry.files,
+                size: formatSize(carry.bytes),
+              })}
+            </Value>
+          }
+        />
+      </Group>
+      <Label>{t("mobile.carry.label.limit")}</Label>
+      <View style={{ paddingHorizontal: 20 }}>
+        <SegmentedControl
+          items={LIMIT_LABEL.map((key) => t(key))}
+          on={CARRY_LIMITS.indexOf(carry.limit as (typeof CARRY_LIMITS)[number])}
+          onChange={(at) => carry.setLimit(CARRY_LIMITS[at]!)}
+        />
+      </View>
+      <Text
+        variant="note"
+        tone="muted"
+        style={{ marginTop: 8, marginHorizontal: 20 }}
+      >
+        {t("mobile.carry.note")}
+      </Text>
+    </>
+  );
+}
 
 // The product version (the root package.json), put in by metro.config.js when the app is bundled.
 const VERSION = process.env.EXPO_PUBLIC_LOPHN_VERSION ?? "";
@@ -245,6 +295,7 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
         }}
         saveEmpty
       />
+      <Carrying />
       <Label>{t("mobile.settings.heading.about")}</Label>
       <Group>
         <Row

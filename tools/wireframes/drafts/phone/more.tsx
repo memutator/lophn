@@ -1,5 +1,6 @@
 // Flows 7 to 9. Jobs and agents, settings, and the same app on a wide screen.
 import {
+  ArrowLeftRight,
   Bell,
   Check,
   ChevronRight,
@@ -328,54 +329,77 @@ function Tile({ icon }: { icon: LucideIcon }) {
 
 const NEXT = <Ic icon={ChevronRight} size={16} />;
 
-function Settings({ over }: { over?: ReactNode }) {
+// `scrolled`: the screen scrolled past the computers, down to the end.
+function Settings({
+  over,
+  scrolled,
+}: {
+  over?: ReactNode;
+  scrolled?: boolean;
+}) {
   return (
     <Phone tone="floor" over={over}>
       <TopBar left="back" title="Settings" />
       <div className={s.body} style={{ gap: 0 }}>
-        <Label>Computers</Label>
-        <div className={s.group}>
-          <Row
-            lead={<Tile icon={Monitor} />}
-            title="mina-desktop"
-            sub={
-              <span
-                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-              >
-                <Dot tone="good" /> Connected
-              </span>
-            }
-            end={NEXT}
-          />
-          <div className={s.hair} />
-          <Row
-            lead={<Tile icon={Server} />}
-            title="mini-pc"
-            sub={
-              <span
-                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-              >
-                <Dot tone="good" /> Connected
-              </span>
-            }
-            end={NEXT}
-          />
-          <div className={s.hair} />
-          <Row
-            lead={<Tile icon={Laptop} />}
-            title="work-laptop"
-            sub={
-              <span
-                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-              >
-                <Dot tone="off" /> Offline
-              </span>
-            }
-            end={NEXT}
-          />
-          <div className={s.hair} />
-          <Row lead={<Tile icon={Plus} />} title="Pair another computer" />
-        </div>
+        {!scrolled && (
+          <>
+            <Label>Computers</Label>
+            <div className={s.group}>
+              <Row
+                lead={<Tile icon={Monitor} />}
+                title="mina-desktop"
+                sub={
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Dot tone="good" /> Connected
+                  </span>
+                }
+                end={NEXT}
+              />
+              <div className={s.hair} />
+              <Row
+                lead={<Tile icon={Server} />}
+                title="mini-pc"
+                sub={
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Dot tone="good" /> Connected
+                  </span>
+                }
+                end={NEXT}
+              />
+              <div className={s.hair} />
+              <Row
+                lead={<Tile icon={Laptop} />}
+                title="work-laptop"
+                sub={
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Dot tone="off" /> Offline
+                  </span>
+                }
+                end={NEXT}
+              />
+              <div className={s.hair} />
+              <Row lead={<Tile icon={Plus} />} title="Pair another computer" />
+            </div>
+          </>
+        )}
         <Label>This phone</Label>
         <div className={s.group}>
           <Row
@@ -414,6 +438,22 @@ function Settings({ over }: { over?: ReactNode }) {
         <p className={s.note} style={{ margin: "8px 20px 0" }}>
           Computers show this name for your phone. A name you gave the phone on
           a computer shows there instead.
+        </p>
+        <Label>Between your computers</Label>
+        <div className={s.group}>
+          <Row
+            lead={<Tile icon={ArrowLeftRight} />}
+            title="Carrying now"
+            end="38 files · 12.4 MB"
+          />
+        </div>
+        <Label>Over mobile data, carry files up to</Label>
+        <div className={s.pad}>
+          <Seg items={["256 KB", "1 MB", "8 MB", "Any size"]} on={1} />
+        </div>
+        <p className={s.note} style={{ margin: "8px 20px 0" }}>
+          While lophn is open here, your phone takes what one of your computers
+          made to the others it meets. Bigger files wait for Wi-Fi.
         </p>
         <Label>About</Label>
         <div className={s.group}>
@@ -910,6 +950,12 @@ export function SettingsFlow() {
         text="컴퓨터 목록이 맨 위다. 여기서 더 붙이고 뗀다."
       >
         <Settings />
+      </Shot>
+      <Shot
+        title="Between your computers"
+        text="Settings를 내린 곳. 폰이 지금 들고 다니는 file의 수와 크기, mobile data에서 나를 file 크기의 상한(256 KB, 1 MB, 8 MB, Any size. 기본 1 MB). 상한보다 큰 file은 Wi-Fi나 ethernet을 기다리고 manifest는 늘 나른다. 폰 앱이 열려 있는 동안만 나른다."
+      >
+        <Settings scrolled />
       </Shot>
       <Shot
         title="A computer"

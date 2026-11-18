@@ -11,6 +11,7 @@ import { leftSidebar } from "./catalog/left-sidebar.ts";
 import { machineUpdate } from "./catalog/machine-update.ts";
 import { mobileApp } from "./catalog/mobile-app.ts";
 import { mobileApps } from "./catalog/mobile-apps.ts";
+import { mobileCarry } from "./catalog/mobile-carry.ts";
 import { mobileCoding } from "./catalog/mobile-coding.ts";
 import { mobileDrive } from "./catalog/mobile-drive.ts";
 import { mobileHome } from "./catalog/mobile-home.ts";
@@ -44,6 +45,7 @@ export const en = {
   ...mobileKit,
   ...mobileApp,
   ...mobileApps,
+  ...mobileCarry,
   ...mobileCoding,
   ...mobileDrive,
   ...mobileHome,

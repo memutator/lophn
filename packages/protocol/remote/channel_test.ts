@@ -7,7 +7,11 @@ import {
   type RemoteServerChannel,
   type RemoteTransport,
 } from "./channel.ts";
-import { REMOTE_PROLOGUE, type RemoteClientFrame } from "./frames.ts";
+import {
+  REMOTE_PROLOGUE,
+  REMOTE_PROTOCOL_VERSION as V,
+  type RemoteClientFrame,
+} from "./frames.ts";
 import {
   generateKeyPair,
   initiatorHandshake,
@@ -336,7 +340,7 @@ test("record를 바꾸거나 빠뜨리거나 순서를 바꾸면 받는 쪽이 �
 test("client가 준 machine id와 core hello의 id가 다르면 client channel이 열리지 않고 hello 뒤로 아무 frame도 보내지 않는다", async () => {
   const w = wire();
   const core = scripted(w.core, "core", {
-    ...hello(2, 2),
+    ...hello(V, V),
     machine: { id: otherMachine, name: "studio" },
   });
   const phone = await connectRemote({
@@ -354,7 +358,7 @@ test("client가 준 machine id와 core hello의 id가 다르면 client channel�
   assert.equal(phone.error.message, "a different computer answered");
   assert.deepEqual(core, [
     {
-      ...hello(2, 2),
+      ...hello(V, V),
       capabilities: ["location.get"],
       name: "Pixel",
     },
@@ -376,8 +380,8 @@ test("판이 범위 밖이면 core는 자기 hello를 보낸 뒤 닫고, 양쪽 
   };
   // [상대 판, 하한, 올릴 쪽]
   const cases = [
-    [1, 1, "client"],
-    [3, 3, "host"],
+    [V - 1, V - 1, "client"],
+    [V + 1, V + 1, "host"],
   ] as const;
   for (const [version, min, update] of cases) {
     const w = wire();
@@ -397,13 +401,13 @@ test("판이 범위 밖이면 core는 자기 hello를 보낸 뒤 닫고, 양쪽 
       ok: false,
       error: { ...outOfRange, details: { update } },
     });
-    assert.deepEqual(client, [{ ...hello(2, 2), machine }]);
+    assert.deepEqual(client, [{ ...hello(V, V), machine }]);
     assert.equal(w.closed.core, true);
   }
   // client 쪽은 core의 판으로 올릴 쪽이 거꾸로다.
   for (const [version, min, update] of [
-    [1, 1, "host"],
-    [3, 3, "client"],
+    [V - 1, V - 1, "host"],
+    [V + 1, V + 1, "client"],
   ] as const) {
     const w = wire();
     const core = scripted(w.core, "core", {

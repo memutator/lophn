@@ -92,6 +92,111 @@ desktop 앱이 다른 기계의 core에 kind `desktop` 기기로 pairing해 그 
 - **읽음은 host에.** 다 본 session의 표시(`unseen/list|dismiss`)는 기기 route다. 보는 것이 읽음을 만들고 읽음은 그 기계에 있어 어느 기기에서 봐도 같이 꺼진다. 폰도 같이 받는다.
 - **두 기기가 한 session에 쓸 때.** 보내기는 그 화면이 아는 마지막 사람 메시지(`seen`)를 싣고, 그 뒤에 다른 사람 메시지가 있으면 core가 같은 transaction에서 거절한다(`acp.md`). 대화의 첫 snapshot을 받기 전에는 `seen`을 싣지 않아 이 검사를 하지 않는다. 꺼진 기계에 맡겨 두는 queue는 없다: 연결이 없으면 보내기는 `unavailable`이고 쓴 글은 입력칸에 남는다.
 
+### 내 기기 명단 (초안, 계획 device-roster)
+
+이 절은 계약 task가 쓴 초안이다. 계약(schema, 믿음 계산 함수, frame, route)은 protocol의 remote 폴더에 있고 core·client·화면은 뒤 task가 짓는다. 계획이 끝나면 위 "desktop에서 다른 기계 보기"의 연결·key·목록과 쌍마다의 pairing을 대신한다.
+
+#### 문제
+
+- 믿음이 쌍마다, 방향마다 따로다. 컴퓨터마다 기기 표가 있고 그 컴퓨터가 만든 `dev_`는 그 컴퓨터 안에서만 뜻이 있다. 폰 하나와 컴퓨터 셋이 서로 다 닿으려면 pairing이 아홉 번까지 든다.
+- 빼기가 그 표를 가진 컴퓨터 하나에만 걸린다. 잃은 폰을 컴퓨터마다 따로 빼야 한다.
+- 컴퓨터는 늘 같이 켜져 있지 않다(dual boot, 집과 직장). 살아 있는 연결로만 들이고 퍼뜨리면 같이 켜질 수 없는 두 컴퓨터는 영영 못 잇는다.
+- 본보기가 없다. 조사한 제품은 쌍마다 잇기, 계정, 가운데 기계, 공유 비밀 하나 가운데 하나다.
+
+#### 모델
+
+명단은 서명한 statement의 집합이다. 폰과 폴더처럼 믿지 않는 곳을 거쳐도 서명이 가린다.
+
+| statement | body | 서명하는 key |
+|---|---|---|
+| 항목 `{body, by, signature}` | `{type: entry, id, kind: computer\|phone, key, signing_key, machine, name, os, terminal_input, rev, invite}` | `by`(믿는 컴퓨터의 id)의 서명 key |
+| 빼기 `{body, by, signature}` | `{type: removal, id, key, at}` | 같다 |
+| 초대장 `{body, signature}` | `{type: invite, key, by, terminal_input, expires_at}` | 초대한 컴퓨터(`by`)의 서명 key. `key`는 한 번 쓸 Ed25519 key |
+| 초대 서명 statement `{body, invite, signature}` | 항목 body | 초대장의 `key`(새 기기가 초대장의 비밀로 스스로 서명) |
+
+- 기기를 가리키는 것은 `key`(Noise static key. 컴퓨터는 host key, 폰은 기기 key)다. `id`는 명단 전체에서 하나인 이름표이고 principal `device:<id>`도 이 값이다. 컴퓨터 항목만 `signing_key`(Ed25519)와 `machine`을 갖는다. 폰은 서명 key가 없어 누구도 들이지 못한다. `invite`는 그 기기가 들어온 초대 key다(컴퓨터의 자기 항목과 옮긴 항목은 null).
+- 서명하는 bytes는 `utf8("lophn-roster/1" + "\n" + canonical JSON(body))`다. body의 `type`이 달라 항목·빼기·초대장의 서명이 서로 바꿔 쓰이지 않는다.
+- 주소(reach `{device, addresses, port, relay}`)는 서명하지 않고 snapshot에 따로 싣는다. 틀린 주소는 Noise가 key로 막아 못 닿을 뿐이다.
+- 합치기는 합집합이다. canonical 글이 같은 statement는 하나이고 결과 배열은 canonical 글 순서다.
+
+**믿음 계산(view).** 입력은 statement 집합과 root(믿음이 시작하는 컴퓨터의 서명 key)다. 컴퓨터의 root는 자기 서명 key 하나, 폰의 root는 저장한 컴퓨터들의 서명 key다(초대장의 `issuer`에서, 그 뒤로는 명단에서 믿은 컴퓨터 항목에서 배운다).
+
+1. root는 statement 안의 자기 서명 항목(`by`가 그 항목의 id이고 `signing_key`가 root이며 그 key로 서명이 맞는 것)으로 믿는다.
+2. 믿는 컴퓨터가 서명한 statement(`by`의 id에 묶인 서명 key로 맞는 것)를 믿고, computer 항목이면 그 컴퓨터도 서명자가 된다. 더 늘지 않을 때까지 되풀이한다(T0).
+3. T0의 서명자가 서명한 빼기를 모두 모은다(K). 빼기는 서명자가 나중에 빠져도 남는다.
+4. K의 key를 뺀 채 1~2를 다시 한다. 빠진 key의 항목, 빠진 key가 서명한 statement, 빠진 root는 쓰지 않는다.
+5. key 하나에 항목이 여럿이면 rev가 큰 것, 같으면 body canonical 글이 작은 것이 이긴다. kind·signing_key·machine은 그 key에서 (rev, 글)이 가장 작은 항목과 같아야 하고 다르면 버린다.
+6. 같은 key에 id가 여럿이면(컴퓨터마다 따로 만든 `dev_`) 가장 작은 id로 접는다. 다른 key가 같은 id면 key가 작은 쪽만 남는다.
+
+- 초대 서명 statement는 믿음 계산에 들지 않는다. 닿은 컴퓨터가 확인하고 자기 key로 다시 서명한 항목이 퍼진다.
+- 결과는 `devices`(이긴 body와 그 body 그대로에 서명한 컴퓨터), `removed`(K), `folded`(접힌 id), `keep`이다. `keep`은 저장하고 보낼 것이다: K의 빼기, 남은 key마다 이긴 body의 statement, 서명자를 아직 모르는(빠지지 않은) statement, key를 아직 믿지 못하는(빠지지 않은) 초대 서명 statement. 빠진 것, 진 rev, 믿는 서명자의 이름을 단 위조는 버린다. 계산은 시각을 보지 않는다. 수명이 지난 초대 서명 statement는 저장하는 쪽이 자기 시계로 버린다.
+
+**컴퓨터가 명단을 고치는 순서.** core의 main thread 하나가 한다.
+
+```
+저장한 것 + 받은 것 ─merge─▶ view ─▶ 아직 이 컴퓨터가 서명하지 않은 devices의 body와 K의 빼기에 서명
+   ─▶ 서명을 더해 다시 view ─▶ keep·주소·folds를 저장(roster/store) ─▶ 붙은 연결마다 민다
+```
+
+- 컴퓨터는 믿는 것 모두에 같이 서명한다(co-sign). 그래서 저장한 명단에서는 모든 항목과 빼기가 자기 root에서 한 걸음이고, keep이 진 rev와 사슬 가운데 statement를 버려도 믿음이 남는다. 컴퓨터 둘이 이어지면 서로의 항목에 서명하므로 두 명단이 합쳐진다.
+- 접힌 id는 접힌 body(작은 id, 같은 rev)에 서명해 굳힌다. 같은 rev에서 body canonical 글은 id가 맨 앞이라 작은 id의 body가 이긴다. 접은 컴퓨터는 같은 write에서 큰 id를 쓰던 곳(앱 sync log의 기기, `shell.devices[].device`)을 고친다.
+
+**들이기.**
+
+- 든 컴퓨터가 초대장을 낸다(`roster/invite {terminal_input, lifetime}`): 한 번 쓸 Ed25519 key를 만들어 초대장 body에 서명하고, 초대장, 그 비밀, 자기 서명 항목(`issuer`), 자기 주소를 글 하나(QR, CLI)로 보인다. 수명은 고른다: 기본 30분, 새 기기가 이 컴퓨터와 같은 때 켜질 수 없으면 7일.
+- 새 기기는 자기 항목을 초대장의 비밀로 서명한다. 새 기기면 새 id, 이미 명단에 있는 폰이 다른 컴퓨터에 처음 붙으면 그 id다.
+- 붙는 쪽의 첫 frame은 늘 `join {statements}`다. core는 그 key가 믿는 명단에 있으면 붙이고, 없으면 내민 statement를 본다: 믿는 컴퓨터가 서명한 그 key의 항목이면 같이 서명해 붙이고, 초대 서명 statement면 아래 확인을 하고 맞으면 자기 key로 서명해 붙인다. 빠진 key면 거절하고 그 빼기를 `details.removal`에 싣는다. 답은 `{device, roster}`다. 붙기 전 연결의 frame은 16 KiB, statement는 8개까지다.
+- 초대 서명 statement의 확인은 statement가 검증하는 컴퓨터에 닿을 때 한 번이다(`join`으로 왔든 명단에 실려 왔든 같다).
+  - 초대장 서명자를 믿지 않음(아직 모름 포함), 초대장 서명이 틀림, 항목이 초대 key로 서명되지 않음, 항목의 `invite`가 초대 key와 다름, `terminal_input`이 초대장과 다름 → `unauthorized`, reason `untrusted`. statement는 keep에 남아 서명자를 믿게 되면 다시 본다.
+  - 빠진 key → `unauthorized`, reason `removed`. 수명보다 먼저 본다: 돌아온 기기가 "새 초대장"이 아니라 "key를 버려라"를 알게 한다.
+  - 검증하는 컴퓨터의 지금이 `expires_at` 뒤 → `unauthorized`, reason `expired`. 수명 검사는 이것 하나다.
+  - 같은 초대로 다른 key가 이미 들었음(믿는 항목의 `invite`로 안다) → `conflict`, reason `used`. 같은 key가 다시 내면 받는다(다시 붙는 것이다).
+- 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다(`roster/join {text}`): `issuer` 자기 서명과 초대장 서명을 보고 issuer 항목에 서명한다(사람이 글을 넣은 것이 믿음의 근거다). 초대한 컴퓨터에 닿으면 `join`하고, 못 닿으면 초대 서명 statement를 들고 `pending: true`로 끝난다. 자기가 낸 초대장이면 `conflict`(`this_computer`)다.
+
+**나르기.**
+
+- 붙은 뒤 붙는 쪽은 `roster {roster}`로 든 명단 전부를 보내고(`join` 뒤와 든 명단이 바뀔 때) core는 자기 명단을 답한다. core는 명단이 바뀔 때마다 붙은 연결에 `roster`를 민다. 폰은 받은 것(아직 믿지 못하는 statement와 초대 서명 statement 포함)을 다음에 붙는 컴퓨터에 넘기는 운반자다. 컴퓨터끼리는 core가 명단의 다른 컴퓨터마다 연결 하나를 유지하며 같은 frame을 주고받는다.
+- dual boot(A와 B가 같이 켜지지 않는다): A에서 긴 초대장 → B에서 `roster/join`(A에 못 닿아 pending. B는 A의 항목에 서명했다) → 사람이 B의 초대장으로 폰을 B에도 들인다(폰은 A의 명단에만 있어 B를 모르고 B는 폰을 모른다. 이 한 번이 없으면 폰이 B에 붙을 길이 없다. 폰의 id는 그대로다) → 폰이 B의 statement(B의 초대 서명 statement 포함)를 A에 나르면 A가 7일 안에 확인해 B에 서명하고, 폰이 A의 명단을 B에 나른다.
+
+**빠진 기기가 돌아오기.** 자기 key가 `removed`에 있는 것을 자기 root로 확인한 기기는 든 명단과 자기 key를 버린다. 컴퓨터는 복사된 data root와 같은 길이고(`roster/forget_all`, host key와 서명 key를 지우고 다음 reconcile에 새로 만든다), 폰은 다음 pairing 때 새 기기 key를 만든다. 그 뒤 초대장으로 새 기기(새 id, 새 key)로 든다. 뺀 key 자체는 다시 들지 못한다.
+
+**이름과 허락.** 이름은 항목에 하나이고 어느 컴퓨터에서나 바꾼다(`roster/rename`이 서명한 새 rev). 기기마다 붙이는 별명은 없다. 컴퓨터 자기 이름은 `machine/rename`을 따라 그 컴퓨터가 자기 항목을 다시 서명한다. 터미널 입력 허락(`roster/set_terminal_input`)도 항목의 칸이라 모든 기계에 같다. 부를 수 있는 route 목록은 지금처럼 하나다. 폰은 `roster/leave`로 자기만 뺀다.
+
+**컴퓨터끼리의 연결과 `machines/*`.** 이 기계의 화면은 다른 기계를 core의 route로만 부른다. `machines/call {machine, resource, method, body}`는 core가 그 기계와의 연결로 `call` frame을 넘기고 답과 오류(code, message, details)를 그대로 돌려준다. 연결이 없으면 `unavailable`, 명단에 없는 기계면 `not_found`다. `machines/watch {machine, conditions}`는 그 기계의 Gateway 조건을 통째로 바꾸고, 그 기계의 frame(ready, event, closed)은 이 컴퓨터의 bus에 `MachineFrameReceived`(subject `machine:<mch_>`)로 실린다. 이 event는 기기 event 목록에 없다. `machines/list`는 연결 상태(connecting, connected, offline, update)와 길이다.
+
+#### 지키는 것
+
+1. 명단은 statement 집합의 함수다. 받은 순서, 받은 길, 받은 때와 무관하다.
+2. 빼기가 이긴다. 빼기는 빼기를 모르는 채 넓힌 믿음(T0)으로 모으고 key를 통째로 뺀다. 늦게 온 더 새 rev, 같은 key의 새 id, 같은 key의 초대 서명 statement가 되살리지 못한다.
+3. 뺀 key는 항목으로도, 서명자로도, root로도 돌아오지 않는다. 돌아오려면 새 key다.
+4. 뺀 컴퓨터만 서명한 statement는 쓰지 않는다. 그 컴퓨터가 빠지기 전에 다른 믿는 컴퓨터가 같이 서명한 것만 남는다.
+5. 초대장은 statement가 검증하는 컴퓨터에 닿을 때 수명을 보고, 같은 초대로는 key 하나만 든다.
+6. 폰은 누구도 들이지 못하고, 폰이나 폴더가 나른 것은 서명으로만 믿는다.
+7. root는 서명 key다. host key(X25519)는 서명하지 못하므로 host key를 아는 것만으로는 root가 되지 못한다.
+8. 다른 기계로 넘긴 call은 받는 기계가 `device:<부른 컴퓨터의 id>`의 지금 route 목록으로 거른다. 넘기는 쪽은 범위를 넓히지 못한다.
+9. 복사된 data root는 명단을 이어받지 않는다. 서명 key는 host key와 같은 기계 표지를 갖고 같이 지워진다(`machine.md`).
+
+#### review가 볼 것
+
+- **합치는 순서.** 합치기는 canonical 글로 줄 세운 합집합이고 view는 입력을 먼저 그렇게 정리하므로 같은 집합이면 같은 결과다. 서로 믿고 어느 쪽도 빠지지 않은 두 컴퓨터는 T0와 K가 같아 같은 devices를 본다. co-sign 때문에 기계마다 저장한 집합은 다르지만, 같은 statement를 다 만나면 같은 view로 모인다. keep만으로 다시 계산한 view는 devices와 removed가 같고 folded만 비어 있다(접힌 body에 서명한 뒤).
+- **초대장이 새거나 다시 쓰일 때.** 초대장 글을 가진 누구나 수명 안에 아무 key로나 든다. "한 번"은 그 초대의 첫 사용(항목의 `invite`)을 아는 컴퓨터에서만 지켜진다: 아직 모르는 다른 컴퓨터는 수명 안에 둘째 key를 받을 수 있고 두 기기가 다 명단에 남는다(view는 어느 쪽이 맞는지 모른다). 그래서 기본 수명이 30분이고, 7일은 사람이 고를 때만이다. 초대 서명 statement를 다시 내는 것(replay)은 그 statement의 key만 들이고 그 key의 Noise 비밀이 없으면 붙지 못한다. 초대장은 kind를 정하지 않아 새 초대장으로 컴퓨터(서명자)도 든다.
+- **빼기와 들이기가 엇갈릴 때.** 빼기를 모르는 컴퓨터가 뺀 기기의 새 rev나 그 key의 초대 서명 statement를 받아 서명해도 빼기와 만나는 순간 진다(지키는 것 2). 뺀(또는 훔친) 컴퓨터가 빼기 소식이 닿기 전에 들인 기기는, 그 사이 다른 컴퓨터가 같이 서명했으면 남는다. 사람이 목록에서 따로 뺀다. 훔친 컴퓨터는 빠지기 전에 다른 기기를 모두 빼는 빼기에 서명할 수 있고 그 빼기는 서명자가 빠져도 남는다(규칙 3). 그러면 빠진 기기는 key를 버리고 다시 초대받아야 한다. 받아들인 대가다: 빼기를 서명자의 상태에 묶으면 먼저 서로 뺀 두 컴퓨터가 둘 다 남는다.
+- **복사된 data root.** 알아챈 복제는 새 기계 id를 받고 host key 표지가 어긋나 `roster/forget_all`이 명단, 자기 항목과 id, host key, 서명 key를 버린다. 복사본은 새 key와 새 id로 처음부터 초대받는다. 원래 기계의 key는 그대로다. 복사본이 옛 id를 새 key로 다시 쓰면 규칙 6이 한쪽을 가리므로 id도 버려야 한다. 알아채지 못한 복제(`machine.md`의 열린 것)는 같은 host key, 서명 key, id를 가진 두 설치라 명단도 하나로 본다(빼면 둘 다 빠진다). 폰의 기기 key는 그 기기에만 있는 보안 저장소라 복사되지 않는다.
+
+#### 결정과 버린 안
+
+- 명단은 서명한 statement의 집합이고 믿음은 root에서 서명을 따라간다. 버린 안: 계정(lophn 서버가 기기 목록을 쥔다), 가운데 기계(없는 사람은 못 쓴다), 공유 비밀 하나(기기 하나만 뺄 수 없다), 지금의 쌍마다 pairing. (roadmap `multi-device`)
+- 초대장 수명은 닿을 때 한 번 보고 view는 시각을 보지 않는다. 이유: 시각이 들면 같은 집합이 때에 따라 다른 명단이 된다. (agent)
+- root는 host key가 아니라 서명 key다. 이유: host key로 잡으면 누구나 "그 host key, 내 서명 key"인 항목을 스스로 서명해 root 행세를 한다. (agent)
+- 같은 key의 여러 id는 가장 작은 id로 접는다. 이유: 같은 폰을 컴퓨터 둘에 pairing해 둔 사람은 옮긴 뒤 같은 key에 `dev_`가 둘이고, 순서와 무관한 규칙이 가장 작은 값이다. (agent)
+- 빼기는 서명자가 나중에 빠져도 남는다. 버린 안: 빠진 서명자의 빼기를 버리기(먼저 서로 뺀 도둑과 사람의 컴퓨터가 둘 다 남는다). (agent)
+
+#### 열린 것
+
+- 수명 안에 샌 초대장이 첫 사용을 모르는 컴퓨터에서 둘째 기기를 들인다. 초대장에 kind가 없어 그 기기가 컴퓨터면 서명자가 된다.
+- 규칙 5가 버린 항목도 계산하는 동안은 서명 key를 준다. 그런 항목은 믿는 컴퓨터만 만들 수 있어 넓어지는 권한은 없다.
+- 폰은 서명하지 못해 keep이 사슬 가운데 statement를 버리면 컴퓨터가 같이 서명한 새 명단을 받을 때까지 그 기기를 잠깐 잃을 수 있다. 접힌 id도 컴퓨터가 접힌 body에 서명할 때까지 폰에서는 굳지 않는다.
+
 ## 지키는 것
 
 1. 폰과 다른 기계의 창이 부르는 route는 모두 기기 route 목록 안이다. 화면이 목록 밖 route를 부르는 단추를 보이지 않는다(skip 바꾸기, session 지우기, 설정·secret 화면, job 만들기·고치기·거절).

@@ -9,11 +9,21 @@ import {
   phoneRequestFrameSchema,
   phoneResponseFrameSchema,
 } from "../phone/link.ts";
+import {
+  deviceNameSchema,
+  keyTextSchema,
+  remoteAddressesSchema,
+  rosterSnapshotSchema,
+  rosterStatementSchema,
+  ROSTER_JOIN_STATEMENTS_MAX,
+} from "./roster.ts";
+
+export { deviceNameSchema, keyTextSchema, remoteAddressesSchema };
 
 // handshake 뒤 client가 먼저, core가 그 뒤에 `hello`를 보낸다. 서로의 판 범위가 겹치지 않으면 양쪽 다 `conflict`로 닫는다.
 // Noise prologue는 판과 다른 것이라 판을 올려도 그대로다.
-export const REMOTE_PROTOCOL_VERSION = 2;
-export const REMOTE_PROTOCOL_MIN_VERSION = 2;
+export const REMOTE_PROTOCOL_VERSION = 3;
+export const REMOTE_PROTOCOL_MIN_VERSION = 3;
 export const REMOTE_PROLOGUE = "lophn-remote/1";
 
 // hello는 모르는 칸을 버린다(z.object). 다음 판이 칸을 더해도 이 판과 붙는다.
@@ -23,11 +33,6 @@ const helloFields = {
   min_version: z.number().int().min(1),
   capabilities: z.array(z.string().min(1).max(64)).max(64),
 };
-
-// 붙는 쪽이 `ws://<address>:<port>/remote`로 거는 주소 후보(IP나 domain, port 없이). QR과 core hello가 싣는다.
-export const remoteAddressesSchema = z
-  .array(z.string().min(1).max(253))
-  .max(16);
 
 // core → client. 자격(pair code, call)을 보내기 전에 붙는 쪽이 어느 기계인지 안다. `addresses`는 그 기계의 지금 주소 후보다.
 // pairing 뒤에 주소가 바뀌어도(새 network, Tailscale) 붙는 쪽이 저장한 목록을 고친다. 이 칸 전의 core는 싣지 않는다.
@@ -40,19 +45,10 @@ const serverHelloSchema = z.object({
   }),
 });
 
-// client → core. 폰은 자기 이름을, desktop은 자기 기계 이름을 알린다. core는 붙을 때마다 기기 표의 알린 이름으로 적는다.
-const clientHelloSchema = z.object({
-  ...helloFields,
-  name: z.string().trim().min(1).max(64),
-});
-
 const frameIdSchema = z.string().min(1).max(64);
 
 // 폰은 `ws://<address>:<port>/remote`로 붙는다.
 export const REMOTE_PATH = "/remote";
-
-// 공개 key의 글자 꼴(base64url, 32 bytes). `remoteKeyText`가 만든다.
-export const keyTextSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
 // QR에 싣는 것. 폰은 addresses의 `ws://<address>:<port>/remote`와 relay(있으면)를 같이 걸어 먼저 된 것을 쓰고,
 // key로 core를 확인하고, code로 pairing한다.
@@ -74,11 +70,19 @@ export const remoteDeviceSchema = z.strictObject({
   dpr: z.number().min(1).max(4),
 });
 
+// 폰의 화면. 폰이 연결마다 hello에 싣고, core는 이 컴퓨터에 처음 붙는 폰의 `shell.devices` 항목을 이것으로 만든다.
+export const remotePhoneSchema = remoteDeviceSchema.omit({ name: true });
+export type RemotePhone = z.infer<typeof remotePhoneSchema>;
+
+// client → core. 폰은 자기 이름을, desktop은 자기 기계 이름을 알린다. core는 붙을 때마다 기기 표의 알린 이름으로 적는다.
+const clientHelloSchema = z.object({
+  ...helloFields,
+  name: z.string().trim().min(1).max(64),
+  phone: remotePhoneSchema.optional(),
+});
+
 // 기기 kind. 기준 기기, `shell.devices`, push는 phone만의 것이다. desktop은 다른 기계의 lophn이 기기로 붙은 것이다.
 export const deviceKindSchema = z.enum(["phone", "desktop"]);
-
-// 기기가 알리는 자기 이름. desktop은 기계 이름(1..64)을 알린다.
-export const deviceNameSchema = z.string().min(1).max(64);
 
 // pairing 때 기기가 자기를 알리는 칸. kind로 갈린다. desktop에는 화면 칸이 없다. 이름은 그 연결의 client hello `name`이다.
 export const phonePairingSchema = remoteDeviceSchema
@@ -102,6 +106,28 @@ const pairFrameSchema = z.discriminatedUnion("kind", [
   phonePairingSchema.extend(pairFields),
   desktopPairingSchema.extend(pairFields),
 ]);
+
+// 붙는 쪽의 첫 frame. statements는 붙는 쪽 key에 대한 항목이다(컴퓨터가 서명한 것과, 처음 들어올 때는 초대 서명
+// statement). 답은 같은 id의 `result`이고 value는 `rosterJoinedSchema`다.
+const joinFrameSchema = z.strictObject({
+  type: z.literal("join"),
+  id: frameIdSchema,
+  statements: z.array(rosterStatementSchema).max(ROSTER_JOIN_STATEMENTS_MAX),
+});
+
+// 붙은 뒤 붙는 쪽이 든 명단 전부를 보낸다(`join` 뒤와 든 명단이 바뀔 때). 답은 같은 id의 `result`이고 value는
+// core의 rosterSnapshot이다. 그래서 폰이 한 컴퓨터의 statement를 다음에 붙는 컴퓨터에 나른다.
+const rosterClientFrameSchema = z.strictObject({
+  type: z.literal("roster"),
+  id: frameIdSchema,
+  roster: rosterSnapshotSchema,
+});
+
+// core의 명단이 바뀌면 붙은 연결마다 민다.
+const rosterServerFrameSchema = z.strictObject({
+  type: z.literal("roster"),
+  roster: rosterSnapshotSchema,
+});
 
 // route 하나를 부른다. body는 HTTP API의 요청 body와 같다(command면 `{input, idempotency_key, …}` envelope). core의 route dispatch가 검사한다.
 const callFrameSchema = z.strictObject({
@@ -131,6 +157,8 @@ const resultFrameSchema = z.discriminatedUnion("ok", [
 export const remoteClientFrameSchema = z.union([
   clientHelloSchema,
   pairFrameSchema,
+  joinFrameSchema,
+  rosterClientFrameSchema,
   callFrameSchema,
   phoneResponseFrameSchema,
   gatewayClientFrameSchema,
@@ -141,6 +169,7 @@ export type RemoteClientFrame = z.infer<typeof remoteClientFrameSchema>;
 export const remoteServerFrameSchema = z.union([
   serverHelloSchema,
   resultFrameSchema,
+  rosterServerFrameSchema,
   phoneRequestFrameSchema,
   gatewayServerFrameSchema,
 ]);

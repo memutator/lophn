@@ -13,6 +13,7 @@ import {
   REMOTE_PROTOCOL_VERSION,
   type RemoteClientFrame,
   type RemoteClientHello,
+  type RemotePhone,
   type RemoteServerFrame,
   type RemoteServerHello,
   remoteClientFrameSchema,
@@ -47,8 +48,8 @@ export type RemotePeer = PeerBase & {
   machine: { id: Id<"mch">; name: string; addresses?: string[] };
 };
 
-// core가 안 기기. publicKey가 기기 신원이고 누구인지는 부르는 쪽이 정한다. name은 기기가 알린 자기 이름이다.
-export type RemoteDevicePeer = PeerBase & { name: string };
+// core가 안 기기. publicKey가 기기 신원이고 누구인지는 부르는 쪽이 정한다. name은 기기가 알린 자기 이름이고 phone은 폰이 알린 화면이다.
+export type RemoteDevicePeer = PeerBase & { name: string; phone?: RemotePhone };
 
 // frame 하나는 JSON 하나다. 받는 쪽은 onFrame을 걸 때까지 frame을 모아 둔다.
 // 바뀌거나 빠지거나 순서가 바뀐 record, schema 밖 frame을 받으면 연결을 끊는다.
@@ -118,11 +119,12 @@ function versionConflict(client: Range, host: Range): LophnError | undefined {
 
 // 붙는 쪽(폰, desktop). remoteStatic은 QR로 받은 core의 공개 key이고, 다른 key의 core와는 handshake가 서지 않는다.
 // machine은 pairing 때 저장한 core의 기계 id다. core hello의 id가 다르면(같은 key를 가진 복제된 기계) channel을 내지 않는다.
-// channel이 나기 전에는 hello 말고 어떤 frame도 보낼 길이 없어 자격(pair code, call)이 다른 기계에 가지 않는다.
+// channel이 나기 전에는 hello 말고 어떤 frame도 보낼 길이 없어 자격(pair code, join, call)이 다른 기계에 가지 않는다.
 export function connectRemote(
   options: Options & {
     remoteStatic: Uint8Array;
     name: string;
+    phone?: RemotePhone;
     machine?: Id<"mch">;
   },
 ): Promise<Result<RemoteClientChannel>> {
@@ -136,6 +138,7 @@ export function connectRemote(
       ...ownRange,
       capabilities: options.capabilities,
       name: options.name,
+      ...(options.phone === undefined ? {} : { phone: options.phone }),
     },
     meet(publicKey, frame) {
       const theirs = frame as RemoteServerHello;
@@ -201,6 +204,7 @@ export function acceptRemote(
         minVersion: theirs.min_version,
         capabilities: theirs.capabilities,
         name: theirs.name,
+        ...(theirs.phone === undefined ? {} : { phone: theirs.phone }),
       });
     },
   });

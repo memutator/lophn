@@ -206,6 +206,24 @@ const terminalScreenChanged = defineTransientEvent("TerminalScreenChanged", {
   }),
 });
 
+// `machines/watch`로 건 다른 기계의 Gateway frame 하나를 이 컴퓨터의 bus에 싣는다. subject는 `machine:<mch_>`다.
+// `event`를 bus event schema로 적지 않는 것은 이 file → gateway → bus → 이 file의 순환 때문이다. 받는 쪽(shell main)이
+// bus event schema로 읽는다. 기기 event 목록(REMOTE_ALLOWED_EVENTS)에 넣지 않는다: 다른 기계의 내용이 폰에 그대로 가지 않게 한다.
+const machineFrameReceived = defineTransientEvent("MachineFrameReceived", {
+  subject: z.string().regex(/^machine:mch_.+$/),
+  payload: z.strictObject({
+    machine: idSchema("mch"),
+    frame: z.discriminatedUnion("type", [
+      z.strictObject({ type: z.literal("ready") }),
+      z.strictObject({ type: z.literal("event"), event: jsonValueSchema }),
+      z.strictObject({
+        type: z.literal("closed"),
+        reason: z.enum(["slow_consumer", "credential_revoked", "shutdown"]),
+      }),
+    ]),
+  }),
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -226,4 +244,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appViewEvent),
   transientEventEnvelopeSchema(stateChanged),
   transientEventEnvelopeSchema(terminalScreenChanged),
+  transientEventEnvelopeSchema(machineFrameReceived),
 ]);

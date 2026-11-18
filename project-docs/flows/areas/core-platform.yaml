@@ -2271,4 +2271,17 @@ flows:
     risk: [permission]
 
 links: []
-ignore: []
+ignore:
+  - {entry: "route:roster/list", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/invite", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/join", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/remove", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/set_terminal_input", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/rename", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/leave", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/statements", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/store", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/forget_all", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:machines/list", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}
+  - {entry: "route:machines/call", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}
+  - {entry: "route:machines/watch", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}

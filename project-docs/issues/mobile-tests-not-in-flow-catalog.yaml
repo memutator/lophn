@@ -1,0 +1,13 @@
+id: mobile-tests-not-in-flow-catalog
+title: 폰 앱의 test는 `*.test.ts`라 flow catalog에 오르지 못해 폰의 나르기와 sync 규칙이 outcome에 연결되지 않는다
+kind: defect
+status: open
+topic: code-health
+modules: [tools, packages/mobile]
+now: |
+  `tools/flows.ts`는 test file을 `_test.ts`로 끝나는 것으로만 센다(`isTest`). `packages/mobile` 아래 test는 `node --test`가 도는 `*.test.ts`(예: `src/apps/carry/carry.test.ts`, `src/apps/local/local.test.ts`)라 `tests/*.yaml`에 오르지 못하고 `report`의 coverage에도 없다. 폰의 나르기(`system:carry-phone`)와 폰 sync 규칙의 위험 outcome은 test가 있어도 덮인 것으로 세지지 않는다. 폰 앱은 `npm run check` 밖이라 이 test는 `cd packages/mobile && npm test`로만 돈다.
+impact: |
+  폰의 data 규칙(지우는 때, outbox, 나르기 상한)이 깨져도 flow coverage가 그 outcome을 덮는다고 말하지 않는다. 새 규칙을 고르는 개발자(agent)가 위험 test가 이미 있는지 catalog에서 찾지 못해 같은 test를 다시 쓰거나 없다고 믿는다.
+fix: |
+  - 작음(추천): `tools/flows.ts`가 `packages/mobile`의 `*.test.ts`도 test로 받고 `areas.yaml`의 test group(`libs-tooling` 하위나 새 `mobile` group)에 올린다. 폰 test가 `npm run check`에서 돌지 않으므로 catalog만 잇고 check에는 넣지 않는다.
+  - 중간: 폰 test를 `*_test.ts`로 이름을 바꾸고 mobile의 test 명령도 맞춘다. file 이름을 바꾸는 diff가 크다.

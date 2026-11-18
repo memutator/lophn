@@ -97,7 +97,7 @@
   - 합치는 것은 받는 컴퓨터가 지금 규칙(덮지 않고 합친다)으로 한다. 폰에 화면이 없는 앱의 data도 내용을 모르고 나르고, 전하고 나면 지운다.
   - 한계: 폰 앱이 뒤로 가면 연결이 끊기므로 사람이 앱을 열 때 움직인다.
 - 한 묶음이 두 길로 같이 가도 된다(폰과 폴더). 받는 쪽이 같은 묶음을 한 번만 적용한다.
-- 폴더 길은 이미 되지만 설정 화면이 없고 실제 도구(Google Drive, Syncthing)로 돌려 본 적이 없다. `carry-paths`가 한다.
+- 폴더 길과 설정 화면(Settings › Sync)은 `carry-paths`가 했다. 실제 도구(Google Drive, Syncthing)로는 아직 돌려 본 적이 없다.
 - 여러 기기가 같은 session이나 터미널을 같이 다룰 때의 충돌(같은 때 보내기, 같은 승인에 두 기기가 답하기, 터미널 크기와 입력)은 remote의 일이고 이슈로 고친다(`project-docs/issues/`의 topic `remote`).
 
 ## 해도 되나
@@ -142,10 +142,10 @@
 | 3 | `core-terminals`(끝남), `core-setup`(끝남), `core-browser`(끝남, `shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
 | 고침 | `multi-device-fixes`(끝남) | 순서 1~3의 review에서 확인한 구멍: 권한 경계, 명단의 서명 규칙, data를 옮기는 길, 설치본 | 1, 2, 3 |
 | 4 | `one-screen` | 지금 있는 화면에서 다른 기계의 대화, coding agent, 터미널, 앱 화면, browser를 본다 | 고침, `core-browser`(page만) |
-| 5 | `carry-paths` | 맡겨 두는 길: 폰이 나른다, 컴퓨터끼리 연결로 맞춘다, 같이 보는 폴더, 들어온 변경을 앱에 알린다, 폴더 길의 설정 화면 | 고침 |
+| 5 | `carry-paths`(끝남) | 맡겨 두는 길: 폰이 나른다, 컴퓨터끼리 연결로 맞춘다, 같이 보는 폴더, 들어온 변경을 앱에 알린다, 폴더 길의 설정 화면 | 고침 |
 | 6 | `remote-use` | agent와 앱이 다른 기계의 앱을 쓰고 그 event를 받는다. 사람의 터미널이 다른 기계에 명령을 보낸다. private을 넓힌다 | 4, 5 |
 
-고침은 끝났다(남은 명단의 한계는 change-log `multi-device-fixes`의 이슈). 4와 5는 같이 돈다. 6은 4와 5가 올라간 뒤에 시작한다(같은 연결과 route 목록 file을 고치고, 구독의 바닥이 4에 있다). review와 다시 한 조사는 `reports/multi-device/review-*.md`, `survey-n1`~`n3`에 있다.
+고침은 끝났다(남은 명단의 한계는 change-log `multi-device-fixes`의 이슈). 5도 끝났다(change-log `carry-paths`). 4와 5는 같이 돌았다. 6은 4와 5가 올라간 뒤에 시작한다(같은 연결과 route 목록 file을 고치고, 구독의 바닥이 4에 있다). review와 다시 한 조사는 `reports/multi-device/review-*.md`, `survey-n1`~`n3`에 있다.
 
 ## 순서 1: 가리키는 법
 

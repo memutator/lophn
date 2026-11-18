@@ -1,7 +1,7 @@
 id: phone-write-events-not-delivered
 title: 폰에서 한 write가 컴퓨터의 앱 event를 내지 못해 그 event를 듣는 앱과 열린 화면이 폰의 변경을 알지 못한다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/core/apps, packages/mobile]
 now: |
@@ -11,5 +11,8 @@ impact: |
 fix: |
   - 중간(추천): 컴퓨터가 폰의 변경을 적용한 뒤 그 앱의 선언한 event 하나(예: 선언의 `events`에 `synced`)를 core가 대신 내게 한다. 어떤 event를 어떤 payload로 낼지는 앱 선언이 정한다. 새 선언 칸이라 SDK 판과 지침이 늘어난다.
   - 작음: 지침에 "폰에서 쓴 data를 컴퓨터가 반응하게 하려면 구독 대신 `external` operation을 쓴다"를 적고 그대로 둔다.
-decide: |
-  폰 write가 컴퓨터의 앱 event를 내는 것이 제품이 약속할 일인지(앱이 폰에서 쓴 것에 컴퓨터가 반응하는 길)는 사람이 정한다. 약속하면 선언 칸을 더하는 설계가 든다. 약속하지 않으면 지침으로 두고 kept로 닫는다.
+decided: |
+  agent가 정했다. 선언 칸으로 앱마다 event를 고르게 하지 않고 core가 고정된 event `data.changed` 하나를 적용된 묶음마다 낸다. 앱 선언의 `events`를 거치지 않는다.
+closed: |
+  컴퓨터가 폰이 push한 변경을 앱 DB에 적용하면(적용된 것이 있을 때) core가 `lophn`의 event `data.changed`(payload 없음)를 그 앱 하나에만 낸다(`packages/core/apps/calls/service.ts`의 폰 push 길이 `dataChanged`를 부르고 `packages/core/main/daemon/wiring/apps.ts`가 `call.settled`와 같은 길로 보낸다). 앱 process의 구독 handler(`subscriptions: [{source: "lophn", event: "data.changed"}]`)와 열린 앱 화면(`useEvent`)이 받는다. 폴더(연결, 폰이 나른 file, 같이 보는 폴더)로 온 다른 기계의 변경과 snapshot 합치기도 같다. 폰 backend의 `publish`는 여전히 `unavailable`이라 폰의 write가 앱이 선언한 event를 내지는 못한다. 그것은 지침이 말한다.
+guard: 없음

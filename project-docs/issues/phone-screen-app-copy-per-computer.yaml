@@ -1,0 +1,14 @@
+id: phone-screen-app-copy-per-computer
+title: 폰 화면이 있는 앱은 폰이 컴퓨터마다 사본을 따로 들어 폰에서 보는 data가 컴퓨터마다 다를 수 있다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/mobile, packages/core/apps/sync]
+now: |
+  폰은 컴퓨터와 앱마다 `files/apps/<컴퓨터 key>/<앱>/app.sqlite`를 따로 들고(`architecture/app-sync.md` "폰의 앱 폴더") 각 사본은 그 컴퓨터와만 `app_sync`로 맞춘다. 폰의 node는 기기 id 하나라 같은 폰의 두 사본이 같은 node로 clock을 찍는다. 앱이 `sync_to: "computers"`로 컴퓨터끼리도 맞추면 폰에서 한 변경은 그 폰이 맞춘 컴퓨터에 들어간 뒤 컴퓨터들 사이로 퍼지고, 다른 컴퓨터의 변경은 그 컴퓨터의 사본에 pull되어야 폰에서 보인다. 폰의 두 사본을 하나로 합치는 길은 없다.
+impact: |
+  컴퓨터 둘에 연 폰은 화면에 고른 컴퓨터의 사본을 보므로, 다른 컴퓨터에서 한 변경이 컴퓨터들 사이로 퍼지고 그 컴퓨터의 사본에 pull되기 전까지 폰의 data가 컴퓨터마다 다르다. 사람이 폰에서 컴퓨터를 바꾸면 방금 한 변경이 없어 보일 수 있다. 데이터를 잃지는 않는다(사본은 규칙대로 같아진다).
+fix: |
+  - 큼: 폰이 앱마다 사본 하나를 들고 모든 컴퓨터와 맞춘다. 폰이 허브가 되어 컴퓨터마다 따로 clock과 outbox를 쓰는 지금 설계(`app_sync`, 폰 host의 폴더 규칙)를 다시 짜야 한다.
+  - 중간: 화면이 어느 컴퓨터의 사본인지 앱 위 줄에 보인다. 사람이 이유를 알지만 data는 여전히 다르다.
+  - 작음(추천): 지침(`design-app`)이 "`computers`로 맞추는 폰 앱은 컴퓨터마다 사본이 다르다"를 앱 agent와 사람에게 말한다.

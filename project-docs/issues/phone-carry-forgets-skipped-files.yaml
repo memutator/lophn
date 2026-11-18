@@ -1,0 +1,13 @@
+id: phone-carry-forgets-skipped-files
+title: 모바일 데이터 크기 선택 때문에 건너뛴 새 file을 폰이 기억하지 않아 Wi-Fi로 돌아와도 다시 찾지 않는다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/mobile]
+now: |
+  `carryWith`(`packages/mobile/src/apps/carry/carry.ts`)는 한 컴퓨터를 만날 때 그 컴퓨터가 새로 낸 manifest가 싣는 file 가운데 "앞에 든 목록에 없던 것"(`fresh`)과 다른 컴퓨터가 마지막으로 바란 file(`wanted`)만 받는다. 크기가 `min(cap(), CARRY_MAX_BYTES)`를 넘으면 건너뛴다(`file.size > ...`, `continue`). 건너뛴 file을 적어 두지 않고 새 manifest는 이미 저장되므로 다음 만남에서 그 file은 `fresh`가 아니다. Wi-Fi로 돌아와도(`carrier.all()`) 같은 만남이 돌 뿐이고, 그 file은 다른 컴퓨터가 그것을 바라는 것(`carry/wants`)이 폰에 기록된 뒤에야, 즉 폰이 그 컴퓨터를 만난 뒤 원래 컴퓨터를 다시 만나야 받아진다.
+impact: |
+  모바일 데이터에서 크기 선택(기본 1 MiB)보다 큰 file(큰 snapshot, release)을 만난 폰은 Wi-Fi가 돌아와도 그 file을 가져오지 않는다. 폰이 원래 컴퓨터에서 받는 컴퓨터로 가기만 하고 되돌아오지 않으면 그 file은 폰을 거쳐 가지 못한다. 잃는 것은 data가 아니라 시간이다: 컴퓨터가 서로 같이 켜지는 일이 없는 사람에게는 큰 변경이 폰이 두 컴퓨터를 한 번 더 오갈 때까지 늦어진다. 다른 길(연결, 사람의 폴더)로는 그대로 간다.
+fix: |
+  - 작음(추천): 크기 때문에 건너뛴 file을 폰의 carry DB에 표시(machine, path, sha256)해 두고, Wi-Fi로 돌아오거나 크기 선택이 커지면 그 표시를 `targets`에 넣는다. 받으면 표시를 지운다. 표시도 나이 한도(30일)로 지운다.
+  - 중간: `fresh` 대신 "폰이 든 목록이 싣는데 폰이 들지 않은 file 전부"를 매번 센다. 사슬을 매번 펼쳐 비용이 늘고 다른 컴퓨터가 필요 없는 file까지 받는다.

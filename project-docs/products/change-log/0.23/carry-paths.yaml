@@ -1,0 +1,54 @@
+id: carry-paths
+version: 0.23.88
+title: 한쪽만 켜져 있어도 늦게라도 닿는다 - 앱 data와 release와 명단과 event가 컴퓨터 사이를 연결, 폰, 사람의 폴더로 간다
+modules: [packages/protocol, packages/protocol/folder, packages/core/folder, packages/core/remote, packages/core/apps, packages/core/events, packages/core/agent-workspaces, packages/core/main, packages/core/storage, packages/shell/renderer, packages/design, packages/sdk, packages/mobile, tools]
+change: |
+  전: 컴퓨터끼리 앱 data를 맞추는 길은 사람이 이름 붙인 폴더(`sync_to: "<이름>"`)를 바깥 도구가 옮겨 주는 것뿐이었다. 두 컴퓨터가 같은 폴더를 보지 못하면 길이 없었고, 폰은 컴퓨터마다 따로 맞췄다. 후: 앱이 "내 컴퓨터들"(`sync_to: "computers"`)에 맞추겠다고만 말하면 lophn이 길을 고른다. 폴더로 주고받는 꼴이 곧 기계 사이의 꼴이고, 그 file을 옮기는 길만 셋으로 늘었다. 폰과 컴퓨터 사이의 `app_sync`는 건드리지 않았다.
+  - "갈 곳 `computers`와 서명한 목록 사슬: 미리 있는 갈 곳 `computers`는 data root 안 `computers/`(0700)이고 배치는 이름 붙인 폴더와 같다. 컴퓨터는 자기 하위 폴더 `machines/<자기>/`에 낸 file의 목록을 세 층으로 서명한다: `manifest.json`(8 MiB까지, 명단의 서명 key로 서명, revision은 `max(지난 것 + 1, 지금 ms)`) → 앱마다 `apps/<app>/files.json` → `release.json`·`source/<n>.json`. 목록은 내보내기가 쓴 file의 기록(`folder_written`)으로 만들고 폴더를 훑지 않는다. 앱 목록의 data file은 마지막 snapshot부터이고 그 뒤가 2,000을 넘으면 이른 snapshot을 쓴다. 목록이 8 MiB를 넘게 되면 지난 것을 두고 그 앱 stream에 `too_large`를 남긴다. 서명 key가 없는 컴퓨터(remote를 켠 적이 없다)는 manifest를 쓰지 못한다."
+  - "받는 자리와 규칙: link, 폰, 사람의 폴더로 온 manifest와 file은 길과 상관없이 받는 자리 하나를 지난다. manifest는 이 컴퓨터 명단 view에서 그 `machine`인 컴퓨터가 하나뿐일 때 그 서명 key로 맞고 revision이 (기계, 서명 key)마다의 표시(ledger `folder_carry_marks`, 지우지 않는다)보다 클 때만 지금 목록이 된다. file은 지금 목록 사슬이 그 path, 크기, sha256을 실을 때만 `computers` 폴더 밖 staging에 받아 rename 직전에 다시 견주고 쓴다. 목록 file 아래의 file은 그 목록 file의 지금 판을 든 뒤 그 판이 싣지 않는 것만 지우고, 가장 새 snapshot이 오기 전에는 앞 번호 data file을 둔다. 명단 view가 바뀌면 든 manifest를 다시 검증하고, 맞지 않게 된 컴퓨터(정해지지 않은 빼기, 충돌, 같은 이름의 컴퓨터가 둘, key가 바뀜)는 새것을 받지 않고 든 file은 두되 누구에게도 내주지 않는다. 정해진 빼기로 빠진 컴퓨터의 하위 폴더는 `computers` 밖으로 치워 두고 7일 뒤 지운다(그 사이 빼기가 풀리면 되돌린다). 이 기계가 낸 manifest가 되돌아오면 두지 않고 자기 표시만 올린다."
+  - "길 셋: (1) 연결: 이 컴퓨터의 core가 명단의 컴퓨터마다 드는 link가 `carry/manifests`로 새 manifest를, `carry/wants`로 믿는 사슬이 싣는데 없는 file을 알아 `carry/file`(8 MiB 조각)로 받는다. 상대가 다른 컴퓨터의 file을 들고 있으면 그것도 받아 늘 켜 둔 컴퓨터가 저절로 가운데가 된다. link마다 `StateChanged` watch를 더해 걸어 상대의 `carry_files`에 다시 나른다. (2) 폰: 한 컴퓨터에서 받은 file을 읽지 않고 들고 있다가 다른 컴퓨터에 붙으면 `carry/put`으로 넘긴다. 폰 화면이 있는 앱만이 아니라 `computers`로 맞추는 모든 앱의 file을 나르고, 컴퓨터가 몇이든 줄은 하나다. file 하나와 드는 양 256 MiB, 나이 30일(event file 7일), 모든 컴퓨터가 가졌으면 지운다. 모바일 데이터로 나를 크기는 폰 Settings의 \"Between your computers\"(256 KiB, 1 MiB 기본, 8 MiB, 제한 없음)가 정한다. (3) 사람의 폴더: 설정 `folder.shared`(사람 승인)는 `computers` 폴더의 거울이다. 기계마다 자기 하위 폴더만 복사해 내고, 다른 기계의 것은 읽기 scan 때 받는 자리로 들인다. 서명 key가 없는 기계의 하위 폴더는 열기 전에 건너뛰고, 명단에 없는 기계의 명단 file은 scan마다 4개, 들이는 반복은 기계마다 8번까지다."
+  - "명단 file: `machines/<mch>/roster.json`(statement만, 주소 없음)이 같은 길로 가서 연결로 닿지 못하는 컴퓨터(dual boot의 다른 OS)도 같이 보는 폴더로 들어오기 statement를 주고받는다. 믿는 서명이 없는 statement는 명단 규칙이 거른다."
+  - "기계를 건너는 event와 `data.changed`: 앱 선언의 event에 `across_machines: true`(`sync_to`가 있는 앱만)를 달면 이 컴퓨터에서 전달한 뒤 event file(`apps/<app>/events/<ULID>.json`, 64 KiB)로도 쓴다. 도착한 컴퓨터의 core가 같은 구독자에게 한 번 낸다(ledger `folder_events_seen`, 7일보다 옛 것과 5분 넘게 앞선 것, 다른 release, private인 workspace, 선언·schema에 맞지 않는 것은 내지 않는다). 난 기계가 발행 기록과 event caller의 `machine`에 실린다. 폰이나 다른 기계에서 온 변경이 앱 DB에 적용되면 core가 그 앱 하나에 `lophn`의 event `data.changed`(payload 없음)를 적용 묶음마다 한 번 낸다. 앱 process의 구독 handler와 열린 화면이 받는다."
+  - "따라가기: `computers`로만 온 release는 들이되 늘어난 권한이 없어도 activation이 사람의 동의를 묻는다(이름 붙인 폴더가 같이 내놓은 것은 전과 같다)."
+  - "화면과 skill: Settings › Sync가 폴더(이름 붙인 폴더와 같이 보는 폴더의 상태, 더하기·고치기·지우기와 평문 경고), 컴퓨터(연결과 마지막 file이 온 길·때, 메모리에만 있다), 앱(다른 기계의 변경을 마지막으로 읽은 때)을 보인다. 읽기 route `carry/status`가 기기 route 목록 밖에서 이것을 준다. 내장 skill `connect-computers`(home만)가 같이 보는 폴더나 Tailscale을 사람과 붙이는 지침이다. lophn이 둘 다 설치하지는 않는다."
+  - "route와 기기 route 목록: `carry/manifests|wants|file|put`(actor user)을 `packages/protocol/remote/carry.ts`에 두고 기기 route 목록에 올려 연결의 컴퓨터와 폰이 부른다. 모르는 상대(옛 lophn)는 `not_found`로 답하고 나르는 쪽은 나르지 않는 상대로 본다. 바뀜 이름 `carry_files`(`StateChanged`)."
+  - "저장: ledger schema step `folder.events-seen`(`folder_events_seen`), `apps.event-publications.machine`(`app_event_publications.machine`), `folder.carry-marks`(`folder_carry_marks`, (기계, 서명 key)마다 가장 큰 revision). 새 data step은 없다. data root에 `computers/`, `carry-staging/`, `carry-removed/`가 생긴다. 설정 `folder.shared`."
+  - "SDK: `@lophn/declaration` 4.10.0(`across_machines`, `sync_to: \"computers\"`, `data.changed`), `@lophn/app-ui` 2.20.0, `@lophn/app-ui-native` 1.7.0. `design-app` skill, 앱 template의 `AGENTS.md`, `migrate-sdk` 메모가 같이 바뀌었다. remote protocol 판은 4 그대로다(frame과 handshake가 바뀌지 않았다)."
+why: |
+  한쪽만 켜져 있어도 늦게라도 닿게 하려는 것이다. 사람의 컴퓨터는 같이 켜져 있지 않고(dual boot, 집과 직장) 같은 폴더를 보지 못하기도 한다. 앱 data와 앱이 낸 event와 기기 명단이 살아 있는 연결이 있으면 그 길로, 없으면 맡겨 두는 곳(폰, 늘 켜 둔 컴퓨터, 사람의 폴더)으로 가야 하고, 어느 길로 갈지는 사람이 아니라 lophn이 고른다. 폰이나 다른 컴퓨터에서 들어온 변경은 그 컴퓨터의 앱이 알아야 한다. 길마다 꼴을 따로 만들면 연결과 폰으로는 앱을 들이거나 release를 따라가지 못한다.
+decisions:
+  - text: Tailscale은 lophn에 넣지 않는다. 밖에서도 컴퓨터끼리 붙는 설정은 lophn의 agent가 지침(`connect-computers`)대로 돕는다(2026-11-17).
+    by: person
+  - text: data를 맞추는 것과 private은 따로다. private인 workspace의 앱 data도 사람의 컴퓨터들에는 맞춘다. 다만 그 앱이 `across_machines`로 낸 event는 그 기계의 call 정책이 private이면 다른 기계로 가지 않고, 도착한 기계에서도 그 기계의 정책이 private이면 나지 않는다.
+    by: person
+  - text: 터미널 입력 허락은 명단의 값이 아니라 각 컴퓨터가 자기에게 주는 허락으로 옮긴다(2026-11-19). 계획 `remote-use`의 `use-grant`가 한다. 그래서 지금은 `computers`로만 온 release가 늘 동의를 묻고, 그 뒤에는 이 컴퓨터에서 허락한 컴퓨터의 release는 묻지 않고 따라간다.
+    by: person
+  - text: 폴더로 주고받는 꼴이 곧 기계 사이의 꼴이고 폰과 컴퓨터 사이의 `app_sync`는 건드리지 않는다. 버린 길 - 모든 길을 `app_sync`로 통일하기(`app_sync_log`를 다시 만들어야 하고, 연결로는 앱을 들이거나 release를 따라가지 못한다).
+    by: agent
+  - text: 서명한 목록은 세 층(manifest, 앱 목록, release·source 목록)이고 받는 쪽의 표시는 (기계, 서명 key)마다 하위 폴더 밖 ledger에 둔다. 이유 - 한 층이면 1분마다 바뀌는 앱이 한 달 안에 8 MiB에 닿아 그 기계의 모든 것이 멈추고, 하위 폴더에 두면 폴더를 지운 뒤 옛 manifest를 되살려 넘겨도 받으며, 기계마다 하나면 한 번 샌 key의 큰 revision이 그 기계를 영영 막는다.
+    by: agent
+  - text: 정해진 빼기로 빠진 컴퓨터의 사본은 7일 치워 두었다가 지운다. 이유 - 도둑의 빼기 하나가 정직한 컴퓨터의 큰 snapshot과 release를 곧바로 지우게 하면 다시 받아야 하고 아직 적용하지 않은 file을 잃는다. 빼기가 정해지지 않았거나 key가 맞지 않게 된 컴퓨터는 지우지 않고 새것만 받지 않는다.
+    by: agent
+  - text: "`computers`로만 온 release는 들이되 늘 사람의 동의를 묻는다. 버린 길 - 명단의 `terminal_input`을 믿고 묻지 않기(명단의 컴퓨터가 자기 항목에 그 칸을 스스로 서명할 수 있다. 이슈 `roster-computer-self-grants-terminal-input`), 따라가기를 막기(사람이 새 release가 있다는 것을 보지 못한다)."
+    by: agent
+  - text: "`carry/*`는 기기 route 목록에 올려 짝지은 기기 누구나 부른다. 그래서 폰은 `computers`로 맞추는 모든 앱의 file을 나르고 읽을 수도 있다(폰 화면이 있는 앱만이 아니다). 폰 상한은 file 하나와 드는 양 256 MiB, 나이 30일이고 모바일 데이터의 크기는 폰의 설정이다. `carry/status`는 사람의 화면만 읽으므로 목록에 올리지 않는다."
+    by: agent
+  - text: 길을 고르는 설정은 두지 않고 Settings › Sync는 지금 길을 보이기만 한다. 길은 lophn이 고른다.
+    by: agent
+  - text: 계약 file은 `packages/protocol/folder`가 아니라 `packages/protocol/remote/carry.ts`에 둔다. manifest의 서명자가 명단에 기대고 폴더 계약과 remote 계약이 서로를 import하지 않아야 하기 때문이다.
+    by: agent
+  - text: "두 번의 독립 review에서 나온 받기·지우기 규칙을 넣었다: 서명자는 명단 view에서 그 이름의 컴퓨터가 하나뿐일 때만, file은 rename 직전에 사슬을 다시 견주고, `carry/put` staging은 기기마다 file마다 직렬, 사람의 폴더는 서명 key가 없는 기계를 열기 전에 건너뛰고 읽는 양을 제한, event file은 난 기계·앱·id를 path에서 얻고 나이 범위를 본다."
+    by: agent
+follow_up: |
+  - `remote-use`의 `use-grant`: 허락을 각 컴퓨터로 옮긴 뒤 허락한 컴퓨터의 release는 묻지 않고 따라가게 한다. 그때까지 늘 묻는 규칙을 고친다.
+  - 열린 이슈: `release-path-case-collision`, `phone-carry-forgets-skipped-files`, `phone-carry-keep-ignores-unsaved-computers`, `phone-screen-app-copy-per-computer`, `roster-same-machine-two-keys-stalls-carry`, `mobile-tests-not-in-flow-catalog`, `roster-computer-self-grants-terminal-input`.
+  - `one-screen`이 올라올 때 `links.ts`의 구독 조건에서 나르기의 `StateChanged` watch를 화면의 watch와 합쳐야 한다(이 일은 link마다 따로 건다). `architecture/remote.md`와 기기 route 목록도 같이 고친다.
+  - 남은 한계는 `architecture/folder-sync.md`와 `app-sync.md`의 "열린 것"이다. 실제 두 컴퓨터와 바깥 폴더 도구(Google Drive, Syncthing, dual boot)로는 돌려 보지 않았다.
+checklist:
+  - "해야: 내 컴퓨터들과 폰을 모두 이 판으로 올린다 (옛 판은 `carry/*`에 `not_found`로 답해 나르지 못한다)"
+  - "같은 network의 컴퓨터 둘에서 `sync_to: \"computers\"`인 앱을 쓰고 한 컴퓨터에서 만든 data가 다른 컴퓨터에 보이는지 본다"
+  - 두 컴퓨터가 같이 켜진 적이 없으면 폰이 나르는지 본다(폰 앱을 열어 둔 채 각 컴퓨터 가까이 간다)
+  - '두 컴퓨터의 Settings › Sync에서 "Folder all my computers see"를 정하고(같은 폴더) file이 오가는지 본다'
+  - 한 컴퓨터에서 새 release를 만들면 다른 컴퓨터에 동의 카드가 서는지 본다
+  - Settings › Sync가 컴퓨터마다 마지막 file이 어느 길로 왔는지 보이는지 본다
+  - My devices에서 컴퓨터 하나를 빼고 그 컴퓨터의 file이 더 오지 않는지 본다

@@ -139,7 +139,7 @@ const devices = defineCommand({
   summary: "List the devices in this person's device list",
   description:
     "List every phone and computer this computer trusts: id, kind, name, os, terminal_input (it may type in coding agent terminals), this (this computer), " +
-    "pending (no other computer has taken it in yet: this computer after a join that did not reach the inviting computer, or a computer alone in its list). " +
+    "pending (it joined with an invite and no other computer has taken it in yet, e.g. this computer after a join that did not reach the inviting computer). " +
     "For another computer it adds status (connecting, connected, offline, update) and path (direct or relay); update means one side runs an older lophn (update: client is this computer, host is that one). " +
     "Add one with `lophn remote invite`, take one out with `lophn remote remove`.",
   input: z.strictObject({}),

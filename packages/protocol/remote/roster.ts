@@ -721,11 +721,14 @@ export function rosterView(
   };
 }
 
-// 붙지 않았거나 다른 컴퓨터가 아직 받아들이지 않은 기기: 항목이 그 기기 자신의 서명뿐이거나, 초대 서명 statement뿐이다.
+// 초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않은 기기: 초대 서명 statement뿐이거나, 항목이 그 기기 자신의 서명뿐이고
+// 초대로 든 표(이긴 항목의 `invite`나 남겨 둔 초대 서명 statement)가 있다. 초대 없이 선 항목(컴퓨터의 첫 자기 항목, 옮긴 폰)은
+// 기다리는 것이 없어 pending이 아니다. 초대한 컴퓨터에 못 닿고 든 컴퓨터는 이긴 항목이 아직 초대 전 rev라 남겨 둔 statement로 본다.
 export function rosterPending(view: RosterView, key: string): boolean {
+  const invited = view.keep.some((s) => !isSigned(s) && s.body.key === key);
   const device = view.devices.find((d) => d.body.key === key);
-  if (device !== undefined) return device.pending;
-  return view.keep.some((s) => !isSigned(s) && s.body.key === key);
+  if (device === undefined) return invited;
+  return device.pending && (device.body.invite !== null || invited);
 }
 
 // 저장하는 쪽이 자기 시계로 초대 서명 statement를 거른다: 수명이 지났거나, 지금부터 긴 수명보다 더 먼 수명(쓰레기로

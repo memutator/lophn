@@ -273,7 +273,7 @@ export const remotePairedSchema = z.strictObject({ device: deviceIdSchema });
 // 내 기기 명단(architecture `remote.md`의 "명단"). 명단 하나를 모든 기계가 같이 들고 어느 컴퓨터에서나 고친다.
 
 // 이 컴퓨터가 믿는 명단의 기기들. 이름은 명단의 이름 하나다(기기마다 따로 붙이는 별명이 없다). `this`는 이 컴퓨터의 id다.
-// `pending`은 다른 컴퓨터가 아직 받아들이지 않은 기기다(`rosterPending`): 닿지 못한 채 든 이 컴퓨터, 아직 붙지 않은 기기.
+// `pending`은 초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않은 기기다(`rosterPending`): 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터 등.
 export const rosterList = defineMemory({
   resource: "roster",
   method: "list",

@@ -767,7 +767,7 @@ export function remoteWiring(
         const self = roster.self()?.id;
         return ok({
           this: self ?? null,
-          devices: roster.view().devices.map(({ body, pending }) => ({
+          devices: roster.view().devices.map(({ body }) => ({
             id: body.id,
             kind: body.kind,
             name: body.name,
@@ -775,7 +775,7 @@ export function remoteWiring(
             machine: body.machine,
             terminal_input: body.terminal_input,
             this: body.id === self,
-            pending,
+            pending: rosterPending(roster.view(), body.key),
             // 컴퓨터는 기기 행이 없다. 이 컴퓨터의 link가 마지막으로 붙었거나 끊긴 때다.
             last_connected_at: last.get(body.id) ?? links.seen(body.id),
           })),

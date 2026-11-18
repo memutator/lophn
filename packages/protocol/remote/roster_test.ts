@@ -657,6 +657,14 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
       },
     },
     {
+      name: "혼자인 컴퓨터",
+      statements: [signed(computerEntry(a), a)],
+      roots: [root(a)],
+      check(view: ReturnType<typeof rosterView>) {
+        assert.ok(!rosterPending(view, a.key));
+      },
+    },
+    {
       name: "dual boot의 B",
       statements: dualBoot,
       roots: [root(b)],

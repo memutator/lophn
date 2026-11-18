@@ -83,14 +83,14 @@ export function createJobReads(): {
         if (!loaded.ok) return loaded;
         // event job의 앱이 지금 그 event를 내지 않으면 표시한다(읽을 때 선언을 한 번 본다).
         const policy = snapshot.port(jobEventPolicyPort);
-        const page = loaded.value
-          .slice(0, PAGE)
-          .map((job) =>
-            job.trigger?.app != null &&
-            !policy.declares(job.trigger.app as Id<"app">, job.trigger.event)
-              ? { ...job, source_gone: true }
-              : job,
-          );
+        const page = loaded.value.slice(0, PAGE).map((job) =>
+          // 다른 컴퓨터의 앱 event로 도는 job은 이 컴퓨터의 선언으로 알 수 없다.
+          job.trigger?.app != null &&
+          job.trigger.source_machine === undefined &&
+          !policy.declares(job.trigger.app as Id<"app">, job.trigger.event)
+            ? { ...job, source_gone: true }
+            : job,
+        );
         return ok({
           jobs: page,
           as_of_seq: snapshot.as_of_seq,

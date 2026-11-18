@@ -21,7 +21,7 @@ type Release = {
   bundle_hash: string;
   operations: string[];
   commands: string[];
-  subscriptions: { source: string; event: string }[];
+  subscriptions: { source: string; event: string; machine?: string }[];
 };
 
 // 앱 하나(live release 둘, preview 하나)와 다른 앱 하나. 호출 경로는 받은 입력을 남기고 성공으로 답한다.
@@ -54,7 +54,7 @@ function fakeWorld() {
         bundle_hash: "9".repeat(64),
         operations: ["wipe"],
         commands: [],
-        subscriptions: [{ source: "ops", event: "limit" }],
+        subscriptions: [{ source: "ops", event: "limit", machine: "laptop" }],
       },
     ],
   ]);
@@ -324,6 +324,16 @@ test("앱 event는 구독을 선언했고 audience에 든 live view에만 가고
       ["view-card", "event"],
     ],
   );
+
+  // 다른 컴퓨터를 적은 구독(view-other의 release)은 이 컴퓨터의 같은 source·event를 받지 않는다.
+  world.published.length = 0;
+  views.published({
+    source: "ops",
+    event: "limit",
+    payload: { n: 2 },
+    audience: [OTHER_APP],
+  });
+  assert.equal(world.published.length, 0);
 
   // 새 release가 돈다. tab은 따라가고 card는 묶음을 잃는다.
   world.published.length = 0;

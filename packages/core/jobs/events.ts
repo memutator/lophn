@@ -169,6 +169,13 @@ export function createEventCommands(): {
           const job = loadJob(tx.sql, String(row["id"]), machine.value);
           if (!job.ok) return job;
           if (job.value === null) continue;
+          const workspace = job.value.creator.workspace?.id;
+          if (
+            workspace !== undefined &&
+            input.skip_workspaces?.includes(workspace) === true
+          ) {
+            continue;
+          }
           // 이름(source)은 보여 주는 글이라 승인 때의 slug가 아니라 event를 낸 쪽의 이름을 싣는다.
           const event: JobEvent = {
             source: job.value.trigger!.source,

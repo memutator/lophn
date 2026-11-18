@@ -22,6 +22,7 @@ import {
   markEventSeen,
   readArrivedEvents,
 } from "../../folder/import/events.ts";
+import type { Flight } from "../calls/intake.ts";
 import type { AppDeclaration } from "../declaration/mod.ts";
 import {
   createEventArrival,
@@ -118,6 +119,8 @@ function setup(ancestry: Id<"app">[] = []) {
   const clock = manualClock(Date.parse("2026-11-10T00:00:00.000Z"));
   // 이 기계의 call 정책에서 private인 앱 workspace.
   const privateApps = new Set<string>();
+  // 이 기계의 발행 앱 active release 선언(test가 바꾼다).
+  const declaration = { current: publisherDeclaration };
   const appStore = {
     app: (id: string) => ({
       ok: true as const,
@@ -128,7 +131,7 @@ function setup(ancestry: Id<"app">[] = []) {
       value: {
         release: `rel_${PUBLISHER.slice(4)}` as Id<"rel">,
         bundle_hash: BUNDLE,
-        declaration: publisherDeclaration,
+        declaration: declaration.current,
       },
     }),
     isPrivate: (app: Id<"app">) => privateApps.has(app),
@@ -165,6 +168,7 @@ function setup(ancestry: Id<"app">[] = []) {
     announce: (published) => void announced.push(published),
     failed() {},
     // 구독 선언의 컴퓨터 이름: laptop은 ORIGIN, desk는 DESK다.
+    isPrivate: (app) => privateApps.has(app),
     machineOf: (name) =>
       name === "laptop" ? ORIGIN : name === "desk" ? DESK : null,
     crossSeen: (origin, app, id) =>
@@ -172,6 +176,8 @@ function setup(ancestry: Id<"app">[] = []) {
     crossPublisher: crossPublisherOf(appStore),
   });
   const announced: Record<string, unknown>[] = [];
+  // 발행 앱이 도는 호출(parent_invocation으로 찾는다).
+  const flights = new Map<string, Flight>();
   const carried: { app: string; name: string; id: string }[] = [];
   const shared = { delivery, ...appStore, warn() {} };
   const publish = createEventPublisher({
@@ -183,7 +189,7 @@ function setup(ancestry: Id<"app">[] = []) {
         return { ok: true, value: undefined };
       },
     },
-    flight: () => undefined,
+    flight: (id) => flights.get(id),
     ancestry: () => ancestry,
   });
   const arrived = createEventArrival({ ...shared, nowMs: () => clock.nowMs() });
@@ -197,6 +203,8 @@ function setup(ancestry: Id<"app">[] = []) {
     db,
     delivered,
     announced,
+    declaration,
+    flights,
     internal,
     addApp,
     privateApps,
@@ -441,6 +449,26 @@ test("구독은 기계를 적은 대로 받는다: 이 기계의 event는 기계
   assert.deepStrictEqual(apps(), [LAPTOP_SUB]);
   t.privateApps.clear();
 
+  // private인 workspace의 앱은 다른 기계의 event를 받지 않는다. 감시는 컴퓨터마다라 다른 구독이 같은 컴퓨터를 보고 있어도 마찬가지다.
+  clear();
+  t.privateApps.add(LAPTOP_SUB);
+  t.privateApps.add(SUBSCRIBER);
+  await t.delivery.receive(ORIGIN, received());
+  await t.arrive({ percent: 50 });
+  assert.deepStrictEqual(apps(), []);
+  // 이 기계의 event는 private인 앱도 받는다(이 기계 안의 일이다).
+  assert.ok(
+    (
+      await t.publish({
+        event: "usage.limit",
+        payload: { percent: 91 },
+        parent_invocation: null,
+      })
+    ).ok,
+  );
+  assert.deepStrictEqual(apps(), [SUBSCRIBER]);
+  t.privateApps.clear();
+
   // 기계를 건넌 고리도 끊긴다: chain에 있는 구독자에게는 넘기지 않는다.
   clear();
   await t.delivery.receive(
@@ -569,6 +597,7 @@ test("다른 컴퓨터가 link로 보낸 event 가운데 앱이 낸 AppEventPubl
     event(null),
     event(PUBLISHER, { audience: [SUBSCRIBER] }),
     event(PUBLISHER, { machine: ORIGIN }),
+    event(PUBLISHER, { remote: true }),
     event(PUBLISHER, { trace_id: "nope" }),
     { type: "NoticeClosed" },
     "text",
@@ -576,4 +605,96 @@ test("다른 컴퓨터가 link로 보낸 event 가운데 앱이 낸 AppEventPubl
   ]) {
     assert.equal(receivedAppEvent(bad), null);
   }
+});
+
+// 받은 call이나 다른 컴퓨터에서 온 event가 부른 호출 안에서 난 event가 다른 컴퓨터로 가면 두 컴퓨터의 앱이 서로의 event로 끝없이 부른다.
+test("받은 call 안에서 앱이 낸 event는 remote로 표시되어 다른 컴퓨터로 나가지 않고 event file도 쓰지 않으며 이 기계의 구독자는 받는다", async () => {
+  const t = setup();
+  const body = {
+    event: "usage.limit",
+    payload: { percent: 91 },
+    parent_invocation: `inv_${"0".repeat(25)}1`,
+  };
+  // 이 앱의 도는 호출이 받은 call(remote)이다.
+  t.flights.set(body.parent_invocation, {
+    id: body.parent_invocation,
+    app: PUBLISHER,
+    remote: true,
+  } as never);
+  assert.ok((await t.publish(body)).ok);
+  assert.equal(t.announced[0]?.remote, true);
+  assert.equal(t.announced[0]?.cross_id, undefined);
+  assert.deepStrictEqual(t.carried, []);
+  assert.deepStrictEqual(
+    t.delivered.map((one) => one.app),
+    [SUBSCRIBER],
+  );
+
+  // 이 기계의 호출 안에서 낸 event는 표시가 없고 다른 컴퓨터로 간다.
+  t.flights.set(body.parent_invocation, {
+    id: body.parent_invocation,
+    app: PUBLISHER,
+    remote: false,
+  } as never);
+  assert.ok((await t.publish(body)).ok);
+  assert.equal(t.announced[1]?.remote, undefined);
+  assert.equal(t.carried.length, 1);
+});
+
+// 같은 앱이 이 기계에도 있을 때 기계를 적지 않은 구독이 다른 컴퓨터의 event를 받는 길은 이 기계의 선언을 따른다. 선언이 across_machines가 아니거나 payload가 이 기계의
+// schema에 맞지 않으면 그 구독은 받지 않는다(그 컴퓨터를 적은 구독은 선언을 보지 못해 받는다).
+test("같은 앱이 이 기계에 있어도 across_machines 선언이 아니거나 payload가 이 기계의 schema에 맞지 않으면 기계를 적지 않은 구독은 다른 컴퓨터의 event를 받지 않는다", async () => {
+  const t = setup();
+  const NAMED = appId("l1");
+  t.addApp(NAMED, {
+    subscriptions: [
+      { source: "masup", event: "usage.limit", machine: "laptop" },
+    ],
+  });
+  const apps = () => t.delivered.map((one) => one.app).sort();
+  const clear = () => (t.delivered.length = 0);
+
+  await t.delivery.receive(ORIGIN, received());
+  assert.deepStrictEqual(apps(), [NAMED, SUBSCRIBER]);
+
+  clear();
+  await t.delivery.receive(ORIGIN, received({ payload: { percent: "high" } }));
+  assert.deepStrictEqual(apps(), [NAMED]);
+
+  clear();
+  const [event] = publisherDeclaration.events!;
+  t.declaration.current = {
+    ...publisherDeclaration,
+    events: [{ ...event!, across_machines: false }],
+  } as never;
+  await t.delivery.receive(ORIGIN, received());
+  assert.deepStrictEqual(apps(), [NAMED]);
+  t.declaration.current = publisherDeclaration;
+
+  // 다른 컴퓨터의 글이라 payload 크기 한도를 이 기계도 지킨다(선언을 볼 수 없는 구독에게도).
+  clear();
+  t.internal.length = 0;
+  await t.delivery.receive(
+    ORIGIN,
+    received({ payload: { text: "x".repeat(20 * 1024) } }),
+  );
+  assert.deepStrictEqual(apps(), []);
+  assert.equal(t.internal.length, 0);
+  assert.equal(
+    receivedAppEvent({
+      type: "AppEventPublished",
+      subject: PUBLISHER,
+      at: "2026-11-10T00:00:00.000Z",
+      payload: {
+        source: "masup",
+        event: "usage.limit",
+        payload: { text: "x".repeat(40 * 1024) },
+        audience: null,
+        publication: PUBLICATION,
+        trace_id: TRACE,
+        chain: [PUBLISHER],
+      },
+    }),
+    null,
+  );
 });

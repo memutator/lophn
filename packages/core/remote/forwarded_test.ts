@@ -621,3 +621,57 @@ test("받은 call을 돌리는 앱 process가 broker로 다른 컴퓨터의 앱�
   assert.deepEqual(second, ["forbidden"]);
   assert.deepEqual(s.forwarded, []);
 });
+
+// 다른 컴퓨터에서 온 event가 부른 handler도 받은 call과 같이 다른 컴퓨터를 다시 부르지 못한다. 안 막으면 두 컴퓨터의 앱이 서로의 event와 call로
+// 끝없이 부른다(X가 M의 event를 구독하고 handler가 M의 앱을 부르고 그 앱이 같은 event를 다시 낸다).
+test("다른 컴퓨터에서 온 event가 부른 앱 handler가 broker로 다른 컴퓨터의 앱을 부르면 forbidden이고, 이 컴퓨터의 event가 부른 handler는 넘길 수 있다", async () => {
+  const s = setup();
+  const second: unknown[] = [];
+  s.during.run = async (request) => {
+    const done = await s.calls.path.call(
+      {
+        target: { mode: "remote", machine: "other", app: OTHER_APP },
+        kind: "command",
+        name: "r.get",
+        caller: {
+          kind: "app",
+          app: APP,
+          release: REL,
+          parent_invocation: request.invocation,
+        },
+      },
+      { actor: "app", app: APP },
+    );
+    second.push(done.ok ? "ok" : done.error.code);
+  };
+  const event = (machine?: Id<"mch">) => {
+    const common = {
+      publisher: OTHER_APP,
+      event: "e",
+      publication: `pub_0${"1".repeat(25)}` as Id<"pub">,
+      trace_id: "a".repeat(32),
+      chain: [OTHER_APP],
+    };
+    return s.calls.path.call(
+      {
+        target: { mode: "live", app: APP, release: null },
+        kind: "operation",
+        name: "on.other.e",
+        caller: {
+          kind: "event",
+          ...common,
+          parent_invocation: null,
+          ...(machine === undefined ? {} : { machine }),
+        },
+      },
+      { actor: "event", event: { ...common, parent: null } },
+    );
+  };
+  assert.ok((await event(MACHINE)).ok);
+  assert.deepEqual(second, ["forbidden"]);
+  assert.deepEqual(s.forwarded, []);
+  assert.ok((await event()).ok);
+  // 이 기계의 event(기계를 적지 않았다)가 부른 handler의 call은 forward까지 간다.
+  assert.equal(s.forwarded.length, 1);
+  assert.deepEqual(second, ["forbidden", "internal"]);
+});

@@ -117,6 +117,7 @@ import {
 import { devicePrincipal } from "../../../remote/call.ts";
 import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
 import {
+  changesSubscriptions,
   createRemoteSubscriptions,
   sharesAppEvent,
 } from "../../../remote/subscriptions.ts";
@@ -1491,13 +1492,7 @@ export function remoteWiring(
             refreshPushDevices(ctx);
             resignSelf(ctx);
           }
-          if (
-            changes.some((change) =>
-              ["remote_devices", "jobs", "releases", "apps"].includes(
-                change.name,
-              ),
-            )
-          ) {
+          if (changesSubscriptions(changes, callPolicySetting.key)) {
             refreshSubscriptions(ctx);
           }
           if (changes.some((change) => change.name === "carry_files")) {

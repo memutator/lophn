@@ -7,6 +7,7 @@ import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 import { actionIcons } from "../../icons/mod.ts";
 
+import { useMachineNameOf } from "./machine-names.ts";
 import { agentName, MISSED_OPTIONS, triggerText } from "./model.ts";
 import type { JobPatch, JobNames, JobView, MissedPolicy } from "./source.ts";
 import styles from "./jobs.module.css";
@@ -28,6 +29,7 @@ export function EditDialog({
   onSave: (patch: JobPatch) => void;
   onClose: () => void;
 }) {
+  const machineNameOf = useMachineNameOf();
   const [title, setTitle] = useState(job.title);
   // event job은 제목만 고친다(때는 승인한 값이다).
   const scheduled = job.every !== null;
@@ -81,7 +83,7 @@ export function EditDialog({
         {job.trigger === null ? null : (
           <Field label={t("jobs.label.trigger-field")}>
             <p className={styles.note} data-trigger="">
-              {triggerText(job.trigger)}
+              {triggerText(job.trigger, machineNameOf)}
               {job.trigger.pass_event
                 ? ` ${t("jobs.label.trigger-pass-event")}`
                 : ""}

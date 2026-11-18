@@ -26,6 +26,11 @@ import { createJobScheduler } from "../../../jobs/scheduler.ts";
 import { type RunOrigin, systemTimers } from "../../../runs/mod.ts";
 import type { MachineCandidate } from "../../../../protocol/machine/requester.ts";
 import { type Writer, withAfterCommit } from "../../../storage/ledger/mod.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
 import type { WiringFactory } from "./context.ts";
 
 // scheduler가 차례를 가져가고 줄을 닫고 workflow instance 상태를 읽는 core 안 machine 자격이다.
@@ -57,7 +62,7 @@ const WAIT_MS = 60_000;
 
 // 다른 컴퓨터의 event를 때로 건 `jobs/create`의 `trigger.machine`을 저장 전에 `mch_`로 푼다. 명단은 main thread에만 있어 tx 안에서는 풀 수 없다.
 // 못 풀면 `not_found`, 이름이 겹치면 후보와 `invalid_input`이고(resolveMachine), 이 컴퓨터를 가리키면 `invalid_input`이다(그 칸을 빼면 된다).
-function withTriggerMachine(
+export function withTriggerMachine(
   inner: Writer,
   resolve: (ref: string) => Result<MachineCandidate> | undefined,
 ): Writer {
@@ -271,6 +276,7 @@ export const jobsWiring: WiringFactory = () => {
         app: string | null;
         event: string;
         machine: string | null;
+        workspace: { kind: "project" | "app"; id: string } | null;
       }[] = [];
       const refreshTriggers = async () => {
         const done = await read<Output<typeof jobEventTriggers>>(
@@ -278,6 +284,23 @@ export const jobsWiring: WiringFactory = () => {
           {},
         );
         if (done.ok) triggers = done.value.triggers;
+      };
+      // 다른 컴퓨터의 event로는 이 기계의 call 정책에서 private인 workspace의 job을 열지 않는다. 감시는 컴퓨터마다라 같은 컴퓨터를 보는 다른 job이 있어도
+      // 그 job이 열리지 않게 event를 낼 때 그 컴퓨터를 때로 가진 job의 workspace 가운데 private인 것을 알린다.
+      const privateWorkspaces = (machine: string): string[] => {
+        const policy =
+          ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
+        return [
+          ...new Set(
+            triggers.flatMap((one) =>
+              one.machine === machine &&
+              one.workspace !== null &&
+              isPrivate(policy, one.workspace)
+                ? [one.workspace.id]
+                : [],
+            ),
+          ),
+        ];
       };
       const offEvents = ctx.eventDelivery.addInternal({
         wantsSource: (source) =>
@@ -309,7 +332,12 @@ export const jobsWiring: WiringFactory = () => {
             event: event.event,
             payload: event.payload as JsonValue,
             chain: [...event.chain],
-            ...(event.machine === undefined ? {} : { machine: event.machine }),
+            ...(event.machine === undefined
+              ? {}
+              : {
+                  machine: event.machine,
+                  skip_workspaces: privateWorkspaces(event.machine),
+                }),
             session,
           }).then((done) => {
             if (!done.ok) {

@@ -368,6 +368,9 @@ export const jobFireEvent = defineCommand({
     chain: z.array(idSchema("app")),
     // 다른 컴퓨터에서 온 앱 event면 그 난 기계. 그 기계를 때로 가진 job만 연다(없으면 이 기계의 event다).
     machine: idSchema("mch").optional(),
+    // 다른 컴퓨터의 event일 때 열지 않을 job의 workspace(core가 이 기계의 call 정책에서 private으로 본 것의 id). 그 workspace에서 만든 job은 다른
+    // 컴퓨터의 event로 돌지 않는다.
+    skip_workspaces: z.array(z.string()).optional(),
     // lophn의 session event만. 그 session과 그 workspace(home이면 null).
     session: z
       .strictObject({

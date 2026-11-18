@@ -21,7 +21,7 @@ const CORE_CONDITIONS: EventCondition[] = [{ types: ["AppEventPublished"] }];
 
 // 받는 기계가 다른 컴퓨터에 내주는 앱 event인가. 앱이 선언해 낸 것(subject가 앱이고 audience가 없다)이고 그 앱의 workspace가 이 기계의 call
 // 정책에서 private이 아니고 이 기계가 낸 것이어야 한다: `lophn`이 낸 core event, 앱 화면만 받는 event, 다른 기계에서 와 이 기계가 낸 event(되돌려
-// 나르지 않는다)는 가지 않는다.
+// 나르지 않는다), 받은 call이나 다른 컴퓨터에서 온 event가 부른 호출 안에서 난 event(`remote`)는 가지 않는다.
 export function sharesAppEvent(
   event: BusEvent,
   privateApp: (app: Id<"app">) => boolean,
@@ -32,7 +32,22 @@ export function sharesAppEvent(
     subject !== null &&
     payload.audience === null &&
     payload.machine === undefined &&
+    payload.remote === undefined &&
     !privateApp(subject as Id<"app">)
+  );
+}
+
+// 구독을 다시 계산해야 하는 상태 변화인가: job, release, 앱, 명단, 그리고 private을 정하는 call 정책 설정. 정책이 바뀌면 이미 건 구독 가운데 private이 된 workspace의
+// 것을 거둔다.
+export function changesSubscriptions(
+  changes: readonly { name: string; id: string | null }[],
+  callPolicyKey: string,
+): boolean {
+  return changes.some(
+    (change) =>
+      ["remote_devices", "jobs", "releases", "apps"].includes(change.name) ||
+      (change.name === "settings" &&
+        (change.id === null || change.id === callPolicyKey)),
   );
 }
 

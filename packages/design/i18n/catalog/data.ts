@@ -162,6 +162,8 @@ export const data = {
     "The event's data is passed into the command input.",
   "waiting.notice.job-approval-event":
     "Wants to run when {source} publishes {event}, at most every {interval}, unattended. It won't run until you approve. Reject deletes it.",
+  "waiting.notice.job-approval-event-on":
+    "Wants to run when app {source} on the computer {machine} publishes {event}, at most every {interval}, unattended. It won't run until you approve. Reject deletes it.",
   "waiting.notice.job-approval-lophn":
     "Wants to run when lophn reports {event}, at most every {interval}, unattended. It won't run until you approve. Reject deletes it.",
   "waiting.notice.job-conflict":

@@ -15,6 +15,7 @@ import {
 } from "../apps/events/publish.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
+import { createJobReads } from "./reads.ts";
 import { createEventCommands } from "./events.ts";
 import {
   jobEventPolicyPort,
@@ -125,6 +126,7 @@ function setup() {
     publisher: string;
     event: string;
     machine?: string;
+    skipWorkspaces?: string[];
     session?: { id: string; workspace: { kind: "project"; id: string } | null };
     chain?: string[];
   }) => {
@@ -139,6 +141,9 @@ function setup() {
         ...(input.machine === undefined
           ? {}
           : { machine: input.machine as never }),
+        ...(input.skipWorkspaces === undefined
+          ? {}
+          : { skip_workspaces: input.skipWorkspaces }),
         session: (input.session ?? null) as never,
       },
       {} as never,
@@ -604,6 +609,7 @@ test("다른 컴퓨터가 link로 보낸 앱 event는 receive를 지나 그 컴�
       },
       announce() {},
       failed() {},
+      isPrivate: () => false,
       machineOf: () => null,
       crossSeen: () => ok(true),
       crossPublisher: () => null,
@@ -642,5 +648,67 @@ test("다른 컴퓨터가 link로 보낸 앱 event는 receive를 지나 그 컴�
   } finally {
     db.close();
     apps.close();
+  }
+});
+
+// 감시는 컴퓨터마다 걸려 있어 같은 컴퓨터를 보는 다른 job이 있으면 private workspace의 job도 그 event를 받는다. core가 알린 private workspace의 job은 열지 않는다.
+test("다른 컴퓨터의 event는 core가 private이라고 알린 workspace에서 만든 job을 열지 않고 같은 컴퓨터를 때로 가진 다른 job은 연다", () => {
+  const { db, job, trigger, fire, runs } = setup();
+  try {
+    const open = "job_01hzzzzzzzzzzzzzzzzzzzzzza";
+    const secret = "job_01hzzzzzzzzzzzzzzzzzzzzzzb";
+    job(open, trigger(APP, APP, "usage.limit", LAPTOP));
+    job(secret, trigger(APP, APP, "usage.limit", LAPTOP));
+    // setup의 job은 모두 PRJ_A에서 만들었다: 둘이 같은 workspace라 둘 다 빠진다.
+    assert.deepStrictEqual(
+      fire({
+        publisher: APP,
+        event: "usage.limit",
+        machine: LAPTOP,
+        skipWorkspaces: [PRJ_A],
+      }),
+      { fired: 0, skipped: 0 },
+    );
+    assert.deepStrictEqual(
+      [open, secret].map((id) => runs(id).length),
+      [0, 0],
+    );
+    assert.deepStrictEqual(
+      fire({
+        publisher: APP,
+        event: "usage.limit",
+        machine: LAPTOP,
+        skipWorkspaces: [PRJ_B],
+      }),
+      { fired: 2, skipped: 0 },
+    );
+  } finally {
+    db.close();
+  }
+});
+
+// 다른 컴퓨터의 앱 event로 도는 job은 이 컴퓨터의 선언으로 "그 event를 안 낸다"를 알 수 없다. 안 가리면 모든 그런 job이 source gone으로 보인다.
+test("job.list는 이 기계의 앱이 event를 내지 않는 job만 source_gone으로 표시하고 다른 컴퓨터의 앱 event로 도는 job은 표시하지 않는다", () => {
+  const { db, tx, job, trigger } = setup();
+  try {
+    const local = "job_01hzzzzzzzzzzzzzzzzzzzzzza";
+    const remote = "job_01hzzzzzzzzzzzzzzzzzzzzzzb";
+    job(local, trigger("masup", APP, "gone.event"));
+    job(remote, trigger(APP, APP, "gone.event", LAPTOP));
+    const listed = createJobReads().list.handle(
+      { ...tx, as_of_seq: "1" } as never,
+      { actor: "user" } as never,
+      {},
+    );
+    assert.ok(listed.ok);
+    assert.deepStrictEqual(
+      listed.value.jobs.map((one) => [one.id, one.source_gone]).sort(),
+      [
+        [local, true],
+        [remote, false],
+      ],
+    );
+  } finally {
+    db.close();
   }
 });

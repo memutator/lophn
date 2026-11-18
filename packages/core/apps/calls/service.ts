@@ -422,7 +422,11 @@ export function createAppCalls(deps: AppCallsDeps): {
       release: base.release,
       mode: "live",
       parent: parentOf(caller)?.id ?? null,
-      remote: caller.kind === "remote" || (parentOf(caller)?.remote ?? false),
+      // 받은 call이거나 다른 기계에서 온 event가 부른 handler(그 handler의 호출과 발행도 다른 기계로 되돌아가지 않는다)이거나 그런 호출의 자식이다.
+      remote:
+        caller.kind === "remote" ||
+        (caller.kind === "event" && caller.remote) ||
+        (parentOf(caller)?.remote ?? false),
       async abandon() {
         abandoned = true;
         if (phase !== "sent") {

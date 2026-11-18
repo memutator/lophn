@@ -184,6 +184,8 @@ const appEventPublished = defineTransientEvent("AppEventPublished", {
       .string()
       .regex(/^[0-7][0-9a-hjkmnp-tv-z]{25}$/)
       .optional(),
+    // 다른 컴퓨터가 낸 call이나 다른 컴퓨터에서 온 event가 부른 호출 안에서 난 event다. 이 기계에만 있고 다른 컴퓨터로 나가지 않는다(두 컴퓨터 사이 고리를 끊는다).
+    remote: z.literal(true).optional(),
     // 다른 기계에서 와 이 기계가 낸 event면 그 난 기계. 이 기계가 낸 event만 다른 컴퓨터에 나가므로 되돌려 나르지 않는 표시다.
     machine: idSchema("mch").optional(),
   }),

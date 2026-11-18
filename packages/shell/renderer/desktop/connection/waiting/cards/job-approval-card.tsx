@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
+import { useMachineNameOf } from "../../../jobs/machine-names.ts";
 import { intervalText, scheduleText } from "../../../jobs/model.ts";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
@@ -22,6 +23,7 @@ export function JobApprovalCard({
   view: CardView;
   core: CoreSource;
 }) {
+  const machineNameOf = useMachineNameOf();
   const [busy, setBusy] = useState(false);
   // not_found·conflict는 먼저 정해진 것이라 글 없이 다시 읽어 card가 빠지게 둔다.
   const [failed, setFailed] = useState(false);
@@ -42,13 +44,21 @@ export function JobApprovalCard({
         <p className={styles.desc}>
           {entry.job.trigger !== null
             ? t(
-                entry.job.trigger.source === "lophn"
-                  ? "waiting.notice.job-approval-lophn"
-                  : "waiting.notice.job-approval-event",
+                entry.job.trigger.source_machine !== undefined
+                  ? "waiting.notice.job-approval-event-on"
+                  : entry.job.trigger.source === "lophn"
+                    ? "waiting.notice.job-approval-lophn"
+                    : "waiting.notice.job-approval-event",
                 {
                   source: entry.job.trigger.source,
                   event: entry.job.trigger.event,
                   interval: intervalText(entry.job.trigger.min_interval),
+                  // 사람이 승인하는 것이 다른 컴퓨터의 일이라 그 컴퓨터를 이름으로 말한다(명단에 없으면 기계 id).
+                  machine:
+                    entry.job.trigger.source_machine === undefined
+                      ? ""
+                      : (machineNameOf(entry.job.trigger.source_machine) ??
+                        entry.job.trigger.source_machine),
                 },
               )
             : t("waiting.notice.job-approval", {

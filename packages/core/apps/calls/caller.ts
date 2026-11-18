@@ -56,7 +56,8 @@ export type VerifiedCaller =
     }
   | { kind: "app"; app: Id<"app">; parent: Flight }
   | { kind: "program"; job: Id<"job">; job_run: Id<"jbr"> }
-  | { kind: "event"; parent: Flight | null }
+  // remote: 다른 기계에서 온 event가 부른 handler다(다른 컴퓨터를 다시 부르지 못하고 낸 event도 다른 컴퓨터로 가지 않는다).
+  | { kind: "event"; parent: Flight | null; remote: boolean }
   | {
       kind: "remote";
       machine: Id<"mch">;
@@ -195,7 +196,11 @@ export function verifyCaller(
     ) {
       return forbidden("event delivery does not match the credential");
     }
-    return ok({ kind: "event", parent: event.parent });
+    return ok({
+      kind: "event",
+      parent: event.parent,
+      remote: caller.machine !== undefined,
+    });
   }
 
   if (caller.kind === "remote") {

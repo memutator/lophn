@@ -434,13 +434,17 @@ function JobApprovalItem({
   const when =
     job.trigger !== null
       ? t(
-          job.trigger.source === "lophn"
-            ? "waiting.notice.job-approval-lophn"
-            : "waiting.notice.job-approval-event",
+          job.trigger.source_machine !== undefined
+            ? "waiting.notice.job-approval-event-on"
+            : job.trigger.source === "lophn"
+              ? "waiting.notice.job-approval-lophn"
+              : "waiting.notice.job-approval-event",
           {
             source: job.trigger.source,
             event: job.trigger.event,
             interval: intervalText(job.trigger.min_interval),
+            // The phone does not read the computer list yet: it names the computer by id.
+            machine: job.trigger.source_machine ?? "",
           },
         )
       : t("waiting.notice.job-approval", {

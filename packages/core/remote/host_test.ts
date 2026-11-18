@@ -1656,7 +1656,11 @@ test("컴퓨터는 private이 아닌 앱이 낸 앱 event만 받고, 폰은 앱 
   s.privateApps.add(SECRET_APP);
   const announce = (
     subject: string | null,
-    extra: { audience?: string[] | null; machine?: string } = {},
+    extra: {
+      audience?: string[] | null;
+      machine?: string;
+      remote?: true;
+    } = {},
   ) =>
     s.bus.publish({
       type: "AppEventPublished",
@@ -1671,6 +1675,7 @@ test("컴퓨터는 private이 아닌 앱이 낸 앱 event만 받고, 폰은 앱 
         trace_id: "a".repeat(32),
         chain: subject === null ? [] : [subject],
         ...(extra.machine === undefined ? {} : { machine: extra.machine }),
+        ...(extra.remote === undefined ? {} : { remote: true }),
       },
     } as BusEvent);
   const screen = { capability: "w", watcher: "screen" };
@@ -1691,6 +1696,8 @@ test("컴퓨터는 private이 아닌 앱이 낸 앱 event만 받고, 폰은 앱 
   announce(null);
   announce(OPEN_APP, { audience: [OPEN_APP] });
   announce(OPEN_APP, { machine: HOST_MACHINE });
+  // 받은 call이나 다른 컴퓨터에서 온 event가 부른 호출 안에서 난 event도 가지 않는다(두 컴퓨터 사이 고리).
+  announce(OPEN_APP, { remote: true });
   s.bus.publish({
     type: "NoticeClosed",
     subject: null,

@@ -77,7 +77,11 @@ export type EventDeliveryDeps = {
     chain: readonly Id<"app">[];
     cross_id?: string;
     machine?: Id<"mch">;
+    remote?: true;
   }): void;
+  // 이 기계의 call 정책에서 그 앱 workspace가 private인가. private인 앱은 다른 기계의 event를 받지 않는다(감시는 컴퓨터마다 걸려 있어 다른 구독이 같은 컴퓨터를
+  // 보고 있으면 걸러 주지 않는다).
+  isPrivate(app: Id<"app">): boolean;
   // 구독 선언의 컴퓨터 이름이 가리키는 기계. 이름이 없거나 둘 이상이거나 이 컴퓨터이면 null이다(그 구독은 받지 못한다).
   machineOf(name: string): Id<"mch"> | null;
   // 다른 컴퓨터가 낸 event를 이 기계가 이미 냈는가를 적는다(`across_machines` event가 연결과 늦은 길로 둘 다 올 수 있다). 새로 적었으면 true.
@@ -110,7 +114,12 @@ export type EventToDeliver = {
   machine?: Id<"mch">;
   // `across_machines` event를 낸 기계가 event file에 붙인 id. 다른 컴퓨터가 연결로 받은 것과 file을 같은 event로 세는 key다.
   crossId?: string;
+  // 다른 컴퓨터가 낸 call이나 다른 컴퓨터에서 온 event가 부른 호출 안에서 난 event다. 이 기계의 구독자는 받지만 다른 컴퓨터로는 나가지 않는다.
+  remote?: true;
 };
+
+// 연결로 온 `AppEventPublished`에서 payload 밖(source, event 이름, chain, id들)이 차지할 수 있는 크기의 넉넉한 상한.
+const RECEIVED_ENVELOPE_MAX_BYTES = 8 * 1024;
 
 // 다른 컴퓨터가 연결로 보낸 이 event를 이 기계에서 내는 데 필요한 것(`AppEventPublished`의 payload와 발행 앱).
 export type ReceivedAppEvent = {
@@ -127,6 +136,13 @@ export type ReceivedAppEvent = {
 // 다른 컴퓨터가 link로 보낸 글에서 이 기계가 낼 앱 event를 읽는다. 그 컴퓨터의 글이라 믿지 않고 bus event schema로 다시 읽고, 앱이 낸 것
 // (subject가 앱이고 audience가 없고 되돌려 나른 것이 아니다)이 아니면 버린다.
 export function receivedAppEvent(raw: unknown): ReceivedAppEvent | null {
+  // payload 한도에 봉투(chain 등)를 더한 크기를 넘는 글은 schema로 읽기 전에 버린다(다른 컴퓨터가 큰 글을 마음대로 보내 읽는 일을 시키지 못하게).
+  if (
+    JSON.stringify(raw ?? null).length >
+    EVENT_PAYLOAD_MAX_BYTES + RECEIVED_ENVELOPE_MAX_BYTES
+  ) {
+    return null;
+  }
   const parsed = busEventSchema.safeParse(raw);
   if (!parsed.success) return null;
   const event = parsed.data;
@@ -134,7 +150,8 @@ export function receivedAppEvent(raw: unknown): ReceivedAppEvent | null {
     event.type !== "AppEventPublished" ||
     event.subject === null ||
     event.payload.audience !== null ||
-    event.payload.machine !== undefined
+    event.payload.machine !== undefined ||
+    event.payload.remote !== undefined
   ) {
     return null;
   }
@@ -334,7 +351,12 @@ export function createEventDelivery(deps: EventDeliveryDeps): EventDelivery {
           machine === null ||
           (event.machine !== undefined &&
             deps.machineOf(machine) === event.machine),
-      ).filter((subscriber) => event.audience?.(subscriber.app) ?? true);
+      )
+        .filter((subscriber) => event.audience?.(subscriber.app) ?? true)
+        .filter(
+          (subscriber) =>
+            event.machine === undefined || !deps.isPrivate(subscriber.app),
+        );
       if (event.publisher === "lophn" && found.length === 0) return ok(null);
       const { running, handed, down } = await reachable(found, event.chain);
       const publication: EventPublication = {
@@ -373,6 +395,7 @@ export function createEventDelivery(deps: EventDeliveryDeps): EventDelivery {
         chain: event.chain,
         ...(event.crossId === undefined ? {} : { cross_id: event.crossId }),
         ...(event.machine === undefined ? {} : { machine: event.machine }),
+        ...(event.remote === true ? { remote: true as const } : {}),
       });
 
       for (const subscriber of handed) {
@@ -435,7 +458,10 @@ export function createEventDelivery(deps: EventDeliveryDeps): EventDelivery {
           }
         }
       }
-      const { handed } = await reachable(found, event.chain);
+      const { handed } = await reachable(
+        found.filter((subscriber) => !deps.isPrivate(subscriber.app)),
+        event.chain,
+      );
       for (const subscriber of handed) {
         handOff(
           subscriber,
@@ -574,8 +600,10 @@ export function createEventPublisher(deps: EventPublishDeps): MemoryHandler {
     );
     const chain = [...new Set([...ancestors, publisher])];
     // 다른 기계로 갈 event는 file id를 먼저 만든다: 연결로 가는 `AppEventPublished`와 event file이 같은 id를 실어, 받는 기계가 둘을 한 event로 센다.
+    // 받은 call 안에서 난 event는 이 기계에 머문다(file도 쓰지 않는다): 두 컴퓨터가 서로의 event로 앱을 되풀이해 부르는 고리를 끊는다.
+    const remote = parent?.remote === true;
     const crossId =
-      declared.across_machines === true && !deps.isPrivate(publisher)
+      declared.across_machines === true && !deps.isPrivate(publisher) && !remote
         ? deps.ids.newId("evt").slice(4)
         : undefined;
     const published = await deps.delivery.publish({
@@ -587,6 +615,7 @@ export function createEventPublisher(deps: EventPublishDeps): MemoryHandler {
       chain,
       parent,
       ...(crossId === undefined ? {} : { crossId }),
+      ...(remote ? { remote: true as const } : {}),
     });
     if (!published.ok) return published;
     if (published.value === null) {

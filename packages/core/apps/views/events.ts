@@ -29,7 +29,10 @@ export function deliverAppEvent(
     if (
       !entry.subscriptions.some(
         (one) =>
-          one.source === published.source && one.event === published.event,
+          // 다른 컴퓨터를 적은 구독은 이 컴퓨터의 event를 받지 않는다(다른 컴퓨터의 event는 앱 process로만 간다).
+          one.machine === undefined &&
+          one.source === published.source &&
+          one.event === published.event,
       )
     ) {
       continue;

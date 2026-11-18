@@ -22,6 +22,7 @@ import {
   whenOf,
 } from "./model.ts";
 import type { JobsSource, JobView } from "./source.ts";
+import { useMachineNameOf } from "./machine-names.ts";
 import styles from "./jobs.module.css";
 
 // 꺼짐 → 놓친 차례를 기다림 → 다음 차례 순서로 하나만 보인다.
@@ -41,6 +42,7 @@ export function JobRows({
   source: JobsSource;
   onOpen: () => void;
 }) {
+  const machineNameOf = useMachineNameOf();
   const [notice, setNotice] = useState<string | null>(null);
   const { loaded, reload: load } = useFollowedRead(
     async () => {
@@ -94,7 +96,7 @@ export function JobRows({
               wrapMeta={job.trigger === null ? true : 6}
               meta={
                 <>
-                  {whenOf(job)}
+                  {whenOf(job, machineNameOf)}
                   {job.trigger === null ? (
                     ` · ${stateText(job)}`
                   ) : (

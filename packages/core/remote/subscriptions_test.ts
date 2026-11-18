@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
+import { callPolicySetting } from "../config/setting-declarations.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { EventCondition } from "../../protocol/events/mod.ts";
 import type { Workspace } from "../../protocol/lophn-agent/workspaces.ts";
@@ -8,7 +9,11 @@ import {
   type MachineCandidate,
   resolveMachine,
 } from "../../protocol/machine/requester.ts";
-import { CORE_APP_EVENTS, createRemoteSubscriptions } from "./subscriptions.ts";
+import {
+  changesSubscriptions,
+  CORE_APP_EVENTS,
+  createRemoteSubscriptions,
+} from "./subscriptions.ts";
 
 const machineId = (suffix: string) =>
   `mch_${"0".repeat(24)}${suffix}` as Id<"mch">;
@@ -49,8 +54,10 @@ const computers: MachineCandidate[] = [
   },
 ];
 const PRIVATE_APP = appId("p1");
+// 이 기계의 call 정책에서 private인 앱 workspace. test가 바꾼다(정책을 고친 뒤).
+const privateApps = new Set<string>([PRIVATE_APP]);
 const privateWorkspace = (workspace: Workspace | null) =>
-  workspace?.kind === "app" && workspace.id === PRIVATE_APP;
+  workspace?.kind === "app" && privateApps.has(workspace.id);
 
 function setup(input: {
   jobs: { machine: Id<"mch">; workspace: Workspace | null }[];
@@ -108,4 +115,47 @@ test("core는 job과 앱 선언이 원하는 컴퓨터마다 구독자 하나를
   t.state.apps = [];
   await t.subscriptions.refresh();
   assert.deepStrictEqual(t.watched.at(-1), { machine: LAPTOP, conditions: [] });
+});
+
+// 이미 건 구독의 workspace가 나중에 private이 되면 그 구독을 거둔다. 정책을 고치는 설정 변경이 다시 계산하게 한다.
+test("call 정책이 바뀌어 workspace가 private이 되면 다시 계산할 때 그 앱의 구독을 거두고, 정책 설정의 변경은 다시 계산하는 계기다", async () => {
+  const app = appId("a9");
+  const t = setup({
+    jobs: [],
+    apps: [{ app, machines: ["laptop"] }],
+  });
+  await t.subscriptions.refresh();
+  assert.deepStrictEqual(t.watched.at(-1), {
+    machine: LAPTOP,
+    conditions: [{ types: ["AppEventPublished"] }],
+  });
+  privateApps.add(app);
+  try {
+    await t.subscriptions.refresh();
+    assert.deepStrictEqual(t.watched.at(-1), {
+      machine: LAPTOP,
+      conditions: [],
+    });
+  } finally {
+    privateApps.delete(app);
+  }
+
+  const key = callPolicySetting.key;
+  assert.equal(
+    changesSubscriptions([{ name: "settings", id: key }], key),
+    true,
+  );
+  assert.equal(
+    changesSubscriptions([{ name: "settings", id: null }], key),
+    true,
+  );
+  assert.equal(
+    changesSubscriptions([{ name: "settings", id: "other.key" }], key),
+    false,
+  );
+  assert.equal(changesSubscriptions([{ name: "jobs", id: null }], key), true);
+  assert.equal(
+    changesSubscriptions([{ name: "sessions", id: null }], key),
+    false,
+  );
 });

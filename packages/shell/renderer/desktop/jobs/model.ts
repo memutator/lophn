@@ -43,24 +43,41 @@ export function intervalText(every: string): string {
   return t(INTERVAL_KEY[every.slice(-1) as keyof typeof INTERVAL_KEY], { n });
 }
 
-/** event job의 때를 말로. 승인 card와 목록이 같은 글을 쓴다: "When masup publishes usage.limit, at most every 5 minutes". */
-export function triggerText(trigger: NonNullable<JobView["trigger"]>): string {
+/** 기계 id를 이름으로. 명단에 없으면(빠졌거나 모른다) null이다. */
+export type MachineNameOf = (machine: string) => string | null;
+
+/** event job의 때를 말로. 승인 card와 목록이 같은 글을 쓴다: "When masup publishes usage.limit, at most every 5 minutes". 다른 컴퓨터의 앱 event면 그 컴퓨터를
+ * 이름으로 말한다(이름을 모르면 기계 id): 사람이 승인하는 것은 다른 컴퓨터의 일이다. */
+export function triggerText(
+  trigger: NonNullable<JobView["trigger"]>,
+  machineName?: MachineNameOf,
+): string {
+  const common = {
+    source: trigger.source,
+    event: trigger.event,
+    interval: intervalText(trigger.min_interval),
+  };
+  if (trigger.source_machine !== undefined) {
+    return t("jobs.label.trigger-app-on", {
+      ...common,
+      machine: machineName?.(trigger.source_machine) ?? trigger.source_machine,
+    });
+  }
   return t(
     trigger.source === "lophn"
       ? "jobs.label.trigger-lophn"
       : "jobs.label.trigger-app",
-    {
-      source: trigger.source,
-      event: trigger.event,
-      interval: intervalText(trigger.min_interval),
-    },
+    common,
   );
 }
 
 /** 목록의 때 칸: 주기 job은 주기, event job은 event. */
-export function whenOf(job: Pick<JobView, "every" | "at" | "trigger">): string {
+export function whenOf(
+  job: Pick<JobView, "every" | "at" | "trigger">,
+  machineName?: MachineNameOf,
+): string {
   return job.trigger !== null
-    ? triggerText(job.trigger)
+    ? triggerText(job.trigger, machineName)
     : scheduleText(job.every!, job.at);
 }
 

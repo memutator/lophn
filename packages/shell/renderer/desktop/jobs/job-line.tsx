@@ -18,6 +18,7 @@ import {
   whenText,
 } from "./model.ts";
 import type { JobNames, JobRunView, JobView } from "./source.ts";
+import { useMachineNameOf } from "./machine-names.ts";
 import styles from "./jobs.module.css";
 
 /** 펼친 줄의 기록. 읽는 중이면 loading, 읽지 못했으면 failed. 펴지 않았으면 undefined. */
@@ -53,6 +54,7 @@ export function JobLine({
   onOpenProject,
 }: JobLineProps) {
   const now = new Date();
+  const machineNameOf = useMachineNameOf();
   const action = actionText(job.action, names);
   const last = job.last_run;
   const open = history !== undefined;
@@ -64,7 +66,7 @@ export function JobLine({
         <div className={styles.main}>
           <span className={styles.title}>{job.title}</span>
           <span className={styles.line}>
-            {whenOf(job)} · {nextText(job, now, machineName)}
+            {whenOf(job, machineNameOf)} · {nextText(job, now, machineName)}
           </span>
           <span className={styles.line}>
             <span className={styles.summary}>{action.summary}</span>

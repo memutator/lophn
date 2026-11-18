@@ -634,6 +634,7 @@ export const appsWiring: WiringFactory = () => {
             payload: published,
           } as BusEvent);
         },
+        isPrivate: appIsPrivate,
         // 구독 선언의 컴퓨터 이름은 명단에서 푼다(remote wiring이 늦게 낸다). 이 컴퓨터를 가리키는 이름은 받지 못한다: 이 기계의 event는 `machine`이 없다.
         machineOf(name) {
           const found = ctx.peek.machineLinks?.resolve(name);

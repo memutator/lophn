@@ -54,6 +54,8 @@ export const workspaceSettings = {
   "jobs.label.interval-minutes": "{n, plural, one {minute} other {# minutes}}",
   "jobs.label.trigger-app":
     "When {source} publishes {event}, at most every {interval}",
+  "jobs.label.trigger-app-on":
+    "When app {source} on {machine} publishes {event}, at most every {interval}",
   "jobs.label.trigger-lophn":
     "When lophn reports {event}, at most every {interval}",
   "jobs.label.if-missed": "If missed",

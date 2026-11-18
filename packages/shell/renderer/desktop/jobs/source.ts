@@ -45,6 +45,8 @@ export interface JobView {
   /** event로 도는 job의 때. source는 `lophn`이거나 앱 slug다. 주기 job은 null이다. */
   readonly trigger: {
     readonly source: string;
+    /** 다른 컴퓨터의 앱 event로 도는 job이면 그 컴퓨터의 기계 id. 그때 source는 그 컴퓨터의 앱 id다. */
+    readonly source_machine?: string;
     readonly event: string;
     readonly min_interval: string;
     readonly pass_event: boolean;

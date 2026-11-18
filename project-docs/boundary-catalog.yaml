@@ -38,7 +38,7 @@ elements:
 
       - id: projects
         kind: subsystem
-        description: project workspace와 그 폴더의 파일(문서). 기계를 넘는 project id(저장소 안 `.lophn-project.json`의 `pri_` id, ledger의 cache와 다시 읽기, file 상태, `project.identity`·`create_identity`·`renew_identity`·`match`), 이 기계에 없는 project를 git URL에서 받아 등록하는 `project.clone`과 설정 `projects.folder`, 다른 기계를 보는 desktop 창에서 그 기계의 project를 같은 id로 이 컴퓨터의 것과 묶어 보이기([Clone here] 포함)를 포함한다.
+        description: project workspace와 그 폴더의 파일(문서). 기계를 넘는 project id(git project는 저장소 안 `.lophn-project.json`의 `pri_`가 원본이고 ledger는 cache, git이 아닌 project와 폴더 없는 project는 ledger에서 난 `pri_`가 원본. 다시 읽기, file 상태, `project.identity`·`create_identity`·`renew_identity`·`match`), 앱이 받는 project와 `place.workspace`의 `identity`, 이 기계에 없는 project를 git URL에서 받아 등록하는 `project.clone`과 설정 `projects.folder`, 다른 기계를 보는 desktop 창에서 그 기계의 project를 같은 id로 이 컴퓨터의 것과 묶어 보이기([Clone here] 포함)를 포함한다.
 
       - id: apps
         kind: subsystem

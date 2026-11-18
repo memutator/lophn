@@ -16,4 +16,4 @@ lead만 고친다. `tools/status.py one-screen build`가 `tasks/*.md`에서 id, 
 | `screen-pages` | screen | 3 | screen-lists | merged | screen/screen-pages | 57a0c24ba |  |
 | `screen-rest` | screen | 3 | screen-lists, screen-terminals, screen-apps | merged | screen/screen-rest | 1eb5c34a3 |  |
 | `screen-windows` | screen | 3 | screen-lists | merged | screen/screen-windows | 9a045f7c9 |  |
-| `screen-cleanup` | screen | 4 | screen-layout, screen-inbox, screen-pages, screen-windows, screen-phone, screen-link | running | screen/screen-cleanup |  |  |
+| `screen-cleanup` | screen | 4 | screen-layout, screen-inbox, screen-pages, screen-windows, screen-phone, screen-link | merged | screen/screen-cleanup | d8daa2ebc |  |

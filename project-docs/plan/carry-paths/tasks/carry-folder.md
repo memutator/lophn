@@ -81,3 +81,6 @@
 - `layout.ts`·`fs.ts`의 이름 검사에 `manifest.json`, `roster.json`, `apps/<app>/files.json`, `events/<id>.json`을 더한다.
 - 등록(이미 lead가 넣었다): ledger step `folder.events-seen`, `apps.event-publications.machine`, `folder.carry-marks`. 이 task가 하는 등록은 그대로다: `CARRY_ROUTES`를 등록하고 기기 route 목록에 올릴 이름을 보고에 적기, `folder.shared` 설정, `app-runtime.yaml`의 `ignore:` 줄을 진짜 flow로 바꾸기, `StateChanged{carry_files}`를 낼 때 `tools/check-reads.ts`의 `PUBLISHED_OUTSIDE_ROUTES`에 `"carry_files"`를 더하고 두 읽기 route에 `reads: ["carry_files"]`를 돌려놓기.
 - 먼저 확인할 것: 다른 기계가 낸 새 release를 따라갈 때 사람의 확인 없이 code가 깔리는지(`packages/core/folder/apps/`, `architecture/folder-sync.md`). 확인 없이 깔리면 멈추고 보고한다(받는 file의 출처가 이제 연결과 폰까지 넓어진다).
+- 지우는 규칙(두 번째 review): 목록 file 아래의 file은 그 목록 file의 지금 판을 가진 뒤에만, 그것이 더는 싣지 않는 것만 지운다. manifest를 받고 새 `files.json`이 아직 오지 않은 사이에는 앞 판 아래의 file을 두고 import도 그대로 한다(위 "덮던 file이 바뀐 것 포함은 지운다"를 이 줄이 대신한다).
+- 자리로 옮길 때와 `wants`·`holds`에서, 든 목록은 그것을 검증한 서명 key가 지금의 `computerSigningKey(machine)`와 같을 때만 센다.
+- `ctx.computerRemoved(machine)`은 그 기계를 가리키는 정해지지 않은 빼기가 하나라도 있으면 거짓이다(key를 바꿔 다시 든 기계가 다툼에 걸려도 사본을 지우지 않는다).

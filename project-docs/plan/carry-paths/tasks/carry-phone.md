@@ -75,3 +75,4 @@
 - `carry/wants`는 `after` cursor로 끝까지 읽는다(첫 1,000개에서 멈추지 않는다).
 - 폰의 크기와 hash 검사는 세 단 사슬이다: manifest → `apps/<app>/files.json` → `release.json`·`source/<n>.json`. `packages/protocol/folder/carry.ts`의 `expectedFile`·`expectedFiles`를 폰이 든 목록 file로 부른다.
 - remote protocol 판은 바뀌지 않는다(4). 폰에서 판을 올릴 것이 없다.
+- 새로 받을 file(두 번째 review): "앞 revision에 없던 file"로 고르지 않는다. 새 manifest가 싣는 것은 `files.json`뿐이라 변경마다 폰이 두 번 다녀야 한다. `expectedFiles`의 차(새것 빼기 옛것)로 고르고, 새 목록 file을 받을 때마다 다시 계산한다.

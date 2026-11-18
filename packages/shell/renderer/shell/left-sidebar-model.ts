@@ -26,6 +26,16 @@ export interface SidebarSession {
   readonly machine?: string;
   /** 꺼진 기계의 줄(이 실행 동안 마지막으로 본 것). 흐리고 열리지 않는다. */
   readonly offline?: true;
+  /**
+   * 다른 기계의 터미널 coding agent. 줄이 자기 기계와 터미널을 들고 다니므로 열고 이름 바꾸는 쪽이 줄을 읽어 기계를 고른다
+   * (줄이 여는 workspace의 기계로 짐작하지 않는다). `tab`은 이 창의 그 workspace layout에 이미 있는 탭의 key이고 없으면 null이다.
+   */
+  readonly remote?: {
+    readonly machine: string;
+    readonly terminal: string;
+    readonly tab: string | null;
+    readonly harness: string;
+  };
 }
 
 export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>

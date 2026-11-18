@@ -13,10 +13,10 @@ import type { WorkspaceRef } from "../../../packages/shell/renderer/shell/desk-m
 import type { SidebarWorkspace } from "../../../packages/shell/renderer/shell/left-sidebar-model.ts";
 import {
   homeName,
+  type RemoteTerminal,
   sidebarWorkspaces,
 } from "../../../packages/shell/renderer/shell/left-sidebar-workspaces.ts";
 import type { SidebarAgent } from "../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
-import type { PanelTerminal } from "../../../packages/shell/renderer/workspace/sidebar/panel-types.ts";
 
 export const HOME_SERVER = "mch_01h455vb4pex5v6nkc6gd5fm01";
 export const LAPTOP = "mch_01h455vb4pex5v6nkc6gd5fm02";
@@ -228,18 +228,58 @@ const LOPHN: SidebarAgent = {
   waiting: false,
 };
 
-// Home server의 claude가 이 컴퓨터의 phroner 줄 안에서 도는 coding agent 터미널.
-const REMOTE_CODING: PanelTerminal = {
-  key: "terminal-home-server-claude",
-  harness: "claude",
-  label: "Claude Code",
-  title: "Tune the eval thresholds",
-  dot: "working",
-  at: 0,
-  live: { tabKey: "terminal-home-server-claude" },
-  saved: null,
+// Home server의 터미널에서 도는 coding agent(`coding_sessions/list`가 준 줄). 둘째는 Home server의 화면에서 시작했고 이 창에 탭이
+// 없다. 첫째는 이 컴퓨터의 phroner에 그 기계를 단 탭으로 열려 있다.
+const coding = (
+  at: string,
+  harness: string,
+  label: string,
+  project: string,
+  title: string,
+  state: RemoteTerminal["state"],
+): RemoteTerminal => ({
   machine: HOME_SERVER,
-};
+  session: `ses_01h455vb4pex5v6nkc6gd5fc${at}`,
+  terminal: `trm_01h455vb4pex5v6nkc6gd5fc${at}`,
+  harness,
+  label,
+  project,
+  cwd: null,
+  title,
+  state,
+  view: "tui",
+  handoff: null,
+  cli_session: null,
+  last_active_at: null,
+  switch: null,
+});
+
+export const TUNE = coding(
+  "01",
+  "claude",
+  "Claude Code",
+  HS_PHRONER,
+  "Tune the eval thresholds",
+  "running",
+);
+const LOADER = coding(
+  "02",
+  "codex",
+  "Codex",
+  HS_PHRONER,
+  "Review the data loader",
+  "waiting",
+);
+const DEDUPE = coding(
+  "03",
+  "claude",
+  "Claude Code",
+  HS_GROCERY,
+  "Dedupe the shopping list",
+  "idle",
+);
+/** 이 컴퓨터의 phroner에 열린 Tune 탭의 key. */
+export const TUNE_TAB = "terminal-home-server-claude";
 
 /** 그 workspace를 보는 창의 왼쪽 sidebar 줄. */
 export function machineSidebar(
@@ -259,7 +299,6 @@ export function machineSidebar(
     ended: null,
     unseen: unseen === true,
   }));
-  const here = current.kind === "project" && current.id === PHRONER;
   return sidebarWorkspaces({
     now: Date.now(),
     current,
@@ -274,10 +313,10 @@ export function machineSidebar(
     openTitles: new Map(),
     desks: new Map(),
     drafts: [],
-    terminals: here ? [REMOTE_CODING] : [],
-    otherTerminals: here
-      ? new Map()
-      : new Map([[PHRONER, [{ ...REMOTE_CODING, at: 0 }]]]),
+    terminals: [],
+    otherTerminals: new Map(),
+    remoteTerminals: [TUNE, LOADER, DEDUPE],
+    attached: new Map([[PHRONER, new Map([[TUNE.terminal, TUNE_TAB]])]]),
     workflows: [],
     hidden: new Map(),
   });

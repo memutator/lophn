@@ -21,6 +21,7 @@ import {
 } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import type { SplitDir } from "./desk-model.ts";
 import { type ActiveDrag, useTabDrag } from "./tab-drag.tsx";
+import { MachineTag } from "./left-sidebar.tsx";
 import { type FloatChip, FloatChips } from "./taskbar/float-chips.tsx";
 import styles from "./tab-strip.module.css";
 
@@ -35,6 +36,8 @@ export interface StripTab {
   readonly unsaved?: boolean;
   /** 이름을 바꿀 수 있는 tab. double-click하면 이름 자리가 입력이 된다. */
   readonly renamable?: boolean;
+  /** 이 컴퓨터가 아닌 기계의 tab이면 그 기계의 이름. 이름 옆에 기계 꼬리표가 붙는다. */
+  readonly machine?: string;
   /**
    * group의 칸이 돌려 보는 tab들(온 순서, 이 tab 포함). 둘 이상이면 칸의 tab이 모두 차례로 보인다. 고른 group은
    * 이름까지, 고르지 않은 group은 숨은 tab을 아이콘으로 보인다.
@@ -336,6 +339,11 @@ export function TabStrip({
                             data-preview={item.preview || undefined}
                           >
                             {item.title}
+                          </span>
+                        )}
+                        {item.machine === undefined || editing ? null : (
+                          <span className={styles.machine}>
+                            <MachineTag name={item.machine} />
                           </span>
                         )}
                         <CloseSlot

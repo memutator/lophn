@@ -18,6 +18,7 @@ import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
 import { useCardHead } from "../parts/card-head/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
+import { MachineTag } from "../shell/left-sidebar.tsx";
 import { ExitBanner } from "./exit-banner.tsx";
 import {
   endingOf,
@@ -119,11 +120,7 @@ export function TerminalTab({
     unavailable: unavailable?.reason ?? null,
   });
   const machineTag =
-    machine === null ? null : (
-      <span className={styles.machine} data-terminal-machine={machine.id}>
-        {machine.name}
-      </span>
-    );
+    machine === null ? null : <MachineTag name={machine.name} />;
   const inCard = useCardHead(
     guiHarness === null
       ? { actions: machineTag }

@@ -79,9 +79,13 @@ export function usePanelTerminals(
       if (id !== undefined) liveSessions.add(id);
       const seen = firstSeen.current.get(tab.key) ?? Date.now();
       firstSeen.current.set(tab.key, seen);
+      const terminalRef = store?.refOf(tab.key);
       return [
         {
           key: tab.key,
+          ...(terminalRef === null || terminalRef === undefined
+            ? {}
+            : { terminalRef }),
           harness: agent.harness,
           label: harnessLabel(agent.harness),
           title: tab.title,

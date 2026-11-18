@@ -57,7 +57,6 @@ import {
 } from "../../shell/left-sidebar-workspaces.ts";
 import {
   type SessionTitles,
-  useKnownSessions,
   useMachineLists,
   useTabsElsewhere,
 } from "../../shell/use-left-sidebar.ts";
@@ -201,21 +200,8 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const projectId = current.kind === "project" ? current.id : null;
   const lists = useMachineLists();
   const { entries, dataOf } = lists;
-  // 이 창이 보는 workspace의 기계가 아닌 기계의 session 제목. 이 workspace 기계의 제목은 탭 줄과 같은 `props.sessionTitles`다.
-  const scope = current.machine ?? null;
-  const elsewhereEntries = useMemo(
-    () => entries.filter((entry) => entry.machine !== scope),
-    [entries, scope],
-  );
-  const otherTitles = useKnownSessions(
-    undefined,
-    elsewhereEntries,
-    (on) => dataOf(on).agentViewSource,
-  ).known;
-  const known = useMemo(
-    () => new Map([...otherTitles, ...props.sessionTitles.known]),
-    [otherTitles, props.sessionTitles.known],
-  );
+  // 모든 기계의 session 제목. 창에 하나이고 탭 줄과 같은 값이다.
+  const { known } = props.sessionTitles;
   const workspaceRefs = useMemo(
     () => lists.rows.map((row) => row.ref),
     [lists.rows],
@@ -224,17 +210,48 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     (ref: WorkspaceRef) => dataOf(ref.machine ?? null).workspace.layout,
     [dataOf],
   );
-  const elsewhere = useTabsElsewhere(layoutOf, workspaceRefs, current, entries);
-  // 다른 workspace의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다.
-  // 터미널은 그 탭(없으면 그 workspace)의 기계 store가 안다.
+  // 다른 기계의 coding agent가 새로 서거나(그 기계의 화면에서 시작한 것) 이 창이 그 기계의 터미널 탭을 열었을 때(그 기계의 store가
+  // 바뀐다) layout을 다시 읽는다. 안 그러면 방금 연 탭을 모르는 줄을 다시 누를 때 탭이 하나 더 열린다.
+  const remoteMachines = lists.lists
+    .flatMap((list) => (list.machine === null ? [] : [list.machine]))
+    .join();
+  const remoteStores = useMemo(
+    () =>
+      remoteMachines === ""
+        ? []
+        : remoteMachines.split(",").flatMap((id) => {
+            const remote = dataOf(id).terminal?.store;
+            return remote === undefined ? [] : [remote];
+          }),
+    [remoteMachines, dataOf],
+  );
+  const remoteVersions = useSyncExternalStore(
+    useCallback(
+      (listener: () => void) => {
+        const stops = remoteStores.map((remote) => remote.subscribe(listener));
+        return () => stops.forEach((stop) => stop());
+      },
+      [remoteStores],
+    ),
+    () => remoteStores.map((remote) => remote.version()).join(),
+  );
+  const remoteSignal = `${lists.terminals.map((one) => one.terminal).join()}|${remoteVersions}`;
+  const elsewhere = useTabsElsewhere(
+    layoutOf,
+    workspaceRefs,
+    current,
+    entries,
+    remoteSignal,
+  );
+  // 다른 workspace의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다. 이 컴퓨터의 터미널은 이 창의
+  // terminal store가 안다. 다른 기계의 터미널은 그 기계의 목록(`lists.terminals`)이 주고, 이 창에 그 탭이 있으면 그 탭의 줄이다(`attached`).
   const store = props.terminal?.store;
   const workspaceOfKey = useMemo(
     () => new Map(workspaceRefs.map((ref) => [workspaceKey(ref), ref])),
     [workspaceRefs],
   );
-  const storeOf = (key: string, tab: TabItem) =>
-    dataOf(tab.machine ?? workspaceOfKey.get(key)?.machine ?? null).terminal
-      ?.store;
+  const onThisComputer = (key: string, tab: TabItem) =>
+    (tab.machine ?? workspaceOfKey.get(key)?.machine) === undefined;
   const storeVersion = useSyncExternalStore(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
@@ -244,10 +261,12 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     for (const [key, tabs] of elsewhere.terminals) {
       for (const tab of tabs) {
         const ref = terminalRefOf(tab);
-        if (ref !== null) storeOf(key, tab)?.rememberElsewhere(tab.key, ref);
+        if (ref !== null && onThisComputer(key, tab)) {
+          store?.rememberElsewhere(tab.key, ref);
+        }
       }
     }
-  }, [elsewhere.terminals, dataOf, workspaceOfKey]);
+  }, [elsewhere.terminals, store, workspaceOfKey]);
   const otherTerminals = useMemo(
     () =>
       new Map(
@@ -259,24 +278,27 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           .map(([key, tabs]) => [
             key,
             tabs.flatMap((tab): PanelTerminal[] => {
-              const at = storeOf(key, tab);
-              const agent = at?.agentOf(tab.key);
-              if (at === undefined || agent === undefined || !agent.hooked) {
+              const agent = store?.agentOf(tab.key);
+              if (
+                store === undefined ||
+                agent === undefined ||
+                !agent.hooked ||
+                !onThisComputer(key, tab)
+              ) {
                 return [];
               }
+              const terminalRef = terminalRefOf(tab);
               return [
                 {
                   key: tab.key,
                   harness: agent.harness,
                   label: agent.harness,
-                  title: terminalTabTitle(tab, at),
+                  title: terminalTabTitle(tab, store),
                   dot: codingDot(agent),
                   at: 0,
                   live: { tabKey: tab.key },
                   saved: null,
-                  ...(tab.machine === undefined
-                    ? {}
-                    : { machine: tab.machine }),
+                  ...(terminalRef === null ? {} : { terminalRef }),
                 },
               ];
             }),
@@ -284,12 +306,27 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       ),
     [
       elsewhere.terminals,
-      dataOf,
+      store,
       workspaceOfKey,
       storeVersion,
       workspaceKey(current),
       props.layoutReady,
     ],
+  );
+  const attached = useMemo(
+    () =>
+      new Map(
+        [...elsewhere.terminals].map(([key, tabs]) => [
+          key,
+          new Map(
+            tabs.flatMap((tab) => {
+              const ref = terminalRefOf(tab);
+              return ref === null ? [] : [[ref, tab.key] as const];
+            }),
+          ),
+        ]),
+      ),
+    [elsewhere.terminals],
   );
   // layout을 읽기 전의 이 창은 기본 layout(탭 없음)이다. 그 값으로 덮으면 workspace를 옮길 때마다 줄이 비었다 차오르므로 저장된 값을 그대로 쓴다.
   const openTitles = useMemo(
@@ -333,6 +370,8 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         drafts,
         terminals: props.terminals,
         otherTerminals,
+        remoteTerminals: lists.terminals,
+        attached,
         workflows,
         hidden: recentHidden.hidden,
       }),
@@ -349,6 +388,8 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       drafts,
       props.terminals,
       otherTerminals,
+      lists.terminals,
+      attached,
       workflows,
       recentHidden.hidden,
     ],
@@ -491,6 +532,33 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     }
   };
 
+  // 다른 기계의 coding agent 터미널. 이 창에 그 탭이 있으면 그 탭을 고르고(탭은 그 기계의 store를 쓴다), 없으면 그 기계의 터미널에
+  // 붙는 탭을 연다. 다른 workspace의 줄은 그 workspace로 간다(탭을 여는 것은 그 workspace가 보인 뒤다).
+  const openRemoteTerminal = (
+    workspace: SidebarWorkspace,
+    item: SidebarSession,
+    remote: NonNullable<SidebarSession["remote"]>,
+  ) => {
+    const here = workspaceKey(workspace.ref) === workspaceKey(current);
+    if (remote.tab !== null) {
+      if (here) props.onTab(remote.tab);
+      else void showTerminalAt(workspace.ref, remote.tab);
+    } else if (here) {
+      props.onTerminal({
+        key: item.ref,
+        harness: remote.harness,
+        label: remote.harness,
+        title: item.title,
+        dot: item.dot,
+        at: item.at,
+        live: null,
+        saved: null,
+        machine: remote.machine,
+        remote: { terminal: remote.terminal },
+      });
+    } else props.onWorkspace(workspace.ref);
+  };
+
   const open = (workspace: SidebarWorkspace, item: SidebarSession) => {
     const here = workspaceKey(workspace.ref) === workspaceKey(current);
     if (item.offline) return;
@@ -506,7 +574,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     }
     if (item.kind === "workflow") props.onWorkflow(item.ref);
     else if (item.kind === "draft") props.onTab(item.ref);
-    else if (item.kind === "terminal") {
+    else if (item.kind === "terminal" && item.remote !== undefined) {
+      openRemoteTerminal(workspace, item, item.remote);
+    } else if (item.kind === "terminal") {
       const terminal = props.terminals.find((row) => row.key === item.ref);
       if (terminal !== undefined) props.onTerminal(terminal);
       else if (!here) void showTerminalAt(workspace.ref, item.ref);

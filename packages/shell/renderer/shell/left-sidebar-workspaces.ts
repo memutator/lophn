@@ -11,6 +11,8 @@
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 workspace의 것만 온다.
 //   다른 workspace는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
 //   draft 줄도 이 창이 보이는 workspace의 것만이다(다른 workspace의 메모리 layout에 있는 새 session 탭은 줄이 없다).
+// - 다른 기계의 터미널 coding agent(`remoteTerminals`)는 그 기계의 `coding_sessions/list`에서 와서 그 기계의 화면에서 시작한 것도 선다.
+//   project가 든 줄에 서고 이 창에 탭이 있으면(`attached`) 그 탭의 줄이다. 같은 터미널이 위 두 길로 이미 줄이 되었으면 한 줄만 남긴다.
 // - 줄의 연필·x(actions)는 lophn session과 터미널은 어느 workspace든 있다. draft는 x만, workflow desk는 없다.
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
@@ -20,6 +22,7 @@
 // - lophn 이름(`lophn_home`, `lophn_<app id>`)은 기계마다 같은 id라 이 컴퓨터의 session에만 쓴다.
 import { t } from "@lophn/i18n";
 
+import type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
 import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../desktop/machines/data.ts";
@@ -28,6 +31,7 @@ import {
   type MergedWorkspace,
 } from "../desktop/workspaces/projects/merged.ts";
 import {
+  activityDot,
   byCreated,
   byNewest,
   recentVisible,
@@ -57,6 +61,9 @@ export type KnownSessions = ReadonlyMap<
   string,
   { readonly title: string | null; readonly at: number }
 >;
+
+/** 다른 기계(`machine`)의 터미널에서 도는 coding agent. */
+export type RemoteTerminal = CodingSession & { readonly machine: string };
 
 /** workspace layout의 desk와, 줄이 가리키는 것(탭 key, Agent 탭의 session id, `workflow:<이름>`)이 있는 desk의 key. */
 export interface LayoutDesks {
@@ -107,6 +114,10 @@ export interface WorkspacesInput {
   readonly terminals: readonly PanelTerminal[];
   /** workspace key → 그 workspace의 layout에 탭이 열렸고 agent가 지금 도는 터미널(이 창이 보이지 않는 workspace). */
   readonly otherTerminals: ReadonlyMap<string, readonly PanelTerminal[]>;
+  /** 다른 기계의 터미널 coding agent. 그 기계의 화면에서 시작한 것도 든다. */
+  readonly remoteTerminals: readonly RemoteTerminal[];
+  /** workspace key → 터미널 참조 → 그 workspace의 layout에 열린 그 터미널의 탭 key. */
+  readonly attached: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** 이 창이 보이는 workspace에서 사람 차례를 기다리는 workflow 이름. */
   readonly workflows: readonly string[];
   readonly hidden: HiddenRecent;
@@ -236,6 +247,52 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
           : { machine: terminal.machine }),
       });
     }
+  }
+
+  // 같은 터미널이 위 두 길로 이미 줄이 되었으면 다른 기계의 목록에서는 더하지 않는다.
+  const shown = new Set([
+    ...input.terminals.flatMap((one) =>
+      one.live === null || one.terminalRef === undefined
+        ? []
+        : [one.terminalRef],
+    ),
+    ...[...input.otherTerminals.values()].flatMap((list) =>
+      list.flatMap((one) =>
+        one.terminalRef === undefined ? [] : [one.terminalRef],
+      ),
+    ),
+  ]);
+  for (const terminal of input.remoteTerminals) {
+    const row = rowOf.get(copyKey(terminal.machine, terminal.project));
+    if (row === undefined || shown.has(terminal.terminal)) continue;
+    const workspace = workspaceKey(row.ref);
+    const tab = input.attached.get(workspace)?.get(terminal.terminal) ?? null;
+    add(current, workspace, {
+      kind: "terminal",
+      ref: tab ?? terminal.terminal,
+      title: terminal.title ?? terminal.label,
+      agent: codingFace(terminal.harness),
+      dot: activityDot({
+        state: terminal.state,
+        unseen: false,
+        ended: false,
+      }),
+      // 이름 바꾸기와 닫기는 그 기계의 입력 허락이 있어야 한다. 이 줄은 보기와 열기만 한다.
+      actions: false,
+      at: Date.parse(terminal.last_active_at ?? "") || 0,
+      ...(terminal.machine === (row.ref.machine ?? null)
+        ? {}
+        : { machine: terminal.machine }),
+      ...(input.offline.has(terminal.machine)
+        ? { offline: true as const }
+        : {}),
+      remote: {
+        machine: terminal.machine,
+        terminal: terminal.terminal,
+        tab,
+        harness: terminal.harness,
+      },
+    });
   }
 
   // 종류 안에서는 만든 순이다. 새 줄은 끝에 붙고 다시 시작해도 같다.

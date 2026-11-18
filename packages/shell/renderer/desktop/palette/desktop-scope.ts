@@ -16,7 +16,12 @@ export interface FileOpen {
 }
 
 export type DesktopTarget =
-  | { readonly kind: "project"; readonly id: string }
+  /** `machine`이 있으면 이 컴퓨터에 없는 project라 그 기계의 workspace로 연다(목록의 줄과 같은 길). */
+  | {
+      readonly kind: "project";
+      readonly id: string;
+      readonly machine?: string;
+    }
   | {
       readonly kind: "file";
       readonly project: string;
@@ -68,10 +73,15 @@ export function desktopScope(
     entries: () => [
       ...input.catalog.projects.map((row) => ({
         group: "projects" as const,
-        key: `project:${row.id}`,
+        key: `project:${row.machine ?? ""}:${row.id}`,
         label: row.title,
+        ...(row.machineName === undefined ? {} : { detail: row.machineName }),
         icon: "project" as const,
-        target: { kind: "project" as const, id: row.id },
+        target: {
+          kind: "project" as const,
+          id: row.id,
+          ...(row.machine === undefined ? {} : { machine: row.machine }),
+        },
       })),
       ...input.catalog.apps.map((row) => ({
         group: "apps" as const,

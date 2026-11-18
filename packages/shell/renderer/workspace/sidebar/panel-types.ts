@@ -31,6 +31,10 @@ export interface PanelTerminal {
   readonly live: { readonly tabKey: string } | null;
   /** 탭이 그 workspace의 기계가 아닌 기계의 터미널이면 그 기계. 줄 끝에 꼬리표가 붙는다. */
   readonly machine?: string;
+  /** core의 터미널 참조(`trm_…`). 같은 터미널이 다른 기계의 coding agent 목록에도 있어 한 줄만 남기려 쓴다. */
+  readonly terminalRef?: string;
+  /** 다른 기계에서 도는 coding agent인데 이 창에 탭이 없다. 누르면 그 기계(`machine`)의 터미널에 붙는 탭을 연다. */
+  readonly remote?: { readonly terminal: string };
   /** 저장만 된 session. 누르면 그 폴더에서 새 터미널 탭을 연다. */
   readonly saved: {
     readonly folderRef: string;

@@ -11,22 +11,17 @@ import {
 } from "react";
 
 import type { TerminalAgentSession } from "../../../protocol/coding-agent/terminals.ts";
-import type { AppRow } from "../apps/source.ts";
-import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { TabItem } from "./desk-model.ts";
-import type { KnownSessions, LayoutDesks } from "./left-sidebar-workspaces.ts";
+import type { LayoutDesks } from "./left-sidebar-workspaces.ts";
 
 export interface SidebarValues {
-  readonly projects: readonly ProjectItem[];
-  readonly apps: readonly AppRow[];
   readonly agents: readonly SidebarAgent[];
   /** lophn agent id → 이름. 다른 workspace의 이름 없는 session 줄이 쓴다. */
   readonly lophnNames: Readonly<Record<string, string>>;
-  readonly known: KnownSessions;
   /** workspace key → session id → Agent 탭 제목(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
   readonly elsewhereTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  /** workspace key → coding agent가 돈 적이 있는 터미널 탭(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
+  /** workspace key → 터미널 참조가 있는 터미널 탭(다른 workspace의 layout). */
   readonly elsewhereTerminals: ReadonlyMap<string, readonly TabItem[]>;
   /** workspace key → 그 workspace의 desk(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
   readonly elsewhereDesks: ReadonlyMap<string, LayoutDesks>;
@@ -37,11 +32,8 @@ export interface SidebarValues {
 }
 
 const EMPTY: SidebarValues = {
-  projects: [],
-  apps: [],
   agents: [],
   lophnNames: {},
-  known: new Map(),
   elsewhereTitles: new Map(),
   elsewhereTerminals: new Map(),
   elsewhereDesks: new Map(),

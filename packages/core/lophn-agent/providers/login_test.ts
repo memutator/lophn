@@ -520,4 +520,61 @@ test("이미 이어진 id로 잇기가 conflict로 끝나면 그 provider의 key
     [keyed.ok ? "ok" : keyed.error.code, Object.fromEntries(signed.store)],
     ["conflict", existing],
   );
+
+  // agent의 요청으로 시작한 로그인이 시작부터 conflict면 기다리던 요청도 그 오류로 끝난다(agent가 모른 채 기다리지 않는다).
+  const finished: unknown[] = [];
+  const asked = withProviderLogin(
+    {
+      command: () => Promise.reject(new Error("unused")),
+      readResult: () => Promise.resolve(ok(null)),
+      close: () => Promise.resolve(),
+    },
+    {
+      http: () => Promise.reject(new Error("unused")),
+      openListener: () =>
+        Promise.resolve(err({ code: "unavailable", message: "unused" })),
+      secrets: {
+        get: () => err({ code: "not_found", message: "없다" }),
+        put: () => Promise.resolve(ok({ names: [] }) as never),
+        delete: () => Promise.resolve(ok({ names: [] }) as never),
+      },
+      newKey: () => "key",
+      nowMs: () => NOW,
+      random: seededRandom(7),
+      target: () => err({ code: "not_found", message: "unused" }),
+      freshId: () =>
+        Promise.resolve(err({ code: "conflict", message: "connected" })),
+      requests: {
+        readRequest: () =>
+          ok({
+            kind: "sign_in",
+            target: {
+              type: "provider",
+              login: {
+                provider: PROVIDER,
+                name: "OpenAI",
+                definition: builtin.value,
+                endpoint: "https://chatgpt.com/backend-api/codex",
+                protocol: "openai-responses",
+              },
+            },
+          } as never),
+        finishRequest: (_session, _toolCall, result) => {
+          finished.push(result.ok ? "ok" : result.error.code);
+          return ok(undefined);
+        },
+      },
+      changed: () => {},
+    },
+  );
+  const refused = await asked.signIn(USER, {
+    request: {
+      session: "ses_01h455vb4pex5v6nkc6gd5fd10",
+      tool_call: "tcl_01h455vb4pex5v6nkc6gd5fd10",
+    },
+  });
+  assert.deepStrictEqual(
+    [refused.ok ? "ok" : refused.error.code, finished],
+    ["conflict", ["conflict"]],
+  );
 });

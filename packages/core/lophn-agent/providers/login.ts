@@ -266,6 +266,17 @@ export function withProviderLogin(
     }
     let target: ConnectTarget & { provider: string };
     let request: Login["request"] = null;
+    // agent의 요청으로 시작한 로그인이 시작부터 실패하면 그 요청도 그 오류로 끝낸다(기다리는 agent가 알게).
+    const failed = <T>(result: Result<T>): Result<T> => {
+      if (!result.ok && request !== null) {
+        deps.requests.finishRequest(
+          request.session,
+          request.tool_call,
+          err({ code: result.error.code, message: NOT_FINISHED }),
+        );
+      }
+      return result;
+    };
     if ("definition" in input.data) {
       const found = deps.target(input.data.definition, "oauth");
       if (!found.ok) return found;
@@ -273,11 +284,8 @@ export function withProviderLogin(
       if (!id.ok) return id;
       target = { ...found.value, provider: id.value };
     } else {
-      request = input.data.request;
-      const view = deps.requests.readRequest(
-        request.session,
-        request.tool_call,
-      );
+      const asking = input.data.request;
+      const view = deps.requests.readRequest(asking.session, asking.tool_call);
       if (!view.ok) return view;
       if (
         view.value.kind !== "sign_in" ||
@@ -288,22 +296,22 @@ export function withProviderLogin(
           message: "the request is not a provider sign-in",
         });
       }
+      request = asking;
       const asked = view.value.target.login;
       const id = await deps.freshId(who, asked.definition.key, asked.provider);
-      if (!id.ok) return id;
+      if (!id.ok) return failed(id);
       target = asked as ConnectTarget & { provider: string };
     }
     const { provider, ...connect } = target;
     const oauth = connect.definition.oauth;
     if (oauth === null) {
-      return err({
-        code: "invalid_input",
-        message: "no sign-in for this provider",
-      });
+      return failed(
+        err({ code: "invalid_input", message: "no sign-in for this provider" }),
+      );
     }
     await clear(connect.definition.key, request);
     const begun = await login.begin(provider, oauth, connect);
-    if (!begun.ok) return begun;
+    if (!begun.ok) return failed(begun);
     const expires_at = at(begun.value.expires_at_ms);
     const entry: Login = {
       key: connect.definition.key,

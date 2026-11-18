@@ -26,6 +26,7 @@ import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { MemoryHandler, UploadHandler } from "../../server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
+import { readSecretBody } from "../../secrets/routes.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
 import { providerSecretName } from "./oauth-secrets.ts";
 
@@ -85,38 +86,6 @@ export function builtinTarget(
     });
   }
   return ok(target);
-}
-
-// upload body를 UTF-8 문자열로 읽는다. 선언한 길이와 다르거나 UTF-8이 아니면 invalid_input이다. 값은 오류에 싣지 않는다.
-export async function readSecretBody(
-  declared: number,
-  body: Parameters<UploadHandler>[2],
-): Promise<Result<string>> {
-  const wrong = err({
-    code: "invalid_input" as const,
-    message: "secret input does not match the body",
-  });
-  if (body.length !== undefined && body.length !== declared) {
-    await body.bytes.cancel().catch(() => {});
-    return wrong;
-  }
-  let bytes: Uint8Array;
-  try {
-    bytes = new Uint8Array(await new Response(body.bytes).arrayBuffer());
-  } catch {
-    return wrong;
-  }
-  if (bytes.byteLength !== declared) return wrong;
-  try {
-    return ok(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-  } catch {
-    return err({
-      code: "invalid_input",
-      message: "secret input is not valid UTF-8",
-    });
-  } finally {
-    bytes.fill(0);
-  }
 }
 
 type KeyConnectDeps = {

@@ -47,47 +47,61 @@ export function secretDeleteHandler(store: Pick<SecretStore, "delete">) {
   return handler;
 }
 
-// body를 읽어 UTF-8 문자열로 바꿔 put한다. header의 bytes와 body 길이가 다르거나 상한을 넘으면 invalid_input이다.
+// upload body를 선언한 길이(bytes)만큼 읽어 UTF-8 문자열로 바꾼다. header의 길이와 다르거나, 더 많거나 적게 흐르거나,
+// UTF-8이 아니면 invalid_input이다. 다 읽은 byte는 0으로 덮는다. 값은 오류에 싣지 않는다. 값을 받는 upload route
+// (`secrets/put`, `providers/connect-key`, `input_request/answer_secret`)가 같이 쓴다.
+export async function readSecretBody(
+  declared: number,
+  body: Parameters<UploadHandler>[2],
+): Promise<Result<string>> {
+  const wrong = INVALID("secret input does not match the body");
+  if (body.length !== undefined && declared !== body.length) {
+    await body.bytes.cancel().catch(() => {});
+    return wrong;
+  }
+  const value = new Uint8Array(declared);
+  let length = 0;
+  try {
+    const reader = body.bytes.getReader();
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      if (length + next.value.length > declared) {
+        await reader.cancel().catch(() => {});
+        return wrong;
+      }
+      value.set(next.value, length);
+      length += next.value.length;
+    }
+    if (length !== declared) return wrong;
+    try {
+      return ok(new TextDecoder("utf-8", { fatal: true }).decode(value));
+    } catch {
+      return INVALID("secret input is not valid UTF-8");
+    }
+  } catch {
+    // stream이 도중에 오류로 끝났다(길이 위반·끊김).
+    return wrong;
+  } finally {
+    value.fill(0);
+  }
+}
+
+// body를 읽어 UTF-8 문자열로 바꿔 put한다.
 export function secretPutHandler(store: Pick<SecretStore, "put">) {
   const handler: UploadHandler = async (_ctx, rawInput, body) => {
     const input = secretPut.input.safeParse(rawInput);
-    if (
-      !input.success ||
-      (body.length !== undefined && input.data.bytes !== body.length)
-    ) {
+    if (!input.success) {
       await body.bytes.cancel().catch(() => {});
       return INVALID("secret input does not match the body");
     }
-    const { name, bytes: declared } = input.data;
-    const value = new Uint8Array(declared);
-    let length = 0;
-    try {
-      const reader = body.bytes.getReader();
-      for (;;) {
-        const next = await reader.read();
-        if (next.done) break;
-        if (length + next.value.length > declared) {
-          await reader.cancel().catch(() => {});
-          return INVALID("secret input does not match the body");
-        }
-        value.set(next.value, length);
-        length += next.value.length;
-      }
-      if (length !== declared) {
-        return INVALID("secret input does not match the body");
-      }
-      let text: string;
-      try {
-        text = new TextDecoder("utf-8", { fatal: true }).decode(value);
-      } catch {
-        return INVALID("secret input is not valid UTF-8");
-      }
-      const put: Result<SecretFileStatus> = await store.put(name, text);
-      return put;
-    } catch {
-      // stream이 도중에 오류로 끝났다(길이 위반·끊김).
-      return INVALID("secret input does not match the body");
-    }
+    const value = await readSecretBody(input.data.bytes, body);
+    if (!value.ok) return value;
+    const put: Result<SecretFileStatus> = await store.put(
+      input.data.name,
+      value.value,
+    );
+    return put;
   };
   return handler;
 }

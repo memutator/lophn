@@ -60,7 +60,6 @@ function computerEntry(c: Computer, rev = 1): RosterEntryBody {
     machine: `mch_0${c.id.slice(5)}`,
     name: "computer",
     os: "linux",
-    terminal_input: true,
     rev,
     invite: null,
   };
@@ -81,7 +80,6 @@ function phoneEntry(
     machine: null,
     name: "phone",
     os: "android",
-    terminal_input: false,
     rev,
     invite,
   };
@@ -141,7 +139,7 @@ function inviteOf(
   };
 }
 
-// 새 기기가 초대장의 비밀로 자기 항목에 서명한다. body의 invite와 terminal_input은 초대장을 따른다(over로 어긋나게 한다).
+// 새 기기가 초대장의 비밀로 자기 항목에 서명한다. body의 invite는 초대장을 따른다(over로 어긋나게 한다).
 function invitedWith(
   made: ReturnType<typeof inviteOf>,
   entry: RosterEntryBody,
@@ -150,7 +148,6 @@ function invitedWith(
   const body = {
     ...entry,
     invite: made.invite.body.key,
-    terminal_input: made.invite.body.terminal_input,
     ...over,
   };
   return {
@@ -247,12 +244,6 @@ test("믿는 컴퓨터의 서명이 없는 항목, 수명이 지난 초대장(�
     {
       name: "모르는 컴퓨터가 낸 초대장",
       statement: fromNew(inviteOf(stranger)),
-      code: "unauthorized",
-      reason: "untrusted",
-    },
-    {
-      name: "초대장과 다른 터미널 허락",
-      statement: fromNew(fresh, { terminal_input: true }),
       code: "unauthorized",
       reason: "untrusted",
     },
@@ -854,14 +845,14 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
   const onB = newId();
   const other = newId();
   const otherKey = phoneKey();
-  // 같은 폰이 A와 B에서 다른 id로 pairing되어 있었고 B에서 이름을 바꿨다. 다른 폰은 같은 rev에서 A가 터미널 입력을
-  // 거두고 B가 이름을 바꿨다.
+  // 같은 폰이 A와 B에서 다른 id로 pairing되어 있었고 B에서 이름을 바꿨다. 다른 폰은 같은 rev에서 A와 B가 서로 다른 이름으로
+  // 바꿨고, B의 statement는 옛 판이 서명한 칸 `terminal_input`을 싣는다(서명한 bytes라 그대로 검증되어야 한다).
   const folds = [
     ...base,
     signed(phoneEntry(onA, key), a),
     signed({ ...phoneEntry(onB, key, 2), name: "renamed on B" }, b),
-    signed({ ...phoneEntry(other, otherKey), terminal_input: true }, a),
-    signed({ ...phoneEntry(other, otherKey, 2), terminal_input: false }, a),
+    signed(phoneEntry(other, otherKey), a),
+    signed({ ...phoneEntry(other, otherKey, 2), name: "A" }, a),
     signed(
       { ...phoneEntry(other, otherKey, 2), terminal_input: true, name: "B" },
       b,
@@ -953,8 +944,9 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
         assert.equal(phone?.body.id, onA);
         assert.equal(phone?.body.name, "renamed on B");
         assert.deepEqual(view.folded, [{ from: onB, to: onA }]);
-        const revoked = view.devices.find((d) => d.body.key === otherKey);
-        assert.equal(revoked?.body.terminal_input, false);
+        // 같은 rev는 body 글이 작은 쪽이 이긴다. 옛 칸을 싣은 statement도 서명이 맞아 같은 view가 된다.
+        const named = view.devices.find((d) => d.body.key === otherKey);
+        assert.equal(named?.body.name, "A");
         assert.deepEqual(viewOf(folds, [root(b)]).devices, view.devices);
       },
     },

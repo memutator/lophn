@@ -358,5 +358,9 @@
   {
     "id": "apps.invocations.remote-caller",
     "sha256": "d17621f524a761907d0abc305ed45933e1f780029584397e69617b62fd85273a"
+  },
+  {
+    "id": "remote.grants",
+    "sha256": "d19a6698a7f4314d07e151add8b2b27b0db49c30677487ff1d4ab6cb8f084854"
   }
 ]

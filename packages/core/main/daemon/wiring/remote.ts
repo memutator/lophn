@@ -2,8 +2,8 @@
 // `remote.relay`가 있으면 relay에도 건다. 둘은 따로 돈다(port를 못 열어도 relay는 돈다). 꺼지면 둘 다 닫는다.
 // 기기 표(devices)와 명단 표의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
-// 명단의 main thread 사본(remote/roster.ts)을 여기서 들고, 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)과 kind
-// (`ctx.deviceKind`)를 그 view로 채운다. 명단을 고치는 `roster/*` route는 여기서 서명한 뒤 machine 자격 `roster/store`로 쓴다.
+// 명단의 main thread 사본(remote/roster.ts)을 여기서 들고, 기기의 kind(`ctx.deviceKind`)를 그 view로 채운다. 터미널 입력
+// 허락(`ctx.terminalInputGrant`)은 명단에 없고 이 컴퓨터가 허락한 기기의 표(remote/grants.ts)가 든다. 명단을 고치는 `roster/*` route는 여기서 서명한 뒤 machine 자격 `roster/store`로 쓴다.
 // core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
 // remote가 켜진 동안 명단의 다른 컴퓨터마다 link(remote/links.ts)를 들고, 이 컴퓨터가 초대장으로 드는 `roster/join`과 이 기계의
 // 화면이 다른 기계를 부르는 `machines/*`를 그 link로 낸다. 같은 link로 상대가 든 옮기는 file을 받아 폴더의 받는 자리에 넘긴다
@@ -54,6 +54,11 @@ import {
   machineSigningKey,
   signManifest,
 } from "../../../../protocol/remote/carry.ts";
+import {
+  rosterGrants,
+  rosterGrantSet,
+  rosterGrantsSeed,
+} from "../../../../protocol/remote/grants.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type Dial,
@@ -93,6 +98,13 @@ import {
 } from "../../../projects/registry/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
 import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
+import {
+  createGrants,
+  GRANTS_COMMANDS,
+  GRANTS_SCHEMA_STEPS,
+  type Grants,
+  grantsRead,
+} from "../../../remote/grants.ts";
 import {
   addSigningKey,
   createDeviceCredentials,
@@ -161,6 +173,9 @@ const REMOTE_CONTEXT: AuthenticatedContext = {
       rosterStatements.name,
       rosterStore.name,
       rosterForgetAll.name,
+      rosterGrants.name,
+      rosterGrantSet.name,
+      rosterGrantsSeed.name,
     ],
     targets: {},
   },
@@ -173,10 +188,16 @@ type Screen = z.infer<typeof devicesSetting.type>[number];
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
-const READS = [devicesListRead, devicesPushTargetsRead, rosterStatementsRead];
+const READS = [
+  devicesListRead,
+  devicesPushTargetsRead,
+  rosterStatementsRead,
+  grantsRead,
+];
 // 명단 저장은 접힌 기기 id로 앱 sync log도 고친다(같은 write).
 export const REMOTE_COMMANDS = [
   ...DEVICES_COMMANDS,
+  ...GRANTS_COMMANDS,
   rosterStoreCommand(foldSyncLogDevice),
 ];
 
@@ -381,6 +402,8 @@ export function remoteWiring(
   // 붙은 기기 연결을 안다. remote가 꺼져 있으면 붙은 연결이 없어 `call`은 `unavailable`(phone_unreachable)이다.
   let phoneLink: PhoneLink;
   let roster: Roster;
+  // 이 컴퓨터가 터미널 입력을 허락한 기기(key)의 메모리 사본. 입력마다 동기로 묻는다.
+  let grants: Grants;
   // 명단의 다른 컴퓨터마다 하나인 link. remote가 켜진 동안만 붙는다.
   let links: Links;
   let carry: CarryLinks;
@@ -526,6 +549,7 @@ export function remoteWiring(
     relay = undefined;
     const forgot = await command(ctx, rosterForgetAll.name, {});
     if (!forgot.ok) return forgot;
+    grants.clear();
     await roster.useKeys(undefined);
     const loaded = await roster.load();
     if (!loaded.ok) return loaded;
@@ -604,6 +628,13 @@ export function remoteWiring(
       if (!renamed.ok)
         logError(ctx, "machine_not_renamed", renamed.error.message);
     }
+    // 초대장의 허락은 초대한 컴퓨터만 자기 표에 적는다. 정해진 빼기로 빠진 기기의 허락은 거둔다(다시 들면 새 key다).
+    for (const { key, terminal_input } of change.invited) {
+      await setGrant(ctx, key, terminal_input);
+    }
+    for (const { settled, body } of change.after.removed) {
+      if (settled && grants.has(body.key)) await setGrant(ctx, body.key, false);
+    }
     host?.pushRoster(change.snapshot);
     carry.rosterChanged();
     links.sync(hostText === undefined ? undefined : keys?.host);
@@ -624,6 +655,33 @@ export function remoteWiring(
         );
       }
     }
+  }
+
+  // 옛 판은 허락을 명단 항목에 서명해 들었다. 이 판의 첫 기동에서 켜져 있던 것을 이 컴퓨터의 표로 한 번 옮긴다(옮기기 전용: 옛
+  // 칸을 읽는 곳은 여기와 `roster/statements`의 `adopt`뿐이다). 이 기동 바로 전까지 이 컴퓨터에 치던 기기가 끊기지 않게 한다.
+  // 이긴 항목은 서명을 확인한 view에서만 정해져 SQL step으로는 옮기지 못한다. 컴퓨터 항목은 기본이 켬이었으므로 다른
+  // 컴퓨터의 허락도 옮겨진다. 엇갈려 빠진 기기와 꺼진 값은 옮기지 않는다. 표지는 명단이 비어 있어도 쓴다.
+  async function seedGrants(ctx: WiringContext): Promise<Result<void>> {
+    const stored = await read(ctx, rosterStatements);
+    if (!stored.ok) return stored;
+    const self = roster.self()?.id;
+    const entries = roster
+      .view()
+      .devices.filter(
+        (each) => each.body.id !== self && each.body.terminal_input === true,
+      )
+      .map((each) => each.body.key);
+    const adopted = (
+      stored.value as z.infer<typeof rosterStatements.output>
+    ).adopt
+      .filter((each) => each.terminal_input)
+      .map((each) => each.key);
+    return grants.seed([...new Set([...entries, ...adopted])]);
+  }
+
+  async function setGrant(ctx: WiringContext, key: string, on: boolean) {
+    const done = await grants.set(key, on);
+    if (!done.ok) logError(ctx, "grant_not_saved", done.error.message);
   }
 
   async function reconcile(ctx: WiringContext): Promise<void> {
@@ -781,6 +839,7 @@ export function remoteWiring(
       ...FOLDER_CARRY_MARKS_STEPS,
       ...PROJECTS_FORMER_IDENTITY_STEPS,
       ...invocationsRemoteCallerSchemaSteps,
+      ...GRANTS_SCHEMA_STEPS,
     ],
     dataSteps: [
       hostKeyMachineStep,
@@ -795,6 +854,9 @@ export function remoteWiring(
       { name: rosterStatements.name, actors: ["machine"], kind: "read" },
       { name: rosterStore.name, actors: ["machine"], kind: "command" },
       { name: rosterForgetAll.name, actors: ["machine"], kind: "command" },
+      { name: rosterGrants.name, actors: ["machine"], kind: "read" },
+      { name: rosterGrantSet.name, actors: ["machine"], kind: "command" },
+      { name: rosterGrantsSeed.name, actors: ["machine"], kind: "command" },
     ],
     records: () => [REMOTE_CONTEXT],
     async build(ctx) {
@@ -836,13 +898,45 @@ export function remoteWiring(
         },
         changed: (change) => applyChange(ctx, change),
       });
-      // API가 열리기 전에 읽는다. 허락과 kind는 이 view로 답한다. 복사된 data root인지는 start가 본다.
+      grants = createGrants({
+        load: async () => {
+          const stored = await read(ctx, rosterGrants);
+          return stored.ok
+            ? ok(stored.value as z.infer<typeof rosterGrants.output>)
+            : stored;
+        },
+        set: async (grantKey, on) => {
+          const done = await command(ctx, rosterGrantSet.name, {
+            key: grantKey,
+            on,
+          });
+          return done.ok ? ok(undefined) : done;
+        },
+        // build는 쓰기 앞 처리기를 접은 `ctx.writer`가 생기기 전이라 날 writer로 쓴다(commit 뒤 할 일이 없는 command다).
+        seed: async (seedKeys) => {
+          const done = await ctx.runtime.writer.command(REMOTE_CONTEXT, {
+            command: rosterGrantsSeed.name,
+            input: { keys: seedKeys },
+            compare: {},
+            idempotency_key: crypto.randomUUID(),
+            prepared: [],
+          });
+          return done.ok ? ok(undefined) : done;
+        },
+      });
+      // API가 열리기 전에 읽는다. kind는 이 view로, 터미널 입력 허락은 이 컴퓨터의 표로 답한다. 복사된 data root인지는 start가 본다.
       const loaded = await roster.load();
       if (!loaded.ok) return loaded;
       const dir = `${ctx.root.path}/remote`;
       if ((await remoteKeysState(dir, ctx.machine.id)) === "ok") {
         keys = await loadRemoteKeys(dir, ctx.random, ctx.machine.id);
         await roster.useKeys(keys);
+      }
+      const granted = await grants.load();
+      if (!granted.ok) return granted;
+      if (!grants.seeded()) {
+        const seeded = await seedGrants(ctx);
+        if (!seeded.ok) return seeded;
       }
       const deviceOf = (principal: string) =>
         principal.startsWith(DEVICE_PRINCIPAL)
@@ -853,11 +947,19 @@ export function remoteWiring(
                   each.body.id === principal.slice(DEVICE_PRINCIPAL.length),
               )?.body
           : undefined;
-      // 터미널 입력 허락은 입력마다 동기로 묻는다. 명단을 고친 route가 답하기 전에 view가 바뀌므로 다음 입력부터 따른다.
-      ctx.provide(
-        "terminalInputGrant",
-        (principal) => deviceOf(principal)?.terminal_input === true,
+      // 터미널 입력 허락은 입력마다 동기로 묻는다. 이 컴퓨터에서 허락한 기기인가이고 명단 항목의 값은 읽지 않는다. 허락을 고친
+      // route가 답하기 전에 메모리 사본이 바뀌므로 다음 입력부터 따른다.
+      ctx.provide("terminalInputGrant", (principal) =>
+        grants.has(deviceOf(principal)?.key),
       );
+      // 그 기계의 컴퓨터가 이 컴퓨터에서 허락한 기기인가. 명단에 그 기계의 컴퓨터가 하나뿐일 때만 센다(`computerSigningKey`와 같은 규칙).
+      ctx.provide("computerGranted", (machine) => {
+        const signing = machineSigningKey(roster.view(), machine);
+        const found = roster
+          .view()
+          .devices.find((each) => each.body.signing_key === signing);
+        return signing !== null && grants.has(found?.body.key);
+      });
       ctx.provide(
         "deviceKind",
         (principal) => deviceOf(principal)?.kind ?? null,
@@ -954,7 +1056,7 @@ export function remoteWiring(
           name: body.name,
           os: body.os,
           machine: body.machine,
-          terminal_input: body.terminal_input,
+          terminal_input: grants.has(body.key),
           // 컴퓨터는 기기 행이 없다. 이 컴퓨터의 link가 마지막으로 붙었거나 끊긴 때다.
           last_connected_at: last.get(body.id) ?? links.seen(body.id),
         });
@@ -1004,11 +1106,27 @@ export function remoteWiring(
         const done = await roster.remove(target);
         return done.ok ? ok({ id: done.value }) : done;
       };
+      // 이 컴퓨터의 표만 고친다. 명단에 statement를 내지 않으므로 다른 컴퓨터에는 닿지 않는다.
       const setTerminalInput = async (_who: unknown, input: unknown) => {
         const { id, on } = input as z.infer<
           typeof rosterSetTerminalInput.input
         >;
-        return idOf(await roster.setTerminalInput(id, on), id);
+        const self = roster.self();
+        if (self === undefined) return off();
+        const found = roster.view().devices.find((each) => each.body.id === id);
+        if (found === undefined) {
+          return err({
+            code: "not_found" as const,
+            message: "device not found in the roster",
+          });
+        }
+        if (id === self.id) {
+          return err({
+            code: "invalid_input" as const,
+            message: "this computer does not type into itself",
+          });
+        }
+        return idOf(await grants.set(found.body.key, on), id);
       };
       const rename = async (_who: unknown, input: unknown) => {
         const { id, name } = input as z.infer<typeof rosterRename.input>;
@@ -1044,9 +1162,9 @@ export function remoteWiring(
       // 않는다(믿지도 않을 issuer와 죽은 초대 서명 statement를 남기지 않게). 못 닿으면 저장하고 초대 서명 statement를 든 채
       // pending이다: issuer link가 다시 붙을 때의 `join`이나 폰이 그것을 issuer를 믿는 컴퓨터에 나른다.
       const joinRoster = async (_who: unknown, input: unknown) => {
-        const text = parseInviteText(
-          (input as z.infer<typeof rosterJoin.input>).text,
-        );
+        const { text: inviteText, terminal_input: allowIssuer = true } =
+          input as z.infer<typeof rosterJoin.input>;
+        const text = parseInviteText(inviteText);
         if (text === undefined) {
           return err({
             code: "invalid_input" as const,
@@ -1118,6 +1236,8 @@ export function remoteWiring(
         }
         const stored = await roster.storeJoin(prepared.value);
         if (!stored.ok) return stored;
+        // 합류하는 컴퓨터 앞의 사람이 켠 스위치다: 초대한 컴퓨터가 이 컴퓨터의 터미널에 칠 수 있다. 못 닿아 pending이어도 쓴다.
+        if (allowIssuer) await setGrant(ctx, issuer.key, true);
         removedAt = null;
         if (joined.ok) {
           const merged = await roster.receive(joined.joined.roster);

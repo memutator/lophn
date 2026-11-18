@@ -3,7 +3,7 @@ import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };
 
-/** 내 기기 명단의 기기 하나. 이름과 터미널 입력 허락은 명단에 있어 모든 기계에 같다. */
+/** 내 기기 명단의 기기 하나. 이름은 명단에 있어 모든 기계에 같다. 터미널 입력 허락은 이 컴퓨터의 것이다. */
 export interface RemoteDevice {
   readonly id: string;
   /** 기기의 key. 줄마다 하나라 빼기는 이것으로 고른다(엇갈린 줄의 id는 빠진 쪽이 단 값일 수 있다). */
@@ -19,7 +19,10 @@ export interface RemoteDevice {
   readonly lastConnectedAt: string | null;
   /** 이 컴퓨터의 기준 폰. 하나뿐이고 폰만 된다. */
   readonly primary: boolean;
-  /** 이 기기가 터미널에 칠 수 있는가. 초대장에서 정한 값으로 시작하고 어느 컴퓨터에서나 바꾼다. */
+  /**
+   * 이 컴퓨터에서 허락한 기기인가(이 컴퓨터의 터미널에 칠 수 있다). 컴퓨터마다 따로 정하고 이 컴퓨터 앞에서만 바꾼다.
+   * 초대장이나 합류 때 켠 값으로 시작한다. 이 컴퓨터의 줄에는 뜻이 없다.
+   */
   readonly terminalInput: boolean;
   /** 초대한 컴퓨터가 꺼져 있을 때 들어와 그 소식이 아직 닿지 않았다(기다리는 중). */
   readonly pending: boolean;
@@ -127,8 +130,8 @@ export interface RemoteSettingsSource {
     terminalInput: boolean;
     lifetime: "short" | "long";
   }): Promise<SourceResult<RemoteInvite>>;
-  /** 다른 컴퓨터의 초대장으로 이 컴퓨터가 그 명단에 든다. */
-  join(text: string): Promise<JoinOutcome>;
+  /** 다른 컴퓨터의 초대장으로 이 컴퓨터가 그 명단에 든다. `terminalInput`은 초대한 컴퓨터가 이 컴퓨터의 터미널에 칠 수 있는가. */
+  join(text: string, terminalInput: boolean): Promise<JoinOutcome>;
   relayStatus(): Promise<SourceResult<RemoteRelayStatus>>;
   /** 이 컴퓨터가 믿는 명단의 기기들. */
   devices(): Promise<SourceResult<RemoteDevices>>;
@@ -137,5 +140,6 @@ export interface RemoteSettingsSource {
   /** 명단에서 key로 뺀다. 모든 기계에서 끊기고 그 key는 다시 들지 못한다. 엇갈린 줄도 같다. */
   remove(key: string): Promise<SourceResult<null>>;
   setPrimary(id: string): Promise<SourceResult<null>>;
+  /** 이 컴퓨터가 그 기기에 터미널 입력을 허락하거나 거둔다. 이 컴퓨터의 표만 바뀐다. */
   setTerminalInput(id: string, on: boolean): Promise<SourceResult<null>>;
 }

@@ -85,6 +85,11 @@ import {
   rosterView,
   signRoster,
 } from "../../protocol/remote/mod.ts";
+import {
+  rosterGrants,
+  rosterGrantSet,
+  rosterGrantsSeed,
+} from "../../protocol/remote/grants.ts";
 import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
 import { workflowEdit } from "../../protocol/workflows/routes.ts";
 import { appViewHandlers, createAppViews } from "../apps/views/mod.ts";
@@ -262,6 +267,9 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     rosterStatements,
     rosterStore,
     rosterForgetAll,
+    rosterGrants,
+    rosterGrantSet,
+    rosterGrantsSeed,
     machinesCall,
     agentCreate,
     agentChange,
@@ -715,6 +723,9 @@ test("터미널 입력 허락이 없는 기기는 route 목록을 넓힌 뒤에�
     "roster/statements",
     "roster/store",
     "roster/forget_all",
+    "roster/grants",
+    "roster/grant_set",
+    "roster/grants_seed",
     "agents/create",
     "agents/change",
     "agents/delete",
@@ -1339,7 +1350,7 @@ test("옛 기기 표에서 옮긴 뒤 이미 pairing한 폰은 다시 pairing하
   const m = await migrated();
   // 폰이 저장한 host key 그대로다.
   assert.deepEqual(m.keys.host.publicKey, m.oldHost.publicKey);
-  // desktop 행은 지워지고 폰 행은 이 컴퓨터가 서명한 항목이 됐다(id, 별명이던 이름, 허락 그대로).
+  // desktop 행은 지워지고 폰 행은 이 컴퓨터가 서명한 항목이 됐다(id, 별명이던 이름). 옛 허락은 항목에 싣지 않는다.
   assert.deepEqual(
     m.sql.all("select id from devices", []).map((row) => row.id),
     [m.phoneId],
@@ -1349,7 +1360,7 @@ test("옛 기기 표에서 옮긴 뒤 이미 pairing한 폰은 다시 pairing하
     .devices.find((each) => each.body.key === m.phoneText)?.body;
   assert.deepEqual(
     [entry?.id, entry?.name, entry?.terminal_input],
-    [m.phoneId, "Work phone", true],
+    [m.phoneId, "Work phone", undefined],
   );
 
   const c = await m.s.connect(m.phoneKey);
@@ -1443,7 +1454,6 @@ test("뺀 기기는 붙어 있던 연결이 빼기가 든 명단을 받은 뒤 �
       machine: null,
       name: "Pixel",
       os: "android",
-      terminal_input: true,
       rev: 1,
       invite: signedInvite.body.key,
     };
@@ -1487,7 +1497,6 @@ async function linkedComputer(
     machine: HOST_MACHINE,
     name: "studio",
     os: "linux",
-    terminal_input: true,
     rev: 1,
     invite: null,
   };

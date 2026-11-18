@@ -67,7 +67,9 @@ export const rosterEntryBodySchema = z
     machine: machineIdSchema.nullable(),
     name: deviceNameSchema,
     os: z.enum(["ios", "android", "linux", "macos", "windows"]),
-    terminal_input: z.boolean(),
+    // 옛 판이 서명한 statement에만 있다(서명한 bytes라 검증에 필요하다). 새 statement는 싣지 않고 아무도 허락으로 읽지 않는다:
+    // 터미널 입력 허락은 받는 컴퓨터의 ledger에 있다(`core/remote/grants.ts`). 옮기기 한 자리만 읽는다.
+    terminal_input: z.boolean().optional(),
     rev: z.number().int().min(1),
     invite: keyTextSchema.nullable(),
   })
@@ -108,7 +110,8 @@ export const rosterSignedStatementSchema = z.strictObject({
 export type RosterSignedStatement = z.infer<typeof rosterSignedStatementSchema>;
 
 // `key`는 한 번 쓸 Ed25519 공개 key다. 초대한 컴퓨터(`by`)의 서명 key로 서명한다. `kind`는 사람이 고른 들일 기기의
-// 종류다: 폰 초대장이 새어도 서명자(컴퓨터)가 들지 못한다.
+// 종류다: 폰 초대장이 새어도 서명자(컴퓨터)가 들지 못한다. `terminal_input`은 초대한 컴퓨터가 그 초대로 든 기기를 받아들일 때
+// 자기 표에 적는 값이다(항목에는 실리지 않고 다른 컴퓨터는 읽지 않는다).
 export const rosterInviteBodySchema = z.strictObject({
   type: z.literal("invite"),
   key: keyTextSchema,
@@ -269,16 +272,10 @@ function entryOf(item: Item): RosterEntryBody {
   return item.statement.body as RosterEntryBody;
 }
 
-// 같은 key의 항목 가운데 앞서는 것: rev가 큰 것, 같으면 터미널 입력을 끈 것(허락을 거둔 쪽이 진 이름 바꾸기보다 중하다),
-// 같으면 body canonical 글이 작은 것. 같은 rev에서 글은 id가 맨 앞이라 작은 id의 body가 앞선다(접힌 id가 굳는 까닭).
+// 같은 key의 항목 가운데 앞서는 것: rev가 큰 것, 같으면 body canonical 글이 작은 것. 같은 rev에서 글은 id가 맨 앞이라
+// 작은 id의 body가 앞선다(접힌 id가 굳는 까닭).
 function ahead(a: Item, b: Item): number {
-  const x = entryOf(a);
-  const y = entryOf(b);
-  return (
-    y.rev - x.rev ||
-    Number(x.terminal_input) - Number(y.terminal_input) ||
-    compare(a.bodyText, b.bodyText)
-  );
+  return entryOf(b).rev - entryOf(a).rev || compare(a.bodyText, b.bodyText);
 }
 
 type Verify = (item: Item, signingKey: string) => boolean;
@@ -955,7 +952,6 @@ export function checkInvited(
     !verifyRoster(body, signature, invite.body.key) ||
     body.invite !== invite.body.key ||
     body.kind !== invite.body.kind ||
-    body.terminal_input !== invite.body.terminal_input ||
     // 어느 컴퓨터도 긴 수명보다 먼 초대장을 내지 않는다.
     expires > now + ROSTER_INVITE_LONG_MS
   ) {

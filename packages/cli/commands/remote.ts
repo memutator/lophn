@@ -1,4 +1,4 @@
-// `lophn remote on|invite|join|devices|remove`: 화면 없는 기계를 사람의 터미널에서 내 기기 명단에 넣고 다룬다.
+// `lophn remote on|invite|join|devices|terminal-input|remove`: 화면 없는 기계를 사람의 터미널에서 내 기기 명단에 넣고 다룬다.
 // 모두 `workspaces: []`라 lophn agent의 `lophn` tool에 없고, agent의 shell에서 부르면 route의 actor user에서 막힌다.
 // lophn의 터미널 탭은 사람 token을 받아 거기서 도는 coding agent와 사람을 가릴 수 없으므로, 명단을 바꾸는 명령
 // (`ROSTER_CHANGING_COMMANDS`)은 그 안에서 core에 붙기 전에 거절한다(cli/main.ts).
@@ -14,6 +14,7 @@ import {
   rosterKindSchema,
   rosterList,
   rosterRemove,
+  rosterSetTerminalInput,
 } from "../../protocol/remote/mod.ts";
 import { defineCommand } from "./types.ts";
 
@@ -59,8 +60,8 @@ const invite = defineCommand({
   description:
     "Make a one-time invite that lets a new device into this person's device list. <kind> is the device it is for: phone or computer; the invite does not work for the other kind. " +
     "It prints the invite, one line of text: paste it whole into `lophn remote join '<invite>'` on the other computer, or into Paste the invite instead on the phone. " +
-    "Once the device is in, every computer in the list trusts it. " +
-    "--no-terminal-input keeps the new device from typing in coding agent terminals (it may by default). " +
+    "Once the device is in, every computer in the list knows it. " +
+    "--no-terminal-input keeps this computer from letting the new device type in its coding agent terminals (it may by default); only this computer is affected, every other computer decides for itself (`lophn remote terminal-input` there). " +
     "The invite lasts 30 minutes; --long makes it last 7 days, for a computer that cannot be on at the same time as this one (dual boot, a home and a work computer). " +
     "Remote must be on: run `lophn remote on` first, or this is unavailable. " +
     IN_TAB,
@@ -115,11 +116,15 @@ const join = defineCommand({
   summary: "Join this computer to another computer's device list",
   description:
     "Join with an invite made by `lophn remote invite computer` on another computer. Quote the whole line: `lophn remote join '<invite>'`. " +
-    "After it, this computer and every device in that list trust each other. Remote must be on here (`lophn remote on`). " +
+    "After it, this computer and every device in that list know each other. Remote must be on here (`lophn remote on`). " +
+    "--no-terminal-input keeps this computer from letting the inviting computer type in its coding agent terminals (it may by default); the inviting computer decides separately, from the invite it made. " +
     "pending: true means the inviting computer was not reached yet; it completes when this computer reaches a computer that trusts it, or a phone carries the news. " +
     "A refusal names why in details.reason: expired, used, untrusted, removed, this_computer, id_taken or key_taken. " +
     IN_TAB,
-  input: z.strictObject({ text: z.string().min(1) }),
+  input: z.strictObject({
+    text: z.string().min(1),
+    terminal_input: z.boolean().optional(),
+  }),
   positional: ["text"],
   effect: "write",
   routes: [rosterJoin],
@@ -148,12 +153,12 @@ const devices = defineCommand({
   name: "remote.devices",
   summary: "List the devices in this person's device list",
   description:
-    "List every phone and computer this computer trusts: id, kind, name, os, terminal_input (it may type in coding agent terminals), this (this computer), " +
+    "List every phone and computer this computer trusts: id, kind, name, os, terminal_input (this computer lets it type in this computer's coding agent terminals; each computer decides for itself), this (this computer), " +
     "pending (it joined with an invite and no other computer has taken it in yet, e.g. this computer after a join that did not reach the inviting computer). " +
     "For another computer it adds status (connecting, connected, offline, update) and path (direct or relay); update means one side runs an older lophn (update: client is this computer, host is that one). " +
     "disputed: true marks a computer that is out because two computers removed each other and this computer cannot tell which to trust (one may be a stolen computer). " +
     "Resolve it here: remove the one you do not trust with `lophn remote remove <key>`, using the row's key, and the other comes back. " +
-    "Add one with `lophn remote invite`, take one out with `lophn remote remove`.",
+    "Add one with `lophn remote invite`, take one out with `lophn remote remove`, change what it may type with `lophn remote terminal-input`.",
   input: z.strictObject({}),
   effect: "read",
   routes: [rosterList, machinesList],
@@ -199,6 +204,37 @@ const devices = defineCommand({
   },
 });
 
+const terminalInput = defineCommand({
+  name: "remote.terminal_input",
+  summary: "Let a device type in this computer's terminals, or stop it",
+  description:
+    "Let a device in the device list type in this computer's coding agent terminals (and use this computer's apps, settings and providers from there), or take that away with --off. <device> is its dev_ id from `lophn remote devices`. " +
+    "It changes this computer only: each computer decides for itself what the devices in the list may do on it, so run it on the computer that should allow the device. " +
+    "For a computer to call this computer's apps from another one, run it here for that computer. " +
+    "A device that is not in the list is not_found; this computer's own row is invalid_input. Remote must be on (`lophn remote on`). " +
+    IN_TAB,
+  input: z.strictObject({
+    device: DEVICE_ID,
+    off: z.boolean().optional(),
+  }),
+  positional: ["device"],
+  effect: "write",
+  routes: [rosterSetTerminalInput],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const on = input.off !== true;
+    const done = await ctx.core.read(rosterSetTerminalInput, {
+      id: input.device,
+      on,
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary: `${on ? "allowed" : "stopped"} ${done.value.id} typing in this computer's terminals`,
+      content: { id: done.value.id, terminal_input: on },
+    });
+  },
+});
+
 const remove = defineCommand({
   name: "remote.remove",
   summary: "Take a device out of the device list",
@@ -230,10 +266,18 @@ const remove = defineCommand({
   },
 });
 
-export const REMOTE_COMMANDS = [on, invite, join, devices, remove];
+export const REMOTE_COMMANDS = [
+  on,
+  invite,
+  join,
+  devices,
+  terminalInput,
+  remove,
+];
 
 export const ROSTER_CHANGING_COMMANDS: readonly string[] = [
   invite.name,
   join.name,
+  terminalInput.name,
   remove.name,
 ];

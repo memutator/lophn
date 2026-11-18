@@ -227,7 +227,11 @@ export const rosterJoin = defineMemory({
   method: "join",
   name: "roster.join",
   changes: [{ name: "remote_devices", id: (_input, output) => output.device }],
-  input: z.strictObject({ text: z.string().min(1).max(16384) }),
+  input: z.strictObject({
+    text: z.string().min(1).max(16384),
+    // 합류하는 컴퓨터가 초대한 컴퓨터에 터미널 입력을 허락하는가(생략하면 켬. 초대장의 기본과 같다).
+    terminal_input: z.boolean().optional(),
+  }),
   output: z.strictObject({
     device: deviceIdSchema,
     machine: machineIdSchema,

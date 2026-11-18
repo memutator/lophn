@@ -54,7 +54,7 @@ export function sampleDevices(now = Date.now()): RemoteDevice[] {
       thisComputer: true,
       lastConnectedAt: null,
       primary: false,
-      terminalInput: true,
+      terminalInput: false,
     }),
     device("02", {
       kind: "computer",

@@ -51,8 +51,8 @@ export type JoinFailure =
   | { kind: "untrusted" }
   | { kind: "wrong_kind" };
 
-// This device's entry before the invite fills `invite` and `terminal_input`. Its id and rev are the caller's: the id it
-// already has in the roster with the next rev (so one device never gets two ids), else a new `dev_` id and rev 1.
+// This device's entry before the invite fills `invite`. Its id and rev are the caller's: the id it already has in the
+// roster with the next rev (so one device never gets two ids), else a new `dev_` id and rev 1.
 export type JoinEntry = Omit<
   RosterEntryBody,
   "type" | "invite" | "terminal_input"
@@ -102,7 +102,6 @@ export async function join(
   const body: RosterEntryBody = {
     type: "entry",
     ...client.entry,
-    terminal_input: invite.body.terminal_input,
     invite: invite.body.key,
   };
   const invited: RosterInvitedStatement = {

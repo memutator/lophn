@@ -194,7 +194,7 @@
 ```
 
 - **따라가기.** 앱을 들인 기계는 다른 기계들의 앱 기록이 말하는 활성 release 가운데 git 조상 순서로 하나를 골라 take-in과 같은 길로 설치하고 activation에 넘긴다. 고르기, 동의, 실패와 갈라짐은 `activation.md`다.
-  - `computers`로만 온 release는 들이되(take-in) 늘어난 권한이 없어도 activation이 사람의 동의를 기다린다(기존 동의 카드). 같은 release를 이름 붙인 폴더도 내놓으면 지금처럼 묻지 않는다. 이유: 따라가기는 다른 기계의 code를 사람이 준 권한으로 이 컴퓨터에서 돌리는 일이고, `computers`의 file은 연결과 폰으로도 온다. 명단의 컴퓨터(도둑맞은 노트북 포함)가 이것으로 이 컴퓨터에서 code를 돌리면 안 된다. 이 규칙이 늘 묻는 것은 임시다(아래 열린 것).
+  - `computers`로만 온 release는 들이되(take-in) 늘어난 권한이 없어도 activation이 사람의 동의를 기다린다(기존 동의 카드). 같은 release를 이름 붙인 폴더도 내놓거나 그 release를 낸 컴퓨터를 이 컴퓨터가 터미널 입력으로 허락했으면 지금처럼 묻지 않는다. 이유: 따라가기는 다른 기계의 code를 사람이 준 권한으로 이 컴퓨터에서 돌리는 일이고, `computers`의 file은 연결과 폰으로도 온다. 명단의 컴퓨터(도둑맞은 노트북 포함)가 이것으로 이 컴퓨터에서 code를 돌리면 안 된다. 허락은 이 컴퓨터의 표라 명단의 컴퓨터가 스스로 켤 수 없다(아래 열린 것).
 - **drain 순서.** 이 기계의 활성 release가 held의 release가 되면, 출처마다 그 release의 held를 번호 순서로 stream과 같은 적용 길로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다. 그 출처의 stream은 지금 release의 held를 다 적용한 뒤에만 읽는다: cursor가 held 뒤에 있어 먼저 읽으면 순서가 뒤집힌다. 하나가 실패하면 그 출처는 그 행에서 멈추고 다음 계기에 같은 행부터 한다.
 - **snapshot이 덮은 held.** 출처 X의 snapshot m이 합쳐지거나 held가 되면 같은 transaction에서 X의 m보다 옛 held를 지운다. snapshot m은 m 앞의 변경을 다 담기 때문이다(폴더 꼴의 계약). 그 밖에 held가 없어지는 길은 이 기계가 그 release가 되어 적용했을 때와 앱을 이 기계에서 지웠을 때뿐이다.
 - **옛 release의 변경.** 주인의 release가 바뀐 뒤 내는 첫 file은 snapshot이다. 그래서 늦게 올라온 기계가 옛 release에서 한 변경은 따로 다시 표현하지 않고 그 snapshot을 칸 clock으로 합칠 때 온다. 이것이 맞으려면 migration 뒤에도 칸 clock이 남아야 해서, 앱 process가 뜰 때 칸 clock을 칸 이름으로 새 번호에 옮긴다(`app-sync.md`). 다른 destination에 쓰는 사이 진짜 폴더에 빈 번호가 생겨도 그 snapshot이 빈 곳을 덮어 읽는 쪽은 그 번호로 건너뛴다.
@@ -322,7 +322,7 @@
 - 명단 규칙은 다른 key가 같은 기계 이름을 다는 것을 아직 충돌로 보지 않는다. 받는 쪽은 그 이름을 믿지 않는 것으로 막지만, 사람에게는 그 기계가 멈춘 것만 보인다.
 - 나르는 쪽이 목록을 내놓지 않고 버티는 것은 받는 쪽이 알 수 없다(늦어질 뿐이다).
 - harness agent(lophn agent tool call 밖)는 destination과 `folder.shared`를 바꾸는 승인을 묻지 못해 늘 `needs_approval`이다. 사람은 Settings › Sync나 자기 터미널의 `lophn settings set`으로 바꾼다.
-- `computers`로만 온 release는 늘 사람의 동의를 기다린다. 명단의 터미널 허락(`terminal_input`)으로 묻지 않는 길은 두지 않았다: 컴퓨터가 자기 항목에 그 허락을 스스로 서명할 수 있고 받은 항목에 컴퓨터마다 저절로 같이 서명해, 명단 view로는 "이 컴퓨터의 사람이 허락했다"를 가를 수 없다(이슈 `roster-computer-self-grants-terminal-input`). 사람이 허락을 각 컴퓨터가 정하게 옮기기로 했고(계획 `remote-use`의 `use-grant`), 그 뒤에는 이 컴퓨터에서 허락한 컴퓨터의 release는 묻지 않고 따라간다. 지금의 "늘 묻는다"는 그때까지의 임시 규칙이다.
+- `computers`로만 온 release는 그 release를 낸 컴퓨터를 이 컴퓨터가 터미널 입력으로 허락하지 않았으면 늘 사람의 동의를 기다린다(`followAsksPerson`). 허락한 컴퓨터(그 기계의 컴퓨터 항목이 명단에 하나뿐이고 그 key가 이 컴퓨터의 `remote_grants`에 있다. `ctx.computerGranted`)의 release와 이름 붙인 폴더로 온 release는 묻지 않고 따라간다. 허락은 명단 항목의 값이 아니라 이 컴퓨터의 표라(컴퓨터가 자기 항목에 그 허락을 스스로 서명할 수 있고 받은 항목에 컴퓨터마다 저절로 같이 서명해 명단 view로는 "이 컴퓨터의 사람이 허락했다"를 가를 수 없다. 이슈 `roster-computer-self-grants-terminal-input`) 도둑맞은 노트북이 앱 code로 이 컴퓨터에서 돌 수 없다. 이 컴퓨터가 허락하지 않은 컴퓨터는 늘 묻는다.
 - 사람의 폴더(거울)에는 각 기계가 자기 하위 폴더만 쓴다. 거울만 보는 기계는 다른 기계의 file을 그 기계가 직접 거울에 낸 것으로만 받아, link나 폰이 그 기계에 닿아야 나머지가 간다.
 - `computers`로 맞추는 앱의 release와 data는 data root 안에 한 번 더 복사된다(그 폴더가 data root 안이다).
 - 폰은 상한(256 MiB)보다 큰 file(큰 snapshot, 큰 release)을 나르지 못한다. 그런 것은 link나 거울로만 간다. 모바일 데이터에서 크기 선택 때문에 건너뛴 새 file은 폰이 따로 기억하지 않는다. Wi-Fi로 돌아와도 폰이 다시 찾지 않고, 다른 컴퓨터가 그 file을 바란다고 알려 올 때 가져온다.

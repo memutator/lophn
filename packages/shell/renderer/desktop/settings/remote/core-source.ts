@@ -134,14 +134,14 @@ export function coreRemoteSource(
       };
     },
 
-    async join(text) {
+    async join(text, terminalInput) {
       let reply: Awaited<ReturnType<CoreSource["call"]>>;
       try {
         reply = await core.call({
           kind: "memory",
           resource: "roster",
           method: "join",
-          body: { text },
+          body: { text, terminal_input: terminalInput },
         });
       } catch {
         return { ok: false, reason: "unavailable" };

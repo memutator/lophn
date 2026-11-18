@@ -1,7 +1,8 @@
 // Settings › Remote의 Add a device. [Invite a phone]·[Invite a computer]는 초대장을 바로 내고 QR, "Show as text", 끝나는 때,
 // [New invite]를 보인다. 새 기기의 터미널 입력(기본 켬)과, 컴퓨터면 수명(이 컴퓨터와 같은 때 켜질 수 없으면 7일, 기본 30분)을 같은
 // 자리에서 바꾸고, 바꾸면 그 값으로 새 초대장을 낸다. 초대장이 보이는 동안 명단에 새 기기가 서면 초대장을 닫는다.
-// [Join with an invite]는 다른 컴퓨터가 보인 글을 붙여 이 컴퓨터가 그 명단에 든다.
+// [Join with an invite]는 다른 컴퓨터가 보인 글을 붙여 이 컴퓨터가 그 명단에 든다. 초대한 컴퓨터가 이 컴퓨터의 터미널에 칠 수
+// 있는가(기본 켬)를 같은 자리에서 정한다. 두 스위치는 모두 이 컴퓨터의 허락만 바꾼다.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { Field, Switch, Textarea } from "@lophn/ui/input";
 import { Toast } from "@lophn/ui/overlay";
@@ -92,6 +93,7 @@ export function AddDevice({
   const [joined, setJoined] = useState<string | null>(null);
   const [join, setJoin] = useState<Join>({ state: "closed" });
   const [text, setText] = useState("");
+  const [joinTerminalInput, setJoinTerminalInput] = useState(true);
   const [joinNotice, setJoinNotice] = useState<"joined" | "pending" | null>(
     null,
   );
@@ -149,13 +151,14 @@ export function AddDevice({
 
   async function sendJoin(): Promise<void> {
     setJoin({ state: "open", busy: true, failed: null });
-    const outcome = await source.join(text.trim());
+    const outcome = await source.join(text.trim(), joinTerminalInput);
     if (!outcome.ok) {
       setJoin({ state: "open", busy: false, failed: outcome.reason });
       return;
     }
     setJoin({ state: "closed" });
     setText("");
+    setJoinTerminalInput(true);
     setJoinNotice(outcome.pending ? "pending" : "joined");
     await reload();
   }
@@ -416,47 +419,71 @@ export function AddDevice({
       );
     }
     return (
-      <li className={styles.line} data-remote-join-line="open">
-        <div className={styles.lineMain}>
-          <Field
-            label={t("settings.label.remote-invite-text")}
-            help={t("settings.note.remote-join")}
-            {...(join.failed === null
-              ? {}
-              : { error: t(JOIN_ERRORS[join.failed]) })}
-          >
-            <Textarea
-              data-remote-join-text=""
-              rows={4}
-              value={text}
-              autoFocus
-              spellCheck={false}
-              onChange={(event) => setText(event.target.value)}
-            />
-          </Field>
-        </div>
-        <div className={styles.lineControl}>
-          <div className={styles.actions}>
-            <Button
-              onClick={() => {
-                setJoin({ state: "closed" });
-                setText("");
-              }}
-            >
-              {t("settings.button.cancel")}
-            </Button>
-            <Button
-              variant="primary"
-              icon={actionIcons.connect}
-              data-remote-join-send=""
-              disabled={join.busy || text.trim() === ""}
-              onClick={() => void sendJoin()}
-            >
-              {t("settings.button.remote-join-send")}
-            </Button>
+      <>
+        <li className={styles.line} data-remote-row="join-terminal-input">
+          <div className={styles.lineMain}>
+            <span className={styles.lineName}>
+              {t("settings.label.remote-join-terminal-input")}
+            </span>
+            <span className={styles.lineHelp}>
+              {t("settings.note.remote-join-terminal-input")}
+            </span>
           </div>
-        </div>
-      </li>
+          <div className={styles.endSlot}>
+            <Switch
+              label={t(
+                joinTerminalInput
+                  ? "settings.label.value-on"
+                  : "settings.label.value-off",
+              )}
+              checked={joinTerminalInput}
+              onCheckedChange={setJoinTerminalInput}
+            />
+          </div>
+        </li>
+        <li className={styles.line} data-remote-join-line="open">
+          <div className={styles.lineMain}>
+            <Field
+              label={t("settings.label.remote-invite-text")}
+              help={t("settings.note.remote-join")}
+              {...(join.failed === null
+                ? {}
+                : { error: t(JOIN_ERRORS[join.failed]) })}
+            >
+              <Textarea
+                data-remote-join-text=""
+                rows={4}
+                value={text}
+                autoFocus
+                spellCheck={false}
+                onChange={(event) => setText(event.target.value)}
+              />
+            </Field>
+          </div>
+          <div className={styles.lineControl}>
+            <div className={styles.actions}>
+              <Button
+                onClick={() => {
+                  setJoin({ state: "closed" });
+                  setText("");
+                  setJoinTerminalInput(true);
+                }}
+              >
+                {t("settings.button.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                icon={actionIcons.connect}
+                data-remote-join-send=""
+                disabled={join.busy || text.trim() === ""}
+                onClick={() => void sendJoin()}
+              >
+                {t("settings.button.remote-join-send")}
+              </Button>
+            </div>
+          </div>
+        </li>
+      </>
     );
   }
 }

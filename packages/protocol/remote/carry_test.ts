@@ -73,7 +73,6 @@ function entry(c: Computer, machine = c.machine): RosterEntryBody {
     machine,
     name: "computer",
     os: "linux",
-    terminal_input: true,
     rev: 1,
     invite: null,
   };

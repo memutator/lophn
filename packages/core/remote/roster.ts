@@ -41,6 +41,8 @@ export type RosterChange = {
   before: RosterView;
   after: RosterView;
   snapshot: RosterSnapshot;
+  // 이 컴퓨터가 낸 초대장으로 이번에 처음 든 기기와 그 초대장의 허락. 초대장의 허락은 초대한 컴퓨터만 자기 표에 적는다.
+  invited: { key: string; terminal_input: boolean }[];
 };
 
 export type RosterDeps = {
@@ -74,7 +76,6 @@ export type RosterAdoptRow = {
   key: string;
   name: string;
   os: RosterEntryBody["os"];
-  terminal_input: boolean;
 };
 
 export type RosterJoined = {
@@ -96,6 +97,12 @@ function isSigned(
 ): statement is RosterSignedStatement {
   return "by" in statement;
 }
+
+// 옛 statement의 `terminal_input`은 서명한 bytes라 읽을 수만 있다. 이 컴퓨터가 새로 서명하는 body에는 싣지 않는다.
+const bare = ({
+  terminal_input: _old,
+  ...rest
+}: RosterEntryBody): RosterEntryBody => rest;
 
 const unavailable = (): Result<never> =>
   err({ code: "unavailable", message: "remote has not been turned on" });
@@ -149,19 +156,31 @@ export function createRoster(deps: RosterDeps) {
     input: readonly RosterStatement[],
     now: number,
     id: string | undefined,
-  ): { statements: RosterStatement[]; view: RosterView } {
+  ): {
+    statements: RosterStatement[];
+    view: RosterView;
+    invited: { key: string; terminal_input: boolean }[];
+  } {
     let all = mergeRoster(rosterFresh(input, now));
+    const invited: { key: string; terminal_input: boolean }[] = [];
     for (;;) {
       const v = rosterView(all, roots(), own());
-      if (id === undefined) return { statements: v.keep, view: v };
+      if (id === undefined) return { statements: v.keep, view: v, invited };
       const added: RosterStatement[] = [];
       const dropped = new Set<RosterStatement>();
       const held = new Set(v.devices.map((d) => d.body.key));
       for (const statement of v.keep) {
         if (isSigned(statement) || held.has(statement.body.key)) continue;
         const checked = checkInvited(statement, { now, view: v });
-        if (checked.ok) added.push(signed(checked.value, id));
-        else if (checked.error.details?.reason !== "untrusted") {
+        if (checked.ok) {
+          added.push(signed(checked.value, id));
+          if (statement.invite.body.by === id) {
+            invited.push({
+              key: statement.body.key,
+              terminal_input: statement.invite.body.terminal_input,
+            });
+          }
+        } else if (checked.error.details?.reason !== "untrusted") {
           dropped.add(statement);
         }
       }
@@ -173,7 +192,7 @@ export function createRoster(deps: RosterDeps) {
           added.push(signed(r.body, id));
       }
       if (added.length === 0 && dropped.size === 0) {
-        return { statements: v.keep, view: v };
+        return { statements: v.keep, view: v, invited };
       }
       all = mergeRoster(
         v.keep.filter((s) => !dropped.has(s)),
@@ -199,7 +218,11 @@ export function createRoster(deps: RosterDeps) {
   }
 
   async function commit(
-    settled: { statements: RosterStatement[]; view: RosterView },
+    settled: {
+      statements: RosterStatement[];
+      view: RosterView;
+      invited: { key: string; terminal_input: boolean }[];
+    },
     incoming: readonly RosterReach[] = [],
     own?: RosterReach,
   ): Promise<Result<void>> {
@@ -229,7 +252,16 @@ export function createRoster(deps: RosterDeps) {
     statements = settled.statements;
     reach = nextReach;
     view = settled.view;
-    await deps.changed({ before, after: view, snapshot: snapshot() });
+    const held = new Set(before.devices.map((d) => d.body.key));
+    const now = new Set(view.devices.map((d) => d.body.key));
+    await deps.changed({
+      before,
+      after: view,
+      snapshot: snapshot(),
+      invited: settled.invited.filter(
+        (each) => !held.has(each.key) && now.has(each.key),
+      ),
+    });
     return ok(undefined);
   }
 
@@ -261,16 +293,20 @@ export function createRoster(deps: RosterDeps) {
   // 이 컴퓨터가 고친 새 rev. 이긴 body에서 시작한다.
   function revise(
     id: string,
-    edit: Partial<Pick<RosterEntryBody, "name" | "terminal_input">>,
+    edit: Pick<RosterEntryBody, "name">,
   ): Promise<Result<void>> {
     return run(async () => {
       const self = selfOf(view);
       if (self === undefined) return unavailable();
       const found = device(id);
       if (found === undefined) return notFound();
-      const next = { ...found.body, ...edit };
-      if (canonicalize(next) === canonicalize(found.body)) return ok(undefined);
-      return add([signed({ ...next, rev: found.body.rev + 1 }, self.id)]);
+      if (found.body.name === edit.name) return ok(undefined);
+      return add([
+        signed(
+          { ...bare(found.body), ...edit, rev: found.body.rev + 1 },
+          self.id,
+        ),
+      ]);
     });
   }
 
@@ -307,7 +343,7 @@ export function createRoster(deps: RosterDeps) {
     // 이름으로 옮기므로(changed) 여기서 되돌리지 않는다. `name`은 차례가 왔을 때 읽는다: 그 옮기기가 끝난 뒤의 이름이다.
     // `reach`는 이 컴퓨터의 지금 주소다(remote가 켜져 있을 때).
     // `adopt`는 옛 기기 표의 phone 행이다: 명단에 그 key의 statement가 하나도 없는 행에 같은 저장에서 서명한다(id, key, 이름,
-    // 허락 그대로, rev 1, 초대 없음). 저장이 서명한 항목이 없는 행을 지우므로 자기 항목과 따로 저장하면 그 행을 잃는다.
+    // rev 1, 초대 없음. 그 행의 옛 허락은 wiring가 이 컴퓨터의 표로 옮긴다). 저장이 서명한 항목이 없는 행을 지우므로 자기 항목과 따로 저장하면 그 행을 잃는다.
     ensureSelf(input: {
       machine: string;
       name: () => string;
@@ -333,14 +369,13 @@ export function createRoster(deps: RosterDeps) {
             machine: input.machine,
             name,
             os: input.os,
-            terminal_input: true,
             rev: 1,
             invite: null,
           } as RosterEntryBody;
           more.push(signed(body, id));
         } else if (device(id)!.body.name !== name) {
           const winner = device(id)!.body;
-          more.push(signed({ ...winner, name, rev: winner.rev + 1 }, id));
+          more.push(signed({ ...bare(winner), name, rev: winner.rev + 1 }, id));
         }
         const mentioned = new Set(statements.map((s) => s.body.key));
         for (const row of input.adopt ?? []) {
@@ -354,7 +389,6 @@ export function createRoster(deps: RosterDeps) {
             machine: null,
             name: row.name,
             os: row.os,
-            terminal_input: row.terminal_input,
             rev: 1,
             invite: null,
           } as RosterEntryBody;
@@ -412,8 +446,6 @@ export function createRoster(deps: RosterDeps) {
     },
 
     rename: (id: string, name: string) => revise(id, { name }),
-    setTerminalInput: (id: string, on: boolean) =>
-      revise(id, { terminal_input: on }),
 
     // 기기를 뺀다(이 컴퓨터가 서명한 빼기). 이 컴퓨터 자신이면 invalid_input이다. 정해지지 않은 빼기로 빠진 기기(엇갈림)도
     // 뺀다: 이 컴퓨터가 서명한 빼기라 이 view에서 처음부터 효력이 있고, 그 기기가 낸 빼기가 효력을 잃어 그것이 뺀 쪽이 돌아온다.
@@ -503,9 +535,8 @@ export function createRoster(deps: RosterDeps) {
           });
         }
         const body: RosterEntryBody = {
-          ...mine,
+          ...bare(mine),
           rev: mine.rev + 1,
-          terminal_input: invite.body.terminal_input,
           invite: invite.body.key,
         };
         const invited: RosterInvitedStatement = {

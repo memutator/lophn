@@ -354,6 +354,9 @@ type Late = {
   manifestSign: (body: ManifestBody) => string | null;
   // remote가 낸다. 명단 view에서 그 machine의 컴퓨터 항목이 하나뿐일 때 그 서명 key. 없거나 둘 이상이면 null이다.
   computerSigningKey: (machine: string) => string | null;
+  // remote가 낸다. 그 machine의 컴퓨터가 이 컴퓨터에서 터미널 입력을 허락한 기기인가(명단 view에 그 machine의 컴퓨터 항목이 하나뿐일
+  // 때만). 따라가기가 묻지 않는 컴퓨터를 가른다.
+  computerGranted: (machine: string) => boolean;
   // remote가 낸다. 그 machine의 컴퓨터가 정해진 빼기로 빠졌고, 그 이름의 컴퓨터도 정해지지 않은 빼기도 지금 없다. 받는 자리가
   // 하위 폴더를 지우는 때다.
   computerRemoved: (machine: string) => boolean;
@@ -451,6 +454,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   rosterCarry: true,
   manifestSign: true,
   computerSigningKey: true,
+  computerGranted: true,
   computerRemoved: true,
   folderReplica: true,
   crossEvents: true,

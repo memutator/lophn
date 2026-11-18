@@ -1,5 +1,6 @@
 // Settings › Remote의 My devices. 내 기기 명단의 기기마다 이름, 종류와 OS, 이 컴퓨터 표시, 컴퓨터면 연결 상태, 폰이면 마지막
-// 연결, 터미널 입력 스위치와 [Rename]·[Make primary](폰)·[Remove]다. 이름과 터미널 입력은 명단에 있어 모든 기계에 같다. 이 컴퓨터의
+// 연결, 터미널 입력 스위치와 [Rename]·[Make primary](폰)·[Remove]다. 이름은 명단에 있어 모든 기계에 같다. 터미널 입력 스위치는
+// 이 컴퓨터에서 그 기기를 허락하는가이고 컴퓨터마다 따로다(이 컴퓨터의 줄에는 스위치가 없다). 이 컴퓨터의
 // 이름은 위 This computer에서 바꾸고 이 컴퓨터는 뺄 수 없다. 빼면 그 기기는 모든 기계에서 끊기고 그 key로 다시 들지 못해 먼저 한 번
 // 묻는다. 두 컴퓨터가 서로 뺀 엇갈림으로 빠진 기기는 "Disputed"와 한 줄 설명, [Remove]만 선다: 믿지 않는 쪽을 여기서 빼면
 // 다른 쪽이 돌아온다.
@@ -207,7 +208,7 @@ export function MyDevices({
                 )}
               </div>
               <div className={styles.lineControl}>
-                {device.disputed ? null : (
+                {device.disputed || device.thisComputer ? null : (
                   <div
                     data-remote-terminal-input={String(device.terminalInput)}
                   >

@@ -1,6 +1,7 @@
 // 기기 표 `devices`(이 컴퓨터에 붙은 폰의, 이 컴퓨터만의 칸: push, 기준, 화면, 마지막 연결, 마지막으로 받은 알린 이름)와 명단 표,
-// 그 command·read. 종류, 이름, 터미널 입력 허락은 명단이 든다. `kind`(늘 phone)·`terminal_input` 칸은 표를 다시 만들지 않으려
-// 남겼고, 옮긴 폰 행의 허락을 이 컴퓨터가 처음 서명할 때만 읽는다(rosterStatements의 `adopt`). `alias`는 이 컴퓨터의 view가 그
+// 그 command·read. 종류와 이름은 명단이 든다(터미널 입력 허락은 명단이 아니라 이 컴퓨터의 `remote_grants`다. grants.ts).
+// `kind`(늘 phone)·`terminal_input` 칸은 표를 다시 만들지 않으려 남겼고, 옛 허락을 이 컴퓨터의 표로 한 번 옮길 때만 읽는다
+// (rosterStatements의 `adopt`). `alias`는 이 컴퓨터의 view가 그
 // 기기에 보이는 명단의 이름이다: 명단을 저장할 때마다 view의 이름으로 고친다(옮긴 폰 행에서는 옛 별명이었다).
 // writer·reader Worker에서 돈다. 명단의 믿음 계산과 서명은 main thread가 한다(remote/roster.ts). 여기는 정한 것을 저장한다.
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
@@ -200,7 +201,7 @@ function storedStatements(sql: Pick<Sql, "all">): RosterStatement[] {
     .map((row) => JSON.parse(row.text as string) as RosterStatement);
 }
 
-// 컴퓨터가 서명한 항목 가운데 key마다 앞서는 것(rev가 큰 것, 같으면 허락을 끈 것, 같으면 body 글이 작은 것). 저장할 때 서명한
+// 컴퓨터가 서명한 항목 가운데 key마다 앞서는 것(rev가 큰 것, 같으면 body 글이 작은 것). 저장할 때 서명한
 // 항목이 남지 않은 key의 행을 지우는 데 쓴다.
 function entriesByKey(
   statements: readonly RosterStatement[],
@@ -214,7 +215,6 @@ function entriesByKey(
       other === undefined
         ? -1
         : other.rev - body.rev ||
-          Number(body.terminal_input) - Number(other.terminal_input) ||
           (canonicalize(body) < canonicalize(other) ? -1 : 1);
     if (order < 0) best.set(body.key, body);
   }
@@ -282,8 +282,8 @@ const connected: CommandDefinition<typeof devicesConnected> = {
     tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
     tx.sql.run(
       `insert into devices (id, kind, name, name_announced_at, os, width, height, dpr, public_key, created_at,
-         last_connected_at, is_primary, terminal_input)
-       values (?, 'phone', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)`,
+         last_connected_at, is_primary)
+       values (?, 'phone', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [input.id, input.name, now, os, width, height, dpr, key, now, now],
     );
     push(tx, {
@@ -353,12 +353,14 @@ export const rosterStoreCommand = (
   },
 });
 
-// 명단과 이 컴퓨터의 기기 행을 모두 버린다. 행마다 revoked를 내어 `shell.devices`가 따라간다.
+// 명단과 이 컴퓨터의 기기 행을 모두 버린다. 행마다 revoked를 내어 `shell.devices`가 따라간다. 허락한 기기도 비운다(복사된 data
+// root나 명단에서 빠진 컴퓨터가 옛 허락을 들고 새 key로 서지 않게). 옮기기를 했다는 표지는 둔다.
 const forgetAll: CommandDefinition<typeof rosterForgetAll> = {
   route: rosterForgetAll,
   handle(tx) {
     tx.sql.run("delete from roster_statements", []);
     tx.sql.run("delete from roster_reach", []);
+    tx.sql.run("delete from remote_grants", []);
     const rows = tx.sql.all("select id from devices", []);
     for (const row of rows) remove(tx, row.id as string);
     return ok({ count: rows.length });
@@ -440,6 +442,7 @@ export const rosterStatementsRead: ReadDefinition<typeof rosterStatements> = {
     const adopt = snapshot.sql
       .all("select * from devices order by created_at, id", [])
       .filter((row) => !mentioned.has(row.public_key as string))
+      // 옮기기 전용: 옛 허락은 이 컴퓨터의 표로 한 번 옮기고 그 뒤에는 읽지 않는다.
       .map((row) => ({
         id: row.id as RemoteDevice["id"],
         key: row.public_key as string,

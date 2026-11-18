@@ -248,7 +248,7 @@ export const settingsArea: Area = {
       id: "settings-remote",
       title: "Settings · Remote",
       description:
-        "연결을 켜는 Switch와 My devices, Add a device 구역이다. 명단의 기기마다 종류와 OS, 이 컴퓨터 표시, 컴퓨터의 연결 상태나 폰의 마지막 연결, 터미널 입력 스위치와 [Rename]·[Make primary](폰)·[Remove]가 있다. 아래에 Open at start, [Invite a phone]·[Invite a computer]·[Join with an invite]가 있다. 위에 This computer와 Keep running 구역이 있다.",
+        '연결을 켜는 Switch와 My devices, Add a device 구역이다. 명단의 기기마다 종류와 OS, 이 컴퓨터 표시, 컴퓨터의 연결 상태나 폰의 마지막 연결, "이 컴퓨터의 터미널에 칠 수 있게" 허락하는 스위치(이 컴퓨터 줄에는 없다. 허락은 컴퓨터마다 따로다)와 [Rename]·[Make primary](폰)·[Remove]가 있다. 아래에 Open at start, [Invite a phone]·[Invite a computer]·[Join with an invite]가 있다. 위에 This computer와 Keep running 구역이 있다.',
       render: () => <SettingsRemote />,
     },
     {
@@ -290,7 +290,7 @@ export const settingsArea: Area = {
       id: "settings-remote-invite-phone",
       title: "Settings · Remote · invite a phone",
       description:
-        "[Invite a phone]을 눌러 초대장 QR이 열렸다. 남은 시간(30분에서 줄어든다), Show as text, [New invite]와 새 기기의 터미널 입력 스위치가 있다. 새 폰이 들어오면 초대장이 닫히고 My devices에 선다.",
+        "[Invite a phone]을 눌러 초대장 QR이 열렸다. 남은 시간(30분에서 줄어든다), Show as text, [New invite]와 새 기기가 이 컴퓨터의 터미널에 칠 수 있게 하는 스위치(다른 컴퓨터는 따로 정한다)가 있다. 새 폰이 들어오면 초대장이 닫히고 My devices에 선다.",
       render: () => <SettingsRemoteInvitePhone />,
     },
     {
@@ -304,7 +304,7 @@ export const settingsArea: Area = {
       id: "settings-remote-join-failed",
       title: "Settings · Remote · join refused",
       description:
-        "[Join with an invite]에 붙인 초대장이 수명이 지나 거절되었다. 칸 아래에 이유(지남, 이미 쓰임, 확인 안 됨, 빠진 컴퓨터, 이 컴퓨터의 초대장 등)가 선다.",
+        '[Join with an invite]에 붙인 초대장이 수명이 지나 거절되었다. 칸 위에 "초대한 컴퓨터가 이 컴퓨터의 터미널에 칠 수 있게" 하는 스위치(기본 켬)가 있고 칸 아래에 이유(지남, 이미 쓰임, 확인 안 됨, 빠진 컴퓨터, 이 컴퓨터의 초대장 등)가 선다.',
       render: () => <SettingsRemoteJoinFailed />,
     },
     {

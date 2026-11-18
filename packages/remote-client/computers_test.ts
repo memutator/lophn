@@ -50,7 +50,6 @@ const entryOf = (m: Machine): RosterEntryBody => ({
   machine: m.machine,
   name: m.name,
   os: "linux",
-  terminal_input: false,
   rev: 1,
   invite: null,
 });
@@ -144,7 +143,6 @@ test("a refusal this phone's roots cannot check leaves its computers and key; a 
     machine: null,
     name: "Mina's phone",
     os: "android",
-    terminal_input: false,
     rev: 1,
     invite: null,
   };

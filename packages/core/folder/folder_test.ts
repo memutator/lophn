@@ -369,7 +369,6 @@ const computerEntry = (c: Computer): RosterEntryBody => ({
   machine: c.machine,
   name: "computer",
   os: "linux",
-  terminal_input: true,
   rev: 1,
   invite: null,
 });
@@ -1198,19 +1197,25 @@ test("carry/put의 같은 조각이 겹쳐 오거나 다시 와도 맞는 file�
 });
 
 // 다른 컴퓨터의 release를 따라가면 그 code가 이 컴퓨터에서 사람이 준 권한으로 돈다. 명단의 컴퓨터(도둑맞은 노트북 포함)가
-// 그것으로 이 컴퓨터에서 code를 돌리면 안 된다. 명단의 터미널 허락은 그 컴퓨터가 스스로 서명할 수 있어 기준이 되지 않는다.
-test("computers로만 온 release는 낸 컴퓨터와 상관없이 사람에게 묻고, 이름 붙인 폴더로 온 것은 묻지 않는다", () => {
+// 그것으로 이 컴퓨터에서 code를 돌리면 안 된다. 묻지 않는 것은 이 컴퓨터에서 허락한 컴퓨터(이 컴퓨터의 표)뿐이다.
+test("여기서 허락하지 않은 컴퓨터의 release는 묻고, 허락한 컴퓨터의 것과 이름 붙인 폴더로 온 것은 묻지 않고 따라간다", () => {
+  const granted = (machine: Id<"mch">) => machine === OTHER;
   const cases: [
     string,
     { machine: Id<"mch">; destination: string }[],
     boolean,
   ][] = [
-    ["명단의 컴퓨터", [{ machine: OTHER, destination: "computers" }], true],
+    [
+      "허락하지 않은 컴퓨터",
+      [{ machine: OUTSIDER, destination: "computers" }],
+      true,
+    ],
+    ["허락한 컴퓨터", [{ machine: OTHER, destination: "computers" }], false],
     ["이름 붙인 폴더", [{ machine: OUTSIDER, destination: "personal" }], false],
     [
-      "같은 release가 이름 붙인 폴더에도",
+      "허락하지 않은 컴퓨터가 낸 것과 이름 붙인 폴더가 함께",
       [
-        { machine: OTHER, destination: "computers" },
+        { machine: OUTSIDER, destination: "computers" },
         { machine: OUTSIDER, destination: "personal" },
       ],
       false,
@@ -1218,28 +1223,8 @@ test("computers로만 온 release는 낸 컴퓨터와 상관없이 사람에게 
     ["출처를 모름", [], true],
   ];
   for (const [label, offers, asks] of cases) {
-    assert.equal(followAsksPerson(offers), asks, label);
+    assert.equal(followAsksPerson(offers, granted), asks, label);
   }
-  // 명단의 컴퓨터는 자기 항목에 터미널 허락을 스스로 서명할 수 있다: 그런 명단에서도 위 규칙은 묻는다.
-  const plain = { ...computerEntry(laptop), terminal_input: false };
-  const granted = rosterView(
-    [
-      signedBy(computerEntry(desk), desk),
-      signedBy(plain, desk),
-      signedBy({ ...plain, rev: 2, terminal_input: true }, laptop),
-    ],
-    [deskKey],
-    deskKey,
-  );
-  assert.equal(
-    granted.devices.find((device) => device.body.machine === OTHER)?.body
-      .terminal_input,
-    true,
-  );
-  assert.equal(
-    followAsksPerson([{ machine: OTHER, destination: "computers" }]),
-    true,
-  );
 });
 
 // 새 목록 file은 다른 길로 언제든 온다. 앞 manifest의 정리가 도는 사이 그것이 오면, 옛 사슬로 정한 지우기가 새 목록이 싣는

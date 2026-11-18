@@ -594,7 +594,10 @@ export const folderWiring: WiringFactory = () => {
                       ? [{ machine: row.machine, destination: row.destination }]
                       : [],
                   );
-          const ask = followAsksPerson(offers);
+          const ask = followAsksPerson(
+            offers,
+            (machine) => ctx.peek.computerGranted?.(machine) ?? false,
+          );
           return (
             ctx.appsControl.activation?.activate(release, { ask }) ??
             Promise.resolve(

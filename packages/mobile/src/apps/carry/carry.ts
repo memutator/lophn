@@ -26,7 +26,7 @@ import {
   manifestBodySchema,
   manifestPath,
   parseCarryPath,
-} from "../../../../protocol/folder/carry.ts";
+} from "../../../../protocol/remote/carry.ts";
 import type { Remote } from "../local/ports.ts";
 import { ask, failed, fromBase64, toBase64 } from "../local/transfer.ts";
 import type { CarryDeps } from "./ports.ts";

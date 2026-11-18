@@ -10,7 +10,7 @@ import {
   expectedFiles,
   manifestBodySchema,
   manifestPathMachine,
-} from "../../../../protocol/folder/carry.ts";
+} from "../../../../protocol/remote/carry.ts";
 import type { Remote } from "../local/ports.ts";
 import { CARRY_MAX_BYTES, carryWith, ensureTables, prune } from "./carry.ts";
 import type { CarryDeps } from "./ports.ts";

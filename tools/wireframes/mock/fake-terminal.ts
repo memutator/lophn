@@ -267,6 +267,7 @@ export function fakeTerminalBridge(core: FakeTerminalCore): TerminalApi {
     respond: () => ok(null),
     restart: () => ok(null),
     focus: () => ok(null),
+    shown: () => ok(null),
     openLink: () => ok("os"),
     copy: () => ok(null),
     paste: () => ok(""),

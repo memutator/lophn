@@ -15,6 +15,7 @@ import {
   TERMINAL_ROUTES,
   type TerminalOutput,
   terminalsInput,
+  terminalsOpen,
   terminalsRestart,
   terminalsSnapshot,
   terminalsWatch,
@@ -124,7 +125,9 @@ async function setup() {
   });
   const slots: Record<string, unknown> = {
     terminals,
-    // 기기 dev_b만 허락받았다. 살아 있는 capability는 하나다.
+    // 기기는 dev_a와 dev_b이고 dev_b만 허락받았다. 살아 있는 capability는 하나다.
+    deviceKind: (principal: string) =>
+      principal.startsWith("device:") ? "phone" : null,
     terminalInputGrant: (principal: string) => principal === "device:dev_b",
     shellCapabilities: { has: (value: string) => value === CAPABILITY },
   };
@@ -134,6 +137,7 @@ async function setup() {
     terminals,
     bus: { publish: (event: BusEvent) => published.push(event) },
     hostQueue: { openTab() {} },
+    terminalView: { adopt() {} },
   };
   const wiring = terminalsWiring();
   const built = await wiring.build!(ctx as never);
@@ -227,6 +231,39 @@ test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 �
   await wiring.closeWork!();
 });
 
+test("터미널 입력 허락이 없는 기기가 terminals/open에 command나 resume을 실으면 치지 않는다", async () => {
+  const { fake, wiring, call } = await setup();
+  const resume = { harness: "claude", external_session: "s1" };
+  for (const extra of [{ command: "echo denied" }, { resume }]) {
+    const done = await call(terminalsOpen, "user", "device:dev_a", {
+      project: PROJECT,
+      ...extra,
+    });
+    assert.equal(done.json.error?.code, "forbidden");
+  }
+  // 막힌 열기는 터미널도 열지 않는다(setup이 연 하나만 있다).
+  assert.equal(fake.alive.size, 1);
+
+  const typedBy = async (principal: string, command: string) => {
+    const done = await call(terminalsOpen, "user", principal, {
+      project: PROJECT,
+      command,
+    });
+    assert.equal(done.status, 200, principal);
+    // 첫 출력이 잦아든 뒤에 친다.
+    fake.emit("$ ");
+    await until(() => fake.written.includes(`${command}\r`));
+  };
+  const empty = await call(terminalsOpen, "user", "device:dev_a", {
+    project: PROJECT,
+  });
+  assert.equal(empty.status, 200);
+  await typedBy("device:dev_b", "echo granted");
+  await typedBy("user", "echo desktop");
+  assert.deepEqual(fake.written, ["echo granted\r", "echo desktop\r"]);
+  await wiring.closeWork!();
+});
+
 test("core가 끝나면 PTY가 남지 않는다", async () => {
   const { fake, terminals, wiring } = await setup();
   const second = await terminals.open({ project: PROJECT as never });
@@ -252,61 +289,30 @@ test("화면이 다시 붙어도 터미널의 출력을 잃거나 두 번 받지
   const appended = () =>
     published
       .filter((event) => event.type === "TerminalOutputAppended")
-      .map((event) => event.payload as TerminalOutput);
-
-  // 붙는 쪽: watch → snapshot{after_seq} → 받은 seq보다 큰 event만 쓴다. seq가 건너뛰면 snapshot으로 다시 맞춘다.
-  const used: { seq: number; from: "snapshot" | "event"; text: string }[] = [];
-  let last = 0;
-  let read = 0;
+      .map((event) => (event.payload as TerminalOutput).seq);
   const watch = () =>
     call(terminalsWatch, "user", "user", { terminal, watcher: "w", on: true });
-  const resync = async () => {
-    const snap = await call(terminalsSnapshot, "user", "user", {
-      terminal,
-      after_seq: last,
-    });
-    for (const chunk of snap.json.output as TerminalOutput[]) {
-      used.push({ seq: chunk.seq, from: "snapshot", text: chunk.chunk });
-      last = chunk.seq;
-    }
-  };
-  const drain = async () => {
-    for (const event of appended().slice(read)) {
-      read++;
-      if (event.seq <= last) continue;
-      if (event.seq !== last + 1) {
-        await resync();
-        continue;
-      }
-      used.push({ seq: event.seq, from: "event", text: event.chunk });
-      last = event.seq;
-    }
-  };
 
+  // lease가 없으면 Bus에 가지 않는다.
   await emit("a");
-  assert.deepEqual(appended(), []);
   await watch();
-  await resync();
   await emit("b");
   await emit("c");
-  await drain();
   // lease를 놓쳤다. 그 사이 출력은 Bus에 가지 않는다.
   clock.advance(30_000);
   await emit("d");
   await watch();
   await emit("e");
-  await drain();
-  await emit("f");
-  await drain();
+  assert.deepEqual(appended(), [2, 3, 5]);
 
-  assert.deepEqual(
-    appended().map((event) => event.seq),
-    [2, 3, 5, 6],
-  );
-  assert.deepEqual(
-    used.map((one) => `${one.from}:${one.seq}`),
-    ["snapshot:1", "event:2", "event:3", "snapshot:5", "event:6"],
-  );
-  assert.match(used[3]!.text, /abcde/);
+  // 다시 붙는 화면은 받은 마지막 seq 뒤를 snapshot으로 받아 놓친 출력(d)을 잇는다.
+  const snap = await call(terminalsSnapshot, "user", "user", {
+    terminal,
+    after_seq: 3,
+  });
+  const missed = snap.json.output as TerminalOutput[];
+  assert.ok(missed.every((chunk) => chunk.seq > 3));
+  assert.match(missed.map((chunk) => chunk.chunk).join(""), /de/);
+  assert.equal(missed.at(-1)!.seq, 5);
   await wiring.closeWork!();
 });

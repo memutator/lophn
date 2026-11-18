@@ -41,20 +41,21 @@ core는 daemon main thread, writer·reader Worker, I/O child process, agent runt
 
 ```
  base  ◀── protocol ◀── core ──▶ cli (명령 표, parser, help만)
-              ▲  ▲         └────▶ design (설정 값의 규칙만)
+              ▲  ▲         ├────▶ design (설정 값의 규칙만)
+              │  │         └────▶ remote-client
               │  └── sdk ──▶ design
               │
-              ├── shell ──▶ design, remote-client
+              ├── shell ──▶ design
               ├── remote-client
               ├── cli
               └── coding-agent
 ```
 
 - base는 아무것도 import하지 않는다. protocol은 base만 쓴다. design은 아무것도 쓰지 않는다. sdk는 protocol, design을 쓴다.
-- core는 protocol, base, cli(아래 절), design의 설정 규칙(아래)을 쓴다. cli, coding-agent, remote-client는 protocol, base만 쓴다. shell은 protocol, base, design, remote-client를 쓴다. remote-client는 폰 앱도 source로 읽으므로 `node:`와 React Native를 import하지 않는다.
+- core는 protocol, base, cli(아래 절), design의 설정 규칙(아래), remote-client(다른 기계에 붙는 client)를 쓴다. cli, coding-agent, remote-client는 protocol, base만 쓴다. shell은 protocol, base, design을 쓴다. remote-client는 폰 앱도 source로 읽으므로 `node:`와 React Native를 import하지 않는다.
 - core를 import하는 것은 core뿐이다. shell은 core를 import할 수 없고, 그래서 shell과 core가 같이 써야 하는 의존 없는 순수 함수는 protocol에 둔다(단축키 표와 문법이 그렇다).
 - core가 design에서 쓰는 것은 설정 값의 규칙(고를 수 있는 모양 값, 글꼴 이름 규칙, theme 검사)뿐이다. 설정의 뜻을 core가 shell과 같은 규칙으로 검사하려는 것이다(`settings.md`). 그 규칙은 design 안의 순수 계산만 쓰므로 component와 CSS는 core에 실리지 않는다.
-- coding-agent는 shell 중 terminal host와, cli의 binary 입구만 더 쓸 수 있다.
+- cli의 binary 입구만 coding-agent를 더 쓸 수 있다. 터미널 host는 core가 가지므로 coding-agent는 shell을 쓰지 않는다.
 - core가 cli에서 쓰는 것은 명령 표와 그것을 읽는 parser·help뿐이다. cli의 binary 입구, core client(HTTP), 출력은 node 전용이고 HTTP client와 harness 코드를 끌어오므로, agent runtime child에 실리지 않게 core가 import하지 못하고, 명령 표·parser·help도 그쪽을 import하지 않는다.
 - core 중 앱 process 진입점만 SDK(예외 관찰)를 import한다. 앱 code보다 먼저 그 관찰을 걸어야 해서다.
 - base와 protocol은 어느 runtime에서나 실릴 수 있게 runtime 전용 specifier(`node:`, `npm:`, URL)를 쓰지 않는다. 밖에서 가져오는 것은 protocol의 zod뿐이다.

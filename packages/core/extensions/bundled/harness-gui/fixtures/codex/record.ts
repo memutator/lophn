@@ -1,6 +1,6 @@
 // Codex app-server 녹화 script. 실제 model을 부르므로 사람의 허락 아래에서만 돌린다(lead가 돈다). test는 이 file을 부르지 않는다.
 //
-//   LOPHN_REC_OUT=<dir> CODEX_MODEL=<model> node packages/shell/main/extensions/bundled/harness-gui/fixtures/codex/record.ts [scenario ...]
+//   LOPHN_REC_OUT=<dir> CODEX_MODEL=<model> node packages/core/extensions/bundled/harness-gui/fixtures/codex/record.ts [scenario ...]
 //
 // scenario를 안 주면 아래 DEFAULT의 열 개를 돈다. 다른 것은 이름으로 준다.
 // scenario마다 `<LOPHN_REC_OUT>/<scenario>/`(0700, 이 폴더가 thread의 cwd이고 쓰기 scratch다)에서 adapter와 같은 탭 전용

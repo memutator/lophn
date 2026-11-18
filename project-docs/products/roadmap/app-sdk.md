@@ -55,8 +55,8 @@
 - `shell.run`의 child env는 허용 목록 여덟(`PATH` 등)이고 `LOPHN_`으로 시작하는 이름은 나가지 못한다(`packages/core/lophn-agent/tools/shell/env.ts`). 부르는 자리에 session id는 있다(`ToolContext`). harness runtime의 CLI는 `LOPHN_AGENT_CREDENTIAL`만 받는다.
 
 ### 터미널 탭의 coding agent
-- 상태는 shell main의 tracker(`packages/shell/main/terminal/agent/tracker.ts`)에만 있다: harness, 상태, CLI session id, 제목, cwd. 저장되는 것은 session identity뿐이다(`<data>/shell/agent-sessions/<project>.json`).
-- PTY shell의 pid는 `terminal-host`에 있다. 끊기 key는 harness adapter 표(`packages/protocol/coding-agent/harness-adapter.ts`)의 `interrupt_keys`이고 두 harness만 값이 있다. `signal` 요청은 Linux에서 SIGINT·SIGTERM만 foreground group에 보낸다.
+- 상태는 core의 tracker(`packages/core/terminal-agents/tracker.ts`)에만 있다: harness, 상태, CLI session id, 제목, cwd. 저장되는 것은 session identity뿐이다(`<data>/terminal-agents/sessions/<project>.json`).
+- PTY shell의 pid는 core의 PTY host(`packages/core/terminals/host/`)에 있다. 끊기 key는 harness adapter 표(`packages/protocol/coding-agent/harness-adapter.ts`)의 `interrupt_keys`이고 두 harness만 값이 있다. `signal` 요청은 Linux에서 SIGINT·SIGTERM만 foreground group에 보낸다.
 - core는 이 상태를 전혀 모른다. shell main이 core로 상태를 밀어 넣는 route가 없다.
 
 ### A2A

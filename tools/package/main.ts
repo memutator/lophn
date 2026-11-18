@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { checklistFor, installedVersion } from "../install-checklist.ts";
 import * as linux from "./linux.ts";
 import * as mac from "./mac.ts";
+import { markSpawnHelpers } from "./spawn-helper.ts";
 import * as win from "./win.ts";
 
 const TARGETS = { linux, mac, win };
@@ -175,6 +176,7 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
     { cwd: platform },
   );
   if (copyMembers) await copyLinkedMembers(join(platform, "node_modules"));
+  await markSpawnHelpers(join(platform, "node_modules"));
   // core가 띄우는 PTY host가 node-pty를 load한다. node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없어(위
   // `--ignore-scripts`라 build도 없다) Linux에서만 core가 도는 Electron에 맞춰 source로 compile한다.
   if (process.platform === "linux") {

@@ -3,9 +3,9 @@ title: 폰에서 컴퓨터에 터미널 탭을 새로 열 수 없다
 kind: bug
 status: fixed
 topic: remote
-modules: [packages/mobile, packages/core/terminal-agents, packages/shell/main]
+modules: [packages/mobile, packages/core/terminals, packages/core/terminal-view]
 now: |
-  폰이 컴퓨터에 새로 여는 것은 coding agent session뿐이다(`coding_sessions/open {project, harness, resume?}`, `packages/shell/main/terminal/coding-open.ts`가 터미널 탭을 열어 GUI로 띄운다). harness 없이 shell만 도는 터미널 탭을 여는 route와 화면이 없다. 폰이 보는 터미널도 coding session의 터미널뿐이다(`terminal_view/*`).
+  폰이 컴퓨터에 새로 여는 것은 coding agent session뿐이다(`coding_sessions/open {project, harness, resume?}`, `packages/core/terminal-agents/open.ts`가 터미널을 열어 GUI로 띄운다). harness 없이 shell만 도는 터미널 탭을 여는 route와 화면이 없다. 폰이 보는 터미널도 coding session의 터미널뿐이다(`terminal_view/*`).
 impact: |
   사람이 밖에서 폰으로 컴퓨터의 project 폴더에서 명령 하나를 돌려 보려 해도(build, git 상태, server 띄우기) 터미널을 열 길이 없다. coding agent에게 시키거나 컴퓨터 앞에 가야 한다.
 fix: |
@@ -13,5 +13,5 @@ fix: |
 decided: |
   사람이 정했다: 폰에서 터미널 탭을 스스로 열 수 있어야 한다.
 closed: |
-  `terminal_view/open {project, key}`가 컴퓨터에 터미널 탭을 열고 터미널 id를 준다. 폰의 `openTerminal`이 부른다. 새 session 화면의 Terminal 항목은 이슈 `phone-tui-session-not-usable-from-terminal-screen`에서 놓는다. core를 다시 켜면 폰이 연 터미널을 잊는다.
-guard: packages/core/terminal-view/view_test.ts의 같은 test
+  `terminals/open {project, key, tab}`이 컴퓨터에 터미널을 열고(그 project를 보이는 창이 있으면 탭도) 터미널 id를 준다. 기기가 연 터미널은 coding session이 아니어도 폰의 터미널 보기에 보인다. 폰의 `openTerminal`이 부른다. 터미널 입력 허락이 없는 기기는 빈 터미널만 연다(`command`·`resume`을 실으면 `forbidden`). 새 session 화면의 Terminal 항목은 이슈 `phone-tui-session-not-usable-from-terminal-screen`에서 놓는다. core를 다시 켜면 폰이 연 터미널을 잊는다.
+guard: packages/core/terminal-view/view_test.ts의 "폰이 연 터미널은 목록에 없어도 보이고, 크기는 그 터미널을 보는 principal만 잡는다"와 packages/core/main/daemon/wiring/terminals_test.ts의 "터미널 입력 허락이 없는 기기가 terminals/open에 command나 resume을 실으면 치지 않는다"

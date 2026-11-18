@@ -3,14 +3,15 @@ flows:
   # ---- harness host: core 메모리의 harness queue와 session ----
   - id: harness-take
     title: harness 입력 하나를 꺼내지 않고 본다
-    actor: shell
+    actor: system
     entries: [route:harness/take]
     boundary: [harness-host-interface, harness-host-core]
     code:
       - packages/protocol/lophn-agent/harness-host.ts
       - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/extensions/bundled/harness/host.ts
     steps:
-      - "shell main의 extension harness host가 1초마다 사람 token으로 부른다. 설정 extensions.harness.enabled가 꺼져 있으면 unavailable"
+      - "core의 extension harness host(in-process 자격 `machine:extensions`, actor user)가 1초마다 부른다. 설정 extensions.harness.enabled가 꺼져 있으면 unavailable"
       - "대기 중인 session을 앞에서부터 보고, 도는 turn이나 TUI hold가 있는 session은 건너뛴다"
       - "session이 없거나 harness가 아니면 그 session의 queue를 비우고 다음으로 간다"
       - "입력 본문을 session 기록에서 읽어 prompt를 만든다. 본문이 없어졌으면 queue에서 뺀다"
@@ -27,7 +28,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부른다"
+        when: "actor user가 아닌 자격(agent 등)이 부른다"
         observe: [response]
     crosses_process: false
     refs: [P6]
@@ -35,7 +36,7 @@ flows:
 
   - id: harness-turn-start
     title: harness 입력 하나로 turn을 연다
-    actor: shell
+    actor: system
     entries: [route:harness/start_turn]
     pre: [harness-take:input]
     boundary: [harness-host-interface, harness-host-core]
@@ -44,7 +45,7 @@ flows:
       - packages/core/main/daemon/wiring/harness-credential.ts
       - packages/protocol/lophn-agent/turns.ts
     steps:
-      - "shell host가 take로 받은 input_message를 넘긴다. 설정이 꺼져 있으면 unavailable"
+      - "harness host가 take로 받은 input_message를 넘긴다. 설정이 꺼져 있으면 unavailable"
       - "session이 없으면 not_found, harness session이 아니면 forbidden으로 끝낸다"
       - "queue 머리가 그 입력이고 session이 입력을 받으며 돌거나 hold되지 않았는지 본다. 아니면 conflict"
       - "턴 한도 설정을 읽고 잘못되었으면 invalid_input. 그다음 turn 자격(credential)을 발급한다"
@@ -64,7 +65,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부르거나, session의 runtime이 harness가 아니다. 또는 StartTurn의 machine 검사가 거절했다"
+        when: "actor user가 아닌 자격(agent 등)이 부르거나, session의 runtime이 harness가 아니다. 또는 StartTurn의 machine 검사가 거절했다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
@@ -85,7 +86,7 @@ flows:
 
   - id: harness-turn-record
     title: harness가 낸 글과 tool 기록을 대화에 넣는다
-    actor: shell
+    actor: system
     entries: [route:harness/record]
     pre: [harness-turn-start:started]
     boundary: [harness-host-interface, harness-host-core]
@@ -93,7 +94,7 @@ flows:
       - packages/core/main/daemon/wiring/harness.ts
       - packages/protocol/lophn-agent/harness-host.ts
     steps:
-      - "shell host의 실행 loop가 CLI 출력 한 줄마다 text나 harness_tool part로 부른다"
+      - "harness host의 실행 loop가 CLI 출력 한 줄마다 text나 harness_tool part로 부른다"
       - "session이 있고 harness인지 본다(아니면 not_found 또는 forbidden)"
       - "RecordMessage를 machine 자격으로 쓰고(ledger messages), model_call이 없는 MessageRecorded를 낸다"
       - "turn이 이미 끝났으면 conflict다. 호출한 host는 conflict를 받으면 CLI process를 멈춘다"
@@ -110,7 +111,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부르거나, session의 runtime이 harness가 아니다"
+        when: "actor user가 아닌 자격(agent 등)이 부르거나, session의 runtime이 harness가 아니다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -122,7 +123,7 @@ flows:
 
   - id: harness-turn-finish
     title: harness turn을 끝낸다
-    actor: shell
+    actor: system
     entries: [route:harness/finish_turn]
     pre: [harness-turn-start:started]
     boundary: [harness-host-interface, harness-host-core]
@@ -149,7 +150,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부르거나, turn의 session이 harness가 아니다"
+        when: "actor user가 아닌 자격(agent 등)이 부르거나, turn의 session이 harness가 아니다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -161,7 +162,7 @@ flows:
 
   - id: harness-session-bind
     title: harness가 알려 준 CLI session id를 lophn session에 둔다
-    actor: shell
+    actor: system
     entries: [route:harness/set_external_id]
     pre: [harness-turn-start:started]
     uses: [harness-bind-session:bound, harness-bind-session:unchanged]
@@ -170,7 +171,7 @@ flows:
       - packages/core/main/daemon/wiring/harness.ts
       - packages/core/lophn-agent/session/harness.ts
     steps:
-      - "CLI가 session id를 알리면 shell host의 실행 loop가 부른다"
+      - "CLI가 session id를 알리면 harness host의 실행 loop가 부른다"
       - "session이 없으면 not_found, harness session이 아니면 forbidden"
       - "BindHarnessSession(machine 자격)에 맡긴다. 같은 id면 아무것도 쓰지 않는다"
       - "다음 turn의 take가 이 id를 external_session_id로 돌려주어 CLI가 이어 간다"
@@ -185,7 +186,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부르거나, session의 runtime이 harness가 아니다"
+        when: "actor user가 아닌 자격(agent 등)이 부르거나, session의 runtime이 harness가 아니다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -548,7 +549,7 @@ flows:
       - packages/core/apps/views/mod.ts
     steps:
       - "host-preview-tab-open과 같은 검사: agent면 자기 session이 그 앱의 workspace인지 본다(아니면 앱이 있는지도 알리지 않고 not_found). 앱이 있는지 본다(없으면 not_found). 그 앱의 preview가 지금 돌고 있는지 본다(없으면 같은 conflict 문장)"
-      - "view 표에서 kind phone인 기기(device: owner)가 연, 묶여 있는 그 앱의 preview view를 찾는다. screen을 줬으면 그 화면의 것만 본다. live view와 shell owner, kind desktop 기기 owner의 view는 보지 않는다. 없으면 폰이 그 preview를 보이지 않는 것이라 열지 않고 unavailable(사람에게 폰에서 Preview from lophn을 열라고 부탁하라는 정한 문장)이다"
+      - "view 표에서 kind phone인 기기(device: owner)가 연, 묶여 있는 그 앱의 preview view를 찾는다. screen을 줬으면 그 화면의 것만 본다. live view와 shell owner, kind computer 기기 owner의 view는 보지 않는다. 없으면 폰이 그 preview를 보이지 않는 것이라 열지 않고 unavailable(사람에게 폰에서 Preview from lophn을 열라고 부탁하라는 정한 문장)이다"
       - "앱마다 phone 탭은 하나다(single phone:<app>). 이미 있으면 그 탭 id를 돌려주고 주인이 새로 연 쪽이 되며 screen을 바꾼다. 없으면 core 탭 표에만 올린다. shell queue에는 아무 요청도 넣지 않는다. 탭은 기기·view를 쥐지 않는다"
     outcomes:
       - id: accepted
@@ -2343,11 +2344,13 @@ flows:
       - packages/core/terminals/service.ts
       - packages/core/main/daemon/wiring/terminals.ts
     steps:
+      - "부른 쪽이 기기(폰, 연결된 컴퓨터)이고 터미널 입력 허락이 없으면 command나 resume을 실은 열기는 터미널을 열기 전에 거절한다. 둘 다 없으면 빈 터미널을 연다. 사람 화면의 열기는 focus를 보지 않는다"
       - "같은 key는 같은 답이다(PTY를 다시 열지 않는다)"
       - "project의 등록 폴더를 다시 읽고 cwd가 그 안인지 본다. folder_ref는 core가 정한다(<project>_<index>)"
       - "core의 PTY host에 터미널을 연다. env에 LOPHN_WORKSPACE, LOPHN_SESSION_ID(term:<터미널>), 사람의 login env와 lophn 경로, 터미널마다 더하는 env(hook, browser bridge)를 싣는다"
       - "command나 resume이 있으면 첫 출력 뒤 300ms 잠잠할 때(늦어도 5초) 한 번 친다. 친 것이 거절돼도 열기는 실패가 아니다"
       - "tab이 있으면 host queue에 그 project의 tab_open {terminal: {terminal_ref}}를 넣는다. 그 project를 보이는 창이 없으면 탭은 기다리고 터미널은 그대로 돈다"
+      - "기기가 연 터미널은 coding session이 아니어도 그 기기의 터미널 보기에 보인다"
     outcomes:
       - id: opened
         observe: [response, event:TerminalRuntimeChanged]
@@ -2373,7 +2376,12 @@ flows:
         code: forbidden
         when: "사람 자격(actor user)이 아니다(dispatch)"
         observe: [response]
+      - id: device-types-refused
+        code: forbidden
+        when: "터미널 입력 허락이 없는 기기가 command나 resume을 실었다. 터미널은 열리지 않는다"
+        observe: [response]
     crosses_process: true
+    risk: [permission]
     docs: [architecture/terminal-agent.md]
 
   - id: terminals-close
@@ -3054,10 +3062,12 @@ flows:
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/terminal.ts
+      - packages/shell/main/desktop/terminal-focus.ts
       - packages/shell/renderer/terminal/displays.ts
     steps:
       - "출력이 숨은 xterm에 들어가 terminal이 답을 요구하면 xterm이 답을 terminal-response로 보낸다. 사람 입력이 아니다"
-      - "main은 focus를 보지 않고 shell capability와 `respond: true`를 실어 `terminals/input`을 부른다. core는 이것을 사람 입력으로 세지 않는다"
+      - "main은 focus가 아니라 그 창이 그 터미널을 보이는지(terminal-shown 표) 본다. 보이지 않으면 core를 부르지 않고 거절한다"
+      - "보이면 shell capability와 `respond: true`를 실어 `terminals/input`을 부른다. core는 이것을 사람 입력으로 세지 않는다"
     outcomes:
       - id: answered
         observe: [process:pty-shell, response]
@@ -3068,7 +3078,35 @@ flows:
         code: forbidden
         when: "창이 등록된 본문 창이 아니다"
         observe: [response]
+      - id: not-shown
+        code: forbidden
+        when: "그 창이 그 터미널을 보이지 않는다. core에 가지 않는다"
+        observe: [response]
     crosses_process: true
+    risk: [permission]
+
+  - id: terminal-shown
+    title: "창이 보이는 터미널을 표에 적는다(질의 응답의 자격)"
+    actor: person
+    uses: [ipc:shell:terminal-shown]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/terminal.ts
+      - packages/shell/main/desktop/terminal-focus.ts
+      - packages/shell/renderer/terminal/displays.ts
+    steps:
+      - "탭의 display가 터미널에 붙으면 renderer가 terminal-shown {shown: true}를, 놓거나 다른 터미널로 바뀌면 {shown: false}를 보낸다. core로는 보내지 않는다"
+      - "main은 창(webContents)마다 보이는 터미널 set을 둔다. 창이 닫히면 그 창의 set을 지운다"
+    outcomes:
+      - id: shown
+        observe: [response]
+      - id: hidden
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "창이 등록된 본문 창이 아니다"
+        observe: [response]
+    crosses_process: false
 
   - id: terminal-resize
     title: "터미널 칸의 크기를 core의 PTY에 알린다"

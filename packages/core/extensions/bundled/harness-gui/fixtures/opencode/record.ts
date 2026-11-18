@@ -1,7 +1,7 @@
 // OpenCode server 녹화 script. 실제 `opencode serve`를 띄워 model을 부르므로 lead가 사람 허락 아래에서만 돌린다.
 // worker와 test는 돌리지 않는다.
 //
-//   node packages/shell/main/extensions/bundled/harness-gui/fixtures/opencode/record.ts --out <dir> [scenario ...]
+//   node packages/core/extensions/bundled/harness-gui/fixtures/opencode/record.ts --out <dir> [scenario ...]
 //
 // scenario마다 새 server process를 `os.tmpdir()` 아래 `git init`한 scratch 폴더(0700)에서 띄우고, HTTP+SSE client 둘
 // (A = GUI, B = TUI 대신)로 몰아 `<dir>/<scenario>.jsonl`에 `{t, kind, data}` 줄로 쓴다. scratch 폴더는 scenario가 끝나면 지운다.

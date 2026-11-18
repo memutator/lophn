@@ -252,6 +252,10 @@ files:
     covers: []
     note: check 도구가 core main의 custom fetch와 DOM title 속성을 막는지 보는 검사 도구
 
+  - path: tools/package/spawn-helper_test.ts
+    covers: []
+    note: 설치본 packaging이 node-pty의 darwin prebuild `spawn-helper`만 0755로 하는지 보는 도구 test(없으면 mac 설치본에서 터미널이 열리지 않는다)
+
   - path: tools/install-checklist_test.ts
     covers: []
     note: 설치 체크리스트가 깔린 판 초과 설치할 판 이하의 항목만 모으고 downgrade는 경고만 내는지 보는 도구 test

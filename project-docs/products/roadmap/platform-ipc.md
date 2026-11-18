@@ -19,6 +19,8 @@
 
 ## 계획 전 코드
 
+아래 path는 이 계획 전의 것이다. 그 뒤 계획 `core-terminals`가 hook·bridge·run dir·shim·시작 층을 core(`packages/core/terminal-agents/`, `bridge/` 포함, `packages/core/terminals/host/`)로 옮겼고 run 폴더는 `core-<pid>`다.
+
 - `packages/shell/main/desktop/wiring/bridge.ts:64` `if (process.platform === "win32") return off;` 한 줄이 browser bridge를 끄고 `runDir`를 null로 둔다. `wiring/agent.ts:236-237`이 `runDir`를 기다려 null이면 hook server(`terminal/agent/socket.ts` `listenHooks`)와 shell 시작 층(`terminal-host/shell-integration.ts` `writeShellInit`)도 열지 않는다. 그래서 win32에는 `h.sock`도, `LPN_TERMINAL_HOOK`·`LPN_SHELL_INIT` env도, `<harness> gui`도 없다.
 - run dir(`packages/shell/main/browser-bridge/run-dir.ts`)가 POSIX 전제다: `XDG_RUNTIME_DIR` 또는 `${tmpdir}/lophn-${uid}`(`process.getuid!()`, `wiring/bridge.ts:90`), 폴더 0700 chmod, socket 0600 chmod(`browser-bridge/socket.ts:53`, `terminal/agent/socket.ts:53`), 경로 104 byte 한도.
 - shell은 `ipcPath`를 쓰지 않고 core `packages/core/apps/runtime/processes/socket-dir.ts`의 자리 규칙을 따로 적었다(`run-dir.ts:1-3` "거기와 같은 규칙이어야 한다"). 한도도 다르다(shell 104, core `ipcPathLimit` 107·103). `ipcPath`를 부르는 곳은 `packages/protocol/apps/socket-slots.ts` 둘뿐이다.

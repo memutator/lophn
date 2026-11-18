@@ -25,10 +25,19 @@ function once<T>(
   if (key === undefined) return run();
   const seen = table.get(key);
   if (seen !== undefined) return seen;
-  const sending = run().then((done) => {
-    if (!done.ok && table.get(key) === sending) table.delete(key);
-    return done;
-  });
+  const forget = () => {
+    if (table.get(key) === sending) table.delete(key);
+  };
+  const sending = run().then(
+    (done) => {
+      if (!done.ok) forget();
+      return done;
+    },
+    (error: unknown) => {
+      forget();
+      throw error;
+    },
+  );
   table.set(key, sending);
   while (table.size > KEYS_MAX) table.delete(table.keys().next().value!);
   return sending;
@@ -39,6 +48,8 @@ export type TerminalRoutes = ReturnType<typeof createTerminalRoutes>;
 export function createTerminalRoutes(deps: {
   terminals: Terminals;
   clock: Clock;
+  // principal이 기기(폰, 연결된 컴퓨터)다.
+  isDevice(principal: string): boolean;
   // 기기 principal이 이 기계에서 터미널 입력 허락을 받았다. 기기가 아니면 false다.
   granted(principal: string): boolean;
   // control `connect {client: shell}`이 준 살아 있는 capability다(focus 검사를 거친 shell main만 싣는다).
@@ -68,15 +79,25 @@ export function createTerminalRoutes(deps: {
       return ok({ terminals: [...terminals.list(input.project)] });
     },
 
-    open(input: {
-      project: Id<"prj">;
-      folder_ref?: string;
-      cwd?: string;
-      command?: string;
-      resume?: { harness: string; external_session: string };
-      key?: string;
-      tab?: { relation: TabRelation | null };
-    }) {
+    // 열면서 치는 `command`·`resume`도 입력이다. 허락이 없는 기기는 빈 터미널만 연다. 사람 화면의 열기는 focus를 보지 않는다.
+    open(
+      principal: string,
+      input: {
+        project: Id<"prj">;
+        folder_ref?: string;
+        cwd?: string;
+        command?: string;
+        resume?: { harness: string; external_session: string };
+        key?: string;
+        tab?: { relation: TabRelation | null };
+      },
+    ) {
+      const types = input.command !== undefined || input.resume !== undefined;
+      if (types && deps.isDevice(principal) && !deps.granted(principal)) {
+        return Promise.resolve(
+          forbidden("this device may not type into the terminal"),
+        );
+      }
       return once(opens, input.key, async () => {
         const { key: _key, tab, ...open } = input;
         const opened = await terminals.open(open);

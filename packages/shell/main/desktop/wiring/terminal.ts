@@ -1,6 +1,6 @@
 // 터미널 탭이 shell main에 오는 짧은 통로와 터미널의 OS 쪽 일. 터미널은 core가 갖고 화면은 `terminals/*` route로 붙는다.
-// 여기 남는 것: 사람의 입력·질의 응답·다시 시작(그 창이 그 터미널에 focus를 가졌는지 본 뒤 shell capability를 실어 core에
-// 넘긴다), focus 표, clipboard, link를 어디에서 열지, 진단 기록, core의 `TerminalAgentSignaled`로 띄우는 알림, 그리고
+// 여기 남는 것: 사람의 입력·다시 시작(그 창이 그 터미널에 focus를 가졌는지 본 뒤)과 질의 응답(그 창이 그 터미널을 보이는지 본
+// 뒤)에 shell capability를 실어 core에 넘기기, focus와 보이는 터미널 표, clipboard, link를 어디에서 열지, 진단 기록, core의 `TerminalAgentSignaled`로 띄우는 알림, 그리고
 // `TerminalGuiOff`로 여는 Settings › Extensions.
 import { basename, join } from "node:path";
 import { clipboard, shell } from "electron";
@@ -15,6 +15,7 @@ import {
   TERMINAL_PASTE_CHANNEL,
   TERMINAL_RESPONSE_CHANNEL,
   TERMINAL_RESTART_CHANNEL,
+  TERMINAL_SHOWN_CHANNEL,
   TERMINAL_TRACE_CHANNEL,
   type TerminalLinkWhere,
   terminalCopySchema,
@@ -22,12 +23,13 @@ import {
   terminalInputSchema,
   terminalLinkSchema,
   terminalRestartSchema,
+  terminalShownSchema,
   terminalTraceSchema,
 } from "../../../ipc/terminal.ts";
 import { checkExternalUrl } from "../../app-frame/external-link.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
-import { TerminalFocusTable } from "../terminal-focus.ts";
+import { mayCall, TerminalFocusTable } from "../terminal-focus.ts";
 import { LINK_SETTING_KEY_LIST, linkWhere } from "../terminal-link.ts";
 import { createTraceFile } from "../terminal-trace.ts";
 import {
@@ -56,6 +58,10 @@ export type Terminals = Registered & {
 const NOT_FOCUSED = {
   ok: false as const,
   error: { code: "forbidden", message: "terminal is not focused" },
+};
+const NOT_SHOWN = {
+  ok: false as const,
+  error: { code: "forbidden", message: "terminal is not shown in this window" },
 };
 
 const reply = (result: CallResult) =>
@@ -182,16 +188,18 @@ export function register(
   handle(TERMINAL_INPUT_CHANNEL, async (event, input) => {
     const parsed = checkInput(terminalInputSchema, input);
     if (!parsed.ok) return parsed;
-    const { terminal, generation } = parsed.value;
-    if (!focus.focused(event.sender.id, terminal, generation)) {
+    if (!mayCall(focus, "input", event.sender.id, parsed.value)) {
       return NOT_FOCUSED;
     }
     return reply(await ctx.core.terminalCall("input", parsed.value));
   });
   // 숨거나 focus가 없는 터미널도 새 질의에 답해야 harness가 멎지 않는다. 사람 입력으로 세지 않는다.
-  handle(TERMINAL_RESPONSE_CHANNEL, async (_event, input) => {
+  handle(TERMINAL_RESPONSE_CHANNEL, async (event, input) => {
     const parsed = checkInput(terminalInputSchema, input);
     if (!parsed.ok) return parsed;
+    if (!mayCall(focus, "response", event.sender.id, parsed.value)) {
+      return NOT_SHOWN;
+    }
     return reply(
       await ctx.core.terminalCall("input", { ...parsed.value, respond: true }),
     );
@@ -199,7 +207,7 @@ export function register(
   handle(TERMINAL_RESTART_CHANNEL, async (event, input) => {
     const parsed = checkInput(terminalRestartSchema, input);
     if (!parsed.ok) return parsed;
-    if (!focus.focused(event.sender.id, parsed.value.terminal)) {
+    if (!mayCall(focus, "restart", event.sender.id, parsed.value)) {
       return NOT_FOCUSED;
     }
     return reply(await ctx.core.terminalCall("restart", parsed.value));
@@ -211,6 +219,14 @@ export function register(
     if (focused) focus.focus(event.sender.id, terminal, generation);
     else focus.blur(event.sender.id, terminal);
     notice.terminalFocusChanged();
+    return { ok: true, value: null };
+  });
+  handle(TERMINAL_SHOWN_CHANNEL, async (event, input) => {
+    const parsed = checkInput(terminalShownSchema, input);
+    if (!parsed.ok) return parsed;
+    const { terminal, shown } = parsed.value;
+    if (shown) focus.show(event.sender.id, terminal);
+    else focus.hide(event.sender.id, terminal);
     return { ok: true, value: null };
   });
   handle(TERMINAL_LINK_CHANNEL, async (_event, input) => {
@@ -264,6 +280,7 @@ export function register(
     TERMINAL_RESPONSE_CHANNEL,
     TERMINAL_RESTART_CHANNEL,
     TERMINAL_FOCUS_CHANNEL,
+    TERMINAL_SHOWN_CHANNEL,
     TERMINAL_LINK_CHANNEL,
     TERMINAL_COPY_CHANNEL,
     TERMINAL_PASTE_CHANNEL,

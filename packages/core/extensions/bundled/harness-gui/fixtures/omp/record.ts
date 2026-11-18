@@ -2,7 +2,7 @@
 // `<out>/<scenario>.jsonl`에 `{t, kind, data}`로 쓴다. test는 이것을 돌리지 않는다. 사람 허락 아래 lead가 돌린다.
 //
 // 저장소 root에서:
-//   node --experimental-strip-types --no-warnings packages/shell/main/extensions/bundled/harness-gui/fixtures/omp/record.ts --out <dir> --model <패턴> [--seed-sessions <dir>] [scenario ...]
+//   node --experimental-strip-types --no-warnings packages/core/extensions/bundled/harness-gui/fixtures/omp/record.ts --out <dir> --model <패턴> [--seed-sessions <dir>] [scenario ...]
 // `switch`만 --seed-sessions(저장된 session file이 든 폴더, 앞 녹화의 `sessions/`)가 필요하다. 그 file을 scratch로 복사해 쓴다.
 // scenario를 안 주면 아래를 다 돈다. --out과 --model은 필수다(model을 빼면 omp의 기본 model로 돌아 비쌀 수 있다).
 // session은 `<out>/sessions/`에 따로 쌓아 사람의 ~/.omp를 건드리지 않는다(auth와 설정은 사람의 것을 그대로 쓴다).

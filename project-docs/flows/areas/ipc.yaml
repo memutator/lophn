@@ -677,6 +677,7 @@ links:
   - {entry: "ipc:shell:terminal-response", flow: terminal-respond}
   - {entry: "ipc:shell:terminal-restart", flow: terminal-restart}
   - {entry: "ipc:shell:terminal-focus", flow: terminal-focus}
+  - {entry: "ipc:shell:terminal-shown", flow: terminal-shown}
   - {entry: "ipc:shell:terminal-copy", flow: terminal-copy}
   - {entry: "ipc:shell:terminal-paste", flow: terminal-paste}
   - {entry: "ipc:shell:terminal-trace", flow: terminal-trace}

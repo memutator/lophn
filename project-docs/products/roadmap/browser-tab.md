@@ -17,7 +17,7 @@
 
 ### 남은 bridge 일
 
-- **coding 탭의 `BROWSER`.** coding 탭은 app space 패널에 붙고 그 route에는 Workspace(pane)가 없어 browser 탭을 열 곳이 없다. 지금은 OS browser로 간다. 하려면 app space에서 project 창 Workspace로 가는 길(누구의 project인가, route 전환을 허락하는가)을 먼저 정하고, `terminal-host/launch-plan.ts`가 `plan.env`를 덮은 다음에 `TerminalBridge.issue()`의 env를 더한다.
+- **coding 탭의 `BROWSER`.** coding 탭은 app space 패널에 붙고 그 route에는 Workspace(pane)가 없어 browser 탭을 열 곳이 없다. 지금은 OS browser로 간다. 하려면 app space에서 project 창 Workspace로 가는 길(누구의 project인가, route 전환을 허락하는가)을 먼저 정하고, core가 터미널을 열 때(`ctx.terminals.useEnv`) `TerminalBridge.issue()`의 env를 더한다.
 - **detached 창 안의 terminal.** bridge push를 받는 hook(`useBridgeOpenRequests`)이 project 창 Workspace에만 있다. 뗀 terminal의 `terminal_ref`가 project 창 store에 남아 있어서 같은 실행에서는 project 창이 URL을 browser 탭으로 열지만(detached 창이 아니라 project 창에 뜬다), 다시 열어 복원한 detached terminal은 어느 창도 ref를 몰라 `declined`(OS browser)다. 복원 쪽은 이슈 `detached-terminal-fails-to-reattach`가 고쳐지면 같이 풀린다.
 - **host가 죽은 뒤 사람이 다시 시작한 shell**(supervisor의 `reopenMessage`)은 env 없이 열려 bridge가 없다.
 

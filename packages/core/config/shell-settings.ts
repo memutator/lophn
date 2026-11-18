@@ -264,8 +264,8 @@ const densitySetting = declareSetting({
     "How tightly controls, rows and panes are spaced. `compact` fits more on screen.",
 });
 
-// key는 packages/shell/main/browser-bridge/policy.ts의 LINK_SETTING_KEYS와 같은 글자여야 한다
-// (shell은 core를 import하지 못한다).
+// key는 packages/core/terminal-agents/bridge/policy.ts와 packages/shell/main/desktop/terminal-link.ts의 LINK_SETTING_KEYS와
+// 같은 글자여야 한다(shell은 core를 import하지 못해 사본을 둔다).
 const LINKS =
   "`browser_tab` opens it in a lophn browser tab, `system_browser` in the OS browser.";
 const webLinksSetting = declareSetting({

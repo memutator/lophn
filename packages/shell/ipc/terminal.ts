@@ -1,6 +1,7 @@
 // 터미널 탭이 shell main에 오는 짧은 통로. 터미널 자체(열기, 닫기, 크기, 출력, 목록)는 core의 `terminals/*` route로 바로 간다.
-// 여기 남는 것은 OS와 창에 붙은 것이다: 사람의 입력·질의 응답·다시 시작(main이 그 창이 그 터미널에 focus를 가졌는지 본 뒤
-// 자기 shell capability를 실어 core에 넘긴다), focus 표, clipboard, link, 진단 기록, 알림을 누른 뒤의 탭 고르기.
+// 여기 남는 것은 OS와 창에 붙은 것이다: 사람의 입력·다시 시작(main이 그 창이 그 터미널에 focus를 가졌는지 본 뒤 자기 shell
+// capability를 실어 core에 넘긴다), 질의 응답(그 창이 그 터미널을 보일 때만), focus와 보이는 터미널 표, clipboard, link, 진단
+// 기록, 알림을 누른 뒤의 탭 고르기.
 import { z } from "zod";
 
 const ref = z
@@ -29,6 +30,11 @@ export const terminalFocusSchema = z
     generation,
     focused: z.boolean(),
   })
+  .strict();
+
+/** 이 창이 그 터미널을 보이기 시작했거나(display가 붙음) 그만 보인다. main은 보이는 터미널의 질의 응답만 core에 넘긴다. */
+export const terminalShownSchema = z
+  .object({ terminal: ref, shown: z.boolean() })
   .strict();
 
 /** 터미널에서 고른 글. main이 OS clipboard에 쓴다. shell 창 session은 web clipboard permission을 거절한다. */
@@ -73,6 +79,7 @@ export type TerminalFocus = {
   generation: number;
   focused: boolean;
 };
+export type TerminalShown = { terminal: string; shown: boolean };
 
 /** OS 알림이나 toast를 누르면 main이 그 터미널 탭을 고르라고 보낸다. project는 그 터미널이 속한 project다. */
 export type TerminalReveal = { terminal: string; project: string };
@@ -95,11 +102,13 @@ export type TerminalCall<T> =
 export interface TerminalApi {
   /** 사람이 친 글. 그 창이 그 터미널에 focus를 가졌을 때만 간다. */
   input(input: TerminalInput): Promise<TerminalCall<null>>;
-  /** 숨은 xterm이 새 출력의 terminal 질의에 답한다. 사람의 입력으로 세지 않는다. */
+  /** 숨은 xterm이 새 출력의 terminal 질의에 답한다. 사람의 입력으로 세지 않는다. 그 창이 그 터미널을 보일 때만 간다. */
   respond(input: TerminalInput): Promise<TerminalCall<null>>;
   /** 끝난 터미널을 같은 탭에서 다시 띄운다. focus한 창만 한다. */
   restart(input: TerminalRestart): Promise<TerminalCall<null>>;
   focus(input: TerminalFocus): Promise<TerminalCall<null>>;
+  /** 이 창의 display가 그 터미널에 붙었다(`shown: true`) 또는 놓았다. */
+  shown(input: TerminalShown): Promise<TerminalCall<null>>;
   /** terminal에서 Ctrl/Cmd-click한 link. */
   openLink(input: { url: string }): Promise<TerminalCall<TerminalLinkWhere>>;
   /** 사람이 Ctrl+Shift+C로 고른 글을 OS clipboard에 쓴다. */
@@ -118,6 +127,7 @@ export const TERMINAL_INPUT_CHANNEL = "shell:terminal-input";
 export const TERMINAL_RESPONSE_CHANNEL = "shell:terminal-response";
 export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
+export const TERMINAL_SHOWN_CHANNEL = "shell:terminal-shown";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_COPY_CHANNEL = "shell:terminal-copy";
 export const TERMINAL_PASTE_CHANNEL = "shell:terminal-paste";

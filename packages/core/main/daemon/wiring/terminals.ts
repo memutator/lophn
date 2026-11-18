@@ -137,6 +137,7 @@ export const terminalsWiring: WiringFactory = () => {
       const routes = createTerminalRoutes({
         terminals,
         clock: ctx.clock,
+        isDevice: (principal) => ctx.peek.deviceKind?.(principal) != null,
         granted: (principal) =>
           ctx.peek.terminalInputGrant?.(principal) ?? false,
         capability: (value) => ctx.peek.shellCapabilities?.has(value) ?? false,
@@ -179,10 +180,11 @@ export const terminalsWiring: WiringFactory = () => {
             key(terminalsOpen),
             async (who, input) => {
               const opened = await routes.open(
-                input as Parameters<typeof routes.open>[0],
+                who.principal,
+                input as Parameters<typeof routes.open>[1],
               );
               // 기기가 연 터미널은 coding session이 아니어도 그 폰이 본다(터미널 보기).
-              if (opened.ok && ctx.peek.deviceKind?.(who.principal)) {
+              if (opened.ok && ctx.peek.deviceKind?.(who.principal) != null) {
                 ctx.terminalView.adopt(opened.value.terminal);
               }
               return opened;

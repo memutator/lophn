@@ -146,7 +146,7 @@ test("run 폴더 정리는 죽은 core만 지우고 POSIX private mode를 유지
     const keyDir = dirname(first.value.dir);
     mkdirSync(join(keyDir, "core-7777"));
     mkdirSync(join(keyDir, "core-9999"));
-    // `core-<pid>`가 아닌 이름(옛 판 shell이 남긴 `shell-<pid>` 등)은 정리하지 않는다.
+    // 옛 판 shell이 남긴 `shell-<pid>`도 죽은 pid면 지운다. 다른 이름은 정리하지 않는다.
     mkdirSync(join(keyDir, "shell-9999"));
     mkdirSync(join(keyDir, "core"));
     writeFileSync(join(keyDir, "b0.sock"), "");
@@ -165,7 +165,7 @@ test("run 폴더 정리는 죽은 core만 지우고 POSIX private mode를 유지
     if (!again.ok) assert.fail(again.error.message);
     assert.deepEqual(
       readdirSync(keyDir).sort(),
-      ["b0.sock", "core", "core-4242", "core-7777", "shell-9999"].sort(),
+      ["b0.sock", "core", "core-4242", "core-7777"].sort(),
     );
     assert.deepEqual(readdirSync(again.value.dir), []);
     assert.equal(readFileSync(sentinel, "utf8"), "keep");

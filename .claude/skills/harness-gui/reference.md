@@ -16,7 +16,7 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
 | 폰의 열기(`coding_sessions/open`) | `packages/core/terminal-agents/open.ts` |
 | route 계약(`coding_sessions/*`) | `packages/protocol/coding-agent/relay.ts` |
 | extension host(registry, spawner, ACP handle) | `packages/core/extensions/`(`host.ts`, `spawner.ts`, `acp.ts`) |
-| 탭 화면 | `packages/shell/renderer/terminal/terminal-gui.tsx`(`GuiSwitch`), `packages/shell/renderer/terminal/model.ts`(`tabName`, `guiSessionId`) |
+| 탭 화면 | `packages/shell/renderer/terminal/terminal-gui.tsx`(`GuiSwitch`), `packages/shell/renderer/terminal/model.ts`(`terminalName`), session key는 `packages/protocol/lophn-agent/session-tag.ts`(`guiSessionId`) |
 | 채팅 화면의 GUI source | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 채팅 화면 key handler | `packages/shell/renderer/conversation/agent-view.tsx`(routes) |
 | 터미널 함수 | `packages/core/terminals/host/shell-integration.ts` |
@@ -55,7 +55,7 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - core는 PTY에 글을 `typeInto`(`packages/core/terminals/service.ts`)로 쳐 넣는다. PTY host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만. foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 250ms마다 보는 foreground 변화로 안다(`packages/core/terminals/host/foreground.ts`, win32는 null).
 - login env는 core가 한 번 `${SHELL:-/bin/sh} -ilc`로 읽는다(`packages/core/terminals/person-env.ts`. Linux `env -0`, macOS는 BSD `env`라 줄 단위로 읽는다. tmux·updater guard, 5초). extension spawner가 GUI를 열기 전에 그 읽기를 기다린다. 합치는 순서는 login env < 탭 hook env < adapter가 넘긴 key다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
 - 탭 화면(`terminal-gui.tsx`)은 `acp/snapshot`으로 읽은 상태에서 시작해 `AcpUpdated`를 `reduceAcp`로 접고, 묶음 하나를 한 task 안에서 알려 화면이 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) source의 `changed`로 화면이 다시 읽고, `reread`가 서면 feed의 지금 상태를 다시 읽는다. view(`gui`|`tui`)는 core가 들고 탭은 `coding_sessions/list`에서 읽는다(창 다시 load와 앱을 다시 켠 뒤도 같다).
-- 탭 이름: `GuiSwitch`가 제목을 탭 field `guiTitle`에 두고 `tabName`이 GUI view일 때만 그것을 쓴다. 다른 workspace의 탭 줄은 `agentTitle`을 쓴다. 화면의 session key는 터미널 ref `trm_<ULID>`의 ULID로 만든 `ses_<ULID>`(`guiSessionId`)다.
+- 탭 이름: `GuiSwitch`가 제목을 탭 field `guiTitle`에 두고 `terminalName`이 GUI view일 때만 그것을 쓴다. 다른 workspace의 탭 줄은 `agentTitle`을 쓴다. 화면의 session key는 터미널 ref `trm_<ULID>`의 ULID로 만든 `ses_<ULID>`(`guiSessionId`, `packages/protocol/lophn-agent/session-tag.ts`)다.
 - GUI view에서는 `TerminalTab`이 서지 않으므로 `GuiSwitch`가 고른 GUI 탭을 shell main의 터미널 focus 표(`shell:terminal-focus`)에 적는다.
 - 입력 history·Ctrl+R 검색·`agent.*` command의 handler는 `agent-view.tsx`의 routes에 있다. GUI 탭은 바깥 `agentView` 안쪽에 `agentView:<harness>`를 단다.
 - 터미널 함수: bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`면 `lophn hook <harness> lophn-gui`로 그 탭의 hook endpoint에 요청을 보낸다(lophn CLI 경로는 core가 시작 층 file을 쓸 때 넣는다. 터미널 env에서는 `LOPHN_*`가 빠진다). PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. Windows PowerShell 실기 확인은 별도다(`terminal-agent.md`).

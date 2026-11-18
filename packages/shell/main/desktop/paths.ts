@@ -1,10 +1,6 @@
 // 데이터 root는 platform이 검증한다. shell은 그 root를 받아 자기 자리만 정한다.
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
-
-import { LINUX_LAUNCHERS } from "../../../base/install/linux-install.ts";
-import { MAC_CLI_LAUNCHER } from "../../../base/install/mac-install.ts";
-import { WIN_CLI_LAUNCHER } from "../../../base/install/win-install.ts";
+import { dirname, join } from "node:path";
 
 const HOME_ENV = "LOPHN_HOME";
 
@@ -53,7 +49,7 @@ export function browserDataPath(dataRoot: string): string {
 
 /**
  * packaged 설치 묶음의 자리. Linux·Windows는 Electron의 `resources/`가 설치 root 바로 아래에 있고
- * (`/opt/lophn/`), macOS는 묶음이 `.app`의 `Contents/Resources/` 안에 있다. `cli`는 설치된 `lophn` 실행 파일이다.
+ * (`/opt/lophn/`), macOS는 묶음이 `.app`의 `Contents/Resources/` 안에 있다.
  */
 export function packagedInstall(
   resourcesPath: string,
@@ -62,34 +58,11 @@ export function packagedInstall(
   root: string;
   platform: string;
   desktop: string;
-  cli: string | null;
 } {
   const root = platform === "darwin" ? resourcesPath : dirname(resourcesPath);
   return {
     root,
     platform: join(root, "platform"),
     desktop: join(root, "desktop"),
-    cli:
-      platform === "linux"
-        ? LINUX_LAUNCHERS.cli
-        : platform === "darwin"
-          ? join(root, MAC_CLI_LAUNCHER)
-          : platform === "win32"
-            ? join(root, WIN_CLI_LAUNCHER)
-            : null,
   };
-}
-
-/**
- * `lophn` 실행 파일 경로 하나를 고르는 규칙. packaged는 설치본, 개발 실행은 `LOPHN_CLI`(launcher 경로, 절대 경로일 때만)다.
- * 둘 다 없으면 null.
- */
-export function lophnCliPath(input: {
-  packaged: boolean;
-  resourcesPath: string;
-  env: Readonly<Record<string, string | undefined>>;
-}): string | null {
-  if (input.packaged) return packagedInstall(input.resourcesPath).cli;
-  const given = input.env.LOPHN_CLI;
-  return given !== undefined && isAbsolute(given) ? given : null;
 }

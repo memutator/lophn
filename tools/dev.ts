@@ -582,8 +582,8 @@ async function launch(
     // 이 dev 프로세스에는 LOPHN_HOME이 core를 거르는 일이 없다. shell main에도
     // 같은 root를 넣어 두 값이 갈라지지 않게 한다.
     shellEnv[LOPHN_HOME] = dataRoot;
-    // shell main은 이 경로로 harness 감지·hook 설치를 하고, 설치된 hook command가 된다. core는 이 env를 보지 않고 저장소에서 찾는다.
-    shellEnv["LOPHN_CLI"] = await writeDevCli(options.root);
+    // core는 저장소 실행이면 이 launcher를 저장소에서 찾아 터미널의 PATH와 extension CLI에 준다.
+    await writeDevCli(options.root);
     const child = spawn(
       planShell(options.root, { dataRoot, env: shellEnv }),
       "shell",

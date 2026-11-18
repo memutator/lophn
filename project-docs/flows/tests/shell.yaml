@@ -156,6 +156,13 @@ files:
       - desk-switch:forbidden
     note: "project 창을 떠날 때 detached 창을 조용히 닫고 PTY 참조는 남긴다(closed-kept). showOnly는 보낸 project 창의 detached 창만 숨기고 보이며 없는 key는 missing으로 답한다. detached 되받기 한 번만 주는 규칙은 detached-reopen:reopened·reopened-kept"
 
+  - path: packages/shell/main/desktop/terminal-focus_test.ts
+    covers:
+      - terminal-input:not-focused
+      - terminal-restart:not-focused
+      - terminal-respond:not-shown
+    note: "shell main이 capability를 싣기 전의 판정(mayCall): focus가 없는 창의 입력·다시 시작과 그 터미널을 보이지 않는 창의 응답은 core에 가지 않는다. renderer allowlist에 terminals/input·restart가 없다"
+
   - path: packages/shell/main/desktop/navigation-guard_test.ts
     covers: [shell-navigation:allowed, shell-navigation:external-link, shell-navigation:blocked]
     note: "shell 창 main frame의 탐색 판정(lophn-shell://desktop 밖 차단, http·https는 OS browser). shell-navigation:allowed·external-link·blocked"

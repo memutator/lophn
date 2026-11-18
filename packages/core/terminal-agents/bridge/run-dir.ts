@@ -80,10 +80,10 @@ export function prepareRunDir(deps: RunDirDeps): Result<RunDir, RunDirError> {
   const parent =
     deps.platform === "win32" ? join(deps.dataRoot, "run") : common.value;
   try {
-    // core가 죽어 남은 옛 실행 폴더. 같은 data root의 `core-<숫자>` 중 죽은 pid만 지우고,
+    // core가 죽어 남은 옛 실행 폴더와 옛 판 shell이 같은 자리에 만들던 `shell-<숫자>`. 죽은 pid만 지우고,
     // core socket, 살아 있는 다른 core, 다른 이름은 건드리지 않는다.
     for (const name of deps.fs.list(parent)) {
-      const match = /^core-(\d+)$/.exec(name);
+      const match = /^(?:core|shell)-(\d+)$/.exec(name);
       if (match === null) continue;
       const pid = Number(match[1]);
       if (pid === deps.pid || !deps.isAlive(pid)) {

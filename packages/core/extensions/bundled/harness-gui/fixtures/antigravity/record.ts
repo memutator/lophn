@@ -2,7 +2,7 @@
 // `<out>/<scenario>.jsonl`에 `{t, kind, data}`로 쓴다. test는 이것을 돌리지 않는다. 사람 허락 아래 사람이 돌린다.
 //
 // 저장소 root에서:
-//   node --experimental-strip-types --no-warnings packages/shell/main/extensions/bundled/harness-gui/fixtures/antigravity/record.ts --out <dir> [scenario ...]
+//   node --experimental-strip-types --no-warnings packages/core/extensions/bundled/harness-gui/fixtures/antigravity/record.ts --out <dir> [scenario ...]
 // scenario를 안 주면 아래를 다 돈다. model은 늘 가장 싼 `gemini-3.8-flash` + thought_level `low`로 바꾼 뒤 보낸다.
 // agy는 대화를 사람의 `~/.gemini/antigravity-cli/`에 쓴다(auth도 거기 있어 따로 둘 수 없다). 그래서 녹화가 만든 대화 id를
 // `<out>/created.txt`에 적고 끝날 때 그 대화의 `conversations/<id>.db*`와 `brain/<id>/`만 지운다.

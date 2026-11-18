@@ -115,16 +115,16 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 |---|---|---|---|
 | lophn agent의 session, 대화, 보내기 | core ledger와 agent-runtime child | 됨(`workspaceSessionList`, `session_snapshots/list`, `acp/*`) | 됨 |
 | harness agent session | core ledger. turn은 shell main의 harness extension이 돌린다 | 읽기는 됨 | turn이 돌지 않는다 |
-| 터미널의 coding agent(TUI) 상태 | shell main tracker(hook socket) | shell이 5초마다 report한 줄만 `app_sessions/list`에 있다. shell이 떨어지면 3초 안에 사라진다 | 안 됨 |
-| harness GUI 대화 | shell main 메모리의 handle(`AcpState`) | 안 됨(IPC `harness-gui:tab-*`) | 안 됨 |
+| 터미널의 coding agent(TUI) 상태 | core tracker(hook socket, `packages/core/terminal-agents/`. 조사 때는 shell main) | 됨(`coding_sessions/list`, session lifecycle) | 됨 |
+| harness GUI 대화 | core 메모리의 handle(`AcpState`, `packages/core/extensions/`. 조사 때는 shell main) | 됨(`coding_sessions/*`, `acp/*`) | 됨 |
 | 승인과 질문 | core 메모리(turn request, ask). harness GUI의 card는 shell main | 됨(`turn_requests/decide`, `ask/answer`. actor user, 창에 묶이지 않고 먼저 온 답이 이긴다) | 됨(core가 다시 뜨면 사라진다) |
-| 터미널 | `packages/shell/terminal-host`(shell main의 stdio child, node-pty, headless xterm scrollback 10,000) | 안 됨(host queue의 `terminal_interrupt`, `tab_open`뿐) | 안 됨(Quit하면 PTY가 죽는다) |
+| 터미널 | `packages/core/terminals/`(core의 stdio child PTY host, node-pty, headless xterm scrollback 10,000. 조사 때는 shell main의 child) | 됨(`terminals/*`, 폰의 `terminal_view/*`) | 됨(Quit 뒤에도 돈다) |
 | 탭 layout | shell main file과 renderer | 안 됨 | 안 됨 |
 | notice | core ledger `notices`. toast, OS 알림, `unseen` 점은 shell main 메모리 | 표는 됨 | 표만 |
 | secret, 설정 | core file | 됨(secret 넣기는 shell의 보호 입력 창만) | 됨 |
 
 client가 둘일 때 부딪치는 곳:
-- 터미널 입력은 그 터미널을 focus한 webContents 하나만 받는다(`TerminalFocusTable`, `packages/shell/main/terminal/controller.ts`). PTY 크기는 하나다.
+- desktop의 터미널 입력은 그 터미널을 focus한 webContents 하나만 받는다(`TerminalFocusTable`, `packages/shell/main/desktop/terminal-focus.ts`). 기기는 터미널 입력 허락으로 친다. PTY 크기는 하나다.
 - `unseen` 점과 알림을 누를지는 desktop 창이 보이는지로 정한다(`packages/shell/main/notice/rule.ts`). 폰에서 봐도 desktop의 점은 남는다.
 - session 상태를 접는 곳이 둘이다(renderer `sessions-store.ts`, core `packages/core/lophn-agent/session/lifecycle.ts`).
 
@@ -302,7 +302,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 - core가 push를 보낸다. 계기는 사람을 기다리는 상태로 새로 넘어간 것(승인, 질문, 동의, job hold), 오래 돈 turn의 끝, 앱의 `notify()`다. 글에는 상태와 제목만 넣고 대화 내용을 넣지 않는다. 누르면 그 session이나 앱으로 간다.
 - 누구에게 알릴지는 core가 host들의 보고로 정한다. host가 "사람이 무엇을 보고 있다"를 core에 알리고, 보고 있는 host가 있으면 push를 보내지 않는다. desktop의 보고에는 창 focus뿐 아니라 마지막 keyboard·mouse 입력 뒤 지난 시간(Electron `powerMonitor.getSystemIdleTime()`)을 넣는다. 창을 띄워 놓고 자리를 비우면 보고 있지 않은 것이다. desktop의 toast와 OS 알림을 가르는 것은 지금처럼 shell의 정책이다.
-- 터미널 coding agent의 대기와 끝은 shell main tracker가 해석을 끝낸 순간 새 route `terminal_sessions/signal`로 core에 올린다(`terminal_sessions/report`의 변화를 core가 비교하지 않는다. 단계 4에서 했다).
+- 터미널 coding agent의 대기와 끝은 core tracker가 해석을 끝낸 순간 `TerminalAgentSignaled`로 낸다(단계 4에서는 shell main tracker가 `terminal_sessions/signal`로 올렸고, 계획 `core-terminals`가 tracker를 core로 옮겨 그 route를 지웠다).
 - `unseen` 점을 core로 옮겼다(단계 4). 폰에서 읽으면 desktop의 점도 꺼진다.
 
 ## 단계
@@ -355,7 +355,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 ## 사람이 정할 것
 
-1. **원칙.** "폰은 두 번째 host다"로 가나. 터미널을 shell에 둔 채 core가 잇는 것까지 포함이다. 다른 안: terminal-host를 core 밑으로 옮겨 Quit 뒤에도 PTY를 살린다. mobile과 따로 정할 수 있는 큰 구조 변경이다.
+1. **원칙.** "폰은 두 번째 host다"로 가나. 터미널을 shell에 둔 채 core가 잇는 것까지 포함이다. 다른 안: terminal-host를 core 밑으로 옮겨 Quit 뒤에도 PTY를 살린다. mobile과 따로 정할 수 있는 큰 구조 변경이다. (뒤에 계획 `core-terminals`가 PTY host를 core 밑으로 옮겼다.)
 2. **폰 기종.** 정할 것이 아니다. 쓰는 사람마다 폰이 달라 iOS와 Android를 둘 다 낸다(Expo 하나로 짓는다). 개발은 Linux에서 바로 빌드되는 Android로 먼저 확인한다. iOS는 빌드에 Mac이나 cloud 빌드가, push와 배포에 Apple Developer 계정(연 $99)이 든다. 이 비용은 lophn 쪽이 지고 쓰는 사람이 지지 않는다.
 3. **폰 앱의 모양.** 정했다(사람, 2026-11-15): 화면은 폰 앱 안의 React Native이고, component는 SDK의 폰 UI kit으로 내 lophn 폰 화면과 사용자 앱이 같이 쓴다. 위 "폰 앱의 모양".
 4. **망.** 정했다(사람, 2026-11-15): lophn이 relay를 둔다. 폰과 core가 어느 network에 있든 relay로 만나고, 같은 LAN이면 direct가 먼저 붙는다. relay는 내용을 보지 못하는 전달자다(Paseo 꼴). 이유: 다른 network에서 붙지 못하면 remote의 의미가 없고, 폰에서 혼자 도는 sync 앱도 "core에 닿으면 맞춘다"가 같은 연결 위에 선다. 앞서 추천한 "direct만(LAN과 Tailscale)"은 비교한 제품 대부분이 relay나 tunnel을 기본으로 둔 것을 서버 운영 비용보다 가볍게 본 틀린 추천이었다. 컴퓨터가 꺼져 있는 동안 sync 변경을 relay가 암호문으로 맡아 둘지는 sync 앱(단계 7)을 열 때 정한다.
@@ -386,7 +386,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 - 컴퓨터가 꺼져 있을 때 폰에서 agent 부르기, 다른 앱의 command 부르기, job, secret을 쓰는 요청.
 - event의 seq와 replay.
 - 폰에서 secret 넣기와 기기 관리.
-- terminal-host를 core 밑으로 옮기기. 따로 정한다.
+- terminal-host를 core 밑으로 옮기기. 따로 정한다(뒤에 계획 `core-terminals`가 했다).
 - PC를 깨우거나 잠자지 않게 하기.
 
 ## 같이 고칠 문서

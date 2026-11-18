@@ -1,0 +1,13 @@
+id: dev-terminal-cli-reaches-real-root
+title: 개발 core가 연 터미널에서 친 `lophn`이 사람의 `~/.lophn`에 닿는다
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/core/terminals, packages/base]
+now: |
+  개발 core는 터미널 PATH 앞에 저장소의 dev launcher(`.cache/dev-cli/lophn`, `tools/dev.ts`의 `writeDevCli`) 폴더를 넣는다(`packages/core/terminals/service.ts`의 `open`, `prependPath`). 터미널 env는 바깥 `LOPHN_*`를 지우고(`packages/core/terminals/host/env.ts`의 `stripPlatformEnv`) core는 `LOPHN_HOME`을 넣지 않는다. dev launcher는 `LOPHN_HOME`이 없으면 `$HOME/.lophn`을 쓴다(`packages/base/install/linux-install.ts`의 `headOf`). 그래서 그 터미널에서 사람이나 coding agent가 친 `lophn`은 사람의 `~/.lophn`으로 간다. 거기 core가 없으면 launcher의 platform인 저장소 source로 core를 띄운다. hook과 `<harness> gui`는 탭의 socket으로 가서 걸리지 않는다. extension CLI와 core가 직접 부르는 CLI는 `LOPHN_HOME`을 받는다(`packages/core/extensions/spawner.ts`의 `cliEnv`, `packages/core/main/daemon/wiring/terminal-agents.ts`의 `cli`).
+impact: |
+  개발 중 lophn 터미널의 coding agent가 `lophn` 명령을 쓰면 개발 data root가 아니라 사람이 실제로 쓰는 data root를 읽고 바꾼다. core가 없을 때는 개발 판 core가 사람의 data root에 떠서 아직 내지 않은 schema step을 사람 data에 적용할 수 있다(AGENTS.md는 `~/.lophn`을 바꾸기 전에 묻게 한다).
+fix: |
+  - 작음(추천): core가 터미널을 열 때 env에 자기 data root를 `LOPHN_HOME`으로 넣는다(`service.ts`의 `open`이 `LOPHN_WORKSPACE`를 넣는 자리). 설치본도 같은 값이라 동작이 바뀌지 않고, `--home`으로 띄운 core의 터미널도 그 root로 간다.
+  - 작음: dev launcher가 `tools/dev.ts`가 정한 data root를 박아 둔다. 같은 저장소의 다른 dev root(`--home`)에서는 틀린 root로 간다.

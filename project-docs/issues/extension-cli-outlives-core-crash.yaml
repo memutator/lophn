@@ -1,0 +1,13 @@
+id: extension-cli-outlives-core-crash
+title: core가 죽으면 extension이 띄운 coding agent CLI가 남아 계속 돈다
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/core/extensions]
+now: |
+  extension이 띄우는 CLI(Agent SDK의 `claude`, `codex app-server`, `opencode serve` 등)는 core의 자식이지만 `detached`로 자기 process group의 leader가 된다(`packages/core/extensions/spawner.ts`의 `createSpawner`). 끄는 것은 core가 정상으로 끝날 때 부르는 `stopAll`뿐이다. core가 SIGKILL되거나 crash하면 아무도 그 group을 끄지 않는다. 같은 꼴(stdio pipe, `detached`)로 `sleep`을 띄운 node parent를 `kill -9`해 보니 parent는 죽고 child와 그 group은 그대로 살아 있었다(Linux). CLI가 stdin EOF에 스스로 끝나는지는 CLI마다 다르고 확인하지 않았다. PTY host는 stdin EOF로 끝나므로(`packages/core/terminals/host/serve.ts`) 터미널은 남지 않는다. Windows는 process group이 없어 `signalTree`로 끄고, crash 때는 같은 문제가 있다.
+impact: |
+  core가 crash하거나 OS가 죽인 뒤에도 GUI 탭의 coding agent가 돌던 turn을 이어 가며 file을 고치고 provider를 부른다. 사람은 그 탭이 사라진 줄 알고, 다시 띄운 core는 그 process를 모른다. 남은 CLI가 같은 session file을 잡고 있어 다시 연 session과 부딪칠 수 있다.
+fix: |
+  - 중간(추천): group 맨 앞에 작은 watchdog을 둔다. core가 watchdog을 띄우고 watchdog이 CLI를 자기 group에 띄우며, core와 잇는 pipe가 닫히면(core가 죽음) group 전체를 끈다. CLI 앞에 process 하나가 끼므로 모든 harness adapter의 stdio 길이 그 watchdog을 지난다.
+  - 작음: core가 띄운 group의 pid를 run 폴더(`core-<pid>/`)에 적고, 다시 뜬 core가 죽은 core의 폴더를 지울 때 거기 적힌 group을 끈다. core가 다시 뜰 때까지는 CLI가 돌고, pid가 재사용됐으면 남의 group을 끌 수 있어 시작 시각 같은 표지를 같이 봐야 한다.

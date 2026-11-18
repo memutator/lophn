@@ -68,7 +68,7 @@ function resumeLine(resume: {
   harness: string;
   external_session: string;
 }): string | null {
-  if (!(resume.harness in HARNESS_ADAPTERS)) return null;
+  if (!Object.hasOwn(HARNESS_ADAPTERS, resume.harness)) return null;
   const adapter =
     HARNESS_ADAPTERS[resume.harness as keyof typeof HARNESS_ADAPTERS];
   if (adapter.session.resume === null) return null;

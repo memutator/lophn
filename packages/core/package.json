@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.318",
     "@lophn/base": "0.0.0",
     "@lophn/cap-problem": "1.1.0",
     "@lophn/protocol": "0.0.0",

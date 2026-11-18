@@ -84,7 +84,8 @@ function setup() {
     },
     input: async () => ({ ok: true, value: null }),
     trace: async () => ({ ok: true, value: false }),
-  } satisfies Pick<TerminalApi, "respond" | "input" | "trace">;
+    shown: async () => ({ ok: true, value: null }),
+  } satisfies Pick<TerminalApi, "respond" | "input" | "trace" | "shown">;
   const view: TerminalView = {
     write: (text) => {
       writes.push(text);

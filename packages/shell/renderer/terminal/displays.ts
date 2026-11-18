@@ -26,7 +26,7 @@ type Kept = TerminalDisplay & {
   active: boolean;
 };
 type OutputCore = Pick<TerminalCore, "snapshot" | "watch" | "subscribe">;
-type InputBridge = Pick<TerminalApi, "respond" | "input" | "trace">;
+type InputBridge = Pick<TerminalApi, "respond" | "input" | "trace" | "shown">;
 
 /** 개수로 묶어 남기는 잦은 일(mouse 이동, wheel, PTY로 보낸 입력). 다른 일이 오면 그 앞에 내보내 순서를 지킨다. */
 const COUNTED = new Set(["sent", "wheel"]);
@@ -207,8 +207,13 @@ export class TerminalDisplays {
     kept.restore = false;
     if (kept.ref && kept.ref !== current.terminalRef) {
       void core.watch(kept.ref, false);
+      void this.#bridge?.shown({ terminal: kept.ref, shown: false });
     }
     if (kept.ref !== null) kept.view.reset();
+    // main은 이 창이 보이는 터미널의 질의 응답만 core에 넘긴다.
+    if (kept.ref !== current.terminalRef) {
+      void this.#bridge?.shown({ terminal: current.terminalRef, shown: true });
+    }
     kept.ref = current.terminalRef;
     kept.generation = current.generation;
     kept.lastSeq = 0;
@@ -381,7 +386,10 @@ export class TerminalDisplays {
     if (!kept) return;
     this.#trace(key, kept, { e: "release" });
     this.#kept.delete(key);
-    if (kept.ref) void this.#core?.watch(kept.ref, false);
+    if (kept.ref) {
+      void this.#core?.watch(kept.ref, false);
+      void this.#bridge?.shown({ terminal: kept.ref, shown: false });
+    }
     for (const off of kept.off) off();
     kept.view.dispose();
     kept.host.remove();

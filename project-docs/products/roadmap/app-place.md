@@ -52,12 +52,12 @@
 
 ### extension
 
-- 계약은 `packages/protocol/extensions/`(3 file, 193줄)에 있다. registry는 `packages/shell/main/extensions/registry.ts`(355줄), 조립은 `packages/shell/main/desktop/wiring/extensions.ts`(416줄)다.
-- 묶음은 둘이다(`packages/shell/main/extensions/bundled/`).
+- 계약은 `packages/protocol/extensions/`에 있다. registry는 `packages/core/extensions/registry.ts`, 조립은 `packages/core/main/daemon/wiring/extensions.ts`다(조사 때는 shell main에 있었고 계획 `core-terminals`가 core로 옮겼다).
+- 묶음은 둘이다(`packages/core/extensions/bundled/`).
   - `harness`: 약 360줄.
   - `harness-gui`: fixture를 포함해 약 19k줄.
 - `ExtensionContext`는 `{core, settings, spawn, acp, clock, ids, files}`다. 화면에 panel, sidebar, 상태 항목, 명령을 꽂는 길은 없다. manifest의 `provides`는 Settings 목록에 보이기만 한다.
-- harness-gui의 화면은 extension 폴더 밖 shell 코드가 그린다. 그 extension 하나에 묶인 shell 코드가 약 1.5k줄이다(`packages/shell/renderer/terminal/terminal-gui.tsx` 526줄, `packages/shell/main/terminal/gui.ts` 477줄 등).
+- harness-gui의 화면은 extension 폴더 밖 shell 코드가 그린다. 그 extension 하나에 묶인 code가 shell 화면(`packages/shell/renderer/terminal/terminal-gui.tsx`)과 core(`packages/core/terminal-agents/gui.ts`)에 있다.
 - `PRODUCT.md` 2절: "다른 software의 extension처럼 쓰지만, lophn이 따로 extension이라는 개념을 두는 것은 아니다."
 
 ### shell 화면 자리

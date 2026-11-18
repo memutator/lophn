@@ -41,7 +41,7 @@ agent 사이 (`project-docs/architecture/agent-call.md`)
 
 TUI와 browser
 - harness agent(`runtime: claude-code|codex|opencode`)는 extension `harness`가 turn마다 headless로 돌린다(`project-docs/architecture/coding-agent.md`의 harness agent). session에 CLI session id(`sessions.harness_session`)가 있어 resume할 수 있지만, 그 session을 TUI로 여는 화면은 없다.
-- 터미널 탭은 shell main의 `terminal-host` process가 PTY를 띄운다. core는 터미널을 모른다(`architecture/terminal-agent.md`).
+- 터미널 탭은 core가 띄우는 PTY host(`packages/core/terminals/`)가 PTY를 띄운다. core가 터미널을 갖고 화면은 `terminals/*` route로 붙는다(`architecture/terminal-agent.md`).
 - browser 탭은 `<webview>`이고 url·title·loading·favicon이 main → renderer로 push된다(`architecture/browser-tab.md`). agent나 core가 읽는 길은 없다. `roadmap/browser-tab.md`의 하지 않는 것이 agent의 browser 보기·조작을 뺐다(뒤에 계획 `browser-use`가 열었다).
 
 ## 무엇을 만드나

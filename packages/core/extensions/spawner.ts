@@ -1,12 +1,11 @@
-// extension이 띄우는 CLI의 spawn. core의 자식이라 core와 수명을 같이한다.
-// env는 사람의 env(login shell에서 읽은 것) < (`lophn` launcher 폴더를 앞에 둔 PATH) < 넘긴 env다(`cliEnv`가 data root를 넣고 상위
-// session 표지를 지운다). CLI는 자기 process group으로 띄우고 group째 끈다: CLI가 띄운 명령(tool, background task)이 CLI가 죽은
-// 뒤에도 남지 않게 한다. 살아 있는 process는 `stopAll`이 core가 끝날 때 끈다.
+// extension이 띄우는 CLI의 spawn. env는 사람의 env(login shell에서 읽은 것) < (`lophn` launcher 폴더를 앞에 둔 PATH) < 넘긴
+// env다(`cliEnv`가 core의 내부 env와 상위 session 표지를 지우고 data root를 넣는다). CLI는 자기 process group으로 띄우고 group째
+// 끈다: CLI가 띄운 명령(tool, background task)이 CLI가 죽은 뒤에도 남지 않게 한다. 살아 있는 process는 `stopAll`이 core가 끝날 때
+// 끈다. core가 죽으면(SIGKILL) group은 남는다(이슈 `extension-cli-outlives-core-crash`).
 import { spawn } from "node:child_process";
 import { dirname, isAbsolute } from "node:path";
 import { nodeTreeDeps, prependPath, signalTree } from "../../base/os/mod.ts";
 import type { ExtensionSpawn } from "../../protocol/extensions/manifest.ts";
-import { SESSION_ENV_NAME } from "../../protocol/lophn-agent/session-tag.ts";
 import { SESSION_MARKER_NAME } from "../terminals/host/env.ts";
 import type { PersonEnv } from "../terminals/ports.ts";
 
@@ -15,17 +14,22 @@ const KILL_GRACE_MS = 3000;
 // `exit` 뒤 `close`(stdio가 다 닫힘)를 기다리는 시간이다. CLI가 띄운 손자가 pipe를 물려받으면 `close`가 오지 않는다.
 const DRAIN_MS = 250;
 
+// core가 물려받은 내부 env(`ELECTRON_RUN_AS_NODE`, `LOPHN_SERVICE`, 상위 `LOPHN_SESSION_ID` 등)다. 이것이 CLI로 새면 agent가 띄운
+// Electron 앱이 Node로 뜨고, agent의 `lophn`이 띄운 core가 service로 뜬다. 터미널 env(`terminals/host/env.ts`)와 같은 이름 규칙이다.
+const INTERNAL_NAME = /^(LOPHN_|ELECTRON_|NODE_CHANNEL_FD$)/;
+
 /**
- * extension이 띄우는 CLI(Agent SDK, `codex app-server`, headless harness)의 env. `given`은 extension이 넘긴 값(탭의 hook env,
- * adapter가 바꾸는 칸)이다. 상위 session 표지는 지운다. API key 같은 사용자 설정은 지우지 않는다.
+ * extension이 띄우는 CLI(Agent SDK, `codex app-server`, headless harness)의 env. `given`은 extension이 넘긴 값(탭의 session
+ * 표지와 hook env, adapter가 바꾸는 칸)이다. core의 내부 env와 상위 session 표지는 지운다. API key 같은 사용자 설정은 지우지 않는다.
  */
 export function cliEnv(input: {
   base: Readonly<Record<string, string | undefined>>;
   dataRoot: string;
   given?: Readonly<Record<string, string>>;
 }): Record<string, string> {
-  // core가 물려받은 session 표지는 이 CLI의 것이 아니다. 탭의 표지는 `given`(탭의 env)으로만 들어온다.
-  const { [SESSION_ENV_NAME]: _inherited, ...base } = input.base;
+  const base = Object.fromEntries(
+    Object.entries(input.base).filter(([name]) => !INTERNAL_NAME.test(name)),
+  );
   const merged = {
     ...base,
     // 띄운 process의 `lophn`이 이 core에 닿게 data root를 늘 넣는다.

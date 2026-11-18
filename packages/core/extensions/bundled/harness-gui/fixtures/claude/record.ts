@@ -1,6 +1,6 @@
 // Claude adapter가 쓰는 SDK 동작을 진짜 `claude`로 녹화한다. 실제 model을 부르니 사람의 허락 아래 lead가 돌린다.
 //
-//   RECORD_OUT=<dir> node packages/shell/main/extensions/bundled/harness-gui/fixtures/claude/record.ts [scenario ...]
+//   RECORD_OUT=<dir> node packages/core/extensions/bundled/harness-gui/fixtures/claude/record.ts [scenario ...]
 //
 // RECORD_OUT은 꼭 준다(worktree 안 폴더는 merge 때 지워진다). scenario를 안 주면 전부 차례로 돈다.
 // scenario마다 `<RECORD_OUT>/<scenario>.jsonl`에 한 줄씩
@@ -46,7 +46,7 @@ import {
 // 그 탭의 session과 recent에 들어간다.
 delete process.env.LPN_TERMINAL_HOOK;
 
-// `packages/shell/terminal-host/env.ts`의 SESSION_MARKER_NAME 중 Claude 쪽과 같다(extension은 그 file을 import하지 못한다).
+// `packages/core/terminals/host/env.ts`의 SESSION_MARKER_NAME 중 Claude 쪽과 같다(extension은 그 file을 import하지 못한다).
 const MARKERS = new Set([
   "AI_AGENT",
   "CLAUDECODE",

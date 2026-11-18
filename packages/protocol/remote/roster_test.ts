@@ -434,33 +434,115 @@ test("뺀 컴퓨터가 서명한 항목은 받아들이지 않는다", () => {
       [c.key],
     );
   }
-  // 빠진 C가 효력 없는 빼기를 B에 걸어도 B가 혼자 하는 빼기는 효력이 있다.
-  const x = computer();
-  const blocked = [
-    ...base,
-    ...cJoined,
-    signed(computerEntry(x), a),
-    signed(removeComputer(c), a),
-    signed(removeComputer(b), c),
-    signed(removeComputer(x), b),
+});
+
+// 빼기끼리 엇갈릴 때. 공격 그래프의 grounded labelling이 정하고, root가 서명한 빼기는 처음부터 효력이 있고, 서로 물고
+// 도는 빼기는 대상을 모두 뺀다(그 view의 root만은 남긴다).
+test("빠진 컴퓨터의 빼기는 자기를 뺀 쪽과 서로 물고 도는 것 말고는 효력이 없다", () => {
+  const [x, y, z, r, f] = [
+    computer(),
+    computer(),
+    computer(),
+    computer(),
+    computer(),
+  ] as [Computer, Computer, Computer, Computer, Computer];
+  const mesh = (cs: Computer[]) =>
+    cs.flatMap((one) => cs.map((other) => signed(computerEntry(one), other)));
+  const out = (from: Computer, gone: Computer) =>
+    signed(removeComputer(gone), from);
+  // R은 빠지기 전에 가짜 컴퓨터 F를 들였고 Y가 같이 서명했다.
+  const fake = [
+    signed(computerEntry(f), r),
+    signed(computerEntry(f), y),
+    signed(computerEntry(f), f),
   ];
-  const left = keysOf(blocked, [root(a)]);
-  assert.deepEqual(
-    [b.key, c.key, x.key].map((k) => left.includes(k)),
-    [true, false, false],
-  );
-  // 서로 뺐으면 둘 다 빠진다(뺀 쪽은 다시 초대받는다).
-  const mutual = [
-    ...base,
-    ...cJoined,
-    signed(removeComputer(c), b),
-    signed(removeComputer(b), c),
+  type Expect = { root: Computer; gone: Computer[]; settled: boolean };
+  const rows: {
+    name: string;
+    statements: RosterStatement[];
+    expect: Expect[];
+  }[] = [
+    {
+      // 빠진 R이 효력 없는 빼기를 Y에 걸어도 Y가 혼자 하는 빼기(Z)는 효력이 있다.
+      name: "막지 못하는 빼기",
+      statements: [...mesh([x, y, z, r]), out(x, r), out(r, y), out(y, z)],
+      expect: [x, y].map((root) => ({ root, gone: [r, z], settled: true })),
+    },
+    {
+      name: "서로 뺐다",
+      statements: [...mesh([x, y, z]), out(x, y), out(y, x)],
+      expect: [
+        { root: x, gone: [y], settled: true },
+        { root: y, gone: [x], settled: true },
+        { root: z, gone: [x, y], settled: false },
+      ],
+    },
+    {
+      // R이 빠진 뒤 X와 Y를 뺐다. X에서는 X의 빼기가 이긴다. Y에서는 서로 물어 정해지지 않아 둘 다 빠지되 Y는 남는다.
+      name: "빠진 뒤의 빼기",
+      statements: [...mesh([x, y, r]), out(x, r), out(r, y), out(r, x)],
+      expect: [
+        { root: x, gone: [r], settled: true },
+        { root: y, gone: [x, r], settled: false },
+      ],
+    },
+    {
+      // 사람: Y가 F를, X가 R을 뺐다. 그 뒤 도둑: F가 X를, R이 Z를 뺐다. Z는 아무것도 하지 않았다.
+      name: "도둑 둘(Q2T)",
+      statements: [
+        ...mesh([x, y, z, r, f]),
+        out(y, f),
+        out(x, r),
+        out(f, x),
+        out(r, z),
+      ],
+      expect: [x, y, z].map((root) => ({ root, gone: [r, f], settled: true })),
+    },
+    {
+      // 위에 더해 R이 Y도 뺐다. X와 Y는 자기 판단을 믿는다. Z에는 X→R→Y→F→X가 물고 돌아 정해지지 않으므로
+      // Z 말고 모두 빠진다(fail-closed).
+      name: "도둑 둘과 고리(Q1T)",
+      statements: [
+        ...mesh([x, y, z, r]),
+        ...fake,
+        out(y, f),
+        out(x, r),
+        out(f, x),
+        out(r, z),
+        out(r, y),
+      ],
+      expect: [
+        { root: x, gone: [r, f], settled: true },
+        { root: y, gone: [r, f], settled: true },
+        { root: z, gone: [x, y, r, f], settled: false },
+      ],
+    },
   ];
-  const keys = keysOf(mutual, [root(a)]);
-  assert.deepEqual(
-    [keys.includes(a.key), keys.includes(b.key), keys.includes(c.key)],
-    [true, false, false],
-  );
+  const everyone = [x, y, z, r, f];
+  for (const row of rows) {
+    for (const e of row.expect) {
+      const view = rosterView(row.statements, [root(e.root)]);
+      const keys = view.devices.map((d) => d.body.key);
+      const present = new Set(
+        row.statements.flatMap((s) => ("by" in s ? [s.body.key] : [])),
+      );
+      for (const c of everyone) {
+        if (!present.has(c.key)) continue;
+        assert.equal(
+          keys.includes(c.key),
+          !e.gone.includes(c),
+          `${row.name}: ${everyone.indexOf(c)} at root ${everyone.indexOf(e.root)}`,
+        );
+      }
+      // 정해진 빼기만 컴퓨터가 같이 서명한다. 정해지지 않은 고리가 있으면 그 고리의 빼기는 settled가 아니다.
+      assert.equal(
+        view.removed.every((x) => x.settled),
+        e.settled,
+        row.name,
+      );
+      assert.deepEqual(rosterView(view.keep, [root(e.root)]), view, row.name);
+    }
+  }
 });
 
 test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
@@ -527,7 +609,7 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
     signed(phoneEntry(moved.id, moved.key, 2, iNew.invite.body.key), a),
     signed(phoneEntry(moved.id, moved.key, 2, iNew.invite.body.key), b),
   ];
-  // 뺀 컴퓨터 R이 빠진 뒤 B를 뺐고(효력 없음), R과 D는 서로 뺐다(둘 다 빠진다).
+  // A가 R을 뺐고 R은 그 뒤 B와 D를 뺐다(효력 없음).
   const r = computer();
   const d = computer();
   const thief = [
@@ -536,7 +618,7 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
       signed(computerEntry(x), a),
       signed(computerEntry(x), x),
     ]),
-    signed(removeComputer(r), d),
+    signed(removeComputer(r), a),
     signed(removeComputer(d), r),
     signed(removeComputer(b), r),
   ];
@@ -556,7 +638,7 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
       check(view: ReturnType<typeof rosterView>) {
         assert.deepEqual(
           view.devices.map((x) => x.body.key).sort(),
-          [a.key, b.key].sort(),
+          [a.key, b.key, d.key].sort(),
         );
       },
     },
@@ -633,5 +715,72 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
     s.check(view);
     // keep만으로 다시 계산해도 같은 view다(저장하고 나른 뒤에도 명단이 그대로다).
     assert.deepEqual(rosterView(view.keep, s.roots), view, s.name);
+  }
+  // 무작위로 지은 명단(고정 seed): 항목, 접히는 id, 모양이 다른 항목, 초대 서명 statement, 컴퓨터와 폰의 빼기를 섞는다.
+  // 어느 root로 보아도 순서를 뒤집어도, keep만으로 다시 계산해도 같은 view다.
+  let state = 12345;
+  const roll = () => {
+    state = (Math.imul(state, 1103515245) + 12345) >>> 0;
+    return state / 4294967296;
+  };
+  const pick = <T>(xs: T[]) => xs[Math.floor(roll() * xs.length)] as T;
+  for (let round = 0; round < 25; round++) {
+    const cs = [computer(), computer(), computer(), computer()];
+    const phones = [0, 1, 2].map(() => ({
+      ids: [newId(), newId()],
+      key: phoneKey(),
+    }));
+    const invites = cs.map((c) => inviteOf(c));
+    const statements: RosterStatement[] = cs
+      .filter(() => roll() < 0.8)
+      .map((c) => signed(computerEntry(c), c));
+    for (let k = 0; k < 14; k++) {
+      const by = pick(cs);
+      const p = pick(phones);
+      const rev = 1 + Math.floor(roll() * 3);
+      const r = roll();
+      if (r < 0.3) {
+        statements.push(
+          signed({ ...computerEntry(pick(cs), rev), name: `n${rev}` }, by),
+        );
+      } else if (r < 0.55) {
+        const invite = roll() < 0.4 ? pick(invites).invite.body.key : null;
+        statements.push(
+          signed(
+            {
+              ...phoneEntry(pick(p.ids), p.key, rev, invite),
+              terminal_input: roll() < 0.5,
+            },
+            by,
+          ),
+        );
+      } else if (r < 0.62) {
+        statements.push(
+          signed(
+            {
+              ...phoneEntry(pick(p.ids), p.key, rev),
+              kind: "computer",
+              os: "linux",
+              signing_key: root(by),
+              machine: `mch_0${by.id.slice(5)}`,
+            },
+            by,
+          ),
+        );
+      } else if (r < 0.72) {
+        statements.push(
+          invitedWith(pick(invites), phoneEntry(pick(p.ids), p.key, rev)),
+        );
+      } else if (r < 0.88) {
+        statements.push(signed(removeComputer(pick(cs)), by));
+      } else {
+        statements.push(signed(removal(pick(p.ids), p.key), by));
+      }
+    }
+    for (const roots of [...cs.map((c) => [root(c)]), cs.map(root)]) {
+      const view = rosterView(statements, roots);
+      assert.deepEqual(rosterView([...statements].reverse(), roots), view);
+      assert.deepEqual(rosterView(view.keep, roots), view, `round ${round}`);
+    }
   }
 });

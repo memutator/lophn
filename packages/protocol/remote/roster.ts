@@ -474,8 +474,10 @@ export type RosterDevice = {
 
 export type RosterView = {
   devices: RosterDevice[];
-  // 효력이 있는 빼기. 뺀 key마다 하나(canonical 글이 앞선 body)이고 컴퓨터는 이 body에 같이 서명한다.
-  removed: { body: RosterRemovalBody; signed_by: string[] }[];
+  // 효력이 있는 빼기. 뺀 key마다 하나(canonical 글이 앞선 body)다. `settled`(IN)인 것만 컴퓨터가 같이 서명한다.
+  // 정해지지 않은 것(서로 물고 도는 빼기)은 대상을 빼되(fail-closed) 서명하지 않는다: 아무도 빼지 않은 서명자의
+  // 서명이 붙으면 IN이 되어 퍼진다.
+  removed: { body: RosterRemovalBody; signed_by: string[]; settled: boolean }[];
   folded: { from: string; to: string }[];
   // 충돌로 뺀 key. devices에 없다.
   conflicts: RosterConflict[];
@@ -486,12 +488,9 @@ export type RosterView = {
 
 type Identity = { id: string; signingKey: string; keys: Set<string> };
 
+// 빼기가 그 서명자를 대상으로 하는가. key와 서명 key로 맞춘다(id는 아무 항목이나 달 수 있어 보지 않는다).
 function targets(body: RosterRemovalBody, who: Identity): boolean {
-  return (
-    who.keys.has(body.key) ||
-    body.signing_key === who.signingKey ||
-    body.id === who.id
-  );
+  return who.keys.has(body.key) || body.signing_key === who.signingKey;
 }
 
 // roots는 믿음이 시작하는 컴퓨터의 서명 key다(컴퓨터는 자기 것 하나, 폰은 저장한 컴퓨터의 것들. 폰은 초대장의 issuer,
@@ -537,21 +536,40 @@ export function rosterView(
         },
       };
     });
-  // 빼기는 서명자 가운데 하나라도 빠지지 않은 컴퓨터이면 효력이 있다. 서명자가 빠진 컴퓨터면, 그 빼기가 뺀 기기가
-  // 그 서명자를 뺀 K0 빼기에 서명했을 때만(서로 뺐다: 둘 다 빠진다) 효력이 있다. 시각이 없어 "빠진 뒤"와 "엇갈림"을
-  // 가르지 못하므로 둘 다 빼는 쪽(fail-closed)을 고른다. 뺀 쪽은 다시 초대하면 되지만 남은 도둑은 되돌릴 수 없다.
-  // "빠진"은 두 번 본다: 먼저 K0의 모든 대상으로, 다음은 첫 번에 효력이 있던 빼기의 대상으로만. 그래야 빠진 도둑이
-  // 효력 없는 빼기에 서명하는 것만으로 다른 컴퓨터의 빼기를 막지 못한다. 고정점까지 돌리지 않는 것은 서로 물고 도는
-  // 빼기(X가 Y, Y가 Z, Z가 X)에서 답이 오가며 끝나지 않기 때문이다. 두 번으로 정해 statement 집합의 함수로 둔다.
-  const countWith = (by: typeof k0) =>
-    k0.filter(
-      ({ body, signer }) =>
-        !by.some((other) => targets(other.body, signer)) ||
-        k0.some(
-          (other) => targets(body, other.signer) && targets(other.body, signer),
-        ),
+  // 어느 빼기가 효력이 있는지는 공격 그래프의 grounded labelling(최소 고정점)으로 정한다. 빼기 r이 빼기 s를 공격한다는
+  // 것은 r의 대상이 s의 서명자라는 것이다. 공격하는 빼기가 모두 OUT이면 IN, 공격하는 빼기 하나라도 IN이면 OUT이다.
+  // 단조라 끝나고 statement 집합과 root로만 정해진다. root가 서명한 빼기는 처음부터 IN이다: 기기는 자기 root의 판단을
+  // 믿는다. 끝까지 정해지지 않은 빼기(시각 없이는 깰 수 없는 서로 물고 도는 빼기)는 대상을 뺀다(fail-closed). 다만
+  // 이 view의 root는 정해지지 않은 빼기로 빠지지 않는다.
+  const label: ("in" | "out" | "open")[] = k0.map(({ signer }) =>
+    rootSet.has(signer.signingKey) ? "in" : "open",
+  );
+  const attackers = k0.map(({ signer }) =>
+    k0.flatMap((other, i) => (targets(other.body, signer) ? [i] : [])),
+  );
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [i, from] of attackers.entries()) {
+      if (label[i] !== "open") continue;
+      if (from.some((j) => label[j] === "in")) label[i] = "out";
+      else if (from.every((j) => label[j] === "out")) label[i] = "in";
+      else continue;
+      changed = true;
+    }
+  }
+  const rootHosts = new Set(
+    roots.flatMap((root) => [...(hostsOf.get(root) ?? [])]),
+  );
+  const counting = k0
+    .map((r, i) => ({ ...r, settled: label[i] === "in" }))
+    .filter(
+      (r, i) =>
+        label[i] === "in" ||
+        (label[i] === "open" &&
+          !rootHosts.has(r.body.key) &&
+          !(r.body.signing_key !== null && rootSet.has(r.body.signing_key))),
     );
-  const counting = countWith(countWith(k0));
   const removedOut: Excluded = {
     keys: new Set(counting.map((r) => r.body.key)),
     signing: new Set(
@@ -562,14 +580,21 @@ export function rosterView(
     ids: new Set(counting.map((r) => r.body.id)),
   };
   const removed: RosterView["removed"] = [];
-  for (const r of counting) {
-    if (removed.some((x) => x.body.key === r.body.key)) continue;
-    const signedBy = counting
-      .filter((x) => x.item.bodyText === r.item.bodyText)
-      .map((x) => x.signer.id);
+  for (const key of new Set(counting.map((r) => r.body.key))) {
+    const forKey = counting.filter((r) => r.body.key === key);
+    const settled = forKey.some((r) => r.settled);
+    const first = forKey.find(
+      (r) => r.settled === settled,
+    ) as (typeof forKey)[0];
+    const signedBy = forKey
+      .filter(
+        (r) => r.item.bodyText === first.item.bodyText && r.settled === settled,
+      )
+      .map((r) => r.signer.id);
     removed.push({
-      body: r.body,
+      body: first.body,
       signed_by: [...new Set(signedBy)].sort(compare),
+      settled,
     });
   }
 

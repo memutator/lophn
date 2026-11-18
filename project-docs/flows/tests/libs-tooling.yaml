@@ -129,7 +129,7 @@ files:
 
   - path: packages/protocol/remote/roster_test.ts
     covers: []
-    note: "내 기기 명단의 순수 함수(rosterView, mergeRoster, checkInvited, rosterPending). 믿는 컴퓨터의 서명이 없는 항목·남의 key로 서명한 위조·host key만 훔친 root 행세는 들지 않고, 초대장은 서명자를 모름·터미널 허락이나 kind가 다름·7일보다 먼 수명·닿은 때가 수명 뒤·옛 rev나 남겨 둔 초대 서명 statement가 이미 씀·뺀 key·id·서명 key·다른 기기의 id·다른 컴퓨터의 서명 key면 거절(같은 key는 다시 받음). 빼기보다 늦게 온 새 rev·같은 key의 새 id·뺀 서명 key를 단 새 host key가 빼기를 되돌리지 못함. 뺀 컴퓨터가 빠진 뒤 서명한 항목과 빼기는 효력이 없고(그 빼기가 대상 컴퓨터의 빼기를 막지도 못함) 서로 뺀 두 컴퓨터는 둘 다 빠짐. 어느 순서로 합쳐도, keep만으로 다시 계산해도 같은 view(접기, 같은 rev에서 허락을 거둔 쪽, dual boot의 초대 서명 statement와 pending, 스스로 서명한 새 rev의 사슬, 옛 rev의 쓰인 초대, 빠진 컴퓨터의 빼기, id·초대 충돌은 둘 다 뺌). covers가 빈 것은 이 규칙을 쓰는 route(roster/*, join frame)의 handler와 flow가 아직 없어서다(roster-core가 쓴다)"
+    note: "내 기기 명단의 순수 함수(rosterView, mergeRoster, checkInvited, rosterPending). 믿는 컴퓨터의 서명이 없는 항목·남의 key로 서명한 위조·host key만 훔친 root 행세는 들지 않고, 초대장은 서명자를 모름·터미널 허락이나 kind가 다름·7일보다 먼 수명·닿은 때가 수명 뒤·옛 rev나 남겨 둔 초대 서명 statement가 이미 씀·뺀 key·id·서명 key·다른 기기의 id·다른 컴퓨터의 서명 key면 거절(같은 key는 다시 받음). 빼기보다 늦게 온 새 rev·같은 key의 새 id·뺀 서명 key를 단 새 host key가 빼기를 되돌리지 못함. 뺀 컴퓨터가 빠진 뒤 서명한 항목은 효력이 없음. 빼기끼리는 grounded labelling: 빠진 컴퓨터의 빼기는 대상 컴퓨터의 빼기를 막지 못하고, 서로 뺀 두 컴퓨터는 각자 상대만 빼고 구경꾼은 둘 다 빼며, 도둑 신원 둘(Q2T)은 어느 root에서나 둘만 빠지고, 고리(Q1T)는 root가 자기 판단을 믿고 구경꾼은 자기만 남김(정해지지 않은 빼기는 settled가 아님). 고정 seed 무작위 명단 25개로 순서와 keep 재계산이 같은 view임을 봄. 어느 순서로 합쳐도, keep만으로 다시 계산해도 같은 view(접기, 같은 rev에서 허락을 거둔 쪽, dual boot의 초대 서명 statement와 pending, 스스로 서명한 새 rev의 사슬, 옛 rev의 쓰인 초대, 빠진 컴퓨터의 빼기, id·초대 충돌은 둘 다 뺌). covers가 빈 것은 이 규칙을 쓰는 route(roster/*, join frame)의 handler와 flow가 아직 없어서다(roster-core가 쓴다)"
 
   - path: packages/remote-client/connection_test.ts
     covers: [remote-connection:other-machine, remote-connection:addresses-learned]

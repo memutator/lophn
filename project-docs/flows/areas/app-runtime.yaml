@@ -764,7 +764,7 @@ flows:
     boundary: [app-runtime, core-api]
     code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/apps/calls/intake.ts, packages/core/apps/calls/forward.ts, packages/core/apps/calls/record.ts, packages/core/apps/calls/loop.ts, packages/core/apps/routes.ts]
     steps:
-      - "core가 부른 쪽을 확인한다(verifyCaller). credential 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하며, app은 활성 release와 지금 도는 부모 호출이어야 한다. program·flow·event는 core 안 연산이 만든 자격과 맞아야 한다(event는 구독 handler를 operation 자리의 `on.<source>.<event>`로 부르고 Gate는 묻지 않으며, 사람이 그 이름을 부르면 denied(not_declared)다. app-event-publish). preview 전용 credential은 live를 부르지 못한다(본문 검사보다 앞). target이 remote(다른 기계의 앱)이면 이 확인 바로 뒤에 갈린다: command가 아니거나 caller가 agent·app이 아니거나 받은 call을 돌리는 중인 앱(부모 호출이 remote)이면 forbidden이고, 아니면 이 기계의 앱처럼 조회·기록하지 않고 forward로 넘긴다(아직 `unavailable`만 돌려준다). caller 종류 remote는 받는 기계의 입구(app-remote-call)만 만든다."
+      - "core가 부른 쪽을 확인한다(verifyCaller). credential 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하며, app은 활성 release와 지금 도는 부모 호출이어야 한다. program·flow·event는 core 안 연산이 만든 자격과 맞아야 한다(event는 구독 handler를 operation 자리의 `on.<source>.<event>`로 부르고 Gate는 묻지 않으며, 사람이 그 이름을 부르면 denied(not_declared)다. app-event-publish). preview 전용 credential은 live를 부르지 못한다(본문 검사보다 앞). target이 remote(다른 기계의 앱)이면 이 확인 바로 뒤에 갈린다: command가 아니거나 caller가 agent·app이 아니거나 받은 call을 돌리는 중인 앱(부모 호출이 remote)이면 forbidden이고, 아니면 이 기계의 앱처럼 조회·기록하지 않고 forward로 넘긴다: 부른 쪽 workspace의 private, 할당(agent는 그 컴퓨터에 할당한 (컴퓨터, 앱) 줄과 뺀 command)과 grant(앱의 app.call)를 보내기 전에 보고, 컴퓨터를 명단에서 풀어 그 컴퓨터의 기기 id로 apps/remote_call에 요청한 쪽(agent 또는 app)을 달아 보낸다. 이 기계에는 호출 기록을 남기지 않는다. caller 종류 remote는 받는 기계의 입구(app-remote-call)만 만든다."
       - "보관한 앱은 agent와 다른 컴퓨터의 요청(remote)에게 not_found, 사람과 app에게 denied(app_archived)다. 활성 release의 command 선언에서 찾고 없으면 denied(not_declared)다(기록 없음)."
       - "같은 앱이 호출 사슬에 다시 나오거나 깊이 8을 넘으면 handler에 가지 않고 denied(call_loop, call_too_deep)로 기록한다. 본문이 CALL_BODY_MAX_BYTES를 넘으면 invalid_input이고 기록은 남기지 않는다."
       - "막기(Gate): agent는 지금 할당(judge)으로 본다. 앱 workspace의 agent는 자기 앱이 할당에 자동으로 들어 있어(agentAssignment) 그 앱의 command는 할당 없이 통과하고, 다른 앱은 할당에 있어야 하며 deny로 뺀 command는 막힌다. app은 부른 앱의 active grant app.call이 그 tool을 덮는지로 본다. program은 판정 없이 통과하고, flow는 PM의 할당과 비공개 규칙을 본다. remote(다른 컴퓨터가 넘긴 호출)는 command가 내놓은 것이어야 하고, 요청한 쪽이 agent나 앱이면 대상 앱이 이 기계의 call 정책에서 private이 아니어야 한다(app-remote-call). 묻지 않는다. 막히면 denied(gate_blocked)다. 사람은 Gate를 거치지 않는다."
@@ -794,7 +794,7 @@ flows:
         when: "접수가 닫힌 동안 온 호출이 접수가 열린 뒤 그때의 활성 release로 실행됨. write면 기록의 release가 새 release다(read는 기록이 없다)"
         observe: [response, "ledger:invocations"]
       - id: denied-gate-blocked
-        when: "할당이나 app.call grant가 그 tool을 덮지 않음, 또는 다른 컴퓨터가 넘긴 호출이 내놓지 않은 command를 부르거나 agent·앱이 요청한 호출의 대상 앱이 private임(사람은 Gate를 거치지 않는다)"
+        when: "할당이나 app.call grant가 그 tool을 덮지 않음, 또는 다른 컴퓨터가 넘긴 호출이 내놓지 않은 command를 부르거나 agent·앱이 요청한 호출의 대상 앱이 private임(사람은 Gate를 거치지 않는다). remote target은 agent에게 그 컴퓨터에 할당한 (컴퓨터, 앱) 줄이 없거나 뺀 command이거나 앱의 app.call grant가 그 앱을 덮지 않을 때 아무것도 보내지 않고 이 outcome이다"
         observe: ["ledger:invocations", response]
       - id: denied-call-loop
         when: "대상 앱이 이미 호출 사슬에 있음"
@@ -812,26 +812,26 @@ flows:
         when: "활성 release의 command 선언에 없음(기록 없음)"
         observe: [response]
       - id: unknown
-        when: "보냈는데 응답을 받지 못함(응답이 없음), 또는 활성화 drain이 보낸 뒤 호출을 끊음"
+        when: "보냈는데 응답을 받지 못함(응답이 없음, remote target은 다른 컴퓨터로 나간 뒤 link가 끊기거나 120초가 지남), 또는 활성화 drain이 보낸 뒤 호출을 끊음"
         observe: ["ledger:invocations", response]
       - id: forbidden
         code: forbidden
-        when: "remote target을 command가 아닌 호출이나 agent·app이 아닌 caller가 부름, 받은 call을 돌리는 중인 앱이 remote target을 부름, caller 종류 remote를 이 route로 부름(credential이 user·agent·app이라 종류가 다름. 받는 기계의 입구 app-remote-call만 만든다), caller 종류가 credential과 다름, agent의 tool call을 모름, preview 전용 credential이 live를 부름, program의 job run이 credential과 다름, flow의 instance가 credential과 다름, app 호출에서 credential의 app이 caller app과 다름, app 호출의 release가 활성 release가 아님, parent_invocation이 그 앱·release의 도는 호출이 아님(preview 쪽 거절은 app-preview-command-call)"
+        when: "remote target을 command가 아닌 호출이나 agent·app이 아닌 caller가 부름, 받은 call을 돌리는 중인 앱이 remote target을 부름, remote target을 부른 agent나 앱의 workspace가 private임(다른 컴퓨터를 부르지 못한다), caller 종류 remote를 이 route로 부름(credential이 user·agent·app이라 종류가 다름. 받는 기계의 입구 app-remote-call만 만든다), caller 종류가 credential과 다름, agent의 tool call을 모름, preview 전용 credential이 live를 부름, program의 job run이 credential과 다름, flow의 instance가 credential과 다름, app 호출에서 credential의 app이 caller app과 다름, app 호출의 release가 활성 release가 아님, parent_invocation이 그 앱·release의 도는 호출이 아님(preview 쪽 거절은 app-preview-command-call)"
         observe: [response]
       - id: invalid-input
         code: invalid_input
-        when: "agent가 live 활성 release가 아닌 대상(release를 적은 것)을 부름, program·flow·app이 live가 아닌 대상을 부름, 본문이 CALL_BODY_MAX_BYTES 상한을 넘음(기록 없음)"
+        when: "agent가 live 활성 release가 아닌 대상(release를 적은 것)을 부름, program·flow·app이 live가 아닌 대상을 부름, 본문이 CALL_BODY_MAX_BYTES 상한을 넘음(기록 없음), remote target의 컴퓨터가 이 컴퓨터이거나 같은 이름이 둘이다(details.candidates)"
         observe: [response]
       - id: not-found
         code: not_found
-        when: "agent나 다른 컴퓨터가 넘긴 호출이 보관한 앱을 부름"
+        when: "agent나 다른 컴퓨터가 넘긴 호출이 보관한 앱을 부름, 또는 remote target의 컴퓨터가 명단에 없다"
         observe: [response]
       - id: dependency-failed
         when: "호출자 확인의 port(agentToolCall, activeRelease), 보관 여부나 선언 읽기, Gate의 할당·grant 읽기, 기록 쓰기(begin·finish)가 낸 오류 그대로"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "ledger writer를 쓸 수 없어 기록 begin·finish가 실패함(dispatch 뒤 service), 호출자 확인·보관 여부·선언 읽기가 unavailable로 실패함, 또는 remote target을 agent나 앱이 부름(다른 기계로 넘기는 길이 아직 없다)"
+        when: "ledger writer를 쓸 수 없어 기록 begin·finish가 실패함(dispatch 뒤 service), 호출자 확인·보관 여부·선언 읽기가 unavailable로 실패함, 또는 remote target이 가는 컴퓨터와의 link가 없거나 멈췄거나 120초 안에 답이 없고 호출이 나가지 않았다(나간 뒤 답을 잃은 것은 unknown이다)"
         observe: [response]
     crosses_process: true
     risk: [permission, data-loss]
@@ -879,8 +879,6 @@ flows:
     declared_only: [unauthorized, unavailable]
     crosses_process: true
     risk: [permission]
-    unclear:
-      - "기기 id로 컴퓨터를 찾는 길(`ctx.machineLinks.resolve`)은 `use-send`가 낸다. 그 전에는 이 handler가 internal로 끝난다."
 
   - id: app-preview-command-call
     title: "앱 preview의 command를 기록과 Gate 없이 부른다"
@@ -2389,13 +2387,14 @@ flows:
     uses: [route:apps/call_tool]
     pre: [route:releases/activate]
     boundary: [app-runtime, app-capability, core-api]
-    code: [packages/core/apps/events/publish.ts, packages/core/apps/events/store.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/apps/routes.ts, packages/protocol/apps/events.ts]
+    code: [packages/core/apps/events/publish.ts, packages/core/apps/events/store.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/apps/routes.ts, packages/protocol/apps/events.ts, packages/core/remote/subscriptions.ts]
     steps:
       - "core가 자격이 app인지 본다. 앱은 입력에 없고 자식 credential이 정한다. 발행이 앱 handler 안에서 일어났으면 parent_invocation이 그 앱의 지금 도는 호출일 때만 사슬로 쓰고, 아니면 사슬 없이 낸다(부모가 돌고 있지 않아도 발행은 된다)."
       - "앱이 없으면 not_found, 보관했거나 active release가 없으면 conflict다. active release의 events 선언에 그 event가 없거나 payload가 payloadSchema와 맞지 않거나 16 KiB를 넘으면 invalid_input이다. 이때 아무에게도 가지 않고 기록도 없다."
       - "active release의 subscriptions에 이 앱의 slug와 event를 선언한 active 앱을 모은다. 그 가운데 지금 그 release로 떠서 호출을 받는 앱에만 간다. 닿지 못한 수는 unreachable로 센다(저장도 재시도도 없다)."
       - "발행 기록(누가, 어느 event, 언제, trace id, 켜져 있던 구독자 reachable, 닿지 못한 수 unreachable, 고리·깊이로 넘기지 않은 수 refused, payload 없음)을 앱마다 최근 200개만 남기고 AppEventPublished(payload 포함, 저장하지 않음)를 Bus로 낸다. 그 뒤 구독 앱마다 handler를 앱 호출 경로로 부르고 기다리지 않는다."
       - "호출은 caller kind event(발행자, event, publication, trace_id, chain, parent)로 operation 자리의 `on.<source>.<event>`를 effect write로 부른다. Gate는 묻지 않는다. chain은 이 event를 부른 인과의 앱들(발행자 포함)이고, 발행이 구독 handler 안에서 일어났으면 그 handler가 불린 event의 chain(호출 기록에서 읽는다)에 이어진다. 구독자가 chain에 이미 있거나 chain이 깊이 한도 8에 닿았으면 호출을 넘기지 않고 refused로 센다(앞선 호출이 이미 끝났어도 고리가 끊긴다). 구독 앱이 그 사이 꺼졌거나 handler가 실패하면 그 호출의 기록이 말하고 발행에는 영향이 없다."
+      - "발행이 받은 call(caller remote)이나 다른 컴퓨터에서 온 event가 부른 handler 안에서 일어났으면 그 event에 remote 표시가 붙는다. 이 컴퓨터의 구독자에게는 그대로 가지만 다른 컴퓨터에 내주지 않고(sharesAppEvent) across_machines여도 event file을 쓰지 않는다. 다른 컴퓨터가 낸 event를 구독자에게 낼 때는 그 구독자의 workspace가 이 컴퓨터의 call 정책에서 private이면 받지 않는다(remote-app-events)"
     outcomes:
       - id: published
         when: "선언한 event를 냈다. 구독자가 없어도 기록하고 reachable 0으로 돌려준다"

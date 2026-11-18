@@ -1391,17 +1391,17 @@ flows:
       - "다른 기계 앱 기록 사본의 active_release 가운데 bundle hash가 다르고, 이 기계에서 superseded·failed가 아니고, data schema가 낮지 않고, commit이 지금 활성 commit의 git 자손인 것이 후보다. commit이 아직 이 저장소에 없는 후보는 이번에 뺀다"
       - "나머지 모두가 조상인 후보 하나로 바로 간다(같은 commit의 두 bundle이면 먼저 활성된 쪽). 하나로 정해지지 않거나, 후보가 없는데 다른 기계의 release가 지금 commit의 자손도 조상도 아니면(그 기계가 따로 release를 냈다) 따라가지 않는다"
       - "그 bundle의 release가 이 기계에 없으면 take-in과 같은 길로 봉인 bundle을 prepared release(created_by machine)로 설치한다"
-      - "동의 줄이 서 있으면 다시 부르지 않는다. 아니면 release.activate와 같은 driver에 넘긴다: 늘어난 바깥 자원·다른 앱 tool·data 손실이면 이 기계의 사람에게 묻고, 아니면 바로 활성한다. 그 release를 computers 폴더로만 받았으면(이름 붙인 폴더도 내놓지 않았으면) 늘어난 것이 없어도 늘 묻는다. 그 폴더의 file은 연결과 폰으로도 오고 명단의 컴퓨터 하나가 이 컴퓨터에서 code를 돌리면 안 되기 때문이다 session이 없어 activation.report는 가지 않고 결과는 앱 notice(Release rN is live / Release rN failed)와 follow 상태로 보인다"
+      - "동의 줄이 서 있으면 다시 부르지 않는다. 아니면 release.activate와 같은 driver에 넘긴다: 늘어난 바깥 자원·다른 앱 tool·data 손실이면 이 기계의 사람에게 묻고, 아니면 바로 활성한다. 그 release를 computers 폴더로만 받았고(이름 붙인 폴더도 내놓지 않았고) 그 release를 낸 컴퓨터를 이 컴퓨터가 터미널 입력으로 허락하지 않았으면 늘어난 것이 없어도 묻는다(허락은 명단의 값이 아니라 이 컴퓨터의 표이고, 그 기계의 컴퓨터 항목이 명단에 하나뿐이고 그 key가 허락되어 있어야 허락한 컴퓨터다). 그 폴더의 file은 연결과 폰으로도 오고 명단의 컴퓨터 하나가 이 컴퓨터에서 code를 돌리면 안 되기 때문이다. session이 없어 activation.report는 가지 않고 결과는 앱 notice(Release rN is live / Release rN failed)와 follow 상태로 보인다"
       - "설치 실패, SDK 판 없음, 사람이 거절한 동의는 이 core가 도는 동안 같은 bundle을 다시 하지 않는다(다른 목표가 오거나 core가 다시 뜨면 다시 한다. 거절한 release는 core가 다시 뜨면 다시 묻는다)"
     outcomes:
       - id: current
         when: "후보가 없다: 다른 기계가 옛 release(조상, 낮은 data schema)를 돌리거나, 이 기계가 내려놓았거나 실패한 release이거나, commit이 아직 오지 않았다. 아무것도 바꾸지 않는다"
         observe: ["ledger:releases"]
       - id: followed
-        when: "고른 release를 설치하고 묻지 않고 활성했다(이름 붙인 폴더로 온 것만. computers 폴더로만 온 것은 늘 묻는다)"
+        when: "고른 release를 설치하고 묻지 않고 활성했다(이름 붙인 폴더로 온 것과, computers 폴더로만 온 것은 그 release를 낸 컴퓨터를 이 컴퓨터가 허락했을 때. 허락하지 않은 컴퓨터의 것은 묻는다)"
         observe: ["ledger:releases", "ledger:notices", "process:앱 자식"]
       - id: waiting-consent
-        when: "고른 release가 grant에 없는 바깥 자원·다른 앱 tool을 요구하거나 data 손실 migration이 있거나, computers 폴더로만 온 release라 activation을 시작하지 않고 동의 줄만 섰다"
+        when: "고른 release가 grant에 없는 바깥 자원·다른 앱 tool을 요구하거나 data 손실 migration이 있거나, computers 폴더로만 온 release이고 낸 컴퓨터를 허락하지 않았으므로 activation을 시작하지 않고 동의 줄만 섰다"
         observe: ["ledger:activation_consents", "event:ActivationConsentRequested"]
       - id: declined
         when: "사람이 동의를 거절했다. release는 prepared로 남고 이 core가 도는 동안 다시 묻지 않는다"

@@ -2682,7 +2682,7 @@ flows:
       - "요청한 쪽을 core가 부른 자격에서 정한다: 살아 있는 shell capability(이 core가 shell main에 준 것)를 실었으면 `screen`(이 기계의 화면), 칸이 없으면 사람의 CLI token이라 `terminal`, 칸이 있는데 살아 있지 않으면 forbidden이다. 입력의 다른 칸으로 요청한 쪽을 싣는 길은 없다. capability는 다른 기계로 가지 않는다"
       - "machine(컴퓨터 이름, `mch_`, `dev_`)으로 명단의 컴퓨터를 고른다(`resolveMachine`. id를 먼저 시도한다). 이 컴퓨터를 고르면 invalid_input이고 link에 닿지 않는다. 같은 이름이 둘이면 invalid_input(details.candidates)이다"
       - "그 컴퓨터(기기 id)의 link로 call frame {resource, method, body, by}를 보낸다. body는 그 route의 HTTP body 그대로다(command는 envelope). 한 link에 동시에 8개까지 가고 나머지는 기다린다"
-      - "받는 host에서 이 call은 이 컴퓨터의 기기 항목으로 붙은 연결의 보통 call이다: actor user, principal device:<이 컴퓨터 id>, scope REMOTE_ALLOWED_ROUTES의 자격으로 같은 createRemoteCall과 authorize를 지난다(remote-connection). 넘긴 call만의 자격이나 거르기는 없고, machines/*가 목록 밖이라 넘긴 call을 다시 넘기지 못한다"
+      - "받는 host에서 이 call은 이 컴퓨터의 기기 항목으로 붙은 연결의 call이다: actor user, principal device:<이 컴퓨터 id>의 자격으로 같은 createRemoteCall과 authorize를 지나고 요청한 쪽마다 거른다(remote-connection). `screen`은 기기 목록과 이 컴퓨터가 허락받았으면 사람의 route와 자동 확인까지, `terminal`은 기기 목록에서 터미널·page를 움직이는 route와 사람의 결정 route를 뺀 것과 앱 command 입구(허락이 있을 때)까지다. machines/*가 목록 밖이라 넘긴 call을 다시 넘기지 못한다"
       - "답의 value를 그대로 낸다. 오류는 그 기계의 code, message, details 그대로다"
     outcomes:
       - id: ok
@@ -2701,11 +2701,15 @@ flows:
         observe: ["response"]
       - id: forbidden
         code: forbidden
-        when: "user 아닌 actor다. 또는 그 기계가 기기 route 목록 밖이라 거절했다(설정·secret·명단 고치기, machines/*)"
+        when: "user 아닌 actor다. 또는 그 기계가 기기 route 목록 밖이라 거절했다(설정·secret·명단 고치기, machines/*). 또는 요청한 쪽에 열리지 않는 route다(terminal이 터미널 입력이나 결정 route를 부름, 허락 없는 이 컴퓨터가 사람의 route나 앱 command를 부름)"
+        observe: ["response"]
+      - id: ambiguous-name
+        code: invalid_input
+        when: "machine이 이름인데 같은 이름의 컴퓨터가 둘이다. 고르지 않고 후보(기계 id, 기기 id, 이름)를 details.candidates에 낸다. link에 아무것도 가지 않는다"
         observe: ["response"]
       - id: no-shell-capability
         code: forbidden
-        when: "입력 shell_capability가 없거나(CLI의 사람 token. 칸은 optional이 되었지만 `terminal`로 여는 것은 `use-send`가 한다) 살아 있는 shell capability가 아니다(끝난 shell). link에 아무것도 가지 않는다"
+        when: "입력 shell_capability가 있는데 살아 있는 shell capability가 아니다(끝난 shell). `terminal`로 낮추지 않고 link에 아무것도 가지 않는다. 칸이 없으면 거절이 아니라 사람의 CLI token이라 요청한 쪽이 `terminal`이다(--on)"
         observe: ["response"]
       - id: conflict
         code: conflict

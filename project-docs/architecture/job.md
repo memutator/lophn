@@ -96,6 +96,8 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
 - 때는 `every`(+`at`)와 `trigger` 가운데 정확히 하나다. `trigger`는 `{source, event, min_interval, pass_event}`이고 저장할 때 앱은 id(`app`)와 승인 때의 slug(`source`)로 풀린다. source는 앱 아니면 `lophn`이다.
   - 앱 source: 등록할 때 그 앱의 active release가 그 event를 선언했어야 한다(`invalid_input`). 나중 release가 선언을 빼거나 앱을 보관하면 job은 돌지 않고, `job.list`가 그 job에 `source_gone`을 달아 목록이 "The source no longer publishes this event"를 보인다(읽을 때 선언을 한 번 본다). 앱을 지우면 그 앱을 때로 가진 job도 지운다. 그 앱의 workspace에 job의 workspace가 call 정책으로 닿을 수 있어야 한다(등록 때 `forbidden`, 때가 되면 닿지 못하는 앱의 event는 건너뛰지도 세지도 않고 넘긴다). job이 같은 앱의 tool을 부르는 `tool_run`이면 만들 수 없다(`invalid_input`): 그 앱의 호출이 낸 event는 사슬에 그 앱이 있어 이 job으로 돌아오지 못하니 영영 돌지 않는다. agent_run이나 workflow가 그 앱을 부르게 한다.
   - `lophn` source: core가 내는 `session.started|running|waiting|idle|ended`만이다. 한 앱에게만 가는 `call.settled`는 때가 아니다(`invalid_input`).
+  - 다른 컴퓨터의 앱 source: trigger에 `machine`(컴퓨터 이름, `mch_`, `dev_`)을 적으면 core가 저장 전에 그 컴퓨터를 `mch_`로 풀어 `source_machine`으로 저장한다(못 풀면 `not_found`, 같은 이름이 둘이면 후보와 `invalid_input`, 이 컴퓨터면 `invalid_input`이다. `lophn` source와는 같이 쓰지 못한다). 그 앱은 이 컴퓨터에 없을 수 있어 `source`는 앱 id(`app_…`)로 적고 이 컴퓨터의 선언과 call 정책으로 검사하지 않는다(없는 event는 돌지 않을 뿐이다). 구독은 이 컴퓨터의 core가 그 컴퓨터에 걸고(`event.md`의 "다른 컴퓨터의 앱 event를 구독"), 온 event는 `source_machine`이 같은 job만 연다. 이름이 바뀌어도 `mch_`를 저장해 그대로다. private인 workspace의 job은 만들어지지만 구독이 걸리지 않아 돌지 않는다. `job.list`는 그 job에 `source_gone`을 달지 않는다(이 컴퓨터의 선언으로는 알 수 없다). 승인 card, Jobs 목록, 고치기 창, 폰은 때를 말할 때 그 컴퓨터의 이름을 붙인다(이름을 모르면 기계 id): 사람이 승인하는 것은 다른 컴퓨터의 일이다.
+  - trigger의 컴퓨터와 주인 기계는 다르다. job은 늘 주인 기계(만든 컴퓨터)에서만 돌고(아래 "주인 기계") trigger의 컴퓨터는 event가 오는 곳일 뿐이다. 그 event로 연 차례는 받은 호출로 표시되지 않아(이 컴퓨터의 agent가 자기 할당으로 일하는 평소의 run이다) 그 agent가 다른 컴퓨터를 부를 수 있다.
 - `min_interval`은 `<수><m|h|d>`이고 기본 5분이다. 등록 때 정하고 승인 대상이다(승인한 뒤 고치지 못한다. 때 전체가 그렇다). 같은 job의 두 차례는 마지막으로 연 때에서 이만큼 떨어진다.
 - event job에는 `next_due_at`, `at`, 놓친 차례가 없다(저장한 `missed_policy`는 뜻이 없다). 켤 때 닫힌 줄도 놓친 차례를 만들지 않는다. 바뀌는 것: 만들기·승인·고치기·목록. 같은 것: 승인, 한 번 승인한 할 일, 도는 줄(queued, running)·job run 기록, 겹침, 켜고 끄기, 지우기.
 - 켜진 job이 있으면 idle-exit가 core를 끄지 않는다(event를 받으려면 떠 있어야 한다). 그래서 켜 둔 event job은 core를 계속 켜 둔다.
@@ -282,9 +284,13 @@ hold
 - 이미 있는 job은 새 판의 첫 startup claim이 이 기계 id로 찍는다. 이유: schema step은 기계 id를 모른다. 찍기 전의 null은 이 기계 것으로 읽어 옛 job이 멈추지 않는다. (agent)
 - 가져온 주기 job은 지금부터 새로 센다. 이유: 다른 기계에 있던 동안의 차례는 그 기계의 것이고 이 기계가 놓친 것이 아니다. approve와 같은 규칙이다. (agent)
 - 다른 기계 job의 화면 글은 "Belongs to another computer"이고 이름은 선택 함수가 알 때만 보인다. 이유: 기계 기록을 다른 기계에 알리는 일은 이 계획 밖(폴더 sync)이라 그쪽에 기대지 않는다. (agent)
+- event job의 trigger는 다른 컴퓨터의 앱 event를 적을 수 있고, 그 job은 여전히 주인 기계에서만 돈다. 이유: 내 PC의 job이 VM의 monitoring 앱 event로 돌아야 하는데 job을 기계 사이에 옮기거나 두 기계에서 돌리면 같은 바깥 효과가 두 번 난다(위 "주인 기계"). 그러므로 trigger의 컴퓨터(event가 오는 곳)와 주인 기계(차례를 여는 곳)는 다른 개념이다. 컴퓨터는 만들 때 `mch_`로 풀어 저장해 이름 바꾸기에 흔들리지 않는다. 버린 안: 컴퓨터를 이름으로 저장하기(승인한 때와 다른 컴퓨터를 따라갈 수 있다). (사람 "구독하는 주체가 있을 거 아니야", agent)
+- 다른 컴퓨터의 event job도 한 번 승인하면 돈다. 승인 card는 어느 컴퓨터의 event인지 말한다. 이유: 같은 `app_…` id가 이 컴퓨터에도 있을 수 있어 컴퓨터를 말하지 않으면 사람이 이 컴퓨터의 앱 event로 읽고 승인한다. (agent, 독립 review의 지적)
 
 ## 열린 것
 
+- 다른 컴퓨터의 event로 연 차례는 받은 호출로 표시되지 않는다. 그 job의 agent는 자기 할당으로 세 번째 컴퓨터의 앱을 부를 수 있다(받은 호출 안의 앱 호출은 거절하는 것과 다르다). job은 사람이 승인한 것이고 `min_interval`이 속도를 막는 것으로 둔다.
+- 다른 컴퓨터의 event에는 보내는 수의 상한이 없다. job은 `min_interval`이 막는다.
 - 열린 이슈는 없다. 닫은 이슈는 "job run 끝을 적지 못하면 그 job은 다음 기동까지 돌지 않는다"와 "컴퓨터가 잠든 사이 놓친 hold job의 차례는 묻지 않고 돈다"(둘 다 고침)다.
 - 끝나지 않은 workflow instance가 이어지면 그 job의 차례가 건너뛴 기록으로 쌓인다. 사람이 화면에서 보고 정한다(일부러 그렇게 뒀다).
 - 컴퓨터가 잠든 사이 timer가 가지 않는다는 것은 가정이다(확인 전). 최대 잠 1분이 그 가정을 덮는다.

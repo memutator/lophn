@@ -188,9 +188,9 @@
 - agent를 부르는 주소(`{agent, workspace}`)는 그 기계 안의 이름으로 푼다. CLI는 자기 data root의 core에만 붙고 기계를 고르는 인자가 없다(명령 76개).
 
 **기기와 믿음**
-- (계획 `device-roster` 뒤) 폰과 컴퓨터는 서명한 명단 하나를 같이 든다. 이미 든 컴퓨터 하나의 초대장으로 들어오면 모든 컴퓨터와 이어지고, 빼기는 어느 컴퓨터에서나 해서 명단을 따라 퍼진다. 기기 id와 터미널 입력 허락은 명단에서 하나다(`architecture/remote.md`의 "내 기기 명단").
+- (계획 `device-roster` 뒤) 폰과 컴퓨터는 서명한 명단 하나를 같이 든다. 이미 든 컴퓨터 하나의 초대장으로 들어오면 모든 컴퓨터와 이어지고, 빼기는 어느 컴퓨터에서나 해서 명단을 따라 퍼진다. 기기 id는 명단에서 하나이고(`architecture/remote.md`의 "내 기기 명단"), 터미널 입력 허락은 받는 컴퓨터가 자기에서 켠 컴퓨터마다의 것이다(`remote-use`).
 - 컴퓨터끼리는 core가 명단의 다른 컴퓨터마다 link를 든다. 창은 다른 컴퓨터의 것을 이 컴퓨터 core의 `machines/call`·`machines/watch`로 부르고 shell에는 붙는 key와 목록이 없다. 화면 없는 기계는 `lophn remote invite|join`으로 든다.
-- 기기가 부를 수 있는 것은 route 132개(`carry/*` 넷과 `terminals/list`, 앱 화면 route 포함), 받는 event 24개로 폰과 desktop이 같다. 기기마다 다른 것은 터미널 입력 허락 하나다.
+- 기기가 부를 수 있는 것은 route 132개(`carry/*` 넷과 `terminals/list`, 앱 화면 route 포함), 받는 event 24개로 폰과 desktop이 같다. 기기마다 다른 것은 받는 컴퓨터가 켠 터미널 입력 허락 하나다.
 - "기기 목록" 비슷한 것은 둘이다: 명단과 folder의 `machines/<mch>/record.json`(이름과 주소, key 없음).
 
 **remote**

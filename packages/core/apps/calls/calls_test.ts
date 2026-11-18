@@ -1175,7 +1175,7 @@ function eventCaller(machine?: string) {
   };
 }
 
-// protocol의 `remote` caller는 use-contract가 더한다. 그 schema 판정과 맞춰 보는 위 표에는 그것이 오면 합친다.
+// 앱 process의 손 사본이 protocol의 `remote` caller schema와 같은 것을 받고 거절하는지 본다.
 test("앱 process의 parseProcessCall은 다른 기계의 호출(remote caller)을 네 요청한 쪽 모두 받고 모양이 어긋나면 거절한다", () => {
   const remote = (requester: unknown, extra: object = {}) => ({
     kind: "remote",

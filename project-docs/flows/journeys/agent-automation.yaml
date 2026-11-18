@@ -845,6 +845,23 @@ journeys:
       - {do: "run이 끝나 job run 줄이 done으로 닫힌다", flow: job-run-end:done}
       - {do: "사람이 Jobs 탭에서 job 기록을 읽는다", screen: jobs-tab-history, flow: job-run-list:ok}
 
+  - id: remote-app-command-and-event-job
+    title: "한 컴퓨터의 agent가 다른 컴퓨터의 앱 command를 부르고, 그 앱의 event로 이 컴퓨터의 job이 돈다"
+    actor: agent
+    goal: "사람이 내 PC의 agent에게 VM의 monitoring 앱을 붙이면 agent가 그 앱의 command를 부르고, 사람이 승인한 job이 그 앱이 낸 event로 돌아 사람에게 알린다"
+    steps:
+      - {do: "사람이 내 PC의 Grants에서 VM의 monitoring 앱을 agent에 붙이고 부르지 못하게 할 command를 뺀다", screen: new-agent-grants-other-machine, flow: assignment-set:saved}
+      - {do: "agent가 할당된 VM 앱의 command 목록과 입력 모양을 VM에서 읽는다", flow: core-machines-app-tools:ok}
+      - {do: "agent가 그 command를 부른다. 내 PC가 할당과 private을 보고 VM의 입구로 보낸다", flow: app-command-call:succeeded}
+      - {do: "VM이 명단의 컴퓨터인지, 터미널 입력 허락, public, 앱 workspace의 private을 자기 data로 보고 기록을 남기며 command를 돌린다", flow: app-remote-call:succeeded}
+      - {do: "agent가 VM 앱의 event로 돌 job을 청한다. 컴퓨터는 이름으로 적는다", flow: job-create:created}
+      - {do: "사람이 어느 컴퓨터의 event로 도는 job인지 보고 승인한다", screen: waiting-job-approval, flow: job-approve:approved}
+      - {do: "내 PC의 core가 VM에 구독을 걸고 VM이 private이 아닌 앱이 낸 event를 내준다", flow: remote-app-events:shared}
+      - {do: "내 PC가 받은 event를 난 컴퓨터를 단 채 내 PC에서 낸다", flow: remote-app-events:delivered}
+      - {do: "그 event를 때로 가진 job이 차례를 연다", flow: job-event-fire:fired}
+    gaps:
+      - "agent가 부른 command의 기록은 VM에만 남고 부른 내 PC에는 없다. VM이 꺼져 있으면 그 앱은 닿지 않는 것으로 보이고 꺼진 사이 낸 event는 오지 않는다"
+
   - id: job-approval-rejected
     title: "사람이 agent가 만든 job 등록을 거절하면 job이 지워진다"
     actor: agent

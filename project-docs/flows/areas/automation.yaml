@@ -647,6 +647,7 @@ flows:
       - "사람이 부르면 앱 화면과 같은 길로 person caller를 달아 Gate 없이 앱 호출 경로를 부른다. job이 부르면 program caller, flow가 부르면 flow caller(creator 할당과 비공개 거르기)로 부른다"
       - "호출이 끝나면 run-tool-end가 run을 닫는다. tool 이름이 앱에 없으면 run이 tool_denied로 실패한다"
       - "CLI `lophn <slug> <command>`는 active 앱 목록을 20쪽까지 읽어 slug가 같은 앱의 선언 tool을 명령으로 세운다. 명령이 없거나 입력이 선언 schema에 맞지 않으면 run을 만들지 않고 invalid_input으로 끝난다"
+      - "`lophn <slug> <command> --on <컴퓨터>`는 이 flow를 거치지 않는다. 앱 목록과 선언을 읽는 것도 부르는 것도 그 컴퓨터의 것이고 run을 만들지 않고 apps/remote_call 하나로 부른다(cli의 앱 command flow). `--on`이 없으면 이 컴퓨터다"
       - "CLI는 이 route를 kind tool로 불러 run을 받은 뒤 run이 끝날 때까지 run-wait를 되풀이한다. done이면 결과 글을, failed면 failed: reason: message를, cancelled면 cancelled를 내고 실패로 끝난다"
     outcomes:
       - id: running

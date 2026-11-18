@@ -1985,7 +1985,7 @@ flows:
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
     steps:
-      - "화면은 core가 PTY host에서 읽은 최신 것 그대로다(generation, seq, columns, rows, cursor, scrollback, lines). input은 부른 principal이 이 터미널에 칠 수 있는가(terminalInputGrant: 기기 device:<id>이고 그 기기의 terminal_input이 켜져 있다)이다"
+      - "화면은 core가 PTY host에서 읽은 최신 것 그대로다(generation, seq, columns, rows, cursor, scrollback, lines). input은 부른 principal이 이 터미널에 칠 수 있는가(terminalInputGrant: 기기 device:<id>이고 그 기기의 key가 이 컴퓨터의 허락 표에 있다. 허락은 명단이 아니라 이 컴퓨터가 정한 것이다)이다"
     outcomes:
       - id: ok
         observe: [response]

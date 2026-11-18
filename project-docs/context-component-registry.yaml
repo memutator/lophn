@@ -222,6 +222,7 @@ components:
     path: project-docs/architecture/event.md
     change_reasons:
       boundaries: [events, storage, router, event-stream]
+      paths: [packages/core/apps/events/, packages/core/remote/subscriptions.ts]
 
   - id: architecture-approval
     kind: doc
@@ -230,7 +231,7 @@ components:
     path: project-docs/architecture/approval.md
     change_reasons:
       boundaries: [approvals, agent-tools, agent-workspaces, jobs]
-      paths: [packages/core/approvals/share-requests/, packages/core/main/daemon/wiring/assignment-file.ts, packages/core/main/daemon/wiring/share-requests.ts]
+      paths: [packages/core/approvals/share-requests/, packages/core/main/daemon/wiring/assignment-file.ts, packages/core/main/daemon/wiring/share-requests.ts, packages/core/remote/call.ts, packages/core/remote/grants.ts, packages/protocol/remote/allowlist.ts]
 
   - id: architecture-testing
     kind: doc
@@ -264,7 +265,7 @@ components:
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
-      paths: [packages/protocol/apps/calls/, packages/core/apps/calls/, packages/core/apps/screens/skills.ts, packages/core/apps/releases/public-tools.ts]
+      paths: [packages/protocol/apps/calls/, packages/core/apps/calls/, packages/core/apps/screens/skills.ts, packages/core/apps/releases/public-tools.ts, packages/core/remote/machine-routes.ts]
 
   - id: architecture-package
     kind: doc
@@ -477,7 +478,7 @@ components:
     path: project-docs/architecture/remote.md
     change_reasons:
       boundaries: [remote, remote-protocol, remote-client, relay, mobile]
-      paths: [packages/shell/main/desktop/viewer/, packages/shell/renderer/desktop/machines/]
+      paths: [packages/shell/main/desktop/viewer/, packages/shell/renderer/desktop/machines/, packages/protocol/machine/requester.ts, packages/protocol/remote/grants.ts, packages/core/remote/grants.ts, packages/core/remote/subscriptions.ts, packages/cli/remote-core.ts]
 
   - id: architecture-attention
     kind: doc

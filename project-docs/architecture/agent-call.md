@@ -68,6 +68,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 
 10. 어느 workspace에서 어느 workspace로 부를 수 있는지는 call 정책이 정한다. 사람이 설정 `lophn-agent.call_policy`로 정한다. 아무것도 없으면 모두 허용이다.
     - `private`(project·앱의 목록): private workspace는 다른 workspace(home 포함)와 call을 주고받지 않고 안에서는 부른다. 들어오는 쪽·나가는 쪽을 나누지 않는다. home은 전역 agent가 어디서든 불리는 자리라 private이 될 수 없다.
+    - 다른 컴퓨터의 앱을 부르는 호출(`app.call_tool`의 `remote` target, `architecture/app-call.md`)에도 `private`이 선다. 부르는 컴퓨터는 부른 agent나 앱의 workspace가 private이면 보내지 않고, 받는 컴퓨터는 대상 앱의 workspace가 private이면 받지 않는다. 각자 자기 call 정책의 `private` 목록으로 보고, `workspaces`·`agents` 쌍 규칙은 컴퓨터 사이에 보지 않는다(쌍의 key가 컴퓨터마다의 id다). 사람의 화면과 터미널은 private이어도 부른다. agent에게 일을 맡기는 call(`calls/send`)은 한 컴퓨터 안의 일이다.
     - `workspaces`(workspace 쌍)와 `agents`(agent id 쌍): private 위에 두는 예외다. allow나 거절이다.
     - 판정 순서: agent 쌍 규칙 → workspace 쌍 규칙 → 같은 workspace면 허용 → private → 기본(허용). 같은 쌍이 여럿이면 먼저 적힌 것이 이긴다. agent 쌍 규칙은 workspace를 보지 않아 모든 workspace 사이에 닿는다(private도 뚫는다).
     - 고정 예외 하나: Home의 lophn(`lophn_home`)이 private workspace의 lophn(`lophn_<id>`)에게 `reply: none`으로 보내는 call은 private 검사만 통과한다. `app.sdk_decide`(`update-apps`)가 앱의 lophn에게 일을 넘기는 길이다. 그 command가 호출한 home session의 이름으로 같은 Router 길을 지나 보내므로 이 예외와 call 정책이 그대로 걸리고, 거절되면 결정 기록도 남지 않는다(`architecture/ui-kit.md`의 "SDK 결정과 맡기기"). 일은 들어가고 답·결과는 나오지 않는다. 앱 lophn이 낸 기능 결과(state와 한 줄 사유)만 `app.sdk_status`로 home에 보인다. `result`·`conversation`, 다른 home agent, lophn이 아닌 받는 agent, private 쪽에서 나가는 call은 그대로 막힌다. 이 예외는 agent 쌍·workspace 쌍 규칙을 이기지 않는다(그 규칙이 이 쌍을 막으면 막힌다).
@@ -201,6 +202,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **팀 지시문은 system prompt에 넣지 않는다(agent).** prompt cache가 깨지지 않게 첫 call 본문 앞에 붙인다.
 
 - **앱도 call의 보낸 쪽이다. 단 화면만 보낸다(app-sdk, 2026-11-10).** 앱을 agent와 같은 보낸 쪽으로 두면 시야·명함·실패·취소가 한 벌이다. 앱 process가 call을 보내고 답을 handler로 받는 길은 만들지 않았다(roadmap의 하지 않는 것): AI가 만든 앱 process가 상한 없이 unattended turn을 열 수 있다. 그래서 모든 앱 call은 attended이고 `unattended` 갈래가 앱에 없다. 버린 안: 앱 전용 입구(실패 처리와 화면이 둘). 앱의 답을 message로 두는 안은 앱에 session이 없어 버리고 call 행의 글(`result`)로 두었다: 가장 단순하고 읽는 길이 `app_calls/read` 하나다. 글이 아닌 block은 담지 않는다(알려진 한계). event는 `call.settled`만 내고 본문을 싣지 않는다(저장하지 않는 event에 본문을 두지 않으려고, 본문은 읽는다). 앱의 slug는 message에 얼린다(tag bytes 고정).
+
+- **private은 컴퓨터 사이에도 선다.** 같은 규칙을 두 자리에서 보고(부르는 쪽 workspace, 받는 쪽 앱의 workspace) 쌍 규칙은 보지 않는다. 이유: 상대 컴퓨터의 설정을 읽을 길이 없고 쌍 규칙의 key는 컴퓨터마다 다른 id다. 대가: 쌍 규칙으로 연 예외는 컴퓨터를 건너지 못한다. (사람, 2026-11-17)
 
 ## 열린 것
 

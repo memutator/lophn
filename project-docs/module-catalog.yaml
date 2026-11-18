@@ -17,7 +17,7 @@ modules:
 
   - path: packages/protocol
     boundary: protocol
-    notes: 구현을 두지 않는다. remote/carry.ts는 기계 사이로 옮기는 file(서명한 manifest와 목록 사슬, 명단 file, event file, route `carry/*`)의 계약이고 폰도 읽어 Node 내장이 없다(폴더 계약과 remote 계약이 서로를 import하지 않게 remote에 둔다). phone/은 core와 폰이 주고받는 `request`·`response` frame, kind 표(`PHONE_KINDS`), `unavailable`의 이유를 고정한다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
+    notes: 구현을 두지 않는다. machine/requester.ts는 컴퓨터끼리 부르는 call의 요청한 쪽(`screen`·`terminal`·`agent`·`app`)과 컴퓨터 이름 풀기이고, remote/grants.ts는 받는 컴퓨터가 터미널 입력 허락을 읽고 쓰는 machine route, apps/calls/remote.ts는 다른 컴퓨터의 앱 command 입구와 caller `remote`의 계약이다. remote/carry.ts는 기계 사이로 옮기는 file(서명한 manifest와 목록 사슬, 명단 file, event file, route `carry/*`)의 계약이고 폰도 읽어 Node 내장이 없다(폴더 계약과 remote 계약이 서로를 import하지 않게 remote에 둔다). phone/은 core와 폰이 주고받는 `request`·`response` frame, kind 표(`PHONE_KINDS`), `unavailable`의 이유를 고정한다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
 
   - path: packages/protocol/apps/sync
     boundary: app-sync
@@ -33,6 +33,7 @@ modules:
 
   - path: packages/cli
     boundary: coding-agent-cli
+    notes: remote-core.ts는 `--on <컴퓨터>`가 붙은 명령의 core 호출을 이 컴퓨터 core의 `machines/call`로 바꾼다(capability가 없어 `terminal`이다). `--on`은 parser가 어느 해석보다 먼저 뗀다.
 
   - path: packages/coding-agent
     boundary: coding-agent
@@ -55,7 +56,7 @@ modules:
 
   - path: packages/core/apps
     boundary: apps
-    notes: widgets/는 앱의 위젯 값(memory)과 `app_widgets.list`, phone-request/는 앱이 폰에 묻는 `app_phone.request`다. 어느 폰에 묻는지(기준 폰)와 폰으로 보내는 일은 port이고 core/main의 wiring이 core/remote의 `PhoneLink`를 끼운다. `phone.use` grant는 permissions/(broker `phone`)에 있다.
+    notes: calls/forward.ts는 다른 컴퓨터의 앱 command를 부르는 길(보내기 전의 private, 받은 호출의 hop, 할당, grant 검사)이고 calls/remote-entry.ts는 받는 쪽의 입구 `apps/remote_call`(`remote` caller를 만든다)이다. widgets/는 앱의 위젯 값(memory)과 `app_widgets.list`, phone-request/는 앱이 폰에 묻는 `app_phone.request`다. 어느 폰에 묻는지(기준 폰)와 폰으로 보내는 일은 port이고 core/main의 wiring이 core/remote의 `PhoneLink`를 끼운다. `phone.use` grant는 permissions/(broker `phone`)에 있다.
 
   - path: packages/core/apps/sync
     boundary: app-sync
@@ -165,7 +166,7 @@ modules:
 
   - path: packages/core/remote
     boundary: remote
-    notes: roster.ts는 내 기기 명단의 main thread 사본이다(받기, 서명, 저장을 하나씩. 서명 key는 writer Worker로 넘기지 않고 machine 자격 `roster/store`로 쓴다). links.ts는 명단의 다른 컴퓨터마다 드는 link이고 붙는 engine은 `packages/remote-client`다. carry.ts는 붙은 컴퓨터마다 상대가 든 manifest와 file 가운데 이 컴퓨터에 없는 것을 `carry/*`로 받아 폴더의 받는 자리에 넘긴다(검증하거나 쓰지 않는다). host.ts는 붙는 연결(폰, 다른 컴퓨터) 하나하나를 `join`과 명단으로 받아들인다. host-key.ts는 host key와 서명 key 둘을 같이 만들고 지운다. phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. phone-link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
+    notes: roster.ts는 내 기기 명단의 main thread 사본이다(받기, 서명, 저장을 하나씩. 서명 key는 writer Worker로 넘기지 않고 machine 자격 `roster/store`로 쓴다). links.ts는 명단의 다른 컴퓨터마다 드는 link이고 붙는 engine은 `packages/remote-client`다. carry.ts는 붙은 컴퓨터마다 상대가 든 manifest와 file 가운데 이 컴퓨터에 없는 것을 `carry/*`로 받아 폴더의 받는 자리에 넘긴다(검증하거나 쓰지 않는다). host.ts는 붙는 연결(폰, 다른 컴퓨터) 하나하나를 `join`과 명단으로 받아들이고 call.ts가 그 연결의 call을 요청한 쪽(`by`)으로 거른다(폰, 컴퓨터의 `screen`·`terminal`·`agent`·`app`, `by` 없는 컴퓨터의 core). machine-routes.ts는 이 컴퓨터가 다른 컴퓨터를 부르는 `machines/call`·`machines/app_tools`(요청한 쪽을 자격으로 정하고 다른 컴퓨터의 command 목록을 다시 거른다)이고, grants.ts는 터미널 입력 허락의 표(받는 컴퓨터의 `remote_grants`)다. subscriptions.ts는 이 컴퓨터의 job과 앱이 다른 컴퓨터의 앱 event를 받는 구독의 두 쪽(건 쪽과 내주는 쪽 거르기)이다. host-key.ts는 host key와 서명 key 둘을 같이 만들고 지운다. phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. phone-link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
 
   - path: packages/core/attention
     boundary: attention

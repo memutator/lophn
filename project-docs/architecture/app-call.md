@@ -1,6 +1,6 @@
 # app-call
 
-앱은 선언에서 두 층을 내놓는다. 화면과 앱 자신이 쓰는 저수준 동작인 operation(`operations[]`)과, 앱이 골라 바깥에 내놓는 command(`commands[]`)다. operation은 사람이 연 앱 화면과 그 앱 workspace session의 preview만 부른다. command를 부르는 길은 넷이다: agent의 명령 `lophn <app> <command>`(`<app>`은 앱 slug), 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 앱이 내는 event를 받은 구독 handler(event)도 같은 호출 경로의 호출이다(아래 "앱 event"). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거치고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다. 그래서 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 같은 문서가 앱의 화면과 agent의 접점(앱 화면이 쓰는 agent session), 앱 log, 앱 process가 바깥으로 나가는 길(net, secret, OAuth, fs), 보관한 앱의 지우기도 다룬다.
+앱은 선언에서 두 층을 내놓는다. 화면과 앱 자신이 쓰는 저수준 동작인 operation(`operations[]`)과, 앱이 골라 바깥에 내놓는 command(`commands[]`)다. operation은 사람이 연 앱 화면과 그 앱 workspace session의 preview만 부른다. command를 부르는 길은 넷이다: agent의 명령 `lophn <app> <command>`(`<app>`은 앱 slug), 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 앱이 내는 event를 받은 구독 handler(event)도 같은 호출 경로의 호출이다(아래 "앱 event"). 다른 컴퓨터의 앱 command는 agent와 앱이 `remote` target으로 부르고 받는 컴퓨터는 그 호출을 caller `remote`로 지난다(아래 "다른 컴퓨터의 앱 부르기"). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거치고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다. 그래서 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 같은 문서가 앱의 화면과 agent의 접점(앱 화면이 쓰는 agent session), 앱 log, 앱 process가 바깥으로 나가는 길(net, secret, OAuth, fs), 보관한 앱의 지우기도 다룬다.
 
 ## 문제
 
@@ -67,6 +67,25 @@
 invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unknown`)이고, 되돌림이 끝난 행에는 되돌림 표시가 붙는다. `caller_kind`는 person, agent, app, program, flow, event, remote 일곱이다.
 
 다른 기계의 앱을 부르는 호출은 이 흐름의 1 앞에서 갈린다. agent와 앱이 `app.call_tool`의 target `{mode: remote, machine, app}`으로 부르면 부른 쪽 확인(1) 바로 뒤에 core가 command인지, caller가 agent나 앱인지 보고 그 기계로 넘긴다(그 기계의 앱을 이 기계의 선언·Gate·줄·기록으로 다루지 않는다). 받는 기계는 새 입구 route `apps/remote_call`로 받아 자기 호출 경로를 caller `remote`로 지난다. 호출 기록은 받는 기계에 `remote`(어느 컴퓨터의 누가)로 남는다. 요청한 쪽과 받는 기계가 요청한 쪽마다 하는 일은 `architecture/approval.md`의 "다른 기계로 넘긴 call"이다.
+
+### 다른 컴퓨터의 앱 부르기
+
+내 컴퓨터들은 같은 사람의 것이고 앱 id는 컴퓨터 사이에 같다. agent, 앱, 사람의 터미널이 다른 컴퓨터의 앱 command 하나를 부르는 길이다. 대상은 command뿐이다(operation과 다른 컴퓨터의 agent에게 일 맡기기는 아니다).
+
+```
+ agent ── lophn <앱> <command> (할당 줄 (컴퓨터, 앱)) ─┐
+ 앱 ── connectCommands(…, {on: "컴퓨터"}) ────────────┼─ app.call_tool(target remote) ─ 부른 쪽 확인 ─ 보내기 전 검사 ─▶ link ─┐
+ 사람의 터미널 ── lophn <앱> <command> --on 컴퓨터 ── machines/call (terminal) ─────────────────────────────────────────▶ link ─┤
+                                                                                  받는 컴퓨터: apps/remote_call ◀──────────────┘
+```
+
+- 누가 부르나: agent는 사람이 부르는 컴퓨터에서 그 agent에 할당한 `(컴퓨터, 앱)` 줄이 있고 command가 뺀 것이 아닐 때, 앱은 active grant의 `app.call`이 그 앱을 덮을 때, 사람의 터미널은 `lophn <앱> <command> --on <컴퓨터>`다. 컴퓨터는 이름, `mch_`, `dev_`로 고르고 같은 이름이 둘이면 후보를 보이며(`invalid_input`) 이 컴퓨터를 고르면 `invalid_input`이다. 앱이 붙이는 칸은 broker 본문의 `machine`이고 SDK `connectCommands`의 `on`이 채운다. 앱의 command는 최상위 입력 필드 `on`을 선언하지 못한다(CLI의 `--on`과 부딪힌다).
+- 판정은 두 번 한다. 부르는 컴퓨터가 보내기 전에 지금 규칙을 먼저 본다: 부른 쪽 workspace의 private, 받은 호출을 다시 넘기지 않기(둘 다 `forbidden`), 할당과 grant(없으면 `denied(gate_blocked)`). 아니면 아무것도 보내지 않는다. 받는 컴퓨터가 자기 data로 다시 본다: 요청한 컴퓨터가 명단에 있는지, 터미널 입력 허락이 있는지, command가 `public`인지, 대상 앱의 workspace가 private이 아닌지(`approval.md`). 앞의 판정이 뒤를 대신하지 않고 뒤의 판정이 앞을 다시 따지지 않는다. 컴퓨터는 서로 대등하다.
+- 받는 컴퓨터는 호출을 caller `remote {machine, device, requester}`로 지난다. 요청한 쪽(`screen`, `terminal`, `agent`, `app`)은 call frame의 `by`로만 오고 부른 컴퓨터가 쓴 값이라 이름은 주장된 대로 기록한다. 받는 컴퓨터의 handler가 자격을 만들고 `app.call_tool`로는 이 caller를 주장하지 못한다.
+- 받은 호출은 다른 컴퓨터로 다시 넘기지 않는다. 받는 컴퓨터에서 도는 앱이 `remote` target을 부르면 부르는 쪽 컴퓨터가 거절한다.
+- 다른 컴퓨터가 준 글은 믿지 않는다. agent가 보는 command 목록(`machines/app_tools`가 그 컴퓨터의 `apps/tools`를 읽는다)은 이 컴퓨터가 낸 선언이 지나는 이름 규칙과 schema 검사로 다시 거르고(틀린 command만 뺀다), 설명·schema·개수·답 전체에 상한을 두고, 읽는 데 짧은 시한(5초)을 둔다(닿지 않으면 "지금 닿지 않는다"). agent에게는 컴퓨터 이름을 붙여 보이고(tool 이름 `<slug>.<command>.on_<컴퓨터 id의 끝 8자>`) 결과가 말하는 빠진 secret은 그 컴퓨터에서 채우라고만 말한다.
+- 연결 하나의 call 한도(같이 8개, 하나 120초)는 화면이 부르는 `machines/call`과 같이 쓴다. 보냈는데 답을 잃은 호출은 `unknown`이고 보내지 못한 호출은 `unavailable`이다(`details.sent`가 나갔는지 말한다).
+- 기록은 받는 컴퓨터에만 있다. 부르는 컴퓨터에는 agent나 앱의 호출 기록이 따로 없다(대화의 tool 호출뿐).
 
 ### 앱 event
 
@@ -255,7 +274,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 ## 경계와 계약
 
-- core 경계: route `app.call_tool`이 호출 경로의 입구다. program, flow, event 자격은 route로는 열 수 없고 core 안 연산만 만든다(event는 발행을 받은 core의 전달). 다른 컴퓨터가 넘긴 호출의 입구는 `apps/remote_call`이고 `remote` 자격은 그 handler만 만든다. `app.call_tool`의 target은 `live`, `preview`, `remote {machine, app}`이다(`machine`은 컴퓨터 이름, `mch_`, `dev_`). 앱 process의 broker 본문 `target_app`에는 `machine?`이 붙는다. 앱 process와는 `child-supervision-protocol`(supervisor가 길만 이어 준다)로 이야기한다.
+- core 경계: route `app.call_tool`이 호출 경로의 입구다. program, flow, event 자격은 route로는 열 수 없고 core 안 연산만 만든다(event는 발행을 받은 core의 전달). 다른 컴퓨터가 넘긴 호출의 입구는 `apps/remote_call`이고 `remote` 자격은 그 handler만 만든다. `app.call_tool`의 target은 `live`, `preview`, `remote {machine, app}`이다(`machine`은 컴퓨터 이름, `mch_`, `dev_`). 앱 process의 broker 본문 `target_app`에는 `machine?`이 붙고 SDK `@lophn/cap-tool` 2.3.0의 `connectCommands(app, commands, {on})`가 채운다. 앱 process와는 `child-supervision-protocol`(supervisor가 길만 이어 준다)로 이야기한다.
 - caller 본문은 일곱 종류다: `{kind: person, view_session, device?, machine?}`(`device`는 폰에서 한 write가 컴퓨터에 맞춰질 때 그 기기의 id, `machine`은 다른 기계에서 온 변경(어느 길로 왔든)을 적용할 때 출처 기계의 id이고 `view_session`은 주인 sync log의 seq다. 둘은 core 안 sync 적용만 붙이고, 화면이나 다른 credential의 호출이 `device`나 `machine`을 주장하면 막는다), agent(도는 turn과 tool call), 앱(부모 invocation), `{kind: program, job, job_run}`, `{kind: flow, instance}`, `{kind: event, publisher, event, publication, trace_id, chain, parent_invocation, machine?}`(publisher는 앱 id나 `lophn`. `machine`은 선언의 `across_machines`로 다른 기계에서 와서 이 기계가 낸 event의 난 기계이고 이 기계에서 난 event에는 없다), `{kind: remote, machine, device, requester}`(다른 컴퓨터의 core가 넘긴 호출. machine과 device는 부른 컴퓨터이고 requester는 그 안에서 시킨 쪽 `screen`·`terminal`·`agent`·`app`이다. 받는 기계의 `apps/remote_call`만 만들고 `app.call_tool`로 이 종류를 주장하면 `forbidden`이다. `person`의 `device`·`machine`, `event`의 `machine`과 뜻이 다르다).
 - 호출 결과의 막힘 code는 `denied(gate_blocked)`(막기), `denied(call_loop)`(같은 앱이 사슬에 다시 나옴), `denied(call_too_deep)`(깊이 한도), `denied(app_archived)`(보관한 앱. 사람 화면에만 이대로 가고 agent에게는 `not_found`)다. 결과 모름은 `unknown`, 보내기 전에 막힌 것은 `unavailable`이다.
 - route와 tool 이름: `app.call_tool`, `app.remote_call`(`apps/remote_call`. 받는 기계의 입구), `machines/app_tools`(agent runtime이 할당된 다른 기계 앱의 command 목록을 읽는다), `app_views.open|call|close`(앱 화면 host → core의 view 표), `app.phone_target`(agent가 기준 폰을 읽는다), `app.phone_screens`(폰이 받을 폰 화면 목록과 폰에서 도는 앱의 `runs_on`·backend manifest), `app.phone_file`(폰에서 도는 앱의 backend와 migration file), `app_sync.push|pull|snapshot|snapshot_file`(폰에서도 도는 앱의 sync log, `app-sync.md`), `app.tool_index`, `app.usage`, `app.skills`, `app.status`, `app.invocations`, `app.event_publications`(발행 기록, CLI `lophn app event-publications`), `app_events.publish`(앱 process → core), `app_sessions.list|status|stop`(앱 → core), `app.logs`(`apps/logs`), `app.log_view_error`(shell main → core), `app.delete`, `app.create`, `release.prepare`(결과의 `removed_public_tools`, `removed_public_skills`), `declaration.check`, `package.publish`, `apps.apply`(rewind 적용), `apps.secret_value`, `apps.oauth_sign_out`, `apps/oauth_state`, `preview.call`, `visual.show`.
@@ -318,10 +337,19 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 - 다른 기계의 앱을 부르는 길은 새 route가 아니라 `app.call_tool`의 `remote` target이고, 받는 기계의 입구는 새 route `apps/remote_call`이다. 이유: 부른 쪽 확인(도는 turn, 부모 invocation)이 호출 경로 service 안에 있어 target 하나로 두면 agent와 앱이 같은 확인을 받는다. 받는 쪽은 기기 자격이 `person` caller가 되는 `apps/call_tool`을 쓰면 Gate를 건너고 operation까지 닿으므로 `remote` caller를 만드는 입구가 따로 있어야 한다. (agent)
 - 앱의 `app.call` grant는 기계와 상관없이 그 앱을 덮는다. 이유: 앱 id는 기계 사이에 같고 grant 모양을 바꾸지 않았다. 다른 기계의 앱을 부르는 앱의 허락은 부르는 기계의 grant가 아니라 `remote` target에서 받는 기계가 보는 규칙이다. (agent)
+- 다른 컴퓨터의 앱을 부를 때 판정은 부르는 컴퓨터(할당, grant, 부른 쪽 private)와 받는 컴퓨터(명단, 터미널 입력 허락, 대상 앱 private, `public`)가 각자 자기 data로 한다. 부른 쪽의 할당을 받는 컴퓨터가 다시 따지지 않는다. 이유: 내 컴퓨터들은 대등하고 한 사람의 것이라 두 컴퓨터의 설정이 어긋나 안 되는 이유를 찾을 수 없게 하지 않는다. 대신 받는 컴퓨터는 자기 것을 늘 본다. (사람 "기존의 approval이랑 크게 다를 게 없을 거 같은데", agent)
+- 받은 호출은 다시 넘기지 않는다. 이유: 넘기면 A의 요청이 B를 거쳐 C까지 닿아 B가 A에게 준 허락이 A가 C에게 받은 것처럼 넓어진다. 받는 컴퓨터가 낳은 호출의 flight에 표시를 달고 보내는 쪽 컴퓨터가 거절하는 것으로 지킨다. (agent)
+- 다른 컴퓨터가 준 command 목록과 결과의 글은 데이터이고 이 컴퓨터가 낸 선언처럼 믿지 않는다. 이유: 그 컴퓨터의 release가 언제든 이름과 설명을 바꿀 수 있고 이 컴퓨터의 사람은 그것을 보지 못한 채 model의 입력이 된다. 이름·schema 검사, 상한, 컴퓨터 이름 표시로 다룬다. 버린 안: 목록을 한 번 사람이 승인하기(할당이 허락이라는 모델과 어긋난다). (agent, 독립 review의 지적)
+- 사람의 터미널은 `machines/call`로 `terminal`이라는 요청한 쪽을 달고 보낸다(새 route를 두지 않는다). `lophn <명령> --on <컴퓨터>`는 받는 컴퓨터의 기기 route 목록에 있는 명령만 된다. (agent)
 
 ## 열린 것
 
 열린 이슈는 topic이 `app-call`인 이슈다.
+
+- 다른 컴퓨터로 보낸 command는 화면의 `machines/call`과 연결 하나의 call 8개와 120초를 같이 쓴다. 120초를 넘기는 command는 결과 모름(`unknown`)으로 끝난다.
+- 다른 컴퓨터를 부른 agent나 앱의 호출 기록은 부른 컴퓨터에 없다. 받는 컴퓨터의 `remote` 행만 남는다.
+- 받은 호출을 다시 넘기지 않는 표시는 앱 호출 사슬로만 이어진다. 받은 호출 안에서 앱이 연 agent session, program, flow는 표시가 없고, 받은 호출이 낳은 event로 도는 job과 그 agent가 자기 할당으로 세 번째 컴퓨터를 부를 수 있다(`event.md`, `job.md`).
+- 허락은 컴퓨터마다 하나라 "터미널은 되지만 agent와 앱은 안 된다"는 고를 수 없다.
 
 - core를 다시 켜면 앱 OAuth sign-in 실패 이유가 사라진다. 실패 이유는 메모리에만 있어 refresh가 거절된 뒤 core가 다시 뜨면 Access 탭이 "Not signed in"만 보인다. 동작(앱은 `conflict`를 받는다)은 같고 이유 글만 잃는다. 추천은 실패 이유를 `app-oauth.<이름>.meta`에 남기는 것이다.
 - 앱 e2e 여섯(앱 tool 호출, activation, 앱 data rewind, 앱 재시작)이 test 앱에 patch를 얹지 못하고 시작에서 실패한다. 이 길이 깨져도 land가 잡지 못한다.

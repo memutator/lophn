@@ -71,6 +71,12 @@ session snapshot
 - 안 구독자: core 안의 jobs가 같은 전달에 앱이 아닌 구독자로 붙는다(`architecture/job.md`의 "event로 도는 job"). 앱이 낸 event와 core가 낸 `lophn` event를 모두 받고, 호출 기록도 발행 기록 수(reachable·unreachable)도 남기지 않는다. 승인하고 켜진 event job이 그 `lophn` event를 때로 가진 동안은 구독 앱이 없어도 core가 session 한 줄을 만든다. 저장하지 않고 켜져 있는 동안만 받는다. 앱 event의 사슬(chain)은 안 구독자에게도 간다(job이 부르는 앱이 사슬에 있으면 그 event를 보지 않는다). 안 구독자도 앱 구독자와 같은 보이는 범위를 지킨다: job은 그 앱(또는 session)의 workspace에 job의 workspace가 call 정책으로 닿을 때만 본다.
 - 앱 화면은 같은 구독을 `lophnApp.events`(SDK `useEvent`)로 받는다. 화면이 떠 있는 동안만 받고, 그 화면의 release가 구독을 선언한 event만 받는다.
 - 다른 기계로: 앱이 event 선언에 `across_machines: true`를 달면(`sync_to`가 있는 앱만) 이 기계에서 위처럼 전달한 뒤 그 event를 file(`machines/<이 기계>/apps/<app>/events/<id>.json`)로도 쓴다. file은 앱 data처럼 `folder-sync.md`의 길(연결, 폰, 같이 보는 폴더, 이름 붙인 폴더)로 다른 기계에 가고, 도착한 기계의 core가 그 기계의 구독자에게 한 번 낸다. 낸 기계는 발행 기록과 구독자 호출의 caller `machine`에 실린다. 도착한 기계는 앱이 이 기계에 있고, 그 앱 workspace가 이 기계의 call 정책에서 private이 아니고, `at`이 7일보다 옛 것도 5분 넘게 앞선 것도 아니고, 이 기계 활성 release가 그 event를 낸 release와 같은 bundle이고 선언이 그 event를 `across_machines`로 두며 payload가 schema에 맞을 때만 낸다(아니면 log 한 줄). private 판단은 각 기계가 자기 정책으로 한다. 같은 file이 여러 길로 와도 한 번만 난다(ledger `folder_events_seen`). 발행 쪽 호출이 이미 끝난 뒤에 도착하므로 도착한 event의 chain은 그 앱 하나에서 시작한다.
+- 다른 컴퓨터의 앱 event를 구독: 선언의 구독(`subscriptions[].machine`)과 job의 trigger가 컴퓨터를 적을 수 있다(앱은 컴퓨터 이름으로, job은 만들 때 이름을 `mch_`로 풀어 저장한다. 이 컴퓨터를 적으면 거절한다). 구독하는 주체는 이 컴퓨터의 core이고 구독은 선언에서 때마다 다시 계산한다(저장하지 않아 core가 다시 떠도, 연결이 끊겼다 붙어도 이어진다). core가 그 컴퓨터의 link에 core 구독자 하나로 `AppEventPublished`를 건다. 화면의 구독자와 따로라 서로 덮지 않고 이 event는 창에 가지 않는다. 온 event는 이 컴퓨터가 난 컴퓨터를 싣고 낸다(발행 기록 없이, 안 구독자인 job과 그 컴퓨터를 이름으로 적은 구독 앱에만 간다). 컴퓨터를 적지 않은 구독 앱은 같은 앱이 이 컴퓨터에도 있고 선언이 그 event를 `across_machines`로 두었을 때만 받는다(위 "다른 기계로"의 도착과 같은 검사).
+  - 받는 컴퓨터가 내주는 것: 앱이 선언해 밖에 낸 event(subject가 앱이고 audience가 없다)이고 그 앱의 workspace가 이 컴퓨터의 call 정책에서 private이 아닌 것뿐이다. `lophn`이 낸 core event, 앱 화면만 받는 event, 다른 컴퓨터에서 와 이 컴퓨터가 낸 event(되돌려 나르지 않는다), 받은 호출이나 다른 컴퓨터에서 온 event가 부른 호출 안에서 난 event(`remote`)는 가지 않는다. 받는 쪽은 명단의 컴퓨터이면 되고 터미널 입력 허락은 보지 않는다(event를 읽는 것은 앱 command를 부르는 것보다 약하고 앱이 밖에 내놓은 값이다). 폰과 명단 밖 기기는 받지 못한다.
+  - 한 번만 낸다: 앱이 둘 다 가진 `across_machines` event는 난 컴퓨터가 정한 id(`cross_id`)를 싣고 연결(live)과 file(늦은 길)로 둘 다 올 수 있다. 어느 길이든 먼저 온 것만 내고(`folder_events_seen`, 난 컴퓨터와 id로 센다) 나머지는 버린다. 연결로만 오는 event(다른 컴퓨터에만 있는 앱)는 이 컴퓨터가 꺼져 있거나 닿지 않는 동안의 것이 남지 않는다.
+  - private은 두 번 본다. 구독을 거는 때(private인 workspace의 job과 private인 앱은 다른 컴퓨터에 구독을 걸지 않는다. call 정책 설정이 바뀌면 다시 계산한다)와 event가 오는 때(감시는 컴퓨터마다 걸려 다른 구독이 그 컴퓨터를 보고 있어도 private인 job과 앱은 받지 않는다). 지금 정책으로 본다.
+  - 다른 컴퓨터의 event로 도는 handler는 받은 호출로 센다. 그 안에서 `remote` target을 부르면 거절하고 그 안에서 낸 event는 이 컴퓨터의 구독자에게만 가고 다른 컴퓨터나 event file로는 가지 않는다. 두 컴퓨터가 서로의 event로 서로의 앱을 부르는 고리가 이렇게 끊긴다.
+  - 받은 event는 믿지 않는다: 연결로 온 글은 크기를 먼저 보고 bus event schema로 다시 읽어 앱이 낸 것이 아니면 버린다. 컴퓨터를 적은 구독의 payload는 이 컴퓨터에 그 앱의 선언이 없어 schema로 검사하지 못하므로 handler가 검사한다.
 - 관측: 구독 handler의 호출은 앱 호출 기록(`app.invocations`)에 caller kind `event`로 남아 발행자와 event가 보인다. 발행 기록은 앱마다 최근 200개만 두고 payload를 남기지 않으며 agent가 `app.event_publications`(`lophn app event-publications`)로 읽는다. 발행과 거기서 나온 호출은 같은 trace id를 싣는다(`architecture/observability.md`).
 
 ## 지키는 것
@@ -121,6 +127,9 @@ agent event와 화면
 33. core도 발행자다(`lophn`). core가 낸 event(`session.started|running|waiting|idle|ended`, `architecture/workspace-session.md`)는 같은 전달 길을 쓰되 앱마다 볼 수 있는 것만 간다: 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 session(call 정책)만 구독자 호출과 앱 화면(`AppEventPublished`의 `audience`)에 간다. 같은 길로 `call.settled`(call, state, fail_reason)가 앱이 보낸 call이 끝났을 때 그 앱에만 간다(`audience`가 보낸 앱 하나, 그 앱의 열린 화면이 듣는다. 켤 때 닫힌 call(`lophn_restarted`)의 event는 가지 않는다. `architecture/agent-call.md`의 "앱이 보낸 call"). core event의 payload schema는 선언이 아니라 protocol에 있다. 앱의 발행과 달리 chain은 비어 있고(앱의 호출 사슬이 아니다) 발행 기록은 publisher `lophn`으로 남되, 볼 수 있는 구독자가 하나도 없으면 기록도 announce도 하지 않는다(상태가 바뀔 때마다 표에 쓰지 않는다). `data.changed`(payload 없음)도 core가 내는 event다: 폰이나 다른 기계에서 온 변경(어느 길로 왔든)이 그 앱 DB를 바꾼 뒤 적용 묶음 하나에 한 번, 그 앱에만(`audience`) 간다. 앱 process의 구독 handler와 그 앱의 열린 화면이 받고, 무엇이 바뀌었는지는 싣지 않아 앱이 다시 읽는다. 적용되지 않은 묶음(전부 건너뜀, held)은 내지 않는다.
 34. 앱은 자기가 낸 event를 받지 않는다. event의 chain에는 늘 발행자가 들어 있어(발행 handler 밖에서 낸 것도 그렇다) 발행자 자신의 구독은 구독자 목록에서 refused로 센다. 앱이 자기 event에 반응하는 길은 없다.
 35. core의 session event는 상태가 바뀐 순간에만 간다. core를 다시 켠 뒤에는 돌던 session이 `session.idle`을 내지 않는다(켤 때 모든 turn이 interrupted로 닫히고 그 닫힘은 상태 변화로 세지 않는다). 앱은 켤 때와 core가 다시 떴을 때 목록을 다시 읽는다. 터미널 session의 집합은 core가 든다(shell이 다시 알리지 않는다).
+36. 다른 컴퓨터에 내주는 앱 event는 앱이 선언해 밖에 낸 것과 private이 아닌 workspace의 것뿐이다. 내주는 쪽이 명단의 컴퓨터인지와 내용으로 가려(`REMOTE_COMPUTER_EVENTS`는 type 목록이고 core가 내용으로 한 번 더 가른다) 폰과 화면에는 가지 않는다. 구독을 건 컴퓨터가 받는 event는 그 구독을 적은 job과 앱에만 가고 난 컴퓨터의 신원은 연결의 명단 항목에서 오며 frame의 칸이 아니다.
+37. 다른 컴퓨터의 event로 낸 앱 호출과 그 안에서 낸 event는 받은 호출로 센다(다른 컴퓨터로 다시 넘기지 않고 다른 컴퓨터에 내주지 않는다).
+38. private인 workspace의 job과 앱은 다른 컴퓨터의 event를 받지 않는다. 구독을 거는 때와 event가 오는 때 둘 다 지금 정책으로 본다.
 
 ## 경계와 계약
 
@@ -166,7 +175,17 @@ boundary: `events`(commit 뒤 agent event와 남지 않는 event를 화면에 �
 - 구독 handler의 effect는 write로 고정한다. 앱 DB를 바꿀 수 있어 changeset을 뜨고 rewind 대상이어야 하고, 선언에 effect를 두면 read로 선언한 handler가 DB를 바꿨을 때 rewind가 틀린다. 읽기만 하는 handler도 write로 기록되는 값이 든다. (agent)
 - 발행 기록은 ledger 표에 앱마다 최근 200개만 두고 payload를 남기지 않는다. 숫자는 앱의 영구 알림 한도(app-notice.md)와 같다. 메모리에만 두면 재시작 뒤 "어제 낸 event가 누구에게 갔나"를 읽을 수 없다. 표는 invocation 기록과 같은 짧은 연결로 쓰고 event를 남기지 않는다. (agent)
 - 발행과 거기서 나온 호출은 같은 trace id를 싣는다. trace는 요청 하나(발행 route)의 trace이고, 발행 기록과 호출 caller에 같은 id를 적는다. invocation 표에 trace 칸을 따로 두지 않았다. 그 id는 호출 caller 본문에 있어 기록의 caller로 읽는다. (agent)
+- 다른 컴퓨터의 앱 event를 구독하는 주체는 job의 trigger와 앱의 구독 선언이고, 이 컴퓨터의 core가 구독자를 대신해 그 컴퓨터에 구독을 걸고 온 event를 이 컴퓨터에서 낸다(난 컴퓨터를 싣고). 이유: 구독은 선언(job, 앱)에서 오므로 core가 다시 떠도 이어져야 하고, 화면 구독자(capability가 있다)와 같은 key를 쓰면 서로 덮는다. (사람 "구독하는 주체가 있을 거 아니야")
+- 받는 컴퓨터가 내주는 event는 앱이 밖에 낸 것뿐이고 private인 workspace의 것은 내주지 않는다. 터미널 입력 허락은 보지 않는다. 이유: 읽기는 앱 command를 부르는 것보다 약하고(앱이 내놓겠다고 선언한 값이다) 허락 없이 보는 기본 목록(앱 목록, view)과 같은 급이다. 대가: 허락이 없는 컴퓨터도 이 컴퓨터의 private이 아닌 앱의 선언한 event를 연결이 붙어 있는 동안 읽는다. `across_machines`를 요구하지 않는다(이 길의 event는 선언에 그 칸이 없는 앱의 것이다). (agent)
+- 끊긴 동안의 event를 새로 저장하는 대기열을 만들지 않는다. 늦게 오는 것은 두 컴퓨터가 다 가진 앱의 `across_machines` event뿐이다. (사람이 나눴다: 이 계획은 대기열을 만들지 않는다)
+- 다른 컴퓨터의 event로 도는 handler는 받은 호출로 센다. 이유: 그러지 않으면 A의 앱이 B의 앱을 부르고 B의 앱이 낸 event가 A의 handler를 불러 서로를 끝없이 부른다(사슬이 컴퓨터를 건너며 처음으로 돌아간다). 대가: 앱은 받은 호출이 낳은 event를 부른 컴퓨터에 알릴 수 없다. (agent, 독립 review의 지적)
 
 ## 열린 것
 
+- 다른 컴퓨터에만 있는 앱의 event는 이 컴퓨터가 꺼져 있거나 닿지 않는 동안 낸 것이 남지 않는다. 연결은 그 순간의 event만 나르고 저장하지 않는다.
+- 구독을 건 컴퓨터가 보내는 event 수에는 상한이 없다(큰 글은 크기를 먼저 보고 버리고 job에는 `min_interval`이 있지만 앱 handler에는 없다). 뚫리거나 잘못 짠 컴퓨터가 구독한 앱의 handler를 끝없이 돌릴 수 있다.
+- 다른 컴퓨터의 event로 도는 job은 받은 호출로 표시되지 않는다. 그 job이 부르는 agent는 자기 할당으로 세 번째 컴퓨터를 부를 수 있고, 받은 호출이 낳은 event가 이 컴퓨터의 job을 돌릴 수도 있다(`job.md`).
+- 선언의 컴퓨터는 이름이라 컴퓨터 이름을 바꾸거나 같은 이름을 다른 컴퓨터가 쓰면 구독이 멈추거나(이름이 풀리지 않거나 둘이 되면 log 한 줄) 이름을 따라 다른 컴퓨터로 옮겨 간다. 봉인한 release는 고칠 수 없다. job은 `mch_`를 저장해 이름이 바뀌어도 그대로다. 풀리지 않은 구독은 화면에 보이지 않는다.
+- 명단에 같은 기계 id를 든 항목이 둘이면(dual boot) 감시와 이름은 첫 항목으로 간다. 다른 항목의 event는 오지 않는다.
+- private인 workspace에서 만든 job이 다른 컴퓨터의 event를 때로 가져도 만들어지고, 구독이 걸리지 않아 말없이 돌지 않는다.
 - 기동 중에 쓴 notice는 shell main이 core의 hello 전이라 `NoticePosted`를 받지 못해 toast가 뜨지 않는다. 배지와 History로만 보인다(`project-docs/issues/`의 shell 이슈).

@@ -1,5 +1,5 @@
 id: browser-control-release
-version: 0.23.86
+version: 0.23.87
 title: 멀리서 잡은 page는 잡은 기기가 떠나면 풀리고, 틀린 page frame 한 장이 host 연결을 닫지 않으며, host가 끊기면 browser 탭이 목록에서 빠진다
 modules: [packages/protocol, packages/core/host-queue, packages/core/server, packages/core/main, packages/shell/main]
 change: |

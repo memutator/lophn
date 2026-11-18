@@ -54,6 +54,7 @@ import { eventsWiring } from "./wiring/events.ts";
 import { stateChangesWiring } from "./wiring/state-changes.ts";
 import { flowsWiring } from "./wiring/flows.ts";
 import { idleWiring } from "./wiring/idle.ts";
+import { terminalsWiring } from "./wiring/terminals.ts";
 import { alwaysOnWiring } from "./wiring/always-on.ts";
 import { jobsWiring } from "./wiring/jobs.ts";
 import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
@@ -209,6 +210,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   customReplyWiring,
   harnessWiring,
   hostQueueWiring,
+  // host queue 뒤다: 탭을 넣는다. idle이 도는 터미널을 일로 본다.
+  terminalsWiring,
   // approvals·secrets와 host queue 뒤다: 대기열과 알려진 값, 탭 표를 쓴다.
   inputRequestWiring,
   // approvals와 host queue 뒤다: 호출 때 Gate와 queue를 쓴다.

@@ -5,8 +5,8 @@ lead만 고친다. `tools/status.py core-terminals build`가 `tasks/*.md`에서 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `term-contract` | term | 1 | 없음 | merged | term/term-contract | c9eb81ea5 |  |
-| `ext-host` | ext | 2 | term-contract | todo |  |  |  |
-| `term-host` | term | 2 | term-contract | todo |  |  |  |
+| `ext-host` | ext | 2 | term-contract | running | ext/ext-host |  |  |
+| `term-host` | term | 2 | term-contract | merged | term/term-host | 796ff8347 |  |
 | `coding-core` | coding | 3 | term-host, ext-host | todo |  |  |  |
 | `term-desktop` | term | 4 | coding-core | todo |  |  |  |
 | `term-phone` | term | 4 | coding-core | todo |  |  |  |

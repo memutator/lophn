@@ -56,6 +56,7 @@ import {
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../coding-agent/terminal-view.ts";
+import { terminalsInput, terminalsOpen } from "../coding-agent/terminals.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -176,6 +177,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   // 보는 터미널의 PTY 크기를 폰에 맞추기, project에 터미널 탭 열기
   terminalViewResize,
   terminalViewOpen,
+  // core가 여는 터미널: 열기와 입력. 입력은 허락받은 기기만 core가 받는다
+  terminalsOpen,
+  terminalsInput,
   // 대화
   acpSnapshot,
   acpDraft,

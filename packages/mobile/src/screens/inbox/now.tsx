@@ -12,6 +12,7 @@ import {
   type Notice,
   sessionIn,
   useInbox,
+  useMachineNameOf,
   useNames,
   useWorkspaces,
   type WaitingEntry,
@@ -425,6 +426,7 @@ function JobApprovalItem({
   locked,
 }: { entry: Kind<"job_approval"> } & Shared) {
   const nav = useNav();
+  const machineNameOf = useMachineNameOf();
   const view = cardOf(entry, names);
   const answering = useAnswering();
   const approve = () =>
@@ -443,8 +445,12 @@ function JobApprovalItem({
             source: job.trigger.source,
             event: job.trigger.event,
             interval: intervalText(job.trigger.min_interval),
-            // The phone does not read the computer list yet: it names the computer by id.
-            machine: job.trigger.source_machine ?? "",
+            // A computer this phone has not paired shows by id.
+            machine:
+              job.trigger.source_machine === undefined
+                ? ""
+                : (machineNameOf(job.trigger.source_machine) ??
+                  job.trigger.source_machine),
           },
         )
       : t("waiting.notice.job-approval", {

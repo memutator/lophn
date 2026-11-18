@@ -25,13 +25,14 @@ interface DeclarationValue {
   }[];
 }
 
-async function appCatalog(link: Link): Promise<GrantApp[]> {
+/** 앱 목록을 읽지 못하면 null이다(앱이 없는 것과 다르다). */
+async function appCatalog(link: Link): Promise<GrantApp[] | null> {
   const apps = await link.read<{ apps: (AppRow & { status: string })[] }>(
     "apps",
     "list",
     {},
   );
-  if (!apps.ok) return [];
+  if (!apps.ok) return null;
   const found: GrantApp[] = [];
   for (const app of apps.value.apps) {
     if (app.status !== "active") continue;
@@ -56,11 +57,14 @@ async function appCatalog(link: Link): Promise<GrantApp[]> {
 
 /**
  * 다른 컴퓨터의 앱 가운데 붙일 수 있는 것. 그 컴퓨터의 core를 사람의 화면으로 읽고(`useMachineData(machine).core`), 받는 기계가
- * 거절할 비공개 command는 처음부터 뺀다. 읽지 못하면 빈 목록이다.
+ * 거절할 비공개 command는 처음부터 뺀다. 목록을 읽지 못하면 null이다.
  */
-export async function readComputerApps(core: CoreSource): Promise<GrantApp[]> {
+export async function readComputerApps(
+  core: CoreSource,
+): Promise<GrantApp[] | null> {
   // 읽기만 하므로 command key의 무작위 값은 쓰이지 않는다.
-  return appsFor(await appCatalog(createLink(core, () => "")), null);
+  const apps = await appCatalog(createLink(core, () => ""));
+  return apps === null ? null : appsFor(apps, null);
 }
 
 export async function readGrants(
@@ -79,7 +83,7 @@ export async function readGrants(
     ok: true,
     value: {
       entries: read.value.assignment.entries,
-      catalog: { apps: appsFor(apps, workspace) },
+      catalog: { apps: appsFor(apps ?? [], workspace) },
       revision: read.value.revision,
     },
   };

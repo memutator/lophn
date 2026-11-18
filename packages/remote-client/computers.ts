@@ -82,6 +82,8 @@ export interface ComputerItem {
   // The alias the person gave it on this device, and the name the roster gives it; null when there is none.
   readonly alias: string | null;
   readonly announced: string | null;
+  // Its machine id once a hello has told it; null before that and for the sample. Job and app text names a computer by it.
+  readonly machine: string | null;
   readonly status: ComputerStatus;
   readonly update: Update | null;
   readonly path: ComputerPath | null;
@@ -275,6 +277,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         name: sampleName,
         alias: null,
         announced: null,
+        machine: null,
         ...sample.link.state(),
         sample: true,
       });
@@ -287,6 +290,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         name: computer.name ?? computer.announced ?? defaultName(computer),
         alias: computer.name ?? null,
         announced: computer.announced ?? null,
+        machine: computer.machine ?? null,
         status: cut ? "revoked" : (live?.status ?? "connecting"),
         update: cut ? null : (live?.update ?? null),
         path: cut ? null : (live?.path ?? null),

@@ -17,7 +17,7 @@ import {
   useFollowedRead,
 } from "../../../shell/renderer/desktop/connection/core-read.ts";
 import { whenOf } from "../../../shell/renderer/desktop/jobs/model.ts";
-import { useNames, useWorkspaces } from "./hooks.tsx";
+import { useMachineNameOf, useNames, useWorkspaces } from "./hooks.tsx";
 import { type SessionRow, type Who, whoOf } from "./workspaces.ts";
 
 const SESSIONS_SHOWN = 20;
@@ -97,6 +97,7 @@ export function useSearch(query: string): SearchResults {
   const needle = query.trim().toLowerCase();
   const workspaces = useWorkspaces();
   const names = useNames();
+  const machineNameOf = useMachineNameOf();
   const projects = names.list.projects;
 
   const jobs = useCoreRead(jobList, {}).loaded;
@@ -199,7 +200,7 @@ export function useSearch(query: string): SearchResults {
             .map((job) => ({
               id: job.id,
               title: job.title,
-              when: whenOf(job),
+              when: whenOf(job, machineNameOf),
               enabled: job.enabled,
             }))
         : [];
@@ -246,5 +247,16 @@ export function useSearch(query: string): SearchResults {
       jobs: jobHits.slice(0, OTHERS_SHOWN),
       agents: agentHits.slice(0, OTHERS_SHOWN),
     };
-  }, [needle, settled, workspaces, runs, jobs, agents, files, projects, names]);
+  }, [
+    needle,
+    settled,
+    workspaces,
+    runs,
+    jobs,
+    agents,
+    files,
+    projects,
+    names,
+    machineNameOf,
+  ]);
 }

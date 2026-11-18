@@ -675,6 +675,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         onRenameSession={renameSession}
         onStopSession={stopSession}
         machineNames={lists.names}
+        machineUpdates={lists.updates}
         renderAway={(workspace) =>
           workspace.away === undefined ? null : (
             <AwayLine

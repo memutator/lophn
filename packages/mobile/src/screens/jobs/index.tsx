@@ -29,6 +29,7 @@ import {
   STATE,
   useJobRuns,
   useJobs,
+  useMachineNameOf,
   whenOf,
   whenText,
 } from "../../data/mod.ts";
@@ -70,6 +71,7 @@ function JobItem({
   onSwitch: (enabled: boolean) => void;
 }) {
   const now = new Date();
+  const machineNameOf = useMachineNameOf();
   const action = actionText(job.action, names);
   const last = job.last_run;
   const tone = last === null ? "neutral" : STATE[last.state].tone;
@@ -91,7 +93,7 @@ function JobItem({
         </Text>
         <Text variant="detail" tone="secondary" style={{ marginTop: 2 }}>
           {t("mobile.ops.job.when-next", {
-            when: whenOf(job),
+            when: whenOf(job, machineNameOf),
             next: nextOf(job, held),
           })}
         </Text>
@@ -204,6 +206,7 @@ export function JobsScreen(_: { place: PlaceOf<"jobs"> }) {
 }
 
 export function JobScreen({ place }: { place: PlaceOf<"job"> }) {
+  const machineNameOf = useMachineNameOf();
   const nav = useNav();
   const jobs = useJobs();
   const runs = useJobRuns(place.id);
@@ -304,7 +307,7 @@ export function JobScreen({ place }: { place: PlaceOf<"job"> }) {
         {found !== undefined && names !== undefined && (
           <>
             <FactRow label={t("jobs.label.trigger-field")}>
-              {whenOf(found)}
+              {whenOf(found, machineNameOf)}
             </FactRow>
             <FactRow
               label={t(

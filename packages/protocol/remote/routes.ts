@@ -169,7 +169,8 @@ export const devicesPushTargets = defineRead({
 // `pending`은 초대장으로 들었는데 다른 컴퓨터가 아직 받아들이지 않은 기기다(`rosterPending`): 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터 등.
 // `disputed`는 정해지지 않은 빼기(두 컴퓨터가 서로 뺐다)로 빠진 기기다. 명단에는 없고 사람이 이 컴퓨터에서 `roster/remove {key}`로
 // 다시 빼면 그 빼기가 이 컴퓨터의 판단이 되어 풀린다. 그 줄의 id와 이름은 지금 믿는 서명자의 항목(없으면 그 기기 자신의 서명)에서
-// 온다. `key`는 기기의 key다(엇갈린 줄을 고르는 값).
+// 온다. `key`는 기기의 key다(엇갈린 줄을 고르는 값). `terminal_input`은 명단에 서명된 값이 아니라 이
+// 컴퓨터가 허락한 것이다: 이 컴퓨터가 자기 표(기기의 key로 찾는다)에서 읽으므로 컴퓨터마다 다르다.
 export const rosterList = defineMemory({
   resource: "roster",
   method: "list",
@@ -201,7 +202,8 @@ export const rosterList = defineMemory({
 
 // 초대장을 낸다. `kind`는 들일 기기의 종류이고(사람이 폰과 컴퓨터 가운데 고른다) 다른 종류는 그 초대장으로 들지 못한다.
 // 수명은 short(`ROSTER_INVITE_SHORT_MS`)와 long(`ROSTER_INVITE_LONG_MS`. 새 기기가 이 컴퓨터와 같은 때 켜질 수 없을 때).
-// remote가 꺼져 있으면 unavailable이다.
+// remote가 꺼져 있으면 unavailable이다. `terminal_input`은 초대하는 이 컴퓨터가 기기를 받아들일 때 자기 표에 적는 허락이다(명단에는 실리지
+// 않고 다른 컴퓨터는 모른다).
 export const rosterInvite = defineMemory({
   resource: "roster",
   method: "invite",

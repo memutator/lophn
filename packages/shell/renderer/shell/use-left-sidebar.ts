@@ -111,6 +111,8 @@ export interface MachineListsValue {
   readonly offline: ReadonlySet<string>;
   /** 기계 id → 명단의 이름. */
   readonly names: ReadonlyMap<string, string>;
+  /** 올려야 해서 못 붙는 기계 → 올릴 쪽. */
+  readonly updates: ReadonlyMap<string, "client" | "host">;
   /** 기계(키 ""는 이 컴퓨터)의 project·앱 이름. Inbox 줄이 id 대신 쓴다. 목록 내용이 같으면 같은 값이다. */
   readonly inboxNames: InboxNamesByMachine;
   /** 줄의 기계(null은 이 컴퓨터) 묶음. */
@@ -383,6 +385,13 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
         ),
       ),
       names: new Map(roster.map((one) => [one.id, one.name])),
+      updates: new Map(
+        roster.flatMap((one) =>
+          one.status === "update" && one.update !== null
+            ? [[one.id, one.update] as const]
+            : [],
+        ),
+      ),
       inboxNames,
       dataOf,
     };

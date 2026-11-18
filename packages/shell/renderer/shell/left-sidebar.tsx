@@ -113,6 +113,8 @@ export interface LeftSidebarProps {
   onSettings?: () => void;
   /** 기계 id → 명단의 이름. 줄 끝 꼬리표가 쓴다. */
   machineNames?: ReadonlyMap<string, string>;
+  /** 올려야 해서 못 붙는 기계 id → 올릴 쪽(client는 이 컴퓨터, host는 그 기계). 꺼진 줄이 "Off" 대신 이유를 쓴다. */
+  machineUpdates?: ReadonlyMap<string, "client" | "host">;
   /** 이 컴퓨터에 없는 project 줄 아래에 서는 한 줄(Clone here, 잇기). */
   renderAway?: (workspace: SidebarWorkspace) => ReactNode;
 }
@@ -306,10 +308,19 @@ export function LeftSidebar({
   onWorkspaceSettings,
   onSettings,
   machineNames,
+  machineUpdates,
   renderAway,
 }: LeftSidebarProps) {
   const nameOf = (machine: string | undefined) =>
     machine === undefined ? undefined : (machineNames?.get(machine) ?? "");
+  const offlineLabel = (machine: string | undefined) => {
+    const update =
+      machine === undefined ? undefined : machineUpdates?.get(machine);
+    if (update === undefined) return t("left-sidebar.label.off");
+    return update === "client"
+      ? t("machine-update.viewer.status-desktop-client")
+      : t("machine-update.viewer.status-host", { name: nameOf(machine) ?? "" });
+  };
   const keyLabel = useKeyLabel();
   const newSessionKeys = keyLabel("new.agent");
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
@@ -489,7 +500,7 @@ export function LeftSidebar({
                   )}
                   {workspace.offline ? (
                     <span className={styles.rowMeta} data-offline-label="">
-                      {t("left-sidebar.label.off")}
+                      {offlineLabel(workspace.ref.machine)}
                     </span>
                   ) : null}
                 </button>

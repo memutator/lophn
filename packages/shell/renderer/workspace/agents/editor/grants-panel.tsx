@@ -150,11 +150,11 @@ interface GrantsPanelProps {
   readonly onChange: (entries: readonly AssignmentEntry[]) => void;
 }
 
-const NO_APPS: ReadonlyMap<string, readonly GrantApp[]> = new Map();
+const NO_APPS: ReadonlyMap<string, readonly GrantApp[] | null> = new Map();
 
 /**
  * 붙은 컴퓨터마다 그 컴퓨터가 내놓는 앱. 읽는 길은 그 컴퓨터의 core(범위 hub)라 연결된 컴퓨터만 읽고, 꺼진 컴퓨터는 목록에
- * 없다(저장된 줄로 그린다). hub가 없는 화면은 다른 컴퓨터가 없다.
+ * 없다(저장된 줄로 그린다). 연결됐는데 읽지 못한 컴퓨터는 null이다. hub가 없는 화면은 다른 컴퓨터가 없다.
  */
 function useComputerApps() {
   const hub = useMachineHub();
@@ -386,18 +386,22 @@ export function GrantsPanel({
                         ),
                       ),
                   };
-                  // 목록을 읽지 못한 줄(꺼진 컴퓨터, 읽는 중, 그 컴퓨터에서 사라진 앱)은 저장된 이름으로만 그린다.
+                  // 목록을 읽지 못한 줄(꺼진 컴퓨터, 읽는 중, 목록을 읽지 못함, 그 컴퓨터에서 사라진 앱)은 저장된 이름으로만 그린다.
                   if (found === undefined) {
                     return (
                       <TargetCard
                         key={key}
                         name={entry.name!}
                         summary={
-                          item.status === "connected"
-                            ? read === undefined
+                          item.status !== "connected"
+                            ? statusParts(item).label
+                            : read === undefined
                               ? ""
-                              : t("agents.label.grants-app-gone")
-                            : statusParts(item).label
+                              : read === null
+                                ? t("agents.label.grants-apps-unread", {
+                                    machine: machineName(machine),
+                                  })
+                                : t("agents.label.grants-app-gone")
                         }
                         open={false}
                         remove={remove}

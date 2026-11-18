@@ -7,6 +7,7 @@ import type { AppToolCaller } from "../../../protocol/apps/calls/caller.ts";
 import { appRewindPlan } from "../../../protocol/apps/calls/rewind.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
 import { acpSnapshot } from "../../../protocol/acp/mod.ts";
+import { machinesList } from "../../../protocol/remote/mod.ts";
 import { sessionRewindPreview } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
 import type {
@@ -60,8 +61,14 @@ async function callerName(
     if (!read.ok) return caller.session;
     return (await agentNameOf(env, read.value.agent)) ?? caller.session;
   }
-  // 다른 기계가 부른 호출은 이 session의 되돌림에 오르지 않는다. 보이는 모양은 `use-screens`가 정한다.
-  if (caller.kind === "remote") return caller.machine;
+  // 다른 컴퓨터가 부른 호출. 이름은 이 컴퓨터의 명단에서 찾고 명단에 없으면 id다.
+  if (caller.kind === "remote") {
+    const read = await env.read(machinesList, {});
+    const named = read.ok
+      ? read.value.machines.find((one) => one.machine === caller.machine)
+      : undefined;
+    return named?.name ?? caller.machine;
+  }
   const app = await env.read(appGet, { app: caller.app });
   return app.ok ? app.value.app.name : caller.app;
 }

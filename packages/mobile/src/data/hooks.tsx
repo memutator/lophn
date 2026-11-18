@@ -69,6 +69,7 @@ import {
   readQuestions,
   type WaitingChoice,
 } from "../../../shell/renderer/desktop/connection/waiting/decide.ts";
+import type { MachineNameOf } from "../../../shell/renderer/desktop/jobs/model.ts";
 import { markNoticesRead } from "../../../shell/renderer/desktop/connection/waiting/history.ts";
 import type { InboxNames } from "../../../shell/renderer/desktop/connection/waiting/names.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
@@ -210,6 +211,15 @@ export function useComputers(): ComputersView {
     setDeviceName: computers.setDeviceName,
     retry: computers.resume,
   };
+}
+
+/** A paired computer's name by its machine id, for text that names another computer; null when this phone has not paired it. */
+export function useMachineNameOf(): MachineNameOf {
+  const { computers } = useComputers();
+  return useCallback(
+    (machine) => computers.find((one) => one.machine === machine)?.name ?? null,
+    [computers],
+  );
 }
 
 /** The computer on screen, or the one the enclosing `ComputerScope` names. */

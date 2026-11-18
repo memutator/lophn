@@ -9,6 +9,7 @@ import { useNav } from "../../app/nav.ts";
 import { DIM, EmptyNote, OfflineBanner, useLocked, WorkspaceMark } from "../../parts/mod.ts";
 import {
   nextText,
+  useMachineNameOf,
   useProjectJobs,
   whenOf,
   type Workspace,
@@ -30,6 +31,7 @@ const TABS = [
 // Read only: turning a job on or off and running it now come with the Jobs screens.
 function JobsTab({ project }: { project: string }) {
   const jobs = useProjectJobs(project);
+  const machineNameOf = useMachineNameOf();
   if (jobs.loaded.state === "failed") return <Failed onRetry={jobs.reload} />;
   if (jobs.loaded.state !== "ready") return null;
   if (jobs.loaded.value.length === 0) {
@@ -43,7 +45,7 @@ function JobsTab({ project }: { project: string }) {
           key={job.id}
           lead={<Icon icon={Clock} />}
           title={job.title}
-          sub={`${whenOf(job)} · ${nextText(job, now)}`}
+          sub={`${whenOf(job, machineNameOf)} · ${nextText(job, now)}`}
         />
       ))}
     </>

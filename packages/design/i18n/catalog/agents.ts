@@ -151,6 +151,7 @@ export const agents = {
   "agents.label.grants-app-tools-summary":
     "{used, number} of {total, number} tools",
   "agents.label.grants-app-gone": "Not on this computer any more",
+  "agents.label.grants-apps-unread": "Could not read {machine}'s apps",
   "agents.label.grants-target": "the grants",
   "agents.label.instructions-head-placed":
     "Workspace instructions \u00b7 {file} in {workspace} \u2014 read by every agent working there",

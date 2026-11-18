@@ -57,6 +57,7 @@ export {
   useCodingSessions,
   useCurrentComputer,
   useInbox,
+  useMachineNameOf,
   useNames,
   useSampleConversation,
   useStartSession,

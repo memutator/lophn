@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py core-setup build`가 `tasks/*.md`에서 id, 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `setup-project` | setup | 1 | 없음 | todo |  |  |  |
-| `setup-provider` | setup | 1 | 없음 | todo |  |  |  |
+| `setup-project` | setup | 1 | 없음 | running | setup/setup-project |  |  |
+| `setup-provider` | setup | 1 | 없음 | running | setup/setup-provider |  |  |
 | `setup-scope` | setup | 1 | 없음 | todo |  |  |  |
 | `setup-phone` | setup | 2 | setup-provider, setup-scope | todo |  |  |  |
 | `setup-viewer` | setup | 2 | setup-provider, setup-project, setup-scope | todo |  |  |  |

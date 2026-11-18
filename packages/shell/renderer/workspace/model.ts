@@ -26,6 +26,11 @@ export interface TabItem {
   readonly preview?: boolean;
   /** popup 같은 잠깐 떴다 사라지는 탭. 저장하지 않는다. dockFloat·reattachTab이 지운다. */
   readonly transient?: boolean;
+  /**
+   * 탭이 보는 기계(`mch_`). 없으면 그 workspace의 기계다(이 컴퓨터의 workspace면 이 컴퓨터, "Home · X"면 X). 같은 project 한 줄
+   * 안에서 다른 기계의 session·터미널을 열 때 단다. 아직 layout에 저장하지 않는다.
+   */
+  readonly machine?: string;
 }
 
 /** float 층(title bar 아래 창 몸통, 양쪽 sidebar 포함) 왼쪽 위를 (0,0)으로 한 CSS px 정수 사각형. */

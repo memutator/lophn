@@ -24,10 +24,11 @@ import styles from "./input-request-card.module.css";
 
 /**
  * preload의 `openSecretInput`에 요청 card의 열기를 보낸다(session과 tool call만). 창에 보일 내용은 main이 core에서 읽는다.
- * 열지 못하거나 이미 열린 창이 있으면 false다.
+ * `machine`은 card가 선 범위의 기계다(null이면 이 컴퓨터). 열지 못하거나 이미 열린 창이 있으면 false다.
  */
 export async function openInputRequestWindow(
   request: SecretInputRequestOpen["request"],
+  machine: string | null,
 ): Promise<boolean> {
   const shell = (
     globalThis as {
@@ -38,7 +39,9 @@ export async function openInputRequestWindow(
       };
     }
   ).lophnShell;
-  const reply = await shell?.openSecretInput?.({ request }).catch(() => null);
+  const reply = await shell
+    ?.openSecretInput?.(machine === null ? { request } : { request, machine })
+    .catch(() => null);
   return reply?.ok === true;
 }
 
@@ -51,8 +54,8 @@ interface InputRequestCardProps {
     AgentTabSource,
     "readInputRequest" | "cancelInputRequest" | "signInInputRequest"
   >;
-  /** 보호 창을 열고 닫힐 때까지 기다린다. 열지 못하면 false다. */
-  onEnter: () => Promise<boolean>;
+  /** 보호 창을 열고 닫힐 때까지 기다린다. `machine`은 card가 선 범위의 기계다. 열지 못하면 false다. */
+  onEnter: (machine: string | null) => Promise<boolean>;
 }
 
 export function InputRequestCard({
@@ -95,7 +98,7 @@ export function InputRequestCard({
   const enter = async () => {
     setBusy(true);
     setFailed(false);
-    const opened = await onEnter();
+    const opened = await onEnter(machine?.id ?? null);
     setBusy(false);
     setFailed(!opened);
   };

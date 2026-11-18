@@ -1,10 +1,10 @@
 // main이 민 연결 상태만 본다. token·port는 이 쪽에 없다.
 import {
   type ConnectionState,
-  connectionStateSchema,
   type CoreCall,
   type CoreEventMessage,
   type CoreWatch,
+  connectionStateSchema,
 } from "../../../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../../../ipc/core-api.ts";
 
@@ -19,9 +19,9 @@ export interface CoreSource {
   current?(): ConnectionState | undefined;
   call(input: CoreCall): Promise<CoreReply>;
   // 둘 다 없으면 event를 못 받는 source다(event를 쓰지 않는 mock). event client가 건너뛴다.
-  /** 이 창의 구독 조건 전체를 통째로 바꾼다. */
+  /** 이 source가 가는 core(이 컴퓨터나 그 기계)에 건 이 창의 구독 조건 전체를 통째로 바꾼다. */
   watch?(conditions: CoreWatch["conditions"]): Promise<void>;
-  /** main이 중계한 Gateway 메시지(ready·event·closed)를 듣는다. */
+  /** main이 중계한 Gateway 메시지(ready·event·closed) 가운데 이 source가 가는 core의 것을 듣는다. */
   onEvent?(listener: (message: CoreEventMessage) => void): () => void;
 }
 
@@ -33,7 +33,10 @@ function readBridge(): CoreApi | undefined {
   return bridge;
 }
 
-/** preload가 없으면 starting만 보고 call은 거절한다. 테스트는 source를 끼운다. */
+/**
+ * 이 컴퓨터의 core. preload가 없으면 starting만 보고 call은 거절한다. 테스트는 source를 끼운다.
+ * 다른 기계의 것은 `desktop/machines/core-source.ts`다.
+ */
 export function windowCoreSource(): CoreSource {
   const bridge = readBridge();
   if (!bridge) {
@@ -65,7 +68,11 @@ export function windowCoreSource(): CoreSource {
     current: () => last,
     call: (input) => bridge.call(input),
     watch: (conditions) => bridge.watch(conditions),
-    onEvent: (listener) => bridge.onEvent(listener),
+    // 다른 기계의 message는 `machine`을 달고 같은 통로로 온다. 그 기계의 범위가 듣는다.
+    onEvent: (listener) =>
+      bridge.onEvent((message) => {
+        if (message.machine === undefined) listener(message);
+      }),
   };
 }
 

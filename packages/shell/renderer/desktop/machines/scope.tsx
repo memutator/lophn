@@ -1,0 +1,88 @@
+// 화면이 "어느 기계"를 고르는 범위. 범위 안의 읽기·부르기·event는 그 기계로 간다: 범위가 그 기계 묶음의 store, 앱 view,
+// project icon, 설정 허락 묻기를 context로 주므로 화면의 code는 core를 읽고 부르는 모양 그대로다(호출마다 기계를 넘기지 않는다).
+import { createContext, type ReactNode, useContext } from "react";
+
+import { AppViewsProvider } from "../../app-frame/app-views.tsx";
+import { ProjectIconsProvider } from "../../parts/project-icon/project-icon.tsx";
+import { EventsProvider } from "../connection/events/hooks.tsx";
+import {
+  MachineGrantProvider,
+  ScopeMachineProvider,
+  useScopeMachine,
+} from "./context.tsx";
+import type { MachineData, MachineHub } from "./data.ts";
+
+/** 기계를 가리키는 값. null이 이 컴퓨터다. 이 컴퓨터의 id는 넣지 않는다. */
+export type MachineRef = string | null;
+
+export { useScopeMachine };
+
+const HubContext = createContext<MachineHub | null>(null);
+
+export function MachineHubProvider({
+  hub,
+  children,
+}: {
+  hub: MachineHub;
+  children: ReactNode;
+}) {
+  return <HubContext.Provider value={hub}>{children}</HubContext.Provider>;
+}
+
+/** hub가 없는 화면(entry의 조립 없이 그리는 gallery의 Desktop)은 null이다. */
+export function useMachineHub(): MachineHub | null {
+  return useContext(HubContext);
+}
+
+/** 그 기계의 묶음. 인자가 없으면 지금 범위의 기계다. `MachineHubProvider` 안에서만 쓴다. */
+export function useMachineData(machine?: MachineRef): MachineData {
+  const hub = useContext(HubContext);
+  const scope = useScopeMachine();
+  if (hub === null) throw new Error("MachineHubProvider is missing");
+  return hub.get(machine === undefined ? scope : machine);
+}
+
+/** 그 기계의 범위를 준다. 폴더 목록 dialog(다른 기계의 폴더 고르기)의 자리도 여기 둔다. */
+export function MachineScope({
+  machine,
+  children,
+}: {
+  machine: MachineRef;
+  children: ReactNode;
+}) {
+  const data = useMachineData(machine);
+  const Folders = data.folders?.Host;
+  return (
+    <ScopeMachineProvider value={machine}>
+      <EventsProvider stores={data.stores}>
+        <AppViewsProvider value={data.appViews}>
+          <ProjectIconsProvider value={data.projectIcons}>
+            <MachineGrantProvider check={data.grant}>
+              {children}
+              {Folders === undefined ? null : <Folders />}
+            </MachineGrantProvider>
+          </ProjectIconsProvider>
+        </AppViewsProvider>
+      </EventsProvider>
+    </ScopeMachineProvider>
+  );
+}
+
+/**
+ * 탭 host가 탭의 기계 묶음을 찾는 길(`TabHost`의 두 칸). kind의 hook 아닌 자리(`iconOf`, `dotOf`, `transfer`)가 쓴다.
+ * `machine`은 지금 범위(workspace)의 기계다.
+ */
+export function useHostMachine(): {
+  readonly machine: MachineRef;
+  machineData(machine: MachineRef): MachineData;
+} {
+  const machine = useScopeMachine();
+  const hub = useContext(HubContext);
+  return {
+    machine,
+    machineData(target) {
+      if (hub === null) throw new Error("MachineHubProvider is missing");
+      return hub.get(target);
+    },
+  };
+}

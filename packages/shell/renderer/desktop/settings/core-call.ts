@@ -44,17 +44,20 @@ export function command<R extends CommandRoute>(
   );
 }
 
-/** preload의 보호 입력 창 열기. 없는 창에서는 undefined다. */
-export function windowSecretInputOpener():
-  | SecretInputOpenApi["open"]
-  | undefined {
+/**
+ * preload의 보호 입력 창 열기. 없는 창에서는 undefined다. `machine`을 주면 값과 읽기가 그 기계의 link로만 간다(범위의 기계).
+ */
+export function windowSecretInputOpener(
+  machine: string | null = null,
+): SecretInputOpenApi["open"] | undefined {
   const shell = (
     globalThis as {
       lophnShell?: { openSecretInput?: SecretInputOpenApi["open"] };
     }
   ).lophnShell;
   return typeof shell?.openSecretInput === "function"
-    ? (input) => shell.openSecretInput!(input)
+    ? (input) =>
+        shell.openSecretInput!(machine === null ? input : { ...input, machine })
     : undefined;
 }
 

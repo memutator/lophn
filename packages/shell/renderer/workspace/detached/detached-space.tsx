@@ -32,6 +32,7 @@ import type { TabHost } from "../kinds/host.ts";
 import type { TabItem } from "../model.ts";
 import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
 import type { WorkspaceWindowProps } from "../workspace-window.tsx";
+import { useHostMachine } from "../../desktop/machines/scope.tsx";
 import styles from "./detached-space.module.css";
 
 interface DetachedSpaceProps {
@@ -172,8 +173,10 @@ function DetachedTab({
     agentViewSource,
   };
 
+  const hostMachine = useHostMachine();
   const host: TabHost = {
     workspace: { kind: "project", id: project },
+    ...hostMachine,
     projectId: project,
     projectTitle: projectView?.title,
     explorerRoot: undefined,

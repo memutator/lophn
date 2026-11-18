@@ -20,6 +20,8 @@ import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactsSlice } from "../../conversation/message-list/artifact-text.tsx";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
+import type { MachineData } from "../../desktop/machines/data.ts";
+import type { MachineRef } from "../../desktop/machines/scope.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
 interface DocumentSlice {
@@ -88,6 +90,10 @@ export interface ProjectSettingsSlice {
 export interface TabHost {
   /** 이 창이 보이는 workspace. Home이면 project 폴더가 필요한 kind는 열리지 않는다. */
   readonly workspace: WorkspaceRef;
+  /** workspace의 기계. 탭의 기계는 `tab.machine ?? machine`이다. */
+  readonly machine: MachineRef;
+  /** 그 기계의 묶음. kind의 hook 아닌 자리(`iconOf`, `dotOf`, `transfer`)가 탭의 기계 묶음을 이것으로 찾는다. */
+  machineData(machine: MachineRef): MachineData;
   /** workspace가 project일 때 그 id. Home이면 null이다. */
   readonly projectId: string | null;
   readonly projectTitle: string | undefined;

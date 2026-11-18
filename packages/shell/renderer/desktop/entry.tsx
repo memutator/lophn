@@ -1,73 +1,16 @@
-import { mount } from "../entry.tsx";
 import { HighlighterProvider } from "@lophn/ui/reading";
-import { createWorkerHighlighter } from "../highlight/client.ts";
-import { Desktop } from "./main.tsx";
-import { type CoreSource, windowCoreSource } from "./connection/connection.ts";
-import { windowEditorDeps } from "../editor/window-deps.ts";
-import {
-  openApp,
-  openAppWindow,
-  openDetached,
-  openProject,
-  openSettings,
-  type Route,
-} from "./router.ts";
-import { catalogSource } from "./palette/core-catalog.ts";
-import { createTerminalCore } from "../terminal/core.ts";
-import { type TerminalDeps, windowTerminalDeps } from "../terminal/deps.ts";
-import { TerminalStore } from "../terminal/store.ts";
-import {
-  createXtermView,
-  type TerminalClipboard,
-} from "../terminal/xterm-view.ts";
-import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { TerminalApi } from "../../ipc/terminal.ts";
-import type { AppearanceApi } from "../../ipc/appearance.ts";
-import {
-  type AppViewsDeps,
-  AppViewsProvider,
-  coreAppRead,
-  coreAppScreens,
-} from "../app-frame/app-views.tsx";
-import { coreAppIcon } from "../app-frame/app-icon.tsx";
-import {
-  coreProjectIcons,
-  ProjectIconsProvider,
-} from "../parts/project-icon/project-icon.tsx";
-import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
-import type { PaletteDeps } from "./palette/host.tsx";
-import { fileSearch } from "./palette/search.ts";
-import { coreFileSearchSource } from "../workspace/search/core-source.ts";
-import { createEventClient } from "./connection/events/client.ts";
-import { EventsProvider } from "./connection/events/hooks.tsx";
-import { ConversationProvider } from "../conversation/window-deps.tsx";
-import { coreAgentTabSourceFactory } from "../conversation/agent-tab-core-source.ts";
-import { signInInputRequest } from "../conversation/agent-tab-core-source-sign-in.ts";
-import { DraftStore } from "../conversation/drafts.ts";
-import { coreWorkspaceSource } from "../workspace/core-source.ts";
-import { coreAppsSource } from "../apps/core-source.ts";
-import {
-  coreProjectsSource,
-  windowFolderPicker,
-} from "./workspaces/projects/core-source.ts";
-import { coreSettingsSource } from "./settings/core-source.ts";
-import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
-import type { QueryLocalFonts } from "./settings/appearance/local-fonts.ts";
-import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
-import { coreRemoteSource } from "./settings/remote/core-source.ts";
-import { coreSyncSource } from "./settings/sync/core-source.ts";
-import { coreJobsSource } from "./jobs/core-source.ts";
-import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
-import { windowBrowserSettings } from "./settings/browser/window-source.ts";
-import { coreProviderSettingsSource } from "./settings/providers/core-source.ts";
-import { coreAgentsSettingsSource } from "./settings/agents/core-source.ts";
-import { coreDiagnosticsSource } from "./settings/diagnostics/core-source.ts";
-import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
-import { coreCodingConnectionsSource } from "./settings/connections/core-source.ts";
+import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { AppearanceApi } from "../../ipc/appearance.ts";
 import type { LophnArtifactApi } from "../../ipc/artifact.ts";
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
+import type { CoreApi } from "../../ipc/core-api.ts";
 import type { LophnDetachedApi } from "../../ipc/detached.ts";
+import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
+import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
+import { machineAppViews } from "../app-frame/machine-deps.ts";
+import { coreAppsSource } from "../apps/core-source.ts";
 import {
   AnnotateApiProvider,
   ArtifactApiProvider,
@@ -76,26 +19,55 @@ import {
   BrowserApiProvider,
   BrowserOverlayProvider,
 } from "../browser/browser-api.tsx";
-import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
+import { coreAgentTabSourceFactory } from "../conversation/agent-tab-core-source.ts";
+import { signInInputRequest } from "../conversation/agent-tab-core-source-sign-in.ts";
+import { DraftStore } from "../conversation/drafts.ts";
+import { ConversationProvider } from "../conversation/window-deps.tsx";
+import { windowEditorDeps } from "../editor/window-deps.ts";
+import { mount } from "../entry.tsx";
+import { createWorkerHighlighter } from "../highlight/client.ts";
+import { coreProjectIcons } from "../parts/project-icon/project-icon.tsx";
+import { machineTerminalDeps } from "../terminal/machine-deps.ts";
+import { coreWorkspaceSource } from "../workspace/core-source.ts";
+import { coreFileSearchSource } from "../workspace/search/core-source.ts";
+import { windowCoreSource } from "./connection/connection.ts";
+import { createEventClient } from "./connection/events/client.ts";
+import { createEventStores } from "./connection/events/hooks.tsx";
+import { coreJobsSource } from "./jobs/core-source.ts";
+import { MachinesProvider } from "./machines/context.tsx";
+import { createMachineHub, type MachineData } from "./machines/data.ts";
+import { MachineHubProvider, MachineScope } from "./machines/scope.tsx";
+import { windowMachinesSource } from "./machines/window-source.ts";
+import { MachineDesktop } from "./main.tsx";
+import { catalogSource } from "./palette/core-catalog.ts";
+import type { PaletteDeps } from "./palette/host.tsx";
+import { fileSearch } from "./palette/search.ts";
+import {
+  openApp,
+  openAppWindow,
+  openDetached,
+  openProject,
+  openSettings,
+  type Route,
+} from "./router.ts";
+import { coreAgentsSettingsSource } from "./settings/agents/core-source.ts";
+import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
+import type { QueryLocalFonts } from "./settings/appearance/local-fonts.ts";
+import { windowBrowserSettings } from "./settings/browser/window-source.ts";
+import { coreCodingConnectionsSource } from "./settings/connections/core-source.ts";
+import { coreSettingsSource } from "./settings/core-source.ts";
+import { coreDiagnosticsSource } from "./settings/diagnostics/core-source.ts";
+import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
+import { coreProviderSettingsSource } from "./settings/providers/core-source.ts";
 import { coreQuickPrefsSource } from "./settings/quick-launch/core-source.ts";
 import { QuickPrefsProvider } from "./settings/quick-launch/store.tsx";
+import { coreRemoteSource } from "./settings/remote/core-source.ts";
+import { coreSyncSource } from "./settings/sync/core-source.ts";
+import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
 import {
-  DEFAULT_QUICK_PREFS,
-  type QuickPrefs,
-  type QuickPrefsSource,
-} from "./settings/quick-launch/source.ts";
-import type { JobsSource } from "./jobs/source.ts";
-import { MachineGrantProvider, MachinesProvider } from "./machines/context.tsx";
-import {
-  coreBrowseFolders,
-  createFolderBrowser,
-} from "./workspaces/folder-browser.tsx";
-import { settingsList } from "../../../protocol/config/file.ts";
-import {
-  createLayoutSource,
-  memoryWorkspaceLayoutBridge,
-} from "../shell/layout-source.ts";
-import { windowMachinesSource } from "./machines/window-source.ts";
+  coreProjectsSource,
+  windowFolderPicker,
+} from "./workspaces/projects/core-source.ts";
 import { RemoteGroupsProvider } from "./workspaces/projects/remote-group.tsx";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
@@ -118,42 +90,59 @@ const seed =
     : null;
 // 시드 작업대와 mock 모드는 둘 다 가짜 작업대와 문서 탭 통로를 쓴다(core·편집 파일 통로 없음).
 const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
-// 이 창이 보는 기계(main이 정한다). null이면 이 컴퓨터의 창이다. 다른 기계의 창은 그 기계의 core를 같은 통로로 부르고,
-// 이 컴퓨터의 shell host가 필요하거나 기기가 부를 수 없는 통로는 짓지 않는다.
+// 기계 목록과 이 창이 보는 기계(main이 정한다). 기계에 묶인 창은 root 범위가 그 기계다(그런 창이 없어지면 늘 이 컴퓨터다).
 const machines = mock ? null : await windowMachinesSource();
-const remote = machines?.thisWindow() != null;
-const remoteLayouts = memoryWorkspaceLayoutBridge();
-const core = mock?.core ?? windowCoreSource();
-const editor = remote ? undefined : windowEditorDeps(core);
-// 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
-const events = createEventClient(mock?.events ?? core);
-// 폴더 고르기. 이 컴퓨터의 창은 OS 선택기, 다른 기계의 창은 그 기계의 폴더 목록 dialog다(OS 선택기는 이 컴퓨터의 폴더를 보인다).
-const folders = remote ? createFolderBrowser(coreBrowseFolders(core)) : null;
-const picker = folders?.picker ?? windowFolderPicker();
-// Home Workspaces panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
-const projects = mock?.projects ?? coreProjectsSource(core, picker);
-// Home Workspaces panel의 앱 목록·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
-const apps = mock?.apps ?? coreAppsSource(core);
-// 팔레트의 project·앱 행.
-const catalog = mock?.catalog ?? catalogSource(projects, apps);
-const appDetail = remote
-  ? undefined
-  : (mock?.appDetail ?? coreAppDetailSource(core));
-// settings 화면의 일반 설정·확장. credential은 보호 창이 받는다. 다른 기계의 창이면 그 기계의 설정이다.
-const settings = mock?.settings ?? coreSettingsSource(core);
-// workspace 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
-const jobs =
-  mock?.jobs ?? (remote ? jobsSwitchOnly(core) : coreJobsSource(core));
-// settings 항목마다의 통로. key·로그인 응답은 보호 창이 받는다.
-// 다른 기계의 창은 그 기계의 core에 걸린 항목만 그 기계로 짓는다(settings/model.ts의 MACHINE_PANES). 나머지는 이 컴퓨터에 붙어 있다.
-const settingsPanels = remote
-  ? {
-      providers: coreProviderSettingsSource(core, { machine: true }),
-      agents: coreAgentsSettingsSource(core, { picker }),
-      diagnostics: coreDiagnosticsSource(core),
-      shellRules: coreShellRulesSource(core),
-    }
-  : (mock?.settingsPanels ?? {
+const rootMachine = machines?.thisWindow()?.id ?? null;
+const bridges = globalThis as {
+  lophnCore?: CoreApi;
+  lophnShell?: OverlayApi &
+    Partial<LophnShellViewsApi> &
+    Partial<LophnShellAnnotateApi>;
+  lophnShortcuts?: ShortcutApi;
+  lophnIntents?: IntentApi;
+  lophnBrowser?: LophnBrowserApi;
+  lophnArtifact?: LophnArtifactApi;
+  lophnDetached?: LophnDetachedApi;
+};
+// shell preload의 앱 view 통로. desktop 창 preload에만 있다.
+const views: LophnShellViewsApi | undefined =
+  mock?.views ??
+  (typeof bridges.lophnShell?.openApp === "function"
+    ? (bridges.lophnShell as LophnShellViewsApi)
+    : undefined);
+
+// 이 컴퓨터의 묶음. 창에 붙은 통로(OS 폴더 고르기, 문서 편집, 글꼴, 터미널 입력)가 여기서 붙는다. 다른 기계의 묶음은 hub가
+// 그 기계를 처음 쓸 때 짓는다(machines/data.ts).
+function hereData(): MachineData {
+  const core = mock?.core ?? windowCoreSource();
+  // 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
+  const events = createEventClient(mock?.events ?? core);
+  const terminal = machineTerminalDeps(null, core, events);
+  const picker = windowFolderPicker();
+  // Home Workspaces panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
+  const projects = mock?.projects ?? coreProjectsSource(core, picker);
+  // Home Workspaces panel의 앱 목록·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
+  const apps = mock?.apps ?? coreAppsSource(core);
+  const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
+  return {
+    machine: null,
+    here: true,
+    core,
+    events,
+    stores: createEventStores(events, terminal?.store),
+    workspace: bench?.source ?? coreWorkspaceSource(core),
+    editor: bench ? bench.editor : windowEditorDeps(core),
+    projects,
+    apps,
+    // 팔레트의 project·앱 행.
+    catalog: mock?.catalog ?? catalogSource(projects, apps),
+    appDetail,
+    // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
+    settings: mock?.settings ?? coreSettingsSource(core),
+    // workspace 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
+    jobs: mock?.jobs ?? coreJobsSource(core),
+    // settings 항목마다의 통로. key·로그인 응답은 보호 창이 받는다.
+    settingsPanels: mock?.settingsPanels ?? {
       providers: coreProviderSettingsSource(core),
       agents: coreAgentsSettingsSource(core),
       diagnostics: coreDiagnosticsSource(core),
@@ -171,45 +160,33 @@ const settingsPanels = remote
       sync: coreSyncSource(core),
       coding: coreCodingConnectionsSource(core),
       browser: windowBrowserSettings(),
-    });
-// 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
-// 빠른 실행은 이 컴퓨터의 창에 붙은 설정이라(그 창의 Settings에서 Quick launch는 한 줄이다) 다른 기계의 창은 기본값을 메모리에만 둔다.
-const quickPrefs =
-  mock?.quickPrefs ??
-  (remote ? memoryQuickPrefs() : coreQuickPrefsSource(core));
-// 작업대는 제품 core 통로로 읽고 쓴다. 다른 기계의 창은 팔레트 파일 묶음(문서 목록)을 읽지 않는다: 그 파일은 그 기계에서만 연다.
-// 그 창의 layout은 저장하지 않고 창이 사는 동안 메모리에만 둔다(Settings에 갔다 와도 탭이 남고, 다시 열면 Home이다).
-const workspace =
-  bench?.source ??
-  (remote
-    ? {
-        ...coreWorkspaceSource(core),
-        files: async () => ({ ok: true, value: [] }),
-        layout: createLayoutSource(() => remoteLayouts),
-      }
-    : coreWorkspaceSource(core));
+    },
+    // 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
+    quickPrefs: mock?.quickPrefs ?? coreQuickPrefsSource(core),
+    // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
+    agentViewSource:
+      mock?.agentViewSource ??
+      coreAgentTabSourceFactory(core, { signIn: signInInputRequest }),
+    folders: null,
+    picker,
+    terminal,
+    appViews: mock?.appViews ?? machineAppViews(null, core, views, appDetail),
+    // project 표식의 icon 읽기와 project 설정의 올리기. 앱 icon과 달리 project는 선언이 없고 올린 것만 있다.
+    projectIcons: mock?.projectIcons ?? coreProjectIcons(core),
+    grant: () => Promise.resolve(true),
+  };
+}
+
+const hub = createMachineHub({
+  here: hereData,
+  bridge: mock ? undefined : bridges.lophnCore,
+  machines,
+  views,
+});
+const root = hub.get(rootMachine);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
 const conversation = { drafts: new DraftStore() };
-// Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
-// 다른 기계의 창도 sign_in card의 로그인을 돌린다(provider 로그인은 그 기계의 core가 기다린다). card가 device code만 단추로 둔다.
-const agentViewSource =
-  mock?.agentViewSource ??
-  coreAgentTabSourceFactory(
-    core,
-    remote
-      ? { device: true, signIn: signInInputRequest }
-      : { signIn: signInInputRequest },
-  );
-// 그 기계가 이 컴퓨터에 사람의 route를 열었는지. 판정은 `settings/list`의 forbidden이다(터미널 입력 허락이 없는 기기).
-async function machineGrant(): Promise<boolean> {
-  const reply = await core.call({
-    kind: settingsList.kind,
-    resource: settingsList.resource,
-    method: settingsList.method,
-    body: {},
-  });
-  return reply.ok || reply.error?.code !== "forbidden";
-}
+
 // main이 띄우는 앱 전용 창의 hash. `#app-window=<app>/<release>/<screen>`이고 각 부분은
 // encodeURIComponent된 값이다.
 function appWindowRoute(value: string): Route | undefined {
@@ -244,68 +221,7 @@ const start: Route | undefined = seed
           : location.hash === "#settings"
             ? openSettings()
             : undefined;
-// 창마다 하나. 터미널의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널은 core가 갖고, 입력·clipboard는 main을
-// 거친다. view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다. 다른 기계의 창에는 터미널이 없다.
-const terminalCore = createTerminalCore(core, events);
-const terminal: TerminalDeps | undefined = remote
-  ? undefined
-  : windowTerminalDeps(
-      terminalCore,
-      new TerminalStore(
-        terminalCore,
-        (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
-      ),
-      (host, edge) => {
-        const bridge = terminal!.bridge;
-        const clipboard: TerminalClipboard | null =
-          bridge === null
-            ? null
-            : {
-                copy: async (text) => {
-                  await bridge.copy({ text: text.slice(0, 60_000) });
-                },
-                paste: async () => {
-                  const reply = await bridge.paste();
-                  return reply.ok ? reply.value : "";
-                },
-              };
-        return createXtermView(host, edge, undefined, clipboard);
-      },
-    );
 
-// 다른 기계의 job은 켜고 끄기만 한다(기기의 `jobs/update`는 `enabled`만 받는다). 고치기·지우기·가져오기가 없으면 그 단추가 없다.
-function jobsSwitchOnly(core: CoreSource): JobsSource {
-  const { list, runs, setEnabled } = coreJobsSource(core);
-  return { list, runs, setEnabled };
-}
-
-function memoryQuickPrefs(): QuickPrefsSource {
-  let prefs: QuickPrefs = DEFAULT_QUICK_PREFS;
-  return {
-    read: () => Promise.resolve({ ok: true, value: prefs }),
-    write(key, value) {
-      prefs = { ...prefs, [key]: value };
-      return Promise.resolve({ ok: true, value: null });
-    },
-  };
-}
-
-// 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
-const bridges = globalThis as {
-  lophnShell?: OverlayApi &
-    Partial<LophnShellViewsApi> &
-    Partial<LophnShellAnnotateApi>;
-  lophnShortcuts?: ShortcutApi;
-  lophnIntents?: IntentApi;
-  lophnBrowser?: LophnBrowserApi;
-  lophnArtifact?: LophnArtifactApi;
-  lophnDetached?: LophnDetachedApi;
-};
-const views: LophnShellViewsApi | undefined =
-  mock?.views ??
-  (typeof bridges.lophnShell?.openApp === "function"
-    ? (bridges.lophnShell as LophnShellViewsApi)
-    : undefined);
 const annotate: LophnShellAnnotateApi | undefined =
   mock?.annotate ??
   (typeof bridges.lophnShell?.setMode === "function"
@@ -314,91 +230,56 @@ const annotate: LophnShellAnnotateApi | undefined =
 const browser: LophnBrowserApi | null =
   mock?.browser ?? bridges.lophnBrowser ?? null;
 const artifact: LophnArtifactApi | null = bridges.lophnArtifact ?? null;
+// 창 안 팔레트. root 범위의 project·앱 행과 파일을 찾는다. overlay와 shortcut 통로는 desktop preload가 연다.
 const palette: PaletteDeps | undefined =
   bridges.lophnShell && bridges.lophnShortcuts
     ? {
         overlay: bridges.lophnShell,
         shortcuts: bridges.lophnShortcuts,
-        search: fileSearch(catalog, coreFileSearchSource(core)),
+        search: fileSearch(root.catalog, coreFileSearchSource(root.core)),
       }
     : undefined;
-
-// 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언 read로
-// 프로젝트 탭의 앱 패널 열기를 세운다.
-const appViews: AppViewsDeps | null =
-  mock?.appViews ??
-  (views
-    ? {
-        views,
-        app: coreAppRead(core),
-        screens: coreAppScreens(core),
-        // 다른 컴퓨터를 보는 창에는 app detail source가 없다. 거기서는 켜지 못한다.
-        enableRun: (app) =>
-          appDetail?.setRun(app, true) ?? Promise.resolve({ ok: false }),
-        icon: coreAppIcon(core),
-      }
-    : null);
-
-// project 표식의 icon 읽기와 project 설정의 올리기. 앱 icon과 달리 project는 선언이 없고 올린 것만 있다.
-const projectIcons = mock?.projectIcons ?? coreProjectIcons(core);
 
 // 파일 읽기와 chat의 code block이 같은 Worker를 쓴다. Worker는 첫 highlight 때 뜬다.
 const highlighter = createWorkerHighlighter();
 
 const tree = (
-  <div className={styles.root}>
-    <HighlighterProvider value={highlighter}>
-      <ProjectIconsProvider value={projectIcons}>
-        <AppViewsProvider value={appViews}>
+  <MachineHubProvider hub={hub}>
+    <MachineScope machine={rootMachine}>
+      <div className={styles.root}>
+        <HighlighterProvider value={highlighter}>
           <BrowserApiProvider value={browser}>
             <ArtifactApiProvider value={artifact}>
               <AnnotateApiProvider value={annotate}>
                 <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
                   <ConversationProvider deps={conversation}>
-                    <EventsProvider client={events} terminals={terminal?.store}>
-                      <QuickPrefsProvider source={quickPrefs}>
-                        <RemoteGroupsProvider>
-                          <Desktop
-                            source={core}
-                            initial={start}
-                            workspace={workspace}
-                            editor={bench ? bench.editor : editor}
-                            windowWidth={seed ? 1440 : undefined}
-                            terminal={terminal}
-                            catalog={catalog}
-                            palette={palette}
-                            projects={projects}
-                            intents={bridges.lophnIntents}
-                            apps={apps}
-                            settings={settings}
-                            settingsPanels={settingsPanels}
-                            jobs={jobs}
-                            appDetail={appDetail}
-                            views={views}
-                            overlay={bridges.lophnShell}
-                            agentViewSource={agentViewSource}
-                            detached={bridges.lophnDetached}
-                          />
-                          {folders === null ? null : <folders.Host />}
-                        </RemoteGroupsProvider>
-                      </QuickPrefsProvider>
-                    </EventsProvider>
+                    <QuickPrefsProvider source={root.quickPrefs}>
+                      <RemoteGroupsProvider>
+                        <MachineDesktop
+                          initial={start}
+                          windowWidth={seed ? 1440 : undefined}
+                          palette={palette}
+                          intents={bridges.lophnIntents}
+                          views={views}
+                          overlay={bridges.lophnShell}
+                          detached={bridges.lophnDetached}
+                        />
+                      </RemoteGroupsProvider>
+                    </QuickPrefsProvider>
                   </ConversationProvider>
                 </BrowserOverlayProvider>
               </AnnotateApiProvider>
             </ArtifactApiProvider>
           </BrowserApiProvider>
-        </AppViewsProvider>
-      </ProjectIconsProvider>
-    </HighlighterProvider>
-  </div>
+        </HighlighterProvider>
+      </div>
+    </MachineScope>
+  </MachineHubProvider>
 );
 mount(
   machines === null ? (
     tree
   ) : (
-    <MachinesProvider source={machines}>
-      <MachineGrantProvider check={machineGrant}>{tree}</MachineGrantProvider>
-    </MachinesProvider>
+    <MachinesProvider source={machines}>{tree}</MachinesProvider>
   ),
 );

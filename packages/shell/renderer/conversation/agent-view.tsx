@@ -1419,11 +1419,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             session={session}
             toolCall={asked.toolCall}
             source={source}
-            onEnter={() =>
-              openInputRequestWindow({
-                session,
-                tool_call: asked.toolCall,
-              })
+            onEnter={(machine) =>
+              openInputRequestWindow(
+                { session, tool_call: asked.toolCall },
+                machine,
+              )
             }
           />
         ) : null}

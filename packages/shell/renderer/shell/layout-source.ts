@@ -9,22 +9,22 @@ import type {
 } from "../../ipc/workspace.ts";
 import { tabKindOf } from "../workspace/kinds/registry.ts";
 import {
+  clampSplitRatio,
   type Desk,
   type DetachedItem,
   type FloatRect,
   type FloatTab,
-  clampSplitRatio,
   GROUP_MAX,
   type Group,
   type GroupNode,
   MAIN_DESK,
-  type WorkspaceLayout,
   type QuickCommand,
+  settle,
+  type TabItem,
+  type WorkspaceLayout,
   type WorkspaceQuick,
   type WorkspaceRef,
   workspaceKey,
-  settle,
-  type TabItem,
 } from "./desk-model.ts";
 
 // main/workspace/workspace-layout.ts의 상한과 같다.
@@ -228,9 +228,12 @@ export function tabFromStored(value: unknown): TabItem | null {
   });
 }
 
-/** transient 탭, 저장하지 않는 kind(Agent 탭)의 탭, 맞출 수 없는 탭은 null이다. 부르는 쪽이 그 탭을 빼고 남은 배치를 맞춘다. */
+/**
+ * transient 탭, 다른 기계의 탭, 저장하지 않는 kind(Agent 탭)의 탭, 맞출 수 없는 탭은 null이다. 부르는 쪽이 그 탭을 빼고 남은
+ * 배치를 맞춘다. 다른 기계의 탭은 저장 값에 기계가 없어 되살리면 이 컴퓨터의 것(터미널 참조 등)이 된다.
+ */
 export function tabToStored(tab: TabItem): Record<string, unknown> | null {
-  if (tab.transient === true) return null;
+  if (tab.transient === true || tab.machine !== undefined) return null;
   return (
     tabKindOf(tab.kind)?.toStored?.(tab, {
       position: readPosition(tab.readPosition),

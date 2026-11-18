@@ -20,17 +20,23 @@ import { createSessionsStore, type SessionsState } from "./sessions-store.ts";
 import { createUnseenStore, type UnseenState } from "./unseen-store.ts";
 import { createWaitingStore, type WaitingState } from "./waiting-store.ts";
 
-interface Stores {
+/** 기계 하나의 event 연결과 그 위의 store. 범위(`MachineScope`)가 기계마다 하나를 들고 context로 준다. */
+export interface EventStores {
   readonly client: EventClient;
   readonly waiting: ReturnType<typeof createWaitingStore>;
   readonly sessions: ReturnType<typeof createSessionsStore>;
   readonly unseen: ReturnType<typeof createUnseenStore>;
   readonly acpUpdates: ReturnType<typeof createAcpUpdatesStore>;
+  /**
+   * store를 돌린다. 같은 기계의 범위가 여럿 서도(그 기계의 탭 여럿) 한 번만 돌고, 마지막으로 멈출 때 멈춘다.
+   * 반환 함수가 멈춘다.
+   */
+  start(): () => void;
 }
 
-const EventsContext = createContext<Stores | null>(null);
+const EventsContext = createContext<EventStores | null>(null);
 
-function useStores(): Stores {
+function useStores(): EventStores {
   const stores = useContext(EventsContext);
   if (!stores) throw new Error("EventsProvider is missing");
   return stores;
@@ -42,48 +48,73 @@ export interface UnseenTerminals {
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
 }
 
-/** 창마다 한 번 마운트한다. */
-export function EventsProvider({
-  client,
-  terminals,
-  children,
-}: {
-  client: EventClient;
-  terminals?: UnseenTerminals;
-  children: ReactNode;
-}) {
-  const stores = useMemo<Stores>(() => {
-    const unseen = createUnseenStore(client);
-    return {
-      client,
-      waiting: createWaitingStore(
-        client,
-        () => new Date().toISOString(),
-        terminals ?? null,
-        unseen,
-      ),
-      sessions: createSessionsStore(client, unseen),
-      unseen,
-      acpUpdates: createAcpUpdatesStore(client),
-    };
-  }, [client, terminals]);
-  useEffect(() => {
-    const stops = [
-      stores.waiting.start(),
-      stores.sessions.start(),
-      stores.unseen.start(),
-    ];
-    return () => stops.forEach((stop) => stop());
-  }, [stores]);
-  useEffect(() => {
-    if (terminals === undefined) return;
-    const note = () =>
-      terminals.noteUnseen(unseenTerminalRefs(stores.unseen.get()));
-    note();
-    return stores.unseen.subscribe(note);
-  }, [stores, terminals]);
+/** event 연결 하나 위에 store를 짓는다. 터미널 탭이 있는 기계는 `terminals`를 준다. */
+export function createEventStores(
+  client: EventClient,
+  terminals?: UnseenTerminals,
+): EventStores {
+  const unseen = createUnseenStore(client);
+  const waiting = createWaitingStore(
+    client,
+    () => new Date().toISOString(),
+    terminals ?? null,
+    unseen,
+  );
+  const sessions = createSessionsStore(client, unseen);
+  let users = 0;
+  let stop: (() => void) | null = null;
+  function run(): () => void {
+    const stops = [waiting.start(), sessions.start(), unseen.start()];
+    if (terminals !== undefined) {
+      const note = () => terminals.noteUnseen(unseenTerminalRefs(unseen.get()));
+      note();
+      stops.push(unseen.subscribe(note));
+    }
+    return () => stops.forEach((one) => one());
+  }
+  return {
+    client,
+    waiting,
+    sessions,
+    unseen,
+    acpUpdates: createAcpUpdatesStore(client),
+    start() {
+      if (users++ === 0) stop = run();
+      let stopped = false;
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        if (--users === 0) {
+          stop?.();
+          stop = null;
+        }
+      };
+    },
+  };
+}
+
+/**
+ * store를 context로 준다. 지은 `stores`를 받거나(desktop의 기계 범위) event 연결로 여기서 짓는다(폰, gallery).
+ * 마운트한 동안 store가 돈다.
+ */
+export function EventsProvider(
+  props: { children: ReactNode } & (
+    | { stores: EventStores }
+    | { client: EventClient; terminals?: UnseenTerminals }
+  ),
+) {
+  const given = "stores" in props ? props.stores : null;
+  const client = "client" in props ? props.client : null;
+  const terminals = "client" in props ? props.terminals : undefined;
+  const stores = useMemo(
+    () => given ?? createEventStores(client!, terminals),
+    [given, client, terminals],
+  );
+  useEffect(() => stores.start(), [stores]);
   return (
-    <EventsContext.Provider value={stores}>{children}</EventsContext.Provider>
+    <EventsContext.Provider value={stores}>
+      {props.children}
+    </EventsContext.Provider>
   );
 }
 

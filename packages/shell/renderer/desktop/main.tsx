@@ -25,6 +25,19 @@ import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
 import { HomeGate } from "./workspaces/home-gate.tsx";
 import { useWindowMachine } from "./machines/context.tsx";
 import {
+  createMachineHub,
+  type MachineData,
+  type MachineHub,
+} from "./machines/data.ts";
+import {
+  MachineHubProvider,
+  useHostMachine,
+  useMachineData,
+  useMachineHub,
+} from "./machines/scope.tsx";
+import { useAppViews } from "../app-frame/app-views.tsx";
+import { useProjectIcons } from "../parts/project-icon/project-icon.tsx";
+import {
   createSidebarMemory,
   SidebarMemoryProvider,
 } from "../shell/sidebar-memory.tsx";
@@ -94,7 +107,7 @@ interface DesktopProps {
   windowWidth?: number;
   /** 문서 탭의 읽기·편집 통로. */
   editor?: EditorDeps;
-  /** 터미널 탭 통로. 창 preload가 열어 둔 통로로 entry가 만든다. */
+  /** 터미널 탭 통로. 범위의 기계 묶음이 짓는다(terminal/machine-deps.ts). */
   terminal?: TerminalDeps;
   /** 팔레트의 project·앱 행 통로. 없으면 Settings 대신 Home을 보인다. */
   catalog?: CatalogSource;
@@ -175,8 +188,123 @@ function DefaultToastHandler({
 
 const HOME_WORKSPACE = { kind: "home" } as const;
 
+/** entry의 창. root 범위의 기계 묶음에서 통로를 꺼내 Desktop에 넘긴다. */
+export function MachineDesktop(
+  props: Omit<
+    DesktopProps,
+    | "source"
+    | "workspace"
+    | "editor"
+    | "terminal"
+    | "catalog"
+    | "projects"
+    | "apps"
+    | "settings"
+    | "settingsPanels"
+    | "jobs"
+    | "appDetail"
+    | "agentViewSource"
+  >,
+) {
+  const data = useMachineData();
+  return (
+    <Desktop
+      {...props}
+      source={data.core}
+      workspace={data.workspace}
+      editor={data.editor}
+      terminal={data.terminal}
+      catalog={data.catalog}
+      projects={data.projects}
+      apps={data.apps}
+      settings={data.settings}
+      settingsPanels={data.settingsPanels}
+      jobs={data.jobs}
+      appDetail={data.appDetail}
+      agentViewSource={data.agentViewSource}
+    />
+  );
+}
+
+/**
+ * entry의 조립 없이 props로 그리는 Desktop(gallery의 MockDesktop)에는 hub가 없다. 이 컴퓨터만 있는 hub를 props와 둘레 context로
+ * 세운다. 묶음의 칸 가운데 이 화면들이 읽지 않는 것(store, 폴더 고르기, 빠른 실행)은 비어 있다.
+ */
+function useOwnHub(props: DesktopProps): MachineHub | null {
+  const hub = useMachineHub();
+  const events = useOptionalEventClient();
+  const appViews = useAppViews();
+  const projectIcons = useProjectIcons();
+  const { source, workspace, editor, terminal, catalog, projects, apps } =
+    props;
+  const { settings, settingsPanels, jobs, appDetail, agentViewSource } = props;
+  return useMemo(
+    () =>
+      hub !== null
+        ? null
+        : createMachineHub({
+            bridge: undefined,
+            machines: null,
+            views: undefined,
+            here: () =>
+              ({
+                machine: null,
+                here: true,
+                core: source,
+                events,
+                workspace,
+                editor,
+                terminal,
+                catalog,
+                projects,
+                apps,
+                settings,
+                settingsPanels,
+                jobs,
+                appDetail,
+                agentViewSource,
+                folders: null,
+                picker: undefined,
+                quickPrefs: undefined,
+                appViews,
+                projectIcons,
+                grant: () => Promise.resolve(true),
+              }) as MachineData,
+          }),
+    [
+      hub,
+      source,
+      events,
+      workspace,
+      editor,
+      terminal,
+      catalog,
+      projects,
+      apps,
+      settings,
+      settingsPanels,
+      jobs,
+      appDetail,
+      agentViewSource,
+      appViews,
+      projectIcons,
+    ],
+  );
+}
+
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
-export function Desktop({
+export function Desktop(props: DesktopProps) {
+  const own = useOwnHub(props);
+  return own === null ? (
+    <DesktopSpace {...props} />
+  ) : (
+    <MachineHubProvider hub={own}>
+      <DesktopSpace {...props} />
+    </MachineHubProvider>
+  );
+}
+
+function DesktopSpace({
   source,
   initial = HOME,
   formatTime,
@@ -331,9 +459,10 @@ export function Desktop({
   // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 연결 화면(HomeGate)을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
-  // 다른 기계의 창은 한 번 붙은 뒤로는 끊겨도 마지막 화면을 그대로 두고(위에 끊김 한 줄), 그 기계가 이 desktop을 지웠으면
-  // 언제든 창 전체가 gate다.
+  // root 범위가 다른 기계면(그 기계의 창) 한 번 붙은 뒤로는 끊겨도 마지막 화면을 그대로 두고(위에 끊김 한 줄), 그 기계가 이
+  // desktop을 지웠으면 언제든 창 전체가 gate다.
   const machine = useWindowMachine();
+  const hostMachine = useHostMachine();
   const connected = useRef(false);
   if (connection.state === "ready") connected.current = true;
   const live =
@@ -525,6 +654,7 @@ export function Desktop({
                   <GlobalFloatLayer
                     env={{
                       source: workspace,
+                      hostMachine,
                       editor,
                       terminal,
                       agentViewSource,

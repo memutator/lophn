@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import type { MachineRef } from "./scope.tsx";
 import type { MachineItem, MachinesSource, MachinesView } from "./source.ts";
 
 const MachinesContext = createContext<MachinesSource | null>(null);
@@ -41,25 +42,51 @@ export function useMachinesView(): MachinesView | null {
   return useSyncExternalStore(subscribe, () => source?.get() ?? null);
 }
 
+// 화면이 지금 그리는 기계. `MachineScope`가 준다.
+const ScopeMachineContext = createContext<MachineRef | undefined>(undefined);
+
+export const ScopeMachineProvider = ScopeMachineContext.Provider;
+
 /**
- * 이 창이 보는 다른 기계. null이면 이 컴퓨터의 창이다. 다른 기계의 창은 이 값으로 그 기계에서 부를 수 없는 기능을 감추고
- * 그 자리에 기계 이름을 보인다. 목록을 아직 모르면(starting) 붙는 중이고, 아는 목록에 없으면 명단에서 빠진 것(removed)이다.
+ * 범위의 기계. null이면 이 컴퓨터다. 범위 밖(범위를 두지 않고 그리는 gallery page)이면 창이 보는 기계다.
+ * `scope.tsx`가 이 이름으로 내놓는다.
  */
-export function useWindowMachine(): MachineItem | null {
+export function useScopeMachine(): MachineRef {
+  const scope = useContext(ScopeMachineContext);
   const source = useMachines();
-  const view = useMachinesView();
+  return scope === undefined ? (source?.thisWindow()?.id ?? null) : scope;
+}
+
+/**
+ * 명단의 기계 하나. 목록을 아직 모르면(starting) 붙는 중이고, 아는 목록에 없으면 명단에서 빠진 것(removed)이다.
+ * 이름을 모르면 창이 처음 받은 그 기계의 이름이다.
+ */
+export function machineItemOf(
+  source: MachinesSource | null,
+  view: MachinesView | null,
+  machine: string,
+): MachineItem {
   const win = source?.thisWindow() ?? null;
-  if (win === null) return null;
   return (
-    view?.machines.find((one) => one.id === win.id) ?? {
-      id: win.id,
-      name: win.name,
+    view?.machines.find((one) => one.id === machine) ?? {
+      id: machine,
+      name: win?.id === machine ? win.name : "",
       status: view?.state === "ready" ? "removed" : "connecting",
       update: null,
       path: null,
       lastSeenAt: null,
     }
   );
+}
+
+/**
+ * 범위의 다른 기계. null이면 이 컴퓨터다. 그 기계에서 부를 수 없는 기능을 감추고 그 자리에 기계 이름을 보이는 쪽이 쓴다.
+ */
+export function useWindowMachine(): MachineItem | null {
+  const machine = useScopeMachine();
+  const source = useMachines();
+  const view = useMachinesView();
+  return machine === null ? null : machineItemOf(source, view, machine);
 }
 
 /** 그 기계가 이 컴퓨터에 사람의 route(설정, provider, project 더하기)를 열었는지 묻는다. 거절(forbidden)이면 false다. */
@@ -80,7 +107,8 @@ export function MachineGrantProvider({
 }
 
 /**
- * 이 창에서 그 기계의 설정을 바꿀 수 있는지. 이 컴퓨터의 창과 묻는 길이 없는 화면(gallery)은 granted다. 허락은 사람이 아무 컴퓨터에서나
+ * 범위의 기계 설정을 바꿀 수 있는지. 묻는 길은 범위가 준다(그 기계 묶음의 `grant()`). 이 컴퓨터의 범위와 묻는 길이 없는
+ * 화면(gallery)은 granted다. 허락은 사람이 아무 컴퓨터에서나
  * 바꾸므로 쓰는 화면이 열릴 때마다(`open`이 켜질 때마다, Settings는 항목을 열 때마다 `at`이 바뀐다) 다시 묻는다. 다시 묻는 동안은
  * 앞의 답을 그대로 보인다.
  */

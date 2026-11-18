@@ -50,6 +50,8 @@ import {
 /** 본문이 workspace 창 없이 kind를 그리려고 Desktop에서 받는 통로. */
 export interface GlobalFloatEnv {
   source: WorkspaceSource;
+  /** 범위의 기계와 기계마다의 묶음(`useHostMachine`). */
+  hostMachine: Pick<TabHost, "machine" | "machineData">;
   editor?: EditorDeps;
   terminal?: TerminalDeps;
   agentViewSource?: AgentTabSourceFactory;
@@ -102,6 +104,7 @@ function hostOf(
     props,
     appScreens: false,
     projectSettings: null,
+    ...env.hostMachine,
     ...parts,
   };
 }

@@ -39,7 +39,7 @@ export interface TabKindDef {
   rename?(tab: TabItem, name: string | null, host: TabHost): void;
   /**
    * true면 이 탭은 이 컴퓨터의 shell host(파일, 터미널, browser, 앱 view)나 기기가 부를 수 없는 관리 route가 있어야 선다.
-   * 다른 기계의 창에서는 본문 대신 "This opens only on <이름>"이 선다.
+   * 탭의 기계가 이 컴퓨터가 아니면 본문 대신 OnlyHere("This opens only on <이름>")다. 다른 기계에서 열리게 한 kind는 이 표를 뺀다.
    */
   readonly thisComputerOnly?: true;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */

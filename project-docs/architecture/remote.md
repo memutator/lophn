@@ -74,24 +74,26 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 
 ### desktop에서 다른 기계 보기
 
-desktop 앱이 명단의 다른 컴퓨터의 session, 대화, 승인과 질문, Inbox, job 켜고 끄기를 그 기계의 창에서 본다. 받는 기계는 이 컴퓨터를 `device:<이 컴퓨터의 id>`인 기기로 보므로 권한은 폰과 같다. 다른 기계의 관리(설정, secret, provider)는 없고 각 기계의 처음 설정은 그 기계의 화면에서 한다. 명단의 관리(초대, 빼기, 이름, 터미널 입력)는 어느 컴퓨터에서나 이 컴퓨터 창의 Settings › Remote에서 한다(아래 "내 기기 명단").
+사람이 앉은 기계의 desktop 창 하나에서 명단의 모든 컴퓨터의 것(session, 대화, 승인과 질문, Inbox, job 켜고 끄기, 그리고 계획 `one-screen`이 여는 터미널과 coding agent, 앱 화면, agent의 browser page)을 본다. 받는 기계는 이 컴퓨터를 `device:<이 컴퓨터의 id>`인 기기로 보므로 권한은 폰과 같다. 다른 기계의 관리(설정, secret, provider)는 받는 기계가 허락한 만큼만 되고 각 기계의 처음 설정은 그 기계의 화면에서 한다. 명단의 관리(초대, 빼기, 이름, 터미널 입력)는 어느 컴퓨터에서나 Settings › Remote에서 한다(아래 "내 기기 명단").
 
 ```
-이 컴퓨터의 창 ─┐
-                ├─ shell main ── 이 컴퓨터의 core (사람 자격)
-<기계> 창 ──────┘  (보낸 창으로     │ machines/call · watch · list
-                   기계를 고른다)   └─ link ── <기계>의 core (기기 자격 device:<이 컴퓨터의 id>)
+창 하나 ─ 범위(이 컴퓨터) ─┐
+        ─ 범위(기계 A) ────┼─ shell main ── 이 컴퓨터의 core (사람 자격)
+        ─ 범위(기계 B) ────┘  (부르기에 실린      │ machines/call · watch · list
+                              기계로 고른다)      └─ link ── 기계의 core (기기 자격 device:<이 컴퓨터의 id>)
 ```
 
-- **연결은 core가 든다.** renderer CSP는 `connect-src 'self'`라 창이 다른 기계에 직접 붙지 못하고, shell main도 다른 기계에 붙지 않는다(붙는 key와 code가 없다). 이 컴퓨터의 core가 명단의 다른 컴퓨터마다 link 하나를 든다(아래 "컴퓨터끼리의 연결"). shell main은 사람 자격으로 `machines/list`를 읽고(`StateChanged{remote_devices}`마다 다시) 다른 기계의 창에 `machines/call`·`machines/watch`로 지은 core 통로를 묶는다. 그 기계의 Gateway frame은 이 컴퓨터의 Gateway에 `MachineFrameReceived`로 와서 그 기계의 창에만 간다(`ready`면 창이 snapshot부터 다시 읽는다). shell main은 기계마다 마지막 watch를 들고 이 컴퓨터의 Gateway에 다시 붙을 때 다시 건다. 꺼진 기계는 core의 link가 backoff로 다시 붙으며 어느 창도 막지 않는다. 기계 사이의 session 목록 합치기는 없다.
-- **기계 목록.** 목록은 명단의 다른 컴퓨터마다 이름(명단의 이름 하나), 상태(connecting, connected, offline, update와 누가 올릴지), 길(direct, relay), 마지막으로 본 때다. main이 통째로 밀고 renderer가 한 번에 바꾼다(`MachineList`). shell data에 남는 것은 시작 기계 `viewer/start.json`(`{machine, start, last, last_name}`, 0600, temp에 쓰고 rename)과 창 자리 `viewer/windows.json`(기계 id로 둔 자리와 크기)뿐이다. `machine`은 쓴 기계의 id이고 이 기계와 다르면(복사된 data root) 그 file을 쓰지 않는다. `last_name`은 목록이 오기 전에 마지막 기계의 창 제목이다. ledger 밖이라 recovery 복구본, 내보내기, 폴더 어디에도 실리지 않는다.
-- **기계마다 창 하나.** 한 창은 사는 동안 한 기계만 본다. 기계를 고르면 그 기계의 창을 열거나 앞으로 가져온다. renderer가 창마다 core 하나를 module 수준에서 잡고 source를 그 위에 짓기 때문이다. 다른 기계의 창은 이 컴퓨터 창과 같은 desktop 주소를 여는데 따로 preload(core, 기계 목록, overlay, 창 단추, 단축키, 외부 링크만)를 받는다. 기계는 주소가 아니라 main이 창을 열 때 묶은 표가 정한다: 그 창이 보낸 `shell:core-call|core-watch|core-state-get`은 이 컴퓨터 core의 `machines/*`를 거쳐 그 기계로만 가고 이 컴퓨터의 core route에 닿지 않는다. 그 밖의 IPC는 모든 handler 앞의 guard 한 곳이 허락 목록(`shell:machines-list|open|this-window|visible|this-read|clone-here`, 창 단추, 외부 링크)만 넘기고 나머지를 `forbidden`으로 답한다. `this-read`와 `clone-here`는 이 컴퓨터의 core에 닿는 좁은 길이다: 이 컴퓨터의 project 목록·agent 목록·session 목록 읽기(`project.list`, `ListAgents`, `ListSessions`만)와 그 기계의 project를 이 컴퓨터에 clone하기(`project.clone`). 그 기계의 project 가운데 이 컴퓨터에도 있는 것을 보이는 데 쓴다(`project-identity.md`의 "다른 기계의 창"). renderer는 기계를 주장하지 못한다. OS 창 제목은 "<이름> — lophn"이다.
-- **이 컴퓨터의 일은 이 컴퓨터의 창으로.** 다른 기계의 창은 이 컴퓨터의 창 목록에 들지 않아 이 컴퓨터의 알림, presence, surface, 전역 키, agent가 여는 창이 그 창을 보지 않는다. 이 컴퓨터의 알림을 누르면 이 컴퓨터의 창이 열리거나 앞으로 온다(다른 기계의 창만 열려 있어도). 다른 기계의 창에서 이 컴퓨터의 session을 누르면(`shell:machines-open`에 이 컴퓨터의 id와 session) 같은 길로 이 컴퓨터의 창이 그 session을 연다. 다른 기계의 창이 앞에 있거나 보이는 session이 바뀌면 shell main이 `machines/call`로 그 기계에 `presence/report`를 보낸다(`attention.md`).
-- **다른 기계의 창의 화면.** renderer는 시작 때 이 창의 기계를 한 번 묻고(`thisWindow()`. 이 컴퓨터 창은 null), 다른 기계면 이 컴퓨터의 shell host가 필요하거나 기기가 부를 수 없는 source(Settings, provider, 빠른 실행의 core 쓰기, App details 관리, 편집기, 터미널, 로그인)를 짓지 않고 기계 context로 단추를 감춘다. 끄는 것: 터미널과 coding agent의 터미널·GUI, 편집기·file tree·file 열기, 지침·memory 편집, secret 창, browser·artifact 탭(그 기계의 browser page는 아래 Pages 탭으로 본다), agent가 여는 탭, 앱 화면·앱 panel·앱 창, detached 탭, Settings, provider 설정, agent·앱·project·job 만들기와 고치기, extension, thread bookmark, 그 기계의 OS 알림, session 지우기, 권한 mode. 탭 kind가 `thisComputerOnly`를 선언하고, 그런 탭이 저장된 링크, 검색 결과, 대화 안 file 링크로 열리면 본문 대신 "This opens only on <이름>"이 선다. Settings 자리는 "<이름>'s settings are changed on <이름>"과 [Open this computer]뿐이다. layout(탭, desk)은 창이 사는 동안 메모리에만 있어 다시 열면 Home이다(`workspace-layout.md`).
-- **그 기계의 browser page.** 다른 기계의 창의 새 탭 menu에만 Pages가 있다. 그 기계의 core가 아는 browser 탭의 목록 탭(key `pages`)이 열리고, 줄을 고르면 그 page의 탭(key `page-view:<탭 id>`)이 열린다(`browser-tab.md` "멀리서 보기"). 탭은 보이는 동안 lease를 잡아 그림을 받고, 이 컴퓨터의 터미널 입력 허락이 그 명단 항목에 켜져 있으면 click·끌기·wheel, key, 쳐진 글(IME 포함)과 붙여 넣은 글, 주소·뒤로·다시 읽기, [Take control]·[Hand back]이 그 page에 간다. 꺼져 있으면 보기만 하고 허락을 켜는 곳을 한 줄로 보인다. 다른 기계의 창의 layout처럼 메모리에만 있다.
-- **다른 기계의 앱 화면은 띄우지 않는다.** 앱 panel, 앱 창, 앱 view는 다른 기계의 창에 없다. 미룬 것이 아니라 하지 않는 것이다: 다른 기계에서 필요한 것은 session, 대화, 승인이고, 앱은 그 기계나 폰에서 쓰거나 sync 앱이면 이 기계의 사본을 쓴다.
-- **기계 고르기와 gate.** title bar 왼쪽의 기계 고르기가 이 컴퓨터를 맨 위에, 명단의 다른 컴퓨터를 명단의 이름, 상태, 길이나 마지막으로 본 때와 함께 보인다. 다른 컴퓨터가 없으면 그리지 않아 한 대만 쓰는 사람의 화면은 그대로다. 한 번도 붙지 않은 창은 창 전체 gate("Connecting to <이름>…", "<이름> is offline"과 마지막으로 본 때, [Try again]·[This computer])이고, 한 번 붙은 뒤의 끊김은 마지막 화면 위의 한 줄이며 다시 붙으면 사라진다. 판이 어긋나면 gate가 누가 올릴지 말한다. 창의 기계가 명단에 없으면(빠졌거나, 이 컴퓨터가 빠져 새 명단으로 섰다) 어느 화면이든 removed gate("<이름> is not in your devices")다.
-- **시작 기계.** 창이 하나도 없을 때 여는 길(시작, tray Open, 두 번째 실행)은 시작 기계를 연다: 고른 기계, 아니면 마지막에 쓴 기계(연결된 채 focus를 받은 마지막 창의 기계), 그것이 목록에 없으면 이 컴퓨터다. 시작 기계는 core를 기다리지 않고 `viewer/start.json`에서 고르고, 꺼져 있어도 그 창을 바로 연다(offline gate). 사람이 고른 기계를 명단에서 빼면 시작은 마지막에 쓴 기계로 돌아가고, 그 기계가 마지막에 쓴 기계였으면 이 컴퓨터가 마지막이 된다. 고르기는 Settings › Remote의 My devices 아래에 있다(다른 컴퓨터가 있을 때).
+- **연결은 core가 든다.** renderer CSP는 `connect-src 'self'`라 창이 다른 기계에 직접 붙지 못하고, shell main도 다른 기계에 붙지 않는다(붙는 key와 code가 없다). 이 컴퓨터의 core가 명단의 다른 컴퓨터마다 link 하나를 든다(아래 "컴퓨터끼리의 연결"). shell main은 사람 자격으로 `machines/list`를 읽고(`StateChanged{remote_devices}`마다 다시) 기계 목록을 모든 창에 민다. 꺼진 기계는 core의 link가 backoff로 다시 붙으며 어느 화면도 막지 않는다.
+- **범위.** 화면의 code가 core를 읽고 부르는 모양은 그대로 두고 그 앞에 "어느 기계"를 고르는 층(범위) 하나를 둔다. 범위는 기계 하나의 묶음(core 통로, event 연결과 그 위의 store, 그 기계의 source들)을 화면에 주고, 범위 안의 읽기, 부르기, event는 그 기계로 간다. 호출마다 기계를 넘기지 않는다. 창에는 root 범위가 있고, 탭 본문은 탭의 기계(없으면 그 workspace의 기계) 범위에서 그린다. 묶음은 기계마다 하나이고 처음 쓸 때 지어 명단에서 빠지면 버린다. 이 컴퓨터는 기계 값이 비어 있는 것(null)이고 자기 id로 가리키지 않는다.
+- **부르기가 기계를 싣는다.** 창이 shell main에 보내는 core 부르기, 구독, 그리고 보호 secret 창 열기는 기계(`mch_`)를 실을 수 있다. 없으면 이 컴퓨터다. shell main은 기계가 있으면 그 기계의 `machines/call`·`machines/watch`로만, 없으면 이 컴퓨터의 core로만 보낸다. 그 기계의 Gateway frame은 이 컴퓨터의 Gateway에 `MachineFrameReceived`로 와서 기계를 단 채 그 기계를 구독한 창에만 간다(`ready`면 그 범위가 snapshot부터 다시 읽는다). 다른 기계의 연결 상태는 IPC로 묻지 않고 기계 목록의 그 줄에서 읽는다.
+- **구독자들의 합.** 다른 기계의 event는 보는 것마다 따로 구독한다. 창(과 뒤에 생길 core 안의 구독자)마다의 조건을 core가 합쳐 그 기계에 건다. 한 구독자가 그만 보거나 조건을 바꿔도 다른 구독자의 조건을 덮지 않는다.
+- **권한은 받는 기계가 본다.** 화면이 단추를 감추는 것은 안내일 뿐이다. 기기 route 목록 밖의 부르기는 받는 기계가 거절하고 화면은 그 까닭을 보인다. 그래서 화면의 갈래는 기계가 무엇인지가 아니라 그 묶음이 가진 능력으로 본다: 이 컴퓨터의 shell host나 기기가 부를 수 없는 관리 route가 필요한 것(설정 탭, Agents, tray, file 끌어 놓기, project 설정 행, 문서 편집, App details)은 이 컴퓨터의 묶음에만 있고, 앱 화면과 터미널은 그 통로가 있는 묶음에서만 선다. 다른 기계에서 아직 서지 않는 탭 kind는 `thisComputerOnly`를 선언하고 탭의 기계가 이 컴퓨터가 아니면 본문 대신 "This opens only on <이름>"이다. 기계마다 여는 일이 끝나면 그 kind가 선언을 뺀다.
+- **탭과 workspace가 기계를 든다.** 탭은 자기 기계를 들 수 있고(같은 project 한 줄 안에서 다른 기계의 session·터미널을 열 때) 없으면 workspace의 기계다. workspace도 기계를 들고, 다른 기계의 workspace는 layout key 뒤에 그 기계를 붙여 Home과 같은 앱 id가 기계를 건너 겹치지 않는다. 탭의 기계가 붙어 있지 않으면 본문 대신 그 기계의 이름과 상태 한 줄이고 붙으면 본문이 선다. 다른 기계의 탭과 workspace의 layout은 아직 저장하지 않고 창이 사는 동안 메모리에만 있다: 저장 값에 기계가 없어 되살리면 이 컴퓨터의 것(터미널 참조 등)이 되기 때문이다. 저장 모양은 layout 판을 올리며 정한다(`workspace-layout.md`).
+- **보호 secret 창.** 범위의 기계를 실어 열면 값과 그 창이 다시 읽는 내용은 그 기계의 link로만 간다. 창에는 그 기계의 이름이 선다.
+- **그 기계의 browser page.** 다른 기계의 범위에서는 새 탭 menu에 Pages가 있다. 그 기계의 core가 아는 browser 탭의 목록 탭(key `pages`)이 열리고, 줄을 고르면 그 page의 탭(key `page-view:<탭 id>`)이 열린다(`browser-tab.md` "멀리서 보기"). 탭은 보이는 동안 lease를 잡아 그림을 받고, 이 컴퓨터의 터미널 입력 허락이 그 명단 항목에 켜져 있으면 click·끌기·wheel, key, 쳐진 글(IME 포함)과 붙여 넣은 글, 주소·뒤로·다시 읽기, [Take control]·[Hand back]이 그 page에 간다. 꺼져 있으면 보기만 하고 허락을 켜는 곳을 한 줄로 보인다.
+- **앱 화면.** 다른 기계의 앱 화면은 그 기계의 core가 주는 화면 file을 이 창이 그리고 앱에 시키는 것은 그 기계로 간다(폰이 같은 길로 받는다). 격리 자리에 기계가 들어 같은 앱 id라도 기계가 다르면 저장소가 섞이지 않는다. 그 통로가 서기 전에는 다른 기계의 묶음에 앱 화면 통로가 없어 앱 panel, 앱 창, 앱 view가 없다.
+- **이 컴퓨터의 일은 이 컴퓨터의 shell이.** 이 컴퓨터의 알림, presence, surface, 전역 키, agent가 여는 창은 이 컴퓨터의 것이다. 다른 기계의 범위가 보이거나 보이는 session이 바뀌면 shell main이 `machines/call`로 그 기계에 `presence/report`를 보낸다(`attention.md`).
+- **기계에 묶인 창(계획이 끝나면 없어진다).** 지금은 아직 기계마다 창 하나를 열 수 있다. 그 창은 따로 preload(core, 기계 목록, overlay, 창 단추, 단축키, 외부 링크만)를 받고 root 범위가 그 기계다. main이 창을 열 때 묶은 표가 기계를 정해 그 창의 core 부르기는 기계가 없거나 묶인 기계일 때만 지나고 다른 기계면 `forbidden`이다. 그 밖의 IPC는 모든 handler 앞의 guard 한 곳이 허락 목록(`shell:machines-list|open|this-window|visible|this-read|clone-here`, 창 단추, 외부 링크, 보호 secret 창)만 넘긴다. `this-read`와 `clone-here`는 이 컴퓨터의 core에 닿는 좁은 길이다(`project.list`, `ListAgents`, `ListSessions` 읽기와 `project.clone`. `project-identity.md`의 "다른 기계의 창"). title bar의 기계 고르기, 창 전체 gate(한 번도 붙지 않았거나 명단에서 빠진 기계), 시작 기계 `viewer/start.json`과 창 자리 `viewer/windows.json`도 이 창의 것이다. 이 창들과 그 file은 목록이 기계를 건너 한 창에 모이면 지운다.
 - **읽음은 host에.** 다 본 session의 표시(`unseen/list|dismiss`)는 기기 route다. 보는 것이 읽음을 만들고 읽음은 그 기계에 있어 어느 기기에서 봐도 같이 꺼진다. 폰도 같이 받는다.
 - **두 기기가 한 session에 쓸 때.** 보내기는 그 화면이 아는 마지막 사람 메시지(`seen`)를 싣고, 그 뒤에 다른 사람 메시지가 있으면 core가 같은 transaction에서 거절한다(`acp.md`). 대화의 첫 snapshot을 받기 전에는 `seen`을 싣지 않아 이 검사를 하지 않는다. 꺼진 기계에 맡겨 두는 queue는 없다: 연결이 없으면 보내기는 `unavailable`이고 쓴 글은 입력칸에 남는다.
 
@@ -223,7 +225,7 @@ desktop 앱이 명단의 다른 컴퓨터의 session, 대화, 승인과 질문, 
 
 ## 지키는 것
 
-1. 폰과 다른 기계의 창이 부르는 route는 모두 기기 route 목록 안이다. 화면이 목록 밖 route를 부르는 단추를 보이지 않는다(skip 바꾸기, session 지우기, 설정·secret 화면, job 만들기·고치기·거절).
+1. 폰과 desktop의 다른 기계 범위가 부르는 route는 모두 기기 route 목록 안이다. 화면이 목록 밖 route를 부르는 단추를 보이지 않는다(skip 바꾸기, session 지우기, 설정·secret 화면, job 만들기·고치기·거절). 이것은 안내이고 막는 것은 받는 기계다(32).
 2. desktop 화면의 동작과 모양은 폰 때문에 바뀌지 않는다. desktop 화면에 폰을 위한 분기(prop, host member)가 없고, 폰은 desktop의 DOM·Electron 화면 file을 import하지 않는다. 폰이 가져오는 것은 순수 logic뿐이다.
 3. 화면은 연결과 key를 직접 만지지 않는다. data 층의 읽기 hook만 쓴다.
 4. 기기 key는 폰의 보안 저장소에만 있다. 컴퓨터의 key 둘(host key, 서명 key)은 core data의 `remote/` 아래 0600 file에만 있고 shell과 renderer는 다른 기계에 붙는 key를 갖지 않는다. key file은 찍힌 기계 id가 이 기계와 다르거나 둘 가운데 하나만 읽히면 쓰지 않고 둘 다 지운다. 어느 내보내기에도 실리지 않는다.
@@ -246,7 +248,7 @@ desktop 앱이 명단의 다른 컴퓨터의 session, 대화, 승인과 질문, 
 21. kind로 가르는 것은 phone 장치(기준, `shell.devices`, push token, phone 탭의 preview view, presence의 폰 규칙)뿐이다. 컴퓨터는 다른 컴퓨터의 기기 표에 행이 없어 기준이 되지 못하고 push token을 두지 못하며, 그 밖의 권한은 폰과 같다.
 22. 기기의 이름은 명단에 하나다. 폰의 연결은 폰이 알린 이름이 마지막으로 받은 것과 다를 때만 명단 이름을 고치고, 컴퓨터의 이름은 기계 이름과 한 값이다(`machine.md`). 폰이 컴퓨터에 붙인 별명은 그 폰 안에만 있고 연결이 고치지 않는다.
 23. remote key 둘에 찍힌 기계 id가 지금 id와 다르거나 하나만 읽히면 그 key와 명단을 쓰지 않는다. key를 먼저 지우고 명단을 버리므로 중간에 죽어도 다음 기동이 key 없이 남은 명단을 보고 다시 버린다. 둘 다 못 읽는 key file은 덮지 않는다.
-24. 다른 기계의 창이 보낸 IPC는 main이 그 창(webContents)으로 기계를 정한다. core 통로는 이 컴퓨터 core의 `machines/call`·`machines/watch`로 그 기계에만 가고, 허락 목록 밖의 channel은 어느 handler보다 먼저 `forbidden`이다. 이 컴퓨터의 core에 닿는 `shell:machines-this-read|clone-here`는 다른 기계의 창에서만 지나고 이 컴퓨터의 창에서 오면 `forbidden`이며, `this-read`는 `project.list`, `ListAgents`, `ListSessions`만 넘긴다. `shell:machines-open`이 싣는 session은 이 컴퓨터의 id에만 받는다. 이 컴퓨터의 알림, presence, 전역 키, agent가 여는 창은 다른 기계의 창을 쓰지 않는다.
+24. 창이 보낸 core 부르기·구독·보호 secret 창은 실린 기계로만 간다: 기계가 있으면 이 컴퓨터 core의 `machines/call`·`machines/watch`로 그 기계에만, 없으면 이 컴퓨터의 core에만. 한 범위에서 부른 것(보내기, 승인, 터미널 입력)이 다른 기계로 가지 않고, 한 기계의 event가 다른 기계의 범위에 닿지 않는다. 기계에 묶인 창(계획 `one-screen`이 끝나면 없어진다)은 main이 그 창(webContents)으로 기계를 정해 다른 기계를 실은 부르기는 `forbidden`이고, 허락 목록 밖의 channel은 어느 handler보다 먼저 `forbidden`이다. 이 컴퓨터의 core에 닿는 `shell:machines-this-read|clone-here`는 기계에 묶인 창에서만 지나고 `this-read`는 `project.list`, `ListAgents`, `ListSessions`만 넘긴다. `shell:machines-open`이 싣는 session은 이 컴퓨터의 id에만 받는다.
 25. 명단은 statement 집합의 함수다. 받은 순서, 받은 길, 받은 때와 무관하고, keep만으로 다시 계산해도 같다.
 26. 빼기가 이긴다. 늦게 온 더 새 rev, 같은 key의 새 id, 같은 key의 초대 서명 statement, 같은 서명 key를 단 새 host key가 되살리지 못한다.
 27. 뺀 key와 서명 key는 항목으로도, 서명자로도, root로도 돌아오지 않는다. 돌아오려면 새 key다. 빼기는 key와 서명 key로만 빼고 body의 `id`로는 아무것도 빼지 않는다.
@@ -262,6 +264,8 @@ desktop 앱이 명단의 다른 컴퓨터의 session, 대화, 승인과 질문, 
 37. agent 자격은 `roster/*`와 `machines/*`를 부르지 못한다(사람과 기기의 route는 actor user만, 저장 route는 core 안 machine 자격만 받는다). 다른 기계로 넘기는 call은 사람의 화면이 부른 것뿐이다.
 38. 붙기 전 연결은 저장소를 채우지 못한다: `join`의 statement는 모두 그 연결의 key에 대한 것이어야 하고, 초대 서명 statement는 확인이 맞을 때만 남는다. 초대한 컴퓨터가 거절한 `roster/join`은 아무것도 저장하지 않는다.
 39. 지금 믿지 않는 쪽(모르는 서명자, 빠지거나 엇갈린 컴퓨터, 믿지 않는 초대장)의 statement는 keep에 `ROSTER_UNKNOWN_MAX`개까지만 남고 믿는 컴퓨터의 statement와 빼기를 밀어내지 못한다. 엇갈린 줄의 id와 이름은 믿는 서명자(없으면 그 기기 자신)의 항목에서만 오고, 다시 빼기는 key로 고른다.
+40. 다른 기계의 event 구독은 구독자마다 따로이고 core가 그 합을 건다. 한 구독자가 그만 보거나 조건을 바꿔도 다른 구독자의 event가 끊기지 않는다.
+41. 다른 기계의 탭은 layout file에 저장되지 않는다. 저장 값이 기계를 들기 전까지, 되살린 탭이 이 컴퓨터의 것(터미널 참조, 폴더)을 가리키지 않게 한다.
 
 ## 경계와 계약
 
@@ -324,11 +328,13 @@ desktop 앱이 명단의 다른 컴퓨터의 session, 대화, 승인과 질문, 
 - 폰을 깨우지 않는다(planner). 앱이 앞에 없으면 `unavailable`이고 문장이 agent에게 사람에게 부탁하라고 말한다. 이유: 폰 화면을 다루는 것은 사람이 폰을 들고 있을 때의 확인이고, 컴퓨터가 폰을 깨우거나 앞으로 부르면 사람이 모르는 사이에 폰이 움직인다.
 
 - desktop이 다른 기계를 볼 때 이 컴퓨터는 그 기계의 기기(`device:<이 컴퓨터의 id>`)다. 기기 권한은 폰과 같고 컴퓨터 때문에 관리 route를 넣지 않는다. 더한 route는 `unseen/list|dismiss` 둘이다. (사람·planner, 2026-11-16)
-- 다른 기계의 앱 화면은 띄우지 않는다. 미룬 것이 아니라 하지 않는 것이다. (사람, 2026-11-16)
-- 한 창은 한 기계이고 기계마다 창이 하나다. 창은 지금의 `lophnCore` 통로를 그대로 쓰고 main이 보낸 창으로 기계를 가른다. 버린 안: 한 창에서 기계를 바꾸기(renderer가 창마다 core 하나를 module 수준에서 잡고 layout이 기계 안 id에 묶인다), renderer가 기계를 직접 부르기(CSP, key가 renderer에 온다). (planner)
+- 다른 기계의 앱 화면도 이 창이 그린다. 그 기계의 core가 주는 화면 file을 받고 앱에 시키는 것은 그 기계로 간다. 버린 안: 띄우지 않기(앞의 판, 사람 2026-11-16). (사람의 roadmap `multi-device`, 계획 `one-screen`)
+- 창은 기계에 묶이지 않는다. 화면은 "어느 기계"를 고르는 범위 하나를 거치고 부르기와 구독에 기계를 실어 shell main이 그 기계를 고른다. 이유: 내 기계에서 다른 기계의 것을 같은 목록에서 보려고 remote를 한다(사람). 화면 code가 한 자리에서 core를 받으므로 그 자리에서 고르면 화면을 기계마다 갈라 쓰지 않는다. 버린 안: 한 창은 한 기계이고 기계마다 창 하나(앞의 판. renderer가 창마다 core 하나를 module 수준에서 잡았다), renderer가 기계를 직접 부르기(CSP, key가 renderer에 온다), 호출마다 기계를 넘기기(화면 file 수십 개를 고친다). (사람, agent; 계획 `one-screen`)
+- 화면의 갈래는 기계가 아니라 그 기계 묶음의 능력(이 컴퓨터의 shell host가 있는가, 앱 화면 통로, 터미널 통로)으로 본다. 이유: 기계마다 여는 일이 그 통로를 채우기만 하면 갈래가 저절로 열린다. 막는 것은 받는 기계다. (agent)
+- 다른 기계의 event는 보는 것마다 따로 구독하고 core가 구독자들의 합을 보낸다. 버린 안: 기계 하나에 구독 목록 하나를 통째로 갈아 끼우기(앞의 판. 창이 여럿이거나 core 안의 구독자가 생기면 서로 덮는다). (agent)
 - 다른 기계와의 연결은 core가 들고 화면은 `machines/call`·`machines/watch`로 부른다. 이유: 컴퓨터의 정체를 core의 key 하나로 두어 화면 없는 기계도 같은 정체로 붙고, 붙는 code와 key가 shell과 core에 두 벌이 되지 않는다. 버린 안: shell main이 기계마다 연결과 붙는 key(`viewer/key.json`, `viewer/machines.json`)를 들기(앞의 판). (agent)
 - 다른 기계의 창은 따로 preload를 받고 main이 그 밖 IPC를 한 곳에서 거절한다. renderer는 bridge가 없을 때의 길로 기능을 감춘다. 이유: 거절이 handler마다 흩어지면 하나를 빠뜨린다. (planner)
-- 다른 기계 창의 layout은 저장하지 않는다. 이유: layout file이 기계 안 id에 묶이고 detached 창까지 다른 기계에 묶는 일이 따라온다. (planner)
+- 다른 기계의 탭과 workspace의 layout은 저장 모양이 기계를 들 때까지 메모리에만 둔다. 이유: 지금 저장 값에는 기계가 없어 되살리면 이 컴퓨터의 터미널·폴더를 가리킨다. (agent)
 - 컴퓨터의 key 둘은 OS keyring이 아니라 core data의 0600 file에 기계 표지와 같이 둔다. 이유: keyring 없는 Linux와 화면 없는 기계에서 실패 갈래만 는다. (planner)
 - 컴퓨터가 다른 컴퓨터의 명단에 드는 길은 초대장 글 붙여 넣기(Settings의 [Join with an invite], `lophn remote join`)뿐이다. 카메라 길은 없다. (planner)
 - 연결 조각은 폰과 core(다른 컴퓨터로 가는 link)가 같이 쓰는 package에 있다. 이 package 밖에서 Noise 연결을 새로 짜지 않는다. protocol은 구현을 두지 않아서 따로 둔다. (planner)

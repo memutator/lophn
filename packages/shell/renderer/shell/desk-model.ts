@@ -17,11 +17,18 @@ import {
 
 export type { DetachedBounds, DetachedItem, FloatArea, FloatRect, TabItem };
 
-export type WorkspaceRef = { kind: "home" } | Workspace;
+/** workspace와 그 기계(`mch_`). 기계가 없으면 이 컴퓨터의 workspace다. 이 컴퓨터의 id는 넣지 않는다. */
+export type WorkspaceRef = ({ kind: "home" } | Workspace) & {
+  readonly machine?: string;
+};
 
-/** layout 파일 이름이자 workspace 구분 key. `home` | project id | app id. */
+/**
+ * layout 파일 이름이자 workspace 구분 key. 이 컴퓨터면 `home` | project id | app id, 다른 기계면 그 뒤에 `-<mch>`를 붙인다
+ * (Home과 같은 앱 id가 기계를 건너 겹치지 않는다. layout 파일 이름 규칙 `^[A-Za-z0-9_-]{1,64}$` 안이다).
+ */
 export function workspaceKey(ref: WorkspaceRef): string {
-  return ref.kind === "home" ? "home" : ref.id;
+  const key = ref.kind === "home" ? "home" : ref.id;
+  return ref.machine === undefined ? key : `${key}-${ref.machine}`;
 }
 
 /** 기본 desk의 key. 옛 layout과 같은 값이고 workflow 이름(slug)과 겹치지 않는다. */

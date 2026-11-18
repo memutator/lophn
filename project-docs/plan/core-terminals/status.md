@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py core-terminals build`가 `tasks/*.md`에서 
 | `coding-core` | coding | 3 | term-host, ext-host | merged | coding/coding-core | a2e172e01 |  |
 | `term-desktop` | term | 4 | coding-core | merged | term/term-desktop | e9e2bb94d |  |
 | `term-phone` | term | 4 | coding-core | merged | term/term-phone | 10684e238 |  |
-| `term-cleanup` | term | 5 | term-desktop, term-phone | todo |  |  |  |
+| `term-cleanup` | term | 5 | term-desktop, term-phone | merged | term/term-cleanup | b1d2617ec |  |

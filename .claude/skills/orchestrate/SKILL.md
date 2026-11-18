@@ -137,6 +137,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - worktree 안 `.dev-data`에는 쓰기 금지 file(core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `npm run dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
 - `npm run dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
 - check:full이 못 보는 것: renderer build(`node packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
+- 오래된 worktree에서 `npm ci`를 돌리기 전에 그 `node_modules`가 다른 checkout의 것을 가리키는 link가 아닌지 본다(`ls -ld node_modules`). link면 `npm ci`가 가리키는 쪽을 비운다. main checkout의 `node_modules`가 하루 동안 비어 있던 일이 있다. link면 지우고 `npm ci`한다.
 - 계획 폴더 없이 돌릴 때(직접, 한 줄)도 모양은 같다: branch 하나에 합치고 main에는 사람이 확인한 뒤 올린다. 첫 worker를 main으로 바로 올렸다가 사람이 바로잡은 일이 있다.
 - wave마다 task가 하나씩인 계획을 계획 폴더와 brief로 돌린 일이 여러 번 있다. worker가 매번 처음부터 코드를 읽고, task마다 worktree와 merge 비용이 든다. 그런 일은 "한 줄"이다.
 - Agent tool의 `isolation: worktree`는 plan branch에서 갈라지지 않는다(main 쪽 옛 commit에서 시작한 일이 있다). launch.sh가 만든 worktree를 쓰고, 그렇게 못 했으면 worker가 먼저 `git reset --hard <합칠 branch>`를 하게 한다.

@@ -1,6 +1,6 @@
 # multi-device: 한 사람의 여러 기기가 주고받는 것
 
-상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 계획 넷과 한 줄 하나로 연다(아래 "순서와 계획"). `paths-by-environment.md`(초안)를 이 문서가 대신한다. `multi-machine.md`(끝남)가 만든 것 위에 선다. 일을 core로 옮기는 것은 `shell-as-client.md`가 따로 다룬다.
+상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 순서 1~3은 끝났다(2026-11-18. `core-browser`만 도는 중). review에서 나온 구멍을 `multi-device-fixes`가 먼저 고치고, 순서 4~6을 연다(아래 "순서와 계획"). `paths-by-environment.md`(초안)를 이 문서가 대신한다. `multi-machine.md`(끝남)가 만든 것 위에 선다. 일을 core로 옮기는 것은 `shell-as-client.md`가 따로 다룬다.
 배경 문서: `project-docs/architecture/remote.md`, `machine.md`, `folder-sync.md`, `app-sync.md`, `event.md`, `approval.md`, `agent-call.md`, `project-identity.md`, `attention.md`. 조사: `reports/multi-device/`(다른 제품의 기기 들이기 `device-enrollment-survey.md`, Paseo의 터미널 `reports/phone-native-ui/paseo-terminal.md`, 두 기기가 같은 session을 다룰 때 `/tmp`에 있던 조사는 이슈 여덟으로 옮겼다, 지금 code `survey-s1`~`s6`).
 
 ## 사람의 말 (원문)
@@ -136,14 +136,15 @@
 
 | 순서 | 계획 | 무엇 | 기대는 것 |
 |---|---|---|---|
-| 1 | 가리키는 법(계획 폴더 없이 한 줄. 아래 "순서 1") | 모든 project가 기계를 건너는 정체를 갖고, 앱이 그 정체로 data를 key한다 | 없음 |
+| 1 | 가리키는 법(끝남. 계획 폴더 없이 한 줄. 아래 "순서 1") | 모든 project가 기계를 건너는 정체를 갖고, 앱이 그 정체로 data를 key한다 | 없음 |
 | 2 | `device-roster`(끝남) | 내 기기 명단. 한 번 들이면 다 이어진다 | 없음 |
-| 3 | `core-terminals`, `core-setup`, `core-browser`(`shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
-| 4 | `one-screen` | 지금 있는 화면에서 다른 기계의 대화, coding agent, 터미널, 앱 화면, browser를 본다 | 1, 2, 3 |
-| 5 | `carry-paths` | 맡겨 두는 길: 폰이 나른다, 늘 켜 둔 기계를 거친다, data에 딸린 event를 도착한 기계가 낸다, 폴더 길의 설정 화면 | 1, 2 |
-| 6 | `remote-use` | agent와 앱이 다른 기계의 것을 쓰고 구독한다. private을 넓힌다 | 1, 2, 3 |
+| 3 | `core-terminals`(끝남), `core-setup`(끝남), `core-browser`(`shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
+| 고침 | `multi-device-fixes` | 순서 1~3의 review에서 확인한 구멍: 권한 경계, 명단의 서명 규칙, data를 옮기는 길, 설치본 | 1, 2, 3 |
+| 4 | `one-screen` | 지금 있는 화면에서 다른 기계의 대화, coding agent, 터미널, 앱 화면, browser를 본다 | 고침, `core-browser`(page만) |
+| 5 | `carry-paths` | 맡겨 두는 길: 폰이 나른다, 컴퓨터끼리 연결로 맞춘다, 같이 보는 폴더, 들어온 변경을 앱에 알린다, 폴더 길의 설정 화면 | 고침 |
+| 6 | `remote-use` | agent와 앱이 다른 기계의 앱을 쓰고 그 event를 받는다. 사람의 터미널이 다른 기계에 명령을 보낸다. private을 넓힌다 | 4, 5 |
 
-1~3은 지금 바로 연다. 4~6은 README만 열고 task 문서는 기대는 계획이 main에 올라간 뒤에 쓴다(고칠 file이 그때 달라진다).
+고침이 먼저다. 4와 5는 고침이 올라가면 같이 돈다. 6은 4와 5가 올라간 뒤에 시작한다(같은 연결과 route 목록 file을 고치고, 구독의 바닥이 4에 있다). review와 다시 한 조사는 `reports/multi-device/review-*.md`, `survey-n1`~`n3`에 있다.
 
 ## 순서 1: 가리키는 법
 
@@ -170,7 +171,9 @@
 
 여전히 안 되는 것: 꺼진 기계에서 하던 일을 다른 기계가 넘겨받기, 다른 기계의 agent에게 일을 맡기기(a2a), 대화 기록이 기계 사이에 맞는 것(하지 않는다).
 
-## 지금 code
+## 지금 code (2026-11-17, 순서 1~3 전의 모습)
+
+아래는 계획들을 열기 전의 사실이다. 지금 code는 architecture 문서(`remote.md`, `terminal-agent.md`, `project-identity.md`)와 `reports/multi-device/survey-n1`~`n3`이 적는다.
 
 조사한 날의 main(0.23.80)이다. 자세한 것은 `reports/multi-device/survey-s1-address.md`, `survey-s2-roster.md`, `survey-s6-remote-events-sync.md`에 있다.
 

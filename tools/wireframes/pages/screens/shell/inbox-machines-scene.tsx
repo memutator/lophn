@@ -8,11 +8,19 @@ import { createEventClient } from "../../../../../packages/shell/renderer/deskto
 import { createEventStores } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import {
   ACTIVATION,
+  BUDGET,
   createFakeWaiting,
   EXTERNAL_CALL,
+  INVENTORY,
   JOB_HOLD_AGENT,
+  ORDERS,
+  PROJECT,
   SHELL_COMMAND,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
+import {
+  type InboxNames,
+  InboxNamesProvider,
+} from "../../../../../packages/shell/renderer/desktop/connection/waiting/names.ts";
 import { WaitingPage } from "../../../../../packages/shell/renderer/desktop/connection/waiting/waiting-page.tsx";
 import { devMock } from "../../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import { MachinesProvider } from "../../../../../packages/shell/renderer/desktop/machines/context.tsx";
@@ -68,6 +76,39 @@ const ITEMS = new Map<MachineRef, Parameters<typeof createFakeWaiting>[0]>([
   [null, [ACTIVATION(), "question"]],
   [HOME_SERVER, [SHELL_COMMAND(), ACTIVATION(), JOB_HOLD_AGENT()]],
   [LAPTOP, [EXTERNAL_CALL()]],
+]);
+
+// 기계마다 project·앱 이름(창의 목록이 읽은 것). 키 ""는 이 컴퓨터다. 카드는 자기 기계의 이름으로 읽는다.
+const NAMES: ReadonlyMap<string, InboxNames> = new Map([
+  [
+    "",
+    {
+      projects: new Map([[PROJECT, "phroner"]]),
+      apps: new Map([
+        [ORDERS, "Orders"],
+        [BUDGET, "Budget"],
+        [INVENTORY, "Inventory"],
+      ]),
+    },
+  ],
+  [
+    HOME_SERVER,
+    {
+      projects: new Map([[PROJECT, "phroner"]]),
+      apps: new Map([
+        [ORDERS, "Orders"],
+        [BUDGET, "Budget"],
+        [INVENTORY, "Inventory"],
+      ]),
+    },
+  ],
+  [
+    LAPTOP,
+    {
+      projects: new Map(),
+      apps: new Map([[ORDERS, "Orders"]]),
+    },
+  ],
 ]);
 
 // 기계마다 같은 모양의 묶음. 대기 목록 층이 읽는 것(store, core, event)과 History의 범위가 쓰는 칸만 있다.
@@ -170,11 +211,15 @@ export function InboxMachinesScene({ view }: { view: "overlay" | "tab" }) {
     <MachinesProvider source={scene.machines}>
       <MachineHubProvider hub={scene.hub}>
         <MachineScope machine={null}>
-          {view === "overlay" ? (
-            <Driven steps={[() => press('[data-nav="inbox"]')]}>{frame}</Driven>
-          ) : (
-            frame
-          )}
+          <InboxNamesProvider value={NAMES}>
+            {view === "overlay" ? (
+              <Driven steps={[() => press('[data-nav="inbox"]')]}>
+                {frame}
+              </Driven>
+            ) : (
+              frame
+            )}
+          </InboxNamesProvider>
         </MachineScope>
       </MachineHubProvider>
     </MachinesProvider>

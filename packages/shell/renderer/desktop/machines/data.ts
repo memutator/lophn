@@ -29,7 +29,10 @@ import { machineTerminalDeps } from "../../terminal/machine-deps.ts";
 import { coreAgentsSource } from "../../workspace/agents/core-source.ts";
 import { coreWorkspaceSource } from "../../workspace/core-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
-import { type CoreSource, windowCoreSource } from "../connection/connection.ts";
+import {
+  type CoreSource,
+  thisComputerCoreSource,
+} from "../connection/connection.ts";
 import {
   createEventClient,
   type EventClient,
@@ -155,7 +158,7 @@ export function createMachineHub(deps: MachineHubDeps): MachineHub {
         throw new Error("this window has no other machines");
       }
       stopList ??= deps.machines.subscribe(prune);
-      local ??= windowCoreSource();
+      local ??= thisComputerCoreSource();
       const data = otherMachineData(
         machine,
         machineCoreSource(machine, deps.bridge, deps.machines, local),

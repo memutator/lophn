@@ -247,7 +247,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         at: 0,
         ...(terminal.machine === undefined
           ? {}
-          : { machine: terminal.machine, noRename: true as const }),
+          : { machine: terminal.machine }),
       });
     }
   }

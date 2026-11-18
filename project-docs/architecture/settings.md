@@ -47,8 +47,8 @@ shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어
 - **명령.** `lophn settings get [key]`는 목록(값과 한 줄 설명)이나 설정 하나(설명 전체, 값, 기본값, JSON Schema)를 보인다. `settings set <key> <value>`와 `settings unset <key>`가 바꾼다. 설정마다 명령을 두지 않는다. 답은 바꾸기 전 값(`previous`)을 싣는다.
 - **shell의 사본.** shell main은 core가 붙으면 설정 전체를 읽고, `settings` 변경(`StateChanged`)이 오거나 다시 붙으면 다시 읽는다. 설정을 적용하는 곳(모양 CSS, main이 먼저 받는 단축키)은 이 사본을 듣는다. 창은 같은 event로 자기가 그리는 설정(모드, 단축키, 빠른 실행, 읽기 폭, 열려 있는 Settings 화면)을 다시 읽는다. 값을 창에서 main으로 보내는 통로는 없다.
 - **shell이 꺼져 있을 때.** 값은 저장되고 다음에 켤 때 적용된다. 설정을 바꾸려고 shell을 띄우지 않는다.
-- **My devices.** 이 컴퓨터 창의 Settings › Remote에 내 기기 명단의 기기 줄(이름, 종류와 OS, 컴퓨터면 link 상태, 터미널 입력, [Rename], [Remove], 엇갈림으로 빠진 기기의 "Disputed"), Add a device의 초대장, [Join with an invite]가 있다(`remote.md`의 "내 기기 명단"). 명단과 이름은 core의 것이고 이 화면은 `roster/*`를 부른다. 다른 컴퓨터가 있으면 그 아래 "Open at start"가 시작 때 여는 기계를 고른다: 고른 기계, 아니면 "The computer I used last"(기본. 연결된 채 focus를 받은 마지막 창의 기계), 고른 기계가 명단에서 빠졌으면 이 컴퓨터다. 시작 기계는 shell data의 `viewer/start.json`에 두고 shell main만 쓴다. 시작 기계를 빼는 확인 dialog가 그것을 알리고 뺀 뒤에는 "마지막에 쓴 기계"로 돌아간다.
-- **다른 기계의 창.** 그 창에는 설정 화면이 없다. Settings 자리에는 "<이름>'s settings are changed on <이름>"과 이 컴퓨터 창을 여는 단추만 있다(`RemoteSettings`). 기기는 설정을 읽지도 쓰지도 못하고(`settings/*`는 기기 route가 아니다) 빠른 실행 값은 기본값을 그 창의 메모리에만 둔다.
+- **My devices.** 이 컴퓨터의 Settings › Remote에 내 기기 명단의 기기 줄(이름, 종류와 OS, 컴퓨터면 link 상태, 터미널 입력, [Rename], [Remove], 엇갈림으로 빠진 기기의 "Disputed"), Add a device의 초대장, [Join with an invite]가 있다(`remote.md`의 "내 기기 명단"). 명단과 이름은 core의 것이고 이 화면은 `roster/*`를 부른다.
+- **다른 기계의 Settings.** Settings 왼쪽 목록 맨 위의 기계 고르기(다른 컴퓨터가 명단에 있을 때만 선다)가 이 컴퓨터나 연결된 다른 컴퓨터를 고른다. 다른 기계를 고르면 그 기계의 core에 걸린 항목(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 서고 나머지 항목(이 컴퓨터의 shell main이나 OS에 붙은 것)은 이 컴퓨터의 설정이라는 한 줄과 이 컴퓨터로 돌아가는 단추다. 읽고 쓰는 것은 그 기계의 `settings/*` 같은 route이고 받는 기계가 이 컴퓨터를 기기로 보므로, 그 기계가 이 컴퓨터에 터미널 입력을 허락했을 때만 열린다(항목을 열 때마다 묻고, 허락이 없으면 본문 자리에 까닭과 그 기계의 Settings › Remote › My devices에서 켜라는 한 줄이다). provider key와 secret은 보호 secret 창이 그 기계의 link로만 보낸다. 빠른 실행 값은 이 컴퓨터의 것이라 다른 기계는 기본값을 메모리에만 둔다.
 
 ## 지키는 것
 

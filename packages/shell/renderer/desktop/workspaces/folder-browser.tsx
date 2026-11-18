@@ -1,4 +1,4 @@
-// 다른 기계의 창에서 그 기계의 폴더를 고르는 dialog. OS의 폴더 고르기 창은 이 컴퓨터의 폴더를 보이므로 그 창에서는 쓰지 않는다.
+// 다른 기계의 범위에서 그 기계의 폴더를 고르는 dialog. OS의 폴더 고르기 창은 이 컴퓨터의 폴더를 보이므로 그 창에서는 쓰지 않는다.
 // 목록은 그 기계의 core가 읽고(`projects/browse`, 사람의 home 아래만) home부터 연다. 폴더를 누르면 들어가고 [Up]이 위로,
 // [Choose]가 지금 폴더를 고른다. 폴더를 고르는 화면(등록 dialog, project 폴더, skill 폴더)은 OS 선택기와 같은 통로(`pick`)로
 // 이 dialog를 부르므로 그 화면들은 어느 창인지 모른다.
@@ -22,7 +22,7 @@ import { projectBrowse } from "../../../../protocol/projects/add-api.ts";
 import { actionIcons } from "../../icons/mod.ts";
 import type { SourceResult } from "../../source-result.ts";
 import type { CoreSource } from "../connection/connection.ts";
-import { useWindowMachine } from "../machines/context.tsx";
+import { useScopeMachineItem } from "../machines/context.tsx";
 import styles from "./folder-browser.module.css";
 
 /** 폴더 하나를 읽은 것. path는 모두 그 기계의 realpath이고 home에서는 parent가 null이다. */
@@ -66,7 +66,7 @@ export function FolderBrowseDialog({
   onChoose,
   onClose,
 }: FolderBrowseDialogProps) {
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
   // 열 때마다 home부터다.
   const [at, setAt] = useState<string | undefined>(undefined);
   const [read, setRead] = useState<

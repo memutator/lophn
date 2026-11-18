@@ -37,7 +37,7 @@ function readBridge(): CoreApi | undefined {
  * 이 컴퓨터의 core. preload가 없으면 starting만 보고 call은 거절한다. 테스트는 source를 끼운다.
  * 다른 기계의 것은 `desktop/machines/core-source.ts`다.
  */
-export function windowCoreSource(): CoreSource {
+export function thisComputerCoreSource(): CoreSource {
   const bridge = readBridge();
   if (!bridge) {
     return {

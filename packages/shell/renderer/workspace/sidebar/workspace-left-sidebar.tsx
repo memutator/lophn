@@ -29,7 +29,7 @@ import {
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import {
   useMachines,
-  useWindowMachine,
+  useScopeMachineItem,
 } from "../../desktop/machines/context.tsx";
 import { type AgentChoice } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot } from "../../parts/agent-session/coding.ts";
@@ -192,8 +192,8 @@ export interface WorkspaceLeftSidebarProps {
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { workspace: current } = props;
-  // 다른 기계의 창은 앱 만들기가 없고(project 등록은 그 기계의 폴더 목록으로 한다), coding agent는 그 기계의 터미널에 있어 고를 수 없다.
-  const machine = useWindowMachine();
+  // 다른 기계의 범위은 앱 만들기가 없고(project 등록은 그 기계의 폴더 목록으로 한다), coding agent는 그 기계의 터미널에 있어 고를 수 없다.
+  const machine = useScopeMachineItem();
   const machines = useMachines();
   const { projects } = props;
   const apps = machine === null ? props.apps : undefined;

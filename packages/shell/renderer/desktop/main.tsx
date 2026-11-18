@@ -22,7 +22,6 @@ import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
 import { HomeGate } from "./workspaces/home-gate.tsx";
-import { useWindowMachine } from "./machines/context.tsx";
 import {
   useHostMachine,
   useMachineData,
@@ -162,7 +161,7 @@ export function Desktop({
   overlay,
   detached,
 }: DesktopProps) {
-  // 창의 기계(root 범위) 묶음. Settings, 팔레트, 전역 float, toast는 이 기계의 것이다.
+  // 이 컴퓨터(root 범위) 묶음. Settings, 팔레트, 전역 float, toast는 이 기계의 것이다.
   const root = useMachineData();
   const {
     core: source,

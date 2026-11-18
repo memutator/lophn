@@ -75,7 +75,7 @@ export function machineItemOf(
 /**
  * 범위의 다른 기계. null이면 이 컴퓨터다. 그 기계에서 부를 수 없는 기능을 감추고 그 자리에 기계 이름을 보이는 쪽이 쓴다.
  */
-export function useWindowMachine(): MachineItem | null {
+export function useScopeMachineItem(): MachineItem | null {
   const machine = useScopeMachine();
   const view = useMachinesView();
   return machine === null ? null : machineItemOf(view, machine);
@@ -108,7 +108,7 @@ export function useMachineGrant(
   open = true,
   at?: string,
 ): "checking" | "granted" | "denied" {
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
   const check = useContext(GrantContext);
   const asks = open && machine !== null && check !== null;
   const [state, setState] = useState<"checking" | "granted" | "denied">(

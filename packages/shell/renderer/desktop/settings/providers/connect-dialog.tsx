@@ -12,7 +12,7 @@ import {
 } from "../../../../../protocol/lophn-agent/custom-provider.ts";
 import { ProtectedKeyNote } from "../../../workspace/agents/editor/parts.tsx";
 import { useOptionalEventClient } from "../../connection/events/hooks.tsx";
-import { useWindowMachine } from "../../machines/context.tsx";
+import { useScopeMachineItem } from "../../machines/context.tsx";
 import { waysOf } from "../model.ts";
 import { ProviderName } from "./provider-name.tsx";
 import {
@@ -40,7 +40,7 @@ interface ConnectDialogProps {
 // custom 정의는 "Custom provider" 제목의 form(Provider ID, Display name, API, Base URL)과
 // [Cancel] [Connect]를 보인다. API key 값은 이 form이 받지 않는다: 웹 주소는 보호 창이 key를 받아 core가 잇고, 이 컴퓨터의
 // 주소는 key 없이 바로 연결한다. 인증 없음은 고르는 방법이 아니다.
-// 다른 기계의 창에서는 device code 로그인만 단추다. 그 기계의 browser로 돌아와야 하는 로그인은 그 자리에 까닭 한 줄을 둔다.
+// 다른 기계의 범위에서는 device code 로그인만 단추다. 그 기계의 browser로 돌아와야 하는 로그인은 그 자리에 까닭 한 줄을 둔다.
 export function ConnectDialog(props: ConnectDialogProps): ReactNode {
   // 정의가 바뀌면 입력과 오류를 새로 시작하도록 key를 정의로 둔다.
   return props.definition === null ? null : (
@@ -185,7 +185,7 @@ function MethodsBody({
   failed?: Failure | null;
   onChoose?: (way: Exclude<AuthWay, "none">) => void;
 }): ReactNode {
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
   return (
     <div className={styles.stack}>
       <ProviderName name={definition.name} />
@@ -297,8 +297,8 @@ function CustomProviderBody({
 }): ReactNode {
   const idOk = CUSTOM_ID_SHAPE.test(fields.id);
   const urlOk = baseUrlOk(fields.baseUrl);
-  // http는 core가 있는 기계 자신의 주소만 된다. 다른 기계의 창에서는 그 기계다.
-  const machine = useWindowMachine();
+  // http는 core가 있는 기계 자신의 주소만 된다. 다른 기계의 범위에서는 그 기계다.
+  const machine = useScopeMachineItem();
   return (
     <div className={styles.form}>
       <p className={styles.formLead}>{t("settings.notice.custom-lead")}</p>

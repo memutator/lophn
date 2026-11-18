@@ -1,6 +1,6 @@
 // Home의 오른쪽 sidebar Workspaces panel. 옛 launcher가 하던 일을 맡는다: project와 앱 목록, 보관한 것 되살리기, project 등록, 새 앱.
 // project·앱 목록은 core 읽기로 따라가고(다른 창·CLI가 바꿔도 다시 읽는다), 쓰기는 `ProjectsSource`·`AppsSource`로 한다. 누른 줄은 callback으로 알린다.
-// 다른 기계의 창에서는 project 등록·고치기·보관이 그 기계에서 되고(폴더는 그 기계의 목록에서 고른다) 앱은 목록뿐이다: 새 앱, 앱 보관·지우기는
+// 다른 기계의 범위에서는 project 등록·고치기·보관이 그 기계에서 되고(폴더는 그 기계의 목록에서 고른다) 앱은 목록뿐이다: 새 앱, 앱 보관·지우기는
 // 기기가 부를 수 없다.
 // 이 컴퓨터의 창은 다른 기계의 것도 보인다: 다른 기계에도 있는 project는 그 기계 이름을 아래 줄에 달고, 이 컴퓨터에 없는 project·앱은
 // 기계 꼬리표를 단 줄로 구역 끝에 선다(누르면 그 기계의 workspace를 연다. 꺼진 기계의 줄은 흐리고 열리지 않는다).
@@ -23,7 +23,7 @@ import type {
 } from "../desktop/workspaces/projects/source.ts";
 import type { MergedWorkspace } from "../desktop/workspaces/projects/merged.ts";
 import { RegisterDialog } from "../desktop/workspaces/register-dialog.tsx";
-import { useWindowMachine } from "../desktop/machines/context.tsx";
+import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { actionIcons, commonIcons, homeIcons } from "../icons/mod.ts";
 import type { WorkspaceRef } from "./desk-model.ts";
 import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
@@ -180,7 +180,7 @@ export function WorkspacesPanel({
   // 보관한 것까지 모두 읽고 화면에서 가른다.
   const cards = useProjectList();
   const rows = useAppList();
-  const appWrites = useWindowMachine() === null;
+  const appWrites = useScopeMachineItem() === null;
   const [registering, setRegistering] = useState(false);
   const [creatingApp, setCreatingApp] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);

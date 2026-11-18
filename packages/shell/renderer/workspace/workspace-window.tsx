@@ -290,7 +290,7 @@ export interface WorkspaceWindowProps {
   onOpenApp?: (app: string) => void;
   /** 왼쪽 sidebar의 앱 목록과 Create app의 통로. 없으면 앱 줄과 Create app이 없다. */
   apps?: AppsSource;
-  /** 왼쪽 sidebar에서 다른 workspace(다른 기계의 Home, project, 앱)로 간다. 창의 기계의 Home은 onHome이다. */
+  /** 왼쪽 sidebar에서 다른 workspace(다른 기계의 Home, project, 앱)로 간다. 이 컴퓨터의 Home은 onHome이다. */
   onWorkspace?: (workspace: WorkspaceRef) => void;
   /** 왼쪽 sidebar의 다른 workspace 줄의 session. 그 workspace로 가서 연다. `machine`은 session의 기계가 그 workspace의 기계가 아닐 때다. */
   onSessionAt?: (
@@ -412,7 +412,7 @@ const sameStop = (a: Stop, b: Stop) =>
 // workspace(Home, project, 앱) 창. 새 shell 틀(title bar의 desk 단추·tab 줄, 가운데 card, float 층, 양쪽 sidebar)에 desk 하나를 그린다.
 // Home과 앱은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
 //
-// workspace의 기계는 `workspace.machine`이 정하고(없으면 창의 범위, 곧 이 컴퓨터나 기계에 묶인 창의 그 기계) 본문은 그 기계의
+// workspace의 기계는 `workspace.machine`이 정하고(없으면 범위의 기계, 곧 이 컴퓨터) 본문은 그 기계의
 // 범위에서 그린다. 범위는 이 한 곳에서만 workspace에서 나온다: 다른 기계의 workspace를 여는 쪽은 `machine`을 단 ref만 넘긴다.
 // 그 workspace의 통로(props의 source 등)는 여는 쪽이 그 기계의 묶음에서 꺼내 넘긴다.
 export function WorkspaceWindow(props: WorkspaceWindowProps) {
@@ -2651,7 +2651,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const sidebarKind: SidebarKind = isHome ? "home" : isApp ? "app" : "project";
   const sidebarCtx: SidebarCtx = {
     kind: sidebarKind,
-    otherMachine: !data.here,
+    here: data.here,
     ...(props.jobs === undefined ? {} : { jobs: props.jobs }),
     onOpenJobs: () => openJobs(host),
     project:

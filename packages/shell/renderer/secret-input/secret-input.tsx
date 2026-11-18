@@ -18,7 +18,7 @@ interface SecretInputProps {
   name: string;
   /** 이미 값이 있다. 저장하면 값을 바꾼다. */
   configured: boolean;
-  /** 다른 기계의 창에서 열었으면 값이 갈 그 기계의 이름. */
+  /** 다른 기계의 범위에서 열었으면 값이 갈 그 기계의 이름. */
   machine?: string;
   /** 칸에 값을 넣은 채 시작한다(gallery용). 점으로만 보인다. */
   initialValue?: string;

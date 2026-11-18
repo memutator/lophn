@@ -1,7 +1,7 @@
 import type { LophnBrowserApi } from "../../../../ipc/browser.ts";
 import { loginSecretName } from "../../../../../protocol/secrets/logins.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { windowCoreSource } from "../../connection/connection.ts";
+import { thisComputerCoreSource } from "../../connection/connection.ts";
 import {
   call as coreCall,
   enterSecret,
@@ -56,7 +56,7 @@ export function loginRowsOf(
  * link 열 곳은 선언 설정이라 core를 부른다. entry가 core를 넘기지 않아도 되게 기본 인자로 얻는다.
  */
 export function windowBrowserSettings(
-  core: CoreSource = windowCoreSource(),
+  core: CoreSource = thisComputerCoreSource(),
 ): BrowserSettingsSource {
   const api = (globalThis as { lophnBrowser?: LophnBrowserApi }).lophnBrowser;
   const openSecret = windowSecretInputOpener();

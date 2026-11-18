@@ -31,7 +31,7 @@ export interface JobLineProps {
   machineName: string | null;
   onToggle: () => void;
   onEnabled: (enabled: boolean) => void;
-  /** 셋 다 없으면 그 단추가 없다(다른 기계의 창). */
+  /** 셋 다 없으면 그 단추가 없다(다른 기계의 범위). */
   onEdit?: () => void;
   onDelete?: () => void;
   onTakeOver?: () => void;

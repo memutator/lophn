@@ -48,10 +48,10 @@ import type { SettledRow } from "./decide.ts";
 
 const id = (prefix: string, n: number) =>
   `${prefix}_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
-const PROJECT = id("prj", 1);
-const ORDERS = id("app", 1);
-const BUDGET = id("app", 2);
-const INVENTORY = id("app", 3);
+export const PROJECT = id("prj", 1);
+export const ORDERS = id("app", 1);
+export const BUDGET = id("app", 2);
+export const INVENTORY = id("app", 3);
 
 const ago = (minutes: number) =>
   new Date(Date.now() - minutes * 60_000).toISOString();

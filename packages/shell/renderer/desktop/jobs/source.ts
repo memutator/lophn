@@ -112,7 +112,7 @@ export interface JobsSource {
   /** 새것이 앞이다. */
   runs(job: string): Promise<SourceResult<readonly JobRunView[]>>;
   setEnabled(job: string, enabled: boolean): Promise<SourceResult<null>>;
-  // 아래 셋이 없으면(다른 기계의 창: 기기는 켜고 끄기만 한다) 그 단추가 없다.
+  // 아래 셋이 없으면(다른 기계의 범위: 기기는 켜고 끄기만 한다) 그 단추가 없다.
   update?(job: string, patch: JobPatch): Promise<SourceResult<null>>;
   remove?(job: string): Promise<SourceResult<null>>;
   /** 다른 기계의 job을 이 기계로 가져온다. */

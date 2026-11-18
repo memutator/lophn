@@ -5,7 +5,6 @@ import { Shimmer } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import { actionIcons, connectionStaleIcon } from "../../icons/mod.ts";
 
-import type { MachineItem } from "../machines/source.ts";
 import type { ConnectionState, CoreSource } from "./connection.ts";
 import { initialConnection } from "./connection.ts";
 import styles from "./connection.module.css";
@@ -46,8 +45,6 @@ export function ConnectionGate({
 
 interface ConnectionNoticeProps {
   connection: ConnectionState;
-  /** 다른 기계의 창이면 그 기계. 판이 어긋났으면(status update) 끊김 대신 어느 쪽 lophn을 올릴지 말한다. */
-  machine?: MachineItem | null;
   onRetry: () => void;
   /** 확인 시각을 글로 바꾼다. 기본은 절대 시각이다. */
   formatTime?: (confirmedAt: number) => string;
@@ -56,18 +53,10 @@ interface ConnectionNoticeProps {
 // 단절은 마지막 화면을 그대로 두고 위에 한 줄로 최신 확인 못함·확인 시각·다시 연결을 보인다.
 export function ConnectionNotice({
   connection,
-  machine = null,
   onRetry,
   formatTime = absoluteTime,
 }: ConnectionNoticeProps) {
   if (connection.state !== "stale") return null;
-  // 다시 연결은 판을 맞춘 뒤에야 된다.
-  const message =
-    machine?.status !== "update"
-      ? t("home.connection.disconnected")
-      : machine.update === "client"
-        ? t("machine-update.viewer.desktop-client", { name: machine.name })
-        : t("machine-update.viewer.desktop-host", { name: machine.name });
   return (
     <div className={styles.notice} role="status" data-connection="stale">
       <span className={styles.noticeText}>
@@ -76,11 +65,8 @@ export function ConnectionNotice({
           pixels={iconPixels("base")}
           className={styles.muted}
         />
-        <span
-          className={styles.message}
-          data-machine-update={machine?.update ?? undefined}
-        >
-          {message}
+        <span className={styles.message}>
+          {t("home.connection.disconnected")}
         </span>
         {connection.confirmedAt !== null && (
           <span className={styles.confirmed}>

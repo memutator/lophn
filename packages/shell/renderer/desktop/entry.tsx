@@ -30,7 +30,7 @@ import { coreProjectIcons } from "../parts/project-icon/project-icon.tsx";
 import { machineTerminalDeps } from "../terminal/machine-deps.ts";
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreFileSearchSource } from "../workspace/search/core-source.ts";
-import { windowCoreSource } from "./connection/connection.ts";
+import { thisComputerCoreSource } from "./connection/connection.ts";
 import { createEventClient } from "./connection/events/client.ts";
 import { createEventStores } from "./connection/events/hooks.tsx";
 import { coreJobsSource } from "./jobs/core-source.ts";
@@ -112,7 +112,7 @@ const views: LophnShellViewsApi | undefined =
 // 이 컴퓨터의 묶음. 창에 붙은 통로(OS 폴더 고르기, 문서 편집, 글꼴, 터미널 입력)가 여기서 붙는다. 다른 기계의 묶음은 hub가
 // 그 기계를 처음 쓸 때 짓는다(machines/data.ts).
 function hereData(): MachineData {
-  const core = mock?.core ?? windowCoreSource();
+  const core = mock?.core ?? thisComputerCoreSource();
   // 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
   const events = createEventClient(mock?.events ?? core);
   const terminal = machineTerminalDeps(null, core, events);

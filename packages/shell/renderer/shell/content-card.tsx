@@ -88,7 +88,7 @@ export interface ContentCardProps {
   onAction: (action: TabAction, key: string) => void;
   /** 빈 desk의 단추. */
   onEmptyAction: (action: "new-session" | "open-file") => void;
-  /** 빈 desk의 [Open file]이 선다. file 고르기 bridge가 없는 창(다른 기계의 창)은 false다. 안 주면 true다. */
+  /** 빈 desk의 [Open file]이 선다. file 고르기 bridge가 없는 창(다른 기계의 범위)은 false다. 안 주면 true다. */
   canOpenFile?: boolean;
   /** Explorer의 파일을 card 위에 놓았다. 주지 않으면 받지 않는다. */
   onDropPath?: (path: string) => void;

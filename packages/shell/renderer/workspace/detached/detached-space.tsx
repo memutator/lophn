@@ -35,6 +35,11 @@ import {
   useMachineData,
   useScopeMachine,
 } from "../../desktop/machines/scope.tsx";
+import {
+  machineItemOf,
+  useMachinesView,
+} from "../../desktop/machines/context.tsx";
+import { OnlyHere } from "../../desktop/machines/only-here.tsx";
 import { TabScope } from "../../desktop/machines/tab-scope.tsx";
 import styles from "./detached-space.module.css";
 
@@ -122,6 +127,7 @@ function DetachedTab({
   const [tab, setTab] = useState(taken.tab as TabItem);
   // 다른 기계의 탭은 떼어 올 때 기계가 적혀 있다. 창의 읽기와 부르기는 그 기계의 묶음으로 한다.
   const scope = useScopeMachine();
+  const machinesView = useMachinesView();
   const tabMachine = (taken.tab as TabItem).machine ?? scope;
   const { workspace, editor, terminal, agentViewSource } =
     useMachineData(tabMachine);
@@ -303,9 +309,13 @@ function DetachedTab({
   const body =
     def === undefined ? null : (
       <TabScope tab={tab} workspaceMachine={scope} hereApp={def.hereApp?.(tab)}>
-        <TabBoundary key={tab.key}>
-          {def.keep?.(tab, true, host) ?? def.render?.(tab, true, host)}
-        </TabBoundary>
+        {tabMachine !== null && def.thisComputerOnly ? (
+          <OnlyHere machine={machineItemOf(machinesView, tabMachine)} />
+        ) : (
+          <TabBoundary key={tab.key}>
+            {def.keep?.(tab, true, host) ?? def.render?.(tab, true, host)}
+          </TabBoundary>
+        )}
       </TabScope>
     );
 

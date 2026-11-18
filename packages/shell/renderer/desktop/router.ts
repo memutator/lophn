@@ -18,7 +18,7 @@ export interface NewSessionStart {
 
 export interface Route {
   readonly space: Space;
-  /** home·project·app 공간의 workspace가 다른 기계의 것이면 그 기계(`mch_`). 없으면 창의 기계다. */
+  /** home·project·app 공간의 workspace가 다른 기계의 것이면 그 기계(`mch_`). 없으면 이 컴퓨터다. */
   readonly machine?: string;
   /** project 공간의 프로젝트 id. 다른 공간은 없다. */
   readonly project?: string;

@@ -12,7 +12,7 @@ import {
 import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
 import { STAY } from "../app-frame/annotate/use-view-toast.ts";
-import { useWindowMachine } from "../desktop/machines/context.tsx";
+import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
@@ -85,7 +85,7 @@ export function TerminalTab({
 }: TerminalTabProps) {
   const { store, bridge, core } = deps;
   // 다른 기계의 터미널이면 그 기계(꼬리표, 입력 거절 toast의 이름)다.
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
   const copy = deps.screenCopy === true;
   const subscribe = useCallback(
     (listener: () => void) => store.subscribe(listener),

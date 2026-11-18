@@ -99,7 +99,7 @@ export interface SessionTitles {
 }
 
 export interface MachineListsValue {
-  /** 창의 기계(null, 이 컴퓨터)가 맨 앞이고 그 뒤가 명단 순서다. */
+  /** 이 컴퓨터(null)가 맨 앞이고 그 뒤가 명단 순서다. */
   readonly lists: readonly MachineSnapshot[];
   readonly rows: readonly MergedWorkspace[];
   readonly entries: readonly OnMachine<SessionEntry>[];
@@ -113,7 +113,7 @@ export interface MachineListsValue {
   readonly names: ReadonlyMap<string, string>;
   /** 기계(키 ""는 이 컴퓨터)의 project·앱 이름. Inbox 줄이 id 대신 쓴다. 목록 내용이 같으면 같은 값이다. */
   readonly inboxNames: InboxNamesByMachine;
-  /** 줄의 기계(null은 창의 기계) 묶음. */
+  /** 줄의 기계(null은 이 컴퓨터) 묶음. */
   dataOf(machine: MachineRef): MachineData;
 }
 

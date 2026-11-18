@@ -7,7 +7,7 @@
 // (정의 key나 Custom)으로 열면 shell main이 값을 core `providers/connect-key`로 올려 끝낸다. 이 컴퓨터의 주소에 인증 없이
 // 잇는 Custom은 `providers/connect-local`이다. 구독 로그인은 `providers/sign-in`이 시작하고 core가 기다린다(sign-in.ts).
 // 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다: shell main에서 결정 handle(`provider_disconnect`)을
-// 받아 DisconnectProvider에 싣는다. 값은 core가 지운다. 다른 기계의 창은 handle 없이 보낸다: 터미널 입력을 허락받은 기기가
+// 받아 DisconnectProvider에 싣는다. 값은 core가 지운다. 다른 기계의 범위은 handle 없이 보낸다: 터미널 입력을 허락받은 기기가
 // 보낸 확인 command에는 그 기계의 core가 handle을 붙인다(이 컴퓨터의 shell main은 그 기계의 handle을 받지 못한다).
 import { t } from "@lophn/i18n";
 
@@ -179,7 +179,7 @@ interface ProviderDeps {
   requestHandle: DecisionHandleApi["requestDecisionHandle"] | undefined;
   /** command key를 만든다. 테스트가 고정한다. */
   random: () => string;
-  /** 다른 기계의 창이다. 끊기는 결정 handle 없이 보내고 그 기계의 core가 붙인다. */
+  /** 다른 기계의 범위이다. 끊기는 결정 handle 없이 보내고 그 기계의 core가 붙인다. */
   machine: boolean;
 }
 

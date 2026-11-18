@@ -30,7 +30,7 @@ const subject = z
   .max(80)
   .regex(/^[^\p{Cc}]+$/u);
 
-// 값이 갈 기계(`mch_<ULID>`). 없으면 이 컴퓨터(기계에 묶인 창이면 그 기계)다.
+// 값이 갈 기계(`mch_<ULID>`). 없으면 이 컴퓨터다.
 const machine = z
   .string()
   .regex(/^mch_[0-7][0-9a-hjkmnp-tv-z]{25}$/)

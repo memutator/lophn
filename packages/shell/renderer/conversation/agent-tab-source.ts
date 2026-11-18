@@ -712,7 +712,7 @@ export interface AgentTabSource {
   archiveSession(session: string): Promise<SourceResult<void>>;
   /**
    * 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. 없으면 지우기 칸이 없다
-   * (기기 자격으로 부르는 다른 기계의 창: 기기는 `sessions/delete`를 부르지 못한다).
+   * (기기 자격으로 부르는 다른 기계의 범위: 기기는 `sessions/delete`를 부르지 못한다).
    */
   deleteSession?(session: string): Promise<SourceResult<void>>;
   /** 권한 mode를 바꾸지 못한다(기기 자격은 `sessions/change-skip`을 부르지 못한다). 입력칸의 mode 메뉴가 없다. */

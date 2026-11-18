@@ -32,7 +32,7 @@ import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
 import { TabBoundary } from "../../workspace/tab-boundary.tsx";
 import {
   useMachinesView,
-  useWindowMachine,
+  useScopeMachineItem,
 } from "../../desktop/machines/context.tsx";
 import { useMachineHub } from "../../desktop/machines/scope.tsx";
 import { OnlyHere } from "../../desktop/machines/only-here.tsx";
@@ -240,7 +240,7 @@ function GlobalFloatContent({
   });
   const hostRef = useRef(host);
   hostRef.current = host;
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
 
   const { registerHost } = globalFloats;
   useEffect(

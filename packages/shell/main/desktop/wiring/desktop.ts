@@ -389,7 +389,7 @@ export function register(
   });
 
   // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다. 창이 없을 때 여는 길(시작, tray, 두 번째 실행, Dock)은
-  // 시작 기계의 창을 연다(`desktop.open`·`desktop.show`).
+  // 창 하나를 연다(`desktop.open`·`desktop.show`).
   app.on("window-all-closed", () => {});
   // macOS는 창 없이 Dock을 누르면 창을 다시 연다.
   app.on("activate", () => {

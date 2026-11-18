@@ -1,4 +1,4 @@
-// 다른 기계 하나의 CoreSource. 이 컴퓨터의 것(`windowCoreSource`)과 같은 preload 통로를 쓰고, 부르기와 구독에 그 기계를 싣는다.
+// 다른 기계 하나의 CoreSource. 이 컴퓨터의 것(`thisComputerCoreSource`)과 같은 preload 통로를 쓰고, 부르기와 구독에 그 기계를 싣는다.
 // 연결 상태는 IPC로 묻지 않고 기계 목록의 그 줄에서 읽는다. 그 기계의 frame은 이 컴퓨터의 core 연결을 거쳐 오므로 이 컴퓨터의
 // 연결이 준비되지 않은 동안은 그 기계도 끊긴 것(stale)이다: 다시 붙으면 범위가 snapshot부터 다시 읽는다.
 import type { Id } from "../../../../protocol/base/ids.ts";
@@ -39,7 +39,7 @@ export function machineCoreSource(
   machine: string,
   bridge: CoreApi,
   machines: MachinesSource,
-  /** 이 컴퓨터의 core 연결(`windowCoreSource`). */
+  /** 이 컴퓨터의 core 연결(`thisComputerCoreSource`). */
   local: CoreSource,
 ): CoreSource {
   // 이 컴퓨터의 연결 상태를 묶음이 사는 동안 듣는다(받은 값으로 본다. source의 current가 먼저 바뀌었다고 기대하지 않는다).

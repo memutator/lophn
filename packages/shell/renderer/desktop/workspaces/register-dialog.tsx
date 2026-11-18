@@ -5,7 +5,7 @@ import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { actionIcons, commonIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import { useMachineGrant, useWindowMachine } from "../machines/context.tsx";
+import { useMachineGrant, useScopeMachineItem } from "../machines/context.tsx";
 import { addFolder, missingFolder, usableTitle } from "./model.ts";
 import type { FolderDraft, FolderMatch, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
@@ -32,9 +32,9 @@ interface RegisterDialogProps {
 const HERE = "";
 
 // 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 source의 고르기로만 고르고(이 컴퓨터의 창은
-// OS 선택기, 다른 기계의 창은 그 기계의 폴더 목록 dialog) 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
+// OS 선택기, 다른 기계의 범위은 그 기계의 폴더 목록 dialog) 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
 // 첫 폴더를 읽어(match) 폴더 목록 아래에 저장소의 상태를 한 줄로 알린다. 읽지 못하면 줄 없이 등록한다.
-// 다른 기계의 창이 그 기계에서 사람의 route를 허락받지 못했으면 form 대신 그 까닭과 허락을 켜는 곳을 한 줄로 보인다.
+// 다른 기계의 범위이 그 기계에서 사람의 route를 허락받지 못했으면 form 대신 그 까닭과 허락을 켜는 곳을 한 줄로 보인다.
 // 이 컴퓨터의 창은 연결되어 허락한 다른 기계를 맨 위에서 골라 그 기계에 등록한다.
 export function RegisterDialog({
   open,
@@ -72,7 +72,7 @@ export function RegisterDialog({
   const [match, setMatch] = useState<FolderMatch | null>(null);
   const [share, setShare] = useState(true);
   const [relinkFailed, setRelinkFailed] = useState(false);
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
   const denied = useMachineGrant(open) === "denied";
 
   const firstPath = folders[0]?.path;

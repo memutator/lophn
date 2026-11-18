@@ -23,7 +23,7 @@ import { useWebviewHost } from "../app-frame/webview-host.tsx";
 import type { AppRow, AppsSource, OpenScreen } from "../apps/source.ts";
 import {
   type CoreSource,
-  windowCoreSource,
+  thisComputerCoreSource,
 } from "../desktop/connection/connection.ts";
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import { appTools } from "../../../protocol/apps/declaration/read.ts";
@@ -100,7 +100,7 @@ let windowSource: PreviewSource | undefined;
 function usePreviewSource(): PreviewSource {
   const given = useContext(PreviewSourceContext);
   if (given !== null) return given;
-  windowSource ??= corePreviewSource(windowCoreSource());
+  windowSource ??= corePreviewSource(thisComputerCoreSource());
   return windowSource;
 }
 

@@ -1,10 +1,7 @@
-// 다른 기계를 보는 화면(기계 고르기, Settings › Remote의 시작 기계, 다른 기계 창의 gate·자리 표시·Settings·폴더 고르기).
+// 다른 기계를 보는 화면(Settings의 기계 고르기, 다른 기계 탭의 gate·자리 표시, 폴더 고르기).
 export const remoteDesk = {
   "machines.button.choose-folder": "Choose",
   "machines.button.folder-up": "Up",
-  "machines.button.open-this-computer": "Open this computer",
-  "machines.button.pair-another": "Add a computer…",
-  "machines.button.switcher": "Computer: {name}",
   "machines.button.this-computer": "This computer",
   "machines.gate.connecting": "Connecting to {name}…",
   "machines.gate.offline": "{name} is offline",
@@ -16,21 +13,12 @@ export const remoteDesk = {
   "machines.label.folders": "the folders",
   "machines.label.unknown-name": "Another computer",
   "machines.label.way-local": "On {name}",
-  "machines.label.start": "Open at start",
-  "machines.note.remove-start":
-    "lophn opens {name} at start. After removing it, lophn opens the computer you used last.",
-  "machines.note.start":
-    "The computer lophn opens when it starts. If it is offline, its window says so and lets you open this computer.",
   "machines.notice.folders-truncated": "Showing the first 500 folders.",
   "machines.notice.only-here": "This opens only on {name}.",
-  "machines.notice.settings-elsewhere":
-    "This setting belongs to this computer, not {name}. Change it in this computer's window.",
   "machines.notice.settings-no-grant":
     "This computer can't change {name}'s settings. On {name}, open Settings › Remote › My devices and turn on “Allow typing in terminals” for this computer.",
   "machines.notice.sign-in-there":
     "Signing in to {product} needs a browser on {name}. Sign in on {name}.",
-  "machines.option.last": "The computer I used last",
-  "machines.option.not-in-list": "A computer not in your devices",
   "machines.status.connected": "Connected",
   "machines.status.connecting": "Connecting…",
   "machines.status.direct": "Direct",
@@ -39,11 +27,8 @@ export const remoteDesk = {
   "machines.status.relay": "Relay",
   "machines.status.removed": "Not in your devices",
   "machines.status.with-detail": "{label} · {detail}",
-  "machines.group.also-here": "Also on this computer",
-  "machines.group.also-here-as": "Also on this computer as {title}",
   "machines.group.clone-failed": "Could not clone it here: {message}",
   "machines.group.clone": "Clone",
-  "machines.group.clone-here": "Clone here",
   "machines.group.cloned": "Cloned to {path}",
   "machines.group.cloning": "Cloning…",
   "machines.group.git-auth":
@@ -52,15 +37,9 @@ export const remoteDesk = {
   "machines.panel.also-on": "{path} · also on {names}",
   "machines.panel.app-there": "On {name}",
   "machines.panel.off": "{name} is off",
-  "machines.group.looks-like": "Looks like {title}",
-  "machines.group.looks-like-note":
-    "Set it up on one computer and commit .lophn-project.json. The other links after git pull.",
   "machines.group.no-remote":
     "Not on this computer. It has no git remote to clone from.",
-  "machines.group.no-sessions": "No sessions",
   "machines.group.not-here": "Not on this computer",
-  "machines.group.sessions-failed": "Could not read the sessions",
-  "machines.group.sessions-on": "On {name}",
   "machines.title.choose-folder": "Choose a folder on {name}",
   "machines.title.clone-parent": "Choose a folder for projects you clone",
   "machines.page.kind": "Pages",

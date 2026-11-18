@@ -19,7 +19,7 @@ export type { DetachedBounds, DetachedItem, FloatArea, FloatRect, TabItem };
 
 /**
  * workspace와 그 기계(`mch_`). workspace가 어느 기계의 것인지는 이 값이 정본이다: `WorkspaceWindow`가 이 값으로 범위를 세운다.
- * 기계가 없으면 창의 범위(이 컴퓨터, 기계에 묶인 창이면 그 기계)다. 이 컴퓨터의 id는 넣지 않는다.
+ * 기계가 없으면 그 workspace의 기계(이 컴퓨터면 이 컴퓨터)다. 이 컴퓨터의 id는 넣지 않는다.
  */
 export type WorkspaceRef = ({ kind: "home" } | Workspace) & {
   readonly machine?: string;

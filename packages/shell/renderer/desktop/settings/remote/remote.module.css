@@ -36,7 +36,7 @@
   margin-bottom: var(--space-6);
 }
 
-/* 빼기 dialog 본문의 문단. 시작 기계를 빼면 한 문단이 더 붙는다. */
+/* 빼기 dialog 본문의 문단. */
 .dialogText {
   margin: var(--space-0);
 }

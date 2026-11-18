@@ -13,7 +13,7 @@ import {
   DEFAULT_AGENT_CHARACTER,
   type Profile,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import { useWindowMachine } from "../../../desktop/machines/context.tsx";
+import { useScopeMachineItem } from "../../../desktop/machines/context.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
@@ -158,8 +158,8 @@ export function McpList({
   signingIn = [],
   onSetSecret,
 }: McpListProps) {
-  // MCP OAuth는 그 기계의 browser로 돌아와야 해 다른 기계의 창에서는 단추 대신 그 기계에서 하라는 한 줄이다.
-  const machine = useWindowMachine();
+  // MCP OAuth는 그 기계의 browser로 돌아와야 해 다른 기계의 범위에서는 단추 대신 그 기계에서 하라는 한 줄이다.
+  const machine = useScopeMachineItem();
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => {

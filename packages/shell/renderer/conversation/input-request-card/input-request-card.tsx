@@ -2,7 +2,7 @@
 // sign_in은 core가 정의·선언·설정에서 읽은 목적지다(agent가 적은 글이 아니다). [Enter]는 보호 입력 창을 연다.
 // 창은 사람이 이 단추를 눌러야 열리고, 창에 보이는 값은 main이 core에서 다시 읽는다. sign_in은 넣을 값이 없어 [Sign in]이
 // browser 로그인을 돌린다(Settings·앱 상세와 같은 흐름).
-// 다른 기계의 창에서는 secret의 [Enter]가 그 기계로 값을 보내는 보호 창을 연다. sign_in은 provider의 device code 로그인만 단추이고
+// 다른 기계의 범위에서는 secret의 [Enter]가 그 기계로 값을 보내는 보호 창을 연다. sign_in은 provider의 device code 로그인만 단추이고
 // 그 기계의 browser로 돌아와야 하는 로그인(loopback provider, 앱 OAuth, MCP OAuth)과 이 컴퓨터의 browser에 치는 login은 한 줄이다.
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
@@ -18,7 +18,7 @@ import type {
 } from "../../../ipc/secret-input.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import { useOptionalEventClient } from "../../desktop/connection/events/hooks.tsx";
-import { useWindowMachine } from "../../desktop/machines/context.tsx";
+import { useScopeMachineItem } from "../../desktop/machines/context.tsx";
 import { inputRequestTitle } from "./title.ts";
 import styles from "./input-request-card.module.css";
 
@@ -72,7 +72,7 @@ export function InputRequestCard({
   // 로그인을 돌리는 중이면 그만둘 신호와 device code다.
   const [signing, setSigning] = useState<{ code: string | null } | null>(null);
   const stop = useRef<AbortController | null>(null);
-  const machine = useWindowMachine();
+  const machine = useScopeMachineItem();
   useEffect(() => {
     let live = true;
     void source.readInputRequest?.({ session, toolCall }).then((result) => {
@@ -83,7 +83,7 @@ export function InputRequestCard({
     };
   }, [source, session, toolCall]);
   if (view === null) return null;
-  // 다른 기계의 창에서 이 card가 끝내지 못하는 요청이면 단추 대신 놓는 한 줄이다.
+  // 다른 기계의 범위에서 이 card가 끝내지 못하는 요청이면 단추 대신 놓는 한 줄이다.
   const elsewhere =
     machine === null
       ? null
@@ -238,7 +238,7 @@ export function InputRequestCard({
   );
 }
 
-/** provider의 device code 로그인. 어느 browser에서나 끝나 다른 기계의 창에서도 단추다. */
+/** provider의 device code 로그인. 어느 browser에서나 끝나 다른 기계의 범위에서도 단추다. */
 function deviceCode(view: SignInRequestView): boolean {
   const { target } = view;
   return (

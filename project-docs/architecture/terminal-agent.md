@@ -77,6 +77,8 @@ tracker ─ 바뀔 때 runtime.agent를 실어 TerminalRuntimeChanged ─▶ 화
 - **보기는 내 기기 모두다.** 그 기계의 어느 터미널이든(사람이 그 기계에서 연 것도) 본다. core가 연 터미널마다 terminal view가 알아 둔다.
 - **치기, 다시 시작, 닫기는 이 컴퓨터의 터미널 입력 허락이다.** 받는 기계가 입력마다 본다(19). focus 검사는 없다: 그 검사는 이 컴퓨터의 capability를 지키는 것이고 다른 기계는 기기 허락만 본다. 허락이 없으면 탭은 보기만 남고 탭 위쪽 toast가 그 기계에서 이 컴퓨터의 터미널 입력을 켜라고 말한다. clipboard와 link 열기는 이 컴퓨터의 것이다.
 - **크기.** 탭은 칸에 맞추지 않고 그 기계의 PTY 크기로 그린다. 사람이 그 탭을 고르거나 누르거나 치면 `terminal_view/resize`로 칸 크기를 잡는다(폰과 같이 마지막에 잡은 쪽이 이긴다). 그 기계의 탭은 "Sized for another device"를 보인다.
+- **이름 바꾸기는 이 컴퓨터의 터미널만.** 탭 이름을 core에 알리는 `terminals/name`과 저장한 session 이름 `terminals/saved_sessions`·`terminals/rename_saved`는 기기 route 목록에 없다. 그래서 다른 기계의 터미널 탭에는 이름 바꾸기가 없다(탭 줄, tab menu, sidebar 줄).
+- **Finished 줄과 점은 그 기계의 runtime이 준다.** 다른 기계의 터미널은 그 기계의 `TerminalRuntimeChanged`(agent 상태와 `tab_name`)와 못 본 끝(`unseen`)으로 같은 Finished 줄과 탭 점을 만든다. OS 알림(`TerminalAgentSignaled`)은 아직 그 기계의 탭을 열지 않고 창만 앞으로 가져온다(그 터미널의 project를 이 컴퓨터가 모른다).
 - **lease.** 사본의 lease key는 principal과 터미널이라 이 컴퓨터의 창들이 하나를 같이 쓴다. 그래서 탭을 놓아도 끄지 않고 30초 뒤 저절로 끝나게 둔다.
 
 ## 지키는 것

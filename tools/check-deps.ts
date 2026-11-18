@@ -34,7 +34,7 @@ const EXCLUDED = new Set([
 export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
   base: [],
   protocol: ["base"],
-  core: ["protocol", "base", "cli"],
+  core: ["protocol", "base", "cli", "remote-client"],
   cli: ["protocol", "base"],
   "coding-agent": ["protocol", "base"],
   design: [],

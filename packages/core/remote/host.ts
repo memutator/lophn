@@ -229,9 +229,13 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
                       type: "result",
                       id: frame.id,
                       ok: false,
+                      // details도 싣는다: 다른 컴퓨터가 넘긴 call(`machines/call`)은 오류를 그대로 화면에 낸다.
                       error: {
                         code: result.error.code,
                         message: result.error.message,
+                        ...(result.error.details === undefined
+                          ? {}
+                          : { details: result.error.details }),
                       },
                     },
               );

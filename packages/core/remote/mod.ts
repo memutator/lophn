@@ -1,5 +1,5 @@
 // 기기(폰, 다른 컴퓨터)가 붙는 remote 연결: listener, 내 기기 명단(main thread 사본과 저장), 기기 표, 기기 자격과 call,
-// core가 폰에 묻는 길(phone link).
+// core가 폰에 묻는 길(phone link), 이 컴퓨터가 명단의 다른 컴퓨터에 붙는 link.
 export {
   createDeviceCredentials,
   createRemoteCall,
@@ -37,6 +37,12 @@ export {
   type RemoteHost,
   type RemoteRoster,
 } from "./host.ts";
+export {
+  createLinks,
+  dialNodeWebSocket,
+  type LinkedMachine,
+  type Links,
+} from "./links.ts";
 export { openRemoteListener, type RemoteListener } from "./listener.ts";
 export {
   createPhoneLink,

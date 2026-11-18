@@ -77,6 +77,7 @@ import {
   remoteKeyBytes,
   remoteKeyText,
   rosterForgetAll,
+  machinesCall,
   rosterInvite,
   rosterList,
   rosterRemove,
@@ -139,7 +140,8 @@ import {
   type RemoteRoster,
   type RemoteSocket,
 } from "./host.ts";
-import { createRoster, type RosterChange } from "./roster.ts";
+import { createLinks } from "./links.ts";
+import { createRoster, type Roster, type RosterChange } from "./roster.ts";
 
 // 메모리 안에서 폰과 core를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
 function wire() {
@@ -183,6 +185,10 @@ function wire() {
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
+// 가짜 명단이 `join` 답에 싣는 이 core의 서명 key.
+const FAKE_SIGNING_KEY = remoteKeyText(new Uint8Array(32).fill(7));
+// setup의 host가 hello로 알리는 기계 id.
+const HOST_MACHINE = `mch_0${"1".repeat(25)}` as const;
 const deviceId = (n: number) => `dev_0${String(n).padStart(25, "0")}`;
 const decideBody = {
   session: `ses_0${"1".repeat(25)}`,
@@ -262,6 +268,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     rosterStatements,
     rosterStore,
     rosterForgetAll,
+    machinesCall,
     agentCreate,
     agentChange,
     agentDelete,
@@ -388,7 +395,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
           })
         : ok({
             device: id,
-            computer: { id: deviceId(99), signing_key: "unused" },
+            computer: { id: deviceId(99), signing_key: FAKE_SIGNING_KEY },
             roster: { statements: [], reach: [] },
           });
     },
@@ -397,7 +404,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
   const host: RemoteHost = createRemoteHost({
     staticKey: coreKey,
     machine: () => ({
-      id: `mch_0${"1".repeat(25)}`,
+      id: HOST_MACHINE,
       name: "studio",
       addresses: ["192.168.0.2"],
     }),
@@ -545,6 +552,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
 
   return {
     host,
+    coreKey,
     clock,
     bus,
     views,
@@ -1306,7 +1314,7 @@ async function migrated() {
   assert.ok(listed.ok);
   const identified = await roster.ensureSelf({
     machine,
-    name: "studio",
+    name: () => "studio",
     os: "linux",
     adopt: listed.value.devices.map((row) => ({
       id: row.id,
@@ -1469,4 +1477,103 @@ test("뺀 기기는 붙어 있던 연결이 빼기가 든 명단을 받은 뒤 �
   }
   assert.ok(m.roster.find(m.phoneText) === undefined);
   assert.deepEqual(m.s.reached, []);
+});
+
+// 다른 컴퓨터(A)가 link로 넘긴 call은 이 core(B)에서 A의 기기 자격(지금의 기기 route 목록)으로 걸러진다. 넘기는 쪽이 범위를
+// 넓히거나, 넘긴 call을 다시 넘기는(machines/call) 길이 생기면 한 컴퓨터를 든 사람이 다른 컴퓨터의 설정·secret·명단을 고친다.
+test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록으로 걸러져 목록 밖 route(설정 쓰기, roster/*, machines/call)는 forbidden이다", async (t) => {
+  const s = setup();
+  // A의 host key를 B의 명단에 둔다(가짜 명단). A 쪽은 B 하나가 든 명단이다.
+  const aKey = generateKeyPair(s.random);
+  s.register(aKey);
+  const b: RosterEntryBody = {
+    type: "entry",
+    id: deviceId(50) as RosterEntryBody["id"],
+    kind: "computer",
+    key: remoteKeyText(s.coreKey.publicKey),
+    signing_key: FAKE_SIGNING_KEY,
+    machine: HOST_MACHINE,
+    name: "studio",
+    os: "linux",
+    terminal_input: true,
+    rev: 1,
+    invite: null,
+  };
+  const snapshot = {
+    statements: [],
+    reach: [{ device: b.id, addresses: ["10.0.0.2"], port: 7432, relay: null }],
+  };
+  const roster = {
+    view: () => ({
+      devices: [{ body: b, signed_by: [], pending: false }],
+      removed: [],
+      folded: [],
+      conflicts: [],
+      invites: [],
+      keep: [],
+    }),
+    self: () => ({
+      id: deviceId(60),
+      hostKey: remoteKeyText(aKey.publicKey),
+      signingKey: "a-signing-key",
+    }),
+    snapshot: () => snapshot,
+    receive: async () => ok(snapshot),
+  } as unknown as Roster;
+  const links = createLinks({
+    roster,
+    name: () => "laptop",
+    // 주소마다 메모리 전송 하나로 B의 host에 닿는다.
+    dial: (_url) => {
+      const w = wire();
+      void s.host.accept(w.core as RemoteSocket);
+      return Promise.resolve(w.phone);
+    },
+    random: s.random,
+    clock: s.clock,
+    wait(ms, fn) {
+      const timer = setTimeout(fn, ms);
+      return () => clearTimeout(timer);
+    },
+    publish: () => undefined,
+    logger: { error() {}, warn() {} } as never,
+  });
+  links.sync(aKey);
+  t.after(() => links.sync(undefined));
+  for (let i = 0; i < 50 && links.list()[0]?.status !== "connected"; i++) {
+    await settle();
+  }
+  assert.equal(links.list()[0]?.status, "connected");
+
+  const call = (resource: string, method: string, body: unknown) =>
+    links.call({ machine: HOST_MACHINE, resource, method, body });
+  for (const [resource, method, body] of [
+    ["settings", "update", { changes: [] }],
+    [
+      "roster",
+      "invite",
+      { kind: "phone", terminal_input: true, lifetime: "short" },
+    ],
+    ["roster", "remove", { id: deviceId(1) }],
+    [
+      "machines",
+      "call",
+      {
+        machine: HOST_MACHINE,
+        resource: "settings",
+        method: "update",
+        body: {},
+      },
+    ],
+  ] as const) {
+    const refused = await call(resource, method, body);
+    assert.equal(
+      !refused.ok && refused.error.code,
+      "forbidden",
+      `${resource}/${method}`,
+    );
+  }
+  const inside = await call("turn_requests", "decide", decideBody);
+  assert.ok(inside.ok);
+  assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });

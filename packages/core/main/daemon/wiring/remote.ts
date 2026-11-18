@@ -5,6 +5,8 @@
 // 명단의 main thread 사본(remote/roster.ts)을 여기서 들고, 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)과 kind
 // (`ctx.deviceKind`)를 그 view로 채운다. 명단을 고치는 `roster/*` route는 여기서 서명한 뒤 machine 자격 `roster/store`로 쓴다.
 // core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
+// remote가 켜진 동안 명단의 다른 컴퓨터마다 link(remote/links.ts)를 들고, 이 컴퓨터가 초대장으로 드는 `roster/join`과 이 기계의
+// 화면이 다른 기계를 부르는 `machines/*`를 그 link로 낸다.
 // remote key 둘(host key, 서명 key)에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key거나 하나만
 // 읽히면 명단을 버리고 둘 다 지운다. 명단에서 이 컴퓨터가 빠진 것을 알아도 같은 길로 버리고 새 key로 다시 선다.
 import { networkInterfaces } from "node:os";
@@ -13,6 +15,7 @@ import type { z } from "zod";
 import {
   createIdSource,
   cryptoRandom,
+  type ErrorCode,
   err,
   ok,
   type Result,
@@ -22,6 +25,9 @@ import {
   devicesConnected,
   devicesList,
   devicesPushTargets,
+  machinesCall,
+  machinesList,
+  machinesWatch,
   type RemoteDevice,
   type RosterEntryBody,
   type RosterView,
@@ -29,8 +35,10 @@ import {
   remoteRelayStatus,
   rosterForgetAll,
   rosterInvite,
+  rosterJoin,
   rosterLeave,
   rosterList,
+  rosterPending,
   rosterRemove,
   rosterRename,
   rosterSetTerminalInput,
@@ -38,6 +46,7 @@ import {
   rosterStore,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { join, parseInviteText } from "../../../../remote-client/mod.ts";
 import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
 import { rewindUnknownSchemaSteps } from "../../../apps/rewind/mod.ts";
 import { foldSyncLogDevice } from "../../../apps/sync/device-fold.ts";
@@ -66,6 +75,7 @@ import { devicePrincipal } from "../../../remote/call.ts";
 import {
   addSigningKey,
   createDeviceCredentials,
+  createLinks,
   createPhoneLink,
   createRemoteCall,
   createRemoteHost,
@@ -77,6 +87,8 @@ import {
   type DevicesChange,
   devicesListRead,
   devicesPushTargetsRead,
+  dialNodeWebSocket,
+  type Links,
   loadRemoteKeys,
   openRemoteListener,
   type PhoneLink,
@@ -158,6 +170,10 @@ export function createCoreRegistration() {
       rosterSetTerminalInput,
       rosterRename,
       rosterLeave,
+      rosterJoin,
+      machinesList,
+      machinesCall,
+      machinesWatch,
     ],
   };
 }
@@ -247,6 +263,8 @@ export const remoteWiring: WiringFactory = () => {
   // 붙은 기기 연결을 안다. remote가 꺼져 있으면 붙은 연결이 없어 `call`은 `unavailable`(phone_unreachable)이다.
   let phoneLink: PhoneLink;
   let roster: Roster;
+  // 명단의 다른 컴퓨터마다 하나인 link. remote가 켜진 동안만 붙는다.
+  let links: Links;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -378,6 +396,7 @@ export const remoteWiring: WiringFactory = () => {
     }
     keys = undefined;
     hostText = undefined;
+    links.sync(undefined);
     host?.shutdown();
     host = undefined;
     await listener?.close();
@@ -407,7 +426,7 @@ export const remoteWiring: WiringFactory = () => {
     if (!rows.ok) return rows;
     const self = await roster.ensureSelf({
       machine: ctx.machine.id,
-      name: ctx.machine.status().name,
+      name: () => ctx.machine.status().name,
       os: computerOs(),
       ...(reach === undefined ? {} : { reach }),
       adopt: rows.value
@@ -424,7 +443,9 @@ export const remoteWiring: WiringFactory = () => {
   }
 
   // 명단이 바뀌어 저장된 뒤. 빠진 기기가 붙어 있으면 그 빼기가 든 명단을 먼저 민 뒤 자격을 거두고 연결을 닫는다.
-  function applyChange(ctx: WiringContext, change: RosterChange) {
+  // 다른 컴퓨터가 이 컴퓨터의 이름을 바꿨으면(roster/rename) 기계 이름으로 받는다. 명단의 이름과 기계 이름이 한 값으로 남고
+  // 다음 기동의 ensureSelf가 되돌리지 않는다. 명단은 이것이 끝날 때까지 다음 고치기를 하지 않는다.
+  async function applyChange(ctx: WiringContext, change: RosterChange) {
     if (selfRemoved(change.after)) {
       reconciling = reconciling
         .then(() =>
@@ -441,7 +462,17 @@ export const remoteWiring: WiringFactory = () => {
         });
       return;
     }
+    const self = roster.self();
+    const named = change.after.devices.find((each) => each.body.id === self?.id)
+      ?.body.name;
+    if (named !== undefined && named !== ctx.machine.status().name) {
+      const renamed = await ctx.machine.rename(named);
+      if (!renamed.ok)
+        logError(ctx, "machine_not_renamed", renamed.error.message);
+    }
     host?.pushRoster(change.snapshot);
+    links.sync(hostText === undefined ? undefined : keys?.host);
+    links.pushRoster(change.snapshot);
     const kept = new Set(change.after.devices.map((each) => each.body.id));
     host?.revoked(
       change.before.devices
@@ -479,6 +510,7 @@ export const remoteWiring: WiringFactory = () => {
     if (!enabled) {
       // 끈 뒤에는 push도 멈춘다. bindPush의 기기 목록이 hostText로 갈린다. 다시 켜면 key를 풀어 다시 선다.
       hostText = undefined;
+      links.sync(undefined);
       return;
     }
     if (keys === undefined) {
@@ -565,6 +597,7 @@ export const remoteWiring: WiringFactory = () => {
     // 명단의 자기 주소를 지금 listener·relay로 맞춘다. 다른 컴퓨터와 폰이 명단으로 이 컴퓨터에 닿는다.
     const reached = await identify(ctx, ownReach(ctx));
     if (!reached.ok) logError(ctx, "roster_not_signed", reached.error.message);
+    links.sync(keys.host);
   }
 
   // `roster/*` route가 자기 항목이 없을 때(remote를 켠 적이 없다) 내는 답.
@@ -674,6 +707,19 @@ export const remoteWiring: WiringFactory = () => {
             : "phone";
       });
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
+      links = createLinks({
+        roster,
+        name: () => ctx.machine.status().name,
+        dial: dialNodeWebSocket,
+        random: ctx.random,
+        clock: ctx.clock,
+        wait(ms, fn) {
+          const timer = setTimeout(fn, ms).unref();
+          return () => clearTimeout(timer);
+        },
+        publish: (event) => ctx.bus.publish(event),
+        logger: ctx.telemetry.logger,
+      });
       ctx.provide("phoneLink", {
         call: phoneLink.call,
         async primary() {
@@ -693,7 +739,7 @@ export const remoteWiring: WiringFactory = () => {
         if (keys !== undefined) {
           const self = await roster.ensureSelf({
             machine: ctx.machine.id,
-            name: ctx.machine.status().name,
+            name: () => ctx.machine.status().name,
             os: computerOs(),
           });
           if (!self.ok) logError(ctx, "roster_not_signed", self.error.message);
@@ -714,7 +760,8 @@ export const remoteWiring: WiringFactory = () => {
             machine: body.machine,
             terminal_input: body.terminal_input,
             this: body.id === self,
-            last_connected_at: last.get(body.id) ?? null,
+            // 컴퓨터는 기기 행이 없다. 이 컴퓨터의 link가 마지막으로 붙었거나 끊긴 때다.
+            last_connected_at: last.get(body.id) ?? links.seen(body.id),
           })),
         });
       };
@@ -764,6 +811,67 @@ export const remoteWiring: WiringFactory = () => {
         const id = who.principal.slice(DEVICE_PRINCIPAL.length);
         return idOf(await roster.remove(id), id);
       };
+      // 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다. 확인하고 저장한 뒤 초대한 컴퓨터에 붙어 본다. 못 닿으면 초대 서명 statement를
+      // 든 채 pending이다: issuer link가 다시 붙을 때의 `join`이나 폰이 그것을 issuer를 믿는 컴퓨터에 나른다.
+      const joinRoster = async (_who: unknown, input: unknown) => {
+        const text = parseInviteText(
+          (input as z.infer<typeof rosterJoin.input>).text,
+        );
+        if (text === undefined) {
+          return err({
+            code: "invalid_input" as const,
+            message: "the text is not a lophn invite",
+          });
+        }
+        if (keys === undefined || hostText === undefined) {
+          return err({
+            code: "unavailable" as const,
+            message: "remote is off",
+          });
+        }
+        const hostKey = keys.host;
+        const accepted = await roster.acceptInvite(text);
+        if (!accepted.ok) return accepted;
+        const { body, issuer } = accepted.value;
+        const joined = await join(text, {
+          key: hostKey,
+          dial: dialNodeWebSocket,
+          random: ctx.random,
+          name: ctx.machine.status().name,
+          capabilities: [],
+          entry: {
+            id: body.id,
+            kind: body.kind,
+            key: body.key,
+            signing_key: body.signing_key,
+            machine: body.machine,
+            name: body.name,
+            os: body.os,
+            rev: body.rev,
+          },
+          self: ctx.machine.id,
+        });
+        if (joined.ok) {
+          const merged = await roster.receive(joined.joined.roster);
+          if (!merged.ok) return merged;
+        } else if (joined.failure.kind === "refused") {
+          const { code, reason, removal } = joined.failure;
+          // 빠진 key라는 답은 이 컴퓨터의 root로 확인한다. 맞으면 명단과 key를 버린다(applyChange).
+          if (removal !== undefined) {
+            await roster.receive({ statements: [removal], reach: [] });
+          }
+          return err({
+            code: code as ErrorCode,
+            message: `the inviting computer refused this computer${reason === undefined ? "" : `: ${reason}`}`,
+            ...(reason === undefined ? {} : { details: { reason } }),
+          });
+        }
+        return ok({
+          device: body.id,
+          machine: issuer.machine,
+          pending: rosterPending(roster.view(), body.key),
+        });
+      };
       return ok({
         memory: [
           [key(remoteRelayStatus), relayStatus],
@@ -773,6 +881,22 @@ export const remoteWiring: WiringFactory = () => {
           [key(rosterSetTerminalInput), setTerminalInput],
           [key(rosterRename), rename],
           [key(rosterLeave), leave],
+          [key(rosterJoin), joinRoster],
+          [key(machinesList), () => ok({ machines: links.list() })],
+          [
+            key(machinesCall),
+            (_who: unknown, input: unknown) =>
+              links.call(input as z.infer<typeof machinesCall.input>),
+          ],
+          [
+            key(machinesWatch),
+            (_who: unknown, input: unknown) => {
+              const { machine, conditions } = input as z.infer<
+                typeof machinesWatch.input
+              >;
+              return links.watch(machine, conditions);
+            },
+          ],
         ],
         writer: (inner) =>
           withAfterCommit(
@@ -868,6 +992,7 @@ export const remoteWiring: WiringFactory = () => {
       unsubscribe?.();
       sender?.close();
       await reconciling;
+      links.sync(undefined);
       host?.shutdown();
       await listener?.close();
       listener = undefined;

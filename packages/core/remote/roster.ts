@@ -21,6 +21,7 @@ import {
   ROSTER_INVITE_SHORT_MS,
   type RosterEntryBody,
   type RosterInviteBody,
+  type RosterInvitedStatement,
   type RosterInviteText,
   type RosterReach,
   type RosterRemovalBody,
@@ -28,6 +29,7 @@ import {
   type RosterSnapshot,
   type RosterStatement,
   type RosterView,
+  remoteKeyBytes,
   remoteKeyText,
   rosterFresh,
   rosterView,
@@ -52,8 +54,9 @@ export type RosterDeps = {
     reach: RosterReach[];
     folds: { from: string; to: string }[];
   }): Promise<Result<void>>;
-  // 저장한 명단(statement나 주소)이 바뀐 뒤 부른다.
-  changed(change: RosterChange): void;
+  // 저장한 명단(statement나 주소)이 바뀐 뒤 부른다. 돌려준 promise가 끝날 때까지 다음 고치기를 하지 않는다(이 컴퓨터의
+  // 이름을 기계 이름으로 받는 동안 ensureSelf가 옛 이름으로 되돌리지 않게).
+  changed(change: RosterChange): void | Promise<void>;
 };
 
 // 이 컴퓨터. id는 명단의 자기 항목이 정한다(없으면 ensureSelf가 새 id로 만든다).
@@ -95,9 +98,6 @@ export function createRoster(deps: RosterDeps) {
   let reach: RosterReach[] = [];
   let keys: RemoteKeys | undefined;
   let view = rosterView([], []);
-  // 이 process에서 자기 항목에 마지막으로 서명한 기계 이름. 서명은 이긴 body마다 다시 붙으므로(다른 컴퓨터가 바꾼 이름에도)
-  // 명단만으로는 "기계 이름이 바뀌었다"를 알 수 없다.
-  let appliedName: string | undefined;
   // 고치는 일은 하나씩 한다. 받은 statement 둘이 같이 와도 한쪽이 다른 쪽의 저장을 덮지 않는다.
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -207,7 +207,7 @@ export function createRoster(deps: RosterDeps) {
     statements = settled.statements;
     reach = nextReach;
     view = settled.view;
-    deps.changed({ before, after: view, snapshot: snapshot() });
+    await deps.changed({ before, after: view, snapshot: snapshot() });
     return ok(undefined);
   }
 
@@ -276,19 +276,19 @@ export function createRoster(deps: RosterDeps) {
     useKeys(next: RemoteKeys | undefined): Promise<void> {
       return run(async () => {
         keys = next;
-        appliedName = undefined;
         view = rosterView(statements, roots());
       });
     },
 
-    // 이 컴퓨터의 자기 항목을 둔다: 없으면 새 id로 만들고, 기계 이름이 이 process에서 마지막으로 맞춘 이름과 다르면(machine/rename,
-    // hostname이 바뀜) 그 이름으로 rev를 올려 서명한다. 기동 때는 지금 이름을 맞춘 것으로 친다: 다른 컴퓨터가 roster/rename으로
-    // 바꾼 이 컴퓨터의 이름은 이 기계의 이름이 바뀔 때까지 남는다. `reach`는 이 컴퓨터의 지금 주소다(remote가 켜져 있을 때).
+    // 이 컴퓨터의 자기 항목을 둔다: 없으면 새 id로 만들고, 항목의 이름이 기계 이름과 다르면(machine/rename, 꺼진 동안 hostname이
+    // 바뀜) 기계 이름으로 rev를 올려 서명한다. 다른 컴퓨터가 roster/rename으로 바꾼 이 컴퓨터의 이름은 받을 때 wiring이 기계
+    // 이름으로 옮기므로(changed) 여기서 되돌리지 않는다. `name`은 차례가 왔을 때 읽는다: 그 옮기기가 끝난 뒤의 이름이다.
+    // `reach`는 이 컴퓨터의 지금 주소다(remote가 켜져 있을 때).
     // `adopt`는 옛 기기 표의 phone 행이다: 명단에 그 key의 statement가 하나도 없는 행에 같은 저장에서 서명한다(id, key, 이름,
     // 허락 그대로, rev 1, 초대 없음). 저장이 서명한 항목이 없는 행을 지우므로 자기 항목과 따로 저장하면 그 행을 잃는다.
     ensureSelf(input: {
       machine: string;
-      name: string;
+      name: () => string;
       os: RosterEntryBody["os"];
       reach?: Omit<RosterReach, "device">;
       adopt?: readonly RosterAdoptRow[];
@@ -298,6 +298,7 @@ export function createRoster(deps: RosterDeps) {
         const hostKey = remoteKeyText(keys.host.publicKey);
         const signingKey = remoteKeyText(keys.signing.publicKey);
         const more: RosterStatement[] = [];
+        const name = input.name();
         let id = selfOf(view)?.id;
         if (id === undefined) {
           id = deps.ids.newId("dev");
@@ -308,20 +309,17 @@ export function createRoster(deps: RosterDeps) {
             key: hostKey,
             signing_key: signingKey,
             machine: input.machine,
-            name: input.name,
+            name,
             os: input.os,
             terminal_input: true,
             rev: 1,
             invite: null,
           } as RosterEntryBody;
           more.push(signed(body, id));
-        } else if (appliedName !== undefined && appliedName !== input.name) {
+        } else if (device(id)!.body.name !== name) {
           const winner = device(id)!.body;
-          more.push(
-            signed({ ...winner, name: input.name, rev: winner.rev + 1 }, id),
-          );
+          more.push(signed({ ...winner, name, rev: winner.rev + 1 }, id));
         }
-        appliedName = input.name;
         const mentioned = new Set(statements.map((s) => s.body.key));
         for (const row of input.adopt ?? []) {
           if (mentioned.has(row.key)) continue;
@@ -416,6 +414,77 @@ export function createRoster(deps: RosterDeps) {
           at: deps.clock.now(),
         };
         return add([signed(body, self.id)]);
+      });
+    },
+
+    // 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다(`roster/join`). issuer 항목의 자기 서명과 초대장 서명, 지금 시각으로 수명을
+    // issuer의 서명 key를 root로 더한 view에서 확인하고(`checkInvited`), 이 컴퓨터의 자기 항목을 rev+1로 지어 초대 secret으로
+    // 서명한다. 사람이 글을 넣은 것이 믿음의 근거라 이 컴퓨터가 issuer 항목에 서명하고, issuer 항목, 그 서명, 초대 서명
+    // statement, issuer의 주소를 저장한다. 그 statement는 issuer에 닿을 때(`join`, link) 받아들여지고 그때까지 keep에 남는다.
+    // 돌려주는 body는 issuer에 붙어 내밀 이 컴퓨터의 항목이다.
+    acceptInvite(
+      text: RosterInviteText,
+    ): Promise<Result<{ body: RosterEntryBody; issuer: RosterEntryBody }>> {
+      return run(async () => {
+        const self = selfOf(view);
+        if (self === undefined) return unavailable();
+        const { invite, issuer, secret } = text;
+        if (invite.body.kind !== "computer") {
+          return err({
+            code: "invalid_input",
+            message: "a computer joins only with an invite for a computer",
+          });
+        }
+        const signer = issuer.body;
+        const mine = device(self.id)!.body;
+        if (
+          signer.type === "entry" &&
+          (signer.key === self.hostKey || signer.machine === mine.machine)
+        ) {
+          return err({
+            code: "conflict",
+            message: "the invite was made on this computer",
+            details: { reason: "this_computer" },
+          });
+        }
+        const secretKey = remoteKeyBytes(secret);
+        if (
+          signer.type !== "entry" ||
+          signer.kind !== "computer" ||
+          signer.signing_key === null ||
+          secretKey === undefined
+        ) {
+          return err({
+            code: "unauthorized",
+            message: "roster invite refused: untrusted",
+            details: { reason: "untrusted" },
+          });
+        }
+        const body: RosterEntryBody = {
+          ...mine,
+          rev: mine.rev + 1,
+          terminal_input: invite.body.terminal_input,
+          invite: invite.body.key,
+        };
+        const invited: RosterInvitedStatement = {
+          body,
+          invite,
+          signature: signRoster(body, secretKey),
+        };
+        const trial = rosterView(mergeRoster(statements, [issuer]), [
+          ...roots(),
+          signer.signing_key,
+        ]);
+        const checked = checkInvited(invited, {
+          now: deps.clock.nowMs(),
+          view: trial,
+        });
+        if (!checked.ok) return checked;
+        const done = await add(
+          [issuer, signed(signer, self.id), invited],
+          [text.reach],
+        );
+        return done.ok ? ok({ body, issuer: signer }) : done;
       });
     },
 

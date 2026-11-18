@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { manualClock, ok, seededRandom } from "../../../../base/mod.ts";
+import { routePath } from "../../../../protocol/base/mod.ts";
 import {
   generateKeyPair,
   generateSigningKey,
@@ -29,8 +30,14 @@ import {
   readHostKeyMachine,
   rosterStatementsRead,
 } from "../../../remote/mod.ts";
+import { dispatchHttp } from "../../../server/dispatch.ts";
 import { createSql } from "../../../storage/ledger/sqlite.ts";
-import { REMOTE_COMMANDS, remoteWiring, signingKeyStep } from "./remote.ts";
+import {
+  createCoreRegistration,
+  REMOTE_COMMANDS,
+  remoteWiring,
+  signingKeyStep,
+} from "./remote.ts";
 
 const PERSON: AuthenticatedContext = {
   principal: "user:local",
@@ -287,4 +294,50 @@ test("옛 data root는 key와 폰을 그대로 옮기고, 명단에서 빠진 �
   assert.equal(await readHostKeyMachine(join(root, "remote")), clone);
   assert.equal(cloned.statements.length, 1);
   assert.notEqual(cloned.self?.id, removed.self?.id);
+});
+
+// agent가 명단을 고치거나(기기 들이기·빼기, 초대장 내기) 다른 기계의 route를 부르면 사람만 하던 일을 agent가 다른 기계까지 한다.
+test("agent 자격은 roster/*와 machines/*를 부르지 못하고 handler에 닿지 않는다", async () => {
+  const routes = createCoreRegistration().memoryRoutes.filter(
+    (route) => route.resource === "roster" || route.resource === "machines",
+  );
+  assert.ok(routes.some((route) => route.name === "machines.call"));
+  assert.ok(routes.some((route) => route.name === "roster.join"));
+  const reached: string[] = [];
+  const memory = new Map(
+    routes.map((route) => [
+      `${route.resource}/${route.method}`,
+      () => {
+        reached.push(route.name);
+        return ok({});
+      },
+    ]),
+  );
+  const agent = `agent:ses_0${"1".repeat(25)}`;
+  for (const route of routes) {
+    const done = (await dispatchHttp(
+      new Request(`http://127.0.0.1${routePath(route)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      }),
+      { route, path: routePath(route) },
+      {
+        principal: agent,
+        actor: "agent",
+        scope: { operations: routes.map((each) => each.name), targets: {} },
+        conditions: {},
+        credential_ref: agent,
+      },
+      {
+        credentials: undefined as never,
+        clock: manualClock(0),
+        memory,
+        bodyTimeoutMs: 1000,
+        jsonMaxBytes: 65_536,
+      },
+    )) as { json: { error?: { code: string } } };
+    assert.equal(done.json.error?.code, "forbidden", route.name);
+  }
+  assert.deepEqual(reached, []);
 });

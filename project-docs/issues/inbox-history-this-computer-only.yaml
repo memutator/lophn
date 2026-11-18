@@ -1,0 +1,13 @@
+id: inbox-history-this-computer-only
+title: Inbox의 History는 이 컴퓨터의 기록만 보인다
+kind: bug
+status: open
+topic: attention
+modules: [packages/shell/renderer]
+now: |
+  Inbox의 Now는 모든 컴퓨터의 대기 목록을 컴퓨터 꼬리표와 함께 보인다. History 탭은 `WaitingPanel`이 `<MachineScope machine={null}>`으로 `HistoryView`를 감싸 이 컴퓨터의 `notices/*` 기록만 읽고(`packages/shell/renderer/desktop/connection/waiting/waiting-panel.tsx`, `history-view.tsx`) 필터의 project와 앱 이름도 이 컴퓨터의 것이다.
+impact: |
+  다른 컴퓨터의 앱과 program이 낸 알림 기록(release 실패, 앱 사용 불가, data 복원 등)은 이 창에서 볼 수 없다. 그 컴퓨터에서 놓친 일을 이 컴퓨터에서 확인하려면 그 컴퓨터로 가야 하고.
+fix: |
+  - 중간(추천): 컴퓨터마다 기록을 읽어 시각순으로 합치고 줄에 컴퓨터 꼬리표를 단다. 필터의 이름은 그 컴퓨터의 목록(`inboxNames`)에서 읽는다. 읽음 표시는 줄의 컴퓨터로 보낸다. 컴퓨터마다 쪽 나누기(`loadMore`)를 합치는 일이 대부분이다.
+  - 큼: 합친 기록을 core가 준다. 컴퓨터마다 core에서 합치는 route가 따로 필요하다.

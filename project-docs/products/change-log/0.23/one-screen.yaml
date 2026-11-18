@@ -1,0 +1,60 @@
+id: one-screen
+version: 0.23.88
+title: 내가 앉은 컴퓨터의 창 하나와 폰의 목록 하나에서 짝지은 모든 컴퓨터의 것을 본다
+modules: [packages/shell/renderer, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/mobile, packages/core/main, packages/core/remote, packages/core/projects, packages/core/apps, packages/core/terminals, packages/core/terminal-agents, packages/core/terminal-view, packages/core/server, packages/core/storage, packages/core/agent-workspaces, packages/protocol, packages/design, packages/sdk, tools]
+change: |
+  전: 다른 컴퓨터를 보려면 그 컴퓨터에 묶인 창을 따로 열었다(창마다 preload, 창 전체 gate, 시작할 때 여는 컴퓨터). 창 하나가 기계 하나라 같은 화면 code가 이 컴퓨터와 다른 컴퓨터로 약 26곳에서 갈라졌고, 다른 컴퓨터의 앱 화면과 터미널, 탭의 저장, Inbox는 열리지 않거나 그 창 안에서만 보였다. 후: 이 컴퓨터의 창 하나(과 폰의 목록 하나)에 짝지은 모든 컴퓨터의 것이 컴퓨터 꼬리표를 달고 보이고, 그 자리에서 열어 이어서 시킨다.
+  - "한 창이 모든 컴퓨터를 본다: 화면은 \"어느 컴퓨터\"를 고르는 범위(machine scope) 하나를 거치고 읽기, 부르기, event가 그 컴퓨터로 간다. 컴퓨터는 탭, workspace, Settings의 고르기 셋 중 하나로 정해지고 창은 컴퓨터에 묶이지 않는다. shell IPC는 `machine`(optional)을 싣고 shell main이 이 컴퓨터 core의 `machines/call`·`machines/watch`로 그 컴퓨터를 고른다. 기계마다의 창, 창 자리 기억, 시작 기계, 창 전체 gate와 그 갈래를 지웠고 shell data의 `viewer/start.json`과 `windows.json`은 data step `shell.viewer.drop`이 지운다(옛 기기 key와 기계 목록은 `shell.viewer.roster`)."
+  - "목록: 정체(`pri_`)가 같은 project는 컴퓨터를 건너 한 줄이고 그 안의 session, coding agent, 터미널에 컴퓨터 꼬리표(chip)가 붙는다. 이 컴퓨터에 없는 project도 줄로 서고 git project는 [Clone here], git이 아닌 project는 [Link…]가 줄 아래 한 줄로 선다. Home은 컴퓨터마다 \"Home · <이름>\"으로 따로다. 같은 앱 id는 한 줄이고 화면은 이 컴퓨터에 그 앱이 있으면 이 컴퓨터의 것을 연다. 꺼진 컴퓨터의 줄은 흐리게 남고 열리지 않는다. 팔레트도 연결된 컴퓨터의 project를 든다. 다른 컴퓨터의 project를 잇는 command `projects/link_identity`(사람만, git project는 거절)와 ledger step `projects.registry.former-identities`가 더해졌다: 정체가 바뀌면 옛 값이 project의 `formerIdentities`에 남고 앱이 받는다."
+  - "다른 컴퓨터의 터미널: 날 출력(`TerminalOutputAppended`)을 연결로 넘기면 연결이 끊겼다(한 컴퓨터에서 core 둘, 30초 `yes`와 64 MiB로 잰 값: 초당 53,000 묶음·6 MB가 흘러 받는 컴퓨터의 기기 Gateway가 32초 동안 일곱 번 `slow_consumer`로 끊겼고 그 사이 `machines/call` 140번 가운데 12번이 `unavailable`, `StateChanged`는 p95 1.2초·최대 3.6초 늦었다). 그래서 탭은 폰과 같은 화면 사본(`terminal_view/*`)을 받아 같은 xterm에 그린다(같은 쏟음에서 끊김 0, `TerminalScreenChanged`가 초당 4번 남짓, `StateChanged` p95 8 ms, `machines/call` p95 8 ms). 보기는 내 기기 모두가 그 컴퓨터의 어느 터미널이든 하고, 치기와 다시 시작과 닫기는 그 컴퓨터가 이 컴퓨터에 준 터미널 입력 허락이 있어야 한다(없으면 보기만 남고 탭 위쪽에 알림). Finished 줄과 탭 점은 그 컴퓨터의 `TerminalRuntimeChanged`로 서고, 터미널 coding agent는 그 컴퓨터의 `coding_sessions/list`로 sidebar에 든다."
+  - "다른 컴퓨터의 앱 화면: 그 컴퓨터의 core가 주는 화면 file(`app_views/*`, `apps/screen_file`)을 이 컴퓨터의 창이 그리고 앱에 시키는 것은 그 컴퓨터로 간다(폰이 같은 길로 받는다). 앱 화면 탭, 앱 panel, 세션 카드가 열리고 탭 머리 줄에 컴퓨터 꼬리표가 선다. 격리 자리(partition)와 host label에 컴퓨터가 들어 같은 앱 id라도 저장소가 섞이지 않는다. 이 컴퓨터에도 있는 앱은 이 컴퓨터의 것을 연다. 화면의 agent 길은 기기가 자기가 연 view로만 부른다(아래 core)."
+  - "agent의 browser page: 새 탭 menu에 연결된 컴퓨터마다 \"Pages on <이름>\"이 서고 그 컴퓨터의 browser 탭 목록 탭과 page마다의 탭이 열린다(탭 줄에 컴퓨터 꼬리표). 목록 줄에 연 쪽(agent 이름, you)과 누가 잡았는지(`held_by`)가 보이고 터미널 입력 허락이 없으면 보기만 한다. 그 컴퓨터가 꺼지면 본문 대신 한 줄이다."
+  - "탭이 컴퓨터를 기억한다: 탭은 공통 칸 `machine`을 들 수 있고 없으면 workspace의 컴퓨터다. 다른 컴퓨터의 workspace layout은 `<id>-<mch>` key로 이 컴퓨터가 저장한다. layout file 판 11, 전역 float 판 3이고 data step `shell.layout-machines`가 옛 판을 올린다(이 컴퓨터의 탭은 그대로 열린다). 꺼진 컴퓨터의 탭은 이름과 상태와 마지막으로 본 때 한 줄이고 붙으면 본문이 새로 서서 이어진다(터미널은 `terminal_ref`로 다시 붙는다). 명단에서 빠진 컴퓨터의 탭은 removed 한 줄이고 사람이 닫는다. 다른 컴퓨터의 탭도 떼어 내거나(detached 창은 그 컴퓨터의 묶음으로 읽는다) 전역 float으로 올릴 수 있다. 이 컴퓨터에서만 열리는 kind(문서 editor, browser, artifact, Agents, project 설정, App details, app preview)는 다른 컴퓨터의 탭이면 \"This opens only on <이름>\"이다."
+  - "Inbox, toast, OS 알림: 모든 컴퓨터의 대기 목록이 한 Inbox에 컴퓨터 꼬리표를 달고 뜨고(같은 앱의 동의가 두 컴퓨터에 있어도 두 줄), 결정은 그 줄의 컴퓨터로 간다. 카드의 project와 앱 이름은 그 컴퓨터의 목록에서 읽는다. 다른 컴퓨터의 터미널 agent 신호(`TerminalAgentSignaled`)와 session 알림이 toast와 OS 알림을 고른다. 보고 있음(presence)은 컴퓨터마다 그 컴퓨터의 `presence/report`로 가고 `shell:notice-visible`이 보이는 session의 컴퓨터를 싣는다. Inbox의 History는 이 컴퓨터의 것이다."
+  - "Settings: 왼쪽 목록 맨 위의 기계 고르기(\"Settings of\")가 이 컴퓨터나 연결된 다른 컴퓨터를 고른다. 다른 컴퓨터는 그 컴퓨터의 core에 걸린 항목(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 서고, 항목을 열 때마다 그 컴퓨터의 허락을 묻는다. 허락이 없으면 본문 자리에 그 컴퓨터의 Settings › Remote › My devices에서 켜라는 한 줄이다."
+  - "폰: 목록 하나에 짝지은 모든 컴퓨터의 session이 컴퓨터별로 묶여 서고 줄마다 컴퓨터 꼬리표가 붙는다. 줄을 누르면 그 컴퓨터로 열린다. 컴퓨터 고르기 sheet는 거르기(모두 / 컴퓨터 하나)이고 값은 폰의 설정에 남는다. Home은 컴퓨터마다 따로다."
+  - "core: 다른 컴퓨터의 event 구독은 `machines/watch`가 구독자(창, shell main 안의 구독자)마다의 조건을 합쳐 그 컴퓨터에 건다(한 구독자가 그만 봐도 다른 구독자를 덮지 않는다). 기기 route 목록에 `terminals/list`, `coding_sessions/cli_sessions|rewind_preview`, `app_grants/list`, `app_sessions/*`, `app_calls/*`, `app_agents/list`가 더해졌고 터미널 입력을 허락받은 기기의 사람 route 목록에 `terminals/close|restart`가 더해졌다. 기기 event 목록에 `TerminalRuntimeChanged`, `TerminalAgentSignaled`, `AppRemoved`가 더해졌다. 받는 컴퓨터가 이 컴퓨터를 기기(`device:<id>`)로 보고 목록 밖 route는 거절한다."
+  - "SDK: `@lophn/app-ui` 2.21.0과 `@lophn/app-ui-native` 1.8.0. project가 `formerIdentities`(전에 가졌던 `identity`, 오래된 것이 앞, 없으면 `[]`)를 들고 `useProjects()`의 project와 `usePlace().workspace`에 실린다. 앱은 옛 정체로 붙인 줄을 지금 `identity`로 옮긴다(옮기지 않으면 잇거나 나눈 project의 줄이 어느 project의 것도 아니게 된다). 깨지는 것은 없다. `migrate-sdk` 메모(`app-ui`와 `app-ui-native`)에 Instruction diff가 있고 `design-app` 지침과 앱 template의 `AGENTS.md`가 같이 바뀌었다."
+why: |
+  사람이 지금 앉은 컴퓨터에서 내 다른 컴퓨터의 것을 같은 화면에서 보려고 remote를 한다. 다른 컴퓨터마다 창을 따로 열면 그 컴퓨터의 터미널과 앱 화면과 Inbox를 내 것과 나란히 쓸 수 없고, 화면 code는 이 컴퓨터와 다른 컴퓨터로 갈라져 기능마다 자리가 둘 필요했다. 짝지은 컴퓨터가 늘어도 한 목록에 컴퓨터 꼬리표로 보이고 그 자리에서 열어 이어서 시킬 수 있어야 뒤의 계획(agent와 앱이 다른 컴퓨터를 부르기)이 같은 바닥 위에 선다.
+decisions:
+  - text: 다른 컴퓨터를 보는 것은 그 컴퓨터로 가서가 아니라 내가 앉은 컴퓨터의 화면에서 한다.
+    by: person
+  - text: Home은 컴퓨터마다 따로다. 여러 컴퓨터의 Home을 하나로 합치지 않는다.
+    by: person
+  - text: workspace는 project의 정체(`pri_`)로 컴퓨터를 건너 알아본다(제시한 안 가운데 첫째).
+    by: person
+  - text: 탭이 어디에 놓이는지(layout)는 core가 아니라 각 화면이 든다. 버린 길 - layout을 core로 옮기기(쓰는 곳이 생길 때 한다).
+    by: person
+  - text: 컴퓨터마다 창 하나가 아니라 창 하나가 모든 컴퓨터를 본다. 버린 길 - 컴퓨터마다의 창을 두기(기능마다 둘째 자리가 필요하고 화면 code가 갈라진다).
+    by: agent
+  - text: 다른 컴퓨터의 터미널은 날 출력이 아니라 화면 사본으로 그린다. 이유 - 날 출력은 연결의 다른 event와 부르기를 끊었다(재 본 값은 change의 터미널 항목). 폰과 같은 사본이라 길이 하나다. 대가 - 사본의 scrollback은 200줄이다.
+    by: agent
+  - text: 내 기기는 누구나 그 컴퓨터의 어느 터미널이든 볼 수 있고 치기와 다시 시작과 닫기는 그 컴퓨터의 터미널 입력 허락이 있어야 한다.
+    by: agent
+  - text: 기기는 앱의 session, call, agent route(`app_sessions/*`, `app_calls/*`, `app_agents/list`)를 자기가 연 view를 통해서만 부른다. 이유 - 이 route들이 입력의 `app`을 믿고 있었다(찾은 것). view 표가 앱을 정한다.
+    by: agent
+  - text: 짝지은 기기 누구나 앱의 grant를 읽을 수 있다(`app_grants/list`). 쓰기(`app_grants/*`의 변경)는 기기 목록에 없다.
+    by: agent
+  - text: Inbox의 History는 이 컴퓨터의 것으로 둔다. 이유 - 기록 읽기를 컴퓨터마다 합치는 화면이 따로 필요하다.
+    by: agent
+  - text: 다른 컴퓨터의 터미널 탭은 이름 바꾸기를 감춘다. 이유 - `terminals/name`, `saved_sessions`, `rename_saved`가 기기 route 목록에 없고 열지 않았다(조용히 실패하는 것보다 낫다).
+    by: agent
+  - text: 명단에서 빠진 컴퓨터의 layout file은 지우지 않는다. 이유 - 다시 들어오면 탭이 이어지고 지우면 사람의 배치를 잃는다. 대가 - file이 남는다.
+    by: agent
+  - text: "한 project 아래 여러 컴퓨터의 줄과 컴퓨터 꼬리표, [Clone here]·[Link…] 줄의 모양은 screenshot으로 사람에게 보였고 이의 없이 합쳤다."
+    by: agent
+follow_up: |
+  - `remote-use`: `use-grant`가 터미널 입력 허락을 명단의 칸이 아니라 각 컴퓨터가 자기에게 주는 허락으로 옮긴다. 이 변경의 "허락이 없으면 그 컴퓨터의 Settings › Remote › My devices에서 켜라"는 안내가 이미 그 컴퓨터를 가리킨다.
+  - 이 변경이 올린 이슈: `remote-terminal-notice-does-not-open-tab`, `remote-terminal-tab-cannot-rename`, `remote-terminal-scrollback-and-jump`, `remote-terminal-size-held-after-close`, `inbox-history-this-computer-only`, `shell-core-call-sender-check-never-runs`. 열려 있는 `machine-window-global-instructions`는 Settings 고르기에서 그대로 열려 있다.
+  - 컴퓨터 둘과 폰으로는 돌려 보지 않았다. 실제 두 컴퓨터 사이의 터미널 입력, 앱 화면, 꺼졌다 켜지는 컴퓨터의 탭은 test, gallery, 개발 core 둘로만 보았다.
+checklist:
+  - "해야: 내 모든 컴퓨터와 폰을 이 판으로 올린다 (한쪽이 옛 판이면 그 컴퓨터의 새 route를 모른다)"
+  - 두 컴퓨터를 짝지은 상태에서 이 컴퓨터의 창에 다른 컴퓨터의 Home, project, session이 컴퓨터 꼬리표와 함께 보이는지 본다
+  - 다른 컴퓨터의 session, 터미널, 앱 화면, "Pages on <컴퓨터>"를 이 창에서 연다
+  - 다른 컴퓨터의 터미널에서 그 컴퓨터의 터미널 입력 허락을 켠 채 치고, 끈 채 "View only"가 되는지 본다
+  - 다른 컴퓨터에서 권한 요청이 생기면 이 창의 Inbox에 꼬리표와 함께 서고 여기서 답하면 그 컴퓨터가 받는지 본다
+  - 다른 컴퓨터를 끄면 줄이 Off로, 탭이 offline 한 줄로 바뀌고 다시 켜면 탭이 이어지는지 본다
+  - 업데이트 전에 저장한 탭 배치(layout)가 그대로 열리는지 본다
+  - 'Settings의 "Settings of"에서 다른 컴퓨터를 골라 그 컴퓨터의 항목이 열리는지 본다'
+  - 폰의 목록 하나에 모든 컴퓨터의 session이 보이는지 본다

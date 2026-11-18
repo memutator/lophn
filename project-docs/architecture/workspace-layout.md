@@ -313,6 +313,7 @@ DetachedItem { tab, bounds }
 - 살려 둔 page를 놓는 시점은 떠날 때뿐이라 떠난 뒤 소리가 멈추거나 신호를 끈 page도 상한이나 돌아옴까지 남는다.
 - 숨은 agent page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다. page가 사는 동안 계속이다. 사람 눈으로는 아직 확인하지 않았다. 설치한 앱에서 보고, 보이면 그때 이슈로 올린다.
 - 최소화하거나 숨긴 창은 그리지 않아 그 창에 있는 agent page의 screenshot이 실패한다(Linux x11에서 쟀다). 사람이 창을 최소화해 둔 채 job이 browser를 쓰면 `unavailable`이다. 열 때 쓰는 창이 없으면 lophn이 보이는 창을 연다. Wayland에서는 `showInactive`가 focus를 가져갈 수 있다. macOS와 Windows는 돌려 보지 않았다. 화면이 없는 Linux는 창을 열 수 없어 browser를 쓸 수 없다.
+- 명단에서 빠진 컴퓨터의 layout file(`<id>-<mch>`)과 그 탭은 지우지 않는다. 그 컴퓨터가 다시 들어오면 탭이 이어지는 쪽을 골랐다. 대가는 file이 남는 것뿐이라 비용이 구체적이지 않아 이슈로 올리지 않았다. 남은 file이 쌓여 문제가 되면 그때 정리 길(명단에서 빠진 지 오래된 컴퓨터의 file 안내)을 둔다.
 - 두 창이 같은 workspace를 mount하면 agent page가 창마다 하나씩 생긴다(이슈 `agent-browser-page-duplicated-across-windows`).
 - 창 닫힘이나 앱 종료 뒤 layout에 남은 agent 탭은 지금 desk의 접힌 float만 mount 때 정리한다. 다른 desk의 것이나 펴진 float, 탭 줄에 있던 것은 사람의 탭으로 남고 열면 다시 load한다.
 - 첫 응답이 기한(10초, 앱을 띄웠으면 30초)보다 늦는 site는 열기가 실패한다. dom-ready를 기다려서다.

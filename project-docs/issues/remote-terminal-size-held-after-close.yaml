@@ -1,0 +1,12 @@
+id: remote-terminal-size-held-after-close
+title: 다른 컴퓨터의 터미널 탭을 닫아도 그 터미널의 크기가 최대 30초 이 컴퓨터의 칸 크기로 남는다
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/shell/renderer, packages/core/terminal-view]
+now: |
+  다른 컴퓨터의 터미널 탭은 사본을 보는 동안 lease(`terminal_view/watch`)를 잡고 `terminal_view/resize`로 그 컴퓨터의 PTY 크기를 칸에 맞춘다(runtime에 `remote_size`). 탭을 닫으면 `createScreenCopyCore`의 `watch(terminal, false)`는 아무것도 보내지 않는다(lease key가 기기와 터미널이라 이 컴퓨터의 다른 창이 같은 터미널을 보고 있을 수 있어서다). lease는 `LEASE_MS`(30초) 뒤 저절로 끝나고 그때 core의 `quiet()`이 `remote_size` 표지를 놓는다(크기는 그대로다).
+impact: |
+  다른 컴퓨터 앞에 앉은 사람의 그 터미널이 탭을 닫은 뒤에도 최대 30초 이 컴퓨터의 칸 크기로 좁거나 넓게 남고 그 컴퓨터의 탭은 "Sized for another device"를 보인다. 그동안 줄 바꿈이 틀어진 채 쓰게 된다.
+fix: |
+  - 중간(추천): 창마다 따로 lease key를 두거나(창 id를 key에 넣는다) shell main이 이 컴퓨터 창들의 보는 수를 세어 마지막 창이 놓을 때 `terminal_view/watch {on: false}`를 보낸다. 다른 창이 보는 동안은 그대로다.

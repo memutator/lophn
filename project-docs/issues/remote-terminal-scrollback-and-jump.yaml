@@ -1,0 +1,14 @@
+id: remote-terminal-scrollback-and-jump
+title: 다른 컴퓨터의 터미널은 출력이 흐르는 동안 맨 아래로 튀고 위 기록이 200줄뿐이다
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/shell/renderer, packages/core/terminal-view]
+now: |
+  다른 컴퓨터의 터미널 탭은 날 출력 대신 그 컴퓨터가 파싱한 화면 사본을 받아 그린다(`packages/shell/renderer/terminal/screen-copy.ts`). 화면이 바뀌면(`SCREEN_MS` 250ms, 초당 4번 남짓) `TerminalDisplays`가 `kept.view.reset()` 뒤 사본 전체를 다시 쓴다(`displays.ts`). xterm이 비워졌다 다시 쓰이므로 사람이 위로 scroll해 둔 위치가 사라져 맨 아래로 간다. 사본의 viewport 위 scrollback은 `TAIL`(200)줄이고 화면이 바뀔 때마다 통째로 온다.
+impact: |
+  출력이 계속 나오는 다른 컴퓨터의 터미널(빌드, coding agent의 긴 답)에서 위로 올려 읽던 글이 0.25초마다 맨 아래로 돌아가 읽을 수 없다. 200줄보다 앞의 기록은 이 탭에서 볼 길이 없다(그 컴퓨터에서는 보인다).
+fix: |
+  - 작음(추천): 사람이 위로 scroll해 있는 동안은 사본을 다시 쓰지 않고(바뀐 seq만 기억) 맨 아래로 돌아오면 한 번 맞춘다. 읽는 동안은 정지한 화면이다. 200줄 한도는 그대로다.
+  - 중간: 줄 단위 차이만 보내고 쓴다(`terminal_view`가 바뀐 줄과 scrollback 증가분을 준다). 위치가 유지되고 대역도 준다. 사본 route와 core의 화면 읽기가 바뀐다.
+  - 큼: scrollback을 더 받아 오는 route를 두고 위로 scroll할 때 읽는다. 사본 크기 한도(묶음 하나 최대 13 KB)를 다시 재야 한다.

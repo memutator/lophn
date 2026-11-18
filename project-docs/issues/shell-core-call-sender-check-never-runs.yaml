@@ -1,0 +1,13 @@
+id: shell-core-call-sender-check-never-runs
+title: 이 컴퓨터 core로 가는 shell:core-call과 core-watch는 보낸 창을 확인하지 않는다
+kind: bug
+status: open
+topic: shell
+modules: [packages/shell/main]
+now: |
+  `startCoreConnection`의 `shell:core-call`·`core-watch` handler는 `options.contentsRegistry`가 있을 때만 `checkCaller`로 보낸 창이 등록된 desktop 창인지 본다(`packages/shell/main/desktop/core/connection.ts`). `connectCore`(`packages/shell/main/desktop/wiring/core.ts`)는 이 옵션을 넘기지 않으므로 그 검사는 한 번도 돌지 않는다. 기계를 실은 호출은 `machine-route`가 `allowed()`로 확인하지만, 기계가 없거나 이 컴퓨터의 id인 호출은 `local()`로 바로 이 handler에 가서 검사 없이 이 컴퓨터의 core에 간다(`wiring/context.ts`의 `handle`).
+impact: |
+  desktop 창이 아닌 webContents(앞으로 생기는 창 포함)가 이 channel을 부를 수 있으면 사람 자격의 core 호출이 검사 없이 통한다. 지금은 그 창들의 preload가 이 API를 열지 않아 닿지 않지만, 검사가 지키려던 경계가 코드에는 있어도 동작하지 않는다. 다른 컴퓨터로 가는 같은 호출은 막힌다는 점과 어긋난다.
+fix: |
+  - 작음(추천): `connectCore`에 이미 있는 registry(`overlays.overlayRegistry()`)를 `contentsRegistry`로 넘긴다. `shell:core-call`·`core-watch` 시험에 등록되지 않은 sender가 `forbidden`이 되는 것 하나를 더한다.
+  - 작음: `wiring/context.ts`의 `handle` 래퍼가 이 두 channel에서 `local()` 앞에 `allowed()`를 본다(기계 없는 호출도 같은 검사). 한 곳이라 보내는 channel이 늘어도 빠지지 않는다.

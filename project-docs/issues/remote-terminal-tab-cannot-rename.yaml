@@ -1,0 +1,13 @@
+id: remote-terminal-tab-cannot-rename
+title: 다른 컴퓨터의 터미널 탭은 이름을 바꿀 수 없다
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/shell/renderer, packages/protocol, packages/core/terminals]
+now: |
+  탭 이름을 core에 알리는 `terminals/name`, 저장한 session 이름 `terminals/saved_sessions`·`terminals/rename_saved`는 기기 route 목록(`packages/protocol/remote/allowlist.ts`)에 없다. 그래서 이 컴퓨터가 다른 컴퓨터의 터미널 탭 이름을 바꾸면 그 컴퓨터가 받지 않아 조용히 실패하게 되고, 화면은 터미널 kind의 `renameThisComputerOnly`(`workspace/kinds/terminal.tsx`)로 탭 줄, tab menu, 팔레트, sidebar 줄(`noRename`)에서 이름 바꾸기를 감춘다.
+impact: |
+  다른 컴퓨터의 터미널을 같은 project에서 여럿 열어 쓰는 사람이 탭을 구분할 이름을 붙이지 못한다. 탭은 자동 이름(폴더 이름이나 agent가 낸 제목)으로만 보인다. 그 컴퓨터의 Inbox와 폰에 보이는 탭 이름도 사람이 붙인 것이 아니다.
+fix: |
+  - 중간(추천): `terminals/name`과 `rename_saved`를 기기 route 목록에 더하되 터미널 입력 허락이 있는 기기에만 연다(사람 route 목록 `REMOTE_PERSON_ROUTES`). 이름은 그 컴퓨터의 runtime(`tab_name`)에 실려 모든 화면이 같이 본다. 허락 규칙은 입력과 같다.
+  - 작음: 이름을 이 컴퓨터의 layout에만 두고(탭 `fields.name`) core에 알리지 않는다. 이 컴퓨터에서만 보이고 그 컴퓨터와 폰의 이름은 그대로다.

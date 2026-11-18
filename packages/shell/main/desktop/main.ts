@@ -11,8 +11,6 @@ import * as artifact from "./wiring/artifact.ts";
 import * as bookmarks from "./wiring/bookmarks.ts";
 import * as threadBookmarks from "./wiring/thread-bookmarks.ts";
 import * as browser from "./wiring/browser.ts";
-import * as codingRelay from "./wiring/coding-relay.ts";
-import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
 import { createShellContext } from "./wiring/context.ts";
 import * as core from "./wiring/core.ts";
@@ -20,12 +18,11 @@ import * as crash from "./wiring/crash.ts";
 import * as desktop from "./wiring/desktop.ts";
 import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
-import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
 import * as machineWindows from "./wiring/machine-windows.ts";
 import * as machines from "./wiring/machines.ts";
 import * as surface from "./wiring/surface.ts";
-import * as terminalView from "./wiring/terminal-view.ts";
+import * as terminal from "./wiring/terminal.ts";
 import { loginPathOf } from "./core/login-path.ts";
 import { openShellCoreControl, productVersionOf } from "./core/supervise.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
@@ -33,11 +30,11 @@ import { browserDataPath, resolveDataRoot } from "./paths.ts";
 import { readOpenIntent } from "./open-intent.ts";
 import { acquireSingleInstance } from "./single-instance.ts";
 
-// core·terminal-host·extension이 이 env를 물려받으므로 어느 것보다 먼저 둔다.
+// shell이 띄우는 core가 이 env를 물려받으므로 어느 것보다 먼저 둔다.
 const loginPath = loginPathOf(process.platform, process.env);
 if (loginPath) process.env.PATH = loginPath;
 
-// `--core` intent는 창·tray·terminal-host·extension을 조립하지 않는다.
+// `--core` intent는 창·tray를 조립하지 않는다.
 const mode = resolveLaunchMode({ argv: process.argv });
 if (mode.core) void ensureCoreOnly();
 else startDesktop();
@@ -102,31 +99,14 @@ function startDesktop(): void {
   const calls = add(appCalls.register(ctx, views));
   add(annotate.register(ctx, views, artifacts));
   add(appearance.register(ctx));
-  const terminals = add(coding.register(ctx, calls.appSessions));
-  add(codingRelay.register(ctx, terminals));
-  add(terminalView.register(ctx, terminals));
+  const terminals = add(terminal.register(ctx, calls.appSessions));
   add(bookmarks.register(ctx));
   add(threadBookmarks.register(ctx));
-  add(
-    extensions.register(
-      ctx,
-      {
-        showExtensionSettings: () => ctx.desktop.send("extension-settings"),
-      },
-      terminals,
-    ),
-  );
   add(editor.register(ctx));
   const detachedWindows = add(detached.register(ctx, views));
   add(layout.register(ctx, detachedWindows));
   const surfaceHost = add(
-    surface.register(
-      ctx,
-      terminals,
-      views.appFrame,
-      artifacts.views,
-      terminals.interrupt,
-    ),
+    surface.register(ctx, views.appFrame, artifacts.views),
   );
   // 보호 입력 창이 agent의 한 번 넣기를 browser driver로 친다. driver는 surface가 만든다.
   add(secretInput.register(ctx, surfaceHost.typeOnce));

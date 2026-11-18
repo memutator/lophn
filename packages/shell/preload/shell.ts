@@ -11,11 +11,9 @@ import {
 } from "../ipc/open-external.ts";
 import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
-import { createCodingApi } from "./coding-api.ts";
 import { createDetachedApi } from "./detached-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
-import { createHarnessGuiTabApi } from "./harness-gui-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createAnnotateApi } from "./annotate-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
@@ -122,13 +120,6 @@ if (role === "shell") {
     createAppearanceApi(ipcRenderer),
   );
   contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
-  // coding agent 연결과 [Start]. 고정 intent와 사람이 고른 값만 보내고 main이 다시 검사한다.
-  contextBridge.exposeInMainWorld("lophnCoding", createCodingApi(ipcRenderer));
-  // 터미널 탭 안 GUI. 탭이 자기 handle에 붙고 toggle을 부른다.
-  contextBridge.exposeInMainWorld(
-    "lophnHarnessGuiTab",
-    createHarnessGuiTabApi(ipcRenderer),
-  );
   // 앱 공간의 [Open in new window]와 OS 앱 바로가기. 앱 ID만 보낸다.
   contextBridge.exposeInMainWorld(
     "lophnAppWindows",

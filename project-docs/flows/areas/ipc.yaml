@@ -16,7 +16,7 @@ flows:
       - ipc:shell:detached-open
       - ipc:shell:notice-open
       - ipc:shell:decision-handle
-      - ipc:harness-gui:tab-toggle
+      - ipc:shell:terminal-input
     boundary: [shell]
     code:
       - packages/shell/main/desktop/ipc-guard.ts
@@ -27,7 +27,7 @@ flows:
       - "desktop 창 본문 통로는 sender의 origin이 desktop이고 그 창을 찾을 수 있을 때만 지난다(overlay, 보호 입력 창, 앱 view는 거절)"
       - "앱 view 통로(app:*)는 desktop 검사 대신 sender가 살아 있는 앱 view의 main frame이고 그 주소가 자기 screen인지 본다"
       - "입력은 직렬화 64 KiB 이하이고 channel의 zod schema(strict)에 맞아야 한다"
-      - "caller 거절은 forbidden, 입력 거절은 invalid_input이다. harness GUI 통로는 같은 거절에서 code 없이 null을 돌려준다"
+      - "caller 거절은 forbidden, 입력 거절은 invalid_input이다"
     outcomes:
       - id: forbidden
         code: forbidden
@@ -36,9 +36,6 @@ flows:
       - id: invalid_input
         code: invalid_input
         when: "직렬화가 64 KiB를 넘거나 직렬화할 수 없거나 channel schema에 맞지 않는다"
-        observe: [response]
-      - id: refused-silent
-        when: "harness GUI 통로(harness-gui:tab-*)와 extension 통로가 같은 검사에 걸리면 오류 code 없이 null을 돌려준다"
         observe: [response]
     crosses_process: true
     risk: [sandbox]
@@ -250,41 +247,6 @@ flows:
     risk: [data-loss]
 
   # ---------- 여러 요청을 나누는 channel ----------
-  - id: coding-call-dispatch
-    title: "Settings › Coding agents의 요청(shell:coding)을 감지와 hook 종류로 나눈다"
-    actor: person
-    entries: [ipc:shell:coding]
-    uses:
-      - harness-detect:ok
-      - harness-hook-check:ok
-      - harness-hook-install:installed
-      - harness-hook-uninstall:removed
-      - terminal-hook-install:installed
-    boundary: [shell]
-    code:
-      - packages/shell/main/desktop/coding-ipc.ts
-      - packages/shell/ipc/coding.ts
-    steps:
-      - "sender가 desktop 창 본문인지 본다. overlay와 앱 view는 감지를 시키지 못한다"
-      - "입력을 coding call schema로 본다(op 이름과 harness id, strict)"
-      - "harnesses와 refresh는 harness 감지로, hook_status는 전역 hook 상태 읽기로 넘긴다"
-      - "install_hooks와 uninstall_hooks는 hook 설치와 지우기로 넘긴다"
-      - "hook_answer는 main이 띄운 설치 물음의 답으로 넘긴다. token과 경로는 이 통로에 없다"
-    outcomes:
-      - id: dispatched
-        when: "입력이 맞고 op에 맞는 flow로 넘겼다. 답은 그 flow의 결과다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "desktop 창 본문이 아닌 caller다(overlay, 앱 view 포함)"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "op 이름이나 harness id가 schema에 맞지 않는다"
-        observe: [response]
-    crosses_process: true
-    risk: []
-
   # ---------- core 요청 통로 ----------
   - id: core-call-relay
     title: "renderer의 core 요청(read, command, memory, upload, file)을 core session에 넘긴다"
@@ -658,8 +620,6 @@ links:
   - {entry: "ipc:shell:bookmarks-remove", flow: browser-bookmark-save}
   - {entry: "ipc:shell:bookmarks-changed", flow: browser-bookmark-save}
   - {entry: "ipc:shell:terminal-link", flow: browser-terminal-link}
-  - {entry: "ipc:shell:terminal-bridge-open", flow: browser-bridge-request}
-  - {entry: "ipc:shell:terminal-bridge-ack", flow: browser-bridge-request}
   # 파일 tree (projects)
   - {entry: "ipc:shell:file-list", flow: file-tree-list}
   - {entry: "ipc:shell:file-create", flow: file-create}
@@ -713,42 +673,14 @@ links:
   - {entry: "ipc:secret-input:fit", flow: secret-input}
   - {entry: "ipc:shell:decision-handle", flow: decision-handle-issue}
   # harness, 터미널 agent, coding hook
-  - {entry: "ipc:harness-gui:tab-opened", flow: harness-gui-open}
-  - {entry: "ipc:harness-gui:tab-ack", flow: harness-gui-open}
-  - {entry: "ipc:harness-gui:tab-view", flow: harness-gui-toggle}
-  - {entry: "ipc:harness-gui:tab-toggle", flow: harness-gui-toggle}
-  - {entry: "ipc:harness-gui:tab-running", flow: harness-gui-toggle}
-  - {entry: "ipc:harness-gui:tab-input", flow: harness-gui-input}
-  - {entry: "ipc:harness-gui:tab-connect", flow: harness-gui-tab-attach}
-  - {entry: "ipc:harness-gui:tab-disconnect", flow: harness-gui-tab-attach}
-  - {entry: "ipc:harness-gui:tab-update", flow: harness-gui-publish}
-  - {entry: "ipc:harness-gui:tab-current", flow: harness-gui-tab-current}
-  - {entry: "ipc:harness-gui:tab-sessions", flow: harness-gui-tab-sessions}
-  - {entry: "ipc:harness-gui:tab-rewind-preview", flow: harness-gui-tab-rewind-preview}
-  - {entry: "ipc:harness-gui:tab-image", flow: harness-gui-tab-image}
-  - {entry: "ipc:harness-gui:tab-image-read", flow: harness-gui-tab-image-read}
-  - {entry: "ipc:harness-gui:tab-tool-body", flow: harness-gui-tab-tool-body}
-  - {entry: "ipc:shell:terminal-open", flow: terminal-open}
   - {entry: "ipc:shell:terminal-input", flow: terminal-input}
   - {entry: "ipc:shell:terminal-response", flow: terminal-respond}
-  - {entry: "ipc:shell:terminal-resize", flow: terminal-resize}
-  - {entry: "ipc:shell:terminal-close", flow: terminal-close}
   - {entry: "ipc:shell:terminal-restart", flow: terminal-restart}
-  - {entry: "ipc:shell:terminal-snapshot", flow: terminal-snapshot}
-  - {entry: "ipc:shell:terminal-output", flow: terminal-output}
   - {entry: "ipc:shell:terminal-focus", flow: terminal-focus}
-  - {entry: "ipc:shell:terminal-tab-name", flow: terminal-tab-name}
   - {entry: "ipc:shell:terminal-copy", flow: terminal-copy}
   - {entry: "ipc:shell:terminal-paste", flow: terminal-paste}
   - {entry: "ipc:shell:terminal-trace", flow: terminal-trace}
-  - {entry: "ipc:shell:terminal-agent-sessions", flow: terminal-agent-session-list}
-  - {entry: "ipc:shell:terminal-agent-session-rename", flow: terminal-agent-session-rename}
-  - {entry: "ipc:shell:terminal-state", flow: terminal-agent-track}
-  - {entry: "ipc:shell:terminal-agents", flow: terminal-agent-track}
   - {entry: "ipc:shell:terminal-reveal", flow: terminal-agent-notice}
-  - {entry: "ipc:shell:terminal-agent-sessions-changed", flow: terminal-agent-identity}
-  - {entry: "ipc:shell:coding-hook-ask", flow: terminal-hook-install}
-  - {entry: "ipc:shell:coding-hook-result", flow: terminal-hook-install}
   # thread bookmark (sessions)
   - {entry: "ipc:shell:thread-bookmarks-list", flow: thread-bookmark-list}
   - {entry: "ipc:shell:thread-bookmarks-set", flow: thread-bookmark-set}

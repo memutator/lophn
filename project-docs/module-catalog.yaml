@@ -179,7 +179,7 @@ modules:
 
   - path: packages/shell/main
     boundary: shell
-    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(core의 `machines/*`로 창마다 기계를 고르는 통로, 기계 목록 규칙, 시작 기계 file `viewer/start.json`과 창 자리, 보낸 창으로 기계를 고르는 IPC guard)다. 다른 기계에 붙는 key와 연결은 core가 들고 shell은 `@lophn/remote-client`를 import하지 않는다. extensions/는 shell PTY 탭의 harness GUI만 켜는 registry 사본이다(extension host는 packages/core/extensions에 있다). 사본은 shell이 core의 터미널로 옮겨 갈 때 지운다.
+    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(core의 `machines/*`로 창마다 기계를 고르는 통로, 기계 목록 규칙, 시작 기계 file `viewer/start.json`과 창 자리, 보낸 창으로 기계를 고르는 IPC guard)다. 다른 기계에 붙는 key와 연결은 core가 들고 shell은 `@lophn/remote-client`를 import하지 않는다. 터미널·coding agent·extension host는 core가 갖고 shell main에는 OS와 창에 붙은 것만 남는다(터미널 입력·다시 시작의 focus 검사(desktop/terminal-focus.ts, 검사를 지난 입력만 shell capability를 실어 core에 넘긴다), clipboard, terminal link를 열 곳, 진단 기록, core event로 띄우는 알림. desktop/wiring/terminal.ts·notice.ts).
 
   - path: packages/shell/renderer
     boundary: shell
@@ -189,10 +189,6 @@ modules:
 
   - path: packages/shell/ipc
     boundary: shell
-
-  - path: packages/shell/terminal-host
-    boundary: shell
-    notes: shell 중 coding-agent를 import할 수 있는 곳이다(shell/main/terminal도).
 
   - path: packages/mobile
     boundary: mobile

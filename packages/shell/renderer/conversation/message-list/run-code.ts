@@ -2,7 +2,7 @@
 // 없으면(터미널 통로 없음, detached 창) 실행 단추가 없다. `!`로 시작하는 블록은 composer를 shell mode로 채우는 길(`FillShell`)이 따로 있다.
 import { createContext, useContext } from "react";
 
-import { terminalCommandSchema } from "../../../ipc/terminal.ts";
+import { terminalCommandSchema } from "../../../../protocol/coding-agent/terminals.ts";
 
 type RunCode = (command: string) => void;
 

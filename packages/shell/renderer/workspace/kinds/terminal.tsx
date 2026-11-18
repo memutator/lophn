@@ -1,8 +1,8 @@
-// terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다.
+// terminal 탭 kind. 시작 폴더와 터미널 참조를 남긴다. 터미널은 core가 갖고 앱을 꺼도 돌므로, 다시 켠 앱의 탭은 그 터미널이 아직
+// 살아 있으면 붙고 없으면 새 shell을 연다.
 
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
-import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
@@ -11,19 +11,14 @@ import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import { type RememberedName, terminalName } from "../../terminal/model.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
-import type { TerminalStore } from "../../terminal/store.ts";
-import {
-  GuiSwitch,
-  guiOf,
-  guiTitleOf,
-  viewOf,
-} from "../../terminal/terminal-gui.tsx";
+import type { TerminalResume, TerminalStore } from "../../terminal/store.ts";
+import { GuiSwitch, guiTitleOf } from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
 import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
-import { openAt } from "../open-policy.ts";
+import { openAt, showAfter } from "../open-policy.ts";
 import type { SessionTabOpen } from "./agent.tsx";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
@@ -31,9 +26,9 @@ const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 let terminalCount = 0;
 
 /**
- * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 탭 화면이 main에
- * 묻는다). 저장한 session을 열 때만 폴더와 resume을 주고, 이때는 그 폴더가 우선이다. `command`는 대화 코드 블록의 실행이고 floated로 연다
- * (`openAt`의 run).
+ * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 core가 정한다). 저장한 session을
+ * 열 때만 폴더와 resume을 주고, 이때는 그 폴더가 우선이다. `command`는 대화 코드 블록의 실행이고 floated로 연다
+ * (`openAt`의 run). `terminal`을 주면 새 shell을 열지 않고 core에 이미 있는 그 터미널(폰이나 agent가 연 것)에 붙는다.
  */
 export function openTerminal(
   host: TabHost,
@@ -46,6 +41,8 @@ export function openTerminal(
     docked?: boolean;
     /** agent가 연 탭의 key·자리(`host:<tab>`). 주면 그 자리에 고르지 않고 연다. */
     open?: SessionTabOpen;
+    /** 이미 core에 있는 터미널의 참조. */
+    terminal?: string;
   } = {},
 ): string | null {
   const terminal = host.props.terminal;
@@ -61,16 +58,27 @@ export function openTerminal(
     (options.folderRef === undefined && options.resume === undefined
       ? host.explorerRoot
       : undefined);
-  terminal.store.request(key, options.folderRef ?? null, {
-    ...(options.resume === undefined ? {} : { resume: options.resume }),
-    ...(options.command === undefined ? {} : { command: options.command }),
-    ...(cwd === undefined ? {} : { cwd }),
-  });
+  if (options.terminal !== undefined) {
+    terminal.store.adopt(key, {
+      terminalRef: options.terminal,
+      generation: 0,
+      folderRef: null,
+    });
+  } else {
+    terminal.store.request(key, options.folderRef ?? null, {
+      ...(options.resume === undefined ? {} : { resume: options.resume }),
+      ...(options.command === undefined ? {} : { command: options.command }),
+      ...(cwd === undefined ? {} : { cwd }),
+    });
+  }
   const tab: TabItem = {
     key,
     kind: "terminal",
     title,
-    fields: { auto: title },
+    fields: {
+      auto: title,
+      ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
+    },
   };
   if (options.open !== undefined) {
     if (options.open.float === true) {
@@ -108,6 +116,14 @@ function autoOf(tab: TabItem): string {
   return typeof auto === "string" ? auto : tab.title;
 }
 
+/** layout에 남은 터미널 참조(`trm_…`). 열린 적이 없으면 null이다. */
+export function terminalRefOf(tab: TabItem): string | null {
+  const ref = tab.fields?.terminal;
+  return typeof ref === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(ref)
+    ? ref
+    : null;
+}
+
 function rememberedOf(tab: TabItem): RememberedName | null {
   const title = tab.fields?.agentTitle;
   const session = tab.fields?.agentSession;
@@ -122,7 +138,7 @@ function harnessLabel(harness: string): string {
     : harness;
 }
 
-// 탭 하나의 이름 계산. 입력은 탭 field(사람 이름, GUI 제목, 기억한 이름)와 창의 terminal store(main이 보낸 agent)뿐이라
+// 탭 하나의 이름 계산. 입력은 탭 field(사람 이름, GUI 제목, 기억한 이름)와 창의 terminal store(core가 알린 agent)뿐이라
 // 탭을 그리지 않아도, 다른 workspace의 저장된 탭이어도 같은 답이 나온다. 규칙은 `terminalName`이다.
 function namingOf(
   tab: TabItem,
@@ -132,7 +148,7 @@ function namingOf(
   const agent = store?.agentOf(tab.key);
   return terminalName({
     person,
-    guiTitle: guiTitleOf(tab),
+    guiTitle: store === undefined ? null : guiTitleOf(tab, store),
     agent:
       agent === undefined
         ? null
@@ -218,8 +234,8 @@ export function pinAgentSessionName(
   person: string | null,
 ): void {
   const agent = terminal.store.agentOf(key);
-  if (terminal.bridge === null || agent?.session === undefined) return;
-  void terminal.bridge.renameAgentSession({
+  if (terminal.core === null || agent?.session === undefined) return;
+  void terminal.core.renameSaved({
     project,
     harness: agent.harness,
     external_session: agent.session,
@@ -227,7 +243,7 @@ export function pinAgentSessionName(
   });
 }
 
-// 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
+// 사람이 plain 터미널에서 직접 띄운 coding agent도 core가 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
   if (agent === undefined) return null;
@@ -242,19 +258,38 @@ function agentTabDot(tab: TabItem, host: TabHost): SessionDot | null {
   return agent === undefined ? null : codingDot(agent);
 }
 
-// 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다. GUI가 붙어 있으면
-// 그 handle과 view도 같이 간다: handle은 탭을 따라가고 받는 창이 id로 다시 붙는다(main이 쌓은 갱신을 처음부터 다시 보낸다).
+// 탭의 터미널 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다. GUI view는 core가
+// 들고 있어 받는 창이 목록에서 읽는다.
 function runtimeOf(tab: TabItem, host: TabHost) {
   const entry = host.props.terminal?.store.get(tab.key);
-  const gui = guiOf(tab);
   return entry?.terminalRef == null
     ? null
     : {
         terminal_ref: entry.terminalRef,
         generation: entry.generation,
         folder_ref: entry.folderRef,
-        ...(gui === null ? {} : { gui, view: viewOf(tab) }),
       };
+}
+
+let linkCount = 0;
+
+/** 터미널에서 Ctrl/Cmd-click한 link를 그 터미널 탭 옆 browser 탭으로 연다. */
+function openLinkTab(host: TabHost, terminalKey: string, url: string): void {
+  let title = url;
+  try {
+    title = new URL(url).host || title;
+  } catch {
+    // 주소로 읽히지 않으면 url 그대로 이름이다.
+  }
+  host.openTab(
+    {
+      key: `browser-link-${Date.now().toString(36)}-${++linkCount}`,
+      kind: "browser",
+      title,
+      fields: { url },
+    },
+    showAfter(host.desk, terminalKey),
+  );
 }
 
 export const terminalKind: TabKindDef = {
@@ -298,6 +333,9 @@ export const terminalKind: TabKindDef = {
         ...(typeof stored.agent_session === "string"
           ? { agentSession: stored.agent_session }
           : {}),
+        ...(typeof stored.terminal_ref === "string"
+          ? { terminal: stored.terminal_ref }
+          : {}),
       },
     };
   },
@@ -315,10 +353,12 @@ export const terminalKind: TabKindDef = {
     // 기억한 session 이름은 탭의 지금 이름에서 다시 만들지 않고 그대로 남긴다. 지금 이름으로 만들면 이름이 잠깐 자동
     // 이름인 순간의 저장이 기억을 지운다.
     const remembered = rememberedOf(tab);
+    const terminal = terminalRefOf(tab);
     return {
       kind: "terminal",
       key: tab.key,
       project_folder: tab.folder,
+      ...(terminal === null ? {} : { terminal_ref: terminal }),
       ...(auto.length < 1 ? {} : { title: auto.slice(0, 200) }),
       ...(person === null ? {} : { name: person.slice(0, 200) }),
       ...(harness === null ? {} : { harness }),
@@ -332,7 +372,7 @@ export const terminalKind: TabKindDef = {
           }),
     };
   },
-  // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
+  // PTY는 core가 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
   // 보내는 창의 store 항목은 보내기가 실패해 탭이 남을 수 있어 지우지 않는다.
   transfer(tab, host) {
     return Promise.resolve({ value: runtimeOf(tab, host), views: [] });
@@ -358,17 +398,6 @@ export const terminalKind: TabKindDef = {
       generation: moved.generation,
       folderRef: typeof moved.folder_ref === "string" ? moved.folder_ref : null,
     });
-    // 탭이 fields째 오지 않는 길(detached 창이 닫힌 뒤 다시 열기)은 GUI 참조가 value에만 있다.
-    const gui = guiOf({ ...tab, fields: { gui: moved.gui } });
-    if (guiOf(tab) === null && gui !== null) {
-      host.patchTab(tab.key, (current) => ({
-        fields: {
-          ...current.fields,
-          gui,
-          view: moved.view === "gui" ? "gui" : "tui",
-        },
-      }));
-    }
   },
   render(tab, active, host) {
     const terminal = host.props.terminal;
@@ -380,9 +409,9 @@ export const terminalKind: TabKindDef = {
         tabKey={tab.key}
         project={project}
         folderRef={tab.folder ?? null}
+        attach={terminalRefOf(tab)}
         active={active}
         deps={terminal}
-        gui={guiOf(tab)}
         onAgentChange={() =>
           syncTerminalTab(tab, terminal.store, host.patchTab)
         }
@@ -392,10 +421,11 @@ export const terminalKind: TabKindDef = {
             return {
               title: personOf(current) ?? auto,
               folder: info.folderRef,
-              fields: { ...current.fields, auto },
+              fields: { ...current.fields, auto, terminal: info.terminalRef },
             };
           })
         }
+        openLinkTab={(url) => openLinkTab(host, tab.key, url)}
         // 경로가 디스크의 파일일 때만 link다. 부모 폴더 한 단계를 읽어 본다.
         paths={{
           exists: async (path) => {
@@ -419,7 +449,7 @@ export const terminalKind: TabKindDef = {
         }}
       />
     );
-    // 탭의 view가 gui이면 xterm 대신 채팅 화면을 그린다. PTY와 xterm은 그대로 산다.
+    // core가 이 터미널을 GUI view로 두면 xterm 대신 채팅 화면을 그린다. PTY와 xterm은 그대로 산다.
     return (
       <GuiSwitch tab={tab} active={active} host={host} deps={terminal}>
         {body}

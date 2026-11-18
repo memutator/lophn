@@ -1,15 +1,20 @@
-// 탭 key와 host runtime의 대응. 탭 전환·공간 이동으로 탭 화면이 사라져도 shell은
-// 그대로이고, 다시 그릴 때 이 대응으로 같은 runtime에 붙는다.
-// renderer가 다시 생기면 sessionStorage의 참조만으로 살아 있는 host buffer를 다시
-// 읽는다. 출력·입력은 여기 두지 않는다. Electron을 다시 띄우면 sessionStorage가
-// 비어 탭은 종료된 자리표시가 된다.
+// 탭 key와 core 터미널의 대응. 탭 전환·공간 이동으로 탭 화면이 사라져도 터미널은 core에서 그대로 돌고, 다시 그릴 때 이 대응으로
+// 같은 터미널에 붙는다. 앱을 다시 켜면 탭 layout에 남은 터미널 참조(`fields.terminal`)로 아직 살아 있는 터미널에 다시 붙는다.
+// 출력·입력은 여기 두지 않는다. 창마다 하나고, core의 runtime event와 coding session 목록을 따라 탭의 agent와 GUI view를 안다.
+import {
+  type CodingSession,
+  codingSessionsList,
+} from "../../../protocol/coding-agent/relay.ts";
 import type {
   TerminalAgent,
-  TerminalApi,
-  TerminalResume,
   TerminalRuntime,
-} from "../../ipc/terminal.ts";
+} from "../../../protocol/coding-agent/terminals.ts";
+import type { TerminalApi } from "../../ipc/terminal.ts";
+import type { TerminalCore } from "./core.ts";
 import type { Phase } from "./model.ts";
+
+/** 저장한 coding agent session을 다시 연다. id는 hook이 준 그대로이고 core가 harness의 resume 명령으로 바꿔 친다. */
+export type TerminalResume = { harness: string; external_session: string };
 
 export interface TerminalEntry {
   /** 사람이 이 탭에서 터미널을 열었다. 아직 시작 전일 수 있다. */
@@ -18,80 +23,104 @@ export interface TerminalEntry {
   readonly terminalRef: string | null;
   readonly generation: number;
   readonly phase: Phase;
-  /** 처음 여는 한 번만 main이 shell 뒤에 resume 명령을 친다. 저장하지 않고, 열 때 비운다. */
+  /** 처음 여는 한 번만 core가 shell 뒤에 resume 명령을 친다. 열 때 비운다. */
   readonly resume?: TerminalResume;
-  /** 처음 여는 한 번만 main이 shell에 넣는 명령(대화 코드 블록의 실행). resume과 같이 열 때 비운다. */
+  /** 처음 여는 한 번만 core가 shell에 넣는 명령(대화 코드 블록의 실행). resume과 같이 열 때 비운다. */
   readonly command?: string;
-  /** 처음 여는 한 번만 main이 이 폴더(등록 폴더 안)에서 shell을 연다. 저장하지 않고, 열 때 비운다. */
+  /** 처음 여는 한 번만 core가 이 폴더(등록 폴더 안)에서 shell을 연다. 열 때 비운다. */
   readonly cwd?: string;
   /**
    * snapshot을 PTY 치수로 다시 쓴 횟수. 쓴 뒤 view는 PTY 치수라, 탭이 이 값을 보고 칸에 다시 맞춘다(치수가 다르면 PTY도).
-   * 저장하지 않는다.
    */
   readonly restored?: number;
-  /** 폰이 PTY 크기를 잡았다(runtime의 `remote_size`). 탭은 칸에 맞추지 않고 사람이 focus를 주면 다시 잡는다. 저장하지 않는다. */
+  /** 폰이 PTY 크기를 잡았다(runtime의 `remote_size`). 탭은 칸에 맞추지 않고 사람이 focus를 주면 다시 잡는다. */
   readonly remote?: boolean;
 }
 
-/** 탭의 coding agent. main이 알린 것에 core의 못 본 끝(`unseen`, `term:<탭>`)을 더한 것이다. */
+/** 탭의 coding agent. core가 알린 것에 core의 못 본 끝(`unseen`, `term:<탭>`)을 더한 것이다. */
 export type TabAgent = TerminalAgent & {
   /** 사람이 그 탭을 보지 않는 사이 turn이 끝났다. */
   readonly unseen: boolean;
 };
 
-const STORAGE_KEY = "lophn.terminal.tabs";
-
-interface Persisted {
-  readonly terminal_ref: string;
-  readonly generation: number;
-  readonly folder_ref: string | null;
-}
-
-/** sessionStorage 모양. 테스트는 Map으로 대신한다. */
-interface RefStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
 export class TerminalStore {
   readonly #opening = new Set<string>();
   readonly #entries = new Map<string, TerminalEntry>();
+  // 탭 layout에서 읽은 터미널 참조. 탭 화면이 아직 그려지지 않아 항목이 없는 탭의 agent·알림 고르기에 쓴다.
+  readonly #remembered = new Map<string, string>();
   readonly #listeners = new Set<() => void>();
   readonly #selectors = new Set<(key: string) => void>();
-  // 터미널 안에서 도는 coding agent. 탭 key가 아니라 terminal_ref로 둔다. main의 push가 탭 항목보다
-  // 먼저 올 수 있고, 탭을 옮겨도 PTY 참조는 같다.
+  readonly #runtimeListeners = new Set<(runtime: TerminalRuntime) => void>();
+  // 터미널 안에서 도는 coding agent. 탭 key가 아니라 terminal_ref로 둔다. core의 event가 탭 항목보다
+  // 먼저 올 수 있고, 탭을 옮겨도 터미널 참조는 같다.
   readonly #agents = new Map<string, TabAgent>();
+  // 터미널마다 coding session(GUI view, handoff, 바꿀 수 있는가).
+  #coding = new Map<string, CodingSession>();
   // 못 본 끝이 있는 terminal_ref. 창의 event 연결(EventsProvider)이 넣는다.
   #unseen: ReadonlySet<string> = new Set();
   #version = 0;
-  readonly #storage: RefStorage | null;
 
   constructor(
-    storage: RefStorage | null = sessionStorageOrNull(),
-    bridge: TerminalApi | null = windowBridgeOrNull(),
+    core: TerminalCore | null = null,
+    bridge: Pick<TerminalApi, "onReveal"> | null = null,
   ) {
-    this.#storage = storage;
-    for (const [key, value] of Object.entries(this.#load())) {
-      this.#entries.set(key, {
-        requested: true,
-        folderRef: value.folder_ref,
-        terminalRef: value.terminal_ref,
-        generation: value.generation,
-        phase: { kind: "opening" },
-      });
-    }
-    // store는 창과 함께 살아 해지하지 않는다.
-    bridge?.onRuntime((runtime) => this.noteRuntime(runtime));
-    // main은 agent가 바뀔 때만 push한다. 다시 뜬 창은 탭을 그리지 않은 터미널의 agent를 모르므로 지금 값을 한 번 읽는다.
-    void bridge?.agents().then((reply) => {
-      if (!reply.ok) return;
-      for (const runtime of reply.value) this.noteRuntime(runtime);
+    // store는 창과 함께 살아 해지하지 않는다. 다시 붙으면 목록으로 맞춘다(끊긴 사이의 runtime event는 오지 않는다).
+    core?.subscribe((message) => {
+      if (message.kind === "ready") {
+        void core.list().then((list) => {
+          for (const runtime of list ?? []) this.noteRuntime(runtime);
+        });
+      } else if (
+        message.kind === "event" &&
+        message.event.type === "TerminalRuntimeChanged"
+      ) {
+        this.noteRuntime(message.event.payload.runtime);
+      }
     });
-    bridge?.onReveal(({ terminal_ref }) => this.reveal(terminal_ref));
+    // coding session 목록은 붙을 때와 `StateChanged{coding_sessions}`마다 다시 읽는다.
+    const readCoding = async () => {
+      const reply = await core!.events.core.call({
+        kind: codingSessionsList.kind,
+        resource: codingSessionsList.resource,
+        method: codingSessionsList.method,
+        body: {},
+      });
+      if (!reply.ok) return;
+      const { sessions } = reply.value as { sessions: CodingSession[] };
+      this.#coding = new Map(sessions.map((one) => [one.terminal, one]));
+      this.#agentsChanged();
+    };
+    core?.events.subscribe({ types: ["StateChanged"] }, (message) => {
+      if (message.kind === "ready") void readCoding();
+      else if (
+        message.kind === "event" &&
+        message.event.type === "StateChanged" &&
+        message.event.payload.changes.some(
+          (change) => change.name === "coding_sessions",
+        )
+      ) {
+        void readCoding();
+      }
+    });
+    bridge?.onReveal(({ terminal }) => this.reveal(terminal));
   }
 
   get(key: string): TerminalEntry | undefined {
     return this.#entries.get(key);
+  }
+
+  /** 탭의 터미널 참조. 그려진 탭은 항목의 것, 아직 그리지 않은 탭은 layout에서 읽은 것이다. */
+  refOf(key: string): string | null {
+    return (
+      this.#entries.get(key)?.terminalRef ?? this.#remembered.get(key) ?? null
+    );
+  }
+
+  /** layout에서 읽은 탭의 터미널 참조를 기억한다. 탭 화면이 그려질 때 그 터미널이 살아 있으면 붙는다. */
+  remember(key: string, terminalRef: string): void {
+    if (this.#remembered.get(key) === terminalRef) return;
+    this.#remembered.set(key, terminalRef);
+    this.#agentsChanged();
   }
 
   beginOpen(key: string): boolean {
@@ -106,8 +135,14 @@ export class TerminalStore {
 
   /** 탭의 터미널 안에서 도는 coding agent. 없으면 undefined다. */
   agentOf(key: string): TabAgent | undefined {
-    const ref = this.#entries.get(key)?.terminalRef;
-    return ref == null ? undefined : this.#agents.get(ref);
+    const ref = this.refOf(key);
+    return ref === null ? undefined : this.#agents.get(ref);
+  }
+
+  /** 탭의 터미널에서 도는 coding session(GUI view와 바꿀 수 있는가). 없으면 undefined다. */
+  codingOf(key: string): CodingSession | undefined {
+    const ref = this.refOf(key);
+    return ref === null ? undefined : this.#coding.get(ref);
   }
 
   /** 항목이나 agent가 바뀔 때마다 오르는 값. 탭 줄이 useSyncExternalStore로 읽어 다시 그린다. */
@@ -115,8 +150,9 @@ export class TerminalStore {
     return this.#version;
   }
 
-  /** main이 보낸 runtime(push, open·snapshot 답)의 agent를 반영한다. 같으면 아무것도 하지 않는다. */
+  /** core가 보낸 runtime(event, open·snapshot 답)의 agent를 반영한다. 같으면 아무것도 하지 않는다. */
   noteRuntime(runtime: TerminalRuntime): void {
+    for (const listener of this.#runtimeListeners) listener(runtime);
     const ref = runtime.terminal_ref;
     const before = this.#agents.get(ref);
     const next =
@@ -124,11 +160,17 @@ export class TerminalStore {
         ? undefined
         : { ...runtime.agent, unseen: this.#unseen.has(ref) };
     // 칸을 골라 비교하면 새 칸(foreground, name)이 빠져, hook 뒤에 온 foreground 알림을 버리고 GUI 전환을 막았다.
-    // main(tracker)이 agent를 같은 순서로 만들어 JSON으로 비교한다.
+    // core(tracker)가 agent를 같은 순서로 만들어 JSON으로 비교한다.
     if (JSON.stringify(before) === JSON.stringify(next)) return;
     if (next === undefined) this.#agents.delete(ref);
     else this.#agents.set(ref, next);
     this.#agentsChanged();
+  }
+
+  /** core가 알린 runtime마다 부른다(대기 목록의 Finished 줄). 해지를 돌려준다. */
+  onRuntime(listener: (runtime: TerminalRuntime) => void): () => void {
+    this.#runtimeListeners.add(listener);
+    return () => this.#runtimeListeners.delete(listener);
   }
 
   /** core의 못 본 끝이 바뀌었다. 못 본 끝이 있는 terminal_ref 모두다. */
@@ -149,13 +191,25 @@ export class TerminalStore {
     for (const listener of this.#listeners) listener();
   }
 
+  /** 이 창에 그 터미널의 탭이 있는지. hook 설치 물음은 그 터미널의 탭이 있는 창이 묻는다. */
+  has(terminalRef: string): boolean {
+    return this.#keyOf(terminalRef) !== undefined;
+  }
+
+  #keyOf(terminalRef: string): string | undefined {
+    for (const [key, entry] of this.#entries) {
+      if (entry.terminalRef === terminalRef) return key;
+    }
+    for (const [key, ref] of this.#remembered) {
+      if (ref === terminalRef && !this.#entries.has(key)) return key;
+    }
+    return undefined;
+  }
+
   /** OS 알림을 눌렀다. 이 창에 그 터미널 탭이 있으면 고르고, 없으면 무시한다. */
   reveal(terminalRef: string): void {
-    for (const [key, entry] of this.#entries) {
-      if (entry.terminalRef !== terminalRef) continue;
-      this.select(key);
-      return;
-    }
+    const key = this.#keyOf(terminalRef);
+    if (key !== undefined) this.select(key);
   }
 
   /** 작업대가 그 탭을 고르게 한다. sidebar의 터미널 session 줄이 쓴다. */
@@ -183,8 +237,8 @@ export class TerminalStore {
   }
 
   /**
-   * 다른 창에서 옮겨 온 runtime을 탭으로 둔다. PTY는 그대로이고 탭 화면이 처음 그릴 때
-   * snapshot을 0부터 받아 phase를 정한다.
+   * 이미 core에 있는 터미널을 탭으로 둔다(다른 창에서 옮겨 옴, 폰이나 agent가 연 터미널, 다시 켠 앱의 탭). 터미널은 그대로이고 탭 화면이
+   * 처음 그릴 때 snapshot을 받아 generation과 phase를 정한다.
    */
   adopt(
     key: string,
@@ -221,6 +275,7 @@ export class TerminalStore {
   }
 
   delete(key: string): void {
+    this.#remembered.delete(key);
     if (this.#entries.delete(key)) this.#changed();
   }
 
@@ -231,61 +286,6 @@ export class TerminalStore {
 
   #changed(): void {
     this.#version += 1;
-    this.#save();
     for (const listener of this.#listeners) listener();
   }
-
-  #load(): Record<string, Persisted> {
-    try {
-      const raw = this.#storage?.getItem(STORAGE_KEY);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as Record<string, Persisted>;
-      const kept: Record<string, Persisted> = {};
-      for (const [key, value] of Object.entries(parsed)) {
-        if (
-          typeof value?.terminal_ref === "string" &&
-          typeof value.generation === "number"
-        ) {
-          kept[key] = {
-            terminal_ref: value.terminal_ref,
-            generation: value.generation,
-            folder_ref:
-              typeof value.folder_ref === "string" ? value.folder_ref : null,
-          };
-        }
-      }
-      return kept;
-    } catch {
-      return {};
-    }
-  }
-
-  #save(): void {
-    const persisted: Record<string, Persisted> = {};
-    for (const [key, entry] of this.#entries) {
-      if (entry.terminalRef === null) continue;
-      persisted[key] = {
-        terminal_ref: entry.terminalRef,
-        generation: entry.generation,
-        folder_ref: entry.folderRef,
-      };
-    }
-    try {
-      this.#storage?.setItem(STORAGE_KEY, JSON.stringify(persisted));
-    } catch {
-      // 저장하지 못하면 renderer를 다시 만들 때 종료된 자리표시가 된다.
-    }
-  }
-}
-
-function sessionStorageOrNull(): RefStorage | null {
-  try {
-    return globalThis.sessionStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function windowBridgeOrNull(): TerminalApi | null {
-  return (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null;
 }

@@ -43,12 +43,9 @@ import type { SettingsPane } from "../../../packages/shell/renderer/desktop/sett
 import { QuickPrefsProvider } from "../../../packages/shell/renderer/desktop/settings/quick-launch/store.tsx";
 import { MAIN_DESK } from "../../../packages/shell/renderer/shell/desk-model.ts";
 import { createLayoutSource } from "../../../packages/shell/renderer/shell/layout-source.ts";
-import { TerminalDisplays } from "../../../packages/shell/renderer/terminal/displays.ts";
-import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
-import { createXtermView } from "../../../packages/shell/renderer/terminal/xterm-view.ts";
 import type { WorkspaceSource } from "../../../packages/shell/renderer/workspace/source.ts";
 import { withSyncLists } from "./core-answers/sync-lists.ts";
-import { fakeTerminal } from "./fake-terminal.ts";
+import { fakeTerminalDeps } from "./fake-terminal.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
 import "@xterm/xterm/css/xterm.css";
 
@@ -341,15 +338,7 @@ export function MockDesktop(props: MockDesktopProps) {
             })),
           }),
     };
-    const terminalBridge = fakeTerminal(PROJECT_GROCERY);
-    const terminalStore = new TerminalStore(null, null);
-    const terminal = {
-      bridge: terminalBridge,
-      store: terminalStore,
-      displays: new TerminalDisplays(terminalStore, terminalBridge),
-      createView: createXtermView,
-      confirmClose: () => Promise.resolve(false),
-    };
+    const terminal = fakeTerminalDeps();
     if (openTerminal !== undefined) terminal.store.request(openTerminal);
     const { title, key, kind, folder } = detachedTab ?? {};
     const detached = fakeDetached(

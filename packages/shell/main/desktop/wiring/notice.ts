@@ -1,4 +1,4 @@
-// 알림을 어디에 띄울지 정하는 한 곳. 터미널 안 coding agent(tracker), lophn Agent session(Bus event),
+// 알림을 어디에 띄울지 정하는 한 곳. 터미널 안 coding agent(core의 `TerminalAgentSignaled`), lophn Agent session(Bus event),
 // 사람에게 한 알림(NoticePosted: 앱이 한 것과 program이 남긴 기록)이 같은 규칙(notice/rule.ts)으로 이리 온다: 보고 있으면 없음,
 // lophn 창에 focus가 있으면 그 창의 toast, 없으면 OS 알림. 누르면 그 탭(앱 알림은 그 앱 공간)이 있는 창을
 // 앞으로 가져오고 고른다. toast를 받는 창은 하나뿐이라 창이 여럿이어도 한 번만 뜬다.
@@ -39,7 +39,7 @@ import {
   SessionVisibility,
   type SessionWho,
 } from "../../notice/rule.ts";
-import type { TerminalFocusTable } from "../../terminal/controller.ts";
+import type { TerminalFocusTable } from "../terminal-focus.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { word } from "../i18n.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -173,7 +173,7 @@ export function createNoticeWiring(
         if (project === undefined) return;
         for (const item of found === undefined ? [window] : live) {
           item.webContents.send(TERMINAL_REVEAL_CHANNEL, {
-            terminal_ref: target.terminal_ref,
+            terminal: target.terminal_ref,
             project,
           });
         }

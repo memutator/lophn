@@ -1,16 +1,19 @@
-// 터미널 탭이 쓰는 통로 묶음. entry가 창의 preload 통로로 만들고, 테스트는 가짜를 준다.
+// 터미널 탭이 쓰는 통로 묶음. entry가 창의 core 연결과 preload 통로로 만들고, 테스트는 가짜를 준다.
 import type { TerminalApi } from "../../ipc/terminal.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { t } from "@lophn/i18n";
 
 import { centerAnchor, overlayConsumer } from "../overlay/consumer.ts";
+import type { TerminalCore } from "./core.ts";
 import { endingOf, phaseOfRuntime } from "./model.ts";
 import type { TerminalStore } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
 import { TerminalDisplays } from "./displays.ts";
 
 export interface TerminalDeps {
-  /** preload 통로. 없으면 터미널을 열지 않는다. */
+  /** core의 `terminals/*` route와 터미널 event. 없으면 터미널을 열지 않는다. */
+  readonly core: TerminalCore | null;
+  /** shell main의 입력·다시 시작·focus·clipboard·link 통로. 없으면 치지 못한다. */
   readonly bridge: TerminalApi | null;
   readonly store: TerminalStore;
   readonly displays: TerminalDisplays;
@@ -80,8 +83,9 @@ function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
   };
 }
 
-/** 창의 preload 통로로 묶음을 만든다. 통로가 없으면 bridge는 null이다. */
+/** 창의 core 연결과 preload 통로로 묶음을 만든다. 통로가 없으면 bridge는 null이다. */
 export function windowTerminalDeps(
+  core: TerminalCore,
   store: TerminalStore,
   createView: TerminalDeps["createView"],
 ): TerminalDeps {
@@ -92,9 +96,10 @@ export function windowTerminalDeps(
   const overlay = scope.lophnShell;
   const bridge = scope.lophnTerminal ?? null;
   return {
+    core,
     bridge,
     store,
-    displays: new TerminalDisplays(store, bridge),
+    displays: new TerminalDisplays(store, core, bridge),
     createView,
     confirmClose: overlay
       ? overlayCloseConfirm(overlay)
@@ -105,20 +110,18 @@ export function windowTerminalDeps(
 // 살아 있는 터미널의 ref. 탭 화면이 숨어 있던 사이 끝났을 수 있어 지금 상태를 읽는다. 없거나 끝났으면 null이다.
 async function liveRef(deps: TerminalDeps, key: string) {
   const entry = deps.store.get(key);
-  const bridge = deps.bridge;
-  if (!entry || entry.terminalRef === null || !bridge) return null;
-  const ref = { terminal_ref: entry.terminalRef, generation: entry.generation };
-  const current = await bridge.snapshot({
-    terminal_ref: ref.terminal_ref,
-    after_seq: Number.MAX_SAFE_INTEGER,
-  });
+  const core = deps.core;
+  if (!entry || entry.terminalRef === null || !core) return null;
+  const terminal = entry.terminalRef;
+  const current = await core.snapshot(terminal, Number.MAX_SAFE_INTEGER);
   const live =
     current.ok &&
-    current.value.ok &&
-    "output" in current.value &&
-    current.value.runtime.generation === ref.generation &&
+    (entry.generation === 0 ||
+      current.value.runtime.generation === entry.generation) &&
     endingOf(current.value.runtime) === null;
-  return live ? { bridge, ref } : null;
+  return live && current.ok
+    ? { core, terminal, generation: current.value.runtime.generation }
+    : null;
 }
 
 /** 터미널 탭을 닫으면 사람에게 물을지(shell이 아직 살아 있다). 여러 탭을 닫을 때 한 번에 묻는 데 쓴다. */
@@ -130,7 +133,7 @@ export async function terminalLive(
 }
 
 /**
- * 탭 닫기. 살아 있는 터미널은 사람이 확인해야 닫고(이미 확인했으면 `confirmed`), 취소하면 runtime과 출력을
+ * 탭 닫기. 살아 있는 터미널은 사람이 확인해야 닫고(이미 확인했으면 `confirmed`), 취소하면 터미널과 출력을
  * 유지한다. 종료 확인에 실패하면 탭을 남겨 결과 불명을 보인다. true면 탭을 뺀다.
  */
 export async function closeTerminalTab(
@@ -144,11 +147,10 @@ export async function closeTerminalTab(
     return true;
   }
   if (!confirmed && !(await deps.confirmClose())) return false;
-  const reply = await live.bridge.close(live.ref);
-  if (reply.ok && reply.value.ok) {
-    const runtime = reply.value.runtime;
-    if (endingOf(runtime) === "stop_unconfirmed") {
-      deps.store.update(key, { phase: phaseOfRuntime(runtime) });
+  const reply = await live.core.close(live.terminal, live.generation);
+  if (reply.ok) {
+    if (endingOf(reply.value) === "stop_unconfirmed") {
+      deps.store.update(key, { phase: phaseOfRuntime(reply.value) });
       return false;
     }
     deps.store.delete(key);

@@ -261,12 +261,17 @@ export const project = {
   "terminal.menu.open-terminal": "Open in terminal",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
   "terminal.notice.sized-for-phone": "Sized for a phone · Click to fit",
+  "terminal.reason.extension-off":
+    "The Harness GUI extension is turned off. Turn it on in Settings › Extensions.",
+  "terminal.reason.extension-off-short": "Extension off",
   "terminal.reason.foreground":
     "The CLI is not the foreground process of this terminal",
   "terminal.reason.foreground-short": "Not in foreground",
   "terminal.reason.session":
     "The CLI has not reported its session yet (after the first message, or install the hook)",
   "terminal.reason.session-short": "No session yet",
+  "terminal.reason.unsupported-os": "Chat view isn't available on this system.",
+  "terminal.reason.unsupported-os-short": "Not available",
   "terminal.status.ended": "The shell ended.",
   "terminal.status.exited": "The shell ended with exit code {code}.",
   "terminal.status.start-failed": "The shell couldn't start.",

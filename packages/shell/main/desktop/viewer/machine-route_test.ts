@@ -10,7 +10,7 @@ import {
   MACHINES_THIS_READ_CHANNEL,
 } from "../../../ipc/machines.ts";
 import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
-import { TERMINAL_OPEN_CHANNEL } from "../../../ipc/terminal.ts";
+import { TERMINAL_INPUT_CHANNEL } from "../../../ipc/terminal.ts";
 import { WORKSPACE_LAYOUT_SAVE_CHANNEL } from "../../../ipc/workspace.ts";
 import { createMachineRoute, type MachineLink } from "./machine-route.ts";
 
@@ -57,7 +57,7 @@ test("a window of another machine reaches only that machine's core; this compute
   assert.deepEqual(sent, [{ resource: "sessions", method: "list", body: {} }]);
 
   for (const channel of [
-    TERMINAL_OPEN_CHANNEL,
+    TERMINAL_INPUT_CHANNEL,
     FILE_READ_CHANNEL,
     SECRET_INPUT_OPEN_CHANNEL,
     WORKSPACE_LAYOUT_SAVE_CHANNEL,

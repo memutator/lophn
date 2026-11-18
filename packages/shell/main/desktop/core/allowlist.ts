@@ -15,9 +15,13 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 내 기기 명단 읽기·초대장 내기·초대장으로 들기·빼기·터미널 입력·이름 바꾸기(`roster/*`. Settings › Remote). `machines/*`는 shell main만 부른다.
 // - 이 컴퓨터의 이름 읽기·바꾸기(`machine/status`·`machine/rename`. Settings › Remote)
 // - 이 컴퓨터를 로그인 때 띄우고 계속 돌리는 표시 읽기·바꾸기(`always_on/status`·`always_on/set`. Settings › Remote의 Keep running)
-// - 못 본 turn 끝 읽기와 지우기(`unseen/list`·`unseen/dismiss`. 탭의 finished 점과 알림 panel의 Finished 줄). presence 보고와
-//   터미널 signal은 shell main만 부른다.
+// - 못 본 turn 끝 읽기와 지우기(`unseen/list`·`unseen/dismiss`. 탭의 finished 점과 알림 panel의 Finished 줄). presence 보고는
+//   shell main만 부른다.
 // - project id file 상태와 만들기·나누기, 등록 전 폴더 읽기(`projects/identity`·`create_identity`·`renew_identity`·`match`). project 등록 dialog와 상세
+// - 터미널 탭의 열기·닫기·크기·출력 lease·탭 이름과 저장한 coding agent session의 이름(`terminals/*`). 사람의 입력(`terminals/input`)과
+//   다시 시작(`restart`)은 그 창의 focus를 본 shell main이 capability를 실어 부르므로 넣지 않는다.
+// - 터미널 탭의 GUI·TUI 바꾸기(`coding_sessions/switch`)
+// - Settings › Coding agents의 다시 감지·hook 놓기·지우기와 hook 설치 물음의 답(`coding_agents/*`)
 // 다른 memory route는 main의 고정 통로만 부른다.
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/begin",
@@ -73,16 +77,29 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:projects/create_identity",
   "memory:projects/renew_identity",
   "memory:projects/match",
+  "memory:terminals/open",
+  "memory:terminals/close",
+  "memory:terminals/resize",
+  "memory:terminals/watch",
+  "memory:terminals/name",
+  "memory:terminals/rename_saved",
+  "memory:coding_sessions/switch",
+  "memory:coding_agents/refresh",
+  "memory:coding_agents/install_hooks",
+  "memory:coding_agents/uninstall_hooks",
+  "memory:coding_agents/hook_answer",
 ];
 
-// renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지를 올리고 읽는다.
+// renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.
 const RENDERER_UPLOAD_ROUTES: readonly string[] = [
   "upload:profile-images/upload",
   "upload:message-images/upload",
+  "upload:acp/image_upload",
 ];
 const RENDERER_FILE_ROUTES: readonly string[] = [
   "file:profile-images/read",
   "file:message-images/read",
+  "file:acp/image_read",
 ];
 
 /** allowlist는 이름만 기억한다. schema 검사는 client가 route 원본으로 한다. */

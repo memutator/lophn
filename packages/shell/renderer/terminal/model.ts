@@ -1,11 +1,10 @@
-// 터미널 탭이 그리는 상태의 순수 규칙. IPC 답을 화면 상태로 옮기고, 종료·거절을
+// 터미널 탭이 그리는 상태의 순수 규칙. core 답을 화면 상태로 옮기고, 종료·거절을
 // 서로 다른 문구로 나눈다. 성공이나 exit code를 추측하지 않는다.
 import type {
   TerminalFailure,
   TerminalOutput,
-  TerminalReply,
   TerminalRuntime,
-} from "../../ipc/terminal.ts";
+} from "../../../protocol/coding-agent/terminals.ts";
 
 /** 시작하지 않고 멈춘 이유. 다른 폴더로 대신 시작하지 않는다. */
 export type Refusal =
@@ -19,7 +18,7 @@ export type Refusal =
 export type Ending = "exited" | "start_failed" | "unknown" | "stop_unconfirmed";
 
 export type Phase =
-  /** 사람이 열었고 main의 답을 기다린다. */
+  /** 사람이 열었고 core의 답을 기다린다. */
   | { readonly kind: "opening" }
   | { readonly kind: "refused"; readonly reason: Refusal }
   | { readonly kind: "live"; readonly runtime: TerminalRuntime }
@@ -55,7 +54,12 @@ export function phaseOfRuntime(runtime: TerminalRuntime): Phase {
     : { kind: "ended", ending, runtime };
 }
 
-function refusalOf(reason: TerminalFailure): Refusal {
+/** 열기·다시 시작이 거절된 이유를 화면 상태로 옮긴다. 이유가 없으면(연결 끊김, 권한) 쓸 수 없음이다. */
+export function phaseOfRefusal(reason: TerminalFailure | null): Phase {
+  return { kind: "refused", reason: refusalOf(reason) };
+}
+
+function refusalOf(reason: TerminalFailure | null): Refusal {
   switch (reason) {
     case "no_folder":
     case "not_directory":
@@ -65,12 +69,6 @@ function refusalOf(reason: TerminalFailure): Refusal {
     default:
       return "unavailable";
   }
-}
-
-/** open·restart 답을 화면 상태로 옮긴다. */
-export function phaseOfReply(reply: TerminalReply): Phase {
-  if (reply.ok) return phaseOfRuntime(reply.runtime);
-  return { kind: "refused", reason: refusalOf(reply.reason) };
 }
 
 type StatusTone = "neutral" | "warning" | "serious" | "critical";
@@ -157,7 +155,7 @@ export function acceptOutput(
   return { writes, lastSeq: seq };
 }
 
-/** 붙여넣기 같은 큰 입력을 IPC 상한(8192자) 안으로 자른다. 순서는 유지한다. */
+/** 붙여넣기 같은 큰 입력을 입력 상한(8192자) 안으로 자른다. 순서는 유지한다. */
 export function splitInput(text: string, limit = 8192): string[] {
   const parts: string[] = [];
   let rest = text;

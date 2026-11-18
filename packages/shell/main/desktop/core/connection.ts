@@ -120,7 +120,7 @@ export interface CoreConnection {
     | { ok: false; error: { code: string; message: string } }
   >;
   /**
-   * `logins/release`를 부른다. shell capability를 입력에 싣는 곳은 여기뿐이고 값은 호출한 쪽(browser driver)에만 돌아간다.
+   * `logins/release`를 부른다. shell capability는 이것과 `terminalCall`만 입력에 싣고 값은 호출한 쪽(browser driver)에만 돌아간다.
    * origin은 부르는 쪽이 ref 요소가 든 frame에서 잰 값이다.
    */
   releaseLogin(request: {
@@ -129,6 +129,17 @@ export interface CoreConnection {
     origin: string;
   }): Promise<
     | { ok: true; value: { value: string } }
+    | { ok: false; error: { code: string; message: string } }
+  >;
+  /**
+   * 사람의 터미널 입력과 다시 시작(`terminals/input`·`restart`)을 shell capability를 실어 부른다. 그 창이 그 터미널에 focus를
+   * 가졌는지는 부르는 쪽(터미널 wiring)이 먼저 본다.
+   */
+  terminalCall(
+    method: "input" | "restart",
+    body: Record<string, unknown>,
+  ): Promise<
+    | { ok: true; value: unknown }
     | { ok: false; error: { code: string; message: string } }
   >;
 }
@@ -503,6 +514,18 @@ export function startCoreConnection(
         { ...request, shell_capability: attached.capability },
       );
       return released as Awaited<ReturnType<CoreConnection["releaseLogin"]>>;
+    },
+    async terminalCall(method, body) {
+      if (attached === undefined) {
+        return {
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        };
+      }
+      return (await attached.session.internal("memory", "terminals", method, {
+        ...body,
+        shell_capability: attached.capability,
+      })) as Awaited<ReturnType<CoreConnection["terminalCall"]>>;
     },
     registerConfirmation(request) {
       const run = () => registerOnce(control, attached, request);

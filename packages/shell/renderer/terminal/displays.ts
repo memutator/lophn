@@ -1,9 +1,9 @@
 import type {
-  TerminalApi,
   TerminalOutput,
   TerminalRuntime,
-  TerminalTraceEvent,
-} from "../../ipc/terminal.ts";
+} from "../../../protocol/coding-agent/terminals.ts";
+import type { TerminalApi, TerminalTraceEvent } from "../../ipc/terminal.ts";
+import type { TerminalCore } from "./core.ts";
 import { acceptOutput, phaseOfRuntime, splitInput } from "./model.ts";
 import type { TerminalStore } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
@@ -25,22 +25,27 @@ type Kept = TerminalDisplay & {
   off: (() => void)[];
   active: boolean;
 };
-type OutputBridge = Pick<
-  TerminalApi,
-  "snapshot" | "onOutput" | "onRuntime" | "respond" | "input" | "trace"
->;
+type OutputCore = Pick<TerminalCore, "snapshot" | "watch" | "subscribe">;
+type InputBridge = Pick<TerminalApi, "respond" | "input" | "trace">;
 
 /** 개수로 묶어 남기는 잦은 일(mouse 이동, wheel, PTY로 보낸 입력). 다른 일이 오면 그 앞에 내보내 순서를 지킨다. */
 const COUNTED = new Set(["sent", "wheel"]);
 const TRACE_FLUSH_MS = 500;
 // main이 꺼져 있다고 답하면 이만큼 모으지 않다가 다시 묻는다. 설정에서 trace를 켜면 이 안에 이어진다.
 const TRACE_RECHECK_MS = 5000;
+// core는 30초 안에 갱신이 없는 출력 lease를 거둔다. 보이는 터미널은 이 간격으로 다시 잡는다.
+const LEASE_RENEW_MS = 10_000;
 
-/** React의 tab mount와 terminal의 수명을 분리해 화면을 옮길 때도 이미 파싱한 출력을 유지한다. */
+/**
+ * React의 tab mount와 terminal의 수명을 분리해 화면을 옮길 때도 이미 파싱한 출력을 유지한다. 출력은 core의 lease를 잡은
+ * 동안만 event로 온다: 잡고(`watch`) → snapshot을 읽고 → 그 seq보다 큰 event만 쓴다. seq가 건너뛰거나 연결이 다시 붙으면 마지막
+ * seq로 snapshot을 다시 읽어 지금 화면으로 맞춘다.
+ */
 export class TerminalDisplays {
   readonly #kept = new Map<string, Kept>();
   readonly #store: TerminalStore;
-  readonly #bridge: OutputBridge | null;
+  readonly #core: OutputCore | null;
+  readonly #bridge: InputBridge | null;
   readonly #now: () => number;
   // 진단 기록. main이 꺼져 있다고 답한 때(ms). 그 뒤 잠깐 모으지 않는다.
   #traceOffAt = Number.NEGATIVE_INFINITY;
@@ -50,35 +55,72 @@ export class TerminalDisplays {
 
   constructor(
     store: TerminalStore,
-    bridge: OutputBridge | null,
-    now: () => number = Date.now,
+    core: OutputCore | null,
+    bridge: InputBridge | null,
+    options: {
+      now?: () => number;
+      /** 주기 일. 해지는 없다(창과 같이 산다). */
+      every?: (ms: number, run: () => void) => void;
+    } = {},
   ) {
     this.#store = store;
+    this.#core = core;
     this.#bridge = bridge;
-    this.#now = now;
+    this.#now = options.now ?? Date.now;
     store.subscribe(() => {
       for (const [key, kept] of this.#kept) {
         if (store.get(key)) this.#sync(key, kept);
         else this.release(key);
       }
     });
-    bridge?.onOutput((chunks) => {
-      for (const kept of this.#kept.values()) {
-        const output = chunks.filter(
-          (chunk) =>
-            chunk.terminal_ref === kept.ref &&
-            (kept.loading || chunk.generation === kept.generation),
-        );
-        if (kept.loading) kept.pending.push(...output);
-        else this.#write(kept, output, false);
+    core?.subscribe((message) => {
+      if (message.kind === "ready") {
+        // Gateway가 다시 열렸다. lease가 core와 함께 사라졌을 수 있고 그 사이 출력을 놓쳤을 수 있다.
+        for (const [key, kept] of this.#kept) {
+          if (kept.ref === null || kept.loading) continue;
+          void core.watch(kept.ref, true);
+          this.#catchUp(key, kept);
+        }
+        return;
+      }
+      if (message.kind !== "event") return;
+      const event = message.event;
+      if (event.type === "TerminalOutputAppended") {
+        this.#output(event.payload);
+      } else if (event.type === "TerminalRuntimeChanged") {
+        const runtime = event.payload.runtime;
+        for (const [key, kept] of this.#kept) {
+          if (runtime.terminal_ref === kept.ref) this.#runtime(key, runtime);
+        }
       }
     });
-    bridge?.onRuntime((runtime) => {
-      for (const [key, kept] of this.#kept) {
-        if (runtime.terminal_ref !== kept.ref) continue;
-        this.#runtime(key, runtime);
+    if (core !== null) {
+      (options.every ?? ((ms, run) => void setInterval(run, ms)))(
+        LEASE_RENEW_MS,
+        () => {
+          for (const kept of this.#kept.values()) {
+            if (kept.ref !== null) void core.watch(kept.ref, true);
+          }
+        },
+      );
+    }
+  }
+
+  #output(chunk: TerminalOutput): void {
+    for (const [key, kept] of this.#kept) {
+      if (chunk.terminal_ref !== kept.ref) continue;
+      if (kept.loading) {
+        kept.pending.push(chunk);
+        continue;
       }
-    });
+      if (chunk.generation !== kept.generation) continue;
+      // 하나라도 놓쳤다(느려 끊겼거나 lease가 잠깐 없었다). 지금 화면으로 맞춘다.
+      if (chunk.seq > kept.lastSeq + 1) {
+        this.#catchUp(key, kept);
+        continue;
+      }
+      this.#write(kept, [chunk], false);
+    }
   }
 
   acquire(
@@ -114,7 +156,7 @@ export class TerminalDisplays {
           const current = this.#store.get(key);
           if (current?.phase.kind !== "live") return;
           const ref = {
-            terminal_ref: display.ref,
+            terminal: display.ref,
             generation: display.generation,
           };
           const human = display.active;
@@ -131,12 +173,10 @@ export class TerminalDisplays {
               )
               .then((reply) => {
                 if (stopped) return;
-                // main이 거절한 입력(focus 표에 없음, 구독 안 함)은 PTY에 닿지 않는다.
-                const refused = !reply?.ok
-                  ? (reply?.error.code ?? "no bridge")
-                  : reply.value.ok
-                    ? null
-                    : reply.value.reason;
+                // main이나 core가 거절한 입력(focus 표에 없음, 지난 generation)은 PTY에 닿지 않는다.
+                const refused = reply?.ok
+                  ? null
+                  : (reply?.error.code ?? "no bridge");
                 if (refused !== null) {
                   stopped = true;
                   this.#trace(key, display, {
@@ -155,15 +195,19 @@ export class TerminalDisplays {
 
   #sync(key: string, kept: Kept): void {
     const current = this.#store.get(key);
-    if (!this.#bridge || !current?.terminalRef) return;
+    const core = this.#core;
+    if (!core || !current?.terminalRef) return;
     if (
       kept.ref === current.terminalRef &&
       kept.generation === current.generation
     )
       return;
-    const replay = kept.restore;
+    // 이 탭이 막 연 터미널이 아니면(다시 붙음, 옮겨 옴, 폰이나 agent가 연 것) snapshot은 지난 출력이라 질의에 다시 답하지 않는다.
+    const replay = kept.restore || current.phase.kind === "opening";
     kept.restore = false;
-    if (kept.ref && kept.ref !== current.terminalRef) this.#unwatch(kept.ref);
+    if (kept.ref && kept.ref !== current.terminalRef) {
+      void core.watch(kept.ref, false);
+    }
     if (kept.ref !== null) kept.view.reset();
     kept.ref = current.terminalRef;
     kept.generation = current.generation;
@@ -172,8 +216,10 @@ export class TerminalDisplays {
     kept.loading = true;
     const ref = kept.ref;
     const generation = kept.generation;
-    void this.#bridge
-      .snapshot({ terminal_ref: ref, after_seq: 0, watch: true })
+    // lease를 먼저 잡아야 snapshot 뒤의 출력이 event로 온다. 그 사이 온 event는 pending에 모았다가 seq로 겹침을 뺀다.
+    void core
+      .watch(ref, true)
+      .then(() => core.snapshot(ref, 0))
       .then((reply) => {
         if (
           this.#kept.get(key) !== kept ||
@@ -181,7 +227,7 @@ export class TerminalDisplays {
           kept.generation !== generation
         )
           return;
-        if (!reply.ok || !reply.value.ok) {
+        if (!reply.ok) {
           kept.loading = false;
           kept.pending = [];
           this.#store.update(key, {
@@ -211,6 +257,40 @@ export class TerminalDisplays {
           restored: (this.#store.get(key)?.restored ?? 0) + 1,
         });
       });
+  }
+
+  // 놓친 출력이 있다. 마지막 seq 뒤에 출력이 있으면 core가 지금 화면 하나를 주므로, view를 비우고 그 화면을 쓴다.
+  #catchUp(key: string, kept: Kept): void {
+    const core = this.#core;
+    const ref = kept.ref;
+    if (!core || ref === null) return;
+    const generation = kept.generation;
+    kept.loading = true;
+    kept.pending = [];
+    void core.snapshot(ref, kept.lastSeq).then((reply) => {
+      if (
+        this.#kept.get(key) !== kept ||
+        kept.ref !== ref ||
+        kept.generation !== generation
+      )
+        return;
+      kept.loading = false;
+      if (reply.ok && reply.value.runtime.generation === generation) {
+        const screen = reply.value.output;
+        if (screen.length > 0) {
+          kept.view.reset();
+          kept.view.resize(
+            reply.value.runtime.columns,
+            reply.value.runtime.rows,
+          );
+          this.#write(kept, screen, true);
+        }
+        this.#trace(key, kept, { e: "catch_up", chunks: screen.length });
+      }
+      this.#write(kept, kept.pending, false);
+      kept.pending = [];
+      if (reply.ok) this.#runtime(key, reply.value.runtime);
+    });
   }
 
   #write(kept: Kept, output: readonly TerminalOutput[], replay: boolean): void {
@@ -296,20 +376,12 @@ export class TerminalDisplays {
     }
   }
 
-  #unwatch(ref: string): void {
-    void this.#bridge?.snapshot({
-      terminal_ref: ref,
-      after_seq: Number.MAX_SAFE_INTEGER,
-      watch: false,
-    });
-  }
-
   release(key: string): void {
     const kept = this.#kept.get(key);
     if (!kept) return;
     this.#trace(key, kept, { e: "release" });
     this.#kept.delete(key);
-    if (kept.ref) this.#unwatch(kept.ref);
+    if (kept.ref) void this.#core?.watch(kept.ref, false);
     for (const off of kept.off) off();
     kept.view.dispose();
     kept.host.remove();

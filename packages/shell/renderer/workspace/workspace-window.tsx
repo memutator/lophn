@@ -148,10 +148,6 @@ import {
   TabStrip,
 } from "../shell/tab-strip.tsx";
 import { type TerminalDeps, terminalLive } from "../terminal/deps.ts";
-import {
-  openBridgeUrl,
-  useBridgeOpenRequests,
-} from "../terminal/use-bridge-open-requests.ts";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import { panelChoices, useScreensRead } from "./app-panel-tab.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
@@ -187,6 +183,7 @@ import {
   harnessOf,
   openTerminal as openTerminalTab,
   syncTerminalTab,
+  terminalRefOf,
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
@@ -1276,11 +1273,6 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     takePending: pool?.takePending,
     hasPage: pool === null ? undefined : (key) => pool.carried().includes(key),
   });
-  useBridgeOpenRequests(terminal?.bridge ?? null, (request) =>
-    terminal === undefined
-      ? false
-      : openBridgeUrl(hostRef.current, terminal.store, request),
-  );
 
   // 이 창의 탭 하나를 그 자리(desk, float, 뗀 창)에서 앞으로 낸다.
   const revealTab = (key: string) => {
@@ -2203,6 +2195,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     if (terminal === undefined) return;
     for (const tab of allTabs(latestLayout.current)) {
       if (tab.kind !== "terminal") continue;
+      // 아직 그리지 않은 탭도 layout의 터미널 참조로 agent·알림 고르기를 안다.
+      const ref = terminalRefOf(tab);
+      if (ref !== null) terminal.store.remember(tab.key, ref);
       syncTerminalTab(tab, terminal.store, host.patchTab);
       // 저장된 layout만 보는 다른 workspace의 sidebar가 coding agent 터미널을 알아보게 harness를 탭에 남긴다.
       const agent = terminal.store.agentOf(tab.key);
@@ -2226,8 +2221,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     [inboxWorkspaces.projects, inboxWorkspaces.apps],
   );
 
-  // 터미널 탭 이름을 main에 알린다. main이 runtime에 실어 모든 창에 보내므로 OS 알림과 다른 창·workspace의 Inbox도
-  // 탭 이름을 안다. 바뀐 것만 보낸다.
+  // 터미널 탭 이름을 core에 알린다(`terminals/name`). core가 runtime에 실어 모든 화면에 보내므로 OS 알림과 다른 창·workspace의
+  // Inbox, 폰도 탭 이름을 안다. 바뀐 것만 보낸다.
   const terminalNames = useMemo(() => {
     const names = new Map<string, string>();
     for (const tab of allTabs(layout)) {
@@ -2238,11 +2233,11 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   }, [layout, terminalVersion, terminal]);
   const sentNames = useRef(new Map<string, string>());
   useEffect(() => {
-    const api = terminal?.bridge;
+    const core = terminal?.core;
     for (const [ref, name] of terminalNames) {
       if (sentNames.current.get(ref) === name) continue;
       sentNames.current.set(ref, name);
-      void api?.setTabName({ terminal_ref: ref, name });
+      void core?.name(ref, name);
     }
   }, [terminalNames, terminal]);
 

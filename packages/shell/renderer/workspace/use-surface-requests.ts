@@ -4,11 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { type LophnSurfaceApi, SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
-import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
-import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import type { PendingHost } from "../app-frame/workspace-views.tsx";
-import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
-import { handoffCommand } from "../shell/agent-sections.tsx";
 import {
   MAIN_DESK,
   type WorkspaceRef,
@@ -22,32 +18,10 @@ import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
 import { closeTerminalTab } from "../terminal/deps.ts";
-import type { TerminalStore } from "../terminal/store.ts";
 import { type AgentOpen, openAt } from "./open-policy.ts";
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 
 const HOST_KEY = "host:";
-
-// TUI 탭이 생기면 바로 main에 알려 그 session을 hold하게 하고(탭이 안 보여 터미널이 아직 안 열려도 hold는 이미 필요하다),
-// 터미널이 열리면(terminalRef가 생기면) 그 터미널을 알려 TUI가 떠날 때 풀게 한다. 열리기 전에 탭이 닫히면 뒤쪽은 알리지 않는다.
-function reportTui(
-  surface: LophnSurfaceApi,
-  store: TerminalStore,
-  key: string,
-  tab: string,
-  session: string,
-): void {
-  void surface.report({ tui: { tab, session } });
-  const off = store.subscribe(() => {
-    const entry = store.get(key);
-    if (entry === undefined) return off();
-    if (entry.terminalRef === null) return;
-    off();
-    void surface.report({
-      tui: { tab, session, terminal_ref: entry.terminalRef },
-    });
-  });
-}
 
 // agent가 연 탭의 자리. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다(session 탭은 Main desk 끝).
 function placementOf(
@@ -148,9 +122,6 @@ type Args = {
 export function useSurfaceRequests(args: Args): void {
   const latest = useRef(args);
   latest.current = args;
-  const { prefs } = useQuickPrefs();
-  const coding = useRef(prefs.coding);
-  coding.current = prefs.coding;
   const { surface, workspace, ready } = args;
   const workspaceId = workspaceKey(workspace);
 
@@ -279,49 +250,35 @@ export function useSurfaceRequests(args: Args): void {
         if (openSession(target.session, open)) done();
         return;
       }
-      if ("tui" in target) {
-        const { resume } = request.payload;
-        const terminal = host().props.terminal;
-        if (terminal === undefined || resume === null) return;
-        const opened = openTerminal(host(), { resume, open });
-        if (opened === null) return;
-        reportTui(
-          surface,
-          terminal.store,
-          opened,
-          request.payload.tab,
-          target.tui,
-        );
-        done();
-        return;
-      }
-      // 폰이 연 터미널이다(shell main의 `terminal_open`). shell만 띄운다.
+      // 폰이나 agent가 연 터미널이다(`terminals/open`의 tab). 새 shell을 열지 않고 core의 그 터미널에 붙는다. 이미 이 창에 그 터미널의
+      // 탭이 있으면 더 열지 않는다.
       if ("terminal" in target) {
-        if (openTerminal(host(), { open }) !== null) done();
+        const terminal = host().props.terminal;
+        const ref = target.terminal.terminal_ref;
+        if (terminal === undefined) return;
+        const have =
+          ref !== undefined &&
+          host()
+            .windowTabs()
+            .some(
+              (tab) =>
+                tab.kind === "terminal" &&
+                terminal.store.refOf(tab.key) === ref,
+            );
+        if (
+          have ||
+          openTerminal(host(), {
+            open,
+            ...(ref === undefined ? {} : { terminal: ref }),
+          }) !== null
+        ) {
+          done();
+        }
         return;
       }
-      if ("coding" in target) {
-        const { handoff, resume } = request.payload;
-        const { harness } = target.coding;
-        // handoff가 없으면 폰이 연 coding session이다: 터미널이 사람이 치는 것과 같은 `<harness> gui`를 친다. 치는 글이라 id는
-        // shell 함수가 받는 글자만 싣는다.
-        const resumeId = resume?.external_session;
-        const command =
-          handoff === null
-            ? harness in HARNESS_ADAPTERS &&
-              (resumeId === undefined ||
-                /^[A-Za-z0-9._-]{1,200}$/.test(resumeId))
-              ? `${harness} gui${resumeId === undefined ? "" : ` --resume ${resumeId}`}`
-              : null
-            : !(harness in HARNESS_ADAPTERS)
-              ? null
-              : handoffCommand(
-                  coding.current.commands,
-                  harness as HarnessId,
-                  handoff.file,
-                );
-        if (command === null || host().props.terminal === undefined) return;
-        if (openTerminal(host(), { command, open }) !== null) done();
+      // core는 옛 coding·TUI 탭을 더 시키지 않는다(`term-cleanup`이 target을 지운다).
+      if (!("browser" in target)) {
+        done();
         return;
       }
       openBrowserTab(host(), target.browser.url, open);

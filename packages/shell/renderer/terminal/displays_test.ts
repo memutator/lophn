@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type {
-  TerminalApi,
-  TerminalCall,
   TerminalOutput,
   TerminalRuntime,
-  TerminalSnapshot,
-  TerminalSnapshotReply,
-} from "../../ipc/terminal.ts";
+} from "../../../protocol/coding-agent/terminals.ts";
+import type { BusEvent } from "../../../protocol/events/mod.ts";
+import type { TerminalApi } from "../../ipc/terminal.ts";
+import type { EventMessage } from "../desktop/connection/events/client.ts";
+import type { TerminalCore, TerminalReply } from "./core.ts";
 import { TerminalDisplays } from "./displays.ts";
 import { TerminalStore } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
@@ -39,45 +39,52 @@ const output = (
   dropped_output: false,
 });
 
+type Snapshot = TerminalReply<{
+  runtime: TerminalRuntime;
+  output: TerminalOutput[];
+}>;
+
 function setup() {
   const store = new TerminalStore(null, null);
   const requests: {
-    input: TerminalSnapshot;
-    finish(value: TerminalCall<TerminalSnapshotReply>): void;
+    input: { terminal: string; after_seq: number };
+    finish(value: Snapshot): void;
   }[] = [];
+  const watches: { terminal: string; on: boolean }[] = [];
   const writes: string[] = [];
   const replays: string[] = [];
   const replies: unknown[] = [];
   // view 크기 바꿈과 다시 쓰기의 순서.
   const order: string[] = [];
-  let onOutput: (chunks: readonly TerminalOutput[]) => void = () => {};
-  let onRuntime: (runtime: TerminalRuntime) => void = () => {};
+  let onMessage: (message: EventMessage) => void = () => {};
   let onData: (text: string) => void = () => {};
   let disposed = 0;
   let resets = 0;
-  const bridge = {
-    snapshot: (input: TerminalSnapshot) =>
-      new Promise<TerminalCall<TerminalSnapshotReply>>((finish) =>
-        requests.push({ input, finish }),
+  const event = (type: string, subject: string, payload: unknown) =>
+    ({ type, subject, at: "2026-11-18T00:00:00.000Z", payload }) as BusEvent;
+  const core = {
+    // lease를 잡은 뒤에 snapshot을 읽는다. 답은 테스트가 넘긴다.
+    watch: async (terminal: string, on: boolean) => {
+      watches.push({ terminal, on });
+      return { ok: true, value: {} } as const;
+    },
+    snapshot: (terminal: string, after_seq: number) =>
+      new Promise<Snapshot>((finish) =>
+        requests.push({ input: { terminal, after_seq }, finish }),
       ),
-    onOutput: (listener: typeof onOutput) => {
-      onOutput = listener;
+    subscribe: (listener: typeof onMessage) => {
+      onMessage = listener;
       return () => {};
     },
-    onRuntime: (listener: typeof onRuntime) => {
-      onRuntime = listener;
-      return () => {};
-    },
+  } satisfies Pick<TerminalCore, "snapshot" | "watch" | "subscribe">;
+  const bridge = {
     respond: async (input) => {
       replies.push(input);
-      return { ok: true, value: { ok: true, runtime: runtime() } };
+      return { ok: true, value: null };
     },
-    input: async () => ({ ok: true, value: { ok: true, runtime: runtime() } }),
+    input: async () => ({ ok: true, value: null }),
     trace: async () => ({ ok: true, value: false }),
-  } satisfies Pick<
-    TerminalApi,
-    "snapshot" | "onOutput" | "onRuntime" | "respond" | "input" | "trace"
-  >;
+  } satisfies Pick<TerminalApi, "respond" | "input" | "trace">;
   const view: TerminalView = {
     write: (text) => {
       writes.push(text);
@@ -111,18 +118,25 @@ function setup() {
   };
   const host = { isConnected: false, remove() {} } as unknown as HTMLElement;
   const edge = { remove() {} } as unknown as HTMLCanvasElement;
-  const displays = new TerminalDisplays(store, bridge);
+  const displays = new TerminalDisplays(store, core, bridge, {
+    every: () => {},
+  });
   const create = () => ({ host, edge, view });
+  // watch 답 뒤에 snapshot을 부르므로 그 차례가 오기를 기다린다.
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
   const finish = async (
     index: number,
     chunks: TerminalOutput[],
     r = runtime(),
   ) => {
+    await settle();
     requests[index]!.finish({
       ok: true,
-      value: { ok: true, output: chunks, runtime: r },
+      value: { output: chunks, runtime: r },
     });
-    await Promise.resolve();
+    await settle();
   };
   return {
     store,
@@ -133,8 +147,23 @@ function setup() {
     replies,
     create,
     finish,
-    emit: (chunks: TerminalOutput[]) => onOutput(chunks),
-    runtime: (r: TerminalRuntime) => onRuntime(r),
+    emit: (chunks: TerminalOutput[]) => {
+      for (const chunk of chunks) {
+        onMessage({
+          kind: "event",
+          event: event("TerminalOutputAppended", "terminal:term_1", chunk),
+        });
+      }
+    },
+    runtime: (r: TerminalRuntime) =>
+      onMessage({
+        kind: "event",
+        event: event("TerminalRuntimeChanged", "terminal:term_1", {
+          runtime: r,
+        }),
+      }),
+    settle,
+    watches,
     data: (text: string) => onData(text),
     disposed: () => disposed,
     resets: () => resets,
@@ -166,14 +195,24 @@ test("snapshot 중 도착한 출력은 한 번만 쓰고 숨었다 돌아와도 
   );
   assert.equal(h.requests.length, 1);
   assert.deepStrictEqual(h.writes, ["new", "background"]);
+  // 놓친 출력(seq 4)이 있으면 마지막 seq로 지금 화면을 다시 읽어 갈아 쓴다.
+  h.emit([output(5, "after gap")]);
+  assert.deepStrictEqual(h.requests[1]?.input, {
+    terminal: "term_1",
+    after_seq: 3,
+  });
+  await h.finish(1, [output(5, "screen")]);
+  assert.equal(h.resets(), 1);
+  assert.deepStrictEqual(h.replays, ["old", "screen"]);
+  assert.deepStrictEqual(h.writes, ["new", "background"]);
   h.data("\x1b[?1;2c");
   await Promise.resolve();
   assert.deepStrictEqual(h.replies, [
-    { terminal_ref: "term_1", generation: 1, text: "\x1b[?1;2c" },
+    { terminal: "term_1", generation: 1, text: "\x1b[?1;2c" },
   ]);
   h.store.delete("tab");
   assert.equal(h.disposed(), 1);
-  assert.equal(h.requests.at(-1)?.input.watch, false);
+  assert.deepStrictEqual(h.watches.at(-1), { terminal: "term_1", on: false });
   h.emit([output(4, "closed")]);
   assert.deepStrictEqual(h.writes, ["new", "background"]);
 });

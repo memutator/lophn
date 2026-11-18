@@ -407,25 +407,30 @@ flows:
 
   # ---------- 끄기와 Stop ----------
   - id: quit-app
-    title: "끄기: 진행 중인 터미널과 저장을 확인한 뒤 shell만 끈다(core는 남는다)"
+    title: "끄기: 도는 터미널을 그대로 둘지 닫을지 묻고 저장을 확인한 뒤 shell만 끈다(core는 남는다)"
     actor: person
     entries: [ui:tray-quit]
-    uses: [shell-stop:stopped]
+    uses: [shell-stop:stopped, route:terminals/list, route:terminals/close]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/quit.ts
       - packages/shell/main/desktop/tray.ts
       - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/main/desktop/wiring/terminal.ts
     steps:
-      - "진행 중인 PTY(starting·running)와 아직 확인이 끝나지 않은 문서 저장 수를 센다"
-      - "둘 다 0이면 확인 없이 shell 정리(shell-stop)를 밟고 app.quit한다"
-      - "하나라도 있으면 OS 확인 창을 띄운다. 기본 단추는 Cancel이고 Esc와 창 닫기는 취소다"
+      - "core의 `terminals/list`에서 starting·running 터미널을 읽고(읽지 못하면 없는 것으로 본다), 아직 확인이 끝나지 않은 문서 저장 수를 센다"
+      - "도는 터미널이 있으면 OS 확인 창으로 그대로 두고 끌지(기본), 다 닫고 끌지, 취소할지 묻는다. 저장 중인 문서가 있으면 그 문장을 덧붙인다. Esc와 창 닫기는 취소다"
+      - "도는 터미널이 없고 저장 중인 문서만 있으면 Quit·Cancel을 묻는다(기본 Cancel). 둘 다 없으면 묻지 않는다"
+      - "다 닫기를 고르면 그 터미널마다 `terminals/close`를 부른 뒤 끈다. 그대로 두면 터미널은 core에서 계속 돌고 다시 켠 앱의 탭이 붙는다"
       - "확인 창이 떠 있는 동안 다시 누르면 두 번째 창을 띄우지 않는다(busy). 확인 창을 띄우지 못하면 끄지 않는다"
-      - "Quit을 고르면 shell 정리(core 연결 detach가 돌던 ensure를 끊는다) 뒤 app.quit한다. core는 stop하지 않는다"
+      - "shell 정리(core 연결 detach가 돌던 ensure를 끊는다) 뒤 app.quit한다. core는 stop하지 않는다"
     outcomes:
       - id: quit
-        when: "진행 중인 일이 없거나 사람이 Quit을 골랐다. 이미 끄는 중에 다시 불린 것도 아무 일 없이 quit으로 본다"
-        observe: ["process:shell이 끝난다", "process:core는 계속 돈다"]
+        when: "진행 중인 일이 없거나 사람이 터미널을 그대로 두고 끄기, 또는 Quit을 골랐다. 이미 끄는 중에 다시 불린 것도 아무 일 없이 quit으로 본다"
+        observe: ["process:shell이 끝난다", "process:core와 터미널은 계속 돈다"]
+      - id: quit-closing-terminals
+        when: "사람이 터미널을 다 닫고 끄기를 골랐다"
+        observe: ["process:터미널이 끝난다", "process:shell이 끝난다", "process:core는 계속 돈다"]
       - id: cancelled
         when: "확인 창에서 Cancel, Esc, 창 닫기를 골랐거나 확인 창을 띄우지 못했다"
         observe: ["process:shell이 그대로 돈다"]
@@ -436,7 +441,6 @@ flows:
     risk: [data-loss]
     docs: [architecture/platform.md]
     unclear:
-      - "진행 중 터미널 수는 harness 쪽 terminal runtime 목록을 쓴다(harness 소유). 저장 수는 편집기 guard가 알린 값이다(projects 소유)"
       - "끄기 확인을 허락하면 stopNow가 quitting을 세운 뒤 창을 닫는다. 그 뒤 창 guard는 묻지 않고 닫는다. 저장 중·실패 문서는 확인 창의 저장 수로만 알리고 기다리지 않는다. 의도인지 확인이 필요하다"
 
   - id: stop-lophn
@@ -450,7 +454,7 @@ flows:
       - packages/shell/main/desktop/core/connection.ts
       - packages/shell/main/desktop/quit.ts
     steps:
-      - "quit-app과 같은 확인(진행 중 터미널과 저장)을 먼저 한다. 취소하면 아무것도 멈추지 않는다"
+      - "도는 터미널이나 저장 중인 문서가 있으면 Quit·Cancel을 묻는다(터미널은 core와 함께 끝난다). 취소하면 아무것도 멈추지 않는다"
       - "core 연결의 재연결을 멈추고 돌던 ensure를 끊는다(spawn 전과 판 교체 stop 전에 확인한다). 이미 띄운 core가 있으면 그 ensure가 끝나기를 기다린 뒤 control stop을 보내 답을 기다린다. 멈추는 동안에는 core를 다시 띄우지 않는다"
       - "control 자리가 있으면 답의 결과와 상관없이 연결 상태를 stale로 바꿔 화면이 끊긴 core를 ready로 보이지 않게 한다. 답이 실패였으면 log를 남기고 native message box로 core가 남아 있을 수 있다고 알린다. 사람이 확인을 누른 뒤에 다음으로 간다"
       - "답과 상관없이 shell 정리(shell-stop)를 하고 app.quit한다"
@@ -480,19 +484,15 @@ flows:
       - packages/shell/main/desktop/wiring/context.ts
       - packages/shell/main/desktop/wiring/desktop.ts
       - packages/shell/main/desktop/wiring/core.ts
-      - packages/shell/main/desktop/wiring/extensions.ts
     steps:
       - "will-quit에서 stopAll을 부른다. stopAll은 한 번만 돌고 영역의 stop을 등록의 반대 순서로 부른다(IPC handler 제거, tray 제거, 전역 팔레트 해제, overlay 정리)"
-      - "core 연결은 detach한다. Gateway만 끊고 core는 그대로 둔다"
-      - "extension 영역의 stop이 살아 있는 extension process(CLI) group 전체에 동기로 SIGTERM을 보낸다. 앱이 끝난 뒤라 SIGKILL 유예는 돌지 않는다"
-      - "coding 영역의 stop이 terminal host child(terminal-host.cjs)를 SIGTERM으로 끈다. host는 PTY 자식을 SIGHUP·SIGKILL까지 정리하고 끝난다. 진행 중이던 PTY는 unknown(host_lost)으로 남긴다"
-      - "extension registry는 켜진 것을 모두 deactivate한다"
+      - "core 연결은 detach한다. Gateway만 끊고 core는 그대로 둔다. 터미널과 coding agent는 core가 가지므로 그대로 돈다"
       - "before-quit에서 ctx.quit.requested를 세워 편집기 close guard가 종료 중인 것을 알게 한다"
       - "quit-app, stop-lophn, second-instance의 `--quit` 경로가 모두 이 순서를 쓴다"
     outcomes:
       - id: stopped
         when: "처음 부른 stopAll이 영역들을 멈췄다"
-        observe: ["process:shell 자원 정리가 끝난다", "process:terminal host child가 SIGTERM을 받는다", "process:core는 남는다"]
+        observe: ["process:shell 자원 정리가 끝난다", "process:core와 터미널은 남는다"]
       - id: already-stopped
         when: "이미 한 번 돌았다(quit 흐름과 will-quit이 둘 다 부른다)"
         observe: ["process:변화가 없다"]

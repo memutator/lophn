@@ -43,11 +43,6 @@ export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
   relay: ["protocol", "base"],
   "remote-client": ["protocol", "base"],
 };
-// shell main의 terminal host만 coding-agent를 더 쓸 수 있다.
-const TERMINAL_HOST = [
-  "packages/shell/terminal-host",
-  "packages/shell/main/terminal",
-];
 // core가 packages/cli에서 가져올 수 있는 것은 명령 표(commands/)와 parser·help뿐이다. binary 입구(main.ts)와 connection/,
 // 출력(output.ts)은 node 전용이고 HTTP client·harness code를 끌어와서 agent runtime에 실리면 안 된다.
 // 반대로 core가 가져오는 쪽(commands/, parser.ts, help.ts)도 그것들을 import하지 않는다.
@@ -72,18 +67,14 @@ const cliHit = (path: string, list: readonly string[]) =>
   list.some((x) => (x.endsWith("/") ? path.startsWith(x) : path === x));
 // 본체 안 extension 폴더의 code는 ctx로만 lophn에 닿는다(protocol/extensions의 ExtensionContext). host 내부와 electron을
 // import하지 못하고 protocol, base, 자기 폴더만 쓴다. 따로 받는 package로 옮겨도 구조가 같도록 하는 규칙이다.
-// host가 shell main에서 core로 옮기는 동안 두 자리에 같은 extension이 있다.
-const EXTENSION_DIRS = [
-  "packages/shell/main/extensions/bundled/",
-  "packages/core/extensions/bundled/",
-];
+const EXTENSION_DIR = "packages/core/extensions/bundled/";
 function extensionViolation(
   file: string,
   specifier: string,
   target: string | undefined,
 ): string | undefined {
-  const dir = EXTENSION_DIRS.find((one) => file.startsWith(one));
-  if (dir === undefined) return;
+  if (!file.startsWith(EXTENSION_DIR)) return;
+  const dir = EXTENSION_DIR;
   if (specifier === "electron" || specifier.startsWith("electron/")) {
     return `extension은 electron을 import하지 않고 ctx로만 닿는다: ${specifier}`;
   }
@@ -450,11 +441,6 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         targetPackage &&
         targetPackage !== own &&
         !PACKAGE_DEPENDENCIES[own].includes(targetPackage) &&
-        !(
-          targetPackage === "coding-agent" &&
-          own === "shell" &&
-          TERMINAL_HOST.some((workspace) => inside(file, workspace))
-        ) &&
         !(
           own === "core" &&
           specifier === "@lophn/cap-problem" &&

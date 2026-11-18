@@ -15,7 +15,7 @@ import type {
   workspaceOutputSchema,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { z } from "zod";
-import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
+import type { TerminalRuntime } from "../../../../../protocol/coding-agent/terminals.ts";
 import { terminalSessionId } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import type { EventClient } from "./client.ts";
 import {
@@ -74,7 +74,7 @@ const JOB_KINDS: readonly WaitingEntry["kind"][] = ["job_hold", "job_approval"];
 export interface FinishedTerminal {
   readonly terminalRef: string;
   readonly harness: string;
-  /** 탭 줄에 보이는 이름(main이 runtime에 싣는다). 탭을 그린 창이 아직 이름을 알리기 전에만 시작 폴더 이름이다. */
+  /** 탭 줄에 보이는 이름(core가 runtime에 싣는다). 탭을 그린 창이 아직 이름을 알리기 전에만 시작 폴더 이름이다. */
   readonly title: string;
 }
 
@@ -128,7 +128,9 @@ interface WaitingStore {
 export function createWaitingStore(
   client: EventClient,
   now: () => string,
-  terminals: Pick<TerminalApi, "onRuntime"> | null,
+  terminals: {
+    onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
+  } | null,
   unseen: Pick<UnseenStore, "get" | "subscribe"> | null = null,
 ): WaitingStore {
   const state = createValueStore<WaitingState>({
@@ -139,7 +141,7 @@ export function createWaitingStore(
     historyUnread: 0,
   });
   let entries = new Map<string, WaitingEntry>();
-  // turn이 끝나 쉬는(idle) 터미널 agent. main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때
+  // turn이 끝나 쉬는(idle) 터미널 agent. core가 알린 runtime(창이 붙을 때 읽는 목록과 그 뒤 event)에서 안다. 창이 뜨기 전에 끝난 turn은 그 목록이
   // 보인다. 그중 core에 못 본 끝(`term:<탭>`)이 있는 것이 Finished 줄이다.
   const idle = new Map<string, FinishedTerminal>();
   // 안 읽은 줄 전부(휘발과 영구). 같은 key의 알림은 id가 같아 새 내용이 대신한다.

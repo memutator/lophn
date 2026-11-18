@@ -2033,13 +2033,12 @@ flows:
     title: "앱을 켤 때 terminal bridge의 run 폴더와 socket을 준비한다"
     actor: system
     entries: [system:browser-bridge-start]
-    uses: [ipc:shell:terminal-bridge-open]
     boundary: [shell, coding-agent]
     code:
-      - packages/shell/main/browser-bridge/run-dir.ts
-      - packages/shell/main/browser-bridge/shim.ts
-      - packages/shell/main/browser-bridge/socket.ts
-      - packages/shell/main/browser-bridge/bridge.ts
+      - packages/core/terminal-agents/bridge/run-dir.ts
+      - packages/core/terminal-agents/bridge/shim.ts
+      - packages/core/terminal-agents/bridge/socket.ts
+      - packages/core/terminal-agents/bridge/bridge.ts
     docs: [architecture/browser-tab.md]
     steps:
       - "app ready 뒤 single-instance lock을 가진 process만 run 폴더(shell-<pid>)를 만든다. 자기 pid나 죽은 pid의 폴더만 지운다"
@@ -2077,21 +2076,17 @@ flows:
     actor: coding-agent
     entries: [system:browser-bridge-request]
     pre: [browser-bridge-start:listening]
-    uses:
-      - ipc:shell:terminal-bridge-open
-      - ipc:shell:terminal-bridge-ack
     boundary: [shell, coding-agent]
     code:
-      - packages/shell/main/browser-bridge/bridge.ts
-      - packages/shell/main/browser-bridge/policy.ts
-      - packages/shell/main/browser-bridge/shim.ts
+      - packages/core/terminal-agents/bridge/bridge.ts
+      - packages/core/terminal-agents/bridge/policy.ts
+      - packages/core/terminal-agents/bridge/shim.ts
     docs: [architecture/browser-tab.md]
     steps:
       - "shim이 {v:1, key, url} 한 줄을 b.sock에 쓴다. main은 JSON, v 1, key 64 hex, 8 KiB 이하를 검사한다"
       - "key 표에서 그 key를 묶은 terminal을 찾는다. 없으면 declined다"
       - "설정 shell.browser.web_links·local_links를 main이 요청마다 core settings/list로 읽는다. browser_tab이 아니면 declined다"
-      - "창이 있으면 모든 창에 terminal-bridge-open을 보내고, 1500ms 안에 그 창의 ack가 와야 pane이다"
-      - "창은 browser 탭을 열었으면 terminal-bridge-ack로 그 request에 opened true를 답한다. 열지 못했으면 false를 답하거나 아무 답도 하지 않는다"
+      - "desktop 앱이 붙어 있으면 core가 그 터미널의 project에 browser 탭 열기(tab_open)를 host queue에 넣고 pane으로 답한다. 앱이 붙어 있지 않으면 declined다"
       - "shim은 pane이면 끝내고, declined·접속 실패·3초 초과면 BROWSER와 LPN env를 지운 env로 xdg-open·open·cmd start를 부른다"
     outcomes:
       - id: pane
@@ -2114,25 +2109,24 @@ flows:
     entries: [ui:terminal-link-open]
     uses:
       - ipc:shell:terminal-link
-      - ipc:shell:terminal-bridge-open
-      - ipc:shell:terminal-bridge-ack
     boundary: [shell]
     code:
-      - packages/shell/main/browser-bridge/bridge.ts
-      - packages/shell/renderer/terminal/use-bridge-open-requests.ts
+      - packages/shell/main/desktop/wiring/terminal.ts
+      - packages/shell/main/desktop/terminal-link.ts
+      - packages/shell/renderer/workspace/kinds/terminal.tsx
     docs: [architecture/browser-tab.md]
     steps:
       - "terminal의 link 클릭(Ctrl·Cmd-click)이 shell:terminal-link로 main에 온다. main은 창이 등록된 desktop 본문인지 보고 입력 schema(8192자 이하)를 본다"
       - "http·https 절대 URL이고 userinfo가 없는 것만 다음으로 간다. 그 밖은 아무 일도 하지 않는다"
-      - "그 terminal이 key를 묶었고 설정 target이 browser_tab이면, 창이 ack하는 browser 탭을 연다"
-      - "탭이 안 열리거나 key가 없거나 설정이 system_browser면 main이 OS browser로 연다"
+      - "설정 target(shell.browser.web_links·local_links)이 browser_tab이면 main이 tab으로 답하고 창이 그 터미널 탭 옆에 browser 탭을 연다"
+      - "설정이 system_browser면 main이 OS browser로 연다"
     outcomes:
       - id: browser-tab
         observe: ["screen:browser-bridge-pane"]
-        when: "key가 묶인 terminal이고 설정이 browser_tab이고 창이 ack로 탭을 열었다"
+        when: "설정이 browser_tab이다. 누른 창이 그 터미널 탭 옆에 연다"
       - id: system-browser
         observe: ["process:os-browser"]
-        when: "key가 없거나 설정이 system_browser이거나, 열린 창이 없거나 ack가 없었다"
+        when: "설정이 system_browser다"
       - id: dropped
         observe: ["response"]
         when: "http·https 절대 URL이 아니거나 userinfo가 있다. 아무 일도 하지 않는다"

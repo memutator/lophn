@@ -19,7 +19,7 @@ const shared = {
   platform: "node" as const,
   format: "cjs" as const,
   outExtension: { ".js": ".cjs" },
-  external: ["electron", "node-pty"],
+  external: ["electron"],
   nodePaths: [join(root, "node_modules")],
   // 저장소 패키지는 @lophn/<name> workspace 이름을 esbuild가 모르므로 여기서 직접 푼다.
   plugins: [lophnPackages(root)],
@@ -46,7 +46,6 @@ const entries: BuildEntry[] = [
   // main.cjs는 시작 flag를 보고 desktop main을 연다.
   { in: join(here, "entry.ts"), out: "main" },
   { in: join(here, "desktop/main.ts"), out: "desktop" },
-  { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
   // 다른 기계의 창. core·기계 목록·overlay·창 조작·단축키만 연다.
   { in: join(shell, "preload/remote.ts"), out: "preload-remote" },
@@ -64,8 +63,8 @@ function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
     .then(() => {});
 }
 
-// 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. core의 extension host(와 shell의 harness-gui)가
-// manifest의 `entry`로 require한다.
+// 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. core의 extension host가 manifest의 `entry`로
+// require한다.
 const bundledExtensions = join(root, "packages/core/extensions/bundled");
 const extensionEntries = [
   join(bundledExtensions, "harness/index.ts"),
@@ -89,8 +88,8 @@ function buildExtensions(): Promise<void> {
   ).then(() => {});
 }
 
-// node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없다. Linux에서만 source로 compile한다. 개발 실행의 core가 띄우는
-// PTY host도 저장소의 이 build를 load한다(설치본은 tools/package/가 platform/에 따로 build한다).
+// node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없다. Linux에서만 source로 compile한다. shell main은 node-pty를
+// 쓰지 않고, 개발 실행의 core가 띄우는 PTY host가 저장소의 이 build를 load한다(설치본은 tools/package/가 platform/에 따로 build한다).
 function rebuildNodePty(): number {
   if (process.platform !== "linux") return 0;
   return (

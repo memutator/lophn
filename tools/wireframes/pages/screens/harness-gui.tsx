@@ -1,5 +1,5 @@
-// harness-gui: 터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. 실제 탭 화면(TerminalGui)을 main 대신 fake 통로로
-// 그린다. fake 통로는 adapter가 낼 ACP 갱신을 붙을 때 한꺼번에 보내고, 보낸 말은 사람 메시지로 되돌려 준다. card 머리는
+// harness GUI: 터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. 실제 탭 화면(TerminalGui)을 core 대신 fake 통로로
+// 그린다. fake 통로는 adapter가 낼 ACP 갱신을 접은 snapshot을 주고, 보낸 말은 사람 메시지로 되돌려 준다. card 머리는
 // 이 page가 한 줄로 흉내 낸다(실제 앱은 ContentCard가 머리에 올린다).
 import { Profiler, type ReactNode, useEffect, useMemo } from "react";
 
@@ -12,8 +12,8 @@ import {
   reduceAcp,
   toolBodyOf,
 } from "../../../../packages/protocol/acp/mod.ts";
-import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
-import type { TerminalAgent } from "../../../../packages/shell/ipc/terminal.ts";
+import type { TerminalAgent } from "../../../../packages/protocol/coding-agent/terminals.ts";
+import type { BusEvent } from "../../../../packages/protocol/events/mod.ts";
 import type { ThreadBookmarksApi } from "../../../../packages/shell/ipc/thread-bookmarks.ts";
 import { CommandsProvider } from "../../../../packages/shell/renderer/commands/react.tsx";
 import { createWindowCommands } from "../../../../packages/shell/renderer/commands/window.ts";
@@ -32,6 +32,11 @@ import {
 } from "../../mock/drive.ts";
 import type { Area } from "../types.ts";
 import { HeadCard } from "./agent-tab/head-card.tsx";
+import {
+  FAKE_CODING_SESSION,
+  type FakeTerminalCore,
+  fakeTerminalCore,
+} from "../../mock/fake-terminal.ts";
 
 const TURN = "trn-1";
 const at = (second: number) =>
@@ -573,121 +578,133 @@ const CLI_SESSIONS: readonly {
   },
 ];
 
-function fakeApi(
-  approval: AcpUpdate | null,
-  extra: readonly AcpUpdate[],
+// core의 ACP 길을 흉내 낸다: snapshot은 갱신을 모두 접은 상태이고, 보낸 말은 사람 메시지로 `AcpUpdated`가 되돌려 준다.
+// 본문은 core처럼 쥐고 있다가 줄을 펼칠 때 준다(이 가짜는 갱신에 본문을 그대로 싣는다).
+function fakeCore(
+  updates: readonly AcpUpdate[],
   harness: "claude" | "omp" | "codex",
-  base: readonly AcpUpdate[],
-): HarnessGuiTabApi {
-  let push: (update: AcpUpdate) => void = () => {};
+): FakeTerminalCore {
   let seq = 8;
-  // main처럼 본문을 쥐고 펼칠 때 준다(이 가짜는 갱신에 본문을 그대로 싣는다).
-  let state = EMPTY_ACP_STATE;
-  return {
-    onOpened: () => () => {},
-    ackOpened: async () => {},
-    onView: () => () => {},
-    async connect(_handle, onBatch) {
-      const onUpdate = (update: AcpUpdate) => {
-        state = reduceAcp(state, update);
-        onBatch({ updates: [update] });
-      };
-      push = onUpdate;
-      for (const update of [
-        ...base,
-        ...(approval === null ? [] : [approval]),
-        ...STREAMING,
-        ...extra,
-      ])
-        onUpdate(update);
-      return { harness, cwd: CWD };
-    },
-    disconnect: async () => {},
-    async toolBody(_handle, id, part) {
-      const body = toolBodyOf(state, id);
-      const value = body?.[part] ?? null;
-      return body === null || value === null
-        ? null
-        : { value, truncated: body.truncated };
-    },
-    async input(_handle, input) {
-      if (input.type === "open_session") {
-        // 같은 탭에서 CLI session을 바꾼다: 상태가 비고 그 session의 대화가 다시 온다.
-        const target = CLI_SESSIONS.find((one) => one.id === input.cli_session);
-        if (target === undefined) return false;
-        push({ type: "session_reset" });
-        push({
-          type: "session_changed",
-          session: { cli_session: target.id, title: target.title },
-        });
-        push(message("msg-o1", seq + 1, 0, "user", target.question));
-        push(message("msg-o2", seq + 2, 1, "agent", target.answer));
-        seq += 2;
-      }
-      if (input.type === "run_shell") {
-        seq += 1;
-        push({
-          type: "tool_started",
-          item: {
-            kind: "tool",
-            id: `shl-${seq}`,
-            seq,
-            at: at(30),
-            by: "user",
-            turn: null,
-            tool: "shell",
-            category: "command",
-            title: input.command,
-            state: "ok",
-            duration_ms: 240,
-            detail: { kind: "generic" },
-            body: { input: input.command, output: LS_OUTPUT, truncated: false },
-          },
-        });
-      }
-      if (input.type === "send") {
-        seq += 1;
-        push({
-          type: "message_added",
-          item: {
-            kind: "message",
-            id: input.id,
-            seq,
-            at: at(30),
-            actor: "user",
-            sender: null,
-            call: null,
-            reply_to: null,
-            delivery: input.delivery,
-            turn: null,
-            origin: null,
-            content: input.content,
-            reasoning: null,
-            cards: [],
-            complete: true,
-          },
-        });
-      }
-      return true;
-    },
-    running: async () => ({ turn: true, tasks: 2 }),
-    toggle: async () => ({ ok: true }),
-    current: async () => null,
-    sessions: async () =>
-      CLI_SESSIONS.map(({ id, title, updated_at }) => ({
-        id,
-        title,
-        updated_at,
-      })),
-    rewindPreview: async () => ({
-      files: [
-        { path: "src/upload.ts", change: "update" },
-        { path: "src/upload.test.ts", change: "create" },
-      ],
-    }),
-    uploadImage: async () => null,
-    readImage: async () => null,
+  let state = updates.reduce(reduceAcp, EMPTY_ACP_STATE);
+  const push = (update: AcpUpdate) => {
+    state = reduceAcp(state, update);
+    core.emit({
+      type: "AcpUpdated",
+      session: FAKE_CODING_SESSION,
+      subject: null,
+      at: at(30),
+      payload: { session: FAKE_CODING_SESSION, update },
+    } as BusEvent);
   };
+  const send = (input: Record<string, unknown>) => {
+    if (input.type === "open_session") {
+      // 같은 탭에서 CLI session을 바꾼다: 상태가 비고 그 session의 대화가 다시 온다.
+      const target = CLI_SESSIONS.find((one) => one.id === input.cli_session);
+      if (target === undefined) return undefined;
+      push({ type: "session_reset" });
+      push({
+        type: "session_changed",
+        session: { cli_session: target.id, title: target.title },
+      });
+      push(message("msg-o1", seq + 1, 0, "user", target.question));
+      push(message("msg-o2", seq + 2, 1, "agent", target.answer));
+      seq += 2;
+    }
+    if (input.type === "run_shell") {
+      seq += 1;
+      push({
+        type: "tool_started",
+        item: {
+          kind: "tool",
+          id: `shl-${seq}`,
+          seq,
+          at: at(30),
+          by: "user",
+          turn: null,
+          tool: "shell",
+          category: "command",
+          title: String(input.command),
+          state: "ok",
+          duration_ms: 240,
+          detail: { kind: "generic" },
+          body: {
+            input: String(input.command),
+            output: LS_OUTPUT,
+            truncated: false,
+          },
+        },
+      });
+    }
+    if (input.type === "send") {
+      seq += 1;
+      push({
+        type: "message_added",
+        item: {
+          kind: "message",
+          id: String(input.id),
+          seq,
+          at: at(30),
+          actor: "user",
+          sender: null,
+          call: null,
+          reply_to: null,
+          delivery: input.delivery as "next_turn",
+          turn: null,
+          origin: null,
+          content: input.content as ReturnType<typeof text>,
+          reasoning: null,
+          cards: [],
+          complete: true,
+        },
+      });
+    }
+    return {};
+  };
+  const core = fakeTerminalCore({
+    view: "gui",
+    harness,
+    routes(resource, method, body) {
+      switch (`${resource}/${method}`) {
+        case "acp/snapshot":
+          return state;
+        case "acp/send":
+          return send(body);
+        case "acp/tool_body": {
+          const found = toolBodyOf(state, String(body.tool_call));
+          const value = found?.[body.part as "input" | "output"] ?? null;
+          return found === null || value === null
+            ? undefined
+            : { value, truncated: found.truncated };
+        }
+        case "coding_sessions/cli_sessions":
+          return {
+            sessions: CLI_SESSIONS.map(({ id, title, updated_at }) => ({
+              id,
+              title,
+              updated_at,
+            })),
+          };
+        case "coding_sessions/rewind_preview":
+          return {
+            preview: {
+              files: [
+                { path: "src/upload.ts", change: "update" },
+                { path: "src/upload.test.ts", change: "create" },
+              ],
+            },
+          };
+        case "coding_sessions/switch_plan":
+          return {
+            to: "tui",
+            stops: { turn: true, tasks: 2, queued: state.queued.length },
+            blocked: null,
+          };
+        default:
+          return undefined;
+      }
+    },
+  });
+  return core;
 }
 
 const NO_UPDATES: readonly AcpUpdate[] = [];
@@ -717,17 +734,25 @@ function TerminalTabGui({
   base?: readonly AcpUpdate[];
 }) {
   useDrive(() => runSteps(steps));
-  const api = useMemo(
-    () => fakeApi(approval, extra, harness, base),
+  const core = useMemo(
+    () =>
+      fakeCore(
+        [
+          ...base,
+          ...(approval === null ? [] : [approval]),
+          ...STREAMING,
+          ...extra,
+        ],
+        harness,
+      ),
     [approval, extra, harness, base],
   );
   return (
     <HeadCard>
       <GalleryKeys>
         <TerminalGui
-          api={api}
-          gui={{ handle: "win_gallery", harness, handoff: "restart" }}
-          terminalRef="trm_gallery"
+          core={core}
+          coding={{ ...core.coding!, harness, handoff: "restart", cwd: CWD }}
           now={() => NOW}
         />
       </GalleryKeys>
@@ -854,17 +879,23 @@ const perfThread = (turns: number): readonly AcpUpdate[] => [
   ),
 ];
 
-function perfApi(turns: number): HarnessGuiTabApi {
-  return {
-    ...fakeApi(null, [], "claude", NO_UPDATES),
-    async connect(_handle, onBatch) {
-      onBatch({ updates: [...perfThread(turns)] });
-      (globalThis as { __perf?: unknown }).__perf = {
-        push: (updates: AcpUpdate[]) => onBatch({ updates }),
-      };
-      return { harness: "claude", cwd: CWD };
+// 긴 대화를 snapshot으로 주고, page가 `globalThis.__perf.push`로 넣는 갱신을 `AcpUpdated`로 낸다.
+function perfCore(turns: number): FakeTerminalCore {
+  const core = fakeCore(perfThread(turns), "claude");
+  (globalThis as { __perf?: unknown }).__perf = {
+    push: (updates: AcpUpdate[]) => {
+      for (const update of updates) {
+        core.emit({
+          type: "AcpUpdated",
+          session: FAKE_CODING_SESSION,
+          subject: null,
+          at: at(30),
+          payload: { session: FAKE_CODING_SESSION, update },
+        } as BusEvent);
+      }
     },
   };
+  return core;
 }
 
 function PerfGui({
@@ -875,7 +906,7 @@ function PerfGui({
   steps?: readonly Step[];
 }) {
   useDrive(() => runSteps(steps));
-  const api = useMemo(() => perfApi(turns), [turns]);
+  const core = useMemo(() => perfCore(turns), [turns]);
   // 실제 시계: live 글의 throttle과 도는 줄의 경과 시간이 시계를 읽는다.
   const origin = useMemo(() => Date.now(), []);
   const now = useMemo(() => () => NOW + (Date.now() - origin), [origin]);
@@ -898,9 +929,13 @@ function PerfGui({
       >
         <GalleryKeys>
           <TerminalGui
-            api={api}
-            gui={{ handle: "win_perf", harness: "claude", handoff: "restart" }}
-            terminalRef="trm_perf"
+            core={core}
+            coding={{
+              ...core.coding!,
+              harness: "claude",
+              handoff: "restart",
+              cwd: CWD,
+            }}
             now={now}
           />
         </GalleryKeys>

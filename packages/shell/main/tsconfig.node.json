@@ -1,5 +1,5 @@
 {
-  // desktop main·core·wiring·viewer와 terminal host CLI는 esbuild가 묶는 runtime 코드라 tsconfig.json에서 뺀다.
+  // desktop main·core·wiring·viewer는 esbuild가 묶는 runtime 코드라 tsconfig.json에서 뺀다.
   // noUncheckedIndexedAccess를 켜면 함께 보는 packages/base가 오류를 내므로 이 project에서는 끈다.
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -9,8 +9,7 @@
     "desktop/main.ts",
     "desktop/core/**/*.ts",
     "desktop/wiring/**/*.ts",
-    "desktop/viewer/**/*.ts",
-    "../terminal-host/cli.ts"
+    "desktop/viewer/**/*.ts"
   ],
   "exclude": []
 }

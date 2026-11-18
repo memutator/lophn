@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-import type { TerminalAgentSession } from "../../ipc/terminal.ts";
+import type { TerminalAgentSession } from "../../../protocol/coding-agent/terminals.ts";
 import type { AppRow } from "../apps/source.ts";
 import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";

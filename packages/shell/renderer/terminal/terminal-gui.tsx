@@ -1,6 +1,7 @@
-// 터미널 탭의 GUI view와 toggle. 탭은 xterm(`TerminalTab`)과 채팅 화면(`TerminalGui`)을 오간다. PTY는 host가, xterm은 창의
-// `TerminalDisplays`가 쥐고 있어 어느 쪽을 그리든 둘 다 산다. GUI의 대화는 main이 쥔 handle(extension harness-gui)이고,
-// 이 화면은 handle의 갱신을 접어 `AgentView`로 그린다.
+// 터미널 탭의 GUI view와 toggle. 탭은 xterm(`TerminalTab`)과 채팅 화면(`TerminalGui`)을 오간다. PTY와 GUI handle은 core가,
+// xterm은 창의 `TerminalDisplays`가 쥐고 있어 어느 쪽을 그리든 둘 다 산다. 탭이 지금 어느 쪽인지는 core의 coding session 목록
+// (`coding_sessions/list`)이 말하고, 바꾸기는 `coding_sessions/switch`다. GUI의 대화는 core의 ACP 길(`acp/snapshot`, `AcpUpdated`,
+// `acp/send`)이고 이 화면은 그것을 접어 `AgentView`로 그린다.
 import { t } from "@lophn/i18n";
 import { Dialog, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
@@ -15,28 +16,36 @@ import {
 } from "react";
 
 import {
+  type AcpInput,
   type AcpState,
+  type AcpUpdate,
+  acpSend,
+  acpSnapshot,
+  acpToolBodyRead,
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../protocol/acp/mod.ts";
+import type { Route } from "../../../protocol/base/route.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import {
+  type CodingSession,
+  codingSessionsCliSessions,
+  codingSessionsRewindPreview,
+  codingSessionsSwitch,
+  codingSessionsSwitchPlan,
+} from "../../../protocol/coding-agent/relay.ts";
 import type { BusEvent } from "../../../protocol/events/mod.ts";
 import {
   type GuiHarness,
   isGuiHarness,
 } from "../../../protocol/extensions/mod.ts";
-import type {
-  HarnessGuiHandoff,
-  HarnessGuiInfo,
-  HarnessGuiTabApi,
-  HarnessGuiTabBatch,
-  HarnessGuiTabToggleReply,
-} from "../../ipc/harness-gui.ts";
+import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import { guiAgentTabSource } from "../conversation/agent-tab-gui-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
 import { desktopParts } from "../conversation/desktop-parts-impl.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { readRoute } from "../desktop/connection/core-read.ts";
 import { EventsProvider } from "../desktop/connection/events/hooks.tsx";
 import type {
   EventClient,
@@ -48,69 +57,86 @@ import {
   conversationIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
+import { newId } from "../prefixed-id.ts";
 import type { TabItem } from "../workspace/model.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
 import { focusTabBody } from "../workspace/focus-tab.ts";
+import type { TerminalCore } from "./core.ts";
 import type { TerminalDeps } from "./deps.ts";
-import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
-import { guiSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
-import { useGuiRequests } from "./use-gui-requests.ts";
+import type { TerminalStore } from "./store.ts";
 
-// ---- 탭 fields ----
+type Blocked = NonNullable<CodingSession["switch"]>["blocked"];
 
-/** 탭이 쥔 GUI handle. 앱을 다시 켜면 PTY도 GUI process도 남지 않아 저장하지 않는다. */
-export interface GuiField {
-  readonly handle: string;
-  readonly harness: GuiHarness;
-  readonly handoff: HarnessGuiHandoff;
+/** 지금 GUI로 바꿀 수 없는 이유의 문구. 바꿀 수 있으면 null이다. */
+export function blockedReason(
+  blocked: Blocked | null,
+): { reason: string; short: string } | null {
+  switch (blocked) {
+    case null:
+      return null;
+    case "not_running":
+      return {
+        reason: t("terminal.reason.foreground"),
+        short: t("terminal.reason.foreground-short"),
+      };
+    case "no_session":
+      return {
+        reason: t("terminal.reason.session"),
+        short: t("terminal.reason.session-short"),
+      };
+    case "extension_off":
+      return {
+        reason: t("terminal.reason.extension-off"),
+        short: t("terminal.reason.extension-off-short"),
+      };
+    case "unsupported_os":
+      return {
+        reason: t("terminal.reason.unsupported-os"),
+        short: t("terminal.reason.unsupported-os-short"),
+      };
+  }
 }
 
-// 대화는 확장자로 그림 file 링크를 알아본다(message-attachments). 붙여 넣은 그림은 이름이 없으니 MIME으로 붙인다.
-function imageName(image: Blob): string {
-  const name = image instanceof File ? image.name : "";
-  if (/\.(png|jpe?g|gif|webp)$/i.test(name)) return name;
-  const ext = image.type.slice("image/".length).replace("jpeg", "jpg");
-  return `${name || "image"}.${ext || "png"}`;
+// 탭의 임시 폴더에 쓴 그림은 확장자가 형식이다(core가 붙일 때 MIME으로 정했다). 읽은 bytes는 octet-stream으로 온다.
+const IMAGE_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+function imageType(path: string): string {
+  return (
+    IMAGE_TYPES[path.slice(path.lastIndexOf(".") + 1).toLowerCase()] ??
+    "application/octet-stream"
+  );
 }
 
-export function guiOf(tab: TabItem): GuiField | null {
-  const gui = tab.fields?.gui as Partial<GuiField> | undefined;
-  return typeof gui?.handle === "string" &&
-    isGuiHarness(gui.harness) &&
-    (gui.handoff === "restart" || gui.handoff === "shared")
-    ? { handle: gui.handle, harness: gui.harness, handoff: gui.handoff }
-    : null;
+/** 탭이 그리는 GUI. core의 coding session이 GUI view일 때만 있다. */
+function guiOf(store: TerminalStore, key: string): CodingSession | null {
+  const coding = store.codingOf(key);
+  return coding?.view === "gui" && isGuiHarness(coding.harness) ? coding : null;
 }
 
 /** GUI view가 알린 ACP session 제목. GUI를 그리는 동안만 있다(저장본에 남은 옛 값은 무시한다). */
-export function guiTitleOf(tab: TabItem): string | null {
+export function guiTitleOf(tab: TabItem, store: TerminalStore): string | null {
   const title = tab.fields?.guiTitle;
-  return viewOf(tab) === "gui" && typeof title === "string" ? title : null;
-}
-
-/** 탭이 지금 그리는 쪽. handle이 없으면 TUI(xterm)다. */
-export function viewOf(tab: TabItem): "gui" | "tui" {
-  return tab.fields?.view === "gui" && guiOf(tab) !== null ? "gui" : "tui";
-}
-
-export function guiApi(): HarnessGuiTabApi | null {
-  return (
-    (globalThis as { lophnHarnessGuiTab?: HarnessGuiTabApi })
-      .lophnHarnessGuiTab ?? null
-  );
+  return guiOf(store, tab.key) !== null && typeof title === "string"
+    ? title
+    : null;
 }
 
 // ---- 갱신 feed ----
 
-// main의 handle이 접어 둔 상태(snapshot)로 시작해 이어지는 갱신을 접는다. 대화 화면은 core 없이 갱신만 보므로 이 feed가
-// 화면의 두 길에 답한다: `AcpUpdated` event를 구독하는 event client와 snapshot을 읽는 source. 붙을 때마다 snapshot을 받아
-// 늦게 붙은 화면도 같은 상태가 되고, `reread`가 서면 source가 이 feed의 지금 상태를 다시 읽는다.
+// core의 snapshot으로 시작해 이어지는 갱신을 접는다. 대화 화면은 이 feed의 event client만 보므로 이 feed가 화면의 두 길에
+// 답한다: `AcpUpdated` event를 구독하는 event client와 snapshot을 읽는 source. 다시 붙거나 core가 그 session의 상태를 갈아
+// 끼우면(`StateChanged{coding_sessions}`) snapshot을 다시 읽고 화면이 이 feed를 다시 읽는다.
 interface GuiFeed {
   readonly session: string;
   readonly client: EventClient;
   state(): AcpState;
-  /** main이 보낸 push 하나: snapshot이 있으면 상태를 갈아 끼우고, 갱신은 모두 접은 뒤 한 번에 알린다. */
-  apply(batch: HarnessGuiTabBatch): void;
+  /** snapshot이 있으면 상태를 갈아 끼우고, 갱신은 모두 접은 뒤 한 번에 알린다. */
+  apply(batch: { snapshot?: AcpState; updates: readonly AcpUpdate[] }): void;
   /** 갱신을 접은 뒤마다 부른다. */
   watch(listener: () => void): () => void;
   /** snapshot으로 상태가 통째로 바뀌었다. 화면이 다시 읽는다. */
@@ -127,8 +153,6 @@ const NO_CORE: CoreSource = {
     }),
 };
 
-// session id는 handle이 아니라 터미널 탭 기준이라 toggle로 새 handle이 만들어져도 같다. 탭을 오가 다시 붙어도 창의
-// DraftStore가 같은 입력 글과 읽던 위치를 돌려준다(restart는 queue에 남은 말의 글을 입력칸에 되돌려 놓는다).
 function createGuiFeed(session: string, now: () => number): GuiFeed {
   let state = EMPTY_ACP_STATE;
   const listeners = new Set<(message: EventMessage) => void>();
@@ -179,27 +203,112 @@ function createGuiFeed(session: string, now: () => number): GuiFeed {
   };
 }
 
+/**
+ * core의 ACP 길을 feed에 잇는다. 갱신 구독이 서면(ready) snapshot을 읽고, 읽는 사이 온 갱신은 snapshot 뒤에 접는다. 첫 snapshot을
+ * 받으면 `onLoaded`다. 해지를 돌려준다.
+ */
+function followGui(
+  events: EventClient,
+  feed: GuiFeed,
+  onLoaded: () => void,
+): () => void {
+  let buffer: AcpUpdate[] | null = null;
+  let reads = 0;
+  let stopped = false;
+  async function load() {
+    const mine = ++reads;
+    buffer = [];
+    const read = await readRoute(events.core, acpSnapshot, {
+      session: feed.session,
+    });
+    if (stopped || mine !== reads) return;
+    const updates = buffer;
+    buffer = null;
+    if (!read.ok) return;
+    feed.apply({ snapshot: read.value, updates });
+    onLoaded();
+  }
+  const offUpdates = events.subscribe(
+    { session: feed.session, types: ["AcpUpdated"] },
+    (message) => {
+      if (message.kind === "ready") void load();
+      else if (
+        message.kind === "event" &&
+        message.event.type === "AcpUpdated"
+      ) {
+        const update = message.event.payload.update;
+        if (buffer !== null) buffer.push(update);
+        else feed.apply({ updates: [update] });
+      }
+    },
+  );
+  const offReplaced = events.subscribe(
+    { types: ["StateChanged"] },
+    (message) => {
+      if (
+        message.kind === "event" &&
+        message.event.type === "StateChanged" &&
+        message.event.payload.changes.some(
+          (change) =>
+            change.name === "coding_sessions" && change.id === feed.session,
+        )
+      ) {
+        void load();
+      }
+    },
+  );
+  return () => {
+    stopped = true;
+    offUpdates();
+    offReplaced();
+  };
+}
+
+async function callRoute<T>(
+  core: CoreSource,
+  route: Route,
+  body: unknown,
+): Promise<
+  { ok: true; value: T } | { ok: false; reason: string | null; message: string }
+> {
+  try {
+    const reply = await core.call({
+      kind: route.kind,
+      resource: route.resource,
+      method: route.method,
+      body,
+    });
+    if (reply.ok) return { ok: true, value: reply.value as T };
+    const reason = reply.error?.details?.reason;
+    return {
+      ok: false,
+      reason: typeof reason === "string" ? reason : null,
+      message: reply.error?.message ?? "",
+    };
+  } catch {
+    return { ok: false, reason: null, message: "" };
+  }
+}
+
 // ---- toggle ----
 
 /** modal이 "멈출 일"로 보일 것. */
-export interface GuiStops {
+interface GuiStops {
   readonly turn: boolean;
   readonly tasks: number;
   /** GUI queue에 남아 보내지 못할 말의 수. */
-  readonly queued?: number;
+  readonly queued: number;
 }
 
 interface ToggleOptions {
-  api: HarnessGuiTabApi | null;
-  terminalRef: string | null;
+  core: TerminalCore | null;
+  /** 탭의 coding session(`ses_…`). 아직 모르면 null이다. */
+  session: string | null;
+  /** shared는 TUI와 GUI가 한 server를 나눠 view만 바뀌어 묻지 않는다. 아니면 process를 한 번 껐다 켜므로 modal로 묻는다. */
+  handoff: CodingSession["handoff"];
   /** 이 단추가 보내는 쪽. */
   to: "gui" | "tui";
   harness: GuiHarness;
-  /**
-   * 누를 때 부른다. null이면 modal 없이 바로 바꾼다(shared의 view 전환). 아니면 process를 한 번 껐다 켜므로 modal로 묻고
-   * 멈출 일을 보인다.
-   */
-  confirm: () => GuiStops | null | Promise<GuiStops | null>;
   /** 지금은 바꿀 수 없다는 이유. 있으면 단추가 disabled이고 이유가 tooltip으로 보인다. */
   unavailable?: string | null;
   /**
@@ -226,26 +335,41 @@ export function useGuiToggle(options: ToggleOptions): {
   const label = HARNESS_ADAPTERS[harness].label;
   const latest = useRef(options);
   latest.current = options;
-  const ready = options.api !== null && options.terminalRef !== null;
+  const ready = options.core !== null && options.session !== null;
 
   const run = async () => {
-    const { api, terminalRef, to: target } = latest.current;
-    if (api === null || terminalRef === null) return;
+    const { core, session, to: target } = latest.current;
+    if (core === null || session === null) return;
     setStops(null);
     setBusy(true);
     const switched = latest.current.onSwitch?.();
-    const reply = await api.toggle({ terminal_ref: terminalRef, to: target });
+    const reply = await callRoute(
+      core.events.core,
+      codingSessionsSwitch as Route,
+      { session, to: target, confirmed: true, key: newId("key") },
+    );
     setBusy(false);
     if (reply.ok) switched?.();
-    else setProblem(problemText(reply));
+    else setProblem(problemText(reply.reason, reply.message));
   };
   // run은 ref와 setter만 읽어 어느 render의 것이어도 같다.
   const startRef = useRef<() => void>(() => {});
-  startRef.current = () =>
-    void Promise.resolve(latest.current.confirm()).then((asked) => {
-      if (asked === null) void run();
-      else setStops(asked);
+  startRef.current = () => {
+    const { core, session, handoff } = latest.current;
+    if (core === null || session === null) return;
+    if (handoff === "shared") {
+      void run();
+      return;
+    }
+    void readRoute(core.events.core, codingSessionsSwitchPlan, {
+      session,
+    }).then((plan) => {
+      if (!plan.ok) setProblem(problemText(null, ""));
+      else if (plan.value.blocked !== null) {
+        setProblem(problemText(plan.value.blocked, ""));
+      } else setStops(plan.value.stops);
     });
+  };
   const start = useCallback(() => startRef.current(), []);
   const unavailable = options.unavailable ?? null;
   const button = useMemo(() => {
@@ -308,7 +432,7 @@ export function useGuiToggle(options: ToggleOptions): {
         {stops !== null && stops.tasks > 0 ? (
           <p>{t("terminal.dialog.stop-tasks", { count: stops.tasks })}</p>
         ) : null}
-        {stops?.queued ? (
+        {stops !== null && stops.queued > 0 ? (
           <p>{t("terminal.dialog.stop-queued", { count: stops.queued })}</p>
         ) : null}
       </Dialog>
@@ -320,16 +444,18 @@ export function useGuiToggle(options: ToggleOptions): {
   return { button, overlays, busy, start };
 }
 
-function problemText(
-  reply: Extract<HarnessGuiTabToggleReply, { ok: false }>,
-): string {
-  switch (reply.reason) {
+function problemText(reason: string | null, message: string): string {
+  switch (reason) {
     case "no_session":
       return t("terminal.error.switch-no-session");
     case "not_running":
       return t("terminal.error.switch-not-running");
+    case "extension_off":
+      return t("terminal.reason.extension-off");
+    case "unsupported_os":
+      return t("terminal.reason.unsupported-os");
     default:
-      return t("terminal.error.switch-failed", { message: reply.message });
+      return t("terminal.error.switch-failed", { message });
   }
 }
 
@@ -339,18 +465,16 @@ function problemText(
 const NOWHERE = () => {};
 
 export function TerminalGui({
-  api,
-  gui,
-  terminalRef,
+  core,
+  coding,
   drafts,
   host,
   onTitle,
   focusKey = null,
   now = Date.now,
 }: {
-  api: HarnessGuiTabApi;
-  gui: GuiField;
-  terminalRef: string | null;
+  core: TerminalCore;
+  coding: CodingSession & { harness: GuiHarness };
   drafts?: DraftStore;
   host?: Partial<AgentViewHost>;
   /** CLI session 제목이 생기거나 바뀌었다(`/rename`, resume). 탭 이름이 따라간다. */
@@ -359,65 +483,94 @@ export function TerminalGui({
   focusKey?: string | null;
   now?: () => number;
 }) {
-  // terminalRef(`trm_<ULID>`)는 터미널이 다시 시작해도 같다. 아직 모르면 handle로 둔다.
-  const sessionKey = guiSessionId(terminalRef ?? gui.handle);
-  const feed = useMemo(() => createGuiFeed(sessionKey, now), [sessionKey, now]);
+  // session id(`ses_<터미널 ULID>`)는 터미널이 다시 시작해도, GUI를 다시 열어도 같다. 탭을 오가 다시 붙어도 창의 DraftStore가
+  // 같은 입력 글과 읽던 위치를 돌려준다(restart는 queue에 남은 말의 글을 입력칸에 되돌려 놓는다).
+  const session = coding.session;
+  const harness = coding.harness;
+  const feed = useMemo(() => createGuiFeed(session, now), [session, now]);
   useEffect(() => {
     if (onTitle === undefined) return;
     let last: string | null = null;
     return feed.watch(() => {
       // 제목이 아직 없는 새 session은 TUI처럼 harness 이름이다.
       const title =
-        feed.state().session?.title || HARNESS_ADAPTERS[gui.harness].label;
+        feed.state().session?.title || HARNESS_ADAPTERS[harness].label;
       if (title === last) return;
       last = title;
       onTitle(title);
     });
-  }, [feed, onTitle, gui.harness]);
+  }, [feed, onTitle, harness]);
   const own = useMemo(() => new DraftStore(), []);
-  const [info, setInfo] = useState<HarnessGuiInfo | null>(null);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    let live = true;
-    void api.connect(gui.handle, feed.apply).then((read) => {
-      if (live) setInfo(read);
+    setLoaded(false);
+    return followGui(core.events, feed, () => setLoaded(true));
+  }, [core, feed]);
+  const cwd = coding.cwd ?? "";
+  const source = useMemo(() => {
+    if (!loaded) return null;
+    const api = core.events.core;
+    return guiAgentTabSource({
+      info: { harness, cwd },
+      feed,
+      input: async (input: AcpInput) =>
+        (await callRoute(api, acpSend as Route, input)).ok,
+      toolBody: async (toolCall, part) => {
+        const body = await readRoute(api, acpToolBodyRead, {
+          session,
+          tool_call: toolCall,
+          part,
+        });
+        return body.ok
+          ? { ok: true, value: body.value }
+          : { ok: false, code: "not_found" };
+      },
+      sessions: async () => {
+        const read = await readRoute(api, codingSessionsCliSessions, {
+          session,
+        });
+        return read.ok ? read.value.sessions : [];
+      },
+      rewindPreview: async (message) => {
+        const read = await readRoute(api, codingSessionsRewindPreview, {
+          session,
+          message,
+        });
+        return read.ok ? read.value.preview : null;
+      },
+      writeImage: async (image) => {
+        const bytes = new Uint8Array(await image.arrayBuffer());
+        try {
+          const reply = await api.call({
+            kind: "upload",
+            resource: "acp",
+            method: "image_upload",
+            body: { session, content_type: image.type, bytes: bytes.length },
+            bytes,
+          });
+          return reply.ok ? (reply.value as { path: string }).path : null;
+        } catch {
+          return null;
+        }
+      },
+      readImage: async (path) => {
+        try {
+          const reply = await api.call({
+            kind: "file",
+            resource: "acp",
+            method: "image_read",
+            body: { session, path },
+          });
+          if (!reply.ok) return null;
+          const file = reply.value as { bytes: Uint8Array };
+          return new Blob([file.bytes.slice()], { type: imageType(path) });
+        } catch {
+          return null;
+        }
+      },
     });
-    return () => {
-      live = false;
-      void api.disconnect(gui.handle);
-    };
-  }, [api, gui.handle, feed]);
-  const source = useMemo(
-    () =>
-      info === null
-        ? null
-        : guiAgentTabSource({
-            info,
-            feed,
-            input: (input) => api.input(gui.handle, input),
-            toolBody: async (toolCall, part) => {
-              const body = await api.toolBody(gui.handle, toolCall, part);
-              return body === null
-                ? { ok: false, code: "not_found" }
-                : { ok: true, value: body };
-            },
-            sessions: () => api.sessions(gui.handle),
-            rewindPreview: (message) => api.rewindPreview(gui.handle, message),
-            writeImage: async (image) =>
-              await api.uploadImage(gui.handle, {
-                name: imageName(image),
-                mime: image.type,
-                data: new Uint8Array(await image.arrayBuffer()),
-              }),
-            readImage: async (path) => {
-              const image = await api.readImage(gui.handle, path);
-              return image === null
-                ? null
-                : new Blob([new Uint8Array(image.data)], { type: image.mime });
-            },
-          }),
-    [api, gui.handle, feed, info],
-  );
-  // 고른 탭만 mount되므로 탭을 고르거나 TUI에서 GUI로 바꿀 때마다 새로 붙고, 입력칸은 connect가 답한 뒤에야 생긴다.
+  }, [core, feed, loaded, harness, cwd, session]);
+  // 고른 탭만 mount되므로 탭을 고르거나 TUI에서 GUI로 바꿀 때마다 새로 붙고, 입력칸은 snapshot을 읽은 뒤에야 생긴다.
   // 탭을 고른 다음 frame의 focus는 빈 본문을 보므로 화면이 그려진 이때 옮긴다.
   const shown = source !== null;
   useEffect(() => {
@@ -425,21 +578,11 @@ export function TerminalGui({
   }, [shown, focusKey]);
   // restart는 process를 끄고 같은 대화를 TUI로 잇는다(modal). shared는 server가 그대로라 view만 바뀐다.
   const toggle = useGuiToggle({
-    api,
-    terminalRef,
+    core,
+    session,
+    handoff: coding.handoff,
     to: "tui",
-    harness: gui.harness,
-    confirm: async () => {
-      if (gui.handoff !== "restart") return null;
-      // 도는 turn은 화면이 알고, background task는 run(extension)만 안다.
-      const running =
-        terminalRef === null ? null : await api.running(terminalRef);
-      return {
-        turn: feed.state().turn !== null || running?.turn === true,
-        tasks: running?.tasks ?? 0,
-        queued: feed.state().queued.length,
-      };
-    },
+    harness,
     // queue에 남은 말은 TUI로 가며 사라지니, 글만 입력칸에 되돌려 놓는다(첨부는 잃는다).
     onSwitch: () => {
       const queued = feed
@@ -466,7 +609,7 @@ export function TerminalGui({
           <div data-key-context="agentView" style={{ display: "contents" }}>
             <AgentView
               source={source}
-              harness={gui.harness}
+              harness={harness}
               drafts={drafts ?? own}
               session={feed.session}
               onSessionChange={NOWHERE}
@@ -506,8 +649,8 @@ export const OPEN_TERMINAL_ID = "open-terminal";
 // ---- 탭에 묶기 ----
 
 /**
- * 터미널 탭의 본문. 탭의 `view`가 gui이면 채팅 화면을, 아니면 `children`(xterm)을 그린다. main의 "GUI가 열렸다"와 view
- * 바꿈 push를 듣고 탭 fields를 고친다. 이 탭에 handle이 붙었다 닫히는 일은 여기 하나가 한다.
+ * 터미널 탭의 본문. core의 coding session이 GUI view이면 채팅 화면을, 아니면 `children`(xterm)을 그린다. 어느 창이 바꾸든(폰도)
+ * 목록이 바뀌면 모든 창의 탭이 따라간다.
  */
 export function GuiSwitch({
   tab,
@@ -523,14 +666,16 @@ export function GuiSwitch({
   children: ReactNode;
 }) {
   const { store } = deps;
-  const entry = useSyncExternalStore(
+  useSyncExternalStore(
     (listener) => store.subscribe(listener),
-    () => store.get(tab.key),
+    () => store.version(),
   );
+  const entry = store.get(tab.key);
   const terminalRef = entry?.terminalRef ?? null;
+  const gui = guiOf(store, tab.key);
   // GUI view에서는 TerminalTab이 서지 않아 main의 focus 표에 이 터미널을 적는 곳이 없다. 고른 GUI 탭도 '보고 있음'이어야
   // 끝난 turn의 점과 알림이 사라진다.
-  const showingGui = viewOf(tab) === "gui";
+  const showingGui = gui !== null;
   const generation = entry?.generation ?? 0;
   useEffect(() => {
     const bridge = deps.bridge;
@@ -542,43 +687,13 @@ export function GuiSwitch({
       generation < 1
     )
       return;
-    const ref = { terminal_ref: terminalRef, generation };
+    const ref = { terminal: terminalRef, generation };
     void bridge.focus({ ...ref, focused: true });
     return () => {
       void bridge.focus({ ...ref, focused: false });
     };
   }, [active, showingGui, deps.bridge, terminalRef, generation]);
-  const api = guiApi();
-  useGuiRequests(api, terminalRef, {
-    opened: (open) =>
-      host.patchTab(tab.key, (current) => ({
-        fields: {
-          ...current.fields,
-          view: "gui",
-          gui: {
-            handle: open.handle,
-            harness: open.harness,
-            handoff: open.handoff,
-          },
-        },
-      })),
-    view: (change) =>
-      host.patchTab(tab.key, (current) => {
-        const { guiTitle: _title, ...kept } = current.fields ?? {};
-        // GUI를 떠나면 그 제목도 지운다. 다시 GUI가 되면 TerminalGui가 새로 붙어 제목을 다시 쓴다.
-        if (change.closed) {
-          const { gui: _gone, ...rest } = kept;
-          return { fields: { ...rest, view: "tui" } };
-        }
-        return {
-          fields:
-            change.view === "gui"
-              ? { ...current.fields, view: "gui" }
-              : { ...kept, view: change.view },
-        };
-      }),
-  });
-  // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 field에 두고, `tabName`이 사람 이름 다음으로 쓴다.
+  // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 field에 두고, 이름 규칙이 사람 이름 다음으로 쓴다.
   const onTitle = useCallback(
     (title: string) =>
       host.patchTab(tab.key, (current) => ({
@@ -586,42 +701,13 @@ export function GuiSwitch({
       })),
     [host, tab.key],
   );
-  // 탭은 view를 저장하지 않는다. 저장본에서 다시 만들어진 탭(다른 workspace에 갔다 옴)은 main에 살아 있는 GUI를 물어 되찾는다.
-  const known = guiOf(tab) !== null;
-  useEffect(() => {
-    if (api === null || terminalRef === null || known) return;
-    let live = true;
-    void api.current(terminalRef).then((found) => {
-      if (!live || found === null) return;
-      host.patchTab(tab.key, (current) =>
-        guiOf(current) !== null
-          ? {}
-          : {
-              fields: {
-                ...current.fields,
-                view: found.view,
-                gui: {
-                  handle: found.handle,
-                  harness: found.harness,
-                  handoff: found.handoff,
-                },
-              },
-            },
-      );
-    });
-    return () => {
-      live = false;
-    };
-  }, [api, terminalRef, known]);
-  const gui = guiOf(tab);
-  if (api === null || gui === null || viewOf(tab) !== "gui") return children;
+  if (gui === null || deps.core === null) return children;
   const agentView = host.agentView;
   return (
     <TerminalGui
-      key={gui.handle}
-      api={api}
-      gui={gui}
-      terminalRef={terminalRef}
+      key={gui.session}
+      core={deps.core}
+      coding={gui as CodingSession & { harness: GuiHarness }}
       onTitle={onTitle}
       focusKey={active ? tab.key : null}
       {...(agentView === null ? {} : { drafts: agentView.drafts })}

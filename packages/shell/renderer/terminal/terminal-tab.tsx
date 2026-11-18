@@ -3,8 +3,8 @@ import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
+import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
-import type { TerminalRuntime } from "../../ipc/terminal.ts";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
@@ -12,14 +12,15 @@ import { useCardHead } from "../parts/card-head/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner } from "./exit-banner.tsx";
 import {
+  endingOf,
   folderTitle,
   type Phase,
-  phaseOfReply,
+  phaseOfRefusal,
   phaseOfRuntime,
 } from "./model.ts";
 import type { TerminalEntry } from "./store.ts";
 import styles from "./terminal.module.css";
-import { type GuiField, guiApi, useGuiToggle } from "./terminal-gui.tsx";
+import { blockedReason, useGuiToggle } from "./terminal-gui.tsx";
 import type { TerminalView } from "./xterm-view.ts";
 import { resolvePath } from "./path-links.ts";
 
@@ -28,11 +29,19 @@ interface TerminalTabProps {
   project: string;
   /** layout에 남은 시작 폴더. 복원한 탭이 새 shell을 열 때 쓴다. */
   folderRef: string | null;
+  /** layout에 남은 터미널 참조. 다시 켠 앱의 탭이 그 터미널이 아직 살아 있으면 붙는다. */
+  attach: string | null;
   /** focus 칸의 고른 탭이다. 이때만 입력을 보낸다. resize는 보이는 한 칸 크기를 따른다. */
   active: boolean;
   deps: TerminalDeps;
-  /** 시작한 폴더를 탭 제목과 layout에 남긴다. */
-  onStarted?: (info: { title: string | null; folderRef: string }) => void;
+  /** 시작한 폴더와 터미널 참조를 탭 제목과 layout에 남긴다. */
+  onStarted?: (info: {
+    title: string | null;
+    folderRef: string;
+    terminalRef: string;
+  }) => void;
+  /** Ctrl/Cmd-click한 link를 이 터미널 옆 browser 탭으로 연다(사람의 설정이 browser 탭일 때). */
+  openLinkTab?: (url: string) => void;
   /**
    * 출력의 파일 경로 link. `exists`가 true인 절대 경로만 link가 되고 Ctrl/Cmd-click하면 `open`이다. 상대 경로는
    * shell을 시작한 폴더 기준이다(shell이 `cd`한 뒤의 폴더는 모른다). 없으면 경로 link가 없다.
@@ -46,27 +55,26 @@ interface TerminalTabProps {
    * 때만 알린다: 작업대가 없는 창(detached)의 탭도 이 길로 이름을 따라간다.
    */
   onAgentChange?: () => void;
-  /** 이 탭에 GUI handle이 붙어 있다(shared 대화가 TUI view로 와 있다). TUI를 끄지 않고 view만 GUI로 바꾼다. */
-  gui?: GuiField | null;
 }
 
 const IDLE: Phase = { kind: "idle" };
 
-// 프로젝트 작업대의 터미널 탭. PTY는 host가 갖고 이 화면은 보이고 입력을 넘길
-// 뿐이다. 탭을 숨기거나 옮겨도 shell은 그대로이고 다시 그리면 같은 runtime에
+// 프로젝트 작업대의 터미널 탭. PTY는 core가 갖고 이 화면은 보이고 입력을 넘길
+// 뿐이다. 탭을 숨기거나 옮겨도, 앱을 꺼도 shell은 그대로이고 다시 그리면 같은 터미널에
 // 붙는다.
 export function TerminalTab({
   tabKey,
   project,
   folderRef,
+  attach,
   active,
   deps,
   onStarted,
   onAgentChange,
+  openLinkTab,
   paths,
-  gui = null,
 }: TerminalTabProps) {
-  const { store, bridge } = deps;
+  const { store, bridge, core } = deps;
   const subscribe = useCallback(
     (listener: () => void) => store.subscribe(listener),
     [store],
@@ -83,39 +91,21 @@ export function TerminalTab({
   }, [agentView]);
   const phase = entry?.phase ?? IDLE;
 
-  // GUI로 바꾸는 단추와 ⋯ 메뉴의 "Open as chat". GUI가 붙은 탭이거나, 어댑터가 있는 harness의 CLI라고 알려진 탭(hook만 들은
-  // 것도)에 선다. 쓸 수 없으면 disabled에 이유를 달아 누른 뒤에 실패하지 않게 한다. shared 대화의 view 전환 말고는
-  // process를 한 번 껐다 켜므로 modal로 묻고, 도는 turn이 있으면 멈춘다고 알린다.
+  // GUI로 바꾸는 단추와 ⋯ 메뉴의 "Open as chat". GUI가 되는 harness의 coding session(hook만 들은 것도)인 탭에 선다. 쓸 수
+  // 없으면 disabled에 core가 준 이유를 달아 누른 뒤에 실패하지 않게 한다. 무엇이 멈추는지는 core에 물어 modal로 보인다.
+  const coding = store.codingOf(tabKey);
   const guiHarness =
-    gui?.harness ??
-    (agent !== undefined && isGuiHarness(agent.harness) ? agent.harness : null);
-  const unavailable: { reason: string; short: string } | null =
-    gui !== null || agent === undefined
-      ? null
-      : agent.foreground !== true
-        ? {
-            reason: t("terminal.reason.foreground"),
-            short: t("terminal.reason.foreground-short"),
-          }
-        : agent.session === undefined
-          ? {
-              reason: t("terminal.reason.session"),
-              short: t("terminal.reason.session-short"),
-            }
-          : null;
+    coding !== undefined && isGuiHarness(coding.harness)
+      ? coding.harness
+      : null;
+  const unavailable = blockedReason(coding?.switch?.blocked ?? null);
   const toggle = useGuiToggle({
-    api: guiApi(),
-    terminalRef: entry?.terminalRef ?? null,
+    core: deps.core,
+    session: coding?.session ?? null,
+    handoff: coding?.handoff ?? null,
     to: "gui",
     harness: guiHarness ?? "claude",
     unavailable: unavailable?.reason ?? null,
-    confirm: () =>
-      gui?.handoff === "shared"
-        ? null
-        : {
-            turn: agent?.state === "running" || agent?.state === "waiting",
-            tasks: 0,
-          },
   });
   const inCard = useCardHead(
     guiHarness === null
@@ -150,6 +140,8 @@ export function TerminalTab({
   const size = useObservedSize(screenRef);
   const latestPaths = useRef(paths);
   latestPaths.current = paths;
+  const latestLinkTab = useRef(openLinkTab);
+  latestLinkTab.current = openLinkTab;
 
   // 복사·붙여 넣기는 창 하나의 command(`terminal.copy`·`terminal.paste`)가 부르고, 그 command는 마지막으로
   // focus를 받은 터미널로 간다. 화면 안에 focus가 들어올 때 이 탭이 그 자리를 맡는다(탭이 여럿이어도 하나).
@@ -186,6 +178,7 @@ export function TerminalTab({
       onStarted?.({
         title: folderTitle(runtime.cwd_at_start),
         folderRef: runtime.folder_ref,
+        terminalRef: runtime.terminal_ref,
       });
     },
     [store, tabKey, onStarted],
@@ -193,10 +186,8 @@ export function TerminalTab({
 
   const open = useCallback(
     async (folder: string | null) => {
-      if (!bridge) {
-        store.update(tabKey, {
-          phase: { kind: "refused", reason: "unavailable" },
-        });
+      if (!core) {
+        store.update(tabKey, { phase: phaseOfRefusal(null) });
         return;
       }
       if (!store.beginOpen(tabKey)) return;
@@ -211,51 +202,37 @@ export function TerminalTab({
         cwd: undefined,
       });
       try {
-        const reply = await bridge.open({
+        const reply = await core.open({
           project,
           ...(folder === null ? {} : { folder_ref: folder }),
           ...(cwd === undefined ? {} : { cwd }),
           ...(resume === undefined ? {} : { resume }),
           ...(command === undefined ? {} : { command }),
         });
-        if (!reply.ok) {
-          store.update(tabKey, {
-            phase: { kind: "refused", reason: "unavailable" },
-          });
-        } else if (reply.value.ok) {
-          begin(reply.value.runtime);
-        } else {
-          store.update(tabKey, { phase: phaseOfReply(reply.value) });
-        }
+        if (reply.ok) begin(reply.value.runtime);
+        else store.update(tabKey, { phase: phaseOfRefusal(reply.reason) });
       } finally {
         store.endOpen(tabKey);
       }
     },
-    [bridge, store, tabKey, project, begin],
+    [core, store, tabKey, project, begin],
   );
 
-  // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다.
+  // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다. focus 검사는 main이 하므로 shell main을 거친다.
+  // 새 runtime은 core의 event로 온다.
   const restart = useCallback(async () => {
     const current = store.get(tabKey);
     const ended = current?.phase.kind === "ended" ? current.phase : null;
     if (bridge && current?.terminalRef && ended?.runtime) {
       const reply = await bridge.restart({
-        terminal_ref: current.terminalRef,
+        terminal: current.terminalRef,
         generation: current.generation,
       });
-      if (!reply.ok) {
-        store.update(tabKey, {
-          phase: { kind: "refused", reason: "unavailable" },
-        });
-      } else if (reply.value.ok) {
-        begin(reply.value.runtime);
-      } else {
-        store.update(tabKey, { phase: phaseOfReply(reply.value) });
-      }
+      if (!reply.ok) store.update(tabKey, { phase: phaseOfRefusal(null) });
       return;
     }
     await open(current?.folderRef ?? folderRef);
-  }, [bridge, store, tabKey, folderRef, begin, open]);
+  }, [bridge, store, tabKey, folderRef, open]);
 
   // xterm과 출력 구독은 창의 displays가 갖는다. React는 보이는 동안 DOM과 입력만 붙인다.
   useEffect(() => {
@@ -276,11 +253,13 @@ export function TerminalTab({
     screen.appendChild(display.edge);
     const view = display.view;
     viewRef.current = view;
-    // Ctrl/Cmd-click한 링크는 main이 browser 탭으로 열지 정한다. 실패해도 아무것도 보이지 않는다.
+    // Ctrl/Cmd-click한 링크는 main이 사람의 설정으로 어디에서 열지 정한다. browser 탭이면 이 터미널 옆에 연다. 실패해도 아무것도
+    // 보이지 않는다.
     const offLink = view.onLink((url) => {
-      const terminalRef = store.get(tabKey)?.terminalRef;
-      if (!bridge || !terminalRef) return;
-      void bridge.openLink({ terminal_ref: terminalRef, url });
+      if (!bridge) return;
+      void bridge.openLink({ url }).then((reply) => {
+        if (reply.ok && reply.value === "tab") latestLinkTab.current?.(url);
+      });
     });
     const offPath = view.onPathLink({
       resolve: async (path) => {
@@ -308,15 +287,36 @@ export function TerminalTab({
     return () => deps.displays.setActive(tabKey, false);
   }, [deps, tabKey, active]);
 
-  // 처음 보인 탭만 shell을 연다. 이미 도는 terminal은 displays가 한 번만 snapshot을 받고 구독한다.
+  // 처음 보인 탭만 shell을 연다. 이미 도는 terminal은 displays가 한 번만 snapshot을 받고 구독한다. layout에 터미널 참조가 남은
+  // 탭(다시 켠 앱)은 core에 그 터미널이 아직 살아 있으면 붙고, 없으면 새 shell을 연다.
   useEffect(() => {
     const current = store.get(tabKey);
     if (current?.terminalRef) return;
     if (current?.requested && current.phase.kind === "opening") {
       void open(current.folderRef ?? folderRef);
-    } else if (!current) {
-      void open(folderRef);
+      return;
     }
+    if (current) return;
+    if (attach === null || core === null) {
+      void open(folderRef);
+      return;
+    }
+    // 읽는 동안 다시 mount돼도 두 번 열지 않는다.
+    if (!store.beginOpen(tabKey)) return;
+    void core.list().then((list) => {
+      store.endOpen(tabKey);
+      if (store.get(tabKey)) return;
+      const found = list?.find((one) => one.terminal_ref === attach);
+      if (found !== undefined && endingOf(found) === null) {
+        store.adopt(tabKey, {
+          terminalRef: found.terminal_ref,
+          generation: found.generation,
+          folderRef: found.folder_ref,
+        });
+      } else {
+        void open(folderRef);
+      }
+    });
   }, [tabKey]);
 
   const liveRuntime = phase.kind === "live" ? phase.runtime : null;
@@ -330,21 +330,16 @@ export function TerminalTab({
   // 폰이 PTY 크기를 잡았다. 칸에 맞추지 않고, 사람이 이 탭을 고르거나 누르면 칸 크기로 다시 잡는다(마지막에 잡은 쪽이 이긴다).
   const remote = entry?.remote === true;
   const reclaim = () => {
-    if (!remote || !bridge || boundRef === null) return;
+    if (!remote || !core || boundRef === null) return;
     const dims = viewRef.current?.fit();
     if (!dims) return;
-    void bridge.resize({
-      terminal_ref: boundRef,
-      generation: boundGeneration,
-      columns: dims.columns,
-      rows: dims.rows,
-    });
+    void core.resize(boundRef, boundGeneration, dims.columns, dims.rows);
   };
 
   // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다.
   useEffect(() => {
     if (!active || !bridge || boundRef === null || boundGeneration < 1) return;
-    const ref = { terminal_ref: boundRef, generation: boundGeneration };
+    const ref = { terminal: boundRef, generation: boundGeneration };
     void bridge.focus({ ...ref, focused: true });
     viewRef.current?.focus();
     reclaim();
@@ -358,7 +353,7 @@ export function TerminalTab({
   // 폰이 크기를 잡은 동안은 맞추지 않고, 놓으면 같은 치수라도 다시 보낸다.
   const restored = entry?.restored ?? 0;
   useEffect(() => {
-    if (!liveKey || !bridge || boundRef === null) return;
+    if (!liveKey || !core || boundRef === null) return;
     if (remote) {
       lastSize.current = "";
       return;
@@ -368,15 +363,10 @@ export function TerminalTab({
     const key = `${liveKey}:${dims.columns}x${dims.rows}`;
     if (key === lastSize.current) return;
     lastSize.current = key;
-    void bridge.resize({
-      terminal_ref: boundRef,
-      generation: boundGeneration,
-      columns: dims.columns,
-      rows: dims.rows,
-    });
+    void core.resize(boundRef, boundGeneration, dims.columns, dims.rows);
   }, [
     liveKey,
-    bridge,
+    core,
     boundRef,
     boundGeneration,
     size?.width,

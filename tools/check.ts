@@ -198,7 +198,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 // package가 바뀌면 type check하는 tsc project. tsconfig.base.json 그대로인 package는 tsconfig.node.json 한 program이
-// 본다: 따로 돌면 서로 import하는 source를 project마다 다시 검사한다. shell main·preload·ipc·terminal-host는
+// 본다: 따로 돌면 서로 import하는 source를 project마다 다시 검사한다. shell main·preload·ipc는
 // "shell main" 단계의 `npm run check`가 본다.
 const NODE_TSC = "tsconfig.node.json";
 const TSC_PROJECTS: Record<string, string[]> = {

@@ -52,18 +52,17 @@ import { word } from "../i18n.ts";
 import { nodeExecutableProbe } from "../os-entry/exec-path.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
-import { createQuitFlow, quitChosen, quitDialogOptions } from "../quit.ts";
+import { createQuitFlow, quitDialogOptions } from "../quit.ts";
 import { registerViewSchemes } from "../security.ts";
 import { createShellHandler } from "../shell-protocol.ts";
 import { listenShortcuts } from "../shortcuts.ts";
 import { listenSecondInstance } from "../single-instance.ts";
 import { installTray, TRAY_ICON_SIZE, type TrayFactory } from "../tray.ts";
 import { createWindowControl } from "../window-controls.ts";
-import { checkCaller } from "../ipc-guard.ts";
 import type { AppViews } from "./app-views.ts";
-import type { Coding } from "./coding.ts";
 import { recentWindow } from "./desktop-window.ts";
 import type { Registered, ShellContext } from "./context.ts";
+import type { Terminals } from "./terminal.ts";
 
 const electronTray: TrayFactory = {
   create(icon) {
@@ -108,7 +107,7 @@ const electronShortcuts: GlobalShortcutPort = {
 export function register(
   ctx: ShellContext,
   views: AppViews,
-  coding: Coding,
+  terminals: Terminals,
 ): Registered {
   const { headless, overlays, windows, ipc, log, desktop } = ctx;
   const { openIntent } = views;
@@ -172,27 +171,22 @@ export function register(
     }),
   );
 
-  // 명시 종료. 진행 중 터미널·저장이 있으면 OS 확인 창으로 묻는다.
-  // 저장 수는 창마다 편집기가 알린 저장 중·실패·불명·충돌 문서 수다.
-  // 일반 Quit은 shell 자원과 연결만 정리하고, `Stop lophn`은 core stop 응답까지 기다린다.
+  // 명시 종료. 도는 터미널·저장 중인 문서가 있으면 OS 확인 창으로 묻는다. 저장 수는 창마다 편집기가 알린 저장 중·실패·불명·충돌
+  // 문서 수다. 일반 Quit은 shell 자원과 연결만 정리하고 터미널은 core에서 계속 돈다(사람이 고르면 먼저 닫는다). `Stop lophn`은 core
+  // stop 응답까지 기다리고 core가 터미널을 모두 닫는다.
   const quitFlow = createQuitFlow({
     work: {
-      runningTerminals: () =>
-        coding.terminals
-          .runtimes()
-          .filter(
-            (runtime) =>
-              runtime.state === "running" || runtime.state === "starting",
-          ).length,
+      runningTerminals: () => terminals.running(),
       pendingSaves: () => ctx.closeGuards.pendingSaves(),
+      closeTerminals: (list) => terminals.close(list),
     },
-    confirm: async (prompt) => {
+    ask: async (prompt) => {
       const options = quitDialogOptions(prompt);
       const parent = BrowserWindow.getFocusedWindow();
       const reply = parent
         ? await dialog.showMessageBox(parent, options)
         : await dialog.showMessageBox(options);
-      return quitChosen(reply.response);
+      return reply.response;
     },
     quitApp: () => app.quit(),
   });
@@ -320,7 +314,7 @@ export function register(
     onQuitIntent: () =>
       void (headless.headless
         ? quitFlow.stopNow(quitShell)
-        : quitFlow.request(quitShell)),
+        : quitFlow.request("quit", quitShell)),
   });
 
   // 사람이 바꾼 키(설정 `shell.keybindings`). core 설정의 사본이 바뀌면 main이 먼저 받는 키도 따른다.
@@ -447,8 +441,8 @@ export function register(
         actions: {
           openWindow: () => desktop.show(),
           openHome: () => desktop.open(),
-          stop: () => void quitFlow.request(stopLophn),
-          quit: () => void quitFlow.request(quitShell),
+          stop: () => void quitFlow.request("stop", stopLophn),
+          quit: () => void quitFlow.request("quit", quitShell),
         },
       });
     }

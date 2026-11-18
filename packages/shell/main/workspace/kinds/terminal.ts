@@ -16,6 +16,11 @@ const layout = z.strictObject({
   agent_title: z.string().min(1).max(200).optional(),
   agent_session: z.string().min(1).max(200).optional(),
   project_folder: z.string().min(1).max(4096),
+  // core가 가진 터미널(`trm_…`). 앱을 다시 켜면 탭이 이 터미널이 살아 있으면 붙는다.
+  terminal_ref: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{1,80}$/)
+    .optional(),
   // 이 터미널에서 coding agent(harness id)가 돈 적이 있다. 다른 workspace의 sidebar가 저장된 layout만 보고 coding agent 터미널을 알아본다.
   harness: z
     .string()

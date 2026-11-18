@@ -1,11 +1,15 @@
-// sidebar가 터미널 coding agent session을 그리는 값. 이 창의 터미널 탭 가운데 coding agent가 도는 것(live)과 main이
-// 저장한 session(saved)을 합친다. 저장한 것 가운데 지금 도는 session은 live 줄 하나로만 남는다.
+// sidebar가 터미널 coding agent session을 그리는 값. 이 창의 터미널 탭 가운데 coding agent가 도는 것(live)과 core가
+// 저장한 session(saved, `terminals/saved_sessions`)을 합친다. 저장한 것 가운데 지금 도는 session은 live 줄 하나로만 남는다.
 // live 줄의 제목과 상태 점은 탭 줄과 같은 값이다(부르는 쪽이 `tabs`로 넣는다).
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
-import type { TerminalAgentSession } from "../../../ipc/terminal.ts";
+import {
+  type TerminalAgentSession,
+  terminalsSavedSessions,
+} from "../../../../protocol/coding-agent/terminals.ts";
+import { followCoreRead } from "../../desktop/connection/core-read.ts";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
@@ -33,7 +37,7 @@ export function usePanelTerminals(
   tabs: readonly TerminalTabView[],
 ): readonly PanelTerminal[] {
   const store = deps?.store;
-  const bridge = deps?.bridge ?? null;
+  const core = deps?.core ?? null;
   const version = useSyncExternalStore(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
@@ -43,21 +47,20 @@ export function usePanelTerminals(
   const saved =
     (project === null ? undefined : savedAll.get(project)) ?? NO_SAVED;
   useEffect(() => {
-    if (bridge === null || project === null) return;
-    let live = true;
-    const put = (sessions: readonly TerminalAgentSession[]) =>
-      setSavedAll((all) => new Map(all).set(project, sessions));
-    void bridge.agentSessions({ project }).then((reply) => {
-      if (live && reply.ok) put(reply.value);
-    });
-    const off = bridge.onAgentSessions((change) => {
-      if (change.project === project) put(change.sessions);
-    });
-    return () => {
-      live = false;
-      off();
-    };
-  }, [bridge, project, setSavedAll]);
+    if (core === null || project === null) return;
+    const follow = followCoreRead<{ sessions: TerminalAgentSession[] }>(
+      core.events,
+      terminalsSavedSessions,
+      { project },
+      (loaded) => {
+        if (loaded.state !== "ready") return;
+        const sessions = loaded.value.sessions;
+        setSavedAll((all) => new Map(all).set(project, sessions));
+      },
+      () => new Date(),
+    );
+    return () => follow.stop();
+  }, [core, project, setSavedAll]);
   // hook은 시각을 알리지 않는다. 저장한 session의 마지막 움직임을 쓰고, 아직 저장 전이면 처음 본 때를 쓴다.
   const firstSeen = useRef(new Map<string, number>());
   return useMemo(() => {

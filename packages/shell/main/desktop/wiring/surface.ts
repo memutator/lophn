@@ -1,6 +1,6 @@
 // core의 host queue가 `/host-link` 연결(`ctx.hostLink`)로 미는 요청을 받아 그 workspace를 보이는 창에 push한다(agent가 연 탭). 단 browser 탭(`--url`)은
 // 그 workspace를 보이는 창이 없으면 가장 최근 일반 창이 page를 만들어 두고(일반 창이 하나도 없으면 focus 없이 하나 연다), page가 붙을 때(bind) core에 답한다.
-// core가 시킬 일을 담는 queue는 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기는 보이는 workspace와 TUI 목록이 바뀔 때 `visible`로 알린다.
+// core가 시킬 일을 담는 queue는 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기는 보이는 workspace가 바뀔 때 `visible`로 알린다.
 // 창을 앞으로 가져오거나 focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
 // `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
 // agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
@@ -43,20 +43,16 @@ import type {
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { ArtifactViews } from "../../artifact/registry.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
-import type { Coding } from "./coding.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import { recentWindow } from "./desktop-window.ts";
 
 // 창이 탭 요청을 받지 못했을 때 retry로 답하기 전에 쉬는 시간이다. core는 retry를 맨 뒤로 돌려 다음 밀기(1초마다, 새 요청이
 // 들어오면 바로)에 다시 보내므로, 여기서 쉬지 않으면 받지 못할 창에 곧바로 다시 보낼 수 있다.
 const RETRY_MS = 1000;
-// 보이는 workspace와 TUI 목록이 바뀌었는지 보는 간격이다. 창 detach와 TUI가 떠나는 일은 다른 wiring에서 일어나 들을 곳이 없다.
+// 보이는 workspace가 바뀌었는지 보는 간격이다. 창 detach는 다른 wiring에서 일어나 들을 곳이 없다.
 const VISIBLE_MS = 1000;
 // 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 RETRY_MS 뒤 다시 보낸다.
 const ACK_TIMEOUT_MS = 1500;
-// focus 없이 새로 연 창이 layout을 읽고 보이는 workspace를 알리기까지 기다리는 기한과 간격이다.
-const WINDOW_READY_MS = 15_000;
-const WINDOW_POLL_MS = 250;
 // 창이 없어 browser 탭 열기가 새로 연 창마저 만들지 못했을 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
 const NO_WINDOW =
   "No lophn window could be opened, so the browser page cannot be created. Retrying may help once; if it fails again, tell the person.";
@@ -80,15 +76,10 @@ const sameWorkspace = (a: Workspace, b: Workspace) =>
 
 export function register(
   ctx: ShellContext,
-  coding: Pick<Coding, "tui" | "bindTabOpen">,
   appFrame: Pick<AppFrameService, "senderView">,
   artifacts: Pick<ArtifactViews, "guestId">,
-  interruptTerminal: (
-    terminalRef: string,
-  ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>,
 ): Registered & Pick<BrowserDriver, "typeOnce"> {
   const registry = ctx.overlays.overlayRegistry();
-  const { tui } = coding;
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
   const pending = new Map<string, (opened: boolean) => void>();
@@ -136,7 +127,6 @@ export function register(
 
   ctx.windowHooks.closed.push(({ contentsId }) => {
     shown.delete(contentsId);
-    tui.closeWindow(contentsId);
     for (const [tab, at] of bound) {
       if (at.window !== contentsId) continue;
       bound.delete(tab);
@@ -198,15 +188,9 @@ export function register(
       if (now !== undefined) pushControl(tab, now);
       return;
     }
-    if ("tui" in parsed.value) {
-      const { tab, session, terminal_ref } = parsed.value.tui;
-      if (terminal_ref === undefined) tui.open(tab, session, event.sender.id);
-      else tui.bind(tab, terminal_ref);
-      syncVisible();
-      return;
-    }
+    // TUI 탭의 hold는 core가 든다. 창이 아직 보내는 옛 보고는 버린다.
+    if ("tui" in parsed.value) return;
     if (parsed.value.state === "closed") {
-      tui.release(parsed.value.tab);
       hostBrowser.delete(parsed.value.tab);
       bound.delete(parsed.value.tab);
       control.forget(parsed.value.tab);
@@ -367,25 +351,13 @@ export function register(
       ...(output === undefined ? {} : { output }),
     });
 
-  // 보이는 workspace와 TUI 목록을 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다.
+  // 보이는 workspace를 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다. TUI 목록은 core가 든다(칸은 비운다).
   function syncVisible(): void {
-    ctx.hostLink.visible({
-      workspaces: visibleWorkspaces(),
-      tui: tui.sessions(),
-    });
+    ctx.hostLink.visible({ workspaces: visibleWorkspaces(), tui: [] });
   }
   syncVisible();
   const visibleTimer = setInterval(syncVisible, VISIBLE_MS);
 
-  ctx.hostLink.onRequest("terminal_interrupt", async (payload) => {
-    // 앱이 멈춘 session이 터미널 탭의 coding agent다. 그 harness의 끊기 key를 친다.
-    const result = await interruptTerminal(payload.terminal_ref);
-    return result.ok
-      ? { content: [{ type: "text", text: "interrupted" }] }
-      : ({
-          error: { code: result.code, message: result.message },
-        } as HostToolOutput);
-  });
   ctx.hostLink.onRequest("browser_call", (payload) => {
     // 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(상한을 넘으면 오래 안 쓴 page부터 놓는다).
     const now = control.current(payload.tab);
@@ -410,48 +382,6 @@ export function register(
   ctx.hostLink.onRequest("tab_open", queueTab);
   ctx.hostLink.onRequest("tab_close", queueTab);
   ctx.hostLink.onRequest("tab_show", queueTab);
-
-  // 그 session에 turn이 돌고 있다(승인·질문을 기다리는 것도). 읽지 못하면 돌지 않는 것으로 본다(전처럼 연다).
-  async function turnRunning(session: string): Promise<boolean> {
-    const read = await ctx.coreInternal("read", "session_snapshots", "list", {
-      sessions: [session],
-    });
-    if (!read.ok) return false;
-    const state = (read.value as { snapshots?: { state?: string }[] })
-      .snapshots?.[0]?.state;
-    return state === "running" || state === "waiting";
-  }
-
-  // 새로 연 창이 그 workspace를 보일 때까지 기다린다.
-  async function shownWithin(workspace: Workspace) {
-    for (let waited = 0; waited < WINDOW_READY_MS; waited += WINDOW_POLL_MS) {
-      const found = windowOf(workspace);
-      if (found !== undefined || stopped) return found;
-      await new Promise((resolve) => setTimeout(resolve, WINDOW_POLL_MS));
-    }
-    return windowOf(workspace);
-  }
-
-  // shell main이 안쪽에서 넣는 탭 열기다(폰이 연 coding session과 터미널, `terminal/coding-open.ts`). core의 탭 요청과 한 차례로 열고,
-  // core가 모르는 탭이라 core에 답하지 않고 retry도 없다. 그 project를 보이는 창이 없으면 그 project의 창을 focus 없이 하나 연다:
-  // 사람이 폰에서 누른 일이라 창이 하나 느는 것을 받아들이고, 사람이 보던 창의 workspace는 바꾸지 않는다.
-  coding.bindTabOpen((request) => {
-    const opened = tabs.then(async () => {
-      if (stopped) return false;
-      let target = windowOf(request.workspace);
-      if (target === undefined && request.workspace.kind === "project") {
-        await ctx.desktop
-          .openInactive(request.workspace.id)
-          .catch(() => undefined);
-        target = await shownWithin(request.workspace);
-      }
-      return target === undefined
-        ? false
-        : offer(request as TabRequest, { request }, target);
-    });
-    tabs = opened.then(() => undefined);
-    return opened;
-  });
 
   async function openTab(request: TabRequest): Promise<void> {
     const browserOpen =
@@ -488,34 +418,7 @@ export function register(
         window: target.webContents.id,
       });
     }
-    // TUI 탭은 그 session의 headless turn이 돌지 않을 때만 연다. 창이 없어 오래 기다린 요청은 core의 예약 hold가 끝나 그 사이 turn이
-    // 시작했을 수 있다. 묻기 전에 hold를 걸어 그 뒤로는 새 turn이 시작하지 않게 하고, 돌고 있으면 놓고 retry로 둔다.
-    const held =
-      request.kind === "tab_open" &&
-      request.payload.target !== undefined &&
-      "tui" in request.payload.target
-        ? String(request.payload.target.tui)
-        : null;
-    if (held !== null) {
-      tui.open(tab, held, target.webContents.id);
-      syncVisible();
-      if (await turnRunning(held)) {
-        tui.release(tab);
-        syncVisible();
-        await rest();
-        ctx.hostLink.send({
-          type: "response",
-          id: request.id,
-          result: "retry",
-        });
-        return;
-      }
-    }
     const opened = await offer(request, { request }, target);
-    if (!opened && held !== null) {
-      tui.release(tab);
-      syncVisible();
-    }
     if (opened && request.kind === "tab_close") forgetTab(tab);
     if (opened && browserOpen) {
       // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.

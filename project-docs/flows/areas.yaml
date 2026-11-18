@@ -178,11 +178,10 @@ areas:
       - architecture/terminal-agent.md
       - packages/core/host-queue/
       - packages/core/terminals/
+      - packages/core/terminal-agents/
+      - packages/core/extensions/
       - packages/core/lophn-agent/session/
-      - packages/shell/main/terminal/
-      - packages/shell/terminal-host/
       - packages/shell/renderer/terminal/
-      - packages/shell/main/extensions/bundled/
       - packages/coding-agent/
 
   - id: app-release
@@ -279,7 +278,7 @@ areas:
       - packages/core/storage/
       - packages/shell/main/artifact/
       - packages/shell/main/browser/
-      - packages/shell/main/browser-bridge/
+      - packages/core/terminal-agents/bridge/
       - packages/shell/main/editor/
       - packages/shell/renderer/artifact/
       - packages/shell/renderer/artifact-kit/
@@ -373,8 +372,9 @@ areas:
       - architecture/appearance.md
       - architecture/platform.md
       - packages/shell/main/desktop/
-      - packages/shell/main/extensions/
       - packages/core/extensions/
+      - packages/core/terminals/
+      - packages/core/terminal-agents/
       - packages/shell/main/secret-input/
       - packages/shell/renderer/secret-input/
       - packages/shell/renderer/desktop/

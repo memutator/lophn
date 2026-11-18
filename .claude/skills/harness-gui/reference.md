@@ -7,18 +7,18 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
 | 무엇 | 곳 |
 |---|---|
 | 계약(handle, `AcpTerminal`, `onTab`) | `packages/protocol/extensions/acp-session.ts` |
-| adapter 계약(`HarnessGuiAdapter`, `HarnessGuiRun`) | `packages/shell/main/extensions/bundled/harness-gui/adapter.ts` |
+| adapter 계약(`HarnessGuiAdapter`, `HarnessGuiRun`) | `packages/core/extensions/bundled/harness-gui/adapter.ts` |
 | extension 본체(탭 요청, env, toggle, session id 따라가기) | 같은 폴더 `index.ts` |
 | adapter(harness마다 하나) | 같은 폴더 `claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts`, `antigravity.ts` |
 | 받은 메시지 분류 | 같은 폴더 `received.ts`(`classifyReceived`) |
-| 탭 쪽 shell main(handle 붙기, 묶음 push, toggle, 이미지 tmp file) | `packages/shell/main/terminal/gui.ts` |
-| IPC channel | `packages/shell/ipc/harness-gui.ts` |
+| 탭 쪽 shell main(handle 붙기, 묶음 push, toggle, 이미지 tmp file) | `packages/core/terminal-agents/gui.ts` |
+| IPC channel | `packages/protocol/coding-agent/relay.ts` |
 | 탭 화면 | `packages/shell/renderer/terminal/terminal-gui.tsx`(`GuiSwitch`), `packages/shell/renderer/terminal/model.ts`(`tabName`, `guiSessionId`) |
 | 채팅 화면의 GUI source | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 채팅 화면 key handler | `packages/shell/renderer/conversation/agent-view.tsx`(routes) |
-| 터미널 함수 | `packages/shell/terminal-host/shell-integration.ts` |
+| 터미널 함수 | `packages/core/terminals/host/shell-integration.ts` |
 | hook 보내기 | `hook.ts`가 cwd를 더해 그 탭의 hook socket `LPN_TERMINAL_HOOK`으로 |
-| 상위 session 표지 | `packages/shell/terminal-host/env.ts`의 `SESSION_MARKER_NAME`(`CLAUDE_CODE_ENTRYPOINT` 포함) |
+| 상위 session 표지 | `packages/core/terminals/host/env.ts`의 `SESSION_MARKER_NAME`(`CLAUDE_CODE_ENTRYPOINT` 포함) |
 | keymap | extension `manifest.json`의 `contributes.keybindings`(context `agentView:<harness>`) |
 
 ## 탭의 흐름과 code
@@ -47,8 +47,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 
 ## 구현 세부(설계 문서의 "지키는 것"이 이루어지는 방식)
 
-- handle(`createAcp`, `packages/shell/main/desktop/wiring/extensions.ts`)은 publish된 갱신을 `reduceAcp`로 접은 `AcpState` 하나만 쥔다. main(`terminal/gui.ts`)은 snapshot을 따로 한 message로 먼저 보내고 갱신은 handle마다 20ms(`UPDATE_BATCH_MS`) 모아 배열 하나(`HarnessGuiTabBatch`, IPC `harness-gui:tab-update`)로 보낸다. view ack 한도는 1.5초(`ACK_TIMEOUT_MS`)다.
-- main은 PTY에 글을 `typeInto`로 쳐 넣는다. terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만. foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다(`packages/shell/terminal-host/foreground.ts`, win32는 null).
+- handle(`createAcp`, `packages/core/extensions/acp.ts`)은 publish된 갱신을 `reduceAcp`로 접은 `AcpState` 하나만 쥔다. main(`terminal/gui.ts`)은 snapshot을 따로 한 message로 먼저 보내고 갱신은 handle마다 20ms(`UPDATE_BATCH_MS`) 모아 배열 하나(`HarnessGuiTabBatch`, IPC `harness-gui:tab-update`)로 보낸다. view ack 한도는 1.5초(`ACK_TIMEOUT_MS`)다.
+- main은 PTY에 글을 `typeInto`로 쳐 넣는다. terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만. foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다(`packages/core/terminals/host/foreground.ts`, win32는 null).
 - login env는 `index.ts`가 처음 열 때 한 번 `${SHELL:-/bin/sh} -ilc`로 읽는다(Linux `env -0`, macOS는 BSD `env`라 줄 단위로 읽는다. tmux·updater guard, 5초 `ENV_WAIT_MS`). 합치는 순서는 login env < 탭 hook env < adapter가 넘긴 key다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
 - 탭 화면(`terminal-gui.tsx`)은 IPC로 handle에 붙어 받은 snapshot에서 시작해 갱신 묶음을 `reduceAcp`로 접고, 묶음 하나를 한 task 안에서 알려 화면이 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) source의 `changed`로 화면이 다시 읽고, `reread`가 서면 feed의 지금 상태를 다시 읽는다. main은 sender(webContents)와 handle id로 붙은 view를 안다.
 - 탭 이름: `GuiSwitch`가 제목을 탭 field `guiTitle`에 두고 `tabName`이 GUI view일 때만 그것을 쓴다. 다른 workspace의 탭 줄은 `agentTitle`을 쓴다. 화면의 session key는 터미널 ref `trm_<ULID>`의 ULID로 만든 `ses_<ULID>`(`guiSessionId`)다.

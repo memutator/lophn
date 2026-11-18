@@ -4,11 +4,13 @@ export const common = {
   "common.button.cancel": "Cancel",
   "common.button.clear": "Clear",
   "common.button.close": "Close",
+  "common.button.close-terminals": "Close terminals and quit",
   "common.button.columns": "Columns",
   "common.button.copy": "Copy",
   "common.button.copy-code": "Copy code",
   "common.button.copy-id": "Copy ID",
   "common.button.install": "Install",
+  "common.button.keep-terminals": "Quit and keep terminals running",
   "common.button.next-month": "Next month",
   "common.button.next-page": "Next page",
   "common.button.not-now": "Not now",
@@ -87,6 +89,9 @@ export const common = {
   "common.palette.no-results": "Nothing matches your search.",
   "common.quit.saves":
     "Changes that are still being saved may be lost. Apps and scheduled work stop until you open lophn again.",
+  "common.quit.saves-lost": "Changes that are still being saved may be lost.",
+  "common.quit.terminals-keep":
+    "{count, plural, one {# terminal is} other {# terminals are}} running. They can keep running after lophn closes, and their tabs reconnect when you open lophn again.",
   "common.quit.terminals":
     "Running terminals will stop. Apps and scheduled work stop until you open lophn again.",
   "common.quit.terminals-and-saves":

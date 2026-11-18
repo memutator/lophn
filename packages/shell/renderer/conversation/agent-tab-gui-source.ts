@@ -1,21 +1,22 @@
-// AgentTabSource를 harness-gui의 ACP session 하나(터미널 탭의 handle)로 만든다. 대화는 main이 준 snapshot에 갱신을 접은 feed에서
-// 읽고, 대화 조작은 IPC로 extension의 handle에 보낸다. feed에는 tool 본문이 없어 줄을 펼칠 때 `toolBody`로 handle에서 읽는다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
+// AgentTabSource를 harness-gui의 ACP session 하나(터미널 탭의 coding session)로 만든다. 대화는 core가 준 snapshot에 갱신을 접은
+// feed에서 읽고, 대화 조작은 core의 `acp/send`로 handle에 보낸다. feed에는 tool 본문이 없어 줄을 펼칠 때 `toolBody`로 읽는다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
 // 화면이 읽는다. 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)은 `act`로 handle에 간다. lophn session의 것(권한 요약,
 // call)은 없어서 unavailable로 답한다. session 목록은 그 CLI의 지난 session이고 id가 CLI session id다.
 import type { AcpInput, AcpState } from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import type {
-  HarnessGuiInfo,
-  HarnessGuiRewindPreview,
-  HarnessGuiSessionEntry,
-} from "../../ipc/harness-gui.ts";
+  AcpCliSession,
+  AcpRewindPreview,
+  GuiHarness,
+} from "../../../protocol/extensions/mod.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendors.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
 
 interface GuiSourceDeps {
-  readonly info: HarnessGuiInfo;
+  /** 탭이 그리는 session의 머리 값. */
+  readonly info: { readonly harness: GuiHarness; readonly cwd: string };
   /**
    * snapshot에 갱신을 접은 값. `session`은 이 화면이 쓰는 session id(`ses_…`)다. `changed`는 snapshot이 상태를 통째로
    * 갈아 끼웠을 때 부른다.
@@ -25,16 +26,14 @@ interface GuiSourceDeps {
     state(): AcpState;
     changed(listener: () => void): () => void;
   };
-  /** tool 하나의 본문 한 쪽을 handle에서 읽는다(desktop은 main IPC, 폰은 core의 `acp/tool_body`). */
+  /** tool 하나의 본문 한 쪽을 core의 `acp/tool_body`로 읽는다. */
   readonly toolBody: AgentTabSource["toolCallBody"];
   /** 조작을 handle에 준다. 받았으면 true다. */
   readonly input: (input: AcpInput) => Promise<boolean>;
   /** 그 CLI가 이 폴더에서 가진 지난 session. 못 읽으면 빈 배열이다. */
-  readonly sessions: () => Promise<readonly HarnessGuiSessionEntry[]>;
+  readonly sessions: () => Promise<readonly AcpCliSession[]>;
   /** 그 사람 메시지로 rewind하면 되돌아갈 file. adapter가 못 주면 null이다. */
-  readonly rewindPreview: (
-    message: string,
-  ) => Promise<HarnessGuiRewindPreview | null>;
+  readonly rewindPreview: (message: string) => Promise<AcpRewindPreview | null>;
   /** 이미지를 탭의 임시 폴더에 쓰고 절대 경로를 받는다. 없으면 이미지를 붙일 수 없다. */
   readonly writeImage?: (image: Blob) => Promise<string | null>;
   /** `writeImage`로 쓴 이미지를 다시 읽는다. 그 탭의 임시 폴더 밖이거나 못 읽으면 null이다. */

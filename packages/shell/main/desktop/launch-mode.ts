@@ -11,7 +11,7 @@ export const CORE_INTENT = "--core";
 export { AGENT_WINDOW_INTENT } from "../../../protocol/lophn-agent/host-queue.ts";
 
 type LaunchMode = {
-  /** true면 창·tray·terminal-host·extension을 조립하지 않고 core만 ensure한다. */
+  /** true면 창·tray를 조립하지 않고 core만 ensure한다. */
   core: boolean;
 };
 

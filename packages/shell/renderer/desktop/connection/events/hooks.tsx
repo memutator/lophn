@@ -8,7 +8,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { TerminalApi } from "../../../../ipc/terminal.ts";
+import type { TerminalRuntime } from "../../../../../protocol/coding-agent/terminals.ts";
 import { TERMINAL_SESSION_PREFIX } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import type { EventClient } from "./client.ts";
 import {
@@ -36,9 +36,10 @@ function useStores(): Stores {
   return stores;
 }
 
-/** 창의 터미널 탭 store. 탭 점이 쓰도록 못 본 터미널(`term:<탭>`의 탭)을 넣어 준다. */
+/** 창의 터미널 탭 store. 탭 점이 쓰도록 못 본 터미널(`term:<탭>`의 탭)을 넣어 주고, 대기 목록이 core가 알린 runtime을 듣는다. */
 export interface UnseenTerminals {
   noteUnseen(terminalRefs: ReadonlySet<string>): void;
+  onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
 }
 
 /** 창마다 한 번 마운트한다. */
@@ -58,14 +59,14 @@ export function EventsProvider({
       waiting: createWaitingStore(
         client,
         () => new Date().toISOString(),
-        (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
+        terminals ?? null,
         unseen,
       ),
       sessions: createSessionsStore(client, unseen),
       unseen,
       acpUpdates: createAcpUpdatesStore(client),
     };
-  }, [client]);
+  }, [client, terminals]);
   useEffect(() => {
     const stops = [
       stores.waiting.start(),

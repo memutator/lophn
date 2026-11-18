@@ -7,10 +7,7 @@ import { test } from "node:test";
 import { checkRepo } from "./check-deps.ts";
 
 test("extension 폴더가 host 내부나 다른 extension을 import하면 check가 막는다", async () => {
-  for (const host of [
-    "packages/shell/main/extensions",
-    "packages/core/extensions",
-  ]) {
+  for (const host of ["packages/core/extensions"]) {
     const root = await mkdtemp(join(tmpdir(), "lophn-check-deps-"));
     try {
       const put = async (file: string, text: string) => {

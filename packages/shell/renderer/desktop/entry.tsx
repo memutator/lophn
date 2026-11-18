@@ -13,7 +13,7 @@ import {
   type Route,
 } from "./router.ts";
 import { catalogSource } from "./palette/core-catalog.ts";
-import type { HookPromptApi } from "./hook-prompt/hook-prompt-host.tsx";
+import { createTerminalCore } from "../terminal/core.ts";
 import { type TerminalDeps, windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import {
@@ -21,6 +21,7 @@ import {
   type TerminalClipboard,
 } from "../terminal/xterm-view.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { TerminalApi } from "../../ipc/terminal.ts";
 import type { AppearanceApi } from "../../ipc/appearance.ts";
 import {
   type AppViewsDeps,
@@ -61,10 +62,7 @@ import { coreProviderSettingsSource } from "./settings/providers/core-source.ts"
 import { coreAgentsSettingsSource } from "./settings/agents/core-source.ts";
 import { coreDiagnosticsSource } from "./settings/diagnostics/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
-import {
-  coreCodingConnectionsSource,
-  windowCodingApi,
-} from "./settings/connections/core-source.ts";
+import { coreCodingConnectionsSource } from "./settings/connections/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnArtifactApi } from "../../ipc/artifact.ts";
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
@@ -140,7 +138,7 @@ const settings = remote
 // workspace 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
 const jobs =
   mock?.jobs ?? (remote ? jobsSwitchOnly(core) : coreJobsSource(core));
-// settings 항목마다의 통로. key·로그인 응답은 보호 창이 받고, coding agent 감지는 main이 따로 검증하는 통로(`lophnCoding`)다.
+// settings 항목마다의 통로. key·로그인 응답은 보호 창이 받는다.
 const settingsPanels = remote
   ? undefined
   : (mock?.settingsPanels ?? {
@@ -158,7 +156,7 @@ const settingsPanels = remote
       ),
       keyboard: coreKeyboardSource(core),
       remote: coreRemoteSource(core),
-      coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
+      coding: coreCodingConnectionsSource(core),
       browser: windowBrowserSettings(),
     });
 // 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
@@ -220,26 +218,34 @@ const start: Route | undefined = seed
           : location.hash === "#settings"
             ? openSettings()
             : undefined;
-// 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널 clipboard는 main이 쓴다.
-// view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다. 다른 기계의 창에는 터미널이 없다.
+// 창마다 하나. 터미널의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널은 core가 갖고, 입력·clipboard는 main을
+// 거친다. view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다. 다른 기계의 창에는 터미널이 없다.
+const terminalCore = createTerminalCore(core, events);
 const terminal: TerminalDeps | undefined = remote
   ? undefined
-  : windowTerminalDeps(new TerminalStore(), (host, edge) => {
-      const bridge = terminal!.bridge;
-      const clipboard: TerminalClipboard | null =
-        bridge === null
-          ? null
-          : {
-              copy: async (text) => {
-                await bridge.copy({ text: text.slice(0, 60_000) });
-              },
-              paste: async () => {
-                const reply = await bridge.paste();
-                return reply.ok ? reply.value : "";
-              },
-            };
-      return createXtermView(host, edge, undefined, clipboard);
-    });
+  : windowTerminalDeps(
+      terminalCore,
+      new TerminalStore(
+        terminalCore,
+        (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
+      ),
+      (host, edge) => {
+        const bridge = terminal!.bridge;
+        const clipboard: TerminalClipboard | null =
+          bridge === null
+            ? null
+            : {
+                copy: async (text) => {
+                  await bridge.copy({ text: text.slice(0, 60_000) });
+                },
+                paste: async () => {
+                  const reply = await bridge.paste();
+                  return reply.ok ? reply.value : "";
+                },
+              };
+        return createXtermView(host, edge, undefined, clipboard);
+      },
+    );
 
 // 다른 기계의 job은 켜고 끄기만 한다(기기의 `jobs/update`는 `enabled`만 받는다). 고치기·지우기·가져오기가 없으면 그 단추가 없다.
 function jobsSwitchOnly(core: CoreSource): JobsSource {
@@ -290,9 +296,6 @@ const palette: PaletteDeps | undefined =
         search: fileSearch(catalog, coreFileSearchSource(core)),
       }
     : undefined;
-
-// main이 묻는 전역 hook 설치 확인. desktop preload에만 있다.
-const hookPrompt = (globalThis as { lophnCoding?: HookPromptApi }).lophnCoding;
 
 // 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언 read로
 // 프로젝트 탭의 앱 패널 열기를 세운다.
@@ -347,7 +350,6 @@ const tree = (
                             appDetail={appDetail}
                             views={views}
                             overlay={bridges.lophnShell}
-                            hookPrompt={hookPrompt}
                             agentViewSource={agentViewSource}
                             detached={bridges.lophnDetached}
                           />

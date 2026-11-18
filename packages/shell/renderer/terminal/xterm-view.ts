@@ -448,7 +448,7 @@ export function createXtermView(
     allowProposedApi: true,
   });
   // 기본 Unicode 6 폭표는 이모지(🔥✅🚀)를 1칸으로 센다. TUI(OpenCode, Claude Code)는 2칸으로 그리므로 그 줄의 뒤가
-  // 한 칸씩 밀리고, 바뀐 칸만 다시 그리는 TUI 화면이 크게 깨진다. host의 화면(`terminal-host/screen.ts`)도 같은 폭표다.
+  // 한 칸씩 밀리고, 바뀐 칸만 다시 그리는 TUI 화면이 크게 깨진다. core PTY host의 화면(`packages/core/terminals/host/screen.ts`)도 같은 폭표다.
   term.loadAddon(new parts.Unicode11Addon());
   term.unicode.activeVersion = "11";
   let shown = JSON.stringify(theme);

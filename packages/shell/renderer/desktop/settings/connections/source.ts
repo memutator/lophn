@@ -1,11 +1,10 @@
-// Coding agents 화면이 읽고 쓰는 통로. core route 이름과 main IPC는
-// core-source.ts만 안다. 제품마다 감지 결과(`HarnessSettingsView`)는 main IPC가 준다. 연결을 만들고
-// 회수하는 길은 없다.
+// Coding agents 화면이 읽고 쓰는 통로. core route 이름은 core-source.ts만 안다. 제품마다 감지 결과(`HarnessSettingsView`)와
+// 전역 hook은 core의 `coding_agents/*`가 준다. 연결을 만들고 회수하는 길은 없다.
 import type {
   HarnessHookView,
-  HarnessName,
   HarnessSettingsView,
-} from "../../../../ipc/coding.ts";
+} from "../../../../../protocol/coding-agent/coding-agents.ts";
+import type { HarnessId as HarnessName } from "../../../../../protocol/coding-agent/harness-id.ts";
 import type { SourceResult } from "../source.ts";
 
 export type { HarnessHookView, HarnessName, HarnessSettingsView, SourceResult };

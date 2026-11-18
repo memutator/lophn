@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py one-screen build`가 `tasks/*.md`에서 id, 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `screen-base-core` | screen | 1 | 없음 | merged | screen/screen-base-core | 407164bf3 |  |
-| `screen-base-scope` | screen | 1 | 없음 | running | screen/screen-base-scope |  |  |
+| `screen-base-scope` | screen | 1 | 없음 | merged | screen/screen-base-scope | cd1135939 |  |
 | `screen-link` | screen | 1 | 없음 | merged | screen/screen-link | 84cd4f299 |  |
 | `screen-apps` | screen | 2 | screen-base-core, screen-base-scope | todo |  |  |  |
 | `screen-lists` | screen | 2 | screen-base-core, screen-base-scope | todo |  |  |  |

@@ -57,3 +57,13 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+wave 1(`screen-base-core`, `screen-base-scope`, `screen-link`)이 review를 거쳐 합쳐졌다. brief의 이름이 code와 다르면 code가 맞다. 달라진 것:
+- `machineCoreSource`는 넷째 인자 `local`(이 컴퓨터의 `windowCoreSource`)을 받는다. 이 컴퓨터의 core 연결이 내려가면 다른 기계의 범위도 `stale`이다.
+- workspace의 기계는 `WorkspaceRef.machine`이 원본이다. `WorkspaceWindow`가 그것과 둘레의 범위가 다를 때만 `MachineScope`로 감싼다. 여는 쪽은 그 기계 묶음의 source를 prop으로 넘긴다.
+- 다른 기계의 묶음(`desktop/machines/data.ts`)은 이 컴퓨터의 file, 폴더 고르기, 지침 file, 기계 없는 secret 창에 닿지 않는다(닿는 member는 `unavailable`). 이 규칙을 깨는 source를 묶음에 더하지 않는다(`architecture/remote.md` 지키는 것 42).
+- 기계가 있는 탭은 떼어 내기와 전역 float을 내놓지 않는다(`screen-layout`이 연다).
+- shell main: 다른 기계를 적은 call과 watch도 보낸 쪽 검사를 거친다. 이 컴퓨터의 id를 아직 모를 때 기계를 적은 call은 `unavailable`이고 watch는 기다린다. watch는 창마다(watcher `w<창 id>`) 따로이고 core가 합을 건다.
+- review: `reports/multi-device/review-screen-base-core.md`, `review-screen-base-scope.md`.

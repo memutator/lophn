@@ -9,5 +9,5 @@ lead만 고친다. `tools/status.py carry-paths build`가 `tasks/*.md`에서 id,
 | `carry-links` | carry | 2 | carry-contract | merged | carry/carry-links | cdcbeec4b |  |
 | `carry-notify` | carry | 2 | carry-contract | merged | carry/carry-notify | a5b673917 |  |
 | `carry-phone` | carry | 2 | carry-contract | merged | carry/carry-phone | 7ffbafb2d |  |
-| `carry-settings` | carry | 3 | carry-links, carry-folder | todo |  |  |  |
+| `carry-settings` | carry | 3 | carry-links, carry-folder | running | carry/carry-settings |  |  |
 | `carry-cleanup` | carry | 4 | carry-phone, carry-notify, carry-settings | todo |  |  |  |

@@ -1,0 +1,17 @@
+id: dev-core-runs-installed-cli
+title: 개발·test core가 설치본 `lophn` CLI를 불러 개발 data root에 설치본 core를 남김
+kind: bug
+status: fixed
+topic: terminal-agent
+modules: [packages/core/terminals, tools]
+now: |
+  core가 터미널과 coding agent를 갖게 되면서 core가 기동 때 `lophn harness sync-skills`를 `ctx.personEnv.cli`로 부른다. 저장소 layout의 `lophnCliPath`(`packages/core/terminals/person-env.ts`)는 shell main의 규칙을 옮겨 물려받은 절대 경로 `LOPHN_CLI`를 썼다. lead와 worker는 설치본 lophn 앱의 터미널 안에서 돌아 env에 `LOPHN_CLI=/usr/bin/lophn`이 있다. 그래서 `boot.sh`처럼 `LOPHN_CLI`를 다시 정하지 않고 띄운 개발 core가 설치본 CLI를 개발 data root(`LOPHN_HOME`)로 불렀고, core에 닿지 못한 CLI가 설치본 판의 core를 그 root에 띄워 남겼다(merge의 기동 확인마다 하나, strace로 확인).
+impact: |
+  개발·test data root에 다른 판의 core가 붙어 돈다(schema가 다를 수 있다). e2e와 land가 core를 많이 띄우므로 남는 process가 쌓이고 test가 흔들릴 수 있다. 사람의 `~/.lophn`에는 닿지 않았다.
+fix: |
+  저장소 layout의 core는 env를 읽지 않고 저장소의 개발 launcher(`<저장소>/.cache/dev-cli/lophn`, `tools/dev.ts`의 `writeDevCli`)가 있으면 그것, 없으면 null을 쓴다(작음). 추천.
+decided: |
+  위 fix. env의 `LOPHN_CLI`는 core가 읽지 않는다.
+closed: |
+  `lophnCliPath`가 env를 받지 않는다. 저장소 layout이면 `<platformRoot>/.cache/dev-cli/lophn`(win32는 `.cmd`)이 있을 때만 그 경로이고 없으면 null이라 skill sync 같은 CLI 호출을 하지 않는다. 설치 layout은 설치한 launcher다. `tools/dev.ts`의 `dev:core`는 core에 `LOPHN_CLI`를 넘기지 않는다.
+guard: packages/core/terminals/person-env_test.ts

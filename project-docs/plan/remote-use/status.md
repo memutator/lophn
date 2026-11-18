@@ -10,6 +10,6 @@ lead만 고친다. `tools/status.py remote-use build`가 `tasks/*.md`에서 id, 
 | `use-cli` | use | 2 | use-contract | merged | use/use-cli | fbc1d13bf |  |
 | `use-receive` | use | 2 | use-contract, use-grant | merged | use/use-receive | 4e6ae337e |  |
 | `use-send` | use | 2 | use-contract | merged | use/use-send | b4e3e3a49 |  |
-| `use-events` | use | 3 | use-receive, use-send | running | use/use-events |  |  |
+| `use-events` | use | 3 | use-receive, use-send | merged | use/use-events | caa194245 |  |
 | `use-screens` | use | 3 | use-send | merged | use/use-screens | 160c7f294 |  |
 | `use-cleanup` | use | 4 | use-events, use-screens, use-cli | todo |  |  |  |

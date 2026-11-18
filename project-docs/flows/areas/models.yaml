@@ -1357,7 +1357,7 @@ flows:
       - "core가 정의의 간격마다 세션을 한 번 본다. 발급자에 닿지 못한(unavailable) 것은 연달아 3번까지 다시 보고, 한 번 놓친 뒤 세션이 없으면(not_found) unavailable로 끝낸다. 기한(expires_at)이 지나면 not_found로 끝낸다"
       - "PKCE는 callback이 없으면 다시 기다린다. 있으면 세션을 끝낸다. 발급자가 error로 거절했거나 state가 이 시도의 것이 아니면 forbidden이다. device는 authorization_pending이나 slow_down이면 다시 기다리고 expired_token이면 not_found, 그 밖의 거절이나 token이 모자라면 forbidden이다"
       - "token 교환(PKCE): 발급자가 200이 아니면 forbidden이다. Antigravity는 refresh가 없거나 control plane이 401이면 unauthorized, 403이면 forbidden, project를 정하지 못하면 unavailable이다. ChatGPT는 계정 id가 없으면 forbidden이다"
-      - "ConnectProvider를 로그인을 시작한 사람의 context로 writer에 부른다. 같은 id가 있으면 conflict다(token은 저장하지 않았다). 연결된 뒤에 token 세 이름을 secrets.json에 쓴다. 못 쓰면 store-failed다. 연결되면 계정 model 목록을 뒤에서 읽어 record-models로 저장한다(실패는 삼킨다)"
+      - "기기(principal `device:`)가 시작한 로그인은 잇기 직전에 그 기기의 터미널 입력 허락을 다시 보고, 꺼졌으면 받은 token을 버리고 forbidden으로 끝낸다. ConnectProvider를 로그인을 시작한 사람의 context로 writer에 부른다. 같은 id가 있으면 conflict다(token은 저장하지 않았다). 연결된 뒤에 token 세 이름을 secrets.json에 쓴다. 못 쓰면 store-failed다. 연결되면 계정 model 목록을 뒤에서 읽어 record-models로 저장한다(실패는 삼킨다)"
       - "끝나면 상태를 connected나 failed(code)로 바꾸고 StateChanged{providers, <provider>}를 낸다. agent의 sign_in 요청으로 시작했으면 그 요청을 signed_in이나 그 오류로 core가 끝낸다"
       - "화면(desktop Settings, card, 폰)은 providers/sign-in-state를 StateChanged로 다시 읽어 따라간다. 모르는 login은 not_found다. 끝난 상태는 core가 사는 동안, 같은 정의로 새 로그인을 시작할 때까지 남는다"
     outcomes:
@@ -1369,6 +1369,9 @@ flows:
         observe: ["disk:<root>/secrets.json", "ledger:providers", "ledger:provider_credentials", "event:StateChanged", "response"]
       - id: forbidden
         when: "state failed, code forbidden: 발급자가 로그인이나 교환을 거절했다. state가 이 시도의 것이 아니다. token 응답이 모자라다. ChatGPT 계정 id가 없다. Antigravity 계정이 쓸 수 없다(403)"
+        observe: ["event:StateChanged", "response"]
+      - id: grant-lost
+        when: "state failed, code forbidden: 기기가 시작한 로그인인데 기다리는 사이 그 기기의 터미널 입력 허락이 꺼졌다. provider를 잇지 않고 token을 쓰지 않는다. 이 기계의 사람이 시작한 로그인은 허락을 보지 않는다"
         observe: ["event:StateChanged", "response"]
       - id: unauthorized
         when: "state failed, code unauthorized: Antigravity가 refresh token을 주지 않았거나 계정 control plane이 401로 답했다"
@@ -1479,7 +1482,7 @@ flows:
     code: [packages/core/secrets/routes.ts, packages/core/secrets/file-store.ts, packages/core/secrets/secret-store.ts, packages/shell/main/secret-input/submit.ts]
     steps:
       - "보호 입력 창이 값을 shell main에 보내고 main이 이름과 byte 수를 header로 붙여 upload로 올린다. 값은 renderer의 일반 통로를 지나지 않는다"
-      - "부른 쪽이 기기(principal `device:`)이고 이름이 `login.`이나 `provider-oauth.`로 시작하면 body를 읽지 않고 forbidden이다. 터미널 입력 허락이 있어도 같다"
+      - "부른 쪽이 기기(principal `device:`)이고 이름이 `login.`로 시작하면 body를 읽지 않고 forbidden이다. 터미널 입력 허락이 있어도 같다"
       - "byte 수와 body 길이가 맞고 UTF-8이며 1 byte 이상 64KiB 이하인지 본다"
       - "쓰기 전에 새 값을 알려진 값(redaction)에 먼저 등록한다. 등록하지 못하면 쓰지 않는다"
       - "파일 전체를 임시 파일(0600)에 쓰고 fsync한 뒤 rename한다. 같은 이름의 옛 값은 확인 없이 바뀐다"
@@ -1497,7 +1500,7 @@ flows:
         observe: ["response"]
       - id: device-vault-refused
         code: forbidden
-        when: "기기 자격이 site login vault(`login.`)나 구독 token(`provider-oauth.`) 이름에 쓰려 했다. 파일은 그대로다"
+        when: "기기 자격이 site login vault(`login.`) 이름에 쓰려 했다. 파일은 그대로다"
         observe: ["response"]
     crosses_process: true
     risk: [secret, data-loss]
@@ -1513,7 +1516,7 @@ flows:
     code: [packages/core/secrets/routes.ts, packages/core/secrets/file-store.ts, packages/core/secrets/secret-store.ts]
     steps:
       - "이름 모양이 맞지 않으면 invalid_input이다"
-      - "부른 쪽이 기기(principal `device:`)이고 이름이 `login.`이나 `provider-oauth.`로 시작하면 forbidden이다"
+      - "부른 쪽이 기기(principal `device:`)이고 이름이 `login.`로 시작하면 forbidden이다"
       - "secret 파일을 열 수 있는지 본다"
       - "이름이 있으면 그 줄을 뺀 전체를 임시 파일에 써서 rename하고 알려진 값에서 회수한다. 없으면 파일을 건드리지 않고 configured false를 돌려준다"
       - "이 이름을 provider나 MCP 서버가 쓰는지는 보지 않는다. 쓰는 연결이 있어도 지워진다"
@@ -1533,7 +1536,7 @@ flows:
         observe: ["response"]
       - id: device-vault-refused
         code: forbidden
-        when: "기기 자격이 site login vault(`login.`)나 구독 token(`provider-oauth.`) 이름을 지우려 했다. 파일은 그대로다"
+        when: "기기 자격이 site login vault(`login.`) 이름을 지우려 했다. 파일은 그대로다"
         observe: ["response"]
     crosses_process: true
     risk: [data-loss]

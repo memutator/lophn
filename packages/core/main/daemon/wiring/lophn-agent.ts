@@ -201,6 +201,8 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             target,
             freshId: connect.freshId,
             requests: ctx.questionWaits,
+            granted: (principal) =>
+              ctx.peek.terminalInputGrant?.(principal) ?? false,
             changed: (provider) =>
               publishStateChanged(ctx.bus, ctx.clock.now(), [
                 { name: "providers", id: provider },

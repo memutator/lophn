@@ -86,6 +86,8 @@ export type ProviderLoginDeps = {
   };
   // 로그인 상태가 바뀌었다(`StateChanged{providers, <provider>}`).
   changed(provider: string): void;
+  // 기기 principal이 지금 터미널 입력 허락을 가졌는가(기기의 call이 보는 것과 같은 허락).
+  granted(principal: string): boolean;
 };
 
 // writer queue 앞의 처리기. 로그인 취소와 Connect·Disconnect만 가로채고 나머지 command와 Writer 동작은 그대로다.
@@ -124,6 +126,14 @@ export function withProviderLogin(
     if (!step.ok) return step;
     if (step.value.state === "pending") return ok(step.value);
     const { tokens, target } = step.value;
+    // 기기가 시작한 로그인은 잇기 직전에 허락을 다시 본다. writer는 기기 자격의 scope만 보므로, 기다리는 사이 사람이 그 기기의
+    // 터미널 입력 허락을 껐으면 여기서 막는다. 받은 token은 버린다(아직 어디에도 쓰지 않았다).
+    if (ctx.principal.startsWith("device:") && !deps.granted(ctx.principal)) {
+      return err({
+        code: "forbidden",
+        message: "the device lost its terminal input grant during sign-in",
+      });
+    }
     const connected = await writer.command(ctx, {
       command: connectProvider.name,
       input: {

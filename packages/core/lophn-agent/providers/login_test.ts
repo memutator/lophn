@@ -214,6 +214,7 @@ async function fixedLogin(input: {
         finishRequest: () => ok(undefined),
       },
       changed: () => {},
+      granted: () => true,
     },
   );
   const run = (command: string, body: unknown) =>
@@ -565,6 +566,7 @@ test("이미 이어진 id로 잇기가 conflict로 끝나면 그 provider의 key
         },
       },
       changed: () => {},
+      granted: () => true,
     },
   );
   const refused = await asked.signIn(USER, {
@@ -577,4 +579,120 @@ test("이미 이어진 id로 잇기가 conflict로 끝나면 그 provider의 key
     [refused.ok ? "ok" : refused.error.code, finished],
     ["conflict", ["conflict"]],
   );
+});
+
+// 기기의 call은 허락을 call마다 보지만 로그인은 시작한 자격으로 뒤에서 잇는다. 기다리는 사이 사람이 허락을 끄면 그 뒤에 잇지 않는다.
+test("기기가 시작한 device code 로그인은 기다리는 사이 허락이 꺼지면 provider를 잇지 않고 secret을 남기지 않는다", async () => {
+  const builtin = builtinProviderDefinition("xai");
+  assert.ok(builtin.ok && builtin.value.oauth?.product === "supergrok");
+  const definition = {
+    ...builtin.value,
+    oauth: {
+      ...builtin.value.oauth,
+      device_authorization_endpoint: `${ISSUER}/device`,
+      token_endpoint: `${ISSUER}/token`,
+    },
+  };
+  const DEVICE = {
+    ...USER,
+    principal: "device:dev_01h455vb4pex5v6nkc6gd5fd12",
+  };
+  async function run(who: typeof USER) {
+    let now = NOW;
+    let grant = true;
+    const secrets = new Map<string, string>();
+    const connects: unknown[] = [];
+    const login = withProviderLogin(
+      {
+        command(_ctx, envelope) {
+          connects.push(envelope.input);
+          return Promise.resolve(
+            ok({ result: { provider: { revision: 1 } } }) as never,
+          );
+        },
+        readResult: () => Promise.resolve(ok(null)),
+        close: () => Promise.resolve(),
+      },
+      {
+        http(url) {
+          if (url.endsWith("/device")) {
+            return Promise.resolve(
+              Response.json({
+                device_code: "DEVICE-CODE",
+                user_code: "ABCD-EFGH",
+                verification_uri: "https://x.example/device",
+                interval: 1,
+                expires_in: 600,
+              }),
+            );
+          }
+          // 사람이 브라우저에서 끝내기 직전에 허락을 끈다.
+          grant = false;
+          return Promise.resolve(
+            Response.json({
+              access_token: "ACCESS-VALUE",
+              refresh_token: "REFRESH-VALUE",
+              expires_in: 3600,
+            }),
+          );
+        },
+        openListener: () =>
+          Promise.resolve(err({ code: "unavailable", message: "unused" })),
+        secrets: {
+          get: (name) =>
+            secrets.has(name)
+              ? ok(secrets.get(name)!)
+              : err({ code: "not_found", message: "없다" }),
+          put: (name, value) => {
+            secrets.set(name, String(value));
+            return Promise.resolve(ok({ names: [] }) as never);
+          },
+          delete: (name) => {
+            secrets.delete(name);
+            return Promise.resolve(ok({ names: [] }) as never);
+          },
+        },
+        newKey: () => "key",
+        nowMs: () => now,
+        random: seededRandom(7),
+        wait: (ms) => {
+          now += ms;
+          return new Promise((resolve) => setTimeout(resolve, 0));
+        },
+        target: () =>
+          ok({
+            name: definition.display_name,
+            definition,
+            endpoint: "https://api.x.ai/v1",
+            protocol: "openai-chat-completions",
+          }),
+        freshId: () => Promise.resolve(ok(PROVIDER)),
+        requests: {
+          readRequest: () => err({ code: "not_found", message: "없다" }),
+          finishRequest: () => ok(undefined),
+        },
+        changed: () => {},
+        granted: (principal) => principal === DEVICE.principal && grant,
+      },
+    );
+    const begun = await login.signIn(who, { definition: "xai" });
+    assert.ok(begun.ok, JSON.stringify(begun));
+    const started = begun.value as { login: string };
+    let done = login.signInState({ login: started.login });
+    while (done.ok && (done.value as { state: string }).state === "waiting") {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      done = login.signInState({ login: started.login });
+    }
+    assert.ok(done.ok);
+    const settled = done.value as { state: string; code?: string };
+    return [
+      settled.code ?? settled.state,
+      connects.length,
+      [...secrets.keys()],
+    ];
+  }
+  assert.deepStrictEqual(await run(DEVICE), ["forbidden", 0, []]);
+  // 이 기계의 사람이 시작한 로그인은 허락과 상관없이 잇는다.
+  const local = await run(USER);
+  assert.deepStrictEqual(local.slice(0, 2), ["connected", 1]);
 });

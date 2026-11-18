@@ -14,15 +14,11 @@ import type { SecretStore } from "./secret-store.ts";
 const INVALID = (message: string) =>
   err({ code: "invalid_input" as const, message });
 
-// 터미널 입력을 허락받은 기기도 site login vault(`login.`)와 구독 token(`provider-oauth.`)은 쓰거나 지우지 못한다. vault 값은
-// shell main이 탭에 칠 때만 core를 나가고, 기기가 바꾼 값이면 agent가 그 값을 사이트에 친다.
-// `provider-oauth.`의 정의는 lophn-agent/providers/oauth-secrets.ts다(secrets는 harness를 import하지 못해 literal).
-const DEVICE_CLOSED_PREFIXES = [LOGIN_SECRET_PREFIX, "provider-oauth."];
-
+// 터미널 입력을 허락받은 기기도 site login vault(`login.`)는 쓰거나 지우지 못한다. vault 값은 shell main이 탭에 칠 때만
+// core를 나가고, 기기가 바꾼 값이면 agent가 그 값을 사이트에 친다.
 function closedToDevice(principal: string, name: string): boolean {
   return (
-    principal.startsWith("device:") &&
-    DEVICE_CLOSED_PREFIXES.some((prefix) => name.startsWith(prefix))
+    principal.startsWith("device:") && name.startsWith(LOGIN_SECRET_PREFIX)
   );
 }
 

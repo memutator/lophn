@@ -93,6 +93,7 @@ async function setup() {
     freshId: () => Promise.resolve(ok(ids.newId("pvd"))),
     requests: waits,
     changed: () => {},
+    granted: () => true,
   });
   const keyDeps = {
     writer: () => writer,

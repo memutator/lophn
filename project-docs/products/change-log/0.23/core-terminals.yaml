@@ -1,0 +1,43 @@
+id: core-terminals
+version: 0.23.81
+title: 터미널, coding agent, extension host를 core가 갖고 desktop과 폰은 같은 route로 붙는다
+modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/main, packages/core/host-queue, packages/core/server, packages/core/terminal-view, packages/core/lophn-agent, packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/mobile, packages/design, tools]
+change: |
+  - PTY host가 Electron 앱(shell main)의 자식에서 core의 자식으로 옮겨 갔다. core가 터미널을 열고 닫고 크기를 정하며, 새 route `terminals/*`(list, open, close, restart, input, resize, snapshot, watch, name, saved_sessions, rename_saved)와 event `TerminalOutputAppended`(보는 쪽이 `terminals/watch` lease를 잡은 동안만, seq로 겹침과 빠짐을 맞춘다)·`TerminalRuntimeChanged`를 낸다. 창이 없어도 터미널이 열린다. 입력은 기기면 그 기기의 터미널 입력 허락, 아니면 shell main이 focus를 본 뒤 싣는 `shell_capability`가 있어야 하고 agent 자격은 치지 못한다.
+  - 사람의 login shell env(PATH)와 `lophn` 경로를 core가 읽어 터미널과 CLI에 준다. 저장소 layout의 core는 물려받은 `LOPHN_CLI`를 보지 않고 저장소의 dev launcher만 쓴다.
+  - extension host(registry, CLI spawner, ACP handle, tool 호출)와 본체 extension `harness`·`harness-gui`(녹화 60개 포함)가 core 안에서 돈다. Settings › Extensions는 `extensions/*` route를 쓰고, agent의 extension tool은 core가 바로 부른다. 화면 없는 harness turn이 앱 없이 시작한다.
+  - 터미널 coding agent의 상태(tracker, hook socket, GUI handle, TUI hold, hook 설치, harness 감지 `coding_agents/*`, `$BROWSER` bridge)가 core의 원본이다. core의 사본(coding relay)과 그것을 채우던 link frame을 지웠다. GUI handle은 창의 열림 ack 없이 선다. 새 route `coding_sessions/cli_sessions`·`rewind_preview`, event `TerminalAgentSignaled`·`HookInstallAsked`·`HookInstallFinished`.
+  - 저장한 coding agent session이 `<data root>/shell/agent-sessions/`에서 `<data root>/terminal-agents/sessions/`로 옮겨 간다(data step `terminal-agents.sessions-move`, 내용과 mode 그대로, 다시 돌아도 같다).
+  - desktop의 터미널 탭, harness GUI, Settings › Coding agents, hook 설치 물음, Recent, 알림이 core route와 event를 쓴다. 터미널 탭은 layout에 `terminal_ref`를 저장해 앱을 다시 켜면 살아 있는 터미널에 붙는다. shell의 터미널·harness-gui·coding IPC, PTY host, extension host 사본을 지웠다. focus 검사, clipboard, link를 browser 탭으로 열기, OS 알림은 shell에 남는다.
+  - 앱을 Quit할 때 도는 터미널이 있으면 "그대로 두기"(기본)와 "다 닫기"를 묻고, 어느 쪽이든 core는 남는다. 터미널이 열려 있거나 harness turn이 도는 동안 core는 idle로 끝나지 않는다. tray `Stop lophn`은 core를 멈추고 core가 터미널을 모두 닫는다.
+  - 폰은 터미널 열기와 입력에 `terminals/open|input`을 쓰고, "lophn이 꺼져 있음"과 깨우기 갈래가 없어졌다. 화면 사본(`terminal_view/snapshot|watch|resize`)은 그대로다.
+  - core와 shell 사이 link에는 `tab_open|tab_close|tab_show`, `browser_call`과 frame `hello|visible|response|report`만 남는다. 지운 것: link 요청 12가지(tool_call, terminal_interrupt, coding_*, terminal_*), frame `coding_report|coding_sync|coding_closed|terminal_screen`과 `tui` 칸, route `coding_sessions/wake`, `coding_sessions/list`의 `shell` 칸, `terminal_view/open|input`, `extension_tools/publish`, `terminal_sessions/signal`, `tools/fake-coding-host.ts`.
+  - 앱이 켜질 때 renderer에 `ready`가 두 번 가던 것과 첫 읽기가 core의 동시 요청 한도에 걸려 "Couldn't load your projects"로 남던 것을 고쳤다(한 번만 알리고, `unavailable` 첫 읽기를 짧게 다시 한다).
+why: |
+  사람이 "core가 좀 더 가져가고 shell은 client"인 방향을 냈다. 일 가운데 터미널과 coding agent가 Electron 앱 안에 있어서 앱을 끄면 같이 죽고, 화면 없는 기계에서는 열 수 없고, 폰은 앱이 켜진 기계의 사본만 다뤘다. 일은 core가 갖고 화면은 같은 route로 붙게 해 lophn agent가 더 많은 것을 시키고, 화면이 여럿이 되고, 화면 없는 기계도 온전해지는 바닥을 놓는다(roadmap `shell-as-client.md`).
+decisions:
+  - text: 일은 core가 하고 shell은 화면 가운데 하나다. 터미널, coding agent, extension host의 process와 상태는 core의 원본이고 desktop과 폰은 같은 route로 붙는다. 같은 일을 하는 길을 둘로 두지 않는다.
+    by: person
+  - text: 앱을 Quit해도 터미널이 돈다. Quit할 때 "그대로 두기"(기본)와 "다 닫기"를 묻고 core는 남긴다.
+    by: person
+  - text: layout(탭을 어디에 놓았나)은 화면마다 따로 둔다. core는 무엇이 열려 있나만 안다.
+    by: person
+  - text: "날 출력은 Bus의 남지 않는 event로 보는 쪽이 lease를 잡은 동안만 싣고, 놓치면 seq로 snapshot을 다시 읽는다. 버린 길: 터미널마다 core에 queue나 새 연결을 두기."
+    by: agent
+  - text: "폰의 터미널 보기는 화면 사본 그대로 두고 열기·입력만 `terminals/*`로 합친다. 버린 길: 폰도 날 글자 stream으로 그리기(범위 밖)."
+    by: agent
+  - text: "설치본 core는 `platform/node_modules/node-pty`(Linux는 packaging 때 Electron ABI로 rebuild, mac·win은 N-API prebuild)를 load한다. 버린 길: 앱 쪽 node-pty를 가리키기(shell이 더 쓰지 않는다)."
+    by: agent
+  - text: hook 설치 물음은 붙은 shell이 있을 때만 core가 내고, 답이 오기 전에 link가 닫히면 거절로 본다.
+    by: agent
+follow_up: |
+  - 다시 붙은 터미널 탭에서 지난 출력의 한 줄이 빠질 수 있다(이슈 `terminal-reattach-reflow-drops-line`).
+  - 개발 앱의 터미널에서 친 `lophn`은 `LOPHN_HOME`이 없어 `~/.lophn`을 잡을 수 있다(`terminal-agent.md` 열린 것).
+  - mac 설치본의 node-pty `spawn-helper` 실행 권한은 확인하지 못했다.
+checklist:
+  - "해야: 앱을 완전히 끄고 새 판을 설치한 뒤 다시 켠다(PTY host가 core로 옮겨 가 옛 앱의 터미널은 새 판으로 이어지지 않는다)"
+  - 터미널 탭을 열고 치면 출력이 보이는지 본다
+  - 터미널에서 `claude gui`(또는 쓰는 harness)를 치면 GUI 채팅으로 바뀌고 다시 TUI로 돌아오는지 본다
+  - 도는 터미널이 있을 때 Quit하면 "그대로 두기"와 "다 닫기"를 묻고, "그대로 두기" 뒤 다시 켜면 탭이 같은 터미널에 붙어 이전 출력이 보이는지 본다
+  - Settings › Extensions와 Settings › Coding agents가 열리고 켜고 끄기가 되는지 본다
+  - 폰에서 coding session 목록이 컴퓨터의 앱이 꺼져 있어도 보이고, 새 터미널을 열 수 있는지 본다

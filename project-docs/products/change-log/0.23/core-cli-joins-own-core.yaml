@@ -1,0 +1,13 @@
+id: core-cli-joins-own-core
+version: 0.23.85
+title: core가 exec한 `lophn` CLI가 그 core에만 붙어, core가 멈추거나 죽은 뒤 남아 core를 다시 띄우지 않는다
+modules: [packages/cli, packages/core/main]
+change: |
+  - core가 exec하는 `lophn` CLI(`harness sync-skills`·`detect`·`refresh`·`install`·`status`·`uninstall`)의 env에 그 core의 API 주소 `LOPHN_DAEMON_URL`을 넣는다. 전에는 주소가 없어 `harness sync-skills`가 ensure로 붙었다. core가 멈추는(stopping) 중이거나 SIGKILL로 죽은 뒤에도 CLI가 사라지기를 기다렸다가 core를 새로 띄우려 했고, core 밖에 15초 넘게 남았다.
+  - `LOPHN_DAEMON_URL`로 붙는 CLI(와 agent 자격 CLI)는 기동 중(starting)인 core를 ready까지(최대 60초) 기다린다. 전에는 바로 `unavailable`이었다. 멈추는 core, 없는 core, 주소가 다른 core에는 그대로 실패한다.
+why: |
+  core-browser 계획의 land에서 E2E boot test 둘(정리하면 흔적이 남지 않는다, 손상된 ledger)이 `core가 child를 남긴다`로 실패했다. 기동 뒤 한 번 도는 skill sync CLI가 test의 stop·SIGKILL과 겹쳐 고아로 남았다. 개발 launcher(`.cache/dev-cli/lophn`, `npm run dev`가 쓴다)가 있는 checkout에서만 core가 CLI를 부르므로, launcher가 없는 checkout의 main에서는 드러나지 않았다. core-browser의 변경과는 상관없다.
+decisions:
+  - text: >-
+      core가 자기 주소를 CLI에 주고 CLI가 starting을 기다린다. 기동 뒤 sync는 afterReady에서 부르고 control은 그 뒤에 ready가 되므로 기다림이 없으면 기동 sync가 실패한다. 버린 길: stop 때 CLI child를 죽이기(SIGKILL로 죽은 core는 못 거둔다), afterReady를 control ready 뒤로 옮기기(다른 wiring이 기대는 순서다), 기동 sync를 timer로 미루기(순서를 보장하지 않는다).
+    by: agent

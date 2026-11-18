@@ -321,7 +321,8 @@ export const terminalAgentsWiring: WiringFactory = () => {
       });
       ctx.provide("terminalAgents", service);
 
-      // `lophn` CLI를 사람의 env로 부른다. 띄운 CLI가 이 core에 닿게 data root를 준다.
+      // `lophn` CLI를 사람의 env로 부른다. 띄운 CLI가 이 core에 닿게 data root를 주고, 이 core의 주소에만 붙게 한다.
+      // 주소가 없으면 CLI는 ensure로 붙어, 이 core가 멈추거나 죽은 뒤에도 남아 core를 다시 띄운다.
       const cliPath = ctx.personEnv.cli;
       const cli = (timeout_ms?: number): CliRun | null =>
         cliPath === null
@@ -332,6 +333,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 env: {
                   ...(await ctx.personEnv.env()),
                   LOPHN_HOME: ctx.root.path,
+                  LOPHN_DAEMON_URL: `http://127.0.0.1:${ctx.server.port}`,
                 },
                 ...(timeout_ms === undefined ? {} : { timeout_ms }),
               })(args);

@@ -56,6 +56,9 @@ const TIMER: EnsureTimer = {
   clearTimeout: (id) => clearTimeout(id as NodeJS.Timeout),
 };
 
+// 붙기만 하는 길이 기동 중인 core를 기다리는 한도. ensure의 ready 기다림과 같다.
+const STARTING_MS = 60_000;
+
 type Io = { dial: ControlDial; spawnDetached: SpawnDetached };
 
 // control socket 경로는 data root와 OS에서 나온다. 데이터 root를 모르면 core를 찾을 수도 띄울 수도 없다.
@@ -118,11 +121,21 @@ function clientAt(
 // 이미 서 있는 core에만 붙는다. 명시 주소가 있으면 identify가 알린 주소와 같은 core인지 먼저 확인하고,
 // 다르면 자격을 받기 전에 실패한다. 한 core의 자격을 다른 loopback server로 보내지 않는다.
 // ensure가 띄우는 core는 주소를 정하지 않는다.
+// 기동 중(starting)인 core는 ready를 기다린다. core가 afterReady에서 부른 CLI가 control의 ready보다 먼저 닿을 수 있다.
 async function joinRunning(
   io: Io,
   explicit: DaemonAddress | undefined,
 ): Promise<Result<{ apiUrl: string }, LophnError>> {
-  const identified = await controlIdentify({ dial: io.dial });
+  const deadline = systemClock.nowMs() + STARTING_MS;
+  let identified = await controlIdentify({ dial: io.dial });
+  while (
+    identified.ok &&
+    identified.value.state === "starting" &&
+    systemClock.nowMs() < deadline
+  ) {
+    await new Promise<void>((resolve) => TIMER.setTimeout(resolve, 100));
+    identified = await controlIdentify({ dial: io.dial });
+  }
   if (!identified.ok) return identified;
   const apiUrl = identified.value.api_url;
   if (apiUrl === null) {

@@ -107,6 +107,16 @@ export function createPageView(deps: PageViewDeps) {
   const flying = new Map<Id<"tab">, Promise<Result<unknown>>>();
   const keys = new Map<Id<"tab">, Map<string, Promise<Result<unknown>>>>();
   const opens = new Map<string, Promise<Result<{ tab: Id<"tab"> }>>>();
+  // 탭을 연 session의 agent 이름. 이름을 읽으면 ledger 연결을 새로 열고 snapshot은 frame마다 오므로 session마다 한 번만 읽는다.
+  // 모르는(null) 이름은 기억하지 않는다.
+  const names = new Map<string, string>();
+  const nameOf = (session: string) => {
+    const known = names.get(session);
+    if (known !== undefined) return known;
+    const name = deps.agentName(session);
+    if (name !== null) names.set(session, name);
+    return name;
+  };
 
   const page = (tab: Id<"tab">) =>
     deps.pages().find((each) => each.tab === tab) ?? null;
@@ -178,7 +188,7 @@ export function createPageView(deps: PageViewDeps) {
       url,
       title,
       loading: state.loading,
-      by: found.owner === "person" ? null : deps.agentName(found.owner),
+      by: found.owner === "person" ? null : nameOf(found.owner),
     };
   }
 
@@ -332,9 +342,14 @@ export function createPageView(deps: PageViewDeps) {
       }
     },
 
-    // browser 탭 표가 바뀌었다. 표에서 빠진 탭의 lease·frame·key를 지운다.
+    // browser 탭 표가 바뀌었다. 표에서 빠진 탭의 lease·frame·key와 남은 탭이 없는 session의 이름을 지운다.
     pruned(): void {
-      const known = new Set(deps.pages().map((each) => each.tab));
+      const pages = deps.pages();
+      const known = new Set(pages.map((each) => each.tab));
+      const owners = new Set<string>(pages.map((each) => each.owner));
+      for (const session of names.keys()) {
+        if (!owners.has(session)) names.delete(session);
+      }
       const all = new Set([
         ...views.keys(),
         ...sent,

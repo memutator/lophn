@@ -338,5 +338,17 @@
   {
     "id": "remote.roster",
     "sha256": "96b41f006a445a9918ef615c5005bb4689fb8ebd833ca49a067ae95999c3b145"
+  },
+  {
+    "id": "folder.events-seen",
+    "sha256": "0256eea5208e3c6eaa9d181cac3c164b20bc5d887816c72f9a085d24541592b5"
+  },
+  {
+    "id": "apps.event-publications.machine",
+    "sha256": "8b5d9ffebcf23089852626be33bd86c262ab52802573e1cdec819611ba30a9e0"
+  },
+  {
+    "id": "folder.carry-marks",
+    "sha256": "64c85a48214ff7e0249cd15dfb8b92b1e094ceb324c76d916cd0b3354604d874"
   }
 ]

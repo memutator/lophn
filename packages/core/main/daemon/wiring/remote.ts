@@ -76,8 +76,11 @@ import {
   remotePushSetting,
   remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
+import { EVENT_PUBLICATIONS_MACHINE_STEPS } from "../../../apps/events/schema.ts";
 import {
   FOLDER_AWAY_NOTIFIED_STEPS,
+  FOLDER_CARRY_MARKS_STEPS,
+  FOLDER_EVENTS_SEEN_STEPS,
   FOLDER_SCHEMA_STEPS,
 } from "../../../folder/schema.ts";
 import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
@@ -737,6 +740,9 @@ export function remoteWiring(
       ...FOLDER_AWAY_NOTIFIED_STEPS,
       ...rewindUnknownSchemaSteps,
       ...ROSTER_SCHEMA_STEPS,
+      ...FOLDER_EVENTS_SEEN_STEPS,
+      ...EVENT_PUBLICATIONS_MACHINE_STEPS,
+      ...FOLDER_CARRY_MARKS_STEPS,
     ],
     dataSteps: [hostKeyMachineStep, signingKeyStep, viewerRosterStep],
     operations: () => [

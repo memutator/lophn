@@ -130,6 +130,7 @@
 
 - **Tailscale은 lophn 안에 넣지 않는다.** 있으면 알아서 쓰고, 없는 사람은 lophn agent가 지침대로 설치와 설정을 돕는다(폴더 도구와 같은 방식). `carry-paths`가 한다. 버린 길: lophn 안에 Tailscale 연결을 넣기(그 변화를 lophn이 따라가야 한다).
 - **private은 기계 사이에도 선다.** private의 뜻을 "바깥과 섞이지 않는다"로 넓혀 바깥에 "다른 workspace"와 "다른 기계"를 둘 다 넣는다. private인 workspace의 agent와 앱은 다른 기계를 부르지 못하고 다른 기계에서도 불리지 않는다. 사람의 화면은 private이어도 보고, data 맞추기는 private과 따로다(같은 것을 여러 곳에 두는 것이지 섞이는 것이 아니다). `remote-use`가 한다.
+- **터미널 입력 허락은 컴퓨터마다 따로다(2026-11-19).** 각 컴퓨터는 자기에서 켠 허락만 인정한다. 명단의 칸으로 두면 명단의 컴퓨터가 자기 허락을 스스로 켤 수 있어서다(이슈 `roster-computer-self-grants-terminal-input`). `remote-use`의 `use-grant`가 한다. 버린 길: 명단의 컴퓨터끼리는 온전히 믿는다고 두기(꺼 둔 스위치가 꺼져 있지 않다).
 - **직접 주소를 pairing 뒤에도 새로 받는 것과 사람이 적는 주소 설정(`remote.addresses`)은 둔다.** 계획 `issue-sweep`이 답을 받기 전에 넣었던 것이다. "닿는 길"의 표와 맞는다.
 
 ## 순서와 계획

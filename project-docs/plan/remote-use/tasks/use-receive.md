@@ -3,7 +3,7 @@
 받는 기계를 짓는다: 다른 컴퓨터가 넘긴 call의 요청한 쪽(`by`)을 종류마다 대하고, 앱 command 입구 `apps/remote_call`을 열고, 터미널 입력 허락·private·내놓은 command를 보고, 호출 기록에 `remote` caller로 남긴다. 받은 call은 사람으로 보지 않는 것이 기본이다.
 
 - 단위: use (wave 2)
-- 선행: use-contract. 계약의 이름으로 짓는다.
+- 선행: use-contract, use-grant. 계약의 이름으로 짓는다. 터미널 입력 허락은 `use-grant`가 옮긴 이 컴퓨터의 표다(`ctx.terminalInputGrant`).
 - 소유(이 task만 고친다):
   - `packages/core/remote/call.ts`, `packages/core/remote/forwarded_test.ts`(새 file. `call_test.ts`는 `use-send`가 `fix-setup`의 test를 바꾸느라 가진다)
   - `packages/core/remote/host.ts`, `packages/core/remote/host_test.ts`

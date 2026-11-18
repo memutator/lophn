@@ -5,7 +5,13 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import type { z } from "zod";
-import { manualClock, ok, seededRandom } from "../../base/mod.ts";
+import {
+  createIdSource,
+  err,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../base/mod.ts";
 import { type Route, routePath } from "../../protocol/base/mod.ts";
 import { activationActivatePrevious } from "../../protocol/apps/activation/activation.ts";
 import { appLogViewError } from "../../protocol/apps/app-log.ts";
@@ -56,22 +62,32 @@ import {
   connectRemote,
   devicesClearPush,
   devicesConnected,
-  devicesForgetAll,
   devicesList,
   devicesPushTargets,
-  devicesRegister,
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
   generateKeyPair,
   type KeyPair,
   REMOTE_ALLOWED_ROUTES,
-  remoteClientFrameSchema,
   type RemoteClientChannel,
   type RemoteClientFrame,
   type RemoteServerFrame,
   pairingStart,
+  remoteKeyBytes,
   remoteKeyText,
+  rosterForgetAll,
+  rosterInvite,
+  rosterList,
+  rosterRemove,
+  rosterRename,
+  rosterSetTerminalInput,
+  rosterStatements,
+  rosterStore,
+  type RosterEntryBody,
+  type RosterInvitedStatement,
+  rosterView,
+  signRoster,
 } from "../../protocol/remote/mod.ts";
 import { workflowEdit } from "../../protocol/workflows/routes.ts";
 import { appViewHandlers, createAppViews } from "../apps/views/mod.ts";
@@ -100,22 +116,30 @@ import {
   DEVICES_COMMANDS,
   DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
-  type DevicesChange,
   devicesListRead,
   devicesPushTargetsRead,
+  ROSTER_SCHEMA_STEPS,
+  rosterStatementsRead,
+  rosterStoreCommand,
   screensPaired,
   screensRenamed,
   screensRevoked,
 } from "./devices.ts";
 import {
+  addSigningKey,
+  loadRemoteKeys,
+  stampHostKeyMachine,
+} from "./host-key.ts";
+import {
   createRemoteHost,
-  PAIRING_TRIES,
-  REMOTE_PAIRING_MS,
+  JOIN_TRIES,
+  REMOTE_JOIN_MS,
   REMOTE_UNATTACHED_MAX,
   type RemoteHost,
+  type RemoteRoster,
   type RemoteSocket,
 } from "./host.ts";
-import { createPairingCodes, PAIRING_CODE_MS } from "./pairing.ts";
+import { createRoster, type RosterChange } from "./roster.ts";
 
 // 메모리 안에서 폰과 core를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
 function wire() {
@@ -160,13 +184,6 @@ function wire() {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 const deviceId = (n: number) => `dev_0${String(n).padStart(25, "0")}`;
-const screen = {
-  kind: "phone",
-  os: "android",
-  width: 412,
-  height: 915,
-  dpr: 2.625,
-} as const;
 const decideBody = {
   session: `ses_0${"1".repeat(25)}`,
   request: `apr_0${"1".repeat(25)}`,
@@ -208,11 +225,12 @@ const projectFolder = {
 const viewApp = `app_0${"1".repeat(25)}`;
 const viewRelease = `rel_0${"1".repeat(25)}`;
 
-// 기기 표, 앱 process·release 선언, 앱 호출 경로만 가짜다. 자격, scope, route dispatch, view 표, Gateway 구독은 production code다.
-function setup() {
+// 명단(기본은 key → id 표), 앱 process·release 선언, 앱 호출 경로만 가짜다. 자격, scope, route dispatch, view 표, Gateway 구독은
+// production code다. 진짜 명단을 쓰는 test는 `roster`와 그 host key를 넘긴다.
+function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
   const random = seededRandom(11);
   const clock = manualClock(1_000_000);
-  const coreKey = generateKeyPair(random);
+  const coreKey = real?.hostKey ?? generateKeyPair(random);
   const table = new Map<string, string>();
   let next = 1;
   const reached: string[] = [];
@@ -232,12 +250,18 @@ function setup() {
     devicesRename,
     devicesRevoke,
     devicesSetPrimary,
-    devicesRegister,
     devicesConnected,
-    devicesForgetAll,
     devicesClearPush,
     devicesPushTargets,
     pairingStart,
+    rosterList,
+    rosterInvite,
+    rosterRemove,
+    rosterSetTerminalInput,
+    rosterRename,
+    rosterStatements,
+    rosterStore,
+    rosterForgetAll,
     agentCreate,
     agentChange,
     agentDelete,
@@ -342,13 +366,34 @@ function setup() {
         payload,
       }),
   });
-  const codes = createPairingCodes({ clock, random });
   const timers = new Map<number, { run: () => void; ms: number }>();
   let nextTimer = 0;
-  // 기기 표를 읽은 뒤 답을 돌려주기 전에 부른다. 그 사이 기기를 끊는 test가 건다.
+  // 명단을 찾은 뒤 답을 돌려주기 전에 부른다. 그 사이 기기를 빼는 test가 건다.
   const hooks: { afterFind?: (key: string) => void } = {};
-  // 등록과 붙음에 넘긴 기기 이름(hello로 알린 것).
+  // 붙음에 넘긴 기기 이름(hello로 알린 것).
   const names: string[] = [];
+  const fake: RemoteRoster = {
+    find: (key) => {
+      const id = table.get(key);
+      hooks.afterFind?.(key);
+      return id;
+    },
+    join: async (key) => {
+      const id = table.get(key);
+      return id === undefined
+        ? err({
+            code: "unauthorized",
+            message: "roster invite refused: untrusted",
+            details: { reason: "untrusted" },
+          })
+        : ok({
+            device: id,
+            computer: { id: deviceId(99), signing_key: "unused" },
+            roster: { statements: [], reach: [] },
+          });
+    },
+    receive: async () => ok({ statements: [], reach: [] }),
+  };
   const host: RemoteHost = createRemoteHost({
     staticKey: coreKey,
     machine: () => ({
@@ -365,20 +410,9 @@ function setup() {
       clear: (handle) => void timers.delete(handle as number),
     },
     bus,
-    pairing: codes,
+    roster: real?.roster ?? fake,
     devices: {
-      find: async (key) => {
-        const id = table.get(key);
-        hooks.afterFind?.(key);
-        return ok(id === undefined ? undefined : { id });
-      },
-      register: async (input) => {
-        const id = deviceId(next++);
-        table.set(input.public_key, id);
-        names.push(`register ${input.name}`);
-        return ok({ id });
-      },
-      connected: (_id, name) => void names.push(`connected ${name}`),
+      connected: (input) => void names.push(`connected ${input.name}`),
     },
     credentials: createDeviceCredentials({
       registry,
@@ -511,7 +545,6 @@ function setup() {
 
   return {
     host,
-    codes,
     clock,
     bus,
     views,
@@ -568,37 +601,21 @@ test("등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지
   }
 });
 
-test("쓴 code, 300초 지난 code, 새 code가 대신한 code는 다시 통하지 않는다", () => {
-  const s = setup();
-  const used = s.codes.start({ terminal_input: true }).code;
-  assert.deepEqual(s.codes.take(used), { terminal_input: true });
-  assert.equal(s.codes.take(used), undefined);
-
-  const old = s.codes.start({ terminal_input: true }).code;
-  s.clock.advance(PAIRING_CODE_MS);
-  assert.equal(s.codes.take(old), undefined);
-
-  const replaced = s.codes.start({ terminal_input: true }).code;
-  const current = s.codes.start({ terminal_input: true }).code;
-  assert.equal(s.codes.take(replaced), undefined);
-  assert.deepEqual(s.codes.take(current), { terminal_input: true });
-});
-
-test("틀린 pairing code는 연결마다 5번까지고, 맞는 code로 붙은 기기는 그 자리에서 route를 부른다", async () => {
+test("명단에 들지 못한 join은 연결마다 5번까지고, 명단의 key는 join으로 붙어 그 자리에서 route를 부른다", async () => {
   const s = setup();
   const guesser = await s.connect(generateKeyPair(s.random));
-  const code = s.codes.start({ terminal_input: true }).code;
-  for (let i = 0; i < PAIRING_TRIES; i++) {
-    guesser.phone.send({ type: "pair", id: `p${i}`, code: "wrong", ...screen });
+  for (let i = 0; i < JOIN_TRIES; i++) {
+    guesser.phone.send({ type: "join", id: `j${i}`, statements: [] });
     await settle();
   }
   assert.equal(guesser.closed(), true);
-  assert.equal(results(guesser.frames).length, PAIRING_TRIES);
+  assert.equal(results(guesser.frames).length, JOIN_TRIES);
   assert.ok(results(guesser.frames).every((frame) => !frame.ok));
-  assert.equal(s.table.size, 0);
 
-  const phone = await s.connect(generateKeyPair(s.random));
-  phone.phone.send({ type: "pair", id: "p", code, ...screen });
+  const key = generateKeyPair(s.random);
+  const id = s.register(key);
+  const phone = await s.connect(key);
+  phone.phone.send({ type: "join", id: "j", statements: [] });
   phone.phone.send({
     type: "call",
     id: "c",
@@ -609,16 +626,17 @@ test("틀린 pairing code는 연결마다 5번까지고, 맞는 code로 붙은 �
   await settle();
   assert.equal(phone.closed(), false);
   assert.deepEqual(
-    results(phone.frames).map((frame) => [frame.id, frame.ok]),
+    results(phone.frames).map((frame) => [
+      frame.id,
+      frame.ok && (frame.value as { device?: string }).device,
+    ]),
     [
-      ["p", true],
-      ["c", true],
+      ["j", id],
+      ["c", undefined],
     ],
   );
-  assert.equal(s.table.size, 1);
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
-  // pair frame에는 이름이 없다. 등록 이름은 그 연결의 hello로 알린 이름이다.
-  assert.deepEqual(s.names, ["register Pixel", "connected Pixel"]);
+  assert.deepEqual(s.names, ["connected Pixel"]);
 });
 
 test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 닿지 않는다", async () => {
@@ -654,7 +672,7 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });
 
-test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
+test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, roster/*(leave 말고), agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   s.register(key);
@@ -681,12 +699,18 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "devices/rename",
     "devices/revoke",
     "devices/set_primary",
-    "devices/register",
     "devices/connected",
-    "devices/forget_all",
     "devices/clear_push",
     "devices/push_targets",
     "pairing/start",
+    "roster/list",
+    "roster/invite",
+    "roster/remove",
+    "roster/set_terminal_input",
+    "roster/rename",
+    "roster/statements",
+    "roster/store",
+    "roster/forget_all",
     "agents/create",
     "agents/change",
     "agents/delete",
@@ -889,52 +913,6 @@ test("기기의 upload는 base64를 같은 bytes로 넘기고, file route는 {co
   });
 });
 
-test("끊은 기기는 연결이 닫히고 같은 key로는 pair만 받는다", async () => {
-  const s = setup();
-  const key = generateKeyPair(s.random);
-  const id = s.register(key);
-  const c = await s.connect(key);
-  c.phone.send({ type: "watch", conditions: [{}] });
-  await settle();
-  // devices.revoke가 표에서 지우고 commit 뒤 wiring이 host.revoked를 부른다.
-  s.table.delete(remoteKeyText(key.publicKey));
-  s.host.revoked(id);
-  await settle();
-  assert.equal(c.closed(), true);
-  assert.deepEqual(c.frames.at(-1), {
-    type: "closed",
-    reason: "credential_revoked",
-  });
-
-  const again = await s.connect(key);
-  again.phone.send({
-    type: "call",
-    id: "c",
-    resource: "turn_requests",
-    method: "decide",
-    body: decideBody,
-  });
-  await settle();
-  assert.equal(again.closed(), true);
-  assert.deepEqual(again.frames, [
-    { type: "closed", reason: "credential_revoked" },
-  ]);
-  assert.deepEqual(s.reached, []);
-
-  const repaired = await s.connect(key);
-  repaired.phone.send({
-    type: "pair",
-    id: "p",
-    code: s.codes.start({ terminal_input: true }).code,
-    ...screen,
-  });
-  await settle();
-  assert.deepEqual(
-    results(repaired.frames).map((frame) => [frame.id, frame.ok]),
-    [["p", true]],
-  );
-});
-
 test("기기의 watch는 types 없이 걸어도 REMOTE_ALLOWED_EVENTS 밖의 event(앱 event)를 받지 않는다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
@@ -1040,7 +1018,7 @@ test("기기 A는 기기 B가 연 view를 부르거나 닫지 못하고, AppView
   assert.deepEqual(await call(a, "call", save("view-of-a")), done);
 });
 
-test("붙지 않은 연결은 한도를 넘으면 바로 닫히고, pairing 시간이 지나면 닫혀 자리를 내준다", async () => {
+test("붙지 않은 연결은 한도를 넘으면 바로 닫히고, join 시간이 지나면 닫혀 자리를 내준다", async () => {
   const s = setup();
   const idle = [];
   for (let i = 0; i < REMOTE_UNATTACHED_MAX; i++) {
@@ -1049,7 +1027,7 @@ test("붙지 않은 연결은 한도를 넘으면 바로 닫히고, pairing 시�
   const refused = await s.open(generateKeyPair(s.random));
   assert.equal(refused.opened.ok, false);
 
-  s.fire(REMOTE_PAIRING_MS);
+  s.fire(REMOTE_JOIN_MS);
   await settle();
   assert.ok(idle.every((c) => c.closed()));
   const next = await s.connect(generateKeyPair(s.random));
@@ -1085,15 +1063,18 @@ test("붙기 전의 큰 frame은 다 받기 전에 연결을 닫고, 붙은 기�
   );
 });
 
-test("기기를 찾은 뒤 자격을 받기 전에 끊으면 연결이 닫히고 frame이 dispatch되지 않는다", async () => {
+test("기기를 찾은 뒤 자격을 받기 전에 빼면 연결이 닫히고 frame이 dispatch되지 않는다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   const id = s.register(key);
-  // 표를 읽은 뒤 답이 오기 전에 devices.revoke가 commit되고 wiring이 host.revoked를 부른다.
+  // 첫 frame에서 명단을 찾은 뒤 붙기 전에 빼기가 저장되고 wiring이 host.revoked를 부른다. 연결이 열릴 때 frame 상한을 정하려
+  // 찾는 것(첫 번째)은 지나간다.
+  let finds = 0;
   s.hooks.afterFind = (found) => {
+    if (++finds < 2) return;
     s.hooks.afterFind = undefined;
     s.table.delete(found);
-    s.host.revoked(id);
+    s.host.revoked([id]);
   };
   const { opened } = await s.open(key);
   assert.ok(opened.ok);
@@ -1141,137 +1122,21 @@ test("같은 이름의 기기는 shell.devices 항목을 따로 갖고, 끊거�
   list = screensRenamed(list, b, "iPhone");
   assert.deepEqual(list, [iphone, { ...iphone, name: "iPhone 2", device: b }]);
   assert.ok(devicesSetting.type.safeParse(list).success);
-  // 항목의 device는 core만 단다. 폰의 pair frame은 그 칸을 받지 않는다.
-  assert.equal(
-    remoteClientFrameSchema.safeParse({
-      type: "pair",
-      id: "p",
-      code: "c",
-      kind: "phone",
-      os: iphone.os,
-      width: iphone.width,
-      height: iphone.height,
-      dpr: iphone.dpr,
-      device: a,
-    }).success,
-    false,
-  );
-});
-
-test("등록된 key의 pair는 맞는 code일 때만 새 등록으로 붙고, 틀린 code는 옛 등록을 그대로 둔다", async () => {
-  const s = setup();
-  const key = generateKeyPair(s.random);
-  const old = s.register(key);
-  const code = s.codes.start({ terminal_input: true }).code;
-  const c = await s.connect(key);
-  c.phone.send({ type: "pair", id: "wrong", code: "wrong", ...screen });
-  await settle();
-  assert.equal(s.table.get(remoteKeyText(key.publicKey)), old);
-
-  c.phone.send({ type: "pair", id: "right", code, ...screen });
-  c.phone.send({
-    type: "call",
-    id: "c",
-    resource: "turn_requests",
-    method: "decide",
-    body: decideBody,
-  });
-  await settle();
-  const fresh = s.table.get(remoteKeyText(key.publicKey));
-  assert.notEqual(fresh, old);
-  assert.deepEqual(
-    results(c.frames).map((frame) =>
-      frame.ok ? [frame.id, frame.value] : [frame.id, frame.error.code],
-    ),
-    [
-      ["wrong", "unauthorized"],
-      ["right", { device: fresh }],
-      ["c", { outcome: { outcome: "allow", scope: "once" } }],
-    ],
-  );
-});
-
-test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/register는 같은 key의 옛 등록을 새 등록으로 바꾼다", () => {
-  const db = new DatabaseSync(":memory:");
-  try {
-    for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
-      db.exec(step.sql);
-    const sql = createSql(db, () => true);
-    const changes: DevicesChange[] = [];
-    let n = 0;
-    const tx = {
-      sql,
-      now: () => "2026-11-15T00:00:00.000Z",
-      newId: () => deviceId(++n),
-      port: () => ({
-        push: (_topic: string, change: DevicesChange) => changes.push(change),
-      }),
-    } as unknown as Tx;
-    const command = (method: string) =>
-      DEVICES_COMMANDS.find((each) => each.route.method === method)!;
-    const as = (principal: string) => ({ principal, actor: "user" }) as never;
-    const register = (publicKey: KeyPair) =>
-      command("register").handle(
-        tx,
-        { principal: "machine:remote", actor: "machine" } as never,
-        {
-          ...screen,
-          name: "Pixel",
-          public_key: remoteKeyText(publicKey.publicKey),
-        } as never,
-        {} as never,
-      );
-    const unpair = (principal: string) =>
-      command("unpair").handle(tx, as(principal), {} as never, {} as never);
-    const ids = () =>
-      sql.all("select id from devices order by id", []).map((row) => row.id);
-    const code = (result: { ok: boolean; error?: { code: string } }) =>
-      result.ok ? "ok" : result.error!.code;
-
-    const random = seededRandom(3);
-    const [phoneA, phoneB] = [generateKeyPair(random), generateKeyPair(random)];
-    const [a, b] = [deviceId(1), deviceId(2)];
-    assert.equal(code(register(phoneA)), "ok");
-    assert.equal(code(register(phoneB)), "ok");
-    changes.length = 0;
-
-    // 사람(desktop)과 machine 자격은 기기가 아니다. 지울 등록이 없다.
-    assert.equal(code(unpair("user:local")), "forbidden");
-    assert.equal(code(unpair("machine:remote")), "forbidden");
-    assert.deepEqual(ids(), [a, b]);
-
-    assert.deepEqual(unpair(`device:${a}`), { ok: true, value: { id: a } });
-    assert.deepEqual(ids(), [b]);
-    assert.deepEqual(changes, [{ type: "revoked", id: a }]);
-    assert.equal(code(unpair(`device:${a}`)), "not_found");
-    assert.deepEqual(ids(), [b]);
-
-    changes.length = 0;
-    const again = register(phoneB);
-    assert.ok(again.ok);
-    const { id: fresh } = again.value as { id: string };
-    assert.notEqual(fresh, b);
-    assert.deepEqual(ids(), [fresh]);
-    assert.deepEqual(changes, [
-      { type: "revoked", id: b },
-      { type: "registered", id: fresh, kind: "phone" },
-    ]);
-  } finally {
-    db.close();
-  }
 });
 
 test("devices/set_push는 부른 기기 자기 행만 고치고, clear_push는 token이 그대로일 때만 지우고, 폰은 token을 읽지 못한다", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
+    for (const step of [
+      ...DEVICES_SCHEMA_STEPS,
+      ...DEVICES_KIND_STEPS,
+      ...ROSTER_SCHEMA_STEPS,
+    ])
       db.exec(step.sql);
     const sql = createSql(db, () => true);
-    let n = 0;
     const tx = {
       sql,
       now: () => "2026-11-15T00:00:00.000Z",
-      newId: () => deviceId(++n),
       port: () => ({ push: () => undefined }),
     } as unknown as Tx;
     const command = (method: string) =>
@@ -1279,19 +1144,13 @@ test("devices/set_push는 부른 기기 자기 행만 고치고, clear_push는 t
     const code = (result: { ok: boolean; error?: { code: string } }) =>
       result.ok ? "ok" : result.error!.code;
     const random = seededRandom(5);
-    for (const _ of [1, 2]) {
-      command("register").handle(
-        tx,
-        { principal: "machine:remote", actor: "machine" } as never,
-        {
-          ...screen,
-          name: "Pixel",
-          public_key: remoteKeyText(generateKeyPair(random).publicKey),
-        } as never,
-        {} as never,
-      );
-    }
     const [a, b] = [deviceId(1), deviceId(2)];
+    for (const id of [a, b]) {
+      db.prepare(
+        `insert into devices (id, kind, name, os, width, height, dpr, public_key, created_at, is_primary)
+           values (?, 'phone', 'Pixel', 'android', 412, 915, 2.625, ?, 'at', 0)`,
+      ).run(id, remoteKeyText(generateKeyPair(random).publicKey));
+    }
     const prefs = {
       needs_you: true,
       long_finish: true,
@@ -1368,4 +1227,246 @@ test("devices/set_push는 부른 기기 자기 행만 고치고, clear_push는 t
   } finally {
     db.close();
   }
+});
+
+// 이 계획 전의 data root: 옛 기기 표(kind step까지)에 사람이 별명을 붙인 폰 행과 다른 기계 desktop 행, machine 칸 없는 옛 host
+// key. 명단 step, data step(찍기, 서명 key 더하기), 기동의 서명(wiring의 identify와 같은 순서)을 production code로 돌린다.
+async function migrated() {
+  const random = seededRandom(21);
+  const clock = manualClock(1_000_000);
+  const machine = `mch_0${"1".repeat(25)}` as const;
+  const dir = mkdtempSync(join(tmpdir(), "lophn-roster-"));
+  const oldHost = generateKeyPair(random);
+  writeFileSync(
+    join(dir, "host-key.json"),
+    `${JSON.stringify({
+      public_key: remoteKeyText(oldHost.publicKey),
+      secret_key: remoteKeyText(oldHost.secretKey),
+    })}\n`,
+    { mode: 0o600 },
+  );
+  await stampHostKeyMachine(dir, machine);
+  await addSigningKey(dir, random);
+  const keys = await loadRemoteKeys(dir, random, machine);
+
+  const db = new DatabaseSync(":memory:");
+  for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+  const phoneKey = generateKeyPair(random);
+  const phoneId = deviceId(1);
+  db.prepare(
+    `insert into devices (id, name, os, width, height, dpr, public_key, created_at, is_primary, terminal_input)
+       values (?, 'Pixel', 'android', 412, 915, 2.625, ?, 'at', 1, 1)`,
+  ).run(phoneId, remoteKeyText(phoneKey.publicKey));
+  for (const step of DEVICES_KIND_STEPS) db.exec(step.sql);
+  db.prepare("update devices set alias = 'Work phone' where id = ?").run(
+    phoneId,
+  );
+  db.prepare(
+    `insert into devices (id, kind, name, os, public_key, created_at, is_primary)
+       values (?, 'desktop', 'laptop', 'linux', ?, 'at', 0)`,
+  ).run(deviceId(2), remoteKeyText(generateKeyPair(random).publicKey));
+  for (const step of ROSTER_SCHEMA_STEPS) db.exec(step.sql);
+
+  const sql = createSql(db, () => true);
+  const tx = {
+    sql,
+    now: () => clock.now(),
+    port: () => ({ push: () => undefined }),
+  } as unknown as Tx;
+  const machineCtx = { principal: "machine:remote", actor: "machine" } as never;
+  const snapshot = { sql, as_of_seq: "1" } as never;
+  let changed: (change: RosterChange) => void = () => undefined;
+  const roster = createRoster({
+    clock,
+    random,
+    ids: createIdSource({ clock, random }),
+    load: async () => {
+      const read = rosterStatementsRead.handle(
+        snapshot,
+        {} as never,
+        machineCtx,
+      );
+      return read.ok ? ok(read.value) : read;
+    },
+    store: async (input) => {
+      // 앱 sync log는 이 test에 없다. 접기는 wiring이 넘기는 함수다.
+      const done = rosterStoreCommand(() => undefined).handle(
+        tx,
+        machineCtx,
+        input as never,
+        {} as never,
+      );
+      return done.ok ? ok(undefined) : done;
+    },
+    changed: (change) => changed(change),
+  });
+  assert.ok((await roster.load()).ok);
+  await roster.useKeys(keys);
+  const listed = devicesListRead.handle(snapshot, {} as never, machineCtx);
+  assert.ok(listed.ok);
+  const identified = await roster.ensureSelf({
+    machine,
+    name: "studio",
+    os: "linux",
+    adopt: listed.value.devices.map((row) => ({
+      id: row.id,
+      key: row.public_key,
+      name: row.name,
+      os: row.os as "android",
+      terminal_input: row.terminal_input,
+    })),
+  });
+  assert.ok(identified.ok);
+  const s = setup({ roster, hostKey: keys.host });
+  // wiring의 applyChange와 같다: 명단을 먼저 밀고, 빠진 id의 자격과 명단에 맞지 않는 연결을 거둔다.
+  changed = ({ before, after, snapshot: pushed }) => {
+    s.host.pushRoster(pushed);
+    const kept = new Set(after.devices.map((each) => each.body.id));
+    s.host.revoked(
+      before.devices.map((each) => each.body.id).filter((id) => !kept.has(id)),
+    );
+  };
+  return {
+    s,
+    roster,
+    keys,
+    oldHost,
+    phoneKey,
+    phoneText: remoteKeyText(phoneKey.publicKey),
+    phoneId,
+    sql,
+  };
+}
+
+test("옛 기기 표에서 옮긴 뒤 이미 pairing한 폰은 다시 pairing하지 않고 같은 id로 붙고, 답의 서명 key로 명단을 믿는다", async () => {
+  const m = await migrated();
+  // 폰이 저장한 host key 그대로다.
+  assert.deepEqual(m.keys.host.publicKey, m.oldHost.publicKey);
+  // desktop 행은 지워지고 폰 행은 이 컴퓨터가 서명한 항목이 됐다(id, 별명이던 이름, 허락 그대로).
+  assert.deepEqual(
+    m.sql.all("select id from devices", []).map((row) => row.id),
+    [m.phoneId],
+  );
+  const entry = m.roster
+    .view()
+    .devices.find((each) => each.body.key === m.phoneText)?.body;
+  assert.deepEqual(
+    [entry?.id, entry?.name, entry?.terminal_input],
+    [m.phoneId, "Work phone", true],
+  );
+
+  const c = await m.s.connect(m.phoneKey);
+  c.phone.send({ type: "join", id: "j", statements: [] });
+  c.phone.send({
+    type: "call",
+    id: "c",
+    resource: "turn_requests",
+    method: "decide",
+    body: decideBody,
+  });
+  await settle();
+  assert.equal(c.closed(), false);
+  const [joined, called] = results(c.frames);
+  assert.ok(joined?.ok && called?.ok);
+  const value = joined.value as {
+    device: string;
+    computer: { signing_key: string };
+    roster: { statements: never[] };
+  };
+  assert.equal(value.device, m.phoneId);
+  assert.equal(
+    value.computer.signing_key,
+    remoteKeyText(m.keys.signing.publicKey),
+  );
+  // 폰은 이 서명 key를 root로 받은 명단에서 자기를 찾는다.
+  assert.ok(
+    rosterView(value.roster.statements, [
+      value.computer.signing_key,
+    ]).devices.some(
+      (each) => each.body.id === m.phoneId && each.body.key === m.phoneText,
+    ),
+  );
+  assert.deepEqual(m.s.reached, ["turn_requests/decide"]);
+});
+
+test("뺀 기기는 붙어 있던 연결이 빼기가 든 명단을 받은 뒤 닫히고, 그 key로는 call로도 join으로도 수명이 남은 초대장으로도 붙지 못한다", async () => {
+  const m = await migrated();
+  const c = await m.s.connect(m.phoneKey);
+  c.phone.send({ type: "join", id: "j", statements: [] });
+  c.phone.send({ type: "watch", conditions: [{}] });
+  await settle();
+  assert.equal(c.closed(), false);
+  // 빼기 전에 받아 둔 초대장.
+  const invite = m.roster.invite({
+    kind: "phone",
+    terminal_input: true,
+    lifetime: "long",
+    reach: { addresses: [], port: 7432, relay: null },
+  });
+  assert.ok(invite.ok);
+
+  assert.ok((await m.roster.remove(m.phoneId)).ok);
+  await settle();
+  assert.equal(c.closed(), true);
+  const tail = c.frames.slice(-2);
+  assert.equal(tail[0]?.type, "roster");
+  assert.ok(
+    tail[0]?.type === "roster" &&
+      tail[0].roster.statements.some(
+        (each) => each.body.type === "removal" && each.body.key === m.phoneText,
+      ),
+  );
+  assert.deepEqual(tail[1], { type: "closed", reason: "credential_revoked" });
+  // 이 컴퓨터의 기기 행도 지워졌다(push token이 같이 간다).
+  assert.deepEqual(m.sql.all("select id from devices", []), []);
+
+  const byCall = await m.s.connect(m.phoneKey);
+  byCall.phone.send({
+    type: "call",
+    id: "c",
+    resource: "turn_requests",
+    method: "decide",
+    body: decideBody,
+  });
+  await settle();
+  assert.deepEqual(byCall.frames, [
+    { type: "closed", reason: "credential_revoked" },
+  ]);
+
+  const { invite: signedInvite, secret } = invite.value.invite;
+  for (const id of [m.phoneId, deviceId(7)]) {
+    const body: RosterEntryBody = {
+      type: "entry",
+      id: id as RosterEntryBody["id"],
+      kind: "phone",
+      key: m.phoneText,
+      signing_key: null,
+      machine: null,
+      name: "Pixel",
+      os: "android",
+      terminal_input: true,
+      rev: 1,
+      invite: signedInvite.body.key,
+    };
+    const invited: RosterInvitedStatement = {
+      body,
+      invite: signedInvite,
+      signature: signRoster(body, remoteKeyBytes(secret)!),
+    };
+    for (const statements of [[], [invited]]) {
+      const again = await m.s.connect(m.phoneKey);
+      again.phone.send({ type: "join", id: "j", statements });
+      await settle();
+      const [refused] = results(again.frames);
+      assert.ok(refused !== undefined && !refused.ok);
+      assert.equal(refused.error.code, "unauthorized");
+      assert.equal(refused.error.details?.reason, "removed");
+      assert.equal(
+        (refused.error.details?.removal as { body: { key: string } }).body.key,
+        m.phoneText,
+      );
+    }
+  }
+  assert.ok(m.roster.find(m.phoneText) === undefined);
+  assert.deepEqual(m.s.reached, []);
 });

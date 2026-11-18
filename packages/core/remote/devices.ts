@@ -1,21 +1,23 @@
-// 기기 표 `devices`와 그 command·read. writer·reader Worker에서 돈다.
-import { err, ok, type Result } from "../../base/mod.ts";
+// 기기 표 `devices`(이 컴퓨터만의 칸: push, 기준, 화면, 마지막 연결, 마지막으로 받은 알린 이름)와 명단 표, 그 command·read.
+// writer·reader Worker에서 돈다. 명단의 믿음 계산과 서명은 main thread가 한다(remote/roster.ts). 여기는 정한 것을 저장한다.
+import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import { pushPrefsSchema } from "../../protocol/attention/mod.ts";
 import {
   devicesClearPush,
   devicesConnected,
-  devicesForgetAll,
   devicesList,
   devicesPushTargets,
-  devicesRegister,
-  devicesRename,
-  devicesRevoke,
   devicesSetPrimary,
   devicesSetPush,
-  devicesSetTerminalInput,
-  devicesUnpair,
   type RemoteDevice,
+  type RemotePhone,
+  type RosterEntryBody,
+  type RosterReach,
+  type RosterStatement,
   remoteDeviceSchema,
+  rosterForgetAll,
+  rosterStatements,
+  rosterStore,
 } from "../../protocol/remote/mod.ts";
 import type {
   CommandDefinition,
@@ -99,22 +101,40 @@ alter table devices_next rename to devices;`,
   },
 ];
 
-type DeviceKind = RemoteDevice["kind"];
+// 내 기기 명단. statement는 canonical 글 하나가 한 행이고 `key`는 그 body의 key다. 주소는 기기마다 한 행(JSON)이다.
+// 옛 기기 표의 phone 행은 SQL이 서명하지 못해 여기서 옮기지 않는다: 명단에 그 key의 statement가 하나도 없는 행이 "이 컴퓨터가
+// 서명할 것"이고, main thread가 서명 key를 가진 첫 때(listener·relay를 열기 전) 그 행마다 항목(id, key, 이름, 허락 그대로)에
+// 서명해 저장한다. desktop 행은 그 key가 shell main의 것이고 없어지므로 지운다. 낸 step 목록의 끝에 붙어야 해서 WIRINGS 맨 뒤
+// wiring(remote)의 schemaStepsAfterTeams 끝에 둔다.
+export const ROSTER_SCHEMA_STEPS: readonly SchemaStep[] = [
+  {
+    id: "remote.roster",
+    sql: `
+create table roster_statements (
+  text text primary key,
+  key text not null
+) strict;
+create index roster_statements_key on roster_statements (key);
+create table roster_reach (
+  device text primary key,
+  body text not null
+) strict;
+delete from devices where kind = 'desktop';`,
+  },
+];
 
-// commit 뒤 main thread가 할 일(설정 `shell.devices` 고치기, 연결 닫기). 설정과 연결은 writer Worker 밖에 있다.
+// commit 뒤 main thread가 할 일(설정 `shell.devices` 고치기). 설정은 writer Worker 밖에 있다.
 export const DEVICES_TOPIC = "remote.devices";
-// `renamed`는 보이는 이름(별명이 있으면 별명)이 바뀔 때 그 이름을 싣는다.
 export type DevicesChange =
-  | { type: "registered"; id: string; kind: DeviceKind }
-  | { type: "renamed"; id: string; name: string }
+  | { type: "registered"; id: string; name: string; phone: RemotePhone }
   | { type: "revoked"; id: string }
-  | { type: "terminal_input"; id: string; on: boolean };
+  | { type: "folded"; from: string; to: string };
 
-// 설정 `shell.devices`의 항목. pairing이 넣은 항목만 `device`(기기 id)가 있다.
+// 설정 `shell.devices`의 항목. 이 컴퓨터에 붙은 폰의 항목만 `device`(기기 id)가 있다.
 type Screen = { name: string; device?: string };
 
 // 이름은 항목 사이에서 겹치지 않아야 한다. 겹치면 " 2", " 3"…을 붙이고 이름 상한을 넘지 않게 앞을 줄인다.
-// 별명은 항목 이름 상한보다 길 수 있어 먼저 상한으로 자른다.
+// 명단의 이름은 항목 이름 상한보다 길 수 있어 먼저 상한으로 자른다.
 function uniqueName(full: string, list: readonly Screen[]): string {
   const taken = new Set(list.map((each) => each.name));
   const max = remoteDeviceSchema.shape.name.maxLength ?? full.length;
@@ -127,7 +147,7 @@ function uniqueName(full: string, list: readonly Screen[]): string {
   }
 }
 
-// pairing한 폰의 항목을 더한다. 같은 이름의 다른 항목(다른 폰, 사람이 넣은 항목)은 그대로 두고 새 항목 이름을 바꾼다.
+// 이 컴퓨터에 처음 붙은 폰의 항목을 더한다. 같은 이름의 다른 항목(다른 폰, 사람이 넣은 항목)은 그대로 두고 새 항목 이름을 바꾼다.
 export function screensPaired<T extends Screen>(
   list: readonly T[],
   device: string,
@@ -158,58 +178,58 @@ export function screensRevoked<T extends Screen>(
   return list.filter((each) => each.device !== device);
 }
 
-// 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal). unpair는 그 id 말고는 지울 길이 없다.
+export function screensFolded<T extends Screen>(
+  list: readonly T[],
+  from: string,
+  to: string,
+): T[] {
+  return list.map((each) =>
+    each.device === from ? { ...each, device: to } : each,
+  );
+}
+
+// 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal).
 const DEVICE_PRINCIPAL = "device:";
 
-// 터미널에 칠 수 있는 기기의 메모리 사본. terminal view가 입력마다 동기로 묻는다. main thread가 기동 때 표를 읽어 채우고
-// commit 뒤 바뀜(DevicesChange)으로 고친다. 끄거나 끊은 command가 답하기 전에 고쳐지므로 다음 입력부터 거절이다.
-export function createTerminalInputGrants() {
-  const on = new Set<string>();
-  return {
-    load(devices: readonly RemoteDevice[]) {
-      on.clear();
-      for (const device of devices)
-        if (device.terminal_input) on.add(device.id);
-    },
-    apply(change: DevicesChange) {
-      if (change.type === "revoked") on.delete(change.id);
-      else if (change.type === "terminal_input") {
-        if (change.on) on.add(change.id);
-        else on.delete(change.id);
-      }
-    },
-    granted: (principal: string): boolean =>
-      principal.startsWith(DEVICE_PRINCIPAL) &&
-      on.has(principal.slice(DEVICE_PRINCIPAL.length)),
-  };
+function storedStatements(sql: Pick<Sql, "all">): RosterStatement[] {
+  return sql
+    .all("select text from roster_statements order by text", [])
+    .map((row) => JSON.parse(row.text as string) as RosterStatement);
 }
 
-// 기기 principal의 kind(`ctx.deviceKind`). 터미널 입력 허락과 같이 기동 때 표로 채우고 commit 뒤 바뀜으로 고친다.
-export function createDeviceKinds() {
-  const kinds = new Map<string, DeviceKind>();
-  return {
-    load(devices: readonly RemoteDevice[]) {
-      kinds.clear();
-      for (const device of devices) kinds.set(device.id, device.kind);
-    },
-    apply(change: DevicesChange) {
-      if (change.type === "registered") kinds.set(change.id, change.kind);
-      else if (change.type === "revoked") kinds.delete(change.id);
-    },
-    of: (principal: string): DeviceKind | null =>
-      principal.startsWith(DEVICE_PRINCIPAL)
-        ? (kinds.get(principal.slice(DEVICE_PRINCIPAL.length)) ?? null)
-        : null,
-  };
+// 컴퓨터가 서명한 항목 가운데 key마다 앞서는 것(rev가 큰 것, 같으면 허락을 끈 것, 같으면 body 글이 작은 것). 저장한 명단은
+// main thread가 계산한 keep이라 남은 기기마다 이 컴퓨터가 서명한 이긴 항목이 들어 있다. 기기 표 읽기가 이름과 허락을 여기서 얻는다.
+function entriesByKey(
+  statements: readonly RosterStatement[],
+): Map<string, RosterEntryBody> {
+  const best = new Map<string, RosterEntryBody>();
+  for (const statement of statements) {
+    if (!("by" in statement) || statement.body.type !== "entry") continue;
+    const body = statement.body;
+    const other = best.get(body.key);
+    const order =
+      other === undefined
+        ? -1
+        : other.rev - body.rev ||
+          Number(body.terminal_input) - Number(other.terminal_input) ||
+          (canonicalize(body) < canonicalize(other) ? -1 : 1);
+    if (order < 0) best.set(body.key, body);
+  }
+  return best;
 }
 
-function rowOf(row: Record<string, unknown>): RemoteDevice {
+function rowOf(
+  row: Record<string, unknown>,
+  entries: ReadonlyMap<string, RosterEntryBody>,
+): RemoteDevice {
+  const entry = entries.get(row.public_key as string);
   return {
     id: row.id as RemoteDevice["id"],
-    kind: row.kind as DeviceKind,
-    name: (row.alias as string | null) ?? (row.name as string),
+    kind: row.kind as RemoteDevice["kind"],
+    // 명단의 이름. 아직 서명하지 않은 옮긴 행은 옛 이름(별명이 있으면 별명)이다.
+    name: entry?.name ?? (row.alias as string | null) ?? (row.name as string),
     announced_name: row.name as string,
-    alias: (row.alias as string | null) ?? null,
+    alias: null,
     os: row.os as RemoteDevice["os"],
     width: row.width === null ? null : Number(row.width),
     height: row.height === null ? null : Number(row.height),
@@ -218,147 +238,119 @@ function rowOf(row: Record<string, unknown>): RemoteDevice {
     created_at: row.created_at as string,
     last_connected_at: (row.last_connected_at as string | null) ?? null,
     primary: Number(row.is_primary) === 1,
-    terminal_input: Number(row.terminal_input) === 1,
+    terminal_input: entry?.terminal_input ?? Number(row.terminal_input) === 1,
   };
 }
 
-function load(sql: Pick<Sql, "get">, id: string): Result<RemoteDevice> {
-  const row = sql.get("select * from devices where id = ?", [id]);
+function load(sql: Pick<Sql, "get">, id: string): Result<{ kind: string }> {
+  const row = sql.get("select kind from devices where id = ?", [id]);
   return row === undefined
     ? err({ code: "not_found", message: "device not found" })
-    : ok(rowOf(row));
+    : ok({ kind: row.kind as string });
 }
 
 function push(tx: Pick<Tx, "port">, change: DevicesChange): void {
   tx.port(afterCommit).push(DEVICES_TOPIC, change);
 }
 
-const register: CommandDefinition<typeof devicesRegister> = {
-  route: devicesRegister,
-  handle(tx, _ctx, input) {
-    // host가 맞는 pairing code를 본 뒤에만 부른다. 같은 key의 옛 등록은 폰이 잊은 것이라 끊고 새 등록으로 바꾼다.
-    const taken = tx.sql.get("select id from devices where public_key = ?", [
-      input.public_key,
-    ]);
-    if (taken !== undefined) remove(tx, taken.id as string);
-    const id = tx.newId("dev");
-    // 새 phone이 기준이 된다. desktop은 기준이 되지 못하고 다른 기기의 기준도 그대로다.
-    const phone = input.kind === "phone";
-    if (phone)
-      tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
-    const now = tx.now();
-    tx.sql.run(
-      `insert into devices (id, kind, name, name_announced_at, os, width, height, dpr, public_key, created_at,
-         last_connected_at, is_primary, terminal_input)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?)`,
-      [
-        id,
-        input.kind,
-        input.name,
-        now,
-        input.os,
-        phone ? input.width : null,
-        phone ? input.height : null,
-        phone ? input.dpr : null,
-        input.public_key,
-        now,
-        phone ? 1 : 0,
-        input.terminal_input ? 1 : 0,
-      ],
-    );
-    push(tx, { type: "registered", id, kind: input.kind });
-    // 허락 사본은 이 바뀜으로만 켠다(createTerminalInputGrants).
-    if (input.terminal_input)
-      push(tx, { type: "terminal_input", id, on: true });
-    return ok({ id: id as RemoteDevice["id"] });
-  },
-};
-
-const connected: CommandDefinition<typeof devicesConnected> = {
-  route: devicesConnected,
-  handle(tx, _ctx, input) {
-    const row = tx.sql.get(
-      "select name, alias, name_announced_at from devices where id = ?",
-      [input.id],
-    );
-    if (row === undefined) {
-      return err({ code: "not_found", message: "device not found" });
-    }
-    const before = (row.alias as string | null) ?? (row.name as string);
-    // 알린 이름을 처음 받을 때, migration이 옛 이름을 지켜 둔 별명이 그 이름과 같으면 사람이 붙인 것이 아니라 거둔다.
-    const alias =
-      row.name_announced_at === null && row.alias === input.name
-        ? null
-        : (row.alias as string | null);
-    const now = tx.now();
-    tx.sql.run(
-      "update devices set last_connected_at = ?, name = ?, name_announced_at = ?, alias = ? where id = ?",
-      [now, input.name, now, alias, input.id],
-    );
-    const shown = alias ?? input.name;
-    if (shown !== before) {
-      push(tx, { type: "renamed", id: input.id, name: shown });
-    }
-    return ok({ id: input.id });
-  },
-};
-
-const rename: CommandDefinition<typeof devicesRename> = {
-  route: devicesRename,
-  handle(tx, _ctx, input) {
-    const found = load(tx.sql, input.id);
-    if (!found.ok) return found;
-    if (found.value.alias === input.name) return ok({ id: input.id });
-    tx.sql.run("update devices set alias = ? where id = ?", [
-      input.name,
-      input.id,
-    ]);
-    const shown = input.name ?? found.value.announced_name;
-    if (shown !== found.value.name)
-      push(tx, { type: "renamed", id: input.id, name: shown });
-    return ok({ id: input.id });
-  },
-};
-
 function remove(tx: Pick<Tx, "sql" | "port">, id: string): void {
   tx.sql.run("delete from devices where id = ?", [id]);
   push(tx, { type: "revoked", id });
 }
 
-// 행마다 revoked를 내어 연결 닫기, 자격 거두기, `shell.devices`, kind·허락 사본이 하나씩 끊은 것과 같이 따라간다.
-const forgetAll: CommandDefinition<typeof devicesForgetAll> = {
-  route: devicesForgetAll,
-  handle(tx) {
-    const rows = tx.sql.all("select id from devices", []);
-    for (const row of rows) remove(tx, row.id as string);
-    return ok({ count: rows.length });
-  },
-};
-
-const revoke: CommandDefinition<typeof devicesRevoke> = {
-  route: devicesRevoke,
+// 알린 이름과 마지막 연결을 적는다. 이 컴퓨터에 처음 붙는 폰(행이 없고 hello가 화면을 실었다)은 행을 만든다: 명단에서 그 id의
+// key를 찾고, 새 폰이 기준이 된다.
+const connected: CommandDefinition<typeof devicesConnected> = {
+  route: devicesConnected,
   handle(tx, _ctx, input) {
-    const found = load(tx.sql, input.id);
-    if (!found.ok) return found;
-    remove(tx, input.id);
+    const now = tx.now();
+    const updated = tx.sql.run(
+      "update devices set last_connected_at = ?, name = ?, name_announced_at = ? where id = ?",
+      [now, input.name, now, input.id],
+    );
+    if (Number(updated.changes) > 0) return ok({ id: input.id });
+    const key = storedStatements(tx.sql).find(
+      (statement) =>
+        "by" in statement &&
+        statement.body.type === "entry" &&
+        statement.body.id === input.id,
+    )?.body.key;
+    if (input.phone === undefined || key === undefined) {
+      return err({ code: "not_found", message: "device not found" });
+    }
+    const { os, width, height, dpr } = input.phone;
+    tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
+    tx.sql.run(
+      `insert into devices (id, kind, name, name_announced_at, os, width, height, dpr, public_key, created_at,
+         last_connected_at, is_primary, terminal_input)
+       values (?, 'phone', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)`,
+      [input.id, input.name, now, os, width, height, dpr, key, now, now],
+    );
+    push(tx, {
+      type: "registered",
+      id: input.id,
+      name: input.name,
+      phone: input.phone,
+    });
     return ok({ id: input.id });
   },
 };
 
-const unpair: CommandDefinition<typeof devicesUnpair> = {
-  route: devicesUnpair,
-  handle(tx, ctx, _input) {
-    if (!ctx.principal.startsWith(DEVICE_PRINCIPAL)) {
-      return err({
-        code: "forbidden",
-        message: "only a paired device removes its own registration",
-      });
+// 접힌 기기 id를 쓰는 다른 표(앱 sync log)를 고친다. remote는 바닥 module이라 그 표의 module을 import하지 않고 조립이 넘긴다.
+export type DeviceFold = (
+  sql: Pick<Sql, "run">,
+  from: string,
+  to: string,
+) => void;
+
+// main thread가 서명하고 합쳐 정한 명단(keep)을 통째로 둔다. 같은 write에서:
+// - 접힌 id(같은 key의 큰 id → 작은 id)로 기기 행과 다른 표의 기기 칸(fold)을 바꾼다. 접힘은 큰 id의 항목이 남는 동안 저장마다
+//   다시 오므로 다시 해도 같다.
+// - 명단에서 빠진 기기(서명한 항목이 남지 않은 key)의 행을 지운다. push token도 같이 간다.
+export const rosterStoreCommand = (
+  fold: DeviceFold,
+): CommandDefinition<typeof rosterStore> => ({
+  route: rosterStore,
+  handle(tx, _ctx, input) {
+    tx.sql.run("delete from roster_statements", []);
+    for (const statement of input.statements) {
+      tx.sql.run(
+        "insert or ignore into roster_statements (text, key) values (?, ?)",
+        [canonicalize(statement), statement.body.key],
+      );
     }
-    const id = ctx.principal.slice(DEVICE_PRINCIPAL.length);
-    const found = load(tx.sql, id);
-    if (!found.ok) return found;
-    remove(tx, id);
-    return ok({ id: found.value.id });
+    tx.sql.run("delete from roster_reach", []);
+    for (const reach of input.reach) {
+      tx.sql.run(
+        "insert or replace into roster_reach (device, body) values (?, ?)",
+        [reach.device, JSON.stringify(reach)],
+      );
+    }
+    for (const { from, to } of input.folds) {
+      fold(tx.sql, from, to);
+      const moved = tx.sql.run(
+        "update or ignore devices set id = ? where id = ?",
+        [to, from],
+      );
+      if (Number(moved.changes) > 0) push(tx, { type: "folded", from, to });
+    }
+    const kept = entriesByKey(input.statements);
+    for (const row of tx.sql.all("select id, public_key from devices", [])) {
+      if (!kept.has(row.public_key as string)) remove(tx, row.id as string);
+    }
+    return ok({ count: input.statements.length });
+  },
+});
+
+// 명단과 이 컴퓨터의 기기 행을 모두 버린다. 행마다 revoked를 내어 `shell.devices`가 따라간다.
+const forgetAll: CommandDefinition<typeof rosterForgetAll> = {
+  route: rosterForgetAll,
+  handle(tx) {
+    tx.sql.run("delete from roster_statements", []);
+    tx.sql.run("delete from roster_reach", []);
+    const rows = tx.sql.all("select id from devices", []);
+    for (const row of rows) remove(tx, row.id as string);
+    return ok({ count: rows.length });
   },
 };
 
@@ -381,7 +373,7 @@ const setPush: CommandDefinition<typeof devicesSetPush> = {
       "update devices set push_token = ?, push_prefs = ? where id = ?",
       [input.token, JSON.stringify(input.prefs), id],
     );
-    return ok({ id: found.value.id });
+    return ok({ id: id as RemoteDevice["id"] });
   },
 };
 
@@ -394,21 +386,6 @@ const clearPush: CommandDefinition<typeof devicesClearPush> = {
       "update devices set push_token = null where id = ? and push_token = ?",
       [input.id, input.token],
     );
-    return ok({ id: input.id });
-  },
-};
-
-const setTerminalInput: CommandDefinition<typeof devicesSetTerminalInput> = {
-  route: devicesSetTerminalInput,
-  handle(tx, _ctx, input) {
-    const found = load(tx.sql, input.id);
-    if (!found.ok) return found;
-    if (found.value.terminal_input === input.on) return ok({ id: input.id });
-    tx.sql.run("update devices set terminal_input = ? where id = ?", [
-      input.on ? 1 : 0,
-      input.id,
-    ]);
-    push(tx, { type: "terminal_input", id: input.id, on: input.on });
     return ok({ id: input.id });
   },
 };
@@ -433,25 +410,36 @@ const setPrimary: CommandDefinition<typeof devicesSetPrimary> = {
 };
 
 export const DEVICES_COMMANDS = [
-  register,
   connected,
-  rename,
-  revoke,
   forgetAll,
-  unpair,
   setPush,
   clearPush,
   setPrimary,
-  setTerminalInput,
 ] as const;
 
 export const devicesListRead: ReadDefinition<typeof devicesList> = {
   route: devicesList,
   handle(snapshot) {
+    const entries = entriesByKey(storedStatements(snapshot.sql));
     const devices = snapshot.sql
       .all("select * from devices order by created_at, id", [])
-      .map(rowOf);
+      .map((row) => rowOf(row, entries));
     return ok({ devices, as_of_seq: snapshot.as_of_seq, next_cursor: null });
+  },
+};
+
+export const rosterStatementsRead: ReadDefinition<typeof rosterStatements> = {
+  route: rosterStatements,
+  handle(snapshot) {
+    const reach = snapshot.sql
+      .all("select body from roster_reach order by device", [])
+      .map((row) => JSON.parse(row.body as string) as RosterReach);
+    return ok({
+      statements: storedStatements(snapshot.sql),
+      reach,
+      as_of_seq: snapshot.as_of_seq,
+      next_cursor: null,
+    });
   },
 };
 

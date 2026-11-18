@@ -1,22 +1,25 @@
-// remote 연결 하나하나를 맡는다. handshake로 받은 공개 key가 등록된 기기(폰, desktop)면 그 기기 자격으로 `call`·`watch`를 받고
-// (첫 frame이 `pair`면 다시 pairing이다), 아니면 `pair`만 받는다. listener(WebSocket)는 이 file을 모르고 전송 하나씩 넘긴다. test는 메모리 전송을 넘긴다.
+// remote 연결 하나하나를 맡는다. 붙는 쪽(폰, 다른 컴퓨터)의 첫 frame은 `join`이고, handshake로 받은 공개 key가 내 기기 명단에
+// 있으면(내민 statement를 합친 뒤) 그 기기 자격으로 `call`·`watch`·`roster`를 받는다. 명단에 있는 key는 첫 frame이 `join`이
+// 아니어도 붙는다. listener(WebSocket)는 이 file을 모르고 전송 하나씩 넘긴다. test는 메모리 전송을 넘긴다.
 import {
   err,
   type Logger,
   type RandomSource,
   type Result,
 } from "../../base/mod.ts";
-import type { z } from "zod";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
   acceptRemote,
-  type devicesRegister,
   type KeyPair,
   REMOTE_ALLOWED_EVENTS,
   REMOTE_FRAME_MAX_BYTES,
   type RemoteClientFrame,
+  type RemotePhone,
   type RemoteServerChannel,
   type RemoteTransport,
+  ROSTER_JOIN_MAX_BYTES,
+  type RosterSnapshot,
+  type RosterStatement,
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
 import { type Bus, createGatewaySession } from "../events/mod.ts";
@@ -26,19 +29,17 @@ import {
   devicePrincipal,
   type RemoteCall,
 } from "./call.ts";
-import type { PairingCodes } from "./pairing.ts";
 import type { PhoneConnection, PhoneLink } from "./phone-link.ts";
+import type { RosterJoined } from "./roster.ts";
 
 // handshake와 hello가 이 안에 끝나지 않은 연결은 닫는다. 말 없는 socket이 자리를 붙잡지 못하게.
 export const REMOTE_HANDSHAKE_MS = 10_000;
-// 틀린 pairing code는 연결마다 이만큼이다. 넘으면 연결을 닫는다.
-export const PAIRING_TRIES = 5;
-// 등록되지 않은 key가 channel이 열린 뒤 이 안에 pairing을 끝내지 않으면 닫는다. LAN의 아무나 연결을 붙잡지 못하게.
-export const REMOTE_PAIRING_MS = 60_000;
-// 기기로 붙지 않은 연결(handshake 중과 pairing 전)은 동시에 이만큼이다. 넘는 socket은 받자마자 닫는다.
+// 틀린 `join`은 연결마다 이만큼이다. 넘으면 연결을 닫는다.
+export const JOIN_TRIES = 5;
+// 명단에 없는 key가 channel이 열린 뒤 이 안에 붙지 않으면 닫는다. LAN의 아무나 연결을 붙잡지 못하게.
+export const REMOTE_JOIN_MS = 60_000;
+// 기기로 붙지 않은 연결(handshake 중과 join 전)은 동시에 이만큼이다. 넘는 socket은 받자마자 닫는다.
 export const REMOTE_UNATTACHED_MAX = 8;
-// 기기로 붙기 전에 받는 frame의 상한이다. `pair` frame은 작다. 붙은 뒤에는 REMOTE_FRAME_MAX_BYTES다.
-export const REMOTE_UNATTACHED_FRAME_MAX_BYTES = 4 * 1024;
 
 // 실제 WebSocket은 보내지 못한 byte 수를 안다. Gateway와 같은 한도로 느린 연결을 끊는 데 쓴다.
 export type RemoteSocket = RemoteTransport & { bufferedAmount(): number };
@@ -48,15 +49,23 @@ export type RemoteTimers = {
   clear(handle: unknown): void;
 };
 
-// pair frame의 기기 칸(kind로 갈린다), hello로 알린 이름, handshake로 받은 공개 key.
-type DeviceInput = z.infer<typeof devicesRegister.input>;
+// 내 기기 명단. production은 main thread의 명단 사본(roster.ts)이다.
+export type RemoteRoster = {
+  // key가 지금 명단의 기기면 그 id.
+  find(key: string): string | undefined;
+  // 붙는 쪽의 첫 frame. 거절은 `details.reason`(빠진 key면 `details.removal`)을 싣는다.
+  join(
+    key: string,
+    statements: readonly RosterStatement[],
+  ): Promise<Result<RosterJoined>>;
+  // 붙은 연결이 보낸 명단을 받고 이 컴퓨터의 명단을 낸다.
+  receive(roster: RosterSnapshot): Promise<Result<RosterSnapshot>>;
+};
 
-// 기기 표. production은 ledger의 devices command·read다.
+// 이 컴퓨터만의 기기 행. production은 ledger의 devices command다.
 export type RemoteDevices = {
-  find(publicKey: string): Promise<Result<{ id: string } | undefined>>;
-  register(input: DeviceInput): Promise<Result<{ id: string }>>;
-  // 마지막 연결 시각과 그 연결의 hello로 알린 이름. 실패는 연결을 막지 않는다.
-  connected(id: string, name: string): void;
+  // 붙었다: 마지막 연결 시각과 그 연결의 hello로 알린 이름(폰은 화면도). 실패는 연결을 막지 않는다.
+  connected(input: { id: string; name: string; phone?: RemotePhone }): void;
 };
 
 export type RemoteHostDeps = {
@@ -66,7 +75,7 @@ export type RemoteHostDeps = {
   random: RandomSource;
   timers: RemoteTimers;
   bus: Bus;
-  pairing: PairingCodes;
+  roster: RemoteRoster;
   devices: RemoteDevices;
   credentials: DeviceCredentials;
   call: RemoteCall;
@@ -82,14 +91,17 @@ export type RemoteHostDeps = {
 
 export type RemoteHost = {
   accept(socket: RemoteSocket): Promise<void>;
-  // 기기를 끊었다(표에서 지운 뒤). 자격을 거두고 그 기기의 연결을 모두 닫는다.
-  revoked(id: string): void;
+  // 명단이 바뀌었다. 빠진 id의 자격을 거두고, key가 더는 그 id의 기기가 아닌 연결(뺀 key, 충돌한 key, 접힌 id)을 닫는다.
+  revoked(ids: readonly string[]): void;
+  // 붙은 연결마다 이 컴퓨터의 명단을 민다.
+  pushRoster(roster: RosterSnapshot): void;
   // `closed(shutdown)`을 보내고 모든 연결을 닫는다.
   shutdown(): void;
 };
 
 type Connection = {
   channel: RemoteServerChannel;
+  key: string;
   // 폰이 `hello.capabilities`에 적은 것. core는 여기 있는 kind만 폰에 묻는다.
   capabilities: readonly string[];
   device?: string;
@@ -109,11 +121,12 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
   ) {
     let closed = false;
     const cleanups: (() => void)[] = [];
+    const publicKey = remoteKeyText(channel.peer.publicKey);
     const connection: Connection = {
       channel,
+      key: publicKey,
       capabilities: channel.peer.capabilities,
     };
-    const publicKey = remoteKeyText(channel.peer.publicKey);
     connections.add(connection);
     channel.onClose(() => {
       closed = true;
@@ -127,11 +140,8 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       }
       for (const cleanup of cleanups.splice(0)) cleanup();
     });
-    const pairingTimer = deps.timers.set(
-      () => channel.close(),
-      REMOTE_PAIRING_MS,
-    );
-    cleanups.push(() => deps.timers.clear(pairingTimer));
+    const joinTimer = deps.timers.set(() => channel.close(), REMOTE_JOIN_MS);
+    cleanups.push(() => deps.timers.clear(joinTimer));
 
     // 기기 자격으로 붙인다. frame을 받을 함수를 돌려준다. 붙지 못하면 연결을 닫고 undefined다.
     async function attach(
@@ -144,13 +154,14 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         channel.close();
         return undefined;
       }
-      // 찾은 뒤 connection.device를 적기 전에 기기를 끊었으면 revoked가 이 연결을 보지 못했다. 자격을 받은 뒤 다시 찾아
-      // 없으면 그 자격을 거둔다. 기기마다 자격을 한 번 쓰는 cache가 끊은 기기의 자격을 내주지 않게 한다.
-      const still = await deps.devices.find(publicKey);
-      if (still.ok && still.value?.id !== device) {
+      // 찾은 뒤 connection.device를 적기 전에 기기를 뺐으면 revoked가 이 연결을 보지 못했다. 자격을 받은 뒤 다시 찾아
+      // 없으면 그 자격을 거둔다. 기기마다 자격을 한 번 쓰는 cache가 뺀 기기의 자격을 내주지 않게 한다.
+      if (deps.roster.find(publicKey) !== device) {
         deps.credentials.revoke(device);
+        channel.close();
+        return undefined;
       }
-      if (!still.ok || still.value?.id !== device || closed) {
+      if (closed) {
         channel.close();
         return undefined;
       }
@@ -180,10 +191,16 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         if (!attachedElsewhere) deps.views.closeOwner(owner);
       });
       connection.session = session;
-      deps.timers.clear(pairingTimer);
+      deps.timers.clear(joinTimer);
       channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
       attached();
-      deps.devices.connected(device, channel.peer.name);
+      deps.devices.connected({
+        id: device,
+        name: channel.peer.name,
+        ...(channel.peer.phone === undefined
+          ? {}
+          : { phone: channel.peer.phone }),
+      });
       const phone: PhoneConnection = {
         device,
         capabilities: connection.capabilities,
@@ -235,6 +252,33 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           session.receive(JSON.stringify(frame));
         } else if (frame.type === "response") {
           deps.phoneLink.received(phone, frame);
+        } else if (frame.type === "roster") {
+          void deps.roster
+            .receive(frame.roster)
+            .catch(
+              (): Result<RosterSnapshot> =>
+                err({ code: "internal", message: "internal error" }),
+            )
+            .then((result) =>
+              channel.send(
+                result.ok
+                  ? {
+                      type: "result",
+                      id: frame.id,
+                      ok: true,
+                      value: result.value,
+                    }
+                  : {
+                      type: "result",
+                      id: frame.id,
+                      ok: false,
+                      error: {
+                        code: result.error.code,
+                        message: result.error.message,
+                      },
+                    },
+              ),
+            );
         } else {
           channel.close();
         }
@@ -242,69 +286,46 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
     }
 
     let tries = 0;
-    // 등록되지 않은 key와 다시 pairing하는 등록된 key: `pair` 말고는 연결을 닫는다. 맞으면 기기를 등록하고(같은 key의 옛 등록은
-    // devices.register가 바꾼다) 그 자리에서 붙인다. 틀리면 옛 등록은 그대로다.
-    async function unpaired(
+    // 명단에 없는 key: `join` 말고는 연결을 닫는다. 내민 statement로 명단에 들면 그 자리에서 붙인다. 틀리면 이유를 답한다.
+    async function joining(
       frame: RemoteClientFrame,
     ): Promise<((frame: RemoteClientFrame) => void) | undefined> {
-      if (frame.type !== "pair") {
-        // 꺼져 있는 동안 끊긴 기기는 다음 연결에서 이것을 받는다. 이유 없이 닫으면 닿지 않음으로 보고 헛되이 다시 붙는다.
+      if (frame.type !== "join") {
+        // 꺼져 있는 동안 빠진 기기는 다음 연결에서 이것을 받는다. 이유 없이 닫으면 닿지 않음으로 보고 헛되이 다시 붙는다.
         channel.send({ type: "closed", reason: "credential_revoked" });
         channel.close();
         return undefined;
       }
-      const grant = deps.pairing.take(frame.code);
-      if (grant === undefined) {
+      const joined = await deps.roster.join(publicKey, frame.statements);
+      if (!joined.ok) {
         tries += 1;
         channel.send({
           type: "result",
           id: frame.id,
           ok: false,
-          error: {
-            code: "unauthorized",
-            message: "pairing code is wrong or expired",
-          },
+          error: joined.error,
         });
-        if (tries >= PAIRING_TRIES) channel.close();
+        if (tries >= JOIN_TRIES) channel.close();
         return undefined;
       }
-      const { type: _type, id: _id, code: _code, ...device } = frame;
-      const registered = await deps.devices.register({
-        ...device,
-        ...grant,
-        name: channel.peer.name,
-        public_key: publicKey,
-      });
-      if (!registered.ok) {
-        channel.send({
-          type: "result",
-          id: frame.id,
-          ok: false,
-          error: registered.error,
-        });
-        return undefined;
-      }
-      const receive = await attach(registered.value.id);
+      const receive = await attach(joined.value.device);
       if (receive) {
         channel.send({
           type: "result",
           id: frame.id,
           ok: true,
-          value: { device: registered.value.id },
+          value: joined.value,
         });
       }
       return receive;
     }
 
-    // frame은 onFrame을 걸 때까지 channel에 모여 있다. 기기를 찾은 뒤에 건다.
-    const found = await deps.devices.find(publicKey);
-    if (!found.ok) return channel.close();
-    const known = found.value?.id;
-    // 등록된 key는 붙기 전에도 큰 frame을 보낼 수 있다. 붙는 사이 온 frame이 상한에 걸려 끊기지 않게 여기서 올린다.
-    if (known !== undefined) channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
+    // 명단의 key는 붙기 전에도 큰 frame을 보낼 수 있다. 붙는 사이 온 frame이 상한에 걸려 끊기지 않게 여기서 올린다.
+    if (deps.roster.find(publicKey) !== undefined) {
+      channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
+    }
     let receive: ((frame: RemoteClientFrame) => void) | undefined;
-    // frame은 차례로 본다. `pair`의 답이나 붙기를 기다리지 않고 온 frame도 붙은 뒤의 규칙으로 본다.
-    // 등록된 key는 첫 frame이 `pair`가 아니면 그 기기로 붙는다. `pair`면 폰이 이 컴퓨터를 잊고 다시 pairing하는 것이다.
+    // frame은 차례로 본다. `join`의 답이나 붙기를 기다리지 않고 온 frame도 붙은 뒤의 규칙으로 본다.
     let pending = Promise.resolve();
     channel.onFrame((frame) => {
       if (receive) return receive(frame);
@@ -312,11 +333,12 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         .then(async () => {
           if (closed) return;
           if (receive) return receive(frame);
-          if (known !== undefined && frame.type !== "pair") {
+          const known = deps.roster.find(publicKey);
+          if (known !== undefined && frame.type !== "join") {
             receive = await attach(known);
             return receive?.(frame);
           }
-          receive = await unpaired(frame);
+          receive = await joining(frame);
         })
         .catch(() => channel.close());
     });
@@ -338,7 +360,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         staticKey: deps.staticKey,
         capabilities: [],
         random: deps.random,
-        maxFrameBytes: REMOTE_UNATTACHED_FRAME_MAX_BYTES,
+        maxFrameBytes: ROSTER_JOIN_MAX_BYTES,
         machine: deps.machine(),
       });
       deps.timers.clear(timer);
@@ -366,16 +388,27 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         opened.value.close();
       }
     },
-    revoked(id) {
-      deps.credentials.revoke(id);
-      deps.deviceGone?.(id);
+    revoked(ids) {
+      for (const id of ids) {
+        deps.credentials.revoke(id);
+        deps.deviceGone?.(id);
+      }
       for (const connection of [...connections]) {
-        if (connection.device !== id) continue;
+        const device = connection.device;
+        if (device === undefined) continue;
+        if (deps.roster.find(connection.key) === device) continue;
+        deps.credentials.revoke(device);
         connection.channel.send({
           type: "closed",
           reason: "credential_revoked",
         });
         connection.channel.close();
+      }
+    },
+    pushRoster(roster) {
+      for (const connection of connections) {
+        if (connection.session === undefined) continue;
+        connection.channel.send({ type: "roster", roster });
       }
     },
     shutdown() {

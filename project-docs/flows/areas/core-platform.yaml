@@ -1699,7 +1699,7 @@ flows:
     docs: [architecture/platform.md]
     steps:
       - "기동 때와 StateChanged(settings)의 id가 remote.enabled·remote.port·remote.relay(또는 null)일 때 remote wiring이 listener와 relay 연결을 맞춘다. 맞추기는 하나씩 돈다"
-      - "켜져 있으면 `<root>/remote/host-key.json`(0600)을 읽거나 없으면 만든다. 새 key에는 만든 기계의 id(machine)를 같이 적는다(기동 때 다른 기계의 key는 devices-forget-all이 먼저 지운다). 모든 interface의 remote.port에 WebSocket listener(path /remote)를 연다"
+      - "켜져 있으면 `<root>/remote/host-key.json`과 `signing-key.json`(0600) 둘을 읽거나 없으면 같이 만든다. 새 key에는 만든 기계의 id(machine)를 같이 적는다(기동 때 다른 기계의 key나 하나만 읽히는 key는 roster-forget이 먼저 지운다). listener·relay를 열기 전에 명단의 자기 항목과 옮긴 폰 행에 서명한다(roster-identity). 모든 interface의 remote.port에 WebSocket listener(path /remote)를 연다. 연 뒤 명단의 자기 주소(reach)를 지금 주소 후보·port·relay로 맞춘다"
       - "켜져 있고 remote.relay가 비어 있지 않으면 relay의 /v1/host?key=<core key>에 control socket을 건다. challenge에 core static key로 만든 proof로 답하고 ready를 받으면 connected다. listener를 열지 못해도 relay는 따로 돈다"
       - "relay가 connected {conn}을 알리면 /v1/data?conn=<conn>에 data socket을 열어 listener의 연결과 같이 remote-connection에 넘긴다"
       - "control socket이 끊기면 1초에서 두 배씩 30초까지 기다렸다 다시 건다. control socket은 20초마다 ping하고 60초 동안 아무것도 오지 않으면 끊는다"
@@ -1707,7 +1707,7 @@ flows:
       - "켜져 있는 동안 idle-exit는 일이 있는 것으로 센다"
     outcomes:
       - id: listening
-        observe: ["process:remote.port에서 듣는다", "disk:<root>/remote/host-key.json"]
+        observe: ["process:remote.port에서 듣는다", "disk:<root>/remote/host-key.json", "disk:<root>/remote/signing-key.json"]
       - id: closed
         when: "remote.enabled가 꺼졌거나 port가 바뀌어 다시 연다"
         observe: ["process:listener 없음"]
@@ -1718,34 +1718,34 @@ flows:
         when: "relay에 닿지 못했거나 control socket이 끊겼다. remote_relay/status가 connecting이다"
         observe: ["response"]
       - id: open-failed
-        when: "host key file을 못 읽거나 port를 열지 못했다. core는 그대로 돈다"
+        when: "key file을 못 읽거나 명단에 서명하지 못했거나 port를 열지 못했다. core는 그대로 돈다"
         observe: ["log:remote listener_failed"]
     crosses_process: false
     risk: [permission]
 
   - id: remote-connection
-    title: "폰 연결 하나를 handshake하고, 등록된 기기면 그 자격으로 route와 event를 잇는다"
+    title: "기기 연결 하나를 handshake하고, 명단의 기기면 그 자격으로 route와 event, 명단 주고받기를 잇는다"
     actor: system
     entries: [system:remote-connection, route:devices/connected]
-    uses: [route:devices/list]
-    boundary: [core, server, event-stream]
-    code: [packages/core/remote/host.ts, packages/core/remote/call.ts, packages/core/server/identity/registry.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/apps/views/table.ts]
+    uses: [route:devices/list, system:remote-join, system:roster-commit]
+    boundary: [core, server, event-stream, remote]
+    code: [packages/core/remote/host.ts, packages/core/remote/call.ts, packages/core/remote/roster.ts, packages/core/remote/devices.ts, packages/core/server/identity/registry.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/apps/views/table.ts]
     docs: [architecture/approval.md, architecture/event.md, architecture/remote.md]
     steps:
-      - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름)}, core는 판이 맞든 아니든 그 뒤에 {version 2, min_version 2, capabilities [], machine {id, name, addresses}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. addresses는 연결마다 다시 계산한 direct 주소 후보다: 설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 겹친 것을 빼고 16개까지. 모르는 칸은 버린다"
-      - "판 범위: 붙는 쪽 version이 core min_version보다 낮으면 update client, core version이 붙는 쪽 min_version보다 낮으면 update host다. 양쪽 다 두 hello를 보고 conflict {details.update}로 닫고 core는 log에 같은 값을 남긴다. 붙는 쪽(폰, desktop, tools/remote-client.ts)은 pairing 때 저장한 core의 machine id를 connectRemote에 준다. core hello의 id가 다르면 hello 말고 아무 frame도 보내지 않고 conflict로 닫는다. 같은 key를 가진 복제된 기계에 pair code나 call이 가지 않는다. 저장한 id를 대조한 연결에서만 core hello의 addresses로 저장한 주소 목록을 바꾼다(열린 direct 주소가 그 목록에 없으면 앞에 남긴다). id를 아직 모르는 연결은 주소를 바꾸지 않는다"
-      - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 오면 closed(credential_revoked)를 보내고 연결을 닫는다(꺼져 있는 동안 끊긴 기기가 다시 pairing으로 보이게 한다). 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올리고 첫 frame을 기다린다. pair면 다시 pairing(remote-pair)이고 그 밖이면 그 기기로 붙인다"
-      - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected {id, name}으로 마지막 연결 시각과 그 연결의 hello로 알린 이름(name, name_announced_at)을 적는다. 사람이 붙인 별명(alias)은 그대로다. 알린 이름을 처음 받는 행(name_announced_at null, migration에서 온 것)의 별명이 알린 이름과 같으면 별명을 거둔다(보이는 글은 같다). 보이는 이름(alias ?? name)이 바뀌면 commit 뒤 renamed로 설정 shell.devices의 그 기기 항목 이름도 바꾼다(40자로 자른다). event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기를 끊으면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
-      - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 답이 frame 상한(16 MiB)을 넘어 보내지 못하면 같은 id에 unavailable(\"the reply is too large to send\")로 답한다. 기기의 jobs/update는 job과 enabled만 받는다(켜고 끄기). 다른 field가 하나라도 있으면 forbidden이다. 입장 한도는 remote만의 것이고 principal마다 선다. 못 본 끝 표시 unseen/list·unseen/dismiss는 목록 안이다(폰과 다른 기계의 desktop 창이 같이 받는다): 보는 것이 읽음을 만들고 읽음은 host core에 있어 어느 기기에서 봐도 같이 꺼진다"
-      - "frame은 JSON뿐이라 bytes는 base64로 싣는다. upload route는 body {input, base64}를 HTTP upload 요청으로 바꾸고(한도는 route의 max_bytes), file route의 답은 {content_type, base64}다. file은 8 MiB까지다. 앱의 폰 화면은 apps/phone_screens, apps/screen_file, apps/phone_file(폰 backend file), app_views/open·call·close만 부른다. 폰에서 도는 앱은 app_sync/push·pull·snapshot·snapshot_file로 설치하고 컴퓨터와 맞춘다(push는 기기 자격만 받는다). view의 owner는 기기 principal이라 다른 기기가 연 view는 없는 view와 같다. 폰 홈 화면 위젯은 app_widgets/list로 선언된 위젯의 값을 읽는다. 앱을 직접 부르는 apps/call_tool, app_grants/*, 앱 만들기·고치기·지우기·release·rewind, apps/log_view_error(입력의 앱을 부르는 쪽이 정한다)는 목록 밖이다"
-      - "watch는 Gateway session과 같은 Bus 구독이되 REMOTE_ALLOWED_EVENTS의 type만 보낸다(조건에 types가 없어도). session의 owner가 기기 principal이라 AppViewEvent는 이 기기가 연 view의 것만 간다. AppSyncChanged(앱 id와 seq만 싣는다)는 목록 안이고 폰이 app_sync/pull로 답한다. AppEventPublished·AppViewChanged는 목록 밖이다. 느린 연결은 Gateway와 같은 한도로 closed(slow_consumer)를 받고 닫힌다. 붙은 연결이 닫히면(폰이 끊음, 기기 끊기, core 내려감) 그 기기로 붙은 다른 연결이 없을 때 core view 표에서 그 기기(owner)의 view를 모두 지운다. 다시 붙은 폰은 app_views/open으로 다시 연다"
+      - "기기로 붙지 않은 연결(handshake 중과 join 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 16 KiB(ROSTER_JOIN_MAX_BYTES)까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름), phone?(폰의 os·화면)}, core는 판이 맞든 아니든 그 뒤에 {version 3, min_version 3, capabilities [], machine {id, name, addresses}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. addresses는 연결마다 다시 계산한 direct 주소 후보다: 설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 겹친 것을 빼고 16개까지. 모르는 칸은 버린다"
+      - "판 범위: 붙는 쪽 version이 core min_version보다 낮으면 update client, core version이 붙는 쪽 min_version보다 낮으면 update host다. 양쪽 다 두 hello를 보고 conflict {details.update}로 닫고 core는 log에 같은 값을 남긴다. 붙는 쪽(폰, desktop, tools/remote-client.ts)은 저장한 core의 machine id를 connectRemote에 준다. core hello의 id가 다르면 hello 말고 아무 frame도 보내지 않고 conflict로 닫는다. 같은 key를 가진 복제된 기계에 join이나 call이 가지 않는다. 저장한 id를 대조한 연결에서만 core hello의 addresses로 저장한 주소 목록을 바꾼다(열린 direct 주소가 그 목록에 없으면 앞에 남긴다). id를 아직 모르는 연결은 주소를 바꾸지 않는다"
+      - "받은 공개 key(base64url)를 main thread의 명단 view에서 찾는다. 있으면 frame 상한을 16 MiB로 올린다. 첫 frame이 join이면 remote-join이다. 명단의 key는 첫 frame이 join이 아니어도 그 기기로 붙는다. 명단에 없는 key가 join 아닌 frame(call, watch, 옛 pair)을 보내면 closed(credential_revoked)를 보내고 닫는다(꺼져 있는 동안 빠진 기기가 다시 들어오기로 보이게 한다). 60초 안에 붙지 못해도 닫는다"
+      - "붙으면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다(컴퓨터도 같다). 발급 뒤 key를 다시 찾아 그 사이 빠진 기기면 자격을 거두고 닫는다. 명단의 phone이면 devices/connected {id, name, phone}으로 이 컴퓨터의 행에 마지막 연결 시각과 알린 이름을 적는다. 행이 없으면(이 컴퓨터에 처음 붙는 폰) hello의 화면으로 행을 만들고(새 폰이 기준이 된다) commit 뒤 설정 shell.devices에 명단 이름의 항목을 더한다. 알린 이름이 행의 마지막 알린 이름과 다르면(폰에서 이름을 바꿨다) 이 컴퓨터가 그 이름으로 rev를 올려 서명한다(roster-rename과 같은 길). event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기가 빠지면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
+      - "붙은 연결(폰, 컴퓨터)의 roster frame은 받은 명단을 합쳐 정하고(roster-commit) 이 컴퓨터의 명단으로 같은 id에 답한다. 명단이 바뀌면 붙은 연결마다 roster frame을 민다. call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 답이 frame 상한(16 MiB)을 넘어 보내지 못하면 같은 id에 unavailable(\"the reply is too large to send\")로 답한다. 기기의 jobs/update는 job과 enabled만 받는다(켜고 끄기). 다른 field가 하나라도 있으면 forbidden이다. 입장 한도는 remote만의 것이고 principal마다 선다. 못 본 끝 표시 unseen/list·unseen/dismiss는 목록 안이다(폰과 다른 기계의 desktop 창이 같이 받는다): 보는 것이 읽음을 만들고 읽음은 host core에 있어 어느 기기에서 봐도 같이 꺼진다"
+      - "frame은 JSON뿐이라 bytes는 base64로 싣는다. upload route는 body {input, base64}를 HTTP upload 요청으로 바꾸고(한도는 route의 max_bytes), file route의 답은 {content_type, base64}다. file은 8 MiB까지다. 앱의 폰 화면은 apps/phone_screens, apps/screen_file, apps/phone_file(폰 backend file), app_views/open·call·close만 부른다. 폰에서 도는 앱은 app_sync/push·pull·snapshot·snapshot_file로 설치하고 컴퓨터와 맞춘다(push는 기기 자격만 받는다). view의 owner는 기기 principal이라 다른 기기가 연 view는 없는 view와 같다. 폰 홈 화면 위젯은 app_widgets/list로 선언된 위젯의 값을 읽는다. 앱을 직접 부르는 apps/call_tool, app_grants/*, 앱 만들기·고치기·지우기·release·rewind, apps/log_view_error(입력의 앱을 부르는 쪽이 정한다), 명단 고치기(roster/* 가운데 leave 말고)는 목록 밖이다"
+      - "watch는 Gateway session과 같은 Bus 구독이되 REMOTE_ALLOWED_EVENTS의 type만 보낸다(조건에 types가 없어도). session의 owner가 기기 principal이라 AppViewEvent는 이 기기가 연 view의 것만 간다. AppSyncChanged(앱 id와 seq만 싣는다)는 목록 안이고 폰이 app_sync/pull로 답한다. AppEventPublished·AppViewChanged는 목록 밖이다. 느린 연결은 Gateway와 같은 한도로 closed(slow_consumer)를 받고 닫힌다. 붙은 연결이 닫히면(폰이 끊음, 기기 빠짐, core 내려감) 그 기기로 붙은 다른 연결이 없을 때 core view 표에서 그 기기(owner)의 view를 모두 지운다. 다시 붙은 폰은 app_views/open으로 다시 연다"
     outcomes:
       - id: handshake-timeout
         when: "handshake나 hello가 10초 안에 끝나지 않았다"
         observe: ["process:연결 닫힘"]
       - id: version-out-of-range
         code: conflict
-        when: "두 hello의 판 범위가 겹치지 않는다. core는 자기 hello를 보낸 뒤 닫는다. 양쪽의 오류 details.update가 client(붙는 쪽을 올려라) 또는 host(core를 올려라)다. 붙는 쪽 오류의 details.name은 core hello의 기계 이름이다. 붙는 쪽 연결(remote-client)은 그 컴퓨터의 status를 offline 대신 update로 두고 누가 올릴지를 싣는다. 판이 맞아 붙을 때까지 같은 간격으로 다시 붙으며 그대로 둔다. 폰은 banner·잠긴 입력 칸·Computers 줄에 \"Update the lophn app on this phone to reach <이름>.\"(client)나 \"<이름> runs an older lophn. Update lophn on <이름>…\"(host)와 [Try again]을, pairing 중이면 pair-failed 화면에 같은 글을 보인다(code는 쓰이지 않아 올린 뒤 다시 쓸 수 있다). desktop은 기계 목록 status update(machines-list)와 그 창의 gate(machine-window-gate:update), pairing 오류(machines-pair:update)로 보인다"
+        when: "두 hello의 판 범위가 겹치지 않는다. core는 자기 hello를 보낸 뒤 닫는다. 양쪽의 오류 details.update가 client(붙는 쪽을 올려라) 또는 host(core를 올려라)다. 붙는 쪽 오류의 details.name은 core hello의 기계 이름이다. 붙는 쪽 연결(remote-client)은 그 컴퓨터의 status를 offline 대신 update로 두고 누가 올릴지를 싣는다. 판이 맞아 붙을 때까지 같은 간격으로 다시 붙으며 그대로 둔다. 폰은 banner·잠긴 입력 칸·Computers 줄에 \"Update the lophn app on this phone to reach <이름>.\"(client)나 \"<이름> runs an older lophn. Update lophn on <이름>…\"(host)와 [Try again]을, pairing 중이면 pair-failed 화면에 같은 글을 보인다(초대장은 쓰이지 않아 올린 뒤 다시 쓸 수 있다). desktop은 기계 목록 status update(machines-list)와 그 창의 gate(machine-window-gate:update), pairing 오류(machines-pair:update)로 보인다"
         observe: ["log:remote protocol_version_out_of_range", "process:연결 닫힘"]
       - id: old-hello
         code: invalid_input
@@ -1756,25 +1756,34 @@ flows:
         when: "붙는 쪽이 준 machine id와 core hello의 id가 다르다(a different computer answered). 붙는 쪽이 hello 뒤로 아무 frame도 보내지 않고 닫는다"
         observe: ["process:연결 닫힘"]
       - id: addresses-learned
-        when: "붙는 쪽이 저장한 machine id를 대조한 연결에서 core hello의 addresses를 받아 다음 연결부터 그 주소를 건다. pairing 뒤 생긴 주소(새 network, Tailscale, remote.addresses)를 다시 pairing 없이 쓴다"
+        when: "붙는 쪽이 저장한 machine id를 대조한 연결에서 core hello의 addresses를 받아 다음 연결부터 그 주소를 건다. pairing 뒤 생긴 주소(새 network, Tailscale, remote.addresses)를 다시 들어오지 않고 쓴다"
         observe: ["disk:붙는 쪽이 저장한 컴퓨터 목록(폰 보안 저장소, shell/viewer/machines.json)"]
       - id: announced-name
-        when: "붙은 기기가 알린 이름이 적혔다. 별명이 없고 알린 이름이 바뀌었으면 보이는 이름과 shell.devices 항목이 따라간다"
+        when: "붙은 폰이 알린 이름이 적혔다. 마지막으로 받은 알린 이름과 다르면 명단의 이름이 그 이름으로 바뀌고 shell.devices 항목이 따라간다. 사람이 roster/rename으로 바꾼 이름은 알린 이름이 그대로면 그대로다"
+        observe: ["ledger:devices", "ledger:roster_statements", "disk:<root>/settings.json"]
+      - id: phone-row-created
+        when: "명단의 폰이 이 컴퓨터에 처음 붙었다(다른 컴퓨터의 초대장으로 들었거나 접힌 id). hello의 화면으로 행을 만들고 기준 폰이 되며 shell.devices에 명단 이름의 항목이 선다"
         observe: ["ledger:devices", "disk:<root>/settings.json"]
       - id: unattached-full
         when: "기기로 붙지 않은 연결이 이미 8개다"
         observe: ["process:연결 닫힘"]
-      - id: pairing-timeout
-        when: "등록되지 않은 key가 60초 안에 pairing하지 못했다"
+      - id: join-timeout
+        when: "명단에 없는 key가 60초 안에 붙지 못했다"
         observe: ["process:연결 닫힘"]
       - id: frame-too-large
-        when: "기기로 붙기 전 4 KiB보다 큰 frame이 왔다"
+        when: "기기로 붙기 전 16 KiB보다 큰 frame이 왔다"
         observe: ["process:연결 닫힘"]
       - id: revoked-while-attaching
-        when: "key를 찾은 뒤 자격을 받기 전에 기기가 끊겼다"
+        when: "key를 찾은 뒤 자격을 받기 전에 기기가 명단에서 빠졌다"
         observe: ["process:연결 닫힘"]
       - id: unpaired-refused
-        when: "등록되지 않은 key의 연결이 pair 아닌 frame(call, watch)을 보냈다. closed(credential_revoked)를 보내고 닫는다. 폰과 desktop은 그 컴퓨터를 다시 pairing으로 표시하고 다시 붙지 않는다"
+        when: "명단에 없는 key의 연결이 join 아닌 frame(call, watch, 옛 pair)을 보냈다. closed(credential_revoked)를 보내고 닫는다. 폰과 desktop은 그 컴퓨터를 다시 들어오기로 표시하고 다시 붙지 않는다"
+        observe: ["response", "process:연결 닫힘"]
+      - id: roster-exchanged
+        when: "붙은 연결이 roster frame을 보냈다. 합쳐 정한 이 컴퓨터의 명단으로 답한다. 명단이 바뀌면 붙은 연결마다 roster frame이 간다"
+        observe: ["response", "ledger:roster_statements"]
+      - id: removed-while-attached
+        when: "붙어 있던 기기가 명단에서 빠졌다(빼기, 충돌, 접힌 id). 그 빼기가 든 roster frame을 먼저 받은 뒤 자격이 거둬지고 closed(credential_revoked)로 닫힌다"
         observe: ["response", "process:연결 닫힘"]
       - id: call-ok
         observe: ["response"]
@@ -1788,7 +1797,7 @@ flows:
         observe: ["response"]
       - id: call-unauthorized
         code: unauthorized
-        when: "기기를 끊어 자격이 거둬졌다"
+        when: "기기가 명단에서 빠져 자격이 거둬졌다"
         observe: ["response"]
       - id: call-not-found
         code: not_found
@@ -1815,18 +1824,19 @@ flows:
         observe: ["response"]
       - id: connected-missing
         code: not_found
-        when: "devices/connected 사이 기기가 지워졌다. 연결은 막지 않는다"
+        when: "devices/connected 사이 명단 저장이 그 행을 지웠거나, 행이 없는데 hello에 화면이 없거나 명단에 그 id의 항목이 없다. 연결은 막지 않는다"
         observe: ["log:remote connected_not_saved"]
     crosses_process: false
     risk: [permission]
     unclear:
       - "devices/connected가 선언한 unavailable(writer)은 log로만 남고 연결을 막지 않는다. 부르는 쪽에 돌아가지 않는다(outcome의 unavailable은 reply-too-large 하나다)"
+      - "컴퓨터는 이 컴퓨터의 기기 행이 없어 devices/connected를 부르지 않는다. 컴퓨터의 마지막 연결 시각은 roster/list에서 null이다"
 
   - id: phone-link
     title: "core가 기기의 열린 remote 연결에 request를 보내고 같은 id의 response를 기다린다"
     actor: system
     entries: [system:phone-link]
-    pre: [route:devices/register]
+    pre: [remote-join:joined]
     boundary: [core]
     code: [packages/core/remote/phone-link.ts, packages/core/remote/host.ts, packages/core/main/daemon/wiring/remote.ts]
     docs: [architecture/remote.md]
@@ -1898,60 +1908,66 @@ flows:
     crosses_process: false
     risk: [permission]
 
-  - id: remote-pair
-    title: "기기(폰, 다른 기계의 desktop)가 QR의 code로 pair해 기기로 등록된다"
+  - id: remote-join
+    title: "붙는 쪽의 첫 frame join을 내 기기 명단으로 받는다(이미 든 기기, 다른 컴퓨터가 든 기기, 초대장으로 처음 드는 기기)"
     actor: system
-    entries: [route:devices/register]
-    pre: [route:pairing/start]
-    boundary: [core, server]
-    code: [packages/core/remote/host.ts, packages/core/remote/pairing.ts, packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
-    docs: [architecture/approval.md]
+    entries: [system:remote-join]
+    uses: [system:roster-commit]
+    boundary: [core, remote]
+    code: [packages/core/remote/host.ts, packages/core/remote/roster.ts, packages/core/main/daemon/wiring/remote.ts, packages/protocol/remote/roster.ts]
+    docs: [architecture/remote.md]
     steps:
-      - "등록되지 않은 key의 연결이, 또는 등록된 key의 연결이 첫 frame으로 pair를 보낸다. kind로 갈린다: phone {code, os ios|android, width, height, dpr}, desktop {code, os linux|macos|windows}. 이름은 frame에 없고 그 연결의 hello name(1..64)이다"
-      - "code가 지금 code와 같고 300초 안이면 쓴다(한 번만). code와 같이 정한 terminal_input을 꺼낸다. 틀리면 unauthorized result이고 연결마다 5번째 틀리면 연결을 닫는다"
-      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 같은 key의 옛 등록이 있으면 지우고(commit 뒤 devices-revoke와 같이 그 기기의 자격과 연결, shell.devices 항목을 거둔다) 새 등록으로 바꾼다. hello의 이름이 기기가 알린 이름(name)이 되고 알린 때(name_announced_at)를 지금으로 적는다. 별명(alias)은 없다. 새 phone이 기준이 되고 다른 기기의 기준은 내린다. desktop은 기준이 아니고 다른 기기의 기준도 그대로다. terminal_input은 그 code의 값이다"
-      - "commit 뒤 registered {id, kind}로 ctx.deviceKind 사본에 kind를 더한다. terminal_input이 켜졌으면 terminal_input {id, on: true}로 허락 사본(terminalInputGrant)도 켠다"
-      - "phone이면 설정 shell.devices에 device(기기 id)를 단 항목을 더한다. 이름은 40자로 자른다. 다른 항목과 겹치면 \" 2\", \" 3\"을 붙인다. device가 없는 항목(사람이 넣은 것)은 건드리지 않는다. desktop은 항목을 더하지 않는다"
-      - "그 연결을 바로 기기로 붙이고 같은 id의 result {device}로 답한다"
+      - "붙는 쪽이 join {id, statements(8개까지)}를 보낸다. statement는 모두 그 연결의 Noise key에 대한 것이어야 한다(컴퓨터가 서명한 항목, 처음 들면 초대장의 비밀로 스스로 서명한 초대 서명 statement)"
+      - "main thread가 저장한 명단에 내민 것을 합쳐 정한다(roster-commit): 수명이 지났거나 7일보다 먼 초대 서명 statement를 버리고, 초대 서명 statement는 checkInvited(지금 시각, 지금 view)가 맞으면 이 컴퓨터가 그 항목에 서명한다. 믿는 컴퓨터가 서명한 그 key의 항목이면 같이 서명한다"
+      - "합친 view에 그 key가 있으면 저장하고 그 기기로 붙인 뒤 result {device, computer {id, signing_key}, roster}로 답한다. 옮긴 폰은 이 답의 서명 key를 root로 배운다. 없으면 아무것도 저장하지 않는다(아직 누구인지 모르는 쪽이 저장소를 채우지 못한다)"
+      - "거절은 details.reason을 싣는다. 빠진 key면 reason removed와 그 빼기 statement(details.removal)다. 틀린 join은 연결마다 5번이고 넘으면 닫는다"
     outcomes:
-      - id: paired
-        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
-      - id: wrong-code
+      - id: joined
+        when: "이미 명단에 있는 key(옮긴 폰 포함)이거나, 믿는 컴퓨터가 서명한 항목이나 맞는 초대 서명 statement를 내밀었다. 이 컴퓨터가 그 항목에 서명해 저장하고 붙는다"
+        observe: ["response", "ledger:roster_statements"]
+      - id: untrusted
         code: unauthorized
-        when: "code가 틀렸거나 300초가 지났거나 이미 썼거나 새 pairing/start가 대신했다"
+        when: "명단에 들 항목이 없다: 초대장 서명자를 이 컴퓨터가 아직 모름, 서명이 틀림, 항목의 invite·kind·terminal_input이 초대장과 다름, 수명이 7일보다 멂, 아무것도 내밀지 않음"
+        observe: ["response"]
+      - id: removed
+        code: unauthorized
+        when: "key·id·서명 key가 효력 있는 빼기에 있다. 수명이 남은 초대장을 내밀어도 같다. 붙는 쪽은 details.removal을 자기 root로 확인한 뒤 key를 버린다"
+        observe: ["response"]
+      - id: expired
+        code: unauthorized
+        when: "이 컴퓨터의 지금이 초대장의 expires_at 뒤다"
+        observe: ["response"]
+      - id: taken
+        code: conflict
+        when: "그 id를 명단의 다른 key가 든다(id_taken), 그 key가 다른 모양이거나 충돌로 빠졌다(key_taken), 같은 초대장으로 다른 key가 이미 들었다(used)"
+        observe: ["response"]
+      - id: wrong-key
+        code: invalid_input
+        when: "내민 statement 가운데 그 연결의 key가 아닌 기기에 대한 것이 있다"
         observe: ["response"]
       - id: too-many-tries
-        when: "한 연결에서 5번 틀렸다"
-        observe: ["response"]
-      - id: re-paired
-        when: "등록된 key가 맞는 code로 pair했다. 옛 등록은 새 id의 등록으로 바뀐다. code가 틀리면 wrong-code이고 옛 등록은 그대로다"
-        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
-      - id: unavailable
-        code: unavailable
-        when: "ledger writer를 쓸 수 없다"
-        observe: ["response"]
+        when: "틀린 join이 한 연결에서 5번이다. 연결을 닫는다"
+        observe: ["process:연결 닫힘"]
     crosses_process: false
     risk: [permission]
-    declared_only: [forbidden]
-    unclear:
-      - "devices/register의 forbidden(machine 아닌 actor)은 core 안 machine 자격만 부르므로 나지 않는다"
 
-  - id: remote-pairing-start
-    title: "사람이 QR에 실을 pairing code와 주소를 받는다(새 기기의 터미널 입력 허락을 같이 정한다)"
+  - id: roster-invite
+    title: "사람이 새 기기(폰이나 컴퓨터)를 들일 초대장을 받는다(종류, 수명, 터미널 입력 허락을 같이 정한다)"
     actor: person
-    entries: [route:pairing/start]
-    boundary: [core-api, server]
-    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/pairing.ts, packages/shell/renderer/desktop/settings/remote/remote-panel.tsx]
+    entries: [route:roster/invite]
+    boundary: [core-api, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts, tools/remote-dev.ts]
+    docs: [architecture/remote.md]
     steps:
-      - "Settings › Remote의 pairing 칸이 부른다. 입력 terminal_input은 칸의 \"Let the new device type in terminals\"(기본 켬)이고 바꾸면 그 값으로 새 code를 만든다"
-      - "새 1회용 code(128-bit, 300초, 메모리에만)를 만들어 terminal_input과 같이 두고 앞 code를 무효로 한다"
-      - "주소 후보(설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 16개까지), remote.port, core 공개 key(base64url), code, 끝 시각을 돌려준다. relay 연결을 걸었으면 relay 주소(설정 remote.relay)도 싣는다"
+      - "remote가 켜져 있고 listener나 relay가 떠 있으며 이 컴퓨터의 key가 있어야 한다"
+      - "한 번 쓸 Ed25519 key를 만들어 초대장 body {key, by(이 컴퓨터의 id), kind, terminal_input, expires_at}에 이 컴퓨터의 서명 key로 서명한다. 수명은 short 30분, long 7일이다"
+      - "초대장, 한 번 쓸 key의 비밀, 이 컴퓨터의 자기 서명 항목(issuer), 지금 주소(reach: 주소 후보, port, relay)를 글 하나로 낸다. 저장하지 않는다: 한 번 쓰였는지는 명단의 invite 칸이 말한다"
     outcomes:
       - id: ok
         observe: ["response"]
       - id: unavailable
         code: unavailable
-        when: "remote listener도 relay 연결도 없다(remote.enabled가 꺼졌거나 host key를 못 읽었거나, listener를 열지 못했고 relay 설정이 없다)"
+        when: "remote가 꺼졌거나 listener와 relay가 다 없다, 또는 이 컴퓨터의 자기 항목이 아직 없다"
         observe: ["response"]
       - id: forbidden
         code: forbidden
@@ -1985,7 +2001,7 @@ flows:
     boundary: [core-api, storage]
     code: [packages/core/remote/devices.ts]
     steps:
-      - "devices 표를 만든 순서로 읽어 kind(phone, desktop), 보이는 이름(name: 별명이 있으면 별명, 없으면 알린 이름), 알린 이름(announced_name), 별명(alias, 없으면 null), os, 화면(phone만, desktop은 null), 공개 key, 만든 때, 마지막 연결, 기준 여부, 터미널 입력 허락(terminal_input)을 준다"
+      - "이 컴퓨터의 기기 행을 만든 순서로 읽어 kind, 명단의 이름(name: 저장한 명단에서 그 key의 이긴 항목. 아직 서명하지 않은 옮긴 행은 옛 이름), 마지막으로 받은 알린 이름(announced_name), alias(늘 null), os, 화면, 공개 key, 만든 때, 마지막 연결, 기준 여부, 명단의 터미널 입력 허락(terminal_input)을 준다"
     outcomes:
       - id: ok
         observe: ["response"]
@@ -1999,92 +2015,42 @@ flows:
         observe: ["response"]
     crosses_process: false
 
-  - id: devices-rename
-    title: "사람이 기기의 별명을 두거나 지운다"
-    actor: person
-    entries: [route:devices/rename]
-    boundary: [core-api, storage]
-    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/renderer/desktop/settings/remote/device-rows.tsx]
-    steps:
-      - "Settings › Remote의 기기 줄 [Rename] sheet가 부른다. 별명이 있을 때 sheet의 [Use the device's name]이 name null로 부르고, 별명이 있고 알린 이름과 다르면 줄 제목 아래에 알린 이름이 작게 보인다"
-      - "입력 name이 글이면 별명(alias)으로 두고, null이면 별명을 지워 기기가 알린 이름이 다시 보인다. 기기가 알린 이름은 바꾸지 않는다. 별명이 같으면 아무것도 쓰지 않는다"
-      - "보이는 이름이 바뀌었을 때만 commit 뒤 renamed로 설정 shell.devices에서 device가 그 기기인 항목만 새 보이는 이름으로 바꾼다(40자로 자르고 겹치면 숫자를 붙인다). desktop은 항목이 없어 바뀌지 않는다"
-    outcomes:
-      - id: ok
-        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
-      - id: not_found
-        code: not_found
-        observe: ["response"]
-      - id: forbidden
-        code: forbidden
-        when: "user 아닌 actor거나 기기 자격이다(route 목록 밖)"
-        observe: ["response"]
-      - id: unavailable
-        code: unavailable
-        when: "writer를 쓸 수 없다"
-        observe: ["response"]
-    crosses_process: false
-
-  - id: devices-revoke
-    title: "기기를 끊는다. 그 연결이 바로 닫히고 같은 key는 다시 pairing해야 붙는다"
-    actor: person
-    entries: [route:devices/revoke]
-    boundary: [core-api, storage]
-    code: [packages/core/remote/devices.ts, packages/core/remote/host.ts, packages/core/main/daemon/wiring/remote.ts]
-    steps:
-      - "devices 표에서 행을 지운다"
-      - "commit 뒤 기기 자격을 거두고 그 기기의 연결에 closed(credential_revoked)를 보내고 닫는다. 설정 shell.devices에서 device가 그 기기인 항목만 뺀다"
-      - "같은 key가 다시 붙으면 등록되지 않은 key라 pair만 받는다"
-    outcomes:
-      - id: ok
-        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
-      - id: not_found
-        code: not_found
-        observe: ["response"]
-      - id: forbidden
-        code: forbidden
-        when: "user 아닌 actor거나 기기 자격이다(route 목록 밖)"
-        observe: ["response"]
-      - id: unavailable
-        code: unavailable
-        when: "writer를 쓸 수 없다"
-        observe: ["response"]
-    crosses_process: false
-    risk: [permission]
-
-  - id: devices-forget-all
-    title: "host key가 다른 기계에서 온 것이면 기동 때 기기 등록을 모두 버리고 key를 지운다"
+  - id: roster-forget
+    title: "복사된 data root, 하나만 읽히는 key, 명단에서 빠진 이 컴퓨터의 명단과 key를 버린다"
     actor: system
-    entries: [route:devices/forget_all]
+    entries: [system:roster-forget, route:roster/forget_all]
     pre: [system:machine-ensure]
-    boundary: [core, storage]
+    boundary: [core, storage, remote]
     code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/host-key.ts, packages/core/remote/devices.ts]
-    docs: [architecture/remote.md]
+    docs: [architecture/remote.md, architecture/machine.md]
     steps:
-      - "remote wiring의 start가 remote.enabled와 상관없이 기동마다, listener·relay를 열고 push 대상을 읽기 전에 `<root>/remote/host-key.json`의 machine을 읽는다"
-      - "file이 없거나 못 읽거나(machine이 없음 포함) machine이 지금 기계 id와 같으면 아무것도 하지 않는다. 못 읽는 key file은 덮지 않는다"
-      - "다르면 이 data root는 다른 기계에서 복사됐다(machine-ensure의 cloned). core 안 machine 자격이 devices/forget_all로 기기 행을 모두 지운다(push token 포함). 행마다 commit 뒤 devices-revoke와 같이 자격과 연결, shell.devices 항목, kind·터미널 허락 사본을 거둔다"
-      - "그 뒤 host-key.json을 지우고 경고 log 한 줄(옛 id, 지금 id, 지운 기기 수). remote.enabled면 remote-listener가 지금 id를 찍은 새 key를 만들고 relay에도 새 key로 붙는다"
-      - "기기를 버린 뒤 key를 지우므로 중간에 죽으면 다음 기동이 같은 판정으로 다시 한다"
+      - "기동(start) 때 remote key 둘의 machine을 지금 id와 대조한다. 다른 기계의 key거나 하나만 읽히거나, key 없이 명단이 남았으면 버린다. 둘 다 없거나 같으면 두고, 하나도 읽히지 않으면 덮지 않는다"
+      - "명단을 저장한 뒤나 기동 때 이 컴퓨터를 root로 본 view의 효력 있는 빼기가 자기 host key나 서명 key를 들면(명단에서 빠졌다) 버린다"
+      - "버리기: key 둘을 지우고, 붙은 연결을 닫고 listener와 relay를 닫은 뒤 core 안 machine 자격이 roster/forget_all로 명단과 이 컴퓨터의 기기 행을 모두 지운다(push token 포함, 행마다 commit 뒤 shell.devices 항목을 거둔다). key를 먼저 지우므로 중간에 죽으면 다음 기동이 key 없이 남은 명단으로 다시 버린다. 경고 log를 남긴다"
+      - "remote가 켜져 있으면 바로 reconcile이 새 key와 새 자기 항목(새 id)을 만든다. 사람이 다른 컴퓨터에서 새 기기로 다시 초대한다"
     outcomes:
       - id: forgotten
-        when: "key의 machine이 지금 id와 달랐다. 기기 표가 비고 새 key가 생긴다. 옛 기계에서 pairing한 폰은 다시 pairing해야 한다"
-        observe: ["ledger:devices", "disk:<root>/settings.json", "disk:<root>/remote/host-key.json", "log:remote host_key_from_other_machine"]
+        when: "다른 기계의 key, 하나만 읽히는 key, key 없이 남은 명단이었다. 명단과 기기 표가 비고 새 key가 생긴다"
+        observe: ["ledger:roster_statements", "ledger:devices", "disk:<root>/remote/host-key.json", "disk:<root>/settings.json", "log:remote host_key_from_other_machine"]
+      - id: removed-from-roster
+        when: "명단에서 이 컴퓨터가 빠진 것을 알았다. 명단, 기기 표, key를 버리고 새 key와 새 id로 다시 선다"
+        observe: ["ledger:roster_statements", "ledger:devices", "disk:<root>/remote/host-key.json", "log:remote removed_from_roster"]
       - id: kept
-        when: "key가 없거나 못 읽거나 machine이 지금 id와 같다. 기기와 key가 그대로다"
-        observe: ["disk:<root>/remote/host-key.json"]
-      - id: unavailable
+        when: "key가 없고 명단도 없거나, 둘 다 이 기계의 것이고 빠지지 않았다"
+        observe: ["ledger:devices"]
+      - id: failed
         code: unavailable
-        when: "writer를 쓸 수 없거나 key file을 지우지 못했다. 기동이 멈춘다"
+        when: "key file을 지우지 못했거나 roster/forget_all을 쓰지 못했다. 기동이 실패한다(start 때)"
         observe: ["process:stdout start_failed other"]
+      - id: forbidden
+        code: forbidden
+        when: "roster/forget_all을 machine 아닌 actor가 불렀다"
+        observe: ["response"]
     crosses_process: false
-    risk: [permission]
-    declared_only: [invalid_input, forbidden]
-    unclear:
-      - "devices/forget_all의 invalid_input·forbidden은 core 안 machine 자격이 빈 입력으로만 부르므로 나지 않는다"
+    risk: [data-loss, permission]
 
   - id: remote-host-key-machine
-    title: "이 판 전에 만든 host key에 이 기계의 id를 찍는다(data step)"
+    title: "이 판 전에 만든 host key에 이 기계의 id를 찍고 짝 서명 key를 더한다(data step)"
     actor: system
     entries: [system:remote-host-key-machine]
     pre: [system:machine-ensure]
@@ -2095,47 +2061,20 @@ flows:
       - "data step remote.host-key.machine. readMachineId로 machine.json의 id를 읽는다(machine-ensure가 먼저 만들었다)"
       - "`<root>/remote/host-key.json`이 있고 machine이 없으면 그 id를 더해 0600으로 temp에 쓰고 rename한다. key 값은 그대로라 이미 pairing한 폰이 그대로 붙는다"
       - "file이 없거나 이미 machine이 있거나 JSON이 아니면 하지 않는다(못 읽는 file은 덮지 않는다). 다시 돌아도 같다"
+      - "data step remote.signing-key. host key가 machine과 같이 읽히고 `signing-key.json`이 없으면 같은 machine을 적은 서명 key를 0600으로 만든다(wx). 없으면 기동이 host key 하나만 읽혀 둘 다 지우고 이미 pairing한 폰이 다시 들어와야 한다"
     outcomes:
       - id: stamped
-        observe: ["disk:<root>/remote/host-key.json"]
-        when: "machine이 없는 key에 지금 id를 찍었다"
+        observe: ["disk:<root>/remote/host-key.json", "disk:<root>/remote/signing-key.json"]
+        when: "machine이 없는 key에 지금 id를 찍었다. 서명 key가 없던 host key에 짝 서명 key가 생겼다"
       - id: skipped
         observe: ["disk:host-key.json 변화 없음"]
         when: "key file이 없거나 이미 찍혔거나 못 읽는다"
       - id: failed
         code: unavailable
         observe: ["process:stdout start_failed other"]
-        when: "machine.json을 읽지 못했거나 key file을 쓰지 못했다"
+        when: "machine.json을 읽지 못했거나 key file을 쓰지 못했다(서명 key 포함)"
     crosses_process: false
     risk: [data-loss]
-
-  - id: devices-unpair
-    title: "폰이 컴퓨터를 지울 때 자기 등록을 지운다"
-    actor: system
-    entries: [route:devices/unpair]
-    boundary: [core, storage]
-    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/remote-client/pairing.ts, packages/remote-client/computers.ts]
-    steps:
-      - "폰에서 Remove를 누를 때 그 컴퓨터에 붙어 있으면 기기 자격으로 부른다. 닿지 않으면 폰만 잊고, 다음 pairing이 옛 등록을 바꾼다(remote-pair)"
-      - "자격의 principal device:<id>의 행만 지운다. input에 id가 없어 다른 기기는 지울 수 없다"
-      - "commit 뒤 devices-revoke와 같이 자격을 거두고 그 기기의 연결에 closed(credential_revoked)를 보내고 닫는다. 설정 shell.devices에서 그 기기의 항목을 뺀다"
-    outcomes:
-      - id: ok
-        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
-      - id: forbidden
-        code: forbidden
-        when: "기기 자격이 아니다(사람 token, machine)"
-        observe: ["response"]
-      - id: not_found
-        code: not_found
-        when: "그 기기의 행이 이미 없다"
-        observe: ["response"]
-      - id: unavailable
-        code: unavailable
-        when: "writer를 쓸 수 없다"
-        observe: ["response"]
-    crosses_process: false
-    risk: [permission]
 
   - id: devices-set-push
     title: "폰이 자기 push token과 알림 설정을 core에 둔다"
@@ -2244,44 +2183,228 @@ flows:
         observe: ["response"]
     crosses_process: false
 
-  - id: devices-set-terminal-input
-    title: "사람이 컴퓨터에서 기기마다 터미널 입력을 켜고 끈다"
-    actor: person
-    entries: [route:devices/set_terminal_input]
-    boundary: [core-api, storage]
-    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/renderer/desktop/settings/remote/device-rows.tsx]
+  - id: roster-identity
+    title: "이 컴퓨터가 명단에 자기 항목을 두고, 옛 기기 표의 폰을 명단으로 옮기고, 기계 이름을 따라 자기 이름을 다시 서명한다"
+    actor: system
+    entries: [system:roster-identity]
+    uses: [system:roster-commit, route:devices/list]
+    pre: [remote-host-key-machine:stamped]
+    boundary: [core, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts, packages/core/remote/devices.ts]
+    docs: [architecture/remote.md]
     steps:
-      - "Settings › Remote의 기기 줄 스위치가 부른다. 기기의 terminal_input을 바꾼다(처음 값은 pairing code와 같이 정한 것, remote-pair). 같은 값이면 아무것도 쓰지 않는다"
-      - "commit 뒤 command가 답하기 전에 main thread의 허락 사본(terminalInputGrant)을 고친다. 끄면 그 기기의 다음 terminal_view/input부터 forbidden이다. 기기를 끊거나(devices-revoke, devices-unpair) 같은 key로 다시 pairing하면 옛 기기의 허락도 사라지고 새 등록은 그 code의 값이다"
+      - "key가 있을 때 기동(start)에서, remote를 켤 때 listener·relay를 열기 전에, roster/list를 읽을 때 돈다"
+      - "명단에 자기 항목(자기 host key와 서명 key)이 없으면 새 dev_ id로 kind computer, host key, 서명 key, mch_, 기계 이름, OS, terminal_input true, rev 1의 항목을 스스로 서명한다"
+      - "옛 기기 표의 phone 행 가운데 명단에 그 key의 statement가 하나도 없는 행(schema step remote.roster가 SQL로 서명하지 못해 남긴 것)에 같은 저장에서 서명한다: id, key, 이름(별명이 있었으면 별명), os, 터미널 입력 허락 그대로, rev 1, 초대 없음. 다른 기계 desktop 행은 그 step이 지웠다"
+      - "기계 이름이 이 process에서 마지막으로 맞춘 이름과 다르면(machine/rename, hostname) 그 이름으로 rev를 올려 서명한다. 다른 컴퓨터가 바꾼 이 컴퓨터의 이름은 기계 이름이 바뀔 때까지 남는다"
+    outcomes:
+      - id: created
+        when: "명단에 자기 항목이 없었다(처음 켬, 명단을 버린 뒤)"
+        observe: ["ledger:roster_statements"]
+      - id: adopted
+        when: "옛 기기 표의 폰이 이 컴퓨터가 서명한 항목이 됐다. 그 폰은 다시 pairing하지 않고 같은 id로 붙는다"
+        observe: ["ledger:roster_statements"]
+      - id: renamed
+        when: "기계 이름이 바뀌었다"
+        observe: ["ledger:roster_statements"]
+      - id: failed
+        when: "기기 행을 읽지 못했거나 명단을 저장하지 못했다. remote를 켜는 중이면 listener를 열지 않는다"
+        observe: ["log:remote roster_not_signed"]
+    crosses_process: false
+    risk: [data-loss, permission]
+
+  - id: roster-commit
+    title: "main thread가 받은 명단을 합쳐 정하고 서명해 저장하고 퍼뜨린다"
+    actor: system
+    entries: [system:roster-commit, route:roster/store, route:roster/statements]
+    boundary: [core, storage, remote]
+    code: [packages/core/remote/roster.ts, packages/core/remote/devices.ts, packages/core/apps/sync/device-fold.ts, packages/core/main/daemon/wiring/remote.ts, packages/protocol/remote/roster.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "main thread의 명단 사본 하나가 고치기를 하나씩 한다. 기동 때 roster/statements(machine 자격)로 읽고 이 컴퓨터의 서명 key를 root로 view를 계산한다. 터미널 입력 허락(terminalInputGrant)과 기기 kind(deviceKind, computer는 아직 desktop)는 이 view로 답한다"
+      - "저장한 것과 받은 것을 합치고 수명이 지난 초대 서명 statement를 버린 뒤 view를 계산한다. 초대 서명 statement는 checkInvited가 맞으면 서명하고, 서명자를 모르는 것만 남기고 나머지(expired, used, removed, id_taken, key_taken)는 버린다. view의 devices body와 settled인 removed body 가운데 아직 서명하지 않은 것에 서명한다. 서명이 늘지 않을 때까지 되풀이한다"
+      - "keep과 주소(기기마다 마지막에 받은 것, 이 컴퓨터의 것은 이 컴퓨터만)가 달라졌으면 roster/store(machine 자격)로 통째로 둔다. 같은 write에서 folded(같은 key의 큰 id → 작은 id)로 기기 행 id와 앱 sync log의 기기 칸을 바꾸고, 서명한 항목이 남지 않은 key의 기기 행을 지운다(push token도 같이). commit 뒤 shell.devices의 항목이 따라간다(접힌 id, 지운 행)"
+      - "저장한 뒤 붙은 연결마다 roster frame을 민다. 그 다음 view에서 빠진 id의 자격을 거두고, key가 더는 그 id의 기기가 아닌 연결(뺀 key, 충돌한 key, 접힌 id)을 closed(credential_revoked)로 닫는다. 이름이 바뀐 기기의 shell.devices 항목 이름을 바꾼다. 빠진 것이 이 컴퓨터면 roster-forget이다"
+    outcomes:
+      - id: stored
+        observe: ["ledger:roster_statements", "ledger:devices", "event:StateChanged", "response"]
+      - id: unchanged
+        when: "합쳐도 keep과 주소가 같다. 저장하지 않는다"
+        observe: ["ledger:roster_statements"]
+      - id: folded
+        when: "같은 key에 id가 여럿이다. 작은 id로 기기 행, 앱 sync log, shell.devices를 고친다. 다시 해도 같다"
+        observe: ["ledger:devices", "ledger:app_sync_log", "disk:<root>/settings.json"]
+      - id: device-dropped
+        when: "기기가 명단에서 빠졌다(빼기, 뺀 컴퓨터만 서명한 항목, 충돌). 기기 행과 push token, shell.devices 항목이 지워지고 붙은 연결은 빼기가 든 명단을 받은 뒤 닫힌다"
+        observe: ["ledger:devices", "disk:<root>/settings.json", "process:연결 닫힘"]
+      - id: self-removed
+        when: "이 컴퓨터가 빠졌다. roster-forget으로 간다"
+        observe: ["log:remote removed_from_roster"]
+      - id: forbidden
+        code: forbidden
+        when: "roster/store·roster/statements를 machine 아닌 actor가 불렀다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 reader를 쓸 수 없다. 고치기를 부른 쪽(route, join, roster frame)이 이 오류를 받는다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, permission]
+
+  - id: roster-list
+    title: "사람이 내 기기 명단(이 컴퓨터, 다른 컴퓨터, 폰)을 본다"
+    actor: person
+    entries: [route:roster/list]
+    uses: [system:roster-identity, route:devices/list]
+    boundary: [core-api, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "key가 있으면 기계 이름이 바뀌었는지 보고 자기 항목을 다시 서명한다(roster-identity:renamed)"
+      - "view의 기기마다 id, kind, 명단의 이름, os, machine, 터미널 입력 허락, 이 컴퓨터인지, 이 컴퓨터의 기기 행의 마지막 연결(없으면 null)을 id 순서로 준다. this는 이 컴퓨터의 id이고 key가 없으면 null이다"
     outcomes:
       - id: ok
-        observe: ["ledger:devices", "response"]
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user 아닌 actor다. 기기 자격도 route 목록 밖이라 forbidden이다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "기기 행을 읽지 못했다"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: roster-remove
+    title: "사람이 기기를 명단에서 뺀다. 모든 컴퓨터에 퍼지고 그 key는 다시 들지 못한다"
+    actor: person
+    entries: [route:roster/remove]
+    uses: [system:roster-commit]
+    boundary: [core-api, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "view에서 그 id의 기기를 찾아 빼기 {id, key, signing_key(컴퓨터면 그 서명 key, 폰은 null), at}에 이 컴퓨터가 서명해 저장한다(roster-commit:device-dropped)"
+    outcomes:
+      - id: ok
+        observe: ["response", "ledger:roster_statements", "ledger:devices"]
+      - id: invalid_input
+        code: invalid_input
+        when: "이 컴퓨터 자신이다"
+        observe: ["response"]
       - id: not_found
         code: not_found
+        when: "명단에 그 id의 기기가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "이 컴퓨터의 자기 항목이 없다(remote를 켠 적이 없다), 또는 저장하지 못했다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user 아닌 actor다. 기기 자격도 route 목록 밖이다(폰은 roster/leave로 자기만 뺀다)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: roster-leave
+    title: "폰이 이 컴퓨터를 지울 때 자기를 명단에서 뺀다"
+    actor: person
+    entries: [route:roster/leave]
+    uses: [system:roster-commit]
+    boundary: [core-api, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "부른 principal이 device:<id>여야 한다. 그 id에 roster-remove와 같은 빼기를 이 컴퓨터가 서명해 저장한다. 그 key는 다시 들지 못하고 폰은 다음에 새 key로 든다"
+    outcomes:
+      - id: ok
+        observe: ["response", "ledger:roster_statements"]
+      - id: forbidden
+        code: forbidden
+        when: "기기 자격이 아니다(사람 token, machine)"
+        observe: ["response"]
+      - id: not_found
+        code: not_found
+        when: "명단에 그 기기가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "이 컴퓨터의 자기 항목이 없거나 저장하지 못했다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: roster-rename
+    title: "사람이 기기의 이름을 바꾼다. 모든 기계에 같은 이름이다"
+    actor: person
+    entries: [route:roster/rename]
+    uses: [system:roster-commit]
+    boundary: [core-api, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "이긴 항목에서 이름만 바꾼 rev+1에 이 컴퓨터가 서명해 저장한다. 같은 이름이면 쓰지 않는다. commit 뒤 shell.devices 항목 이름이 따라간다(40자로 자른다)"
+    outcomes:
+      - id: ok
+        observe: ["response", "ledger:roster_statements", "disk:<root>/settings.json"]
+      - id: invalid_input
+        code: invalid_input
+        when: "이 컴퓨터 자신이다(이 컴퓨터의 이름은 machine/rename을 따른다)"
+        observe: ["response"]
+      - id: not_found
+        code: not_found
+        when: "명단에 그 id의 기기가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "이 컴퓨터의 자기 항목이 없거나 저장하지 못했다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user 아닌 actor다. 기기 자격도 route 목록 밖이다"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: roster-set-terminal-input
+    title: "사람이 기기가 터미널에 칠 수 있는지를 켜고 끈다. 모든 기계에 같다"
+    actor: person
+    entries: [route:roster/set_terminal_input]
+    uses: [system:roster-commit]
+    boundary: [core-api, remote]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/roster.ts]
+    docs: [architecture/remote.md, architecture/terminal-agent.md]
+    steps:
+      - "이긴 항목에서 terminal_input만 바꾼 rev+1에 이 컴퓨터가 서명해 저장한다. 같은 값이면 쓰지 않는다. 같은 rev에서는 끈 쪽이 이긴다"
+      - "route가 답하기 전에 main thread의 view가 바뀌어 terminalInputGrant가 다음 terminal_view/input부터 따른다. 기기가 빠지면 허락도 사라진다"
+    outcomes:
+      - id: ok
+        observe: ["response", "ledger:roster_statements"]
+      - id: not_found
+        code: not_found
+        when: "명단에 그 id의 기기가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "이 컴퓨터의 자기 항목이 없거나 저장하지 못했다"
         observe: ["response"]
       - id: forbidden
         code: forbidden
         when: "user 아닌 actor거나 기기 자격이다(route 목록 밖). 폰은 자기 터미널 입력을 켜지 못한다"
-        observe: ["response"]
-      - id: unavailable
-        code: unavailable
-        when: "writer를 쓸 수 없다"
         observe: ["response"]
     crosses_process: false
     risk: [permission]
 
 links: []
 ignore:
-  - {entry: "route:roster/list", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/invite", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/join", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/remove", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/set_terminal_input", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/rename", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/leave", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/statements", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/store", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
-  - {entry: "route:roster/forget_all", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-core가 handler와 같이 쓴다"}
+  - {entry: "route:roster/join", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}
+  - {entry: "route:pairing/start", reason: "route 정의만 남고 handler가 없다(계획 device-roster, roster/invite가 대신한다). roster-cleanup이 지운다"}
+  - {entry: "route:devices/register", reason: "route 정의만 남고 handler가 없다(계획 device-roster, join이 대신한다). roster-cleanup이 지운다"}
+  - {entry: "route:devices/rename", reason: "route 정의만 남고 handler가 없다(계획 device-roster, roster/rename이 대신한다). roster-cleanup이 지운다"}
+  - {entry: "route:devices/revoke", reason: "route 정의만 남고 handler가 없다(계획 device-roster, roster/remove가 대신한다). roster-cleanup이 지운다"}
+  - {entry: "route:devices/unpair", reason: "route 정의만 남고 handler가 없다(계획 device-roster, roster/leave가 대신한다). roster-cleanup이 지운다"}
+  - {entry: "route:devices/set_terminal_input", reason: "route 정의만 남고 handler가 없다(계획 device-roster, roster/set_terminal_input이 대신한다). roster-cleanup이 지운다"}
+  - {entry: "route:devices/forget_all", reason: "route 정의만 남고 handler가 없다(계획 device-roster, roster/forget_all이 대신한다). roster-cleanup이 지운다"}
   - {entry: "route:machines/list", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}
   - {entry: "route:machines/call", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}
   - {entry: "route:machines/watch", reason: "계약만 있고 handler가 없다(계획 device-roster). flow는 roster-links가 handler와 같이 쓴다"}

@@ -1,29 +1,46 @@
-// 기기(폰, 다른 기계의 desktop)가 붙는 remote 연결의 조립. 설정 `remote.enabled`가 켜지면 `remote.port`에 listener를 열고, `remote.relay`가 있으면
-// relay에도 건다. 둘은 따로 돈다(port를 못 열어도 relay는 돈다). 꺼지면 둘 다 닫는다.
-// 기기 표(devices)의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
+// 기기(폰, 다른 컴퓨터)가 붙는 remote 연결과 내 기기 명단의 조립. 설정 `remote.enabled`가 켜지면 `remote.port`에 listener를 열고,
+// `remote.relay`가 있으면 relay에도 건다. 둘은 따로 돈다(port를 못 열어도 relay는 돈다). 꺼지면 둘 다 닫는다.
+// 기기 표(devices)와 명단 표의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
-// 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)과 기기 kind(`ctx.deviceKind`)도 기기 표를 아는 여기서 채운다.
+// 명단의 main thread 사본(remote/roster.ts)을 여기서 들고, 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)과 kind
+// (`ctx.deviceKind`)를 그 view로 채운다. 명단을 고치는 `roster/*` route는 여기서 서명한 뒤 machine 자격 `roster/store`로 쓴다.
 // core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
-// host key에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key면 기기 등록을 모두 버리고 key를 지운다.
-import { rm } from "node:fs/promises";
+// remote key 둘(host key, 서명 key)에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key거나 하나만
+// 읽히면 명단을 버리고 둘 다 지운다. 명단에서 이 컴퓨터가 빠진 것을 알아도 같은 길로 버리고 새 key로 다시 선다.
 import { networkInterfaces } from "node:os";
+import process from "node:process";
 import type { z } from "zod";
-import { err, formatAt, ok, type Result } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  cryptoRandom,
+  err,
+  ok,
+  type Result,
+} from "../../../../base/mod.ts";
 import {
   devicesClearPush,
   devicesConnected,
-  devicesForgetAll,
   devicesList,
   devicesPushTargets,
-  devicesRegister,
-  pairingStart,
   type RemoteDevice,
+  type RosterEntryBody,
+  type RosterView,
   remoteKeyText,
   remoteRelayStatus,
+  rosterForgetAll,
+  rosterInvite,
+  rosterLeave,
+  rosterList,
+  rosterRemove,
+  rosterRename,
+  rosterSetTerminalInput,
+  rosterStatements,
+  rosterStore,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
 import { rewindUnknownSchemaSteps } from "../../../apps/rewind/mod.ts";
+import { foldSyncLogDevice } from "../../../apps/sync/device-fold.ts";
 import {
   SYNC_LOG_MACHINE_STEPS,
   SYNC_LOG_SCHEMA_STEPS,
@@ -47,19 +64,12 @@ import { readMachineId } from "../../../machine/mod.ts";
 import { PROJECTS_IDENTITY_STEPS } from "../../../projects/registry/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
 import {
-  createDeviceKinds,
-  createTerminalInputGrants,
-} from "../../../remote/devices.ts";
-import {
-  readHostKeyMachine,
-  stampHostKeyMachine,
-} from "../../../remote/host-key.ts";
-import {
+  addSigningKey,
   createDeviceCredentials,
-  createPairingCodes,
   createPhoneLink,
   createRemoteCall,
   createRemoteHost,
+  createRoster,
   DEVICES_COMMANDS,
   DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
@@ -67,16 +77,25 @@ import {
   type DevicesChange,
   devicesListRead,
   devicesPushTargetsRead,
-  loadHostKey,
+  loadRemoteKeys,
   openRemoteListener,
-  type PairingCodes,
   type PhoneLink,
   type RemoteDevices,
   type RemoteHost,
+  type RemoteKeys,
   type RemoteListener,
+  ROSTER_SCHEMA_STEPS,
+  type Roster,
+  type RosterChange,
+  remoteKeysState,
+  removeRemoteKeys,
+  rosterStatementsRead,
+  rosterStoreCommand,
+  screensFolded,
   screensPaired,
   screensRenamed,
   screensRevoked,
+  stampHostKeyMachine,
 } from "../../../remote/mod.ts";
 import {
   openRelayWebSocket,
@@ -93,7 +112,7 @@ import type { DataStep } from "../../../storage/migration/mod.ts";
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
-// 기기를 등록하고 마지막 연결을 적고 key로 찾고 push token을 읽고 거두고, 복사된 key의 기기 등록을 버리는 core 안 machine 자격이다.
+// 기기 행의 마지막 연결을 적고 읽고 push token을 읽고 거두고, 명단을 읽고 쓰고 버리는 core 안 machine 자격이다.
 // 기동 때 ledger에 기록한다.
 const REMOTE_PRINCIPAL = "machine:remote";
 const REMOTE_CONTEXT: AuthenticatedContext = {
@@ -101,12 +120,13 @@ const REMOTE_CONTEXT: AuthenticatedContext = {
   actor: "machine",
   scope: {
     operations: [
-      devicesRegister.name,
       devicesConnected.name,
-      devicesForgetAll.name,
       devicesList.name,
       devicesClearPush.name,
       devicesPushTargets.name,
+      rosterStatements.name,
+      rosterStore.name,
+      rosterForgetAll.name,
     ],
     targets: {},
   },
@@ -119,16 +139,31 @@ type Screen = z.infer<typeof devicesSetting.type>[number];
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
+const READS = [devicesListRead, devicesPushTargetsRead, rosterStatementsRead];
+// 명단 저장은 접힌 기기 id로 앱 sync log도 고친다(같은 write).
+export const REMOTE_COMMANDS = [
+  ...DEVICES_COMMANDS,
+  rosterStoreCommand(foldSyncLogDevice),
+];
+
 export function createCoreRegistration() {
   return {
-    commands: DEVICES_COMMANDS,
-    reads: [devicesListRead, devicesPushTargetsRead],
-    memoryRoutes: [pairingStart, remoteRelayStatus],
+    commands: REMOTE_COMMANDS,
+    reads: READS,
+    memoryRoutes: [
+      remoteRelayStatus,
+      rosterList,
+      rosterInvite,
+      rosterRemove,
+      rosterSetTerminalInput,
+      rosterRename,
+      rosterLeave,
+    ],
   };
 }
 
 export function createReaderRegistration(): ReaderRegistration {
-  return { reads: [devicesListRead, devicesPushTargetsRead], ports: new Map() };
+  return { reads: READS, ports: new Map() };
 }
 
 // 이 기계의 network interface 주소. loopback과 link-local(fe80::, 폰이 scope 없이 붙지 못한다)은 뺀다.
@@ -145,6 +180,13 @@ export function lanAddresses(): string[] {
 function directAddresses(ctx: WiringContext): string[] {
   const written = ctx.settings.get(remoteAddressesSetting) ?? [];
   return [...new Set([...written, ...lanAddresses()])].slice(0, 16);
+}
+
+// 명단의 컴퓨터 항목이 싣는 OS.
+function computerOs(): RosterEntryBody["os"] {
+  if (process.platform === "darwin") return "macos";
+  if (process.platform === "win32") return "windows";
+  return "linux";
 }
 
 // 이 판 전에 만든 host key에 이 기계의 id를 찍는다. key 값은 그대로라 이미 pairing한 폰이 그대로 붙는다.
@@ -166,11 +208,31 @@ export const hostKeyMachineStep: DataStep = {
   },
 };
 
+// 명단 전에 만든 host key에 짝 서명 key를 더한다. 없으면 기동이 host key 하나만 읽혀 둘 다 지우고, 이미 pairing한 폰이 다시
+// 들어와야 한다. host key에 찍는 step 뒤에 돈다.
+export const signingKeyStep: DataStep = {
+  id: "remote.signing-key",
+  async run(root) {
+    try {
+      await addSigningKey(`${root}/remote`, cryptoRandom);
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "the remote signing key could not be written",
+      });
+    }
+    return ok(undefined);
+  },
+};
+
+const DEVICE_PRINCIPAL = "device:";
+
 export const remoteWiring: WiringFactory = () => {
   let listener: RemoteListener | undefined;
   let relay: RelayClient | undefined;
   let host: RemoteHost | undefined;
-  let hostKey: ReturnType<typeof loadHostKey> | undefined;
+  // 이 컴퓨터의 key 둘. remote를 켤 때 만들고, 있으면 기동 때 읽는다. 명단을 버릴 때 지운다.
+  let keys: RemoteKeys | undefined;
   let unsubscribe: (() => void) | undefined;
   // push를 보낼 기기의 메모리 사본(`devices/push_targets`). `StateChanged{remote_devices}`가 오면 다시 읽는다.
   let pushDevices: readonly PushDevice[] = [];
@@ -178,17 +240,13 @@ export const remoteWiring: WiringFactory = () => {
   // host key의 공개 key 글(push 글의 `data.host`). key를 풀기 전과 remote가 꺼진 동안은 보낼 곳이 없는 것으로 친다.
   let hostText: string | undefined;
   let sender: ReturnType<typeof createExpoPushSender> | undefined;
-  // 켜고 끄기는 하나씩 한다. 설정이 빨리 여러 번 바뀌어도 마지막 값으로 맞는다.
+  // 켜고 끄기와 명단 버리기는 하나씩 한다. 설정이 빨리 여러 번 바뀌어도 마지막 값으로 맞는다.
   let reconciling = Promise.resolve();
-  let codes: PairingCodes;
   // remote 연결만의 한도다. 기기는 principal마다 따로 서고 사람 token(loopback API)의 자리를 쓰지 않는다.
   const admission = createAdmission();
-  // 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`). build에서 표를 읽어 채우고 commit 뒤 바뀜으로 고친다.
-  const grants = createTerminalInputGrants();
-  // 기기 principal의 kind(`ctx.deviceKind`). 허락과 같이 채우고 고친다.
-  const kinds = createDeviceKinds();
   // 붙은 기기 연결을 안다. remote가 꺼져 있으면 붙은 연결이 없어 `call`은 `unavailable`(phone_unreachable)이다.
   let phoneLink: PhoneLink;
+  let roster: Roster;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -216,6 +274,13 @@ export const remoteWiring: WiringFactory = () => {
       .then((done) => (done.ok ? ok(done.value.result) : done));
   }
 
+  async function read(
+    ctx: WiringContext,
+    route: { resource: string; method: string },
+  ): Promise<Result<unknown>> {
+    return ctx.runtime.reads.get(key(route))!(REMOTE_CONTEXT, {});
+  }
+
   // 설정 `shell.devices`를 고친다. preview 기기 고르기와 `--device`가 이름으로 본다. 기기의 항목은 `device`로 찾는다.
   function editScreens(ctx: WiringContext, edit: (list: Screen[]) => Screen[]) {
     const list = ctx.settings.get(devicesSetting) ?? [];
@@ -230,97 +295,169 @@ export const remoteWiring: WiringFactory = () => {
   async function listDevices(
     ctx: WiringContext,
   ): Promise<Result<RemoteDevice[]>> {
-    const read = await ctx.runtime.reads.get(key(devicesList))!(
-      REMOTE_CONTEXT,
-      {},
-    );
-    return read.ok
-      ? ok((read.value as { devices: RemoteDevice[] }).devices)
-      : read;
+    const listed = await read(ctx, devicesList);
+    return listed.ok
+      ? ok((listed.value as { devices: RemoteDevice[] }).devices)
+      : listed;
+  }
+
+  // QR·초대장과 명단의 자기 주소. listener가 열려 있으면 그 port다.
+  function ownReach(ctx: WiringContext) {
+    return {
+      addresses: directAddresses(ctx),
+      port: listener?.port ?? ctx.settings.get(remotePortSetting) ?? 7432,
+      relay: relay?.url ?? null,
+    };
   }
 
   function devicesOf(ctx: WiringContext): RemoteDevices {
     return {
-      async find(publicKey) {
-        const listed = await listDevices(ctx);
-        if (!listed.ok) return listed;
-        const found = listed.value.find(
-          (each) => each.public_key === publicKey,
-        );
-        return ok(found ? { id: found.id } : undefined);
-      },
-      async register(input) {
-        const done = await command(ctx, devicesRegister.name, input);
-        if (!done.ok) return done;
-        const { id } = done.value as { id: string };
-        // preview 기기 화면은 phone만이다.
-        if (input.kind === "phone") {
-          const { name, os, width, height, dpr } = input;
-          editScreens(ctx, (list) =>
-            screensPaired(list, id, { name, os, width, height, dpr }),
-          );
-        }
-        return ok({ id });
-      },
-      connected(id, name) {
-        void command(ctx, devicesConnected.name, { id, name }).then((done) => {
+      connected(input) {
+        const device = roster
+          .view()
+          .devices.find((each) => each.body.id === input.id);
+        // 컴퓨터는 이 컴퓨터의 기기 행이 없다(기준, push, 화면은 폰만의 것이다).
+        if (device?.body.kind !== "phone") return;
+        void (async () => {
+          const rows = await listDevices(ctx);
+          const row = rows.ok
+            ? rows.value.find((each) => each.id === input.id)
+            : undefined;
+          // 폰에서 이름을 바꿨다(알린 이름이 마지막으로 받은 것과 다르다). 알린 이름이 바뀔 때만이라 사람이 roster/rename으로
+          // 바꾼 이름을 폰이 옛 이름으로 다시 덮지 않는다.
+          if (row !== undefined && row.announced_name !== input.name) {
+            const renamed = await roster.rename(input.id, input.name);
+            if (!renamed.ok)
+              logError(ctx, "rename_not_signed", renamed.error.message);
+          }
+          const done = await command(ctx, devicesConnected.name, input);
           if (!done.ok)
             logError(ctx, "connected_not_saved", done.error.message);
-        });
+        })();
       },
     };
   }
 
   function refreshPushDevices(ctx: WiringContext) {
     refreshing = refreshing.then(async () => {
-      const read = await ctx.runtime.reads.get(key(devicesPushTargets))!(
-        REMOTE_CONTEXT,
-        {},
-      );
-      if (!read.ok)
-        return logError(ctx, "push_targets_failed", read.error.message);
-      pushDevices = (read.value as { devices: PushDevice[] }).devices;
+      const targets = await read(ctx, devicesPushTargets);
+      if (!targets.ok)
+        return logError(ctx, "push_targets_failed", targets.error.message);
+      pushDevices = (targets.value as { devices: PushDevice[] }).devices;
     });
   }
 
-  // host key가 다른 기계의 것이면 이 data root는 다른 기계에서 복사됐다. 그 기기 등록과 push token은 그 기계가 pairing한 것이라
-  // 모두 버리고 key를 지운다. reconcile이 지금 id를 찍은 새 key를 만든다. 등록을 버린 뒤 key를 지우므로 중간에 죽으면 다음
-  // 기동이 같은 판정으로 다시 한다.
-  async function forgetClonedDevices(
+  // 명단에서 이 컴퓨터가 빠졌다(이 컴퓨터를 root로 본 view의 효력 있는 빼기가 자기 key나 서명 key를 든다).
+  function selfRemoved(view: RosterView): boolean {
+    if (keys === undefined) return false;
+    const hostKey = remoteKeyText(keys.host.publicKey);
+    const signingKey = remoteKeyText(keys.signing.publicKey);
+    return view.removed.some(
+      (each) =>
+        each.body.key === hostKey || each.body.signing_key === signingKey,
+    );
+  }
+
+  // 명단과 key를 버린다: 복사된 data root, key 하나만 읽힘, 명단에서 이 컴퓨터가 빠짐. key를 먼저 지우고 명단을 버리므로 중간에
+  // 죽으면 다음 기동이 "key 없이 남은 명단"으로 보고 다시 버린다. 붙은 연결을 닫고, remote가 켜져 있으면 다음 reconcile이 새
+  // key와 새 자기 항목(새 id)으로 다시 선다.
+  async function forgetRoster(
     ctx: WiringContext,
+    event: string,
+    message: string,
+    fields: Record<string, unknown>,
   ): Promise<Result<void>> {
-    const dir = `${ctx.root.path}/remote`;
-    const stamped = await readHostKeyMachine(dir);
-    if (
-      stamped === "missing" ||
-      stamped === "unreadable" ||
-      stamped === ctx.machine.id
-    ) {
-      return ok(undefined);
-    }
-    const forgot = await command(ctx, devicesForgetAll.name, {});
-    if (!forgot.ok) return forgot;
     try {
-      await rm(`${dir}/host-key.json`, { force: true });
+      await removeRemoteKeys(`${ctx.root.path}/remote`);
     } catch (thrown) {
-      logError(ctx, "host_key_not_removed", thrown);
+      logError(ctx, "remote_keys_not_removed", thrown);
       return err({
         code: "unavailable",
-        message: "the remote host key of another machine could not be removed",
+        message: "the remote keys could not be removed",
       });
     }
+    keys = undefined;
+    hostText = undefined;
+    host?.shutdown();
+    host = undefined;
+    await listener?.close();
+    listener = undefined;
+    relay?.close();
+    relay = undefined;
+    const forgot = await command(ctx, rosterForgetAll.name, {});
+    if (!forgot.ok) return forgot;
+    await roster.useKeys(undefined);
+    const loaded = await roster.load();
+    if (!loaded.ok) return loaded;
     ctx.telemetry.logger.warn({
       component: "remote",
-      event: "host_key_from_other_machine",
-      message:
-        "the remote host key was made on another machine; its device registrations were dropped and a new key will be made",
-      fields: {
-        from: stamped,
-        to: ctx.machine.id,
-        devices: (forgot.value as { count: number }).count,
-      },
+      event,
+      message,
+      fields: { ...fields, devices: (forgot.value as { count: number }).count },
     });
     return ok(undefined);
+  }
+
+  // 자기 항목을 두고(기계 이름도 맞춘다) 옛 기기 표의 phone 행 가운데 아직 서명하지 않은 것에 서명한다.
+  async function identify(
+    ctx: WiringContext,
+    reach?: ReturnType<typeof ownReach>,
+  ): Promise<Result<void>> {
+    const rows = await listDevices(ctx);
+    if (!rows.ok) return rows;
+    const self = await roster.ensureSelf({
+      machine: ctx.machine.id,
+      name: ctx.machine.status().name,
+      os: computerOs(),
+      ...(reach === undefined ? {} : { reach }),
+      adopt: rows.value
+        .filter((row) => row.kind === "phone")
+        .map((row) => ({
+          id: row.id,
+          key: row.public_key,
+          name: row.name,
+          os: row.os,
+          terminal_input: row.terminal_input,
+        })),
+    });
+    return self.ok ? ok(undefined) : self;
+  }
+
+  // 명단이 바뀌어 저장된 뒤. 빠진 기기가 붙어 있으면 그 빼기가 든 명단을 먼저 민 뒤 자격을 거두고 연결을 닫는다.
+  function applyChange(ctx: WiringContext, change: RosterChange) {
+    if (selfRemoved(change.after)) {
+      reconciling = reconciling
+        .then(() =>
+          forgetRoster(
+            ctx,
+            "removed_from_roster",
+            "this computer was removed from the device roster; its roster and keys were dropped and new keys will be made",
+            {},
+          ),
+        )
+        .then((done) => {
+          if (!done.ok) logError(ctx, "roster_not_forgotten", done.error);
+          return reconcile(ctx);
+        });
+      return;
+    }
+    host?.pushRoster(change.snapshot);
+    const kept = new Set(change.after.devices.map((each) => each.body.id));
+    host?.revoked(
+      change.before.devices
+        .map((each) => each.body.id)
+        .filter((id) => !kept.has(id)),
+    );
+    for (const device of change.after.devices) {
+      const before = change.before.devices.find(
+        (each) => each.body.id === device.body.id,
+      );
+      if (before !== undefined && before.body.name !== device.body.name) {
+        editScreens(ctx, (list) =>
+          screensRenamed(list, device.body.id, device.body.name),
+        );
+      }
+    }
   }
 
   async function reconcile(ctx: WiringContext): Promise<void> {
@@ -344,19 +481,26 @@ export const remoteWiring: WiringFactory = () => {
       hostText = undefined;
       return;
     }
-    let staticKey: Awaited<ReturnType<typeof loadHostKey>>;
-    try {
-      hostKey ??= loadHostKey(
-        `${ctx.root.path}/remote`,
-        ctx.random,
-        ctx.machine.id,
-      );
-      staticKey = await hostKey;
-    } catch (thrown) {
-      hostKey = undefined;
-      logError(ctx, "listener_failed", thrown);
+    if (keys === undefined) {
+      try {
+        keys = await loadRemoteKeys(
+          `${ctx.root.path}/remote`,
+          ctx.random,
+          ctx.machine.id,
+        );
+      } catch (thrown) {
+        logError(ctx, "listener_failed", thrown);
+        return;
+      }
+      await roster.useKeys(keys);
+    }
+    // listener·relay를 열기 전에 자기 항목과 옮긴 폰 행에 서명한다. 이미 pairing한 폰이 첫 연결에서 명단에 있다.
+    const identified = await identify(ctx);
+    if (!identified.ok) {
+      logError(ctx, "roster_not_signed", identified.error.message);
       return;
     }
+    const staticKey = keys.host;
     hostText = remoteKeyText(staticKey.publicKey);
     host ??= createRemoteHost({
       staticKey,
@@ -368,7 +512,11 @@ export const remoteWiring: WiringFactory = () => {
       random: ctx.random,
       timers: systemTimers,
       bus: ctx.bus,
-      pairing: codes,
+      roster: {
+        find: (each) => roster.find(each),
+        join: (each, statements) => roster.join(each, statements),
+        receive: (snapshot) => roster.receive(snapshot),
+      },
       devices: devicesOf(ctx),
       credentials: createDeviceCredentials({
         registry: ctx.registry,
@@ -414,6 +562,20 @@ export const remoteWiring: WiringFactory = () => {
         logError(ctx, "listener_failed", thrown);
       }
     }
+    // 명단의 자기 주소를 지금 listener·relay로 맞춘다. 다른 컴퓨터와 폰이 명단으로 이 컴퓨터에 닿는다.
+    const reached = await identify(ctx, ownReach(ctx));
+    if (!reached.ok) logError(ctx, "roster_not_signed", reached.error.message);
+  }
+
+  // `roster/*` route가 자기 항목이 없을 때(remote를 켠 적이 없다) 내는 답.
+  const off = () =>
+    err({
+      code: "unavailable" as const,
+      message: "remote has not been turned on",
+    });
+
+  function idOf(done: Result<void>, id: string) {
+    return done.ok ? ok({ id }) : done;
   }
 
   return {
@@ -429,18 +591,19 @@ export const remoteWiring: WiringFactory = () => {
       ...FOLDER_SCHEMA_STEPS,
       ...FOLDER_AWAY_NOTIFIED_STEPS,
       ...rewindUnknownSchemaSteps,
+      ...ROSTER_SCHEMA_STEPS,
     ],
-    dataSteps: [hostKeyMachineStep],
+    dataSteps: [hostKeyMachineStep, signingKeyStep],
     operations: () => [
-      { name: devicesRegister.name, actors: ["machine"], kind: "command" },
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },
-      { name: devicesForgetAll.name, actors: ["machine"], kind: "command" },
       { name: devicesClearPush.name, actors: ["machine"], kind: "command" },
       { name: devicesPushTargets.name, actors: ["machine"], kind: "read" },
+      { name: rosterStatements.name, actors: ["machine"], kind: "read" },
+      { name: rosterStore.name, actors: ["machine"], kind: "command" },
+      { name: rosterForgetAll.name, actors: ["machine"], kind: "command" },
     ],
     records: () => [REMOTE_CONTEXT],
     async build(ctx) {
-      codes = createPairingCodes({ clock: ctx.clock, random: ctx.random });
       sender = createExpoPushSender({
         fetch: (url, init) => fetch(url, init),
         url: () => ctx.settings.get(remotePushSetting) ?? "",
@@ -463,13 +626,53 @@ export const remoteWiring: WiringFactory = () => {
         send: (message) => sender!.send(message),
         host: () => hostText ?? "",
       });
-      // API가 열리기 전에 읽는다. 그 뒤의 바뀜은 아래 writer가 commit 뒤에 고친다.
-      const listed = await listDevices(ctx);
-      if (!listed.ok) return listed;
-      grants.load(listed.value);
-      ctx.provide("terminalInputGrant", grants.granted);
-      kinds.load(listed.value);
-      ctx.provide("deviceKind", kinds.of);
+      roster = createRoster({
+        clock: ctx.clock,
+        random: ctx.random,
+        ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+        load: async () => {
+          const stored = await read(ctx, rosterStatements);
+          return stored.ok
+            ? ok(stored.value as z.infer<typeof rosterStatements.output>)
+            : stored;
+        },
+        store: async (input) => {
+          const done = await command(ctx, rosterStore.name, input);
+          return done.ok ? ok(undefined) : done;
+        },
+        changed: (change) => applyChange(ctx, change),
+      });
+      // API가 열리기 전에 읽는다. 허락과 kind는 이 view로 답한다. 복사된 data root인지는 start가 본다.
+      const loaded = await roster.load();
+      if (!loaded.ok) return loaded;
+      const dir = `${ctx.root.path}/remote`;
+      if ((await remoteKeysState(dir, ctx.machine.id)) === "ok") {
+        keys = await loadRemoteKeys(dir, ctx.random, ctx.machine.id);
+        await roster.useKeys(keys);
+      }
+      const deviceOf = (principal: string) =>
+        principal.startsWith(DEVICE_PRINCIPAL)
+          ? roster
+              .view()
+              .devices.find(
+                (each) =>
+                  each.body.id === principal.slice(DEVICE_PRINCIPAL.length),
+              )?.body
+          : undefined;
+      // 터미널 입력 허락은 입력마다 동기로 묻는다. 명단을 고친 route가 답하기 전에 view가 바뀌므로 다음 입력부터 따른다.
+      ctx.provide(
+        "terminalInputGrant",
+        (principal) => deviceOf(principal)?.terminal_input === true,
+      );
+      // 명단의 computer는 아직 `desktop`이다(wiring/context.ts의 type).
+      ctx.provide("deviceKind", (principal) => {
+        const kind = deviceOf(principal)?.kind;
+        return kind === undefined
+          ? null
+          : kind === "computer"
+            ? "desktop"
+            : "phone";
+      });
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       ctx.provide("phoneLink", {
         call: phoneLink.call,
@@ -480,36 +683,96 @@ export const remoteWiring: WiringFactory = () => {
             : devices;
         },
       });
-      const start = async (_who: unknown, input: unknown) => {
-        if (
-          hostKey === undefined ||
-          (listener === undefined && relay === undefined)
-        ) {
-          return err({
-            code: "unavailable" as const,
-            message: "remote is off",
-          });
-        }
-        const staticKey = await hostKey;
-        const code = codes.start(input as z.infer<typeof pairingStart.input>);
-        return ok({
-          addresses: directAddresses(ctx),
-          port: listener?.port ?? ctx.settings.get(remotePortSetting),
-          key: remoteKeyText(staticKey.publicKey),
-          code: code.code,
-          ...(relay ? { relay: relay.url } : {}),
-          expires_at: formatAt(code.expiresAt),
-        });
-      };
       const relayStatus = () =>
         ok({
           url: ctx.settings.get(remoteRelaySetting) || null,
           state: relay?.state() ?? ("off" as const),
         });
+      const list = async () => {
+        // 기계 이름이 바뀌었으면(machine/rename) 자기 항목을 다시 서명한다. 이름을 고친 화면이 다시 읽는 곳이 여기다.
+        if (keys !== undefined) {
+          const self = await roster.ensureSelf({
+            machine: ctx.machine.id,
+            name: ctx.machine.status().name,
+            os: computerOs(),
+          });
+          if (!self.ok) logError(ctx, "roster_not_signed", self.error.message);
+        }
+        const rows = await listDevices(ctx);
+        if (!rows.ok) return rows;
+        const last = new Map(
+          rows.value.map((row) => [row.id as string, row.last_connected_at]),
+        );
+        const self = roster.self()?.id;
+        return ok({
+          this: self ?? null,
+          devices: roster.view().devices.map(({ body }) => ({
+            id: body.id,
+            kind: body.kind,
+            name: body.name,
+            os: body.os,
+            machine: body.machine,
+            terminal_input: body.terminal_input,
+            this: body.id === self,
+            last_connected_at: last.get(body.id) ?? null,
+          })),
+        });
+      };
+      const invite = (_who: unknown, input: unknown) => {
+        if (
+          keys === undefined ||
+          (listener === undefined && relay === undefined)
+        )
+          return err({
+            code: "unavailable" as const,
+            message: "remote is off",
+          });
+        return roster.invite({
+          ...(input as z.infer<typeof rosterInvite.input>),
+          reach: ownReach(ctx),
+        });
+      };
+      const remove = async (_who: unknown, input: unknown) => {
+        const { id } = input as z.infer<typeof rosterRemove.input>;
+        return idOf(await roster.remove(id), id);
+      };
+      const setTerminalInput = async (_who: unknown, input: unknown) => {
+        const { id, on } = input as z.infer<
+          typeof rosterSetTerminalInput.input
+        >;
+        return idOf(await roster.setTerminalInput(id, on), id);
+      };
+      const rename = async (_who: unknown, input: unknown) => {
+        const { id, name } = input as z.infer<typeof rosterRename.input>;
+        if (roster.self() === undefined) return off();
+        // 이 컴퓨터의 이름은 기계 이름을 따른다. 여기서 바꾸면 다음에 기계 이름으로 되돌아간다.
+        if (id === roster.self()?.id) {
+          return err({
+            code: "invalid_input" as const,
+            message: "rename this computer with machine/rename",
+          });
+        }
+        return idOf(await roster.rename(id, name), id);
+      };
+      const leave = async (who: AuthenticatedContext) => {
+        if (!who.principal.startsWith(DEVICE_PRINCIPAL)) {
+          return err({
+            code: "forbidden" as const,
+            message: "only a device in the roster leaves it",
+          });
+        }
+        const id = who.principal.slice(DEVICE_PRINCIPAL.length);
+        return idOf(await roster.remove(id), id);
+      };
       return ok({
         memory: [
-          [key(pairingStart), start],
           [key(remoteRelayStatus), relayStatus],
+          [key(rosterList), list],
+          [key(rosterInvite), invite],
+          [key(rosterRemove), remove],
+          [key(rosterSetTerminalInput), setTerminalInput],
+          [key(rosterRename), rename],
+          [key(rosterLeave), leave],
         ],
         writer: (inner) =>
           withAfterCommit(
@@ -518,14 +781,21 @@ export const remoteWiring: WiringFactory = () => {
               for (const action of actions) {
                 if (action.topic !== DEVICES_TOPIC) continue;
                 const change = action.data as DevicesChange;
-                grants.apply(change);
-                kinds.apply(change);
-                if (change.type === "revoked") {
-                  host?.revoked(change.id);
-                  editScreens(ctx, (list) => screensRevoked(list, change.id));
-                } else if (change.type === "renamed") {
+                if (change.type === "registered") {
+                  // 명단의 이름이다. 폰이 알린 이름은 명단에 없을 때만 쓴다.
+                  const name =
+                    roster
+                      .view()
+                      .devices.find((each) => each.body.id === change.id)?.body
+                      .name ?? change.name;
                   editScreens(ctx, (list) =>
-                    screensRenamed(list, change.id, change.name),
+                    screensPaired(list, change.id, { name, ...change.phone }),
+                  );
+                } else if (change.type === "revoked") {
+                  editScreens(ctx, (list) => screensRevoked(list, change.id));
+                } else {
+                  editScreens(ctx, (list) =>
+                    screensFolded(list, change.from, change.to),
                   );
                 }
               }
@@ -535,9 +805,36 @@ export const remoteWiring: WiringFactory = () => {
       });
     },
     async start(ctx) {
-      // listener와 relay를 열고 push 대상을 읽기 전에 본다. writer가 다 접힌 뒤라 forget_all의 revoked가 끊기와 같은 길로 간다.
-      const forgot = await forgetClonedDevices(ctx);
-      if (!forgot.ok) return forgot;
+      // listener와 relay를 열고 push 대상을 읽기 전에 본다. writer가 다 접힌 뒤라 forget_all의 revoked가 빼기와 같은 길로 간다.
+      const dir = `${ctx.root.path}/remote`;
+      const state = await remoteKeysState(dir, ctx.machine.id);
+      if (
+        state === "drop" ||
+        (state === "none" && roster.snapshot().statements.length > 0)
+      ) {
+        const forgot = await forgetRoster(
+          ctx,
+          "host_key_from_other_machine",
+          "the remote keys were made on another machine or only one of them is readable; the device roster was dropped and new keys will be made",
+          { to: ctx.machine.id },
+        );
+        if (!forgot.ok) return forgot;
+      } else if (keys !== undefined) {
+        if (selfRemoved(roster.view())) {
+          const forgot = await forgetRoster(
+            ctx,
+            "removed_from_roster",
+            "this computer was removed from the device roster; its roster and keys were dropped and new keys will be made",
+            {},
+          );
+          if (!forgot.ok) return forgot;
+        } else {
+          // remote가 꺼져 있어도 key가 있으면 명단을 고칠 수 있다. 그 전에 옮긴 폰 행에 서명해 둔다(저장이 서명하지 않은 행을 지운다).
+          const identified = await identify(ctx);
+          if (!identified.ok)
+            logError(ctx, "roster_not_signed", identified.error.message);
+        }
+      }
       unsubscribe = ctx.bus.subscribe([{ types: ["StateChanged"] }], {
         send(event) {
           const changes = (

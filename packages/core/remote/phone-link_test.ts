@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { manualClock, ok, seededRandom } from "../../base/mod.ts";
+import { ok, seededRandom } from "../../base/mod.ts";
 import {
   connectRemote,
   generateKeyPair,
@@ -11,7 +11,6 @@ import {
 import { createBus } from "../events/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import { createRemoteHost, type RemoteSocket } from "./host.ts";
-import { createPairingCodes } from "./pairing.ts";
 import { createPhoneLink } from "./phone-link.ts";
 
 const DEADLINE_MS = 20_000;
@@ -53,7 +52,6 @@ function wire() {
 // 기기 표·자격·call은 가짜고 host와 link는 production code다.
 function setup() {
   const random = seededRandom(7);
-  const clock = manualClock(1_000_000);
   const coreKey = generateKeyPair(random);
   const table = new Map<string, string>();
   const timers = new Map<number, { run: () => void; ms: number }>();
@@ -76,15 +74,12 @@ function setup() {
     random,
     timers: fakeTimers,
     bus: createBus(),
-    pairing: createPairingCodes({ clock, random }),
-    devices: {
-      find: async (key) => {
-        const id = table.get(key);
-        return ok(id === undefined ? undefined : { id });
-      },
-      register: async () => ok({ id: "unused" }),
-      connected: () => undefined,
+    roster: {
+      find: (key) => table.get(key),
+      join: async () => ok(null as never),
+      receive: async () => ok({ statements: [], reach: [] }),
     },
+    devices: { connected: () => undefined },
     credentials: { get: async () => ok({} as never), revoke: () => {} },
     call: async () => ok(null),
     admission: createAdmission(),

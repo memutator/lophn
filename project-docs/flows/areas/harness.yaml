@@ -1955,7 +1955,7 @@ flows:
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/protocol/coding-agent/terminal-view.ts
     steps:
-      - "terminalInputGrant(principal)이 true를 돌려준 principal만 부를 수 있다: terminal_input이 켜진 기기다(pairing code와 같이 정하고 기본 켬(remote-pair), 그 뒤 devices-set-terminal-input으로 바꾼다). 그 밖이면 forbidden이고 host에 아무것도 가지 않는다"
+      - "terminalInputGrant(principal)이 true를 돌려준 principal만 부를 수 있다: terminal_input이 켜진 기기다(초대장과 같이 정하고 기본 켬(roster-invite), 그 뒤 roster-set-terminal-input으로 바꾼다). 그 밖이면 forbidden이고 host에 아무것도 가지 않는다"
       - "터미널이 coding session 목록에 없고 폰이 연 터미널도 아니면 not_found다. 같은 key는 터미널마다 200개를 기억해 다시 보내면 host에 가지 않고 처음 답을 준다. 실패한 시도는 잊는다"
       - "연결로 terminal_input {terminal_ref, text}를 보내고 host의 답이 성공이면 성공이다. host의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
     outcomes:

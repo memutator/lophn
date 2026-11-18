@@ -60,6 +60,7 @@ export function openPinnedAppPanel(
 
 export const appPanelKind: TabKindDef = {
   kind: "app_panel",
+  hereApp: (tab) => tab.app,
   labelKey: "project-workspace.label.kind-app-panel",
   icon: workspaceIcons.appPanel,
   anyWorkspace: true,

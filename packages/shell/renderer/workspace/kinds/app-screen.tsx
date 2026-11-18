@@ -28,6 +28,7 @@ export function openAppScreen(host: TabHost): void {
 
 export const appScreenKind: TabKindDef = {
   kind: "app_screen",
+  hereApp: (tab) => tab.app,
   labelKey: "app-space.label.kind-app-screen",
   icon: workspaceIcons.appPanel,
   iconOf: (tab, host) => (

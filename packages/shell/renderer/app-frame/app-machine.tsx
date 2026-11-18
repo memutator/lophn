@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import {
   type MachineRef,
   MachineScope,
-  useMachineData,
+  useMachineHub,
 } from "../desktop/machines/scope.tsx";
 
 /**
@@ -16,8 +16,9 @@ export function useAppHere(
   app: string | undefined,
   machine: MachineRef,
 ): boolean | undefined {
-  const here = useMachineData(null).apps;
-  const asks = app !== undefined && machine !== null;
+  // hub가 없는 화면(기계가 이 컴퓨터뿐)은 묻지 않는다.
+  const here = useMachineHub()?.get(null).apps;
+  const asks = app !== undefined && machine !== null && here !== undefined;
   const [has, setHas] = useState<boolean | undefined>(asks ? undefined : false);
   useEffect(() => {
     if (!asks) {
@@ -26,7 +27,7 @@ export function useAppHere(
     }
     let live = true;
     setHas(undefined);
-    void here.get(app).then((result) => {
+    void here!.get(app!).then((result) => {
       if (live) {
         setHas(result.ok && result.value !== null && !result.value.archived);
       }

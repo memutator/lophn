@@ -1799,7 +1799,7 @@ flows:
     boundary: [agent-sessions, core-api]
     code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/protocol/lophn-agent/session-lifecycle.ts]
     steps:
-      - "앱 자격이면 앱은 자격이 정한다(입력의 app이 다르면 forbidden). 사람 자격이면(shell main이 앱 화면을 대신한다) 입력의 app을 쓰고 없으면 invalid_input이다"
+      - "앱 자격이면 앱은 자격이 정한다(입력의 app이 다르면 forbidden). 사람 자격이면(shell main이 앱 화면을 대신한다) 입력의 app을 쓰고 없으면 invalid_input이다. 기기(principal device:<id>, 다른 컴퓨터의 shell)는 자기가 연 앱 화면의 view를 줘야 하고 앱은 core view 표의 (기기, view)에서 정한다(app-principal). 이 열 route 모두 같다"
       - "열린 lophn·harness session(ledger)과 shell main이 알린 터미널 coding agent(메모리)를 한 모양으로 합친다. 상태는 session 상태 한 곳이 정한다"
       - "그 앱 workspace에서 call로 닿을 수 있는 workspace의 session만 남기고(call 정책의 workspace 규칙, 같은 workspace, private) workspace·state·harness·kind로 거른다"
     outcomes:
@@ -1812,6 +1812,14 @@ flows:
       - id: invalid-input
         code: invalid_input
         when: "입력이 schema에 맞지 않거나 사람 자격인데 app이 없다"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: false
     docs: [architecture/workspace-session.md, architecture/app-call.md]
@@ -1840,6 +1848,14 @@ flows:
       - id: invalid-input
         code: invalid_input
         when: "입력이 schema에 맞지 않거나 사람 자격인데 app이 없다"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: false
     docs: [architecture/workspace-session.md]
@@ -1881,6 +1897,14 @@ flows:
         observe: [response]
       - id: core-failed
         when: "StopTurn이 실패했다(그 오류 그대로. 이미 끝난 turn이면 conflict)"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: true
     risk: [permission]
@@ -2051,6 +2075,14 @@ flows:
         code: internal
         when: "Router가 앱 call의 ID를 주지 않았다(우리 코드의 결함)"
         observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
+        observe: [response]
     crosses_process: true
     risk: [permission]
     docs: [architecture/agent-call.md, architecture/app-call.md]
@@ -2095,6 +2127,14 @@ flows:
         code: invalid_input
         when: "입력이 schema에 맞지 않는다"
         observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/agent-call.md]
 
@@ -2130,6 +2170,14 @@ flows:
         code: unavailable
         when: "Router가 아직 연결되지 않았다(기동 중)"
         observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
+        observe: [response]
     declared_only: [internal]
     unclear: ["calls.app-cancel이 internal을 선언하지만 handler는 내지 않는다(선언을 고칠 곳)"]
     crosses_process: false
@@ -2154,6 +2202,14 @@ flows:
       - id: invalid-input
         code: invalid_input
         when: "입력이 schema에 맞지 않는다"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: false
     docs: [architecture/agent-call.md]
@@ -2180,6 +2236,14 @@ flows:
       - id: invalid-input
         code: invalid_input
         when: "입력이 schema에 맞지 않는다"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: false
     docs: [architecture/agent-call.md]
@@ -2212,6 +2276,14 @@ flows:
         observe: [response]
       - id: core-failed
         when: "OpenSession이 낸 오류 그대로(harness가 꺼져 unavailable 등)"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: false
     docs: [architecture/workspace-session.md]
@@ -2246,6 +2318,14 @@ flows:
         observe: [response]
       - id: core-failed
         when: "ArchiveSession이 낸 오류 그대로(그 사이 session이 바뀌어 conflict)"
+        observe: [response]
+      - id: device-refused
+        code: forbidden
+        when: "기기(principal device:<id>)가 view를 주지 않았다, 그 view가 live가 아니거나 묶음을 잃었다, 또는 view의 앱과 다른 app을 적었다"
+        observe: [response]
+      - id: device-view-unknown
+        code: not_found
+        when: "기기가 준 view가 그 기기가 연 view가 아니다(없는 view, 다른 owner의 view)"
         observe: [response]
     crosses_process: false
     risk: [permission]

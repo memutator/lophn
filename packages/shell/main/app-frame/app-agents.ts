@@ -2,7 +2,7 @@
 // 가고, 어느 앱인지는 sender view에서 main이 정해 싣는다(page가 고르지 못한다). 입력 검사와 시야 판정은 core가 한다.
 import { APP_AGENTS_OPS, type AppAgentsOp } from "../../ipc/app-agents.ts";
 import type { CallOutcome } from "./app-call.ts";
-import type { MachineCaller } from "./app-connection.ts";
+import { type MachineCaller, onBehalfOf } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 interface AppAgentsDeps {
@@ -42,10 +42,10 @@ export function createAppAgents(deps: AppAgentsDeps) {
       }
       const [resource, method] = ROUTE_OF[op as AppAgentsOp];
       // 앱은 page가 못 고른다: main이 sender view의 앱으로 덮는다.
-      const { app: _ignored, ...rest } = input;
+      const { app: _ignored, view: _view, ...rest } = input;
       return await deps.call(view.machine)("memory", resource, method, {
         ...rest,
-        app: view.target.app,
+        ...onBehalfOf(view),
       });
     },
   };

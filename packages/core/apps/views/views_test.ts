@@ -472,3 +472,21 @@ test("card가 아닌 live view의 다시 열기는 다른 release나 null이어�
     assert.equal(!card.ok && card.error.code, "conflict");
   }
 });
+
+// 기기가 앱 session·call route를 부를 때 앱은 이 답으로 정한다. 남의 view나 묶음을 잃은 view로 앱을 정하면 기기가 남의 앱을 대신한다.
+test("viewApp은 그 owner가 연 view의 앱만 주고 묶음을 잃은 view는 쓸 수 없다", async () => {
+  const world = fakeWorld();
+  const views = createAppViews(world.ports);
+  const device = "device:dev_00000000000000000000000001";
+  assert.equal((await views.open(device, liveOpen("v1"))).ok, true);
+  assert.deepEqual(views.viewApp(device, "v1"), { app: APP, usable: true });
+  assert.equal(views.viewApp("user", "v1"), null);
+  assert.equal(views.hasLiveView(device, APP), true);
+  assert.equal(views.hasLiveView(device, OTHER_APP), false);
+  assert.equal(views.hasLiveView("user", APP), false);
+  // 앱이 멈춰 다시 묶지 못하면 lost다.
+  world.state.running = null;
+  await views.changed(APP);
+  assert.deepEqual(views.viewApp(device, "v1"), { app: APP, usable: false });
+  assert.equal(views.hasLiveView(device, APP), false);
+});

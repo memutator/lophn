@@ -4,7 +4,7 @@
 // 가고 따로 허락 단계가 없다. 앱 id는 sender view에서 main이 정한다(page가 고르지 못한다).
 import { APP_AGENT_UPDATE_CHANNEL } from "../../ipc/app-agent.ts";
 import type { CallOutcome } from "./app-call.ts";
-import type { MachineCaller } from "./app-connection.ts";
+import { type MachineCaller, onBehalfOf } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
 interface AppAgentDeps {
@@ -83,7 +83,7 @@ export function createAppAgent(deps: AppAgentDeps) {
       "app_sessions",
       "list",
       {
-        app: view.target.app,
+        ...onBehalfOf(view),
         session,
       },
     );
@@ -127,7 +127,7 @@ export function createAppAgent(deps: AppAgentDeps) {
         "app_sessions",
         "open",
         {
-          app: view.target.app,
+          ...onBehalfOf(view),
           agent: input.agent,
           ...(title === undefined ? {} : { title }),
           // 앱이 call로 닿을 수 있는 workspace인지는 core가 판정한다(core의 strict schema가 모양을 거른다).

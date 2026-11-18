@@ -58,6 +58,11 @@ export type AcpSendDeps = {
     input: unknown,
   ): Promise<Result<unknown>>;
   newId(prefix: "msg" | "ses" | "rwd"): string;
+  /**
+   * 부른 쪽이 메시지에 그 앱의 이름표(`via_app`)를 달 수 있나. 이 컴퓨터의 shell은 sender view에서 정해 덮으므로 늘 된다. 기기는
+   * 그 앱의 앱 화면을 열어 두었을 때만이다(아니면 이름표 없이 사람의 메시지로 간다).
+   */
+  mayLabel(who: AuthenticatedContext, app: string): boolean;
   // 사람의 `!`. 명령은 승인 없이 agent의 shell.run과 같은 실행기로 돌린다.
   shell: {
     // 그 session의 기본 폴더. home이거나 session이 없으면 undefined.
@@ -263,7 +268,10 @@ export function createAcpSend(deps: AcpSendDeps) {
             delivery: input.delivery,
             refs: [],
             // 앱 화면이 보낸 것이면 그 앱. shell main이 sender view에서 정해 덮는다(이름표일 뿐이다).
-            ...(input.via_app === undefined ? {} : { via_app: input.via_app }),
+            ...(input.via_app === undefined ||
+            !deps.mayLabel(who, input.via_app)
+              ? {}
+              : { via_app: input.via_app }),
             ...(input.seen === undefined ? {} : { seen: input.seen }),
           },
           input.key,

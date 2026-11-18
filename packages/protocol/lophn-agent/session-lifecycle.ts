@@ -102,7 +102,11 @@ const errors = [
 ] as const;
 
 // 앱 자격이면 app은 자격이 정한 앱이고 입력에 두지 않는다. 사람 자격(shell main이 앱 화면을 대신한다)이면 app을 준다.
-const onBehalf = { app: idSchema("app").optional() };
+// 기기(다른 컴퓨터의 shell)는 자기가 연 앱 화면의 view를 주고 app은 그 view의 앱이다(core/main/daemon/wiring/app-principal.ts).
+const onBehalf = {
+  app: idSchema("app").optional(),
+  view: z.string().min(1).optional(),
+};
 
 export const appSessionsList = defineMemory({
   resource: "app_sessions",
@@ -159,6 +163,7 @@ export const appSessionsOpen = defineMemory({
   changes: [{ name: "sessions", id: (_input, output) => output.session }],
   input: z.strictObject({
     app: idSchema("app"),
+    view: z.string().min(1).optional(),
     agent: z.string().min(1),
     workspace: workspaceSchema.optional(),
     title: z.string().trim().min(1).optional(),
@@ -175,7 +180,11 @@ export const appSessionsEnd = defineMemory({
   method: "end",
   name: "app_sessions.end",
   changes: [{ name: "sessions", id: (input) => input.session }],
-  input: z.strictObject({ app: idSchema("app"), session: idSchema("ses") }),
+  input: z.strictObject({
+    app: idSchema("app"),
+    view: z.string().min(1).optional(),
+    session: idSchema("ses"),
+  }),
   output: z.object({ ended: z.boolean() }),
   actors: ["user"],
   errors,

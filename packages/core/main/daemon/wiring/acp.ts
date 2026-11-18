@@ -72,6 +72,7 @@ import { shellEnvironment } from "../../../lophn-agent/tools/shell/env.ts";
 import { nodeShimFolder } from "../../../supervision/security/node-shims.ts";
 import { workspaceBaseOf } from "../workspace-folders-glue.ts";
 import { createAcpSend } from "./acp-send.ts";
+import { isDevicePrincipal } from "./app-principal.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 // 항목 순번을 붙이고 기록을 읽는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -410,6 +411,9 @@ export const acpWiring: WiringFactory = () => {
             : await handler(who, input);
         },
         newId: (prefix) => ids.newId(prefix),
+        mayLabel: (who, app) =>
+          !isDevicePrincipal(who) ||
+          ctx.appViews.hasLiveView(who.principal, app),
         shell: {
           folderOf: (session) =>
             workspaceBaseOf({ sql }, ctx.root.path, session),

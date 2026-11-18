@@ -47,8 +47,11 @@ const READS: Record<string, { name: string; value: unknown }> = {
 };
 
 // 지금 route들처럼 부른 사람의 scope에 operation이 있어야 통과한다. 누가 불렀는지도 적는다.
-function setup() {
+function setup(
+  mayLabel: (who: AuthenticatedContext, app: string) => boolean = () => true,
+) {
   const callers: string[] = [];
+  const envelopes: { input: unknown }[] = [];
   const ran: string[] = [];
   const allow = (who: AuthenticatedContext, name: string): Result<void> =>
     who.scope.operations.includes(name)
@@ -57,6 +60,7 @@ function setup() {
   const send = createAcpSend({
     command: (who, envelope) => {
       callers.push(who.principal);
+      envelopes.push(envelope);
       const allowed = allow(who, envelope.command);
       return Promise.resolve(allowed.ok ? ok({ result: {} }) : allowed);
     },
@@ -68,6 +72,7 @@ function setup() {
     },
     memory: () => Promise.resolve(ok({})),
     newId: (prefix) => `${prefix}_01h455vb4pex5v6nkc6gd5f009`,
+    mayLabel,
     shell: {
       folderOf: () => "/work",
       env: () => ({}),
@@ -88,7 +93,7 @@ function setup() {
       nowMs: () => 0,
     },
   });
-  return { send, callers, ran };
+  return { send, callers, ran, envelopes };
 }
 
 test("AcpSend dispatches with the caller's own scope, so a caller without the route's scope is forbidden", async () => {
@@ -198,4 +203,30 @@ test("run_shell does not run the command for a caller who cannot record it, and 
   assert.equal((await send(scope, input)).ok, true);
   assert.equal((await send(scope, input)).ok, true);
   assert.deepEqual(ran, ["echo hi"]);
+});
+
+// 앱 이름표는 "그 앱 화면에서 보냈다"는 표시다. 기기가 아무 앱 이름이나 달면 사람이 다른 앱이 보낸 것으로 믿는다.
+test("AcpSend keeps the app label only when the caller may use that app's screen", async () => {
+  const APP = "app_01h455vb4pex5v6nkc6gd5f001";
+  const labelled = {
+    type: "send",
+    session: SES,
+    id: MSG,
+    key: "k1",
+    content: [{ type: "text", text: "hi" }],
+    delivery: "next_turn",
+    via_app: APP,
+  } as AcpInput;
+  const refused = setup(() => false);
+  assert.ok((await refused.send(person(["SendMessage"]), labelled)).ok);
+  assert.equal(
+    Object.hasOwn(refused.envelopes[0]!.input as object, "via_app"),
+    false,
+  );
+  const allowed = setup(() => true);
+  assert.ok((await allowed.send(person(["SendMessage"]), labelled)).ok);
+  assert.equal(
+    (allowed.envelopes[0]!.input as { via_app?: string }).via_app,
+    APP,
+  );
 });

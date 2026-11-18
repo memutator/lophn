@@ -26,8 +26,9 @@ const errors = [
   "unauthorized",
 ] as const;
 
-// shell main이 앱 화면을 대신해 부르므로 app을 준다.
-const onBehalf = { app: idSchema("app") };
+// shell main이 앱 화면을 대신해 부르므로 app을 준다. 기기(다른 컴퓨터의 shell)는 자기가 연 앱 화면의 view도 주고, app은 그 view의
+// 앱이어야 한다(core/main/daemon/wiring/app-principal.ts).
+const onBehalf = { app: idSchema("app"), view: z.string().min(1).optional() };
 
 // 앱이 보는 call 한 건이다. 받는 session 기록의 본문은 싣지 않는다(session이 보이면 ACP 기록으로 읽는다). result는 이 앱이 보낸
 // result call의 답 글이고, 남이 보낸 call의 답은 늘 null이다.

@@ -35,7 +35,7 @@ import {
   type LedgerConnection,
   openConnection,
 } from "../../../storage/ledger/mod.ts";
-import { appHandler, routeKey } from "./app-principal.ts";
+import { appHandlerFor, routeKey } from "./app-principal.ts";
 import type { WiringFactory } from "./context.ts";
 
 const APP_CALLS_PRINCIPAL = "machine:app-calls";
@@ -115,6 +115,7 @@ export const appCallsWiring: WiringFactory = () => {
         return done.ok ? ok(done.value.result) : done;
       };
 
+      const appHandler = appHandlerFor(() => ctx.appViews);
       return ok({
         memory: [
           [

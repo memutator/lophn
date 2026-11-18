@@ -55,6 +55,35 @@ export function createAppViews(ports: AppViewsPorts) {
           used: entry.used,
         }));
     },
+    /**
+     * owner가 연 view의 앱. 기기가 앱 화면을 대신해 앱 session·call route를 부를 때 앱을 이것으로 정한다(다른 owner의 view는
+     * 없는 view와 같다). live이고 묶여 있는(lost가 아닌) view만 `usable`이다.
+     */
+    viewApp(
+      owner: string,
+      view: string,
+    ): { app: string; usable: boolean } | null {
+      const entry = table.get(owner, view);
+      if (entry === undefined) return null;
+      return {
+        app: entry.args.app,
+        usable: entry.args.mode === "live" && entry.lost === null,
+      };
+    },
+    /** owner가 그 앱에 묶인 live view를 하나라도 열었나. 기기가 보낸 메시지의 앱 이름표(`via_app`)를 이것으로 정한다. */
+    hasLiveView(owner: string, app: string): boolean {
+      for (const entry of table.entries()) {
+        if (
+          entry.owner === owner &&
+          entry.args.app === app &&
+          entry.args.mode === "live" &&
+          entry.lost === null
+        ) {
+          return true;
+        }
+      }
+      return false;
+    },
     /** 폰 연결이 닫혔다(끊기, 기기 끊기, core 내려감). 그 기기의 view를 지운다. */
     closeOwner: (owner: string) => table.closeOwner(owner),
     /** Bus의 `AppViewChanged`. */

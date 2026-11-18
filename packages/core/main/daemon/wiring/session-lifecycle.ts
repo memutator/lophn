@@ -39,7 +39,7 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import { sessionFoldersOf } from "../workspace-folders-glue.ts";
 import { loadSession } from "../../../lophn-agent/session/model.ts";
-import { appHandler, routeKey } from "./app-principal.ts";
+import { appHandlerFor, routeKey } from "./app-principal.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 앱이 멈추라고 한 turn을 StopTurn으로 닫고 상태를 읽는 core 안 자격이다. 앱이 직접 StopTurn을 부르는 것이 아니다:
@@ -203,7 +203,7 @@ export const sessionLifecycleWiring: WiringFactory = () => {
         });
         return done.ok ? ok(done.value.result) : done;
       };
-      const handler = appHandler;
+      const handler = appHandlerFor(() => ctx.appViews);
       const key = routeKey;
 
       return ok({

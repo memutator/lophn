@@ -26,6 +26,20 @@ export type CoreCaller = (
 /** 기계 하나의 core 통로. null은 이 컴퓨터다. 앱 view가 부른 것은 그 view의 기계로만 간다. */
 export type MachineCaller = (machine: string | null) => CoreCaller;
 
+/**
+ * 앱 session·call route에 싣는 앱. 다른 기계는 이 컴퓨터를 기기로 보고 그 기기가 연 view에서 앱을 정하므로 view도 싣는다
+ * (core/main/daemon/wiring/app-principal.ts).
+ */
+export function onBehalfOf(view: {
+  view_session: string;
+  machine: string | null;
+  target: { app: string };
+}): { app: string; view?: string } {
+  return view.machine === null
+    ? { app: view.target.app }
+    : { app: view.target.app, view: view.view_session };
+}
+
 type AppFrameErrorCode =
   | "invalid_input"
   | "forbidden"

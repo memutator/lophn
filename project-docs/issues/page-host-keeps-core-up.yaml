@@ -1,0 +1,13 @@
+id: page-host-keeps-core-up
+title: 화면 없는 기계에서 page host와 core가 서로를 살려 두어 browser를 다 쓴 뒤에도 둘 다 끝나지 않는다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/shell/main, packages/core/server]
+now: |
+  core의 idle-exit는 열린 `/host-link` 연결을 일하는 client로 센다(`packages/core/server/server.ts`, `hostLinkActivity`). page host(`packages/shell/main/page-host/main.ts`)는 연결이 60초 넘게 닫혀 있을 때만 끝나고, 열린 page가 없어도 연결을 그대로 둔다. 그래서 agent가 page를 한 번 연 뒤로는 page host가 core를 붙잡고 core가 page host를 붙잡아, 사람이 `lophn core stop`을 하기 전에는 둘 다 돈다. desktop 앱은 사람이 보는 창이라 core를 붙잡는 것이 맞지만 page host는 사람이 모르는 process다.
+impact: |
+  remote를 켜지 않아 core가 idle-exit하던 화면 없는 기계(VM에서 job 하나 돌리고 쉬는 곳)에서, browser를 한 번 쓴 뒤로 core와 page host(page 없이도 약 170~470 MB)가 계속 남는다. remote를 켠 기계는 core가 원래 늘 떠 있어 차이가 없다.
+fix: |
+  - 작음(추천): page host가 page가 하나도 없는 채로 몇 분(예: 5분) 지나면 끝난다. agent가 다시 탭을 열면 core가 지금처럼 page host를 다시 띄운다.
+  - 작음: core가 page host의 연결은 idle-exit의 client로 세지 않는다. page host가 page를 든 채 core가 끝날 수 있어 agent의 page가 사라진다.

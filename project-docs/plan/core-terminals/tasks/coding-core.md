@@ -57,3 +57,12 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"(wave 4 전까지 desktop은 shell의 PTY와 tracker를 쓰므로 폰과 desktop이 다른 coding session을 보고, 옛 renderer는 `tab_open {terminal: {terminal_ref}}`를 받으면 그 터미널에 붙지 않고 새 shell을 연다. 둘 다 `term-desktop`이 풀 예정된 것이라 적지 않아도 된다)
+
+## lead가 더함
+
+- wave 2에서 merge된 것: `packages/core/terminals/`(`createTerminals`, `routes.ts`의 입력 자격·key·watch lease, `person-env.ts`, `wiring/terminals.ts`)와 `packages/core/extensions/`(`host.ts`, `spawner.ts`, `acp.ts`, `wiring/extensions.ts`). harness-gui·harness bundle은 core에서 load된다. `wiring/extensions.ts`의 `acpOpened`는 이 task가 GUI handle을 이을 때까지 아무것도 하지 않는다.
+- 터미널마다 env를 더하는 길은 `ctx.terminals.useEnv(hook)`이다(`TerminalEnvHook`은 `{env, opened(runtime|null)}`).
+- 추가 소유(등록 줄만): `packages/protocol/registry.ts`(지금 `TERMINAL_ROUTES`에서 `saved_sessions`·`rename_saved`를 거르는 filter를 걷고 전부 등록, `CODING_AGENT_ROUTES` 더하기, `CODING_RELAY_ROUTES`에 `cli_sessions`·`rewind_preview` 더하기), `packages/core/main/daemon/assembly.ts`(`terminalAgentsWiring` 자리, `codingRelayWiring` 빼기), `packages/protocol/coding-agent/mod.ts`의 export. handler를 둔 같은 commit에 등록해 core 기동의 route·handler 대조가 통과하게 한다.
+- 추가 소유: `packages/protocol/lophn-agent/harness-host.ts`의 TUI hold 주석(17줄 근처, "shell main이 `/host-link`로 보낸다")을 core가 거는 것으로 고친다.
+- `project-docs/flows/areas/harness.yaml`의 `terminals-*`·`coding-agents-*`·`coding-sessions-cli-sessions` 등 flow에 남은 "handler는 아직 없다(계약만)" `unclear` 줄을 지우고 `code:`에 실제 core path(`packages/core/terminals/`, `packages/core/terminal-agents/`, wiring file)를 넣는다. 이 task가 harness.yaml을 소유한다.
+- 크다. 한 번에 끝나지 않으면 할 수 있는 데까지 commit하고 남은 것을 정확히 보고한다(lead가 쪼갠다).

@@ -1,7 +1,7 @@
 // 창마다 하나. 구독자가 건 조건을 합쳐 CoreApi.watch로 통째로 걸고, main이 중계한 메시지를 조건이 맞는
 // 구독자에게 한 번씩 나눠 준다. 읽기(snapshot)는 하지 않는다: 구독자가 ready를 받고 직접 읽는다.
-// 연결이 새로 붙은 뒤의 첫 ready는 모든 구독자에게 가고, 그 뒤 이 창이 건 watch의 ready(main이 이 창에만 보낸다)는
-// 그 watch를 걸 때 아직 ready를 못 받은 구독자에게만 간다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다.
+// 연결이 새로 붙은 뒤의 첫 ready는 모든 구독자에게 가고, 그 뒤의 ready(이 창이 건 watch의 답. main이 이 창에만 보낸다)는
+// 아직 ready를 못 받은 구독자에게만 간다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다.
 import type { CoreEventMessage } from "../../../../ipc/core.ts";
 import {
   type BusEvent,
@@ -97,11 +97,13 @@ export function createEventClient(core: CoreSource): EventClient {
 
   function receive(message: CoreEventMessage) {
     if (message.kind === "ready") {
-      // 연결이 막 붙었거나 답할 watch를 모르면 모두 다시 읽는 쪽이 안전하다.
-      const answered = connected ? inflight.shift() : undefined;
+      // 연결이 막 붙은 ready는 모두 다시 읽는다. 붙은 뒤의 ready는 watch의 답이라 아직 맞추지 않은 구독자만 읽는다. 연결이 붙기
+      // 전에 보낸 watch의 답은 답할 watch를 몰라도 맞춘 구독자에게 다시 가지 않는다(창이 뜰 때 읽기가 두 번 몰리지 않게).
+      const first = !connected;
+      const answered = first ? undefined : (inflight.shift() ?? []);
       connected = true;
       for (const subscriber of [...(answered ?? subscribers)]) {
-        if (subscribers.has(subscriber) && (!answered || !subscriber.synced)) {
+        if (subscribers.has(subscriber) && (first || !subscriber.synced)) {
           ready(subscriber);
         }
       }

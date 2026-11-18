@@ -34,8 +34,13 @@ export interface ReadHandle<T> {
 }
 
 export type Read<T> = Promise<
-  { readonly ok: true; readonly value: T } | { readonly ok: false }
+  | { readonly ok: true; readonly value: T }
+  /** code는 core가 준 오류 code다. 모르면 없다. */
+  | { readonly ok: false; readonly code?: string }
 >;
+
+// 처음 읽기가 unavailable이면(core가 막 뜨며 동시 요청 한도를 넘었다) 이만큼 기다리며 몇 번 더 읽은 뒤에 실패를 보인다.
+const FIRST_READ_RETRY_MS = [200, 500, 1000];
 
 type CoreReadRoute = ReadRoute | MemoryRoute;
 
@@ -80,7 +85,10 @@ export async function readRoute<R extends CoreReadRoute>(
   });
   return reply.ok
     ? { ok: true, value: reply.value as z.output<R["output"]> }
-    : { ok: false };
+    : {
+        ok: false,
+        ...(reply.error?.code === undefined ? {} : { code: reply.error.code }),
+      };
 }
 
 /**
@@ -110,10 +118,22 @@ export function followRead<T>(
 
   const handle = syncOnReady<T>({
     async read() {
-      const result = await read(client.core).catch(
-        () => ({ ok: false }) as const,
-      );
-      if (result.ok) return result.value;
+      for (const wait of [...FIRST_READ_RETRY_MS, null]) {
+        const result = await read(client.core).catch(
+          (): { ok: false; code?: string } => ({ ok: false }),
+        );
+        if (result.ok) return result.value;
+        if (
+          last === null &&
+          wait !== null &&
+          !stopped &&
+          result.code === "unavailable"
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, wait));
+          continue;
+        }
+        break;
+      }
       if (last === null) show({ state: "failed" });
       else stale();
       return null;

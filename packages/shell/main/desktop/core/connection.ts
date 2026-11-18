@@ -295,8 +295,12 @@ export function startCoreConnection(
           );
         },
         ready: () => {
+          // 창의 watch마다 ready가 오지만 상태와 main의 다시 읽기는 연결이 처음 확인될 때만 한다. 매번 하면 상태를 듣는 화면과 main이
+          // 다시 읽어 시작의 읽기가 몰린다.
+          const changed = state.state !== "ready" || state.confirmedAt === null;
           state.state = "ready";
           state.confirmedAt = options.clock.now();
+          if (!changed) return;
           readyAt = state.confirmedAt;
           push();
           options.own?.ready?.();

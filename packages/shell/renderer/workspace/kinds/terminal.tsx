@@ -8,7 +8,11 @@ import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
-import { type RememberedName, terminalName } from "../../terminal/model.ts";
+import {
+  folderTitle,
+  type RememberedName,
+  terminalName,
+} from "../../terminal/model.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { TerminalResume, TerminalStore } from "../../terminal/store.ts";
@@ -80,6 +84,23 @@ export function openTerminal(
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
     },
   };
+  // 이미 있는 터미널은 시작 폴더를 core의 runtime에서 읽어 탭에 남긴다. 탭을 그리기 전에도 layout에 저장되어 다시 켠 앱이 붙는다.
+  const attached = options.terminal;
+  if (attached !== undefined) {
+    void terminal.core?.list().then((list) => {
+      const found = list?.find((one) => one.terminal_ref === attached);
+      if (found === undefined) return;
+      host.patchTab(key, (current) =>
+        current.folder === undefined
+          ? startedPatch(current, {
+              title: folderTitle(found.cwd_at_start),
+              folderRef: found.folder_ref,
+              terminalRef: attached,
+            })
+          : {},
+      );
+    });
+  }
   if (options.open !== undefined) {
     if (options.open.float === true) {
       host.openFloat(tab, undefined, options.open.options);
@@ -94,6 +115,19 @@ export function openTerminal(
   if (at.kind === "float") host.openFloat(tab);
   else host.openTab(tab);
   return key;
+}
+
+/** 터미널이 시작했거나 붙었다. 시작 폴더와 터미널 참조를 탭 제목과 layout에 남긴다. */
+function startedPatch(
+  current: TabItem,
+  info: { title: string | null; folderRef: string; terminalRef: string },
+): Partial<TabItem> {
+  const auto = info.title ?? autoOf(current);
+  return {
+    title: personOf(current) ?? auto,
+    folder: info.folderRef,
+    fields: { ...current.fields, auto, terminal: info.terminalRef },
+  };
 }
 
 // 이름의 두 입력. 사람이 붙인 이름과 자동 이름(폴더 제목)은 fields에 두고,
@@ -416,14 +450,7 @@ export const terminalKind: TabKindDef = {
           syncTerminalTab(tab, terminal.store, host.patchTab)
         }
         onStarted={(info) =>
-          host.patchTab(tab.key, (current) => {
-            const auto = info.title ?? autoOf(current);
-            return {
-              title: personOf(current) ?? auto,
-              folder: info.folderRef,
-              fields: { ...current.fields, auto, terminal: info.terminalRef },
-            };
-          })
+          host.patchTab(tab.key, (current) => startedPatch(current, info))
         }
         openLinkTab={(url) => openLinkTab(host, tab.key, url)}
         // 경로가 디스크의 파일일 때만 link다. 부모 폴더 한 단계를 읽어 본다.

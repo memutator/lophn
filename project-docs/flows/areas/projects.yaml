@@ -15,7 +15,7 @@ flows:
       - packages/core/main/daemon/wiring/projects.ts
       - packages/protocol/projects/project-api.ts
     steps:
-      - "사람 UI가 core-call로 project.create를 부른다. clone한 저장소는 core가 machine:projects-clone 자격으로 부른다. user도 그 machine 자격도 아니면 forbidden으로 거절한다"
+      - "사람이 더할 때는 core의 projects/add가 부른 사람의 자격으로 낸다(project-add). clone한 저장소는 core가 machine:projects-clone 자격으로 낸다. user도 그 machine 자격도 아니면 forbidden으로 거절한다"
       - "등록 폴더 목록이 같은 path이거나 서로 겹치면 거절한다(validateFolderRoots)"
       - "TargetAuthorization port로 생성 자격을 본다. port가 없거나 판정이 실패하면 fail-closed로 막는다"
       - "같은 id나 같은 name(slug)의 project가 있으면 conflict로 거절한다"
@@ -51,6 +51,81 @@ flows:
     crosses_process: false
     risk: [permission]
     refs: [P5, P10]
+
+  - id: project-add
+    title: "사람이 이름과 폴더로 project를 더한다. id와 slug는 core가 만든다"
+    actor: person
+    entries: [route:projects/add]
+    uses: [route:projects/create]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/add.ts
+      - packages/core/main/daemon/wiring/projects.ts
+      - packages/protocol/projects/add-api.ts
+    steps:
+      - "사람만 부른다(등록 dialog, 다른 기기의 창). agent·app은 dispatch가 forbidden으로 거절한다"
+      - "core가 prj_ id를 만들고 title에서 slug를 만든다(소문자 영숫자와 -, 글자로 시작, 63자까지. 비면 project)"
+      - "project.create를 부른 사람의 자격으로 낸다(project-register). name이 겹쳐 conflict면 -2부터 번호를 붙여 다섯 번까지 해 보고, 다른 실패는 그대로 돌려준다"
+      - "등록되면 project.create 뒤의 id file 다시 읽기가 그대로 돈다. id file 만들기는 하지 않는다(화면이 이어서 projects/create_identity를 부른다)"
+    outcomes:
+      - id: ok
+        observe: ["ledger:projects", "ledger:project_folders", "response"]
+      - id: name-taken
+        code: conflict
+        when: "title에서 만든 slug와 -2부터 -5까지가 모두 이미 있다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않다, 또는 project.create가 폴더가 같거나 겹친다고 거절했다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니다(dispatch), 또는 부른 사람의 자격으로 project.create를 낼 수 없다(TargetAuthorization, 기기 scope)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "project.create의 TargetAuthorization port가 없거나 판정이 실패했다, 또는 writer가 닫혔다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/project-identity.md]
+
+  - id: project-browse
+    title: "다른 기기가 이 기계의 폴더를 고르도록 사람의 home 아래 폴더 목록을 읽는다"
+    actor: person
+    entries: [route:projects/browse]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/browse.ts
+      - packages/core/main/daemon/wiring/projects.ts
+      - packages/protocol/projects/add-api.ts
+    steps:
+      - "사람만 부른다. agent·app은 dispatch가 forbidden으로 거절한다"
+      - "home은 core가 켜질 때 homeOf(env, platform)을 realpath한 값이다. 없거나 풀지 못하면 unavailable이다"
+      - "path(없으면 home)를 realpath한다. 없으면 not_found다. realpath가 home과 같거나 home 아래가 아니면(.., home 밖 절대 path, home 밖을 가리키는 symlink) 읽지 않고 forbidden이다"
+      - "폴더가 아니면 invalid_input이다. 목록은 폴더와, realpath가 home 아래 폴더인 symlink만 싣는다(숨은 폴더 포함). path는 모두 realpath이고 이름순으로 500개까지 싣고 넘으면 truncated다. home에서는 parent가 null이다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니다(dispatch), 또는 path의 realpath가 home 밖이다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "path가 없다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "path가 폴더가 아니다, 또는 정규화된 절대 path가 아니다(schema)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계에 home이 없거나 realpath하지 못했다, 또는 폴더를 읽지 못했다(권한 등)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/project-identity.md]
 
   - id: project-edit
     title: "project의 이름, 제목, 목적, 폴더 목록을 고친다"
@@ -2151,6 +2226,7 @@ flows:
     boundary: [projects, core-api]
     code:
       - packages/core/projects/clone/clone.ts
+      - packages/core/projects/add.ts
       - packages/core/projects/clone/runner.ts
       - packages/core/projects/clone/setting.ts
       - packages/core/main/daemon/wiring/project-clone.ts
@@ -2162,7 +2238,7 @@ flows:
       - "폴더 이름은 name이나 URL 마지막 조각에서 .git을 뗀 것이다. /, \\, .., 빈 글은 invalid_input이다. <부모>/<이름>이 이미 있으면 아무것도 쓰지 않고 conflict(target_exists)다"
       - "<부모>/.lophn-clone-<random>에 git clone한다. 이 기계의 git 설정(credential helper, ssh)을 그대로 쓰되 GIT_TERMINAL_PROMPT=0 같은 env로 묻는 창 없이 바로 실패하게 한다. 10분이 넘으면 멈춘다. 실패하면 임시 폴더를 지우고 stderr로 가른다: 자격이면 git_auth와 사람이 풀 명령(gh auth login, ssh -T git@host, 그 밖은 git clone <url>), git이 없으면 git_not_found, 시간 초과면 timeout, 그 밖은 git_failed와 stderr 끝 줄"
       - "임시 폴더의 .lophn-project.json을 읽는다. identity를 주었는데 file의 id(충돌이면 작은 것)가 다르면 임시 폴더를 지우고 conflict(different_project)다. file이 없으면 받은 폴더를 두고 note에 다른 기계에서 commit·push한 뒤 pull하라고 알린다. rename 바로 앞에 대상이 아직 없는지 다시 보고(생겼으면 임시 폴더를 지우고 conflict target_exists) rename한다"
-      - "project.create를 machine:projects-clone 자격으로 낸다. title은 title이나 폴더 이름이고 slug는 title에서 만들어 겹치면 번호를 붙여 다섯 번까지 해 본다. 실패하면 받은 폴더는 지우지 않고(받은 것을 잃지 않게) 오류에 path를 싣는다"
+      - "project.create를 machine:projects-clone 자격으로 낸다. title은 title이나 폴더 이름이고 slug는 project-add와 같은 규칙으로 title에서 만들어 겹치면 번호를 붙여 다섯 번까지 해 본다. 실패하면 받은 폴더는 지우지 않고(받은 것을 잃지 않게) 오류에 path를 싣는다"
     outcomes:
       - id: cloned
         observe: ["disk:project-folder", "ledger:projects", "response"]

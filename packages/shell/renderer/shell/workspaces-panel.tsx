@@ -42,8 +42,6 @@ export interface WorkspacesPanelProps {
   onApp: (app: string) => void;
   /** New app으로 만든 앱. 그 앱 workspace의 lophn 새 session으로 시작한다. */
   onNewApp: (app: string) => void;
-  /** 새 project id. 테스트가 고정한다. */
-  newProjectId?: () => string;
 }
 
 type RowMenu = readonly { id: string; label: string; icon: LucideIcon }[];
@@ -113,7 +111,6 @@ export function WorkspacesPanel({
   onProject,
   onApp,
   onNewApp,
-  newProjectId,
 }: WorkspacesPanelProps) {
   // 보관한 것까지 모두 읽고 화면에서 가른다.
   const cards = useProjectList();
@@ -400,7 +397,6 @@ export function WorkspacesPanel({
         <RegisterDialog
           open={registering}
           source={projects}
-          newProjectId={newProjectId}
           onClose={() => setRegistering(false)}
           onRegistered={() => setRegistering(false)}
         />

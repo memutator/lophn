@@ -1,12 +1,25 @@
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
+import * as fsPromises from "node:fs/promises";
 
-import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  err,
+  homeOf,
+  ok,
+  type Result,
+} from "../../../../base/mod.ts";
+import {
+  projectAdd,
+  projectBrowse,
+} from "../../../../protocol/projects/add-api.ts";
 import {
   projectApi,
   projectIdentityApi,
 } from "../../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
+import { addProject, type ProjectAddInput } from "../../../projects/add.ts";
+import { browseFolders } from "../../../projects/browse.ts";
 import {
   createGitReader,
   createIdentityFs,
@@ -50,6 +63,17 @@ const FOLDER_CHANGES = new Set<string>([
 ]);
 
 const STARTUP_PARALLEL = 4;
+
+// 폴더 목록이 읽는 범위의 뿌리. 없거나 풀지 못하면 목록은 unavailable이다.
+function realHome(): string | null {
+  const home = homeOf(process.env, process.platform);
+  if (home === undefined) return null;
+  try {
+    return realpathSync(home);
+  } catch {
+    return null;
+  }
+}
 
 // 이 판 전에 등록한 git이 아닌 project와 폴더가 없는 project에 ledger에서 난 id를 준다. id가 IdSource에서 나야 해서
 // SQL schema step이 아니라 data step이다. runtime이 열리기 전에 돌아 writer와 겹치지 않는다.
@@ -107,6 +131,7 @@ export const projectsWiring: WiringFactory = () => {
         folders: { exists: (path) => existsSync(path) },
         logger,
       });
+      const home = realHome();
       const reconcile = async (project: Pick<Project, "id" | "folders">) => {
         const done = await identity.reconcile(project);
         if (!done.ok) {
@@ -176,6 +201,26 @@ export const projectsWiring: WiringFactory = () => {
           [
             `${projectIdentityApi.match.resource}/${projectIdentityApi.match.method}`,
             (_who, body) => identity.match((body as { path: string }).path),
+          ],
+          [
+            `${projectAdd.resource}/${projectAdd.method}`,
+            // project.create는 부른 사람의 자격으로 간다. writer는 모든 층이 쌓인 뒤에 채워지므로 부를 때 읽는다.
+            (who, body) =>
+              addProject(who, body as ProjectAddInput, {
+                writer: {
+                  command: (auth, envelope) =>
+                    ctx.writer.command(auth, envelope),
+                },
+                ids,
+              }),
+          ],
+          [
+            `${projectBrowse.resource}/${projectBrowse.method}`,
+            (_who, body) =>
+              browseFolders(body as { path?: string }, {
+                home,
+                fs: fsPromises,
+              }),
           ],
         ],
       });

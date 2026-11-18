@@ -19,11 +19,13 @@ import {
   projectIdentityApi,
 } from "./identity-api.ts";
 import { PROJECT_CLONE_ROUTES } from "./clone-api.ts";
+import { PROJECT_ADD_ROUTES } from "./add-api.ts";
 
 export const ROUTES = [
   ...PROJECT_API_ROUTES,
   projectIdentityApi.recordIdentity,
   ...PROJECT_CLONE_ROUTES,
+  ...PROJECT_ADD_ROUTES,
   ...PROJECT_IDENTITY_MEMORY_ROUTES,
   ...PROJECT_SEARCH_ROUTES,
   ...PROJECT_FILES_ROUTES,

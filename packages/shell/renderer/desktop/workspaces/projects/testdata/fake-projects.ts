@@ -183,7 +183,8 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
       const failed = failure();
       if (failed) return Promise.resolve(failed);
       const project: ProjectItem = {
-        id: draft.id,
+        // core가 id를 만든다. fake는 행 수로 하나씩 낸다.
+        id: `prj_01h455vb4pex5v6nkc6gd5fe${String(rows.length).padStart(2, "0")}`,
         title: draft.title,
         purpose: draft.purpose,
         revision: "1",

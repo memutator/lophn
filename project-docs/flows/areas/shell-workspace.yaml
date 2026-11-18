@@ -2531,9 +2531,9 @@ flows:
       - "첫 폴더가 정해지면 memory route projects/match(allowlist의 renderer memory route)로 폴더를 읽는다. 읽는 사이 첫 폴더가 바뀌면 결과를 버린다"
       - "git이고 file이 없으면 켬 줄(기본 켬)과 .lophn-project.json을 만든다는 note, file이 있으면 이미 lophn project라는 note, 같은 id의 project가 이 기계에 있으면 이미 등록됐고 등록하면 another copy라는 note, git이 아니면 이 컴퓨터에만 있다는 note를 보인다"
       - "폴더를 잃은 project가 같은 remote로 제안되면 [Relink <title> here]를 보인다. 누르면 그 project의 잃은 폴더를 이 path로 relink_folder하고 dialog를 닫는다"
-      - "[Register]는 project.create를 부르고 켬 줄이 켜져 있으면 이어서 projects/create_identity를 부른다. create_identity가 실패해도 등록은 되돌리지 않고, 상세의 줄이 [Set up]으로 보인다"
+      - "[Register]는 이름, 목적, 폴더만 담아 projects/add를 부른다(id와 slug는 core가 만든다). 켬 줄이 켜져 있으면 이어서 projects/create_identity를 부른다. create_identity가 실패해도 등록은 되돌리지 않고, 상세의 줄이 [Set up]으로 보인다"
       - "match를 읽지 못하면 줄 없이 등록한다"
-    uses: [route:projects/match, route:projects/create, route:projects/create_identity, route:projects/relink_folder]
+    uses: [route:projects/match, route:projects/add, route:projects/create_identity, route:projects/relink_folder]
     outcomes:
       - id: registered-shared
         when: "켬 줄이 켜진 채 등록했고 create_identity가 file을 만들었다"

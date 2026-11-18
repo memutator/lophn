@@ -11,11 +11,11 @@ import {
 import {
   PROJECT_IDENTITY_FILE,
   parseIdentityFile,
-  projectApi,
   type ProjectRecord,
 } from "../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
+import { addProject } from "../add.ts";
 import { projectByIdentity } from "../lookups.ts";
 import { PROJECT_CLONE_CONTEXT } from "../registry/contexts.ts";
 import { loadProject } from "../registry/store.ts";
@@ -60,8 +60,6 @@ export type CloneDeps = {
   logger: Logger;
 };
 
-const NAME_ATTEMPTS = 5;
-const SLUG_MAX = 63;
 const AUTH_FAILED = [
   "Authentication failed",
   "could not read Username",
@@ -122,27 +120,6 @@ function signInCommand(url: string): string {
   return `git clone ${url}`;
 }
 
-// 사람에게 보이는 이름이라 slug는 그 이름에서 만들고 겹치면 번호를 붙인다(core-source.ts의 slugOf와 같은 규칙).
-function slugOf(title: string): string {
-  const words = title
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const start = /^[a-z]/.test(words)
-    ? words
-    : words === ""
-      ? "project"
-      : `project-${words}`;
-  return start.slice(0, SLUG_MAX).replace(/-+$/, "");
-}
-
-function slugAttempt(base: string, attempt: number): string {
-  if (attempt === 1) return base;
-  const suffix = `-${attempt}`;
-  return `${base.slice(0, SLUG_MAX - suffix.length).replace(/-+$/, "")}${suffix}`;
-}
-
 async function alreadyHere(
   identity: string,
   deps: CloneDeps,
@@ -193,37 +170,6 @@ async function parentFolder(
     await deps.settings.remember(input.parent);
   }
   return ok(input.parent);
-}
-
-async function register(
-  target: string,
-  input: CloneInput,
-  name: string,
-  deps: CloneDeps,
-): Promise<Result<ProjectRecord>> {
-  const id = deps.ids.newId("prj");
-  const title = input.title ?? name;
-  const base = slugOf(title);
-  let last: Result<ProjectRecord> = fail("conflict", "project name is taken");
-  for (let attempt = 1; attempt <= NAME_ATTEMPTS; attempt += 1) {
-    const done = await deps.writer.command(PROJECT_CLONE_CONTEXT, {
-      command: projectApi.register.name,
-      input: {
-        id,
-        name: slugAttempt(base, attempt),
-        title,
-        purpose: "",
-        folders: [{ path: target, description: "" }],
-      },
-      idempotency_key: `clone-${id}-${attempt}`,
-      compare: {},
-      prepared: [],
-    });
-    if (done.ok) return ok(done.value.result as ProjectRecord);
-    last = done;
-    if (done.error.code !== "conflict") break;
-  }
-  return last;
 }
 
 export async function cloneProject(
@@ -322,7 +268,15 @@ export async function cloneProject(
   await deps.fs.rename(staging, target);
 
   // 등록이 실패해도 받은 폴더는 지우지 않는다. 사람이 받은 것을 잃게 된다.
-  const project = await register(target, input, name, deps);
+  const project = await addProject(
+    PROJECT_CLONE_CONTEXT,
+    {
+      title: input.title ?? name,
+      purpose: "",
+      folders: [{ path: target, description: "" }],
+    },
+    deps,
+  );
   if (!project.ok) {
     deps.logger.error({
       component: "projects-clone",

@@ -7,9 +7,8 @@ export interface FolderDraft {
   readonly description: string;
 }
 
-/** 등록에 보낼 것. 안쪽 짧은 이름은 통로가 정한다. */
+/** 등록에 보낼 것. id와 안쪽 짧은 이름은 core가 정한다. */
 export interface ProjectDraft {
-  readonly id: string;
   readonly title: string;
   readonly purpose: string;
   readonly folders: readonly FolderDraft[];

@@ -5,7 +5,6 @@ import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { actionIcons, commonIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import { newId } from "../../prefixed-id.ts";
 import { addFolder, missingFolder, usableTitle } from "./model.ts";
 import type { FolderDraft, FolderMatch, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
@@ -15,8 +14,6 @@ interface RegisterDialogProps {
   source: RegisterSource;
   onClose: () => void;
   onRegistered: (created: { id: string }) => void;
-  /** id의 시각과 무작위. 테스트가 고정한다. */
-  newProjectId?: () => string;
 }
 
 // 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 OS 선택기로만 고르고
@@ -27,7 +24,6 @@ export function RegisterDialog({
   source,
   onClose,
   onRegistered,
-  newProjectId = () => newId("prj"),
 }: RegisterDialogProps) {
   const [title, setTitle] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -97,7 +93,6 @@ export function RegisterDialog({
     setFailure(null);
     const name = title.trim();
     const result = await source.register({
-      id: newProjectId(),
       title: name,
       purpose: purpose.trim(),
       folders: folders.map((folder) => ({

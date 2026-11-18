@@ -1,3 +1,4 @@
+import { PROJECT_ADD_ROUTES } from "../../protocol/projects/add-api.ts";
 import { PROJECT_IDENTITY_MEMORY_ROUTES } from "../../protocol/projects/mod.ts";
 import type {
   ReaderRegistration,
@@ -59,8 +60,8 @@ export function createLedgerRegistration(
         exists: (path) => folders.exists(path),
       }),
     ],
-    // 폴더의 id file을 읽고 쓰는 route. handler는 wiring/projects.ts가 단다.
-    memoryRoutes: PROJECT_IDENTITY_MEMORY_ROUTES,
+    // 폴더의 id file을 읽고 쓰는 route와 project 더하기·폴더 목록. handler는 wiring/projects.ts가 단다.
+    memoryRoutes: [...PROJECT_IDENTITY_MEMORY_ROUTES, ...PROJECT_ADD_ROUTES],
     // 폴더 존재 확인.
     ports: [{ key: folderResolverPort, create: () => folders }],
   };

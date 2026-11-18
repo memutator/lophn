@@ -5,6 +5,7 @@ import type {
   FolderPickReply,
 } from "../../../../ipc/folder-picker.ts";
 import type { CommandRoute } from "../../../../../protocol/base/route.ts";
+import { projectAdd } from "../../../../../protocol/projects/add-api.ts";
 import { projectIdentityApi } from "../../../../../protocol/projects/identity-api.ts";
 import { projectApi } from "../../../../../protocol/projects/project-api.ts";
 import {
@@ -64,9 +65,6 @@ interface ProjectListValue {
 
 /** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
 const PAGE_LIMIT = 20;
-/** 짧은 이름이 겹칠 때 번호를 붙여 다시 해 보는 횟수. */
-const NAME_ATTEMPTS = 5;
-const SLUG_MAX = 63;
 
 /** project route의 기록을 화면 값으로 옮긴다. */
 export function projectItemOf(value: ProjectValue): ProjectItem {
@@ -122,59 +120,27 @@ export async function readProjects(
   return { ok: true, value: items };
 }
 
-// 사람에게는 이름 하나만 보인다. call의 workspace가 맞춰 쓰는 짧은 이름은 이름에서 만들고 겹치면 번호를 붙인다.
-function slugOf(title: string): string {
-  const words = title
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const start = /^[a-z]/.test(words)
-    ? words
-    : words === ""
-      ? "project"
-      : `project-${words}`;
-  return start.slice(0, SLUG_MAX).replace(/-+$/, "");
-}
-
-function slugAttempt(base: string, attempt: number): string {
-  if (attempt === 1) return base;
-  const suffix = `-${attempt}`;
-  return `${base
-    .slice(0, SLUG_MAX - suffix.length)
-    .replace(/-+$/, "")}${suffix}`;
-}
-
-async function createProject(
+// 사람에게는 이름 하나만 보인다. id와 call의 workspace가 맞춰 쓰는 짧은 이름은 core가 만든다.
+async function addProject(
   core: CoreSource,
   draft: ProjectDraft,
 ): Promise<SourceResult<ProjectItem>> {
-  const base = slugOf(draft.title);
-  let last: SourceResult<ProjectItem> = { ok: false, code: "conflict" };
-  for (let attempt = 1; attempt <= NAME_ATTEMPTS; attempt += 1) {
-    const reply = await core.call(
-      commandCall(projectApi.register, {
-        input: {
-          id: draft.id,
-          name: slugAttempt(base, attempt),
-          title: draft.title,
-          purpose: draft.purpose,
-          folders: draft.folders.map((folder) => ({
-            path: folder.path,
-            description: folder.description,
-          })),
-        },
-        compare: {},
-        key: `projects-create-${draft.id}-${attempt}`,
-      }),
-    );
-    if (reply.ok) {
-      return { ok: true, value: projectItemOf(reply.value as ProjectValue) };
-    }
-    last = failed(reply);
-    if (last.code !== "conflict") return last;
-  }
-  return last;
+  const reply = await core.call({
+    kind: "memory",
+    resource: projectAdd.resource,
+    method: projectAdd.method,
+    body: {
+      title: draft.title,
+      purpose: draft.purpose,
+      folders: draft.folders.map((folder) => ({
+        path: folder.path,
+        description: folder.description,
+      })),
+    },
+  });
+  return reply.ok
+    ? { ok: true, value: projectItemOf(reply.value as ProjectValue) }
+    : failed(reply);
 }
 
 async function identityStatus(
@@ -300,7 +266,7 @@ export function coreProjectsSource(
 
     // id file을 만들지 못해도 등록은 되돌리지 않는다. 상세의 줄이 [Set up]으로 보인다.
     async register(draft): Promise<SourceResult<RegisteredProject>> {
-      const created = await createProject(core, draft);
+      const created = await addProject(core, draft);
       if (!created.ok || !draft.shareIdentity) return created;
       const shared = await identityStatus(
         core,

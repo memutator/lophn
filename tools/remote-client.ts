@@ -82,6 +82,14 @@ function socket(url: string): Promise<RemoteTransport> {
   });
 }
 
+// 이 client가 알리는 폰 화면(흔한 Android 폰).
+const SCREEN = {
+  os: "android",
+  width: 412,
+  height: 915,
+  dpr: 2.625,
+} as const;
+
 async function open(
   state: State,
   phone: KeyPair,
@@ -100,6 +108,8 @@ async function open(
       remoteStatic,
       capabilities: [],
       name: values.name ?? "remote-client",
+      // 진짜 폰처럼 hello마다 화면을 싣는다: 명단으로만 이 폰을 안 컴퓨터가 첫 연결에 기기 행을 만든다.
+      phone: SCREEN,
       machine: state.machine,
       random: cryptoRandom,
     });
@@ -153,12 +163,6 @@ if (command === "join") {
   if (issuer.type !== "entry") fail("the invite's issuer is not an entry");
   const phone = generateKeyPair(cryptoRandom);
   const name = values.name ?? "remote-client";
-  const screen = {
-    os: "android",
-    width: 412,
-    height: 915,
-    dpr: 2.625,
-  } as const;
   const addresses = values.address ? [values.address] : invite.reach.addresses;
   const done = await join(
     { ...invite, reach: { ...invite.reach, addresses } },
@@ -168,7 +172,7 @@ if (command === "join") {
       random: cryptoRandom,
       name,
       capabilities: [],
-      phone: screen,
+      phone: SCREEN,
       entry: {
         id: createIdSource({ clock: systemClock, random: cryptoRandom }).newId(
           "dev",
@@ -178,7 +182,7 @@ if (command === "join") {
         signing_key: null,
         machine: null,
         name,
-        os: screen.os,
+        os: SCREEN.os,
         rev: 1,
       },
     },

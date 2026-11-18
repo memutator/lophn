@@ -164,7 +164,7 @@ desktop 앱이 다른 기계의 core에 kind `desktop` 기기로 pairing해 그 
   - view가 그 id를 다른 key로 든다(접힌 id, 충돌한 key 포함) → `conflict`, reason `id_taken`. 그 key가 다른 모양(kind, 서명 key, machine)으로 있거나 충돌로 빠졌음, 또는 그 서명 key를 다른 host key가 씀 → `conflict`, reason `key_taken`.
   - 검증하는 컴퓨터의 지금이 `expires_at` 뒤 → `unauthorized`, reason `expired`.
   - 같은 초대로 다른 key가 이미 들었음(view의 `invites`) → `conflict`, reason `used`. 같은 key가 다시 내면 받는다(다시 붙는 것이다).
-- 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다(`roster/join {text}`): `issuer` 자기 서명과 초대장 서명을 보고 issuer 항목에 서명한다(사람이 글을 넣은 것이 믿음의 근거다). 초대한 컴퓨터에 닿으면 `join`하고, 못 닿으면 초대 서명 statement를 들고 `pending: true`로 끝난다. 자기가 낸 초대장이면 `conflict`(`this_computer`)다.
+- 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다(`roster/join {text}`): `issuer` 자기 서명과 초대장 서명을 보고 issuer 항목에 서명한다(사람이 글을 넣은 것이 믿음의 근거다). 저장은 초대한 컴퓨터에 붙어 본 뒤다: 닿아 받아들여지면 저장하고 받은 명단을 합치고, 못 닿으면 저장하고 초대 서명 statement를 든 채 `pending: true`로 끝나고, 초대한 컴퓨터가 거절하면(`used`, `expired`, `removed` …) 아무것도 저장하지 않는다(믿지 않을 issuer와 죽은 statement를 남기지 않는다. 이미 믿는 컴퓨터가 서명한 빼기만 받는다). 자기가 낸 초대장이면 `conflict`(`this_computer`)다.
 
 **옮긴 폰.** 이 계획 전에 pairing한 폰은 컴퓨터의 host key만 저장했다. 판 3으로 처음 붙을 때 `join`의 답 `computer.signing_key`를 받는다. 그 답은 저장한 host key로 확인한 Noise 연결에서 온 것이라, 폰은 그 컴퓨터의 서명 key를 root로 저장하고 답의 명단에 든 그 컴퓨터의 항목(host key와 서명 key가 같아야 한다)을 본다. 컴퓨터 쪽은 옮기는 step이 기기 표의 줄마다 그 컴퓨터가 서명한 항목을 만들어 두므로(id, key, 허락 그대로) 폰은 다시 pairing하지 않는다. 같은 폰을 여러 컴퓨터에 pairing했으면 컴퓨터마다 따로 배우고, 명단이 합쳐지면 id가 접힌다.
 
@@ -177,7 +177,7 @@ desktop 앱이 다른 기계의 core에 kind `desktop` 기기로 pairing해 그 
 
 **이름과 허락.** 이름은 항목에 하나이고 어느 컴퓨터에서나 바꾼다(`roster/rename`이 서명한 새 rev). 기기마다 붙이는 별명은 없다. 컴퓨터 자기 이름은 `machine/rename`을 따라 그 컴퓨터가 자기 항목을 다시 서명한다. 터미널 입력 허락(`roster/set_terminal_input`)도 항목의 칸이라 모든 기계에 같다. 부를 수 있는 route 목록은 지금처럼 하나다. 폰은 `roster/leave`로 자기만 뺀다.
 
-**컴퓨터끼리의 연결과 `machines/*`.** 이 기계의 화면은 다른 기계를 core의 route로만 부른다. `machines/call {machine, resource, method, body}`는 core가 그 기계와의 연결로 `call` frame을 넘기고 답과 오류(code, message, details)를 그대로 돌려준다. 연결이 없으면 `unavailable`, 명단에 없는 기계면 `not_found`다. `machines/watch {machine, conditions}`는 그 기계의 Gateway 조건을 통째로 바꾸고, 그 기계의 frame(ready, event, closed)은 이 컴퓨터의 bus에 `MachineFrameReceived`(subject `machine:<mch_>`)로 실린다. 이 event는 기기 event 목록에 없다. `machines/list`는 연결 상태(connecting, connected, offline, update)와 길이다.
+**컴퓨터끼리의 연결과 `machines/*`.** 이 기계의 화면은 다른 기계를 core의 route로만 부른다. `machines/call {machine, resource, method, body}`는 core가 그 기계와의 연결로 `call` frame을 넘기고 답과 오류(code, message, details)를 그대로 돌려준다. 연결이 없으면 `unavailable`, 명단에 없는 기계면 `not_found`, 이 컴퓨터 자신이면 `invalid_input`이다. `machines/watch {machine, conditions}`는 그 기계의 Gateway 조건을 통째로 바꾸고, 그 기계의 frame(ready, event, closed)은 이 컴퓨터의 bus에 `MachineFrameReceived`(subject `machine:<mch_>`)로 실린다. 이 event는 기기 event 목록에 없다. `machines/list`는 연결 상태(connecting, connected, offline, update)와 길이다.
 
 #### 지키는 것
 

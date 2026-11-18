@@ -46,7 +46,11 @@ import {
   rosterStore,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { join, parseInviteText } from "../../../../remote-client/mod.ts";
+import {
+  type Dial,
+  join,
+  parseInviteText,
+} from "../../../../remote-client/mod.ts";
 import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
 import { rewindUnknownSchemaSteps } from "../../../apps/rewind/mod.ts";
 import { foldSyncLogDevice } from "../../../apps/sync/device-fold.ts";
@@ -244,10 +248,13 @@ export const signingKeyStep: DataStep = {
 const DEVICE_PRINCIPAL = "device:";
 
 // `roster/join`이 초대한 컴퓨터에 붙어 답을 기다리는 한도. WebSocket 열기(10초)와 host의 handshake 한도(10초)를 더한 것이다.
-// 넘으면 못 닿은 것과 같이 pending으로 끝난다: 초대 서명 statement는 이미 저장했고 link나 폰이 나중에 나른다.
+// 넘으면 못 닿은 것과 같이 저장하고 pending으로 끝난다: 초대 서명 statement는 link나 폰이 나중에 나른다.
 const JOIN_DEADLINE_MS = 20_000;
 
-export const remoteWiring: WiringFactory = () => {
+// `dial`은 다른 컴퓨터에 붙는 길이다(link와 roster/join). test는 메모리 전송을 넘긴다.
+export function remoteWiring(
+  dial: Dial = dialNodeWebSocket,
+): ReturnType<WiringFactory> {
   let listener: RemoteListener | undefined;
   let relay: RelayClient | undefined;
   let host: RemoteHost | undefined;
@@ -353,7 +360,11 @@ export const remoteWiring: WiringFactory = () => {
               logError(ctx, "rename_not_signed", renamed.error.message);
           }
           const done = await command(ctx, devicesConnected.name, input);
-          if (!done.ok)
+          // hello에 화면이 없는 폰(dev 도구)은 행을 만들 수 없다. 행이 없는 것은 그 폰의 일이라 오류로 남기지 않는다.
+          if (
+            !done.ok &&
+            !(input.phone === undefined && done.error.code === "not_found")
+          )
             logError(ctx, "connected_not_saved", done.error.message);
         })();
       },
@@ -714,7 +725,7 @@ export const remoteWiring: WiringFactory = () => {
       links = createLinks({
         roster,
         name: () => ctx.machine.status().name,
-        dial: dialNodeWebSocket,
+        dial,
         random: ctx.random,
         clock: ctx.clock,
         wait(ms, fn) {
@@ -756,7 +767,7 @@ export const remoteWiring: WiringFactory = () => {
         const self = roster.self()?.id;
         return ok({
           this: self ?? null,
-          devices: roster.view().devices.map(({ body }) => ({
+          devices: roster.view().devices.map(({ body, pending }) => ({
             id: body.id,
             kind: body.kind,
             name: body.name,
@@ -764,6 +775,7 @@ export const remoteWiring: WiringFactory = () => {
             machine: body.machine,
             terminal_input: body.terminal_input,
             this: body.id === self,
+            pending,
             // 컴퓨터는 기기 행이 없다. 이 컴퓨터의 link가 마지막으로 붙었거나 끊긴 때다.
             last_connected_at: last.get(body.id) ?? links.seen(body.id),
           })),
@@ -815,8 +827,9 @@ export const remoteWiring: WiringFactory = () => {
         const id = who.principal.slice(DEVICE_PRINCIPAL.length);
         return idOf(await roster.remove(id), id);
       };
-      // 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다. 확인하고 저장한 뒤 초대한 컴퓨터에 붙어 본다. 못 닿으면 초대 서명 statement를
-      // 든 채 pending이다: issuer link가 다시 붙을 때의 `join`이나 폰이 그것을 issuer를 믿는 컴퓨터에 나른다.
+      // 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다. 확인하고, 초대한 컴퓨터에 붙어 본 뒤 저장한다. 거절하면 아무것도 저장하지
+      // 않는다(믿지도 않을 issuer와 죽은 초대 서명 statement를 남기지 않게). 못 닿으면 저장하고 초대 서명 statement를 든 채
+      // pending이다: issuer link가 다시 붙을 때의 `join`이나 폰이 그것을 issuer를 믿는 컴퓨터에 나른다.
       const joinRoster = async (_who: unknown, input: unknown) => {
         const text = parseInviteText(
           (input as z.infer<typeof rosterJoin.input>).text,
@@ -834,9 +847,9 @@ export const remoteWiring: WiringFactory = () => {
           });
         }
         const hostKey = keys.host;
-        const accepted = await roster.acceptInvite(text);
-        if (!accepted.ok) return accepted;
-        const { body, issuer } = accepted.value;
+        const prepared = await roster.prepareJoin(text);
+        if (!prepared.ok) return prepared;
+        const { body, issuer } = prepared.value;
         let timer: NodeJS.Timeout | undefined;
         const deadline = new Promise<Awaited<ReturnType<typeof join>>>(
           (resolve) => {
@@ -848,7 +861,7 @@ export const remoteWiring: WiringFactory = () => {
         );
         const attempt = join(text, {
           key: hostKey,
-          dial: dialNodeWebSocket,
+          dial,
           random: ctx.random,
           name: ctx.machine.status().name,
           capabilities: [],
@@ -866,13 +879,14 @@ export const remoteWiring: WiringFactory = () => {
         });
         const joined = await Promise.race([attempt, deadline]);
         clearTimeout(timer);
-        if (joined.ok) {
-          const merged = await roster.receive(joined.joined.roster);
-          if (!merged.ok) return merged;
-        } else if (joined.failure.kind === "refused") {
+        if (!joined.ok && joined.failure.kind === "refused") {
           const { code, reason, removal } = joined.failure;
-          // 빠진 key라는 답은 이 컴퓨터의 root로 확인한다. 맞으면 명단과 key를 버린다(applyChange).
-          if (removal !== undefined) {
+          // 빠진 key라는 답은 이 컴퓨터의 root로 확인한다: 믿는 컴퓨터가 서명한 것만 받고, 맞으면 명단과 key를 버린다(applyChange).
+          if (
+            removal !== undefined &&
+            "by" in removal &&
+            roster.view().devices.some((d) => d.body.id === removal.by)
+          ) {
             await roster.receive({ statements: [removal], reach: [] });
           }
           return err({
@@ -880,6 +894,12 @@ export const remoteWiring: WiringFactory = () => {
             message: `the inviting computer refused this computer${reason === undefined ? "" : `: ${reason}`}`,
             ...(reason === undefined ? {} : { details: { reason } }),
           });
+        }
+        const stored = await roster.storeJoin(prepared.value);
+        if (!stored.ok) return stored;
+        if (joined.ok) {
+          const merged = await roster.receive(joined.joined.roster);
+          if (!merged.ok) return merged;
         }
         return ok({
           device: body.id,
@@ -1015,4 +1035,4 @@ export const remoteWiring: WiringFactory = () => {
       relay = undefined;
     },
   };
-};
+}

@@ -321,7 +321,7 @@ flows:
     boundary: [coding-agent-cli, remote]
     code: [packages/cli/commands/remote.ts]
     steps:
-      - "roster/list와 machines/list를 읽는다. 기기마다 id, kind, 명단의 이름, os, 터미널 입력, 이 컴퓨터인지를 낸다"
+      - "roster/list와 machines/list를 읽는다. 기기마다 id, kind, 명단의 이름, os, 터미널 입력, 이 컴퓨터인지, pending을 낸다"
       - "이 컴퓨터가 아닌 컴퓨터는 machines/list의 status, update, path를 더한다. 그 목록에 없으면 offline이다"
     outcomes:
       - id: listed

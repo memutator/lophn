@@ -7,11 +7,14 @@ import { test } from "node:test";
 import { manualClock, ok, seededRandom } from "../../../../base/mod.ts";
 import { routePath } from "../../../../protocol/base/mod.ts";
 import {
+  acceptRemote,
   generateKeyPair,
   generateSigningKey,
+  type RemoteTransport,
   remoteKeyBytes,
   remoteKeyText,
   type RosterEntryBody,
+  type RosterInviteBody,
   type RosterRemovalBody,
   type RosterStatement,
   rosterStore,
@@ -21,6 +24,7 @@ import type {
   AuthenticatedContext,
   Tx,
 } from "../../../../protocol/server/mod.ts";
+import type { Dial } from "../../../../remote-client/mod.ts";
 import {
   DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
@@ -60,7 +64,18 @@ function statementsOf(db: DatabaseSync): RosterStatement[] {
 
 // 기기 표·명단 표는 sqlite file에 devices.ts command·read 그대로다. writer는 command를 바로 돌리고 commit 뒤 할 일을 싣는다.
 // remote는 켜져 있고 port와 relay가 없어 listener·relay는 열리지 않는다(host와 명단, key는 production code다).
-async function boot(root: string, machine: string, random = seededRandom(13)) {
+// `during`은 기동 뒤 intake를 닫기 전에 memory route(`roster/join` 등)를 부른다. `dial`은 다른 컴퓨터에 붙는 길이다.
+async function boot(
+  root: string,
+  machine: string,
+  random = seededRandom(13),
+  options: {
+    dial?: Dial;
+    during?: (
+      memory: Map<string, (who: unknown, input: unknown) => unknown>,
+    ) => Promise<void>;
+  } = {},
+) {
   const db = open(root);
   try {
     const sql = createSql(db, () => true);
@@ -119,7 +134,7 @@ async function boot(root: string, machine: string, random = seededRandom(13)) {
       bus: { subscribe: () => () => undefined },
       allRoutes: [],
     };
-    const wiring = remoteWiring();
+    const wiring = remoteWiring(options.dial);
     const built = await wiring.build!(ctx as never);
     assert.ok(built.ok);
     ctx.writer = built.value.writer!({
@@ -143,6 +158,7 @@ async function boot(root: string, machine: string, random = seededRandom(13)) {
       },
     } as never);
     assert.ok((await wiring.start!(ctx as never)).ok);
+    await options.during?.(new Map(built.value.memory as never));
     await wiring.closeIntake!();
     const statements = statementsOf(db);
     const signing = readFileSync(
@@ -340,4 +356,129 @@ test("agent 자격은 roster/*와 machines/*를 부르지 못하고 handler에 �
     assert.equal(done.json.error?.code, "forbidden", route.name);
   }
   assert.deepEqual(reached, []);
+});
+
+// 메모리 안에서 이 컴퓨터와 초대한 컴퓨터를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
+function wire(): { client: RemoteTransport; server: RemoteTransport } {
+  const on = {
+    client: { message: (_: Uint8Array) => {}, close: () => {} },
+    server: { message: (_: Uint8Array) => {}, close: () => {} },
+  };
+  const end = (self: "client" | "server", other: "client" | "server") => ({
+    send: (bytes: Uint8Array) => queueMicrotask(() => on[other].message(bytes)),
+    close: () => queueMicrotask(() => on[other].close()),
+    onMessage: (fn: (bytes: Uint8Array) => void) => {
+      on[self].message = fn;
+    },
+    onClose: (fn: () => void) => {
+      on[self].close = fn;
+    },
+  });
+  return { client: end("client", "server"), server: end("server", "client") };
+}
+
+// 거절된 초대장의 issuer를 저장하면 이 컴퓨터는 받아들이지도 않은 컴퓨터를 믿는 컴퓨터로 들고(offline으로 보이고 link를 건다)
+// 죽은 초대 서명 statement를 keep에 둔다.
+test("초대한 컴퓨터가 roster/join을 거절하면(used) 명단에 아무것도 저장하지 않는다", async () => {
+  const random = seededRandom(31);
+  const root = mkdtempSync(join(tmpdir(), "lophn-remote-join-"));
+  const db = open(root);
+  for (const step of [
+    ...DEVICES_SCHEMA_STEPS,
+    ...DEVICES_KIND_STEPS,
+    ...ROSTER_SCHEMA_STEPS,
+  ])
+    db.exec(step.sql);
+  db.close();
+  const issuerHost = generateKeyPair(random);
+  const issuerSigning = generateSigningKey(random);
+  const once = generateSigningKey(random);
+  const issuerId = `dev_0${"8".padStart(25, "0")}` as RosterEntryBody["id"];
+  const issuerMachine = `mch_0${"4".repeat(25)}` as const;
+  const issuer: RosterEntryBody = {
+    type: "entry",
+    id: issuerId,
+    kind: "computer",
+    key: remoteKeyText(issuerHost.publicKey),
+    signing_key: remoteKeyText(issuerSigning.publicKey),
+    machine: issuerMachine as RosterEntryBody["machine"],
+    name: "laptop",
+    os: "linux",
+    terminal_input: true,
+    rev: 1,
+    invite: null,
+  };
+  const invite: RosterInviteBody = {
+    type: "invite",
+    key: remoteKeyText(once.publicKey),
+    by: issuerId as RosterInviteBody["by"],
+    kind: "computer",
+    terminal_input: true,
+    expires_at: "1970-01-01T00:30:00.000Z",
+  };
+  const text = JSON.stringify({
+    invite: {
+      body: invite,
+      signature: signRoster(invite, issuerSigning.secretKey),
+    },
+    secret: remoteKeyText(once.secretKey),
+    issuer: {
+      body: issuer,
+      by: issuerId,
+      signature: signRoster(issuer, issuerSigning.secretKey),
+    },
+    reach: {
+      device: issuerId,
+      addresses: ["10.0.0.9"],
+      port: 7432,
+      relay: null,
+    },
+  });
+  // 초대한 컴퓨터: 붙는 것은 받고 join은 used로 거절한다.
+  const dial: Dial = async () => {
+    const w = wire();
+    void acceptRemote({
+      transport: w.server,
+      staticKey: issuerHost,
+      capabilities: [],
+      random,
+      machine: { id: issuerMachine, name: "laptop", addresses: [] },
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      opened.value.onFrame((frame) => {
+        if (frame.type !== "join") return;
+        opened.value.send({
+          type: "result",
+          id: frame.id,
+          ok: false,
+          error: {
+            code: "conflict",
+            message: "roster invite refused: used",
+            details: { reason: "used" },
+          },
+        });
+      });
+    });
+    return w.client;
+  };
+  let answer: unknown;
+  const booted = await boot(root, `mch_0${"5".repeat(25)}`, random, {
+    dial,
+    during: async (memory) => {
+      answer = await memory.get("roster/join")!(PERSON, { text });
+    },
+  });
+  assert.deepEqual(answer, {
+    ok: false,
+    error: {
+      code: "conflict",
+      message: "the inviting computer refused this computer: used",
+      details: { reason: "used" },
+    },
+  });
+  // 남은 것은 이 컴퓨터의 자기 항목 하나다(issuer 항목, 그 서명, 초대 서명 statement가 없다).
+  assert.deepEqual(
+    booted.statements.map((each) => each.body.key),
+    [booted.self?.key],
+  );
 });

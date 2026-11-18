@@ -81,6 +81,14 @@ export type RosterJoined = {
   roster: RosterSnapshot;
 };
 
+// `prepareJoin`이 확인한 초대장. `storeJoin`이 저장할 것을 든다.
+export type RosterPreparedJoin = {
+  body: RosterEntryBody;
+  issuer: RosterEntryBody;
+  statements: RosterStatement[];
+  reach: RosterReach;
+};
+
 function isSigned(
   statement: RosterStatement,
 ): statement is RosterSignedStatement {
@@ -419,13 +427,11 @@ export function createRoster(deps: RosterDeps) {
 
     // 이 컴퓨터가 다른 컴퓨터의 초대장으로 든다(`roster/join`). issuer 항목의 자기 서명과 초대장 서명, 지금 시각으로 수명을
     // issuer의 서명 key를 root로 더한 view에서 확인하고(`checkInvited`), 이 컴퓨터의 자기 항목을 rev+1로 지어 초대 secret으로
-    // 서명한다. 사람이 글을 넣은 것이 믿음의 근거라 이 컴퓨터가 issuer 항목에 서명하고, issuer 항목, 그 서명, 초대 서명
-    // statement, issuer의 주소를 저장한다. 그 statement는 issuer에 닿을 때(`join`, link) 받아들여지고 그때까지 keep에 남는다.
+    // 서명한다. 사람이 글을 넣은 것이 믿음의 근거라 이 컴퓨터가 issuer 항목에 서명한다. 여기서는 저장하지 않는다: issuer가
+    // 거절하면(used, expired, removed …) 아무것도 남기지 않도록 wiring이 issuer에 붙어 본 뒤 `storeJoin`으로 저장한다.
     // 돌려주는 body는 issuer에 붙어 내밀 이 컴퓨터의 항목이다.
-    acceptInvite(
-      text: RosterInviteText,
-    ): Promise<Result<{ body: RosterEntryBody; issuer: RosterEntryBody }>> {
-      return run(async () => {
+    prepareJoin(text: RosterInviteText): Promise<Result<RosterPreparedJoin>> {
+      return run(async (): Promise<Result<RosterPreparedJoin>> => {
         const self = selfOf(view);
         if (self === undefined) return unavailable();
         const { invite, issuer, secret } = text;
@@ -480,12 +486,19 @@ export function createRoster(deps: RosterDeps) {
           view: trial,
         });
         if (!checked.ok) return checked;
-        const done = await add(
-          [issuer, signed(signer, self.id), invited],
-          [text.reach],
-        );
-        return done.ok ? ok({ body, issuer: signer }) : done;
+        return ok({
+          body,
+          issuer: signer,
+          statements: [issuer, signed(signer, self.id), invited],
+          reach: text.reach,
+        });
       });
+    },
+
+    // `prepareJoin`이 지은 것을 저장한다: issuer 항목, 그 서명, 초대 서명 statement, issuer의 주소. 그 statement는 issuer에
+    // 닿을 때(`join`, link) 받아들여지고 그때까지 keep에 남는다.
+    storeJoin(prepared: RosterPreparedJoin): Promise<Result<void>> {
+      return run(() => add(prepared.statements, [prepared.reach]));
     },
 
     // 초대장을 낸다. 한 번 쓸 key의 비밀은 글에만 있고 저장하지 않는다: 쓰였는지는 명단의 `invite` 칸이 말한다.
@@ -542,7 +555,9 @@ export function createRoster(deps: RosterDeps) {
       const text = canonicalize(removed.body);
       return {
         code: "unauthorized",
-        message: "roster invite refused: removed",
+        message: offered.some((s) => !isSigned(s))
+          ? "roster invite refused: removed"
+          : "this device was removed from the roster",
         details: {
           reason: "removed",
           removal: statements.find(

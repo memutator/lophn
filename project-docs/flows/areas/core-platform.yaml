@@ -1824,7 +1824,7 @@ flows:
         observe: ["response"]
       - id: connected-missing
         code: not_found
-        when: "devices/connected 사이 명단 저장이 그 행을 지웠거나, 행이 없는데 hello에 화면이 없거나 명단에 그 id의 항목이 없다. 연결은 막지 않는다"
+        when: "devices/connected 사이 명단 저장이 그 행을 지웠거나, 행이 없는데 hello에 화면이 없거나 명단에 그 id의 항목이 없다. 연결은 막지 않는다. hello에 화면이 없어 행을 만들지 못한 것은 log에 남기지 않는다"
         observe: ["log:remote connected_not_saved"]
     crosses_process: false
     risk: [permission]
@@ -2268,7 +2268,7 @@ flows:
     docs: [architecture/remote.md]
     steps:
       - "key가 있으면 기계 이름이 바뀌었는지 보고 자기 항목을 다시 서명한다(roster-identity:renamed)"
-      - "view의 기기마다 id, kind, 명단의 이름, os, machine, 터미널 입력 허락, 이 컴퓨터인지, 마지막 연결(폰은 이 컴퓨터의 기기 행, 컴퓨터는 이 core가 사는 동안 그 컴퓨터와의 link가 마지막으로 붙었거나 끊긴 때. 없으면 null)을 id 순서로 준다. this는 이 컴퓨터의 id이고 key가 없으면 null이다"
+      - "view의 기기마다 id, kind, 명단의 이름, os, machine, 터미널 입력 허락, 이 컴퓨터인지, pending(다른 컴퓨터가 아직 받아들이지 않음: 초대한 컴퓨터에 닿지 못하고 든 이 컴퓨터, 혼자인 컴퓨터), 마지막 연결(폰은 이 컴퓨터의 기기 행, 컴퓨터는 이 core가 사는 동안 그 컴퓨터와의 link가 마지막으로 붙었거나 끊긴 때. 없으면 null)을 id 순서로 준다. this는 이 컴퓨터의 id이고 key가 없으면 null이다"
     outcomes:
       - id: ok
         observe: ["response"]
@@ -2414,8 +2414,8 @@ flows:
       - "글을 초대장 JSON으로 읽는다. remote가 켜져 있고 이 컴퓨터의 key가 있어야 한다"
       - "컴퓨터 초대장이어야 한다. issuer가 이 컴퓨터(같은 host key나 기계 id)면 거절한다"
       - "이 컴퓨터의 자기 항목을 rev+1, 초대장의 terminal_input과 초대 key로 지어 초대장의 비밀로 서명한다(초대 서명 statement). issuer의 서명 key를 root로 더한 view에서 checkInvited(지금 시각)로 issuer 자기 서명, 초대장 서명, 수명, 쓰인 초대, 빠진 key를 본다"
-      - "맞으면 issuer 항목, 이 컴퓨터가 issuer 항목에 한 서명, 초대 서명 statement, issuer의 주소를 저장한다(roster-commit). 사람이 글을 넣은 것이 issuer를 믿는 근거다. 명단에 issuer가 들어 link가 열린다(machine-links)"
-      - "remote-client join으로 issuer에 붙어 초대 서명 statement를 join으로 낸다. 닿으면 받은 명단을 합친다"
+      - "아직 저장하지 않고 remote-client join으로 issuer에 붙어 초대 서명 statement를 join으로 낸다(20초 기한)"
+      - "issuer가 거절하면 아무것도 저장하지 않는다. 그 밖(받아들임, 못 닿음, 기한 지남)이면 issuer 항목, 이 컴퓨터가 issuer 항목에 한 서명, 초대 서명 statement, issuer의 주소를 저장하고(roster-commit) 닿았으면 받은 명단을 합친다. 사람이 글을 넣은 것이 issuer를 믿는 근거다. 명단에 issuer가 들어 link가 열린다(machine-links)"
       - "pending은 이 컴퓨터를 다른 컴퓨터가 아직 받아들이지 않았는지다. 못 닿았으면 초대 서명 statement를 수명까지 든 채 true로 끝나고, 그 statement는 issuer link가 다시 붙을 때의 join이나 폰이 issuer를 믿는 컴퓨터에 나를 때 받아들여진다. 수명은 그때 그 컴퓨터의 시계로 본다"
     outcomes:
       - id: joined
@@ -2434,11 +2434,11 @@ flows:
         observe: ["response"]
       - id: refused
         code: unauthorized
-        when: "issuer 자기 서명이나 초대장 서명이 틀림(untrusted), 수명이 지남(expired), 이 컴퓨터의 key가 빠짐(removed). issuer가 같은 이유로 거절해도 그 code와 reason이다. 빠진 key라는 issuer의 답은 빼기 statement를 이 컴퓨터의 root로 확인해 맞으면 명단과 key를 버린다(roster-forget)"
+        when: "issuer 자기 서명이나 초대장 서명이 틀림(untrusted), 수명이 지남(expired), 이 컴퓨터의 key가 빠짐(removed). issuer가 같은 이유로 거절해도 그 code와 reason이고 명단에 아무것도 남지 않는다. 빠진 key라는 issuer의 답은 이 컴퓨터가 이미 믿는 컴퓨터가 서명한 빼기만 이 컴퓨터의 root로 확인해 맞으면 명단과 key를 버린다(roster-forget)"
         observe: ["response"]
       - id: conflict
         code: conflict
-        when: "이 컴퓨터가 낸 초대장(this_computer), 같은 초대로 다른 key가 이미 들었음(used), id나 서명 key가 다른 key로 있음(id_taken, key_taken). issuer의 거절도 같다"
+        when: "이 컴퓨터가 낸 초대장(this_computer), 같은 초대로 다른 key가 이미 들었음(used), id나 서명 key가 다른 key로 있음(id_taken, key_taken). issuer의 거절도 같고 명단에 아무것도 남지 않는다"
         observe: ["response"]
       - id: forbidden
         code: forbidden
@@ -2530,6 +2530,10 @@ flows:
         code: not_found
         when: "명단에 그 machine의 다른 컴퓨터가 없다, 또는 그 기계에 그 route가 없다"
         observe: ["response"]
+      - id: this-computer
+        code: invalid_input
+        when: "machine이 이 컴퓨터다. 이 core의 route를 바로 부른다"
+        observe: ["response"]
       - id: unavailable
         code: unavailable
         when: "그 기계와의 link가 없거나 멈췄거나 붙지 않았다(remote가 꺼짐 포함), 120초 안에 답이 없다, 답 전에 link가 닫혔다, 또는 그 기계가 unavailable로 답했다"
@@ -2565,6 +2569,10 @@ flows:
       - id: not_found
         code: not_found
         when: "명단에 그 machine의 다른 컴퓨터가 없다"
+        observe: ["response"]
+      - id: this-computer
+        code: invalid_input
+        when: "machine이 이 컴퓨터다"
         observe: ["response"]
       - id: forbidden
         code: forbidden

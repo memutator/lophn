@@ -355,8 +355,18 @@ export function createLinks(deps: LinksDeps) {
       )?.body;
   }
 
-  const notFound = (): Result<never> =>
-    err({ code: "not_found", message: "machine not found in the roster" });
+  // 이 컴퓨터 자신을 고른 call은 link가 없다: 이 core의 route를 바로 부르면 된다.
+  function notFound(machine: string): Result<never> {
+    const self = deps.roster.self()?.id;
+    const mine = deps.roster.view().devices.find((d) => d.body.id === self);
+    return mine?.body.machine === machine
+      ? err({
+          code: "invalid_input",
+          message:
+            "this machine is this computer; call its routes directly, not through machines/call",
+        })
+      : err({ code: "not_found", message: "machine not found in the roster" });
+  }
 
   return {
     sync,
@@ -399,7 +409,7 @@ export function createLinks(deps: LinksDeps) {
       body: unknown;
     }): Promise<Result<unknown>> {
       const body = computer(input.machine);
-      if (body === undefined) return notFound();
+      if (body === undefined) return notFound(input.machine);
       const link = links.get(body.id);
       if (link === undefined || link.refused) {
         return err({ code: "unavailable", message: "not connected" });
@@ -415,7 +425,7 @@ export function createLinks(deps: LinksDeps) {
 
     watch(machine: string, conditions: EventCondition[]): Result<object> {
       const body = computer(machine);
-      if (body === undefined) return notFound();
+      if (body === undefined) return notFound(machine);
       watching.set(body.id, conditions);
       void links.get(body.id)?.connection.watch(conditions);
       return ok({});

@@ -325,6 +325,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   projectSearch,
   projectFilesList,
   projectFilesRead,
+  // 다른 컴퓨터가 넘긴 앱 command의 입구. 허락받은 컴퓨터만 core가 받는다(`by` 없는 폰은 forbidden)
+  appRemoteCall,
   // 앱 workspace: 실행 기록과 판
   runList,
   runRead,

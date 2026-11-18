@@ -11,6 +11,7 @@ import {
   appLogViewError,
   appRecordPreview,
   appRegistrationLookup,
+  appRemoteCall,
   appRewind,
   appRewindPlan,
   appRewinds,
@@ -269,6 +270,8 @@ export function createLedgerRegistration(
     // invocations·rewind module이 자기 쓰기로 남긴다.
     memoryRoutes: [
       appCallTool,
+      // handler는 wiring/apps.ts가 붙인다.
+      appRemoteCall,
       appSdkDecide,
       appTraySet,
       appTrayList,

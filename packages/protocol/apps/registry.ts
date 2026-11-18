@@ -25,6 +25,7 @@ import {
 import { declarationCheck } from "./declaration/check.ts";
 import {
   appCallTool,
+  appRemoteCall,
   appInvocation,
   appInvocations,
   appRewind,
@@ -104,6 +105,7 @@ export const ROUTES = [
   appSkills,
   declarationCheck,
   appCallTool,
+  appRemoteCall,
   appInvocations,
   appInvocation,
   appRewindPlan,

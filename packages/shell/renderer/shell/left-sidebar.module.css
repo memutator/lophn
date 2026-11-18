@@ -322,10 +322,11 @@
   pointer-events: none;
 }
 
-/* 이 컴퓨터가 아닌 기계의 줄 끝 꼬리표. */
+/* 이 컴퓨터가 아닌 기계의 줄 끝 꼬리표. 제 폭을 갖고 줄 이름(flex: 1, 폭 0에서 시작)이 먼저 줄어든다. 꼬리표만으로 줄이
+   모자랄 때만 줄어든다. */
 .machineTag {
-  flex: none;
-  max-width: 40%;
+  flex: 0 1 auto;
+  min-width: var(--space-0);
   overflow: hidden;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);

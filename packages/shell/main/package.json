@@ -10,7 +10,8 @@
     "build": "node build.ts",
     "rebuild": "node build.ts rebuild",
     "dev": "node build.ts && electron dist/main.cjs",
-    "check": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json"
+    "check": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json",
+    "postinstall": "node build.ts rebuild"
   },
   "dependencies": {
     "zod": "4.6.5"

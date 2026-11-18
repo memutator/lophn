@@ -3096,7 +3096,7 @@ flows:
       - packages/shell/renderer/terminal/displays.ts
     steps:
       - "탭의 display가 터미널에 붙으면 renderer가 terminal-shown {shown: true}를, 놓거나 다른 터미널로 바뀌면 {shown: false}를 보낸다. core로는 보내지 않는다"
-      - "main은 창(webContents)마다 보이는 터미널 set을 둔다. 창이 닫히면 그 창의 set을 지운다"
+      - "main은 창(webContents)마다 터미널을 보이는 display 수를 센다. 한 창의 두 display가 같은 터미널을 보이면 하나를 놓아도 그 창은 그 터미널을 보인다. 창이 닫히면 그 창의 표를 지운다"
     outcomes:
       - id: shown
         observe: [response]

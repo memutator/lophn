@@ -7,7 +7,8 @@ export class TerminalFocusTable {
     string,
     { contents: number; generation: number | undefined }
   >();
-  readonly #shown = new Map<number, Set<string>>();
+  // 창마다 터미널을 보이는 display 수. 한 창의 두 display가 같은 터미널을 보이면 하나를 놓아도 응답이 간다.
+  readonly #shown = new Map<number, Map<string, number>>();
 
   /** 사람이 그 터미널 탭을 골랐다. webContents id는 그때의 frame이고 generation은 renderer가 본 runtime이다. */
   focus(contentsId: number, terminal: string, generation?: number): void {
@@ -24,13 +25,16 @@ export class TerminalFocusTable {
   /** 그 창의 display가 그 터미널에 붙었다. focus와 따로다: 숨은 탭의 xterm도 질의에 답한다. */
   show(contentsId: number, terminal: string): void {
     let shown = this.#shown.get(contentsId);
-    if (shown === undefined) this.#shown.set(contentsId, (shown = new Set()));
-    shown.add(terminal);
+    if (shown === undefined) this.#shown.set(contentsId, (shown = new Map()));
+    shown.set(terminal, (shown.get(terminal) ?? 0) + 1);
   }
 
-  /** 그 창의 display가 그 터미널을 놓았다. */
+  /** 그 창의 display 하나가 그 터미널을 놓았다. */
   hide(contentsId: number, terminal: string): void {
-    this.#shown.get(contentsId)?.delete(terminal);
+    const shown = this.#shown.get(contentsId);
+    const count = shown?.get(terminal) ?? 0;
+    if (count > 1) shown!.set(terminal, count - 1);
+    else shown?.delete(terminal);
   }
 
   shows(contentsId: number, terminal: string): boolean {

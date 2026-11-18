@@ -34,6 +34,11 @@ test("focus가 없는 창의 입력·다시 시작과 그 터미널을 보이지
     false,
   );
 
+  // 한 창의 두 display가 같은 터미널을 보이면 하나를 놓아도 응답은 간다. 응답이 막히면 터미널의 답을 기다리는 program이 멎는다.
+  table.show(other, "trm_a");
+  table.hide(other, "trm_a");
+  assert.equal(mayCall(table, "response", other, call), true);
+
   table.blur(win, "trm_a");
   table.hide(other, "trm_a");
   table.focus(win, "trm_a", 1);

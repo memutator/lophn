@@ -81,7 +81,7 @@ core를 쓰는 test는 Temporal이 있는 Electron의 Node로 돈다. 끝낼 때
 | 명령 | 하는 일 |
 |---|---|
 | `npm run check` | 빠른 check. `git merge-base HEAD main` 이후 바뀐 package와 그것을 쓰는 package만 Biome fmt·lint, deps, source(주석과 test 이름의 요구 ID·작업 번호·금지 낱말), modules(`project-docs/*-catalog.yaml`과 폴더 대조), docs(문서 속 저장소 path가 있는지), package마다 `tsc --noEmit -p <폴더>`, style, kit(design 부품 분류), 생성물(token) 최신, test를 돈다. `--base <rev>`로 기준을 바꾼다 |
-| `npm run check:full` | 전부. 모든 package의 `tsc --noEmit -p <폴더>`와 모든 `*_test.ts`를 Electron의 Node `--test`로 한 번에 돈다. wireframes smoke(`npm run wireframes:smoke`, gallery 전체를 offscreen Electron으로 그려 render 오류를 잡는다, 30초쯤)도 돈다 |
+| `npm run check:full` | 전부. 모든 package의 `tsc --noEmit -p <폴더>`와 모든 `*_test.ts`를 Electron의 Node `--test`로 한 번에 돈다. wireframes smoke(`npm run wireframes:smoke`, gallery 전체를 offscreen Electron으로 그려 render 오류를 잡는다, 30초쯤. 20초 안에 그려지지 않는 page는 이름을 찍고 실패한다)도 돈다. 끝나지 않은 check는 통과도 환경 문제도 아니다. 멈춘 단계를 적어 끝나지 않았다고 보고한다 |
 
 - 독립 단계는 동시에 돌고 첫 실패에서 멈춘다. 실패하면 exit 1이고 출력에 `실패`가 찍힌다.
 - check는 낮은 우선순위(below normal, 자식도 물려받음)로 돌고, tsc는 한 번에 4개, test file은 core 수의 1/3개씩 돈다. agent 여럿이 겹쳐 돌려도 사람이 쓰는 터미널이 밀리지 않게 하려는 것이다. 다시 넓히지 않는다.

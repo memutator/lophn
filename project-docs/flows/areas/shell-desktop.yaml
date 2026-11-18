@@ -532,7 +532,7 @@ flows:
       - "폴더를 더하거나 고치거나 지울 때는 쓰기 직전에 그 설정의 지금 값을 다시 읽어 값 전체를 새 값으로 settings/update에 쓴다. 사람 자격이라 승인 카드 없이 바로 바뀐다"
       - "저장 전에 form이 file이 평문으로 나간다는 경고를 보인다. core가 거절하면(data root 안, 다른 폴더와 겹침, 예약된 이름 `computers`) 그 글을 form 안에 보이고 아무것도 바꾸지 않는다"
       - "settings, remote_devices, carry_files, app_runtime 변경이 오면 다시 읽는다. 길을 고르는 설정은 없다"
-      - "다른 기계의 창에서는 이 컴퓨터의 shell에 붙은 항목이라 열리지 않고 그 기계 이름만 보인다"
+      - "Settings 왼쪽 위 \"Settings of\"에서 다른 컴퓨터를 고르면 이 항목은 서지 않고 이 컴퓨터의 설정이라는 한 줄만 보인다(다른 컴퓨터에서는 그 컴퓨터의 core에 걸린 항목만 선다)"
     outcomes:
       - id: shown
         when: "항목을 열었다. 폴더와 컴퓨터, 앱이 있거나, 폴더가 없고 Remote가 꺼져 있어 안내만 선다"

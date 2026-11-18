@@ -2601,6 +2601,87 @@ flows:
       - "기본 pane을 new-settings-general frame으로 적었다. Settings의 기본 pane 값을 코드로 확인이 필요하다"
       - "돌아가는 길(Settings를 닫아 beforeSettings로 가기)은 shell-desktop 또는 settings 쪽 flow가 맡는다"
 
+  - id: settings-machine-picker
+    title: "Settings 왼쪽 위의 \"Settings of\"가 이 컴퓨터나 연결된 다른 컴퓨터를 고르고, 다른 컴퓨터에서는 그 컴퓨터의 core에 걸린 항목만 선다"
+    actor: person
+    entries: [ui:settings-machine-picker]
+    when: "명단에 다른 컴퓨터가 있다(없으면 고르기가 서지 않는다). Settings 목록 맨 위의 고르기"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/settings/settings-space.tsx
+      - packages/shell/renderer/desktop/settings/machine-picker.tsx
+      - packages/shell/renderer/desktop/settings/model.ts
+    steps:
+      - "고르기가 이 컴퓨터와 명단의 기계(빠진 것 빼고)를 든다. 기계를 고르면 항목 목록은 그 기계의 core에 걸린 것(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 남고 나머지는 \"이 컴퓨터의 설정\" 한 줄이다. 지금 항목이 남지 않는 것이면 기본 항목으로 간다"
+      - "고른 기계가 연결되어 있지 않으면(꺼짐, 연결 중, 명단에서 빠짐) 본문 자리에 그 사정 한 줄만 선다"
+      - "연결되어 있으면 그 기계의 범위 안에서 항목을 그린다. 읽기와 쓰기와 허락 묻기가 모두 그 기계의 core로 간다. 항목을 열 때마다 그 기계의 허락(이 컴퓨터가 받은 터미널 입력 허락)을 묻고, 허락이 없으면 그 컴퓨터의 Settings › Remote › My devices에서 켜라는 한 줄이다"
+      - "고르기 값은 화면 상태이고 저장하지 않는다. Settings를 닫으면 이 컴퓨터로 돌아간다"
+    outcomes:
+      - id: other-shown
+        when: "연결된 다른 컴퓨터를 골랐고 허락이 있다"
+        observe: ["screen:settings-machine-picker"]
+      - id: no-grant
+        when: "그 컴퓨터가 이 컴퓨터의 터미널 입력을 허락하지 않았다"
+        observe: ["screen:settings-machine-no-grant"]
+      - id: gated
+        when: "고른 컴퓨터가 꺼졌거나 연결 중이거나 명단에서 빠졌다"
+    crosses_process: true
+    docs: [architecture/settings.md, architecture/remote.md]
+
+  - id: inbox-machines
+    title: "Inbox와 toast가 모든 컴퓨터의 대기 목록을 컴퓨터 꼬리표와 함께 보이고 결정은 그 줄의 컴퓨터로 간다"
+    actor: person
+    entries: [ui:inbox-machines]
+    when: "이 컴퓨터의 창이다. 연결된 다른 컴퓨터에 대기 중인 것(권한 요청, 질문, 앱 동의, job)이 생기거나 끝난 session이 생긴다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/connection/waiting/inbox.ts
+      - packages/shell/renderer/desktop/connection/waiting/waiting-panel.tsx
+      - packages/shell/renderer/desktop/connection/waiting/decide.ts
+      - packages/shell/renderer/desktop/connection/toasts/toast-host.tsx
+      - packages/shell/main/desktop/wiring/notice.ts
+    steps:
+      - "창이 이 컴퓨터와 연결된 기계마다 그 기계의 대기 목록을 읽어 한 목록으로 든다. 항목 key에 기계가 붙어 같은 앱의 동의가 두 컴퓨터에 있으면 두 줄이다. 다른 컴퓨터의 줄은 머리 오른쪽에 그 컴퓨터 꼬리표를 단다. 카드의 project와 앱 이름은 그 컴퓨터의 목록에서 읽는다. 배지는 모든 컴퓨터의 수를 센다"
+      - "결정(허락, 거절, 답, 승인)은 그 줄의 컴퓨터로 간다. 꺼진 컴퓨터의 줄은 마지막으로 본 채 흐리게 남고 결정 단추 대신 꺼져 있다는 한 줄이 선다"
+      - "다른 컴퓨터의 터미널 agent 신호(`TerminalAgentSignaled`)와 session 알림이 toast와 OS 알림을 고른다. 보고 있음(presence)은 컴퓨터마다 그 컴퓨터의 `presence/report`로 가고 보이는 session의 컴퓨터가 함께 간다"
+      - "History 탭은 이 컴퓨터의 기록만 보인다(이슈 `inbox-history-this-computer-only`)"
+    uses: [route:presence/report]
+    outcomes:
+      - id: merged
+        observe: ["screen:overlay-inbox-machines", "screen:inbox-tab-machines"]
+      - id: decided-there
+        when: "다른 컴퓨터의 줄을 결정했다. 그 컴퓨터가 받는다"
+      - id: offline-line
+        when: "그 컴퓨터가 꺼졌다. 줄이 흐리게 남고 결정할 수 없다"
+    crosses_process: true
+    docs: [architecture/remote.md, architecture/approval.md]
+
+  - id: machine-terminal-tab
+    title: "다른 컴퓨터의 터미널 탭이 그 컴퓨터가 파싱한 화면 사본을 xterm에 그리고, 치기는 그 컴퓨터의 터미널 입력 허락이 있어야 한다"
+    actor: person
+    entries: [ui:machine-terminal-tab]
+    when: "탭의 컴퓨터가 이 컴퓨터가 아니고 연결되어 있다(목록의 터미널 줄을 누르거나 새 탭 menu에서 연다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/terminal/screen-copy.ts
+      - packages/shell/renderer/terminal/machine-deps.ts
+      - packages/shell/renderer/terminal/terminal-tab.tsx
+      - packages/shell/renderer/workspace/kinds/terminal.tsx
+    steps:
+      - "탭은 저장한 `terminal_ref`로 그 컴퓨터의 터미널에 붙는다. 날 출력(`TerminalOutputAppended`)은 받지 않고 `terminal_view/watch`로 lease를 잡아 `TerminalScreenChanged`가 올 때마다 `terminal_view/snapshot`(viewport와 위 scrollback 200줄)을 다시 읽어 같은 xterm에 그린다"
+      - "탭을 고르거나 칸이 바뀌면 `terminal_view/resize`로 그 컴퓨터의 PTY 크기를 이 칸에 맞춘다"
+      - "치기와 다시 시작은 그 컴퓨터의 `terminals/input`·`terminals/restart`로 간다. 그 컴퓨터가 이 컴퓨터에 준 터미널 입력 허락이 없으면 거절하고 탭 위쪽에 알림이 서고 화면은 보기만 남는다. 이름 바꾸기는 감춘다"
+      - "그 컴퓨터가 꺼지면 탭은 이름과 상태와 마지막으로 본 때 한 줄이 된다(`tab-machine-gate`). 붙으면 본문이 새로 서고 끝난 터미널은 끝난 것으로 보인다"
+    uses: [route:terminal_view/watch, route:terminal_view/snapshot, route:terminal_view/resize, route:terminals/input, route:terminals/restart]
+    outcomes:
+      - id: drawn
+        observe: ["screen:project-terminal-other-machine"]
+      - id: view-only
+        when: "그 컴퓨터의 터미널 입력 허락이 없어 친 글이 거절됐다"
+        observe: ["screen:project-terminal-view-only"]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
+
   - id: project-identity-register-line
     title: "등록 dialog가 고른 폴더를 읽고 저장소 상태를 한 줄로 알리며, 켜 두면 등록 뒤 id file을 만든다"
     actor: person

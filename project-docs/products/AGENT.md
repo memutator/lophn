@@ -49,7 +49,7 @@ L1~L11은 home 지침(`packages/core/agent-workspaces/prompts/home.md`)에 쓰�
 - L9. 사람이 새 앱이나 앱의 변경을 원하면, home의 session은 기획 전에 workspace 정보의 앱 지도(앱마다 공개 command, 그 command를 쓰는 다른 앱·project, 그 앱이 주인인 package)에서 다른 앱의 공개 command나 package가 이미 그 일을 하는지 본다. 있으면 그것을 쓰는 안을 먼저 견준다.
 - L10. 기획이 다른 앱의 공개 command를 쓰거나, command를 공개로 내거나, 코드를 package로 옮기는 것처럼 그릇 경계를 넘으면, home의 session이 정하고 이유를 기록한다(F2). 같은 package나 공개 command를 여러 곳이 쓰는지는 지도에서 읽고, program이 알려 주지 않는다.
 - L11. 재사용과 package로 빼기는 home의 session이 판단해 정한다. 사람에게는 그 결과 무엇이 달라지는지만 말한다. (제안)
-- L12. 앱의 data를 사람의 다른 컴퓨터로 보내야 하면(선언 `sync_to`), 이 기계의 destination(설정 `folder.destinations`)을 청하는 것은 home의 session뿐이다. 먼저 어느 앱의 무엇이 어느 폴더로 가고 어느 바깥 도구가 어디로 옮기는지, 암호화되는지를 말하고, 사람이 승인 카드에서 그 한 번을 허락한다. 사람이 없는 turn과 팀 자식은 청하지 못한다. 폴더를 옮기는 바깥 도구는 lophn 기능이 아니고 session이 지침대로 사람의 기계에 붙인다(`architecture/folder-sync.md`).
+- L12. 앱의 data를 사람의 다른 컴퓨터로 보내야 하면(선언 `sync_to`), 먼저 `"computers"`를 고른다. 길(연결, 폰, 사람의 폴더)은 lophn이 고르고 이 갈 곳은 사람의 승인이 필요 없다. 컴퓨터가 서로 보이지 않을 때 같이 보는 폴더(설정 `folder.shared`)나 밖에서 붙는 설정은 내장 skill `connect-computers`로 사람과 함께 붙인다. 이름 붙인 폴더(`sync_to: "<이름>"`)를 쓰려고 이 기계의 destination(설정 `folder.destinations`)을 청하는 것은 home의 session뿐이다. 먼저 어느 앱의 무엇이 어느 폴더로 가고 어느 바깥 도구가 어디로 옮기는지, 암호화되는지를 말하고, 사람이 승인 카드에서 그 한 번을 허락한다. 사람이 없는 turn과 팀 자식은 청하지 못한다. 폴더를 옮기는 바깥 도구는 lophn 기능이 아니고 session이 지침대로 사람의 기계에 붙인다(`architecture/folder-sync.md`).
 
 ### 어느 workspace든
 

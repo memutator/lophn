@@ -473,11 +473,11 @@ components:
   - id: architecture-remote
     kind: doc
     roles: [planner, lead]
-    description: "기기(폰, 다른 기계를 보는 desktop)가 컴퓨터의 core에 붙는 길의 설계: Noise handshake와 hello, pairing과 기기 표, 기기가 부를 수 있는 route, core가 폰에 묻는 request, 폰 앱 화면, desktop의 다른 기계 창."
+    description: "기기(폰, 다른 컴퓨터)가 컴퓨터의 core에 붙는 길의 설계: Noise handshake와 hello, pairing과 기기 표, 기기가 부를 수 있는 route, core가 폰에 묻는 request, 폰 앱 화면, desktop 창 하나가 짝지은 모든 컴퓨터를 보이는 것(컴퓨터 꼬리표, 탭의 컴퓨터, 화면 사본으로 그리는 다른 컴퓨터의 터미널)."
     path: project-docs/architecture/remote.md
     change_reasons:
       boundaries: [remote, remote-protocol, remote-client, relay, mobile]
-      paths: [packages/shell/main/desktop/viewer/]
+      paths: [packages/shell/main/desktop/viewer/, packages/shell/renderer/desktop/machines/]
 
   - id: architecture-attention
     kind: doc
@@ -523,16 +523,16 @@ components:
   - id: architecture-folder-sync
     kind: doc
     roles: [planner, lead]
-    description: 한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록을 바깥 도구가 옮기는 폴더로 주고받는 설계(destination, 하위 폴더, 검사 뒤 적용, held, take-in, 따라가기, 판 범위, 읽기 명령 `machine.environment`).
+    description: 한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록, 명단, event를 폴더 꼴 file로 주고받는 설계(destination과 `computers`, 하위 폴더, 서명한 목록 사슬과 받는 자리, 길 셋(연결, 폰, 사람의 폴더), 검사 뒤 적용, held, take-in, 따라가기, 판 범위, 읽기 명령 `machine.environment`).
     path: project-docs/architecture/folder-sync.md
     change_reasons:
-      boundaries: [folder, app-releases]
-      paths: [packages/core/agent-workspaces/skills/design-app/folder-sync.md]
+      boundaries: [folder, app-releases, remote-protocol]
+      paths: [packages/core/agent-workspaces/skills/design-app/folder-sync.md, packages/core/agent-workspaces/skills/connect-computers/, packages/core/remote/carry.ts, packages/mobile/src/apps/carry/, packages/shell/renderer/desktop/settings/sync/]
 
   - id: architecture-project-identity
     kind: doc
     roles: [planner, lead]
-    description: git 저장소인 project가 어느 기계에서도 같은 project로 보이게 하는 설계(저장소 안 `.lophn-project.json`, 두 층 id, 이 기계에 없는 project의 clone, 다른 기계 창의 묶어 보이기).
+    description: git 저장소인 project가 어느 기계에서도 같은 project로 보이게 하는 설계(저장소 안 `.lophn-project.json`, 두 층 id, 이 기계에 없는 project의 clone, 한 창 목록에서 컴퓨터를 건너 한 줄로 묶어 보이기).
     path: project-docs/architecture/project-identity.md
     change_reasons:
       paths: [packages/core/projects/identity/, packages/core/projects/clone/, packages/protocol/projects/identity.ts, packages/protocol/projects/identity-api.ts, packages/protocol/projects/clone-api.ts]

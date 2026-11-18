@@ -87,7 +87,7 @@
 ## 끝난 것: core-browser
 
 - display가 없는 Linux에서는 core가 같은 Electron binary를 창 없는 page host(`--page-host`)로 띄운다. page host는 desktop 앱처럼 `/host-link`의 host이고 탭마다 offscreen page를 들며 desktop 앱과 같은 driver, take control, browser profile을 쓴다. agent에게는 같은 `lophn tab`·`lophn browser`다. 사람이 그 기계에서 desktop 앱을 켜면 page host가 물러나고 앱이 선다.
-- 사람의 다른 기기가 그 기계의 browser 탭(agent가 연 탭, 멀리서 연 탭)을 `page_view/*`로 본다. 화면 있는 기계의 page도 같다. host가 CDP screencast frame을 밀고 core는 최신 하나만 들며, 보는 쪽이 읽어 간 만큼만 다음 frame이 간다. 터미널 입력을 허락받은 기기는 누르고 치고 주소로 가고 take control하고 새 page를 연다. 폰의 Pages와 다른 기계 창의 Pages 탭이 보는 화면이다.
+- 사람의 다른 기기가 그 기계의 browser 탭(agent가 연 탭, 멀리서 연 탭)을 `page_view/*`로 본다. 화면 있는 기계의 page도 같다. host가 CDP screencast frame을 밀고 core는 최신 하나만 들며, 보는 쪽이 읽어 간 만큼만 다음 frame이 간다. 터미널 입력을 허락받은 기기는 누르고 치고 주소로 가고 take control하고 새 page를 연다. 폰의 Pages와 desktop 새 탭 menu의 "Pages on <컴퓨터>"가 보는 화면이다.
 - core와 host 사이 link에 연결 요청 `page_stream|page_read|page_input|page_control`과 frame `page_frame|page_state`가 더해졌다.
 - 남은 것:
   - 실제 화면 없는 VM(최소 server image의 library, 설치본이 `--no-sandbox` 없이 뜨는지)에서 돌려 보지 않았다. 흉내(display를 뺀 개발 기계)로만 보았다.

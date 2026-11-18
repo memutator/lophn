@@ -78,7 +78,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 ## 돌리는 때
 
 - `npm run check`(작업 중, 끝내기 전)와 `check:full`(merge 전): unit, harness, support의 test.
-- `npm run wireframes:smoke`(`check:full`에도 든다, 30초쯤): offscreen Electron 창 여섯 개로 gallery의 모든 page(`?frame=<id>`)를 그려, uncaught error나 console error가 나거나 root가 비는 page가 있으면 실패한다. React의 key 중복 같은 dev 경고도 console error라 실패다.
+- `npm run wireframes:smoke`(`check:full`에도 든다, 30초쯤): offscreen Electron 창 여섯 개로 gallery의 모든 page(`?frame=<id>`)를 그려, uncaught error나 console error가 나거나 root가 비는 page가 있으면 실패한다. page 하나는 20초 상한이고 넘으면 그 page 이름을 `did not settle`로 찍고 창을 바꿔 나머지를 돈다(멈춘 smoke는 환경이 아니라 끝나지 않는 render loop, 예를 들어 event마다 다시 만든 목록이 구독을 계속 새로 거는 화면이다). React의 key 중복 같은 dev 경고도 console error라 실패다.
 - `npm run e2e`: lead가 merge 전에 새 flow를 10번 연속 돌리고, `land.sh`가 main에 올리기 전에 돈다. 앱 E2E 전에 `npm run e2e:deps`를 한 번 돌린다.
 - `npm run test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(git이 무시한다)에서 읽고 같은 이름이면 shell이 이긴다. `npm run e2e`와 check는 `.env`를 읽지 않는다. 돌 것이 없으면(key도 live root도 없음) 이유를 찍고 0으로 끝난다. key가 있는 provider의 file과, live root가 있으면 `chatgpt_test.ts`가 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
   - ChatGPT 구독은 `npm run test:live:login`이 core를 live 전용 root `.dev-data/live/home`(log와 user-home은 `.dev-data/live/run`)에 띄워 로그인을 한 번 저장하고(같은 컴퓨터의 browser가 필요하다) 계정 model 목록 응답 모양과 기본 model을 찍는다. `test:live`는 그 root에서 구독 token으로 turn 하나를 돌리고 계정 model 목록과 `billing_route == subscription`을 단정한다. refresh 단정은 token 만료 5분 전 안에만 돈다(로그인하고 약 55분 뒤 한 번 더 돌린다. 아니면 "확인하지 못했다"를 찍는다). 쓸 수 없는 credential이면 test가 실패한다.

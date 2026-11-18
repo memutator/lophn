@@ -33,7 +33,7 @@ grep -rn '"@lophn/<part>"\|@lophn/<part>@\|sdk/<part>/' \
 
 - 다른 SDK의 `package.json` 의존
 - 앱 template: `packages/core/apps/packages/template/app/`의 `lophn.ts.tmpl`(`sdk_dependencies`), `package.json.tmpl`(`file:.lophn/sdk/<part>/<판>`), `AGENTS.md.tmpl`
-- `tests/support/app/sample/lophn.ts.tmpl`, `tools/wireframes/package.json`
+- `tests/support/app/sample/lophn.ts.tmpl`, `tests/support/app/local/`의 `lophn.ts.tmpl`·`package.json.tmpl`, `tools/wireframes/package.json`
 - guide의 peer 표와 예
 - `package-lock.json`은 `npm install`로 다시 만든다.
 

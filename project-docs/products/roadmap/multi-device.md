@@ -153,7 +153,7 @@
 
 정한 것:
 - **project의 id는 지금처럼 둘이다.** 기록의 key는 기계마다 다른 `prj_`이고, 기계를 건널 때는 `pri_`를 쓴다(`architecture/project-identity.md`). `prj_`를 기계 사이에 하나로 맞추지 않는다. 맞추려면 모든 표와 file과 앱 DB 안의 key를 고쳐야 하고 `events`는 고칠 수 없다. (agent)
-- **다른 기계의 것은 그 기계의 id로 부른다.** 화면과 agent는 그 기계에 목록을 물어 그 기계의 id를 받아 쓴다(지금 다른 기계 창이 하는 방식). 그래서 주소에 새 type이 필요 없고 "어느 기계"만 붙는다. "내 project와 같은 project"는 `pri_`로 찾는다(`project.list { identity }`). (agent)
+- **다른 기계의 것은 그 기계의 id로 부른다.** 화면과 agent는 그 기계에 목록을 물어 그 기계의 id를 받아 쓴다(지금 창 하나가 다른 컴퓨터에 하는 방식). 그래서 주소에 새 type이 필요 없고 "어느 기계"만 붙는다. "내 project와 같은 project"는 `pri_`로 찾는다(`project.list { identity }`). (agent)
 - **모든 project가 `pri_`를 가질 수 있다.** git이 아닌 project는 ledger에서 정체를 얻고, 다른 기계의 project와 같은 것으로 잇는 것은 사람이 고른다(잇는 화면은 `one-screen`). (agent)
 - **git project는 id를 file에서만 얻는다**(change-log `project-address` 결정 2). ledger에서 id를 내지 않아 id file이 없는 git project는 `identity`가 null이다. git이 답하지 않는 폴더(`.git`이 있다)는 git이 아닌 것으로 보지 않고 아무것도 쓰지 않는다. (agent)
 - **앱은 기계 사이에 맞추는 data를 `pri_`로 key한다.** 지금 앱은 `prj_`로 key해서, 맞춰진 data가 다른 기계에서는 주인 없는 줄이 된다. 앱이 받는 project에 정체를 더하고(`AppProject`, `place.workspace`), 지침을 고치고, 이미 있는 앱을 옮기는 `migrate-sdk` 메모를 쓴다(`sdk-note` skill). (agent)
@@ -189,8 +189,8 @@
 
 **기기와 믿음**
 - (계획 `device-roster` 뒤) 폰과 컴퓨터는 서명한 명단 하나를 같이 든다. 이미 든 컴퓨터 하나의 초대장으로 들어오면 모든 컴퓨터와 이어지고, 빼기는 어느 컴퓨터에서나 해서 명단을 따라 퍼진다. 기기 id와 터미널 입력 허락은 명단에서 하나다(`architecture/remote.md`의 "내 기기 명단").
-- 컴퓨터끼리는 core가 명단의 다른 컴퓨터마다 link를 든다. 다른 기계의 창은 core의 `machines/call`·`machines/watch`로 부르고 shell에는 붙는 key와 목록이 없다. 화면 없는 기계는 `lophn remote invite|join`으로 든다.
-- 기기가 부를 수 있는 것은 route 109개, 받는 event 20개로 폰과 desktop이 같다. 기기마다 다른 것은 터미널 입력 허락 하나다.
+- 컴퓨터끼리는 core가 명단의 다른 컴퓨터마다 link를 든다. 창은 다른 컴퓨터의 것을 이 컴퓨터 core의 `machines/call`·`machines/watch`로 부르고 shell에는 붙는 key와 목록이 없다. 화면 없는 기계는 `lophn remote invite|join`으로 든다.
+- 기기가 부를 수 있는 것은 route 132개(`carry/*` 넷과 `terminals/list`, 앱 화면 route 포함), 받는 event 24개로 폰과 desktop이 같다. 기기마다 다른 것은 터미널 입력 허락 하나다.
 - "기기 목록" 비슷한 것은 둘이다: 명단과 folder의 `machines/<mch>/record.json`(이름과 주소, key 없음).
 
 **remote**

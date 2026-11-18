@@ -88,7 +88,7 @@ modules:
 
   - path: packages/core/agent-workspaces
     boundary: agent-workspaces
-    notes: lophn workspace 층. workspace 종류별 tool 목록, agent 정의 tool, credential의 workspace 몫, 제품 고정 규칙과 workspace 종류 prompt, workspace 정보, file tool hook, lophn 내장 정의, 이름 규칙(session 목록 이름과 주소 풀기), workspace 폴더 규칙, data root 아래 자리와 project 설정 층, 지침 읽기 규칙, 내장 skill(사용 안내 `guide-*`와 사람이 `/`로 부르는 skill). harness(lophn-agent) 위에 있고 feature module과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
+    notes: lophn workspace 층. workspace 종류별 tool 목록, agent 정의 tool, credential의 workspace 몫, 제품 고정 규칙과 workspace 종류 prompt, workspace 정보, file tool hook, lophn 내장 정의, 이름 규칙(session 목록 이름과 주소 풀기), workspace 폴더 규칙, data root 아래 자리와 project 설정 층, 지침 읽기 규칙, 내장 skill(사용 안내 `guide-*`와 사람이 `/`로 부르는 skill, 컴퓨터를 잇는 지침 `connect-computers`). harness(lophn-agent) 위에 있고 feature module과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent
@@ -108,7 +108,7 @@ modules:
 
   - path: packages/core/terminal-view
     boundary: core
-    notes: 폰이 보는 터미널(coding session 터미널, 기기가 `terminals/open`으로 연 터미널)의 최신 화면(메모리, lease 동안 PTY host에서 읽는다), 보는 principal의 lease(30초), 폰이 잡은 PTY 크기를 놓기. 여는 것과 입력은 `terminals/*`가 한다. base, protocol과 core/terminals(port)만 쓴다. Bus·입력 허락(snapshot의 input)은 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
+    notes: 기기(폰, 연결된 컴퓨터의 창)가 보는 터미널(이 기계의 어느 터미널이든)의 최신 화면(메모리, lease 동안 PTY host에서 읽는다), 보는 principal의 lease(30초), 기기가 잡은 PTY 크기를 놓기. 여는 것과 입력은 `terminals/*`가 한다. base, protocol과 core/terminals(port)만 쓴다. Bus·입력 허락(snapshot의 input)은 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
 
   - path: packages/core/terminals
     boundary: core
@@ -183,6 +183,7 @@ modules:
 
   - path: packages/shell/renderer
     boundary: shell
+    notes: desktop/machines/는 창 하나가 짝지은 모든 컴퓨터를 보이는 층이다(기계 목록 source, 화면이 "어느 컴퓨터"를 고르는 범위 `MachineScope`, 탭마다의 범위 `TabScope`, 이 컴퓨터에서만 열리는 kind의 한 줄). desktop/settings/sync/는 Settings › Sync(폴더, 컴퓨터, 앱의 지금 길)다.
 
   - path: packages/shell/preload
     boundary: shell

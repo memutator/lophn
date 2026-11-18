@@ -2,6 +2,7 @@ id: carry-paths
 version: 0.23.89
 title: 한쪽만 켜져 있어도 늦게라도 닿는다 - 앱 data와 release와 명단과 event가 컴퓨터 사이를 연결, 폰, 사람의 폴더로 간다
 modules: [packages/protocol, packages/protocol/folder, packages/core/folder, packages/core/remote, packages/core/apps, packages/core/events, packages/core/agent-workspaces, packages/core/main, packages/core/storage, packages/shell/renderer, packages/design, packages/sdk, packages/mobile, tools]
+checked: [architecture-layers, architecture-package, architecture-app-notice, architecture-workflow, architecture-annotation, tool-context-review, tool-e2e, skill-flows, tool-check-sdk-notes]
 change: |
   전: 컴퓨터끼리 앱 data를 맞추는 길은 사람이 이름 붙인 폴더(`sync_to: "<이름>"`)를 바깥 도구가 옮겨 주는 것뿐이었다. 두 컴퓨터가 같은 폴더를 보지 못하면 길이 없었고, 폰은 컴퓨터마다 따로 맞췄다. 후: 앱이 "내 컴퓨터들"(`sync_to: "computers"`)에 맞추겠다고만 말하면 lophn이 길을 고른다. 폴더로 주고받는 꼴이 곧 기계 사이의 꼴이고, 그 file을 옮기는 길만 셋으로 늘었다. 폰과 컴퓨터 사이의 `app_sync`는 건드리지 않았다.
   - "갈 곳 `computers`와 서명한 목록 사슬: 미리 있는 갈 곳 `computers`는 data root 안 `computers/`(0700)이고 배치는 이름 붙인 폴더와 같다. 컴퓨터는 자기 하위 폴더 `machines/<자기>/`에 낸 file의 목록을 세 층으로 서명한다: `manifest.json`(8 MiB까지, 명단의 서명 key로 서명, revision은 `max(지난 것 + 1, 지금 ms)`) → 앱마다 `apps/<app>/files.json` → `release.json`·`source/<n>.json`. 목록은 내보내기가 쓴 file의 기록(`folder_written`)으로 만들고 폴더를 훑지 않는다. 앱 목록의 data file은 마지막 snapshot부터이고 그 뒤가 2,000을 넘으면 이른 snapshot을 쓴다. 목록이 8 MiB를 넘게 되면 지난 것을 두고 그 앱 stream에 `too_large`를 남긴다. 서명 key가 없는 컴퓨터(remote를 켠 적이 없다)는 manifest를 쓰지 못한다."

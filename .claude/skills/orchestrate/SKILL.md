@@ -73,7 +73,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - core 확인: `cd <worktree>; project-docs/plan/tools/lead/boot.sh`만 쓴다. 새 data root로 core를 두 번 띄우고 각자 timeout으로 끝나 `boot N exit 0`을 찍는다. 손으로 띄우는 한 줄(`tail -f /dev/null | ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron … & wait`)은 `wait`에서 멈춘 일이 있다. **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. lead와 worker의 shell은 설치본 터미널에서 `LOPHN_HOME=~/.lophn`을 물려받는다. `boot.sh` 밖에서 Electron·core·CLI를 띄우는 명령은 늘 `LOPHN_HOME`을 `.dev-data/<id>/` 아래로 정한다(data root를 잃은 개발 앱이 그 env로 사람의 root에 간 일이 있다. 이슈 `worker-env-points-at-real-root`). data root는 0700이어야 기동한다.
 - 임시 file(move-files mapping, probe 출력)은 worktree 안 `.dev-data/<id>/`에 둔다. session scratchpad는 같이 도는 worker끼리 공유되어 mapping이 덮인 일이 있다.
 - 명령이 auto mode classifier에 막히면 다른 명령으로 우회하지 않고 보고한다. lead도 worker가 거절당한 명령을 대신 돌리지 않고 사람에게 묻는다(사용자 앱 방어를 지우는 변경의 check:full·commit이 막힌 일이 있다).
-- `npm run check:full`을 돌리고, 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.
+- `npm run check:full`을 돌린다. 끝까지 돌지 않은 check는 통과도 환경 문제도 아니라 멈춘 단계와 함께 "끝나지 않았다"고 보고한다(wireframes smoke는 끝나지 않는 page 이름을 찍는다). 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.
 - `node_modules`는 worktree마다 `npm ci`로 생기는 것이라 commit하지 않는다. 고친 file을 path로 add하고 `git diff --cached --stat`을 본다.
 - 막히면 추측으로 넘어가지 말고 할 수 있는 데까지 하고 보고한다. 맡은 일을 "시간이 부족했다"며 남기지 않는다.
 - 보고는 brief의 "보고" 꼴로 쓰고, "무겁게 짠 것"과 "알려진 미완 동작" 칸을 빼지 않는다.
@@ -167,6 +167,14 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - planner나 lead가 main에서 문서를 바로 고쳐도 `npm run check:full`을 돈다. `npm run check`가 못 보는 문서 fmt로 main이 깨진 일이 있다.
 - 이슈와 문서의 path는 저장소 root부터 쓴다. package 안에서 줄인 path는 docs check가 "없는 path"로 막는다.
 - 층 하나를 지우는 cleanup의 끝남 grep은 이름(type, route, 표)만 잡는다. 그 층만 쓰던 화면 칸은 이름이 달라 남는다(remove-role 뒤 session popover의 "Waiting for a coding agent" 칸과 `queuedCoding` prop이 넘기는 곳 없이 남았다). 지운 층의 화면 문구 key로 한 번 더 grep하고, 그 key를 쓰는 component의 prop을 넘기는 곳이 있는지 본다.
+- harness가 lead session을 다시 띄운 뒤에도 같은 session의 옛 process가 lead로 돌고 있을 수 있다(같은 `--resume` id의 process가 둘, 둘 다 merge하고 같은 worktree에 worker를 다시 맡겼다). worker를 이어 맡기기 전에 같은 session의 다른 process가 있는지 보기만 하고, 어느 쪽을 남길지는 사람이 고르게 한다.
+- worker가 `check:full`이 "끝나지 않았다"고 보고하면 환경 문제로 단정하지 않는다. 멈춘 wireframes smoke는 끝나지 않는 page였다(목록을 event마다 새로 만들어 Inbox가 구독을 계속 새로 걸었고, 같은 code가 실제 창에서도 돈다). smoke가 이제 그 page 이름을 찍는다. 전체 check가 끝나지 않은 branch는 merge하지 않는다.
+- worker가 gallery server를 띄우는 명령을 auto mode classifier에 자주 거절당해 화면을 "보지 못했다"고 보고한다. 화면 task를 merge하기 전에 lead가 보고에 적힌 page를 직접 찍는다(build, 문서의 명령으로 serve, headless Chrome screenshot).
+- 한 wave에서 소유 file이 겹치지 않는 task들은 서로의 file에 "넘길 줄"을 남긴다(한 wave 뒤 19줄). 계획의 마지막 task에 그 영역 전체의 소유를 주고 두 단계로 돌린다: 먼저 넘겨받은 줄(lead가 화면을 본다), 그다음 자기 정리.
+- 같은 SDK package의 판을 올리는 계획 둘이 동시에 돌면 같은 번호를 고른다. 나중에 land하는 계획이 그 판을 만든 commit의 rebase 멈춤에서 번호를 다시 매기고(새 메모 file은 다음 번호, `Previous:`는 먼저 land한 계획의 것, pin, lock), 최종 번호를 change-log 항목에 쓴다.
+- 다른 protocol 영역에 기대는 route file은 의존이 가리키는 쪽에 있어야 한다(`protocol/folder`의 carry 계약이 `protocol/remote`를 import하는데 `protocol/remote`의 기기 route 목록이 그 계약을 import해야 했다. `check-deps`는 lead가 route를 등록할 때에야 순환을 막았다). 계약 file을 만드는 task는 import 방향을 먼저 본다.
+- `git add <path들>`에 이미 지워져 stage된 path가 하나 있으면 add 전체가 중단되고, 이어지는 `git commit`은 그 전에 stage된 것만 commit한다. 폴더를 지우는 commit 뒤에는 `git status`를 본다.
+- 개발 core 둘을 짝지우고 headless Electron 창으로 실제 앱을 확인하는 일은 싸다(worker 15분쯤): `LOPHN_SHELL_HEADLESS=1`과 `--headless`, `--remote-debugging-port`, core는 `env -i`와 `.dev-data/` 아래 각자의 `LOPHN_HOME`, 짝짓기는 roster route, screenshot은 CDP. 창이 보이는 것을 바꾸는 계획은 land 전에 한 번 한다. test와 gallery가 못 본 결함 둘을 찾았다.
 
 ## 사람에게 알리는 때
 

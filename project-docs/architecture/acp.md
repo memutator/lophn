@@ -145,7 +145,7 @@ secret
 session 조작: `set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `stop_child`, `steer_child`, `stop_task`, `background_tool`(도는 root tool을 background로, capability `background`), `set_toggle`, `set_goal`, `use_role`, `open_session`, `run_shell`, `stop_shell`.
 session 조작은 모두 `key`를 싣는다(`stop_shell`은 `item`).
 
-`send`는 `seen`을 싣는다: 그 화면이 아는 마지막 사람 메시지의 id이고 null은 하나도 못 봤다는 뜻이다(새 session의 첫 말). 한 session에 여러 기기(이 컴퓨터의 창, 다른 기계를 보는 desktop의 창, 폰)가 쓸 수 있어서다. core는 메시지를 넣는 같은 transaction에서 `seen` 뒤에 사람 메시지가 있는지 보고, 있으면 아무것도 넣지 않고 `conflict`(`details.reason: "changed_elsewhere"`)로 끝낸다. 합치지 않는다. 사람 메시지는 사람이 보낸 message이고 `!` 명령 기록과 rewind가 숨긴 메시지는 세지 않는다. 모르는 `seen`은 `invalid_input`이다. `seen`이 없으면 검사하지 않는다(화면이 없는 보내는 쪽: CLI, run, call). 이미 받은 id를 다시 보내면 검사보다 앞서 앞의 결과를 돌려준다. 화면은 `seen`을 대화와 다음 turn 줄의 마지막 사람 메시지, 아니면 받았지만 아직 대화에 오지 않은 자기 메시지에서 고른다. 대화의 첫 snapshot을 받기 전에는 아는 것이 없어 `seen`을 싣지 않는다(검사 없이 들어간다. 읽기 전의 보내기가 거짓 `changed_elsewhere`로 막히지 않는다). 거절이면 거절이면 쓴 글과 첨부를 입력칸에 두고 "This conversation changed on another device. Read the new messages, then send again." 한 줄을 보이며 대화를 다시 읽는다(`agent-chat.md`의 전달 상태). coding agent(harness) session의 보내기와 coding relay는 이 검사를 하지 않는다.
+`send`는 `seen`을 싣는다: 그 화면이 아는 마지막 사람 메시지의 id이고 null은 하나도 못 봤다는 뜻이다(새 session의 첫 말). 한 session에 여러 기기(이 컴퓨터의 창, 폰, 이 session의 컴퓨터를 보는 다른 컴퓨터의 창)가 쓸 수 있어서다. core는 메시지를 넣는 같은 transaction에서 `seen` 뒤에 사람 메시지가 있는지 보고, 있으면 아무것도 넣지 않고 `conflict`(`details.reason: "changed_elsewhere"`)로 끝낸다. 합치지 않는다. 사람 메시지는 사람이 보낸 message이고 `!` 명령 기록과 rewind가 숨긴 메시지는 세지 않는다. 모르는 `seen`은 `invalid_input`이다. `seen`이 없으면 검사하지 않는다(화면이 없는 보내는 쪽: CLI, run, call). 이미 받은 id를 다시 보내면 검사보다 앞서 앞의 결과를 돌려준다. 화면은 `seen`을 대화와 다음 turn 줄의 마지막 사람 메시지, 아니면 받았지만 아직 대화에 오지 않은 자기 메시지에서 고른다. 대화의 첫 snapshot을 받기 전에는 아는 것이 없어 `seen`을 싣지 않는다(검사 없이 들어간다. 읽기 전의 보내기가 거짓 `changed_elsewhere`로 막히지 않는다). 거절이면 거절이면 쓴 글과 첨부를 입력칸에 두고 "This conversation changed on another device. Read the new messages, then send again." 한 줄을 보이며 대화를 다시 읽는다(`agent-chat.md`의 전달 상태). coding agent(harness) session의 보내기와 coding relay는 이 검사를 하지 않는다.
 
 lophn core는 입력을 지금 route로 나눈다.
 
@@ -212,7 +212,7 @@ projection은 event만으로 알 수 없는 것을 core가 context로 받는다.
 
 앱 화면도 ACP 화면이다. 앱 bridge `lophnApp.agent`(`open({agent, title?})`, `snapshot(session)`, `onUpdate(listener)`, `send(input)`)가 `app_sessions.open`(선택 `workspace`: 그 앱이 call로 닿을 수 있는 workspace), `AcpSnapshot`, `AcpUpdated`, `AcpSend`를 사람 자격으로 넘긴다. 앱은 sender view에서 정해지고 page가 고르지 못한다. 붙을 수 있는 session은 그 앱에 보이는 lophn·harness session이다(앱 workspace에서 call로 닿을 수 있는 workspace의 것, call 정책). 안 보이는 session, 없는 session, 터미널 탭(`term:`)은 `forbidden`이다. 앱이 보낸 call로 받은 메시지는 sender가 `{kind: app, app, name}`(name은 보낼 때의 slug)이고 chat에 "From <slug>" chip으로 보인다.
 
-- `AcpSend`의 `send`는 선택 `via_app`을 받는다. shell main이 앱 화면의 `send`에 sender view의 앱을 싣는다(page가 준 값은 덮는다). core는 그 앱의 slug를 얼려 메시지에 남기고(불변) fork가 복사한다.
+- `AcpSend`의 `send`는 선택 `via_app`을 받는다. shell main이 앱 화면의 `send`에 sender view의 앱을 싣는다(page가 준 값은 덮는다). core는 그 앱의 slug를 얼려 메시지에 남기고(불변) fork가 복사한다. 다른 컴퓨터가 기기로 보낸 `send`는 그 앱의 앱 화면 view를 열어 둔 때만 이름표를 얻고 아니면 이름표 없는 사람의 메시지로 간다.
 - `AcpSend`로는 입력 `send`·`stop`·`answer`·`rename`만 간다. 나머지(승인 `decide`, `rewind`, `fork`, `run_shell` 등)는 core에 닿기 전에 `forbidden`이다. 승인은 lophn 채팅 탭에서만 한다.
 - 앱이 연 session의 turn 끝 알림과 Finished 표시는 내지 않는다([app-call.md](app-call.md)의 "앱 화면의 agent session").
 - core는 앱이 연 session을 따로 다루지 않는다. prompt 조립과 답 꼴은 앱과 SDK(`@lophn/agent`)의 몫이고 core는 모른다. SDK가 snapshot 위에 갱신을 같은 reducer로 접는다.

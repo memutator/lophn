@@ -62,7 +62,7 @@ E2E 실행 폴더는 실행마다 system 임시 폴더(`/tmp/lophn-e2e-<random>/
 12. 앱 socket 폴더는 data root마다 나뉜다. 같은 사용자의 core가 여럿 떠도 서로의 socket을 지우지 않는다. 그래서 E2E run을 저장소 안(worktree 안)에 두지 않는다. Unix socket 경로가 길이 한도(108 byte)를 넘기기 때문이다.
 13. live는 사람이 key를 주거나 live 전용 root에 구독 로그인을 저장했을 때만 돌고, 돌 것이 없으면 이유를 찍고 0으로 끝난다. 쓸 수 없는 credential이면 조용히 넘기지 않고 실패한다(만료를 숨기지 않으려고). live가 녹화하는 fixture는 응답만이고 key와 계정 id를 지운다. 사람이 diff를 보고 commit한다. 한 file의 호출은 10번 이하, 호출당 90초다.
 14. live 구독 root는 복사하지 않고(refresh token이 갱신 때마다 회전한다), core 하나만 띄운다. 코드가 지우지 않는다. 사람의 root가 아니라 `.dev-data/live/` 아래에 있다.
-15. 렌더 오류로 화면이 비는 회귀는 gallery smoke(offscreen Electron으로 모든 wireframe page를 그린다)가 본다. uncaught error나 console error(React key 중복 같은 dev 경고 포함), 빈 root가 있으면 실패한다. 모양은 보지 않는다.
+15. 렌더 오류로 화면이 비는 회귀는 gallery smoke(offscreen Electron으로 모든 wireframe page를 그린다)가 본다. uncaught error나 console error(React key 중복 같은 dev 경고 포함), 빈 root가 있으면 실패한다. 20초 안에 그려지지 않는 page(끝나지 않는 render)도 그 page 이름을 찍고 실패한다. 모양은 보지 않는다.
 
 ## 경계와 계약
 

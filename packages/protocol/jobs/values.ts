@@ -6,6 +6,7 @@ import {
   workspaceOutputSchema,
 } from "../lophn-agent/workspaces.ts";
 import { toolNameSchema } from "../apps/channel-values.ts";
+import { machineRefSchema } from "../machine/requester.ts";
 import {
   stepNameSchema,
   workflowKeySchema,
@@ -35,6 +36,9 @@ export type JobSkipReason = z.infer<typeof jobSkipReasonSchema>;
 export const jobTriggerInputSchema = z.strictObject({
   source: z.string().min(1),
   event: z.string().min(1),
+  // 다른 컴퓨터의 앱 event로 돌 때 그 컴퓨터(이름, `mch_`, `dev_`). 그때 source는 그 컴퓨터의 앱 id(`app_`)다: slug는 컴퓨터마다 달라 풀려면
+  // 그 컴퓨터를 읽어야 하고 닿지 않을 수 있다. 없으면 이 컴퓨터의 앱이거나 `lophn`이다. 만들 때 core가 `mch_`로 풀어 저장한다.
+  machine: machineRefSchema.optional(),
   min_interval: jobEverySchema.optional(),
   // tool_run만: 도는 tool의 입력에 `event`({source, event, payload})를 합쳐 넣는다. 사람이 승인하는 값이다.
   pass_event: z.boolean().optional(),
@@ -46,6 +50,8 @@ export const jobTriggerSchema = z.object({
   source: z.string().min(1),
   app: idSchema("app").nullable(),
   event: z.string().min(1),
+  // 다른 컴퓨터의 앱 event로 도는 job이면 그 기계. 없으면 이 기계의 앱이거나 `lophn`이다(옛 job도 이 기계의 것이다).
+  source_machine: idSchema("mch").optional(),
   min_interval: jobEverySchema,
   pass_event: z.boolean(),
 });
@@ -56,6 +62,8 @@ export const jobEventSchema = z.object({
   source: z.string().min(1),
   event: z.string().min(1),
   payload: z.json(),
+  // 다른 기계에서 온 event면 그 난 기계.
+  machine: idSchema("mch").optional(),
 });
 export type JobEvent = z.infer<typeof jobEventSchema>;
 

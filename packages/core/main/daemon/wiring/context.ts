@@ -7,7 +7,7 @@
 // 종료 순서: closeIntake → server.stop → closeChildren → 감독 정지 → closeWork → runtime.close → stopped
 import type { Clock, RandomSource, Result } from "../../../../base/mod.ts";
 import type { EventDelivery } from "../../../apps/events/mod.ts";
-import type { Frame, Route } from "../../../../protocol/base/mod.ts";
+import type { Frame, Id, Route } from "../../../../protocol/base/mod.ts";
 import type {
   AuthenticatedContext,
   SchemaStep,
@@ -360,8 +360,12 @@ type Late = {
   folderReplica: FolderReplica;
   // folder가 낸다. 다른 기계에도 알릴 앱 event를 event file로 쓴다.
   crossEvents: CrossEvents;
+  // folder가 낸다. 다른 기계의 `across_machines` event를 이 기계가 냈다고 적는다(늦은 길과 연결이 한 표로 한 번만 낸다). 새 줄이면 true.
+  crossSeen: (origin: Id<"mch">, app: Id<"app">, id: string) => Result<boolean>;
   // apps가 낸다. 다른 기계에서 온 event를 이 기계에서 낸다.
   eventArrived: EventArrived;
+  // apps가 낸다. 다른 컴퓨터의 앱 event를 구독으로 선언한 active 앱(active release)과 그 컴퓨터 이름. remote가 그 컴퓨터에 구독을 건다.
+  appMachineSubscriptions: () => { app: Id<"app">; machines: string[] }[];
   // remote가 낸다. 명단의 다른 컴퓨터를 부른다: 이름 풀기와 그 기계로 route 하나 넘기기(`by`는 부른 자격에서 정한 요청한 쪽이다).
   machineLinks: RemoteMachines;
 };
@@ -446,7 +450,9 @@ const LATE_KEYS: Record<keyof Late, true> = {
   computerRemoved: true,
   folderReplica: true,
   crossEvents: true,
+  crossSeen: true,
   eventArrived: true,
+  appMachineSubscriptions: true,
   machineLinks: true,
 };
 

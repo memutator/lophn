@@ -83,6 +83,8 @@ function setup() {
     credentials: { get: async () => ok({} as never), revoke: () => {} },
     call: async () => ok(null),
     admission: createAdmission(),
+    kind: () => "phone",
+    appEventShared: () => false,
     views: { closeOwner: () => {} },
     phoneLink: link,
   });

@@ -4,7 +4,6 @@ import {
   type Clock,
   err,
   formatAt,
-  type IdSource,
   ok,
   type RandomSource,
   type Result,
@@ -30,15 +29,14 @@ export async function writeEventFile(input: {
   destination: { name: string; path: string };
   app: Id<"app">;
   bundle_hash: string;
-  event: { name: string; payload: JsonValue; at: string };
-  ids: IdSource;
+  event: { id: string; name: string; payload: JsonValue; at: string };
   transaction: Transaction;
   clock: Clock;
   random: RandomSource;
 }): Promise<Result<void>> {
   const { me, app } = input;
-  // ULID 부분만 쓴다(path가 id다).
-  const id = input.ids.newId("evt").slice(4);
+  // path가 id다.
+  const { id } = input.event;
   let bytes: Uint8Array;
   try {
     bytes = encodeRecord(eventFileSchema, {

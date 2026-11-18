@@ -366,6 +366,8 @@ export const jobFireEvent = defineCommand({
     event: z.string().min(1),
     payload: z.json(),
     chain: z.array(idSchema("app")),
+    // 다른 컴퓨터에서 온 앱 event면 그 난 기계. 그 기계를 때로 가진 job만 연다(없으면 이 기계의 event다).
+    machine: idSchema("mch").optional(),
     // lophn의 session event만. 그 session과 그 workspace(home이면 null).
     session: z
       .strictObject({
@@ -389,7 +391,14 @@ export const jobEventTriggers = defineRead({
   output: withReadCommon(
     z.object({
       triggers: z.array(
-        z.object({ app: idSchema("app").nullable(), event: z.string() }),
+        z.object({
+          app: idSchema("app").nullable(),
+          event: z.string(),
+          // 다른 컴퓨터의 앱 event를 때로 가진 job이면 그 기계(아니면 null)와 그 job을 만든 workspace(Home이면 null).
+          // core가 그 컴퓨터에 구독을 걸 때 private workspace의 job을 빼는 데 쓴다.
+          machine: idSchema("mch").nullable(),
+          workspace: workspaceSchema.nullable(),
+        }),
       ),
     }),
   ),

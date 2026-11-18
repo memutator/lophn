@@ -237,6 +237,24 @@ test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object s
       "handler name too long",
       { subscriptions: [{ source: "masup", event: "e".repeat(60) }] },
     ],
+    ["empty machine", { subscriptions: [{ ...subscription, machine: "" }] }],
+    [
+      "machine with surrounding spaces",
+      { subscriptions: [{ ...subscription, machine: " laptop" }] },
+    ],
+    [
+      "machine for a lophn event",
+      { subscriptions: [{ source: "lophn", event: "x", machine: "laptop" }] },
+    ],
+    [
+      "one source and event on two computers",
+      {
+        subscriptions: [
+          { ...subscription, machine: "laptop" },
+          { ...subscription, machine: "desk" },
+        ],
+      },
+    ],
   ];
   for (const [label, extra] of rejected) {
     const result = validateDeclaration({ ...declarationWith([]), ...extra });
@@ -252,6 +270,15 @@ test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object s
   assert.deepStrictEqual(handlerNames(accepted.value), [
     "on.lophn.session.idle",
     "on.masup.usage.limit",
+  ]);
+  // 다른 컴퓨터의 앱 event를 받는 구독은 그 컴퓨터의 이름을 싣는다. 이름이 없는 구독의 정규형은 그대로다.
+  const remote = validateDeclaration({
+    ...declarationWith([]),
+    subscriptions: [{ ...subscription, machine: "my laptop" }],
+  });
+  assert.ok(remote.ok);
+  assert.deepStrictEqual(remote.value.subscriptions, [
+    { ...subscription, machine: "my laptop" },
   ]);
   const local = validateDeclaration({
     ...declarationWith([]),

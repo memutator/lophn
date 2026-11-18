@@ -1,13 +1,13 @@
 {
   "name": "@lophn/app-ui-native",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "type": "module",
   "lophn": {
     "supported_from": "1.0.0"
   },
   "exports": "./mod.ts",
   "dependencies": {
-    "@lophn/declaration": "4.10.0",
+    "@lophn/declaration": "4.11.0",
     "@lophn/i18n": "1.0.0",
     "@types/react": "19.3.0",
     "react": "19.3.0"

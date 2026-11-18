@@ -190,6 +190,8 @@ export function validateKeys(
 // 앱 slug의 모양이다(protocol/projects/values.ts의 slugSchema와 같다. 이 file은 의존성이 없어 따로 쓴다).
 const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const HANDLER_NAME_MAX = 64;
+// 사람이 붙인 컴퓨터 이름의 길이 한도(`machineNameSchema`와 같다).
+const MACHINE_NAME_MAX = 64;
 
 function validateEvents(items: unknown): ValidationResult<EventDeclaration[]> {
   if (items === undefined) return { ok: true, value: [] };
@@ -247,7 +249,11 @@ function validateSubscriptions(
   const subscriptions: SubscriptionDeclaration[] = [];
   for (const item of items) {
     if (!isObject(item)) return invalid("subscription must be an object");
-    const bad = exactKeys(item, ["event", "source"], ["event", "source"]);
+    const bad = exactKeys(
+      item,
+      ["event", "machine", "source"],
+      ["event", "source"],
+    );
     if (bad) return invalid(`subscription ${bad}`);
     if (
       typeof item.source !== "string" ||
@@ -262,7 +268,28 @@ function validateSubscriptions(
         "subscription event must be 1-64 characters of letters, digits, _ - .",
       );
     }
-    const subscription = { source: item.source, event: item.event };
+    if (item.machine !== undefined) {
+      if (
+        typeof item.machine !== "string" ||
+        item.machine.length < 1 ||
+        item.machine.length > MACHINE_NAME_MAX ||
+        item.machine !== item.machine.trim()
+      ) {
+        return invalid(
+          `subscription machine must be a computer name of 1-${MACHINE_NAME_MAX} characters without surrounding spaces`,
+        );
+      }
+      if (item.source === LOPHN_EVENT_SOURCE) {
+        return invalid(
+          `subscription machine is for an app's events; "${LOPHN_EVENT_SOURCE}" events are this computer's`,
+        );
+      }
+    }
+    const subscription: SubscriptionDeclaration = {
+      source: item.source,
+      event: item.event,
+      ...(item.machine === undefined ? {} : { machine: item.machine }),
+    };
     const handler = subscriptionHandlerName(subscription);
     if (handler.length > HANDLER_NAME_MAX) {
       return invalid(

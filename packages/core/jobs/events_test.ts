@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { ok } from "../../base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../base/mod.ts";
 import type { JobTrigger } from "../../protocol/jobs/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import {
+  createEventDelivery,
+  receivedAppEvent,
+} from "../apps/events/publish.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
 import { createEventCommands } from "./events.ts";
@@ -68,12 +77,16 @@ function setup() {
     source: string,
     app: string | null,
     event: string,
+    sourceMachine?: string,
   ): JobTrigger => ({
     source,
     app: app as never,
     event,
     min_interval: "5m",
     pass_event: false,
+    ...(sourceMachine === undefined
+      ? {}
+      : { source_machine: sourceMachine as never }),
   });
   const job = (
     id: string,
@@ -111,6 +124,7 @@ function setup() {
   const fire = (input: {
     publisher: string;
     event: string;
+    machine?: string;
     session?: { id: string; workspace: { kind: "project"; id: string } | null };
     chain?: string[];
   }) => {
@@ -122,6 +136,9 @@ function setup() {
         event: input.event,
         payload: { percent: 91 },
         chain: (input.chain ?? []) as never,
+        ...(input.machine === undefined
+          ? {}
+          : { machine: input.machine as never }),
         session: (input.session ?? null) as never,
       },
       {} as never,
@@ -135,7 +152,16 @@ function setup() {
         id,
       ])
       .map((row) => ({ ...row }));
-  return { db, sql, tx, job, fire, runs, advance: (ms: number) => (now += ms) };
+  return {
+    db,
+    sql,
+    tx,
+    job,
+    trigger,
+    fire,
+    runs,
+    advance: (ms: number) => (now += ms),
+  };
 }
 
 test("승인 전이거나 꺼진 event job은 event가 와도 돌지 않고, 켜진 승인한 job은 event를 data로 달고 한 번 돈다", () => {
@@ -440,7 +466,181 @@ test("event 때는 앱이 그 release에서 선언한 event나 lophn의 session 
       code(toolRun({ source: "lophn", event: "call.settled" })),
       "invalid_input",
     );
+    // 다른 컴퓨터의 앱 event: 그 컴퓨터의 앱 id로 받고(slug는 그 컴퓨터에서만 풀린다) 이 기계의 선언은 보지 않으며, lophn event에는 쓰지 못한다.
+    const remote = (trigger: object) => toolRun(trigger as never);
+    const REMOTE_APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzr";
+    assert.equal(
+      code(
+        remote({
+          source: REMOTE_APP,
+          event: "whatever",
+          machine: "mch_01hzzzzzzzzzzzzzzzzzzzzzzm",
+        }),
+      ),
+      "ok",
+    );
+    assert.equal(
+      code(
+        remote({
+          source: "masup",
+          event: "usage.limit",
+          machine: "mch_01hzzzzzzzzzzzzzzzzzzzzzzm",
+        }),
+      ),
+      "invalid_input",
+    );
+    assert.equal(
+      code(
+        remote({
+          source: "lophn",
+          event: "session.idle",
+          machine: "mch_01hzzzzzzzzzzzzzzzzzzzzzzm",
+        }),
+      ),
+      "invalid_input",
+    );
   } finally {
     db.close();
+  }
+});
+
+const LAPTOP = "mch_01hzzzzzzzzzzzzzzzzzzzzzzm";
+const DESK = "mch_01hzzzzzzzzzzzzzzzzzzzzzzd";
+
+// 다른 컴퓨터의 event를 때로 가진 job은 그 컴퓨터에서 온 event로만 돈다. 이 기계의 event나 다른 컴퓨터의 같은 앱 id·이름 event가 열면
+// 엉뚱한 job이 돈다(앱 id는 기계 사이 같다).
+test("다른 컴퓨터의 event는 그 컴퓨터를 때로 가진 job만 열고, 이 기계의 event는 기계를 적지 않은 job만 연다", () => {
+  const { db, job, trigger, fire, runs, sql } = setup();
+  try {
+    const mine = "job_01hzzzzzzzzzzzzzzzzzzzzzza";
+    const laptop = "job_01hzzzzzzzzzzzzzzzzzzzzzzb";
+    const desk = "job_01hzzzzzzzzzzzzzzzzzzzzzzc";
+    job(mine, trigger("masup", APP, "usage.limit"));
+    job(laptop, trigger(APP, APP, "usage.limit", LAPTOP));
+    job(desk, trigger(APP, APP, "usage.limit", DESK));
+    const opened = (id: string) => runs(id).length;
+
+    assert.deepStrictEqual(fire({ publisher: APP, event: "usage.limit" }), {
+      fired: 1,
+      skipped: 0,
+    });
+    assert.deepStrictEqual([mine, laptop, desk].map(opened), [1, 0, 0]);
+
+    assert.deepStrictEqual(
+      fire({ publisher: APP, event: "usage.limit", machine: LAPTOP }),
+      { fired: 1, skipped: 0 },
+    );
+    assert.deepStrictEqual([mine, laptop, desk].map(opened), [1, 1, 0]);
+    // job의 차례를 연 event는 난 기계를 싣는다.
+    assert.equal(
+      (JSON.parse(String(runs(laptop)[0]!.event)) as { machine: string })
+        .machine,
+      LAPTOP,
+    );
+
+    // 구독을 거는 core가 읽는 표는 기계와 job을 만든 workspace를 싣는다.
+    const triggers = createEventCommands().triggers.handle(
+      {
+        sql,
+        port: (key: unknown) =>
+          key === jobMachinePort ? { id: () => ok(THIS_MACHINE) } : undefined,
+      } as never,
+      machine,
+      {},
+    );
+    assert.ok(triggers.ok);
+    assert.deepStrictEqual(
+      triggers.value.triggers
+        .map((one) => ({
+          machine: one.machine,
+          workspace: one.workspace,
+        }))
+        .sort((a, b) => (a.machine ?? "").localeCompare(b.machine ?? "")),
+      [
+        { machine: null, workspace: { kind: "project", id: PRJ_A } },
+        { machine: DESK, workspace: { kind: "project", id: PRJ_A } },
+        { machine: LAPTOP, workspace: { kind: "project", id: PRJ_A } },
+      ],
+    );
+  } finally {
+    db.close();
+  }
+});
+
+// 다른 컴퓨터의 link가 보낸 `AppEventPublished`가 입구(읽기, `receive`)에서 job 실행기(`fire`)까지 이어진다. 안 구독자의 연결(jobs wiring의
+// `deliver`)은 event의 난 기계를 그대로 `fire`에 넘기는 한 줄이라 여기서 같게 짠다.
+test("다른 컴퓨터가 link로 보낸 앱 event는 receive를 지나 그 컴퓨터를 때로 가진 job만 연다", async () => {
+  const { db, job, trigger, fire, runs } = setup();
+  const apps = new DatabaseSync(":memory:");
+  apps.exec(
+    `CREATE TABLE apps (id TEXT PRIMARY KEY, status TEXT);
+     CREATE TABLE releases (id TEXT PRIMARY KEY, app TEXT, status TEXT, declaration TEXT);`,
+  );
+  try {
+    const mine = "job_01hzzzzzzzzzzzzzzzzzzzzzza";
+    const laptop = "job_01hzzzzzzzzzzzzzzzzzzzzzzb";
+    const desk = "job_01hzzzzzzzzzzzzzzzzzzzzzzc";
+    job(mine, trigger("masup", APP, "usage.limit"));
+    job(laptop, trigger(APP, APP, "usage.limit", LAPTOP));
+    job(desk, trigger(APP, APP, "usage.limit", DESK));
+    const clock = manualClock(Date.parse("2026-11-10T00:00:00.000Z"));
+    const delivery = createEventDelivery({
+      clock,
+      ids: createIdSource({ clock, random: seededRandom(1) }),
+      random: seededRandom(2),
+      activeTraceId: () => undefined,
+      sql: {
+        get: (query, params = []) =>
+          apps.prepare(query).get(...(params as never[])) as never,
+        all: (query, params = []) =>
+          apps.prepare(query).all(...(params as never[])) as never,
+      },
+      transaction: () => {
+        throw new Error("received events are not recorded here");
+      },
+      running: async () => "down",
+      deliver: async () => {
+        throw new Error("no app subscribes");
+      },
+      announce() {},
+      failed() {},
+      machineOf: () => null,
+      crossSeen: () => ok(true),
+      crossPublisher: () => null,
+    });
+    delivery.addInternal({
+      wantsSource: () => false,
+      deliver: (event) =>
+        void fire({
+          publisher: event.publisher,
+          event: event.event,
+          chain: [...event.chain],
+          ...(event.machine === undefined ? {} : { machine: event.machine }),
+        }),
+    });
+    const frame = {
+      type: "AppEventPublished",
+      subject: APP,
+      at: "2026-11-10T00:00:00.000Z",
+      payload: {
+        source: "masup",
+        event: "usage.limit",
+        payload: { percent: 91 },
+        audience: null,
+        publication: "pub_01hzzzzzzzzzzzzzzzzzzzzzza",
+        trace_id: "a".repeat(32),
+        chain: [APP],
+      },
+    };
+    const received = receivedAppEvent(frame);
+    assert.ok(received !== null);
+    await delivery.receive(LAPTOP as never, received);
+    assert.deepStrictEqual(
+      [mine, laptop, desk].map((id) => runs(id).length),
+      [0, 1, 0],
+    );
+  } finally {
+    db.close();
+    apps.close();
   }
 });

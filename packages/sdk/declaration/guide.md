@@ -100,12 +100,19 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
     data와 같이 간다). 칸이 없거나 false면 이 기계에서만 나고, 칸이 없는 옛 선언의 hash는 그대로다. data처럼 늦게 닿을 수 있고
     7일보다 옛 event는 내지 않는다. 사람이 이 앱 workspace를 private으로 둔 기계에서는 그 기계가 낸 event가 다른 기계로 가지
     않고, 다른 기계에서 온 event도 그 기계에서 나지 않는다. 다른 기계에서 온 data의 변경은 이 칸 없이 `data.changed`로 안다.
-- `subscriptions` — 이 앱이 듣는 event 목록이다. 항목은 `{source, event}`다. `source`는 event를 낸 앱의 slug이거나
+- `subscriptions` — 이 앱이 듣는 event 목록이다. 항목은 `{source, event, machine?}`다. `source`는 event를 낸 앱의 slug이거나
   lophn이 내는 event의 `"lophn"`이다(lophn이 내는 event는 session lifecycle의 `session.started|running|waiting|idle|ended`(`@lophn/agent` guide)와
   `data.changed`다. `data.changed`는 폰이나 사람의 다른 컴퓨터에서 온 변경을 lophn이 이 앱의 DB에 적용한 뒤 이 앱에만 한 번 가고
   payload는 `{}`다. 무엇이 바뀌었는지는 싣지 않으니 화면과 앱 process는 받으면 보이는 data를 다시 읽는다). 사람 허락은 없다. 받는 handler 이름은 `on.<source>.<event>`로 정해지고
   operation·command와 같은 handler 이름 공간을 쓴다(64자 안, 겹치면 선언 오류). 앱 process가 `@lophn/cap-tool`의
   `subscribe(source, event, handler)`로 그 handler를 등록한다. handler 등록은 필수가 아니다: 등록하지 않은 앱(화면만 구독하는 앱)의 process에는 그 event가 가지 않는다. 선언하지 않은 구독의 handler를 등록하면 앱이 시작하지 못한다.
+  - `machine`은 다른 컴퓨터의 앱 event를 받겠다는 뜻이고 값은 그 컴퓨터의 이름이다(1~64자, 앞뒤 공백 없음. 앱 code는 사람의 컴퓨터 id를
+    모르므로 이름이다). 이때 `source`는 그 컴퓨터에서의 앱 slug다. 그 컴퓨터가 앱이 선언해 낸 event만 내주고(그 앱 workspace가 private이면 안 준다),
+    이 앱 workspace가 private이면 이 앱은 다른 컴퓨터에 구독을 걸지 않는다. 이름이 풀리지 않거나(없는 컴퓨터, 같은 이름이 둘) 이 컴퓨터를 가리키면 그 구독은
+    받지 못한다. 연결은 그 순간의 event만 나르고 저장하지 않는다: 그 컴퓨터를 끈 사이나 닿지 않는 사이에 난 event는 받지 못한다(`across_machines` event가
+    아닌 한 늦게 오지 않는다). `machine`이 없는 구독은 이 컴퓨터의 앱 event를 받고, 같은 앱이 이 컴퓨터에도 있을 때 그 앱의 `across_machines` event도 받는다.
+    같은 `source`와 `event`는 컴퓨터 하나만 고른다(handler 이름이 하나다). `source`가 `"lophn"`이면 `machine`을 쓰지 못한다.
+    다른 컴퓨터의 event는 앱 process의 handler로만 온다(앱 화면의 `useEvent`는 받지 않는다).
   - 전달은 구독 앱의 handler 호출(invocation) 하나다. 앱 호출 기록(`lophn app invocations`)에 어느 앱의 어느 event가
     불렀는지 보인다. handler는 write로 기록되고 changeset을 떠서 rewind 대상이다.
 - `widgets` — 앱이 폰 widget 목록에 내는 줄이다. 항목은 `{key, label, screen?}`이고 4개까지다. `key`는
@@ -194,7 +201,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.10.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.11.0" }],
 });
 
 const result = validateDeclaration(declaration);

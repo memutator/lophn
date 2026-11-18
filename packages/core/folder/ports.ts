@@ -148,7 +148,8 @@ export type CrossEvents = {
   write(
     app: Id<"app">,
     release: Id<"rel">,
-    event: { name: string; payload: JsonValue; at: string },
+    // `id`는 file 이름이 되는 ULID다(낸 기계가 연결로 보내는 같은 event와 이어 주려고 발행이 먼저 만든다).
+    event: { id: string; name: string; payload: JsonValue; at: string },
   ): Promise<Result<void>>;
 };
 

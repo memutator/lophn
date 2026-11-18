@@ -184,6 +184,10 @@ export type EventDeclaration = {
 export type SubscriptionDeclaration = {
   source: string;
   event: string;
+  // 없어도 된다. 다른 컴퓨터의 앱 event를 받겠다는 뜻이고, 값은 그 컴퓨터의 이름이다(앱 code는 사람의 컴퓨터 id를 모른다).
+  // 이때 source는 그 컴퓨터에서의 앱 slug다. 없으면 이 컴퓨터의 앱이거나 같은 앱이 이 컴퓨터에도 있을 때 그 앱의 event(`across_machines`)다.
+  // handler 이름은 그대로 `on.<source>.<event>`라 같은 source와 event는 컴퓨터 하나만 고른다. 칸이 없는 옛 선언의 hash는 그대로다.
+  machine?: string;
 };
 
 // core가 event의 발행자일 때 source로 쓰는 이름이다.

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import { type Id, parseActor } from "../../protocol/base/mod.ts";
+import { type Id, idSchema, parseActor } from "../../protocol/base/mod.ts";
 import {
   JOB_TRIGGER_DEFAULT_INTERVAL,
   type JobAction,
@@ -134,6 +134,12 @@ function resolveTrigger(
     pass_event: passEvent,
   };
   if (input.source === "lophn") {
+    if (input.machine !== undefined) {
+      return fail(
+        "invalid_input",
+        "lophn events are this computer's; leave machine out",
+      );
+    }
     if (!(SESSION_EVENTS as readonly string[]).includes(input.event)) {
       return fail(
         "invalid_input",
@@ -141,6 +147,25 @@ function resolveTrigger(
       );
     }
     return ok({ ...base, source: "lophn", app: null });
+  }
+  if (input.machine !== undefined) {
+    // 다른 컴퓨터의 앱 event. 그 컴퓨터는 writer 앞에서 `mch_`로 풀렸고(wiring), 그 앱은 이 기계에 없을 수 있으므로 앱 id로 받고 이 기계의 선언과 정책은
+    // 보지 않는다(없는 event는 돌지 않을 뿐이다). private인 workspace의 job은 다른 컴퓨터에 구독을 걸지 않는다(core의 구독이 거른다).
+    if (!idSchema("mch").safeParse(input.machine).success) {
+      return fail("invalid_input", "machine must be a computer id");
+    }
+    if (!idSchema("app").safeParse(input.source).success) {
+      return fail(
+        "invalid_input",
+        "source must be the app id (app_...) of the app on that computer",
+      );
+    }
+    return ok({
+      ...base,
+      source: input.source,
+      app: input.source as Id<"app">,
+      source_machine: input.machine as Id<"mch">,
+    });
   }
   const policy = tx.port(jobEventPolicyPort);
   const app = policy.resolveSource(input.source);
@@ -210,7 +235,7 @@ export function eraseJobsOfApp(tx: Tx, app: string): void {
     .all(
       `SELECT id FROM jobs
        WHERE creator_workspace = ?1
-          OR json_extract(trigger, '$.app') = ?1
+          OR (json_extract(trigger, '$.app') = ?1 AND json_extract(trigger, '$.source_machine') IS NULL)
           OR (json_extract(action, '$.kind') = 'tool_run' AND json_extract(action, '$.app') = ?1)
           OR (json_extract(action, '$.kind') = 'agent_run'
               AND json_extract(action, '$.agent_workspace.kind') = 'app'

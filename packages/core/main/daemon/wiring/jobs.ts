@@ -3,6 +3,7 @@ import type { Id } from "../../../../protocol/base/ids.ts";
 import type { JsonValue } from "../../../../protocol/base/mod.ts";
 import {
   jobClaimDue,
+  jobCreate,
   jobEventTriggers,
   jobFireEvent,
   jobRunEnded,
@@ -23,7 +24,8 @@ import {
 } from "../../../jobs/mod.ts";
 import { createJobScheduler } from "../../../jobs/scheduler.ts";
 import { type RunOrigin, systemTimers } from "../../../runs/mod.ts";
-import { withAfterCommit } from "../../../storage/ledger/mod.ts";
+import type { MachineCandidate } from "../../../../protocol/machine/requester.ts";
+import { type Writer, withAfterCommit } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 // scheduler가 차례를 가져가고 줄을 닫고 workflow instance 상태를 읽는 core 안 machine 자격이다.
@@ -52,6 +54,48 @@ const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
 const WAIT_MS = 60_000;
+
+// 다른 컴퓨터의 event를 때로 건 `jobs/create`의 `trigger.machine`을 저장 전에 `mch_`로 푼다. 명단은 main thread에만 있어 tx 안에서는 풀 수 없다.
+// 못 풀면 `not_found`, 이름이 겹치면 후보와 `invalid_input`이고(resolveMachine), 이 컴퓨터를 가리키면 `invalid_input`이다(그 칸을 빼면 된다).
+function withTriggerMachine(
+  inner: Writer,
+  resolve: (ref: string) => Result<MachineCandidate> | undefined,
+): Writer {
+  return {
+    ...inner,
+    async command(ctx, envelope) {
+      const trigger =
+        envelope.command === jobCreate.name
+          ? (envelope.input as { trigger?: { machine?: unknown } }).trigger
+          : undefined;
+      if (typeof trigger?.machine !== "string") {
+        return inner.command(ctx, envelope);
+      }
+      const found = resolve(trigger.machine);
+      if (found === undefined) {
+        return err({
+          code: "unavailable",
+          message: "other computers are not available yet",
+        });
+      }
+      if (!found.ok) return found;
+      if (found.value.self) {
+        return err({
+          code: "invalid_input",
+          message:
+            "that is this computer; leave machine out to watch this computer's apps",
+        });
+      }
+      return inner.command(ctx, {
+        ...envelope,
+        input: {
+          ...(envelope.input as object),
+          trigger: { ...trigger, machine: found.value.machine },
+        },
+      });
+    },
+  };
+}
 
 // 규칙은 jobs module의 scheduler가 갖는다. 여기는 port를 core에 잇기만 한다.
 // runs·workflows 뒤다: 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
@@ -223,7 +267,11 @@ export const jobsWiring: WiringFactory = () => {
 
       // event를 때로 가진 승인한 켜진 job이 있는 (앱 id 또는 null=lophn, event). event 전달이 job에 관심이 있는지 거르는 표다.
       // job이 바뀔 때마다 다시 읽는다. 저장하지 않으므로 core가 꺼진 사이의 event는 job을 열지 않는다.
-      let triggers: { app: string | null; event: string }[] = [];
+      let triggers: {
+        app: string | null;
+        event: string;
+        machine: string | null;
+      }[] = [];
       const refreshTriggers = async () => {
         const done = await read<Output<typeof jobEventTriggers>>(
           jobEventTriggers,
@@ -239,7 +287,10 @@ export const jobsWiring: WiringFactory = () => {
             event.publisher === "lophn" ? null : event.publisher;
           if (
             !triggers.some(
-              (one) => one.app === publisher && one.event === event.event,
+              (one) =>
+                one.app === publisher &&
+                one.event === event.event &&
+                one.machine === (event.machine ?? null),
             )
           ) {
             return;
@@ -258,6 +309,7 @@ export const jobsWiring: WiringFactory = () => {
             event: event.event,
             payload: event.payload as JsonValue,
             chain: [...event.chain],
+            ...(event.machine === undefined ? {} : { machine: event.machine }),
             session,
           }).then((done) => {
             if (!done.ok) {
@@ -287,7 +339,9 @@ export const jobsWiring: WiringFactory = () => {
         // 화면에 알리는 것은 job command의 `changes`(`jobs`)다.
         writer: (inner) =>
           withAfterCommit(
-            inner,
+            withTriggerMachine(inner, (ref) =>
+              ctx.peek.machineLinks?.resolve(ref),
+            ),
             (actions) => {
               for (const action of actions) {
                 if (action.topic === JOB_HELD_TOPIC) {

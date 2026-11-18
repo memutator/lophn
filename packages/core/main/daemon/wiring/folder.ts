@@ -86,7 +86,10 @@ import {
 } from "../../../folder/export/status.ts";
 import { createFolderImport } from "../../../folder/import/mod.ts";
 import { IMPORT_TMP_DIR } from "../../../folder/import/held.ts";
-import { readArrivedEvents } from "../../../folder/import/events.ts";
+import {
+  markEventSeen,
+  readArrivedEvents,
+} from "../../../folder/import/events.ts";
 import { followAsksPerson } from "../../../folder/import/follow.ts";
 import { createRosterFiles } from "../../../folder/import/roster.ts";
 import {
@@ -237,7 +240,6 @@ export const folderWiring: WiringFactory = () => {
       });
       const sharedFolder = () =>
         sharedFolderPath({ dataRoot, settings: ctx.settings });
-      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
 
       // --- 기계 사이로 옮기기 ---
       const computersRoot = join(dataRoot, COMPUTERS_DIR);
@@ -302,7 +304,6 @@ export const folderWiring: WiringFactory = () => {
             app,
             bundle_hash: stored.value.bundle_hash,
             event,
-            ids,
             transaction: writeLink.transaction,
             clock: ctx.clock,
             random: ctx.random,
@@ -311,6 +312,21 @@ export const folderWiring: WiringFactory = () => {
           return written;
         },
       });
+
+      // 연결로 온 `across_machines` event를 이 기계가 냈다고 적는다(늦은 길과 같은 표). 새 줄이면 true다.
+      ctx.provide("crossSeen", (origin, app, id) =>
+        writeLink.transaction((tx) =>
+          ok(
+            markEventSeen(tx, {
+              me: me(),
+              origin,
+              app,
+              id,
+              at: formatAt(ctx.clock.nowMs()),
+            }),
+          ),
+        ),
+      );
 
       // 활성 release가 있는 보관하지 않은 앱. sync_to는 그 release 선언의 것이다.
       function localApps(): LocalApp[] {

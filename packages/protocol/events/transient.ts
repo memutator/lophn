@@ -14,6 +14,9 @@ import {
   terminalOutputSchema,
   terminalRuntimeSchema,
 } from "../coding-agent/terminals.ts";
+import { traceIdSchema } from "../apps/calls/caller.ts";
+import { APP_CALL_DEPTH_LIMIT } from "../apps/channel-values.ts";
+import { appIdSchema } from "../projects/values.ts";
 import { CHANGE_NAMES } from "./changes.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
@@ -172,6 +175,17 @@ const appEventPublished = defineTransientEvent("AppEventPublished", {
     payload: jsonValueSchema,
     // 이 앱들의 화면만 받는다. null이면 구독을 선언한 모든 화면이다(core가 내는 event는 앱이 볼 수 있는 것만 싣는다).
     audience: z.array(idSchema("app")).nullable(),
+    // 이 발행의 기록 id, trace, 인과의 앱들. 다른 컴퓨터가 이 event를 받아 구독자를 부를 때 event caller에 그대로 싣는다.
+    publication: idSchema("pub"),
+    trace_id: traceIdSchema,
+    chain: z.array(appIdSchema).max(APP_CALL_DEPTH_LIMIT),
+    // `across_machines` event를 낸 기계가 event file에 붙인 id(ULID. `eventFileSchema.id`와 같은 꼴이다. protocol/remote를 import하면 순환이다). 받는 기계가 연결로 온 것과 늦게 닿는 file을 같은 event로 센다.
+    cross_id: z
+      .string()
+      .regex(/^[0-7][0-9a-hjkmnp-tv-z]{25}$/)
+      .optional(),
+    // 다른 기계에서 와 이 기계가 낸 event면 그 난 기계. 이 기계가 낸 event만 다른 컴퓨터에 나가므로 되돌려 나르지 않는 표시다.
+    machine: idSchema("mch").optional(),
   }),
 });
 

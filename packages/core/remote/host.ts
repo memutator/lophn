@@ -12,6 +12,7 @@ import {
   acceptRemote,
   type KeyPair,
   REMOTE_ALLOWED_EVENTS,
+  REMOTE_COMPUTER_EVENTS,
   REMOTE_FRAME_MAX_BYTES,
   type RemoteClientFrame,
   type RemotePhone,
@@ -22,6 +23,7 @@ import {
   type RosterStatement,
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
+import type { BusEvent } from "../../protocol/events/mod.ts";
 import { type Bus, createGatewaySession } from "../events/mod.ts";
 import type { Admission } from "../supervision/responsiveness/mod.ts";
 import {
@@ -82,6 +84,10 @@ export type RemoteHostDeps = {
   admission: Admission;
   // 기기의 마지막 연결이 닫혔거나 기기를 끊었다. 그 기기가 한 보고(presence)를 지우는 데 쓴다.
   deviceGone?(device: string): void;
+  // 기기 principal의 kind. 컴퓨터만 다른 컴퓨터의 앱 event(`REMOTE_COMPUTER_EVENTS`)를 받는다.
+  kind(principal: string): "phone" | "computer" | null;
+  // 앱 event(`AppEventPublished`)를 다른 컴퓨터에 내줘도 되나(이 기계의 call 정책을 아는 쪽이 답한다).
+  appEventShared(event: BusEvent): boolean;
   // core의 앱 view 표. 기기의 마지막 연결이 닫히면 그 기기(owner)의 view를 지운다.
   views: { closeOwner(owner: string): void };
   // core가 폰에 묻는 길. 붙은 연결과 그 연결의 `response`와 닫힘을 알린다.
@@ -179,7 +185,15 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           bufferedAmount: () => socket.bufferedAmount(),
         },
         deps.bus,
-        { events: REMOTE_ALLOWED_EVENTS, owner },
+        deps.kind(owner) === "computer"
+          ? {
+              events: [...REMOTE_ALLOWED_EVENTS, ...REMOTE_COMPUTER_EVENTS],
+              owner,
+              accept: (event) =>
+                event.type !== "AppEventPublished" ||
+                deps.appEventShared(event),
+            }
+          : { events: REMOTE_ALLOWED_EVENTS, owner },
       );
       cleanups.push(() => {
         session.closed();

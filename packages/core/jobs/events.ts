@@ -32,6 +32,18 @@ function workspaceOf(
     : { kind: job.creator.workspace.kind, id: job.creator.workspace.id };
 }
 
+// jobs.creator_workspace 칸(`prj_`나 `app_` id, Home은 NULL)을 workspace로 읽는다.
+function workspaceOfColumn(
+  column: unknown,
+): { kind: "project" | "app"; id: string } | null {
+  return column === null || column === undefined
+    ? null
+    : {
+        kind: String(column).startsWith("prj_") ? "project" : "app",
+        id: String(column),
+      };
+}
+
 // event가 한 job을 연다: 건너뛰거나(busy, too_soon) 차례를 queued로 만든다. 걸러 내는 것(session 범위, 자기 run, 앱 사슬)은 조용히 넘긴다.
 function consider(
   tx: Tx,
@@ -133,16 +145,23 @@ export function createEventCommands(): {
         const now = tx.now();
         const lophn = input.publisher === "lophn";
         // 이 기계의 job 가운데 이 event를 때로 가진 승인한 켜진 job. 앱 event는 앱 id로, core event는 source lophn으로 맞춘다.
+        // 다른 컴퓨터에서 온 event는 그 기계를 때로 가진 job만, 이 기계의 event는 기계를 적지 않은 job만 연다.
         const rows = tx.sql.all(
           `SELECT id FROM jobs
             WHERE enabled = 1 AND approved_at IS NOT NULL AND trigger IS NOT NULL
               AND machine = ?
               AND json_extract(trigger, '$.event') = ?
               AND ${lophn ? "json_extract(trigger, '$.app') IS NULL" : "json_extract(trigger, '$.app') = ?"}
+              AND json_extract(trigger, '$.source_machine') IS ?
             ORDER BY id`,
           lophn
-            ? [machine.value, input.event]
-            : [machine.value, input.event, input.publisher],
+            ? [machine.value, input.event, input.machine ?? null]
+            : [
+                machine.value,
+                input.event,
+                input.publisher,
+                input.machine ?? null,
+              ],
         );
         let fired = 0;
         let skipped = 0;
@@ -155,6 +174,7 @@ export function createEventCommands(): {
             source: job.value.trigger!.source,
             event: input.event,
             payload: input.payload,
+            ...(input.machine === undefined ? {} : { machine: input.machine }),
           };
           const outcome = consider(
             tx,
@@ -185,7 +205,8 @@ export function createEventCommands(): {
         const machine = snapshot.port(jobMachinePort).id();
         if (!machine.ok) return machine;
         const rows = snapshot.sql.all(
-          `SELECT DISTINCT json_extract(trigger, '$.app') AS app, json_extract(trigger, '$.event') AS event
+          `SELECT DISTINCT json_extract(trigger, '$.app') AS app, json_extract(trigger, '$.event') AS event,
+                  json_extract(trigger, '$.source_machine') AS machine, creator_workspace
              FROM jobs
             WHERE enabled = 1 AND approved_at IS NOT NULL AND trigger IS NOT NULL
               AND machine = ?`,
@@ -195,6 +216,8 @@ export function createEventCommands(): {
           triggers: rows.map((row) => ({
             app: (row["app"] ?? null) as Id<"app"> | null,
             event: String(row["event"]),
+            machine: (row["machine"] ?? null) as Id<"mch"> | null,
+            workspace: workspaceOfColumn(row["creator_workspace"]),
           })),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

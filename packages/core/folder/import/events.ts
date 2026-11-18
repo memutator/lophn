@@ -15,6 +15,28 @@ import type { DestinationsView } from "../destinations.ts";
 import { createFolderReader } from "../fs.ts";
 import type { EventArrived } from "../ports.ts";
 
+/**
+ * 이 기계가 그 event file(난 기계, 앱, file id)을 낸 것으로 적는다. 새 줄이면 true다(내야 한다). 같은 event가 늦은 길(file)과 연결
+ * (`AppEventPublished`의 `cross_id`)로 둘 다 오므로 두 길이 이 한 표로 한 번만 낸다.
+ */
+export function markEventSeen(
+  tx: Pick<Tx, "sql">,
+  input: {
+    me: Id<"mch">;
+    origin: Id<"mch">;
+    app: Id<"app">;
+    id: string;
+    at: string;
+  },
+): boolean {
+  const done = tx.sql.run(
+    `INSERT INTO folder_events_seen (machine, origin, app, event, seen_at)
+     VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+    [input.me, input.origin, input.app, input.id, input.at],
+  );
+  return done.changes > 0;
+}
+
 export async function readArrivedEvents(input: {
   me: Id<"mch">;
   apps: { app: Id<"app">; sync_to: string; bundle_hash: string }[];
@@ -56,12 +78,17 @@ export async function readArrivedEvents(input: {
     );
     const out: EventFile[] = [];
     for (const event of found) {
-      const done = tx.sql.run(
-        `INSERT INTO folder_events_seen (machine, origin, app, event, seen_at)
-         VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-        [me, event.machine, event.app, event.id, at],
-      );
-      if (done.changes > 0) out.push(event);
+      if (
+        markEventSeen(tx, {
+          me,
+          origin: event.machine as Id<"mch">,
+          app: event.app as Id<"app">,
+          id: event.id,
+          at,
+        })
+      ) {
+        out.push(event);
+      }
     }
     return ok(out);
   });

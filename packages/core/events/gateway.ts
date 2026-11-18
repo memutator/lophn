@@ -2,6 +2,7 @@
 // 재생도 ack도 없다. 놓치거나 끊기면 붙은 쪽이 snapshot부터 다시 읽는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  type BusEvent,
   GATEWAY_CLOSE_SLOW_CONSUMER,
   type GatewayServerFrame,
   parseGatewayClientFrame,
@@ -37,6 +38,8 @@ export function createGatewaySession(
     events?: readonly string[];
     // 이 연결 credential의 principal. `AppViewEvent`는 payload의 owner가 이것과 같을 때만 보낸다. 없으면 보내지 않는다.
     owner?: string;
+    // 있으면 `events`에 든 type의 event도 이 함수가 true인 것만 보낸다(내용으로 가린다: 예, 다른 컴퓨터에 내주는 앱 event).
+    accept?: (event: BusEvent) => boolean;
   } = {},
 ): GatewaySession {
   const allowed = options.events && new Set<string>(options.events);
@@ -78,6 +81,7 @@ export function createGatewaySession(
       unsubscribe = bus.subscribe(frame.value.conditions, {
         send(event) {
           if (done || (allowed && !allowed.has(event.type))) return;
+          if (options.accept !== undefined && !options.accept(event)) return;
           if (
             event.type === "AppViewEvent" &&
             (options.owner === undefined ||

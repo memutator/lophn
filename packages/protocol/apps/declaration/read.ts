@@ -104,6 +104,8 @@ const appSubscriptionSchema = z.object({
   // 다른 앱의 slug이거나 `lophn`.
   source: z.string().min(1),
   event: z.string().min(1),
+  // 다른 컴퓨터의 앱 event를 받을 때 그 컴퓨터의 이름.
+  machine: z.string().min(1).optional(),
 });
 
 // 앱이 폰 widget 목록에 낸 줄. 칸이 없는 선언은 없다. 규칙은 선언 검사가 정하므로 여기서는 값만 본다.

@@ -49,7 +49,10 @@ import {
   rosterStatements,
   rosterStore,
 } from "../../../../protocol/remote/mod.ts";
-import { confirmationRefSchema } from "../../../../protocol/base/mod.ts";
+import {
+  confirmationRefSchema,
+  type Id,
+} from "../../../../protocol/base/mod.ts";
 import {
   machineRemoved,
   machineSigningKey,
@@ -65,6 +68,7 @@ import {
   assignmentGet,
 } from "../../../../protocol/approvals/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { jobEventTriggers } from "../../../../protocol/jobs/mod.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { resolveMachine } from "../../../../protocol/machine/requester.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -95,6 +99,7 @@ import {
   DEFAULT_CALL_POLICY,
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
+import { receivedAppEvent } from "../../../apps/events/mod.ts";
 import { EVENT_PUBLICATIONS_MACHINE_STEPS } from "../../../apps/events/schema.ts";
 import { invocationsRemoteCallerSchemaSteps } from "../../../apps/invocations/mod.ts";
 import {
@@ -111,6 +116,10 @@ import {
 } from "../../../projects/registry/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
 import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
+import {
+  createRemoteSubscriptions,
+  sharesAppEvent,
+} from "../../../remote/subscriptions.ts";
 import {
   createGrants,
   GRANTS_COMMANDS,
@@ -192,6 +201,7 @@ const REMOTE_CONTEXT: AuthenticatedContext = {
       rosterGrantsSeed.name,
       assignmentGet.name,
       agentRead.name,
+      jobEventTriggers.name,
     ],
     targets: {},
   },
@@ -424,6 +434,7 @@ export function remoteWiring(
   // 명단의 다른 컴퓨터마다 하나인 link. remote가 켜진 동안만 붙는다.
   let links: Links;
   let carry: CarryLinks;
+  let subscriptions: ReturnType<typeof createRemoteSubscriptions>;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -745,6 +756,11 @@ export function remoteWiring(
     }
     const staticKey = keys.host;
     hostText = remoteKeyText(staticKey.publicKey);
+    const privateApp = (app: string) =>
+      isPrivate(ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY, {
+        kind: "app",
+        id: app,
+      });
     host ??= createRemoteHost({
       staticKey,
       machine: () => ({
@@ -779,14 +795,7 @@ export function remoteWiring(
         onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
         granted: (principal) => ctx.terminalInputGrant(principal),
         kind: (principal) => ctx.deviceKind(principal),
-        privateApp: (app) =>
-          isPrivate(
-            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
-            {
-              kind: "app",
-              id: app,
-            },
-          ),
+        privateApp,
         async confirm(request) {
           const issued = await ctx.runtime.confirmation({
             action: "issue",
@@ -802,6 +811,9 @@ export function remoteWiring(
         },
       }),
       admission,
+      kind: (principal) => ctx.deviceKind(principal),
+      // 다른 컴퓨터에 내주는 앱 event는 이 기계의 call 정책에서 private이 아닌 앱이 낸 것뿐이다.
+      appEventShared: (event) => sharesAppEvent(event, privateApp),
       deviceGone: (device) =>
         ctx.attention.forgetReporter(devicePrincipal(device)),
       views: ctx.appViews,
@@ -833,6 +845,14 @@ export function remoteWiring(
     if (!reached.ok) logError(ctx, "roster_not_signed", reached.error.message);
     carry.start();
     links.sync(keys.host);
+    refreshSubscriptions(ctx);
+  }
+
+  // 구독을 다시 계산해 건다(job과 앱 선언, 명단이 바뀐 뒤와 core가 설 때).
+  function refreshSubscriptions(ctx: WiringContext) {
+    void subscriptions
+      .refresh()
+      .catch((thrown) => logError(ctx, "subscriptions_not_applied", thrown));
   }
 
   // `roster/*` route가 자기 항목이 없을 때(remote를 켠 적이 없다) 내는 답.
@@ -1043,6 +1063,52 @@ export function remoteWiring(
         logger: ctx.telemetry.logger,
         onPeerReady: (machine) => carry.ready(machine),
         onPeerCarry: (machine) => carry.peerChanged(machine),
+        // 그 컴퓨터가 보낸 앱 event는 core의 구독자(job, 앱 선언)에게 이 기계의 event로 낸다.
+        onPeerEvent(machine, event) {
+          const received = receivedAppEvent(event);
+          if (received !== null)
+            void ctx.eventDelivery.receive(machine, received);
+        },
+      });
+      subscriptions = createRemoteSubscriptions({
+        async jobs() {
+          const read = await ctx.runtime.reads.get(key(jobEventTriggers))!(
+            REMOTE_CONTEXT,
+            {},
+          );
+          if (!read.ok) return read;
+          const { triggers } = read.value as z.infer<
+            typeof jobEventTriggers.output
+          >;
+          return ok(
+            triggers.flatMap((one) =>
+              one.machine === null
+                ? []
+                : [
+                    {
+                      machine: one.machine as Id<"mch">,
+                      workspace: one.workspace,
+                    },
+                  ],
+            ),
+          );
+        },
+        apps: () => ctx.peek.appMachineSubscriptions?.() ?? [],
+        computers: () => links.computers(),
+        resolve: (ref) => resolveMachine(ref, links.computers()),
+        isPrivate: (workspace) =>
+          isPrivate(
+            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+            workspace,
+          ),
+        watch: (subscriber, machine, conditions) =>
+          links.watch(subscriber, machine, conditions),
+        warn: (event, fields) =>
+          ctx.telemetry.logger.warn({
+            component: "remote",
+            event,
+            fields,
+          }),
       });
       ctx.provide("machineLinks", {
         computers: () => links.computers(),
@@ -1424,6 +1490,15 @@ export function remoteWiring(
           if (changes.some((change) => change.name === "remote_devices")) {
             refreshPushDevices(ctx);
             resignSelf(ctx);
+          }
+          if (
+            changes.some((change) =>
+              ["remote_devices", "jobs", "releases", "apps"].includes(
+                change.name,
+              ),
+            )
+          ) {
+            refreshSubscriptions(ctx);
           }
           if (changes.some((change) => change.name === "carry_files")) {
             carry.changed();

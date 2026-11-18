@@ -125,6 +125,9 @@ export type LinksDeps = {
   onPeerReady(machine: Id<"mch">): void;
   // 그 컴퓨터가 든 옮기는 file이 바뀌었다(그 컴퓨터의 `StateChanged{carry_files}`).
   onPeerCarry(machine: Id<"mch">): void;
+  // 그 컴퓨터가 보낸 event 가운데 core 안 구독자(capability가 없는 구독자)의 조건에 든 것. 그 컴퓨터가 보낸 글이라 믿지 않고 받는 쪽이 다시 읽는다.
+  // bus의 `MachineFrameReceived`에는 싣지 않는다: 창이 원한 것이 아니다.
+  onPeerEvent(machine: Id<"mch">, event: unknown): void;
 };
 
 // 나르기가 link마다 화면의 조건에 더해 거는 조건. 화면이 원하지 않은 `StateChanged`는 bus에 싣지 않는다.
@@ -139,18 +142,22 @@ type Link = {
   refused: boolean;
   // 마지막으로 낸 상태. 바뀔 때만 StateChanged를 낸다.
   shown: string;
-  // 붙은 동안 보낸 watch마다 바꾼 구독자의 watcher(모르면 undefined)를 보낸 차례로 둔다. 그 기계가 같은 차례로 `ready`를 답한다.
+  // 붙은 동안 보낸 watch마다 바꾼 구독자(모르면 undefined)를 보낸 차례로 둔다. 그 기계가 같은 차례로 `ready`를 답한다.
   // 붙기 전에 보낸 것은 넣지 않는다: 붙을 때 connection이 다시 건 watch의 `ready`는 모두의 것이다.
-  asked: (string | undefined)[];
+  asked: (MachineSubscriber | undefined)[];
 };
 
 type Watch = { subscriber: MachineSubscriber; conditions: EventCondition[] };
 
-// 같은 session·types는 한 번만 건다.
-function sum(subscribers: ReadonlyMap<string, Watch> | undefined) {
+// 같은 session·types는 한 번만 건다. `only`로 core 안 구독자(capability가 없다)나 화면의 구독자만 합할 수 있다.
+function sum(
+  subscribers: ReadonlyMap<string, Watch> | undefined,
+  only?: (subscriber: MachineSubscriber) => boolean,
+) {
   const seen = new Set<string>();
   const out: EventCondition[] = [];
-  for (const { conditions } of subscribers?.values() ?? []) {
+  for (const { subscriber, conditions } of subscribers?.values() ?? []) {
+    if (only !== undefined && !only(subscriber)) continue;
     for (const condition of conditions) {
       const key = JSON.stringify([condition.session ?? null, condition.types]);
       if (seen.has(key)) continue;
@@ -325,24 +332,44 @@ export function createLinks(deps: LinksDeps) {
     });
     connection.onEvent((message) => {
       const machine = body.machine as Id<"mch">;
+      let watcher: string | undefined;
       if (message.kind === "event") {
         const event = message.event as {
           type?: unknown;
           payload?: { changes?: { name: string }[] };
         };
-        if (event.type === "StateChanged") {
-          if (
-            event.payload?.changes?.some((each) => each.name === "carry_files")
-          ) {
-            deps.onPeerCarry(machine);
-          }
-          // 나르기 때문에 더 건 `StateChanged`는 구독자가 건 것이 아니면 화면에 싣지 않는다.
-          if (!eventMatches(sum(watching.get(body.id)), event as BusEvent)) {
-            return;
-          }
+        if (typeof event !== "object" || event === null) return;
+        if (
+          event.type === "StateChanged" &&
+          event.payload?.changes?.some((each) => each.name === "carry_files")
+        ) {
+          deps.onPeerCarry(machine);
         }
+        // 구독자마다 자기가 건 것만 받는다: core 안 구독자의 조건에 든 것은 core로, 화면의 조건에 든 것만 bus로 싣는다(나르기 때문에 더 건
+        // `StateChanged`나 core가 건 `AppEventPublished`가 창에 가지 않는다).
+        const subscribers = watching.get(body.id);
+        if (
+          eventMatches(
+            sum(subscribers, (one) => one.capability === null),
+            event as BusEvent,
+          )
+        ) {
+          deps.onPeerEvent(machine, message.event);
+        }
+        if (
+          !eventMatches(
+            sum(subscribers, (one) => one.capability !== null),
+            event as BusEvent,
+          )
+        ) {
+          return;
+        }
+      } else if (message.kind === "ready") {
+        const asked = link.asked.shift();
+        // core 안 구독자가 건 watch의 `ready`는 창이 기다리는 것이 아니다.
+        if (asked?.capability === null) return;
+        watcher = asked?.watcher;
       }
-      const watcher = message.kind === "ready" ? link.asked.shift() : undefined;
       deps.publish({
         type: "MachineFrameReceived",
         subject: `machine:${machine}`,
@@ -413,10 +440,11 @@ export function createLinks(deps: LinksDeps) {
   }
 
   // 기기의 합을 link에 건다. 붙은 link면 그 `ready`가 누구 것인지 둔다.
-  function send(device: string, watcher: string | undefined) {
+  function send(device: string, subscriber: MachineSubscriber | undefined) {
     const link = links.get(device);
     if (link === undefined) return;
-    if (link.connection.current().state === "ready") link.asked.push(watcher);
+    if (link.connection.current().state === "ready")
+      link.asked.push(subscriber);
     void link.connection.watch(conditionsOf(device));
   }
 
@@ -579,7 +607,7 @@ export function createLinks(deps: LinksDeps) {
       if (conditions.length === 0) subscribers.delete(key);
       else subscribers.set(key, { subscriber, conditions });
       if (subscribers.size === 0) watching.delete(device);
-      send(device, subscriber.watcher);
+      send(device, subscriber);
       return ok({});
     },
 

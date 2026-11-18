@@ -128,6 +128,7 @@ import {
   createEventArrival,
   createEventDelivery,
   createEventPublisher,
+  crossPublisherOf,
 } from "../../../apps/events/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import {
@@ -572,50 +573,8 @@ export const appsWiring: WiringFactory = () => {
           return ok(found);
         },
       });
-      // 앱 event: 전달(구독 앱의 handler를 앱 호출 경로로 부른다)과 앱의 발행. 발행 기록은 invocation과 같이 짧은 연결로 쓴다.
-      const eventDelivery = createEventDelivery({
-        clock: ctx.clock,
-        ids,
-        random: ctx.random,
-        activeTraceId: () => ctx.telemetry.tracer.context.active()?.traceId,
-        sql: link.sql,
-        transaction: link.transaction,
-        async running(app, release, handler) {
-          const observed = await appsControl.client.observe(app);
-          if (
-            observed.ok &&
-            observed.value !== null &&
-            observed.value.mode === "live" &&
-            observed.value.release === release &&
-            observed.value.ready &&
-            observed.value.accepting
-          ) {
-            // 등록한 handler 이름은 ready probe가 알린 것이다. 화면만 구독하는 앱은 등록하지 않아 process 전달 대상이 아니다.
-            return observed.value.tools.includes(handler) ? "running" : "none";
-          }
-          return "down";
-        },
-        deliver: path.call,
-        announce({ publisher, source, event, payload, audience, at }) {
-          ctx.peek.bus?.publish({
-            type: "AppEventPublished",
-            subject: publisher === "lophn" ? null : publisher,
-            at,
-            payload: { source, event, payload, audience },
-          } as BusEvent);
-        },
-        failed(app, event, message) {
-          ctx.telemetry.logger.warn({
-            component: "apps/events",
-            event: "delivery_failed",
-            fields: { app, name: event, message },
-          });
-        },
-      });
-      ctx.provide("eventDelivery", eventDelivery);
-      // 발행과 다른 기계에서 온 event가 같이 쓰는 면. private은 이 기계의 call 정책이다.
-      const appEventDeps = {
-        delivery: eventDelivery,
+      // 발행과 다른 기계에서 온 event가 같이 쓰는 앱 읽기. private은 이 기계의 call 정책이다.
+      const appStore = {
         app(app: string) {
           const loaded = loadApp(link.sql, app);
           if (!loaded.ok) return loaded;
@@ -642,6 +601,62 @@ export const appsWiring: WiringFactory = () => {
           );
         },
         isPrivate: appIsPrivate,
+      };
+      // 앱 event: 전달(구독 앱의 handler를 앱 호출 경로로 부른다)과 앱의 발행. 발행 기록은 invocation과 같이 짧은 연결로 쓴다.
+      const eventDelivery = createEventDelivery({
+        clock: ctx.clock,
+        ids,
+        random: ctx.random,
+        activeTraceId: () => ctx.telemetry.tracer.context.active()?.traceId,
+        sql: link.sql,
+        transaction: link.transaction,
+        async running(app, release, handler) {
+          const observed = await appsControl.client.observe(app);
+          if (
+            observed.ok &&
+            observed.value !== null &&
+            observed.value.mode === "live" &&
+            observed.value.release === release &&
+            observed.value.ready &&
+            observed.value.accepting
+          ) {
+            // 등록한 handler 이름은 ready probe가 알린 것이다. 화면만 구독하는 앱은 등록하지 않아 process 전달 대상이 아니다.
+            return observed.value.tools.includes(handler) ? "running" : "none";
+          }
+          return "down";
+        },
+        deliver: path.call,
+        announce({ publisher, at, ...published }) {
+          ctx.peek.bus?.publish({
+            type: "AppEventPublished",
+            subject: publisher === "lophn" ? null : publisher,
+            at,
+            payload: published,
+          } as BusEvent);
+        },
+        // 구독 선언의 컴퓨터 이름은 명단에서 푼다(remote wiring이 늦게 낸다). 이 컴퓨터를 가리키는 이름은 받지 못한다: 이 기계의 event는 `machine`이 없다.
+        machineOf(name) {
+          const found = ctx.peek.machineLinks?.resolve(name);
+          return found?.ok && !found.value.self
+            ? (found.value.machine as Id<"mch">)
+            : null;
+        },
+        crossSeen: (origin, app, id) =>
+          ctx.peek.crossSeen?.(origin, app, id) ??
+          err({ code: "unavailable", message: "folder is not ready" }),
+        crossPublisher: crossPublisherOf(appStore),
+        failed(app, event, message) {
+          ctx.telemetry.logger.warn({
+            component: "apps/events",
+            event: "delivery_failed",
+            fields: { app, name: event, message },
+          });
+        },
+      });
+      ctx.provide("eventDelivery", eventDelivery);
+      const appEventDeps = {
+        delivery: eventDelivery,
+        ...appStore,
         warn(event: string, fields: Record<string, string>) {
           ctx.telemetry.logger.warn({
             component: "apps/events",
@@ -650,6 +665,26 @@ export const appsWiring: WiringFactory = () => {
           });
         },
       };
+      ctx.provide("appMachineSubscriptions", () => {
+        const listed = loadApps(link.sql, "active");
+        if (!listed.ok) return [];
+        return listed.value.flatMap((app) => {
+          const stored = loadActiveDeclaration(link.sql, app.id);
+          const machines = [
+            ...new Set(
+              (stored.ok
+                ? stored.value?.declaration.subscriptions
+                : []
+              )?.flatMap((one) =>
+                one.machine === undefined ? [] : [one.machine],
+              ),
+            ),
+          ];
+          return machines.length === 0
+            ? []
+            : [{ app: app.id as Id<"app">, machines }];
+        });
+      });
       ctx.provide(
         "eventArrived",
         createEventArrival({
@@ -659,6 +694,7 @@ export const appsWiring: WiringFactory = () => {
       );
       const publishEvent = createEventPublisher({
         ...appEventDeps,
+        ids,
         // folder wiring이 낸다. 없으면 이 기계는 다른 기계로 event를 나르지 않는다.
         crossEvents: {
           write: (app, release, event) =>

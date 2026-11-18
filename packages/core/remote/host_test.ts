@@ -115,7 +115,11 @@ import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { RouteRegistry } from "../server/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
-import { createDeviceCredentials, createRemoteCall } from "./call.ts";
+import {
+  createDeviceCredentials,
+  createRemoteCall,
+  devicePrincipal,
+} from "./call.ts";
 import {
   DEVICES_COMMANDS,
   DEVICES_KIND_STEPS,
@@ -145,6 +149,7 @@ import {
 } from "./host.ts";
 import { createLinks } from "./links.ts";
 import { createMachineRoutes } from "./machine-routes.ts";
+import { CORE_APP_EVENTS, sharesAppEvent } from "./subscriptions.ts";
 import { createRoster, type Roster, type RosterChange } from "./roster.ts";
 
 // 메모리 안에서 폰과 core를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
@@ -315,6 +320,9 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       actors: ["user"],
       kind: route.kind === "command" ? "command" : "read",
     }));
+  // 기기의 kind(`register`가 정한다. 폰이 기본이다)와 이 기계의 call 정책에서 private인 앱.
+  const kinds = new Map<string, "phone" | "computer">();
+  const privateApps = new Set<string>();
   const registry = new CredentialRegistry({
     epoch: "test",
     random,
@@ -517,6 +525,9 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       confirm: async () => err({ code: "internal", message: "not issued" }),
     }),
     admission,
+    kind: (principal) => kinds.get(principal) ?? "phone",
+    appEventShared: (event) =>
+      sharesAppEvent(event, (app) => privateApps.has(app)),
     views,
     phoneLink: { attached() {}, received() {}, closed() {} },
   });
@@ -556,9 +567,10 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     }
   }
 
-  function register(phoneKey: KeyPair): string {
+  function register(phoneKey: KeyPair, kind: "phone" | "computer" = "phone") {
     const id = deviceId(next++);
     table.set(remoteKeyText(phoneKey.publicKey), id);
+    kinds.set(devicePrincipal(id), kind);
     return id;
   }
 
@@ -576,6 +588,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     open,
     connect,
     register,
+    privateApps,
     fire,
     random,
   };
@@ -941,7 +954,15 @@ test("기기의 watch는 types 없이 걸어도 REMOTE_ALLOWED_EVENTS 밖의 eve
     type: "AppEventPublished",
     subject: null,
     at: s.clock.now(),
-    payload: { source: "lophn", event: "x", payload: {}, audience: null },
+    payload: {
+      source: "lophn",
+      event: "x",
+      payload: {},
+      audience: null,
+      publication: `pub_0${"1".repeat(25)}`,
+      trace_id: "a".repeat(32),
+      chain: [],
+    },
   });
   s.bus.publish({
     type: "NoticeClosed",
@@ -1490,7 +1511,7 @@ async function linkedComputer(
   t: { after(fn: () => void): void },
 ) {
   const aKey = generateKeyPair(s.random);
-  s.register(aKey);
+  s.register(aKey, "computer");
   const b: RosterEntryBody = {
     type: "entry",
     id: deviceId(50) as RosterEntryBody["id"],
@@ -1525,6 +1546,8 @@ async function linkedComputer(
     receive: async () => ok(snapshot),
   } as unknown as Roster;
   const published: BusEvent[] = [];
+  // 이 컴퓨터(A) core 안 구독자가 받은 B의 event.
+  const peerEvents: unknown[] = [];
   const links = createLinks({
     roster,
     name: () => "laptop",
@@ -1544,6 +1567,7 @@ async function linkedComputer(
     logger: { error() {}, warn() {} } as never,
     onPeerReady: () => undefined,
     onPeerCarry: () => undefined,
+    onPeerEvent: (_machine, event) => void peerEvents.push(event),
   });
   links.sync(aKey);
   t.after(() => links.sync(undefined));
@@ -1551,7 +1575,7 @@ async function linkedComputer(
     await settle();
   }
   assert.equal(links.list()[0]?.status, "connected");
-  return { links, published };
+  return { links, published, peerEvents };
 }
 
 // 한 기계를 여러 구독자(창, shell main 안의 것)가 본다. 한쪽이 그만보거나 그 shell이 끝나 빠질 때 다른 구독자의 조건까지 덮으면
@@ -1615,4 +1639,83 @@ test("두 구독자가 같은 기계를 볼 때 한쪽이 빈 조건으로 그�
   watch("b", "w1", [{ types: ["AppSyncChanged"] }]);
   for (const listener of ended) listener("a");
   assert.deepEqual(await received(), ["AppSyncChanged"]);
+});
+
+// 다른 컴퓨터의 앱 event를 구독하는 job과 앱이 건 구독의 받는 쪽이다. 거르기를 잃으면 private workspace의 앱 event가 다른 컴퓨터로 새고,
+// 한 event가 core 구독자만 원했는데 창에도 간다.
+test("컴퓨터는 private이 아닌 앱이 낸 앱 event만 받고, 폰은 앱 event를 받지 않으며, core 구독자의 event는 창에 가지 않는다", async (t) => {
+  const s = setup();
+  const { links, published, peerEvents } = await linkedComputer(s, t);
+  const phoneKey = generateKeyPair(s.random);
+  s.register(phoneKey);
+  const phone = await s.connect(phoneKey);
+  phone.phone.send({ type: "watch", conditions: [{}] });
+
+  const OPEN_APP = viewApp;
+  const SECRET_APP = `app_0${"2".repeat(25)}`;
+  s.privateApps.add(SECRET_APP);
+  const announce = (
+    subject: string | null,
+    extra: { audience?: string[] | null; machine?: string } = {},
+  ) =>
+    s.bus.publish({
+      type: "AppEventPublished",
+      subject,
+      at: s.clock.now(),
+      payload: {
+        source: subject === null ? "lophn" : "ops",
+        event: "limit",
+        payload: { percent: 91 },
+        audience: extra.audience ?? null,
+        publication: `pub_0${"1".repeat(25)}`,
+        trace_id: "a".repeat(32),
+        chain: subject === null ? [] : [subject],
+        ...(extra.machine === undefined ? {} : { machine: extra.machine }),
+      },
+    } as BusEvent);
+  const screen = { capability: "w", watcher: "screen" };
+  assert.ok(
+    links.watch(CORE_APP_EVENTS, HOST_MACHINE, [
+      { types: ["AppEventPublished"] },
+    ]).ok,
+  );
+  assert.ok(
+    links.watch(screen, HOST_MACHINE, [{ types: ["NoticeClosed"] }]).ok,
+  );
+  await settle();
+  published.length = 0;
+
+  announce(OPEN_APP);
+  announce(SECRET_APP);
+  // core가 낸 event, 앱 화면만 받는 event, 다른 기계에서 와 이 기계가 낸 event는 앱 event여도 가지 않는다.
+  announce(null);
+  announce(OPEN_APP, { audience: [OPEN_APP] });
+  announce(OPEN_APP, { machine: HOST_MACHINE });
+  s.bus.publish({
+    type: "NoticeClosed",
+    subject: null,
+    at: s.clock.now(),
+    payload: { id: `ntc_0${"1".repeat(25)}` },
+  });
+  await settle();
+
+  assert.deepEqual(
+    peerEvents.map((event) => (event as { subject: string }).subject),
+    [OPEN_APP],
+  );
+  assert.deepEqual(
+    published.flatMap((event) => {
+      const frame = (
+        event.payload as { frame: { type: string; event?: BusEvent } }
+      ).frame;
+      return frame.type === "event" ? [frame.event!.type] : [];
+    }),
+    ["NoticeClosed"],
+  );
+  assert.deepEqual(
+    phone.frames.flatMap((frame) =>
+      frame.type === "event" ? [frame.event.type] : [],
+    ),
+    ["NoticeClosed"],
+  );
 });

@@ -9,7 +9,7 @@ export interface PageEvents {
   devtoolsOpened(): void;
 }
 
-export type DebuggerOwner = "driver" | "emulation";
+export type DebuggerOwner = "driver" | "emulation" | "stream";
 
 export interface Page {
   /** webContents id. 같은 page인지는 이것으로 본다. */
@@ -20,7 +20,7 @@ export interface Page {
   url(): string;
   title(): string;
   /**
-   * webContents 하나에 debugger 하나라 driver와 emulation이 같이 쓴다. 이미 붙어 있어도(owner가 다르면) 같이 쓰고,
+   * webContents 하나에 debugger 하나라 driver, emulation, stream(멀리서 보기)이 같이 쓴다. 이미 붙어 있어도(owner가 다르면) 같이 쓰고,
    * 우리 것이 아닌 debugger가 붙어 있으면 던진다. 마지막 owner가 detach할 때만 실제로 뗀다.
    */
   attach(owner: DebuggerOwner): void;

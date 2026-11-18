@@ -1668,7 +1668,7 @@ flows:
     title: "agent가 다루는 browser·preview 탭을 사람이 가져오거나 돌려준다(take control)"
     actor: person
     entries: []
-    uses: [ipc:shell:surface-take, ipc:shell:surface-control, ipc:shell:surface-report, system:browser-call-run]
+    uses: [ipc:shell:surface-take, ipc:shell:surface-control, ipc:shell:surface-report, system:browser-call-run, system:page-stream]
     boundary: [shell, host-queue-interface]
     code:
       - packages/shell/ipc/surface.ts
@@ -1680,6 +1680,7 @@ flows:
       - "agent의 첫 browser 호출이 오면 main이 그 탭을 agent가 다루는 중으로 적고 그 탭을 가진 창에 {agent, held} 상태를 push한다. 창이 상태 표시와 Take control 단추를 그린다"
       - "사람이 Take control을 누르면 창이 surface-take(held: true)를 보낸다. bind한 창이 보냈고 agent가 다루는 중인 탭이면 held가 되어 push된다. 이후 agent의 act, navigate, evaluate는 conflict다(읽기는 된다)"
       - "돌려주면(held: false) held가 풀리고 다시 push된다. 탭이 닫히면 상태를 잊는다"
+      - "사람이 다른 기기에서 가져오거나 돌려줘도(page_control, system:page-stream) 같은 상태가 바뀌어 그 창에 같은 push가 가고, 멀리서 보는 중이면 page_state로 core에도 알린다. 그 기계의 사람은 [Hand back]으로 멀리서 잡은 것도 푼다"
     outcomes:
       - id: held
         when: "agent가 다루는 중인 탭을 사람이 가져왔다. 이후 agent의 쓰기가 conflict다"
@@ -1691,6 +1692,60 @@ flows:
         when: "등록된 본문 창이 아니거나, 입력이 schema에 맞지 않거나, 그 탭을 bind한 창이 보낸 것이 아니거나, agent가 아직 다루지 않는 탭의 가져오기이거나, 가져온 적 없는 탭의 돌려주기다(응답 없이 버린다)"
         observe: []
     crosses_process: false
+    docs: [architecture/browser-tab.md]
+
+  - id: page-stream
+    title: "desktop 앱이 다른 기기가 보는 browser 탭의 frame을 core로 밀고 그 기기의 입력과 잡기를 page에 넣는다"
+    actor: shell
+    entries: [system:page-stream]
+    uses: [host-link:open]
+    boundary: [shell, host-queue-interface]
+    code:
+      - packages/shell/main/browser/agent/stream.ts
+      - packages/shell/main/browser/agent/page.ts
+      - packages/shell/main/browser/agent/control.ts
+      - packages/shell/main/desktop/wiring/surface.ts
+    steps:
+      - "core가 /host-link로 page_stream {on: true}를 보내면 bind된 host browser 탭의 page(preview·artifact는 아니다)에 driver와 같이 쓰는 debugger를 붙여 CDP screencast(JPEG q60, 1280x800까지)를 켜고 page_state {painting, agent, held}를 보낸다. 켜면 첫 frame이 온다. on false면 screencast를 끄고 debugger 몫을 놓는다"
+      - "screencast frame이 오면 page_frame {tab, seq, frame}으로 보낸다. seq는 탭마다 process가 사는 동안 오른다. core가 앞 frame의 page_read를 보내기 전에는 보내지 않고 마지막 frame 하나만 들며, 보내기는 앞 보내기에서 100 ms 뒤에만 한다. CDP ack는 보낼 때(들고 있던 frame 것까지) 보내 느린 보는 쪽에서는 Chromium이 다음 frame을 만들지 않는다"
+      - "켜거나 창이 되살아난 뒤 2초 안에 frame이 없거나, 그 탭을 bind한 창이 최소화되거나 숨겨지거나, debugger가 떨어지면 painting false를 page_state로 알린다. 창이 되살아나면(restore, show) screencast를 다시 켜 첫 frame을 받고, frame이 오면 painting true다"
+      - "page_input은 켠 탭에만 넣는다. pointer는 왼쪽 단추의 mousePressed·mouseMoved·mouseReleased, scroll은 mouseWheel, 글은 글자마다 keyDown·keyUp, key는 agent의 press와 같은 이름과 순서, navigate는 navigation 규칙을 지난 url만, back은 앞 history 항목, reload는 page 안의 location.reload()다. 사람의 입력이라 take control을 보지 않는다"
+      - "page_control은 그 기계의 [Take control]·[Hand back]과 같은 상태를 잡고 놓는다(browser-tab-control). agent가 다룬 적 없는 탭은 그대로다. 상태가 바뀌면 그 창에 push하고 켠 탭이면 page_state를 보낸다"
+      - "탭이 닫히거나 그 page를 든 창이 닫히면 그 탭의 screencast를 끄고 잊는다. 연결이 다시 열리면 모두 끈다(core가 살아 있는 lease마다 다시 켠다)"
+    outcomes:
+      - id: streaming
+        when: "screencast를 켜고 page_state를 보냈다. frame이 오면 page_frame을 민다"
+        observe: [response, request:core]
+      - id: waiting-read
+        when: "core가 앞 frame을 읽지 않았거나 100 ms가 지나지 않아 마지막 frame만 들고 ack를 미룬다"
+        observe: [request:core]
+      - id: not-painting
+        when: "켠 뒤 2초 안에 frame이 없거나 창이 최소화·숨겨졌거나 debugger가 떨어져 painting false를 보냈다"
+        observe: [request:core]
+      - id: input
+        when: "pointer, scroll, 글, key, 주소 이동, 뒤로, 다시 읽기를 page에 넣었다"
+        observe: [response]
+      - id: held
+        when: "page_control로 잡거나 놓았다. 그 창에 take control 상태가 push되고 켠 탭이면 page_state가 간다"
+        observe: [response, "screen:browser-agent-held"]
+      - id: not_found
+        code: not_found
+        when: "page_stream·page_control의 탭에 bind된 host browser page가 없거나, page_input의 page가 사라졌다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "page_input이 켜지 않은 탭에 왔다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "key 이름을 모르거나 navigate의 url이 navigation 규칙에 막혔다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "debugger를 붙이지 못했거나(다른 debugger) screencast를 켜지 못했다, 또는 CDP가 입력을 받지 않았거나 이동이 실패했다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
     docs: [architecture/browser-tab.md]
 
   - id: preview-tab-emulate

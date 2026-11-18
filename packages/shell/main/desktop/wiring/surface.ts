@@ -5,6 +5,7 @@
 // `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
 // agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
 // preview 탭이 기기를 고르면 창이 emulate로 알리고, 같은 debugger를 driver와 나눠 그 view에 건다(browser/agent/emulation.ts).
+// 사람이 다른 기기에서 보는 host browser 탭의 frame과 입력과 멀리서 잡기는 `page_*` 연결 요청으로 받는다(browser/agent/stream.ts).
 import {
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
@@ -34,6 +35,8 @@ import {
 } from "../../browser/agent/driver.ts";
 import { createEmulation } from "../../browser/agent/emulation.ts";
 import { electronLookup } from "../../browser/agent/electron-page.ts";
+import { pageOf } from "../../browser/agent/page.ts";
+import { createPageStream } from "../../browser/agent/stream.ts";
 import type {
   HostRequest,
   HostToolOutput,
@@ -101,8 +104,28 @@ export function register(
       window.webContents.send(SURFACE_CONTROL_CHANNEL, { tab, ...state });
     }
   };
-  const control = createTabControl(pushControl);
+  const control = createTabControl((tab, state) => {
+    pushControl(tab, state);
+    stream.controlChanged(tab, state);
+  });
   const lookup = electronLookup(appFrame, artifacts);
+  // 멀리서 보는 것은 host browser 탭뿐이다(preview·artifact는 보지 않는다).
+  const stream = createPageStream({
+    page: (tab) => {
+      const at = bound.get(tab);
+      return at === undefined
+        ? undefined
+        : pageOf(lookup, "browser", at.view_session);
+    },
+    control,
+    send: (frame) => ctx.hostLink.send(frame),
+    nowMs: () => Date.now(),
+    schedule: (run, ms) => {
+      const timer = setTimeout(run, ms);
+      return () => clearTimeout(timer);
+    },
+  });
+  control.onForget((tab) => stream.forget(tab));
   // 풀린 기기는 모든 창에 알리고 그 view session의 preview 탭만 듣는다(사람이 연 preview 탭은 bind하지 않아 창을 모른다).
   const emulation = createEmulation(lookup, (viewSession) => {
     const lost: SurfaceEmulationLost = {
@@ -121,6 +144,18 @@ export function register(
     lookup,
     control,
     nowMs: () => Date.now(),
+  });
+
+  // 최소화되거나 숨겨진 창의 page는 그리지 않는다. 되살아나면 screencast를 다시 켠다(frame이 와야 그린다고 본다).
+  ctx.windowHooks.created.push((window) => {
+    const id = window.webContents.id;
+    const each = (run: (tab: string) => void) => () => {
+      for (const [tab, at] of bound) if (at.window === id) run(tab);
+    };
+    window.on("minimize", each(stream.blank));
+    window.on("hide", each(stream.blank));
+    window.on("restore", each(stream.wake));
+    window.on("show", each(stream.wake));
   });
 
   ctx.windowHooks.closed.push(({ contentsId }) => {
@@ -354,6 +389,12 @@ export function register(
   syncVisible();
   const visibleTimer = setInterval(syncVisible, VISIBLE_MS);
 
+  ctx.hostLink.onRequest("page_stream", (payload) => stream.stream(payload));
+  ctx.hostLink.onRequest("page_read", (payload) => stream.read(payload));
+  ctx.hostLink.onRequest("page_input", (payload) => stream.input(payload));
+  ctx.hostLink.onRequest("page_control", (payload) => stream.control(payload));
+  ctx.hostLink.onOpen(() => stream.reset());
+
   ctx.hostLink.onRequest("browser_call", (payload) => {
     // 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(상한을 넘으면 오래 안 쓴 page부터 놓는다).
     const now = control.current(payload.tab);
@@ -438,6 +479,7 @@ export function register(
       stopped = true;
       clearTimeout(retry);
       clearInterval(visibleTimer);
+      stream.reset();
       ctx.ipc.removeHandler(SURFACE_WORKSPACE_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);

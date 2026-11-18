@@ -11,7 +11,7 @@ interface SecretInputOpenTransport {
 
 /**
  * 일반 shell 창의 보호 입력 창 열기. 창을 열 뿐 값을 보내지 못한다. 부모 창은 main이 IPC를
- * 보낸 창으로 정하고 입력 모양도 main이 검사한다. 통로 실패는 고정 오류로 바꾼다.
+ * 보낸 창으로 정하고 입력 모양도 main이 검사한다. 입력의 `machine`(값이 갈 기계)도 그대로 넘긴다. 통로 실패는 고정 오류로 바꾼다.
  */
 export function createSecretInputOpener(
   transport: SecretInputOpenTransport,

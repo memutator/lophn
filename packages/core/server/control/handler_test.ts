@@ -27,7 +27,6 @@ type Reply =
 function fakeCore(options: { connectIncludesCapability?: boolean } = {}) {
   const capabilities = createShellCapabilities({
     random: (bytes) => bytes.fill(7),
-    ended: () => {},
   });
   const registered: ConfirmationHandleRegister[] = [];
   const deps: ControlDeps = {

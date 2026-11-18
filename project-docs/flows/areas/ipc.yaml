@@ -257,8 +257,9 @@ flows:
       - packages/shell/main/desktop/core/connection.ts
       - packages/shell/ipc/core.ts
     steps:
+      - "machine-window-ipc가 먼저 고른다: 입력의 machine이 없거나 이 컴퓨터의 id이고 보낸 창이 다른 기계에 묶이지 않았을 때만 여기로 온다"
       - "등록 registry가 있으면 sender가 등록된 webContents인지 본다. desktop host는 보지 않는다"
-      - "입력을 coreCallSchema로 본다(kind, resource, method, body, upload일 때만 bytes)"
+      - "입력을 coreCallSchema로 본다(machine optional, kind, resource, method, body, upload일 때만 bytes)"
       - "core에 붙지 않았으면 한 번 붙어 보고, 그래도 없으면 unavailable이다"
       - "맞으면 kind, resource, method, body, bytes를 core session의 call에 그대로 넘기고 core의 답을 돌려준다"
     outcomes:
@@ -345,7 +346,7 @@ flows:
 
   # ---------- 다른 기계의 창 (기계마다 창 하나, 이 컴퓨터 core의 machines/*로 그 기계에 닿는다) ----------
   - id: machine-window-ipc
-    title: "다른 기계의 창이 보낸 IPC를 고른다: core 통로는 이 컴퓨터 core의 machines/*로 그 기계에, 정한 몇 channel만 이 컴퓨터로, 나머지는 거절"
+    title: "core 통로가 실은 machine과 보낸 창으로 갈 기계를 고른다: 다른 기계는 이 컴퓨터 core의 machines/*로 그 기계에만, 다른 기계에 묶인 창은 정한 몇 channel만 이 컴퓨터로, 나머지는 거절"
     actor: system
     entries: [system:machine-window-ipc]
     uses: [ipc:shell:core-call, ipc:shell:core-watch, ipc:shell:core-state-get, route:machines/call, route:machines/watch]
@@ -354,18 +355,24 @@ flows:
       - packages/shell/main/desktop/viewer/machine-route.ts
       - packages/shell/main/desktop/wiring/context.ts
       - packages/shell/main/desktop/wiring/core.ts
+      - packages/shell/main/desktop/wiring/machines.ts
+      - packages/shell/preload/core-api.ts
       - packages/shell/preload/remote.ts
     steps:
-      - "모든 ctx.ipc.handle·on과 core 연결의 shell:core-* handler가 영역의 listener 앞에서 보낸 webContents id로 기계를 찾는다. main이 다른 기계의 창을 열 때 묶은 표이고 renderer가 기계를 주장하지 못한다. 묶이지 않은 sender(이 컴퓨터의 창, overlay)는 지금 handler로 간다"
-      - "shell:core-call은 이 컴퓨터 core의 machines/call { machine, resource, method, body }로 보낸다(그 기계가 kind를 route 표로 안다). 답은 그 기계의 value나 오류 그대로다. upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
-      - "shell:core-watch는 machines/watch { machine, conditions }로 그 기계의 Gateway 조건을 통째로 바꾼다. shell main은 기계마다 마지막 조건을 들고 이 컴퓨터 Gateway가 다시 붙으면 다시 건다. 그 기계의 frame은 이 컴퓨터 bus의 MachineFrameReceived로 와서 그 기계의 창에만 shell:core-event로 간다(이 컴퓨터의 창에는 가지 않는다)"
-      - "shell:core-state-get은 machines/list의 그 기계 status로 지은 상태다(connecting → starting, connected → ready, offline·update·목록에 없음 → stale. confirmedAt은 last_seen_at)"
-      - "machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다"
-      - "그 밖에 지나는 channel은 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external, secret-input-open뿐이다. secret-input-open은 보호 창을 그 창 위에 열고 값은 그 창에 묶인 link(machines/call)로 그 기계에만 간다(shell-desktop의 secret-input). overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
+      - "모든 ctx.ipc.handle·on과 core 연결의 shell:core-* handler가 영역의 listener 앞에서 보낸 webContents id로 묶인 기계를 찾는다. main이 다른 기계의 창을 열 때 묶은 표이고 renderer가 묶기를 주장하지 못한다. shell:core-call·core-watch는 입력의 machine(mch_<ULID>, optional)으로 고른다. 묶이지 않은 창(이 컴퓨터의 창, overlay)은 machine이 없거나 이 컴퓨터의 id면 이 컴퓨터 core(core-call-relay, gateway-stream)로만, 다른 기계면 그 기계로만 간다. 다른 기계에 묶인 창은 machine이 없거나 묶인 기계일 때만 그 기계로 가고, 다른 기계(이 컴퓨터 포함)를 실으면 아무 데도 가지 않고 forbidden이다"
+      - "그 기계로 가는 shell:core-call은 이 컴퓨터 core의 machines/call { machine, resource, method, body }로 보낸다(그 기계가 kind를 route 표로 안다). 답은 그 기계의 value나 오류 그대로다. upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
+      - "그 기계로 가는 shell:core-watch는 (보낸 창, 기계)마다의 조건이다. machines/watch { machine, watcher: w<webContents id>, conditions }로 그 창의 조건만 통째로 바꾸고(빈 배열은 그 창을 뺀다) core가 구독자들의 합을 그 기계에 건다(core-machines-watch). shell main 안의 구독자도 자기 이름을 watcher로 같은 길을 쓴다. shell main은 기계마다 구독자별 마지막 조건을 들고 이 컴퓨터 Gateway가 다시 붙으면 모두 다시 걸고, 창이 닫히면 그 창의 것을 뺀다"
+      - "그 기계의 frame은 이 컴퓨터 bus의 MachineFrameReceived로 와서 machine을 달고 shell:core-event로 그 기계를 보는 창(그 기계에 조건을 든 창)에만 간다. watcher가 한 창인 ready는 그 창에만, 그 밖의 ready와 event·closed는 그 기계를 보는 모든 창에 간다. machine 없는 message는 이 컴퓨터 core의 것이다"
+      - "묶인 창의 shell:core-state-get은 machines/list의 그 기계 status로 지은 상태다(connecting → starting, connected → ready, offline·update·목록에 없음 → stale. confirmedAt은 last_seen_at). machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다"
+      - "다른 기계에 묶인 창이 지나는 channel은 그 밖에 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external, secret-input-open뿐이다. secret-input-open은 보호 창을 그 창 위에 연다. 열기 입력에 machine이 있으면 값과 읽기는 그 기계의 link(machines/call)로만 가고, 없으면 묶인 창은 묶인 기계로, 이 컴퓨터의 창은 이 컴퓨터 core로 간다. 묶인 창이 다른 기계를 실으면 forbidden이다(shell-desktop의 secret-input). overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
       - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
     outcomes:
       - id: to-machine
-        when: "다른 기계의 창이 보낸 core 통로가 machines/call·watch로 그 기계에 갔다. 이 컴퓨터의 core에서 그 기계의 route가 불리지 않는다"
+        when: "다른 기계를 실은 core 통로(또는 묶인 창의 core 통로)가 machines/call·watch로 그 기계에만 갔다. 이 컴퓨터의 handler와 다른 기계에 닿지 않는다"
+        observe: [response]
+      - id: other-machine
+        code: forbidden
+        when: "다른 기계에 묶인 창의 core 통로가 묶인 기계가 아닌 machine을 실었다. 어느 core에도 가지 않는다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -387,7 +394,7 @@ flows:
         when: "다른 기계의 창이 허락 목록의 channel을 불렀다. 이 컴퓨터의 handler가 자기 sender 검사를 그대로 한다"
         observe: [response]
       - id: this-computer
-        when: "보낸 창이 다른 기계에 묶이지 않았다(이 컴퓨터의 창). 지금 handler로 간다"
+        when: "보낸 창이 다른 기계에 묶이지 않았고 core 통로라면 machine이 없거나 이 컴퓨터의 id다. 이 컴퓨터의 handler로 간다"
         observe: [response]
     crosses_process: true
     risk: [permission, sandbox]

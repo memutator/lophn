@@ -319,7 +319,7 @@ export function startCoreConnection(
           if (frame.type === "ready") relay({ kind: "ready" }, to);
           else if (frame.type === "event") {
             options.own?.event(frame.event);
-            // 다른 기계의 frame은 main이 그 기계의 창에만 나눠 보낸다(wiring/machines).
+            // 다른 기계의 frame은 main이 그 기계를 보는 창에만 `machine`을 달아 나눠 보낸다(wiring/machines).
             if (frame.event.type !== "MachineFrameReceived") {
               relay({ kind: "event", event: frame.event });
             }

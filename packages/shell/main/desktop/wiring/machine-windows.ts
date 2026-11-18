@@ -1,6 +1,7 @@
 // Windows of other machines: one window per machine, opened with its own preload (`preload-remote.cjs`) on the same desktop
-// page. Main binds the window to the machine (machine-route), pushes that machine's link state and frames to it alone,
-// tells the machine what the window shows (presence) and keeps its title on the machine's name. A machine that leaves the
+// page. Main binds the window to the machine (machine-route), pushes that machine's link state to it alone (its frames come
+// the same way as any window watching that machine, wiring/machines), tells the machine what the window shows (presence)
+// and keeps its title on the machine's name. A machine that leaves the
 // device list keeps its window, which shows the removed gate. These windows are not in `ctx.windows`: this computer's
 // notices, presence, surface and global keys never see them.
 import {
@@ -13,7 +14,7 @@ import {
 import { isAbsolute, join } from "node:path";
 
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { CORE_EVENT_CHANNEL, CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
+import { CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   MACHINES_CHANGED_CHANNEL,
@@ -104,11 +105,6 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
     if (state.state === "ready" && was !== "ready") entry.presence.report();
   }
 
-  machines.onFrame((machine, message) => {
-    const entry = opened.get(machine);
-    if (entry !== undefined) send(entry, CORE_EVENT_CHANNEL, message);
-  });
-
   function openMachine(machine: Id<"mch">, name: string): void {
     const found = opened.get(machine);
     if (found !== undefined && !found.window.isDestroyed()) {
@@ -197,7 +193,7 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
         idle_ms: Math.round(powerMonitor.getSystemIdleTime() * 1000),
         looking: [],
       });
-      link.watch([]);
+      link.watch(contentsId, []);
     });
   }
   ctx.machineWindows.open = openMachine;

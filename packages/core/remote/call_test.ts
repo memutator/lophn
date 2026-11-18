@@ -446,12 +446,14 @@ test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main�
         sent.push(input);
         return ok({});
       },
-      watch: (machine, conditions) => {
-        sent.push({ machine, conditions });
+      watch: (subscriber, machine, conditions) => {
+        sent.push({ subscriber, machine, conditions });
         return ok({});
       },
+      forget: () => {},
     },
     capability: (value) => value === "live",
+    onEnd: () => {},
   });
   const cli = {
     actor: "user",
@@ -471,6 +473,7 @@ test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main�
     assert.equal(!called.ok && called.error.code, "forbidden");
     const watched = machines.watch(cli, {
       machine,
+      watcher: "w1",
       conditions: [],
       shell_capability,
     } as never);
@@ -483,8 +486,19 @@ test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main�
     (await machines.call(shell, { ...call, shell_capability: "live" })).ok,
   );
   assert.ok(
-    machines.watch(shell, { machine, conditions: [], shell_capability: "live" })
-      .ok,
+    machines.watch(shell, {
+      machine,
+      watcher: "w1",
+      conditions: [],
+      shell_capability: "live",
+    }).ok,
   );
-  assert.deepEqual(sent, [call, { machine, conditions: [] }]);
+  assert.deepEqual(sent, [
+    call,
+    {
+      subscriber: { capability: "live", watcher: "w1" },
+      machine,
+      conditions: [],
+    },
+  ]);
 });

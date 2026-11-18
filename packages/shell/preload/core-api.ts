@@ -69,8 +69,14 @@ export function createCoreApi(transport: CoreTransport): CoreApi {
         return unavailable;
       }
     },
-    async watch(conditions: CoreWatch["conditions"]): Promise<void> {
-      await transport.invoke(CORE_WATCH_CHANNEL, { conditions });
+    async watch(
+      conditions: CoreWatch["conditions"],
+      machine?: CoreWatch["machine"],
+    ): Promise<void> {
+      await transport.invoke(
+        CORE_WATCH_CHANNEL,
+        machine === undefined ? { conditions } : { conditions, machine },
+      );
     },
     onEvent(listener: (message: CoreEventMessage) => void) {
       const callback = (_event: unknown, payload: unknown) => {

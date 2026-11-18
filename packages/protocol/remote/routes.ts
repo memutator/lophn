@@ -417,13 +417,16 @@ export const machinesCall = defineMemory({
   ],
 });
 
-// 다른 기계의 Gateway 조건을 통째로 바꾼다(빈 배열은 끈다). 그 기계의 frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 온다.
+// 다른 기계의 Gateway 조건 가운데 한 구독자(이 shell의 `watcher`)의 것을 통째로 바꾼다(빈 배열은 그 구독자를 뺀다). core는
+// 구독자들의 합을 그 기계에 건다. 그 기계의 frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 온다.
 export const machinesWatch = defineMemory({
   resource: "machines",
   method: "watch",
   name: "machines.watch",
   input: z.strictObject({
     machine: machineIdSchema,
+    // shell 안의 구독자 이름(창이면 `w<webContents id>`). 그 구독자가 바꾼 합에 답한 `ready`가 이 이름을 단다.
+    watcher: z.string().min(1).max(64),
     conditions: z.array(eventConditionSchema).max(64),
     shell_capability: z.string().min(1),
   }),

@@ -1,9 +1,10 @@
 // 이 컴퓨터 core가 명단의 다른 컴퓨터마다 드는 연결(link). 붙는 쪽 engine은 폰과 같은 `@lophn/remote-client`이고, 받는 쪽은 그
 // 컴퓨터의 host가 폰과 같이 맡는다: 이 컴퓨터는 거기서 `device:<이 컴퓨터 id>`인 기기다. 컴퓨터 둘은 서로에게 따로 link를 든다
 // (한쪽만 닿는 network에서도 닿는 쪽 link 하나로 명단과 옮기는 file이 오간다). link로 명단을 주고받고, 이 기계의 화면이 부른
-// `machines/call`·`machines/watch`를 넘긴다. 그 기계의 Gateway frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 싣는다.
+// `machines/call`·`machines/watch`를 넘긴다. watch는 구독자마다 따로 들고 그 합을 link에 건다: 한 구독자가 바꾸거나 그만봐도
+// 다른 구독자의 조건이 남는다. 그 기계의 Gateway frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 싣는다.
 // 옮기는 file(앱 data, release, 명단 file, event file)은 이 file이 나르지 않고 나르기(carry.ts)가 같은 연결의 `carry/*` call로 받는다.
-// link마다 화면의 조건에 `StateChanged`를 더해 걸어, 그 컴퓨터가 든 옮기는 file이 바뀐 것(`carry_files`)을 나르기에 알린다.
+// link마다 구독자들의 합에 `StateChanged`를 더해 걸어, 그 컴퓨터가 든 옮기는 file이 바뀐 것(`carry_files`)을 나르기에 알린다.
 import { WebSocket } from "ws";
 import {
   type Clock,
@@ -101,6 +102,10 @@ export type LinkedMachine = {
   last_seen_at: string | null;
 };
 
+// 한 기계를 보는 구독자. shell main의 것은 그 shell의 capability에 묶여 shell이 끝나면 함께 빠진다. core 안의 구독자는
+// capability가 없다. `watcher`는 그 구독자가 바꾼 합에 답한 `ready`가 다는 이름이다.
+export type MachineSubscriber = { capability: string | null; watcher: string };
+
 export type LinksDeps = {
   roster: Pick<Roster, "view" | "self" | "snapshot" | "receive">;
   // hello에 싣는 이 기계의 이름.
@@ -130,16 +135,37 @@ type Link = {
   refused: boolean;
   // 마지막으로 낸 상태. 바뀔 때만 StateChanged를 낸다.
   shown: string;
+  // 붙은 동안 보낸 watch마다 바꾼 구독자의 watcher(모르면 undefined)를 보낸 차례로 둔다. 그 기계가 같은 차례로 `ready`를 답한다.
+  // 붙기 전에 보낸 것은 넣지 않는다: 붙을 때 connection이 다시 건 watch의 `ready`는 모두의 것이다.
+  asked: (string | undefined)[];
 };
+
+type Watch = { subscriber: MachineSubscriber; conditions: EventCondition[] };
+
+// 같은 session·types는 한 번만 건다.
+function sum(subscribers: ReadonlyMap<string, Watch> | undefined) {
+  const seen = new Set<string>();
+  const out: EventCondition[] = [];
+  for (const { conditions } of subscribers?.values() ?? []) {
+    for (const condition of conditions) {
+      const key = JSON.stringify([condition.session ?? null, condition.types]);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(condition);
+    }
+  }
+  return out;
+}
 
 export type Links = ReturnType<typeof createLinks>;
 
 export function createLinks(deps: LinksDeps) {
   const links = new Map<string, Link>();
-  // 기계마다 하나인 화면의 watch 조건(기기 id로). link를 새로 열어도 다시 건다.
-  const watching = new Map<string, EventCondition[]>();
+  // 기기 id → 구독자 key → 조건. 합을 link에 걸고 link를 새로 열어도 다시 건다.
+  const watching = new Map<string, Map<string, Watch>>();
+  // link에 거는 조건: 구독자들의 합에 나르기의 `StateChanged`를 더한다. 구독자가 없어도 건다.
   const conditionsOf = (device: string) => [
-    ...(watching.get(device) ?? []),
+    ...sum(watching.get(device)),
     CARRY_CONDITION,
   ];
   // 기기 id → 마지막으로 붙었거나 끊긴 때. core가 사는 동안만 든다.
@@ -285,9 +311,14 @@ export function createLinks(deps: LinksDeps) {
       connection,
       refused: false,
       shown: canonicalize({ status: "connecting", update: null, path: null }),
+      asked: [],
     };
     void connection.watch(conditionsOf(body.id));
-    connection.subscribe(() => report(link));
+    connection.subscribe((state) => {
+      // 끊긴 channel에 보낸 watch는 답이 오지 않는다. 다시 붙을 때의 `ready`를 누구 것으로 잘못 달지 않게 비운다.
+      if (state.state !== "ready") link.asked = [];
+      report(link);
+    });
     connection.onEvent((message) => {
       const machine = body.machine as Id<"mch">;
       if (message.kind === "event") {
@@ -301,11 +332,13 @@ export function createLinks(deps: LinksDeps) {
           ) {
             deps.onPeerCarry(machine);
           }
-          if (!eventMatches(watching.get(body.id) ?? [], event as BusEvent)) {
+          // 나르기 때문에 더 건 `StateChanged`는 구독자가 건 것이 아니면 화면에 싣지 않는다.
+          if (!eventMatches(sum(watching.get(body.id)), event as BusEvent)) {
             return;
           }
         }
       }
+      const watcher = message.kind === "ready" ? link.asked.shift() : undefined;
       deps.publish({
         type: "MachineFrameReceived",
         subject: `machine:${machine}`,
@@ -318,6 +351,7 @@ export function createLinks(deps: LinksDeps) {
               : message.kind === "closed"
                 ? { type: "closed", reason: message.reason }
                 : { type: "ready" },
+          ...(watcher === undefined ? {} : { watcher }),
         },
       } as BusEvent);
     });
@@ -372,6 +406,14 @@ export function createLinks(deps: LinksDeps) {
       }
       open(body, endpoint, self.hostKey);
     }
+  }
+
+  // 기기의 합을 link에 건다. 붙은 link면 그 `ready`가 누구 것인지 둔다.
+  function send(device: string, watcher: string | undefined) {
+    const link = links.get(device);
+    if (link === undefined) return;
+    if (link.connection.current().state === "ready") link.asked.push(watcher);
+    void link.connection.watch(conditionsOf(device));
   }
 
   // 명단의 다른 컴퓨터. 이 기계의 화면은 기계 id로 고른다.
@@ -455,12 +497,38 @@ export function createLinks(deps: LinksDeps) {
       return reply.ok ? ok(reply.value) : err(reply.error as LophnError);
     },
 
-    watch(machine: string, conditions: EventCondition[]): Result<object> {
+    // 그 구독자의 조건을 통째로 바꾼다. 빈 조건은 그 구독자를 뺀다.
+    watch(
+      subscriber: MachineSubscriber,
+      machine: string,
+      conditions: EventCondition[],
+    ): Result<object> {
       const body = computer(machine);
       if (body === undefined) return notFound(machine);
-      watching.set(body.id, conditions);
-      void links.get(body.id)?.connection.watch(conditionsOf(body.id));
+      const device = body.id;
+      if (!watching.has(device)) watching.set(device, new Map());
+      const subscribers = watching.get(device)!;
+      const key = JSON.stringify([subscriber.capability, subscriber.watcher]);
+      if (conditions.length === 0) subscribers.delete(key);
+      else subscribers.set(key, { subscriber, conditions });
+      if (subscribers.size === 0) watching.delete(device);
+      send(device, subscriber.watcher);
       return ok({});
+    },
+
+    // 그 capability의 구독자(끝난 shell)를 모든 기계에서 뺀다.
+    forget(capability: string) {
+      for (const [device, subscribers] of [...watching]) {
+        let changed = false;
+        for (const [key, watch] of [...subscribers]) {
+          if (watch.subscriber.capability !== capability) continue;
+          subscribers.delete(key);
+          changed = true;
+        }
+        if (!changed) continue;
+        if (subscribers.size === 0) watching.delete(device);
+        send(device, undefined);
+      }
     },
   };
 }

@@ -29,6 +29,7 @@ import {
   type WindowState,
 } from "../../workspace/window-state.ts";
 import { connectCore } from "./core.ts";
+import type { Machines } from "./machines.ts";
 import {
   type DesktopWindows,
   openDesktopWindow,
@@ -116,8 +117,10 @@ export type ShellContext = {
   topWindows: Set<BrowserWindow>;
   /** 다른 기계의 창이면 그 기계. 그 창은 `windows`·`detached`·`appWindows`에 들지 않는다. */
   machineOf(contents: { id: number }): Id<"mch"> | null;
-  /** 보낸 webContents로 기계를 고르는 표. machine-windows가 창을 묶고 IPC 둘레(`ipc`)가 본다. */
+  /** core 호출과 구독이 갈 기계를 고르는 표. machines가 기계에 닿는 길을 주고, machine-windows가 창을 묶고, IPC 둘레(`ipc`)가 본다. */
   machineRoute: MachineRoute;
+  /** 다른 기계들: 목록, 그 기계에 닿는 link, shell main 안 구독자의 watch. machines wiring이 등록 때 채운다. */
+  machines: Machines;
   /** 다른 기계의 창을 연다. machine-windows가 등록 때 채운다. 이름은 목록이 아직 없을 때의 창 제목이다. */
   machineWindows: { open(machine: Id<"mch">, name: string): void };
   /**
@@ -251,6 +254,8 @@ export function createShellContext(): ShellContext {
     topWindows,
     machineOf: (contents) => machineRoute.machineOf(contents.id),
     machineRoute,
+    // machines.register가 다른 영역보다 먼저 채운다(main.ts). 그 앞에는 아무도 읽지 않는다.
+    machines: undefined as unknown as Machines,
     machineWindows: { open: () => void openDesktopWindow(ctx) },
     sessionWindows: { reveal: () => void openDesktopWindow(ctx) },
     log,

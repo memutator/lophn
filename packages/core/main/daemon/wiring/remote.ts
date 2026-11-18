@@ -1099,6 +1099,7 @@ export function remoteWiring(
       const machines = createMachineRoutes({
         links,
         capability: (value) => ctx.peek.shellCapabilities?.has(value) ?? false,
+        onEnd: (listener) => ctx.peek.shellCapabilities?.onEnd(listener),
       });
       return ok({
         memory: [

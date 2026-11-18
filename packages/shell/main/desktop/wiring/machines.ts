@@ -1,15 +1,24 @@
 // The other computers this desktop views and the start machine. This computer's core holds a link to every other computer in
-// the device list; shell main reads their state (`machines/list`, again on every `StateChanged{remote_devices}`) and gives a
-// window of another machine a `MachineLink` over `machines/call`·`machines/watch`. That machine's Gateway frames come back on
-// this computer's Gateway as `MachineFrameReceived` and go to that machine's window alone (machine-windows).
+// the device list; shell main reads their state (`machines/list`, again on every `StateChanged{remote_devices}`) and reaches
+// one over `machines/call`·`machines/watch` (`MachineLink`, which machine-route picks by the machine a window names).
+// Each subscriber of a machine (a window as `w<webContents id>`, or one inside shell main by its own name) sends its own
+// conditions as its `watcher`; this computer's core watches the sum. That machine's Gateway frames come back on this
+// computer's Gateway as `MachineFrameReceived` and go, with the machine on them, to the windows watching it alone.
+import { webContents } from "electron";
+
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { MachineStatus } from "../../../../protocol/machine/mod.ts";
-import type { CoreEventMessage, CoreWatch } from "../../../ipc/core.ts";
+import {
+  CORE_EVENT_CHANNEL,
+  type CoreEventMessage,
+  type CoreWatch,
+} from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   MACHINES_CHANGED_CHANNEL,
   MACHINES_LIST_CHANNEL,
   MACHINES_START_CHANNEL,
+  machineConnectionState,
   type MachineList,
   machineStartSchema,
   type MachinesFailure,
@@ -26,13 +35,23 @@ import type { MachineLink } from "../viewer/machine-route.ts";
 import { createStartStore, readStart } from "../viewer/start.ts";
 import { changedIds, type Registered, type ShellContext } from "./context.ts";
 
+type Conditions = CoreWatch["conditions"];
+
 export type Machines = {
   list(): MachineList;
   subscribe(listener: (list: MachineList) => void): () => void;
   link(machine: Id<"mch">): MachineLink;
-  // A frame of that machine's Gateway, as the window gets it on `shell:core-event`.
+  // A subscriber inside shell main (`app-views`, `notice`…): its whole conditions on that machine, sent as its watcher
+  // `owner` (never `w<number>`: that names a window). `[]` stops it. Its frames come on `onFrame`.
+  watch(machine: Id<"mch">, owner: string, conditions: Conditions): void;
+  // A frame of that machine's Gateway, as a window gets it on `shell:core-event`. `watcher` is set on a `ready` that answered
+  // that subscriber's change alone; a `ready` without it is everyone's.
   onFrame(
-    listener: (machine: Id<"mch">, message: CoreEventMessage) => void,
+    listener: (
+      machine: Id<"mch">,
+      message: CoreEventMessage,
+      watcher: string | undefined,
+    ) => void,
   ): void;
   // A window of this machine got focus while connected: it becomes the "last used" start machine.
   markUsed(machine: Id<"mch">): void;
@@ -46,33 +65,29 @@ type Frame =
       reason: "slow_consumer" | "credential_revoked" | "shutdown";
     };
 
-function messageOf(frame: Frame): CoreEventMessage {
-  if (frame.type === "event") return { kind: "event", event: frame.event };
-  if (frame.type === "closed") return { kind: "closed", reason: frame.reason };
-  return { kind: "ready" };
+function messageOf(machine: Id<"mch">, frame: Frame): CoreEventMessage {
+  if (frame.type === "event") {
+    return { kind: "event", event: frame.event, machine };
+  }
+  if (frame.type === "closed") {
+    return { kind: "closed", reason: frame.reason, machine };
+  }
+  return { kind: "ready", machine };
 }
 
-// The window's core state from the link's status. A machine that is not in the list (left the device list) is stale; its
-// window shows the removed gate.
-function stateOf(
-  row: LinkedMachine | undefined,
-): ReturnType<MachineLink["current"]> {
-  const confirmedAt =
-    row?.last_seen_at == null ? null : Date.parse(row.last_seen_at);
-  if (row?.status === "connecting") return { state: "starting", confirmedAt };
-  if (row?.status === "connected") return { state: "ready", confirmedAt };
-  return { state: "stale", confirmedAt };
-}
+// A window's watcher name, and back.
+const windowWatcher = (owner: number) => `w${owner}`;
+const windowOf = (watcher: string) =>
+  /^w\d+$/.test(watcher) ? Number(watcher.slice(1)) : undefined;
 
 export function register(ctx: ShellContext): Machines & Registered {
   const { ipc, windows } = ctx;
   const registry = ctx.overlays.overlayRegistry();
   const listeners = new Set<(list: MachineList) => void>();
-  const frames = new Set<
-    (machine: Id<"mch">, message: CoreEventMessage) => void
-  >();
-  // Each machine's last watch. Sent again when this computer's Gateway (re)connects: a core that started again lost it.
-  const watching = new Map<Id<"mch">, CoreWatch["conditions"]>();
+  const frames = new Set<Parameters<Machines["onFrame"]>[0]>();
+  // Each machine's subscribers (watcher → its last conditions). Sent again when this computer's Gateway (re)connects: the
+  // shell capability they were bound to ended with the old Gateway, or the core started again.
+  const watching = new Map<Id<"mch">, Map<string, Conditions>>();
   const store = createStartStore(ctx.dataRoot, ctx.log);
   let self: { id: Id<"mch">; name: string } | null = null;
   let rows: LinkedMachine[] = [];
@@ -155,22 +170,62 @@ export function register(ctx: ShellContext): Machines & Registered {
       });
   }
 
-  const watch = (machine: Id<"mch">, conditions: CoreWatch["conditions"]) =>
-    void ctx.core.machineCall("watch", { machine, conditions });
+  const send = (machine: Id<"mch">, watcher: string, conditions: Conditions) =>
+    void ctx.core.machineCall("watch", { machine, watcher, conditions });
+
+  function watch(machine: Id<"mch">, watcher: string, conditions: Conditions) {
+    const owners = watching.get(machine) ?? new Map<string, Conditions>();
+    if (conditions.length === 0) owners.delete(watcher);
+    else owners.set(watcher, conditions);
+    if (owners.size === 0) watching.delete(machine);
+    else watching.set(machine, owners);
+    send(machine, watcher, conditions);
+  }
+
+  // A closed window of this computer stops watching every machine.
+  ctx.windowHooks.closed.push(({ contentsId }) => {
+    const watcher = windowWatcher(contentsId);
+    for (const [machine, owners] of [...watching]) {
+      if (owners.has(watcher)) watch(machine, watcher, []);
+    }
+  });
+
+  // To the windows watching that machine; a `ready` that answered one window's watch to that window alone.
+  function deliver(
+    machine: Id<"mch">,
+    message: CoreEventMessage,
+    to: string | undefined,
+  ) {
+    for (const watcher of watching.get(machine)?.keys() ?? []) {
+      const owner = windowOf(watcher);
+      if (owner === undefined || (to !== undefined && to !== watcher)) continue;
+      const contents = webContents.fromId(owner);
+      if (contents !== undefined && !contents.isDestroyed()) {
+        contents.send(CORE_EVENT_CHANNEL, message);
+      }
+    }
+  }
 
   ctx.relay.conditions.push({ types: ["MachineFrameReceived"] });
   ctx.relay.ready.push(() => {
     refresh();
-    for (const [machine, conditions] of watching) watch(machine, conditions);
+    for (const [machine, owners] of watching) {
+      for (const [watcher, conditions] of owners) {
+        send(machine, watcher, conditions);
+      }
+    }
   });
   ctx.relay.events.push((event) => {
     if (event.type === "MachineFrameReceived") {
-      const { machine, frame } = event.payload as {
+      const { machine, frame, watcher } = event.payload as {
         machine: Id<"mch">;
         frame: Frame;
+        watcher?: string;
       };
-      const message = messageOf(frame);
-      for (const listener of frames) listener(machine, message);
+      const message = messageOf(machine, frame);
+      const to = frame.type === "ready" ? watcher : undefined;
+      deliver(machine, message, to);
+      for (const listener of frames) listener(machine, message, to);
       return;
     }
     if (changedIds(event, "remote_devices").length > 0) refresh();
@@ -226,25 +281,30 @@ export function register(ctx: ShellContext): Machines & Registered {
     },
   );
 
-  return {
+  const link = (machine: Id<"mch">): MachineLink => ({
+    call: (input) =>
+      ctx.core.machineCall("call", {
+        machine,
+        ...input,
+      }) as Promise<CoreReply>,
+    watch: (owner, conditions) =>
+      watch(machine, windowWatcher(owner), conditions),
+    // A machine that is not in the list (left the device list) is stale; its window shows the removed gate.
+    current: () =>
+      machineConnectionState(
+        current.machines.find((row) => row.id === machine),
+      ),
+  });
+  ctx.machineRoute.attach({ link, self: () => self?.id ?? null });
+
+  const machines: Machines & Registered = {
     list: () => current,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    link: (machine) => ({
-      call: (input) =>
-        ctx.core.machineCall("call", {
-          machine,
-          ...input,
-        }) as Promise<CoreReply>,
-      watch(conditions) {
-        if (conditions.length === 0) watching.delete(machine);
-        else watching.set(machine, conditions);
-        watch(machine, conditions);
-      },
-      current: () => stateOf(rows.find((row) => row.machine === machine)),
-    }),
+    link,
+    watch,
     onFrame(listener) {
       frames.add(listener);
     },
@@ -262,4 +322,6 @@ export function register(ctx: ShellContext): Machines & Registered {
       }
     },
   };
+  ctx.machines = machines;
+  return machines;
 }

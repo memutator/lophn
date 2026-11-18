@@ -242,6 +242,8 @@ const machineFrameReceived = defineTransientEvent("MachineFrameReceived", {
         reason: z.enum(["slow_consumer", "credential_revoked", "shutdown"]),
       }),
     ]),
+    // 한 구독자가 바꾼 합에 그 기계가 답한 `ready`만 그 구독자의 `watcher`를 단다. 없는 `ready`는 모든 구독자의 것이다.
+    watcher: z.string().min(1).max(64).optional(),
   }),
 });
 

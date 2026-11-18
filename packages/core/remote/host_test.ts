@@ -93,6 +93,7 @@ import {
   projectFilesListRead,
   projectFilesReadRead,
 } from "../projects/files/mod.ts";
+import type { BusEvent, EventCondition } from "../../protocol/events/mod.ts";
 import { createBus } from "../events/mod.ts";
 import {
   CredentialRegistry,
@@ -137,6 +138,7 @@ import {
   type RemoteSocket,
 } from "./host.ts";
 import { createLinks } from "./links.ts";
+import { createMachineRoutes } from "./machine-routes.ts";
 import { createRoster, type Roster, type RosterChange } from "./roster.ts";
 
 // 메모리 안에서 폰과 core를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
@@ -1470,11 +1472,12 @@ test("뺀 기기는 붙어 있던 연결이 빼기가 든 명단을 받은 뒤 �
   assert.deepEqual(m.s.reached, []);
 });
 
-// 다른 컴퓨터(A)가 link로 넘긴 call은 이 core(B)에서 A의 기기 자격(지금의 기기 route 목록)으로 걸러진다. 넘기는 쪽이 범위를
-// 넓히거나, 넘긴 call을 다시 넘기는(machines/call) 길이 생기면 한 컴퓨터를 든 사람이 다른 컴퓨터의 설정·secret·명단을 고친다.
-test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로 걸러져 허락 없는 설정 쓰기와 목록 밖 route(roster/*, machines/call)는 forbidden이다", async (t) => {
-  const s = setup();
-  // A의 host key를 B의 명단에 둔다(가짜 명단). A 쪽은 B 하나가 든 명단이다.
+// setup의 core(B)에 다른 컴퓨터(A)의 link로 붙는다. A의 host key를 B의 명단에 둔다(가짜 명단). A 쪽은 B 하나가 든 명단이다.
+// A의 bus에 낸 event는 `published`에 쌓인다.
+async function linkedComputer(
+  s: ReturnType<typeof setup>,
+  t: { after(fn: () => void): void },
+) {
   const aKey = generateKeyPair(s.random);
   s.register(aKey);
   const b: RosterEntryBody = {
@@ -1511,6 +1514,7 @@ test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 �
     snapshot: () => snapshot,
     receive: async () => ok(snapshot),
   } as unknown as Roster;
+  const published: BusEvent[] = [];
   const links = createLinks({
     roster,
     name: () => "laptop",
@@ -1526,7 +1530,7 @@ test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 �
       const timer = setTimeout(fn, ms);
       return () => clearTimeout(timer);
     },
-    publish: () => undefined,
+    publish: (event) => void published.push(event),
     logger: { error() {}, warn() {} } as never,
     onPeerReady: () => undefined,
     onPeerCarry: () => undefined,
@@ -1537,6 +1541,14 @@ test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 �
     await settle();
   }
   assert.equal(links.list()[0]?.status, "connected");
+  return { links, published };
+}
+
+// 다른 컴퓨터(A)가 link로 넘긴 call은 이 core(B)에서 A의 기기 자격(지금의 기기 route 목록)으로 걸러진다. 넘기는 쪽이 범위를
+// 넓히거나, 넘긴 call을 다시 넘기는(machines/call) 길이 생기면 한 컴퓨터를 든 사람이 다른 컴퓨터의 설정·secret·명단을 고친다.
+test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로 걸러져 허락 없는 설정 쓰기와 목록 밖 route(roster/*, machines/call)는 forbidden이다", async (t) => {
+  const s = setup();
+  const { links } = await linkedComputer(s, t);
 
   const call = (resource: string, method: string, body: unknown) =>
     links.call({ machine: HOST_MACHINE, resource, method, body });
@@ -1569,4 +1581,66 @@ test("다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 �
   const inside = await call("turn_requests", "decide", decideBody);
   assert.ok(inside.ok);
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
+});
+
+// 한 기계를 여러 구독자(창, shell main 안의 것)가 본다. 한쪽이 그만보거나 그 shell이 끝나 빠질 때 다른 구독자의 조건까지 덮으면
+// 그쪽 화면이 말없이 멈춘다.
+test("두 구독자가 같은 기계를 볼 때 한쪽이 빈 조건으로 그만봐도 다른 쪽의 event가 계속 오고, 한 capability가 끝나면 그 capability의 구독만 빠진다", async (t) => {
+  const s = setup();
+  const { links, published } = await linkedComputer(s, t);
+  const ended: ((capability: string) => void)[] = [];
+  const machines = createMachineRoutes({
+    links,
+    capability: () => true,
+    onEnd: (listener) => void ended.push(listener),
+  });
+  const shell = { actor: "user", principal: "user" };
+  const watch = (
+    capability: string,
+    watcher: string,
+    conditions: EventCondition[],
+  ) =>
+    assert.ok(
+      machines.watch(shell, {
+        machine: HOST_MACHINE,
+        watcher,
+        conditions,
+        shell_capability: capability,
+      }).ok,
+    );
+  // 그 기계의 bus에 둘을 내고 이 컴퓨터에 MachineFrameReceived로 온 event의 type을 읽는다.
+  const received = async () => {
+    await settle();
+    published.length = 0;
+    s.bus.publish({
+      type: "NoticeClosed",
+      subject: null,
+      at: s.clock.now(),
+      payload: { id: `ntc_0${"1".repeat(25)}` },
+    });
+    s.bus.publish({
+      type: "AppSyncChanged",
+      subject: viewApp,
+      at: s.clock.now(),
+      payload: { release: viewRelease, seq: 3 },
+    });
+    await settle();
+    return published.flatMap((event) => {
+      const frame = (
+        event.payload as { frame: { type: string; event?: BusEvent } }
+      ).frame;
+      return frame.type === "event" ? [frame.event!.type] : [];
+    });
+  };
+
+  watch("a", "w1", [{ types: ["NoticeClosed"] }]);
+  watch("b", "w1", [{ types: ["AppSyncChanged"] }]);
+  assert.deepEqual(await received(), ["NoticeClosed", "AppSyncChanged"]);
+
+  watch("b", "w1", []);
+  assert.deepEqual(await received(), ["NoticeClosed"]);
+
+  watch("b", "w1", [{ types: ["AppSyncChanged"] }]);
+  for (const listener of ended) listener("a");
+  assert.deepEqual(await received(), ["AppSyncChanged"]);
 });

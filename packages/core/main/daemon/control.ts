@@ -204,6 +204,7 @@ export async function createCoreControl(
     has: (capability) =>
       attached !== undefined && attached.capabilities.has(capability),
     end: (capability) => attached?.capabilities.end(capability),
+    onEnd: (listener) => attached?.capabilities.onEnd(listener) ?? (() => {}),
   };
 
   const deps: ControlDeps = {

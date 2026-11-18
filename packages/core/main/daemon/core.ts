@@ -338,10 +338,10 @@ async function open(
   // core는 남아도 그 shell의 view relay와 미소비 handle은 남기지 않는다.
   const capabilities = createShellCapabilities({
     random: (bytes) => random.fill(bytes),
-    ended: () => {
-      runtime.memory.disconnect();
-      void runtime.confirmation({ action: "clear" });
-    },
+  });
+  capabilities.onEnd(() => {
+    runtime.memory.disconnect();
+    void runtime.confirmation({ action: "clear" });
   });
   ctx.provide("shellCapabilities", capabilities);
   // API 직전에 만들고 ready 뒤에 신호를 건다. 그 앞에서 기동이 실패해도 남는 timer·listener가 없다.

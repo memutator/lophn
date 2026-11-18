@@ -412,24 +412,19 @@ export function remoteWiring(
         // 컴퓨터는 이 컴퓨터의 기기 행이 없다(기준, push, 화면은 폰만의 것이다).
         if (device?.body.kind !== "phone") return;
         void (async () => {
-          const rows = await listDevices(ctx);
-          const row = rows.ok
-            ? rows.value.find((each) => each.id === input.id)
-            : undefined;
-          // 폰에서 이름을 바꿨다(알린 이름이 마지막으로 받은 것과 다르다). 알린 이름이 바뀔 때만이라 사람이 roster/rename으로
-          // 바꾼 이름을 폰이 옛 이름으로 다시 덮지 않는다.
-          if (row !== undefined && row.announced_name !== input.name) {
+          const done = await command(ctx, devicesConnected.name, input);
+          if (!done.ok) {
+            // hello에 화면이 없는 폰(dev 도구)은 행을 만들 수 없다. 행이 없는 것은 그 폰의 일이라 오류로 남기지 않는다.
+            if (!(input.phone === undefined && done.error.code === "not_found"))
+              logError(ctx, "connected_not_saved", done.error.message);
+            return;
+          }
+          // 폰에서 이름을 바꿨다(알린 이름이 마지막으로 받은 것과 다르다).
+          if ((done.value as { renamed: boolean }).renamed) {
             const renamed = await roster.rename(input.id, input.name);
             if (!renamed.ok)
               logError(ctx, "rename_not_signed", renamed.error.message);
           }
-          const done = await command(ctx, devicesConnected.name, input);
-          // hello에 화면이 없는 폰(dev 도구)은 행을 만들 수 없다. 행이 없는 것은 그 폰의 일이라 오류로 남기지 않는다.
-          if (
-            !done.ok &&
-            !(input.phone === undefined && done.error.code === "not_found")
-          )
-            logError(ctx, "connected_not_saved", done.error.message);
         })();
       },
     };
@@ -502,22 +497,14 @@ export function remoteWiring(
     ctx: WiringContext,
     reach?: ReturnType<typeof ownReach>,
   ): Promise<Result<void>> {
-    const rows = await listDevices(ctx);
-    if (!rows.ok) return rows;
+    const stored = await read(ctx, rosterStatements);
+    if (!stored.ok) return stored;
     const self = await roster.ensureSelf({
       machine: ctx.machine.id,
       name: () => ctx.machine.status().name,
       os: computerOs(),
       ...(reach === undefined ? {} : { reach }),
-      adopt: rows.value
-        .filter((row) => row.kind === "phone")
-        .map((row) => ({
-          id: row.id,
-          key: row.public_key,
-          name: row.name,
-          os: row.os,
-          terminal_input: row.terminal_input,
-        })),
+      adopt: (stored.value as z.infer<typeof rosterStatements.output>).adopt,
     });
     return self.ok ? ok(undefined) : self;
   }
@@ -797,15 +784,10 @@ export function remoteWiring(
         "terminalInputGrant",
         (principal) => deviceOf(principal)?.terminal_input === true,
       );
-      // 명단의 computer는 아직 `desktop`이다(wiring/context.ts의 type).
-      ctx.provide("deviceKind", (principal) => {
-        const kind = deviceOf(principal)?.kind;
-        return kind === undefined
-          ? null
-          : kind === "computer"
-            ? "desktop"
-            : "phone";
-      });
+      ctx.provide(
+        "deviceKind",
+        (principal) => deviceOf(principal)?.kind ?? null,
+      );
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       links = createLinks({
         roster,

@@ -7,7 +7,6 @@ export {
   type ComputersState,
   type ComputerStatus,
   createComputers,
-  defaultName,
   type JoinSelf,
   type Link,
   linkStateOf,
@@ -42,11 +41,6 @@ export {
   type JoinResult,
   join,
   leave,
-  type PairDevice,
-  type PairFailure,
-  pair,
   parseInviteText,
-  parsePairingText,
-  unpair,
-} from "./pairing.ts";
+} from "./join.ts";
 export { dialWebSocket } from "./socket.ts";

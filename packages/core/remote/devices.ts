@@ -1,4 +1,6 @@
-// 기기 표 `devices`(이 컴퓨터만의 칸: push, 기준, 화면, 마지막 연결, 마지막으로 받은 알린 이름)와 명단 표, 그 command·read.
+// 기기 표 `devices`(이 컴퓨터에 붙은 폰의, 이 컴퓨터만의 칸: push, 기준, 화면, 마지막 연결, 마지막으로 받은 알린 이름)와 명단 표,
+// 그 command·read. 종류, 이름, 터미널 입력 허락은 명단이 든다. `kind`(늘 phone)·`alias`·`terminal_input` 칸은 표를 다시 만들지
+// 않으려 남겼고, 옮긴 폰 행의 별명과 허락을 이 컴퓨터가 처음 서명할 때만 읽는다(rosterStatements의 `adopt`).
 // writer·reader Worker에서 돈다. 명단의 믿음 계산과 서명은 main thread가 한다(remote/roster.ts). 여기는 정한 것을 저장한다.
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import { pushPrefsSchema } from "../../protocol/attention/mod.ts";
@@ -218,35 +220,32 @@ function entriesByKey(
   return best;
 }
 
+// 아직 서명하지 않은 옮긴 행의 이름은 옛 이름(별명이 있으면 별명)이다.
+const oldName = (row: Record<string, unknown>) =>
+  (row.alias as string | null) ?? (row.name as string);
+
 function rowOf(
   row: Record<string, unknown>,
   entries: ReadonlyMap<string, RosterEntryBody>,
 ): RemoteDevice {
-  const entry = entries.get(row.public_key as string);
   return {
     id: row.id as RemoteDevice["id"],
-    kind: row.kind as RemoteDevice["kind"],
-    // 명단의 이름. 아직 서명하지 않은 옮긴 행은 옛 이름(별명이 있으면 별명)이다.
-    name: entry?.name ?? (row.alias as string | null) ?? (row.name as string),
-    announced_name: row.name as string,
-    alias: null,
+    name: entries.get(row.public_key as string)?.name ?? oldName(row),
     os: row.os as RemoteDevice["os"],
-    width: row.width === null ? null : Number(row.width),
-    height: row.height === null ? null : Number(row.height),
-    dpr: row.dpr === null ? null : Number(row.dpr),
+    width: Number(row.width),
+    height: Number(row.height),
+    dpr: Number(row.dpr),
     public_key: row.public_key as string,
     created_at: row.created_at as string,
     last_connected_at: (row.last_connected_at as string | null) ?? null,
     primary: Number(row.is_primary) === 1,
-    terminal_input: entry?.terminal_input ?? Number(row.terminal_input) === 1,
   };
 }
 
-function load(sql: Pick<Sql, "get">, id: string): Result<{ kind: string }> {
-  const row = sql.get("select kind from devices where id = ?", [id]);
-  return row === undefined
+function exists(sql: Pick<Sql, "get">, id: string): Result<void> {
+  return sql.get("select 1 from devices where id = ?", [id]) === undefined
     ? err({ code: "not_found", message: "device not found" })
-    : ok({ kind: row.kind as string });
+    : ok(undefined);
 }
 
 function push(tx: Pick<Tx, "port">, change: DevicesChange): void {
@@ -264,11 +263,14 @@ const connected: CommandDefinition<typeof devicesConnected> = {
   route: devicesConnected,
   handle(tx, _ctx, input) {
     const now = tx.now();
-    const updated = tx.sql.run(
-      "update devices set last_connected_at = ?, name = ?, name_announced_at = ? where id = ?",
-      [now, input.name, now, input.id],
-    );
-    if (Number(updated.changes) > 0) return ok({ id: input.id });
+    const row = tx.sql.get("select name from devices where id = ?", [input.id]);
+    if (row !== undefined) {
+      tx.sql.run(
+        "update devices set last_connected_at = ?, name = ?, name_announced_at = ? where id = ?",
+        [now, input.name, now, input.id],
+      );
+      return ok({ id: input.id, renamed: row.name !== input.name });
+    }
     const key = storedStatements(tx.sql).find(
       (statement) =>
         "by" in statement &&
@@ -292,7 +294,7 @@ const connected: CommandDefinition<typeof devicesConnected> = {
       name: input.name,
       phone: input.phone,
     });
-    return ok({ id: input.id });
+    return ok({ id: input.id, renamed: false });
   },
 };
 
@@ -364,11 +366,8 @@ const setPush: CommandDefinition<typeof devicesSetPush> = {
       });
     }
     const id = ctx.principal.slice(DEVICE_PRINCIPAL.length);
-    const found = load(tx.sql, id);
+    const found = exists(tx.sql, id);
     if (!found.ok) return found;
-    if (found.value.kind !== "phone") {
-      return err({ code: "forbidden", message: "only a phone sets push" });
-    }
     tx.sql.run(
       "update devices set push_token = ?, push_prefs = ? where id = ?",
       [input.token, JSON.stringify(input.prefs), id],
@@ -380,7 +379,7 @@ const setPush: CommandDefinition<typeof devicesSetPush> = {
 const clearPush: CommandDefinition<typeof devicesClearPush> = {
   route: devicesClearPush,
   handle(tx, _ctx, input) {
-    const found = load(tx.sql, input.id);
+    const found = exists(tx.sql, input.id);
     if (!found.ok) return found;
     tx.sql.run(
       "update devices set push_token = null where id = ? and push_token = ?",
@@ -393,14 +392,8 @@ const clearPush: CommandDefinition<typeof devicesClearPush> = {
 const setPrimary: CommandDefinition<typeof devicesSetPrimary> = {
   route: devicesSetPrimary,
   handle(tx, _ctx, input) {
-    const found = load(tx.sql, input.id);
+    const found = exists(tx.sql, input.id);
     if (!found.ok) return found;
-    if (found.value.kind !== "phone") {
-      return err({
-        code: "invalid_input",
-        message: "only a phone can be the primary device",
-      });
-    }
     tx.sql.run(
       "update devices set is_primary = case when id = ? then 1 else 0 end",
       [input.id],
@@ -434,9 +427,22 @@ export const rosterStatementsRead: ReadDefinition<typeof rosterStatements> = {
     const reach = snapshot.sql
       .all("select body from roster_reach order by device", [])
       .map((row) => JSON.parse(row.body as string) as RosterReach);
+    const statements = storedStatements(snapshot.sql);
+    const mentioned = new Set(statements.map((each) => each.body.key));
+    const adopt = snapshot.sql
+      .all("select * from devices order by created_at, id", [])
+      .filter((row) => !mentioned.has(row.public_key as string))
+      .map((row) => ({
+        id: row.id as RemoteDevice["id"],
+        key: row.public_key as string,
+        name: oldName(row),
+        os: row.os as RemoteDevice["os"],
+        terminal_input: Number(row.terminal_input) === 1,
+      }));
     return ok({
-      statements: storedStatements(snapshot.sql),
+      statements,
       reach,
+      adopt,
       as_of_seq: snapshot.as_of_seq,
       next_cursor: null,
     });

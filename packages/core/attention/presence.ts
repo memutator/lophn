@@ -46,7 +46,7 @@ export function anyLooking(
 
 export function createPresence(
   clock: Clock,
-  deviceKind: (reporter: string) => "phone" | "desktop" | null,
+  deviceKind: (reporter: string) => "phone" | "computer" | null,
 ) {
   const table = new Map<string, PresenceReport>();
   return {

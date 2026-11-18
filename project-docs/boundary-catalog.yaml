@@ -136,7 +136,7 @@ elements:
 
       - id: remote
         kind: component
-        description: pairing한 기기(kind phone, desktop)가 붙는 암호화된 바깥 listener, 기기 표(알린 이름과 별명)와 pairing, 복사된 data root의 기기 등록 버리기, 기기 자격과 route 목록, core가 폰에 일을 묻고 답을 받는 `PhoneLink`(기기의 연결 찾기, deadline, 답 거르기).
+        description: 내 기기 명단(서명 key, 서명한 항목과 빼기, 초대장 내기, 받아들여 합치고 붙은 연결에 퍼뜨리기)과 명단의 기기(폰, 다른 컴퓨터)가 붙는 암호화된 바깥 listener, 이 컴퓨터에 붙은 폰의 기기 행(화면, 기준, push), 복사된 data root나 명단에서 빠진 이 컴퓨터의 명단과 key 버리기, 기기 자격과 route 목록, 명단의 다른 컴퓨터마다 거는 link와 그 위로 다른 기계를 부르는 `machines/*`, core가 폰에 일을 묻고 답을 받는 `PhoneLink`(기기의 연결 찾기, deadline, 답 거르기).
 
       - id: attention
         kind: component
@@ -228,7 +228,7 @@ elements:
 
   - id: remote-client
     kind: component
-    description: remote 연결의 client 쪽(주소 경주, 재연결, WebSocket dial, 자격 전 기계 id 확인, 한 연결의 call 수 한도, 기계 목록, pairing text 읽기와 pair, unpair). 폰 앱과 desktop shell main(다른 기계 보기)이 같이 쓴다.
+    description: remote 연결의 client 쪽(주소 경주, 재연결, WebSocket dial, 자격 전 기계 id 확인, 연결의 첫 frame `join`과 명단 주고받기, 한 연결의 call 수 한도, 명단으로 짓는 컴퓨터 목록, 초대장 읽기와 초대장으로 들기, `roster/leave`). 폰 앱과 core(명단의 다른 컴퓨터로 거는 link)가 같이 쓴다.
     depends_on:
       - protocol
       - base
@@ -296,7 +296,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 기기(폰, 다른 기계의 desktop)와 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, kind로 갈린 pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 기기(폰, 다른 컴퓨터의 core)와 core 사이의 연결과 내 기기 명단. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, 명단에 들거나 붙는 첫 frame `join`, 명단을 주고받는 `roster`, call, result, watch와 Gateway frame), 명단의 모양과 검증(서명한 항목과 빼기, 초대장, 합치기와 view), 사람이 명단을 보고 고치는 `roster/*`와 이 컴퓨터의 link로 다른 기계를 부르는 `machines/*`, 기기가 부를 수 있는 route 목록(자기를 명단에서 빼는 `roster/leave`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:

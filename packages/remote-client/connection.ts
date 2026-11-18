@@ -1,4 +1,4 @@
-// The client side of a remote connection, shared by the phone app and the desktop shell main. Metro reads this source
+// The client side of a remote connection, shared by the phone app and the core's links to other computers. Metro reads this source
 // for the phone, so it imports only protocol and base by relative path: no `node:`, React Native or zod.
 import type { LophnError, RandomSource } from "../base/mod.ts";
 import type { Id } from "../protocol/base/ids.ts";
@@ -24,7 +24,8 @@ import {
   rosterStatementSchema,
 } from "../protocol/remote/roster.ts";
 
-// Same shape as the desktop renderer's CoreSource (packages/shell/renderer/desktop/connection), so remote screens take either.
+// Same shape as the desktop renderer's CoreSource (packages/shell/renderer/desktop/connection), so the phone runs the desktop's
+// screen code on it.
 export type ConnectionState = {
   state: "starting" | "ready" | "stale";
   confirmedAt: number | null;
@@ -84,7 +85,7 @@ export type Connection = CoreSource & {
   close(): void;
 };
 
-// Where a paired computer listens and which one it is. `key` is the core's public key text from the pairing text; `relay`
+// Where a computer listens and which one it is. `key` is the core's host key text (from the invite or the roster); `relay`
 // is its relay, if it has one. `machine` is the computer's id from its hello: once known, an answer from another machine
 // (the same key on a copied data root) is refused before anything is sent to it.
 export type Endpoint = {
@@ -102,7 +103,7 @@ export type Announced = RemotePeer["machine"];
 export type Dial = (url: string) => Promise<RemoteTransport>;
 
 // This device as it meets a computer. `key` is its key pair, which the computer knows it by; `name` is what it calls itself
-// in the hello, and the computer lists it by that name; `capabilities` are the `request` kinds it answers (none on desktop);
+// in the hello, and the computer lists it by that name; `capabilities` are the `request` kinds it answers (none on a computer);
 // `phone` is a phone's screen, sent in every hello.
 export type Client = {
   key: KeyPair;
@@ -229,7 +230,7 @@ export function createConnection(
     // refusal carried, for the caller to check against its own roots; nothing is trusted here.
     onRevoked: (removal?: RosterStatement) => void;
     // This device's own roster statements, sent as the first frame (`join`) of every channel. Without it no join goes out
-    // and the channel is used as soon as it opens (the desktop viewer).
+    // and the channel is used as soon as it opens (only tests leave it out).
     join?: () => RosterStatement[];
     // The computer's roster: the `join` answer (with `joined`), the answer to `sendRoster`, and every `roster` it pushes.
     onRoster?: (roster: RosterSnapshot, joined?: Joined) => void;
@@ -237,7 +238,7 @@ export function createConnection(
     // the channel checked the saved id, its current addresses.
     onPeer?: (machine: Announced) => void;
     // The answer to the computer's `request` frame (the phone's location, later more); undefined when it comes too late.
-    // `isActive` is false while paused. Without it every request is dropped: the desktop answers no kind.
+    // `isActive` is false while paused. Without it every request is dropped: a computer answers no kind.
     answer?: (
       frame: RequestFrame,
       isActive: () => boolean,

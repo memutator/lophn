@@ -285,7 +285,7 @@ type Late = {
   // `ctx.peek`로만 읽는다.
   terminalInputGrant: (principal: string) => boolean;
   // remote가 낸다. 기기 principal의 kind
-  deviceKind: (principal: string) => "phone" | "desktop" | null;
+  deviceKind: (principal: string) => "phone" | "computer" | null;
   // remote가 낸다. 기기에 `request`를 보내고 답을 기다린다. `primary()`는 기준 폰의 기기 id(없으면 null)다.
   phoneLink: {
     call: PhoneLink["call"];

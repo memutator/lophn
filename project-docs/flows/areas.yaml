@@ -322,7 +322,7 @@ areas:
       - ledger schema step과 data step 적용(기동 거절 포함)
       - control socket과 ensureCore(붙기, 띄우기, 멈추기)
       - user token, credential, identity
-      - remote listener, pairing, 기기 연결과 그 자격
+      - remote listener, 내 기기 명단(초대장, join, 빼기), 기기 연결과 그 자격, 다른 컴퓨터로 가는 link(machines/*)
       - 기계 신분(machine.json), 복제 판정, 컴퓨터 이름
       - 늘 켜 둠 표시(always-on.json)와 OS 로그인 시작 등록·keep-awake 맞추기
       - child process 감독과 crash 진단

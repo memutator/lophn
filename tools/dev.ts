@@ -18,7 +18,7 @@
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
 //
 // `npm run dev -- --viewer`는 두 번째 desktop(자기 core와 shell)을 .dev-data/viewer로 띄운다. 먼저 뜬 `npm run dev`나
-// `dev:core`(host)를 다른 기계로 보고 pairing하는 개발용이다. fake provider와 fake push는 host 쪽 실행이 띄운 것을 같은
+// `dev:core`(host)를 다른 기계로 보고 초대장으로 명단에 들어가 붙는 개발용이다. fake provider와 fake push는 host 쪽 실행이 띄운 것을 같은
 // 고정 port로 쓰고 따로 띄우지 않는다.
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -88,7 +88,7 @@ function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
 }
 
-/** `--viewer`의 두 번째 desktop 데이터 root. 지우지 않고 이어 쓴다(pairing이 남는다). */
+/** `--viewer`의 두 번째 desktop 데이터 root. 지우지 않고 이어 쓴다(명단과 remote key가 남는다). */
 function viewerDataRoot(root: string): string {
   return `${devDataRoot(root)}/viewer`;
 }

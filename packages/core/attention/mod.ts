@@ -22,7 +22,7 @@ export function createAttention(deps: {
   clock: Clock;
   lookup: SessionLookup;
   // 기기 principal의 kind. 보고를 받을 때 부른다(사람과 모르는 principal은 null).
-  deviceKind(principal: string): "phone" | "desktop" | null;
+  deviceKind(principal: string): "phone" | "computer" | null;
   // `unseen`이 서거나 꺼졌다.
   unseenChanged(session: string): void;
 }) {

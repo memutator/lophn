@@ -1,5 +1,5 @@
-// The computers this device reaches and one live link to each. React-free so Node tests drive it; the phone's hooks and the
-// desktop shell main read it through `subscribe`/`get`. The list comes from the roster (architecture `remote.md` "내 기기
+// The computers this device reaches and one live link to each. React-free so Node tests drive it; the phone's hooks read it
+// through `subscribe`/`get`. The list comes from the roster (architecture `remote.md` "내 기기
 // 명단"): the saved computers' signing keys are the roots, every computer the view trusts is listed, and one the roster
 // removed leaves. This device carries the roster: what one computer sends goes to every other one it connects to. Where the
 // list and the roster are saved is the caller's (`load`/`save`); the sample computer (phone dev builds only) is kept in
@@ -25,7 +25,7 @@ import type {
   Update,
 } from "./connection.ts";
 import { ROSTER_JOIN_STATEMENTS_MAX } from "../protocol/remote/roster.ts";
-import type { JoinFailure, JoinResult } from "./pairing.ts";
+import type { JoinFailure, JoinResult } from "./join.ts";
 
 // A computer this device reaches. `key` (the core's host key) is its identity on the wire. `signing_key` is its roster
 // signing key and a root of this device's roster view: learnt from the invite's issuer, a `join` answer (over a channel
@@ -177,7 +177,7 @@ const STATUS = {
   LinkState["status"]
 >;
 
-/** A connection's link state, as the phone's and the desktop's links show it. */
+/** A connection's link state, as the phone's links and the core's links to other computers show it. */
 export function linkStateOf(
   connection: Connection,
   waiting: number,
@@ -200,7 +200,7 @@ export function sampleFor<D>(
 }
 
 /** What a computer goes by when it has no alias and no name from the roster or its hello. */
-export function defaultName(computer: Computer): string {
+function defaultName(computer: Computer): string {
   return computer.addresses[0] ?? computer.relay ?? computer.key.slice(0, 8);
 }
 

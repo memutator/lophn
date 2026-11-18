@@ -100,7 +100,7 @@ export function WelcomeScreen({
             <Rich
               id="mobile.start.step.add"
               name="button"
-              value={t("settings.heading.remote-pair")}
+              value={t("settings.heading.remote-add")}
               variant="control"
             />
           </Step>

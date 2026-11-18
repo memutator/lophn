@@ -82,20 +82,20 @@ React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱�
 
 ### 폰 앱과 core는 같이 올린다
 
-remote protocol 판은 2이고 하한도 2다(hello가 판 범위, 기계 id와 이름, 컴퓨터의 지금 주소 후보를 싣는다). 판 1인 옛 폰 build는 판 2 core에 붙지 못한다: core가 옛 hello를 모양 밖으로 보고 닫으므로 그 build는 다시 붙기를 되풀이하며 offline으로 보이고 올리라는 안내도 없다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 판 2끼리 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하지만 지금 폰은 pairing에서 Cannot reach, 연결에서 offline으로만 보인다.
+remote protocol 판은 3이고 하한도 3이다(hello가 판 범위, 기계 id와 이름, 컴퓨터의 지금 주소 후보를 싣는다. 판 3에서 pairing code가 명단의 초대장이 되었고 연결의 첫 frame은 `join`이다). 판 2인 옛 폰 build는 판 3 core에 붙지 못한다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하고, 폰은 초대장으로 들어갈 때 그 실패 화면으로, 붙어 있던 컴퓨터는 목록에서 올리라는 상태로 보인다.
 
 ### 개발 core와 pairing
 
 개발 core는 사람의 `~/.lophn`이 아니라 `.dev-data/`를 쓴다. 실제 relay에는 붙지 않는다.
 
 1. 저장소 root에서 개발 core를 띄운다: `npm run dev:core`(창 없이 core만. 창까지는 `npm run dev`).
-2. 다른 터미널에서 `npm run dev:remote`. 개발 core의 remote를 켜고(port 47432) pairing text를 찍는다. code는 5분, 한 번이다. 다시 받으려면 다시 띄운다.
-3. 폰이나 emulator에서 Enter a pairing code instead를 열어 그 글을 붙여 넣는다. emulator에서는 `adb -s emulator-<port> shell "input text '<pairing text에서 expires_at을 뺀 것>'"`(`</dev/null`을 붙여 스크립트에서 돌린다). emulator에는 camera 장면이 없다.
+2. 다른 터미널에서 `npm run dev:remote`. 개발 core의 remote를 켜고(port 47432) 폰 초대장 글(`roster/invite`, kind `phone`)을 찍는다. 초대장은 30분, 한 번이다. 다시 받으려면 다시 띄운다.
+3. 폰이나 emulator에서 Enter a pairing code instead를 열어 그 글을 붙여 넣는다. emulator에서는 `adb -s emulator-<port> shell "input text '<초대장 글>'"`(`</dev/null`을 붙여 스크립트에서 돌린다). emulator에는 camera 장면이 없다.
 4. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문에 Metro를 `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2`로 띄운다(dev build에서만. 이 주소를 저장한 주소들과 같이 걸어 먼저 붙는 것을 쓴다. 이 주소로 열린 연결은 컴퓨터가 알린 주소 목록 앞에 이 주소를 남겨 저장한다). 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
 
 ## 연결
 
-연결 조각(연결, 컴퓨터 store `createComputers`, 초대장 읽기와 join, leave)은 폰과 desktop이 같이 쓰는 `packages/remote-client`(`@lophn/remote-client`)에 있고 폰은 상대 path로 읽는다. 폰만의 것(컴퓨터의 `request`에 답하기, SecureStore, 화면 칸, sample 컴퓨터)은 여기 남는다. `createConnection`이 컴퓨터마다 연결 하나를 연다. 저장한 주소(처음은 QR의 것)를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 기계 id를 대조한 연결에서는 컴퓨터가 hello로 알린 지금 주소로 저장한 목록을 바꾼다(열린 주소가 그 목록에 없으면 앞에 남긴다). 컴퓨터의 주소가 pairing 뒤에 바뀌거나 늘어도(새 network, Tailscale, 설정 `remote.addresses`) 다시 pairing하지 않는다. port를 바꾸면 다시 pairing한다. 연결의 첫 frame은 늘 `join`(폰에 대한, 컴퓨터가 서명한 statement)이고 그 답의 명단을 받은 뒤 마지막 `watch`를 다시 보낸다. 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
+연결 조각(연결, 컴퓨터 store `createComputers`, 초대장 읽기와 join, leave)은 폰과 core(다른 컴퓨터로 가는 link)가 같이 쓰는 `packages/remote-client`(`@lophn/remote-client`)에 있고 폰은 상대 path로 읽는다. 폰만의 것(컴퓨터의 `request`에 답하기, SecureStore, 화면 칸, sample 컴퓨터)은 여기 남는다. `createConnection`이 컴퓨터마다 연결 하나를 연다. 저장한 주소(처음은 QR의 것)를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 기계 id를 대조한 연결에서는 컴퓨터가 hello로 알린 지금 주소로 저장한 목록을 바꾼다(열린 주소가 그 목록에 없으면 앞에 남긴다). 컴퓨터의 주소가 pairing 뒤에 바뀌거나 늘어도(새 network, Tailscale, 설정 `remote.addresses`) 다시 pairing하지 않는다. port를 바꾸면 다시 pairing한다. 연결의 첫 frame은 늘 `join`(폰에 대한, 컴퓨터가 서명한 statement)이고 그 답의 명단을 받은 뒤 마지막 `watch`를 다시 보낸다. 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
 
 QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주소들과 같이 `<relay>/v1/phone?key=<core key>`도 건다. relay는 바이트만 넘기므로 handshake는 같고, 먼저 서는 길을 쓴다. relay가 생기기 전에 pairing한 폰은 relay를 모르므로 한 번 다시 pairing한다.
 
@@ -305,7 +305,7 @@ guest lab build(`EXPO_PUBLIC_LOPHN_GUEST_LAB=1`, 위 "Android 확인")에 drive 
 release build(손가락 입력은 release에서만 guest에 닿는다)를 emulator에 깔고 개발 core에 pairing한 뒤, 개발 core에 앱을 하나 만들어 폰 화면을 손으로 쓰고 release와 preview를 띄운다. 개발 core에는 model이 없으므로 앱을 만드는 일과 agent의 호출은 test 도구(`tests/support/app/activate.ts`의 `startTestApp`·`deliverRelease`·`prepareRelease`·`lophnTurn`, `tests/support/fake-server`)로 한다. `lophnTurn`이 앱 workspace session의 turn 하나에서 fake model이 `lophn` tool을 부르게 하므로 그 session(agent)의 자격으로 `tab open --phone`과 `browser *`가 돈다. 사람 token은 CLI를 그 data root로 부른다: `env -u XDG_RUNTIME_DIR LOPHN_HOME=<data root> ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron packages/cli/main.ts tab open --phone <app>`(`XDG_RUNTIME_DIR`가 있으면 사람의 core socket 자리를 찾는다).
 
 1. 앱 source에 폰 화면 하나(입력은 `Field` 안, 긴 목록, operation 단추, `Sheet`를 여는 단추)를 쓰고 release와 `preview start <release>`. 폰 화면 앱의 의존은 `project-docs/architecture/phone-screen.md`의 "설치 비용"대로 `devDependencies`에 둔다.
-2. remote를 켜고 pairing text의 `addresses`를 `["10.0.2.2"]`로 바꿔 붙여 넣는다(release build는 `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`를 읽지 않는다).
+2. remote를 켜고 초대장 글의 `reach.addresses`를 `["10.0.2.2"]`로 바꿔 붙여 넣는다(release build는 `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`를 읽지 않는다).
 3. 폰에서 앱 → ⋯ → Preview from lophn. 그 전과 뒤에 `tab open --phone`을 부른다(전에는 `unavailable`).
 4. `browser snapshot`(Field label이 textbox 이름, `[offscreen]`, secure 칸 `••••`), `act click`(operation이 preview process로 불린다), `type`·`fill`·`press Enter`, `scroll --ref`와 `--dy`, `wait --text`(빈칸이 든 글은 tool 입력 JSON으로), `screenshot`(`.jpg`), `read`.
 5. 거절: Take control 뒤 act, 옛 ref, Sheet를 열거나 notification shade를 내린 때(`covered`), HOME과 `KEYCODE_SLEEP` 뒤, preview 화면을 떠난 뒤, preview를 다시 지은 뒤의 옛 ref, `preview stop` 뒤, 다른 앱 workspace의 session.

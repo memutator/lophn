@@ -64,8 +64,6 @@ import {
   devicesConnected,
   devicesList,
   devicesPushTargets,
-  devicesRename,
-  devicesRevoke,
   devicesSetPrimary,
   generateKeyPair,
   type KeyPair,
@@ -73,7 +71,6 @@ import {
   type RemoteClientChannel,
   type RemoteClientFrame,
   type RemoteServerFrame,
-  pairingStart,
   remoteKeyBytes,
   remoteKeyText,
   rosterForgetAll,
@@ -253,13 +250,10 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     loginComplete,
     refreshProviderModels,
     devicesList,
-    devicesRename,
-    devicesRevoke,
     devicesSetPrimary,
     devicesConnected,
     devicesClearPush,
     devicesPushTargets,
-    pairingStart,
     rosterList,
     rosterInvite,
     rosterRemove,
@@ -680,7 +674,7 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });
 
-test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, roster/*(leave 말고), agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
+test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*(set_push 말고), roster/*(leave 말고), agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   s.register(key);
@@ -704,13 +698,10 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "providers/refresh-models",
     "settings/update",
     "devices/list",
-    "devices/rename",
-    "devices/revoke",
     "devices/set_primary",
     "devices/connected",
     "devices/clear_push",
     "devices/push_targets",
-    "pairing/start",
     "roster/list",
     "roster/invite",
     "roster/remove",
@@ -1310,19 +1301,13 @@ async function migrated() {
   });
   assert.ok((await roster.load()).ok);
   await roster.useKeys(keys);
-  const listed = devicesListRead.handle(snapshot, {} as never, machineCtx);
-  assert.ok(listed.ok);
+  const stored = rosterStatementsRead.handle(snapshot, {} as never, machineCtx);
+  assert.ok(stored.ok);
   const identified = await roster.ensureSelf({
     machine,
     name: () => "studio",
     os: "linux",
-    adopt: listed.value.devices.map((row) => ({
-      id: row.id,
-      key: row.public_key,
-      name: row.name,
-      os: row.os as "android",
-      terminal_input: row.terminal_input,
-    })),
+    adopt: stored.value.adopt,
   });
   assert.ok(identified.ok);
   const s = setup({ roster, hostKey: keys.host });

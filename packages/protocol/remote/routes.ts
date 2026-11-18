@@ -7,13 +7,9 @@ import { pushPrefsSchema } from "../attention/mod.ts";
 import { eventConditionSchema } from "../events/bus.ts";
 import { machineIdSchema } from "../machine/mod.ts";
 import {
-  desktopPairingSchema,
-  deviceKindSchema,
   deviceNameSchema,
   keyTextSchema,
-  phonePairingSchema,
   remoteDeviceSchema,
-  remotePairingSchema,
   remotePhoneSchema,
 } from "./frames.ts";
 import {
@@ -26,18 +22,6 @@ import {
 } from "./roster.ts";
 
 const deviceIdSchema = idSchema("dev");
-
-// 새 code를 만들고 앞 code를 무효로 한다. remote listener도 relay도 떠 있지 않으면 unavailable이다.
-// `terminal_input`은 이 code로 붙는 기기가 터미널에 칠 수 있는가다. 사람이 pairing 화면에서 정한다.
-export const pairingStart = defineMemory({
-  resource: "pairing",
-  method: "start",
-  name: "pairing.start",
-  input: z.strictObject({ terminal_input: z.boolean() }),
-  output: remotePairingSchema.extend({ expires_at: atSchema }),
-  actors: ["user"],
-  errors: ["invalid_input", "forbidden", "unavailable"],
-});
 
 // 설정 `remote.relay`로 건 relay 연결의 상태. relay 설정이 비었거나 remote가 꺼져 있으면 off다.
 export const remoteRelayStatus = defineMemory({
@@ -53,31 +37,23 @@ export const remoteRelayStatus = defineMemory({
   errors: ["invalid_input", "forbidden"],
 });
 
+// 이 컴퓨터에 붙은 폰의 행: 이 컴퓨터만의 칸(화면, 기준, 마지막 연결). 종류, 이름의 주인, 터미널 입력 허락은 명단이 든다
+// (`roster/list`). `name`은 명단의 이름이다.
 const deviceSchema = z.strictObject({
   id: deviceIdSchema,
-  kind: deviceKindSchema,
-  // 보이는 이름: 사람이 붙인 별명이 있으면 별명, 없으면 기기가 마지막으로 알린 이름.
   name: deviceNameSchema,
-  announced_name: deviceNameSchema,
-  alias: deviceNameSchema.nullable(),
-  os: z.enum([
-    ...phonePairingSchema.shape.os.options,
-    ...desktopPairingSchema.shape.os.options,
-  ]),
-  // 화면 칸은 phone만 있다.
-  width: remoteDeviceSchema.shape.width.nullable(),
-  height: remoteDeviceSchema.shape.height.nullable(),
-  dpr: remoteDeviceSchema.shape.dpr.nullable(),
+  os: remoteDeviceSchema.shape.os,
+  width: remoteDeviceSchema.shape.width,
+  height: remoteDeviceSchema.shape.height,
+  dpr: remoteDeviceSchema.shape.dpr,
   public_key: keyTextSchema,
   created_at: atSchema,
   last_connected_at: atSchema.nullable(),
   primary: z.boolean(),
-  // 이 기기가 coding agent 터미널에 칠 수 있는가. 기본 꺼짐이고 사람이 컴퓨터에서만 켠다(devices/set_terminal_input).
-  terminal_input: z.boolean(),
 });
 export type RemoteDevice = z.infer<typeof deviceSchema>;
 
-// 만든 순서다. remote 연결이 붙는 기기를 key로 찾으려고 core 안 machine도 읽는다.
+// 만든 순서다. core 안 machine도 읽는다(host queue가 기준 폰을 찾는다).
 export const devicesList = defineRead({
   resource: "devices",
   method: "list",
@@ -89,47 +65,7 @@ export const devicesList = defineRead({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// 사람이 붙인 별명을 둔다. null이면 별명을 지워 기기가 알린 이름이 다시 보인다. 보이는 이름이 바뀌면 설정 `shell.devices`에서
-// 이 기기의 항목(`device`가 이 id) 이름도 바꾼다. 다른 항목과 겹치면 뒤에 " 2"…를 붙인다.
-export const devicesRename = defineCommand({
-  resource: "devices",
-  method: "rename",
-  name: "devices.rename",
-  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.strictObject({
-    id: deviceIdSchema,
-    name: deviceNameSchema.nullable(),
-  }),
-  output: z.object({ id: deviceIdSchema }),
-  actors: ["user"],
-  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
-});
-
-// 기기를 지운다. 그 기기의 연결은 바로 닫히고, 같은 key는 다시 pairing해야 붙는다.
-export const devicesRevoke = defineCommand({
-  resource: "devices",
-  method: "revoke",
-  name: "devices.revoke",
-  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.strictObject({ id: deviceIdSchema }),
-  output: z.object({ id: deviceIdSchema }),
-  actors: ["user"],
-  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
-});
-
-// 폰이 이 컴퓨터를 지울 때 부른다. 부른 기기 자기 등록만 지운다(id를 받지 않는다). 기기 자격이 아니면 forbidden이다.
-export const devicesUnpair = defineCommand({
-  resource: "devices",
-  method: "unpair",
-  name: "devices.unpair",
-  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.strictObject({}),
-  output: z.object({ id: deviceIdSchema }),
-  actors: ["user"],
-  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
-});
-
-// 기준 기기는 하나다. 다른 기기의 기준을 내린다. phone만 기준이 된다(desktop이면 invalid_input).
+// 기준 기기는 하나다. 다른 기기의 기준을 내린다. 행은 폰만 있어 컴퓨터는 not_found다.
 export const devicesSetPrimary = defineCommand({
   resource: "devices",
   method: "set_primary",
@@ -141,48 +77,13 @@ export const devicesSetPrimary = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
-// 기기가 터미널에 치는 것을 켜고 끈다. 사람(desktop)만 부른다: 기기 자격은 이 route가 목록(REMOTE_ALLOWED_ROUTES)에 없어
-// forbidden이다. 끄면 그 기기의 다음 입력부터 거절이다.
-export const devicesSetTerminalInput = defineCommand({
-  resource: "devices",
-  method: "set_terminal_input",
-  name: "devices.set_terminal_input",
-  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.strictObject({ id: deviceIdSchema, on: z.boolean() }),
-  output: z.object({ id: deviceIdSchema }),
-  actors: ["user"],
-  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
-});
-
-// 기기가 알린 이름(client hello `name`). 별명과 달리 연결마다 고쳐 적힌다.
+// 기기가 알린 이름(client hello `name`). 연결마다 고쳐 적힌다.
 const announcedNameSchema = z.string().trim().min(1).max(64);
 
-// pairing이 맞은 기기를 등록한다. core 안 machine 자격만 낸다. 새 phone이 기준이 된다(desktop은 기준을 건드리지 않는다).
-// 같은 key의 옛 등록(폰이 이 컴퓨터를 지웠는데 컴퓨터는 몰랐다)은 지우고 새 등록으로 바꾼다. name은 그 연결의 hello로 알린 이름이다.
-// terminal_input은 그 pairing code를 만들 때 사람이 정한 터미널 입력 허락이다.
-const registered = {
-  public_key: keyTextSchema,
-  name: announcedNameSchema,
-  terminal_input: z.boolean(),
-};
-export const devicesRegister = defineCommand({
-  resource: "devices",
-  method: "register",
-  name: "devices.register",
-  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.discriminatedUnion("kind", [
-    phonePairingSchema.extend(registered),
-    desktopPairingSchema.extend(registered),
-  ]),
-  output: z.object({ id: deviceIdSchema }),
-  actors: ["machine"],
-  errors: ["invalid_input", "forbidden", "unavailable"],
-});
-
-// 기기가 붙은 때와 그 연결의 hello로 알린 이름을 적는다. core 안 machine 자격만 낸다. 사람이 붙인 별명은 그대로다.
-// `phone`은 그 연결의 hello가 알린 화면이다. 이 컴퓨터에 처음 붙는 폰의 local 행(`shell.devices` 항목)을 이것으로 만든다.
-// 하나만 다르다: 알린 이름을 아직 받은 적 없는 행(migration·pairing에서 온 이름)의 별명이 알린 이름과 같으면 별명을 거둔다.
-// migration이 옛 이름을 별명으로 지켜 둔 것 가운데 사람이 바꾼 적 없는 것이라 보이는 글은 바뀌지 않는다.
+// 폰이 붙은 때와 그 연결의 hello로 알린 이름을 적는다. core 안 machine 자격만 낸다. `phone`은 그 연결의 hello가 알린 화면이다.
+// 이 컴퓨터에 처음 붙는 폰의 local 행(`shell.devices` 항목)을 이것으로 만든다. `renamed`는 있던 행의 알린 이름이 바뀐
+// 것이다(폰에서 이름을 바꿨다). 그때만 wiring이 명단의 이름을 서명하므로 사람이 `roster/rename`으로 바꾼 이름을 폰이 옛
+// 이름으로 다시 덮지 않는다.
 export const devicesConnected = defineCommand({
   resource: "devices",
   method: "connected",
@@ -193,22 +94,9 @@ export const devicesConnected = defineCommand({
     name: announcedNameSchema,
     phone: remotePhoneSchema.optional(),
   }),
-  output: z.object({ id: deviceIdSchema }),
+  output: z.object({ id: deviceIdSchema, renamed: z.boolean() }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
-});
-
-// 기기 등록을 모두 지운다. core 안 machine 자격만 낸다. host key가 다른 기계의 것(복사된 data root)일 때 기동이 부른다:
-// 그 등록은 다른 기계가 pairing한 것이다. 행마다 끊은 것과 같이 연결을 닫고 자격을 거둔다.
-export const devicesForgetAll = defineCommand({
-  resource: "devices",
-  method: "forget_all",
-  name: "devices.forget_all",
-  changes: ["remote_devices"],
-  input: z.strictObject({}),
-  output: z.object({ count: z.number().int().min(0) }),
-  actors: ["machine"],
-  errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
 // Expo push token. 폰이 `getExpoPushTokenAsync`로 받은 글 그대로다.
@@ -217,7 +105,7 @@ const pushTokenSchema = z
   .regex(/^Expo(nent)?PushToken\[[^\]]+\]$/)
   .max(200);
 
-// 폰이 자기 push token과 알림 설정을 core에 둔다. 부른 기기 자기 행만 고친다(id를 받지 않는다). 기기 자격이 아니거나 desktop이면 forbidden이다.
+// 폰이 자기 push token과 알림 설정을 core에 둔다. 부른 기기 자기 행만 고친다(id를 받지 않는다). 기기 자격이 아니면 forbidden, 행이 없는 기기(컴퓨터)는 not_found다.
 // `token: null`은 이 기기의 push를 끄는 것이다(token을 지우고 prefs는 저장한다).
 export const devicesSetPush = defineCommand({
   resource: "devices",
@@ -266,9 +154,6 @@ export const devicesPushTargets = defineRead({
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
-
-// 폰의 `pair`가 맞았을 때 같은 id의 `result` value다.
-export const remotePairedSchema = z.strictObject({ device: deviceIdSchema });
 
 // 내 기기 명단(architecture `remote.md`의 "명단"). 명단 하나를 모든 기계가 같이 들고 어느 컴퓨터에서나 고친다.
 
@@ -395,7 +280,8 @@ export const rosterLeave = defineMemory({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
-// 저장한 명단(statement와 주소). core 안 machine 자격만 읽는다.
+// 저장한 명단(statement와 주소). core 안 machine 자격만 읽는다. `adopt`는 옛 기기 표에서 옮긴 폰 행 가운데 명단에 그 key의
+// statement가 하나도 없는 것이다: main thread가 서명 key를 가진 첫 때 이 컴퓨터가 그대로(id, key, 이름, 허락) 서명한다.
 export const rosterStatements = defineRead({
   resource: "roster",
   method: "statements",
@@ -406,6 +292,15 @@ export const rosterStatements = defineRead({
     z.object({
       statements: z.array(rosterStatementSchema),
       reach: z.array(rosterReachSchema),
+      adopt: z.array(
+        z.strictObject({
+          id: deviceIdSchema,
+          key: keyTextSchema,
+          name: deviceNameSchema,
+          os: remoteDeviceSchema.shape.os,
+          terminal_input: z.boolean(),
+        }),
+      ),
     }),
   ),
   actors: ["machine"],

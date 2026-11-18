@@ -1,6 +1,7 @@
 import {
   Activity,
   Bot,
+  FolderSync,
   Globe,
   Keyboard,
   Palette,
@@ -20,6 +21,7 @@ export const settingsIcons = {
   appearance: Palette,
   browser: Globe,
   remote: Smartphone,
+  sync: FolderSync,
   keyboard: Keyboard,
   quickLaunch: Rocket,
   providers: Plug,

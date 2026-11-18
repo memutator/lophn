@@ -2801,6 +2801,7 @@ flows:
       - "dispatch가 actors(user)를 본다. 기기 route 목록에 없어 연결의 컴퓨터와 폰은 부르지 못한다"
       - "machines: 받는 자리가 든 manifest마다 machine, revision, 마지막으로 받아 들인 때(received_at)와 길(via: link, phone, folder). 이 컴퓨터 것은 때와 길이 null이다. 때와 길은 메모리에만 있어 core를 다시 띄우면 null이고, 명단에서 빠진 컴퓨터는 목록에 없다"
       - "apps: sync_to가 있는 활성 앱마다 name, sync_to, 다른 기계의 변경을 마지막으로 읽은 때(그 앱 folder_reads의 가장 늦은 imported_at, 읽은 적이 없으면 null)"
+      - "shared: 쓸 수 있는 같이 보는 폴더(folder.shared)의 path와 상태(ok, missing, not_writable. 폴더가 있는 directory이고 쓸 수 있는지 그때 본다). 정하지 않았거나 겹쳐 쓰지 못하는 값이면 null"
       - "든 manifest가 바뀌면(StateChanged carry_files)와 앱 상태가 바뀌면(app_runtime) 화면이 다시 읽는다"
     outcomes:
       - id: ok

@@ -14,6 +14,7 @@ import type { StoredKeybindings } from "../keyboard/source.ts";
 import { fakeKeyboard } from "../keyboard/testdata/fake-source.ts";
 import { fakeProviders } from "../providers/testdata/fake-providers.ts";
 import { fakeRemote } from "../remote/testdata/fake-source.ts";
+import { fakeSync } from "../sync/testdata/fake-source.ts";
 import type { SettingsPanels } from "../settings-screen.tsx";
 import {
   fakeShellRules,
@@ -99,6 +100,7 @@ export function fakeSettingsScreen(
     browser: fakeBrowserSettings({ core, ...options.browser }).source,
     keyboard: fakeKeyboard({ core, value: options.keyboard }).source,
     remote: fakeRemote().source,
+    sync: fakeSync().source,
   };
   return { core, settings, panels };
 }

@@ -1341,6 +1341,7 @@ export const folderWiring: WiringFactory = () => {
             carryStatusHandler({
               replica,
               apps: syncApps,
+              shared: sharedFolder,
               importStatus: (app) => importer.status(app),
             }),
           );

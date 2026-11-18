@@ -1,20 +1,40 @@
 // route `carry/status`의 handler. Settings › Sync가 읽는 지금 길이다: 컴퓨터마다 마지막으로 받은 manifest의 때와 길(받는 자리가
 // 메모리에만 둔다), 앱마다 다른 기계의 변경을 마지막으로 읽은 때.
+import { accessSync, constants, statSync } from "node:fs";
 import { ok } from "../../base/mod.ts";
+import type { DestinationState } from "../../protocol/folder/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { ReadHandler } from "../server/mod.ts";
 import type { FolderReplica } from "./ports.ts";
+
+function stateOf(path: string): DestinationState {
+  try {
+    if (!statSync(path).isDirectory()) return "missing";
+  } catch {
+    return "missing";
+  }
+  try {
+    accessSync(path, constants.W_OK);
+    return "ok";
+  } catch {
+    return "not_writable";
+  }
+}
 
 export function carryStatusHandler(deps: {
   replica: Pick<FolderReplica, "manifests">;
   /** `sync_to`가 있는 앱. */
   apps(): { app: Id<"app">; name: string; sync_to: string }[];
+  /** 쓸 수 있는 같이 보는 폴더의 path. 없거나 겹치면 null. */
+  shared(): string | null;
   importStatus(app: Id<"app">): { imported_at: string | null }[];
 }): ReadHandler {
   return async () => {
     const manifests = await deps.replica.manifests();
     if (!manifests.ok) return manifests;
+    const shared = deps.shared();
     return ok({
+      shared: shared === null ? null : { path: shared, state: stateOf(shared) },
       machines: manifests.value.map((row) => ({
         machine: row.machine,
         revision: row.revision,

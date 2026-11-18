@@ -38,6 +38,7 @@ import {
   releaseRecordSchema,
   sourceMetaSchema,
 } from "../folder/records.ts";
+import { destinationStateSchema } from "../folder/status.ts";
 
 const KIB = 1024;
 const MIB = 1024 * KIB;
@@ -644,9 +645,13 @@ export const carryStatus = defineRead({
         read_at: atSchema.nullable(),
       }),
     ),
+    // 쓸 수 있는 같이 보는 폴더(`folder.shared`)와 그 상태. 정하지 않았거나 쓰지 못하는 값이면 null이다.
+    shared: z
+      .object({ path: z.string(), state: destinationStateSchema })
+      .nullable(),
   }),
   actors: ["user"],
-  reads: ["carry_files", "app_runtime"],
+  reads: ["carry_files", "app_runtime", "settings"],
   errors: ["unauthorized", "forbidden", "unavailable"],
 });
 

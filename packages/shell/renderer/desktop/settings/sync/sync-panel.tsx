@@ -86,6 +86,10 @@ export function SyncPanel({
       (row) => [row.machine, row],
     ),
   );
+  const sharedState =
+    status === "failed" || status === null || status.shared === null
+      ? null
+      : status.shared.state;
   const apps = status === "failed" || status === null ? [] : status.apps;
 
   return (
@@ -124,6 +128,14 @@ export function SyncPanel({
                     >
                       {folders.shared}
                     </span>
+                    {sharedState === null || sharedState === "ok" ? null : (
+                      <span
+                        className={syncStyles.warning}
+                        data-sync-state={sharedState}
+                      >
+                        {t(STATE_TEXT[sharedState])}
+                      </span>
+                    )}
                     <span className={styles.lineHelp}>
                       {t("settings-sync.note.shared-set")}
                     </span>

@@ -20,6 +20,8 @@ export interface FakeSyncOptions {
   remoteEnabled?: boolean;
   received?: SyncReceived[];
   apps?: SyncAppRow[];
+  /** 같이 보는 폴더의 상태. 없으면 쓸 수 있다. */
+  sharedState?: "ok" | "missing" | "not_writable";
   /** 저장을 거절하는 글. 없으면 저장된다. */
   refuse?: string;
   /** [Choose…]가 돌려주는 path. */
@@ -121,6 +123,10 @@ export function fakeSync(options: FakeSyncOptions = {}) {
       ok({ shared, named, remoteEnabled: options.remoteEnabled ?? true }),
     status: () =>
       ok({
+        shared:
+          shared === null
+            ? null
+            : { path: shared, state: options.sharedState ?? "ok" },
         received: options.received ?? sampleReceived(),
         apps: options.apps ?? sampleApps(),
       }),

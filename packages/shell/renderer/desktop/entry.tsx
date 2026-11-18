@@ -55,6 +55,7 @@ import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import type { QueryLocalFonts } from "./settings/appearance/local-fonts.ts";
 import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
 import { coreRemoteSource } from "./settings/remote/core-source.ts";
+import { coreSyncSource } from "./settings/sync/core-source.ts";
 import { coreJobsSource } from "./jobs/core-source.ts";
 import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
 import { windowBrowserSettings } from "./settings/browser/window-source.ts";
@@ -167,6 +168,7 @@ const settingsPanels = remote
       ),
       keyboard: coreKeyboardSource(core),
       remote: coreRemoteSource(core),
+      sync: coreSyncSource(core),
       coding: coreCodingConnectionsSource(core),
       browser: windowBrowserSettings(),
     });

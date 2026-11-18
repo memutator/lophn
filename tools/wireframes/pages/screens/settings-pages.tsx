@@ -528,9 +528,13 @@ export const SettingsRemoteRemove = () => (
   />
 );
 
-/** Settings › Sync: 같이 보는 폴더(Google Drive 안) 줄이 맨 위에 서고 이름 붙인 폴더 둘이 있다(photos는 폴더가 없다). 컴퓨터는 이 컴퓨터, 직접 붙은 Home server, relay로 붙은 Office desktop, 꺼졌지만 폰이 file을 나른 Work laptop("via your phone"), 꺼진 Old netbook이다. 앱은 몇 분 전, 몇 시간 전, 맞춘 적 없음이다. */
+/** Settings › Sync: 같이 보는 폴더(Google Drive 안) 줄이 맨 위에 서고 이름 붙인 폴더 둘이 있다(같이 보는 폴더는 쓸 수 없고 photos는 폴더가 없다). 컴퓨터는 이 컴퓨터, 직접 붙은 Home server, relay로 붙은 Office desktop, 꺼졌지만 폰이 file을 나른 Work laptop("via your phone"), 꺼진 Old netbook이다. 앱은 몇 분 전, 몇 시간 전, 맞춘 적 없음이다. */
 export const SettingsSync = () => (
-  <SettingsFrame pane="sync" machines={{ machines: sampleSyncMachines() }} />
+  <SettingsFrame
+    pane="sync"
+    machines={{ machines: sampleSyncMachines() }}
+    sync={{ sharedState: "not_writable" }}
+  />
 );
 
 /** Settings › Sync: 같이 보는 폴더도 이름 붙인 폴더도 없고 Remote가 꺼져 있다. 폴더를 고르거나 lophn에게 붙여 달라고 하라는 설명과, Remote를 켜라는 한 줄이 선다. */

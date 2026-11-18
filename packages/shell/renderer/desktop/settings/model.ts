@@ -4,7 +4,7 @@ import { type MessageKey, t } from "@lophn/i18n";
 
 import type { LucideIcon } from "lucide-react";
 
-import { settingsIcons, shellIcons } from "../../icons/mod.ts";
+import { settingsIcons } from "../../icons/mod.ts";
 import type { AuthWay } from "./source.ts";
 
 /** Settings의 항목. Settings 공간 sidebar에 묶음별로 모두 줄지어 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
@@ -68,7 +68,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
       {
         id: "sync",
         label: "settings-sync.label.tab",
-        icon: shellIcons.folder,
+        icon: settingsIcons.sync,
       },
       {
         id: "keyboard",

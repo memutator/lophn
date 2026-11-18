@@ -98,6 +98,7 @@ export function coreSyncSource(
       return {
         ok: true,
         value: {
+          shared: read.value.shared,
           received: read.value.machines.map((row) => ({
             machine: row.machine,
             receivedAt: row.received_at,

@@ -34,6 +34,8 @@ export interface SyncAppRow {
 }
 
 export interface SyncStatus {
+  /** 쓸 수 있는 같이 보는 폴더의 상태. 정하지 않았거나 쓰지 못하는 값이면 null이다. */
+  readonly shared: Pick<SyncFolder, "path" | "state"> | null;
   readonly received: readonly SyncReceived[];
   readonly apps: readonly SyncAppRow[];
 }

@@ -25,8 +25,13 @@ export type Mirror = {
   takeIn(shared: string): Promise<void>;
 };
 
+// 한 기계의 take-in이 도는 횟수의 상한. 사슬은 manifest, 앱 목록, release.json·source json, 그 아래 file의 네 층이다.
+const TAKE_IN_PASSES_MAX = 8;
+
 export function createMirror(deps: {
   me(): Id<"mch">;
+  /** 명단 view에 그 기계의 하나뿐인 컴퓨터 항목이 있다. */
+  known(machine: Id<"mch">): boolean;
   /** `computers` 폴더 경로. */
   computers: string;
   replica: Replica;
@@ -107,7 +112,8 @@ export function createMirror(deps: {
       const machines = await reader.listMachines();
       if (!machines.ok) return;
       for (const machine of machines.value) {
-        if (machine === deps.me()) continue;
+        // 명단의 컴퓨터가 아닌 하위 폴더는 열지 않는다: 그 폴더는 누구나 쓸 수 있어 지어낸 기계마다 8 MiB를 읽게 된다.
+        if (machine === deps.me() || !deps.known(machine)) continue;
         const read = await reader.read(
           manifestPath(machine),
           MANIFEST_MAX_BYTES,
@@ -118,9 +124,15 @@ export function createMirror(deps: {
             "folder",
           );
         }
-        // 받은 목록 file이 그 아래 file을 새로 바라게 하므로 더 받을 것이 없을 때까지 돈다.
-        for (let got = 1; got > 0; ) {
-          got = 0;
+        // 받은 목록 file이 그 아래 file을 새로 바라게 하므로 더 받을 것이 없을 때까지 돈다. 이번에 이미 받은 path를 또
+        // 받으면 멈춘다(대소문자만 다른 두 path가 같은 file인 OS에서 서로 덮으며 끝없이 돈다).
+        const accepted = new Set<string>();
+        for (
+          let pass = 0, again = true;
+          again && pass < TAKE_IN_PASSES_MAX;
+          pass++
+        ) {
+          again = false;
           for (const want of await deps.replica.wantedOf(machine)) {
             const head = await reader.readHead(want.path, 0);
             if (!head.ok || head.value.size !== want.size) continue;
@@ -136,7 +148,13 @@ export function createMirror(deps: {
                 if (stream.ok) yield* stream.value.chunks;
               })(),
             });
-            if (done.ok && done.value === "accepted") got += 1;
+            if (!done.ok || done.value !== "accepted") continue;
+            if (accepted.has(want.path)) {
+              again = false;
+              break;
+            }
+            accepted.add(want.path);
+            again = true;
           }
         }
       }

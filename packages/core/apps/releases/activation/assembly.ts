@@ -126,8 +126,12 @@ export type ActivationDriver = {
   settled(): Promise<void>;
   // Bus·접수·changeset port를 끼운다.
   attach(late: ActivationLate): void;
-  // release 하나를 판정하고 시도가 끝나기를 기다린다(`release.activate`). 상한을 넘으면 running이다.
-  activate(release: string): Promise<Result<ReleaseActivateOutput>>;
+  // release 하나를 판정하고 시도가 끝나기를 기다린다(`release.activate`). 상한을 넘으면 running이다. ask면 늘어난 것이
+  // 없어도 사람의 동의를 기다린다(명단의 터미널 허락이 없는 컴퓨터에서 따라온 release).
+  activate(
+    release: string,
+    options?: { ask?: boolean },
+  ): Promise<Result<ReleaseActivateOutput>>;
   // `activations.queue` read의 원천이다. 도는 것(메모리)과 사람을 기다리는 동의 줄(ledger)을 합친다.
   queueEntries(
     app: string | undefined,
@@ -668,7 +672,10 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     enqueue,
   });
 
-  async function activate(id: string): Promise<Result<ReleaseActivateOutput>> {
+  async function activate(
+    id: string,
+    options?: { ask?: boolean },
+  ): Promise<Result<ReleaseActivateOutput>> {
     // supervisor 통로 없이 시작하면 종료를 확인하지 못해 시도가 activating으로 남는다(sweep이 bound를 보는 것과 같은 이유).
     if (late === undefined || !deps.bound()) {
       return unavailable("activation is unavailable");
@@ -690,7 +697,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     }
     awaited.add(id);
     try {
-      const judged = await handlers.activate(release);
+      const judged = await handlers.activate(release, options?.ask === true);
       if (!judged.ok) return judged;
       if (judged.value === "waiting_consent") {
         return ok({ status: "waiting_consent", release: id });

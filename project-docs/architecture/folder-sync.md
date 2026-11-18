@@ -194,6 +194,7 @@
 ```
 
 - **따라가기.** 앱을 들인 기계는 다른 기계들의 앱 기록이 말하는 활성 release 가운데 git 조상 순서로 하나를 골라 take-in과 같은 길로 설치하고 activation에 넘긴다. 고르기, 동의, 실패와 갈라짐은 `activation.md`다.
+  - `computers`로만 온 release는 그것을 낸 컴퓨터가 이 컴퓨터 명단에서 터미널을 쓸 수 있는(`terminal_input`) 컴퓨터일 때만 이름 붙인 폴더처럼 묻지 않고 켠다. 그 밖의 명단 컴퓨터가 낸 것은 들이되(take-in) 늘어난 권한이 없어도 activation이 사람의 동의를 기다린다. 이유: 따라가기는 다른 기계의 code를 사람이 준 권한으로 이 컴퓨터에서 돌리는 일이라, 터미널 허락이 없는 컴퓨터(도둑맞은 노트북)가 이것으로 code를 돌리면 터미널 허락이 뜻을 잃는다. 터미널을 쓸 수 있는 컴퓨터는 이미 무엇이든 할 수 있다. 같은 release를 이름 붙인 폴더나 그런 컴퓨터도 내놓으면 묻지 않는다.
 - **drain 순서.** 이 기계의 활성 release가 held의 release가 되면, 출처마다 그 release의 held를 번호 순서로 stream과 같은 적용 길로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다. 그 출처의 stream은 지금 release의 held를 다 적용한 뒤에만 읽는다: cursor가 held 뒤에 있어 먼저 읽으면 순서가 뒤집힌다. 하나가 실패하면 그 출처는 그 행에서 멈추고 다음 계기에 같은 행부터 한다.
 - **snapshot이 덮은 held.** 출처 X의 snapshot m이 합쳐지거나 held가 되면 같은 transaction에서 X의 m보다 옛 held를 지운다. snapshot m은 m 앞의 변경을 다 담기 때문이다(폴더 꼴의 계약). 그 밖에 held가 없어지는 길은 이 기계가 그 release가 되어 적용했을 때와 앱을 이 기계에서 지웠을 때뿐이다.
 - **옛 release의 변경.** 주인의 release가 바뀐 뒤 내는 첫 file은 snapshot이다. 그래서 늦게 올라온 기계가 옛 release에서 한 변경은 따로 다시 표현하지 않고 그 snapshot을 칸 clock으로 합칠 때 온다. 이것이 맞으려면 migration 뒤에도 칸 clock이 남아야 해서, 앱 process가 뜰 때 칸 clock을 칸 이름으로 새 번호에 옮긴다(`app-sync.md`). 다른 destination에 쓰는 사이 진짜 폴더에 빈 번호가 생겨도 그 snapshot이 빈 곳을 덮어 읽는 쪽은 그 번호로 건너뛴다.
@@ -313,7 +314,7 @@
 - 따라가기의 설치 실패와 거절은 메모리에만 있어 core가 다시 뜨면 다시 한다(`activation.md`).
 - 빚진 지우기 표시가 `folder_reads.error` 칸 안 JSON에 산다. 그 칸을 읽고 쓰는 곳이 import 하나라 칸을 나누는 schema step은 folder 표를 다음에 고칠 때 같이 한다(이슈 `folder-absent-pass-mark-in-error-column`, kept).
 - `clock_ahead`의 글은 기계 이름만 쓴다. 이름이 겹친 기계끼리는 `details.machine`(id)으로만 가린다.
-- 기계 사이로 옮기기(`computers` 갈 곳, manifest, 받는 자리, 길 셋)는 이 판에 계약과 서명·검증 순수 함수만 있다. route는 아직 등록되지 않았고 받는 자리와 길은 뒤 task가 단다.
+- 기계 사이로 옮기기의 route 넷(`carry/*`)은 받는 자리에 달렸고 folder route로 등록되어 있다. 기기 route 목록과 설정 `folder.shared`의 선언 목록에는 lead가 merge 때 올린다. 실제 두 기계와 바깥 폴더 도구로는 돌려 보지 않았다.
 - 앱 목록의 data file을 줄이는 이른 snapshot은 큰 앱 DB에서 무겁다(5초마다 바뀌는 앱은 몇 시간마다 snapshot이다). held인 자기 변경이 있는 동안은 snapshot을 쓰지 못해 목록이 한도에 닿을 수 있고, 그때는 내는 기계에 오류가 선다.
 - 명단 규칙은 다른 key가 같은 기계 이름을 다는 것을 아직 충돌로 보지 않는다. 받는 쪽은 그 이름을 믿지 않는 것으로 막지만, 사람에게는 그 기계가 멈춘 것만 보인다.
 - 나르는 쪽이 목록을 내놓지 않고 버티는 것은 받는 쪽이 알 수 없다(늦어질 뿐이다).

@@ -209,10 +209,17 @@ export async function publishManifest(
   const before = current.ok
     ? parseManifestText(new TextDecoder().decode(current.value))
     : null;
-  if (before !== null && canonicalize(before.files) === canonicalize(top)) {
+  const mark = ownMark(sql, me) ?? 0;
+  // 목록이 같아도 다른 기계가 되돌려 준 자기 manifest가 이 file보다 새면(data root를 되살렸다) 다시 낸다: 받는 쪽은 그보다
+  // 크지 않은 revision을 받지 않는다.
+  if (
+    before !== null &&
+    canonicalize(before.files) === canonicalize(top) &&
+    mark <= before.revision
+  ) {
     return ok(false);
   }
-  const previous = Math.max(before?.revision ?? 0, ownMark(sql, me) ?? 0);
+  const previous = Math.max(before?.revision ?? 0, mark);
   const text = deps.sign({
     format: 1,
     machine: me,

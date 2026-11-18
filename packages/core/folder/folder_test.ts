@@ -66,6 +66,7 @@ import { createDestinations, destinationsSetting } from "./destinations.ts";
 import { createFolderExport } from "./export/mod.ts";
 import { createFolderReader, createFolderWriter } from "./fs.ts";
 import { readArrivedEvents } from "./import/events.ts";
+import { followAsksPerson } from "./import/follow.ts";
 import { createFolderImport } from "./import/mod.ts";
 import { createRosterFiles } from "./import/roster.ts";
 import { createMirror } from "./mirror.ts";
@@ -519,11 +520,17 @@ async function carrySetup(base: string) {
   }
   const clock = manualClock(T0);
   const random = seededRandom(3);
+  // 명단이 바뀌는 test가 고친다.
+  const roster = {
+    signingKey: (machine: string) => machineSigningKey(deskView, machine),
+    removed: (_machine: string) => false,
+  };
+  const known = (machine: Id<"mch">) => roster.signingKey(machine) !== null;
   const replica = createReplica({
     dataRoot,
     machine: () => ME,
-    signingKey: (machine) => machineSigningKey(deskView, machine),
-    removed: () => false,
+    signingKey: (machine) => roster.signingKey(machine),
+    removed: (machine) => roster.removed(machine),
     sql,
     transaction,
     clock,
@@ -531,9 +538,16 @@ async function carrySetup(base: string) {
     manifestsChanged: () => undefined,
     filesChanged: () => undefined,
   });
-  const routes = carryRoutes({ me: () => ME, replica, clock });
+  const routes = carryRoutes({ me: () => ME, known, replica, clock });
   const putRoute = routes.memory[0]![1];
-  const mirror = createMirror({ me: () => ME, computers, replica, random });
+  const fileRoute = routes.fileStreams[0]![1];
+  const mirror = createMirror({
+    me: () => ME,
+    known,
+    computers,
+    replica,
+    random,
+  });
   const onlyComputers = {
     list: () => [{ name: "computers", path: computers, state: "ok" as const }],
     resolve: (name: string) =>
@@ -542,6 +556,9 @@ async function carrySetup(base: string) {
   const applied: string[] = [];
   return {
     db,
+    roster,
+    fileRoute,
+    putRoute,
     dataRoot,
     shared,
     computers,
@@ -930,6 +947,8 @@ test("폴더의 명단 file에 믿는 서명이 없는 항목이 있어도 읽�
     writeFileSync(target, file);
     const files = createRosterFiles({
       me: () => ME,
+      // OTHER는 명단의 컴퓨터다: 그 file 전체가 명단 규칙을 지난다.
+      known: () => true,
       receive: async (statements) => {
         const done = await roster.receive({
           statements: [...statements],
@@ -996,9 +1015,9 @@ test("다른 기계의 같은 event file이 여러 길로 와도 이 기계에�
   });
 });
 
-// manifest는 내보내기마다 바뀌고 앱 목록은 뒤에 온다. manifest를 받자마자 옛 목록의 file을 지우면 새 목록이 올 때까지 그
-// 앱의 data가 없어지고 아직 적용하지 않은 변경을 잃는다.
-test("새 manifest를 받아도 새 앱 목록이 오기 전에는 앞 목록의 file을 두고, 온 뒤에는 싣지 않는 file만 지운다", async () => {
+// manifest는 내보내기마다 바뀌고 앱 목록과 snapshot은 뒤에 온다. 그 전에 옛 file을 지우면 새 것이 올 때까지 그 앱의 data가
+// 없어지고 아직 적용하지 않은 변경을 버린다.
+test("새 manifest를 받아도 새 앱 목록과 그것이 싣는 snapshot이 오기 전에는 앞 file을 두고, 온 뒤에는 싣지 않는 file만 지운다", async () => {
   await carryEnv(async (env) => {
     const sent = await published(laptop);
     assert.deepEqual(
@@ -1052,15 +1071,163 @@ test("새 manifest를 받아도 새 앱 목록이 오기 전에는 앞 목록의
       await env.link(OTHER, appFilesPath(OTHER, APP), list),
       ok("accepted"),
     );
-    assert.ok(!existsSync(first));
-    assert.ok(
-      existsSync(join(env.computers, ...appRecordPath(OTHER, APP).split("/"))),
-    );
+    // 새 목록이 왔어도 그것이 싣는 snapshot이 오기 전에는 그 앞 번호를 둔다.
+    assert.ok(existsSync(first), "snapshot 2 has not arrived yet");
     const wants = await env.replica.wants(10);
     assert.ok(wants.ok);
     assert.deepEqual(
       wants.value.map((want) => want.path),
       [second],
     );
+    assert.deepEqual(
+      await env.link(OTHER, second, secondBytes),
+      ok("accepted"),
+    );
+    assert.ok(!existsSync(first));
+    assert.ok(
+      existsSync(join(env.computers, ...appRecordPath(OTHER, APP).split("/"))),
+    );
   });
+});
+
+// 빼기 다툼이나 도둑의 빼기 하나로 정직한 컴퓨터의 사본(큰 snapshot, release)을 지우면 다시 받을 때까지 잃는다. 반대로 믿지
+// 않게 된 컴퓨터의 file을 계속 내주거나 읽으면 빠진 기계의 것이 퍼진다.
+test("명단에서 맞지 않게 된 컴퓨터의 사본은 두되 내주지 않고, 정해진 빼기는 7일 동안 치워 두었다가 지운다", async () => {
+  await carryEnv(async (env) => {
+    const sent = await published(laptop);
+    assert.deepEqual(
+      await env.replica.offerManifest(sent.manifest, "link"),
+      ok("accepted"),
+    );
+    for (const [path, bytes] of Object.entries(sent.files)) {
+      if (path !== manifestPath(OTHER)) await env.link(OTHER, path, bytes);
+    }
+    const held = env.held();
+    const subtree = join(env.computers, "machines", OTHER);
+    const serves = async () => {
+      const wants = await env.replica.wants(10);
+      const file = await env.fileRoute({} as never, {
+        machine: OTHER,
+        path: sent.changesPath,
+        offset: 0,
+        length: 10,
+      });
+      return {
+        wants: wants.ok ? wants.value.length : -1,
+        holds: await env.replica.holds(OTHER, sent.changesPath),
+        manifest: await env.replica.holds(OTHER, manifestPath(OTHER)),
+        file: file.ok,
+      };
+    };
+    assert.deepEqual(await serves(), {
+      wants: 0,
+      holds: true,
+      manifest: true,
+      file: true,
+    });
+    const nothing = { wants: 0, holds: false, manifest: false, file: false };
+
+    // 다툼(서명 key가 없다, 빼기는 정해지지 않음): 두고 내주지 않는다.
+    env.roster.signingKey = () => null;
+    await env.replica.recheck();
+    assert.deepEqual(env.held(), held);
+    assert.deepEqual(await serves(), nothing);
+    assert.equal(
+      await env
+        .link(OTHER, sent.changesPath, sent.files[sent.changesPath]!)
+        .then((r) => r.ok && r.value),
+      "rejected",
+    );
+
+    // 정해진 빼기: 읽기가 보는 폴더에서 치우고, 풀리면 되돌린다.
+    env.roster.removed = (machine) => machine === OTHER;
+    await env.replica.recheck();
+    assert.ok(!existsSync(subtree));
+    assert.deepEqual(await serves(), nothing);
+    env.roster.removed = () => false;
+    await env.replica.recheck();
+    assert.deepEqual(env.held(), held);
+
+    // 다시 정해지고 7일이 지나면 지운다.
+    env.roster.removed = (machine) => machine === OTHER;
+    await env.replica.recheck();
+    env.clock.advance(7 * 24 * 60 * 60 * 1000 - 1);
+    await env.replica.recheck();
+    assert.ok(existsSync(join(env.dataRoot, "carry-removed", OTHER)));
+    env.clock.advance(1);
+    await env.replica.recheck();
+    assert.deepEqual(readdirSync(join(env.dataRoot, "carry-removed")), []);
+    assert.ok(!existsSync(subtree));
+  });
+});
+
+// 같은 조각을 timeout 뒤 다시 보내는 것은 흔하다. 겹친 조각이 맞는 file을 rejected로 만들면 폰은 하나뿐인 사본을 지운다.
+test("carry/put의 같은 조각이 겹쳐 오거나 다시 와도 맞는 file이 rejected가 되지 않는다", async () => {
+  await carryEnv(async (env) => {
+    const sent = await published(laptop);
+    await env.replica.offerManifest(sent.manifest, "link");
+    for (const path of [recordPath(OTHER), appFilesPath(OTHER, APP)]) {
+      await env.link(OTHER, path, sent.files[path]!);
+    }
+    const bytes = sent.files[sent.changesPath]!;
+    const half = Math.floor(bytes.byteLength / 2);
+    const chunk = (principal: string, offset: number, end: number) =>
+      env.putRoute({ principal } as never, {
+        machine: OTHER,
+        path: sent.changesPath,
+        size: bytes.byteLength,
+        sha256: hex(bytes),
+        offset,
+        bytes: Buffer.from(bytes.subarray(offset, end)).toString("base64"),
+      });
+    const status = (done: Result<unknown>) =>
+      done.ok ? (done.value as { status: string }).status : done.error.code;
+    // 두 기기가 같은 file을 처음부터, 한 기기는 뒤 조각을 두 번 겹쳐 보낸다.
+    assert.equal(status(await chunk("device:a", 0, half)), "partial");
+    assert.equal(status(await chunk("device:b", 0, half)), "partial");
+    const both = await Promise.all([
+      chunk("device:a", half, bytes.byteLength),
+      chunk("device:a", half, bytes.byteLength),
+    ]);
+    assert.deepEqual(both.map(status).sort(), ["accepted", "invalid_input"]);
+    assert.equal(
+      status(await chunk("device:b", half, bytes.byteLength)),
+      "have",
+    );
+  });
+});
+
+// 다른 컴퓨터의 release를 따라가면 그 code가 이 컴퓨터에서 사람이 준 권한으로 돈다. 터미널을 쓸 수 없는 컴퓨터가 그것으로
+// 이 컴퓨터에서 code를 돌리면 안 된다.
+test("computers로 온 release는 이 컴퓨터의 터미널을 쓸 수 있는 컴퓨터의 것만 묻지 않고 따라간다", () => {
+  const trusted = (machine: Id<"mch">) => machine === OTHER;
+  const cases: [
+    string,
+    { machine: Id<"mch">; destination: string }[],
+    boolean,
+  ][] = [
+    [
+      "터미널 허락이 있는 컴퓨터",
+      [{ machine: OTHER, destination: "computers" }],
+      false,
+    ],
+    [
+      "터미널 허락이 없는 컴퓨터",
+      [{ machine: OUTSIDER, destination: "computers" }],
+      true,
+    ],
+    ["이름 붙인 폴더", [{ machine: OUTSIDER, destination: "personal" }], false],
+    [
+      "허락 없는 컴퓨터와 이름 붙인 폴더가 같은 release",
+      [
+        { machine: OUTSIDER, destination: "computers" },
+        { machine: OUTSIDER, destination: "personal" },
+      ],
+      false,
+    ],
+    ["출처를 모름", [], true],
+  ];
+  for (const [label, offers, asks] of cases) {
+    assert.equal(followAsksPerson(offers, trusted), asks, label);
+  }
 });

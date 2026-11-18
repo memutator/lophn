@@ -87,6 +87,7 @@ import {
 import { createFolderImport } from "../../../folder/import/mod.ts";
 import { IMPORT_TMP_DIR } from "../../../folder/import/held.ts";
 import { readArrivedEvents } from "../../../folder/import/events.ts";
+import { followAsksPerson } from "../../../folder/import/follow.ts";
 import { createRosterFiles } from "../../../folder/import/roster.ts";
 import {
   pruneEventFiles,
@@ -256,14 +257,19 @@ export const folderWiring: WiringFactory = () => {
         filesChanged: () => scheduleScan(),
       });
       ctx.provide("folderReplica", replica);
+      // 명단 view에 그 기계의 하나뿐인 컴퓨터 항목이 있다.
+      const known = (machine: Id<"mch">) =>
+        (ctx.peek.computerSigningKey?.(machine) ?? null) !== null;
       const mirror = createMirror({
         me,
+        known,
         computers: computersRoot,
         replica,
         random: ctx.random,
       });
       const rosterFiles = createRosterFiles({
         me,
+        known,
         receive: (statements) =>
           ctx.peek.rosterCarry?.receive(statements) ??
           Promise.resolve(ok(undefined)),
@@ -559,25 +565,47 @@ export const folderWiring: WiringFactory = () => {
                   },
                 ],
           ),
-        // `computers`로 온 release는 따라가지 않는다: 따라가기는 늘어난 권한이 없으면 사람에게 묻지 않고 다른 기계의 code를
-        // 깔고 켜는데, 그 file은 이제 연결과 폰으로도 온다. 사람이 정하기 전까지 막아 둔다(take-in은 사람이 한다).
         offered: (app) =>
           importer
             .records()
             .apps.flatMap((row) =>
               row.record.app === app &&
               row.machine !== me() &&
-              row.destination !== COMPUTERS_DESTINATION &&
               row.record.active_release !== null
                 ? [{ machine: row.machine, ...row.record.active_release }]
                 : [],
             ),
         takeIn: (input) => apps.takeIn(input),
-        activate: (release) =>
-          ctx.appsControl.activation?.activate(release) ??
-          Promise.resolve(
-            err({ code: "unavailable", message: "activation is unavailable" }),
-          ),
+        // 사람에게 물을지는 그 release를 낸 기계와 길로 정한다(`import/follow.ts`).
+        activate(release) {
+          const stored = loadRelease(sql, release);
+          const offers =
+            !stored.ok || stored.value === null
+              ? []
+              : importer
+                  .records()
+                  .apps.flatMap((row) =>
+                    row.record.app === stored.value!.app &&
+                    row.machine !== me() &&
+                    row.record.active_release?.bundle_hash ===
+                      stored.value!.bundle_hash
+                      ? [{ machine: row.machine, destination: row.destination }]
+                      : [],
+                  );
+          const ask = followAsksPerson(
+            offers,
+            (machine) => ctx.peek.computerTerminalInput?.(machine) ?? false,
+          );
+          return (
+            ctx.appsControl.activation?.activate(release, { ask }) ??
+            Promise.resolve(
+              err({
+                code: "unavailable",
+                message: "activation is unavailable",
+              }),
+            )
+          );
+        },
       });
       // App details의 Machines(`apps/update_state`)가 다시 읽는다. held·기계 범위는 앱을 가리지 않고 알린다.
       const updateChanged = (app: Id<"app"> | null) =>
@@ -1292,7 +1320,12 @@ export const folderWiring: WiringFactory = () => {
         if (!imported.ok) log("forget_failed", imported.error.message);
       }
 
-      const carry = carryRoutes({ me, replica, clock: ctx.clock });
+      const carry = carryRoutes({
+        me,
+        known,
+        replica,
+        clock: ctx.clock,
+      });
       return ok({
         memory: [
           [key(machineForget), forgetMachine],

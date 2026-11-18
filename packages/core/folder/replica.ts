@@ -3,11 +3,13 @@
 // 읽는다. 받는 쪽 규칙(`folder-sync.md`)을 길과 상관없이 여기 하나가 지킨다:
 // - manifest: 명단의 컴퓨터 서명(`verifyManifest`)이 맞고 (그 기계, 그 서명 key)의 표시(`folder_carry_marks`)보다 revision이
 //   클 때만 그 기계의 지금 목록이 된다. 표시는 하위 폴더 밖 ledger에 두고 지우지 않는다. 자기 manifest는 두지 않고 표시만 올린다.
-// - file: 지금 목록의 사슬(`expectedFile`)이 그 path를 그 크기·sha256으로 실을 때만, data root의 staging에 받아 맞으면
+// - file: 지금 목록의 사슬(manifest → 앱 목록 → release.json·source json)이 그 path를 그 크기·sha256으로 실을 때만, data root의 staging에 받아 맞으면
 //   rename한다. rename 바로 앞에서 그때의 목록과 다시 견준다(그 사이에 await가 없다).
 // - 지금 목록은 그것을 검증한 서명 key가 지금 명단의 key(`signingKey`)와 같을 때만 센다. 명단이 바뀌면 다시 검증하고, 맞지
-//   않게 된 기계는 새것을 받지 않되 든 file은 둔다. 하위 폴더를 통째로 지우는 것은 정해진 빼기(`removed`)일 때뿐이다.
-// - 목록 file 아래의 file은 그 목록 file의 지금 판을 든 뒤에만, 그 판이 싣지 않는 것만 지운다.
+//   않게 된 기계는 새것을 받지 않되 든 file은 둔다. 정해진 빼기(`removed`)로 빠진 기계의 하위 폴더는
+//   `computers` 밖에 옮겨 두고(받지도 내주지도 읽지도 않는다) 그 상태로 `CARRY_REMOVED_GRACE_MS`가 지나야 지운다.
+// - 목록 file 아래의 file은 그 목록 file의 지금 판을 든 뒤에만, 그 판이 싣지 않는 것만 지운다. 앱 목록의 가장 새
+//   snapshot이 그 hash로 오기 전에는 그보다 앞 번호의 data file을 둔다.
 // 자기 하위 폴더는 내보내기만 쓴다. 여기서는 읽기만 한다(남의 writer 검사가 그대로 맞는다).
 import { createHash } from "node:crypto";
 import {
@@ -20,6 +22,7 @@ import {
   rmdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { mkdir, open, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -34,7 +37,6 @@ import type { Id } from "../../protocol/base/ids.ts";
 import {
   type CarryVia,
   COMPUTERS_DIR,
-  expectedFile,
   expectedFiles,
   type ManifestBody,
   manifestBodySchema,
@@ -47,11 +49,14 @@ import {
 import {
   isMachineDirName,
   MACHINES_DIR,
+  parseDataPath,
 } from "../../protocol/folder/layout.ts";
+import { CARRY_REMOVED_GRACE_MS } from "../../protocol/folder/limits.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
 import type { CarryReceived, FolderReplica } from "./ports.ts";
 
 export const CARRY_STAGING_DIR = "carry-staging";
+export const CARRY_REMOVED_DIR = "carry-removed";
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
 
@@ -163,6 +168,7 @@ const same = (a: Expected | null, b: Expected) =>
 export function createReplica(deps: ReplicaDeps): Replica {
   const root = join(deps.dataRoot, COMPUTERS_DIR);
   const stagingDir = join(deps.dataRoot, CARRY_STAGING_DIR);
+  const removedDir = join(deps.dataRoot, CARRY_REMOVED_DIR);
   const abs = (path: string) => join(root, ...path.split("/"));
   const held = new Map<Id<"mch">, Held>();
   const shas = createShaCache();
@@ -193,6 +199,15 @@ export function createReplica(deps: ReplicaDeps): Replica {
       return ok(undefined);
     });
 
+  // 정해진 빼기로 빠졌고 아직 지우지 않은 컴퓨터의 하위 폴더(`carry-removed/<mch>`, 처음 본 때는 `<mch>.since`).
+  const parkedMachines = (): Id<"mch">[] => {
+    try {
+      return readdirSync(removedDir).filter(isMachineDirName).sort();
+    } catch {
+      return [];
+    }
+  };
+
   const otherMachines = (): Id<"mch">[] => {
     try {
       return readdirSync(join(root, MACHINES_DIR))
@@ -216,26 +231,28 @@ export function createReplica(deps: ReplicaDeps): Replica {
   function load(): void {
     if (loaded) return;
     loaded = true;
-    for (const machine of otherMachines()) {
-      const text = readText(manifestPath(machine));
-      if (text === null) continue;
-      const verified = verifyManifest(text, deps.signingKey);
-      const body = verified?.body ?? parseManifestText(text);
-      if (body === null || body.machine !== machine) continue;
-      held.set(machine, {
-        text,
-        body,
-        key: verified?.signingKey ?? null,
-        received_at: null,
-        via: null,
-      });
-      // rename 뒤 표시를 쓰기 전에 꺼졌다.
-      if (
-        verified !== null &&
-        newerManifest(markOf(machine, verified.signingKey), body)
-      ) {
-        saveMark(machine, verified.signingKey, body.revision);
-      }
+    for (const machine of otherMachines()) loadMachine(machine);
+  }
+
+  function loadMachine(machine: Id<"mch">): void {
+    const text = readText(manifestPath(machine));
+    if (text === null) return;
+    const verified = verifyManifest(text, deps.signingKey);
+    const body = verified?.body ?? parseManifestText(text);
+    if (body === null || body.machine !== machine) return;
+    held.set(machine, {
+      text,
+      body,
+      key: verified?.signingKey ?? null,
+      received_at: null,
+      via: null,
+    });
+    // rename 뒤 표시를 쓰기 전에 꺼졌다.
+    if (
+      verified !== null &&
+      newerManifest(markOf(machine, verified.signingKey), body)
+    ) {
+      saveMark(machine, verified.signingKey, body.revision);
     }
   }
 
@@ -252,30 +269,106 @@ export function createReplica(deps: ReplicaDeps): Replica {
     return found.key === deps.signingKey(machine) ? found.body : null;
   }
 
-  const heldBytes = () => {
-    const memo = new Map<string, Uint8Array | null>();
-    return (path: string): Uint8Array | null => {
-      if (!memo.has(path)) {
-        try {
-          memo.set(path, readFileSync(abs(path)));
-        } catch {
-          memo.set(path, null);
-        }
-      }
-      return memo.get(path)!;
-    };
-  };
+  // 든 목록 file이 기대한 그대로일 때 그것이 싣는 file. (file, 크기, 수정 시각, 기대한 sha256)마다 한 번만 읽고 hash한다:
+  // `carry/file`, `carry/put`, `receive`마다 앱 목록(8 MiB까지)과 release.json을 다시 읽지 않는다.
+  const covers = new Map<
+    string,
+    { size: number; mtime: number; sha: string; entries: Map<string, Expected> }
+  >();
+  function coverEntries(
+    machine: Id<"mch">,
+    path: string,
+    want: Expected,
+  ): Map<string, Expected> {
+    const file = abs(path);
+    let info;
+    try {
+      info = statSync(file);
+    } catch {
+      return new Map();
+    }
+    if (info.size !== want.size) return new Map();
+    const hit = covers.get(file);
+    if (
+      hit?.size === info.size &&
+      hit.mtime === info.mtimeMs &&
+      hit.sha === want.sha256
+    ) {
+      return hit.entries;
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = readFileSync(file);
+    } catch {
+      return new Map();
+    }
+    // 그 목록 file 하나만 실은 목록으로 사슬 한 층을 편다(검사와 해석은 `expectedFiles`가 한다).
+    const entries = expectedFiles(
+      {
+        format: 1,
+        machine,
+        revision: 1,
+        written_at: "1970-01-01T00:00:00.000Z",
+        files: [{ path, ...want }],
+      },
+      (asked) => (asked === path ? bytes : null),
+    );
+    entries.delete(path);
+    covers.set(file, {
+      size: info.size,
+      mtime: info.mtimeMs,
+      sha: want.sha256,
+      entries,
+    });
+    return entries;
+  }
+
+  // 지금 목록이 path에 기대하는 것: 위 목록 file을 따라 올라간다.
+  function expectedIn(
+    machine: Id<"mch">,
+    body: ManifestBody,
+    path: string,
+  ): Expected | null {
+    const parsed = parseCarryPath(path);
+    if (parsed === null || parsed.machine !== machine) return null;
+    if (parsed.coveredBy === null) {
+      const found = body.files.find((file) => file.path === path);
+      return found === undefined
+        ? null
+        : { size: found.size, sha256: found.sha256 };
+    }
+    const cover = expectedIn(machine, body, parsed.coveredBy);
+    return cover === null
+      ? null
+      : (coverEntries(machine, parsed.coveredBy, cover).get(path) ?? null);
+  }
+
+  // 지금 목록 사슬 전체(`expectedFiles`와 같은 것).
+  function chainOf(machine: Id<"mch">, body: ManifestBody) {
+    const out = new Map<string, Expected>();
+    const queue: [string, Expected][] = body.files.map((file) => [
+      file.path,
+      { size: file.size, sha256: file.sha256 },
+    ]);
+    for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+      const [path, want] = next;
+      if (out.has(path)) continue;
+      out.set(path, want);
+      if (COVER.test(path)) queue.push(...coverEntries(machine, path, want));
+    }
+    return out;
+  }
 
   function expected(machine: Id<"mch">, path: string): Expected | null {
     const body = currentBody(machine);
-    return body === null ? null : expectedFile(body, path, heldBytes());
+    return body === null ? null : expectedIn(machine, body, path);
   }
 
   async function wantedOf(machine: Id<"mch">) {
     const body = machine === deps.machine() ? null : currentBody(machine);
     if (body === null) return [];
     const out: { path: string; size: number; sha256: string }[] = [];
-    const entries = [...expectedFiles(body, heldBytes())].sort(([a], [b]) =>
+    const entries = [...chainOf(machine, body)].sort(([a], [b]) =>
       a < b ? -1 : 1,
     );
     for (const [path, want] of entries) {
@@ -332,15 +425,37 @@ export function createReplica(deps: ReplicaDeps): Replica {
     const body = currentBody(machine);
     if (body === null) return 0;
     const files = heldFiles(machine);
-    const wanted = expectedFiles(body, heldBytes());
+    const wanted = chainOf(machine, body);
+    // 앱마다 목록의 가장 새 snapshot이 아직 그 hash로 오지 않았으면 그보다 앞 번호의 data file을 둔다: 지우면 그 snapshot이
+    // 올 때까지 읽기가 적용할 것이 없다(아직 적용하지 않은 변경을 버린다).
+    const newest = new Map<
+      string,
+      { n: number; path: string; want: Expected }
+    >();
+    for (const [path, want] of wanted) {
+      const data = parseDataPath(path);
+      if (data?.kind !== "snapshot") continue;
+      if ((newest.get(data.app)?.n ?? 0) < data.n) {
+        newest.set(data.app, { n: data.n, path, want });
+      }
+    }
+    const waiting = new Map<string, number>();
+    for (const [app, snapshot] of newest) {
+      if (!(await shas.matches(abs(snapshot.path), snapshot.want))) {
+        waiting.set(app, snapshot.n);
+      }
+    }
     const verdict = new Map<string, boolean>();
     const keep = async (path: string): Promise<boolean> => {
       const known = verdict.get(path);
       if (known !== undefined) return known;
       let result: boolean;
       const parsed = parseCarryPath(path);
+      const data = parseDataPath(path);
       if (wanted.has(path) || parsed === null) result = true;
-      else if (parsed.coveredBy === null) result = false;
+      else if (data !== null && data.n < (waiting.get(data.app) ?? 0)) {
+        result = true;
+      } else if (parsed.coveredBy === null) result = false;
       else if (!existsSync(abs(parsed.coveredBy))) result = false;
       else {
         const cover = wanted.get(parsed.coveredBy);
@@ -460,7 +575,10 @@ export function createReplica(deps: ReplicaDeps): Replica {
         message: `could not receive ${path}: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
       });
     }
-    if (COVER.test(path)) await serial(() => prune(machine));
+    // 목록 file이나 snapshot이 오면 그것이 덮는 앞 판의 file을 지울 수 있다.
+    if (COVER.test(path) || parseDataPath(path)?.kind === "snapshot") {
+      await serial(() => prune(machine));
+    }
     deps.filesChanged();
     return ok("accepted");
   }
@@ -593,15 +711,55 @@ export function createReplica(deps: ReplicaDeps): Replica {
             saveMark(machine, verified.signingKey, found.body.revision);
           }
         }
+        // 정해진 빼기로 빠진 컴퓨터의 하위 폴더는 `computers` 밖으로 옮겨 두고(읽기가 더 읽지 않는다) 처음 본 때부터
+        // `CARRY_REMOVED_GRACE_MS`가 지나면 지운다. 그 사이 빼기가 풀리면 되돌린다.
+        const nowMs = deps.clock.nowMs();
         for (const machine of otherMachines()) {
           if (!deps.removed(machine)) continue;
-          rmSync(abs(`${MACHINES_DIR}/${machine}`), {
-            recursive: true,
-            force: true,
-          });
+          mkdirSync(removedDir, { recursive: true, mode: DIR_MODE });
+          if (existsSync(join(removedDir, machine))) {
+            rmSync(join(removedDir, machine), { recursive: true, force: true });
+          }
+          renameSync(
+            abs(`${MACHINES_DIR}/${machine}`),
+            join(removedDir, machine),
+          );
+          if (!existsSync(join(removedDir, `${machine}.since`))) {
+            writeFileSync(join(removedDir, `${machine}.since`), String(nowMs), {
+              mode: FILE_MODE,
+            });
+          }
           held.delete(machine);
           manifests = true;
           files = true;
+        }
+        for (const machine of parkedMachines()) {
+          const parked = join(removedDir, machine);
+          const since = join(removedDir, `${machine}.since`);
+          if (!deps.removed(machine)) {
+            const back = abs(`${MACHINES_DIR}/${machine}`);
+            if (existsSync(back))
+              rmSync(parked, { recursive: true, force: true });
+            else {
+              mkdirSync(dirname(back), { recursive: true, mode: DIR_MODE });
+              renameSync(parked, back);
+              loadMachine(machine);
+            }
+            rmSync(since, { force: true });
+            manifests = true;
+            files = true;
+            continue;
+          }
+          let seen = nowMs;
+          try {
+            seen = Number(readFileSync(since, "utf8")) || nowMs;
+          } catch {
+            writeFileSync(since, String(nowMs), { mode: FILE_MODE });
+          }
+          if (nowMs - seen >= CARRY_REMOVED_GRACE_MS) {
+            rmSync(parked, { recursive: true, force: true });
+            rmSync(since, { force: true });
+          }
         }
         for (const machine of held.keys()) {
           if ((await prune(machine)) > 0) files = true;

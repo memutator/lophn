@@ -27,9 +27,10 @@ type ActivationHandlerDeps = {
 };
 
 export function createActivationHandlers(deps: ActivationHandlerDeps): {
-  // 비교를 보고 시작하거나 묻는다.
+  // 비교를 보고 시작하거나 묻는다. ask면 늘어난 것이 없어도 묻는다(다른 기계에서 따라온 release, folder-sync.md).
   activate(
     release: ReleaseRecord,
+    ask?: boolean,
   ): Promise<Result<"started" | "waiting_consent">>;
   // 사람이 허락한 줄을 시작한다. 허락한 뒤 비교가 달라졌으면 시작하지 않고 다시 묻는다.
   consented(row: {
@@ -42,10 +43,11 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
   // 같은 비교의 동의 줄은 하나라서(consents.ask) 두 번 불러도 줄이 늘지 않는다.
   async function activate(
     release: ReleaseRecord,
+    ask = false,
   ): Promise<Result<"started" | "waiting_consent">> {
     const comparison = await deps.releases.comparison(release);
     if (!comparison.ok) return comparison;
-    if (!asksFor(comparison.value)) {
+    if (!ask && !asksFor(comparison.value)) {
       const queued = deps.enqueue(release.app, release.id, null);
       return queued.ok ? ok("started") : queued;
     }

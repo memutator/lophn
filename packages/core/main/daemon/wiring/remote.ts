@@ -849,6 +849,15 @@ export function remoteWiring(
       ctx.provide("computerRemoved", (machine) =>
         machineRemoved(roster.view(), machine),
       );
+      ctx.provide("computerTerminalInput", (machine) => {
+        const found = roster
+          .view()
+          .devices.filter(
+            (each) =>
+              each.body.kind === "computer" && each.body.machine === machine,
+          );
+        return found.length === 1 && found[0]!.body.terminal_input;
+      });
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       const wait = (ms: number, fn: () => void) => {
         const timer = setTimeout(fn, ms).unref();

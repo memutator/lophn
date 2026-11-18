@@ -50,6 +50,8 @@ type PutInput = {
 
 export function carryRoutes(deps: {
   me(): Id<"mch">;
+  /** 명단 view에 그 기계의 하나뿐인 컴퓨터 항목이 있다(그 manifest만 staging에 받는다). */
+  known(machine: Id<"mch">): boolean;
   replica: Replica;
   clock: Clock;
 }): {
@@ -59,6 +61,18 @@ export function carryRoutes(deps: {
 } {
   const { replica } = deps;
   const staging = replica.stagingDir;
+  // 한 (넘기는 기기, machine, path)의 조각은 하나씩 잇는다. 같은 조각을 다시 보낸 것(timeout 뒤 재시도)이 겹쳐 이어
+  // 쓰이면 맞는 bytes가 깨져 rejected가 되고, 폰은 rejected인 사본을 지운다.
+  const lanes = new Map<string, Promise<unknown>>();
+  function oneAtATime<T>(key: string, work: () => Promise<T>): Promise<T> {
+    const next = (lanes.get(key) ?? Promise.resolve()).then(work);
+    const settled = next.catch(() => undefined);
+    lanes.set(key, settled);
+    void settled.then(() => {
+      if (lanes.get(key) === settled) lanes.delete(key);
+    });
+    return next;
+  }
 
   async function sweep(): Promise<void> {
     let names: string[];
@@ -80,18 +94,34 @@ export function carryRoutes(deps: {
     }
   }
 
-  async function put(input: PutInput): Promise<Result<CarryPutStatus>> {
+  function put(
+    principal: string,
+    input: PutInput,
+  ): Promise<Result<CarryPutStatus>> {
+    const key = createHash("sha256")
+      .update(`${principal}\n${input.machine}\n${input.path}`)
+      .digest("hex");
+    return oneAtATime(key, () => putChunk(join(staging, `put-${key}`), input));
+  }
+
+  async function putChunk(
+    file: string,
+    input: PutInput,
+  ): Promise<Result<CarryPutStatus>> {
     const { machine, path } = input;
     const bytes = Buffer.from(input.bytes, "base64");
-    const file = join(
-      staging,
-      `put-${createHash("sha256").update(`${machine}\n${path}`).digest("hex")}`,
-    );
     const isManifest = manifestPathMachine(path) === machine;
     await sweep();
     if (input.offset === 0) {
       if (isManifest) {
-        if (input.size > MANIFEST_MAX_BYTES) return ok("rejected");
+        // 명단의 컴퓨터 것만 받는다: 지어낸 기계 id마다 8 MiB씩 staging을 채우지 못한다.
+        if (
+          input.size > MANIFEST_MAX_BYTES ||
+          (machine !== deps.me() && !deps.known(machine))
+        ) {
+          await rm(file, { force: true });
+          return ok("rejected");
+        }
       } else {
         // 자기 file은 내보내기만 쓴다.
         if (machine === deps.me()) {
@@ -112,7 +142,8 @@ export function carryRoutes(deps: {
         }
       }
       await mkdir(staging, { recursive: true, mode: 0o700 });
-      await writeFile(file, bytes, { mode: 0o600 });
+      // 앞서 받다 만 것은 버리고 처음부터다.
+      await writeFile(file, bytes, { mode: 0o600, flag: "w" });
     } else {
       let held: number;
       try {
@@ -204,8 +235,8 @@ export function carryRoutes(deps: {
     memory: [
       [
         key(carryPut),
-        async (_auth: AuthenticatedContext, input: unknown) => {
-          const done = await put(input as PutInput);
+        async (auth: AuthenticatedContext, input: unknown) => {
+          const done = await put(auth.principal, input as PutInput);
           return done.ok ? ok({ status: done.value }) : done;
         },
       ],

@@ -131,11 +131,18 @@ export function destinationsSetting(
       "Sync folders on this computer: a name mapped to an absolute folder path. An app picks one by name with `sync_to`, and lophn writes and reads that app's data there; an outside tool moves the folder between machines. When you change it, the person is asked to allow that exact change.",
     approval: "person",
     describe: describeDestinations,
-    check: (value): SettingIssue[] =>
-      [...destinationProblems(value, dataRoot).values()].map((message) => ({
-        level: "reject",
-        message,
-      })),
+    check: (value, view): SettingIssue[] => {
+      const issues: SettingIssue[] = [
+        ...destinationProblems(value, dataRoot).values(),
+      ].map((message) => ({ level: "reject", message }));
+      // 사람의 폴더와 겹치면 그 폴더가 말없이 쓰이지 않게 된다. 어느 설정을 먼저 바꾸어도 거절한다.
+      const shared = view.get(sharedFolderSetting(dataRoot)) ?? null;
+      const problem =
+        shared === null ? null : sharedFolderProblem(shared, dataRoot, value);
+      return problem === null
+        ? issues
+        : [...issues, { level: "reject", message: problem }];
+    },
   });
 }
 

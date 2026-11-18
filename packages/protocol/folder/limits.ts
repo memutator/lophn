@@ -39,6 +39,12 @@ export const IMPORT_TIMER_MS = 2 * MINUTE;
 export const RUN_MAX_BYTES = 64 * MIB;
 // 폰이 `carry/put`으로 조각을 넘기다 멈춘 file의 staging을 지우는 나이.
 export const CARRY_STAGING_KEEP_MS = HOUR;
+// 사람의 폴더에서 scan 한 번에 읽는 명단에 없는 기계의 명단 file 수. 그 폴더는 누구나 쓸 수 있어 지어낸 기계가 끝없을 수
+// 있다. 아직 믿지 못하는 컴퓨터(dual boot의 다른 OS)는 몇 scan 안에 차례가 온다.
+export const CARRY_UNKNOWN_ROSTER_FILES_MAX = 4;
+// 정해진 빼기로 빠진 컴퓨터의 `computers` 하위 폴더를 지우기까지 기다리는 때. 처음 정해진 것을 본 때부터 센다. 도둑의 빼기
+// 하나가 정직한 사본을 곧바로 지우지 못하게 하고, 그동안은 받지도 내주지도 읽지도 않는다.
+export const CARRY_REMOVED_GRACE_MS = 7 * DAY;
 export const BACKOFF_FIRST_MS = MINUTE;
 export const BACKOFF_MAX_MS = HOUR;
 

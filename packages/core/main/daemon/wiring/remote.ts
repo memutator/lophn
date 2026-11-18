@@ -48,7 +48,11 @@ import {
   rosterStore,
 } from "../../../../protocol/remote/mod.ts";
 import { confirmationRefSchema } from "../../../../protocol/base/mod.ts";
-import { signManifest } from "../../../../protocol/folder/carry.ts";
+import {
+  machineRemoved,
+  machineSigningKey,
+  signManifest,
+} from "../../../../protocol/folder/carry.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type Dial,
@@ -809,30 +813,29 @@ export function remoteWiring(
         "deviceKind",
         (principal) => deviceOf(principal)?.kind ?? null,
       );
-      // 폴더·link·폰으로 옮기는 file(carry). 명단 file은 remote가 켜져 있고 자기 항목이 있을 때만 싣는다.
+      // 폴더·link·폰으로 옮기는 file(carry). 명단 file은 remote가 켜져 있고 자기 항목이 있을 때만 싣고 주소는 싣지 않는다.
       ctx.provide("rosterCarry", {
-        snapshot: () =>
+        statements: () =>
           ctx.settings.get(remoteEnabledSetting) === true &&
           roster.self() !== undefined
-            ? roster.snapshot()
+            ? roster.snapshot().statements
             : null,
-        async receive(snapshot) {
-          const done = await roster.receive(snapshot);
+        async receive(statements) {
+          const done = await roster.receive({
+            statements: [...statements],
+            reach: [],
+          });
           return done.ok ? ok(undefined) : done;
         },
       });
       ctx.provide("manifestSign", (body) =>
         keys === undefined ? null : signManifest(body, keys.signing.secretKey),
       );
-      ctx.provide(
-        "computerSigningKey",
-        (machine) =>
-          roster
-            .view()
-            .devices.find(
-              (each) =>
-                each.body.kind === "computer" && each.body.machine === machine,
-            )?.body.signing_key ?? null,
+      ctx.provide("computerSigningKey", (machine) =>
+        machineSigningKey(roster.view(), machine),
+      );
+      ctx.provide("computerRemoved", (machine) =>
+        machineRemoved(roster.view(), machine),
       );
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       links = createLinks({

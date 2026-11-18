@@ -92,7 +92,7 @@ import type {
   FolderReplica,
 } from "../../../folder/ports.ts";
 import type { ManifestBody } from "../../../../protocol/folder/carry.ts";
-import type { RosterSnapshot } from "../../../../protocol/remote/roster.ts";
+import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -339,16 +339,18 @@ type Late = {
   folderPorts: FolderPorts;
   // folder가 prepare에서 낸다. 뒤 계획이 `machine.environment`에 자기 section을 등록한다.
   folderEnvironment: FolderEnvironment;
-  // remote가 낸다. 폴더의 명단 file이 싣는 이 컴퓨터의 명단과 다른 컴퓨터의 명단 file을 합치는 길. remote가 꺼져 있거나 자기
-  // 항목이 없으면 snapshot은 null이다. 받은 것은 명단 규칙이 스스로 거른다.
+  // remote가 낸다. 폴더의 명단 file이 싣는 이 컴퓨터의 명단 statement와, 다른 컴퓨터의 명단 file을 합치는 길. 주소(reach)는
+  // 폴더로 오가지 않는다. remote가 꺼져 있거나 자기 항목이 없으면 statements는 null이다. 받은 것은 명단 규칙이 스스로 거른다.
   rosterCarry: {
-    snapshot(): RosterSnapshot | null;
-    receive(snapshot: RosterSnapshot): Promise<Result<void>>;
+    statements(): RosterStatement[] | null;
+    receive(statements: readonly RosterStatement[]): Promise<Result<void>>;
   };
   // remote가 낸다. 이 컴퓨터의 명단 서명 key로 manifest 글을 만든다. key가 없으면 null이다.
   manifestSign: (body: ManifestBody) => string | null;
-  // remote가 낸다. 명단 view에서 그 machine의 컴퓨터 항목의 서명 key. 없거나 빠진 컴퓨터면 null이다.
+  // remote가 낸다. 명단 view에서 그 machine의 컴퓨터 항목이 하나뿐일 때 그 서명 key. 없거나 둘 이상이면 null이다.
   computerSigningKey: (machine: string) => string | null;
+  // remote가 낸다. 그 machine의 컴퓨터가 정해진 빼기로 빠졌고 그 이름의 컴퓨터가 지금 없다. 받는 자리가 하위 폴더를 지우는 때다.
+  computerRemoved: (machine: string) => boolean;
   // folder가 낸다. link·폰·거울이 가져온 file을 받는 `computers` 폴더의 자리.
   folderReplica: FolderReplica;
   // folder가 낸다. 다른 기계에도 알릴 앱 event를 event file로 쓴다.
@@ -433,6 +435,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   rosterCarry: true,
   manifestSign: true,
   computerSigningKey: true,
+  computerRemoved: true,
   folderReplica: true,
   crossEvents: true,
   eventArrived: true,

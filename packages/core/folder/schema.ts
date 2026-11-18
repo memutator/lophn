@@ -96,8 +96,8 @@ export const FOLDER_AWAY_NOTIFIED_STEPS: readonly SchemaStep[] = [
   },
 ];
 
-// 다른 기계에서 온 event file 가운데 이 기계(machine)가 이미 낸 것. 같은 file이 여러 길로 와도 한 번만 낸다. 나이 한도
-// (`CROSS_EVENT_MAX_AGE_MS`)가 지난 행은 지운다. FOLDER_AWAY_NOTIFIED_STEPS 뒤 낸 step 목록의 끝에 잇는다.
+// 다른 기계에서 온 event file 가운데 이 기계(machine)가 이미 낸 것. 같은 file이 여러 길로 와도 한 번만 낸다. seen_at이
+// `CROSS_EVENT_SEEN_KEEP_MS`(나이 한도의 두 배)가 지난 행만 지운다. FOLDER_AWAY_NOTIFIED_STEPS 뒤 낸 step 목록의 끝에 잇는다.
 export const FOLDER_EVENTS_SEEN_STEPS: readonly SchemaStep[] = [
   {
     id: "folder.events-seen",
@@ -109,6 +109,25 @@ export const FOLDER_EVENTS_SEEN_STEPS: readonly SchemaStep[] = [
       event TEXT NOT NULL,
       seen_at TEXT NOT NULL,
       PRIMARY KEY (machine, origin, app, event)
+    ) STRICT;
+  `,
+  },
+];
+
+// 받아 들인 다른 기계 manifest의 가장 큰 revision. (그 기계, 그 서명 key)마다 하나이고 `computers` 폴더의 그 기계 하위 폴더
+// 밖에 두어 하위 폴더를 지워도 남는다. 지우지 않는다: 남아 있어야 옛 manifest를 되살려 넘겨도 받지 않는다. key가 바뀌면 새
+// key는 새 행에서 시작한다(옛 key의 큰 revision이 새 key를 막지 않는다). origin이 이 기계 id면 다른 기계가 되돌려 준 이 기계
+// 자신의 manifest revision이고 다음 revision은 그보다 크다. FOLDER_EVENTS_SEEN_STEPS 뒤 낸 step 목록의 끝에 잇는다.
+export const FOLDER_CARRY_MARKS_STEPS: readonly SchemaStep[] = [
+  {
+    id: "folder.carry-marks",
+    sql: `
+    CREATE TABLE folder_carry_marks (
+      machine TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      signing_key TEXT NOT NULL,
+      revision INTEGER NOT NULL CHECK (revision >= 1),
+      PRIMARY KEY (machine, origin, signing_key)
     ) STRICT;
   `,
   },

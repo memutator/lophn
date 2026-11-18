@@ -175,6 +175,11 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 다른 protocol 영역에 기대는 route file은 의존이 가리키는 쪽에 있어야 한다(`protocol/folder`의 carry 계약이 `protocol/remote`를 import하는데 `protocol/remote`의 기기 route 목록이 그 계약을 import해야 했다. `check-deps`는 lead가 route를 등록할 때에야 순환을 막았다). 계약 file을 만드는 task는 import 방향을 먼저 본다.
 - `git add <path들>`에 이미 지워져 stage된 path가 하나 있으면 add 전체가 중단되고, 이어지는 `git commit`은 그 전에 stage된 것만 commit한다. 폴더를 지우는 commit 뒤에는 `git status`를 본다.
 - 개발 core 둘을 짝지우고 headless Electron 창으로 실제 앱을 확인하는 일은 싸다(worker 15분쯤): `LOPHN_SHELL_HEADLESS=1`과 `--headless`, `--remote-debugging-port`, core는 `env -i`와 `.dev-data/` 아래 각자의 `LOPHN_HOME`, 짝짓기는 roster route, screenshot은 CDP. 창이 보이는 것을 바꾸는 계획은 land 전에 한 번 한다. test와 gallery가 못 본 결함 둘을 찾았다.
+- 권한 경계를 바꾸는 계획은 독립 review를 일곱 번 받았고(계약, 허락, 받는 쪽, 보내는 쪽, event, 앞선 나르기 계획의 둘) 매번 test와 check가 통과한 must-fix를 찾았다(다른 컴퓨터로 갈 앱 call이 이 컴퓨터의 앱을 돌렸고, 사람만 쓰는 칸을 agent가 썼고, 아무도 읽지 않는 hop flag가 있었고, 도착 순서에 기대는 허락이 있었다). 이 방식을 유지한다: reviewer는 코드를 쓰지 않은 쪽이고, 공격 입력을 만들고 규칙마다 mutation으로 test가 깨지는지 본다. reviewer의 "다음 task가 구현할 규칙"을 다음 task brief에 보낸다.
+- 한 계획의 task는 같은 reviewer에게 맡기고(계약을 기억한다), task의 고침 라운드와 계획의 마무리 기록은 그 task를 지은 worker에게 맡긴다.
+- 한 wave의 task들이 같이 merge되어야 하면(받는 쪽이 보내는 쪽만 보내는 것을 요구한다) brief에 적고 연달아 merge한다. 하나만 merge하면 기존 컴퓨터 사이 traffic이 끊긴다는 것을 reviewer가 잡았다.
+- 이런 계획은 wave마다 개발 core 둘을 짝지워 실제 앱을 확인하고, 올림도 같이 본다: 이전 release의 code로 main checkout에서 data root를 만든 뒤 계획의 code로 기동한다(허락 옮기기와 빠진 "Update needed" 표시를 찾았다).
+- schema step은 그 표가 속한 wiring과 상관없이 마지막 wiring의 `schemaStepsAfterTeams`와 lock file 끝에 task가 merge된 순서로 둔다(worker가 step을 그 표의 옛 step 옆에 둔 일이 있다).
 
 ## 사람에게 알리는 때
 

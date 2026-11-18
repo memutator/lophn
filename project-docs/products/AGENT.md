@@ -30,7 +30,7 @@ agent는 lophn과 사람이 만든 agent 둘이다. 사람이 만든 agent는 wo
 - P7. 사람은 왼쪽 sidebar의 New session(▾로 agent 고르기. Home, project, 앱 workspace 어디서나), toast로 agent를 부른다. 고르면 그 workspace의 session이 열린다.
 - P8. Home, project, 앱은 같은 층을 갖는다: 지침, 외부 MCP server와 `mcp_off`, `skills_off`, model. session은 자기 workspace의 지침을 같이 읽는다. project는 `LOPHN.md`, Home은 `<data>/home/LOPHN.md`, 앱은 앱 source의 `AGENTS.md`다(source를 잇지 않은 앱은 없다). 사람은 각 workspace의 Agents 탭에서 이 층을 고친다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, project workspace session의 file 범위 밖이라 사람이 editor로 고친다.
-- P12. 경계는 그릇(project, app)이다. session은 그 workspace 그릇의 지침, skill, 앱 command를 받는다. 앱의 비공개 command는 그 앱 workspace의 session만 보고, 다른 곳은 할당받은 공개 command로만 쓴다.
+- P12. 경계는 그릇(project, app)이다. session은 그 workspace 그릇의 지침, skill, 앱 command를 받는다. 앱의 비공개 command는 그 앱 workspace의 session만 보고, 다른 곳은 할당받은 공개 command로만 쓴다. 다른 컴퓨터의 앱도 사람이 그 agent에 그 컴퓨터를 달아 할당한 공개 command로만 쓰고(Agents › Grants › Other computers), private인 workspace의 agent와 앱은 다른 컴퓨터를 부르지 못하고 그 앱도 다른 컴퓨터에서 불리지 않는다(`architecture/approval.md`).
 - P13. Home memory(`<data>/home/memory.md`)는 global memory다. Home lophn만 쓰고 모든 workspace의 모든 agent가 읽기만 한다. project·앱 workspace memory는 그 workspace 그릇 자리의 `memory.md`이고 그 workspace의 lophn만 쓰며 그 workspace의 모든 agent가 받는다. 사람이 만든 agent는 자기 agent memory를 따로 갖고 자기만 쓰고 받는다. 둘 다 `agent.memory` tool로만 쓰고 8 KiB까지이며 session 첫 turn에 고정되어 다음 session부터 바뀐 글을 본다. 담는 것은 사람이 정한 것, 계산할 수 없는 의도, 어디에 물으면 되는지 pointer다(`architecture/agent-definition.md`).
 
 ## 2. workspace마다 언제 무엇을 하나
@@ -117,7 +117,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - J4. job이 앱 tool을 부르는 차례는 사람이 그 job의 등록을 승인했기 때문에 돈다. 만든 agent의 할당은 보지 않는다(job 하나 때문에 그 agent에게 앱 전체를 열어 주지 않는다). 승인 화면이 그 job이 부를 tool을 보인다.
 - J5. job이 부른 session도 job tool을 받아 job을 만들 수 있다. 막지 않는다. 사람이 모든 job을 화면에서 본다.
 - J6. job의 차례가 실패해도 자동으로 다시 하지 않는다. 다시 하는 것은 사람이 정한다.
-- J7. job은 만든 기계에서만 돈다. 다른 기계의 job(복사한 data root에서 온 것)은 멈춘 채 보이고, 이 기계로 옮기는 것은 사람의 [Run on this computer]뿐이다. agent는 job을 기계 사이로 옮기지 않는다(`architecture/job.md` "주인 기계").
+- J7. job은 만든 기계에서만 돈다. 다른 기계의 job(복사한 data root에서 온 것)은 멈춘 채 보이고, 이 기계로 옮기는 것은 사람의 [Run on this computer]뿐이다. agent는 job을 기계 사이로 옮기지 않는다(`architecture/job.md` "주인 기계"). job의 event trigger가 다른 컴퓨터의 앱 event를 적을 수는 있지만 그 job도 만든 기계에서 돈다.
 
 ### 사람
 

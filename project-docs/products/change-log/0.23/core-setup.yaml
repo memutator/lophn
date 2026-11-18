@@ -1,0 +1,40 @@
+id: core-setup
+version: 0.23.84
+title: 한 기계의 처음 설정(secret, provider 연결과 로그인, project 더하기, Settings)을 그 기계의 창 없이 다른 컴퓨터의 창과 폰에서 한다
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/host-queue, packages/core/projects, packages/core/remote, packages/core/secrets, packages/core/main, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tests]
+change: |
+  전: provider 연결의 순서(id 만들기, 임시 secret, 충돌 확인, 연결)는 desktop 화면의 code에 있었고 agent가 청한 입력 card를 위해 shell main에 같은 순서가 한 번 더 있었다. 구독 로그인은 화면이 `providers/login-begin`·`login-complete`를 돌리는 poll이었다. project 더하기는 화면이 id와 slug를 만들고 겹치면 다시 했다(clone에 core 사본). 기기 route 목록에는 secret, provider, 설정 쓰기, agent·project 만들기가 일부러 빠져 있어 화면 없는 기계는 다른 기기에서 설정할 수 없었고, 다른 기계 창의 Settings와 project 더하기는 막혀 있었고, 폰은 secret 요청에 "컴퓨터에서 하세요"였다.
+  후:
+  - "provider: `providers/connect-key`(upload, key 값과 대상 `{definition}`|`{custom}`), `providers/connect-local`(key 없는 이 기계의 http 주소), `providers/sign-in`(`{definition}`|`{request}`)과 `providers/sign-in-state`(`waiting`|`connected`|`failed`|`cancelled`, 바뀔 때 `StateChanged{providers}`)가 순서를 쥔다. core가 id를 고르고(끊은 정의를 다시 이으면 core가 사는 동안 같은 id) 임시 이름 `provider.<id>.new.*`에 값을 올려 부른 사람의 자격으로 ConnectProvider를 보낸다. 어느 갈래로 실패해도 임시 값을 지운다. 구독 로그인의 기다림(interval, unavailable 세 번, 만료)은 core가 하고 request로 시작한 로그인은 core가 그 요청을 끝낸다(시작부터 실패해도). `providers/login-begin`·`login-complete` route와 화면·shell main의 사본(`signInProvider`, `freshId`, `storeSecret`, `newProviderId`)은 지웠다."
+  - "agent의 secret 요청: `input_request/answer_secret`(upload)이 값을 core가 정한 이름에 넣고, 새 provider 자리면 connect-key와 같은 두 걸음으로 잇는다. 값을 저장하지 못하면 요청은 열린 채다. secret upload body 읽기 규칙(선언한 길이, UTF-8, 0으로 지우기)은 `core/secrets/routes.ts` 한 곳이다."
+  - "보호 입력 창(shell IPC `shell:secret-input-open`)에 `{provider: target, subject}` 갈래가 더해졌다. 제출은 provider 갈래면 `providers/connect-key`, request 갈래의 secret이면 `input_request/answer_secret`, 이름 갈래면 그대로 `secrets/put`이다."
+  - "project: `projects/add {title, purpose, folders}`가 `prj_` id와 title의 slug를 만들어 `project.create`를 부른 사람의 자격으로 보내고 slug가 겹치면 `-2`부터 다섯 번까지 한다(clone과 같은 함수). `projects/browse {path?}`는 그 기계 사람의 home 아래 폴더만 realpath로 읽는다(home 밖과 home 밖을 가리키는 symlink는 forbidden, 500개까지)."
+  - "기기 route 목록이 둘이다: 모든 기기의 `REMOTE_ALLOWED_ROUTES`(그대로)와 터미널 입력을 허락받은 기기에만 여는 `REMOTE_PERSON_ROUTES`(secret, provider·model, 설정 쓰기, diagnostics, workspace extension 설정과 MCP 로그인 상태 읽기, agent 만들고 고치기, project 등록·고치기와 위 새 route). 기기 자격의 scope는 둘의 합이고 `createRemoteCall`이 허락을 call마다 보고 upload body를 읽기 전에 거른다. 허락받은 기기가 보낸 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 대상과 내용에 묶은 확인 handle을 붙인다(`window_id`는 `device:<id>`). 다른 컴퓨터가 `machines/call`로 넘긴 call도 같은 길이다."
+  - "desktop의 다른 기계 창: Settings의 General, Providers, Agents, Tools and skills, Shell rules, Diagnostics를 그 기계의 core로 연다. 이 컴퓨터에 붙은 항목은 한 줄과 [Open this computer]다. 허락이 없으면 한 줄로 알린다. project 등록은 그 기계의 폴더 목록으로 고른다(Workspaces panel, 왼쪽 sidebar +). 보호 입력 창이 열리고 값이 갈 기계 이름을 한 줄 보이며 값은 `machines/call` upload로 그 기계의 core로만 간다. 그 기계의 browser로 돌아오는 로그인(ChatGPT, Claude, Antigravity, MCP·앱 OAuth)은 단추 대신 한 줄이다."
+  - "폰: agent의 secret 요청 card에 입력 칸과 [Save], provider sign_in card는 device code 모양(code, [Open the page], 기다림). Settings › A computer › Providers에서 연결된 목록과 연결(API key sheet, device code sheet, 허락 없음 한 줄)을 그 컴퓨터로 바로 한다(보고 있던 컴퓨터를 바꾸지 않는다)."
+  - "e2e `oauth_test`는 `providers/sign-in`·`sign-in-state`로 다시 썼다. e2e는 core env `LOPHN_TEST_PROVIDER_TARGETS`로 정의 key를 fake 발급자 대상으로 바꾼다."
+why: |
+  roadmap `shell-as-client`의 계획 `core-setup`이다. 화면 없는 기계(VM, 미니 PC)는 secret 값이 Electron 보호 입력 창으로만 들어가고 provider 연결 순서가 desktop 화면에 있어 처음 설정을 할 수 없었다. 순서를 core의 route 하나로 옮기면 desktop Settings, agent의 입력 card, 다른 기계의 창, 폰이 같은 route를 부른다.
+decisions:
+  - text: "설정과 secret을 넣는 기기는 터미널 입력을 허락받은 기기다. 허락을 하나 더 만들지 않는다. 기기·pairing·명단 관리, 터미널 입력 허락 바꾸기, site login vault는 허락이 있어도 열지 않는다."
+    by: person
+  - text: "값은 그 기계의 core로만 간다. 다른 기계의 창에서 넣은 값은 이 컴퓨터 core의 `machines/call` upload로 그 기계에 가고 이 컴퓨터의 secret 저장소와 log·event·ledger에 닿지 않는다."
+    by: agent
+  - text: "허락받은 기기가 보낸 확인이 필요한 command는 사람이 확인한 것으로 보고 받는 core가 handle을 붙인다(기기 자격은 agent가 얻을 수 없다). 화면은 보내기 전에 Dialog로 한 번 묻는다. agent와 CLI에는 열지 않는다."
+    by: agent
+  - text: "provider 연결과 구독 로그인의 기다림, project 더하기의 id·slug는 core가 쥔다. 화면과 shell main의 사본은 지웠고 옛 route `providers/login-begin`·`login-complete`도 지웠다(e2e는 새 route로 다시 썼다)."
+    by: agent
+  - text: "다른 기기에서 project를 더할 때는 그 기계의 폴더 목록(home 아래만, realpath)을 읽어 고른다. OS의 폴더 고르기 창은 그 기계의 화면에서만 쓴다. 숨은 폴더도 싣는다(`~/.config` 아래 project)."
+    by: agent
+  - text: "다른 기계 창에는 그 기계의 core만 쓰는 Settings 항목만 연다. 폰에는 secret·입력 card 답과 provider 연결(API key, device code)만 짓는다. 버린 길: 폰에 Settings 전체(값이 크고 화면 없는 기계는 다른 컴퓨터에서 설정하면 된다)."
+    by: agent
+  - text: "화면 없는 기계의 loopback 로그인(ChatGPT, Claude, Antigravity)은 이 계획에서 고치지 않는다. `core-browser`의 멀리서 보기로 한다. MCP 로그인 시작·완료·취소도 같은 까닭으로 기기 route에 없고 상태 읽기만 연다."
+    by: agent
+follow_up: |
+  - 다른 기계 창의 Settings › Agents global instructions는 이 컴퓨터 shell 통로를 써서 읽고 쓰지 못한다(이슈 `machine-window-global-instructions`).
+  - design native kit의 `SecretCard`가 옛 모양이다(이슈 `native-secret-card-stale`).
+checklist:
+  - "해야: 폰 앱을 update한다 (secret card 입력, Providers 화면)"
+  - 다른 컴퓨터의 창에서 이 컴퓨터를 열고(그 컴퓨터에 터미널 입력 허락을 켠 뒤) Settings › Providers에서 API key로 provider를 잇고, key가 이 컴퓨터에만 저장되는지 본다
+  - 폰에서 agent의 secret 요청(`lophn ask secret`)에 값을 넣어 답하고, SuperGrok처럼 code로 로그인하는 provider를 폰에서 잇는다
+  - 이 컴퓨터의 Settings › Providers에서 ChatGPT나 Claude 로그인이 예전처럼 끝나는지 본다

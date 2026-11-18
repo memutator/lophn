@@ -1,6 +1,6 @@
 # shell as client: 일은 core가 하고 shell은 화면 가운데 하나다
 
-상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 계획 셋으로 연다(아래 "순서와 계획"). `core-terminals`는 끝났다(2026-11-18). `core-setup`과 `core-browser`가 남았다. `standalone-core.md`(끝남. core가 shell 밖에서 스스로 선다)의 다음 걸음이고, `multi-device.md`의 순서 3이다.
+상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 계획 셋으로 연다(아래 "순서와 계획"). `core-terminals`와 `core-setup`은 끝났다(2026-11-18). `core-browser`가 남았다. `standalone-core.md`(끝남. core가 shell 밖에서 스스로 선다)의 다음 걸음이고, `multi-device.md`의 순서 3이다.
 배경 문서: `project-docs/architecture/platform.md`, `terminal-agent.md`, `coding-agent.md`, `acp.md`, `harness-gui.md`, `browser-tab.md`, `workspace-layout.md`, `remote.md`, `agent-definition.md`. 앞선 로드맵: `standalone-core.md`, `agent-browser-lifetime.md`, `secret-request.md`, `mobile.md`. 조사: `reports/multi-device/survey-s3-shell-work.md`, `survey-s4-setup-tabs.md`, `survey-s5-browser.md`.
 
 ## 사람의 말 (원문)
@@ -60,7 +60,7 @@
 | 계획 | 무엇 | 기대는 것 |
 |---|---|---|
 | `core-terminals`(끝남) | 터미널, coding agent(GUI session, harness adapter, 화면 없는 harness turn), 그 상태와 알림의 근거를 core로 옮긴다. desktop 화면과 폰이 같은 route로 붙는다 | 없음 |
-| `core-setup` | 처음 설정을 어느 화면에서나 한다: secret 넣기, provider 연결과 로그인, 기본 model, project 더하기. 순서를 쥔 code를 화면에서 core로 옮긴다 | 없음 |
+| `core-setup`(끝남) | 처음 설정을 어느 화면에서나 한다: secret 넣기, provider 연결과 로그인, 기본 model, project 더하기. 순서를 쥔 code를 화면에서 core로 옮긴다 | 없음 |
 | `core-browser` | 화면 없는 기계에서 core가 browser를 띄운다. agent의 page를 다른 기기에서 보고 끼어든다 | core와 shell이 주고받는 file이 `core-terminals`와 겹쳐 그 뒤에 합친다 |
 
 셋은 같이 연다. `core-terminals`가 가장 크고 나머지의 바닥이다(core와 shell 사이 link의 모양을 바꾼다). 화면 없는 기계에서 remote를 켜고 pairing code를 보이는 CLI는 `multi-device.md`의 `device-roster`가 한다.

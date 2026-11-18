@@ -159,6 +159,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 다른 계획의 land가 e2e를 돌리는 동안 같이 e2e를 돌리면 앱 crash-loop 단계(그때 `reaction_test`, 지금 `app-restart_test`)가 멈춘 일이 한 번 있다(혼자 돌리면 통과, 원인은 확인 전). 그래서 land.sh가 lock으로 하나씩 돈다. 손으로 `pgrep -f 'land.sh …'`로 기다리지 않는다. 그 pattern이 기다리는 shell 자신의 command line에 있어 영영 끝나지 않았다.
 - e2e가 한 test에서 끝없이 기다리면 먼저 그 run의 turn이 모두 실패하는지 본다(그 run data root의 `lophn.db` `turns.outcome_reason`). 모든 turn이 `configuration_unavailable`이던 bug가 40분 멈춘 land로 보였다.
 - fix task가 merge되면, 같은 길을 쓰는 running worker에게 그 사실을 바로 알리고 commit이 있으면 lead가 그 branch를 rebase한다. worker는 rebase할 수 없어서 옛 base에서 이미 고친 bug를 다시 쫓는다(앱 E2E worker 셋이 한 시간 가까이 그랬다).
+- 실제 앱 확인 worker에게 "내장 provider를 가짜 key로 이어 본다"고 시키면 core가 연결 뒤 그 provider의 실제 model 목록 주소를 읽는다(core-setup). provider 연결 확인은 custom provider를 fake model server 주소로 잇는 것만 시키고, 내장 정의의 연결과 로그인 완료는 사람에게 부탁한다.
 - 같은 기계에서 E2E가 "부하 때문" flake로 보이면 먼저 사용자 단위로 공유하는 자원(`XDG_RUNTIME_DIR` 아래 socket, `/tmp`의 고정 이름)을 의심한다. 앱 start flake 둘이 core끼리 같은 socket 경로를 쓴 제품 bug였다.
 - worker가 test에 기다림이나 우회를 넣어 통과시켰으면(보고의 "무겁게 짠 것") 제품 bug를 가린 것인지 본다. 가렸으면 그 test를 land 전에 fix task로 되돌린다.
 - 권한 분류기는 session마다 그 session에 사람이 직접 한 말만 본다. planner가 전한 사람의 허락("진짜 provider 맘껏 써")은 lead session에서 통하지 않아, `LOPHN_LAND_SKIP_E2E=1 land.sh`("CI Bypass")와 진짜 model을 부르는 명령("Real-World Transactions")이 막혔다. 계획에 이런 일이 있으면 사람이 자리를 비우기 전에 lead session에 직접 말하게 한다. 다른 session에 대신 돌려 달라고 하지 않는다.

@@ -85,3 +85,5 @@ core가 명단을 든다: 서명 key, ledger의 명단과 `devices`에서 옮기
 - 4: 닿은 statement 받기 규칙(계약의 `join` frame 주석): `join` statement는 모두 그 연결의 Noise key에 대한 것이어야 한다. 아직 들지 않은 연결의 초대 서명 statement는 `checkInvited`를 지날 때만 저장한다. 저장 전에 `rosterFresh(statements, now)`. `checkInvited(statement, {now, view})`. `join` 답은 `{device, computer: {id, signing_key}, roster}`.
 - 5: `roster/invite` 입력에 `kind`가 있고 초대장 body에 싣는다.
 - 6: 빼기 body에 빠진 컴퓨터의 `signing_key`를 채운다(폰은 null). 자격·연결 거두기는 id만이 아니라 **key로도** 한다(view의 `removed`와 `conflicts`의 key). conflict인 key는 받아들이지 않는다. `folded`는 큰 id의 항목이 `keep`에 남는 동안 계속 나오므로 fold 고치기는 다시 돌아도 같은 결과여야 한다. `roster/forget_all`은 이 컴퓨터의 자기 id도 버린다.
+- 1(서명 key): host key와 서명 key는 늘 같이 만들고 같이 지운다. 서명 key만 잃거나 새로 만들면 다른 컴퓨터가 모두 `signing_key` conflict로 이 컴퓨터를 빼고 다시 초대도 `key_taken`으로 막힌다. 둘 중 하나만 읽히면 둘 다 지우고 새로 만든다(복사한 data root 길과 같다).
+- 빼기 셈은 grounded labelling이다(`remote.md` 명단 절). 공동 서명은 확정된(IN) 빼기에만 한다.

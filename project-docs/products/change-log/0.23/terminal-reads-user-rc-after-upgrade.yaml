@@ -1,7 +1,7 @@
 id: terminal-reads-user-rc-after-upgrade
 version: 0.23.0
 title: "판을 올린 뒤 터미널 탭이 사용자 rc를 읽는다"
-modules: [packages/core/main, packages/shell/terminal-host]
+modules: [packages/core/main, packages/core/terminals]
 checked: []
 change: |
   전: 판이 바뀌어 shell이 옛 core를 멈추면, 옛 app supervisor가 정지하며 공통 socket 폴더를 통째로 지웠다. 그 안의 새 shell `shell-<pid>/`(shell-init, hook·bridge socket)도 같이 사라져 bash 탭이 `--init-file`로 없는 file을 받고 `~/.profile`·`~/.bashrc`를 하나도 읽지 않았다(PATH, nvm, 색, `claude gui` 함수가 빠짐).

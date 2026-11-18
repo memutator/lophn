@@ -1,7 +1,7 @@
 id: failure-hardening
 version: 0.23.45
 title: 다른 harness가 막아 둔 실패 가운데 lophn에 없던 것을 고친다
-modules: [packages/protocol, packages/coding-agent, packages/core/apps, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/server, packages/core/storage, packages/design, packages/shell/main, packages/shell/renderer, packages/shell/terminal-host]
+modules: [packages/protocol, packages/coding-agent, packages/core/apps, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/server, packages/core/storage, packages/design, packages/shell/main, packages/shell/renderer, packages/core/terminals]
 change: |
   깨진 입력 하나, 죽은 자식 하나, 조용히 끝난 Worker 하나가 앱이나 session을 멈추지 않게 하고, 실패하면 사람과 model이 원인을 알게 했다.
   - core 수명: ready 뒤 ledger writer Worker가 죽으면 core가 `writer_dead`를 남기고 exit 1한다(ready 전이면 기동 실패). 종료 전체 기한 90초(`shutdown_deadline`), HTTP drain 10초. `run/running.marker`로 다음 기동이 `previous_unclean_exit`를 남긴다. shell은 ready 뒤 60초를 못 산 core를 다섯 번까지 1·2·4·8초 쉬며 다시 띄우고, 넘으면 시작 실패 화면에 멈춘다. 두 번째 shell은 single-instance lock을 잡기 전에 core를 건드리지 않고, Quit·`Stop lophn`은 돌던 ensure를 끊는다.

@@ -1,7 +1,7 @@
 id: harness-gui-in-terminal-tab
 version: 0.18.0
 title: "harness GUI가 터미널 탭 안으로 들어오고 TUI와 오가며, 대화 밖 session 기능이 ACP에 오른다(harness-gui 다음 판)"
-modules: [packages/protocol, packages/sdk, packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/cli, packages/coding-agent, packages/design, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/shell/terminal-host, tools, tests]
+modules: [packages/protocol, packages/sdk, packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/cli, packages/coding-agent, packages/design, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/core/terminals, tools, tests]
 checked: []
 change: |
   - 전: `claude gui`(`codex gui`, `opencode gui`)는 lophn 창을 따로 열었다(`lophn gui`, open intent, `#harness-gui` 창). 그 창은 채팅 화면을 `external` source로 쓰며 lophn 전용 칸(model 고르기, slash 메뉴, rewind·fork, session menu)을 숨겼다. TUI로 돌아갈 길이 없었다. ACP 입력은 대화 조작뿐이라 session 관리(model, mode, 명령, rewind, fork, 사용량)는 lophn core route로만 됐다. omp는 없었다. OpenCode는 `opencode acp`였다.

@@ -1,7 +1,7 @@
 id: app-engineer-builds-directly
 version: 0.6.0
 title: "App Engineer가 앱을 직접 짓고, ticket과 test runner를 지운다"
-modules: [packages/coding-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/apps, packages/core/events, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/server, packages/core/storage, packages/design, packages/protocol, packages/shell/ipc, packages/shell/renderer, packages/shell/terminal-host, tools]
+modules: [packages/coding-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/apps, packages/core/events, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/server, packages/core/storage, packages/design, packages/protocol, packages/shell/ipc, packages/shell/renderer, packages/core/terminals, tools]
 checked: [product, boundary-catalog, module-catalog, context-component-registry, architecture-layers, architecture-event, architecture-testing, architecture-activation, architecture-agent-call, architecture-app-call, architecture-agent-definition, architecture-coding-agent, architecture-annotation, architecture-ui-kit, architecture-approval, architecture-appearance, architecture-artifact, architecture-browser-tab, architecture-workspace-layout, skill-wrap-plan, skill-ui-design, tool-check, tool-dev, tool-worktree-prep, tool-models-snapshot, tool-test-live]
 change: |
   전:

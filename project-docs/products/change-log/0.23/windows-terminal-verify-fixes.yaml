@@ -1,7 +1,7 @@
 id: windows-terminal-verify-fixes
 version: 0.23.10
 title: Windows 실기 확인에서 나온 터미널·browser·dev 결함을 고친다
-modules: [packages/base, packages/shell/main, packages/shell/terminal-host, packages/coding-agent, tools]
+modules: [packages/base, packages/shell/main, packages/core/terminals, packages/coding-agent, tools]
 change: |
   - Windows 터미널의 `$BROWSER`가 `.cmd`가 아니라 data root `run\browser-<hash>\browser.exe`다. OS의 .NET Framework 4 `csc.exe`로 앱이 켜질 때 한 번 build하고 같은 내용이면 다시 쓴다. csc가 없으면 bridge만 끈다.
   - Windows named pipe 이름은 data root의 구분자·끝 구분자·대소문자와 상관없이 같다(`socketDirectoryPath`).

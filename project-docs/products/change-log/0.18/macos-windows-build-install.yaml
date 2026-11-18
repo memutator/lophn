@@ -1,7 +1,7 @@
 id: macos-windows-build-install
 version: 0.18.0
 title: "macOS·Windows에서 build·기동·설치 묶음"
-modules: [packages/base, packages/cli, packages/coding-agent, packages/core/apps, packages/core/diagnostics, packages/core/install-and-update, packages/core/lophn-agent, packages/core/main, packages/core/secrets, packages/core/supervision, packages/protocol, packages/sdk, packages/shell/main, packages/shell/terminal-host, tools]
+modules: [packages/base, packages/cli, packages/coding-agent, packages/core/apps, packages/core/diagnostics, packages/core/install-and-update, packages/core/lophn-agent, packages/core/main, packages/core/secrets, packages/core/supervision, packages/protocol, packages/sdk, packages/shell/main, packages/core/terminals, tools]
 checked: [architecture-terminal-agent, architecture-testing, architecture-browser-tab, architecture-ui-kit, architecture-layers, architecture-observability]
 change: |
   - 전: Linux에서만 짜고 돌렸다. core는 process group 강제 종료를 Linux에서만 보장한다며 다른 OS에서 child를 하나도 띄우지 않았다(`/usr/bin/kill` adapter, fail-closed). data root 검사는 uid·0700이라 Windows에서 기동을 거절했다. 봉인 판정이 폴더 mode의 쓰기 bit였다. 앱 IPC는 unix socket만, agent shell tool은 `/bin/sh`와 `setsid`, 설치 묶음은 `tools/package-linux.ts`의 `.deb` 하나였다. CI가 없었다.

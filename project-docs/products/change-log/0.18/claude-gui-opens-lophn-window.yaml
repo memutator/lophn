@@ -1,7 +1,7 @@
 id: claude-gui-opens-lophn-window
 version: 0.18.0
 title: "`claude gui`가 CLI 화면 대신 lophn 창을 연다(harness-gui 첫 판)"
-modules: [packages/cli, packages/coding-agent, packages/core/config, packages/protocol, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/shell/terminal-host, packages/design, packages/base, tools]
+modules: [packages/cli, packages/coding-agent, packages/core/config, packages/protocol, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/core/terminals, packages/design, packages/base, tools]
 checked: [architecture-extension, architecture-acp, architecture-harness-gui, architecture-terminal-agent, architecture-agent-chat, context-component-registry, tool-check, tool-check-deps]
 change: |
   전: Claude Code, Codex, OpenCode는 터미널 TUI로만 썼다. lophn이 이 CLI의 session을 채팅 화면으로 그리는 길은 없었다(harness agent는 headless 명령으로만 돈다).

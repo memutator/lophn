@@ -1,7 +1,7 @@
 id: terminal-tab-switch-keeps-xterm
 version: 0.9.0
 title: 'Terminal tab 전환에서 xterm을 유지하고 출력 일부 없음 배너를 없앤다'
-modules: [packages/shell/renderer, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/shell/terminal-host, packages/design, tools]
+modules: [packages/shell/renderer, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/core/terminals, packages/design, tools]
 checked: []
 change: |
   전: tab을 떠나면 xterm을 dispose하고 돌아올 때 raw snapshot 전체를 두 번 요청할 수 있었다. 보이는 동안은 40ms polling을 돌렸고 main은 큰 JSON 줄의 누적 prefix를 반복 처리했다.

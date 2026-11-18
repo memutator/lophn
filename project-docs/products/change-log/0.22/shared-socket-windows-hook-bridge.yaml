@@ -1,7 +1,7 @@
 id: shared-socket-windows-hook-bridge
 version: 0.22.0
 title: "공통 socket 자리와 Windows hook·browser bridge·PowerShell 시작 층"
-modules: [packages/base, packages/protocol, packages/core/apps, packages/coding-agent, packages/shell/main, packages/shell/terminal-host]
+modules: [packages/base, packages/protocol, packages/core/apps, packages/coding-agent, packages/shell/main, packages/core/terminals]
 checked: [boundary-catalog, context-component-registry, architecture-testing, architecture-coding-agent, architecture-keybindings, architecture-app-call, architecture-workspace-layout, tool-dev, tool-package, tests-support, tool-e2e]
 change: |
   전: core와 shell이 socket 자리 규칙을 따로 적었고 shell은 104 byte 한도를 썼다. Windows에서는 bridge 전체 gate가 hook·시작 층까지 껐다. POSIX에서도 browser shim이나 listen 실패가 hook을 같이 껐다.

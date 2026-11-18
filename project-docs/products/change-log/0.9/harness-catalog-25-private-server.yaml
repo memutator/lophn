@@ -1,7 +1,7 @@
 id: harness-catalog-25-private-server
 version: 0.9.0
 title: '터미널에서 알아보는 coding agent가 25종이고, 공유 server를 쓰는 harness는 lophn 터미널에서 private server로 뜬다'
-modules: [packages/protocol, packages/coding-agent, packages/shell/main, packages/shell/terminal-host, packages/shell/renderer, packages/design]
+modules: [packages/protocol, packages/coding-agent, packages/shell/main, packages/core/terminals, packages/shell/renderer, packages/design]
 checked: [architecture-coding-agent, architecture-terminal-agent]
 change: |
   전: 알아보는 harness가 몇 종이었고 Gemini CLI와 OpenClaw가 있었다. Hermes는 hook 자리가 없었다. Codex 0.156 이상과 OpenCode 2.x는 공유 background server(Codex app-server daemon, `opencode serve --service`)에서 session을 돌려, hook이 그 server를 띄운 env로 돌고 lophn 터미널을 몰랐다(Codex README "per-client environment isolation is not provided").

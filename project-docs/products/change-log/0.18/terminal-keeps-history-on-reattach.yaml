@@ -1,7 +1,7 @@
 id: terminal-keeps-history-on-reattach
 version: 0.18.0
 title: "terminal: 다시 붙은 터미널이 history를 잃지 않는다"
-modules: [packages/shell/terminal-host, packages/shell/ipc]
+modules: [packages/core/terminals, packages/shell/ipc]
 checked: [architecture-workspace-layout]
 change: |
   project를 떠났다 돌아오거나 창을 reload해 터미널 화면을 새로 만들 때 받는 것이 바뀌었다.

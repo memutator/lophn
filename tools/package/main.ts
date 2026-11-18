@@ -216,9 +216,9 @@ async function stageContent(bundle: string) {
   if (await exists(source)) await cp(source, skills, { recursive: true });
 }
 
-// electron-builder에 줄 앱 폴더. shell main의 번들(dist/)에서 runtime에 풀어야 하는 것은 external인 node-pty뿐이고
-// 나머지 의존(Agent SDK 포함)은 esbuild가 번들에 넣는다. workspace 안의 shell main에서 의존을 받으면 root `overrides`의 빈 package
-// symlink를 builder가 보고 멈추고, SDK의 OS별 claude 사본(300MB+)도 따라 와서, 저장소 밖 폴더에 node-pty만 따로 받는다.
+// electron-builder에 줄 앱 폴더. shell main의 의존은 모두 esbuild가 번들(dist/)에 넣어 runtime에 풀 package가 없다(node-pty는
+// core의 것이라 platform/에 있다). workspace 안의 shell main을 그대로 주면 root `overrides`의 빈 package symlink를 builder가 보고
+// 멈추므로, 저장소 밖 폴더에 package.json과 번들만 둔다.
 async function stageApp(app: string) {
   const pkg = JSON.parse(
     await readFile(join(shellMain, "package.json"), "utf8"),
@@ -230,7 +230,7 @@ async function stageApp(app: string) {
       {
         ...pkg,
         scripts: undefined,
-        dependencies: { "node-pty": pkg.dependencies["node-pty"] },
+        dependencies: {},
         devDependencies: { electron: pkg.devDependencies.electron },
       },
       null,

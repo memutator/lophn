@@ -1,7 +1,7 @@
 id: terminal-truecolor-resize-fixes
 version: 0.9.0
 title: '터미널에서 Claude Code 색이 나오고, 분할 칸 resize를 따르고, 바깥 agent session 표지를 물려받지 않는다'
-modules: [packages/shell/renderer, packages/shell/main, packages/shell/terminal-host]
+modules: [packages/shell/renderer, packages/shell/main, packages/core/terminals]
 checked: [architecture-terminal-agent, architecture-browser-tab, skill-write-test]
 change: |
   전:

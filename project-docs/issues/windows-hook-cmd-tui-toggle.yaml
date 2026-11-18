@@ -3,7 +3,7 @@ title: "Windows에서 깔린 hook 명령이 cmd에서 돌지 않고 GUI↔TUI to
 kind: bug
 status: open
 topic: platform
-modules: [packages/shell/main, packages/shell/terminal-host, packages/coding-agent]
+modules: [packages/shell/main, packages/core/terminals, packages/coding-agent]
 now: |
   hook socket(named pipe)과 PowerShell 시작 층(`claude gui` 등)은 roadmap `platform-ipc`로 Windows에서도 열린다. 남은 것은 아래다. Windows 실기 확인 결과는 루트 `WINDOWS-CHECKLIST.md`에 있다(hook 상태·알림과 `claude gui`는 PowerShell 5.1·7 모두 통과).
 

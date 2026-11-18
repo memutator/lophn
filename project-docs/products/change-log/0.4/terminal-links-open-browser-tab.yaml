@@ -1,7 +1,7 @@
 id: terminal-links-open-browser-tab
 version: 0.4.0
 title: terminal이 연 URL과 Ctrl/Cmd-click한 link가 browser 탭에 열림
-modules: [packages/core/config, packages/design, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/shell/terminal-host, tools]
+modules: [packages/core/config, packages/design, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/core/terminals, tools]
 checked: [architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-check, tool-worktree-prep, tool-dev, skill-ui-design]
 change: |
   - 전: terminal의 프로그램이 연 URL(`gh auth login --web`, `python3 -m webbrowser`)은 OS browser로 갔다. terminal에 보이는 URL은 눌러도 아무 일이 없었다.

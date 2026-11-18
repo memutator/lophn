@@ -3,7 +3,7 @@ title: "터미널 탭에서 부르는 `lophn gui`가 개발 앱이 아니라 `~/
 kind: mistake
 status: fixed
 topic: mistakes
-modules: [packages/shell/terminal-host, tools]
+modules: [packages/core/terminals, tools]
 now: |
   harness-gui의 gui-window task가 shell 시작 층에 `claude gui` 함수를 넣으며 `lophn`을 이름으로 불렀다. lead review가 "개발 앱 터미널에는 `lophn`이 PATH에 없다"를 찾아 CLI 경로만 넣게 고쳤고, 같은 원인(터미널 env가 `LOPHN_*`를 지운다)으로 data root도 빠진다는 것은 놓쳤다. dev CLI launcher가 `~/.lophn`을 기본값으로 잡아, 사람이 개발 앱 터미널에서 `claude gui`를 치자 설치본의 Home 창이 떴다. 설치본이 꺼져 있었으면 저장소의 개발 code가 실제 `~/.lophn`으로 떴다.
 impact: |

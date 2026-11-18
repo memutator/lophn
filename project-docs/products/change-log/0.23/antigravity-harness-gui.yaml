@@ -1,7 +1,7 @@
 id: antigravity-harness-gui
 version: 0.23.76
 title: 터미널 탭의 agy gui가 Antigravity 대화를 채팅 화면으로 보인다
-modules: [packages/protocol, packages/shell/main, packages/shell/terminal-host, packages/shell/renderer]
+modules: [packages/protocol, packages/shell/main, packages/core/terminals, packages/shell/renderer]
 change: |
   전: harness GUI는 Claude Code, Codex, OpenCode, omp 넷만 받았다. 터미널 탭에서 Antigravity CLI(`agy`)는 TUI로만 쓸 수 있었다.
   후: 탭에서 `agy gui [--resume <id>]`를 치면 그 탭이 채팅 화면이 되고 탭 머리 toggle로 같은 대화를 agy TUI(`agy --conversation <id>`)와 오간다. 뒤에서는 사람의 `agy acp`가 돈다. 글과 tool 줄, 승인 카드, 질문 카드, 도는 중 steer와 줄 세우기, 멈추기, model·생각 단계·mode(default, accept-edits, plan), agy 명령, 사용량, 제목, 지난 대화 열기가 된다. ACP에 없는 rewind, fork, rename, todo, subagent 대화, background task, `!` shell은 칸이 숨는다. GUI keymap은 agy TUI처럼 Shift+Tab이 mode를 돈다.

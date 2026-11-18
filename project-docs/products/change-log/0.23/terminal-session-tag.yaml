@@ -1,7 +1,7 @@
 id: terminal-session-tag
 version: 0.23.42
 title: "터미널 탭의 process에도 session 표지를 붙이고, GUI 탭을 목록에 채우고, 시작 중 앱의 첫 호출을 받는다"
-modules: [packages/protocol, packages/core/apps, packages/core/lophn-agent, packages/shell/main, packages/shell/terminal-host, packages/sdk, packages/core/agent-workspaces]
+modules: [packages/protocol, packages/core/apps, packages/core/lophn-agent, packages/shell/main, packages/core/terminals, packages/sdk, packages/core/agent-workspaces]
 checked: []
 change: |
   전: `LOPHN_SESSION_ID`는 core session(lophn agent의 `shell.run`, headless harness CLI)에만 붙었다. 터미널 탭은 PTY shell pid 아래 process tree로만 이을 수 있었는데, `claude gui`·`codex gui`가 띄운 CLI는 탭의 shell이 아니라 shell main의 자식이라 닿지 않았다(앱이 headless로 분류하고 제목이 없었다). 앱 process가 시작 code에서 부른 `sessions.list`는 release가 active로 잇기 66ms 전이라 `forbidden: the process is not the active release`였다.

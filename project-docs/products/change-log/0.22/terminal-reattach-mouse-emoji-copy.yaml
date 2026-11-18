@@ -1,7 +1,7 @@
 id: terminal-reattach-mouse-emoji-copy
 version: 0.22.0
 title: "터미널: 다시 붙은 탭의 mouse, 이모지 폭, TUI 복사를 고친다"
-modules: [packages/shell/renderer, packages/shell/terminal-host]
+modules: [packages/shell/renderer, packages/core/terminals]
 checked: []
 change: |
   전:

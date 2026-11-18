@@ -734,23 +734,34 @@ test("컴퓨터가 자기 항목에 다른 기기의 초대 key를 달아도 그
   }
 });
 
-test("폰이 도둑과 구경꾼 컴퓨터를 저장했어도 도둑만 믿게 되지 않고, 다시 뺀 컴퓨터를 따른다", () => {
-  const [x, y, r, z] = [computer(), computer(), computer(), computer()];
-  // X가 R을 뺐고 도둑 R이 X와 Y를 뺐다. 폰은 Y와 R을 저장했다.
-  const statements = [...mesh([x, y, r, z]), out(x, r), out(r, x), out(r, y)];
-  const phone = viewOf(statements, [root(y), root(r)]);
-  assert.ok(!deviceKeys(phone).includes(r.key));
-  assert.ok(phone.removed.every((one) => !one.settled));
-  // R이 빼지 않은 Z가 R을 다시 뺐다. Z도 저장한 폰은 그 결정을 따른다.
-  const resolved = viewOf(
-    [...statements, out(z, r)],
-    [root(y), root(r), root(z)],
-  );
-  assert.deepEqual(deviceKeys(resolved).sort(), [x.key, y.key, z.key].sort());
-  assert.deepEqual(
-    resolved.removed.map((one) => [one.body.key, one.settled]),
-    [[r.key, true]],
-  );
+test("도둑이 맞빼기를 내도 X만 저장한 폰은 X를 계속 믿고 R을 뺀다", () => {
+  const [x, y, r] = [computer(), computer(), computer()];
+  // 사람이 X에서 R을 뺐고 도둑 R이 X(와 Y)를 맞뺐다. 폰은 X만, 또는 X와 Y를 저장했다(도둑의 컴퓨터는 저장하지 않았다).
+  const statements = [...mesh([x, y, r]), out(x, r), out(r, x), out(r, y)];
+  for (const saved of [[x], [x, y]]) {
+    const view = rosterView(statements, saved.map(root), null);
+    // Y도 명단의 컴퓨터라 같이 남는다. R의 맞빼기는 효력이 없다.
+    assert.deepEqual(deviceKeys(view).sort(), [x.key, y.key].sort());
+    assert.deepEqual(
+      view.removed.map((one) => [one.body.key, one.settled]),
+      [[r.key, true]],
+    );
+    assert.deepEqual(rosterView(view.keep, saved.map(root), null), view);
+  }
+});
+
+test("도둑의 컴퓨터도 저장한 폰은 둘 다 끊고 도둑만 믿게 되지 않는다", () => {
+  const [x, y, r] = [computer(), computer(), computer()];
+  const statements = [...mesh([x, y, r]), out(x, r), out(r, x), out(r, y)];
+  for (const saved of [
+    [x, r],
+    [x, y, r],
+  ]) {
+    const view = rosterView(statements, saved.map(root), null);
+    assert.ok(!deviceKeys(view).includes(r.key));
+    // 저장한 컴퓨터끼리 서로 뺐으므로 아무 빼기도 정해지지 않는다: 폰은 X를 지우지 않고 사람이 다시 들일 때까지 기다린다.
+    assert.ok(view.removed.every((one) => !one.settled));
+  }
 });
 
 test("모르는 서명자의 항목이 상한에 닿아도 빼기가 저장된다", () => {

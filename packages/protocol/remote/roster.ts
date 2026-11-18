@@ -578,12 +578,21 @@ function compute(
   // 단조라 끝나고 statement 집합과 root로만 정해진다. 컴퓨터의 view에서 그 컴퓨터가 서명한 빼기는 처음부터 IN이다(자기
   // 판단을 믿는다). 끝까지 정해지지 않은 빼기(시각 없이는 깰 수 없는 서로 물고 도는 빼기)는 대상을 뺀다(fail-closed). 다만
   // 그 컴퓨터 자신은 정해지지 않은 빼기로 빠지지 않는다.
-  const label: ("in" | "out" | "open")[] = k0.map(({ signer }) =>
-    self !== null && signer.signingKey === self ? "in" : "open",
-  );
+  // 폰의 view(self 없음)에서는 저장한 컴퓨터(root)가 서명한 빼기가 처음부터 IN이다. 다만 다른 저장한 컴퓨터가 서명한 빼기가 그것을
+  // 공격하면(저장한 컴퓨터끼리 서로 뺐다) 정해지지 않은 채로 둔다: 폰이 도둑의 컴퓨터도 저장했으면 어느 쪽도 믿지 않고, 저장하지
+  // 않았으면 저장한 컴퓨터의 판단을 따른다(도둑의 맞빼기 하나로 폰이 정직한 컴퓨터를 영영 잃지 않는다).
   const attackers = k0.map(({ signer }) =>
     k0.flatMap((other, i) => (targets(other.body, signer) ? [i] : [])),
   );
+  const label: ("in" | "out" | "open")[] = k0.map(({ signer }, i) => {
+    if (self !== null) return signer.signingKey === self ? "in" : "open";
+    return rootSet.has(signer.signingKey) &&
+      !(attackers[i] ?? []).some((j) =>
+        rootSet.has((k0[j] as (typeof k0)[0]).signer.signingKey),
+      )
+      ? "in"
+      : "open";
+  });
   let changed = true;
   while (changed) {
     changed = false;

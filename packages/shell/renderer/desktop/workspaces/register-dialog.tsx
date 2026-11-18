@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Field, Input, Switch, Textarea } from "@lophn/ui/input";
+import { Field, Input, Select, Switch, Textarea } from "@lophn/ui/input";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { actionIcons, commonIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
@@ -10,23 +10,58 @@ import { addFolder, missingFolder, usableTitle } from "./model.ts";
 import type { FolderDraft, FolderMatch, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
 
+/** 이 컴퓨터의 창에서 project를 등록할 수 있는 다른 기계. 그 기계가 사람의 route를 허락했을 때만 고를 수 있다. */
+export interface RegisterTarget {
+  readonly machine: string;
+  readonly name: string;
+  /** 그 기계의 등록 통로. 폴더는 그 기계의 폴더 목록 dialog에서 고른다. */
+  readonly source: RegisterSource;
+  grant(): Promise<boolean>;
+}
+
 interface RegisterDialogProps {
   open: boolean;
   source: RegisterSource;
+  /** 연결된 다른 기계. 허락한 기계가 있으면 맨 위에 기계 고르기가 선다. */
+  targets?: readonly RegisterTarget[];
   onClose: () => void;
-  onRegistered: (created: { id: string }) => void;
+  /** `machine`은 다른 기계에 등록했을 때 그 기계다. */
+  onRegistered: (created: { id: string }, machine?: string) => void;
 }
+
+const HERE = "";
 
 // 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 source의 고르기로만 고르고(이 컴퓨터의 창은
 // OS 선택기, 다른 기계의 창은 그 기계의 폴더 목록 dialog) 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
 // 첫 폴더를 읽어(match) 폴더 목록 아래에 저장소의 상태를 한 줄로 알린다. 읽지 못하면 줄 없이 등록한다.
 // 다른 기계의 창이 그 기계에서 사람의 route를 허락받지 못했으면 form 대신 그 까닭과 허락을 켜는 곳을 한 줄로 보인다.
+// 이 컴퓨터의 창은 연결되어 허락한 다른 기계를 맨 위에서 골라 그 기계에 등록한다.
 export function RegisterDialog({
   open,
-  source,
+  source: hereSource,
+  targets,
   onClose,
   onRegistered,
 }: RegisterDialogProps) {
+  // 허락을 물어 고를 수 있는 기계. 허락은 사람이 아무 기계에서나 바꾸므로 열 때마다 묻는다.
+  const [granted, setGranted] = useState<readonly RegisterTarget[]>([]);
+  const [on, setOn] = useState(HERE);
+  useEffect(() => {
+    setOn(HERE);
+    setGranted([]);
+    if (!open || targets === undefined || targets.length === 0) return;
+    let live = true;
+    void Promise.all(
+      targets.map(async (target) => ((await target.grant()) ? [target] : [])),
+    ).then((rows) => {
+      if (live) setGranted(rows.flat());
+    });
+    return () => {
+      live = false;
+    };
+  }, [open, targets]);
+  const target = granted.find((one) => one.machine === on);
+  const source = target?.source ?? hereSource;
   const [title, setTitle] = useState("");
   const [purpose, setPurpose] = useState("");
   const [folders, setFolders] = useState<readonly FolderDraft[]>([]);
@@ -111,7 +146,7 @@ export function RegisterDialog({
       return;
     }
     reset();
-    onRegistered(result.value);
+    onRegistered(result.value, target?.machine);
   };
 
   // 폴더를 잃은 project에 이 저장소의 폴더를 이어 주고 닫는다. 새 project는 만들지 않는다.
@@ -169,6 +204,26 @@ export function RegisterDialog({
       ) : (
         <div className={styles.form} data-register-form="">
           <p className={styles.note}>{t("home.dialog.register-note")}</p>
+          {granted.length === 0 ? null : (
+            <Field label={t("machines.label.computer")}>
+              <Select
+                value={on}
+                options={[
+                  { value: HERE, label: t("machines.button.this-computer") },
+                  ...granted.map((one) => ({
+                    value: one.machine,
+                    label: one.name,
+                  })),
+                ]}
+                onValueChange={(next) => {
+                  // 폴더는 기계마다의 경로라 기계를 바꾸면 비운다.
+                  setOn(next);
+                  setFolders([]);
+                  setPickFailed(false);
+                }}
+              />
+            </Field>
+          )}
           <Field label={t("home.label.name")} error={nameError}>
             <Input
               value={title}

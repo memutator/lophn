@@ -2,7 +2,7 @@
 // 갈래와 같다. entry는 import하면 바로 mount하므로 이 gallery가 같은 조립을 따로 둔다. 앱 코드는
 // 고치지 않고, preload가 없는 일반 browser에 없는 통로(터미널 PTY, overlay)만 여기서 채운다.
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   appTrayList,
   type TrayTone,
@@ -15,7 +15,6 @@ import type {
   LophnDetachedApi,
 } from "../../../packages/shell/ipc/detached.ts";
 import type { AppDetailSource } from "../../../packages/shell/renderer/app-frame/app-detail/source.ts";
-import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
 import {
   AnnotateApiProvider,
   ArtifactApiProvider,
@@ -25,7 +24,7 @@ import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts
 import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
-import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { createEventStores } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import {
   type DevMock,
@@ -33,6 +32,11 @@ import {
 } from "../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import type { JobsSource } from "../../../packages/shell/renderer/desktop/jobs/source.ts";
 import { Desktop } from "../../../packages/shell/renderer/desktop/main.tsx";
+import { createMachineHub } from "../../../packages/shell/renderer/desktop/machines/data.ts";
+import {
+  MachineHubProvider,
+  MachineScope,
+} from "../../../packages/shell/renderer/desktop/machines/scope.tsx";
 import {
   HOME,
   openDetached,
@@ -446,35 +450,59 @@ export function MockDesktop(props: MockDesktopProps) {
     [mock, extraScreens],
   );
   const annotate = props.annotate ?? mock.annotate;
+  // entry처럼 이 컴퓨터만 있는 hub를 세운다. 빠른 실행은 기본값(QuickPrefsProvider)이다.
+  const { jobs, appDetail } = props;
+  const hub = useMemo(
+    () =>
+      createMachineHub({
+        bridge: undefined,
+        machines: null,
+        views: undefined,
+        here: () => ({
+          machine: null,
+          here: true,
+          core: core ?? mock.core,
+          events: wiring.events,
+          stores: createEventStores(wiring.events),
+          workspace: wiring.workspace,
+          editor: mock.editor,
+          projects: wiring.projects,
+          apps: wiring.apps,
+          catalog: mock.catalog,
+          appDetail: appDetail ?? mock.appDetail,
+          settings: mock.settings,
+          jobs: jobs ?? mock.jobs,
+          settingsPanels: wiring.settingsPanels,
+          quickPrefs: undefined,
+          agentViewSource: mock.agentViewSource,
+          folders: null,
+          picker: undefined,
+          terminal: wiring.terminal,
+          appViews,
+          projectIcons: mock.projectIcons,
+          grant: () => Promise.resolve(true),
+        }),
+      }),
+    [wiring, core, appViews, jobs, appDetail],
+  );
+  useEffect(() => () => hub.stop(), [hub]);
   return (
     <BrowserApiProvider value={props.browser ?? mock.browser}>
       <ArtifactApiProvider value={props.artifact ?? null}>
         <AnnotateApiProvider value={annotate}>
-          <AppViewsProvider value={appViews}>
-            <QuickPrefsProvider source={undefined}>
-              <ConversationProvider deps={wiring.conversation}>
-                <EventsProvider client={wiring.events}>
+          <MachineHubProvider hub={hub}>
+            <MachineScope machine={null}>
+              <QuickPrefsProvider source={undefined}>
+                <ConversationProvider deps={wiring.conversation}>
                   <Desktop
-                    source={core ?? mock.core}
                     initial={route}
-                    workspace={wiring.workspace}
-                    editor={mock.editor}
-                    terminal={wiring.terminal}
                     detached={wiring.detached}
-                    catalog={mock.catalog}
-                    projects={wiring.projects}
-                    apps={wiring.apps}
-                    settings={mock.settings}
-                    settingsPanels={wiring.settingsPanels}
-                    jobs={props.jobs ?? mock.jobs}
-                    appDetail={props.appDetail ?? mock.appDetail}
                     views={mock.views}
-                    agentViewSource={mock.agentViewSource}
                   />
-                </EventsProvider>
-              </ConversationProvider>
-            </QuickPrefsProvider>
-          </AppViewsProvider>
+                </ConversationProvider>
+              </QuickPrefsProvider>
+            </MachineScope>
+          </MachineHubProvider>
         </AnnotateApiProvider>
       </ArtifactApiProvider>
     </BrowserApiProvider>

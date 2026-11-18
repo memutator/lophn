@@ -321,3 +321,24 @@
   height: var(--space-0);
   pointer-events: none;
 }
+
+/* 이 컴퓨터가 아닌 기계의 줄 끝 꼬리표. */
+.machineTag {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 꺼진 기계의 줄. 마지막으로 본 대로 남고 열리지 않는다. */
+.workspaceGroup[data-offline] .workspaceRow,
+.sessionRow[data-offline] {
+  opacity: 0.5;
+  cursor: default;
+}

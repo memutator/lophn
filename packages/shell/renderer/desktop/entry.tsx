@@ -38,7 +38,7 @@ import { MachinesProvider } from "./machines/context.tsx";
 import { createMachineHub, type MachineData } from "./machines/data.ts";
 import { MachineHubProvider, MachineScope } from "./machines/scope.tsx";
 import { windowMachinesSource } from "./machines/window-source.ts";
-import { MachineDesktop } from "./main.tsx";
+import { Desktop } from "./main.tsx";
 import { catalogSource } from "./palette/core-catalog.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { fileSearch } from "./palette/search.ts";
@@ -255,7 +255,7 @@ const tree = (
                   <ConversationProvider deps={conversation}>
                     <QuickPrefsProvider source={root.quickPrefs}>
                       <RemoteGroupsProvider>
-                        <MachineDesktop
+                        <Desktop
                           initial={start}
                           windowWidth={seed ? 1440 : undefined}
                           palette={palette}

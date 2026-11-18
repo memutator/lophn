@@ -63,7 +63,7 @@ flows:
       - packages/core/main/daemon/wiring/projects.ts
       - packages/protocol/projects/add-api.ts
     steps:
-      - "사람만 부른다(등록 dialog, 다른 기기의 창). agent·app은 dispatch가 forbidden으로 거절한다"
+      - "사람만 부른다(등록 dialog, 다른 기기의 창. 이 컴퓨터의 창 등록 dialog는 연결되어 사람의 route를 허락한 다른 기계를 맨 위에서 골라 그 기계에 부르고, 폴더는 그 기계의 폴더 목록 dialog에서 고른다). agent·app은 dispatch가 forbidden으로 거절한다"
       - "core가 prj_ id를 만들고 title에서 slug를 만든다(소문자 영숫자와 -, 글자로 시작, 63자까지. 비면 project)"
       - "project.create를 부른 사람의 자격으로 낸다(project-register). name이 겹쳐 conflict면 -2부터 번호를 붙여 다섯 번까지 해 보고, 다른 실패는 그대로 돌려준다"
       - "등록되면 project.create 뒤의 id file 다시 읽기가 그대로 돈다. id file 만들기는 하지 않는다(화면이 이어서 projects/create_identity를 부른다)"
@@ -543,8 +543,10 @@ flows:
       - packages/core/projects/registry/store.ts
       - packages/protocol/projects/identity-api.ts
       - packages/shell/renderer/desktop/workspaces/projects/link-dialog.tsx
+      - packages/shell/renderer/workspace/sidebar/away-line.tsx
+      - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
     steps:
-      - "사람만 부른다(다른 기계의 창에서 고른 잇기 dialog). user actor가 아니면 forbidden이다"
+      - "사람만 부른다: 이 컴퓨터 창의 왼쪽 sidebar에서 이 컴퓨터에 없는 git이 아닌 project 줄의 [Link…]가 잇기 dialog를 열고, 사람이 이 컴퓨터의 git이 아닌 project(보관하지 않았고 아직 그 id가 아닌 것)를 고른다. user actor가 아니면 forbidden이다"
       - "project가 없으면 not_found, TargetAuthorization이 거절하면 막는다. 이미 그 id면 아무것도 바꾸지 않고 지금 record를 돌려준다"
       - "repo가 none이 아니면(git이거나 아직 폴더를 읽지 못했다) conflict(details.reason git_project)로 거절한다. git project의 id는 id file이 정한다"
       - "이 기계의 다른 project(보관 포함)가 그 id를 identity나 former_identities로 가지면 conflict(details.reason identity_in_use)로 거절한다"
@@ -2297,7 +2299,7 @@ flows:
       - packages/core/main/daemon/wiring/project-clone.ts
       - packages/protocol/projects/clone-api.ts
     steps:
-      - "user·agent만 부른다. URL에 자격(https의 userinfo, user:pass@)이 있으면 git을 띄우기 전에 invalid_input으로 거절한다(remote 설정에 token이 남는다)"
+      - "user·agent만 부른다(agent는 lophn project clone, 사람은 desktop 목록의 [Clone here]가 shell:machines-clone-here로). URL에 자격(https의 userinfo, user:pass@)이 있으면 git을 띄우기 전에 invalid_input으로 거절한다(remote 설정에 token이 남는다)"
       - "identity를 주었고 그 id를 가진 project의 첫 폴더가 이 기계에 있으면 받지 않고 그 project를 cloned false로 돌려준다"
       - "부모 폴더는 parent, 없으면 설정 projects.folder(사람이 처음 한 번 정한다. 값에 기계 id를 붙이지 않는다)다. 없거나 폴더가 아니면 parent를 안 준 경우 projects_folder_unset, 준 경우는 그냥 invalid_input이다. 설정이 비었거나 그 폴더가 없어졌을 때 parent가 폴더이면 설정에 기억한다"
       - "폴더 이름은 name이나 URL 마지막 조각에서 .git을 뗀 것이다. /, \\, .., 빈 글은 invalid_input이다. <부모>/<이름>이 이미 있으면 아무것도 쓰지 않고 conflict(target_exists)다"

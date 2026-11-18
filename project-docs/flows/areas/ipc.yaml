@@ -363,7 +363,7 @@ flows:
       - "그 기계로 가는 shell:core-call은 이 컴퓨터 core의 machines/call { machine, resource, method, body }로 보낸다(그 기계가 kind를 route 표로 안다). 답은 그 기계의 value나 오류 그대로다. upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
       - "그 기계로 가는 shell:core-watch는 (보낸 창, 기계)마다의 조건이다. machines/watch { machine, watcher: w<webContents id>, conditions }로 그 창의 조건만 통째로 바꾸고(빈 배열은 그 창을 뺀다) core가 구독자들의 합을 그 기계에 건다(core-machines-watch). shell main 안의 구독자도 자기 이름을 watcher로 같은 길을 쓴다. shell main은 기계마다 구독자별 마지막 조건을 들고 이 컴퓨터 Gateway가 다시 붙으면 모두 다시 걸고, 창이 닫히면 그 창의 것을 뺀다"
       - "그 기계의 frame은 이 컴퓨터 bus의 MachineFrameReceived로 와서 machine을 달고 shell:core-event로 그 기계를 보는 창(그 기계에 조건을 든 창)에만 간다. watcher가 한 창인 ready는 그 창에만, 그 밖의 ready와 event·closed는 그 기계를 보는 모든 창에 간다. machine 없는 message는 이 컴퓨터 core의 것이다"
-      - "묶인 창의 shell:core-state-get은 machines/list의 그 기계 status로 지은 상태다(connecting → starting, connected → ready, offline·update·목록에 없음 → stale. confirmedAt은 last_seen_at). machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다"
+      - "묶인 창의 shell:core-state-get은 machines/list의 그 기계 status로 지은 상태다(connecting → starting, connected → ready, offline·update·목록에 없음 → stale. confirmedAt은 last_seen_at). machines-this-read는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다. machines-clone-here는 이 컴퓨터의 창(목록의 [Clone here])과 다른 기계의 창이 다 지난다"
       - "다른 기계에 묶인 창이 지나는 channel은 그 밖에 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external, secret-input-open뿐이다. secret-input-open은 보호 창을 그 창 위에 연다. 열기 입력에 machine이 있으면 값과 읽기는 그 기계의 link(machines/call)로만 가고, 없으면 묶인 창은 묶인 기계로, 이 컴퓨터의 창은 이 컴퓨터 core로 간다. 묶인 창이 다른 기계를 실으면 forbidden이다(shell-desktop의 secret-input). overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
       - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
     outcomes:
@@ -519,18 +519,18 @@ flows:
     docs: [architecture/remote.md, architecture/project-identity.md]
 
   - id: machines-clone-here
-    title: "다른 기계의 창이 그 기계의 project를 이 컴퓨터에 clone한다"
+    title: "목록의 [Clone here]가 다른 기계의 project를 이 컴퓨터에 clone한다"
     actor: person
     entries: [ipc:shell:machines-clone-here]
-    uses: [machine-window-ipc:forbidden, route:projects/clone]
+    uses: [route:projects/clone]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/viewer/machine-route.ts
-      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/main/desktop/wiring/machines.ts
       - packages/shell/ipc/machines.ts
       - packages/shell/preload/machines-api.ts
     steps:
-      - "machine-route가 이 컴퓨터의 창이 보낸 것을 forbidden으로 거른다. handler가 sender가 desktop 창 본문이고 다른 기계의 창인지 다시 보고 입력 { url, identity, title }을 strict schema로 본다"
+      - "이 컴퓨터의 창(왼쪽 sidebar에서 이 컴퓨터에 없는 git project 줄의 [Clone here])과 다른 기계에 묶인 창이 부른다. handler가 sender가 desktop 창 본문인지 보고 입력 { url, identity, title }을 strict schema로 본다"
       - "이 컴퓨터의 core에 사람 token으로 project.clone { url, identity, title }을 부른다. 다른 기계의 저장소에는 아무것도 쓰지 않는다"
       - "답이 details.reason projects_folder_unset이면 그 창에 붙은 OS 폴더 선택기를 열고(headless는 LOPHN_SHELL_PICK_FOLDER만) 고른 폴더를 parent로 다시 부른다. 그만두면 처음 답을 돌려준다"
       - "core의 답(성공, git_auth의 details.command, 그 밖 오류)을 그대로 돌려준다"
@@ -551,7 +551,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "이 컴퓨터의 창이 불렀거나 desktop 창 본문이 아닌 caller다"
+        when: "desktop 창 본문이 아닌 caller다"
         observe: [response]
       - id: invalid_input
         code: invalid_input

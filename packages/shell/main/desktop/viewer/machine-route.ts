@@ -30,7 +30,8 @@ import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 
 // What a window of another machine may call on this computer's shell besides the core channels: the machine list and
-// switching windows, two narrow calls to this computer's core (reading its projects, agents and sessions; clone here), its own window
+// switching windows, two narrow calls to this computer's core (reading its projects, agents and sessions; clone here, which
+// this computer's windows call too), its own window
 // buttons, opening a link in the OS browser and opening the protected secret window (the value goes to that machine). Overlay channels, shortcuts and intents
 // do not pass through here (overlays register on ipcMain themselves; shortcuts and intents are pushed by main).
 export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([
@@ -45,11 +46,10 @@ export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([
   SECRET_INPUT_OPEN_CHANNEL,
 ]);
 
-// Channels that reach this computer's core for a window of another machine. A window of this computer has its own core
+// A channel that reaches this computer's core for a window of another machine. A window of this computer has its own core
 // channels, so it is refused here; a read outside `THIS_COMPUTER_READS` is refused before the handler runs.
 const MACHINE_WINDOW_ONLY: ReadonlySet<string> = new Set([
   MACHINES_THIS_READ_CHANNEL,
-  MACHINES_CLONE_HERE_CHANNEL,
 ]);
 
 function thisComputerRead(input: unknown): boolean {

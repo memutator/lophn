@@ -4,28 +4,20 @@
 // and keeps its title on the machine's name. A machine that leaves the
 // device list keeps its window, which shows the removed gate. These windows are not in `ctx.windows`: this computer's
 // notices, presence, surface and global keys never see them.
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  powerMonitor,
-  type WebContents,
-} from "electron";
-import { isAbsolute, join } from "node:path";
+import { app, BrowserWindow, powerMonitor, type WebContents } from "electron";
+import { join } from "node:path";
 
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   MACHINES_CHANGED_CHANNEL,
-  MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_OPEN_CHANNEL,
   MACHINES_THIS_READ_CHANNEL,
   MACHINES_THIS_WINDOW_CHANNEL,
   MACHINES_VISIBLE_CHANNEL,
   type MachinesReply,
   type MachineWindow,
-  machinesCloneHereSchema,
   machinesOpenSchema,
   machinesThisReadSchema,
   machinesVisibleSchema,
@@ -272,8 +264,8 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
     entry.presence.changed();
   });
 
-  // Both reach this computer's core as the person. machine-route has already refused windows of this computer and reads
-  // outside the allowed lists; the machine is the sending window's, never the renderer's word.
+  // This reaches this computer's core as the person. machine-route has already refused windows of this computer and reads
+  // outside the allowed list.
   const failure = (code: string, message: string): CoreReply => ({
     ok: false,
     error: { code, message },
@@ -298,54 +290,11 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
     },
   );
 
-  // A parent folder for the clone when this computer has no projects folder yet. headless never shows a dialog.
-  async function pickParent(sender: WebContents): Promise<string | null> {
-    if (headless.headless) {
-      const pick = process.env.LOPHN_SHELL_PICK_FOLDER;
-      return pick !== undefined && isAbsolute(pick) ? pick : null;
-    }
-    const options = {
-      title: word("machines.title.clone-parent"),
-      properties: ["openDirectory" as const, "createDirectory" as const],
-    };
-    const parent = BrowserWindow.fromWebContents(sender);
-    const result = parent
-      ? await dialog.showOpenDialog(parent, options)
-      : await dialog.showOpenDialog(options);
-    const path = result.canceled ? undefined : result.filePaths[0];
-    return path !== undefined && isAbsolute(path) ? path : null;
-  }
-
-  ipc.handle(
-    MACHINES_CLONE_HERE_CHANNEL,
-    async (event: IpcEvent, input: unknown): Promise<CoreReply> => {
-      if (!allowed(event) || ctx.machineOf(event.sender) === null) {
-        return failure("forbidden", "only a window of another machine");
-      }
-      const parsed = checkInput(machinesCloneHereSchema, input);
-      if (!parsed.ok) return failure("invalid_input", "not a clone");
-      const session = ctx.core.session();
-      if (session === null) return failure("unavailable", "core is not ready");
-      const clone = (body: object) =>
-        session.internal("memory", "projects", "clone", body);
-      const first = await clone(parsed.value);
-      if (
-        first.ok ||
-        first.error.details?.["reason"] !== "projects_folder_unset"
-      ) {
-        return first;
-      }
-      const parent = await pickParent(event.sender as unknown as WebContents);
-      return parent === null ? first : await clone({ ...parsed.value, parent });
-    },
-  );
-
   return {
     stop() {
       unsubscribe();
       for (const channel of [
         MACHINES_THIS_READ_CHANNEL,
-        MACHINES_CLONE_HERE_CHANNEL,
         MACHINES_OPEN_CHANNEL,
         MACHINES_THIS_WINDOW_CHANNEL,
         MACHINES_VISIBLE_CHANNEL,

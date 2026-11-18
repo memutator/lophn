@@ -1,6 +1,13 @@
-// workspace(Home, project) 창의 왼쪽 sidebar. 화면(LeftSidebar)에 이 창이 아는 값을 모아 준다: 모든 workspace의 session, 이 workspace의 열린 탭 제목,
-// 터미널 coding agent session, 사람 차례인 workflow desk(project만). 등록·생성 dialog도 여기서 연다.
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+// workspace(Home, project) 창의 왼쪽 sidebar. 화면(LeftSidebar)에 이 창이 아는 값을 모아 준다: 모든 기계의 workspace와 session, 이 workspace의 열린 탭 제목,
+// 터미널 coding agent session, 사람 차례인 workflow desk(project만). 등록·생성·잇기 dialog도 여기서 연다.
+// 줄과 session은 창의 목록(`useMachineLists`)이 기계마다 읽은 것이다. 이 창이 보는 workspace가 다른 기계의 것이어도 줄은 같다.
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
@@ -10,13 +17,20 @@ import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts"
 import type { AppsSource } from "../../apps/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
-import { useSessions } from "../../desktop/connection/events/hooks.tsx";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx";
+import { LinkProjectDialog } from "../../desktop/workspaces/projects/link-dialog.tsx";
+import type { Away } from "../../desktop/workspaces/projects/merged.ts";
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
-import { RegisterDialog } from "../../desktop/workspaces/register-dialog.tsx";
+import {
+  RegisterDialog,
+  type RegisterTarget,
+} from "../../desktop/workspaces/register-dialog.tsx";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import { useWindowMachine } from "../../desktop/machines/context.tsx";
+import {
+  useMachines,
+  useWindowMachine,
+} from "../../desktop/machines/context.tsx";
 import { type AgentChoice } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot } from "../../parts/agent-session/coding.ts";
 import { newId } from "../../prefixed-id.ts";
@@ -43,8 +57,9 @@ import {
 } from "../../shell/left-sidebar-workspaces.ts";
 import {
   type SessionTitles,
+  useKnownSessions,
+  useMachineLists,
   useTabsElsewhere,
-  useSidebarWorkspaceList,
 } from "../../shell/use-left-sidebar.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
@@ -59,6 +74,7 @@ import type { WorkspaceSource } from "../source.ts";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { PanelTerminal } from "./panel-types.ts";
+import { AwayLine } from "./away-line.tsx";
 
 const NO_WORKFLOWS: readonly string[] = [];
 
@@ -139,6 +155,14 @@ export interface WorkspaceLeftSidebarProps {
   onNewCoding: (command: string) => void;
   /** 이 project의 session을 desk 규칙으로 연다. */
   onOpenHere: (session: string, agent: string) => void;
+  /** 이 workspace 줄 안의 다른 기계 session. 그 기계를 단 탭으로 연다. */
+  onOpenOn: (session: string, machine: string) => void;
+  /** 다른 workspace 줄의 session. 그 workspace로 가서 연다. 없으면 `onOpenSession`이다. */
+  onSessionAt?: (
+    workspace: WorkspaceRef,
+    session: string,
+    machine?: string,
+  ) => void;
   onTerminal: (terminal: PanelTerminal) => void;
   onWorkflow: (workflow: string) => void;
   /** 다른 workspace의 session이거나 Inbox 카드의 session. 그 workspace로 가서 연다. */
@@ -171,47 +195,59 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { workspace: current } = props;
   // 다른 기계의 창은 앱 만들기가 없고(project 등록은 그 기계의 폴더 목록으로 한다), coding agent는 그 기계의 터미널에 있어 고를 수 없다.
   const machine = useWindowMachine();
+  const machines = useMachines();
   const { projects } = props;
   const apps = machine === null ? props.apps : undefined;
   const projectId = current.kind === "project" ? current.id : null;
-  const list = useSidebarWorkspaceList();
-  const { sessions } = useSessions();
-  const { known } = props.sessionTitles;
+  const lists = useMachineLists();
+  const { entries, dataOf } = lists;
+  // 이 창이 보는 workspace의 기계가 아닌 기계의 session 제목. 이 workspace 기계의 제목은 탭 줄과 같은 `props.sessionTitles`다.
+  const scope = current.machine ?? null;
+  const elsewhereEntries = useMemo(
+    () => entries.filter((entry) => entry.machine !== scope),
+    [entries, scope],
+  );
+  const otherTitles = useKnownSessions(
+    undefined,
+    elsewhereEntries,
+    (on) => dataOf(on).agentViewSource,
+  ).known;
+  const known = useMemo(
+    () => new Map([...otherTitles, ...props.sessionTitles.known]),
+    [otherTitles, props.sessionTitles.known],
+  );
   const workspaceRefs = useMemo(
-    (): WorkspaceRef[] => [
-      { kind: "home" },
-      ...list.projects.map(
-        (item): WorkspaceRef => ({
-          kind: "project",
-          id: item.id,
-        }),
-      ),
-      ...list.apps.map((item): WorkspaceRef => ({ kind: "app", id: item.id })),
-    ],
-    [list.projects, list.apps],
+    () => lists.rows.map((row) => row.ref),
+    [lists.rows],
   );
-  const elsewhere = useTabsElsewhere(
-    props.source.layout,
-    workspaceRefs,
-    current,
-    sessions,
+  const layoutOf = useCallback(
+    (ref: WorkspaceRef) => dataOf(ref.machine ?? null).workspace.layout,
+    [dataOf],
   );
+  const elsewhere = useTabsElsewhere(layoutOf, workspaceRefs, current, entries);
   // 다른 workspace의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다.
+  // 터미널은 그 탭(없으면 그 workspace)의 기계 store가 안다.
   const store = props.terminal?.store;
+  const workspaceOfKey = useMemo(
+    () => new Map(workspaceRefs.map((ref) => [workspaceKey(ref), ref])),
+    [workspaceRefs],
+  );
+  const storeOf = (key: string, tab: TabItem) =>
+    dataOf(tab.machine ?? workspaceOfKey.get(key)?.machine ?? null).terminal
+      ?.store;
   const storeVersion = useSyncExternalStore(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
   );
   // 이 창이 아직 그리지 않은 workspace(앱을 다시 켠 뒤)의 탭도 저장된 터미널 참조로 core의 살아 있는 터미널과 agent를 안다.
   useEffect(() => {
-    if (store === undefined) return;
-    for (const tabs of elsewhere.terminals.values()) {
+    for (const [key, tabs] of elsewhere.terminals) {
       for (const tab of tabs) {
         const ref = terminalRefOf(tab);
-        if (ref !== null) store.rememberElsewhere(tab.key, ref);
+        if (ref !== null) storeOf(key, tab)?.rememberElsewhere(tab.key, ref);
       }
     }
-  }, [elsewhere.terminals, store]);
+  }, [elsewhere.terminals, dataOf, workspaceOfKey]);
   const otherTerminals = useMemo(
     () =>
       new Map(
@@ -223,8 +259,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           .map(([key, tabs]) => [
             key,
             tabs.flatMap((tab): PanelTerminal[] => {
-              const agent = store?.agentOf(tab.key);
-              if (store === undefined || agent === undefined || !agent.hooked) {
+              const at = storeOf(key, tab);
+              const agent = at?.agentOf(tab.key);
+              if (at === undefined || agent === undefined || !agent.hooked) {
                 return [];
               }
               return [
@@ -232,11 +269,14 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
                   key: tab.key,
                   harness: agent.harness,
                   label: agent.harness,
-                  title: terminalTabTitle(tab, store),
+                  title: terminalTabTitle(tab, at),
                   dot: codingDot(agent),
                   at: 0,
                   live: { tabKey: tab.key },
                   saved: null,
+                  ...(tab.machine === undefined
+                    ? {}
+                    : { machine: tab.machine }),
                 },
               ];
             }),
@@ -244,7 +284,8 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       ),
     [
       elsewhere.terminals,
-      store,
+      dataOf,
+      workspaceOfKey,
       storeVersion,
       workspaceKey(current),
       props.layoutReady,
@@ -281,9 +322,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       sidebarWorkspaces({
         now: Date.now(),
         current,
-        projects: list.projects,
-        apps: list.apps,
-        entries: sessions,
+        rows: lists.rows,
+        entries,
+        offline: lists.offline,
         agents: props.agents,
         lophnNames: props.lophnNames,
         known,
@@ -297,9 +338,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       }),
     [
       workspaceKey(current),
-      list.projects,
-      list.apps,
-      sessions,
+      lists.rows,
+      entries,
+      lists.offline,
       props.agents,
       props.lophnNames,
       known,
@@ -330,26 +371,64 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             .filter((agent) => isLophn(agent.assignment))
             .map((agent) => {
               const assignment = lophnIdAt(ref);
+              // lophn 이름은 기계마다 같은 id라 이 컴퓨터의 것만 안다.
               return {
                 ...agent,
                 assignment,
-                name: props.lophnNames[assignment] ?? LOPHN_AGENT_NAME,
+                name:
+                  (ref.machine === undefined
+                    ? props.lophnNames[assignment]
+                    : undefined) ?? LOPHN_AGENT_NAME,
               };
             }),
-          ref.kind === "project" && machine === null ? coding.favorites : [],
+          ref.kind === "project" &&
+            machine === null &&
+            ref.machine === undefined
+            ? coding.favorites
+            : [],
         );
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
+  // 잇기 dialog가 가리키는 다른 기계의 git이 아닌 project.
+  const [linking, setLinking] = useState<Extract<
+    Away,
+    { kind: "link" }
+  > | null>(null);
+  // 연결된 다른 기계. 등록 dialog가 허락한 기계를 골라 그 기계에 등록한다. 목록이 바뀔 때마다 새로 지으면 열린 dialog의
+  // 고른 기계가 풀리므로 연결된 기계가 바뀔 때만 짓는다.
+  const live = lists.lists
+    .flatMap((list) =>
+      list.machine === null || !list.live
+        ? []
+        : [`${list.machine}\0${list.name}`],
+    )
+    .join("\n");
+  const targets = useMemo(
+    (): readonly RegisterTarget[] =>
+      live === ""
+        ? []
+        : live.split("\n").map((line) => {
+            const [machine, name] = line.split("\0") as [string, string];
+            const data = dataOf(machine);
+            return {
+              machine,
+              name,
+              source: data.projects,
+              grant: () => data.grant(),
+            };
+          }),
+    [live, dataOf],
+  );
 
   // 다른 workspace의 터미널 탭: 그 workspace의 layout에서 탭을 골라 두고 workspace로 간다.
   const showTerminalAt = async (ref: WorkspaceRef, tab: string) => {
-    const read = await props.source.layout.readWorkspaceLayout(ref);
+    const read = await layoutOf(ref).readWorkspaceLayout(ref);
     if (read.ok && read.layout !== null) {
       const desk = Object.values(read.layout.desks).find((item) =>
         item.tabs.some((row) => row.key === tab),
       );
       if (desk !== undefined) {
-        await props.source.layout.saveWorkspaceLayout(ref, {
+        await layoutOf(ref).saveWorkspaceLayout(ref, {
           ...read.layout,
           active: desk.key,
           desks: { ...read.layout.desks, [desk.key]: selectTab(desk, tab) },
@@ -365,7 +444,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     match: (tab: TabItem) => boolean,
     edit: "close" | ((tab: TabItem) => TabItem),
   ) => {
-    const read = await props.source.layout.readWorkspaceLayout(ref);
+    const read = await layoutOf(ref).readWorkspaceLayout(ref);
     if (!read.ok || read.layout === null) return;
     const desks = { ...read.layout.desks };
     for (const desk of Object.values(desks)) {
@@ -379,7 +458,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
               tabs: desk.tabs.map((row) => (row === tab ? edit(row) : row)),
             };
     }
-    await props.source.layout.saveWorkspaceLayout(ref, {
+    await layoutOf(ref).saveWorkspaceLayout(ref, {
       ...read.layout,
       desks,
     });
@@ -393,9 +472,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     );
   const isTerminal = (key: string) => (row: TabItem) =>
     row.kind === "terminal" && row.key === key;
-  // PTY는 이 창의 store가 들고 있어 여기서 닫는다. 닫았을 때만 그 workspace의 탭을 지운다.
+  // PTY는 그 기계의 store가 들고 있어 여기서 닫는다. 닫았을 때만 그 workspace의 탭을 지운다.
   const closeTerminalAt = async (ref: WorkspaceRef, key: string) => {
-    const terminal = props.terminal;
+    const terminal = dataOf(ref.machine ?? null).terminal;
     if (terminal === undefined || !(await closeTerminalTab(terminal, key))) {
       return;
     }
@@ -403,35 +482,47 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   };
   const renameTerminalAt = (ref: WorkspaceRef, key: string, name: string) => {
     const person = name.trim() || null;
+    const terminal = dataOf(ref.machine ?? null).terminal;
     void editTabAt(ref, isTerminal(key), (row) =>
-      terminalNamed(row, person, store),
+      terminalNamed(row, person, terminal?.store),
     );
-    if (props.terminal !== undefined && ref.kind === "project") {
-      pinAgentSessionName(props.terminal, ref.id, key, person);
+    if (terminal !== undefined && ref.kind === "project") {
+      pinAgentSessionName(terminal, ref.id, key, person);
     }
   };
 
   const open = (workspace: SidebarWorkspace, item: SidebarSession) => {
     const here = workspaceKey(workspace.ref) === workspaceKey(current);
+    if (item.offline) return;
+    if (item.kind === "session" && !here) {
+      if (props.onSessionAt !== undefined) {
+        props.onSessionAt(workspace.ref, item.ref, item.machine);
+      } else props.onOpenSession(item.ref);
+      return;
+    }
+    if (item.kind === "session" && item.machine !== undefined) {
+      props.onOpenOn(item.ref, item.machine);
+      return;
+    }
     if (item.kind === "workflow") props.onWorkflow(item.ref);
     else if (item.kind === "draft") props.onTab(item.ref);
     else if (item.kind === "terminal") {
       const terminal = props.terminals.find((row) => row.key === item.ref);
       if (terminal !== undefined) props.onTerminal(terminal);
       else if (!here) void showTerminalAt(workspace.ref, item.ref);
-    } else if (here) {
-      const agent = sessions.find((row) => row.session === item.ref)?.agent;
+    } else {
+      const agent = entries.find((row) => row.session === item.ref)?.agent;
       if (agent !== null && agent !== undefined) {
         props.onOpenHere(item.ref, agent);
       }
-    } else props.onOpenSession(item.ref);
+    }
   };
 
-  // tab 없이 current에 있는 lophn session(도는 중, 기다리는 중)은 그 agent의 source로 바로 부른다.
+  // tab 없이 current에 있는 lophn session(도는 중, 기다리는 중)은 그 기계의 agent source로 바로 부른다.
   const sourceOf = (session: string) => {
-    const entry = sessions.find((row) => row.session === session);
-    if (props.agentViewSource === undefined || !entry?.agent) return undefined;
-    return props.agentViewSource({
+    const entry = entries.find((row) => row.session === session);
+    if (!entry?.agent) return undefined;
+    return dataOf(entry.machine).agentViewSource({
       assignment: entry.agent,
       workspace: entry.workspace ?? { kind: "global", id: "" },
     });
@@ -513,6 +604,20 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         }
         onRenameSession={renameSession}
         onStopSession={stopSession}
+        machineNames={lists.names}
+        renderAway={(workspace) =>
+          workspace.away === undefined ? null : (
+            <AwayLine
+              away={workspace.away}
+              {...(machines === null
+                ? {}
+                : { cloneHere: (input) => machines.cloneHere(input) })}
+              onLink={() =>
+                workspace.away?.kind === "link" && setLinking(workspace.away)
+              }
+            />
+          )
+        }
         {...(projects === undefined
           ? {}
           : { onRegisterProject: () => setRegistering(true) })}
@@ -530,12 +635,36 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       {projects === undefined ? null : (
         <RegisterDialog
           open={registering}
-          source={projects}
+          source={machine === null ? dataOf(null).projects : projects}
+          {...(machine === null ? { targets } : {})}
           onClose={() => setRegistering(false)}
-          onRegistered={(created) => {
+          onRegistered={(created, on) => {
             setRegistering(false);
-            props.onWorkspace({ kind: "project", id: created.id });
+            props.onWorkspace({
+              kind: "project",
+              id: created.id,
+              ...(on === undefined ? {} : { machine: on }),
+            });
           }}
+        />
+      )}
+      {linking === null ? null : (
+        <LinkProjectDialog
+          remote={{
+            machineName: lists.names.get(linking.machine) ?? "",
+            title: linking.title,
+            identity: linking.identity,
+          }}
+          candidates={(lists.lists[0]?.projects ?? []).filter(
+            (item) =>
+              !item.archived &&
+              item.repo === "none" &&
+              item.identity !== linking.identity,
+          )}
+          onLink={(project) =>
+            dataOf(null).projects.linkIdentity(project, linking.identity)
+          }
+          onClose={() => setLinking(null)}
         />
       )}
       {apps === undefined ? null : (

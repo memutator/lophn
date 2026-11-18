@@ -4,7 +4,9 @@
 // Each subscriber of a machine (a window as `w<webContents id>`, or one inside shell main by its own name) sends its own
 // conditions as its `watcher`; this computer's core watches the sum. That machine's Gateway frames come back on this
 // computer's Gateway as `MachineFrameReceived` and go, with the machine on them, to the windows watching it alone.
-import { webContents } from "electron";
+// Any desktop window clones another machine's project onto this computer here (the list's [Clone here]).
+import { BrowserWindow, dialog, type WebContents, webContents } from "electron";
+import { isAbsolute } from "node:path";
 
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { MachineStatus } from "../../../../protocol/machine/mod.ts";
@@ -16,14 +18,17 @@ import {
 import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   MACHINES_CHANGED_CHANNEL,
+  MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_LIST_CHANNEL,
   MACHINES_START_CHANNEL,
   machineConnectionState,
+  machinesCloneHereSchema,
   type MachineList,
   machineStartSchema,
   type MachinesFailure,
   type MachinesReply,
 } from "../../../ipc/machines.ts";
+import { word } from "../i18n.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import {
   afterRemove,
@@ -296,6 +301,52 @@ export function register(ctx: ShellContext): Machines & Registered {
     },
   );
 
+  // A parent folder for the clone when this computer has no projects folder yet. headless never shows a dialog.
+  async function pickParent(sender: WebContents): Promise<string | null> {
+    if (ctx.headless.headless) {
+      const pick = process.env.LOPHN_SHELL_PICK_FOLDER;
+      return pick !== undefined && isAbsolute(pick) ? pick : null;
+    }
+    const options = {
+      title: word("machines.title.clone-parent"),
+      properties: ["openDirectory" as const, "createDirectory" as const],
+    };
+    const parent = BrowserWindow.fromWebContents(sender);
+    const result = parent
+      ? await dialog.showOpenDialog(parent, options)
+      : await dialog.showOpenDialog(options);
+    const path = result.canceled ? undefined : result.filePaths[0];
+    return path !== undefined && isAbsolute(path) ? path : null;
+  }
+
+  // This computer's `project.clone` as the person. machine-route lets every desktop window through, a window of another
+  // machine included.
+  ipc.handle(
+    MACHINES_CLONE_HERE_CHANNEL,
+    async (event: IpcEvent, input: unknown): Promise<CoreReply> => {
+      const failure = (code: string, message: string): CoreReply => ({
+        ok: false,
+        error: { code, message },
+      });
+      if (!allowed(event)) return failure("forbidden", "not a desktop window");
+      const parsed = checkInput(machinesCloneHereSchema, input);
+      if (!parsed.ok) return failure("invalid_input", "not a clone");
+      const session = ctx.core.session();
+      if (session === null) return failure("unavailable", "core is not ready");
+      const clone = (body: object) =>
+        session.internal("memory", "projects", "clone", body);
+      const first = await clone(parsed.value);
+      if (
+        first.ok ||
+        first.error.details?.["reason"] !== "projects_folder_unset"
+      ) {
+        return first;
+      }
+      const parent = await pickParent(event.sender as unknown as WebContents);
+      return parent === null ? first : await clone({ ...parsed.value, parent });
+    },
+  );
+
   const link = (machine: Id<"mch">): MachineLink => ({
     call: (input) =>
       ctx.core.machineCall("call", {
@@ -336,7 +387,11 @@ export function register(ctx: ShellContext): Machines & Registered {
       });
     },
     stop() {
-      for (const channel of [MACHINES_LIST_CHANNEL, MACHINES_START_CHANNEL]) {
+      for (const channel of [
+        MACHINES_LIST_CHANNEL,
+        MACHINES_START_CHANNEL,
+        MACHINES_CLONE_HERE_CHANNEL,
+      ]) {
         ipc.removeHandler(channel);
       }
     },

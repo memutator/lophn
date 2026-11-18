@@ -1,6 +1,8 @@
 // 왼쪽 sidebar. 위에 Inbox·Jobs·Agents, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 workspace의 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(quick-launch.tsx)과 Settings다. 작업 표시줄이 켜져 있으면 둘 다 작업 표시줄로 가므로 `quick`과 `onSettings`를 주지 않고 맨 아래 줄이 없다.
 // 값과 callback만 받아서 project 창 말고 Home과 app workspace도 같은 것을 쓴다.
+// 줄은 모든 기계의 것을 합친 것이다: 이 컴퓨터가 아닌 기계의 workspace 줄과 줄의 기계가 아닌 기계의 session 줄은 끝에 그 기계의
+// 꼬리표를 달고, 꺼진 기계의 줄은 흐리고 열리지 않는다.
 import { t } from "@lophn/i18n";
 import {
   Menu,
@@ -110,6 +112,10 @@ export interface LeftSidebarProps {
   onWorkspaceSettings?: (workspace: WorkspaceRef) => void;
   /** 없으면 Settings 단추가 없다. */
   onSettings?: () => void;
+  /** 기계 id → 명단의 이름. 줄 끝 꼬리표가 쓴다. */
+  machineNames?: ReadonlyMap<string, string>;
+  /** 이 컴퓨터에 없는 project 줄 아래에 서는 한 줄(Clone here, 잇기). */
+  renderAway?: (workspace: SidebarWorkspace) => ReactNode;
 }
 
 const WORKSPACE_ICON = {
@@ -214,6 +220,15 @@ function SessionRename({
   );
 }
 
+// 줄 끝의 기계 꼬리표.
+function MachineTag({ name }: { name: string | undefined }) {
+  return name === undefined ? null : (
+    <span className={styles.machineTag} data-machine-tag="">
+      {name}
+    </span>
+  );
+}
+
 function SessionRow({
   item,
   selected,
@@ -221,6 +236,7 @@ function SessionRow({
   onClick,
   onMenu,
   dot = true,
+  machineName,
 }: {
   item: SidebarSession;
   selected: boolean;
@@ -229,11 +245,15 @@ function SessionRow({
   onMenu?: (at: { x: number; y: number }) => void;
   /** false면 줄 끝 점을 그리지 않는다. 점은 줄 밖의 Stop 단추가 대신 보인다. */
   dot?: boolean;
+  machineName?: string;
 }) {
   return (
     <button
       type="button"
       className={styles.sessionRow}
+      disabled={item.offline}
+      data-offline={item.offline}
+      data-machine={item.machine}
       data-recent={recent || undefined}
       data-session={item.kind === "session" ? item.ref : undefined}
       data-terminal={item.kind === "terminal" ? item.ref : undefined}
@@ -251,6 +271,7 @@ function SessionRow({
         <AgentMark agent={item.agent} />
       </span>
       <span className={styles.rowLabel}>{item.title}</span>
+      <MachineTag name={machineName} />
       {recent && item.at > 0 ? (
         <span className={styles.rowMeta}>{ageOf(item.at)}</span>
       ) : null}
@@ -285,7 +306,11 @@ export function LeftSidebar({
   onStopSession,
   onWorkspaceSettings,
   onSettings,
+  machineNames,
+  renderAway,
 }: LeftSidebarProps) {
+  const nameOf = (machine: string | undefined) =>
+    machine === undefined ? undefined : (machineNames?.get(machine) ?? "");
   const keyLabel = useKeyLabel();
   const newSessionKeys = keyLabel("new.agent");
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
@@ -435,6 +460,7 @@ export function LeftSidebar({
               key={key}
               className={styles.workspaceGroup}
               data-workspace={key}
+              data-offline={workspace.offline}
             >
               <div className={styles.workspaceHead}>
                 <button
@@ -442,6 +468,7 @@ export function LeftSidebar({
                   className={styles.workspaceRow}
                   data-current={here || undefined}
                   aria-current={here || undefined}
+                  disabled={workspace.offline}
                   onClick={() => onWorkspace(workspace.ref)}
                 >
                   {workspace.ref.kind === "app" ? (
@@ -457,8 +484,19 @@ export function LeftSidebar({
                     />
                   )}
                   <span className={styles.rowLabel}>{workspace.name}</span>
+                  {/* Home · <이름>은 이름에 기계가 있다. */}
+                  {workspace.ref.kind === "home" ? null : (
+                    <MachineTag name={nameOf(workspace.ref.machine)} />
+                  )}
+                  {workspace.offline ? (
+                    <span className={styles.rowMeta} data-offline-label="">
+                      {t("left-sidebar.label.off")}
+                    </span>
+                  ) : null}
                 </button>
+                {/* 설정 탭은 이 컴퓨터의 workspace만 연다. */}
                 {workspace.ref.kind !== "home" &&
+                workspace.ref.machine === undefined &&
                 onWorkspaceSettings !== undefined ? (
                   <span className={styles.workspaceSettings}>
                     <button
@@ -476,43 +514,46 @@ export function LeftSidebar({
                     </button>
                   </span>
                 ) : null}
-                <span
-                  className={styles.workspaceNew}
-                  data-here={here || undefined}
-                >
-                  <HoverList
-                    id="new-session"
-                    sections={agentSections(
-                      choices(workspace.ref),
-                      newSessionKeys,
-                      (choice) => onNewSessionWith(choice, workspace.ref),
-                    )}
-                    tip={
-                      here && newSessionKeys !== null ? (
-                        <Keyed
-                          label={t("left-sidebar.button.new-session-in", {
+                {workspace.offline ? null : (
+                  <span
+                    className={styles.workspaceNew}
+                    data-here={here || undefined}
+                  >
+                    <HoverList
+                      id="new-session"
+                      sections={agentSections(
+                        choices(workspace.ref),
+                        newSessionKeys,
+                        (choice) => onNewSessionWith(choice, workspace.ref),
+                      )}
+                      tip={
+                        here && newSessionKeys !== null ? (
+                          <Keyed
+                            label={t("left-sidebar.button.new-session-in", {
+                              workspace: workspace.name,
+                            })}
+                            keys={newSessionKeys}
+                          />
+                        ) : null
+                      }
+                      trigger={
+                        <button
+                          type="button"
+                          className={styles.rowAction}
+                          aria-label={t("left-sidebar.button.new-session-in", {
                             workspace: workspace.name,
                           })}
-                          keys={newSessionKeys}
-                        />
-                      ) : null
-                    }
-                    trigger={
-                      <button
-                        type="button"
-                        className={styles.rowAction}
-                        aria-label={t("left-sidebar.button.new-session-in", {
-                          workspace: workspace.name,
-                        })}
-                        data-workspace-new={key}
-                        onClick={() => onNewSession(workspace.ref)}
-                      >
-                        <Icon icon={shellIcons.add} pixels={14} />
-                      </button>
-                    }
-                  />
-                </span>
+                          data-workspace-new={key}
+                          onClick={() => onNewSession(workspace.ref)}
+                        >
+                          <Icon icon={shellIcons.add} pixels={14} />
+                        </button>
+                      }
+                    />
+                  </span>
+                )}
               </div>
+              {workspace.away === undefined ? null : renderAway?.(workspace)}
               {workspace.ref.kind === "project" ? (
                 <RemoteGroupLine
                   project={workspace.ref.id}
@@ -544,6 +585,7 @@ export function LeftSidebar({
                         selected={here && itemKey === selected}
                         recent={false}
                         dot={!actions || onStopSession === undefined}
+                        machineName={nameOf(item.machine)}
                         onClick={() => onSession(workspace, item)}
                       />
                     );
@@ -637,6 +679,7 @@ export function LeftSidebar({
                       item={item}
                       selected={here && sessionKey(item) === selected}
                       recent
+                      machineName={nameOf(item.machine)}
                       onClick={() => onSession(workspace, item)}
                       onMenu={
                         onRemoveRecent === undefined || item.kind === "workflow"

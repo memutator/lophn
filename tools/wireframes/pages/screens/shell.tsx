@@ -6,12 +6,17 @@ import {
 } from "./shell/project-identity-scene.tsx";
 import { ProjectLinkScene } from "./shell/project-link-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
-import { MachineProjectsScene } from "./shell/machine-projects-scene.tsx";
 import { MachinePageScene } from "./shell/machine-page-scene.tsx";
-import { MachineRegisterScene } from "./shell/machine-register-scene.tsx";
-import { MachineGrantProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
-import { press } from "../../mock/drive.ts";
-import { SettingsFrame } from "./settings-frame.tsx";
+import {
+  MachinesPanelScene,
+  MachinesSidebarScene,
+} from "./shell/machines-scene.tsx";
+import {
+  GROCERY_THERE,
+  HOME_HERE,
+  HOME_THERE,
+  PHRONER_HERE,
+} from "../../mock/machines-data.ts";
 import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
 import { TrayScene } from "./shell/tray-scene.tsx";
@@ -219,6 +224,13 @@ export const shellArea: Area = {
       render: () => <WorkspacesScene />,
     },
     {
+      id: "shell-workspaces-panel-machines",
+      title: "Shell · Workspaces panel · All machines",
+      description:
+        "이 컴퓨터 창 Home의 Workspaces panel. 다른 기계에도 있는 project는 아래 줄에 경로와 그 기계 이름(also on Home server, Laptop)이 붙는다. 이 컴퓨터에 없는 project·앱은 구역 끝에 기계 꼬리표를 단 줄로 서고(Grocery list, Recipes, Budget), 누르면 그 기계의 workspace를 연다. 꺼진 기계에만 있는 줄(Sketchbook)은 꺼졌다는 한 줄을 달고 열리지 않는다. 등록·보관·지우기는 이 컴퓨터의 줄에만 있다.",
+      render: () => <MachinesPanelScene />,
+    },
+    {
       id: "shell-workspaces-menu",
       title: "Shell · Workspaces row menu",
       description: "Workspaces panel의 project 줄 ⋯ 메뉴를 연 상태.",
@@ -294,56 +306,6 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="desk-close" closeDesk="Review" />,
     },
     {
-      id: "shell-machine-menu",
-      title: "Shell · Machine menu",
-      description:
-        "이 컴퓨터 창의 title bar 왼쪽에 기계 고르기가 있고 이름(Studio)이 늘 보인다. 연 목록은 맨 위 이 컴퓨터, 그 아래 짝지은 기계(보이는 이름과 상태: relay로 붙음, 꺼짐과 마지막으로 본 때, 상대가 지움), 맨 아래 Pair another computer…다. 짝지은 기계가 없으면 이 단추 자체가 없다.",
-      render: () => (
-        <ShellScene
-          variant="project"
-          machine={{}}
-          open="[data-machine-button]"
-        />
-      ),
-    },
-    {
-      id: "shell-machine-window",
-      title: "Shell · Other machine window",
-      description:
-        "다른 기계(Home server)를 보는 창의 Home. title bar의 기계 고르기에 그 기계의 이름이 보이고, 이 창은 사는 동안 그 기계만 본다. 끄는 기능을 실제로 감추는 일은 renderer 연결 단계라 여기서는 title bar와 자리 표시만 맞춘다.",
-      render: () => (
-        <ShellScene variant="empty" machine={{ window: "mch_homeserver" }} />
-      ),
-    },
-    {
-      id: "shell-machine-gate-offline",
-      title: "Shell · Other machine · offline",
-      description:
-        "한 번도 붙지 못한 채 꺼져 있는 기계의 창. 마지막으로 본 때와 [Try again], 이 컴퓨터 창을 여는 [This computer]가 있다. 꺼진 기계가 창을 막지 않는다. 한 번 붙은 뒤의 끊김은 이 화면이 아니라 마지막 화면 위의 한 줄이다.",
-      render: () => (
-        <ShellScene
-          variant="empty"
-          left={false}
-          right={false}
-          machine={{ window: "mch_laptop", body: "gate" }}
-        />
-      ),
-    },
-    {
-      id: "shell-machine-gate-removed",
-      title: "Shell · Other machine · removed",
-      description:
-        "명단에서 빠진 기계의 창. 이 컴퓨터의 Settings › Remote에서 다시 초대하라는 안내와 [This computer]만 있다.",
-      render: () => (
-        <ShellScene
-          variant="empty"
-          left={false}
-          right={false}
-          machine={{ window: "mch_olddesk", body: "gate" }}
-        />
-      ),
-    },
-    {
       id: "shell-machine-only-here",
       title: "Shell · This opens only on …",
       description:
@@ -354,79 +316,6 @@ export const shellArea: Area = {
           machine={{ window: "mch_homeserver", body: "only-here" }}
         />
       ),
-    },
-    {
-      id: "shell-machine-settings",
-      title: "Shell · Other machine · Settings",
-      description:
-        "다른 기계(Home server) 창의 Settings. 이 컴퓨터 창과 같은 항목 목록이고 Providers를 연 상태다. General, Providers, Agents, Tools and skills, Shell rules, Diagnostics는 그 기계의 설정을 읽고 쓴다. 끊기는 같은 확인 Dialog를 거친다.",
-      render: () => (
-        <SettingsFrame pane="providers" machines={MACHINE_WINDOW} />
-      ),
-    },
-    {
-      id: "shell-machine-settings-this-computer",
-      title: "Shell · Other machine · Settings, this computer's pane",
-      description:
-        "다른 기계 창에서 이 컴퓨터의 shell이나 OS에 붙은 항목(Appearance, Browser, Remote, Keyboard, Quick launch, Coding agents, Extension packages)을 고른 상태. 본문은 이 컴퓨터의 설정이라는 한 줄과 이 컴퓨터 창을 여는 단추뿐이다.",
-      render: () => (
-        <SettingsFrame pane="appearance" machines={MACHINE_WINDOW} />
-      ),
-    },
-    {
-      id: "shell-machine-settings-no-grant",
-      title: "Shell · Other machine · Settings, not allowed",
-      description:
-        "이 컴퓨터가 그 기계에서 터미널 입력을 허락받지 못한 상태. 그 기계의 항목 자리에 까닭과 허락을 켜는 곳(Settings › Remote › My devices)이 한 줄로 선다.",
-      render: () => (
-        <MachineGrantProvider check={() => Promise.resolve(false)}>
-          <SettingsFrame pane="general" machines={MACHINE_WINDOW} />
-        </MachineGrantProvider>
-      ),
-    },
-    {
-      id: "shell-machine-sign-in",
-      title: "Shell · Other machine · connect a provider",
-      description:
-        "다른 기계 창에서 OpenAI의 [+ Connect]를 누른 상태. API key는 보호 입력 창으로 그 기계에 넣는다. ChatGPT 로그인은 그 기계의 browser로 돌아와야 해서 단추 자리에 그 기계에서 하라는 한 줄이 있다. device code 로그인(SuperGrok)은 단추로 남는다.",
-      render: () => (
-        <SettingsFrame
-          pane="providers"
-          providers="some"
-          machines={MACHINE_WINDOW}
-          steps={[
-            () => press('[data-available="openai"] [data-action="connect"]'),
-          ]}
-        />
-      ),
-    },
-    {
-      id: "shell-machine-register",
-      title: "Shell · Other machine · register project",
-      description:
-        "다른 기계 창의 project 등록. [Add folder]가 OS 선택기 대신 그 기계의 폴더 목록을 연다. home부터 열고, 폴더를 누르면 들어가고, [Up]이 위로, [Choose]가 지금 폴더를 고른다. 그 기계의 home 밖은 보이지 않는다.",
-      render: () => <MachineRegisterScene />,
-    },
-    {
-      id: "shell-machine-projects",
-      title: "Shell · Other machine · Projects here too",
-      description:
-        '다른 기계(Home server) 창의 왼쪽 sidebar. 그 기계의 project 줄 아래에 이 컴퓨터(Studio)와의 관계가 한 줄 선다. phroner는 같은 id라 "Also on this computer", Grocery는 그 기계에만 있어 "Not on this computer"와 [Clone here], orders-api는 id 없이 git remote만 Studio의 Orders API와 같아 "Looks like Orders API"와 한 기계에서 id file을 commit하라는 안내다. 그 기계의 저장소에는 쓰지 않는다.',
-      render: () => <MachineProjectsScene />,
-    },
-    {
-      id: "shell-machine-projects-sessions",
-      title: "Shell · Other machine · Sessions on both",
-      description:
-        '"Also on this computer"를 누른 상태. 기계마다 session 목록을 나란히(Home server, Studio) 보인다. 두 목록은 각자의 core에서 읽고 합치지 않는다. Studio의 session을 누르면 이 컴퓨터의 창이 열린다.',
-      render: () => <MachineProjectsScene open="sessions" />,
-    },
-    {
-      id: "shell-machine-projects-git-auth",
-      title: "Shell · Other machine · Clone here needs git sign-in",
-      description:
-        "[Clone here]가 이 컴퓨터의 git 자격이 없어 실패한 상태. 이 컴퓨터의 터미널에서 실행할 명령을 보인다. 묻는 창은 띄우지 않는다.",
-      render: () => <MachineProjectsScene open="git-auth" />,
     },
     {
       id: "shell-machine-pages",
@@ -587,6 +476,34 @@ export const shellArea: Area = {
       ),
     },
     {
+      id: "shell-left-sidebar-machines",
+      title: "Shell · Left sidebar · All machines",
+      description:
+        "이 컴퓨터(Studio) 창의 왼쪽 sidebar가 모든 기계의 것을 한 목록에 보인다. 같은 project(같은 id)는 기계를 건너 한 줄이다: phroner 줄 안에 이 컴퓨터의 session과 Home server의 session(Retrain the gaze model), Home server의 coding agent 터미널이 같이 서고, 이 컴퓨터가 아닌 기계의 줄은 끝에 기계 꼬리표(Home server)를 단다. 누르면 이 컴퓨터의 phroner 안에 그 기계를 단 탭으로 열린다. 같은 앱은 id로 한 줄이고(Weekly report) 다른 기계의 session은 꼬리표를 단다. 이 컴퓨터에 없는 project·앱(Grocery list, Recipes, Budget)은 줄 이름 끝에 그 기계의 꼬리표가 붙는다.",
+      render: () => <MachinesSidebarScene current={PHRONER_HERE} />,
+    },
+    {
+      id: "shell-left-sidebar-not-here",
+      title: "Shell · Left sidebar · Not on this computer",
+      description:
+        "이 컴퓨터에 없는 project의 줄. 누르면 그 기계의 workspace를 이 창에서 연다(여기는 Home server의 Grocery list를 연 상태로 줄이 강조된다). 여러 기계에 있으면 명단 순서의 첫 연결된 기계의 것이다. 줄 아래 한 줄이 가져오는 길이다: git project는 'Not on this computer'와 [Clone here](이 컴퓨터의 projects 폴더에 clone하고 같은 id로 이어진다. 실패하면 이유나 이 컴퓨터에서 칠 git 명령이 그 아래에 선다), git이 아닌 project(Recipes)는 [Link…]가 잇기 dialog(Shell · Link a project outside git)를 연다. 설정 단추는 이 컴퓨터의 workspace에만 있다.",
+      render: () => <MachinesSidebarScene current={GROCERY_THERE} />,
+    },
+    {
+      id: "shell-left-sidebar-homes",
+      title: "Shell · Left sidebar · Home per machine",
+      description:
+        "Home은 합치지 않는다. 이 컴퓨터의 Home 다음에 다른 기계마다 'Home · <이름>' 줄이 서고 그 기계의 Home session이 그 안에 있다(꼬리표 없이: 줄 이름이 기계다). 여기는 Home · Home server를 연 상태다. 그 줄의 +는 그 기계의 Home에서 새 session을 연다.",
+      render: () => <MachinesSidebarScene current={HOME_THERE} />,
+    },
+    {
+      id: "shell-left-sidebar-offline",
+      title: "Shell · Left sidebar · Machine off",
+      description:
+        "꺼진 기계(Laptop)의 줄. 이름과 이 실행 동안 마지막으로 본 줄이 흐리게 남고 열리지 않는다(Home · Laptop, 그 기계에만 있는 Sketchbook, phroner 안의 Laptop session). 꺼진 기계의 workspace 줄 끝에는 Off가 붙는다. 나머지 기계의 줄은 그대로 열린다. 다시 붙으면 새로 읽은 줄로 바뀐다. lophn을 다시 켜면 한 번도 붙지 않은 기계는 Home 줄만 선다.",
+      render: () => <MachinesSidebarScene current={HOME_HERE} laptop />,
+    },
+    {
       id: "shell-collapsed",
       title: "Shell · Sidebars collapsed",
       description:
@@ -595,7 +512,3 @@ export const shellArea: Area = {
     },
   ],
 };
-
-const MACHINE_WINDOW = {
-  window: { id: "mch_homeserver", name: "Home server" },
-} as const;

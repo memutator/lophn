@@ -173,7 +173,7 @@ test("a window of another machine reaches only that machine's core; this compute
   );
 });
 
-test("only a window of another machine reaches this computer's core, and only for this computer's project, agent and session lists; it may open the secret window", async () => {
+test("only a window of another machine reads this computer's project, agent and session lists; any window clones here; a machine window may open the secret window", async () => {
   const route = createMachineRoute();
   route.bind(REMOTE_WINDOW, HOST, readyLink([]));
   const cases: {
@@ -245,11 +245,12 @@ test("only a window of another machine reaches this computer's core, and only fo
       input: { name: "K", purpose: "app", subject: "s" },
       passes: true,
     },
+    // The list's [Clone here] calls it from this computer's window too.
     {
       channel: MACHINES_CLONE_HERE_CHANNEL,
       window: LOCAL_WINDOW,
       input: { url: "u", identity: "i", title: "t" },
-      passes: false,
+      passes: true,
     },
   ];
   for (const each of cases) {

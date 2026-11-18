@@ -2,6 +2,8 @@
 // project·앱 목록은 core 읽기로 따라가고(다른 창·CLI가 바꿔도 다시 읽는다), 쓰기는 `ProjectsSource`·`AppsSource`로 한다. 누른 줄은 callback으로 알린다.
 // 다른 기계의 창에서는 project 등록·고치기·보관이 그 기계에서 되고(폴더는 그 기계의 목록에서 고른다) 앱은 목록뿐이다: 새 앱, 앱 보관·지우기는
 // 기기가 부를 수 없다.
+// 이 컴퓨터의 창은 다른 기계의 것도 보인다: 다른 기계에도 있는 project는 그 기계 이름을 아래 줄에 달고, 이 컴퓨터에 없는 project·앱은
+// 기계 꼬리표를 단 줄로 구역 끝에 선다(누르면 그 기계의 workspace를 연다. 꺼진 기계의 줄은 흐리고 열리지 않는다).
 import type { LucideIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
@@ -19,9 +21,11 @@ import type {
   ProjectItem,
   ProjectsSource,
 } from "../desktop/workspaces/projects/source.ts";
+import type { MergedWorkspace } from "../desktop/workspaces/projects/merged.ts";
 import { RegisterDialog } from "../desktop/workspaces/register-dialog.tsx";
 import { useWindowMachine } from "../desktop/machines/context.tsx";
 import { actionIcons, commonIcons, homeIcons } from "../icons/mod.ts";
+import type { WorkspaceRef } from "./desk-model.ts";
 import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
 import { ProjectWorkspaceMark } from "../parts/project-icon/project-icon.tsx";
 import {
@@ -45,6 +49,17 @@ export interface WorkspacesPanelProps {
   onApp: (app: string) => void;
   /** New app으로 만든 앱. 그 앱 workspace의 lophn 새 session으로 시작한다. */
   onNewApp: (app: string) => void;
+  /** 다른 기계의 줄. 없으면(기계 하나) 이 컴퓨터의 것만 보인다. */
+  elsewhere?: PanelElsewhere;
+}
+
+export interface PanelElsewhere {
+  /** 기계를 건너 합친 줄(`mergeWorkspaces`). */
+  readonly rows: readonly MergedWorkspace[];
+  /** 기계 id → 명단의 이름. */
+  readonly names: ReadonlyMap<string, string>;
+  /** 이 컴퓨터에 없는 줄을 눌렀다. 그 기계의 workspace를 연다. */
+  readonly onOpen: (workspace: WorkspaceRef) => void;
 }
 
 type RowMenu = readonly { id: string; label: string; icon: LucideIcon }[];
@@ -114,7 +129,53 @@ export function WorkspacesPanel({
   onProject,
   onApp,
   onNewApp,
+  elsewhere,
 }: WorkspacesPanelProps) {
+  // 다른 기계에도 있는 이 컴퓨터의 project(id → 그 기계 이름들)와 이 컴퓨터에 없는 project·앱 줄.
+  const nameOf = (machine: string | null) =>
+    machine === null ? "" : (elsewhere?.names.get(machine) ?? "");
+  const alsoOn = new Map(
+    (elsewhere?.rows ?? []).flatMap((row) =>
+      row.ref.kind === "project" && row.ref.machine === undefined
+        ? [
+            [
+              row.ref.id,
+              row.copies
+                .filter((copy) => copy.machine !== null)
+                .map((copy) => nameOf(copy.machine)),
+            ] as const,
+          ]
+        : [],
+    ),
+  );
+  const away = (kind: "project" | "app") =>
+    (elsewhere?.rows ?? []).filter(
+      (row) => row.ref.kind === kind && row.ref.machine !== undefined,
+    );
+  const awayRow = (row: MergedWorkspace) => {
+    const { ref } = row;
+    if (ref.kind === "home" || ref.machine === undefined) return null;
+    return (
+      <PanelRow
+        key={`${ref.kind}:${ref.id}`}
+        data-away={ref.kind}
+        data-away-id={ref.id}
+        data-offline={row.offline ? "" : undefined}
+        leading={<WorkspaceMark kind={ref.kind} id={ref.id} name={row.name} />}
+        title={row.name}
+        tag={nameOf(ref.machine)}
+        meta={t(
+          row.offline
+            ? "machines.panel.off"
+            : ref.kind === "project"
+              ? "machines.group.not-here"
+              : "machines.panel.app-there",
+          { name: nameOf(ref.machine) },
+        )}
+        onClick={row.offline ? undefined : () => elsewhere?.onOpen(ref)}
+      />
+    );
+  };
   // 보관한 것까지 모두 읽고 화면에서 가른다.
   const cards = useProjectList();
   const rows = useAppList();
@@ -221,7 +282,12 @@ export function WorkspacesPanel({
         meta={
           missing !== undefined
             ? t("home.label.folder-missing")
-            : (first?.path ?? t("home.label.folder-count", { count: 0 }))
+            : (alsoOn.get(card.id)?.length ?? 0) > 0
+              ? t("machines.panel.also-on", {
+                  path: first?.path ?? "",
+                  names: alsoOn.get(card.id)!.join(", "),
+                })
+              : (first?.path ?? t("home.label.folder-count", { count: 0 }))
         }
         metaTone={missing === undefined ? undefined : "warning"}
         hoverTrailing
@@ -319,7 +385,7 @@ export function WorkspacesPanel({
         <PanelSection
           data-section="projects"
           title={t("home.heading.projects")}
-          count={activeProjects.length}
+          count={activeProjects.length + away("project").length}
           actions={
             <Tooltip content={register}>
               <IconButton
@@ -334,13 +400,14 @@ export function WorkspacesPanel({
         >
           <Body
             state={cards.loaded}
-            items={activeProjects}
+            items={[...activeProjects, ...away("project")]}
             target={t("home.label.projects")}
             empty={t("home.empty.no-projects")}
             onRetry={cards.reload}
           >
             <PanelRows label={t("home.heading.projects")}>
               {activeProjects.map(projectRow)}
+              {away("project").map(awayRow)}
             </PanelRows>
           </Body>
         </PanelSection>
@@ -349,7 +416,7 @@ export function WorkspacesPanel({
         <PanelSection
           data-section="apps"
           title={t("home.heading.apps")}
-          count={activeApps.length}
+          count={activeApps.length + away("app").length}
           actions={
             appWrites ? (
               <Tooltip content={newApp}>
@@ -366,13 +433,14 @@ export function WorkspacesPanel({
         >
           <Body
             state={rows.loaded}
-            items={activeApps}
+            items={[...activeApps, ...away("app")]}
             target={t("home.label.apps")}
             empty={t("home.empty.no-apps")}
             onRetry={rows.reload}
           >
             <PanelRows label={t("home.heading.apps")}>
               {activeApps.map(appRowOf)}
+              {away("app").map(awayRow)}
             </PanelRows>
           </Body>
         </PanelSection>

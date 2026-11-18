@@ -25,6 +25,8 @@ export const leftSidebar = {
   "left-sidebar.heading.lophn-agents": "lophn agents",
   "left-sidebar.heading.workspaces": "Workspaces",
   "left-sidebar.label.home": "Home",
+  "left-sidebar.label.home-on": "Home · {machine}",
+  "left-sidebar.label.off": "Off",
   "left-sidebar.label.nav": "Sidebar",
   "left-sidebar.label.new-session": "New session",
   "left-sidebar.label.recent": "Recent",

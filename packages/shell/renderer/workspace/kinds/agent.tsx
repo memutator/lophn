@@ -2,6 +2,8 @@
 // 탭 안에서 agent를 바꾸지 않는다. 저장하지 않는다(fromStored·toStored가 없다): 탭은 이 창 메모리(layout-source의 창 메모리)에만
 // 살고 다시 켜면 sidebar의 Recent나 Main 묶음에서 사람이 연다. session은 core가 갖고 있어 대화는 그대로다.
 // 여는 길(sidebar 줄·activity bar 아래쪽 바로 가기·새 탭 menu·Ask)은 모두 openAgent 하나를 부른다.
+// 같은 project 줄 안의 다른 기계 session은 그 기계(`TabItem.machine`)를 단 탭이다: 그 기계의 agent 통로로 읽고, 탭의 workspace
+// 칸은 그 기계 안의 workspace다.
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
 import { desktopParts } from "../../conversation/desktop-parts-impl.tsx";
@@ -18,15 +20,29 @@ import {
   sessionOf,
   sourceWorkspaceOf,
 } from "../agent/tab-fields.ts";
-import type { Desk } from "../../shell/desk-model.ts";
-import { workspaceKey, whereInDesk } from "../../shell/desk-model.ts";
+import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
+import type { Desk, WorkspaceRef } from "../../shell/desk-model.ts";
+import { whereInDesk } from "../../shell/desk-model.ts";
 import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
 // 탭 fields.workspace와 layout의 Home 표식. project id와 겹치지 않는다.
-const HOME = workspaceKey({ kind: "home" });
+const HOME = "home";
+
+// 탭 fields.workspace: 그 기계 안의 workspace(Home, project id, app id). 기계는 탭과 workspace의 `machine`이 든다.
+const fieldOf = (ref: WorkspaceRef) => (ref.kind === "home" ? HOME : ref.id);
+
+// 탭의 agent 통로. 기계를 단 탭은 그 기계의 것이다.
+function factoryOf(
+  tab: TabItem,
+  host: TabHost,
+): AgentTabSourceFactory | undefined {
+  return tab.machine === undefined
+    ? host.agentView?.factory
+    : host.machineData(tab.machine).agentViewSource;
+}
 
 /** agent가 연 탭의 key·자리. 고르지 않고 열며 float이면 떠 있는 패널로 연다(options.minimized면 접어서). */
 export interface SessionTabOpen {
@@ -44,6 +60,9 @@ interface OpenAgentInput extends SessionTabOpen {
   readonly name: string;
   /** 열어 볼 session. 없으면 첫 말을 보낼 때 만드는 새 session이다. */
   readonly session?: string | null;
+  /** 다른 기계의 session이면 그 기계와 그 기계 안의 workspace(`home`, project id, app id). */
+  readonly machine?: string;
+  readonly workspace?: string;
 }
 
 function agentTabs(host: TabHost): readonly TabItem[] {
@@ -54,7 +73,10 @@ function agentTabs(host: TabHost): readonly TabItem[] {
 function reusable(host: TabHost, input: OpenAgentInput): TabItem | undefined {
   const session = input.session ?? null;
   return agentTabs(host).find((tab) => {
-    if (agentOf(tab) !== input.agent) return false;
+    // agent id(`lophn_home`, `lophn_<app id>`)는 기계마다 같다.
+    if (agentOf(tab) !== input.agent || tab.machine !== input.machine) {
+      return false;
+    }
     return session === null
       ? sessionOf(tab) === null
       : sessionOf(tab) === session;
@@ -115,9 +137,10 @@ export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
     key: input.key ?? freshKey(host.windowTabs(), input.agent),
     kind: "agent",
     title: input.name,
+    ...(input.machine === undefined ? {} : { machine: input.machine }),
     fields: {
       agent: input.agent,
-      workspace: workspaceKey(host.workspace),
+      workspace: input.workspace ?? fieldOf(host.workspace),
       ...(session === null ? {} : { session }),
     },
   };
@@ -180,7 +203,10 @@ export const agentKind: TabKindDef = {
     if (!trimmed || session === null || agent === null || workspace === null) {
       return;
     }
-    const source = host.agentView?.factory({
+    const source = factoryOf(
+      tab,
+      host,
+    )?.({
       assignment: agent,
       workspace: sourceWorkspaceOf(workspace),
     });
@@ -233,10 +259,16 @@ export const agentKind: TabKindDef = {
     const agent = agentOf(tab);
     const workspace = workspaceOf(tab);
     if (agent === null || workspace === null) return null;
-    const slice = host.agentView;
-    if (slice === null) return <AgentNotReady />;
-    // 다른 workspace에서 온 탭(전역 float)은 이 workspace의 agent로 바꾸어 읽지 않는다.
-    if (workspace !== workspaceKey(host.workspace)) return null;
+    const own = host.agentView;
+    if (own === null) return <AgentNotReady />;
+    // 다른 workspace에서 온 탭(전역 float)은 이 workspace의 agent로 바꾸어 읽지 않는다. 기계를 단 탭은 그 기계의 workspace다.
+    if (tab.machine === undefined && workspace !== fieldOf(host.workspace)) {
+      return null;
+    }
+    const slice =
+      tab.machine === undefined
+        ? own
+        : { ...own, factory: host.machineData(tab.machine).agentViewSource };
     return (
       <>
         <ReportVisible session={sessionOf(tab)} />

@@ -18,6 +18,8 @@ export interface NewSessionStart {
 
 export interface Route {
   readonly space: Space;
+  /** home·project·app 공간의 workspace가 다른 기계의 것이면 그 기계(`mch_`). 없으면 창의 기계다. */
+  readonly machine?: string;
   /** project 공간의 프로젝트 id. 다른 공간은 없다. */
   readonly project?: string;
   /** detached 공간이 그리는 탭의 key. 탭 값은 main에서 받고 이 key는 공간을 고르는 데만 쓴다. */
@@ -31,6 +33,8 @@ export interface Route {
   readonly settingsPane?: SettingsPane;
   /** home·project·app 공간에서 열어 시작할 session. */
   readonly session?: string;
+  /** `session`이 workspace의 기계가 아닌 기계의 것이면 그 기계. 같은 project 줄 안의 다른 기계 session이다. */
+  readonly sessionMachine?: string;
   /** home·project·app 공간에서 새 session을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 + hover 목록). */
   readonly startSession?: NewSessionStart;
   /** project·app 공간에서 그 workspace의 설정(Project settings·App details) 탭을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 설정 단추). */
@@ -47,9 +51,18 @@ export interface Route {
 
 export const HOME: Route = { space: "home" };
 
-/** Home으로 이동한다. session을 주면 그 Home session을 agent 탭으로 연다. */
-export function openHome(session?: string): Route {
-  return session === undefined ? HOME : { space: "home", session };
+const on = (machine: string | undefined) =>
+  machine === undefined ? {} : { machine };
+
+/** Home으로 이동한다. session을 주면 그 Home session을 agent 탭으로 연다. 기계를 주면 그 기계의 Home이다. */
+export function openHome(session?: string, machine?: string): Route {
+  return session === undefined && machine === undefined
+    ? HOME
+    : {
+        space: "home",
+        ...(session === undefined ? {} : { session }),
+        ...on(machine),
+      };
 }
 
 /** Settings로 이동한다. 항목을 주면 그 항목부터 연다. */
@@ -59,24 +72,61 @@ export function openSettings(settingsPane?: SettingsPane): Route {
     : { space: "settings", settingsPane };
 }
 
-/** 프로젝트 작업대로 이동한다. */
+/** 프로젝트 작업대로 이동한다. `machine`을 주면 그 기계의 project다. */
 export function openProject(
   project: string,
-  start: Pick<Route, "session" | "open" | "terminal"> = {},
+  start: Pick<
+    Route,
+    "session" | "sessionMachine" | "open" | "terminal" | "machine"
+  > = {},
 ): Route {
   return { space: "project", project, ...start };
 }
 
-/** 앱 공간으로 이동한다. */
-export function openApp(app: string, session?: string): Route {
-  return session === undefined
-    ? { space: "app", app }
-    : { space: "app", app, session };
+/** 앱 공간으로 이동한다. 기계를 주면 그 기계의 앱이다. */
+export function openApp(
+  app: string,
+  session?: string,
+  machine?: string,
+): Route {
+  return {
+    space: "app",
+    app,
+    ...(session === undefined ? {} : { session }),
+    ...on(machine),
+  };
 }
 
 /** 앱 공간으로 가서 앱 화면 탭을 연다. */
-export function openAppScreenAt(app: string): Route {
-  return { space: "app", app, startAppScreen: true };
+export function openAppScreenAt(app: string, machine?: string): Route {
+  return { space: "app", app, startAppScreen: true, ...on(machine) };
+}
+
+/** 그 workspace로 가서 session을 연다. `machine`은 session의 기계가 workspace의 기계와 다를 때만 준다. */
+export function openWorkspaceSession(
+  workspace: WorkspaceRef,
+  session: string,
+  machine?: string,
+): Route {
+  const start = {
+    session,
+    ...on(workspace.machine),
+    ...(machine === undefined ? {} : { sessionMachine: machine }),
+  };
+  return workspace.kind === "home"
+    ? { space: "home", ...start }
+    : workspace.kind === "project"
+      ? { space: "project", project: workspace.id, ...start }
+      : { space: "app", app: workspace.id, ...start };
+}
+
+/** 그 workspace로 간다. */
+export function openWorkspace(workspace: WorkspaceRef): Route {
+  return workspace.kind === "home"
+    ? openHome(undefined, workspace.machine)
+    : workspace.kind === "project"
+      ? openProject(workspace.id, on(workspace.machine))
+      : openApp(workspace.id, undefined, workspace.machine);
 }
 
 /** 그 workspace로 가서 새 session을 연다. agent를 안 주면 그 workspace의 기본 lophn이다. */
@@ -84,17 +134,18 @@ export function openWorkspaceNewSession(
   workspace: WorkspaceRef,
   startSession: NewSessionStart = {},
 ): Route {
+  const start = { startSession, ...on(workspace.machine) };
   return workspace.kind === "home"
-    ? { space: "home", startSession }
+    ? { space: "home", ...start }
     : workspace.kind === "project"
-      ? { space: "project", project: workspace.id, startSession }
-      : { space: "app", app: workspace.id, startSession };
+      ? { space: "project", project: workspace.id, ...start }
+      : { space: "app", app: workspace.id, ...start };
 }
 
-/** 그 workspace로 가서 설정 탭을 연다. Home은 설정이 없어 그냥 간다. */
+/** 그 workspace로 가서 설정 탭을 연다. Home은 설정이 없어 그냥 간다. 설정 탭은 이 컴퓨터의 workspace만 연다. */
 export function openWorkspaceSettings(workspace: WorkspaceRef): Route {
-  return workspace.kind === "home"
-    ? HOME
+  return workspace.kind === "home" || workspace.machine !== undefined
+    ? openWorkspace(workspace)
     : workspace.kind === "project"
       ? { space: "project", project: workspace.id, startSettings: true }
       : { space: "app", app: workspace.id, startSettings: true };

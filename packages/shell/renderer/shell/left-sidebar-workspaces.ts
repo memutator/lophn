@@ -15,10 +15,18 @@
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
 // - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 Main desk 묶음에 둔다.
+// - 줄(workspace)은 기계를 건너 합친 것이다(`desktop/workspaces/projects/merged.ts`). session은 자기 기계의 workspace가 든 줄에
+//   서고, 줄이 여는 기계가 아닌 기계의 session은 그 기계의 꼬리표를 단다. 꺼진 기계의 session은 마지막으로 본 대로 흐리게 남는다.
+// - lophn 이름(`lophn_home`, `lophn_<app id>`)은 기계마다 같은 id라 이 컴퓨터의 session에만 쓴다.
 import { t } from "@lophn/i18n";
 
 import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
+import type { OnMachine } from "../desktop/machines/data.ts";
+import {
+  copyKey,
+  type MergedWorkspace,
+} from "../desktop/workspaces/projects/merged.ts";
 import {
   byCreated,
   byNewest,
@@ -79,11 +87,14 @@ export interface WorkspacesInput {
   readonly now: number;
   /** 이 창이 보이는 workspace. */
   readonly current: WorkspaceRef;
-  readonly projects: readonly { readonly id: string; readonly title: string }[];
-  readonly apps: readonly { readonly id: string; readonly name: string }[];
-  readonly entries: readonly SessionEntry[];
+  /** 기계를 건너 합친 줄(Home, project, 앱). */
+  readonly rows: readonly MergedWorkspace[];
+  /** 모든 기계의 session. */
+  readonly entries: readonly OnMachine<SessionEntry>[];
+  /** 꺼진 기계. 그 session은 마지막으로 본 줄이다. */
+  readonly offline: ReadonlySet<string>;
   readonly agents: readonly SidebarAgent[];
-  /** lophn agent id → 이름. 다른 workspace의 lophn 이름이다. */
+  /** 이 컴퓨터의 lophn agent id → 이름. 다른 workspace의 lophn 이름이다. */
   readonly lophnNames: Readonly<Record<string, string>>;
   readonly known: KnownSessions;
   /** workspace key → 이 창이 아는 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. 열렸는지만 본다. */
@@ -101,9 +112,6 @@ export interface WorkspacesInput {
   readonly hidden: HiddenRecent;
 }
 
-const workspaceKeyOfEntry = (entry: SessionEntry) =>
-  entry.workspace === null ? "home" : entry.workspace.id;
-
 export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const here = workspaceKey(input.current);
   const agents = new Map(
@@ -111,8 +119,16 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   );
   // 다른 workspace의 session은 그 workspace의 lophn이 한다. 이 workspace의 목록에는 없어도 lophn의 얼굴은 같다(profile이 고정이다).
   const lophnRow = input.agents.find((agent) => isLophn(agent.assignment));
-  const agentOf = (id: string) =>
-    agents.get(id) ?? (isLophn(id) ? lophnRow : undefined);
+  // 다른 기계의 agent 목록은 읽지 않았다. 그 기계의 session은 lophn의 얼굴로 보인다.
+  const agentOf = (id: string, machine: string | null) =>
+    agents.get(id) ?? (isLophn(id) || machine !== null ? lophnRow : undefined);
+  // 기계의 workspace → 그것이 든 줄.
+  const rowOf = new Map<string, MergedWorkspace>();
+  for (const row of input.rows) {
+    for (const copy of row.copies) {
+      rowOf.set(copyKey(copy.machine, copy.key), row);
+    }
+  }
   const current = new Map<string, SidebarSession[]>();
   const recent = new Map<string, SidebarSession[]>();
   const add = (
@@ -122,9 +138,21 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   ) => map.set(workspace, [...(map.get(workspace) ?? []), item]);
 
   for (const entry of input.entries) {
-    const agent = entry.agent === null ? undefined : agentOf(entry.agent);
-    if (agent === undefined || entry.archived) continue;
-    const workspace = workspaceKeyOfEntry(entry);
+    const agent =
+      entry.agent === null ? undefined : agentOf(entry.agent, entry.machine);
+    const row = rowOf.get(
+      copyKey(entry.machine, entry.workspace?.id ?? "home"),
+    );
+    if (agent === undefined || row === undefined || entry.archived) continue;
+    const workspace = workspaceKey(row.ref);
+    const machine =
+      entry.machine === (row.ref.machine ?? null) || entry.machine === null
+        ? {}
+        : { machine: entry.machine };
+    const offline =
+      entry.machine !== null && input.offline.has(entry.machine)
+        ? { offline: true as const }
+        : {};
     const read = input.known.get(entry.session);
     const tabTitle = input.openTitles.get(workspace)?.get(entry.session);
     const dot = lophnSessionDot(input.entries, entry.session);
@@ -137,14 +165,17 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         title: read?.title,
         open: tabTitle !== undefined,
         agentName:
-          (entry.agent === null ? "" : input.lophnNames[entry.agent]) ||
-          agent.name,
+          (entry.agent === null || entry.machine !== null
+            ? ""
+            : input.lophnNames[entry.agent]) || agent.name,
         untitled: t("left-sidebar.label.untitled"),
       }),
       agent: { kind: "lophn", profile: agent.profile },
       dot,
-      actions: true,
+      actions: offline.offline === undefined,
       at: read?.at ?? 0,
+      ...machine,
+      ...offline,
     };
     const place = sessionPlace({
       dot,
@@ -180,6 +211,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       dot: terminal.dot,
       actions: true,
       at: terminal.at,
+      ...(terminal.machine === undefined ? {} : { machine: terminal.machine }),
     };
     if (terminal.live !== null) add(current, here, item);
     else if (
@@ -199,6 +231,9 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         dot: terminal.dot,
         actions: true,
         at: 0,
+        ...(terminal.machine === undefined
+          ? {}
+          : { machine: terminal.machine }),
       });
     }
   }
@@ -207,7 +242,8 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const order = { session: 0, draft: 1, terminal: 2, workflow: 3 };
   const stable = (a: SidebarSession, b: SidebarSession) =>
     a.kind === b.kind ? byCreated(a.ref, b.ref) : order[a.kind] - order[b.kind];
-  const workspace = (ref: WorkspaceRef, name: string): SidebarWorkspace => {
+  const workspace = (row: MergedWorkspace): SidebarWorkspace => {
+    const { ref, name } = row;
     const key = workspaceKey(ref);
     const waiting: SidebarSession[] =
       key === here
@@ -244,16 +280,16 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       name,
       current: groups.filter((group) => group.items.length > 0),
       recent: key === here ? (recent.get(key) ?? []).sort(byNewest) : [],
+      ...(row.away === null ? {} : { away: row.away }),
+      ...(row.offline ? { offline: true as const } : {}),
     };
   };
 
-  return [
-    workspace({ kind: "home" }, t("left-sidebar.label.home")),
-    ...input.projects.map((item) =>
-      workspace({ kind: "project", id: item.id }, item.title),
-    ),
-    ...input.apps.map((item) =>
-      workspace({ kind: "app", id: item.id }, item.name),
-    ),
-  ];
+  return input.rows.map(workspace);
 }
+
+/** Home 줄의 이름. 이 컴퓨터는 "Home", 다른 기계는 "Home · <이름>"이다. */
+export const homeName = (machineName: string | null) =>
+  machineName === null
+    ? t("left-sidebar.label.home")
+    : t("left-sidebar.label.home-on", { machine: machineName });

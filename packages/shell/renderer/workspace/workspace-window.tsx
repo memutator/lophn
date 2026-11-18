@@ -216,11 +216,12 @@ import {
   type AgentChoice,
 } from "../parts/agent-session/agent-session.tsx";
 import { codingFace } from "../parts/agent-session/coding.ts";
+import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { workspaceIcons } from "../icons/mod.ts";
 import type { NewSessionStart } from "../desktop/router.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
-import { useSidebarWorkspaceList } from "../shell/use-left-sidebar.ts";
+import { useMachineLists } from "../shell/use-left-sidebar.ts";
 import {
   type InboxNames,
   InboxNamesProvider,
@@ -294,10 +295,16 @@ export interface WorkspaceWindowProps {
   onOpenApp?: (app: string) => void;
   /** 왼쪽 sidebar의 앱 목록과 Create app의 통로. 없으면 앱 줄과 Create app이 없다. */
   apps?: AppsSource;
-  /** 왼쪽 sidebar에서 project나 앱 workspace로 간다(Home은 onHome). */
-  onWorkspace?: (workspace: Exclude<WorkspaceRef, { kind: "home" }>) => void;
+  /** 왼쪽 sidebar에서 다른 workspace(다른 기계의 Home, project, 앱)로 간다. 창의 기계의 Home은 onHome이다. */
+  onWorkspace?: (workspace: WorkspaceRef) => void;
+  /** 왼쪽 sidebar의 다른 workspace 줄의 session. 그 workspace로 가서 연다. `machine`은 session의 기계가 그 workspace의 기계가 아닐 때다. */
+  onSessionAt?: (
+    workspace: WorkspaceRef,
+    session: string,
+    machine?: string,
+  ) => void;
   /** 왼쪽 sidebar의 다른 앱 줄. 그 앱 공간으로 가서 앱 화면 탭을 연다. */
-  onAppScreenAt?: (app: string) => void;
+  onAppScreenAt?: (app: string, machine?: string) => void;
   /** Create app으로 만든 앱의 앱 공간으로 간다. */
   onNewApp?: (app: string) => void;
   /** project 등록(이름·폴더)을 고치는 통로. Home의 Workspaces panel이 쓰는 것과 같다. 없으면 settings 탭의 General을 쓸 수 없다. */
@@ -311,6 +318,8 @@ export interface WorkspaceWindowProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
+  /** `session`이 이 workspace의 기계가 아닌 기계의 것이면 그 기계. 탭이 그 기계를 달고 열린다. */
+  sessionMachine?: string;
   /** 앱 workspace의 App details 탭을 여는 통로. 없으면 workspace 설정 줄이 없다. */
   appDetail?: AppDetailSource;
   /** 처음 열 때 한 번 이 workspace의 lophn을 연다. 앱 workspace는 앱 화면과 붙인 split으로 연다. */
@@ -440,6 +449,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const data = useMachineData();
   const machinesSource = useMachines();
   const machinesView = useMachinesView();
+  // 창의 기계. 기계를 달지 않은 workspace ref는 이 기계의 것이다.
+  const rootMachine = machinesSource?.thisWindow()?.id ?? null;
   // detached 창과 전역 float은 탭 본문을 이 컴퓨터의 창 범위에서 그린다(탭의 기계를 보지 않는다). 그래서 다른 기계의 탭은
   // 그쪽으로 옮기지 않는다(layout이 탭의 기계를 저장하고 그 자리가 기계를 볼 때까지).
   const onThisComputer = (tab: TabItem) => (tab.machine ?? machine) === null;
@@ -1133,7 +1144,26 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   );
 
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
-  const openSessionTab = (session: string, open?: SessionTabOpen): boolean => {
+  // 다른 기계의 session(같은 project 줄 안의 다른 기계 것)은 그 기계를 단 탭이다. agent 목록은 읽지 않아 이름은 탭이 연 뒤 받는다.
+  const openSessionTab = (
+    session: string,
+    open?: SessionTabOpen,
+    on?: string,
+  ): boolean => {
+    if (on !== undefined && on !== machine) {
+      const there = machineData(on)
+        .stores.sessions.get()
+        .sessions.find((item) => item.session === session);
+      if (there?.agent == null || agentViewSource === undefined) return false;
+      return openAgent(host, {
+        agent: there.agent,
+        name: LOPHN_AGENT_NAME,
+        session,
+        machine: on,
+        workspace: there.workspace?.id ?? "home",
+        ...open,
+      });
+    }
     const entry = sessionStates.find((item) => item.session === session);
     const row =
       entry === undefined
@@ -1225,7 +1255,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       openFile(host, open.path, { line: open.line });
     }
     if (session !== undefined && started.current.session !== session) {
-      if (openSessionTab(session)) started.current.session = session;
+      if (openSessionTab(session, undefined, props.sessionMachine)) {
+        started.current.session = session;
+      }
     }
     if (
       props.startSession !== undefined &&
@@ -2255,16 +2287,21 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
   }, [terminalVersion, terminal, windowTabs]);
 
-  // Inbox 줄이 id 대신 쓰는 workspace 이름.
-  const inboxWorkspaces = useSidebarWorkspaceList();
+  // Inbox 줄이 id 대신 쓰는 workspace 이름. Inbox는 이 workspace 기계의 것이다.
+  const machineLists = useMachineLists();
+  const inboxWorkspaces = machineLists.lists.find(
+    (list) => list.machine === (workspace.machine ?? null),
+  );
   const inboxNames = useMemo<InboxNames>(
     () => ({
       projects: new Map(
-        inboxWorkspaces.projects.map((one) => [one.id, one.title]),
+        (inboxWorkspaces?.projects ?? []).map((one) => [one.id, one.title]),
       ),
-      apps: new Map(inboxWorkspaces.apps.map((one) => [one.id, one.name])),
+      apps: new Map(
+        (inboxWorkspaces?.apps ?? []).map((one) => [one.id, one.name]),
+      ),
     }),
-    [inboxWorkspaces.projects, inboxWorkspaces.apps],
+    [inboxWorkspaces],
   );
 
   // 터미널 탭 이름을 core에 알린다(`terminals/name`). core가 runtime에 실어 모든 화면에 보내므로 OS 알림과 다른 창·workspace의
@@ -2675,6 +2712,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               props.onWorkspace?.({ kind: "project", id: project }),
             onApp: (app) => props.onOpenApp?.(app),
             onNewApp: (app) => props.onNewApp?.(app),
+            // 다른 기계의 줄은 이 컴퓨터의 창 Home에만 선다.
+            ...(data.here && workspace.machine === undefined
+              ? {
+                  elsewhere: {
+                    rows: machineLists.rows,
+                    names: machineLists.names,
+                    onOpen: (ref: WorkspaceRef) => props.onWorkspace?.(ref),
+                  },
+                }
+              : {}),
           }
         : null,
     app: isApp
@@ -3080,6 +3127,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   onNewCoding={(command) =>
                     openTerminalTab(host, { command, docked: true })
                   }
+                  onOpenOn={(session, on) =>
+                    void openSessionTab(session, undefined, on)
+                  }
+                  {...(props.onSessionAt === undefined
+                    ? {}
+                    : { onSessionAt: props.onSessionAt })}
                   onOpenHere={(session, agent) => {
                     const row = sidebarAgents.agents.find(
                       (item) => item.assignment === agent,
@@ -3125,24 +3178,30 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                     runToastAction({ kind: "session", session })
                   }
                   onWorkspace={(ref) =>
-                    ref.kind === "home" ? onHome() : props.onWorkspace?.(ref)
+                    ref.kind === "home" && ref.machine === undefined
+                      ? onHome()
+                      : props.onWorkspace?.(ref)
                   }
                   onWorkspaceRow={(ref) => {
                     // 앱 줄은 앱 화면으로 간다. 이 앱이면 앱 화면 탭을 열거나 고른다. 앱 화면이 없는 기계는 앱 workspace로만 간다.
-                    if (ref.kind === "home") onHome();
-                    else if (ref.kind === "app" && data.appViews === null) {
+                    const views =
+                      ref.machine === undefined
+                        ? machineData(rootMachine).appViews
+                        : machineData(ref.machine).appViews;
+                    if (ref.kind === "home" && ref.machine === undefined) {
+                      onHome();
+                    } else if (ref.kind === "app" && views === null) {
                       props.onWorkspace?.(ref);
                     } else if (
                       ref.kind === "app" &&
-                      isApp &&
-                      ref.id === appId
+                      workspaceKey(ref) === workspaceKey(workspace)
                     ) {
                       openAppScreen(host);
                     } else if (
                       ref.kind === "app" &&
                       props.onAppScreenAt !== undefined
                     ) {
-                      props.onAppScreenAt(ref.id);
+                      props.onAppScreenAt(ref.id, ref.machine);
                     } else props.onWorkspace?.(ref);
                   }}
                   onNewApp={(app) => props.onNewApp?.(app)}

@@ -1,6 +1,15 @@
-// 왼쪽 sidebar가 읽는 값. workspace 목록(project와 app)과 session의 제목·시각이다.
+// 왼쪽 sidebar가 읽는 값. 모든 기계의 workspace 목록(Home, project, app)과 session, session의 제목·시각이다.
 // session store는 제목과 시각을 싣지 않아 agent × workspace마다 대화 source의 session 목록에서 읽는다.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  createElement,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import { useAppList } from "../apps/app-list.ts";
@@ -12,8 +21,22 @@ import {
   useCoreRead,
   useFollowedRead,
 } from "../desktop/connection/core-read.ts";
+import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
+import { useMachines, useMachinesView } from "../desktop/machines/context.tsx";
+import type { MachineData, OnMachine } from "../desktop/machines/data.ts";
+import {
+  MachineScope,
+  type MachineRef,
+  useMachineHub,
+} from "../desktop/machines/scope.tsx";
 import { projectItemOf } from "../desktop/workspaces/projects/core-source.ts";
+import {
+  type ListedProject,
+  type MachineLists,
+  type MergedWorkspace,
+  mergeWorkspaces,
+} from "../desktop/workspaces/projects/merged.ts";
 import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { harnessOf } from "../workspace/kinds/terminal.tsx";
@@ -25,6 +48,7 @@ import {
 } from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
 import {
+  homeName,
   type KnownSessions,
   type LayoutDesks,
   layoutDesks,
@@ -51,26 +75,162 @@ export function useProjectList(): ReadHandle<readonly ProjectItem[]> {
   return { loaded, reload: read.reload };
 }
 
-/** 보관하지 않은 project와 앱. 순서는 런처와 같다. 읽기 전에는 창의 마지막 값이다. */
-export function useSidebarWorkspaceList(): {
-  readonly projects: readonly ProjectItem[];
+/** 이 컴퓨터의 project 목록 줄. clone할 remote 주소가 붙는다. */
+export type ListedItem = ProjectItem & ListedProject;
+
+/** 기계 하나의 목록과 session. */
+export interface MachineSnapshot extends MachineLists {
+  readonly projects: readonly ListedItem[];
   readonly apps: readonly AppRow[];
-} {
-  const [projectItems, setProjects] = useRemembered("projects");
-  const [appItems, setApps] = useRemembered("apps");
-  const projects = useProjectList().loaded;
+  readonly sessions: readonly SessionEntry[];
+}
+
+export interface MachineListsValue {
+  /** 창의 기계(null, 이 컴퓨터)가 맨 앞이고 그 뒤가 명단 순서다. */
+  readonly lists: readonly MachineSnapshot[];
+  readonly rows: readonly MergedWorkspace[];
+  readonly entries: readonly OnMachine<SessionEntry>[];
+  /** 꺼진 기계. */
+  readonly offline: ReadonlySet<string>;
+  /** 기계 id → 명단의 이름. */
+  readonly names: ReadonlyMap<string, string>;
+  /** 줄의 기계(null은 창의 기계) 묶음. */
+  dataOf(machine: MachineRef): MachineData;
+}
+
+const ListsContext = createContext<MachineListsValue | null>(null);
+
+/** 창의 목록. `MachineListsProvider` 안에서만 쓴다. */
+export function useMachineLists(): MachineListsValue {
+  const value = useContext(ListsContext);
+  if (value === null) throw new Error("MachineListsProvider is missing");
+  return value;
+}
+
+type Seen = Partial<Pick<MachineSnapshot, "projects" | "apps" | "sessions">>;
+
+// 기계 하나의 project·앱·session을 그 기계의 범위에서 읽어 올린다. 꺼진 기계의 session store는 비거나 낡으므로 붙어 있을 때 본
+// 것만 올린다.
+function Reader({
+  machine,
+  live,
+  report,
+}: {
+  machine: MachineRef;
+  live: boolean;
+  report: (machine: MachineRef, seen: Seen) => void;
+}) {
+  const projects = useCoreRead(projectApi.list, ALL).loaded;
   const apps = useAppList().loaded;
+  const { sessions } = useSessions();
   useEffect(() => {
-    if (projects.state === "ready") {
-      setProjects(() => projects.value.filter((item) => !item.archived));
-    }
-  }, [projects, setProjects]);
+    if (projects.state !== "ready") return;
+    report(machine, {
+      projects: projects.value.projects.map((row) => ({
+        ...projectItemOf(row),
+        remote: row.remote,
+      })),
+    });
+  }, [machine, projects, report]);
   useEffect(() => {
-    if (apps.state === "ready") {
-      setApps(() => apps.value.filter((item) => !item.archived));
-    }
-  }, [apps, setApps]);
-  return { projects: projectItems, apps: appItems };
+    if (apps.state === "ready") report(machine, { apps: apps.value });
+  }, [machine, apps, report]);
+  useEffect(() => {
+    if (live) report(machine, { sessions });
+  }, [machine, live, sessions, report]);
+  return null;
+}
+
+/**
+ * 창이 사는 동안 모든 기계의 목록을 읽어 들고 있다(workspace를 옮겨도 다시 읽지 않는다). 꺼진 기계는 이 실행 동안 마지막으로 본
+ * 목록을 남긴다(저장하지 않는다). 기계에 묶인 창(그 기계만 보는 창)은 그 기계 하나만 읽는다.
+ */
+export function MachineListsProvider({ children }: { children: ReactNode }) {
+  const source = useMachines();
+  const view = useMachinesView();
+  const hub = useMachineHub();
+  if (hub === null) throw new Error("MachineHubProvider is missing");
+  // 창의 기계. 줄과 ref에서 기계가 없으면 이 기계다.
+  const root = source?.thisWindow()?.id ?? null;
+  const roster = useMemo(
+    () =>
+      root !== null
+        ? []
+        : (view?.machines ?? []).filter((one) => one.status !== "removed"),
+    [root, view],
+  );
+  // 목록(project·앱)과 session을 따로 든다: session은 자주 바뀌고 줄(rows)은 목록만으로 짓는다.
+  const [seen, setSeen] = useState<ReadonlyMap<string, Seen>>(new Map());
+  const [sessions, setSessions] = useState<
+    ReadonlyMap<string, readonly SessionEntry[]>
+  >(new Map());
+  const report = useCallback((machine: MachineRef, next: Seen) => {
+    const key = machine ?? "";
+    if (next.sessions !== undefined) {
+      const entries = next.sessions;
+      setSessions((now) => new Map(now).set(key, entries));
+    } else
+      setSeen((now) => new Map(now).set(key, { ...now.get(key), ...next }));
+  }, []);
+  const dataOf = useCallback(
+    (machine: MachineRef) => hub.get(machine ?? root),
+    [hub, root],
+  );
+  const lists = useMemo(
+    (): readonly Omit<MachineSnapshot, "sessions">[] =>
+      [
+        { machine: null, name: "", live: true },
+        ...roster.map((one) => ({
+          machine: one.id,
+          name: one.name,
+          live: one.status === "connected",
+        })),
+      ].map((one) => ({
+        ...one,
+        projects: seen.get(one.machine ?? "")?.projects ?? [],
+        apps: seen.get(one.machine ?? "")?.apps ?? [],
+      })),
+    [roster, seen],
+  );
+  const rows = useMemo(() => mergeWorkspaces(lists, homeName), [lists]);
+  const value = useMemo((): MachineListsValue => {
+    const snapshots = lists.map(
+      (list): MachineSnapshot => ({
+        ...list,
+        sessions: sessions.get(list.machine ?? "") ?? [],
+      }),
+    );
+    return {
+      lists: snapshots,
+      rows,
+      entries: snapshots.flatMap((list) =>
+        list.sessions.map((entry) => ({ ...entry, machine: list.machine })),
+      ),
+      offline: new Set(
+        snapshots.flatMap((list) =>
+          list.live || list.machine === null ? [] : [list.machine],
+        ),
+      ),
+      names: new Map(roster.map((one) => [one.id, one.name])),
+      dataOf,
+    };
+  }, [lists, rows, sessions, roster, dataOf]);
+  return createElement(
+    ListsContext.Provider,
+    { value },
+    children,
+    ...value.lists.map((list) =>
+      createElement(MachineScope, {
+        key: list.machine ?? "",
+        machine: list.machine ?? root,
+        children: createElement(Reader, {
+          machine: list.machine,
+          live: list.live,
+          report,
+        }),
+      }),
+    ),
+  );
 }
 
 export interface SessionTitles {
@@ -78,6 +238,9 @@ export interface SessionTitles {
   /** 화면이 먼저 안 제목(열린 대화가 읽은 것, 방금 바꾼 이름)을 넣는다. 탭 줄과 sidebar가 바로 따라간다. */
   readonly put: (session: string, title: string) => void;
 }
+
+// 쌍 key에서 이 컴퓨터(`machine`이 null인 줄). 기계 id(`mch_`)와 겹치지 않는다.
+const HERE = "here";
 
 type TitleRow = {
   readonly id: string;
@@ -92,10 +255,12 @@ type TitleRow = {
  */
 export function useKnownSessions(
   factory: AgentTabSourceFactory | undefined,
-  entries: readonly SessionEntry[],
+  entries: readonly (SessionEntry & { readonly machine?: MachineRef })[],
+  /** `machine`이 있는 줄의 통로. 그 기계의 agent로 읽는다. */
+  factoryOf?: (machine: MachineRef) => AgentTabSourceFactory | undefined,
 ): SessionTitles {
   const [known, setKnown] = useRemembered("known");
-  // agent × workspace 쌍. 같은 쌍은 한 번만 읽는다.
+  // 기계 × agent × workspace 쌍. 같은 쌍은 한 번만 읽는다. 기계마다 같은 agent id(`lophn_home`, `lophn_<app id>`)가 있어 기계를 앞에 둔다.
   const pairs = useMemo(
     () =>
       [
@@ -104,7 +269,7 @@ export function useKnownSessions(
             entry.agent === null
               ? []
               : [
-                  `${entry.agent}\0${entry.workspace?.kind ?? "global"}\0${entry.workspace?.id ?? ""}`,
+                  `${entry.machine === undefined ? "" : (entry.machine ?? HERE)}\0${entry.agent}\0${entry.workspace?.kind ?? "global"}\0${entry.workspace?.id ?? ""}`,
                 ],
           ),
         ),
@@ -116,13 +281,18 @@ export function useKnownSessions(
     async () => {
       const lists = await Promise.all(
         pairs.map(async (pair) => {
-          if (factory === undefined) return [];
-          const [assignment, kind, id] = pair.split("\0") as [
+          const [machine, assignment, kind, id] = pair.split("\0") as [
+            string,
             string,
             "global" | "project" | "app",
             string,
           ];
-          const read = await factory({
+          const from =
+            machine === ""
+              ? factory
+              : factoryOf?.(machine === HERE ? null : machine);
+          if (from === undefined) return [];
+          const read = await from({
             assignment,
             workspace: { kind, id },
           }).sessions();
@@ -192,7 +362,8 @@ export interface TabsElsewhere {
  * 창이 다시 포커스를 받거나 session 목록·workspace 목록이 바뀔 때 다시 읽는다.
  */
 export function useTabsElsewhere(
-  layout: LayoutSource,
+  /** 그 workspace의 기계의 layout. */
+  layoutOf: (ref: WorkspaceRef) => LayoutSource,
   workspaces: readonly WorkspaceRef[],
   here: WorkspaceRef,
   entries: readonly SessionEntry[],
@@ -212,7 +383,7 @@ export function useTabsElsewhere(
     let live = true;
     void Promise.all(
       workspaces.map(async (ref) => {
-        const read = await layout.readWorkspaceLayout(ref);
+        const read = await layoutOf(ref).readWorkspaceLayout(ref);
         const titles = new Map<string, string>();
         const terminals: TabItem[] = [];
         const desks =
@@ -245,7 +416,7 @@ export function useTabsElsewhere(
       live = false;
     };
   }, [
-    layout,
+    layoutOf,
     workspaces,
     hereKey,
     ids,

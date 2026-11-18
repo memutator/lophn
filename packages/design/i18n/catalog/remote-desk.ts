@@ -12,6 +12,7 @@ export const remoteDesk = {
     "{name} is not in your devices. To view it again, invite it from Settings › Remote on this computer.",
   "machines.empty.no-folders": "No folders here",
   "machines.error.custom-url": "Use https, or http only for {name} itself.",
+  "machines.label.computer": "Computer",
   "machines.label.folders": "the folders",
   "machines.label.unknown-name": "Another computer",
   "machines.label.way-local": "On {name}",
@@ -46,6 +47,10 @@ export const remoteDesk = {
   "machines.group.cloning": "Cloning…",
   "machines.group.git-auth":
     "Run `{command}` in a terminal on this computer, then try again",
+  "machines.group.link": "Link…",
+  "machines.panel.also-on": "{path} · also on {names}",
+  "machines.panel.app-there": "On {name}",
+  "machines.panel.off": "{name} is off",
   "machines.group.looks-like": "Looks like {title}",
   "machines.group.looks-like-note":
     "Set it up on one computer and commit .lophn-project.json. The other links after git pull.",

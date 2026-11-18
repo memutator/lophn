@@ -1,6 +1,7 @@
 // 왼쪽 sidebar가 그리는 값. 화면은 이 값과 callback만 안다(project 창, 뒤에 Home과 app workspace가 같이 쓴다).
 import type { AgentFace } from "../parts/agent-session/agent-session.tsx";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
+import type { Away } from "../desktop/workspaces/projects/merged.ts";
 import type { WorkspaceRef } from "./desk-model.ts";
 
 /**
@@ -21,6 +22,10 @@ export interface SidebarSession {
   readonly actions: boolean;
   /** 마지막으로 움직인 때(epoch ms). Recent 줄의 상대 시각이다. 모르면 0. */
   readonly at: number;
+  /** 그 workspace 줄의 기계가 아닌 기계의 줄. 줄 끝에 그 기계의 꼬리표가 붙고 탭은 이 기계를 달고 열린다. */
+  readonly machine?: string;
+  /** 꺼진 기계의 줄(이 실행 동안 마지막으로 본 것). 흐리고 열리지 않는다. */
+  readonly offline?: true;
 }
 
 export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>
@@ -40,4 +45,8 @@ export interface SidebarWorkspace {
   readonly current: readonly SidebarDeskGroup[];
   /** 끝났거나 닫은 session. 접힌 줄 하나로 시작한다. */
   readonly recent: readonly SidebarSession[];
+  /** 이 컴퓨터에 없는 project를 가져오는 길(clone, 잇기). */
+  readonly away?: Away;
+  /** 여는 기계가 꺼져 있다. 줄은 흐리고 열리지 않는다. */
+  readonly offline?: true;
 }

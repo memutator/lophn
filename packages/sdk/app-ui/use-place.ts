@@ -12,10 +12,16 @@ export type PlaceJson =
 
 /**
  * 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이다. project만 `identity`(어느 기계에서도 같은
- * project id, `Project.identity`)를 싣는다.
+ * project id, `Project.identity`)와 `formerIdentities`(그 project의 옛 id, `Project.formerIdentities`)를 싣는다.
  */
 export type PlaceWorkspace =
-  | { kind: "project"; id: string; identity: string | null; folders: string[] }
+  | {
+      kind: "project";
+      id: string;
+      identity: string | null;
+      formerIdentities: string[];
+      folders: string[];
+    }
   | { kind: "home" | "app"; id: string; folders: string[] };
 
 export interface PlaceValue {

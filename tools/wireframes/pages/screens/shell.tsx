@@ -4,6 +4,7 @@ import {
   PROJECT_IDENTITY_BOARD_HEIGHT,
   ProjectIdentityScene,
 } from "./shell/project-identity-scene.tsx";
+import { ProjectLinkScene } from "./shell/project-link-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 import { MachineProjectsScene } from "./shell/machine-projects-scene.tsx";
 import { MachinePageScene } from "./shell/machine-page-scene.tsx";
@@ -263,6 +264,20 @@ export const shellArea: Area = {
         "project가 다른 컴퓨터에서도 같은 project라는 표시. 위 셋은 등록 dialog: 첫 폴더가 id file 없는 git 저장소면 켬 줄 'Same project on my other computers'(기본 켬, 등록하면 .lophn-project.json을 만든다), 폴더를 잃은 project와 같은 저장소면 [Relink … here], git이 아니면 한 줄 안내. 아래 여섯은 project 상세의 'Other computers' 줄: 아직 안 만듦([Set up]), commit 전, commit됨(⋯ menu의 Separate project), 두 컴퓨터가 따로 만들어 충돌([Resolve]), file이 사라짐([Restore]), 이 컴퓨터의 다른 copy([Separate project]). iframe 하나가 상태 하나이고 `?state=`로 한 상태만 창 크기로 본다.",
       height: PROJECT_IDENTITY_BOARD_HEIGHT,
       render: () => <ProjectIdentityScene />,
+    },
+    {
+      id: "shell-project-link",
+      title: "Shell · Link a project outside git",
+      description:
+        "다른 기계(Home server)의 git이 아닌 project(Recipes)를 이 컴퓨터의 git이 아닌 project와 잇는 dialog. 이 컴퓨터의 후보(git이 아니고 아직 그 id가 아닌 project)를 고르면 '<project>가 Home server의 Recipes와 같은 project가 된다'는 한 줄이 서고 [Link]가 그 project에 그 기계의 id를 적는다. git project는 저장소의 id file이 정해 후보에 없다.",
+      render: () => <ProjectLinkScene />,
+    },
+    {
+      id: "shell-project-link-empty",
+      title: "Shell · Link a project outside git · No candidate",
+      description:
+        "이 컴퓨터에 이을 수 있는 project(git이 아닌 project)가 없을 때. 목록과 [Link] 없이 git이 아닌 project만 이을 수 있다는 한 줄과 Cancel만 있다.",
+      render: () => <ProjectLinkScene empty />,
     },
     {
       id: "shell-desk-menu",

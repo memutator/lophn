@@ -14,6 +14,11 @@ export interface Project {
    * 상세의 Other computers에서 켠다).
    */
   identity: string | null;
+  /**
+   * 이 project가 전에 가졌던 `identity`(오래된 것이 앞). 사람이 project를 다른 기계의 project와 잇거나 나누면
+   * `identity`가 바뀐다. 이 id로 붙은 줄은 `identity`로 옮긴다.
+   */
+  formerIdentities: string[];
   /** agent 주소(`workspace: {project: name}`)에 쓰는 slug. */
   name: string;
   /** 사람에게 보이는 이름. */

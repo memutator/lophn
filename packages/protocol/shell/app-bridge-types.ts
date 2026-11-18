@@ -95,6 +95,11 @@ export type AppProject = {
    * 없거나 폴더를 아직 읽지 않았으면) null이다.
    */
   identity: string | null;
+  /**
+   * 이 project가 전에 가졌던 `identity`(오래된 것이 앞, 지금 `identity`는 들지 않는다). 사람이 project를 다른 기계의
+   * project와 잇거나 나누면 `identity`가 바뀐다. 앱은 여기 있는 id로 붙은 줄을 `identity`로 옮긴다.
+   */
+  formerIdentities: string[];
   /** agent 주소(`workspace: {project: name}`)에 쓰는 slug. */
   name: string;
   title: string;
@@ -165,10 +170,16 @@ export type LophnAppAgents<Card = unknown> = {
 
 /**
  * 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이고, Home과 앱 workspace는 비어 있다.
- * project만 `identity`(`AppProject.identity`)를 싣는다.
+ * project만 `identity`·`formerIdentities`(`AppProject`의 같은 칸)를 싣는다.
  */
 export type AppPlaceWorkspace =
-  | { kind: "project"; id: string; identity: string | null; folders: string[] }
+  | {
+      kind: "project";
+      id: string;
+      identity: string | null;
+      formerIdentities: string[];
+      folders: string[];
+    }
   | { kind: "home" | "app"; id: string; folders: string[] };
 
 /**

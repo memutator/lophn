@@ -139,11 +139,12 @@ function checkWorkspace(value: unknown): value is PlaceWorkspace {
   if (!plainObject(value)) return false;
   const project = value.kind === "project";
   return (
-    Object.keys(value).length === (project ? 4 : 3) &&
+    Object.keys(value).length === (project ? 5 : 3) &&
     ["project", "home", "app"].includes(value.kind as string) &&
     (!project ||
-      value.identity === null ||
-      typeof value.identity === "string") &&
+      ((value.identity === null || typeof value.identity === "string") &&
+        Array.isArray(value.formerIdentities) &&
+        value.formerIdentities.every((id) => typeof id === "string"))) &&
     typeof value.id === "string" &&
     value.id.length > 0 &&
     Array.isArray(value.folders) &&

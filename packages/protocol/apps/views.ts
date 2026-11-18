@@ -29,12 +29,14 @@ const nonBlank = z
     message: "value cannot be blank or contain controls",
   });
 
-// project만 기계를 넘는 id(identity)를 싣는다. git project가 아직 나누지 않았으면 null이다.
+// project만 기계를 넘는 id(identity)와 그 project가 전에 가졌던 id(formerIdentities, 오래된 것이 앞)를 싣는다. git
+// project가 아직 나누지 않았으면 identity는 null이다.
 export const appViewWorkspaceSchema = z.union([
   z.strictObject({
     kind: z.literal("project"),
     id: z.string().min(1),
     identity: z.string().min(1).nullable(),
+    formerIdentities: z.array(z.string().min(1)).max(16),
     folders: z.array(z.string()),
   }),
   z.strictObject({

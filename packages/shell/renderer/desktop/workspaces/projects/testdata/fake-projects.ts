@@ -252,6 +252,14 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
       };
       return Promise.resolve({ ok: true, value: statusOf(project) });
     },
+    linkIdentity(project, identity) {
+      calls.push(["linkIdentity", project.id, identity]);
+      const failed = failure();
+      if (failed) return Promise.resolve(failed);
+      const linked = { ...project, identity };
+      rows = rows.map((row) => (row.id === linked.id ? linked : row));
+      return Promise.resolve({ ok: true, value: linked });
+    },
   };
   return { source, calls };
 }

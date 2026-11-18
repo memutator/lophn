@@ -3252,6 +3252,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       <AppWorkspaceProvider
         workspace={workspace}
         identity={loaded.project?.identity ?? null}
+        formerIdentities={loaded.project?.formerIdentities ?? []}
         folders={(loaded.project?.folders ?? []).map((folder) => folder.path)}
       >
         {workspaceViews === null

@@ -14,6 +14,7 @@ import {
 } from "./project-folders.ts";
 import {
   absolutePathSchema,
+  PROJECT_FORMER_IDENTITIES_MAX,
   projectIdentitySchema,
   projectIdSchema,
   revisionSchema,
@@ -31,6 +32,11 @@ export const projectRecordSchema = z.object({
   folders: z.array(projectFolderReadSchema),
   // 저장소 file에서 읽은 값의 cache(identity.ts). repo가 null이면 아직 폴더를 읽지 못했다.
   identity: projectIdentitySchema.nullable(),
+  // 이 project가 전에 가졌던 identity(잇기, renew, id file이 ledger의 id를 대신함). 오래된 것이 앞이고 지금 identity는
+  // 들지 않는다. 앱이 옛 identity로 key한 줄을 옮길 때 쓴다.
+  former_identities: z
+    .array(projectIdentitySchema)
+    .max(PROJECT_FORMER_IDENTITIES_MAX),
   repo: z.enum(["git", "none"]).nullable(),
   remote: z.object({ key: z.string(), url: z.string() }).nullable(),
 });

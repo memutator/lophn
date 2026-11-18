@@ -204,6 +204,7 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
       kind: "project",
       id: "prj_1",
       identity: "pri_1",
+      formerIdentities: ["pri_0"],
       folders: ["/work/a"],
     },
   });
@@ -219,6 +220,7 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
         kind: "project",
         id: "prj_1",
         identity: "pri_1",
+        formerIdentities: ["pri_0"],
         folders: ["/work/a"],
       },
     },
@@ -233,6 +235,7 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
     kind: "project",
     id: "prj_1",
     identity: "pri_1",
+    formerIdentities: ["pri_0"],
     folders: ["/work/a"],
   });
 });

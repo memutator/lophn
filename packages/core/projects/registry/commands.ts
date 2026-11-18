@@ -30,6 +30,7 @@ import { folderResolverPort } from "./ports.ts";
 import { recordOf } from "./record.ts";
 import {
   clearIdentity,
+  identityHeldElsewhere,
   insertProject,
   loadProject,
   replaceChildren,
@@ -96,6 +97,7 @@ export function createProjectCommands(): {
   unarchive: CommandDefinition<typeof projectApi.unarchive>;
   setIcon: CommandDefinition<typeof projectApi.setIcon>;
   recordIdentity: CommandDefinition<typeof projectIdentityApi.recordIdentity>;
+  linkIdentity: CommandDefinition<typeof projectIdentityApi.linkIdentity>;
 } {
   return {
     register: {
@@ -113,6 +115,7 @@ export function createProjectCommands(): {
           ...input,
           status: "active",
           identity: null,
+          former_identities: [],
           repo: null,
           remote: null,
         };
@@ -301,13 +304,60 @@ export function createProjectCommands(): {
           identity.value === null && input.repo === "none"
             ? tx.newId("pri")
             : identity.value;
-        const project: Project = {
-          ...before,
+        const project = storeIdentity(tx, before, {
           identity: born,
           repo: input.repo,
           remote: input.remote,
-        };
-        storeIdentity(tx, project.id, project);
+        });
+        return ok(recordOf(project, resolver.value));
+      },
+    },
+    linkIdentity: {
+      route: projectIdentityApi.linkIdentity,
+      handle(tx, ctx, input) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadProject(tx.sql, input.project);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const before = current.value;
+        const { revision: _revision, ...metadata } = before;
+        const access = authorizeProject(
+          tx.port,
+          ctx,
+          projectIdentityApi.linkIdentity.name,
+          {
+            kind: "command",
+            before,
+            after: { ...metadata, identity: input.identity },
+          },
+        );
+        if (!access.ok) return access;
+        const resolver = resolverOf(tx);
+        if (!resolver.ok) return resolver;
+        if (before.identity === input.identity) {
+          return ok(recordOf(before, resolver.value));
+        }
+        // git project의 id는 저장소의 id file이 정한다. 아직 폴더를 읽지 못한 project(repo null)도 git일 수 있다.
+        if (before.repo !== "none") {
+          return err({
+            code: "conflict",
+            message: "a git project takes its identity from its id file",
+            details: { reason: "git_project" },
+          });
+        }
+        if (identityHeldElsewhere(tx.sql, input.identity, before.id)) {
+          return err({
+            code: "conflict",
+            message: "another project on this computer has that identity",
+            details: { reason: "identity_in_use" },
+          });
+        }
+        const project = storeIdentity(tx, before, {
+          identity: input.identity,
+          repo: before.repo,
+          remote: before.remote,
+        });
         return ok(recordOf(project, resolver.value));
       },
     },

@@ -39,6 +39,7 @@ async function setup() {
             revision: "1",
             status: "active",
             identity: null,
+            former_identities: "[]",
             repo: null,
             remote_key: null,
             remote_url: null,

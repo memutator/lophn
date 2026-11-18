@@ -100,4 +100,12 @@ export interface ProjectsSource {
   createIdentity(project: ProjectItem): Promise<SourceResult<IdentityStatus>>;
   /** 새 id로 덮어 이 폴더를 다른 기계에서 다른 project로 만든다. */
   renewIdentity(project: ProjectItem): Promise<SourceResult<IdentityStatus>>;
+  /**
+   * git이 아닌 project에 다른 기계의 project id를 적어 둘을 같은 project로 잇는다. git project면 conflict다(id file이
+   * 정한다). 이 컴퓨터의 다른 project가 그 id를 가졌어도 conflict다.
+   */
+  linkIdentity(
+    project: ProjectItem,
+    identity: string,
+  ): Promise<SourceResult<ProjectItem>>;
 }

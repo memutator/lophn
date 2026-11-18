@@ -330,7 +330,7 @@ flows:
       - "repo와 remote는 받은 값으로 바꾼다. file_identity가 null이면(file이 없거나 못 읽음) ledger의 identity를 그대로 둔다"
       - "file의 id를 다른 project(holder)가 갖고 있으면: holder가 보관됐고 이 project가 active면 holder의 값을 지우고 이 project에 준다. 그 밖이면 이 project의 identity를 null로 한다(같은 저장소의 두 번째 copy)"
       - "repo가 none(git이 아닌 폴더, 또는 core가 none으로 적는 폴더 없는 project)이고 그때까지 identity가 없으면 tx.newId로 새 pri_를 낸다. git project에는 내지 않는다. 폴더나 그 위에 .git이 있는데 git이 답하지 않으면 읽는 쪽이 unavailable로 멈추고 이 command를 부르지 않는다(project-identity-read:git-unreadable)"
-      - "revision은 올리지 않고 project_folders·session 같은 다른 표는 건드리지 않는다. projects change를 낸다"
+      - "identity가 null 아닌 값에서 다른 null 아닌 값으로 바뀌면(renew 뒤의 다시 읽기, id file이 ledger에서 난 id를 대신함) 옛 값을 former_identities 끝에 더한다(같은 값은 한 번, 지금 값은 빼고, 16개까지). 두 번째 copy가 null이 되는 것은 남기지 않는다. revision은 올리지 않고 project_folders·session 같은 다른 표는 건드리지 않는다. projects change를 낸다"
     outcomes:
       - id: recorded
         observe: ["ledger:projects", "response"]
@@ -345,6 +345,9 @@ flows:
         observe: ["ledger:projects", "response"]
       - id: handed-over
         when: "같은 id를 가진 보관한 project에서 active project로 넘겼다"
+        observe: ["ledger:projects", "response"]
+      - id: replaced
+        when: "file의 id가 지금 identity와 달라(renew, 들여온 id file) identity가 바뀌었고 옛 값이 former_identities에 남았다"
         observe: ["ledger:projects", "response"]
       - id: invalid-input
         code: invalid_input
@@ -529,6 +532,62 @@ flows:
     risk: [data-loss, sandbox]
     docs: [architecture/project-identity.md]
 
+  - id: project-identity-link
+    title: "git이 아닌 project에 다른 기계의 같은 project의 기계를 넘는 id를 적어 잇는다"
+    actor: person
+    entries: [route:projects/link_identity]
+    pre: [project-identity-record:born]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/registry/commands.ts
+      - packages/core/projects/registry/store.ts
+      - packages/protocol/projects/identity-api.ts
+      - packages/shell/renderer/desktop/workspaces/projects/link-dialog.tsx
+    steps:
+      - "사람만 부른다(다른 기계의 창에서 고른 잇기 dialog). user actor가 아니면 forbidden이다"
+      - "project가 없으면 not_found, TargetAuthorization이 거절하면 막는다. 이미 그 id면 아무것도 바꾸지 않고 지금 record를 돌려준다"
+      - "repo가 none이 아니면(git이거나 아직 폴더를 읽지 못했다) conflict(details.reason git_project)로 거절한다. git project의 id는 id file이 정한다"
+      - "이 기계의 다른 project(보관 포함)가 그 id를 identity나 former_identities로 가지면 conflict(details.reason identity_in_use)로 거절한다"
+      - "identity를 그 id로 적고 옛 identity를 former_identities 끝에 더한다(같은 값은 한 번, 지금 값은 빼고, 16개까지). revision은 올리지 않는다. projects change를 낸다"
+      - "적은 id는 다음 다시 읽기(project-identity-record)에서도 남는다: git이 아닌 폴더는 file_identity가 null이라 ledger의 id를 지우지 않는다"
+    outcomes:
+      - id: linked
+        observe: ["ledger:projects", "response"]
+      - id: already
+        when: "project가 이미 그 id를 갖는다"
+        observe: ["response"]
+      - id: git-project
+        code: conflict
+        when: "project의 repo가 none이 아니다(git project, 또는 아직 폴더를 읽지 못함)"
+        observe: ["response"]
+      - id: identity-in-use
+        code: conflict
+        when: "이 기계의 다른 project(보관 포함)가 그 id를 지금이나 옛 identity로 갖는다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않는다(prj_·pri_ id 꼴)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니다(agent·app·machine), 또는 TargetAuthorization이 거절했다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "TargetAuthorization 판정을 얻지 못했다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다, 또는 folder resolver port가 붙지 않았다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, permission]
+    docs: [architecture/project-identity.md]
+
   - id: project-identity-renew
     title: "project 폴더의 id file을 새 id로 덮어 다른 기계의 같은 저장소와 나눈다"
     actor: person
@@ -544,7 +603,7 @@ flows:
       - "사람만 부른다([Separate project]). agent·app은 dispatch가 forbidden으로 거절한다"
       - "project를 읽고 첫 폴더를 읽는다. 폴더가 없으면 not_found, git이 아니면 invalid_input이다"
       - "새 pri_ id를 temp에 쓰고 rename으로 덮는다. 있던 file이 어떤 상태든 덮는다"
-      - "다시 읽어 적고 project-identity-read와 같은 상태를 돌려준다. 같은 저장소의 두 번째 copy였으면 새 id를 갖는다"
+      - "다시 읽어 적고 project-identity-read와 같은 상태를 돌려준다. 같은 저장소의 두 번째 copy였으면 새 id를 갖는다. 옛 id는 project의 former_identities에 남는다(project-identity-record:replaced)"
     outcomes:
       - id: renewed
         observe: ["disk:<folder>/.lophn-project.json", "ledger:projects", "response"]

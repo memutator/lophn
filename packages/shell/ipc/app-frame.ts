@@ -40,13 +40,15 @@ const appViewCardSchema = z
   })
   .strict();
 
-// 화면이 열린 workspace. 화면이 자기 workspace를 보고 맞춘다. project만 기계를 넘는 id(identity)를 싣는다.
+// 화면이 열린 workspace. 화면이 자기 workspace를 보고 맞춘다. project만 기계를 넘는 id(identity)와 옛 id
+// (formerIdentities)를 싣는다.
 const placeWorkspaceSchema = z.union([
   z
     .object({
       kind: z.literal("project"),
       id: z.string().min(1),
       identity: z.string().min(1).nullable(),
+      formerIdentities: z.array(z.string().min(1)).max(16),
       folders: z.array(z.string()),
     })
     .strict(),

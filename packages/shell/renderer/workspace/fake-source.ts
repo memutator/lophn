@@ -1012,6 +1012,7 @@ export function fakeWorkspaceSource(
         value: {
           id,
           identity: null,
+          formerIdentities: [],
           title: "phroner",
           folders: FOLDERS.map((item) => ({
             ...item,
@@ -1026,6 +1027,7 @@ export function fakeWorkspaceSource(
         value: {
           id,
           identity: null,
+          formerIdentities: [],
           title: "phroner",
           folders: FOLDERS.filter((item) => item.path !== path),
         },

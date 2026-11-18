@@ -523,6 +523,12 @@ files:
       - project-identity-record:kept
       - project-identity-record:second-copy
       - project-identity-record:handed-over
+      - project-identity-record:replaced
+      - project-identity-link:linked
+      - project-identity-link:already
+      - project-identity-link:git-project
+      - project-identity-link:identity-in-use
+      - project-identity-link:forbidden
       - project-identity-record:forbidden
     note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 없는 file로 id를 지우지 않고 한 기계에 한 id만 두며 다른 자격을 거절한다"
 

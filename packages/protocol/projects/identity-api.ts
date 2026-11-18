@@ -1,5 +1,6 @@
-// 기계를 넘는 project id의 route. record_identity는 core가 폴더에서 읽은 값을 ledger에 적는 machine command이고,
-// 나머지는 폴더를 읽고 쓰는 memory route다.
+// 기계를 넘는 project id의 route. record_identity는 core가 폴더에서 읽은 값을 ledger에 적는 machine command,
+// link_identity는 사람이 git이 아닌 project를 다른 기계의 project와 잇는 command이고, 나머지는 폴더를 읽고 쓰는 memory
+// route다.
 import { z } from "zod";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { projectRecordSchema } from "./project-api.ts";
@@ -74,6 +75,22 @@ export const projectIdentityApi = {
     output: projectRecordSchema,
     actors: ["machine"],
     errors: ["invalid_input", "not_found", "forbidden"],
+  }),
+  // git이 아닌 project에 다른 기계의 같은 project의 identity를 적는다. git project의 identity는 id file이 정해 거절한다
+  // (`details.reason: "git_project"`). 이 기계의 다른 project(보관 포함)가 지금이나 옛 identity로 가진 id도 거절한다
+  // (`identity_in_use`). 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다. revision은 올리지 않는다.
+  linkIdentity: defineCommand({
+    resource: "projects",
+    method: "link_identity",
+    name: "project.link_identity",
+    changes: ["projects"],
+    input: z.strictObject({
+      project: projectIdSchema,
+      identity: projectIdentitySchema,
+    }),
+    output: projectRecordSchema,
+    actors: ["user"],
+    errors: ["invalid_input", "not_found", "conflict", "forbidden"],
   }),
   identity: defineMemory({
     resource: "projects",

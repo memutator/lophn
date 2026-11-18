@@ -149,6 +149,17 @@ export const workspace = {
   "projects.label.not-found": "Not found",
   "projects.label.other-computers": "Other computers",
   "projects.label.purpose": "Purpose",
+  "projects.link.button": "Link",
+  "projects.link.empty":
+    "No project on this computer can be linked to {title} on {machine}. Only projects outside git can be linked; a git project follows its repository.",
+  "projects.link.error-failed": "Couldn't link. Nothing changed. Try again.",
+  "projects.link.error-in-use":
+    "Another project on this computer is already the same project. Nothing changed.",
+  "projects.link.intro":
+    "Choose the project on this computer that is the same as {title} on {machine}.",
+  "projects.link.result":
+    "{project} becomes the same project as {title} on {machine}.",
+  "projects.link.title": "Link to a project on this computer",
   "projects.notice.saved": "Saved.",
   "projects.state.identity-committed":
     "The same project on your other computers",

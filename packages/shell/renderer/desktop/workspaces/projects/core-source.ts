@@ -319,5 +319,18 @@ export function coreProjectsSource(
       identityStatus(core, projectIdentityApi.createIdentity, project.id),
     renewIdentity: (project) =>
       identityStatus(core, projectIdentityApi.renewIdentity, project.id),
+
+    async linkIdentity(project, identity) {
+      const reply = await core.call(
+        commandCall(projectIdentityApi.linkIdentity, {
+          input: { project: project.id, identity },
+          compare: {},
+          key: `projects-link_identity-${crypto.randomUUID()}`,
+        }),
+      );
+      return reply.ok
+        ? { ok: true, value: projectItemOf(reply.value as ProjectValue) }
+        : failed(reply);
+    },
   };
 }

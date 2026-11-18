@@ -174,7 +174,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 ### 앱 화면
 
 1. 화면이 열릴 때 자리·인자·workspace가 정해지고 열려 있는 동안 바뀌지 않는다(dock·float·전역 float는 모두 `panel`이라 자리가 바뀌는 경우가 없다).
-   - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`. project면 기계를 넘는 id `identity`(pri | null)도 싣는다)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, shell main도 IPC 입력의 모양을 같은 규칙으로 한 번 본다(선언과 `params` 검사는 core가 한다).
+   - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`. project면 기계를 넘는 id `identity`(pri | null)와 그 project가 전에 가졌던 id `formerIdentities`(오래된 것이 앞)도 싣는다)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, shell main도 IPC 입력의 모양을 같은 규칙으로 한 번 본다(선언과 `params` 검사는 core가 한다).
    - core의 view 표(`app_views.open`)가 `params`를 그 release 선언의 그 화면 `params` schema로 검사해 정규화한다. `params`를 받지 않는 화면에 인자를 주거나 schema에 맞지 않으면 `invalid_input`이다. 선언을 읽을 수 있으면(live, release 있는 preview) 화면이 선언에 있고 자리가 그 화면의 `places`에 들어야 한다. 값은 화면의 주소 query(`place`, `params`, `workspace`)로 간다.
    - 화면은 preload의 `lophnApp.place`(`{place, params, workspace}`)를 읽고 SDK의 `usePlace()`가 그것을 감싼다. query가 없거나 틀리면 `place`가 null이고 `params`는 `{}`다. 전역 float는 workspace를 주지 않아 `workspace`가 null이다.
 2. agent의 `visual.show {app, view, params?}`도 `params`를 받는다. `view`는 `card` 자리를 가진 화면이어야 하고(아니면 `not_found`) `params`는 그 화면의 schema로 검사해 맞지 않으면 `invalid_input`이다. 통과한 값은 message의 `app_card` part와 ACP의 `AcpCard`에 `params`로 실려 카드 view의 인자가 된다.
@@ -206,10 +206,10 @@ SDK `@lophn/agent`는 앱 코드가 bridge를 직접 부르지 않게 한다(tem
 
 ### 앱 화면의 project 읽기
 
-project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn project를 기준으로 쓴다. 앱 data는 project의 `identity ?? id`를 key로 붙이고, 화면이 project workspace에서 열리면 그 project로 거르고 그 밖에서는 모든 project를 묶어 보인다. 앱 data는 기계 사이에 맞춰지므로(`folder-sync.md`, 폰) key는 다른 기계에서도 같은 project를 가리키는 `identity`(`project-identity.md`)여야 한다. `id`(`prj_`)는 이 기계에서만 뜻이 있다. `identity`가 null인 project(아직 나누지 않은 git project)는 `id`로 붙고 그 data는 이 기계에 머물며, 나중에 `identity`가 생기면 앱이 `id`로 붙은 줄을 `identity`로 옮긴다(SDK guide "project에 붙는 앱").
+project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn project를 기준으로 쓴다. 앱 data는 project의 `identity ?? id`를 key로 붙이고, 화면이 project workspace에서 열리면 그 project로 거르고 그 밖에서는 모든 project를 묶어 보인다. 앱 data는 기계 사이에 맞춰지므로(`folder-sync.md`, 폰) key는 다른 기계에서도 같은 project를 가리키는 `identity`(`project-identity.md`)여야 한다. `id`(`prj_`)는 이 기계에서만 뜻이 있다. `identity`가 null인 project(아직 나누지 않은 git project)는 `id`로 붙고 그 data는 이 기계에 머물며, 나중에 `identity`가 생기면 앱이 `id`로 붙은 줄을 `identity`로 옮긴다(SDK guide "project에 붙는 앱"). `identity`가 다른 값으로 바뀌면(사람이 잇거나 나눈다, id file이 ledger의 id를 대신한다) 옛 값이 `formerIdentities`에 남고 앱은 같은 write operation으로 옛 값으로 붙은 줄도 옮긴다(`project-identity.md` "옛 identity").
 
 1. 화면은 `lophnApp.projects.list()`로 모든 project(보관 포함)를 읽는다. shell main이 sender view를 확인하고 사람 자격(`coreInternal`)으로 core `projects.list`를 끝 page까지 읽는다. 따로 허락 단계나 선언 permission이 없다.
-2. 앱에는 `{id, identity, name, title, purpose, status}`만 준다. 폴더 path는 주지 않는다. 앱 code(AI가 만든 code일 수 있다)가 모든 project의 폴더 위치를 알 까닭이 없고, 지금 열린 project의 폴더는 `place.workspace.folders`로 이미 간다.
+2. 앱에는 `{id, identity, formerIdentities, name, title, purpose, status}`만 준다(`formerIdentities`는 core `projects.list`의 `former_identities`). 폴더 path는 주지 않는다. 앱 code(AI가 만든 code일 수 있다)가 모든 project의 폴더 위치를 알 까닭이 없고, 지금 열린 project의 폴더는 `place.workspace.folders`로 이미 간다.
 3. 읽기만 연다. project 만들기와 고치기는 사람이 lophn 화면에서 한다. 변경 push는 없다. 화면이 다시 읽는다(SDK `useProjects().reload`).
 
 ### 앱 log

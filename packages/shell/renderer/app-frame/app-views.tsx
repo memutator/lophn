@@ -76,17 +76,19 @@ const AppWorkspaceContext = createContext<AppViewOpen["workspace"]>(undefined);
 /**
  * 창이 보이는 workspace. 앱 화면이 열릴 때 `usePlace().workspace`로 받는다. 창 밖(전역 float)은
  * provider가 없어 workspace 없이 연다. folders는 project의 등록 폴더 path 목록이고, identity는 project의
- * 기계를 넘는 id다(project에만 싣는다).
+ * 기계를 넘는 id, formerIdentities는 그 project가 전에 가졌던 id다(둘은 project에만 싣는다).
  */
 export function AppWorkspaceProvider(props: {
   workspace: WorkspaceRef;
   identity: string | null;
+  formerIdentities: readonly string[];
   folders: readonly string[];
   children: ReactNode;
 }) {
   const { workspace, identity } = props;
   const id = workspace.kind === "home" ? "home" : workspace.id;
   const folders = JSON.stringify(props.folders);
+  const former = JSON.stringify(props.formerIdentities);
   const value = useMemo<AppViewOpen["workspace"]>(
     () =>
       workspace.kind === "project"
@@ -94,6 +96,7 @@ export function AppWorkspaceProvider(props: {
             kind: "project",
             id,
             identity,
+            formerIdentities: JSON.parse(former) as string[],
             folders: JSON.parse(folders) as string[],
           }
         : {
@@ -101,7 +104,7 @@ export function AppWorkspaceProvider(props: {
             id,
             folders: JSON.parse(folders) as string[],
           },
-    [workspace.kind, id, identity, folders],
+    [workspace.kind, id, identity, former, folders],
   );
   return (
     <AppWorkspaceContext.Provider value={value}>

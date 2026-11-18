@@ -86,3 +86,12 @@ export const PROJECTS_IDENTITY_STEPS: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// project가 전에 가졌던 identity의 JSON 배열(오래된 것이 앞, 최대 16개). 기존 줄은 옛 기록이 없어 빈 목록에서 시작한다.
+// 남기는 곳은 storeIdentity 하나다. PROJECTS_IDENTITY_STEPS처럼 remote wiring의 schemaStepsAfterTeams 끝에서 잇는다.
+export const PROJECTS_FORMER_IDENTITY_STEPS: readonly SchemaStep[] = [
+  {
+    id: "projects.registry.former-identities",
+    sql: `ALTER TABLE projects ADD COLUMN former_identities TEXT NOT NULL DEFAULT '[]';`,
+  },
+];

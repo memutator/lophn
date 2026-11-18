@@ -34,6 +34,7 @@ import { assignBornIdentities, loadProject } from "../registry/store.ts";
 import { createFolderResolver } from "../registry/folder-resolver.ts";
 import { folderResolverPort } from "../registry/ports.ts";
 import {
+  PROJECTS_FORMER_IDENTITY_STEPS,
   PROJECTS_IDENTITY_STEPS,
   projectsSchemaSteps,
 } from "../registry/schema.ts";
@@ -65,7 +66,11 @@ const silent = {
 function setup(answers: "git" | "fails" = "git") {
   const root = mkdtempSync(join(tmpdir(), "lophn-identity-"));
   const db = new DatabaseSync(":memory:");
-  for (const step of [...projectsSchemaSteps, ...PROJECTS_IDENTITY_STEPS]) {
+  for (const step of [
+    ...projectsSchemaSteps,
+    ...PROJECTS_IDENTITY_STEPS,
+    ...PROJECTS_FORMER_IDENTITY_STEPS,
+  ]) {
     db.exec(step.sql);
   }
   const sql: Sql = {

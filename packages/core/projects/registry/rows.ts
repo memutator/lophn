@@ -11,6 +11,15 @@ function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored project" });
 }
 
+// 틀린 JSON은 undefined가 되어 schema가 거절한다.
+function jsonOf(text: unknown): unknown {
+  try {
+    return JSON.parse(String(text));
+  } catch {
+    return undefined;
+  }
+}
+
 function inOrder(position: unknown, index: number): boolean {
   return position === index || position === BigInt(index);
 }
@@ -39,6 +48,7 @@ export function projectFromRows(
     revision: row.revision,
     status: row.status,
     identity: row.identity,
+    former_identities: jsonOf(row.former_identities),
     repo: row.repo,
     remote:
       row.remote_key === null

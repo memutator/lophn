@@ -143,6 +143,7 @@ const phonePlaceSchema = z.strictObject({
         kind: z.literal("project"),
         id: z.string().min(1),
         identity: z.string().min(1).nullable(),
+        formerIdentities: z.array(z.string().min(1)).max(16),
         folders: z.array(z.string()),
       }),
       z.strictObject({

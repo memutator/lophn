@@ -1,5 +1,5 @@
 id: core-cli-joins-own-core
-version: 0.23.85
+version: 0.23.86
 title: core가 exec한 `lophn` CLI가 그 core에만 붙어, core가 멈추거나 죽은 뒤 남아 core를 다시 띄우지 않는다
 modules: [packages/cli, packages/core/main]
 change: |

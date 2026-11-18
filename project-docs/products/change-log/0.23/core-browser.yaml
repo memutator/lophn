@@ -1,5 +1,5 @@
 id: core-browser
-version: 0.23.85
+version: 0.23.86
 title: 화면 없는 Linux에서 core가 창 없는 page host로 agent의 browser를 띄우고, agent의 page를 폰과 다른 기계의 창에서 보고 다룬다
 modules: [packages/protocol, packages/core/host-queue, packages/core/server, packages/core/main, packages/shell/main, packages/shell/renderer, packages/mobile, packages/design, packages/cli]
 checked: [agent-policy, architecture-layers, architecture-testing, architecture-activation, architecture-agent-call, architecture-app-call, architecture-package, architecture-app-notice, architecture-workspace-session, architecture-run, architecture-workflow, architecture-agent-definition, architecture-keybindings, architecture-observability, architecture-agent-chat, architecture-acp, architecture-artifact, architecture-ui-kit, architecture-appearance, architecture-phone-screen, context-component-registry, tool-check, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-package, tool-models-snapshot, skill-flows, skill-ui-design]

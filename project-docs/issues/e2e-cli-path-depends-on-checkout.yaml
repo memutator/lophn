@@ -1,0 +1,13 @@
+id: e2e-cli-path-depends-on-checkout
+title: e2e core가 `lophn` CLI를 부르는지가 그 checkout에 `npm run dev`를 돌린 적이 있는지로 갈린다
+kind: defect
+status: open
+topic: code-health
+modules: [packages/core/terminals, tests]
+now: |
+  저장소 실행의 `lophnCliPath`(`packages/core/terminals/person-env.ts`)는 `.cache/dev-cli/lophn`이 있을 때만 그것을 CLI로 쓰고, 없으면 null이다. 그 file은 `npm run dev`(`tools/dev.ts`)가 만든다. 그래서 e2e(`tests/e2e`)와 `boot.sh`의 core는 그 checkout에서 누가 `npm run dev`를 돌린 적이 있으면 기동 뒤 `lophn harness sync-skills`를 부르고, 없으면 부르지 않는다. core가 멈출 때 그 CLI가 남는 bug가 한 lead worktree(개발 앱으로 확인한 곳)에서만 e2e를 깨고 main과 새 worktree에서는 보이지 않았다.
+impact: |
+  같은 commit의 e2e가 checkout마다 다른 길을 탄다. 새 worktree(worker, land 전 확인 대부분)에서는 core가 CLI를 부르는 길(harness 감지, skill 동기화)이 e2e에 한 번도 안 지나가고, 그 길의 회귀는 개발 앱을 돌린 checkout의 land에서야 드러나 원인 찾기에 시간이 든다(이번에 fix task 하나).
+fix: |
+  - 작음(추천): e2e support(`tests/support/core`)가 core를 띄울 때 늘 저장소의 dev launcher를 쓰게 한다(없으면 만든다). 그러면 모든 checkout에서 같은 길을 탄다.
+  - 작음: 반대로 e2e는 늘 CLI 없이 띄우고, CLI 길은 따로 unit으로 본다. CLI 길의 회귀를 e2e가 못 본다.

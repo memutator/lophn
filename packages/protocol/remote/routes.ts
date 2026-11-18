@@ -274,7 +274,7 @@ export const rosterRemove = defineMemory({
   ],
 });
 
-// 기기의 터미널 입력 허락을 바꾼다. 이 컴퓨터가 서명한 새 rev라 모든 기계에 같다.
+// 기기의 터미널 입력 허락을 바꾼다. 이 컴퓨터의 허락 표만 고친다. 명단에 statement를 내지 않아 다른 컴퓨터에는 닿지 않는다.
 export const rosterSetTerminalInput = defineMemory({
   resource: "roster",
   method: "set_terminal_input",

@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py remote-use build`가 `tasks/*.md`에서 id, 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `use-contract` | use | 1 | 없음 | running | use/use-contract |  |  |
-| `use-contract-sdk` | use | 1 | 없음 | running | use/use-contract-sdk |  |  |
+| `use-contract-sdk` | use | 1 | 없음 | merged | use/use-contract-sdk | f5bc7b3c1 |  |
 | `use-grant` | use | 1 | 없음 | running | use/use-grant |  |  |
 | `use-cli` | use | 2 | use-contract | todo |  |  |  |
 | `use-receive` | use | 2 | use-contract, use-grant | todo |  |  |  |

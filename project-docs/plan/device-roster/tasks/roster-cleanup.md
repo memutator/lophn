@@ -58,3 +58,7 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 앞 task가 남긴 것 (lead가 더함)
+
+- `roster-client`: `packages/remote-client`의 `pair`, `parsePairingText`, `unpair`, `PairDevice`, `PairFailure`는 부르는 곳이 없다(지운다). `packages/mobile/README.md`의 protocol 판 문단(아직 2)과 개발 단계 2~3(`pairing/start` code)을 `roster/invite`와 판 3으로 고친다(추가 소유: 그 README). `mobile.settings.note.phone-name` 문구가 지금 동작(폰 이름은 hello로 알리고 컴퓨터가 명단 이름으로 서명한다)과 맞는지 보고 고칠 key를 보고에 적는다.

@@ -480,8 +480,8 @@ export const REMOTE_TERMINAL_DENIED = [
 // 위 route로 그리는 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
 // Jobs, Agents, workflow, 앱 실행 기록은 따로 event가 없고 `StateChanged`의 이름(jobs, agents, workflow_instances, runs,
 // app_activity, app_runtime, releases)으로 다시 읽는다. 앱 event는 `AppViewEvent`로만 받는다: 묶인 release가 구독을 선언한 view의
-// owner에게만 가고, Gateway가 이 기기(owner)가 연 view의 것만 보낸다. `AppSyncChanged`(앱 id와 seq만 싣는다)도 받는다. `AppEventPublished`(모든 앱의 event 원본), `AppViewChanged`,
-// 앱 설치·지우기는 넣지 않는다.
+// owner에게만 가고, Gateway가 이 기기(owner)가 연 view의 것만 보낸다. `AppSyncChanged`(앱 id와 seq만 싣는다)도 받는다. `AppEventPublished`(모든 앱의 event 원본)는 폰에
+// 내주지 않는다(컴퓨터만 받는다: `REMOTE_COMPUTER_EVENTS`). `AppViewChanged`, 앱 설치·지우기도 넣지 않는다.
 export const REMOTE_ALLOWED_EVENTS = [
   // 대화
   "SessionStarted",
@@ -517,4 +517,10 @@ export const REMOTE_ALLOWED_EVENTS = [
   "PageViewChanged",
   // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다
   "AppSyncChanged",
+] as const satisfies readonly BusEvent["type"][];
+
+// 명단의 컴퓨터가 위 목록에 더해 받는 event다. 다른 컴퓨터의 앱 event를 구독하는 job과 앱이 건다. core가 내용으로 한 번 더 가린다: 앱이 선언해 낸
+// event(audience가 없다)이고 그 앱의 workspace가 이 기계의 call 정책에서 private이 아닌 것만 간다(`lophn`이 낸 event와 다른 기계에서 와 이 기계가 낸 것은 안 간다).
+export const REMOTE_COMPUTER_EVENTS = [
+  "AppEventPublished",
 ] as const satisfies readonly BusEvent["type"][];

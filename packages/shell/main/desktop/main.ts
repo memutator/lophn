@@ -78,7 +78,13 @@ function startDesktop(): void {
   // lock은 userData 폴더에 걸리고, session이 생기기 전에 userData를 데이터 root 안으로 잡아야 한다.
   const dataRoot = resolveDataRoot();
   app.setPath("userData", browserDataPath(dataRoot));
-  if (!acquireSingleInstance(app, dataRoot)) return;
+  // 떠 있는 것이 page host면 물러나며 이 시작을 다시 띄운다. page host의 env에는 display가 없어 이 env를 같이 보낸다(page-host/main.ts).
+  const lock = {
+    requestSingleInstanceLock: (data: { dataRoot: string }) =>
+      app.requestSingleInstanceLock({ ...data, env: process.env }),
+    quit: () => app.quit(),
+  };
+  if (!acquireSingleInstance(lock, dataRoot)) return;
   // 떠 있는 shell이 없는 `--quit`은 끌 것이 없다. 창도 core도 띄우지 않고 끝난다(정리 스크립트가 lophn을 새로 띄우지 않게).
   if (readOpenIntent(process.argv).kind === "quit") {
     app.quit();

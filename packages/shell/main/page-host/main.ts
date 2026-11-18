@@ -36,11 +36,23 @@ export function startPageHost(): void {
   const dataRoot = resolveDataRoot();
   app.setPath("userData", browserDataPath(dataRoot));
   if (!acquireSingleInstance(app, dataRoot)) return;
-  // core가 다시 띄우려는 page host와 core만 띄우는 시작은 그대로 둔다. 그 밖(사람이 앱을 누름, `--quit`)은 물러난다:
-  // 화면이 생긴 기계에서 사람이 다시 누르면 desktop 앱이 선다.
-  app.on("second-instance", (_event, argv) => {
-    if (argv.includes(PAGE_HOST_INTENT)) return;
-    if (readOpenIntent(argv).kind === "core") return;
+  // core가 다시 띄우려는 page host와 core만 띄우는 시작은 그대로 둔다. `--quit`이면 끝난다. 그 밖(사람이 앱을 누름)은
+  // 물러나며 그 시작을 그 env로 다시 띄워 한 번 누름으로 desktop 앱이 선다. page host의 env에는 display가 없어 desktop 앱이
+  // 뜨지 못하므로 두 번째 시작이 보낸 env(desktop/main.ts)를 덮는다. 그 env에도 display가 없으면 desktop 앱이 설 수 없어 남는다.
+  let leaving = false;
+  app.on("second-instance", (_event, argv, workingDirectory, additional) => {
+    if (leaving || argv.includes(PAGE_HOST_INTENT)) return;
+    const intent = readOpenIntent(argv).kind;
+    if (intent === "core") return;
+    if (intent !== "quit") {
+      const env = (additional as { env?: NodeJS.ProcessEnv } | null)?.env;
+      if (!env?.DISPLAY && !env?.WAYLAND_DISPLAY) return;
+      Object.assign(process.env, env);
+      // 개발의 entry 인자는 그 시작의 자리에서 본 상대 경로일 수 있다. relaunch는 지금 자리를 쓴다.
+      process.chdir(workingDirectory);
+      app.relaunch({ execPath: argv[0], args: argv.slice(1) });
+    }
+    leaving = true;
     app.quit();
   });
   // 마지막 page를 닫아도 끝나지 않는다(Electron 기본은 끝난다).

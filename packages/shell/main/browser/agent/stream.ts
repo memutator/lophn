@@ -68,7 +68,7 @@ const failure = (
 ): HostToolOutput => ({ error: { code, message } });
 const NOT_FOUND = failure(
   "not_found",
-  "This browser page is not open in the lophn app on this machine.",
+  "This browser page is not open in lophn's browser on that machine (a lophn window's tab, or the windowless browser on a computer without a display).",
 );
 const NOT_STREAMING = failure(
   "conflict",

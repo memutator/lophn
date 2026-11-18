@@ -46,3 +46,9 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- lead가 core 쪽을 돌려 봤다: 기기의 `terminals/open {project, key, tab: {relation: null}}`이 창 없이 `{terminal, runtime}`을 주고, 허락 없는 `terminals/input`은 `forbidden`, 허락 뒤에는 친 글이 `terminal_view/snapshot`에 보인다(기기가 연 터미널은 core가 폰 보기 목록에 넣는다). 컴퓨터의 앱이 없을 때 `coding_sessions/list`는 `{"shell":"absent","sessions":[...]}`를 준다. 폰은 `shell`을 더 읽지 않는다.
+- `term-desktop`이 같이 돈다. 폰이 source로 읽는 `packages/shell/renderer/` file은 그쪽 것이다.
+- 실행 환경 주의: worker의 env에 `LOPHN_HOME=~/.lophn`과 `LOPHN_CLI=/usr/bin/lophn`이 있다. core를 띄워 볼 일이 있으면 `env -u LOPHN_CLI LOPHN_HOME=<worktree>/.dev-data`를 앞에 두고, emulator나 실제 폰은 쓰지 않는다.

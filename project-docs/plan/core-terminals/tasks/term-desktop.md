@@ -53,3 +53,13 @@ desktop 화면을 core route의 client로 바꾼다: 터미널 탭, harness GUI 
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- core 쪽은 merge되어 lead가 돌려 봤다(창 없이 `terminals/open`, 입력 허락, `terminal_view/*` 화면, `terminals/watch`·`snapshot`의 seq, core가 멈추면 PTY도 끝남). 이 task는 화면을 그 route에 붙이고 shell의 옛 길을 지운다.
+- hook 설치 물음: core는 shell link가 붙어 있을 때만 `HookInstallAsked`(subject `terminal:<ref>`)를 내고, link가 닫히면 거절로 본다. 그 터미널을 고른 창이 dialog를 띄우고 `coding_agents/hook_answer`로 답한다.
+- Quit은 사람이 받은 결정이다: 도는 터미널이 있으면 "그대로 두기"(기본)와 "다 닫기"를 묻고, 어느 쪽이든 core는 남는다. tray `Stop lophn`은 core를 멈추고 core가 모두 닫는다.
+- i18n은 desktop catalog file에 key를 더한다. `packages/design/i18n/catalog/mobile-app.ts`는 `term-phone`의 것이라 고치지 않는다. `packages/mobile`도 고치지 않는다(할 일 11).
+- 실행 환경 주의: worker의 env에 `LOPHN_HOME=~/.lophn`과 `LOPHN_CLI=/usr/bin/lophn`이 있다(lead와 worker가 설치본 앱의 터미널 안에서 돈다). 앱이나 core를 띄울 때는 `ELECTRON_NO_SANDBOX=1 npm run dev`(저장소 `.dev-data`를 쓴다)나 `boot.sh`만 쓰고, `lophn`을 data root 없이 부르지 않는다.
+- 진짜 Electron 확인(터미널 열기, 치기, `claude gui`, Quit 뒤 다시 켜서 붙기)은 lead와 사람이 merge 전에 한다. worker가 dev 앱을 띄워 볼 수 있으면 터미널 열기·치기·Quit 흐름까지만 보고, 실제 coding CLI(`claude` 등)는 부르지 않는다.
+- 크다. 한 번에 끝나지 않으면 check가 통과하는 데까지 commit하고 남은 것을 정확히 보고한다. 두 번 실패하면 lead가 "터미널 탭과 Quit"과 "GUI, Settings, 알림"으로 쪼갠다.

@@ -1,46 +1,58 @@
 // 앱 화면 탭·앱 panel 탭이 어느 기계의 앱을 여는가. 같은 앱 id는 기계를 건너 한 앱이라(같은 앱은 한 줄) 이 컴퓨터에 그 앱이
-// 있으면 탭의 기계가 다른 기계여도 이 컴퓨터의 것을 연다. 없으면 탭의 기계의 것이다.
+// 있으면 탭의 기계가 다른 기계여도(꺼져 있어도) 이 컴퓨터의 것을 연다. 없으면 탭의 기계의 것이다.
 import { type ReactNode, useEffect, useState } from "react";
 
-import type { AppsSource } from "../apps/source.ts";
-import { type MachineRef, MachineScope } from "../desktop/machines/scope.tsx";
+import {
+  type MachineRef,
+  MachineScope,
+  useMachineData,
+} from "../desktop/machines/scope.tsx";
 
-export function AppOnMachine({
-  app,
-  machine,
-  here,
-  children,
-}: {
-  app: string;
-  /** 탭의 기계. */
-  machine: MachineRef;
-  /** 이 컴퓨터의 앱 목록. */
-  here: AppsSource;
-  /** 고른 기계의 화면. 이 컴퓨터로 고르면 이 컴퓨터의 범위 안에서 그린다. */
-  children: (machine: MachineRef) => ReactNode;
-}) {
-  // undefined는 이 컴퓨터를 읽는 중이다.
-  const [hasHere, setHasHere] = useState<boolean | undefined>(
-    machine === null ? true : undefined,
-  );
+/**
+ * 탭의 기계가 다른 기계일 때 이 컴퓨터에 그 앱이 있는가(있고 보관하지 않았다). 탭의 기계가 이 컴퓨터이거나 앱이 없는 탭이면
+ * false다. undefined는 읽는 중이다. 탭 범위(TabScope)가 그 기계의 꺼짐 안내보다 먼저 묻는다.
+ */
+export function useAppHere(
+  app: string | undefined,
+  machine: MachineRef,
+): boolean | undefined {
+  const here = useMachineData(null).apps;
+  const asks = app !== undefined && machine !== null;
+  const [has, setHas] = useState<boolean | undefined>(asks ? undefined : false);
   useEffect(() => {
-    if (machine === null) return;
+    if (!asks) {
+      setHas(false);
+      return;
+    }
     let live = true;
-    setHasHere(undefined);
+    setHas(undefined);
     void here.get(app).then((result) => {
       if (live) {
-        setHasHere(
-          result.ok && result.value !== null && !result.value.archived,
-        );
+        setHas(result.ok && result.value !== null && !result.value.archived);
       }
     });
     return () => {
       live = false;
     };
-  }, [app, machine, here]);
+  }, [app, asks, here]);
+  return asks ? has : false;
+}
+
+export function AppOnMachine({
+  app,
+  machine,
+  children,
+}: {
+  app: string;
+  /** 탭의 기계. */
+  machine: MachineRef;
+  /** 고른 기계의 화면. 이 컴퓨터로 고르면 이 컴퓨터의 범위 안에서 그린다. */
+  children: (machine: MachineRef) => ReactNode;
+}) {
+  const here = useAppHere(app, machine);
   if (machine === null) return children(null);
-  if (hasHere === undefined) return null;
-  return hasHere ? (
+  if (here === undefined) return null;
+  return here ? (
     <MachineScope machine={null}>{children(null)}</MachineScope>
   ) : (
     children(machine)

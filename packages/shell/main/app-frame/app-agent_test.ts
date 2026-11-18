@@ -8,10 +8,14 @@ import type { BoundView } from "./registry.ts";
 const APP = "app_00000000000000000000000001";
 const OTHER_APP = "app_00000000000000000000000002";
 
-function view(view_session: string, app: string): BoundView {
+function view(
+  view_session: string,
+  app: string,
+  machine: string | null = null,
+): BoundView {
   return {
     view_session,
-    machine: null,
+    machine,
     generation: 1,
     target: { app, mode: "live", release: null, screen: "main", place: "tab" },
     binding: { release: null, bundleHash: "a".repeat(64), processNonce: "n" },
@@ -52,14 +56,21 @@ function setup() {
     return Promise.resolve({ ok: true, value: { route } });
   };
   const pushed: Array<{ view: string; payload: unknown }> = [];
+  const watches: Array<{ machine: string; sessions: readonly string[] }> = [];
+  // 기계마다 따로 부른 곳을 남긴다(null은 이 컴퓨터).
+  const calledOn: (string | null)[] = [];
   const agent = createAppAgent({
-    call: () => call,
+    call: (machine) => {
+      calledOn.push(machine);
+      return call;
+    },
     send: (view_session, _channel, payload) => {
       pushed.push({ view: view_session, payload });
       return true;
     },
+    watch: (machine, sessions) => watches.push({ machine, sessions }),
   });
-  return { agent, routes, pushed, sentBodies };
+  return { agent, routes, pushed, sentBodies, watches, calledOn };
 }
 
 test("앱 view는 core가 안 보인다고 한 session과 터미널 탭을 읽지도 보내지도 못하고, 보이는 session은 workspace와 상관없이 붙는다", async () => {
@@ -96,9 +107,9 @@ test("session은 core가 연다(앱 id는 main이 싣는다). 갱신은 그 view
   assert.equal(unknown.ok === false && unknown.error.code, "not_found");
 
   await agent.snapshot(other, { session: "ses_project" });
-  agent.updated({ session: "ses_new", update: 1 });
-  agent.updated({ session: "ses_project", update: 2 });
-  agent.updated({ session: "ses_harness", update: 3 });
+  agent.updated({ session: "ses_new", update: 1 }, null);
+  agent.updated({ session: "ses_project", update: 2 }, null);
+  agent.updated({ session: "ses_harness", update: 3 }, null);
   assert.deepEqual(pushed, [
     { view: "v1", payload: { session: "ses_new", update: 1 } },
     { view: "v2", payload: { session: "ses_project", update: 2 } },
@@ -149,4 +160,35 @@ test("앱 view가 보낸 메시지는 sender view의 앱 이름표를 달고 pag
   });
   assert.equal(sent.ok, true);
   assert.deepEqual((sentBodies[0] as { via_app: string }).via_app, APP);
+});
+
+// 기계마다 session id가 따로라, 다른 기계의 갱신이 같은 id를 읽은 이 컴퓨터의 view로 새면 남의 대화가 앱 화면에 들어간다.
+test("다른 기계의 앱 화면이 연 agent session의 갱신은 그 기계에 묶인 view에만 간다", async () => {
+  const { agent, pushed, watches, calledOn } = setup();
+  const MACHINE = "mch_0000000000000000000000000a";
+  const remote = view("v-remote", APP, MACHINE);
+  const local = view("v-local", APP);
+  assert.ok((await agent.open(remote, { agent: "lophn" })).ok);
+  assert.ok((await agent.snapshot(local, { session: "ses_mine" })).ok);
+  // 다른 기계의 view가 부른 것은 그 기계로만 갔다.
+  assert.deepEqual(calledOn, [MACHINE, null, null]);
+  // 그 기계에 그 session의 갱신을 건다.
+  assert.deepEqual(watches.at(-1), { machine: MACHINE, sessions: ["ses_new"] });
+
+  agent.updated({ session: "ses_new", update: "there" }, MACHINE);
+  agent.updated({ session: "ses_new", update: "here" }, null);
+  agent.updated({ session: "ses_mine", update: "elsewhere" }, MACHINE);
+  agent.updated({ session: "ses_mine", update: "mine" }, null);
+  assert.deepEqual(pushed, [
+    { view: "v-remote", payload: { session: "ses_new", update: "there" } },
+    { view: "v-local", payload: { session: "ses_mine", update: "mine" } },
+  ]);
+  // 보는 사람 알림은 이 컴퓨터의 view만 센다.
+  assert.deepEqual(agent.viewsOf("ses_new"), []);
+
+  // view를 닫으면 그 기계의 구독에서도 빠진다.
+  agent.forget("v-remote");
+  assert.deepEqual(watches.at(-1), { machine: MACHINE, sessions: [] });
+  agent.updated({ session: "ses_new", update: "late" }, MACHINE);
+  assert.equal(pushed.length, 2);
 });

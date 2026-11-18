@@ -187,6 +187,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - 탭의 기계 범위가 다른 기계면 view 열기 입력에 그 기계가 실린다. 같은 앱 id는 기계를 건너 한 앱이라 이 컴퓨터에 그 앱이 있으면 탭의 기계가 달라도 이 컴퓨터의 것을 연다.
    - binding은 그 기계의 `app_views.open|call|close`이고 shell main이 이 컴퓨터 core의 `machines/call`로 보낸다. owner는 그 기계가 보는 이 컴퓨터(`device:<이 컴퓨터>`)다. 화면 byte는 그 기계의 `apps/screen_file`(기기 call은 JSON이라 base64, 한 file 8 MiB), 바깥 host는 그 기계의 grant와 선언이다.
    - 앱 preload의 통로(`app:call-operation`, agent, session, call, project 읽기, 화면 오류)는 sender view가 묶인 기계의 core로만 간다. 그 기계는 이 컴퓨터를 기기로 보고 기기 route 목록으로 거른다. 목록에 없는 route는 그 기계가 `forbidden`으로 거절하고 shell main은 그 거절을 화면에 그대로 돌려준다(화면이 숨기지 않는다).
+   - 그 view가 열거나 읽은 agent session의 `AcpUpdated`는 구독자 `app-views`가 그 기계에 그 session만 걸어 받고(view를 닫으면 뺀다), 그 기계에 묶인 view에만 보낸다. 기계마다 session id가 따로라 다른 기계의 view로 가지 않는다.
    - 격리 자리: 이 컴퓨터의 앱은 `persist:app-<app>:live`와 host `app-<앱 ULID>`(바꾸지 않는다: 사람의 앱 저장소가 거기 있다), 다른 기계의 앱은 `persist:app-<app>:machine-<기계 ULID>`와 host `app-<앱 ULID>-<기계 ULID>`다. protocol handler와 network 판정은 host label을 견주므로 기계까지 견준다.
    - `AppViewEvent`는 shell main의 구독자 `app-views`가 기계마다 걸어(`machines/watch`) 받는다. 그 기계가 release를 바꾸면 이 컴퓨터의 view에도 `rebound`·`lost`가 온다. link가 끊기면 그 기계가 이 컴퓨터의 view를 모두 지우고(기기 연결이 닫힐 때와 같다), 다시 붙으면 shell main이 그 기계의 view를 같은 요청으로 다시 연다. 그 기계에서 지운 앱(`AppRemoved`)은 이 컴퓨터에 둔 그 기계의 partition만 비운다. 이 컴퓨터에서 지운 앱은 이 컴퓨터의 partition(live, preview)만 비운다.
 

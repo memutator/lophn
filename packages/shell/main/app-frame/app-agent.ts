@@ -11,6 +11,11 @@ interface AppAgentDeps {
   call: MachineCaller;
   /** view의 page로 보낸다. 그 view가 이미 없으면 false다. */
   send(view_session: string, channel: string, payload: unknown): boolean;
+  /**
+   * 다른 기계에 묶인 view들이 붙은 그 기계의 session이 바뀌었다. 그 기계의 `AcpUpdated`를 이 session들에 대해서만 받게 건다
+   * (빈 목록은 그만 받는다). 이 컴퓨터의 갱신은 shell main이 type으로 이미 받는다.
+   */
+  watch?(machine: string, sessions: readonly string[]): void;
 }
 
 function fail(code: string, message: string): CallOutcome<never> {
@@ -30,13 +35,39 @@ const NOT_YOURS = fail("forbidden", "session is not available");
 const ALLOWED_INPUTS: readonly unknown[] = ["send", "stop", "answer", "rename"];
 
 export function createAppAgent(deps: AppAgentDeps) {
-  // 이 view가 붙어 읽은 session. 갱신을 거를 때만 쓴다(붙을 수 있는지는 읽고 보낼 때마다 core에 다시 묻는다).
-  const owned = new Map<string, Set<string>>();
+  // 이 view가 붙어 읽은 session과 view가 묶인 기계. 갱신을 거를 때만 쓴다(붙을 수 있는지는 읽고 보낼 때마다 core에 다시 묻는다).
+  const owned = new Map<
+    string,
+    { machine: string | null; sessions: Set<string> }
+  >();
+
+  // 그 기계의 view들이 붙은 session 전부를 다시 건다.
+  function rewatch(machine: string | null): void {
+    if (machine === null) return;
+    const sessions = new Set<string>();
+    for (const entry of owned.values()) {
+      if (entry.machine !== machine) continue;
+      for (const session of entry.sessions) sessions.add(session);
+    }
+    deps.watch?.(machine, [...sessions]);
+  }
 
   function remember(view: BoundView, session: string): void {
-    const known = owned.get(view.view_session) ?? new Set<string>();
-    known.add(session);
+    const known = owned.get(view.view_session) ?? {
+      machine: view.machine,
+      sessions: new Set<string>(),
+    };
+    const added = !known.sessions.has(session);
+    known.sessions.add(session);
     owned.set(view.view_session, known);
+    if (added) rewatch(view.machine);
+  }
+
+  function forget(view_session: string): void {
+    const entry = owned.get(view_session);
+    if (entry === undefined) return;
+    owned.delete(view_session);
+    rewatch(entry.machine);
   }
 
   /** session이 이 view의 앱이 보는 lophn·harness session이면 undefined, 아니면 돌려줄 실패다. 없는 session과 안 보이는 session은 같다. */
@@ -146,21 +177,34 @@ export function createAppAgent(deps: AppAgentDeps) {
       return sent.ok ? { ok: true, value: undefined } : sent;
     },
 
-    /** 그 session을 지금 쥔 view들. 그중 focus 창에 보이는 것이 있으면 사람이 보고 있다. */
+    /** 이 컴퓨터에서 그 session을 지금 쥔 view들. 그중 focus 창에 보이는 것이 있으면 사람이 보고 있다. */
     viewsOf(session: string): string[] {
       return [...owned]
-        .filter(([, sessions]) => sessions.has(session))
+        .filter(
+          ([, entry]) => entry.machine === null && entry.sessions.has(session),
+        )
         .map(([view_session]) => view_session);
     },
 
-    /** core의 `AcpUpdated`. 그 session을 이 앱이 보는 것으로 읽은 view에만 보낸다. */
-    updated(payload: { session: string; update: unknown }): void {
-      for (const [view_session, sessions] of owned) {
-        if (!sessions.has(payload.session)) continue;
+    /**
+     * `machine`(null은 이 컴퓨터)의 core가 낸 `AcpUpdated`. 그 session을 이 앱이 보는 것으로 읽었고 그 기계에 묶인 view에만
+     * 보낸다(기계마다 session id가 따로라 다른 기계의 view로 새지 않게 한다).
+     */
+    updated(
+      payload: { session: string; update: unknown },
+      machine: string | null,
+    ): void {
+      for (const [view_session, entry] of [...owned]) {
+        if (entry.machine !== machine || !entry.sessions.has(payload.session)) {
+          continue;
+        }
         if (!deps.send(view_session, APP_AGENT_UPDATE_CHANNEL, payload)) {
-          owned.delete(view_session);
+          forget(view_session);
         }
       }
     },
+
+    /** view가 닫혔다. 그 view가 붙은 session을 놓는다(다른 기계면 그 기계의 구독에서도 뺀다). */
+    forget,
   };
 }

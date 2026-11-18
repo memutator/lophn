@@ -92,6 +92,8 @@ interface AppFrameDeps {
   clock: { nowMs(): number };
   /** 연결 상태·release가 바뀐 view를 그 창의 shell renderer에 알린다(`shell:view-state`). */
   onState?(window: string, state: AppFrameViewState): void;
+  /** view를 폐기했다. 그 view가 쥔 것(붙은 agent session과 그 구독)을 놓는다. */
+  onClosed?(view_session: string): void;
 }
 
 interface Entry extends Bound {
@@ -337,6 +339,7 @@ export function createAppFrame(deps: AppFrameDeps) {
     unmount(entry);
     record(entry, "disposed");
     closeCore(entry.machine, view_session);
+    deps.onClosed?.(view_session);
   }
 
   // 만든 때의 guest·generation을 고정한다. 그 사이 교체·폐기되면 `current()`가 false다.

@@ -65,6 +65,10 @@ export type AppViews = Registered & {
   appFrame: ReturnType<typeof createAppFrame>;
   /** 앱 view가 부른 것이 갈 core. null은 이 컴퓨터, 아니면 그 기계의 `machines/call`이다. */
   caller: MachineCaller;
+  /** view를 폐기할 때마다 부른다. */
+  onViewClosed(listener: (view_session: string) => void): void;
+  /** 그 기계의 view들이 붙은 agent session. 구독자 `app-views`가 그 기계에 그 session들의 `AcpUpdated`도 건다. */
+  watchSessions(machine: string, sessions: readonly string[]): void;
   externalLinks: ReturnType<typeof createExternalLinks>;
   viewErrors: ReturnType<typeof createViewErrors>;
   /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
@@ -81,6 +85,8 @@ export type AppViews = Registered & {
 
 // 이 영역이 다른 기계에 거는 구독자 이름(`machines/watch`의 watcher). 창의 `w<id>`와 겹치지 않는다.
 const APP_VIEWS_WATCHER = "app-views";
+// 한 구독자가 한 기계에 거는 조건은 64개까지다(`machines/watch`). 앱 event 조건 하나를 빼고 가장 최근에 붙은 session부터 건다.
+const WATCHED_SESSIONS_MAX = 63;
 
 export function register(
   ctx: ShellContext,
@@ -163,7 +169,11 @@ export function register(
     packaged: app.isPackaged,
     headless,
   });
+  const closedListeners: ((view_session: string) => void)[] = [];
   const appFrame = createAppFrame({
+    onClosed: (view_session) => {
+      for (const listener of closedListeners) listener(view_session);
+    },
     core: (machine) => (machine === null ? local : machineCore(machine)),
     self: () => ctx.machines.list().this?.id ?? null,
     views: appViews.views,
@@ -397,14 +407,21 @@ export function register(
   });
   // 다른 기계마다 같은 둘을 건다. 그 기계가 지운 앱은 이 컴퓨터에 둔 그 기계 partition만 비운다. 그 기계에 다시 붙으면(link가 끊기면
   // 그 기계가 이 컴퓨터의 view를 닫았다) 그 기계의 view를 같은 요청으로 다시 연다. 자기 watch에 답한 `ready`(watcher 있음)는 아니다.
+  // 그 기계의 view가 붙은 agent session의 `AcpUpdated`도 같은 구독자로 건다(조건은 구독자마다 통째로 바뀐다).
   const watched = new Set<string>();
+  const sessionsOn = new Map<string, readonly string[]>();
+  const sendWatch = (machine: string) =>
+    ctx.machines.watch(machine as Id<"mch">, APP_VIEWS_WATCHER, [
+      { types: ["AppViewEvent", "AppRemoved"] },
+      ...(sessionsOn.get(machine) ?? [])
+        .slice(-WATCHED_SESSIONS_MAX)
+        .map((session) => ({ session, types: ["AcpUpdated"] })),
+    ]);
   const watchMachines = (list: { machines: readonly { id: Id<"mch"> }[] }) => {
     for (const row of list.machines) {
       if (watched.has(row.id)) continue;
       watched.add(row.id);
-      ctx.machines.watch(row.id, APP_VIEWS_WATCHER, [
-        { types: ["AppViewEvent", "AppRemoved"] },
-      ]);
+      sendWatch(row.id);
     }
   };
   ctx.machines.subscribe(watchMachines);
@@ -434,6 +451,13 @@ export function register(
   return {
     appFrame,
     caller,
+    onViewClosed: (listener) => void closedListeners.push(listener),
+    watchSessions(machine, sessions) {
+      if (sessions.length === 0) sessionsOn.delete(machine);
+      else sessionsOn.set(machine, sessions);
+      watched.add(machine);
+      sendWatch(machine);
+    },
     externalLinks,
     viewErrors,
     owns: browser.nativeBounds.owns,

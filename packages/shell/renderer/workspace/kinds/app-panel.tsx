@@ -127,11 +127,7 @@ export const appPanelKind: TabKindDef = {
     }
     const { app, screen } = tab;
     return (
-      <AppOnMachine
-        app={app}
-        machine={tab.machine ?? host.machine}
-        here={host.machineData(null).apps}
-      >
+      <AppOnMachine app={app} machine={tab.machine ?? host.machine}>
         {() => (
           <AppPanelTab
             app={app}

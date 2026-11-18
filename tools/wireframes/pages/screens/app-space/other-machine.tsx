@@ -42,7 +42,8 @@ import { OrdersView } from "../../../mock/app-space/orders-view.tsx";
 const noop = () => {};
 const TITLE = "Grocery budget";
 
-// 기계마다 같은 dev mock 통로를 쓰는 hub. 다른 기계의 묶음은 이 컴퓨터만의 칸(here, App details, 앱 켜기)이 없다.
+// 기계마다 같은 dev mock 통로를 쓰는 hub. 다른 기계의 묶음은 이 컴퓨터만의 칸(here, App details, 앱 켜기)이 없다. 이 컴퓨터에는
+// 이 앱이 없다(있으면 탭이 이 컴퓨터의 것을 연다).
 function sceneHub(mock: DevMock): MachineHub {
   const events = createEventClient(mock.events);
   const stores = createEventStores(events);
@@ -58,7 +59,16 @@ function sceneHub(mock: DevMock): MachineHub {
           core: mock.core,
           events,
           stores,
-          apps: mock.apps,
+          apps:
+            machine === null
+              ? {
+                  ...mock.apps,
+                  get: (app: string) =>
+                    app === APP_BUDGET
+                      ? Promise.resolve({ ok: true as const, value: null })
+                      : mock.apps.get(app),
+                }
+              : mock.apps,
           appViews: machine === null ? mock.appViews : appViews,
           projectIcons: mock.projectIcons,
           folders: null,

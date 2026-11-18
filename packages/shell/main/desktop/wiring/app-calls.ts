@@ -27,6 +27,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
   });
   const appAgent = createAppAgent({
     call: views.caller,
+    watch: (machine, sessions) => views.watchSessions(machine, sessions),
     send: (view_session, channel, payload) => {
       const port = views.appFrame.annotateView(view_session);
       if (port === undefined) return false;
@@ -40,8 +41,20 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
   // 앱 화면이 연 session의 ACP 갱신. 어느 view로 보낼지는 appAgent가 고른다.
   ctx.relay.conditions.push({ types: ["AcpUpdated"] });
   ctx.relay.events.push((event) => {
-    if (event.type === "AcpUpdated") appAgent.updated(event.payload);
+    if (event.type === "AcpUpdated") appAgent.updated(event.payload, null);
   });
+  // 다른 기계의 view가 붙은 session의 갱신(`app-views`가 그 기계에 건다). 그 기계에 묶인 view에만 간다.
+  ctx.machines.onFrame((machine, message) => {
+    if (message.kind !== "event") return;
+    const event = message.event as { type?: unknown; payload?: unknown };
+    if (event.type === "AcpUpdated") {
+      appAgent.updated(
+        event.payload as { session: string; update: unknown },
+        machine,
+      );
+    }
+  });
+  views.onViewClosed((view_session) => appAgent.forget(view_session));
   registerAppIpc(ctx.ipc, {
     view: (contentsId) => views.appFrame.senderView(contentsId),
     call: (view, input) => appCall.call(view, input),

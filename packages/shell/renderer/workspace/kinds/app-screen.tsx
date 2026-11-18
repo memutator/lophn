@@ -54,11 +54,7 @@ export const appScreenKind: TabKindDef = {
     const app = tab.app;
     if (app === undefined) return null;
     return (
-      <AppOnMachine
-        app={app}
-        machine={tab.machine ?? host.machine}
-        here={host.machineData(null).apps}
-      >
+      <AppOnMachine app={app} machine={tab.machine ?? host.machine}>
         {(machine) => (
           <AppScreenTab
             app={app}

@@ -1295,7 +1295,7 @@ flows:
       - "session 값이 문자열인지 본다. 아니면 invalid_input"
       - "그 session이 이 앱에 보이는지 core에 묻는다(app_sessions.list의 session 한 건). 읽을 때마다 다시 묻는다. 보이는 session은 workspace와 상관없이(call 정책이 닿는 workspace의 lophn·harness session) 붙는다. 터미널 탭(term:)은 ACP session이 아니라 forbidden이다"
       - "보이면 acp snapshot을 돌려준다. 없거나 안 보이는 session은 forbidden이다"
-      - "이후 core의 AcpUpdated는 그 session을 읽은 view에만 app:agent-update로 보낸다"
+      - "이후 core의 AcpUpdated는 그 session을 읽은 view에만 app:agent-update로 보낸다. 다른 기계에 묶인 view가 붙은 session은 구독자 app-views가 그 기계에 그 session의 AcpUpdated를 걸고(view를 닫으면 뺀다), 그 기계의 갱신은 그 기계에 묶인 view에만 간다"
     outcomes:
       - id: snapshot
         observe: [response]

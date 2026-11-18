@@ -106,8 +106,14 @@ export class TerminalDisplays {
       (options.every ?? ((ms, run) => void setInterval(run, ms)))(
         LEASE_RENEW_MS,
         () => {
-          for (const kept of this.#kept.values()) {
-            if (kept.ref !== null) void core.watch(kept.ref, true);
+          for (const [key, kept] of this.#kept) {
+            if (kept.ref === null) continue;
+            const ref = kept.ref;
+            void core.watch(ref, true).then((reply) => {
+              if (!reply.ok && reply.code === "not_found" && kept.ref === ref) {
+                this.#gone(key);
+              }
+            });
           }
         },
       );
@@ -288,6 +294,7 @@ export class TerminalDisplays {
       )
         return;
       kept.loading = false;
+      if (!reply.ok && reply.code === "not_found") this.#gone(key);
       if (reply.ok && reply.value.runtime.generation === generation) {
         const screen = reply.value.output;
         if (screen.length > 0) {
@@ -303,6 +310,16 @@ export class TerminalDisplays {
       this.#write(kept, kept.pending, false);
       kept.pending = [];
       if (reply.ok) this.#runtime(key, reply.value.runtime);
+    });
+  }
+
+  // 그 core에 이 터미널이 없다(그 기계의 core가 다시 떠 PTY가 사라졌다). 마지막 화면은 두고 끝난 터미널로 보인다: 다시 시작을 누르면
+  // 탭이 같은 폴더에 새 터미널을 연다.
+  #gone(key: string): void {
+    const phase = this.#store.get(key)?.phase;
+    if (phase?.kind !== "live") return;
+    this.#store.update(key, {
+      phase: { kind: "ended", ending: "exited", runtime: phase.runtime },
     });
   }
 

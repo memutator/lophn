@@ -163,6 +163,7 @@ function setup() {
           runtime: r,
         }),
       }),
+    ready: () => onMessage({ kind: "ready" }),
     settle,
     watches,
     data: (text: string) => onData(text),
@@ -255,4 +256,24 @@ test("restart 전의 늦은 snapshot과 출력은 새 generation에 쓰지 않�
   assert.equal(cold.requests.length, 1);
   assert.deepStrictEqual(cold.writes, ["new generation", "during restore"]);
   assert.deepStrictEqual(cold.replays, []);
+});
+
+test("연결이 다시 붙었을 때 그 core에 터미널이 없으면 마지막 화면을 둔 채 끝난 터미널이 된다", async () => {
+  const h = setup();
+  h.store.adopt("tab", {
+    terminalRef: "term_1",
+    generation: 1,
+    folderRef: "folder",
+  });
+  h.displays.acquire("tab", "project", h.create);
+  await h.finish(0, [output(1, "screen")]);
+  assert.equal(h.store.get("tab")?.phase.kind, "live");
+  h.ready();
+  await h.settle();
+  h.requests[1]!.finish({ ok: false, code: "not_found", reason: null });
+  await h.settle();
+  const phase = h.store.get("tab")?.phase;
+  assert.equal(phase?.kind, "ended");
+  // runtime을 남겨 탭이 화면을 그대로 보이고 다시 시작을 준다.
+  assert.equal(phase?.kind === "ended" && phase.runtime !== null, true);
 });

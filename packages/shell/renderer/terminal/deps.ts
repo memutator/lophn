@@ -31,6 +31,8 @@ export interface TerminalDeps {
   readonly screenCopy?: true;
   /** 그 기계가 이 컴퓨터의 입력이나 다시 시작을 거절했다(터미널 입력 허락이 없다). 해지를 돌려준다. */
   readonly onRefused?: (listener: (terminal: string) => void) => () => void;
+  /** 그 기계가 이 컴퓨터의 입력을 받아들였다(거절한 뒤 허락이 켜졌다). 해지를 돌려준다. */
+  readonly onAccepted?: (listener: (terminal: string) => void) => () => void;
 }
 
 const CLOSE_CHOICE = "close-terminal";
@@ -96,7 +98,7 @@ export function windowTerminalDeps(
   store: TerminalStore,
   bridge: TerminalApi | null,
   createView: TerminalDeps["createView"],
-  other: Pick<TerminalDeps, "screenCopy" | "onRefused"> = {},
+  other: Pick<TerminalDeps, "screenCopy" | "onRefused" | "onAccepted"> = {},
 ): TerminalDeps {
   const overlay = (globalThis as { lophnShell?: OverlayApi }).lophnShell;
   return {

@@ -57,12 +57,16 @@ export function machineTerminalDeps(
   const terminalCore = createScreenCopyCore(core, events);
   const call = terminalCaller(core);
   const refused = new Set<(terminal: string) => void>();
+  const accepted = new Set<(terminal: string) => void>();
   const typed = async (
     route: Route,
     body: { terminal: string },
   ): Promise<TerminalCall<null>> => {
     const reply = await call(route, body);
-    if (reply.ok) return { ok: true, value: null };
+    if (reply.ok) {
+      for (const listener of accepted) listener(body.terminal);
+      return { ok: true, value: null };
+    }
     if (reply.code === "forbidden") {
       for (const listener of refused) listener(body.terminal);
     }
@@ -93,6 +97,10 @@ export function machineTerminalDeps(
       onRefused(listener) {
         refused.add(listener);
         return () => refused.delete(listener);
+      },
+      onAccepted(listener) {
+        accepted.add(listener);
+        return () => accepted.delete(listener);
       },
     },
   );

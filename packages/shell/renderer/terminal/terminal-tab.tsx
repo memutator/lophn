@@ -255,8 +255,14 @@ export function TerminalTab({
         terminal: current.terminalRef,
         generation: current.generation,
       });
+      if (reply.ok) return;
+      // 그 core가 다시 떠 터미널이 없다. 같은 폴더에 새 터미널을 연다.
+      if (reply.error.code === "not_found") {
+        await open(current.folderRef ?? folderRef);
+        return;
+      }
       // 다른 기계가 이 컴퓨터의 다시 시작을 거절하면 끝난 화면을 두고 toast만 뜬다(`onRefused`).
-      if (!reply.ok && !(copy && reply.error.code === "forbidden")) {
+      if (!(copy && reply.error.code === "forbidden")) {
         store.update(tabKey, { phase: phaseOfRefusal(null) });
       }
       return;
@@ -361,17 +367,33 @@ export function TerminalTab({
   // 다른 기기가 PTY 크기를 잡았다. 칸에 맞추지 않고, 사람이 이 탭을 고르거나 누르면 칸 크기로 다시 잡는다(마지막에 잡은 쪽이
   // 이긴다). 다른 기계의 터미널은 늘 이렇다: 그 기계의 탭과 칸 크기를 다투지 않는다.
   const remote = entry?.remote === true;
+  // 이 탭이 마지막에 잡은 크기. 그 기계가 다른 크기를 알리면 다른 기기가 잡은 것이다(`elsewhere`).
   const grabbed = useRef("");
+  const grabbedDims = useRef("");
+  // 그 기계가 마지막으로 알린 PTY 크기.
+  const ptyDims = useRef("");
+  const [elsewhere, setElsewhere] = useState(false);
   const reclaim = () => {
     if (!(remote || copy) || !core || boundRef === null) return;
     const dims = viewRef.current?.fit();
     if (!dims) return;
-    // 다른 기계의 탭은 치는 key마다 부른다. 이 탭이 잡은 크기가 아직 그대로면(그 기계가 다시 잡지 않았다) 보내지 않는다.
+    // 다른 기계의 탭은 치는 key마다 부른다. 이 탭이 잡은 크기를 다른 기기가 놓게 하지 않았으면(같은 치수) 보내지 않는다.
     const size = `${boundRef}:${boundGeneration}:${dims.columns}x${dims.rows}`;
-    if (copy && remote && size === grabbed.current) return;
+    const held = ptyDims.current === `${dims.columns}x${dims.rows}`;
+    if (copy && !elsewhere && held && size === grabbed.current) return;
     grabbed.current = size;
+    grabbedDims.current = `${dims.columns}x${dims.rows}`;
     void core.resize(boundRef, boundGeneration, dims.columns, dims.rows);
   };
+  useEffect(() => {
+    if (!copy) return;
+    return store.onRuntime((runtime) => {
+      if (runtime.terminal_ref !== boundRef) return;
+      ptyDims.current = `${runtime.columns}x${runtime.rows}`;
+      const mine = grabbedDims.current === ptyDims.current;
+      setElsewhere(runtime.remote_size === true && !mine);
+    });
+  }, [copy, store, boundRef]);
 
   // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다.
   useEffect(() => {
@@ -393,7 +415,10 @@ export function TerminalTab({
     if (!liveKey || !core || boundRef === null) return;
     if (remote || copy) {
       lastSize.current = "";
-      return;
+      // 이 탭이 잡은 크기를 쥔 채 칸이 바뀌면(창 크기) 칸에 다시 맞춘다. 다른 기기가 잡았으면 사람이 누를 때까지 둔다.
+      if (!copy || !active || elsewhere || grabbedDims.current === "") return;
+      const timer = setTimeout(reclaim, 150);
+      return () => clearTimeout(timer);
     }
     const dims = viewRef.current?.fit();
     if (!dims) return;
@@ -411,19 +436,26 @@ export function TerminalTab({
     restored,
     remote,
     copy,
+    active,
+    elsewhere,
   ]);
 
   // 그 기계가 이 컴퓨터의 입력을 거절했다. 화면은 그대로 보이고 toast가 허락을 켤 곳을 말한다.
   const [refused, setRefused] = useState(false);
   const latestRef = useRef(boundRef);
   latestRef.current = boundRef;
-  useEffect(
-    () =>
-      deps.onRefused?.((terminal) => {
-        if (terminal === latestRef.current) setRefused(true);
-      }),
-    [deps],
-  );
+  useEffect(() => {
+    const offRefused = deps.onRefused?.((terminal) => {
+      if (terminal === latestRef.current) setRefused(true);
+    });
+    const offAccepted = deps.onAccepted?.((terminal) => {
+      if (terminal === latestRef.current) setRefused(false);
+    });
+    return () => {
+      offRefused?.();
+      offAccepted?.();
+    };
+  }, [deps]);
 
   const showScreen =
     phase.kind === "live" || (phase.kind === "ended" && phase.runtime !== null);
@@ -482,7 +514,7 @@ export function TerminalTab({
         onKeyDown={reclaim}
       >
         <div ref={hostRef} className={styles.screenHost} />
-        {remote && !copy && showScreen ? (
+        {(copy ? elsewhere : remote) && showScreen ? (
           <div className={styles.remoteSize}>
             {t("terminal.notice.sized-elsewhere")}
           </div>

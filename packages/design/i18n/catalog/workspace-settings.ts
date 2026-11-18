@@ -148,6 +148,7 @@ export const workspaceSettings = {
   "settings.button.turn-on-again": "Turn on again",
   "settings.button.back-to": "Back to {workspace}",
   "settings.button.back-to-home": "Back to Home",
+  "settings.button.this-computer-settings": "This computer's settings",
   "settings.button.add-rule": "Add rule",
   "settings.button.add-call-rule": "Add",
   "settings.button.choose-in-agents": "Choose in Agents",
@@ -298,6 +299,9 @@ export const workspaceSettings = {
     "Use lophn from your phone or from lophn on your other computers. Your devices form one list: a device you invite here joins every computer in it, and they connect over your local network or the relay.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
+  "settings.label.machine-picker": "Settings of",
+  "settings.notice.this-computer-only":
+    "The other settings belong to this computer.",
   "settings.label.accent": "Accent",
   "settings.label.accent-custom": "Pick a color",
   "settings.label.accent-theme": "From theme",

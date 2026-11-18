@@ -10,10 +10,15 @@ import {
   type OverlayAlign,
 } from "../../../shell/overlay-layer.tsx";
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
-import { useDismissUnseen, useWaiting } from "../events/hooks.tsx";
 import { runToastAction } from "../toasts/toast-actions.ts";
 import { createValueStore } from "../events/store.ts";
-import { type FinishedRow, unseenRefOf, useFinished } from "./finished.ts";
+import {
+  type FinishedRow,
+  targetMachine,
+  unseenRefOf,
+  useFinished,
+} from "./finished.ts";
+import { useInbox } from "./inbox.ts";
 import type { SettledRow } from "./settled.ts";
 import { useSettled } from "./settled.ts";
 import { type PanelInitial, WaitingPanel } from "./waiting-panel.tsx";
@@ -58,15 +63,18 @@ export function WaitingLayer({
   renderTrigger,
   initial,
 }: WaitingLayerProps) {
-  const { entries, notices, historyUnread } = useWaiting();
-  const finished = useFinished(initial?.finished);
-  const dismissUnseen = useDismissUnseen();
+  const inbox = useInbox();
+  const { entries, notices, historyUnread } = inbox;
+  const finished = useFinished(inbox, initial?.finished);
   // 배지는 "지금 볼 것이 있다"는 뜻이라 끝난 줄과 휘발 알림, 안 읽은 기록(History)도 센다. 기록을 빼면 SDK 업데이트 같은
   // 놓치면 안 되는 줄이 있어도 사람은 모른다.
   const count =
-    entries.length + finished.length + notices.length + historyUnread;
+    entries.length +
+    (initial?.finished?.length ?? inbox.finishedCount) +
+    notices.length +
+    historyUnread;
   const { open, setOpen } = useWaitingPanel();
-  const settled = useSettled(entries, initial?.settled);
+  const settled = useSettled(inbox, initial?.settled);
   const initialOpen = initial?.open;
   useEffect(() => {
     if (initialOpen !== undefined) setOpen(initialOpen);
@@ -109,11 +117,9 @@ export function WaitingLayer({
       trigger={trigger}
     >
       <WaitingPanel
-        entries={entries}
+        inbox={inbox}
         settled={settled}
         finished={finished}
-        notices={notices}
-        historyUnread={historyUnread}
         initial={initial}
         onOpenTab={
           onOpenTab === undefined
@@ -123,9 +129,11 @@ export function WaitingLayer({
                 onOpenTab();
               }
         }
-        onOpenSession={(session) => {
+        onOpenSession={(session, machine) => {
           setOpen(false);
-          onOpenSession(session);
+          // 다른 기계의 session은 그 기계의 session으로 연다.
+          if (machine === null) onOpenSession(session);
+          else runToastAction({ kind: "session", session, machine });
         }}
         onShowFinished={(target) => {
           setOpen(false);
@@ -134,14 +142,21 @@ export function WaitingLayer({
             target,
           );
         }}
-        onOpenApp={(app) => {
+        onOpenApp={(app, machine) => {
           setOpen(false);
-          runToastAction({ kind: "session", session: null, app });
+          runToastAction({
+            kind: "session",
+            session: null,
+            app,
+            ...(machine === null ? {} : { machine }),
+          });
         }}
         onDismissFinished={(target) => {
-          // core가 못 본 끝을 끄면 Finished 줄과 배지 수가 저절로 빠진다.
+          // 그 기계의 core가 못 본 끝을 끄면 Finished 줄과 배지 수가 저절로 빠진다.
           const ref = unseenRefOf(target);
-          if (ref !== null) dismissUnseen(ref);
+          if (ref !== null) {
+            inbox.sourceOf(targetMachine(target))?.dismiss(ref);
+          }
         }}
       />
     </OverlayLayer>

@@ -56,6 +56,15 @@ export function turnChoicesOf(
 /** 결정 직후 남는 줄의 상태. */
 export type SettledState = "allowed" | "denied" | "cancelled";
 
+export interface SettledRow {
+  readonly id: string;
+  readonly title: string;
+  readonly who: string;
+  readonly state: SettledState;
+  /** 거절 이유가 간 agent의 이름. */
+  readonly agent?: string;
+}
+
 type DecideResult =
   | { readonly ok: true; readonly state: SettledState }
   | { readonly ok: false; readonly code: string };

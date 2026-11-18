@@ -1,0 +1,38 @@
+/* Settings 왼쪽 목록 맨 위의 기계 고르기와 그 아래 안내 줄. */
+.picker {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+}
+
+/* 다른 기계를 골랐을 때 서지 않는 항목의 자리를 대신하는 한 줄. */
+.elsewhere {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-6) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.elsewhere p {
+  margin: var(--space-0);
+}
+
+/* 고른 기계가 붙어 있지 않거나 허락이 없을 때 본문 자리의 한 줄. */
+.gate {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--page-form);
+  min-height: 100%;
+  margin: var(--space-0) auto;
+  padding: var(--space-9) var(--layout-pane-padding-wide);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-body-line);
+}

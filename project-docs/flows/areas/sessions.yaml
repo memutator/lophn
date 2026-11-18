@@ -1939,6 +1939,7 @@ flows:
       - "보고한 쪽은 입력이 아니라 자격(principal)이 정한다: shell main은 사람 자격, 기기는 device:<id>(보고를 받을 때 기기의 kind를 ctx.deviceKind로 읽어 phone인지 정한다). 보고(focused, idle_ms, 보고 중인 session 최대 32)로 그 쪽의 이전 보고를 바꾼다(메모리뿐, 표가 없다)"
       - "90초가 지난 보고는 없는 것이다(죽은 desktop이 push를 막지 않게). kind phone 기기는 focused일 때, 그 밖(사람의 shell main, kind computer 기기)은 focused이고 idle이 120초 아래일 때 앞에 있다"
       - "앞에 있는 host가 새로 보는 session의 unseen을 끈다(StateChanged unseen)"
+      - "이 컴퓨터의 desktop은 기계마다 따로 보고한다: 보이는 session은 그 session의 기계로 가고, 다른 기계에는 machines/call로 넘겨 받는 기계는 kind computer 기기의 보고로 본다. Inbox는 기계마다의 대기 목록과 못 본 끝을 한 목록으로 합쳐 보이고(항목 key는 <기계>:<id>) 결정과 unseen/dismiss는 그 항목의 기계로 간다"
     outcomes:
       - id: recorded
         observe: [response, event:StateChanged]

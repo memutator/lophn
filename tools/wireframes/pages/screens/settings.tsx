@@ -1,6 +1,7 @@
 import type { Area } from "../types.ts";
 import type { ReactNode } from "react";
 import { openSettings } from "../../../../packages/shell/renderer/desktop/router.ts";
+import { SettingsMachineScene } from "./shell/settings-machine-scene.tsx";
 import {
   SettingsAgentsInstructionsPage,
   SettingsAgentsPage,
@@ -480,6 +481,20 @@ export const settingsArea: Area = {
       description:
         "꺼진 extension의 [Remove]를 눌러 연 확인 dialog. extension이 쓴 file만 지우고 사람이 그 폴더에 둔 file은 남는다는 한 줄을 보이고 빨간 Remove(danger)가 오른쪽 끝이다. 켜진 extension은 dialog 없이 먼저 끄라는 글만 보인다.",
       render: () => <SettingsExtensionRemove />,
+    },
+    {
+      id: "settings-machine-picker",
+      title: "Settings · Pick a computer",
+      description:
+        'Settings 왼쪽 목록 맨 위의 기계 고르기(다른 컴퓨터가 명단에 있을 때만 선다)에서 Home server를 고른 상태다. 꺼진 컴퓨터(Laptop)는 고를 수 없다. 그 기계의 core에 걸린 항목(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 서고 나머지 항목은 "이 컴퓨터의 설정" 한 줄과 [This computer\'s settings]다. 본문은 그 기계의 설정을 읽고 쓰고, provider key는 보호 입력 창으로 그 기계에 넣는다.',
+      render: () => <SettingsMachineScene granted />,
+    },
+    {
+      id: "settings-machine-no-grant",
+      title: "Settings · Pick a computer · not allowed",
+      description:
+        "이 컴퓨터가 그 기계에서 터미널 입력을 허락받지 못한 상태. 항목을 열 때마다 묻고, 막히면 본문 자리에 까닭과 허락을 켜는 곳(Settings › Remote › My devices) 한 줄이 선다. 이 컴퓨터의 설정은 그대로 쓸 수 있다.",
+      render: () => <SettingsMachineScene granted={false} />,
     },
     {
       id: "new-settings-diagnostics",

@@ -44,7 +44,7 @@ import {
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { createFakeSource, type FakeSource } from "../events/fake-source.ts";
-import type { SettledRow } from "./settled.ts";
+import type { SettledRow } from "./decide.ts";
 
 const id = (prefix: string, n: number) =>
   `${prefix}_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;

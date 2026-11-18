@@ -22,7 +22,12 @@ import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
 import { HomeGate } from "./workspaces/home-gate.tsx";
-import { useHostMachine, useMachineData } from "./machines/scope.tsx";
+import { useWindowMachine } from "./machines/context.tsx";
+import {
+  useHostMachine,
+  useMachineData,
+  useMachineHub,
+} from "./machines/scope.tsx";
 import {
   createSidebarMemory,
   SidebarMemoryProvider,
@@ -113,8 +118,8 @@ function DefaultToastHandler({
   openSession,
   goApp,
 }: {
-  openSession: (session: string) => void;
-  goApp: (app: string) => void;
+  openSession: (session: string, machine?: string) => void;
+  goApp: (app: string, machine?: string) => void;
 }) {
   const { setOpen } = useWaitingPanel();
   const latest = useRef({ openSession, goApp });
@@ -129,12 +134,12 @@ function DefaultToastHandler({
             return true;
           case "session":
             if (action.session !== null) {
-              current.openSession(action.session);
+              current.openSession(action.session, action.machine);
               return true;
             }
             // 열린 session이 없는 반응(앱 재시작 중단)은 그 앱 공간으로 간다.
             if (action.app === undefined) return false;
-            current.goApp(action.app);
+            current.goApp(action.app, action.machine);
             return true;
         }
       }),
@@ -253,15 +258,18 @@ export function Desktop({
   const { sessions } = useSessions();
   const known = useRef(sessions);
   known.current = sessions;
-  const openSession = (session: string) => {
-    const workspace = known.current.find(
-      (entry) => entry.session === session,
-    )?.workspace;
+  const hub = useMachineHub();
+  const openSession = (session: string, machine?: string) => {
+    const workspace = (
+      machine === undefined
+        ? known.current
+        : (hub?.get(machine).stores.sessions.get().sessions ?? [])
+    ).find((entry) => entry.session === session)?.workspace;
     if (workspace?.kind === "project") {
-      setRoute(openProject(workspace.id, { session }));
+      setRoute(openProject(workspace.id, { session, ...on(machine) }));
     } else if (workspace?.kind === "app")
-      setRoute(openApp(workspace.id, session));
-    else setRoute(openHome(session));
+      setRoute(openApp(workspace.id, session, machine));
+    else setRoute(openHome(session, machine));
   };
   // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project면 store가 탭을 고른다.
   const terminalBridge = terminal?.bridge;
@@ -500,7 +508,9 @@ export function Desktop({
           <PaletteProvider deps={palette} onHome={home}>
             <DefaultToastHandler
               openSession={openSession}
-              goApp={(app) => setRoute(openApp(app))}
+              goApp={(app, machine) =>
+                setRoute(openApp(app, undefined, machine))
+              }
             />
             <GlobalFloatsProvider
               enabled={

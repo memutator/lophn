@@ -6,7 +6,7 @@ import { busEventSchema } from "../../../../../protocol/events/mod.ts";
 import { createEventClient } from "./client.ts";
 import { createFakeSource } from "./fake-source.ts";
 import { reactionsOf } from "./reactions.ts";
-import { createWaitingStore } from "./waiting-store.ts";
+import { createWaitingStore, inboxKey } from "./waiting-store.ts";
 
 const SES = "ses_01h455vb4pex5v6nkc6gd5fd01";
 const TURN = "trn_01h455vb4pex5v6nkc6gd5fd01";
@@ -202,4 +202,9 @@ test("팀 자식의 요청과 질문(to_parent)은 사람의 대기 목록에 �
   await settle();
   assert.deepStrictEqual(ids(store), [id("apr", 8)]);
   stop();
+});
+
+test("합친 Inbox의 key는 기계를 붙여 같은 앱 id의 동의가 두 기계에서 하나로 접히지 않는다", () => {
+  assert.notEqual(inboxKey(null, REL), inboxKey("mch_other", REL));
+  assert.notEqual(inboxKey("mch_a", APP), inboxKey("mch_b", APP));
 });

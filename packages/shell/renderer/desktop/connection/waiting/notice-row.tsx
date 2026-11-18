@@ -24,11 +24,14 @@ const ACTION_BUTTON = {
 
 export function NoticeRow({
   row,
+  machineName,
   onOpen,
   onDismiss,
   onAction,
 }: {
   row: Notice;
+  /** 이 컴퓨터가 아닌 기계의 알림이면 그 이름. */
+  machineName?: string | undefined;
   onOpen: (app: string) => void;
   /** 휘발 줄은 지우고, 안 읽은 영구 줄은 읽음으로 바꾼다. 읽은 줄에는 단추가 없다. */
   onDismiss: (id: string) => void;
@@ -68,6 +71,7 @@ export function NoticeRow({
           <span className={styles.meta}>
             {[
               row.app_name,
+              machineName ?? null,
               row.kind === "app" ? null : t(KIND_LABEL[row.kind]),
               formatRelativeTime(new Date(row.created_at), new Date()),
             ]

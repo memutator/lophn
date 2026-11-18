@@ -13,6 +13,7 @@ import { Driven } from "../../mock/driven.tsx";
 import { click, press, type, type Step } from "../../mock/drive.ts";
 import { MockDesktop } from "../../mock/mock-desktop.tsx";
 import type { Area } from "../types.ts";
+import { InboxMachinesScene } from "./shell/inbox-machines-scene.tsx";
 
 const JOBS_TAB = { key: "jobs", kind: "jobs", title: "Jobs" } as const;
 const INBOX_TAB = { key: "inbox", kind: "inbox", title: "Inbox" } as const;
@@ -57,6 +58,20 @@ export const overlaysArea: Area = {
         "왼쪽 sidebar의 Inbox 줄이 여는 대기 목록. Jobs overlay와 같이 줄 오른쪽 옆으로 열리고 머리 오른쪽에 [Open in tab] 아이콘 단추가 있다. 누르면 Inbox 탭이 열리고 panel이 닫힌다.",
       render: () =>
         driven([() => press('[data-nav="inbox"]')], <MockDesktop />),
+    },
+    {
+      id: "overlay-inbox-machines",
+      title: "Overlay · Inbox · All machines",
+      description:
+        "이 컴퓨터(Studio) 창의 Inbox가 모든 기계의 대기 목록을 한 목록에 보인다. 다른 기계의 줄은 머리 오른쪽에 그 기계 이름 꼬리표(Home server, Laptop)를 달고 이 컴퓨터의 줄은 꼬리표가 없다. 같은 앱(Orders)의 동의가 이 컴퓨터와 Home server에 다 있어도 두 줄이다(항목 key에 기계가 붙는다). 결정은 그 줄의 기계로 간다. 꺼진 기계(Laptop)의 줄은 마지막으로 본 채 흐리게 남고 결정 단추 대신 꺼져 있다는 한 줄이 선다. 배지는 모든 기계의 수를 센다.",
+      render: () => <InboxMachinesScene view="overlay" />,
+    },
+    {
+      id: "inbox-tab-machines",
+      title: "Inbox tab · All machines",
+      description:
+        "Inbox 탭의 Now가 모든 기계의 것을 종류별로 묶어 보인다(권한 요청에 Home server와 Laptop, 앱 업데이트 동의에 이 컴퓨터와 Home server, Jobs에 Home server). 기계 꼬리표, 꺼진 기계의 흐린 줄은 overlay와 같다. History 탭은 이 컴퓨터의 기록이다.",
+      render: () => <InboxMachinesScene view="tab" />,
     },
     {
       id: "jobs-tab",

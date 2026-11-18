@@ -7,28 +7,46 @@ import type { OverlayLead } from "./overlay.ts";
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const session = z.string().regex(new RegExp(`^ses_${ULID}$`));
 const app = z.string().regex(new RegExp(`^app_${ULID}$`));
+// 이 컴퓨터가 아닌 기계의 id. 없으면 이 컴퓨터다.
+const machine = z.string().regex(/^mch_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const terminalRef = z
   .string()
   .min(1)
   .max(80)
   .regex(/^[A-Za-z0-9_-]+$/);
 
-/** 알림이 가리키는 탭. 누르면 이 탭을 고른다. */
+/** 알림이 가리키는 탭. 누르면 이 탭을 고른다. `machine`이 있으면 그 기계의 것이다. */
 export const noticeTargetSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("terminal"), terminal_ref: terminalRef }).strict(),
-  z.object({ kind: z.literal("session"), session }).strict(),
+  z
+    .object({
+      kind: z.literal("terminal"),
+      terminal_ref: terminalRef,
+      machine: machine.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("session"),
+      session,
+      machine: machine.optional(),
+    })
+    .strict(),
   // 앱이 사람에게 한 알림. 누르면 그 앱 공간을 연다.
-  z.object({ kind: z.literal("app"), app }).strict(),
+  z
+    .object({ kind: z.literal("app"), app, machine: machine.optional() })
+    .strict(),
   // 앱 없는 program 기록(SDK 업데이트 필요). 누르면 Inbox를 연다.
   z.object({ kind: z.literal("inbox") }).strict(),
 ]);
 
 /**
  * 그 Agent session 탭이나 앱 화면(view_session)이 이 창에 보이는지. 창은 보낸 webContents로 안다. 앱 화면이 보이면 그
- * 화면이 쥔 session의 승인·질문 알림을 낼 필요가 없다.
+ * 화면이 쥔 session의 승인·질문 알림을 낼 필요가 없다. `machine`은 그 session이 다른 기계의 것일 때만 준다.
  */
 export const noticeVisibleSchema = z.union([
-  z.object({ session, visible: z.boolean() }).strict(),
+  z
+    .object({ session, machine: machine.optional(), visible: z.boolean() })
+    .strict(),
   z
     .object({
       view_session: z.string().min(1).max(200),
@@ -51,10 +69,10 @@ export type NoticeToast = {
   target: NoticeTarget;
 };
 
-/** main이 창에 고르라고 보내는 것: Agent session 탭, 앱 공간, Inbox. */
+/** main이 창에 고르라고 보내는 것: Agent session 탭, 앱 공간, Inbox. `machine`은 다른 기계의 것일 때만 있다. */
 export type NoticeReveal =
-  | { session: string }
-  | { app: string }
+  | { session: string; machine?: string }
+  | { app: string; machine?: string }
   | { inbox: true };
 
 /** preload가 shell renderer에 여는 알림 통로. */

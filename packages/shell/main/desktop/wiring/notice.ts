@@ -5,6 +5,8 @@
 // 무엇을 보고 있는지(창 focus, idle, 보이는 session·터미널)는 core에도 알린다(presence). 못 본 turn 끝(`unseen`)은 core가 든다.
 import { BrowserWindow, Notification, powerMonitor } from "electron";
 
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import {
   ALERT_PROGRAM_KINDS,
   type Notice as NoticeRow,
@@ -30,7 +32,7 @@ import {
 import type { AvatarFace, OverlayLead } from "../../../ipc/overlay.ts";
 import { TERMINAL_REVEAL_CHANNEL } from "../../../ipc/terminal.ts";
 import { excerpt } from "../../notice/excerpt.ts";
-import { createPresenceReporter } from "../../notice/presence.ts";
+import { createMachinePresence } from "../../notice/presence.ts";
 import {
   createSessionNotices,
   routeNotice,
@@ -50,6 +52,24 @@ const STARTUP_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "sdk_update_needed",
   "app_unavailable",
 ]);
+
+// 이 영역이 다른 기계에 거는 구독자 이름(`machines/watch`의 watcher). 창의 `w<id>`와 겹치지 않는다.
+const NOTICE_WATCHER = "notice";
+
+// 알림을 띄울 session event(이 컴퓨터와 다른 기계에 같은 조건을 건다).
+const SESSION_EVENT_TYPES = [
+  "TurnStarted",
+  "TurnEnded",
+  "TurnRequestOpened",
+  "QuestionAsked",
+  "SessionEnded",
+] as const;
+
+// 다른 기계에 거는 조건: 이 컴퓨터에 거는 알림 조건(session event, 알림 기록, 터미널 coding agent의 신호)이다.
+const OTHER_MACHINE_CONDITIONS = [
+  { types: [...SESSION_EVENT_TYPES] },
+  { types: ["NoticePosted", "TerminalAgentSignaled"] },
+];
 
 const TITLES = {
   finished: {
@@ -80,6 +100,8 @@ type EventPayload = {
 };
 
 export type Notice = {
+  /** 이 컴퓨터가 아닌 기계의 알림이면 그 기계. 제목에 그 이름이 붙고 누르면 그 기계의 것을 연다. */
+  machine?: Id<"mch">;
   kind: keyof typeof TITLES;
   /** 제목에 쓸 누가: harness 제품 이름이나 lophn agent 이름. */
   agent: string;
@@ -119,6 +141,9 @@ export function createNoticeWiring(
   terminalRefs: () => string[],
 ): NoticeWiring {
   const visibility = new SessionVisibility();
+  // 기계 이름(알림 제목의 꼬리). 목록에서 빠진 기계는 이름 없이 간다.
+  const nameOf = (machine: Id<"mch">) =>
+    ctx.machines.list().machines.find((row) => row.id === machine)?.name;
   // 창마다 보이는 앱 화면(view_session). 같은 표 type을 session 대신 view_session으로 쓴다.
   const viewVisibility = new SessionVisibility();
   let serial = 0;
@@ -135,12 +160,21 @@ export function createNoticeWiring(
     if (window === undefined) return false;
     const contents = window.webContents.id;
     if (target.kind === "app" || target.kind === "inbox") return false;
-    return target.kind === "terminal"
-      ? focus.focused(contents, target.terminal_ref)
-      : visibility.isVisible(contents, target.session) ||
-          appSessions
-            .viewsOf(target.session)
-            .some((view) => viewVisibility.isVisible(contents, view));
+    if (target.kind === "terminal") {
+      // 다른 기계의 터미널은 이 컴퓨터의 터미널 표에 없다.
+      return (
+        target.machine === undefined &&
+        focus.focused(contents, target.terminal_ref)
+      );
+    }
+    return (
+      visibility.isVisible(contents, target.session, target.machine) ||
+      // 앱 화면이 쥔 session은 이 컴퓨터의 것만 안다.
+      (target.machine === undefined &&
+        appSessions
+          .viewsOf(target.session)
+          .some((view) => viewVisibility.isVisible(contents, view)))
+    );
   }
 
   // 알림을 누르면 그 탭을 가진 창을 앞으로 가져오고 탭을 고르라고 알린다.
@@ -149,9 +183,11 @@ export function createNoticeWiring(
     const live = [...ctx.windows].filter((window) => !window.isDestroyed());
     const owner =
       target.kind === "terminal"
-        ? focus.contentsOf(target.terminal_ref)
+        ? target.machine === undefined
+          ? focus.contentsOf(target.terminal_ref)
+          : undefined
         : target.kind === "session"
-          ? visibility.owner(target.session)
+          ? visibility.owner(target.session, target.machine)
           : undefined;
     const found =
       live.find((item) => item.webContents.id === owner) ??
@@ -168,6 +204,8 @@ export function createNoticeWiring(
     const send = () => {
       if (window.isDestroyed()) return;
       if (target.kind === "terminal") {
+        // 다른 기계의 터미널은 창만 앞으로 가져온다(이 컴퓨터는 그 터미널의 project를 모른다).
+        if (target.machine !== undefined) return;
         const project = projectOf(target.terminal_ref);
         if (project === undefined) return;
         for (const item of found === undefined ? [window] : live) {
@@ -179,9 +217,13 @@ export function createNoticeWiring(
       } else if (target.kind === "session") {
         window.webContents.send(NOTICE_REVEAL_CHANNEL, {
           session: target.session,
+          ...(target.machine === undefined ? {} : { machine: target.machine }),
         });
       } else if (target.kind === "app") {
-        window.webContents.send(NOTICE_REVEAL_CHANNEL, { app: target.app });
+        window.webContents.send(NOTICE_REVEAL_CHANNEL, {
+          app: target.app,
+          ...(target.machine === undefined ? {} : { machine: target.machine }),
+        });
       } else {
         window.webContents.send(NOTICE_REVEAL_CHANNEL, { inbox: true });
       }
@@ -233,17 +275,27 @@ export function createNoticeWiring(
     return route !== "none";
   }
 
+  // 다른 기계의 알림은 제목 끝에 그 기계 이름이 붙는다.
+  function onMachine(title: string, machine: Id<"mch"> | undefined): string {
+    const name = machine === undefined ? undefined : nameOf(machine);
+    return name === undefined ? title : `${title} · ${name}`;
+  }
+
   function show(notice: Notice): boolean {
     return present(
-      titleOf(notice.kind, notice.agent, notice.workspace),
+      onMachine(
+        titleOf(notice.kind, notice.agent, notice.workspace),
+        notice.machine,
+      ),
       notice.body,
       notice.lead,
       notice.target,
     );
   }
 
-  // core 읽기 하나. 읽지 못하거나 모양이 다르면 null이다(알림이 안 뜨는 것보다 본문이 비는 쪽이 낫다).
+  // core 읽기 하나(그 기계의 core). 읽지 못하거나 모양이 다르면 null이다(알림이 안 뜨는 것보다 본문이 비는 쪽이 낫다).
   async function read<T>(
+    machine: Id<"mch"> | null,
     kind: "read" | "memory",
     route: {
       resource: string;
@@ -256,27 +308,32 @@ export function createNoticeWiring(
     },
     input: unknown,
   ): Promise<T | null> {
-    const reply = await ctx.coreInternal(
-      kind,
-      route.resource,
-      route.method,
-      input,
-    );
+    const reply =
+      machine === null
+        ? await ctx.coreInternal(kind, route.resource, route.method, input)
+        : await ctx.machines.link(machine).call({
+            resource: route.resource,
+            method: route.method,
+            body: input,
+          });
     if (!reply.ok) return null;
     const parsed = route.output.safeParse(reply.value);
     return parsed.success ? parsed.data : null;
   }
 
   // 누구의 어느 session인지. agent 이름·profile은 사람이 바꿀 수 있고 session 이름도 바뀌어서 알릴 때마다 읽는다.
-  async function who(session: string): Promise<SessionWho | null> {
-    const snapshots = await read("read", sessionSnapshotsList, {
+  async function who(
+    machine: Id<"mch"> | null,
+    session: string,
+  ): Promise<SessionWho | null> {
+    const snapshots = await read(machine, "read", sessionSnapshotsList, {
       sessions: [session],
     });
     const agent = snapshots?.snapshots[0]?.agent;
     if (agent === undefined) return null;
     const [definition, record] = await Promise.all([
-      read("read", agentRead, { agent }),
-      read("read", workspaceSessionRead, { session }),
+      read(machine, "read", agentRead, { agent }),
+      read(machine, "read", workspaceSessionRead, { session }),
     ]);
     // 정의를 읽지 못하면 이름 대신 lophn과 그 밖의 agent만 가른다.
     const name =
@@ -302,9 +359,12 @@ export function createNoticeWiring(
   }
 
   // 끝난 turn의 마지막 답 글. TurnEnded가 싣는 message 중 글이 있는 마지막 것이다(app 카드만 있는 답은 건너뛴다).
-  async function lastAnswer(messages: string[]): Promise<string | undefined> {
+  async function lastAnswer(
+    machine: Id<"mch"> | null,
+    messages: string[],
+  ): Promise<string | undefined> {
     for (const message of messages.toReversed()) {
-      const body = await read("read", messageBody, { message });
+      const body = await read(machine, "read", messageBody, { message });
       const text = body?.content.parts
         .flatMap((part) => (part.kind === "text" ? [part.text] : []))
         .join("\n");
@@ -316,11 +376,14 @@ export function createNoticeWiring(
 
   // 알림 본문. 알 수 없으면 없다.
   async function bodyOf(
+    machine: Id<"mch"> | null,
     kind: SessionNotice["kind"],
     event: SessionEvent,
   ): Promise<string | undefined> {
     const payload = event.payload as EventPayload | undefined;
-    if (kind === "finished") return await lastAnswer(payload?.messages ?? []);
+    if (kind === "finished") {
+      return await lastAnswer(machine, payload?.messages ?? []);
+    }
     if (kind === "failed") return excerpt(payload?.error?.message);
     if (event.type === "TurnRequestOpened") {
       const subject = payload?.request?.subject;
@@ -332,53 +395,81 @@ export function createNoticeWiring(
             : subject?.tool,
       );
     }
-    const asked = await read("memory", askRead, {
+    const asked = await read(machine, "memory", askRead, {
       session: event.session,
       tool_call: payload?.tool_call,
     });
     return excerpt(asked?.questions[0].question);
   }
 
-  const sessions = createSessionNotices({
-    who,
-    bodyOf,
-    looking: (session) => looking({ kind: "session", session }),
-    appSession: async (session) =>
-      (await read("read", workspaceSessionRead, { session }))?.session
-        .opened_by_app != null,
-    notify: (notice: SessionNotice) =>
-      show({
-        kind: notice.kind,
-        agent: notice.who.agent,
-        workspace: notice.who.title,
-        body: notice.body,
-        lead: { kind: "avatar", profile: notice.who.profile },
-        target: { kind: "session", session: notice.who.session },
-      }),
-  });
+  // 기계마다 알림 규칙 하나(읽기와 알림의 대상이 그 기계다). 처음 쓸 때 짓는다.
+  const sessionNotices = new Map<
+    Id<"mch"> | null,
+    ReturnType<typeof createSessionNotices>
+  >();
+  function sessionsOf(machine: Id<"mch"> | null) {
+    let found = sessionNotices.get(machine);
+    if (found === undefined) {
+      const on = machine === null ? {} : { machine };
+      found = createSessionNotices({
+        who: (session) => who(machine, session),
+        bodyOf: (kind, event) => bodyOf(machine, kind, event),
+        looking: (session) => looking({ kind: "session", session, ...on }),
+        appSession: async (session) =>
+          (await read(machine, "read", workspaceSessionRead, { session }))
+            ?.session.opened_by_app != null,
+        notify: (notice: SessionNotice) =>
+          show({
+            ...on,
+            kind: notice.kind,
+            agent: notice.who.agent,
+            workspace: notice.who.title,
+            body: notice.body,
+            lead: { kind: "avatar", profile: notice.who.profile },
+            target: { kind: "session", session: notice.who.session, ...on },
+          }),
+      });
+      sessionNotices.set(machine, found);
+    }
+    return found;
+  }
 
-  // focus를 가진 lophn 창에 보이는 session과 고른 터미널. 앱 화면(view_session)은 싣지 않는다: 앱 화면이 쥔 session은
-  // 앱이 연 것이라 core가 못 본 끝을 세우지 않는다.
-  const presence = createPresenceReporter({
-    view() {
+  // 기계마다 그 기계에 알리는 보고. 보이는 session은 기계마다 달라 보고도 기계마다 짓는다: 이 창들에 focus가 있는지와 그 기계의 session만
+  // 싣는다. 이 컴퓨터 말고는 그 기계에 닿아 있을 때만 보낸다(실패는 다음 주기가 메운다).
+  const presence = createMachinePresence({
+    view(machine) {
       const window = focusedWindow();
       if (window === undefined) return { focused: false, looking: [] };
       const contents = window.webContents.id;
+      // 앱 화면(view_session)은 싣지 않는다: 앱 화면이 쥔 session은 앱이 연 것이라 core가 못 본 끝을 세우지 않는다.
       return {
         focused: true,
-        looking: [
-          ...visibility.visibleIn(contents),
-          ...terminalRefs()
-            .filter((ref) => focus.focused(contents, ref))
-            .map(terminalSessionId),
-        ],
+        looking:
+          machine === null
+            ? [
+                ...visibility.visibleIn(contents),
+                ...terminalRefs()
+                  .filter((ref) => focus.focused(contents, ref))
+                  .map(terminalSessionId),
+              ]
+            : visibility.visibleIn(contents, machine),
       };
     },
     idleMs: () => powerMonitor.getSystemIdleTime() * 1000,
-    send(report) {
+    send(machine, report) {
       // headless는 사람이 앞에 없다.
       if (ctx.headless.headless) return;
-      void ctx.coreInternal("memory", "presence", "report", report);
+      if (machine === null) {
+        void ctx.coreInternal("memory", "presence", "report", report);
+        return;
+      }
+      const row = ctx.machines
+        .list()
+        .machines.find((one) => one.id === machine);
+      if (row?.status !== "connected") return;
+      void ctx.machines
+        .link(machine as Id<"mch">)
+        .call({ resource: "presence", method: "report", body: report });
     },
     every(ms, fn) {
       const timer = setInterval(fn, ms);
@@ -386,53 +477,56 @@ export function createNoticeWiring(
       return () => clearInterval(timer);
     },
   });
-  ctx.relay.ready.push(() => presence.report());
+  ctx.relay.ready.push(() => presence.report(null));
 
-  ctx.relay.conditions.push({
-    types: [
-      "TurnStarted",
-      "TurnEnded",
-      "TurnRequestOpened",
-      "QuestionAsked",
-      "SessionEnded",
-    ],
-  });
-  ctx.relay.events.push((event) => void sessions.event(event));
+  ctx.relay.conditions.push({ types: [...SESSION_EVENT_TYPES] });
+  ctx.relay.events.push((event) => void sessionsOf(null).event(event));
   // 사람에게 한 알림. 보고 있는 탭이 없으므로 lophn 창에 focus가 있으면 toast, 아니면 OS 알림이다.
   // 놓친 알림은 다시 띄우지 않는다(Inbox 줄이 남는다. 기동 중의 급한 program 기록만 예외로 아래에서 다시 읽는다).
   // 앱이 한 알림은 모두 띄운다. program 기록은 사람이 알아야 하는 종류(ALERT_PROGRAM_KINDS)만 띄운다.
-  // 한 번 띄운 행(id와 시각). 같은 key로 바뀐 행은 시각이 달라 다시 띄운다.
+  // 한 번 띄운 행(기계, id, 시각). 같은 key로 바뀐 행은 시각이 달라 다시 띄운다.
   const presented = new Set<string>();
-  function presentRow(posted: NoticeRow): void {
-    const key = `${posted.id}:${posted.created_at}`;
+  function presentRow(posted: NoticeRow, machine?: Id<"mch">): void {
+    const key = `${machine ?? ""}:${posted.id}:${posted.created_at}`;
     if (presented.has(key)) return;
     presented.add(key);
+    const on = machine === undefined ? {} : { machine };
     // 앱 없는 기록(SDK 업데이트 필요)은 누르면 Inbox를 연다. 앱 없는 기록은 ALERT 목록에 든 것만 여기까지 온다.
     present(
-      posted.app === null
-        ? posted.title
-        : `${posted.app_name ?? "App"} · ${posted.title}`,
+      onMachine(
+        posted.app === null
+          ? posted.title
+          : `${posted.app_name ?? "App"} · ${posted.title}`,
+        machine,
+      ),
       excerpt(posted.body),
       undefined,
       posted.app === null
         ? { kind: "inbox" }
-        : { kind: "app", app: posted.app },
+        : { kind: "app", app: posted.app, ...on },
     );
+  }
+  function alerts(event: {
+    type: string;
+    payload?: unknown;
+  }): NoticeRow | null {
+    if (event.type !== "NoticePosted") return null;
+    const posted = event.payload as NoticeRow;
+    if (posted.read_at !== null) return null;
+    if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
+      return null;
+    }
+    return posted;
   }
   ctx.relay.conditions.push({ types: ["NoticePosted"] });
   ctx.relay.events.push((event) => {
-    if (event.type !== "NoticePosted") return;
-    const posted = event.payload as NoticeRow;
-    if (posted.read_at !== null) return;
-    if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
-      return;
-    }
-    presentRow(posted);
+    const posted = alerts(event);
+    if (posted !== null) presentRow(posted);
   });
   // core는 기동 일(SDK 판 확인)을 마친 뒤 ready를 내고 shell은 그 뒤에 구독하므로 그 사이의 NoticePosted는 오지 않는다.
   // 붙을 때마다 안 읽은 급한 program 기록을 읽어 아직 띄우지 않은 것만 띄운다.
   ctx.relay.ready.push(() => {
-    void read("read", noticesOpen, {}).then((open) => {
+    void read(null, "read", noticesOpen, {}).then((open) => {
       for (const row of open?.notices ?? []) {
         if (
           row.source === "program" &&
@@ -443,6 +537,72 @@ export function createNoticeWiring(
         }
       }
     });
+  });
+
+  // 다른 기계마다 같은 조건을 건다(구독자 하나가 그 기계에 거는 전부). 그 기계의 event는 같은 규칙으로 띄우되 알림 글에 그 기계 이름이
+  // 붙고 누르면 그 기계의 것을 연다. 기기 event 목록에 없는 event는 그 기계가 보내지 않는다.
+  const watched = new Set<string>();
+  const reported = new Map<string, boolean>();
+  function machinesChanged(list: ReturnType<typeof ctx.machines.list>) {
+    presence.machines([null, ...list.machines.map((row) => row.id)]);
+    for (const machine of [...watched]) {
+      if (list.machines.some((row) => row.id === machine)) continue;
+      watched.delete(machine);
+      reported.delete(machine);
+      ctx.machines.watch(machine as Id<"mch">, NOTICE_WATCHER, []);
+    }
+    for (const row of list.machines) {
+      if (!watched.has(row.id)) {
+        watched.add(row.id);
+        ctx.machines.watch(row.id, NOTICE_WATCHER, OTHER_MACHINE_CONDITIONS);
+      }
+      // 다시 붙은 기계에는 보고를 한 번 더 보낸다.
+      const connected = row.status === "connected";
+      if (connected && reported.get(row.id) !== true) presence.report(row.id);
+      reported.set(row.id, connected);
+    }
+  }
+  const stopMachines = ctx.machines.subscribe(machinesChanged);
+  machinesChanged(ctx.machines.list());
+  // 그 기계가 다시 붙어도(`ready`) 놓친 알림은 다시 띄우지 않는다.
+  ctx.machines.onFrame((machine, message) => {
+    if (message.kind !== "event") return;
+    const event = message.event as {
+      type: string;
+      session?: string;
+      payload?: unknown;
+    };
+    if (event.type === "NoticePosted") {
+      const posted = alerts(event);
+      if (posted !== null) presentRow(posted, machine);
+    } else if (event.type === "TerminalAgentSignaled") {
+      const signal = event.payload as {
+        harness: string;
+        kind: "waiting" | "finished" | "failed";
+        name?: string;
+        body?: string;
+        terminal: string;
+      };
+      show({
+        machine,
+        kind: signal.kind === "waiting" ? "permission" : signal.kind,
+        agent:
+          signal.name ??
+          (signal.harness in HARNESS_ADAPTERS
+            ? HARNESS_ADAPTERS[signal.harness as keyof typeof HARNESS_ADAPTERS]
+                .label
+            : signal.harness),
+        body: excerpt(signal.body),
+        lead: { kind: "harness", harness: signal.harness },
+        target: {
+          kind: "terminal",
+          terminal_ref: signal.terminal,
+          machine,
+        },
+      });
+    } else {
+      void sessionsOf(machine).event(event);
+    }
   });
   ctx.windowHooks.created.push((window) => {
     window.on("focus", () => presence.changed());
@@ -470,6 +630,7 @@ export function createNoticeWiring(
         event.sender.id,
         parsed.value.session,
         parsed.value.visible,
+        parsed.value.machine,
       );
     }
     presence.changed();
@@ -486,6 +647,10 @@ export function createNoticeWiring(
     show,
     terminalFocusChanged: () => presence.changed(),
     stop() {
+      stopMachines();
+      for (const machine of watched) {
+        ctx.machines.watch(machine as Id<"mch">, NOTICE_WATCHER, []);
+      }
       presence.stop();
       ctx.ipc.removeHandler(NOTICE_VISIBLE_CHANNEL);
       ctx.ipc.removeHandler(NOTICE_OPEN_CHANNEL);

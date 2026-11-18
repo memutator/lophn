@@ -12,11 +12,24 @@ import { desktopScope, type FileOpen } from "../palette/desktop-scope.ts";
 import { type SettingsPanels, SettingsScreen } from "./settings-screen.tsx";
 import {
   DEFAULT_PANE,
+  MACHINE_PANES,
   paneLabel,
   SETTINGS_GROUPS,
   type SettingsPane,
 } from "./model.ts";
 import type { SettingsSource } from "./source.ts";
+import { useMachineGrant, useMachinesView } from "../machines/context.tsx";
+import {
+  type MachineRef,
+  MachineScope,
+  useMachineData,
+  useMachineHub,
+} from "../machines/scope.tsx";
+import {
+  MachinePicker,
+  SettingsGate,
+  ThisComputerOnly,
+} from "./machine-picker.tsx";
 import styles from "./settings-space.module.css";
 
 interface SettingsSpaceProps {
@@ -46,6 +59,9 @@ interface SettingsSpaceProps {
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 // Settings 공간. 왼쪽 sidebar가 항목 목록을 들고 본문은 고른 항목 하나만 그린다. 대화는 이 화면에 기대지 않는다.
+// 왼쪽 위에서 설정을 열 기계를 고른다. 다른 기계를 고르면 그 기계의 core에 걸린 항목(`MACHINE_PANES`)만 서고 나머지 항목은 "이
+// 컴퓨터의 설정" 한 줄이다. 이 컴퓨터가 그 기계에서 터미널 입력을 허락받지 못했으면(항목을 열 때마다 묻는다) 열 항목 자리는 그 까닭
+// 한 줄이다.
 export function SettingsSpace({
   source,
   settingsPane: initialPane,
@@ -63,6 +79,25 @@ export function SettingsSpace({
     initialPane ?? DEFAULT_PANE,
   );
   const [left, setLeft] = useSidebarOpen("left", true);
+  const [machine, setMachine] = useState<MachineRef>(null);
+  const hub = useMachineHub();
+  const view = useMachinesView();
+  const others =
+    hub === null
+      ? []
+      : (view?.machines ?? []).filter((one) => one.status !== "removed");
+  // 고른 기계가 명단에 없으면(빠졌다) 이름도 모른다.
+  const item =
+    machine === null
+      ? null
+      : (others.find((one) => one.id === machine) ?? null);
+  const shown = (id: SettingsPane) => machine === null || MACHINE_PANES.has(id);
+  const pickMachine = (next: MachineRef) => {
+    setMachine(next);
+    if (next !== null && !MACHINE_PANES.has(settingsPane)) {
+      setSettingsPane(DEFAULT_PANE);
+    }
+  };
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
@@ -155,25 +190,39 @@ export function SettingsSpace({
               </button>
               {waiting}
             </div>
+            {others.length === 0 ? null : (
+              <MachinePicker
+                machine={machine}
+                machines={others}
+                onPick={pickMachine}
+              />
+            )}
             <div className={styles.navList}>
               {SETTINGS_GROUPS.map((group) => (
                 <div key={group.id} className={styles.navGroup}>
                   <div className={styles.sectionHead}>{t(group.label)}</div>
-                  {group.panes.map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      className={styles.navRow}
-                      data-settings-pane={entry.id}
-                      aria-current={entry.id === settingsPane || undefined}
-                      onClick={() => setSettingsPane(entry.id)}
-                    >
-                      <Icon icon={entry.icon} pixels={16} />
-                      <span className={styles.rowLabel}>{t(entry.label)}</span>
-                    </button>
-                  ))}
+                  {group.panes
+                    .filter((entry) => shown(entry.id))
+                    .map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className={styles.navRow}
+                        data-settings-pane={entry.id}
+                        aria-current={entry.id === settingsPane || undefined}
+                        onClick={() => setSettingsPane(entry.id)}
+                      >
+                        <Icon icon={entry.icon} pixels={16} />
+                        <span className={styles.rowLabel}>
+                          {t(entry.label)}
+                        </span>
+                      </button>
+                    ))}
                 </div>
               ))}
+              {machine === null ? null : (
+                <ThisComputerOnly onThisComputer={() => pickMachine(null)} />
+              )}
             </div>
           </nav>
         }
@@ -189,21 +238,66 @@ export function SettingsSpace({
             </span>
           </div>
           <div className={styles.cardBody}>
-            {settings ? (
-              <SettingsScreen
-                {...settingsPanels}
-                pane={settingsPane}
-                onPane={setSettingsPane}
-                source={settings}
+            {machine === null ? (
+              settings ? (
+                <SettingsScreen
+                  {...settingsPanels}
+                  pane={settingsPane}
+                  onPane={setSettingsPane}
+                  source={settings}
+                />
+              ) : (
+                <p className={styles.notReady} data-not-ready="settings">
+                  {t("common.empty.not-ready")}
+                </p>
+              )
+            ) : item === null || item.status !== "connected" ? (
+              <SettingsGate
+                reason={
+                  item === null
+                    ? "removed"
+                    : item.status === "connecting"
+                      ? "connecting"
+                      : "offline"
+                }
+                name={item?.name ?? t("machines.label.unknown-name")}
               />
             ) : (
-              <p className={styles.notReady} data-not-ready="settings">
-                {t("common.empty.not-ready")}
-              </p>
+              <MachineScope key={machine} machine={machine}>
+                <OtherMachineSettings
+                  name={item.name}
+                  pane={settingsPane}
+                  onPane={setSettingsPane}
+                />
+              </MachineScope>
             )}
           </div>
         </div>
       </ShellFrame>
     </div>
+  );
+}
+
+// 다른 기계의 설정. 그 기계 범위 안에서 그린다: 항목의 통로와 허락 묻기가 모두 그 기계로 간다.
+function OtherMachineSettings({
+  name,
+  pane,
+  onPane,
+}: {
+  name: string;
+  pane: SettingsPane;
+  onPane: (pane: SettingsPane) => void;
+}) {
+  const data = useMachineData();
+  const grant = useMachineGrant(true, pane);
+  if (grant === "checking") return null;
+  if (grant === "denied") return <SettingsGate reason="no-grant" name={name} />;
+  return (
+    <SettingsScreen
+      {...data.settingsPanels}
+      pane={pane}
+      onPane={onPane}
+      source={data.settings}
+    />
   );
 }

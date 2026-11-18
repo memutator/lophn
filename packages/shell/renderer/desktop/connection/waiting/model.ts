@@ -47,6 +47,8 @@ function shareWho(request: ShareRequest): string {
 
 export interface CardView {
   readonly kind: WaitingEntry["kind"];
+  /** 이 컴퓨터가 아닌 기계의 이름(꼬리표). */
+  readonly machine: string | undefined;
   readonly title: string;
   readonly description: string;
   /** 누가·어느 session·어느 앱 또는 project. */
@@ -330,12 +332,13 @@ export function jobHoldNote(hold: JobHold, now = new Date()): string {
 const NO_LINES: readonly Line[] = [];
 
 export function cardOf(
-  entry: WaitingEntry,
+  entry: WaitingEntry & { readonly machineName?: string | undefined },
   names: InboxNames = NO_NAMES,
   now = new Date(),
 ): CardView {
   const base = {
     kind: entry.kind,
+    machine: entry.machineName,
     meta: metaOf(entry, names),
     age: formatRelativeTime(new Date(entry.receivedAt), now),
     requester: requesterOf(entry),

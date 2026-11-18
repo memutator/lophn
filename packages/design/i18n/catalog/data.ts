@@ -153,6 +153,8 @@ export const data = {
   "waiting.notice.history-empty-filtered": "Nothing matches these filters.",
   "waiting.notice.history-loading": "Loading history.",
   "waiting.notice.empty": "Nothing needs you right now.",
+  "waiting.notice.machine-off":
+    "{name} is off. This is how it looked last; you can answer when it is back.",
   "waiting.notice.share":
     "Wants {who} to use its {skills, plural, one {# public skill} other {# public skills}} and {commands, plural, one {# public command} other {# public commands}}. Nothing changes until you approve.",
   "waiting.notice.job-agent": "Asks {agent}.",

@@ -3,15 +3,19 @@
 import { useEffect } from "react";
 
 import type { LophnNoticeApi } from "../../ipc/notice.ts";
+import { useScopeMachine } from "../desktop/machines/scope.tsx";
 
 /** `shown`은 mount돼 있어도 CSS로 숨긴 칸(side panel의 다른 탭)을 가르려고 받는다. */
 export function useReportVisible(session: string | null, shown = true): void {
+  // 다른 기계의 session은 그 기계와 함께 알린다. 그 기계에도 보고 있다고 알리는 쪽이 main이다.
+  const machine = useScopeMachine();
   useEffect(() => {
     const notice = (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice;
     if (notice === undefined || session === null || !shown) return;
-    void notice.visible({ session, visible: true });
-    return () => void notice.visible({ session, visible: false });
-  }, [session, shown]);
+    const on = machine === null ? {} : { machine };
+    void notice.visible({ session, ...on, visible: true });
+    return () => void notice.visible({ session, ...on, visible: false });
+  }, [session, shown, machine]);
 }
 
 /**

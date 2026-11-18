@@ -50,3 +50,59 @@ export function createPresenceReporter(deps: PresenceDeps): {
     stop,
   };
 }
+
+export type MachinePresenceDeps = {
+  /** 그 기계(null이 이 컴퓨터)에 알릴 것. */
+  view(machine: string | null): PresenceView;
+  idleMs(): number;
+  send(
+    machine: string | null,
+    report: PresenceView & { idle_ms: number },
+  ): void;
+  every(ms: number, fn: () => void): () => void;
+};
+
+/**
+ * 이 창들이 보는 것을 기계마다 그 기계에 알린다. 보이는 session은 기계마다 달라 보고도 기계마다 짓는다. 알릴 기계가 들어오면
+ * 주기에 들고, 빠진 기계는 거둔다.
+ */
+export function createMachinePresence(deps: MachinePresenceDeps): {
+  /** 알릴 기계 전부(이 컴퓨터는 null). */
+  machines(list: readonly (string | null)[]): void;
+  changed(): void;
+  /** 바뀌지 않았어도 한 기계에 보낸다(그 기계에 다시 붙었을 때). */
+  report(machine: string | null): void;
+  stop(): void;
+} {
+  const reporters = new Map<
+    string | null,
+    ReturnType<typeof createPresenceReporter>
+  >();
+  return {
+    machines(list) {
+      for (const machine of list) {
+        if (reporters.has(machine)) continue;
+        const reporter = createPresenceReporter({
+          view: () => deps.view(machine),
+          idleMs: deps.idleMs,
+          send: (report) => deps.send(machine, report),
+          every: deps.every,
+        });
+        reporters.set(machine, reporter);
+      }
+      for (const [machine, reporter] of [...reporters]) {
+        if (list.includes(machine)) continue;
+        reporter.stop();
+        reporters.delete(machine);
+      }
+    },
+    changed() {
+      for (const reporter of reporters.values()) reporter.changed();
+    },
+    report: (machine) => reporters.get(machine)?.report(),
+    stop() {
+      for (const reporter of reporters.values()) reporter.stop();
+      reporters.clear();
+    },
+  };
+}

@@ -67,6 +67,14 @@ export type WaitingEntry =
   // 앱 workspace의 agent가 청한 앱 공유. id는 앱이다(앱마다 열린 요청은 하나).
   | (Common & { readonly kind: "share"; readonly request: ShareRequest });
 
+/**
+ * 합친 Inbox의 항목 key. activation id(release)와 share id(app)가 기계를 건너 같은 앱 id로 겹쳐서 기계를 붙인다.
+ * 이 컴퓨터(null)는 `here`다(기계 id `mch_`와 겹치지 않는다).
+ */
+export function inboxKey(machine: string | null, id: string): string {
+  return `${machine ?? "here"}:${id}`;
+}
+
 type JobReads = { holds: JobHold[]; pending: JobRecord[] };
 const JOB_KINDS: readonly WaitingEntry["kind"][] = ["job_hold", "job_approval"];
 

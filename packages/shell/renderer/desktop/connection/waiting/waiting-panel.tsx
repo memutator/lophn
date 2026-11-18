@@ -5,7 +5,6 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { t } from "@lophn/i18n";
-import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -13,8 +12,7 @@ import {
   harnessVendorOf,
   VendorIcon,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
-import { useEventClient } from "../events/hooks.tsx";
-import type { WaitingEntry } from "../events/waiting-store.ts";
+import { MachineScope, useMachineHub } from "../../machines/scope.tsx";
 import { ActivationCard } from "./cards/activation-card.tsx";
 import { JobApprovalCard } from "./cards/job-approval-card.tsx";
 import { JobHoldCard } from "./cards/job-hold-card.tsx";
@@ -28,8 +26,9 @@ import { QuestionCard } from "./cards/question-card.tsx";
 import type { FinishedRow } from "./finished.ts";
 import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
 import { HistoryView } from "./history-view.tsx";
+import type { Inbox, InboxEntry, InboxNotice } from "./inbox.ts";
 import { cardOf } from "./model.ts";
-import { useInboxNames } from "./names.ts";
+import { NO_NAMES, useInboxNames } from "./names.ts";
 import { NoticeRow } from "./notice-row.tsx";
 import type { Settled, SettledRow } from "./settled.ts";
 import styles from "./waiting.module.css";
@@ -104,11 +103,11 @@ function NotificationList({
   onDismissNotice,
 }: {
   finished: readonly FinishedRow[];
-  notices: readonly Notice[];
+  notices: readonly InboxNotice[];
   onShow: (target: NoticeTarget) => void;
   onDismissFinished: (target: NoticeTarget) => void;
-  onOpenApp: (app: string) => void;
-  onDismissNotice: (id: string) => void;
+  onOpenApp: (app: string, machine: string | null) => void;
+  onDismissNotice: (notice: InboxNotice) => void;
 }) {
   return (
     <section
@@ -143,6 +142,11 @@ function NotificationList({
                 <p className={styles.title}>{row.label}</p>
                 <span className={styles.meta}>{row.title}</span>
               </div>
+              {row.machineName === undefined ? null : (
+                <span className={styles.machine} data-machine-tag="">
+                  {row.machineName}
+                </span>
+              )}
               <Button size="sm" trailingIcon={actionIcons.open}>
                 {t("waiting.button.show-finished")}
               </Button>
@@ -163,10 +167,11 @@ function NotificationList({
       })}
       {notices.map((row) => (
         <NoticeRow
-          key={row.id}
+          key={row.key}
           row={row}
-          onOpen={onOpenApp}
-          onDismiss={onDismissNotice}
+          machineName={row.machineName}
+          onOpen={(app) => onOpenApp(app, row.machine)}
+          onDismiss={() => onDismissNotice(row)}
         />
       ))}
     </section>
@@ -183,11 +188,9 @@ export interface PanelInitial {
 }
 
 export function WaitingPanel({
-  entries,
+  inbox,
   settled,
   finished,
-  notices,
-  historyUnread,
   initial,
   page = false,
   onOpenTab,
@@ -196,30 +199,36 @@ export function WaitingPanel({
   onDismissFinished,
   onOpenApp,
 }: {
-  entries: readonly WaitingEntry[];
+  /** 모든 기계의 대기 목록. 결정은 항목의 기계 core로 간다. */
+  inbox: Inbox;
   settled: Settled;
   finished: readonly FinishedRow[];
-  notices: readonly Notice[];
-  /** 안 읽은 영구 기록 수. 배지에는 더하지 않고 History 탭 머리에만 보인다. */
-  historyUnread: number;
   initial?: PanelInitial;
   /** true면 탭 본문으로 그린다(떠 있는 panel의 폭·그림자·높이 제한이 없다). */
   page?: boolean;
   /** 머리의 [Open in tab]. 탭 안에서는 주지 않는다. */
   onOpenTab?: () => void;
-  onOpenSession: (session: string) => void;
+  /** 질문 카드의 [Open session]. 다른 기계의 session이면 그 기계(null이 이 컴퓨터)를 준다. */
+  onOpenSession: (session: string, machine: string | null) => void;
   onShowFinished: (target: NoticeTarget) => void;
   onDismissFinished: (target: NoticeTarget) => void;
-  /** 앱 알림 줄을 누르면 그 앱 공간을 연다. */
-  onOpenApp: (app: string) => void;
+  /** 앱 알림 줄을 누르면 그 앱 공간을 연다. 다른 기계의 앱이면 그 기계(null이 이 컴퓨터)를 준다. */
+  onOpenApp: (app: string, machine: string | null) => void;
 }) {
-  const core = useEventClient().core;
+  const { entries, notices, historyUnread } = inbox;
   const names = useInboxNames();
+  const hub = useMachineHub();
+  const history = <HistoryView onOpenApp={(app) => onOpenApp(app, null)} />;
   const [view, setView] = useState(initial?.view ?? "now");
 
-  function decider(entry: WaitingEntry): OnDecide {
+  function decider(entry: InboxEntry): OnDecide {
     return async (choice, reason) => {
-      const result = await decideWaiting(core, entry, choice, reason);
+      const result = await decideWaiting(
+        inbox.coreOf(entry.machine),
+        entry,
+        choice,
+        reason,
+      );
       if (!result.ok) return false;
       // 항목은 TurnRequestClosed·ActivationConsentClosed가 목록에서 뺀다.
       settled.add(entry, result.state);
@@ -227,8 +236,10 @@ export function WaitingPanel({
     };
   }
 
-  function card(entry: WaitingEntry) {
-    const view = cardOf(entry, names);
+  function cardBody(entry: InboxEntry) {
+    // 이름은 이 컴퓨터의 workspace 것이다.
+    const view = cardOf(entry, entry.machine === null ? names : NO_NAMES);
+    const core = inbox.coreOf(entry.machine);
     const props: DecideCardProps = {
       entry,
       view,
@@ -240,37 +251,52 @@ export function WaitingPanel({
     };
     switch (entry.kind) {
       case "permission":
-        return <PermissionCard key={entry.id} {...props} />;
+        return <PermissionCard key={entry.key} {...props} />;
       case "question":
         return (
           <QuestionCard
-            key={entry.id}
+            key={entry.key}
             entry={entry}
             view={view}
             core={core}
-            onOpenSession={onOpenSession}
+            onOpenSession={(session) => onOpenSession(session, entry.machine)}
           />
         );
       case "activation":
-        return <ActivationCard key={entry.id} {...props} />;
+        return <ActivationCard key={entry.key} {...props} />;
       case "share":
         return (
-          <ShareCard key={entry.id} entry={entry} view={view} core={core} />
+          <ShareCard key={entry.key} entry={entry} view={view} core={core} />
         );
       case "job_hold":
         return (
-          <JobHoldCard key={entry.id} entry={entry} view={view} core={core} />
+          <JobHoldCard key={entry.key} entry={entry} view={view} core={core} />
         );
       case "job_approval":
         return (
           <JobApprovalCard
-            key={entry.id}
+            key={entry.key}
             entry={entry}
             view={view}
             core={core}
           />
         );
     }
+  }
+
+  // 꺼진 기계의 항목은 마지막으로 본 채 흐리게 남고 결정 단추가 없다.
+  function card(entry: InboxEntry) {
+    const body = cardBody(entry);
+    return entry.offline ? (
+      <div key={entry.key} className={styles.offline} data-offline="">
+        {body}
+        <p className={styles.offlineNote}>
+          {t("waiting.notice.machine-off", { name: entry.machineName ?? "" })}
+        </p>
+      </div>
+    ) : (
+      body
+    );
   }
 
   return (
@@ -348,7 +374,9 @@ export function WaitingPanel({
                 onShow={onShowFinished}
                 onDismissFinished={onDismissFinished}
                 onOpenApp={onOpenApp}
-                onDismissNotice={(id) => void dismissNotice(core, id)}
+                onDismissNotice={(notice) =>
+                  void dismissNotice(inbox.coreOf(notice.machine), notice.id)
+                }
               />
             ) : null}
             {settled.rows.length > 0 ? (
@@ -356,7 +384,12 @@ export function WaitingPanel({
             ) : null}
           </TabPanel>
           <TabPanel value="history">
-            <HistoryView onOpenApp={onOpenApp} />
+            {/* History는 이 컴퓨터의 기록이다. */}
+            {hub === null ? (
+              history
+            ) : (
+              <MachineScope machine={null}>{history}</MachineScope>
+            )}
           </TabPanel>
         </Tabs>
       </div>

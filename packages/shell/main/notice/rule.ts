@@ -123,18 +123,28 @@ function turnEndKind(payload: unknown): "finished" | "failed" | null {
       : null;
 }
 
+// 기계마다 session id를 따로 센다. machine이 없으면 이 컴퓨터다(`mch_` id와 겹치지 않는 빈 칸).
+const keyOf = (machine: string | undefined, session: string) =>
+  `${machine ?? ""}\u0000${session}`;
+
 /**
  * 창마다 보이는 Agent session 표. 대화 화면이 보이고 사라질 때 알린다. 같은 창에 같은 session이 두 곳(탭과
- * float 같은) 보일 수 있어 수를 센다. 하나가 사라져도 남은 곳은 계속 보인다.
+ * float 같은) 보일 수 있어 수를 센다. 하나가 사라져도 남은 곳은 계속 보인다. 다른 기계의 session은 그 기계(`machine`)와 함께 센다.
  */
 export class SessionVisibility {
   readonly #by = new Map<number, Map<string, number>>();
 
-  set(contentsId: number, session: string, visible: boolean): void {
+  set(
+    contentsId: number,
+    session: string,
+    visible: boolean,
+    machine?: string,
+  ): void {
+    const key = keyOf(machine, session);
     const sessions = this.#by.get(contentsId) ?? new Map<string, number>();
-    const count = (sessions.get(session) ?? 0) + (visible ? 1 : -1);
-    if (count > 0) sessions.set(session, count);
-    else sessions.delete(session);
+    const count = (sessions.get(key) ?? 0) + (visible ? 1 : -1);
+    if (count > 0) sessions.set(key, count);
+    else sessions.delete(key);
     if (sessions.size === 0) this.#by.delete(contentsId);
     else this.#by.set(contentsId, sessions);
   }
@@ -144,19 +154,23 @@ export class SessionVisibility {
     this.#by.delete(contentsId);
   }
 
-  /** 그 창에 보이는 session(앱 화면이면 view_session) 모두. */
-  visibleIn(contentsId: number): string[] {
-    return [...(this.#by.get(contentsId)?.keys() ?? [])];
+  /** 그 창에 보이는 그 기계의 session(앱 화면이면 view_session) 모두. 기계를 주지 않으면 이 컴퓨터다. */
+  visibleIn(contentsId: number, machine?: string): string[] {
+    const prefix = keyOf(machine, "");
+    return [...(this.#by.get(contentsId)?.keys() ?? [])]
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length));
   }
 
-  isVisible(contentsId: number, session: string): boolean {
-    return this.#by.get(contentsId)?.has(session) ?? false;
+  isVisible(contentsId: number, session: string, machine?: string): boolean {
+    return this.#by.get(contentsId)?.has(keyOf(machine, session)) ?? false;
   }
 
   /** 그 session이 보이는 창의 webContents id. 어디에도 안 보이면 undefined다. */
-  owner(session: string): number | undefined {
+  owner(session: string, machine?: string): number | undefined {
+    const key = keyOf(machine, session);
     for (const [contentsId, sessions] of this.#by) {
-      if (sessions.has(session)) return contentsId;
+      if (sessions.has(key)) return contentsId;
     }
     return undefined;
   }

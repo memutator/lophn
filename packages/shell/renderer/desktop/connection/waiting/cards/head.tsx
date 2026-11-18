@@ -47,6 +47,11 @@ export function Head({
         <span className={styles.meta}>{view.meta}</span>
       </div>
       <div className={styles.side}>
+        {view.machine === undefined ? null : (
+          <span className={styles.machine} data-machine-tag="">
+            {view.machine}
+          </span>
+        )}
         <span className={styles.age}>{view.age}</span>
         {toggle === undefined ? (
           <span className={styles.slot} />

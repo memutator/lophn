@@ -1,8 +1,8 @@
 // 반응 층이 낸 toast와 main이 보낸 알림(agent turn 끝·물음)을 창 위 overlay의 notification 표면으로 띄운다.
 // 창마다 한 번 마운트한다. toast는 한 번에 하나만 띄우고 나머지는 차례를 기다린다(표면마다 오른쪽 아래에
-// 쌓이면 겹친다). 놓친 toast는 대기 목록이 보인다. main의 알림은 focus를 가진 창에만 오고 누르면 main이 그
-// 탭을 고르게 한다.
-import { useEffect } from "react";
+// 쌓이면 겹친다). 기계마다 그 기계의 event를 듣고, 다른 기계의 toast는 제목 끝에 그 이름이 붙는다. 놓친 toast는 대기 목록이
+// 보인다. main의 알림은 focus를 가진 창에만 오고 누르면 main이 그 탭을 고르게 한다.
+import { useEffect, useRef } from "react";
 import { t } from "@lophn/i18n";
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import type {
@@ -11,7 +11,8 @@ import type {
   OverlayLead,
 } from "../../../../ipc/overlay.ts";
 import { overlayConsumer, toastAnchor } from "../../../overlay/consumer.ts";
-import { useEventClient } from "../events/hooks.tsx";
+import { inboxKey } from "../events/waiting-store.ts";
+import { useInbox } from "../waiting/inbox.ts";
 import { REACTION_EVENT_TYPES, reactionsOf } from "../events/reactions.ts";
 import { runToastAction } from "./toast-actions.ts";
 import { toastText } from "./toast-text.ts";
@@ -31,7 +32,11 @@ interface Item {
 }
 
 export function ToastHost({ overlay }: { overlay: OverlayApi }) {
-  const client = useEventClient();
+  // 기계 목록이 바뀔 때만(이름이나 연결 상태가 아니라) 구독을 다시 건다: 떠 있는 toast가 끊기지 않게.
+  const inboxSources = useInbox().sources;
+  const sources = useRef(inboxSources);
+  sources.current = inboxSources;
+  const machineKey = sources.current.map((one) => one.machine ?? "").join();
   const notice = (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice;
 
   useEffect(() => {
@@ -93,23 +98,36 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
       },
     );
 
-    const unsubscribe = client.subscribe(
-      { types: [...REACTION_EVENT_TYPES] },
-      (message) => {
+    const unsubscribes = sources.current.map(({ machine, client }) =>
+      client.subscribe({ types: [...REACTION_EVENT_TYPES] }, (message) => {
         if (message.kind !== "event") return;
         for (const reaction of reactionsOf(message.event, "live")) {
-          if (seen.has(reaction.id)) continue;
-          seen.add(reaction.id);
+          const id = inboxKey(machine, reaction.id);
+          if (seen.has(id)) continue;
+          seen.add(id);
           queue.push({
-            id: reaction.id,
-            text: () => toastText(reaction),
+            id,
+            text: () => {
+              const text = toastText(reaction);
+              const name = sources.current.find(
+                (one) => one.machine === machine,
+              )?.name;
+              return name === undefined
+                ? text
+                : { ...text, title: `${text.title} · ${name}` };
+            },
             run: reaction.action
-              ? () => runToastAction(reaction.action!)
+              ? () =>
+                  runToastAction(
+                    machine === null
+                      ? reaction.action!
+                      : { ...reaction.action!, machine },
+                  )
               : undefined,
           });
         }
         next();
-      },
+      }),
     );
 
     const stopToast = notice?.onToast((toast) => {
@@ -133,20 +151,33 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
         "inbox" in reveal
           ? { kind: "waiting" }
           : "app" in reveal
-            ? { kind: "session", session: null, app: reveal.app }
-            : { kind: "session", session: reveal.session },
+            ? {
+                kind: "session",
+                session: null,
+                app: reveal.app,
+                ...(reveal.machine === undefined
+                  ? {}
+                  : { machine: reveal.machine }),
+              }
+            : {
+                kind: "session",
+                session: reveal.session,
+                ...(reveal.machine === undefined
+                  ? {}
+                  : { machine: reveal.machine }),
+              },
       ),
     );
 
     return () => {
       stopped = true;
-      unsubscribe();
+      unsubscribes.forEach((stop) => stop());
       stopToast?.();
       stopReveal?.();
       if (identity) void overlay.close(identity);
       consumer.dispose();
     };
-  }, [client, overlay, notice]);
+  }, [machineKey, overlay, notice]);
 
   return null;
 }

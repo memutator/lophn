@@ -2,9 +2,9 @@
 import { useEffect } from "react";
 
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
-import { useDismissUnseen, useWaiting } from "../events/hooks.tsx";
 import { runToastAction } from "../toasts/toast-actions.ts";
-import { unseenRefOf, useFinished } from "./finished.ts";
+import { targetMachine, unseenRefOf, useFinished } from "./finished.ts";
+import { useInbox } from "./inbox.ts";
 import { useSettled } from "./settled.ts";
 import { WaitingPanel } from "./waiting-panel.tsx";
 
@@ -20,10 +20,9 @@ export function WaitingPage({
   /** 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
 }) {
-  const { entries, notices, historyUnread } = useWaiting();
-  const finished = useFinished();
-  const dismissUnseen = useDismissUnseen();
-  const settled = useSettled(entries);
+  const inbox = useInbox();
+  const finished = useFinished(inbox);
+  const settled = useSettled(inbox);
   const { clear } = settled;
   useEffect(() => {
     if (!active) clear();
@@ -31,19 +30,26 @@ export function WaitingPage({
   return (
     <WaitingPanel
       page
-      entries={entries}
+      inbox={inbox}
       settled={settled}
       finished={finished}
-      notices={notices}
-      historyUnread={historyUnread}
-      onOpenSession={onOpenSession}
+      onOpenSession={(session, machine) =>
+        machine === null
+          ? onOpenSession(session)
+          : runToastAction({ kind: "session", session, machine })
+      }
       onShowFinished={(target) => notice()?.open(target)}
       onDismissFinished={(target) => {
         const ref = unseenRefOf(target);
-        if (ref !== null) dismissUnseen(ref);
+        if (ref !== null) inbox.sourceOf(targetMachine(target))?.dismiss(ref);
       }}
-      onOpenApp={(app) =>
-        runToastAction({ kind: "session", session: null, app })
+      onOpenApp={(app, machine) =>
+        runToastAction({
+          kind: "session",
+          session: null,
+          app,
+          ...(machine === null ? {} : { machine }),
+        })
       }
     />
   );

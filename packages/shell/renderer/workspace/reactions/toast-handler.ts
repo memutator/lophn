@@ -26,9 +26,12 @@ export function useToastHandler(host: ReactionHost): void {
             setOpen(true);
             return true;
           case "session":
-            // session이 없는 쪽은 앱 재시작 중단 toast다. 앱 공간으로 가는 기본 처리기가 맡는다.
+            // session이 없는 쪽은 앱 재시작 중단 toast다. 앱 공간으로 가는 기본 처리기가 맡는다. 다른 기계의 session도 기본
+            // 처리기가 그 기계의 workspace로 가서 연다.
             return (
-              action.session !== null && current.openSession(action.session)
+              action.session !== null &&
+              action.machine === undefined &&
+              current.openSession(action.session)
             );
         }
       }),

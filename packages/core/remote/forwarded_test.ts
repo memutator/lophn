@@ -14,6 +14,7 @@ import type {
 import { appRemoteCall } from "../../protocol/apps/mod.ts";
 import { appGet, appList } from "../../protocol/apps/apps.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
+import { appViewsLogError } from "../../protocol/apps/views.ts";
 import { carryWants } from "../../protocol/remote/carry.ts";
 import {
   terminalsInput,
@@ -219,6 +220,7 @@ function setup() {
     appGet,
     appTools,
     appRemoteCall,
+    appViewsLogError,
     turnRequestDecide,
     carryWants,
     workspaceSessionList,
@@ -301,6 +303,13 @@ function setup() {
       ["roster/invite", reach("roster/invite")],
       ["roster/remove", reach("roster/remove")],
       ["machines/call", reach("machines/call")],
+      [
+        "app_views/log_error",
+        () => {
+          reached.push("app_views/log_error");
+          return ok({ written: true });
+        },
+      ],
       [
         "apps/remote_call",
         entry({
@@ -768,4 +777,41 @@ test("terminals/name·rename_saved와 instructions/read_global·write_global은 
     "instructions/read_global",
     "instructions/write_global",
   ]);
+});
+
+test("app_views/log_error는 폰과 컴퓨터의 screen 요청은 받지만 agent·app 요청은 거절한다", async () => {
+  const s = setup();
+  const body = { view: "vw_1", message: "boom" };
+  assert.equal(
+    code(await (await s.as(PHONE, "app_views", "log_error"))(body)),
+    "ok",
+  );
+  assert.equal(
+    code(
+      await (await s.as(BARE, "app_views", "log_error"))(
+        body,
+        requesters.screen,
+      ),
+    ),
+    "ok",
+  );
+  assert.equal(
+    code(
+      await (await s.as(GRANTED, "app_views", "log_error"))(
+        body,
+        requesters.agent,
+      ),
+    ),
+    "forbidden",
+  );
+  assert.equal(
+    code(
+      await (await s.as(GRANTED, "app_views", "log_error"))(
+        body,
+        requesters.app,
+      ),
+    ),
+    "forbidden",
+  );
+  assert.deepEqual(s.reached, ["app_views/log_error", "app_views/log_error"]);
 });

@@ -42,7 +42,12 @@ import {
 import { appPhoneFile, appPhoneScreens } from "../apps/phone.ts";
 import { appRuntime } from "../apps/runtime.ts";
 import { appGrantsList } from "../apps/grants.ts";
-import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
+import {
+  appViewsCall,
+  appViewsClose,
+  appViewsLogError,
+  appViewsOpen,
+} from "../apps/views.ts";
 import { appWidgetsList } from "../apps/widget.ts";
 import {
   codingSessionsCliSessions,
@@ -228,7 +233,7 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), 폰 backend file(`apps/phone_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
 // view id로만 앱을 부르고, 부를 수 있는 operation은 core가 그 view에 묶인 release의 선언에 있는 것만으로 판정한다. 그래서
 // 앱을 직접 부르는 `apps/call_tool`과 grant를 바꾸는 `app_grants/*`는 넣지 않는다(읽기 `app_grants/list`만 둔다). 화면 오류를 쓰는
-// `apps/log_view_error`도 넣지 않는다: 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다.
+// `apps/log_view_error`는 넣지 않고(입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다), 자기가 연 view에만 쓰는 `app_views/log_error`만 둔다.
 // 다른 컴퓨터의 창에 뜬 이 기계의 앱 화면: 그 화면의 agent 길(`app_sessions/*`, `app_calls/*`, `app_agents/list`)을 둔다. 기기는 자기가 연
 // view를 실어야 하고 앱은 core가 그 view로 정한다(입력의 앱을 믿지 않는다).
 // 폰에서 도는 앱: 폰이 앱 backend와 migration file(`apps/phone_file`)을 받고 자기 사본을 컴퓨터와 맞춘다(`app_sync/*`). `app_sync/push`는
@@ -355,6 +360,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   appViewsOpen,
   appViewsCall,
   appViewsClose,
+  appViewsLogError,
   // 다른 컴퓨터의 창에 뜬 앱 화면: 그 앱이 받은 허락 읽기, 화면의 agent session과 call(기기는 자기가 연 view의 앱으로만)
   appGrantsList,
   appSessionsList,

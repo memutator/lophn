@@ -1,5 +1,5 @@
 id: instructions-global-route-registration
-version: 0.23.92
+version: 0.23.93
 title: "전역 지침 memory route 등록 누락 수정 및 core 기동 실패 로그 보완"
 modules:
   - packages/core/lophn-agent

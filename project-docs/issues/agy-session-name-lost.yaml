@@ -1,0 +1,12 @@
+id: agy-session-name-lost
+title: Antigravity coding session의 이름이 저장되지 않거나 전환·재개 때 사라진다
+kind: bug
+status: open
+topic: coding-agent
+modules: [packages/protocol, packages/core/terminal-agents, packages/shell/renderer]
+now: |
+  네 곳이 겹쳐 있다. (1) `packages/protocol/coding-agent/hook-signal.ts`의 `TurnStarted`가 `payload.prompt`만 읽는데 Antigravity hook은 `payload.lastUserInput`을 보내 `tracker.ts`의 `title`이 늘 `null`로 남는다. (2) `packages/shell/renderer/terminal/terminal-gui.tsx`가 제목이 오기 전 기본 라벨 `"Antigravity"`를 `guiTitle`로 내보내고 `packages/shell/renderer/terminal/model.ts`의 `terminalName`이 `guiTitle !== agent.label`을 거르지 않아 기억해 둔 `agentTitle`을 `"Antigravity"`로 덮어쓰며, `packages/core/terminal-agents/service.ts`는 GUI ACP의 `session.title`을 `AgentSessionStore`에 저장하지 않는다. (3) `packages/shell/renderer/workspace/kinds/terminal.tsx`의 `namingOf`가 `agent.title`을 넘기지 않고 resume으로 열 때(`workspace-window.tsx`, `tracker.ts`) 저장된 이름을 복원하지 않는다. (4) 닫힌 Recent 줄의 이름 바꾸기(`workspace-left-sidebar.tsx`, `pinAgentSessionName`)가 열린 탭이 없거나 `agent?.session`이 없으면 조용히 빠진다.
+impact: |
+  Antigravity 대화의 제목과 사람이 붙인 이름이 탭 전환, GUI↔TUI 전환, 재개, 재시작 뒤에 `"Antigravity"`로 돌아가 대화를 구분할 수 없다.
+fix: |
+  `hook-signal.ts`에서 `lastUserInput`을 읽고, `terminal-agents/service.ts`와 `tracker.ts`가 GUI 제목 저장과 `AgentSessionStore` 복원을 맞물리며, `terminal-gui.tsx`·`model.ts`·`terminal.tsx`·`workspace-left-sidebar.tsx`·`workspace-window.tsx`에서 기본 라벨 덮어쓰기를 막고 저장된 세션 이름 바꾸기를 `renameSaved`로 잇는다.

@@ -1,0 +1,14 @@
+id: chat-settings-missing
+title: 대화 화면의 전송 키·도는 중 기본 전달·상세 펼침을 고르는 chat 설정이 없다
+kind: bug
+status: open
+topic: settings
+modules: [packages/core/config, packages/shell/renderer, packages/protocol]
+now: |
+  `packages/shell/renderer/desktop/settings/model.ts`와 `packages/core/config/shell-settings.ts`에는 Appearance(글꼴, 폭, 크기)와 단축키 표만 있고 대화 동작 설정(`Enter` vs `Ctrl/Cmd+Enter` 전송, turn이 도는 동안 기본 Queue vs Steer, tool 상세·사고 과정 기본 펼침 여부 등)은 `conversation/`에 고정돼 있다.
+impact: |
+  여러 줄 입력이 잦거나 도는 중 바로 끼어들기를 기본으로 쓰고 싶은 사람이 자기 작업 방식에 맞게 대화 화면을 바꿀 수 없다.
+fix: |
+  - 중간(추천): 사람이 원하는 항목을 정한 뒤 `shell.chat.*` 선언 설정과 Settings의 Chat 영역을 더한다.
+decide: |
+  어떤 chat 설정 항목을 둘지와 Settings 안의 자리를 사람이 정한다.

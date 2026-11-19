@@ -1,0 +1,12 @@
+id: unnecessary-full-width-skeletons
+title: 빠른 local 읽기까지 지연 없이 화면 가로 전체를 채우는 회색 Skeleton 막대가 뜬다
+kind: bug
+status: open
+topic: ui-kit
+modules: [packages/design, packages/shell/renderer]
+now: |
+  `packages/design/components/feedback/skeleton/skeleton.module.css`가 모든 줄을 `width: 100%`의 똑같은 회색 막대로 그리고, `packages/shell/renderer`의 12개 화면(`workspaces-panel.tsx`, `project-settings-page.tsx`, `quick-launch-editor.tsx`, `tray-list.tsx`, `keyboard-panel.tsx`, `diagnostics-panel.tsx`, `job-line.tsx`, `folder-browser.tsx`, `workflow-page.tsx`, `agents-page.tsx`, `agent-editor.tsx`, `app-not-running.tsx`)이 300ms 지연의 `<Loading>`을 거치지 않고 0ms에 바로 `<Skeleton>`을 그린다.
+impact: |
+  폴더 이동이나 탭·설정 전환처럼 금방 끝나는 local 읽기마다 화면 가득 긴 회색 막대가 번쩍이고, 대기 화면도 맥락 없는 회색 줄무늬로 보인다.
+fix: |
+  0ms `<Skeleton>` 사용처를 지연된 `<Loading>`, 이전 목록 유지(`folder-browser.tsx`), 또는 상태 문구(`<Shimmer>`)로 바꾸고, `skeleton.module.css`의 줄 폭과 최대 폭에 변화를 둔다.

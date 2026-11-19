@@ -1,0 +1,12 @@
+id: sidebar-unfocused-project-recent-hidden
+title: 왼쪽 sidebar에서 지금 열지 않은 project의 Recent session이 숨겨져 그 project를 열어야만 보인다
+kind: bug
+status: open
+topic: workspace-layout
+modules: [packages/shell/renderer]
+now: |
+  `packages/shell/renderer/shell/left-sidebar-workspaces.ts`가 모든 workspace의 `recent`를 계산해 놓고도 `key === here`인 지금 열린 workspace에만 남기고 나머지는 빈 배열로 버린다. 또한 다른 local project의 사용자 정의 agent가 `agentOf`에서 빠져 줄이 탈락하고, `left-sidebar.tsx`의 Recent 펼침·쪽 상태가 `SidebarMemoryProvider`가 아닌 local state에 있어 workspace를 옮길 때마다 접힌다.
+impact: |
+  다른 project에 있던 최근 대화를 왼쪽 sidebar에서 바로 찾지 못하고, 일일이 그 project를 먼저 눌러 들어가야만 Recent 목록이 나타난다.
+fix: |
+  `left-sidebar-workspaces.ts`에서 `key === here` 제한을 풀고 다른 local workspace의 agent 표시 fallback을 두며, Recent 펼침·쪽 상태를 `SidebarMemoryProvider`에 유지하고 `workspace-layout.md`를 맞춘다.

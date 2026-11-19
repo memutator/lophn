@@ -1,0 +1,12 @@
+id: provider-reconnect-breaks-default-model
+title: provider를 끊고 다시 이으면 새 provider id가 발급돼 기존 기본 model 선택이 깨지고 다시 고르게 하지도 않는다
+kind: bug
+status: open
+topic: agent-definition
+modules: [packages/core/lophn-agent, packages/core/main]
+now: |
+  `packages/core/lophn-agent/providers/connect-key.ts`의 `createProviderConnect`는 같은 정의를 다시 이을 때 옛 `pvd_*` id를 재사용하려고 메모리 `ids` 표를 두지만, 기동 때 채우지도 않고 `DisconnectProvider`(`commands.ts`) 때 기록하지도 않는다. 그래서 기동 뒤 이미 있던 provider를 끊고 다시 이으면 새 `pvd_*`가 만들어져 `model_choices`의 전역 기본 model이 지워진 옛 `pvd_*`를 가리킨 채 남고(모든 turn이 `configuration_unavailable` / 404), `modelDefaultRead`(`models/reads.ts`)가 그 깨진 행을 그대로 돌려주어 `ConnectProviderHost`가 기본 model 선택 창도 띄우지 않는다.
+impact: |
+  인증 방식을 바꾸려고(예: OAuth에서 API key로) provider를 끊고 다시 이은 직후 모든 대화가 모델 오류로 시작하지 못하며 왜 안 되는지 알기 어렵다.
+fix: |
+  `DisconnectProvider` 전에 `definition_key -> id`를 기억해 같은 정의로 다시 이을 때 같은 `pvd_*` id를 재사용하고, `modelDefaultRead`는 연결된 `providers`에 없는 id를 가리키는 행이면 `null`을 돌려주어 다른 정의를 이었을 때 기본 model을 다시 고르게 한다.

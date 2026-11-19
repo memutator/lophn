@@ -1,0 +1,12 @@
+id: agy-resume-blocks-gui-switch-before-first-message
+title: Antigravity 대화를 resume으로 다시 연 뒤 첫 메시지를 보내기 전에는 GUI로 전환되지 않는다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/core/terminals, packages/core/terminal-agents, packages/protocol]
+now: |
+  `packages/core/terminal-agents/coding-sessions.ts`의 `blockedOf`와 `gui.ts`의 `toggle`은 `tui.session === null`이면 `no_session`으로 전환을 막는다. `packages/protocol/coding-agent/harness-adapter.ts`의 `antigravity.events`에는 `PreInvocation`과 `Stop`만 있고 `SessionStart`가 없으며, `agy --conversation <id>`로 resume할 때 `packages/core/terminal-agents/tracker.ts`의 `foreground()`가 `argv`의 `--conversation <id>`를 읽지 않고 `packages/core/terminals/service.ts`의 `terminals/open { resume }`도 session id를 심지 않는다.
+impact: |
+  지난 Antigravity 대화를 이어 열어 바로 GUI로 보고 싶은 사람이 불필요한 메시지를 한 번 보내기 전에는 GUI 전환이 막힌다.
+fix: |
+  `harness-process.ts`에서 resume 인자(`--conversation <id>`)로 session id를 뽑아 `tracker.foreground()`와 `terminals/open { resume }`가 바로 `session`을 채우게 하고, `HARNESS_ADAPTERS.antigravity.events`에 `SessionStart: "SessionStarted"`를 더한다.

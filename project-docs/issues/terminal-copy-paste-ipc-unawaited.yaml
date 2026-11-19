@@ -1,0 +1,12 @@
+id: terminal-copy-paste-ipc-unawaited
+title: 터미널을 core로 옮긴 뒤 Ctrl+Shift+C/V 복사와 붙여넣기가 동작하지 않는다
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/shell/main, packages/shell/renderer]
+now: |
+  Electron 44의 `clipboard.readText()`와 `clipboard.writeText()`는 `Promise`를 돌려준다. `packages/shell/main/desktop/wiring/terminal.ts`가 `TERMINAL_PASTE_CHANNEL`에서 `await` 없이 `{ ok: true, value: clipboard.readText() }`를 돌려주어 `ipcMain.handle`이 직렬화 오류(`DataCloneError`)를 던지고, preload가 이를 `unavailable`로 바꿔 `Ctrl+Shift+V`가 늘 빈 문자열을 붙여넣는다. `TERMINAL_COPY_CHANNEL`도 `writeText`를 `await`·`catch`하지 않으며, `packages/shell/renderer/terminal/terminal-tab.tsx`의 focus effect 의존성에 `showScreen`이 빠져 다시 붙은 탭은 클릭하기 전까지 복사·붙여넣기 명령이 등록되지 않는다.
+impact: |
+  이 컴퓨터와 다른 컴퓨터의 터미널 탭 모두에서 `Ctrl+Shift+V` 붙여넣기가 전혀 되지 않고 `Ctrl+Shift+C` 복사가 씹히거나 경합한다.
+fix: |
+  `packages/shell/main/desktop/wiring/terminal.ts`에서 `clipboard.readText()`와 `clipboard.writeText()`를 `await`·`catch`해 평범한 값으로 돌려주고, `terminal-tab.tsx`의 focus effect에 `showScreen`을 넣는다.

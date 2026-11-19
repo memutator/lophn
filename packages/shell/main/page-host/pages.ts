@@ -21,6 +21,8 @@ export type PageHostPages = ReturnType<typeof createPageHostPages>;
 export function createPageHostPages(
   /** 탭의 url·title·loading이 바뀌었거나 page가 닫혔다(죽었다). */
   report: (tab: string, state: BrowserTabState | "closed") => void,
+  /** 열린 page 수가 바뀔 때마다 부른다. */
+  onCount?: (count: number) => void,
 ) {
   const pageOf = createPages();
   // 넣은 차례가 쓴 차례다. 쓰면 맨 뒤로 옮긴다.
@@ -44,8 +46,12 @@ export function createPageHostPages(
       },
     });
     windows.set(tab, window);
+    onCount?.(windows.size);
     window.once("closed", () => {
-      if (windows.get(tab) === window) windows.delete(tab);
+      if (windows.get(tab) === window) {
+        windows.delete(tab);
+        onCount?.(windows.size);
+      }
       report(tab, "closed");
     });
     const contents = window.webContents;
@@ -111,7 +117,7 @@ export function createPageHostPages(
 
   function close(tab: string): void {
     const window = windows.get(tab);
-    windows.delete(tab);
+    if (windows.delete(tab)) onCount?.(windows.size);
     if (window !== undefined && !window.isDestroyed()) window.destroy();
   }
 
@@ -126,6 +132,7 @@ export function createPageHostPages(
     open,
     close,
     touch,
+    count: () => windows.size,
     page(tab: string): Page | undefined {
       const window = windows.get(tab);
       return window === undefined || window.isDestroyed()

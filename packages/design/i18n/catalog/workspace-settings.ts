@@ -328,6 +328,8 @@ export const workspaceSettings = {
   "settings.label.mode-light": "Light",
   "settings.label.mode-system": "System",
   "settings.label.open-themes-folder": "Open folder",
+  "settings.label.remote-computer-terminal-input":
+    "Allow terminals and public app commands",
   "settings.label.remote-device-name": "Name",
   "settings.label.remote-disputed": "Disputed",
   "settings.label.remote-enabled": "Allow phone and computer connections",
@@ -337,6 +339,8 @@ export const workspaceSettings = {
     "The new device can't be on at the same time as this computer",
   "settings.label.remote-invite-terminal-input":
     "Let the new device type in this computer's terminals",
+  "settings.label.remote-invite-terminal-input-computer":
+    "Let the new computer use terminals and public app commands",
   "settings.label.remote-invite-text": "Invite",
   "settings.label.remote-last-connected": "Last connected {time}",
   "settings.label.remote-never-connected": "Never connected",
@@ -347,7 +351,7 @@ export const workspaceSettings = {
     "Reachable from anywhere through the relay",
   "settings.label.remote-relay-unreachable": "Can't reach the relay",
   "settings.label.remote-join-terminal-input":
-    "Let the inviting computer type in this computer's terminals",
+    "Let the inviting computer use terminals and public app commands",
   "settings.label.remote-terminal-input":
     "Allow typing in this computer's terminals",
   "settings.label.remote-this-computer": "This computer",
@@ -398,8 +402,10 @@ export const workspaceSettings = {
     "Scan this code with the lophn phone app, or enter it there with “Show as text”. The invite works once, until it expires.",
   "settings.note.remote-invite-terminal-input":
     "On by default: the new device can type into terminals on this computer and run commands as you. Other computers in your devices decide for themselves. Changing this makes a new invite. You can change it later for each device.",
+  "settings.note.remote-invite-terminal-input-computer":
+    "On by default: the new computer can type into terminals on this computer, run commands as you, and let its agents and apps call public app commands on this computer. Other computers in your devices decide for themselves. Changing this makes a new invite. You can change it later for each device.",
   "settings.note.remote-join-terminal-input":
-    "On by default: the inviting computer can type into terminals on this computer and run commands as you. The inviting computer decides separately whether this computer may type into its terminals.",
+    "On by default: the inviting computer can type into terminals on this computer, run commands as you, and let its agents and apps call public app commands on this computer. The inviting computer decides separately whether this computer gets the same access there.",
   "settings.note.remote-join":
     "On the other computer, open Settings › Remote, press “Invite a computer”, then “Show as text”. Copy the text and paste it here.",
   "settings.note.remote-join-start":
@@ -409,7 +415,7 @@ export const workspaceSettings = {
   "settings.note.remote-remove":
     "{name} is cut off on every computer in your devices and cannot join again with its current key. To add it back, invite it again: it joins as a new device.",
   "settings.note.remote-device-terminal-input":
-    "While “Allow typing in this computer's terminals” is on for a device, anyone holding that device can type into terminals on this computer and run commands as you. Each computer keeps its own choice: turn it on in Settings › Remote on every computer the device should reach. New versions of your apps made on a computer with this switch on are installed on this computer without asking.",
+    "When this switch is on for a device, anyone holding that device can type into terminals on this computer and run commands as you. For a computer, it also lets its agents and apps call public app commands on this computer, and installs new versions of your apps made there without asking. Each computer keeps its own choice: turn it on in Settings › Remote on every computer the device should reach.",
   "settings.notice.computer-cloned":
     "This lophn was copied from another computer, so it is now a new computer. Invite it again from a computer in your devices.",
   "settings.notice.remote-devices-empty": "No devices yet. Invite one below.",

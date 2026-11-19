@@ -444,6 +444,7 @@ flows:
     code:
       - packages/shell/main/page-host/main.ts
       - packages/shell/main/page-host/pages.ts
+      - packages/shell/main/page-host/idle.ts
       - packages/shell/main/page-host/relaunch.ts
       - packages/shell/main/desktop/main.ts
       - packages/shell/main/desktop/launch-mode.ts
@@ -477,6 +478,9 @@ flows:
       - id: core-gone
         when: "/host-link가 60초 넘게 닫혀 있었다(core stop, 또는 다시 띄운 core가 이어 죽어 그만 띄움)"
         observe: ["process:page host가 끝난다", "log:core is gone; quitting"]
+      - id: idle
+        when: "열린 page가 하나도 없는 채로 5분 지났다"
+        observe: ["process:page host가 끝난다", "log:no open pages; quitting"]
       - id: yielded
         when: "page host가 떠 있는데 display가 있는 env에서 사람이 lophn 앱을 눌렀다"
         observe: ["process:page host가 끝나고 같은 data root의 desktop 앱이 뜬다(한 번 누름)"]

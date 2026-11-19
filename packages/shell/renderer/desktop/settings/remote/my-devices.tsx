@@ -234,7 +234,11 @@ export function MyDevices({
                     data-remote-terminal-input={String(device.terminalInput)}
                   >
                     <Switch
-                      label={t("settings.label.remote-terminal-input")}
+                      label={t(
+                        device.kind === "computer"
+                          ? "settings.label.remote-computer-terminal-input"
+                          : "settings.label.remote-terminal-input",
+                      )}
                       checked={device.terminalInput}
                       onCheckedChange={(on) =>
                         void act(source.setTerminalInput(device.id, on))

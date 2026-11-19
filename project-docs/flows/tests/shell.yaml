@@ -142,6 +142,10 @@ files:
     covers: [host-queue-poll:browser-call, host-queue-poll:unhandled, host-queue-poll:reconnect]
     note: "가짜 socket으로 연결이 열리면 hello부터 보내고, 끊기면 1초·2초로 늘려 다시 붙어 hello를 다시 보내며, request가 처리기를 거쳐 response로 가고 처리기가 없는 종류는 unavailable, 끊긴 연결로 받은 요청의 답은 보내지 않는다"
 
+  - path: packages/shell/main/page-host/idle_test.ts
+    covers: [page-host-serve:idle]
+    note: "열린 page가 없는 채로 5분 지나면 page host idle watch가 끝나고, page가 열리면 timer가 취소되어 모두 닫힌 뒤 다시 5분을 재며, 중복 0 알림이나 stop 뒤에는 잘못 끝나지 않는다"
+
   - path: packages/shell/main/page-host/relaunch_test.ts
     covers: [page-host-serve:yielded]
     note: "page host가 물러나며 다시 띄우는 desktop 앱은 늘 page host 자신의 data root(--home, LOPHN_HOME)를 싣고 누른 시작의 LOPHN_HOME은 싣지 않으며, 누른 시작에 display가 없으면 다시 띄우지 않는다"

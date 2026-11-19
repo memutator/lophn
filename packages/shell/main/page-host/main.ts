@@ -17,6 +17,7 @@ import { readOpenIntent } from "../desktop/open-intent.ts";
 import { browserDataPath, resolveDataRoot } from "../desktop/paths.ts";
 import { acquireSingleInstance } from "../desktop/single-instance.ts";
 import { connectCore } from "../desktop/wiring/core.ts";
+import { createIdleWatch } from "./idle.ts";
 import { createPageHostPages } from "./pages.ts";
 import { relaunchOf } from "./relaunch.ts";
 
@@ -64,12 +65,12 @@ export function startPageHost(): void {
     // 답이 간 뒤에 끝나 두 번째 시작은 늘 물러나고 다시 띄운 앱 하나만 선다(page가 없을 때 겹치는 것을 확인함).
     setTimeout(() => app.quit(), QUIT_AFTER_MS);
   });
-  // 마지막 page를 닫아도 끝나지 않는다(Electron 기본은 끝난다).
+  // 마지막 page를 닫아도 곧바로 끝나지 않는다(Electron 기본은 끝난다). 열린 page 없이 5분 지나면 idle watch가 끝낸다.
   app.on("window-all-closed", () => {});
-  void app.whenReady().then(() => run(dataRoot));
+  void app.whenReady().then(() => run(dataRoot, () => leaving));
 }
 
-function run(dataRoot: string): void {
+function run(dataRoot: string, isLeaving: () => boolean): void {
   const log = (message: string) => console.log(`[lophn page-host] ${message}`);
   const relay = {
     conditions: [],
@@ -95,10 +96,24 @@ function run(dataRoot: string): void {
     activation: { fresh: () => false },
   });
 
-  const pages = createPageHostPages((tab, state) => {
-    if (state === "closed") control.forget(tab);
-    link.send({ type: "report", tab, state });
+  const idle = createIdleWatch({
+    schedule: (fire, ms) => {
+      const timer = setTimeout(fire, ms);
+      return () => clearTimeout(timer);
+    },
+    onIdle: () => {
+      if (isLeaving()) return;
+      log("no open pages; quitting");
+      app.quit();
+    },
   });
+  const pages = createPageHostPages(
+    (tab, state) => {
+      if (state === "closed") control.forget(tab);
+      link.send({ type: "report", tab, state });
+    },
+    (count) => idle.setPages(count),
+  );
   const control = createTabControl((tab, state) =>
     stream.controlChanged(tab, state),
   );
@@ -161,6 +176,7 @@ function run(dataRoot: string): void {
 
   app.once("will-quit", () => {
     clearInterval(watch);
+    idle.stop();
     stream.reset();
     link.stop();
     core.detach();

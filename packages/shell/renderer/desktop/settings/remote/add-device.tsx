@@ -182,10 +182,18 @@ export function AddDevice({
             <li className={styles.line} data-remote-row="invite-terminal-input">
               <div className={styles.lineMain}>
                 <span className={styles.lineName}>
-                  {t("settings.label.remote-invite-terminal-input")}
+                  {t(
+                    kind === "computer"
+                      ? "settings.label.remote-invite-terminal-input-computer"
+                      : "settings.label.remote-invite-terminal-input",
+                  )}
                 </span>
                 <span className={styles.lineHelp}>
-                  {t("settings.note.remote-invite-terminal-input")}
+                  {t(
+                    kind === "computer"
+                      ? "settings.note.remote-invite-terminal-input-computer"
+                      : "settings.note.remote-invite-terminal-input",
+                  )}
                 </span>
               </div>
               <div className={styles.endSlot}>

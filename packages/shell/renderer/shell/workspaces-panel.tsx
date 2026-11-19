@@ -8,7 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 
 import { AppWorkspaceMark } from "../app-frame/app-icon.tsx";
@@ -95,7 +95,7 @@ function RowMenuButton({
   );
 }
 
-// 읽는 중에는 뼈대, 실패하면 다시 읽기, 활성 항목이 없으면 안내를 보이고 그 밖에는 줄을 보인다.
+// 읽는 중에는 지연 뼈대, 실패하면 다시 읽기, 활성 항목이 없으면 안내를 보이고 그 밖에는 줄을 보인다.
 function Body({
   state,
   items,
@@ -111,11 +111,17 @@ function Body({
   onRetry: () => void;
   children: ReactNode;
 }) {
-  if (state.state === "loading") return <Skeleton lines={2} />;
   if (state.state === "failed") {
     return <ErrorState target={target} onRetry={onRetry} />;
   }
-  return items.length === 0 ? <PanelEmpty>{empty}</PanelEmpty> : children;
+  return (
+    <Loading
+      loading={state.state === "loading"}
+      placeholder={<Skeleton lines={2} />}
+    >
+      {items.length === 0 ? <PanelEmpty>{empty}</PanelEmpty> : children}
+    </Loading>
+  );
 }
 
 const ARCHIVE = () => ({

@@ -6,7 +6,7 @@
 //   탭이 열렸는지는 workspace마다 이 창이 아는 그 workspace의 layout에서 읽는다(`openTitles`). Agent 탭은 저장하지 않아 이 창 메모리의
 //   layout뿐이다: 이 창이 연 적 없는 workspace(앱을 다시 켠 뒤 처음)는 탭이 없어 도는·못 본 session만 current다. 닫기 전에는 current에 남는다.
 // - lophn session은 첫 메시지를 보낼 때 생긴다. 그 전의 Agent 탭은 이 창이 보이는 workspace의 draft 줄("New session")이다.
-// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 workspace에만 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
+// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 모든 workspace에 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 workspace의 것만 온다.
 //   다른 workspace는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
@@ -23,7 +23,10 @@
 import { t } from "@lophn/i18n";
 
 import type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
-import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
+import {
+  codingBuiltinOf,
+  isLophn,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../desktop/machines/data.ts";
 import {
@@ -42,6 +45,7 @@ import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
+import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import { sessionRowTitle } from "./session-titles.ts";
 import {
   deskTabs,
@@ -128,11 +132,31 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const agents = new Map(
     input.agents.map((agent) => [agent.assignment, agent]),
   );
-  // 다른 workspace의 session은 그 workspace의 lophn이 한다. 이 workspace의 목록에는 없어도 lophn의 얼굴은 같다(profile이 고정이다).
+  // 다른 workspace나 다른 기계의 agent 목록은 읽지 않았다. 내장 coding agent는 제품 아이콘으로, 그 밖은 이 workspace의 lophn 얼굴로 보인다.
   const lophnRow = input.agents.find((agent) => isLophn(agent.assignment));
-  // 다른 기계의 agent 목록은 읽지 않았다. 그 기계의 session은 lophn의 얼굴로 보인다.
-  const agentOf = (id: string, machine: string | null) =>
-    agents.get(id) ?? (isLophn(id) || machine !== null ? lophnRow : undefined);
+  const agentOf = (
+    id: string,
+    machine: string | null,
+    workspace: string,
+  ): SidebarAgent | undefined => {
+    const known = agents.get(id);
+    if (known !== undefined) return known;
+    const coding = codingBuiltinOf(id);
+    if (coding !== null) {
+      const face = codingFaceOf(id);
+      if (face !== undefined) {
+        return {
+          assignment: id,
+          name: coding.label,
+          profile: face,
+          waiting: false,
+        };
+      }
+    }
+    return isLophn(id) || machine !== null || workspace !== here
+      ? lophnRow
+      : undefined;
+  };
   // 기계의 workspace → 그것이 든 줄.
   const rowOf = new Map<string, MergedWorkspace>();
   for (const row of input.rows) {
@@ -149,13 +173,16 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   ) => map.set(workspace, [...(map.get(workspace) ?? []), item]);
 
   for (const entry of input.entries) {
-    const agent =
-      entry.agent === null ? undefined : agentOf(entry.agent, entry.machine);
     const row = rowOf.get(
       copyKey(entry.machine, entry.workspace?.id ?? "home"),
     );
-    if (agent === undefined || row === undefined || entry.archived) continue;
+    if (row === undefined || entry.archived) continue;
     const workspace = workspaceKey(row.ref);
+    const agent =
+      entry.agent === null
+        ? undefined
+        : agentOf(entry.agent, entry.machine, workspace);
+    if (agent === undefined) continue;
     const machine =
       entry.machine === (row.ref.machine ?? null) || entry.machine === null
         ? {}
@@ -339,7 +366,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       ref,
       name,
       current: groups.filter((group) => group.items.length > 0),
-      recent: key === here ? (recent.get(key) ?? []).sort(byNewest) : [],
+      recent: (recent.get(key) ?? []).sort(byNewest),
       ...(row.away === null ? {} : { away: row.away }),
       ...(row.offline ? { offline: true as const } : {}),
     };

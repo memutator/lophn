@@ -614,12 +614,15 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                       <ul className={styles.lines}>
                         {inSection.map((row) => keyLine(row, stored))}
                       </ul>
-                    ) : appsLoading ? (
-                      <Skeleton lines={2} />
                     ) : (
-                      <p className={styles.lineHelp}>
-                        {t("settings.empty.key-apps")}
-                      </p>
+                      <Loading
+                        loading={appsLoading}
+                        placeholder={<Skeleton lines={2} />}
+                      >
+                        <p className={styles.lineHelp}>
+                          {t("settings.empty.key-apps")}
+                        </p>
+                      </Loading>
                     )}
                   </section>
                 );

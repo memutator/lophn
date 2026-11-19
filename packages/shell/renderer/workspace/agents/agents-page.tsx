@@ -3,7 +3,7 @@
 // 이동 기록과 저장하지 않은 편집은 창이 쥔 탭 상태(`AgentsTabs`)에 있어서 다른 탭에 다녀와도 남는다.
 // 목록과 workspace 층은 core의 변경 알림으로 다시 읽는다: 이 탭의 쓰기도, 다른 창이나 CLI의 쓰기도 같은 길로 온다.
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
@@ -91,6 +91,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
   const models = useAgentModels(source);
   const [failed, setFailed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const showLoading = useDelayedLoading(overview.state === "loading");
 
   // 열린 agent나 목록으로 가면 키(Ctrl+S, Alt+←)가 이 탭에서 닿도록 focus를 이 탭에 둔다. 다른 곳에 있던 focus는 뺏지 않는다.
   useEffect(() => {
@@ -187,7 +188,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     if (home && agent !== null && overview.state === "loading") {
       return (
         <div className={styles.fill} data-agents-page="loading">
-          <Skeleton shape="line" lines={6} />
+          {showLoading ? <Skeleton shape="line" lines={6} /> : null}
         </div>
       );
     }
@@ -226,7 +227,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     if (overview.state === "loading") {
       return (
         <div className={styles.fill} data-agents-page="loading">
-          <Skeleton shape="line" lines={6} />
+          {showLoading ? <Skeleton shape="line" lines={6} /> : null}
         </div>
       );
     }

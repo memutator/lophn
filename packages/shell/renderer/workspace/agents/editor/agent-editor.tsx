@@ -3,7 +3,7 @@
 // 맡길 것을 붙인다. 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다. source에서 agent를 읽어 form 값을 쥐고, 저장·삭제·이미지
 // 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
@@ -114,10 +114,11 @@ const TAB_LABEL: Readonly<Record<EditorTab, MessageKey>> = {
   grants: "agents.label.tab-grants",
 };
 
-function Loading(): ReactElement {
+function EditorLoading(): ReactElement {
+  const shown = useDelayedLoading(true);
   return (
     <div className={styles.fill} data-agent-editor="loading">
-      <Skeleton shape="line" lines={6} />
+      {shown ? <Skeleton shape="line" lines={6} /> : null}
     </div>
   );
 }
@@ -285,7 +286,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   // Ctrl+S(Mac은 Cmd+S). 편집 값이 있을 때만 받는다.
   useCommands({ "agents.save": save }, { when: () => dirty });
 
-  if (state.kind === "loading") return <Loading />;
+  if (state.kind === "loading") return <EditorLoading />;
   if (state.kind === "failed") {
     return (
       <div className={styles.fill} data-agent-editor="failed">
@@ -614,7 +615,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           />
         </TabPanel>
         <TabPanel value="grants">
-          {grants.kind === "loading" ? <Loading /> : null}
+          {grants.kind === "loading" ? <EditorLoading /> : null}
           {grants.kind === "failed" ? (
             <ErrorState
               target={t("agents.label.grants-target")}

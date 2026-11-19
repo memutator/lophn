@@ -1,6 +1,6 @@
 // job 한 줄과 펼친 기록. data는 props로 받는다. 줄 오른쪽 끝 고정 열에 switch, Edit, Delete, 기록 토글이 있다.
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Skeleton, StatusMark } from "@lophn/ui/feedback";
+import { Skeleton, StatusMark, useDelayedLoading } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
@@ -55,6 +55,7 @@ export function JobLine({
 }: JobLineProps) {
   const now = new Date();
   const machineNameOf = useMachineNameOf();
+  const showHistoryLoading = useDelayedLoading(history === "loading");
   const action = actionText(job.action, names);
   const last = job.last_run;
   const open = history !== undefined;
@@ -154,7 +155,9 @@ export function JobLine({
         </div>
       </div>
       {history === undefined ? null : history === "loading" ? (
-        <Skeleton lines={2} />
+        showHistoryLoading ? (
+          <Skeleton lines={2} />
+        ) : null
       ) : history === "failed" ? (
         <p className={styles.noHistory}>{t("jobs.error.history")}</p>
       ) : history.length === 0 ? (

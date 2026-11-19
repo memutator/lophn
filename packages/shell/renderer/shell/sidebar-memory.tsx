@@ -29,6 +29,10 @@ export interface SidebarValues {
   readonly savedTerminals: ReadonlyMap<string, readonly TerminalAgentSession[]>;
   /** project id → 사람 차례를 기다리는 workflow 이름. */
   readonly workflows: ReadonlyMap<string, readonly string[]>;
+  /** 펼친 Recent의 workspace key. */
+  readonly recentExpanded: ReadonlySet<string>;
+  /** workspace key → 펼친 Recent의 page 번호(0부터). */
+  readonly recentPages: ReadonlyMap<string, number>;
 }
 
 const EMPTY: SidebarValues = {
@@ -39,6 +43,8 @@ const EMPTY: SidebarValues = {
   elsewhereDesks: new Map(),
   savedTerminals: new Map(),
   workflows: new Map(),
+  recentExpanded: new Set(),
+  recentPages: new Map(),
 };
 
 export interface SidebarMemory {

@@ -2,7 +2,7 @@
 // Settings › Quick launch(전역 값)와 Project settings(이 project만의 값)가 같이 쓴다.
 import { useRef, useState } from "react";
 import { t } from "@lophn/i18n";
-import { Skeleton } from "@lophn/ui/feedback";
+import { Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Field, Input, SegmentedControl, Switch } from "@lophn/ui/input";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 
@@ -310,8 +310,9 @@ export function AppPanelList({
   launch?: AppLaunchMap;
   onLaunch?: (key: string, next: AppLaunch) => void;
 }) {
+  const showLoading = useDelayedLoading(loading);
   const choices = panelChoices(apps);
-  if (loading) return <Skeleton lines={3} />;
+  if (loading) return showLoading ? <Skeleton lines={3} /> : null;
   if (failed) {
     return (
       <p className={styles.note}>{t("project-settings.notice.apps-failed")}</p>
@@ -386,6 +387,7 @@ export function SidebarPanelList({
   off: readonly SidebarPanelPick[];
   onOff: (next: readonly SidebarPanelPick[]) => void;
 }) {
+  const showLoading = useDelayedLoading(loading);
   const choices = apps.flatMap((app) =>
     app.screens
       .filter((screen) => screen.places.includes("sidebar"))
@@ -398,7 +400,7 @@ export function SidebarPanelList({
         }),
       })),
   );
-  if (loading) return <Skeleton lines={3} />;
+  if (loading) return showLoading ? <Skeleton lines={3} /> : null;
   if (failed) {
     return (
       <p className={styles.note}>{t("project-settings.notice.apps-failed")}</p>

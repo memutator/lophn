@@ -1,4 +1,4 @@
-// 왼쪽 sidebar. 위에 Inbox·Jobs·Agents, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 workspace의 접힌 Recent 줄 하나,
+// 왼쪽 sidebar. 위에 Inbox·Jobs·Agents, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(quick-launch.tsx)과 Settings다. 작업 표시줄이 켜져 있으면 둘 다 작업 표시줄로 가므로 `quick`과 `onSettings`를 주지 않고 맨 아래 줄이 없다.
 // 값과 callback만 받아서 project 창 말고 Home과 app workspace도 같은 것을 쓴다.
 // 줄은 모든 기계의 것을 합친 것이다: 이 컴퓨터가 아닌 기계의 workspace 줄과 줄의 기계가 아닌 기계의 session 줄은 끝에 그 기계의
@@ -62,6 +62,7 @@ import {
   type QuickLaunch,
   QuickLaunchRow,
 } from "./quick-launch.tsx";
+import { useRemembered } from "./sidebar-memory.tsx";
 
 export interface LeftSidebarProps {
   workspaces: readonly SidebarWorkspace[];
@@ -325,9 +326,9 @@ export function LeftSidebar({
   const newSessionKeys = keyLabel("new.agent");
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
   const [renaming, setRenaming] = useState<string | null>(null);
-  // 펼친 Recent와 그 page는 workspace마다 기억한다. 저장하지 않는다.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [pages, setPages] = useState<ReadonlyMap<string, number>>(new Map());
+  // 펼친 Recent와 그 page는 workspace를 옮겨도 창 메모리에 기억한다. 저장하지 않는다.
+  const [expanded, setExpanded] = useRemembered("recentExpanded");
+  const [pages, setPages] = useRemembered("recentPages");
   const turnPage = (key: string, page: number) =>
     setPages((all) => new Map(all).set(key, page));
   const toggle = (key: string) =>

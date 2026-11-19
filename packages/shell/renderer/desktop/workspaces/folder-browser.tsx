@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { t } from "@lophn/i18n";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { Button, FileIcon } from "@lophn/ui/primitives";
 
@@ -67,21 +67,30 @@ export function FolderBrowseDialog({
   onClose,
 }: FolderBrowseDialogProps) {
   const machine = useScopeMachineItem();
-  // 열 때마다 home부터다.
+  // 열 때마다 home부터다. 폴더를 옮기는 동안은 앞 목록을 남겨 깜빡임을 막는다.
   const [at, setAt] = useState<string | undefined>(undefined);
   const [read, setRead] = useState<
-    | { state: "loading" }
-    | { state: "failed" }
-    | { state: "ready"; value: FolderListing }
-  >({ state: "loading" });
+    | { readonly state: "loading"; readonly previous: FolderListing | null }
+    | { readonly state: "failed" }
+    | { readonly state: "ready"; readonly value: FolderListing }
+  >({ state: "loading", previous: null });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!open) {
       setAt(undefined);
+      setRead({ state: "loading", previous: null });
       return;
     }
     let live = true;
-    setRead({ state: "loading" });
+    setRead((now) => ({
+      state: "loading",
+      previous:
+        now.state === "ready"
+          ? now.value
+          : now.state === "loading"
+            ? now.previous
+            : null,
+    }));
     void browse(at).then((result) => {
       if (live) {
         setRead(
@@ -96,7 +105,16 @@ export function FolderBrowseDialog({
     };
   }, [open, at, browse, attempt]);
 
-  const listing = read.state === "ready" ? read.value : null;
+  const readyListing = read.state === "ready" ? read.value : null;
+  const listing =
+    read.state === "ready"
+      ? read.value
+      : read.state === "loading"
+        ? read.previous
+        : null;
+  const showInitialLoading = useDelayedLoading(
+    read.state === "loading" && listing === null,
+  );
   return (
     <Dialog
       open={open}
@@ -114,9 +132,9 @@ export function FolderBrowseDialog({
           <Button
             variant="primary"
             icon={actionIcons.confirm}
-            disabled={listing === null}
+            disabled={readyListing === null}
             data-choose-folder=""
-            onClick={() => listing !== null && onChoose(listing.path)}
+            onClick={() => readyListing !== null && onChoose(readyListing.path)}
           >
             {t("machines.button.choose-folder")}
           </Button>
@@ -132,27 +150,31 @@ export function FolderBrowseDialog({
             size="sm"
             variant="secondary"
             icon={actionIcons.moveUp}
-            disabled={listing?.parent == null}
+            disabled={readyListing?.parent == null}
             data-folder-up=""
-            onClick={() => listing?.parent != null && setAt(listing.parent)}
+            onClick={() =>
+              readyListing?.parent != null && setAt(readyListing.parent)
+            }
           >
             {t("machines.button.folder-up")}
           </Button>
         </div>
-        {read.state === "loading" ? (
-          <Skeleton lines={4} />
-        ) : read.state === "failed" ? (
+        {read.state === "failed" ? (
           <ErrorState
             target={t("machines.label.folders")}
             onRetry={() => setAttempt(attempt + 1)}
           />
-        ) : read.value.entries.length === 0 ? (
+        ) : listing === null ? (
+          showInitialLoading ? (
+            <Skeleton lines={4} />
+          ) : null
+        ) : listing.entries.length === 0 ? (
           <p className={styles.note} data-folders-none="">
             {t("machines.empty.no-folders")}
           </p>
         ) : (
           <ul className={styles.list}>
-            {read.value.entries.map((entry) => (
+            {listing.entries.map((entry) => (
               <li key={entry.path}>
                 <button
                   type="button"

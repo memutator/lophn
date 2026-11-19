@@ -2,7 +2,7 @@
 // App panels(단추로 고정할 앱 panel) 세 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
 import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
 
@@ -62,8 +62,11 @@ function GeneralSection({
   });
   const [saved, setSaved] = useState(false);
   const [archiveFailed, setArchiveFailed] = useState(false);
+  const showLoading = useDelayedLoading(loaded.state === "loading");
 
-  if (loaded.state === "loading") return <Skeleton lines={4} />;
+  if (loaded.state === "loading") {
+    return showLoading ? <Skeleton lines={4} /> : null;
+  }
   if (loaded.state === "failed") {
     return (
       <ErrorState

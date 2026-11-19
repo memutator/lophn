@@ -2,7 +2,7 @@
 // 기본은 켜짐이고 끈 것만 전역 값에 쌓인다. 순서를 옮기면 지금 보이는 줄 전부의 순서를 쓴다.
 // 줄의 모양은 QuickOrderList(workspace/project-settings/quick-launch-editor.tsx)와 같다.
 import { t } from "@lophn/i18n";
-import { Skeleton } from "@lophn/ui/feedback";
+import { Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { IconButton } from "@lophn/ui/primitives";
 
@@ -29,6 +29,7 @@ export function TrayList({
   order: readonly SidebarPanelPick[];
   onOrder: (next: readonly SidebarPanelPick[]) => void;
 }) {
+  const showLoading = useDelayedLoading(loading);
   const declared = apps.flatMap((app) =>
     app.screens
       .filter((screen) => screen.places.includes("tray"))
@@ -48,7 +49,7 @@ export function TrayList({
     [next[at], next[to]] = [next[to]!, next[at]!];
     onOrder(next);
   };
-  if (loading) return <Skeleton lines={3} />;
+  if (loading) return showLoading ? <Skeleton lines={3} /> : null;
   if (failed) {
     return (
       <p className={styles.note}>{t("project-settings.notice.apps-failed")}</p>

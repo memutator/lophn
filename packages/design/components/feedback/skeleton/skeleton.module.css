@@ -4,6 +4,10 @@
   width: 100%;
 }
 
+.group[data-skeleton="line"] {
+  max-width: var(--dialog-width-default);
+}
+
 .bone {
   display: block;
   border-radius: var(--radius-xs);
@@ -11,13 +15,25 @@
   animation: pulse var(--motion-pulse) var(--motion-ease) infinite;
 }
 
-/* 줄 자리는 본문 줄높이를 지키고 막대만 안쪽에 그려 줄끼리 붙지 않게 한다. */
+/* 줄 자리는 본문 줄높이를 지키고 막대만 안쪽에 그려 줄끼리 붙지 않게 한다. 길이를 달리해 넓은 영역에 같은 회색 띠가 반복되지 않게 한다. */
 .line {
   box-sizing: border-box;
-  width: 100%;
+  width: 75%;
   height: var(--type-body-line);
   padding: var(--space-1) var(--space-0);
   background-clip: content-box;
+}
+
+.line:nth-child(2n) {
+  width: 55%;
+}
+
+.line:nth-child(3n) {
+  width: 65%;
+}
+
+.line:nth-child(4n) {
+  width: 45%;
 }
 
 .control {

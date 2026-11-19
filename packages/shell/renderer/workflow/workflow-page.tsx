@@ -2,7 +2,12 @@
 // `host`를 모른다. 탭 kind가 props를 채우고, gallery는 Workspace 없이 이 component를 세운다.
 import { type ReactElement, useState } from "react";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
+import {
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  useDelayedLoading,
+} from "@lophn/ui/feedback";
 import { Toast, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
@@ -44,11 +49,15 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
   const state = useWorkflow(props);
   const [starting, setStarting] = useState(false);
   const { definitions, instances, detail, notice } = state;
+  const showPageLoading = useDelayedLoading(definitions.state === "loading");
+  const showInstancesLoading = useDelayedLoading(
+    definitions.state === "ready" && instances === null,
+  );
 
   if (definitions.state === "loading") {
     return (
       <div className={styles.page} data-workflow-page="loading">
-        <Skeleton shape="line" lines={6} />
+        {showPageLoading ? <Skeleton shape="line" lines={6} /> : null}
       </div>
     );
   }
@@ -137,7 +146,9 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
                 />
               </span>
             </div>
-            {instances === null ? <Skeleton shape="line" lines={3} /> : null}
+            {instances === null && showInstancesLoading ? (
+              <Skeleton shape="line" lines={3} />
+            ) : null}
             {instances?.length === 0 ? (
               <EmptyState
                 icon={commonIcons.workflow}

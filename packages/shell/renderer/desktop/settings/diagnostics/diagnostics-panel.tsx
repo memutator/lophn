@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Switch } from "@lophn/ui/input";
-import { Skeleton, StatusMark } from "@lophn/ui/feedback";
+import { Shimmer, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import { actionIcons } from "../../../icons/mod.ts";
@@ -115,7 +115,9 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
         </p>
       ) : null}
       {loaded.state === "checking" && view === null ? (
-        <Skeleton lines={4} />
+        <p className={styles.lineHelp} data-check="checking">
+          <Shimmer>{t("common.label.tab-working")}</Shimmer>
+        </p>
       ) : null}
       {view === null ? null : (
         <div className={styles.tableScroll}>

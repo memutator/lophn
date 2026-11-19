@@ -2,7 +2,7 @@
 // 꺼져 있으면 [Turn on]을 두고, 앱이 running이 되면 화면을 다시 연다(켠 뒤 탭을 닫았다 열 필요가 없다).
 // EmbeddedView의 `renderFailure`에 `useNotRunningFailure`의 값을 꽂아 쓴다.
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Shimmer, useDelayedLoading } from "@lophn/ui/feedback";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
@@ -43,6 +43,7 @@ function AppNotRunning({ app, label, reopen, retried }: NotRunningProps) {
     reopen();
   }, [running, reopening]);
 
+  const showStarting = useDelayedLoading(run === null || running);
   if (loaded.state === "failed" || (running && !reopening)) {
     return (
       <ErrorState
@@ -55,9 +56,12 @@ function AppNotRunning({ app, label, reopen, retried }: NotRunningProps) {
     );
   }
   if (run === null || running) {
+    if (!showStarting) return null;
     return (
-      <div className={styles.placeholder} aria-busy="true">
-        <Skeleton lines={3} />
+      <div className={styles.state} aria-busy="true">
+        <p className={styles.text}>
+          <Shimmer>{t("app-space.empty.app-starting")}</Shimmer>
+        </p>
       </div>
     );
   }

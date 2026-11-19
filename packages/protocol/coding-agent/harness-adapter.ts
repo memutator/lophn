@@ -469,6 +469,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
       timeout: 10,
     },
     events: {
+      SessionStart: "SessionStarted",
       PreInvocation: "TurnStarted",
       Stop: "TurnEnded",
     },

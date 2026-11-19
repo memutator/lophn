@@ -72,6 +72,8 @@ export type AcpTabRequest = {
   terminal: AcpTerminal;
   harness: GuiHarness;
   resume?: string;
+  /** TUI가 `--dangerously-skip-permissions`로 돌고 있었으면 GUI에도 같은 flag를 이어 간다(antigravity). */
+  skipPermissions?: boolean;
 };
 
 /** 그 CLI가 이 폴더에서 가진 지난 session 하나(`open_session`의 `cli_session`이 `id`다). */

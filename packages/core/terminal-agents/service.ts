@@ -7,6 +7,7 @@ import {
   type HarnessId,
   harnessOfProcess,
   hookSignalOf,
+  sessionOfProcess,
 } from "../../protocol/coding-agent/mod.ts";
 import type { TerminalAgentSession } from "../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../protocol/events/bus.ts";
@@ -68,6 +69,10 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
 
   const tracker = createAgentTracker({
     harnessOfProcess,
+    sessionOfProcess: (harness, argv) =>
+      harness in HARNESS_ADAPTERS
+        ? sessionOfProcess(harness as HarnessId, argv)
+        : null,
     interruptKeys: (harness) => adapterOf(harness)?.interrupt_keys ?? [],
     signalOf: (harness, event, payload) =>
       harness in HARNESS_ADAPTERS
@@ -125,6 +130,19 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           deps.log(`agent session not saved: ${String(cause)}`),
         );
     },
+    async lookupSession(info) {
+      const runtime = terminals.runtime(info.terminal_ref);
+      if (runtime === null) return null;
+      const saved = await deps.store.list(runtime.project);
+      const found = saved.find(
+        (item) =>
+          item.harness === info.harness &&
+          item.external_session === info.session,
+      );
+      return found === undefined
+        ? null
+        : { title: found.title, name: found.name, pinned: found.pinned };
+    },
   });
 
   const alive = (ref: string) => {
@@ -165,6 +183,8 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     images: deps.images,
     log: deps.log,
     changed: () => coding.changed(),
+    resumingTui: (ref, harness, session) =>
+      tracker.expectResume(ref, harness, session),
   });
 
   const coding = createCodingSessions({
@@ -185,7 +205,72 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
 
   // 제목은 터미널마다 chunk 경계를 넘어 이어 읽는다.
   const titleScanners = new Map<string, (chunk: string) => string | null>();
+  const guiNotes = new Set<() => void>();
   const offs = [
+    terminals.useEnv((input) => ({
+      env: {},
+      opened(runtime) {
+        if (runtime !== null && input.resume !== undefined) {
+          tracker.expectResume(
+            runtime.terminal_ref,
+            input.resume.harness,
+            input.resume.external_session,
+          );
+        }
+      },
+    })),
+    gui.onHandle((handle) => {
+      let lastNoted = "";
+      const noteFromState = () => {
+        const session = handle.state().session;
+        const cliSession = session?.cli_session ?? null;
+        if (cliSession === null) return;
+        const rawTitle = session?.title?.trim() || null;
+        const label = adapterOf(handle.harness)?.label;
+        const title = rawTitle === label ? null : rawTitle;
+        const key = `${cliSession}\0${title ?? ""}`;
+        if (key === lastNoted) return;
+        lastNoted = key;
+        const runtime = terminals.runtime(handle.terminal);
+        if (runtime === null) return;
+        void deps.store
+          .note({
+            project: runtime.project,
+            folder_ref: runtime.folder_ref,
+            cwd: runtime.cwd_at_start,
+            harness: handle.harness,
+            external_session: cliSession,
+            title,
+            name: title,
+          })
+          .then(() => changedSaved(runtime.project))
+          .catch((cause) =>
+            deps.log(`agent session not saved: ${String(cause)}`),
+          );
+      };
+      let detach: (() => void) | undefined;
+      let closed = false;
+      detach = handle.attach({
+        snapshot: () => noteFromState(),
+        update(update) {
+          if (
+            update.type === "session_changed" ||
+            update.type === "session_reset"
+          ) {
+            noteFromState();
+          }
+        },
+        closed() {
+          closed = true;
+          if (detach !== undefined) guiNotes.delete(detach);
+        },
+      });
+      if (!closed) guiNotes.add(detach);
+    }),
+    () => {
+      for (const off of guiNotes) off();
+      guiNotes.clear();
+    },
     terminals.onOutput((chunks) => {
       for (const chunk of chunks) {
         let scan = titleScanners.get(chunk.terminal_ref);
@@ -265,6 +350,11 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       }
       try {
         const sessions = await deps.store.rename(input);
+        tracker.renameSession(
+          input.harness,
+          input.external_session,
+          input.name,
+        );
         changedSaved(input.project);
         return ok({ sessions });
       } catch (cause) {

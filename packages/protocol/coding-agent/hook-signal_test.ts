@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { HARNESS_ADAPTERS } from "./harness-adapter.ts";
 import { HARNESS_IDS, type HarnessId } from "./harness-id.ts";
+import { sessionOfProcess } from "./harness-process.ts";
 import { type HookSignal, hookSignalOf } from "./hook-signal.ts";
 
 const status = (type: string, lophn_outcome?: string) => ({
@@ -59,6 +60,27 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
       terminationReason: "error",
     },
     { type: "TurnEnded", outcome: "failed" },
+  ],
+  [
+    "antigravity: SessionStart의 conversationId",
+    "antigravity",
+    "SessionStart",
+    { conversationId: "conv-1" },
+    { type: "SessionStarted", external_session: "conv-1" },
+  ],
+  [
+    "antigravity: PreInvocation의 lastUserInput을 prompt로 읽는다",
+    "antigravity",
+    "PreInvocation",
+    {
+      conversationId: "conv-1",
+      lastUserInput: "Fix the bug\nwith details",
+    },
+    {
+      type: "TurnStarted",
+      prompt: "Fix the bug",
+      external_session: "conv-1",
+    },
   ],
   // 마지막 답은 payload가 직접 준 것만 싣는다. 줄바꿈은 공백이 되고 transcript는 읽지 않는다.
   [
@@ -391,4 +413,54 @@ test("harness 항목의 hook·events·session이 서로 맞는다", () => {
       );
     }
   }
+});
+
+test("sessionOfProcess extracts resumed CLI session ids across flag styles and rejects invalid values", () => {
+  assert.equal(
+    sessionOfProcess("antigravity", [
+      "agy",
+      "--dangerously-skip-permissions",
+      "--conversation",
+      "26e8bf45-50c5-4e72-b332-855cf6cff86e",
+    ]),
+    "26e8bf45-50c5-4e72-b332-855cf6cff86e",
+  );
+  assert.equal(
+    sessionOfProcess("antigravity", ["agy", "--conversation=conv_1"]),
+    "conv_1",
+  );
+  assert.equal(
+    sessionOfProcess("antigravity", [
+      "node",
+      "/usr/local/bin/agy",
+      "--conversation",
+      "conv-2",
+    ]),
+    "conv-2",
+  );
+  assert.equal(
+    sessionOfProcess("claude", ["claude", "--resume=ses-1"]),
+    "ses-1",
+  );
+  assert.equal(
+    sessionOfProcess("codex", ["codex", "resume", "thr_1"]),
+    "thr_1",
+  );
+  assert.equal(sessionOfProcess("codex", ["codex", "resume", "--last"]), null);
+  assert.equal(
+    sessionOfProcess("kiro", ["kiro-cli", "chat", "--resume-id", "k-1"]),
+    "k-1",
+  );
+  assert.equal(
+    sessionOfProcess("antigravity", ["agy", "--conversation", "../etc"]),
+    null,
+  );
+  assert.equal(
+    sessionOfProcess("antigravity", ["agy", "--conversation", "--model"]),
+    null,
+  );
+  assert.equal(
+    sessionOfProcess("antigravity", ["agy", "--", "--conversation", "conv-3"]),
+    null,
+  );
 });

@@ -48,6 +48,8 @@ export type AgentNotice = {
 export type AgentTrackerDeps = {
   /** foreground process argv가 어느 harness인지. */
   harnessOfProcess(argv: readonly string[]): string | null;
+  /** foreground process argv가 resume하는 harness의 CLI session id. 모르면 null. */
+  sessionOfProcess?(harness: string, argv: readonly string[]): string | null;
   /** 그 harness에서 사람이 치면 도는 turn을 끊는 키. */
   interruptKeys(harness: string): readonly ("escape" | "ctrl-c")[];
   signalOf(
@@ -91,11 +93,23 @@ export type AgentTrackerDeps = {
     title: string | null;
     name: string | null;
   }): void;
+  /** session id를 처음 알게 됐다(foreground resume이나 hook). 저장본이 있으면 비어 있는 title·name을 채운다. */
+  lookupSession?(info: {
+    terminal_ref: string;
+    harness: string;
+    session: string;
+  }): Promise<{
+    title: string | null;
+    name: string | null;
+    pinned?: boolean;
+  } | null>;
 };
 
 type Entry = {
   /** 마지막으로 본 foreground argv를 이어 붙인 것. */
   foreground: string | null;
+  /** 현재 foreground TUI의 argv. flag 보존(`--dangerously-skip-permissions`)에 쓴다. */
+  argv: readonly string[] | null;
   harness: string | null;
   /**
    * harness를 process(foreground)나 띄운 쪽이 정했다. 아니면 hook이 알려 준 것이라 다른 harness의 hook이
@@ -142,6 +156,7 @@ const fresh = (
   fixed: boolean,
 ): Pick<
   Entry,
+  | "argv"
   | "harness"
   | "fixed"
   | "heard"
@@ -156,6 +171,7 @@ const fresh = (
   | "waited"
   | "guessed"
 > => ({
+  argv: null,
   harness,
   fixed,
   heard: false,
@@ -216,7 +232,12 @@ export type AgentTracker = {
     state: TerminalAgent["state"];
     session: string | null;
     cwd: string | null;
+    skipPermissions: boolean;
   } | null;
+  /** `terminals/open`의 `resume`이나 GUI→TUI 전환처럼 곧 뜰 TUI의 session id를 미리 알린다(argv에 인자가 없는 비 Linux 대비). */
+  expectResume(terminalRef: string, harness: string, session: string): void;
+  /** 사람이 저장된 session 이름을 고쳤다. 같은 session을 쥔 살아 있는 터미널에도 바로 반영한다. */
+  renameSession(harness: string, session: string, name: string | null): void;
   /** foreground의 harness TUI가 떠났다(shell prompt나 다른 process). 돌려받은 함수로 그만 듣는다. */
   onForegroundExit(terminalRef: string, listener: () => void): () => void;
   /** runtime에 지금의 agent를 싣는다. harness가 없으면 agent 칸이 없다. */
@@ -234,6 +255,43 @@ const KEY_TEXT = { escape: "\x1b", "ctrl-c": "\x03" } as const;
 export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   const entries = new Map<string, Entry>();
   const exitListeners = new Map<string, Set<() => void>>();
+  // terminals/open(resume)이나 GUI→TUI 전환이 곧 띄울 TUI의 session id(argv 인자가 없는 비 Linux 대비).
+  const expectedResumes = new Map<
+    string,
+    { harness: string; session: string }
+  >();
+
+  function hydrate(ref: string, harness: string, session: string): void {
+    if (deps.lookupSession === undefined) return;
+    void deps
+      .lookupSession({ terminal_ref: ref, harness, session })
+      .then((saved) => {
+        if (saved === null || !alive(ref)) return;
+        const current = entries.get(ref);
+        if (
+          current === undefined ||
+          current.harness !== harness ||
+          current.session !== session
+        ) {
+          return;
+        }
+        let changed = false;
+        if (current.title === null && saved.title !== null) {
+          current.title = saved.title;
+          changed = true;
+        }
+        if (
+          saved.name !== null &&
+          (saved.pinned === true || current.name === null) &&
+          current.name !== saved.name
+        ) {
+          current.name = saved.name;
+          changed = true;
+        }
+        if (changed) push(ref, current);
+      })
+      .catch(() => {});
+  }
 
   function setWaiting(entry: Entry, waiting: number): void {
     if (entry.waiting === 0 && waiting > 0) entry.waited -= deps.now();
@@ -370,13 +428,26 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       if (entry.foreground === joined) return;
       entry.foreground = joined;
       const harness = argv === null ? null : deps.harnessOfProcess(argv);
-      if (harness !== null) {
+      if (argv !== null && harness !== null) {
         if (entry.harness !== harness) {
           drop(entry);
           Object.assign(entry, fresh(harness, true));
           deps.identified?.(harness, ref);
         } else {
           entry.fixed = true;
+        }
+        entry.argv = argv;
+        const fromArgv = deps.sessionOfProcess?.(harness, argv) ?? null;
+        const expected = expectedResumes.get(ref);
+        const seeded =
+          expected?.harness === harness
+            ? (expectedResumes.delete(ref), fromArgv ?? expected.session)
+            : fromArgv;
+        if (seeded !== null && seeded !== entry.session) {
+          entry.session = seeded;
+          entry.title = null;
+          entry.name = null;
+          hydrate(ref, harness, seeded);
         }
       } else if (entry.harness !== null) {
         // 알아보지 못하는 process가 foreground가 됐다. agent는 떠났다.
@@ -406,13 +477,18 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         entry.hooked = true;
       }
       // /clear나 resume은 같은 터미널에서 session을 바꾼다. 새 session의 제목은 새 prompt에서, 이름은 새 hook에서 다시 받는다.
+      let acquiredSession: string | null = null;
       if (
         signal.external_session !== undefined &&
         signal.external_session !== entry.session
       ) {
+        if (expectedResumes.get(ref)?.harness === harness) {
+          expectedResumes.delete(ref);
+        }
         entry.session = signal.external_session;
         entry.title = null;
         entry.name = null;
+        acquiredSession = signal.external_session;
       }
       if (signal.name !== undefined) entry.name = signal.name;
       const cwd = (payload as { cwd?: unknown } | null)?.cwd;
@@ -499,6 +575,9 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       }
       reconcile(ref, entry);
       push(ref, entry);
+      if (acquiredSession !== null) {
+        hydrate(ref, harness, acquiredSession);
+      }
       if (entry.session !== null) {
         deps.sessionSeen?.({
           terminal_ref: ref,
@@ -535,6 +614,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       push(ref, entry);
     },
     gone(ref) {
+      expectedResumes.delete(ref);
       const entry = entries.get(ref);
       if (entry === undefined) return;
       const wasTui = entry.fixed && entry.harness !== null;
@@ -562,7 +642,21 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         state: agent.state,
         session: entry.session,
         cwd: entry.cwd,
+        skipPermissions:
+          entry.argv?.includes("--dangerously-skip-permissions") ?? false,
       };
+    },
+    expectResume(ref, harness, session) {
+      if (!alive(ref)) return;
+      expectedResumes.set(ref, { harness, session });
+    },
+    renameSession(harness, session, name) {
+      for (const [ref, entry] of entries) {
+        if (entry.harness !== harness || entry.session !== session) continue;
+        if (entry.name === name) continue;
+        entry.name = name;
+        push(ref, entry);
+      }
     },
     onForegroundExit(ref, listener) {
       let set = exitListeners.get(ref);

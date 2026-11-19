@@ -24,6 +24,8 @@ export type HarnessGuiCarry = {
   model?: string;
   effort?: string;
   mode?: string;
+  /** TUI에서 명시적으로 켠 `--dangerously-skip-permissions` flag(antigravity). */
+  skipPermissions?: boolean;
 };
 
 /** 도는 CLI 하나. restart는 `stop()`이 끝난 뒤 `tuiCommand()`를 치고, shared는 `stop()` 없이 친다. */
@@ -63,6 +65,8 @@ export type HarnessGuiAdapter = {
     cwd: string;
     /** 그 CLI 자신의 session id. */
     resume?: string;
+    /** TUI에서 `--dangerously-skip-permissions`로 돌고 있었는지(antigravity). */
+    skipPermissions?: boolean;
     /** 앞 run이 `carry()`로 넘긴 값. */
     carry?: HarnessGuiCarry;
     session: AcpSessionHandle;

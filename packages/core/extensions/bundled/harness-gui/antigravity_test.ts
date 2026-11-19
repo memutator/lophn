@@ -38,6 +38,8 @@ async function setup(
   name: string,
   options: {
     resume?: string;
+    skipPermissions?: boolean;
+    carry?: { skipPermissions?: boolean };
     /** 대화 file이 있는 id. 없으면 저장된 적 없는 대화다. */
     saved?: string[];
     /** 설정 요청의 답을 바꾼다. */
@@ -116,6 +118,7 @@ async function setup(
   };
   const clock = manualClock(Date.UTC(2026, 10, 5));
   const checked: string[] = [];
+  const spawned: { command: string; args: readonly string[] }[] = [];
   const started = createAntigravityAdapter({
     home: "/home/test",
     readFile: () => Promise.reject(new Error("no files")),
@@ -129,8 +132,15 @@ async function setup(
     terminal: null,
     cwd: `/work/${name}`,
     ...(options.resume === undefined ? {} : { resume: options.resume }),
+    ...(options.skipPermissions === undefined
+      ? {}
+      : { skipPermissions: options.skipPermissions }),
+    ...(options.carry === undefined ? {} : { carry: options.carry }),
     session,
-    spawn: () => proc,
+    spawn: (command, args) => {
+      spawned.push({ command, args });
+      return proc;
+    },
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
   });
@@ -141,6 +151,7 @@ async function setup(
   return {
     written,
     checked,
+    spawned,
     get state() {
       return state;
     },
@@ -409,4 +420,32 @@ test("the TUI command resumes the conversation and carries only what the GUI cha
     agy.run.tuiCommand(),
     `agy --conversation ${id} --model gemini-3.8-flash-low --mode plan`,
   );
+});
+
+test("explicit --dangerously-skip-permissions is preserved across agy acp spawn, tuiCommand, and carry", async () => {
+  const id = "d1fb45c2-7787-48fa-8857-7b99e57222f7";
+  const direct = await setup("text", { skipPermissions: true });
+  assert.deepEqual(direct.spawned, [
+    { command: "agy", args: ["acp", "--dangerously-skip-permissions"] },
+  ]);
+  assert.equal(
+    direct.run.tuiCommand(),
+    `agy --conversation ${id} --dangerously-skip-permissions`,
+  );
+  assert.deepEqual(direct.run.carry?.(), { skipPermissions: true });
+
+  // carry가 있고 skipPermissions가 생략되면 이어 간다.
+  const carried = await setup("text", { carry: { skipPermissions: true } });
+  assert.deepEqual(carried.spawned, [
+    { command: "agy", args: ["acp", "--dangerously-skip-permissions"] },
+  ]);
+
+  // TUI가 flag 없이 떴으면(skipPermissions: false) 이전 carry를 덮어쓴다.
+  const plain = await setup("text", {
+    skipPermissions: false,
+    carry: { skipPermissions: true },
+  });
+  assert.deepEqual(plain.spawned, [{ command: "agy", args: ["acp"] }]);
+  assert.equal(plain.run.tuiCommand(), `agy --conversation ${id}`);
+  assert.deepEqual(plain.run.carry?.(), {});
 });

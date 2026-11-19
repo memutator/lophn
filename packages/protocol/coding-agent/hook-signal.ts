@@ -325,10 +325,17 @@ function commandHookSignal(
     case "TurnStarted": {
       // letta의 slash command는 model turn이 아니다.
       if (payload.is_command === true) return null;
-      // sidebar 제목으로 쓰는 한 줄이라 첫 줄만 둔다.
+      // sidebar 제목으로 쓰는 한 줄이라 첫 줄만 둔다. agy의 PreInvocation은 `prompt` 대신 `lastUserInput`을 싣는다.
+      const rawPrompt =
+        typeof payload.prompt === "string" && payload.prompt.trim() !== ""
+          ? payload.prompt
+          : harness === "antigravity" &&
+              typeof payload.lastUserInput === "string"
+            ? payload.lastUserInput
+            : undefined;
       const prompt = summaryOf(
-        typeof payload.prompt === "string"
-          ? payload.prompt.trimStart().split("\n")[0]
+        rawPrompt !== undefined
+          ? rawPrompt.trimStart().split("\n")[0]
           : undefined,
       );
       return prompt === null ? { type } : { type, prompt };

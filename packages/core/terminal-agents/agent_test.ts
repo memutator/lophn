@@ -351,3 +351,63 @@ test("a new turn after a finished signal dismisses the terminal's unseen mark, a
   send({ type: "TurnStarted" });
   assert.deepEqual(dismissed, ["t", "t"]);
 });
+
+test("tracker seeds resumed session and skipPermissions from foreground argv, falls back to expectResume, and hydrates saved names", async () => {
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  let latest: TerminalRuntime = runtime;
+  const tracker = createAgentTracker({
+    harnessOfProcess: (argv) => (argv[0] === "agy" ? "antigravity" : null),
+    sessionOfProcess: (_harness, argv) => {
+      const idx = argv.indexOf("--conversation");
+      return idx >= 0 ? (argv[idx + 1] ?? null) : null;
+    },
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: () => null,
+    runtimeOf: () => runtime,
+    publish: (rt) => {
+      latest = rt;
+    },
+    notify: () => {},
+    signal: () => {},
+    dismiss: () => {},
+    lookupSession: async ({ session }) =>
+      session === "conv-1"
+        ? { title: "First prompt", name: "Pinned name", pinned: true }
+        : null,
+    ...fakeClock(),
+  });
+
+  tracker.foreground("t", [
+    "agy",
+    "--dangerously-skip-permissions",
+    "--conversation",
+    "conv-1",
+  ]);
+  assert.deepEqual(tracker.tuiOf("t"), {
+    harness: "antigravity",
+    state: "unknown",
+    session: "conv-1",
+    cwd: null,
+    skipPermissions: true,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(latest.agent?.session, "conv-1");
+  assert.equal(latest.agent?.title, "First prompt");
+  assert.equal(latest.agent?.name, "Pinned name");
+
+  // 비 Linux처럼 argv에 인자가 없어도 expectResume으로 1회 seed된다.
+  tracker.foreground("t", null);
+  tracker.expectResume("t", "antigravity", "conv-1");
+  tracker.foreground("t", ["agy"]);
+  assert.deepEqual(tracker.tuiOf("t"), {
+    harness: "antigravity",
+    state: "unknown",
+    session: "conv-1",
+    cwd: null,
+    skipPermissions: false,
+  });
+  // 한 번 쓴 뒤 다시 새 TUI를 띄우면 이전 expectResume을 재사용하지 않는다.
+  tracker.foreground("t", null);
+  tracker.foreground("t", ["agy"]);
+  assert.equal(tracker.tuiOf("t")?.session, null);
+});

@@ -13,8 +13,8 @@ export type ForegroundDeps = {
 };
 
 // Hermes는 `python3 -I -c '<launcher code>'`로 돌고 표지(`hermes_cli.main`)가 7KB 가까운 code의 끝에 있다.
-// 인자 하나를 이보다 짧게 자르면 못 알아본다.
-const MAX_ARGS = 6;
+// 인자 하나를 이보다 짧게 자르면 못 알아본다. resume flag나 `--dangerously-skip-permissions`가 앞 인자 뒤에 올 수 있어 넉넉히 읽는다.
+const MAX_ARGS = 32;
 const MAX_ARG_CHARS = 32768;
 
 /**

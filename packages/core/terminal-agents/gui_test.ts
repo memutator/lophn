@@ -11,7 +11,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 
+import { manualClock } from "../../base/clock.ts";
 import { terminalHookLineSchema } from "../../protocol/coding-agent/terminal-hook.ts";
+import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
 import type { AcpTabRequest } from "../../protocol/extensions/mod.ts";
 import {
   type AcpState,
@@ -19,6 +21,8 @@ import {
   type AcpUpdate,
   EMPTY_ACP_STATE,
 } from "../../protocol/acp/mod.ts";
+import type { Terminals } from "../terminals/ports.ts";
+import { createCodingSessions } from "./coding-sessions.ts";
 import { createHookIngress } from "./ingress.ts";
 import { cliEnv } from "../extensions/spawner.ts";
 import {
@@ -27,6 +31,8 @@ import {
   type TabGuiDeps,
   type TabHandle,
 } from "./gui.ts";
+import { createTerminalAgents } from "./service.ts";
+import { createAgentSessionStore } from "./session-store.ts";
 
 const NO_IMAGES: TabGuiDeps["images"] = {
   root: "/tmp/lophn-gui",
@@ -526,4 +532,319 @@ test("폰이 보낸 그림이 그 탭의 임시 폴더 밖에 쓰이지 않는�
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("coding_sessions/switch rejects with conflict when stops changed since switch_plan", async () => {
+  const ulid = "01AAAAAAAAAAAAAAAAAAAAAAAA";
+  const terminalRef = `trm_${ulid}`;
+  const sessionId = `ses_${ulid}`;
+  const toggled: { terminal_ref: string; to: "gui" | "tui" }[] = [];
+  let view: "tui" | "gui" = "tui";
+  let tuiState: "idle" | "running" | "waiting" = "idle";
+  let guiState: AcpState = EMPTY_ACP_STATE;
+  const handle = fakeHandle(terminalRef, () => guiState);
+  const runtime = (): TerminalRuntime =>
+    ({
+      terminal_ref: terminalRef,
+      project: `prj_${ulid}`,
+      cwd_at_start: "/work",
+      state: "running",
+      generation: 1,
+      agent: {
+        harness: "antigravity",
+        state: tuiState,
+        hooked: true,
+        foreground: true,
+        session: "conv-1",
+      },
+    }) as TerminalRuntime;
+
+  const coding = createCodingSessions({
+    clock: manualClock(0),
+    terminals: { list: () => [runtime()] },
+    gui: {
+      request: async () => null,
+      opened: () => {},
+      onHandle: () => () => {},
+      running: () => null,
+      toggle: async (input) => {
+        toggled.push(input);
+        view = input.to;
+        return { ok: true };
+      },
+      sessions: async () => [],
+      rewindPreview: async () => null,
+      current: () => (view === "gui" ? { handle, view: "gui" } : null),
+      tabSessions: () =>
+        view === "gui"
+          ? [
+              {
+                terminal_ref: terminalRef,
+                harness: "antigravity",
+                view: "gui",
+                handoff: "restart",
+                title: null,
+                cli_session: "conv-1",
+                state: guiState.turn?.phase === "working" ? "running" : "idle",
+              },
+            ]
+          : [],
+      input: () => false,
+      toolBody: () => null,
+      uploadImage: async () => null,
+      readImage: async () => null,
+      terminalChanged: () => {},
+      stop: () => {},
+    },
+    after: () => () => {},
+    publish: () => {},
+    redact: (value) => value,
+    platform: "linux",
+  });
+
+  // 1) TUI idle 계획을 확인한 뒤 turn이 시작하면 conflict로 거절하고 toggle하지 않는다.
+  const idlePlan = coding.switchPlan(sessionId);
+  assert.ok(idlePlan.ok);
+  assert.deepEqual(idlePlan.value.stops, { turn: false, tasks: 0, queued: 0 });
+
+  tuiState = "running";
+  const stale = await coding.switch({
+    session: sessionId,
+    to: "gui",
+    key: "k-stale",
+    stops: idlePlan.value.stops,
+  });
+  assert.equal(stale.ok, false);
+  if (!stale.ok) {
+    assert.equal(stale.error.code, "conflict");
+    assert.equal(stale.error.details?.reason, "stale_plan");
+  }
+  assert.deepEqual(toggled, []);
+
+  // 실패한 key는 풀리고, 새 계획(turn: true)으로 다시 확인하면 바뀐다.
+  const runningPlan = coding.switchPlan(sessionId);
+  assert.ok(runningPlan.ok);
+  assert.deepEqual(runningPlan.value.stops, {
+    turn: true,
+    tasks: 0,
+    queued: 0,
+  });
+  const switched = await coding.switch({
+    session: sessionId,
+    to: "gui",
+    key: "k-stale",
+    stops: runningPlan.value.stops,
+  });
+  assert.deepEqual(switched, { ok: true, value: { ok: true } });
+  assert.deepEqual(toggled, [{ terminal_ref: terminalRef, to: "gui" }]);
+
+  // 2) GUI → TUI에서도 계획 확인 뒤 메시지가 줄 서면 conflict다.
+  const guiIdlePlan = coding.switchPlan(sessionId);
+  assert.ok(guiIdlePlan.ok);
+  assert.deepEqual(guiIdlePlan.value.stops, {
+    turn: false,
+    tasks: 0,
+    queued: 0,
+  });
+  guiState = {
+    ...EMPTY_ACP_STATE,
+    queued: [{ id: "q1", at: AT, content: [{ type: "text", text: "hi" }] }],
+  };
+  const staleGui = await coding.switch({
+    session: sessionId,
+    to: "tui",
+    key: "k-gui-stale",
+    stops: guiIdlePlan.value.stops,
+  });
+  assert.equal(staleGui.ok, false);
+  if (!staleGui.ok) {
+    assert.equal(staleGui.error.code, "conflict");
+    assert.equal(staleGui.error.details?.reason, "stale_plan");
+  }
+  assert.equal(toggled.length, 1);
+
+  // stops를 생략한 옛 호출자는 계속 동작한다.
+  const compat = await coding.switch({
+    session: sessionId,
+    to: "tui",
+    key: "k-compat",
+  });
+  assert.deepEqual(compat, { ok: true, value: { ok: true } });
+});
+
+test("GUI ACP session title updates persist to AgentSessionStore without overwriting a user-pinned name", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-gui-title-"));
+  const prj = "prj_01AAAAAAAAAAAAAAAAAAAAAAAA";
+  const terminalRef = "trm_01AAAAAAAAAAAAAAAAAAAAAAAA";
+  try {
+    const store = createAgentSessionStore({
+      dataRoot: root,
+      now: () => 1000,
+      resumable: () => true,
+    });
+    const rt = {
+      terminal_ref: terminalRef,
+      project: prj,
+      folder_ref: `${prj}_0`,
+      cwd_at_start: "/work",
+      state: "running",
+      generation: 1,
+    } as TerminalRuntime;
+    const terminals: Terminals = {
+      open: async () => ({ ok: true, value: rt }),
+      close: async () => ({ ok: true, value: rt }),
+      restart: async () => ({ ok: true, value: rt }),
+      write: async () => ({ ok: true, value: undefined }),
+      signal: async () => ({ ok: true, value: undefined }),
+      resize: async () => ({ ok: true, value: rt }),
+      snapshot: async () => ({ ok: true, value: { runtime: rt, output: [] } }),
+      screen: async () => ({ ok: true, value: {} as never }),
+      list: () => [rt],
+      runtime: (ref) => (ref === terminalRef ? rt : null),
+      patch: () => {},
+      onRuntime: () => () => {},
+      onOutput: () => () => {},
+      onForeground: () => () => {},
+      onHumanInput: () => () => {},
+      useEnv: () => () => {},
+      anyOpen: () => true,
+      stop: async () => {},
+    };
+    const agents = createTerminalAgents({
+      terminals,
+      clock: manualClock(1000),
+      after: () => () => {},
+      publish: () => {},
+      attention: () => ({ signal: () => {}, dismiss: () => {} }),
+      handlers: () => null,
+      redact: (value) => value,
+      platform: "linux",
+      store,
+      images: NO_IMAGES,
+      ids: { request: () => "req_1" },
+      hookEnv: () => ({}),
+      identified: () => {},
+      beat: () => {},
+      log: () => {},
+    });
+
+    let state: AcpState = EMPTY_ACP_STATE;
+    const listeners = new Set<Parameters<TabHandle["attach"]>[0]>();
+    const handle: TabHandle = {
+      id: "win_1",
+      terminal: terminalRef,
+      harness: "antigravity",
+      handoff: "restart",
+      cwd: "/work",
+      state: () => state,
+      attach(listener) {
+        listener.snapshot(state);
+        listeners.add(listener);
+        return () => void listeners.delete(listener);
+      },
+      input: () => {},
+      close: () => {},
+    };
+    agents.opened(handle);
+
+    const emitSession = (title: string | null) => {
+      state = {
+        ...state,
+        session: {
+          cli_session: "conv-1",
+          title,
+        } as unknown as AcpState["session"],
+      };
+      for (const listener of listeners) {
+        listener.update({
+          type: "session_changed",
+          session: { cli_session: "conv-1", title },
+        });
+      }
+    };
+    emitSession("Generated ACP Title");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    let saved = await store.list(prj);
+    assert.equal(saved[0]?.external_session, "conv-1");
+    assert.equal(saved[0]?.title, "Generated ACP Title");
+    assert.equal(saved[0]?.name, "Generated ACP Title");
+
+    // 사람이 이름을 고정하면 이후 ACP 제목 갱신이 덮어쓰지 않는다.
+    const renamed = await agents.renameSaved({
+      project: prj,
+      harness: "antigravity",
+      external_session: "conv-1",
+      name: "My Pinned Title",
+    });
+    assert.equal(renamed.ok, true);
+    emitSession("Later ACP Title");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    saved = await store.list(prj);
+    assert.equal(saved[0]?.name, "My Pinned Title");
+    assert.equal(saved[0]?.pinned, true);
+    agents.stop();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("gui.toggle passes skipPermissions from TUI to AcpTabRequest and seeds resumingTui on GUI->TUI restart", async () => {
+  const requests: AcpTabRequest[] = [];
+  const resumed: { ref: string; harness: string; session: string }[] = [];
+  let opened: ReturnType<typeof liveHandle> | null = null;
+  const gui = createTabGui({
+    handlers: () => ({
+      gui(request) {
+        requests.push(request);
+        opened = liveHandle(request.terminal.id, 1);
+        const origState = opened.handle.state;
+        opened.handle.state = () => ({
+          ...origState(),
+          session: {
+            cli_session: "conv-1",
+            title: "My Chat",
+          } as unknown as AcpState["session"],
+        });
+        gui.opened(opened.handle);
+      },
+      tui() {
+        opened?.handle.close();
+      },
+      running: () => ({ turn: false, tasks: 0 }),
+      sessions: async () => [],
+      rewindPreview: async () => null,
+    }),
+    ids: { request: () => "req_1" },
+    terminals: {
+      runtime: () => ({ cwd: "/work", generation: 1 }),
+      hookEnv: () => ({}),
+      tui: () => ({
+        harness: "antigravity",
+        state: "idle",
+        session: "conv-1",
+        cwd: "/work",
+        skipPermissions: true,
+      }),
+      type: async () => {},
+      signal: async () => {},
+      onForegroundExit: () => () => {},
+    },
+    images: NO_IMAGES,
+    log: () => {},
+    resumingTui: (ref, harness, session) =>
+      resumed.push({ ref, harness, session }),
+  });
+
+  assert.deepEqual(await gui.toggle({ terminal_ref: "trm_a", to: "gui" }), {
+    ok: true,
+  });
+  assert.equal(requests[0]?.skipPermissions, true);
+  assert.equal(requests[0]?.resume, "conv-1");
+
+  assert.deepEqual(await gui.toggle({ terminal_ref: "trm_a", to: "tui" }), {
+    ok: true,
+  });
+  assert.deepEqual(resumed, [
+    { ref: "trm_a", harness: "claude", session: "conv-1" },
+  ]);
 });

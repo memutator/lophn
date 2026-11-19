@@ -61,6 +61,7 @@ export type TabGuiDeps = {
       state: "running" | "waiting" | "idle" | "unknown";
       session: string | null;
       cwd: string | null;
+      skipPermissions?: boolean;
     } | null;
     type(terminalRef: string, text: string): Promise<void>;
     signal(terminalRef: string, signal: "SIGINT" | "SIGTERM"): Promise<void>;
@@ -78,6 +79,8 @@ export type TabGuiDeps = {
   log(message: string): void;
   /** handle이 열리거나 닫히거나, view나 그 session의 상태(title, turn phase)가 바뀌었다. coding session 목록을 다시 만든다. */
   changed?(): void;
+  /** restart adapter가 GUI → TUI로 돌아가며 그 session id로 TUI를 다시 띄운다. */
+  resumingTui?(terminalRef: string, harness: GuiHarness, session: string): void;
 };
 
 type Tab = {
@@ -274,6 +277,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     cwd: string,
     resume: string | undefined,
     checkStarted: boolean,
+    skipPermissions?: boolean,
   ): Promise<ToggleReply> {
     if (byTerminal.has(terminalRef)) {
       setView(terminalRef, "gui");
@@ -294,6 +298,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         terminal: terminalOf(terminalRef, harness, cwd),
         harness,
         ...(resume === undefined ? {} : { resume }),
+        ...(skipPermissions === undefined ? {} : { skipPermissions }),
       };
       await handlers.gui(request);
       if (!checkStarted || handlers.running(terminalRef) !== null) {
@@ -423,9 +428,13 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           tui.cwd ?? runtime.cwd,
           tui.session,
           true,
+          tui.skipPermissions,
         );
       }
       if (tab === undefined) return { ok: true };
+      const prevSession = tab.handle.state().session?.cli_session ?? null;
+      const prevHarness = tab.handle.harness;
+      const isRestart = tab.handle.handoff === "restart";
       try {
         await deps.handlers()?.tui(terminalRef);
       } catch (cause) {
@@ -434,6 +443,9 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       }
       // restart는 extension이 handle을 닫았다. shared는 handle이 남아 있어 view만 바꾼다.
       if (byTerminal.get(terminalRef) === tab) setView(terminalRef, "tui");
+      else if (isRestart && prevSession !== null) {
+        deps.resumingTui?.(terminalRef, prevHarness, prevSession);
+      }
       return { ok: true };
     },
 

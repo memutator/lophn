@@ -14,7 +14,10 @@ import {
   withoutToolBodies,
 } from "../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/harness-adapter.ts";
-import type { CodingSession } from "../../protocol/coding-agent/relay.ts";
+import type {
+  CodingSession,
+  SwitchStops,
+} from "../../protocol/coding-agent/relay.ts";
 import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../protocol/events/bus.ts";
 import {
@@ -40,7 +43,7 @@ const NOT_READY =
 
 type SwitchPlan = {
   to: "gui" | "tui";
-  stops: { turn: boolean; tasks: number; queued: number };
+  stops: SwitchStops;
   blocked: "no_session" | "not_running" | "unsupported_os" | null;
 };
 
@@ -119,7 +122,7 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
           cli_session:
             (guided ? tab.cli_session : null) ?? agent?.session ?? null,
           title:
-            (guided ? tab.title : null) ?? agent?.title ?? agent?.name ?? null,
+            (guided ? tab.title : null) ?? agent?.name ?? agent?.title ?? null,
           cwd: runtime.cwd_at_start,
           shell_pid: runtime.shell_pid ?? null,
           view: tab?.view ?? "tui",
@@ -345,19 +348,13 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       if (report.view === "tui") {
         return ok({
           to: "gui",
-          stops: { turn: report.state === "running", tasks: 0, queued: 0 },
+          stops: stopsOf(report, session),
           blocked: blockedOf(report),
         });
       }
-      const state = handleOf(session)?.state();
       return ok({
         to: "tui",
-        stops: {
-          turn: state !== undefined && running(state),
-          tasks:
-            state?.tasks.filter((task) => task.state === "running").length ?? 0,
-          queued: state?.queued.length ?? 0,
-        },
+        stops: stopsOf(report, session),
         blocked: null,
       });
     },
@@ -367,6 +364,7 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       session: string;
       to: "gui" | "tui";
       key: string;
+      stops?: SwitchStops;
     }): Promise<Result<{ ok: true }>> {
       const seen = switches.get(input.key);
       if (seen !== undefined) return seen;
@@ -390,9 +388,30 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
     },
   };
 
+  function stopsOf(
+    report: TerminalSessionReport,
+    session: string,
+  ): SwitchStops {
+    if (report.view === "tui") {
+      return {
+        turn: report.state === "running" || report.state === "waiting",
+        tasks: 0,
+        queued: 0,
+      };
+    }
+    const state = handleOf(session)?.state();
+    return {
+      turn: state !== undefined && running(state),
+      tasks:
+        state?.tasks.filter((task) => task.state === "running").length ?? 0,
+      queued: state?.queued.length ?? 0,
+    };
+  }
+
   async function switchView(input: {
     session: string;
     to: "gui" | "tui";
+    stops?: SwitchStops;
   }): Promise<Result<{ ok: true }>> {
     const report = reportOf(input.session);
     if (report === undefined) return gone();
@@ -401,6 +420,20 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
         code: "conflict",
         message: `The coding session is already in ${input.to === "gui" ? "chat" : "the terminal"}.`,
       });
+    }
+    if (input.stops !== undefined) {
+      const current = stopsOf(report, input.session);
+      if (
+        current.turn !== input.stops.turn ||
+        current.tasks !== input.stops.tasks ||
+        current.queued !== input.stops.queued
+      ) {
+        return refused(
+          "conflict",
+          "What would stop has changed since the switch plan was checked.",
+          "stale_plan",
+        );
+      }
     }
     // terminal host가 win32에서 foreground를 모른다(harness-gui 비목표).
     if (deps.platform === "win32") {

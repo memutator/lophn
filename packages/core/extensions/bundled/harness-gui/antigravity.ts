@@ -185,7 +185,17 @@ const ADAPTER_COMMANDS: AcpCommand[] = [
 
 const start: (io: AntigravityIo) => Start =
   (io) =>
-  async ({ cwd, resume, session, spawn, clock, ids }) => {
+  async ({
+    cwd,
+    resume,
+    carry,
+    skipPermissions,
+    session,
+    spawn,
+    clock,
+    ids,
+  }) => {
+    const skip = skipPermissions ?? carry?.skipPermissions ?? false;
     let closed = false;
     let exited = false;
     let stopping = false;
@@ -244,7 +254,8 @@ const start: (io: AntigravityIo) => Start =
       write({ id: rpc, result });
 
     function connect() {
-      const mine = spawn("agy", ["acp"], { cwd });
+      const args = skip ? ["acp", "--dangerously-skip-permissions"] : ["acp"];
+      const mine = spawn("agy", args, { cwd });
       proc = mine;
       exited = false;
       stderrTail = "";
@@ -1926,8 +1937,12 @@ const start: (io: AntigravityIo) => Start =
         if (changed.mode && (mode === "accept-edits" || mode === "plan")) {
           parts.push("--mode", mode);
         }
+        if (skip) {
+          parts.push("--dangerously-skip-permissions");
+        }
         return parts.join(" ");
       },
+      carry: () => (skip ? { skipPermissions: true } : {}),
       async sessions() {
         if (exited) return [];
         const reply = await request("session/list", { cwd });

@@ -1818,7 +1818,7 @@ flows:
         observe: [response]
       - id: conflict
         code: conflict
-        when: "이미 그 view다"
+        when: "이미 그 view거나, 확인한 stops 계획과 지금 멈출 일이 다르다(stale_plan)"
         observe: [response]
       - id: unavailable
         code: unavailable

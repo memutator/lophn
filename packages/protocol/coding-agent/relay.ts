@@ -64,6 +64,13 @@ export const codingSessionsList = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden"],
 });
 
+const switchStopsSchema = z.strictObject({
+  turn: z.boolean(),
+  tasks: z.number().int().nonnegative(),
+  queued: z.number().int().nonnegative(),
+});
+export type SwitchStops = z.infer<typeof switchStopsSchema>;
+
 // 바꾸기 전에 사람에게 보일 것: 어느 쪽으로 가고 무엇이 멈추나. tui→gui는 도는 CLI를 끝내고 다시 띄우므로 도는 turn이 끊긴다.
 // gui→tui는 GUI 대화의 도는 turn, 도는 background task, 줄 선 메시지가 멈춘다.
 export const codingSessionsSwitchPlan = defineRead({
@@ -73,11 +80,7 @@ export const codingSessionsSwitchPlan = defineRead({
   input: z.strictObject({ session: idSchema("ses") }),
   output: z.strictObject({
     to: z.enum(["gui", "tui"]),
-    stops: z.strictObject({
-      turn: z.boolean(),
-      tasks: z.number().int().nonnegative(),
-      queued: z.number().int().nonnegative(),
-    }),
+    stops: switchStopsSchema,
     blocked: switchBlockedSchema.exclude(["extension_off"]).nullable(),
   }),
   reads: [{ name: "coding_sessions", id: (input) => input.session }],
@@ -86,8 +89,9 @@ export const codingSessionsSwitchPlan = defineRead({
 });
 
 // 탭의 view를 바꾼다. 도는 turn이 끊기고 desktop 탭도 바뀌는 일이라 사람이 확인한 뒤에만 부른다: `confirmed: true`가 없으면
-// `invalid_input`이다. 이미 그 view면 conflict다. 바꾸지 못하면 `details.reason`(no_session|not_running는 invalid_input,
-// extension_off|unsupported_os|failed는 unavailable)이다. 같은 key는 한 번만 바꾼다.
+// `invalid_input`이다. 이미 그 view거나, 사람이 본 `stops` 계획과 지금 멈출 일이 다르면 conflict다. 바꾸지 못하면
+// `details.reason`(no_session|not_running는 invalid_input, extension_off|unsupported_os|failed는 unavailable, stale_plan은
+// conflict)이다. 같은 key는 한 번만 바꾼다.
 export const codingSessionsSwitch = defineMemory({
   resource: "coding_sessions",
   method: "switch",
@@ -98,6 +102,7 @@ export const codingSessionsSwitch = defineMemory({
     to: z.enum(["gui", "tui"]),
     confirmed: z.literal(true),
     key: z.string().min(1).max(200),
+    stops: switchStopsSchema.optional(),
   }),
   output: z.strictObject({ ok: z.literal(true) }),
   actors: ["user"],

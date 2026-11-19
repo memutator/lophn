@@ -1,5 +1,5 @@
 id: tab-move-any
-version: 0.23.94
+version: 0.23.95
 title: 어떤 탭이든 다른 workspace로 끌어 옮기고, sidebar의 줄을 화면에 끌어 놓는다
 modules: [packages/shell/renderer]
 change: |

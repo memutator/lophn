@@ -1,5 +1,5 @@
 id: sidebar-current-other-machine
-version: 0.23.95
+version: 0.23.96
 title: 다른 기계의 workspace를 보거나 agent 목록을 아직 못 읽어도 다른 workspace의 도는 session·coding agent 줄이 남는다
 modules: [packages/shell/renderer]
 change: |

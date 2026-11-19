@@ -15,7 +15,7 @@ import {
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import {
-  type DragEvent,
+  type PointerEvent,
   Fragment,
   type ReactElement,
   type ReactNode,
@@ -122,16 +122,16 @@ export interface LeftSidebarProps {
   onWorkspaceMenu?: (workspace: SidebarWorkspace, id: string) => void;
   /** workspace 줄 아래 한 줄(menu에서 시작한 clone의 진행과 결과). */
   renderNote?: (workspace: SidebarWorkspace) => ReactNode;
-  /** session 줄을 다른 workspace 줄에 놓았다. 그 session의 탭을 그 workspace로 옮긴다. 없으면 줄을 끌 수 없다. */
-  onDropSession?: (
-    from: SidebarWorkspace,
+  /**
+   * 줄을 누른 채 끌기 시작. 탭 줄과 같은 pointer 끌기(tab-drag.tsx)라 화면(탭 줄, 칸)이나 다른 workspace 줄(`data-drop-workspace`)에
+   * 놓는다. 없으면 줄을 끌 수 없다.
+   */
+  onRowDrag?: (
+    event: PointerEvent<HTMLElement>,
+    workspace: SidebarWorkspace,
     item: SidebarSession,
-    to: SidebarWorkspace,
   ) => void;
 }
-
-// sidebar 안에서 끄는 session 줄. 탭 줄의 끌기(tab-drag.tsx)는 pointer로 따로 하고 놓을 곳(`data-drop-workspace`)만 같이 쓴다.
-const SESSION_DRAG = "application/x-lophn-session";
 
 const WORKSPACE_ICON = {
   home: sidebarIcons.home,
@@ -262,14 +262,13 @@ function SessionRow({
   /** false면 줄 끝 점을 그리지 않는다. 점은 줄 밖의 Stop 단추가 대신 보인다. */
   dot?: boolean;
   machineName?: string;
-  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragStart?: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       type="button"
       className={styles.sessionRow}
-      draggable={onDragStart !== undefined}
-      onDragStart={onDragStart}
+      onPointerDown={onDragStart}
       disabled={item.offline}
       data-offline={item.offline}
       data-machine={item.machine}
@@ -330,7 +329,7 @@ export function LeftSidebar({
   workspaceMenu,
   onWorkspaceMenu,
   renderNote,
-  onDropSession,
+  onRowDrag,
 }: LeftSidebarProps) {
   const nameOf = (machine: string | undefined) =>
     machine === undefined ? undefined : (machineNames?.get(machine) ?? "");
@@ -400,22 +399,13 @@ export function LeftSidebar({
   ];
   const currentKey = workspaceKey(current);
 
-  // 끄는 session 줄과 그 줄의 workspace. dataTransfer는 drop 전에 못 읽어 여기에 둔다.
-  const dragging = useRef<{
-    from: SidebarWorkspace;
-    item: SidebarSession;
-  } | null>(null);
-  const [dropOver, setDropOver] = useState<string | null>(null);
   const dragFrom =
     (workspace: SidebarWorkspace, item: SidebarSession) =>
-    (event: DragEvent<HTMLButtonElement>) => {
-      dragging.current = { from: workspace, item };
-      event.dataTransfer.setData(SESSION_DRAG, item.ref);
-      event.dataTransfer.effectAllowed = "move";
-    };
+    (event: PointerEvent<HTMLButtonElement>) =>
+      onRowDrag?.(event, workspace, item);
   const canDrag = (item: SidebarSession) =>
-    onDropSession !== undefined &&
-    item.kind === "session" &&
+    onRowDrag !== undefined &&
+    item.kind !== "workflow" &&
     item.offline !== true;
   const renderWorkspace = (workspace: SidebarWorkspace) => {
     const key = workspaceKey(workspace.ref);
@@ -438,28 +428,6 @@ export function LeftSidebar({
         <div
           className={styles.workspaceHead}
           {...(workspace.offline ? {} : { "data-drop-workspace": key })}
-          data-drop-over={dropOver === key || undefined}
-          onDragOver={(event) => {
-            const from = dragging.current;
-            if (
-              workspace.offline ||
-              from === null ||
-              workspaceKey(from.from.ref) === key
-            ) {
-              return;
-            }
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            setDropOver(key);
-          }}
-          onDragLeave={() => setDropOver((now) => (now === key ? null : now))}
-          onDrop={(event) => {
-            const from = dragging.current;
-            setDropOver(null);
-            if (from === null) return;
-            event.preventDefault();
-            onDropSession?.(from.from, from.item, workspace);
-          }}
         >
           <button
             type="button"

@@ -345,10 +345,10 @@ flows:
     docs: [architecture/remote.md, architecture/project-identity.md]
 
   - id: session-tab-move
-    title: "session 탭을 탭 줄이나 sidebar에서 다른 workspace 줄로 끌어 놓으면 탭만 그 workspace로 옮겨 간다"
+    title: "탭을 sidebar의 다른 workspace 줄에 놓거나 sidebar의 줄을 화면에 놓으면 탭이 그 자리로 옮겨 간다"
     actor: person
     entries: [ui:session-tab-move]
-    when: "Agent 탭(session이 있다)이나 sidebar의 session 줄을 끌어 다른 workspace 줄에 놓는다"
+    when: "탭 줄의 탭(kind를 가리지 않는다)이나 sidebar의 session·draft·터미널 줄을 끈다"
     boundary: [shell]
     code:
       - packages/shell/renderer/workspace/sidebar/move-tab.ts
@@ -357,14 +357,18 @@ flows:
       - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
       - packages/shell/renderer/workspace/workspace-window.tsx
       - packages/shell/renderer/shell/left-sidebar-workspaces.ts
+      - packages/shell/renderer/desktop/machines/tab-scope.tsx
     steps:
-      - "탭 줄의 끌기(pointer)는 sidebar의 data-drop-workspace 줄 위면 놓을 곳이 그 workspace이고 놓을 수 있는 줄을 표시한다. sidebar의 session 줄은 HTML drag로 끌고 같은 줄에 놓는다"
-      - "옮길 자리의 layout에 탭을 먼저 쓰고(key가 다른 session 탭과 겹치면 새 key) 된 뒤에 원래 자리(이 창이나 그 workspace의 layout)에서 뺀다. 탭 없이 도는 session은 탭을 지어 둔다"
-      - "session은 core에서 제 workspace에 남는다. sidebar 줄은 탭이 있는 workspace 아래로 가고 누르면 그 탭을 고른다"
+      - "탭 줄의 탭과 sidebar의 줄은 같은 pointer 끌기다. sidebar의 data-drop-workspace 줄 위면 놓을 곳이 그 workspace이고 놓을 수 있는 줄을 표시한다. 칸 위면 그 칸의 구역, 탭 줄 위면 그 자리, 빈 desk면 탭 줄 끝이다"
+      - "다른 workspace로: 그 layout에 탭을 먼저 쓰고(같은 key가 다른 것을 보는 탭이면 새 key) 된 뒤에 원래 자리(이 창이나 그 workspace의 layout)에서 뺀다. 터미널 탭은 store의 터미널 참조를 실어 가고 PTY는 core에 남는다"
+      - "화면으로: 줄의 탭이 이 창에 있으면 그 탭을, 다른 workspace에 있으면 그 layout에서 빼 와서, 탭 없이 도는 session이면 지어서 desk에 붙이고 놓은 자리로 옮긴다. 찾지도 짓지도 못하는 줄은 누른 것처럼 연다"
+      - "이 컴퓨터의 탭을 다른 기계의 workspace에 두면 탭의 machine에 이 컴퓨터의 id를 적고 TabScope가 이 컴퓨터로 그린다. 탭 줄 꼬리표는 This computer다"
     outcomes:
       - id: moved
+      - id: placed
+        when: "sidebar 줄을 화면에 놓았다. 탭이 놓은 칸·자리에 선다"
       - id: refused
-        when: "Agent 탭이 아니거나 session이 없거나 같은 workspace이거나, 이 컴퓨터의 session 탭을 다른 기계의 workspace에 놓았다. 놓을 곳으로 표시하지 않고 아무 일도 없다"
+        when: "같은 workspace에 놓았거나 workflow 줄을 끌었다. 놓을 곳으로 표시하지 않고 아무 일도 없다"
     crosses_process: false
     docs: [architecture/workspace-layout.md]
 

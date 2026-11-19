@@ -77,6 +77,9 @@ import {
   dockFloat,
   entryKey,
   findTab,
+  type TabDragItem,
+  type TabDropHit,
+  type TabDropState,
   floatTab,
   focusLeaf,
   groupOf,
@@ -141,7 +144,14 @@ import { Taskbar } from "../shell/taskbar/taskbar.tsx";
 import { TrayHost } from "../shell/tray/tray.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import { TabDragProvider } from "../shell/tab-drag.tsx";
-import { movedTab, putTab, sessionTab } from "./sidebar/move-tab.ts";
+import {
+  movedTab,
+  placedIn,
+  putTab,
+  sessionTab,
+  tabMachineOf,
+} from "./sidebar/move-tab.ts";
+import type { SidebarRowDrops } from "./sidebar/workspace-left-sidebar.tsx";
 import {
   type StripEntry,
   type StripTab,
@@ -445,6 +455,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const { machine, machineData } = useHostMachine();
   const data = useMachineData();
   const machinesView = useMachinesView();
+  const thisComputer = machinesView?.thisComputer?.id ?? null;
   const machineLists = useMachineLists();
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
@@ -1147,11 +1158,20 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     return true;
   };
 
-  // 탭을 다른 workspace로 옮긴다(탭 자리만, `move-tab.ts`). 그 workspace의 layout에 먼저 쓰고 된 뒤에만 이 창에서 뺀다.
+  // 탭을 다른 workspace로 옮긴다(탭 자리만, `move-tab.ts`). kind를 가리지 않는다. 그 workspace의 layout에 먼저 쓰고 된 뒤에만
+  // 이 창에서 뺀다. 터미널 탭은 아직 layout에 터미널 참조를 적지 않았을 수 있어 store의 것을 실어 간다(PTY는 core에 남는다).
   const [layoutsMoved, setLayoutsMoved] = useState(0);
   const moveTabTo = async (key: string, to: WorkspaceRef) => {
-    const tab = allTabs(latestLayout.current).find((item) => item.key === key);
-    const moved = tab === undefined ? null : movedTab(tab, workspace, to);
+    const found = allTabs(latestLayout.current).find(
+      (item) => item.key === key,
+    );
+    const ref = found?.kind === "terminal" ? terminal?.store.refOf(key) : null;
+    const tab =
+      found !== undefined && ref != null && terminalRefOf(found) === null
+        ? { ...found, fields: { ...found.fields, terminal: ref } }
+        : found;
+    const moved =
+      tab === undefined ? null : movedTab(tab, workspace, to, thisComputer);
     if (moved === null) return;
     const layoutThere = machineData(to.machine ?? null).workspace.layout;
     if (!(await putTab(layoutThere, to, moved))) return;
@@ -1176,7 +1196,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       machine: machine ?? null,
       title: sessionTitles.known.get(session)?.title ?? "",
     });
-    const moved = movedTab(fresh, workspace, to);
+    const moved = movedTab(fresh, workspace, to, thisComputer);
     if (moved === null) return;
     void putTab(
       machineData(to.machine ?? null).workspace.layout,
@@ -1184,17 +1204,64 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       moved,
     ).then((ok) => ok && setLayoutsMoved((count) => count + 1));
   };
-  // workspace key → 줄. 탭 줄의 탭을 sidebar의 workspace 줄에 놓을 때 찾는다.
+  // workspace key → 줄. 끈 것을 sidebar의 workspace 줄에 놓을 때 찾는다.
   const rowRefOf = (key: string) =>
     machineLists.rows.find((row) => workspaceKey(row.ref) === key)?.ref;
-  const workspaceDrop = (item: { readonly key: string }, target: string) => {
+  // sidebar 줄의 탭을 찾고 옮기는 길. sidebar가 등록한다(다른 workspace의 layout과 모든 기계의 session을 sidebar가 안다).
+  const rowDrops = useRef<SidebarRowDrops | null>(null);
+  const dropState = (item: TabDragItem, hit: TabDropHit): TabDropState => {
+    if (item.row !== undefined) {
+      if (item.row.kind === "workflow") return "none";
+      if (hit.kind !== "workspace") return "ok";
+      return hit.target !== workspaceKey(item.row.workspace) &&
+        rowRefOf(hit.target) !== undefined
+        ? "ok"
+        : "none";
+    }
+    if (hit.kind !== "workspace") return tabDropState(desk, item, hit);
     const tab = desk.tabs.find((one) => one.key === item.key);
-    const to = rowRefOf(target);
+    const to = rowRefOf(hit.target);
     return tab !== undefined &&
       to !== undefined &&
-      movedTab(tab, workspace, to) !== null
-      ? ("ok" as const)
-      : ("none" as const);
+      movedTab(tab, workspace, to, thisComputer) !== null
+      ? "ok"
+      : "none";
+  };
+  const drop = async (item: TabDragItem, hit: TabDropHit) => {
+    const row = item.row;
+    if (row === undefined) {
+      if (hit.kind !== "workspace") {
+        update((d) => applyTabDrop(d, item, hit));
+        return;
+      }
+      const to = rowRefOf(hit.target);
+      if (to !== undefined) await moveTabTo(item.key, to);
+      return;
+    }
+    const drops = rowDrops.current;
+    if (drops === null) return;
+    if (hit.kind === "workspace") {
+      const to = rowRefOf(hit.target);
+      if (to !== undefined) await drops.moveTo(row, to);
+      return;
+    }
+    // 줄의 탭을 이 창의 놓은 자리에 둔다: 이 창에 있으면 그 탭을, 다른 자리에 있으면 빼 온 탭을 desk에 붙이고 놓은 자리로 옮긴다.
+    const taken = await drops.take(row);
+    if (taken === null) return;
+    const key =
+      "key" in taken
+        ? taken.key
+        : placedIn(allTabs(latestLayout.current), taken.tab).key;
+    if (!("key" in taken)) {
+      const tab = placedIn(allTabs(latestLayout.current), taken.tab);
+      if (findTab(latestLayout.current, tab.key) === null) {
+        update((d) => openTabInDesk(d, tab));
+      }
+    }
+    const at = findTab(latestLayout.current, key);
+    if (at === null || at.where !== "tab") return;
+    updateAt(at.desk, (d) => applyTabDrop(d, { key, whole: false }, hit));
+    setLayoutsMoved((count) => count + 1);
   };
 
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
@@ -1523,7 +1590,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 본문은 탭의 기계 범위에서 그린다. 이 컴퓨터에서만 서는 kind의 탭이 다른 기계의 것이면 "This opens only on <이름>"이다.
   const bodyOf = (tab: TabItem, active: boolean): ReactNode => {
     const def = tabKindOf(tab.kind);
-    const tabMachine = tab.machine ?? machine;
+    const tabMachine = tabMachineOf(tab, machine, thisComputer);
     return (
       <TabScope
         key={tab.key}
@@ -1562,12 +1629,18 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     return (
       def?.rename !== undefined &&
       !(
-        def.renameThisComputerOnly === true && (tab.machine ?? machine) !== null
+        def.renameThisComputerOnly === true &&
+        tabMachineOf(tab, machine, thisComputer) !== null
       )
     );
   };
-  const stripMachine = (tab: TabItem) =>
-    machineLists.names.get(tab.machine ?? workspace.machine ?? "");
+  // 다른 기계의 workspace에 둔 이 컴퓨터의 탭은 "This computer" 꼬리표다.
+  const stripMachine = (tab: TabItem) => {
+    const on = tabMachineOf(tab, machine, thisComputer);
+    if (on === null)
+      return machine === null ? undefined : t("machines.button.this-computer");
+    return machineLists.names.get(on);
+  };
   const stripTab = (tab: TabItem): StripTab => ({
     key: tab.key,
     title: titleOfTab(tab),
@@ -3043,19 +3116,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               const found = desk.tabs.find((item) => item.key === key);
               return found === undefined ? undefined : stripTab(found);
             }}
-            state={(item, hit) =>
-              hit.kind === "workspace"
-                ? workspaceDrop(item, hit.target)
-                : tabDropState(desk, item, hit)
-            }
-            onDrop={(item, hit) => {
-              if (hit.kind !== "workspace") {
-                update((d) => applyTabDrop(d, item, hit));
-                return;
-              }
-              const to = rowRefOf(hit.target);
-              if (to !== undefined) void moveTabTo(item.key, to);
-            }}
+            state={dropState}
+            onDrop={(item, hit) => void drop(item, hit)}
           >
             <ShellFrame
               left={leftOpen}
@@ -3195,6 +3257,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                     : { onSessionAt: props.onSessionAt })}
                   layoutsMoved={layoutsMoved}
                   onMoveSession={moveSessionTo}
+                  onMoveTab={(key, to) => void moveTabTo(key, to)}
+                  rowDrops={rowDrops}
+                  hereTabs={() => allTabs(latestLayout.current)}
                   onPutTab={(tab) => openTab(tab)}
                   onOpenHere={(session, agent) => {
                     if (selectSessionTab(session)) return;

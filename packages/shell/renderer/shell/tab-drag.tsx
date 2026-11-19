@@ -241,6 +241,10 @@ export function TabDragProvider({
         const next = others.find((entry) => x < entry.left + entry.width / 2);
         return { hit: { kind: "strip", before: next?.key ?? null } as const };
       }
+      // 빈 desk(칸이 없다)에 놓으면 탭 줄 끝이다. sidebar 줄을 끌어 올 때만 생긴다.
+      if (doc.elementFromPoint(x, y)?.closest("[data-drop-empty]")) {
+        return { hit: { kind: "strip", before: null } as const };
+      }
       // 떠 있는 패널 위는 칸이 아니다.
       if (doc.elementFromPoint(x, y)?.closest("[data-float-panel]")) {
         return { hit: null };
@@ -425,7 +429,7 @@ function DragLayer({
             <span className={styles.pillIcon}>{info.icon}</span>
           )}
           <span className={styles.pillTitle}>
-            {info?.title ?? active.item.key}
+            {info?.title ?? active.item.row?.title ?? active.item.key}
           </span>
         </div>
       </div>

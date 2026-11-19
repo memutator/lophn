@@ -1098,6 +1098,16 @@ export function ungroupTab(desk: Desk, key: string, toIndex?: number): Desk {
 export interface TabDragItem {
   readonly key: string;
   readonly whole: boolean;
+  /**
+   * 왼쪽 sidebar의 줄을 끈다(탭 줄 밖에서 왔다). `key`는 그 줄의 key이고 탭은 놓을 때 창이 찾거나 짓는다. desk의 규칙
+   * (`tabDropState`)은 desk에 없는 key라 늘 none이고 창이 따로 정한다.
+   */
+  readonly row?: {
+    readonly workspace: WorkspaceRef;
+    readonly kind: "session" | "draft" | "terminal" | "workflow";
+    readonly ref: string;
+    readonly title: string;
+  };
 }
 
 export type PaneZone = DropSide | "center";

@@ -39,6 +39,7 @@ import type { NewSessionStart } from "../../desktop/router.ts";
 import {
   allTabs,
   type QuickCommand,
+  type TabDragItem,
   closeTab,
   workspaceKey,
   type WorkspaceRef,
@@ -63,6 +64,7 @@ import {
   useTabsElsewhere,
 } from "../../shell/use-left-sidebar.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
+import { useTabDrag } from "../../shell/tab-drag.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import type { TabItem } from "../model.ts";
 import {
@@ -195,8 +197,24 @@ export interface WorkspaceLeftSidebarProps {
   layoutsMoved?: number;
   /** 이 창의 session 탭(없으면 지어서)을 그 workspace로 옮긴다. */
   onMoveSession?: (session: string, to: WorkspaceRef) => void;
+  /** 이 창의 탭을 그 workspace로 옮긴다. */
+  onMoveTab?: (key: string, to: WorkspaceRef) => void;
   /** 다른 workspace에서 옮겨 온 탭을 이 창에 연다. */
   onPutTab?: (tab: TabItem) => void;
+  /** 이 창의 모든 탭(지금 layout). 끈 줄의 탭을 찾는다. */
+  hereTabs?: () => readonly TabItem[];
+  /** sidebar가 줄의 탭을 찾고 옮기는 길을 여기에 둔다. 창이 끌어 놓기에서 부른다. */
+  rowDrops?: { current: SidebarRowDrops | null };
+}
+
+/** sidebar 줄을 끌어 놓을 때 창이 부르는 길. */
+export interface SidebarRowDrops {
+  /** 줄의 탭을 이 창에 둘 모양. 이 창에 있으면 그 key, 다른 자리에서 빼 왔거나 지었으면 그 탭. 없으면 줄을 누른 것처럼 열고 null이다. */
+  take(
+    row: NonNullable<TabDragItem["row"]>,
+  ): Promise<{ readonly key: string } | { readonly tab: TabItem } | null>;
+  /** 줄의 탭을 그 workspace로 옮긴다. */
+  moveTo(row: NonNullable<TabDragItem["row"]>, to: WorkspaceRef): Promise<void>;
 }
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
@@ -710,55 +728,138 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     });
   };
 
-  // session 줄을 다른 workspace 줄에 놓았다. 탭만 옮긴다(`move-tab.ts`). 이 창의 탭은 창이 옮기고, 다른 workspace의 탭은 그
-  // workspace의 layout에서 빼서 옮긴다. 탭 없이 도는 session은 탭을 지어 둔다.
-  const dropSession = async (
-    from: SidebarWorkspace,
-    item: SidebarSession,
-    to: SidebarWorkspace,
-  ) => {
-    if (item.kind !== "session") return;
-    const hereKey = workspaceKey(current);
-    if (workspaceKey(from.ref) === hereKey) {
-      props.onMoveSession?.(item.ref, to.ref);
+  // sidebar 줄의 탭을 끌어 놓기(`move-tab.ts`). 줄의 탭은 kind를 가리지 않고 그 줄의 workspace layout에서 찾는다: session은 그
+  // session의 Agent 탭, draft는 그 key, 터미널은 그 탭(이 창의 도는 터미널은 store의 탭 key, 다른 기계의 터미널은 붙은 탭). 탭 없이
+  // 도는 session은 탭을 짓는다. 찾지도 짓지도 못하는 줄(탭 없는 saved·다른 기계 터미널)은 누른 것처럼 연다.
+  const thisComputer = machines?.get().thisComputer?.id ?? null;
+  const hereKey = workspaceKey(current);
+  const rowOf = (row: NonNullable<TabDragItem["row"]>) =>
+    workspaces.find(
+      (one) => workspaceKey(one.ref) === workspaceKey(row.workspace),
+    );
+  const itemOf = (row: NonNullable<TabDragItem["row"]>) =>
+    rowOf(row)
+      ?.current.flatMap((group) => group.items)
+      .concat(rowOf(row)?.recent ?? [])
+      .find((one) => one.kind === row.kind && one.ref === row.ref);
+  const matches =
+    (row: NonNullable<TabDragItem["row"]>) =>
+    (tab: TabItem): boolean => {
+      if (row.kind === "session")
+        return tab.kind === "agent" && sessionOf(tab) === row.ref;
+      if (row.kind === "draft") return tab.key === row.ref;
+      if (row.kind !== "terminal") return false;
+      const live = props.terminals.find((one) => one.key === row.ref)?.live;
+      const remote = itemOf(row)?.remote?.tab;
+      return (
+        tab.key === row.ref ||
+        tab.key === live?.tabKey ||
+        (remote != null && tab.key === remote)
+      );
+    };
+  // 탭 없이 도는 session의 새 탭. 기계는 session의 기계이고 `retarget`이 놓을 workspace에 맞춘다.
+  const freshTab = (row: NonNullable<TabDragItem["row"]>): TabItem | null => {
+    if (row.kind !== "session") return null;
+    const entry = entries.find((one) => one.session === row.ref);
+    if (entry?.agent == null) return null;
+    return sessionTab({
+      session: row.ref,
+      agent: entry.agent,
+      workspace: entry.workspace?.id ?? "home",
+      machine: entry.machine,
+      title: row.title,
+    });
+  };
+  // 탭의 기계를 놓을 workspace에 맞춘다. 지은 탭은 이 컴퓨터를 뜻하는 자리에서 온 것으로 본다(기계를 이미 적었다).
+  const retarget = (
+    tab: TabItem,
+    from: WorkspaceRef,
+    to: WorkspaceRef,
+  ): TabItem | null =>
+    movedTab(
+      tab,
+      workspaceKey(from) === workspaceKey(to) ? { kind: "app", id: "" } : from,
+      to,
+      thisComputer,
+    );
+  const readTabs = async (ref: WorkspaceRef) => {
+    const read = await layoutOf(ref).readWorkspaceLayout(ref);
+    return read.ok && read.layout !== null ? allTabs(read.layout) : [];
+  };
+  const take: SidebarRowDrops["take"] = async (row) => {
+    const from = row.workspace;
+    if (workspaceKey(from) === hereKey) {
+      const found = props.hereTabs?.().find(matches(row));
+      if (found !== undefined) return { key: found.key };
+      const fresh = freshTab(row);
+      const tab =
+        fresh === null ? null : retarget(fresh, { kind: "home" }, current);
+      if (tab !== null) return { tab };
+    } else {
+      const found = (await readTabs(from)).find(matches(row));
+      if (found !== undefined) {
+        const tab = retarget(found, from, current);
+        if (tab === null) return null;
+        await editTabAt(from, (one) => one.key === found.key, "close");
+        return { tab };
+      }
+      const fresh = freshTab(row);
+      const tab =
+        fresh === null ? null : retarget(fresh, { kind: "home" }, current);
+      if (tab !== null) return { tab };
+    }
+    const workspace = rowOf(row);
+    const item = itemOf(row);
+    if (workspace !== undefined && item !== undefined) open(workspace, item);
+    return null;
+  };
+  const moveTo: SidebarRowDrops["moveTo"] = async (row, to) => {
+    const from = row.workspace;
+    if (workspaceKey(from) === workspaceKey(to)) return;
+    if (workspaceKey(from) === hereKey) {
+      const found = props.hereTabs?.().find(matches(row));
+      if (found !== undefined) props.onMoveTab?.(found.key, to);
+      else if (row.kind === "session") props.onMoveSession?.(row.ref, to);
       return;
     }
-    const read = await layoutOf(from.ref).readWorkspaceLayout(from.ref);
-    const found =
-      read.ok && read.layout !== null
-        ? allTabs(read.layout).find(
-            (tab) => tab.kind === "agent" && sessionOf(tab) === item.ref,
-          )
-        : undefined;
-    const entry = entries.find((row) => row.session === item.ref);
-    if (found === undefined && entry?.agent == null) return;
+    const found = (await readTabs(from)).find(matches(row));
+    const fresh = found === undefined ? freshTab(row) : null;
     const tab =
-      found ??
-      sessionTab({
-        session: item.ref,
-        agent: entry!.agent!,
-        workspace: entry!.workspace?.id ?? "home",
-        machine: entry!.machine,
-        title: item.title,
-      });
-    // 지은 탭은 기계를 이미 적었다(이 컴퓨터면 없다). 이 컴퓨터를 뜻하는 자리에서 온 것으로 본다.
-    const moved = movedTab(
-      tab,
-      found === undefined ? { kind: "home" } : from.ref,
-      to.ref,
-    );
-    if (moved === null) return;
-    if (workspaceKey(to.ref) === hereKey) props.onPutTab?.(moved);
-    else if (!(await putTab(layoutOf(to.ref), to.ref, moved))) return;
+      found !== undefined
+        ? retarget(found, from, to)
+        : fresh === null
+          ? null
+          : retarget(fresh, { kind: "home" }, to);
+    if (tab === null) return;
+    if (workspaceKey(to) === hereKey) props.onPutTab?.(tab);
+    else if (!(await putTab(layoutOf(to), to, tab))) return;
     if (found !== undefined) {
-      await editTabAt(from.ref, (row) => row.key === found.key, "close");
+      await editTabAt(from, (one) => one.key === found.key, "close");
     } else elsewhere.reload();
   };
+  const drops = props.rowDrops;
+  if (drops !== undefined) drops.current = { take, moveTo };
+  const { start: startDrag } = useTabDrag();
 
   return (
     <>
       <LeftSidebar
-        onDropSession={(from, item, to) => void dropSession(from, item, to)}
+        onRowDrag={(event, workspace, item) =>
+          startDrag(
+            event,
+            {
+              key: `row:${item.kind}:${item.ref}`,
+              whole: false,
+              row: {
+                workspace: workspace.ref,
+                kind: item.kind,
+                ref: item.ref,
+                title: item.title,
+              },
+            },
+            "leaf",
+          )
+        }
         workspaces={workspaces}
         current={current}
         selected={props.selected}

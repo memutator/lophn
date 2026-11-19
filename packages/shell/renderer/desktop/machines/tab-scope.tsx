@@ -24,9 +24,11 @@ export function TabScope({
   hereApp?: string | undefined;
   children: ReactNode;
 }) {
-  const machine = tab.machine ?? workspaceMachine;
   const scope = useScopeMachine();
   const view = useMachinesView();
+  // 다른 기계의 workspace에 둔 이 컴퓨터의 탭은 `machine`에 이 컴퓨터의 id를 든다. 이 컴퓨터로 그린다.
+  const raw = tab.machine ?? workspaceMachine;
+  const machine = raw === view?.thisComputer?.id ? null : raw;
   const here = useAppHere(hereApp, machine);
   if (here === undefined) return null;
   if (here) return <MachineScope machine={null}>{children}</MachineScope>;

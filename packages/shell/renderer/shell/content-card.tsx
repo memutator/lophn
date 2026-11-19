@@ -484,7 +484,7 @@ function EmptyDesk({
   canOpenFile: boolean;
 }) {
   return (
-    <div className={styles.empty}>
+    <div className={styles.empty} data-drop-empty="">
       <Icon icon={shellIcons.desk} pixels={24} />
       <p className={styles.emptyTitle}>{label}</p>
       <p className={styles.emptyText}>{t("shell.label.empty-desk")}</p>

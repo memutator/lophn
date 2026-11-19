@@ -1,5 +1,5 @@
 id: multi-device-remote-sweep
-version: 0.23.91
+version: 0.23.92
 title: "멀티 기기 remote·터미널·Antigravity·폰 앱 안정성 및 보안 일괄 수정"
 modules:
   - packages/core/apps

@@ -139,7 +139,8 @@ function createSource(
       return opened.ok ? { ok: true, value: undefined } : opened;
     },
     stopSession: (session) => stopSessionOf(env, session),
-    archiveSession: (session) => archiveSessionOf(env, session),
+    archiveSession: (session, options) =>
+      archiveSessionOf(env, session, options),
     ...(deps.device === true
       ? { fixedMode: true as const }
       : { deleteSession: (session) => deleteSessionOf(env, session) }),

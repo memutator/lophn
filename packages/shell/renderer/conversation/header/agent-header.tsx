@@ -90,10 +90,9 @@ interface AgentHeaderProps {
   /** 그 agent의 session 전부(archive한 것 포함). */
   sessions: readonly SessionEntry[];
   now: Date;
-  source: Pick<
-    AgentTabSource,
-    "act" | "archiveSession" | "deleteSession" | "searchMessages"
-  >;
+  source: Pick<AgentTabSource, "act" | "deleteSession" | "searchMessages">;
+  /** session을 archive한다. 도는 turn이 있으면 화면이 확인 dialog를 연다. */
+  onArchive: (session: string) => void;
   /** 어떤 칸을 그릴지(`session.capabilities`). */
   capabilities: AcpCapabilities;
   /** source가 알려 준 session 제목(`session.title`). 없으면 null이다. */
@@ -205,7 +204,8 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
         );
         return;
       case "archive":
-        return void settle(source.archiveSession(session.id));
+        props.onArchive(session.id);
+        return;
     }
   };
 
@@ -309,9 +309,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
             : () => latest.current.resume?.onNew?.()
       }
       onRename={(id, title) => act.current.rename(id, title)}
-      onArchive={(id) =>
-        void act.current.settle(latest.current.source.archiveSession(id))
-      }
+      onArchive={(id) => latest.current.onArchive(id)}
       onDelete={
         props.source.deleteSession === undefined
           ? undefined

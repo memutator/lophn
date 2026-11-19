@@ -1,4 +1,4 @@
-import { canonicalize, ok, type Result } from "../../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import {
   archiveSession,
@@ -248,6 +248,20 @@ export function createConversationCommands(deps: ConversationDeps): {
         }
         if (row.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
+        }
+        // 도는 turn이 있으면 멈추라는 확인(`stop_turn: true`) 없이는 보관하지 않는다. 다른 기기가 방금 시작한 turn이 말없이 멈추지 않게 한다.
+        if (
+          input.stop_turn !== true &&
+          tx.sql.get(
+            "select 1 as found from turns where session = ? and state = 'running' limit 1",
+            [row.id],
+          ) !== undefined
+        ) {
+          return err({
+            code: "conflict",
+            message: "a turn is running",
+            details: { reason: "turn_running" },
+          });
         }
         const seq = nextSessionSeq(tx);
         tx.sql.run(

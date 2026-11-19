@@ -635,9 +635,14 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
           });
           await c.call(
             how === "archive" ? archiveSession : deleteSession,
-            {
-              session: dst,
-            },
+            how === "archive"
+              ? {
+                  session: dst,
+                  stop_turn: true,
+                }
+              : {
+                  session: dst,
+                },
             { state_seq: current.state_seq },
           );
           // 보낸 쪽이 늦은 실패를 새 입력으로 받아 둘째 turn을 돈다.

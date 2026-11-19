@@ -80,7 +80,7 @@ export function createGate(): Gate {
   return new Gate();
 }
 
-/** 화면이 구별하는 오류 code는 공통 일곱과 보내기의 `changed_elsewhere`다. 그 밖은 internal이다. */
+/** 화면이 구별하는 오류 code는 공통 일곱과 보내기의 `changed_elsewhere`, 보관의 `turn_running`이다. 그 밖은 internal이다. */
 const ERROR_CODES: ReadonlySet<string> = new Set([
   "invalid_input",
   "not_found",
@@ -98,6 +98,13 @@ function errorCodeOf(error: CoreReply["error"]): string {
     error.details?.["reason"] === "changed_elsewhere"
   ) {
     return "changed_elsewhere";
+  }
+  // 도는 turn이 있어 core가 보관을 거절했다. 화면은 멈추고 보관할지 묻는다.
+  if (
+    error?.code === "conflict" &&
+    error.details?.["reason"] === "turn_running"
+  ) {
+    return "turn_running";
   }
   return error !== undefined && ERROR_CODES.has(error.code)
     ? error.code

@@ -709,7 +709,14 @@ export interface AgentTabSource {
   openSession(input: { id: string }): Promise<SourceResult<void>>;
   /** 그 session에서 도는 turn을 멈춘다. 도는 turn이 없으면 할 일이 없어 ok다. */
   stopSession(session: string): Promise<SourceResult<void>>;
-  archiveSession(session: string): Promise<SourceResult<void>>;
+  /**
+   * session을 archive한다. 도는 turn이 있으면 `stopTurn: true`가 없는 한 `turn_running`으로 거절한다.
+   * `stopTurn: true`면 도는 turn을 멈추고 archive한다.
+   */
+  archiveSession(
+    session: string,
+    options?: { readonly stopTurn?: boolean },
+  ): Promise<SourceResult<void>>;
   /**
    * 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. 없으면 지우기 칸이 없다
    * (기기 자격으로 부르는 다른 기계의 범위: 기기는 `sessions/delete`를 부르지 못한다).

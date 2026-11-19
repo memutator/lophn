@@ -3,8 +3,8 @@
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 
 import { formatRelativeTime, t } from "@lophn/i18n";
-import { IconButton } from "@lophn/ui/primitives";
-import type { MenuItem } from "@lophn/ui/overlay";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Dialog, type MenuItem } from "@lophn/ui/overlay";
 import {
   type ReactNode,
   useCallback,
@@ -288,6 +288,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     readonly options: Record<string, string>;
   } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  // 도는 turn이 있는 session을 보관하려다 거절됐을 때, 멈추고 보관할지 묻는 dialog의 대상 session id.
+  const [archiveConfirm, setArchiveConfirm] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
   // 보냈지만 아직 끝나지 않은 사람 shell 명령. lophn은 끝나야 답하고 item도 그때 오므로 그동안 도는 줄을 보인다.
   const [shells, setShells] = useState<
     readonly { id: string; session: string; command: string }[]
@@ -555,6 +558,28 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     if (arrived) drafts.save(key, { outgoing: null });
   }, [arrived, key, drafts]);
 
+  const archive = async (target: string, stopTurn = false) => {
+    if (stopTurn) setArchiving(true);
+    const result = await source.archiveSession(
+      target,
+      stopTurn ? { stopTurn: true } : undefined,
+    );
+    if (stopTurn) setArchiving(false);
+    if (result.ok) {
+      setProblem(null);
+      setArchiveConfirm(null);
+      void refresh();
+      return;
+    }
+    if (!stopTurn && result.code === "turn_running") {
+      setProblem(null);
+      setArchiveConfirm(target);
+      return;
+    }
+    setArchiveConfirm(null);
+    setProblem("action-failed");
+  };
+
   const fail = () => setProblem("action-failed");
   const perform = async (
     call: () => Promise<SourceResult<unknown>>,
@@ -795,11 +820,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         },
         archive: () => {
           clear();
-          if (session !== null) {
-            void perform(() => source.archiveSession(session)).then(() =>
-              refresh(),
-            );
-          }
+          if (session !== null) void archive(session);
         },
         compact: () => {
           clear();
@@ -1176,6 +1197,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         sessions={data.sessions}
         now={new Date(now())}
         source={source}
+        onArchive={(id) => void archive(id)}
         detail={draft.detail}
         onDetailChange={(next) => drafts.save(key, { detail: next })}
         host={{
@@ -1616,6 +1638,37 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           />
         </div>
       </div>
+      {archiveConfirm === null ? null : (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !archiving) setArchiveConfirm(null);
+          }}
+          title={t("conversation.title.archive-running")}
+          actions={
+            <>
+              <Button
+                disabled={archiving}
+                onClick={() => setArchiveConfirm(null)}
+              >
+                {t("common.button.cancel")}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={archiving}
+                data-action="confirm-archive-running"
+                onClick={() => void archive(archiveConfirm, true)}
+              >
+                {t("conversation.button.archive-stop-turn")}
+              </Button>
+            </>
+          }
+        >
+          <p data-archive-running="">
+            {t("conversation.body.archive-running")}
+          </p>
+        </Dialog>
+      )}
     </section>
   );
   // 전체 펼치기 값은 tool 줄만 읽는다. 그 값이 바뀌어도 대화의 나머지는 다시 그리지 않는다.

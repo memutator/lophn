@@ -16,6 +16,7 @@ import type {
   Sql,
   Tx,
 } from "../../../protocol/server/mod.ts";
+import { turnSchemaSteps } from "../run-loop/schema.ts";
 import { createConversationCommands } from "../session/commands.ts";
 import { revertSchemaSteps } from "../session/rewind/mod.ts";
 import { createSessionDirectory } from "./directory.ts";
@@ -35,7 +36,11 @@ const SCOPED = "agt_00000000000000000000000003";
 // 저장소만 쓴다. 표는 실제 schema step 그대로다.
 function store() {
   const db = new DatabaseSync(":memory:");
-  for (const step of [...conversationTestSteps, ...revertSchemaSteps]) {
+  for (const step of [
+    ...conversationTestSteps,
+    ...turnSchemaSteps,
+    ...revertSchemaSteps,
+  ]) {
     db.exec(step.sql);
   }
   // fork가 복사한 메시지의 이미지 참조를 읽는다.

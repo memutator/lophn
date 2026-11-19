@@ -55,6 +55,8 @@ const renameSessionCompareSchema = stateSeqCompareSchema;
 
 const archiveSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
+  // 도는 turn이 있을 때 멈추고 보관할지. false거나 생략이면 도는 turn이 있을 때 conflict(turn_running)로 거절한다.
+  stop_turn: z.boolean().optional(),
 });
 const archiveSessionCompareSchema = stateSeqCompareSchema;
 

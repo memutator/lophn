@@ -286,9 +286,14 @@ for (const how of ["archive", "delete"] as const) {
       const [turn] = await turnsOf(core, session);
       await core.call(
         how === "archive" ? archiveSession : deleteSession,
-        {
-          session,
-        },
+        how === "archive"
+          ? {
+              session,
+              stop_turn: true,
+            }
+          : {
+              session,
+            },
         { state_seq: current.state_seq },
       );
       await within("요청이 끊김", fake.aborted(1));

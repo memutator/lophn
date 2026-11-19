@@ -1,6 +1,8 @@
 export const conversation = {
   "conversation.announce.replied": "{agent} replied",
   "conversation.announce.response-started": "Response started",
+  "conversation.body.archive-running":
+    "A turn is running in this session. Archiving will stop it.",
   "conversation.body.delete-session":
     'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
   "conversation.body.skill-command-request":
@@ -11,6 +13,7 @@ export const conversation = {
   "conversation.button.approval-allow-once": "Allow once",
   "conversation.button.approval-deny": "Deny",
   "conversation.button.archive": "Archive",
+  "conversation.button.archive-stop-turn": "Stop and archive",
   "conversation.button.archived-toggle": "Archived ({count, number})",
   "conversation.button.attach": "Add files or photos",
   "conversation.button.bookmark-remove": "Remove bookmark",
@@ -551,6 +554,7 @@ export const conversation = {
     "Stop the work in progress first, then rewind.",
   "conversation.rewind.start-failed": "Couldn't start the rewind. Try again.",
   "conversation.title.add-model": "Add model",
+  "conversation.title.archive-running": "Stop running turn and archive?",
   "conversation.title.approval-command": "{agent} wants to run a command",
   "conversation.title.approval-change":
     "{agent} wants to change {count, plural, one {a file} other {# files}}",

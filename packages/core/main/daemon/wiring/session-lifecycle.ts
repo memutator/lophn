@@ -339,7 +339,7 @@ export const sessionLifecycleWiring: WiringFactory = () => {
               }
               const ended = await sessionCommand(
                 archiveSession,
-                { session: row.id },
+                { session: row.id, stop_turn: true },
                 { state_seq: row.state_seq },
               );
               return ended.ok ? ok({ ended: true }) : ended;

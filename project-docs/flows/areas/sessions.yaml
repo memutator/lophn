@@ -127,7 +127,7 @@ flows:
     steps:
       - "부르기 전 앞 단계가 알림 글(receiver_ended)을 blob으로 준비한다. 준비하지 못하면 여기서 unavailable이다."
       - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. 이미 archive됐으면 이전 결과를 돌려준다."
-      - "state_seq가 낡았으면 conflict다. 아니면 lifecycle을 archived로 바꾼다."
+      - "state_seq가 낡았으면 conflict다. 도는 turn이 있는데 stop_turn이 true가 아니면 conflict(details.reason turn_running)로 거절한다. 아니면 lifecycle을 archived로 바꾼다."
       - "같은 tx에서 도는 turn을 interrupted(session_ended)로 닫고, 받은 열린 call은 receiver_ended로 닫는다. 닫은 call의 보낸 쪽이 살아 있는 agent session이면 그 queue에 reply_to가 그 call인 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다)."
       - "commit 뒤 queue를 비우고 SessionEnded(reason archived)를 낸다. 기다리던 turn request와 질문은 같은 tx가 아니라 이 event를 듣는 approvals wiring이 cancelled(session_closed)로 푼다(끝내기 effect의 cancelPendingRequests는 no-op이다). 도던 turn의 agent runtime child에는 Bus의 TurnEnded를 보고 turn_stop이 가서 model 요청을 끊는다."
       - "archive한 session은 기록을 그대로 두고 읽기는 된다. 되살리는 길은 없다."
@@ -144,7 +144,7 @@ flows:
         observe: [response]
       - id: conflict
         code: conflict
-        when: "state_seq가 낡았다, 또는 끝내기 effect가 받은 call을 닫다가 상태 충돌을 돌려줬다"
+        when: "state_seq가 낡았다, 도는 turn이 있는데 stop_turn이 true가 아니다(details.reason turn_running), 또는 끝내기 effect가 받은 call을 닫다가 상태 충돌을 돌려줬다"
         observe: [response]
       - id: not_found
         code: not_found

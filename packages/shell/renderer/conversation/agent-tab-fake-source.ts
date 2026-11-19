@@ -2702,7 +2702,15 @@ export function createFakeAgentTabSource(
       const turn = stateOf(session).turn;
       return turn === null || turn.phase === "ended" ? DONE : stopTurn(turn.id);
     },
-    archiveSession(session) {
+    archiveSession(session, options) {
+      const turn = stateOf(session).turn;
+      if (
+        options?.stopTurn !== true &&
+        turn !== null &&
+        turn.phase !== "ended"
+      ) {
+        return Promise.resolve({ ok: false, code: "turn_running" });
+      }
       patchSession(session, { archived: true });
       notify();
       return DONE;

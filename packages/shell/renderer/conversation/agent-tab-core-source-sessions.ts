@@ -224,14 +224,16 @@ export async function openSession(
 export async function archiveSessionOf(
   env: Env,
   session: string,
+  options?: { readonly stopTurn?: boolean },
 ): Promise<SourceResult<void>> {
   const record = await readSession(env, session);
   if (!record.ok) return record;
+  const stopTurn = options?.stopTurn === true;
   return dropValue(
     await env.command(archiveSession, {
-      input: { session },
+      input: stopTurn ? { session, stop_turn: true } : { session },
       compare: { state_seq: record.value.state_seq },
-      key: `sessions-archive-${session}-${record.value.state_seq}`,
+      key: `sessions-archive-${session}-${record.value.state_seq}${stopTurn ? "-stop" : ""}`,
     }),
   );
 }

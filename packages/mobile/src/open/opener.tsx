@@ -2,8 +2,13 @@
 // or the Inbox.
 import { useContext, useEffect } from "react";
 import { FrameContext, type Place, paramsOf } from "../app/nav.ts";
-import { useComputers, useSessionTarget } from "../data/mod.ts";
+import {
+  useComputers,
+  useSessionsSettled,
+  useSessionTarget,
+} from "../data/mod.ts";
 import { useOpen } from "./linking.ts";
+import { sessionWaitAction } from "./session-wait.ts";
 
 // A session the computer does not list (deleted, or it never connected) is not worth waiting for: the Inbox shows what waits.
 const WAIT_MS = 8000;
@@ -18,6 +23,7 @@ export function OpenTapped() {
       ? undefined
       : computers.find((one) => one.key === tapped.host);
   const here = host !== undefined && host.key === current;
+  const sessionsSettled = useSessionsSettled();
   const target = useSessionTarget(
     here && tapped?.kind === "session" ? tapped.session : null,
   );
@@ -30,6 +36,7 @@ export function OpenTapped() {
     settle();
   };
 
+  const status = host?.status;
   useEffect(() => {
     if (tapped === null) return;
     // A widget names no computer: the screen lists them all.
@@ -41,15 +48,17 @@ export function OpenTapped() {
       });
     }
     // Not a computer paired on this phone: the tap opens nothing.
-    if (host === undefined) return settle();
+    if (host === undefined || status === undefined) return settle();
     if (!here) return select(host.key);
     if (tapped.kind === "app") {
       return show({ name: "app", id: tapped.app, screen: tapped.screen });
     }
     if (tapped.kind === "inbox") return show({ name: "inbox" });
-    if (target !== null) return show({ name: "session", ...target });
+    const action = sessionWaitAction({ target, status, sessionsSettled });
+    if (action.kind === "open") return show({ name: "session", ...action.target });
+    if (action.kind === "wait") return;
     const timer = setTimeout(() => show({ name: "inbox" }), WAIT_MS);
     return () => clearTimeout(timer);
-  }, [tapped, here, target]);
+  }, [tapped, here, target, status, sessionsSettled]);
   return null;
 }

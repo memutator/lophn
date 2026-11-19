@@ -3,10 +3,16 @@ import type { DotTone } from "@lophn/ui-native";
 import type { ComputerItem } from "../data/mod.ts";
 
 /** A computer's state as a dot and a word: the sidebar, Settings, a computer's page. */
-export function stateOf(computer: ComputerItem): {
+export function stateOf(
+  computer: ComputerItem,
+  disputed = false,
+): {
   tone: DotTone | undefined;
   text: string;
 } {
+  if (disputed) {
+    return { tone: "critical", text: t("settings.label.remote-disputed") };
+  }
   switch (computer.status) {
     case "connected":
       return { tone: "good", text: t("settings.label.status-connected") };
@@ -28,11 +34,14 @@ export function stateOf(computer: ComputerItem): {
 }
 
 /** The same with how it is reached, for the Computers sheet: "Connected · through the relay". */
-export function stateWithPathOf(computer: ComputerItem): {
+export function stateWithPathOf(
+  computer: ComputerItem,
+  disputed = false,
+): {
   tone: DotTone | undefined;
   text: string;
 } {
-  const state = stateOf(computer);
+  const state = stateOf(computer, disputed);
   if (computer.status !== "connected" || computer.path === null) return state;
   return {
     tone: state.tone,

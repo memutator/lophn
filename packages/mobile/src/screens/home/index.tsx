@@ -37,7 +37,7 @@ import { OfflineBody } from "./offline.tsx";
 
 export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const nav = useNav();
-  const { computers, current } = useComputers();
+  const { computers, disputed, current } = useComputers();
   const { shown, many, filter } = useEveryComputer();
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
@@ -67,7 +67,10 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const one =
     computers.find((each) => each.key === filter) ??
     (computers.length === 1 ? computers[0]! : null);
-  const filterState = one === null ? filterStateOf(computers) : stateOf(one);
+  const filterState =
+    one === null
+      ? filterStateOf(computers)
+      : stateOf(one, disputed.has(one.key));
   const empty =
     alone === null &&
     away.length === 0 &&
@@ -292,7 +295,8 @@ const nameOf = (workspace: WorkspaceView) => workspace.name ?? t("left-sidebar.l
 /** A computer that is not reached: its name and state. */
 function Away({ computer, onPress }: { computer: ComputerItem; onPress: () => void }) {
   const theme = useTheme();
-  const state = stateOf(computer);
+  const { disputed } = useComputers();
+  const state = stateOf(computer, disputed.has(computer.key));
   return (
     <Row
       lead={

@@ -5,8 +5,8 @@
   <LinearLayout android:layout_width="match_parent" android:layout_height="18dp" android:layout_marginBottom="4dp"
     android:orientation="horizontal" android:gravity="center_vertical">
     <TextView android:id="@+id/lw_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
-      android:textSize="12sp" android:lineHeight="18sp" android:textColor="@color/lophn_w_text_secondary" android:fontFamily="sans-serif-medium"
-      android:textFontWeight="500" android:singleLine="true" android:ellipsize="end" />
+      android:textSize="12sp" android:lineHeight="18sp" android:textColor="@color/lophn_w_text_secondary" android:fontFamily="@font/pretendard_semibold"
+      android:singleLine="true" android:ellipsize="end" />
     <ImageView android:id="@+id/lw_refresh" android:layout_width="30dp" android:layout_height="30dp" android:layout_marginStart="-2dp"
       android:layout_marginEnd="-8dp" android:layout_marginTop="-6dp" android:layout_marginBottom="-6dp" android:padding="8dp"
       android:src="@drawable/lophn_refresh" android:contentDescription="@string/lophn_widget_refresh" />
@@ -14,5 +14,5 @@
   <LinearLayout android:id="@+id/lw_rows" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
     android:orientation="vertical" />
   <TextView android:id="@+id/lw_footer" android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:textSize="10sp" android:lineHeight="14sp" android:textColor="@color/lophn_w_text_muted" android:singleLine="true" />
+    android:textSize="10sp" android:lineHeight="14sp" android:fontFamily="@font/pretendard_regular" android:textColor="@color/lophn_w_text_muted" android:singleLine="true" />
 </LinearLayout>

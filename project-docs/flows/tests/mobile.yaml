@@ -66,6 +66,10 @@ files:
       - phone-answer:answer-dropped
     note: "폰의 core request 응답 경계. 권한 거절, 모르는 kind, background 상태, 위치 서비스 꺼짐에서는 위치를 읽지 않고, 허용 시 위치 응답, 잘못된 입력은 invalid_input, deadline 초과 답은 버린다"
 
+  - path: packages/mobile/src/open/session-wait.test.ts
+    covers: []
+    note: "cold start에서 session URL을 열 때 대상 컴퓨터가 연결되고 첫 session 목록이 자리 잡기 전에는 8초 Inbox fallback timer를 시작하지 않는 규칙"
+
   - path: packages/mobile/src/open/target.test.ts
     covers: []
     note: "알림·위젯·URL open target parser(parseOpenTarget). pairing한 컴퓨터의 정해진 모양만 열고 나머지는 무시한다"

@@ -87,6 +87,7 @@ import {
   type TerminalState,
   terminalFeed,
 } from "./terminal.ts";
+import { loadComputers } from "../pairing/store.ts";
 import {
   createPhoneDraftStore,
   type PhoneDraftStore,
@@ -102,6 +103,8 @@ interface Data {
   readonly key: string | null;
   readonly data: ComputerData;
   readonly drafts: PhoneDraftStore;
+  /** Keys of saved computers currently marked disputed in the roster view. */
+  readonly disputed: ReadonlySet<string>;
 }
 
 const DataContext = createContext<Data | null>(null);
@@ -132,7 +135,32 @@ export function DataProvider({
   children: ReactNode;
 }) {
   const [drafts] = useState(createPhoneDraftStore);
+  const [disputed, setDisputed] = useState<ReadonlySet<string>>(() => new Set());
   const state = useSyncExternalStore(computers.subscribe, computers.get);
+  const revokedKeys = state.computers
+    .filter((one) => one.status === "revoked")
+    .map((one) => one.key)
+    .join("\n");
+  useEffect(() => {
+    if (!state.ready || revokedKeys === "") {
+      setDisputed((prev) => (prev.size === 0 ? prev : new Set()));
+      return;
+    }
+    let live = true;
+    void loadComputers().then((saved) => {
+      if (!live) return;
+      setDisputed(
+        new Set(
+          saved
+            .filter((one) => one.disputed === true)
+            .map((one) => one.key),
+        ),
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [state.ready, revokedKeys]);
   useEffect(() => followLocalComputers(computers), [computers]);
   useEffect(() => {
     void computers.start();
@@ -143,7 +171,12 @@ export function DataProvider({
     return () => subscription.remove();
   }, [computers]);
   return (
-    <Scope computers={computers} computer={state.current} drafts={drafts}>
+    <Scope
+      computers={computers}
+      computer={state.current}
+      drafts={drafts}
+      disputed={disputed}
+    >
       {children}
     </Scope>
   );
@@ -153,19 +186,21 @@ function Scope({
   computers,
   computer,
   drafts,
+  disputed,
   children,
 }: {
   computers: Computers<ComputerData>;
   computer: string | null;
   drafts: PhoneDraftStore;
+  disputed: ReadonlySet<string>;
   children: ReactNode;
 }) {
   const data =
     (computer === null ? undefined : computers.link(computer)?.data) ??
     NO_COMPUTER;
   const value = useMemo(
-    () => ({ computers, key: computer, data, drafts }),
-    [computers, computer, data, drafts],
+    () => ({ computers, key: computer, data, drafts, disputed }),
+    [computers, computer, data, drafts, disputed],
   );
   return (
     <DataContext.Provider value={value}>
@@ -185,13 +220,24 @@ export function ComputerScope({
   computer: string;
   children: ReactNode;
 }) {
-  const { computers, drafts } = useData();
+  const { computers, drafts, disputed } = useData();
   useSyncExternalStore(computers.subscribe, computers.get);
   return (
-    <Scope computers={computers} computer={computer} drafts={drafts}>
+    <Scope
+      computers={computers}
+      computer={computer}
+      drafts={drafts}
+      disputed={disputed}
+    >
       {children}
     </Scope>
   );
+}
+
+/** True once the current computer's session store has published its first snapshot. */
+export function useSessionsSettled(): boolean {
+  const { sessionsSettled } = useData().data;
+  return useSyncExternalStore(sessionsSettled.subscribe, sessionsSettled.get);
 }
 
 /** In-memory draft for one session (chat text, attachments, terminal input); survives chat <-> terminal view swaps. */
@@ -220,6 +266,7 @@ export function useSessionDraft(session: string): {
 // ---- computers
 
 export interface ComputersView extends ComputersState {
+  readonly disputed: ReadonlySet<string>;
   select(key: string): void;
   add: Computers<ComputerData>["add"];
   remove(key: string): void;
@@ -232,10 +279,11 @@ export interface ComputersView extends ComputersState {
 }
 
 export function useComputers(): ComputersView {
-  const { computers } = useData();
+  const { computers, disputed } = useData();
   const state = useSyncExternalStore(computers.subscribe, computers.get);
   return {
     ...state,
+    disputed,
     select: computers.select,
     add: computers.add,
     remove: computers.remove,

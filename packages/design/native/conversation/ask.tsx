@@ -3,7 +3,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  KeyRound,
   type LucideIcon,
   TriangleAlert,
   X,
@@ -359,42 +358,5 @@ function Option({
       {multi ? <Checkbox on={on} /> : <Radio on={on} />}
       {children}
     </Pressable>
-  );
-}
-
-export interface SecretCardProps {
-  /** lophn needs a secret */
-  title: string;
-  /** PAYMENTS_KEY → api.payments.example */
-  secret: string;
-  /** Where to type it instead. */
-  note: string;
-  onCancel?: () => void;
-}
-
-// A request for a secret. Secrets are never typed on the phone; the card says where to enter it.
-export function SecretCard({ title, secret, note, onCancel }: SecretCardProps) {
-  return (
-    <AskCard>
-      <AskTitle icon={KeyRound}>{title}</AskTitle>
-      <Fact
-        label={t("conversation.label.input-request-secret")}
-        value={secret}
-      />
-      <Text variant="note" tone="muted" style={{ marginTop: 10 }}>
-        {note}
-      </Text>
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "flex-end",
-          marginTop: 12,
-        }}
-      >
-        <Button icon={X} onPress={onCancel}>
-          {t("mobile.kit.button.cancel-request")}
-        </Button>
-      </View>
-    </AskCard>
   );
 }

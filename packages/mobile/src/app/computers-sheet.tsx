@@ -47,7 +47,7 @@ export function ComputersSheet({
   onPick: () => void;
   onPair: () => void;
 }) {
-  const { computers, current } = useComputers();
+  const { computers, disputed, current } = useComputers();
   const { filter, setFilter } = useEveryComputer();
   const all = filterStateOf(computers);
   return (
@@ -75,7 +75,7 @@ export function ComputersSheet({
         />
       )}
       {computers.map((computer) => {
-        const state = stateWithPathOf(computer);
+        const state = stateWithPathOf(computer, disputed.has(computer.key));
         const picked = computer.key === filter || computers.length === 1;
         return (
           <Row

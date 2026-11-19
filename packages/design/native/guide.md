@@ -100,7 +100,6 @@ import { Screen, Row, Text, Button } from "@lophn/ui-native";
 - `Fact`: One labelled fact of a request in a mono box.
 - `ApprovalCard`: A permission request: Deny, Always allow, Allow once.
 - `QuestionCard`: A question: pick an option (or several) or write an answer, one at a time.
-- `SecretCard`: A request for a secret, which is typed on the computer instead.
 - `Composer`: The message box at the bottom of a conversation: +, chips, send or stop.
 - `FileChip`, `Thumb`: A picture or a file attached in the composer.
 - `MessageList`: The conversation itself: newest at the bottom, follows new text, a button back to the latest.

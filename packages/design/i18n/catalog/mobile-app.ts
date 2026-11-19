@@ -22,6 +22,7 @@ export const mobileApp = {
   "mobile.computer.label.path": "Path",
   "mobile.computer.label.shown-as": "Shown as",
   "mobile.computer.label.status": "Status",
+  "mobile.computer.note.disputed": "Pair again with a computer you trust.",
   "mobile.computer.note.relay":
     "The relay only passes sealed messages along. It cannot read them.",
   "mobile.computer.note.remove":

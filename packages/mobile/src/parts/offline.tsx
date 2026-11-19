@@ -48,24 +48,27 @@ export function unreachableOf(computer: ComputerItem): string {
  */
 export function OfflineBanner({ note }: { note: string }) {
   const computer = useCurrentComputer();
-  const { retry } = useComputers();
+  const { disputed, retry } = useComputers();
   if (computer === null || computer.status === "connected") return null;
   const { status, name, update } = computer;
+  const isDisputed = disputed.has(computer.key);
   return (
     <View style={{ paddingBottom: 8 }}>
       <Banner
         icon={WifiOff}
         title={
-          status === "revoked"
-            ? t("mobile.computer.status.revoked")
-            : update !== null
-              ? updateText(update, name)
-              : t(
-                status === "connecting"
-                  ? "mobile.offline.title-connecting"
-                  : "mobile.offline.title",
-                { name },
-              )
+          isDisputed
+            ? t("settings.label.remote-disputed")
+            : status === "revoked"
+              ? t("mobile.computer.status.revoked")
+              : update !== null
+                ? updateText(update, name)
+                : t(
+                  status === "connecting"
+                    ? "mobile.offline.title-connecting"
+                    : "mobile.offline.title",
+                  { name },
+                )
         }
         action={
           status === "offline" || status === "update" ? (
@@ -75,11 +78,13 @@ export function OfflineBanner({ note }: { note: string }) {
           ) : undefined
         }
       >
-        {status === "revoked"
-          ? undefined
-          : status === "connecting"
-            ? t("mobile.offline.note-connecting")
-            : note}
+        {isDisputed
+          ? t("mobile.computer.note.disputed")
+          : status === "revoked"
+            ? undefined
+            : status === "connecting"
+              ? t("mobile.offline.note-connecting")
+              : note}
       </Banner>
     </View>
   );

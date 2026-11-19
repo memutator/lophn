@@ -5,5 +5,5 @@
   <ImageView android:id="@+id/lw_mark" android:layout_width="28dp" android:layout_height="28dp" android:layout_marginBottom="8dp"
     android:src="@drawable/lophn_mark" android:importantForAccessibility="no" />
   <TextView android:id="@+id/lw_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:gravity="center"
-    android:textSize="13sp" android:lineHeight="18sp" android:textColor="@color/lophn_w_text_secondary" />
+    android:textSize="13sp" android:lineHeight="18sp" android:fontFamily="@font/pretendard_regular" android:textColor="@color/lophn_w_text_secondary" />
 </LinearLayout>

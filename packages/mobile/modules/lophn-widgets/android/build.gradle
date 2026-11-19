@@ -6,8 +6,33 @@ plugins {
 group = 'dev.lophn'
 version = '0.0.0'
 
+// RemoteViews widgets draw outside React Native, so expo-font does not reach them. Copy the pinned Pretendard
+// weights from packages/mobile/node_modules into generated res/font so layouts can reference @font/pretendard_*.
+def pretendardDir = new File(projectDir, "../../../node_modules/pretendard/dist/public/static/alternative").canonicalFile
+def generatedFontRes = new File(buildDir, "generated/lophn-widget-res")
+
+def copyWidgetFonts = tasks.register("copyWidgetFonts", Copy) {
+  from(new File(pretendardDir, "Pretendard-Regular.ttf")) {
+    rename { "pretendard_regular.ttf" }
+  }
+  from(new File(pretendardDir, "Pretendard-SemiBold.ttf")) {
+    rename { "pretendard_semibold.ttf" }
+  }
+  into(new File(generatedFontRes, "font"))
+}
+
 android {
   namespace "dev.lophn.widgets"
+  sourceSets {
+    main {
+      res.srcDirs += [generatedFontRes]
+    }
+  }
+}
+
+preBuild.dependsOn(copyWidgetFonts)
+tasks.matching { it.name.contains("Resources") }.configureEach {
+  dependsOn(copyWidgetFonts)
 }
 
 dependencies {

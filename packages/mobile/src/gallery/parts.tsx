@@ -44,7 +44,6 @@ import {
   Radio,
   Row,
   Screen,
-  SecretCard,
   SegmentedControl,
   SessionRow,
   Sheet,
@@ -579,11 +578,6 @@ export function ConversationPage({ onBack }: { onBack: () => void }) {
           options={[{ label: "Weekly", sub: "docs/reports" }, { label: "Regressions" }, { label: "Scenario runs" }]}
           initial={{ choices: [0, 1], text: null }}
           onNext={noop}
-        />
-        <SecretCard
-          title="lophn needs a secret"
-          secret="PAYMENTS_KEY → api.payments.example"
-          note="Site logins are saved on the computer. Open lophn on mina-desktop to enter it."
         />
         <AskCard compact>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

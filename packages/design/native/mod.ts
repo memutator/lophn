@@ -175,8 +175,6 @@ export {
   type QuestionCardProps,
   type QuestionOption,
 } from "./conversation/ask.tsx";
-// A request for a secret, which is typed on the computer instead.
-export { SecretCard, type SecretCardProps } from "./conversation/ask.tsx";
 // The message box at the bottom of a conversation: +, chips, send or stop.
 export { Composer, type ComposerProps } from "./conversation/composer.tsx";
 // A picture or a file attached in the composer.

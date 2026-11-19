@@ -28,6 +28,11 @@ export interface ComputerData {
   // The sessions, Inbox and unseen stores. They run for every computer, not only the one on screen: the one list shows
   // every computer's sessions and the computer list what waits on each.
   readonly stores: EventStores;
+  /** True once this computer's session store has published at least one snapshot (or event) since starting. */
+  readonly sessionsSettled: {
+    get(): boolean;
+    subscribe(listener: () => void): () => void;
+  };
   readonly sources: AgentTabSourceFactory;
   /** The computer's coding sessions: the conversation source of a chat-view one and the actions on them. */
   readonly coding: Coding;
@@ -53,9 +58,27 @@ export function dataOf(
 ): { data: ComputerData; stop: () => void } {
   const client = createEventClient(core);
   const stores = createEventStores(client);
+  let settled = false;
+  const listeners = new Set<() => void>();
+  const offSettled = stores.sessions.subscribe(() => {
+    if (settled) return;
+    settled = true;
+    for (const listener of [...listeners]) listener();
+  });
+  const sessionsSettled = {
+    get: () => settled,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  const stopStores = stores.start();
   return {
-    data: { core, client, stores, sources, coding: codingOf(client) },
-    stop: stores.start(),
+    data: { core, client, stores, sessionsSettled, sources, coding: codingOf(client) },
+    stop() {
+      offSettled();
+      stopStores();
+    },
   };
 }
 

@@ -62,6 +62,7 @@ export {
   useNames,
   useSampleConversation,
   useSessionDraft,
+  useSessionsSettled,
   useStartSession,
   useTerminal,
   useWorkspaces,

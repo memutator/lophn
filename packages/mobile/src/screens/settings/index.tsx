@@ -87,8 +87,14 @@ function Value({ children, next }: { children: ReactNode; next?: boolean }) {
   );
 }
 
-function State({ computer }: { computer: ComputerItem }) {
-  const state = stateOf(computer);
+function State({
+  computer,
+  disputed = false,
+}: {
+  computer: ComputerItem;
+  disputed?: boolean;
+}) {
+  const state = stateOf(computer, disputed);
   return (
     <>
       <Dot tone={state.tone} />
@@ -209,10 +215,11 @@ function NameSheet({
 
 export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
   const nav = useNav();
-  const { computers, deviceName, setDeviceName } = useComputers();
+  const { computers, disputed, deviceName, setDeviceName } = useComputers();
   const { appearance } = useAppearance();
   const push = usePush();
   const [naming, setNaming] = useState<string | null>(null);
+  const hasDisputed = computers.some((one) => disputed.has(one.key));
   return (
     <Screen
       tone="floor"
@@ -232,7 +239,12 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
             <Row
               lead={<Lead icon={Monitor} />}
               title={computer.name}
-              sub={<State computer={computer} />}
+              sub={
+                <State
+                  computer={computer}
+                  disputed={disputed.has(computer.key)}
+                />
+              }
               end={NEXT}
               onPress={() => nav.open({ name: "computer", key: computer.key })}
             />
@@ -245,6 +257,15 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
           onPress={() => nav.open({ name: "pair" })}
         />
       </Group>
+      {hasDisputed && (
+        <Text
+          variant="note"
+          tone="muted"
+          style={{ marginTop: 8, marginHorizontal: 20 }}
+        >
+          {t("mobile.computer.note.disputed")}
+        </Text>
+      )}
       <Label>{t("mobile.settings.heading.phone")}</Label>
       <Group>
         <Row
@@ -356,12 +377,13 @@ function RemoveButton({ onPress }: { onPress: () => void }) {
 
 export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
   const nav = useNav();
-  const { computers, rename, remove } = useComputers();
+  const { computers, disputed, rename, remove } = useComputers();
   const computer = computers.find((one) => one.key === place.key);
   const [naming, setNaming] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [copied, setCopied] = useState(false);
   if (computer === undefined) return null;
+  const isDisputed = disputed.has(computer.key);
   return (
     <Screen
       tone="floor"
@@ -389,7 +411,7 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
       <Group>
         <Row
           title={t("mobile.computer.label.status")}
-          end={<State computer={computer} />}
+          end={<State computer={computer} disputed={isDisputed} />}
         />
         {computer.path !== null && (
           <>
@@ -409,6 +431,15 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
           </>
         )}
       </Group>
+      {isDisputed && (
+        <Text
+          variant="note"
+          tone="muted"
+          style={{ marginTop: 8, marginHorizontal: 20 }}
+        >
+          {t("mobile.computer.note.disputed")}
+        </Text>
+      )}
       {computer.path === "relay" && (
         <Text
           variant="note"

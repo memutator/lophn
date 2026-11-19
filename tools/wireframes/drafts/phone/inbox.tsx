@@ -1,9 +1,8 @@
 // Flow 5. Inbox: everything that waits on the person, across every workspace.
 import {
+  Bell,
   Check,
   ChevronRight,
-  Clock,
-  MessageCircle,
   Search,
   TriangleAlert,
   X,
@@ -228,53 +227,46 @@ function History() {
         >
           <div className={s.field} data-soft="" style={{ minHeight: 40 }}>
             <Ic icon={Search} size={18} className={s.muted} />
-            <span className={s.muted}>Search what you answered</span>
+            <span className={s.muted}>Search</span>
           </div>
           <div className={s.filters}>
             <span className={s.filter} data-on="">
               All
             </span>
-            <span className={s.filter}>Approvals</span>
-            <span className={s.filter}>Questions</span>
-            <span className={s.filter}>Apps</span>
+            <span className={s.filter}>From apps</span>
+            <span className={s.filter}>From lophn</span>
           </div>
         </div>
         <div className={s.label}>Today</div>
         <Row
+          lead={<Ic icon={Bell} className={s.muted} />}
+          title="3 overdue invoices"
+          sub="Orders · Needs follow-up before Friday"
+          end="2h"
+        />
+        <Row
           lead={<Ic icon={Check} className={s.good} />}
-          title="Allowed once · Run a command"
-          sub="git status · Weekly report"
-          end="2h"
-        />
-        <Row
-          lead={<Ic icon={X} className={s.bad} />}
-          title="Denied · Run a command"
-          sub="git push --force · “not on main”"
-          end="2h"
-        />
-        <Row
-          lead={<Ic icon={MessageCircle} />}
-          title="Answered · docs/reports/"
-          sub="Where should the weekly report go?"
+          title="Orders Release 7 activated"
+          sub="Orders · Release activated"
           end="3h"
+        />
+        <Row
+          lead={<Ic icon={TriangleAlert} className={s.warnIcon} />}
+          title="Stock sync failed"
+          sub="Stock · App unavailable"
+          end="5h"
         />
         <div className={s.label}>Yesterday</div>
         <Row
-          lead={<Ic icon={Check} className={s.good} />}
-          title="Allowed · Orders Release 7"
-          sub="2 new declarations"
+          lead={<Ic icon={Bell} className={s.muted} />}
+          title="Daily export finished"
+          sub="Orders · 128 rows exported"
           end="1d"
         />
         <Row
-          lead={<Ic icon={Clock} />}
-          title="Skipped · Morning digest"
-          sub="Missed turn"
-          end="1d"
-        />
-        <Row
-          lead={<Ic icon={Check} className={s.good} />}
-          title="Always allowed · npm test *"
-          sub="Fix flaky retry in the scenario runner"
+          lead={<Ic icon={TriangleAlert} className={s.warnIcon} />}
+          title="Orders Release 6 rolled back"
+          sub="Orders · Rolled back"
           end="1d"
         />
       </div>
@@ -387,7 +379,7 @@ export function InboxFlow() {
       </Shot>
       <Shot
         title="History"
-        text="내가 답한 것의 기록. 무엇을 허락했고 무엇을 막았는지 찾는다."
+        text="앱과 lophn이 남긴 알림 기록. 글과 출처(앱·lophn)로 찾는다."
       >
         <History />
       </Shot>

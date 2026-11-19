@@ -101,7 +101,7 @@ type Show = (place: Place, computer?: string) => void;
 export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const frame = useContext(FrameContext);
   const insets = useSafeAreaInsets();
-  const { computers, current, select } = useComputers();
+  const { computers, disputed, current, select } = useComputers();
   const { shown, many, filter } = useEveryComputer();
   const { count } = useInbox();
   const here = computers.find((one) => one.key === current) ?? null;
@@ -109,7 +109,10 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const one =
     computers.find((each) => each.key === filter) ??
     (computers.length === 1 ? computers[0]! : null);
-  const filterState = one === null ? filterStateOf(computers) : stateOf(one);
+  const filterState =
+    one === null
+      ? filterStateOf(computers)
+      : stateOf(one, disputed.has(one.key));
 
   const stack = state.routes[0]?.state;
   const top = (stack?.routes[stack.index ?? 0] as Shown | undefined) ?? {
@@ -286,7 +289,8 @@ function Away({
   on: boolean;
   onPress: () => void;
 }) {
-  const state = stateOf(computer);
+  const { disputed } = useComputers();
+  const state = stateOf(computer, disputed.has(computer.key));
   return (
     <WorkspaceRow
       lead={<Icon icon={Monitor} size={19} />}

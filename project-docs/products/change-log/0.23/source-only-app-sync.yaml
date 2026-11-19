@@ -14,6 +14,8 @@ change: |
 why: |
   봉인된 release bundle은 `node_modules` native binary 때문에 macOS·Linux·Windows 사이에서 호환되지 않고, 수천 개의 파일을 매 release마다 폴더·폰·link로 옮기는 비용과 대소문자·Unicode 정규화 경로 충돌 문제를 일으켰다. source만 증분 `git bundle`로 옮기고 각 컴퓨터가 네이티브로 build하면 플랫폼 호환과 전송 크기 문제가 함께 풀린다. 각 컴퓨터가 같은 commit을 따로 build하면 `bundle_hash`와 local `rel_*` id가 달라지므로, 기계 사이와 폰-다중컴퓨터 release 신분을 `code_commit`으로 통일해야 한다.
 decisions:
+  - text: "컴퓨터끼리 `node_modules`까지 든 빌드 산출물(`releases/`)을 옮기지 않고, 외부 원격 git 저장소 대신 기존 증분 `git bundle`(`source/`)로 소스만 옮겨 받는 컴퓨터가 직접 로컬 빌드하게 한다(버전 신분은 `code_commit`으로 통일)."
+    by: person
   - text: "`FOLDER_FORMAT`을 `{version: 2, min_version: 2}`로 올리고 `releases/` 호환 읽기 경로를 두지 않았다. `bundle_hash`와 `code_commit` 기준의 data header·`app.json`·event file은 서로 맞지 않으므로 `min_version: 2`로 옛 format 1 피어를 `update_peer`로 명확히 가른다."
     by: agent
   - text: "기존 `~/.lophn` 데이터 루트의 `folder_streams`는 `folder.code-commit` step에서 `code_commit`을 NULL로 두어, 업그레이드 뒤 첫 내보내기에서 단조 번호를 유지한 채 format 2 snapshot을 새로 쓰게 했다(foreign_writer 없이 안전하게 전환)."

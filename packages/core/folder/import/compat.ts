@@ -1,6 +1,6 @@
 // 다른 기계와 폴더 꼴 판이 맞는지(범위). 그 기계 기록의 `lophn.folder`로만 본다: 제품 판 글(`lophn.version`)은
 // 보이기만 한다(같은 build를 요구하면 한 기계를 올릴 때 나머지가 멈춘다). 범위 밖인 기계는 기록만 읽고 그 기계의
-// data·source·release file을 열지도 복사하지도 지우지도 않는다. 판이 다시 범위 안이면 그 cursor부터 잇는다.
+// data·source file을 열지도 복사하지도 지우지도 않는다. 판이 다시 범위 안이면 그 cursor부터 잇는다.
 import type { Clock } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {

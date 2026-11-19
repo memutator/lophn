@@ -3,7 +3,7 @@
 // 읽는다. 받는 쪽 규칙(`folder-sync.md`)을 길과 상관없이 여기 하나가 지킨다:
 // - manifest: 명단의 컴퓨터 서명(`verifyManifest`)이 맞고 (그 기계, 그 서명 key)의 표시(`folder_carry_marks`)보다 revision이
 //   클 때만 그 기계의 지금 목록이 된다. 표시는 하위 폴더 밖 ledger에 두고 지우지 않는다. 자기 manifest는 두지 않고 표시만 올린다.
-// - file: 지금 목록의 사슬(manifest → 앱 목록 → release.json·source json)이 그 path를 그 크기·sha256으로 실을 때만, data root의 staging에 받아 맞으면
+// - file: 지금 목록의 사슬(manifest → 앱 목록 → source json)이 그 path를 그 크기·sha256으로 실을 때만, data root의 staging에 받아 맞으면
 //   rename한다. rename 바로 앞에서 그때의 목록과 다시 견준다(그 사이에 await가 없다).
 // - 지금 목록은 그것을 검증한 서명 key가 지금 명단의 key(`signingKey`)와 같을 때만 센다. 명단이 바뀌면 다시 검증하고, 맞지
 //   않게 된 기계는 새것을 받지 않되 든 file은 둔다. 정해진 빼기(`removed`)로 빠진 기계의 하위 폴더는
@@ -267,7 +267,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
   }
 
   // 든 목록 file이 기대한 그대로일 때 그것이 싣는 file. 그대로가 아니면(없거나 앞 판) null. (file, 크기, 수정 시각, 기대한
-  // sha256)마다 한 번만 읽고 hash한다: `carry/file`, `carry/put`, `receive`마다 앱 목록(8 MiB까지)과 release.json을 다시 읽지
+  // sha256)마다 한 번만 읽고 hash한다: `carry/file`, `carry/put`, `receive`마다 앱 목록(8 MiB까지)과 source json을 다시 읽지
   // 않는다. 맞은 것만 둔다: 같은 크기·같은 수정 시각(초 단위 시각의 file system)으로 새 판이 오면 "맞지 않음"이 남는다.
   const covers = new Map<
     string,

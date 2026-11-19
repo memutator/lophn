@@ -127,8 +127,8 @@ export function useLocalScreen({
   // Not installed and nothing under way: start it (the list read usually already did).
   const idle = entry === undefined;
   useEffect(() => {
-    if (isLocal && installed === null && idle && online) store?.install(appId);
-  }, [isLocal, installed, idle, online, store, appId]);
+    if (isLocal && installed === null && idle && online) store?.install(appId, computer?.key);
+  }, [isLocal, installed, idle, online, store, appId, computer?.key]);
 
   const guestKey = `${installed?.release}:${screenKey}:${attempt}`;
   const state = ((): LocalScreenState => {
@@ -142,15 +142,18 @@ export function useLocalScreen({
     if (baseOk === null) return { kind: "loading" };
     if (!baseOk) return { kind: "failed" };
     if (guest?.key === guestKey && typeof guest.state === "object") return { kind: "failed" };
-    const files = releaseFiles(computer!.key, appId, installed.release);
+    const files = releaseFiles(appId, installed.release);
     const absolute = (path: string) => store!.absolute(path);
+    const computerKey = computer?.key;
     return {
       kind: "running",
       key: guestKey,
       view,
       file: absolute(files.screen(screen.screen)),
       call: (operation, input) =>
-        store!.external(appId, () => (link.current?.call ?? away)(operation, input)),
+        computerKey === undefined
+          ? away(operation, input)
+          : store!.external(computerKey, appId, () => (link.current?.call ?? away)(operation, input)),
       subscribe(listener) {
         listeners.add(listener);
         return () => listeners.delete(listener);
@@ -164,7 +167,7 @@ export function useLocalScreen({
         data_schema: installed.backend.data_schema,
         change_max_bytes: APP_SYNC_CHANGE_MAX_BYTES,
       },
-      appDb: { path: absolute(paths(computer!.key, appId).db), record: sync },
+      appDb: { path: absolute(paths(appId).db), record: sync },
       onLocalChange: () => store!.localChange(appId),
     };
   })();
@@ -182,7 +185,7 @@ export function useLocalScreen({
     retry() {
       setGuest(null);
       setAttempt((n) => n + 1);
-      if (installed === null) store?.install(appId);
+      if (installed === null) store?.install(appId, computer?.key);
       else store?.syncNow(appId);
     },
   };

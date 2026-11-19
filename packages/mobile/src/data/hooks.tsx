@@ -655,8 +655,15 @@ export function useTerminal(terminal: string | null): TerminalView {
   const feed = useRef<TerminalFeed | null>(null);
   // The last size asked for: a new watch (back from the background) claims it again.
   const size = useRef<{ columns: number; rows: number } | null>(null);
+  // Keeps one retry key per logical input attempt even if the app backgrounds and reconnects before retry.
+  const retry = useRef<{ terminal: string; text: string; key: string } | null>(null);
+  const currentTerminal = useRef<string | null>(terminal);
+  if (terminal !== null) currentTerminal.current = terminal;
   useEffect(() => {
     if (terminal === null) return;
+    if (retry.current !== null && retry.current.terminal !== terminal) {
+      retry.current = null;
+    }
     const watching = terminalFeed(client, terminal, everyInterval, setState);
     feed.current = watching;
     if (size.current !== null) {
@@ -668,9 +675,24 @@ export function useTerminal(terminal: string | null): TerminalView {
     };
   }, [client, terminal]);
   const send = useCallback(
-    (text: string): Promise<SourceResult<void>> =>
-      feed.current?.send(text) ??
-      Promise.resolve({ ok: false, code: "unavailable" }),
+    async (text: string): Promise<SourceResult<void>> => {
+      const target = currentTerminal.current;
+      const key =
+        retry.current !== null &&
+        retry.current.terminal === target &&
+        retry.current.text === text
+          ? retry.current.key
+          : newId("input");
+      const watching = feed.current;
+      if (watching === null) {
+        if (target !== null) retry.current = { terminal: target, text, key };
+        return { ok: false, code: "unavailable" };
+      }
+      const done = await watching.send(text, key);
+      if (done.ok) retry.current = null;
+      else if (target !== null) retry.current = { terminal: target, text, key };
+      return done;
+    },
     [],
   );
   const resize = useCallback(

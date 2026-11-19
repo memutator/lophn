@@ -8,6 +8,7 @@ import {
   appSyncPull,
   appSyncPush,
 } from "../../../../protocol/apps/app-sync.ts";
+import type { SyncDb } from "../../../../protocol/apps/sync/db.ts";
 import {
   applyRemote,
   getState,
@@ -15,7 +16,6 @@ import {
   type OutboxRow,
   openClock,
   readOutbox,
-  setState,
   stampOutbox,
 } from "../../../../protocol/apps/sync/mod.ts";
 import { outboxCount, transaction, withDb } from "./db.ts";
@@ -26,6 +26,36 @@ import { ask, failed, fromBase64, toBase64 } from "./transfer.ts";
 type Ctx = { deps: LocalDeps; remote: Remote; computer: string };
 
 export type Pushed = { pushed: number; left: number };
+
+/** Per-computer pull cursor key in `lophn_sync_state`. */
+export const cursorKey = (computer: string) => `cursor:${computer}`;
+
+export function writeCursor(db: SyncDb, computer: string, seq: number): void {
+  db.run(
+    "insert into lophn_sync_state (key, value) values (?, ?) on conflict (key) do update set value = excluded.value",
+    [cursorKey(computer), String(seq)],
+  );
+}
+
+/**
+ * Reads the pull cursor for `computer`, falling back from the legacy single `cursor` key only for the computer whose
+ * legacy `<computer>/<app>` folder was migrated into the shared folder.
+ */
+export function readCursor(
+  db: SyncDb,
+  computer: string,
+  migratedFrom?: string,
+): number {
+  const row = db.all("select value from lophn_sync_state where key = ?", [
+    cursorKey(computer),
+  ])[0];
+  if (row !== undefined) return Number(row["value"]);
+  if (migratedFrom === computer) {
+    const legacy = getState(db, "cursor");
+    if (legacy !== null) return Number(legacy);
+  }
+  return 0;
+}
 
 /** Gives the outbox rows that have no clock yet their clocks, in commit order. */
 export function stamp(deps: LocalDeps, db: HostDb): Result<number> {
@@ -76,7 +106,7 @@ const answered = (value: unknown): string[] =>
  */
 export async function push(ctx: Ctx, installed: Installed): Promise<Result<Pushed>> {
   const { deps } = ctx;
-  return withDb(deps, paths(ctx.computer, installed.app).db, async (db) => {
+  return withDb(deps, paths(installed.app).db, async (db) => {
     const stamped = stamp(deps, db);
     if (!stamped.ok) return stamped;
     const planned = batches(readOutbox(db));
@@ -104,10 +134,10 @@ export async function push(ctx: Ctx, installed: Installed): Promise<Result<Pushe
       pushed += took.length;
     }
     const left = outboxCount(db);
-    // The backup of a release change is kept until the changes re-expressed on the new release reached the computer.
+    // The backup of a release change is kept until the changes re-expressed on the new release reached a computer.
     if (left === 0 && installed.backup !== null) {
-      removeDb(deps.files, paths(ctx.computer, installed.app).backup(installed.backup));
-      writeInstalled(deps.files, ctx.computer, { ...installed, backup: null });
+      removeDb(deps.files, paths(installed.app).backup(installed.backup));
+      writeInstalled(deps.files, { ...installed, backup: null });
     }
     return ok({ pushed, left });
   });
@@ -130,6 +160,7 @@ export function applyBatch(
   db: HostDb,
   changes: readonly IncomingChange[],
   next: number,
+  computer: string,
 ): Result<{ applied: number; refused: number }> {
   db.exec("pragma foreign_keys = off");
   try {
@@ -155,7 +186,7 @@ export function applyBatch(
         if (!one.ok) return one;
         applied += one.value.applied;
       }
-      setState(db, "cursor", String(next));
+      writeCursor(db, computer, next);
       return ok({ applied, refused });
     });
   } finally {
@@ -163,16 +194,16 @@ export function applyBatch(
   }
 }
 
-/** Pulls after the cursor until the computer has no more. `snapshot_needed` means: take a new snapshot. */
+/** Pulls after the computer's cursor until it has no more. `snapshot_needed` means: take a new snapshot. */
 export async function pull(
   ctx: Ctx,
   installed: Installed,
 ): Promise<Result<{ applied: number; snapshot_needed: boolean }>> {
   const { deps } = ctx;
-  return withDb(deps, paths(ctx.computer, installed.app).db, async (db) => {
+  return withDb(deps, paths(installed.app).db, async (db) => {
     let applied = 0;
     for (;;) {
-      const after = Number(getState(db, "cursor") ?? "0");
+      const after = readCursor(db, ctx.computer, installed.migrated_from);
       const reply = await ask(ctx.remote, appSyncPull, {
         app: installed.app,
         release: installed.release,
@@ -187,6 +218,7 @@ export async function pull(
           db,
           got.changes.map((one) => ({ hlc: BigInt(one.hlc), changeset: fromBase64(one.changeset) })),
           got.next,
+          ctx.computer,
         );
         if (!done.ok) return done;
         applied += done.value.applied;

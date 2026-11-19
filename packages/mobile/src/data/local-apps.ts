@@ -6,7 +6,7 @@ import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { LocalApp, LocalApps } from "../apps/local/store.ts";
 import { usePhoneApps } from "./apps.ts";
 import { useCurrentComputer } from "./hooks.tsx";
-import { storeFor } from "./local-stores.ts";
+import { localStore } from "./local-stores.ts";
 import { appIcon, type WorkspaceView } from "./workspaces.ts";
 
 export type { Installed, LocalKind } from "../apps/local/folder.ts";
@@ -58,25 +58,31 @@ export function withLocalApps(
 export function useLocalApps(): LocalAppsView {
   const computer = useCurrentComputer();
   const phone = usePhoneApps();
-  const store = computer === null || computer.sample ? null : storeFor(computer.key);
+  const computerKey = computer === null || computer.sample ? null : computer.key;
+  const store = computerKey === null ? null : localStore();
   const online = computer?.status === "connected";
-  const apps = useSyncExternalStore(store?.subscribe ?? nothing, store?.get ?? (() => NONE));
+  const all = useSyncExternalStore(store?.subscribe ?? nothing, store?.get ?? (() => NONE));
+  const apps = useMemo(
+    () => (store === null || computerKey === null ? NONE : store.forComputer(computerKey)),
+    [all, store, computerKey],
+  );
 
   useEffect(() => {
-    if (store === null || !online || phone.state !== "ready") return;
+    if (store === null || computerKey === null || !online || phone.state !== "ready") return;
     store.list(
+      computerKey,
       phone.apps.flatMap((one) => one.screens),
       phone.reload,
     );
-  }, [store, online, phone.apps, phone.state, phone.reload]);
+  }, [store, computerKey, online, phone.apps, phone.state, phone.reload]);
 
   return useMemo(
     () => ({
       apps,
       syncNow: (app: string) => store?.syncNow(app),
-      install: (app: string) => store?.install(app),
+      install: (app: string) => store?.install(app, computerKey ?? undefined),
       store,
     }),
-    [apps, store],
+    [apps, store, computerKey],
   );
 }

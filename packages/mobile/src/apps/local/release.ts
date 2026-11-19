@@ -10,9 +10,9 @@ import { ok, type Result } from "../../../../base/result.ts";
 import { adoptSnapshot, reexpress } from "../../../../protocol/apps/sync/mod.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
 import { migrateTo, outboxCount, transaction, wholeFile, withDb } from "./db.ts";
-import { type Installed, paths, removeDb, writeInstalled } from "./folder.ts";
+import { type Installed, paths, removeDb, withComputer, writeInstalled } from "./folder.ts";
 import { type Ctx, staleList } from "./install.ts";
-import { stamp } from "./sync.ts";
+import { stamp, writeCursor } from "./sync.ts";
 import { fetchRelease, fetchSnapshot } from "./transfer.ts";
 
 export async function switchRelease(
@@ -22,9 +22,9 @@ export async function switchRelease(
 ): Promise<Result<Installed>> {
   const { deps } = ctx;
   const { files } = deps;
-  const at = paths(ctx.computer, installed.app);
+  const at = paths(installed.app);
   const next = screens[0];
-  const fetched = await fetchRelease({ files, remote: ctx.remote, computer: ctx.computer }, screens);
+  const fetched = await fetchRelease({ files, remote: ctx.remote }, screens);
   if (!fetched.ok) return fetched;
 
   // The outbox is stamped before the backup: re-expression reads each change's clock from it.
@@ -52,16 +52,18 @@ export async function switchRelease(
   files.remove(at.work);
 
   const keep = installed.kind === "sync" && pending.value > 0;
+  const { migrated_from: _drop, ...rest } = installed;
   const switched: Installed = {
-    ...installed,
+    ...rest,
     name: next.app_name,
     icon: next.icon,
     release: next.release,
     screens,
     backend: next.backend!,
     backup: keep ? next.release : null,
+    computers: withComputer(installed.computers, ctx.computer),
   };
-  writeInstalled(files, ctx.computer, switched);
+  writeInstalled(files, switched);
   for (const name of files.list(at.dir)) {
     const path = `${at.dir}/${name}`;
     if (name.startsWith("app.before-") && !(keep && path === backup)) files.remove(path);
@@ -81,8 +83,8 @@ async function build(
   pending: number,
 ): Promise<Result<string>> {
   const { deps } = ctx;
-  const at = paths(ctx.computer, installed.app);
-  const where = { computer: ctx.computer, app: installed.app, release: next.release };
+  const at = paths(installed.app);
+  const where = { app: installed.app, release: next.release };
   const migrated = `${at.work}/migrated.sqlite`;
   const migrate = async (): Promise<Result<number>> => {
     deps.files.copy(backup, migrated);
@@ -109,6 +111,7 @@ async function build(
   return withDb(deps, snapshot, async (db) => {
     const adopted = transaction(db, () => {
       adoptSnapshot(db, { node: ctx.node, cursor: String(taken.value.seq), release: next.release });
+      writeCursor(db, ctx.computer, taken.value.seq);
       return ok(undefined);
     });
     if (!adopted.ok) return adopted;

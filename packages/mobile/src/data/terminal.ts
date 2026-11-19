@@ -45,8 +45,11 @@ export const LEASE_EVERY_MS = 10_000;
 export type Every = (ms: number, run: () => void) => () => void;
 
 export interface TerminalFeed {
-  /** Types into the terminal. Only when the snapshot said `input`; the core refuses it otherwise. */
-  send(text: string): Promise<SourceResult<void>>;
+  /**
+   * Types into the terminal. Only when the snapshot said `input`; the core refuses it otherwise.
+   * Reuses the same `key` when the caller retries the same text after a failed attempt until it succeeds.
+   */
+  send(text: string, key?: string): Promise<SourceResult<void>>;
   /** Claims the terminal's size for this phone: now if watching, and again each time the watch starts over. */
   resize(columns: number, rows: number): void;
   /** Stops watching: drops the lease now instead of letting it run out. */
@@ -71,6 +74,7 @@ export function terminalFeed(
   let renewing: (() => void) | null = null;
   let leased = false;
   let size: { columns: number; rows: number } | null = null;
+  let pending: { text: string; key: string } | null = null;
 
   function set(next: TerminalState) {
     if (stopped) return;
@@ -141,13 +145,21 @@ export function terminalFeed(
   );
 
   return {
-    async send(text) {
+    async send(text, explicitKey) {
+      const key =
+        explicitKey ??
+        (pending !== null && pending.text === text ? pending.key : newId("input"));
       const done = await ask(client.core, terminalsInput, {
         terminal,
         text,
-        key: newId("input"),
+        key,
       });
-      return done.ok ? { ok: true, value: undefined } : done;
+      if (done.ok) {
+        pending = null;
+        return { ok: true, value: undefined };
+      }
+      pending = { text, key };
+      return done;
     },
     resize(columns, rows) {
       size = { columns, rows };

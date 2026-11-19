@@ -19,7 +19,6 @@ import {
   applyRemote,
   dumpData,
   ensureSyncTables,
-  getState,
   migrate,
   openClock,
   readOutbox,
@@ -28,13 +27,18 @@ import {
 } from "../../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../../protocol/apps/sync/node-db.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
-import { paths, readInstalled } from "./folder.ts";
+import {
+  migrateLegacyFolders,
+  paths,
+  readInstalled,
+  writeInstalled,
+} from "./folder.ts";
 import { type Ctx, install } from "./install.ts";
 import type { HostDb, LocalDeps, LocalFiles, Remote } from "./ports.ts";
 import { pruneApp } from "./prune.ts";
 import { switchRelease } from "./release.ts";
 import { createLocalApps } from "./store.ts";
-import { applyBatch, pull, push } from "./sync.ts";
+import { applyBatch, cursorKey, pull, push, readCursor } from "./sync.ts";
 import { toBase64 } from "./transfer.ts";
 
 // The phone side on node: app folders on disk, the app database on node:sqlite (the sync core's driver), and a fake
@@ -126,14 +130,19 @@ async function migrated(db: SyncDb, release: Release) {
   assert.ok(done.ok, done.ok ? "" : done.error.message);
 }
 
-async function fakeComputer(dir: string, first: Release, runsOn: ("computer" | "phone")[] = ["computer", "phone"]) {
-  const dbPath = join(dir, "computer.sqlite");
+async function fakeComputer(
+  dir: string,
+  first: Release,
+  runsOn: ("computer" | "phone")[] = ["computer", "phone"],
+  name = "computer",
+) {
+  const dbPath = join(dir, `${name}.sqlite`);
   const raw = new DatabaseSync(dbPath);
   const db = nodeSyncDb(raw);
   await migrated(db, first);
-  ensureSyncTables(db, "computer");
+  ensureSyncTables(db, name);
   const clock = openClock(db);
-  const log: { seq: number; hlc: bigint; changeset: Uint8Array; device: string }[] = [];
+  const log: { seq: number; release: string; hlc: bigint; changeset: Uint8Array; device: string }[] = [];
   const blobs = new Map<string, Uint8Array>();
   const snapshots = new Map<string, Uint8Array>();
   const seen = new Set<string>();
@@ -248,7 +257,7 @@ async function fakeComputer(dir: string, first: Release, runsOn: ("computer" | "
             assert.ok(done.ok);
             raw.exec("commit");
             seen.add(change.id);
-            log.push({ seq: log.length + 1, hlc: BigInt(change.hlc), changeset, device: "phone" });
+            log.push({ seq: log.length + 1, release: state.release.id, hlc: BigInt(change.hlc), changeset, device: "phone" });
             results.push({ id: change.id, status: "applied", seq: log.length });
           }
           return { ok: true, value: { results, seq: log.length } };
@@ -262,7 +271,7 @@ async function fakeComputer(dir: string, first: Release, runsOn: ("computer" | "
             ok: true,
             value: {
               changes: log
-                .filter((row) => row.seq > after && row.device !== "phone")
+                .filter((row) => row.release === state.release.id && row.seq > after && row.device !== "phone")
                 .map((row) => ({
                   seq: row.seq,
                   origin: "computer",
@@ -295,7 +304,7 @@ async function fakeComputer(dir: string, first: Release, runsOn: ("computer" | "
       const hlc = clock.next(Date.now());
       assert.ok(stampLocal(db, changeset, hlc).ok);
       raw.exec("commit");
-      log.push({ seq: log.length + 1, hlc, changeset, device: "computer" });
+      log.push({ seq: log.length + 1, release: state.release.id, hlc, changeset, device: "computer" });
     },
     /** Activates a release: the computer migrates its own database (unless told not to) and old log rows no longer pull. */
     async activate(release: Release, run = true) {
@@ -319,7 +328,7 @@ async function setup(runsOn?: ("computer" | "phone")[]) {
   const rel1: Release = { id: "rel_1", data_schema: 1, migrations: [{ from: 0, to: 1, sql: ITEM }] };
   const computer = await fakeComputer(dir, rel1, runsOn);
   const ctx: Ctx = { deps, remote: computer.remote, computer: COMPUTER, node: "dev_phone" };
-  const at = paths(COMPUTER, APP);
+  const at = paths(APP);
   return {
     dir,
     deps,
@@ -329,7 +338,7 @@ async function setup(runsOn?: ("computer" | "phone")[]) {
     rel1,
     at,
     dbPath: files.absolute(at.db),
-    installed: () => readInstalled(files, COMPUTER, APP)!,
+    installed: () => readInstalled(files, APP)!,
     async install(release = rel1) {
       const done = await install(ctx, [computer.entry(release)]);
       assert.ok(done.ok, done.ok ? "" : done.error.message);
@@ -357,7 +366,7 @@ test("outbox rows leave only when the computer answered for them; unsent data an
   assert.equal(t.outbox().length, 2);
 
   // The app left the computer's list with changes still to send: its folder stays.
-  assert.equal(await pruneApp(t.deps, COMPUTER, APP), false);
+  assert.equal(await pruneApp(t.deps, APP), false);
   assert.ok(t.files.exists(t.at.db));
 
   t.computer.state.pushFailsAfter = null;
@@ -365,7 +374,7 @@ test("outbox rows leave only when the computer answered for them; unsent data an
   assert.ok(sent.ok);
   assert.deepEqual(sent.value, { pushed: 2, left: 0 });
   assert.deepEqual(t.computer.items(), ["a:phone a", "b:phone b", "c:phone c"]);
-  assert.equal(await pruneApp(t.deps, COMPUTER, APP), true);
+  assert.equal(await pruneApp(t.deps, APP), true);
   assert.equal(t.files.exists(t.at.dir), false);
 
   // A standalone app: its own empty database, migrated on the phone, and never pruned.
@@ -373,7 +382,7 @@ test("outbox rows leave only when the computer answered for them; unsent data an
   const installed = await alone.install();
   assert.equal(installed.kind, "standalone");
   localWrite(alone.dbPath, "insert into item values ('x', 'only here')", false);
-  assert.equal(await pruneApp(alone.deps, COMPUTER, APP), false);
+  assert.equal(await pruneApp(alone.deps, APP), false);
   assert.deepEqual(items(alone.dbPath), ["x:only here"]);
 });
 
@@ -431,8 +440,8 @@ test("a release change that fails leaves app.sqlite and its outbox as they were;
 test("an external call goes to the computer only after the outbox reached it; otherwise it is unavailable and not sent", async () => {
   const t = await setup();
   await t.install();
-  const store = createLocalApps({ ...t.deps, computer: COMPUTER, node: async () => "dev_phone" });
-  store.connect(t.computer.remote);
+  const store = createLocalApps({ ...t.deps, node: async () => "dev_phone" });
+  store.connect(COMPUTER, t.computer.remote);
   localWrite(t.dbPath, "insert into item values ('p1', 'before report')");
 
   let sent: string[] | null = null;
@@ -441,14 +450,14 @@ test("an external call goes to the computer only after the outbox reached it; ot
     return { ok: true as const, value: { sent: true } };
   };
   t.computer.state.pushFailsAfter = 0;
-  const refused = await store.external(APP, send);
+  const refused = await store.external(COMPUTER, APP, send);
   assert.equal(refused.ok, false);
   assert.equal(refused.ok ? "" : refused.error.code, "unavailable");
   assert.equal(sent, null);
   assert.equal(t.outbox().length, 1);
 
   t.computer.state.pushFailsAfter = null;
-  const outcome = await store.external(APP, send);
+  const outcome = await store.external(COMPUTER, APP, send);
   assert.ok(outcome.ok);
   assert.deepEqual(sent, ["p1:before report"]);
   assert.equal(t.outbox().length, 0);
@@ -470,9 +479,15 @@ test("a pulled batch is stamped, applied and moves the cursor in one transaction
   const good = await pullOne(t);
   const db = openDb(t.dbPath);
   try {
-    const result = applyBatch(t.deps, db, [good, { hlc: good.hlc + BigInt(1), changeset: foreign }], 9);
+    const result = applyBatch(
+      t.deps,
+      db,
+      [good, { hlc: good.hlc + BigInt(1), changeset: foreign }],
+      9,
+      COMPUTER,
+    );
     assert.equal(result.ok, false);
-    assert.equal(getState(db, "cursor"), "0");
+    assert.equal(readCursor(db, COMPUTER), 0);
     assert.equal(readOutbox(db)[0]?.hlc, null);
   } finally {
     db.close();
@@ -483,9 +498,153 @@ test("a pulled batch is stamped, applied and moves the cursor in one transaction
   assert.ok(pulled.ok);
   assert.deepEqual(items(t.dbPath), ["c1:one", "c2:two", "p1:mine"]);
   read(t.dbPath, (db) => {
-    assert.equal(getState(db, "cursor"), "2");
+    assert.equal(readCursor(db, COMPUTER), 2);
     assert.notEqual(readOutbox(db)[0]?.hlc, null);
   });
+});
+
+async function waitFor(check: () => boolean, limitMs = 2000) {
+  const start = Date.now();
+  while (!check()) {
+    if (Date.now() - start > limitMs) throw new Error("timed out waiting for local store");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test("multiple paired computers share one phone DB with per-computer cursors, serialized sync, lag skipping, and newest-release upgrade", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-local-multi-"));
+  dirs.push(dir);
+  const files = nodeFiles(join(dir, "apps"));
+  const deps: LocalDeps = { files, open: openDb, now: Date.now };
+  const rel1: Release = { id: "rel_1", data_schema: 1, migrations: [{ from: 0, to: 1, sql: ITEM }] };
+  const c1 = await fakeComputer(dir, rel1, ["computer", "phone"], "c1");
+  const c2 = await fakeComputer(dir, rel1, ["computer", "phone"], "c2");
+  c1.write("insert into item values ('a1', 'from c1')");
+  c2.write("insert into item values ('b1', 'from c2')");
+
+  const store = createLocalApps({ ...deps, node: async () => "dev_phone" });
+  store.connect("c1", c1.remote);
+  store.connect("c2", c2.remote);
+  store.list("c1", [c1.entry(rel1)], () => {});
+  store.list("c2", [c2.entry(rel1)], () => {});
+
+  const dbPath = files.absolute(paths(APP).db);
+  await waitFor(
+    () =>
+      store.installed(APP) !== null &&
+      files.exists(paths(APP).db) &&
+      items(dbPath).length === 2,
+  );
+  // One shared DB holds rows from both computers, with independent per-computer cursors.
+  assert.deepEqual(files.list(""), [APP]);
+  assert.deepEqual(items(dbPath), ["a1:from c1", "b1:from c2"]);
+  assert.deepEqual([...store.installed(APP)!.computers].sort(), ["c1", "c2"]);
+  read(dbPath, (db) => {
+    assert.equal(readCursor(db, "c1"), 1);
+    assert.equal(readCursor(db, "c2"), 1);
+  });
+
+  // Concurrent AppSyncChanged from both computers serializes cleanly on the single DB.
+  c1.write("insert into item values ('a2', 'c1 second')");
+  c2.write("insert into item values ('b2', 'c2 second')");
+  store.changed("c1", APP);
+  store.changed("c2", APP);
+  await waitFor(() => items(dbPath).length === 4);
+  assert.deepEqual(items(dbPath), ["a1:from c1", "a2:c1 second", "b1:from c2", "b2:c2 second"]);
+  read(dbPath, (db) => {
+    assert.equal(readCursor(db, "c1"), 2);
+    assert.equal(readCursor(db, "c2"), 2);
+  });
+
+  // With c1 offline, a phone write pushes to c2 and clears the acked outbox row.
+  store.connect("c1", null);
+  localWrite(dbPath, "insert into item values ('p1', 'from phone')");
+  store.localChange(APP);
+  await waitFor(() => c2.items().includes("p1:from phone") && read(dbPath, readOutbox).length === 0);
+  assert.equal(read(dbPath, readOutbox).length, 0);
+
+  // c1 upgrades to rel_2 while c2 lags at rel_1: phone upgrades to rel_2 and skips c2 without failing or downgrading.
+  const rel2: Release = {
+    id: "rel_2",
+    data_schema: 2,
+    migrations: [...rel1.migrations, { from: 1, to: 2, sql: "alter table item add column note text;" }],
+  };
+  await c1.activate(rel2);
+  c1.write("insert into item (id, title) values ('a3', 'on rel2')");
+  store.connect("c1", c1.remote);
+  store.list("c1", [c1.entry(rel2)], () => {});
+  await waitFor(() => store.installed(APP)?.release === "rel_2");
+
+  // c2 (still on rel_1) triggers list & changed: must be skipped, phone stays on rel_2 and ready.
+  const c2CallsBefore = c2.state.calls.length;
+  store.list("c2", [c2.entry(rel1)], () => {});
+  store.changed("c2", APP);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(store.installed(APP)?.release, "rel_2");
+  assert.equal(store.get().find((one) => one.app === APP)?.state, "ready");
+  assert.equal(c2.state.calls.length, c2CallsBefore);
+
+  // Once c2 catches up to rel_2, phone syncs with c2 and pulls its new rel_2 write.
+  await c2.activate(rel2);
+  c2.write("insert into item (id, title) values ('b3', 'c2 on rel2')");
+  store.list("c2", [c2.entry(rel2)], () => {});
+  await waitFor(() => items(dbPath).includes("b3:c2 on rel2"));
+  assert.ok(items(dbPath).includes("a3:on rel2"));
+  assert.ok(items(dbPath).includes("b3:c2 on rel2"));
+});
+
+test("legacy <computer>/<app> folders migrate seamlessly into <app> preserving legacy cursor for that computer and standalone data", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-local-migrate-"));
+  dirs.push(dir);
+  const files = nodeFiles(join(dir, "apps"));
+  const deps: LocalDeps = { files, open: openDb, now: Date.now };
+  const rel1: Release = { id: "rel_1", data_schema: 1, migrations: [{ from: 0, to: 1, sql: ITEM }] };
+  const c1 = await fakeComputer(dir, rel1, ["computer", "phone"], "c1");
+  const c2 = await fakeComputer(dir, rel1, ["computer", "phone"], "c2");
+  c1.write("insert into item values ('old', 'already on phone')");
+  c2.write("insert into item values ('c2_only', 'from c2')");
+
+  // Simulate legacy layout files/apps/c1/<APP>/ with only the legacy single `cursor` key ("1").
+  const installed = await install({ deps, remote: c1.remote, computer: "c1", node: "dev_phone" }, [c1.entry(rel1)]);
+  assert.ok(installed.ok);
+  read(files.absolute(paths(APP).db), (db) => {
+    db.run("delete from lophn_sync_state where key = ?", [cursorKey("c1")]);
+  });
+  const legacyRecord = { ...installed.value, computers: [] };
+  writeInstalled(files, legacyRecord);
+  files.move(paths(APP).dir, `c1/${APP}`);
+  assert.equal(files.exists(paths(APP).dir), false);
+  assert.equal(files.exists(`c1/${APP}/installed.json`), true);
+
+  // Also simulate a legacy standalone app under c1/app_alone/.
+  const aloneDir = "c1/app_alone";
+  files.write(
+    `${aloneDir}/installed.json`,
+    JSON.stringify({ ...installed.value, app: "app_alone", kind: "standalone", computers: [] }),
+  );
+  files.write(`${aloneDir}/marker.txt`, "keep me");
+
+  migrateLegacyFolders(deps);
+  assert.equal(files.exists("c1"), false);
+  assert.equal(files.exists(paths(APP).installed), true);
+  assert.equal(readInstalled(files, APP)?.migrated_from, "c1");
+  assert.deepEqual(readInstalled(files, APP)?.computers, ["c1"]);
+  assert.equal(files.readText("app_alone/marker.txt"), "keep me");
+  assert.equal(readInstalled(files, "app_alone")?.kind, "standalone");
+
+  // Pull from c1 falls back to legacy cursor ("1"), so only seq 2 is fetched; pull from c2 starts at 0.
+  c1.write("insert into item values ('new_c1', 'after migrate')");
+  const pulled1 = await pull({ deps, remote: c1.remote, computer: "c1" }, readInstalled(files, APP)!);
+  assert.ok(pulled1.ok);
+  assert.equal(pulled1.value.applied, 1);
+  const pulled2 = await pull({ deps, remote: c2.remote, computer: "c2" }, readInstalled(files, APP)!);
+  assert.ok(pulled2.ok);
+  assert.equal(pulled2.value.applied, 1);
+  assert.deepEqual(items(files.absolute(paths(APP).db)), [
+    "c2_only:from c2",
+    "new_c1:after migrate",
+    "old:already on phone",
+  ]);
 });
 
 // The computer's first logged change, as pull hands it over (the install's snapshot was taken before it).

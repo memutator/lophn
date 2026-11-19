@@ -57,7 +57,6 @@ export function GuestScreen(props: GuestScreenProps) {
   const [origin] = useState(
     () => `${props.view}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
   );
-  const dbReady = useAppDbBinding(origin, props.appDb);
   const [base] = useState(basePath);
   const [files] = useState(() =>
     props.backendFile === undefined
@@ -66,11 +65,20 @@ export function GuestScreen(props: GuestScreenProps) {
   );
   // A missing script file ends the whole app inside the loader, so it is checked before the runtime starts.
   const [present] = useState(() => files.every(fileExists));
+  // Do not bind the app DB if the guest will never mount due to missing script files.
+  const dbReady = useAppDbBinding(origin, present ? props.appDb : undefined);
   const [scripts] = useState(() =>
     present && props.backendFile !== undefined
       ? [base, wrapBackend(props.backendFile), props.screenFile]
       : files,
   );
+  const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearStartTimer = () => {
+    if (startTimer.current !== null) {
+      clearTimeout(startTimer.current);
+      startTimer.current = null;
+    }
+  };
   const [session] = useState(() =>
     createGuestSession({
       init: {
@@ -81,7 +89,10 @@ export function GuestScreen(props: GuestScreenProps) {
       },
       call: (operation, input) => latest.current.call(operation, input),
       post: (message) => ref.current?.postMessage(message),
-      onState: (state) => latest.current.onState(state),
+      onState: (state) => {
+        if (state !== "starting") clearStartTimer();
+        latest.current.onState(state);
+      },
       onLocalChange: () => latest.current.onLocalChange?.(),
       log: (line) => say(line),
     }),
@@ -94,10 +105,10 @@ export function GuestScreen(props: GuestScreenProps) {
       return;
     }
     latest.current.onState("starting");
-    const timer = setTimeout(session.timeout, GUEST_START_LIMIT_MS);
+    startTimer.current = setTimeout(session.timeout, GUEST_START_LIMIT_MS);
     const stop = latest.current.subscribe(session.event);
     return () => {
-      clearTimeout(timer);
+      clearStartTimer();
       stop();
       session.close();
     };

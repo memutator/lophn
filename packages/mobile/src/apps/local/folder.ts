@@ -1,13 +1,13 @@
-// One app that runs on the phone, on disk: `files/apps/<computer>/<app>/`.
+// One app that runs on the phone, on disk: `files/apps/<app>/` (one shared copy across all paired computers).
 //   installed.json                     what is installed (written last: a folder without it is an install that stopped)
-//   app.sqlite                         the app's data, its clocks and (sync apps) its outbox
+//   app.sqlite                         the app's data, its clocks, per-computer pull cursors and (sync apps) its outbox
 //   app.before-<rel>.sqlite            the backup taken when <rel> replaced the release before; kept until the first
 //                                      push on <rel> succeeds
 //   release/<rel>/backend.js, backend.json, migrations/<from>-<to>.sql, screens/<screen>/phone.js
 //   work/                              files being put together (a snapshot, a migrated copy); gone after each step
 import type { PhoneBackendManifest } from "../../../../protocol/apps/phone-backend.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
-import type { LocalFiles } from "./ports.ts";
+import type { LocalDeps, LocalFiles } from "./ports.ts";
 
 export type LocalKind = "sync" | "standalone";
 
@@ -23,6 +23,13 @@ export interface Installed {
   readonly last_synced_at: string | null;
   /** The release whose backup (app.before-<rel>.sqlite) is kept; null when there is none. */
   readonly backup: string | null;
+  /** Paired computer keys known to have this app; drives per-computer lists and pruning when all computers drop it. */
+  readonly computers: readonly string[];
+  /**
+   * Set when this folder was migrated from legacy `<computer>/<app>/`, so pull falls back from the legacy `cursor`
+   * key in `lophn_sync_state` for that computer until `cursor:<computer>` is written.
+   */
+  readonly migrated_from?: string;
 }
 
 export const kindOf = (screen: PhoneScreen): LocalKind =>
@@ -31,12 +38,34 @@ export const kindOf = (screen: PhoneScreen): LocalKind =>
 export const runsOnPhone = (screen: PhoneScreen): boolean =>
   screen.runs_on.includes("phone") && screen.backend !== null;
 
-export function appDir(computer: string, app: string): string {
-  return `${computer}/${app}`;
+/**
+ * Orders two releases of an app: higher `data_schema` wins when both are known and differ, otherwise lexicographical
+ * release id order (ULID-based `rel_*` ids sort monotonically by creation time).
+ */
+export function compareRelease(
+  a: { readonly release: string; readonly data_schema?: number },
+  b: { readonly release: string; readonly data_schema?: number },
+): number {
+  if (
+    a.data_schema !== undefined &&
+    b.data_schema !== undefined &&
+    a.data_schema !== b.data_schema
+  ) {
+    return a.data_schema - b.data_schema;
+  }
+  return a.release < b.release ? -1 : a.release > b.release ? 1 : 0;
 }
 
-export const paths = (computer: string, app: string) => {
-  const dir = appDir(computer, app);
+export function withComputer(computers: readonly string[], computer: string): readonly string[] {
+  return computers.includes(computer) ? computers : [...computers, computer];
+}
+
+export function appDir(app: string): string {
+  return app;
+}
+
+export const paths = (app: string) => {
+  const dir = appDir(app);
   return {
     dir,
     installed: `${dir}/installed.json`,
@@ -48,8 +77,8 @@ export const paths = (computer: string, app: string) => {
   };
 };
 
-export const releaseFiles = (computer: string, app: string, release: string) => {
-  const dir = paths(computer, app).release(release);
+export const releaseFiles = (app: string, release: string) => {
+  const dir = paths(app).release(release);
   return {
     backend: `${dir}/backend.js`,
     manifest: `${dir}/backend.json`,
@@ -58,30 +87,33 @@ export const releaseFiles = (computer: string, app: string, release: string) => 
   };
 };
 
-export function readInstalled(
-  files: LocalFiles,
-  computer: string,
-  app: string,
-): Installed | null {
-  const text = files.readText(paths(computer, app).installed);
+function parseInstalled(text: string | null): Installed | null {
   if (text === null) return null;
   try {
-    return JSON.parse(text) as Installed;
+    const raw = JSON.parse(text) as Installed & { computers?: readonly string[] };
+    return {
+      ...raw,
+      computers: Array.isArray(raw.computers) ? raw.computers : [],
+    };
   } catch {
     return null;
   }
 }
 
-export function writeInstalled(files: LocalFiles, computer: string, installed: Installed): void {
-  files.write(paths(computer, installed.app).installed, JSON.stringify(installed));
+export function readInstalled(files: LocalFiles, app: string): Installed | null {
+  return parseInstalled(files.readText(paths(app).installed));
 }
 
-/** Every installed app of a computer. */
-export function listInstalled(files: LocalFiles, computer: string): Installed[] {
+export function writeInstalled(files: LocalFiles, installed: Installed): void {
+  files.write(paths(installed.app).installed, JSON.stringify(installed));
+}
+
+/** Every installed app on this phone (shared `files/apps/<app>/` folders). */
+export function listInstalled(files: LocalFiles): Installed[] {
   return files
-    .list(computer)
-    .map((app) => readInstalled(files, computer, app))
-    .filter((one) => one !== null);
+    .list("")
+    .map((entry) => readInstalled(files, entry))
+    .filter((one): one is Installed => one !== null);
 }
 
 /** SQLite's own files next to a database; they go with it when it is moved or removed. */
@@ -90,4 +122,89 @@ export const SIDE_FILES = ["-wal", "-shm", "-journal"];
 export function removeDb(files: LocalFiles, path: string): void {
   files.remove(path);
   for (const side of SIDE_FILES) files.remove(`${path}${side}`);
+}
+
+function legacyOutboxCount(deps: LocalDeps, dbPath: string): number {
+  if (!deps.files.exists(dbPath)) return 0;
+  try {
+    const db = deps.open(deps.files.absolute(dbPath));
+    try {
+      const row = db.all("select count(*) as n from lophn_sync_outbox")[0];
+      return Number(row?.["n"] ?? 0);
+    } finally {
+      db.close();
+    }
+  } catch {
+    // If the DB cannot be read, treat as non-empty so migration never discards potentially unsent data.
+    return 1;
+  }
+}
+
+/**
+ * Seamlessly moves legacy `<computer>/<app>/` folders into the shared `<app>/` folder.
+ * When multiple legacy computers had copies of the same app, prefers the newest release (then highest outbox count)
+ * as the primary folder, merges all computer keys into `installed.computers`, and only deletes redundant legacy sync
+ * copies whose outbox is empty (standalone data and unsent outboxes are never discarded).
+ */
+export function migrateLegacyFolders(deps: LocalDeps): void {
+  const { files } = deps;
+  type Legacy = { computer: string; app: string; dir: string; installed: Installed; outbox: number };
+  const byApp = new Map<string, Legacy[]>();
+  const legacyComputers: string[] = [];
+
+  for (const entry of files.list("")) {
+    // A top-level folder with installed.json is already a shared app folder.
+    if (files.exists(paths(entry).installed)) continue;
+    legacyComputers.push(entry);
+    for (const app of files.list(entry)) {
+      const dir = `${entry}/${app}`;
+      const record = parseInstalled(files.readText(`${dir}/installed.json`));
+      if (record === null) {
+        files.remove(dir);
+        continue;
+      }
+      const outbox = record.kind === "sync" ? legacyOutboxCount(deps, `${dir}/app.sqlite`) : 0;
+      const list = byApp.get(app) ?? [];
+      list.push({ computer: entry, app, dir, installed: record, outbox });
+      byApp.set(app, list);
+    }
+  }
+
+  for (const [app, copies] of byApp) {
+    copies.sort((a, b) => {
+      const rel = compareRelease(
+        { release: b.installed.release, data_schema: b.installed.backend.data_schema },
+        { release: a.installed.release, data_schema: a.installed.backend.data_schema },
+      );
+      if (rel !== 0) return rel;
+      return b.outbox - a.outbox;
+    });
+    let current = readInstalled(files, app);
+    for (const copy of copies) {
+      if (current === null) {
+        files.remove(appDir(app));
+        files.move(copy.dir, appDir(app));
+        const computers = withComputer(copy.installed.computers, copy.computer);
+        current = {
+          ...copy.installed,
+          computers,
+          ...(copy.installed.kind === "sync" ? { migrated_from: copy.computer } : {}),
+        };
+        writeInstalled(files, current);
+      } else {
+        const computers = withComputer(current.computers, copy.computer);
+        if (computers !== current.computers) {
+          current = { ...current, computers };
+          writeInstalled(files, current);
+        }
+        if (copy.installed.kind === "sync" && copy.outbox === 0) {
+          files.remove(copy.dir);
+        }
+      }
+    }
+  }
+
+  for (const computer of legacyComputers) {
+    if (files.list(computer).length === 0) files.remove(computer);
+  }
 }

@@ -62,14 +62,16 @@ export function createGuestSession(options: {
   let state: GuestState = "starting";
   let closed = false;
   let init = options.init;
-  const live = () => !closed && typeof state !== "object";
+  // Cleared on close so in-flight call promises cannot retain the unmounted GuestScreen's callbacks or refs.
+  let liveOptions: typeof options | null = options;
+  const live = () => !closed && liveOptions !== null && typeof state !== "object";
   const move = (next: GuestState) => {
     if (!live()) return;
     state = next;
-    options.onState(next);
+    liveOptions!.onState(next);
   };
   const reply = (id: number, outcome: CallOutcome) => {
-    if (live()) options.post({ type: "reply", id, outcome });
+    if (live()) liveOptions!.post({ type: "reply", id, outcome });
   };
   return {
     receive(raw) {
@@ -77,13 +79,14 @@ export function createGuestSession(options: {
       const parsed = parsePhoneGuestMessage(raw);
       if (!parsed.ok) return;
       const message = parsed.value;
+      const current = liveOptions!;
       switch (message.type) {
         case "ready":
-          options.post({ type: "init", ...init });
+          current.post({ type: "init", ...init });
           if (state === "starting") move("running");
           return;
         case "call":
-          options.call(message.operation, message.input).then(
+          current.call(message.operation, message.input).then(
             (outcome) => reply(message.id, outcome),
             (thrown: unknown) =>
               reply(message.id, {
@@ -96,23 +99,27 @@ export function createGuestSession(options: {
           );
           return;
         case "local_change":
-          options.onLocalChange();
+          current.onLocalChange();
           return;
         case "fatal":
-          options.log(`fatal: ${message.message}`);
+          current.log(`fatal: ${message.message}`);
           move({ failed: "fatal" });
           return;
       }
     },
     event(event) {
-      if (state === "running" && !closed) options.post({ type: "event", ...event });
+      if (state === "running" && !closed && liveOptions !== null) {
+        liveOptions.post({ type: "event", ...event });
+      }
     },
     appearance(scheme) {
       init = { ...init, scheme };
-      if (state === "running" && !closed) options.post({ type: "appearance", scheme });
+      if (state === "running" && !closed && liveOptions !== null) {
+        liveOptions.post({ type: "appearance", scheme });
+      }
     },
     error(error) {
-      options.log(`${error.name}: ${error.message}`);
+      liveOptions?.log(`${error.name}: ${error.message}`);
       if (!error.isFatal) return;
       const crashed = error.name === "GuestCrashed" || error.name === "LoadError";
       move({ failed: crashed ? "crashed" : "fatal" });
@@ -122,6 +129,7 @@ export function createGuestSession(options: {
     },
     close() {
       closed = true;
+      liveOptions = null;
     },
   };
 }

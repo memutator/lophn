@@ -117,7 +117,7 @@ index 0000000..77e9276
 +    ) = promise.resolve(Arguments.createMap())
 +}
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
-index d101298..6ff9a73 100644
+index d101298..884044b 100644
 --- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
 +++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
 @@ -27,6 +27,8 @@ import com.facebook.react.runtime.ReactHostImpl
@@ -195,7 +195,36 @@ index d101298..6ff9a73 100644
      fun onJSIBindingsInstalled(stateHandle: Long) {
          jsiStateHandle = stateHandle
          // Store on the shared host so views that reuse this host can
-@@ -598,6 +635,9 @@ class SandboxReactNativeDelegate(
+@@ -494,12 +531,19 @@ class SandboxReactNativeDelegate(
+                                     sharedHosts.remove(capturedOrigin)
+                                     current.reactHost.onHostDestroy()
+                                     current.reactHost.destroy("lazy sandbox cleanup", null)
++                                    // lophn: remove per-origin sandbox files dir once the host is destroyed.
++                                    if (current.sandboxContext is SandboxContextWrapper) {
++                                        current.sandboxContext.filesDir.deleteRecursively()
++                                    }
+                                 }
+                             }, ttl)
+                         } else {
+                             sharedHosts.remove(capturedOrigin)
+                             host.onHostDestroy()
+                             host.destroy("sandbox cleanup", null)
++                            if (shared.sandboxContext is SandboxContextWrapper) {
++                                shared.sandboxContext.filesDir.deleteRecursively()
++                            }
+                         }
+                     }
+                 }
+@@ -514,6 +558,8 @@ class SandboxReactNativeDelegate(
+ 
+     fun destroy() {
+         cleanup()
++        // lophn: clear the view reference so a torn-down delegate cannot retain the dropped view hierarchy.
++        sandboxView = null
+     }
+ 
+     /**
+@@ -598,6 +644,9 @@ class SandboxReactNativeDelegate(
                  return null
              }
  
@@ -205,17 +234,19 @@ index d101298..6ff9a73 100644
              delegate.getModule(name, reactContext)?.let { return it }
  
              for (pkg in hostPackages) {
-@@ -641,7 +681,26 @@ class SandboxReactNativeDelegate(
+@@ -641,7 +690,28 @@ class SandboxReactNativeDelegate(
              }
          }
  
 -        override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
 -            delegate.createViewManagers(reactContext)
 +        override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
-+            // lophn: the image view of a guest does not load network URIs (GuestImages.kt).
++            // lophn: omit ReactModalHostManager ("RCTModalHostView") so a guest cannot open a Dialog window over
++            // the host app; and replace the image view so a guest does not load network URIs (GuestImages.kt).
 +            val own =
 +                delegate
 +                    .createViewManagers(reactContext)
++                    .filter { it.name != "RCTModalHostView" }
 +                    .map { if (it.name == ReactImageManager.REACT_CLASS) guestImageManager(reactContext) else it }
 +                    .toMutableList()
 +            // lophn: the kit's native views. Every view manager given to a guest is reachable from screen code
@@ -258,6 +289,20 @@ index 3729790..e975693 100644
          override fun getEventData() = payload
      }
  }
+diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt
+index c63255e..a869be3 100644
+--- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt
++++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt
+@@ -40,6 +40,9 @@ class SandboxReactNativeViewManager :
+ 
+     override fun onDropViewInstance(view: SandboxReactNativeView) {
+         super.onDropViewInstance(view)
++        // lophn: release callbacks and child surfaces on unmount so dropped sandbox views can be collected.
++        view.onAttachLoadCallback = null
++        view.removeAllViews()
+         view.delegate?.destroy()
+         view.delegate = null
+     }
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt
 index df55509..5a98244 100644
 --- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt

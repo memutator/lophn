@@ -8,7 +8,7 @@ import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import type { ComputerItem, PhoneApp, PhoneApps } from "../../data/mod.ts";
 import { type Bundle, prepareBundle } from "../bundle.ts";
 import { bundleFiles } from "../bundle-files.ts";
-import { ensureBase, type GuestState, guestHostInfo } from "../guest/mod.ts";
+import { createUpdateCoalescer, ensureBase, type GuestState, guestHostInfo } from "../guest/mod.ts";
 import type { AppScreenState } from "../use-app-screen.ts";
 import { linkView, type ViewLink, type ViewState } from "../view.ts";
 import { drive, keepScreenOn, type PreviewHandle } from "./mod.ts";
@@ -109,6 +109,13 @@ export function usePreview({
   }, [bound, lingering, link]);
 
   const [bundle, setBundle] = useState<{ view: string; got: Bundle } | null>(null);
+  const [coalescer] = useState(() =>
+    createUpdateCoalescer<{ view: string; got: Bundle } | null>({
+      onCommit: setBundle,
+      equals: (a, b) => a?.view === b?.view && a?.got.ok === b?.got.ok,
+    }),
+  );
+  useEffect(() => () => coalescer.cancel(), [coalescer]);
   const latest = useRef({ preview, screen });
   latest.current = { preview, screen };
   useEffect(() => {
@@ -131,19 +138,20 @@ export function usePreview({
       ),
       baseReady(),
     ]).then(
-      ([got]) => !gone && setBundle({ view, got }),
-      () => !gone && setBundle({ view, got: fail() }),
+      ([got]) => !gone && coalescer.push({ view, got }),
+      () => !gone && coalescer.push({ view, got: fail() }),
     );
     return () => {
       gone = true;
     };
-  }, [client, computerKey, appId, view, online, runs, attempt]);
+  }, [client, computerKey, appId, view, online, runs, attempt, coalescer]);
 
   const [guest, setGuest] = useState<{ key: string; state: GuestState } | null>(null);
   const guestKey = `${view}:${attempt}`;
 
   const retry = () => {
     setGuest(null);
+    coalescer.reset();
     setBundle(null);
     setAttempt((n) => n + 1);
     link?.reopen();

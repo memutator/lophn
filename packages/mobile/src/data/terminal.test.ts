@@ -4,6 +4,7 @@ import {
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../../../protocol/coding-agent/terminal-view.ts";
+import { terminalsInput } from "../../../protocol/coding-agent/terminals.ts";
 import { createEventClient } from "../../../shell/renderer/desktop/connection/events/client.ts";
 import {
   createFakeSource,
@@ -101,5 +102,65 @@ test("changes that arrive while a snapshot is read make one more read, and other
   await settle();
   assert.equal(reads(), 3);
   assert.equal(states.at(-1)?.screen?.seq, 3);
+  feed.stop();
+});
+
+test("retrying failed terminal input reuses the same key until it succeeds, then mints a new key", async () => {
+  const sent: { text: string; key: string | undefined }[] = [];
+  let failNext = true;
+  const fake = createFakeSource({
+    snapshots: [],
+    consents: [],
+    answers: [
+      fakeAnswer(terminalViewWatch, () => ({})),
+      fakeAnswer(terminalViewSnapshot, () => screen(1)),
+      fakeAnswer(terminalsInput, (input) => {
+        sent.push({ text: input.text, key: input.key });
+        return {};
+      }),
+    ],
+  });
+  const baseClient = createEventClient(fake);
+  const client = {
+    ...baseClient,
+    core: {
+      ...baseClient.core,
+      async call(req: Parameters<typeof baseClient.core.call>[0]) {
+        if (req.resource === "terminals" && req.method === "input" && failNext) {
+          const body = req.body as { text: string; key?: string };
+          sent.push({ text: body.text, key: body.key });
+          return { ok: false as const, error: { code: "unavailable", message: "lost reply" } };
+        }
+        return baseClient.core.call(req);
+      },
+    },
+  };
+  const feed = terminalFeed(client, TERMINAL, () => () => {}, () => {});
+  await settle();
+
+  // First attempt fails (reply lost after disconnect); retry sends the exact same key.
+  const first = await feed.send("git push\n");
+  assert.equal(first.ok, false);
+  failNext = false;
+  const retry = await feed.send("git push\n");
+  assert.equal(retry.ok, true);
+  assert.equal(sent.length, 2);
+  assert.ok(sent[0]!.key);
+  assert.equal(sent[1]!.key, sent[0]!.key);
+
+  // After success, sending the same text again is a new logical input with a fresh key.
+  const second = await feed.send("git push\n");
+  assert.equal(second.ok, true);
+  assert.equal(sent.length, 3);
+  assert.notEqual(sent[2]!.key, sent[0]!.key);
+
+  // After a failed attempt, sending different text mints a fresh key.
+  failNext = true;
+  assert.equal((await feed.send("rm -rf tmp\n")).ok, false);
+  failNext = false;
+  assert.equal((await feed.send("ls\n")).ok, true);
+  assert.equal(sent.length, 5);
+  assert.notEqual(sent[4]!.key, sent[3]!.key);
+
   feed.stop();
 });

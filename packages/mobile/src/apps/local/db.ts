@@ -57,10 +57,10 @@ const sha256Text = async (text: string) => bytesToHex(sha256(utf8ToBytes(text)))
 export function migrateTo(
   deps: LocalDeps,
   db: HostDb,
-  at: { computer: string; app: string; release: string },
+  at: { app: string; release: string },
   backend: PhoneBackendManifest,
 ): Promise<Result<number>> {
-  const files = releaseFiles(at.computer, at.app, at.release);
+  const files = releaseFiles(at.app, at.release);
   const steps: MigrationStep[] = backend.migrations.map((step) => ({
     from: step.from,
     to: step.to,

@@ -96,12 +96,12 @@ async function checked(
  * Written only once all of them came; a release folder already there is kept.
  */
 export async function fetchRelease(
-  ctx: { files: LocalFiles; remote: Remote; computer: string },
+  ctx: { files: LocalFiles; remote: Remote },
   screens: readonly PhoneScreen[],
 ): Promise<Result<void>> {
   const first = screens[0]!;
   const backend = first.backend!;
-  const at = releaseFiles(ctx.computer, first.app, first.release);
+  const at = releaseFiles(first.app, first.release);
   if (ctx.files.exists(at.manifest)) return ok(undefined);
   const phoneFile = (path: string, expect: { size?: number; sha256: string }) =>
     checked(

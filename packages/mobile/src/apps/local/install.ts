@@ -5,8 +5,17 @@ import { err, ok, type Result } from "../../../../base/result.ts";
 import { adoptSnapshot, ensureSyncTables } from "../../../../protocol/apps/sync/mod.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
 import { migrateTo, transaction, withDb } from "./db.ts";
-import { type Installed, kindOf, paths, readInstalled, removeDb, writeInstalled } from "./folder.ts";
+import {
+  type Installed,
+  kindOf,
+  paths,
+  readInstalled,
+  removeDb,
+  withComputer,
+  writeInstalled,
+} from "./folder.ts";
 import type { LocalDeps, Remote } from "./ports.ts";
+import { writeCursor } from "./sync.ts";
 import { fetchRelease, fetchSnapshot } from "./transfer.ts";
 
 export type Ctx = { deps: LocalDeps; remote: Remote; computer: string; node: string };
@@ -32,16 +41,22 @@ export async function install(
 ): Promise<Result<Installed, InstallError>> {
   const { files } = ctx.deps;
   const first = screens[0];
-  const at = paths(ctx.computer, first.app);
-  const known = readInstalled(files, ctx.computer, first.app);
-  if (known !== null) return ok(known);
+  const at = paths(first.app);
+  const known = readInstalled(files, first.app);
+  if (known !== null) {
+    const computers = withComputer(known.computers, ctx.computer);
+    if (computers === known.computers) return ok(known);
+    const updated = { ...known, computers };
+    writeInstalled(files, updated);
+    return ok(updated);
+  }
   files.remove(at.dir);
   const done = await put(ctx, screens);
   if (!done.ok) {
     files.remove(at.dir);
     return done;
   }
-  writeInstalled(files, ctx.computer, done.value);
+  writeInstalled(files, done.value);
   return done;
 }
 
@@ -52,8 +67,8 @@ async function put(
   const { deps } = ctx;
   const first = screens[0];
   const backend = first.backend!;
-  const at = paths(ctx.computer, first.app);
-  const fetched = await fetchRelease({ files: deps.files, remote: ctx.remote, computer: ctx.computer }, screens);
+  const at = paths(first.app);
+  const fetched = await fetchRelease({ files: deps.files, remote: ctx.remote }, screens);
   if (!fetched.ok) return stoppedAt("files", fetched.error);
   const kind = kindOf(first);
   if (kind === "sync") {
@@ -71,13 +86,14 @@ async function put(
           cursor: String(taken.value.seq),
           release: first.release,
         });
+        writeCursor(db, ctx.computer, taken.value.seq);
         return ok(undefined);
       }),
     );
   } else {
     const migrated = await withDb(deps, at.db, (db) => {
       ensureSyncTables(db, ctx.node);
-      return migrateTo(deps, db, { computer: ctx.computer, app: first.app, release: first.release }, backend);
+      return migrateTo(deps, db, { app: first.app, release: first.release }, backend);
     });
     if (!migrated.ok) return stoppedAt("data", migrated.error);
   }
@@ -91,5 +107,6 @@ async function put(
     backend,
     last_synced_at: kind === "sync" ? new Date(deps.now()).toISOString() : null,
     backup: null,
+    computers: [ctx.computer],
   });
 }

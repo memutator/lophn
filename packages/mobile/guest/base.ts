@@ -12,15 +12,16 @@ import type {
 import { TurboModuleRegistry } from "react-native";
 import { installGuest } from "../modules/lophn-app-db/index.ts";
 import { installLocalBackend } from "../src/apps/guest/local-call.ts";
+import { guestReactNative } from "../src/apps/guest/modules.ts";
 import { installBridge } from "./bridge.ts";
 import { registerRoot } from "./root.tsx";
 
 // `require`, not `import *`: an import namespace would read every lazy export of react-native at once, including the
-// network modules a guest does not have.
+// network modules a guest does not have. `guestReactNative` omits `Modal` so a guest cannot draw a window over the app.
 const registry = {
   react: require("react"),
   "react/jsx-runtime": require("react/jsx-runtime"),
-  "react-native": require("react-native"),
+  "react-native": guestReactNative(require("react-native")),
   "react-native-svg": require("react-native-svg"),
   "react-native-safe-area-context": require("react-native-safe-area-context"),
   "lucide-react-native": require("lucide-react-native"),

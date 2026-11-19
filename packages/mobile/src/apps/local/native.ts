@@ -46,6 +46,14 @@ export const localFiles: LocalFiles = {
     fileAt(from).copySync(made(to), { overwrite: true });
   },
   move(from, to) {
+    const folder = folderAt(from);
+    if (folder.exists) {
+      const dest = folderAt(to);
+      dest.parentDirectory.create({ idempotent: true, intermediates: true });
+      if (dest.exists) dest.delete();
+      folder.moveSync(dest);
+      return;
+    }
     fileAt(from).moveSync(made(to), { overwrite: true });
   },
   async digest(path) {

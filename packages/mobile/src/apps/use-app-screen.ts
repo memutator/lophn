@@ -7,8 +7,14 @@ import { newId } from "../../../shell/renderer/prefixed-id.ts";
 import type { ComputerItem, PhoneApp, PhoneApps } from "../data/mod.ts";
 import { type Bundle, type BundleRefusal, prepareBundle } from "./bundle.ts";
 import { bundleFiles } from "./bundle-files.ts";
-import { ensureBase, guestHostInfo, type GuestCall, type GuestState } from "./guest/mod.ts";
-import type { AppEvent } from "./guest/mod.ts";
+import {
+  type AppEvent,
+  createUpdateCoalescer,
+  ensureBase,
+  type GuestCall,
+  type GuestState,
+  guestHostInfo,
+} from "./guest/mod.ts";
 import { linkView, type ViewLink, type ViewState } from "./view.ts";
 
 export type AppScreenState =
@@ -109,8 +115,16 @@ export function useAppScreen({
     if (app?.running === true && stopped.current) link?.reopen();
   }, [app, link]);
 
-  // The bundle: from the cache or the computer, checked against the manifest.
+  // The bundle: from the cache or the computer, checked against the manifest. Rapid consecutive release updates are
+  // coalesced so an open guest screen remounts once for the latest release instead of once per intermediate release.
   const [bundle, setBundle] = useState<{ hash: string; got: Bundle } | null>(null);
+  const [coalescer] = useState(() =>
+    createUpdateCoalescer<{ hash: string; got: Bundle } | null>({
+      onCommit: setBundle,
+      equals: (a, b) => a?.hash === b?.hash && a?.got.ok === b?.got.ok,
+    }),
+  );
+  useEffect(() => () => coalescer.cancel(), [coalescer]);
   const hash = screen?.bundle_hash;
   const computerKey = computer?.key;
   const latest = useRef(screen);
@@ -128,16 +142,16 @@ export function useAppScreen({
       baseReady(),
     ]).then(
       ([got]) => {
-        if (!gone) setBundle({ hash: wanted.bundle_hash, got });
+        if (!gone) coalescer.push({ hash: wanted.bundle_hash, got });
       },
       () => {
-        if (!gone) setBundle({ hash: wanted.bundle_hash, got: { ok: false, reason: "unavailable" } });
+        if (!gone) coalescer.push({ hash: wanted.bundle_hash, got: { ok: false, reason: "unavailable" } });
       },
     );
     return () => {
       gone = true;
     };
-  }, [client, computerKey, hash, screenKey, online, runs, attempt]);
+  }, [client, computerKey, hash, screenKey, online, runs, attempt, coalescer]);
 
   // The guest: failed until Try again or a new bundle.
   const [guest, setGuest] = useState<{ key: string; state: GuestState } | null>(null);
@@ -151,6 +165,7 @@ export function useAppScreen({
 
   const retry = () => {
     setGuest(null);
+    coalescer.reset();
     setBundle(null);
     setAttempt((n) => n + 1);
     link?.reopen();

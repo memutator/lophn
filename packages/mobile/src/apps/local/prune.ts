@@ -5,11 +5,11 @@ import { outboxCount, withDb } from "./db.ts";
 import { paths, readInstalled } from "./folder.ts";
 import type { LocalDeps } from "./ports.ts";
 
-/** The app left its computer's list: removes its folder when that loses nothing. Says whether it did. */
-export async function pruneApp(deps: LocalDeps, computer: string, app: string): Promise<boolean> {
-  const installed = readInstalled(deps.files, computer, app);
+/** The app left every paired computer's list: removes its folder when that loses nothing. Says whether it did. */
+export async function pruneApp(deps: LocalDeps, app: string): Promise<boolean> {
+  const installed = readInstalled(deps.files, app);
   if (installed === null || installed.kind !== "sync") return false;
-  const at = paths(computer, app);
+  const at = paths(app);
   const left = await withDb(deps, at.db, (db) => outboxCount(db));
   if (left > 0) return false;
   deps.files.remove(at.dir);

@@ -1,21 +1,27 @@
-// The apps of one computer that run on the phone, and the host's sync work on them, without React Native. Work on one
-// app runs one step at a time (install, sync, release change, prune); different apps run side by side.
+// All apps on this phone that run locally, across all paired computers, without React Native.
+// Each app has ONE shared folder (`files/apps/<app>/`) and ONE SQLite database on the phone. Work on one app runs one
+// step at a time across all computers (install, sync, release change, prune, external), so two connected computers
+// never touch the same SQLite file concurrently; different apps run side by side.
 //
-// Sync runs only while the computer is reachable (`connect`) and something on screen holds the store (the phone app is
-// in front). Its cues: a local change, the connection coming back, AppSyncChanged, a list read, `syncNow`. One sync is
-// push then pull. A release change (push `conflict`, a new release in the list, pull `snapshot_needed`) first waits
-// for the app's guest to go (`mount`).
+// Sync runs while at least one paired computer for the app is reachable (`connect`) and the phone app is in front.
+// Its cues: a local change, a computer connecting, AppSyncChanged from any computer, a list read, `syncNow`. One sync
+// against a computer is push then pull (with that computer's own `cursor:<computer>`). Computers whose active release
+// lags behind the phone's installed release are skipped; any connected computer advertising a newer live release
+// upgrades the shared copy (waiting for the guest to unmount first).
 import type { PhoneScreen } from "../../data/apps.ts";
 import type { CallOutcome } from "../guest/mod.ts";
 import { outboxCount, withDb } from "./db.ts";
 import {
+  compareRelease,
   type Installed,
   kindOf,
   type LocalKind,
   listInstalled,
+  migrateLegacyFolders,
   paths,
   readInstalled,
   runsOnPhone,
+  withComputer,
   writeInstalled,
 } from "./folder.ts";
 import { type Ctx, type InstallStep, install } from "./install.ts";
@@ -40,7 +46,7 @@ export interface LocalApp {
   readonly release: string;
   /** When push and pull last both went through; null for a standalone app. */
   readonly last_synced_at: string | null;
-  /** Local changes the computer does not have yet. */
+  /** Local changes not yet acked by any connected computer. */
   readonly pending: number;
   readonly state: LocalAppState;
   readonly failure?: LocalFailure;
@@ -49,33 +55,37 @@ export interface LocalApp {
 type Screens = readonly [PhoneScreen, ...PhoneScreen[]];
 
 export interface LocalAppsDeps extends LocalDeps {
-  readonly computer: string;
-  /** This phone's id on the computer (the sync node). */
+  /** This phone's id in the roster (the sync node). */
   node(): Promise<string>;
 }
 
 export interface LocalApps {
   get(): readonly LocalApp[];
+  /** The local apps associated with `computer` (installed for it, or currently installing/failed from its list). */
+  forComputer(computer: string): readonly LocalApp[];
   subscribe(listener: () => void): () => void;
-  /** What is installed for an app (its files), or null. */
+  /** What is installed for an app (its shared folder), or null. */
   installed(app: string): Installed | null;
   /** The absolute path of a path in the app folders (folder.ts). */
   absolute(path: string): string;
-  /** The computer is reachable through `remote`, or not (null). */
-  connect(remote: Remote | null): void;
+  /** `computer` is reachable through `remote`, or not (null). */
+  connect(computer: string, remote: Remote | null): void;
   /**
-   * The computer's `apps/phone_screens` list, read while it is reachable. Installs the apps that run on the phone,
-   * moves installed ones to a new release, and prunes the ones that left. `reload` reads the list again.
+   * `computer`'s `apps/phone_screens` list, read while it is reachable. Installs missing phone apps, upgrades installed
+   * ones when `computer` advertises a newer live release, skips lagging computers, and prunes sync apps dropped by all
+   * paired computers. `reload` reads `computer`'s list again.
    */
-  list(screens: readonly PhoneScreen[], reload: () => void): void;
-  install(app: string): void;
+  list(computer: string, screens: readonly PhoneScreen[], reload: () => void): void;
+  /** Drops computers no longer in `paired`, pruning sync apps that belong to no remaining computer when outbox is empty. */
+  forget(paired: readonly string[]): void;
+  install(app: string, computer?: string): void;
   syncNow(app: string): void;
   /** A guest's local call committed a change. */
   localChange(app: string): void;
-  /** AppSyncChanged for the app. */
-  changed(app: string): void;
-  /** An external operation: the outbox goes first; when it cannot, the call is not sent and is `unavailable`. */
-  external(app: string, send: () => Promise<CallOutcome>): Promise<CallOutcome>;
+  /** AppSyncChanged for `app` from `computer`. */
+  changed(computer: string, app: string): void;
+  /** An external operation on `computer`: the outbox goes to `computer` first; when it cannot, returns `unavailable`. */
+  external(computer: string, app: string, send: () => Promise<CallOutcome>): Promise<CallOutcome>;
   /** A guest of the app is mounted until the returned function runs. A release change waits for none. */
   mount(app: string): () => void;
 }
@@ -85,11 +95,23 @@ const unavailable = (message: string): CallOutcome => ({
   error: { code: "unavailable", message },
 });
 
+const screenRelease = (screen: PhoneScreen) => ({
+  release: screen.release,
+  data_schema: screen.backend?.data_schema,
+});
+
+const installedRelease = (one: Installed) => ({
+  release: one.release,
+  data_schema: one.backend.data_schema,
+});
+
 export function createLocalApps(deps: LocalAppsDeps): LocalApps {
-  const { files, computer } = deps;
-  let remote: Remote | null = null;
-  let listed = new Map<string, Screens>();
-  let reloadList = () => {};
+  const { files } = deps;
+  const remotes = new Map<string, Remote>();
+  const listed = new Map<string, Map<string, Screens>>();
+  const reloads = new Map<string, () => void>();
+  // Remembered when a computer's push conflict reports an older active_release before its list is read.
+  const lagging = new Map<string, Map<string, string>>();
   const busy = new Map<string, "installing" | "syncing">();
   const failures = new Map<string, LocalFailure>();
   const pending = new Map<string, number>();
@@ -100,15 +122,16 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   const listeners = new Set<() => void>();
   let installed = new Map<string, Installed>();
   let apps: readonly LocalApp[] = [];
+  let byComputer = new Map<string, readonly LocalApp[]>();
 
   function publish() {
-    installed = new Map(listInstalled(files, computer).map((one) => [one.app, one]));
-    const out: LocalApp[] = [];
+    installed = new Map(listInstalled(files).map((one) => [one.app, one]));
     const stateOf = (app: string): LocalAppState =>
       busy.get(app) ?? (failures.has(app) ? "failed" : "ready");
     const failure = (app: string) => (failures.has(app) ? { failure: failures.get(app)! } : {});
+    const allById = new Map<string, LocalApp>();
     for (const one of installed.values()) {
-      out.push({
+      allById.set(one.app, {
         app: one.app,
         name: one.name,
         icon: one.icon,
@@ -120,23 +143,26 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
         ...failure(one.app),
       });
     }
-    // Apps being installed, or whose install failed.
-    for (const [app, screens] of listed) {
-      if (installed.has(app) || (!busy.has(app) && !failures.has(app))) continue;
-      const first = screens[0];
-      out.push({
-        app,
-        name: first.app_name,
-        icon: first.icon,
-        kind: kindOf(first),
-        release: first.release,
-        last_synced_at: null,
-        pending: 0,
-        state: stateOf(app),
-        ...failure(app),
-      });
+    // Apps being installed, or whose install failed, from any computer's list.
+    for (const map of listed.values()) {
+      for (const [app, screens] of map) {
+        if (allById.has(app) || (!busy.has(app) && !failures.has(app))) continue;
+        const first = screens[0];
+        allById.set(app, {
+          app,
+          name: first.app_name,
+          icon: first.icon,
+          kind: kindOf(first),
+          release: first.release,
+          last_synced_at: null,
+          pending: 0,
+          state: stateOf(app),
+          ...failure(app),
+        });
+      }
     }
-    apps = out;
+    apps = [...allById.values()];
+    byComputer = new Map();
     for (const listener of [...listeners]) listener();
   }
 
@@ -156,15 +182,19 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     return run;
   }
 
-  async function context(): Promise<Ctx | null> {
-    if (remote === null) return null;
+  async function context(computer: string): Promise<Ctx | null> {
+    const remote = remotes.get(computer);
+    if (remote === undefined) return null;
     return { deps, remote, computer, node: await deps.node() };
   }
 
   async function countPending(app: string) {
-    const one = readInstalled(files, computer, app);
-    if (one === null || one.kind !== "sync") return;
-    pending.set(app, await withDb(deps, paths(computer, app).db, outboxCount));
+    const one = readInstalled(files, app);
+    if (one === null || one.kind !== "sync") {
+      pending.delete(app);
+      return;
+    }
+    pending.set(app, await withDb(deps, paths(app).db, outboxCount));
   }
 
   function untilUnmounted(app: string): Promise<void> {
@@ -174,72 +204,189 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     });
   }
 
-  async function installOne(app: string) {
-    const screens = listed.get(app);
-    if (screens === undefined || readInstalled(files, computer, app) !== null) return;
-    const ctx = await context();
+  function isLagging(computer: string, one: Installed): boolean {
+    const screens = listed.get(computer)?.get(one.app);
+    if (screens !== undefined) {
+      return compareRelease(screenRelease(screens[0]), installedRelease(one)) < 0;
+    }
+    const known = lagging.get(computer)?.get(one.app);
+    return known !== undefined && compareRelease({ release: known }, { release: one.release }) < 0;
+  }
+
+  function recordLagging(computer: string, app: string, release: string) {
+    const map = lagging.get(computer) ?? new Map<string, string>();
+    map.set(app, release);
+    lagging.set(computer, map);
+  }
+
+  function clearLagging(computer: string, app: string) {
+    lagging.get(computer)?.delete(app);
+  }
+
+  /** Connected computers that know about `app` (associated in `installed.computers` or currently listing it). */
+  function connectedFor(app: string, one: Installed): string[] {
+    const result: string[] = [];
+    for (const computer of remotes.keys()) {
+      if (one.computers.includes(computer) || listed.get(computer)?.has(app)) {
+        result.push(computer);
+      }
+    }
+    return result;
+  }
+
+  /** Finds the connected computer listing `app` with the newest release. */
+  function newestListing(app: string, preferred?: string): { computer: string; screens: Screens } | null {
+    let best: { computer: string; screens: Screens } | null = null;
+    const consider = (computer: string) => {
+      if (!remotes.has(computer)) return;
+      const screens = listed.get(computer)?.get(app);
+      if (screens === undefined) return;
+      if (best === null || compareRelease(screenRelease(screens[0]), screenRelease(best.screens[0])) > 0) {
+        best = { computer, screens };
+      }
+    };
+    if (preferred !== undefined) consider(preferred);
+    for (const computer of remotes.keys()) {
+      if (computer !== preferred) consider(computer);
+    }
+    return best;
+  }
+
+  async function installOne(app: string, preferred?: string) {
+    const candidate = newestListing(app, preferred);
+    const known = readInstalled(files, app);
+    if (known !== null) {
+      if (candidate !== null) {
+        const computers = withComputer(known.computers, candidate.computer);
+        if (computers !== known.computers) {
+          writeInstalled(files, { ...known, computers });
+          publish();
+        }
+      }
+      return;
+    }
+    if (candidate === null) return;
+    const ctx = await context(candidate.computer);
     if (ctx === null) return;
     busy.set(app, "installing");
     failures.delete(app);
     publish();
-    const done = await install(ctx, screens);
+    const done = await install(ctx, candidate.screens);
     busy.delete(app);
     if (!done.ok) fail(app, done.error, done.error.step);
     publish();
+    if (done.ok && done.value.kind === "sync") {
+      // Pull from any other already-connected computers that also list this app at the active release.
+      for (const other of remotes.keys()) {
+        if (other !== candidate.computer && listed.get(other)?.has(app)) {
+          scheduleSync(app, other);
+        }
+      }
+    }
   }
 
-  // `again`: a new snapshot of the same release (pull said snapshot_needed).
-  async function switchOne(app: string, screens: Screens, again = false) {
-    const one = readInstalled(files, computer, app);
-    const ctx = await context();
-    if (one === null || ctx === null) return;
-    if (!again && one.release === screens[0].release) return;
+  // `again`: a new snapshot of the same release (pull from `preferred` said snapshot_needed).
+  async function switchOne(app: string, preferred?: string, again = false) {
+    const one = readInstalled(files, app);
+    if (one === null) return;
+    let target: { computer: string; screens: Screens } | null = null;
+    if (again && preferred !== undefined) {
+      const screens = listed.get(preferred)?.get(app);
+      if (
+        screens !== undefined &&
+        remotes.has(preferred) &&
+        compareRelease(screenRelease(screens[0]), installedRelease(one)) >= 0
+      ) {
+        target = { computer: preferred, screens };
+      }
+    } else {
+      const best = newestListing(app, preferred);
+      if (best !== null && compareRelease(screenRelease(best.screens[0]), installedRelease(one)) > 0) {
+        target = best;
+      }
+    }
+    if (target === null) return;
+    const ctx = await context(target.computer);
+    if (ctx === null) return;
     busy.set(app, "installing");
     publish();
     await untilUnmounted(app);
-    const done = await switchRelease(ctx, one, screens);
+    const latest = readInstalled(files, app);
+    if (latest === null) {
+      busy.delete(app);
+      publish();
+      return;
+    }
+    if (!again && compareRelease(screenRelease(target.screens[0]), installedRelease(latest)) <= 0) {
+      busy.delete(app);
+      publish();
+      return;
+    }
+    const done = await switchRelease(ctx, latest, target.screens);
     busy.delete(app);
-    if (done.ok) failures.delete(app);
-    else {
+    if (done.ok) {
+      failures.delete(app);
+      clearLagging(target.computer, app);
+    } else {
       fail(app, done.error);
-      if (done.error.code === "conflict") reloadList();
+      if (done.error.code === "conflict") reloads.get(target.computer)?.();
     }
     await countPending(app);
     publish();
-    if (done.ok && done.value.kind === "sync") scheduleSync(app);
+    if (done.ok && done.value.kind === "sync") scheduleSyncAll(app);
   }
 
-  async function syncOne(app: string) {
-    const ctx = await context();
+  async function syncOne(app: string, computer: string) {
+    const ctx = await context(computer);
     if (ctx === null) return;
-    let one = readInstalled(files, computer, app);
+    let one = readInstalled(files, app);
     if (one === null || one.kind !== "sync") return;
+    if (isLagging(computer, one)) return;
     busy.set(app, "syncing");
     publish();
     try {
       const pushed = await push(ctx, one);
       if (!pushed.ok) {
-        if (pushed.error.code === "conflict") reloadList();
-        else if (pushed.error.code !== "unavailable") fail(app, pushed.error);
+        if (pushed.error.code === "conflict") {
+          const active = pushed.error.details?.["active_release"];
+          if (
+            typeof active === "string" &&
+            compareRelease({ release: active }, { release: one.release }) < 0
+          ) {
+            recordLagging(computer, app, active);
+          } else {
+            reloads.get(computer)?.();
+          }
+        } else if (pushed.error.code !== "unavailable") {
+          fail(app, pushed.error);
+        }
         return;
       }
-      one = readInstalled(files, computer, app) ?? one;
+      one = readInstalled(files, app) ?? one;
       const pulled = await pull(ctx, one);
       if (!pulled.ok) {
         if (pulled.error.code !== "unavailable") fail(app, pulled.error);
         return;
       }
       if (pulled.value.snapshot_needed) {
-        const screens = listed.get(app);
-        if (screens === undefined) reloadList();
-        else {
-          busy.delete(app);
-          await switchOne(app, screens, true);
+        const screens = listed.get(computer)?.get(app);
+        if (screens === undefined) {
+          reloads.get(computer)?.();
+          return;
         }
+        const cmp = compareRelease(screenRelease(screens[0]), installedRelease(one));
+        if (cmp < 0) {
+          recordLagging(computer, app, screens[0].release);
+          return;
+        }
+        busy.delete(app);
+        await switchOne(app, computer, cmp === 0);
         return;
       }
-      writeInstalled(files, computer, {
+      clearLagging(computer, app);
+      writeInstalled(files, {
         ...one,
+        computers: withComputer(one.computers, computer),
         last_synced_at: new Date(deps.now()).toISOString(),
       });
       failures.delete(app);
@@ -250,85 +397,176 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     }
   }
 
-  function scheduleSync(app: string) {
-    if (remote === null || syncQueued.has(app)) return;
-    syncQueued.add(app);
+  function scheduleSync(app: string, computer: string) {
+    if (!remotes.has(computer)) return;
+    const key = `${app}\0${computer}`;
+    if (syncQueued.has(key)) return;
+    syncQueued.add(key);
     void queued(app, () => {
-      syncQueued.delete(app);
-      return syncOne(app);
+      syncQueued.delete(key);
+      return syncOne(app, computer);
     });
   }
 
-  function syncAll() {
-    for (const one of listInstalled(files, computer)) {
-      if (one.kind === "sync") scheduleSync(one.app);
+  function scheduleSyncAll(app: string) {
+    const one = readInstalled(files, app);
+    if (one === null || one.kind !== "sync") return;
+    for (const computer of connectedFor(app, one)) {
+      if (!isLagging(computer, one)) scheduleSync(app, computer);
     }
   }
 
+  function syncComputer(computer: string) {
+    for (const one of listInstalled(files)) {
+      if (one.kind !== "sync") continue;
+      if (one.computers.includes(computer) || listed.get(computer)?.has(one.app)) {
+        if (!isLagging(computer, one)) scheduleSync(one.app, computer);
+      }
+    }
+  }
+
+  async function dropComputersFromSyncApp(app: string, drop: (computer: string) => boolean) {
+    const one = readInstalled(files, app);
+    if (one === null || one.kind !== "sync") return;
+    const remaining = one.computers.filter((c) => !drop(c));
+    if (remaining.length === one.computers.length) return;
+    if (remaining.length > 0) {
+      writeInstalled(files, { ...one, computers: remaining });
+      publish();
+      return;
+    }
+    if ((mounts.get(app) ?? 0) > 0) return;
+    if (await pruneApp(deps, app)) {
+      pending.delete(app);
+      publish();
+    }
+  }
+
+  migrateLegacyFolders(deps);
   publish();
   // A fresh store (the phone app started again) knows of no pending change until it counts them: without this, a sync
-  // app opened with its computer away said "synced" while its outbox still held changes.
-  for (const one of listInstalled(files, computer)) {
+  // app opened with its computers away said "synced" while its outbox still held changes.
+  for (const one of listInstalled(files)) {
     if (one.kind === "sync") void countPending(one.app).then(publish);
   }
 
   return {
     get: () => apps,
+    forComputer(computer) {
+      const cached = byComputer.get(computer);
+      if (cached !== undefined) return cached;
+      const computerListed = listed.get(computer);
+      const filtered = apps.filter((one) => {
+        const record = installed.get(one.app);
+        if (record !== undefined) {
+          return record.computers.includes(computer) || (computerListed?.has(one.app) ?? false);
+        }
+        return computerListed?.has(one.app) ?? false;
+      });
+      byComputer.set(computer, filtered);
+      return filtered;
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     installed: (app) => installed.get(app) ?? null,
     absolute: (path) => files.absolute(path),
-    connect(next) {
-      if (next === remote) return;
-      remote = next;
-      if (remote === null) return;
-      syncAll();
+    connect(computer, next) {
+      if (next === null) {
+        if (!remotes.has(computer)) return;
+        remotes.delete(computer);
+        lagging.delete(computer);
+        return;
+      }
+      if (remotes.get(computer) === next) return;
+      remotes.set(computer, next);
+      syncComputer(computer);
       // The list can come before the connection is handed over (they come from different places), and then could not
-      // install.
-      for (const app of listed.keys()) {
-        if (readInstalled(files, computer, app) === null) void queued(app, () => installOne(app));
+      // install or upgrade.
+      const computerListed = listed.get(computer);
+      if (computerListed !== undefined) {
+        for (const [app, entries] of computerListed) {
+          const one = readInstalled(files, app);
+          if (one === null) void queued(app, () => installOne(app, computer));
+          else if (compareRelease(screenRelease(entries[0]), installedRelease(one)) > 0) {
+            void queued(app, () => switchOne(app, computer));
+          }
+        }
       }
     },
-    list(screens, reload) {
-      reloadList = reload;
+    list(computer, screens, reload) {
+      reloads.set(computer, reload);
       const byApp = new Map<string, Screens>();
       for (const screen of screens) {
         if (!runsOnPhone(screen)) continue;
         const before = byApp.get(screen.app);
         byApp.set(screen.app, before === undefined ? [screen] : [...before, screen]);
       }
-      listed = byApp;
-      for (const [app, entries] of listed) {
-        const one = readInstalled(files, computer, app);
-        if (one === null) void queued(app, () => installOne(app));
-        else if (one.release !== entries[0].release) void queued(app, () => switchOne(app, entries));
+      listed.set(computer, byApp);
+      lagging.delete(computer);
+      for (const [app, entries] of byApp) {
+        const one = readInstalled(files, app);
+        if (one === null) {
+          void queued(app, () => installOne(app, computer));
+          continue;
+        }
+        const computers = withComputer(one.computers, computer);
+        if (computers !== one.computers) {
+          writeInstalled(files, { ...one, computers });
+        }
+        const cmp = compareRelease(screenRelease(entries[0]), installedRelease(one));
+        if (cmp > 0) {
+          void queued(app, () => switchOne(app, computer));
+        } else if (cmp === 0 && one.kind === "sync") {
+          scheduleSync(app, computer);
+        }
       }
-      for (const one of listInstalled(files, computer)) {
-        if (listed.has(one.app)) continue;
+      for (const one of listInstalled(files)) {
+        if (one.kind !== "sync" || !one.computers.includes(computer) || byApp.has(one.app)) continue;
         void queued(one.app, async () => {
-          if ((mounts.get(one.app) ?? 0) > 0 || listed.has(one.app)) return;
-          if (await pruneApp(deps, computer, one.app)) publish();
+          if (listed.get(computer)?.has(one.app)) return;
+          await dropComputersFromSyncApp(one.app, (c) => c === computer);
         });
       }
       publish();
     },
-    install(app) {
-      failures.delete(app);
-      void queued(app, () => installOne(app));
+    forget(paired) {
+      const keep = new Set(paired);
+      for (const computer of [...remotes.keys()]) {
+        if (!keep.has(computer)) remotes.delete(computer);
+      }
+      for (const computer of [...listed.keys()]) {
+        if (!keep.has(computer)) listed.delete(computer);
+      }
+      for (const computer of [...reloads.keys()]) {
+        if (!keep.has(computer)) reloads.delete(computer);
+      }
+      for (const computer of [...lagging.keys()]) {
+        if (!keep.has(computer)) lagging.delete(computer);
+      }
+      for (const one of listInstalled(files)) {
+        if (one.kind !== "sync") continue;
+        if (!one.computers.some((c) => !keep.has(c))) continue;
+        void queued(one.app, () => dropComputersFromSyncApp(one.app, (c) => !keep.has(c)));
+      }
+      publish();
     },
-    syncNow: (app) => scheduleSync(app),
+    install(app, computer) {
+      failures.delete(app);
+      void queued(app, () => installOne(app, computer));
+    },
+    syncNow: (app) => scheduleSyncAll(app),
     localChange(app) {
       void countPending(app).then(publish);
-      scheduleSync(app);
+      scheduleSyncAll(app);
     },
-    changed: (app) => scheduleSync(app),
-    async external(app, send) {
-      const ctx = await context();
+    changed: (computer, app) => scheduleSync(app, computer),
+    async external(computer, app, send) {
+      const ctx = await context(computer);
       if (ctx === null) return unavailable("the computer is not reachable");
       const pushed = await queued(app, async () => {
-        const one = readInstalled(files, computer, app);
+        const one = readInstalled(files, app);
         return one === null ? null : push(ctx, one);
       });
       void countPending(app).then(publish);
@@ -337,7 +575,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       }
       if (pushed.value.left > 0) return unavailable("local changes are not on the computer yet");
       const outcome = await send();
-      scheduleSync(app);
+      scheduleSync(app, computer);
       return outcome;
     },
     mount(app) {

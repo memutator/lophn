@@ -3,11 +3,14 @@
 import type { Clock } from "../../base/mod.ts";
 import type { BusEvent } from "../../protocol/events/mod.ts";
 import { decide } from "./decide.ts";
-import type { PushPorts, SessionLookup } from "./ports.ts";
+import type { CodingSessionLookup, PushPorts, SessionLookup } from "./ports.ts";
 import { createPresence } from "./presence.ts";
 import {
+  acpTurnEndKind,
   causeOf,
   type Cause,
+  codingAcpCauseOf,
+  isAttentionAcpUpdate,
   signalCause,
   type TerminalSignal,
   terminalSession,
@@ -15,12 +18,22 @@ import {
 } from "./triggers.ts";
 import { createUnseen } from "./unseen.ts";
 
-export type { Attention, PushPorts, SessionLookup } from "./ports.ts";
+export type {
+  Attention,
+  CodingSessionInfo,
+  CodingSessionLookup,
+  PushPorts,
+  SessionLookup,
+} from "./ports.ts";
 export type { PushDevice, PushMessage, PushPrefs } from "./ports.ts";
 
 export function createAttention(deps: {
   clock: Clock;
   lookup: SessionLookup;
+  // GUI view의 coding session. GUI 탭이 아니거나 lophn session이면 null이다.
+  codingSession?: CodingSessionLookup;
+  // 그 터미널이 지금 GUI view인가. GUI 탭의 승인·질문 대기는 `AcpUpdated`가 계기를 내므로 hook의 waiting과 겹치지 않게 본다.
+  isGuiTerminal?: (terminalRef: string) => boolean;
   // 기기 principal의 kind. 보고를 받을 때 부른다(사람과 모르는 principal은 null).
   deviceKind(principal: string): "phone" | "computer" | null;
   // `unseen`이 서거나 꺼졌다.
@@ -49,6 +62,26 @@ export function createAttention(deps: {
   }
 
   async function handle(event: BusEvent): Promise<void> {
+    if (event.type === "AcpUpdated") {
+      const info = deps.codingSession?.(event.payload.session) ?? null;
+      if (info === null) return;
+      const session = terminalSession(info);
+      const { update } = event.payload;
+      const inner = update.type === "child_update" ? update.update : update;
+      if (
+        update.type === "turn_started" ||
+        inner.type === "approval_opened" ||
+        inner.type === "question_asked"
+      ) {
+        unseen.clear(session);
+      } else if (update.type === "turn_ended") {
+        const kind = acpTurnEndKind(update.outcome);
+        if (kind !== null) unseen.ended(session, kind);
+      }
+      const cause = codingAcpCauseOf(update, info);
+      if (cause !== null) notify(cause);
+      return;
+    }
     if (event.type === "TurnStarted" || event.type === "SessionEnded") {
       unseen.clear(event.session);
       return;
@@ -77,6 +110,12 @@ export function createAttention(deps: {
     },
     forgetReporter: presence.forget,
     event(event: BusEvent): Promise<void> {
+      if (
+        event.type === "AcpUpdated" &&
+        !isAttentionAcpUpdate(event.payload.update)
+      ) {
+        return queue;
+      }
       queue = queue.then(() => handle(event)).catch(() => {});
       return queue;
     },
@@ -92,6 +131,8 @@ export function createAttention(deps: {
       const session = terminalSession(signal);
       if (signal.kind === "waiting") {
         unseen.clear(session);
+        // GUI view 탭은 `AcpUpdated`(`approval_opened`·`question_asked`)가 계기를 낸다. hook이 같이 와도 중복 push하지 않는다.
+        if (deps.isGuiTerminal?.(signal.terminal_ref)) return;
       } else {
         unseen.ended(session, signal.kind);
       }

@@ -1,7 +1,12 @@
 // Bus event와 터미널 signal을 push의 "계기"(Cause)로 바꾸는 순수 함수. 무엇을 계기로 치는지의 표가 이 file 한 곳이다.
 import { ALERT_PROGRAM_KINDS } from "../../protocol/apps/notice.ts";
 import type { BusEvent } from "../../protocol/events/mod.ts";
-import type { PushMessage, PushPrefs } from "./ports.ts";
+import type { CodingSessionInfo, PushMessage, PushPrefs } from "./ports.ts";
+
+export type AcpUpdate = Extract<
+  BusEvent,
+  { type: "AcpUpdated" }
+>["payload"]["update"];
 
 // 이 시간 넘게 일한 turn의 끝만 알린다(짧은 turn은 사람이 그 자리에서 본다).
 export const LONG_TURN_MS = 60_000;
@@ -181,4 +186,64 @@ export function signalCause(signal: TerminalSignal): Cause | null {
     active_ms: signal.active_ms,
     who,
   };
+}
+
+// GUI 탭의 `AcpUpdated` 가운데 attention이 보는 갱신만 고른다. 글 조각 같은 잦은 갱신은 바로 건너뛴다.
+export function isAttentionAcpUpdate(update: AcpUpdate): boolean {
+  const inner = update.type === "child_update" ? update.update : update;
+  if (inner.type === "approval_opened" || inner.type === "question_asked") {
+    return true;
+  }
+  return update.type === "turn_started" || update.type === "turn_ended";
+}
+
+// GUI 탭의 `turn_ended` outcome. 완료와 실패만 센다(끊은 turn은 건너뛴다).
+export function acpTurnEndKind(
+  outcome: "completed" | "stopped" | "failed",
+): "finished" | "failed" | null {
+  return outcome === "completed"
+    ? "finished"
+    : outcome === "failed"
+      ? "failed"
+      : null;
+}
+
+// GUI 탭 coding session의 `AcpUpdated`를 push 계기로 바꾼다. 참조는 터미널 탭(`term:<탭>`)이다.
+export function codingAcpCauseOf(
+  update: AcpUpdate,
+  info: CodingSessionInfo,
+): Cause | null {
+  const session = terminalSession(info);
+  const who: Who = {
+    title: info.title,
+    agent: null,
+    harness: info.harness,
+  };
+  const inner = update.type === "child_update" ? update.update : update;
+  switch (inner.type) {
+    case "approval_opened":
+      return { kind: "approval", session, who };
+    case "question_asked":
+      return { kind: "question", session, who };
+    case "turn_ended": {
+      if (update.type === "child_update") return null;
+      const outcome = acpTurnEndKind(inner.outcome);
+      if (
+        outcome === null ||
+        inner.active_ms === null ||
+        inner.active_ms < LONG_TURN_MS
+      ) {
+        return null;
+      }
+      return {
+        kind: "long_finish",
+        session,
+        outcome,
+        active_ms: inner.active_ms,
+        who,
+      };
+    }
+    default:
+      return null;
+  }
 }

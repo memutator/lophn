@@ -18,7 +18,9 @@ import { agentCallRead } from "../../../../protocol/lophn-agent/calls.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
+  editQueuedMessage,
   messageBody,
+  moveQueuedMessage,
   receivedMessageList,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
@@ -71,7 +73,7 @@ import { runCommand } from "../../../lophn-agent/tools/shell/run.ts";
 import { shellEnvironment } from "../../../lophn-agent/tools/shell/env.ts";
 import { nodeShimFolder } from "../../../supervision/security/node-shims.ts";
 import { workspaceBaseOf } from "../workspace-folders-glue.ts";
-import { createAcpSend } from "./acp-send.ts";
+import { checkCodingInputScope, createAcpSend } from "./acp-send.ts";
 import { isDevicePrincipal } from "./app-principal.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -395,6 +397,21 @@ export const acpWiring: WiringFactory = () => {
         );
       };
 
+      // 줄 선 메시지를 고치거나 옮기면 AgentEvent가 없다. coding session adapter와 같이 지금 줄을 지우고
+      // 새 본문·순서대로 다시 넣어 다른 기기 화면도 바로 맞추게 한다.
+      const publishQueued = async (session: string) => {
+        const built = await snapshot(session, null);
+        if (!built.ok || built.value.queued.length === 0) return;
+        publishUpdates(session, ctx.clock.now(), [
+          ...built.value.queued.map(
+            (one): AcpUpdate => ({ type: "message_removed", message: one.id }),
+          ),
+          ...built.value.queued.map(
+            (one): AcpUpdate => ({ type: "message_queued", queued: one }),
+          ),
+        ]);
+      };
+
       // 조작은 부른 사람의 자격으로 지금 route에 보낸다. 여기 machine 자격을 쓰지 않는다.
       const send = createAcpSend({
         command: (who, envelope) => ctx.writer.command(who, envelope),
@@ -435,9 +452,18 @@ export const acpWiring: WiringFactory = () => {
             key(acpSend),
             async (who, body) => {
               const input = body as AcpInput;
-              // 터미널 coding agent의 대화는 ledger에 없다. 입력을 그 GUI handle에 그대로 넘긴다.
+              // 터미널 coding agent의 대화는 ledger에 없다. 기기 입력의 권한 범위를 먼저 보고 GUI handle에 넘긴다.
               const coding = ctx.terminalAgents.coding;
-              if (coding.has(input.session)) return coding.send(input);
+              if (coding.has(input.session)) {
+                const allowed = checkCodingInputScope(
+                  who,
+                  input,
+                  (principal) =>
+                    ctx.peek.terminalInputGrant?.(principal) ?? false,
+                );
+                if (!allowed.ok) return allowed;
+                return coding.send(input);
+              }
               return await send(who, input);
             },
           ],
@@ -513,6 +539,10 @@ export const acpWiring: WiringFactory = () => {
                 break;
               case changeSessionSkip.name:
                 enqueue(() => publishSessionChange(session, "mode"));
+                break;
+              case editQueuedMessage.name:
+              case moveQueuedMessage.name:
+                enqueue(() => publishQueued(session));
                 break;
             }
             return done;

@@ -55,9 +55,29 @@ export const attentionWiring: WiringFactory = () => {
         };
       };
 
+      // GUI view로 열린 coding session을 찾는다. TUI view(shared handle이 남은 때)는 tracker hook이 계기를 맡는다.
+      const guiCodingBy = (
+        match: (tab: { session: string; terminal: string }) => boolean,
+      ) =>
+        ctx.peek.terminalAgents?.coding
+          .list()
+          .find((tab) => tab.view === "gui" && match(tab)) ?? null;
+
       const attention = createAttention({
         clock: ctx.clock,
         lookup,
+        codingSession: (session) => {
+          const tab = guiCodingBy((one) => one.session === session);
+          return tab === null
+            ? null
+            : {
+                terminal_ref: tab.terminal,
+                harness: tab.harness,
+                title: tab.title,
+              };
+        },
+        isGuiTerminal: (terminalRef) =>
+          guiCodingBy((one) => one.terminal === terminalRef) !== null,
         // remote wiring이 뒤에 채우는 `deviceKind`는 부를 때 읽는다.
         deviceKind: (principal) => ctx.deviceKind(principal),
         unseenChanged: (session) =>
@@ -76,6 +96,7 @@ export const attentionWiring: WiringFactory = () => {
               "SessionEnded",
               "TurnRequestOpened",
               "QuestionAsked",
+              "AcpUpdated",
               "ActivationConsentRequested",
               "ShareRequestOpened",
               "NoticePosted",

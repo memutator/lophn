@@ -35,6 +35,15 @@ export type SessionLookup = (session: string) => Promise<{
   opened_by_app: boolean;
 } | null>;
 
+// GUI view로 열린 coding session 한 줄. GUI 탭이 아니거나 lophn session이면 null이다.
+export type CodingSessionInfo = {
+  terminal_ref: string;
+  harness: string;
+  title: string | null;
+};
+
+export type CodingSessionLookup = (session: string) => CodingSessionInfo | null;
+
 export type Attention = {
   bindPush(ports: PushPorts): void;
   // 기기 연결이 끊길 때 그 기기의 presence 보고를 지운다.

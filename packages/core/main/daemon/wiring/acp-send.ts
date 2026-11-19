@@ -2,6 +2,8 @@
 // core 안 machine 자격으로 대신 부르면 SendMessage 권한이 없는 호출자도 AcpSend로는 보낼 수 있게 된다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { AcpInput } from "../../../../protocol/acp/mod.ts";
+import type { ContentBlock } from "../../../../protocol/lophn-agent/content-block.ts";
+import { isDevicePrincipal } from "./app-principal.ts";
 import type {
   CommandRoute,
   MemoryRoute,
@@ -41,6 +43,60 @@ import { AGENT_MODES, LOPHN_COMMAND_FACES } from "./acp-build.ts";
 
 /** `AcpSend`의 답. fork가 연 새 session이다. */
 export type AcpSent = { session?: string };
+
+// harness GUI adapter가 `!`로 시작하는 사람 입력을 shell 명령으로 돌린다(text·resource와 맨 앞 resource_link까지 본다).
+function isBangShellContent(content: readonly ContentBlock[]): boolean {
+  const joined = content
+    .flatMap((block) =>
+      block.type === "text" || block.type === "resource" ? [block.text] : [],
+    )
+    .join("\n")
+    .trimStart();
+  if (joined.startsWith("!")) return true;
+  const first = content[0];
+  if (first?.type === "resource_link") {
+    return (
+      first.name.trimStart().startsWith("!") ||
+      first.uri
+        .replace(/^file:\/\//, "")
+        .trimStart()
+        .startsWith("!")
+    );
+  }
+  return false;
+}
+
+/**
+ * coding session(harness GUI)의 입력은 ledger route를 거치지 않고 handle로 바로 간다. 기기가 보낸 입력이면
+ * 권한 mode 바꾸기(`set_mode`)는 lophn session과 같이 막고, shell 실행(`run_shell`과 `!` 글)은 이 컴퓨터에서
+ * 터미널 입력을 허락한 기기만 받는다.
+ */
+export function checkCodingInputScope(
+  who: AuthenticatedContext,
+  input: AcpInput,
+  granted: (principal: string) => boolean,
+): Result<void> {
+  if (!isDevicePrincipal(who)) return ok(undefined);
+  if (input.type === "set_mode") {
+    return err({
+      code: "forbidden",
+      message: "a device cannot change permission mode",
+    });
+  }
+  if (
+    input.type === "run_shell" ||
+    ((input.type === "send" || input.type === "edit_queued") &&
+      isBangShellContent(input.content))
+  ) {
+    if (!granted(who.principal)) {
+      return err({
+        code: "forbidden",
+        message: "terminal input is not granted for this device",
+      });
+    }
+  }
+  return ok(undefined);
+}
 
 export type AcpSendDeps = {
   command(

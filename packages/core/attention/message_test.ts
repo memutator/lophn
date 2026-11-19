@@ -3,7 +3,12 @@ import { test } from "node:test";
 import type { BusEvent } from "../../protocol/events/mod.ts";
 import { buildMessage } from "./message.ts";
 import type { PushDevice } from "./ports.ts";
-import { causeOf, type SessionInfo, signalCause } from "./triggers.ts";
+import {
+  causeOf,
+  codingAcpCauseOf,
+  type SessionInfo,
+  signalCause,
+} from "./triggers.ts";
 
 // 마지막 답, shell 명령, 질문 글, 앱 notice의 body에 심은 값. 어떤 push 글에도 나오면 안 된다.
 const SECRET = "sk-secret-do-not-leak";
@@ -84,6 +89,34 @@ test("push 글과 data 어디에도 대화 글, 명령, 질문 글, 앱 body가 
       kind: "finished",
       active_ms: 600_000,
     }),
+    codingAcpCauseOf(
+      {
+        type: "approval_opened",
+        approval: {
+          id: "apr_1",
+          subject: { kind: "shell", command: `curl -H ${SECRET} x` },
+          choices: ["once", "reject"],
+          always_patterns: [],
+        },
+      } as never,
+      { terminal_ref: "trm_gui", harness: "claude", title: "GUI Tab" },
+    ),
+    codingAcpCauseOf(
+      {
+        type: "question_asked",
+        group: "grp_1",
+        tool_call: "tcl_1",
+        questions: [
+          {
+            header: "H",
+            question: SECRET,
+            options: [{ label: SECRET, description: SECRET }],
+            multiple: false,
+          },
+        ],
+      } as never,
+      { terminal_ref: "trm_gui", harness: "claude", title: "GUI Tab" },
+    ),
   );
   assert.equal(
     causes.every((cause) => cause !== null),

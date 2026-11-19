@@ -1,5 +1,5 @@
 id: remote-terminal-latency
-version: 0.23.95
+version: 0.23.97
 title: 다른 기계의 터미널에 치는 글자가 글자마다 느리던 것을 입력 모으기와 화면 diff로 왕복 한 번 가까이 줄인다
 modules: [packages/protocol, packages/core/terminal-view, packages/shell/renderer, packages/mobile]
 change: |

@@ -54,6 +54,15 @@ function setup() {
   const writes: string[] = [];
   const replays: string[] = [];
   const replies: unknown[] = [];
+  // 사람이 친 입력. reply는 테스트가 넘긴다.
+  const inputs: {
+    text: string;
+    finish(
+      reply:
+        | { ok: true; value: null }
+        | { ok: false; error: { code: string; message: string } },
+    ): void;
+  }[] = [];
   // view 크기 바꿈과 다시 쓰기의 순서.
   const order: string[] = [];
   let onMessage: (message: EventMessage) => void = () => {};
@@ -84,7 +93,8 @@ function setup() {
       replies.push(input);
       return { ok: true, value: null };
     },
-    input: async () => ({ ok: true, value: null }),
+    input: (sent) =>
+      new Promise((finish) => inputs.push({ text: sent.text, finish })),
     trace: async () => ({ ok: true, value: false }),
     shown: async () => ({ ok: true, value: null }),
   } satisfies Pick<TerminalApi, "respond" | "input" | "trace" | "shown">;
@@ -173,14 +183,16 @@ function setup() {
         }),
       }),
     ready: () => onMessage({ kind: "ready" }),
-    screenChanged: (seq: number) =>
+    screenChanged: (seq: number, diff?: unknown) =>
       onMessage({
         kind: "event",
         event: event("TerminalScreenChanged", "terminal:term_1", {
           terminal: "term_1",
           seq,
+          ...(diff === undefined ? {} : { diff }),
         }),
       }),
+    inputs,
     scroll: (atBottom: boolean) => {
       bottom = atBottom;
       onScroll(atBottom);
@@ -329,4 +341,81 @@ test("다른 기계 화면 사본은 위로 scroll한 동안 reset을 미루고 
   await h.finish(1, [output(3, "screen-3")]);
   assert.equal(h.resets(), 1);
   assert.deepStrictEqual(h.replays, ["screen-1", "screen-3"]);
+});
+
+// 다른 기계의 터미널은 입력마다 기계 사이 왕복이다. 답을 기다리는 동안 친 글을 모아 한 번에 보내야 빨리 쳐도 밀리지 않고, 순서와 거절 규칙은 그대로여야 한다.
+test("입력은 답을 기다리는 동안 모아 한 번에 보내고 순서를 지키며 거절되면 그 붙여넣기의 나머지를 버린다", async () => {
+  const h = setup();
+  h.store.adopt("tab", {
+    terminalRef: "term_1",
+    generation: 1,
+    folderRef: "folder",
+  });
+  h.displays.acquire("tab", "project", h.create);
+  await h.finish(0, [output(1, "screen")]);
+  h.displays.setActive("tab", true);
+  const ok = { ok: true, value: null } as const;
+
+  h.data("a");
+  h.data("b");
+  h.data("c");
+  assert.deepStrictEqual(
+    h.inputs.map((one) => one.text),
+    ["a"],
+  );
+  h.inputs[0]!.finish(ok);
+  await h.settle();
+  assert.deepStrictEqual(
+    h.inputs.map((one) => one.text),
+    ["a", "bc"],
+  );
+  h.inputs[1]!.finish(ok);
+  await h.settle();
+
+  // 큰 붙여넣기는 상한(8192자) 조각으로 나뉘어 하나씩 가고, 첫 조각이 거절되면 나머지는 가지 않지만 그 뒤에 친 글은 간다.
+  h.data("x".repeat(8192 * 2 + 5));
+  h.data("e");
+  assert.equal(h.inputs.length, 3);
+  assert.equal(h.inputs[2]!.text.length, 8192);
+  h.inputs[2]!.finish({
+    ok: false,
+    error: { code: "forbidden", message: "no" },
+  });
+  await h.settle();
+  assert.deepStrictEqual(
+    h.inputs.slice(3).map((one) => one.text),
+    ["e"],
+  );
+});
+
+// diff가 맞는 화면 위에 오면 snapshot 없이 바뀐 줄만 쓰고, 바로 앞 화면이 아니면 snapshot으로 맞춰야 화면이 어긋나지 않는다.
+test("TerminalScreenChanged의 diff는 base_seq가 맞을 때만 덮어쓰고 아니면 snapshot을 읽는다", async () => {
+  const h = setup();
+  h.store.adopt("tab", {
+    terminalRef: "term_1",
+    generation: 1,
+    folderRef: "folder",
+  });
+  h.displays.acquire("tab", "project", h.create);
+  await h.finish(0, [output(1, "screen-1")]);
+  const diff = (base_seq: number) => ({
+    generation: 1,
+    base_seq,
+    cursor: { x: 2, y: 1, hidden: false },
+    lines: [{ row: 1, runs: [{ text: "ls", bold: true }], wrapped: false }],
+  });
+
+  h.screenChanged(2, diff(1));
+  assert.equal(h.requests.length, 1);
+  assert.deepStrictEqual(h.replays.slice(1), [
+    "\x1b[2;1H\x1b[2K\x1b[0;1mls\x1b[0m\x1b[2;3H\x1b[?25h",
+  ]);
+
+  // seq 3을 놓쳤다. base가 2가 아니니 snapshot을 읽는다.
+  h.screenChanged(4, diff(3));
+  assert.equal(h.requests.length, 2);
+  assert.deepStrictEqual(h.requests[1]?.input, {
+    terminal: "term_1",
+    after_seq: 2,
+  });
 });

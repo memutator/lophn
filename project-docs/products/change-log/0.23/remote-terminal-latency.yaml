@@ -1,0 +1,20 @@
+id: remote-terminal-latency
+version: 0.23.95
+title: 다른 기계의 터미널에 치는 글자가 글자마다 느리던 것을 입력 모으기와 화면 diff로 왕복 한 번 가까이 줄인다
+modules: [packages/protocol, packages/core/terminal-view, packages/shell/renderer, packages/mobile]
+change: |
+  전: desktop 탭은 글자마다 `terminals/input`을 부르고 답이 와야 다음 글자를 보냈다(N글자 = 기계 사이 왕복 N번). echo는 core가 250ms 주기로 화면을 읽을 때까지 기다린 뒤(평균 ~125ms, 최대 250ms) `TerminalScreenChanged {terminal, seq}`를 받은 보는 쪽이 `terminal_view/snapshot`을 한 번 더 불러(왕복 둘) 화면과 scrollback 200줄을 통째로 다시 썼다.
+  후:
+  - 입력 모으기(`TerminalDisplays`): 입력은 터미널마다 한 번에 하나만 날리고, 답을 기다리는 동안 친 글은 순서대로 모아 다음 한 호출로 보낸다(같은 human·respond 구분, 같은 terminal·generation, 8192자 이내). 첫 글자는 기다리지 않는다. 붙여넣기 조각이 거절되면 그 붙여넣기의 나머지는 보내지 않고, 그 뒤에 친 글은 간다. 이 컴퓨터의 터미널도 같은 길이다.
+  - core 읽기 박자(`terminal-view/view.ts`): lease가 있는 터미널에 출력이 나면 10ms 뒤(`ECHO_MS`) 화면을 읽고, 작게 바뀐 직후는 30ms 간격(`FAST_MS`)으로 이어 읽고, 아무 일 없으면 250ms(`SCREEN_MS`)다. 큰 변화(diff가 3,000자 초과이거나 diff를 못 만든 것) 뒤에는 250ms 안에 다시 읽지 않는다. 시각과 timer는 주입한 clock·`after`이고 출력은 `terminals.onOutput`으로 듣는다.
+  - `TerminalScreenChanged` payload에 선택 칸 `diff {generation, base_seq, cursor, lines: [{row, runs, wrapped}]}`가 생겼다(바로 앞에 읽은 화면에서 바뀐 viewport 줄만). generation·크기·scrollback이 같고 바뀐 줄의 JSON이 12,000자 이하일 때만 싣는다. 보는 쪽은 자기 마지막 seq가 `base_seq`와 같으면 그 줄과 커서만 덮어쓰고(desktop은 줄을 지우고 다시 쓰는 escape, 폰은 `applyScreenDiff`로 snapshot에 적용) 아니면 `terminal_view/snapshot`을 읽는다. route는 그대로다.
+  - 예상 echo 시간: 전 = 왕복 둘 + 평균 ~125ms(최대 250ms) + (글자마다 직렬 입력). 후 = 입력 왕복 하나 + 출력 후 ~10ms(host의 16ms 묶음 포함 ~30ms) + event 편도. 빨리 칠 때 글자 N개는 N 왕복이 아니라 왕복 몇 번이다.
+  - 문서: `terminal-agent.md`(터미널 보기, 다른 기계의 터미널, 결정), `event.md`, flows(`harness.yaml`, `shell-workspace.yaml`, tests).
+why: 사람이 다른 기계의 터미널에 칠 때 글자마다 눈에 띄는 지연이 있었다. 입력이 직렬 왕복이고 echo가 폴링 한 주기와 snapshot 왕복을 더 기다렸다.
+decisions:
+  - text: "날 출력을 기계 사이로 넘기지 않는 결정은 그대로다. 읽기를 빠르게 하되 큰 변화(통째로 다시 그리는 TUI, 쏟음)는 250ms 간격으로 묶고 diff는 12,000자 이하로 상한을 둔다. 쏟는 중 scrollback이 바뀌면 diff를 못 만들어 event는 seq만 가고 예전과 같은 비용이다. 버린 길: 날 출력 stream(연결이 넘쳤다)."
+    by: agent
+  - text: "diff는 새 route나 `v2` 없이 event의 선택 칸으로 얹고, 틀리면 snapshot으로 맞춘다(놓친 event, 줄이 scrollback으로 밀림, 크기·generation 바뀜). 버린 길: scrollback까지 diff로 말하기(사본의 scrollback 200줄이 밀리는 변화는 snapshot 하나가 남는다. 필요하면 나중에)."
+    by: agent
+  - text: "입력은 대기 시간을 두고 모으지 않고 답을 기다리는 동안만 모은다. 버린 길: 글자 즉시 echo(echo 없는 입력이나 TUI에서 틀린 글자가 보인다), 몇 ms 모았다 보내기(첫 글자가 늦어진다)."
+    by: agent

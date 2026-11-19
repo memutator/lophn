@@ -714,7 +714,11 @@ files:
 
   - path: packages/core/terminal-view/view_test.ts
     covers: [terminal-view-snapshot:not_found, terminal-view-watch:watching, terminal-view-watch:stopped, terminal-view-watch:not_found, terminal-view-screen:changed, terminal-view-screen:dropped, terminal-view-snapshot:unavailable, terminal-view-resize:resized, terminal-view-resize:conflict]
-    note: "없는 터미널은 snapshot·watch가 not_found다. lease가 있는 동안만 lease들의 tail 최대로 화면을 읽고, 갱신하지 않은 lease는 30초 뒤 거두며, lease가 다 끝나면 읽기를 멈추고 폰이 잡은 크기를 놓는다. 크기는 lease를 가진 principal만 폰 크기 표지로 잡는다"
+    note: "출력이 나면 10ms 뒤 화면을 읽어 바뀐 줄만 diff로 알리고 조용하면 250ms 주기로 돌아간다. 없는 터미널은 snapshot·watch가 not_found다. lease가 있는 동안만 lease들의 tail 최대로 화면을 읽고, 갱신하지 않은 lease는 30초 뒤 거두며, lease가 다 끝나면 읽기를 멈추고 폰이 잡은 크기를 놓는다. 크기는 lease를 가진 principal만 폰 크기 표지로 잡는다"
+
+  - path: packages/core/terminal-view/diff_test.ts
+    covers: [terminal-view-screen:changed]
+    note: "화면 diff를 적용하면 지금 화면이 되고, scrollback·크기·generation이 바뀌거나 상한을 넘으면 diff가 없어 보는 쪽이 snapshot으로 맞춘다"
 
   - path: packages/core/main/daemon/wiring/terminals_test.ts
     covers: [terminals-input:sent, terminals-input:forbidden, terminals-restart:forbidden, terminals-restart:restarted, terminals-watch:watching, terminals-watch:stopped, terminals-read:ok, terminals-open:device-types-refused]

@@ -4,7 +4,13 @@ import type {
 } from "../../../protocol/coding-agent/terminals.ts";
 import type { TerminalApi, TerminalTraceEvent } from "../../ipc/terminal.ts";
 import type { TerminalCore } from "./core.ts";
-import { acceptOutput, phaseOfRuntime, splitInput } from "./model.ts";
+import {
+  acceptOutput,
+  INPUT_LIMIT,
+  phaseOfRuntime,
+  splitInput,
+} from "./model.ts";
+import { diffText } from "./screen-copy.ts";
 import type { TerminalStore } from "./store.ts";
 import type { TerminalView } from "./xterm-view.ts";
 
@@ -26,6 +32,13 @@ type Kept = TerminalDisplay & {
   restore: boolean;
   off: (() => void)[];
   active: boolean;
+};
+type TypedInput = {
+  /** 같은 `onData` 호출(붙여넣기 하나)의 조각은 같은 번호다. */
+  call: number;
+  ref: { terminal: string; generation: number };
+  human: boolean;
+  text: string;
 };
 type OutputCore = Pick<TerminalCore, "snapshot" | "watch" | "subscribe">;
 type InputBridge = Pick<TerminalApi, "respond" | "input" | "trace" | "shown">;
@@ -97,9 +110,32 @@ export class TerminalDisplays {
       } else if (event.type === "TerminalScreenChanged") {
         // 다른 기계의 터미널은 화면 사본으로 온다(`screen-copy.ts`). 새 사본이면 지금 화면으로 다시 쓴다.
         // 사람이 위로 올려 읽는 동안은 사본을 다시 쓰지 않고 seq만 기억해 두었다가 맨 아래로 돌아오면 한 번 맞춘다.
-        const { terminal, seq } = event.payload;
+        // 바로 앞 화면에서 바뀐 줄(diff)이 왔고 이 view가 그 화면을 쓴 상태면 그 줄만 덮어써 snapshot을 부르지 않는다.
+        const { terminal, seq, diff } = event.payload;
         for (const [key, kept] of this.#kept) {
           if (terminal !== kept.ref || seq <= kept.lastSeq) continue;
+          if (
+            diff !== undefined &&
+            !kept.loading &&
+            kept.view.atBottom?.() !== false &&
+            diff.generation === kept.generation &&
+            diff.base_seq === kept.lastSeq
+          ) {
+            this.#write(
+              kept,
+              [
+                {
+                  terminal_ref: terminal,
+                  generation: diff.generation,
+                  seq,
+                  chunk: diffText(diff),
+                  dropped_output: false,
+                },
+              ],
+              true,
+            );
+            continue;
+          }
           if (kept.view.atBottom?.() === false) {
             kept.deferredSeq = Math.max(kept.deferredSeq, seq);
             continue;
@@ -188,7 +224,56 @@ export class TerminalDisplays {
       }
       this.#trace(key, display, { e: "acquire", restore: display.restore });
       // 숨거나 focus가 없는 terminal도 새 질의에 답해야 harness가 멎지 않는다.
-      let replies = Promise.resolve<unknown>(undefined);
+      // 입력은 하나씩 보내고 reply를 기다린다(순서). 그 사이 친 글은 모아 한 번에 보낸다: 다른 기계의 터미널은 부를 때마다 기계 사이
+      // 왕복이라 글자마다 기다리면 빨리 칠수록 밀린다.
+      const queue: TypedInput[] = [];
+      let sending = false;
+      let calls = 0;
+      const drain = async () => {
+        if (sending) return;
+        sending = true;
+        try {
+          while (queue.length > 0) {
+            const head = queue.shift()!;
+            let text = head.text;
+            let last = head.call;
+            for (
+              let next = queue[0];
+              next !== undefined &&
+              next.human === head.human &&
+              next.ref.terminal === head.ref.terminal &&
+              next.ref.generation === head.ref.generation &&
+              text.length + next.text.length <= INPUT_LIMIT;
+              next = queue[0]
+            ) {
+              text += next.text;
+              last = next.call;
+              queue.shift();
+            }
+            const sent = { ...head.ref, text };
+            const reply = await (head.human
+              ? this.#bridge?.input(sent)
+              : this.#bridge?.respond(sent)
+            )?.catch(() => undefined);
+            // main이나 core가 거절한 입력(focus 표에 없음, 지난 generation)은 PTY에 닿지 않는다.
+            const refused = reply?.ok
+              ? null
+              : (reply?.error.code ?? "no bridge");
+            if (refused === null) continue;
+            // 조각 하나가 거절되면 그 paste의 나머지는 보내지 않는다. 닫는 ESC[201~ 없이 끝나거나 중간이 빠진 채 PTY에 들어가지 않게 한다.
+            for (let at = queue.length - 1; at >= 0; at -= 1) {
+              if (queue[at]!.call <= last) queue.splice(at, 1);
+            }
+            this.#trace(key, display, {
+              e: "input_refused",
+              human: head.human,
+              reason: refused,
+            });
+          }
+        } finally {
+          sending = false;
+        }
+      };
       display.off.push(
         display.view.onData((text) => {
           if (!display.ref) return;
@@ -199,32 +284,10 @@ export class TerminalDisplays {
             generation: display.generation,
           };
           const human = display.active;
-          // 조각 하나가 거절되면 그 paste의 나머지는 보내지 않는다. 닫는 ESC[201~ 없이 끝나거나 중간이 빠진 채 PTY에 들어가지 않게 한다.
-          let stopped = false;
+          const call = (calls += 1);
           for (const part of splitInput(text))
-            replies = replies
-              .then(() =>
-                stopped
-                  ? undefined
-                  : human
-                    ? this.#bridge?.input({ ...ref, text: part })
-                    : this.#bridge?.respond({ ...ref, text: part }),
-              )
-              .then((reply) => {
-                if (stopped) return;
-                // main이나 core가 거절한 입력(focus 표에 없음, 지난 generation)은 PTY에 닿지 않는다.
-                const refused = reply?.ok
-                  ? null
-                  : (reply?.error.code ?? "no bridge");
-                if (refused !== null) {
-                  stopped = true;
-                  this.#trace(key, display, {
-                    e: "input_refused",
-                    human,
-                    reason: refused,
-                  });
-                }
-              });
+            queue.push({ call, ref, human, text: part });
+          void drain();
         }),
       );
       this.#sync(key, kept);

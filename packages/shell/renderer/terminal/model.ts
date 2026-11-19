@@ -155,8 +155,11 @@ export function acceptOutput(
   return { writes, lastSeq: seq };
 }
 
+/** core가 한 번에 받는 입력의 상한(글자 수)이다. */
+export const INPUT_LIMIT = 8192;
+
 /** 붙여넣기 같은 큰 입력을 입력 상한(8192자) 안으로 자른다. 순서는 유지한다. */
-export function splitInput(text: string, limit = 8192): string[] {
+export function splitInput(text: string, limit = INPUT_LIMIT): string[] {
   const parts: string[] = [];
   let rest = text;
   while (rest.length > limit) {

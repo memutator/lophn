@@ -4,19 +4,28 @@ import { manualClock, ok } from "../../base/mod.ts";
 import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../protocol/events/bus.ts";
 import type { TerminalScreen } from "../terminals/ports.ts";
-import { createTerminalView, LEASE_MS } from "./view.ts";
+import {
+  createTerminalView,
+  ECHO_MS,
+  FAST_MS,
+  LEASE_MS,
+  SCREEN_MS,
+} from "./view.ts";
 
 const TERMINAL = "trm_01hzx3k4m5n6p7q8r9s0t1v2w3";
 // 기기가 `terminals/open`으로 연 터미널이다.
 
-const screen = (seq: number): TerminalScreen => ({
+const screen = (seq: number, text = ""): TerminalScreen => ({
   generation: 1,
   seq,
   columns: 80,
   rows: 24,
-  cursor: { x: 0, y: 0, hidden: false },
+  cursor: { x: text.length, y: 0, hidden: false },
   scrollback: [],
-  lines: [],
+  lines: [
+    { runs: [{ text }], wrapped: false },
+    { runs: [], wrapped: false },
+  ],
 });
 
 const runtime = (ref: string, remote = false) =>
@@ -34,9 +43,11 @@ function setup() {
   const clock = manualClock(0);
   const calls: unknown[] = [];
   const published: BusEvent[] = [];
-  const timers: (() => void)[] = [];
+  const timers: { at: number; run: () => void; off: boolean }[] = [];
+  const outputs: ((output: { terminal_ref: string }[]) => void)[] = [];
   let known = new Set([TERMINAL]);
   let seq = 1;
+  let text = "";
   let remote = false;
   const view = createTerminalView({
     clock,
@@ -49,14 +60,21 @@ function setup() {
       },
       screen: (terminal, tail) => {
         calls.push({ screen: terminal, tail });
-        return Promise.resolve(ok(screen(seq)));
+        return Promise.resolve(ok(screen(seq, text)));
       },
       runtime: (terminal) =>
         known.has(terminal) ? runtime(terminal, remote) : null,
+      onOutput: (listener) => {
+        outputs.push(listener as never);
+        return () => {};
+      },
     },
-    after: (_ms, run) => {
-      timers.push(run);
-      return () => {};
+    after: (ms, run) => {
+      const timer = { at: clock.nowMs() + ms, run, off: false };
+      timers.push(timer);
+      return () => {
+        timer.off = true;
+      };
     },
     mayType: () => false,
   });
@@ -67,7 +85,29 @@ function setup() {
     published,
     tick: () => {
       seq += 1;
-      for (const run of timers.splice(0)) run();
+      clock.advance(SCREEN_MS);
+      for (const timer of timers.splice(0)) if (!timer.off) timer.run();
+    },
+    // PTY가 글자를 내고 host가 출력을 알린다.
+    echo: (typed: string) => {
+      seq += 1;
+      text += typed;
+      for (const listener of outputs) listener([{ terminal_ref: TERMINAL }]);
+    },
+    // 시각을 ms 앞으로 보내며 그 사이 기한이 된 timer를 낸다.
+    pass: async (ms: number) => {
+      const end = clock.nowMs() + ms;
+      for (;;) {
+        const due = timers
+          .filter((timer) => !timer.off && timer.at <= end)
+          .sort((a, b) => a.at - b.at)[0];
+        if (due === undefined) break;
+        timers.splice(timers.indexOf(due), 1);
+        clock.advance(Math.max(0, due.at - clock.nowMs()));
+        due.run();
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      clock.advance(Math.max(0, end - clock.nowMs()));
     },
     forget: () => {
       known = new Set();
@@ -151,4 +191,53 @@ test("크기는 그 터미널을 보는 principal만 잡는다", async () => {
     rows: 20,
     remote: true,
   });
+});
+
+const payloadOf = (event: BusEvent) =>
+  (
+    event as unknown as {
+      payload: {
+        seq: number;
+        diff?: { base_seq: number; lines: { row: number }[] };
+      };
+    }
+  ).payload;
+
+// 키 하나의 echo가 250ms 주기를 기다리지 않고 바로 읽혀야 원격 입력이 굼뜨지 않는다. 바뀐 줄만 diff로 가야 보는 쪽이 snapshot을 또 부르지 않는다.
+test("출력이 나면 10ms 뒤 읽어 바뀐 줄만 diff로 알리고, 아무 일 없으면 250ms 주기로 돌아간다", async () => {
+  const { view, calls, published, echo, pass } = setup();
+  await view.watch("p1", { terminal: TERMINAL, on: true });
+  assert.equal(payloadOf(published[0]!).diff, undefined);
+  const reads = () =>
+    calls.filter((call) => "screen" in (call as object)).length;
+  // 처음 화면 뒤 한 번 더 읽어 바뀐 것이 없음을 보고 쉰다.
+  await pass(FAST_MS);
+  const first = reads();
+
+  echo("a");
+  await pass(ECHO_MS - 1);
+  assert.equal(reads(), first);
+  await pass(1);
+  assert.equal(reads(), first + 1);
+  const diff = payloadOf(published[1]!).diff;
+  assert.equal(diff?.base_seq, payloadOf(published[0]!).seq);
+  assert.deepEqual(
+    diff?.lines.map((line) => line.row),
+    [0],
+  );
+
+  // 바로 이어진 출력은 FAST_MS 간격으로 묶는다.
+  echo("b");
+  await pass(ECHO_MS);
+  assert.equal(reads(), first + 1);
+  await pass(FAST_MS);
+  assert.equal(reads(), first + 2);
+
+  // 바뀌지 않으면 FAST_MS 뒤 한 번 더 읽고는 250ms 주기다.
+  await pass(FAST_MS);
+  const idle = reads();
+  await pass(SCREEN_MS / 2);
+  assert.equal(reads(), idle);
+  await pass(SCREEN_MS);
+  assert.equal(reads(), idle + 1);
 });

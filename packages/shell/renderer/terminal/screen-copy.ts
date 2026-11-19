@@ -1,10 +1,12 @@
 // 다른 기계의 터미널을 그리는 길. 그 기계의 날 출력(`TerminalOutputAppended`)은 기계 사이 연결을 넘쳐 그 연결의 다른 event와
 // 부르기를 끊어서(`terminal-agent.md`의 잰 값) 받지 않는다. 그 기계가 파싱한 화면 사본(`terminal_view/*`)을 받아 xterm에 다시
-// 쓴다: 화면이 바뀌었다는 `TerminalScreenChanged`(seq만)가 오면 `TerminalDisplays`가 snapshot을 다시 읽는다.
+// 쓴다: 화면이 바뀌었다는 `TerminalScreenChanged`가 오면 `TerminalDisplays`가 바뀐 줄(diff)만 덮어쓰고, diff가 없거나 맞지 않으면
+// snapshot을 다시 읽는다.
 import type { z } from "zod";
 
 import type { Route } from "../../../protocol/base/route.ts";
 import {
+  type TerminalScreenDiff,
   terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
@@ -53,6 +55,16 @@ export function screenText(screen: Screen): string {
   );
   const { x, y, hidden } = screen.cursor;
   return `${lines.join("\r\n")}\x1b[${y + 1};${x + 1}H\x1b[?25${hidden ? "l" : "h"}`;
+}
+
+/** diff의 바뀐 줄만 지금 xterm에 덮어쓰는 글 하나다(줄을 지우고 다시 쓴 뒤 커서를 둔다). viewport 맨 아래에 있을 때만 쓴다. */
+export function diffText(diff: TerminalScreenDiff): string {
+  const rows = diff.lines.map(
+    ({ row, runs }) =>
+      `\x1b[${row + 1};1H\x1b[2K${runs.map(runText).join("")}\x1b[0m`,
+  );
+  const { x, y, hidden } = diff.cursor;
+  return `${rows.join("")}\x1b[${y + 1};${x + 1}H\x1b[?25${hidden ? "l" : "h"}`;
 }
 
 /**

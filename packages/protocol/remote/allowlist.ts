@@ -523,7 +523,7 @@ export const REMOTE_ALLOWED_EVENTS = [
   "AppViewEvent",
   // 앱이 지워졌다. 다른 컴퓨터의 창이 그 앱의 화면을 닫는다
   "AppRemoved",
-  // 보는 터미널의 화면이 바뀌었다(내용 없이 seq만. 폰이 `terminal_view/snapshot`을 다시 읽는다)
+  // 보는 터미널의 화면이 바뀌었다(seq와 작은 변화의 diff. diff가 없거나 맞지 않으면 폰이 `terminal_view/snapshot`을 다시 읽는다)
   "TerminalScreenChanged",
   // 터미널이 열리고 끝나고 크기와 이름이 바뀌었다(출력은 싣지 않는다). 다른 컴퓨터의 터미널 탭이 따라간다
   "TerminalRuntimeChanged",

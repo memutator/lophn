@@ -15,6 +15,7 @@ import {
   terminalProjectSchema,
   terminalRuntimeSchema,
 } from "../coding-agent/terminals.ts";
+import { terminalScreenDiffSchema } from "../coding-agent/terminal-view.ts";
 import { traceIdSchema } from "../apps/calls/caller.ts";
 import { APP_CALL_DEPTH_LIMIT } from "../apps/channel-values.ts";
 import { appIdSchema } from "../projects/values.ts";
@@ -225,12 +226,14 @@ const stateChanged = defineTransientEvent("StateChanged", {
 // 터미널 event의 subject는 `terminal:<터미널 참조>`다.
 const terminalSubjectSchema = z.string().regex(/^terminal:.+$/);
 
-// 보는 중인 터미널의 화면이 바뀐 뒤 낸다. 내용은 싣지 않고 폰이 `terminal_view/snapshot`을 다시 읽는다. subject는 `terminal:<터미널 탭 참조>`다.
+// 보는 중인 터미널의 화면이 바뀐 뒤 낸다. 바뀐 것이 작으면 바로 앞 화면(`diff.base_seq`)에서 바뀐 줄과 커서를 `diff`로 싣는다. `diff`가 없거나
+// 보는 쪽의 마지막 seq가 `base_seq`가 아니면 보는 쪽이 `terminal_view/snapshot`을 다시 읽는다. subject는 `terminal:<터미널 탭 참조>`다.
 const terminalScreenChanged = defineTransientEvent("TerminalScreenChanged", {
   subject: terminalSubjectSchema,
   payload: z.strictObject({
     terminal: z.string().min(1),
     seq: z.number().int().min(0),
+    diff: terminalScreenDiffSchema.optional(),
   }),
 });
 

@@ -1,12 +1,13 @@
 // The raw screen of a terminal on the computer (`terminal_view/*`): a coding session's terminal or one the phone opened.
 // Opening and typing are the core's `terminals/open|input`, the same routes the desktop uses.
-// The core keeps only the latest screen and says that it changed (`TerminalScreenChanged`, no content); the phone reads
-// the snapshot again. Watching is a lease the phone renews every 10 seconds; the core drops it 30 seconds after the last
+// The core keeps only the latest screen and says that it changed (`TerminalScreenChanged`); a small change carries the
+// changed rows as a diff on the previous screen, otherwise (or when the phone missed a screen) the phone reads the snapshot again. Watching is a lease the phone renews every 10 seconds; the core drops it 30 seconds after the last
 // renewal, so a phone that went away stops the host from pushing screens without saying so. The phone sizes the terminal
 // to its own screen when it claims (the last device that claimed wins; the computer claims back when its tab gets focus),
 // and the computer's tab takes its own size back when no phone watches any more.
 import type { z } from "zod";
 import {
+  applyScreenDiff,
   terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
@@ -59,7 +60,8 @@ export interface TerminalFeed {
 /**
  * Watches one terminal from now until `stop`: takes the lease when the event watch is ready (first time and after every
  * reconnect) and renews it every 10 seconds while connected, and reads the snapshot after each and on every change of
- * this terminal. Changes that arrive while a read is on its way make one more read after it, not one each.
+ * this terminal, except that a change whose diff fits the screen on hand is applied without a read. Changes that arrive
+ * while a read is on its way make one more read after it, not one each.
  */
 export function terminalFeed(
   client: EventClient,
@@ -135,7 +137,14 @@ export function terminalFeed(
       message.event.type === "TerminalScreenChanged" &&
       message.event.payload.terminal === terminal
     ) {
-      void read();
+      const { seq, diff } = message.event.payload;
+      // A read on its way may hold a newer or older screen than this diff's base, so it is not applied over it.
+      const applied =
+        diff !== undefined && !reading && state.screen !== null && state.status === "ready"
+          ? applyScreenDiff(state.screen, seq, diff)
+          : null;
+      if (applied !== null) set({ screen: applied, status: "ready" });
+      else void read();
     }
   }
 

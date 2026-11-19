@@ -164,3 +164,38 @@ test("retrying failed terminal input reuses the same key until it succeeds, then
 
   feed.stop();
 });
+
+test("a change carrying a diff on the screen on hand is applied without a read, any other diff reads the snapshot", async () => {
+  const { fake, feed, reads, states } = setup();
+  await settle();
+  assert.equal(reads(), 1);
+
+  const changed = (seq: number, baseSeq: number) =>
+    fake.emitEvent({
+      type: "TerminalScreenChanged",
+      subject: `terminal:${TERMINAL}`,
+      at: new Date().toISOString(),
+      payload: {
+        terminal: TERMINAL,
+        seq,
+        diff: {
+          generation: 1,
+          base_seq: baseSeq,
+          cursor: { x: 3, y: 0, hidden: false },
+          lines: [{ row: 0, runs: [{ text: `typed ${seq}` }], wrapped: false }],
+        },
+      },
+    });
+  changed(2, 1);
+  await settle();
+  assert.equal(reads(), 1);
+  assert.equal(states.at(-1)?.screen?.seq, 2);
+  assert.equal(states.at(-1)?.screen?.lines[0]?.runs[0]?.text, "typed 2");
+  assert.equal(states.at(-1)?.screen?.cursor.x, 3);
+
+  // The phone missed seq 3, so the diff's base is not the screen on hand.
+  changed(4, 3);
+  await settle();
+  assert.equal(reads(), 2);
+  feed.stop();
+});

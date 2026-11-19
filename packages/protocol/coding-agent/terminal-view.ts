@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { defineMemory, defineRead } from "../base/route.ts";
 
-// 기기(폰, 연결된 컴퓨터)가 이 기계 터미널의 raw 화면을 보는 route다. 보는 동안 core가 PTY host의 화면을 읽어 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
-// 기기가 `snapshot`을 다시 읽는다. 그 기계의 어느 터미널이든 본다. 여는 것과 입력은 `terminals/open|input`(`coding-agent/terminals.ts`)이다.
+// 기기(폰, 연결된 컴퓨터)가 이 기계 터미널의 raw 화면을 보는 route다. 보는 동안 core가 PTY host의 화면을 읽어 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`이고,
+// 작은 변화면 바뀐 줄만 diff로 싣는다(`terminalScreenDiffSchema`). diff가 없거나 기기의 마지막 seq가 `base_seq`와 다르면 기기가 `snapshot`을 다시 읽는다. 그 기계의 어느 터미널이든 본다. 여는 것과 입력은 `terminals/open|input`(`coding-agent/terminals.ts`)이다.
 
 // `#rrggbb`이거나 xterm 256색 palette 번호(`p0`~`p255`)다.
 const terminalColorSchema = z
@@ -29,6 +29,20 @@ export const terminalLineSchema = z.strictObject({
   wrapped: z.boolean(),
 });
 export type TerminalLine = z.infer<typeof terminalLineSchema>;
+
+// 바로 앞 화면(`base_seq`)에서 바뀐 viewport 줄과 커서다. 같은 generation·크기·scrollback에서만 만든다: 줄이 scrollback으로 밀려
+// 나갔거나 크기가 바뀌면 diff로 말할 수 없어 보는 쪽이 `snapshot`을 읽는다.
+export const terminalScreenDiffSchema = z.strictObject({
+  generation: z.number().int().min(0),
+  base_seq: z.number().int().min(0),
+  cursor: z.strictObject({
+    x: z.number().int().min(0),
+    y: z.number().int().min(0),
+    hidden: z.boolean(),
+  }),
+  lines: z.array(terminalLineSchema.extend({ row: z.number().int().min(0) })),
+});
+export type TerminalScreenDiff = z.infer<typeof terminalScreenDiffSchema>;
 
 const errors = [
   "invalid_input",
@@ -101,6 +115,31 @@ export const terminalViewResize = defineMemory({
   actors: ["user"],
   errors,
 });
+
+/**
+ * snapshot에 diff를 적용한 새 snapshot이다. 보는 쪽의 마지막 화면이 diff의 바로 앞 화면(같은 generation, `base_seq`)이 아니거나
+ * 줄 번호가 화면 밖이면 null이고, 그때는 `snapshot`을 다시 읽는다.
+ */
+export function applyScreenDiff<
+  S extends {
+    generation: number;
+    seq: number;
+    lines: TerminalLine[];
+    cursor: unknown;
+  },
+>(screen: S, seq: number, diff: TerminalScreenDiff): S | null {
+  if (
+    screen.generation !== diff.generation ||
+    screen.seq !== diff.base_seq ||
+    seq <= screen.seq ||
+    diff.lines.some((one) => one.row >= screen.lines.length)
+  ) {
+    return null;
+  }
+  const lines = [...screen.lines];
+  for (const { row, ...line } of diff.lines) lines[row] = line;
+  return { ...screen, seq, cursor: diff.cursor, lines };
+}
 
 export const TERMINAL_VIEW_ROUTES = [
   terminalViewSnapshot,

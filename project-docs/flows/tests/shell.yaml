@@ -396,7 +396,7 @@ files:
 
   - path: packages/shell/renderer/terminal/displays_test.ts
     covers: [terminal-snapshot:screen]
-    note: "터미널 view 재사용, snapshot 중 출력 순서, restart 뒤 늦은 snapshot을 새 generation에 쓰지 않는 규칙. 터미널 다시 붙이기는 terminal-snapshot:screen"
+    note: "다른 기계 터미널의 입력 모으기(순서, 거절 시 붙여넣기 나머지 버림)와 화면 diff 덮어쓰기(base_seq가 안 맞으면 snapshot). 터미널 view 재사용, snapshot 중 출력 순서, restart 뒤 늦은 snapshot을 새 generation에 쓰지 않는 규칙. 터미널 다시 붙이기는 terminal-snapshot:screen"
 
   - path: packages/shell/renderer/terminal/model_test.ts
     covers: []

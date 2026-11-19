@@ -1929,8 +1929,8 @@ flows:
       - packages/core/main/daemon/wiring/terminal-view.ts
       - packages/core/terminals/service.ts
     steps:
-      - "lease가 있는 터미널만 250ms마다 PTY host가 파싱해 둔 화면(lease들의 tail 최대)을 읽어 최신 화면으로 바꾼다(옛 것을 대신한다)"
-      - "seq·generation·크기가 바뀌었으면 TerminalScreenChanged {terminal, seq}를 subject terminal:<ref>로 Bus에 낸다. 화면 내용은 싣지 않고 폰이 terminal_view/snapshot을 다시 읽는다"
+      - "lease가 있는 터미널만 PTY host가 파싱해 둔 화면(lease들의 tail 최대)을 읽어 최신 화면으로 바꾼다(옛 것을 대신한다). 읽는 때는 출력이 난 10ms 뒤, 작게 바뀐 30ms 뒤, 아무 일 없을 때 250ms이고 큰 변화 뒤에는 250ms 안에 다시 읽지 않는다"
+      - "seq·generation·크기가 바뀌었으면 TerminalScreenChanged {terminal, seq, diff?}를 subject terminal:<ref>로 Bus에 낸다. 바로 앞 화면과 generation·크기·scrollback이 같고 바뀐 줄이 JSON 12,000자 이하면 바뀐 viewport 줄과 커서를 diff로 싣고, 아니면 diff 없이 보내 보는 쪽이 terminal_view/snapshot을 다시 읽는다"
       - "터미널이 coding session 목록에서 빠지면 그 터미널의 화면과 lease와 입력 key를 지운다"
       - "마지막 lease가 끝나면 읽기를 멈추고 화면을 지우며, 폰이 PTY 크기를 잡았으면 그 표지를 놓아 desktop 탭이 자기 크기로 되돌린다. lease는 5초마다 기한(30초)을 본다"
     outcomes:
@@ -1955,7 +1955,7 @@ flows:
       - packages/shell/renderer/terminal/screen-copy.ts
     steps:
       - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다(다른 컴퓨터의 탭은 200). core가 모르는 터미널이면 not_found다"
-      - "다른 컴퓨터의 탭은 machines/call로 부르고 탭을 놓아도 끄지 않는다(그 컴퓨터의 창들이 기기 principal 하나의 lease를 같이 쓴다). TerminalScreenChanged의 seq가 받은 것보다 크면 terminal_view/snapshot을 읽어 xterm을 비우고 사본을 다시 쓴다"
+      - "다른 컴퓨터의 탭은 machines/call로 부르고 탭을 놓아도 끄지 않는다(그 컴퓨터의 창들이 기기 principal 하나의 lease를 같이 쓴다). TerminalScreenChanged의 seq가 받은 것보다 크면 diff가 바로 앞 화면(base_seq)에 이어질 때 그 줄과 커서만 xterm에 덮어쓰고, 아니면 terminal_view/snapshot을 읽어 xterm을 비우고 사본을 다시 쓴다"
       - "켜면 화면을 한 번 읽고 lease가 있는 동안 계속 읽는다(terminal-view-screen). core가 연 터미널을 PTY host가 모르면 그 터미널을 잊는다. 읽기의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
       - "off이거나 기한이 지나 마지막 lease가 끝나면 읽기를 멈추고 폰이 잡은 PTY 크기를 놓는다"
     outcomes:

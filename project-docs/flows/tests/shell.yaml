@@ -160,6 +160,10 @@ files:
       - desk-switch:forbidden
     note: "project 창을 떠날 때 detached 창을 조용히 닫고 PTY 참조는 남긴다(closed-kept). showOnly는 보낸 project 창의 detached 창만 숨기고 보이며 없는 key는 missing으로 답한다. detached 되받기 한 번만 주는 규칙은 detached-reopen:reopened·reopened-kept"
 
+  - path: packages/shell/main/desktop/terminal-clipboard_test.ts
+    covers: []
+    note: "Electron 44+의 비동기 clipboard.readText·writeText를 await·catch해 IPC 응답이 structured clone 가능한 plain 값으로 나가는지, headless에서는 clipboard를 건드리지 않는지 본다"
+
   - path: packages/shell/main/desktop/terminal-focus_test.ts
     covers:
       - terminal-input:not-focused

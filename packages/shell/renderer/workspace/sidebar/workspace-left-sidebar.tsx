@@ -603,9 +603,25 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     title: string,
   ) => {
     if (props.onRenameTab?.(item, title) === true) return;
-    if (item.kind === "terminal")
+    if (item.kind === "terminal") {
+      const saved = props.terminals.find(
+        (row) => row.key === item.ref && row.saved !== null,
+      );
+      if (saved?.saved != null && workspace.ref.kind === "project") {
+        const terminal = dataOf(workspace.ref.machine ?? null).terminal;
+        const person = title.trim() || null;
+        if (terminal?.core != null) {
+          void terminal.core.renameSaved({
+            project: workspace.ref.id,
+            harness: saved.harness,
+            external_session: saved.saved.externalSession,
+            name: person?.slice(0, 200) ?? null,
+          });
+        }
+        return;
+      }
       renameTerminalAt(workspace.ref, item.ref, title);
-    else if (item.kind === "session") {
+    } else if (item.kind === "session") {
       void sourceOf(item.ref)?.act(item.ref, {
         type: "rename",
         session: item.ref,

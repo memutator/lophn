@@ -179,18 +179,27 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
   await markSpawnHelpers(join(platform, "node_modules"));
   // core가 띄우는 PTY host가 node-pty를 load한다. node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없어(위
   // `--ignore-scripts`라 build도 없다) Linux에서만 core가 도는 Electron에 맞춰 source로 compile한다.
+  // 최신 Linux build 기계의 glibc(2.42+ cfset*speed)에 묶이지 않도록 호환 헤더로 baseline symbol version을 고정한다.
   if (process.platform === "linux") {
     const shell = JSON.parse(
       await readFile(join(shellMain, "package.json"), "utf8"),
     );
-    await run(process.execPath, [
-      join(repo, "node_modules", "@electron", "rebuild", "lib", "cli.js"),
-      "-f",
-      "-v",
-      shell.devDependencies.electron,
-      "-m",
-      join(platform, "node_modules", "node-pty"),
-    ]);
+    const compatHeader = join(repo, "tools", "package", "linux-glibc-compat.h");
+    const cxxflags = [process.env.CXXFLAGS, "-include", compatHeader]
+      .filter((part): part is string => Boolean(part))
+      .join(" ");
+    await run(
+      process.execPath,
+      [
+        join(repo, "node_modules", "@electron", "rebuild", "lib", "cli.js"),
+        "-f",
+        "-v",
+        shell.devDependencies.electron,
+        "-m",
+        join(platform, "node_modules", "node-pty"),
+      ],
+      { env: { CXXFLAGS: cxxflags } },
+    );
   }
 }
 

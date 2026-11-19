@@ -2,8 +2,14 @@
 // 기본 처리(다른 화면으로 가서 여는 일)는 desktop 최상위가 등록한다.
 import type { ReactionAction } from "../events/reactions.ts";
 
-/** `machine`이 있으면 그 기계의 session·앱이다. */
-export type ToastAction = ReactionAction & { readonly machine?: string };
+/** `machine`이 있으면 그 기계의 session·터미널·앱이다. */
+export type ToastAction =
+  | (ReactionAction & { readonly machine?: string })
+  | {
+      readonly kind: "terminal";
+      readonly terminal: string;
+      readonly machine: string;
+    };
 
 /** 처리했으면 true. */
 type ToastActionHandler = (action: ToastAction) => boolean;

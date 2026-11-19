@@ -33,6 +33,9 @@ export function useToastHandler(host: ReactionHost): void {
               action.machine === undefined &&
               current.openSession(action.session)
             );
+          case "terminal":
+            // 다른 기계의 터미널 알림은 기본 처리기가 그 기계의 project로 가서 연다.
+            return false;
         }
       }),
     [setOpen],

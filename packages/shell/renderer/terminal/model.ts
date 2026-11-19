@@ -204,17 +204,21 @@ export function terminalName(input: {
     readonly session: string | null;
     /** hook이 알린 session 이름. */
     readonly name: string | null;
+    /** hook·store가 알린 session 제목(첫 prompt나 저장된 제목). */
+    readonly title?: string | null;
     /** agent TUI가 foreground일 때의 터미널 제목. 아니면 null. */
     readonly screenTitle: string | null;
-    /** 제품 이름. 터미널 제목이 이것뿐이면 session 이름이 아니다. */
+    /** 제품 이름. 터미널·GUI 제목이 이것뿐이면 session 이름이 아니다. */
     readonly label: string;
+    /** 지금 GUI view를 그리는 중이다. 이름이 아직 없으면 TUI처럼 제품 이름으로 보인다. */
+    readonly gui?: boolean;
   } | null;
   remembered: RememberedName | null;
   auto: string;
 }): { title: string; remembered: RememberedName | null } {
   const { person, agent, remembered, auto } = input;
-  const some = (text: string | null) =>
-    text !== null && text.length > 0 ? text : null;
+  const some = (text: string | null | undefined) =>
+    text !== null && text !== undefined && text.length > 0 ? text : null;
   const guiTitle = some(input.guiTitle);
   if (agent === null) {
     return { title: person ?? guiTitle ?? auto, remembered };
@@ -225,8 +229,12 @@ export function terminalName(input: {
       agent.session === null ||
       remembered.session === agent.session);
   const screen = some(agent.screenTitle);
+  const realGui = guiTitle !== agent.label ? guiTitle : null;
   const real =
-    guiTitle ?? some(agent.name) ?? (screen !== agent.label ? screen : null);
+    realGui ??
+    some(agent.name) ??
+    (screen !== agent.label ? screen : null) ??
+    some(agent.title);
   const kept = same ? remembered.title : null;
   const next: RememberedName | null =
     real !== null
@@ -235,7 +243,14 @@ export function terminalName(input: {
         ? { title: kept, session: agent.session ?? remembered!.session }
         : null;
   return {
-    title: person ?? real ?? kept ?? screen ?? auto,
+    title:
+      person ??
+      real ??
+      kept ??
+      screen ??
+      guiTitle ??
+      (agent.gui === true ? agent.label : null) ??
+      auto,
     remembered:
       next !== null &&
       remembered !== null &&

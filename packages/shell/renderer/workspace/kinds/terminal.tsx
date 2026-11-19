@@ -57,6 +57,13 @@ export function openTerminal(
     terminal?: string;
     /** 터미널이 있는 기계. 없으면 workspace의 기계다. */
     machine?: string;
+    /** 저장한 session을 다시 열 때 미리 채워 두는 이름(사람이 고정한 이름이나 기억한 session 제목). */
+    seed?: {
+      readonly harness: string;
+      readonly session: string;
+      readonly name?: string;
+      readonly title?: string;
+    };
   } = {},
 ): string | null {
   const terminal = host.machineData(options.machine ?? host.machine).terminal;
@@ -65,7 +72,8 @@ export function openTerminal(
   const key =
     options.open?.key ??
     `terminal-${Date.now().toString(36)}-${++terminalCount}`;
-  const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
+  const auto = host.projectTitle ?? t("project-workspace.label.kind-terminal");
+  const title = options.seed?.name ?? options.seed?.title ?? auto;
   // resume은 CLI가 cwd별로 session을 찾으므로 Explorer root가 아니라 주어진 폴더(없으면 첫 폴더)에서 연다.
   const cwd =
     options.cwd ??
@@ -90,8 +98,22 @@ export function openTerminal(
     kind: "terminal",
     title,
     fields: {
-      auto: title,
+      auto,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
+      ...(options.seed === undefined
+        ? {}
+        : {
+            harness: options.seed.harness,
+            ...(options.seed.name === undefined
+              ? {}
+              : { name: options.seed.name }),
+            ...(options.seed.title === undefined
+              ? {}
+              : {
+                  agentTitle: options.seed.title,
+                  agentSession: options.seed.session,
+                }),
+          }),
     },
     ...(options.machine === undefined ? {} : { machine: options.machine }),
   };
@@ -135,7 +157,7 @@ function startedPatch(
 ): Partial<TabItem> {
   const auto = info.title ?? autoOf(current);
   return {
-    title: personOf(current) ?? auto,
+    title: personOf(current) ?? rememberedOf(current)?.title ?? auto,
     folder: info.folderRef,
     fields: { ...current.fields, auto, terminal: info.terminalRef },
   };
@@ -183,7 +205,7 @@ function harnessLabel(harness: string): string {
     : harness;
 }
 
-// 탭 하나의 이름 계산. 입력은 탭 field(사람 이름, GUI 제목, 기억한 이름)와 창의 terminal store(core가 알린 agent)뿐이라
+// 탭 하나의 이름 계산. 입력은 탭 field(사람 이름, GUI 제목, 기억한 이름)와 창의 terminal store(core가 알린 agent·coding session)뿐이라
 // 탭을 그리지 않아도, 다른 workspace의 저장된 탭이어도 같은 답이 나온다. 규칙은 `terminalName`이다.
 function namingOf(
   tab: TabItem,
@@ -191,19 +213,23 @@ function namingOf(
   person: string | null = personOf(tab),
 ) {
   const agent = store?.agentOf(tab.key);
+  const coding = store?.codingOf(tab.key);
+  const harness = agent?.harness ?? coding?.harness ?? null;
   return terminalName({
     person,
     guiTitle: store === undefined ? null : guiTitleOf(tab, store),
     agent:
-      agent === undefined
+      harness === null
         ? null
         : {
-            session: agent.session ?? null,
-            name: agent.name ?? null,
+            session: agent?.session ?? coding?.cli_session ?? null,
+            name: agent?.name ?? null,
+            title: agent?.title ?? coding?.title ?? null,
             // hook만 있고 foreground가 아니면(GUI가 띄운 CLI) 터미널 제목은 shell prompt의 경로다.
             screenTitle:
-              agent.foreground === true ? (agent.screen_title ?? null) : null,
-            label: harnessLabel(agent.harness),
+              agent?.foreground === true ? (agent.screen_title ?? null) : null,
+            label: harnessLabel(harness),
+            gui: coding?.view === "gui",
           },
     remembered: rememberedOf(tab),
     auto: autoOf(tab),
@@ -279,11 +305,20 @@ export function pinAgentSessionName(
   person: string | null,
 ): void {
   const agent = terminal.store.agentOf(key);
-  if (terminal.core === null || agent?.session === undefined) return;
+  const coding = terminal.store.codingOf(key);
+  const harness = agent?.harness ?? coding?.harness;
+  const externalSession = agent?.session ?? coding?.cli_session ?? undefined;
+  if (
+    terminal.core === null ||
+    harness === undefined ||
+    externalSession === undefined
+  ) {
+    return;
+  }
   void terminal.core.renameSaved({
     project,
-    harness: agent.harness,
-    external_session: agent.session,
+    harness,
+    external_session: externalSession,
     name: person?.slice(0, 200) ?? null,
   });
 }

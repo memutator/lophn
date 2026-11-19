@@ -114,6 +114,7 @@ export function usePanelTerminals(
                 folderRef: item.folder_ref,
                 externalSession: item.external_session,
                 resumable: item.resumable,
+                ...(item.name ? { name: item.name } : {}),
               },
             },
           ],

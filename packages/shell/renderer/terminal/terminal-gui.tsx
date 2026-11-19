@@ -492,14 +492,13 @@ export function TerminalGui({
     if (onTitle === undefined) return;
     let last: string | null = null;
     return feed.watch(() => {
-      // 제목이 아직 없는 새 session은 TUI처럼 harness 이름이다.
-      const title =
-        feed.state().session?.title || HARNESS_ADAPTERS[harness].label;
+      // 제목이 아직 없는 새 session은 기본 harness 이름을 guiTitle로 쓰지 않는다(기억한 agentTitle을 덮지 않게).
+      const title = feed.state().session?.title?.trim() ?? "";
       if (title === last) return;
       last = title;
       onTitle(title);
     });
-  }, [feed, onTitle, harness]);
+  }, [feed, onTitle]);
   const own = useMemo(() => new DraftStore(), []);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
@@ -696,9 +695,12 @@ export function GuiSwitch({
   // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 field에 두고, 이름 규칙이 사람 이름 다음으로 쓴다.
   const onTitle = useCallback(
     (title: string) =>
-      host.patchTab(tab.key, (current) => ({
-        fields: { ...current.fields, guiTitle: title },
-      })),
+      host.patchTab(tab.key, (current) => {
+        const { guiTitle: _old, ...rest } = current.fields ?? {};
+        return {
+          fields: title.length > 0 ? { ...rest, guiTitle: title } : rest,
+        };
+      }),
     [host, tab.key],
   );
   if (gui === null || deps.core === null) return children;

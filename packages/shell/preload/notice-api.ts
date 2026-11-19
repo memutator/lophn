@@ -45,6 +45,8 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
       !isRecord(payload) ||
       !(
         typeof payload.session === "string" ||
+        (typeof payload.terminal === "string" &&
+          typeof payload.machine === "string") ||
         typeof payload.app === "string" ||
         payload.inbox === true
       )

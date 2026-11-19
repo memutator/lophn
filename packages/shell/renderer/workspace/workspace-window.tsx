@@ -1275,7 +1275,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       started.current.terminal !== reveal
     ) {
       started.current.terminal = reveal;
-      terminal.store.reveal(reveal);
+      if (terminal.store.has(reveal)) terminal.store.reveal(reveal);
+      else openTerminalTab(host, { terminal: reveal });
     }
     if (
       startLophn !== undefined &&
@@ -3135,6 +3136,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                           : { machine: item.machine }),
                       });
                     } else if (item.saved !== null) {
+                      const seededTitle =
+                        item.saved.name === undefined &&
+                        item.title !== item.label
+                          ? item.title
+                          : undefined;
                       openTerminalTab(host, {
                         folderRef: item.saved.folderRef,
                         ...(item.saved.resumable
@@ -3143,6 +3149,21 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                                 harness: item.harness,
                                 external_session: item.saved.externalSession,
                               },
+                              ...(item.saved.name !== undefined ||
+                              seededTitle !== undefined
+                                ? {
+                                    seed: {
+                                      harness: item.harness,
+                                      session: item.saved.externalSession,
+                                      ...(item.saved.name === undefined
+                                        ? {}
+                                        : { name: item.saved.name }),
+                                      ...(seededTitle === undefined
+                                        ? {}
+                                        : { title: seededTitle }),
+                                    },
+                                  }
+                                : {}),
                             }
                           : {}),
                       });

@@ -19,6 +19,8 @@ type Kept = TerminalDisplay & {
   ref: string | null;
   generation: number;
   lastSeq: number;
+  /** 위로 scroll해 읽는 동안 미뤄 둔 다른 기계 화면 사본의 최신 seq. 맨 아래로 돌아오면 한 번 맞춘다. */
+  deferredSeq: number;
   loading: boolean;
   pending: TerminalOutput[];
   restore: boolean;
@@ -94,11 +96,19 @@ export class TerminalDisplays {
         }
       } else if (event.type === "TerminalScreenChanged") {
         // 다른 기계의 터미널은 화면 사본으로 온다(`screen-copy.ts`). 새 사본이면 지금 화면으로 다시 쓴다.
+        // 사람이 위로 올려 읽는 동안은 사본을 다시 쓰지 않고 seq만 기억해 두었다가 맨 아래로 돌아오면 한 번 맞춘다.
         const { terminal, seq } = event.payload;
         for (const [key, kept] of this.#kept) {
-          if (terminal === kept.ref && !kept.loading && seq > kept.lastSeq) {
-            this.#catchUp(key, kept);
+          if (terminal !== kept.ref || seq <= kept.lastSeq) continue;
+          if (kept.view.atBottom?.() === false) {
+            kept.deferredSeq = Math.max(kept.deferredSeq, seq);
+            continue;
           }
+          if (kept.loading) {
+            kept.deferredSeq = Math.max(kept.deferredSeq, seq);
+            continue;
+          }
+          this.#catchUp(key, kept, { pauseWhenScrolled: true });
         }
       }
     });
@@ -150,6 +160,7 @@ export class TerminalDisplays {
         ref: null,
         generation: 0,
         lastSeq: 0,
+        deferredSeq: 0,
         loading: false,
         pending: [],
         restore: this.#store.get(key)?.terminalRef != null,
@@ -161,6 +172,20 @@ export class TerminalDisplays {
       display.off.push(
         display.view.onTrace((event) => this.#trace(key, display, event)),
       );
+      if (display.view.onScroll !== undefined) {
+        display.off.push(
+          display.view.onScroll((atBottom) => {
+            if (
+              atBottom &&
+              !display.loading &&
+              display.ref !== null &&
+              display.deferredSeq > display.lastSeq
+            ) {
+              this.#catchUp(key, display, { pauseWhenScrolled: true });
+            }
+          }),
+        );
+      }
       this.#trace(key, display, { e: "acquire", restore: display.restore });
       // 숨거나 focus가 없는 terminal도 새 질의에 답해야 harness가 멎지 않는다.
       let replies = Promise.resolve<unknown>(undefined);
@@ -220,7 +245,7 @@ export class TerminalDisplays {
     const replay = kept.restore || current.phase.kind === "opening";
     kept.restore = false;
     if (kept.ref && kept.ref !== current.terminalRef) {
-      void core.watch(kept.ref, false);
+      if (!this.#stillWatching(kept.ref, key)) void core.watch(kept.ref, false);
       void this.#bridge?.shown({ terminal: kept.ref, shown: false });
     }
     if (kept.ref !== null) kept.view.reset();
@@ -231,6 +256,7 @@ export class TerminalDisplays {
     kept.ref = current.terminalRef;
     kept.generation = current.generation;
     kept.lastSeq = 0;
+    kept.deferredSeq = 0;
     kept.pending = [];
     kept.loading = true;
     const ref = kept.ref;
@@ -279,12 +305,17 @@ export class TerminalDisplays {
   }
 
   // 놓친 출력이 있다. 마지막 seq 뒤에 출력이 있으면 core가 지금 화면 하나를 주므로, view를 비우고 그 화면을 쓴다.
-  #catchUp(key: string, kept: Kept): void {
+  #catchUp(
+    key: string,
+    kept: Kept,
+    options: { pauseWhenScrolled?: boolean } = {},
+  ): void {
     const core = this.#core;
     const ref = kept.ref;
     if (!core || ref === null) return;
     const generation = kept.generation;
     kept.loading = true;
+    kept.deferredSeq = 0;
     kept.pending = [];
     void core.snapshot(ref, kept.lastSeq).then((reply) => {
       if (
@@ -298,19 +329,39 @@ export class TerminalDisplays {
       if (reply.ok && reply.value.runtime.generation === generation) {
         const screen = reply.value.output;
         if (screen.length > 0) {
-          kept.view.reset();
-          kept.view.resize(
-            reply.value.runtime.columns,
-            reply.value.runtime.rows,
-          );
-          this.#write(kept, screen, true);
+          if (
+            options.pauseWhenScrolled === true &&
+            kept.view.atBottom?.() === false
+          ) {
+            kept.deferredSeq = Math.max(
+              kept.deferredSeq,
+              screen[screen.length - 1]!.seq,
+            );
+          } else {
+            kept.view.reset();
+            kept.view.resize(
+              reply.value.runtime.columns,
+              reply.value.runtime.rows,
+            );
+            this.#write(kept, screen, true);
+          }
         }
         this.#trace(key, kept, { e: "catch_up", chunks: screen.length });
       }
       this.#write(kept, kept.pending, false);
       kept.pending = [];
       if (reply.ok) this.#runtime(key, reply.value.runtime);
+      if (kept.deferredSeq > kept.lastSeq && kept.view.atBottom?.() !== false) {
+        this.#catchUp(key, kept, { pauseWhenScrolled: true });
+      }
     });
+  }
+
+  #stillWatching(ref: string, excludeKey?: string): boolean {
+    for (const [otherKey, other] of this.#kept) {
+      if (otherKey !== excludeKey && other.ref === ref) return true;
+    }
+    return false;
   }
 
   // 그 core에 이 터미널이 없다(그 기계의 core가 다시 떠 PTY가 사라졌다). 마지막 화면은 두고 끝난 터미널로 보인다: 다시 시작을 누르면
@@ -412,7 +463,8 @@ export class TerminalDisplays {
     this.#trace(key, kept, { e: "release" });
     this.#kept.delete(key);
     if (kept.ref) {
-      void this.#core?.watch(kept.ref, false);
+      if (!this.#stillWatching(kept.ref))
+        void this.#core?.watch(kept.ref, false);
       void this.#bridge?.shown({ terminal: kept.ref, shown: false });
     }
     for (const off of kept.off) off();

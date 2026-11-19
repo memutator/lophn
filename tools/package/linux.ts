@@ -15,6 +15,7 @@ import {
   SANDBOX_MODE,
 } from "../../packages/base/install/linux-install.ts";
 import { hookStdoutRows } from "../../packages/protocol/coding-agent/mod.ts";
+import { verifyLinuxNativeModules } from "./linux-glibc.ts";
 import type { Context } from "./main.ts";
 
 const layout = linuxInstallLayout();
@@ -27,8 +28,10 @@ export const unpacked = (builderOut: string) =>
   join(builderOut, "linux-unpacked");
 export const bundle = (dir: string) => dir;
 
-// launcher는 /usr/bin에 두므로 pack에서 만든다.
-export async function stage(): Promise<void> {}
+// launcher는 /usr/bin에 두므로 pack에서 만든다. stage에서는 묶음 안 native module의 glibc 상한(2.35)을 검사한다.
+export async function stage(_ctx: Context, bundleDir: string): Promise<void> {
+  await verifyLinuxNativeModules(bundleDir);
+}
 
 async function output(command: string, args: string[]): Promise<string> {
   const child = spawn(command, args, { stdio: ["ignore", "pipe", "ignore"] });

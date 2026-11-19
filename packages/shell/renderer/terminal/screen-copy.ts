@@ -120,12 +120,12 @@ export function createScreenCopyCore(
         },
       };
     },
-    // 사본의 lease는 기기(이 컴퓨터) 하나에 하나라 이 컴퓨터의 다른 창이 같은 터미널을 보고 있을 수 있다. 끄지 않고 30초 뒤
-    // 저절로 끝나게 둔다.
+    // 사본의 lease는 shell main이 이 컴퓨터 창들의 보는 수를 세어 마지막 창이 놓을 때 그 기계로 `on: false`를 보낸다.
     watch: (terminal, on) =>
-      on
-        ? call(terminalViewWatch as Route, { terminal, on: true, tail: TAIL })
-        : Promise.resolve({ ok: true, value: {} }),
+      call(
+        terminalViewWatch as Route,
+        on ? { terminal, on: true, tail: TAIL } : { terminal, on: false },
+      ),
     subscribe: (listener) =>
       events.subscribe(
         { types: ["TerminalScreenChanged", "TerminalRuntimeChanged"] },

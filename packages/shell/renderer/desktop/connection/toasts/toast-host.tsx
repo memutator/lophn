@@ -150,22 +150,28 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
       runToastAction(
         "inbox" in reveal
           ? { kind: "waiting" }
-          : "app" in reveal
+          : "terminal" in reveal
             ? {
-                kind: "session",
-                session: null,
-                app: reveal.app,
-                ...(reveal.machine === undefined
-                  ? {}
-                  : { machine: reveal.machine }),
+                kind: "terminal",
+                terminal: reveal.terminal,
+                machine: reveal.machine,
               }
-            : {
-                kind: "session",
-                session: reveal.session,
-                ...(reveal.machine === undefined
-                  ? {}
-                  : { machine: reveal.machine }),
-              },
+            : "app" in reveal
+              ? {
+                  kind: "session",
+                  session: null,
+                  app: reveal.app,
+                  ...(reveal.machine === undefined
+                    ? {}
+                    : { machine: reveal.machine }),
+                }
+              : {
+                  kind: "session",
+                  session: reveal.session,
+                  ...(reveal.machine === undefined
+                    ? {}
+                    : { machine: reveal.machine }),
+                },
       ),
     );
 

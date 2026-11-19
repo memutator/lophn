@@ -69,9 +69,10 @@ export type NoticeToast = {
   target: NoticeTarget;
 };
 
-/** main이 창에 고르라고 보내는 것: Agent session 탭, 앱 공간, Inbox. `machine`은 다른 기계의 것일 때만 있다. */
+/** main이 창에 고르라고 보내는 것: Agent session 탭, 다른 기계의 터미널 탭, 앱 공간, Inbox. `machine`은 다른 기계의 것일 때만 있다. */
 export type NoticeReveal =
   | { session: string; machine?: string }
+  | { terminal: string; machine: string }
   | { app: string; machine?: string }
   | { inbox: true };
 

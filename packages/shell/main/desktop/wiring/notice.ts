@@ -204,8 +204,14 @@ export function createNoticeWiring(
     const send = () => {
       if (window.isDestroyed()) return;
       if (target.kind === "terminal") {
-        // 다른 기계의 터미널은 창만 앞으로 가져온다(이 컴퓨터는 그 터미널의 project를 모른다).
-        if (target.machine !== undefined) return;
+        // 다른 기계의 터미널은 renderer가 그 기계의 목록에서 project를 찾아 탭을 연다.
+        if (target.machine !== undefined) {
+          window.webContents.send(NOTICE_REVEAL_CHANNEL, {
+            terminal: target.terminal_ref,
+            machine: target.machine,
+          });
+          return;
+        }
         const project = projectOf(target.terminal_ref);
         if (project === undefined) return;
         for (const item of found === undefined ? [window] : live) {

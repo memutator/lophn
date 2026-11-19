@@ -395,17 +395,22 @@ export function TerminalTab({
     });
   }, [copy, store, boundRef]);
 
+  const showScreen =
+    phase.kind === "live" || (phase.kind === "ended" && phase.runtime !== null);
+
   // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다.
+  // 다시 붙은 탭은 opening(hidden) 동안 boundRef가 먼저 잡히므로, 화면이 보일 때(`showScreen`) 다시 focus를 주어
+  // onFocus(bindFocus)와 terminal 단축키 context가 빠지지 않게 한다.
   useEffect(() => {
     if (!active || !bridge || boundRef === null || boundGeneration < 1) return;
     const ref = { terminal: boundRef, generation: boundGeneration };
     void bridge.focus({ ...ref, focused: true });
-    viewRef.current?.focus();
+    if (showScreen) viewRef.current?.focus();
     reclaim();
     return () => {
       void bridge.focus({ ...ref, focused: false });
     };
-  }, [active, bridge, boundRef, boundGeneration]);
+  }, [active, bridge, boundRef, boundGeneration, showScreen]);
 
   // 표시 영역에 맞춰 PTY 치수를 바꾼다. focus 칸이 아니어도 보이면 따른다. 안 그러면 xterm만 새 폭이고
   // PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘린다. 다시 붙어 snapshot을 PTY 치수로 쓴 뒤(`restored`)에도 칸에 다시 맞춘다.
@@ -456,9 +461,6 @@ export function TerminalTab({
       offAccepted?.();
     };
   }, [deps]);
-
-  const showScreen =
-    phase.kind === "live" || (phase.kind === "ended" && phase.runtime !== null);
 
   // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
   const variant = showScreen ? "bar" : "center";

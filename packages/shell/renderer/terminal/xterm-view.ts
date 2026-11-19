@@ -26,6 +26,10 @@ export interface TerminalView {
   focus(): void;
   /** 지금 표시 영역에 맞춘 PTY 치수. 아직 잴 수 없으면 null이다. */
   fit(): { columns: number; rows: number } | null;
+  /** viewport가 맨 아래(최신 줄)에 있는가. 위로 scroll해 읽는 중이면 false다. */
+  atBottom?(): boolean;
+  /** scroll 위치가 바뀔 때 맨 아래 여부를 알린다. */
+  onScroll?(listener: (atBottom: boolean) => void): () => void;
   onData(listener: (text: string) => void): () => void;
   /** 보이는 http/https 링크를 Ctrl/Cmd-click했다. 그냥 click은 알리지 않는다. */
   onLink(listener: (url: string) => void): () => void;
@@ -107,6 +111,7 @@ interface LineLike {
 
 interface BufferLike {
   readonly type: "normal" | "alternate";
+  readonly baseY: number;
   readonly viewportY: number;
   getLine(y: number): LineLike | undefined;
   getNullCell(): CellLike;
@@ -160,6 +165,7 @@ interface XtermLike {
   focus(): void;
   onData(listener: (data: string) => void): { dispose(): void };
   onBinary(listener: (data: string) => void): { dispose(): void };
+  onScroll(listener: (ydisp: number) => void): { dispose(): void };
   dispose(): void;
 }
 
@@ -690,6 +696,17 @@ export function createXtermView(
       return term.cols > 0 && term.rows > 0
         ? { columns: term.cols, rows: term.rows }
         : null;
+    },
+    atBottom() {
+      const active = term.buffer.active;
+      return active.viewportY >= active.baseY;
+    },
+    onScroll(listener) {
+      const subscription = term.onScroll(() => {
+        const active = term.buffer.active;
+        listener(active.viewportY >= active.baseY);
+      });
+      return () => subscription.dispose();
     },
     onData(listener) {
       const subscription = term.onData((text) => {

@@ -58,10 +58,14 @@ export type MachineRoute = {
     local: () => unknown,
     allowed: () => boolean,
   ): unknown;
+  // A desktop window closed: release any remote `terminal_view/watch` lease it was the last window holding.
+  forget(contentsId: number): void;
 };
 
 export function createMachineRoute(): MachineRoute {
   let machines: Parameters<MachineRoute["attach"]>[0] | undefined;
+  // `${machine}\0${terminal}` → set of window contentsIds watching that remote terminal screen copy.
+  const terminalWatches = new Map<string, Set<number>>();
 
   // The link a core call or watch goes to: undefined is this computer's core.
   function target(machine: Id<"mch"> | undefined): MachineLink | undefined {
@@ -69,9 +73,37 @@ export function createMachineRoute(): MachineRoute {
     return machines!.link(machine);
   }
 
-  async function call(link: MachineLink, input: CoreCall): Promise<CoreReply> {
+  async function call(
+    machine: Id<"mch">,
+    link: MachineLink,
+    contentsId: number,
+    input: CoreCall,
+  ): Promise<CoreReply> {
     // The machine knows each route's kind from its route table, and bytes travel as base64.
     const { kind, resource, method, body, bytes } = input;
+    if (
+      resource === "terminal_view" &&
+      method === "watch" &&
+      typeof body === "object" &&
+      body !== null &&
+      typeof (body as { terminal?: unknown }).terminal === "string" &&
+      typeof (body as { on?: unknown }).on === "boolean"
+    ) {
+      const { terminal, on } = body as { terminal: string; on: boolean };
+      const key = `${machine}\0${terminal}`;
+      if (on) {
+        const owners = terminalWatches.get(key) ?? new Set<number>();
+        owners.add(contentsId);
+        terminalWatches.set(key, owners);
+      } else {
+        const owners = terminalWatches.get(key);
+        if (owners !== undefined) {
+          owners.delete(contentsId);
+          if (owners.size > 0) return { ok: true, value: {} };
+          terminalWatches.delete(key);
+        }
+      }
+    }
     const reply = await link.call({
       resource,
       method,
@@ -95,6 +127,21 @@ export function createMachineRoute(): MachineRoute {
     attach(given) {
       machines = given;
     },
+    forget(contentsId) {
+      for (const [key, owners] of [...terminalWatches]) {
+        if (!owners.delete(contentsId) || owners.size > 0) continue;
+        terminalWatches.delete(key);
+        const [machine, terminal] = key.split("\0") as [Id<"mch">, string];
+        void machines
+          ?.link(machine)
+          .call({
+            resource: "terminal_view",
+            method: "watch",
+            body: { terminal, on: false },
+          })
+          .catch(() => {});
+      }
+    },
     handle(channel, contentsId, input, local, allowed) {
       // Until this computer's id is known a named machine may be this computer: a call is answered unavailable and a
       // watch waits for the id (this computer's core channel likewise holds a watch until its core is ready).
@@ -104,9 +151,12 @@ export function createMachineRoute(): MachineRoute {
         const parsed = coreCallSchema.safeParse(input);
         if (!parsed.success) return local();
         if (selfUnknown(parsed.data.machine)) return SELF_UNKNOWN;
-        const link = target(parsed.data.machine as Id<"mch">);
-        if (link === undefined) return local();
-        return allowed() ? call(link, parsed.data) : NOT_ALLOWED;
+        const machine = parsed.data.machine as Id<"mch"> | undefined;
+        const link = target(machine);
+        if (link === undefined || machine === undefined) return local();
+        return allowed()
+          ? call(machine, link, contentsId, parsed.data)
+          : NOT_ALLOWED;
       }
       if (channel === CORE_WATCH_CHANNEL) {
         const parsed = coreWatchSchema.safeParse(input);

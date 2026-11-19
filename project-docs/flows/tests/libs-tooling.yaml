@@ -264,6 +264,10 @@ files:
     covers: []
     note: check 도구가 core main의 custom fetch와 DOM title 속성을 막는지 보는 검사 도구
 
+  - path: tools/package/linux-glibc_test.ts
+    covers: []
+    note: "Linux 설치본 native module 검증용 readelf -V `.gnu.version_r` 파서와 GLIBC 버전 비교(2.35 상한 초과 판정)를 보는 도구 test"
+
   - path: tools/package/spawn-helper_test.ts
     covers: []
     note: 설치본 packaging이 node-pty의 darwin prebuild `spawn-helper`만 0755로 하는지 보는 도구 test(없으면 mac 설치본에서 터미널이 열리지 않는다)

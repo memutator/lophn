@@ -29,6 +29,7 @@ import {
 import { checkExternalUrl } from "../../app-frame/external-link.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
+import { copyTerminalText, pasteTerminalText } from "../terminal-clipboard.ts";
 import { mayCall, TerminalFocusTable } from "../terminal-focus.ts";
 import { LINK_SETTING_KEY_LIST, linkWhere } from "../terminal-link.ts";
 import { createTraceFile } from "../terminal-trace.ts";
@@ -254,13 +255,16 @@ export function register(
   handle(TERMINAL_COPY_CHANNEL, async (_event, input) => {
     const parsed = checkInput(terminalCopySchema, input);
     if (!parsed.ok) return parsed;
-    if (!ctx.headless.headless) clipboard.writeText(parsed.value.text);
-    return { ok: true, value: null };
+    return await copyTerminalText(
+      clipboard,
+      parsed.value.text,
+      ctx.headless.headless,
+    );
   });
-  handle(TERMINAL_PASTE_CHANNEL, async () => ({
-    ok: true,
-    value: ctx.headless.headless ? "" : clipboard.readText(),
-  }));
+  handle(
+    TERMINAL_PASTE_CHANNEL,
+    async () => await pasteTerminalText(clipboard, ctx.headless.headless),
+  );
   handle(TERMINAL_TRACE_CHANNEL, async (event, input) => {
     const parsed = checkInput(terminalTraceSchema, input);
     if (!parsed.ok) return parsed;

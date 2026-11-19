@@ -58,6 +58,8 @@ function setup() {
   const order: string[] = [];
   let onMessage: (message: EventMessage) => void = () => {};
   let onData: (text: string) => void = () => {};
+  let onScroll: (atBottom: boolean) => void = () => {};
+  let bottom = true;
   let disposed = 0;
   let resets = 0;
   const event = (type: string, subject: string, payload: unknown) =>
@@ -102,6 +104,13 @@ function setup() {
     },
     focus() {},
     fit: () => null,
+    atBottom: () => bottom,
+    onScroll(listener) {
+      onScroll = listener;
+      return () => {
+        onScroll = () => {};
+      };
+    },
     onData(listener) {
       onData = listener;
       return () => {
@@ -164,6 +173,18 @@ function setup() {
         }),
       }),
     ready: () => onMessage({ kind: "ready" }),
+    screenChanged: (seq: number) =>
+      onMessage({
+        kind: "event",
+        event: event("TerminalScreenChanged", "terminal:term_1", {
+          terminal: "term_1",
+          seq,
+        }),
+      }),
+    scroll: (atBottom: boolean) => {
+      bottom = atBottom;
+      onScroll(atBottom);
+    },
     settle,
     watches,
     data: (text: string) => onData(text),
@@ -276,4 +297,36 @@ test("연결이 다시 붙었을 때 그 core에 터미널이 없으면 마지�
   assert.equal(phase?.kind, "ended");
   // runtime을 남겨 탭이 화면을 그대로 보이고 다시 시작을 준다.
   assert.equal(phase?.kind === "ended" && phase.runtime !== null, true);
+});
+
+test("다른 기계 화면 사본은 위로 scroll한 동안 reset을 미루고 맨 아래로 돌아오면 한 번 맞춘다", async () => {
+  const h = setup();
+  h.store.adopt("tab", {
+    terminalRef: "term_1",
+    generation: 1,
+    folderRef: "folder",
+  });
+  h.displays.acquire("tab", "project", h.create);
+  await h.finish(0, [output(1, "screen-1")]);
+  assert.equal(h.resets(), 0);
+  assert.equal(h.requests.length, 1);
+
+  // 위로 scroll한 동안 TerminalScreenChanged가 여러 번 와도 snapshot·reset을 하지 않는다.
+  h.scroll(false);
+  h.screenChanged(2);
+  h.screenChanged(3);
+  await h.settle();
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.resets(), 0);
+
+  // 맨 아래로 돌아오면 미뤄 둔 최신 사본을 한 번 읽어 맞춘다.
+  h.scroll(true);
+  assert.equal(h.requests.length, 2);
+  assert.deepStrictEqual(h.requests[1]?.input, {
+    terminal: "term_1",
+    after_seq: 1,
+  });
+  await h.finish(1, [output(3, "screen-3")]);
+  assert.equal(h.resets(), 1);
+  assert.deepStrictEqual(h.replays, ["screen-1", "screen-3"]);
 });

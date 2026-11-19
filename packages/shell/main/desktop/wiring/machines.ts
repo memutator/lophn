@@ -169,8 +169,9 @@ export function register(ctx: ShellContext): Machines & Registered {
     send(machine, watcher, conditions);
   }
 
-  // A closed window of this computer stops watching every machine.
+  // A closed window of this computer stops watching every machine and releases any remote terminal view lease it alone held.
   ctx.windowHooks.closed.push(({ contentsId }) => {
+    ctx.machineRoute.forget(contentsId);
     const watcher = windowWatcher(contentsId);
     for (const [machine, owners] of [...watching]) {
       if (owners.has(watcher)) watch(machine, watcher, []);

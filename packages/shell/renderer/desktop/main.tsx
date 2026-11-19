@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 
+import { codingSessionsList } from "../../../protocol/coding-agent/relay.ts";
 import {
   ConnectionNotice,
   retryConnection,
@@ -115,14 +116,16 @@ function backTarget(
 // 연다. 화면의 처리기보다 먼저 등록돼야(목록에서 뒤에 서야) 화면이 먼저 처리하니, 화면보다 앞에 그린다.
 function DefaultToastHandler({
   openSession,
+  openTerminal,
   goApp,
 }: {
   openSession: (session: string, machine?: string) => void;
+  openTerminal: (terminal: string, machine: string) => void;
   goApp: (app: string, machine?: string) => void;
 }) {
   const { setOpen } = useWaitingPanel();
-  const latest = useRef({ openSession, goApp });
-  latest.current = { openSession, goApp };
+  const latest = useRef({ openSession, openTerminal, goApp });
+  latest.current = { openSession, openTerminal, goApp };
   useEffect(
     () =>
       registerToastActionHandler((action) => {
@@ -130,6 +133,9 @@ function DefaultToastHandler({
         switch (action.kind) {
           case "waiting":
             setOpen(true);
+            return true;
+          case "terminal":
+            current.openTerminal(action.terminal, action.machine);
             return true;
           case "session":
             if (action.session !== null) {
@@ -270,6 +276,47 @@ export function Desktop({
     } else if (workspace?.kind === "app")
       setRoute(openApp(workspace.id, session, machine));
     else setRoute(openHome(session, machine));
+  };
+  const openRemoteTerminal = (terminalRef: string, machine: string) => {
+    const data = hub?.get(machine);
+    if (data === undefined) return;
+    void (async () => {
+      let project: string | undefined;
+      const listed = await data.core.call({
+        kind: codingSessionsList.kind,
+        resource: codingSessionsList.resource,
+        method: codingSessionsList.method,
+        body: {},
+      });
+      if (listed.ok) {
+        const list = (
+          listed.value as {
+            sessions?: { terminal: string; project: string }[];
+          }
+        ).sessions;
+        project = list?.find((one) => one.terminal === terminalRef)?.project;
+      }
+      if (project === undefined) {
+        const runtimes = await data.terminal?.core?.list();
+        project = runtimes?.find(
+          (one) => one.terminal_ref === terminalRef,
+        )?.project;
+      }
+      if (project === undefined) return;
+      const targetProject = project;
+      setRoute((current) => {
+        if (
+          current.space === "project" &&
+          current.project === targetProject &&
+          current.machine === machine &&
+          data.terminal?.store.has(terminalRef)
+        ) {
+          data.terminal.store.reveal(terminalRef);
+          return current;
+        }
+        return openProject(targetProject, { terminal: terminalRef, machine });
+      });
+    })();
   };
   // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project면 store가 탭을 고른다.
   const terminalBridge = terminal?.bridge;
@@ -502,6 +549,7 @@ export function Desktop({
           <PaletteProvider deps={palette} onHome={home}>
             <DefaultToastHandler
               openSession={openSession}
+              openTerminal={openRemoteTerminal}
               goApp={(app, machine) =>
                 setRoute(openApp(app, undefined, machine))
               }

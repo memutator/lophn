@@ -76,6 +76,21 @@ test("a terminal tab keeps its session name while the source is gone, and drops 
     title: "old",
     remembered: { title: "old", session: "s1" },
   });
+  // GUI가 제품 이름만 내는 동안에는 기억한 session 이름을 덮어쓰지 않는다.
+  assert.deepEqual(name({ guiTitle: "Claude Code", remembered: kept }), {
+    title: "topic",
+    remembered: kept,
+  });
+  // 기억도 없고 GUI 제목도 없으면 GUI에서는 제품 이름을 보이되 기억하지는 않는다.
+  assert.deepEqual(name({ agent: { ...agent, gui: true } }), {
+    title: "Claude Code",
+    remembered: null,
+  });
+  // agent.title(첫 prompt·저장된 제목)은 guiTitle·hook name·screenTitle 다음 순위로 쓰고 기억한다.
+  assert.deepEqual(name({ agent: { ...agent, title: "first prompt" } }), {
+    title: "first prompt",
+    remembered: { title: "first prompt", session: "s1" },
+  });
 });
 
 test("GUI 화면의 session id는 ACP 입력의 session 검사를 통과한다", () => {

@@ -41,5 +41,7 @@ export interface PanelTerminal {
     readonly externalSession: string;
     /** harness에 resume 규칙이 있어 이어 열 수 있다. */
     readonly resumable: boolean;
+    /** 사람이 고정한 이름. 다시 열 때 탭의 사람 이름으로 채운다. */
+    readonly name?: string;
   } | null;
 }

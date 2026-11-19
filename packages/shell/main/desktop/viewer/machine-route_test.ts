@@ -87,3 +87,64 @@ test("a core call naming machine A reaches only A's link; one without a machine 
   assert.equal(sent.get(HOST)!.length, 3);
   assert.deepEqual(sent.get(OTHER), []);
 });
+
+test("terminal_view/watch keeps remote lease while another window watches and releases it when the last window closes", async () => {
+  const route = createMachineRoute();
+  const sent: Sent[] = [];
+  route.attach({
+    link: () => readyLink(sent),
+    self: () => SELF,
+    selfKnown: Promise.resolve(),
+  });
+  const watchCall = (win: number, on: boolean) =>
+    route.handle(
+      CORE_CALL_CHANNEL,
+      win,
+      {
+        kind: "memory",
+        resource: "terminal_view",
+        method: "watch",
+        body: on
+          ? { terminal: "trm_1", on: true, tail: 200 }
+          : { terminal: "trm_1", on: false },
+        machine: HOST,
+      },
+      () => {
+        throw new Error("must not route locally");
+      },
+      () => true,
+    );
+
+  // Two windows watch the same remote terminal.
+  await watchCall(10, true);
+  await watchCall(20, true);
+  assert.equal(sent.length, 2);
+
+  // First window closes its tab -> lease stays alive for window 20 (no on:false forwarded).
+  const suppressed = await watchCall(10, false);
+  assert.deepEqual(suppressed, { ok: true, value: {} });
+  assert.equal(sent.length, 2);
+
+  // Second (last) window closes its tab -> on:false forwarded immediately.
+  await watchCall(20, false);
+  assert.equal(sent.length, 3);
+  assert.deepEqual(sent[2], {
+    resource: "terminal_view",
+    method: "watch",
+    body: { terminal: "trm_1", on: false },
+  });
+
+  // Closing the last watching window directly via forget() also sends on:false.
+  await watchCall(30, true);
+  await watchCall(40, true);
+  assert.equal(sent.length, 5);
+  route.forget(30);
+  assert.equal(sent.length, 5);
+  route.forget(40);
+  assert.equal(sent.length, 6);
+  assert.deepEqual(sent[5], {
+    resource: "terminal_view",
+    method: "watch",
+    body: { terminal: "trm_1", on: false },
+  });
+});

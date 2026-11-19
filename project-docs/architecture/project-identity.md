@@ -1,6 +1,6 @@
 # project-identity
 
-git 저장소인 project가 어느 기계에서도 같은 project로 보이게 하는 설계다. 저장소 안 file `.lophn-project.json`이 기계를 넘는 id(`pri_…`)를 갖고, git이 code와 함께 그 file을 다른 기계로 옮긴다. git이 아닌 project(폴더가 git이 아니거나 폴더가 없는 project)도 `pri_`를 갖는다. 그 id는 ledger에서 나고 옮길 file이 없어 이 기계에 머물며, 사람이 다른 기계의 git이 아닌 project와 이으면 그 기계의 id를 적는다. 다른 기계에서 clone이나 pull로 file이 오면 lophn은 그 저장소를 같은 project로 알아본다. 기계별 project id(`prj_…`)와 그것을 key로 쓰는 모든 기록은 그대로다. 이 기계에 없는 project는 agent가 `lophn project clone`으로 받아 등록한다. desktop의 창 하나는 모든 기계의 project를 같은 id로 묶어 한 줄로 보이고, 이 컴퓨터에 없는 것은 [Clone here]로 받거나 [Link…]로 잇게 한다(아래 "한 창의 목록").
+git 저장소인 project가 어느 기계에서도 같은 project로 보이게 하는 설계다. 저장소 안 file `.lophn-project.json`이 기계를 넘는 id(`pri_…`)를 갖고, git이 code와 함께 그 file을 다른 기계로 옮긴다. git이 아닌 project(폴더가 git이 아니거나 폴더가 없는 project)도 `pri_`를 갖는다. 그 id는 ledger에서 나고 옮길 file이 없어 이 기계에 머물며, 사람이 다른 기계의 git이 아닌 project와 이으면 그 기계의 id를 적는다. 다른 기계에서 clone이나 pull로 file이 오면 lophn은 그 저장소를 같은 project로 알아본다. 기계별 project id(`prj_…`)와 그것을 key로 쓰는 모든 기록은 그대로다. 이 기계에 없는 project는 agent가 `lophn project clone`으로 받아 등록한다. desktop의 창 하나는 모든 기계의 project를 같은 id로 묶어 한 줄로 보이고, 이 컴퓨터에 없는 것은 [Clone to this computer]로 받거나 [Link…]로 잇게 한다(아래 "한 창의 목록").
 
 ## 문제
 
@@ -49,16 +49,16 @@ ledger projects 줄 (기계별)
 - **잇기.** `project.link_identity { project, identity }`(command, 사람만)가 git이 아닌 project(`repo: none`)의 `identity`에 다른 기계의 git이 아닌 project의 id를 적는다. 이 컴퓨터의 창 목록에서 다른 기계의 git이 아닌 project 줄의 [Link…]로 사람이 이 컴퓨터의 git이 아닌 project를 고른다(`LinkProjectDialog`). 이 기계에만 쓴다. `repo`가 `none`이 아니면(git이거나 아직 못 읽었다) `conflict`(`details.reason: "git_project"`)이고, 이 기계의 다른 project(보관 포함)가 그 id를 지금이나 옛 identity로 가지면 `conflict`(`identity_in_use`)다. 이미 그 id면 그대로 성공이다. 적은 id는 다시 읽어도 남는다(git이 아니면 file이 없어 ledger의 id를 지우지 않는다). `revision`은 오르지 않는다.
 - **옛 identity.** project의 `identity`가 null 아닌 값에서 다른 null 아닌 값으로 바뀌는 길은 셋이다: 잇기, [Separate project](file을 덮은 뒤 다시 읽기), id file이 ledger에서 난 id를 대신하는 다시 읽기(clone이나 pull로 file이 왔다). 셋 모두 ledger의 `identity`를 적는 한 자리를 지나고, 그 자리가 옛 값을 `former_identities` 끝에 더한다(같은 값은 한 번, 지금 `identity`는 빼고, 16개를 넘으면 오래된 것부터 버린다). 같은 file을 읽은 두 번째 copy가 id를 잃는 것(null로 비우기)은 남기지 않는다: 그 id는 이 기계의 다른 project로 갔다. 앱은 이 목록으로 옛 id로 key한 줄을 옮긴다.
 - **remote 힌트.** fetch remote 가운데 `origin`, `upstream`, 이름순으로 하나를 고르고, local remote(`file:`, 경로)는 버린다. scp 꼴과 URL을 한 꼴로 맞추고 host를 소문자로, 자격·기본 port·`.git`·끝 `/`를 떼고, github.com은 path도 소문자로 한 key를 낸다. 저장소 안 하위 폴더 project는 `#<상대 경로>`를 붙인다. `ssh -G`로 alias를 풀지 않는다. 힌트는 제안만 한다: 등록 dialog가 "폴더를 잃은 project X를 여기로 relink"와 "이미 project X로 등록됨"을 보이고(`project.match`), 다른 기계의 목록과 짝을 짓는 쪽(remote 보기, 폴더 sync)이 같은 순수 함수를 쓴다.
-- **clone.** `project.clone`은 부모 폴더(입력 `parent`, 없으면 설정 `projects.folder`) 아래 `.lophn-clone-<random>`에 git clone하고 끝나면 이름을 바꿔 등록한다. 그 기계의 git 자격(`gh`, credential helper, SSH key)만 쓰고 묻는 창을 띄우지 않으며, 자격이 없으면 바로 실패하고 사람이 실행할 명령(`gh auth login`, `ssh -T git@<host>`, 22가 아닌 port면 `ssh -T -p <port> git@<host>`)을 돌려준다. 받은 저장소의 id file을 읽지 못하면(더 새 판 포함) 결과에 note를 싣고, `identity`를 주었으면 맞는 project인지 확인하지 못했다고 말한다. 자격이 박힌 URL은 거절한다. 대상 폴더가 있으면 쓰지 않는다. `identity`를 주었는데 받은 저장소의 id가 다르면 받은 것을 지우고 등록하지 않는다. 그 id를 가진 project가 이미 이 기계에 있으면 받지 않는다. 받은 저장소에 file이 없으면 등록하고 다른 기계에서 commit·push한 뒤 pull하라고 알린다. `projects.folder`는 처음 clone할 때 한 번 묻는다: agent가 사람에게 묻거나, 목록의 [Clone here]가 폴더 선택기를 연다. 묻고 받은 폴더는 `parent`로 오고, 설정이 비었거나 그 폴더가 없어졌으면 core가 그 `parent`를 설정에 기억한다. 나중에 바꾸는 길은 `lophn settings set projects.folder <path>`뿐이다.
+- **clone.** `project.clone`은 부모 폴더(입력 `parent`, 없으면 설정 `projects.folder`) 아래 `.lophn-clone-<random>`에 git clone하고 끝나면 이름을 바꿔 등록한다. 그 기계의 git 자격(`gh`, credential helper, SSH key)만 쓰고 묻는 창을 띄우지 않으며, 자격이 없으면 바로 실패하고 사람이 실행할 명령(`gh auth login`, `ssh -T git@<host>`, 22가 아닌 port면 `ssh -T -p <port> git@<host>`)을 돌려준다. 받은 저장소의 id file을 읽지 못하면(더 새 판 포함) 결과에 note를 싣고, `identity`를 주었으면 맞는 project인지 확인하지 못했다고 말한다. 자격이 박힌 URL은 거절한다. 대상 폴더가 있으면 쓰지 않는다. `identity`를 주었는데 받은 저장소의 id가 다르면 받은 것을 지우고 등록하지 않는다. 그 id를 가진 project가 이미 이 기계에 있으면 받지 않는다. 받은 저장소에 file이 없으면 등록하고 다른 기계에서 commit·push한 뒤 pull하라고 알린다. `projects.folder`는 처음 clone할 때 한 번 묻는다: agent가 사람에게 묻거나, 목록의 [Clone to this computer]가 폴더 선택기를 연다. 묻고 받은 폴더는 `parent`로 오고, 설정이 비었거나 그 폴더가 없어졌으면 core가 그 `parent`를 설정에 기억한다. 나중에 바꾸는 길은 `lophn settings set projects.folder <path>`뿐이다.
 
 ### 한 창의 목록
 
 이 컴퓨터의 창 하나의 왼쪽 sidebar와 Home의 Workspaces panel이 명단의 모든 기계의 project를 보인다(`remote.md`의 "desktop에서 다른 기계 보기"). 창은 기계마다 그 기계의 범위에서 `project.list`를 읽어 든다.
 
-- **묶기.** 기계마다의 `project.list`를 이 컴퓨터부터 명단 순서로 `matchProjects`에 넣어 `same`(id가 같다)을 한 줄로 묶는다. `suggested`(remote만 같다)는 묶지 않는다(지키는 것 7). 기계 하나 안의 `prj_`는 그 기계의 workspace key로만 쓰고 다른 기계의 기록을 가리키지 않는다.
-- **줄이 여는 것.** 이 컴퓨터에 있으면 이 컴퓨터의 project, 없으면 명단 순서의 첫 연결된 기계의 project다(고르는 화면 없이 한 줄을 연다). 그 줄 안에는 묶인 모든 기계의 session이 서고, 줄이 여는 기계가 아닌 기계의 session은 기계 꼬리표를 단다. 그 session은 이 컴퓨터의 project 안에 그 기계를 단 탭으로 열린다.
-- **이 컴퓨터에 없다.** 줄 아래 한 줄이 가져오는 길이다. git project(id가 있다)는 "Not on this computer"와 [Clone here](그 기계의 기록에 remote가 없으면 단추 없이 한 줄). git이 아닌 project는 [Link…]가 잇기 dialog를 연다. 후보는 이 컴퓨터의 git이 아닌 project 가운데 보관하지 않았고 아직 그 id가 아닌 것이다. 잇거나 받은 뒤 이 컴퓨터의 `project.list`가 바뀌어 줄이 이 컴퓨터의 project를 연다.
-- **[Clone here].** `shell:machines-clone-here { url, identity, title }`이 이 컴퓨터의 `project.clone`을 사람 자격으로 부른다. 어느 desktop 창이든 부른다. 답이 `projects_folder_unset`이면 shell main이 그 창에 붙은 OS 폴더 선택기를 열고 고른 폴더를 `parent`로 다시 부른다. 선택기를 닫으면 아무 일도 없다. `git_auth`면 "Run `<command>` in a terminal on this computer, then try again"을 보인다.
+- **기계마다 따로.** 줄은 기계를 건너 합치지 않는다. sidebar는 Workspaces 아래 이 컴퓨터의 Home·project·앱을 두고, 그 밑에 다른 기계마다 접히는 묶음(머리에 기계 이름과 상태)이 그 기계의 Home·project·앱을 든다. 묶음은 접힌 채 시작하고 창이 그 기계의 workspace를 보이면 펼친다. session은 자기 기계의 workspace 줄에 선다.
+- **같은 project.** 기계마다의 `project.list`를 이 컴퓨터부터 명단 순서로 `matchProjects`에 넣어 `same`(id가 같다)을 같은 project로 안다(줄의 `also`). `suggested`(remote만 같다)는 같은 project가 아니다(지키는 것 7). composer의 project 표시가 이것으로 새 session의 기계를 고르고, Home의 Workspaces panel이 "also on"과 이 컴퓨터에 없는 project를 보인다. 기계 하나 안의 `prj_`는 그 기계의 workspace key로만 쓰고 다른 기계의 기록을 가리키지 않는다.
+- **이 컴퓨터에 없다.** 다른 기계의 project 줄에 같은 project가 이 컴퓨터에 없으면 오른쪽 클릭 menu가 가져오는 길이다. git project(id와 remote가 있다)는 [Clone to this computer]이고 진행과 결과가 그 줄 아래 한 줄로 선다(누르면 걷힌다). git이 아닌 project는 [Link to a project on this computer…]가 잇기 dialog를 연다. 후보는 이 컴퓨터의 git이 아닌 project 가운데 보관하지 않았고 아직 그 id가 아닌 것이다. 줄 아래에 늘 서는 "Not on this computer" 줄은 두지 않는다.
+- **[Clone to this computer].** `shell:machines-clone-here { url, identity, title }`이 이 컴퓨터의 `project.clone`을 사람 자격으로 부른다. 어느 desktop 창이든 부른다. 답이 `projects_folder_unset`이면 shell main이 그 창에 붙은 OS 폴더 선택기를 열고 고른 폴더를 `parent`로 다시 부른다. 선택기를 닫으면 아무 일도 없다. `git_auth`면 "Run `<command>` in a terminal on this computer, then try again"을 보인다.
 - **꺼진 기계.** 그 기계의 줄은 이 실행 동안 마지막으로 본 대로 흐리게 남고 열리지 않는다. 다시 붙으면 새로 읽는다.
 - **등록.** 이 컴퓨터의 창 등록 dialog는 연결되어 사람의 route를 허락한 다른 기계를 맨 위에서 고를 수 있고, 그 기계의 `project.add`를 부르며 폴더는 그 기계의 폴더 목록 dialog(`project.browse`)에서 고른다.
 
@@ -120,13 +120,14 @@ ledger projects 줄 (기계별)
 - 위험 test는 git을 띄우지 않고 주입한 runner와 임시 폴더로 쓴다. 실제 git으로는 개발 core에서 손으로 확인했다. (planner)
 - 다른 기계를 보는 desktop은 폰과 같은 권한이다. 그 창에서 M의 project에 id file을 만들거나 설정을 바꾸지 않는다. (사람)
 - 묶기는 등록 dialog와 같은 `matchProjects`를 쓴다. remote만 같은 짝은 묶지 않는다(지키는 것 7). (planner)
-- 한 창의 목록에서 이 컴퓨터에 없는 project가 여러 기계에 있으면 명단 순서의 첫 연결된 기계의 것을 연다. 이유: 한 줄을 누르면 바로 열리고, 고르는 화면은 다른 기계의 session이 이미 꼬리표로 그 줄 안에 보여 쓸모가 적다. (planner)
+- 한 창의 목록은 기계마다 따로 세우고 다른 기계는 접히는 묶음이다. 이유: 같은 project를 한 줄로 합치면 어느 기계의 것을 여는지 숨고 다른 기계의 session이 이 컴퓨터의 workspace 사이에 끼어 목록이 어지러웠다(사람, 2026-11-19). 버린 안: id로 한 줄에 합치고 줄 안에 기계 꼬리표(0.23.9x).
+- 이 컴퓨터에 없는 project를 가져오는 길은 줄 아래 늘 서는 줄이 아니라 줄의 menu다. 이유: 가져올 일이 드물고 늘 서는 줄이 목록을 길게 했다(사람).
 - 꺼진 기계의 마지막으로 본 목록은 창의 메모리에만 둔다. 이유: 저장하면 새 shell data file과 그 옮기기가 생긴다. 대가: lophn을 다시 켜면 한 번도 붙지 않은 기계의 project는 줄이 없다. (planner)
-- 처음 clone의 폴더는 shell이 폴더 선택기로 받아 `parent`로 넘기고 기억은 core가 한다(설정이 비었거나 폴더가 없어졌을 때). 이유: agent의 clone과 [Clone here]가 같은 규칙 하나를 탄다. (agent)
+- 처음 clone의 폴더는 shell이 폴더 선택기로 받아 `parent`로 넘기고 기억은 core가 한다(설정이 비었거나 폴더가 없어졌을 때). 이유: agent의 clone과 [Clone to this computer]가 같은 규칙 하나를 탄다. (agent)
 
 ## 열린 것
 
-- 한 창의 목록의 묶기와 [Clone here]는 한 컴퓨터의 개발 core 둘과 headless Electron으로 보았다. 설치본 둘과 실제 원격 저장소는 보지 못했다.
+- 한 창의 목록의 같은 project 알아보기와 clone은 한 컴퓨터의 개발 core 둘과 headless Electron으로 보았다. 설치본 둘과 실제 원격 저장소는 보지 못했다.
 
 - agent가 identity route를 부를 때 그 agent가 그 project에 닿는지 보지 않는다. 다른 memory route와 같고 쓰는 것은 등록된 project 폴더의 file 하나라 그대로 둔다(이슈 `project-identity-agent-project-scope`, kept).
 

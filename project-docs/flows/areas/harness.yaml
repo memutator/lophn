@@ -637,17 +637,17 @@ flows:
       - packages/core/terminals/service.ts
     steps:
       - "agent가 `lophn tab open --coding <harness> --handoff <글>`로 부른다. 사람 token은 받지 않는다"
-      - "부른 session의 workspace가 project가 아니면 거절한다(home과 앱은 터미널이 없다)"
+      - "부른 session의 workspace가 앱이면 거절한다(앱은 터미널이 없다). project면 그 project 폴더, home이면 사람의 home 폴더에서 연다"
       - "harness가 `shell.coding_agents.favorites`에 없거나 adapter에 첫 prompt 인자 꼴이 없으면 거절하고 열 수 있는 harness id를 message에 싣는다"
       - "글을 `<data root>/handoffs/<tab>.md`(0600)에 쓴다. lophn session과 hold는 만들지 않는다"
-      - "core가 사람의 즐겨찾기 명령(`shell.coding_agents.commands`, 없으면 harness의 첫 명령) 뒤에 고정 글 \"Read the handoff at <file> …\"만 첫 prompt로 붙여 그 project에 새 터미널을 열고 그 명령을 친다. agent가 쓴 글은 터미널에 치지 않는다. 경로를 따옴표 안에 칠 수 없으면 거절한다"
-      - "열린 터미널을 tab_open(target terminal {terminal_ref})으로 넣는다. 그 project를 보이는 창이 없어도 터미널은 돈다"
+      - "core가 사람의 즐겨찾기 명령(`shell.coding_agents.commands`, 없으면 harness의 첫 명령) 뒤에 고정 글 \"Read the handoff at <file> …\"만 첫 prompt로 붙여 그 project(home이면 home 폴더)에 새 터미널을 열고 그 명령을 친다. agent가 쓴 글은 터미널에 치지 않는다. 경로를 따옴표 안에 칠 수 없으면 거절한다"
+      - "열린 터미널을 tab_open(target terminal {terminal_ref})으로 넣는다. 그 workspace를 보이는 창이 없어도 터미널은 돈다"
     outcomes:
       - id: accepted
         observe: ["disk:<data>/handoffs/<tab>.md", process:pty, response]
       - id: invalid_input
         code: invalid_input
-        when: "사람 token이 불렀다, project가 아닌 session이다, 즐겨찾기에 없거나 첫 prompt 꼴이 없는 harness다, 글이 상한(64 KiB)을 넘는다, 또는 project에 등록 폴더가 없다(터미널 열기)"
+        when: "사람 token이 불렀다, 앱 session이다, 즐겨찾기에 없거나 첫 prompt 꼴이 없는 harness다, 글이 상한(64 KiB)을 넘는다, 또는 project에 등록 폴더가 없다(터미널 열기. home은 늘 있다)"
         observe: [response]
       - id: not_found
         code: not_found
@@ -681,7 +681,7 @@ flows:
       - packages/core/terminal-agents/hold.ts
     steps:
       - "host-tab-open과 같은 판정을 거친다. 사람 token이면 invalid_input, session이 없거나 닫혔거나 다른 workspace면 not_found"
-      - "harness session이 아니거나 project workspace가 아니면 invalid_input. home과 app은 터미널이 없다"
+      - "harness session이 아니거나 project workspace가 아니면 invalid_input. hold가 project의 session만 통과시키고 앱의 headless cwd는 터미널 cwd 검사를 지나지 못한다"
       - "CLI session id가 아직 없으면(첫 turn 전) conflict. turn이 돌거나 이미 hold되어 있어도 conflict"
       - "통과하면 그 자리에서 30초 hold를 예약하고, core가 그 project에 새 터미널을 열어 그 harness의 resume 명령(adapter id, CLI session id)을 친다"
       - "그 터미널이 그 session을 쥐고(harness-tui-hold) tab_open(target terminal {terminal_ref})을 넣는다. 창이 없어도 터미널은 돈다. 터미널이 쥔 동안 그 session의 headless turn은 시작하지 않는다"

@@ -496,21 +496,21 @@ export const shellArea: Area = {
       id: "shell-left-sidebar-machines",
       title: "Shell · Left sidebar · All machines",
       description:
-        "이 컴퓨터(Studio) 창의 왼쪽 sidebar가 모든 기계의 것을 한 목록에 보인다. 같은 project(같은 id)는 기계를 건너 한 줄이다: phroner 줄 안에 이 컴퓨터의 session과 Home server의 session(Retrain the gaze model), Home server의 coding agent 터미널이 같이 서고, 이 컴퓨터가 아닌 기계의 줄은 끝에 기계 꼬리표(Home server)를 단다. 누르면 이 컴퓨터의 phroner 안에 그 기계를 단 탭으로 열린다. 같은 앱은 id로 한 줄이고(Weekly report) 다른 기계의 session은 꼬리표를 단다. 이 컴퓨터에 없는 project·앱(Grocery list, Recipes, Budget)은 줄 이름 끝에 그 기계의 꼬리표가 붙는다.",
+        "이 컴퓨터(Studio) 창의 왼쪽 sidebar. Workspaces 아래는 이 컴퓨터의 Home, project, 앱이고 그 밑에 다른 기계마다 접히는 묶음(Home server, 꺼진 Laptop)이 있다. 묶음은 접힌 채 시작하고 머리에 기계 이름과 상태(Off, 올리기), 접혔을 때 current 줄 수가 선다. 창이 그 기계의 workspace를 보이면 펼친다. 줄은 기계를 건너 합치지 않는다. Recent는 보이는 workspace에만 선다.",
       render: () => <MachinesSidebarScene current={PHRONER_HERE} />,
     },
     {
       id: "shell-left-sidebar-not-here",
-      title: "Shell · Left sidebar · Not on this computer",
+      title: "Shell · Left sidebar · Another machine's project",
       description:
-        "이 컴퓨터에 없는 project의 줄. 누르면 그 기계의 workspace를 이 창에서 연다(여기는 Home server의 Grocery list를 연 상태로 줄이 강조된다). 여러 기계에 있으면 명단 순서의 첫 연결된 기계의 것이다. 줄 아래 한 줄이 가져오는 길이다: git project는 'Not on this computer'와 [Clone here](이 컴퓨터의 projects 폴더에 clone하고 같은 id로 이어진다. 실패하면 이유나 이 컴퓨터에서 칠 git 명령이 그 아래에 선다), git이 아닌 project(Recipes)는 [Link…]가 잇기 dialog(Shell · Link a project outside git)를 연다. 설정 단추는 이 컴퓨터의 workspace에만 있다.",
+        "다른 기계의 project를 이 창에서 연 상태(Home server의 Grocery list). 그 기계 묶음이 펼쳐지고 줄이 강조된다. 이 컴퓨터에 같은 project가 없으면 줄의 오른쪽 클릭 menu가 Clone to this computer(git)나 Link to a project on this computer…(git이 아님)를 준다. clone의 진행과 결과는 줄 아래 한 줄로 선다. 설정 단추는 이 컴퓨터의 workspace에만 있다.",
       render: () => <MachinesSidebarScene current={GROCERY_THERE} />,
     },
     {
       id: "shell-left-sidebar-homes",
       title: "Shell · Left sidebar · Home per machine",
       description:
-        "Home은 합치지 않는다. 이 컴퓨터의 Home 다음에 다른 기계마다 'Home · <이름>' 줄이 서고 그 기계의 Home session이 그 안에 있다(꼬리표 없이: 줄 이름이 기계다). 여기는 Home · Home server를 연 상태다. 그 줄의 +는 그 기계의 Home에서 새 session을 연다.",
+        "Home은 기계마다 그 기계 묶음 안의 'Home' 줄이다. 여기는 Home server의 Home을 연 상태라 그 묶음이 펼쳐졌다. 그 줄의 +는 그 기계의 Home에서 새 session을 연다.",
       render: () => <MachinesSidebarScene current={HOME_THERE} />,
     },
     {

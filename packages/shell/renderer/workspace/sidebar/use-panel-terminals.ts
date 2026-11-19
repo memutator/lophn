@@ -32,7 +32,7 @@ function harnessLabel(harness: string): string {
 
 export function usePanelTerminals(
   deps: TerminalDeps | undefined,
-  /** Home이면 null이고 저장한 session이 없다. */
+  /** project 또는 Home(`home`). 앱이면 null이고 저장한 session이 없다. */
   project: string | null,
   tabs: readonly TerminalTabView[],
 ): readonly PanelTerminal[] {

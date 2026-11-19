@@ -21,7 +21,15 @@ export const terminalRefSchema = z
   .min(1)
   .max(80)
   .regex(/^[A-Za-z0-9_-]+$/);
-// 등록 폴더 참조(`<project>_<index>`).
+// 터미널이 속한 workspace다. project id이거나 Home(`home`)이다. Home의 터미널은 이 컴퓨터의 사람 home 폴더에서 열린다.
+export const HOME_TERMINAL_PROJECT = "home";
+export const terminalProjectSchema = z.union([
+  idSchema("prj"),
+  z.literal(HOME_TERMINAL_PROJECT),
+]);
+export type TerminalProject = z.infer<typeof terminalProjectSchema>;
+
+// 등록 폴더 참조(`<project>_<index>`. Home은 `home_0`).
 const folderRefSchema = terminalRefSchema;
 const generationSchema = z.number().int().min(1);
 
@@ -147,18 +155,18 @@ const errors = [
   "unavailable",
 ] as const;
 
-// 지금 core가 가진 터미널이다. project를 주면 그 project의 것만이다.
+// 지금 core가 가진 터미널이다. project(Home이면 `home`)를 주면 그 workspace의 것만이다.
 export const terminalsList = defineRead({
   resource: "terminals",
   method: "list",
   name: "TerminalsList",
-  input: z.strictObject({ project: idSchema("prj").optional() }),
+  input: z.strictObject({ project: terminalProjectSchema.optional() }),
   output: z.strictObject({ terminals: z.array(terminalRuntimeSchema) }),
   actors: ["user"],
   errors,
 });
 
-// project의 폴더에서 터미널을 연다. cwd는 등록 폴더 안이어야 하고(아니면 unreadable) folder_ref를 core가 다시 정한다. command는 첫
+// project의 폴더(Home이면 사람의 home 폴더)에서 터미널을 연다. cwd는 등록 폴더 안이어야 하고(아니면 unreadable) folder_ref를 core가 다시 정한다. command는 첫
 // 출력 뒤 잠잠할 때 한 번 넣고(한 줄이면 실행, 여러 줄이면 붙여 넣기만), resume은 그 harness의 resume 명령을 친다. 같은 key는 같은
 // 답이다. tab이 있으면 그 project를 보이는 창에 터미널 탭을 연다(창이 없어도 터미널은 열린다).
 export const terminalsOpen = defineMemory({
@@ -167,7 +175,7 @@ export const terminalsOpen = defineMemory({
   name: "TerminalsOpen",
   changes: [],
   input: z.strictObject({
-    project: idSchema("prj"),
+    project: terminalProjectSchema,
     folder_ref: folderRefSchema.optional(),
     cwd: z.string().min(1).max(4096).optional(),
     command: terminalCommandSchema.optional(),
@@ -313,7 +321,7 @@ export const terminalsSavedSessions = defineRead({
   resource: "terminals",
   method: "saved_sessions",
   name: "TerminalsSavedSessions",
-  input: z.strictObject({ project: idSchema("prj") }),
+  input: z.strictObject({ project: terminalProjectSchema }),
   output: z.strictObject({ sessions: z.array(terminalAgentSessionSchema) }),
   reads: [{ name: "terminal_saved_sessions", id: (input) => input.project }],
   actors: ["user"],
@@ -327,7 +335,7 @@ export const terminalsRenameSaved = defineMemory({
   name: "TerminalsRenameSaved",
   changes: [{ name: "terminal_saved_sessions", id: (input) => input.project }],
   input: z.strictObject({
-    project: idSchema("prj"),
+    project: terminalProjectSchema,
     harness: harnessSchema,
     external_session: externalSessionSchema,
     name: z.string().min(1).max(200).nullable(),

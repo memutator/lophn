@@ -1,0 +1,22 @@
+id: sidebar-machine-groups
+version: 0.23.93
+title: 왼쪽 sidebar를 기계마다 나누고 Recent를 보이는 workspace에만 두며, session 탭을 다른 workspace로 끌어 옮긴다
+modules: [packages/shell/renderer, tools]
+change: |
+  - Recent는 다시 이 창이 보이는 workspace에만 선다(0.23.93에서 모든 workspace로 넓혔던 것을 되돌렸다).
+  - 줄을 기계를 건너 합치지 않는다. Workspaces 아래는 이 컴퓨터의 Home·project·앱이고, 그 밑에 다른 기계마다 접히는 묶음(머리에 기계 이름, 꺼짐·올리기 상태, 접혔을 때 current 줄 수)이 그 기계의 workspace를 든다. 묶음은 접힌 채 시작하고 창이 그 기계의 workspace를 보이면 펼친다. 묶음 안의 Home은 "Home"이다.
+  - project 줄 아래의 "Not on this computer" 줄(Clone here, Link…, "It has no git remote to clone from")을 지웠다. 다른 기계의 project 줄 오른쪽 클릭 menu가 Clone to this computer / Link to a project on this computer…를 주고, clone의 진행과 결과가 그 줄 아래 한 줄로 선다.
+  - session 탭(Agent 탭)을 탭 줄이나 sidebar의 session 줄에서 다른 workspace 줄로 끌어 놓으면 탭이 그 workspace로 옮겨 간다. session은 제 workspace에 남고 sidebar 줄은 탭이 있는 workspace 아래로 간다. 이 컴퓨터의 session 탭은 다른 기계의 workspace로 옮기지 않는다.
+  - Home의 Workspaces panel은 기계마다의 줄에서 이 컴퓨터에 없는 project·앱만 골라 보이고, 그 줄의 "Not on this computer" 글은 "On <기계>"가 되었다. palette의 project는 기계마다 한 행이다.
+why: |
+  모든 기계의 줄을 한 목록에 합치자 어느 기계의 것을 여는지 숨고 다른 기계의 session과 끝난 session이 목록을 채웠다. 사람이 기계별 묶음과 접기, 늘 서는 안내 줄 지우기, 탭 자리 옮기기를 요청했다.
+decisions:
+  - text: >-
+      `mergeWorkspaces`를 `machineWorkspaces`로 바꿨다. 같은 project는 줄을 합치지 않고 `also`로만 적는다(composer의 기계 고르기, Workspaces panel의 also on이 쓴다).
+    by: agent
+  - text: >-
+      옮기기는 Agent 탭만이다. 터미널 탭은 PTY와 saved session이 project에 묶여 옮기면 cwd와 Recent가 어긋난다.
+    by: agent
+  - text: >-
+      다른 기계 묶음의 펼침은 창 메모리에만 둔다. 이유: 저장하면 shell data file이 하나 더 생긴다.
+    by: agent

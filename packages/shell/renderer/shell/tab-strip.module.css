@@ -8,8 +8,9 @@
   min-width: var(--space-0);
 }
 
-/* tab은 이름 폭만큼이다. 줄이 모자라면 먼저 group이 접히고(data-fold), 그래도 모자라면 고르지 않은 tab이 좁아지고 최소 폭에서
-   가로 scroll이 된다. 고른 tab은 좁아지지 않는다(아래 .tab[data-active]). 양 끝 곡선이 잘리지 않게 곡선 폭만큼 띄운다. */
+/* tab은 내용 폭만큼이되 최소·최대 폭이 있다(VS Code). 줄이 모자라면 먼저 group이 접히고(data-fold), 그래도 모자라면 tab은
+   좁아지지 않고 가로 scroll이 된다. 양 끝 곡선이 잘리지 않게 곡선 폭만큼 띄운다. scrollbar는 줄어든 높이만큼 tab이 card에서
+   떠 버려서 감춘다(wheel과 고른 tab 따라가기로 scroll한다). */
 /* position이 있어야 tab.offsetLeft가 이 줄 기준이다. 없으면 frame 기준이라 scroll 보정이 첫 tab을 왼쪽으로 밀어 잘라 낸다. */
 .list {
   position: relative;
@@ -44,10 +45,12 @@
 .tab {
   position: relative;
   display: flex;
-  flex: 0 1 auto;
+  flex: none;
   gap: var(--space-3);
   align-items: center;
-  min-width: var(--space-11);
+  /* 96px ~ 200px. 긴 이름은 .title이 ...로 자르고 전체 이름은 tooltip에 있다. */
+  min-width: calc(var(--space-12) + var(--space-9));
+  max-width: calc(var(--space-12) * 3 + var(--space-4));
   height: var(--space-9);
   padding-inline: var(--space-4) var(--space-2);
   color: var(--color-text-secondary);
@@ -72,15 +75,18 @@
   position: relative;
 }
 
-/* 줄이 넘치는지 잴 때 tab이 좁아지기 전 폭으로 잰다. */
-.list[data-measure] .tab {
-  flex-shrink: 0;
+/* group은 칸마다 이름이 있어 tab 하나의 최대 폭을 두지 않고 이름마다 자른다(.title). */
+/* 기계 꼬리표가 붙은 tab은 꼬리표 폭만큼 최대 폭을 늘린다. 아니면 이름이 몇 글자만 남는다. */
+.tab:has(.machine) {
+  max-width: calc(var(--space-12) * 3 + var(--space-11) + var(--space-4));
 }
 
-/* 고른 tab은 이름이 길어도 줄이지 않고 다 보인다. 최대 폭(strip 폭의 80%)은 TabStrip이 inline으로 준다. */
+.tab[data-split] {
+  min-width: var(--space-11);
+  max-width: none;
+}
+
 .tab[data-active] {
-  flex-shrink: 0;
-  width: max-content;
   color: var(--color-text-primary);
   background: var(--color-surface-base);
 }
@@ -147,23 +153,27 @@
   align-items: center;
 }
 
-/* 고르지 않은 tab의 긴 이름은 이 폭에서 ...로 자른다. 고른 tab은 다 보인다. */
+/* 이름이 tab의 남는 폭을 채우고 모자라면 ...로 잘린다. 꼬리표와 닫기 자리는 줄지 않는다. */
 .title {
   flex: 1;
   min-width: var(--space-0);
-  max-width: calc(var(--space-12) * 3);
   overflow: hidden;
   font-size: var(--type-small-size);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* 이 컴퓨터가 아닌 기계의 tab에 붙는 꼬리표 자리. 이름이 먼저 줄고 이름이 감춰지는 자리에서는 같이 감춰진다. */
+/* 이 컴퓨터가 아닌 기계의 tab에 붙는 꼬리표 자리. 이름만 잘리도록 폭을 고정하고(긴 기계 이름은 꼬리표 안에서 ...), 이름이
+   감춰지는 자리에서는 같이 감춰진다. */
 .machine {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: none;
   min-width: var(--space-0);
-  max-width: calc(var(--space-12) * 2);
+  max-width: calc(var(--space-12) + var(--space-4));
+}
+
+.tab[data-split] .title {
+  max-width: calc(var(--space-12) * 2 + var(--space-9));
 }
 
 .close {
@@ -179,10 +189,6 @@
   border: none;
   border-radius: var(--radius-full);
   visibility: hidden;
-}
-
-.tab[data-active] .title {
-  max-width: none;
 }
 
 /* 닫기 자리가 보이는 때: 고른 tab, 고른 group의 focus tab, hover한 tab(고른 group은 그 칸). ●나 상태 점이 있으면 늘 보인다. */

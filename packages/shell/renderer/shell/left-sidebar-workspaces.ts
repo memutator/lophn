@@ -6,7 +6,7 @@
 //   탭이 열렸는지는 workspace마다 이 창이 아는 그 workspace의 layout에서 읽는다(`openTitles`). Agent 탭은 저장하지 않아 이 창 메모리의
 //   layout뿐이다: 이 창이 연 적 없는 workspace(앱을 다시 켠 뒤 처음)는 탭이 없어 도는·못 본 session만 current다. 닫기 전에는 current에 남는다.
 // - lophn session은 첫 메시지를 보낼 때 생긴다. 그 전의 Agent 탭은 이 창이 보이는 workspace의 draft 줄("New session")이다.
-// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 모든 workspace에 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
+// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 workspace에만 둔다(다른 workspace까지 두면 목록이 끝난 줄로 찬다). 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 workspace의 것만 온다.
 //   다른 workspace는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
@@ -17,8 +17,8 @@
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
 // - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 Main desk 묶음에 둔다.
-// - 줄(workspace)은 기계를 건너 합친 것이다(`desktop/workspaces/projects/merged.ts`). session은 자기 기계의 workspace가 든 줄에
-//   서고, 줄이 여는 기계가 아닌 기계의 session은 그 기계의 꼬리표를 단다. 꺼진 기계의 session은 마지막으로 본 대로 흐리게 남는다.
+// - 줄(workspace)은 기계마다 따로다(`desktop/workspaces/projects/machine-workspaces.ts`). session은 자기 기계의 workspace 줄에 선다.
+//   꺼진 기계의 session은 마지막으로 본 대로 흐리게 남는다.
 // - lophn 이름(`lophn_home`, `lophn_<app id>`)은 기계마다 같은 id라 이 컴퓨터의 session에만 쓴다.
 import { t } from "@lophn/i18n";
 
@@ -29,10 +29,7 @@ import {
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../desktop/machines/data.ts";
-import {
-  copyKey,
-  type MergedWorkspace,
-} from "../desktop/workspaces/projects/merged.ts";
+import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
 import {
   activityDot,
   byCreated,
@@ -98,8 +95,8 @@ export interface WorkspacesInput {
   readonly now: number;
   /** 이 창이 보이는 workspace. */
   readonly current: WorkspaceRef;
-  /** 기계를 건너 합친 줄(Home, project, 앱). */
-  readonly rows: readonly MergedWorkspace[];
+  /** 기계마다의 줄(Home, project, 앱). */
+  readonly rows: readonly MachineWorkspace[];
   /** 모든 기계의 session. */
   readonly entries: readonly OnMachine<SessionEntry>[];
   /** 꺼진 기계. 그 session은 마지막으로 본 줄이다. */
@@ -157,12 +154,19 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       ? lophnRow
       : undefined;
   };
-  // 기계의 workspace → 그것이 든 줄.
-  const rowOf = new Map<string, MergedWorkspace>();
+  // 기계의 workspace → 그 줄.
+  const copyKey = (machine: string | null, key: string) =>
+    `${machine ?? ""}\0${key}`;
+  const rowOf = new Map<string, MachineWorkspace>();
+  const byKey = new Map(input.rows.map((row) => [workspaceKey(row.ref), row]));
   for (const row of input.rows) {
-    for (const copy of row.copies) {
-      rowOf.set(copyKey(copy.machine, copy.key), row);
-    }
+    rowOf.set(
+      copyKey(
+        row.ref.machine ?? null,
+        row.ref.kind === "home" ? "home" : row.ref.id,
+      ),
+      row,
+    );
   }
   const current = new Map<string, SidebarSession[]>();
   const recent = new Map<string, SidebarSession[]>();
@@ -177,14 +181,23 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       copyKey(entry.machine, entry.workspace?.id ?? "home"),
     );
     if (row === undefined || entry.archived) continue;
-    const workspace = workspaceKey(row.ref);
+    const own = workspaceKey(row.ref);
+    // 탭을 다른 workspace로 옮겼으면 줄도 탭이 있는 workspace 아래다. 자기 workspace에도 탭이 있으면 자기 자리다.
+    const moved = input.openTitles.get(own)?.has(entry.session)
+      ? undefined
+      : [...input.openTitles].find(
+          ([key, open]) => open.has(entry.session) && byKey.has(key),
+        )?.[0];
+    const workspace = moved ?? own;
+    const shownOn = moved === undefined ? row : byKey.get(moved)!;
     const agent =
       entry.agent === null
         ? undefined
         : agentOf(entry.agent, entry.machine, workspace);
     if (agent === undefined) continue;
+    // 줄이 선 workspace의 기계가 아닌 session은 그 기계의 꼬리표를 달고 그 기계를 단 탭으로 열린다.
     const machine =
-      entry.machine === (row.ref.machine ?? null) || entry.machine === null
+      entry.machine === (shownOn.ref.machine ?? null) || entry.machine === null
         ? {}
         : { machine: entry.machine };
     const offline =
@@ -223,7 +236,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       hiddenAt: input.hidden.get(entry.session),
     });
     if (place === "current") add(current, workspace, item);
-    else if (place === "recent") add(recent, workspace, item);
+    else if (place === "recent" && workspace === here) add(recent, here, item);
   }
 
   for (const draft of input.drafts) {
@@ -310,9 +323,6 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       // 이름 바꾸기와 닫기는 그 기계의 입력 허락이 있어야 한다. 이 줄은 보기와 열기만 한다.
       actions: false,
       at: Date.parse(terminal.last_active_at ?? "") || 0,
-      ...(terminal.machine === (row.ref.machine ?? null)
-        ? {}
-        : { machine: terminal.machine }),
       ...(input.offline.has(terminal.machine)
         ? { offline: true as const }
         : {}),
@@ -329,7 +339,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const order = { session: 0, draft: 1, terminal: 2, workflow: 3 };
   const stable = (a: SidebarSession, b: SidebarSession) =>
     a.kind === b.kind ? byCreated(a.ref, b.ref) : order[a.kind] - order[b.kind];
-  const workspace = (row: MergedWorkspace): SidebarWorkspace => {
+  const workspace = (row: MachineWorkspace): SidebarWorkspace => {
     const { ref, name } = row;
     const key = workspaceKey(ref);
     const waiting: SidebarSession[] =
@@ -367,7 +377,8 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       name,
       current: groups.filter((group) => group.items.length > 0),
       recent: (recent.get(key) ?? []).sort(byNewest),
-      ...(row.away === null ? {} : { away: row.away }),
+      also: row.also,
+      ...(row.listed === undefined ? {} : { listed: row.listed }),
       ...(row.offline ? { offline: true as const } : {}),
     };
   };

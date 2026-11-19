@@ -1110,7 +1110,9 @@ export type PaneZone = DropSide | "center";
 export type TabDropHit =
   | { readonly kind: "strip"; readonly before: string | null }
   | { readonly kind: "pane"; readonly target: string; readonly zone: PaneZone }
-  | { readonly kind: "stack"; readonly target: string; readonly index: number };
+  | { readonly kind: "stack"; readonly target: string; readonly index: number }
+  /** 왼쪽 sidebar의 workspace 줄(`workspaceKey`). 탭을 그 workspace로 옮긴다. desk 밖의 일이라 창이 정한다. */
+  | { readonly kind: "workspace"; readonly target: string };
 
 /**
  * ok면 놓을 수 있고, full은 group이 가득 차서 못 놓고, none은 의미가 없다(자기 자신, 바뀌는 것이 없음, group 통째로
@@ -1124,6 +1126,7 @@ export function tabDropState(
   hit: TabDropHit,
 ): TabDropState {
   if (!desk.tabs.some((tab) => tab.key === item.key)) return "none";
+  if (hit.kind === "workspace") return "none";
   if (hit.kind === "strip") return "ok";
   if (hit.kind === "stack") {
     if (item.whole) return "none";
@@ -1161,7 +1164,9 @@ export function applyTabDrop(
   item: TabDragItem,
   hit: TabDropHit,
 ): Desk {
-  if (tabDropState(desk, item, hit) !== "ok") return desk;
+  if (tabDropState(desk, item, hit) !== "ok" || hit.kind === "workspace") {
+    return desk;
+  }
   if (hit.kind === "stack") {
     return stackTab(desk, hit.target, item.key, hit.index);
   }

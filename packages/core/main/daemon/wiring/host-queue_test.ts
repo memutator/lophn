@@ -384,7 +384,7 @@ test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마
 });
 
 // handoff 글은 agent가 쓴 것이다. 깨지면 열 수 없는 자리의 요청이 data root에 file을 남기거나, 글이 터미널 쪽으로 새거나, file이 남에게 읽힌다.
-test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에 없는 harness면 invalid_input이고 file도 요청도 남지 않는다", async () => {
+test("coding handoff는 사람 token, 앱 session, 즐겨찾기에 없는 harness면 invalid_input이고 file도 요청도 남지 않는다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   try {
     const { queue, open, terminals } = setup(true, root);
@@ -393,9 +393,8 @@ test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에
       target: { coding: { harness, handoff: "text" } },
     });
     assert.equal(code(await open(person, coding("claude"))), "invalid_input");
-    // 앱 session과 home session.
+    // 앱 session. 앱에는 터미널이 없다.
     assert.equal(code(await open(agent(1), coding("claude"))), "invalid_input");
-    assert.equal(code(await open(agent(4), coding("claude"))), "invalid_input");
     // 즐겨찾기에 없는 harness, 즐겨찾기지만 첫 prompt 인자가 없는 harness.
     const unknown = await open(agent(3), coding("codex"));
     assert.equal(code(unknown), "invalid_input");
@@ -434,6 +433,25 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 터미널에
       (request as { payload: { target: unknown } }).payload.target,
       { terminal: { terminal_ref: "trm_1" } },
     );
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});
+
+// Home의 터미널은 `home` project로 열리고 탭은 Home을 보이는 창에 간다. 깨지면 home agent의 handoff가 project 터미널로 새거나 열리지 않는다.
+test("home session의 coding handoff는 home 터미널을 열고 그 탭은 Home workspace로 간다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
+  try {
+    const { queue, open, terminals } = setup(true, root);
+    const host = connect(queue, [{ kind: "home" }]);
+    const opened = await open(agent(4), {
+      target: { coding: { harness: "claude", handoff: "text" } },
+    });
+    assert.ok(opened.ok);
+    assert.equal(terminals[0]?.project, "home");
+    const request = host.next();
+    assert.equal(request?.kind, "tab_open");
+    assert.deepEqual(request?.workspace, { kind: "home" });
   } finally {
     await rm(root, { recursive: true });
   }

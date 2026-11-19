@@ -21,7 +21,7 @@ import type {
   ProjectItem,
   ProjectsSource,
 } from "../desktop/workspaces/projects/source.ts";
-import type { MergedWorkspace } from "../desktop/workspaces/projects/merged.ts";
+import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
 import { RegisterDialog } from "../desktop/workspaces/register-dialog.tsx";
 import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { actionIcons, commonIcons, homeIcons } from "../icons/mod.ts";
@@ -55,8 +55,8 @@ export interface WorkspacesPanelProps {
 }
 
 export interface PanelElsewhere {
-  /** 기계를 건너 합친 줄(`mergeWorkspaces`). */
-  readonly rows: readonly MergedWorkspace[];
+  /** 기계마다의 줄(`machineWorkspaces`). */
+  readonly rows: readonly MachineWorkspace[];
   /** 기계 id → 명단의 이름. */
   readonly names: ReadonlyMap<string, string>;
   /** 이 컴퓨터에 없는 줄을 눌렀다. 그 기계의 workspace를 연다. */
@@ -147,7 +147,7 @@ export function WorkspacesPanel({
         ? [
             [
               row.ref.id,
-              row.copies
+              row.also
                 .filter((copy) => copy.machine !== null)
                 .map((copy) => nameOf(copy.machine)),
             ] as const,
@@ -155,11 +155,33 @@ export function WorkspacesPanel({
         : [],
     ),
   );
-  const away = (kind: "project" | "app") =>
-    (elsewhere?.rows ?? []).filter(
-      (row) => row.ref.kind === kind && row.ref.machine !== undefined,
+  // 이 컴퓨터에 없는 것만 둔다: 같은 project(`also`에 이 컴퓨터)와 같은 id의 앱은 이 컴퓨터의 줄이 이미 있다. 기계가 여럿이면
+  // 처음 나온 기계의 줄 하나다.
+  const away = (kind: "project" | "app") => {
+    const rows = elsewhere?.rows ?? [];
+    const hereApps = new Set(
+      rows.flatMap((row) =>
+        row.ref.kind === "app" && row.ref.machine === undefined
+          ? [row.ref.id]
+          : [],
+      ),
     );
-  const awayRow = (row: MergedWorkspace) => {
+    const seen = new Set<string>();
+    return rows.filter((row) => {
+      if (row.ref.kind !== kind || row.ref.machine === undefined) return false;
+      if (row.ref.kind === "app") {
+        if (hereApps.has(row.ref.id) || seen.has(row.ref.id)) return false;
+        seen.add(row.ref.id);
+        return true;
+      }
+      if (row.also.some((copy) => copy.machine === null)) return false;
+      const same = row.listed?.identity ?? null;
+      if (same !== null && seen.has(same)) return false;
+      if (same !== null) seen.add(same);
+      return true;
+    });
+  };
+  const awayRow = (row: MachineWorkspace) => {
     const { ref } = row;
     if (ref.kind === "home" || ref.machine === undefined) return null;
     return (
@@ -172,11 +194,7 @@ export function WorkspacesPanel({
         title={row.name}
         trailing={<MachineTag name={nameOf(ref.machine)} />}
         meta={t(
-          row.offline
-            ? "machines.panel.off"
-            : ref.kind === "project"
-              ? "machines.group.not-here"
-              : "machines.panel.app-there",
+          row.offline ? "machines.panel.off" : "machines.panel.app-there",
           { name: nameOf(ref.machine) },
         )}
         onClick={row.offline ? undefined : () => elsewhere?.onOpen(ref)}

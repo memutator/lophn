@@ -6,7 +6,7 @@
 // 시작하는 글은 명령 창이 맡는다.
 
 import { t } from "@lophn/i18n";
-import { Popover, Tooltip } from "@lophn/ui/overlay";
+import { Popover, PopoverRow, Tooltip } from "@lophn/ui/overlay";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import {
@@ -127,6 +127,8 @@ interface AgentComposerProps {
   /** 입력칸 밖 아래 줄의 자리. 프로젝트 또는 앱 하나다. */
   /** 이 대화의 자리. home은 null이라 자리 칸을 그리지 않는다. */
   workspace: { readonly kind: "project" | "app"; readonly name: string } | null;
+  /** 자리 chip에 붙는 기계. 없으면 기계를 보이지 않는다. */
+  machine?: ComposerMachine;
   /** 할당 요약 한 줄. */
   permissionSummary: string;
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
@@ -166,6 +168,20 @@ interface AgentComposerProps {
   focusSignal?: number;
   /** agent command가 composer를 부르는 통로. 입력칸이 있는 동안만 값이 있다. */
   keys: { current: ComposerKeys | null };
+}
+
+/** 자리 chip의 기계. `choices`가 있으면 chip이 기계를 고르는 menu를 연다(아직 만들지 않은 새 session만). */
+export interface ComposerMachine {
+  /** chip에 붙는 기계 꼬리표. */
+  readonly tag: ReactNode;
+  readonly choices?: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly current: boolean;
+    /** 있으면 고를 수 없고 이 글이 이유로 줄 끝에 보인다. */
+    readonly unavailable?: string;
+  }[];
+  readonly onPick?: (key: string) => void;
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -634,20 +650,11 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       </div>
       <div className={styles.scope} data-composer-scope="">
         {props.workspace === null ? null : (
-          <span
-            className={styles.workspace}
-            data-workspace-kind={props.workspace.kind}
-          >
-            <Icon
-              icon={
-                props.workspace.kind === "app"
-                  ? workspaceIcons.appPanel
-                  : workspaceIcons.folder
-              }
-              pixels={iconPixels("small")}
-            />
-            {props.workspace.name}
-          </span>
+          <WorkspaceChip
+            workspace={props.workspace}
+            machine={props.machine}
+            locked={locked || working}
+          />
         )}
         {props.permissionSummary === "" ? null : (
           <Popover
@@ -692,5 +699,80 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
         )}
       </div>
     </div>
+  );
+}
+
+function WorkspaceChip({
+  workspace,
+  machine,
+  locked,
+}: {
+  workspace: { readonly kind: "project" | "app"; readonly name: string };
+  machine: ComposerMachine | undefined;
+  locked: boolean;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const icon =
+    workspace.kind === "app" ? workspaceIcons.appPanel : workspaceIcons.folder;
+  const choices = machine?.choices;
+  if (machine === undefined || choices === undefined) {
+    return (
+      <span className={styles.workspace} data-workspace-kind={workspace.kind}>
+        <Icon icon={icon} pixels={iconPixels("small")} />
+        {workspace.name}
+        {machine?.tag}
+      </span>
+    );
+  }
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      placement="beside"
+      trigger={
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={icon}
+          trailingIcon={conversationIcons.expand}
+          disabled={locked}
+          data-workspace-kind={workspace.kind}
+          data-composer-machine=""
+        >
+          {workspace.name}
+          {machine.tag}
+        </Button>
+      }
+    >
+      <div
+        className={styles.menu}
+        role="group"
+        aria-label={t("conversation.label.run-on-machine")}
+      >
+        {choices.map((choice) => (
+          <PopoverRow
+            key={choice.key}
+            disabled={choice.unavailable !== undefined}
+            onSelect={() => {
+              setOpen(false);
+              if (!choice.current) machine.onPick?.(choice.key);
+            }}
+          >
+            <span className={styles.check}>
+              {choice.current ? (
+                <Icon
+                  icon={conversationIcons.current}
+                  pixels={iconPixels("base")}
+                />
+              ) : null}
+            </span>
+            {choice.label}
+            {choice.unavailable === undefined ? null : (
+              <span className={styles.reason}>{choice.unavailable}</span>
+            )}
+          </PopoverRow>
+        ))}
+      </div>
+    </Popover>
   );
 }

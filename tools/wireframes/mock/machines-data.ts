@@ -1,14 +1,14 @@
 // 한 창의 목록 gallery의 가짜 기계 셋: 이 컴퓨터(Studio), 붙어 있는 Home server, 꺼진 Laptop. 줄은 renderer의 순수 함수
-// (`mergeWorkspaces`, `sidebarWorkspaces`)가 이 목록에서 짓는다. 이 컴퓨터의 project·앱 id는 gallery의 fake projects·apps와 같다
+// (`machineWorkspaces`, `sidebarWorkspaces`)가 이 목록에서 짓는다. 이 컴퓨터의 project·앱 id는 gallery의 fake projects·apps와 같다
 // (Workspaces panel이 그것을 읽는다).
 import type { SessionEntry } from "../../../packages/shell/renderer/desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../../../packages/shell/renderer/desktop/machines/data.ts";
 import {
   type ListedProject,
   type MachineLists,
-  type MergedWorkspace,
-  mergeWorkspaces,
-} from "../../../packages/shell/renderer/desktop/workspaces/projects/merged.ts";
+  type MachineWorkspace,
+  machineWorkspaces,
+} from "../../../packages/shell/renderer/desktop/workspaces/projects/machine-workspaces.ts";
 import type { WorkspaceRef } from "../../../packages/shell/renderer/shell/desk-model.ts";
 import type { SidebarWorkspace } from "../../../packages/shell/renderer/shell/left-sidebar-model.ts";
 import {
@@ -129,9 +129,9 @@ function lists(laptop: boolean): MachineLists[] {
   ];
 }
 
-/** 기계마다의 목록을 합친 줄. Laptop을 넣으면 꺼진 기계의 줄도 선다. */
-export function machineRows(laptop = false): MergedWorkspace[] {
-  return mergeWorkspaces(lists(laptop), homeName);
+/** 기계마다의 줄. Laptop을 넣으면 꺼진 기계의 줄도 선다. */
+export function machineRows(laptop = false): MachineWorkspace[] {
+  return machineWorkspaces(lists(laptop), homeName);
 }
 
 type Row = readonly [

@@ -21,6 +21,9 @@ import {
   sourceWorkspaceOf,
 } from "../agent/tab-fields.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { newSessionKey } from "../../conversation/agent-view-model.ts";
+import type { ProjectCopy } from "../agent/machine-copies.ts";
 import type { Desk, WorkspaceRef } from "../../shell/desk-model.ts";
 import { whereInDesk } from "../../shell/desk-model.ts";
 import type { TabItem } from "../model.ts";
@@ -149,6 +152,62 @@ export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
   return true;
 }
 
+/**
+ * 아직 session이 없는 탭을 같은 project의 다른 기계 사본으로 옮긴다. agent도 그 기계의 것으로 맞춘다: lophn(`lophn_<project>`)은
+ * project마다 id가 달라 그 기계의 사본 project의 lophn으로 바꾸고, 그 밖의 agent(내장 coding agent, 정의 file의 agent)는 그 기계가
+ * 알면 그대로 쓰고 모르면 그 기계의 lophn으로 떨어진다(더 단순하고, 말이 엉뚱한 agent로 가지 않는다). 그 기계가 읽히지 않으면
+ * 탭을 건드리지 않는다. 쓰던 글은 새 draft key로 옮긴다.
+ */
+async function rebindToCopy(
+  tab: TabItem,
+  host: TabHost,
+  copy: ProjectCopy,
+): Promise<void> {
+  const agent = agentOf(tab);
+  const from = workspaceOf(tab);
+  if (agent === null || from === null || sessionOf(tab) !== null) return;
+  const to = { kind: "project", id: copy.project } as const;
+  const lophn = `lophn_${copy.project}`;
+  const faceOn = (assignment: string) =>
+    host
+      .machineData(copy.machine)
+      .agentViewSource({ assignment, workspace: to })
+      .agent();
+  let next = isLophn(agent) ? lophn : agent;
+  let face = await faceOn(next);
+  if (!face.ok && next !== lophn) {
+    next = lophn;
+    face = await faceOn(next);
+  }
+  if (!face.ok) return;
+  const old = await factoryOf(
+    tab,
+    host,
+  )?.({
+    assignment: agent,
+    workspace: sourceWorkspaceOf(from),
+  }).agent();
+  const drafts = host.agentView?.drafts;
+  if (drafts !== undefined && old?.ok === true) {
+    const oldKey = newSessionKey(old.value);
+    const newKey = newSessionKey(face.value);
+    const held = drafts.draft(oldKey);
+    if (oldKey !== newKey && drafts.draft(newKey).text === "") {
+      drafts.save(newKey, {
+        text: held.text,
+        selection: held.selection,
+        attachments: held.attachments,
+      });
+      drafts.save(oldKey, { text: "", selection: [0, 0], attachments: [] });
+    }
+  }
+  // 탭의 기계 칸은 workspace의 기계와 다를 때만 둔다(없으면 workspace의 기계다).
+  host.patchTab(tab.key, (current) => ({
+    machine: copy.machine === host.machine ? undefined : copy.machine!,
+    fields: { ...current.fields, agent: next, workspace: copy.project },
+  }));
+}
+
 /** 탭 하나의 Agent 화면이 작업대에 닿는 길. */
 function viewHost(
   tab: TabItem,
@@ -273,9 +332,12 @@ export const agentKind: TabKindDef = {
       <>
         <ReportVisible session={sessionOf(tab)} />
         <AgentTab
-          key={tab.key}
+          key={`${tab.key}|${tab.machine ?? ""}|${workspace}`}
           agent={agent}
           workspace={workspace === HOME ? null : workspace}
+          machine={tab.machine ?? host.machine}
+          workspaceMachine={host.machine}
+          onRebind={(copy) => void rebindToCopy(tab, host, copy)}
           slice={slice}
           session={sessionOf(tab)}
           onSession={(session) =>

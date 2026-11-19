@@ -50,6 +50,13 @@
   align-items: center;
 }
 
+/* 끄는 session·탭을 놓을 workspace 줄. */
+.workspaceHead[data-drop-over] {
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-focus);
+  background: var(--color-surface-muted);
+}
+
 .workspaceHead .workspaceRow {
   flex: 1;
   width: auto;
@@ -92,6 +99,44 @@
   gap: var(--space-1);
   min-height: var(--space-0);
   overflow: auto;
+}
+
+/* 다른 기계 묶음. 머리를 누르면 펼치고 접는다. */
+.machineGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-block-start: var(--space-3);
+}
+
+.machineHead {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-sm-height);
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.machineHead:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+/* 묶음 안의 workspace는 머리보다 한 칸 들어가 어느 기계의 것인지 보인다. */
+.machineGroup .workspaceGroup {
+  padding-inline-start: var(--space-4);
+}
+
+.machineGroup[data-offline] .machineHead {
+  opacity: 0.6;
 }
 
 .workspaceGroup {

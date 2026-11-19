@@ -305,19 +305,19 @@ flows:
   # ---------- shell 기본 session 정책 ----------
   # ---------- 한 창의 목록 ----------
   - id: machine-lists
-    title: "이 컴퓨터의 창 하나의 목록이 모든 기계의 Home, project, 앱, session을 기계 꼬리표와 함께 보인다"
+    title: "이 컴퓨터의 창 하나의 목록이 모든 기계의 Home, project, 앱, session을 기계마다 접히는 묶음으로 보인다"
     actor: person
     entries: [ui:machine-lists]
     when: "이 컴퓨터의 창이다. 창은 기계에 묶이지 않아 모든 기계를 한 목록에서 읽는다"
     boundary: [shell]
     code:
       - packages/shell/renderer/shell/use-left-sidebar.ts
-      - packages/shell/renderer/desktop/workspaces/projects/merged.ts
+      - packages/shell/renderer/desktop/workspaces/projects/machine-workspaces.ts
       - packages/shell/renderer/shell/left-sidebar-workspaces.ts
       - packages/shell/renderer/shell/left-sidebar.tsx
       - packages/shell/renderer/shell/workspaces-panel.tsx
       - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
-      - packages/shell/renderer/workspace/sidebar/away-line.tsx
+      - packages/shell/renderer/workspace/sidebar/clone-note.tsx
       - packages/shell/renderer/workspace/kinds/agent.tsx
       - packages/shell/renderer/shell/tab-strip.tsx
       - packages/shell/renderer/desktop/palette/core-catalog.ts
@@ -325,24 +325,48 @@ flows:
       - packages/shell/renderer/desktop/router.ts
     steps:
       - "창이 사는 동안 이 컴퓨터와 명단의 기계(지운 것 빼고)마다 그 기계의 범위에서 project.list, apps/list, session store, session 제목(`sessions` 변경과 session 줄이 바뀔 때 다시 읽는다. 창에 하나이고 탭 줄과 sidebar가 같이 쓴다), 다른 기계는 coding_sessions/list(`StateChanged{coding_sessions}`에 다시 읽는다)를 읽어 든다(workspace를 옮겨도 다시 읽지 않는다). 꺼진 기계는 이 실행 동안 마지막으로 본 목록과 session을 남긴다(저장하지 않는다)"
-      - "Home은 합치지 않는다: 이 컴퓨터의 Home 다음에 기계마다 'Home · <이름>' 줄이다. project는 기계를 건너는 id(pri_)가 같으면(matchProjects의 same) 한 줄이고, 앱은 id로 한 줄이다. 줄이 여는 workspace는 이 컴퓨터에 있으면 이 컴퓨터의 것, 없으면 명단 순서의 첫 연결된 기계의 것이다. 그런 기계가 없으면 줄은 꺼짐이다"
-      - "session은 자기 기계의 workspace가 든 줄에 선다. 줄이 여는 기계가 아닌 기계의 session·coding agent 터미널은 줄 끝에 그 기계의 꼬리표를 단다. 기계마다 같은 agent id(lophn_home, lophn_<app id>)로 짓는 key(제목 읽기 쌍, lophn 이름)는 기계를 앞에 붙이거나 이 컴퓨터의 것만 쓴다. 줄 key와 선택은 workspaceKey(ref)다. 다른 기계의 coding agent 터미널은 그 기계의 화면에서 시작한 것도 project 줄에 서고, 이 창의 layout에 그 터미널의 탭이 있으면 그 탭의 줄이다(누르면 그 탭을 고른다. 없으면 그 기계의 터미널에 붙는 탭을 연다). 줄이 자기 기계와 터미널 참조를 들고 다녀 이 workspace의 store를 쓰지 않는다. 이 컴퓨터의 터미널은 이 창의 terminal store가 안다"
-      - "다른 기계의 tab은 탭 줄의 이름 옆에 기계 꼬리표(MachineTag) 칩을 달고, 터미널 card 머리와 앱 card 머리도 같은 칩이다. 이 컴퓨터의 것에는 달지 않는다. 팔레트(전역·Settings)의 project 행은 같은 병합 규칙으로 이 컴퓨터에 없는 project를 그 기계의 이름과 함께 보이고 고르면 목록의 줄과 같이 그 기계의 workspace를 연다"
+      - "줄은 기계를 건너 합치지 않는다. Workspaces 아래는 이 컴퓨터의 Home, project, 앱이고 그 밑에 다른 기계마다 접히는 묶음(머리에 기계 이름, 꺼짐·올리기 상태, 접혔을 때 current 줄 수)이 그 기계의 Home('Home'), project, 앱을 든다. 묶음은 접힌 채 시작하고 창이 그 기계의 workspace를 보이면 펼친다. 펼침은 창 메모리다. 같은 project(pri_가 같다, matchProjects의 same)인 다른 기계의 project는 줄의 also에 적는다. Recent는 이 창이 보이는 workspace에만 선다"
+      - "session은 자기 기계의 workspace 줄에 선다. 탭을 다른 workspace로 옮긴 session은 탭이 있는 workspace 줄에 서고 그 줄의 기계가 아니면 기계 꼬리표를 단다(session-tab-move). 기계마다 같은 agent id(lophn_home, lophn_<app id>)로 짓는 key(제목 읽기 쌍, lophn 이름)는 기계를 앞에 붙이거나 이 컴퓨터의 것만 쓴다. 줄 key와 선택은 workspaceKey(ref)다. 다른 기계의 coding agent 터미널은 그 기계의 화면에서 시작한 것도 project 줄에 서고, 이 창의 layout에 그 터미널의 탭이 있으면 그 탭의 줄이다(누르면 그 탭을 고른다. 없으면 그 기계의 터미널에 붙는 탭을 연다). 줄이 자기 기계와 터미널 참조를 들고 다녀 이 workspace의 store를 쓰지 않는다. 이 컴퓨터의 터미널은 이 창의 terminal store가 안다"
+      - "다른 기계의 tab은 탭 줄의 이름 옆에 기계 꼬리표(MachineTag) 칩을 달고, 터미널 card 머리와 앱 card 머리도 같은 칩이다. 이 컴퓨터의 것에는 달지 않는다. 팔레트(전역·Settings)의 project 행은 기계마다 한 행이고 다른 기계의 것은 그 기계의 이름과 함께 보이며 고르면 목록의 줄과 같이 그 기계의 workspace를 연다"
       - "다른 기계의 workspace 줄을 누르면 route가 그 기계(machine)를 싣고 창이 그 기계의 범위와 통로로 그 workspace를 연다. 이 컴퓨터의 project 줄 안의 다른 기계 session을 누르면 그 기계(TabItem.machine)와 그 기계 안의 workspace를 단 Agent 탭을 그 기계의 agent 통로로 연다. 다른 줄이면 그 줄의 workspace로 가서 연다(route의 sessionMachine)"
-      - "이 컴퓨터에 없는 project 줄 아래 한 줄: git이면 [Clone here](shell:machines-clone-here. remote가 없으면 단추 없이 한 줄), git이 아니면 [Link…]가 잇기 dialog를 연다(project-identity-link). 꺼진 기계의 줄은 흐리고 열리지 않는다"
+      - "다른 기계의 project 줄에 같은 project가 이 컴퓨터에 없으면 오른쪽 클릭 menu가 git이면 [Clone to this computer](shell:machines-clone-here. 진행과 결과가 줄 아래 한 줄로 서고 누르면 걷힌다), git이 아니면 [Link to a project on this computer…]가 잇기 dialog를 연다(project-identity-link). 꺼진 기계의 줄은 흐리고 열리지 않는다"
       - "Home의 Workspaces panel은 다른 기계에도 있는 project에 그 기계 이름을 달고, 이 컴퓨터에 없는 project·앱을 기계 꼬리표 줄로 구역 끝에 보인다. 누르면 그 기계의 workspace를 연다"
     uses: [ipc:shell:machines-clone-here, route:projects/link_identity, route:projects/list, route:apps/list, route:coding_sessions/list]
     outcomes:
-      - id: merged
+      - id: by-machine
         observe: ["screen:shell-left-sidebar-machines", "screen:shell-left-sidebar-homes", "screen:shell-workspaces-panel-machines"]
       - id: not-here
-        when: "이 컴퓨터에 없는 project 줄. 누르면 그 기계의 workspace가 열리고 줄 아래에 [Clone here]나 [Link…]가 선다"
+        when: "다른 기계에만 있는 project 줄의 오른쪽 클릭 menu에 Clone to this computer나 Link…가 있다"
         observe: ["screen:shell-left-sidebar-not-here"]
       - id: offline
         when: "그 기계가 연결되어 있지 않다. 이름과 마지막으로 본 줄이 흐리게 남고 열리지 않는다"
         observe: ["screen:shell-left-sidebar-offline"]
     crosses_process: true
     docs: [architecture/remote.md, architecture/project-identity.md]
+
+  - id: session-tab-move
+    title: "session 탭을 탭 줄이나 sidebar에서 다른 workspace 줄로 끌어 놓으면 탭만 그 workspace로 옮겨 간다"
+    actor: person
+    entries: [ui:session-tab-move]
+    when: "Agent 탭(session이 있다)이나 sidebar의 session 줄을 끌어 다른 workspace 줄에 놓는다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/move-tab.ts
+      - packages/shell/renderer/shell/tab-drag.tsx
+      - packages/shell/renderer/shell/left-sidebar.tsx
+      - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/left-sidebar-workspaces.ts
+    steps:
+      - "탭 줄의 끌기(pointer)는 sidebar의 data-drop-workspace 줄 위면 놓을 곳이 그 workspace이고 놓을 수 있는 줄을 표시한다. sidebar의 session 줄은 HTML drag로 끌고 같은 줄에 놓는다"
+      - "옮길 자리의 layout에 탭을 먼저 쓰고(key가 다른 session 탭과 겹치면 새 key) 된 뒤에 원래 자리(이 창이나 그 workspace의 layout)에서 뺀다. 탭 없이 도는 session은 탭을 지어 둔다"
+      - "session은 core에서 제 workspace에 남는다. sidebar 줄은 탭이 있는 workspace 아래로 가고 누르면 그 탭을 고른다"
+    outcomes:
+      - id: moved
+      - id: refused
+        when: "Agent 탭이 아니거나 session이 없거나 같은 workspace이거나, 이 컴퓨터의 session 탭을 다른 기계의 workspace에 놓았다. 놓을 곳으로 표시하지 않고 아무 일도 없다"
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
 
   - id: shell-session-policy
     title: "shell 기본 session은 shell 페이지의 clipboard 쓰기만 허락하고 download는 막는다"

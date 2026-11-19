@@ -13,6 +13,7 @@ import type { TerminalStore } from "../terminal/store.ts";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { useKnownSessions } from "../shell/use-left-sidebar.ts";
 import { AgentsTabs } from "./agents/tab-state.ts";
+import type { MachineProjects } from "./agent/machine-copies.ts";
 import { openAgent } from "./kinds/agent.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -32,6 +33,8 @@ interface TabHostSlicesInput {
   workspace: WorkspaceRef;
   source: WorkspaceSource;
   agentViewSource?: AgentTabSourceFactory;
+  /** 기계마다 project 목록. 기계 목록을 읽는 창(workspace 창)만 준다. */
+  machines?: readonly MachineProjects[];
   /** 이 창이 만든 TabHost. slice는 이벤트 때만 불러 최신 host를 본다. */
   host: () => TabHost;
   /** 이 창의 터미널 store. 탭 줄이 터미널 안 agent의 icon·점을 읽으려고 바뀔 때 다시 그린다. */
@@ -102,6 +105,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       ? null
       : {
           factory: agentViewSource,
+          ...(input.machines === undefined ? {} : { machines: input.machines }),
           drafts: conversation?.drafts ?? localDrafts,
           ...(conversation?.now === undefined ? {} : { now: conversation.now }),
           openFile: (path, from) =>

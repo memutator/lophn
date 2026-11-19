@@ -74,6 +74,7 @@ import { fileBlock } from "./attachments.ts";
 import {
   AgentComposer,
   type ComposerKeys,
+  type ComposerMachine,
 } from "./composer/agent-composer.tsx";
 import { useDraftFill } from "./composer/use-draft-fill.ts";
 import {
@@ -152,6 +153,8 @@ interface AgentViewProps {
   now?: () => number;
   /** 지금 보는 session의 제목. 새 session이거나 제목이 없으면 null이다. 탭 제목이 따라간다. */
   onSessionTitle?: (title: string | null) => void;
+  /** composer 자리 chip의 기계(꼬리표와 기계 고르기). 기계를 알 수 없는 창은 주지 않는다. */
+  machine?: ComposerMachine;
   /** header 오른쪽 끝(Compact 우측)에 놓을 조각. */
   trailing?: ReactNode;
   /** header ⋯ menu 끝에 더할 항목(터미널 탭의 "Open in terminal"). */
@@ -1571,6 +1574,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             readOnly={readOnly}
             hint={hint}
             workspace={agent.workspace}
+            machine={props.machine}
             permissionSummary={agent.permissionSummary}
             permissions={permissions}
             mode={

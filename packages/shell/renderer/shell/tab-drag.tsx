@@ -183,7 +183,28 @@ export function TabDragProvider({
     let live: ActiveDrag | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
+    // 놓을 자리로 표시한 sidebar의 workspace 줄. 끌기 중 pointer를 잡아 :hover가 따라오지 않아 직접 표시한다.
+    let marked: HTMLElement | null = null;
+    const mark = (element: HTMLElement | null) => {
+      if (marked === element) return;
+      if (marked !== null) delete marked.dataset.dropOver;
+      if (element !== null) element.dataset.dropOver = "";
+      marked = element;
+    };
     const resolve = (x: number, y: number) => {
+      // 왼쪽 sidebar의 workspace 줄이면 탭을 그 workspace로 옮긴다.
+      const row = doc
+        .elementFromPoint(x, y)
+        ?.closest<HTMLElement>("[data-drop-workspace]");
+      if (row != null) {
+        return {
+          hit: {
+            kind: "workspace",
+            target: row.dataset.dropWorkspace!,
+          } as const,
+          row,
+        };
+      }
       // title bar의 tab 구역 전체(줄 위의 빈 곳도)가 줄이다.
       const bar = doc.querySelector("[data-tab-strip]")?.parentElement;
       if (bar && inside(rectOf(bar), x, y)) {
@@ -237,11 +258,13 @@ export function TabDragProvider({
     };
 
     const measure = (x: number, y: number) => {
-      const { hit, box } = resolve(x, y) as {
+      const { hit, box, row } = resolve(x, y) as {
         hit: TabDropHit | null;
         box?: Rect;
+        row?: HTMLElement;
       };
       const verdict = hit === null ? "none" : spec.current.state(item, hit);
+      mark(verdict === "ok" ? (row ?? null) : null);
       const preview =
         hit?.kind === "pane" && box !== undefined && verdict !== "none"
           ? verdict === "full"
@@ -264,6 +287,7 @@ export function TabDragProvider({
 
     const finish = () => {
       clearTimeout(timer);
+      mark(null);
       doc.removeEventListener("pointermove", move);
       doc.removeEventListener("pointerup", up);
       doc.removeEventListener("pointercancel", cancel);

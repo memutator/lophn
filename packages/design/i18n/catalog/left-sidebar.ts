@@ -7,6 +7,8 @@ export const leftSidebar = {
   "left-sidebar.button.jobs": "Jobs",
   "left-sidebar.button.new-session-in": "New session in {workspace}",
   "left-sidebar.button.next-page": "Next page",
+  "left-sidebar.button.clone-here": "Clone to this computer",
+  "left-sidebar.button.link-here": "Link to a project on this computer…",
   "left-sidebar.button.previous-page": "Previous page",
   "left-sidebar.button.project-settings": "Project settings",
   "left-sidebar.button.quick-app": "App panel",

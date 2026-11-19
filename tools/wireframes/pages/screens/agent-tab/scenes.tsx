@@ -158,3 +158,7 @@ export function ShellPendingScene() {
   });
   return <Scene sub="shell" />;
 }
+/** 아직 session이 없는 새 탭에서 project chip을 눌러 연 기계 menu. 같은 project가 있는 기계가 이 컴퓨터부터 나오고 꺼진 기계는 이유와 함께 흐리다. */
+export const MachineMenuScene = () => <Scene sub="new-machine-open" />;
+/** 같은 project가 여러 기계에 있는 새 탭의 chip. 이름 옆에 기계 꼬리표가 붙고 누르면 기계를 고른다. */
+export const MachineChipScene = () => <Scene sub="new-machine" />;

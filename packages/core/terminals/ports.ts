@@ -2,17 +2,17 @@
 // 이 port로 터미널에 닿고 PTY host와 그 줄은 모른다.
 import type { z } from "zod";
 import type { Result } from "../../base/mod.ts";
-import type { Id } from "../../protocol/base/mod.ts";
 import type { terminalViewSnapshot } from "../../protocol/coding-agent/terminal-view.ts";
 import type {
   TerminalAgent,
   TerminalOutput,
+  TerminalProject,
   TerminalRuntime,
 } from "../../protocol/coding-agent/terminals.ts";
 
-// 열기. cwd는 등록 폴더 안이어야 한다. command는 첫 출력 뒤 잠잠할 때 한 번 넣고, resume은 그 harness의 resume 명령을 친다.
+// 열기. project는 Home(`home`)일 수 있고 그 폴더는 사람의 home 폴더다. cwd는 등록 폴더 안이어야 한다. command는 첫 출력 뒤 잠잠할 때 한 번 넣고, resume은 그 harness의 resume 명령을 친다.
 export type TerminalOpen = {
-  project: Id<"prj">;
+  project: TerminalProject;
   folder_ref?: string;
   cwd?: string;
   command?: string;
@@ -71,7 +71,7 @@ export type Terminals = {
     afterSeq?: number,
   ): Promise<Result<{ runtime: TerminalRuntime; output: TerminalOutput[] }>>;
   screen(terminal: string, tail: number): Promise<Result<TerminalScreen>>;
-  list(project?: Id<"prj">): readonly TerminalRuntime[];
+  list(project?: TerminalProject): readonly TerminalRuntime[];
   runtime(terminal: string): TerminalRuntime | null;
   // tracker가 정한 agent(null이면 뺀다)와 탭 이름을 runtime에 싣는다. 바뀌면 `onRuntime`이 듣는다.
   patch(

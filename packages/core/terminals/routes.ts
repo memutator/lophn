@@ -1,8 +1,10 @@
 // `terminals/*` route의 처리. 누가 칠 수 있는지(입력 자격), 같은 key의 한 번, 날 출력 lease를 갖는다. 터미널 일 자체는
 // `Terminals`가 하고 Bus·탭 열기·자격 표는 wiring이 deps로 끼운다.
 import { type Clock, err, ok, type Result } from "../../base/mod.ts";
-import type { Id } from "../../protocol/base/mod.ts";
-import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
+import type {
+  TerminalProject,
+  TerminalRuntime,
+} from "../../protocol/coding-agent/terminals.ts";
 import type { TabRelation } from "../../protocol/lophn-agent/host-queue.ts";
 import type { Terminals } from "./ports.ts";
 
@@ -54,9 +56,9 @@ export function createTerminalRoutes(deps: {
   granted(principal: string): boolean;
   // control `connect {client: shell}`이 준 살아 있는 capability다(focus 검사를 거친 shell main만 싣는다).
   capability(value: string): boolean;
-  // project에 터미널 탭을 연다. 그 project를 보이는 창이 없으면 탭은 기다리고 터미널은 그대로 돈다.
+  // project(Home이면 `home`)에 터미널 탭을 연다. 그 workspace를 보이는 창이 없으면 탭은 기다리고 터미널은 그대로 돈다.
   openTab(
-    project: Id<"prj">,
+    project: TerminalProject,
     terminal: string,
     relation: TabRelation | null,
   ): void;
@@ -79,7 +81,7 @@ export function createTerminalRoutes(deps: {
     (capability !== undefined && deps.capability(capability));
 
   return {
-    list(input: { project?: Id<"prj"> }) {
+    list(input: { project?: TerminalProject }) {
       return ok({ terminals: [...terminals.list(input.project)] });
     },
 
@@ -87,7 +89,7 @@ export function createTerminalRoutes(deps: {
     open(
       principal: string,
       input: {
-        project: Id<"prj">;
+        project: TerminalProject;
         folder_ref?: string;
         cwd?: string;
         command?: string;

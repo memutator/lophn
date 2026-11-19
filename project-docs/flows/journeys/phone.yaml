@@ -55,7 +55,7 @@ journeys:
     steps:
       - {do: "다른 컴퓨터의 Settings › Remote에서 [Invite a computer]를 누르고 \"Show as text\"의 글을 복사한다", screen: settings-remote-invite-computer, flow: roster-invite:ok}
       - {do: "이 컴퓨터의 Settings › Remote에서 [Join with an invite]에 글을 붙여 넣고 [Join]을 누른다. 이 컴퓨터가 그 명단에 들고 core끼리 붙는다", screen: settings-remote-join-pending, flow: roster-join:joined}
-      - {do: "왼쪽 목록에 그 컴퓨터의 Home, project, session이 기계 꼬리표와 함께 보인다", flow: machine-lists:merged}
+      - {do: "왼쪽 목록에 그 컴퓨터의 Home, project, session이 기계 꼬리표와 함께 보인다", flow: machine-lists:by-machine}
       - {do: "그 컴퓨터의 session을 눌러 대화를 열고 메시지를 보낸다", flow: session-send:ok}
       - {do: "Inbox의 shell 규칙 승인을 한 번만 허락한다", flow: turn-request-decide:once}
       - {do: "그 컴퓨터가 꺼지면 그 줄이 흐려지고 열리지 않는다. 다른 기계의 줄은 그대로다", flow: machine-lists:offline}

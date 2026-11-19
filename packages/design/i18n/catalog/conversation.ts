@@ -332,6 +332,9 @@ export const conversation = {
   "conversation.label.session-list": "{agent} sessions",
   "conversation.label.session-untitled": "New session",
   "conversation.label.session-opening": "Opening session",
+  "conversation.label.run-on-machine": "Run on",
+  "conversation.notice.machine-open-there":
+    "Open this project on this computer",
   "conversation.label.shell-chip": "Shell",
   "conversation.label.shell-chip-tooltip":
     "Shell mode: what you send runs as a command",

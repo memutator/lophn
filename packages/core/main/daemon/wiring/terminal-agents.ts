@@ -53,6 +53,7 @@ import {
   terminalHookLineSchema,
 } from "../../../../protocol/coding-agent/terminal-hook.ts";
 import {
+  HOME_TERMINAL_PROJECT,
   terminalsRenameSaved,
   terminalsSavedSessions,
 } from "../../../../protocol/coding-agent/terminals.ts";
@@ -467,12 +468,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
         url: string,
       ): Promise<boolean> {
         const runtime = ctx.terminals.runtime(ref);
-        if (!queue.attached() || runtime?.project.startsWith("prj_") !== true) {
+        const project = runtime?.project;
+        if (
+          !queue.attached() ||
+          (project !== HOME_TERMINAL_PROJECT && !project?.startsWith("prj_"))
+        ) {
           return false;
         }
         const sent = queue.openAndWait({
           owner: "person",
-          workspace: { kind: "project", id: runtime.project as Id<"prj"> },
+          workspace:
+            project === HOME_TERMINAL_PROJECT
+              ? { kind: "home" }
+              : { kind: "project", id: project as Id<"prj"> },
           target: { browser: { url } },
           relation: null,
           source: null,

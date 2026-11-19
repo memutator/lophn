@@ -12,6 +12,8 @@ import {
 import type { AcpUsage } from "../../../../packages/protocol/acp/mod.ts";
 import { AgentView } from "../../../../packages/shell/renderer/conversation/agent-view.tsx";
 import { desktopParts } from "../../../../packages/shell/renderer/conversation/desktop-parts-impl.tsx";
+import type { ComposerMachine } from "../../../../packages/shell/renderer/conversation/composer/agent-composer.tsx";
+import { MachineTag } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
 import { DraftStore } from "../../../../packages/shell/renderer/conversation/drafts.ts";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
@@ -167,7 +169,9 @@ function sceneOf(tab: TabSpec): { scene: AgentTabScene; archived: boolean } {
       archived: false,
     };
   }
-  if (sub === "new") return { scene: "empty", archived: false };
+  if (sub === "new" || sub === "new-machine" || sub === "new-machine-open") {
+    return { scene: "empty", archived: false };
+  }
   if (sub === "conv:harness") return { scene: "working", archived: false };
   if (sub === "conv:old-1") return { scene: "report", archived: true };
   return { scene: "report", archived: false };
@@ -179,6 +183,9 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   if (demo !== undefined) return demo.steps;
   const chat = tab.chat ?? {};
   const steps: Step[] = [];
+  if (tab.sub === "new-machine-open") {
+    steps.push(() => click("[data-composer-machine]"));
+  }
   if (chat.switcher === "open" || chat.switcher === "edit") {
     steps.push(() => click("[data-agent-header] button[aria-label]"));
   }
@@ -209,6 +216,22 @@ function stepsOf(tab: TabSpec): readonly Step[] {
 // 않는다.
 const NOW = Date.parse("2026-10-06T09:45:00Z");
 const now = () => NOW;
+
+/** 같은 project가 세 기계에 있는 새 session의 자리 chip: 이 컴퓨터가 앞이고 꺼진 기계와 이 컴퓨터를 못 가리키는 자리도 보인다. */
+const MACHINE_CHIP: ComposerMachine = {
+  tag: <MachineTag name="This computer" />,
+  choices: [
+    { key: "", label: "This computer", current: true },
+    { key: "mch_home", label: "Home server", current: false },
+    {
+      key: "mch_laptop",
+      label: "Laptop",
+      current: false,
+      unavailable: "Offline",
+    },
+  ],
+  onPick: () => {},
+};
 
 /** Agent 탭. */
 export function Conversation({
@@ -257,6 +280,9 @@ export function Conversation({
           desktop: desktopParts,
         }}
         now={now}
+        {...(tab.sub?.startsWith("new-machine")
+          ? { machine: MACHINE_CHIP }
+          : {})}
       />
     </EventsProvider>
   );

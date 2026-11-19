@@ -20,6 +20,7 @@ import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactsSlice } from "../../conversation/message-list/artifact-text.tsx";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
+import type { MachineProjects } from "../agent/machine-copies.ts";
 import type { MachineData } from "../../desktop/machines/data.ts";
 import type { MachineRef } from "../../desktop/machines/scope.tsx";
 
@@ -43,6 +44,8 @@ export interface AgentsSlice {
 export interface AgentViewSlice {
   /** agent와 자리로 그 agent의 source를 얻는다. */
   readonly factory: AgentTabSourceFactory;
+  /** 기계마다 project 목록. 기계 목록을 읽는 workspace 창만 준다(detached 창과 전역 float은 없어 기계 고르기가 빠진다). */
+  readonly machines?: readonly MachineProjects[];
   /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   readonly drafts: DraftStore;
   readonly now?: () => number;

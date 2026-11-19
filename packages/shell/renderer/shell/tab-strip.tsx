@@ -114,8 +114,8 @@ export function TabStrip({
   const list = useRef<HTMLDivElement>(null);
   const { active: drag, start } = useTabDrag();
   const [fold, setFold] = useState<Fold>(null);
-  // 창 폭이 바뀌면 다시 그려서 아래에서 다시 잰다. 고른 tab의 최대 폭도 이 폭에서 나온다.
-  const [width, setWidth] = useState(0);
+  // 창 폭이 바뀌면 다시 그려서 아래에서 다시 잰다.
+  const [, setWidth] = useState(0);
   useEffect(() => {
     const element = strip.current;
     if (!element) return;
@@ -126,19 +126,17 @@ export function TabStrip({
     return () => observer.disconnect();
   }, []);
 
-  // tab이 좁아지기 전 폭으로 줄이 넘치지 않는 가장 덜 접힌 모양을 고른다. 이름, 점, 이름 바꾸기 입력도 폭을 바꾸므로
+  // 줄이 넘치지 않는 가장 덜 접힌 모양을 고른다. 이름, 점, 이름 바꾸기 입력도 폭을 바꾸므로
   // 그릴 때마다 잰다. 끄는 동안은 칸이 비켜서 있으므로 재지 않는다.
   useLayoutEffect(() => {
     const element = list.current;
     if (!element || drag !== null) return;
-    element.dataset.measure = "";
     const at = FOLDS.findIndex((level) => {
       if (level === null) delete element.dataset.fold;
       else element.dataset.fold = level;
       return element.scrollWidth <= element.clientWidth;
     });
     const pick = at < 0 ? "all" : FOLDS[at]!;
-    delete element.dataset.measure;
     if (pick === null) delete element.dataset.fold;
     else element.dataset.fold = pick;
     setFold(pick);
@@ -216,9 +214,6 @@ export function TabStrip({
                 transform: slide?.get(entry.key)
                   ? `translateX(${slide.get(entry.key)}px)`
                   : undefined,
-                // 말도 안 되게 긴 이름만 strip 폭의 80%에서 자른다. CSS %는 tab 폭만큼인 list 기준이라 tab이 하나면
-                // 자기 폭의 80%가 되어 늘 잘린다.
-                maxWidth: active && width > 0 ? width * 0.8 : undefined,
               }}
               onPointerDown={(event) => {
                 if (renaming !== null) return;

@@ -38,9 +38,9 @@ import { projectItemOf } from "../desktop/workspaces/projects/core-source.ts";
 import {
   type ListedProject,
   type MachineLists,
-  type MergedWorkspace,
-  mergeWorkspaces,
-} from "../desktop/workspaces/projects/merged.ts";
+  type MachineWorkspace,
+  machineWorkspaces,
+} from "../desktop/workspaces/projects/machine-workspaces.ts";
 import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { terminalRefOf } from "../workspace/kinds/terminal.tsx";
@@ -101,7 +101,7 @@ export interface SessionTitles {
 export interface MachineListsValue {
   /** 이 컴퓨터(null)가 맨 앞이고 그 뒤가 명단 순서다. */
   readonly lists: readonly MachineSnapshot[];
-  readonly rows: readonly MergedWorkspace[];
+  readonly rows: readonly MachineWorkspace[];
   readonly entries: readonly OnMachine<SessionEntry>[];
   /** 다른 기계의 터미널 coding agent. 그 기계의 화면에서 시작한 것도 든다. */
   readonly terminals: readonly RemoteTerminal[];
@@ -344,7 +344,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
       })),
     [roster, seen],
   );
-  const rows = useMemo(() => mergeWorkspaces(lists, homeName), [lists]);
+  const rows = useMemo(() => machineWorkspaces(lists, homeName), [lists]);
   // `seen`은 내용이 바뀔 때만 바뀌므로 roster나 session이 바뀌어도 이 값은 그대로다.
   const inboxNames = useMemo(
     (): InboxNamesByMachine =>

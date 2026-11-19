@@ -33,6 +33,8 @@ export interface SidebarValues {
   readonly recentExpanded: ReadonlySet<string>;
   /** workspace key → 펼친 Recent의 page 번호(0부터). */
   readonly recentPages: ReadonlyMap<string, number>;
+  /** 펼친 다른 기계 묶음의 기계 id. */
+  readonly machinesOpen: ReadonlySet<string>;
 }
 
 const EMPTY: SidebarValues = {
@@ -45,6 +47,7 @@ const EMPTY: SidebarValues = {
   workflows: new Map(),
   recentExpanded: new Set(),
   recentPages: new Map(),
+  machinesOpen: new Set(),
 };
 
 export interface SidebarMemory {

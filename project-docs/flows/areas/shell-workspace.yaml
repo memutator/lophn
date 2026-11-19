@@ -1825,7 +1825,7 @@ flows:
       - packages/shell/renderer/workspace/open-policy.ts
       - packages/shell/renderer/shell/quick-launch.tsx
     steps:
-      - "openTerminal이 Home(project 없음)이나 터미널 통로가 없으면 아무것도 하지 않는다"
+      - "openTerminal이 앱 workspace(터미널 없음)이거나 터미널 통로가 없으면 아무것도 하지 않는다. Home은 project 대신 `home`으로 연다(core가 사람의 home 폴더에서 시작한다)"
       - "명령이 있으면 terminal store에 그 명령을 맡기고(PTY는 harness 쪽), docked면 탭으로 붙인다. source가 없으니 desk 끝이다"
       - "명령이 없으면 빈 터미널 탭을 desk 끝에 붙인다. commit이 layout을 저장한다"
     uses: [ipc:shell:workspace-layout-save]
@@ -1835,7 +1835,7 @@ flows:
       - id: command-opened
         observe: ["disk:<data>/shell/workspaces/<workspace>.json", "screen:new-organize-folder"]
       - id: unavailable
-        when: "Home이거나 터미널 통로가 없다"
+        when: "앱 workspace이거나 터미널 통로가 없다"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
       - id: float-full
         when: "명령 실행(docked 아님)이라 openAt이 float을 골랐는데 float이 20개 상한이다. store에 요청은 이미 맡겼지만 탭이 열리지 않는다"
@@ -2082,7 +2082,7 @@ flows:
       - "터미널 통로가 없으면 키가 넘어간다"
       - "지금 desk의 터미널 탭을 찾고, 없으면 다른 desk의 터미널 탭을 찾는다"
       - "있으면 openTab으로 고른다(다른 desk면 그리로 가고, float이면 펴고, detached면 창을 앞으로 가져온다)"
-      - "없으면 terminal-tab-new와 같은 길로 새 터미널을 연다. Home이면 열 수 없다"
+      - "없으면 terminal-tab-new와 같은 길로 새 터미널을 연다"
     uses: [ipc:shell:workspace-layout-save]
     outcomes:
       - id: selected
@@ -2090,7 +2090,7 @@ flows:
       - id: opened
         observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
       - id: unavailable
-        when: "터미널 통로가 없다(키가 다음 handler로 넘어간다), 또는 Home이라 열 터미널 탭이 없고 openTerminal이 null이다"
+        when: "터미널 통로가 없다(키가 다음 handler로 넘어간다), 또는 앱 workspace라 열 터미널 탭이 없고 openTerminal이 null이다"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
       - id: save-refused
         code: invalid_input

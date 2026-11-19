@@ -9,6 +9,10 @@ import {
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { handoffCommand } from "../../../../protocol/coding-agent/handoff.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harnesses.ts";
+import {
+  HOME_TERMINAL_PROJECT,
+  type TerminalProject,
+} from "../../../../protocol/coding-agent/terminals.ts";
 import type { Login } from "../../../../protocol/secrets/mod.ts";
 import { appTools } from "../../../../protocol/apps/declaration/read.ts";
 import { devicesList } from "../../../../protocol/remote/routes.ts";
@@ -141,7 +145,7 @@ type TabDeps = {
   handoffs: HandoffFiles;
   // project에 터미널을 연다(`ctx.terminals.open`). command는 첫 prompt 뒤 치고, resume은 그 harness의 resume 명령을 친다.
   openTerminal(input: {
-    project: Id<"prj">;
+    project: TerminalProject;
     command?: string;
     resume?: { harness: string; external_session: string };
   }): Promise<Result<string>>;
@@ -331,12 +335,12 @@ export function createTabHandlers(deps: TabDeps) {
       return err({ code: "not_found", message: "session not found" });
     }
     if ("coding" in input.target) {
-      const here = workspaceOf(from!);
-      if (here?.kind !== "project") {
+      const here = hostWorkspaceOf(workspaceOf(from!));
+      if (here.kind === "app") {
         return err({
           code: "invalid_input",
           message:
-            "coding tabs open in a project workspace; home and apps have no terminal",
+            "coding tabs open in a project or home workspace; apps have no terminal",
         });
       }
       const { harness, handoff } = input.target.coding;
@@ -376,7 +380,8 @@ export function createTabHandlers(deps: TabDeps) {
         });
       }
       const terminal = await deps.openTerminal({
-        project: here.id as Id<"prj">,
+        project:
+          here.kind === "home" ? HOME_TERMINAL_PROJECT : (here.id as Id<"prj">),
         command,
       });
       if (!terminal.ok) return terminal;

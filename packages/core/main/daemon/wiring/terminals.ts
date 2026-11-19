@@ -3,10 +3,12 @@
 // 바뀌면 lease와 상관없이 낸다. core가 끝나면(closeWork) host stdin을 닫아 host가 모든 PTY를 끝낸다. 앱(shell)의 Quit은 이 수명과 상관없다.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { err, ok } from "../../../../base/mod.ts";
 import {
+  HOME_TERMINAL_PROJECT,
   terminalsClose,
   terminalsInput,
   terminalsList,
@@ -100,7 +102,11 @@ export const terminalsWiring: WiringFactory = () => {
         spawnHost: (env) => spawnNodeHost(HOST_ENTRY, env),
         personEnv,
         // 등록 폴더는 projects module의 읽기 함수로 본다. 연결은 처음 터미널을 열 때 연다.
+        // Home에는 등록 폴더가 없다. 터미널은 사람의 home 폴더에서 연다(셸이 어디서나 시작하는 자리).
         async folders(project) {
+          if (project === HOME_TERMINAL_PROJECT) {
+            return ok([{ folder_ref: `${project}_0`, path: homedir() }]);
+          }
           if (connection === undefined) {
             const opened = openConnection(ctx.ledgerPath);
             if (!opened.ok) return opened;
@@ -144,7 +150,10 @@ export const terminalsWiring: WiringFactory = () => {
         openTab(project, terminal, relation) {
           ctx.hostQueue.openTab({
             owner: "person",
-            workspace: { kind: "project", id: project },
+            workspace:
+              project === HOME_TERMINAL_PROJECT
+                ? { kind: "home" }
+                : { kind: "project", id: project },
             target: { terminal: { terminal_ref: terminal } },
             relation,
             source: null,

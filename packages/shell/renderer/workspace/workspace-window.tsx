@@ -141,6 +141,7 @@ import { Taskbar } from "../shell/taskbar/taskbar.tsx";
 import { TrayHost } from "../shell/tray/tray.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import { TabDragProvider } from "../shell/tab-drag.tsx";
+import { movedTab, putTab, sessionTab } from "./sidebar/move-tab.ts";
 import {
   type StripEntry,
   type StripTab,
@@ -221,6 +222,7 @@ import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter
 import { workspaceIcons } from "../icons/mod.ts";
 import type { NewSessionStart } from "../desktop/router.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
 import { useMachineLists } from "../shell/use-left-sidebar.ts";
 import { InboxNamesProvider } from "../desktop/connection/waiting/names.ts";
 import {
@@ -259,7 +261,7 @@ export type WindowWorkspace = WorkspaceRef;
 
 export interface WorkspaceWindowProps {
   /**
-   * Home이면 project 폴더가 필요한 것(Explorer, 터미널, workflow, project settings)이 없고 Workspaces·Jobs panel이 오른쪽에 선다.
+   * Home이면 project 폴더가 필요한 것(Explorer, workflow, project settings)이 없고(터미널은 사람의 home 폴더에서 열린다) Workspaces·Jobs panel이 오른쪽에 선다.
    * 앱이면 폴더 대신 앱 화면 탭이 있고 오른쪽에 Logs panel이 선다.
    * 창은 workspace마다 새로 mount된다(부르는 쪽이 key로 가른다).
    */
@@ -470,6 +472,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     workspace,
     source,
     agentViewSource,
+    machines: machineLists.lists,
     terminalStore: terminal?.store,
     host: () => host,
     onSettings,
@@ -1133,6 +1136,67 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     terminal === undefined ? [] : quickPrefs.coding.favorites,
   );
 
+  // 이 창에 그 session의 Agent 탭이 이미 있으면 고른다. 다른 workspace에서 옮겨 온 탭은 이 workspace의 agent 목록에 없는
+  // agent의 것이라 agent로 찾지 않고 session으로 찾는다.
+  const selectSessionTab = (session: string): boolean => {
+    const opened = allTabs(latestLayout.current).find(
+      (tab) => tab.kind === "agent" && sessionOf(tab) === session,
+    );
+    if (opened === undefined) return false;
+    openTab(opened);
+    return true;
+  };
+
+  // 탭을 다른 workspace로 옮긴다(탭 자리만, `move-tab.ts`). 그 workspace의 layout에 먼저 쓰고 된 뒤에만 이 창에서 뺀다.
+  const [layoutsMoved, setLayoutsMoved] = useState(0);
+  const moveTabTo = async (key: string, to: WorkspaceRef) => {
+    const tab = allTabs(latestLayout.current).find((item) => item.key === key);
+    const moved = tab === undefined ? null : movedTab(tab, workspace, to);
+    if (moved === null) return;
+    const layoutThere = machineData(to.machine ?? null).workspace.layout;
+    if (!(await putTab(layoutThere, to, moved))) return;
+    removeTab(key);
+    setLayoutsMoved((count) => count + 1);
+  };
+  const moveSessionTo = (session: string, to: WorkspaceRef) => {
+    const tab = allTabs(latestLayout.current).find(
+      (item) => item.kind === "agent" && sessionOf(item) === session,
+    );
+    if (tab !== undefined) {
+      void moveTabTo(tab.key, to);
+      return;
+    }
+    // 탭 없이 도는 session은 탭을 지어 그 workspace에 둔다.
+    const entry = sessionStates.find((item) => item.session === session);
+    if (entry?.agent == null) return;
+    const fresh = sessionTab({
+      session,
+      agent: entry.agent,
+      workspace: entry.workspace?.id ?? "home",
+      machine: machine ?? null,
+      title: sessionTitles.known.get(session)?.title ?? "",
+    });
+    const moved = movedTab(fresh, workspace, to);
+    if (moved === null) return;
+    void putTab(
+      machineData(to.machine ?? null).workspace.layout,
+      to,
+      moved,
+    ).then((ok) => ok && setLayoutsMoved((count) => count + 1));
+  };
+  // workspace key → 줄. 탭 줄의 탭을 sidebar의 workspace 줄에 놓을 때 찾는다.
+  const rowRefOf = (key: string) =>
+    machineLists.rows.find((row) => workspaceKey(row.ref) === key)?.ref;
+  const workspaceDrop = (item: { readonly key: string }, target: string) => {
+    const tab = desk.tabs.find((one) => one.key === item.key);
+    const to = rowRefOf(target);
+    return tab !== undefined &&
+      to !== undefined &&
+      movedTab(tab, workspace, to) !== null
+      ? ("ok" as const)
+      : ("none" as const);
+  };
+
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
   // 다른 기계의 session(같은 project 줄 안의 다른 기계 것)은 그 기계를 단 탭이다. agent 목록은 읽지 않아 이름은 탭이 연 뒤 받는다.
   const openSessionTab = (
@@ -1140,6 +1204,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     open?: SessionTabOpen,
     on?: string,
   ): boolean => {
+    if (selectSessionTab(session)) return true;
     if (on !== undefined && on !== machine) {
       const there = machineData(on)
         .stores.sessions.get()
@@ -2260,7 +2325,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ]
       : [],
   );
-  const panelTerminals = usePanelTerminals(terminal, projectId, terminalTabs);
+  const panelTerminals = usePanelTerminals(
+    terminal,
+    isHome ? HOME_TERMINAL_PROJECT : projectId,
+    terminalTabs,
+  );
 
   // 이름은 탭 화면이 아니라 여기서 모든 터미널 탭에 맞춘다. 그려진 탭만 맞추면 숨은 탭의 이름이 갈라진다.
   const subscribeTerminal = useCallback(
@@ -2974,8 +3043,19 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               const found = desk.tabs.find((item) => item.key === key);
               return found === undefined ? undefined : stripTab(found);
             }}
-            state={(item, hit) => tabDropState(desk, item, hit)}
-            onDrop={(item, hit) => update((d) => applyTabDrop(d, item, hit))}
+            state={(item, hit) =>
+              hit.kind === "workspace"
+                ? workspaceDrop(item, hit.target)
+                : tabDropState(desk, item, hit)
+            }
+            onDrop={(item, hit) => {
+              if (hit.kind !== "workspace") {
+                update((d) => applyTabDrop(d, item, hit));
+                return;
+              }
+              const to = rowRefOf(hit.target);
+              if (to !== undefined) void moveTabTo(item.key, to);
+            }}
           >
             <ShellFrame
               left={leftOpen}
@@ -3113,7 +3193,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   {...(props.onSessionAt === undefined
                     ? {}
                     : { onSessionAt: props.onSessionAt })}
+                  layoutsMoved={layoutsMoved}
+                  onMoveSession={moveSessionTo}
+                  onPutTab={(tab) => openTab(tab)}
                   onOpenHere={(session, agent) => {
+                    if (selectSessionTab(session)) return;
                     const row = sidebarAgents.agents.find(
                       (item) => item.assignment === agent,
                     );

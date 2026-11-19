@@ -9,7 +9,10 @@ import {
   AgentView,
   type AgentViewHost,
 } from "../../conversation/agent-view.tsx";
+import type { ComposerMachine } from "../../conversation/composer/agent-composer.tsx";
+import { MachineTag } from "../../shell/left-sidebar.tsx";
 import type { AgentViewSlice } from "../kinds/host.ts";
+import { copiesOfProject, type ProjectCopy } from "./machine-copies.ts";
 import { sourceWorkspaceOf } from "./tab-fields.ts";
 import styles from "./agent-tab.module.css";
 
@@ -18,6 +21,12 @@ interface AgentTabProps {
   agent: string;
   /** 탭을 연 project나 앱. 그 탭 session의 workspace다. Home이면 null. */
   workspace: string | null;
+  /** 탭이 보는 기계. null은 이 컴퓨터다. */
+  machine: string | null;
+  /** 탭이 놓인 workspace의 기계. 탭 기계가 이 값이면 탭에 기계를 적지 않는다. */
+  workspaceMachine: string | null;
+  /** 새 session의 project를 다른 기계의 같은 project로 옮긴다. 옮기지 못하면 아무것도 바꾸지 않는다. */
+  onRebind: (copy: ProjectCopy) => void;
   slice: AgentViewSlice;
   session: string | null;
   onSession: (session: string | null) => void;
@@ -38,6 +47,7 @@ export function AgentTab(props: AgentTabProps) {
       }),
     [slice.factory, agent, workspace],
   );
+  const machine = machineChipOf(props);
   const latest = useRef({ title, onTitle });
   latest.current = { title, onTitle };
   const [agentName, setAgentName] = useState<string | null>(null);
@@ -74,10 +84,54 @@ export function AgentTab(props: AgentTabProps) {
       session={props.session}
       onSessionChange={props.onSession}
       onSessionTitle={setSessionTitle}
+      {...(machine === undefined ? {} : { machine })}
       host={props.host}
       {...(slice.now === undefined ? {} : { now: slice.now })}
     />
   );
+}
+
+/**
+ * composer 자리 chip의 기계. project가 여러 기계에 있거나 탭이 다른 기계의 것이면 꼬리표를 보이고, 아직 session이 없으면
+ * 그 사본들을 고르는 menu를 준다(session은 기계를 옮기지 못한다). 앱과 Home은 기계를 고르지 않는다.
+ */
+function machineChipOf(props: AgentTabProps): ComposerMachine | undefined {
+  const { workspace, machine, workspaceMachine, session } = props;
+  const lists = props.slice.machines;
+  if (
+    lists === undefined ||
+    workspace === null ||
+    sourceWorkspaceOf(workspace).kind !== "project"
+  ) {
+    return undefined;
+  }
+  const copies = copiesOfProject(lists, machine, workspace);
+  const here = t("machines.button.this-computer");
+  const nameOf = (list: { machine: string | null; name: string }) =>
+    list.machine === null ? here : list.name;
+  const current = lists.find((list) => list.machine === machine);
+  if (copies.length < 2 && machine === null) return undefined;
+  if (current === undefined) return undefined;
+  const tag = <MachineTag name={nameOf(current)} />;
+  if (session !== null || copies.length < 2) return { tag };
+  return {
+    tag,
+    choices: copies.map((copy) => ({
+      key: copy.machine ?? "",
+      label: nameOf(copy),
+      current: copy.machine === machine,
+      // 다른 기계 workspace의 탭은 이 컴퓨터를 가리킬 수 없다(탭의 기계 칸이 없으면 workspace의 기계다).
+      ...(!copy.live
+        ? { unavailable: t("machines.status.offline") }
+        : copy.machine === null && workspaceMachine !== null
+          ? { unavailable: t("conversation.notice.machine-open-there") }
+          : {}),
+    })),
+    onPick: (key) => {
+      const copy = copies.find((one) => (one.machine ?? "") === key);
+      if (copy !== undefined) props.onRebind(copy);
+    },
+  };
 }
 
 /** agentViewSource가 없는 작업대에서 Agent 탭이 보이는 안내. */

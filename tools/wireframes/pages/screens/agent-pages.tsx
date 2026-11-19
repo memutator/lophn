@@ -46,6 +46,8 @@ import {
   RewindScene,
   SenderChipsScene,
   SessionSearchScene,
+  MachineChipScene,
+  MachineMenuScene,
   ShellModeScene,
   ShellPendingScene,
   ShellRunScene,
@@ -243,6 +245,9 @@ export const AgentHarnessMode = HarnessModeScene;
 export const AgentShellRun = ShellRunScene;
 /** shell mode의 composer. */
 export const AgentShellMode = ShellModeScene;
+/** 새 탭의 project chip과 기계 menu. */
+export const AgentMachineChip = MachineChipScene;
+export const AgentMachineMenu = MachineMenuScene;
 /** 끝나기를 기다리는 shell 줄. */
 export const AgentShellPending = ShellPendingScene;
 /** rewind dialog. */

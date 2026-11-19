@@ -1,8 +1,8 @@
 // 왼쪽 sidebar. 위에 Inbox·Jobs·Agents, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(quick-launch.tsx)과 Settings다. 작업 표시줄이 켜져 있으면 둘 다 작업 표시줄로 가므로 `quick`과 `onSettings`를 주지 않고 맨 아래 줄이 없다.
 // 값과 callback만 받아서 project 창 말고 Home과 app workspace도 같은 것을 쓴다.
-// 줄은 모든 기계의 것을 합친 것이다: 이 컴퓨터가 아닌 기계의 workspace 줄과 줄의 기계가 아닌 기계의 session 줄은 끝에 그 기계의
-// 꼬리표를 달고, 꺼진 기계의 줄은 흐리고 열리지 않는다.
+// Workspaces 아래는 이 컴퓨터의 workspace이고, 그 밑에 다른 기계마다 접히는 묶음(머리에 기계 이름과 상태)이 그 기계의 Home, project,
+// 앱을 든다. 다른 기계 묶음은 접힌 채 시작하고 이 창이 그 기계의 workspace를 보이면 펼친다. 꺼진 기계의 줄은 흐리고 열리지 않는다.
 import { t } from "@lophn/i18n";
 import {
   Menu,
@@ -15,6 +15,7 @@ import {
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import {
+  type DragEvent,
   Fragment,
   type ReactElement,
   type ReactNode,
@@ -116,9 +117,21 @@ export interface LeftSidebarProps {
   machineNames?: ReadonlyMap<string, string>;
   /** 올려야 해서 못 붙는 기계 id → 올릴 쪽(client는 이 컴퓨터, host는 그 기계). 꺼진 줄이 "Off" 대신 이유를 쓴다. */
   machineUpdates?: ReadonlyMap<string, "client" | "host">;
-  /** 이 컴퓨터에 없는 project 줄 아래에 서는 한 줄(Clone here, 잇기). */
-  renderAway?: (workspace: SidebarWorkspace) => ReactNode;
+  /** workspace 줄의 오른쪽 클릭 menu 항목. 비면 menu가 없다. */
+  workspaceMenu?: (workspace: SidebarWorkspace) => readonly MenuItem[];
+  onWorkspaceMenu?: (workspace: SidebarWorkspace, id: string) => void;
+  /** workspace 줄 아래 한 줄(menu에서 시작한 clone의 진행과 결과). */
+  renderNote?: (workspace: SidebarWorkspace) => ReactNode;
+  /** session 줄을 다른 workspace 줄에 놓았다. 그 session의 탭을 그 workspace로 옮긴다. 없으면 줄을 끌 수 없다. */
+  onDropSession?: (
+    from: SidebarWorkspace,
+    item: SidebarSession,
+    to: SidebarWorkspace,
+  ) => void;
 }
+
+// sidebar 안에서 끄는 session 줄. 탭 줄의 끌기(tab-drag.tsx)는 pointer로 따로 하고 놓을 곳(`data-drop-workspace`)만 같이 쓴다.
+const SESSION_DRAG = "application/x-lophn-session";
 
 const WORKSPACE_ICON = {
   home: sidebarIcons.home,
@@ -239,6 +252,7 @@ function SessionRow({
   onMenu,
   dot = true,
   machineName,
+  onDragStart,
 }: {
   item: SidebarSession;
   selected: boolean;
@@ -248,11 +262,14 @@ function SessionRow({
   /** false면 줄 끝 점을 그리지 않는다. 점은 줄 밖의 Stop 단추가 대신 보인다. */
   dot?: boolean;
   machineName?: string;
+  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       type="button"
       className={styles.sessionRow}
+      draggable={onDragStart !== undefined}
+      onDragStart={onDragStart}
       disabled={item.offline}
       data-offline={item.offline}
       data-machine={item.machine}
@@ -310,7 +327,10 @@ export function LeftSidebar({
   onSettings,
   machineNames,
   machineUpdates,
-  renderAway,
+  workspaceMenu,
+  onWorkspaceMenu,
+  renderNote,
+  onDropSession,
 }: LeftSidebarProps) {
   const nameOf = (machine: string | undefined) =>
     machine === undefined ? undefined : (machineNames?.get(machine) ?? "");
@@ -337,6 +357,20 @@ export function LeftSidebar({
       if (!next.delete(key)) next.add(key);
       return next;
     });
+  // 펼친 다른 기계 묶음. 창 메모리에 둔다.
+  const [machinesOpen, setMachinesOpen] = useRemembered("machinesOpen");
+  const toggleMachine = (machine: string) =>
+    setMachinesOpen((all) => {
+      const next = new Set(all);
+      if (!next.delete(machine)) next.add(machine);
+      return next;
+    });
+  const [rowMenu, setRowMenu] = useState<{
+    readonly workspace: SidebarWorkspace;
+    readonly items: readonly MenuItem[];
+    readonly x: number;
+    readonly y: number;
+  } | null>(null);
   const [menu, setMenu] = useState<{
     readonly workspace: SidebarWorkspace;
     readonly item: SidebarSession;
@@ -365,6 +399,327 @@ export function LeftSidebar({
         ]),
   ];
   const currentKey = workspaceKey(current);
+
+  // 끄는 session 줄과 그 줄의 workspace. dataTransfer는 drop 전에 못 읽어 여기에 둔다.
+  const dragging = useRef<{
+    from: SidebarWorkspace;
+    item: SidebarSession;
+  } | null>(null);
+  const [dropOver, setDropOver] = useState<string | null>(null);
+  const dragFrom =
+    (workspace: SidebarWorkspace, item: SidebarSession) =>
+    (event: DragEvent<HTMLButtonElement>) => {
+      dragging.current = { from: workspace, item };
+      event.dataTransfer.setData(SESSION_DRAG, item.ref);
+      event.dataTransfer.effectAllowed = "move";
+    };
+  const canDrag = (item: SidebarSession) =>
+    onDropSession !== undefined &&
+    item.kind === "session" &&
+    item.offline !== true;
+  const renderWorkspace = (workspace: SidebarWorkspace) => {
+    const key = workspaceKey(workspace.ref);
+    const here = key === currentKey;
+    const open = expanded.has(key);
+    // 줄이 줄어 page가 사라지면 마지막 page를 보인다.
+    const pageCount = Math.ceil(workspace.recent.length / RECENT_PAGE);
+    const page = Math.min(pages.get(key) ?? 0, Math.max(pageCount - 1, 0));
+    const shown = workspace.recent.slice(
+      page * RECENT_PAGE,
+      (page + 1) * RECENT_PAGE,
+    );
+    return (
+      <div
+        key={key}
+        className={styles.workspaceGroup}
+        data-workspace={key}
+        data-offline={workspace.offline}
+      >
+        <div
+          className={styles.workspaceHead}
+          {...(workspace.offline ? {} : { "data-drop-workspace": key })}
+          data-drop-over={dropOver === key || undefined}
+          onDragOver={(event) => {
+            const from = dragging.current;
+            if (
+              workspace.offline ||
+              from === null ||
+              workspaceKey(from.from.ref) === key
+            ) {
+              return;
+            }
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            setDropOver(key);
+          }}
+          onDragLeave={() => setDropOver((now) => (now === key ? null : now))}
+          onDrop={(event) => {
+            const from = dragging.current;
+            setDropOver(null);
+            if (from === null) return;
+            event.preventDefault();
+            onDropSession?.(from.from, from.item, workspace);
+          }}
+        >
+          <button
+            type="button"
+            className={styles.workspaceRow}
+            data-current={here || undefined}
+            aria-current={here || undefined}
+            disabled={workspace.offline}
+            onClick={() => onWorkspace(workspace.ref)}
+            onContextMenu={(event) => {
+              const items = workspaceMenu?.(workspace) ?? [];
+              if (items.length === 0) return;
+              event.preventDefault();
+              setRowMenu({
+                workspace,
+                items,
+                x: event.clientX,
+                y: event.clientY,
+              });
+            }}
+          >
+            {workspace.ref.kind === "app" ? (
+              <AppTabIcon
+                app={workspace.ref.id}
+                pixels={16}
+                fallback={WORKSPACE_ICON.app}
+              />
+            ) : (
+              <Icon icon={WORKSPACE_ICON[workspace.ref.kind]} pixels={16} />
+            )}
+            {/* 기계는 묶음 머리가 말한다. 묶음 안의 Home은 그냥 Home이다. */}
+            <span className={styles.rowLabel}>
+              {workspace.ref.kind === "home"
+                ? t("left-sidebar.label.home")
+                : workspace.name}
+            </span>
+          </button>
+          {/* 설정 탭은 이 컴퓨터의 workspace만 연다. */}
+          {workspace.ref.kind !== "home" &&
+          workspace.ref.machine === undefined &&
+          onWorkspaceSettings !== undefined ? (
+            <span className={styles.workspaceSettings}>
+              <button
+                type="button"
+                className={styles.rowAction}
+                aria-label={t(
+                  workspace.ref.kind === "app"
+                    ? "left-sidebar.button.app-detail"
+                    : "left-sidebar.button.project-settings",
+                )}
+                data-workspace-settings=""
+                onClick={() => onWorkspaceSettings(workspace.ref)}
+              >
+                <Icon icon={commonIcons.settings} pixels={14} />
+              </button>
+            </span>
+          ) : null}
+          {workspace.offline ? null : (
+            <span className={styles.workspaceNew} data-here={here || undefined}>
+              <HoverList
+                id="new-session"
+                sections={agentSections(
+                  choices(workspace.ref),
+                  newSessionKeys,
+                  (choice) => onNewSessionWith(choice, workspace.ref),
+                )}
+                tip={
+                  here && newSessionKeys !== null ? (
+                    <Keyed
+                      label={t("left-sidebar.button.new-session-in", {
+                        workspace: workspace.name,
+                      })}
+                      keys={newSessionKeys}
+                    />
+                  ) : null
+                }
+                trigger={
+                  <button
+                    type="button"
+                    className={styles.rowAction}
+                    aria-label={t("left-sidebar.button.new-session-in", {
+                      workspace: workspace.name,
+                    })}
+                    data-workspace-new={key}
+                    onClick={() => onNewSession(workspace.ref)}
+                  >
+                    <Icon icon={shellIcons.add} pixels={14} />
+                  </button>
+                }
+              />
+            </span>
+          )}
+        </div>
+        {renderNote?.(workspace)}
+        {workspace.current.map((group) => (
+          <Fragment key={group.desk?.key ?? ""}>
+            {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}
+            {workspace.current.length < 2 ? null : (
+              <div
+                className={styles.deskHead}
+                data-sidebar-desk={group.desk?.key ?? ""}
+              >
+                {group.desk?.label}
+              </div>
+            )}
+            {group.items.map((item) => {
+              const itemKey = sessionKey(item);
+              const actions =
+                item.actions &&
+                (onRenameSession !== undefined || onStopSession !== undefined);
+              // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
+              const row = (
+                <SessionRow
+                  item={item}
+                  selected={here && itemKey === selected}
+                  recent={false}
+                  dot={!actions || onStopSession === undefined}
+                  machineName={nameOf(item.machine)}
+                  onClick={() => onSession(workspace, item)}
+                  {...(canDrag(item)
+                    ? { onDragStart: dragFrom(workspace, item) }
+                    : {})}
+                />
+              );
+              if (!actions) return <Fragment key={itemKey}>{row}</Fragment>;
+              if (renaming === itemKey) {
+                return (
+                  <SessionRename
+                    key={itemKey}
+                    title={item.title}
+                    onDone={(name) => {
+                      setRenaming(null);
+                      if (name !== null)
+                        onRenameSession?.(workspace, item, name);
+                    }}
+                  />
+                );
+              }
+              return (
+                <div
+                  key={itemKey}
+                  className={styles.sessionLine}
+                  data-session-line={itemKey}
+                >
+                  {row}
+                  <span className={styles.rowActions}>
+                    {onRenameSession === undefined ||
+                    item.kind === "draft" ||
+                    item.noRename === true ? null : (
+                      <button
+                        type="button"
+                        className={styles.rowAction}
+                        aria-label={t("left-sidebar.button.rename-session")}
+                        data-session-rename=""
+                        onClick={() => setRenaming(itemKey)}
+                      >
+                        <Icon icon={actionIcons.edit} pixels={14} />
+                      </button>
+                    )}
+                    {onStopSession === undefined ? null : (
+                      <button
+                        type="button"
+                        className={styles.rowAction}
+                        aria-label={t("left-sidebar.button.stop-session")}
+                        data-session-stop=""
+                        data-dot={item.dot === null ? undefined : ""}
+                        onClick={() => onStopSession(workspace, item)}
+                      >
+                        {item.dot === null ? null : (
+                          <TabStateDot
+                            dot={item.dot}
+                            className={styles.stopDot}
+                          />
+                        )}
+                        <Icon
+                          icon={shellIcons.close}
+                          pixels={14}
+                          className={styles.stopCross}
+                        />
+                      </button>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </Fragment>
+        ))}
+        {workspace.recent.length === 0 ? null : (
+          <button
+            type="button"
+            className={styles.recentToggle}
+            aria-expanded={open}
+            data-recent-toggle={key}
+            onClick={() => toggle(key)}
+          >
+            <Icon
+              icon={open ? shellIcons.expand : sidebarIcons.collapsed}
+              pixels={12}
+            />
+            <span>{t("left-sidebar.label.recent")}</span>
+            <span className={styles.rowMeta}>{workspace.recent.length}</span>
+          </button>
+        )}
+        {open
+          ? shown.map((item) => (
+              <SessionRow
+                key={sessionKey(item)}
+                item={item}
+                selected={here && sessionKey(item) === selected}
+                recent
+                machineName={nameOf(item.machine)}
+                onClick={() => onSession(workspace, item)}
+                {...(canDrag(item)
+                  ? { onDragStart: dragFrom(workspace, item) }
+                  : {})}
+                onMenu={
+                  onRemoveRecent === undefined || item.kind === "workflow"
+                    ? undefined
+                    : (at) => setMenu({ workspace, item, ...at })
+                }
+              />
+            ))
+          : null}
+        {open && pageCount > 1 ? (
+          <div className={styles.pager} data-recent-pager={key}>
+            <IconButton
+              icon={sidebarIcons.previous}
+              label={t("left-sidebar.button.previous-page")}
+              size="sm"
+              disabled={page === 0}
+              onClick={() => turnPage(key, page - 1)}
+            />
+            <span className={styles.pagerText}>
+              {t("left-sidebar.label.recent-page", {
+                start: page * RECENT_PAGE + 1,
+                end: page * RECENT_PAGE + shown.length,
+                total: workspace.recent.length,
+              })}
+            </span>
+            <IconButton
+              icon={sidebarIcons.next}
+              label={t("left-sidebar.button.next-page")}
+              size="sm"
+              disabled={page >= pageCount - 1}
+              onClick={() => turnPage(key, page + 1)}
+            />
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+  // 이 컴퓨터의 줄과 다른 기계마다의 줄. 줄의 순서(기계마다 Home, project, 앱)는 그대로다.
+  const mine = workspaces.filter((row) => row.ref.machine === undefined);
+  const machineGroups: { machine: string; rows: SidebarWorkspace[] }[] = [];
+  for (const row of workspaces) {
+    const machine = row.ref.machine;
+    if (machine === undefined) continue;
+    const group = machineGroups.find((one) => one.machine === machine);
+    if (group === undefined) machineGroups.push({ machine, rows: [row] });
+    else group.rows.push(row);
+  }
 
   return (
     <div
@@ -452,273 +807,45 @@ export function LeftSidebar({
       </div>
 
       <div className={styles.workspaceList}>
-        {workspaces.map((workspace) => {
-          const key = workspaceKey(workspace.ref);
-          const here = key === currentKey;
-          const open = expanded.has(key);
-          // 줄이 줄어 page가 사라지면 마지막 page를 보인다.
-          const pageCount = Math.ceil(workspace.recent.length / RECENT_PAGE);
-          const page = Math.min(
-            pages.get(key) ?? 0,
-            Math.max(pageCount - 1, 0),
-          );
-          const shown = workspace.recent.slice(
-            page * RECENT_PAGE,
-            (page + 1) * RECENT_PAGE,
+        {mine.map(renderWorkspace)}
+        {machineGroups.map(({ machine, rows }) => {
+          const open = machinesOpen.has(machine) || machine === current.machine;
+          const off = rows.every((row) => row.offline === true);
+          const running = rows.reduce(
+            (count, row) =>
+              count +
+              row.current.reduce((all, group) => all + group.items.length, 0),
+            0,
           );
           return (
             <div
-              key={key}
-              className={styles.workspaceGroup}
-              data-workspace={key}
-              data-offline={workspace.offline}
+              key={machine}
+              className={styles.machineGroup}
+              data-machine-group={machine}
+              data-offline={off || undefined}
             >
-              <div className={styles.workspaceHead}>
-                <button
-                  type="button"
-                  className={styles.workspaceRow}
-                  data-current={here || undefined}
-                  aria-current={here || undefined}
-                  disabled={workspace.offline}
-                  onClick={() => onWorkspace(workspace.ref)}
-                >
-                  {workspace.ref.kind === "app" ? (
-                    <AppTabIcon
-                      app={workspace.ref.id}
-                      pixels={16}
-                      fallback={WORKSPACE_ICON.app}
-                    />
-                  ) : (
-                    <Icon
-                      icon={WORKSPACE_ICON[workspace.ref.kind]}
-                      pixels={16}
-                    />
-                  )}
-                  <span className={styles.rowLabel}>{workspace.name}</span>
-                  {/* Home · <이름>은 이름에 기계가 있다. */}
-                  {workspace.ref.kind === "home" ? null : (
-                    <MachineTag name={nameOf(workspace.ref.machine)} />
-                  )}
-                  {workspace.offline ? (
-                    <span className={styles.rowMeta} data-offline-label="">
-                      {offlineLabel(workspace.ref.machine)}
-                    </span>
-                  ) : null}
-                </button>
-                {/* 설정 탭은 이 컴퓨터의 workspace만 연다. */}
-                {workspace.ref.kind !== "home" &&
-                workspace.ref.machine === undefined &&
-                onWorkspaceSettings !== undefined ? (
-                  <span className={styles.workspaceSettings}>
-                    <button
-                      type="button"
-                      className={styles.rowAction}
-                      aria-label={t(
-                        workspace.ref.kind === "app"
-                          ? "left-sidebar.button.app-detail"
-                          : "left-sidebar.button.project-settings",
-                      )}
-                      data-workspace-settings=""
-                      onClick={() => onWorkspaceSettings(workspace.ref)}
-                    >
-                      <Icon icon={commonIcons.settings} pixels={14} />
-                    </button>
+              <button
+                type="button"
+                className={styles.machineHead}
+                aria-expanded={open}
+                data-machine-toggle={machine}
+                onClick={() => toggleMachine(machine)}
+              >
+                <Icon
+                  icon={open ? shellIcons.expand : sidebarIcons.collapsed}
+                  pixels={12}
+                />
+                <Icon icon={sidebarIcons.machine} pixels={14} />
+                <span className={styles.rowLabel}>{nameOf(machine)}</span>
+                {off ? (
+                  <span className={styles.rowMeta} data-offline-label="">
+                    {offlineLabel(machine)}
                   </span>
+                ) : !open && running > 0 ? (
+                  <span className={styles.rowMeta}>{running}</span>
                 ) : null}
-                {workspace.offline ? null : (
-                  <span
-                    className={styles.workspaceNew}
-                    data-here={here || undefined}
-                  >
-                    <HoverList
-                      id="new-session"
-                      sections={agentSections(
-                        choices(workspace.ref),
-                        newSessionKeys,
-                        (choice) => onNewSessionWith(choice, workspace.ref),
-                      )}
-                      tip={
-                        here && newSessionKeys !== null ? (
-                          <Keyed
-                            label={t("left-sidebar.button.new-session-in", {
-                              workspace: workspace.name,
-                            })}
-                            keys={newSessionKeys}
-                          />
-                        ) : null
-                      }
-                      trigger={
-                        <button
-                          type="button"
-                          className={styles.rowAction}
-                          aria-label={t("left-sidebar.button.new-session-in", {
-                            workspace: workspace.name,
-                          })}
-                          data-workspace-new={key}
-                          onClick={() => onNewSession(workspace.ref)}
-                        >
-                          <Icon icon={shellIcons.add} pixels={14} />
-                        </button>
-                      }
-                    />
-                  </span>
-                )}
-              </div>
-              {workspace.away === undefined ? null : renderAway?.(workspace)}
-              {workspace.current.map((group) => (
-                <Fragment key={group.desk?.key ?? ""}>
-                  {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}
-                  {workspace.current.length < 2 ? null : (
-                    <div
-                      className={styles.deskHead}
-                      data-sidebar-desk={group.desk?.key ?? ""}
-                    >
-                      {group.desk?.label}
-                    </div>
-                  )}
-                  {group.items.map((item) => {
-                    const itemKey = sessionKey(item);
-                    const actions =
-                      item.actions &&
-                      (onRenameSession !== undefined ||
-                        onStopSession !== undefined);
-                    // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
-                    const row = (
-                      <SessionRow
-                        item={item}
-                        selected={here && itemKey === selected}
-                        recent={false}
-                        dot={!actions || onStopSession === undefined}
-                        machineName={nameOf(item.machine)}
-                        onClick={() => onSession(workspace, item)}
-                      />
-                    );
-                    if (!actions)
-                      return <Fragment key={itemKey}>{row}</Fragment>;
-                    if (renaming === itemKey) {
-                      return (
-                        <SessionRename
-                          key={itemKey}
-                          title={item.title}
-                          onDone={(name) => {
-                            setRenaming(null);
-                            if (name !== null)
-                              onRenameSession?.(workspace, item, name);
-                          }}
-                        />
-                      );
-                    }
-                    return (
-                      <div
-                        key={itemKey}
-                        className={styles.sessionLine}
-                        data-session-line={itemKey}
-                      >
-                        {row}
-                        <span className={styles.rowActions}>
-                          {onRenameSession === undefined ||
-                          item.kind === "draft" ||
-                          item.noRename === true ? null : (
-                            <button
-                              type="button"
-                              className={styles.rowAction}
-                              aria-label={t(
-                                "left-sidebar.button.rename-session",
-                              )}
-                              data-session-rename=""
-                              onClick={() => setRenaming(itemKey)}
-                            >
-                              <Icon icon={actionIcons.edit} pixels={14} />
-                            </button>
-                          )}
-                          {onStopSession === undefined ? null : (
-                            <button
-                              type="button"
-                              className={styles.rowAction}
-                              aria-label={t("left-sidebar.button.stop-session")}
-                              data-session-stop=""
-                              data-dot={item.dot === null ? undefined : ""}
-                              onClick={() => onStopSession(workspace, item)}
-                            >
-                              {item.dot === null ? null : (
-                                <TabStateDot
-                                  dot={item.dot}
-                                  className={styles.stopDot}
-                                />
-                              )}
-                              <Icon
-                                icon={shellIcons.close}
-                                pixels={14}
-                                className={styles.stopCross}
-                              />
-                            </button>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </Fragment>
-              ))}
-              {workspace.recent.length === 0 ? null : (
-                <button
-                  type="button"
-                  className={styles.recentToggle}
-                  aria-expanded={open}
-                  data-recent-toggle={key}
-                  onClick={() => toggle(key)}
-                >
-                  <Icon
-                    icon={open ? shellIcons.expand : sidebarIcons.collapsed}
-                    pixels={12}
-                  />
-                  <span>{t("left-sidebar.label.recent")}</span>
-                  <span className={styles.rowMeta}>
-                    {workspace.recent.length}
-                  </span>
-                </button>
-              )}
-              {open
-                ? shown.map((item) => (
-                    <SessionRow
-                      key={sessionKey(item)}
-                      item={item}
-                      selected={here && sessionKey(item) === selected}
-                      recent
-                      machineName={nameOf(item.machine)}
-                      onClick={() => onSession(workspace, item)}
-                      onMenu={
-                        onRemoveRecent === undefined || item.kind === "workflow"
-                          ? undefined
-                          : (at) => setMenu({ workspace, item, ...at })
-                      }
-                    />
-                  ))
-                : null}
-              {open && pageCount > 1 ? (
-                <div className={styles.pager} data-recent-pager={key}>
-                  <IconButton
-                    icon={sidebarIcons.previous}
-                    label={t("left-sidebar.button.previous-page")}
-                    size="sm"
-                    disabled={page === 0}
-                    onClick={() => turnPage(key, page - 1)}
-                  />
-                  <span className={styles.pagerText}>
-                    {t("left-sidebar.label.recent-page", {
-                      start: page * RECENT_PAGE + 1,
-                      end: page * RECENT_PAGE + shown.length,
-                      total: workspace.recent.length,
-                    })}
-                  </span>
-                  <IconButton
-                    icon={sidebarIcons.next}
-                    label={t("left-sidebar.button.next-page")}
-                    size="sm"
-                    disabled={page >= pageCount - 1}
-                    onClick={() => turnPage(key, page + 1)}
-                  />
-                </div>
-              ) : null}
+              </button>
+              {open ? rows.map(renderWorkspace) : null}
             </div>
           );
         })}
@@ -738,6 +865,26 @@ export function LeftSidebar({
             />
           )}
         </div>
+      )}
+
+      {rowMenu === null ? null : (
+        <Menu
+          open
+          onOpenChange={(next) => {
+            if (!next) setRowMenu(null);
+          }}
+          trigger={
+            <span
+              className={styles.menuAnchor}
+              style={{ left: rowMenu.x, top: rowMenu.y }}
+            />
+          }
+          items={[...rowMenu.items]}
+          onSelect={(id) => {
+            onWorkspaceMenu?.(rowMenu.workspace, id);
+            setRowMenu(null);
+          }}
+        />
       )}
 
       {menu === null ? null : (

@@ -12,6 +12,7 @@ import {
 } from "../coding-agent/coding-agents.ts";
 import {
   terminalOutputSchema,
+  terminalProjectSchema,
   terminalRuntimeSchema,
 } from "../coding-agent/terminals.ts";
 import { traceIdSchema } from "../apps/calls/caller.ts";
@@ -283,7 +284,7 @@ const terminalAgentSignaled = defineTransientEvent("TerminalAgentSignaled", {
   subject: terminalSubjectSchema,
   payload: z.strictObject({
     terminal: z.string().min(1),
-    project: idSchema("prj"),
+    project: terminalProjectSchema,
     harness: z.string().min(1),
     kind: z.enum(["waiting", "finished", "failed"]),
     name: z.string().nullable(),

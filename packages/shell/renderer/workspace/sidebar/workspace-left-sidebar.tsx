@@ -1,6 +1,7 @@
 // workspace(Home, project) 창의 왼쪽 sidebar. 화면(LeftSidebar)에 이 창이 아는 값을 모아 준다: 모든 기계의 workspace와 session, 이 workspace의 열린 탭 제목,
 // 터미널 coding agent session, 사람 차례인 workflow desk(project만). 등록·생성·잇기 dialog도 여기서 연다.
 // 줄과 session은 창의 목록(`useMachineLists`)이 기계마다 읽은 것이다. 이 창이 보는 workspace가 다른 기계의 것이어도 줄은 같다.
+import { t } from "@lophn/i18n";
 import {
   useCallback,
   useEffect,
@@ -20,7 +21,7 @@ import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx";
 import { LinkProjectDialog } from "../../desktop/workspaces/projects/link-dialog.tsx";
-import type { Away } from "../../desktop/workspaces/projects/merged.ts";
+import type { ListedProject } from "../../desktop/workspaces/projects/machine-workspaces.ts";
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
 import {
   RegisterDialog,
@@ -36,6 +37,7 @@ import { codingDot } from "../../parts/agent-session/coding.ts";
 import { newId } from "../../prefixed-id.ts";
 import type { NewSessionStart } from "../../desktop/router.ts";
 import {
+  allTabs,
   type QuickCommand,
   closeTab,
   workspaceKey,
@@ -73,7 +75,8 @@ import type { WorkspaceSource } from "../source.ts";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { PanelTerminal } from "./panel-types.ts";
-import { AwayLine } from "./away-line.tsx";
+import { movedTab, putTab, sessionTab } from "./move-tab.ts";
+import { CloneNote, type CloneState, cloneResult } from "./clone-note.tsx";
 
 const NO_WORKFLOWS: readonly string[] = [];
 
@@ -188,6 +191,12 @@ export interface WorkspaceLeftSidebarProps {
   onWorkspaceSettings?: (workspace: WorkspaceRef) => void;
   /** 작업 표시줄이 켜져 있으면 주지 않는다(작업 표시줄이 그린다). */
   onSettings?: () => void;
+  /** 창이 다른 workspace의 layout에 탭을 옮겨 쓸 때마다 는다. 그 layout을 다시 읽는다. */
+  layoutsMoved?: number;
+  /** 이 창의 session 탭(없으면 지어서)을 그 workspace로 옮긴다. */
+  onMoveSession?: (session: string, to: WorkspaceRef) => void;
+  /** 다른 workspace에서 옮겨 온 탭을 이 창에 연다. */
+  onPutTab?: (tab: TabItem) => void;
 }
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
@@ -235,7 +244,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     ),
     () => remoteStores.map((remote) => remote.version()).join(),
   );
-  const remoteSignal = `${lists.terminals.map((one) => one.terminal).join()}|${remoteVersions}`;
+  const remoteSignal = `${lists.terminals.map((one) => one.terminal).join()}|${remoteVersions}|${props.layoutsMoved ?? 0}`;
   const elsewhere = useTabsElsewhere(
     layoutOf,
     workspaceRefs,
@@ -431,10 +440,61 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
   // 잇기 dialog가 가리키는 다른 기계의 git이 아닌 project.
-  const [linking, setLinking] = useState<Extract<
-    Away,
-    { kind: "link" }
-  > | null>(null);
+  const [linking, setLinking] = useState<{
+    readonly machine: string;
+    readonly project: ListedProject;
+  } | null>(null);
+  // workspace key → menu에서 시작한 clone의 진행·결과.
+  const [clones, setClones] = useState<ReadonlyMap<string, CloneState>>(
+    new Map(),
+  );
+  const setClone = (key: string, state: CloneState | null) =>
+    setClones((now) => {
+      const next = new Map(now);
+      if (state === null) next.delete(key);
+      else next.set(key, state);
+      return next;
+    });
+  // 다른 기계의 project이고 이 컴퓨터에 같은 project가 없으면 가져오는 menu를 둔다. git은 remote가 있어야 clone한다.
+  const bringItems = (workspace: SidebarWorkspace) => {
+    const { listed } = workspace;
+    if (
+      workspace.ref.machine === undefined ||
+      workspace.offline === true ||
+      listed === undefined ||
+      listed.identity === null ||
+      (workspace.also ?? []).some((copy) => copy.machine === null)
+    ) {
+      return [];
+    }
+    if (listed.repo === "git" && listed.remote !== null && machines !== null) {
+      return [{ id: "clone", label: t("left-sidebar.button.clone-here") }];
+    }
+    if (listed.repo === "none") {
+      return [{ id: "link", label: t("left-sidebar.button.link-here") }];
+    }
+    return [];
+  };
+  const bring = (workspace: SidebarWorkspace, id: string) => {
+    const { listed } = workspace;
+    const machineId = workspace.ref.machine;
+    if (listed === undefined || machineId === undefined) return;
+    if (id === "link") {
+      setLinking({ machine: machineId, project: listed });
+      return;
+    }
+    if (machines === null || listed.remote === null || listed.identity === null)
+      return;
+    const key = workspaceKey(workspace.ref);
+    setClone(key, { state: "cloning" });
+    void machines
+      .cloneHere({
+        url: listed.remote.url,
+        identity: listed.identity,
+        title: listed.title,
+      })
+      .then((outcome) => setClone(key, cloneResult(outcome)));
+  };
   // 연결된 다른 기계. 등록 dialog가 허락한 기계를 골라 그 기계에 등록한다. 목록이 바뀔 때마다 새로 지으면 열린 dialog의
   // 고른 기계가 풀리므로 연결된 기계가 바뀔 때만 짓는다.
   const live = lists.lists
@@ -650,9 +710,55 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     });
   };
 
+  // session 줄을 다른 workspace 줄에 놓았다. 탭만 옮긴다(`move-tab.ts`). 이 창의 탭은 창이 옮기고, 다른 workspace의 탭은 그
+  // workspace의 layout에서 빼서 옮긴다. 탭 없이 도는 session은 탭을 지어 둔다.
+  const dropSession = async (
+    from: SidebarWorkspace,
+    item: SidebarSession,
+    to: SidebarWorkspace,
+  ) => {
+    if (item.kind !== "session") return;
+    const hereKey = workspaceKey(current);
+    if (workspaceKey(from.ref) === hereKey) {
+      props.onMoveSession?.(item.ref, to.ref);
+      return;
+    }
+    const read = await layoutOf(from.ref).readWorkspaceLayout(from.ref);
+    const found =
+      read.ok && read.layout !== null
+        ? allTabs(read.layout).find(
+            (tab) => tab.kind === "agent" && sessionOf(tab) === item.ref,
+          )
+        : undefined;
+    const entry = entries.find((row) => row.session === item.ref);
+    if (found === undefined && entry?.agent == null) return;
+    const tab =
+      found ??
+      sessionTab({
+        session: item.ref,
+        agent: entry!.agent!,
+        workspace: entry!.workspace?.id ?? "home",
+        machine: entry!.machine,
+        title: item.title,
+      });
+    // 지은 탭은 기계를 이미 적었다(이 컴퓨터면 없다). 이 컴퓨터를 뜻하는 자리에서 온 것으로 본다.
+    const moved = movedTab(
+      tab,
+      found === undefined ? { kind: "home" } : from.ref,
+      to.ref,
+    );
+    if (moved === null) return;
+    if (workspaceKey(to.ref) === hereKey) props.onPutTab?.(moved);
+    else if (!(await putTab(layoutOf(to.ref), to.ref, moved))) return;
+    if (found !== undefined) {
+      await editTabAt(from.ref, (row) => row.key === found.key, "close");
+    } else elsewhere.reload();
+  };
+
   return (
     <>
       <LeftSidebar
+        onDropSession={(from, item, to) => void dropSession(from, item, to)}
         workspaces={workspaces}
         current={current}
         selected={props.selected}
@@ -692,22 +798,15 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         onStopSession={stopSession}
         machineNames={lists.names}
         machineUpdates={lists.updates}
-        renderAway={(workspace) =>
-          workspace.away === undefined ? null : (
-            <AwayLine
-              away={workspace.away}
-              {...(workspace.offline
-                ? { offline: lists.names.get(workspace.away.machine) ?? "" }
-                : {})}
-              {...(machines === null
-                ? {}
-                : { cloneHere: (input) => machines.cloneHere(input) })}
-              onLink={() =>
-                workspace.away?.kind === "link" && setLinking(workspace.away)
-              }
-            />
-          )
-        }
+        workspaceMenu={bringItems}
+        onWorkspaceMenu={bring}
+        renderNote={(workspace) => {
+          const key = workspaceKey(workspace.ref);
+          const clone = clones.get(key);
+          return clone === undefined ? null : (
+            <CloneNote clone={clone} onDismiss={() => setClone(key, null)} />
+          );
+        }}
         {...(projects === undefined
           ? {}
           : { onRegisterProject: () => setRegistering(true) })}
@@ -742,17 +841,20 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         <LinkProjectDialog
           remote={{
             machineName: lists.names.get(linking.machine) ?? "",
-            title: linking.title,
-            identity: linking.identity,
+            title: linking.project.title,
+            identity: linking.project.identity ?? "",
           }}
           candidates={(lists.lists[0]?.projects ?? []).filter(
             (item) =>
               !item.archived &&
               item.repo === "none" &&
-              item.identity !== linking.identity,
+              item.identity !== linking.project.identity,
           )}
           onLink={(project) =>
-            dataOf(null).projects.linkIdentity(project, linking.identity)
+            dataOf(null).projects.linkIdentity(
+              project,
+              linking.project.identity ?? "",
+            )
           }
           onClose={() => setLinking(null)}
         />

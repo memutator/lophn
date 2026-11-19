@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { codingSessionsList } from "../../../protocol/coding-agent/relay.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
 import {
   ConnectionNotice,
   retryConnection,
@@ -49,6 +50,7 @@ import {
   openAppScreenAt,
   openProject,
   openSettings,
+  openTerminalIn,
   type Route,
 } from "./router.ts";
 import { WorkspaceWindow } from "../workspace/workspace-window.tsx";
@@ -306,15 +308,17 @@ export function Desktop({
       const targetProject = project;
       setRoute((current) => {
         if (
-          current.space === "project" &&
-          current.project === targetProject &&
+          (targetProject === HOME_TERMINAL_PROJECT
+            ? current.space === "home"
+            : current.space === "project" &&
+              current.project === targetProject) &&
           current.machine === machine &&
           data.terminal?.store.has(terminalRef)
         ) {
           data.terminal.store.reveal(terminalRef);
           return current;
         }
-        return openProject(targetProject, { terminal: terminalRef, machine });
+        return openTerminalIn(targetProject, terminalRef, machine);
       });
     })();
   };
@@ -324,11 +328,12 @@ export function Desktop({
     () =>
       terminalBridge?.onReveal(({ project, terminal: ref }) =>
         setRoute((current) =>
-          current.space === "project" &&
-          current.project === project &&
+          (project === HOME_TERMINAL_PROJECT
+            ? current.space === "home"
+            : current.space === "project" && current.project === project) &&
           current.machine === undefined
             ? current
-            : openProject(project, { terminal: ref }),
+            : openTerminalIn(project, ref),
         ),
       ),
     [terminalBridge],
@@ -419,7 +424,7 @@ export function Desktop({
     );
   } else if (route.space === "home" && workspace && live) {
     globalFloats = true;
-    // Home은 project가 없어 터미널과 detached 창이 없다.
+    // Home은 project가 없어 detached 창이 없다. 터미널은 있다.
     space = (
       <WorkspaceWindow
         key={workspaceKey(ref)}
@@ -448,7 +453,7 @@ export function Desktop({
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={at.projects}
         editor={at.editor}
-        windowTerminal={at.terminal}
+        terminal={at.terminal}
         agentViewSource={at.agentViewSource}
         session={route.session}
         sessionMachine={route.sessionMachine}
@@ -458,6 +463,7 @@ export function Desktop({
         }
         onSettingsAt={(workspace) => setRoute(openWorkspaceSettings(workspace))}
         startSettings={route.startSettings}
+        revealTerminal={route.terminal}
       />
     );
   } else if (route.space === "detached") {

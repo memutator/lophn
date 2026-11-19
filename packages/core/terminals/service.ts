@@ -5,11 +5,12 @@ import { dirname } from "node:path";
 import { type ErrorCode, err, ok, type Result } from "../../base/mod.ts";
 import { prependPath } from "../../base/os/mod.ts";
 import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
-import type {
-  TerminalAgent,
-  TerminalFailure,
-  TerminalOutput,
-  TerminalRuntime,
+import {
+  HOME_TERMINAL_PROJECT,
+  type TerminalAgent,
+  type TerminalFailure,
+  type TerminalOutput,
+  type TerminalRuntime,
 } from "../../protocol/coding-agent/terminals.ts";
 import { folderOfCwd } from "./cwd.ts";
 import type {
@@ -90,7 +91,7 @@ export function createTerminals(deps: {
   // PTY host process 하나를 띄운다. env는 사람의 login env다.
   spawnHost(env: Readonly<Record<string, string>>): HostProcess;
   personEnv: PersonEnv;
-  // project의 등록 폴더(`folder_ref`는 `<project>_<index>`). 없는 project는 not_found다.
+  // project의 등록 폴더(`folder_ref`는 `<project>_<index>`). Home은 사람의 home 폴더 하나다. 없는 project는 not_found다.
   folders(project: string): Promise<Result<readonly Folder[]>>;
   platform: NodeJS.Platform;
   // host가 스스로 끝났다(code, signal, stderr 마지막 4 KiB).
@@ -221,8 +222,10 @@ export function createTerminals(deps: {
           : prependPath(hostEnv, dirname(cli), deps.platform);
       const hooked = [...envHooks].map((hook) => hook(input));
       const env: Record<string, string> = {
-        // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다.
-        LOPHN_WORKSPACE: JSON.stringify({ project: input.project }),
+        // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다. Home은 env가 없을 때의 기본이라 넣지 않는다.
+        ...(input.project === HOME_TERMINAL_PROJECT
+          ? {}
+          : { LOPHN_WORKSPACE: JSON.stringify({ project: input.project }) }),
         // 개발 실행은 PATH에 `lophn`이 없다. 설치본은 이미 있어 더하지 않는다.
         ...(path === undefined ? {} : { [path.name]: path.value }),
         ...Object.assign({}, ...hooked.map((one) => one.env)),

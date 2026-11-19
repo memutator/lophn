@@ -1,5 +1,5 @@
 // 한 창의 목록: 이 컴퓨터(Studio)의 창 왼쪽 sidebar와 Home의 Workspaces panel이 모든 기계의 것을 보인다. 줄은 renderer의
-// 순수 함수가 `mock/machines-data.ts`의 가짜 기계 셋에서 짓고, 화면은 LeftSidebar·AwayLine·WorkspacesPanel 그대로다.
+// 순수 함수가 `mock/machines-data.ts`의 가짜 기계 셋에서 짓고, 화면은 LeftSidebar·WorkspacesPanel 그대로다.
 import { Icon } from "@lophn/ui/primitives";
 import { useMemo, useState } from "react";
 import { galleryApps } from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
@@ -18,7 +18,6 @@ import {
   TabStrip,
 } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
 import { WorkspacesPanel } from "../../../../../packages/shell/renderer/shell/workspaces-panel.tsx";
-import { AwayLine } from "../../../../../packages/shell/renderer/workspace/sidebar/away-line.tsx";
 import { withSyncLists } from "../../../mock/core-answers/sync-lists.ts";
 import {
   GROCERY_THERE,
@@ -74,18 +73,6 @@ function Sidebar({
         onStopSession={noop}
         onSettings={noop}
         machineNames={MACHINE_NAMES}
-        renderAway={(workspace) =>
-          workspace.away === undefined ? null : (
-            <AwayLine
-              away={workspace.away}
-              {...(workspace.offline
-                ? { offline: MACHINE_NAMES.get(workspace.away.machine) ?? "" }
-                : {})}
-              cloneHere={() => new Promise(() => {})}
-              onLink={noop}
-            />
-          )
-        }
       />
     </EventsProvider>
   );

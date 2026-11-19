@@ -1,3 +1,4 @@
+import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
 import type { SettingsPane } from "./settings/model.ts";
 
@@ -43,7 +44,7 @@ export interface Route {
   readonly startAppScreen?: true;
   /** app 공간에서 그 앱 workspace의 lophn을 새 session으로 열어 시작한다. */
   readonly newSession?: true;
-  /** project 공간에서 열어 시작할 터미널의 terminal_ref(다른 project의 터미널 알림). */
+  /** home·project 공간에서 열어 시작할 터미널의 terminal_ref(다른 workspace의 터미널 알림). */
   readonly terminal?: string;
   /** project 공간에서 열어 시작할 파일. path는 디스크의 절대 경로다. */
   readonly open?: { readonly path: string; readonly line?: number };
@@ -81,6 +82,17 @@ export function openProject(
   > = {},
 ): Route {
   return { space: "project", project, ...start };
+}
+
+/** 터미널이 있는 workspace(`project`는 project id, Home이면 `home`)로 가서 그 터미널을 고른다. */
+export function openTerminalIn(
+  project: string,
+  terminal: string,
+  machine?: string,
+): Route {
+  return project === HOME_TERMINAL_PROJECT
+    ? { space: "home", terminal, ...on(machine) }
+    : openProject(project, { terminal, ...on(machine) });
 }
 
 /** 앱 공간으로 이동한다. 기계를 주면 그 기계의 앱이다. */

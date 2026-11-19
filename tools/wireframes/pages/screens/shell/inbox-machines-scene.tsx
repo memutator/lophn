@@ -37,7 +37,6 @@ import { fakeMachines } from "../../../../../packages/shell/renderer/desktop/mac
 import { LeftSidebar } from "../../../../../packages/shell/renderer/shell/left-sidebar.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
 import { PaddedTab } from "../../../../../packages/shell/renderer/workspace/padded-tab.tsx";
-import { AwayLine } from "../../../../../packages/shell/renderer/workspace/sidebar/away-line.tsx";
 import { press } from "../../../mock/drive.ts";
 import { Driven } from "../../../mock/driven.tsx";
 import {
@@ -162,18 +161,6 @@ function Sidebar() {
       onStopSession={noop}
       onSettings={noop}
       machineNames={MACHINE_NAMES}
-      renderAway={(workspace) =>
-        workspace.away === undefined ? null : (
-          <AwayLine
-            away={workspace.away}
-            {...(workspace.offline
-              ? { offline: MACHINE_NAMES.get(workspace.away.machine) ?? "" }
-              : {})}
-            cloneHere={() => new Promise(() => {})}
-            onLink={noop}
-          />
-        )
-      }
     />
   );
 }

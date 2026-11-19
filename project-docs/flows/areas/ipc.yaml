@@ -355,7 +355,7 @@ flows:
     docs: [architecture/remote.md]
 
   - id: machines-clone-here
-    title: "목록의 [Clone here]가 다른 기계의 project를 이 컴퓨터에 clone한다"
+    title: "목록 menu의 [Clone to this computer]가 다른 기계의 project를 이 컴퓨터에 clone한다"
     actor: person
     entries: [ipc:shell:machines-clone-here]
     uses: [route:projects/clone]
@@ -365,7 +365,7 @@ flows:
       - packages/shell/ipc/machines.ts
       - packages/shell/preload/machines-api.ts
     steps:
-      - "어느 desktop 창이든 부른다(왼쪽 sidebar에서 이 컴퓨터에 없는 git project 줄의 [Clone here]). handler가 sender가 desktop 창 본문인지 보고 입력 { url, identity, title }을 strict schema로 본다"
+      - "어느 desktop 창이든 부른다(왼쪽 sidebar에서 이 컴퓨터에 없는 다른 기계의 git project 줄 menu의 [Clone to this computer]). handler가 sender가 desktop 창 본문인지 보고 입력 { url, identity, title }을 strict schema로 본다"
       - "이 컴퓨터의 core에 사람 token으로 project.clone { url, identity, title }을 부른다. 다른 기계의 저장소에는 아무것도 쓰지 않는다"
       - "답이 details.reason projects_folder_unset이면 그 창에 붙은 OS 폴더 선택기를 열고(headless는 LOPHN_SHELL_PICK_FOLDER만) 고른 폴더를 parent로 다시 부른다. 그만두면 처음 답을 돌려준다"
       - "core의 답(성공, git_auth의 details.command, 그 밖 오류)을 그대로 돌려준다"

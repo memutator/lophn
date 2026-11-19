@@ -79,8 +79,15 @@ decisions of the plan.
   `lophn app sdk-status`). The person calls `/update-apps` for it; follow that
   skill and hand the work to lophn at each app.
 - A claim in a plan must point to something you read. State risk first.
-- Home and apps have no terminal, so `lophn tab open --coding` does not work
-  here. Work for a coding agent goes headless with `lophn team spawn <handle>`.
+- Work for a coding agent depends on whether a person will continue it. Work
+  the person will pick up or debug together (a handoff) goes to the agent's TUI
+  in a new terminal tab at Home (it starts in the person's home folder, so use it
+  for work that is not tied to one project):
+  `lophn tab open --coding <harness> --handoff <text>` (`claude`, `codex` or
+  `opencode`, one of the person's coding agent favorites). Write the handoff for
+  an agent that knows nothing yet: the goal, what you know so far, and what to do
+  next. Work on a project belongs to lophn at that project. One-off work that
+  needs no person goes headless with `lophn team spawn <handle>`.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or

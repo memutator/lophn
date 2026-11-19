@@ -1,0 +1,13 @@
+id: tab-strip-width-limits
+version: 0.23.93
+title: tab 줄의 tab에 최소·최대 폭을 두고 넘치면 scroll한다(VS Code)
+modules: [packages/shell/renderer]
+change: |
+  - 이전에는 고른 tab이 이름 길이만큼(strip 폭의 80%까지) 넓어지고 고르지 않은 tab은 좁아져서 폭이 제각각이었다. 이제 tab 하나는 내용 폭이되 96px 이상 200px 이하이고, 긴 이름은 ...로 잘리며 전체 이름은 tooltip에 있다.
+  - tab은 좁아지지 않는다. 줄이 모자라면 먼저 group이 접히고, 그래도 모자라면 가로 scroll이다(wheel, 고른 tab 따라가기는 그대로). 기계 꼬리표는 폭이 고정이라 이름만 잘리고, 닫기 자리는 hover 전에도 자리를 차지한다.
+  - group tab은 tab 전체 최대 폭 없이 칸마다 이름을 자른다.
+why: |
+  긴 이름의 tab이 줄을 다 차지하고 tab 폭이 들쭉날쭉했다. VS Code와 같은 폭 규칙이면 익숙하고 tab이 많아도 읽을 수 있다.
+decisions:
+  - text: scrollbar는 두지 않는다. 클래식 scrollbar는 줄 높이를 줄여 tab이 card에서 떠 버린다. wheel과 고른 tab 따라가기로 scroll한다.
+    by: agent

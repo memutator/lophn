@@ -7,6 +7,8 @@ import {
   AgentCallOpen,
   AgentHarness,
   AgentHarnessMode,
+  AgentMachineChip,
+  AgentMachineMenu,
   AgentShellMode,
   AgentShellPending,
   AgentShellRun,
@@ -186,6 +188,20 @@ export const agentArea: Area = {
       description:
         "composer에 !ls -la를 친 모습이다. 글이 !로 시작하고 session이 shell 기능을 가지면 shell mode다: 입력 글이 mono, 입력칸 테두리가 경고색, 입력칸 안 왼쪽에 Shell chip, 아래에 Runs in your shell · Esc to leave. 위 대화에 사람이 돌린 shell 줄이 보인다. Home의 lophn agent처럼 shell 기능이 없는 곳에서는 !가 보통 글이다.",
       render: () => <AgentShellMode />,
+    },
+    {
+      id: "new-agent-machine-chip",
+      title: "Agent · project on several machines",
+      description:
+        "같은 project가 여러 기계에 있는 아직 session이 없는 새 탭이다. composer 아래 줄의 project chip에 기계 꼬리표(This computer)가 붙고, session이 생기면 chip은 기계를 보이기만 하고 누르지 못한다. Home과 앱은 chip이 그대로다.",
+      render: () => <AgentMachineChip />,
+    },
+    {
+      id: "new-agent-machine-menu",
+      title: "Agent · run on machine",
+      description:
+        "새 탭에서 project chip을 눌러 연 menu다. 같은 project가 있는 기계가 이 컴퓨터부터 나오고 지금 기계에 체크가 있다. 꺼진 기계(Laptop)는 흐리고 줄 끝에 이유(Offline)가 보인다. 기계를 고르면 탭이 그 기계의 project로 바뀌어 첫 메시지가 그 기계에서 session을 만든다.",
+      render: () => <AgentMachineMenu />,
     },
     {
       id: "new-agent-shell-run",

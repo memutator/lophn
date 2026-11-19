@@ -14,6 +14,7 @@ import {
   terminalName,
 } from "../../terminal/model.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { TerminalResume, TerminalStore } from "../../terminal/store.ts";
 import { GuiSwitch, guiTitleOf } from "../../terminal/terminal-gui.tsx";
@@ -37,8 +38,18 @@ function terminalOf(
   return host.machineData(tab?.machine ?? host.machine).terminal;
 }
 
+/** 터미널이 속하는 core의 project 값. project는 그 id, Home은 `home`이다. 앱 workspace에는 터미널이 없어 null이다. */
+function terminalProjectOf(host: TabHost): string | null {
+  const { workspace } = host;
+  return workspace.kind === "project"
+    ? workspace.id
+    : workspace.kind === "home"
+      ? HOME_TERMINAL_PROJECT
+      : null;
+}
+
 /**
- * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 core가 정한다). 저장한 session을
+ * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 core가 정한다. Home은 Explorer가 없어 core가 사람의 home 폴더로 연다). 저장한 session을
  * 열 때만 폴더와 resume을 주고, 이때는 그 폴더가 우선이다. `command`는 대화 코드 블록의 실행이고 floated로 연다
  * (`openAt`의 run). `terminal`을 주면 새 shell을 열지 않고 core에 이미 있는 그 터미널(폰이나 agent가 연 것)에 붙는다.
  */
@@ -67,8 +78,7 @@ export function openTerminal(
   } = {},
 ): string | null {
   const terminal = host.machineData(options.machine ?? host.machine).terminal;
-  // Home에는 터미널이 없다.
-  if (!terminal || host.projectId === null) return null;
+  if (!terminal || terminalProjectOf(host) === null) return null;
   const key =
     options.open?.key ??
     `terminal-${Date.now().toString(36)}-${++terminalCount}`;
@@ -386,8 +396,9 @@ export const terminalKind: TabKindDef = {
     host.patchTab(tab.key, (current) =>
       terminalNamed(current, person, terminal?.store),
     );
-    if (terminal !== undefined && host.projectId !== null) {
-      pinAgentSessionName(terminal, host.projectId, tab.key, person);
+    const project = terminalProjectOf(host);
+    if (terminal !== undefined && project !== null) {
+      pinAgentSessionName(terminal, project, tab.key, person);
     }
   },
   fromStored(stored, { key }) {
@@ -480,7 +491,7 @@ export const terminalKind: TabKindDef = {
   },
   render(tab, active, host) {
     const terminal = terminalOf(tab, host);
-    const project = host.projectId;
+    const project = terminalProjectOf(host);
     if (!terminal || project === null) return null;
     const body = (
       <TerminalTab

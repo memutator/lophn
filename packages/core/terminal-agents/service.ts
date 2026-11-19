@@ -9,7 +9,10 @@ import {
   hookSignalOf,
   sessionOfProcess,
 } from "../../protocol/coding-agent/mod.ts";
-import type { TerminalAgentSession } from "../../protocol/coding-agent/terminals.ts";
+import {
+  HOME_TERMINAL_PROJECT,
+  type TerminalAgentSession,
+} from "../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../protocol/events/bus.ts";
 import { publishStateChanged } from "../../protocol/events/changes.ts";
 import type { AcpTabHandlers } from "../../protocol/extensions/acp-session.ts";
@@ -85,7 +88,15 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     after: deps.after,
     notify(notice) {
       const runtime = terminals.runtime(notice.terminal_ref);
-      if (runtime === null || !runtime.project.startsWith("prj_")) return;
+      if (
+        runtime === null ||
+        !(
+          runtime.project === HOME_TERMINAL_PROJECT ||
+          runtime.project.startsWith("prj_")
+        )
+      ) {
+        return;
+      }
       deps.publish({
         type: "TerminalAgentSignaled",
         subject: `terminal:${notice.terminal_ref}`,

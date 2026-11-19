@@ -61,7 +61,9 @@ import {
   terminalsClose,
   terminalsInput,
   terminalsList,
+  terminalsName,
   terminalsOpen,
+  terminalsRenameSaved,
   terminalsRestart,
 } from "../coding-agent/terminals.ts";
 import { CARRY_ROUTES } from "./carry.ts";
@@ -121,6 +123,10 @@ import {
   inputRequestCancel,
   inputRequestRead,
 } from "../lophn-agent/input-request.ts";
+import {
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
+} from "../lophn-agent/instructions.ts";
 import {
   editQueued,
   moveQueued,
@@ -383,9 +389,11 @@ export const REMOTE_ALLOWED_ROUTES = [
 // MCP 로그인 상태 읽기(`agent-mcp-auth/state`)는 Tools and skills가 보이므로 연다.
 // 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
 export const REMOTE_PERSON_ROUTES = [
-  // 터미널 닫기와 다시 띄우기(다른 컴퓨터의 터미널 탭). 다시 띄우기는 core가 입력과 같은 허락을 한 번 더 본다
+  // 터미널 닫기·다시 띄우기·이름 바꾸기(다른 컴퓨터의 터미널 탭과 저장한 session). 다시 띄우기는 core가 입력과 같은 허락을 한 번 더 본다
   terminalsClose,
   terminalsRestart,
+  terminalsName,
+  terminalsRenameSaved,
   // secret: 값은 upload body로 오고 secret 저장소에만 간다
   secretPut,
   secretDelete,
@@ -427,6 +435,8 @@ export const REMOTE_PERSON_ROUTES = [
   agentChange,
   agentDelete,
   agentProfileImageUpload,
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
   // project. `project.add`는 안에서 부른 사람의 자격으로 `projects/create`를 writer에 보낸다
   projectApi.register,
   projectApi.edit,

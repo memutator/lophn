@@ -56,6 +56,10 @@ files:
     covers: [skill-write-workflow:loaded, skill-write-workflow:not-available, tool-skill-read:read, tool-skill-read:not-enabled, tool-skill-read:not-found, tool-skill-read:unreadable, command-list-read:ok]
     note: "내장 skill은 어느 층에서 꺼도 남고, skill.read는 본문과 딸린 file을 300줄이 넘어도 통째로 주며 실패 문장에 file 이름이나 크기 초과를 싣고, 공유 skill은 할당 앱에만 간다. mergeSkillLayers, discoverSkills, readSharedHeads는 순수 helper라 outcome이 없다"
 
+  - path: packages/core/lophn-agent/instructions/global_test.ts
+    covers: [instruction-global-edit:ok, instruction-global-edit:conflict, instruction-global-edit:invalid-input]
+    note: "전역 LOPHN.md 읽기·쓰기는 파일 부재에서 빈 글·null hash를 주고, base_hash 일치 시에만 덮어쓰며 충돌 시 원본을 지키고 상한 초과는 invalid_input으로 거절한다"
+
   - path: packages/core/lophn-agent/instructions/read_test.ts
     covers: [instruction-read:ok]
     note: "project 층 지침은 session workspace가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다. Home·앱 층 읽기는 이 test가 보지 않는다"

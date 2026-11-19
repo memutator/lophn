@@ -6,6 +6,8 @@ import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   agentProfileImageRead,
   agentProfileImageUpload,
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
   messageImagePath,
   messageImagePrepare,
   messageImageRead,
@@ -25,6 +27,7 @@ import {
   agentProfileHandlers,
   messageImageHandlers,
 } from "../../../lophn-agent/register.ts";
+import { createGlobalInstructionsHandlers } from "../../../lophn-agent/instructions/global.ts";
 import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
@@ -86,6 +89,10 @@ export const lophnAgentWiring: WiringFactory = () => ({
   name: "lophn-agent",
   build(ctx) {
     const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
+    const globalInstructions = createGlobalInstructionsHandlers(
+      ctx.root.path,
+      ctx.random,
+    );
     const images = messageImageHandlers(ctx.root.path, {
       relay: () => ctx.bodyPrepare,
       referenced: (session, blob) =>
@@ -96,7 +103,16 @@ export const lophnAgentWiring: WiringFactory = () => ({
     return ok({
       // 받은 이미지 풀이(image block의 hash, image.read의 `attachment:<id>`): agent가 자기 session의 이미지만 푼다.
       // 이미지 올리기: agent는 바이트를 JSON으로 싣고 blob 준비는 core가 한다.
+      // 전역 지침(LOPHN.md): 이 컴퓨터와 다른 컴퓨터의 Settings › Agents가 같이 쓴다.
       memory: [
+        [key(instructionsReadGlobal), () => globalInstructions.read()],
+        [
+          key(instructionsWriteGlobal),
+          (_who, input) =>
+            globalInstructions.write(
+              input as { text: string; base_hash: string | null },
+            ),
+        ],
         [key(messageImagePath), images.path],
         [key(messageImagePrepare), images.prepare],
       ],

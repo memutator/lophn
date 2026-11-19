@@ -14,6 +14,7 @@ import { FoldersSection } from "./folders-section.tsx";
 import { IconSection } from "./icon-section.tsx";
 import { MachinesSection } from "./machines-section.tsx";
 import { RunSection } from "./run-section.tsx";
+import { SubscriptionsSection } from "./subscriptions-section.tsx";
 import type { AppDetailSource } from "./source.ts";
 import { VersionsTab } from "./versions/versions-tab.tsx";
 import styles from "./app-detail.module.css";
@@ -168,6 +169,7 @@ export function AppDetail({
       <RunSection app={app} source={source} now={now} />
       <FoldersSection app={app} source={source} />
       <MachinesSection app={app} now={now} />
+      <SubscriptionsSection app={app} />
       <Tabs defaultValue="version">
         <TabList>
           <Tab value="version" size="sm">

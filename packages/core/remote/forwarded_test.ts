@@ -17,8 +17,14 @@ import { appTools } from "../../protocol/apps/declaration/read.ts";
 import { carryWants } from "../../protocol/remote/carry.ts";
 import {
   terminalsInput,
+  terminalsName,
   terminalsOpen,
+  terminalsRenameSaved,
 } from "../../protocol/coding-agent/terminals.ts";
+import {
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
+} from "../../protocol/lophn-agent/instructions.ts";
 import {
   pageViewControl,
   pageViewInput,
@@ -218,6 +224,10 @@ function setup() {
     workspaceSessionList,
     terminalsInput,
     terminalsOpen,
+    terminalsName,
+    terminalsRenameSaved,
+    instructionsReadGlobal,
+    instructionsWriteGlobal,
     pageViewInput,
     pageViewControl,
     pageViewOpen,
@@ -263,6 +273,28 @@ function setup() {
       ],
       ["terminals/input", reach("terminals/input")],
       ["terminals/open", reach("terminals/open")],
+      ["terminals/name", reach("terminals/name")],
+      [
+        "terminals/rename_saved",
+        () => {
+          reached.push("terminals/rename_saved");
+          return ok({ sessions: [] });
+        },
+      ],
+      [
+        "instructions/read_global",
+        () => {
+          reached.push("instructions/read_global");
+          return ok({ text: "", hash: null });
+        },
+      ],
+      [
+        "instructions/write_global",
+        () => {
+          reached.push("instructions/write_global");
+          return ok({ hash: "a".repeat(64) });
+        },
+      ],
       ["page_view/input", reach("page_view/input")],
       ["page_view/control", reach("page_view/control")],
       ["page_view/open", reach("page_view/open")],
@@ -674,4 +706,66 @@ test("다른 컴퓨터에서 온 event가 부른 앱 handler가 broker로 다른
   // 이 기계의 event(기계를 적지 않았다)가 부른 handler의 call은 forward까지 간다.
   assert.equal(s.forwarded.length, 1);
   assert.deepEqual(second, ["forbidden", "internal"]);
+});
+
+test("terminals/name·rename_saved와 instructions/read_global·write_global은 허락받은 컴퓨터의 screen 요청만 받는다", async () => {
+  const s = setup();
+  const cases: [string, string, unknown][] = [
+    ["terminals", "name", { terminal: "trm_1", name: "API server" }],
+    [
+      "terminals",
+      "rename_saved",
+      {
+        project: PROJECT,
+        harness: "claude",
+        external_session: "ext-1",
+        name: "API server",
+      },
+    ],
+    ["instructions", "read_global", {}],
+    ["instructions", "write_global", { text: "rules", base_hash: null }],
+  ];
+  for (const [resource, method, body] of cases) {
+    // 허락 없는 컴퓨터는 screen이어도 거절한다.
+    assert.equal(
+      code(await (await s.as(BARE, resource, method))(body, requesters.screen)),
+      "forbidden",
+      `bare screen ${resource}/${method}`,
+    );
+    // 허락받은 컴퓨터라도 terminal·agent 요청은 거절한다.
+    assert.equal(
+      code(
+        await (await s.as(GRANTED, resource, method))(
+          body,
+          requesters.terminal,
+        ),
+      ),
+      "forbidden",
+      `granted terminal ${resource}/${method}`,
+    );
+    assert.equal(
+      code(
+        await (await s.as(GRANTED, resource, method))(body, requesters.agent),
+      ),
+      "forbidden",
+      `granted agent ${resource}/${method}`,
+    );
+  }
+  assert.deepEqual(s.reached, []);
+
+  for (const [resource, method, body] of cases) {
+    assert.equal(
+      code(
+        await (await s.as(GRANTED, resource, method))(body, requesters.screen),
+      ),
+      "ok",
+      `granted screen ${resource}/${method}`,
+    );
+  }
+  assert.deepEqual(s.reached, [
+    "terminals/name",
+    "terminals/rename_saved",
+    "instructions/read_global",
+    "instructions/write_global",
+  ]);
 });

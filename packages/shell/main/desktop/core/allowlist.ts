@@ -55,6 +55,8 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:input_request/read",
   "memory:input_request/cancel",
   "memory:input_request/done",
+  "memory:instructions/read_global",
+  "memory:instructions/write_global",
   "memory:diagnostics/status",
   "memory:turn_requests/decide",
   "memory:ask/read",

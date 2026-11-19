@@ -342,6 +342,16 @@ export interface MachinesView {
   readonly machines: readonly MachineLine[];
 }
 
+export type UnresolvedSubscriptionReason = "not_found" | "ambiguous" | "self";
+
+/** 활성 release의 원격 event 구독 가운데 지금 명단에서 컴퓨터 이름을 풀지 못한 것. */
+export interface UnresolvedSubscription {
+  readonly source: string;
+  readonly event: string;
+  readonly machine: string;
+  readonly reason: UnresolvedSubscriptionReason;
+}
+
 export interface AppDetailSource {
   /** 사람이 지은 앱 이름을 바꾼다. 비면 `invalid_input`이다. */
   rename(app: string, name: string): Promise<SourceResult<true>>;

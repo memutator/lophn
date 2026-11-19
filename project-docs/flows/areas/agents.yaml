@@ -671,6 +671,43 @@ flows:
     unclear:
       - 이 route는 내부 read라 부모 flow(turn 준비, prompt-assembly)가 uses로 가리켜야 한다. 그 flow는 turns area가 쓴다
 
+  - id: instruction-global-edit
+    title: 사람이 Settings › Agents에서 이 컴퓨터나 다른 컴퓨터의 전역 지침(LOPHN.md)을 읽고 쓴다
+    actor: person
+    entries: [route:instructions/read_global, route:instructions/write_global]
+    boundary: [agent-workspaces, core-api]
+    code:
+      - packages/core/lophn-agent/instructions/global.ts
+      - packages/core/main/daemon/wiring/lophn-agent.ts
+      - packages/shell/renderer/desktop/settings/agents/core-source.ts
+    steps:
+      - Settings › Agents가 instructions/read_global로 data root의 LOPHN.md 글과 sha256 hash를 읽는다(파일이 없으면 빈 글과 null hash)
+      - 사람이 저장하면 instructions/write_global에 새 글과 읽을 때 받은 base_hash를 보낸다. 다른 컴퓨터의 설정은 REMOTE_PERSON_ROUTES를 지나 그 컴퓨터 core로 간다
+      - core가 쓰기를 직렬화해 지금 디스크의 hash와 base_hash가 같을 때만 임시 파일+rename으로 교체한다
+    outcomes:
+      - id: ok
+        observe: [response]
+        when: 전역 지침을 읽었거나 새 내용으로 저장했다
+      - id: forbidden
+        code: forbidden
+        when: 터미널 입력 허락이 없는 기기나 screen 밖의 요청으로 불렀다
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: 읽은 뒤 디스크의 LOPHN.md가 바뀌어 base_hash가 맞지 않는다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 글 크기가 상한(256 KiB)을 넘는다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 전역 지침 파일을 읽거나 쓰지 못했다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/agent-definition.md]
+
   - id: skill-new-app
     title: 사람이 /new-app으로 새 앱 시작 안내 skill을 부른다
     actor: person

@@ -171,6 +171,11 @@ export function MyDevices({
           }
           // 엇갈림으로 빠진 컴퓨터는 link가 없다.
           const machine = device.disputed ? undefined : machineOf(device);
+          const viewOnly =
+            device.kind === "computer" &&
+            !device.thisComputer &&
+            !device.disputed &&
+            !device.terminalInput;
           return (
             <li
               key={device.key}
@@ -200,6 +205,11 @@ export function MyDevices({
                       {t("settings.label.remote-disputed")}
                     </span>
                   ) : null}
+                  {viewOnly ? (
+                    <span className={styles.caption} data-remote-view-only="">
+                      {t("settings.label.remote-view-only")}
+                    </span>
+                  ) : null}
                   {device.disputed || device.thisComputer ? (
                     <Tooltip content={device.key}>
                       <code
@@ -212,6 +222,11 @@ export function MyDevices({
                   ) : null}
                 </span>
                 <span className={styles.lineHelp}>{detailText(device)}</span>
+                {viewOnly ? (
+                  <span className={styles.lineHelp} data-remote-no-grant="">
+                    {t("settings.note.remote-no-grant")}
+                  </span>
+                ) : null}
                 {device.pending ? (
                   <span className={styles.lineHelp}>
                     {t("settings.note.remote-pending")}

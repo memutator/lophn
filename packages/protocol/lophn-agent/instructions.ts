@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { defineRead } from "../base/route.ts";
+import { defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
+import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 
 // LOPHN.md 자리. 경로 규칙은 documents가 갖고, 이 값은 그 등록 참조다.
@@ -67,4 +68,45 @@ export const instructionsGet = defineRead({
   ],
 });
 
-export const INSTRUCTION_ROUTES = [instructionsGet] as const;
+// 전역 지침(`<data root>/LOPHN.md`)을 사람이 읽고 쓰는 memory route. Settings › Agents가 이 컴퓨터와 다른 컴퓨터 모두 이 길로 고친다.
+export const GLOBAL_INSTRUCTIONS_MAX_BYTES = 256 * 1024;
+
+export const instructionsReadGlobal = defineMemory({
+  resource: "instructions",
+  method: "read_global",
+  name: "instructions.read_global",
+  input: z.strictObject({}),
+  output: z.strictObject({
+    text: z.string(),
+    hash: sha256Schema.nullable(),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
+export const instructionsWriteGlobal = defineMemory({
+  resource: "instructions",
+  method: "write_global",
+  name: "instructions.write_global",
+  input: z.strictObject({
+    text: z.string(),
+    base_hash: sha256Schema.nullable(),
+  }),
+  output: z.strictObject({
+    hash: sha256Schema,
+  }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "conflict",
+    "unavailable",
+  ],
+});
+
+export const INSTRUCTION_ROUTES = [
+  instructionsGet,
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
+] as const;

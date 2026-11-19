@@ -355,6 +355,7 @@ export const workspaceSettings = {
   "settings.label.remote-terminal-input":
     "Allow typing in this computer's terminals",
   "settings.label.remote-this-computer": "This computer",
+  "settings.label.remote-view-only": "View only",
   "settings.label.tab-remote": "Remote",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
@@ -412,6 +413,8 @@ export const workspaceSettings = {
     "Bring this computer into the devices of another computer with an invite made there.",
   "settings.note.remote-pending":
     "The computer that invited it was off. It finishes when a device that knows that computer, such as your phone, connects.",
+  "settings.note.remote-no-grant":
+    "This computer has not granted access to that computer yet, so it sees this computer as view-only. Turn on the switch to allow terminals and public app commands.",
   "settings.note.remote-remove":
     "{name} is cut off on every computer in your devices and cannot join again with its current key. To add it back, invite it again: it joins as a new device.",
   "settings.note.remote-device-terminal-input":

@@ -53,6 +53,8 @@ export const appSpace = {
   "app-detail.heading.rewind-cancelled": "Rewind cancelled",
   "app-detail.heading.rewinds-together": "Rewinds together, newest first",
   "app-detail.heading.rewound": "Rewound",
+  "app-detail.heading.unresolved-subscriptions":
+    "Inactive remote subscriptions",
   "app-detail.heading.what-was-rewound": "What was rewound",
   "app-detail.label.access-target": "this app's access",
   "app-detail.label.calls": "Calls",
@@ -228,6 +230,14 @@ export const appSpace = {
     "Going back changes only the app code. The database stays as it is.",
   "app-detail.note.input-fingerprint":
     "A fingerprint. The input itself is not kept.",
+  "app-detail.note.subscription-ambiguous":
+    "More than one computer is named “{machine}”.",
+  "app-detail.note.subscription-not-found":
+    "No computer named “{machine}” is in your devices.",
+  "app-detail.note.subscription-self":
+    "“{machine}” is this computer. Remote subscriptions target another computer.",
+  "app-detail.note.unresolved-subscriptions":
+    "These subscriptions in the active release point to a computer name this computer cannot resolve. Rename a matching computer or release the app again to fix them.",
   "app-detail.note.may-call": "This app may call it.",
   "app-detail.note.no-records": "No records yet.",
   "app-detail.note.no-activity": "No activity yet.",

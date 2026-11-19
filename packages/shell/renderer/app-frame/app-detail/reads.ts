@@ -32,7 +32,11 @@ import {
 } from "../../../../protocol/apps/declaration/read.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { machinesList } from "../../../../protocol/remote/mod.ts";
+import {
+  type MachineCandidate,
+  resolveMachine,
+} from "../../../../protocol/machine/requester.ts";
+import { machinesList, rosterList } from "../../../../protocol/remote/mod.ts";
 import { secretStatus } from "../../../../protocol/secrets/secret-file.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
@@ -68,6 +72,7 @@ import type {
   RunView,
   SdkRow,
   SecretInfo,
+  UnresolvedSubscription,
   VersionView,
 } from "./source.ts";
 import { phoneCapabilityText } from "./model.ts";
@@ -255,6 +260,75 @@ export function useMachinesView(app: string): ReadHandle<MachinesView | null> {
         : { ok: false };
     },
     readsOf(appUpdateState, { app }),
+    app,
+  );
+}
+
+/** 활성 release의 원격 event 구독 가운데 지금 명단에서 다른 컴퓨터 하나로 풀리지 않는 것만 추린다(core subscriptions.ts와 같은 규칙). */
+export function unresolvedSubscriptionsOf(
+  subscriptions: readonly {
+    readonly source: string;
+    readonly event: string;
+    readonly machine?: string;
+  }[],
+  computers: readonly MachineCandidate[],
+): UnresolvedSubscription[] {
+  const unresolved: UnresolvedSubscription[] = [];
+  for (const sub of subscriptions) {
+    if (sub.machine === undefined) continue;
+    const found = resolveMachine(sub.machine, computers);
+    if (!found.ok || found.value.self) {
+      unresolved.push({
+        source: sub.source,
+        event: sub.event,
+        machine: sub.machine,
+        reason: found.ok
+          ? "self"
+          : found.error.code === "invalid_input"
+            ? "ambiguous"
+            : "not_found",
+      });
+    }
+  }
+  return unresolved;
+}
+
+/** 활성 release 선언의 `subscriptions[].machine` 가운데 풀지 못한 구독 목록. 명단·release가 바뀌면 다시 읽는다. */
+export function useUnresolvedSubscriptions(
+  app: string,
+): ReadHandle<readonly UnresolvedSubscription[]> {
+  return useFollowedRead<readonly UnresolvedSubscription[]>(
+    async (core) => {
+      const [tools, roster] = await Promise.all([
+        readRoute(core, appTools, { app }),
+        readRoute(core, rosterList, {}),
+      ]);
+      if (!tools.ok || !roster.ok) return { ok: true, value: [] };
+      const subscriptions = tools.value.subscriptions ?? [];
+      if (!subscriptions.some((sub) => sub.machine !== undefined)) {
+        return { ok: true, value: [] };
+      }
+      const computers: MachineCandidate[] = roster.value.devices.flatMap(
+        (device) =>
+          device.kind === "computer" &&
+          !device.disputed &&
+          device.machine !== null
+            ? [
+                {
+                  machine: device.machine,
+                  device: device.id,
+                  name: device.name,
+                  self: device.this,
+                },
+              ]
+            : [],
+      );
+      return {
+        ok: true,
+        value: unresolvedSubscriptionsOf(subscriptions, computers),
+      };
+    },
+    [...readsOf(appTools, { app }), ...readsOf(rosterList, {})],
     app,
   );
 }

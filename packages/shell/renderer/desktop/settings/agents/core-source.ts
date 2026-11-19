@@ -5,8 +5,8 @@
 //
 // - 전역 기본 model: model-default 바꾸기. 연결 뒤 흐름(connect-host)은 한 번 읽는다.
 // - model picker: Agents 탭과 같은 AgentsSource(workspace/agents)의 model 읽기다.
-// - 모든 project의 LOPHN.md: 경로는 shell main(`instructions.open`)이 알려 주고 읽기·쓰기는 main file 통로다.
-//   Agents 화면이 그 자리에서 고친다.
+// - 모든 project의 LOPHN.md: core route(`instructions/read_global`, `instructions/write_global`)로 읽고 써서
+//   다른 컴퓨터의 Settings에서도 그대로 고친다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
 // - 전역 skill 목록: skills/read(project·app 없이 읽으면 내장과 전역 층). 끄고 켜기는 skills_off 설정을 settings/update로 바꾼다.
 import { t } from "@lophn/i18n";
@@ -24,11 +24,9 @@ import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import {
   cancelMcpSignIn,
   readGlobalModel,
-  readInstructions,
   signInMcpServer,
   windowFiles,
   windowInstructions,
-  writeInstructions,
 } from "../../../workspace/agents/core-extensions.ts";
 import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
 import { secretsOf } from "../../../workspace/agents/mcp-secrets.ts";
@@ -282,12 +280,6 @@ export function coreAgentsSettingsSource(
   const instructions =
     "instructions" in deps ? deps.instructions : windowInstructions();
   const files = "files" in deps ? deps.files : windowFiles();
-  const global = { layer: "global" } as const;
-  // workspace/agents 쪽 결과(message)를 settings 화면의 결과(code)로 옮긴다.
-  const asSource = <T>(
-    result: { ok: true; value: T } | { ok: false; message: string },
-  ): SourceResult<T> =>
-    result.ok ? result : { ok: false, code: result.message };
   const link = createLink(core, random);
   const editor = coreAgentsSource(core, { instructions, files, openSecret });
 
@@ -309,13 +301,27 @@ export function coreAgentsSettingsSource(
       return changed.ok ? { ok: true, value: null } : changed;
     },
 
-    readInstructions: async () =>
-      asSource(await readInstructions(instructions, files, global)),
-
-    writeInstructions: async (text, hash) =>
-      asSource(
-        await writeInstructions(instructions, files, global, text, hash),
+    readInstructions: () =>
+      call<{ text: string; hash: string | null }>(
+        core,
+        "memory",
+        "instructions",
+        "read_global",
+        {},
       ),
+
+    async writeInstructions(text, hash) {
+      const written = await call<{ hash: string }>(
+        core,
+        "memory",
+        "instructions",
+        "write_global",
+        { text, base_hash: hash },
+      );
+      return written.ok
+        ? { ok: true, value: { text, hash: written.value.hash } }
+        : written;
+    },
 
     addServer: () => Promise.resolve(UNAVAILABLE),
 

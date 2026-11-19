@@ -1,7 +1,7 @@
 id: roster-capped-slots-held-by-removed-signer
 title: 빠진 컴퓨터가 서명한 쓰레기 빼기가 상한(512)을 계속 채워 아직 믿지 않는 서명자의 statement가 닿자마자 밀려난다
 kind: bug
-status: open
+status: kept
 topic: remote
 modules: [packages/protocol, packages/core/remote]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 그대로 둔다. 늦음이고, 출처가 다시 보내 저절로 맞는다. 사람이 다시 볼 일이 생기면 아래로 간다.
   - (중간) 빠진 서명자(T0가 믿었다가 정해진 빼기로 빠진 컴퓨터)의 statement 가운데 대상 key가 어느 항목에도 없는 빼기는 정해진 빼기가 선 뒤 버린다. 정해지지 않은 동안은 지금처럼 상한 안에 둬야 닿은 순서가 결과를 바꾸지 않는다. 잃는 것: 규칙이 하나 늘고 keep이 정해짐에 기대게 된다.
+closed: |
+  명단 상한(512)에 도달하는 것은 악의적 서명자 시나리오뿐이고 출처 컴퓨터가 다시 보내면 저절로 회복되므로 복잡한 keep 예외 규칙을 미리 넣지 않고 그대로 둔다.
+guard: 없음

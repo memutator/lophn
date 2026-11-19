@@ -1,7 +1,7 @@
 id: subscription-names-computer-by-name
 title: 앱의 구독 선언은 컴퓨터를 이름으로 적어 컴퓨터 이름을 바꾸거나 같은 이름을 다른 컴퓨터가 쓰면 구독이 멈추거나 다른 컴퓨터로 옮겨 간다
 kind: bug
-status: open
+status: fixed
 topic: event
 modules: [packages/core/remote, packages/core/apps, packages/sdk]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) App details에 풀리지 않은 구독(이름, 이유)을 보여 사람이 알게 한다. 이름 바꾸기는 흔하지 않고 앱 release로 고친다.
   - (중간) 선언이 이름 대신 컴퓨터를 고르는 설정(앱 설정의 컴퓨터 선택)을 두고 `mch_`를 저장한다. 선언 모양과 SDK 판, 앱 설정 화면이 바뀐다.
+closed: |
+  App details 화면에 현재 명단의 컴퓨터 이름과 맞지 않는(not_found, ambiguous, self) 원격 앱 event 구독을 표시한다.
+guard: 없음

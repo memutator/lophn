@@ -1,7 +1,7 @@
 id: remote-reply-over-frame-limit-is-dropped
 title: remote 답이 frame 한도(16 MiB)를 넘으면 말없이 버려져 폰과 다른 컴퓨터를 보는 화면이 끝없이 기다린다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/core/remote, packages/remote-client, packages/protocol]
 now: |
@@ -16,3 +16,6 @@ fix: |
   - 큼(3): item도 끝에서부터 N개씩 나눠 받고 위로 scroll할 때 더 받는다. ACP state와 desktop·폰 대화 화면, 숨긴 구간, 검색이 같이 바뀐다.
 decided: |
   1과 2를 한다. 3은 2를 하고도 긴 대화가 느릴 때 한다. 폰은 대화 내용을 저장하지 않는다(사람: session까지 저장할 필요는 없다).
+closed: |
+  frame 한도를 넘는 답은 unavailable 오류로 돌려주고 remote-client 호출 기한(120초)과 coding session의 tool 본문 지연 읽기(acp/tool_body)를 적용했다. 빈 화면 증상은 phone-coding-session-opens-empty에서 별도 추적한다.
+guard: packages/core/terminal-agents/gui_test.ts

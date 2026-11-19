@@ -1,7 +1,7 @@
 id: agy-session-name-lost
 title: Antigravity coding session의 이름이 저장되지 않거나 전환·재개 때 사라진다
 kind: bug
-status: open
+status: fixed
 topic: coding-agent
 modules: [packages/protocol, packages/core/terminal-agents, packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   Antigravity 대화의 제목과 사람이 붙인 이름이 탭 전환, GUI↔TUI 전환, 재개, 재시작 뒤에 `"Antigravity"`로 돌아가 대화를 구분할 수 없다.
 fix: |
   `hook-signal.ts`에서 `lastUserInput`을 읽고, `terminal-agents/service.ts`와 `tracker.ts`가 GUI 제목 저장과 `AgentSessionStore` 복원을 맞물리며, `terminal-gui.tsx`·`model.ts`·`terminal.tsx`·`workspace-left-sidebar.tsx`·`workspace-window.tsx`에서 기본 라벨 덮어쓰기를 막고 저장된 세션 이름 바꾸기를 `renameSaved`로 잇는다.
+closed: |
+  antigravity PreInvocation의 lastUserInput을 prompt로 읽고, GUI ACP 제목을 AgentSessionStore에 저장(고정 이름 보존)·재개 시 복원하며, renderer에서 기본 라벨 덮어쓰기와 저장된 session 이름 바꾸기 누락을 고쳤다.
+guard: packages/protocol/coding-agent/hook-signal_test.ts, packages/core/terminal-agents/gui_test.ts, packages/shell/renderer/terminal/model_test.ts

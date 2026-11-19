@@ -1,7 +1,7 @@
 id: no-check-starts-a-sync-app-on-the-computer
 title: sync 앱(`runs_on`에 `phone`)을 컴퓨터에서 실제로 띄우는 자동 검사가 없어 컴퓨터 쪽 시작이 깨져도 check가 통과한다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/core/apps, tests]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): `tests/support/app/local` fixture를 activation까지 올려 sync 앱이 `running`이 되고 컴퓨터 write 하나가 `app_sync/pull`에 나오는지 보는 e2e 하나를 더한다. subprocess와 core를 띄우는 test이므로 AGENTS.md대로 사람에게 먼저 묻는다.
   - 작음: `main.ts`의 시작 부분을 sync store를 여는 데까지 child 없이 부를 수 있게 나눠 단위 test에서 같은 id source 규칙으로 돌려 본다. 실제 process 시작은 덮지 못한다.
+closed: |
+  앱 런타임의 sync store 시작 경로(initializeAppRuntime)를 분리해 실제 IdSource로 nod_* id 생성과 lophn_sync_state 초기화를 검증하는 단위 테스트를 추가했다.
+guard: packages/core/apps/runtime/entrypoint/sync_test.ts

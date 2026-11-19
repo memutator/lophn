@@ -1,7 +1,7 @@
 id: page-host-keeps-core-up
 title: 화면 없는 기계에서 page host와 core가 서로를 살려 두어 browser를 다 쓴 뒤에도 둘 다 끝나지 않는다
 kind: bug
-status: open
+status: fixed
 topic: browser-tab
 modules: [packages/shell/main, packages/core/server]
 now: |
@@ -12,3 +12,6 @@ impact: |
 fix: |
   - 작음(추천): page host가 page가 하나도 없는 채로 몇 분(예: 5분) 지나면 끝난다. agent가 다시 탭을 열면 core가 지금처럼 page host를 다시 띄운다.
   - 작음: core가 page host의 연결은 idle-exit의 client로 세지 않는다. page host가 page를 든 채 core가 끝날 수 있어 agent의 page가 사라진다.
+closed: |
+  page-host가 열린 browser 탭이 모두 닫힌 뒤 5분간 idle이면 스스로 종료해 core와 서로를 영원히 붙잡지 않는다.
+guard: packages/shell/main/page-host/idle_test.ts

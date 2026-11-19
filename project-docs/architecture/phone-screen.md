@@ -58,7 +58,7 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 2. 화면은 묶인 release(preview는 preview bundle)의 선언에 있는 operation만 부른다. command, 구독 handler, 다른 앱의 이름은 호출 경로까지 가지 않고 같은 `forbidden`이다. 호출 대상과 caller는 core의 binding에서만 온다.
 3. 다른 owner의 view는 없는 view와 같다. `AppViewEvent`는 view를 연 owner의 연결에만 가고 owner를 받지 않은 연결에는 가지 않는다. 폰 연결이 닫히면 그 기기의 view가 지워진다.
 4. AI가 쓴 폰 화면 code는 release prepare에서 묶일 뿐 core에서 실행되지 않는다. host module 목록 밖의 module과 staging 밖의 file은 build를 실패시킨다.
-5. guest는 host의 JS 전역, 보안 저장소, file system, network에 닿지 않는다. guest에 열어 주는 native module에 secret, file, network를 가진 것을 더하지 않는다.
+5. guest는 host의 JS 전역, 보안 저장소, file system, network에 닿지 않는다. guest에 열어 주는 native module에 secret, file, network를 가진 것을 더하지 않고, 전체 화면을 덮는 `Modal`(`RCTModalHostView`)도 막아 host 앱의 탐색을 가리지 못하게 한다.
 6. guest의 오류, 시작 실패, 폭주가 폰 앱을 죽이지 않는다. 화면은 오류 상태로 가고 사람은 Try again을 한다.
 7. 폰은 자기보다 새 base·kit으로 지은 화면과 폰이 모르는 module을 쓰는 화면, 옛 major의 화면을 돌리지 않고 이유를 말한다.
 8. 폰의 cache에는 manifest의 크기와 sha256이 맞은 `phone.js`만 남는다.
@@ -74,7 +74,7 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 
 - drive: kind `drive.snapshot|act|screenshot|wait`(`browser-tab.md`의 "phone 탭의 폰 요청"), `apps/phone_screens`의 `previews`, `apps/screen_file`의 preview target, 폰 앱의 native module `lophn-drive`(boundary `mobile`).
 - boundary `app-releases`(폰 화면 build와 manifest), `app-runtime`(core의 view 표), `remote-protocol`(폰 gate), `mobile`(guest runtime과 앱 화면), `design-native`·`sdk`(kit과 hook), `sdk-api`.
-- route: `apps/phone_target`(read, user·agent), `apps/phone_screens`(read, user), `apps/screen_file`(기존), `app_views/open|call|close`(memory, user), `tabs/open`의 preview target `{app, device, screen}`. event: `AppViewEvent`(남지 않음, `event`·`rebound`·`lost`), `AppViewChanged`(기존), notice kind `phone_changed`. CLI: `lophn app phone-target`, `lophn tab open --preview <app> --screen <key>`.
+- route: `apps/phone_target`(read, user·agent), `apps/phone_screens`(read, user), `apps/screen_file`(기존), `app_views/open|call|close|log_error`(memory, user), `tabs/open`의 preview target `{app, device, screen}`. event: `AppViewEvent`(남지 않음, `event`·`rebound`·`lost`), `AppViewChanged`(기존), notice kind `phone_changed`. CLI: `lophn app phone-target`, `lophn tab open --preview <app> --screen <key>`.
 - 계약 상수: host module 목록, `PHONE_BASE_FORMAT`(base bundle의 약속이 바뀌면 올린다. 폰 앱 판이 올라가야 한다), manifest `phone.json`, host-guest 메시지, guest 전역 `lophnApp`·`__lophnMount`·`__lophnFatal`. 모두 protocol의 한 file이 고정하고 build, 읽기, 폰 host, guest base가 같은 것을 쓴다.
 - SDK part: `@lophn/ui-native`(폰 kit), `@lophn/app-ui-native`(hook `useOperation`·`useEvent`·`usePlace`와 `OperationButton`). 이 part들과 declaration의 판은 `ui-kit.md`의 "앱 SDK 판과 지원 하한"이 정한다. 앱이 pin한 판은 type 검사와 preview에 쓰이고 폰에서는 폰 앱이 가진 base의 판이 돈다.
 - 폰 앱에서 화면이 쓰는 `lophnApp`에는 `commands`, `setTabHead`, `setKeepAlive`, `agent`, `sessions`, `agents`, `projects`, `openExternal`이 없다.
@@ -96,7 +96,7 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 - owner의 view는 64개까지이고 넘으면 가장 오래 쓰지 않은 view를 내보내 `lost(evicted)`를 낸다. 이유: core가 shell보다 오래 살아 shell이 다시 뜨면 옛 view가 남는데, 넘칠 때 거절하면 core를 다시 켜기 전까지 새 view를 열 수 없다. 내보낸 view는 host가 같은 인자로 다시 열어 되살린다. (agent)
 - card가 아닌 live view의 다시 열기는 release를 신원으로 견주지 않는다. 이유: 그 값은 처음 열 때의 전제(그 release가 돌기를 기대한다)이고 view는 그 뒤 도는 release를 따른다. 그래서 host는 다시 열 때 `release: null`을 보내 core가 view를 잃었어도 지금 도는 release로 다시 연다. card와 preview는 release까지 같아야 한다. (agent)
 - 화면의 operation 호출은 preview에서도 core의 `app_views/call`로 가서 preview bundle의 선언으로 판정한다. 이유: 폰 화면을 desktop preview로 확인하려면 눌러서 operation이 불려야 한다. 이전에는 preview 화면이 operation을 부르지 못했다. (agent)
-- 폰 gate는 `apps/call_tool`, grant, `apps/log_view_error`를 열지 않고 화면의 호출을 view id로만 받는다. 이유: 부를 operation은 core가 view의 binding으로 판정하므로 입력에 앱을 싣는 직접 호출이 필요 없고, 화면 오류를 쓰는 route는 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다. 대가: 폰 화면의 오류가 앱 log에 남지 않는다(열린 것). (agent)
+- 폰 gate는 `apps/call_tool`, grant, `apps/log_view_error`를 열지 않고 화면의 호출과 오류 기록(`app_views/log_error`)을 view id로만 받는다. 이유: 부를 operation과 log 대상 앱을 core가 `(owner, view)` binding으로 판정하므로 입력에 앱을 싣는 직접 호출이 필요 없고 다른 앱의 log에 쓸 수 없다. live 컴퓨터 호스팅 폰 화면이 `fatal`·`crashed`·`did_not_start`에 닿으면 `app_views/log_error`로 앱 log에 남긴다(preview와 폰 local backend는 보내지 않는다). (agent)
 - 폰의 `phone.js` cache는 bundle hash로 둔다. 이유: hash가 byte를 고정하므로 한 번 둔 것은 다시 받지 않고, release가 바뀌면 새 hash가 새 file이 된다. 앱마다 둘만 남겨 직전 판이 잠시 필요해도 쓴다. (agent)
 - 기준 폰이 바뀔 때만 사람에게 알린다. 이유: 옛 크기로 그린 폰 화면을 다시 그려야 하기 때문이다. 알리기만 하고 자동으로 다시 그리지 않는다(agent가 하는 일이라 사람이 맡긴다). (agent)
 - preview에서 폰 화면은 기준 폰(없으면 `--device`)의 틀에만 연다. 이유: 넓은 틀에 폰 화면을 그려 잘못 믿게 하지 않는다. (agent)

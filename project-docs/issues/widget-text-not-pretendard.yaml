@@ -1,7 +1,7 @@
 id: widget-text-not-pretendard
 title: 홈 화면 위젯의 글이 시스템 글꼴이라 폰 앱의 글꼴(Pretendard)과 다르다
 kind: bug
-status: open
+status: fixed
 topic: phone-home-screen
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): Pretendard의 두 굵기(Regular, SemiBold)를 native module의 `res/font`에 넣고 layout의 `fontFamily`를 그 resource로 건다. APK가 ttf 두 개만큼(수백 KB) 는다. launcher가 RemoteViews의 앱 글꼴을 그리는지와 오래된 API에서의 모양은 emulator에서 확인해야 한다.
   - 대안: 시스템 글꼴로 두고 wireframe의 글꼴을 그에 맞춘다(비용 없음. 폰 앱과 모양이 다른 채 남는다).
+closed: |
+  Android 홈 위젯 XML 레이아웃과 Gradle 설정에 Pretendard 글꼴 리소스를 연결했다.
+guard: 없음

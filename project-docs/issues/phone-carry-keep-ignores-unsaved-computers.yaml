@@ -1,7 +1,7 @@
 id: phone-carry-keep-ignores-unsaved-computers
 title: 폰이 나르는 file을 지우는 규칙이 폰이 저장하지 않은 명단의 컴퓨터를 세지 않는다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 폰이 든 명단(`roster.json`, 폰이 컴퓨터에서 받는 명단 statement)의 컴퓨터 기계 id를 `carry.roster`에 같이 넘겨 저장하지 않은 컴퓨터도 센다. 오래 닿지 않는 컴퓨터가 file을 붙들지 않게 나이 한도(30일)는 그대로 둔다.
   - 큼: 폰이 각 컴퓨터에 보낸 file을 기록한다. 지금 규칙으로 충분해 추천하지 않는다.
+closed: |
+  carry 보관 판단이 로컬 저장 목록뿐 아니라 명단(roster.json)의 아직 저장되지 않은 신뢰 컴퓨터도 함께 센다.
+guard: packages/mobile/src/apps/carry/carry.test.ts

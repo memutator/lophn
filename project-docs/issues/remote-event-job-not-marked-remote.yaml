@@ -1,7 +1,7 @@
 id: remote-event-job-not-marked-remote
 title: 다른 컴퓨터의 event로 연 job의 차례와 그 agent가 받은 호출로 표시되지 않아 세 번째 컴퓨터를 부를 수 있다
 kind: bug
-status: open
+status: kept
 topic: event
 modules: [packages/core/jobs, packages/core/apps, packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (큼) 표시가 job 차례, session, tool call로 흘러야 한다. 저장소 넷(job run, session, tool call, flight)에 칸이 필요하다. 한 줄 표시로는 닫히지 않는다.
   - (작음, 추천) 지금대로 두고 한계로 둔다. job은 사람이 한 번 승인한 일이고 승인 card가 어느 컴퓨터의 event로 도는지 말한다.
+closed: |
+  원격 앱 event로 깨어난 job의 hop 차단은 실제 순환 트리거 문제가 발생할 때 job run caller 전파와 함께 다루기로 하고 현재 단순 구조를 유지한다.
+guard: 없음

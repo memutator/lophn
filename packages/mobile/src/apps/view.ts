@@ -6,12 +6,13 @@ import {
   type AppViewsOpenInput,
   appViewsCall,
   appViewsClose,
+  appViewsLogError,
   appViewsOpen,
 } from "../../../protocol/apps/views.ts";
 import type { CoreCall } from "../../../shell/ipc/core.ts";
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import type { EventClient } from "../../../shell/renderer/desktop/connection/events/client.ts";
-import type { AppEvent, CallOutcome, GuestCall } from "./guest/mod.ts";
+import type { AppEvent, CallOutcome, GuestCall, GuestFailure } from "./guest/mod.ts";
 
 export type ViewState =
   | { readonly kind: "opening" }
@@ -29,6 +30,8 @@ export interface ViewLink {
   readonly call: GuestCall;
   /** This view's app events: the guest's `subscribe`. */
   subscribe(listener: (event: AppEvent) => void): () => void;
+  /** Best-effort reports a live screen failure to the computer's app log (`app_views/log_error`). */
+  logError(error: { observation: GuestFailure; message: string; name?: string }): void;
   /** Opens it again (Try again). */
   reopen(): void;
   /** Leaves the view: stops listening and closes it on the core without waiting. */
@@ -140,6 +143,17 @@ export function linkView(options: {
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    logError(error) {
+      if (closed || input.mode !== "live") return;
+      const message = error.message.trim().slice(0, 16_384) || error.observation;
+      const name = error.name?.trim().slice(0, 256);
+      void ask(appViewsLogError, {
+        view: input.view,
+        observation: error.observation,
+        ...(name ? { name } : {}),
+        message,
+      });
     },
     reopen() {
       state({ kind: "opening" });

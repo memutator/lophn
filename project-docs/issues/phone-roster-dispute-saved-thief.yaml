@@ -1,7 +1,7 @@
 id: phone-roster-dispute-saved-thief
 title: 도둑의 컴퓨터를 저장한 폰은 엇갈림에서 두 컴퓨터 모두와 끊기거나, 그 컴퓨터를 뺀 컴퓨터를 저장하지 않았으면 도둑의 빼기를 따른다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/protocol, packages/remote-client, packages/mobile]
 now: |
@@ -14,3 +14,6 @@ fix: |
   - (작음, 추천) 지금대로 두고 폰 화면이 끊긴 이유와 다시 들이는 길을 말하게 한다(Settings의 컴퓨터 줄에 "Disputed"와 "Pair again with a computer you trust"). 잃는 것: 다시 들이는 손일과 새 기기 id.
   - (중간) 폰이 이 폰에서 직접 초대장을 읽어 들인 컴퓨터만 root로 둔다(명단에서 배운 컴퓨터는 root가 아니다). 사람이 도둑의 컴퓨터를 폰으로 직접 들였던 경우는 남는다. 잃는 것: 한 컴퓨터에 들면 다른 컴퓨터를 믿게 되는 지금 동작이 root에서는 사라진다(목록에는 선다).
   - (큼) 폰에서 사람이 믿을 컴퓨터를 고르는 anchor(사람이 고른 컴퓨터의 빼기가 이긴다). 화면과 저장 모양이 새로 든다.
+closed: |
+  폰 컴퓨터 목록과 pairing 저장이 엇갈린(disputed) 항목을 명확히 구분해 표시하고 저장 시 덮어쓰지 않는다.
+guard: 없음

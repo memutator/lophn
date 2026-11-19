@@ -1,7 +1,7 @@
 id: mobile-tests-not-in-flow-catalog
 title: 폰 앱의 test는 `*.test.ts`라 flow catalog에 오르지 못해 폰의 나르기와 sync 규칙이 outcome에 연결되지 않는다
 kind: defect
-status: open
+status: fixed
 topic: code-health
 modules: [tools, packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `tools/flows.ts`가 `packages/mobile`의 `*.test.ts`도 test로 받고 `areas.yaml`의 test group(`libs-tooling` 하위나 새 `mobile` group)에 올린다. 폰 test가 `npm run check`에서 돌지 않으므로 catalog만 잇고 check에는 넣지 않는다.
   - 중간: 폰 test를 `*_test.ts`로 이름을 바꾸고 mobile의 test 명령도 맞춘다. file 이름을 바꾸는 diff가 크다.
+closed: |
+  tools/flows.ts가 packages/mobile의 *.test.ts를 인식하게 하고 project-docs/flows/tests/mobile.yaml에 폰 앱 테스트와 outcome을 등록했다.
+guard: node tools/flows.ts check

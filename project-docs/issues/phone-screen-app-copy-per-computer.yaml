@@ -1,7 +1,7 @@
 id: phone-screen-app-copy-per-computer
 title: 폰 화면이 있는 앱은 폰이 컴퓨터마다 사본을 따로 들어 폰에서 보는 data가 컴퓨터마다 다를 수 있다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/mobile, packages/core/apps/sync]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 큼: 폰이 앱마다 사본 하나를 들고 모든 컴퓨터와 맞춘다. 폰이 허브가 되어 컴퓨터마다 따로 clock과 outbox를 쓰는 지금 설계(`app_sync`, 폰 host의 폴더 규칙)를 다시 짜야 한다.
   - 중간: 화면이 어느 컴퓨터의 사본인지 앱 위 줄에 보인다. 사람이 이유를 알지만 data는 여전히 다르다.
   - 작음(추천): 지침(`design-app`)이 "`computers`로 맞추는 폰 앱은 컴퓨터마다 사본이 다르다"를 앱 agent와 사람에게 말한다.
+closed: |
+  폰에서 도는 앱이 모든 짝지은 컴퓨터에 걸쳐 앱당 하나의 폴더와 SQLite DB(컴퓨터별 pull cursor)를 공유하고, 기존 컴퓨터별 폴더를 자동 이관한다.
+guard: packages/mobile/src/apps/local/local.test.ts

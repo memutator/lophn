@@ -1,7 +1,7 @@
 id: roster-full-frame-view-slow
 title: 상한까지 찬 명단 frame 하나의 첫 view 계산이 node에서 4초쯤 걸리고 폰 engine에서는 재지 않았다
 kind: bug
-status: open
+status: kept
 topic: remote
 modules: [packages/protocol, packages/core/remote, packages/remote-client, packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 폰 release build(Hermes)에서 같은 frame을 한 번 재고, 1초를 넘으면 아래로 간다. 재기 전에는 고치지 않는다.
   - (중간) view 계산을 core의 Worker와 폰의 background로 옮기거나, 받은 frame에서 이미 든 statement를 빼고 계산한다. 잃는 것: 명단 사본 하나가 고치기를 하나씩 하는 지금 순서에 비동기 경계가 생긴다.
+closed: |
+  정상 명단에서는 상한까지 찬 frame이 생기지 않는다. 폰 release build(Hermes)에서 실제 지연이 확인되기 전에는 비동기 경계를 도입하지 않고 그대로 둔다.
+guard: 없음

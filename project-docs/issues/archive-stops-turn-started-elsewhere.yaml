@@ -1,7 +1,7 @@
 id: archive-stops-turn-started-elsewhere
 title: 한 기기가 대화를 보관하면 다른 기기가 방금 시작한 turn이 말없이 멈춘다
 kind: bug
-status: open
+status: fixed
 topic: agent-chat
 modules: [packages/core/lophn-agent, packages/shell/renderer]
 now: |
@@ -11,5 +11,8 @@ impact: |
 fix: |
   - 작음(추천): turn이 도는 동안의 보관은 `conflict`로 답하고 화면이 "도는 turn을 멈추고 보관할까요"를 물은 뒤 멈추라는 표시와 함께 다시 부른다.
   - 그대로: 보관은 늘 멈춘다고 두고 화면이 보관 전에 도는 중임을 보인다.
-decide: |
-  turn이 도는 대화를 보관할 때 한 번 물을지. 추천은 묻는 것이다.
+decided: |
+  turn이 도는 대화를 보관할 때 conflict(turn_running)로 거절하고 화면이 확인을 받은 뒤 force: true로 다시 부른다.
+closed: |
+  sessions/archive는 도는 turn이 있으면 force: true 없이 conflict(turn_running)를 돌려주고, desktop 대화 화면은 확인 dialog를 띄운 뒤 force: true로 재시도한다.
+guard: packages/core/lophn-agent/session/lifecycle_test.ts

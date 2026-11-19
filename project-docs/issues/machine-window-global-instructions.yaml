@@ -1,7 +1,7 @@
 id: machine-window-global-instructions
 title: "Settings에서 다른 컴퓨터를 고르면 Agents의 그 컴퓨터 global instructions를 읽고 쓰지 못한다"
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   화면 없는 기계를 다른 컴퓨터의 Settings에서 처음 설정할 때 agent의 global instructions를 고칠 수 없다(그 기계의 터미널에서 file을 고쳐야 한다).
 fix: |
   그 기계의 global instructions를 읽고 쓰는 core route를 두고 화면이 shell 통로 대신 그것을 부른다. 사람 route 목록(`packages/protocol/remote/allowlist.ts`의 `REMOTE_PERSON_ROUTES`)에 더한다.
+closed: |
+  instructions/read_global·write_global(base_hash 낙관적 잠금)을 core route와 REMOTE_PERSON_ROUTES에 추가하고 Settings › Agents 지침 편집기가 이를 쓰게 했다.
+guard: packages/core/lophn-agent/instructions/global_test.ts, packages/core/remote/forwarded_test.ts

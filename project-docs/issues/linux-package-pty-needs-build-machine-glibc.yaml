@@ -1,7 +1,7 @@
 id: linux-package-pty-needs-build-machine-glibc
 title: Linux 설치 묶음의 터미널 부품이 묶은 기계의 glibc를 요구해 더 오래된 Linux에서는 터미널이 뜨지 않는다
 kind: bug
-status: open
+status: fixed
 topic: platform
 modules: [tools]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - (중간, 추천) Linux 묶음의 `node-pty` build를 지원 하한 glibc의 환경(예: Ubuntu 22.04 container)에서 하고, 묶는 도구가 끝에 모든 Linux `.node`의 가장 높은 `GLIBC_` 판을 읽어 하한을 넘으면 멈춘다. 잃는 것: 묶는 기계에 container 도구가 필요하다.
   - (작음) 묶는 도구가 하한을 넘는 `.node`를 찾으면 멈추기만 하고, 사람이 오래된 기계에서 묶는다. 잃는 것: 지금 기계에서는 묶을 수 없다.
   - 우회(쓰는 중): 설치한 기계에서 `build-essential`과 `node-gyp`로 `node-pty`를 Electron 44.5.1 headers에 맞춰 다시 build해 `pty.node`를 바꾼다. 다음 설치가 덮어쓴다.
+closed: |
+  Linux 패키징 시 linux-glibc-compat.h로 cfsetispeed/cfsetospeed를 GLIBC_2.2.5/2.17에 고정하고 stage 단계에서 native module의 GLIBC 버전 상한(2.35)을 검사한다.
+guard: tools/package/linux-glibc_test.ts

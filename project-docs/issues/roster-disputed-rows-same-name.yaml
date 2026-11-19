@@ -1,7 +1,7 @@
 id: roster-disputed-rows-same-name
 title: 도둑이 빠지기 전에 이름을 바꿨으면 엇갈린 두 줄이 같은 이름으로 서서 desktop에서 가를 수 없다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/protocol, packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 엇갈린 줄에 그 컴퓨터를 가를 것을 더 보인다: 기계 id 앞 몇 글자나 key의 지문과 "마지막으로 본 때". 사람이 다른 컴퓨터의 Settings › Remote에서 같은 지문을 보고 고른다. 잃는 것: 줄이 조금 길어진다.
   - (중간) 엇갈린 줄의 이름을 그 기기가 스스로 서명한 항목과 남이 서명한 항목에서 따로 보여 이름이 바뀐 것을 드러낸다. 이름 바꾸기가 정당한 경우도 같이 걸린다.
+closed: |
+  My devices와 폰 컴퓨터 목록이 엇갈린(disputed) 행마다 서로 다른 공개 key 앞자리를 함께 보여 구분할 수 있게 했다.
+guard: 없음

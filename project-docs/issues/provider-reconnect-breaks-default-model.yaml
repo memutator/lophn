@@ -1,7 +1,7 @@
 id: provider-reconnect-breaks-default-model
 title: provider를 끊고 다시 이으면 새 provider id가 발급돼 기존 기본 model 선택이 깨지고 다시 고르게 하지도 않는다
 kind: bug
-status: open
+status: fixed
 topic: agent-definition
 modules: [packages/core/lophn-agent, packages/core/main]
 now: |
@@ -10,3 +10,6 @@ impact: |
   인증 방식을 바꾸려고(예: OAuth에서 API key로) provider를 끊고 다시 이은 직후 모든 대화가 모델 오류로 시작하지 못하며 왜 안 되는지 알기 어렵다.
 fix: |
   `DisconnectProvider` 전에 `definition_key -> id`를 기억해 같은 정의로 다시 이을 때 같은 `pvd_*` id를 재사용하고, `modelDefaultRead`는 연결된 `providers`에 없는 id를 가리키는 행이면 `null`을 돌려주어 다른 정의를 이었을 때 기본 model을 다시 고르게 한다.
+closed: |
+  DisconnectProvider가 definition key별 provider id를 기억해 재연결 시 같은 id를 재사용하고, modelDefaultRead가 끊긴 provider를 가리키는 기본 model은 null로 돌려줘 다시 고르게 한다.
+guard: packages/core/lophn-agent/providers/connect-key_test.ts, packages/core/lophn-agent/models/user-info_test.ts

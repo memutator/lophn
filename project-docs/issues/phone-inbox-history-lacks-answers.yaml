@@ -1,7 +1,7 @@
 id: phone-inbox-history-lacks-answers
 title: 폰 Inbox의 History가 "내가 답한 것"이 아니라 notice 목록이다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -11,5 +11,8 @@ impact: |
 fix: |
   - 큼(추천 보류): core가 닫힌 request의 결과(허락, 거절과 이유, 답)를 ledger에 남기고 읽는 route를 둔다. 사용자 data의 새 모양이라 migration과 보존 기간을 정해야 한다.
   - 작음: wireframe의 History를 notice 목록에 맞춰 고친다(Search what you answered와 filter 문구를 notice용으로).
-decide: |
-  답한 기록을 남기고 desktop과 폰이 같이 보일 것인가, 아니면 History를 notice 목록으로 두고 wireframe을 고칠 것인가.
+decided: |
+  폰 Inbox의 wireframe과 실제 History 화면을 맞춰 영구 기록 행과 읽음·더 보기 동작을 정리한다.
+closed: |
+  폰 Inbox wireframe과 History 화면을 정리해 다중 기계 HistoryState(hasMore)와 동작을 맞췄다.
+guard: 없음

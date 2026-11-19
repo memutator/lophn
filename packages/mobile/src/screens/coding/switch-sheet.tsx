@@ -52,13 +52,26 @@ export function SwitchSheet({ session, onClose }: { session: CodingSession | nul
   }, [actions, id]);
 
   const run = async () => {
-    if (id === null) return;
+    if (id === null || plan === null) return;
     setBusy(true);
     setProblem(null);
-    const done = await actions.switchView(id, "gui");
+    const done = await actions.switchView(id, plan.to, plan.stops);
+    if (done.ok) {
+      setBusy(false);
+      onClose();
+      return;
+    }
+    if (done.code === "conflict") {
+      const refreshed = await actions.switchPlan(id);
+      setBusy(false);
+      if (refreshed.ok) {
+        setPlan(refreshed.value);
+        setProblem("conflict");
+        return;
+      }
+    }
     setBusy(false);
-    if (done.ok) onClose();
-    else setProblem(done.code);
+    setProblem(done.code);
   };
 
   const blocked = plan?.blocked ?? null;

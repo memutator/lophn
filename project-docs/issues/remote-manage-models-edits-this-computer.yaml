@@ -1,7 +1,7 @@
 id: remote-manage-models-edits-this-computer
 title: 다른 컴퓨터의 대화나 Settings에서 여는 Manage models가 그 컴퓨터가 아니라 이 컴퓨터의 모델을 읽고 고친다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   다른 컴퓨터에서 lophn session을 열거나 다룰 때 이 컴퓨터의 창에서 그 컴퓨터의 쓸 모델(`shown_models`)과 model 한도를 고르지 못한다. 사람 눈에는 Manage models에서 모델을 켰는데 원격 session의 model picker에 모델이 뜨지 않고, 의도치 않게 이 컴퓨터의 모델 목록이 바뀐다.
 fix: |
   `MachineScope`(또는 `machine !== null`인 `MachineScope`)가 그 기계의 `data.settingsPanels.providers`와 `data.settingsPanels.agents`로 `ConnectProviderHost`를 감싸 범위 안의 `useManageModels`·`useConnectProvider`·`useAfterConnect`가 그 기계의 core로 가게 한다.
+closed: |
+  MachineScope가 model·provider 관련 dialog와 Manage models 호출을 현재 선택된 기계의 core로 라우팅한다.
+guard: 없음

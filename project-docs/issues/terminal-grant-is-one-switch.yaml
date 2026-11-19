@@ -1,7 +1,7 @@
 id: terminal-grant-is-one-switch
 title: 컴퓨터마다 터미널 입력 허락이 스위치 하나라 "터미널은 되지만 agent와 앱의 command는 안 된다"를 고를 수 없다
 kind: bug
-status: open
+status: fixed
 topic: approval
 modules: [packages/core/remote, packages/core/apps, packages/shell/renderer, packages/cli]
 now: |
@@ -11,5 +11,8 @@ impact: |
 fix: |
   - (작음, 추천) 지금대로 두고 My devices 스위치 글에 앱 command도 함께 허락된다고 쓴다. 허락한 컴퓨터는 이미 그 컴퓨터를 온전히 다루는 것으로 본다.
   - (중간) 허락을 둘로 나눈다(typing, app commands). 표 칸, 초대장·합류 스위치, My devices 줄, CLI, 받는 쪽 검사 둘이 바뀌고 이미 옮긴 허락이 어느 쪽인지 정해야 한다.
-decide: |
-  터미널 입력과 agent·앱의 command 호출을 따로 허락하게 할지는 사람이 정한다. 따로 하면 컴퓨터마다 스위치가 둘이 되어 초대와 합류 때 묻는 것이 늘고, 하나로 두면 "터미널은 되지만 agent는 안 된다"를 잃는다. 추천은 하나로 둔다(허락한 컴퓨터는 이미 온전히 다루므로).
+decided: |
+  컴퓨터마다 허락 스위치는 하나로 두고, 터미널 입력과 함께 다른 컴퓨터의 agent·앱 public command 호출도 같이 열린다고 My devices·초대·합류 문구에 밝힌다.
+closed: |
+  My devices, 초대, 합류 화면의 스위치 설명에 이 컴퓨터의 터미널·설정뿐 아니라 앱 public command 호출도 함께 허락된다고 명시했다.
+guard: 없음

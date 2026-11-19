@@ -1,7 +1,7 @@
 id: private-job-remote-trigger-never-subscribes
 title: private인 workspace에서 만든 job이 다른 컴퓨터의 event를 trigger로 가져도 저장되고 구독이 걸리지 않아 말없이 돌지 않는다
 kind: bug
-status: open
+status: fixed
 topic: job
 modules: [packages/core/jobs, packages/core/remote, packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 만들 때 job의 workspace가 private이고 trigger에 컴퓨터가 있으면 `forbidden`으로 거절한다(private인 workspace의 agent는 다른 컴퓨터를 부르지 못한다는 규칙과 같다). 이미 저장된 것은 목록에 "never subscribes" 표시를 단다.
   - (작음) 그대로 두고 Jobs 목록에 이유를 보인다.
+closed: |
+  jobs/create가 private workspace에서 trigger.machine을 지정한 remote event job 생성을 forbidden으로 거절한다.
+guard: packages/core/jobs/events_test.ts

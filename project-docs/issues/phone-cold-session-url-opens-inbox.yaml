@@ -1,7 +1,7 @@
 id: phone-cold-session-url-opens-inbox
 title: 꺼져 있던 폰 앱을 session URL로 열면 그 session 대신 Inbox가 열릴 때가 많다
 kind: bug
-status: open
+status: fixed
 topic: phone-home-screen
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 원인을 먼저 찾는다. 8초 timer를 컴퓨터가 붙고 session 목록이 읽힌 뒤부터 재는 쪽이 유력하다.
   - 중간: 목록을 기다리지 않고 그 session 하나를 core에 직접 묻는다.
+closed: |
+  콜드 스타트 시 컴퓨터 연결과 첫 session 목록이 안정될 때까지 fallback timer를 시작하지 않아 딥링크 session이 Inbox로 튕기지 않는다.
+guard: packages/mobile/src/open/session-wait.test.ts

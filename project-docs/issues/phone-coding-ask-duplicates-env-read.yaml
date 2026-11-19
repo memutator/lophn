@@ -1,7 +1,7 @@
 id: phone-coding-ask-duplicates-env-read
 title: 폰의 coding data가 오류 문장을 남기려고 desktop의 `env.read`를 거들지 않고 호출 helper를 따로 쓴다
 kind: defect
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 폰의 세 helper를 한 함수로 합친다(`data/places.ts`의 `ask`를 꺼내 셋이 쓴다). desktop file은 건드리지 않는다.
   - 작음: `env.read`의 실패에 optional `message`를 싣고(desktop 소비자는 무시한다) 폰의 helper를 지워 `env.read`로 모은다.
+closed: |
+  폰의 coding session 공용 route 호출 helper를 단일 data/ask.ts로 합쳐 중복을 없앴다.
+guard: 없음

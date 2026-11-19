@@ -58,13 +58,15 @@ test("switching a view always says the person confirmed", async () => {
       }),
     ],
   });
-  const done = await codingOf(createEventClient(fake)).switchView(SESSION, "gui");
+  const stops = { turn: false, tasks: 0, queued: 1 };
+  const done = await codingOf(createEventClient(fake)).switchView(SESSION, "gui", stops);
   assert.deepEqual(done, { ok: true, value: undefined });
   assert.equal(seen.length, 1);
   assert.deepEqual({ ...(seen[0] as object), key: "" }, {
     session: SESSION,
     to: "gui",
     confirmed: true,
+    stops,
     key: "",
   });
   assert.ok((seen[0] as { key: string }).key.length > 0);

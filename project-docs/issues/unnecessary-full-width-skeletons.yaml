@@ -1,7 +1,7 @@
 id: unnecessary-full-width-skeletons
 title: 빠른 local 읽기까지 지연 없이 화면 가로 전체를 채우는 회색 Skeleton 막대가 뜬다
 kind: bug
-status: open
+status: fixed
 topic: ui-kit
 modules: [packages/design, packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   폴더 이동이나 탭·설정 전환처럼 금방 끝나는 local 읽기마다 화면 가득 긴 회색 막대가 번쩍이고, 대기 화면도 맥락 없는 회색 줄무늬로 보인다.
 fix: |
   0ms `<Skeleton>` 사용처를 지연된 `<Loading>`, 이전 목록 유지(`folder-browser.tsx`), 또는 상태 문구(`<Shimmer>`)로 바꾸고, `skeleton.module.css`의 줄 폭과 최대 폭에 변화를 둔다.
+closed: |
+  Skeleton CSS의 너비·지연 등장 규칙을 다듬고 빠른 local 읽기 화면의 0ms 전체 폭 회색 막대 깜박임을 제거했다.
+guard: 없음

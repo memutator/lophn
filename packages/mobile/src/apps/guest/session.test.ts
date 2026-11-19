@@ -79,7 +79,7 @@ test("guest 메시지가 내세우는 앱·release·view는 신원이 아니고,
   session.receive(JSON.stringify({ type: "call", id: 8, operation: "tasks.list", input: null }));
   session.event({ source: "a", event: "b", payload: null });
   await settle();
-  assert.deepEqual(states, ["running", { failed: "fatal" }]);
+  assert.deepEqual(states, ["running", { failed: "fatal", message: "boom" }]);
   assert.equal(sent.length, 1);
   assert.equal(posted.length, 3);
 });

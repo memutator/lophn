@@ -1,7 +1,7 @@
 id: project-born-identity-before-git-read
 title: git이 실패하던 기계에서 git project가 ledger에서 난 id를 받았을 수 있다
 kind: bug
-status: open
+status: kept
 topic: project-identity
 modules: [packages/core/projects, packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 그대로 둔다. 사람이 그 project에서 [Separate project]를 누르면 새 id를 쓰고, 다른 기계의 id에 맞추려면 그쪽 file을 pull한다. 잃는 것: 찾아 알리지 않는다.
   - (중간) 기동 때 `repo = 'git'`으로 읽히는데 file이 없고 ledger id가 있는 project를 log나 화면에 "이 id는 git을 읽지 못하던 때 났을 수 있다"로 보인다. 잃는 것: 사람이 지운 file(`missing`)과 가르지 못해 틀린 알림이 섞인다.
+closed: |
+  현재 코드는 .git이 있을 때 ledger id 발급을 막고 있으며, 과거에 이미 붙은 id는 사용자가 Separate project나 git pull로 정리할 수 있어 별도 추정 경고 없이 그대로 둔다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: composer-model-picker-stale-after-model-change
 title: Manage models나 Settings에서 모델을 바꿔도 열려 있는 새 session과 대화의 model picker 목록이 다시 읽히지 않는다
 kind: bug
-status: open
+status: fixed
 topic: agent-chat
 modules: [packages/shell/renderer, packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 대화 화면(`useDraftMeta`, `useAgentTabData`)이 지금 `MachineScope`의 `StateChanged(["models", "providers", "agents"])`를 받아 `draft()`와 `acp(session)`을 다시 읽는다. 이 컴퓨터와 다른 컴퓨터 모두 같은 규칙으로 맞는다.
   - (중간) 열린 session은 `acp.ts`가 `changeShownModels`·provider 변경 뒤 열린 session의 model 목록 갱신을 `AcpUpdated`로 내고, 새 session(`useDraftMeta`)만 `StateChanged`로 다시 읽는다.
+closed: |
+  agent-tab-core-source가 model 설정 변경(StateChanged)을 구독해 열려 있는 새 session과 대화의 model picker 목록을 다시 읽는다.
+guard: 없음

@@ -192,7 +192,16 @@ export function useAppScreen({
       file: bundle.got.file,
       call: link.call,
       subscribe: link.subscribe,
-      onState: (next) => setGuest({ key: guestKey, state: next }),
+      onState: (next) => {
+        setGuest({ key: guestKey, state: next });
+        if (typeof next === "object") {
+          link.logError({
+            observation: next.failed,
+            message: next.message ?? `phone screen ${next.failed}`,
+            ...(next.name === undefined ? {} : { name: next.name }),
+          });
+        }
+      },
     };
   })();
 

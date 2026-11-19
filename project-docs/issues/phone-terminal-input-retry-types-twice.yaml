@@ -1,7 +1,7 @@
 id: phone-terminal-input-retry-types-twice
 title: 폰의 터미널 입력은 답을 잃고 다시 보내면 같은 글이 두 번 쳐진다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -10,3 +10,6 @@ impact: |
   연결이 끊기는 순간에 보낸 명령이 터미널에 두 번 들어간다. 지우기나 push 같은 명령이면 두 번 돈다.
 fix: |
   - 작음(추천): 친 글 하나에 key 하나를 두고 성공할 때까지 같은 key로 다시 보낸다.
+closed: |
+  폰 터미널 입력이 실패한 재시도와 재연결 동안 같은 key를 재사용해 성공 시에만 새 key를 발급하므로 core의 key 중복 제거가 동작한다.
+guard: packages/mobile/src/data/terminal.test.ts

@@ -1,7 +1,7 @@
 id: agy-skip-permissions-lost-on-gui-switch
 title: Antigravity를 --dangerously-skip-permissions로 띄운 뒤 GUI로 바꾸면 그 허락 생략 플래그가 이어지지 않는다
 kind: bug
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/protocol]
 now: |
@@ -10,3 +10,6 @@ impact: |
   터미널에서 사람이 직접 `agy --dangerously-skip-permissions`로 시작한 대화를 GUI로 전환하면 승인 생략이 풀려 매 tool 호출마다 승인을 묻고, 다시 터미널로 돌려도 플래그가 사라진다.
 fix: |
   `foreground.ts`의 인자 한도를 늘리고 `tracker.ts`가 TUI `argv`의 `--dangerously-skip-permissions`를 기억해 `AcpTabRequest`·`gui.ts`·`antigravity.ts`(`connect`, `tuiCommand`, `carry`)로 왕복 전달한다. `harness-gui.md`에 사람이 직접 준 `agy` 플래그 보존 규칙을 적는다.
+closed: |
+  foreground MAX_ARGS를 32로 늘리고 tracker가 --dangerously-skip-permissions를 감지해 AcpTabRequest·antigravity adapter(agy acp, tuiCommand, carry)로 TUI↔GUI 전환 동안 보존한다.
+guard: packages/core/extensions/bundled/harness-gui/antigravity_test.ts, packages/core/terminal-agents/agent_test.ts, packages/core/terminal-agents/gui_test.ts

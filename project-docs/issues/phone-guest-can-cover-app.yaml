@@ -1,7 +1,7 @@
 id: phone-guest-can-cover-app
 title: 폰 화면(guest)이 React Native의 `Modal`을 직접 부르면 폰 앱 전체를 덮을 수 있다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile, packages/design/native]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 한 것: kit의 overlay를 화면 안으로 옮겼다. 앱 화면에서 폰의 뒤로 가기가 kit Sheet를 닫지 않게 됐다.
   - 중간(추천): sandbox library가 guest에 열어 주는 view 목록에서 `Modal`을 뺄 수 있는지 본다. 가능하면 화면 어디서든 덮을 수 없다.
   - 작음: release 준비가 폰 화면 source에서 `Modal` import를 찾아 거절한다. 이름을 바꿔 부르는 것은 못 잡는다.
+closed: |
+  guest React Native 래퍼에서 Modal을 제외하고 Android sandbox ViewManager에서 RCTModalHostView를 걸러 guest가 host 앱 전체를 덮지 못하게 막았다.
+guard: packages/mobile/src/apps/guest/session.test.ts

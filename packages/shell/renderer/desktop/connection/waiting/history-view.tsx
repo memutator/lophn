@@ -11,16 +11,19 @@ import {
   type SelectFilterOption,
 } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import { AppTabIcon } from "../../../app-frame/app-icon.tsx";
 import { AppViewsProvider } from "../../../app-frame/app-views.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useMachinesView } from "../../machines/context.tsx";
 import { type MachineRef, useMachineHub } from "../../machines/scope.tsx";
+import { useEventClient } from "../events/hooks.tsx";
 import { dismissNotice } from "./decide.ts";
 import {
   type HistoryFilter,
   type HistoryNotice,
+  type HistorySource,
   markNoticesRead,
   NO_FILTER,
   TYPE_OPTIONS,
@@ -77,12 +80,53 @@ function MachineAppIcon({
   );
 }
 
+// hub가 있으면 이 컴퓨터와 연결된 다른 컴퓨터 모두, 없으면(gallery의 단독 화면) 범위의 기계 하나다.
+function useHistorySources(): readonly HistorySource[] {
+  const hub = useMachineHub();
+  const view = useMachinesView();
+  const scopeClient = useEventClient();
+  const seen = new Set<string>(
+    view?.thisComputer == null ? [] : [view.thisComputer.id],
+  );
+  const connected: [string, string][] = [];
+  for (const one of view?.machines ?? []) {
+    if (one.status !== "connected" || seen.has(one.id)) continue;
+    seen.add(one.id);
+    connected.push([one.id, one.name]);
+  }
+  const connectedKey = JSON.stringify(connected);
+  return useMemo((): readonly HistorySource[] => {
+    if (hub === null) {
+      return [
+        {
+          machine: null,
+          name: undefined,
+          core: scopeClient.core,
+          client: scopeClient,
+        },
+      ];
+    }
+    const here = hub.get(null);
+    const others = (JSON.parse(connectedKey) as [string, string][]).map(
+      ([machine, name]): HistorySource => {
+        const data = hub.get(machine);
+        return { machine, name, core: data.core, client: data.events };
+      },
+    );
+    return [
+      { machine: null, name: undefined, core: here.core, client: here.events },
+      ...others,
+    ];
+  }, [hub, connectedKey, scopeClient]);
+}
+
 export function HistoryView({
   onOpenApp,
 }: {
   onOpenApp: (app: string, machine: string | null) => void;
 }) {
   const namesOf = useInboxNamesOf();
+  const desktopSources = useHistorySources();
   const [filter, setFilter] = useState<HistoryFilter>(NO_FILTER);
   // 글자마다 읽지 않게 멈춘 뒤 거른다.
   const [typed, setTyped] = useState("");
@@ -93,7 +137,10 @@ export function HistoryView({
     );
     return () => clearTimeout(timer);
   }, [typed]);
-  const { state, sources, coreOf, loadMore, reload } = useHistory(filter);
+  const { state, sources, coreOf, loadMore, reload } = useHistory(
+    filter,
+    desktopSources,
+  );
   const rows = state.status === "ready" ? state.rows : [];
   const [failed, setFailed] = useState(false);
 

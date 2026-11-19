@@ -1,7 +1,7 @@
 id: queued-edit-move-not-relayed
 title: 줄 선 메시지를 한 기기가 고치거나 옮겨도 다른 기기의 화면은 그대로다
 kind: bug
-status: open
+status: fixed
 topic: agent-chat
 modules: [packages/core/main, packages/protocol]
 now: |
@@ -10,3 +10,6 @@ impact: |
   폰과 컴퓨터에서 같은 대화를 보는 사람은 한쪽에서 고친 다음 지시가 다른 쪽에 반영되지 않은 것을 보고, turn은 화면과 다른 글로 돈다.
 fix: |
   - 작음(추천): 고치기와 옮기기도 지우기와 같은 길로 변경을 낸다(지우고 다시 세우는 update를 다시 쓰거나 새 update를 더한다).
+closed: |
+  lophn session의 edit_queued·move_queued 변경이 AcpUpdated로 브로드캐스트되어 다른 창과 폰 화면의 대기열이 즉시 맞는다.
+guard: packages/core/main/daemon/wiring/acp-send_test.ts

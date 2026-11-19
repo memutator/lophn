@@ -12,14 +12,10 @@ import {
 } from "../../../../../protocol/apps/notice.ts";
 import { commandCall } from "../../../command-call.ts";
 import { newId } from "../../../prefixed-id.ts";
-import { useMachinesView } from "../../machines/context.tsx";
-import type { MachineRef } from "../../machines/scope.tsx";
-import { useMachineHub } from "../../machines/scope.tsx";
 import type { CoreSource } from "../connection.ts";
 import type { EventClient } from "../events/client.ts";
 import { useEventClient } from "../events/hooks.tsx";
 import { inboxKey } from "../events/waiting-store.ts";
-import type { InboxNotice } from "./inbox.ts";
 
 const PAGE = 30;
 
@@ -51,16 +47,20 @@ export const TYPE_OPTIONS: readonly Exclude<TypeFilter, "all">[] = [
 ];
 
 export interface HistorySource {
-  readonly machine: MachineRef;
+  readonly machine: string | null;
   readonly name: string | undefined;
   readonly core: CoreSource;
   readonly client: EventClient;
 }
 
-export type HistoryNotice = InboxNotice;
+export type HistoryNotice = Notice & {
+  readonly machine: string | null;
+  readonly key: string;
+  readonly machineName: string | undefined;
+};
 
 export interface SourceCursor {
-  readonly machine: MachineRef;
+  readonly machine: string | null;
   readonly name: string | undefined;
   readonly buffered: readonly HistoryNotice[];
   /** null이면 이 기계는 끝까지 읽었다. */
@@ -258,53 +258,29 @@ export type HistoryState =
 export interface History {
   readonly state: HistoryState;
   readonly sources: readonly HistorySource[];
-  coreOf(machine: MachineRef): CoreSource;
+  coreOf(machine: string | null): CoreSource;
   readonly loadMore: () => void;
   readonly reload: () => void;
 }
 
-// hub가 있으면 이 컴퓨터와 연결된 다른 컴퓨터 모두, 없으면(gallery의 단독 화면) 범위의 기계 하나다.
-function useHistorySources(): readonly HistorySource[] {
-  const hub = useMachineHub();
-  const view = useMachinesView();
+// desktop은 여러 컴퓨터의 sources를 넘기고, 폰·gallery는 범위의 기계 하나를 쓴다.
+export function useHistory(
+  filter: HistoryFilter,
+  explicitSources?: readonly HistorySource[],
+): History {
   const scopeClient = useEventClient();
-  const seen = new Set<string>(
-    view?.thisComputer == null ? [] : [view.thisComputer.id],
-  );
-  const connected: [string, string][] = [];
-  for (const one of view?.machines ?? []) {
-    if (one.status !== "connected" || seen.has(one.id)) continue;
-    seen.add(one.id);
-    connected.push([one.id, one.name]);
-  }
-  const connectedKey = JSON.stringify(connected);
-  return useMemo((): readonly HistorySource[] => {
-    if (hub === null) {
-      return [
-        {
-          machine: null,
-          name: undefined,
-          core: scopeClient.core,
-          client: scopeClient,
-        },
-      ];
-    }
-    const here = hub.get(null);
-    const others = (JSON.parse(connectedKey) as [string, string][]).map(
-      ([machine, name]): HistorySource => {
-        const data = hub.get(machine);
-        return { machine, name, core: data.core, client: data.events };
+  const fallbackSources = useMemo(
+    (): readonly HistorySource[] => [
+      {
+        machine: null,
+        name: undefined,
+        core: scopeClient.core,
+        client: scopeClient,
       },
-    );
-    return [
-      { machine: null, name: undefined, core: here.core, client: here.events },
-      ...others,
-    ];
-  }, [hub, connectedKey, scopeClient]);
-}
-
-export function useHistory(filter: HistoryFilter): History {
-  const sources = useHistorySources();
+    ],
+    [scopeClient],
+  );
+  const sources = explicitSources ?? fallbackSources;
   const [state, setState] = useState<InternalState>({ status: "loading" });
   const [tick, setTick] = useState(0);
   const genRef = useRef(0);
@@ -494,7 +470,7 @@ export function useHistory(filter: HistoryFilter): History {
   }, [sources, app, project, type, query, range, state]);
 
   const coreOf = useCallback(
-    (machine: MachineRef): CoreSource =>
+    (machine: string | null): CoreSource =>
       (sources.find((source) => source.machine === machine) ?? sources[0]!)
         .core,
     [sources],

@@ -11,7 +11,10 @@ import {
 import type { JsonValue } from "../../../../protocol/base/json-values.ts";
 
 export type GuestFailure = "did_not_start" | "fatal" | "crashed";
-export type GuestState = "starting" | "running" | { failed: GuestFailure };
+export type GuestState =
+  | "starting"
+  | "running"
+  | { failed: GuestFailure; message?: string; name?: string };
 
 // `app_views/call`'s outcome. App error codes pass through as they are.
 export type CallOutcome =
@@ -103,7 +106,7 @@ export function createGuestSession(options: {
           return;
         case "fatal":
           current.log(`fatal: ${message.message}`);
-          move({ failed: "fatal" });
+          move({ failed: "fatal", message: message.message });
           return;
       }
     },
@@ -122,10 +125,19 @@ export function createGuestSession(options: {
       liveOptions?.log(`${error.name}: ${error.message}`);
       if (!error.isFatal) return;
       const crashed = error.name === "GuestCrashed" || error.name === "LoadError";
-      move({ failed: crashed ? "crashed" : "fatal" });
+      move({
+        failed: crashed ? "crashed" : "fatal",
+        name: error.name,
+        message: error.message,
+      });
     },
     timeout() {
-      if (state === "starting") move({ failed: "did_not_start" });
+      if (state === "starting") {
+        move({
+          failed: "did_not_start",
+          message: "guest screen did not start before timeout",
+        });
+      }
     },
     close() {
       closed = true;

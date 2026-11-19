@@ -1,7 +1,7 @@
 id: remote-port-taken-says-off
 title: remote port를 다른 process가 쓰고 있으면 초대장 내기가 "remote is off"로 답한다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/core/main]
 now: |
@@ -10,3 +10,6 @@ impact: |
   사람(과 개발 중인 agent)이 remote를 켰는데 초대장이 "꺼져 있다"로 실패해, 설정을 다시 켜거나 끄며 헤맨다. port 충돌을 알 길이 log뿐이다.
 fix: |
   - 작음(추천): listener가 실패한 이유를 기억해 두고, `invite`·`join`의 `unavailable` 문장에 그 이유를 싣는다("the remote port 7432 is in use by another program; change remote.port"). Settings › Remote가 같은 이유를 보이면 더 좋다.
+closed: |
+  remote listener가 bind 실패(EADDRINUSE 등) 원인을 기록해 roster/invite와 roster/join이 "remote is off" 대신 실제 port 오류를 돌려준다.
+guard: packages/core/main/daemon/wiring/remote_test.ts

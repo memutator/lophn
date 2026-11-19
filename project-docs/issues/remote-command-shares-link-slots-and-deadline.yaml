@@ -1,7 +1,7 @@
 id: remote-command-shares-link-slots-and-deadline
 title: 다른 컴퓨터로 보낸 앱 command가 화면과 나르기와 연결의 call 8개와 120초를 같이 쓰고, 120초를 넘기면 결과 모름으로 끝난다
 kind: bug
-status: open
+status: kept
 topic: remote
 modules: [packages/remote-client, packages/core/remote, packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 지금대로 두고 `unknown`을 받으면 agent가 앱의 읽기 command로 결과를 확인하게 안내한다. 긴 command는 앱이 바로 돌려주고 나중에 읽는 모양으로 짜게 지침에 적는다.
   - (중간) 앱 command용 시한을 호출마다 정하고 화면·나르기와 슬롯을 나눈다. 연결 하나의 한도를 늘리면 받는 core의 read 줄(caller마다 8)과 부딪힌다.
+closed: |
+  현재 remote link 슬롯(8)과 120초 기한을 공유하는 단순한 구조를 유지한다. 장시간 원격 앱 command가 실제로 화면 호출을 막는 사례가 나오면 별도 슬롯·기한 분리를 도입한다.
+guard: 없음

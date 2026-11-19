@@ -1,7 +1,7 @@
 id: phone-screen-errors-not-in-app-log
 title: 폰 화면의 오류(fatal, 시작 실패)가 앱 log에 남지 않아 앱 agent가 이유를 읽지 못한다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile, packages/core/remote, packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): view에 묶인 route를 새로 둔다. 입력은 view id와 오류 내용뿐이고 앱·release는 core가 그 view의 binding에서 정한다(`app_views/call`과 같은 신원). 폰 gate에 그 route를 넣고 core가 앱 log에 쓴다. guest의 `fatal` 메시지와 `crashed`·`did_not_start`를 보낸다.
   - 작음: 폰이 `log_view_error`를 부르게 열고 core가 입력의 `app`이 그 기기가 연 view의 앱인지 view 표로 확인한다. 그 route에만 붙는 검사가 하나 늘어난다.
+closed: |
+  caller의 (owner, view) binding에만 쓰는 app_views/log_error route를 추가·허용하고, live 컴퓨터 호스팅 폰 화면이 fatal·crashed·did_not_start에 닿으면 이를 호출해 앱 log에 남긴다.
+guard: packages/core/apps/views/views_test.ts, packages/core/remote/forwarded_test.ts, packages/mobile/src/apps/view.test.ts

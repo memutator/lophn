@@ -1,7 +1,7 @@
 id: remote-events-no-rate-cap
 title: 구독한 컴퓨터가 보내는 앱 event의 수에 상한이 없어 뚫리거나 잘못 짠 컴퓨터가 앱 handler를 끝없이 돌릴 수 있다
 kind: bug
-status: open
+status: fixed
 topic: event
 modules: [packages/core/remote, packages/core/apps, packages/core/folder]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) link마다 초당 상한을 두고 넘으면 버리고 log를 남긴다(`links.ts`). handler가 payload를 검사해야 한다고 SDK 지침에 이미 적었다.
   - (중간) 구독 앱마다 최소 간격을 선언에 둔다. 선언 모양과 SDK 판이 바뀐다.
+closed: |
+  core/remote/links가 연결마다 AppEventPublished 수신 rate cap(20/s, burst 40)을 걸고 초과분은 버리며 rate-limited 경고를 남긴다.
+guard: packages/core/remote/host_test.ts

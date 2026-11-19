@@ -1,7 +1,7 @@
 id: inbox-history-this-computer-only
 title: Inbox의 History는 이 컴퓨터의 기록만 보인다
 kind: bug
-status: open
+status: fixed
 topic: attention
 modules: [packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): 컴퓨터마다 기록을 읽어 시각순으로 합치고 줄에 컴퓨터 꼬리표를 단다. 필터의 이름은 그 컴퓨터의 목록(`inboxNames`)에서 읽는다. 읽음 표시는 줄의 컴퓨터로 보낸다. 컴퓨터마다 쪽 나누기(`loadMore`)를 합치는 일이 대부분이다.
   - 큼: 합친 기록을 core가 준다. 컴퓨터마다 core에서 합치는 route가 따로 필요하다.
+closed: |
+  desktop Inbox의 History 탭이 이 컴퓨터와 연결된 모든 컴퓨터의 notices.list를 시각순으로 병합해 보이고, 필터·이름·읽음 처리·동작을 각 행의 컴퓨터로 보낸다.
+guard: 없음

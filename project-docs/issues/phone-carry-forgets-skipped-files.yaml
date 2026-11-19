@@ -1,7 +1,7 @@
 id: phone-carry-forgets-skipped-files
 title: 모바일 데이터 크기 선택 때문에 건너뛴 새 file을 폰이 기억하지 않아 Wi-Fi로 돌아와도 다시 찾지 않는다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 크기 때문에 건너뛴 file을 폰의 carry DB에 표시(machine, path, sha256)해 두고, Wi-Fi로 돌아오거나 크기 선택이 커지면 그 표시를 `targets`에 넣는다. 받으면 표시를 지운다. 표시도 나이 한도(30일)로 지운다.
   - 중간: `fresh` 대신 "폰이 든 목록이 싣는데 폰이 들지 않은 file 전부"를 매번 센다. 사슬을 매번 펼쳐 비용이 늘고 다른 컴퓨터가 필요 없는 file까지 받는다.
+closed: |
+  모바일 데이터 한도로 건너뛴 file을 별도 표시로 남겨 Wi-Fi 복귀나 한도 상향 시 다시 받고 30일 뒤 만료한다.
+guard: packages/mobile/src/apps/carry/carry.test.ts

@@ -16,6 +16,7 @@ import {
   codingSessionsOpen,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
+  type SwitchStops,
 } from "../../../protocol/coding-agent/relay.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
 import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
@@ -238,7 +239,11 @@ export interface CodingActions {
     blocked: "no_session" | "not_running" | "unsupported_os" | null;
   }>>;
   /** Only after the person confirmed what `switchPlan` showed: the core refuses a switch without it. */
-  switchView(session: string, to: "gui" | "tui"): Promise<SourceResult<void>>;
+  switchView(
+    session: string,
+    to: "gui" | "tui",
+    stops?: SwitchStops,
+  ): Promise<SourceResult<void>>;
   /**
    * A new chat-view coding session in a new terminal on the computer, or one that resumes a harness agent session.
    * Answers once its chat stands on the computer (`standing`), so the first message can go to it at once.
@@ -269,12 +274,13 @@ export function codingOf(client: EventClient): Coding {
   return {
     source: (target) => codingSource(client, env, target),
     switchPlan: (session) => env.read(codingSessionsSwitchPlan, { session }),
-    async switchView(session, to) {
+    async switchView(session, to, stops) {
       const done = await env.read(codingSessionsSwitch, {
         session,
         to,
         confirmed: true,
         key: newId("switch"),
+        ...(stops === undefined ? {} : { stops }),
       });
       return done.ok ? { ok: true, value: undefined } : done;
     },

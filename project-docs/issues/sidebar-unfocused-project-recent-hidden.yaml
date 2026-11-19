@@ -1,7 +1,7 @@
 id: sidebar-unfocused-project-recent-hidden
 title: 왼쪽 sidebar에서 지금 열지 않은 project의 Recent session이 숨겨져 그 project를 열어야만 보인다
 kind: bug
-status: open
+status: fixed
 topic: workspace-layout
 modules: [packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   다른 project에 있던 최근 대화를 왼쪽 sidebar에서 바로 찾지 못하고, 일일이 그 project를 먼저 눌러 들어가야만 Recent 목록이 나타난다.
 fix: |
   `left-sidebar-workspaces.ts`에서 `key === here` 제한을 풀고 다른 local workspace의 agent 표시 fallback을 두며, Recent 펼침·쪽 상태를 `SidebarMemoryProvider`에 유지하고 `workspace-layout.md`를 맞춘다.
+closed: |
+  왼쪽 sidebar에서 현재 열지 않은 project도 Recent session과 접힘·페이지 상태를 유지해 보여 준다.
+guard: 없음

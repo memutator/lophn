@@ -215,7 +215,7 @@ export function History({ locked }: { locked: boolean }) {
           </View>
         );
       })}
-      {state.status === "ready" && state.next !== null && (
+      {state.status === "ready" && state.hasMore && (
         <View style={{ alignItems: "center", padding: 16 }}>
           <Button size="sm" onPress={loadMore}>
             {t("waiting.button.history-more")}

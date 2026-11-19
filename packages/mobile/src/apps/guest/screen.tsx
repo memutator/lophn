@@ -101,7 +101,10 @@ export function GuestScreen(props: GuestScreenProps) {
   useEffect(() => {
     if (!present) {
       say(`missing ${files.join(" or ")}`);
-      latest.current.onState({ failed: "did_not_start" });
+      latest.current.onState({
+        failed: "did_not_start",
+        message: `missing ${files.join(" or ")}`,
+      });
       return;
     }
     latest.current.onState("starting");

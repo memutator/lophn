@@ -1,7 +1,7 @@
 id: roster-same-machine-two-keys-stalls-carry
 title: 명단이 같은 기계 id를 단 두 key를 충돌로 보지 않아 받는 컴퓨터가 그 이름을 믿지 않고 사람에게는 그 컴퓨터의 file이 멈춘 것만 보인다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/protocol, packages/core/remote]
 now: |
@@ -12,5 +12,8 @@ impact: |
 fix: |
   - 작음(추천): 명단의 충돌 규칙에 "같은 `machine`을 단 컴퓨터 항목 둘"을 더해 둘 다 엇갈린 줄(`disputed`)로 보이게 하고 사람이 My devices에서 믿지 않는 쪽을 뺀다. 판 4 명단 규칙의 합치기가 바뀌므로 판과 하한을 올릴지 정해야 한다(옛 판과 다른 view가 생긴다).
   - 작음: 명단은 그대로 두고 Settings › Sync와 `machine.environment`가 "같은 이름의 컴퓨터가 둘이라 받지 않는다"를 보인다. 사람이 My devices에서 직접 뺀다.
-decide: |
-  명단의 충돌 규칙을 바꾸면 판 4 명단 합치기가 달라진다. 판을 올려 옛 폰과 컴퓨터가 끊기는 비용을 낼지, 화면에 보이기만 할지 사람이 고른다. 추천은 화면에 보이는 쪽(둘째 안)이다.
+decided: |
+  명단 규칙은 그대로 두고 Sync Settings에서 같은 machine id를 단 둘 이상의 컴퓨터 key가 있을 때 경고와 Remote 설정 링크를 보인다.
+closed: |
+  Sync Settings가 roster/list와 연결 목록에서 같은 machine id를 가진 복수 key를 감지해 경고 문구와 Remote 설정 이동 단추를 보인다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: remote-terminal-notice-does-not-open-tab
 title: 다른 컴퓨터의 터미널 coding agent 알림을 눌러도 그 터미널 탭이 열리지 않는다
 kind: bug
-status: open
+status: fixed
 topic: terminal-agent
 modules: [packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/shell/preload]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): 알림이 가리키는 터미널의 project를 renderer가 안다(그 컴퓨터의 `coding_sessions/list`가 `project`를 준다). `NoticeReveal`에 `{terminal, machine}`을 더하고 preload가 받아, renderer의 toast 행동이 그 컴퓨터의 목록에서 project를 찾아 `openProject(project, { terminal, machine })`로 연다. 바꾸는 곳: `ipc/notice.ts`, `preload/notice-api.ts`, `main/desktop/wiring/notice.ts`, `toast-host.tsx`와 toast 행동.
   - 큼: core가 터미널의 project를 `TerminalAgentSignaled`에 싣게 한다. protocol과 기기 event를 고치고 옛 판은 project 없이 온다.
+closed: |
+  NoticeReveal에 {terminal, machine}을 실어 원격 터미널 알림을 누르면 해당 기계·project로 이동해 터미널 탭을 열거나 선택한다.
+guard: 없음

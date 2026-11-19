@@ -1,7 +1,7 @@
 id: push-misses-gui-tab-approvals
 title: harness GUI 탭에서 기다리는 승인은 폰 push 계기가 아니다
 kind: bug
-status: open
+status: fixed
 topic: attention
 modules: [packages/core/attention, packages/shell/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): GUI 탭의 승인 대기가 서고 풀릴 때 shell main이 `terminal_sessions/signal`(`waiting`)을 core에 보낸다. GUI 탭은 `term:<탭>` 참조라 기존 계기 표와 글이 그대로 쓰인다.
   - 중간: core의 coding relay가 이미 사본의 승인·질문 대기(`pending`)와 turn 끝을 `AcpUpdated`로 낸다. attention이 그 갱신(승인·질문이 열림, turn 끝)을 같은 계기 표에 이어 주면 shell main을 고치지 않고 GUI 탭도 push가 된다.
+closed: |
+  harness GUI 탭에서 승인·질문 대기가 열리면 attention이 폰 push 계기를 발생시켜 폰에서도 알림을 받는다.
+guard: packages/core/attention/unseen_test.ts, packages/core/attention/message_test.ts

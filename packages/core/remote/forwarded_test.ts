@@ -781,7 +781,7 @@ test("terminals/name·rename_saved와 instructions/read_global·write_global은 
 
 test("app_views/log_error는 폰과 컴퓨터의 screen 요청은 받지만 agent·app 요청은 거절한다", async () => {
   const s = setup();
-  const body = { view: "vw_1", message: "boom" };
+  const body = { view: "view-00000001", message: "boom" };
   assert.equal(
     code(await (await s.as(PHONE, "app_views", "log_error"))(body)),
     "ok",

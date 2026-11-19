@@ -8,6 +8,7 @@ import {
   type AcpUpdate,
   reduceAcp,
 } from "../../../protocol/acp/mod.ts";
+import { useStateChanged } from "../desktop/connection/core-read.ts";
 import {
   useAcpUpdates,
   useSessions,
@@ -21,6 +22,8 @@ import type {
   ThreadView,
 } from "./agent-tab-source.ts";
 import { createLayoutCache, layoutOf } from "./thread-layout.ts";
+
+const MODEL_CHANGES = ["models", "providers", "agents"] as const;
 
 type TabConnection = "loading" | "live" | "reconnecting";
 
@@ -168,6 +171,8 @@ export function useAgentTabData(
     void readAcp();
   }, [readAcp]);
   useEffect(() => source.changed?.(() => void readAcp()), [source, readAcp]);
+  // Manage models나 Settings에서 쓸 모델·provider·agent 설정이 바뀌면 열린 대화의 model picker도 바로 다시 읽는다.
+  useStateChanged(MODEL_CHANGES, () => void readAcp());
 
   // 끊겼다 다시 붙으면 놓친 갱신을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다.
   const previous = useRef(stream.status);

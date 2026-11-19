@@ -103,6 +103,7 @@ import {
   InputRequestCard,
   openInputRequestWindow,
 } from "./input-request-card/input-request-card.tsx";
+import { useStateChanged } from "../desktop/connection/core-read.ts";
 import { useScopeMachine } from "../desktop/machines/scope.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
@@ -1650,21 +1651,29 @@ function useLatest<Args extends unknown[], Result>(
   return useCallback((...args: Args) => latest.current(...args), []);
 }
 
+const MODEL_CHANGES = ["models", "providers", "agents"] as const;
+
 /** 새 session 화면의 session 기능. 첫 메시지 전이라 snapshot이 없어 source가 agent와 workspace로 읽는다. */
 function useDraftMeta(
   source: AgentTabSource,
   enabled: boolean,
 ): AcpSessionMeta | null {
   const [meta, setMeta] = useState<AcpSessionMeta | null>(null);
-  useEffect(() => {
+  const sequence = useRef(0);
+  const load = useCallback(() => {
     if (!enabled || source.draft === undefined) return;
-    let live = true;
+    const token = (sequence.current += 1);
     void source.draft().then((read) => {
-      if (live && read.ok) setMeta(read.value);
+      if (token === sequence.current && read.ok) setMeta(read.value);
     });
-    return () => {
-      live = false;
-    };
   }, [source, enabled]);
+  useEffect(() => {
+    load();
+    return () => {
+      sequence.current += 1;
+    };
+  }, [load]);
+  // Manage models나 Settings에서 모델·provider·agent 설정이 바뀌면 새 session의 model picker도 바로 다시 읽는다.
+  useStateChanged(MODEL_CHANGES, load);
   return enabled ? meta : null;
 }

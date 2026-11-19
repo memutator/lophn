@@ -5,6 +5,7 @@ import { createContext, type ReactNode, useContext } from "react";
 import { AppViewsProvider } from "../../app-frame/app-views.tsx";
 import { ProjectIconsProvider } from "../../parts/project-icon/project-icon.tsx";
 import { EventsProvider } from "../connection/events/hooks.tsx";
+import { ConnectProviderHost } from "../settings/providers/connect-host.tsx";
 import {
   MachineGrantProvider,
   ScopeMachineProvider,
@@ -42,7 +43,7 @@ export function useMachineData(machine?: MachineRef): MachineData {
   return hub.get(machine === undefined ? scope : machine);
 }
 
-/** 그 기계의 범위를 준다. 폴더 목록 dialog(다른 기계의 폴더 고르기)의 자리도 여기 둔다. */
+/** 그 기계의 범위를 준다. 폴더 목록 dialog(다른 기계의 폴더 고르기)와 provider·model 관리 창 자리도 여기 둔다. */
 export function MachineScope({
   machine,
   children,
@@ -50,15 +51,34 @@ export function MachineScope({
   machine: MachineRef;
   children: ReactNode;
 }) {
+  const outer = useScopeMachine();
   const data = useMachineData(machine);
   const Folders = data.folders?.Host;
+  const providers = data.settingsPanels?.providers;
+  const agents = data.settingsPanels?.agents;
+  // 다른 기계 범위(또는 다른 기계 안에 들어온 이 컴퓨터 범위)는 그 기계의 provider·model 관리 host를 새로 감싼다.
+  // root `MachineScope(null)`은 `Desktop`(`main.tsx`)과 gallery가 각자 감싸므로 겹치지 않는다.
+  const body =
+    (machine !== null || outer !== null) &&
+    providers !== undefined &&
+    agents !== undefined ? (
+      <ConnectProviderHost
+        key={machine ?? "here"}
+        providers={providers}
+        agents={agents}
+      >
+        {children}
+      </ConnectProviderHost>
+    ) : (
+      children
+    );
   return (
     <ScopeMachineProvider value={machine}>
       <EventsProvider stores={data.stores}>
         <AppViewsProvider value={data.appViews}>
           <ProjectIconsProvider value={data.projectIcons}>
             <MachineGrantProvider check={data.grant}>
-              {children}
+              {body}
               {Folders === undefined ? null : <Folders />}
             </MachineGrantProvider>
           </ProjectIconsProvider>

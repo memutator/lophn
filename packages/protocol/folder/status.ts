@@ -2,9 +2,9 @@
 // `sections`는 뒤 계획이 명령의 code를 고치지 않고 이름 붙은 칸을 채우는 자리다(top, 기계마다, 앱마다).
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { atSchema, sha256Schema } from "../base/values.ts";
+import { atSchema } from "../base/values.ts";
 import { followStateSchema, updateStateSchema } from "../apps/update-state.ts";
-import { addressesSchema, alwaysOnSchema } from "./records.ts";
+import { addressesSchema, alwaysOnSchema, commitSchema } from "./records.ts";
 
 export const FOLDER_ERROR_CODES = [
   "destination_missing",
@@ -16,7 +16,6 @@ export const FOLDER_ERROR_CODES = [
   "clock_ahead",
   "apply_failed",
   "app_not_running",
-  "release_incomplete",
   "away_too_long",
   // 앱 source의 git bundle을 만들거나 받지 못했다(git이 없거나 실패). data 내보내기와 읽기는 막지 않는다.
   "source_failed",
@@ -77,7 +76,7 @@ export const machineEnvironmentSchema = z.object({
       name: z.string(),
       sync_to: z.string().nullable(),
       destination: z.enum(["set", "not_set_here"]).nullable(),
-      release: sha256Schema.nullable(),
+      release: commitSchema.nullable(),
       export: z
         .object({
           exported_at: atSchema.nullable(),
@@ -125,7 +124,7 @@ export const machineEnvironmentSchema = z.object({
       machine: idSchema("mch"),
       release: z
         .object({
-          bundle_hash: sha256Schema,
+          code_commit: commitSchema,
           data_schema: count,
           created_at: atSchema,
         })

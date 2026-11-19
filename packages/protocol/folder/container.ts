@@ -18,6 +18,7 @@ import {
   SNAPSHOT_PAYLOAD_MAX_BYTES,
 } from "./limits.ts";
 import {
+  commitSchema,
   FOLDER_FORMAT,
   fileError,
   type FolderFileError,
@@ -52,7 +53,7 @@ const headerFields = {
   machine: idSchema("mch"),
   app: idSchema("app"),
   n: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-  release: z.object({ bundle_hash: sha256Schema, data_schema: count }),
+  release: z.object({ code_commit: commitSchema, data_schema: count }),
   created_at: atSchema,
   payload: z.object({ size: count, sha256: sha256Schema }),
 };
@@ -151,7 +152,7 @@ export async function encodeChanges(input: {
   machine: Id<"mch">;
   app: Id<"app">;
   n: number;
-  release: { bundle_hash: string; data_schema: number };
+  release: { code_commit: string; data_schema: number };
   created_at: string;
   changes: readonly { meta: ChangeMeta; bytes: Uint8Array }[];
 }): Promise<Result<Uint8Array, FolderFileError>> {

@@ -1,5 +1,4 @@
 import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
-import type { BundleManifest, DataChange } from "../../../protocol/apps/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AppRecord } from "../../../protocol/folder/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
@@ -15,10 +14,8 @@ export type FolderLocalApp = {
   source_path: string | null;
   release: {
     id: Id<"rel">;
-    bundle_hash: string;
     code_commit: string;
     data_schema: number;
-    data_changes: readonly Record<string, unknown>[];
     created_at: string;
   } | null;
 };
@@ -46,26 +43,15 @@ export type LocalApp = {
   code_commit: string | null;
 };
 
-export type InstalledBundle = {
-  declaration: Record<string, unknown>;
-  manifest: BundleManifest;
-  data_schema: number;
-  data_changes: DataChange[];
-};
-
 /** take-in과 source 받기가 core/apps에 기대는 면. core/apps가 구현하고(apps/folder-host.ts) 조립이 넘긴다. */
 export type FolderAppsHost = {
   app(id: Id<"app">): Result<LocalApp | null>;
   slugOwner(slug: string): Result<Id<"app"> | null>;
-  releaseWith(app: Id<"app">, bundleHash: string): Result<Id<"rel"> | null>;
-  published(name: string, version: string): boolean;
-  /** 검사를 마친 bundle file(manifest.json과 declaration.json 포함)을 봉인 사본으로 쓴다. 이미 봉인된 사본은 그대로 둔다. */
-  installBundle(
+  releaseWithCommit(
     app: Id<"app">,
-    bundleHash: string,
-    manifest: BundleManifest,
-    files: readonly { path: string; bytes: Uint8Array }[],
-  ): Promise<Result<InstalledBundle>>;
+    codeCommit: string,
+  ): Result<Id<"rel"> | null>;
+  published(name: string, version: string): boolean;
   createApp(input: {
     id: Id<"app">;
     slug: string;
@@ -77,12 +63,11 @@ export type FolderAppsHost = {
     revision: string,
     sourcePath: string,
   ): Promise<Result<void>>;
-  recordRelease(input: {
+  /** 이 기계의 source 저장소에서 지정한 commit으로 local release를 준비해 `prepared`로 적는다. */
+  prepareRelease(input: {
     app: Id<"app">;
+    sourcePath: string;
     commit: string;
-    bundle_hash: string;
-    declaration_hash: string;
-    installed: InstalledBundle;
   }): Promise<Result<Id<"rel">>>;
 };
 

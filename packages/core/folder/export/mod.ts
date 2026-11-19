@@ -22,7 +22,7 @@ export type ExportApp = {
   name: string;
   description: string;
   sync_to: string;
-  release: { id: Id<"rel">; bundle_hash: string; data_schema: number } | null;
+  release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };
 
 /** 내보내기가 쓰는 sync log의 면. core의 `SyncLog`가 그대로 맞는다. */
@@ -55,7 +55,7 @@ export type FolderExportDeps = {
   log: ExportLog;
   releaseKey(
     release: string,
-  ): { bundle_hash: string; data_schema: number } | null;
+  ): { code_commit: string; data_schema: number } | null;
   operationOf(invocation: string): { name: string; started_at: string } | null;
   /** 그 앱의 write 줄을 잡은 채 log head를 읽고 앱 DB 사본을 `path`에 뜬다. 사본은 정확히 그 seq까지를 담는다. */
   snapshotAt(

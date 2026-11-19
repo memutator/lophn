@@ -452,15 +452,15 @@ const appRecord = (
 const THIS_MACHINE = "mch_01h455vb4pex5v6nkc6gd5fd01";
 const LAPTOP = "mch_01h455vb4pex5v6nkc6gd5fd02";
 const OFFICE = "mch_01h455vb4pex5v6nkc6gd5fd03";
-const R8_BUNDLE = "8".repeat(64);
+const R8_COMMIT = "c42d9e1".padEnd(40, "0");
 
 const UPDATE_WAITING: UpdateState = {
   app: MAIN,
-  follow: { state: "waiting_consent", release: R8_BUNDLE, reason: null },
+  follow: { state: "waiting_consent", release: R8_COMMIT, reason: null },
   held: [
     {
       machine: LAPTOP,
-      bundle_hash: R8_BUNDLE,
+      code_commit: R8_COMMIT,
       data_schema: 5,
       changes: 37,
       bytes: 48_213,
@@ -476,7 +476,6 @@ const UPDATE_WAITING: UpdateState = {
       lophn_version: "0.23.74",
       exchange: "ok",
       release: {
-        bundle_hash: HASH,
         number: 7,
         code_commit: "3f9a1c2".padEnd(40, "0"),
         data_schema: 4,
@@ -490,9 +489,8 @@ const UPDATE_WAITING: UpdateState = {
       exchange: "ok",
       // 따라가려고 이 기계에 prepared로 들였다.
       release: {
-        bundle_hash: R8_BUNDLE,
         number: 8,
-        code_commit: "c42d9e1".padEnd(40, "0"),
+        code_commit: R8_COMMIT,
         data_schema: 5,
       },
     },

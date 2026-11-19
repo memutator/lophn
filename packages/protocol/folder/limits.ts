@@ -17,9 +17,6 @@ export const SNAPSHOT_PAYLOAD_MAX_BYTES = GIB;
 export const HEADER_MAX_BYTES = MIB;
 // `record.json`, `app.json`, `source/<n>.json`.
 export const RECORD_MAX_BYTES = 256 * KIB;
-// `release.json`은 봉인한 bundle의 file마다 한 줄(path, size, sha256)을 싣는다. bundle은 node_modules를 담아 template 앱 하나가
-// 이미 수천 file이고(RELEASE_FILE_MAX_COUNT 10,000까지) 그래서 다른 기록 file의 한도로는 받지 못한다.
-export const RELEASE_RECORD_MAX_BYTES = 8 * MIB;
 export const SOURCE_BUNDLE_MAX_BYTES = 64 * MIB;
 
 export const DESTINATIONS_MAX = 16;

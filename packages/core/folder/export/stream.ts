@@ -60,7 +60,7 @@ const TEMP_DIR = "folder-export";
 type ExportOrigin = ChangeMeta["origin"];
 const EXPORT_ORIGINS = new Set<string>(["computer", "device", "rewind"]);
 
-type ReleaseKey = { bundle_hash: string; data_schema: number };
+type ReleaseKey = { code_commit: string; data_schema: number };
 
 // 이번 run이 snapshot을 쓸 까닭. required는 그것 없이 stream을 이을 수 없다(첫 file, release가 바뀜, bytes로 남지 못한 자기
 // 변경). compaction은 30일 지난 snapshot을 새로 써 옛 file을 지우려는 것이라 미뤄도 된다.
@@ -265,7 +265,7 @@ class Run {
     if (
       state === null ||
       state.last_snapshot_n === null ||
-      state.bundle_hash !== release.bundle_hash
+      state.code_commit !== release.code_commit
     ) {
       return "required";
     }
@@ -385,7 +385,7 @@ class Run {
                 ...header.changes.map((change) => Number(change.id)),
               ),
             }
-          : { last_snapshot_n: row.n, bundle_hash: header.release.bundle_hash };
+          : { last_snapshot_n: row.n, code_commit: header.release.code_commit };
       const done = this.tx((sql) =>
         updateStream(sql, this.key, {
           ...finish,
@@ -521,7 +521,7 @@ class Run {
       }
       // 기다리는 사이 activation이 release를 바꿨으면 이 사본의 release를 모른다. 다음 run이 다시 뜬다.
       const now = deps.apps().find((each) => each.app === app.app)?.release;
-      if (now?.bundle_hash !== release.bundle_hash) return ok(false);
+      if (now?.code_commit !== release.code_commit) return ok(false);
       const size = (await stat(temp)).size;
       if (size > SNAPSHOT_PAYLOAD_MAX_BYTES) {
         return this.stop(
@@ -537,7 +537,7 @@ class Run {
         n,
         kind: "snapshot",
         release: {
-          bundle_hash: release.bundle_hash,
+          code_commit: release.code_commit,
           data_schema: release.data_schema,
         },
         created_at: deps.clock.now(),
@@ -561,7 +561,7 @@ class Run {
         {
           last_seq: Math.max(this.cursor, taken.value.seq),
           last_snapshot_n: n,
-          bundle_hash: release.bundle_hash,
+          code_commit: release.code_commit,
         },
       );
       if (!put.ok || !put.value) return put;
@@ -642,7 +642,7 @@ class Run {
           row.hlc === null ||
           row.changeset === null ||
           key === null ||
-          key.bundle_hash !== this.state()?.bundle_hash
+          key.code_commit !== this.state()?.code_commit
         ) {
           resnapshot = true;
           break;

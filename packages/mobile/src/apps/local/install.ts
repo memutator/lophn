@@ -6,12 +6,14 @@ import { adoptSnapshot, ensureSyncTables } from "../../../../protocol/apps/sync/
 import type { PhoneScreen } from "../../data/apps.ts";
 import { migrateTo, transaction, withDb } from "./db.ts";
 import {
+  compareRelease,
   type Installed,
   kindOf,
   paths,
   readInstalled,
   removeDb,
   withComputer,
+  withComputerRelease,
   writeInstalled,
 } from "./folder.ts";
 import type { LocalDeps, Remote } from "./ports.ts";
@@ -45,8 +47,36 @@ export async function install(
   const known = readInstalled(files, first.app);
   if (known !== null) {
     const computers = withComputer(known.computers, ctx.computer);
-    if (computers === known.computers) return ok(known);
-    const updated = { ...known, computers };
+    const same =
+      compareRelease(
+        {
+          release: first.release,
+          code_commit: first.code_commit,
+          data_schema: first.backend?.data_schema,
+        },
+        {
+          release: known.release,
+          code_commit: known.code_commit,
+          data_schema: known.backend.data_schema,
+        },
+      ) === 0;
+    const computer_releases = same
+      ? withComputerRelease(known.computer_releases, ctx.computer, first.release)
+      : known.computer_releases;
+    const code_commit = known.code_commit ?? (same ? first.code_commit : undefined);
+    if (
+      computers === known.computers &&
+      computer_releases === known.computer_releases &&
+      code_commit === known.code_commit
+    ) {
+      return ok(known);
+    }
+    const updated: Installed = {
+      ...known,
+      ...(code_commit === undefined ? {} : { code_commit }),
+      ...(computer_releases === undefined ? {} : { computer_releases }),
+      computers,
+    };
     writeInstalled(files, updated);
     return ok(updated);
   }
@@ -103,6 +133,8 @@ async function put(
     icon: first.icon,
     kind,
     release: first.release,
+    code_commit: first.code_commit,
+    computer_releases: { [ctx.computer]: first.release },
     screens,
     backend,
     last_synced_at: kind === "sync" ? new Date(deps.now()).toISOString() : null,

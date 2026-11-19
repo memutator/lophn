@@ -177,6 +177,7 @@ export async function readPhoneScreens(
         label: screen.label,
         ...(screen.params ? { params: screen.params } : {}),
         release: release.id,
+        code_commit: release.code_commit,
         bundle_hash: release.bundle_hash,
         manifest,
         runs_on: runsOn,

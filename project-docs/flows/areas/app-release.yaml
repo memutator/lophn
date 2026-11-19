@@ -1388,11 +1388,11 @@ flows:
     docs: [architecture/activation.md]
     steps:
       - "계기: core 시작(supervisor가 붙은 뒤), 폴더 scan과 source 받기가 끝난 뒤, 앱의 releases 상태 바뀜, ActivationConsentClosed. 앱마다 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 폴더로 맞추는(sync_to가 있고 활성 release가 있고 보관하지 않은) 앱만 본다"
-      - "다른 기계 앱 기록 사본의 active_release 가운데 bundle hash가 다르고, 이 기계에서 superseded·failed가 아니고, data schema가 낮지 않고, commit이 지금 활성 commit의 git 자손인 것이 후보다. commit이 아직 이 저장소에 없는 후보는 이번에 뺀다"
-      - "나머지 모두가 조상인 후보 하나로 바로 간다(같은 commit의 두 bundle이면 먼저 활성된 쪽). 하나로 정해지지 않거나, 후보가 없는데 다른 기계의 release가 지금 commit의 자손도 조상도 아니면(그 기계가 따로 release를 냈다) 따라가지 않는다"
-      - "그 bundle의 release가 이 기계에 없으면 take-in과 같은 길로 봉인 bundle을 prepared release(created_by machine)로 설치한다"
+      - "다른 기계 앱 기록 사본의 active_release 가운데 code_commit이 다르고, 이 기계에서 superseded·failed가 아니고, data schema가 낮지 않고, commit이 지금 활성 commit의 git 자손인 것이 후보다. commit이 아직 이 저장소에 없는 후보는 이번에 뺀다"
+      - "나머지 모두가 조상인 후보 하나로 바로 간다(같은 commit을 두 기계가 냈으면 먼저 활성된 쪽). 하나로 정해지지 않거나, 후보가 없는데 다른 기계의 release가 지금 commit의 자손도 조상도 아니면(그 기계가 따로 release를 냈다) 따라가지 않는다"
+      - "그 commit의 release가 이 기계에 없으면 take-in과 같은 길로 이 기계의 source 저장소에서 직접 build·준비해 prepared release(created_by machine)로 넣는다"
       - "동의 줄이 서 있으면 다시 부르지 않는다. 아니면 release.activate와 같은 driver에 넘긴다: 늘어난 바깥 자원·다른 앱 tool·data 손실이면 이 기계의 사람에게 묻고, 아니면 바로 활성한다. 그 release를 computers 폴더로만 받았고(이름 붙인 폴더도 내놓지 않았고) 그 release를 낸 컴퓨터를 이 컴퓨터가 터미널 입력으로 허락하지 않았으면 늘어난 것이 없어도 묻는다(허락은 명단의 값이 아니라 이 컴퓨터의 표이고, 그 기계의 컴퓨터 항목이 명단에 하나뿐이고 그 key가 허락되어 있어야 허락한 컴퓨터다). 그 폴더의 file은 연결과 폰으로도 오고 명단의 컴퓨터 하나가 이 컴퓨터에서 code를 돌리면 안 되기 때문이다. session이 없어 activation.report는 가지 않고 결과는 앱 notice(Release rN is live / Release rN failed)와 follow 상태로 보인다"
-      - "설치 실패, SDK 판 없음, 사람이 거절한 동의는 이 core가 도는 동안 같은 bundle을 다시 하지 않는다(다른 목표가 오거나 core가 다시 뜨면 다시 한다. 거절한 release는 core가 다시 뜨면 다시 묻는다)"
+      - "설치 실패, SDK 판 없음, 사람이 거절한 동의는 이 core가 도는 동안 같은 code_commit을 다시 하지 않는다(다른 목표가 오거나 core가 다시 뜨면 다시 한다. 거절한 release는 core가 다시 뜨면 다시 묻는다)"
     outcomes:
       - id: current
         when: "후보가 없다: 다른 기계가 옛 release(조상, 낮은 data schema)를 돌리거나, 이 기계가 내려놓았거나 실패한 release이거나, commit이 아직 오지 않았다. 아무것도 바꾸지 않는다"
@@ -1419,7 +1419,7 @@ flows:
         when: "후보 둘 이상이 서로 조상이 아니거나, 후보가 없고 다른 기계의 release가 지금 commit과 갈라졌다(갈라진 code). 따라가지 않는다. 앱 agent가 합쳐 새 release를 내야 풀린다"
         observe: ["process:core follow 상태"]
       - id: deferred
-        when: "release 폴더가 아직 다 오지 않았다(release_incomplete), 같은 앱에 도는 activation이 있다(conflict), activation을 아직 못 한다(unavailable), 120초 안에 끝나지 않았다(running). 이번 계기 전의 상태(앞서 따라간 release의 동의 대기 등)를 그대로 두고 다음 계기에 다시 본다"
+        when: "목표 commit의 source bundle이 아직 다 오지 않았다(source_incomplete), 같은 앱의 release 준비나 activation이 돌고 있다(conflict), 준비·activation을 아직 못 한다(unavailable), 120초 안에 끝나지 않았다(running). 이번 계기 전의 상태(앞서 따라간 release의 동의 대기 등)를 그대로 두고 다음 계기에 다시 본다"
         observe: ["process:core follow 상태"]
     crosses_process: true
     risk: [permission, data-loss]

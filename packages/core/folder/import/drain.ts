@@ -49,8 +49,8 @@ export async function drainHeld(
     // 매번 다시 읽는다: snapshot을 합치면 그보다 옛 행이 지워진다.
     const next = deps.sql.get(
       `SELECT n, kind, path FROM folder_held
-       WHERE machine = ? AND app = ? AND origin = ? AND bundle_hash = ? ORDER BY n LIMIT 1`,
-      [me, app, origin, target.release.bundle_hash],
+       WHERE machine = ? AND app = ? AND origin = ? AND code_commit = ? ORDER BY n LIMIT 1`,
+      [me, app, origin, target.release.code_commit],
     ) as HeldRow | undefined;
     if (next === undefined) return ok(out);
     const n = Number(next.n);

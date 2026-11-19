@@ -3,7 +3,7 @@
 Read this before you set `sync_to` in `lophn.ts`, before you set up a sync folder
 or the tool that moves it, and when `lophn machine environment` shows an error.
 `sync_to` names a destination: a folder on each computer. lophn writes the app's
-changes, releases and source into that folder and reads what the other computers
+changes and source into that folder and reads what the other computers
 wrote there. There are two kinds:
 
 - `computers` ("my computers"): the computers in the person's device list. lophn
@@ -229,7 +229,8 @@ has run there:
 
 1. `lophn machine environment` lists the app in `available`.
 2. In lophn's home conversation: `lophn app take-in <app>`. The app gets the same
-   id, and the release is the exact bundle the first computer built. It lands
+   id, fetches the app's source commits from the other computer's source bundles,
+   and builds and prepares the release natively on this computer. It lands
    prepared; nothing runs yet.
 3. In the app's workspace: `lophn release activate <release>`. The person agrees on
    that computer: permissions, grants and secrets are asked again there; nothing of
@@ -238,8 +239,8 @@ has run there:
 If take-in answers `conflict` with `sdk_missing`, or the environment shows
 `newer_format`, that computer's lophn is older: ask the person to update it first.
 `slug_in_use` means another app there has the slug; tell the person.
-`release_incomplete` means the release files have not fully arrived; wait for the
-tool and try again.
+`source_incomplete` means the source bundles for that commit have not fully
+arrived; wait for the tool and try again.
 
 For a new release, activate it on one computer only. Every other computer that has
 the app installs and activates it by itself once its files arrive (`apps[].follow`
@@ -313,7 +314,6 @@ in their own terminal. If that computer writes to the folder again, it comes bac
 - `invalid_file`, or `waiting_for` set: the tool has not finished moving a file.
   Wait for the next run. If it stays, check that the tool runs on both computers and
   that nothing else changes the files.
-- `release_incomplete`: the release files have not fully arrived. Wait.
 - `clock_ahead`: the clock of `details.machine_name` is ahead (`details.ahead_ms`).
   Tell the person which computer and ask them to set its clock (automatic time).
   The changes wait, nothing is lost.

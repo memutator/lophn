@@ -132,3 +132,32 @@ export const FOLDER_CARRY_MARKS_STEPS: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// 기계 사이 release 신분을 bundle_hash에서 code_commit으로 옮긴다. 기존 stream의 code_commit은 NULL이라 다음
+// 내보내기가 판 2 snapshot을 새로 쓰고, 판 1의 held 행과 release 폴더 기록은 더는 쓰지 않아 비운다.
+// remote.grants 뒤 낸 step 목록의 끝에 잇는다.
+export const FOLDER_CODE_COMMIT_STEPS: readonly SchemaStep[] = [
+  {
+    id: "folder.code-commit",
+    sql: `
+    ALTER TABLE folder_streams ADD COLUMN code_commit TEXT;
+    ALTER TABLE folder_reads ADD COLUMN code_commit TEXT;
+    DROP TABLE folder_held;
+    CREATE TABLE folder_held (
+      machine TEXT NOT NULL,
+      app TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      n INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('changes', 'snapshot')),
+      code_commit TEXT NOT NULL,
+      data_schema INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      sha256 TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      held_at TEXT NOT NULL,
+      PRIMARY KEY (machine, app, origin, n)
+    ) STRICT;
+    DELETE FROM folder_written WHERE stream = 'release';
+  `,
+  },
+];

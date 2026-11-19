@@ -71,7 +71,7 @@ export function createFolderImport(deps: FolderImportDeps): FolderImport {
   // 않는다. core가 다시 뜨면 한 번 더 읽어 다시 안다.
   const full = new Map<
     string,
-    { bundle_hash: string; snapshot: number | null }
+    { code_commit: string; snapshot: number | null }
   >();
   const changeCounts = new Map<string, number>();
   const listeners = new Set<() => void>();
@@ -134,19 +134,20 @@ export function createFolderImport(deps: FolderImportDeps): FolderImport {
 
   const held = (app: Id<"app">): HeldDetail[] => {
     const rows = deps.sql.all(
-      `SELECT origin, bundle_hash, data_schema, kind, path, size FROM folder_held
+      `SELECT origin, code_commit, data_schema, kind, path, size FROM folder_held
        WHERE machine = ? AND app = ? ORDER BY origin, n`,
       [deps.machine(), app],
     );
     const out = new Map<string, HeldDetail>();
     for (const row of rows) {
       const origin = row.origin as Id<"mch">;
-      const key = `${origin}\0${row.bundle_hash as string}`;
+      const code_commit = row.code_commit as string;
+      const key = `${origin}\0${code_commit}`;
       let detail = out.get(key);
       if (detail === undefined) {
         detail = {
           origin,
-          bundle_hash: row.bundle_hash as string,
+          code_commit,
           data_schema: Number(row.data_schema),
           changes: 0,
           bytes: 0,
@@ -207,13 +208,13 @@ export function createFolderImport(deps: FolderImportDeps): FolderImport {
         blocked: blockedError(origin),
         full:
           wasFull !== undefined &&
-          wasFull.bundle_hash === entry.release.bundle_hash &&
+          wasFull.code_commit === entry.release.code_commit &&
           wasFull.snapshot === (record?.data.snapshot ?? null),
       });
       if (!followed.ok) return followed;
       if (followed.value.full) {
         full.set(fullKey, {
-          bundle_hash: entry.release.bundle_hash,
+          code_commit: entry.release.code_commit,
           snapshot: record?.data.snapshot ?? null,
         });
       } else {

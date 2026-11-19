@@ -73,7 +73,7 @@ export type StreamOutcome = {
 
 export type StreamInput = {
   app: Id<"app">;
-  release: { id: Id<"rel">; bundle_hash: string; data_schema: number };
+  release: { id: Id<"rel">; code_commit: string; data_schema: number };
   origin: Id<"mch">;
   originName: string;
   /** 출처의 그 앱 기록 사본. 없으면 `data.head`를 모른다(끝으로 본다). */
@@ -301,7 +301,7 @@ async function advance(
     saveRead(tx.sql, me, input.app, input.origin, {
       absent: current ?? (owesAbsentPass ? { caught_up_at: null } : null),
       cursor: n,
-      bundle_hash: header.release.bundle_hash,
+      code_commit: header.release.code_commit,
       read_at: deps.clock.now(),
       attempts: 0,
       next_try_at: null,
@@ -327,7 +327,7 @@ async function holdStep(
     origin: input.origin,
     n,
     kind: header.kind,
-    bundle_hash: header.release.bundle_hash,
+    code_commit: header.release.code_commit,
     data_schema: header.release.data_schema,
     sha256: file.sha256,
     size: file.size,
@@ -364,7 +364,7 @@ async function processChanges(
   if (!decoded.ok) return fileInvalid(deps, rel, decoded.error);
   const { header, payload } = decoded.value;
 
-  if (header.release.bundle_hash !== input.release.bundle_hash) {
+  if (header.release.code_commit !== input.release.code_commit) {
     if (
       heldOverLimit(
         deps.sql,
@@ -437,7 +437,7 @@ async function processSnapshot(
   if (!head.ok) return fileInvalid(deps, rel, head.error);
   const { header } = head.value;
 
-  if (header.release.bundle_hash !== input.release.bundle_hash) {
+  if (header.release.code_commit !== input.release.code_commit) {
     const copied = await copyVerified(
       input.reader,
       rel,
@@ -520,7 +520,7 @@ async function absentPass(
     if (!head.ok) continue;
     // 번호가 작을수록 옛 snapshot이다. 출처가 다 받기 전에 만든 것의 "없음"은 "지워짐"이 아니다.
     if (head.value.header.created_at < caughtUpAt) break;
-    if (head.value.header.release.bundle_hash !== input.release.bundle_hash) {
+    if (head.value.header.release.code_commit !== input.release.code_commit) {
       continue;
     }
     const merged = await mergeFile(

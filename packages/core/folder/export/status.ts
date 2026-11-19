@@ -17,7 +17,7 @@ export type StreamKey = {
 export type StreamRow = {
   next_n: number;
   last_seq: number;
-  bundle_hash: string | null;
+  code_commit: string | null;
   last_snapshot_n: number | null;
   written_at: string | null;
   settled: string | null;
@@ -62,7 +62,7 @@ export function readStream(
   return {
     next_n: Number(row["next_n"]),
     last_seq: Number(row["last_seq"]),
-    bundle_hash: text(row["bundle_hash"]),
+    code_commit: text(row["code_commit"]),
     last_snapshot_n: num(row["last_snapshot_n"]),
     written_at: text(row["written_at"]),
     settled: text(row["settled"]),

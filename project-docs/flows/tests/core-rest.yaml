@@ -163,8 +163,9 @@ files:
       - release-activate:waiting-consent
       - app-take-in:installed
       - app-take-in:existing
-      - app-take-in:release-incomplete
-    note: "실제 git과 임시 폴더 두 기계. take-in한 release는 prepared이고 grant·동의 행이 없으며 activation 판정이 동의를 기다린다. 두 번 부르거나 이미 있는 앱에 부르면 앱 행은 그대로이고 release는 하나다. release.json이 없거나 file이 빠지거나 1 byte 다르거나 manifest hash가 폴더 이름과 다르면 앱·release 행과 봉인 사본이 생기지 않는다(release_incomplete). 다른 기계의 증분 source bundle은 refs/remotes/<mch>/*에만 오고 HEAD, branch, 작업 tree는 그대로다"
+      - app-take-in:source-incomplete
+      - app-take-in:conflict
+    note: "실제 git과 임시 폴더(두 기계와 A → B → C 세 기계). 폴더에 releases/ 없이 source bundle만 내보내고, take-in은 source bundle을 받아 이 기계에서 release를 준비해 prepared로 두며 grant·동의 행이 없고 activation 판정이 동의를 기다린다. 두 번 부르거나 이미 있는 앱에 부르면 앱 행은 그대로이고 release는 하나다. source 기록·bundle이 없거나 깨지면 source_incomplete로, 빠진 @lophn/* SDK나 @me/* package는 sdk_missing·dependency_missing(conflict)으로 앱·release·저장소를 남기지 않는다. 다른 기계의 증분 source bundle은 refs/remotes/<mch>/*에만 오고 HEAD, branch, 작업 tree는 그대로며, A → B → C 증분 prerequisite 사슬도 C가 B에서 바로 들인다"
 
   - path: packages/core/host-queue/hold_test.ts
     covers:

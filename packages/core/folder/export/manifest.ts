@@ -66,7 +66,7 @@ type WrittenFile = {
   size: number;
 };
 
-// 앱 하나의 목록: `app.json`, data(마지막 snapshot과 그 뒤 번호, 끝난 것만), `source/<n>.json`, `release.json`, event file.
+// 앱 하나의 목록: `app.json`, data(마지막 snapshot과 그 뒤 번호, 끝난 것만), `source/<n>.json`, event file.
 function appEntries(
   sql: Pick<Sql, "get">,
   me: Id<"mch">,
@@ -94,7 +94,6 @@ function appEntries(
         case "source":
           return row.path.endsWith(".json");
         case "app":
-        case "release":
         case "event":
           return true;
         default:

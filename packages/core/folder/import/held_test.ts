@@ -42,7 +42,7 @@ import {
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { FolderApply } from "../ports.ts";
-import { FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
 import { exchangeWith } from "./compat.ts";
 import { createFolderImport } from "./mod.ts";
 
@@ -52,15 +52,15 @@ const Q = "mch_01hxxxxxxxxxxxxxxxxxxxxxxx" as Id<"mch">;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 const R1 = {
   id: "rel_01h1111111111111111111111z" as Id<"rel">,
-  hash: "1".repeat(64),
+  commit: "1".repeat(40),
 };
 const R2 = {
   id: "rel_01h2222222222222222222222z" as Id<"rel">,
-  hash: "2".repeat(64),
+  commit: "2".repeat(40),
 };
 const R3 = {
   id: "rel_01h3333333333333333333333z" as Id<"rel">,
-  hash: "3".repeat(64),
+  commit: "3".repeat(40),
 };
 const T0 = Date.UTC(2026, 10, 17);
 const HOUR = 60 * 60 * 1000;
@@ -108,7 +108,9 @@ async function make(base: string) {
   mkdirSync(dest);
   mkdirSync(root);
   const ledger = new DatabaseSync(":memory:");
-  for (const step of FOLDER_SCHEMA_STEPS) ledger.exec(step.sql);
+  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+    ledger.exec(step.sql);
+  }
   const sql: Sql = createSql(ledger, () => true);
   const clock = manualClock(T0);
   const here = replica("here");
@@ -174,7 +176,7 @@ async function make(base: string) {
       {
         app: APP,
         sync_to: "personal",
-        release: { id: active.id, bundle_hash: active.hash, data_schema: 1 },
+        release: { id: active.id, code_commit: active.commit, data_schema: 1 },
       },
     ],
     apply,
@@ -208,8 +210,8 @@ async function make(base: string) {
   const putMachine = (
     origin: Id<"mch">,
     folderFormat: { version: number; min_version: number } = {
-      version: 1,
-      min_version: 1,
+      version: 2,
+      min_version: 2,
     },
   ) => {
     revision += 1;
@@ -242,7 +244,7 @@ async function make(base: string) {
     put(
       appRecordPath(origin, APP),
       JSON.stringify({
-        format: 1,
+        format: 2,
         machine: origin,
         app: APP,
         revision,
@@ -252,7 +254,6 @@ async function make(base: string) {
         description: "",
         sync_to: "personal",
         active_release: null,
-        releases: [],
         data,
         source: { head: 0 },
         read: {},
@@ -264,14 +265,14 @@ async function make(base: string) {
   const putChanges = async (
     origin: Id<"mch">,
     n: number,
-    release: { hash: string },
+    release: { commit: string },
     change: { hlc: bigint; changeset: Uint8Array },
   ) => {
     const file = await encodeChanges({
       machine: origin,
       app: APP,
       n,
-      release: { bundle_hash: release.hash, data_schema: 1 },
+      release: { code_commit: release.commit, data_schema: 1 },
       created_at: clock.now(),
       changes: [
         {
@@ -292,7 +293,7 @@ async function make(base: string) {
   const putSnapshot = async (
     origin: Id<"mch">,
     n: number,
-    release: { hash: string },
+    release: { commit: string },
     of: Replica,
   ) => {
     const payload = of.raw.serialize();
@@ -301,7 +302,7 @@ async function make(base: string) {
       app: APP,
       n,
       kind: "snapshot",
-      release: { bundle_hash: release.hash, data_schema: 1 },
+      release: { code_commit: release.commit, data_schema: 1 },
       created_at: clock.now(),
       payload: { size: payload.byteLength, sha256: await sha256Hex(payload) },
     });
@@ -399,15 +400,15 @@ test("다른 release의 held는 이 기계가 그 release가 될 때까지 적�
     assert.deepEqual(
       env.folder.exchange
         .held(APP)
-        .map(({ origin, bundle_hash, changes, full }) => ({
+        .map(({ origin, code_commit, changes, full }) => ({
           origin,
-          bundle_hash,
+          code_commit,
           changes,
           full,
         })),
       [
-        { origin: Q, bundle_hash: R2.hash, changes: 1, full: false },
-        { origin: P, bundle_hash: R2.hash, changes: 3, full: false },
+        { origin: Q, code_commit: R2.commit, changes: 1, full: false },
+        { origin: P, code_commit: R2.commit, changes: 3, full: false },
       ],
     );
 
@@ -549,8 +550,8 @@ test("폴더 꼴 판이 범위 밖인 기계의 file은 열리지도 복사되�
     };
     const before = listing();
     for (const range of [
-      { version: 2, min_version: 1 },
-      { version: 1, min_version: 2 },
+      { version: 3, min_version: 2 },
+      { version: 2, min_version: 3 },
     ]) {
       env.putMachine(P, range);
       const scanned = await env.folder.scan();

@@ -63,6 +63,7 @@ export const appPhoneScreens = defineRead({
           label: z.string(),
           params: phoneScreenParamsSchema,
           release: releaseIdSchema,
+          code_commit: z.string().regex(/^[0-9a-f]{40}$/),
           bundle_hash: sha256Schema,
           manifest: phoneManifestSchema,
           runs_on: z.array(z.enum(["computer", "phone"])),

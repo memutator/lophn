@@ -178,6 +178,7 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
     assert.equal(warnings.length, 1);
     assert.deepStrictEqual(read.value.screens[0].icon, "lucide:star");
     assert.deepStrictEqual(read.value.screens[0].release, id("rel", "1"));
+    assert.deepStrictEqual(read.value.screens[0].code_commit, "c".repeat(40));
     assert.deepStrictEqual(read.value.screens[0].bundle_hash, "b".repeat(64));
   } finally {
     await rm(tmp, { recursive: true, force: true });

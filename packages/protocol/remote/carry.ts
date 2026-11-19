@@ -21,21 +21,16 @@ import {
 import {
   appDir,
   isAppDirName,
-  isBundleHashName,
   isMachineDirName,
-  isSafeRelativePath,
   MACHINES_DIR,
   machineDir,
   parseDataEntry,
   parseSourceEntry,
 } from "../folder/layout.ts";
+import { CLOCK_AHEAD_MAX_MS } from "../folder/limits.ts";
 import {
-  CLOCK_AHEAD_MAX_MS,
-  RELEASE_RECORD_MAX_BYTES,
-} from "../folder/limits.ts";
-import {
+  commitSchema,
   decodeRecord,
-  releaseRecordSchema,
   sourceMetaSchema,
 } from "../folder/records.ts";
 import { destinationStateSchema } from "../folder/status.ts";
@@ -98,9 +93,8 @@ export function manifestPathMachine(path: string): Id<"mch"> | null {
 /**
  * 기계 사이로 옮기는 file의 path(destination 기준)와 그 file의 크기·sha256을 싣는 목록 file. 덮는 사슬은 셋이다.
  * - manifest가 싣는다(`coveredBy` null): `record.json`, `roster.json`, `apps/<app>/files.json`.
- * - 앱 목록 `apps/<app>/files.json`이 싣는다: `app.json`, `data/<n>.*`, `source/<n>.json`, `releases/<hash>/release.json`,
- *   `events/<id>.json`.
- * - `release.json`이 release의 `files/<path>`를, `source/<n>.json`이 `source/<n>.bundle`을 싣는다.
+ * - 앱 목록 `apps/<app>/files.json`이 싣는다: `app.json`, `data/<n>.*`, `source/<n>.json`, `events/<id>.json`.
+ * - `source/<n>.json`이 `source/<n>.bundle`을 싣는다.
  * 그 밖의 path(`manifest.json` 포함)는 null이다.
  */
 export function parseCarryPath(
@@ -139,18 +133,6 @@ export function parseCarryPath(
         machine,
         coveredBy: `${app}/source/${name.replace(/\.bundle$/, ".json")}`,
       };
-    }
-    case "releases": {
-      if (!isBundleHashName(name)) return null;
-      if (parts.length === 7 && parts[6] === "release.json") return inApp;
-      if (
-        parts.length >= 8 &&
-        parts[6] === "files" &&
-        isSafeRelativePath(parts.slice(7).join("/"))
-      ) {
-        return { machine, coveredBy: `${app}/releases/${name}/release.json` };
-      }
-      return null;
     }
     default:
       return null;
@@ -358,27 +340,6 @@ function coverEntries(
     }
     return list.value.files;
   }
-  const base = parts.slice(0, 5).join("/");
-  if (parts[4] === "releases") {
-    const record = decodeRecord(
-      releaseRecordSchema,
-      bytes,
-      RELEASE_RECORD_MAX_BYTES,
-    );
-    if (
-      !record.ok ||
-      record.value.machine !== machine ||
-      record.value.app !== app ||
-      record.value.bundle_hash !== parts[5]
-    ) {
-      return [];
-    }
-    return record.value.files.map((file) => ({
-      path: `${base}/${parts[5]}/files/${file.path}`,
-      size: file.size,
-      sha256: file.sha256,
-    }));
-  }
   if (parts[4] !== "source") return [];
   const meta = decodeRecord(sourceMetaSchema, bytes);
   const entry = parseSourceEntry(parts[5]!);
@@ -401,12 +362,10 @@ function coverEntries(
 }
 
 export const isCover = (path: string) =>
-  /\/(apps\/[^/]+\/files|releases\/[0-9a-f]{64}\/release|source\/[0-9]{12})\.json$/.test(
-    path,
-  );
+  /\/(apps\/[^/]+\/files|source\/[0-9]{12})\.json$/.test(path);
 
 /**
- * 믿는 manifest가 path에 기대하는 크기와 sha256. manifest가 싣는 path이거나, 사슬의 목록 file(앱 목록, `release.json`,
+ * 믿는 manifest가 path에 기대하는 크기와 sha256. manifest가 싣는 path이거나, 사슬의 목록 file(앱 목록,
  * `source/<n>.json`)이 모두 받는 쪽에 기대한 그대로 들어 있고 그것이 싣는 path일 때만 값이 있다. 볼 때마다 사슬의 목록
  * file을 hash하고 읽으므로 file 여럿은 `expectedFiles`를 한 번 쓴다.
  */
@@ -460,11 +419,11 @@ export type RosterFile = z.infer<typeof rosterFileSchema>;
 
 // `machines/<mch>/apps/<app>/events/<id>.json`: 앱이 다른 기계에도 알리겠다고 낸 event 하나. 도착한 기계가 한 번 낸다.
 export const eventFileSchema = z.object({
-  format: z.literal(1),
+  format: z.literal(2),
   machine: machineIdSchema,
   app: appIdSchema,
   id: z.string().regex(ULID),
-  bundle_hash: sha256Schema,
+  code_commit: commitSchema,
   name: toolNameSchema,
   payload: jsonValueSchema,
   at: atSchema,
@@ -474,7 +433,7 @@ export type EventFile = z.infer<typeof eventFileSchema>;
 /**
  * 받은 event file을 낼 수 있는가. 난 기계·앱·id는 path에서 얻고(manifest가 서명한 것은 path다) 내용이 다르면 거절한다.
  * `at`이 지금보다 `CLOCK_AHEAD_MAX_MS`를 넘게 앞서거나 `CROSS_EVENT_MAX_AGE_MS`보다 옛 것도 거절한다. 이 기계 활성
- * release와 `bundle_hash`를 견주는 것과 한 번만 내는 것은 부르는 쪽이 한다.
+ * release와 `code_commit`을 견주는 것과 한 번만 내는 것은 부르는 쪽이 한다.
  */
 export function readEventFile(
   path: string,

@@ -9,7 +9,7 @@ import type { Sql } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { cleanupBefore } from "./environment.ts";
 import { createFolderImport } from "./import/mod.ts";
-import { FOLDER_SCHEMA_STEPS } from "./schema.ts";
+import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "./schema.ts";
 
 const ME = "mch_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mch">;
 const LAPTOP = "mch_01hyyyyyyyyyyyyyyyyyyyyyyy" as Id<"mch">;
@@ -28,7 +28,9 @@ function peersOf(
   forget: Id<"mch">[] = [],
 ) {
   const db = new DatabaseSync(":memory:");
-  for (const step of FOLDER_SCHEMA_STEPS) db.exec(step.sql);
+  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+    db.exec(step.sql);
+  }
   const sql: Sql = createSql(db, () => true);
   for (const row of rows) {
     sql.run(

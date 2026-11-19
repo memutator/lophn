@@ -94,7 +94,10 @@ import { createCopyPreviewBundles } from "../../../apps/releases/activation/desi
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import { startPhoneChangedWatch } from "../../../apps/phone/changed.ts";
 import { releaseFacts } from "../../../apps/releases/mod.ts";
-import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
+import {
+  loadActiveDeclaration,
+  loadRelease,
+} from "../../../apps/releases/store.ts";
 import {
   closeInterruptedRewinds,
   createAppRewind,
@@ -495,6 +498,12 @@ export const appsWiring: WiringFactory = () => {
           log: sync,
           phone,
           activeRelease: states.activeRelease,
+          codeCommit(release) {
+            const loaded = loadRelease(link.sql, release);
+            return loaded.ok && loaded.value !== null
+              ? loaded.value.code_commit
+              : null;
+          },
           runsOnPhone,
         }),
         snapshotStore,
@@ -597,7 +606,7 @@ export const appsWiring: WiringFactory = () => {
               ? null
               : {
                   release: loaded.value.release.id as Id<"rel">,
-                  bundle_hash: loaded.value.release.bundle_hash,
+                  code_commit: loaded.value.release.code_commit,
                   declaration: loaded.value.declaration,
                 },
           );

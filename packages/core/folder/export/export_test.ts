@@ -30,7 +30,7 @@ import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { heldInData, type SyncLog } from "../../apps/sync/log.ts";
 import type { DestinationsView } from "../destinations.ts";
 import type { FolderLogRow } from "../ports.ts";
-import { FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
 import { createFolderExport, type ExportLog } from "./mod.ts";
 
 // 내보내기가 기대는 sync log 면이 core의 sync log와 맞는지 type check가 본다.
@@ -41,7 +41,7 @@ const PEER_A = "mch_01hyyyyyyyyyyyyyyyyyyyyyyy" as Id<"mch">;
 const PEER_B = "mch_01hxxxxxxxxxxxxxxxxxxxxxxx" as Id<"mch">;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 const REL = "rel_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"rel">;
-const BUNDLE = "b".repeat(64);
+const COMMIT = "b".repeat(40);
 const DAY = 24 * 60 * 60 * 1000;
 
 function fakeLog() {
@@ -122,7 +122,9 @@ async function setup(base: string) {
   mkdirSync(dataRoot);
   mkdirSync(destination);
   const db = new DatabaseSync(":memory:");
-  for (const step of FOLDER_SCHEMA_STEPS) db.exec(step.sql);
+  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+    db.exec(step.sql);
+  }
   const sql: Sql = {
     run: (text, params) => db.prepare(text).run(...params),
     get: (text, params) => db.prepare(text).get(...params) as never,
@@ -158,11 +160,11 @@ async function setup(base: string) {
         name: "Notes",
         description: "",
         sync_to: "personal",
-        release: { id: REL, bundle_hash: BUNDLE, data_schema: 1 },
+        release: { id: REL, code_commit: COMMIT, data_schema: 1 },
       },
     ],
     log: fake.log,
-    releaseKey: () => ({ bundle_hash: BUNDLE, data_schema: 1 }),
+    releaseKey: () => ({ code_commit: COMMIT, data_schema: 1 }),
     operationOf: (invocation) => ({
       name: `op_${invocation}`,
       started_at: clock.now(),

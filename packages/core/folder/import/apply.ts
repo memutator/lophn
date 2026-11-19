@@ -32,7 +32,7 @@ export type Stop = {
 
 export type ApplyTarget = {
   app: Id<"app">;
-  release: { id: Id<"rel">; bundle_hash: string; data_schema: number };
+  release: { id: Id<"rel">; code_commit: string; data_schema: number };
   origin: Id<"mch">;
   originName: string;
 };

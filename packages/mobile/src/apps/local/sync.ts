@@ -104,7 +104,11 @@ const answered = (value: unknown): string[] =>
  * (applied, duplicate or skipped); on an error the rows the computer already took (its `details.results`) leave and
  * the rest stay. A `conflict` carries the computer's `active_release`.
  */
-export async function push(ctx: Ctx, installed: Installed): Promise<Result<Pushed>> {
+export async function push(
+  ctx: Ctx,
+  installed: Installed,
+  release: string = installed.release,
+): Promise<Result<Pushed>> {
   const { deps } = ctx;
   return withDb(deps, paths(installed.app).db, async (db) => {
     const stamped = stamp(deps, db);
@@ -115,7 +119,7 @@ export async function push(ctx: Ctx, installed: Installed): Promise<Result<Pushe
     for (const batch of planned.value) {
       const reply = await ask(ctx.remote, appSyncPush, {
         app: installed.app,
-        release: installed.release,
+        release,
         changes: batch.map((row) => ({
           id: row.id,
           operation: row.operation,
@@ -198,6 +202,7 @@ export function applyBatch(
 export async function pull(
   ctx: Ctx,
   installed: Installed,
+  release: string = installed.release,
 ): Promise<Result<{ applied: number; snapshot_needed: boolean }>> {
   const { deps } = ctx;
   return withDb(deps, paths(installed.app).db, async (db) => {
@@ -206,7 +211,7 @@ export async function pull(
       const after = readCursor(db, ctx.computer, installed.migrated_from);
       const reply = await ask(ctx.remote, appSyncPull, {
         app: installed.app,
-        release: installed.release,
+        release,
         after,
       });
       if (!reply.ok) return failed(reply);

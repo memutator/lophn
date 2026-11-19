@@ -106,7 +106,7 @@ export type EnvironmentApp = {
   app: Id<"app">;
   name: string;
   sync_to: string | null;
-  bundle_hash: string | null;
+  code_commit: string | null;
 };
 
 export type EnvironmentDeps = {
@@ -188,7 +188,7 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
             : deps.destinations.resolve(app.sync_to) === null
               ? ("not_set_here" as const)
               : ("set" as const),
-        release: app.bundle_hash,
+        release: app.code_commit,
         export: deps.exportStatus(app.app),
         imports: deps.importStatus(app.app).map((row) => ({
           machine: row.machine,

@@ -156,10 +156,8 @@ type LocalApp = {
   sync_to: string | null;
   release: {
     id: Id<"rel">;
-    bundle_hash: string;
     code_commit: string;
     data_schema: number;
-    data_changes: readonly Record<string, unknown>[];
     created_at: string;
   } | null;
 };
@@ -302,7 +300,7 @@ export const folderWiring: WiringFactory = () => {
             me: me(),
             destination: { name: found.sync_to, path: destination.path },
             app,
-            bundle_hash: stored.value.bundle_hash,
+            code_commit: stored.value.code_commit,
             event,
             transaction: writeLink.transaction,
             clock: ctx.clock,
@@ -346,13 +344,8 @@ export const folderWiring: WiringFactory = () => {
               sync_to: declaration.sync_to ?? null,
               release: {
                 id: release.id as Id<"rel">,
-                bundle_hash: release.bundle_hash,
                 code_commit: release.code_commit,
                 data_schema: release.data_schema,
-                data_changes: release.data_changes as readonly Record<
-                  string,
-                  unknown
-                >[],
                 created_at: release.created_at,
               },
             },
@@ -475,7 +468,7 @@ export const folderWiring: WiringFactory = () => {
           const found = loadRelease(sql, release);
           return found.ok && found.value !== null
             ? {
-                bundle_hash: found.value.bundle_hash,
+                code_commit: found.value.code_commit,
                 data_schema: found.value.data_schema,
               }
             : null;
@@ -552,8 +545,8 @@ export const folderWiring: WiringFactory = () => {
         },
         host: createFolderAppsHost({
           sql,
-          dataRoot,
           random: ctx.random,
+          prepareCommit: (input) => ctx.appsControl.prepareCommit(input),
           command: async (envelope) => {
             const done = await ctx.writer.command(FOLDER_APPS_CONTEXT, {
               ...envelope,
@@ -605,8 +598,8 @@ export const folderWiring: WiringFactory = () => {
                   .apps.flatMap((row) =>
                     row.record.app === stored.value!.app &&
                     row.machine !== me() &&
-                    row.record.active_release?.bundle_hash ===
-                      stored.value!.bundle_hash
+                    row.record.active_release?.code_commit ===
+                      stored.value!.code_commit
                       ? [{ machine: row.machine, destination: row.destination }]
                       : [],
                   );
@@ -795,7 +788,7 @@ export const folderWiring: WiringFactory = () => {
                   {
                     app: app.app,
                     sync_to: app.sync_to,
-                    bundle_hash: app.release.bundle_hash,
+                    code_commit: app.release.code_commit,
                   },
                 ],
           ),
@@ -1085,7 +1078,7 @@ export const folderWiring: WiringFactory = () => {
                 app: app.app,
                 name: app.name,
                 sync_to: app.sync_to,
-                bundle_hash: app.release?.bundle_hash ?? null,
+                code_commit: app.release?.code_commit ?? null,
               })),
             exportStatus: (app) => exporter.status(app),
             importStatus: (app) => importer.status(app),

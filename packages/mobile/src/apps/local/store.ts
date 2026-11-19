@@ -13,6 +13,7 @@ import type { CallOutcome } from "../guest/mod.ts";
 import { outboxCount, withDb } from "./db.ts";
 import {
   compareRelease,
+  dropComputerReleases,
   type Installed,
   kindOf,
   type LocalKind,
@@ -22,6 +23,7 @@ import {
   readInstalled,
   runsOnPhone,
   withComputer,
+  withComputerRelease,
   writeInstalled,
 } from "./folder.ts";
 import { type Ctx, type InstallStep, install } from "./install.ts";
@@ -97,11 +99,13 @@ const unavailable = (message: string): CallOutcome => ({
 
 const screenRelease = (screen: PhoneScreen) => ({
   release: screen.release,
+  code_commit: screen.code_commit,
   data_schema: screen.backend?.data_schema,
 });
 
 const installedRelease = (one: Installed) => ({
   release: one.release,
+  code_commit: one.code_commit,
   data_schema: one.backend.data_schema,
 });
 
@@ -111,7 +115,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   const listed = new Map<string, Map<string, Screens>>();
   const reloads = new Map<string, () => void>();
   // Remembered when a computer's push conflict reports an older active_release before its list is read.
-  const lagging = new Map<string, Map<string, string>>();
+  const lagging = new Map<string, Map<string, { release: string; code_commit?: string }>>();
   const busy = new Map<string, "installing" | "syncing">();
   const failures = new Map<string, LocalFailure>();
   const pending = new Map<string, number>();
@@ -210,17 +214,29 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       return compareRelease(screenRelease(screens[0]), installedRelease(one)) < 0;
     }
     const known = lagging.get(computer)?.get(one.app);
-    return known !== undefined && compareRelease({ release: known }, { release: one.release }) < 0;
+    return (
+      known !== undefined &&
+      compareRelease(known, { release: one.release, code_commit: one.code_commit }) < 0
+    );
   }
 
-  function recordLagging(computer: string, app: string, release: string) {
-    const map = lagging.get(computer) ?? new Map<string, string>();
-    map.set(app, release);
+  function recordLagging(computer: string, app: string, release: string, code_commit?: string) {
+    const map = lagging.get(computer) ?? new Map<string, { release: string; code_commit?: string }>();
+    map.set(app, code_commit === undefined ? { release } : { release, code_commit });
     lagging.set(computer, map);
   }
 
   function clearLagging(computer: string, app: string) {
     lagging.get(computer)?.delete(app);
+  }
+
+  /** The local `rel_*` token `computer` uses for `one` (may differ per computer for the same `code_commit`). */
+  function releaseFor(computer: string, one: Installed): string {
+    const screens = listed.get(computer)?.get(one.app);
+    if (screens !== undefined && compareRelease(screenRelease(screens[0]), installedRelease(one)) === 0) {
+      return screens[0].release;
+    }
+    return one.computer_releases?.[computer] ?? one.release;
   }
 
   /** Connected computers that know about `app` (associated in `installed.computers` or currently listing it). */
@@ -345,15 +361,40 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     busy.set(app, "syncing");
     publish();
     try {
-      const pushed = await push(ctx, one);
+      const targetRelease = releaseFor(computer, one);
+      const pushed = await push(ctx, one, targetRelease);
       if (!pushed.ok) {
         if (pushed.error.code === "conflict") {
           const active = pushed.error.details?.["active_release"];
+          const activeCommit = pushed.error.details?.["active_code_commit"];
           if (
             typeof active === "string" &&
-            compareRelease({ release: active }, { release: one.release }) < 0
+            typeof activeCommit === "string" &&
+            one.code_commit !== undefined &&
+            activeCommit === one.code_commit
           ) {
-            recordLagging(computer, app, active);
+            writeInstalled(files, {
+              ...one,
+              computers: withComputer(one.computers, computer),
+              computer_releases: withComputerRelease(one.computer_releases, computer, active),
+            });
+            reloads.get(computer)?.();
+          } else if (
+            typeof active === "string" &&
+            compareRelease(
+              {
+                release: active,
+                ...(typeof activeCommit === "string" ? { code_commit: activeCommit } : {}),
+              },
+              { release: one.release, code_commit: one.code_commit },
+            ) < 0
+          ) {
+            recordLagging(
+              computer,
+              app,
+              active,
+              typeof activeCommit === "string" ? activeCommit : undefined,
+            );
           } else {
             reloads.get(computer)?.();
           }
@@ -363,7 +404,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
         return;
       }
       one = readInstalled(files, app) ?? one;
-      const pulled = await pull(ctx, one);
+      const pulled = await pull(ctx, one, releaseFor(computer, one));
       if (!pulled.ok) {
         if (pulled.error.code !== "unavailable") fail(app, pulled.error);
         return;
@@ -376,7 +417,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
         }
         const cmp = compareRelease(screenRelease(screens[0]), installedRelease(one));
         if (cmp < 0) {
-          recordLagging(computer, app, screens[0].release);
+          recordLagging(computer, app, screens[0].release, screens[0].code_commit);
           return;
         }
         busy.delete(app);
@@ -387,6 +428,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       writeInstalled(files, {
         ...one,
         computers: withComputer(one.computers, computer),
+        computer_releases: withComputerRelease(one.computer_releases, computer, releaseFor(computer, one)),
         last_synced_at: new Date(deps.now()).toISOString(),
       });
       failures.delete(app);
@@ -431,7 +473,11 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     const remaining = one.computers.filter((c) => !drop(c));
     if (remaining.length === one.computers.length) return;
     if (remaining.length > 0) {
-      writeInstalled(files, { ...one, computers: remaining });
+      writeInstalled(files, {
+        ...one,
+        computers: remaining,
+        computer_releases: dropComputerReleases(one.computer_releases, drop),
+      });
       publish();
       return;
     }
@@ -512,10 +558,24 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
           continue;
         }
         const computers = withComputer(one.computers, computer);
-        if (computers !== one.computers) {
-          writeInstalled(files, { ...one, computers });
-        }
         const cmp = compareRelease(screenRelease(entries[0]), installedRelease(one));
+        const computer_releases =
+          cmp === 0
+            ? withComputerRelease(one.computer_releases, computer, entries[0].release)
+            : one.computer_releases;
+        const code_commit = one.code_commit ?? (cmp === 0 ? entries[0].code_commit : undefined);
+        if (
+          computers !== one.computers ||
+          computer_releases !== one.computer_releases ||
+          code_commit !== one.code_commit
+        ) {
+          writeInstalled(files, {
+            ...one,
+            ...(code_commit === undefined ? {} : { code_commit }),
+            ...(computer_releases === undefined ? {} : { computer_releases }),
+            computers,
+          });
+        }
         if (cmp > 0) {
           void queued(app, () => switchOne(app, computer));
         } else if (cmp === 0 && one.kind === "sync") {
@@ -567,7 +627,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       if (ctx === null) return unavailable("the computer is not reachable");
       const pushed = await queued(app, async () => {
         const one = readInstalled(files, app);
-        return one === null ? null : push(ctx, one);
+        return one === null ? null : push(ctx, one, releaseFor(computer, one));
       });
       void countPending(app).then(publish);
       if (pushed === null || !pushed.ok) {

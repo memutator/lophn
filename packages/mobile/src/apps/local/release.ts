@@ -10,7 +10,14 @@ import { ok, type Result } from "../../../../base/result.ts";
 import { adoptSnapshot, reexpress } from "../../../../protocol/apps/sync/mod.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
 import { migrateTo, outboxCount, transaction, wholeFile, withDb } from "./db.ts";
-import { type Installed, paths, removeDb, withComputer, writeInstalled } from "./folder.ts";
+import {
+  type Installed,
+  paths,
+  removeDb,
+  withComputer,
+  withComputerRelease,
+  writeInstalled,
+} from "./folder.ts";
 import { type Ctx, staleList } from "./install.ts";
 import { stamp, writeCursor } from "./sync.ts";
 import { fetchRelease, fetchSnapshot } from "./transfer.ts";
@@ -53,11 +60,17 @@ export async function switchRelease(
 
   const keep = installed.kind === "sync" && pending.value > 0;
   const { migrated_from: _drop, ...rest } = installed;
+  const sameCommit =
+    installed.code_commit !== undefined && next.code_commit === installed.code_commit;
   const switched: Installed = {
     ...rest,
     name: next.app_name,
     icon: next.icon,
     release: next.release,
+    code_commit: next.code_commit,
+    computer_releases: sameCommit
+      ? withComputerRelease(installed.computer_releases, ctx.computer, next.release)
+      : { [ctx.computer]: next.release },
     screens,
     backend: next.backend!,
     backup: keep ? next.release : null,

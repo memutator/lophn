@@ -105,6 +105,7 @@ import { invocationsRemoteCallerSchemaSteps } from "../../../apps/invocations/mo
 import {
   FOLDER_AWAY_NOTIFIED_STEPS,
   FOLDER_CARRY_MARKS_STEPS,
+  FOLDER_CODE_COMMIT_STEPS,
   FOLDER_EVENTS_SEEN_STEPS,
   FOLDER_SCHEMA_STEPS,
 } from "../../../folder/schema.ts";
@@ -899,6 +900,7 @@ export function remoteWiring(
       ...PROJECTS_FORMER_IDENTITY_STEPS,
       ...invocationsRemoteCallerSchemaSteps,
       ...GRANTS_SCHEMA_STEPS,
+      ...FOLDER_CODE_COMMIT_STEPS,
     ],
     dataSteps: [
       hostKeyMachineStep,

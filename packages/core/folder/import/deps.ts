@@ -23,7 +23,7 @@ export type ImportApp = {
   app: Id<"app">;
   sync_to: string | null;
   /** 이 기계의 활성 release. 없으면 그 앱은 읽지 않는다. */
-  release: { id: Id<"rel">; bundle_hash: string; data_schema: number } | null;
+  release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };
 
 export type FolderImportDeps = {
@@ -135,15 +135,15 @@ export function saveRead(
   me: Id<"mch">,
   app: Id<"app">,
   origin: Id<"mch">,
-  row: ReadRow & { bundle_hash?: string },
+  row: ReadRow & { code_commit?: string },
 ): void {
   sql.run(
     `INSERT INTO folder_reads
-       (machine, app, origin, stream, cursor, bundle_hash, read_at, attempts, next_try_at, waiting_for, error)
+       (machine, app, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error)
      VALUES (?, ?, ?, 'data', ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (machine, app, origin, stream) DO UPDATE SET
        cursor = excluded.cursor,
-       bundle_hash = coalesce(excluded.bundle_hash, folder_reads.bundle_hash),
+       code_commit = coalesce(excluded.code_commit, folder_reads.code_commit),
        read_at = excluded.read_at,
        attempts = excluded.attempts,
        next_try_at = excluded.next_try_at,
@@ -154,7 +154,7 @@ export function saveRead(
       app,
       origin,
       row.cursor,
-      row.bundle_hash ?? null,
+      row.code_commit ?? null,
       row.read_at,
       row.attempts,
       row.next_try_at,

@@ -1,31 +1,15 @@
 // 폴더 take-in과 source 받기의 port(`FolderAppsHost`, core/folder/apps가 정의한다)를 core/apps가 구현한다. 앱·release 행은
-// store 함수로 읽고, 봉인 사본은 release 준비와 같은 writeBundle·sealCopy로 쓰고, 등록·source 잇기·release 적기는
-// core command를 폴더 take-in 자격(`FOLDER_APPS_CONTEXT`)으로 부른다. 조립이 `command`를 그 자격의 writer에 묶어 넘긴다.
-import { readFile } from "node:fs/promises";
+// store 함수로 읽고, 등록·source 잇기는 core command를 폴더 take-in 자격(`FOLDER_APPS_CONTEXT`)으로 부르며,
+// release 준비는 `appsControl.prepareCommit`으로 이 기계에서 build·봉인·검사·확정한다.
 import { err, ok, type RandomSource, type Result } from "../../base/mod.ts";
-import {
-  appConnectSource,
-  appCreate,
-  releaseRecord,
-} from "../../protocol/apps/mod.ts";
-import { bundleFileStore } from "../../protocol/apps/app-storage.ts";
+import { appConnectSource, appCreate } from "../../protocol/apps/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
+import type { PrepareCommitResult } from "./control.ts";
 import { loadVersionPermissions } from "./packages/store.ts";
 import { loadApp, loadApps } from "./registration/mod.ts";
-import {
-  dataChangesOf,
-  readBundleCopy,
-} from "./releases/activation/desired.ts";
-import {
-  bundleCopyPath,
-  clearUnsealedCopy,
-  DECLARATION_COPY_NAME,
-  sealCopy,
-  writeBundle,
-} from "./releases/bundle/seal.ts";
 import { loadReleases } from "./releases/store.ts";
-import type { FolderAppsHost, InstalledBundle } from "../folder/apps/deps.ts";
+import type { FolderAppsHost } from "../folder/apps/deps.ts";
 
 /** core command를 폴더 take-in 자격으로 부른다. 성공이면 command의 result다. */
 export type FolderCommand = (envelope: {
@@ -35,14 +19,52 @@ export type FolderCommand = (envelope: {
   compare: unknown;
 }) => Promise<Result<unknown>>;
 
+// `syncAppSdk`가 낸 실패 글에서 빠진 `@lophn/*` 또는 `@me/*` package를 뽑는다.
+const MISSING_SDK_RE = /SDK is not installed: (@(?:lophn|me)\/[^\s@]+@\S+)/;
+
+function failureFromPrepare(
+  stage: "build" | "dependencies" | "migration" | "handlers" | "release",
+  reason: string,
+): Result<never> {
+  const missing = MISSING_SDK_RE.exec(reason)?.[1];
+  if (missing !== undefined) {
+    if (missing.startsWith("@lophn/")) {
+      return err({
+        code: "conflict",
+        message: `this lophn does not have ${missing}; update lophn on this machine`,
+        details: { reason: "sdk_missing", packages: [missing] },
+      });
+    }
+    return err({
+      code: "conflict",
+      message: `${missing} is not published on this machine; publish the same package version here first`,
+      details: { reason: "dependency_missing", packages: [missing] },
+    });
+  }
+  const transient =
+    reason.startsWith("dependency_install_failed") ||
+    reason.startsWith("dependency_prune_failed") ||
+    reason === "elapsed_ms" ||
+    reason === "staging_failed";
+  return err({
+    code: transient ? "unavailable" : "invalid_input",
+    message: `${stage}: ${reason}`,
+  });
+}
+
 export function createFolderAppsHost(deps: {
   sql: Sql;
-  dataRoot: string;
   command: FolderCommand;
+  prepareCommit: (input: {
+    app: string;
+    sourcePath: string;
+    commit: string;
+    createdBy: string;
+  }) => Promise<Result<PrepareCommitResult>>;
   random: RandomSource;
 }): FolderAppsHost {
   const { sql } = deps;
-  // 지운 앱을 다시 들일 수 있게 key는 부를 때마다 새로 만든다. 같은 앱·release가 이미 있는지는 부르기 전에 본다.
+  // 지운 앱을 다시 들일 수 있게 key는 부를 때마다 새로 만든다. 같은 앱·commit이 이미 있는지는 부르기 전에 본다.
   const keyOf = (kind: string) => {
     const bytes = new Uint8Array(8);
     deps.random.fill(bytes);
@@ -68,71 +90,16 @@ export function createFolderAppsHost(deps: {
       const owner = apps.value.find((app) => app.slug === slug);
       return ok(owner === undefined ? null : (owner.id as Id<"app">));
     },
-    releaseWith(app, bundleHash) {
+    releaseWithCommit(app, codeCommit) {
       const releases = loadReleases(sql, { app });
       if (!releases.ok) return releases;
-      const found = releases.value.find(
-        (release) => release.bundle_hash === bundleHash,
+      const found = releases.value.findLast(
+        (release) => release.code_commit === codeCommit,
       );
       return ok(found === undefined ? null : (found.id as Id<"rel">));
     },
     published: (name, version) =>
       loadVersionPermissions(sql, name, version) !== null,
-    async installBundle(app, bundleHash, manifest, files) {
-      const copy = bundleCopyPath(deps.dataRoot, app, bundleHash);
-      if (!copy.ok) return copy;
-      const cleared = await clearUnsealedCopy(copy.value);
-      if (!cleared.ok) return cleared;
-      const declarationJson = files.find(
-        (file) => file.path === DECLARATION_COPY_NAME,
-      );
-      if (declarationJson === undefined) {
-        return err({ code: "invalid_input", message: "no declaration.json" });
-      }
-      // false면 이미 봉인된 사본이 있다(같은 hash는 같은 bytes다).
-      if (cleared.value) {
-        // manifest.json과 declaration.json도 받은 bytes 그대로 쓴다(같은 이름은 먼저 넘긴 것이 이긴다).
-        const writtenCopy = await writeBundle({
-          copyPath: copy.value,
-          manifest,
-          declarationJson: declarationJson.bytes,
-          bundleFiles: files,
-        });
-        if (!writtenCopy.ok) return writtenCopy;
-        const sealed = await sealCopy(
-          copy.value,
-          bundleFileStore(deps.dataRoot),
-        );
-        if (!sealed.ok) return sealed;
-      }
-      const parts = await readBundleCopy(deps.dataRoot, app, bundleHash);
-      if (!parts.ok) return parts;
-      if (parts.value === undefined) {
-        return err({ code: "unavailable", message: "bundle copy is missing" });
-      }
-      const changes = await dataChangesOf(parts.value);
-      if (!changes.ok) return changes;
-      let declaration: Record<string, unknown>;
-      try {
-        declaration = JSON.parse(
-          await readFile(
-            `${parts.value.root}/${DECLARATION_COPY_NAME}`,
-            "utf8",
-          ),
-        );
-      } catch {
-        return err({
-          code: "unavailable",
-          message: "bundle declaration cannot be read",
-        });
-      }
-      return ok({
-        declaration,
-        manifest: parts.value.manifest,
-        data_schema: parts.value.dataSchema,
-        data_changes: changes.value,
-      });
-    },
     async createApp(input) {
       const created = await deps.command({
         command: appCreate.name,
@@ -154,28 +121,18 @@ export function createFolderAppsHost(deps: {
       });
       return linked.ok ? ok(undefined) : linked;
     },
-    async recordRelease(input) {
-      const key = keyOf("release");
-      const recorded = await deps.command({
-        command: releaseRecord.name,
-        input: {
-          app: input.app,
-          commit: input.commit,
-          bundle_hash: input.bundle_hash,
-          declaration_hash: input.declaration_hash,
-          declaration: input.installed.declaration,
-          manifest: input.installed.manifest,
-          data_schema: input.installed.data_schema,
-          data_changes: input.installed.data_changes,
-          // 출처 기계는 release 행이 아니라 bundle hash와 폴더가 안다. actor 꼴에 기계 id 자리가 없다.
-          created_by: "machine",
-          key,
-        },
-        idempotency_key: key,
-        compare: {},
+    async prepareRelease(input) {
+      const prepared = await deps.prepareCommit({
+        app: input.app,
+        sourcePath: input.sourcePath,
+        commit: input.commit,
+        createdBy: "machine",
       });
-      if (!recorded.ok) return recorded;
-      return ok((recorded.value as { release: { id: Id<"rel"> } }).release.id);
+      if (!prepared.ok) return prepared;
+      if (prepared.value.status === "failed") {
+        return failureFromPrepare(prepared.value.stage, prepared.value.reason);
+      }
+      return ok(prepared.value.release.id as Id<"rel">);
     },
   };
 }

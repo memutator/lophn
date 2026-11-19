@@ -388,13 +388,13 @@ const takeIn = defineCommand({
   name: "app.take_in",
   summary: "Take in an app another machine put in a sync folder",
   description:
-    "Install on this machine an app that another of the person's machines shared through a sync folder (`available` in `lophn machine environment`). The app keeps the same id on every machine, and the release is the exact sealed bundle the other machine built. The release lands prepared: nothing runs until it is activated on this machine, and activation asks the person here. from picks the machine (default: the one whose record is newest) and release picks a bundle hash (default: that machine's active release). If the app is already here, only the release is installed. conflict says why in details.reason: sdk_missing (this lophn lacks the SDK version the bundle pins; update lophn here), slug_in_use (another app here has the slug), dependency_missing (details.packages). invalid_input with details.reason release_incomplete means the release files have not fully arrived in the folder yet; try again later.",
+    "Install on this machine an app that another of the person's machines shared through a sync folder (`available` in `lophn machine environment`). The app keeps the same id on every machine, and lophn fetches its source git bundles and prepares the release locally on this computer. The release lands prepared: nothing runs until it is activated on this machine, and activation asks the person here. from picks the machine (default: the one whose record is newest) and release picks a code commit (default: that machine's active release commit). If the app is already here, only the release is prepared. conflict says why in details.reason: sdk_missing (this lophn lacks the SDK version the app pins; update lophn here), slug_in_use (another app here has the slug), dependency_missing (details.packages). invalid_input with details.reason source_incomplete means the source commits for that release have not fully arrived in the folder yet; try again later.",
   input: z.strictObject({
     app: idSchema("app"),
     from: idSchema("mch").optional(),
     release: z
       .string()
-      .regex(/^[0-9a-f]{64}$/)
+      .regex(/^[0-9a-f]{40}$/)
       .optional(),
   }),
   positional: ["app"],

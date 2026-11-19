@@ -11,7 +11,6 @@ const NUMBER_DIGITS = 12;
 const NUMBER_MAX = 10 ** NUMBER_DIGITS - 1;
 const machineIdSchema = idSchema("mch");
 const appIdSchema = idSchema("app");
-const BUNDLE_HASH = /^[0-9a-f]{64}$/;
 const DATA_ENTRY = /^([0-9]{12})\.(changes|snapshot)$/;
 const SOURCE_ENTRY = /^([0-9]{12})\.(bundle|json)$/;
 const TEMP_RANDOM = /^[0-9a-f]{16}$/;
@@ -45,25 +44,6 @@ export const dataEntryPath = (
   n: number,
   kind: DataKind,
 ) => `${dataDir(machine, app)}/${entryNumber(n)}.${kind}`;
-export const releasesDir = (machine: Id<"mch">, app: Id<"app">) =>
-  `${appDir(machine, app)}/releases`;
-export const releaseDir = (
-  machine: Id<"mch">,
-  app: Id<"app">,
-  bundleHash: string,
-) => `${releasesDir(machine, app)}/${bundleHash}`;
-export const releaseRecordPath = (
-  machine: Id<"mch">,
-  app: Id<"app">,
-  bundleHash: string,
-) => `${releaseDir(machine, app, bundleHash)}/release.json`;
-// bundle 안 path(`release.json`의 files[].path)를 그대로 잇는다.
-export const releaseFilePath = (
-  machine: Id<"mch">,
-  app: Id<"app">,
-  bundleHash: string,
-  path: string,
-) => `${releaseDir(machine, app, bundleHash)}/files/${path}`;
 export const sourceDir = (machine: Id<"mch">, app: Id<"app">) =>
   `${appDir(machine, app)}/source`;
 export const sourcePath = (
@@ -103,7 +83,6 @@ export const isMachineDirName = (name: string): name is Id<"mch"> =>
   machineIdSchema.safeParse(name).success;
 export const isAppDirName = (name: string): name is Id<"app"> =>
   appIdSchema.safeParse(name).success;
-export const isBundleHashName = (name: string) => BUNDLE_HASH.test(name);
 
 // 변경·snapshot file의 path가 가리키는 주인, 앱, 번호, 꼴.
 export function parseDataPath(rel: string): {
@@ -138,7 +117,7 @@ export function parseDataPath(rel: string): {
 
 /**
  * 폴더 안 목록을 읽을 때 돌려줄 이름. 이름 꼴과 그 이름이 폴더인지 file인지를 정한다. 이 배치에서 목록을 읽지
- * 않는 폴더(release의 files 등. 목록 file이 싣는다)는 null이다.
+ * 않는 폴더는 null이다.
  */
 export function listingOf(
   dir: string,
@@ -165,8 +144,6 @@ export function listingOf(
         accepts: (name) => parseSourceEntry(name) !== null,
         directories: false,
       };
-    case "releases":
-      return { accepts: isBundleHashName, directories: true };
     // 기계를 건너는 event file `<ULID>.json`(`carry.ts`의 `eventFilePath`).
     case "events":
       return {
@@ -176,16 +153,4 @@ export function listingOf(
     default:
       return null;
   }
-}
-
-// release의 files[].path처럼 기록이 싣는 상대 path. 폴더 밖이나 위를 가리키지 못한다.
-const SEGMENT = /^[^/\\\0]+$/;
-export function isSafeRelativePath(path: string): boolean {
-  if (path.length === 0 || path.length > 1024) return false;
-  if (/^[A-Za-z]:/.test(path)) return false;
-  return path
-    .split("/")
-    .every(
-      (segment) => SEGMENT.test(segment) && segment !== "." && segment !== "..",
-    );
 }

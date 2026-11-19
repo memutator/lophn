@@ -160,5 +160,5 @@ export type EventArrived = (input: {
   name: string;
   payload: JsonValue;
   at: string;
-  bundle_hash: string;
+  code_commit: string;
 }) => void;

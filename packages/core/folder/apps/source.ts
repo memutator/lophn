@@ -4,7 +4,8 @@
 // 사람의 branch, HEAD, 작업 tree는 처음 저장소를 만들 때(main을 release의 commit에 둔다) 말고는 건드리지 않는다.
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { lstat, mkdir, rename, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, rename, rm, rmdir, stat } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
@@ -323,49 +324,137 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+export type PeerSource = {
+  origin: Id<"mch">;
+  reader: FolderReader;
+  head: number;
+  cursor: number;
+};
+
+export type PeerSourceResult = {
+  origin: Id<"mch">;
+  cursor: number;
+  stopped: { waiting_for: number } | { error: SourceError } | null;
+};
+
 /**
- * 이 기계에 source가 없는 앱의 저장소를 `<root>/apps/<app>/source`에 만든다: 한 출처의 bundle을 모두 받고 main을
- * `commit`에 둔다. 아직 그 commit까지 오지 않았으면 아무것도 남기지 않고 null이다. 앞서 만들다 잇기 전에 끊긴 저장소(commit
- * 있음)는 그대로 쓴다(cursor 0: 다시 받아도 같은 ref다). `cursor`는 받은 마지막 번호다.
+ * 여러 출처 기계의 증분 bundle을 prerequisite가 풀리는 순서대로 받는다(기계 B의 bundle이 기계 A의 commit에 기댈 수 있다).
+ * 한 바퀴에서 어느 출처의 cursor도 오르지 않으면 멈춘다.
+ */
+export async function fetchPeerSources(input: {
+  repo: string;
+  app: Id<"app">;
+  peers: readonly PeerSource[];
+  dataRoot: string;
+  random: RandomSource;
+}): Promise<PeerSourceResult[]> {
+  const states = input.peers.map((peer) => ({
+    ...peer,
+    stopped: null as PeerSourceResult["stopped"],
+  }));
+  for (;;) {
+    let progressed = false;
+    for (const peer of states) {
+      if (peer.cursor >= peer.head) {
+        peer.stopped = null;
+        continue;
+      }
+      const before = peer.cursor;
+      const fetched = await fetchSource({
+        repo: input.repo,
+        reader: peer.reader,
+        origin: peer.origin,
+        app: input.app,
+        cursor: peer.cursor,
+        head: peer.head,
+        dataRoot: input.dataRoot,
+        random: input.random,
+      });
+      peer.cursor = fetched.cursor;
+      peer.stopped = fetched.stopped;
+      if (fetched.cursor > before) progressed = true;
+    }
+    if (!progressed) break;
+  }
+  return states.map(({ origin, cursor, stopped }) => ({
+    origin,
+    cursor,
+    stopped,
+  }));
+}
+
+/**
+ * 이 기계에 source가 없는 앱의 저장소를 `<root>/apps/<app>/source`에 만든다: 출처들의 bundle을 받고 `commit`이 있으면
+ * `beforeFinalize`를 본 뒤 main을 `commit`에 둔다. 아직 그 commit까지 오지 않았으면 아무것도 남기지 않고 null이다.
+ * 앞서 만들다 잇기 전에 끊긴 저장소(commit 있음)는 새 bundle을 더 받아 그대로 쓴다.
  */
 export async function createRepository(input: {
   dataRoot: string;
   app: Id<"app">;
-  origin: Id<"mch">;
-  reader: FolderReader;
-  head: number;
+  peers: readonly PeerSource[];
   commit: string;
   random: RandomSource;
-}): Promise<Result<{ path: string; cursor: number } | null>> {
+  beforeFinalize?: (repo: string) => Promise<Result<void>>;
+}): Promise<Result<{ path: string; results: PeerSourceResult[] } | null>> {
   const dir = appDefaultSource(input.dataRoot, input.app);
   if (await exists(dir)) {
     const head = await git(dir, "rev-parse", "--verify", "HEAD");
-    return head.ok
-      ? ok({ path: dir, cursor: 0 })
-      : err({
-          code: "conflict",
-          message: `${dir} exists and is not a committed repository`,
-        });
+    if (!head.ok) {
+      return err({
+        code: "conflict",
+        message: `${dir} exists and is not a committed repository`,
+      });
+    }
+    const results = await fetchPeerSources({
+      repo: dir,
+      app: input.app,
+      peers: input.peers,
+      dataRoot: input.dataRoot,
+      random: input.random,
+    });
+    if (!(await hasCommit(dir, input.commit))) return ok(null);
+    if (input.beforeFinalize !== undefined) {
+      const checked = await input.beforeFinalize(dir);
+      if (!checked.ok) return checked;
+    }
+    return ok({ path: dir, results });
   }
-  if (input.head === 0) return ok(null);
+  if (!input.peers.some((peer) => peer.head > 0)) return ok(null);
+  const parent = dirname(dir);
+  const parentExisted = await exists(parent);
   const staging = `${dir}.new`;
   try {
     await rm(staging, { recursive: true, force: true });
     await mkdir(staging, { recursive: true });
     const made = await initRepository(staging);
     if (!made.ok) return made;
-    const fetched = await fetchSource({ ...input, repo: staging, cursor: 0 });
-    if (fetched.stopped !== null && "error" in fetched.stopped) {
-      return err({
-        code: "unavailable",
-        message: fetched.stopped.error.message,
-      });
+    const results = await fetchPeerSources({
+      repo: staging,
+      app: input.app,
+      peers: input.peers.map((peer) => ({ ...peer, cursor: 0 })),
+      dataRoot: input.dataRoot,
+      random: input.random,
+    });
+    const failed = results.find(
+      (one) => one.stopped !== null && "error" in one.stopped,
+    );
+    if (!(await hasCommit(staging, input.commit))) {
+      if (failed !== undefined && "error" in failed.stopped!) {
+        return err({
+          code: "unavailable",
+          message: failed.stopped.error.message,
+        });
+      }
+      return ok(null);
     }
-    if (!(await hasCommit(staging, input.commit))) return ok(null);
+    if (input.beforeFinalize !== undefined) {
+      const checked = await input.beforeFinalize(staging);
+      if (!checked.ok) return checked;
+    }
     const checked = await checkoutMain(staging, input.commit);
     if (!checked.ok) return checked;
     await rename(staging, dir);
-    return ok({ path: dir, cursor: fetched.cursor });
+    return ok({ path: dir, results });
   } catch (thrown) {
     return err({
       code: "unavailable",
@@ -373,5 +462,8 @@ export async function createRepository(input: {
     });
   } finally {
     await rm(staging, { recursive: true, force: true });
+    if (!parentExisted && !(await exists(dir))) {
+      await rmdir(parent).catch(() => {});
+    }
   }
 }

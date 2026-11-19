@@ -4,10 +4,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
-import { sha256Schema } from "../base/values.ts";
 import { appIdSchema } from "./channel-values.ts";
 
 const count = z.number().int().nonnegative();
+const commitSchema = z.string().regex(/^[0-9a-f]{40}$/);
 
 export const followStateSchema = z.object({
   state: z.enum([
@@ -21,8 +21,8 @@ export const followStateSchema = z.object({
     "activation_failed",
     "diverged",
   ]),
-  // 따라가려는(또는 막힌) release의 bundle hash. current면 null.
-  release: sha256Schema.nullable(),
+  // 따라가려는(또는 막힌) release의 code_commit. current면 null.
+  release: commitSchema.nullable(),
   reason: z.string().nullable(),
 });
 
@@ -33,7 +33,7 @@ export const updateStateSchema = z.object({
   held: z.array(
     z.object({
       machine: idSchema("mch"),
-      bundle_hash: sha256Schema,
+      code_commit: commitSchema,
       data_schema: count,
       changes: count,
       bytes: count,
@@ -56,10 +56,9 @@ export const updateStateSchema = z.object({
       exchange: z.enum(["ok", "update_this", "update_peer"]),
       release: z
         .object({
-          bundle_hash: sha256Schema,
           // 이 기계에 그 release가 있을 때의 r<n> 번호.
           number: z.number().int().positive().nullable(),
-          code_commit: z.string(),
+          code_commit: commitSchema,
           data_schema: count,
         })
         .nullable(),

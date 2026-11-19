@@ -1,0 +1,25 @@
+id: source-only-app-sync
+version: 0.23.97
+title: 컴퓨터 사이 build된 release bundle(node_modules 포함) 전송을 없애고 source-only git bundle 전송과 local release 준비로 옮기며, 기계 사이·폰 release 신분을 code_commit으로 통일한다
+modules: [packages/protocol, packages/core/folder, packages/core/apps, packages/core/storage, packages/core/main, packages/cli, packages/shell/renderer, packages/mobile]
+change: |
+  전: 컴퓨터끼리 앱을 주고받을 때 봉인된 release bundle(`releases/<bundle_hash>/files/`, `node_modules` 포함)을 폴더로 통째로 옮겼고, 기계 사이 data sync·held·across_machines event·follow·take-in·update_state가 `bundle_hash`를 release 신분으로 썼다. 폰은 짝지은 컴퓨터마다 다른 local `rel_*` ULID로 release를 비교해, 같은 commit을 각 컴퓨터가 build한 경우 불필요한 재설치나 lagging 오인이 생겼다.
+  후:
+  - "폴더 전송(source-only): `releases/<bundle_hash>/files/`와 `release.json` 내보내기·목록 사슬·mirror·carry·take-in을 없애고 증분 `git bundle`(`source/<n>.bundle` + `<n>.json`)만 옮긴다. 여러 기계를 거친 prerequisite 사슬(A → B → C)도 모든 출처의 bundle을 고정점까지 받아 해소한다."
+  - "local release 준비: `app.take_in`과 자동 `follow`는 출처의 source bundle에서 목표 `code_commit`을 받아 이 기계에 source 저장소를 만들거나 이어 fetch한 뒤, `appsControl.prepareCommit`으로 이 컴퓨터의 OS에 맞게 직접 `npm install`·build·봉인·검사를 돌려 `prepared` release를 만든다. source가 덜 왔으면 `invalid_input` + `source_incomplete`, `@lophn/*`·`@me/*` 의존이 빠졌으면 저장소·앱 등록 전에 `conflict` + `sdk_missing`·`dependency_missing`으로 막는다. 동의·grant 비이관과 `computers`-only 미허락 컴퓨터 동의 규칙은 그대로 유지한다."
+  - "기계 사이 release 신분 통일: `FOLDER_FORMAT`을 `{version: 2, min_version: 2}`로 올려 format 1 피어를 `update_peer`로 막고, `app.json`(format 2, `releases` 제거), data container header, `folder_held`, `across_machines` event file(format 2), `apps/update_state`, `machine/environment`, `follow`, `take_in`을 `code_commit`(+ `data_schema`) 기준으로 통일했다."
+  - "ledger migration: 기존 `~/.lophn` 업그레이드 안전을 위해 `folder.code-commit` schema step을 끝에 추가하고 `schema-steps.lock.json`에 잠갔다(`folder_streams`·`folder_reads`에 `code_commit` 추가, `folder_held`를 `code_commit` 기준으로 재생성, `folder_written`의 옛 `release` 행 정리). 기존 stream은 `code_commit`이 NULL이라 첫 내보내기에서 자동으로 format 2 snapshot을 낸다."
+  - "폰 ↔ 다중 컴퓨터 release 신분: `apps/phone_screens`에 `code_commit`을 싣고 `app_sync/push`의 `conflict`에 `active_code_commit`을 추가했다. 폰(`packages/mobile`)은 `code_commit`으로 같은 release 여부를 판정해 재설치·lagging 오인을 없애고, 설치 기록의 `computer_releases`로 컴퓨터별 local `rel_*` token을 관리해 `app_sync/push|pull`에 각 컴퓨터의 token을 보낸다."
+  - "문서·지침·flows: `architecture/folder-sync.md`, `activation.md`, `app-sync.md`, `event.md`, `design-app/folder-sync.md`, CLI 도움말, `project-docs/flows/`를 새 동작과 계약에 맞췄다."
+why: |
+  봉인된 release bundle은 `node_modules` native binary 때문에 macOS·Linux·Windows 사이에서 호환되지 않고, 수천 개의 파일을 매 release마다 폴더·폰·link로 옮기는 비용과 대소문자·Unicode 정규화 경로 충돌 문제를 일으켰다. source만 증분 `git bundle`로 옮기고 각 컴퓨터가 네이티브로 build하면 플랫폼 호환과 전송 크기 문제가 함께 풀린다. 각 컴퓨터가 같은 commit을 따로 build하면 `bundle_hash`와 local `rel_*` id가 달라지므로, 기계 사이와 폰-다중컴퓨터 release 신분을 `code_commit`으로 통일해야 한다.
+decisions:
+  - text: "`FOLDER_FORMAT`을 `{version: 2, min_version: 2}`로 올리고 `releases/` 호환 읽기 경로를 두지 않았다. `bundle_hash`와 `code_commit` 기준의 data header·`app.json`·event file은 서로 맞지 않으므로 `min_version: 2`로 옛 format 1 피어를 `update_peer`로 명확히 가른다."
+    by: agent
+  - text: "기존 `~/.lophn` 데이터 루트의 `folder_streams`는 `folder.code-commit` step에서 `code_commit`을 NULL로 두어, 업그레이드 뒤 첫 내보내기에서 단조 번호를 유지한 채 format 2 snapshot을 새로 쓰게 했다(foreign_writer 없이 안전하게 전환)."
+    by: agent
+  - text: "모바일 앱은 컴퓨터별 `rel_*` ULID를 `installed.json`의 `computer_releases` 맵에 보관하고 `compareRelease`는 `code_commit` 일치 시 즉시 같은 release(`0`)로 판정한다. `apps/phone_file`과 `app_sync/*`에는 각 컴퓨터의 `rel_*`를 그대로 보내 컴퓨터 측 active release 검증 계약을 유지한다."
+    by: agent
+checklist:
+  - "해야: 내 컴퓨터들을 모두 이 판으로 올린다 (`FOLDER_FORMAT` 2. format 1 피어는 `update_peer`로 멈춘다)"
+  - "서로 다른 OS(예: macOS와 Linux) 두 컴퓨터에서 같은 앱 commit을 `take-in`·`follow`로 각각 build한 뒤 data sync, `across_machines` event, 폰 양쪽 컴퓨터 sync가 재설치 없이 이어지는지 본다"

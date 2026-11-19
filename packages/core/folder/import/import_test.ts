@@ -42,15 +42,15 @@ import {
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { FolderApply } from "../ports.ts";
-import { FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
 import { createFolderImport, type FolderImportDeps } from "./mod.ts";
 
 const ME = "mch_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mch">;
 const PEER = "mch_01hyyyyyyyyyyyyyyyyyyyyyyy" as Id<"mch">;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 const REL = "rel_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"rel">;
-const ACTIVE = "a".repeat(64);
-const OTHER = "b".repeat(64);
+const ACTIVE = "a".repeat(40);
+const OTHER = "b".repeat(40);
 const T0 = Date.UTC(2026, 10, 16);
 
 type Call =
@@ -76,7 +76,9 @@ async function make(base: string) {
   mkdirSync(dest);
   mkdirSync(root);
   const db = new DatabaseSync(":memory:");
-  for (const step of FOLDER_SCHEMA_STEPS) db.exec(step.sql);
+  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+    db.exec(step.sql);
+  }
   const sql: Sql = createSql(db, () => true);
   const clock = manualClock(T0);
   const calls: Call[] = [];
@@ -119,7 +121,7 @@ async function make(base: string) {
       {
         app: APP,
         sync_to: "personal",
-        release: { id: REL, bundle_hash: ACTIVE, data_schema: 1 },
+        release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
       },
     ],
     apply,
@@ -158,14 +160,14 @@ async function make(base: string) {
     lophn: {
       version: "0.23.0",
       protocol: { version: 2, min_version: 1 },
-      folder: { version: 1, min_version: 1 },
+      folder: { version: 2, min_version: 2 },
     },
   });
   const appRecord = (
     revision: number,
     extra: Record<string, unknown> = {},
   ) => ({
-    format: 1,
+    format: 2,
     machine: PEER,
     app: APP,
     revision,
@@ -175,7 +177,6 @@ async function make(base: string) {
     description: "",
     sync_to: "personal",
     active_release: null,
-    releases: [],
     data: { head: 0, snapshot: null },
     source: { head: 0 },
     read: {},
@@ -189,13 +190,13 @@ async function make(base: string) {
   };
   const changesFile = async (
     n: number,
-    opts: { bundle?: string; aheadMs?: number } = {},
+    opts: { commit?: string; aheadMs?: number } = {},
   ) => {
     const file = await encodeChanges({
       machine: PEER,
       app: APP,
       n,
-      release: { bundle_hash: opts.bundle ?? ACTIVE, data_schema: 1 },
+      release: { code_commit: opts.commit ?? ACTIVE, data_schema: 1 },
       created_at: clock.now(),
       changes: [
         {
@@ -216,7 +217,7 @@ async function make(base: string) {
   const snapshotFile = async (
     n: number,
     payloadText: string | Uint8Array,
-    bundle = ACTIVE,
+    commit = ACTIVE,
   ) => {
     const payload =
       typeof payloadText === "string"
@@ -227,7 +228,7 @@ async function make(base: string) {
       app: APP,
       n,
       kind: "snapshot",
-      release: { bundle_hash: bundle, data_schema: 1 },
+      release: { code_commit: commit, data_schema: 1 },
       created_at: clock.now(),
       payload: { size: payload.byteLength, sha256: await sha256Hex(payload) },
     });
@@ -239,7 +240,7 @@ async function make(base: string) {
   };
   const putChanges = async (
     n: number,
-    opts?: { bundle?: string; aheadMs?: number },
+    opts?: { commit?: string; aheadMs?: number },
   ) => {
     const bytes = await changesFile(n, opts);
     put(dataEntryPath(PEER, APP, n, "changes"), bytes);
@@ -326,19 +327,19 @@ test("다른 release의 file은 적용되지 않고 data root에 같은 bytes로
     await env.folder.scan();
     const first = await env.snapshotFile(1, "other release db", OTHER);
     env.put(dataEntryPath(PEER, APP, 1, "snapshot"), first);
-    const second = await env.putChanges(2, { bundle: OTHER });
-    const third = await env.putChanges(3, { bundle: OTHER });
+    const second = await env.putChanges(2, { commit: OTHER });
+    const third = await env.putChanges(3, { commit: OTHER });
     const stream = await env.run();
     assert.equal(env.calls.length, 0);
     assert.equal(env.cursor(), 3);
     assert.equal(stream?.held_files, 3);
     const held = env.db
       .prepare(
-        `SELECT n, path, bundle_hash, sha256, size FROM folder_held WHERE machine = ? ORDER BY n`,
+        `SELECT n, path, code_commit, sha256, size FROM folder_held WHERE machine = ? ORDER BY n`,
       )
       .all(ME);
     assert.deepEqual(
-      held.map((row) => [row.n, row.bundle_hash]),
+      held.map((row) => [row.n, row.code_commit]),
       [
         [1, OTHER],
         [2, OTHER],
@@ -401,7 +402,7 @@ test("충돌 사본과 temp는 읽지 않고, 늦게 온 번호를 기다려 순
 test("실패한 읽기는 기록 사본도 local data도 지우지 않는다", async () => {
   await setup(async (env) => {
     env.putRecords(3, { data: { head: 1, snapshot: null } });
-    await env.putChanges(1, { bundle: OTHER });
+    await env.putChanges(1, { commit: OTHER });
     await env.folder.scan();
     await env.run();
     const before = env.folder.records();
@@ -457,7 +458,7 @@ function machineRecordOf(env: { clock: { now(): string } }, revision: number) {
     lophn: {
       version: "0.23.0",
       protocol: { version: 2, min_version: 1 },
-      folder: { version: 1, min_version: 1 },
+      folder: { version: 2, min_version: 2 },
     },
   };
 }
@@ -601,7 +602,7 @@ function writeRows(r: Replica, atMs: number, statements: string[]) {
 test("지운 기계는 알려진 기계에서 빠지지만 행과 data는 남고, 새 기록을 쓰면 돌아온다", async () => {
   await setup(async (env) => {
     env.putRecords(1, { data: { head: 1, snapshot: null }, horizon: "5" });
-    await env.putChanges(1, { bundle: OTHER });
+    await env.putChanges(1, { commit: OTHER });
     await env.folder.scan();
     await env.run();
     assert.ok(env.folder.forgetMachine(PEER).ok);

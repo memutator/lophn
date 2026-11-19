@@ -1,17 +1,17 @@
-// 폴더의 기록 file: 기계 기록 `record.json`, 앱 기록 `app.json`, release 기록 `release.json`, source 목록 `source/<n>.json`.
+// 폴더의 기록 file: 기계 기록 `record.json`, 앱 기록 `app.json`, source 목록 `source/<n>.json`.
 // 모든 schema는 모르는 칸을 버리고 읽는다. 칸을 더해도 `format`은 그대로이고, 옛 판이 틀리게 읽게 되는 바꿈에만 오른다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { isSafeRelativePath } from "./layout.ts";
 import { RECORD_MAX_BYTES } from "./limits.ts";
 
 // 이 기계가 쓰는 꼴 판(`version`)과 읽는 하한(`min_version`). 기계 기록의 `lophn.folder`에 그대로 싣는다.
-// 변경 file 1행의 판(`lophn-folder 1`)과 기록의 `format`이 이 `version`이다. 판은 옛 판이 읽으면 틀리는 바꿈에만
+// 변경 file 1행의 판(`lophn-folder 2`)과 기록의 `format`이 이 `version`이다. 판은 옛 판이 읽으면 틀리는 바꿈에만
 // 올린다: 칸을 더하는 것은 올리지 않는다(읽는 쪽이 모르는 칸을 버린다). 칸 하나에 판을 올리면 모든 기계가 멈춘다.
+// 판 2: release bundle 전송을 없애고 source git bundle + local release 준비로 옮기며 기계 사이 신분을 code_commit으로 바꿨다.
 // 범위 판정은 core/folder/import/compat.ts.
-export const FOLDER_FORMAT = { version: 1, min_version: 1 } as const;
+export const FOLDER_FORMAT = { version: 2, min_version: 2 } as const;
 
 export type FolderFormat = { version: number; min_version: number };
 
@@ -29,7 +29,7 @@ export const fileError = (
 
 const machineId = idSchema("mch");
 const appId = idSchema("app");
-const commitSchema = z.string().regex(/^[0-9a-f]{40}$/);
+export const commitSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const positive = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 // sync clock(HLC). 63 bit 정수라 십진 문자열이다.
@@ -79,13 +79,11 @@ export const appRecordSchema = z.object({
   sync_to: destinationNameSchema.nullable(),
   active_release: z
     .object({
-      bundle_hash: sha256Schema,
-      data_schema: count,
       code_commit: commitSchema,
+      data_schema: count,
       created_at: atSchema,
     })
     .nullable(),
-  releases: z.array(sha256Schema),
   // head 0은 아직 쓴 file이 없다는 뜻이다.
   data: z.object({ head: count, snapshot: positive.nullable() }),
   source: z.object({ head: count }),
@@ -95,34 +93,6 @@ export const appRecordSchema = z.object({
   horizon: hlcSchema.nullable(),
 });
 export type AppRecord = z.infer<typeof appRecordSchema>;
-
-export const releaseRecordSchema = z.object({
-  format: formatSchema,
-  machine: machineId,
-  app: appId,
-  bundle_hash: sha256Schema,
-  code_commit: commitSchema,
-  declaration_hash: sha256Schema,
-  data_schema: count,
-  // 받는 기계의 activation이 apps protocol의 schema로 다시 본다. 안의 칸은 버리지 않고 그대로 넘긴다.
-  data_changes: z.array(
-    z.looseObject({
-      from: count,
-      to: count,
-      script_hash: sha256Schema,
-      description: z.string(),
-    }),
-  ),
-  created_at: atSchema,
-  files: z.array(
-    z.object({
-      path: z.string().refine(isSafeRelativePath, { message: "unsafe path" }),
-      size: count,
-      sha256: sha256Schema,
-    }),
-  ),
-});
-export type ReleaseRecord = z.infer<typeof releaseRecordSchema>;
 
 // `source/<n>.json`: 같은 번호의 git bundle 뒤에 쓴다.
 export const sourceMetaSchema = z.object({
@@ -141,8 +111,7 @@ export type SourceMeta = z.infer<typeof sourceMetaSchema>;
 const formatOnly = z.object({ format: formatSchema });
 
 /**
- * 기록 file bytes를 읽는다. `format`을 먼저 보고 이 기계가 읽는 범위 밖이면 나머지를 보지 않는다. `release.json`만
- * `RELEASE_RECORD_MAX_BYTES`를 준다.
+ * 기록 file bytes를 읽는다. `format`을 먼저 보고 이 기계가 읽는 범위 밖이면 나머지를 보지 않는다.
  */
 export function decodeRecord<S extends z.ZodType>(
   schema: S,

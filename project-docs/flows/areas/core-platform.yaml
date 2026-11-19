@@ -2865,7 +2865,7 @@ flows:
     steps:
       - "dispatch가 actors(user, 기기 연결의 컴퓨터와 폰)를 본다"
       - "manifests: 이 컴퓨터의 manifest와, 받아 들였고 그것을 검증한 서명 key가 지금 명단의 key인 다른 컴퓨터의 manifest마다 machine, revision, 크기, sha256. 글은 carry/file로 읽는다"
-      - "wants: 지금 목록인 다른 컴퓨터의 manifest에서 시작한 목록 사슬(앱 목록, release.json, source/<n>.json)이 싣는데 computers 폴더에 그 크기·sha256으로 없는 file을 (machine, path) 순서로 after 뒤부터 limit(기본 1,000)개"
+      - "wants: 지금 목록인 다른 컴퓨터의 manifest에서 시작한 목록 사슬(앱 목록, source/<n>.json)이 싣는데 computers 폴더에 그 크기·sha256으로 없는 file을 (machine, path) 순서로 after 뒤부터 limit(기본 1,000)개"
       - "이 컴퓨터가 든 manifest가 바뀌면(받아 들임, 내보내기, 명단이 바뀌어 다시 검증) StateChanged(carry_files)로 다시 읽는다"
     outcomes:
       - id: ok

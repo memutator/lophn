@@ -4,7 +4,6 @@ import type { Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 
 export type FollowRelease = {
-  bundle_hash: string;
   code_commit: string;
   data_schema: number;
 };
@@ -29,26 +28,25 @@ export type FollowChoice =
 export async function chooseRelease(input: {
   current: FollowRelease;
   offered: readonly OfferedRelease[];
-  // 이 기계에서 superseded나 failed인 bundle hash. 내려놓았거나 실패한 release는 다시 하지 않는다.
+  // 이 기계에서 superseded나 failed인 code_commit. 내려놓았거나 실패한 release는 다시 하지 않는다.
   dropped: ReadonlySet<string>;
   isAncestor: IsAncestor;
 }): Promise<FollowChoice> {
   const { current } = input;
-  // 같은 bundle을 여러 기계가 돌리면 먼저 활성한 기계의 것 하나.
-  const byBundle = new Map<string, OfferedRelease>();
+  // 같은 commit을 여러 기계가 돌리면 먼저 활성한 기계의 것 하나.
+  const byCommit = new Map<string, OfferedRelease>();
   for (const offered of input.offered) {
-    const seen = byBundle.get(offered.bundle_hash);
+    const seen = byCommit.get(offered.code_commit);
     if (seen === undefined || offered.created_at < seen.created_at) {
-      byBundle.set(offered.bundle_hash, offered);
+      byCommit.set(offered.code_commit, offered);
     }
   }
   const candidates: OfferedRelease[] = [];
   // 지금 commit의 자손도 조상도 아닌 release: 그 기계와 이 기계가 따로 release를 냈다.
   const apart: OfferedRelease[] = [];
-  for (const offered of byBundle.values()) {
-    if (offered.bundle_hash === current.bundle_hash) continue;
-    if (input.dropped.has(offered.bundle_hash)) continue;
+  for (const offered of byCommit.values()) {
     if (offered.code_commit === current.code_commit) continue;
+    if (input.dropped.has(offered.code_commit)) continue;
     // 자손인지 모르면(commit이 아직 없거나 git이 실패) 이번에는 빼고 다음 계기에 다시 본다.
     const after = await input.isAncestor(
       current.code_commit,
@@ -70,7 +68,7 @@ export async function chooseRelease(input: {
       ? -1
       : a.created_at > b.created_at
         ? 1
-        : a.bundle_hash < b.bundle_hash
+        : a.code_commit < b.code_commit
           ? -1
           : 1;
   if (candidates.length === 0) {
@@ -103,7 +101,6 @@ export async function chooseRelease(input: {
     }
     if (all) tops.push(top);
   }
-  // 여럿이면 같은 commit의 다른 bundle이다. 먼저 활성된 쪽.
   if (tops.length > 0) {
     return { kind: "target", release: tops.sort(byCreated)[0]! };
   }

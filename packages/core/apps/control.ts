@@ -288,10 +288,42 @@ type AppsControlDeps = {
   };
 };
 
+export type PrepareCommitResult =
+  | {
+      status: "prepared";
+      release: {
+        id: string;
+        number: number;
+        status: string;
+        code_commit: string;
+        bundle_hash: string;
+        data_schema: number;
+      };
+      removed_public_tools: ReturnType<
+        typeof releaseRecord.output.parse
+      >["removed_public_tools"];
+      removed_public_skills: ReturnType<
+        typeof releaseRecord.output.parse
+      >["removed_public_skills"];
+    }
+  | {
+      status: "failed";
+      stage: "build" | "dependencies" | "migration" | "handlers" | "release";
+      reason: string;
+    };
+
 type AppsControl = {
   // release 준비와 activation. command route지만 supervisor 메모리 진행을 기다리므로 ledger queue를 거치지 않는다.
   // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
   readonly commands: ReadonlyMap<string, MemoryHandler>;
+  // 연결된 source의 지정한 commit에서 local release를 준비하고 봉인·검사·확정한다(`release.prepare`와 `app.take_in`이 같이 쓴다).
+  prepareCommit(input: {
+    app: string;
+    sourcePath: string;
+    commit: string;
+    previousSchema?: number | null;
+    createdBy: string;
+  }): Promise<Result<PrepareCommitResult>>;
   // 호출자가 그 앱을 열 수 있는지 보고 연결된 source 폴더를 돌려준다. 범위 밖이거나 연결이 없으면 `absent` 코드다.
   sourceRootOf(
     ctx: AuthenticatedContext,
@@ -525,30 +557,15 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     stage: "build" | "dependencies" | "migration" | "handlers" | "release",
     reason: string,
   ) => ok({ status: "failed" as const, stage, reason });
-  // 앱 workspace의 session이 앱 source의 HEAD로 release를 준비한다. 순서: HEAD, build와 의존성·migration 검사(supervisor의
-  // 준비 자식), 봉인, handler 검사(preview로 한 번 띄움), release 확정. 검사에 떨어진 것은 오류가 아니라
-  // failed 결과다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다. release 행은 마지막 단계에서만 생긴다.
-  const releasePrepareHandler: MemoryHandler = async (ctx, input) => {
-    const { app } = input as { app: string };
-    const missing = err({
-      code: "not_found" as const,
-      message: "app not found",
-    });
-    const allowed = createTargetAuthorizer(ctx)(ctx, releasePrepare.name, {
-      app,
-    });
-    if (!allowed.ok) {
-      return allowed.error.code === "forbidden" ? allowed : missing;
-    }
-    const facts = preparationFacts(app);
-    if (!facts.ok) return facts;
-    if (facts.value === null) return missing;
-    // release 준비는 agent만 부르고 archived 앱은 agent에게 없는 앱이다.
-    if (facts.value.status === "archived") return missing;
-    const sourcePath = facts.value.source_path;
-    if (sourcePath === null) {
-      return prepareFailed("build", "the app has no source folder");
-    }
+
+  async function prepareCommit(input: {
+    app: string;
+    sourcePath: string;
+    commit: string;
+    previousSchema?: number | null;
+    createdBy: string;
+  }): Promise<Result<PrepareCommitResult>> {
+    const { app, sourcePath, commit } = input;
     const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
     if (
       deps.activation === undefined ||
@@ -564,36 +581,24 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       return err({
         code: "conflict",
         message: "a release preparation is already running for the app",
+        details: { reason: "preparing" },
       });
+    }
+    let previousSchema = input.previousSchema;
+    if (previousSchema === undefined) {
+      const facts = preparationFacts(app);
+      if (!facts.ok) return facts;
+      previousSchema = facts.value?.previous_schema ?? null;
     }
     preparing.add(app);
     try {
-      // agent runtime child는 git을 못 띄우므로 HEAD도 core가 읽는다.
-      const head = await gitCommandRunner().run([
-        "-C",
-        sourcePath,
-        "rev-parse",
-        "HEAD",
-      ]);
-      // git을 못 띄운 것(`unavailable`)은 commit이 없다는 말로 바꾸지 않는다.
-      if (!head.ok && head.error.code === "unavailable") {
-        return prepareFailed("build", head.error.message);
-      }
-      const commit = head.ok ? new TextDecoder().decode(head.value).trim() : "";
-      if (!/^[0-9a-f]{40}$/.test(commit)) {
-        return prepareFailed(
-          "build",
-          "the app source has no commit; commit the code first",
-        );
-      }
-
       const requestKey = crypto.randomUUID();
       const accepted = await client.releasePrepare({
         app,
         commit,
         request_key: requestKey,
         source_path: sourcePath,
-        previous_schema: facts.value.previous_schema,
+        previous_schema: previousSchema,
       });
       if (!accepted.ok) return accepted;
       const deadline =
@@ -678,7 +683,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           manifest: copy.value.manifest,
           data_schema: copy.value.dataSchema,
           data_changes: changes.value,
-          created_by: ctx.actor,
+          created_by: input.createdBy,
           key,
         },
         idempotency_key: key,
@@ -717,6 +722,57 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     } finally {
       preparing.delete(app);
     }
+  }
+
+  // 앱 workspace의 session이 앱 source의 HEAD로 release를 준비한다. 순서: HEAD, build와 의존성·migration 검사(supervisor의
+  // 준비 자식), 봉인, handler 검사(preview로 한 번 띄움), release 확정. 검사에 떨어진 것은 오류가 아니라
+  // failed 결과다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다. release 행은 마지막 단계에서만 생긴다.
+  const releasePrepareHandler: MemoryHandler = async (ctx, input) => {
+    const { app } = input as { app: string };
+    const missing = err({
+      code: "not_found" as const,
+      message: "app not found",
+    });
+    const allowed = createTargetAuthorizer(ctx)(ctx, releasePrepare.name, {
+      app,
+    });
+    if (!allowed.ok) {
+      return allowed.error.code === "forbidden" ? allowed : missing;
+    }
+    const facts = preparationFacts(app);
+    if (!facts.ok) return facts;
+    if (facts.value === null) return missing;
+    // release 준비는 agent만 부르고 archived 앱은 agent에게 없는 앱이다.
+    if (facts.value.status === "archived") return missing;
+    const sourcePath = facts.value.source_path;
+    if (sourcePath === null) {
+      return prepareFailed("build", "the app has no source folder");
+    }
+    // agent runtime child는 git을 못 띄우므로 HEAD도 core가 읽는다.
+    const head = await gitCommandRunner().run([
+      "-C",
+      sourcePath,
+      "rev-parse",
+      "HEAD",
+    ]);
+    // git을 못 띄운 것(`unavailable`)은 commit이 없다는 말로 바꾸지 않는다.
+    if (!head.ok && head.error.code === "unavailable") {
+      return prepareFailed("build", head.error.message);
+    }
+    const commit = head.ok ? new TextDecoder().decode(head.value).trim() : "";
+    if (!/^[0-9a-f]{40}$/.test(commit)) {
+      return prepareFailed(
+        "build",
+        "the app source has no commit; commit the code first",
+      );
+    }
+    return prepareCommit({
+      app,
+      sourcePath,
+      commit,
+      previousSchema: facts.value.previous_schema,
+      createdBy: ctx.actor,
+    });
   };
   // 앱 workspace의 session이 그 앱의 prepared release를 올린다. 범위 밖과 없는 release는 같은 not_found다.
   // memory 처리기는 operation을 따로 보지 않아 여기서 직접 판정한다.
@@ -798,6 +854,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       [releasePrepare.name, releasePrepareHandler],
       [releaseActivate.name, releaseActivateHandler],
     ]),
+    prepareCommit,
     sourceRootOf: releaseGate,
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);

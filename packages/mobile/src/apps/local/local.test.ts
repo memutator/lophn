@@ -117,7 +117,17 @@ const items = (path: string) =>
 
 const ITEM = "create table item (id text primary key, title text not null);";
 
-type Release = { id: string; data_schema: number; migrations: { from: number; to: number; sql: string }[] };
+const COMMIT_1 = "1".repeat(40);
+const COMMIT_2 = "2".repeat(40);
+const COMMIT_3 = "3".repeat(40);
+
+type Release = {
+  id: string;
+  code_commit?: string;
+  bundle_hash?: string;
+  data_schema: number;
+  migrations: { from: number; to: number; sql: string }[];
+};
 
 // The computer's data worker migrates the app database the same way (lophn_data_schema rides in the snapshot).
 async function migrated(db: SyncDb, release: Release) {
@@ -155,6 +165,8 @@ async function fakeComputer(
   const backend = new TextEncoder().encode("globalThis.__backend = 1;");
   const screen = new TextEncoder().encode("globalThis.__lophnMount(function(){return null});");
 
+  const commitOf = (release: Release) => release.code_commit ?? COMMIT_1;
+
   function entry(release: Release): PhoneScreen {
     for (const step of release.migrations) {
       blobs.set(`${release.id}/migrations/${step.from}-${step.to}.sql`, new TextEncoder().encode(step.sql));
@@ -168,7 +180,8 @@ async function fakeComputer(
       screen: "home",
       label: "Home",
       release: release.id,
-      bundle_hash: sha(screen),
+      code_commit: commitOf(release),
+      bundle_hash: release.bundle_hash ?? sha(screen),
       manifest: {
         format: 1,
         entry: "phone.js",
@@ -239,7 +252,10 @@ async function fakeComputer(
         }
         case "app_sync/push": {
           if (input["release"] !== state.release.id) {
-            return fail("conflict", "the release is not active", { active_release: state.release.id });
+            return fail("conflict", "the release is not active", {
+              active_release: state.release.id,
+              active_code_commit: commitOf(state.release),
+            });
           }
           const results: { id: string; status: string; seq: number }[] = [];
           for (const change of input["changes"] as { id: string; hlc: string; changeset: string }[]) {
@@ -397,6 +413,7 @@ test("a release change that fails leaves app.sqlite and its outbox as they were;
   // The new release's migration fails on the phone.
   const broken: Release = {
     id: "rel_2",
+    code_commit: COMMIT_2,
     data_schema: 2,
     migrations: [...t.rel1.migrations, { from: 1, to: 2, sql: "alter table missing add column note text;" }],
   };
@@ -414,6 +431,7 @@ test("a release change that fails leaves app.sqlite and its outbox as they were;
   // A good one: the pending change is re-expressed on the new release's snapshot.
   const good: Release = {
     id: "rel_3",
+    code_commit: COMMIT_3,
     data_schema: 2,
     migrations: [...t.rel1.migrations, { from: 1, to: 2, sql: "alter table item add column note text;" }],
   };
@@ -511,22 +529,36 @@ async function waitFor(check: () => boolean, limitMs = 2000) {
   }
 }
 
-test("multiple paired computers share one phone DB with per-computer cursors, serialized sync, lag skipping, and newest-release upgrade", async () => {
+test("multiple paired computers share one phone DB with per-computer cursors, same-commit cross-machine identity, serialized sync, lag skipping, and newest-release upgrade", async () => {
   const dir = mkdtempSync(join(tmpdir(), "lophn-local-multi-"));
   dirs.push(dir);
   const files = nodeFiles(join(dir, "apps"));
   const deps: LocalDeps = { files, open: openDb, now: Date.now };
-  const rel1: Release = { id: "rel_1", data_schema: 1, migrations: [{ from: 0, to: 1, sql: ITEM }] };
-  const c1 = await fakeComputer(dir, rel1, ["computer", "phone"], "c1");
-  const c2 = await fakeComputer(dir, rel1, ["computer", "phone"], "c2");
+  // c1 and c2 built the same commit locally on different OSes: distinct local rel_* ULIDs and bundle_hashes.
+  const rel1a: Release = {
+    id: "rel_1_a",
+    code_commit: COMMIT_1,
+    bundle_hash: "a".repeat(64),
+    data_schema: 1,
+    migrations: [{ from: 0, to: 1, sql: ITEM }],
+  };
+  const rel1b: Release = {
+    id: "rel_1_b",
+    code_commit: COMMIT_1,
+    bundle_hash: "b".repeat(64),
+    data_schema: 1,
+    migrations: [{ from: 0, to: 1, sql: ITEM }],
+  };
+  const c1 = await fakeComputer(dir, rel1a, ["computer", "phone"], "c1");
+  const c2 = await fakeComputer(dir, rel1b, ["computer", "phone"], "c2");
   c1.write("insert into item values ('a1', 'from c1')");
   c2.write("insert into item values ('b1', 'from c2')");
 
   const store = createLocalApps({ ...deps, node: async () => "dev_phone" });
   store.connect("c1", c1.remote);
   store.connect("c2", c2.remote);
-  store.list("c1", [c1.entry(rel1)], () => {});
-  store.list("c2", [c2.entry(rel1)], () => {});
+  store.list("c1", [c1.entry(rel1a)], () => {});
+  store.list("c2", [c2.entry(rel1b)], () => {});
 
   const dbPath = files.absolute(paths(APP).db);
   await waitFor(
@@ -535,10 +567,14 @@ test("multiple paired computers share one phone DB with per-computer cursors, se
       files.exists(paths(APP).db) &&
       items(dbPath).length === 2,
   );
-  // One shared DB holds rows from both computers, with independent per-computer cursors.
+  // One shared DB holds rows from both computers, with independent per-computer cursors and release tokens.
   assert.deepEqual(files.list(""), [APP]);
   assert.deepEqual(items(dbPath), ["a1:from c1", "b1:from c2"]);
   assert.deepEqual([...store.installed(APP)!.computers].sort(), ["c1", "c2"]);
+  assert.equal(store.installed(APP)!.code_commit, COMMIT_1);
+  assert.deepEqual(store.installed(APP)!.computer_releases, { c1: "rel_1_a", c2: "rel_1_b" });
+  // Same commit on c2 must not trigger a reinstall or bundle download from c2.
+  assert.equal(c2.state.calls.includes("apps/phone_file"), false);
   read(dbPath, (db) => {
     assert.equal(readCursor(db, "c1"), 1);
     assert.equal(readCursor(db, "c2"), 1);
@@ -556,39 +592,50 @@ test("multiple paired computers share one phone DB with per-computer cursors, se
     assert.equal(readCursor(db, "c2"), 2);
   });
 
-  // With c1 offline, a phone write pushes to c2 and clears the acked outbox row.
+  // With c1 offline, a phone write pushes to c2 using c2's own rel_1_b token and clears the acked outbox row.
   store.connect("c1", null);
   localWrite(dbPath, "insert into item values ('p1', 'from phone')");
   store.localChange(APP);
   await waitFor(() => c2.items().includes("p1:from phone") && read(dbPath, readOutbox).length === 0);
   assert.equal(read(dbPath, readOutbox).length, 0);
 
-  // c1 upgrades to rel_2 while c2 lags at rel_1: phone upgrades to rel_2 and skips c2 without failing or downgrading.
-  const rel2: Release = {
-    id: "rel_2",
+  // c1 upgrades to COMMIT_2 (rel_2_a) while c2 lags at COMMIT_1 (rel_1_b): phone upgrades and skips c2.
+  const rel2a: Release = {
+    id: "rel_2_a",
+    code_commit: COMMIT_2,
+    bundle_hash: "c".repeat(64),
     data_schema: 2,
-    migrations: [...rel1.migrations, { from: 1, to: 2, sql: "alter table item add column note text;" }],
+    migrations: [...rel1a.migrations, { from: 1, to: 2, sql: "alter table item add column note text;" }],
   };
-  await c1.activate(rel2);
+  await c1.activate(rel2a);
   c1.write("insert into item (id, title) values ('a3', 'on rel2')");
   store.connect("c1", c1.remote);
-  store.list("c1", [c1.entry(rel2)], () => {});
-  await waitFor(() => store.installed(APP)?.release === "rel_2");
+  store.list("c1", [c1.entry(rel2a)], () => {});
+  await waitFor(() => store.installed(APP)?.code_commit === COMMIT_2);
 
-  // c2 (still on rel_1) triggers list & changed: must be skipped, phone stays on rel_2 and ready.
+  // c2 (still on COMMIT_1) triggers list & changed: must be skipped, phone stays on COMMIT_2 and ready.
   const c2CallsBefore = c2.state.calls.length;
-  store.list("c2", [c2.entry(rel1)], () => {});
+  store.list("c2", [c2.entry(rel1b)], () => {});
   store.changed("c2", APP);
   await new Promise((resolve) => setTimeout(resolve, 40));
-  assert.equal(store.installed(APP)?.release, "rel_2");
+  assert.equal(store.installed(APP)?.code_commit, COMMIT_2);
   assert.equal(store.get().find((one) => one.app === APP)?.state, "ready");
   assert.equal(c2.state.calls.length, c2CallsBefore);
 
-  // Once c2 catches up to rel_2, phone syncs with c2 and pulls its new rel_2 write.
-  await c2.activate(rel2);
+  // Once c2 catches up to COMMIT_2 with its own local rel_2_b, phone syncs with c2 without reinstalling.
+  const rel2b: Release = {
+    id: "rel_2_b",
+    code_commit: COMMIT_2,
+    bundle_hash: "d".repeat(64),
+    data_schema: 2,
+    migrations: [...rel1b.migrations, { from: 1, to: 2, sql: "alter table item add column note text;" }],
+  };
+  await c2.activate(rel2b);
   c2.write("insert into item (id, title) values ('b3', 'c2 on rel2')");
-  store.list("c2", [c2.entry(rel2)], () => {});
+  store.list("c2", [c2.entry(rel2b)], () => {});
   await waitFor(() => items(dbPath).includes("b3:c2 on rel2"));
+  assert.equal(c2.state.calls.includes("apps/phone_file"), false);
+  assert.deepEqual(store.installed(APP)!.computer_releases, { c1: "rel_2_a", c2: "rel_2_b" });
   assert.ok(items(dbPath).includes("a3:on rel2"));
   assert.ok(items(dbPath).includes("b3:c2 on rel2"));
 });

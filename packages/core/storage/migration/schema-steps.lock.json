@@ -362,5 +362,9 @@
   {
     "id": "remote.grants",
     "sha256": "d19a6698a7f4314d07e151add8b2b27b0db49c30677487ff1d4ab6cb8f084854"
+  },
+  {
+    "id": "folder.code-commit",
+    "sha256": "7210cf2334e64a82f36e37c2584ea01c223be21bb895c2a6acd0db10bfa6b0a6"
   }
 ]

@@ -12,7 +12,6 @@ import { chooseRelease, type OfferedRelease } from "./order.ts";
 const APP = "app_01arz3ndektsv4rrffq69g5fav" as Id<"app">;
 const A = "mch_01arz3ndektsv4rrffq69g5fa1" as Id<"mch">;
 const B = "mch_01arz3ndektsv4rrffq69g5fa2" as Id<"mch">;
-const hash = (c: string) => c.repeat(64);
 const commit = (c: string) => c.repeat(40);
 
 // 작은 git 기록: p ← c0 ← c1 ← c2, 그리고 c0 ← x(c1과 갈라짐), p ← y(c0과 갈라짐). m은 이 저장소에 아직 없다.
@@ -33,17 +32,14 @@ async function isAncestor(ancestor: string, descendant: string) {
 }
 
 const CURRENT = {
-  bundle_hash: hash("a"),
   code_commit: commit("0"),
   data_schema: 2,
 };
 const offer = (
-  bundle: string,
   code: string,
   extra: Partial<OfferedRelease> = {},
 ): OfferedRelease => ({
   machine: A,
-  bundle_hash: hash(bundle),
   code_commit: commit(code),
   data_schema: 2,
   created_at: "2026-11-10T00:00:00.000Z",
@@ -55,70 +51,70 @@ test("옛 기계의 release와 이 기계가 내려놓은 release는 목표가 �
     name: string;
     offered: OfferedRelease[];
     dropped?: string[];
-    want: { kind: string; bundle?: string };
+    want: { kind: string; commit?: string; machine?: Id<"mch"> };
   }[] = [
     {
       name: "일직선",
-      offered: [offer("b", "1")],
-      want: { kind: "target", bundle: hash("b") },
+      offered: [offer("1")],
+      want: { kind: "target", commit: commit("1") },
     },
     {
       name: "건너뛰기",
-      offered: [offer("b", "1"), offer("c", "2", { machine: B })],
-      want: { kind: "target", bundle: hash("c") },
+      offered: [offer("1"), offer("2", { machine: B })],
+      want: { kind: "target", commit: commit("2") },
     },
     {
       name: "조상(옛 기계)",
-      offered: [offer("p", "9")],
+      offered: [offer("9")],
       want: { kind: "current" },
     },
     {
-      name: "같은 commit의 다른 bundle은 후보가 아니다",
-      offered: [offer("s", "0")],
+      name: "같은 commit은 후보가 아니다",
+      offered: [offer("0", { machine: B })],
       want: { kind: "current" },
     },
     {
       name: "갈라짐",
       offered: [
-        offer("b", "1"),
-        offer("x", "7", { machine: B, created_at: "2026-11-11T00:00:00.000Z" }),
+        offer("1"),
+        offer("7", { machine: B, created_at: "2026-11-11T00:00:00.000Z" }),
       ],
-      want: { kind: "diverged", bundle: hash("x") },
+      want: { kind: "diverged", commit: commit("7") },
     },
     {
       name: "이 기계와 갈라짐(그 기계가 따로 release를 냈다)",
-      offered: [offer("y", "8")],
-      want: { kind: "diverged", bundle: hash("y") },
+      offered: [offer("8")],
+      want: { kind: "diverged", commit: commit("8") },
     },
     {
       name: "낮은 data schema",
-      offered: [offer("b", "1", { data_schema: 1 })],
+      offered: [offer("1", { data_schema: 1 })],
       want: { kind: "current" },
     },
     {
       name: "superseded(이 기계가 내려놓았다)",
-      offered: [offer("b", "1")],
-      dropped: [hash("b")],
+      offered: [offer("1")],
+      dropped: [commit("1")],
       want: { kind: "current" },
     },
     {
       name: "failed는 건너뛰고 그 앞 release로 간다",
-      offered: [offer("b", "1"), offer("c", "2", { machine: B })],
-      dropped: [hash("c")],
-      want: { kind: "target", bundle: hash("b") },
+      offered: [offer("1"), offer("2", { machine: B })],
+      dropped: [commit("2")],
+      want: { kind: "target", commit: commit("1") },
     },
     {
       name: "commit이 아직 없다",
-      offered: [offer("m", "5")],
+      offered: [offer("5")],
       want: { kind: "current" },
     },
     {
-      name: "같은 commit의 두 bundle은 먼저 활성된 쪽",
+      name: "같은 commit을 두 기계가 냈으면 먼저 활성된 쪽",
       offered: [
-        offer("d", "1", { created_at: "2026-11-12T00:00:00.000Z" }),
-        offer("e", "1", { machine: B, created_at: "2026-11-11T00:00:00.000Z" }),
+        offer("1", { created_at: "2026-11-12T00:00:00.000Z" }),
+        offer("1", { machine: B, created_at: "2026-11-11T00:00:00.000Z" }),
       ],
-      want: { kind: "target", bundle: hash("e") },
+      want: { kind: "target", commit: commit("1"), machine: B },
     },
   ];
   for (const one of cases) {
@@ -131,10 +127,17 @@ test("옛 기계의 release와 이 기계가 내려놓은 release는 목표가 �
     assert.deepEqual(
       {
         kind: choice.kind,
-        bundle:
-          choice.kind === "current" ? undefined : choice.release.bundle_hash,
+        ...(choice.kind === "current"
+          ? {}
+          : { commit: choice.release.code_commit }),
+        ...(one.want.machine === undefined
+          ? {}
+          : {
+              machine:
+                choice.kind === "current" ? undefined : choice.release.machine,
+            }),
       },
-      { kind: one.want.kind, bundle: one.want.bundle },
+      one.want,
       one.name,
     );
   }
@@ -156,11 +159,11 @@ test("따라가려는 release가 grant에 없는 바깥 자원을 요구하면 a
   } as AppGrant;
   const rows: Pick<
     ReleaseRecord,
-    "id" | "bundle_hash" | "status" | "failure"
+    "id" | "code_commit" | "status" | "failure"
   >[] = [
     {
       id: "rel_01arz3ndektsv4rrffq69g5fb0" as never,
-      bundle_hash: hash("a"),
+      code_commit: commit("0"),
       status: "active",
       failure: null,
     },
@@ -205,7 +208,7 @@ test("따라가려는 release가 grant에 없는 바깥 자원을 요구하면 a
   });
   const follow = createFollow({
     apps: () => [{ app: APP, source_path: "/src", release: CURRENT }],
-    offered: () => [offer("b", "1", { machine: B })],
+    offered: () => [offer("1", { machine: B })],
     releases: () => ok(rows),
     consent: (release) => consents.get(release) ?? null,
     isAncestor: (_source, a, d) => isAncestor(a, d),
@@ -213,7 +216,7 @@ test("따라가려는 release가 grant에 없는 바깥 자원을 요구하면 a
       const id = "rel_01arz3ndektsv4rrffq69g5fb1";
       rows.push({
         id: id as never,
-        bundle_hash: input.release,
+        code_commit: input.release,
         status: "prepared",
         failure: null,
       });
@@ -240,7 +243,7 @@ test("따라가려는 release가 grant에 없는 바깥 자원을 요구하면 a
   assert.deepEqual(started, []);
   assert.deepEqual(follow.state(APP), {
     state: "waiting_consent",
-    release: hash("b"),
+    release: commit("1"),
     reason: null,
   });
 

@@ -25,7 +25,7 @@ export type FollowState = {
     | "install_failed"
     | "activation_failed"
     | "diverged";
-  /** 따라가려는(또는 막힌) release의 bundle hash. `current`면 null. */
+  /** 따라가려는(또는 막힌) release의 code_commit. `current`면 null. */
   release: string | null;
   reason: string | null;
 };
@@ -44,7 +44,7 @@ export type FollowDeps = {
   releases(
     app: Id<"app">,
   ): Result<
-    readonly Pick<ReleaseRecord, "id" | "bundle_hash" | "status" | "failure">[]
+    readonly Pick<ReleaseRecord, "id" | "code_commit" | "status" | "failure">[]
   >;
   /** 그 release의 동의 줄. 허락한 줄은 activation sweep이 시작한다. */
   consent(release: string): "waiting" | "allowed" | null;
@@ -76,14 +76,14 @@ export type Follow = {
 const CURRENT: FollowState = { state: "current", release: null, reason: null };
 
 type GaveUp = {
-  bundle: string;
+  commit: string;
   state: "install_failed" | "lophn_update" | "declined";
   reason: string | null;
 };
 
 export function createFollow(deps: FollowDeps): Follow {
   const states = new Map<Id<"app">, FollowState>();
-  // 같은 bundle을 이 core가 도는 동안 다시 하지 않는다. 다른 목표가 오면 지운다.
+  // 같은 commit을 이 core가 도는 동안 다시 하지 않는다. 다른 목표가 오면 지운다.
   const gaveUp = new Map<Id<"app">, GaveUp>();
   const listeners = new Set<(app: Id<"app">, state: FollowState) => void>();
   const lanes = new Map<Id<"app">, { done: Promise<void>; again: boolean }>();
@@ -114,18 +114,19 @@ export function createFollow(deps: FollowDeps): Follow {
     }
     const rows = deps.releases(app);
     if (!rows.ok) return;
-    const byHash = new Map(rows.value.map((row) => [row.bundle_hash, row]));
+    // number 오름차순이라 같은 commit의 가장 늦은 release가 남는다.
+    const byCommit = new Map(rows.value.map((row) => [row.code_commit, row]));
     const offered = deps.offered(app);
     const source = local.source_path;
     const choice = await chooseRelease({
       current: local.release,
       offered,
       dropped: new Set(
-        rows.value
+        [...byCommit.values()]
           .filter(
             (row) => row.status === "superseded" || row.status === "failed",
           )
-          .map((row) => row.bundle_hash),
+          .map((row) => row.code_commit),
       ),
       isAncestor: (a, d) =>
         source === null
@@ -137,7 +138,7 @@ export function createFollow(deps: FollowDeps): Follow {
       // 다른 기계가 돌리는 더 새 release가 여기서 activation에 실패했으면(실패한 release는 고르지 않는다) 이유를 둔다.
       // 실패는 release 행(ledger)에서 읽어 core가 다시 떠도 보인다.
       for (const each of offered) {
-        const failed = byHash.get(each.bundle_hash);
+        const failed = byCommit.get(each.code_commit);
         if (
           failed?.status !== "failed" ||
           failed.failure === null ||
@@ -154,7 +155,7 @@ export function createFollow(deps: FollowDeps): Follow {
         if (!after.ok || after.value !== true) continue;
         set(app, {
           state: "activation_failed",
-          release: each.bundle_hash,
+          release: each.code_commit,
           reason: `${failed.failure.code}: ${failed.failure.summary}`,
         });
         return;
@@ -162,39 +163,40 @@ export function createFollow(deps: FollowDeps): Follow {
       set(app, CURRENT);
       return;
     }
-    const bundle = choice.release.bundle_hash;
+    const commit = choice.release.code_commit;
     if (choice.kind === "diverged") {
-      set(app, { state: "diverged", release: bundle, reason: null });
+      set(app, { state: "diverged", release: commit, reason: null });
       return;
     }
     const given = gaveUp.get(app);
-    if (given !== undefined && given.bundle === bundle) {
-      set(app, { state: given.state, release: bundle, reason: given.reason });
+    if (given !== undefined && given.commit === commit) {
+      set(app, { state: given.state, release: commit, reason: given.reason });
       return;
     }
     gaveUp.delete(app);
 
-    const row = byHash.get(bundle);
+    const row = byCommit.get(commit);
     if (row?.status === "activating") {
-      set(app, { state: "activating", release: bundle, reason: null });
+      set(app, { state: "activating", release: commit, reason: null });
       return;
     }
     let release = row?.id as string | undefined;
     if (release === undefined) {
-      set(app, { state: "installing", release: bundle, reason: null });
+      set(app, { state: "installing", release: commit, reason: null });
       const taken = await deps.takeIn({
         app,
         from: choice.release.machine,
-        release: bundle,
+        release: commit,
       });
       if (!taken.ok) {
         const details = taken.error.details as
           | { reason?: string; packages?: string[] }
           | undefined;
-        // release 폴더가 아직 다 오지 않았다. 다음 계기에 다시 한다.
+        // source commit이 아직 다 오지 않았거나 다른 준비가 돌고 있다. 다음 계기에 다시 한다.
         if (
-          taken.error.code === "invalid_input" &&
-          details?.reason === "release_incomplete"
+          (taken.error.code === "invalid_input" &&
+            details?.reason === "source_incomplete") ||
+          (taken.error.code === "conflict" && details?.reason === "preparing")
         ) {
           set(app, initial);
           return;
@@ -202,15 +204,15 @@ export function createFollow(deps: FollowDeps): Follow {
         const failed: GaveUp =
           taken.error.code === "conflict" && details?.reason === "sdk_missing"
             ? {
-                bundle,
+                commit,
                 state: "lophn_update",
                 reason: (details.packages ?? []).join(", ") || null,
               }
-            : { bundle, state: "install_failed", reason: taken.error.message };
+            : { commit, state: "install_failed", reason: taken.error.message };
         gaveUp.set(app, failed);
         set(app, {
           state: failed.state,
-          release: bundle,
+          release: commit,
           reason: failed.reason,
         });
         return;
@@ -223,12 +225,12 @@ export function createFollow(deps: FollowDeps): Follow {
     if (consent !== null) {
       set(app, {
         state: consent === "waiting" ? "waiting_consent" : "activating",
-        release: bundle,
+        release: commit,
         reason: null,
       });
       return;
     }
-    set(app, { state: "activating", release: bundle, reason: null });
+    set(app, { state: "activating", release: commit, reason: null });
     const done = await deps.activate(release);
     // 같은 앱에 도는 시도가 있거나(conflict: 앞서 따라간 release가 동의를 기다리는 때도) activation을 아직 못 한다
     // (unavailable). 다음 계기에 다시 한다.
@@ -241,14 +243,14 @@ export function createFollow(deps: FollowDeps): Follow {
     else if (out.status === "failed") {
       set(app, {
         state: "activation_failed",
-        release: bundle,
+        release: commit,
         reason: `${out.failure.code}: ${out.failure.summary}`,
       });
     } else {
       set(app, {
         state:
           out.status === "waiting_consent" ? "waiting_consent" : "activating",
-        release: bundle,
+        release: commit,
         reason: null,
       });
     }
@@ -294,10 +296,10 @@ export function createFollow(deps: FollowDeps): Follow {
       if (outcome !== "reject") return;
       const rows = deps.releases(app);
       if (!rows.ok) return;
-      const bundle = rows.value.find((row) => row.id === release)?.bundle_hash;
+      const commit = rows.value.find((row) => row.id === release)?.code_commit;
       // 따라가던 release만. 사람이나 agent가 연 다른 activation의 거절은 이 기억과 상관없다.
-      if (bundle === undefined || stateOf(app).release !== bundle) return;
-      gaveUp.set(app, { bundle, state: "declined", reason: null });
+      if (commit === undefined || stateOf(app).release !== commit) return;
+      gaveUp.set(app, { commit, state: "declined", reason: null });
     },
   };
 }

@@ -15,7 +15,7 @@ import {
 const MACHINE = "mch_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mch">;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 const AT = "2026-11-16T00:00:00.000Z";
-const RELEASE = { bundle_hash: "a".repeat(64), data_schema: 3 };
+const RELEASE = { code_commit: "a".repeat(40), data_schema: 3 };
 const PATH = dataEntryPath(MACHINE, APP, 1, "changes");
 const text = (value: string) => new TextEncoder().encode(value);
 
@@ -51,7 +51,7 @@ async function goodFile(): Promise<Uint8Array> {
 async function forge(
   header: Record<string, unknown>,
   payload: Uint8Array,
-  version = "1",
+  version = "2",
 ): Promise<Uint8Array> {
   const line2 = text(`${JSON.stringify(header)}\n`);
   const line1 = text(
@@ -123,7 +123,7 @@ test("깨지거나 반만 쓰인 변경 file은 아무것도 내놓지 않고, �
 
   const { header, payload } = await forgedHeader();
   assert.equal(
-    await refused(await forge(header, payload, "2")),
+    await refused(await forge(header, payload, "3")),
     "newer_format",
   );
   // header가 제 hash와 맞아도 path의 번호와 다르면 맞는 file이 아니다.
@@ -155,7 +155,7 @@ test("모르는 칸이 더해진 header와 기록은 읽히고, 판이나 format
   );
 
   const appRecord = {
-    format: 1,
+    format: 2,
     machine: MACHINE,
     app: APP,
     revision: 4,
@@ -165,12 +165,10 @@ test("모르는 칸이 더해진 header와 기록은 읽히고, 판이나 format
     description: "",
     sync_to: "personal",
     active_release: {
-      bundle_hash: RELEASE.bundle_hash,
-      data_schema: 3,
       code_commit: "b".repeat(40),
+      data_schema: 3,
       created_at: AT,
     },
-    releases: [RELEASE.bundle_hash],
     data: { head: 12, snapshot: 10 },
     source: { head: 2 },
     read: { [MACHINE]: { n: 4, at: AT } },
@@ -192,7 +190,7 @@ test("모르는 칸이 더해진 header와 기록은 읽히고, 판이나 format
     machineRecordSchema,
     text(
       JSON.stringify({
-        format: 1,
+        format: 2,
         machine: MACHINE,
         revision: 1,
         updated_at: AT,
@@ -202,7 +200,7 @@ test("모르는 칸이 더해진 header와 기록은 읽히고, 판이나 format
         lophn: {
           version: "0.23.0",
           protocol: { version: 2, min_version: 2 },
-          folder: { version: 1, min_version: 1 },
+          folder: { version: 2, min_version: 2 },
         },
         battery: "full",
       }),
@@ -212,7 +210,7 @@ test("모르는 칸이 더해진 header와 기록은 읽히고, 판이나 format
 
   const newer = decodeRecord(
     appRecordSchema,
-    text(JSON.stringify({ ...appRecord, format: 2, slug: 7 })),
+    text(JSON.stringify({ ...appRecord, format: 3, slug: 7 })),
   );
   assert.ok(!newer.ok);
   assert.equal(newer.error.code, "newer_format");

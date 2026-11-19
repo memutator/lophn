@@ -28,7 +28,7 @@ export async function writeEventFile(input: {
   me: Id<"mch">;
   destination: { name: string; path: string };
   app: Id<"app">;
-  bundle_hash: string;
+  code_commit: string;
   event: { id: string; name: string; payload: JsonValue; at: string };
   transaction: Transaction;
   clock: Clock;
@@ -40,11 +40,11 @@ export async function writeEventFile(input: {
   let bytes: Uint8Array;
   try {
     bytes = encodeRecord(eventFileSchema, {
-      format: 1,
+      format: 2,
       machine: me,
       app,
       id,
-      bundle_hash: input.bundle_hash,
+      code_commit: input.code_commit,
       name: input.event.name,
       payload: input.event.payload,
       at: input.event.at,

@@ -1,7 +1,6 @@
 // 이 module이 folder 표(schema.ts)에 두는 상태. 행의 machine은 지금 기계 id다.
 // - folder_streams: stream `app`(next_n = 다음 revision), `source`(next_n = 다음 bundle 번호). error는 FolderError JSON.
-// - folder_written: 쓴 `app.json`(n = revision, written_at = updated_at), release 폴더(path는 그 `release.json`, stream
-//   `release`), source file(stream `source`).
+// - folder_written: 쓴 `app.json`(n = revision, written_at = updated_at), source file(stream `source`).
 // - folder_reads: 다른 기계 source의 받은 번호(stream `source`).
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { FolderError } from "../../../protocol/folder/mod.ts";
@@ -42,7 +41,7 @@ export function recordWritten(
     destination: string;
     path: string;
     app: Id<"app">;
-    stream: "app" | "release" | "source";
+    stream: "app" | "source";
     n: number | null;
     sha256: string;
     size: number;
@@ -67,39 +66,6 @@ export function recordWritten(
       row.size,
       row.at,
     ],
-  );
-}
-
-/** 이 기계가 쓴 release 폴더(지우지 않은 것)의 `release.json` path와 쓴 때. */
-export function writtenReleases(
-  sql: Sql,
-  machine: Id<"mch">,
-  destination: string,
-  app: Id<"app">,
-): { path: string; written_at: string }[] {
-  return sql
-    .all(
-      `SELECT path, written_at FROM folder_written
-        WHERE machine = ? AND destination = ? AND app = ? AND stream = 'release' AND deleted_at IS NULL
-        ORDER BY written_at DESC, path`,
-      [machine, destination, app],
-    )
-    .map((row) => ({
-      path: String(row.path),
-      written_at: String(row.written_at),
-    }));
-}
-
-export function markDeleted(
-  sql: Sql,
-  machine: Id<"mch">,
-  destination: string,
-  path: string,
-  at: string,
-): void {
-  sql.run(
-    `UPDATE folder_written SET deleted_at = ? WHERE machine = ? AND destination = ? AND path = ?`,
-    [at, machine, destination, path],
   );
 }
 

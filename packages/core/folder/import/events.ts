@@ -1,5 +1,5 @@
 // 다른 기계가 낸 기계를 건너는 event file을 읽어 이 기계에서 한 번 낸다. 이 기계에 든 앱마다 그 `sync_to` 폴더의 다른 기계
-// `apps/<app>/events/`를 나열하고, 꼴·크기·path와 내용·나이(`readEventFile`)·이 기계 활성 release의 bundle hash가 맞고
+// `apps/<app>/events/`를 나열하고, 꼴·크기·path와 내용·나이(`readEventFile`)·이 기계 활성 release의 code_commit이 맞고
 // `folder_events_seen`에 없는 것을 한 transaction에서 그 표에 적은 뒤 낸다. 같은 file이 여러 길로 와도 행 하나라 한 번이다.
 import { type Clock, formatAt, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -39,7 +39,7 @@ export function markEventSeen(
 
 export async function readArrivedEvents(input: {
   me: Id<"mch">;
-  apps: { app: Id<"app">; sync_to: string; bundle_hash: string }[];
+  apps: { app: Id<"app">; sync_to: string; code_commit: string }[];
   destinations: DestinationsView;
   transaction<T>(fn: (tx: Pick<Tx, "sql">) => Result<T>): Result<T>;
   clock: Clock;
@@ -64,7 +64,7 @@ export async function readArrivedEvents(input: {
         const read = await reader.read(path, EVENT_FILE_MAX_BYTES);
         if (!read.ok) continue;
         const event = readEventFile(path, read.value, nowMs);
-        if (event !== null && event.bundle_hash === app.bundle_hash) {
+        if (event !== null && event.code_commit === app.code_commit) {
           found.push(event);
         }
       }
@@ -100,7 +100,7 @@ export async function readArrivedEvents(input: {
       name: event.name,
       payload: event.payload,
       at: event.at,
-      bundle_hash: event.bundle_hash,
+      code_commit: event.code_commit,
     });
   }
   return ok(fresh.value.length);

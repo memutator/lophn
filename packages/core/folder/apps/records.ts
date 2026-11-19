@@ -9,7 +9,6 @@ import {
   FOLDER_FORMAT,
 } from "../../../protocol/folder/mod.ts";
 import type { FolderAppProgress } from "./deps.ts";
-import { listedReleases } from "./releases.ts";
 import { recordWritten, setStream, streamOf, written } from "./state.ts";
 import type { Target } from "./target.ts";
 
@@ -32,12 +31,10 @@ export async function writeAppRecord(
       app.release === null
         ? null
         : {
-            bundle_hash: app.release.bundle_hash,
-            data_schema: app.release.data_schema,
             code_commit: app.release.code_commit,
+            data_schema: app.release.data_schema,
             created_at: app.release.created_at,
           },
-    releases: listedReleases(target),
     data: {
       head: data === null ? 0 : data.next_n - 1,
       snapshot: data?.last_snapshot_n ?? null,

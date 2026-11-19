@@ -6,7 +6,6 @@ import type { FollowState } from "../follow/mod.ts";
 import type { HeldDetail, MachineExchange } from "../../folder/import/mod.ts";
 
 type ActiveRelease = {
-  bundle_hash: string;
   code_commit: string;
   data_schema: number;
 };
@@ -23,12 +22,12 @@ export type UpdateStateInput = {
   offered: readonly { machine: Id<"mch">; release: ActiveRelease | null }[];
   /** 모든 기계의 앱 기록 사본이 있는 (기계, 앱). 범위 밖 기계가 범위 밖이 되기 전에 읽은 옛 사본도 든다. */
   recorded: readonly { machine: Id<"mch">; app: Id<"app"> }[];
-  releases: readonly Pick<ReleaseRecord, "bundle_hash" | "number">[];
+  releases: readonly Pick<ReleaseRecord, "code_commit" | "number">[];
 };
 
 export function buildUpdateState(input: UpdateStateInput): UpdateState {
   const { me, current } = input;
-  const local = new Map(input.releases.map((row) => [row.bundle_hash, row]));
+  const local = new Map(input.releases.map((row) => [row.code_commit, row]));
   const exchange = new Map(input.machines.map((row) => [row.machine, row]));
 
   const machineRow = (
@@ -46,8 +45,7 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
         release === null
           ? null
           : {
-              bundle_hash: release.bundle_hash,
-              number: local.get(release.bundle_hash)?.number ?? null,
+              number: local.get(release.code_commit)?.number ?? null,
               code_commit: release.code_commit,
               data_schema: release.data_schema,
             },
@@ -78,21 +76,21 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
   // 이 기계가 지금 것보다 먼저 들인 release는 옛 release다. 사람이 이전으로 돌아가 내려놓은 release는 번호가 더 커서 newer다:
   // 그 기계는 내려오지 않으니 "그 기계가 올라오면 온다"고 보이면 틀린다.
   const currentNumber =
-    current === null ? null : (local.get(current.bundle_hash)?.number ?? null);
+    current === null ? null : (local.get(current.code_commit)?.number ?? null);
   const held = input.held
     // 지금 release의 held는 바로 적용되는 중이다.
-    .filter((row) => row.bundle_hash !== current?.bundle_hash)
+    .filter((row) => row.code_commit !== current?.code_commit)
     .map((row) => {
-      const number = local.get(row.bundle_hash)?.number ?? null;
+      const number = local.get(row.code_commit)?.number ?? null;
       const diverged =
         input.follow.state === "diverged" &&
-        row.bundle_hash === input.follow.release;
+        row.code_commit === input.follow.release;
       const older =
         row.data_schema < (current?.data_schema ?? 0) ||
         (number !== null && currentNumber !== null && number < currentNumber);
       return {
         machine: row.origin,
-        bundle_hash: row.bundle_hash,
+        code_commit: row.code_commit,
         data_schema: row.data_schema,
         changes: row.changes,
         bytes: row.bytes,

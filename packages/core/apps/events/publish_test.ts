@@ -49,7 +49,7 @@ const ORIGIN = `mch_${"0".repeat(24)}c1` as Id<"mch">;
 const DESK = `mch_${"0".repeat(24)}d1` as Id<"mch">;
 // 이 기계에 없는 앱(다른 컴퓨터에만 있다).
 const REMOTE_ONLY = appId("z9");
-const BUNDLE = "a".repeat(64);
+const COMMIT = "a".repeat(40);
 
 function release(app: string, declaration: object) {
   return {
@@ -130,7 +130,7 @@ function setup(ancestry: Id<"app">[] = []) {
       ok: true as const,
       value: {
         release: `rel_${PUBLISHER.slice(4)}` as Id<"rel">,
-        bundle_hash: BUNDLE,
+        code_commit: COMMIT,
         declaration: declaration.current,
       },
     }),
@@ -222,7 +222,7 @@ function setup(ancestry: Id<"app">[] = []) {
         name: "usage.limit",
         payload: payload as never,
         at: clock.now(),
-        bundle_hash: BUNDLE,
+        code_commit: COMMIT,
       });
       await new Promise((resolve) => setImmediate(resolve));
     },
@@ -489,11 +489,11 @@ test("같은 event가 연결과 늦은 길로 둘 다 와도 구독자는 한 �
     writeFileSync(
       join(home, ...path.split("/")),
       encodeRecord(eventFileSchema, {
-        format: 1,
+        format: 2,
         machine: ORIGIN,
         app: PUBLISHER,
         id,
-        bundle_hash: BUNDLE,
+        code_commit: COMMIT,
         name: "usage.limit",
         payload: { percent: 77 },
         at: "2026-11-10T00:00:00.000Z",
@@ -508,7 +508,7 @@ test("같은 event가 연결과 늦은 길로 둘 다 와도 구독자는 한 �
   const readFiles = async (s: ReturnType<typeof setup>, home: string) => {
     const done = await readArrivedEvents({
       me: ME,
-      apps: [{ app: PUBLISHER, sync_to: "computers", bundle_hash: BUNDLE }],
+      apps: [{ app: PUBLISHER, sync_to: "computers", code_commit: COMMIT }],
       destinations: {
         resolve: () => ({ path: home, state: "ok" }),
         list: () => [],

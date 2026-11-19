@@ -485,10 +485,10 @@ type AppEventDeps = {
   delivery: EventDelivery;
   // 그 앱의 slug와 보관 여부. 없는 앱은 null이다.
   app(id: string): Result<{ slug: string; archived: boolean } | null>;
-  // active release와 그 봉인 bundle hash, 고정 선언. 없으면 null이다.
+  // active release와 그 code_commit, 고정 선언. 없으면 null이다.
   activeDeclaration(app: string): Result<{
     release: Id<"rel">;
-    bundle_hash: string;
+    code_commit: string;
     declaration: AppDeclaration;
   } | null>;
   // 이 기계의 call 정책에서 그 앱 workspace가 private인가. private인 앱의 event는 기계를 건너지 않는다.
@@ -650,7 +650,7 @@ export type EventArrivalDeps = AppEventDeps & { nowMs(): number };
 
 /**
  * 다른 기계에서 온 event file 하나를 이 기계에서 낸다. 이 기계에 그 앱이 있고, 이 기계의 call 정책에서 그 앱 workspace가
- * private이 아니고, `at`이 나이 한도 안이고, 이 기계 활성 release가 같은 bundle이고 그 선언이 그 event를 `across_machines`로
+ * private이 아니고, `at`이 나이 한도 안이고, 이 기계 활성 release가 같은 code_commit이고 그 선언이 그 event를 `across_machines`로
  * 두며 payload가 schema에 맞을 때만이다. 아니면 log 한 줄을 남기고 내지 않는다. 한 번만 내는 것은 부르는 쪽(folder)이 지킨다.
  */
 export function createEventArrival(deps: EventArrivalDeps): EventArrived {
@@ -676,7 +676,7 @@ export function createEventArrival(deps: EventArrivalDeps): EventArrived {
     }
     const active = deps.activeDeclaration(input.app);
     if (!active.ok || active.value === null) return skip("release");
-    if (active.value.bundle_hash !== input.bundle_hash) {
+    if (active.value.code_commit !== input.code_commit) {
       return skip("release");
     }
     const declared = active.value.declaration.events?.find(

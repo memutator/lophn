@@ -29,30 +29,28 @@ import {
   canonicalJson,
   validateDeclaration,
 } from "../../../protocol/apps/declaration/mod.ts";
-import { TargetAuthorization } from "../../../protocol/server/target-authorization.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import {
+  appRecordPath,
+  appRecordSchema,
+  decodeRecord,
+  sourcePath,
+} from "../../../protocol/folder/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Sql,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
-import {
-  appRecordPath,
-  appRecordSchema,
-  decodeRecord,
-  encodeRecord,
-  releaseDir,
-  releaseRecordSchema,
-} from "../../../protocol/folder/mod.ts";
-import { sdkSchemaSteps } from "../../apps/packages/schema.ts";
-import { permissionsSchemaSteps } from "../../apps/permissions/schema.ts";
+import { TargetAuthorization } from "../../../protocol/server/target-authorization.ts";
+import type { PrepareCommitResult } from "../../apps/control.ts";
 import {
   createFolderAppsHost,
   type FolderCommand,
 } from "../../apps/folder-host.ts";
+import { sdkSchemaSteps } from "../../apps/packages/schema.ts";
+import { permissionsSchemaSteps } from "../../apps/permissions/schema.ts";
 import { createAppCommands } from "../../apps/registration/commands.ts";
-import { FOLDER_APPS_CONTEXT } from "../../apps/registration/folder-take-in.ts";
 import { appsSchemaSteps } from "../../apps/registration/schema.ts";
 import { createActivationHandlers } from "../../apps/releases/activation/handler.ts";
 import { buildManifest } from "../../apps/releases/bundle/manifest.ts";
@@ -70,7 +68,7 @@ import {
 } from "../../apps/releases/store.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import type { DestinationsView } from "../destinations.ts";
-import { FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
 import {
   createFolderApps,
   type FolderAppRecordCopy,
@@ -80,6 +78,7 @@ import {
 
 const A = "mch_01haaaaaaaaaaaaaaaaaaaaaaa" as Id<"mch">;
 const B = "mch_01hbbbbbbbbbbbbbbbbbbbbbbb" as Id<"mch">;
+const C = "mch_01hccccccccccccccccccccccc" as Id<"mch">;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 const DESTINATION = "shared";
 
@@ -115,14 +114,7 @@ const machineCtx: RequestContext = {
   conditions: {},
   credential_ref: "machine:folder-apps",
 };
-// app.create는 아직 사람 자격만 id를 정한다(보고의 계약 바꾸기 요청). 그때까지 등록만 사람 자격으로 부른다.
-const userCtx: RequestContext = {
-  ...machineCtx,
-  principal: "user",
-  actor: "user",
-};
 
-// B 기계의 ledger에서 command 하나 = transaction 하나로 실제 handler를 부른다.
 function commandPort(db: DatabaseSync, now: () => string): FolderCommand {
   const ids = createIdSource({
     clock: { now, nowMs: () => Date.parse(now()) },
@@ -161,6 +153,146 @@ function commandPort(db: DatabaseSync, now: () => string): FolderCommand {
   };
 }
 
+function destinations(path: string): DestinationsView {
+  return {
+    list: () => [{ name: DESTINATION, path, state: "ok" }],
+    resolve: (name) => (name === DESTINATION ? { path, state: "ok" } : null),
+  };
+}
+
+function recordsIn(
+  dest: string,
+  origins: readonly Id<"mch">[],
+): FolderAppRecordCopy[] {
+  const out: FolderAppRecordCopy[] = [];
+  for (const origin of origins) {
+    const path = join(dest, appRecordPath(origin, APP));
+    if (!existsSync(path)) continue;
+    const record = decodeRecord(appRecordSchema, readFileSync(path));
+    assert.ok(record.ok);
+    out.push({ origin, destination: DESTINATION, record: record.value });
+  }
+  return out;
+}
+
+// 이 기계에서 commit을 build·봉인·기록하는 prepareCommit 모사(외부 npm·supervisor 없이 git commit과 release.record를 쓴다).
+function makeLocalPrepare(
+  root: string,
+  command: FolderCommand,
+  prepared: { app: string; sourcePath: string; commit: string }[],
+) {
+  let seq = 0;
+  return async (input: {
+    app: string;
+    sourcePath: string;
+    commit: string;
+    createdBy: string;
+  }): Promise<Result<PrepareCommitResult>> => {
+    // commit이 실제 source 저장소에 있어야 한다.
+    assert.equal(
+      git(
+        input.sourcePath,
+        "rev-parse",
+        "--verify",
+        `${input.commit}^{commit}`,
+      ),
+      input.commit,
+    );
+    prepared.push({
+      app: input.app,
+      sourcePath: input.sourcePath,
+      commit: input.commit,
+    });
+    const validated = validateDeclaration({
+      name: "Notes",
+      description: "Keeps notes.",
+      screens: [],
+      operations: [],
+      commands: [],
+      permissions: [],
+      app_connections: [],
+      sdk_dependencies: [{ name: "@lophn/declaration", version: "4.9.0" }],
+    });
+    assert.ok(validated.ok);
+    const declarationJson = canonicalJson(validated.value as never);
+    const declaration = new TextEncoder().encode(declarationJson);
+    const files = [
+      {
+        path: "main.js",
+        bytes: new TextEncoder().encode(
+          `export const commit = "${input.commit}";\n`,
+        ),
+      },
+      { path: "declaration.json", bytes: declaration },
+      {
+        path: "migrations/0-1.sql",
+        bytes: new TextEncoder().encode(
+          "CREATE TABLE notes (id INTEGER PRIMARY KEY);\n",
+        ),
+      },
+    ];
+    const manifest = buildManifest({
+      entrypoint: "main.js",
+      files: await Promise.all(
+        files.map(async (file) => ({
+          path: file.path,
+          hash: await sha256Hex(file.bytes),
+        })),
+      ),
+      dependencies: [
+        { name: "@lophn/declaration", version: "4.9.0", source: "sdk" },
+      ],
+    });
+    assert.ok(manifest.ok);
+    const bundleHash = await sha256Hex(JSON.stringify(manifest.value));
+    const sealed = await sealBundle({
+      copyPath: appBundleCopy(root, input.app, bundleHash),
+      manifest: manifest.value,
+      declarationJson: declaration,
+      bundleFiles: files.filter((file) => file.path !== "declaration.json"),
+    });
+    assert.ok(sealed.ok);
+    const key = `prepare-${++seq}`;
+    const recorded = await command({
+      command: "release.record",
+      input: {
+        app: input.app,
+        commit: input.commit,
+        bundle_hash: bundleHash,
+        declaration_hash: await sha256Hex(declaration),
+        declaration: validated.value,
+        manifest: manifest.value,
+        data_schema: 1,
+        data_changes: [],
+        created_by: input.createdBy,
+        key,
+      },
+      idempotency_key: key,
+      compare: {},
+    });
+    if (!recorded.ok) return recorded;
+    const { release, removed_public_tools, removed_public_skills } =
+      recorded.value as {
+        release: {
+          id: Id<"rel">;
+          number: number;
+          status: "prepared";
+          code_commit: string;
+          bundle_hash: string;
+          data_schema: number;
+        };
+        removed_public_tools: { tool: string }[];
+        removed_public_skills: { skill: string }[];
+      };
+    return ok({
+      status: "prepared",
+      release,
+      removed_public_tools,
+      removed_public_skills,
+    });
+  };
+}
+
 type World = {
   base: string;
   dest: string;
@@ -172,85 +304,24 @@ type World = {
   local: FolderLocalApp;
   folderA: FolderApps;
   folderB: FolderApps;
+  preparedB: { app: string; sourcePath: string; commit: string }[];
   clock: ReturnType<typeof manualClock>;
 };
 
-function destinations(path: string): DestinationsView {
-  return {
-    list: () => [{ name: DESTINATION, path, state: "ok" }],
-    resolve: (name) => (name === DESTINATION ? { path, state: "ok" } : null),
-  };
-}
-
-// 다른 기계의 앱 기록 사본(folder-import가 둔다)을 폴더에서 바로 읽는다.
-function recordsIn(dest: string, origin: Id<"mch">): FolderAppRecordCopy[] {
-  const path = join(dest, appRecordPath(origin, APP));
-  if (!existsSync(path)) return [];
-  const record = decodeRecord(appRecordSchema, readFileSync(path));
-  assert.ok(record.ok);
-  return [{ origin, destination: DESTINATION, record: record.value }];
-}
-
-async function sealedRelease(
-  root: string,
-  commit: string,
-  extraFiles: readonly { path: string; bytes: Uint8Array }[] = [],
-) {
-  // release 준비처럼 검증한 선언의 정규 JSON이다.
-  const validated = validateDeclaration({
-    name: "Notes",
-    description: "Keeps notes.",
-    screens: [],
-    operations: [],
-    commands: [],
-    permissions: [],
-    app_connections: [],
-    sdk_dependencies: [{ name: "@lophn/declaration", version: "4.9.0" }],
-  });
-  assert.ok(validated.ok);
-  const declaration = new TextEncoder().encode(
-    canonicalJson(validated.value as never),
-  );
-  const files = [
-    { path: "main.js", bytes: new TextEncoder().encode("export {};\n") },
-    { path: "declaration.json", bytes: declaration },
-    {
-      path: "migrations/0-1.sql",
-      bytes: new TextEncoder().encode(
-        "CREATE TABLE notes (id INTEGER PRIMARY KEY);\n",
-      ),
-    },
-    ...extraFiles,
-  ];
-  const manifest = buildManifest({
-    entrypoint: "main.js",
-    files: await Promise.all(
-      files.map(async (file) => ({
-        path: file.path,
-        hash: await sha256Hex(file.bytes),
-      })),
-    ),
-    dependencies: [
-      { name: "@lophn/declaration", version: "4.9.0", source: "sdk" },
-    ],
-  });
-  assert.ok(manifest.ok);
-  const hash = await sha256Hex(JSON.stringify(manifest.value));
-  const sealed = await sealBundle({
-    copyPath: appBundleCopy(root, APP, hash),
-    manifest: manifest.value,
-    declarationJson: declaration,
-    bundleFiles: files.filter((file) => file.path !== "declaration.json"),
-  });
-  assert.ok(sealed.ok);
-  return {
-    id: "rel_01hzzzzzzzzzzzzzzzzzzzzz01" as Id<"rel">,
-    bundle_hash: hash,
-    code_commit: commit,
-    data_schema: 1,
-    data_changes: [],
-    created_at: "2026-11-01T00:00:00.000Z",
-  };
+function openLedger(full: boolean): DatabaseSync {
+  const db = new DatabaseSync(":memory:");
+  const steps = full
+    ? [
+        ...appsSchemaSteps,
+        ...releasesSchemaSteps,
+        ...permissionsSchemaSteps,
+        ...sdkSchemaSteps,
+        ...FOLDER_SCHEMA_STEPS,
+        ...FOLDER_CODE_COMMIT_STEPS,
+      ]
+    : [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS];
+  for (const step of steps) db.exec(step.sql);
+  return db;
 }
 
 async function world(): Promise<World> {
@@ -259,27 +330,33 @@ async function world(): Promise<World> {
   const rootA = join(base, "a");
   const rootB = join(base, "b");
   for (const dir of [dest, rootA, rootB]) mkdirSync(dir);
-  // B의 lophn이 가진 SDK 판.
-  mkdirSync(join(rootB, "sdk", "declaration", "4.9.0"), { recursive: true });
+  const sdkDirB = join(rootB, "sdk", "declaration", "4.9.0");
+  mkdirSync(sdkDirB, { recursive: true });
+  writeFileSync(
+    join(sdkDirB, "package.json"),
+    JSON.stringify({ name: "@lophn/declaration", version: "4.9.0" }),
+  );
   const clock = manualClock(Date.parse("2026-11-16T00:00:00.000Z"));
-  const dbA = new DatabaseSync(":memory:");
-  for (const step of FOLDER_SCHEMA_STEPS) dbA.exec(step.sql);
-  const dbB = new DatabaseSync(":memory:");
-  for (const step of [
-    ...appsSchemaSteps,
-    ...releasesSchemaSteps,
-    ...permissionsSchemaSteps,
-    ...sdkSchemaSteps,
-    ...FOLDER_SCHEMA_STEPS,
-  ]) {
-    dbB.exec(step.sql);
-  }
+  const dbA = openLedger(false);
+  const dbB = openLedger(true);
+
   const repoA = join(rootA, "apps", APP, "source");
   mkdirSync(repoA, { recursive: true });
   git(repoA, "init", "-q", "-b", "main");
+  writeFileSync(
+    join(repoA, "package.json"),
+    JSON.stringify({
+      name: "notes",
+      dependencies: {
+        "@lophn/declaration": "file:.lophn/sdk/declaration/4.9.0",
+      },
+    }),
+  );
   writeFileSync(join(repoA, "main.ts"), "export const v = 1;\n");
   git(repoA, "add", "-A");
   git(repoA, "commit", "-q", "-m", "first");
+  const firstCommit = git(repoA, "rev-parse", "HEAD");
+
   const local: FolderLocalApp = {
     app: APP,
     slug: "notes",
@@ -287,19 +364,26 @@ async function world(): Promise<World> {
     description: "Keeps notes.",
     sync_to: DESTINATION,
     source_path: repoA,
-    release: await sealedRelease(rootA, git(repoA, "rev-parse", "HEAD")),
+    release: {
+      id: "rel_01hzzzzzzzzzzzzzzzzzzzzz01" as Id<"rel">,
+      code_commit: firstCommit,
+      data_schema: 1,
+      created_at: "2026-11-01T00:00:00.000Z",
+    },
   };
   const progress = () => ({ read: {}, settled: null, horizon: null });
   const folderA = createFolderApps({
     machine: () => A,
     destinations: destinations(dest),
     apps: () => [local],
-    records: () => recordsIn(dest, B),
+    records: () => recordsIn(dest, [B]),
     progress,
     host: createFolderAppsHost({
       sql: sqlOf(dbA),
-      dataRoot: rootA,
       command: () => {
+        throw new Error("A takes nothing in");
+      },
+      prepareCommit: () => {
         throw new Error("A takes nothing in");
       },
       random: seededRandom(3),
@@ -309,16 +393,18 @@ async function world(): Promise<World> {
     random: seededRandom(1),
     dataRoot: rootA,
   });
+  const preparedB: { app: string; sourcePath: string; commit: string }[] = [];
+  const cmdB = commandPort(dbB, () => clock.now());
   const folderB = createFolderApps({
     machine: () => B,
     destinations: destinations(dest),
     apps: () => [],
-    records: () => recordsIn(dest, A),
+    records: () => recordsIn(dest, [A]),
     progress,
     host: createFolderAppsHost({
       sql: sqlOf(dbB),
-      dataRoot: rootB,
-      command: commandPort(dbB, () => clock.now()),
+      command: cmdB,
+      prepareCommit: makeLocalPrepare(rootB, cmdB, preparedB),
       random: seededRandom(4),
     }),
     sql: sqlOf(dbB),
@@ -337,6 +423,7 @@ async function world(): Promise<World> {
     local,
     folderA,
     folderB,
+    preparedB,
     clock,
   };
 }
@@ -348,7 +435,6 @@ async function withWorld(run: (w: World) => Promise<void>) {
   } finally {
     w.dbA.close();
     w.dbB.close();
-    // 봉인 사본은 읽기 전용이다.
     await makeTreeWritable(w.base);
     await rm(w.base, { recursive: true, force: true });
   }
@@ -361,17 +447,36 @@ const rows = (db: DatabaseSync, sql: string) =>
     .map((row) => ({ ...row }));
 
 // 동의와 grant는 그 기계의 사람이 준다. 다른 기계에서 켜졌다고 이 기계에서 묻지 않고 켜면 사람이 허락하지 않은 권한이 돈다.
-test("take-in은 동의도 grant도 옮기지 않는다", async () => {
+test("take-in은 동의도 grant도 옮기지 않고, source bundle로 이 기계에서 release를 준비한다", async () => {
   await withWorld(async (w) => {
     assert.ok((await w.folderA.runApp(APP)).ok);
+    // build된 releases/ 폴더는 내보내지 않고 source bundle만 내보낸다.
+    assert.equal(
+      existsSync(join(w.dest, "machines", A, "apps", APP, "releases")),
+      false,
+    );
+    assert.equal(
+      existsSync(join(w.dest, sourcePath(A, APP, 1, "bundle"))),
+      true,
+    );
+
     const taken = await w.folderB.takeIn({ app: APP });
     assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
     assert.equal(taken.value.installed, "app_and_release");
+    assert.equal(taken.value.source_path, appDefaultSource(w.rootB, APP));
+    assert.deepStrictEqual(w.preparedB, [
+      {
+        app: APP,
+        sourcePath: appDefaultSource(w.rootB, APP),
+        commit: w.local.release!.code_commit,
+      },
+    ]);
+
     const sql = sqlOf(w.dbB);
     const release = loadRelease(sql, taken.value.release);
     assert.ok(release.ok && release.value !== null);
     assert.equal(release.value.status, "prepared");
-    assert.equal(release.value.bundle_hash, w.local.release!.bundle_hash);
+    assert.equal(release.value.code_commit, w.local.release!.code_commit);
     assert.deepStrictEqual(rows(w.dbB, "SELECT * FROM grants"), []);
     assert.deepStrictEqual(
       rows(w.dbB, "SELECT * FROM activation_consents"),
@@ -439,88 +544,104 @@ test("take-in을 두 번 부르거나 이미 들인 앱에 부르면 앱 행은 
         })
       ).ok,
     );
-    const before = rows(w.dbB, "SELECT * FROM apps");
     const first = await w.folderB.takeIn({ app: APP });
     assert.ok(first.ok, first.ok ? "" : first.error.message);
     assert.equal(first.value.installed, "release");
+    assert.equal(first.value.source_path, appDefaultSource(w.rootB, APP));
+    const afterFirst = rows(w.dbB, "SELECT * FROM apps");
+    assert.equal(afterFirst[0]?.name, "My notes");
+    assert.equal(afterFirst[0]?.description, "Mine.");
+
     const second = await w.folderB.takeIn({ app: APP, from: A });
     assert.ok(second.ok);
     assert.equal(second.value.installed, "existing");
     assert.equal(second.value.release, first.value.release);
-    assert.deepStrictEqual(rows(w.dbB, "SELECT * FROM apps"), before);
+    assert.deepStrictEqual(rows(w.dbB, "SELECT * FROM apps"), afterFirst);
     assert.deepStrictEqual(rows(w.dbB, "SELECT id, status FROM releases"), [
       { id: first.value.release, status: "prepared" },
     ]);
-    assert.equal(existsSync(appDefaultSource(w.rootB, APP)), false);
+    assert.equal(w.preparedB.length, 1);
   });
 });
 
-// 폴더는 바깥 도구가 옮겨 덜 온 file이 흔하다. 덜 온 release를 들이면 봉인 사본과 release가 틀린 code를 가리킨다.
-test("완전하지 않은 release는 아무것도 등록하지 않는다", async () => {
+// 폴더는 바깥 도구가 옮겨 덜 온 file이 흔하다. source bundle이 덜 왔거나 SDK·의존 package가 빠졌으면 앱이나 저장소를 남기지 않는다.
+test("완전하지 않은 source나 빠진 SDK·의존 package는 아무것도 등록하지 않는다", async () => {
   await withWorld(async (w) => {
     assert.ok((await w.folderA.runApp(APP)).ok);
-    const hash = w.local.release!.bundle_hash;
-    const dir = join(w.dest, releaseDir(A, APP, hash));
     const template = join(w.base, "template");
     cpSync(w.dest, template, { recursive: true });
-    const listing = () => {
-      const record = decodeRecord(
-        releaseRecordSchema,
-        readFileSync(join(dir, "release.json")),
-      );
-      assert.ok(record.ok);
-      return record.value;
-    };
-    const cases: [string, () => Promise<void> | void][] = [
-      ["no release.json", () => rmSync(join(dir, "release.json"))],
-      ["a file is missing", () => rmSync(join(dir, "files", "main.js"))],
+    const cases: [string, () => void][] = [
       [
-        "a file differs by one byte",
-        () => {
-          const path = join(dir, "files", "main.js");
-          const bytes = readFileSync(path);
-          bytes[0] = bytes[0]! ^ 1;
-          writeFileSync(path, bytes);
-        },
+        "no source record",
+        () => rmSync(join(w.dest, sourcePath(A, APP, 1, "json"))),
       ],
       [
-        "the manifest hash differs from the folder name",
-        async () => {
-          // 목록은 맞게 고쳐서 file 검사는 지나고 manifest hash만 어긋난다.
-          const path = join(dir, "files", "manifest.json");
-          const bytes = Buffer.concat([readFileSync(path), Buffer.from(" ")]);
+        "no source bundle",
+        () => rmSync(join(w.dest, sourcePath(A, APP, 1, "bundle"))),
+      ],
+      [
+        "corrupted bundle bytes",
+        () => {
+          const path = join(w.dest, sourcePath(A, APP, 1, "bundle"));
+          const bytes = readFileSync(path);
+          bytes[bytes.byteLength - 1] = bytes[bytes.byteLength - 1]! ^ 1;
           writeFileSync(path, bytes);
-          const record = listing();
-          const files = record.files.map((file) =>
-            file.path === "manifest.json"
-              ? { ...file, size: bytes.byteLength, sha256: "" }
-              : file,
-          );
-          files.find((file) => file.path === "manifest.json")!.sha256 =
-            await sha256Hex(bytes);
-          writeFileSync(
-            join(dir, "release.json"),
-            encodeRecord(releaseRecordSchema, { ...record, files }),
-          );
         },
       ],
     ];
     for (const [name, corrupt] of cases) {
       rmSync(w.dest, { recursive: true });
       cpSync(template, w.dest, { recursive: true });
-      await corrupt();
+      corrupt();
       const taken = await w.folderB.takeIn({ app: APP });
       assert.ok(!taken.ok, name);
-      assert.equal(taken.error.details?.reason, "release_incomplete", name);
+      assert.equal(taken.error.code, "invalid_input", name);
+      assert.equal(taken.error.details?.reason, "source_incomplete", name);
       assert.deepStrictEqual(rows(w.dbB, "SELECT id FROM apps"), [], name);
       assert.deepStrictEqual(rows(w.dbB, "SELECT id FROM releases"), [], name);
       assert.equal(existsSync(join(w.rootB, "apps", APP)), false, name);
     }
   });
+
+  // 빠진 @lophn/* SDK와 @me/* package는 저장소를 만들기 전에 conflict로 막힌다.
+  for (const [dep, wantReason] of [
+    [
+      { "@lophn/declaration": "file:.lophn/sdk/declaration/9.9.9" },
+      "sdk_missing",
+    ],
+    [
+      { "@me/shared": "file:.lophn/sdk/@me/shared/1.0.0" },
+      "dependency_missing",
+    ],
+  ] as const) {
+    await withWorld(async (w) => {
+      writeFileSync(
+        join(w.repoA, "package.json"),
+        JSON.stringify({ name: "notes", dependencies: dep }),
+      );
+      git(w.repoA, "commit", "-q", "-am", `need ${wantReason}`);
+      w.local.release = {
+        ...w.local.release!,
+        code_commit: git(w.repoA, "rev-parse", "HEAD"),
+      };
+      assert.ok((await w.folderA.runApp(APP)).ok);
+      const taken = await w.folderB.takeIn({ app: APP });
+      assert.ok(!taken.ok, wantReason);
+      assert.equal(taken.error.code, "conflict", wantReason);
+      assert.equal(taken.error.details?.reason, wantReason, wantReason);
+      assert.deepStrictEqual(
+        rows(w.dbB, "SELECT id FROM apps"),
+        [],
+        wantReason,
+      );
+      assert.equal(existsSync(join(w.rootB, "apps", APP)), false, wantReason);
+    });
+  }
 });
 
 // 다른 기계의 commit을 받다가 이 기계에서 사람이 쓰던 branch나 아직 commit하지 않은 수정이 바뀌면 사람의 code를 잃는다.
-test("source 받기는 사람의 code를 덮지 않는다", async () => {
+// 또 A의 commit 위에 B가 commit해 증분 bundle을 냈을 때 C가 B의 release를 바로 들일 수 있어야 한다.
+test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 증분 source bundle(A → B → C)도 따라간다", async () => {
   await withWorld(async (w) => {
     assert.ok((await w.folderA.runApp(APP)).ok);
     const taken = await w.folderB.takeIn({ app: APP });
@@ -534,17 +655,7 @@ test("source 받기는 사람의 code를 덮지 않는다", async () => {
     git(repoB, "checkout", "-q", "-b", "mine");
     writeFileSync(join(repoB, "mine.ts"), "export const mine = 1;\n");
     git(repoB, "add", "mine.ts");
-    git(
-      repoB,
-      "-c",
-      "user.name=p",
-      "-c",
-      "user.email=p@p",
-      "commit",
-      "-q",
-      "-m",
-      "mine",
-    );
+    git(repoB, "commit", "-q", "-m", "mine");
     writeFileSync(
       join(repoB, "main.ts"),
       "export const v = 'not committed';\n",
@@ -578,89 +689,89 @@ test("source 받기는 사람의 code를 덮지 않는다", async () => {
       git(repoB, "for-each-ref", "--format=%(refname)", "refs/remotes/"),
       `refs/remotes/${A}/main`,
     );
-  });
-});
 
-// 대소문자나 NFC 정규화만 다른 두 file이 같은 release에 있으면 macOS·Windows에서 서로 덮는다.
-// 보내는 쪽은 release를 내지 않고 stream 오류로 남기며, 받는 쪽도 그런 release.json을 거절한다.
-test("대소문자나 NFC 정규화만 다른 path가 겹치는 release는 내보내기와 들이기 모두 거절한다", async () => {
-  for (const [label, extra] of [
-    [
-      "case collision",
-      [
-        {
-          path: "sub/A.js",
-          bytes: new TextEncoder().encode("export const a = 1;\n"),
+    // 이제 B가 자기 commit을 폴더로 내보내고(A의 commit을 prerequisite으로 하는 증분 bundle), 새 기계 C가 B에서 바로 들인다.
+    const commitOnB = git(repoB, "rev-parse", "mine");
+    const localB: FolderLocalApp = {
+      app: APP,
+      slug: "notes",
+      name: "Notes",
+      description: "Keeps notes.",
+      sync_to: DESTINATION,
+      source_path: repoB,
+      release: {
+        id: "rel_01hzzzzzzzzzzzzzzzzzzzzz02" as Id<"rel">,
+        code_commit: commitOnB,
+        data_schema: 1,
+        created_at: "2026-11-16T00:01:00.000Z",
+      },
+    };
+    const folderBExport = createFolderApps({
+      machine: () => B,
+      destinations: destinations(w.dest),
+      apps: () => [localB],
+      records: () => recordsIn(w.dest, [A]),
+      progress: () => ({ read: {}, settled: null, horizon: null }),
+      host: createFolderAppsHost({
+        sql: sqlOf(w.dbB),
+        command: commandPort(w.dbB, () => w.clock.now()),
+        prepareCommit: () => {
+          throw new Error("unused");
         },
-        {
-          path: "sub/a.js",
-          bytes: new TextEncoder().encode("export const a = 2;\n"),
-        },
-      ],
-    ],
-    [
-      "NFC/NFD collision",
-      [
-        {
-          path: "sub/caf\u00e9.js",
-          bytes: new TextEncoder().encode("export const c = 1;\n"),
-        },
-        {
-          path: "sub/cafe\u0301.js",
-          bytes: new TextEncoder().encode("export const c = 2;\n"),
-        },
-      ],
-    ],
-  ] as const) {
-    await withWorld(async (w) => {
-      const colliding = await sealedRelease(
-        w.rootA,
-        w.local.release!.code_commit,
-        extra,
-      );
-      w.local.release = colliding;
-      const exported = await w.folderA.runApp(APP);
-      assert.equal(exported.ok, false, label);
-      assert.equal(
-        existsSync(join(w.dest, releaseDir(A, APP, colliding.bundle_hash))),
-        false,
-        label,
-      );
-      const streamError = w.dbA
-        .prepare(
-          "SELECT error FROM folder_streams WHERE machine = ? AND app = ? AND stream = 'app'",
-        )
-        .get(A, APP) as { error: string | null } | undefined;
-      assert.ok(streamError?.error, label);
-      assert.equal(
-        (JSON.parse(streamError.error) as { code: string }).code,
-        "release_incomplete",
-        label,
-      );
-    });
-  }
-
-  // 받는 쪽(takeIn): 이미 폴더에 올라온 release.json에 대소문자·NFC 충돌이 있어도 거절한다.
-  await withWorld(async (w) => {
-    assert.ok((await w.folderA.runApp(APP)).ok);
-    const hash = w.local.release!.bundle_hash;
-    const dir = join(w.dest, releaseDir(A, APP, hash));
-    const record = decodeRecord(
-      releaseRecordSchema,
-      readFileSync(join(dir, "release.json")),
-    );
-    assert.ok(record.ok);
-    const main = record.value.files.find((file) => file.path === "main.js")!;
-    writeFileSync(
-      join(dir, "release.json"),
-      encodeRecord(releaseRecordSchema, {
-        ...record.value,
-        files: [...record.value.files, { ...main, path: "Main.js" }],
+        random: seededRandom(5),
       }),
+      sql: sqlOf(w.dbB),
+      clock: w.clock,
+      random: seededRandom(6),
+      dataRoot: w.rootB,
+    });
+    assert.ok((await folderBExport.runApp(APP)).ok);
+
+    const rootC = join(w.base, "c");
+    const sdkDirC = join(rootC, "sdk", "declaration", "4.9.0");
+    mkdirSync(sdkDirC, { recursive: true });
+    writeFileSync(
+      join(sdkDirC, "package.json"),
+      JSON.stringify({ name: "@lophn/declaration", version: "4.9.0" }),
     );
-    const taken = await w.folderB.takeIn({ app: APP });
-    assert.equal(taken.ok, false);
-    assert.equal(taken.error.details?.reason, "release_incomplete");
-    assert.deepStrictEqual(rows(w.dbB, "SELECT id FROM apps"), []);
+    const dbC = openLedger(true);
+    try {
+      const preparedC: { app: string; sourcePath: string; commit: string }[] =
+        [];
+      const cmdC = commandPort(dbC, () => w.clock.now());
+      const folderC = createFolderApps({
+        machine: () => C,
+        destinations: destinations(w.dest),
+        apps: () => [],
+        records: () => recordsIn(w.dest, [A, B]),
+        progress: () => ({ read: {}, settled: null, horizon: null }),
+        host: createFolderAppsHost({
+          sql: sqlOf(dbC),
+          command: cmdC,
+          prepareCommit: makeLocalPrepare(rootC, cmdC, preparedC),
+          random: seededRandom(8),
+        }),
+        sql: sqlOf(dbC),
+        clock: w.clock,
+        random: seededRandom(9),
+        dataRoot: rootC,
+      });
+      const takenC = await folderC.takeIn({ app: APP, from: B });
+      assert.ok(takenC.ok, takenC.ok ? "" : takenC.error.message);
+      assert.equal(takenC.value.installed, "app_and_release");
+      assert.deepStrictEqual(preparedC, [
+        {
+          app: APP,
+          sourcePath: appDefaultSource(rootC, APP),
+          commit: commitOnB,
+        },
+      ]);
+      assert.equal(
+        git(takenC.value.source_path!, "rev-parse", "HEAD"),
+        commitOnB,
+      );
+    } finally {
+      dbC.close();
+    }
   });
 });

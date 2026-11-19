@@ -1,43 +1,34 @@
-// 다른 기계가 폴더에 내놓은 앱을 이 기계에 들인다. 같은 app id로 등록하고(이미 있으면 앱 행을 건드리지 않는다) release
-// 폴더를 전부 검사한 뒤 봉인 사본으로 쓰고 지금 준비가 쓰는 `release.record`로 `prepared`에 적는다.
+// 다른 기계가 폴더에 내놓은 앱을 이 기계에 들인다. 다른 기계의 source git bundle에서 commit을 받아
+// 이 기계의 source 저장소를 만들거나(이미 있으면 fetch) 같은 app id로 등록하고, 그 commit에서 이 기계의
+// release 준비(`prepareRelease`)를 돌려 `prepared` release로 적는다.
 // grant, 동의, secret, OAuth, invocation 기록, 앱 data는 옮기지 않는다: 활성화는 이 기계에서 사람에게 묻는다.
 import { stat } from "node:fs/promises";
-import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
-import { bundleManifestSchema } from "../../../protocol/apps/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import { validateDeclaration } from "../../../protocol/apps/declaration/mod.ts";
-import { RELEASE_BUNDLE_MAX_BYTES } from "../../../protocol/apps/mod.ts";
-import {
-  decodeRecord,
-  RELEASE_RECORD_MAX_BYTES,
-  type ReleaseRecord,
-  releaseFilePath,
-  releaseRecordPath,
-  releaseRecordSchema,
-} from "../../../protocol/folder/mod.ts";
 import type {
   TakeInInput,
   TakeInOutput,
 } from "../../../protocol/folder/take-in.ts";
-import { createFolderReader, type FolderReader } from "../fs.ts";
+import { createFolderReader } from "../fs.ts";
 import type {
   FolderAppRecordCopy,
   FolderAppsDeps,
   FolderAppsHost,
 } from "./deps.ts";
+import { git, hasCommit } from "./git.ts";
 import {
-  DECLARATION_FILE,
-  findReleasePathCollision,
-  MANIFEST_FILE,
-} from "./releases.ts";
-import { createRepository } from "./source.ts";
-import { setSourceRead } from "./state.ts";
+  createRepository,
+  fetchPeerSources,
+  type PeerSource,
+  type PeerSourceResult,
+} from "./source.ts";
+import { setSourceRead, sourceCursor } from "./state.ts";
 
 const incomplete = (message: string): Result<never> =>
   err({
     code: "invalid_input",
     message,
-    details: { reason: "release_incomplete" },
+    details: { reason: "source_incomplete" },
   });
 
 const conflict = (
@@ -62,137 +53,64 @@ export function pickRecord(
   return best;
 }
 
-type CheckedRelease = {
-  record: ReleaseRecord;
-  manifest: ReturnType<typeof bundleManifestSchema.parse>;
-  files: { path: string; bytes: Uint8Array }[];
-};
-
-// release 폴더 전부: `release.json` schema와 이름, 모든 file의 크기와 sha256, manifest의 sha256이 폴더 이름의 hash와 같음,
-// manifest가 싣는 file이 목록과 같음. 하나라도 어기면 아무것도 쓰지 않고 `release_incomplete`다.
-async function checkRelease(
-  reader: FolderReader,
-  origin: Id<"mch">,
-  app: Id<"app">,
-  bundleHash: string,
-): Promise<Result<CheckedRelease>> {
-  const read = await reader.read(
-    releaseRecordPath(origin, app, bundleHash),
-    RELEASE_RECORD_MAX_BYTES,
-  );
-  if (!read.ok) return incomplete(`release.json: ${read.error.message}`);
-  const decoded = decodeRecord(
-    releaseRecordSchema,
-    read.value,
-    RELEASE_RECORD_MAX_BYTES,
-  );
-  if (!decoded.ok) return incomplete(`release.json: ${decoded.error.message}`);
-  const record = decoded.value;
-  if (
-    record.machine !== origin ||
-    record.app !== app ||
-    record.bundle_hash !== bundleHash
-  ) {
-    return incomplete("release.json names another machine, app or bundle");
-  }
-  // manifest.json 말고는 bundle file이다. 한도 밖이면 읽지 않는다(file을 다 읽어 메모리에 둔다).
-  const total = record.files
-    .filter((file) => file.path !== MANIFEST_FILE)
-    .reduce((sum, file) => sum + file.size, 0);
-  if (total > RELEASE_BUNDLE_MAX_BYTES) {
-    return incomplete("the release is larger than a bundle can be");
-  }
-  const files: { path: string; bytes: Uint8Array }[] = [];
-  const listed = new Map<string, string>();
-  const seenPaths = new Set<string>();
-  for (const file of record.files) {
-    if (seenPaths.has(file.path))
-      return incomplete(`${file.path} is listed twice`);
-    seenPaths.add(file.path);
-  }
-  const collision = findReleasePathCollision(
-    record.files.map((file) => file.path),
-  );
-  if (collision !== null) {
-    return incomplete(
-      `release paths collide on case-insensitive or NFC filesystems: ${collision[0]} and ${collision[1]}`,
-    );
-  }
-  for (const file of record.files) {
-    listed.set(file.path, file.sha256);
-    const bytes = await reader.read(
-      releaseFilePath(origin, app, bundleHash, file.path),
-      file.size,
-    );
-    if (!bytes.ok) return incomplete(`${file.path}: ${bytes.error.message}`);
-    if (
-      bytes.value.byteLength !== file.size ||
-      (await sha256Hex(bytes.value)) !== file.sha256
-    ) {
-      return incomplete(`${file.path} does not match its size or hash`);
-    }
-    files.push({ path: file.path, bytes: bytes.value });
-  }
-  const manifestBytes = files.find((file) => file.path === MANIFEST_FILE);
-  if (manifestBytes === undefined) return incomplete("no manifest.json");
-  if ((await sha256Hex(manifestBytes.bytes)) !== bundleHash) {
-    return incomplete("manifest.json does not match the bundle hash");
-  }
-  let manifest: CheckedRelease["manifest"];
+async function isInstalledPackage(path: string): Promise<boolean> {
   try {
-    const parsed = bundleManifestSchema.safeParse(
-      JSON.parse(new TextDecoder().decode(manifestBytes.bytes)),
-    );
-    if (!parsed.success) return incomplete("manifest.json is not a manifest");
-    manifest = parsed.data;
-  } catch {
-    return incomplete("manifest.json is not JSON");
-  }
-  if (
-    manifest.files.length + 1 !== listed.size ||
-    manifest.files.some((file) => listed.get(file.path) !== file.hash)
-  ) {
-    return incomplete("the files differ from the manifest");
-  }
-  if (!manifest.files.some((file) => file.path === DECLARATION_FILE)) {
-    return incomplete("the bundle has no declaration.json");
-  }
-  return ok({ record, manifest, files });
-}
-
-async function isDirectory(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isDirectory();
+    return (await stat(`${path}/package.json`)).isFile();
   } catch {
     return false;
   }
 }
 
-// 고정한 `@lophn/*` 판은 이 기계의 설치 사본에, `@me/*` 판은 이 기계의 catalog에 있어야 한다.
-async function checkDependencies(
-  manifest: CheckedRelease["manifest"],
+const SDK_FILE_DEP = /^file:(?:\.\/)?\.lophn\/sdk\/(.+)$/;
+
+// commit의 `package.json`이 고정한 `@lophn/*` 판은 이 기계의 설치 사본에, `@me/*` 판은 이 기계의 catalog와
+// 설치 사본에 있어야 한다. 앱을 등록하거나 build를 띄우기 전에 먼저 본다.
+async function checkCommitDependencies(
+  repo: string,
+  commit: string,
   dataRoot: string,
   host: FolderAppsHost,
 ): Promise<Result<void>> {
-  const pinned = new Map<string, string>();
-  for (const dependency of [
-    ...manifest.sdk_dependencies,
-    ...manifest.dependencies.filter(
-      (item) => item.source === "sdk" || item.source === "package",
-    ),
-  ]) {
-    pinned.set(dependency.name, dependency.version);
+  const shown = await git(repo, "show", `${commit}:package.json`);
+  if (!shown.ok) return ok(undefined);
+  let manifest: {
+    dependencies?: Record<string, unknown>;
+    devDependencies?: Record<string, unknown>;
+  };
+  try {
+    manifest = JSON.parse(shown.value);
+  } catch {
+    return ok(undefined);
   }
+  if (typeof manifest !== "object" || manifest === null) return ok(undefined);
+  const all = { ...manifest.devDependencies, ...manifest.dependencies };
   const sdk: string[] = [];
   const mine: string[] = [];
-  for (const [name, version] of [...pinned].sort()) {
-    if (name.startsWith("@lophn/")) {
-      const part = name.slice("@lophn/".length);
-      if (!(await isDirectory(`${dataRoot}/sdk/${part}/${version}`))) {
+  for (const name of Object.keys(all).sort()) {
+    const value = all[name];
+    if (typeof value !== "string") continue;
+    const match = SDK_FILE_DEP.exec(value);
+    if (match === null) continue;
+    const rest = match[1]!;
+    if (rest.startsWith("@me/")) {
+      const parts = rest.slice("@me/".length).split("/");
+      if (parts.length !== 2) continue;
+      const [part, version] = parts as [string, string];
+      if (name !== `@me/${part}`) continue;
+      if (
+        !host.published(name, version) ||
+        !(await isInstalledPackage(`${dataRoot}/sdk/@me/${part}/${version}`))
+      ) {
+        mine.push(`${name}@${version}`);
+      }
+    } else {
+      const parts = rest.split("/");
+      if (parts.length !== 2) continue;
+      const [part, version] = parts as [string, string];
+      if (name !== `@lophn/${part}`) continue;
+      if (!(await isInstalledPackage(`${dataRoot}/sdk/${part}/${version}`))) {
         sdk.push(`${name}@${version}`);
       }
-    } else if (name.startsWith("@me/") && !host.published(name, version)) {
-      mine.push(`${name}@${version}`);
     }
   }
   if (sdk.length > 0) {
@@ -210,6 +128,50 @@ async function checkDependencies(
   return ok(undefined);
 }
 
+function peersFor(
+  deps: FolderAppsDeps,
+  copies: readonly FolderAppRecordCopy[],
+  app: Id<"app">,
+  me: Id<"mch">,
+  useStoredCursor: boolean,
+): PeerSource[] {
+  const out: PeerSource[] = [];
+  const sorted = copies
+    .filter((copy) => copy.record.app === app)
+    .sort((a, b) => (a.origin < b.origin ? -1 : 1));
+  for (const copy of sorted) {
+    const destination = deps.destinations.resolve(copy.destination);
+    if (destination === null || destination.state === "missing") continue;
+    out.push({
+      origin: copy.origin,
+      reader: createFolderReader(destination.path),
+      head: copy.record.source.head,
+      cursor: useStoredCursor
+        ? sourceCursor(deps.sql, me, app, copy.origin)
+        : 0,
+    });
+  }
+  return out;
+}
+
+function savePeerResults(
+  deps: FolderAppsDeps,
+  me: Id<"mch">,
+  app: Id<"app">,
+  results: readonly PeerSourceResult[],
+): void {
+  const at = deps.clock.now();
+  for (const one of results) {
+    if (one.cursor > 0) {
+      setSourceRead(
+        deps.sql,
+        { machine: me, app, origin: one.origin },
+        { cursor: one.cursor, at },
+      );
+    }
+  }
+}
+
 export async function takeIn(
   deps: FolderAppsDeps,
   host: FolderAppsHost,
@@ -225,22 +187,22 @@ export async function takeIn(
       message: "the app is not in a sync folder",
     });
   }
-  const { origin, record } = found;
-  const bundleHash = input.release ?? record.active_release?.bundle_hash;
-  if (bundleHash === undefined || !record.releases.includes(bundleHash)) {
+  const { record } = found;
+  const commit = input.release ?? record.active_release?.code_commit;
+  if (commit === undefined) {
     return err({
       code: "not_found",
-      message: "the release is not in the sync folder",
+      message: "the app has no active release in the sync folder",
     });
   }
   const local = host.app(app);
   if (!local.ok) return local;
   if (local.value !== null) {
-    const existing = host.releaseWith(app, bundleHash);
+    const existing = host.releaseWithCommit(app, commit);
     if (!existing.ok) return existing;
     if (existing.value !== null) {
       return ok({
-        app: app,
+        app,
         release: existing.value,
         source_path: local.value.source_path,
         installed: "existing",
@@ -254,14 +216,8 @@ export async function takeIn(
       message: `the sync folder "${found.destination}" is not set on this machine`,
     });
   }
-  const reader = createFolderReader(destination.path);
-  const checked = await checkRelease(reader, origin, app, bundleHash);
-  if (!checked.ok) return checked;
-  const { manifest, files } = checked.value;
-  const release = checked.value.record;
-  const dependencies = await checkDependencies(manifest, deps.dataRoot, host);
-  if (!dependencies.ok) return dependencies;
-  const slug = local.value?.slug ?? record.slug;
+
+  let sourcePath = local.value?.source_path ?? null;
   if (local.value === null) {
     const owner = host.slugOwner(record.slug);
     if (!owner.ok) return owner;
@@ -271,37 +227,21 @@ export async function takeIn(
         app: owner.value,
       });
     }
-  }
-  // release.record가 같은 검사를 다시 한다. 앱을 만든 뒤에 떨어지지 않게 먼저 본다.
-  let raw: unknown;
-  try {
-    raw = JSON.parse(
-      new TextDecoder().decode(
-        files.find((file) => file.path === DECLARATION_FILE)!.bytes,
-      ),
-    );
-  } catch {
-    return incomplete("declaration.json is not JSON");
-  }
-  const declaration = validateDeclaration(raw, { app: app, slug });
-  if (!declaration.ok) {
-    return err({ code: "invalid_input", message: declaration.error.message });
-  }
-
-  const installed = await host.installBundle(app, bundleHash, manifest, files);
-  if (!installed.ok) return installed;
-  let sourcePath = local.value?.source_path ?? null;
-  if (local.value === null) {
     const repo = await createRepository({
       dataRoot: deps.dataRoot,
-      app: app,
-      origin,
-      reader,
-      head: record.source.head,
-      commit: release.code_commit,
+      app,
+      peers: peersFor(deps, copies, app, me, false),
+      commit,
       random: deps.random,
+      beforeFinalize: (dir) =>
+        checkCommitDependencies(dir, commit, deps.dataRoot, host),
     });
     if (!repo.ok) return repo;
+    if (repo.value === null) {
+      return incomplete(
+        `source commit ${commit.slice(0, 7)} has not arrived in the sync folder yet`,
+      );
+    }
     const created = await host.createApp({
       id: app,
       slug: record.slug,
@@ -309,39 +249,75 @@ export async function takeIn(
       description: record.description,
     });
     if (!created.ok) return created;
-    if (repo.value !== null) {
-      const linked = await host.connectSource(
-        app,
-        created.value.revision,
-        repo.value.path,
-      );
-      if (!linked.ok) return linked;
-      sourcePath = repo.value.path;
-      setSourceRead(
-        deps.sql,
-        { machine: me, app: app, origin },
-        { cursor: repo.value.cursor, at: deps.clock.now() },
+    const linked = await host.connectSource(
+      app,
+      created.value.revision,
+      repo.value.path,
+    );
+    if (!linked.ok) return linked;
+    sourcePath = repo.value.path;
+    savePeerResults(deps, me, app, repo.value.results);
+  } else if (sourcePath === null) {
+    const repo = await createRepository({
+      dataRoot: deps.dataRoot,
+      app,
+      peers: peersFor(deps, copies, app, me, false),
+      commit,
+      random: deps.random,
+      beforeFinalize: (dir) =>
+        checkCommitDependencies(dir, commit, deps.dataRoot, host),
+    });
+    if (!repo.ok) return repo;
+    if (repo.value === null) {
+      return incomplete(
+        `source commit ${commit.slice(0, 7)} has not arrived in the sync folder yet`,
       );
     }
+    const linked = await host.connectSource(
+      app,
+      local.value.revision,
+      repo.value.path,
+    );
+    if (!linked.ok) return linked;
+    sourcePath = repo.value.path;
+    savePeerResults(deps, me, app, repo.value.results);
+  } else {
+    if (!(await hasCommit(sourcePath, commit))) {
+      const results = await fetchPeerSources({
+        repo: sourcePath,
+        app,
+        peers: peersFor(deps, copies, app, me, true),
+        dataRoot: deps.dataRoot,
+        random: deps.random,
+      });
+      savePeerResults(deps, me, app, results);
+      if (!(await hasCommit(sourcePath, commit))) {
+        return incomplete(
+          `source commit ${commit.slice(0, 7)} has not arrived in the sync folder yet`,
+        );
+      }
+    }
+    const checked = await checkCommitDependencies(
+      sourcePath,
+      commit,
+      deps.dataRoot,
+      host,
+    );
+    if (!checked.ok) return checked;
   }
-  const recorded = await host.recordRelease({
-    app: app,
-    commit: release.code_commit,
-    bundle_hash: bundleHash,
-    declaration_hash: release.declaration_hash,
-    installed: installed.value,
-  });
-  if (!recorded.ok) {
-    // 앱 등록과 release 기록은 따로 commit된다. 앱만 남았으면 다시 take-in이 release만 설치해 고친다.
-    if (local.value !== null) return recorded;
+
+  const prepared = await host.prepareRelease({ app, sourcePath, commit });
+  if (!prepared.ok) {
+    // 앱 등록과 release 준비는 따로 commit된다. 앱만 남았으면 다시 take-in이 release만 준비해 고친다.
+    if (local.value !== null) return prepared;
     return err({
-      ...recorded.error,
-      message: `${recorded.error.message}. The app was added without a release; take it in again to install only the release.`,
+      ...prepared.error,
+      message: `${prepared.error.message}. The app was added without a release; take it in again to prepare only the release.`,
     });
   }
   return ok({
-    app: app,
-    release: recorded.value,
+    app,
+    release: prepared.value,
     source_path: sourcePath,
     installed: local.value === null ? "app_and_release" : "release",
   });
@@ -353,7 +329,7 @@ export type AvailableApp = {
   slug: string;
   machine: Id<"mch">;
   release: {
-    bundle_hash: string;
+    code_commit: string;
     data_schema: number;
     created_at: string;
   } | null;
@@ -361,7 +337,7 @@ export type AvailableApp = {
 
 /**
  * 다른 기계가 내놓았고 이 기계에 아직 없는 앱. 앱마다 기록이 가장 최근인 기계의 것 하나. take-in이 앱을 만든 뒤 release
- * 기록에 실패해 release가 하나도 없는 앱도 든다: 다시 take-in하면 release만 설치한다.
+ * 준비에 실패해 release가 하나도 없는 앱도 든다: 다시 take-in하면 release만 준비한다.
  */
 export function available(
   deps: FolderAppsDeps,
@@ -386,7 +362,7 @@ export function available(
         record.active_release === null
           ? null
           : {
-              bundle_hash: record.active_release.bundle_hash,
+              code_commit: record.active_release.code_commit,
               data_schema: record.active_release.data_schema,
               created_at: record.active_release.created_at,
             },

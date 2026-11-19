@@ -25,7 +25,7 @@ export type Mirror = {
   takeIn(shared: string): Promise<void>;
 };
 
-// 한 기계의 take-in이 도는 횟수의 상한. 사슬은 manifest, 앱 목록, release.json·source json, 그 아래 file의 네 층이다.
+// 한 기계의 take-in이 도는 횟수의 상한. 사슬은 manifest, 앱 목록, source json, 그 아래 file의 네 층이다.
 const TAKE_IN_PASSES_MAX = 8;
 
 export function createMirror(deps: {

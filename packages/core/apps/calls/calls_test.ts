@@ -59,7 +59,10 @@ import {
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { createFolderExport, type ExportLog } from "../../folder/export/mod.ts";
 import type { FolderChange } from "../../folder/ports.ts";
-import { FOLDER_SCHEMA_STEPS } from "../../folder/schema.ts";
+import {
+  FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_SCHEMA_STEPS,
+} from "../../folder/schema.ts";
 import { heldInData, type SyncLog, type SyncLogRow } from "../sync/log.ts";
 import { createStoreAccess } from "../runtime/entrypoint/cap-host.ts";
 import {
@@ -1793,7 +1796,9 @@ function folderOf(
   destination: string,
 ) {
   const db = new DatabaseSync(":memory:");
-  for (const step of FOLDER_SCHEMA_STEPS) db.exec(step.sql);
+  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+    db.exec(step.sql);
+  }
   const sql: Sql = {
     run: (text, params) => db.prepare(text).run(...params),
     get: (text, params) => db.prepare(text).get(...params) as never,
@@ -1839,11 +1844,11 @@ function folderOf(
         name: "Notes",
         description: "",
         sync_to: "personal",
-        release: { id: REL, bundle_hash: "b".repeat(64), data_schema: 1 },
+        release: { id: REL, code_commit: "c".repeat(40), data_schema: 1 },
       },
     ],
     log,
-    releaseKey: () => ({ bundle_hash: "b".repeat(64), data_schema: 1 }),
+    releaseKey: () => ({ code_commit: "c".repeat(40), data_schema: 1 }),
     operationOf: () => null,
     async snapshotAt(_app, path) {
       const written = writeSnapshot(nodeSyncDb(here.raw), path);

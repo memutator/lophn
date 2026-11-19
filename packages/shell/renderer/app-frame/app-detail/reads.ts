@@ -213,7 +213,7 @@ function machinesView(state: UpdateState): MachinesView {
         : `r${release.number}`;
   const target = state.machines.find(
     (row) =>
-      row.release !== null && row.release.bundle_hash === state.follow.release,
+      row.release !== null && row.release.code_commit === state.follow.release,
   );
   return {
     follow: {

@@ -17,6 +17,10 @@ export interface Installed {
   readonly icon: string | null;
   readonly kind: LocalKind;
   readonly release: string;
+  /** Cross-machine release identity (git commit); two paired computers on the same commit share this value. */
+  readonly code_commit?: string;
+  /** Each paired computer's local release id (`rel_*`) for the installed `code_commit`. */
+  readonly computer_releases?: Readonly<Record<string, string>>;
   /** The release's phone screens as `apps/phone_screens` listed them; their phone.js is in the release folder. */
   readonly screens: readonly PhoneScreen[];
   readonly backend: PhoneBackendManifest;
@@ -39,13 +43,21 @@ export const runsOnPhone = (screen: PhoneScreen): boolean =>
   screen.runs_on.includes("phone") && screen.backend !== null;
 
 /**
- * Orders two releases of an app: higher `data_schema` wins when both are known and differ, otherwise lexicographical
- * release id order (ULID-based `rel_*` ids sort monotonically by creation time).
+ * Orders two releases of an app: matching `code_commit` means the exact same release (even when two paired computers
+ * assigned different local `rel_*` ULIDs and `bundle_hash`es); otherwise higher `data_schema` wins when both are known
+ * and differ, falling back to lexicographical release id order (ULID-based `rel_*` ids sort by creation time).
  */
 export function compareRelease(
-  a: { readonly release: string; readonly data_schema?: number },
-  b: { readonly release: string; readonly data_schema?: number },
+  a: { readonly release: string; readonly code_commit?: string; readonly data_schema?: number },
+  b: { readonly release: string; readonly code_commit?: string; readonly data_schema?: number },
 ): number {
+  if (
+    a.code_commit !== undefined &&
+    b.code_commit !== undefined &&
+    a.code_commit === b.code_commit
+  ) {
+    return 0;
+  }
   if (
     a.data_schema !== undefined &&
     b.data_schema !== undefined &&
@@ -58,6 +70,27 @@ export function compareRelease(
 
 export function withComputer(computers: readonly string[], computer: string): readonly string[] {
   return computers.includes(computer) ? computers : [...computers, computer];
+}
+
+export function withComputerRelease(
+  releases: Readonly<Record<string, string>> | undefined,
+  computer: string,
+  release: string,
+): Readonly<Record<string, string>> {
+  if (releases?.[computer] === release) return releases;
+  return { ...releases, [computer]: release };
+}
+
+export function dropComputerReleases(
+  releases: Readonly<Record<string, string>> | undefined,
+  drop: (computer: string) => boolean,
+): Readonly<Record<string, string>> | undefined {
+  if (releases === undefined) return undefined;
+  const next: Record<string, string> = {};
+  for (const [computer, release] of Object.entries(releases)) {
+    if (!drop(computer)) next[computer] = release;
+  }
+  return next;
 }
 
 export function appDir(app: string): string {
@@ -90,9 +123,27 @@ export const releaseFiles = (app: string, release: string) => {
 function parseInstalled(text: string | null): Installed | null {
   if (text === null) return null;
   try {
-    const raw = JSON.parse(text) as Installed & { computers?: readonly string[] };
+    const raw = JSON.parse(text) as Installed & {
+      computers?: readonly string[];
+      computer_releases?: Record<string, unknown>;
+    };
+    const codeCommit =
+      typeof raw.code_commit === "string"
+        ? raw.code_commit
+        : typeof raw.screens?.[0]?.code_commit === "string"
+          ? raw.screens[0].code_commit
+          : undefined;
+    let computerReleases: Record<string, string> | undefined;
+    if (raw.computer_releases && typeof raw.computer_releases === "object") {
+      computerReleases = {};
+      for (const [k, v] of Object.entries(raw.computer_releases)) {
+        if (typeof v === "string") computerReleases[k] = v;
+      }
+    }
     return {
       ...raw,
+      ...(codeCommit === undefined ? {} : { code_commit: codeCommit }),
+      ...(computerReleases === undefined ? {} : { computer_releases: computerReleases }),
       computers: Array.isArray(raw.computers) ? raw.computers : [],
     };
   } catch {

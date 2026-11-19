@@ -57,7 +57,7 @@ export type MachineExchange = {
 
 export type HeldDetail = {
   origin: Id<"mch">;
-  bundle_hash: string;
+  code_commit: string;
   data_schema: number;
   /** held changes file 안의 변경 수. snapshot은 세지 않는다. */
   changes: number;

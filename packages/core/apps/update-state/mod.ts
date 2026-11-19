@@ -15,7 +15,6 @@ export type UpdateStateDeps = {
   syncApps(): readonly {
     app: Id<"app">;
     release: {
-      bundle_hash: string;
       code_commit: string;
       data_schema: number;
     } | null;

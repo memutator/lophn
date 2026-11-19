@@ -133,7 +133,7 @@ export function recordHeld(
     origin: Id<"mch">;
     n: number;
     kind: DataKind;
-    bundle_hash: string;
+    code_commit: string;
     data_schema: number;
     sha256: string;
     size: number;
@@ -148,7 +148,7 @@ export function recordHeld(
         : [];
     tx.sql.run(
       `INSERT INTO folder_held
-         (machine, app, origin, n, kind, bundle_hash, data_schema, path, sha256, size, held_at)
+         (machine, app, origin, n, kind, code_commit, data_schema, path, sha256, size, held_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (machine, app, origin, n) DO NOTHING`,
       [
@@ -157,7 +157,7 @@ export function recordHeld(
         input.origin,
         input.n,
         input.kind,
-        input.bundle_hash,
+        input.code_commit,
         input.data_schema,
         heldPath(input.app, input.origin, input.n, input.kind),
         input.sha256,
@@ -168,7 +168,7 @@ export function recordHeld(
     saveRead(tx.sql, me, input.app, input.origin, {
       absent: loadRead(tx.sql, me, input.app, input.origin).absent,
       cursor: input.n,
-      bundle_hash: input.bundle_hash,
+      code_commit: input.code_commit,
       read_at: at,
       attempts: 0,
       next_try_at: null,

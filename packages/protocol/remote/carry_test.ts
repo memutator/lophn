@@ -29,24 +29,14 @@ import {
   signManifest,
   verifyManifest,
 } from "./carry.ts";
-import {
-  dataEntryPath,
-  recordPath,
-  releaseFilePath,
-  releaseRecordPath,
-  sourcePath,
-} from "../folder/layout.ts";
-import {
-  encodeRecord,
-  releaseRecordSchema,
-  sourceMetaSchema,
-} from "../folder/records.ts";
+import { dataEntryPath, recordPath, sourcePath } from "../folder/layout.ts";
+import { encodeRecord, sourceMetaSchema } from "../folder/records.ts";
 
 const random = seededRandom(11);
 const AT = "2026-11-18T00:00:00.000Z";
 const NOW = Date.parse(AT);
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
-const HASH = "b".repeat(64);
+const COMMIT = "b".repeat(40);
 const hex = (bytes: Uint8Array) => bytesToHex(sha256(bytes));
 const text = (value: string) => new TextEncoder().encode(value);
 
@@ -107,55 +97,41 @@ const self = remoteKeyText(a.signing.publicKey);
 const view = rosterView(statements, [self], self);
 const signingKeyOf = (machine: Id<"mch">) => machineSigningKey(view, machine);
 
-const appFile = text("console.log('app');\n");
 const bundle = text("git bundle bytes");
-const changes = text("lophn-folder 1 changes ...");
+const changes = text("lophn-folder 2 changes ...");
 const record = text("{}\n");
 const listed = (path: string, bytes: Uint8Array) => ({
   path,
   size: bytes.byteLength,
   sha256: hex(bytes),
 });
-function releaseJson(machine: Id<"mch">, fileSha: string) {
-  return encodeRecord(releaseRecordSchema, {
-    format: 1,
+function sourceMetaJson(machine: Id<"mch">, bundleSha: string) {
+  return encodeRecord(sourceMetaSchema, {
+    format: 2,
     machine,
     app: APP,
-    bundle_hash: HASH,
-    code_commit: "c".repeat(40),
-    declaration_hash: "d".repeat(64),
-    data_schema: 1,
-    data_changes: [],
+    n: 1,
+    heads: { main: "e".repeat(40) },
+    prerequisites: [],
+    size: bundle.byteLength,
+    sha256: bundleSha,
     created_at: AT,
-    files: [{ path: "app/main.js", size: appFile.byteLength, sha256: fileSha }],
   });
 }
-const release = releaseJson(b.machine, hex(appFile));
-const source = encodeRecord(sourceMetaSchema, {
-  format: 1,
-  machine: b.machine,
-  app: APP,
-  n: 1,
-  heads: { main: "e".repeat(40) },
-  prerequisites: [],
-  size: bundle.byteLength,
-  sha256: hex(bundle),
-  created_at: AT,
-});
-function appFilesJson(releaseBytes: Uint8Array) {
+const source = sourceMetaJson(b.machine, hex(bundle));
+function appFilesJson(sourceBytes: Uint8Array) {
   return encodeRecord(appFilesSchema, {
     format: 1,
     machine: b.machine,
     app: APP,
     written_at: AT,
     files: [
-      listed(releaseRecordPath(b.machine, APP, HASH), releaseBytes),
-      listed(sourcePath(b.machine, APP, 1, "json"), source),
+      listed(sourcePath(b.machine, APP, 1, "json"), sourceBytes),
       listed(dataEntryPath(b.machine, APP, 1, "changes"), changes),
     ],
   });
 }
-const appFiles = appFilesJson(release);
+const appFiles = appFilesJson(source);
 
 function bodyOf(machine: Id<"mch">, revision = 10): ManifestBody {
   return {
@@ -275,11 +251,9 @@ test("manifest에서 시작한 목록 file 사슬이 맞을 때만 path에 기�
   const body = bodyOf(b.machine);
   const held = new Map<string, Uint8Array>([
     [appFilesPath(b.machine, APP), appFiles],
-    [releaseRecordPath(b.machine, APP, HASH), release],
     [sourcePath(b.machine, APP, 1, "json"), source],
   ]);
   const heldBytes = (path: string) => held.get(path) ?? null;
-  const releaseFile = releaseFilePath(b.machine, APP, HASH, "app/main.js");
   const bundlePath = sourcePath(b.machine, APP, 1, "bundle");
   const dataPath = dataEntryPath(b.machine, APP, 1, "changes");
 
@@ -287,10 +261,6 @@ test("manifest에서 시작한 목록 file 사슬이 맞을 때만 path에 기�
   assert.deepEqual(expected(dataPath), {
     size: changes.byteLength,
     sha256: hex(changes),
-  });
-  assert.deepEqual(expected(releaseFile), {
-    size: appFile.byteLength,
-    sha256: hex(appFile),
   });
   assert.deepEqual(expected(bundlePath), {
     size: bundle.byteLength,
@@ -301,10 +271,8 @@ test("manifest에서 시작한 목록 file 사슬이 맞을 때만 path에 기�
     [
       recordPath(b.machine),
       appFilesPath(b.machine, APP),
-      releaseRecordPath(b.machine, APP, HASH),
       sourcePath(b.machine, APP, 1, "json"),
       dataPath,
-      releaseFile,
       bundlePath,
     ].sort(),
   );
@@ -312,23 +280,22 @@ test("manifest에서 시작한 목록 file 사슬이 맞을 때만 path에 기�
   const none = [
     dataEntryPath(b.machine, APP, 2, "changes"),
     dataEntryPath(a.machine, APP, 1, "changes"),
-    releaseFilePath(b.machine, APP, HASH, "app/other.js"),
-    releaseFilePath(b.machine, APP, "f".repeat(64), "app/main.js"),
-    `machines/${b.machine}/apps/${APP}/releases/${HASH}/files/../release.json`,
+    `machines/${b.machine}/apps/${APP}/releases/${"b".repeat(64)}/release.json`,
+    `machines/${b.machine}/apps/${APP}/releases/${"b".repeat(64)}/files/app/main.js`,
     manifestPath(b.machine),
   ];
   for (const path of none) assert.equal(expected(path), null, path);
 
-  // 받는 쪽이 든 목록 file이 사슬과 다르면(바꿔친 release.json, 바꿔친 앱 목록) 그 아래 file을 기대하지 않는다.
+  // 받는 쪽이 든 목록 file이 사슬과 다르면(바꿔친 source json, 바꿔친 앱 목록) 그 아래 file을 기대하지 않는다.
   held.set(
-    releaseRecordPath(b.machine, APP, HASH),
-    releaseJson(b.machine, hex(text("swapped"))),
+    sourcePath(b.machine, APP, 1, "json"),
+    sourceMetaJson(b.machine, hex(text("swapped"))),
   );
-  assert.equal(expected(releaseFile), null);
-  assert.equal(expectedFiles(body, heldBytes).has(releaseFile), false);
-  held.set(releaseRecordPath(b.machine, APP, HASH), release);
+  assert.equal(expected(bundlePath), null);
+  assert.equal(expectedFiles(body, heldBytes).has(bundlePath), false);
+  held.set(sourcePath(b.machine, APP, 1, "json"), source);
   held.set(appFilesPath(b.machine, APP), appFilesJson(text("other")));
-  for (const path of [dataPath, releaseFile, bundlePath]) {
+  for (const path of [dataPath, bundlePath]) {
     assert.equal(expected(path), null, path);
   }
   held.delete(appFilesPath(b.machine, APP));
@@ -360,11 +327,11 @@ test("event file은 path의 기계·앱·id와 같고 때가 범위 안일 때�
   const file = (over: Record<string, unknown>) =>
     text(
       JSON.stringify({
-        format: 1,
+        format: 2,
         machine: b.machine,
         app: APP,
         id,
-        bundle_hash: HASH,
+        code_commit: COMMIT,
         name: "note.added",
         payload: {},
         at: AT,

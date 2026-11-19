@@ -380,7 +380,6 @@ export const terminalKind: TabKindDef = {
   noReopen: true,
   iconOf: agentTabIcon,
   dotOf: agentTabDot,
-  renameThisComputerOnly: true,
   rename(tab, name, host) {
     const person = name?.trim() || null;
     const terminal = terminalOf(tab, host);

@@ -337,7 +337,18 @@ export function useGuiToggle(options: ToggleOptions): {
   latest.current = options;
   const ready = options.core !== null && options.session !== null;
 
-  const run = async () => {
+  const loadPlan = (core: TerminalCore, session: string) => {
+    void readRoute(core.events.core, codingSessionsSwitchPlan, {
+      session,
+    }).then((plan) => {
+      if (!plan.ok) setProblem(problemText(null, ""));
+      else if (plan.value.blocked !== null) {
+        setProblem(problemText(plan.value.blocked, ""));
+      } else setStops(plan.value.stops);
+    });
+  };
+
+  const run = async (expectedStops?: GuiStops) => {
     const { core, session, to: target } = latest.current;
     if (core === null || session === null) return;
     setStops(null);
@@ -346,10 +357,17 @@ export function useGuiToggle(options: ToggleOptions): {
     const reply = await callRoute(
       core.events.core,
       codingSessionsSwitch as Route,
-      { session, to: target, confirmed: true, key: newId("key") },
+      {
+        session,
+        to: target,
+        confirmed: true,
+        key: newId("key"),
+        ...(expectedStops === undefined ? {} : { stops: expectedStops }),
+      },
     );
     setBusy(false);
     if (reply.ok) switched?.();
+    else if (reply.reason === "stale_plan") loadPlan(core, session);
     else setProblem(problemText(reply.reason, reply.message));
   };
   // run은 ref와 setter만 읽어 어느 render의 것이어도 같다.
@@ -361,14 +379,7 @@ export function useGuiToggle(options: ToggleOptions): {
       void run();
       return;
     }
-    void readRoute(core.events.core, codingSessionsSwitchPlan, {
-      session,
-    }).then((plan) => {
-      if (!plan.ok) setProblem(problemText(null, ""));
-      else if (plan.value.blocked !== null) {
-        setProblem(problemText(plan.value.blocked, ""));
-      } else setStops(plan.value.stops);
-    });
+    loadPlan(core, session);
   };
   const start = useCallback(() => startRef.current(), []);
   const unavailable = options.unavailable ?? null;
@@ -412,7 +423,7 @@ export function useGuiToggle(options: ToggleOptions): {
             <Button
               variant="primary"
               icon={actionIcons.refresh}
-              onClick={() => void run()}
+              onClick={() => void run(stops ?? undefined)}
             >
               {t("terminal.button.switch")}
             </Button>

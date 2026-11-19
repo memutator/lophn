@@ -54,6 +54,7 @@ import {
   useCurrentComputer,
   useNames,
   useSampleConversation,
+  useSessionDraft,
   useWorkspaces,
   type WorkspaceView,
 } from "../../data/mod.ts";
@@ -250,7 +251,17 @@ function ChatScreen({
   const waiting: "approval" | "answer" | undefined =
     active?.phase === "waiting" ? (approval !== null ? "approval" : "answer") : undefined;
 
-  const [draft, setDraft] = useState("");
+  const sessionDraft = useSessionDraft(session);
+  const draft = sessionDraft.draft.text;
+  const setDraft = useCallback(
+    (text: string) => sessionDraft.save({ text }),
+    [sessionDraft],
+  );
+  const updateAttachments = useCallback(
+    (fn: (current: readonly Attached[]) => readonly Attached[]) =>
+      sessionDraft.update((current) => ({ attachments: fn(current.attachments) })),
+    [sessionDraft],
+  );
   const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
   const [changed, setChanged] = useState(false);
   // A typed `/…` that ran nothing: an unknown name, or a command done on the computer. Typing clears it.
@@ -259,7 +270,10 @@ function ChatScreen({
     setDraft(text);
     setSlashNote(null);
   };
-  const attachments = useAttachments();
+  const attachments = useAttachments({
+    items: sessionDraft.draft.attachments,
+    update: updateAttachments,
+  });
   // The pictures of the message being sent, to put back when the core does not take it (their uploads stay valid).
   const sentWith = useRef<{ id: string; items: readonly Attached[] } | null>(null);
   const { restore } = attachments;

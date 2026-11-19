@@ -77,9 +77,13 @@ export function saveComputers(computers: Computer[]): Promise<void> {
   );
 }
 
-export function loadRoster(): RosterSnapshot {
+export function loadRosterText(): string | null {
   const file = rosterFile();
-  return readRoster(file.exists ? file.textSync() : null);
+  return file.exists ? file.textSync() : null;
+}
+
+export function loadRoster(): RosterSnapshot {
+  return readRoster(loadRosterText());
 }
 
 export function saveRoster(roster: RosterSnapshot): void {

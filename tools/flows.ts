@@ -107,7 +107,9 @@ function yamlFiles(dir: string): string[] {
     .map((n) => `${dir}/${n}`);
 }
 
-const isTest = (file: string) => file.endsWith("_test.ts");
+const isTest = (file: string) =>
+  file.endsWith("_test.ts") ||
+  (file.startsWith("packages/mobile/") && file.endsWith(".test.ts"));
 
 // 앞이 같은 path 가운데 가장 긴 것. 끝이 /이면 폴더, 아니면 file 하나다.
 function longestPrefix(file: string, prefixes: string[]): string | undefined {
@@ -1005,7 +1007,7 @@ function check(c: Catalog, only: string | undefined, partial: boolean) {
       const at = `files[${i}]`;
       unknownKeys(file, at, t, ["path", "covers", "note"]);
       if (!tracked.has(path))
-        add(file, `${at}.path`, `git이 아는 *_test.ts가 아님: ${path}`);
+        add(file, `${at}.path`, `git이 아는 test file이 아님: ${path}`);
       else {
         const prefix = longestPrefix(path, groupPrefixes);
         const group =

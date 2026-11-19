@@ -445,6 +445,8 @@ test_groups:
     paths: [packages/core/]
   - id: shell
     paths: [packages/shell/]
+  - id: mobile
+    paths: [packages/mobile/]
   - id: libs-tooling
     paths: [packages/, tests/, tools/]
 

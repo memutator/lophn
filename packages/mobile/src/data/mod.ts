@@ -43,6 +43,7 @@ export type {
 } from "../../../remote-client/mod.ts";
 export type { CodingActions, CodingTarget } from "./coding.ts";
 export type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
+export type { SessionDraft } from "./drafts.ts";
 export {
   type ComputersView,
   type CodingSessionsView,
@@ -60,6 +61,7 @@ export {
   useMachineNameOf,
   useNames,
   useSampleConversation,
+  useSessionDraft,
   useStartSession,
   useTerminal,
   useWorkspaces,
@@ -95,6 +97,7 @@ export {
   EveryComputer,
   type PhoneLine,
   useEveryComputer,
+  useRemoteAppNameOf,
 } from "./every.tsx";
 export * from "./local-apps.ts";
 export * from "./ops.ts";

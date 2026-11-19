@@ -23,6 +23,7 @@ import {
   useCodingSessions,
   useCurrentComputer,
   useNames,
+  useSessionDraft,
   useTerminal,
 } from "../../data/mod.ts";
 import { Face, OfflineBanner } from "../../parts/mod.ts";
@@ -137,7 +138,7 @@ export function TerminalView({
       </NoticeLine>
     );
   } else if (view.input) {
-    bottom = <Typing send={view.send} input={typing} />;
+    bottom = <Typing session={session} send={view.send} input={typing} />;
   } else if (screen !== null) {
     bottom = (
       <NoticeLine icon={KeyboardOff}>{t("mobile.terminal.notice.typing-off")}</NoticeLine>
@@ -231,13 +232,17 @@ const ROWS: readonly (readonly (
 
 /** The text box (its send types the text only, no Enter) and the key bar. */
 function Typing({
+  session,
   send,
   input,
 }: {
+  session: string;
   send: (text: string) => Promise<SourceResult<void>>;
   input: RefObject<ComponentRef<typeof TextInput> | null>;
 }) {
-  const [text, setText] = useState("");
+  const { draft, save } = useSessionDraft(session);
+  const text = draft.terminalText;
+  const setText = (terminalText: string) => save({ terminalText });
   const [failed, setFailed] = useState(false);
   const [mods, setMods] = useState<Mods>(NO_MODS);
   const armed = mods.ctrl || mods.alt || mods.shift;

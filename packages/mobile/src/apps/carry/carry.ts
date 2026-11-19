@@ -27,6 +27,8 @@ import {
   manifestPath,
   parseCarryPath,
 } from "../../../../protocol/remote/carry.ts";
+import { type RosterSnapshot, rosterView } from "../../../../protocol/remote/roster.ts";
+import type { Computer as SavedComputer } from "../../../../remote-client/mod.ts";
 import type { Remote } from "../local/ports.ts";
 import { ask, failed, fromBase64, toBase64 } from "../local/transfer.ts";
 import type { CarryDeps } from "./ports.ts";
@@ -78,7 +80,39 @@ export function ensureTables(db: SyncDb): void {
       wants text not null,
       wants_at integer
     );
+    create table if not exists carry_skipped (
+      machine text not null,
+      path text not null,
+      sha256 text not null,
+      at integer not null,
+      primary key (machine, path)
+    );
   `);
+}
+
+/**
+ * Every machine id carry retention counts: saved computers that are not disputed, plus every trusted computer in the
+ * phone's roster snapshot (including one not saved yet because its reach has not arrived).
+ */
+export function carryRosterMachines(
+  saved: readonly Pick<SavedComputer, "machine" | "signing_key" | "disputed">[],
+  roster: RosterSnapshot,
+): string[] {
+  const machines = new Set<string>();
+  const roots: string[] = [];
+  for (const one of saved) {
+    if (one.signing_key !== undefined) roots.push(one.signing_key);
+    if (one.machine !== undefined && one.disputed !== true) machines.add(one.machine);
+  }
+  if (roots.length > 0 && roster.statements.length > 0) {
+    const view = rosterView(roster.statements, roots, null);
+    for (const device of view.devices) {
+      if (device.body.kind === "computer" && device.body.machine !== null) {
+        machines.add(device.body.machine);
+      }
+    }
+  }
+  return [...machines];
 }
 
 function heldManifest(
@@ -333,6 +367,16 @@ export async function carryWith(
         if (fresh) targets.push({ machine, path, ...now });
       }
     }
+    for (const row of db.all("select machine, path, sha256 from carry_skipped")) {
+      const machine = String(row.machine);
+      const path = String(row.path);
+      const digest = String(row.sha256);
+      if (!roster.some((each) => each !== computer && each !== machine)) continue;
+      const now = expectOf(machine).get(path);
+      if (now !== undefined && now.sha256 === digest) {
+        targets.push({ machine, path, ...now });
+      }
+    }
     let gotList = false;
     for (const target of targets) {
       const map = expectOf(target.machine);
@@ -346,8 +390,24 @@ export async function carryWith(
       if (path === target.path && !same(now, target)) continue;
       const file = { machine: target.machine, path, ...now };
       const held = heldFile(db, file.machine, file.path);
-      if ((held !== null && same(held, file)) || tried.has(keyOf(file))) continue;
-      if (file.size > Math.min(deps.cap(), CARRY_MAX_BYTES)) continue;
+      if (held !== null && same(held, file)) {
+        db.run("delete from carry_skipped where machine = ? and path = ?", [file.machine, file.path]);
+        continue;
+      }
+      if (tried.has(keyOf(file))) continue;
+      if (file.size > Math.min(deps.cap(), CARRY_MAX_BYTES)) {
+        if (file.size <= CARRY_MAX_BYTES) {
+          db.run(
+            `insert into carry_skipped (machine, path, sha256, at)
+             values (?, ?, ?, ?)
+             on conflict (machine, path) do update set
+               at = case when carry_skipped.sha256 = excluded.sha256 then carry_skipped.at else excluded.at end,
+               sha256 = excluded.sha256`,
+            [file.machine, file.path, file.sha256, deps.now()],
+          );
+        }
+        continue;
+      }
       tried.add(keyOf(file));
       files.remove(INCOMING);
       files.write(INCOMING, new Uint8Array());
@@ -356,6 +416,10 @@ export async function carryWith(
       if (!got.value) {
         files.remove(INCOMING);
         continue;
+      }
+      if (isCover(file.path) && !before.has(file.machine) && held !== null) {
+        const body = heldManifest(db, file.machine)?.body;
+        if (body) before.set(file.machine, expectedFiles(body, heldBytes));
       }
       files.move(INCOMING, fileAt(file.path));
       db.run(
@@ -373,6 +437,7 @@ export async function carryWith(
           computer,
         ],
       );
+      db.run("delete from carry_skipped where machine = ? and path = ?", [file.machine, file.path]);
       if (isCover(file.path)) {
         gotList = true;
         expected.delete(file.machine);
@@ -395,13 +460,14 @@ export function prune(deps: CarryDeps, roster: readonly string[]): void {
   const gone: Held[] = [];
   db.exec("begin immediate");
   try {
-    for (const table of ["carry_computers", "carry_manifests"]) {
+    for (const table of ["carry_computers", "carry_manifests", "carry_skipped"]) {
       for (const row of db.all(`select machine from ${table}`)) {
         if (!listed.has(String(row.machine))) {
           db.run(`delete from ${table} where machine = ?`, [String(row.machine)]);
         }
       }
     }
+    db.run("delete from carry_skipped where ? - at > ?", [now, CARRY_MAX_AGE_MS]);
     const computers = roster.map((machine) => {
       const state = readComputer(db, machine);
       return { revisions: state.revisions, wants: new Set(state.wants.map(keyOf)) };

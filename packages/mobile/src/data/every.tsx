@@ -24,7 +24,7 @@ import {
   useComputers,
   useWorkspaces,
 } from "./hooks.tsx";
-import { useKeepLists, useWithSavedLists } from "./lists.ts";
+import { savedLists, useKeepLists, useWithSavedLists } from "./lists.ts";
 import { installedOf, useLocalApps, withLocalApps } from "./local-apps.ts";
 import type { WorkspaceView } from "./workspaces.ts";
 
@@ -201,4 +201,29 @@ export function useEveryComputer(): Every & {
       ? every.lines
       : every.lines.filter((one) => one.computer.key === every.filter);
   return { ...every, shown, many: shown.length > 1 };
+}
+
+/** A paired computer's app name by its machine id and app id, from its live or kept app list; null when unknown. */
+export function useRemoteAppNameOf(): (
+  machine: string,
+  appId: string,
+) => string | null {
+  const { lines } = useContext(EveryContext);
+  const { computers } = useComputers();
+  return useCallback(
+    (machine, appId) => {
+      const line = lines.find((one) => one.computer.machine === machine);
+      const fromLine = line?.workspaces.find(
+        (ws) => ws.workspace?.kind === "app" && ws.workspace.id === appId,
+      )?.name;
+      if (fromLine !== undefined && fromLine !== null) return fromLine;
+      const computer = computers.find((one) => one.machine === machine);
+      if (computer === undefined) return null;
+      return (
+        savedLists.lists(computer.key)?.apps.find((app) => app.id === appId)
+          ?.name ?? null
+      );
+    },
+    [lines, computers],
+  );
 }

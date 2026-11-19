@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -11,8 +11,15 @@ import {
   manifestBodySchema,
   manifestPathMachine,
 } from "../../../../protocol/remote/carry.ts";
+import { generateKeyPair, remoteKeyText } from "../../../../protocol/remote/noise.ts";
+import {
+  generateSigningKey,
+  type RosterEntryBody,
+  type RosterStatement,
+  signRoster,
+} from "../../../../protocol/remote/roster.ts";
 import type { Remote } from "../local/ports.ts";
-import { CARRY_MAX_BYTES, carryWith, ensureTables, prune } from "./carry.ts";
+import { CARRY_MAX_BYTES, carryRosterMachines, carryWith, ensureTables, prune } from "./carry.ts";
 import type { CarryDeps } from "./ports.ts";
 
 // The phone on node (the carry folder on disk, its database on node:sqlite) and fake computers that answer the four
@@ -33,7 +40,10 @@ const root = mkdtempSync(join(tmpdir(), "lophn-carry-"));
 after(() => rmSync(root, { recursive: true, force: true }));
 let phones = 0;
 
-function phone(clock: { now: number }): CarryDeps & { holds(path: string): boolean } {
+function phone(
+  clock: { now: number },
+  cap: () => number = () => Infinity,
+): CarryDeps & { holds(path: string): boolean } {
   const dir = join(root, `phone-${++phones}`);
   mkdirSync(dir);
   const at = (path: string) => join(dir, path);
@@ -47,7 +57,7 @@ function phone(clock: { now: number }): CarryDeps & { holds(path: string): boole
   return {
     db,
     now: () => clock.now,
-    cap: () => Infinity,
+    cap,
     files: {
       read: (path) => (existsSync(at(path)) ? new Uint8Array(readFileSync(at(path))) : null),
       readRange: (path, offset, length) => new Uint8Array(readFileSync(at(path)).subarray(offset, offset + length)),
@@ -255,4 +265,179 @@ test("past the bounds the oldest files go first; an event file goes after a week
   prune(deps, [B]);
   assert.ok(!deps.holds(older));
   assert.ok(!deps.holds(young));
+});
+
+test("a file skipped for the mobile data cap is taken once Wi-Fi or a bigger cap returns, and its mark expires after 30 days", async () => {
+  const clock = { now: 1_000 };
+  let max = 100;
+  const deps = phone(clock, () => max);
+  const roster = [A, B];
+  const [a, b] = [computer(A), computer(B)];
+  const meet = async (who: ReturnType<typeof computer>, machine: string) => {
+    clock.now += 1_000;
+    assert.deepEqual(await carryWith(deps, who.remote, machine, roster), { ok: true, value: undefined });
+    prune(deps, roster);
+  };
+
+  // Initial manifest on Wi-Fi so the phone holds A's list and rev 1.
+  max = Infinity;
+  a.publish(made(A, 1, { "000000000001.changes": "one" }));
+  await meet(a, A);
+  await meet(b, B);
+
+  // Over mobile data (1024 B cap), A publishes a small file and a large file (2048 B).
+  max = 1024;
+  const bigContent = "x".repeat(2048);
+  a.publish(
+    made(A, 2, {
+      "000000000001.changes": "one",
+      "000000000002.changes": "small",
+      "000000000003.changes": bigContent,
+    }),
+  );
+  const small = `machines/${A}/apps/${APP}/data/000000000002.changes`;
+  const big = `machines/${A}/apps/${APP}/data/000000000003.changes`;
+  await meet(a, A);
+  assert.ok(deps.holds(small));
+  assert.ok(!deps.holds(big));
+  const skippedAt = Number(
+    deps.db.all("select at from carry_skipped where machine = ? and path = ?", [A, big])[0]?.at,
+  );
+  assert.ok(skippedAt > 0);
+
+  // Meeting A again under the same cap does not refresh the mark's timestamp.
+  clock.now += 10 * DAY;
+  await meet(a, A);
+  assert.ok(!deps.holds(big));
+  assert.equal(
+    Number(deps.db.all("select at from carry_skipped where machine = ? and path = ?", [A, big])[0]?.at),
+    skippedAt,
+  );
+
+  // Back on Wi-Fi (or a bigger cap): A's manifest revision did not change, yet the phone pulls the skipped file and drops its mark.
+  max = Infinity;
+  await meet(a, A);
+  assert.ok(deps.holds(big));
+  assert.equal(deps.db.all("select 1 from carry_skipped where machine = ? and path = ?", [A, big]).length, 0);
+  await meet(b, B);
+  assert.equal(sha(b.files.get(big)!), sha(bigContent));
+  assert.ok(!deps.holds(big));
+
+  // A skipped mark older than 30 days is pruned and no longer pulled even on Wi-Fi.
+  max = 1024;
+  a.publish(
+    made(A, 3, {
+      "000000000001.changes": "one",
+      "000000000002.changes": "small",
+      "000000000003.changes": bigContent,
+      "000000000004.changes": "y".repeat(2048),
+    }),
+  );
+  const stale = `machines/${A}/apps/${APP}/data/000000000004.changes`;
+  await meet(a, A);
+  assert.equal(deps.db.all("select 1 from carry_skipped where machine = ? and path = ?", [A, stale]).length, 1);
+  clock.now += 31 * DAY;
+  prune(deps, roster);
+  assert.equal(deps.db.all("select 1 from carry_skipped where machine = ? and path = ?", [A, stale]).length, 0);
+  max = Infinity;
+  await meet(a, A);
+  assert.ok(!deps.holds(stale));
+});
+
+test("carry retention counts trusted unsaved computers from roster.json and still drops after 30 days", async () => {
+  const random = { fill: (bytes: Uint8Array) => bytes.set(randomBytes(bytes.byteLength)) };
+  const makeKeys = () => ({
+    host: remoteKeyText(generateKeyPair(random).publicKey),
+    signing: generateSigningKey(random),
+  });
+  const [keysA, keysB, keysC, keysD] = [makeKeys(), makeKeys(), makeKeys(), makeKeys()];
+  const D = "mch_01jx00000000000000000000dd";
+  const DEV_A = "dev_01jx00000000000000000000aa";
+  const DEV_B = "dev_01jx00000000000000000000bb";
+  const DEV_C = "dev_01jx00000000000000000000cc";
+  const DEV_D = "dev_01jx00000000000000000000dd";
+  const entryOf = (
+    id: string,
+    machine: string,
+    name: string,
+    keys: ReturnType<typeof makeKeys>,
+  ): RosterEntryBody => ({
+    type: "entry",
+    id,
+    kind: "computer",
+    key: keys.host,
+    signing_key: remoteKeyText(keys.signing.publicKey),
+    machine,
+    name,
+    os: "linux",
+    rev: 1,
+    invite: null,
+  });
+  const sign = (body: RosterEntryBody): RosterStatement => ({
+    body,
+    by: DEV_A,
+    signature: signRoster(body, keysA.signing.secretKey),
+  });
+  const removalD: RosterStatement = {
+    body: {
+      type: "removal",
+      id: DEV_D,
+      key: keysD.host,
+      signing_key: remoteKeyText(keysD.signing.publicKey),
+      at: AT,
+    },
+    by: DEV_A,
+    signature: signRoster(
+      {
+        type: "removal",
+        id: DEV_D,
+        key: keysD.host,
+        signing_key: remoteKeyText(keysD.signing.publicKey),
+        at: AT,
+      },
+      keysA.signing.secretKey,
+    ),
+  };
+  const snapshot = {
+    statements: [
+      sign(entryOf(DEV_A, A, "alpha", keysA)),
+      sign(entryOf(DEV_B, B, "beta", keysB)),
+      sign(entryOf(DEV_C, C, "gamma", keysC)),
+      sign(entryOf(DEV_D, D, "delta", keysD)),
+      removalD,
+    ],
+    reach: [],
+  };
+  // Only A and B are saved on the phone; C is in roster.json without reach yet, and D was removed.
+  const saved = [
+    { machine: A as `mch_${string}`, signing_key: remoteKeyText(keysA.signing.publicKey) },
+    { machine: B as `mch_${string}`, signing_key: remoteKeyText(keysB.signing.publicKey) },
+  ];
+  const roster = carryRosterMachines(saved, snapshot);
+  assert.deepEqual(new Set(roster), new Set([A, B, C]));
+
+  const clock = { now: 1_000 };
+  const deps = phone(clock);
+  const [a, b] = [computer(A), computer(B)];
+  const meet = async (who: ReturnType<typeof computer>, machine: string) => {
+    clock.now += 1_000;
+    assert.deepEqual(await carryWith(deps, who.remote, machine, roster), { ok: true, value: undefined });
+    prune(deps, roster);
+  };
+
+  a.publish(made(A, 1, { "000000000001.changes": "one" }));
+  await meet(a, A);
+  await meet(b, B);
+  a.publish(made(A, 2, { "000000000001.changes": "one", "000000000002.changes": "two" }));
+  const two = `machines/${A}/apps/${APP}/data/000000000002.changes`;
+  await meet(a, A);
+  await meet(b, B);
+  assert.ok(b.files.has(two));
+  // Both saved computers (A and B) have it, yet it stays for unsaved roster computer C.
+  assert.ok(deps.holds(two));
+
+  // Past the 30-day age cap, an unreachable unsaved computer does not hold the file forever.
+  clock.now += 31 * DAY;
+  prune(deps, roster);
+  assert.ok(!deps.holds(two));
 });

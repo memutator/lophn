@@ -140,28 +140,51 @@ export interface Attachments {
   upload(source: AgentTabSource): Promise<ContentBlock[] | null>;
 }
 
-export function useAttachments(): Attachments {
-  const [items, setItems] = useState<readonly Attached[]>([]);
+export interface PersistedAttachments {
+  readonly items: readonly Attached[];
+  update(fn: (current: readonly Attached[]) => readonly Attached[]): void;
+}
+
+export function useAttachments(persisted?: PersistedAttachments): Attachments {
+  const [local, setLocal] = useState<readonly Attached[]>([]);
   const [notes, setNotes] = useState<readonly string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const items = persisted ? persisted.items : local;
+  const update = persisted?.update;
+  const setItems = useCallback(
+    (fn: (current: readonly Attached[]) => readonly Attached[]) => {
+      if (update !== undefined) update(fn);
+      else setLocal(fn);
+    },
+    [update],
+  );
   return {
     items,
     notes,
     uploading,
-    add: useCallback(async (picked) => {
-      const { added, refused } = await readCandidates(picked);
-      setItems((current) => withAttached(current, added));
-      setNotes(refused.map(noteOf));
-    }, []),
-    remove: useCallback((item) => {
-      setItems((current) => current.filter((one) => one !== item));
-      setNotes([]);
-    }, []),
-    restore: useCallback((back) => setItems((current) => withAttached(back, current)), []),
+    add: useCallback(
+      async (picked) => {
+        const { added, refused } = await readCandidates(picked);
+        setItems((current) => withAttached(current, added));
+        setNotes(refused.map(noteOf));
+      },
+      [setItems],
+    ),
+    remove: useCallback(
+      (item) => {
+        setItems((current) => current.filter((one) => one !== item));
+        setNotes([]);
+      },
+      [setItems],
+    ),
+    restore: useCallback(
+      (back) => setItems((current) => withAttached(back, current)),
+      [setItems],
+    ),
     clear: useCallback(() => {
-      setItems([]);
+      setItems(() => []);
       setNotes([]);
-    }, []),
+    }, [setItems]),
     upload: useCallback(
       async (source) => {
         setNotes([]);

@@ -1,0 +1,79 @@
+group: mobile
+files:
+  - path: packages/mobile/modules/lophn-drive/src/answer.test.ts
+    covers: []
+    note: "폰 preview drive native 응답 parser. 계약 모양 밖의 값, 모르는 code, 깨진 JSON은 internal로 내고, conflict·unavailable의 계약 reason만 남긴다"
+
+  - path: packages/mobile/src/apps/bundle.test.ts
+    covers: []
+    note: "폰 앱 화면 bundle 준비(prepareBundle). manifest의 size·sha256이 맞을 때만 저장·열기하고, phone_too_old·screen_too_old는 받지 않고 열지도 않는다"
+
+  - path: packages/mobile/src/apps/carry/carry.test.ts
+    covers:
+      - carry-phone:handed
+      - carry-phone:taken
+      - carry-phone:skipped-large
+      - carry-phone:pruned
+    note: "폰의 컴퓨터 간 file 나르기(carryWith, prune, carryRosterMachines). 모든 컴퓨터가 manifest를 받고 바라지 않을 때까지 유지, 용량·7일(event)·30일(일반)·목록 밖 지우기, 모바일 데이터 크기 한도로 건너뛴 file을 기억했다가 Wi-Fi·한도 증가 뒤 받고 30일 뒤 표시 지우기, roster.json의 미저장 컴퓨터도 세고 30일 한도는 유지"
+
+  - path: packages/mobile/src/apps/drive/controller.test.ts
+    covers: []
+    note: "폰 preview drive controller 경계. 해당 컴퓨터용으로 연 preview 밖의 view는 native module에 닿지 않고(no_preview), 사람이 제어권을 잡으면 act만 conflict(taken_over)다"
+
+  - path: packages/mobile/src/apps/guest/local-call.test.ts
+    covers: []
+    note: "폰에서 도는 앱 backend의 local 호출 transaction 경계. write와 outbox 줄을 같은 transaction으로 commit하고, endCall 실패·상한 초과·시간 초과는 rollback, 끝나지 않는 handler는 fatal, external만 host로 간다"
+
+  - path: packages/mobile/src/apps/guest/session.test.ts
+    covers: []
+    note: "폰 앱 화면 guest bridge 경계. 메시지가 내세우는 앱·release·view, 모르는 모양, 상한 초과 메시지는 버리고 call은 host가 묶은 view로만 간다"
+
+  - path: packages/mobile/src/apps/local/local.test.ts
+    covers:
+      - phone-app-install:installed
+      - phone-app-sync:synced
+      - phone-app-sync:offline
+      - phone-app-release-change:switched
+      - phone-app-release-change:failed
+      - phone-app-external:sent
+      - phone-app-external:unavailable
+      - phone-app-prune:removed
+      - phone-app-prune:kept
+    note: "폰에서 도는 앱의 설치, outbox push·pull(transaction 단위 적용과 실패 시 유지), release 전환(실패 시 기존 DB·outbox 보존, 첫 push까지 backup 유지), external 호출 전 outbox 선전송, 안 보낸 변경과 standalone data의 prune 보호"
+
+  - path: packages/mobile/src/apps/view.test.ts
+    covers: []
+    note: "앱 화면 view binding(linkView). 자기 view의 AppViewEvent만 guest로 전달하고 다른 view의 event는 버린다"
+
+  - path: packages/mobile/src/data/coding.test.ts
+    covers: []
+    note: "폰 coding session 대화 feed(snapshot + AcpUpdated 접기)와 switchView의 confirmed: true 전달"
+
+  - path: packages/mobile/src/data/saved.test.ts
+    covers: []
+    note: "폰이 저장하는 컴퓨터별 앱·project 목록과 icon cache(사라진 앱 icon 정리, 제거된 컴퓨터 폴더 삭제)"
+
+  - path: packages/mobile/src/data/terminal.test.ts
+    covers: []
+    note: "폰 터미널 feed의 lease 갱신·해제와 snapshot 읽기 중 도착한 TerminalScreenChanged 합치기"
+
+  - path: packages/mobile/src/link/answer.test.ts
+    covers:
+      - phone-answer:answered
+      - phone-answer:os-permission-denied
+      - phone-answer:phone-unavailable
+      - phone-answer:invalid-input
+      - phone-answer:answer-dropped
+    note: "폰의 core request 응답 경계. 권한 거절, 모르는 kind, background 상태, 위치 서비스 꺼짐에서는 위치를 읽지 않고, 허용 시 위치 응답, 잘못된 입력은 invalid_input, deadline 초과 답은 버린다"
+
+  - path: packages/mobile/src/open/target.test.ts
+    covers: []
+    note: "알림·위젯·URL open target parser(parseOpenTarget). pairing한 컴퓨터의 정해진 모양만 열고 나머지는 무시한다"
+
+  - path: packages/mobile/src/pairing/saved.test.ts
+    covers: []
+    note: "SecureStore computers 저장소 호환 읽기(readComputers). 명단 이전 저장 형식 읽기와 깨진 원소만 단독 제거"
+
+  - path: packages/mobile/src/widgets/cache.test.ts
+    covers: []
+    note: "위젯 cache 규칙(buildCache). 제거된 컴퓨터의 위젯은 기존 row를 비우고 다른 컴퓨터 값으로 채우지 않으며, offline에서는 stale 표시로 유지한다"

@@ -14,6 +14,7 @@ import {
   useInbox,
   useMachineNameOf,
   useNames,
+  useRemoteAppNameOf,
   useWorkspaces,
   type WaitingEntry,
   type WorkspaceView,
@@ -427,12 +428,20 @@ function JobApprovalItem({
 }: { entry: Kind<"job_approval"> } & Shared) {
   const nav = useNav();
   const machineNameOf = useMachineNameOf();
+  const remoteAppNameOf = useRemoteAppNameOf();
   const view = cardOf(entry, names);
   const answering = useAnswering();
   const approve = () =>
     answering.send(() => inbox.jobApproval(entry, "approve"));
   const disabled = locked || answering.busy;
   const { job } = entry;
+  const source =
+    job.trigger !== null && job.trigger.source_machine !== undefined
+      ? (remoteAppNameOf(
+          job.trigger.source_machine,
+          job.trigger.app ?? job.trigger.source,
+        ) ?? job.trigger.source)
+      : job.trigger?.source ?? "";
   const when =
     job.trigger !== null
       ? t(
@@ -442,7 +451,7 @@ function JobApprovalItem({
               ? "waiting.notice.job-approval-lophn"
               : "waiting.notice.job-approval-event",
           {
-            source: job.trigger.source,
+            source,
             event: job.trigger.event,
             interval: intervalText(job.trigger.min_interval),
             // A computer this phone has not paired shows by id.

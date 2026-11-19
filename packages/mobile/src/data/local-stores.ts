@@ -2,12 +2,14 @@
 // computer on screen, and what goes when a computer is no longer paired. Without React, so the data provider (which
 // outlives every screen, also the last computer's removal) holds it.
 import type { Computers, Link } from "../../../remote-client/mod.ts";
+import { carryRosterMachines } from "../apps/carry/carry.ts";
 import { carrier } from "../apps/carry/native.ts";
 import { appDir, paths } from "../apps/local/folder.ts";
 import { nativeDeps } from "../apps/local/native.ts";
 import { pruneApp } from "../apps/local/prune.ts";
 import { createLocalApps, type LocalApps } from "../apps/local/store.ts";
-import { loadComputers } from "../pairing/store.ts";
+import { readRoster } from "../pairing/saved.ts";
+import { loadComputers, loadRosterText } from "../pairing/store.ts";
 import type { ComputerData } from "./link.ts";
 
 // One store per computer for the app's life: the sync work of a computer goes on while its screens come and go.
@@ -98,6 +100,7 @@ function followCarry(computers: Computers<ComputerData>): () => void {
   const carry = carrier();
   let machines = new Map<string, string>();
   let seen: string | null = null;
+  let seenRoster: string | null | undefined = undefined;
   const followed = new Map<string, { link: Link<ComputerData>; machine: string; off: () => void }>();
   const apply = () => {
     const state = computers.get();
@@ -131,20 +134,22 @@ function followCarry(computers: Computers<ComputerData>): () => void {
       followed.delete(key);
     }
   };
-  const read = () =>
+  const read = (rosterText = loadRosterText()) =>
     void loadComputers().then((saved) => {
       const known = saved.filter((one) => one.machine !== undefined && one.disputed !== true);
       machines = new Map(known.map((one) => [one.key, one.machine!]));
-      carry.roster([...new Set(machines.values())]);
+      carry.roster(carryRosterMachines(saved, readRoster(rosterText)));
       apply();
     });
   const follow = () => {
     const state = computers.get();
     if (!state.ready) return;
     const now = state.computers.map((one) => `${one.key} ${one.status}`).join("\n");
-    if (now !== seen) {
+    const rosterText = loadRosterText();
+    if (now !== seen || rosterText !== seenRoster) {
       seen = now;
-      read();
+      seenRoster = rosterText;
+      read(rosterText);
     }
     apply();
   };

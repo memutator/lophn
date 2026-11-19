@@ -1,7 +1,6 @@
 // What the project and app workspace screens read beyond the workspace list: a project's workflows, files and jobs, an app's
 // runs and release: plain reads of the routes the phone may call. The sample computer answers them from its fake core.
 import type { z } from "zod";
-import type { MemoryRoute, ReadRoute } from "../../../protocol/base/route.ts";
 import { releasesListRecords } from "../../../protocol/apps/activation/activation.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
@@ -37,33 +36,11 @@ import {
 } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import { jobsOfProject } from "../../../shell/renderer/desktop/jobs/model.ts";
 import type { JobView } from "../../../shell/renderer/desktop/jobs/source.ts";
+import { ask } from "./ask.ts";
 import type { ConversationTarget } from "./hooks.tsx";
 
 export type { ReadHandle } from "../../../shell/renderer/desktop/connection/core-read.ts";
 export type { ProjectFileEntry } from "../../../protocol/projects/project-files.ts";
-
-type Route = ReadRoute | MemoryRoute;
-type Asked<T> = { ok: true; value: T } | { ok: false; code: string };
-
-async function ask<R extends Route>(
-  core: CoreSource,
-  route: R,
-  input: z.input<R["input"]>,
-): Promise<Asked<z.output<R["output"]>>> {
-  try {
-    const reply = await core.call({
-      kind: route.kind,
-      resource: route.resource,
-      method: route.method,
-      body: input,
-    });
-    return reply.ok
-      ? { ok: true, value: reply.value as z.output<R["output"]> }
-      : { ok: false, code: reply.error?.code ?? "internal" };
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
 
 const ok = <T>(value: T) => ({ ok: true, value }) as const;
 const useCore = (): CoreSource => useEventClient().core;

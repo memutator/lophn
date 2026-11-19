@@ -87,6 +87,11 @@ import {
   type TerminalState,
   terminalFeed,
 } from "./terminal.ts";
+import {
+  createPhoneDraftStore,
+  type PhoneDraftStore,
+  type SessionDraft,
+} from "./drafts.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 import { followLocalComputers } from "./local-stores.ts";
 import { type Known, type WorkspaceView, workspacesOf } from "./workspaces.ts";
@@ -96,6 +101,7 @@ interface Data {
   /** The computer the hooks below read: the one on screen, or the one a `ComputerScope` names. */
   readonly key: string | null;
   readonly data: ComputerData;
+  readonly drafts: PhoneDraftStore;
 }
 
 const DataContext = createContext<Data | null>(null);
@@ -125,6 +131,7 @@ export function DataProvider({
   computers: Computers<ComputerData>;
   children: ReactNode;
 }) {
+  const [drafts] = useState(createPhoneDraftStore);
   const state = useSyncExternalStore(computers.subscribe, computers.get);
   useEffect(() => followLocalComputers(computers), [computers]);
   useEffect(() => {
@@ -136,7 +143,7 @@ export function DataProvider({
     return () => subscription.remove();
   }, [computers]);
   return (
-    <Scope computers={computers} computer={state.current}>
+    <Scope computers={computers} computer={state.current} drafts={drafts}>
       {children}
     </Scope>
   );
@@ -145,18 +152,20 @@ export function DataProvider({
 function Scope({
   computers,
   computer,
+  drafts,
   children,
 }: {
   computers: Computers<ComputerData>;
   computer: string | null;
+  drafts: PhoneDraftStore;
   children: ReactNode;
 }) {
   const data =
     (computer === null ? undefined : computers.link(computer)?.data) ??
     NO_COMPUTER;
   const value = useMemo(
-    () => ({ computers, key: computer, data }),
-    [computers, computer, data],
+    () => ({ computers, key: computer, data, drafts }),
+    [computers, computer, data, drafts],
   );
   return (
     <DataContext.Provider value={value}>
@@ -176,13 +185,36 @@ export function ComputerScope({
   computer: string;
   children: ReactNode;
 }) {
-  const { computers } = useData();
+  const { computers, drafts } = useData();
   useSyncExternalStore(computers.subscribe, computers.get);
   return (
-    <Scope computers={computers} computer={computer}>
+    <Scope computers={computers} computer={computer} drafts={drafts}>
       {children}
     </Scope>
   );
+}
+
+/** In-memory draft for one session (chat text, attachments, terminal input); survives chat <-> terminal view swaps. */
+export function useSessionDraft(session: string): {
+  readonly draft: SessionDraft;
+  save(patch: Partial<SessionDraft>): void;
+  update(fn: (current: SessionDraft) => Partial<SessionDraft>): void;
+} {
+  const { drafts, key } = useData();
+  const id = `${key ?? ""}\0${session}`;
+  const draft = useSyncExternalStore(
+    useCallback((listener) => drafts.subscribe(id, listener), [drafts, id]),
+    useCallback(() => drafts.get(id), [drafts, id]),
+  );
+  const save = useCallback(
+    (patch: Partial<SessionDraft>) => drafts.save(id, patch),
+    [drafts, id],
+  );
+  const update = useCallback(
+    (fn: (current: SessionDraft) => Partial<SessionDraft>) => drafts.update(id, fn),
+    [drafts, id],
+  );
+  return useMemo(() => ({ draft, save, update }), [draft, save, update]);
 }
 
 // ---- computers

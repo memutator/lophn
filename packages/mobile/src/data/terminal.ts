@@ -13,7 +13,7 @@ import {
 } from "../../../protocol/coding-agent/terminal-view.ts";
 import { terminalsInput, terminalsOpen } from "../../../protocol/coding-agent/terminals.ts";
 import type { SourceResult } from "../../../shell/renderer/conversation/agent-tab-source.ts";
-import type { CodingResult } from "./coding.ts";
+import { ask, type Asked } from "./ask.ts";
 import type {
   EventClient,
   EventMessage,
@@ -53,26 +53,6 @@ export interface TerminalFeed {
   stop(): void;
 }
 
-async function call<T>(
-  client: EventClient,
-  route: { kind: string; resource: string; method: string },
-  body: unknown,
-): Promise<SourceResult<T>> {
-  try {
-    const reply = await client.core.call({
-      kind: route.kind as "read" | "memory",
-      resource: route.resource,
-      method: route.method,
-      body,
-    });
-    return reply.ok
-      ? { ok: true, value: reply.value as T }
-      : { ok: false, code: reply.error?.code ?? "unavailable" };
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
-
 /**
  * Watches one terminal from now until `stop`: takes the lease when the event watch is ready (first time and after every
  * reconnect) and renews it every 10 seconds while connected, and reads the snapshot after each and on every change of
@@ -106,7 +86,7 @@ export function terminalFeed(
     reading = true;
     do {
       again = false;
-      const done = await call<TerminalSnapshot>(client, terminalViewSnapshot, {
+      const done = await ask(client.core, terminalViewSnapshot, {
         terminal,
       });
       if (done.ok) set({ screen: done.value, status: "ready" });
@@ -119,7 +99,7 @@ export function terminalFeed(
 
   /** Takes or renews the lease. */
   async function lease() {
-    const done = await call(client, terminalViewWatch, { terminal, on: true });
+    const done = await ask(client.core, terminalViewWatch, { terminal, on: true });
     leased = done.ok;
     if (!done.ok) {
       set({
@@ -132,7 +112,7 @@ export function terminalFeed(
   /** The core takes a size only from a phone that watches. */
   async function claim() {
     if (size === null || !leased || stopped) return;
-    await call(client, terminalViewResize, { terminal, ...size });
+    await ask(client.core, terminalViewResize, { terminal, ...size });
   }
 
   function onMessage(message: EventMessage) {
@@ -162,7 +142,7 @@ export function terminalFeed(
 
   return {
     async send(text) {
-      const done = await call(client, terminalsInput, {
+      const done = await ask(client.core, terminalsInput, {
         terminal,
         text,
         key: newId("input"),
@@ -178,7 +158,7 @@ export function terminalFeed(
       unsubscribe();
       renewing?.();
       renewing = null;
-      void call(client, terminalViewWatch, { terminal, on: false });
+      void ask(client.core, terminalViewWatch, { terminal, on: false });
     },
   };
 }
@@ -191,24 +171,11 @@ export async function openTerminal(
   client: EventClient,
   project: string,
   key: string = newId("open"),
-): Promise<CodingResult<string>> {
-  try {
-    const reply = await client.core.call({
-      kind: terminalsOpen.kind as "memory",
-      resource: terminalsOpen.resource,
-      method: terminalsOpen.method,
-      body: { project, key, tab: { relation: null } },
-    });
-    return reply.ok
-      ? { ok: true, value: (reply.value as { terminal: string }).terminal }
-      : {
-          ok: false,
-          code: reply.error?.code ?? "unavailable",
-          ...(reply.error?.message === undefined
-            ? {}
-            : { message: reply.error.message }),
-        };
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
+): Promise<Asked<string>> {
+  const opened = await ask(client.core, terminalsOpen, {
+    project,
+    key,
+    tab: { relation: null },
+  });
+  return opened.ok ? { ok: true, value: opened.value.terminal } : opened;
 }

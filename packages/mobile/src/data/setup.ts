@@ -4,7 +4,7 @@
 // kept: callers hold it only until they call.
 import { useEffect, useMemo, useState } from "react";
 import type { z } from "zod";
-import type { MemoryRoute, ReadRoute, UploadRoute } from "../../../protocol/base/route.ts";
+import type { UploadRoute } from "../../../protocol/base/route.ts";
 import { inputRequestAnswerSecret } from "../../../protocol/lophn-agent/input-request.ts";
 import type {
   ProviderSignInState,
@@ -33,25 +33,13 @@ import type { EventClient } from "../../../shell/renderer/desktop/connection/eve
 import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import { commandBody } from "../../../shell/renderer/command-call.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
+import { ask } from "./ask.ts";
 import { useComputerData } from "./hooks.tsx";
 import { base64Of } from "./images.ts";
 
 export type { ProviderRecord } from "../../../protocol/lophn-agent/provider-values.ts";
 export { oauthFlowOf } from "../../../protocol/lophn-agent/provider-values.ts";
 export type ProviderDefinitionView = z.output<typeof providerDefinitions.output>["definitions"][number];
-
-async function callRoute<T>(
-  core: CoreSource,
-  route: ReadRoute | MemoryRoute | UploadRoute | { kind: "command"; resource: string; method: string },
-  body: unknown,
-): Promise<SourceResult<T>> {
-  try {
-    const reply = await core.call({ kind: route.kind, resource: route.resource, method: route.method, body });
-    return reply.ok ? { ok: true, value: reply.value as T } : { ok: false, code: reply.error?.code ?? "internal" };
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
 
 /** The value's UTF-8 as an upload body, or invalid_input when it is empty or over the core's limit. */
 async function upload<T>(
@@ -62,7 +50,7 @@ async function upload<T>(
 ): Promise<SourceResult<T>> {
   const bytes = new TextEncoder().encode(value);
   if (bytes.byteLength < 1 || bytes.byteLength > SECRET_INPUT_MAX_BYTES) return { ok: false, code: "invalid_input" };
-  return callRoute<T>(core, route, { input: { ...input, bytes: bytes.byteLength }, base64: base64Of(bytes) });
+  return ask<T>(core, route, { input: { ...input, bytes: bytes.byteLength }, base64: base64Of(bytes) });
 }
 
 export type SignInStart = z.input<typeof providerSignInInputSchema>;
@@ -116,7 +104,7 @@ export function useSetup(computer?: string): Setup {
         return sent.ok ? { ok: true, value: null } : sent;
       },
       async startSignIn(input) {
-        const begun = await callRoute<z.output<typeof providerSignIn.output>>(core, providerSignIn, input);
+        const begun = await ask(core, providerSignIn, input);
         if (!begun.ok) return begun;
         const { provider, login, sign_in } = begun.value;
         return { ok: true, value: { provider, login, url: sign_in.url, code: sign_in.user_code } };
@@ -155,7 +143,7 @@ export function useSetup(computer?: string): Setup {
         };
       },
       async cancelSignIn(started) {
-        await callRoute(
+        await ask(
           core,
           loginCancel,
           commandBody(loginCancel, {
@@ -203,7 +191,7 @@ async function readProviders(core: CoreSource): Read<ProvidersView> {
   const connected: ProviderRecord[] = [];
   let cursor: string | null = null;
   do {
-    const page: SourceResult<z.output<typeof providerList.output>> = await callRoute(
+    const page: SourceResult<z.output<typeof providerList.output>> = await ask(
       core,
       providerList,
       cursor === null ? {} : { cursor },
@@ -212,7 +200,7 @@ async function readProviders(core: CoreSource): Read<ProvidersView> {
     connected.push(...page.value.providers);
     cursor = page.value.next_cursor;
   } while (cursor !== null);
-  const read = await callRoute<z.output<typeof providerDefinitions.output>>(core, providerDefinitions, {});
+  const read = await ask(core, providerDefinitions, {});
   if (!read.ok) return read.code === "forbidden" ? { ok: true, value: "forbidden" } : { ok: false };
   const used = new Set(connected.map((one) => one.definition.key));
   return {

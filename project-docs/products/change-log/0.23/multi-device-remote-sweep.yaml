@@ -24,7 +24,7 @@ modules:
   - tools
 change: |
   - **Remote·보안·세션 경계**:
-    - `sessions/archive`는 도는 turn이 있으면 `force: true` 없이 `conflict`(`turn_running`)로 거절하고 desktop 화면이 확인을 받는다.
+    - `sessions/archive`는 도는 turn이 있으면 `stop_turn: true` 없이 `conflict`(`turn_running`)로 거절하고 desktop 화면이 확인을 받는다.
     - `acp/send`의 기기 coding session 입력에서 `set_mode`를 `forbidden`으로 막고 `run_shell`(`!`)은 터미널 입력 허락을 본다. `edit_queued`·`move_queued` 변경을 `AcpUpdated`로 중계한다.
     - `coding_sessions/switch`에 선택 `stops` 계획을 더해 `switch_plan` 이후 멈출 일이 달라지면 `conflict`(`stale_plan`)로 거절한다(desktop·폰 화면 연동).
     - `instructions/read_global`·`write_global`(`base_hash` 낙관적 잠금)과 `terminals/name`·`terminals/rename_saved`를 `REMOTE_PERSON_ROUTES`에, `app_views/log_error`(caller의 `(owner, view)` binding 한정)를 `REMOTE_ALLOWED_ROUTES`에 추가했다.
@@ -49,7 +49,7 @@ change: |
 why: |
   멀티 기기(desktop·원격 컴퓨터·폰)와 Antigravity(`agy`)·터미널·provider 사용 중 보고된 50건의 버그·결함을 일괄 해소하고, 남기기로 정한 6건의 이슈 판단을 기록한다.
 decisions:
-  - text: "turn이 도는 session 보관 시 conflict(turn_running)로 거절하고 확인 후 force: true로 진행한다. 버린 길: 확인 없이 즉시 중단(다른 기기가 방금 시작한 turn이 말없이 끊긴다)."
+  - text: "turn이 도는 session 보관 시 conflict(turn_running)로 거절하고 확인 후 stop_turn: true로 진행한다. 버린 길: 확인 없이 즉시 중단(다른 기기가 방금 시작한 turn이 말없이 끊긴다)."
     by: person
   - text: "컴퓨터별 터미널 입력 허락 스위치는 하나로 유지하고 앱 public command 호출도 함께 열린다고 문구에 명시한다. 버린 길: typing/app-commands 두 스위치로 분리(초대·합류 UI 복잡도 증가)."
     by: person

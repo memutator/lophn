@@ -53,6 +53,7 @@ import {
 } from "../../protocol/folder/layout.ts";
 import { CARRY_REMOVED_GRACE_MS } from "../../protocol/folder/limits.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
+import { findReleasePathCollision } from "./apps/releases.ts";
 import type { CarryReceived, FolderReplica } from "./ports.ts";
 
 export const CARRY_STAGING_DIR = "carry-staging";
@@ -161,6 +162,7 @@ export function createShaCache() {
 // 목록 file(앱 목록, release.json, source/<n>.json). 이것을 받으면 그 아래 지울 것이 생길 수 있다.
 const COVER =
   /\/(apps\/[^/]+\/files|releases\/[0-9a-f]{64}\/release|source\/[0-9]{12})\.json$/;
+const RELEASE_COVER = /\/releases\/[0-9a-f]{64}\/release\.json$/;
 
 const same = (a: Expected | null, b: Expected) =>
   a !== null && a.size === b.size && a.sha256 === b.sha256;
@@ -318,6 +320,13 @@ export function createReplica(deps: ReplicaDeps): Replica {
       (asked) => (asked === path ? bytes : null),
     );
     entries.delete(path);
+    // 같은 release 안에서 대소문자·NFC 정규화만 다른 path가 겹치면 macOS·Windows에서 서로 덮는다.
+    if (
+      RELEASE_COVER.test(path) &&
+      findReleasePathCollision([...entries.keys()]) !== null
+    ) {
+      entries.clear();
+    }
     covers.set(file, {
       size: info.size,
       mtime: info.mtimeMs,

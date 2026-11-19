@@ -143,6 +143,7 @@ import {
   DEVICES_SCHEMA_STEPS,
   DEVICES_TOPIC,
   type DevicesChange,
+  describeRemoteListenerError,
   devicesListRead,
   devicesPushTargetsRead,
   dialNodeWebSocket,
@@ -405,11 +406,14 @@ const DEVICE_PRINCIPAL = "device:";
 // 넘으면 못 닿은 것과 같이 저장하고 pending으로 끝난다: 초대 서명 statement는 link나 폰이 나중에 나른다.
 const JOIN_DEADLINE_MS = 20_000;
 
-// `dial`은 다른 컴퓨터에 붙는 길이다(link와 roster/join). test는 메모리 전송을 넘긴다.
+// `dial`은 다른 컴퓨터에 붙는 길이다(link와 roster/join). `openListener`는 port bind 길이다. test는 가짜를 넘긴다.
 export function remoteWiring(
   dial: Dial = dialNodeWebSocket,
+  openListener: typeof openRemoteListener = openRemoteListener,
 ): ReturnType<WiringFactory> {
   let listener: RemoteListener | undefined;
+  // remote가 켜진 상태에서 listener를 열지 못한 까닭(예: EADDRINUSE). 꺼지거나 다시 열리면 비운다.
+  let listenerFailure: string | undefined;
   let relay: RelayClient | undefined;
   let host: RemoteHost | undefined;
   // 이 컴퓨터의 key 둘. remote를 켤 때 만들고, 있으면 기동 때 읽는다. 명단을 버릴 때 지운다.
@@ -574,6 +578,7 @@ export function remoteWiring(
     host = undefined;
     await listener?.close();
     listener = undefined;
+    listenerFailure = undefined;
     relay?.close();
     relay = undefined;
     const forgot = await command(ctx, rosterForgetAll.name, {});
@@ -724,6 +729,7 @@ export function remoteWiring(
     if (listener !== undefined && listener.port !== port) {
       await listener.close();
       listener = undefined;
+      listenerFailure = undefined;
     }
     if (relay !== undefined && relay.url !== relayUrl) {
       relay.close();
@@ -731,6 +737,7 @@ export function remoteWiring(
     }
     if (!enabled) {
       // 끈 뒤에는 push도 멈춘다. bindPush의 기기 목록이 hostText로 갈린다. 다시 켜면 key를 풀어 다시 선다.
+      listenerFailure = undefined;
       hostText = undefined;
       carry.stop();
       links.sync(undefined);
@@ -744,6 +751,7 @@ export function remoteWiring(
           ctx.machine.id,
         );
       } catch (thrown) {
+        listenerFailure = `remote keys could not be loaded: ${thrown instanceof Error ? thrown.message : String(thrown)}`;
         logError(ctx, "listener_failed", thrown);
         return;
       }
@@ -831,13 +839,17 @@ export function remoteWiring(
         accept: (socket) => void accept(socket),
       });
     }
-    if (port !== undefined && listener === undefined) {
+    if (port === undefined) {
+      listenerFailure = undefined;
+    } else if (listener === undefined) {
       try {
-        listener = await openRemoteListener({
+        listener = await openListener({
           port,
           accept: (socket) => void accept(socket),
         });
+        listenerFailure = undefined;
       } catch (thrown) {
+        listenerFailure = describeRemoteListenerError(port, thrown);
         logError(ctx, "listener_failed", thrown);
       }
     }
@@ -1191,7 +1203,7 @@ export function remoteWiring(
         )
           return err({
             code: "unavailable" as const,
-            message: "remote is off",
+            message: listenerFailure ?? "remote is off",
           });
         return roster.invite({
           ...(input as z.infer<typeof rosterInvite.input>),
@@ -1269,10 +1281,16 @@ export function remoteWiring(
             message: "the text is not a lophn invite",
           });
         }
-        if (keys === undefined || hostText === undefined) {
+        if (
+          keys === undefined ||
+          hostText === undefined ||
+          (listener === undefined &&
+            relay === undefined &&
+            listenerFailure !== undefined)
+        ) {
           return err({
             code: "unavailable" as const,
-            message: "remote is off",
+            message: listenerFailure ?? "remote is off",
           });
         }
         const hostKey = keys.host;
@@ -1516,6 +1534,7 @@ export function remoteWiring(
       host?.shutdown();
       await listener?.close();
       listener = undefined;
+      listenerFailure = undefined;
       relay?.close();
       relay = undefined;
     },

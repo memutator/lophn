@@ -1548,6 +1548,7 @@ async function linkedComputer(
   const published: BusEvent[] = [];
   // 이 컴퓨터(A) core 안 구독자가 받은 B의 event.
   const peerEvents: unknown[] = [];
+  const warnings: { event?: string; fields?: Record<string, unknown> }[] = [];
   const links = createLinks({
     roster,
     name: () => "laptop",
@@ -1564,7 +1565,12 @@ async function linkedComputer(
       return () => clearTimeout(timer);
     },
     publish: (event) => void published.push(event),
-    logger: { error() {}, warn() {} } as never,
+    logger: {
+      error() {},
+      warn(entry: { event?: string; fields?: Record<string, unknown> }) {
+        warnings.push(entry);
+      },
+    } as never,
     onPeerReady: () => undefined,
     onPeerCarry: () => undefined,
     onPeerEvent: (_machine, event) => void peerEvents.push(event),
@@ -1575,7 +1581,7 @@ async function linkedComputer(
     await settle();
   }
   assert.equal(links.list()[0]?.status, "connected");
-  return { links, published, peerEvents };
+  return { links, published, peerEvents, warnings };
 }
 
 // 한 기계를 여러 구독자(창, shell main 안의 것)가 본다. 한쪽이 그만보거나 그 shell이 끝나 빠질 때 다른 구독자의 조건까지 덮으면
@@ -1724,5 +1730,64 @@ test("컴퓨터는 private이 아닌 앱이 낸 앱 event만 받고, 폰은 앱 
       frame.type === "event" ? [frame.event.type] : [],
     ),
     ["NoticeClosed"],
+  );
+});
+
+// 구독한 컴퓨터 하나가 앱 event를 쏟아 내도 link마다 초당 상한(초당 20개, 순간 40개)을 넘어서는 event는 버리고 경고 log도 간격을 두고 남긴다.
+test("구독한 컴퓨터의 AppEventPublished가 상한을 넘으면 초과분을 버리고 경고를 간격마다 남기며 시간이 지나면 다시 받는다", async (t) => {
+  const s = setup();
+  const { links, peerEvents, warnings } = await linkedComputer(s, t);
+  assert.ok(
+    links.watch(CORE_APP_EVENTS, HOST_MACHINE, [
+      { types: ["AppEventPublished"] },
+    ]).ok,
+  );
+  await settle();
+
+  const send = (count: number) => {
+    for (let i = 0; i < count; i++) {
+      s.bus.publish({
+        type: "AppEventPublished",
+        subject: viewApp,
+        at: s.clock.now(),
+        payload: {
+          source: "ops",
+          event: "tick",
+          payload: { i },
+          audience: null,
+          publication: `pub_0${"1".repeat(25)}`,
+          trace_id: "a".repeat(32),
+          chain: [viewApp],
+        },
+      } as BusEvent);
+    }
+  };
+
+  send(50);
+  await settle();
+  assert.equal(peerEvents.length, 40);
+  assert.equal(
+    warnings.filter((w) => w.event === "peer_event_rate_limited").length,
+    1,
+  );
+
+  // 1초가 지나면 20개까지 다시 받고, 경고 간격(10초) 안이라 경고를 되풀이하지 않는다.
+  s.clock.advance(1_000);
+  send(25);
+  await settle();
+  assert.equal(peerEvents.length, 60);
+  assert.equal(
+    warnings.filter((w) => w.event === "peer_event_rate_limited").length,
+    1,
+  );
+
+  // 10초가 지나면 burst(40)만큼 다시 차고, 넘으면 경고를 한 번 더 남긴다.
+  s.clock.advance(10_000);
+  send(45);
+  await settle();
+  assert.equal(peerEvents.length, 100);
+  assert.equal(
+    warnings.filter((w) => w.event === "peer_event_rate_limited").length,
+    2,
   );
 });

@@ -12,6 +12,21 @@ export type RemoteListener = {
   close(): Promise<void>;
 };
 
+export function describeRemoteListenerError(
+  port: number,
+  thrown: unknown,
+): string {
+  const code = (thrown as NodeJS.ErrnoException | null)?.code;
+  if (code === "EADDRINUSE") {
+    return `the remote port ${port} is in use by another program; change remote.port`;
+  }
+  if (code === "EACCES" || code === "EPERM") {
+    return `permission denied opening remote port ${port}; change remote.port`;
+  }
+  const detail = thrown instanceof Error ? thrown.message : String(thrown);
+  return `failed to open remote port ${port}: ${detail}`;
+}
+
 export function openRemoteListener(options: {
   port: number;
   accept(socket: RemoteSocket): void;

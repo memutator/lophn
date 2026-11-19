@@ -54,6 +54,8 @@ export type JobEventPolicy = {
     from: { kind: "project" | "app"; id: string } | null,
     to: { kind: "project" | "app"; id: string } | null,
   ): boolean;
+  // 이 기계의 call 정책에서 `workspace`(home이면 null)가 private인가.
+  isPrivate(workspace: { kind: "project" | "app"; id: string } | null): boolean;
 };
 export const jobEventPolicyPort = definePort<JobEventPolicy>("jobs.events");
 

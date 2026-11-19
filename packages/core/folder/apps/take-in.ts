@@ -25,7 +25,11 @@ import type {
   FolderAppsDeps,
   FolderAppsHost,
 } from "./deps.ts";
-import { DECLARATION_FILE, MANIFEST_FILE } from "./releases.ts";
+import {
+  DECLARATION_FILE,
+  findReleasePathCollision,
+  MANIFEST_FILE,
+} from "./releases.ts";
 import { createRepository } from "./source.ts";
 import { setSourceRead } from "./state.ts";
 
@@ -100,9 +104,21 @@ async function checkRelease(
   }
   const files: { path: string; bytes: Uint8Array }[] = [];
   const listed = new Map<string, string>();
+  const seenPaths = new Set<string>();
   for (const file of record.files) {
-    if (listed.has(file.path))
+    if (seenPaths.has(file.path))
       return incomplete(`${file.path} is listed twice`);
+    seenPaths.add(file.path);
+  }
+  const collision = findReleasePathCollision(
+    record.files.map((file) => file.path),
+  );
+  if (collision !== null) {
+    return incomplete(
+      `release paths collide on case-insensitive or NFC filesystems: ${collision[0]} and ${collision[1]}`,
+    );
+  }
+  for (const file of record.files) {
     listed.set(file.path, file.sha256);
     const bytes = await reader.read(
       releaseFilePath(origin, app, bundleHash, file.path),

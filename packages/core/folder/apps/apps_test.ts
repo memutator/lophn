@@ -191,7 +191,11 @@ function recordsIn(dest: string, origin: Id<"mch">): FolderAppRecordCopy[] {
   return [{ origin, destination: DESTINATION, record: record.value }];
 }
 
-async function sealedRelease(root: string, commit: string) {
+async function sealedRelease(
+  root: string,
+  commit: string,
+  extraFiles: readonly { path: string; bytes: Uint8Array }[] = [],
+) {
   // release 준비처럼 검증한 선언의 정규 JSON이다.
   const validated = validateDeclaration({
     name: "Notes",
@@ -216,6 +220,7 @@ async function sealedRelease(root: string, commit: string) {
         "CREATE TABLE notes (id INTEGER PRIMARY KEY);\n",
       ),
     },
+    ...extraFiles,
   ];
   const manifest = buildManifest({
     entrypoint: "main.js",
@@ -573,5 +578,89 @@ test("source 받기는 사람의 code를 덮지 않는다", async () => {
       git(repoB, "for-each-ref", "--format=%(refname)", "refs/remotes/"),
       `refs/remotes/${A}/main`,
     );
+  });
+});
+
+// 대소문자나 NFC 정규화만 다른 두 file이 같은 release에 있으면 macOS·Windows에서 서로 덮는다.
+// 보내는 쪽은 release를 내지 않고 stream 오류로 남기며, 받는 쪽도 그런 release.json을 거절한다.
+test("대소문자나 NFC 정규화만 다른 path가 겹치는 release는 내보내기와 들이기 모두 거절한다", async () => {
+  for (const [label, extra] of [
+    [
+      "case collision",
+      [
+        {
+          path: "sub/A.js",
+          bytes: new TextEncoder().encode("export const a = 1;\n"),
+        },
+        {
+          path: "sub/a.js",
+          bytes: new TextEncoder().encode("export const a = 2;\n"),
+        },
+      ],
+    ],
+    [
+      "NFC/NFD collision",
+      [
+        {
+          path: "sub/caf\u00e9.js",
+          bytes: new TextEncoder().encode("export const c = 1;\n"),
+        },
+        {
+          path: "sub/cafe\u0301.js",
+          bytes: new TextEncoder().encode("export const c = 2;\n"),
+        },
+      ],
+    ],
+  ] as const) {
+    await withWorld(async (w) => {
+      const colliding = await sealedRelease(
+        w.rootA,
+        w.local.release!.code_commit,
+        extra,
+      );
+      w.local.release = colliding;
+      const exported = await w.folderA.runApp(APP);
+      assert.equal(exported.ok, false, label);
+      assert.equal(
+        existsSync(join(w.dest, releaseDir(A, APP, colliding.bundle_hash))),
+        false,
+        label,
+      );
+      const streamError = w.dbA
+        .prepare(
+          "SELECT error FROM folder_streams WHERE machine = ? AND app = ? AND stream = 'app'",
+        )
+        .get(A, APP) as { error: string | null } | undefined;
+      assert.ok(streamError?.error, label);
+      assert.equal(
+        (JSON.parse(streamError.error) as { code: string }).code,
+        "release_incomplete",
+        label,
+      );
+    });
+  }
+
+  // 받는 쪽(takeIn): 이미 폴더에 올라온 release.json에 대소문자·NFC 충돌이 있어도 거절한다.
+  await withWorld(async (w) => {
+    assert.ok((await w.folderA.runApp(APP)).ok);
+    const hash = w.local.release!.bundle_hash;
+    const dir = join(w.dest, releaseDir(A, APP, hash));
+    const record = decodeRecord(
+      releaseRecordSchema,
+      readFileSync(join(dir, "release.json")),
+    );
+    assert.ok(record.ok);
+    const main = record.value.files.find((file) => file.path === "main.js")!;
+    writeFileSync(
+      join(dir, "release.json"),
+      encodeRecord(releaseRecordSchema, {
+        ...record.value,
+        files: [...record.value.files, { ...main, path: "Main.js" }],
+      }),
+    );
+    const taken = await w.folderB.takeIn({ app: APP });
+    assert.equal(taken.ok, false);
+    assert.equal(taken.error.details?.reason, "release_incomplete");
+    assert.deepStrictEqual(rows(w.dbB, "SELECT id FROM apps"), []);
   });
 });

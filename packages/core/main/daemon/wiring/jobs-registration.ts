@@ -14,6 +14,7 @@ import {
 import type { JobEventPolicy, JobTargets } from "../../../jobs/ports.ts";
 import {
   DEFAULT_CALL_POLICY,
+  isPrivate,
   mayReachWorkspace,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
 import { appStatusOf } from "../../../apps/lookups.ts";
@@ -112,6 +113,11 @@ function eventPolicyOf(sql: Query): JobEventPolicy {
       const root = dataRootOf(sql, undefined);
       const policy = root.ok ? callPolicyAt(root.value) : DEFAULT_CALL_POLICY;
       return mayReachWorkspace(policy, from as never, to as never);
+    },
+    isPrivate(workspace) {
+      const root = dataRootOf(sql, undefined);
+      const policy = root.ok ? callPolicyAt(root.value) : DEFAULT_CALL_POLICY;
+      return isPrivate(policy, workspace as never);
     },
   };
 }

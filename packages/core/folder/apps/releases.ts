@@ -27,6 +27,33 @@ import {
 export const MANIFEST_FILE = "manifest.json";
 export const DECLARATION_FILE = "declaration.json";
 
+// macOS·Windows 같은 대소문자 무시·NFC 정규화 file system에서 서로 덮거나 file·폴더가 부딪히는 두 path를 찾는다.
+export function findReleasePathCollision(
+  paths: readonly string[],
+): [string, string] | null {
+  const files = new Map<string, string>();
+  const dirs = new Map<string, string>();
+  for (const path of paths) {
+    const parts = path
+      .split("/")
+      .map((part) => part.normalize("NFC").toLowerCase());
+    const folded = parts.join("/");
+    const sameFile = files.get(folded);
+    if (sameFile !== undefined) return [sameFile, path];
+    const sameDir = dirs.get(folded);
+    if (sameDir !== undefined) return [sameDir, path];
+    let prefix = "";
+    for (let i = 0; i < parts.length - 1; i++) {
+      prefix = i === 0 ? parts[i]! : `${prefix}/${parts[i]!}`;
+      const conflictFile = files.get(prefix);
+      if (conflictFile !== undefined) return [conflictFile, path];
+      if (!dirs.has(prefix)) dirs.set(prefix, path);
+    }
+    files.set(folded, path);
+  }
+  return null;
+}
+
 async function* hashing(
   chunks: AsyncIterable<Uint8Array>,
   hash: ReturnType<typeof createHash>,
@@ -72,11 +99,19 @@ export async function writeActiveRelease(
   if (declarationHash === undefined) {
     return err({ code: "unavailable", message: "bundle has no declaration" });
   }
-  const files: { path: string; size: number; sha256: string }[] = [];
-  for (const path of [
+  const releasePaths = [
     ...manifest.data.files.map((file) => file.path),
     MANIFEST_FILE,
-  ]) {
+  ];
+  const collision = findReleasePathCollision(releasePaths);
+  if (collision !== null) {
+    return err({
+      code: "invalid_input",
+      message: `release contains paths that collide on case-insensitive or NFC filesystems: ${collision[0]} and ${collision[1]}`,
+    });
+  }
+  const files: { path: string; size: number; sha256: string }[] = [];
+  for (const path of releasePaths) {
     const hash = createHash("sha256");
     const done = await target.writer.writeStream(
       releaseFilePath(me, app.app, release.bundle_hash, path),

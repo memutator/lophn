@@ -43,7 +43,11 @@ export {
   type LinkedMachine,
   type Links,
 } from "./links.ts";
-export { openRemoteListener, type RemoteListener } from "./listener.ts";
+export {
+  describeRemoteListenerError,
+  openRemoteListener,
+  type RemoteListener,
+} from "./listener.ts";
 export {
   createMachineAppTools,
   createMachineRoutes,

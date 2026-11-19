@@ -49,6 +49,37 @@ import type { Roster } from "./roster.ts";
 const PING_MS = 20_000;
 const IDLE_MS = 60_000;
 
+// 구독한 컴퓨터 하나가 보내는 앱 event의 초당 상한(초당 20개, 순간 40개). 뚫리거나 잘못 짠 컴퓨터가 앱 handler를 끝없이 돌리지 못하게 한다.
+const PEER_EVENT_RATE_PER_SEC = 20;
+const PEER_EVENT_BURST = 40;
+const PEER_EVENT_WARN_INTERVAL_MS = 10_000;
+
+type PeerEventLimiter = {
+  tokens: number;
+  lastMs: number;
+  warnedAtMs: number | null;
+  droppedSinceWarn: number;
+};
+
+function takePeerEventToken(limiter: PeerEventLimiter, nowMs: number): boolean {
+  if (nowMs > limiter.lastMs) {
+    const elapsedSec = (nowMs - limiter.lastMs) / 1_000;
+    limiter.tokens = Math.min(
+      PEER_EVENT_BURST,
+      limiter.tokens + elapsedSec * PEER_EVENT_RATE_PER_SEC,
+    );
+    limiter.lastMs = nowMs;
+  } else if (nowMs < limiter.lastMs) {
+    limiter.lastMs = nowMs;
+  }
+  if (limiter.tokens >= 1) {
+    limiter.tokens -= 1;
+    return true;
+  }
+  limiter.droppedSinceWarn += 1;
+  return false;
+}
+
 // 실제 WebSocket. message 하나는 Noise message 하나다.
 export const dialNodeWebSocket: Dial = (url) =>
   new Promise((resolve, reject) => {
@@ -145,6 +176,8 @@ type Link = {
   // 붙은 동안 보낸 watch마다 바꾼 구독자(모르면 undefined)를 보낸 차례로 둔다. 그 기계가 같은 차례로 `ready`를 답한다.
   // 붙기 전에 보낸 것은 넣지 않는다: 붙을 때 connection이 다시 건 watch의 `ready`는 모두의 것이다.
   asked: (MachineSubscriber | undefined)[];
+  // 이 link로 들어오는 앱 event의 token bucket.
+  eventLimiter: PeerEventLimiter;
 };
 
 type Watch = { subscriber: MachineSubscriber; conditions: EventCondition[] };
@@ -323,6 +356,12 @@ export function createLinks(deps: LinksDeps) {
       refused: false,
       shown: canonicalize({ status: "connecting", update: null, path: null }),
       asked: [],
+      eventLimiter: {
+        tokens: PEER_EVENT_BURST,
+        lastMs: deps.clock.nowMs(),
+        warnedAtMs: null,
+        droppedSinceWarn: 0,
+      },
     };
     void connection.watch(conditionsOf(body.id));
     connection.subscribe((state) => {
@@ -354,7 +393,30 @@ export function createLinks(deps: LinksDeps) {
             event as BusEvent,
           )
         ) {
-          deps.onPeerEvent(machine, message.event);
+          const nowMs = deps.clock.nowMs();
+          if (
+            event.type !== "AppEventPublished" ||
+            takePeerEventToken(link.eventLimiter, nowMs)
+          ) {
+            deps.onPeerEvent(machine, message.event);
+          } else if (
+            link.eventLimiter.warnedAtMs === null ||
+            nowMs - link.eventLimiter.warnedAtMs >= PEER_EVENT_WARN_INTERVAL_MS
+          ) {
+            deps.logger.warn({
+              component: "remote",
+              event: "peer_event_rate_limited",
+              message:
+                "dropping excess AppEventPublished events from a linked computer",
+              fields: {
+                machine,
+                device: body.id,
+                dropped: link.eventLimiter.droppedSinceWarn,
+              },
+            });
+            link.eventLimiter.warnedAtMs = nowMs;
+            link.eventLimiter.droppedSinceWarn = 0;
+          }
         }
         if (
           !eventMatches(

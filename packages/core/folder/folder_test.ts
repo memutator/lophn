@@ -44,6 +44,9 @@ import {
   encodeRecord,
   machineRecordSchema,
   recordPath,
+  releaseFilePath,
+  releaseRecordPath,
+  releaseRecordSchema,
 } from "../../protocol/folder/mod.ts";
 import { generateKeyPair, remoteKeyText } from "../../protocol/remote/noise.ts";
 import {
@@ -1295,5 +1298,82 @@ test("앞 목록의 정리가 도는 사이 새 앱 목록이 와도 새 목록�
       assert.equal(after[key], held[key], path);
     }
     assert.deepEqual(await env.replica.wants(100), ok([]));
+  });
+});
+
+// 다른 컴퓨터의 release.json에 대소문자나 NFC 정규화만 다른 path가 겹치면 받는 자리가 그 release 아래 file을 바라지도 받지도 않는다.
+test("받는 자리는 대소문자나 NFC 정규화만 다른 path가 겹치는 release.json의 file 목록을 거절한다", async () => {
+  await carryEnv(async (env) => {
+    const bundleHash = "a".repeat(64);
+    const aBytes = text("A");
+    const bBytes = text("a");
+    const releasePath = releaseRecordPath(OTHER, APP, bundleHash);
+    const rel = encodeRecord(releaseRecordSchema, {
+      format: 1,
+      machine: OTHER,
+      app: APP,
+      bundle_hash: bundleHash,
+      code_commit: "b".repeat(40),
+      declaration_hash: "c".repeat(64),
+      data_schema: 1,
+      data_changes: [],
+      created_at: AT,
+      files: [
+        {
+          path: "A.js",
+          size: aBytes.byteLength,
+          sha256: createHash("sha256").update(aBytes).digest("hex"),
+        },
+        {
+          path: "a.js",
+          size: bBytes.byteLength,
+          sha256: createHash("sha256").update(bBytes).digest("hex"),
+        },
+      ],
+    });
+    const appFiles = encodeRecord(appFilesSchema, {
+      format: 1,
+      machine: OTHER,
+      app: APP,
+      written_at: AT,
+      files: [listed(releasePath, rel)],
+    });
+    const manifest = signManifest(
+      {
+        format: 1,
+        machine: OTHER,
+        revision: 1,
+        written_at: AT,
+        files: [listed(appFilesPath(OTHER, APP), appFiles)],
+      },
+      laptop.signing.secretKey,
+    );
+    assert.deepEqual(
+      await env.replica.offerManifest(manifest, "link"),
+      ok("accepted"),
+    );
+    assert.deepEqual(
+      await env.link(OTHER, appFilesPath(OTHER, APP), appFiles),
+      ok("accepted"),
+    );
+    assert.deepEqual(await env.link(OTHER, releasePath, rel), ok("accepted"));
+    // 충돌하는 release.json 아래의 file들은 wanted 목록에도 오르지 않고 receive도 거절한다.
+    assert.deepEqual(await env.replica.wants(100), ok([]));
+    assert.deepEqual(
+      await env.link(
+        OTHER,
+        releaseFilePath(OTHER, APP, bundleHash, "A.js"),
+        aBytes,
+      ),
+      ok("rejected"),
+    );
+    assert.deepEqual(
+      await env.link(
+        OTHER,
+        releaseFilePath(OTHER, APP, bundleHash, "a.js"),
+        bBytes,
+      ),
+      ok("rejected"),
+    );
   });
 });

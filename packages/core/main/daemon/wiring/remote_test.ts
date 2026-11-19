@@ -44,6 +44,7 @@ import {
   DEVICES_SCHEMA_STEPS,
   devicesListRead,
   devicesPushTargetsRead,
+  type openRemoteListener,
   ROSTER_SCHEMA_STEPS,
   readHostKeyMachine,
   rosterStatementsRead,
@@ -100,9 +101,16 @@ async function boot(
   random = seededRandom(13),
   options: {
     dial?: Dial;
+    openListener?: typeof openRemoteListener;
+    port?: number;
     during?: (
       memory: Map<string, (who: unknown, input: unknown) => unknown>,
       provided: Map<string, unknown>,
+      controls: {
+        setPort(next: number | undefined): void;
+        setEnabled(next: boolean): void;
+        notifySettings(key: string): Promise<void>;
+      },
     ) => Promise<void>;
   } = {},
 ) {
@@ -130,6 +138,9 @@ async function boot(
         device: phoneId,
       },
     ];
+    let enabled = true;
+    let port = options.port;
+    const subscribers: ((event: unknown) => void)[] = [];
     const ctx: Record<string, unknown> = {
       root: { path: root },
       machine: { id: machine, status: () => ({ name: "studio" }) },
@@ -152,10 +163,12 @@ async function boot(
       settings: {
         get: (setting: { key: string }) =>
           setting.key === "remote.enabled"
-            ? true
-            : setting.key === "shell.devices"
-              ? screens
-              : undefined,
+            ? enabled
+            : setting.key === "remote.port"
+              ? port
+              : setting.key === "shell.devices"
+                ? screens
+                : undefined,
       },
       settingsUpdate: (edits: { value: unknown }[]) => {
         screens = edits[0].value;
@@ -163,12 +176,21 @@ async function boot(
       },
       telemetry: { logger: { error() {}, warn() {} } },
       attention: { bindPush() {}, forgetReporter() {} },
-      bus: { subscribe: () => () => undefined, publish() {} },
+      bus: {
+        subscribe: (
+          _conditions: unknown,
+          sink: { send(event: unknown): void },
+        ) => {
+          subscribers.push(sink.send);
+          return () => undefined;
+        },
+        publish() {},
+      },
       allRoutes: [],
       // shell main이 붙지 않았다: 살아 있는 shell capability가 없다.
       peek: {},
     };
-    const wiring = remoteWiring(options.dial);
+    const wiring = remoteWiring(options.dial, options.openListener);
     // build가 쓰는 날 writer. 아직 쓰기 앞 처리기를 접은 `ctx.writer`는 없다.
     const raw = {
       command: async (
@@ -195,7 +217,23 @@ async function boot(
     assert.ok(built.ok);
     ctx.writer = built.value.writer!(raw as never);
     assert.ok((await wiring.start!(ctx as never)).ok);
-    await options.during?.(new Map(built.value.memory as never), provided);
+    await options.during?.(new Map(built.value.memory as never), provided, {
+      setPort(next) {
+        port = next;
+      },
+      setEnabled(next) {
+        enabled = next;
+      },
+      async notifySettings(settingKey) {
+        for (const send of subscribers) {
+          send({
+            type: "StateChanged",
+            payload: { changes: [{ name: "settings", id: settingKey }] },
+          });
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      },
+    });
     await wiring.closeIntake!();
     const statements = statementsOf(db);
     const signing = readFileSync(
@@ -1163,4 +1201,113 @@ test("shell.viewer.drop은 start.json과 windows.json만 지우고 같은 폴더
   assert.equal(readFileSync(join(root, "remote", "host.key"), "utf8"), "key");
   // 폴더가 아예 없어도 아무것도 하지 않는다.
   assert.ok((await viewerDropStep.run(root, stepDeps)).ok);
+});
+
+// remote.enabled가 켜져 있는데 port 충돌 등으로 listener를 열지 못하면 invite·join이 "remote is off" 대신 실패 이유를 알리고,
+// port가 열리거나 remote가 꺼지면 그 이유를 비운다.
+test("remote listener가 EADDRINUSE로 실패하면 roster/invite와 roster/join이 port 충돌 이유를 답하고, 다른 port로 열리거나 끄면 초기화된다", async () => {
+  const random = seededRandom(73);
+  const root = emptyRoot("lophn-remote-port-taken-");
+  const machine = `mch_0${"8".repeat(25)}`;
+
+  // roster/join이 parseInviteText를 통과하도록 유효한 초대장 글 하나를 만든다.
+  const issuerHost = generateKeyPair(random);
+  const issuerSigning = generateSigningKey(random);
+  const once = generateSigningKey(random);
+  const issuerId = `dev_0${"8".padStart(25, "0")}` as RosterEntryBody["id"];
+  const issuer: RosterEntryBody = {
+    type: "entry",
+    id: issuerId,
+    kind: "computer",
+    key: remoteKeyText(issuerHost.publicKey),
+    signing_key: remoteKeyText(issuerSigning.publicKey),
+    machine: `mch_0${"9".repeat(25)}` as RosterEntryBody["machine"],
+    name: "laptop",
+    os: "linux",
+    rev: 1,
+    invite: null,
+  };
+  const inviteBody: RosterInviteBody = {
+    type: "invite",
+    key: remoteKeyText(once.publicKey),
+    by: issuerId as RosterInviteBody["by"],
+    kind: "computer",
+    terminal_input: true,
+    expires_at: "1970-01-01T00:30:00.000Z",
+  };
+  const inviteText = JSON.stringify({
+    invite: {
+      body: inviteBody,
+      signature: signRoster(inviteBody, issuerSigning.secretKey),
+    },
+    secret: remoteKeyText(once.secretKey),
+    issuer: {
+      body: issuer,
+      by: issuerId,
+      signature: signRoster(issuer, issuerSigning.secretKey),
+    },
+    reach: {
+      device: issuerId,
+      addresses: ["10.0.0.9"],
+      port: 7432,
+      relay: null,
+    },
+  });
+
+  const openListener: typeof openRemoteListener = async ({ port }) => {
+    if (port === 7432) {
+      throw Object.assign(
+        new Error("listen EADDRINUSE: address already in use :::7432"),
+        { code: "EADDRINUSE" },
+      );
+    }
+    return { port, close: async () => undefined };
+  };
+
+  await boot(root, machine, random, {
+    port: 7432,
+    openListener,
+    during: async (memory, _provided, controls) => {
+      const inviteFailed = (await memory.get("roster/invite")!(PERSON, {
+        kind: "phone",
+        terminal_input: false,
+      })) as { ok: boolean; error?: { code: string; message: string } };
+      assert.equal(inviteFailed.ok, false);
+      assert.equal(inviteFailed.error?.code, "unavailable");
+      assert.equal(
+        inviteFailed.error?.message,
+        "the remote port 7432 is in use by another program; change remote.port",
+      );
+
+      const joinFailed = (await memory.get("roster/join")!(PERSON, {
+        text: inviteText,
+      })) as { ok: boolean; error?: { code: string; message: string } };
+      assert.equal(joinFailed.ok, false);
+      assert.equal(joinFailed.error?.code, "unavailable");
+      assert.equal(
+        joinFailed.error?.message,
+        "the remote port 7432 is in use by another program; change remote.port",
+      );
+
+      // 비어 있는 port로 바꾸면 listener가 열리고 invite가 성공한다.
+      controls.setPort(7433);
+      await controls.notifySettings("remote.port");
+      const inviteOk = (await memory.get("roster/invite")!(PERSON, {
+        kind: "phone",
+        terminal_input: false,
+      })) as { ok: boolean };
+      assert.equal(inviteOk.ok, true);
+
+      // remote를 끄면 실패 이유 없이 "remote is off"로 돌아온다.
+      controls.setEnabled(false);
+      await controls.notifySettings("remote.enabled");
+      const inviteOff = (await memory.get("roster/invite")!(PERSON, {
+        kind: "phone",
+        terminal_input: false,
+      })) as { ok: boolean; error?: { code: string; message: string } };
+      assert.equal(inviteOff.ok, false);
+      assert.equal(inviteOff.error?.code, "unavailable");
+      assert.equal(inviteOff.error?.message, "remote is off");
+    },
+  });
 });

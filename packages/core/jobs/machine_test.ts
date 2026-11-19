@@ -40,6 +40,7 @@ function txOf(db: DatabaseSync, now: () => string): Tx {
       jobEventPolicyPort,
       {
         reaches: () => true,
+        isPrivate: () => false,
         drivenSession: () => false,
         declares: () => true,
       },

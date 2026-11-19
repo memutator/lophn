@@ -29,9 +29,11 @@ import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ_A = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ_B = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
+const PRIVATE_PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzzp";
 const OTHER_APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzq";
 const PRIVATE_APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzp";
 const DRIVEN = "ses_01hzzzzzzzzzzzzzzzzzzzzzzd";
+const PRIVATE_SESSION = "ses_01hzzzzzzzzzzzzzzzzzzzzzzp";
 const machine = { actor: "machine" } as never;
 
 // event를 때로 가진 job은 사람이 승인하고 켜져 있을 때만 돈다. 같은 job이 겹치거나 너무 가깝게 도는 것(event 폭풍)을 막고, 자기가 연 session의 event와
@@ -54,6 +56,11 @@ function setup() {
         // 앱 PRIVATE_APP workspace에는 어느 workspace의 job도 닿지 못한다.
         reaches: (_from: unknown, to: { id: string } | null) =>
           to === null || (to.id !== PRJ_B && to.id !== PRIVATE_APP),
+        isPrivate: (
+          workspace: { kind: "project" | "app"; id: string } | null,
+        ) =>
+          workspace !== null &&
+          (workspace.id === PRIVATE_PRJ || workspace.id === PRIVATE_APP),
         // 사람이 연 것이 아닌 session(팀의 자식, run·workflow step이 연 것).
         drivenSession: (session: string) => session === DRIVEN,
       },
@@ -61,7 +68,13 @@ function setup() {
     [
       jobTargetsPort,
       {
-        creatorOf: () => ({ agent: "lophn_home", workspace: null }),
+        creatorOf: (session: string) =>
+          session === PRIVATE_SESSION
+            ? {
+                agent: "lophn_home",
+                workspace: { kind: "project", id: PRIVATE_PRJ },
+              }
+            : { agent: "lophn_home", workspace: null },
         resolveApp: (ref: string) => ok(ref === "other" ? OTHER_APP : APP),
       },
     ],
@@ -504,6 +517,23 @@ test("event 때는 앱이 그 release에서 선언한 event나 lophn의 session 
       ),
       "invalid_input",
     );
+    // private workspace의 agent는 다른 컴퓨터의 event를 trigger로 하는 job을 만들지 못한다(구독이 걸리지 않아 절대 돌지 않는다).
+    const privateAgent = { actor: `agent:${PRIVATE_SESSION}` } as never;
+    const denied = commands.create.handle(
+      tx,
+      privateAgent,
+      {
+        title: "remote from private",
+        trigger: {
+          source: REMOTE_APP,
+          event: "whatever",
+          machine: "mch_01hzzzzzzzzzzzzzzzzzzzzzzm",
+        },
+        action: { kind: "tool_run", app: "other", tool: "x" },
+      },
+      {} as never,
+    );
+    assert.equal(code(denied), "forbidden");
   } finally {
     db.close();
   }

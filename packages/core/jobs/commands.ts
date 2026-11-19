@@ -149,8 +149,23 @@ function resolveTrigger(
     return ok({ ...base, source: "lophn", app: null });
   }
   if (input.machine !== undefined) {
-    // 다른 컴퓨터의 앱 event. 그 컴퓨터는 writer 앞에서 `mch_`로 풀렸고(wiring), 그 앱은 이 기계에 없을 수 있으므로 앱 id로 받고 이 기계의 선언과 정책은
-    // 보지 않는다(없는 event는 돌지 않을 뿐이다). private인 workspace의 job은 다른 컴퓨터에 구독을 걸지 않는다(core의 구독이 거른다).
+    // 다른 컴퓨터의 앱 event. 그 컴퓨터는 writer 앞에서 `mch_`로 풀렸고(wiring), 그 앱은 이 기계에 없을 수 있으므로 앱 id로 받고 이 기계의 선언과
+    // workspace 쌍 규칙은 보지 않는다(없는 event는 돌지 않을 뿐이다). 다만 private인 workspace는 다른 컴퓨터를 부르지도 구독하지도 못하므로
+    // 만들 때 거절한다.
+    if (
+      tx
+        .port(jobEventPolicyPort)
+        .isPrivate(
+          creator.workspace === null
+            ? null
+            : { kind: creator.workspace.kind, id: creator.workspace.id },
+        )
+    ) {
+      return fail(
+        "forbidden",
+        "a private workspace cannot create a job triggered by another computer's event",
+      );
+    }
     if (!idSchema("mch").safeParse(input.machine).success) {
       return fail("invalid_input", "machine must be a computer id");
     }

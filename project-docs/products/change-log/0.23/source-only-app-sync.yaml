@@ -1,5 +1,5 @@
 id: source-only-app-sync
-version: 0.23.97
+version: 0.23.98
 title: 컴퓨터 사이 build된 release bundle(node_modules 포함) 전송을 없애고 source-only git bundle 전송과 local release 준비로 옮기며, 기계 사이·폰 release 신분을 code_commit으로 통일한다
 modules: [packages/protocol, packages/core/folder, packages/core/apps, packages/core/storage, packages/core/main, packages/cli, packages/shell/renderer, packages/mobile]
 change: |

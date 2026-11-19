@@ -1,5 +1,5 @@
 id: tab-strip-width-limits
-version: 0.23.93
+version: 0.23.94
 title: tab 줄의 tab에 최소·최대 폭을 두고 넘치면 scroll한다(VS Code)
 modules: [packages/shell/renderer]
 change: |

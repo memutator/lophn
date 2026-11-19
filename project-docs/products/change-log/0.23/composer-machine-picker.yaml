@@ -1,5 +1,5 @@
 id: composer-machine-picker
-version: 0.23.93
+version: 0.23.94
 title: composer의 project chip에서 새 session을 돌릴 기계를 고른다
 modules: [packages/shell/renderer, packages/design]
 change: |

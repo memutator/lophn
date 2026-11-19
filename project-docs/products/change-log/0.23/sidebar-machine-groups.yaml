@@ -1,5 +1,5 @@
 id: sidebar-machine-groups
-version: 0.23.93
+version: 0.23.94
 title: 왼쪽 sidebar를 기계마다 나누고 Recent를 보이는 workspace에만 두며, session 탭을 다른 workspace로 끌어 옮긴다
 modules: [packages/shell/renderer, tools]
 change: |

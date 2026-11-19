@@ -1,5 +1,5 @@
 id: home-terminal
-version: 0.23.93
+version: 0.23.94
 title: Home에서도 터미널과 coding agent 터미널을 연다. home lophn이 `lophn tab open --coding`으로 handoff를 넘긴다
 modules: [packages/protocol, packages/core/terminals, packages/core/terminal-agents, packages/core/main, packages/core/agent-workspaces, packages/cli, packages/shell/renderer]
 change: |

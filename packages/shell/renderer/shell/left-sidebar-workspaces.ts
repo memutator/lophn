@@ -27,6 +27,7 @@ import {
   codingBuiltinOf,
   isLophn,
 } from "../../../protocol/lophn-agent/workspaces.ts";
+import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../desktop/machines/data.ts";
 import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
@@ -56,6 +57,13 @@ import type {
   SidebarWorkspace,
   SidebarSession,
 } from "./left-sidebar-model.ts";
+
+// lophn의 기본 얼굴(core의 `LOPHN_PROFILE`과 같다).
+const LOPHN_FACE = {
+  kind: "character",
+  shape: "square",
+  color: "coral",
+} as const;
 
 /** session id → 제목과 마지막 활동 시각(epoch ms). agent의 session 목록에서 읽은 것이다. */
 export type KnownSessions = ReadonlyMap<
@@ -129,13 +137,16 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const agents = new Map(
     input.agents.map((agent) => [agent.assignment, agent]),
   );
-  // 다른 workspace나 다른 기계의 agent 목록은 읽지 않았다. 내장 coding agent는 제품 아이콘으로, 그 밖은 이 workspace의 lophn 얼굴로 보인다.
-  const lophnRow = input.agents.find((agent) => isLophn(agent.assignment));
-  const agentOf = (
-    id: string,
-    machine: string | null,
-    workspace: string,
-  ): SidebarAgent | undefined => {
+  // 다른 workspace나 다른 기계의 agent 목록은 읽지 않았다. 내장 coding agent는 제품 아이콘으로, 그 밖은 이 workspace의 lophn 얼굴로
+  // 보인다. 이 workspace의 목록을 아직 못 읽었으면(다른 기계의 workspace를 처음 열었다) lophn의 기본 얼굴이다. 목록에 없다고 줄을
+  // 빼지 않는다: 도는 session이 지금 보는 workspace에 따라 사라졌다.
+  const lophnRow = input.agents.find((agent) => isLophn(agent.assignment)) ?? {
+    assignment: "",
+    name: LOPHN_AGENT_NAME,
+    profile: LOPHN_FACE,
+    waiting: false,
+  };
+  const agentOf = (id: string): SidebarAgent => {
     const known = agents.get(id);
     if (known !== undefined) return known;
     const coding = codingBuiltinOf(id);
@@ -150,9 +161,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         };
       }
     }
-    return isLophn(id) || machine !== null || workspace !== here
-      ? lophnRow
-      : undefined;
+    return lophnRow;
   };
   // 기계의 workspace → 그 줄.
   const copyKey = (machine: string | null, key: string) =>
@@ -190,11 +199,8 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         )?.[0];
     const workspace = moved ?? own;
     const shownOn = moved === undefined ? row : byKey.get(moved)!;
-    const agent =
-      entry.agent === null
-        ? undefined
-        : agentOf(entry.agent, entry.machine, workspace);
-    if (agent === undefined) continue;
+    if (entry.agent === null) continue;
+    const agent = agentOf(entry.agent);
     // 줄이 선 workspace의 기계가 아닌 session은 그 기계의 꼬리표를 달고 그 기계를 단 탭으로 열린다.
     const machine =
       entry.machine === (shownOn.ref.machine ?? null) || entry.machine === null

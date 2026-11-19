@@ -270,15 +270,20 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     entries,
     remoteSignal,
   );
-  // 다른 workspace의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다. 이 컴퓨터의 터미널은 이 창의
-  // terminal store가 안다. 다른 기계의 터미널은 그 기계의 목록(`lists.terminals`)이 주고, 이 창에 그 탭이 있으면 그 탭의 줄이다(`attached`).
-  const store = props.terminal?.store;
+  // 다른 workspace의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다. 이 컴퓨터의 터미널은 이 컴퓨터의
+  // terminal store가 안다(창이 보는 workspace가 다른 기계의 것이어도 이 컴퓨터의 store다: 창의 store를 쓰면 다른 기계의 workspace를
+  // 연 동안 이 컴퓨터의 도는 coding agent가 모두 빠졌다). 다른 기계의 터미널은 그 기계의 목록(`lists.terminals`)이 주고, 이 창에 그
+  // 탭이 있으면 그 탭의 줄이다(`attached`).
+  const store = dataOf(null).terminal?.store;
+  const thisComputer = machines?.get().thisComputer?.id ?? null;
   const workspaceOfKey = useMemo(
     () => new Map(workspaceRefs.map((ref) => [workspaceKey(ref), ref])),
     [workspaceRefs],
   );
-  const onThisComputer = (key: string, tab: TabItem) =>
-    (tab.machine ?? workspaceOfKey.get(key)?.machine) === undefined;
+  const onThisComputer = (key: string, tab: TabItem) => {
+    const on = tab.machine ?? workspaceOfKey.get(key)?.machine;
+    return on === undefined || on === thisComputer;
+  };
   const storeVersion = useSyncExternalStore(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
@@ -731,7 +736,6 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   // sidebar 줄의 탭을 끌어 놓기(`move-tab.ts`). 줄의 탭은 kind를 가리지 않고 그 줄의 workspace layout에서 찾는다: session은 그
   // session의 Agent 탭, draft는 그 key, 터미널은 그 탭(이 창의 도는 터미널은 store의 탭 key, 다른 기계의 터미널은 붙은 탭). 탭 없이
   // 도는 session은 탭을 짓는다. 찾지도 짓지도 못하는 줄(탭 없는 saved·다른 기계 터미널)은 누른 것처럼 연다.
-  const thisComputer = machines?.get().thisComputer?.id ?? null;
   const hereKey = workspaceKey(current);
   const rowOf = (row: NonNullable<TabDragItem["row"]>) =>
     workspaces.find(

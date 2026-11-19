@@ -1,0 +1,13 @@
+id: sidebar-current-other-machine
+version: 0.23.95
+title: 다른 기계의 workspace를 보거나 agent 목록을 아직 못 읽어도 다른 workspace의 도는 session·coding agent 줄이 남는다
+modules: [packages/shell/renderer]
+change: |
+  - 다른 기계의 workspace를 연 동안 이 컴퓨터의 다른 workspace에서 도는 터미널 coding agent 줄이 모두 빠졌다. sidebar가 창의 terminal store(그 기계의 것)로 이 컴퓨터의 탭을 보았다. 이제 이 컴퓨터의 터미널은 늘 이 컴퓨터의 store로 본다.
+  - 지금 workspace의 agent 목록에 lophn이 없으면(다른 기계의 workspace를 처음 열었다, 목록을 아직 못 읽었다) 다른 workspace의 lophn session 줄이 모두 빠졌다. 이제 agent를 몰라도 줄은 남고 lophn의 기본 얼굴로 보인다.
+why: |
+  current 줄(도는 session, 기다리는 session, 도는 coding agent)은 어느 workspace를 보든 보여야 한다.
+decisions:
+  - text: >-
+      agent 목록에 없는 agent의 session은 lophn 얼굴(목록이 없으면 기본 얼굴)로 둔다. 버린 길: 그 workspace·기계의 agent 목록을 따로 읽기(기계마다 workspace마다 읽기가 는다).
+    by: agent

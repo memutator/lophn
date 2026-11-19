@@ -1,0 +1,13 @@
+id: composer-model-picker-stale-after-model-change
+title: Manage models나 Settings에서 모델을 바꿔도 열려 있는 새 session과 대화의 model picker 목록이 다시 읽히지 않는다
+kind: bug
+status: open
+topic: agent-chat
+modules: [packages/shell/renderer, packages/core/main]
+now: |
+  새 session 화면(`session === null`)의 `useDraftMeta`(`packages/shell/renderer/conversation/agent-view.tsx`)는 mount 때 `source.draft()`(`acp/draft`)를 한 번만 부르고 `StateChanged`(`models`, `providers`, `agents`)를 듣지 않는다. 열린 session(`session !== null`)의 `useAgentTabData`(`packages/shell/renderer/conversation/agent-tab-data.ts`)도 `acp/snapshot`을 처음 한 번 읽고 그 뒤는 `AcpUpdated`만 접는데, `packages/core/main/daemon/wiring/acp.ts`는 `changeSessionModel`과 `saveUserModelInfo`·`removeUserModelInfo`(usage만)만 내고 `changeShownModels`나 provider 연결·해제 때는 `AcpUpdated`를 내지 않는다. (원격 기계에서 Manage models 자체가 이 컴퓨터를 고치는 버그는 `remote-manage-models-edits-this-computer`다.)
+impact: |
+  새 session이나 열린 대화의 composer에서 [Manage models]를 열어 쓸 모델을 켜고 창을 닫아도, 탭이나 대화를 다시 열기 전까지는 model picker에 방금 켠 모델이 뜨지 않고 "No models are shown"에 머문다.
+fix: |
+  - (작음, 추천) 대화 화면(`useDraftMeta`, `useAgentTabData`)이 지금 `MachineScope`의 `StateChanged(["models", "providers", "agents"])`를 받아 `draft()`와 `acp(session)`을 다시 읽는다. 이 컴퓨터와 다른 컴퓨터 모두 같은 규칙으로 맞는다.
+  - (중간) 열린 session은 `acp.ts`가 `changeShownModels`·provider 변경 뒤 열린 session의 model 목록 갱신을 `AcpUpdated`로 내고, 새 session(`useDraftMeta`)만 `StateChanged`로 다시 읽는다.

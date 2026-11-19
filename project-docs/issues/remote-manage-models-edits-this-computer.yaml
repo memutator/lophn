@@ -1,0 +1,12 @@
+id: remote-manage-models-edits-this-computer
+title: 다른 컴퓨터의 대화나 Settings에서 여는 Manage models가 그 컴퓨터가 아니라 이 컴퓨터의 모델을 읽고 고친다
+kind: bug
+status: open
+topic: remote
+modules: [packages/shell/renderer]
+now: |
+  `packages/shell/renderer/desktop/main.tsx`가 창 맨 위에서 이 컴퓨터(`here`)의 `settingsPanels`로 `ConnectProviderHost`(안의 `ManageModelsHost` 포함, `packages/shell/renderer/desktop/settings/providers/connect-host.tsx`) 하나만 감싼다. 다른 컴퓨터의 범위를 잡는 `MachineScope`(`packages/shell/renderer/desktop/machines/scope.tsx`)와 `OtherMachineSettings`(`packages/shell/renderer/desktop/settings/settings-space.tsx`)는 `data.settingsPanels`(`packages/shell/renderer/desktop/machines/data.ts`의 `otherMachineData`에 이미 있다)로 `ConnectProviderHost`·`ManageModelsHost`를 새로 감싸지 않는다. 그래서 다른 컴퓨터의 대화·새 session의 model picker에서 [Manage models]를 열거나 Settings에서 다른 컴퓨터를 고른 채 Agents(Default model의 [Manage models])나 Providers(custom provider 연결 뒤 [Manage models]·[Add model]과 `useAfterConnect`)를 쓰면 모두 이 컴퓨터의 provider와 `shown_models`를 읽고 고친다. 다른 컴퓨터의 model picker(`acp/draft`, `acp/snapshot`)는 그 컴퓨터에서 읽으므로 모델을 켜도 보이지 않는다(바꾼 뒤 열린 대화의 picker가 다시 읽지 않는 문제는 `composer-model-picker-stale-after-model-change`도 겹친다).
+impact: |
+  다른 컴퓨터에서 lophn session을 열거나 다룰 때 이 컴퓨터의 창에서 그 컴퓨터의 쓸 모델(`shown_models`)과 model 한도를 고르지 못한다. 사람 눈에는 Manage models에서 모델을 켰는데 원격 session의 model picker에 모델이 뜨지 않고, 의도치 않게 이 컴퓨터의 모델 목록이 바뀐다.
+fix: |
+  `MachineScope`(또는 `machine !== null`인 `MachineScope`)가 그 기계의 `data.settingsPanels.providers`와 `data.settingsPanels.agents`로 `ConnectProviderHost`를 감싸 범위 안의 `useManageModels`·`useConnectProvider`·`useAfterConnect`가 그 기계의 core로 가게 한다.

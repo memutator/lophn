@@ -24,6 +24,8 @@ export const settingsSync = {
   "settings-sync.state.not-writable": "Can't write to this folder",
   "settings-sync.warning.plain":
     "lophn writes your apps' data into this folder as plain files. If a tool such as Google Drive uploads it, the files go up unencrypted.",
+  "settings-sync.warning.duplicate-machine":
+    "Sync is paused for this computer because two entries in your devices share its machine ID. Remove the duplicate in Settings › Remote › My devices.",
   "settings-sync.error.load-failed": "Couldn't read the sync settings.",
   "settings-sync.label.this-computer": "This computer",
   "settings-sync.note.no-other-computers":

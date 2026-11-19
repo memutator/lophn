@@ -20,6 +20,8 @@ export interface FakeSyncOptions {
   remoteEnabled?: boolean;
   received?: SyncReceived[];
   apps?: SyncAppRow[];
+  /** 명단에 같은 machine id가 둘 이상인 컴퓨터. */
+  duplicateMachines?: string[];
   /** 같이 보는 폴더의 상태. 없으면 쓸 수 있다. */
   sharedState?: "ok" | "missing" | "not_writable";
   /** 저장을 거절하는 글. 없으면 저장된다. */
@@ -129,6 +131,7 @@ export function fakeSync(options: FakeSyncOptions = {}) {
             : { path: shared, state: options.sharedState ?? "ok" },
         received: options.received ?? sampleReceived(),
         apps: options.apps ?? sampleApps(),
+        duplicateMachines: options.duplicateMachines ?? [],
       }),
     async saveNamed({ name, path, was }) {
       const done = await saved();

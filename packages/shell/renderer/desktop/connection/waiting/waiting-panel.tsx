@@ -12,7 +12,6 @@ import {
   harnessVendorOf,
   VendorIcon,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
-import { MachineScope, useMachineHub } from "../../machines/scope.tsx";
 import { ActivationCard } from "./cards/activation-card.tsx";
 import { JobApprovalCard } from "./cards/job-approval-card.tsx";
 import { JobHoldCard } from "./cards/job-hold-card.tsx";
@@ -217,8 +216,6 @@ export function WaitingPanel({
 }) {
   const { entries, notices, historyUnread } = inbox;
   const namesOf = useInboxNamesOf();
-  const hub = useMachineHub();
-  const history = <HistoryView onOpenApp={(app) => onOpenApp(app, null)} />;
   const [view, setView] = useState(initial?.view ?? "now");
 
   function decider(entry: InboxEntry): OnDecide {
@@ -383,12 +380,7 @@ export function WaitingPanel({
             ) : null}
           </TabPanel>
           <TabPanel value="history">
-            {/* History는 이 컴퓨터의 기록이다. */}
-            {hub === null ? (
-              history
-            ) : (
-              <MachineScope machine={null}>{history}</MachineScope>
-            )}
+            <HistoryView onOpenApp={onOpenApp} />
           </TabPanel>
         </Tabs>
       </div>

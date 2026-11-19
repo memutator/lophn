@@ -4,6 +4,7 @@ import type { z } from "zod";
 import type { settingsUpdate } from "../../../../../protocol/config/file.ts";
 import type { MachineEnvironment } from "../../../../../protocol/folder/mod.ts";
 import type { carryStatus } from "../../../../../protocol/remote/carry.ts";
+import type { rosterList } from "../../../../../protocol/remote/routes.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../workspaces/projects/core-source.ts";
@@ -18,6 +19,29 @@ const REMOTE_KEY = "remote.enabled";
 const COMPUTERS = "computers";
 
 type Named = Record<string, { path: string }>;
+
+/** 명단에 같은 machine id를 단 믿는(disputed 아닌) 컴퓨터 항목이 둘 이상인 machine id 목록. `machineSigningKey`와 같은 기준이다. */
+export function duplicateRosterMachines(
+  devices: readonly Pick<
+    z.output<typeof rosterList.output>["devices"][number],
+    "kind" | "machine" | "disputed"
+  >[],
+): string[] {
+  const counts = new Map<string, number>();
+  for (const device of devices) {
+    if (
+      device.disputed ||
+      device.kind !== "computer" ||
+      device.machine === null
+    ) {
+      continue;
+    }
+    counts.set(device.machine, (counts.get(device.machine) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([machine]) => machine);
+}
 
 export function coreSyncSource(
   core: CoreSource,
@@ -87,13 +111,22 @@ export function coreSyncSource(
     },
 
     async status() {
-      const read = await call<z.output<typeof carryStatus.output>>(
-        core,
-        "read",
-        "carry",
-        "status",
-        {},
-      );
+      const [read, roster] = await Promise.all([
+        call<z.output<typeof carryStatus.output>>(
+          core,
+          "read",
+          "carry",
+          "status",
+          {},
+        ),
+        call<z.output<typeof rosterList.output>>(
+          core,
+          "memory",
+          "roster",
+          "list",
+          {},
+        ),
+      ]);
       if (!read.ok) return read;
       return {
         ok: true,
@@ -110,6 +143,9 @@ export function coreSyncSource(
             syncTo: row.sync_to,
             readAt: row.read_at,
           })),
+          duplicateMachines: roster.ok
+            ? duplicateRosterMachines(roster.value.devices)
+            : [],
         },
       };
     },

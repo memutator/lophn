@@ -27,8 +27,3 @@ export function useInboxNamesOf(): (machine: string | null) => InboxNames {
     [byMachine],
   );
 }
-
-/** 이 컴퓨터의 이름. */
-export function useInboxNames(): InboxNames {
-  return useInboxNamesOf()(null);
-}

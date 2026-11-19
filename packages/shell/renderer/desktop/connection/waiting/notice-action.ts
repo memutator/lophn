@@ -10,6 +10,7 @@ import { textBlocks } from "../../../../../protocol/lophn-agent/content-block.ts
 import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { coreAgentTabSourceFactory } from "../../../conversation/agent-tab-core-source.ts";
 import { newId } from "../../../prefixed-id.ts";
+import type { MachineRef } from "../../machines/scope.tsx";
 import type { CoreSource } from "../connection.ts";
 import { runToastAction } from "../toasts/toast-actions.ts";
 import { markNoticesRead } from "./history.ts";
@@ -18,6 +19,7 @@ import { markNoticesRead } from "./history.ts";
 export async function runNoticeAction(
   core: CoreSource,
   action: NoticeAction,
+  machine: MachineRef = null,
 ): Promise<boolean> {
   // 이름 그대로 Home lophn의 새 대화다(`open_home_skill`).
   const source = coreAgentTabSourceFactory(core)({
@@ -38,7 +40,11 @@ export async function runNoticeAction(
     seen: null,
   });
   if (!sent.ok) return false;
-  runToastAction({ kind: "session", session });
+  runToastAction({
+    kind: "session",
+    session,
+    ...(machine === null ? {} : { machine }),
+  });
   return true;
 }
 
@@ -47,8 +53,9 @@ export async function applyNoticeAction(
   core: CoreSource,
   row: Notice,
   action: NoticeAction,
+  machine: MachineRef = null,
 ): Promise<boolean> {
-  const started = await runNoticeAction(core, action);
+  const started = await runNoticeAction(core, action, machine);
   if (started && row.read_at === null) await markNoticesRead(core, [row.id]);
   return started;
 }

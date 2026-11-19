@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import { actionIcons, homeIcons } from "../../../icons/mod.ts";
 import { useStateChanged } from "../../connection/core-read.ts";
 import { useMachinesView } from "../../machines/context.tsx";
+import type { MachinesView } from "../../machines/source.ts";
 import { MachineStatus } from "../../machines/status.tsx";
 import type { SettingsPane } from "../model.ts";
 import styles from "../settings.module.css";
@@ -34,6 +35,28 @@ const STATE_TEXT = {
 
 function ago(at: string): string {
   return formatRelativeTime(new Date(at), new Date());
+}
+
+/** 명단(`roster/list`)과 기계 목록(`MachinesView`)에서 같은 machine id를 공유하는 컴퓨터를 모은다. */
+export function duplicateMachineIds(
+  status: Loaded<SyncStatus>,
+  view: MachinesView | null,
+): Set<string> {
+  const duplicates = new Set<string>(
+    status === null || status === "failed" ? [] : status.duplicateMachines,
+  );
+  if (view !== null) {
+    const seen = new Set<string>();
+    const ids = [
+      ...(view.thisComputer == null ? [] : [view.thisComputer.id]),
+      ...view.machines.map((machine) => machine.id),
+    ];
+    for (const id of ids) {
+      if (seen.has(id)) duplicates.add(id);
+      else seen.add(id);
+    }
+  }
+  return duplicates;
 }
 
 export function SyncPanel({
@@ -91,6 +114,14 @@ export function SyncPanel({
       ? null
       : status.shared.state;
   const apps = status === "failed" || status === null ? [] : status.apps;
+  const duplicates = duplicateMachineIds(status, view);
+  const renderedIds = new Set<string>([
+    ...(view?.thisComputer == null ? [] : [view.thisComputer.id]),
+    ...(view?.machines.map((machine) => machine.id) ?? []),
+  ]);
+  const hasUnshownDuplicate = [...duplicates].some(
+    (id) => !renderedIds.has(id),
+  );
 
   return (
     <div data-sync-settings="">
@@ -265,14 +296,34 @@ export function SyncPanel({
                       {t("settings-sync.label.this-computer")}
                     </span>
                   </span>
+                  {duplicates.has(view.thisComputer.id) ? (
+                    <span
+                      className={syncStyles.warning}
+                      role="alert"
+                      data-sync-duplicate=""
+                    >
+                      {t("settings-sync.warning.duplicate-machine")}
+                    </span>
+                  ) : null}
                 </div>
+                {duplicates.has(view.thisComputer.id) ? (
+                  <div className={styles.lineControl}>
+                    <Button
+                      icon={actionIcons.open}
+                      onClick={() => onPane("remote")}
+                    >
+                      {t("settings-sync.button.open-remote")}
+                    </Button>
+                  </div>
+                ) : null}
               </li>
             )}
-            {view?.machines.map((machine) => {
+            {view?.machines.map((machine, index) => {
               const got = received.get(machine.id);
+              const duplicate = duplicates.has(machine.id);
               return (
                 <li
-                  key={machine.id}
+                  key={`${machine.id}-${index}`}
                   className={styles.line}
                   data-sync-computer={machine.id}
                 >
@@ -281,6 +332,15 @@ export function SyncPanel({
                     <span>
                       <MachineStatus machine={machine} full />
                     </span>
+                    {duplicate ? (
+                      <span
+                        className={syncStyles.warning}
+                        role="alert"
+                        data-sync-duplicate=""
+                      >
+                        {t("settings-sync.warning.duplicate-machine")}
+                      </span>
+                    ) : null}
                     {got?.receivedAt == null || got.via === null ? null : (
                       <span className={styles.lineHelp} data-sync-received="">
                         {t("settings-sync.note.received", {
@@ -290,9 +350,36 @@ export function SyncPanel({
                       </span>
                     )}
                   </div>
+                  {duplicate ? (
+                    <div className={styles.lineControl}>
+                      <Button
+                        icon={actionIcons.open}
+                        onClick={() => onPane("remote")}
+                      >
+                        {t("settings-sync.button.open-remote")}
+                      </Button>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
+            {hasUnshownDuplicate ? (
+              <li className={styles.line} data-sync-duplicate="">
+                <div className={styles.lineMain}>
+                  <span className={syncStyles.warning} role="alert">
+                    {t("settings-sync.warning.duplicate-machine")}
+                  </span>
+                </div>
+                <div className={styles.lineControl}>
+                  <Button
+                    icon={actionIcons.open}
+                    onClick={() => onPane("remote")}
+                  >
+                    {t("settings-sync.button.open-remote")}
+                  </Button>
+                </div>
+              </li>
+            ) : null}
             {view !== null && view.machines.length === 0 ? (
               <li className={styles.line} data-sync="no-computers">
                 <p className={styles.lineHelp}>

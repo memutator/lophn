@@ -52,7 +52,7 @@ export interface Inbox {
   readonly entries: readonly InboxEntry[];
   /** 휘발 알림. */
   readonly notices: readonly InboxNotice[];
-  /** 안 읽은 영구 기록 수. History 탭은 이 컴퓨터의 것만 보여 이 컴퓨터의 수다. */
+  /** 안 읽은 영구 기록 수. History 탭이 보이는 이 컴퓨터와 연결된 다른 컴퓨터의 합이다. */
   readonly historyUnread: number;
   /** 끝난 탭 수(배지). 줄은 `useFinished`가 짓는다. */
   readonly finishedCount: number;
@@ -82,14 +82,16 @@ function buildInbox(sources: readonly InboxSource[]): Inbox {
       }),
     ),
   );
-  const here = sources.find((source) => source.machine === null);
   const sourceOf = (machine: MachineRef) =>
     sources.find((source) => source.machine === machine);
   return {
     sources,
     entries,
     notices,
-    historyUnread: here?.waiting.historyUnread ?? 0,
+    historyUnread: sources.reduce(
+      (sum, source) => sum + (source.live ? source.waiting.historyUnread : 0),
+      0,
+    ),
     finishedCount: sources.reduce(
       (sum, source) =>
         sum +

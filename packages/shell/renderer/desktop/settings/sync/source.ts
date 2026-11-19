@@ -38,6 +38,8 @@ export interface SyncStatus {
   readonly shared: Pick<SyncFolder, "path" | "state"> | null;
   readonly received: readonly SyncReceived[];
   readonly apps: readonly SyncAppRow[];
+  /** 명단에 같은 machine id를 단 컴퓨터 항목이 둘 이상인 기계. 받는 쪽이 manifest 서명을 믿지 않아 carry가 멈춘다. */
+  readonly duplicateMachines: readonly string[];
 }
 
 /** 저장 결과. rejected의 message는 core가 거절한 까닭(영어)이고 없을 수 있다. */

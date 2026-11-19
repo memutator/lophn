@@ -3,10 +3,13 @@ export const data = {
   "home.connection.disconnected": "lophn can't refresh this page right now.",
   "home.connection.starting": "lophn is getting ready.",
   "secret-input.button.cancel": "Cancel",
+  "secret-input.button.hide": "Hide value",
   "secret-input.button.request-once": "Type into page",
   "secret-input.button.save": "Save",
+  "secret-input.button.show": "Show value",
   "secret-input.error.invalid": "That value can't be saved.",
   "secret-input.error.unavailable": "Can't save right now. Try again.",
+  "secret-input.error.whitespace": "API key cannot contain spaces or newlines.",
   "secret-input.help.configured": "Already set. Saving replaces the value.",
   "secret-input.help.value":
     "The value goes straight to lophn. It is never shown in the app or in a conversation. Only the name and whether it is set are kept.",

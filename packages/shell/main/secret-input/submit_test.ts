@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type SecretCore, submitSecret } from "./submit.ts";
+import { connectProviderKey, type SecretCore, submitSecret } from "./submit.ts";
 
 const VALUE = "sk-live-very-secret-value";
 
@@ -48,4 +48,56 @@ test("secret 제출이 성공하면 이름과 byte 수만 올린다", async () =
   assert.deepEqual(reply, { ok: true });
   assert.equal(during, VALUE);
   assert.deepEqual(seen, { name: "API_KEY", bytes: VALUE.length });
+});
+
+test("provider API key는 앞뒤 공백을 떼고 올리며 내부 공백·줄바꿈은 올리지 않고 거절한다", async () => {
+  const uploaded: Array<{ resource: string; method: string; value: string }> =
+    [];
+  const core: SecretCore = {
+    upload(resource, method, _input, bytes) {
+      uploaded.push({
+        resource,
+        method,
+        value: new TextDecoder().decode(bytes),
+      });
+      return Promise.resolve({ ok: true, value: {} });
+    },
+  };
+
+  for (const bad of ["   \n\t ", "sk-ant-123 extra", "sk-ant-123\nsecond"]) {
+    assert.deepEqual(
+      await connectProviderKey(core, { definition: "anthropic" }, bad),
+      { ok: false, code: "invalid_input" },
+    );
+    assert.deepEqual(
+      await submitSecret(core, {
+        name: "provider.01h455vb4pex5v6nkc6gd5fd10",
+        value: bad,
+      }),
+      { ok: false, code: "invalid_input" },
+    );
+  }
+  assert.equal(uploaded.length, 0);
+
+  assert.deepEqual(
+    await connectProviderKey(core, { definition: "anthropic" }, `  ${VALUE}\n`),
+    { ok: true },
+  );
+  assert.deepEqual(
+    await submitSecret(core, {
+      name: "provider.01h455vb4pex5v6nkc6gd5fd10",
+      value: `\t${VALUE}  `,
+    }),
+    { ok: true },
+  );
+  // 일반 secret(예: passphrase)은 공백을 허용한다.
+  assert.deepEqual(
+    await submitSecret(core, { name: "API_KEY", value: "pass phrase" }),
+    { ok: true },
+  );
+  assert.deepEqual(uploaded, [
+    { resource: "providers", method: "connect-key", value: VALUE },
+    { resource: "secrets", method: "put", value: VALUE },
+    { resource: "secrets", method: "put", value: "pass phrase" },
+  ]);
 });

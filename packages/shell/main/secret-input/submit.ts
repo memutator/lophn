@@ -62,18 +62,24 @@ function fixed(
   };
 }
 
+function normalizeProviderKey(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || /\s/.test(trimmed)) return null;
+  return trimmed;
+}
+
 export async function submitSecret(
   core: SecretCore,
   input: { name: string; value: string },
 ): Promise<SecretInputSubmitReply> {
+  let value = input.value;
+  if (input.name.startsWith("provider.")) {
+    const normalized = normalizeProviderKey(value);
+    if (normalized === null) return { ok: false, code: "invalid_input" };
+    value = normalized;
+  }
   return fixed(
-    await uploadValue(
-      core,
-      "secrets",
-      "put",
-      { name: input.name },
-      input.value,
-    ),
+    await uploadValue(core, "secrets", "put", { name: input.name }, value),
   );
 }
 
@@ -110,12 +116,14 @@ export async function connectProviderKey(
 ): Promise<{ ok: true } | { ok: false; code: ProviderKeyFailure }> {
   const checked = providerConnectTargetSchema.safeParse(target);
   if (!checked.success) return { ok: false, code: "invalid_input" };
+  const normalized = normalizeProviderKey(value);
+  if (normalized === null) return { ok: false, code: "invalid_input" };
   const reply = await uploadValue(
     core,
     "providers",
     "connect-key",
     { target: checked.data },
-    value,
+    normalized,
   );
   if (reply.ok) return reply;
   return {

@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { t } from "@lophn/i18n";
-import { Button } from "@lophn/ui/primitives";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 
 import { actionIcons } from "../icons/mod.ts";
@@ -44,13 +45,19 @@ export function SecretInput({
   onCancel,
 }: SecretInputProps) {
   const [value, setValue] = useState(initialValue);
+  const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<"invalid" | "unavailable" | null>(null);
+  const trimmed = purpose === "provider" ? value.trim() : value;
+  const hasWhitespace = purpose === "provider" && /\s/.test(trimmed);
+  const fieldError = hasWhitespace ? "whitespace" : error;
+  const canSave = !busy && trimmed !== "" && !hasWhitespace;
   const save = async () => {
-    if (value === "" || busy || onSubmit === undefined) return;
-    const sent = value;
+    if (!canSave || onSubmit === undefined) return;
+    const sent = trimmed;
     // 보내기 전에 칸을 비운다. 값은 이 호출의 인자로만 main에 간다.
     setValue("");
+    setRevealed(false);
     setError(null);
     setBusy(true);
     try {
@@ -110,18 +117,33 @@ export function SecretInput({
         <Field
           label={t(`secret-input.label.field-${kind}`)}
           help={t("secret-input.help.value")}
-          {...(error === null
+          {...(fieldError === null
             ? {}
-            : { error: t(`secret-input.error.${error}`) })}
+            : { error: t(`secret-input.error.${fieldError}`) })}
         >
-          <Input
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            data-secret="input"
-            value={value}
-            onChange={(event) => setValue(event.currentTarget.value)}
-          />
+          <div className={styles.inputRow}>
+            <Input
+              type={revealed ? "text" : "password"}
+              autoComplete="off"
+              spellCheck={false}
+              data-secret="input"
+              value={value}
+              onChange={(event) => {
+                setValue(event.currentTarget.value);
+                setError(null);
+              }}
+            />
+            <IconButton
+              icon={revealed ? EyeOff : Eye}
+              label={t(
+                revealed
+                  ? "secret-input.button.hide"
+                  : "secret-input.button.show",
+              )}
+              aria-pressed={revealed}
+              onClick={() => setRevealed((prev) => !prev)}
+            />
+          </div>
         </Field>
         <div className={styles.actions}>
           <Button variant="ghost" onClick={onCancel}>
@@ -130,7 +152,7 @@ export function SecretInput({
           <Button
             variant="primary"
             icon={actionIcons.save}
-            disabled={busy || value === ""}
+            disabled={!canSave}
             onClick={() => void save()}
           >
             {t("secret-input.button.save")}

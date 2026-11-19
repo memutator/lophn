@@ -88,6 +88,12 @@ export type ProviderLoginDeps = {
   changed(provider: string): void;
   // 기기 principal이 지금 터미널 입력 허락을 가졌는가(기기의 call이 보는 것과 같은 허락).
   granted(principal: string): boolean;
+  // Disconnect 직전에 provider의 정의 key를 읽어 id 재사용 표에 남긴다.
+  readProvider?: (
+    who: AuthenticatedContext,
+    provider: string,
+  ) => Promise<Result<ProviderRecord | null>>;
+  rememberId?: (key: string, id: string) => void;
 };
 
 // writer queue 앞의 처리기. 로그인 취소와 Connect·Disconnect만 가로채고 나머지 command와 Writer 동작은 그대로다.
@@ -411,10 +417,17 @@ export function withProviderLogin(
     ctx: Parameters<Writer["command"]>[0],
     envelope: Parameters<Writer["command"]>[1],
   ): Promise<Result<CommandSuccess>> {
-    const done = await writer.command(ctx, envelope);
     const parsed = disconnectProviderInputSchema.safeParse(envelope.input);
+    const existing =
+      parsed.success && deps.readProvider !== undefined
+        ? await deps.readProvider(ctx, parsed.data.provider).catch(() => null)
+        : null;
+    const done = await writer.command(ctx, envelope);
     // 다시 보낸 같은 요청(replayed)은 그 사이 다시 이은 provider의 값을 지우지 않게 건너뛴다.
     if (done.ok && !done.value.replayed && parsed.success) {
+      if (existing !== null && existing.ok && existing.value !== null) {
+        deps.rememberId?.(existing.value.definition.key, existing.value.id);
+      }
       await removeProviderTokens(deps.secrets, parsed.data.provider);
     }
     return done;

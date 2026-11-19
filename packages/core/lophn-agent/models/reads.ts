@@ -39,8 +39,15 @@ export function createModelReads(deps: {
     modelDefault: {
       route: modelDefaultRead,
       handle(snapshot) {
+        const chosen = loadChoice(snapshot.sql, GLOBAL_SCOPE);
+        // 끊긴 provider를 가리키는 전역 기본은 없는 것으로 읽는다(DB 줄은 남겨 같은 정의를 다시 이으면 이어진다).
+        const exists =
+          chosen !== null &&
+          snapshot.sql.get("select id from providers where id = ?", [
+            chosen.provider,
+          ]) !== undefined;
         return ok({
-          default: loadChoice(snapshot.sql, GLOBAL_SCOPE),
+          default: exists ? chosen : null,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

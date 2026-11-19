@@ -11,6 +11,11 @@ import {
   seededRandom,
 } from "../../../base/mod.ts";
 import {
+  connectProvider,
+  disconnectProvider,
+  type ProviderRecord,
+} from "../../../protocol/lophn-agent/mod.ts";
+import {
   builtinTarget,
   createKeyConnect,
   createProviderConnect,
@@ -112,8 +117,12 @@ async function setup() {
     secrets: store,
     requests: waits,
   });
-  const upload = (handler: UploadHandler, input: Record<string, unknown>) => {
-    const bytes = new TextEncoder().encode(VALUE);
+  const upload = (
+    handler: UploadHandler,
+    input: Record<string, unknown>,
+    rawValue = VALUE,
+  ) => {
+    const bytes = new TextEncoder().encode(rawValue);
     return handler(
       DEVICE,
       { ...input, bytes: bytes.byteLength },
@@ -148,15 +157,14 @@ async function setup() {
     const opened = events.at(-1) as { payload: { tool_call: string } };
     return { asked, tool_call: opened.payload.tool_call };
   };
-  const names = async (): Promise<string[]> => {
+  const stored = async (): Promise<Record<string, string>> => {
     try {
-      return Object.keys(
-        JSON.parse(await readFile(join(root, "secrets.json"), "utf8")),
-      );
+      return JSON.parse(await readFile(join(root, "secrets.json"), "utf8"));
     } catch {
-      return [];
+      return {};
     }
   };
+  const names = async (): Promise<string[]> => Object.keys(await stored());
   return {
     setMode: (next: Mode) => (mode = next),
     envelopes,
@@ -166,6 +174,7 @@ async function setup() {
     upload,
     askKey,
     names,
+    stored,
     close: async () => {
       store.stop();
       await rm(root, { recursive: true, force: true });
@@ -240,6 +249,204 @@ test("기기에서 넣은 값은 secret 저장소에만 있고 command envelope�
     const seen = JSON.stringify([t.envelopes, t.events, connected, answered]);
     assert.equal(t.envelopes.length, 2);
     assert.ok(!seen.includes(VALUE));
+  } finally {
+    await t.close();
+  }
+});
+
+test("재기동 뒤 새 connect helper에서 Disconnect → Reconnect해도 같은 provider id를 이어 쓴다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-connect-reuse-"));
+  const store = openSecretStore({
+    file: createSecretFileStore({ root }),
+    channel: {
+      register: () => Promise.resolve(ok(undefined)),
+      revoke: () => Promise.resolve(ok(undefined)),
+      setReady: () => Promise.resolve(ok(undefined)),
+    },
+    retryMs: 60_000,
+  });
+  await store.open();
+  try {
+    // 프로세스 간에 유지되는 ledger 상태를 흉내 낸다.
+    const providers = new Map<string, ProviderRecord>();
+    const ids = createIdSource({ clock: CLOCK, random: seededRandom(11) });
+    const inner: Writer = {
+      command(_ctx, envelope) {
+        if (envelope.command === connectProvider.name) {
+          const input = envelope.input as {
+            id: string;
+            name: string;
+            definition: ProviderRecord["definition"];
+            endpoint: string;
+            protocol: ProviderRecord["protocol"];
+          };
+          const record = {
+            id: input.id,
+            name: input.name,
+            definition: input.definition,
+            endpoint: input.endpoint,
+            protocol: input.protocol,
+            revision: 1,
+          } as ProviderRecord;
+          providers.set(input.id, record);
+          return Promise.resolve(
+            ok({
+              result: { provider: record },
+              replayed: false,
+              first_seq: null,
+              last_seq: null,
+            }),
+          );
+        }
+        if (envelope.command === disconnectProvider.name) {
+          const { provider } = envelope.input as { provider: string };
+          providers.delete(provider);
+          return Promise.resolve(
+            ok({
+              result: { provider },
+              replayed: false,
+              first_seq: null,
+              last_seq: null,
+            }),
+          );
+        }
+        throw new Error(`unexpected command ${envelope.command}`);
+      },
+      readResult: () => Promise.resolve(ok(null)),
+      close: () => Promise.resolve(),
+    };
+    const waits = createQuestionWaits({
+      bus: { publish: () => {} },
+      clock: CLOCK,
+      ids,
+    });
+    const mount = () => {
+      let writer: Writer;
+      const connect = createProviderConnect({
+        writer: () => writer,
+        secrets: store,
+        listProviders: () => Promise.resolve(ok([...providers.values()])),
+        target: builtinTarget,
+        newId: () => ids.newId("pvd"),
+        newKey: () => ids.newId("idk"),
+        tail: () => ids.newId("stg").slice(4),
+      });
+      writer = withProviderLogin(inner, {
+        http: () => Promise.reject(new Error("no issuer")),
+        openListener: () =>
+          Promise.resolve(err({ code: "unavailable", message: "x" })),
+        secrets: store,
+        newKey: () => ids.newId("idk"),
+        nowMs: CLOCK.nowMs,
+        random: seededRandom(13),
+        target: builtinTarget,
+        freshId: connect.freshId,
+        readProvider: (_who, id) =>
+          Promise.resolve(ok(providers.get(id) ?? null)),
+        rememberId: connect.remember,
+        requests: waits,
+        changed: () => {},
+        granted: () => true,
+      });
+      return { connect, writer };
+    };
+    const connectAnthropic = (
+      connect: ReturnType<typeof createProviderConnect>,
+    ) => {
+      const bytes = new TextEncoder().encode(VALUE);
+      return connect.handlers.connectKey(
+        DEVICE,
+        { target: { definition: "anthropic" }, bytes: bytes.byteLength },
+        {
+          bytes: new ReadableStream({
+            start(controller) {
+              controller.enqueue(bytes);
+              controller.close();
+            },
+          }),
+          length: bytes.byteLength,
+        },
+      );
+    };
+
+    // 1) 처음 연결해 pvd id를 받는다.
+    const firstBoot = mount();
+    const first = await connectAnthropic(firstBoot.connect);
+    assert.ok(first.ok);
+    const firstId = (first.value as { provider: ProviderRecord }).provider.id;
+
+    // 2) core 재기동을 흉내 내어 빈 ids Map을 가진 새 connect/login helper를 만든다.
+    const secondBoot = mount();
+    const disconnected = await secondBoot.writer.command(DEVICE, {
+      command: disconnectProvider.name,
+      input: { provider: firstId },
+      idempotency_key: ids.newId("idk"),
+      compare: { revision: 1 },
+      prepared: [],
+    });
+    assert.ok(disconnected.ok);
+    assert.equal(providers.size, 0);
+
+    // 3) 같은 정의(anthropic)를 다시 이으면 새 id가 아니라 firstId를 재사용한다.
+    const second = await connectAnthropic(secondBoot.connect);
+    assert.ok(second.ok);
+    assert.equal(
+      (second.value as { provider: ProviderRecord }).provider.id,
+      firstId,
+    );
+  } finally {
+    store.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("API key의 앞뒤 공백은 떼고 저장하며 내부 공백·줄바꿈은 invalid_input으로 거절한다", async () => {
+  const t = await setup();
+  try {
+    for (const bad of [
+      "   \n\t ",
+      "sk-ant-123 word1 word2",
+      "sk-ant-123\nfoo",
+    ]) {
+      const rejected = await t.upload(
+        t.connect.handlers.connectKey,
+        { target: { definition: "anthropic" } },
+        bad,
+      );
+      assert.ok(!rejected.ok);
+      assert.equal(rejected.error.code, "invalid_input");
+      assert.deepEqual(await t.names(), []);
+    }
+
+    // 앞뒤 공백·줄바꿈은 제거되어 저장된다.
+    const trimmed = await t.upload(
+      t.connect.handlers.connectKey,
+      { target: { definition: "anthropic" } },
+      `  ${VALUE}\n`,
+    );
+    assert.ok(trimmed.ok);
+    const values = Object.values(await t.stored());
+    assert.deepEqual(values, [VALUE]);
+
+    // agent의 provider secret 요청도 내부 공백은 거절하고 요청을 열린 채 둔다(재시도 가능).
+    const { asked, tool_call } = t.askKey();
+    const badAnswer = await t.upload(
+      t.answer,
+      { session: "ses_01h455vb4pex5v6nkc6gd5fd10", tool_call },
+      "sk-ant-bad key",
+    );
+    assert.ok(!badAnswer.ok);
+    assert.equal(badAnswer.error.code, "invalid_input");
+    assert.match(badAnswer.error.message, /spaces or newlines/);
+
+    const goodAnswer = await t.upload(
+      t.answer,
+      { session: "ses_01h455vb4pex5v6nkc6gd5fd10", tool_call },
+      ` ${VALUE} `,
+    );
+    assert.ok(goodAnswer.ok);
+    assert.deepEqual(await asked, ok({ stored: true }));
+    assert.deepEqual(Object.values(await t.stored()), [VALUE, VALUE]);
   } finally {
     await t.close();
   }

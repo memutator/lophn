@@ -186,6 +186,18 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
       // agent의 provider 요청도 같은 id를 받는다: 끊은 정의를 다시 이으면 같은 id다.
       ctx.provide("providerFreshId", connect.freshId);
       let login: ReturnType<typeof withProviderLogin> | undefined;
+      const readProvider = async (
+        who: AuthenticatedContext,
+        provider: string,
+      ): Promise<Result<ProviderRecord | null>> => {
+        const read = await ctx.runtime.readers.read(providerRead, who, {
+          provider,
+        });
+        if (read.ok) {
+          return ok((read.value as { provider: ProviderRecord }).provider);
+        }
+        return read.error.code === "not_found" ? ok(null) : read;
+      };
       // writer를 접기 전에는 부르지 못한다(API가 그 뒤에 열린다).
       const unready = (): Result<never> =>
         err({ code: "unavailable", message: "provider login is not ready" });
@@ -200,6 +212,8 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             random: ctx.random,
             target,
             freshId: connect.freshId,
+            readProvider,
+            rememberId: connect.remember,
             requests: ctx.questionWaits,
             granted: (principal) =>
               ctx.peek.terminalInputGrant?.(principal) ?? false,
@@ -213,17 +227,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
           return withProviderModelList(login, {
             http: requests.fetch,
             secrets: ctx.secretStore,
-            async readProvider(who, provider) {
-              const read = await ctx.runtime.readers.read(providerRead, who, {
-                provider,
-              });
-              if (read.ok) {
-                return ok(
-                  (read.value as { provider: ProviderRecord }).provider,
-                );
-              }
-              return read.error.code === "not_found" ? ok(null) : read;
-            },
+            readProvider,
             newKey: () => ids.newId("idk"),
           });
         },

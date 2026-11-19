@@ -159,6 +159,24 @@ export function createKeyConnect(deps: KeyConnectDeps) {
 
 export type KeyConnect = ReturnType<typeof createKeyConnect>;
 
+// API key의 앞뒤 공백은 떼고, 안에 공백·줄바꿈이 섞여 있으면 바로 거절한다(잘못 붙여 넣은 값이 뒤늦게 401로 터지지 않게).
+export function normalizeApiKey(raw: string): Result<string> {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return err({
+      code: "invalid_input",
+      message: "API key cannot be empty",
+    });
+  }
+  if (/\s/.test(trimmed)) {
+    return err({
+      code: "invalid_input",
+      message: "API key cannot contain spaces or newlines",
+    });
+  }
+  return ok(trimmed);
+}
+
 // `input_request/answer_secret`: agent의 secret 요청에 사람이 넣은 값을 답한다. 값은 core가 자리에서 정한 이름에 넣고, 새로
 // 잇는 provider 자리(view의 connect)면 `providers/connect-key`와 같은 두 걸음으로 잇는다. 연결이 실패하면 값을 남기지 않고
 // 요청을 그 오류로 끝낸다. 값을 저장하지 못하면 오류를 돌려주고 요청은 열린 채다(사람이 다시 넣는다).
@@ -200,13 +218,19 @@ export function secretAnswerHandler(deps: {
     const connect = open.value.connect as
       | (ConnectTarget & { id: string })
       | null;
+    let secretValue = value.value;
+    if (connect !== null || "provider" in open.value.slot) {
+      const normalized = normalizeApiKey(secretValue);
+      if (!normalized.ok) return normalized;
+      secretValue = normalized.value;
+    }
     if (connect === null) {
-      const put = await deps.secrets.put(open.value.name, value.value);
+      const put = await deps.secrets.put(open.value.name, secretValue);
       return put.ok
         ? finish(ok({ stored: true }))
         : err({ code: "unavailable", message: "the value was not stored" });
     }
-    const staged = await deps.keys.stage(connect.id, value.value);
+    const staged = await deps.keys.stage(connect.id, secretValue);
     if (!staged.ok) return staged;
     const connected = await deps.keys.connectStaged(who, connect, staged.value);
     return finish(
@@ -236,6 +260,12 @@ export function createProviderConnect(deps: ProviderConnectDeps) {
   // 정의 key → provider id. 끊은 provider를 다시 이으면 같은 id로 이어, 그 provider를 고른 agent가 다시 쓴다. core가
   // 사는 동안 본 연결과 만든 id를 쥔다.
   const ids = new Map<string, string>();
+
+  // 끊어지는 provider의 정의 key → id를 기억한다. core 재기동 뒤 처음 하는 일이 Disconnect여도
+  // 같은 정의를 다시 이을 때 옛 id를 이어 써 기존 model_choices·agent 선택이 깨지지 않게 한다.
+  function remember(key: string, id: string): void {
+    ids.set(key, id);
+  }
 
   // 이을 id. 그 정의가 이미 이어져 있으면 conflict다(연결된 provider의 값 자리를 덮지 않는다). id를 주면(agent 요청이
   // 정한 id) 그것을 쓴다.
@@ -296,6 +326,8 @@ export function createProviderConnect(deps: ProviderConnectDeps) {
     }
     const value = await readSecretBody(input.data.bytes, body);
     if (!value.ok) return value;
+    const normalized = normalizeApiKey(value.value);
+    if (!normalized.ok) return normalized;
     const target = targetOf(input.data.target, true);
     if (!target.ok) return target;
     const id = await freshId(who, target.value.definition.key);
@@ -303,7 +335,7 @@ export function createProviderConnect(deps: ProviderConnectDeps) {
     const record = await connectWithKey(
       who,
       { ...target.value, id: id.value },
-      value.value,
+      normalized.value,
     );
     return record.ok ? ok({ provider: record.value }) : record;
   };
@@ -326,7 +358,7 @@ export function createProviderConnect(deps: ProviderConnectDeps) {
     return record.ok ? ok({ provider: record.value }) : record;
   };
 
-  return { freshId, handlers: { connectKey, connectLocal } };
+  return { freshId, remember, handlers: { connectKey, connectLocal } };
 }
 
 export type ProviderConnect = ReturnType<typeof createProviderConnect>;

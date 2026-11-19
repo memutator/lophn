@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import {
   compareGlibcVersion,
   exceedingGlibcVersions,
+  isElfFile,
   parseGlibcVersions,
+  verifyLinuxNativeModules,
 } from "./linux-glibc.ts";
 
 const SAMPLE = `
@@ -44,4 +49,19 @@ test("readelf -V parser extracts only .gnu.version_r numeric GLIBC versions and 
   assert.deepEqual(exceedingGlibcVersions(SAMPLE), ["2.42"]);
   assert.deepEqual(exceedingGlibcVersions(SAMPLE, "2.42"), []);
   assert.deepEqual(exceedingGlibcVersions(SAMPLE, "2.17"), ["2.34", "2.42"]);
+});
+
+test("verifyLinuxNativeModules skips non-ELF prebuild .node files", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-glibc-test-"));
+  try {
+    const macho = join(dir, "darwin.node");
+    const elf = join(dir, "linux.elf");
+    await writeFile(macho, Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0x00]));
+    await writeFile(elf, Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02]));
+    assert.equal(await isElfFile(macho), false);
+    assert.equal(await isElfFile(elf), true);
+    await verifyLinuxNativeModules(dir);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

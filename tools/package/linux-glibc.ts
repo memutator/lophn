@@ -1,10 +1,24 @@
 // Linux 설치본의 native addon(*.node)이 Ubuntu 22.04 LTS(GLIBC 2.35)보다 높은 glibc symbol을 요구하지 않는지 검사한다.
 import { spawn } from "node:child_process";
-import { readdir } from "node:fs/promises";
+import { open, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 /** Linux 배포본의 기준 glibc 상한(Ubuntu 22.04 LTS). */
 export const MAX_LINUX_GLIBC = "2.35";
+
+const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
+
+/** npm tarball에 같이 실린 타 OS prebuild(Mach-O·PE `*.node`)를 건너뛰기 위해 ELF 헤더를 확인한다. */
+export async function isElfFile(file: string): Promise<boolean> {
+  const handle = await open(file, "r");
+  try {
+    const header = Buffer.alloc(4);
+    const { bytesRead } = await handle.read(header, 0, 4, 0);
+    return bytesRead === 4 && header.equals(ELF_MAGIC);
+  } finally {
+    await handle.close();
+  }
+}
 
 /** `readelf -V` 출력의 `.gnu.version_r` 절에서 필요한 `GLIBC_<version>` 목록을 중복 없이 뽑는다. */
 export function parseGlibcVersions(readelfOutput: string): string[] {
@@ -88,6 +102,7 @@ export async function verifyLinuxNativeModules(
   const addons = await findNodeAddons(rootDir);
   const violations: string[] = [];
   for (const file of addons) {
+    if (!(await isElfFile(file))) continue;
     const output = await readelfVersions(file);
     const tooNew = exceedingGlibcVersions(output, maxVersion);
     if (tooNew.length > 0) {

@@ -123,10 +123,44 @@ export const appViewsClose = defineMemory({
   errors: ["invalid_input"],
 });
 
+const VIEW_LOG_ERROR_NAME_MAX_CHARS = 256;
+const VIEW_LOG_ERROR_MESSAGE_MAX_CHARS = 16_384;
+
+export const appViewsLogErrorInputSchema = z.strictObject({
+  view: appViewIdSchema,
+  observation: z
+    .enum([
+      "error",
+      "unhandledrejection",
+      "render_error",
+      "call_rejected",
+      "fatal",
+      "crashed",
+      "did_not_start",
+    ])
+    .optional(),
+  name: z.string().regex(/\S/).max(VIEW_LOG_ERROR_NAME_MAX_CHARS).optional(),
+  message: z.string().min(1).max(VIEW_LOG_ERROR_MESSAGE_MAX_CHARS),
+});
+export type AppViewsLogErrorInput = z.infer<typeof appViewsLogErrorInputSchema>;
+
+// 열린 view의 화면 오류를 그 view가 묶인 앱의 log에 쓴다. 앱·release·mode는 core가 (owner, view) binding에서 정한다.
+export const appViewsLogError = defineMemory({
+  resource: "app_views",
+  method: "log_error",
+  name: "app_views.log_error",
+  changes: [],
+  input: appViewsLogErrorInputSchema,
+  output: z.strictObject({ written: z.boolean() }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "not_found", "unavailable"],
+});
+
 export const APP_VIEW_ROUTES = [
   appViewsOpen,
   appViewsCall,
   appViewsClose,
+  appViewsLogError,
 ] as const;
 
 // `AppViewEvent`의 payload. owner의 Gateway session에만 간다.

@@ -4,6 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
+import { pathToFileURL } from "node:url";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../../base/mod.ts";
 // 앱 bundle이 싣는 cap-store처럼 전역 STORE_HOOKS를 설치한다. runtime은 그 hook으로 앱과 같은 연결을 쓴다.
 import {
   closeConnection,
@@ -23,6 +29,8 @@ import { readChangeset } from "../../../../protocol/apps/sync/changeset.ts";
 import { nodeSyncDb } from "../../../../protocol/apps/sync/node-db.ts";
 import { createStoreAccess } from "./cap-host.ts";
 import { handleCall } from "./invoke.ts";
+import { BROKER_PATHS } from "./limits.ts";
+import { initializeAppRuntime } from "./main.ts";
 import { createRuntimeState } from "./state.ts";
 import {
   applyRemoteChanges,
@@ -546,4 +554,153 @@ test("runs_on이 computer뿐이고 sync_to가 있는 앱도 컴퓨터에서 sync
   assert.equal(body.status, "ok");
   assert.ok(body.changeset !== null && body.hlc !== undefined);
   closeConnection(file);
+});
+
+// 지우면 main.ts의 sync store 시작 경로(예: IdSource node prefix 규칙이나 ready 통보의 시작 changeset·HLC)가 깨져도 check가 놓친다.
+test("컴퓨터 sync 앱 시작 경로(initializeAppRuntime)가 실제 IdSource로 node id를 만들고 시작 write의 HLC와 changeset을 ready로 보내며, preview에서는 sync store를 열지 않는다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-startup-"));
+  const dataPath = join(dir, "app.sqlite");
+  const appModule = pathToFileURL(join(dir, "main.js")).href;
+  const clock = manualClock(Date.parse("2026-11-18T00:00:00.000Z"));
+  const ids = createIdSource({ clock, random: seededRandom(19) });
+  const declaration = {
+    runs_on: ["computer", "phone"],
+    operations: [{ name: "add_startup", effect: "write" }],
+    commands: [],
+  } as never;
+  const readyCalls: { path: string; body: Record<string, unknown> }[] = [];
+  const broker = async (req: {
+    path: string;
+    credential: string;
+    body: unknown;
+  }) => {
+    readyCalls.push({
+      path: req.path,
+      body: req.body as Record<string, unknown>,
+    });
+    return { status: 200, body: { ok: true } };
+  };
+  const startLine = (mode: "live" | "preview") =>
+    JSON.stringify({
+      app: APP,
+      release: mode === "live" ? REL : null,
+      bundle_hash: "a".repeat(64),
+      mode,
+      process_nonce: "nonce-1",
+      broker_socket: join(dir, "broker.sock"),
+      control_socket: join(dir, "control.sock"),
+      data_path: dataPath,
+      broker_credential: "cred-1",
+      machine: MACHINE,
+    });
+
+  // activation migration처럼 앱 시작 전에 schema가 이미 있다.
+  const migrated = new DatabaseSync(dataPath);
+  migrated.exec("create table item (id text primary key, title text)");
+  migrated.close();
+
+  const live = await initializeAppRuntime({
+    line: startLine("live"),
+    appModule,
+    declaration,
+    broker,
+    dataSchema: 1,
+    clock,
+    ids,
+    importModule: async () => {
+      const db = openConnection(dataPath);
+      db.exec("insert into item values ('boot', 'seeded')");
+      ensureAppToolPort().register({
+        name: "add_startup",
+        handle: () => {
+          db.exec("insert into item values ('a', 'milk')");
+          return null;
+        },
+      });
+    },
+  });
+
+  try {
+    assert.ok(live.started.state.sync !== null);
+    assert.ok(live.startChangeset !== null);
+    assert.ok(live.startHlc !== null);
+    assert.equal(readyCalls.length, 1);
+    assert.equal(readyCalls[0]!.path, BROKER_PATHS.ready);
+    assert.equal(readyCalls[0]!.body["start_hlc"], String(live.startHlc));
+    assert.equal(typeof readyCalls[0]!.body["start_changeset"], "string");
+
+    const check = readOnly(dataPath);
+    try {
+      const syncState = Object.fromEntries(
+        check
+          .prepare("select key, value from lophn_sync_state")
+          .all()
+          .map((row) => [String(row["key"]), String(row["value"])]),
+      );
+      assert.match(syncState["node"] ?? "", /^nod_[0-9a-hjkmnp-tv-z]{26}$/);
+      assert.equal(syncState["machine"], MACHINE);
+    } finally {
+      check.close();
+    }
+
+    live.started.state.accepting = true;
+    const call = await handleCall(
+      live.started.state,
+      new TextEncoder().encode(
+        JSON.stringify({
+          invocation: `inv_${ULID}`,
+          kind: "operation",
+          name: "add_startup",
+          context: {
+            app: APP,
+            release: REL,
+            mode: "live",
+            effect: "write",
+            caller: null,
+          },
+        }),
+      ),
+    );
+    const body = call.body as {
+      status: string;
+      changeset: string | null;
+      hlc?: string;
+    };
+    assert.equal(body.status, "ok");
+    assert.ok(body.changeset !== null && body.hlc !== undefined);
+  } finally {
+    closeConnection(dataPath);
+  }
+
+  // preview 모드에서는 sync store를 열지 않는다.
+  const previewPath = join(dir, "preview.sqlite");
+  const preview = await initializeAppRuntime({
+    line: JSON.stringify({
+      app: APP,
+      release: null,
+      bundle_hash: "a".repeat(64),
+      mode: "preview",
+      process_nonce: "nonce-2",
+      broker_socket: join(dir, "broker.sock"),
+      control_socket: join(dir, "control2.sock"),
+      data_path: previewPath,
+      broker_credential: "cred-2",
+      machine: MACHINE,
+    }),
+    appModule,
+    declaration,
+    broker,
+    dataSchema: 1,
+    clock,
+    ids,
+    importModule: async () => {
+      const db = openConnection(previewPath);
+      db.exec("create table item (id text primary key, title text)");
+    },
+  });
+  try {
+    assert.equal(preview.started.state.sync, null);
+  } finally {
+    closeConnection(previewPath);
+  }
 });

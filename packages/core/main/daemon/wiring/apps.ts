@@ -16,6 +16,7 @@ import {
   appConnectSource,
   appCreate,
   appLogViewError,
+  appViewsLogError,
   declarationCheck,
   packagePublish,
   packagesBuiltin,
@@ -155,6 +156,7 @@ import {
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import {
   appLogWriter,
+  appViewErrorLogHandler,
   viewErrorLogHandler,
 } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
@@ -896,6 +898,15 @@ export const appsWiring: WiringFactory = () => {
           [
             `${appLogViewError.resource}/${appLogViewError.method}`,
             viewErrorLogHandler({
+              request: (op, payload) =>
+                appsControl.channel.request(op, payload),
+            }),
+          ],
+          [
+            `${appViewsLogError.resource}/${appViewsLogError.method}`,
+            appViewErrorLogHandler({
+              viewBinding: (owner, view) =>
+                views?.viewBinding(owner, view) ?? null,
               request: (op, payload) =>
                 appsControl.channel.request(op, payload),
             }),

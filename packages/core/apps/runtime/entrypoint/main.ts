@@ -50,7 +50,21 @@ type MainDeps = {
   writeStderr?: (text: string) => void;
 };
 
-async function main(deps: MainDeps): Promise<void> {
+export type InitializeAppRuntimeDeps = {
+  line: string;
+  importModule: (specifier: string) => Promise<unknown>;
+  // 앱의 main.ts URL. 사본 root에서 오는 앱 code 하나다.
+  appModule: string;
+  clock?: { now: () => string; nowMs: () => number };
+  ids?: { newId: (prefix: string) => string };
+  declaration: AppDeclaration;
+  broker: BrokerTransport;
+  dataSchema: number;
+  reportTransport?: ExceptionObserverTransport;
+};
+
+// child 프로세스나 control socket을 열지 않고 앱 runtime과 sync store 초기화, ready 통보까지 실행한다.
+export async function initializeAppRuntime(deps: InitializeAppRuntimeDeps) {
   const clock = deps.clock ?? systemClock;
   const ids =
     deps.ids ??
@@ -58,43 +72,19 @@ async function main(deps: MainDeps): Promise<void> {
       clock,
       random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
     });
-  // process.exit은 pipe에 쌓인 비동기 쓰기를 자를 수 있어 stderr에 동기로 쓴다.
-  const writeStderr =
-    deps.writeStderr ?? ((text: string) => writeSync(2, text));
-  const exit = deps.exit ?? ((code: number) => process.exit(code));
-  const install = createExceptionObserver({
-    now: () => clock.now(),
-    newId: (prefix) => ids.newId(prefix),
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    currentInvocation: () => null,
-  });
-  install(deps.reportTransport);
-  installCrashExit({
-    writeStderr,
-    exit,
-    // 보고 전달이 막혀도 죽는 일을 미루지 않도록 상한을 둔다.
-    beforeExit: () =>
-      Promise.race([
-        install.settled?.() ?? Promise.resolve(),
-        new Promise<void>((resolve) =>
-          setTimeout(resolve, CRASH_REPORT_WAIT_MS),
-        ),
-      ]),
-  });
-  const line = await deps.readLine();
-  if (!line) throw new Error("app start input missing");
   const started = startRuntime({
-    line,
+    line: deps.line,
     declaration: deps.declaration,
     broker: deps.broker,
     bundleDir: bundleDirectory(deps.appModule),
     dataSchema: deps.dataSchema,
   });
-  started.state.reportCaught = (error, invocation) => {
-    const message = error.message;
-    const stack = error.stack ?? null;
-    void deps
-      .reportTransport({
+  if (deps.reportTransport !== undefined) {
+    const reportTransport = deps.reportTransport;
+    started.state.reportCaught = (error, invocation) => {
+      const message = error.message;
+      const stack = error.stack ?? null;
+      void reportTransport({
         report_id: ids.newId("rpt"),
         observed_at: clock.now(),
         observation: "error",
@@ -111,11 +101,11 @@ async function main(deps: MainDeps): Promise<void> {
           invocation === null
             ? null
             : { id: invocation, record_missing_reason: null },
-      })
-      .catch(() => {
+      }).catch(() => {
         // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
       });
-  };
+    };
+  }
   try {
     await deps.importModule(deps.appModule);
   } catch (error) {
@@ -154,6 +144,53 @@ async function main(deps: MainDeps): Promise<void> {
   ) {
     throw new Error("ready notice was refused");
   }
+  return { started, startChangeset, startHlc };
+}
+
+async function main(deps: MainDeps): Promise<void> {
+  const clock = deps.clock ?? systemClock;
+  const ids =
+    deps.ids ??
+    createIdSource({
+      clock,
+      random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
+    });
+  // process.exit은 pipe에 쌓인 비동기 쓰기를 자를 수 있어 stderr에 동기로 쓴다.
+  const writeStderr =
+    deps.writeStderr ?? ((text: string) => writeSync(2, text));
+  const exit = deps.exit ?? ((code: number) => process.exit(code));
+  const install = createExceptionObserver({
+    now: () => clock.now(),
+    newId: (prefix) => ids.newId(prefix),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    currentInvocation: () => null,
+  });
+  install(deps.reportTransport);
+  installCrashExit({
+    writeStderr,
+    exit,
+    // 보고 전달이 막혀도 죽는 일을 미루지 않도록 상한을 둔다.
+    beforeExit: () =>
+      Promise.race([
+        install.settled?.() ?? Promise.resolve(),
+        new Promise<void>((resolve) =>
+          setTimeout(resolve, CRASH_REPORT_WAIT_MS),
+        ),
+      ]),
+  });
+  const line = await deps.readLine();
+  if (!line) throw new Error("app start input missing");
+  const { started } = await initializeAppRuntime({
+    line,
+    importModule: deps.importModule,
+    appModule: deps.appModule,
+    clock,
+    ids,
+    declaration: deps.declaration,
+    broker: deps.broker,
+    dataSchema: deps.dataSchema,
+    reportTransport: deps.reportTransport,
+  });
   startControlServer(started.state, { exit });
 }
 

@@ -1456,6 +1456,43 @@ flows:
     crosses_process: false
     docs: [architecture/app-call.md]
 
+  - id: view-table-log-error
+    title: host가 열린 view의 화면 오류를 그 view가 묶인 앱의 log에 쓴다
+    actor: shell
+    entries: [route:app_views/log_error]
+    boundary: [apps, app-runtime, core-api]
+    code: [packages/core/apps/views/mod.ts, packages/core/apps/runtime/view-errors.ts, packages/protocol/apps/views.ts, packages/core/main/daemon/wiring/apps.ts]
+    steps:
+      - "(owner, view) binding을 view 표에서 찾는다. 없거나 다른 owner의 view면 not_found다"
+      - "preview view는 아직 앱 log에 쓰지 않고 written false로 답한다"
+      - "live view는 binding의 앱으로 supervisor append_log를 불러 view_error 한 줄을 쓴다"
+    outcomes:
+      - id: written
+        when: "live view가 묶인 앱의 log에 view_error 한 줄을 썼다"
+        observe: [response]
+      - id: preview-skipped
+        when: "preview view라 log에 쓰지 않았다. written false"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "그 owner가 연 view가 표에 없다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "view id, observation, name, message가 규칙에 맞지 않는다"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "인증이 없다(dispatch)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "app supervisor에 닿지 못했거나 응답이 잘못됐다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/app-call.md]
+
   - id: view-table-events
     title: core가 앱 event와 다시 묶음을 view마다 AppViewEvent로 그 owner의 Gateway에 보낸다
     actor: system

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
-import type {
-  AppViewEventPayload,
-  AppViewsOpenInput,
+import {
+  type AppViewEventPayload,
+  appViewsLogError,
+  type AppViewsOpenInput,
 } from "../../../protocol/apps/views.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
+import { appViewErrorLogHandler } from "../runtime/view-errors.ts";
 import { type AppViewsPorts, createAppViews, VIEWS_PER_OWNER } from "./mod.ts";
 
 const APP = "app_00000000000000000000000001";
@@ -499,4 +501,116 @@ test("viewApp은 그 owner가 연 view의 앱만 주고 묶음을 잃은 view는
   await views.changed(APP);
   assert.deepEqual(views.viewApp(device, "v1"), { app: APP, usable: false });
   assert.equal(views.hasLiveView(device, APP), false);
+});
+
+// 폰 화면 오류는 입력에 app을 받지 않고 (owner, view) binding으로만 대상 앱을 정한다. 남의 view로는 어느 앱의 log에도 쓰지 못한다.
+test("app_views/log_error는 caller가 연 live view의 앱 log에만 쓰고, 다른 owner·없는 view는 not_found, preview는 쓰지 않는다", async () => {
+  const world = fakeWorld();
+  const views = createAppViews(world.ports);
+  const phone = "device:dev_00000000000000000000000001";
+  const other = "device:dev_00000000000000000000000002";
+  const written: { op: string; payload: unknown }[] = [];
+  const handler = appViewErrorLogHandler({
+    viewBinding: (owner, view) => views.viewBinding(owner, view),
+    async request(op, payload) {
+      written.push({ op, payload });
+      return ok({ written: true });
+    },
+  });
+
+  assert.equal((await views.open(phone, liveOpen("view-live-1"))).ok, true);
+  assert.equal(
+    (
+      await views.open(phone, {
+        ...liveOpen("view-prev-1"),
+        mode: "preview",
+        release: null,
+      })
+    ).ok,
+    true,
+  );
+
+  // schema는 { view, message }와 선택 observation/name을 받고 빈 message·알 수 없는 칸은 거절한다.
+  assert.equal(
+    appViewsLogError.input.safeParse({
+      view: "view-live-1",
+      message: "ReferenceError: x is not defined",
+    }).success,
+    true,
+  );
+  assert.equal(
+    appViewsLogError.input.safeParse({
+      view: "view-live-1",
+      observation: "fatal",
+      name: "GuestCrashed",
+      message: "bundle failed to load",
+    }).success,
+    true,
+  );
+  assert.equal(
+    appViewsLogError.input.safeParse({ view: "view-live-1", message: "" })
+      .success,
+    false,
+  );
+  assert.equal(
+    appViewsLogError.input.safeParse({
+      view: "view-live-1",
+      app: OTHER_APP,
+      message: "spoof",
+    }).success,
+    false,
+  );
+
+  // 다른 owner와 닫힌/없는 view는 not_found이고 supervisor에 닿지 않는다.
+  const wrongOwner = await handler({ principal: other } as never, {
+    view: "view-live-1",
+    message: "stolen",
+  });
+  assert.equal(!wrongOwner.ok && wrongOwner.error.code, "not_found");
+  const missing = await handler({ principal: phone } as never, {
+    view: "view-missing",
+    message: "gone",
+  });
+  assert.equal(!missing.ok && missing.error.code, "not_found");
+  assert.equal(written.length, 0);
+
+  // preview view는 apps/log_view_error와 같이 log에 쓰지 않고 written: false로 답한다.
+  const preview = await handler({ principal: phone } as never, {
+    view: "view-prev-1",
+    message: "preview crash",
+  });
+  assert.deepEqual(preview, ok({ written: false }));
+  assert.equal(written.length, 0);
+
+  // live view는 binding의 앱 log에 쓴다.
+  const liveBasic = await handler({ principal: phone } as never, {
+    view: "view-live-1",
+    message: "boom",
+  });
+  assert.deepEqual(liveBasic, ok({ written: true }));
+  const liveFatal = await handler({ principal: phone } as never, {
+    view: "view-live-1",
+    observation: "fatal",
+    name: "GuestCrashed",
+    message: "did not start",
+  });
+  assert.deepEqual(liveFatal, ok({ written: true }));
+  assert.deepEqual(written, [
+    {
+      op: "apps.append_log",
+      payload: {
+        app: APP,
+        invocation: null,
+        text: "view_error error ViewError: boom",
+      },
+    },
+    {
+      op: "apps.append_log",
+      payload: {
+        app: APP,
+        invocation: null,
+        text: "view_error fatal GuestCrashed: did not start",
+      },
+    },
+  ]);
 });

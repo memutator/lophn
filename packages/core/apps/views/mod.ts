@@ -70,6 +70,24 @@ export function createAppViews(ports: AppViewsPorts) {
         usable: entry.args.mode === "live" && entry.lost === null,
       };
     },
+    /** owner가 연 view의 앱·mode·release. 다른 owner의 view는 없는 view와 같다. */
+    viewBinding(
+      owner: string,
+      view: string,
+    ): {
+      app: string;
+      mode: "live" | "preview";
+      release: string | null;
+    } | null {
+      const entry = table.get(owner, view);
+      if (entry === undefined) return null;
+      table.touch(entry);
+      return {
+        app: entry.args.app,
+        mode: entry.args.mode,
+        release: entry.binding.release,
+      };
+    },
     /** owner가 그 앱에 묶인 live view를 하나라도 열었나. 기기가 보낸 메시지의 앱 이름표(`via_app`)를 이것으로 정한다. */
     hasLiveView(owner: string, app: string): boolean {
       for (const entry of table.entries()) {

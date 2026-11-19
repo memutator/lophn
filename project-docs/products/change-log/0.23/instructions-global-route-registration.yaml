@@ -1,0 +1,15 @@
+id: instructions-global-route-registration
+version: 0.23.92
+title: "전역 지침 memory route 등록 누락 수정 및 core 기동 실패 로그 보완"
+modules:
+  - packages/core/lophn-agent
+  - packages/core/main
+change: |
+  - `packages/core/lophn-agent/register.ts`의 `memoryRoutes`에 `instructions/read_global`·`instructions/write_global`을 등록해 `memoryRouteMismatch` 기동 실패를 해소했다.
+  - `packages/core/main/daemon/core.ts`에서 기동(`open`·`createCoreControl`) 실패 시 lock을 풀기 전에 `core-0.jsonl`에 `start_failed` 원인을 기록·flush하도록 보완했다.
+  - `schema-steps_test.ts`에 조립된 전체 route 중복 여부와 remote 허용 목록(`REMOTE_ALLOWED_ROUTES`·`REMOTE_PERSON_ROUTES`) 등록 여부를 검사하는 정적 test를 추가했다.
+why: |
+  `wiring/lophn-agent.ts`에 handler만 붙고 team `memoryRoutes` 등록이 빠져 core가 기동을 거절했고, detached core의 stderr가 버려져 `core-0.jsonl`에 실패 원인이 남지 않았다.
+decisions: []
+checklist:
+  - "해야: desktop 앱을 새 판으로 다시 build·설치해 core가 정상 기동하는지 확인한다"

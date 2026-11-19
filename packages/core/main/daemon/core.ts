@@ -148,7 +148,14 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
     platform: process.platform,
   });
   if (!control.ok) {
+    telemetry.logger.error({
+      component: "core",
+      event: "start_failed",
+      message: control.error.message,
+      fields: { code: control.error.code },
+    });
     await clearMarker(root.value, telemetry);
+    await telemetry.shutdown();
     await locked.value.release();
     return control;
   }
@@ -164,9 +171,16 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
     telemetry,
   );
   if (!opened.ok) {
-    // 기동이 실패하면 listener·socket을 닫고 lock을 푼다.
+    // shell이 detached core의 stderr를 버려도 기동 실패 원인이 core log에 남도록 lock 해제 전에 기록·flush한다.
+    telemetry.logger.error({
+      component: "core",
+      event: "start_failed",
+      message: opened.error.message,
+      fields: { code: opened.error.code },
+    });
     await control.value.close();
     await clearMarker(root.value, telemetry);
+    await telemetry.shutdown();
     await locked.value.release();
     return opened;
   }

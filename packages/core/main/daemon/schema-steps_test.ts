@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { sha256Hex } from "../../../base/mod.ts";
+import { ROUTES } from "../../../protocol/registry.ts";
+import {
+  REMOTE_ALLOWED_ROUTES,
+  REMOTE_PERSON_ROUTES,
+} from "../../../protocol/remote/mod.ts";
+import { RouteRegistry, WORKSPACE_MEMORY_ROUTES } from "../../server/mod.ts";
 import { TEAMS, WIRINGS } from "./assembly.ts";
 import { stepContent } from "../../storage/migration/mod.ts";
 import { assemble } from "./registration.ts";
@@ -59,4 +65,30 @@ test("낸 schema step의 id·순서·hash는 lock과 같고 새 step은 끝에�
     [],
     `lock에 없는 새 step이 있다. ${RULE}`,
   );
+});
+
+// sandbox에서 core 기동 시험을 건너뛰어도 route 중복과 remote 허용 목록의 미등록 route를 check에서 바로 잡는다.
+test("조립된 전체 route는 중복이 없고 remote 허용 목록의 모든 route를 포함한다", () => {
+  const wirings = WIRINGS.map((make) => make());
+  const env = Object.assign(
+    {},
+    ...wirings.map((wiring) =>
+      wiring.environment?.({ root: { path: "/tmp" } } as never),
+    ),
+  );
+  const assembled = assemble(TEAMS, env);
+  assert.ok(assembled.ok);
+  const allRoutes = [
+    ...ROUTES,
+    ...WORKSPACE_MEMORY_ROUTES,
+    ...assembled.value.routes,
+  ];
+  assert.doesNotThrow(() => new RouteRegistry(allRoutes));
+  const registered = new Set(
+    allRoutes.map((route) => `${route.resource}/${route.method}`),
+  );
+  const missing = [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES]
+    .map((route) => `${route.resource}/${route.method}`)
+    .filter((key) => !registered.has(key));
+  assert.deepStrictEqual(missing, []);
 });

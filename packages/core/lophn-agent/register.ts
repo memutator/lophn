@@ -13,6 +13,8 @@ import {
   type AgentId,
   finishRewindSummary,
   instructionsGet,
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
   issuerRequestDone,
   issuerRequestTake,
   type McpServer,
@@ -956,6 +958,9 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       // 입구. handler는 wiring/lophn-agent.ts가 붙인다.
       messageImagePath,
       messageImagePrepare,
+      // 전역 지침(LOPHN.md) 읽기와 쓰기. handler는 wiring/lophn-agent.ts가 붙인다.
+      instructionsReadGlobal,
+      instructionsWriteGlobal,
       // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
       ...QUEUED_INPUT_ROUTES,
       // core 안 extension host의 harness extension이 부르는 입구. handler는 wiring/harness.ts가 붙인다.

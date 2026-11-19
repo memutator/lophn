@@ -1,0 +1,14 @@
+id: linux-package-pty-needs-build-machine-glibc
+title: Linux 설치 묶음의 터미널 부품이 묶은 기계의 glibc를 요구해 더 오래된 Linux에서는 터미널이 뜨지 않는다
+kind: bug
+status: open
+topic: platform
+modules: [tools]
+now: |
+  `node tools/package/main.ts --target linux`는 묶는 기계에서 `node-pty`를 Electron에 맞춰 다시 build해 `platform/node_modules/node-pty/build/Release/pty.node`(와 `bin/linux-x64-149/node-pty.node`)로 싣는다. 그 파일은 묶은 기계의 glibc에 묶인다. 0.23.91 묶음은 glibc 2.43 기계에서 만들어 `pty.node`가 `cfsetospeed`·`cfsetispeed`의 `GLIBC_2.42` 판을 요구했다. Ubuntu 24.04(glibc 2.39) VPS에 설치하자 core는 떴지만 PTY host가 그 module을 싣지 못해 모든 터미널이 "The shell couldn't start in this folder."(`spawn_failed`)로 끝났다. 원인은 PTY host의 stderr(`packages/core/terminals/host/main.ts`의 `terminal spawn failed`)에만 남고 log file에는 없다. 묶음의 다른 Linux native module은 없다(`find /opt/lophn -name '*.node'`). Electron binary는 오래된 glibc를 받는다.
+impact: |
+  사람이 만든 설치 묶음을 묶은 기계보다 오래된 Linux(Ubuntu 24.04 LTS 등 대부분의 server와 LTS desktop)에 깔면 터미널, coding agent, harness GUI가 하나도 뜨지 않는다. 다른 컴퓨터의 창에서 열어도 같다. 화면은 이유를 말하지 않는다.
+fix: |
+  - (중간, 추천) Linux 묶음의 `node-pty` build를 지원 하한 glibc의 환경(예: Ubuntu 22.04 container)에서 하고, 묶는 도구가 끝에 모든 Linux `.node`의 가장 높은 `GLIBC_` 판을 읽어 하한을 넘으면 멈춘다. 잃는 것: 묶는 기계에 container 도구가 필요하다.
+  - (작음) 묶는 도구가 하한을 넘는 `.node`를 찾으면 멈추기만 하고, 사람이 오래된 기계에서 묶는다. 잃는 것: 지금 기계에서는 묶을 수 없다.
+  - 우회(쓰는 중): 설치한 기계에서 `build-essential`과 `node-gyp`로 `node-pty`를 Electron 44.5.1 headers에 맞춰 다시 build해 `pty.node`를 바꾼다. 다음 설치가 덮어쓴다.

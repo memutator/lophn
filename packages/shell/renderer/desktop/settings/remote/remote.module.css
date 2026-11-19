@@ -58,3 +58,8 @@
   justify-content: flex-end;
   gap: var(--space-2);
 }
+
+/* 엇갈린 줄과 이 컴퓨터 줄의 짧은 key. 같은 이름의 엇갈린 줄을 다른 컴퓨터의 Settings › Remote·CLI와 대조해 가른다. */
+.deviceKey {
+  user-select: text;
+}

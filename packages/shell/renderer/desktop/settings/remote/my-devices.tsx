@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { Field, Input, Switch } from "@lophn/ui/input";
-import { Dialog } from "@lophn/ui/overlay";
+import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 
 import { actionIcons } from "../../../icons/mod.ts";
@@ -29,6 +29,11 @@ const OS_LABEL = {
   windows: "settings.label.device-windows",
 } as const;
 
+// 공개 key의 앞 8글자. 같은 이름의 엇갈린 줄을 가르고 다른 컴퓨터의 Settings › Remote·CLI와 대조하는 데 쓴다.
+export function shortKey(key: string): string {
+  return key.slice(0, 8);
+}
+
 function detailText(device: RemoteDevice): string {
   const kind = t(
     device.kind === "computer"
@@ -36,8 +41,8 @@ function detailText(device: RemoteDevice): string {
       : "settings.label.device-kind-phone",
   );
   const platform = `${kind} · ${t(OS_LABEL[device.os])}`;
-  // 컴퓨터의 연결은 기계 목록의 상태가 말한다.
-  if (device.kind === "computer") return platform;
+  // 컴퓨터의 연결은 기계 목록의 상태가 말한다. 엇갈린 컴퓨터는 link가 없어 마지막으로 본 때를 함께 보인다.
+  if (device.kind === "computer" && !device.disputed) return platform;
   const seen =
     device.lastConnectedAt === null
       ? t("settings.label.remote-never-connected")
@@ -112,6 +117,12 @@ export function MyDevices({
   // gallery가 기계 목록 없이 그리면 상태 줄이 없다.
   const machineOf = (device: RemoteDevice) =>
     view?.machines.find((one) => one.id === device.machine);
+  const removeName =
+    removing === null
+      ? ""
+      : removing.disputed
+        ? `${removing.name} (${shortKey(removing.key)})`
+        : removing.name;
 
   return (
     <>
@@ -188,6 +199,16 @@ export function MyDevices({
                     <span className={styles.caption} data-remote-disputed="">
                       {t("settings.label.remote-disputed")}
                     </span>
+                  ) : null}
+                  {device.disputed || device.thisComputer ? (
+                    <Tooltip content={device.key}>
+                      <code
+                        className={`${styles.caption} ${styles.mono} ${remoteStyles.deviceKey}`}
+                        data-remote-device-key=""
+                      >
+                        {shortKey(device.key)}
+                      </code>
+                    </Tooltip>
                   ) : null}
                 </span>
                 <span className={styles.lineHelp}>{detailText(device)}</span>
@@ -270,9 +291,7 @@ export function MyDevices({
         onOpenChange={(open) => {
           if (!open) setRemoving(null);
         }}
-        title={t("settings.title.remote-remove", {
-          name: removing?.name ?? "",
-        })}
+        title={t("settings.title.remote-remove", { name: removeName })}
         actions={
           <>
             <Button onClick={() => setRemoving(null)}>
@@ -295,7 +314,7 @@ export function MyDevices({
         }
       >
         <p className={remoteStyles.dialogText}>
-          {t("settings.note.remote-remove", { name: removing?.name ?? "" })}
+          {t("settings.note.remote-remove", { name: removeName })}
         </p>
       </Dialog>
     </>

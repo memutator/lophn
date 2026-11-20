@@ -1,5 +1,5 @@
 id: remote-terminal-unseen-presence
-version: 0.23.103
+version: 0.23.104
 title: 원격 터미널 탭(TUI·GUI)을 보고 있을 때도 원격 머신에 presence를 보고해 Finished, not seen yet가 바로 꺼지게 한다
 modules:
   - packages/shell/ipc

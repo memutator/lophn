@@ -2,9 +2,9 @@ import { z } from "zod";
 import { defineMemory, defineRead } from "../base/route.ts";
 import { harnessIdSchema } from "./harness-id.ts";
 
-// Settings › Coding agents와 hook 설치 물음이다. core가 사람의 env로 harness를 찾고 전역 hook을 놓는다. token·경로 설정·credential은
-// 여기 없다. 처음 알아본 harness의 설치 물음은 event `HookInstallAsked`로 가고 화면이 `hook_answer`로 답한다. 결과는
-// `HookInstallFinished`다.
+// Settings › Coding agents와 전역 hook 자동 설치다. core가 사람의 env로 harness를 찾고 전역 hook을 놓는다. token·경로 설정·credential은
+// 여기 없다. 처음 알아본 harness에 hook이 없으면 묻지 않고 자동으로 놓으며(Settings에서 지운 harness는 opt-out으로 기억해 다시 놓지 않는다),
+// 결과는 `HookInstallFinished`다.
 
 export const harnessDiscoverySchema = z.enum([
   "unobserved",
@@ -47,18 +47,8 @@ export const harnessHookViewSchema = z.strictObject({
 });
 export type HarnessHookView = z.infer<typeof harnessHookViewSchema>;
 
-// 어느 coding agent에 전역 hook을 놓아도 되는지 묻는다. 그 터미널을 고른 창이 dialog로 묻는다. files는 놓을 file의 절대 경로다.
-export const hookAskSchema = z.strictObject({
-  request: z.string().min(1).max(80),
-  terminal: z.string().min(1),
-  harness: z.string().min(1),
-  label: z.string(),
-  files: z.array(z.string()),
-});
-export type HookAsk = z.infer<typeof hookAskSchema>;
-
-// 사람이 허락한 설치의 끝. 실패하면 message가 까닭이고 files는 알면 문제의 file이다. running은 이미 도는 harness를 알아보고
-// 놓았다는 것이다: harness는 hook을 시작할 때 읽어서 그 실행에는 상태가 보이지 않는다.
+// 자동 hook 설치의 끝. 실패하면 message가 까닭이고 files는 알면 문제의 file이다. running은 이미 도는 harness를 알아보고
+// 놓았다는 것이다: harness는 hook을 시작할 때 읽어서 그 실행에는 상태가 보이지 않는다. terminal은 감지된 터미널 참조(있으면 그 탭이 있는 창이 toast를 보인다).
 export const hookResultSchema = z.strictObject({
   harness: z.string().min(1),
   label: z.string(),
@@ -66,6 +56,7 @@ export const hookResultSchema = z.strictObject({
   files: z.array(z.string()),
   message: z.string().optional(),
   running: z.boolean(),
+  terminal: z.string().min(1).optional(),
 });
 export type HookResult = z.infer<typeof hookResultSchema>;
 
@@ -130,26 +121,10 @@ export const codingAgentsUninstallHooks = defineMemory({
   errors,
 });
 
-// `HookInstallAsked`에 사람이 dialog에서 고른 답. 이미 답했거나 모르는 request는 아무 일도 없다. 거절하면 이 실행에서 다시 묻지 않는다.
-export const codingAgentsHookAnswer = defineMemory({
-  resource: "coding_agents",
-  method: "hook_answer",
-  name: "CodingAgentsHookAnswer",
-  changes: [],
-  input: z.strictObject({
-    request: hookAskSchema.shape.request,
-    accepted: z.boolean(),
-  }),
-  output: z.strictObject({}),
-  actors: ["user"],
-  errors,
-});
-
 export const CODING_AGENT_ROUTES = [
   codingAgentsList,
   codingAgentsRefresh,
   codingAgentsHookStatus,
   codingAgentsInstallHooks,
   codingAgentsUninstallHooks,
-  codingAgentsHookAnswer,
 ] as const;

@@ -548,13 +548,13 @@ journeys:
       - {do: "고른 session의 resume 줄을 새 터미널 PTY에 쳐서 이어 연다", screen: project-terminal, flow: terminal-open:opened}
 
   - id: terminal-hook-declined
-    title: "hook 설치를 거절하면 터미널은 그대로 돌고 탭 점은 unknown이다"
+    title: "Settings에서 hook을 제거(opt-out)하면 자동으로 다시 설치하지 않고 탭 점은 unknown이다"
     actor: person
-    goal: "hook 설치를 거절해도 coding agent는 돈다. 상태는 hook 없이 unknown으로 보이고, 다음 실행에서 다시 묻는다"
+    goal: "Settings에서 hook을 제거한 harness는 재기동 후에도 자동으로 다시 설치하지 않으며, coding agent는 그대로 돌고 상태는 unknown으로 보인다"
     refs: [P6]
     steps:
-      - {do: "터미널에서 claude를 친다", screen: project-terminal, flow: terminal-tab-new:opened}
-      - {do: "설치 dialog에서 거절한다. 이 실행에서는 다시 묻지 않는다", flow: terminal-hook-install:declined}
+      - {do: "Settings › Coding agents에서 [Uninstall hooks]로 제거한다. opt-out이 기록된다", flow: coding-agents-uninstall-hooks:removed}
+      - {do: "터미널에서 claude를 친다. opt-out된 harness라 자동 설치를 건너뛴다", screen: project-terminal, flow: terminal-hook-install:skipped}
       - {do: "hook이 없어 탭 점은 unknown이다", screen: project-terminal, flow: terminal-agent-track:unknown}
 
   - id: coding-agent-waiting-permission

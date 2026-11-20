@@ -62,6 +62,13 @@ import {
 } from "../apps/views.ts";
 import { appWidgetsList } from "../apps/widget.ts";
 import {
+  codingAgentsHookStatus,
+  codingAgentsInstallHooks,
+  codingAgentsList,
+  codingAgentsRefresh,
+  codingAgentsUninstallHooks,
+} from "../coding-agent/coding-agents.ts";
+import {
   codingSessionsCliSessions,
   codingSessionsList,
   codingSessionsOpen,
@@ -432,6 +439,12 @@ export const REMOTE_PERSON_ROUTES = [
   terminalsRestart,
   terminalsName,
   terminalsRenameSaved,
+  // coding agent 감지·전역 hook 상태 및 설치·제거(다른 컴퓨터의 Settings › Coding agents)
+  codingAgentsList,
+  codingAgentsRefresh,
+  codingAgentsHookStatus,
+  codingAgentsInstallHooks,
+  codingAgentsUninstallHooks,
   // secret: 값은 upload body로 오고 secret 저장소에만 간다
   secretPut,
   secretDelete,

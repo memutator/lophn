@@ -140,6 +140,7 @@ export const MACHINE_PANES: ReadonlySet<SettingsPane> = new Set([
   "providers",
   "agents",
   "tools",
+  "coding",
   "shell-rules",
   "diagnostics",
 ]);

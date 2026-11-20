@@ -95,7 +95,6 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:coding_agents/refresh",
   "memory:coding_agents/install_hooks",
   "memory:coding_agents/uninstall_hooks",
-  "memory:coding_agents/hook_answer",
   "memory:projects/add",
   "memory:providers/connect-local",
   "memory:providers/sign-in",

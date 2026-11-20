@@ -701,9 +701,9 @@ files:
     covers: []
     note: "data step terminal-agents.sessions-move. 옛 shell/agent-sessions의 file 둘을 두 번 옮겨도 새 자리의 store가 이어 가기에 쓰는 session(harness, external_session, folder_ref, cwd, name, pinned)을 읽고, mode가 남고, 새 자리에 있던 file은 바뀌지 않으며, 옛 자리는 빈다"
 
-  - path: packages/core/terminal-agents/hook-ask_test.ts
-    covers: [coding-agents-hook-ask:declined]
-    note: "물을 곳(붙은 shell)이 없거나 답하기 전에 연결이 닫히면 허락이 아니다. 끝난 request와 물은 곳이 아닌 쪽의 답은 버린다"
+  - path: packages/core/terminal-agents/hook-install_test.ts
+    covers: [terminal-hook-install:installed, terminal-hook-install:skipped]
+    note: "처음 감지한 harness의 missing hook을 묻지 않고 자동 설치하고 결과를 알리며, Settings에서 uninstall한 harness는 영구 opt-out file로 기록해 다음 실행에서도 건너뛰고 manual install로 해제한다"
 
   - path: packages/core/terminal-agents/coding-connection_test.ts
     covers: []

@@ -1600,39 +1600,33 @@ flows:
       - "toast 화면은 프레임 new-waiting-toasts로 근사했다. 정확한 프레임 정합성은 확인하지 않았다"
 
   - id: terminal-hook-install
-    title: 사람 터미널에서 harness를 처음 알아보면 core가 hook 설치를 묻고 그 터미널의 탭이 있는 창이 답한다
+    title: 사람 터미널이나 coding session에서 harness를 처음 알아보면 core가 전역 hook을 자동으로 놓는다
     actor: system
     entries: [system:terminal-hook-install]
-    uses: [cli:harness.install, cli:harness.sync_skills, route:coding_agents/hook_answer]
+    uses: [cli:harness.install, cli:harness.sync_skills]
     boundary: [core, coding-agent, shell]
     code:
       - packages/core/terminal-agents/hook-install.ts
-      - packages/core/terminal-agents/hook-ask.ts
       - packages/core/main/daemon/wiring/terminal-agents.ts
       - packages/shell/renderer/desktop/hook-prompt/hook-prompt-host.tsx
     steps:
-      - "사람 터미널에서 harness를 foreground로 처음 알아본 때 harness마다 core 실행당 한 번 돈다"
+      - "사람 터미널에서 harness를 foreground로 처음 알아보거나 coding_sessions/open으로 열 때 harness마다 core 실행당 한 번 돈다(Settings에서 사람이 [Uninstall hooks]로 opt-out한 harness는 건너뛴다)"
       - "lophn harness install을 dry_run으로 불러 hook과 옛 skill 상태를 본다. 둘 다 missing이 아니면 끝난다"
-      - "missing이고 desktop 앱이 붙어 있으면 core가 HookInstallAsked(harness 이름, 하는 일, 쓸 file 목록)를 낸다. 그 터미널의 탭이 있는 창이 dialog로 묻고 `coding_agents/hook_answer`로 답한다(coding-agents-hook-ask). 앱이 붙어 있지 않거나 붙은 link가 닫히면 거절이다"
-      - "거절이면 이 core 실행에서는 다시 묻지 않는다"
-      - "허락하면 lophn harness install을 실행하고 HookInstallFinished를 낸다. 허락한 창이 성공은 toast 하나, 실패는 까닭과 file을 담은 dialog로 보인다"
-      - "놓은 뒤 공유 skill 사본을 맞춘다(harness sync-skills). 묻기나 놓기가 실패해도 터미널은 그대로 돈다"
+      - "missing이면 묻지 않고 바로 lophn harness install을 실행하고 HookInstallFinished를 낸다. 붙은 창이 있으면 성공은 toast 하나, 실패는 까닭과 file을 담은 dialog로 보인다"
+      - "놓은 뒤 공유 skill 사본을 맞춘다(harness sync-skills). 놓기가 실패해도 터미널은 그대로 돈다"
     outcomes:
       - id: skipped
-        when: "hook 자리가 없는 harness이거나, CLI 경로를 모르거나, 이 실행에서 이미 물었다, 같은 harness를 묻는 중이다"
+        when: "hook 자리가 없는 harness이거나, CLI 경로를 모르거나, 이 실행에서 이미 시도했거나, 사람이 Settings에서 opt-out했다"
         observe: [response]
       - id: dry-run-failed
-        when: "dry_run 결과를 읽지 못했다(CLI 실패, 형식이 맞지 않음, 예외). 아무것도 묻지 않는다"
+        when: "dry_run 결과를 읽지 못했다(CLI 실패, 형식이 맞지 않음, 예외)"
         observe: [response]
       - id: not-needed
         observe: [response]
-      - id: declined
-        when: "앱이 붙어 있지 않거나, 답 전에 link가 닫혔거나, 사람이 거절했다. 이 실행에서는 다시 묻지 않는다"
-        observe: [response]
       - id: installed
-        observe: [disk:"<harness 전역 설정 file>", screen:new-waiting-toasts]
+        observe: [disk:"<harness 전역 설정 file>", event:HookInstallFinished, screen:new-waiting-toasts]
       - id: failed
-        when: "허락했는데 install이 실패했다(CLI 오류, 실패한 hook이나 skill, 예외). 까닭을 담은 dialog를 보인다"
+        when: "install이 실패했다(CLI 오류, 실패한 hook이나 skill, 예외). 까닭을 담은 dialog를 보인다"
         observe: [screen:settings-coding]
     risk: [data-loss, permission]
     crosses_process: true
@@ -2746,42 +2740,6 @@ flows:
     crosses_process: true
     risk: [data-loss]
     docs: [architecture/coding-agent.md]
-
-  - id: coding-agents-hook-ask
-    title: core가 처음 알아본 harness에 hook을 놓을지 묻고 사람의 답을 받는다
-    actor: person
-    entries: [route:coding_agents/hook_answer]
-    uses: [cli:harness.install, cli:harness.sync_skills]
-    boundary: [core, coding-agent-cli]
-    code:
-      - packages/protocol/coding-agent/coding-agents.ts
-      - packages/protocol/events/transient.ts
-      - packages/core/terminal-agents/hook-ask.ts
-      - packages/core/terminal-agents/hook-install.ts
-      - packages/core/main/daemon/wiring/terminal-agents.ts
-    steps:
-      - "사람 터미널에서 harness를 foreground로 처음 알아본 때(core 실행마다 harness당 한 번) dry run으로 보고, 없으면 HookInstallAsked {request, terminal, harness, label, files}를 낸다. 그 터미널을 고른 창이 dialog로 묻는다. shell이 붙어 있지 않으면 묻지 않고 놓지 않는다. 답하기 전에 연결이 닫히면 거절이다"
-      - "창이 hook_answer {request, accepted}로 답한다. 이미 답했거나 모르는 request는 아무 일도 없다"
-      - "거절이면 이 실행에서 다시 묻지 않고 기억하지 않는다. 허락이면 lophn harness install을 부르고 공유 skill 사본을 맞춘 뒤 HookInstallFinished를 낸다"
-    outcomes:
-      - id: installed
-        observe: ["disk:<harness 전역 설정 file>", event:HookInstallFinished]
-      - id: failed
-        when: "허락했는데 놓지 못했다(HookInstallFinished의 ok가 false)"
-        observe: [event:HookInstallFinished]
-      - id: declined
-        when: "사람이 거절했다"
-        observe: [response]
-      - id: ignored
-        when: "이미 답했거나 모르는 request다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "사람 자격(actor user)이 아니다(dispatch)"
-        observe: [response]
-    crosses_process: true
-    risk: [data-loss, permission]
-    docs: [architecture/terminal-agent.md, architecture/coding-agent.md]
 
   # ---- lophn CLI의 local 명령: 감지, hook 설치, skill 사본 ----
   - id: harness-detect

@@ -6,10 +6,7 @@ import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 import { noticeSchema } from "../apps/notice.ts";
 import { appViewEventPayloadSchema } from "../apps/views.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
-import {
-  hookAskSchema,
-  hookResultSchema,
-} from "../coding-agent/coding-agents.ts";
+import { hookResultSchema } from "../coding-agent/coding-agents.ts";
 import {
   terminalOutputSchema,
   terminalProjectSchema,
@@ -295,12 +292,6 @@ const terminalAgentSignaled = defineTransientEvent("TerminalAgentSignaled", {
   }),
 });
 
-// 처음 알아본 harness에 전역 hook을 놓을지 묻는다. 그 터미널을 고른 창이 dialog로 묻고 `coding_agents/hook_answer`로 답한다.
-const hookInstallAsked = defineTransientEvent("HookInstallAsked", {
-  subject: terminalSubjectSchema,
-  payload: hookAskSchema,
-});
-
 // 탭에서 친 `<harness> gui`를 harness-gui extension이 꺼져 있어 열지 못했다. shell main이 그 터미널을 보이는 창에
 // Settings › Extensions를 연다.
 const terminalGuiOff = defineTransientEvent("TerminalGuiOff", {
@@ -308,7 +299,7 @@ const terminalGuiOff = defineTransientEvent("TerminalGuiOff", {
   payload: z.strictObject({ terminal: z.string().min(1) }),
 });
 
-// 사람이 허락한 hook 설치가 끝났다.
+// 자동 hook 설치가 끝났다.
 const hookInstallFinished = defineTransientEvent("HookInstallFinished", {
   subject: z.null(),
   payload: hookResultSchema,
@@ -340,6 +331,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(terminalRuntimeChanged),
   transientEventEnvelopeSchema(terminalAgentSignaled),
   transientEventEnvelopeSchema(terminalGuiOff),
-  transientEventEnvelopeSchema(hookInstallAsked),
   transientEventEnvelopeSchema(hookInstallFinished),
 ]);

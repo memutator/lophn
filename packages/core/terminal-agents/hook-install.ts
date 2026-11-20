@@ -1,7 +1,9 @@
-// harness의 전역 hook을 놓는 흐름. 열 때 `dry_run`으로 있는지만 보고, 없으면 사람에게 한 번 물은 뒤 놓는다
-// (사람 터미널이 harness를 처음 알아봤을 때 쓴다). 묻기는 `HookInstallAsked`를 받은 lophn 창의 dialog다. Settings의 상태 보기
-// (`harness status` 한 번으로 모든 harness), [Install hooks], [Uninstall hooks]도 같은 CLI 호출이다. 묻거나 놓기가 실패해도
-// 호출한 쪽은 막지 않는다.
+// harness의 전역 hook을 놓는 흐름. 터미널에서 harness를 처음 알아보거나 coding session을 열 때 `dry_run`으로
+// 없는지만 보고, 없으면 묻지 않고 자동으로 놓는다(Settings에서 사람이 [Uninstall hooks]로 지운 harness는 opt-out으로
+// 기억해 다시 놓지 않는다). Settings의 상태 보기(`harness status` 한 번으로 모든 harness), [Install hooks], [Uninstall hooks]도
+// 같은 CLI 호출이다. 놓기가 실패해도 호출한 쪽은 막지 않는다.
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { HarnessHookView } from "../../protocol/coding-agent/coding-agents.ts";
 import type { CliRun } from "./coding-connection.ts";
 import {
@@ -17,20 +19,61 @@ type Outcome =
   | "not_supported";
 type Install = { skill: string; hook: string; files: string[] };
 
-/** terminalRef는 사람 터미널이 harness를 알아본 길에서만 있다. 묻는 창을 고르는 데 쓴다. */
-export type HookRegister = {
-  ask(input: {
-    harness: string;
-    files: string[];
-    terminalRef?: string;
-  }): Promise<boolean>;
-  show(input: {
-    harness: string;
-    ok: boolean;
-    files: string[];
-    message?: string;
-    terminalRef?: string;
-  }): void;
+/** 사용자가 Settings에서 명시적으로 제거해 자동 설치에서 뺀 harness 목록. */
+export type HookOptOut = {
+  has(harness: string): boolean;
+  add(harness: string): void;
+  remove(harness: string): void;
+};
+
+/** data root 아래 JSON file로 opt-out 목록을 보존한다. 읽기·쓰기가 실패해도 hook 흐름을 막지 않는다. */
+export function createFileHookOptOut(filePath: string): HookOptOut {
+  const disabled = new Set<string>();
+  try {
+    const raw = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (typeof item === "string" && item.length > 0) disabled.add(item);
+      }
+    }
+  } catch {
+    // file이 없거나 깨졌으면 빈 목록으로 시작한다.
+  }
+
+  function save(): void {
+    try {
+      mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
+      const tmp = `${filePath}.tmp`;
+      writeFileSync(tmp, `${JSON.stringify([...disabled].sort())}\n`, {
+        mode: 0o600,
+      });
+      renameSync(tmp, filePath);
+    } catch {
+      // 디스크 오류로 설치·제거 응답을 실패시키지 않는다.
+    }
+  }
+
+  return {
+    has: (harness) => disabled.has(harness),
+    add(harness) {
+      if (disabled.has(harness)) return;
+      disabled.add(harness);
+      save();
+    },
+    remove(harness) {
+      if (!disabled.delete(harness)) return;
+      save();
+    },
+  };
+}
+
+export type HookInstallResultNotice = {
+  harness: string;
+  ok: boolean;
+  files: string[];
+  message?: string;
+  running: boolean;
+  terminal?: string;
 };
 
 export type HookInstallerDeps = {
@@ -40,21 +83,23 @@ export type HookInstallerDeps = {
   hookCommand?: string;
   /** 그 harness에 전역 hook 자리가 있는지. */
   hasHook(harness: string): boolean;
-  /** 사람에게 묻고 결과를 보인다. 없으면 묻지 않고 놓지 않는다. */
-  register?: HookRegister;
+  /** 사람이 Settings에서 지운 harness opt-out 저장소. */
+  optOut?: HookOptOut;
+  /** 자동 설치 결과를 알린다(선택). */
+  onResult?(result: HookInstallResultNotice): void;
   /** hook을 놓거나 지웠다. 공유 skill 사본이 hook이 놓인 harness를 따르므로 다시 맞춘다. */
   changed?(): void;
 };
 
 export type HookInstaller = {
-  /** 없으면 사람에게 묻고 놓는다. 같은 harness가 동시에 와도 묻는 창은 하나다. */
+  /** 없으면 묻지 않고 자동으로 놓는다. 같은 harness가 동시에 와도 실행은 하나다. */
   ensureRegistered(harness: string, terminalRef?: string): Promise<void>;
-  /** 이 core 실행에서 harness마다 한 번만 `ensureRegistered`를 부른다. */
+  /** 이 core 실행에서 harness마다 한 번만 `ensureRegistered`를 부른다(opt-out이면 건너뛴다). */
   ensureOnce(harness: string, terminalRef?: string): void;
   status(): Promise<HarnessHookView[]>;
-  /** 사람이 [Install hooks]를 눌렀다. 누른 것이 허락이라 묻지 않는다. */
+  /** 사람이 [Install hooks]를 눌렀다. opt-out을 풀고 놓는다. */
   install(harness: HarnessId): Promise<HarnessHookView>;
-  /** 사람이 [Uninstall hooks]를 눌렀다. 이 실행에서는 그 harness를 다시 묻지 않는다. */
+  /** 사람이 [Uninstall hooks]를 눌렀다. opt-out으로 기록해 다시 자동으로 놓지 않는다. */
   uninstall(harness: HarnessId): Promise<HarnessHookView>;
 };
 
@@ -72,7 +117,7 @@ function installResult(data: unknown): Install | null {
 
 export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
   const registering = new Map<string, Promise<void>>();
-  const asked = new Set<string>();
+  const attempted = new Set<string>();
 
   function runInstall(harness: string, dryRun: boolean) {
     const input = {
@@ -92,8 +137,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
     harness: string,
     terminalRef: string | undefined,
   ): Promise<void> {
-    const register = deps.register;
-    if (deps.runCli === null || register === undefined) return;
+    if (deps.runCli === null || deps.optOut?.has(harness)) return;
     let files: string[];
     try {
       const seen = await runInstall(harness, true);
@@ -101,19 +145,31 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
       if (found === null) return;
       if (found.skill !== "missing" && found.hook !== "missing") return;
       files = found.files;
-      if (!(await register.ask({ harness, files, terminalRef }))) return;
     } catch {
       return;
     }
-    // 허락한 뒤의 실패는 사람에게 보인다. 실패에도 놓으려던 file을 같이 보인다.
-    let shown: Parameters<typeof register.show>[0];
+    let shown: HookInstallResultNotice;
     try {
       const done = await runInstall(harness, false);
       const wrote = done.ok ? installResult(done.data) : null;
       if (!done.ok) {
-        shown = { harness, ok: false, files, message: done.message };
+        shown = {
+          harness,
+          ok: false,
+          files,
+          message: done.message,
+          running: terminalRef !== undefined,
+          ...(terminalRef === undefined ? {} : { terminal: terminalRef }),
+        };
       } else if (wrote === null) {
-        shown = { harness, ok: false, files, message: "unexpected result" };
+        shown = {
+          harness,
+          ok: false,
+          files,
+          message: "unexpected result",
+          running: terminalRef !== undefined,
+          ...(terminalRef === undefined ? {} : { terminal: terminalRef }),
+        };
       } else {
         // skill 단계는 옛 skill 사본 지우기라 지울 위치가 없는 harness는 not_supported다. 그것은 실패가 아니다.
         const ok =
@@ -123,6 +179,8 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
           harness,
           ok,
           files: wrote.files,
+          running: terminalRef !== undefined,
+          ...(terminalRef === undefined ? {} : { terminal: terminalRef }),
           ...(ok
             ? {}
             : {
@@ -136,9 +194,11 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
         ok: false,
         files,
         message: error instanceof Error ? error.message : "failed",
+        running: terminalRef !== undefined,
+        ...(terminalRef === undefined ? {} : { terminal: terminalRef }),
       };
     }
-    register.show({ ...shown, terminalRef });
+    deps.onResult?.(shown);
     deps.changed?.();
   }
 
@@ -175,6 +235,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
   async function run(harness: HarnessId, dryRun: boolean) {
     const unsupported = viewOf(harness, "not_supported", []);
     if (deps.runCli === null || !deps.hasHook(harness)) return unsupported;
+    if (!dryRun) deps.optOut?.remove(harness);
     try {
       const ran = await runInstall(harness, dryRun);
       const found = ran.ok ? installResult(ran.data) : null;
@@ -229,8 +290,9 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
     if (deps.runCli === null || !deps.hasHook(harness)) {
       return viewOf(harness, "not_supported", []);
     }
-    // 사람이 지웠으니 이 실행에서 터미널이 그 harness를 알아봐도 다시 묻지 않는다.
-    asked.add(harness);
+    // 사람이 지웠으니 영구 opt-out으로 기록해 다음 실행에서도 자동으로 다시 놓지 않는다.
+    attempted.add(harness);
+    deps.optOut?.add(harness);
     try {
       const ran = await deps.runCli([
         "harness",
@@ -261,8 +323,13 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
   return {
     ensureRegistered,
     ensureOnce(harness, terminalRef) {
-      if (!deps.hasHook(harness) || asked.has(harness)) return;
-      asked.add(harness);
+      if (
+        !deps.hasHook(harness) ||
+        attempted.has(harness) ||
+        deps.optOut?.has(harness)
+      )
+        return;
+      attempted.add(harness);
       void ensureRegistered(harness, terminalRef);
     },
     status,

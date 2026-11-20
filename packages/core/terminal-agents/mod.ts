@@ -12,8 +12,11 @@ export {
   createHarnessSettings,
 } from "./coding-connection.ts";
 export type { CodingSessions } from "./coding-sessions.ts";
-export { createHookAsker } from "./hook-ask.ts";
-export { createHookInstaller } from "./hook-install.ts";
+export {
+  createFileHookOptOut,
+  createHookInstaller,
+  type HookOptOut,
+} from "./hook-install.ts";
 export { listenHooks } from "./hook-socket.ts";
 export { createHookIngress } from "./ingress.ts";
 export { createCodingOpen } from "./open.ts";

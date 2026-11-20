@@ -26,7 +26,6 @@ import {
 } from "../../../../protocol/acp/routes.ts";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/share-request.ts";
 import {
-  codingAgentsHookAnswer,
   codingAgentsHookStatus,
   codingAgentsInstallHooks,
   codingAgentsList,
@@ -75,8 +74,8 @@ import {
   createAgentSessionStore,
   createBridge,
   createCodingOpen,
+  createFileHookOptOut,
   createHarnessSettings,
-  createHookAsker,
   createHookIngress,
   createHookInstaller,
   createSkillSync,
@@ -210,9 +209,7 @@ type Setup = {
   ingress: ReturnType<typeof createHookIngress> | null;
   harnesses: ReturnType<typeof createHarnessSettings>;
   installer: ReturnType<typeof createHookInstaller>;
-  asker: ReturnType<typeof createHookAsker>;
   skillSync: ReturnType<typeof createSkillSync>;
-  gone: Set<() => void>;
   log: (message: string) => void;
 };
 
@@ -342,41 +339,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
       const harnesses = createHarnessSettings(cli());
       const skillSync = createSkillSync({ runCli: cli(), log });
 
-      // 묻는 곳은 붙은 shell 하나다. 연결이 닫히면 묻던 것은 거절이다.
-      const gone = new Set<() => void>();
-      const asker = createHookAsker({
-        pick(terminalRef) {
-          if (!ctx.hostLink.attached()) return null;
-          return {
-            contentsId: 0,
-            send(kind, payload) {
-              ctx.bus.publish(
-                (kind === "ask"
-                  ? {
-                      type: "HookInstallAsked",
-                      subject: `terminal:${terminalRef}`,
-                      at: ctx.clock.now(),
-                      payload: {
-                        ...(payload as object),
-                        terminal: terminalRef,
-                      },
-                    }
-                  : {
-                      type: "HookInstallFinished",
-                      subject: null,
-                      at: ctx.clock.now(),
-                      payload,
-                    }) as BusEvent,
-              );
-            },
-            onGone(runGone) {
-              gone.add(runGone);
-              return () => void gone.delete(runGone);
-            },
-          };
-        },
-        requestId: () => randomUUID(),
-      });
       const labelOf = (harness: string) =>
         harness in HARNESS_ADAPTERS
           ? HARNESS_ADAPTERS[harness as HarnessId].label
@@ -394,11 +356,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
         hasHook: (harness) =>
           harness in HARNESS_ADAPTERS &&
           HARNESS_ADAPTERS[harness as HarnessId].hook !== null,
-        register: {
-          ask: (input) =>
-            asker.ask({ ...input, label: labelOf(input.harness) }),
-          show: (input) =>
-            asker.show({ ...input, label: labelOf(input.harness) }),
+        optOut: createFileHookOptOut(
+          join(ctx.root.path, "terminal-agents", "hooks-opt-out.json"),
+        ),
+        onResult: (result) => {
+          ctx.bus.publish({
+            type: "HookInstallFinished",
+            subject: null,
+            at: ctx.clock.now(),
+            payload: {
+              ...result,
+              label: labelOf(result.harness),
+            },
+          } as BusEvent);
         },
         changed: () => skillSync.request(),
       });
@@ -406,17 +376,14 @@ export const terminalAgentsWiring: WiringFactory = () => {
         ingress,
         harnesses,
         installer,
-        asker,
         skillSync,
-        gone,
         log,
       };
     },
     build(ctx) {
       const agents = ctx.terminalAgents;
       const coding = agents.coding;
-      const { ingress, harnesses, installer, asker, skillSync, gone, log } =
-        setup!;
+      const { ingress, harnesses, installer, skillSync, log } = setup!;
       const queue = ctx.hostQueue;
 
       // hook endpoint는 폴더가 정해지면 바로 선다(bridge의 shim·listen을 기다리지 않는다). listen 전에 연 터미널은 hook 없이 뜬다.
@@ -574,9 +541,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
         }),
       );
 
-      ctx.hostLink.onClose(() => {
-        for (const runGone of [...gone]) runGone();
-      });
       beatTimer = setInterval(() => agents.holds.beat(), BEAT_MS);
       beatTimer.unref?.();
 
@@ -694,17 +658,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
               }),
           ],
           [
-            key(codingAgentsHookAnswer),
-            (_who, input) => {
-              const { request, accepted } = input as {
-                request: string;
-                accepted: boolean;
-              };
-              asker.answer(0, request, accepted);
-              return ok({});
-            },
-          ],
-          [
             key(codingSessionsSwitch),
             (_who, input) =>
               coding.switch(
@@ -713,15 +666,16 @@ export const terminalAgentsWiring: WiringFactory = () => {
           ],
           [
             key(codingSessionsOpen),
-            (_who, input) =>
-              opener.open(
-                input as {
-                  project: string;
-                  harness: string;
-                  resume?: { session: string };
-                  key: string;
-                },
-              ),
+            (_who, input) => {
+              const body = input as {
+                project: string;
+                harness: string;
+                resume?: { session: string };
+                key: string;
+              };
+              installer.ensureOnce(body.harness);
+              return opener.open(body);
+            },
           ],
         ],
         uploads: [

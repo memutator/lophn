@@ -49,6 +49,7 @@ import { catalogSource } from "../palette/core-catalog.ts";
 import { coreAgentsSettingsSource } from "../settings/agents/core-source.ts";
 import { windowSecretInputOpener } from "../settings/core-call.ts";
 import { coreSettingsSource } from "../settings/core-source.ts";
+import { coreCodingConnectionsSource } from "../settings/connections/core-source.ts";
 import { coreDiagnosticsSource } from "../settings/diagnostics/core-source.ts";
 import { coreProviderSettingsSource } from "../settings/providers/core-source.ts";
 import {
@@ -220,6 +221,7 @@ function otherMachineData(
         openSecret,
       }),
       agents: coreAgentsSettingsSource(core, { ...local, picker, openSecret }),
+      coding: coreCodingConnectionsSource(core),
       diagnostics: coreDiagnosticsSource(core),
       shellRules: coreShellRulesSource(core),
     },

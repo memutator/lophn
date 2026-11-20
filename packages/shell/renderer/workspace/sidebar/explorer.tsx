@@ -26,6 +26,7 @@ import { PanelActions, PanelTitle } from "../../shell/right-sidebar.tsx";
 import { t } from "@lophn/i18n";
 
 import { PATH_DRAG_TYPE } from "../../path-drag.ts";
+import { useMachineGrant } from "../../desktop/machines/context.tsx";
 import { FileConfirm } from "../file-actions.tsx";
 import { freeName } from "../files/paste-names.ts";
 import type {
@@ -91,12 +92,16 @@ const ADD_FOLDER = "add-folder";
 function RootPicker({
   roots,
   root,
+  canAdd,
+  canRemove,
   onRoot,
   onAdd,
   onRemove,
 }: {
   roots: readonly RootChoice[];
   root: RootChoice;
+  canAdd: boolean;
+  canRemove: boolean;
   onRoot: (path: string) => void;
   onAdd: () => void;
   onRemove: (path: string) => void;
@@ -140,35 +145,41 @@ function RootPicker({
                   ? item.path
                   : t("project-workspace.label.folder-missing")}
               </span>
-              <button
-                type="button"
-                className={styles.rootRemove}
-                aria-label={t("project-workspace.label.remove-folder", {
-                  name: item.name,
-                })}
-                data-root-remove={item.path}
-                onClick={(event) => {
-                  // 행을 고른 것으로 치지 않는다. menu는 닫고 확인 dialog가 이어서 뜬다.
-                  event.stopPropagation();
-                  setOpen(false);
-                  onRemove(item.path);
-                }}
-              >
-                <Icon
-                  icon={workspaceIcons.close}
-                  pixels={iconPixels("small")}
-                />
-              </button>
+              {canRemove ? (
+                <button
+                  type="button"
+                  className={styles.rootRemove}
+                  aria-label={t("project-workspace.label.remove-folder", {
+                    name: item.name,
+                  })}
+                  data-root-remove={item.path}
+                  onClick={(event) => {
+                    // 행을 고른 것으로 치지 않는다. menu는 닫고 확인 dialog가 이어서 뜬다.
+                    event.stopPropagation();
+                    setOpen(false);
+                    onRemove(item.path);
+                  }}
+                >
+                  <Icon
+                    icon={workspaceIcons.close}
+                    pixels={iconPixels("small")}
+                  />
+                </button>
+              ) : null}
             </span>
           ),
         })),
-        {
-          id: ADD_FOLDER,
-          label: t("project-workspace.button.explorer-add-folder"),
-          leading: <MenuIcon icon={commonIcons.add} />,
-          data: { "data-root-add": "" },
-          separatorBefore: true,
-        },
+        ...(canAdd
+          ? [
+              {
+                id: ADD_FOLDER,
+                label: t("project-workspace.button.explorer-add-folder"),
+                leading: <MenuIcon icon={commonIcons.add} />,
+                data: { "data-root-add": "" },
+                separatorBefore: true,
+              },
+            ]
+          : []),
       ]}
       onSelect={(id) => (id === ADD_FOLDER ? onAdd() : onRoot(id))}
     />
@@ -178,31 +189,35 @@ function RootPicker({
 /** panel 머리 줄의 단추: 새 파일·새 폴더, 그리고 ⋯ menu의 Refresh·Collapse All. */
 function HeadActions({
   disabled,
+  readOnly,
   onNewFile,
   onNewFolder,
   onRefresh,
   onCollapseAll,
 }: {
   disabled: boolean;
+  readOnly: boolean;
   onNewFile: () => void;
   onNewFolder: () => void;
   onRefresh: () => void;
   onCollapseAll: () => void;
 }) {
-  const buttons = [
-    {
-      key: "new-file",
-      icon: workspaceIcons.newFile,
-      label: t("project-workspace.button.explorer-new-file"),
-      run: onNewFile,
-    },
-    {
-      key: "new-folder",
-      icon: workspaceIcons.newFolder,
-      label: t("project-workspace.button.explorer-new-folder"),
-      run: onNewFolder,
-    },
-  ] as const;
+  const buttons = readOnly
+    ? []
+    : ([
+        {
+          key: "new-file",
+          icon: workspaceIcons.newFile,
+          label: t("project-workspace.button.explorer-new-file"),
+          run: onNewFile,
+        },
+        {
+          key: "new-folder",
+          icon: workspaceIcons.newFolder,
+          label: t("project-workspace.button.explorer-new-folder"),
+          run: onNewFolder,
+        },
+      ] as const);
   const more = [
     {
       id: "refresh",
@@ -294,6 +309,8 @@ type Dialog =
 
 interface ExplorerProps {
   source: WorkspaceSource;
+  /** 이 컴퓨터의 workspace인가. false면 OS 전용 동작을 숨기고 원격 허락에 따라 읽기 전용으로 떨어진다. */
+  here?: boolean;
   folders: readonly ProjectFolderView[];
   /** 지금 편집기에서 열려 있는 파일의 절대 경로. 바뀌면 tree가 그 파일을 펼쳐 고른다. */
   current?: string | null;
@@ -346,6 +363,7 @@ interface Notice {
 
 export function Explorer({
   source,
+  here = true,
   folders,
   current = null,
   reveal = null,
@@ -360,6 +378,10 @@ export function Explorer({
   onRemoveFolder,
   onOpenTerminal,
 }: ExplorerProps): ReactNode {
+  const isLocal = here && source.remote !== true;
+  const grant = useMachineGrant(!isLocal);
+  const [writeForbidden, setWriteForbidden] = useState(false);
+  const readOnly = !isLocal && (grant === "denied" || writeForbidden);
   const roots = rootChoices(folders);
   const root = roots.find((item) => item.path === rootPath) ?? roots[0];
   const tree = useFileTree(source, root?.found ? root.path : null);
@@ -377,6 +399,10 @@ export function Explorer({
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<readonly string[] | null>(null);
+
+  useEffect(() => {
+    setWriteForbidden(false);
+  }, [source, root?.path]);
   // 다음 render에 줄이 생기면 보이게 하고(선택적으로 focus도) 비운다. 줄이 늦게 생겨도 잠시 기다린다.
   // id가 null이면 tab stop 줄이다.
   const goal = useRef<{
@@ -616,6 +642,7 @@ export function Explorer({
     preventDefault: () => void;
     stopPropagation: () => void;
   }) => {
+    if (!isLocal) return;
     const data = event.clipboardData;
     // tree 안 이름 입력에 붙여넣을 때는 가로채지 않는다.
     const target = event.target;
@@ -754,12 +781,15 @@ export function Explorer({
   // ---- 새 파일·새 폴더·이름 바꾸기 ----
 
   const startCreate = (kind: "file" | "folder", row: FileRow | null) => {
+    if (readOnly) return;
     const parent = targetFolder(row);
     if (parent !== root.path) tree.expand(parent);
     setDraft({ kind, parent });
   };
-  const startRename = (row: FileRow) =>
+  const startRename = (row: FileRow) => {
+    if (readOnly) return;
     setDraft({ kind: "rename", path: row.id, folder: row.folder });
+  };
 
   const finishDraft = (restore: string | null) => {
     setDraft(null);
@@ -774,6 +804,10 @@ export function Explorer({
     const path = joinPath(d.parent, check.parts.join("/"));
     const result = await source.create(path, d.kind);
     if (!result.ok) {
+      if (result.code === "forbidden") {
+        setWriteForbidden(true);
+        return t("document.error.forbidden");
+      }
       return result.code === "conflict"
         ? t("project-workspace.error.explorer-name-exists", { name: value })
         : result.code === "invalid_input"
@@ -812,6 +846,10 @@ export function Explorer({
     if (result.code === "cancelled") {
       finishDraft(d.path);
       return null;
+    }
+    if (result.code === "forbidden") {
+      setWriteForbidden(true);
+      return t("document.error.forbidden");
     }
     return result.code === "conflict"
       ? t("project-workspace.error.explorer-name-exists", { name })
@@ -870,6 +908,7 @@ export function Explorer({
   // ---- 휴지통 ----
 
   const askTrash = (row: FileRow) => {
+    if (readOnly) return;
     const chosen = selectedRows();
     const paths = outermost(
       (chosen.length > 0 ? chosen : [row]).map((item) => item.id),
@@ -893,10 +932,16 @@ export function Explorer({
     const next = tree.rows[at + 1] ?? tree.rows[first - 1];
     const removed = new Set<string>();
     let failed: string | null = null;
+    let forbidden = false;
     for (const path of trash.paths) {
       const result = await onTrash(path);
       if (result.ok) removed.add(path);
       else if (result.code === "cancelled") break;
+      else if (result.code === "forbidden") {
+        forbidden = true;
+        setWriteForbidden(true);
+        break;
+      }
       // 사람이 저장 안 된 탭을 닫지 않기로 하면 남은 것은 그만두고, 실패는 첫 이름으로 알린다.
       else if (failed === null) failed = nameOf(path);
     }
@@ -909,7 +954,10 @@ export function Explorer({
           ? selection.anchor
           : null,
     });
-    if (failed !== null) setDialog({ ...trash, failed });
+    if (forbidden) {
+      setDialog(null);
+      setNotice({ text: t("document.error.forbidden"), error: true });
+    } else if (failed !== null) setDialog({ ...trash, failed });
     else {
       setDialog(null);
       if (removed.size > 0 && next !== undefined) show(next.id, true);
@@ -925,6 +973,10 @@ export function Explorer({
   const dropDirOf = (row: FileRow | null) => targetFolder(row);
 
   const onDragStart = (row: FileRow, event: DragEvent<HTMLDivElement>) => {
+    if (readOnly) {
+      event.preventDefault();
+      return;
+    }
     const chosen = selectedRows();
     const paths = outermost(
       chosen.length > 1 && chosen.some((item) => item.id === row.id)
@@ -932,14 +984,20 @@ export function Explorer({
         : [row.id],
     );
     dragging.current = paths;
-    event.dataTransfer.effectAllowed = "copyMove";
-    event.dataTransfer.setData("text/plain", paths.join("\n"));
-    const first = rowOf(paths[0]);
-    if (first !== null && !first.folder) {
-      event.dataTransfer.setData(PATH_DRAG_TYPE, first.id);
+    if (isLocal) {
+      event.dataTransfer.effectAllowed = "copyMove";
+      event.dataTransfer.setData("text/plain", paths.join("\n"));
+      const first = rowOf(paths[0]);
+      if (first !== null && !first.folder) {
+        event.dataTransfer.setData(PATH_DRAG_TYPE, first.id);
+      }
+    } else {
+      // 원격 파일은 로컬 OS·창 밖 drag-out을 열지 않고 Explorer 안 이동만 쓴다.
+      event.dataTransfer.effectAllowed = "move";
     }
   };
   const onDragOver = (row: FileRow | null, event: DragEvent<HTMLElement>) => {
+    if (readOnly) return;
     // 줄 위에서는 바깥(빈 자리 = 루트)으로 새지 않게 한다.
     if (row !== null) event.stopPropagation();
     const paths = dragging.current;
@@ -950,6 +1008,7 @@ export function Explorer({
     setDropTarget(toDir);
   };
   const onDrop = (row: FileRow | null, event: DragEvent<HTMLElement>) => {
+    if (readOnly) return;
     if (row !== null) event.stopPropagation();
     const all = dragging.current;
     const toDir = dropDirOf(row);
@@ -985,12 +1044,17 @@ export function Explorer({
       readonly from: string;
       readonly error: "exists" | "failed";
     } | null = null;
+    let forbidden = false;
     for (const from of d.paths) {
       const to = joinPath(d.toDir, baseName(from));
       const result = await onMove(from, to);
       if (result.ok) moved.push(to);
       else if (result.code === "cancelled") break;
-      else if (failure === null) {
+      else if (result.code === "forbidden") {
+        forbidden = true;
+        setWriteForbidden(true);
+        break;
+      } else if (failure === null) {
         failure = {
           from,
           error: result.code === "conflict" ? "exists" : "failed",
@@ -1004,7 +1068,10 @@ export function Explorer({
       const last = moved.at(-1);
       if (last !== undefined) show(last, false);
     }
-    if (failure !== null) setDialog({ ...d, ...failure });
+    if (forbidden) {
+      setDialog(null);
+      setNotice({ text: t("document.error.forbidden"), error: true });
+    } else if (failure !== null) setDialog({ ...d, ...failure });
     else setDialog(null);
   };
 
@@ -1037,46 +1104,54 @@ export function Explorer({
   const canAct = (target: FileRow | null) => clipPaths(target).length > 0;
 
   const menuItems = (target: FileRow | null): MenuItem[] => [
-    {
-      id: "new-file",
-      label: t("project-workspace.button.explorer-new-file"),
-      leading: <MenuIcon icon={workspaceIcons.newFile} />,
-    },
-    {
-      id: "new-folder",
-      label: t("project-workspace.button.explorer-new-folder"),
-      leading: <MenuIcon icon={workspaceIcons.newFolder} />,
-    },
-    {
-      id: "cut",
-      label: t("project-workspace.button.explorer-cut"),
-      leading: <MenuIcon icon={Scissors} />,
-      separatorBefore: true,
-      disabled: !canAct(target),
-    },
-    {
-      id: "copy",
-      label: t("project-workspace.button.explorer-copy"),
-      leading: <MenuIcon icon={workspaceIcons.copy} />,
-      disabled: !canAct(target),
-    },
-    {
-      id: "paste",
-      label: t("project-workspace.button.explorer-paste"),
-      leading: <MenuIcon icon={ClipboardPaste} />,
-    },
-    {
-      id: "duplicate",
-      label: t("project-workspace.button.explorer-duplicate"),
-      leading: <MenuIcon icon={CopyPlus} />,
-      disabled: !canAct(target),
-    },
-    {
-      id: "reveal",
-      label: t("project-workspace.button.explorer-reveal"),
-      leading: <MenuIcon icon={workspaceIcons.revealInFiles} />,
-      separatorBefore: true,
-    },
+    ...(readOnly
+      ? []
+      : [
+          {
+            id: "new-file",
+            label: t("project-workspace.button.explorer-new-file"),
+            leading: <MenuIcon icon={workspaceIcons.newFile} />,
+          },
+          {
+            id: "new-folder",
+            label: t("project-workspace.button.explorer-new-folder"),
+            leading: <MenuIcon icon={workspaceIcons.newFolder} />,
+          },
+        ]),
+    ...(isLocal
+      ? [
+          {
+            id: "cut",
+            label: t("project-workspace.button.explorer-cut"),
+            leading: <MenuIcon icon={Scissors} />,
+            separatorBefore: true,
+            disabled: !canAct(target),
+          },
+          {
+            id: "copy",
+            label: t("project-workspace.button.explorer-copy"),
+            leading: <MenuIcon icon={workspaceIcons.copy} />,
+            disabled: !canAct(target),
+          },
+          {
+            id: "paste",
+            label: t("project-workspace.button.explorer-paste"),
+            leading: <MenuIcon icon={ClipboardPaste} />,
+          },
+          {
+            id: "duplicate",
+            label: t("project-workspace.button.explorer-duplicate"),
+            leading: <MenuIcon icon={CopyPlus} />,
+            disabled: !canAct(target),
+          },
+          {
+            id: "reveal",
+            label: t("project-workspace.button.explorer-reveal"),
+            leading: <MenuIcon icon={workspaceIcons.revealInFiles} />,
+            separatorBefore: true,
+          },
+        ]
+      : []),
     ...(onOpenTerminal === undefined || (target !== null && !target.folder)
       ? []
       : [
@@ -1098,7 +1173,7 @@ export function Explorer({
       label: t("project-workspace.button.explorer-copy-relative-path"),
       leading: <MenuIcon icon={workspaceIcons.copy} />,
     },
-    ...(target === null
+    ...(target === null || readOnly
       ? []
       : [
           {
@@ -1169,26 +1244,27 @@ export function Explorer({
         anchor: tree.rows[0].id,
       });
     } else if (mod && key.toLowerCase() === "c") {
-      if (!copyToClipboard(row ?? null)) return;
+      if (!isLocal || !copyToClipboard(row ?? null)) return;
     } else if (mod && key.toLowerCase() === "x") {
-      if (!cutToClipboard(row ?? null)) return;
+      if (!isLocal || !cutToClipboard(row ?? null)) return;
     } else if (mod && key.toLowerCase() === "v") {
       // 앱 clipboard이 비었으면 paste 이벤트가 OS clipboard의 경로·이미지를 맡는다. 둘이 같은 일을 하지 않는다.
-      if (clipboard === null) return;
+      if (!isLocal || clipboard === null) return;
       void pasteClipboard(clipboard);
     } else if (mod && key.toLowerCase() === "d") {
-      if (clipPaths(row ?? null).length === 0) return;
+      if (!isLocal || clipPaths(row ?? null).length === 0) return;
       void duplicateRows(row ?? null);
     } else if (
       (key === "Delete" && !event.ctrlKey) ||
       (key === "Backspace" && event.metaKey)
     ) {
+      if (readOnly) return;
       const target = row ?? selectedRows()[0];
       if (target === undefined) return;
       askTrash(target);
     } else if (mod) return;
     else if (key === "F2") {
-      if (row !== undefined) startRename(row);
+      if (!readOnly && row !== undefined) startRename(row);
       else return;
     } else if (key === "ArrowDown") {
       if (event.shiftKey) {
@@ -1260,6 +1336,7 @@ export function Explorer({
         cut={clipboard?.mode === "cut" && clipboard.paths.includes(row.id)}
         dropping={row.id === dropTarget}
         tabStop={row.id === tabStop}
+        draggable={!readOnly}
         onActivate={activate}
         onMenu={(one, at) => {
           // 이미 고른 줄이면 선택을 그대로 두고, 아니면 그 줄만 고른다.
@@ -1289,6 +1366,7 @@ export function Explorer({
     <section className={styles.section} data-explorer="">
       <HeadActions
         disabled={!root.found}
+        readOnly={readOnly}
         onNewFile={() => startCreate("file", activeRow)}
         onNewFolder={() => startCreate("folder", activeRow)}
         onRefresh={tree.refresh}
@@ -1305,6 +1383,8 @@ export function Explorer({
         <RootPicker
           roots={roots}
           root={root}
+          canAdd={isLocal}
+          canRemove={!readOnly}
           onRoot={onRoot}
           onAdd={() => void addFolder()}
           onRemove={(path) =>

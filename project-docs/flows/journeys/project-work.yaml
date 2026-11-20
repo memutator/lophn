@@ -628,15 +628,6 @@ journeys:
       - {do: "터미널에서 claude를 쳤으나 아직 첫 메시지 전이다", screen: project-terminal, flow: terminal-tab-new:opened}
       - {do: "Open as chat이 disabled로 보이고 No session yet 이유가 붙는다", screen: terminal-open-chat-disabled, flow: harness-gui-toggle:no-session}
 
-  - id: harness-gui-extension-off
-    title: "harness-gui 확장이 꺼져 있으면 claude gui 대신 설정을 연다"
-    actor: person
-    goal: "claude gui를 쳤는데 확장이 꺼져 있으면 Settings의 Extensions를 열어 사람이 켜게 한다"
-    refs: [P6]
-    steps:
-      - {do: "터미널에서 claude gui를 친다", screen: project-terminal, flow: terminal-tab-new:opened}
-      - {do: "Settings › System › Extensions를 연다", flow: harness-gui-open:extension-off}
-
   - id: harness-gui-compose-commands
     title: "GUI 채팅 입력칸에서 슬래시 명령 메뉴로 명령을 고르고 출력을 본다"
     actor: person

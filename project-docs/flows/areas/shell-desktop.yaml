@@ -226,7 +226,7 @@ flows:
       - "Dock 클릭(system:dock-activate)은 OS 이벤트라 system이지만, 같은 동작을 하는 tray 클릭이 person이라 flow의 actor는 person 하나로 적었다"
 
   - id: desktop-window-intent
-    title: "창 밖에서 온 요청(전역 팔레트, extension 설정 열기)을 최근 창에 전한다"
+    title: "창 밖에서 온 요청(전역 팔레트, Remote 설정 열기)을 최근 창에 전한다"
     actor: person
     uses: [ipc:shell:intent, desktop-window-open:opened]
     boundary: [shell]
@@ -235,7 +235,7 @@ flows:
       - packages/shell/main/desktop/wiring/context.ts
       - packages/shell/ipc/shortcuts.ts
     steps:
-      - "전역 팔레트 key(keys 소유), 옮겨진 로그인 시작 알림의 [Open settings], 또는 core의 TerminalGuiOff(harness-gui-open:extension-off)가 desktop.send로 온다. intent는 global-palette, remote-settings, extension-settings다. extension-settings는 그 터미널 탭을 고른 창을 대상으로 준다"
+      - "전역 팔레트 key(keys 소유)나 옮겨진 로그인 시작 알림의 [Open settings]가 desktop.send로 온다. intent는 global-palette, remote-settings다"
       - "대상 창이나 최근 desktop 창이 있으면 최소화를 풀고 앞으로 가져온다. 창이 아직 로딩 중이면 did-finish-load 뒤에 intent를 보낸다"
       - "창이 없으면 새 기본 창을 연 뒤 같은 방식으로 보낸다. 창이 구독하기 전에 막 연 창은 preload가 받아 두었다가 넘긴다"
     outcomes:
@@ -593,7 +593,7 @@ flows:
     steps:
       - "core 안 extension host가 core가 ready가 된 뒤 한 번, StateChanged(settings) 중 extensions.*가 바뀔 때, 목록 route 앞에서 sync한다. sync는 먼저 사람의 env(terminals wiring의 login shell env, 없으면 core의 env)를 한 번 읽어 둔다. 겹치면 차례로 돈다"
       - "harness-gui도 같은 core extension host가 켠다. 터미널 탭의 GUI는 core가 연 터미널 위에서 돈다. shell main에는 extension registry가 없다"
-      - "roots(개발은 packages/core/extensions/bundled, 설치본은 설치 root의 extensions/)의 <id>/manifest.json을 읽는다. 꼴이 틀리거나 폴더 이름과 id가 다르면 invalid다. 맞으면 설정 extensions.<id>.enabled를 읽고, 선언이 없으면 no_setting이다"
+      - "roots(개발은 packages/core/extensions/bundled, 설치본은 설치 root의 extensions/)의 <id>/manifest.json을 읽는다. 꼴이 틀리거나 폴더 이름과 id가 다르면 invalid다. builtin: true인 내장 extension(harness-gui)은 설정 없이 자동으로 activate한다. 일반 extension은 설정 extensions.<id>.enabled를 읽고, 선언이 없으면 no_setting이다"
       - "설정을 읽지 못하면 그 extension은 건드리지 않는다. 켜진 것을 끄지 않는다"
       - "켜졌으면 entry를 require해(없거나 activate·deactivate를 내보내지 않으면 failed) activate(ctx)를 부른다. 표시 file을 먼저 두고, activate가 던지면 deactivate를 한 번 부른 뒤 failed다"
       - "꺼졌으면 켜져 있던 것만 deactivate한다. 그 extension이 건 command와 tool handler는 모두 버린다"
@@ -636,7 +636,7 @@ flows:
       - packages/core/main/daemon/wiring/extensions.ts
     steps:
       - "사람 자격만 부른다. core 안 extension host가 먼저 설정과 맞춰(sync) 방금 바꾼 켜기·끄기가 보이게 한다"
-      - "roots에서 찾은 extension마다 한 줄이다: 이름, 설명, 상태(off·on·invalid·no_setting·failed)와 이유, 표시 file이 있는지, 켜졌으면 기여(command·key)"
+      - "roots에서 찾은 extension마다 한 줄이다: 이름, 설명, 상태(off·on·invalid·no_setting·failed)와 이유, 표시 file이 있거나 builtin인지(installed), builtin 여부, 켜졌으면 기여(command·key). Settings › Extensions 화면은 builtin 줄을 숨긴다"
     outcomes:
       - id: ok
         observe: ["response"]
@@ -694,7 +694,7 @@ flows:
       - packages/protocol/extensions/routes.ts
     steps:
       - "route(core 안 extension host)는 사람 자격만 부르고 설정을 core 안에서 읽는다"
-      - "id 꼴을 검사한다. 틀리면 invalid_input이다"
+      - "id 꼴을 검사한다. 틀리면 invalid_input이다. builtin: true인 내장 extension이면 conflict로 거절한다"
       - "설정 extensions.<id>.enabled를 읽는다. 켜져 있거나 활성이면 conflict로 먼저 끄라고 한다"
       - "표시 file에 적힌 file들을 지운다. extension이 ctx.files.write로 쓴 것만 지운다"
       - "표시 file을 지우고, 비게 된 폴더만 지운다. 사람이 넣은 file이 남아 있으면 폴더도 남는다"
@@ -704,7 +704,7 @@ flows:
         observe: ["disk:<data root>/extensions/<id>/.lophn-extension이 없다", "disk:표시 file에 적힌 file이 없다", "response"]
       - id: conflict
         code: conflict
-        when: "켜져 있거나 활성 상태다"
+        when: "내장(builtin) extension이거나 켜져 있거나 활성 상태다"
         observe: ["response"]
       - id: invalid-input
         code: invalid_input

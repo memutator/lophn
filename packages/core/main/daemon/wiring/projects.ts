@@ -16,6 +16,10 @@ import {
   artifactsFile,
   artifactsList,
   projectApi,
+  projectFilesCreate,
+  projectFilesRemove,
+  projectFilesRename,
+  projectFilesWrite,
   projectIdentityApi,
 } from "../../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
@@ -23,6 +27,7 @@ import { openConnection } from "../../../storage/ledger/mod.ts";
 import { artifactHandlers } from "../../../projects/artifacts/mod.ts";
 import { addProject, type ProjectAddInput } from "../../../projects/add.ts";
 import { browseFolders } from "../../../projects/browse.ts";
+import { projectFilesMutationHandlers } from "../../../projects/files/mod.ts";
 import {
   createGitReader,
   createIdentityFs,
@@ -171,6 +176,10 @@ export const projectsWiring: WiringFactory = () => {
         );
       };
       const artifacts = artifactHandlers(ctx.root.path);
+      const projectFiles = projectFilesMutationHandlers({
+        snapshot: <T>(read: (sql: ReadSql, seq: string) => Result<T>) =>
+          snapshot(ctx.ledgerPath, read),
+      });
       return ok({
         // tx 안에서는 file과 git을 만질 수 없어 commit 뒤에 읽는다. 읽기가 실패해도 원래 결과는 그대로다.
         writer: (inner) => ({
@@ -230,6 +239,22 @@ export const projectsWiring: WiringFactory = () => {
                 home,
                 fs: fsPromises,
               }),
+          ],
+          [
+            `${projectFilesWrite.resource}/${projectFilesWrite.method}`,
+            projectFiles.write,
+          ],
+          [
+            `${projectFilesCreate.resource}/${projectFilesCreate.method}`,
+            projectFiles.create,
+          ],
+          [
+            `${projectFilesRename.resource}/${projectFilesRename.method}`,
+            projectFiles.rename,
+          ],
+          [
+            `${projectFilesRemove.resource}/${projectFilesRemove.method}`,
+            projectFiles.remove,
           ],
         ],
       });

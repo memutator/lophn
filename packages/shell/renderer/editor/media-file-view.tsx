@@ -67,7 +67,7 @@ export function MediaFileView(props: DocumentViewProps) {
         now: props.now,
       }}
       initialInfo={props.initialInfo}
-      onDelete={onDelete}
+      onDelete={props.readOnly ? undefined : onDelete}
     >
       {kind === "image" ? (
         <ImageViewer

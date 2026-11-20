@@ -451,6 +451,7 @@ export function LeftSidebar({
             {workspace.ref.kind === "app" ? (
               <AppTabIcon
                 app={workspace.ref.id}
+                machine={workspace.ref.machine ?? null}
                 pixels={16}
                 fallback={WORKSPACE_ICON.app}
               />

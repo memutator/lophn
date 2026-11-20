@@ -105,6 +105,7 @@ function ReadyTextFile({
   path,
   sessions,
   readingWidth,
+  readOnly = false,
   outside = false,
   line,
   lineNonce,
@@ -120,6 +121,9 @@ function ReadyTextFile({
   const name = fileNameOf(path);
   const [text, setText] = useState(initial);
   const [state, setState] = useState<SaveState>(session.facts.state);
+  const [saveForbidden, setSaveForbidden] = useState(
+    session.facts.failure === "forbidden",
+  );
   const [reloaded, setReloaded] = useState(false);
   const [conflictShown, setConflictShown] = useState(true);
   const [comparing, setComparing] = useState<string | null>(null);
@@ -142,8 +146,10 @@ function ReadyTextFile({
 
   useEffect(() => {
     setState(session.facts.state);
+    setSaveForbidden(session.facts.failure === "forbidden");
     const stopFacts = session.subscribe((facts) => {
       setState(facts.state);
+      if (facts.failure === "forbidden") setSaveForbidden(true);
       if (facts.state === "conflict") setConflictShown(true);
       else setComparing(null);
     });
@@ -278,6 +284,11 @@ function ReadyTextFile({
         onKeepMine={() => void session.keepMine()}
         onClose={() => setConflictShown(false)}
       />
+    ) : saveForbidden ? (
+      <NoticeToast
+        title={t("document.error.forbidden")}
+        onClose={() => setSaveForbidden(false)}
+      />
     ) : compareFailed ? (
       <NoticeToast
         title={t("document.error.compare-failed")}
@@ -322,7 +333,9 @@ function ReadyTextFile({
   );
 
   let body: ReactNode;
-  if (comparing !== null) {
+  if (readOnly) {
+    body = <ReadOnlyText text={text} label={name} />;
+  } else if (comparing !== null) {
     body = <ConflictCompare disk={comparing} mine={session.text} />;
   } else if (kind === "markdown") {
     body = (
@@ -359,7 +372,7 @@ function ReadyTextFile({
       outside={outside}
       meta={kind === "text" ? (extension ?? "text").toUpperCase() : null}
       line={line}
-      state={state}
+      state={readOnly ? null : state}
       onConflict={() => setConflictShown(true)}
       onRetry={() => void session.retry()}
       info={{
@@ -370,7 +383,7 @@ function ReadyTextFile({
         now,
       }}
       initialInfo={initialInfo}
-      onDelete={onDelete}
+      onDelete={readOnly ? undefined : onDelete}
       toasts={toasts}
       onKeyDownCapture={onKeyDown}
     >

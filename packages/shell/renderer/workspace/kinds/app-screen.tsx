@@ -35,7 +35,7 @@ export const appScreenKind: TabKindDef = {
     <AppViewsProvider
       value={host.machineData(tab.machine ?? host.machine).appViews}
     >
-      <AppTabIcon app={tab.app} />
+      <AppTabIcon app={tab.app} machine={tab.machine ?? host.machine} />
     </AppViewsProvider>
   ),
   noDetach: true,

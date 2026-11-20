@@ -1475,7 +1475,6 @@ flows:
     steps:
       - "사람이 터미널에서 claude gui, codex gui, opencode gui, omp gui, agy gui(gui --resume id 포함)를 친다. 셸 함수가 lophn hook으로 resume 값을 보낸다"
       - "core가 key로 터미널을 찾는다. harness가 GUI를 지원하고 터미널이 살아 있을 때만 extension의 onTab.gui를 부른다. 아니면 무시한다"
-      - "extension이 꺼져 있으면 core가 TerminalGuiOff {terminal}을 내고 끝낸다. 붙은 shell main이 그 터미널 탭을 고른 창(모르면 최근 창)에 extension-settings intent를 보내 Settings › Extensions를 연다(desktop-window-intent). 붙은 shell이 없으면 아무 일도 없다"
       - "이미 그 터미널에 GUI를 여는 중이면 이 요청은 아무 일도 하지 않는다"
       - "TUI가 떠 있으면 adapter.exitTui로 끄고 5초 안에 foreground가 shell이 되기를 기다린다. 못 기다리면 실패"
       - "extension spawner가 사람의 login env를 읽기를 기다린 뒤(최대 5초) adapter.start로 CLI를 그 env와 탭 폴더에서 띄우고 ACP handle을 만든다. 시작하는 사이 탭이나 터미널이 닫혔으면 CLI를 세운다. adapter나 TUI 끄기가 던지면 internal 실패로 turn 오류를 보인다"
@@ -1492,9 +1491,6 @@ flows:
       - id: ack-timeout
         when: "탭을 가진 창이 1.5초 안에 ack하지 않았다. handle을 닫는다"
         observe: [screen:project-terminal]
-      - id: extension-off
-        when: "harness-gui extension이 꺼져 있다. 창이 Settings › Extensions를 연다"
-        observe: [event:TerminalGuiOff, process:settings-window]
       - id: start-failed
         when: "adapter.start나 exitTui가 실패했다(던진 것은 internal로 보인다), 또는 exitTui 뒤 5초 안에 shell이 foreground가 되지 않았다. GUI view에는 실패한 turn으로 보인다"
         observe: [screen:harness-gui-terminal-tab]
@@ -1507,8 +1503,6 @@ flows:
     crosses_process: true
     refs: [P6]
     docs: [architecture/harness-gui.md]
-    unclear:
-      - "Settings › System › Extensions 화면에는 wireframe frame이 없다. extension-off의 observe는 process:settings-window로 적었다"
 
   - id: terminal-agent-track
     title: 터미널 탭의 coding agent 상태(running, waiting, idle, unknown)를 core가 정하고 창의 탭 점이 따른다
@@ -1689,9 +1683,6 @@ flows:
       - id: not-running
         when: "그 터미널에 지원하는 coding agent가 떠 있지 않다"
         observe: [screen:terminal-open-chat-disabled]
-      - id: extension-off
-        when: "harness-gui extension이 꺼져 있다. 단추가 disabled이고 이유가 그것이다"
-        observe: [screen:terminal-open-chat-disabled]
       - id: failed
         when: "core가 바꾸지 못했다(CLI가 끝나지 않음, adapter 시작 실패). toast로 까닭을 보인다"
         observe: [screen:harness-gui-terminal-tab]
@@ -1793,7 +1784,7 @@ flows:
       - "입력에 confirmed: true가 없으면 schema에서 invalid_input이고 view를 바꾸지 않는다. 사람 자격만 부른다"
       - "같은 key는 한 번만 바꾼다(바꾸는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 부를 수 있다)"
       - "session이 목록에 없으면 not_found, 이미 그 view면 conflict, Windows면 unavailable(unsupported_os)이다"
-      - "to gui: handle이 있으면(shared 대화) view만 바꾼다. 없으면 foreground TUI가 GUI가 되는 harness이고 session id를 알아야 한다(아니면 invalid_input의 not_running, no_session). harness-gui가 꺼져 있으면 unavailable(extension_off)이다. extension은 TUI를 먼저 끈 뒤 adapter를 시작하고, run이 서지 않으면 core가 handle을 닫아 unavailable(failed)이며 TUI는 그대로 남는다"
+      - "to gui: handle이 있으면(shared 대화) view만 바꾼다. 없으면 foreground TUI가 GUI가 되는 harness이고 session id를 알아야 한다(아니면 invalid_input의 not_running, no_session). GUI handler가 아직 준비되지 않았으면 unavailable(failed)이다. extension은 TUI를 먼저 끈 뒤 adapter를 시작하고, run이 서지 않으면 core가 handle을 닫아 unavailable(failed)이며 TUI는 그대로 남는다"
       - "to tui: extension이 TUI로 돌린다(restart는 handle을 닫고, shared는 handle을 남기고 view만 바꾼다). 던지면 unavailable(failed)이다"
       - "바뀌면 StateChanged {coding_sessions}가 나간다(coding-session-sync)"
     outcomes:
@@ -1820,7 +1811,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "extension_off·unsupported_os·failed다"
+        when: "unsupported_os·failed다"
         observe: [response]
     crosses_process: true
     risk: [permission]
@@ -1839,7 +1830,7 @@ flows:
     steps:
       - "같은 key는 한 번만 연다(여는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다). 사람 자격만 부른다"
       - "harness가 GUI가 되는 coding agent(claude, codex, opencode, omp)가 아니면 invalid_input이다"
-      - "harness-gui가 꺼져 있으면 터미널을 열지 않고 unavailable(details.reason extension_off)이다. 폰은 extension이 꺼졌다고 보인다"
+      - "GUI handler가 아직 준비되지 않았으면 터미널을 열지 않고 unavailable이다"
       - "resume이면 ledger session이 없거나 그 project의 것이 아니면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면 invalid_input, 목록에 같은 CLI session이 있으면 conflict다. 그 뒤 TUI hold를 건다: TUI로 열려 있거나 headless turn이 돌면 conflict다"
       - "core가 그 project에 새 터미널을 열고 사람이 치는 것과 같은 `<harness> gui`(resume이면 --resume <cli_session>)를 친다. 터미널의 shell 함수가 hook socket으로 GUI를 청하면 harness-gui-open이 이어 받는다. tab_open(target terminal {terminal_ref})을 넣어 그 project를 보이는 창이 있으면 탭으로 보인다"
       - "연 터미널의 session(ses_<터미널 ULID>)으로 답한다. resume이면 그 터미널이 끝날 때까지 그 ledger session을 쥔다(harness-tui-hold)"
@@ -1867,7 +1858,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "harness-gui가 꺼져 있다(details.reason extension_off, 터미널을 열지 않는다), 또는 PTY를 띄우지 못했다(spawn_failed, host_lost)"
+        when: "GUI handler가 아직 준비되지 않았다(터미널을 열지 않는다), 또는 PTY를 띄우지 못했다(spawn_failed, host_lost)"
         observe: [response]
     crosses_process: true
     risk: [permission]

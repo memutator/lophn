@@ -55,8 +55,8 @@ export interface QuickLaunch {
 }
 
 function QuickPin({ pin }: { pin: QuickPinButton }) {
-  // 앱이 선언한 icon이 없으면 기본 앱 panel 아이콘이다.
-  const icon = useAppIcon(pin.app);
+  // 앱이 선언한 icon이 없으면 기본 앱 panel 아이콘이다. 빠른 실행 고정은 이 컴퓨터의 앱이다.
+  const icon = useAppIcon(pin.app, null);
   const keys = useKeyLabel()(appPanelBindingId(pin.app, pin.surface));
   return (
     <Tooltip

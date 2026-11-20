@@ -42,6 +42,8 @@ interface RowProps {
   dropping: boolean;
   /** tree에서 Tab이 닿는 줄. 나머지는 화살표로만 간다. */
   tabStop: boolean;
+  /** 끌기 허용 여부. 읽기 전용 원격 workspace에서는 끈다. */
+  draggable?: boolean;
   /** keep이면 파일을 고정 탭으로 연다(double-click). modifiers는 누른 modifier key다. */
   onActivate: (
     row: FileRow,
@@ -62,6 +64,7 @@ export function Row({
   cut,
   dropping,
   tabStop,
+  draggable = true,
   onActivate,
   onMenu,
   onDragStart,
@@ -77,7 +80,7 @@ export function Row({
       aria-selected={multiSelected}
       aria-current={current ? "page" : undefined}
       tabIndex={tabStop ? 0 : -1}
-      draggable
+      draggable={draggable}
       data-file={row.id}
       data-current={current || undefined}
       data-selected={multiSelected || undefined}

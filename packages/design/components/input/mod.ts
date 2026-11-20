@@ -25,6 +25,13 @@ export {
   type SegmentedControlProps,
   type SegmentedOption,
 } from "./segmented-control/segmented-control.tsx";
+// 컴퓨터 하나(또는 전체)를 골라 화면이나 설정을 나눈다. 기본은 dropdown이고 두세 대면 pills 줄로 펼쳐 둔다. 일반 목록이면 Select다.
+export {
+  type MachineOption,
+  type MachineOptionStatus,
+  MachineSelector,
+  type MachineSelectorProps,
+} from "./machine-selector/machine-selector.tsx";
 // 색이나 모양 견본으로 하나 고른다. 견본이 곧 선택지일 때 쓰고, 이름으로 고르는 목록은 Select다.
 export {
   type SwatchOption,

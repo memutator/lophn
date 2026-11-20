@@ -1,0 +1,33 @@
+id: remote-chrome-explorer-selector-harness-gui
+version: 0.23.101
+title: remote workspace에서 로컬 chrome·앱 아이콘 유지, 캐시 최적화 remote Explorer·DocumentEditor, UI kit MachineSelector 추가, harness-gui 기본 내장화
+modules:
+  - packages/protocol
+  - packages/core/projects
+  - packages/core/extensions
+  - packages/core/terminal-agents
+  - packages/core/config
+  - packages/core/main
+  - packages/design
+  - packages/sdk
+  - packages/shell/renderer
+  - packages/shell/main
+  - packages/shell/ipc
+  - packages/mobile
+change: |
+  - 로컬 chrome 설정·tray·quick launch 및 앱 아이콘 유지: remote workspace를 선택해도 이 컴퓨터의 `quickPrefs`(sidebar panels, tray, quick launch, taskbar)가 유지되고, `TrayHost`·로컬 app sidebar panel은 `<MachineScope machine={null}>`으로 고정된다. `useAppIcon`·`AppTabIcon`·`AppWorkspaceMark`에 선택적 `machine?: MachineRef`를 추가해 다른 머신의 workspace를 보는 중에도 이 컴퓨터와 다른 컴퓨터의 앱 아이콘이 섞이거나 사라지지 않게 했다.
+  - remote Explorer 및 DocumentEditor: `project_files/write|create|rename|remove`를 `REMOTE_PERSON_ROUTES`로 열고, `createRemoteFiles`에 0ms directory cache, in-flight deduplication, stale-while-revalidate, concurrency cap(3), mutation 시 대상 경로 무효화, mtime 기반 LRU file read cache를 넣었다. remote workspace에서도 Explorer와 `document_editor` 탭을 쓸 수 있고(3s 로컬 / 15s remote adaptive polling), OS 전용 동작은 숨기며 권한이 없으면 read-only로 graceful fallback한다.
+  - UI kit `MachineSelector` 추가: `@lophn/ui/input`(`1.2.0`)과 `@lophn/ui-native`(`0.4.0`)에 `select`·`pills` variant, status dot, `allowAll`, `current` tag를 지원하는 `MachineSelector`를 추가하고, 데스크톱 `Settings`의 `MachinePicker`를 교체했다. `@lophn/app-ui`(`2.22.1`)·`@lophn/app-ui-native`(`1.9.2`) 및 `migrate-sdk` 메모를 함께 갱신했다.
+  - `harness-gui` 기본 내장화: `ExtensionManifest`/`ExtensionView`에 `builtin?: boolean`을 추가하고 `harness-gui`를 `builtin: true`로 선언해 설치·켜기 없이 기동 시 자동 활성화되며 `Settings › Extensions` 목록에서 숨겼다. `extensions.harness-gui.enabled` 설정, `TerminalGuiOff` event, `extension-settings` desktop intent, `extension_off` reason 및 관련 UI·i18n·journey를 제거했다.
+why: |
+  다른 컴퓨터의 workspace로 전환했을 때 이 컴퓨터의 sidebar·tray·quick panel 설정과 앱 아이콘이 사라지는 불편과, remote project에서 Explorer·편집기를 쓸 수 없는 제약을 해결한다. 머신별 분기 UI를 앱과 lophn 화면에서 일관되게 만들 수 있도록 `MachineSelector`를 UI kit에 제공하고, `harness-gui`를 별도 설치·토글 없이 즉시 쓰게 해 설정 마찰을 없앤다.
+decisions:
+  - text: "다른 머신의 workspace를 선택해도 sidebar·tray·quick launch 등 chrome 설정은 현재 컴퓨터 것을 유지한다."
+    by: person
+  - text: "`harness-gui`는 별도 설치·활성화 절차 없이 기본 내장(always-on)으로 동작시키고 관련 설정 UI/UX와 `TerminalGuiOff`·`extension_off` 경로를 제거한다."
+    by: person
+checklist:
+  - "다른 컴퓨터의 workspace를 선택했을 때 이 컴퓨터의 sidebar panel·tray·quick launch 설정과 모든 앱 아이콘이 그대로 보이는지 확인한다"
+  - "remote project workspace에서 Explorer 폴더 탐색·파일 열기·편집·생성·이름 변경·삭제가 동작하고, 두 번째 탐색이 캐시로 즉시 열리는지 확인한다"
+  - "Web/Mobile UI kit gallery 및 Settings 상단에서 `MachineSelector`가 정상 동작하는지 확인한다"
+  - "새 data root에서 `Settings › Extensions`에 `harness-gui` 항목이 보이지 않고, 별도 설정 없이 `<harness> gui`가 바로 열리는지 확인한다"

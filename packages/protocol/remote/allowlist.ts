@@ -219,8 +219,12 @@ import { artifactsFile, artifactsList } from "../projects/artifact-api.ts";
 import { projectIdentityApi } from "../projects/identity-api.ts";
 import { projectApi } from "../projects/project-api.ts";
 import {
+  projectFilesCreate,
   projectFilesList,
   projectFilesRead,
+  projectFilesRemove,
+  projectFilesRename,
+  projectFilesWrite,
 } from "../projects/project-files.ts";
 import { projectSearch } from "../projects/project-search.ts";
 import { runList, runRead } from "../runs/runs.ts";
@@ -508,6 +512,11 @@ export const REMOTE_PERSON_ROUTES = [
   projectIdentityApi.match,
   projectAdd,
   projectBrowse,
+  // project 등록 폴더 안 file 쓰기·만들기·이름 바꾸기·지우기(허락받은 기기만. 읽기는 REMOTE_ALLOWED_ROUTES)
+  projectFilesWrite,
+  projectFilesCreate,
+  projectFilesRename,
+  projectFilesRemove,
 ] as const;
 
 // 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):

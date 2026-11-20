@@ -70,15 +70,12 @@ export function stateOf(session: CodingSession): {
 export function blockedText(
   blocked: NonNullable<CodingSession["switch"]>["blocked"],
   harness: string,
-  computer: string,
 ): string {
   switch (blocked) {
     case "no_session":
       return t("mobile.coding.notice.blocked-no-session", { harness });
     case "not_running":
       return t("mobile.coding.notice.blocked-not-running");
-    case "extension_off":
-      return t("mobile.coding.notice.blocked-extension-off", { computer });
     case "unsupported_os":
       return t("mobile.coding.notice.blocked-unsupported-os");
   }

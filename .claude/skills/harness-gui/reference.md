@@ -32,7 +32,7 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
   ─▶ {"resume":…} | <lophn CLI> hook claude lophn-gui   (hook.ts가 친 곳의 cwd를 더해 그 탭의 hook socket LPN_TERMINAL_HOOK로)
 core hook ingress(`packages/core/terminal-agents/ingress.ts`) ─ key로 그 터미널 ─▶ terminal-agents/gui.ts
   ─▶ tracker로 AcpTerminal(그 탭의 harness·session id·상태(shell이면 foreground에 harness 없음)·cwd, type·signal·onForegroundExit)
-  ─▶ extension onTab.gui({terminal, harness, resume})   (extension이 꺼져 있으면 열지 않는다. 탭 머리 단추가 extension_off로 꺼진다)
+  ─▶ extension onTab.gui({terminal, harness, resume})   (builtin extension이라 늘 켜져 있다. 아직 준비되지 않았으면 failed)
        ─▶ ctx.acp.open({terminal, harness, title, handoff}) ─▶ handle
        ─▶ 그 탭에서 TUI가 돌면 adapter.exitTui(terminal) ─ foreground가 끝나기를 5초까지 기다린다(SIGKILL 없음)
        ─▶ adapter.start({cwd, resume, session: handle, terminal, spawn, clock, ids}) ─▶ run
@@ -44,7 +44,7 @@ core hook ingress(`packages/core/terminal-agents/ingress.ts`) ─ key로 그 터
   TUI→GUI  restart: modal(tracker의 running·waiting) ─▶ exitTui ─▶ 새 handle과 start(resume)
            shared: 보이는 쪽만 바뀐다. 그냥 codex·opencode로 시작한 TUI는 처음 한 번 restart처럼 넘긴다
 shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SIGTERM하고 새 id로 tuiCommand를 다시 친다
-터미널이 끝나거나 다시 시작하면 handle을 닫는다. extension을 끄면 연 handle을 모두 닫는다
+터미널이 끝나거나 다시 시작하면 handle을 닫는다. core가 끝날 때 연 handle을 모두 닫는다
 ```
 
 탭의 GUI가 adapter에 묻는 읽기 둘(지난 session 목록, rewind 파일 미리보기)은 route `coding_sessions/cli_sessions`·`coding_sessions/rewind_preview` → `gui.ts`(session id의 터미널로 탭을 찾는다) → `ExtensionAcp.onTab.sessions`·`rewindPreview` → `index.ts` → `run.sessions?.()`·`run.rewindPreview?.(message)`로 간다. 폰은 이 route가 기기 route 목록에 없어 `[]`·`null`이다. 그 메서드가 없는 adapter는 `[]`·`null`이다.

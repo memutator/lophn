@@ -320,17 +320,9 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     hook(hook: RoutedHook): void {
       tracker.hook(hook.terminal_ref, hook.harness, hook.event, hook.payload);
     },
-    // 탭에서 친 `<harness> gui`. harness-gui가 꺼져 있으면 사람이 켤 수 있게 shell에 알린다.
+    // 탭에서 친 `<harness> gui`.
     guiRequest(hook: RoutedHook): void {
-      void gui.request(hook).then((reply) => {
-        if (reply?.ok !== false || reply.reason !== "extension_off") return;
-        deps.publish({
-          type: "TerminalGuiOff",
-          subject: `terminal:${hook.terminal_ref}`,
-          at: deps.clock.now(),
-          payload: { terminal: hook.terminal_ref },
-        } as BusEvent);
-      });
+      void gui.request(hook);
     },
     // extension이 연 ACP handle(`acpOpened`).
     opened: gui.opened,

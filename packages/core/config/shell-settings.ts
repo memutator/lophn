@@ -550,11 +550,6 @@ export const harnessExtensionSetting = extensionEnabled(
   "harness",
   "coding agent CLIs (Claude Code, Codex, OpenCode) run as lophn agent sessions.",
 );
-// `claude gui` 같은 CLI 화면 대체 창. 본체와 따로 켠다.
-const harnessGuiExtensionSetting = extensionEnabled(
-  "harness-gui",
-  "`claude gui`, `codex gui` and the like open a chat screen in place of the CLI screen of a terminal tab.",
-);
 
 export const shellSettings = [
   modeSetting,
@@ -590,7 +585,6 @@ export const shellSettings = [
   trayOffSetting,
   trayOrderSetting,
   harnessExtensionSetting,
-  harnessGuiExtensionSetting,
 ] as const;
 
 // 항목마다 file 하나인 설정 묶음.

@@ -40,12 +40,12 @@ export type ToggleReply =
   | { ok: true }
   | {
       ok: false;
-      reason: "no_session" | "not_running" | "extension_off" | "failed";
+      reason: "no_session" | "not_running" | "failed";
       message: string;
     };
 
 export type TabGuiDeps = {
-  /** 켜진 harness-gui가 건 handlers. 꺼져 있으면 null이다. */
+  /** harness-gui가 건 handlers. 아직 준비되지 않았으면 null이다. */
   handlers(): AcpTabHandlers | null;
   ids: { request(): string };
   terminals: {
@@ -290,8 +290,8 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       if (handlers === null) {
         return {
           ok: false,
-          reason: "extension_off",
-          message: "harness-gui is off",
+          reason: "failed",
+          message: "Chat view is not ready yet.",
         };
       }
       const request: AcpTabRequest = {

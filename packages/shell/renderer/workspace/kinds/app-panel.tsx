@@ -37,6 +37,7 @@ export function openPinnedAppPanel(
   pin: { app: string; surface: string },
   title: string,
   launch?: AppLaunch,
+  machine?: string,
 ): void {
   const open = host
     .windowTabs()
@@ -46,13 +47,14 @@ export function openPinnedAppPanel(
         tab.app === pin.app &&
         tab.screen === pin.surface,
     );
-  const tab = {
-    key: open?.key ?? newKey(),
-    kind: "app_panel",
+  const tab = open ?? {
+    key: newKey(),
+    kind: "app_panel" as const,
     title,
     app: pin.app,
     screen: pin.surface,
-  } as const;
+    ...(machine === undefined ? {} : { machine }),
+  };
   if (open === undefined && launch?.open === "float") {
     host.openFloat(tab, launch.rect);
   } else host.openTab(tab);
@@ -69,7 +71,7 @@ export const appPanelKind: TabKindDef = {
     <AppViewsProvider
       value={host.machineData(tab.machine ?? host.machine).appViews}
     >
-      <AppTabIcon app={tab.app} />
+      <AppTabIcon app={tab.app} machine={tab.machine ?? host.machine} />
     </AppViewsProvider>
   ),
   fromStored(stored, { key }) {

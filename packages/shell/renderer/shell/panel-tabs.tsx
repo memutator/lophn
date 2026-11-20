@@ -5,6 +5,7 @@ import { Icon } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
+import type { MachineRef } from "../desktop/machines/scope.tsx";
 import styles from "./panel-tabs.module.css";
 
 export interface PanelTab {
@@ -13,6 +14,8 @@ export interface PanelTab {
   readonly icon: LucideIcon;
   /** 앱 화면 panel이면 그 앱. icon 대신 앱 icon을 그린다. */
   readonly app?: string;
+  /** 앱 panel의 기계. 지정하면 그 기계에서 앱 icon을 읽는다(이 컴퓨터는 null). */
+  readonly machine?: MachineRef;
 }
 
 export interface PanelTabsProps {
@@ -65,7 +68,7 @@ export function PanelTabs({ tabs, selected, onSelect }: PanelTabsProps) {
             {tab.app === undefined ? (
               <Icon icon={tab.icon} pixels={16} />
             ) : (
-              <AppTabIcon app={tab.app} />
+              <AppTabIcon app={tab.app} machine={tab.machine} />
             )}
           </button>
         </Tooltip>

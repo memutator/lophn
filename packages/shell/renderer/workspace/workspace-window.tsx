@@ -500,8 +500,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<WorkspaceLayout>(defaultWorkspaceLayout);
   const desk = activeDesk(layout);
-  // 빠른 실행의 App hover 목록과 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
-  const panelApps = useScreensRead(appViews?.screens !== undefined).read;
+  // 빠른 실행의 App hover 목록, 고정 앱 panel, 오른쪽 sidebar 앱 panel, tray는 이 컴퓨터에 설치된 앱 목록과 맞춰 그린다.
+  const hereAppViews = machineData(null).appViews;
+  const panelApps = useScreensRead(
+    hereAppViews?.screens !== undefined,
+    null,
+  ).read;
   const { prefs: quickPrefs, set: setQuickPrefs } = useQuickPrefs();
   // 모든 workspace에 사는 전역 float. 앱 panel 화면을 desk float과 서로 옮기고, QuickLaunch가 있는 것을 펼친다.
   const globalFloats = useGlobalFloats();
@@ -1313,7 +1317,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     appRenamed: setAppName,
     explorerRoot,
     props,
-    appScreens: appViews?.screens !== undefined,
+    appScreens:
+      hereAppViews?.screens !== undefined || appViews?.screens !== undefined,
     machine,
     machineData,
     desk,
@@ -2962,20 +2967,21 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       pin,
       title,
       quickPrefs.launch[launchKey(pin.app, pin.surface)],
+      machine !== null && thisComputer !== null ? thisComputer : undefined,
     );
   };
 
   // 이 workspace의 빠른 실행. project가 자기 값을 두었으면 그것이고 아니면 전역 값이다.
   const quickNow = layout.quick ?? quickPrefs.quick;
 
-  // App hover 목록: 앱 workspace의 앱 화면과 모든 앱 panel 화면. 누르면 바로 연다.
+  // App hover 목록: 앱 workspace의 앱 화면과 이 컴퓨터의 모든 앱 panel 화면. 누르면 바로 연다.
   const quickAppItems: QuickHoverItem[] = [
     ...(isApp && data.appViews !== null
       ? [
           {
             id: "app-screen",
             label: t("app-space.label.menu-app-screen"),
-            leading: <AppTabIcon app={appId ?? undefined} />,
+            leading: <AppTabIcon app={appId ?? undefined} machine={machine} />,
             onSelect: () => openAppScreen(host),
           },
         ]
@@ -2984,7 +2990,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       ? panelChoices(panelApps.value).map((choice) => ({
           id: launchKey(choice.app, choice.screen),
           label: choice.label,
-          leading: <AppTabIcon app={choice.app} />,
+          leading: <AppTabIcon app={choice.app} machine={null} />,
           onSelect: () =>
             launchAppPanel(
               { app: choice.app, surface: choice.screen },
@@ -3081,11 +3087,23 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // float chip은 작업 표시줄이 켜져 있으면 거기에, 꺼져 있으면 tab 줄 끝에 그린다.
   const taskbar = quickPrefs.taskbar;
   const floatChips = desk.floats.map((item) => stripTab(item.tab));
+  const iconOfGlobalFloat = (item: GlobalFloatView): ReactNode => {
+    const def = tabKindOf(item.tab.kind);
+    if (def === undefined) return null;
+    const targetMachine = item.workspace.machine ?? null;
+    const tabHost =
+      targetMachine === machine ? host : { ...host, machine: targetMachine };
+    return (
+      def.iconOf?.(item.tab, tabHost) ?? (
+        <Icon icon={def.icon} pixels={iconPixels("small")} />
+      )
+    );
+  };
   const globalChips = globalFloats.floats.map((item) => ({
     key: item.key,
     title: t("shell.label.global-float", { title: item.title }),
     label: item.title,
-    icon: iconOfTab(item.tab),
+    icon: iconOfGlobalFloat(item),
   }));
   const pressedChips = [
     ...globalFloats.floats.map((item) => ({
@@ -3105,6 +3123,23 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ? minimizeFloat(item, key)
         : restoreFloat(item, key),
     );
+
+  // tray는 이 컴퓨터에 설치된 앱의 항목과 값이라 다른 기계 workspace에서도 이 컴퓨터 범위에서 그린다.
+  const renderTray = (side: "above" | "below") => {
+    const tray = (
+      <TrayHost
+        off={quickPrefs.trayOff}
+        order={quickPrefs.trayOrder}
+        screens={panelApps}
+        side={side}
+      />
+    );
+    return data.here ? (
+      tray
+    ) : (
+      <MachineScope machine={null}>{tray}</MachineScope>
+    );
+  };
 
   const content = (
     <ViewKeepsProvider value={keeps}>
@@ -3378,18 +3413,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   {...(taskbar ? {} : { onSettings: () => onSettings() })}
                 />
               }
-              tray={
-                taskbar || !data.here
-                  ? undefined
-                  : (side) => (
-                      <TrayHost
-                        off={quickPrefs.trayOff}
-                        order={quickPrefs.trayOrder}
-                        screens={panelApps}
-                        side={side}
-                      />
-                    )
-              }
+              tray={taskbar ? undefined : renderTray}
               rightSidebar={activePanel?.render(sidebarCtx)}
               taskbarStart={
                 taskbar ? <QuickLaunchRow quick={quickLaunch} /> : undefined
@@ -3403,16 +3427,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                     onToggleGlobalFloat={globalFloats.toggle}
                     onToggleFloat={toggleDeskFloat}
                     onSettings={() => onSettings()}
-                    tray={
-                      !data.here ? undefined : (
-                        <TrayHost
-                          off={quickPrefs.trayOff}
-                          order={quickPrefs.trayOrder}
-                          screens={panelApps}
-                          side="above"
-                        />
-                      )
-                    }
+                    tray={renderTray("above")}
                   />
                 ) : undefined
               }

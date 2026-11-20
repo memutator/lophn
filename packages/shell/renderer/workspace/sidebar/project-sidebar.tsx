@@ -16,6 +16,8 @@ export interface ExplorerPanelProps {
   project: ProjectView | null;
   /** Explorer가 폴더를 읽는 통로. */
   source: WorkspaceSource;
+  /** 이 컴퓨터의 workspace인가. false면 OS 전용 동작을 숨기고 원격 허락에 따라 읽기 전용으로 떨어진다. */
+  here?: boolean;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다(한 번 클릭). */
@@ -42,6 +44,7 @@ export interface ExplorerPanelProps {
 export function ExplorerPanel({
   project,
   source,
+  here = true,
   current = null,
   reveal = null,
   focusAsked = false,
@@ -70,6 +73,7 @@ export function ExplorerPanel({
           // 프로젝트가 바뀌면 고른 루트와 펼침을 새로 시작한다.
           key={project?.id}
           source={source}
+          here={here}
           folders={folders}
           current={current}
           reveal={reveal}

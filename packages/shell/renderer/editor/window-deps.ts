@@ -7,7 +7,7 @@ import type { EditorDeps } from "./document-view.tsx";
 import { overlayLeaveAsker } from "./leave-dialog.ts";
 import { coreSettingsPort, readingWidthStore } from "./reading-width.ts";
 import { EditorSessions, type LeaveAsker } from "./sessions.ts";
-import { windowEditorFiles } from "./source.ts";
+import { type EditorFiles, windowEditorFiles } from "./source.ts";
 
 const KEEP_EDITING: LeaveAsker = { ask: () => Promise.resolve("keep") };
 
@@ -23,6 +23,22 @@ export function windowEditorDeps(core: CoreSource): EditorDeps {
     overlay ? overlayLeaveAsker(overlay) : KEEP_EDITING,
   );
   sessions.listen();
+  return {
+    sessions,
+    readingWidth: readingWidthStore(coreSettingsPort(core)),
+  };
+}
+
+/** 다른 기계의 파일 탭 편집 session 묶음. */
+export function remoteEditorDeps(
+  core: CoreSource,
+  files: EditorFiles,
+): EditorDeps {
+  const overlay = readOverlay();
+  const sessions = new EditorSessions(
+    files,
+    overlay ? overlayLeaveAsker(overlay) : KEEP_EDITING,
+  );
   return {
     sessions,
     readingWidth: readingWidthStore(coreSettingsPort(core)),

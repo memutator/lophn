@@ -16,6 +16,8 @@ export interface FileRow {
 type Level = readonly FolderEntry[] | "failed";
 
 const REFRESH_MS = 3000;
+const REMOTE_REFRESH_MS = 15_000;
+const REMOTE_REFRESH_CONCURRENCY = 3;
 
 export const joinPath = (folder: string, name: string) =>
   `${folder.replace(/\/+$/, "")}/${name}`;
@@ -30,18 +32,41 @@ const sameEntries = (a: readonly FolderEntry[], b: readonly FolderEntry[]) =>
   );
 
 export function useFileTree(source: WorkspaceSource, root: string | null) {
-  const [levels, setLevels] = useState<ReadonlyMap<string, Level>>(new Map());
+  const [levels, setLevels] = useState<ReadonlyMap<string, Level>>(() => {
+    const initial = new Map<string, Level>();
+    if (root !== null) {
+      const cached = source.listCached?.(root);
+      if (cached !== undefined) initial.set(root, cached);
+    }
+    return initial;
+  });
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const latest = useRef({ levels, expanded, root });
   latest.current = { levels, expanded, root };
   // 폴더마다 가장 늦게 시작한 읽기만 받는다. 만들기·지우기 뒤의 읽기를 오래된 읽기가 덮지 못하게 한다.
   const sequence = useRef(new Map<string, number>());
 
+  const applyEntries = useCallback(
+    (path: string, entries: readonly FolderEntry[]) => {
+      setLevels((current) => {
+        const before = current.get(path);
+        if (
+          before !== undefined &&
+          before !== "failed" &&
+          sameEntries(before, entries)
+        )
+          return current;
+        return new Map(current).set(path, entries);
+      });
+    },
+    [],
+  );
+
   const load = useCallback(
-    async (path: string) => {
+    async (path: string, force = false) => {
       const mine = (sequence.current.get(path) ?? 0) + 1;
       sequence.current.set(path, mine);
-      const read = await source.list(path);
+      const read = await source.list(path, force ? { force: true } : undefined);
       if (sequence.current.get(path) !== mine) return;
       if (!read.ok) {
         const isRoot = path === latest.current.root;
@@ -66,56 +91,82 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
         setLevels((current) => new Map(current).set(path, "failed"));
         return;
       }
-      setLevels((current) => {
-        const before = current.get(path);
-        if (
-          before !== undefined &&
-          before !== "failed" &&
-          sameEntries(before, read.value)
-        )
-          return current;
-        return new Map(current).set(path, read.value);
-      });
+      applyEntries(path, read.value);
     },
-    [source],
+    [source, applyEntries],
   );
 
-  // 루트를 바꾸면 처음부터 다시 읽는다.
+  // 원격 SWR의 background 갱신이 바뀐 항목을 받으면 지금 보고 있는 폴더에 반영한다.
+  useEffect(() => {
+    if (source.onDirectoryUpdated === undefined) return;
+    return source.onDirectoryUpdated((path, entries) => {
+      const { root: current, expanded: open } = latest.current;
+      if (current === null) return;
+      if (path === current || open.has(path)) applyEntries(path, entries);
+    });
+  }, [source, applyEntries]);
+
+  // 루트를 바꾸면 cache된 루트가 있으면 0ms로 먼저 보이고 읽는다.
   useEffect(() => {
     sequence.current = new Map();
-    setLevels(new Map());
+    const initial = new Map<string, Level>();
+    if (root !== null) {
+      const cached = source.listCached?.(root);
+      if (cached !== undefined) initial.set(root, cached);
+    }
+    setLevels(initial);
     setExpanded(new Set());
     if (root !== null) void load(root);
-  }, [root, load]);
+  }, [root, source, load]);
 
   const refresh = useCallback(() => {
     const { root: current, expanded: open } = latest.current;
     if (current === null) return;
-    for (const path of [current, ...open]) void load(path);
-  }, [load]);
+    const targets = [current, ...open];
+    if (source.remote !== true) {
+      for (const path of targets) void load(path, true);
+      return;
+    }
+    // 원격 workspace는 펼친 폴더가 많아도 remote link를 채우지 않도록 동시 갱신 수를 묶는다.
+    let index = 0;
+    const worker = async () => {
+      while (index < targets.length) {
+        const path = targets[index]!;
+        index += 1;
+        await load(path, true);
+      }
+    };
+    const count = Math.min(REMOTE_REFRESH_CONCURRENCY, targets.length);
+    for (let i = 0; i < count; i += 1) void worker();
+  }, [load, source.remote]);
 
   useEffect(() => {
     if (root === null) return;
     const tick = () => {
       if (document.visibilityState === "visible") refresh();
     };
-    const timer = setInterval(tick, REFRESH_MS);
+    const interval = source.remote === true ? REMOTE_REFRESH_MS : REFRESH_MS;
+    const timer = setInterval(tick, interval);
     globalThis.addEventListener("focus", tick);
     return () => {
       clearInterval(timer);
       globalThis.removeEventListener("focus", tick);
     };
-  }, [root, refresh]);
+  }, [root, refresh, source.remote]);
 
-  /** 폴더를 펼친다. 아직 안 읽었으면 읽는다. */
+  /** 폴더를 펼친다. cache가 있으면 0ms로 먼저 채우고 갱신한다. */
   const expand = useCallback(
     (path: string) => {
       setExpanded((current) =>
         current.has(path) ? current : new Set(current).add(path),
       );
-      if (!latest.current.levels.has(path)) void load(path);
+      if (!latest.current.levels.has(path)) {
+        const cached = source.listCached?.(path);
+        if (cached !== undefined) applyEntries(path, cached);
+        void load(path);
+      }
     },
-    [load],
+    [load, source, applyEntries],
   );
 
   const collapse = useCallback((path: string) => {

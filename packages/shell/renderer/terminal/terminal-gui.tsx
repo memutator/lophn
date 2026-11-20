@@ -84,11 +84,6 @@ export function blockedReason(
         reason: t("terminal.reason.session"),
         short: t("terminal.reason.session-short"),
       };
-    case "extension_off":
-      return {
-        reason: t("terminal.reason.extension-off"),
-        short: t("terminal.reason.extension-off-short"),
-      };
     case "unsupported_os":
       return {
         reason: t("terminal.reason.unsupported-os"),
@@ -461,8 +456,6 @@ function problemText(reason: string | null, message: string): string {
       return t("terminal.error.switch-no-session");
     case "not_running":
       return t("terminal.error.switch-not-running");
-    case "extension_off":
-      return t("terminal.reason.extension-off");
     case "unsupported_os":
       return t("terminal.reason.unsupported-os");
     default:

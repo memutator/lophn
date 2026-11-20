@@ -108,7 +108,10 @@ export function ExtensionPackagesPanel({
       />
     );
   }
-  const views = listed.state === "ready" ? listed.views : [];
+  const views =
+    listed.state === "ready"
+      ? listed.views.filter((view) => view.builtin !== true)
+      : [];
   return (
     <div data-extension-packages="">
       <h1 className={styles.paneTitle}>

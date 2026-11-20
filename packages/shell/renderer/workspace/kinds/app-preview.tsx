@@ -49,7 +49,7 @@ export const appPreviewKind: TabKindDef = {
   kind: "app_preview",
   labelKey: "app-space.label.kind-app-preview",
   icon: workspaceIcons.appPanel,
-  iconOf: (tab) => <AppTabIcon app={tab.app} />,
+  iconOf: (tab) => <AppTabIcon app={tab.app} machine={null} />,
   noDetach: true,
   noReopen: true,
   fromStored: () => null,

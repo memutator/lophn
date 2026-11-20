@@ -22,8 +22,6 @@ export const mobileCoding = {
   "mobile.coding.heading.in-terminal": "{harness} is running in a terminal",
   "mobile.coding.label.idle": "Idle",
   "mobile.coding.label.idle-since": "Idle · {when}",
-  "mobile.coding.notice.blocked-extension-off":
-    "The coding agents extension is off on {computer}.",
   "mobile.coding.notice.blocked-no-session":
     "{harness} hasn’t reported its session yet. Send it a message in the terminal first, then switch.",
   "mobile.coding.notice.blocked-not-running":

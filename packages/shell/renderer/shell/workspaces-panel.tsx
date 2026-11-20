@@ -190,7 +190,17 @@ export function WorkspacesPanel({
         data-away={ref.kind}
         data-away-id={ref.id}
         data-offline={row.offline ? "" : undefined}
-        leading={<WorkspaceMark kind={ref.kind} id={ref.id} name={row.name} />}
+        leading={
+          ref.kind === "app" ? (
+            <AppWorkspaceMark
+              id={ref.id}
+              name={row.name}
+              machine={ref.machine}
+            />
+          ) : (
+            <WorkspaceMark kind={ref.kind} id={ref.id} name={row.name} />
+          )
+        }
         title={row.name}
         trailing={<MachineTag name={nameOf(ref.machine)} />}
         meta={t(

@@ -42,8 +42,8 @@ interface FileFrameProps {
   info: Omit<FileInfoPanelProps, "tab" | "onTab" | "path" | "outside">;
   /** 처음부터 열어 둘 정보 panel 탭. */
   initialInfo?: InfoTabId;
-  /** 지운 뒤 탭을 닫는 일은 부른 쪽이 한다. 지우지 못하면 false다. */
-  onDelete: () => Promise<boolean>;
+  /** 지운 뒤 탭을 닫는 일은 부른 쪽이 한다. 지우지 못하면 false다. 없으면 지우기 항목을 숨긴다. */
+  onDelete?: () => Promise<boolean>;
   /** 탭 위쪽 toast. */
   toasts?: ReactNode;
   /** 열려 있는 동안 본문 칸에 낄 modal이 없는 키 처리. */
@@ -93,18 +93,23 @@ export function FileFrame({
           {actions}
         </>
       ),
-      menu: {
-        items: fileMenuItems(),
-        onSelect: (id) => {
-          if (id === "file:delete") setConfirming(true);
-        },
-      },
+      ...(onDelete === undefined
+        ? {}
+        : {
+            menu: {
+              items: fileMenuItems(),
+              onSelect: (id) => {
+                if (id === "file:delete") setConfirming(true);
+              },
+            },
+          }),
     },
-    [state, tab, outside, line],
+    [state, tab, outside, line, onDelete === undefined],
   );
 
   const remove = async () => {
     setConfirming(false);
+    if (onDelete === undefined) return;
     setDeleteFailed(!(await onDelete()));
   };
 
@@ -117,7 +122,9 @@ export function FileFrame({
       {inCard ? null : (
         <ViewBar lead={<FileMeta outside={outside} meta={meta} line={line} />}>
           {actions}
-          <FileMenu onDelete={() => setConfirming(true)} />
+          {onDelete === undefined ? null : (
+            <FileMenu onDelete={() => setConfirming(true)} />
+          )}
         </ViewBar>
       )}
       {toasts}

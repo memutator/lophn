@@ -18,9 +18,11 @@ import {
   useAppViews,
   useAppWorkspace,
 } from "../app-frame/app-views.tsx";
+import { screensSourceOf } from "../app-frame/machine-app-source.ts";
 import { useNotRunningFailure } from "../app-frame/app-not-running.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
 import { useOptionalEventClient } from "../desktop/connection/events/hooks.tsx";
+import { type MachineRef, useMachineHub } from "../desktop/machines/scope.tsx";
 import { ViewChrome } from "../app-frame/view-chrome.tsx";
 import styles from "./app-panel-tab.module.css";
 
@@ -38,14 +40,24 @@ export function panelScreens(app: AppScreens): AppScreens["screens"] {
 
 /**
  * 앱 화면 목록 읽기. 앱 패널 picker와 activity bar가 같이 쓴다. `enabled`가 false면 읽지 않는다.
- * null은 읽는 중이다.
+ * `machine`을 주면 그 기계의 앱 목록·변경 event를 쓴다(null은 이 컴퓨터). null은 읽는 중이다.
  */
-export function useScreensRead(enabled = true): {
+export function useScreensRead(
+  enabled = true,
+  machine?: MachineRef,
+): {
   read: ScreensRead | null;
   retry: () => void;
 } {
-  const deps = useAppViews();
-  const events = useOptionalEventClient();
+  const hub = useMachineHub();
+  const scopeDeps = useAppViews();
+  const scopeEvents = useOptionalEventClient();
+  const { appViews: deps, events } = screensSourceOf(
+    hub,
+    scopeDeps,
+    scopeEvents,
+    machine,
+  );
   const [read, setRead] = useState<ScreensRead | null>(null);
   const [attempt, setAttempt] = useState(0);
   // 앱의 활성 판이 바뀌거나(AppViewChanged activation) core가 (다시) 붙으면(ready) 목록을 다시 읽는다.

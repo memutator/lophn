@@ -2,6 +2,7 @@ import { PROJECT_ADD_ROUTES } from "../../protocol/projects/add-api.ts";
 import {
   ARTIFACT_FILE_ROUTES,
   ARTIFACT_MEMORY_ROUTES,
+  PROJECT_FILES_MUTATION_ROUTES,
   PROJECT_IDENTITY_MEMORY_ROUTES,
 } from "../../protocol/projects/mod.ts";
 import type {
@@ -66,11 +67,12 @@ export function createLedgerRegistration(
         exists: (path) => folders.exists(path),
       }),
     ],
-    // 폴더의 id file을 읽고 쓰는 route와 project 더하기·폴더 목록. handler는 wiring/projects.ts가 단다.
+    // 폴더의 id file을 읽고 쓰는 route, project 더하기·폴더 목록, 등록 폴더 안 file 쓰기·만들기·옮기기·지우기. handler는 wiring/projects.ts가 단다.
     memoryRoutes: [
       ...PROJECT_IDENTITY_MEMORY_ROUTES,
       ...PROJECT_ADD_ROUTES,
       ...ARTIFACT_MEMORY_ROUTES,
+      ...PROJECT_FILES_MUTATION_ROUTES,
     ],
     // 다른 컴퓨터가 읽는 artifact byte. handler는 wiring/projects.ts가 단다.
     files: ARTIFACT_FILE_ROUTES,

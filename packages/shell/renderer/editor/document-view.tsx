@@ -27,14 +27,16 @@ export interface EditorDeps {
 export interface DocumentViewProps extends EditorDeps {
   /** 파일의 절대 경로. */
   path: string;
+  /** 쓰기 허락이 없는 원격 파일이면 읽기 전용으로 연다. */
+  readOnly?: boolean;
   /** project에 연결한 폴더 밖의 파일인가. */
   outside?: boolean;
   /** 검색 결과로 열린 줄(1부터). */
   line?: number;
   /** 같은 줄을 다시 열 때 바뀐다. 줄로 다시 scroll한다. */
   lineNonce?: number;
-  /** 지우기. 지웠으면 true, 못 지웠으면 false다. 탭을 닫는 일은 부른 쪽이 한다. */
-  onDelete: () => Promise<boolean>;
+  /** 지우기. 지웠으면 true, 못 지웠으면 false다. 없으면 지우기 항목을 숨긴다. */
+  onDelete?: () => Promise<boolean>;
   onMeta?: (meta: DocumentTabMeta) => void;
   /** 처음부터 열어 둘 정보 panel 탭. */
   initialInfo?: InfoTabId;

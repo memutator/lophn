@@ -14,7 +14,6 @@ import { Button } from "@lophn/ui/primitives";
 import { useEffect, useMemo, useState } from "react";
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import { AppTabIcon } from "../../../app-frame/app-icon.tsx";
-import { AppViewsProvider } from "../../../app-frame/app-views.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
 import { useMachinesView } from "../../machines/context.tsx";
 import { type MachineRef, useMachineHub } from "../../machines/scope.tsx";
@@ -62,22 +61,6 @@ function optionLabel(
   return (counts.get(label) ?? 0) > 1 && machineName !== undefined
     ? `${label} (${machineName})`
     : label;
-}
-
-function MachineAppIcon({
-  app,
-  machine,
-}: {
-  app: string;
-  machine: MachineRef;
-}) {
-  const hub = useMachineHub();
-  if (hub === null) return <AppTabIcon app={app} />;
-  return (
-    <AppViewsProvider value={hub.get(machine).appViews}>
-      <AppTabIcon app={app} />
-    </AppViewsProvider>
-  );
 }
 
 // hub가 있으면 이 컴퓨터와 연결된 다른 컴퓨터 모두, 없으면(gallery의 단독 화면) 범위의 기계 하나다.
@@ -185,7 +168,7 @@ export function HistoryView({
   const appOptions: SelectFilterOption[] = [...apps].map(([value, entry]) => ({
     value,
     label: optionLabel(entry.label, entry.machineName, appCounts),
-    icon: <MachineAppIcon app={value} machine={entry.machine} />,
+    icon: <AppTabIcon app={value} machine={entry.machine} />,
   }));
   const projectOptions: SelectFilterOption[] = [...projects].map(
     ([value, entry]) => ({

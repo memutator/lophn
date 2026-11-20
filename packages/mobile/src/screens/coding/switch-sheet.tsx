@@ -81,7 +81,7 @@ export function SwitchSheet({ session, onClose }: { session: CodingSession | nul
         {plan !== null && (
           <Text tone="secondary">
             {blocked !== null
-              ? blockedText(blocked, harness, computer)
+              ? blockedText(blocked, harness)
               : t("mobile.coding.notice.switch", {
                   turn: plan.stops.turn ? "yes" : "no",
                   tasks: plan.stops.tasks,

@@ -5,12 +5,10 @@ import { StackActions, useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import { type PlaceOf, paramsOf, useNav } from "../../app/nav.ts";
 import { useCodingActions, useCurrentComputer } from "../../data/mod.ts";
-import { blockedText } from "./parts.tsx";
 
 /** Why an open did not go through, in a sentence. Otherwise the computer's own sentence is shown as it is. */
 export function problemText(failed: { code: string; message?: string; reason?: string }, harness: string, computer: string): string {
-  const { code, message, reason } = failed;
-  if (reason === "extension_off") return blockedText("extension_off", harness, computer);
+  const { code, message } = failed;
   if (code === "unavailable" && message !== undefined && message !== "") return message;
   return code === "conflict"
     ? t("mobile.coding.error.open-conflict", { harness, computer })

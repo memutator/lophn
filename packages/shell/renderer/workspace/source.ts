@@ -222,8 +222,19 @@ export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   /** active project 목록. 상단 바의 project selector가 읽는다. */
   projects(): Promise<ReadResult<readonly { id: string; title: string }[]>>;
+  /** 다른 기계의 workspace다. Explorer가 polling 간격을 늦추고 OS 전용 동작을 숨긴다. */
+  readonly remote?: boolean;
   /** 폴더 한 단계를 디스크에서 읽는다(절대 경로). Explorer가 폴더를 펼칠 때 그 폴더만 부른다. */
-  list(path: string): Promise<ReadResult<readonly FolderEntry[]>>;
+  list(
+    path: string,
+    options?: { readonly force?: boolean },
+  ): Promise<ReadResult<readonly FolderEntry[]>>;
+  /** 이미 cache된 폴더 항목을 0ms로 꺼낸다(원격 Explorer SWR). 없으면 undefined. */
+  listCached?(path: string): readonly FolderEntry[] | undefined;
+  /** 원격 폴더의 background 갱신이 바뀐 항목을 받았을 때 알린다. */
+  onDirectoryUpdated?(
+    listener: (path: string, entries: readonly FolderEntry[]) => void,
+  ): () => void;
   /** 새 파일·폴더. 없는 위쪽 폴더도 만들고, 이미 있으면 `conflict`다(덮어쓰지 않는다). */
   create(path: string, kind: "file" | "folder"): Promise<FileOpResult>;
   /** 이름 바꾸기이자 옮기기. 대상이 있으면 `conflict`, 폴더를 자기 안으로 옮기면 `invalid_input`이다. */

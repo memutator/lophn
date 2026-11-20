@@ -410,7 +410,7 @@ export function Tray({
               else if (open?.pinned !== true) memory.set(opened(item, false));
             }}
           >
-            <AppTabIcon app={item.app} />
+            <AppTabIcon app={item.app} machine={null} />
             {item.text === undefined || iconOnly ? null : (
               <span className={styles.text} data-tone={item.tone}>
                 {item.text}

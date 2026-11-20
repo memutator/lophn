@@ -70,6 +70,7 @@ import { Screen, Row, Text, Button } from "@lophn/ui-native";
 - `FilterChips`: Pills that narrow a list.
 - `Chip`: A quiet pick in the composer's bottom row (model, workspace) that opens a sheet.
 - `Pill`: An outlined pick with a chevron: the computer in the top bar, the workspace of a new session.
+- `MachineSelector`: Picks a computer (or all machines) to scope a view: a sheet trigger by default, or horizontal pills.
 
 ### overlay
 - `Sheet`: Anything that rises from the bottom: a menu, a picker, a short form. Closes by dragging down.
@@ -144,7 +145,7 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 
 ```json
 "devDependencies": {
-  "@lophn/ui-native": "file:.lophn/sdk/ui-native/0.3.1",
+  "@lophn/ui-native": "file:.lophn/sdk/ui-native/0.4.0",
   "@types/react": "19.3.0",
   "expo-clipboard": "58.0.4",
   "lucide-react-native": "1.73.0",
@@ -157,7 +158,7 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 }
 ```
 
-앱 `lophn.ts`의 `sdk_dependencies`에도 같은 판을 적는다: `{ name: "@lophn/ui-native", version: "0.3.1" }`.
+앱 `lophn.ts`의 `sdk_dependencies`에도 같은 판을 적는다: `{ name: "@lophn/ui-native", version: "0.4.0" }`.
 두 곳의 판은 같아야 한다. operation을 부르는 `@lophn/app-ui-native`도 같은 방식으로 둔다(그 guide).
 `@lophn/ui-native`의 peer 판은 위 표가 정확한 판이다. 판을 올리면 표와 같이 바뀐다.
 

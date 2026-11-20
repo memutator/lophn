@@ -21,6 +21,7 @@ import { coreAgentTabSourceFactory } from "../../conversation/agent-tab-core-sou
 import { signInInputRequest } from "../../conversation/agent-tab-core-source-sign-in.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
+import { remoteEditorDeps } from "../../editor/window-deps.ts";
 import {
   coreProjectIcons,
   type ProjectIconsDeps,
@@ -52,11 +53,7 @@ import { coreSettingsSource } from "../settings/core-source.ts";
 import { coreCodingConnectionsSource } from "../settings/connections/core-source.ts";
 import { coreDiagnosticsSource } from "../settings/diagnostics/core-source.ts";
 import { coreProviderSettingsSource } from "../settings/providers/core-source.ts";
-import {
-  DEFAULT_QUICK_PREFS,
-  type QuickPrefs,
-  type QuickPrefsSource,
-} from "../settings/quick-launch/source.ts";
+import type { QuickPrefsSource } from "../settings/quick-launch/source.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import { coreShellRulesSource } from "../settings/shell-rules/core-source.ts";
 import type { SettingsSource } from "../settings/source.ts";
@@ -67,6 +64,7 @@ import {
 import { coreProjectsSource } from "../workspaces/projects/core-source.ts";
 import type { ProjectsSource } from "../workspaces/projects/source.ts";
 import { machineCoreSource } from "./core-source.ts";
+import { createRemoteFiles } from "./remote-files.ts";
 import type { MachineRef } from "./scope.tsx";
 import type { MachinesSource } from "./source.ts";
 
@@ -77,7 +75,7 @@ export type FolderBrowser = ReturnType<typeof createFolderBrowser>;
 
 export interface MachineData {
   readonly machine: MachineRef;
-  /** 이 컴퓨터의 묶음. 이 컴퓨터의 shell host나 기기가 부를 수 없는 관리 route가 필요한 것(설정 탭, Agents, tray)은 이것만 있다. */
+  /** 이 컴퓨터의 묶음. 이 컴퓨터의 shell host나 기기가 부를 수 없는 관리 route가 필요한 것(설정 탭, Agents)은 이것만 있다. */
   readonly here: boolean;
   readonly core: CoreSource;
   /** 이 기계의 event 연결. 범위의 store가 이 위에 선다. */
@@ -93,10 +91,10 @@ export interface MachineData {
   readonly settings: SettingsSource;
   /** 다른 기계는 그 기계의 core에 걸린 항목만 있다(settings/model.ts의 MACHINE_PANES). */
   readonly settingsPanels: SettingsPanels;
-  /** 빠른 실행은 이 컴퓨터의 설정이라 다른 기계는 기본값을 메모리에만 둔다. */
+  /** 빠른 실행·작업 표시줄·오른쪽 sidebar·tray 설정은 이 컴퓨터의 값이다. 다른 기계 묶음도 이 컴퓨터의 것을 쓴다. */
   readonly quickPrefs: QuickPrefsSource | undefined;
   readonly agentViewSource: AgentTabSourceFactory;
-  /** 문서 탭은 이 컴퓨터의 file만 연다. */
+  /** 문서 탭. 다른 기계는 그 기계의 등록 폴더 file을 `project_files/*`로 읽고 쓴다. */
   readonly editor?: EditorDeps;
   /** App details. 다른 기계는 읽기만 하는 source다(`readOnlyAppDetailSource`). */
   readonly appDetail?: AppDetailSource;
@@ -165,6 +163,7 @@ export function createMachineHub(deps: MachineHubDeps): MachineHub {
         machine,
         machineCoreSource(machine, deps.bridge, deps.machines, local),
         deps.views,
+        (here ??= deps.here()).quickPrefs,
       );
       others.set(machine, data);
       return data;
@@ -181,6 +180,7 @@ function otherMachineData(
   machine: string,
   core: CoreSource,
   views: LophnShellViewsApi | undefined,
+  quickPrefs: QuickPrefsSource | undefined,
 ): MachineData {
   const events = createEventClient(core);
   const folders = oneHost(createFolderBrowser(coreBrowseFolders(core)));
@@ -192,6 +192,9 @@ function otherMachineData(
   const { list, runs, setEnabled } = coreJobsSource(core);
   // 대기 목록의 Finished 줄이 그 기계 터미널의 runtime(`TerminalRuntimeChanged`)을 듣는다.
   const terminal = machineTerminalDeps(machine, core, events);
+  // 다른 기계의 project 등록 폴더 파일은 `project_files/*` + cache 통로로 읽고 쓴다.
+  const remoteFiles = createRemoteFiles(machine, core);
+  const baseWorkspace = coreWorkspaceSource(core);
   // 이 컴퓨터의 창 통로(디스크 file, OS 폴더 고르기, 지침·memory file)는 이 묶음에 하나도 없다. 그 통로는 이 컴퓨터의 것을 열고
   // 고치므로 다른 기계에서는 unavailable이다.
   const local = { instructions: undefined, files: undefined } as const;
@@ -202,8 +205,15 @@ function otherMachineData(
     events,
     stores: createEventStores(events, terminal.store),
     workspace: {
-      ...coreWorkspaceSource(core),
+      ...baseWorkspace,
       ...NO_LOCAL_FILES,
+      ...remoteFiles.workspaceFiles,
+      async project(id) {
+        const read = await baseWorkspace.project(id);
+        if (read.ok)
+          remoteFiles.registerProject(read.value.id, read.value.folders);
+        return read;
+      },
       agentsSource: coreAgentsSource(core, {
         ...local,
         memory: undefined,
@@ -225,8 +235,9 @@ function otherMachineData(
       diagnostics: coreDiagnosticsSource(core),
       shellRules: coreShellRulesSource(core),
     },
-    quickPrefs: memoryQuickPrefs(),
+    quickPrefs,
     appDetail: readOnlyAppDetailSource,
+    editor: remoteEditorDeps(core, remoteFiles.editorFiles),
     // sign_in card의 로그인도 돌린다(provider 로그인은 그 기계의 core가 기다린다). card가 device code만 단추로 둔다.
     agentViewSource: coreAgentTabSourceFactory(core, {
       device: true,
@@ -281,17 +292,6 @@ function oneHost(browser: FolderBrowser): FolderBrowser {
     return first ? createElement(browser.Host) : null;
   }
   return { picker: browser.picker, Host };
-}
-
-function memoryQuickPrefs(): QuickPrefsSource {
-  let prefs: QuickPrefs = DEFAULT_QUICK_PREFS;
-  return {
-    read: () => Promise.resolve({ ok: true, value: prefs }),
-    write(key, value) {
-      prefs = { ...prefs, [key]: value };
-      return Promise.resolve({ ok: true, value: null });
-    },
-  };
 }
 
 // 판정은 `settings/list`의 forbidden이다(터미널 입력 허락이 없는 기기).

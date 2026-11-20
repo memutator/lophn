@@ -13,6 +13,12 @@ import {
 } from "../../app-frame/app-tab-head.tsx";
 import { useNotRunningFailure } from "../../app-frame/app-not-running.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
+import {
+  type MachineRef,
+  MachineScope,
+  useMachineHub,
+  useScopeMachine,
+} from "../../desktop/machines/scope.tsx";
 import { ArtifactPanel } from "./artifact-panel.tsx";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
@@ -64,6 +70,8 @@ export interface SidebarPanel {
   readonly icon: LucideIcon;
   /** 앱 sidebar panel이면 그 앱. icon 대신 앱 icon을 그린다. */
   readonly app?: string;
+  /** 앱 sidebar panel의 기계(이 컴퓨터는 null). */
+  readonly machine?: MachineRef;
   readonly kinds: readonly SidebarKind[];
   /** 조건이 있는 panel(Jobs). 없으면 kinds에 들면 늘 있다. */
   readonly available?: (ctx: SidebarCtx) => boolean;
@@ -77,12 +85,12 @@ function builtinPanels(): readonly SidebarPanel[] {
       label: t("project-workspace.label.sidebar-tab-explorer"),
       icon: shellIcons.folder,
       kinds: ["project"],
-      available: (ctx) => ctx.here !== false,
-      render: ({ project }) =>
+      render: ({ here, project }) =>
         project === null ? null : (
           <ExplorerPanel
             project={project.view}
             source={project.source}
+            here={here !== false}
             {...project.explorer}
           />
         ),
@@ -226,6 +234,17 @@ function AppSidebarBody(props: {
   );
 }
 
+// 다른 기계의 workspace에서도 이 컴퓨터의 앱 sidebar panel은 이 컴퓨터 범위로 연다.
+function LocalMachineScope({ children }: { children: ReactNode }) {
+  const hub = useMachineHub();
+  const scope = useScopeMachine();
+  return hub === null || scope === null ? (
+    <>{children}</>
+  ) : (
+    <MachineScope machine={null}>{children}</MachineScope>
+  );
+}
+
 /** 설치된 앱의 `sidebar` 자리 화면 가운데 사람이 끄지 않은 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
 function appPanels(
   off: readonly SidebarPanelPick[],
@@ -246,15 +265,17 @@ function appPanels(
           label: screen.label,
           icon: shellIcons.app,
           app: pick.app,
+          machine: null,
           kinds: ["project", "home", "app"],
           render: () => (
-            <AppSidebarBody
-              key={appPanelKey(pick.app, pick.screen)}
-              app={pick.app}
-              release={app.release}
-              screen={pick.screen}
-              label={screen.label}
-            />
+            <LocalMachineScope key={appPanelKey(pick.app, pick.screen)}>
+              <AppSidebarBody
+                app={pick.app}
+                release={app.release}
+                screen={pick.screen}
+                label={screen.label}
+              />
+            </LocalMachineScope>
           ),
         } satisfies SidebarPanel,
       ];

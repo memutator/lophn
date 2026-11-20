@@ -4,6 +4,7 @@
   "description": "Shows a terminal tab running Claude Code, Codex, OpenCode, omp or Antigravity as a lophn chat screen with `<harness> gui`.",
   "entry": "dist/index.cjs",
   "provides": ["harness GUI"],
+  "builtin": true,
   "contributes": {
     "commands": [],
     "keybindings": [

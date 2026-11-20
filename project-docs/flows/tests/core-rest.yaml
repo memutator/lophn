@@ -579,8 +579,23 @@ files:
     note: "create는 폴더에 .lophn-project.json 하나만 더하고 있는 file(못 읽는 것 포함)의 byte를 바꾸지 않는다. renew와 충돌 create만 덮고 충돌은 양쪽 순서와 상관없이 작은 id다. 폴더가 없거나 git이 아니면 file을 만들지 않는다. git이 아닌 폴더와 폴더 없는 project는 읽을 때 ledger에서 id를 얻고 다시 읽어도 그대로이며 git 폴더는 얻지 않는다. migration은 git이 아닌·폴더 없는(보관 포함) project에만 서로 다른 id를 주고 git·.git이 있는 none·아직 읽지 않은 project와 있는 id는 두며 다시 돌아도 같다. git이 답하지 않는데 폴더나 위 폴더에 .git이 있으면 unavailable이고 ledger를 바꾸지 않는다. git은 가짜, 폴더는 임시"
 
   - path: packages/core/projects/files/files_test.ts
-    covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]
-    note: 등록 폴더 밖 path(.., 절대 path, symlink)는 목록도 읽기도 거절, 1 MiB 넘으면 글자 경계에서 잘림
+    covers:
+      - project-files-list:outside
+      - project-files-read:ok
+      - project-files-read:invalid-input
+      - project-files-write:ok
+      - project-files-write:conflict
+      - project-files-write:invalid-input
+      - project-files-create:ok
+      - project-files-create:conflict
+      - project-files-create:invalid-input
+      - project-files-rename:ok
+      - project-files-rename:conflict
+      - project-files-rename:invalid-input
+      - project-files-remove:ok
+      - project-files-remove:not-found
+      - project-files-remove:invalid-input
+    note: "등록 폴더 밖 path(.., 절대 path, symlink)와 symlink 쓰기는 목록·읽기·쓰기·만들기·이름 바꾸기·지우기 모두 거절. write의 1 MiB 상한과 base_hash 낙관적 잠금(conflict), create·rename의 conflict와 자기 안 이동 거절, remove의 재귀 삭제와 not_found"
 
   - path: packages/core/projects/artifacts/artifacts_test.ts
     covers:
@@ -679,7 +694,7 @@ files:
 
   - path: packages/core/terminal-agents/open_test.ts
     covers: [coding-session-open:conflict, coding-session-open:deduplicated, coding-session-open:unavailable]
-    note: "resume할 CLI session이 목록에 있으면 conflict이고 hold도 터미널도 없다. 같은 key의 open은 터미널을 한 번만 연다. harness-gui가 꺼져 있으면 extension_off의 unavailable이고 hold도 터미널도 없다"
+    note: "resume할 CLI session이 목록에 있으면 conflict이고 hold도 터미널도 없다. 같은 key의 open은 터미널을 한 번만 연다. GUI handler가 아직 준비되지 않았으면 unavailable이고 hold도 터미널도 없다"
 
   - path: packages/core/main/daemon/wiring/terminal-agents_test.ts
     covers: [coding-session-sync:folded, coding-session-sync:withheld, coding-session-input:unavailable, acp-coding-tool-body:ok, acp-coding-tool-body:unavailable, coding-session-switch:invalid_input, coding-session-switch:forbidden, coding-session-switch:switched]

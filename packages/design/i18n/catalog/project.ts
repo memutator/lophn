@@ -261,9 +261,6 @@ export const project = {
   "terminal.menu.open-terminal": "Open in terminal",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
   "terminal.notice.sized-elsewhere": "Sized for another device · Click to fit",
-  "terminal.reason.extension-off":
-    "The Harness GUI extension is turned off. Turn it on in Settings › Extensions.",
-  "terminal.reason.extension-off-short": "Extension off",
   "terminal.reason.foreground":
     "The CLI is not the foreground process of this terminal",
   "terminal.reason.foreground-short": "Not in foreground",

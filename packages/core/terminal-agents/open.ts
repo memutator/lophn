@@ -12,7 +12,7 @@ const OPEN_KEYS_MAX = 200;
 const CLI_SESSION = /^[A-Za-z0-9._-]{1,200}$/;
 
 export type CodingOpenDeps = {
-  // harness GUI extension이 켜져 있다. 꺼져 있으면 `<harness> gui`를 쳐도 GUI가 서지 않는다.
+  // harness-gui handler가 준비돼 있다. 기동 중이거나 없으면 `<harness> gui`를 쳐도 GUI가 서지 않는다.
   guiOn(): boolean;
   // project에 새 터미널을 열고 command를 친다(탭도 연다). 연 터미널 참조다.
   open(project: string, command: string): Promise<Result<string>>;
@@ -98,8 +98,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     if (!deps.guiOn()) {
       return err({
         code: "unavailable",
-        message: "The coding agents extension is off on this computer.",
-        details: { reason: "extension_off" },
+        message: "Chat view is not ready on this computer yet.",
       });
     }
     let resume: { session: string; cli_session: string } | undefined;

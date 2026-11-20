@@ -3,7 +3,12 @@
 // 사이 바뀌었으면 main이 conflict로 거절한다. 충돌이면 사람이 고르기 전까지 쓰지 않고 초안을
 // 그대로 둔다. 결과를 모르는 쓰기는 다시 쓰지 않고 먼저 읽어 본다. 순수 모듈이라 clock·port를
 // 주입한다.
-import type { FileReply, FileText, FileWritten } from "../../ipc/files.ts";
+import type {
+  FileFailure,
+  FileReply,
+  FileText,
+  FileWritten,
+} from "../../ipc/files.ts";
 
 /** 입력이 이만큼 멈추면 디스크에 쓴다. */
 export const SAVE_QUIET_MS = 800;
@@ -37,6 +42,7 @@ export type SaveState = "saved" | "saving" | "failed" | "unknown" | "conflict";
 
 interface SaveFacts {
   readonly state: SaveState;
+  readonly failure?: FileFailure;
 }
 
 interface SaveSessionOptions {
@@ -57,6 +63,7 @@ export class SaveSession {
   readonly #listeners = new Set<(facts: SaveFacts) => void>();
   readonly #replacers = new Set<(text: string, cause: ReplaceCause) => void>();
   #state: SaveState = "saved";
+  #failure: FileFailure | undefined;
   /** 편집기의 지금 글. */
   #text: string;
   /** 디스크에 있다고 아는 글. */
@@ -80,7 +87,9 @@ export class SaveSession {
   }
 
   get facts(): SaveFacts {
-    return { state: this.#state };
+    return this.#failure === undefined
+      ? { state: this.#state }
+      : { state: this.#state, failure: this.#failure };
   }
 
   /** 편집기의 지금 글(디스크에 없는 것 포함). */
@@ -214,9 +223,11 @@ export class SaveSession {
     this.#adopt(reply.value.text, reply.value.hash, "external");
   }
 
-  #set(state: SaveState): void {
-    if (this.#state === state) return;
+  #set(state: SaveState, failure?: FileFailure): void {
+    const nextFailure = state === "failed" ? failure : undefined;
+    if (this.#state === state && this.#failure === nextFailure) return;
     this.#state = state;
+    this.#failure = nextFailure;
     const facts = this.facts;
     for (const listener of this.#listeners) listener(facts);
   }
@@ -283,7 +294,7 @@ export class SaveSession {
       this.#checks = 0;
       await this.#check();
     } else {
-      this.#set("failed");
+      this.#set("failed", reply.code);
     }
   }
 

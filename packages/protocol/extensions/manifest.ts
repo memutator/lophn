@@ -6,7 +6,7 @@ import type { Result } from "../../base/result.ts";
 import type { ExtensionAcp } from "./acp-session.ts";
 
 // extension 하나는 폴더 하나다. 폴더 이름이 id이고 manifest.json이 그 안에 있다.
-// 켜기는 사람이 설정 `extensions.<id>.enabled`로만 한다. core가 manifest를 읽지 못하므로 id마다 설정 선언이 따로 있어야 한다.
+// 일반 extension의 켜기는 사람이 설정 `extensions.<id>.enabled`로만 한다. `builtin: true`인 내장 extension은 설정 없이 늘 켜진다.
 export const EXTENSION_ID = /^[a-z][a-z0-9-]*$/;
 export const EXTENSION_MANIFEST_FILE = "manifest.json";
 
@@ -117,6 +117,8 @@ export const extensionManifestSchema = z
       ),
     /** 들어 있는 것의 이름들(설정 화면에 보인다). */
     provides: z.array(z.string().min(1).max(64)).max(16),
+    /** 본체에 기본으로 늘 켜지는 내장 extension인가. 설정·설치·제거 대상이 아니다. */
+    builtin: z.boolean().optional(),
     contributes: extensionContributesSchema.default({
       commands: [],
       keybindings: [],

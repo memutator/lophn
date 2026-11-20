@@ -184,6 +184,10 @@ files:
     covers: []
     note: "OS clipboard의 text에서 절대 경로만 고르고, 붙여넣는 그림의 이름이 MIME 확장자를 따른다"
 
+  - path: packages/shell/renderer/desktop/machines/remote-files_test.ts
+    covers: []
+    note: "원격 project_files adapter의 폴더 목록 cache·in-flight 중복 제거·stale-while-revalidate·동시 갱신 상한, 파일 읽기 cache·mtime 변경·충돌 무효화, 변이 시 영향 폴더만 무효화, truncated 미리 보기와 forbidden 전파"
+
   - path: packages/shell/main/editor/file-adapter_test.ts
     covers:
       - editor-save:saved
@@ -321,6 +325,10 @@ files:
     covers:
       - session-snapshot-read:ok
     note: "다시 붙을 때 snapshot으로 사람의 대기 목록을 맞춘다(사라진 요청은 남지 않고 같은 event는 한 번만). team 자식의 to_parent 요청은 사람 목록에 서지 않는다는 화면 필터는 flow 대상이 아니다"
+
+  - path: packages/shell/renderer/app-frame/machine-app-source_test.ts
+    covers: []
+    note: "기계별 앱 icon reader와 화면 목록(screens) 통로 선택 순수 함수. 다른 기계 workspace에서도 이 컴퓨터 chrome과 타 기계 앱 icon이 자기 기계를 가리키는 규칙"
 
   - path: packages/shell/renderer/apps/take-in_test.ts
     covers: []

@@ -12,7 +12,7 @@ import type { FakeCore } from "../../testdata/fake-core.ts";
 import { declared } from "../../testdata/fake-settings.ts";
 import { enabledKey } from "../model.ts";
 
-/** 화면 확인용 목록: 켜짐, 설치했지만 꺼짐, 설치 안 됨이 하나씩이다. */
+/** 화면 확인용 목록: 내장(숨김), 설치했지만 꺼짐, 설치 안 됨이 하나씩이다. */
 export const SAMPLE_EXTENSIONS: readonly ExtensionView[] = [
   {
     id: "harness-gui",
@@ -21,6 +21,7 @@ export const SAMPLE_EXTENSIONS: readonly ExtensionView[] = [
       "Shows a terminal tab running Claude Code, Codex, OpenCode or omp as a lophn chat screen with `<harness> gui`.",
     status: "on",
     installed: true,
+    builtin: true,
   },
   {
     id: "harness",
@@ -61,12 +62,14 @@ export function fakeExtensions(
     }),
     fakeAnswer(extensionsRun, {}),
   );
-  // 목록의 id마다 `extensions.<id>.enabled` 선언이 있어야 화면이 켜짐을 읽는다.
-  return views.map((view) =>
-    declared(
-      enabledKey(view.id),
-      { type: "boolean" },
-      { default: false, chosen: view.status === "on" },
-    ),
-  );
+  // 목록의 일반 id마다 `extensions.<id>.enabled` 선언이 있어야 화면이 켜짐을 읽는다.
+  return views
+    .filter((view) => view.builtin !== true)
+    .map((view) =>
+      declared(
+        enabledKey(view.id),
+        { type: "boolean" },
+        { default: false, chosen: view.status === "on" },
+      ),
+    );
 }

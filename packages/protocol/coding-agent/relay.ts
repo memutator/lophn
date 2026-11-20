@@ -12,11 +12,10 @@ import type {
 // `acp/snapshot`·`acp/send`·`AcpUpdated`로 읽고 쓴다.
 
 // switch가 지금 막힌 까닭이다. no_session: CLI session id를 몰라 GUI로 다시 열 수 없다. not_running: 터미널에 GUI가 되는 coding
-// agent가 돌지 않는다. extension_off: harness GUI extension이 꺼졌다. unsupported_os: 이 OS에서 GUI 전환을 못 한다.
+// agent가 돌지 않는다. unsupported_os: 이 OS에서 GUI 전환을 못 한다.
 const switchBlockedSchema = z.enum([
   "no_session",
   "not_running",
-  "extension_off",
   "unsupported_os",
 ]);
 
@@ -83,7 +82,7 @@ export const codingSessionsSwitchPlan = defineRead({
   output: z.strictObject({
     to: z.enum(["gui", "tui"]),
     stops: switchStopsSchema,
-    blocked: switchBlockedSchema.exclude(["extension_off"]).nullable(),
+    blocked: switchBlockedSchema.nullable(),
   }),
   reads: [{ name: "coding_sessions", id: (input) => input.session }],
   actors: ["user"],
@@ -92,7 +91,7 @@ export const codingSessionsSwitchPlan = defineRead({
 
 // 탭의 view를 바꾼다. 도는 turn이 끊기고 desktop 탭도 바뀌는 일이라 사람이 확인한 뒤에만 부른다: `confirmed: true`가 없으면
 // `invalid_input`이다. 이미 그 view거나, 사람이 본 `stops` 계획과 지금 멈출 일이 다르면 conflict다. 바꾸지 못하면
-// `details.reason`(no_session|not_running는 invalid_input, extension_off|unsupported_os|failed는 unavailable, stale_plan은
+// `details.reason`(no_session|not_running는 invalid_input, unsupported_os|failed는 unavailable, stale_plan은
 // conflict)이다. 같은 key는 한 번만 바꾼다.
 export const codingSessionsSwitch = defineMemory({
   resource: "coding_sessions",
@@ -115,7 +114,7 @@ export const codingSessionsSwitch = defineMemory({
 // claude, codex, opencode, omp)이고 아니면 invalid_input이다. resume은 그 project의 harness agent ledger session이고 그 CLI session을
 // 이어 연다: 없거나 다른 project면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면
 // invalid_input, 그 CLI session이 이미 터미널에서 돌거나(목록에 있다) TUI로 열려 있거나 headless turn이 돌면 conflict다.
-// harness GUI extension이 꺼져 있으면 터미널을 열지 않고 unavailable(`details.reason: extension_off`)이다. 터미널을 열지 못하면 그
+// GUI handler가 아직 준비되지 않았으면 터미널을 열지 않고 unavailable이다. 터미널을 열지 못하면 그
 // code다. 성공하면 연 터미널의 session(`ses_<터미널 ULID>`)이다. 같은 key는 한 번만 연다.
 export const codingSessionsOpen = defineMemory({
   resource: "coding_sessions",

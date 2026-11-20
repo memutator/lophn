@@ -23,6 +23,8 @@ export const extensionViewSchema = z.strictObject({
   reason: z.string().optional(),
   // 표시 file이 있다. 없으면 설치 안 됨이다.
   installed: z.boolean(),
+  // 본체에 기본으로 늘 켜지는 내장 extension인가.
+  builtin: z.boolean().optional(),
   // 켜진 extension의 기여(command·key). 꺼져 있으면 없다.
   contributes: extensionContributesSchema.optional(),
 });

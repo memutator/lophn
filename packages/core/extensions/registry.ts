@@ -253,6 +253,10 @@ export function createExtensionRegistry(deps: RegistryDeps) {
         problem.set(id, { status: "invalid", reason: found.invalid ?? "" });
         continue;
       }
+      if (manifest.builtin === true) {
+        if (!active.has(id)) await activate({ ...found, manifest });
+        continue;
+      }
       const enabled = await deps.settings.get(extensionSettingKey(id));
       // 읽지 못한 때(core 불안정)는 켜진 것을 끄지 않는다.
       if (!enabled.ok) continue;
@@ -300,6 +304,7 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       const infos: ExtensionView[] = [];
       for (const found of await discover()) {
         const bad = problem.get(found.id);
+        const builtin = found.manifest?.builtin === true;
         const status: ExtensionStatus = active.has(found.id)
           ? "on"
           : (bad?.status ?? "off");
@@ -310,8 +315,10 @@ export function createExtensionRegistry(deps: RegistryDeps) {
           status,
           ...(bad ? { reason: bad.reason } : {}),
           installed:
+            builtin ||
             (await files.read(`${base}/${found.id}/${EXTENSION_MARKER}`)) !==
-            null,
+              null,
+          ...(builtin ? { builtin: true } : {}),
           ...(status === "on" && found.manifest !== undefined
             ? { contributes: found.manifest.contributes }
             : {}),
@@ -410,6 +417,16 @@ export function createExtensionRegistry(deps: RegistryDeps) {
         };
       }
       const run = async (): Promise<Result<void>> => {
+        const found = (await discover()).find((item) => item.id === id);
+        if (found?.manifest?.builtin === true) {
+          return {
+            ok: false,
+            error: {
+              code: "conflict",
+              message: "built-in extensions cannot be removed",
+            },
+          };
+        }
         const enabled = await deps.settings.get(extensionSettingKey(id));
         if (!enabled.ok) return enabled;
         if (active.has(id) || enabled.value === true) {

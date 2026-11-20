@@ -69,7 +69,7 @@ test("같은 key의 open은 터미널을 한 번만 열고 같은 session을 돌
 });
 
 // GUI가 서지 않는 터미널을 열면 폰은 한참 기다린 뒤에야 실패를 안다.
-test("harness-gui가 꺼져 있으면 extension_off로 곧 실패하고 터미널도 hold도 열지 않는다", async () => {
+test("GUI handler가 준비되지 않았으면 unavailable로 곧 실패하고 터미널도 hold도 열지 않는다", async () => {
   const { opener, calls, holds } = setup([], false);
   const done = await opener.open({
     project: PROJECT,
@@ -79,7 +79,7 @@ test("harness-gui가 꺼져 있으면 extension_off로 곧 실패하고 터미�
   });
   assert.equal(done.ok, false);
   assert.equal(!done.ok && done.error.code, "unavailable");
-  assert.deepEqual(!done.ok && done.error.details, { reason: "extension_off" });
+  assert.equal(!done.ok && done.error.details, undefined);
   assert.deepEqual(calls, []);
   assert.deepEqual(holds, []);
 });

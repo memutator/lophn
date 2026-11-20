@@ -105,6 +105,13 @@ export { FilterChips, type FilterChipsProps } from "./input/choice.tsx";
 export { Chip, type ChipProps } from "./input/choice.tsx";
 // An outlined pick with a chevron: the computer in the top bar, the workspace of a new session.
 export { Pill, type PillProps } from "./input/choice.tsx";
+// Picks a computer (or all machines) to scope a view: a sheet trigger by default, or horizontal pills.
+export {
+  type MachineOption,
+  type MachineOptionStatus,
+  MachineSelector,
+  type MachineSelectorProps,
+} from "./input/machine-selector.tsx";
 
 // ── overlay ──
 // Anything that rises from the bottom: a menu, a picker, a short form. Closes by dragging down.

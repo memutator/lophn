@@ -19,10 +19,11 @@ extension은 lophn 본체와 따로 켜는 기능 묶음이다. 대다수에게 
 
 ## 모델
 
-extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이고 그 안 `manifest.json`이 `{id, name, description, entry, provides, contributes}`다.
+extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이고 그 안 `manifest.json`이 `{id, name, description, entry, provides, builtin?, contributes}`다.
 
 - `entry`: 폴더 안 상대 경로(따로 빌드한 CJS file). 폴더 밖을 가리키지 못한다. `activate(ctx)`와 `deactivate()`를 낸다.
 - `provides`: 들어 있는 것의 이름들. 설정 화면에 보인다.
+- `builtin`: `true`이면 본체에 기본으로 늘 켜지는 내장 extension이다(`harness-gui`). `extensions.<id>.enabled` 설정 선언 없이 `sync` 때 자동으로 activate되고, `list`에서 `installed: true`·`builtin: true`로 보이며 Settings › System › Extensions 목록에서 숨겨지고, `remove`는 `conflict`로 거절한다.
 - `contributes`는 없으면 빈 목록이고 셋이다.
   - `commands`: `{name, title}`. command id는 `ext.<extension id>.<name>`이다.
   - `keybindings`: `{command, key: {other, mac?}, context?}`. `command`는 그 id나 내장 command id(harness-gui의 `agent.*`)다. `mac`이 없으면 `other`와 같다. key 글은 한 타나 공백으로 이은 두 타다([keybindings.md](keybindings.md)).
@@ -38,7 +39,7 @@ extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이�
 | `no_setting` | core에 `extensions.<id>.enabled` 선언이 없다 |
 | `failed` | entry가 `activate`·`deactivate`를 내지 않거나 `activate`가 던졌다 |
 
-각 줄은 이름, 설명, `installed`(표시 file이 있는가), 문제가 있으면 이유를 가지고, 켜진 것은 `contributes`도 싣는다.
+각 줄은 이름, 설명, `installed`(표시 file이 있거나 `builtin`인가), `builtin`(내장인가), 문제가 있으면 이유를 가지고, 켜진 것은 `contributes`도 싣는다.
 
 흐름은 이렇다.
 
@@ -47,7 +48,8 @@ core ready ───────────────────────
 settings 변경(id가 extensions.*) ───────────▶ sync
 sync
   ─▶ roots의 <root>/<id>/manifest.json을 읽는다(code는 읽지 않는다)
-  ─▶ 설정 extensions.<id>.enabled 읽기
+  ─▶ builtin이면: 설정 없이 entry를 load → activate(ctx)
+  ─▶ 일반이면: 설정 extensions.<id>.enabled 읽기
   ─▶ 켜졌으면: 표시 file을 두고 entry를 load → activate(ctx)
   ─▶ 꺼졌으면: 켜져 있던 것만 deactivate()
 Settings › System › Extensions ─ route extensions/list|install|remove|run ─▶ registry
@@ -74,7 +76,7 @@ agent(lophn runtime의 ext__<id>__<tool> 또는 harness의 `lophn ext call`)
 
 1. **extension 하나는 폴더 하나다.** 폴더 이름이 id이고 manifest의 `id`와 같아야 한다. 다르거나 꼴이 틀리면 `invalid`로 보이고 켜지 않는다. `entry`는 폴더 밖을 가리키지 못한다.
 2. **extension은 따로 판을 갖지 않는다.** 지금 extension은 본체 안 것뿐이고 제품과 같이 build되므로 제품 판이 곧 그 판이다. manifest에 판 칸이 없고 registry는 판을 보지 않는다.
-3. **켜기는 사람이 설정으로만 한다.** 설정 key는 `extensions.<id>.enabled`(boolean, 기본 false)다. core는 manifest를 읽지 못하므로 id마다 선언이 core 설정에 정적으로 한 줄씩 있다(지금 `extensions.harness.enabled`, `extensions.harness-gui.enabled`). 선언이 없는 id는 `no_setting`이고 켜지 않는다. `settings/update`는 user 자격만 쓸 수 있어 agent가 켜지 못한다.
+3. **일반 extension의 켜기는 사람이 설정으로만 한다.** 설정 key는 `extensions.<id>.enabled`(boolean, 기본 false)다. core는 manifest를 읽지 못하므로 id마다 선언이 core 설정에 정적으로 한 줄씩 있다(지금 `extensions.harness.enabled`). 선언이 없는 일반 id는 `no_setting`이고 켜지 않는다. `settings/update`는 user 자격만 쓸 수 있어 agent가 켜지 못한다. 반대로 manifest에 `builtin: true`가 있는 내장 extension(`harness-gui`)은 설정 선언 없이 `sync`마다 늘 activate된다.
 4. **registry는 manifest가 든 폴더 목록(roots)만 읽는다.** 지금 roots는 본체 안 폴더 하나다(개발은 core 안 bundled 폴더, packaged는 설치 root의 `extensions/`). 본체 안 extension은 core와 따로 extension마다 CJS file 하나로 build되고, packaging은 manifest와 build 결과만 설치 root로 옮긴다. 따로 받는 package가 오면 roots에 `<data>/extensions/`를 더하면 된다. 같은 id가 두 root에 있으면 앞 root의 것이다.
 5. **code는 켜진 것만, 따로 build한 file에서 load한다.** 꺼진 extension은 manifest만 읽힌다. entry가 `activate`·`deactivate`를 내지 않거나 `activate`가 던지면 `failed`이고(던졌으면 `deactivate`를 한 번 부른다) 다른 extension은 그대로 돈다.
 6. **extension code는 `ctx`로만 lophn에 닿는다.** `ctx`는 `{core, settings, spawn, acp, clock, ids, files, dataFolder, commands, tools}`다. 본체 안 extension 폴더의 code는 protocol, base, 자기 폴더만 import한다. host 내부, 다른 extension, `electron`을 import하면 의존 검사(rule `extension`)가 막는다.
@@ -86,10 +88,10 @@ agent(lophn runtime의 ext__<id>__<tool> 또는 harness의 `lophn ext call`)
    - `acp.open({terminal, harness, title, handoff})`은 터미널 탭 하나와 이어진 handle(`publish(update)`, `onInput`, `onClose`, `close`)을 준다. 창이 늦게 붙어도 지금까지의 상태를 한 번 받고 이어서 update를 받는다. `acp.onTab({gui, tui, running, sessions, rewindPreview})`은 탭의 GUI·TUI 전환 요청과 modal이 묻는 것을 받을 함수를 걸고 푸는 함수를 돌려준다. 켜진 extension 하나가 건다. 흐름과 꼴은 [harness-gui.md](harness-gui.md).
 7. **끄면 그 extension이 건 것을 모두 버린다.** deactivate나 켜기 실패 때 registry가 그 extension의 command·tool handler를 모두 버린다. 다시 켜면 같은 load cache의 module에 `activate`가 다시 불린다.
 8. **extension이 띄운 process는 extension이 끈다. 그래도 core가 끝날 때는 살아 있는 것을 host가 끈다.** registry는 `ctx.spawn`으로 띄운 process를 따라가지 않고 `deactivate`에서 끄게 한다. core가 끝날 때 켜진 extension을 모두 deactivate한 뒤 spawner가 아는 살아 있는 process의 group 전체에 SIGTERM을 보낸다. core가 이미 끝난 뒤라 SIGKILL 유예는 돌지 않으므로 SIGTERM을 무시하는 CLI는 남는다. 앱의 Quit은 core를 끄지 않으므로 extension과 그 CLI는 Quit 뒤에도 돈다.
-9. **지우기는 extension이 쓴 file만 지운다.** `<data>/extensions/<id>/.lophn-extension`(JSON `{files[]}`)이 표시 file이다. 켤 때 먼저 두고, `files.write`가 쓰기 전에 그 이름을 더한다(쓰다 멈춰도 다음에 우리 file로 알아본다). `remove(id)`는 켜져 있거나 설정이 켜져 있으면 `conflict`이고, 아니면 적힌 file과 표시 file만 지운 뒤 비게 된 폴더만 치운다(recursive가 아니다). 사람이 그 폴더에 넣은 file과 다른 설정은 남는다. id 꼴이 틀리면 `invalid_input`이다. install에서 그런 extension이 없으면 `not_found`다.
+9. **지우기는 extension이 쓴 file만 지운다.** `<data>/extensions/<id>/.lophn-extension`(JSON `{files[]}`)이 표시 file이다. 켤 때 먼저 두고, `files.write`가 쓰기 전에 그 이름을 더한다(쓰다 멈춰도 다음에 우리 file로 알아본다). `remove(id)`는 내장(`builtin: true`)이거나 켜져 있거나 설정이 켜져 있으면 `conflict`이고, 아니면 적힌 file과 표시 file만 지운 뒤 비게 된 폴더만 치운다(recursive가 아니다). 사람이 그 폴더에 넣은 file과 다른 설정은 남는다. id 꼴이 틀리면 `invalid_input`이다. install에서 그런 extension이 없으면 `not_found`다.
 10. **설정을 읽지 못하면 켜진 것을 끄지 않는다.** core가 잠시 불안정해도 extension이 꺼졌다 켜지지 않는다. `sync`, `install`, `remove`는 차례로 돈다.
 11. **기여한 command와 key는 켜진 동안만 있다.** `extensions/list`가 켜진 extension에만 `contributes`를 싣고, 창 renderer가 다시 읽을 때 앞에 올린 것을 모두 푼 뒤 새로 올린다. 사람이 Settings › Keyboard에서 바꾼 키는 extension을 꺼도 저장에 남는다("없는 command" 줄).
-12. **사람은 Settings › System › Extensions에서 다룬다**(pane id `extension-packages`). 줄마다 이름, 설명, 판, 상태(설치 안 됨 · 꺼짐 · 켜짐 · 판 다름 · 문제와 이유)다. 설치는 표시 file만 둔다. 켜기 단추는 설치되고 설정이 선언된 것에만 있고, 켜기·끄기는 route가 아니라 설정 쓰기다. 지우기는 확인 dialog를 거치고, 켜져 있으면 먼저 끄라고 보인다. route `extensions/*`는 사람 자격만 부르고 `list`는 먼저 `sync`해 방금 바꾼 켜기가 보인다. Settings › General은 `extensions.*` 설정을 보이지 않는다. Settings › Agents의 `tools` pane(문구 "Extensions")은 lophn agent의 skill·MCP라 이것과 다르다.
+12. **사람은 Settings › System › Extensions에서 일반 extension을 다룬다**(pane id `extension-packages`). `builtin: true`인 내장 extension은 목록에서 숨긴다(설치·켜기·지우기 대상이 아니다). 줄마다 이름, 설명, 상태(설치 안 됨 · 꺼짐 · 켜짐 · 문제와 이유)다. 설치는 표시 file만 둔다. 켜기 단추는 설치되고 설정이 선언된 것에만 있고, 켜기·끄기는 route가 아니라 설정 쓰기다. 지우기는 확인 dialog를 거치고, 켜져 있으면 먼저 끄라고 보인다. route `extensions/*`는 사람 자격만 부르고 `list`는 먼저 `sync`해 방금 바꾼 켜기가 보인다. Settings › General은 `extensions.*` 설정을 보이지 않는다. Settings › Agents의 `tools` pane(문구 "Extensions")은 lophn agent의 skill·MCP라 이것과 다르다.
 13. **extension tool의 목록은 extension host가 읽은 manifest의 것이고 메모리에만 있다.** host가 manifest의 tool 전부(켜짐과 상관없이)를 들고, `extension_tools/catalog`와 Gate는 `extensions.<id>.enabled`가 켜진 것만 본다.
 14. **extension tool은 할당한 agent에게만, Gate 한 곳에서 판정한다.** 사람만 쓰는 정의 칸 `extensions`(extension id 목록)로 할당한 agent에게 그 extension의 tool 전부가 `ext__<id>__<tool>`로 실린다([agent-definition.md](agent-definition.md)). 판정은 tool 정의가 아니라 호출 route(`extension_tools/call`) 한 곳의 Gate `extension_tool`이 한다([approval.md](approval.md)): 할당에 없으면 `not_assigned`, 켜진 extension의 catalog에 tool이 없으면(꺼짐, 목록에서 빠짐) `removed`, 아니면 `run`이다. 판정이 `run`이 아니면 `forbidden`이다. 묻지 않고 결과를 untrusted로 감싸지 않는다(할당이 곧 허락이다). 이름 꼴이 아니면 `not_found`이고, session과 turn에 묶인 agent 자격이 아니면 `forbidden`이다.
 15. **extension tool 호출은 core가 handler를 바로 부르고, handler는 agent 자격으로 core를 부른다.** core가 이 호출만 쓰는 agent 자격(그 workspace 종류의 `lophn` 명령 route가 상한, process `extension`)을 내고 extension host의 handler를 부르며, 끝나면 자격을 거둔다. 앱(shell)이 없어도 된다. handler는 `(input, {session, workspace, core})`를 받아 content(글, 이미지)를 돌려주고, 그 `core`는 사람 권한인 `ctx.core`가 아니라 그 호출 session의 agent 자격이다. 모양이 틀린 결과는 호출을 끝내지 못하게 두지 않고 `internal`로 바꾼다. harness agent는 같은 route를 `lophn ext call <ext__…> --input '<json>'`로 부른다.

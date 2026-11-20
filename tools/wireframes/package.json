@@ -4,9 +4,9 @@
   "type": "module",
   "exports": "./main.tsx",
   "dependencies": {
-    "@lophn/app-ui": "2.22.0",
+    "@lophn/app-ui": "2.22.1",
     "@lophn/i18n": "1.0.0",
-    "@lophn/ui": "1.1.0",
+    "@lophn/ui": "1.2.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@xterm/xterm": "6.0.0",

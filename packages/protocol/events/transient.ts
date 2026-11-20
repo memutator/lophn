@@ -292,13 +292,6 @@ const terminalAgentSignaled = defineTransientEvent("TerminalAgentSignaled", {
   }),
 });
 
-// 탭에서 친 `<harness> gui`를 harness-gui extension이 꺼져 있어 열지 못했다. shell main이 그 터미널을 보이는 창에
-// Settings › Extensions를 연다.
-const terminalGuiOff = defineTransientEvent("TerminalGuiOff", {
-  subject: terminalSubjectSchema,
-  payload: z.strictObject({ terminal: z.string().min(1) }),
-});
-
 // 자동 hook 설치가 끝났다.
 const hookInstallFinished = defineTransientEvent("HookInstallFinished", {
   subject: z.null(),
@@ -330,6 +323,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(terminalOutputAppended),
   transientEventEnvelopeSchema(terminalRuntimeChanged),
   transientEventEnvelopeSchema(terminalAgentSignaled),
-  transientEventEnvelopeSchema(terminalGuiOff),
   transientEventEnvelopeSchema(hookInstallFinished),
 ]);

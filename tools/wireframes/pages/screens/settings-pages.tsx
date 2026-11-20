@@ -300,7 +300,7 @@ export const SettingsBrowserBookmarksCorrupt = () => (
   <SettingsFrame pane="browser" browser={{ corrupt: true }} />
 );
 
-/** Settings › Extensions: 켜짐(Harness GUI, [Turn off]), 설치했지만 꺼짐(Harness agents, [Turn on]), 설치 안 됨(Demo, [Install]) 세 줄. */
+/** Settings › Extensions: 내장 extension(Harness GUI)은 숨고, 설치했지만 꺼짐(Harness agents, [Turn on])과 설치 안 됨(Demo, [Install]) 두 줄. */
 export const SettingsExtensions = () => (
   <SettingsFrame pane="extension-packages" extensions />
 );

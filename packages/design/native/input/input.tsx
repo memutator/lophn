@@ -8,6 +8,11 @@ import { scaleText, useTheme } from "../theme.tsx";
 // What a screen reader (and the agent that drives the phone) calls an input: the label of the Field around it.
 const FieldLabel = createContext<string | undefined>(undefined);
 
+/** Reads the enclosing Field label when a control sits inside one. */
+export function useFieldLabel(): string | undefined {
+  return useContext(FieldLabel);
+}
+
 export interface InputProps {
   value: string;
   onChangeText: (value: string) => void;

@@ -31,6 +31,8 @@ import {
   Input,
   Label,
   ListCard,
+  type MachineOption,
+  MachineSelector,
   Mark,
   Markdown,
   Menu,
@@ -303,6 +305,13 @@ export function ControlsPage({ onBack }: { onBack: () => void }) {
   const [seg, setSeg] = useState(1);
   const [filter, setFilter] = useState(1);
   const [pick, setPick] = useState(0);
+  const [machine, setMachine] = useState<string | null>("mch_studio");
+  const [machineFilter, setMachineFilter] = useState<string | null>(null);
+  const sampleMachines: readonly MachineOption[] = [
+    { id: "mch_studio", name: "Studio", status: "online", current: true, detail: "Direct" },
+    { id: "mch_server", name: "Home server", status: "online", detail: "Relay" },
+    { id: "mch_laptop", name: "Laptop", status: "offline", detail: "Last seen 3h ago", disabled: true },
+  ];
   return (
     <Page title="Controls" onBack={onBack}>
       <Label>Button</Label>
@@ -376,6 +385,24 @@ export function ControlsPage({ onBack }: { onBack: () => void }) {
       <Label>FilterChips</Label>
       <Pad>
         <FilterChips items={["All", "Last 7 days", "Open"]} on={filter} onChange={setFilter} />
+      </Pad>
+      <Label>MachineSelector</Label>
+      <Pad>
+        <Field label="Computer">
+          <MachineSelector
+            machines={sampleMachines}
+            value={machine}
+            onValueChange={setMachine}
+          />
+        </Field>
+        <MachineSelector
+          variant="pills"
+          allowAll
+          ariaLabel="Filter by computer"
+          machines={sampleMachines}
+          value={machineFilter}
+          onValueChange={setMachineFilter}
+        />
       </Pad>
       <Label>Chip · Pill</Label>
       <Pad>

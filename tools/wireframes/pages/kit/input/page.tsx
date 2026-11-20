@@ -11,6 +11,8 @@ import {
   Field,
   FieldContext,
   Input,
+  type MachineOption,
+  MachineSelector,
   SearchSelect,
   SegmentedControl,
   Select,
@@ -95,10 +97,46 @@ const VIEWS = [
   { value: "year", label: "Year", disabled: true },
 ];
 
+const MACHINES: readonly MachineOption[] = [
+  {
+    id: "mch_studio",
+    name: "Studio",
+    status: "online",
+    current: true,
+    detail: "This computer",
+  },
+  {
+    id: "mch_server",
+    name: "Home server",
+    status: "online",
+    detail: "Direct",
+  },
+  {
+    id: "mch_mini",
+    name: "Build box",
+    status: "connecting",
+  },
+  {
+    id: "mch_old",
+    name: "Workstation",
+    status: "update",
+  },
+  {
+    id: "mch_laptop",
+    name: "Laptop",
+    status: "offline",
+    detail: "Last seen 3h ago",
+    disabled: true,
+  },
+];
+
 export function KitInput() {
   const [swatch, setSwatch] = useState("blue");
   const [status, setStatus] = useState("complete");
   const [view, setView] = useState("week");
+  const [machine, setMachine] = useState<string | null>("mch_studio");
+  const [machineFilter, setMachineFilter] = useState<string | null>(null);
+  const [pillMachine, setPillMachine] = useState<string | null>(null);
   const [day, setDay] = useState("2026-10-09");
   const [font, setFont] = useState("D2Coding");
   const [due, setDue] = useState("");
@@ -224,6 +262,53 @@ export function KitInput() {
                 onValueChange={() => {}}
               />
             </Field>
+          </div>
+        </div>
+      </Section>
+      <Section
+        title="MachineSelector"
+        note="컴퓨터 하나(또는 전체)를 골라 화면이나 설정을 나눈다. 기본 select는 상태 점과 보조 설명을 함께 보이고, pills는 2–4대를 한 줄에서 바로 바꾼다."
+      >
+        <div className={kit.colTwo}>
+          <div className={kit.column}>
+            <div className={kit.field}>
+              <Field label="Target machine">
+                <MachineSelector
+                  machines={MACHINES}
+                  value={machine}
+                  onValueChange={setMachine}
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Scope (with All, sm)">
+                <MachineSelector
+                  size="sm"
+                  allowAll
+                  machines={MACHINES}
+                  value={machineFilter}
+                  onValueChange={setMachineFilter}
+                />
+              </Field>
+            </div>
+          </div>
+          <div className={kit.column}>
+            <MachineSelector
+              variant="pills"
+              allowAll
+              ariaLabel="Filter by machine"
+              machines={MACHINES.slice(0, 3)}
+              value={pillMachine}
+              onValueChange={setPillMachine}
+            />
+            <MachineSelector
+              variant="pills"
+              size="sm"
+              ariaLabel="Switch machine"
+              machines={[MACHINES[0], MACHINES[1], MACHINES[4]]}
+              value={machine}
+              onValueChange={setMachine}
+            />
           </div>
         </div>
       </Section>

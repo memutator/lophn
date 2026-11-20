@@ -5,6 +5,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import type { LucideIcon } from "lucide-react";
 
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { type MachineRef, useMachineHub } from "../desktop/machines/scope.tsx";
 import {
   IconImage,
   useDrawableIcon,
@@ -18,6 +19,7 @@ import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
 import { workspaceIcons } from "../icons/mod.ts";
 import styles from "./app-icon.module.css";
 import { type AppViewsDeps, useAppViews } from "./app-views.tsx";
+import { appIconReader } from "./machine-app-source.ts";
 
 /** core `apps.icon`을 data URL(앱이 lucide를 선언했으면 `lucide:<이름>`)로 옮긴다. 사람이 올린 icon이 앞서고, 없으면 선언한 icon이다. 없거나 읽지 못하면 undefined다. */
 export function coreAppIcon(
@@ -39,22 +41,29 @@ export function coreAppIcon(
   }, now);
 }
 
-/** 앱 icon의 src(data URL이나 `lucide:<이름>`). 없거나 앱 view 통로가 없으면 undefined다. */
-export function useAppIcon(app: string | undefined): string | undefined {
-  return useDrawableIcon(useIconSrc(useAppViews()?.icon, app));
+/** 앱 icon의 src(data URL이나 `lucide:<이름>`). `machine`을 주면 그 기계에서 읽는다. 없거나 앱 view 통로가 없으면 undefined다. */
+export function useAppIcon(
+  app: string | undefined,
+  machine?: MachineRef,
+): string | undefined {
+  const hub = useMachineHub();
+  const scope = useAppViews();
+  return useDrawableIcon(useIconSrc(appIconReader(hub, scope, machine), app));
 }
 
 /** 탭 줄·사이드바의 앱 아이콘. 앱 icon이 없으면 fallback(기본은 앱 패널 아이콘)이다. */
 export function AppTabIcon({
   app,
+  machine,
   pixels = iconPixels("small"),
   fallback = workspaceIcons.appPanel,
 }: {
   app: string | undefined;
+  machine?: MachineRef;
   pixels?: number;
   fallback?: LucideIcon;
 }) {
-  const icon = useAppIcon(app);
+  const icon = useAppIcon(app, machine);
   if (icon === undefined) {
     return <Icon icon={fallback} pixels={pixels} />;
   }
@@ -66,13 +75,15 @@ export function AppWorkspaceMark({
   id,
   name,
   icon,
+  machine,
 }: {
   id: string;
   name: string;
   /** 부르는 쪽이 이미 가진 이미지. 있으면 그것을 쓴다. */
   icon?: string;
+  machine?: MachineRef;
 }) {
-  const declared = useAppIcon(icon === undefined ? id : undefined);
+  const declared = useAppIcon(icon === undefined ? id : undefined, machine);
   const src = icon ?? declared;
   return (
     <WorkspaceMark

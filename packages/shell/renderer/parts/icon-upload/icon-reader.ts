@@ -93,11 +93,12 @@ export function useIconSrc(
   read: IconReader | undefined,
   id: string | undefined,
 ): string | undefined {
-  // id가 바뀌면 이전 id의 그림이 잠깐이라도 남지 않게 id와 함께 쥔다.
+  // id나 reader(기계)가 바뀌면 이전 그림이 잠깐이라도 남지 않게 함께 쥔다.
   const [shown, setShown] = useState<{
+    read: IconReader | undefined;
     id: string | undefined;
     src: string | undefined;
-  }>({ id: undefined, src: undefined });
+  }>({ read: undefined, id: undefined, src: undefined });
   const [version, setVersion] = useState(0);
   useEffect(
     () =>
@@ -110,11 +111,11 @@ export function useIconSrc(
     if (id === undefined || read === undefined) return;
     let live = true;
     void read(id).then((src) => {
-      if (live) setShown({ id, src });
+      if (live) setShown({ read, id, src });
     });
     return () => {
       live = false;
     };
   }, [id, read, version]);
-  return shown.id === id ? shown.src : undefined;
+  return shown.read === read && shown.id === id ? shown.src : undefined;
 }

@@ -29,6 +29,12 @@ import {
 import { changeSessionSkip } from "../../protocol/lophn-agent/sessions.ts";
 import { resolveMachine } from "../../protocol/machine/requester.ts";
 import { projectApi } from "../../protocol/projects/project-api.ts";
+import {
+  projectFilesCreate,
+  projectFilesRemove,
+  projectFilesRename,
+  projectFilesWrite,
+} from "../../protocol/projects/project-files.ts";
 import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
 import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
 import {
@@ -102,6 +108,10 @@ const routes: Route[] = [
   settingsUpdate,
   agentCreate,
   projectApi.register,
+  projectFilesWrite,
+  projectFilesCreate,
+  projectFilesRename,
+  projectFilesRemove,
 ];
 
 // 허락이 있어도 열지 않는 route다. 두 기기 목록 어디에도 없어야 한다. 목록 file에서 뽑지 않고 이름으로 적는다:
@@ -198,6 +208,19 @@ const table: [string, unknown][] = [
       folders: [],
     }),
   ],
+  [
+    "project_files/write",
+    { project: `prj_0${"1".repeat(25)}`, path: "a.md", text: "hi" },
+  ],
+  [
+    "project_files/create",
+    { project: `prj_0${"1".repeat(25)}`, path: "b.md", kind: "file" },
+  ],
+  [
+    "project_files/rename",
+    { project: `prj_0${"1".repeat(25)}`, from: "a.md", to: "c.md" },
+  ],
+  ["project_files/remove", { project: `prj_0${"1".repeat(25)}`, path: "c.md" }],
 ];
 
 function setup(
@@ -272,6 +295,16 @@ function setup(
       [pathOf(mcpAuthCallback), reach(pathOf(mcpAuthCallback))],
       [pathOf(appsOAuthBegin), reach(pathOf(appsOAuthBegin))],
       [pathOf(appsOAuthCallback), reach(pathOf(appsOAuthCallback))],
+      [
+        pathOf(projectFilesWrite),
+        () => {
+          reached.push(pathOf(projectFilesWrite));
+          return ok({ hash: "a".repeat(64) });
+        },
+      ],
+      [pathOf(projectFilesCreate), reach(pathOf(projectFilesCreate))],
+      [pathOf(projectFilesRename), reach(pathOf(projectFilesRename))],
+      [pathOf(projectFilesRemove), reach(pathOf(projectFilesRemove))],
       ...NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
     ]),
     reads: new Map(
@@ -402,6 +435,10 @@ test("터미널 입력 허락이 없는 기기는 secret, provider, 설정 쓰�
     "apps/oauth_callback",
     "writer agents/create",
     "writer projects/create",
+    "project_files/write",
+    "project_files/create",
+    "project_files/rename",
+    "project_files/remove",
   ]);
   assert.deepEqual(s.received, [SECRET_VALUE, SECRET_VALUE, SECRET_VALUE]);
   assert.equal(s.issued.length, 1);
@@ -443,6 +480,10 @@ test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요�
       "agent-mcp-auth/callback",
       "apps/oauth_begin",
       "apps/oauth_callback",
+      "project_files/write",
+      "project_files/create",
+      "project_files/rename",
+      "project_files/remove",
     ]) {
       assert.deepEqual(
         codes.find(([each]) => each === path),

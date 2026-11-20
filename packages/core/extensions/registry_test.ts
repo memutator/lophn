@@ -214,3 +214,43 @@ test("tool handler는 켜진 동안만 불리고, tool 목록은 켜진 것과 �
   assert.ok(!after.ok && after.error.code === "not_found");
   assert.equal(t.registry.catalog().length, 1);
 });
+
+test("builtin extension은 설정 선언 없이 sync에서 자동 활성화되고 지울 수 없다", async () => {
+  const builtinManifest = JSON.stringify({
+    id: "core-gui",
+    name: "Core GUI",
+    description: "Built-in chat view",
+    entry: "index.cjs",
+    provides: ["chat"],
+    builtin: true,
+    contributes: {
+      keybindings: [
+        {
+          command: "agent.cycle-mode",
+          key: { other: "Shift+Tab" },
+          context: "agentView:claude",
+        },
+      ],
+    },
+  });
+  const t = setup({ "core-gui": builtinManifest });
+  await t.registry.sync();
+
+  assert.deepEqual(t.calls, ["activate"]);
+  assert.deepEqual(t.loaded, [`${BUNDLED}/core-gui/index.cjs`]);
+
+  const [view] = await t.registry.list();
+  assert.equal(view?.id, "core-gui");
+  assert.equal(view?.status, "on");
+  assert.equal(view?.installed, true);
+  assert.equal(view?.builtin, true);
+  assert.equal(view?.contributes?.keybindings.length, 1);
+
+  // 설정이 없어도 다시 sync할 때 꺼지지 않는다.
+  await t.registry.sync();
+  assert.deepEqual(t.calls, ["activate"]);
+
+  // 내장 extension은 remove할 수 없다.
+  const removed = await t.registry.remove("core-gui");
+  assert.ok(!removed.ok && removed.error.code === "conflict");
+});

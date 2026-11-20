@@ -1,5 +1,5 @@
 id: auto-hook-install-and-remote-coding-settings
-version: 0.23.99
+version: 0.23.100
 title: coding agent 전역 hook을 처음 감지·열기 때 자동으로 설치하고(Settings 제거 시 영구 opt-out), 원격 Settings › Coding agents를 연다
 modules:
   - packages/protocol

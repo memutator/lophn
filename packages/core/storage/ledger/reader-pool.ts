@@ -34,7 +34,9 @@ type Slot = {
   startedAt?: number;
 };
 
-const READER_READY_MS = 10000;
+// reader 기동은 모든 등록 module을 TS 그대로 읽어 들이므로 느린 machine에서 몇 초씩 걸리고, 두 reader와
+// writer가 같이 뜨면 더 걸린다(VPS에서 10초를 넘겨 core가 뜨지 못했다). 이 기한은 멈춘 worker만 잡는다.
+const READER_READY_MS = 60000;
 // 줄에 서는 read의 상한: caller(principal)마다, 전체. 다른 caller는 공정 순서로 돈다.
 const PER_CALLER = 8;
 const WAITING_MAX = 64;

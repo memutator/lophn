@@ -1,0 +1,15 @@
+id: reader-boot-timeout
+version: 0.23.104
+title: 느린 machine에서 reader worker 기동이 10초를 넘겨 core가 뜨지 못하던 것을 고친다
+modules:
+  - packages/core/storage
+change: |
+  - reader worker의 기동 기한(`READER_READY_MS`)을 10초에서 60초로 늘렸다.
+why: |
+  reader worker는 기동 때 모든 등록 module을 TS 그대로 읽어 들인다. VPS(AMD EPYC 8 vCPU)에서 reader 하나는 3~4초,
+  두 reader를 같이 띄우면 한가한 상태에서도 8.4초가 걸렸고, 실제 core 기동에서는 writer도 같이 떠 10초를 넘겼다.
+  기동 기한을 넘기면 pool 생성이 실패해 core 전체가 `start_failed`(`reader가 현재 요청을 처리할 수 없다`)로 뜨지 않았다.
+  이 기한은 멈춘 worker를 잡기 위한 것이라 느리지만 살아 있는 기동까지 거절할 이유가 없다.
+decisions: []
+checklist:
+  - "VPS에 새 판을 깐 뒤 `lophn remote devices`가 core를 띄우고 log에 `started`가 찍히는지 확인한다"

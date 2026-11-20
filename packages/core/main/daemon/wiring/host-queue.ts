@@ -164,6 +164,8 @@ type TabDeps = {
   phoneCall: PhoneDriveDeps["call"];
   // session의 agent가 보이는 이름. 폰의 "is driving" 줄에 간다. 못 읽으면 null.
   agentName(session: string): string | null;
+  // agent가 browser 탭을 폈다(`TabShowRequested`). 그 session을 다른 컴퓨터에서 보는 창이 원격 보기 탭을 연다.
+  shown(session: Id<"ses">, tab: Id<"tab">): void;
 };
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
@@ -488,6 +490,13 @@ export function createTabHandlers(deps: TabDeps) {
     if (!caller.ok) return caller;
     const input = tabsShow.input.parse(body);
     const shown = queue.show(input.tab as Id<"tab">, caller.value);
+    // 원격 보기는 browser 탭만 본다(`page_view/*`). preview·artifact 탭은 그 기계의 창에서만 펴진다.
+    if (shown.ok && caller.value !== "person") {
+      const found = queue.browserTab(shown.value, caller.value);
+      if (found.ok && found.value.view === "browser") {
+        deps.shown(caller.value, shown.value);
+      }
+    }
     return shown.ok
       ? ok({ tab: shown.value, status: "accepted" as const })
       : shown;
@@ -880,6 +889,13 @@ export const hostQueueWiring: WiringFactory = () => {
         previewViews: (app) => ctx.appViews.previewViews(app),
         phoneCall: (request) => ctx.phoneLink.call(request),
         agentName,
+        shown: (session, tab) =>
+          ctx.bus.publish({
+            type: "TabShowRequested",
+            subject: session,
+            at: ctx.clock.now(),
+            payload: { tab },
+          }),
       });
       tabs = handlers;
 

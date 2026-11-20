@@ -136,6 +136,7 @@ function setup(
       return Promise.resolve(phone.answer(call));
     },
     agentName: (session) => (session === id("ses", 1) ? "Builder" : null),
+    shown: () => {},
   });
   return { clock, queue, terminals, ...handlers };
 }

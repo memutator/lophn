@@ -1,0 +1,21 @@
+id: headless-login-show
+version: 0.23.102
+title: "화면 없는 기계의 browser page가 사람이 보는 화면에 뜨고, 받을 수 없는 login 요청은 바로 끊는다"
+modules: [packages/protocol, packages/core/main, packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전:
+    - 화면 없는 기계(page host)에서 agent가 `lophn login request`를 내면 core가 요청을 받아 card를 세웠다. 다른 컴퓨터의 창에서는 card가 "This opens only on <기계>"와 [Cancel]만 보였고, 그 기계에는 화면이 없어 아무도 답하지 못했다. agent는 사람이 Cancel할 때까지 기다렸다.
+    - 같은 기계에서 `lophn tab show`는 page host가 할 일 없이 done으로 답해, agent는 폈다고 믿었지만 어느 화면에도 뜨지 않았다.
+  후:
+    - page host가 `login request`의 origin 재기를 정한 문장과 `unavailable`로 끊는다. agent는 바로 오류를 받고, 저장한 login의 `fill-login`을 쓰거나 `tab show`로 사람에게 page를 보이라는 안내를 받는다.
+    - agent가 browser 탭을 `tab show`로 펴면 core가 `TabShowRequested {tab}`(subject session)을 낸다. 그 session의 대화를 다른 컴퓨터의 창에서 보고 있으면 그 창이 그 page의 원격 보기 탭을 열고 고른다. 이 컴퓨터의 session은 그대로 shell main이 float을 편다.
+why: |
+  화면 없는 VM에서 agent가 Google 로그인을 사람에게 청했다가, 아무도 답할 수 없는 card 앞에서 멈췄다. 사람 손이 필요한 page는 그 session을 보는 화면에 닿아야 한다.
+decisions:
+  - text: |
+      `tab show`를 받는 곳은 탭을 연 기계가 아니라 그 session을 보는 화면이다. core가 presence로 화면을 고르지 않고 event를 내어, 그 session의 대화 탭을 그리는 창(고른 탭만 그려진다)이 스스로 원격 보기 탭을 연다.
+    by: person
+  - text: |
+      page host의 login 요청은 받지 않고 끊는다. 다른 컴퓨터의 창에서 login 값을 받아 그 기계에 저장하는 길은 만들지 않았다. 원격 보기로 직접 칠 수 있게 된 뒤 필요한지 다시 본다.
+    by: agent

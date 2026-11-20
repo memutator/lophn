@@ -5,11 +5,14 @@
 // 같은 project 줄 안의 다른 기계 session은 그 기계(`TabItem.machine`)를 단 탭이다: 그 기계의 agent 통로로 읽고, 탭의 workspace
 // 칸은 그 기계 안의 workspace다.
 
+import { useEffect, useRef } from "react";
+
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
 import { desktopParts } from "../../conversation/desktop-parts-impl.tsx";
 import type { Draft } from "../../conversation/drafts.ts";
 import { useReportVisible } from "../../conversation/report-visible.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
+import { useEventClient } from "../../desktop/connection/events/hooks.tsx";
 import { conversationIcons } from "../../icons/mod.ts";
 import { newId } from "../../prefixed-id.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
@@ -28,6 +31,7 @@ import type { Desk, WorkspaceRef } from "../../shell/desk-model.ts";
 import { whereInDesk } from "../../shell/desk-model.ts";
 import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
+import { openPage } from "./page-view.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -239,6 +243,37 @@ function ReportVisible({ session }: { session: string | null }) {
   return null;
 }
 
+// 다른 기계의 session에서 agent가 `tab show`로 browser page를 폈다(`TabShowRequested`). 그 기계에 화면이 없을 수 있어, 이 session을
+// 보는 이 창이 그 page의 원격 보기 탭을 연다. 이 컴퓨터의 session은 shell main이 host link의 tab_show로 펴므로 듣지 않는다.
+function ShowRemotePages({
+  session,
+  machine,
+  host,
+}: {
+  session: string;
+  machine: string;
+  host: TabHost;
+}) {
+  const client = useEventClient();
+  // host는 그릴 때마다 새 값이라 구독을 다시 걸지 않게 ref로 든다.
+  const latest = useRef(host);
+  latest.current = host;
+  useEffect(
+    () =>
+      client.subscribe({ types: ["TabShowRequested"] }, (message) => {
+        if (
+          message.kind === "event" &&
+          message.event.type === "TabShowRequested" &&
+          message.event.subject === session
+        ) {
+          openPage(latest.current, machine, message.event.payload.tab);
+        }
+      }),
+    [client, session, machine],
+  );
+  return null;
+}
+
 export const agentKind: TabKindDef = {
   kind: "agent",
   labelKey: "project-workspace.label.kind-agent",
@@ -324,6 +359,8 @@ export const agentKind: TabKindDef = {
     if (tab.machine === undefined && workspace !== fieldOf(host.workspace)) {
       return null;
     }
+    const machine = tab.machine ?? host.machine;
+    const session = sessionOf(tab);
     const slice =
       tab.machine === undefined
         ? own
@@ -331,6 +368,9 @@ export const agentKind: TabKindDef = {
     return (
       <>
         <ReportVisible session={sessionOf(tab)} />
+        {machine === null || session === null ? null : (
+          <ShowRemotePages session={session} machine={machine} host={host} />
+        )}
         <AgentTab
           key={`${tab.key}|${tab.machine ?? ""}|${workspace}`}
           agent={agent}

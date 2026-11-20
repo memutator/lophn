@@ -35,6 +35,15 @@ const NOT_HERE: HostToolOutput = {
       "This computer has no display, so lophn can only open browser pages here. Retrying does not help; tell the person.",
   },
 };
+// origin 재기는 `lophn login request`만 쓴다. 그 요청의 보호 입력 창을 띄울 화면이 없어, 받아 두면 아무도 답하지 못하는 card에
+// agent가 끝없이 기다린다. 그래서 여기서 끊는다.
+const NO_LOGIN_WINDOW: HostToolOutput = {
+  error: {
+    code: "unavailable",
+    message:
+      "This computer has no display, so the person cannot enter a login here. Use a saved login with `fill-login`, or call `lophn tab show` so the person can open this page from another device and sign in there.",
+  },
+};
 
 export function startPageHost(): void {
   // 같은 userData의 lock이라 desktop 앱과 page host는 한 기계에서 같이 돌지 않는다(나중에 뜬 쪽이 끝난다).
@@ -156,6 +165,9 @@ function run(dataRoot: string, isLeaving: () => boolean): void {
   });
   link.onRequest("tab_show", (_payload, request) => done(request.id));
   link.onRequest("browser_call", (payload) => {
+    if (payload.action.kind === "frame_origin") {
+      return Promise.resolve(NO_LOGIN_WINDOW);
+    }
     pages.touch(payload.tab);
     return driver.run(payload);
   });

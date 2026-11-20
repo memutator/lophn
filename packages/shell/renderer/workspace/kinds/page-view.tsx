@@ -29,6 +29,22 @@ export function openPages(host: TabHost, machine: string): void {
   });
 }
 
+/** 그 기계의 page 하나를 탭으로 연다. 이미 열려 있으면 고르기만 한다. 제목은 page를 읽으면 그 page의 제목이 된다. */
+export function openPage(
+  host: TabHost,
+  machine: string | null,
+  page: string,
+  title: string = t("machines.page.kind"),
+): void {
+  host.openTab({
+    key: `page-view-${machine}-${page}`,
+    kind: "page-view",
+    title,
+    ...(machine === null ? {} : { machine }),
+    fields: { page },
+  });
+}
+
 function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
   const client = useEventClient();
   const source = useMemo(() => corePageViewSource(client.core), [client]);
@@ -49,15 +65,7 @@ function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
         <PageList
           source={source}
           machineName={machineName}
-          onOpen={(opened, title) =>
-            host.openTab({
-              key: `page-view-${machine}-${opened}`,
-              kind: "page-view",
-              title,
-              ...(machine === null ? {} : { machine }),
-              fields: { page: opened },
-            })
-          }
+          onOpen={(opened, title) => openPage(host, machine, opened, title)}
         />
       ) : (
         <PageView

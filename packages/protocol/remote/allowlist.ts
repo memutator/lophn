@@ -593,6 +593,8 @@ export const REMOTE_ALLOWED_EVENTS = [
   "TerminalAgentSignaled",
   // 보는 browser page의 그림이나 상태가 바뀌었다(내용 없이 seq만. `page_view/snapshot`을 다시 읽는다)
   "PageViewChanged",
+  // agent가 사람 손이 필요한 browser 탭을 폈다(`tab show`). 그 session을 보는 다른 컴퓨터의 창이 그 page의 원격 보기 탭을 연다
+  "TabShowRequested",
   // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다
   "AppSyncChanged",
 ] as const satisfies readonly BusEvent["type"][];

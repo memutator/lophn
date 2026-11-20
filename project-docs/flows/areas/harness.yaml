@@ -456,7 +456,7 @@ flows:
       - "core에 붙고(core 연결) /host-link에 host로 붙는다. 보이는 workspace는 빈 목록이라 workspace에 묶인 탭 요청은 오지 않는다. browser session 규칙(permission, user agent)을 desktop과 같이 한 번 건다. 저장 dialog를 띄울 화면이 없어 download는 모두 거절한다"
       - "browser 탭의 tab_open은 탭마다 offscreen 창 하나(browser partition, sandbox)를 만들고 frame rate를 10으로 둔다. 빈 page를 먼저 연 뒤 debugger를 emulation owner로 붙여 1280x800 크기를 주고(아무것도 load하지 않은 page에 보내면 process가 죽는다. main frame이 옮길 때마다 다시 건다: 안 걸면 screencast가 1x1 창을 찍고 멈춘다) opened로 답하고 첫 주소를 load한다. 첫 주소와 page 안의 main frame 이동·redirect는 navigation 규칙을 지난다(첫 주소가 못 지나면 빈 page). popup과 webview 붙이기는 거절한다. 이미 page가 있는 탭이면 다시 만들지 않는다"
       - "page가 12개면 가장 오래 쓰지 않은 page(browser_call과 열기가 쓴 때)를 닫는다. url·title·loading이 바뀌면 report를, page가 닫히거나 renderer가 죽으면 report closed를 보내고 그 탭의 take control과 stream을 지운다"
-      - "tab_close는 page를 닫고 done, tab_show는 done이다. browser_call은 desktop과 같은 driver로 돌린다(browser-call-run). page_stream·page_read·page_input·page_control은 desktop과 같은 stream이 받는다. 연결이 다시 열리면 stream을 다 끈다(core가 lease마다 다시 켠다)"
+      - "tab_close는 page를 닫고 done, tab_show는 펼 창이 없어 done이다(사람에게는 core의 TabShowRequested가 다른 컴퓨터의 창으로 닿는다. remote-tab-show). browser_call의 frame_origin은 `lophn login request`만 쓰는데 그 보호 입력 창을 띄울 화면이 없어, 받으면 아무도 답하지 못하는 card에 agent가 끝없이 기다린다. 그래서 정한 문장(저장한 login의 fill-login을 쓰거나 tab show로 사람에게 다른 기기에서 열게 하라)과 unavailable로 끊는다. 그 밖의 browser_call은 desktop과 같은 driver로 돌린다(browser-call-run). page_stream·page_read·page_input·page_control은 desktop과 같은 stream이 받는다. 연결이 다시 열리면 stream을 다 끈다(core가 lease마다 다시 켠다)"
       - "core 연결은 desktop 앱과 같아 core가 죽으면 다시 띄운다(선 지 60초 안에 죽는 일이 5번 이어지면 그만 띄운다). core가 내려간다고 알렸으면(core stop) 다시 띄우지 않는다. /host-link가 60초 넘게 닫혀 있으면 core가 없는 것으로 보고 끝난다. second-instance로 `--quit`이 오면 끝난다. `--page-host`·`--core`가 아닌 그 밖의 시작(사람이 앱을 누름)은 그 시작이 lock 요청에 실어 보낸 env에 display가 있으면 page host 자신의 data root(`--home`과 LOPHN_HOME)로 desktop 앱을 다시 띄우게 해 두고 끝난다. 그 env에서는 화면 값만 가져온다(page host의 env에는 display가 없다). 그 시작의 argv와 LOPHN_HOME은 쓰지 않는다(Chromium이 switch를 다시 늘어놓아 `--home` 값이 떨어질 수 있다). display가 없는 시작이면 page host가 남는다. 이미 떠 있는 desktop 앱이 second-instance로 `--page-host`를 받으면 `--agent-window`와 같게 읽는다"
     outcomes:
       - id: opened
@@ -475,6 +475,10 @@ flows:
         code: unavailable
         when: "browser가 아닌 탭 열기가 왔다(보이는 workspace가 없어 오지 않는다)"
         observe: [response]
+      - id: no-login-window
+        code: unavailable
+        when: "browser_call frame_origin이 왔다(`lophn login request`). 보호 입력 창을 띄울 화면이 없다"
+        observe: [response]
       - id: core-gone
         when: "/host-link가 60초 넘게 닫혀 있었다(core stop, 또는 다시 띄운 core가 이어 죽어 그만 띄움)"
         observe: ["process:page host가 끝난다", "log:core is gone; quitting"]
@@ -492,7 +496,6 @@ flows:
     docs: [architecture/browser-tab.md, architecture/platform.md]
     unclear:
       - "설치본이 `--no-sandbox` 없이 최소 server image에서 뜨는지(setuid chrome-sandbox, X11 library)는 확인하지 못했다"
-      - "page host에는 `lophn login request`의 보호 입력 창이 없다. 사람은 멀리서 보며 직접 친다"
       - "core가 다시 떠 탭 표를 잃으면 page host의 page는 상한에 밀려 닫힐 때까지 남는다"
 
   - id: host-preview-tab-open
@@ -757,9 +760,10 @@ flows:
       - "탭이 없으면 not_found. 주인이 다른 탭이면 forbidden"
       - "phone 탭이면 탭이 폰에 있어 펼 것이 없으므로 invalid_input(사람에게 폰을 보라고 하라는 정한 문장)이다"
       - "탭은 표에 그대로 두고 tab_show 요청을 그 탭의 workspace로 넣는다. 접힌 float을 그 자리에서 펴는 것은 shell main이 /host-link로 받아 하고, float이 아니거나 이미 펴져 있으면 할 일이 없다"
+      - "agent가 편 browser 탭이면 TabShowRequested {tab}을 subject <session>으로 Bus에 낸다. 그 session을 다른 컴퓨터에서 보는 창이 그 page의 원격 보기 탭을 연다(remote-tab-show). 화면 없는 기계에서는 이 길만 사람에게 닿는다. preview·artifact 탭과 사람 token이 편 탭은 내지 않는다"
     outcomes:
       - id: accepted
-        observe: [response]
+        observe: [response, event:TabShowRequested]
       - id: not_found
         code: not_found
         when: "탭이 없다"
@@ -774,6 +778,25 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/browser-tab.md]
+
+  - id: remote-tab-show
+    title: 다른 기계의 session을 보는 이 컴퓨터의 창이 그 agent가 편 browser page를 원격 보기 탭으로 연다
+    actor: shell
+    entries: [system:remote-tab-show]
+    pre: [host-tab-show:accepted]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/agent.tsx
+      - packages/shell/renderer/workspace/kinds/page-view.tsx
+    steps:
+      - "다른 기계의 session을 그리는 agent 탭(기계를 단 탭이나 다른 기계의 workspace에 선 탭)이 그 기계의 범위에서 TabShowRequested를 듣는다. 고른 탭만 그려지므로 그 session을 지금 보는 창만 듣는다"
+      - "subject가 그 session이면 그 page의 원격 보기 탭(key page-view-<기계>-<탭>)을 열고 고른다. 이미 열려 있으면 고르기만 한다. 다룰 수 있는지(터미널 입력 허락)는 그 탭이 보인다(page-view-snapshot)"
+      - "이 컴퓨터의 session은 듣지 않는다. shell main이 host link의 tab_show로 접힌 float을 편다"
+    outcomes:
+      - id: opened
+        observe: [event:TabShowRequested, "screen:shell-machine-page"]
+    crosses_process: false
+    docs: [architecture/browser-tab.md, architecture/remote.md]
 
   - id: host-browser-read
     title: agent나 사람 token이 자기가 연 browser 탭의 url, title, loading을 읽는다
@@ -1071,7 +1094,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "shell이 붙어 있지 않거나 탭이 창에 열려 있지 않거나 origin 재기가 기한을 넘겼다. once 값을 알려진 값으로 올리지 못했다. 값은 저장했지만 provider 연결이 실패했다(값은 지운다. core가 낸 code를 그대로 돌려줘 다른 code일 수 있다)"
+        when: "shell이 붙어 있지 않거나 탭이 창에 열려 있지 않거나 origin 재기가 기한을 넘겼다. 탭이 화면 없는 기계의 page host에 있어 보호 입력 창을 띄울 수 없다(page-host-serve:no-login-window). once 값을 알려진 값으로 올리지 못했다. 값은 저장했지만 provider 연결이 실패했다(값은 지운다. core가 낸 code를 그대로 돌려줘 다른 code일 수 있다)"
         observe: [response]
       - id: invalid_input
         code: invalid_input

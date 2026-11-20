@@ -244,6 +244,13 @@ const pageViewChanged = defineTransientEvent("PageViewChanged", {
   }),
 });
 
+// agent가 `tab show`로 자기 browser 탭을 사람에게 폈다. 그 기계의 창은 host link의 tab_show로 펴고, 그 session을 다른 컴퓨터에서
+// 보는 창은 이 event로 그 page의 원격 보기 탭을 연다. 화면 없는 기계에서는 이 길만 사람에게 닿는다.
+const tabShowRequested = defineTransientEvent("TabShowRequested", {
+  subject: idSchema("ses"),
+  payload: z.strictObject({ tab: idSchema("tab") }),
+});
+
 // `machines/watch`로 건 다른 기계의 Gateway frame 하나를 이 컴퓨터의 bus에 싣는다. subject는 `machine:<mch_>`다.
 // `event`를 bus event schema로 적지 않는 것은 이 file → gateway → bus → 이 file의 순환 때문이다. 받는 쪽(shell main)이
 // bus event schema로 읽는다. 기기 event 목록(REMOTE_ALLOWED_EVENTS)에 넣지 않는다: 다른 기계의 내용이 폰에 그대로 가지 않게 한다.
@@ -319,6 +326,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(stateChanged),
   transientEventEnvelopeSchema(terminalScreenChanged),
   transientEventEnvelopeSchema(pageViewChanged),
+  transientEventEnvelopeSchema(tabShowRequested),
   transientEventEnvelopeSchema(machineFrameReceived),
   transientEventEnvelopeSchema(terminalOutputAppended),
   transientEventEnvelopeSchema(terminalRuntimeChanged),

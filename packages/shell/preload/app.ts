@@ -42,11 +42,13 @@ if (new URLSearchParams(location.search).get("place") === "tray") {
   const report = () => {
     const body = document.body;
     if (body === null) return;
+    const clientWidth = document.documentElement.clientWidth;
+    const height = body.getBoundingClientRect().height;
+    // DOMContentLoaded 직후 빈 root(height 0)나 크기가 잡히기 전(clientWidth 0) 값은 올리지 않는다.
+    if (height <= 0 || clientWidth <= 0) return;
     ipcRenderer.sendToHost(APP_CONTENT_SIZE_CHANNEL, {
-      overflow:
-        document.documentElement.scrollWidth -
-        document.documentElement.clientWidth,
-      height: body.getBoundingClientRect().height,
+      overflow: document.documentElement.scrollWidth - clientWidth,
+      height,
     });
   };
   const watch = () => {

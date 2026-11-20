@@ -19,6 +19,7 @@ export function readContentSize(value: unknown): ContentSize | null {
   const { overflow, height } = value as Record<string, unknown>;
   if (typeof overflow !== "number" || typeof height !== "number") return null;
   if (!Number.isFinite(overflow) || !Number.isFinite(height)) return null;
-  if (overflow < 0 || height < 0) return null;
+  // 아직 mount되지 않은 빈 body(height 0)는 실제 크기가 아니다. 받으면 popup이 min 높이로 줄었다 튄다.
+  if (overflow < 0 || height <= 0) return null;
   return { overflow: Math.ceil(overflow), height: Math.ceil(height) };
 }

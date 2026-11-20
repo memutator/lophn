@@ -57,9 +57,9 @@
   app-region: no-drag;
 }
 
-/* 내용 크기를 기다리는 동안. 그리기는 해야 앱 page가 크기를 잰다. */
+/* load와 내용 크기를 기다리는 동안. opacity 0이면 Chromium compositor가 <webview> 첫 frame을 건너뛰어 보일 때 깜박인다. */
 .popup[data-waiting] {
-  opacity: 0;
+  opacity: 0.001;
   pointer-events: none;
 }
 

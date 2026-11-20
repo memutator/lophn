@@ -36,6 +36,7 @@ import {
   createWebviewHost,
   WebviewHostProvider,
   WebviewLayer,
+  webviewSupported,
 } from "../../app-frame/webview-host.tsx";
 import { shellIcons } from "../../icons/mod.ts";
 import {
@@ -115,9 +116,11 @@ export function trayItems(
 function PopupBody({
   item,
   workspace,
+  onFailed,
 }: {
   item: TrayPopupItem;
   workspace: TrayOpen["workspace"];
+  onFailed: () => void;
 }) {
   const deps = useAppViews();
   const notRunning = useNotRunningFailure(item.app, item.label);
@@ -134,6 +137,7 @@ function PopupBody({
       label={item.label}
       tabHead
       renderFailure={notRunning.renderFailure}
+      onFailed={onFailed}
       onState={notRunning.onOpened}
     />
   );
@@ -142,36 +146,63 @@ function PopupBody({
 function Popup({
   open,
   place,
-  waiting,
   onPin,
   onClose,
   onContent,
 }: {
   open: TrayOpen;
   place: PopupPlace;
-  /** 내용 크기를 기다린다. 자리는 잡고 보이지 않는다. */
-  waiting: boolean;
   onPin: (pinned: boolean) => void;
   onClose: () => void;
   /** 앱 page가 알린 내용 크기에 머리 줄을 더한 popup 전체의 내용 크기. 범위로 선언한 쪽이 이것을 따른다. */
   onContent: (content: PopupContent) => void;
 }) {
   const { item, side, pinned, anchor } = open;
+  const deps = useAppViews();
   const box = useRef<HTMLDivElement>(null);
   // popup마다 자기 그릇을 가진다. 닫으면 그릇과 안의 화면이 함께 사라진다.
   const host = useMemo(() => createWebviewHost(), []);
   // 앱 화면이 useTabHead로 올린 머리 줄은 제목과 pin 사이에 그린다(card 칸이 없는 자리라 여기가 받는다).
   const [head, setHead] = useHeadSlot();
   const headRow = useRef<HTMLDivElement>(null);
+  // 매번 새로 load하므로, load와(범위 크기면) 첫 유효 크기가 오고 <webview> 첫 frame이 그려질 때까지 숨겨 둔다.
+  const needsSize = followsContent(item.size) && webviewSupported();
+  const [loaded, setLoaded] = useState(false);
+  const [sized, setSized] = useState(false);
+  const [painted, setPainted] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const ready = loaded && (!needsSize || sized);
+  const waiting = deps !== null && !failed && !timedOut && !painted;
+  const onFailed = useCallback(() => setFailed(true), []);
+  useEffect(() => host.onLoaded(() => setLoaded(true)), [host]);
+  useEffect(() => {
+    if (!ready) return;
+    // did-finish-load와 크기 갱신 뒤 <webview> 자리 반영과 guest 첫 frame paint를 기다린다.
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setPainted(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [ready]);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setTimeout(() => setTimedOut(true), CONTENT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [waiting]);
   useEffect(
     () =>
-      host.onContentSize((size) =>
+      host.onContentSize((size) => {
+        setSized(true);
         onContent({
           // 지금 너비에 모자란 만큼을 더한다. 넘치지 않으면 지금 너비 그대로라 줄지 않는다.
           width: (box.current?.offsetWidth ?? 0) + size.overflow,
           height: size.height + (headRow.current?.offsetHeight ?? 0),
-        }),
-      ),
+        });
+      }),
     [host, onContent],
   );
   useEffect(() => {
@@ -228,7 +259,11 @@ function Popup({
       <WebviewHostProvider value={host}>
         <div className={styles.body}>
           <HeadSlotScope set={setHead} actionsOnly>
-            <PopupBody item={item} workspace={open.workspace} />
+            <PopupBody
+              item={item}
+              workspace={open.workspace}
+              onFailed={onFailed}
+            />
           </HeadSlotScope>
         </div>
         <WebviewLayer host={host} />
@@ -246,7 +281,7 @@ function followsContent(size: PopupSize | undefined): boolean {
   );
 }
 
-/** 내용 크기를 기다리는 가장 긴 시간. 앱이 크기를 알리지 않아도 popup은 뜬다. */
+/** load와 내용 크기를 기다리는 가장 긴 시간. 앱이 응답하지 않아도 popup은 뜬다. */
 const CONTENT_WAIT_MS = 600;
 
 /** 창의 열린 tray popup. Desktop이 workspace 밖에 한 번 놓아 workspace를 옮겨도 다시 mount되지 않는다. */
@@ -257,18 +292,6 @@ export function TrayPopupLayer({ memory }: { memory: TrayMemory }) {
   const [contents, setContents] = useState<ReadonlyMap<string, PopupContent>>(
     () => new Map(),
   );
-  // 처음 여는 항목은 내용 크기가 올 때까지 보이지 않게 둔다(기본 크기로 그렸다가 줄어드는 것을 보이지 않는다).
-  const [waited, setWaited] = useState<string | null>(null);
-  const waiting =
-    open !== null &&
-    followsContent(open.item.size) &&
-    !contents.has(open.item.key) &&
-    waited !== open.item.key;
-  useEffect(() => {
-    if (!waiting || key === null) return;
-    const timer = setTimeout(() => setWaited(key), CONTENT_WAIT_MS);
-    return () => clearTimeout(timer);
-  }, [waiting, key]);
   const [width, setWidth] = useState(() => window.innerWidth);
   useEffect(() => {
     const resize = () => setWidth(window.innerWidth);
@@ -300,7 +323,6 @@ export function TrayPopupLayer({ memory }: { memory: TrayMemory }) {
       key={open.item.key}
       open={open}
       place={place}
-      waiting={waiting}
       onPin={(pinned) => {
         const now = memory.get();
         if (now !== null) memory.set({ ...now, pinned });

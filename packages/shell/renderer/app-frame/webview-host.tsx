@@ -142,6 +142,8 @@ export interface WebviewHost {
   bindAppKeys(key: string, app: string, bridge: AppKeysBridge): () => void;
   /** 앱 page가 알린 내용 크기(ipc/app-content-size.ts). tray popup처럼 그릇에 화면이 하나인 곳이 쓴다. */
   onContentSize(listener: (size: ContentSize) => void): () => void;
+  /** 그릇의 화면이 첫 load(실패 포함)를 마쳤을 때 알린다. 이미 마친 화면이 있으면 바로 부른다. */
+  onLoaded(listener: () => void): () => void;
   release(key: string): void;
   /** 사람이 browser 탭에 켠 Keep alive를 알린다. */
   setUserKeep(key: string, on: boolean): void;
@@ -174,7 +176,7 @@ function zOf(layer: number): string {
 }
 
 // Electron 창에서 webviewTag가 켜져 있을 때만 <webview>가 정의된다. dev mock·gallery는 빈 자리를 그린다.
-function webviewSupported(): boolean {
+export function webviewSupported(): boolean {
   return globalThis.customElements?.get("webview") !== undefined;
 }
 
@@ -270,10 +272,25 @@ function wantsKeep(entry: Entry): boolean {
 export function createWebviewHost(tick?: () => number): WebviewHost {
   const entries = new Map<string, Entry>();
   const sizeListeners = new Set<(size: ContentSize) => void>();
+  const loadedListeners = new Set<() => void>();
   let container: HTMLElement | null = null;
   const driven = new Set<string>();
   let own = 0;
   const now = tick ?? (() => ++own);
+
+  function notifyLoaded(): void {
+    for (const listener of loadedListeners) listener();
+  }
+
+  function place(entry: Entry, box: DOMRect): void {
+    if (entry.rect === null) return;
+    const style = entry.element.style;
+    style.left = `${Math.round(entry.rect.left - box.left)}px`;
+    style.top = `${Math.round(entry.rect.top - box.top)}px`;
+    style.width = `${Math.round(entry.rect.width)}px`;
+    style.height = `${Math.round(entry.rect.height)}px`;
+    style.zIndex = zOf(entry.layer);
+  }
 
   function apply(entry: Entry): void {
     const style = entry.element.style;
@@ -305,18 +322,17 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
         style.visibility = "visible";
         return;
       }
+      // 첫 load 전에도 자리 크기를 미리 잡아 두어야 guest가 실제 너비로 layout·측정하고, 보일 때 0×0에서 튀지 않는다.
+      if (entry.rect !== null && container !== null) {
+        place(entry, container.getBoundingClientRect());
+      }
       style.visibility = "hidden";
       return;
     }
     style.opacity = "";
     style.pointerEvents = "";
     entry.shownAt = now();
-    const box = container.getBoundingClientRect();
-    style.left = `${Math.round(entry.rect.left - box.left)}px`;
-    style.top = `${Math.round(entry.rect.top - box.top)}px`;
-    style.width = `${Math.round(entry.rect.width)}px`;
-    style.height = `${Math.round(entry.rect.height)}px`;
-    style.zIndex = zOf(entry.layer);
+    place(entry, container.getBoundingClientRect());
     style.visibility = "visible";
   }
 
@@ -331,6 +347,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
         if (entry.element !== element) return;
         entry.loaded = true;
         apply(entry);
+        notifyLoaded();
       };
       element.addEventListener("did-finish-load", loaded);
       element.addEventListener("did-fail-load", loaded);
@@ -486,6 +503,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     container?.append(entry.element);
     // agent의 page는 자리가 없어도 첫 load부터 그려야 한다.
     if (entry.agent) apply(entry);
+    if (entry.loaded) notifyLoaded();
     return entry;
   }
 
@@ -503,6 +521,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     if (container !== null) container.append(next);
     apply(entry);
     setTabHead(entry, null);
+    if (entry.loaded) notifyLoaded();
   }
 
   return {
@@ -585,6 +604,16 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     onContentSize(listener) {
       sizeListeners.add(listener);
       return () => sizeListeners.delete(listener);
+    },
+    onLoaded(listener) {
+      for (const entry of entries.values()) {
+        if (entry.loaded) {
+          listener();
+          break;
+        }
+      }
+      loadedListeners.add(listener);
+      return () => loadedListeners.delete(listener);
     },
     sendTabHead(key, event) {
       const entry = entries.get(key);

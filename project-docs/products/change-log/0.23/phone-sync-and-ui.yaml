@@ -1,5 +1,5 @@
 id: phone-sync-and-ui
-version: 0.23.98
+version: 0.23.99
 title: 폰 backend 분리 entry, Wayland restore 재그리기, Home 터미널 coding session, 모바일 UI 보강
 modules:
   - packages/protocol

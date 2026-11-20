@@ -1,5 +1,5 @@
 id: take-in-ui-and-addresses
-version: 0.23.98
+version: 0.23.99
 title: 다른 컴퓨터의 앱을 화면에서 이 컴퓨터에 들이고, remote.addresses를 Settings와 Home 승인 카드로 바꾼다
 modules: [packages/core/config, packages/core/agent-workspaces, packages/shell/renderer, packages/design]
 change: |

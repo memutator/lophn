@@ -6,6 +6,10 @@ import type { OverlayLead } from "./overlay.ts";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const session = z.string().regex(new RegExp(`^ses_${ULID}$`));
+const visibleSession = z.union([
+  session,
+  z.string().regex(/^term:[A-Za-z0-9_-]{1,80}$/),
+]);
 const app = z.string().regex(new RegExp(`^app_${ULID}$`));
 // 이 컴퓨터가 아닌 기계의 id. 없으면 이 컴퓨터다.
 const machine = z.string().regex(/^mch_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
@@ -45,7 +49,11 @@ export const noticeTargetSchema = z.discriminatedUnion("kind", [
  */
 export const noticeVisibleSchema = z.union([
   z
-    .object({ session, machine: machine.optional(), visible: z.boolean() })
+    .object({
+      session: visibleSession,
+      machine: machine.optional(),
+      visible: z.boolean(),
+    })
     .strict(),
   z
     .object({

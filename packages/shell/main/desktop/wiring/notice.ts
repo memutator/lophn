@@ -161,11 +161,13 @@ export function createNoticeWiring(
     const contents = window.webContents.id;
     if (target.kind === "app" || target.kind === "inbox") return false;
     if (target.kind === "terminal") {
-      // 다른 기계의 터미널은 이 컴퓨터의 터미널 표에 없다.
-      return (
-        target.machine === undefined &&
-        focus.focused(contents, target.terminal_ref)
-      );
+      return target.machine === undefined
+        ? focus.focused(contents, target.terminal_ref)
+        : visibility.isVisible(
+            contents,
+            terminalSessionId(target.terminal_ref),
+            target.machine,
+          );
     }
     return (
       visibility.isVisible(contents, target.session, target.machine) ||
@@ -185,7 +187,10 @@ export function createNoticeWiring(
       target.kind === "terminal"
         ? target.machine === undefined
           ? focus.contentsOf(target.terminal_ref)
-          : undefined
+          : visibility.owner(
+              terminalSessionId(target.terminal_ref),
+              target.machine,
+            )
         : target.kind === "session"
           ? visibility.owner(target.session, target.machine)
           : undefined;

@@ -35,10 +35,12 @@ import {
   codingSessionsSwitchPlan,
 } from "../../../protocol/coding-agent/relay.ts";
 import type { BusEvent } from "../../../protocol/events/mod.ts";
+import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
 import {
   type GuiHarness,
   isGuiHarness,
 } from "../../../protocol/extensions/mod.ts";
+import { useReportVisible } from "../conversation/report-visible.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import { guiAgentTabSource } from "../conversation/agent-tab-gui-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
@@ -696,6 +698,13 @@ export function GuiSwitch({
       void bridge.focus({ ...ref, focused: false });
     };
   }, [active, showingGui, deps.bridge, terminalRef, generation]);
+
+  useReportVisible(
+    deps.screenCopy === true && showingGui && terminalRef !== null
+      ? terminalSessionId(terminalRef)
+      : null,
+    active,
+  );
   // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 field에 두고, 이름 규칙이 사람 이름 다음으로 쓴다.
   const onTitle = useCallback(
     (title: string) =>

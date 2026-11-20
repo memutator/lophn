@@ -1,0 +1,16 @@
+id: remote-terminal-unseen-presence
+version: 0.23.103
+title: 원격 터미널 탭(TUI·GUI)을 보고 있을 때도 원격 머신에 presence를 보고해 Finished, not seen yet가 바로 꺼지게 한다
+modules:
+  - packages/shell/ipc
+  - packages/shell/main
+  - packages/shell/renderer
+change: |
+  - `noticeVisibleSchema`(`packages/shell/ipc/notice.ts`)가 `ses_<ULID>`뿐 아니라 `term:<terminal_ref>`도 허용하도록 넓혔다.
+  - 원격 터미널 탭(`TerminalTab`, `GuiSwitch`)이 활성화(`active`)된 동안 `useReportVisible(terminalSessionId(ref), active)`로 `term:<ref>`를 원격 머신 `machine`과 함께 main에 알린다.
+  - main의 `presence/report`가 `visibility.visibleIn(contents, machine)`을 통해 `term:<ref>`를 원격 머신 core에 전달해 `unseen`("Finished, not seen yet")이 즉시 해제되고, `isVisible`/`reveal`도 원격 터미널 visibility를 인식해 중복 알림 억제와 창 포커스가 동작한다.
+why: |
+  기존에는 로컬 터미널만 `TerminalFocusTable`로 `presence/report`에 실리고 원격 터미널은 보고되지 않아, 원격 터미널 탭을 열거나 Inbox에서 Show를 눌러 보고 있어도 원격 core가 `unseen`을 끄지 않아 `Finished, not seen yet`이 계속 남아 있었다.
+decisions: []
+checklist:
+  - "원격 머신의 터미널 탭에서 coding agent turn이 끝난 뒤 해당 탭으로 전환하거나 Inbox에서 Show를 눌렀을 때 `Finished, not seen yet` 표시가 바로 사라지는지 확인한다"

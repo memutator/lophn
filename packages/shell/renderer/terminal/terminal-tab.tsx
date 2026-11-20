@@ -11,7 +11,9 @@ import {
 
 import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
+import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
 import { STAY } from "../app-frame/annotate/use-view-toast.ts";
+import { useReportVisible } from "../conversation/report-visible.ts";
 import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
@@ -411,6 +413,13 @@ export function TerminalTab({
       void bridge.focus({ ...ref, focused: false });
     };
   }, [active, bridge, boundRef, boundGeneration, showScreen]);
+
+  // 다른 기계의 터미널은 이 컴퓨터의 focus 표에 들지 않으므로, 고른 탭인 동안 `term:<ref>`를 visibility로 알려
+  // 그 기계의 core가 `unseen`("Finished, not seen yet")을 끄고 중복 알림을 막게 한다.
+  useReportVisible(
+    copy && boundRef !== null ? terminalSessionId(boundRef) : null,
+    active,
+  );
 
   // 표시 영역에 맞춰 PTY 치수를 바꾼다. focus 칸이 아니어도 보이면 따른다. 안 그러면 xterm만 새 폭이고
   // PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘린다. 다시 붙어 snapshot을 PTY 치수로 쓴 뒤(`restored`)에도 칸에 다시 맞춘다.

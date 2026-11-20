@@ -1,5 +1,9 @@
 import { PROJECT_ADD_ROUTES } from "../../protocol/projects/add-api.ts";
-import { PROJECT_IDENTITY_MEMORY_ROUTES } from "../../protocol/projects/mod.ts";
+import {
+  ARTIFACT_FILE_ROUTES,
+  ARTIFACT_MEMORY_ROUTES,
+  PROJECT_IDENTITY_MEMORY_ROUTES,
+} from "../../protocol/projects/mod.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -19,6 +23,7 @@ type LedgerRegistration = {
   ports?: readonly TxPortRegistration[];
   apiReads?: readonly unknown[];
   memoryRoutes?: readonly unknown[];
+  files?: readonly unknown[];
 };
 
 // project.search가 ledger를 짧게 읽는 통로. 없으면 검색은 unavailable이다.
@@ -62,7 +67,13 @@ export function createLedgerRegistration(
       }),
     ],
     // 폴더의 id file을 읽고 쓰는 route와 project 더하기·폴더 목록. handler는 wiring/projects.ts가 단다.
-    memoryRoutes: [...PROJECT_IDENTITY_MEMORY_ROUTES, ...PROJECT_ADD_ROUTES],
+    memoryRoutes: [
+      ...PROJECT_IDENTITY_MEMORY_ROUTES,
+      ...PROJECT_ADD_ROUTES,
+      ...ARTIFACT_MEMORY_ROUTES,
+    ],
+    // 다른 컴퓨터가 읽는 artifact byte. handler는 wiring/projects.ts가 단다.
+    files: ARTIFACT_FILE_ROUTES,
     // 폴더 존재 확인.
     ports: [{ key: folderResolverPort, create: () => folders }],
   };

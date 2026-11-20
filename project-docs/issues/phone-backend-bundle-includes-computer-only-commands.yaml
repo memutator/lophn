@@ -1,7 +1,7 @@
 id: phone-backend-bundle-includes-computer-only-commands
 title: 폰 backend가 operation과 command를 한 bundle로 묶어서, 컴퓨터에서만 쓰는 command의 `node:` import가 두 곳에서 도는 앱의 준비를 실패시킨다
 kind: defect
-status: kept
+status: fixed
 topic: app-sync
 modules: [packages/core/apps]
 now: |
@@ -11,5 +11,5 @@ impact: |
 fix: |
   - 중간(추천): 앱이 폰 entry(`phone-main`)를 따로 둘 수 있게 하고 없으면 지금처럼 `main`을 쓴다. 선언의 handler 집합 검사는 폰 entry가 operation만 맞게 한다. SDK와 template 지침이 늘어난다. 그런 앱이 실제로 필요해질 때 한다.
 closed: |
-  현재 구조에서는 컴퓨터 전용 command를 쓰는 앱과 폰 겸용 앱이 operation/command 모듈을 공유한다. 실제 두 곳에서 도는 앱에서 `node:` import 충돌이 자주 생길 때 폰 backend entry 분리를 검토한다.
-guard: 없음
+  앱 root에 선택적인 `phone-main.ts`를 두면 `buildPhoneBackend`가 `main.ts` 대신 `phone-main.ts`를 묶고, `loadCheckPhoneBackend`도 선언의 `operations`만 검사한다. 컴퓨터 전용 command·구독의 `node:`·`@lophn/cap-fs`·`@lophn/flow` import는 `main.ts`에 남고 폰 bundle에는 들어오지 않는다. `phone-main.ts`가 없으면 기존처럼 `main.ts`를 양쪽에서 쓴다.
+guard: packages/core/apps/releases/phone-backend/build_test.ts

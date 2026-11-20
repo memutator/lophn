@@ -44,6 +44,8 @@ export function fakeApps(options: FakeAppsOptions = {}) {
   let rows = [...(options.rows ?? [])];
   const calls: unknown[][] = [];
   const source: AppsSource = {
+    available: () => Promise.resolve({ ok: true, value: [] }),
+    takeIn: () => Promise.resolve({ ok: false, reason: "sync_off" }),
     list() {
       calls.push(["list"]);
       return Promise.resolve(

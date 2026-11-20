@@ -27,6 +27,7 @@ import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { SettingsPane } from "../../desktop/settings/model.ts";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import type { TabHost } from "../../workspace/kinds/host.ts";
+import { isThisComputerOnly } from "../../workspace/kinds/kind.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
 import { TabBoundary } from "../../workspace/tab-boundary.tsx";
@@ -257,7 +258,7 @@ function GlobalFloatContent({
   }
 
   if (def === undefined) return null;
-  if (machine !== null && def.thisComputerOnly) {
+  if (machine !== null && isThisComputerOnly(def, tab)) {
     return <OnlyHere machine={machine} />;
   }
   return (

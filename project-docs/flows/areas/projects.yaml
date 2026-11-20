@@ -874,6 +874,69 @@ flows:
     crosses_process: false
     risk: [sandbox]
 
+  - id: artifacts-list
+    title: "다른 컴퓨터의 창이 project나 앱의 artifact 목록을 읽는다"
+    actor: person
+    entries: [route:artifacts/list]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/artifacts/mod.ts
+      - packages/protocol/projects/artifact-api.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    docs: [architecture/artifact.md]
+    steps:
+      - "user actor만 받는다(REMOTE_ALLOWED_ROUTES). 다른 컴퓨터의 agent·app 요청은 REMOTE_AGENT_ROUTES 밖이라 거절된다"
+      - "그릇(project나 app)의 `<data>/<종류>/<id>/artifacts/` 바로 아래 slug 폴더 가운데 symlink가 아니고 입구 index.html이 일반 file인 것만 이름 순으로 돌려준다"
+      - "제목과 설명은 index.html 앞 64 KiB에서 읽고, 폴더가 없으면 빈 목록이다. 쓰기는 없다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "project·app id 모양이 schema에 맞지 않는다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니거나 credential scope에 없다(dispatch, remote call)"
+        observe: ["response"]
+    declared_only: [unavailable]
+    crosses_process: false
+    risk: [sandbox]
+
+  - id: artifacts-file
+    title: "다른 컴퓨터의 창이 project나 앱의 artifact 폴더 안 file 하나를 읽는다"
+    actor: person
+    entries: [route:artifacts/file]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/artifacts/mod.ts
+      - packages/protocol/projects/artifact-api.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    docs: [architecture/artifact.md]
+    steps:
+      - "user actor만 받는다(REMOTE_ALLOWED_ROUTES). 다른 컴퓨터의 agent·app 요청은 REMOTE_AGENT_ROUTES 밖이라 거절된다"
+      - "artifact 폴더를 lstat·realpath로 검사해 symlink가 아닌 폴더이고 artifacts 폴더 바로 안인지 본다"
+      - "data/_entries.json은 data/ 바로 아래 일반 file 목록(바깥 symlink 제외)을 JSON으로 돌려준다"
+      - "그 밖의 path는 realpath가 artifact 폴더 안인지 보고 O_NOFOLLOW로 열어 일반 file이고 4 MiB 이하일 때만 stream으로 돌려준다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "artifact나 file이 없다, symlink 폴더·바깥 symlink다, 일반 file이 아니다, 4 MiB를 넘는다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "id·slug·상대 path(`..`, 절대 path, 역슬래시)가 schema에 맞지 않는다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니거나 credential scope에 없다(dispatch, remote call)"
+        observe: ["response"]
+    declared_only: [unavailable]
+    crosses_process: false
+    risk: [sandbox]
+
   # ---- blob (storage) ----
 
   - id: blob-read

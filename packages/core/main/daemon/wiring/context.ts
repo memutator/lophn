@@ -273,6 +273,8 @@ type Late = {
   // apps가 받는 것. callerDirectory는 apps가 lophn-agent session 표로 채우고, releases(bundleLocator)가 채운다.
   // 없으면 apps wiring이 "아직 없음"이나 대체 구현으로 돈다.
   callerDirectory: CallerDirectory;
+  // 다른 컴퓨터의 event로 연 job의 session을 열기 직전에 표시한다(jobRunStarted가 표에 쓰기 전에 turn이 도는 틈을 닫는다).
+  markRemoteSession: (session: Id<"ses">) => void;
   bundleLocator: BundleLocator;
   appViewSignal: AppViewSignal;
   // apps가 낸다. releases-problems(activation)와 workspaces-sessions(rewind)가 쓴다.
@@ -411,6 +413,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   gateway: true,
   approvals: true,
   callerDirectory: true,
+  markRemoteSession: true,
   bundleLocator: true,
   appViewSignal: true,
   appIntake: true,

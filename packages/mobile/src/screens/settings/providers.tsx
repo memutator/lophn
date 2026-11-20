@@ -18,7 +18,7 @@ import {
   useSetup,
 } from "../../data/mod.ts";
 import { VendorIcon } from "../../parts/mod.ts";
-import { SignInCode, signInFailure, useSecretField } from "./setup-parts.tsx";
+import { SignInCode, SignInHandoff, signInFailure, useSecretField } from "./setup-parts.tsx";
 
 const NEXT = <Icon icon={ChevronRight} size={16} />;
 
@@ -32,11 +32,12 @@ function Mark({ name }: { name: string }) {
 }
 
 /** What the phone can connect a definition with. */
-function waysOf(definition: ProviderDefinitionView): { key: boolean; code: boolean } {
+function waysOf(definition: ProviderDefinitionView): { key: boolean; signIn: boolean; deviceCode: boolean } {
   const { oauth } = definition;
   return {
     key: definition.auth_kinds.includes("api_key"),
-    code: oauth !== null && oauthFlowOf(oauth.product) === "device_code",
+    signIn: oauth !== null,
+    deviceCode: oauth !== null && oauthFlowOf(oauth.product) === "device_code",
   };
 }
 
@@ -104,7 +105,7 @@ export function ProvidersScreen({ place }: { place: PlaceOf<"providers"> }) {
             <Group>
               {available.map((definition, at) => {
                 const ways = waysOf(definition);
-                const usable = ways.key || ways.code;
+                const usable = ways.key || ways.signIn;
                 return (
                   <View key={definition.key}>
                     {at > 0 && <Divider />}
@@ -167,7 +168,7 @@ interface ConnectProps {
 function Connect(props: ConnectProps) {
   const { definition } = props;
   const ways = waysOf(definition);
-  const [step, setStep] = useState<Step>(ways.key && ways.code ? "choose" : ways.key ? "key" : "code");
+  const [step, setStep] = useState<Step>(ways.key && ways.signIn ? "choose" : ways.key ? "key" : "code");
   return (
     <View style={{ paddingHorizontal: 20, paddingBottom: 14 }}>
       {step === "choose" ? (
@@ -176,7 +177,7 @@ function Connect(props: ConnectProps) {
           <Row
             lead={<Mark name={definition.key} />}
             title={t("settings.label.method-sign-in", { product: definition.display_name })}
-            sub={t("mobile.providers.label.both")}
+            sub={t(ways.deviceCode ? "mobile.providers.label.both" : "mobile.providers.label.sign-in-browser")}
             end={NEXT}
             onPress={() => setStep("code")}
           />
@@ -271,7 +272,12 @@ function CodeSignIn({ definition, computerKey, computer, onClose }: ConnectProps
 
   return (
     <View>
-      {started !== null && <SignInCode code={started.code} />}
+      {started !== null &&
+        (started.callbackMode === "remote_handoff" ? (
+          <SignInHandoff onSubmit={(url) => setup.deliverSignInCallback(started, url)} />
+        ) : (
+          <SignInCode code={started.code} />
+        ))}
       {failed !== null && (
         <Text variant="note" tone="critical" style={{ marginTop: 10 }}>
           {failed}
@@ -282,7 +288,12 @@ function CodeSignIn({ definition, computerKey, computer, onClose }: ConnectProps
           {t("common.button.cancel")}
         </Button>
         {started !== null ? (
-          <Button block variant="primary" icon={ExternalLink} onPress={() => void Linking.openURL(started.url)}>
+          <Button
+            block
+            variant={started.callbackMode === "remote_handoff" ? undefined : "primary"}
+            icon={ExternalLink}
+            onPress={() => void Linking.openURL(started.url)}
+          >
             {t("mobile.setup.button.open-page")}
           </Button>
         ) : (

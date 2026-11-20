@@ -102,6 +102,11 @@ export {
   type McpVaultSecrets,
 } from "./mcp-oauth-vault.ts";
 export {
+  createHandoffListener,
+  handoffPort,
+  type HandoffListener,
+} from "./callback-handoff.ts";
+export {
   type AuthDeadline,
   authHeaders,
   type CallbackListener,

@@ -47,6 +47,7 @@
 ```
 <destination>/machines/<mch_…>/
   record.json                                        기계 기록
+  packages (<part>@<version>.json)                   `@me/*` 사용자 package source와 metadata
   apps/<app_…>/app.json                              앱 기록
   apps/<app_…>/data/<n>.changes | <n>.snapshot       data stream (n은 12자리 0 채움, 1부터)
   apps/<app_…>/source/<n>.bundle, <n>.json           증분 git bundle과 그 목록(bundle 뒤에 쓴다)
@@ -70,7 +71,7 @@
 - **누가 쓰나.** 자기 하위 폴더 `machines/<자기>/`는 내보내기만 쓴다. 다른 기계의 하위 폴더는 받는 자리만 쓰고, 그 기계가 서명한 목록에 맞는 file만 쓴다. 그래서 남의 writer 검사(자기 하위 폴더에 자기가 쓰지 않은 file)는 그대로 맞는다.
 - **사람의 폴더.** 설정 `folder.shared`(`{path} | null`, 기본 null, 사람 승인, `folder.destinations`와 같은 겹침 검사)는 사람이 고른 "내 컴퓨터들이 같이 보는 폴더"(dual boot의 공유 디스크, Google Drive나 Syncthing이 옮기는 폴더)다. 그 폴더는 `computers` 폴더의 거울이다: 기계마다 자기 `machines/<자기>/`만 그대로 복사하고(지금 목록에 없는 자기 file은 지운다), 다른 기계의 하위 폴더는 받는 자리로 들인다. 읽기는 거울을 바로 읽지 않는다. 서명을 보므로 그 폴더를 믿지 않아도 된다. 사람의 폴더는 누구나 쓸 수 있어 거울이 읽는 양을 줄인다: 서명 key가 없는 기계의 하위 폴더는 열기 전에 건너뛰고, 명단에 없는 기계의 명단 file은 scan마다 4개(`CARRY_UNKNOWN_ROSTER_FILES_MAX`)만 돌아가며 읽어 그 기계 이름의 컴퓨터 항목이 다루는 key의 statement만 명단에 넘기고(아직 믿지 못하는 컴퓨터의 들어오기만 이 길로 온다), 명단에 든 기계의 명단 file은 `computers`에서만 읽는다. 사람의 폴더에서 받는 자리로 들이는 반복도 기계마다 scan에 8번까지다(받은 목록 file이 그 아래 file을 새로 바라므로 사슬 층수만큼 돈다). 거울만 보는 기계가 다른 기계의 file을 받는 것은 그 기계가 직접 거울에 낸 것으로 한정된다(아래 열린 것).
 - **목록의 사슬.** 기계의 file 목록은 세 층이다. 층마다 아래 file의 path, 크기, sha256을 싣는다.
-  - `machines/<mch>/manifest.json`(서명, 8 MiB까지) = `{body, signature}`, `body = {format: 1, machine, revision, written_at, files: [{path, size, sha256}]}`. 싣는 것은 `record.json`, `roster.json`, 앱마다 `apps/<app>/files.json`뿐이다. path는 destination 기준이고 모두 그 기계의 `machines/<machine>/`로 시작하며 겹치지 않는다.
+  - `machines/<mch>/manifest.json`(서명, 8 MiB까지) = `{body, signature}`, `body = {format: 1, machine, revision, written_at, files: [{path, size, sha256}], packages?: [{path, size, sha256}]}`. `files`는 `record.json`, `roster.json`, 앱마다 `apps/<app>/files.json`을 싣고, 선택 칸 `packages`는 그 기계가 `packages` 하위 폴더에 내놓은 `<part>@<version>.json`을 싣는다(`packages`가 비면 생략한다. 옛 판 2 기계는 모르는 칸을 버리고 원본 canonical `body`로 서명을 검증해 호환된다). path는 destination 기준이고 모두 그 기계의 `machines/<machine>/`로 시작하며 겹치지 않는다.
   - 앱 목록 `apps/<app>/files.json`(8 MiB까지) = `{format: 1, machine, app, written_at, files}`. 싣는 것은 그 앱의 `app.json`, `data/<n>.*`, `source/<n>.json`, `events/<id>.json`이다. data file은 그 앱의 마지막 snapshot과 그 뒤 번호만 싣는다(snapshot이 앞 번호를 다 담는다).
   - `source/<n>.bundle`은 그 `<n>.json`이 싣는다.
   - 받는 쪽은 아래 층 file을 위 층이 기대한 크기·sha256 그대로 든 목록 file이 실을 때만 기대한다. 사슬 하나라도 맞지 않으면 그 아래는 기대하지 않는다.
@@ -164,8 +165,9 @@
 ### take-in
 
 - `app.take_in {app, from?, release?}`는 다른 기계가 폴더에 내놓은 앱을 이 기계에 들인다(`release`는 40자리 `code_commit`, 생략하면 출처 기계의 `active_release.code_commit`). 같은 `app_` id로 등록하고(slug가 이미 다른 앱의 것이면 `conflict`), 출처들의 `source/<n>.bundle`에서 목표 commit을 받아 `<data root>/apps/<app>/source` 저장소를 만들거나(이미 있으면 이어 fetch) `app.connect_source`로 이은 뒤, 이 기계에서 release를 직접 준비(`npm install`·build·봉인·검사)해 `prepared` release로 적는다. 이미 들인 앱이면 앱 행을 건드리지 않고 source를 이어 받아 그 commit의 release만 준비한다(같은 `code_commit`의 release가 이미 있으면 그것을 돌려준다).
+- `@me/*` 사용자 package: 내보내기는 `sync_to`가 있는 앱의 활성 release commit이 고정한 `@me/*` version(과 그 package가 의존하는 `@me/*` version)을 catalog의 bundle·guide blob과 함께 `machines/<mch>`의 `packages` 하위 폴더에 `<part>@<version>.json`(8 MiB까지)으로 쓴다(`computers`에서는 `manifest.json`의 선택 칸 `packages`로 싣고 link·폰·사람의 폴더 세 길로 그대로 나른다). `take-in`(과 따라가기)은 commit이 기대는 `@me/*` version이 이 기계에 없으면 다른 기계들의 `packages` 하위 폴더에서 먼저 찾아 의존 순서대로 들인다: `bundle_hash`·`guide_hash`·안전한 상대 경로·내부 `@lophn/cap-*`와 `@me/*` permission 덮기를 검사한 뒤 자기 catalog(`package.register_version`, 불변 규칙 적용)에 등록하고 설치 사본을 쓴다. 따라가기는 package file이 source보다 늦게 도착해 `dependency_missing`으로 멈췄더라도 새 package file이 들어오거나 local에 등록되면 자동으로 다시 시도한다.
 - grant, 동의, secret, OAuth, invocation 기록, 앱 data는 옮기지 않는다. 활성화는 이 기계의 `release.activate`이고 첫 활성화는 이 기계에서 사람에게 동의를 묻는다(`activation.md`). data는 활성화 뒤 data stream으로 온다.
-- `conflict`의 `details.reason`: `sdk_missing`(이 lophn에 commit의 `package.json`이 고정한 `@lophn/*` SDK 판이 없다. 폴더에서 온 code를 이 기계의 SDK 저장소에 넣지 않는다), `slug_in_use`, `dependency_missing`(`details.packages`, `@me/*` package), `preparing`(같은 앱의 release 준비가 이미 돌고 있다). 목표 commit이 담긴 source bundle이 아직 다 오지 않았으면 `invalid_input`에 `details.reason: source_incomplete`다.
+- `conflict`의 `details.reason`: `sdk_missing`(이 lophn에 commit이나 `@me/*` package가 고정한 `@lophn/*` SDK 판이 없다. 폴더에서 온 code를 이 기계의 SDK 저장소에 넣지 않는다), `slug_in_use`, `dependency_missing`(`details.packages`, 이 기계에도 없고 다른 기계의 폴더에서도 찾지 못한 `@me/*` package), `preparing`(같은 앱의 release 준비가 이미 돌고 있다). 목표 commit이 담긴 source bundle이 아직 다 오지 않았으면 `invalid_input`에 `details.reason: source_incomplete`다.
 - 앱을 등록한 뒤 release 준비가 실패하면 오류 글이 앱이 release 없이 더해졌다고 말하고, release가 없는 그 앱은 들일 수 있는 앱(`available`)에 계속 선다. 다시 take-in하면 release만 준비한다.
 - `app.create`에서 앱 id를 고를 수 있는 것은 사람과 폴더 take-in 자격(`machine:folder-apps`)뿐이다. agent와 그 밖의 machine 자격은 고르지 못한다.
 
@@ -272,6 +274,7 @@
 - 떨어져 있음 알림은 앱마다 한 줄이고 떨어져 있음이 끝나거나 held가 줄면 같은 줄을 "따라잡았다"와 남은 수로 바꾼다. program 줄은 지울 수 없어서다(`app-notice.md`). (agent)
 - 앱 id는 기계 사이 같다. release의 기계 사이 신분은 `code_commit`이다. 처음에는 봉인 bundle(`releases/<bundle_hash>/files/`, `node_modules` 포함)을 그대로 옮기고 `bundle_hash`를 신분으로 삼았으나, OS·아키텍처마다 native dependency와 경로 대소문자·정규화 충돌이 생기고 수천 file을 매번 옮기는 비용이 컸다. 이제 증분 `git bundle`(`source/<n>.bundle`)만 옮기고 받는 컴퓨터가 자기 OS에서 직접 release를 준비하며 `code_commit`으로 같은 release를 알아본다(`FOLDER_FORMAT`은 `{2, 2}`로 올려 옛 format 1 피어를 `update_peer`로 막는다). take-in은 이미 들인 앱이면 source를 이어 받고 그 commit의 release만 준비한다(`machine-update`의 따라가기가 같은 함수를 부른다). (사람, 2026-11-19 뒤집음)
 - SDK 사본은 따로 싣지 않고, 받는 기계의 lophn에 없는 SDK 판을 고정한 release는 `conflict`(`sdk_missing`)다. 이유: 폴더에서 온 code가 그 기계의 SDK 저장소에 들어가지 않는다. (planner)
+- `@me/*` 사용자 package는 앱 폴더 밖 `machines/<mch>`의 `packages` 하위 폴더에 `<part>@<version>.json`으로 `package.publish`가 만든 source bundle·guide blob과 metadata를 내보내고, `manifest.json`의 선택 칸 `packages`로 싣는다. 이유: package는 여러 앱이 공유하고 version마다 불변이라 목록 사슬 한 층을 더 만들지 않아도 되고, `files` 대신 선택 칸 `packages`에 두면 `FOLDER_FORMAT` `{2, 2}`를 올리지 않고도 옛 판 기계와 서명 검증이 깨지지 않는다. 받는 쪽은 bundle 경로 탈출·hash·permission 덮기·불변을 다시 검사해 catalog에 등록한 뒤 설치 사본을 만든다. (agent)
 - source는 기계마다 증분 git bundle이고 받는 쪽은 `refs/remotes/<mch>/*`로 fetch만 한다. 폴더 안에 bare 저장소를 두지 않는다. 이유: 폴더 안 저장소는 두 기계가 같은 file을 고치고 바깥 도구가 반쯤 옮긴 object를 남긴다. (planner, 사람 roadmap)
 - 읽는 쪽의 cursor, held, 남의 기록 사본은 그 기계 ledger에 두고 폴더에는 두지 않는다. (planner, `machine-identity` 계약)
 - 읽기 명령의 뼈대는 이 계획이 갖고 뒤 계획은 등록한 함수로 section을 채운다. (planner)

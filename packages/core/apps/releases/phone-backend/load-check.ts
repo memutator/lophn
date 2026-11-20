@@ -12,7 +12,11 @@ import {
   type PhoneStoreDb,
 } from "../../../../protocol/apps/phone-backend-host.ts";
 import { handlerNames, requiredHandlerNames } from "../../declaration/mod.ts";
-import type { PhoneBackendDeclaration } from "./build.ts";
+import {
+  PHONE_ENTRY,
+  type PhoneBackendDeclaration,
+  phoneEntryOf,
+} from "./build.ts";
 
 // 한 번의 평가 상한이다. 등록은 동기라 넘기면 무한 loop 같은 것이다.
 const EVAL_LIMIT_MS = 10_000;
@@ -62,8 +66,13 @@ export async function loadCheckPhoneBackend(
     });
   }
   const registered = host.handlers();
-  const allowed = handlerNames(declaration);
-  const missing = requiredHandlerNames(declaration).filter(
+  // 폰 entry를 따로 둔 앱은 operation만 등록한다(command와 구독은 컴퓨터에서만 돈다).
+  const operationsOnly = (await phoneEntryOf(staging)) === PHONE_ENTRY;
+  const scope = operationsOnly
+    ? { ...declaration, commands: [], subscriptions: [] }
+    : declaration;
+  const allowed = handlerNames(scope);
+  const missing = requiredHandlerNames(scope).filter(
     (name) => !registered.includes(name),
   );
   const extra = registered.filter((name) => !allowed.includes(name));

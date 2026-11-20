@@ -13,6 +13,8 @@ import { test } from "node:test";
 
 import { listDataEntries } from "./entries.ts";
 import { resolveInsideRoot } from "./paths.ts";
+import { createArtifactViews } from "./registry.ts";
+import { createRemoteArtifacts } from "./remote.ts";
 import { createArtifactRoots } from "./roots.ts";
 import { createArtifactServer } from "./serve.ts";
 
@@ -49,9 +51,11 @@ async function setup() {
   const serve = createArtifactServer({
     rootOf: roots.rootOf,
     scopeOf: roots.scopeOf,
+    remoteOf: roots.remoteOf,
+    readRemote: () => Promise.resolve(null),
     readInstance: () => Promise.resolve(null),
     kit: () => Promise.resolve(null),
-    maxBytes: 50,
+    maxBytes: 90,
   });
   const get = (path: string) =>
     serve(new Request(`lophn-artifact://${host}${path}`));
@@ -119,4 +123,172 @@ test("_entries.json은 밖으로 가는 symlink와 하위 폴더를 싣지 않�
   } finally {
     await rm(base, { recursive: true });
   }
+});
+
+test("다른 컴퓨터의 artifact도 같은 봉한 scheme·CSP·상한·path 검사로 읽고 watch·annotate를 열지 않는다", async () => {
+  const machine = `mch_0${"1".repeat(25)}`;
+  const project = `prj_0${"2".repeat(25)}`;
+  const files: Record<string, string> = {
+    "index.html": "<title>Remote</title><p>hi</p>",
+    "data/_entries.json": JSON.stringify([
+      { name: "a.json", size: 2, modified: "2026-11-20T00:00:00.000Z" },
+    ]),
+    "big.bin": "x".repeat(100),
+  };
+  const remote = createRemoteArtifacts((id) =>
+    id === machine
+      ? {
+          call: async ({ resource, method, body }) => {
+            if (resource === "artifacts" && method === "list") {
+              return {
+                ok: true,
+                value: {
+                  artifacts: [
+                    {
+                      name: "report",
+                      title: "Remote",
+                      description: "desc",
+                      modified: "2026-11-20T00:00:00.000Z",
+                    },
+                  ],
+                },
+              };
+            }
+            if (resource === "artifacts" && method === "file") {
+              const path = (body as { path: string }).path;
+              const content = files[path];
+              if (content === undefined) {
+                return {
+                  ok: false,
+                  error: { code: "not_found", message: "missing" },
+                };
+              }
+              return {
+                ok: true,
+                value: {
+                  content_type: "application/octet-stream",
+                  base64: Buffer.from(content).toString("base64"),
+                },
+              };
+            }
+            return {
+              ok: false,
+              error: { code: "not_found", message: "unknown" },
+            };
+          },
+        }
+      : undefined,
+  );
+
+  const roots = createArtifactRoots();
+  const host = roots.registerRemote({
+    machine,
+    workspace: { kind: "project", id: project },
+    name: "report",
+  });
+  const serve = createArtifactServer({
+    rootOf: roots.rootOf,
+    scopeOf: roots.scopeOf,
+    remoteOf: roots.remoteOf,
+    readRemote: remote.read,
+    readInstance: () => Promise.resolve(null),
+    kit: (name) =>
+      Promise.resolve(
+        name === "kit.js" ? new TextEncoder().encode("/*kit*/") : null,
+      ),
+    maxBytes: 90,
+  });
+  const get = (path: string) =>
+    serve(new Request(`lophn-artifact://${host}${path}`));
+
+  const html = await get("/");
+  assert.equal(html.status, 200);
+  assert.match(html.headers.get("content-type") ?? "", /^text\/html/);
+  assert.match(
+    html.headers.get("content-security-policy") ?? "",
+    /connect-src 'self'/,
+  );
+  assert.equal(await html.text(), files["index.html"]);
+
+  const entries = await get("/data/_entries.json");
+  assert.equal(entries.status, 200);
+  assert.deepEqual(
+    JSON.parse(await entries.text()).map((e: { name: string }) => e.name),
+    ["a.json"],
+  );
+
+  const kit = await get("/_lophn/kit.js");
+  assert.equal(kit.status, 200);
+  assert.equal(await kit.text(), "/*kit*/");
+
+  // 상한 초과와 path 탈출 시도는 모두 404다.
+  for (const denied of [
+    "/big.bin",
+    "/%2e%2e/secret.txt",
+    "/%2e%2e%2fsecret.txt",
+    "/a%5Cb",
+    "/index.html%00",
+    "/%E0%A4%A",
+  ]) {
+    assert.equal((await get(denied)).status, 404, denied);
+  }
+  assert.equal(
+    (await serve(new Request(`lophn-artifact://${host}/`, { method: "POST" })))
+      .status,
+    405,
+  );
+
+  // registry: 원격 view는 local watch를 열지 않고 annotate도 거절하며, 없는 artifact는 not_found다.
+  let watched = 0;
+  const views = createArtifactViews({
+    host: {
+      guest: () => {
+        throw new Error("unused");
+      },
+    },
+    activation: {
+      mark: () => {},
+      fresh: () => false,
+      forget: () => {},
+    },
+    resolve: (source) => {
+      if (source.kind === "artifact" && source.machine !== undefined) {
+        return remote.resolve({ ...source, machine: source.machine });
+      }
+      return Promise.resolve({
+        ok: false,
+        error: { code: "not_found", message: "missing" },
+      });
+    },
+    ensureSession: () => Promise.resolve(),
+    registerRoot: roots.register,
+    registerRemoteRoot: roots.registerRemote,
+    watch: () => {
+      watched += 1;
+      return { stop() {} };
+    },
+    ids: { viewSession: () => "art-remote-1" },
+    pushState: () => {},
+    pushEvent: () => {},
+  });
+
+  const opened = await views.open("win-1", {
+    kind: "artifact",
+    project,
+    name: "report",
+    machine,
+  });
+  assert.equal(opened.ok, true);
+  assert.equal(watched, 0);
+  assert.equal(views.annotateView("art-remote-1"), undefined);
+
+  const missing = await views.open("win-1", {
+    kind: "artifact",
+    project,
+    name: "nope",
+    machine,
+  });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.error.code, "not_found");
+  views.dispose();
 });

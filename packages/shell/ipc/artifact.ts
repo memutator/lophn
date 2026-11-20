@@ -8,6 +8,8 @@ import { z } from "zod";
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
 const appId = z.string().regex(new RegExp(`^app_${ULID}$`));
+// 다른 컴퓨터의 id. 있으면 그 컴퓨터의 artifact를 읽기 전용으로 연다(artifact 꼴만).
+const machineId = z.string().regex(new RegExp(`^mch_${ULID}$`));
 const workflowInstanceId = z.string().regex(new RegExp(`^wfi_${ULID}$`));
 // artifact 이름(폴더 이름). protocol slugSchema의 사본이다.
 export const artifactNameSchema = z
@@ -35,6 +37,7 @@ export const artifactSourceSchema = z.union([
       kind: z.literal("artifact"),
       project: projectId,
       name: artifactNameSchema,
+      machine: machineId.optional(),
     })
     .strict(),
   z
@@ -42,6 +45,7 @@ export const artifactSourceSchema = z.union([
       kind: z.literal("artifact"),
       app: appId,
       name: artifactNameSchema,
+      machine: machineId.optional(),
     })
     .strict(),
   z
@@ -70,8 +74,8 @@ export const artifactReloadSchema = z
   .object({ view_session: viewSession })
   .strict();
 export const artifactListSchema = z.union([
-  z.object({ project: projectId }).strict(),
-  z.object({ app: appId }).strict(),
+  z.object({ project: projectId, machine: machineId.optional() }).strict(),
+  z.object({ app: appId, machine: machineId.optional() }).strict(),
 ]);
 // 지우기는 project의 artifact만이다(앱 artifact는 sidebar 목록이 없다).
 export const artifactDeleteSchema = z

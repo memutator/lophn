@@ -14,6 +14,7 @@ import {
 } from "../../../protocol/acp/mod.ts";
 import {
   codingSessionsOpen,
+  codingSessionsRewindPreview,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
   type SwitchStops,
@@ -174,7 +175,13 @@ function codingSource(
     input: async (input) => (await env.read(acpSend, input)).ok,
     toolBody: (toolCall, part) => env.read(acpToolBodyRead, { session, tool_call: toolCall, part }),
     sessions: () => Promise.resolve([]),
-    rewindPreview: () => Promise.resolve(null),
+    rewindPreview: async (message) => {
+      const read = await env.read(codingSessionsRewindPreview, {
+        session,
+        message,
+      });
+      return read.ok ? read.value.preview : null;
+    },
     writeImage: images.writeImage,
   });
   return {

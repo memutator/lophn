@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
+import { terminalProjectSchema } from "../coding-agent/terminals.ts";
 import { sessionStatusRead } from "./session-status.ts";
 import { workspaceOutputSchema, workspaceSchema } from "./workspaces.ts";
 
@@ -76,7 +77,7 @@ export type SessionInfo = z.infer<typeof sessionInfoSchema>;
 // core의 tracker와 GUI handle이 아는 터미널 coding agent 하나다. 메모리에만 두고 터미널이 끝나면 빠진다.
 export const terminalSessionReportSchema = z.strictObject({
   terminal_ref: z.string().min(1),
-  project: idSchema("prj"),
+  project: terminalProjectSchema,
   harness: z.string().min(1),
   state: sessionStateSchema,
   cli_session: z.string().min(1).nullable(),

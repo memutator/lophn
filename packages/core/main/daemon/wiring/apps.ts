@@ -35,6 +35,7 @@ import type {
 } from "../../../../protocol/storage/mod.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 import { createRemoteForward } from "../../../apps/calls/forward.ts";
+import { createOutboundCalls } from "../../../apps/calls/outbound.ts";
 import { createAppCalls, remoteCallHandler } from "../../../apps/calls/mod.ts";
 import { requesterOf } from "../../../remote/call.ts";
 import { agentAssignment } from "../../../apps/usage/users.ts";
@@ -199,6 +200,7 @@ export const appsWiring: WiringFactory = () => {
   let control: AppsControl | undefined;
   let write: WriteLink | undefined;
   let invocations: InvocationLedger | undefined;
+  let closeStaleOutbound: (() => void) | undefined;
   let oauth: AppOAuth | undefined;
   let views: AppViews | undefined;
   let unsubscribeViews: (() => void) | undefined;
@@ -335,8 +337,35 @@ export const appsWiring: WiringFactory = () => {
           ]),
       });
       invocations = ledger;
+      const outbound = createOutboundCalls({
+        transaction: link.transaction,
+        changed: (app, callerApp) =>
+          publishStateChanged(ctx.bus, ctx.clock.now(), [
+            { name: "app_activity" as const, id: app },
+            ...(callerApp !== null && callerApp !== app
+              ? [{ name: "app_activity" as const, id: callerApp }]
+              : []),
+          ]),
+      });
+      closeStaleOutbound = () => outbound.closeStale(ctx.clock.now());
 
-      const callers: CallerDirectory = createCallerDirectory(link.sql);
+      const remoteSessions = new Set<string>();
+      ctx.provide("markRemoteSession", (session) => {
+        remoteSessions.add(session);
+      });
+      const callers: CallerDirectory = createCallerDirectory(
+        link.sql,
+        (session) =>
+          remoteSessions.has(session) ||
+          link.sql.get(
+            `SELECT 1 AS found FROM job_runs
+              WHERE session = ?
+                AND (json_extract(event, '$.machine') IS NOT NULL
+                  OR json_extract(event, '$.remote') = 1)
+              LIMIT 1`,
+            [session],
+          ) !== undefined,
+      );
       ctx.provide("callerDirectory", callers);
       const states = appStatesOf(link.sql);
       // sync 앱(runs_on에 phone이나 sync_to)의 sync log. 컴퓨터의 write·rewind·폰과 다른 기계의 변경이 순서대로 남고 폰이 pull한다.
@@ -396,6 +425,9 @@ export const appsWiring: WiringFactory = () => {
             ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
           agentName: (agent) =>
             agentDirectory(link.sql).agent(agent)?.name ?? null,
+          outbound,
+          clock: ctx.clock,
+          ids,
         }),
         sync,
         // 폰이나 다른 기계에서 온 변경이 앱 DB를 바꿨다. `call.settled`와 같은 길로 그 앱에만 낸다.
@@ -1056,6 +1088,8 @@ export const appsWiring: WiringFactory = () => {
       if (invocations !== undefined) {
         await closeUnfinishedInvocations(invocations, now());
       }
+      // 이전 core가 보내고 끝을 못 본 다른 컴퓨터 호출도 결과를 모른다.
+      closeStaleOutbound?.();
       if (write !== undefined) {
         closeInterruptedRewinds({ sql: write.sql, now });
         // 앞선 core가 앱의 commit과 sync log 줄 사이에서 끝났으면 그 변경을 폰이 받지 못한다. 그 자리를 '다시 snapshot'으로 채운다.

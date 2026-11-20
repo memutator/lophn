@@ -20,12 +20,12 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 
 - **artifact.** 그릇 자리의 `artifacts/<name>/` 폴더이고 `<name>`은 slug다. 입구 `index.html`이 일반 file이면 artifact다. 신원은 `{project, name}`이나 `{app, name}`이다.
 - **source.** 탭이 여는 대상 하나다. 넷 가운데 하나다.
-  - `{kind: "artifact", project | app, name}`
-  - `{kind: "file", project, path}`: 사람의 폴더에 있는 절대 path의 `.html`·`.htm`. root는 그 file이 든 폴더다.
-  - `{kind: "workflow", project, workflow, view: "static" | "instance", instance?}`: `instance`는 view가 instance일 때만, 그때는 꼭 있다. root는 `<data>/projects/<prj>/workflows/<name>/artifacts/<view>/`다.
+  - `{kind: "artifact", project | app, name, machine?}`: `machine`이 다른 컴퓨터면 그 컴퓨터의 core에서 읽기 전용으로 연다.
+  - `{kind: "file", project, path}`: 사람의 폴더에 있는 절대 path의 `.html`·`.htm`. root는 그 file이 든 폴더다(이 컴퓨터만 연다).
+  - `{kind: "workflow", project, workflow, view: "static" | "instance", instance?}`: `instance`는 view가 instance일 때만, 그때는 꼭 있다. root는 `<data>/projects/<prj>/workflows/<name>/artifacts/<view>/`다(이 컴퓨터만 연다).
 - **view.** 한 창에서 source 하나를 그리는 봉한 `<webview>` guest 하나다. `view_session` id로 부르고 state는 `{view_session, source, file, src, title, loading, health}`다. `health`는 `ok`, `unresponsive`, `crashed`다.
 - **봉한 session.** partition `persist:lophn-artifact`와 scheme `lophn-artifact://`다. 이 partition은 permission 거절, download 취소, 죽은 proxy로 바깥 network 차단, 자기 scheme만 처리하는 handler로 이루어진다.
-- **origin.** `lophn-artifact://a-<sha256 앞 24자>/<입구>?mount=<n>`이다. host는 root(workflow instance view는 root에 instance id를 더한 값)의 sha256이라 root마다 origin이 다르다. `mount`는 새 화면 세대 번호다.
+- **origin.** 이 컴퓨터는 `lophn-artifact://a-<sha256 앞 24자>/<입구>?mount=<n>`, 다른 컴퓨터는 `lophn-artifact://r-<sha256 앞 24자>/<입구>?mount=<n>`이다. host는 root(workflow instance view는 root에 instance id를 더한 값, 다른 컴퓨터는 machine·그릇·이름)의 sha256이라 대상마다 origin이 다르다. `mount`는 새 화면 세대 번호다.
 - **탭.** 탭 kind는 `artifact`다. 탭 key는 `artifact:project:<id>:<name>`, `artifact:app:<id>:<name>`, `artifact-file:<path>`, `artifact-workflow:<project>:<workflow>:<view>[:<instance>]`다. layout에는 source만 남고 탭 이름은 page의 `<title>`을 따른다.
 
 ```
@@ -86,12 +86,14 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 23. **artifact IPC는 desktop 창의 shell renderer에서 온 요청만 받는다.** 요청마다 sender가 살아 있는 desktop 창의 main frame인지, 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view를 열 수 있는 것은 이 길뿐이고 page(guest)는 부르지 못한다.
 
 24. **지우기는 그 artifact 폴더 하나만 지운다.** project artifact만이고 앱 artifact는 화면에서 지우지 못한다. main은 이름을 slug로 다시 검사하고, 대상 `<project 자리>/artifacts/<name>`을 `lstat`해 symlink가 아닌 폴더일 때만 간다(symlink 폴더는 forbidden이고 가리키는 곳은 건드리지 않는다). realpath가 artifacts 폴더 realpath 바로 안이어야 한다(접두사만 같은 형제 폴더는 밖). 재귀로 지우되 폴더 안 symlink는 따라가지 않고 link만 지운다. 폴더가 없으면 not_found다. 지운 뒤에 그 source를 연 모든 창의 view를 버리고 `removed` event를 밀어, 열린 탭이 폴더 없음 안내(불변식 20)로 바뀐다. 지우기가 실패하면 view는 그대로다. rewind 기록은 지우지 않아서 되돌리려 해도 폴더는 돌아오지 않는다.
+25. **다른 컴퓨터의 artifact는 읽기 전용이다.** `{kind: "artifact", project | app, name}`만 다른 컴퓨터에서 연다(디스크 `.html`과 workflow artifact는 이 컴퓨터만). 그 컴퓨터의 core가 `artifacts/list`와 `artifacts/file`(`REMOTE_ALLOWED_ROUTES`, `REMOTE_AGENT_ROUTES` 밖이라 다른 컴퓨터의 agent·app은 부르지 못한다)로 목록과 4 MiB 이하 일반 file(`data/_entries.json` 포함, 폴더 밖과 symlink 탈출 거절)만 내주고, 이 컴퓨터의 shell main이 같은 봉한 partition·CSP·`_lophn/kit.*`로 그린다. 다른 컴퓨터의 artifact에는 폴더 watch, `[Edit source]`, `Annotate`, sidebar 지우기를 열지 않는다.
 
 ## 경계와 계약
 
 - 파일 규약: `<그릇 자리>/artifacts/<name>/index.html`, 같은 폴더의 file(상대 path로 읽음), `data/*.json`. 쓰는 법은 내장 skill `write-artifact`다.
 - workspace 정보(turn 시작): `Artifacts` 절에 `Folder:` 절대 path와 `- <name>: <title> — <description> (artifacts/<name>/index.html)` 줄들(50개까지).
-- shell IPC(renderer → main): `shell:artifact-open`(source), `shell:artifact-reload`(view_session), `shell:artifact-list`(`{project}`나 `{app}`), `shell:artifact-delete`(`{project, name}`, 응답 null). push: `shell:artifact-state`(view state), `shell:artifact-event`(`open-link`, `removed`). renderer API는 `window.lophnArtifact`다. view 폐기는 앱 view와 같은 `shell:view-close`를 쓴다. 오류는 공통 code 가운데 `invalid_input`, `forbidden`, `not_found`, `unavailable`, `internal`(지우다 실패)이다. 목록 줄은 `{name, title, description, modified}`다.
+- core route(다른 컴퓨터 읽기): `artifacts/list`(`{project | app}` → `{artifacts}`), `artifacts/file`(`{project | app, name, path}` → bytes stream, `data/_entries.json` 포함, 4 MiB 상한). 둘 다 actor user이고 `REMOTE_ALLOWED_ROUTES`에만 든다.
+- shell IPC(renderer → main): `shell:artifact-open`(source), `shell:artifact-reload`(view_session), `shell:artifact-list`(`{project | app, machine?}`), `shell:artifact-delete`(`{project, name}`, 응답 null). push: `shell:artifact-state`(view state), `shell:artifact-event`(`open-link`, `removed`). renderer API는 `window.lophnArtifact`다. view 폐기는 앱 view와 같은 `shell:view-close`를 쓴다. 오류는 공통 code 가운데 `invalid_input`, `forbidden`, `not_found`, `unavailable`, `internal`(지우다 실패)이다. 목록 줄은 `{name, title, description, modified}`다.
 - 봉한 scheme: `lophn-artifact://<host>/<path>`, GET·HEAD. 가상 file `data/_entries.json`, `_lophn/kit.js`, `_lophn/kit.css`, `data/_instance.json`(instance view).
 - annotation: `annotations.send`의 target `{kind: "artifact", project | app, name}` 또는 `{kind: "file", project}`. 읽기는 `annotations.get`과 `image.read "annotation:<id>"`다(`architecture/annotation.md`).
 - 대화 글 link: 이 창 workspace의 `…/projects/<prj>/artifacts/<name>` 또는 `…/apps/<app>/artifacts/<name>` 꼴 path 조각이 그 workspace의 아는 artifact를 가리킬 때 link가 된다. 글 끝 구두점은 뺀다. 목록에 아직 없는 이름이 글에 나오면 목록을 이름당 한 번 다시 읽는다.

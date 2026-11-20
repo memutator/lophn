@@ -38,6 +38,12 @@ decisions of the plan.
   `--reply none`); the conversation there designs, builds and releases it. For a new
   app, register it first with `lophn app create`. An app does not belong to a
   project, so you do not choose one.
+- When the person wants an app that lives on another of their computers here
+  (it shows under that computer in the sidebar), follow the skill
+  `connect-computers`: `lophn machine environment` to see it in `available`,
+  `lophn app take-in <app>`, then `lophn call send` to lophn at the app to run
+  `lophn release activate <release>`, which gives the person the consent card.
+  If the app is not in `available`, sync is off for it on that computer.
 - When the plan is work on a project's skills, or
   needs a body of material or a search over documents, give it to lophn at that
   project (`to: {agent: "lophn", workspace: {project: "<the project's name>"}}`) with

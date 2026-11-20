@@ -8,6 +8,7 @@
 // list.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import {
+  Button,
   Dot,
   IconButton,
   Mark,
@@ -20,6 +21,7 @@ import { Ellipsis } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { Rich } from "../../app/rich.tsx";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { useLocalScreen } from "../../apps/local/use-local-screen.ts";
@@ -33,10 +35,12 @@ import {
   useLocalApps,
   previewOnly,
   usePhoneApps,
+  useSendAppAnnotation,
   useWorkspaces,
   withLocalApps,
 } from "../../data/mod.ts";
 import { WorkspaceScreen } from "../workspace/index.tsx";
+import { AnnotateOverlay } from "./annotate.tsx";
 import { Body } from "./body.tsx";
 import { AppMenu } from "./menu.tsx";
 import { PreviewScreen } from "./preview.tsx";
@@ -76,6 +80,11 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
     screen: place.screen,
   });
   const [menu, setMenu] = useState(false);
+  const [annotating, setAnnotating] = useState(false);
+  const [sendingAnnotation, setSendingAnnotation] = useState(false);
+  const [annotationFailed, setAnnotationFailed] = useState(false);
+  const liveRelease = useAppRelease(place.id);
+  const sendAnnotation = useSendAppAnnotation();
   const entry = local.apps.find((one) => one.app === place.id);
   const installed = local.store?.installed(place.id) != null;
   const now = useNow(entry !== undefined && installed);
@@ -149,7 +158,66 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
         }
       />
       {onPhone === null && screen.update !== null && screen.state.kind === "running" && (
-        <Updated key={screen.update} app={place.id} />
+        <Updated
+          key={screen.update}
+          app={place.id}
+          // The phone has no release detail; lophn in the app's workspace tells what the release changed.
+          onChanged={(release) =>
+            nav.open({
+              name: "new-session",
+              workspace: { kind: "app", id: place.id },
+              text: t("mobile.apps.what-changed.ask", { release }),
+            })
+          }
+        />
+      )}
+      {app !== undefined && annotating && (
+        <AnnotateOverlay
+          busy={sendingAnnotation}
+          failed={annotationFailed}
+          onCancel={() => {
+            setAnnotating(false);
+            setAnnotationFailed(false);
+          }}
+          onSend={(note, spot) => {
+            const activeScreen = place.screen ?? app.screens[0]!.screen;
+            const releaseId =
+              liveRelease.loaded.state === "ready" ? liveRelease.loaded.value?.id : undefined;
+            const appWorkspace = { kind: "app", id: place.id } as const;
+            if (releaseId === undefined) {
+              setAnnotating(false);
+              nav.open({
+                name: "new-session",
+                workspace: appWorkspace,
+                text: `[${activeScreen}] ${note}`,
+              });
+              return;
+            }
+            setSendingAnnotation(true);
+            setAnnotationFailed(false);
+            void sendAnnotation({
+              app: place.id,
+              release: releaseId,
+              screen: activeScreen,
+              note,
+              xRatio: spot.xRatio,
+              yPx: spot.y,
+            }).then((sent) => {
+              setSendingAnnotation(false);
+              if (!sent.ok) {
+                setAnnotationFailed(true);
+                return;
+              }
+              setAnnotating(false);
+              nav.open({
+                name: "session",
+                session: sent.session,
+                agent: lophnIdOf(appWorkspace),
+                workspace: appWorkspace,
+              });
+            });
+          }}
+        />
       )}
       {app !== undefined && (
         <AppMenu
@@ -164,6 +232,10 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
               : under
           }
           waiting={waiting}
+          onAnnotate={() => {
+            setAnnotationFailed(false);
+            setAnnotating(true);
+          }}
         />
       )}
     </Screen>
@@ -207,7 +279,7 @@ function useNow(ticking: boolean): number {
  * "Updated to Release N" for a while after a new release replaced the screen. It sits under the guest, not over it:
  * the guest would lose the touches under anything drawn on top of it.
  */
-function Updated({ app }: { app: string }) {
+function Updated({ app, onChanged }: { app: string; onChanged: (release: string) => void }) {
   const insets = useSafeAreaInsets();
   const release = useAppRelease(app);
   const [shown, setShown] = useState(true);
@@ -218,13 +290,25 @@ function Updated({ app }: { app: string }) {
   if (!shown || release.loaded.state !== "ready" || release.loaded.value === null) {
     return null;
   }
+  const label = t("shell.label.app-release", { number: release.loaded.value.number });
   return (
     <View style={{ height: insets.bottom + 72 }}>
-      <Toast lead={<Dot tone="good" />}>
+      <Toast
+        lead={<Dot tone="good" />}
+        action={
+          <Button
+            size="sm"
+            variant="ghost"
+            onPress={() => onChanged(label)}
+          >
+            {t("mobile.apps.button.what-changed")}
+          </Button>
+        }
+      >
         <Rich
           id="mobile.apps.updated"
           name="release"
-          value={t("shell.label.app-release", { number: release.loaded.value.number })}
+          value={label}
           variant="detail"
         />
       </Toast>

@@ -154,13 +154,20 @@ export function openWorkspaceNewSession(
       : { space: "app", app: workspace.id, ...start };
 }
 
-/** 그 workspace로 가서 설정 탭을 연다. Home은 설정이 없어 그냥 간다. 설정 탭은 이 컴퓨터의 workspace만 연다. */
+/** 그 workspace로 가서 설정 탭을 연다. Home은 설정이 없어 그냥 간다. Project settings는 이 컴퓨터만, App details는 다른 기계의 앱도 연다. */
 export function openWorkspaceSettings(workspace: WorkspaceRef): Route {
-  return workspace.kind === "home" || workspace.machine !== undefined
-    ? openWorkspace(workspace)
-    : workspace.kind === "project"
-      ? { space: "project", project: workspace.id, startSettings: true }
-      : { space: "app", app: workspace.id, startSettings: true };
+  if (workspace.kind === "home") return openWorkspace(workspace);
+  if (workspace.kind === "project") {
+    return workspace.machine !== undefined
+      ? openWorkspace(workspace)
+      : { space: "project", project: workspace.id, startSettings: true };
+  }
+  return {
+    space: "app",
+    app: workspace.id,
+    startSettings: true,
+    ...on(workspace.machine),
+  };
 }
 
 /** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 그 앱 workspace의 lophn 새 session으로 열린다. */

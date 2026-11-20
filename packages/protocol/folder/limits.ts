@@ -18,6 +18,8 @@ export const HEADER_MAX_BYTES = MIB;
 // `record.json`, `app.json`, `source/<n>.json`.
 export const RECORD_MAX_BYTES = 256 * KIB;
 export const SOURCE_BUNDLE_MAX_BYTES = 64 * MIB;
+// `packages/<part>@<version>.json`. 넘는 package version은 내보내지 않는다. carry 조각(8 MiB)과 같다.
+export const PACKAGE_FILE_MAX_BYTES = 8 * MIB;
 
 export const DESTINATIONS_MAX = 16;
 

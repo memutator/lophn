@@ -8,6 +8,13 @@ import { createMcpAuthControl } from "./mcp-auth-control.ts";
 import { createMcpOAuthVault } from "./mcp-oauth-vault.ts";
 import { runtimeServerOfLayer } from "./mcp-server.ts";
 
+export const USER = {
+  principal: "user:local",
+  actor: "user" as const,
+  scope: { operations: [], targets: {} },
+  conditions: {},
+  credential_ref: "user:local",
+};
 const ISSUER = "https://issuer.example/mcp";
 const AUTHORIZE = "https://issuer.example/authorize";
 const TOKEN = "https://issuer.example/token";
@@ -105,7 +112,7 @@ test("MCP 로그인이 발급자 metadata의 끝점으로 client secret과 함�
   });
 
   const begin = control.handlers.get("agent-mcp-auth/begin")!;
-  const begun = (await begin(undefined, {
+  const begun = (await begin(USER, {
     name: "notion",
     workspace: null,
     agent: null,
@@ -118,7 +125,7 @@ test("MCP 로그인이 발급자 metadata의 끝점으로 client secret과 함�
   callbackState = url.searchParams.get("state")!;
 
   const complete = control.handlers.get("agent-mcp-auth/complete")!;
-  await complete(undefined, {
+  await complete(USER, {
     name: "notion",
     workspace: null,
     agent: null,
@@ -235,7 +242,7 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
   });
 
   const begin = control.handlers.get("agent-mcp-auth/begin")!;
-  const begun = (await begin(undefined, {
+  const begun = (await begin(USER, {
     name: "notion",
     workspace: null,
     agent: AGENT,
@@ -246,7 +253,7 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
   callbackState = new URL(begun.value!.url).searchParams.get("state")!;
 
   const complete = control.handlers.get("agent-mcp-auth/complete")!;
-  const completed = await complete(undefined, {
+  const completed = await complete(USER, {
     name: "notion",
     workspace: null,
     agent: AGENT,
@@ -260,7 +267,7 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
   assert.ok(!stored.has("mcp-oauth.global.notion.access"));
 
   const state = control.handlers.get("agent-mcp-auth/state")!;
-  const read = (await state(undefined, {
+  const read = (await state(USER, {
     servers: [
       { name: "notion", workspace: null, agent: AGENT },
       { name: "notion", workspace: null, agent: null },

@@ -19,6 +19,7 @@ import {
   FILE_PICK_CHANNEL,
   FOLDER_PICK_CHANNEL,
 } from "../../../ipc/folder-picker.ts";
+import { OAUTH_HANDOFF_CHANNEL } from "../../../ipc/oauth-handoff.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
 import { BROWSER_EVENT_CHANNEL } from "../../../ipc/browser.ts";
 import {
@@ -51,6 +52,10 @@ import { guardShortcuts } from "../headless.ts";
 import { word } from "../i18n.ts";
 import { nodeExecutableProbe } from "../os-entry/exec-path.ts";
 import { readOpenIntent } from "../open-intent.ts";
+import {
+  createOAuthHandoffHost,
+  createOAuthHandoffIpc,
+} from "../oauth-handoff.ts";
 import { createOpenExternal } from "../open-external.ts";
 import { createQuitFlow, quitDialogOptions } from "../quit.ts";
 import { registerViewSchemes } from "../security.ts";
@@ -168,6 +173,16 @@ export function register(
       open: (url) =>
         headless.headless ? Promise.resolve() : shell.openExternal(url),
       log,
+    }),
+  );
+
+  // 다른 컴퓨터의 loopback OAuth 로그인 callback을 이 컴퓨터의 browser에서 받아 넘기는 임시 listener다.
+  const oauthHandoff = createOAuthHandoffHost({ log });
+  ipc.handle(
+    OAUTH_HANDOFF_CHANNEL,
+    createOAuthHandoffIpc({
+      registry: overlays.overlayRegistry(),
+      host: oauthHandoff,
     }),
   );
 
@@ -468,6 +483,8 @@ export function register(
       ipc.removeHandler(WINDOW_CONTROL_CHANNEL);
       unwatchKeys();
       ipc.removeHandler(OPEN_EXTERNAL_CHANNEL);
+      ipc.removeHandler(OAUTH_HANDOFF_CHANNEL);
+      void oauthHandoff.stopAll();
       globalPalette?.dispose();
       ctx.tray.current?.destroy();
     },

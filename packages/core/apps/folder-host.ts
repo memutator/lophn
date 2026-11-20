@@ -1,13 +1,40 @@
 // 폴더 take-in과 source 받기의 port(`FolderAppsHost`, core/folder/apps가 정의한다)를 core/apps가 구현한다. 앱·release 행은
 // store 함수로 읽고, 등록·source 잇기는 core command를 폴더 take-in 자격(`FOLDER_APPS_CONTEXT`)으로 부르며,
 // release 준비는 `appsControl.prepareCommit`으로 이 기계에서 build·봉인·검사·확정한다.
-import { err, ok, type RandomSource, type Result } from "../../base/mod.ts";
-import { appConnectSource, appCreate } from "../../protocol/apps/mod.ts";
+import { stat } from "node:fs/promises";
+import {
+  err,
+  ok,
+  type RandomSource,
+  type Result,
+  sha256Hex,
+} from "../../base/mod.ts";
+import {
+  appConnectSource,
+  appCreate,
+  type PackageRegisterVersionInput,
+} from "../../protocol/apps/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import type { PrepareCommitResult } from "./control.ts";
-import { loadVersionPermissions } from "./packages/store.ts";
+import {
+  bundleFiles,
+  INSTALL_PRINCIPAL,
+  type PrepareBlob,
+  packageInstallPath,
+  prepareBundleBlobs,
+  prepareCopyFiles,
+  removeInstallCopy,
+  sameInstallCopy,
+  writeInstallCopy,
+} from "./packages/install.ts";
+import { dependencyVersions } from "./packages/publish.ts";
+import { loadPackage, loadVersionPermissions } from "./packages/store.ts";
 import { loadApp, loadApps } from "./registration/mod.ts";
+import {
+  missingCapPermission,
+  missingUserPackagePermission,
+} from "./releases/sdk-permissions.ts";
 import { loadReleases } from "./releases/store.ts";
 import type { FolderAppsHost } from "../folder/apps/deps.ts";
 
@@ -62,6 +89,14 @@ export function createFolderAppsHost(deps: {
     createdBy: string;
   }) => Promise<Result<PrepareCommitResult>>;
   random: RandomSource;
+  dataRoot: string;
+  /** ledger blob 전체 bytes. 없으면 `not_found`. */
+  readBlob: (hash: string) => Promise<Result<Uint8Array>>;
+  prepareBlob: PrepareBlob;
+  /** `package.register_version`을 machine 자격으로 낸다. */
+  registerVersion: (
+    input: PackageRegisterVersionInput,
+  ) => Promise<Result<unknown>>;
 }): FolderAppsHost {
   const { sql } = deps;
   // 지운 앱을 다시 들일 수 있게 key는 부를 때마다 새로 만든다. 같은 앱·commit이 이미 있는지는 부르기 전에 본다.
@@ -100,6 +135,135 @@ export function createFolderAppsHost(deps: {
     },
     published: (name, version) =>
       loadVersionPermissions(sql, name, version) !== null,
+    async carriedPackage(name, version) {
+      const found = loadPackage(sql, name);
+      if (!found.ok) return found;
+      const pkg = found.value;
+      const entry = pkg?.versions.find((each) => each.version === version);
+      if (pkg === null || entry === undefined || pkg.owner_app === null) {
+        return ok(null);
+      }
+      // 원문 blob이 없는 옛 판은 옮기지 못한다.
+      const bundle = await deps.readBlob(entry.bundle_hash);
+      const guide = await deps.readBlob(entry.guide_hash);
+      for (const read of [bundle, guide]) {
+        if (!read.ok && read.error.code !== "not_found") return read;
+      }
+      if (!bundle.ok || !guide.ok) return ok(null);
+      if (
+        (await sha256Hex(bundle.value)) !== entry.bundle_hash ||
+        (await sha256Hex(guide.value)) !== entry.guide_hash
+      ) {
+        return ok(null);
+      }
+      const files = bundleFiles(bundle.value);
+      if (!files.ok) return files;
+      return ok({
+        name,
+        version,
+        description: pkg.description,
+        owner_app: pkg.owner_app as Id<"app">,
+        permissions: entry.permissions ?? [],
+        requires: dependencyVersions(files.value).filter((dependency) =>
+          dependency.name.startsWith("@me/"),
+        ),
+        bundle: bundle.value,
+        guide: guide.value,
+      });
+    },
+    async installPackage(pkg) {
+      const files = bundleFiles(pkg.bundle);
+      if (!files.ok) return files;
+      const copy = prepareCopyFiles(pkg.name, pkg.version, files.value);
+      if (!copy.ok) return copy;
+      const path = packageInstallPath(pkg.name, pkg.version);
+      if (!path.ok) return path;
+      // 낸 permission이 내부 `@lophn/cap-*`·`@me/*` 요구를 덮는지 다시 본다(폴더에서 온 메타데이터를 믿지 않는다).
+      const dependencies = dependencyVersions(files.value);
+      const declared = new Set<string>(pkg.permissions);
+      const userPermissions = new Map<string, readonly string[]>();
+      const missingSdk: string[] = [];
+      for (const need of dependencies) {
+        if (need.name.startsWith("@lophn/")) {
+          const part = need.name.slice("@lophn/".length);
+          try {
+            const info = await stat(
+              `${deps.dataRoot}/sdk/${part}/${need.version}/package.json`,
+            );
+            if (!info.isFile()) missingSdk.push(`${need.name}@${need.version}`);
+          } catch {
+            missingSdk.push(`${need.name}@${need.version}`);
+          }
+          continue;
+        }
+        if (!need.name.startsWith("@me/")) continue;
+        const key = `${need.name}@${need.version}`;
+        const found = loadVersionPermissions(sql, need.name, need.version);
+        if (found === null) {
+          return err({
+            code: "conflict",
+            message: `${key} is not published on this machine`,
+            details: {
+              reason: "dependency_missing",
+              packages: [key],
+            },
+          });
+        }
+        userPermissions.set(key, found);
+      }
+      if (missingSdk.length > 0) {
+        return err({
+          code: "conflict",
+          message: `this lophn does not have ${missingSdk.join(", ")}; update lophn on this machine`,
+          details: { reason: "sdk_missing", packages: missingSdk },
+        });
+      }
+      const missingPerm =
+        missingCapPermission(
+          dependencies.map((dependency) => dependency.name),
+          declared,
+          "package permissions",
+        ) ??
+        missingUserPackagePermission(
+          dependencies,
+          userPermissions,
+          declared,
+          "package permissions",
+        );
+      if (missingPerm !== undefined) {
+        return err({ code: "invalid_input", message: missingPerm.message });
+      }
+      const prepared = await prepareBundleBlobs(
+        pkg.bundle,
+        pkg.guide,
+        INSTALL_PRINCIPAL,
+        deps.prepareBlob,
+      );
+      if (!prepared.ok) return prepared;
+      const registered = await deps.registerVersion({
+        name: pkg.name,
+        description: pkg.description,
+        version: pkg.version,
+        owner_app: pkg.owner_app,
+        permissions: pkg.permissions,
+        bundle_hash: prepared.value.bundleHash,
+        guide_hash: prepared.value.guideHash,
+        ...(prepared.value.bundleBlob === undefined
+          ? {}
+          : { bundle_blob: prepared.value.bundleBlob }),
+        ...(prepared.value.guideBlob === undefined
+          ? {}
+          : { guide_blob: prepared.value.guideBlob }),
+      });
+      if (!registered.ok) return registered;
+      const target = `${deps.dataRoot}/${path.value}`;
+      if (!(await sameInstallCopy(target, copy.value))) {
+        await removeInstallCopy(target);
+        const written = await writeInstallCopy(target, copy.value);
+        if (!written.ok) return written;
+      }
+      return ok(undefined);
+    },
     async createApp(input) {
       const created = await deps.command({
         command: appCreate.name,

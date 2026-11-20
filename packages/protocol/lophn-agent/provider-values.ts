@@ -37,6 +37,9 @@ export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);
 //   여기서 쓰는 `v1internal` API는 Google이 제3자 API로 공개 보장한 것이 아니다.
 export const OAUTH_FLOWS = ["pkce_loopback", "device_code"] as const;
 export type OAuthFlow = (typeof OAUTH_FLOWS)[number];
+// 로그인이 돌아오는 길이다. local은 이 기계의 browser가 loopback으로 돌려보낸다. remote_handoff는 다른 기기가 시작해서 그
+// 기기가 사람이 돌아온 주소를 `providers/sign-in-callback`으로 건넨다(device code는 돌아올 주소가 없어 local이다).
+export const OAUTH_CALLBACK_MODES = ["local", "remote_handoff"] as const;
 
 function isUrl(value: string): boolean {
   try {

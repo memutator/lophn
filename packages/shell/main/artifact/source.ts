@@ -9,6 +9,7 @@ import { err, ok, type Result } from "../../../base/result.ts";
 import { artifactNameSchema, workflowNameSchema } from "../../ipc/artifact.ts";
 import {
   ARTIFACT_ENTRY,
+  type ArtifactWorkspace,
   artifactWorkspaceOf,
   artifactsFolder,
 } from "../../../protocol/projects/artifact.ts";
@@ -19,8 +20,8 @@ import {
 } from "../../../protocol/workflows/paths.ts";
 
 export type ArtifactSource =
-  | { kind: "artifact"; project: string; name: string }
-  | { kind: "artifact"; app: string; name: string }
+  | { kind: "artifact"; project: string; name: string; machine?: string }
+  | { kind: "artifact"; app: string; name: string; machine?: string }
   | { kind: "file"; project: string; path: string }
   | {
       kind: "workflow";
@@ -37,6 +38,14 @@ export type ResolvedSource = {
   name: string | null;
   /** root가 같아도 host를 가르는 값. workflow instance view의 instance id, 아니면 null. */
   scope: string | null;
+  /** 다른 컴퓨터의 artifact면 그 대상. root는 이 컴퓨터의 폴더가 아니라 쓰이지 않는다. */
+  remote?: RemoteArtifact;
+};
+
+export type RemoteArtifact = {
+  machine: string;
+  workspace: ArtifactWorkspace;
+  name: string;
 };
 
 export type ArtifactFs = {

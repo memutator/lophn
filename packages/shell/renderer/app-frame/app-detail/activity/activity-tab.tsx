@@ -22,6 +22,7 @@ import type {
   AppDetailSource,
   Caller,
 } from "../source.ts";
+import { useReadOnly } from "../read-only.ts";
 import { useActivityView } from "../reads.ts";
 import styles from "../app-detail.module.css";
 import { RewindPanel } from "./rewind-panel.tsx";
@@ -79,6 +80,8 @@ function SessionLink({
   caller: Extract<Caller, { kind: "agent" }>;
   onOpenSession?: (session: string) => void;
 }) {
+  if (caller.session === null) return null;
+  const session = caller.session;
   const label = caller.title ?? t("app-detail.label.session-unnamed");
   return onOpenSession === undefined ? (
     <span className={styles.muted}>{label}</span>
@@ -86,8 +89,8 @@ function SessionLink({
     <button
       type="button"
       className={styles.link}
-      data-open-session={caller.session}
-      onClick={() => onOpenSession(caller.session)}
+      data-open-session={session}
+      onClick={() => onOpenSession(session)}
     >
       {label}
     </button>
@@ -117,10 +120,20 @@ function CalledBy({
     case "agent":
       return (
         <span>
-          {callerText(caller)} ·{" "}
-          <SessionLink caller={caller} onOpenSession={onOpenSession} /> ·{" "}
-          {t("app-detail.label.turn")} <Mono>{caller.turn}</Mono> ·{" "}
-          {t("app-detail.label.tool-call")} <Mono>{caller.toolCall}</Mono>
+          {callerText(caller)}
+          {caller.session === null ? null : (
+            <>
+              {" · "}
+              <SessionLink caller={caller} onOpenSession={onOpenSession} />
+            </>
+          )}
+          {caller.turn === null || caller.toolCall === null ? null : (
+            <>
+              {" · "}
+              {t("app-detail.label.turn")} <Mono>{caller.turn}</Mono> ·{" "}
+              {t("app-detail.label.tool-call")} <Mono>{caller.toolCall}</Mono>
+            </>
+          )}
         </span>
       );
     case "app":
@@ -184,10 +197,24 @@ function CalledBy({
   }
 }
 
+function remoteTargetText(
+  target: NonNullable<ActivityRow["remoteTarget"]>,
+  app: string,
+): string {
+  return target.app === app
+    ? t("app-detail.label.to-machine", { machine: target.machine })
+    : t("app-detail.label.to-machine-app", {
+        app: target.appName ?? target.app,
+        machine: target.machine,
+      });
+}
+
 function Detail({
+  app,
   row,
   onOpenSession,
 }: {
+  app: string;
   row: ActivityRow;
   onOpenSession?: (session: string) => void;
 }) {
@@ -199,6 +226,14 @@ function Detail({
             t("app-detail.label.fact-called-by"),
             <CalledBy key="by" row={row} onOpenSession={onOpenSession} />,
           ],
+          ...(row.remoteTarget === undefined
+            ? []
+            : [
+                [
+                  t("app-detail.label.fact-target"),
+                  remoteTargetText(row.remoteTarget, app),
+                ] as [string, string],
+              ]),
           [
             t("app-detail.label.fact-input-fingerprint"),
             row.inputHash === null ? (
@@ -253,6 +288,7 @@ function ActivityList({
     >
       {(view) => (
         <ActivityRows
+          app={app}
           view={view}
           now={now}
           open={open}
@@ -266,6 +302,7 @@ function ActivityList({
 }
 
 function ActivityRows({
+  app,
   view,
   now,
   open,
@@ -273,6 +310,7 @@ function ActivityRows({
   onRewind,
   onOpenSession,
 }: {
+  app: string;
   view: ActivityView;
   now: () => Date;
   open: string | null;
@@ -280,6 +318,7 @@ function ActivityRows({
   onRewind: (id: string) => void;
   onOpenSession?: (session: string) => void;
 }) {
+  const readOnly = useReadOnly();
   const rows = view.rows;
   return (
     <>
@@ -362,17 +401,19 @@ function ActivityRows({
                     <Mono>{callName(row)}</Mono>
                   </button>
                   <span className={styles.muted}>
-                    {row.earlier && row.releaseNumber !== null
-                      ? t("app-detail.label.from-release", {
-                          release: releaseName(row.releaseNumber),
-                        })
-                      : ""}
+                    {row.remoteTarget !== undefined
+                      ? remoteTargetText(row.remoteTarget, app)
+                      : row.earlier && row.releaseNumber !== null
+                        ? t("app-detail.label.from-release", {
+                            release: releaseName(row.releaseNumber),
+                          })
+                        : ""}
                   </span>
                 </span>
                 <EffectPill effect={row.effect} />
                 <StateCell row={row} />
                 <span className={styles.cellEnd}>
-                  {canRewind(row) ? (
+                  {canRewind(row) && !readOnly ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -386,7 +427,7 @@ function ActivityRows({
                 </span>
               </div>
               {open === row.id ? (
-                <Detail row={row} onOpenSession={onOpenSession} />
+                <Detail app={app} row={row} onOpenSession={onOpenSession} />
               ) : null}
             </div>
           ))}

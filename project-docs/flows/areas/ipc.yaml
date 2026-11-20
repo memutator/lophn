@@ -103,6 +103,41 @@ flows:
     crosses_process: true
     risk: [sandbox]
 
+  - id: shell-oauth-handoff
+    title: "다른 컴퓨터의 loopback OAuth 로그인 callback을 임시 로컬 loopback listener로 받아 renderer에 넘긴다"
+    actor: person
+    entries: [ipc:shell:oauth-handoff]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/oauth-handoff.ts
+      - packages/shell/ipc/oauth-handoff.ts
+    steps:
+      - "desktop 창 본문의 caller인지 본다(ipc-caller-guard)"
+      - "start: redirectUri가 loopback(127.0.0.1, ::1, localhost) http 주소이고 명시적 port(1..65535)인지 검사한 뒤 임시 HTTP 서버를 연다. port가 바쁘면 conflict다"
+      - "wait: 맞는 path와 state가 담긴 callback 한 건을 기다려 전체 callback URL을 돌려주고 서버를 닫는다. 다른 state는 400으로 거절하고 계속 기다린다"
+      - "cancel: 열려 있던 임시 서버를 닫고 대기 중인 wait를 cancelled로 끝낸다"
+    outcomes:
+      - id: captured
+        when: "맞는 state의 callback을 받아 URL을 돌려주고 listener를 닫았다"
+        observe: [log:oauth handoff listening, response]
+      - id: conflict
+        code: conflict
+        when: "redirect port를 다른 프로그램이 쓰고 있다(화면은 수동 URL 붙여 넣기로 이어 간다)"
+        observe: [response]
+      - id: cancelled
+        when: "취소되었거나 창·앱이 닫혔다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 꼴이 틀리거나 loopback http 주소가 아니다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+
   # ---------- 창 조작 ----------
   - id: window-control
     title: "desktop 창의 최소화, 최대화, 닫기 단추를 부른 창에만 건다"

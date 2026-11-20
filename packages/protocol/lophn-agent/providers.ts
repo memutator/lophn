@@ -21,6 +21,7 @@ import {
   recordProviderModelsInputSchema,
   refreshProviderCredentialInputSchema,
   refreshProviderModelsInputSchema,
+  providerSignInCallbackInputSchema,
   providerSignInStateSchema,
   providerSignInInputSchema,
   providerSignInOutputSchema,
@@ -247,6 +248,20 @@ export const providerSignInState = defineMemory({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
+// 다른 기기가 시작한 loopback 로그인(`callback_mode: remote_handoff`)의 callback을 건넨다. 받은 core가 state를 대조하고
+// token 교환을 이 기계에서 한다. 기기가 시작한 로그인이 아니거나 이미 끝났으면 not_found·conflict, 주소가 이 시도의 것이
+// 아니면 invalid_input이다.
+export const providerSignInCallback = defineMemory({
+  resource: "providers",
+  method: "sign-in-callback",
+  name: "DeliverProviderSignInCallback",
+  changes: [{ name: "providers", id: (input) => input.provider }],
+  input: providerSignInCallbackInputSchema,
+  output: z.strictObject({ accepted: z.literal(true) }),
+  actors: ["user"],
+  errors: [...userErrors, "not_found", "conflict"],
+});
+
 export const PROVIDER_ROUTES = [
   disconnectProvider,
   providerRead,
@@ -255,6 +270,7 @@ export const PROVIDER_ROUTES = [
   providerConnectLocal,
   providerSignIn,
   providerSignInState,
+  providerSignInCallback,
   loginCancel,
   refreshProviderCredential,
   recordProviderAvailability,

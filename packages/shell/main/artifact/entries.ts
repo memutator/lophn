@@ -2,7 +2,9 @@
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 
-export const ENTRIES_PATH = "data/_entries.json";
+import { ARTIFACT_ENTRIES_PATH } from "../../../protocol/projects/artifact.ts";
+
+export const ENTRIES_PATH = ARTIFACT_ENTRIES_PATH;
 
 export interface EntriesFs {
   readdir: typeof readdir;

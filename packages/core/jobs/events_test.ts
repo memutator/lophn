@@ -139,6 +139,7 @@ function setup() {
     publisher: string;
     event: string;
     machine?: string;
+    remote?: true;
     skipWorkspaces?: string[];
     session?: { id: string; workspace: { kind: "project"; id: string } | null };
     chain?: string[];
@@ -154,6 +155,7 @@ function setup() {
         ...(input.machine === undefined
           ? {}
           : { machine: input.machine as never }),
+        ...(input.remote === true ? { remote: true as const } : {}),
         ...(input.skipWorkspaces === undefined
           ? {}
           : { skip_workspaces: input.skipWorkspaces }),
@@ -738,6 +740,41 @@ test("job.list는 이 기계의 앱이 event를 내지 않는 job만 source_gone
         [remote, false],
       ],
     );
+  } finally {
+    db.close();
+  }
+});
+
+// 다른 컴퓨터의 event나 받은 호출이 낳은 이 컴퓨터의 event로 연 job run은 remote 표시를 담아야 그 run이 세 번째 컴퓨터를 부르지 못한다.
+test("다른 컴퓨터의 event와 remote 표시가 붙은 이 기계의 event는 job run에 remote를 남기고 일반 event는 남기지 않는다", () => {
+  const { db, job, trigger, fire, runs } = setup();
+  try {
+    const fromMachine = "job_01hzzzzzzzzzzzzzzzzzzzzzza";
+    const fromLocalRemote = "job_01hzzzzzzzzzzzzzzzzzzzzzzb";
+    const fromLocal = "job_01hzzzzzzzzzzzzzzzzzzzzzzc";
+    job(fromMachine, trigger(APP, APP, "usage.limit", LAPTOP));
+    job(fromLocalRemote, trigger("masup", APP, "usage.limit"));
+    job(fromLocal, trigger("masup", APP, "other.event"));
+
+    assert.deepStrictEqual(
+      fire({ publisher: APP, event: "usage.limit", machine: LAPTOP }),
+      { fired: 1, skipped: 0 },
+    );
+    assert.deepStrictEqual(
+      fire({ publisher: APP, event: "usage.limit", remote: true }),
+      { fired: 1, skipped: 0 },
+    );
+    assert.deepStrictEqual(fire({ publisher: APP, event: "other.event" }), {
+      fired: 1,
+      skipped: 0,
+    });
+
+    const eventOf = (id: string) => JSON.parse(String(runs(id)[0]["event"]));
+    assert.equal(eventOf(fromMachine).remote, true);
+    assert.equal(eventOf(fromMachine).machine, LAPTOP);
+    assert.equal(eventOf(fromLocalRemote).remote, true);
+    assert.equal(eventOf(fromLocalRemote).machine, undefined);
+    assert.equal(eventOf(fromLocal).remote, undefined);
   } finally {
     db.close();
   }

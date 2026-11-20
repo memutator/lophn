@@ -11,6 +11,7 @@ import { settingsList } from "../../../../protocol/config/file.ts";
 import type { LophnShellViewsApi } from "../../../ipc/app-frame.ts";
 import type { CoreApi } from "../../../ipc/core-api.ts";
 import type { FolderPickerApi } from "../../../ipc/folder-picker.ts";
+import { readOnlyAppDetailSource } from "../../app-frame/app-detail/remote-source.ts";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import { machineAppViews } from "../../app-frame/machine-deps.ts";
@@ -96,7 +97,7 @@ export interface MachineData {
   readonly agentViewSource: AgentTabSourceFactory;
   /** 문서 탭은 이 컴퓨터의 file만 연다. */
   readonly editor?: EditorDeps;
-  /** App details는 이 컴퓨터만 연다. */
+  /** App details. 다른 기계는 읽기만 하는 source다(`readOnlyAppDetailSource`). */
   readonly appDetail?: AppDetailSource;
   /** OS 선택기는 이 컴퓨터의 폴더를 보여 다른 기계는 그 기계의 폴더 목록 dialog로 고른다. 그 dialog 자리는 범위가 그린다. */
   readonly folders: FolderBrowser | null;
@@ -223,6 +224,7 @@ function otherMachineData(
       shellRules: coreShellRulesSource(core),
     },
     quickPrefs: memoryQuickPrefs(),
+    appDetail: readOnlyAppDetailSource,
     // sign_in card의 로그인도 돌린다(provider 로그인은 그 기계의 core가 기다린다). card가 device code만 단추로 둔다.
     agentViewSource: coreAgentTabSourceFactory(core, {
       device: true,

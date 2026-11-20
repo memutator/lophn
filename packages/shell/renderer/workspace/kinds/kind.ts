@@ -40,10 +40,10 @@ export interface TabKindDef {
   /** true면 이름 바꾸기는 이 컴퓨터의 탭만 한다(이름을 core에 쓰는 route가 기기의 목록에 없다). 다른 기계의 탭은 이름 바꾸기 항목이 없다. */
   readonly renameThisComputerOnly?: true;
   /**
-   * true면 이 탭은 이 컴퓨터의 shell host(파일, 터미널, browser, 앱 view)나 기기가 부를 수 없는 관리 route가 있어야 선다.
+   * true(또는 탭별 true)면 이 탭은 이 컴퓨터의 shell host(파일, 터미널, browser, 앱 view)나 기기가 부를 수 없는 관리 route가 있어야 선다.
    * 탭의 기계가 이 컴퓨터가 아니면 본문 대신 OnlyHere("This opens only on <이름>")다. 다른 기계에서 열리게 한 kind는 이 표를 뺀다.
    */
-  readonly thisComputerOnly?: true;
+  readonly thisComputerOnly?: true | ((tab: TabItem) => boolean);
   /**
    * 이 컴퓨터에 이 앱이 있으면 탭의 기계와 상관없이(그 기계가 꺼져 있어도) 이 컴퓨터에서 연다(같은 앱은 한 줄). 그 앱 id다.
    * 탭 범위(TabScope)가 그 기계의 상태 안내보다 먼저 묻는다.
@@ -108,4 +108,14 @@ export interface TabKindDef {
     host: TabHost,
     options?: { readonly confirmed?: boolean },
   ): Promise<boolean> | null;
+}
+
+/** 이 탭이 이 컴퓨터에서만 열리는가. */
+export function isThisComputerOnly(
+  def: TabKindDef | undefined,
+  tab: TabItem,
+): boolean {
+  return typeof def?.thisComputerOnly === "function"
+    ? def.thisComputerOnly(tab)
+    : def?.thisComputerOnly === true;
 }

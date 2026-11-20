@@ -1,0 +1,13 @@
+id: take-in-ui-and-addresses
+version: 0.23.98
+title: 다른 컴퓨터의 앱을 화면에서 이 컴퓨터에 들이고, remote.addresses를 Settings와 Home 승인 카드로 바꾼다
+modules: [packages/core/config, packages/core/agent-workspaces, packages/shell/renderer, packages/design]
+change: |
+  전: 다른 컴퓨터가 폴더에 내놓은 앱은 CLI `lophn app take-in`으로만 들일 수 있었고, `remote.addresses`는 locked라 사람이 터미널에서 `lophn settings set`을 써야 했다. 후: (1) sidebar의 다른 컴퓨터 앱 줄 menu와 Settings › Sync의 "Available from other computers"에 [Install on this computer]가 있다. 누르면 `machine/environment`의 `available`에서 그 앱을 찾아 `apps/take_in`을 부르고 줄 아래 한 줄(CloneNote)이나 Sync의 줄에 진행과 결과를 보인다. `available`에 없으면 그 컴퓨터에서 그 앱의 sync가 꺼져 있다는 글이다. 들인 release는 prepared이고 켜는 것은 앱의 lophn이다. (2) 설정 `remote.addresses`가 locked에서 approval `person`이 되었다: 사람 자격(Settings › Remote의 새 Addresses 칸, 사람의 터미널)은 바로 쓰고 agent는 Home의 승인 카드("Add address …", "Remove address …")에서 사람이 허락한 그 값만 쓴다. (3) Home의 지침과 skill `connect-computers`가 `machine environment` → `app take-in` → 앱의 lophn에게 `call send`로 `release activate`(동의 카드)와 `remote.addresses` 승인 카드를 안내한다.
+why: |
+  앱을 다른 컴퓨터에서 가져오는 일과 Tailscale 이름을 적는 일이 터미널 명령을 아는 사람만의 일이었다. 두 일 모두 사람이 화면에서 하거나 Home의 agent가 사람의 승인으로 하게 한다.
+decisions:
+  - text: '앱 들이기의 활성화는 UI가 직접 부르지 않는다. `release.activate`는 agent actor만 부르고 동의 카드는 앱 workspace의 대화에 열리므로, 화면은 prepared까지만 하고 "앱을 열어 lophn에게 켜 달라고 하라"고 안내한다. 버린 길: 화면이 사용자 actor로 activate를 부르기(route actor와 동의 흐름을 바꿔야 한다).'
+    by: agent
+  - text: "sidebar 앱 줄 menu는 이 컴퓨터에 같은 id의 앱이 없을 때만 보이고 `available`은 누를 때 읽는다. 그래서 목록 구독을 따로 두지 않고, sync가 꺼진 앱은 누르면 이유를 말한다."
+    by: agent

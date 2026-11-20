@@ -16,6 +16,7 @@ import {
   providerDefinitions,
   providerList,
   providerSignIn,
+  providerSignInCallback,
   providerSignInState,
 } from "../../../protocol/lophn-agent/providers.ts";
 import type { ProviderRecord } from "../../../protocol/lophn-agent/provider-values.ts";
@@ -55,12 +56,13 @@ async function upload<T>(
 
 export type SignInStart = z.input<typeof providerSignInInputSchema>;
 
-/** A started sign-in: what the person opens and types there. The core waits for the provider. */
+/** A started sign-in: what the person opens and types or pastes back. The core waits for the provider. */
 export interface SignInStarted {
   readonly provider: string;
   readonly login: string;
   readonly url: string;
   readonly code: string | null;
+  readonly callbackMode: "local" | "remote_handoff";
 }
 
 export type SignInOutcome = "connected" | "cancelled" | { readonly failed: string };
@@ -71,6 +73,8 @@ export interface Setup {
   /** Connects a built-in definition with an API key. */
   connectKey(definition: string, value: string): Promise<SourceResult<null>>;
   startSignIn(input: SignInStart): Promise<SourceResult<SignInStarted>>;
+  /** Delivers the redirected localhost callback URL back to the target computer for a remote_handoff sign-in. */
+  deliverSignInCallback(started: SignInStarted, callbackUrl: string): Promise<SourceResult<null>>;
   /** Follows a started sign-in until it ends; the returned function stops following. */
   followSignIn(login: string, onEnd: (outcome: SignInOutcome) => void): () => void;
   cancelSignIn(started: SignInStarted): Promise<void>;
@@ -106,8 +110,25 @@ export function useSetup(computer?: string): Setup {
       async startSignIn(input) {
         const begun = await ask(core, providerSignIn, input);
         if (!begun.ok) return begun;
-        const { provider, login, sign_in } = begun.value;
-        return { ok: true, value: { provider, login, url: sign_in.url, code: sign_in.user_code } };
+        const { provider, login, sign_in, callback_mode } = begun.value;
+        return {
+          ok: true,
+          value: {
+            provider,
+            login,
+            url: sign_in.url,
+            code: sign_in.user_code,
+            callbackMode: callback_mode,
+          },
+        };
+      },
+      async deliverSignInCallback(started, callbackUrl) {
+        const sent = await ask(core, providerSignInCallback, {
+          provider: started.provider,
+          login: started.login,
+          callback_url: callbackUrl,
+        });
+        return sent.ok ? { ok: true, value: null } : sent;
       },
       followSignIn(login, onEnd) {
         if (client === null) {

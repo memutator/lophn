@@ -123,6 +123,14 @@ files:
     covers: []
     note: 스트리밍 중인 markdown 표시와 parse cache 렌더 helper
 
+  - path: packages/design/native/reading/math_test.ts
+    covers: []
+    note: 폰 대화의 LaTeX 수식 Unicode 변환 단위 테스트
+
+  - path: packages/design/native/reading/mermaid_test.ts
+    covers: []
+    note: 폰 대화의 Mermaid(flowchart/graph/sequenceDiagram/stateDiagram) 경량 파서 단위 테스트
+
   - path: packages/relay/relay_test.ts
     covers: []
     note: "증명하지 못한 control socket(증명 없음, 다른 key의 증명)에는 폰 연결이 이어지지 않는다. 폰 연결 둘의 message(data socket 전에 든 것 포함, 두 방향)가 서로의 data socket으로 가지 않고, 받는 쪽이 1 MiB를 넘게 밀리면 그 짝만 닫힌다"
@@ -183,6 +191,10 @@ files:
   - path: packages/protocol/folder/container_test.ts
     covers: []
     note: "폴더 변경 file 꼴. 끝을 자른 것, payload·header를 1 byte 바꾼 것, 뒤에 붙인 것, path와 번호가 다른 header, 1행 판 2는 변경을 하나도 내놓지 않고(invalid_file, newer_format), 맞는 file은 넣은 변경을 bytes 그대로 돌려준다. 모르는 칸이 더해진 header와 기록은 읽히고 format 2는 newer_format이다. 아직 폴더 교환 route가 없어 outcome이 없다"
+
+  - path: packages/protocol/remote/app-detail-scope_test.ts
+    covers: [remote-connection:call-ok]
+    note: "다른 컴퓨터의 App details가 읽는 route(앱, release, grant, Activity, SDK 판, 따라가기·OAuth 상태 등)가 모두 기기의 목록 안이고 사람이 부를 수 있다. 하나가 빠지면 그 절이 통째로 실패한다"
 
   - path: packages/protocol/remote/carry_test.ts
     covers: [carry-put:rejected, carry-removed-computer:deleted, carry-event-arrive:refused]

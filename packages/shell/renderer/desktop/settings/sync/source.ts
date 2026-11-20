@@ -1,7 +1,8 @@
 // Settings › Sync가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
+import type { AvailableApp, TakeInOutcome } from "../../../apps/take-in.ts";
 import type { SourceResult } from "../source.ts";
 
-export type { SourceResult };
+export type { AvailableApp, SourceResult, TakeInOutcome };
 
 /** 이름 붙인 폴더. `state`는 core가 그 폴더를 본 결과이고, 모르면 null이다. */
 export interface SyncFolder {
@@ -40,6 +41,8 @@ export interface SyncStatus {
   readonly apps: readonly SyncAppRow[];
   /** 명단에 같은 machine id를 단 컴퓨터 항목이 둘 이상인 기계. 받는 쪽이 manifest 서명을 믿지 않아 carry가 멈춘다. */
   readonly duplicateMachines: readonly string[];
+  /** 다른 컴퓨터가 내놓았고 이 컴퓨터에 아직 없는 앱. 읽지 못하면 빈 목록이다. */
+  readonly available: readonly AvailableApp[];
 }
 
 /** 저장 결과. rejected의 message는 core가 거절한 까닭(영어)이고 없을 수 있다. */
@@ -63,6 +66,8 @@ export interface SyncSettingsSource {
   removeNamed(name: string): Promise<SaveOutcome>;
   /** 같이 보는 폴더를 정하거나(path) 그만둔다(null). */
   setShared(path: string | null): Promise<SaveOutcome>;
+  /** 그 앱을 이 컴퓨터에 들여 release를 준비한다. 켜는 것은 앱 workspace의 lophn이고 사람은 그때 동의를 본다. */
+  takeIn(app: string): Promise<TakeInOutcome>;
   /** OS 폴더 선택기. 사람이 그만두면 null이다. 선택기가 없는 창은 unavailable이다. */
   pickFolder(): Promise<SourceResult<string | null>>;
 }

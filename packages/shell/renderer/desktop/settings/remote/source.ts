@@ -121,6 +121,10 @@ export interface RemoteSettingsSource {
     keepRunning?: boolean;
     keepAwake?: boolean;
   }): Promise<SourceResult<AlwaysOnView>>;
+  /** 설정 `remote.addresses`: 사람이 적은 direct 주소(domain, IP, Tailscale 이름). */
+  addresses(): Promise<SourceResult<readonly string[]>>;
+  /** 목록 전체를 새 값으로 쓴다. 사람의 Settings 화면이라 승인 없이 바로 쓰인다. */
+  setAddresses(list: readonly string[]): Promise<SourceResult<null>>;
   /** 설정 `remote.enabled`. */
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;

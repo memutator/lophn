@@ -40,6 +40,10 @@ files:
     covers: [mcp-auth-begin:ok, mcp-auth-finish:completed, mcp-auth-state:none, mcp-auth-state:signed-in, secret-attach:sent, secret-attach:forbidden]
     note: "MCP 로그인이 발급자 metadata 끝점과 client secret으로 token을 받고, agent 층 token은 agent id 이름에 보관해 그 서버에만 붙는다"
 
+  - path: packages/core/lophn-agent/extensions/mcp-auth-handoff_test.ts
+    covers: [mcp-auth-begin:ok, mcp-auth-finish:completed, mcp-auth-finish:state-mismatch, mcp-auth-finish:no-session]
+    note: "다른 기기가 시작한 MCP 로그인은 port를 잡지 않고 remote_handoff로 주소를 내주며, callback state 대조 후 대상 core에서 직접 token 교환·보관한다"
+
   - path: packages/core/lophn-agent/extensions/mcp-oauth-vault_test.ts
     covers: [mcp-server-connect:refresh-rejected]
     note: "MCP token 세 이름의 알려진 값 등록과 갱신 거절 시 세 이름 삭제. 세 이름 삭제는 mcp-server-connect:refresh-rejected"
@@ -127,6 +131,10 @@ files:
   - path: packages/core/lophn-agent/providers/login_test.ts
     covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:forbidden, provider-login-finish:unavailable, provider-login-finish:conflict, provider-login-finish:grant-lost]
     note: "ChatGPT·Claude·Antigravity 구독 로그인을 core가 기다려 끝낸다. 고정 callback 교환, 계정 claim 없으면 secret과 provider를 남기지 않고, tier 없으면 onboarding 뒤 마지막 project로만 연결한다. 이미 이어진 id면 conflict이고 그 provider의 key·token은 그대로다. 기기가 시작한 device code 로그인은 발급자가 답하기 전에 그 기기의 허락이 꺼지면 아무것도 잇지 않고 secret을 남기지 않으며, 이 기계에서 시작한 같은 로그인은 잇는다"
+
+  - path: packages/core/lophn-agent/providers/login-handoff_test.ts
+    covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:grant-lost]
+    note: "다른 기기가 시작한 ChatGPT loopback 로그인은 port 없이 remote_handoff 주소를 내주고, 건넨 callback을 state로 대조해 대상 core에서 직접 교환·저장하며, 허락이 꺼지면 연결하지 않는다"
 
   - path: packages/core/lophn-agent/providers/model-list_test.ts
     covers: [provider-models-refresh:refreshed, provider-models-refresh:unavailable, provider-models-refresh:invalid_input, provider-models-record:recorded]

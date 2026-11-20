@@ -10,7 +10,11 @@ files:
 
   - path: packages/core/apps/calls/forward_test.ts
     covers: []
-    note: "다른 기계의 앱 command로 넘기는 길(createRemoteForward)을 가짜 link로 본다. 할당이 없거나 command를 뺐거나 다른 기계에만 할당한 agent와 grant가 없는 앱은 link에 아무것도 보내지 않고, private workspace의 agent와 앱, 받은 call 안에서 부른 앱 호출은 forbidden이다. 이 컴퓨터를 고르거나 이름이 모호하거나 없으면 보내지 않고, 보내지 못한 호출은 오류, 보낸 뒤 답을 잃은 호출은 결과 모름이다. lophn 앱 command --on 기계가 resolveAppCall, appCommandTool, apps/call_tool(remote), forward를 지나 apps/remote_call 본문이 되는 길을 한 번 잇는다. remote target 갈래는 app-runtime의 apps/call_tool flow에 아직 오르지 않아 covers 밖"
+    note: "다른 기계의 앱 command로 넘기는 길(createRemoteForward)을 가짜 link로 본다. 할당이 없거나 command를 뺐거나 다른 기계에만 할당한 agent와 grant가 없는 앱은 link에 아무것도 보내지 않고, private workspace의 agent와 앱, 받은 call 안에서 부른 앱 호출, 다른 컴퓨터의 event로 연 job의 agent 호출은 forbidden이다. 이 컴퓨터를 고르거나 이름이 모호하거나 없으면 보내지 않고, 보내지 못한 호출은 오류, 보낸 뒤 답을 잃은 호출은 결과 모름이다. 보낼 때 command lane과 긴 시한을 쓰고 부른 컴퓨터에 시작·끝 기록을 남긴다. lophn 앱 command --on 기계가 resolveAppCall, appCommandTool, apps/call_tool(remote), forward를 지나 apps/remote_call 본문이 되는 길을 한 번 잇는다. remote target 갈래는 app-runtime의 apps/call_tool flow에 아직 오르지 않아 covers 밖"
+
+  - path: packages/core/apps/calls/outbound_test.ts
+    covers: [app-remote-calls-read:listed, app-remote-calls-read:invalid-cursor]
+    note: "부른 컴퓨터의 다른 컴퓨터 호출 기록(app_remote_calls) 저장·끝내기·기동 시 running→unknown 닫기·오류 길이 512자 자르기·app/caller_app/session/cursor 필터와 잘못된 cursor 거절"
 
   - path: packages/core/apps/data/worker/restore_test.ts
     covers: [data-job-start:reverted, release-activate:failed]

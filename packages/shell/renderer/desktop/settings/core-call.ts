@@ -6,6 +6,7 @@ import type { z } from "zod";
 import type { CommandRoute } from "../../../../protocol/base/route.ts";
 import { type CommandBody, commandBody } from "../../command-call.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
+import type { OAuthHandoffApi } from "../../../ipc/oauth-handoff.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type {
   SecretInputOpen,
@@ -96,5 +97,16 @@ export function windowLinkOpener():
     .lophnShell;
   return typeof shell?.openExternal === "function"
     ? (url) => shell.openExternal!(url)
+    : undefined;
+}
+
+/** preload의 원격 loopback OAuth callback 받기. 없는 창이면 undefined다. */
+export function windowOAuthHandoff():
+  | OAuthHandoffApi["oauthHandoff"]
+  | undefined {
+  const shell = (globalThis as { lophnShell?: Partial<OAuthHandoffApi> })
+    .lophnShell;
+  return typeof shell?.oauthHandoff === "function"
+    ? (request) => shell.oauthHandoff!(request)
     : undefined;
 }

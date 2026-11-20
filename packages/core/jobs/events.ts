@@ -177,11 +177,13 @@ export function createEventCommands(): {
             continue;
           }
           // 이름(source)은 보여 주는 글이라 승인 때의 slug가 아니라 event를 낸 쪽의 이름을 싣는다.
+          const remote = input.machine !== undefined || input.remote === true;
           const event: JobEvent = {
             source: job.value.trigger!.source,
             event: input.event,
             payload: input.payload,
             ...(input.machine === undefined ? {} : { machine: input.machine }),
+            ...(remote ? { remote: true as const } : {}),
           };
           const outcome = consider(
             tx,

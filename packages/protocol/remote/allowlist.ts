@@ -18,9 +18,12 @@ import {
   activationConsents,
 } from "../apps/activation/consent.ts";
 import {
+  activationsCompare,
+  activationsQueue,
   releasesGetRecord,
   releasesListRecords,
 } from "../apps/activation/activation.ts";
+import { annotationSend } from "../apps/annotation.ts";
 import {
   appSyncPull,
   appSyncPush,
@@ -28,6 +31,15 @@ import {
   appSyncSnapshotFile,
 } from "../apps/app-sync.ts";
 import { appGet, appList } from "../apps/apps.ts";
+import {
+  appsOAuthBegin,
+  appsOAuthCallback,
+  appsOAuthCancel,
+  appsOAuthSignOut,
+  appsOAuthState,
+} from "../apps/oauth.ts";
+import { appSdkStatus } from "../apps/sdk-status.ts";
+import { appUpdateState } from "../apps/update-state.ts";
 import { appRemoteCall } from "../apps/calls/remote.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
@@ -40,7 +52,7 @@ import {
   noticesOpen,
 } from "../apps/notice.ts";
 import { appPhoneFile, appPhoneScreens } from "../apps/phone.ts";
-import { appRuntime } from "../apps/runtime.ts";
+import { appLogs, appRuntime } from "../apps/runtime.ts";
 import { appGrantsList } from "../apps/grants.ts";
 import {
   appViewsCall,
@@ -145,6 +157,9 @@ import {
 } from "../lophn-agent/message-images.ts";
 import { messageSearch } from "../lophn-agent/message-search.ts";
 import {
+  mcpAuthBegin,
+  mcpAuthCallback,
+  mcpAuthCancel,
   mcpAuthState,
   workspaceExtensionSettingsRead,
   workspaceExtensionSettingsChange,
@@ -172,6 +187,7 @@ import {
   providerList,
   providerRead,
   providerSignIn,
+  providerSignInCallback,
   providerSignInState,
   recordProviderModels,
   refreshProviderModels,
@@ -192,6 +208,7 @@ import { skillsRead } from "../lophn-agent/skill-settings.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
 import { stopTurn } from "../lophn-agent/turns.ts";
 import { projectAdd, projectBrowse } from "../projects/add-api.ts";
+import { artifactsFile, artifactsList } from "../projects/artifact-api.ts";
 import { projectIdentityApi } from "../projects/identity-api.ts";
 import { projectApi } from "../projects/project-api.ts";
 import {
@@ -340,6 +357,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   workflowStart,
   workflowStop,
   projectSearch,
+  // 다른 컴퓨터의 창이 이 컴퓨터의 artifact를 읽는다(읽기 전용, artifact 폴더 안만)
+  artifactsList,
+  artifactsFile,
   projectFilesList,
   projectFilesRead,
   // 다른 컴퓨터가 넘긴 앱 command의 입구. 허락받은 컴퓨터만 core가 받는다(`by` 없는 폰은 forbidden)
@@ -351,6 +371,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   appInvocation,
   appTools,
   appRuntime,
+  appLogs,
   releasesListRecords,
   releasesGetRecord,
   // 앱의 폰 화면
@@ -361,8 +382,15 @@ export const REMOTE_ALLOWED_ROUTES = [
   appViewsCall,
   appViewsClose,
   appViewsLogError,
+  annotationSend,
   // 다른 컴퓨터의 창에 뜬 앱 화면: 그 앱이 받은 허락 읽기, 화면의 agent session과 call(기기는 자기가 연 view의 앱으로만)
   appGrantsList,
+  // 다른 컴퓨터의 App details(읽기만): 올라온 release 줄과 비교, SDK 판, follow 상태, OAuth 상태(token·client secret 값 없음)
+  activationsQueue,
+  activationsCompare,
+  appSdkStatus,
+  appUpdateState,
+  appsOAuthState,
   appSessionsList,
   appSessionsStatus,
   appSessionsStop,
@@ -391,7 +419,11 @@ export const REMOTE_ALLOWED_ROUTES = [
 
 // 터미널 입력을 허락받은 기기에만 여는 사람의 route다. 허락이 있어도 넣지 않는 것: 기기·pairing·명단 관리(`devices/*`, `roster/*`),
 // 터미널 입력 허락 바꾸기, `always_on/*`, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
-// `terminal_sessions/*`, `apps/call_tool`, grant 바꾸기(`app_grants/*`의 쓰기), 할당 쓰기, 그 기계의 loopback으로 돌아오는 로그인(`agent-mcp-auth/*`의 시작·완료·취소, `apps/oauth_*`).
+// `terminal_sessions/*`, `apps/call_tool`, grant 바꾸기(`app_grants/*`의 쓰기), 할당 쓰기, `agent-mcp-auth/complete`(기다리는 호출이라 기기는
+// callback을 건네는 `callback`으로 끝낸다), 앱 OAuth의 client 값 넣기(`apps/oauth_client_set`).
+// 그 기계의 loopback으로 돌아오는 로그인(provider·MCP·앱 OAuth)은 열되 browser를 이 기계에 두지 않는다(callback handoff): 기기가 시작하면
+// core가 port를 쥐지 않고 PKCE·state만 만들어 주소(`redirect_uri`)를 내주고, 기기가 사람이 돌아온 주소를 `*/callback`으로 건네면 token 교환과 저장은
+// 이 기계의 core가 한다. 터미널·agent 요청은 이 목록을 받지 않는다.
 // MCP 로그인 상태 읽기(`agent-mcp-auth/state`)는 Tools and skills가 보이므로 연다.
 // 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
 export const REMOTE_PERSON_ROUTES = [
@@ -415,6 +447,7 @@ export const REMOTE_PERSON_ROUTES = [
   providerConnectKey,
   providerConnectLocal,
   providerSignIn,
+  providerSignInCallback,
   providerSignInState,
   inputRequestAnswerSecret,
   // model
@@ -434,7 +467,14 @@ export const REMOTE_PERSON_ROUTES = [
   diagnosticsStatus,
   workspaceExtensionSettingsRead,
   workspaceExtensionSettingsChange,
+  mcpAuthBegin,
+  mcpAuthCallback,
+  mcpAuthCancel,
   mcpAuthState,
+  appsOAuthBegin,
+  appsOAuthCallback,
+  appsOAuthCancel,
+  appsOAuthSignOut,
   extensionToolsCatalog,
   // agent
   agentCreate,

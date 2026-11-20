@@ -19,6 +19,7 @@ import {
   issuerRequestTake,
   type McpServer,
   mcpAuthBegin,
+  mcpAuthCallback,
   mcpAuthCancel,
   mcpAuthComplete,
   mcpAuthState,
@@ -35,6 +36,7 @@ import {
   providerConnectKey,
   providerConnectLocal,
   providerSignIn,
+  providerSignInCallback,
   providerSignInState,
   type Workspace,
   workspaceKeyOf,
@@ -943,6 +945,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       mcpAuthBegin,
       mcpAuthComplete,
       mcpAuthState,
+      mcpAuthCallback,
       mcpAuthCancel,
       issuerRequestTake,
       issuerRequestDone,
@@ -972,6 +975,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       // provider 잇기(이 기계의 주소)와 구독 로그인의 시작·상태. handler는 wiring/lophn-agent.ts의 provider login이 붙인다.
       providerConnectLocal,
       providerSignIn,
+      providerSignInCallback,
       providerSignInState,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.

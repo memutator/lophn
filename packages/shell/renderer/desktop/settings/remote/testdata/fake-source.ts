@@ -11,6 +11,8 @@ import type {
 interface FakeRemoteOptions {
   /** 처음 `remote.enabled`. 없으면 켜져 있다. */
   enabled?: boolean;
+  /** 처음 `remote.addresses`. 없으면 비어 있다. */
+  addresses?: string[];
   /** 처음 명단. 없으면 화면 확인용 대표 다섯(이 컴퓨터, 컴퓨터 둘, 폰 둘)이다. */
   devices?: RemoteDevice[];
   /** 처음 이 컴퓨터. 없으면 hostname을 따른다. 복제 note는 `clonedFrom`을 주고 이 컴퓨터만 든 `devices`로 본다. */
@@ -140,6 +142,7 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
   let alwaysOn: AlwaysOnView = { ...SAMPLE_ALWAYS_ON, ...options.alwaysOn };
   let machine = options.machine ?? SAMPLE_MACHINE;
   let enabled = options.enabled ?? true;
+  let addresses: readonly string[] = options.addresses ?? [];
   let devices: readonly RemoteDevice[] =
     options.devices ?? sampleDevices(Date.now());
   const ok = <T>(value: T): Promise<SourceResult<T>> =>
@@ -189,6 +192,11 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
         };
       }
       return ok(alwaysOn);
+    },
+    addresses: () => ok(addresses),
+    setAddresses(list) {
+      addresses = list;
+      return ok(null);
     },
     enabled: () => ok(enabled),
     setEnabled(on) {

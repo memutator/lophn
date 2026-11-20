@@ -12,6 +12,7 @@ import type { CoreCall } from "../../ipc/core.ts";
 import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { AppRow, AppsSource, OpenScreen, SourceResult } from "./source.ts";
+import { readAvailable, takeInApp } from "./take-in.ts";
 
 interface AppValue {
   id: string;
@@ -72,6 +73,9 @@ export function coreAppsSource(core: CoreSource): AppsSource {
   const withNumber = async (value: AppValue) =>
     rowOf(value, await numberOf(value.active_release));
   return {
+    available: () => readAvailable(core),
+    takeIn: (app) => takeInApp(core, app),
+
     async list() {
       const rows: AppRow[] = [];
       let cursor: string | undefined;

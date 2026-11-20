@@ -108,6 +108,33 @@ export const sourceMetaSchema = z.object({
 });
 export type SourceMeta = z.infer<typeof sourceMetaSchema>;
 
+// `packages/<part>@<version>.json`: `@me/*` package의 한 version. bundle은 `package.publish`가 낸 source file 묶음 bytes
+// (`bundle_hash`가 그 sha256)이고 guide는 안내 글 bytes다. 받는 기계가 같은 hash로 자기 catalog에 등록한다.
+const base64 = z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/);
+const meName = z.string().regex(/^@me\/[a-z0-9]+(?:-[a-z0-9]+)*$/);
+const exactVersion = z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+$/);
+export const packageFileSchema = z.object({
+  format: formatSchema,
+  machine: machineId,
+  name: meName,
+  version: exactVersion,
+  description: z
+    .string()
+    .regex(/\S/)
+    .refine((value) => !/[\r\n]/.test(value), {
+      message: "description must be a single line",
+    }),
+  owner_app: appId,
+  permissions: z.array(z.string().min(1)),
+  // 이 package가 의존하는 `@me/*`의 정확한 version. 받는 쪽이 먼저 들인다.
+  requires: z.array(z.object({ name: meName, version: exactVersion })),
+  bundle_hash: sha256Schema,
+  guide_hash: sha256Schema,
+  bundle: base64,
+  guide: base64,
+});
+export type PackageFile = z.infer<typeof packageFileSchema>;
+
 const formatOnly = z.object({ format: formatSchema });
 
 /**

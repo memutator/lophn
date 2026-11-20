@@ -17,7 +17,12 @@ import {
   oauthFlowOf,
   type ProviderAccount,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { CallbackListener, CallbackOptions } from "../extensions/mod.ts";
+import {
+  type CallbackListener,
+  type CallbackOptions,
+  createHandoffListener,
+  type HandoffListener,
+} from "../extensions/mod.ts";
 import { type IssuerFetch, positive, postForm, text } from "./issuer-http.ts";
 import { chatGptAuthorizeUrl, chatGptExchange } from "./oauth-chatgpt.ts";
 import { claudeAuthorizeUrl, claudeExchange } from "./oauth-claude.ts";
@@ -52,6 +57,8 @@ export type OAuthBegin = {
   interval_ms: number;
   expires_at_ms: number;
   sign_in: { url: string; user_code: string | null };
+  callback_mode: "local" | "remote_handoff";
+  redirect_uri: string | null;
 };
 
 export type OAuthStep<T> =
@@ -78,6 +85,8 @@ type Session<T> = {
       flow: "pkce_loopback";
       oauth: PkceOAuth;
       listener: CallbackListener;
+      // remote_handoff 로그인이면 listener가 이것이다. 다른 기기가 건넨 callback만 받는다.
+      handoff: HandoffListener | null;
       stop: AbortController;
       callback: Callback | null;
       state: string;
@@ -117,8 +126,12 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     provider: string,
     oauth: OAuthDefinition,
     target: T,
+    // 다른 기기가 시작한 로그인이다. loopback port를 쥐지 않고 그 기기가 건네는 callback을 기다린다.
+    handoff?: boolean,
   ): Promise<Result<OAuthBegin>>;
   complete(provider: string, login: string): Promise<Result<OAuthStep<T>>>;
+  // handoff 로그인에 다른 기기가 건넨 callback을 넣는다. 교환은 다음 complete가 한다.
+  deliver(provider: string, login: string, callbackUrl: string): Result<void>;
   cancel(provider: string, login: string): Promise<Result<void>>;
   endAll(): Promise<void>;
 } {
@@ -158,6 +171,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     target: T,
     pending: {
       listener: CallbackListener;
+      handoff: HandoffListener | null;
       state: string;
       verifier: string;
       redirectUri: string;
@@ -177,6 +191,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       flow: "pkce_loopback",
       oauth,
       listener: pending.listener,
+      handoff: pending.handoff,
       stop,
       callback: null,
       state: pending.state,
@@ -193,6 +208,8 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       interval_ms: CALLBACK_CHECK_MS,
       expires_at_ms: deadlineMs,
       sign_in: { url: pending.signIn, user_code: null },
+      callback_mode: pending.handoff === null ? "local" : "remote_handoff",
+      redirect_uri: pending.redirectUri,
     };
   }
 
@@ -201,11 +218,18 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     provider: string,
     oauth: PkceOAuth,
     target: T,
+    handoff: boolean,
   ): Promise<Result<OAuthBegin>> {
     const state = randomText(32);
-    const opened = await deps.openListener(
-      listenerOptions(oauth.redirect_uri, state),
-    );
+    const options = listenerOptions(oauth.redirect_uri, state);
+    const held = handoff
+      ? createHandoffListener({
+          port: options.port ?? 0,
+          ...(options.path === undefined ? {} : { path: options.path }),
+          state,
+        })
+      : null;
+    const opened = held === null ? await deps.openListener(options) : ok(held);
     if (!opened.ok) return opened;
     const verifier = randomText(32);
     const authorize = {
@@ -222,6 +246,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
     return ok(
       startPkce(provider, oauth, target, {
         listener: opened.value,
+        handoff: held,
         state,
         verifier,
         redirectUri: oauth.redirect_uri,
@@ -285,6 +310,8 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       interval_ms: intervalMs,
       expires_at_ms: deadlineMs,
       sign_in: { url: signIn, user_code: userCode },
+      callback_mode: "local",
+      redirect_uri: null,
     });
   }
 
@@ -447,7 +474,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
   }
 
   return {
-    async begin(provider, oauth, target) {
+    async begin(provider, oauth, target, handoff = false) {
       await sweep();
       if (oauthFlowOf(oauth.product) === "device_code") {
         return await beginDevice(
@@ -456,7 +483,7 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
           target,
         );
       }
-      return await beginFixed(provider, oauth as PkceOAuth, target);
+      return await beginFixed(provider, oauth as PkceOAuth, target, handoff);
     },
     async complete(provider, login) {
       await sweep();
@@ -482,6 +509,18 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
       } finally {
         session.busy = false;
       }
+    },
+    deliver(provider, login, callbackUrl) {
+      const session = sessions.get(login);
+      if (
+        session === undefined ||
+        session.provider !== provider ||
+        session.flow !== "pkce_loopback" ||
+        session.handoff === null
+      ) {
+        return err({ code: "not_found", message: "login not found" });
+      }
+      return session.handoff.deliver(callbackUrl);
     },
     async cancel(provider, login) {
       const session = sessions.get(login);

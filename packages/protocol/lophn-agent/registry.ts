@@ -39,6 +39,7 @@ import { connectProvider, providerConnectKey } from "./providers.ts";
 import {
   EXTENSION_ROUTES,
   mcpAuthBegin,
+  mcpAuthCallback,
   mcpAuthCancel,
   mcpAuthComplete,
   mcpAuthState,
@@ -95,6 +96,7 @@ export const ROUTES = [
   mcpAuthBegin,
   mcpAuthComplete,
   mcpAuthState,
+  mcpAuthCallback,
   mcpAuthCancel,
   // runtime이 OAuth 발급자 호출(MCP, provider)을 대신 보내는 machine 입구다.
   issuerRequestTake,

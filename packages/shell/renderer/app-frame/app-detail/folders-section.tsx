@@ -5,6 +5,7 @@ import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
 import { actionIcons } from "../../icons/mod.ts";
+import { useReadOnly } from "./read-only.ts";
 import { useFolders } from "./reads.ts";
 import type { AppDetailSource } from "./source.ts";
 import styles from "./app-section.module.css";
@@ -16,6 +17,7 @@ export function FoldersSection({
   app: string;
   source: AppDetailSource;
 }) {
+  const readOnly = useReadOnly();
   const read = useFolders(app).loaded;
   const folders = read.state === "ready" ? read.value : null;
   // 더하기·빼기가 실패했다. 목록은 apps 변경으로 다시 읽는다.
@@ -38,9 +40,11 @@ export function FoldersSection({
     >
       <div className={styles.head}>
         <h4 className={styles.label}>{t("app-detail.heading.folders")}</h4>
-        <Button size="sm" icon={actionIcons.add} onClick={() => void add()}>
-          {t("app-detail.button.add-folder")}
-        </Button>
+        {readOnly ? null : (
+          <Button size="sm" icon={actionIcons.add} onClick={() => void add()}>
+            {t("app-detail.button.add-folder")}
+          </Button>
+        )}
       </div>
       {failed ? (
         <p className={styles.failed}>{t("app-detail.error.folders-failed")}</p>
@@ -55,15 +59,17 @@ export function FoldersSection({
               <span className={styles.text}>
                 <span className={styles.name}>{path}</span>
               </span>
-              <span className={styles.action}>
-                <Button
-                  size="sm"
-                  icon={actionIcons.remove}
-                  onClick={() => void remove(path)}
-                >
-                  {t("app-detail.button.remove-folder")}
-                </Button>
-              </span>
+              {readOnly ? null : (
+                <span className={styles.action}>
+                  <Button
+                    size="sm"
+                    icon={actionIcons.remove}
+                    onClick={() => void remove(path)}
+                  >
+                    {t("app-detail.button.remove-folder")}
+                  </Button>
+                </span>
+              )}
             </div>
           </div>
         ))}

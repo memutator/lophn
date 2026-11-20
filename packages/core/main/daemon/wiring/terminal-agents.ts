@@ -54,6 +54,7 @@ import {
 } from "../../../../protocol/coding-agent/terminal-hook.ts";
 import {
   HOME_TERMINAL_PROJECT,
+  type TerminalProject,
   terminalsRenameSaved,
   terminalsSavedSessions,
 } from "../../../../protocol/coding-agent/terminals.ts";
@@ -616,14 +617,17 @@ export const terminalAgentsWiring: WiringFactory = () => {
         guiOn: () => ctx.extensionHost.tabHandlers() !== null,
         async open(project, command) {
           const opened = await ctx.terminals.open({
-            project: project as Id<"prj">,
+            project: project as TerminalProject,
             command,
           });
           if (!opened.ok) return opened;
           const terminal = opened.value.terminal_ref;
           queue.openTab({
             owner: "person",
-            workspace: { kind: "project", id: project as Id<"prj"> },
+            workspace:
+              project === HOME_TERMINAL_PROJECT
+                ? { kind: "home" }
+                : { kind: "project", id: project as Id<"prj"> },
             target: { terminal: { terminal_ref: terminal } },
             relation: null,
             source: null,
@@ -638,7 +642,13 @@ export const terminalAgentsWiring: WiringFactory = () => {
           const row = found.value;
           const where = workspaceOf(row);
           return {
-            project: where?.kind === "project" ? where.id : null,
+            // workspace가 없는 session은 Home의 것이다.
+            project:
+              where === null
+                ? HOME_TERMINAL_PROJECT
+                : where.kind === "project"
+                  ? where.id
+                  : null,
             harness:
               row.harness === null
                 ? null

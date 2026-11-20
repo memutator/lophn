@@ -4,6 +4,7 @@ export * from "./invocation.ts";
 export * from "./rewind.ts";
 export * from "./broker.ts";
 export * from "./remote.ts";
+export * from "./remote-calls.ts";
 export * from "./process-wire.ts";
 export * from "./screen.ts";
 export * from "./limits.ts";

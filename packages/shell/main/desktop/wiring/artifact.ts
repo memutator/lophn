@@ -25,7 +25,9 @@ import {
   type ArtifactViews,
   createArtifactViews,
 } from "../../artifact/registry.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import { artifactsFolder } from "../../../../protocol/projects/artifact.ts";
+import { createRemoteArtifacts } from "../../artifact/remote.ts";
 import { createArtifactRoots } from "../../artifact/roots.ts";
 import { createArtifactServer } from "../../artifact/serve.ts";
 import { sealArtifactSession } from "../../artifact/session.ts";
@@ -45,6 +47,11 @@ export function register(
   const { headless, ipc, windowRef, windowOfRef } = ctx;
 
   const roots = createArtifactRoots();
+  const isRemoteMachine = (machine: string | undefined): machine is string =>
+    machine !== undefined && machine !== ctx.machines.list().this?.id;
+  const remoteArtifacts = createRemoteArtifacts((machine) =>
+    ctx.machines.link(machine as Id<"mch">),
+  );
   // instance 상태를 cursor 끝까지 읽어 `_instance.json` 본문으로 만든다. 못 읽거나 상한을 넘으면
   // null이다(agent가 report를 끝없이 내도 main이 커지지 않게 한다).
   const readInstance = async (instance: string): Promise<string | null> => {
@@ -98,6 +105,8 @@ export function register(
   const serve = createArtifactServer({
     rootOf: roots.rootOf,
     scopeOf: roots.scopeOf,
+    remoteOf: roots.remoteOf,
+    readRemote: remoteArtifacts.read,
     readInstance,
     kit,
     maxBytes: ARTIFACT_MAX_BYTES,
@@ -128,9 +137,13 @@ export function register(
   const views = createArtifactViews({
     host,
     activation: createActivation({ nowMs: () => Date.now() }),
-    resolve: (source) => resolveSource(ctx.dataRoot, source, nodeArtifactFs),
+    resolve: (source) =>
+      source.kind === "artifact" && isRemoteMachine(source.machine)
+        ? remoteArtifacts.resolve({ ...source, machine: source.machine })
+        : resolveSource(ctx.dataRoot, source, nodeArtifactFs),
     ensureSession,
     registerRoot: roots.register,
+    registerRemoteRoot: roots.registerRemote,
     watch: (input, onChange) =>
       watchFolder(
         input,
@@ -158,8 +171,10 @@ export function register(
         return window === undefined ? undefined : windowRef(window);
       },
       views,
-      list: (workspace) =>
-        listArtifacts(ctx.dataRoot, workspace, nodeArtifactFs),
+      list: (workspace, machine) =>
+        isRemoteMachine(machine)
+          ? remoteArtifacts.list(machine, workspace)
+          : listArtifacts(ctx.dataRoot, workspace, nodeArtifactFs),
       remove: async ({ project, name }) => {
         const deleted = await deleteArtifactFolder(
           artifactsFolder(ctx.dataRoot, { kind: "project", id: project }),

@@ -16,6 +16,7 @@ import {
 } from "lucide-react-native";
 import { type ComponentRef, type RefObject, useEffect, useRef, useState } from "react";
 import { type TextInput, View } from "react-native";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { TERMINAL_SESSION_PREFIX } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
@@ -110,7 +111,8 @@ export function TerminalView({
     if (view.input) typing.current?.focus();
   };
 
-  const project = names.projects.get(projectId) ?? "";
+  const project =
+    projectId === HOME_TERMINAL_PROJECT ? t("left-sidebar.label.home") : (names.projects.get(projectId) ?? "");
   const title =
     row === null
       ? t("terminal.label.output")

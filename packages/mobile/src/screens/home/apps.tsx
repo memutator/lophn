@@ -1,5 +1,6 @@
 import { t } from "@lophn/i18n";
-import { Text } from "@lophn/ui-native";
+import { Icon, Text, useTheme } from "@lophn/ui-native";
+import { Plus } from "lucide-react-native";
 import { Pressable, View } from "react-native";
 import { ComputerScope, type WorkspaceView } from "../../data/mod.ts";
 import { WorkspaceMark } from "../../parts/mod.ts";
@@ -21,10 +22,13 @@ export interface AppTile {
 export function Apps({
   apps,
   onOpen,
+  onNewApp,
 }: {
   apps: readonly AppTile[];
   onOpen: (tile: AppTile) => void;
+  onNewApp?: () => void;
 }) {
+  const theme = useTheme();
   return (
     <View
       style={{
@@ -69,6 +73,38 @@ export function Apps({
           </Pressable>
         );
       })}
+      {onNewApp !== undefined && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("home.button.new-app")}
+          onPress={onNewApp}
+          style={{
+            width: "20%",
+            alignItems: "center",
+            gap: 6,
+            paddingVertical: 6,
+            paddingHorizontal: 2,
+          }}
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: theme.color.surface.subtle,
+              borderWidth: 1,
+              borderColor: theme.color.border.base,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon icon={Plus} size={20} tone="muted" />
+          </View>
+          <Text variant="caption" tone="muted" numberOfLines={1}>
+            {t("home.button.new-app")}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

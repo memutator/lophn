@@ -14,6 +14,7 @@ import { ProtectedKeyNote } from "../../../workspace/agents/editor/parts.tsx";
 import { useOptionalEventClient } from "../../connection/events/hooks.tsx";
 import { useScopeMachineItem } from "../../machines/context.tsx";
 import { waysOf } from "../model.ts";
+import type { SignInHandoff } from "../sign-in.ts";
 import { ProviderName } from "./provider-name.tsx";
 import {
   type AuthWay,
@@ -79,8 +80,11 @@ function MethodDialog({
 }: Props): ReactNode {
   const [failed, setFailed] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
-  // 구독 로그인을 기다리는 동안의 device code. 기다리지 않으면 undefined다.
-  const [waiting, setWaiting] = useState<{ userCode: string | null }>();
+  // 구독 로그인을 기다리는 동안의 device code와 원격 handoff 상태다. 기다리지 않으면 undefined다.
+  const [waiting, setWaiting] = useState<{
+    userCode: string | null;
+    handoff: SignInHandoff | null;
+  }>();
   const signIn = useRef<AbortController | null>(null);
   // core가 기다리는 로그인의 상태를 따라갈 event 연결이다.
   const events = useOptionalEventClient();
@@ -97,7 +101,11 @@ function MethodDialog({
       way === "oauth"
         ? await source.connect(definition.key, way, {
             signal: stop.signal,
-            started: (info) => setWaiting(info),
+            started: (info) =>
+              setWaiting({
+                userCode: info.userCode,
+                handoff: info.handoff ?? null,
+              }),
             events,
           })
         : await source.connect(definition.key, way);
@@ -135,7 +143,11 @@ function MethodDialog({
           onChoose={(way) => void choose(way)}
         />
       ) : (
-        <WaitingBody definition={definition} userCode={waiting.userCode} />
+        <WaitingBody
+          definition={definition}
+          userCode={waiting.userCode}
+          handoff={waiting.handoff}
+        />
       )}
     </Dialog>
   );
@@ -145,26 +157,91 @@ function MethodDialog({
 function WaitingBody({
   definition,
   userCode,
+  handoff,
 }: {
   definition: ProviderDefinitionRow;
   userCode: string | null;
+  handoff: SignInHandoff | null;
 }): ReactNode {
+  const [pasted, setPasted] = useState("");
+  const [sending, setSending] = useState(false);
+  const [callbackError, setCallbackError] = useState<string | null>(null);
+  const product = definition.signIn?.product ?? definition.name;
+
+  async function submit(): Promise<void> {
+    if (handoff === null || sending) return;
+    const value = pasted.trim();
+    if (value === "") return;
+    setSending(true);
+    setCallbackError(null);
+    const done = await handoff.submitCallback(value);
+    setSending(false);
+    if (done.ok) {
+      setPasted("");
+      return;
+    }
+    setCallbackError(
+      t(
+        done.code === "invalid_input"
+          ? "settings.error.sign-in-callback-invalid"
+          : "settings.error.connect-failed",
+      ),
+    );
+  }
+
   return (
     <div className={styles.stack}>
       <ProviderName name={definition.name} />
-      {userCode === null ? (
-        <p className={styles.lead}>
-          {t("settings.notice.sign-in-browser", {
-            product: definition.signIn?.product ?? definition.name,
-          })}
-        </p>
-      ) : (
+      {userCode !== null ? (
         <>
           <p className={styles.lead}>{t("settings.notice.sign-in-code")}</p>
           <p className={styles.code} data-user-code="">
             {userCode}
           </p>
         </>
+      ) : handoff !== null ? (
+        <>
+          <p className={styles.lead}>
+            {t(
+              handoff.autoListening
+                ? "settings.notice.sign-in-handoff-auto"
+                : "settings.notice.sign-in-handoff-paste",
+              { product },
+            )}
+          </p>
+          <div className={styles.handoff} data-sign-in-handoff="">
+            <Field
+              label={t("settings.label.sign-in-callback-url")}
+              error={callbackError ?? undefined}
+            >
+              <div className={styles.handoffRow}>
+                <Input
+                  value={pasted}
+                  placeholder={t("settings.label.sign-in-callback-placeholder")}
+                  autoComplete="off"
+                  data-callback-url=""
+                  onChange={(event) => {
+                    setPasted(event.currentTarget.value);
+                    if (callbackError !== null) setCallbackError(null);
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={sending || pasted.trim() === ""}
+                  data-action="complete-sign-in"
+                  onClick={() => void submit()}
+                >
+                  {t("settings.button.sign-in-complete")}
+                </Button>
+              </div>
+            </Field>
+          </div>
+        </>
+      ) : (
+        <p className={styles.lead}>
+          {t("settings.notice.sign-in-browser", { product })}
+        </p>
       )}
       <p className={styles.lead} role="status">
         {t("settings.status.sign-in-waiting")}
@@ -185,7 +262,6 @@ function MethodsBody({
   failed?: Failure | null;
   onChoose?: (way: Exclude<AuthWay, "none">) => void;
 }): ReactNode {
-  const machine = useScopeMachineItem();
   return (
     <div className={styles.stack}>
       <ProviderName name={definition.name} />
@@ -195,23 +271,12 @@ function MethodsBody({
       <ul className={styles.methods}>
         {waysOf(definition.ways).map((way) => (
           <li key={way}>
-            {machine !== null &&
-            way === "oauth" &&
-            definition.signIn?.deviceCode !== true ? (
-              <p className={styles.lead} data-method-elsewhere={way}>
-                {t("machines.notice.sign-in-there", {
-                  product: definition.signIn?.product ?? definition.name,
-                  name: machine.name,
-                })}
-              </p>
-            ) : (
-              <MethodButton
-                definition={definition}
-                way={way}
-                busy={busy}
-                onChoose={() => onChoose(way)}
-              />
-            )}
+            <MethodButton
+              definition={definition}
+              way={way}
+              busy={busy}
+              onChoose={() => onChoose(way)}
+            />
           </li>
         ))}
       </ul>

@@ -34,6 +34,7 @@ import {
   IMPORT_TIMER_MS,
   machineEnvironment,
   machineForget,
+  parsePackageEntry,
   takeInInputSchema,
 } from "../../../../protocol/folder/mod.ts";
 import { parseActor } from "../../../../protocol/base/mod.ts";
@@ -45,7 +46,10 @@ import {
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { SyncHeld } from "../../../apps/calls/service.ts";
+import { PACKAGE_PUBLISH_CONTEXT } from "../../../apps/control.ts";
 import { createFolderAppsHost } from "../../../apps/folder-host.ts";
+import { registerVersionEnvelope } from "../../../apps/packages/install.ts";
+import { readWholeBlob } from "../../../apps/packages/restore.ts";
 import { createFollow } from "../../../apps/follow/mod.ts";
 import { readUpdateState } from "../../../apps/update-state/mod.ts";
 import {
@@ -546,6 +550,21 @@ export const folderWiring: WiringFactory = () => {
         host: createFolderAppsHost({
           sql,
           random: ctx.random,
+          dataRoot,
+          readBlob: (hash) =>
+            readWholeBlob(
+              (blob, offset, length) =>
+                ctx.blobRelay.readBytes(blob, offset, length),
+              hash,
+            ),
+          prepareBlob: (call) => ctx.blobRelay.prepare(call),
+          registerVersion: async (input) => {
+            const done = await ctx.writer.command(
+              PACKAGE_PUBLISH_CONTEXT as never,
+              (await registerVersionEnvelope(input)) as never,
+            );
+            return done.ok ? ok(done.value.result) : done;
+          },
           prepareCommit: (input) => ctx.appsControl.prepareCommit(input),
           command: async (envelope) => {
             const done = await ctx.writer.command(FOLDER_APPS_CONTEXT, {
@@ -800,6 +819,37 @@ export const folderWiring: WiringFactory = () => {
         if (!read.ok) log("events_not_read", read.error.message);
       }
 
+      // 다른 기계의 `packages/`에 있는 `@me/*` file 목록이 바뀌면 `dependency_missing`으로 멈춘 따라가기를 다시 본다.
+      let lastPeerPackages = "";
+      function peerPackagesFingerprint(): string {
+        const found: string[] = [];
+        for (const destination of destinations.list()) {
+          if (destination.state === "missing") continue;
+          const machines = join(destination.path, "machines");
+          let machineDirs: string[];
+          try {
+            machineDirs = readdirSync(machines);
+          } catch {
+            continue;
+          }
+          for (const machine of machineDirs) {
+            if (machine === me()) continue;
+            let entries: string[];
+            try {
+              entries = readdirSync(join(machines, machine, "packages"));
+            } catch {
+              continue;
+            }
+            for (const name of entries) {
+              if (parsePackageEntry(name) !== null) {
+                found.push(`${destination.name}/${machine}/${name}`);
+              }
+            }
+          }
+        }
+        return found.sort().join("\n");
+      }
+
       async function scan(): Promise<RunOutcome> {
         // 사람의 폴더에 있는 다른 기계의 file을 받는 자리로 들이고, 폴더의 명단 file을 명단에 넘긴다. 읽기는 그 뒤
         // `computers` 폴더를 다른 destination처럼 읽는다.
@@ -831,6 +881,11 @@ export const folderWiring: WiringFactory = () => {
         for (const app of syncApps()) {
           kick(`import:${app.app}`, () => importApp(app.app));
           kick(`source:${app.app}`, () => importSource(app.app));
+        }
+        const packagesNow = peerPackagesFingerprint();
+        if (packagesNow !== lastPeerPackages) {
+          lastPeerPackages = packagesNow;
+          follow.retryDependencies();
         }
         followUp();
         await readEvents();
@@ -981,7 +1036,11 @@ export const folderWiring: WiringFactory = () => {
           for (const machine of children(machines)) {
             if (machine === me()) continue;
             const apps = join(machines, machine, "apps");
-            dirs.push(join(machines, machine), apps);
+            dirs.push(
+              join(machines, machine),
+              join(machines, machine, "packages"),
+              apps,
+            );
             for (const app of children(apps)) {
               dirs.push(
                 join(apps, app),
@@ -1293,6 +1352,11 @@ export const folderWiring: WiringFactory = () => {
                   exportAfterScan = true;
                   kick("scan", scan);
                   scheduleCarry();
+                } else if (
+                  changes.some((change) => change.name === "packages")
+                ) {
+                  follow.retryDependencies();
+                  followUp();
                 } else if (
                   changes.some((change) => change.name === "releases")
                 ) {

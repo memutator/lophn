@@ -113,6 +113,7 @@ function setup() {
     // agentToolCall이 돌려주는 agent와 workspace. agent가 null이면 tool call을 모른다.
     agent: "lophn_home" as AgentId | null,
     workspace: null as Workspace | null,
+    agentRemote: false,
     // 이 기계의 call 정책이 private으로 둔 앱.
     privateApps: new Set<Id<"app">>(),
     // 다른 기계로 넘긴 호출.
@@ -163,7 +164,11 @@ function setup() {
       agentToolCall: (_s, _t, tool) =>
         ok(
           tool === TCL && state.agent !== null
-            ? { agent: state.agent, workspace: state.workspace }
+            ? {
+                agent: state.agent,
+                workspace: state.workspace,
+                remote: state.agentRemote,
+              }
             : null,
         ),
     },
@@ -293,7 +298,7 @@ function flowAuth(
 function programAuth(): CallAuth {
   return {
     actor: "program",
-    program: { job: JOB, job_run: RUN },
+    program: { job: JOB, job_run: RUN, remote: false },
   };
 }
 
@@ -2072,4 +2077,96 @@ test("이 기계가 낸 held 변경의 apply는 DB에 다시 넣지 않고 지�
   const left = here.calls.syncHeld.list(here.app);
   assert.deepEqual(left.ok && left.value, []);
   here.close();
+});
+
+// 다른 컴퓨터의 event로 연 job의 tool_run과 agent_run은 세 번째 컴퓨터를 직접도, 이 컴퓨터 앱을 거쳐서도 부르지 못한다.
+test("remote 표시가 붙은 job의 program·agent 호출은 다른 컴퓨터로 넘어가는 호출을 막는다", async () => {
+  const app = newApp();
+  const remoteApp = newApp();
+  const t = setup();
+  // 1) remote=true인 program(tool_run)이 연 앱 호출 안에서 다른 컴퓨터를 부르면 막힌다.
+  let nestedFromProgram: Result<unknown> | undefined;
+  t.state.handler = async (request) => {
+    nestedFromProgram = await t.path.call(
+      {
+        target: { mode: "remote", machine: "studio", app: remoteApp },
+        kind: "command",
+        name: "add",
+        caller: {
+          kind: "app",
+          app,
+          release: REL,
+          parent_invocation: request.invocation,
+        },
+      },
+      { actor: "app", app },
+    );
+    return { status: "ok", result: null, changeset: null };
+  };
+  const prog = await t.path.call(
+    {
+      target: { mode: "live", app, release: null },
+      kind: "command",
+      name: "r.run",
+      caller: { kind: "program", job: JOB, job_run: RUN },
+    },
+    { actor: "program", program: { job: JOB, job_run: RUN, remote: true } },
+  );
+  assert.ok(prog.ok);
+  assert.equal(
+    nestedFromProgram !== undefined &&
+      !nestedFromProgram.ok &&
+      nestedFromProgram.error.code,
+    "forbidden",
+  );
+  assert.equal(t.state.forwarded.length, 0);
+
+  // 2) remote=true인 agent(agent_run)는 다른 컴퓨터를 직접 부를 때도, 로컬 앱을 거쳐 부를 때도 막힌다.
+  t.state.agentRemote = true;
+  const direct = await t.path.call(
+    {
+      target: { mode: "remote", machine: "studio", app: remoteApp },
+      kind: "command",
+      name: "add",
+      caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+    },
+    { actor: "agent" },
+  );
+  assert.equal(!direct.ok && direct.error.code, "forbidden");
+
+  let nestedFromAgent: Result<unknown> | undefined;
+  t.state.handler = async (request) => {
+    nestedFromAgent = await t.path.call(
+      {
+        target: { mode: "remote", machine: "studio", app: remoteApp },
+        kind: "command",
+        name: "add",
+        caller: {
+          kind: "app",
+          app,
+          release: REL,
+          parent_invocation: request.invocation,
+        },
+      },
+      { actor: "app", app },
+    );
+    return { status: "ok", result: null, changeset: null };
+  };
+  const viaLocal = await t.path.call(
+    {
+      target: { mode: "live", app, release: null },
+      kind: "command",
+      name: "r.run",
+      caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+    },
+    { actor: "agent" },
+  );
+  assert.ok(viaLocal.ok);
+  assert.equal(
+    nestedFromAgent !== undefined &&
+      !nestedFromAgent.ok &&
+      nestedFromAgent.error.code,
+    "forbidden",
+  );
+  assert.equal(t.state.forwarded.length, 0);
 });

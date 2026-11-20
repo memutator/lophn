@@ -62,7 +62,12 @@ export interface CallerDirectory {
     session: Id<"ses">,
     turn: Id<"trn">,
     tool_call: Id<"tcl">,
-  ): Result<{ agent: AgentId; workspace: Workspace | null } | null>;
+  ): Result<{
+    agent: AgentId;
+    workspace: Workspace | null;
+    // 다른 컴퓨터의 event로 연 job의 session이다. 이 session의 agent는 또 다른 컴퓨터를 부르지 못한다.
+    remote: boolean;
+  } | null>;
 }
 
 /**

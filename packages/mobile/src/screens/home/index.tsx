@@ -32,6 +32,7 @@ import {
 import { ago, EmptyScreen, Face, LOPHN, SessionDot, unreachableOf } from "../../parts/mod.ts";
 import { type AppTile, Apps } from "./apps.tsx";
 import { type Choice, choiceKey, HomeComposer } from "./compose.tsx";
+import { NewAppSheet } from "./new-app.tsx";
 import { frontOf, NeedsYou } from "./needs.tsx";
 import { OfflineBody } from "./offline.tsx";
 
@@ -71,6 +72,8 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
     one === null
       ? filterStateOf(computers)
       : stateOf(one, disputed.has(one.key));
+  const [creating, setCreating] = useState(false);
+  const startApp = () => setCreating(true);
   const empty =
     alone === null &&
     away.length === 0 &&
@@ -116,6 +119,14 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
         failed ? <Toast>{t("waiting.notice.action-failed")}</Toast> : undefined
       }
     >
+      <NewAppSheet
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreate={(text) =>
+          choice !== undefined &&
+          nav.openOn(choice.computer, { name: "new-session", workspace: null, text })
+        }
+      />
       {empty ? (
         <EmptyScreen title={t("waiting.notice.empty")}>
           {t("mobile.home.empty.caption")}
@@ -125,7 +136,7 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
           <Alone lines={alone} />
         </ComputerScope>
       ) : (
-        <Lines reached={reached} away={away} many={many} />
+        <Lines reached={reached} away={away} many={many} onNewApp={startApp} />
       )}
     </Screen>
   );
@@ -168,10 +179,12 @@ function Lines({
   reached,
   away,
   many,
+  onNewApp,
 }: {
   reached: readonly ComputerLines[];
   away: readonly ComputerLines[];
   many: boolean;
+  onNewApp: () => void;
 }) {
   const nav = useNav();
   const { setFilter } = useEveryComputer();
@@ -237,24 +250,37 @@ function Lines({
           />
         </>
       )}
-      {apps.length > 0 && (
+      {reached.length > 0 && (
         <>
-          <Label>{t("common.heading.apps")}</Label>
-          <Apps
-            apps={apps}
-            onOpen={(tile) => {
-              const phone = phoneOf(tile);
-              if (tile.app.workspace === null) return;
-              nav.openOn(
-                tile.computer,
-                phone === "screen"
-                  ? { name: "app", id: tile.app.key }
-                  : phone === "preview"
-                    ? { name: "app", id: tile.app.key, preview: true }
-                    : { name: "workspace", workspace: tile.app.workspace },
-              );
-            }}
-          />
+          <Label
+            end={
+              <Pressable accessibilityRole="button" hitSlop={8} onPress={onNewApp}>
+                <Text variant="small" weight="medium">
+                  {t("home.button.new-app")}
+                </Text>
+              </Pressable>
+            }
+          >
+            {t("common.heading.apps")}
+          </Label>
+          {reached.length > 0 && (
+            <Apps
+              apps={apps}
+              onNewApp={onNewApp}
+              onOpen={(tile) => {
+                const phone = phoneOf(tile);
+                if (tile.app.workspace === null) return;
+                nav.openOn(
+                  tile.computer,
+                  phone === "screen"
+                    ? { name: "app", id: tile.app.key }
+                    : phone === "preview"
+                      ? { name: "app", id: tile.app.key, preview: true }
+                      : { name: "workspace", workspace: tile.app.workspace },
+                );
+              }}
+            />
+          )}
         </>
       )}
       {working.length > 0 && (

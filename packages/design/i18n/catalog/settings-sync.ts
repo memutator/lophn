@@ -6,6 +6,7 @@ export const settingsSync = {
   "settings-sync.heading.folders": "Folders",
   "settings-sync.heading.computers": "Computers",
   "settings-sync.heading.apps": "Apps",
+  "settings-sync.heading.available": "Available from other computers",
   "settings-sync.label.shared": "Folder all my computers see",
   "settings-sync.note.shared-empty":
     "Not set. Pick a folder that Google Drive or Syncthing moves between your computers, or a disk both systems of a dual boot see. You can also ask lophn to set one up.",
@@ -38,4 +39,7 @@ export const settingsSync = {
   "settings-sync.note.synced": "Last synced {time}",
   "settings-sync.note.never-synced": "Never synced",
   "settings-sync.note.apps-empty": "No app syncs to other computers yet.",
+  "settings-sync.note.available-empty":
+    "Nothing to install. An app shows up here when another computer shares it and it is not on this computer yet.",
+  "settings-sync.note.available-from": "From {machine}",
 } as const;

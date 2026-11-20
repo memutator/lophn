@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ok } from "../../../base/mod.ts";
+import { err, ok } from "../../../base/mod.ts";
 import type { AppGrant, ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { createActivationHandlers } from "../releases/activation/handler.ts";
@@ -258,4 +258,73 @@ test("따라가려는 release가 grant에 없는 바깥 자원을 요구하면 a
   assert.equal(asked.length, 1);
   assert.deepEqual(started, []);
   assert.equal(follow.state(APP).state, "declined");
+});
+
+test("dependency_missing으로 멈춘 따라가기는 retryDependencies 뒤 다시 시도해 성공한다", async () => {
+  const rows: Pick<
+    ReleaseRecord,
+    "id" | "code_commit" | "status" | "failure"
+  >[] = [
+    {
+      id: "rel_01arz3ndektsv4rrffq69g5fb0" as never,
+      code_commit: commit("0"),
+      status: "active",
+      failure: null,
+    },
+  ];
+  let packageArrived = false;
+  let attempts = 0;
+  const activated: string[] = [];
+  const follow = createFollow({
+    apps: () => [{ app: APP, source_path: "/src", release: CURRENT }],
+    offered: () => [offer("1", { machine: B })],
+    releases: () => ok(rows),
+    consent: () => null,
+    isAncestor: (_source, a, d) => isAncestor(a, d),
+    async takeIn(input) {
+      attempts += 1;
+      if (!packageArrived) {
+        return err({
+          code: "conflict",
+          message: "@me/shared@1.0.0 is not published on this machine",
+          details: {
+            reason: "dependency_missing",
+            packages: ["@me/shared@1.0.0"],
+          },
+        });
+      }
+      const id = "rel_01arz3ndektsv4rrffq69g5fb1";
+      rows.push({
+        id: id as never,
+        code_commit: input.release,
+        status: "prepared",
+        failure: null,
+      });
+      return ok({ release: id });
+    },
+    async activate(id) {
+      activated.push(id);
+      return ok({
+        status: "active" as const,
+        release: id as never,
+        previous_release: null,
+      });
+    },
+  });
+
+  await follow.sweep(APP);
+  assert.equal(attempts, 1);
+  assert.equal(follow.state(APP).state, "install_failed");
+
+  // package가 오기 전에는 같은 commit을 반복 시도하지 않는다.
+  await follow.sweep(APP);
+  assert.equal(attempts, 1);
+
+  // package가 도착해 retryDependencies가 불리면 다시 시도해 활성화한다.
+  packageArrived = true;
+  follow.retryDependencies();
+  await follow.sweep(APP);
+  assert.equal(attempts, 2);
+  assert.deepEqual(activated, ["rel_01arz3ndektsv4rrffq69g5fb1"]);
+  assert.equal(follow.state(APP).state, "current");
 });

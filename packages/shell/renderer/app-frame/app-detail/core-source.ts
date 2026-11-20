@@ -25,7 +25,10 @@ import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
-import { beginAppSignIn } from "../../desktop/settings/sign-in.ts";
+import {
+  beginAppSignIn,
+  cancelAppSignIn,
+} from "../../desktop/settings/sign-in.ts";
 import {
   enterSecret,
   windowLinkOpener,
@@ -217,8 +220,7 @@ export function coreAppDetailSource(
 
     signIn: (app, name) => beginAppSignIn(core, openLink, app, name),
 
-    cancelSignIn: (app, name) =>
-      stored(call(core, "memory", "apps", "oauth_cancel", { app, name })),
+    cancelSignIn: (app, name) => cancelAppSignIn(core, app, name),
 
     signOut: (app, name) =>
       stored(call(core, "memory", "apps", "oauth_sign_out", { app, name })),

@@ -44,6 +44,7 @@ export const mobileApp = {
   "mobile.offline.title-connecting": "Connecting to {name}…",
   "mobile.providers.label.both": "With a code, in any browser",
   "mobile.providers.label.on-computer": "Sign in on {computer}",
+  "mobile.providers.label.sign-in-browser": "In your phone’s browser",
   "mobile.providers.note.lead":
     "A provider is a service you connect with one key or sign-in. Custom providers and disconnecting are on the computer.",
   "mobile.settings.button.gallery": "UI kit gallery",
@@ -60,6 +61,8 @@ export const mobileApp = {
   "mobile.setup.label.code": "Code",
   "mobile.setup.notice.code-waiting":
     "Enter the code on the page, then come back.",
+  "mobile.setup.notice.handoff-waiting":
+    "Open the page and finish signing in. When your browser redirects to a localhost page that can’t load, copy the full URL from the address bar and paste it below.",
   "mobile.setup.notice.not-allowed":
     "{computer} doesn’t let this phone change its settings. To allow it, turn on “Allow typing in terminals” for this phone in Settings › Remote › My devices on that computer.",
   "mobile.start.button.continue": "Continue",

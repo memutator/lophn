@@ -148,3 +148,24 @@ test("load 검사는 선언과 등록한 handler가 다르면(빠지거나 남�
     await discard(app.staging);
   }
 });
+
+test("phone-main.ts가 있으면 폰은 그것만 묶는다: main.ts의 컴퓨터 전용 import는 막지 않고, command는 등록하지 않아도 된다", async () => {
+  const app = await stage(`import "node:fs";\n`);
+  try {
+    const operationsOnly = await readFile(
+      join(FIXTURE, "src/handlers.ts.tmpl"),
+      "utf8",
+    );
+    await writeFile(join(app.staging, "phone-main.ts"), operationsOnly);
+    const declaration = {
+      ...app.declaration,
+      commands: [{ name: "export_items" }],
+    };
+    const built = await buildPhoneBackend(app.staging, declaration);
+    assert.ok(built.ok, built.ok ? "" : built.error.message);
+    const loaded = await loadCheckPhoneBackend(app.staging, declaration);
+    assert.ok(loaded.ok, loaded.ok ? "" : loaded.error.message);
+  } finally {
+    await discard(app.staging);
+  }
+});

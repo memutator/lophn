@@ -126,7 +126,8 @@ function sourceOf(tab: TabItem): ArtifactSource | null {
 }
 
 export const artifactKind: TabKindDef = {
-  thisComputerOnly: true,
+  // project·앱의 artifact는 다른 컴퓨터의 것도 읽기 전용으로 연다. 디스크 .html과 workflow artifact는 이 컴퓨터만 연다.
+  thisComputerOnly: (tab) => sourceOf(tab)?.kind !== "artifact",
   kind: "artifact",
   labelKey: "artifact.label.kind",
   icon: artifactIcons.kind,

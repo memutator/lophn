@@ -1,8 +1,15 @@
-import { err, ok, type RandomSource, type Result } from "../../../base/mod.ts";
+import {
+  cryptoRandom,
+  err,
+  ok,
+  type RandomSource,
+  type Result,
+} from "../../../base/mod.ts";
 import {
   APP_OAUTH_SIGN_IN_REQUIRED,
   appOAuthNames,
   appsOAuthBegin,
+  appsOAuthCallback,
   appsOAuthCancel,
   appsOAuthClientSet,
   appsOAuthSignOut,
@@ -13,8 +20,11 @@ import type { SecretStorePort } from "../../../protocol/secrets/mod.ts";
 import {
   type AuthDeadline,
   type CallbackListener,
+  createHandoffListener,
   createMcpOAuth,
   createMcpOAuthVault,
+  type HandoffListener,
+  handoffPort,
   type HttpFetch,
   type McpOAuthServer,
   timerDeadline,
@@ -142,7 +152,10 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     return put.ok ? ok({ stored: true }) : put;
   };
 
-  const begin: MemoryHandler = async (_ctx, body) => {
+  // 기기가 시작한 로그인의 callback 받는 자리다. secret 이름마다 하나다.
+  const handoffs = new Map<string, HandoffListener>();
+
+  const begin: MemoryHandler = async (ctx, body) => {
     const parsed = appsOAuthBegin.input.safeParse(body);
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "입력이 올바르지 않다" });
@@ -156,19 +169,60 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     if (server.clientId === "") {
       return err({ code: "invalid_input", message: "client id가 없다" });
     }
-    const listener = await deps.openListener();
+    // 기기(폰, 다른 컴퓨터)가 시작한 로그인은 이 기계에 browser가 없어도 끝나야 한다: port를 쥐지 않고 그 기기가 건네는
+    // callback을 기다린다.
+    const handoff = ctx.principal.startsWith("device:")
+      ? createHandoffListener({
+          port: handoffPort(deps.random ?? cryptoRandom),
+          path: "/callback",
+        })
+      : null;
+    const listener = handoff === null ? await deps.openListener() : ok(handoff);
     if (!listener.ok) return listener;
     const begun = await oauth.begin(server, {
       scopes: found.value.oauth.scopes,
       listener: listener.value,
     });
     if (!begun.ok) return begun;
+    if (handoff === null) handoffs.delete(found.value.name);
+    else {
+      const stateParam = new URL(begun.value.url).searchParams.get("state");
+      if (stateParam !== null) handoff.expectState(stateParam);
+      handoffs.set(found.value.name, handoff);
+    }
     // 사람이 돌아오기를 기다리지 않는다. 결과는 oauth_state가 report로 보인다.
     void oauth
       .complete(server)
       .catch(() => {})
-      .finally(() => deps.changed(found.value.name));
-    return ok({ url: begun.value.url });
+      .finally(() => {
+        handoffs.delete(found.value.name);
+        deps.changed(found.value.name);
+      });
+    return ok({
+      url: begun.value.url,
+      callback_mode: handoff === null ? "local" : "remote_handoff",
+      redirect_uri: `http://127.0.0.1:${begun.value.callbackPort}/callback`,
+    });
+  };
+
+  // 건넨 callback을 받는다. 교환은 begin이 뒤에서 기다리던 complete가 한다.
+  const callback: MemoryHandler = async (_ctx, body) => {
+    const parsed = appsOAuthCallback.input.safeParse(body);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "입력이 올바르지 않다" });
+    }
+    const { app, name, callback_url } = parsed.data;
+    const found = await find(app, name);
+    if (!found.ok) return found;
+    const held = handoffs.get(name);
+    if (held === undefined) {
+      return err({
+        code: "conflict",
+        message: "기기가 시작한 로그인이 아니다",
+      });
+    }
+    const delivered = held.deliver(callback_url);
+    return delivered.ok ? ok({ accepted: true }) : delivered;
   };
 
   const cancel: MemoryHandler = async (_ctx, body) => {
@@ -176,6 +230,7 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "입력이 올바르지 않다" });
     }
+    handoffs.delete(parsed.data.name);
     const cancelled = await oauth.cancel({
       key: { workspace: null, agent: null, name: parsed.data.name },
     });
@@ -218,6 +273,7 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     handlers: new Map([
       ["apps/oauth_client_set", clientSet],
       ["apps/oauth_begin", begin],
+      ["apps/oauth_callback", callback],
       ["apps/oauth_cancel", cancel],
       ["apps/oauth_sign_out", signOut],
       ["apps/oauth_state", state],

@@ -7,6 +7,7 @@ import {
   History,
   LayoutGrid,
   MessageSquarePlus,
+  PencilLine,
   ScrollText,
   Smartphone,
 } from "lucide-react-native";
@@ -31,6 +32,7 @@ export function AppMenu({
   mark,
   sub,
   waiting,
+  onAnnotate,
 }: {
   open: boolean;
   onClose: () => void;
@@ -42,6 +44,8 @@ export function AppMenu({
   sub: string | undefined;
   /** What the app's sessions wait on the person for. */
   waiting: number;
+  /** Starts marking a spot on this screen to send to the app's agent. */
+  onAnnotate?: () => void;
 }) {
   const nav = useNav();
   const release = useAppRelease(app.app);
@@ -74,6 +78,17 @@ export function AppMenu({
         sub={t("mobile.apps.menu.ask-sub")}
         onPress={() => go({ name: "new-session", workspace })}
       />
+      {onAnnotate !== undefined && (
+        <Row
+          lead={<Icon icon={PencilLine} />}
+          title={t("mobile.apps.menu.annotate")}
+          sub={t("mobile.apps.menu.annotate-sub")}
+          onPress={() => {
+            onClose();
+            onAnnotate();
+          }}
+        />
+      )}
       <Divider spacing={6} />
       <Row
         lead={<Face profile={LOPHN} />}

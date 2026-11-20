@@ -17,6 +17,7 @@ import {
   appRewinds,
   appScreenFile,
   appsOAuthBegin,
+  appsOAuthCallback,
   appsOAuthCancel,
   appsOAuthClientSet,
   appsOAuthSignOut,
@@ -35,6 +36,7 @@ import {
   INVOCATION_BLOB_PURPOSES,
   invocationsSchemaSteps,
 } from "./invocations/mod.ts";
+import { createOutboundCallReads } from "./calls/outbound.ts";
 import {
   createNoticeCommands,
   noticesListRead,
@@ -148,6 +150,7 @@ export function createLedgerRegistration(
   const commands = createAppCommands();
   const reads = createAppsReads();
   const invocationReads = createInvocationsReads();
+  const outboundReads = createOutboundCallReads();
   const publicationReads = createEventPublicationReads();
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
@@ -260,6 +263,7 @@ export function createLedgerRegistration(
       runtimeReads.logs,
       invocationReads.list,
       invocationReads.get,
+      outboundReads.list,
       publicationReads.list,
       sdkReads.list,
       sdkReads.versions,
@@ -289,6 +293,7 @@ export function createLedgerRegistration(
       appsSecretValue,
       appsOAuthClientSet,
       appsOAuthBegin,
+      appsOAuthCallback,
       appsOAuthCancel,
       appsOAuthSignOut,
       appsOAuthState,
@@ -330,6 +335,7 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createAppsReads();
   const invocations = createInvocationsReads();
+  const outboundReads = createOutboundCallReads();
   const publicationReads = createEventPublicationReads();
   const sdkReads = createSdkReads();
   const runtimeReads = createRuntimeReads();
@@ -352,6 +358,7 @@ export function createReaderRegistration(): ReaderRegistration {
       runtimeReads.logs,
       invocations.list,
       invocations.get,
+      outboundReads.list,
       publicationReads.list,
       sdkReads.list,
       sdkReads.versions,

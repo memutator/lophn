@@ -53,6 +53,18 @@ export const sourcePath = (
   kind: SourceKind,
 ) => `${sourceDir(machine, app)}/${entryNumber(n)}.${kind}`;
 
+// `@me/<part>`의 한 version = `packages/<part>@<version>.json`. 앱 폴더 밖, 기계 하위 폴더 바로 아래에 둔다: package는 앱
+// 사이에서 공유되고, manifest가 목록 사슬의 한 층 없이 직접 싣는다.
+const PACKAGE_ENTRY =
+  /^([a-z0-9]+(?:-[a-z0-9]+)*)@([0-9]+\.[0-9]+\.[0-9]+)\.json$/;
+export const packagesDir = (machine: Id<"mch">) =>
+  `${machineDir(machine)}/packages`;
+export const packageFilePath = (
+  machine: Id<"mch">,
+  name: string,
+  version: string,
+) => `${packagesDir(machine)}/${name.slice("@me/".length)}@${version}.json`;
+
 // 같은 폴더의 temp. 앞에 점을 붙이지 않는다(sync 도구가 점 file을 빼거나 따로 다루는 일이 있다).
 export function tempName(name: string, random: string): string {
   if (!TEMP_RANDOM.test(random)) {
@@ -77,6 +89,34 @@ export function parseSourceEntry(
   if (match === null) return null;
   const n = parseNumber(match[1]!);
   return n === null ? null : { n, kind: match[2] as SourceKind };
+}
+
+/** `packages/` 아래 file 이름이 가리키는 `@me/*` 이름과 version. */
+export function parsePackageEntry(
+  name: string,
+): { name: string; version: string } | null {
+  const match = PACKAGE_ENTRY.exec(name);
+  return match === null
+    ? null
+    : { name: `@me/${match[1]}`, version: match[2]! };
+}
+
+/** `machines/<mch>/packages/<part>@<version>.json`이면 그 기계, `@me/*` 이름, version. */
+export function parsePackagePath(
+  rel: string,
+): { machine: Id<"mch">; name: string; version: string } | null {
+  const parts = rel.split("/");
+  if (
+    parts.length !== 4 ||
+    parts[0] !== MACHINES_DIR ||
+    parts[2] !== "packages"
+  ) {
+    return null;
+  }
+  const machine = parts[1]!;
+  const entry = parsePackageEntry(parts[3]!);
+  if (!isMachineDirName(machine) || entry === null) return null;
+  return { machine, ...entry };
 }
 
 export const isMachineDirName = (name: string): name is Id<"mch"> =>
@@ -129,6 +169,12 @@ export function listingOf(
   if (!isMachineDirName(parts[1]!)) return null;
   if (parts.length === 3 && parts[2] === "apps") {
     return { accepts: isAppDirName, directories: true };
+  }
+  if (parts.length === 3 && parts[2] === "packages") {
+    return {
+      accepts: (name) => parsePackageEntry(name) !== null,
+      directories: false,
+    };
   }
   if (parts.length !== 5 || parts[2] !== "apps" || !isAppDirName(parts[3]!)) {
     return null;

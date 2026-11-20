@@ -71,6 +71,8 @@ export type Follow = {
     release: string,
     outcome: "allow" | "reject" | "cancelled",
   ): void;
+  /** `@me/*` package가 도착하거나 새로 등록되었다. `dependency_missing`으로 멈춘 따라가기만 다시 시도한다. */
+  retryDependencies(): void;
 };
 
 const CURRENT: FollowState = { state: "current", release: null, reason: null };
@@ -79,6 +81,7 @@ type GaveUp = {
   commit: string;
   state: "install_failed" | "lophn_update" | "declined";
   reason: string | null;
+  dependencyMissing?: boolean;
 };
 
 export function createFollow(deps: FollowDeps): Follow {
@@ -208,7 +211,14 @@ export function createFollow(deps: FollowDeps): Follow {
                 state: "lophn_update",
                 reason: (details.packages ?? []).join(", ") || null,
               }
-            : { commit, state: "install_failed", reason: taken.error.message };
+            : {
+                commit,
+                state: "install_failed",
+                reason: taken.error.message,
+                dependencyMissing:
+                  taken.error.code === "conflict" &&
+                  details?.reason === "dependency_missing",
+              };
         gaveUp.set(app, failed);
         set(app, {
           state: failed.state,
@@ -300,6 +310,11 @@ export function createFollow(deps: FollowDeps): Follow {
       // 따라가던 release만. 사람이나 agent가 연 다른 activation의 거절은 이 기억과 상관없다.
       if (commit === undefined || stateOf(app).release !== commit) return;
       gaveUp.set(app, { commit, state: "declined", reason: null });
+    },
+    retryDependencies() {
+      for (const [app, given] of gaveUp) {
+        if (given.dependencyMissing) gaveUp.delete(app);
+      }
     },
   };
 }

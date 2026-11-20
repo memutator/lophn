@@ -23,6 +23,7 @@ import {
 } from "../../app-frame/webview-host.tsx";
 import type { ProjectView } from "../source.ts";
 import { useTabHostSlices } from "../use-tab-host-slices.ts";
+import { isThisComputerOnly } from "../kinds/kind.ts";
 import { tabKindOf } from "../kinds/registry.ts";
 import { TabBoundary } from "../tab-boundary.tsx";
 import type { TabHost } from "../kinds/host.ts";
@@ -309,7 +310,7 @@ function DetachedTab({
   const body =
     def === undefined ? null : (
       <TabScope tab={tab} workspaceMachine={scope} hereApp={def.hereApp?.(tab)}>
-        {tabMachine !== null && def.thisComputerOnly ? (
+        {tabMachine !== null && isThisComputerOnly(def, tab) ? (
           <OnlyHere machine={machineItemOf(machinesView, tabMachine)} />
         ) : (
           <TabBoundary key={tab.key}>

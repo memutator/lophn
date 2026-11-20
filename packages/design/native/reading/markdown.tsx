@@ -17,6 +17,8 @@ import { parseMarkdown } from "../../components/reading/markdown/parse.ts";
 import { presentStreamingTail } from "../../components/reading/markdown/stream.ts";
 import { scaleText, type Theme, useTheme } from "../theme.tsx";
 import { CodeBlock } from "./code-block.tsx";
+import { MathBlock, MermaidBlock } from "./diagram-blocks.tsx";
+import { formatMath } from "./math.ts";
 
 export interface MarkdownProps {
   source: string;
@@ -61,7 +63,6 @@ function inlines(look: Look, nodes: readonly Inline[]): ReactNode {
           </NativeText>
         );
       case "code":
-      case "math":
         return (
           <NativeText
             key={key}
@@ -71,7 +72,18 @@ function inlines(look: Look, nodes: readonly Inline[]): ReactNode {
               fontSize: Math.round((look.base.fontSize ?? 16) * 0.86),
             }}
           >
-            {node.kind === "code" ? node.text : node.tex}
+            {node.text}
+          </NativeText>
+        );
+      case "math":
+        return (
+          <NativeText
+            key={key}
+            style={{
+              fontStyle: "italic",
+            }}
+          >
+            {formatMath(node.tex)}
           </NativeText>
         );
       case "link": {
@@ -182,10 +194,15 @@ function blocks(look: Look, nodes: readonly Block[], tight = false): ReactNode {
         );
         break;
       case "math":
-        body = <CodeBlock code={node.tex} language="math" />;
+        body = <MathBlock tex={node.tex} />;
         break;
       case "code":
-        body = <CodeBlock code={node.text} language={node.language} />;
+        body =
+          node.language?.toLowerCase() === "mermaid" ? (
+            <MermaidBlock code={node.text} />
+          ) : (
+            <CodeBlock code={node.text} language={node.language} />
+          );
         break;
       case "quote":
         body = (

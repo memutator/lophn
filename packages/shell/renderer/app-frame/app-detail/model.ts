@@ -243,7 +243,8 @@ export function canRewind(row: ActivityRow): boolean {
     row.effect !== "read" &&
     row.state === "done" &&
     !row.undone &&
-    row.kind !== "data_change"
+    row.kind !== "data_change" &&
+    row.remoteTarget === undefined
   );
 }
 

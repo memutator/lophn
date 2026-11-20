@@ -31,8 +31,8 @@ import {
   titleOf,
 } from "../../../../shell/renderer/conversation/approval-card/subject-text.ts";
 import { inputRequestTitle } from "../../../../shell/renderer/conversation/input-request-card/title.ts";
-import { type Conversation, oauthFlowOf, type SignInStarted, useSetup } from "../../data/mod.ts";
-import { SignInCode, signInFailure, useSecretField } from "../settings/setup-parts.tsx";
+import { type Conversation, type SignInStarted, useSetup } from "../../data/mod.ts";
+import { SignInCode, SignInHandoff, signInFailure, useSecretField } from "../settings/setup-parts.tsx";
 import { DenySheet } from "./sheets.tsx";
 
 type Choice = ApprovalCardRequest["choices"][number];
@@ -370,6 +370,8 @@ function CodeSignInRequest({
         <Text variant="note" tone="muted" style={{ marginTop: 10 }}>
           {t("conversation.notice.input-request-sign-in-help", { agent })}
         </Text>
+      ) : started.callbackMode === "remote_handoff" ? (
+        <SignInHandoff onSubmit={(url) => setup.deliverSignInCallback(started, url)} />
       ) : (
         <SignInCode code={started.code} />
       )}
@@ -381,7 +383,12 @@ function CodeSignInRequest({
             {t("conversation.button.input-request-sign-in")}
           </Button>
         ) : (
-          <Button block variant="primary" icon={ExternalLink} onPress={() => void Linking.openURL(started.url)}>
+          <Button
+            block
+            variant={started.callbackMode === "remote_handoff" ? undefined : "primary"}
+            icon={ExternalLink}
+            onPress={() => void Linking.openURL(started.url)}
+          >
             {t("mobile.setup.button.open-page")}
           </Button>
         )}
@@ -390,11 +397,10 @@ function CodeSignInRequest({
   );
 }
 
-/** A provider sign-in the phone can finish: one whose definition signs in with a code. */
+/** A provider sign-in the phone can finish (device code or remote callback handoff). */
 function byCode(view: SignInRequestView): boolean {
   if (view.target.type !== "provider") return false;
-  const { oauth } = view.target.login.definition;
-  return oauth !== null && oauthFlowOf(oauth.product) === "device_code";
+  return view.target.login.definition.oauth !== null;
 }
 
 /**

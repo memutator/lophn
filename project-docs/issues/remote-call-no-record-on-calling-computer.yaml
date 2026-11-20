@@ -1,7 +1,7 @@
 id: remote-call-no-record-on-calling-computer
 title: agent나 앱이 다른 컴퓨터의 앱을 부른 기록이 부른 컴퓨터에 남지 않는다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/core/apps, packages/core/remote]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (중간, 추천) 부른 컴퓨터가 보낼 때 가벼운 기록(누가, 어느 컴퓨터의 어느 앱 command, 시작, 끝 상태 또는 unknown)을 남기고 Activity가 그것을 다른 컴퓨터로 가는 호출로 보인다. changeset도 rewind도 없는 기록이라 invocation 표와 다른 표가 필요하다.
   - (작음) 지금대로 두고 받는 컴퓨터의 Activity에서 본다고 문서에 적는다.
+closed: |
+  부른 컴퓨터의 ledger 표 `app_remote_calls`(schema step `apps.remote-calls`)에 원격 호출 기록을 남기고 `apps/remote_calls` 및 App details Activity에 노출하도록 수정했다.
+guard: packages/core/apps/calls/outbound_test.ts

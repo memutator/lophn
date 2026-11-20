@@ -21,6 +21,7 @@ import type {
 } from "./source.ts";
 
 const ENABLED_KEY = "remote.enabled";
+const ADDRESSES_KEY = "remote.addresses";
 
 // `roster/join`의 거절 이유(`details.reason`). 화면이 이유마다 다른 글을 보인다.
 const JOIN_REFUSED = {
@@ -106,6 +107,15 @@ export function coreRemoteSource(
         }),
       );
     },
+
+    async addresses() {
+      const read = await readEffective(core, [ADDRESSES_KEY]);
+      return read.ok
+        ? { ok: true, value: (read.value.get(ADDRESSES_KEY) as string[]) ?? [] }
+        : read;
+    },
+
+    setAddresses: (list) => chooseSetting(core, ADDRESSES_KEY, list),
 
     async enabled() {
       const read = await readEffective(core, [ENABLED_KEY]);

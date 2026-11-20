@@ -29,11 +29,13 @@ import { SHELL_ROUTES } from "./routes.ts";
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/begin",
   "memory:agent-mcp-auth/complete",
+  "memory:agent-mcp-auth/callback",
   "memory:agent-mcp-auth/state",
   "memory:agent-mcp-auth/cancel",
   "memory:agent-mcp-tools/list",
   "memory:apps/oauth_client_set",
   "memory:apps/oauth_begin",
+  "memory:apps/oauth_callback",
   "memory:apps/oauth_cancel",
   "memory:apps/oauth_sign_out",
   "memory:apps/oauth_state",
@@ -98,6 +100,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:providers/connect-local",
   "memory:providers/sign-in",
   "memory:providers/sign-in-state",
+  "memory:providers/sign-in-callback",
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.

@@ -51,6 +51,7 @@ import {
 } from "../data/mod.ts";
 import { Character, Face, LOPHN, SESSION_DOT, WorkspaceMark } from "../parts/mod.ts";
 import { codingPlace, codingTitle, harnessProfile, stateOf as codingState, TerminalMark } from "../screens/coding/parts.tsx";
+import { NewAppSheet } from "../screens/home/new-app.tsx";
 import { filterStateOf, stateOf } from "./computer-state.ts";
 import { FrameContext, type Place, paramsOf } from "./nav.ts";
 
@@ -104,6 +105,7 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const { computers, disputed, current, select } = useComputers();
   const { shown, many, filter } = useEveryComputer();
   const { count } = useInbox();
+  const [creatingApp, setCreatingApp] = useState(false);
   const here = computers.find((one) => one.key === current) ?? null;
   // The filter's computer, or the only one: the filter row shows it as the computer row did.
   const one =
@@ -210,6 +212,14 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
         >
           {t("left-sidebar.heading.workspaces")}
         </SidebarLabel>
+        {shown.some((lines) => lines.computer.status === "connected") && (
+          <NavRow
+            icon={Plus}
+            label={t("home.button.new-app")}
+            on={false}
+            onPress={() => setCreatingApp(true)}
+          />
+        )}
         {shown.map((lines) => (
           // The scope gives the workspace marks this computer's kept icons.
           <ComputerScope key={lines.computer.key} computer={lines.computer.key}>
@@ -217,6 +227,16 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
           </ComputerScope>
         ))}
       </SidebarList>
+      <NewAppSheet
+        open={creatingApp}
+        onClose={() => setCreatingApp(false)}
+        onCreate={(text) => {
+          const target =
+            shown.find((lines) => lines.computer.key === current && lines.computer.status === "connected")?.computer.key ??
+            shown.find((lines) => lines.computer.status === "connected")?.computer.key;
+          if (target !== undefined) open({ name: "new-session", workspace: null, text }, target);
+        }}
+      />
       <SidebarFoot>
         <NavRow
           icon={Settings}

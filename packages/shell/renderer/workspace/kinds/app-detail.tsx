@@ -23,7 +23,6 @@ export function openAppDetail(host: TabHost): void {
 }
 
 export const appDetailKind: TabKindDef = {
-  thisComputerOnly: true,
   kind: "app_detail",
   labelKey: "project-workspace.label.kind-app-detail",
   icon: commonIcons.settings,
@@ -36,8 +35,10 @@ export const appDetailKind: TabKindDef = {
   }),
   toStored: (tab) =>
     tab.key === APP_DETAIL_KEY ? { kind: "app_detail", key: tab.key } : null,
-  render(_tab, _active, host) {
-    const source = host.props.appDetail;
+  render(tab, _active, host) {
+    const source =
+      host.machineData(tab.machine ?? host.machine).appDetail ??
+      host.props.appDetail;
     if (host.workspace.kind !== "app" || source === undefined) return null;
     return (
       <PaddedTab bare>
@@ -45,8 +46,11 @@ export const appDetailKind: TabKindDef = {
           app={host.workspace.id}
           name={host.appName ?? ""}
           source={source}
-          onOpenSession={(session) =>
-            runToastAction({ kind: "session", session })
+          // 다른 기계의 session은 이 컴퓨터의 toast 길로 열 수 없다. 이름만 보인다.
+          onOpenSession={
+            source.readOnly === true
+              ? undefined
+              : (session) => runToastAction({ kind: "session", session })
           }
           onRenamed={host.appRenamed}
           // 보관한 앱의 workspace에는 머물 까닭이 없다.

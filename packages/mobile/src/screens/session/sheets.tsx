@@ -27,11 +27,13 @@ import {
   FileText,
   FolderOpen,
   Gauge,
+  GitBranch,
   Pencil,
   Search,
   ShieldCheck,
   SquareSlash,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react-native";
 import { useContext, useEffect, useMemo, useState } from "react";
@@ -44,6 +46,8 @@ import type {
   AgentTabSource,
   PermissionsView,
   QueuedView,
+  RewindChoice,
+  RewindPreviewView,
   SourceResult,
   ThreadSubagent,
   ToolCallBodyView,
@@ -332,7 +336,7 @@ export function ChildSheet({
   const view = entry === null ? null : layoutOf(state ?? EMPTY_ACP_CHILD_STATE, cache);
   const rows = view === null ? [] : rowsOf(view.entries, view.live);
   const value = useMemo(
-    () => (actions === null ? null : { ...actions, readOnly: true, canRetry: false }),
+    () => (actions === null ? null : { ...actions, readOnly: true, canRetry: false, canFork: false, canRewind: false }),
     [actions],
   );
   return (
@@ -472,6 +476,8 @@ export function SessionMenu({
   context,
   canRename,
   onRename,
+  onFork,
+  onRewind,
   onPermissions,
   onContext,
   onArchive,
@@ -487,6 +493,8 @@ export function SessionMenu({
   context: string | null;
   canRename: boolean;
   onRename: () => void;
+  onFork: (() => void) | null;
+  onRewind: (() => void) | null;
   /** null when the source cannot read them (a coding session of the computer's app). */
   onPermissions: (() => void) | null;
   onContext: () => void;
@@ -501,6 +509,8 @@ export function SessionMenu({
       sub={where}
       items={[
         ...(canRename ? [{ label: t("conversation.button.rename"), icon: Pencil, onSelect: onRename }] : []),
+        ...(onFork === null ? [] : [{ label: t("conversation.button.fork"), icon: GitBranch, onSelect: onFork }]),
+        ...(onRewind === null ? [] : [{ label: t("conversation.button.rewind-go"), icon: Undo2, onSelect: onRewind }]),
         ...(onPermissions === null
           ? []
           : [
@@ -702,5 +712,149 @@ export function QueuedMenu({
         { label: t("conversation.button.queued-remove"), icon: Trash2, danger: true, onSelect: () => queued && onRemove(queued) },
       ]}
     />
+  );
+}
+
+/** Rewinds a session to a chosen user message, optionally restoring files and app writes shown by rewindPreview. */
+export function RewindSheet({
+  open,
+  source,
+  session,
+  message,
+  excerpt,
+  withFiles,
+  onClose,
+  onRewind,
+}: {
+  open: boolean;
+  source: Pick<AgentTabSource, "rewindPreview">;
+  session: string;
+  message: string | null;
+  excerpt: string;
+  withFiles: boolean;
+  onClose: () => void;
+  onRewind: (choice: RewindChoice) => Promise<SourceResult<unknown>>;
+}) {
+  const [preview, setPreview] = useState<
+    | { readonly state: "loading" }
+    | { readonly state: "failed" }
+    | { readonly state: "ready"; readonly value: RewindPreviewView }
+  >(withFiles ? { state: "loading" } : { state: "ready", value: { files: [], apps: [] } });
+  const [files, setFiles] = useState(true);
+  const [showFiles, setShowFiles] = useState(false);
+  const [apps, setApps] = useState<readonly string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || message === null) return;
+    setFiles(true);
+    setShowFiles(false);
+    setApps([]);
+    setBusy(false);
+    setError(null);
+    if (!withFiles) {
+      setPreview({ state: "ready", value: { files: [], apps: [] } });
+      return;
+    }
+    let active = true;
+    setPreview({ state: "loading" });
+    void source.rewindPreview(session, message).then((result) => {
+      if (!active) return;
+      setPreview(result.ok ? { state: "ready", value: result.value } : { state: "failed" });
+    });
+    return () => {
+      active = false;
+    };
+  }, [open, source, session, message, withFiles]);
+
+  const ready = preview.state === "ready" ? preview.value : null;
+  const toggleApp = (app: string, on: boolean) =>
+    setApps((current) => (on ? [...current, app] : current.filter((one) => one !== app)));
+
+  const confirm = async () => {
+    if (busy || ready === null) return;
+    setBusy(true);
+    setError(null);
+    const result = await onRewind({ files: withFiles && files, apps });
+    if (result.ok) {
+      onClose();
+      return;
+    }
+    setBusy(false);
+    setError(t(result.code === "conflict" ? "conversation.rewind.running" : "conversation.rewind.start-failed"));
+  };
+
+  return (
+    <Sheet open={open} onClose={busy ? () => {} : onClose} title={t("conversation.title.rewind")}>
+      <View style={{ ...pad, gap: 12, paddingBottom: 14 }}>
+        <View style={{ gap: 4 }}>
+          <Text variant="caption" tone="muted">
+            {t("conversation.label.rewind-quote")}
+          </Text>
+          <Text variant="detail" numberOfLines={3}>
+            {excerpt}
+          </Text>
+        </View>
+        {preview.state === "loading" && (
+          <Text variant="small" tone="muted">
+            {t("conversation.label.rewind-loading")}
+          </Text>
+        )}
+        {preview.state === "failed" && (
+          <Text variant="small" tone="critical">
+            {t("conversation.rewind.start-failed")}
+          </Text>
+        )}
+        {ready !== null && ready.files.length > 0 && (
+          <View style={{ gap: 6 }}>
+            <Row
+              title={t("conversation.label.rewind-files", { count: ready.files.length })}
+              end={<Switch label={t("conversation.label.rewind-files", { count: ready.files.length })} on={files} onChange={setFiles} />}
+            />
+            <Button size="sm" variant="ghost" onPress={() => setShowFiles((shown) => !shown)}>
+              {t(showFiles ? "conversation.button.rewind-hide-files" : "conversation.button.rewind-show-files")}
+            </Button>
+            {showFiles && (
+              <View style={{ gap: 4, paddingLeft: 12 }}>
+                {ready.files.map((file) => (
+                  <Text key={file.path} variant="caption" mono tone="muted" numberOfLines={1}>
+                    {file.path}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        {ready !== null &&
+          ready.apps.map((app) => (
+            <Row
+              key={app.app}
+              title={t("conversation.label.rewind-app-also", { app: app.name })}
+              sub={t("conversation.label.rewind-app-writes", { count: app.writes.length })}
+              end={
+                <Switch
+                  label={t("conversation.label.rewind-app-also", { app: app.name })}
+                  on={apps.includes(app.app)}
+                  onChange={(on) => toggleApp(app.app, on)}
+                />
+              }
+            />
+          ))}
+        {error !== null && (
+          <Text variant="small" tone="critical">
+            {error}
+          </Text>
+        )}
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+          <Button disabled={busy} onPress={onClose}>
+            {t("common.button.cancel")}
+          </Button>
+          <Button variant="danger" icon={Undo2} disabled={busy || ready === null} onPress={() => void confirm()}>
+            {t("conversation.button.rewind-go")}
+          </Button>
+        </View>
+      </View>
+    </Sheet>
   );
 }

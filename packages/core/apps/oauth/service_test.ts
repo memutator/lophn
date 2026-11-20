@@ -226,3 +226,114 @@ test("a rejected refresh signs the user out, an unreachable issuer does not", as
     );
   }
 });
+
+// 다른 기기가 시작한 앱 OAuth 로그인은 이 기계가 port를 쥐지 않고, 기기가 건넨 callback으로 이 기계에서 교환·저장한다.
+test("remote device app OAuth uses remote_handoff and exchanges tokens on the target core", async () => {
+  const store = new Map<string, string>([
+    [`app-oauth.${NAME}.client_id`, "client-1"],
+  ]);
+  const exchanged: URLSearchParams[] = [];
+  let listened = 0;
+  let changed = 0;
+  const clock = manualClock(NOW);
+  const service = createAppOAuth({
+    changed: () => {
+      changed++;
+    },
+    secrets: {
+      get: (name) =>
+        store.has(name)
+          ? ok(store.get(name)!)
+          : err({ code: "not_found", message: "none" }),
+      put: (name, value) => {
+        store.set(name, String(value));
+        return Promise.resolve(ok({}) as never);
+      },
+      delete: (name) => {
+        store.delete(name);
+        return Promise.resolve(ok({}) as never);
+      },
+    },
+    fetch: (_url, init) => {
+      exchanged.push(new URLSearchParams(String(init.body)));
+      return Promise.resolve(
+        Response.json({
+          access_token: "app-access-1",
+          refresh_token: "app-refresh-1",
+          token_type: "Bearer",
+          expires_in: 3600,
+        }),
+      );
+    },
+    openListener: () => {
+      listened++;
+      return Promise.resolve(err({ code: "unavailable", message: "unused" }));
+    },
+    declared: () =>
+      Promise.resolve(
+        ok([
+          {
+            name: NAME,
+            oauth: {
+              authorization_endpoint: AUTHORIZE,
+              token_endpoint: TOKEN,
+              scopes: SCOPES,
+            },
+            granted: true,
+          },
+        ]),
+      ),
+    nowMs: clock.nowMs,
+  });
+  const device = {
+    principal: "device:dev_01h455vb4pex5v6nkc6gd5fd12",
+    actor: "user",
+    scope: { operations: [], targets: {} },
+    conditions: {},
+    credential_ref: "device:dev_01h455vb4pex5v6nkc6gd5fd12",
+  } as AuthenticatedContext;
+
+  const begun = (await service.handlers.get("apps/oauth_begin")!(device, {
+    app: APP,
+    name: NAME,
+  })) as {
+    ok: boolean;
+    value: { url: string; callback_mode: string; redirect_uri: string };
+  };
+  assert.ok(begun.ok, JSON.stringify(begun));
+  assert.equal(begun.value.callback_mode, "remote_handoff");
+  assert.equal(listened, 0);
+  const state = new URL(begun.value.url).searchParams.get("state")!;
+
+  const wrong = await service.handlers.get("apps/oauth_callback")!(device, {
+    app: APP,
+    name: NAME,
+    callback_url: `${begun.value.redirect_uri}?code=c&state=WRONG`,
+  });
+  assert.equal(!wrong.ok && wrong.error.code, "invalid_input");
+  assert.equal(exchanged.length, 0);
+
+  const right = await service.handlers.get("apps/oauth_callback")!(device, {
+    app: APP,
+    name: NAME,
+    callback_url: `${begun.value.redirect_uri}?code=APP-CODE&state=${state}`,
+  });
+  assert.ok(right.ok, JSON.stringify(right));
+
+  while (changed === 0) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.equal(exchanged.length, 1);
+  assert.equal(exchanged[0]!.get("code"), "APP-CODE");
+  assert.equal(store.get(NAME), "app-access-1");
+  assert.equal(store.get(`app-oauth.${NAME}.refresh`), "app-refresh-1");
+
+  const read = await service.handlers.get("apps/oauth_state")!(device, {
+    app: APP,
+  });
+  assert.ok(read.ok);
+  assert.equal(
+    appsOAuthState.output.parse(read.value).secrets[0]?.state,
+    "signed_in",
+  );
+});

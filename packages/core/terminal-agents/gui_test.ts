@@ -848,3 +848,55 @@ test("gui.toggle passes skipPermissions from TUI to AcpTabRequest and seeds resu
     { ref: "trm_a", harness: "claude", session: "conv-1" },
   ]);
 });
+
+test("createCodingSessions.list includes Home (project: home) terminals and filters by project", () => {
+  const terminalRef = "trm_01HHHHHHHHHHHHHHHHHHHHHHHH";
+  const rt = {
+    terminal_ref: terminalRef,
+    project: "home",
+    folder_ref: "home_0",
+    cwd_at_start: "/home/person",
+    state: "running",
+    generation: 1,
+    agent: {
+      harness: "claude",
+      state: "idle",
+      hooked: true,
+      foreground: true,
+      session: "cli-home",
+    },
+  } as TerminalRuntime;
+
+  const coding = createCodingSessions({
+    clock: manualClock(0),
+    terminals: { list: () => [rt] },
+    gui: {
+      request: async () => null,
+      opened: () => {},
+      onHandle: () => () => {},
+      running: () => null,
+      toggle: async () => ({ ok: true }),
+      sessions: async () => [],
+      rewindPreview: async () => null,
+      current: () => null,
+      tabSessions: () => [],
+      input: () => false,
+      toolBody: () => null,
+      uploadImage: async () => null,
+      readImage: async () => null,
+      terminalChanged: () => {},
+      stop: () => {},
+    },
+    after: () => () => {},
+    publish: () => {},
+    redact: (value) => value,
+    platform: "linux",
+  });
+
+  const all = coding.list();
+  assert.equal(all.length, 1);
+  assert.equal(all[0]?.project, "home");
+  assert.equal(all[0]?.terminal, terminalRef);
+  assert.equal(coding.list("home").length, 1);
+  assert.equal(coding.list(`prj_${"0".repeat(26)}`).length, 0);
+});

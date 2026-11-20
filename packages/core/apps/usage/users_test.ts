@@ -140,6 +140,7 @@ test("앱 범위 agent는 자기 앱 command를 할당 없이 부르고 다른 �
         agent: SCOPED,
         workspace: { kind: "app", id: MINE },
         session: "ses_x" as never,
+        remote: false,
         turn: "trn_x" as never,
         toolCall: "tcl_x" as never,
       },

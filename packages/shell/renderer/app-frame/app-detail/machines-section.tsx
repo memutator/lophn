@@ -7,6 +7,7 @@ import { t } from "@lophn/i18n";
 import { useWaitingPanel } from "../../desktop/connection/waiting/waiting-layer.tsx";
 import { actionIcons } from "../../icons/mod.ts";
 import { Loadable } from "./loadable.tsx";
+import { useReadOnly } from "./read-only.ts";
 import { useMachinesView } from "./reads.ts";
 import type { MachineLine, MachinesView } from "./source.ts";
 import styles from "./app-section.module.css";
@@ -133,6 +134,8 @@ export function MachinesSection({
 }) {
   const read = useMachinesView(app);
   const { setOpen } = useWaitingPanel();
+  // 동의 card는 그 컴퓨터의 사람 것이라 이 컴퓨터의 대기 panel로 열 수 없다.
+  const readOnly = useReadOnly();
   const loaded = read.loaded;
   // 폴더로 맞추지 않는 앱에는 절이 없다. 처음 읽기가 끝나지 않았거나 실패하면 그 앱이 폴더로 맞추는지 몰라 비워 둔다.
   if (loaded.state !== "ready" || loaded.value === null) return null;
@@ -171,6 +174,7 @@ export function MachinesSection({
                       }
                       onOpenWaiting={
                         row.thisMachine &&
+                        !readOnly &&
                         view.follow.step === "waiting_consent"
                           ? () => setOpen(true)
                           : null

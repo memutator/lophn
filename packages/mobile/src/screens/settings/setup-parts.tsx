@@ -3,7 +3,7 @@
 import { t } from "@lophn/i18n";
 import { Button, Text, useTheme } from "@lophn/ui-native";
 import * as Clipboard from "expo-clipboard";
-import { Copy } from "lucide-react-native";
+import { Check, Copy } from "lucide-react-native";
 import { type ComponentRef, type ReactElement, useEffect, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 
@@ -116,5 +116,92 @@ export function SignInCode({ code }: { code: string | null }) {
         {t("mobile.setup.notice.code-waiting")}
       </Text>
     </>
+  );
+}
+
+/** Paste-back field for a remote loopback OAuth sign-in started from the phone. */
+export function SignInHandoff({
+  onSubmit,
+}: {
+  onSubmit(callbackUrl: string): Promise<{ ok: true } | { ok: false; code: string }>;
+}) {
+  const theme = useTheme();
+  const [url, setUrl] = useState("");
+  const [focused, setFocused] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async () => {
+    const trimmed = url.trim();
+    if (trimmed === "" || busy) return;
+    setBusy(true);
+    setError(null);
+    const done = await onSubmit(trimmed);
+    setBusy(false);
+    if (done.ok) {
+      setUrl("");
+      return;
+    }
+    setError(
+      t(
+        done.code === "invalid_input"
+          ? "settings.error.sign-in-callback-invalid"
+          : "settings.error.connect-failed",
+      ),
+    );
+  };
+
+  return (
+    <View style={{ marginTop: 10, gap: 8 }}>
+      <Text variant="note" tone="muted">
+        {t("mobile.setup.notice.handoff-waiting")}
+      </Text>
+      <Text variant="caption" tone="muted">
+        {t("settings.label.sign-in-callback-url")}
+      </Text>
+      <TextInput
+        value={url}
+        onChangeText={(next) => {
+          setUrl(next);
+          if (error !== null) setError(null);
+        }}
+        placeholder={t("settings.label.sign-in-callback-placeholder")}
+        placeholderTextColor={theme.color.text.muted}
+        accessibilityLabel={t("settings.label.sign-in-callback-url")}
+        autoCorrect={false}
+        autoCapitalize="none"
+        autoComplete="off"
+        spellCheck={false}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        cursorColor={theme.color.text.primary}
+        selectionColor={theme.color.ink.soft}
+        style={{
+          minHeight: 48,
+          paddingHorizontal: 14,
+          borderWidth: 1,
+          borderColor: focused ? theme.color.focus : theme.color.border.base,
+          borderRadius: 12,
+          backgroundColor: theme.color.surface.base,
+          fontFamily: theme.font.sans,
+          ...theme.type.body,
+          color: theme.color.text.primary,
+        }}
+      />
+      {error !== null && (
+        <Text variant="note" tone="critical">
+          {error}
+        </Text>
+      )}
+      <Button
+        block
+        variant="primary"
+        icon={Check}
+        disabled={busy || url.trim() === ""}
+        onPress={() => void send()}
+      >
+        {t("settings.button.sign-in-complete")}
+      </Button>
+    </View>
   );
 }

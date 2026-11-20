@@ -5,6 +5,8 @@
 // artifact는 그릇(project나 앱)의 data 자리 아래 `artifacts/<name>/`이고 입구는 `index.html`이다.
 export const ARTIFACT_ENTRY = "index.html";
 export const ARTIFACTS_FOLDER = "artifacts";
+// artifact 안 가상 file. page가 `data/` 목록을 손으로 맞추지 않게 한다(shell main이 열 때, core가 다른 컴퓨터에 줄 때 같은 이름을 쓴다).
+export const ARTIFACT_ENTRIES_PATH = "data/_entries.json";
 
 // artifact를 담는 그릇. `Workspace`의 project·앱 쪽과 같은 모양이다.
 export type ArtifactWorkspace = { kind: "project" | "app"; id: string };

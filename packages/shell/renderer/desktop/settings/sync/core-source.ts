@@ -7,6 +7,7 @@ import type { carryStatus } from "../../../../../protocol/remote/carry.ts";
 import type { rosterList } from "../../../../../protocol/remote/routes.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import type { CoreSource } from "../../connection/connection.ts";
+import { readAvailable, takeInApp } from "../../../apps/take-in.ts";
 import { windowFolderPicker } from "../../workspaces/projects/core-source.ts";
 import { call } from "../core-call.ts";
 import { readEffective } from "../declared.ts";
@@ -111,7 +112,7 @@ export function coreSyncSource(
     },
 
     async status() {
-      const [read, roster] = await Promise.all([
+      const [read, roster, available] = await Promise.all([
         call<z.output<typeof carryStatus.output>>(
           core,
           "read",
@@ -126,6 +127,7 @@ export function coreSyncSource(
           "list",
           {},
         ),
+        readAvailable(core),
       ]);
       if (!read.ok) return read;
       return {
@@ -146,9 +148,12 @@ export function coreSyncSource(
           duplicateMachines: roster.ok
             ? duplicateRosterMachines(roster.value.devices)
             : [],
+          available: available.ok ? available.value : [],
         },
       };
     },
+
+    takeIn: (app) => takeInApp(core, app),
 
     async saveNamed({ name, path, was }) {
       const current = await named();

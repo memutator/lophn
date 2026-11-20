@@ -137,3 +137,73 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
   if (!fresh.ok) throw new Error(fresh.error.message);
   assert.deepStrictEqual(tabs, [fresh.value.session]);
 });
+
+// 다른 컴퓨터의 event로 연 job의 agent_run은 메시지를 넣기 전에 session에 remote 표시를 건다.
+test("remote 표시가 붙은 job의 agent_run은 send보다 먼저 open에 remote를 넘긴다", async () => {
+  const order: string[] = [];
+  const agents: RunAgents = {
+    resolve: () =>
+      Promise.resolve(ok({ agent: "lophn_home", workspace: null })),
+    agentOf: () =>
+      Promise.resolve(ok({ agent: "lophn_home", workspace: null })),
+    open: (_agent, _session, options) => {
+      order.push(`open:${options?.remote === true}`);
+      return Promise.resolve(ok(undefined));
+    },
+    showTab: () => {},
+    send: () => {
+      order.push("send");
+      return Promise.resolve(ok(undefined));
+    },
+    turnOf: () => Promise.resolve(ok(null)),
+    answer: () => Promise.resolve(ok(null)),
+    stop: () => Promise.resolve(ok(undefined)),
+    unqueue: () => Promise.resolve(ok(undefined)),
+  };
+  const store: RunStore = {
+    create: (input) =>
+      Promise.resolve(
+        ok({
+          ...input,
+          error: null,
+          turn: null,
+          invocation: null,
+          result: null,
+          state: "running",
+          created_at: "t",
+          finished_at: null,
+          state_seq: "1",
+        } as unknown as RunRecord),
+      ),
+    settle: () => Promise.reject(new Error("unused")),
+    read: () => Promise.reject(new Error("unused")),
+    running: () => Promise.resolve(ok([])),
+  };
+  const service = createRunService({
+    agents,
+    tools: {
+      resolveApp: () => Promise.reject(new Error("unused")),
+      call: () => Promise.reject(new Error("unused")),
+    },
+    store,
+    ids: createIdSource({
+      clock: manualClock(1_767_225_600_000),
+      random: seededRandom(2),
+    }),
+    timers: { set: () => 0, clear: () => {} },
+  });
+  const started = await service.start(
+    {
+      kind: "agent_resolved",
+      agent: { agent: "lophn_home", workspace: null },
+      prompt: "from remote event",
+    },
+    {
+      job: "job_01hzzzzzzzzzzzzzzzzzzzzzza",
+      job_run: "jbr_01hzzzzzzzzzzzzzzzzzzzzzza",
+      remote: true,
+    },
+  );
+  assert.ok(started.ok);
+  assert.deepStrictEqual(order, ["open:true", "send"]);
+});

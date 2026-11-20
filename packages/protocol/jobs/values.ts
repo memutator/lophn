@@ -64,6 +64,8 @@ export const jobEventSchema = z.object({
   payload: z.json(),
   // 다른 기계에서 온 event면 그 난 기계.
   machine: idSchema("mch").optional(),
+  // 다른 컴퓨터의 event나 받은 호출이 낳은 event로 연 차례다. 이 차례의 tool·agent는 또 다른 컴퓨터를 부르지 못한다.
+  remote: z.literal(true).optional(),
 });
 export type JobEvent = z.infer<typeof jobEventSchema>;
 

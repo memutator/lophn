@@ -190,6 +190,9 @@ export const jobsWiring: WiringFactory = () => {
           const origin: RunOrigin = {
             job: job.id as Id<"job">,
             job_run: jobRun.id as Id<"jbr">,
+            remote:
+              jobRun.event?.machine !== undefined ||
+              jobRun.event?.remote === true,
           };
           // tool_run은 승인한 flag(pass_event)가 있을 때만 event를 입력의 `event` 칸에 합쳐 준다.
           const input =
@@ -338,6 +341,7 @@ export const jobsWiring: WiringFactory = () => {
                   machine: event.machine,
                   skip_workspaces: privateWorkspaces(event.machine),
                 }),
+            ...(event.remote === true ? { remote: true as const } : {}),
             session,
           }).then((done) => {
             if (!done.ok) {

@@ -129,6 +129,10 @@ const mcpAuthBeginOutputSchema = z.object({
   url: z.string(),
   // 사람 credential의 loopback callback port다(127.0.0.1).
   callback_port: z.number().int().positive(),
+  // remote_handoff는 다른 기기가 시작한 로그인이다: 이 기계는 port를 쥐지 않고 그 기기가 사람이 돌아온 주소를
+  // `agent-mcp-auth/callback`으로 건넨다. redirect_uri는 발급자가 돌려보낼 loopback 주소다.
+  callback_mode: z.enum(["local", "remote_handoff"]),
+  redirect_uri: z.string(),
 });
 
 export const mcpAuthBegin = defineMemory({
@@ -172,6 +176,33 @@ export const mcpAuthComplete = defineMemory({
   name: "CompleteMcpAuth",
   changes: ["extension_settings"],
   input: mcpAuthCompleteInputSchema,
+  output: mcpAuthCompleteOutputSchema,
+  actors: ["user"],
+  errors: [
+    "unauthorized",
+    "forbidden",
+    "invalid_input",
+    "conflict",
+    "unavailable",
+  ],
+});
+
+// 다른 기기가 시작한 로그인(`callback_mode: remote_handoff`)의 callback 주소를 건네고 token 교환을 마친다. state는
+// 시작이 만든 값과 같아야 하고 교환한 token은 이 기계의 secret 저장소에만 간다. 시작한 로그인이 없으면 conflict다.
+export const mcpAuthCallbackInputSchema = z.strictObject({
+  name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
+  workspace: mcpAuthWorkspaceSchema,
+  agent: agentIdSchema.nullable(),
+  // 사람이 browser에서 돌아온 주소(전체 URL 또는 `code=...&state=...`)다.
+  callback_url: z.string().min(1).max(4096),
+});
+
+export const mcpAuthCallback = defineMemory({
+  resource: "agent-mcp-auth",
+  method: "callback",
+  name: "DeliverMcpAuthCallback",
+  changes: ["extension_settings"],
+  input: mcpAuthCallbackInputSchema,
   output: mcpAuthCompleteOutputSchema,
   actors: ["user"],
   errors: [

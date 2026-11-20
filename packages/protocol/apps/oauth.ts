@@ -68,8 +68,13 @@ export const appsOAuthBegin = defineMemory({
   name: "apps.oauth_begin",
   changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject(target),
-  // 사람이 OS browser로 열 authorize URL이다.
-  output: z.strictObject({ url: z.string() }),
+  // 사람이 OS browser로 열 authorize URL이다. remote_handoff는 다른 기기가 시작한 로그인이다: 그 기기가 사람이 돌아온 주소를
+  // `apps.oauth_callback`으로 건네고 redirect_uri는 발급자가 돌려보낼 loopback 주소다.
+  output: z.strictObject({
+    url: z.string(),
+    callback_mode: z.enum(["local", "remote_handoff"]),
+    redirect_uri: z.string(),
+  }),
   actors: ["user"],
   errors: [
     "invalid_input",
@@ -78,6 +83,21 @@ export const appsOAuthBegin = defineMemory({
     "conflict",
     "unavailable",
   ],
+});
+
+// 다른 기기가 시작한 로그인의 callback 주소를 건넨다. 교환과 저장은 이 기계가 하고 결과는 oauth_state로 읽는다.
+export const appsOAuthCallback = defineMemory({
+  resource: "apps",
+  method: "oauth_callback",
+  name: "apps.oauth_callback",
+  changes: [{ name: "secrets", id: (input) => input.name }],
+  input: z.strictObject({
+    ...target,
+    callback_url: z.string().min(1).max(4096),
+  }),
+  output: z.strictObject({ accepted: z.literal(true) }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 
 export const appsOAuthCancel = defineMemory({

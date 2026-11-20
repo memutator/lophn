@@ -1,7 +1,7 @@
 id: phone-conversation-lacks-fork-rewind-subagent
 title: 폰의 대화에서 fork, rewind, subagent session 열기를 할 수 없다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 중간: subagent 줄을 누르면 그 session의 대화로 간다(`Place`의 session을 그대로 쓴다). 가장 작고 쓸 일이 많다(추천).
   - 중간: 메시지 menu에 fork를 더한다. 새 session을 열고 이어 가는 길은 이미 있다.
   - 큼: rewind는 미리보기(file 되돌리기 포함)와 확인이 필요해 화면이 따로 든다. 쓰는 예를 보고 연다.
+closed: |
+  폰 대화 화면에 Fork(session menu, `/fork`, turn 끝의 Fork 단추)와 Rewind(session menu, `/rewind`, 내 메시지 길게 누르기 → `RewindSheet`에서 `rewindPreview` 확인 후 실행), coding session의 `coding_sessions/rewind_preview` 연결을 더했다. subagent 줄은 기존 `ChildSheet`로 열린다.
+guard: 없음

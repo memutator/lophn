@@ -186,6 +186,7 @@ import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { TabHost } from "./kinds/host.ts";
+import { isThisComputerOnly } from "./kinds/kind.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 import { TabBoundary } from "./tab-boundary.tsx";
 import { openProjectSettings } from "./kinds/project-settings.tsx";
@@ -1120,14 +1121,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   };
   const openLophn = (): boolean => openNew({});
   // 이 workspace의 설정 단추가 여는 탭(project는 Project settings, 앱은 App details). Home은 없다.
-  const openSettingsHere = !data.here
-    ? undefined
-    : projectId !== null
-      ? () => openProjectSettings(host)
+  // App details는 다른 기계의 앱도 연다(읽기만 하는 source다). Project settings는 이 컴퓨터의 것만이다.
+  const openSettingsHere =
+    projectId !== null
+      ? data.here
+        ? () => openProjectSettings(host)
+        : undefined
       : isApp && props.appDetail !== undefined
         ? () => openAppDetail(host)
         : undefined;
-  const onSettingsAt = data.here ? props.onSettingsAt : undefined;
+  const onSettingsAt = props.onSettingsAt;
   // + hover 목록과 탭 줄 + menu가 같이 쓰는, 고른 agent로 새 session을 여는 길.
   const startChoice = (choice: AgentChoice) => {
     if (choice.kind === "lophn") {
@@ -1598,7 +1601,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         workspaceMachine={machine}
         hereApp={def?.hereApp?.(tab)}
       >
-        {tabMachine !== null && def?.thisComputerOnly ? (
+        {tabMachine !== null && isThisComputerOnly(def, tab) ? (
           <OnlyHere machine={machineItemOf(machinesView, tabMachine)} />
         ) : (
           <TabBoundary>

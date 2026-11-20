@@ -13,11 +13,14 @@ import {
   projectBrowse,
 } from "../../../../protocol/projects/add-api.ts";
 import {
+  artifactsFile,
+  artifactsList,
   projectApi,
   projectIdentityApi,
 } from "../../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
+import { artifactHandlers } from "../../../projects/artifacts/mod.ts";
 import { addProject, type ProjectAddInput } from "../../../projects/add.ts";
 import { browseFolders } from "../../../projects/browse.ts";
 import {
@@ -167,6 +170,7 @@ export const projectsWiring: WiringFactory = () => {
           Array.from({ length: STARTUP_PARALLEL }, () => worker()),
         );
       };
+      const artifacts = artifactHandlers(ctx.root.path);
       return ok({
         // tx 안에서는 file과 git을 만질 수 없어 commit 뒤에 읽는다. 읽기가 실패해도 원래 결과는 그대로다.
         writer: (inner) => ({
@@ -183,7 +187,11 @@ export const projectsWiring: WiringFactory = () => {
             return done;
           },
         }),
+        fileStreams: [
+          [`${artifactsFile.resource}/${artifactsFile.method}`, artifacts.file],
+        ],
         memory: [
+          [`${artifactsList.resource}/${artifactsList.method}`, artifacts.list],
           [
             `${projectIdentityApi.identity.resource}/${projectIdentityApi.identity.method}`,
             (_who, body) =>

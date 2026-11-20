@@ -1,5 +1,11 @@
 import type { z } from "zod";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import {
+  type Clock,
+  err,
+  type IdSource,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import type { Assignment } from "../../../protocol/approvals/mod.ts";
 import {
   appRemoteCall,
@@ -22,6 +28,7 @@ import {
 import { judge } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
 import { type CallGateDeps, callAllowed } from "./gate.ts";
+import type { OutboundCalls } from "./outbound.ts";
 
 // 다른 기계의 앱 command를 부르는 길. 부른 쪽 확인(verifyCaller)과 target 검사만 끝난 호출이 온다(agent와 앱만 온다).
 // 받는 기계의 Gate는 지나지 않았으므로 이 컴퓨터의 Gate가 볼 것을 넘기기 전에 여기서 본다: private, 받은 call의 hop, 할당, `app.call` grant.
@@ -39,10 +46,19 @@ export type RemoteMachines = {
   resolve(ref: string): Result<MachineCandidate>;
   call(
     device: string,
-    call: { resource: string; method: string; body: unknown },
+    call: {
+      resource: string;
+      method: string;
+      body: unknown;
+      lane?: "command";
+      deadlineMs?: number;
+    },
     by: Requester,
   ): Promise<Result<unknown>>;
 };
+
+// 앱 command는 오래 걸릴 수 있다(큰 수집, 느린 외부 호출). 화면 읽기의 120초와 슬롯 8개를 같이 쓰지 않도록 따로 길게 둔다.
+export const REMOTE_COMMAND_DEADLINE_MS = 10 * 60_000;
 
 export type RemoteForwardDeps = CallGateDeps & {
   machines(): RemoteMachines;
@@ -50,6 +66,10 @@ export type RemoteForwardDeps = CallGateDeps & {
   policy(): CallPolicy;
   // 사람이 보는 agent 이름. 받는 기계는 이 값으로 결정하지 않는다.
   agentName(agent: AgentId): string | null;
+  // 부른 컴퓨터에 남기는 기록. 받는 컴퓨터가 꺼져 있어도 이 컴퓨터의 agent와 앱이 무엇을 시켰는지 읽는다.
+  outbound: OutboundCalls;
+  clock: Clock;
+  ids: IdSource;
 };
 
 const forbidden = (message: string): Result<never> =>
@@ -72,7 +92,10 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
       return forbidden("a private workspace does not call another computer");
     }
     // 받은 call을 돌리는 중인 앱이 또 다른 기계를 부르면 권한이 한 hop 넓어진다.
-    if (caller.kind === "app" && caller.parent.remote) {
+    if (
+      (caller.kind === "app" && caller.parent.remote) ||
+      (caller.kind === "agent" && caller.remote)
+    ) {
       return forbidden("a received remote call is not forwarded again");
     }
 
@@ -142,21 +165,63 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
       command: name,
       ...(input === undefined ? {} : { input }),
     };
+    const id = deps.ids.newId("rcl") as Id<"rcl">;
+    const began = deps.outbound.begin({
+      id,
+      caller: by as Extract<Requester, { kind: "agent" | "app" }>,
+      machine: computer.machine as Id<"mch">,
+      computer: computer.name,
+      app: target.app,
+      command: name,
+      at: deps.clock.now(),
+    });
+    if (!began.ok) return began;
     const sent = await machines.call(
       computer.device,
-      { resource: appRemoteCall.resource, method: appRemoteCall.method, body },
+      {
+        resource: appRemoteCall.resource,
+        method: appRemoteCall.method,
+        body,
+        lane: "command",
+        deadlineMs: REMOTE_COMMAND_DEADLINE_MS,
+      },
       by,
     );
+    let output: Result<ToolCallOutput>;
     if (!sent.ok) {
       const { code, details } = sent.error;
-      return code === "unavailable" &&
+      output =
+        code === "unavailable" &&
         (details as { sent?: unknown } | undefined)?.sent === true
-        ? ok(LOST)
-        : sent;
+          ? ok(LOST)
+          : sent;
+    } else {
+      const parsed = toolCallOutputSchema.safeParse(sent.value);
+      output = ok(parsed.success ? parsed.data : LOST);
     }
-    const output = toolCallOutputSchema.safeParse(sent.value);
-    return ok(output.success ? output.data : LOST);
+    const end = endOf(output);
+    // 끝 기록이 안 남아도 호출의 결과는 그대로 돌려준다. 줄은 기동 때 unknown으로 닫힌다.
+    deps.outbound.finish(id, { ...end, at: deps.clock.now() });
+    return output;
   };
+}
+
+function endOf(output: Result<ToolCallOutput>): {
+  status: "succeeded" | "failed" | "denied" | "unknown";
+  error: string | null;
+} {
+  if (!output.ok) return { status: "failed", error: output.error.message };
+  const { outcome } = output.value;
+  if (outcome.status === "failed") {
+    return { status: "failed", error: outcome.error.message };
+  }
+  if (outcome.status === "denied") {
+    return { status: "denied", error: outcome.denial.message };
+  }
+  if (outcome.status === "unknown") {
+    return { status: "unknown", error: outcome.reason };
+  }
+  return { status: "succeeded", error: null };
 }
 
 function blocked(): ToolCallOutput {

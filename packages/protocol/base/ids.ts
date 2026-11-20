@@ -43,6 +43,7 @@ const ID_PREFIXES = {
   dev: "Device",
   mch: "Machine",
   pri: "ProjectIdentity",
+  rcl: "RemoteCall",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

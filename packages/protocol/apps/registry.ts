@@ -26,6 +26,7 @@ import { declarationCheck } from "./declaration/check.ts";
 import {
   appCallTool,
   appRemoteCall,
+  appRemoteCalls,
   appInvocation,
   appInvocations,
   appRewind,
@@ -56,6 +57,7 @@ import {
 } from "./activation/mod.ts";
 import {
   appsOAuthBegin,
+  appsOAuthCallback,
   appsOAuthCancel,
   appsOAuthClientSet,
   appsOAuthSignOut,
@@ -106,6 +108,7 @@ export const ROUTES = [
   declarationCheck,
   appCallTool,
   appRemoteCall,
+  appRemoteCalls,
   appInvocations,
   appInvocation,
   appRewindPlan,
@@ -115,6 +118,7 @@ export const ROUTES = [
   appsSecretValue,
   appsOAuthClientSet,
   appsOAuthBegin,
+  appsOAuthCallback,
   appsOAuthCancel,
   appsOAuthSignOut,
   appsOAuthState,

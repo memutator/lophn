@@ -364,6 +364,12 @@ export const agents = {
   "settings.label.server-program": "Program",
   "settings.label.server-scopes": "Scopes",
   "settings.label.server-transport": "How it connects",
+  "settings.button.sign-in-complete": "Complete sign-in",
+  "settings.error.sign-in-callback-invalid":
+    "That link didn't match this sign-in. Copy the full redirected URL and try again.",
+  "settings.label.sign-in-callback-placeholder":
+    "http://localhost:.../callback?code=...&state=...",
+  "settings.label.sign-in-callback-url": "Redirected URL",
   "settings.label.sign-in-how": "How do you want to sign in to {name}?",
   "settings.label.status-connected": "Connected",
   "settings.label.status-needs-sign-in": "Needs sign-in",
@@ -382,6 +388,10 @@ export const agents = {
     "Finish signing in to {product} in your browser.",
   "settings.notice.sign-in-code":
     "Enter this code on the page that opened in your browser.",
+  "settings.notice.sign-in-handoff-auto":
+    "Finish signing in to {product} in your browser. lophn will catch the redirect automatically, or paste the redirected URL below.",
+  "settings.notice.sign-in-handoff-paste":
+    "Finish signing in to {product} in your browser. After signing in, the page will redirect to a localhost address that won't load — copy that full URL from your browser's address bar and paste it below.",
   "settings.server.address-help":
     "A secure web address, or one on this computer.",
   "settings.server.arguments-help": "One per line. They are passed as written.",

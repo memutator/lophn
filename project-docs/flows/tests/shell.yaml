@@ -69,7 +69,8 @@ files:
     covers:
       - artifact-serve:served
       - artifact-serve:not-found
-    note: "봉한 scheme이 root 밖 path, symlink, 일반 file이 아닌 것, 상한을 넘는 file을 404로 거절한다. _entries.json이 밖으로 가는 symlink와 하위 폴더를 싣지 않는다는 목록 규칙은 served 안에 든다"
+      - artifact-serve:method-refused
+    note: "봉한 scheme이 이 컴퓨터 root와 다른 컴퓨터 remote 대상 모두에서 밖을 가리키는 path, symlink, 일반 file이 아닌 것, 상한을 넘는 file을 404로 거절하고 GET·HEAD 외를 405로 거절한다. 다른 컴퓨터 view는 local watch와 annotate를 열지 않는다"
 
   - path: packages/shell/main/artifact/source_test.ts
     covers:
@@ -174,6 +175,10 @@ files:
   - path: packages/shell/main/desktop/navigation-guard_test.ts
     covers: [shell-navigation:allowed, shell-navigation:external-link, shell-navigation:blocked]
     note: "shell 창 main frame의 탐색 판정(lophn-shell://desktop 밖 차단, http·https는 OS browser). shell-navigation:allowed·external-link·blocked"
+
+  - path: packages/shell/main/desktop/oauth-handoff_test.ts
+    covers: [shell-oauth-handoff:captured, shell-oauth-handoff:conflict, shell-oauth-handoff:cancelled, shell-oauth-handoff:invalid_input]
+    note: "원격 loopback OAuth 임시 listener의 loopback 주소 제한, 맞는 state callback 전달, port 충돌 conflict와 취소 정리"
 
   - path: packages/shell/renderer/workspace/sidebar/explorer-paste_test.ts
     covers: []
@@ -317,9 +322,17 @@ files:
       - session-snapshot-read:ok
     note: "다시 붙을 때 snapshot으로 사람의 대기 목록을 맞춘다(사라진 요청은 남지 않고 같은 event는 한 번만). team 자식의 to_parent 요청은 사람 목록에 서지 않는다는 화면 필터는 flow 대상이 아니다"
 
+  - path: packages/shell/renderer/apps/take-in_test.ts
+    covers: []
+    note: "다른 컴퓨터의 앱을 들이는 renderer 통로: available 확인(없으면 sync_off), apps/take_in 호출, conflict·source_incomplete 이유 옮기기"
+
   - path: packages/shell/renderer/desktop/settings/keyboard/model_test.ts
     covers: [key-record:saved]
     note: "설정의 key 바꾸기 model(같은 context의 다른 줄에서 그 key를 빼고 기본 key와 같아지면 저장에서 뺀다). 저장은 key-record:saved"
+
+  - path: packages/shell/renderer/desktop/settings/remote/addresses_test.ts
+    covers: []
+    note: "Settings › Remote › Addresses의 주소 입력 검사(host·IPv4·IPv6 허용, scheme·port·괄호·공백·중복 거절)와 remote.addresses 읽기·쓰기"
 
   - path: packages/shell/renderer/desktop/settings/shell-rules/core-source_test.ts
     covers: [shell-rule-edit:saved]

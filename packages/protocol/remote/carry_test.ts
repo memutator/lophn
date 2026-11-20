@@ -29,7 +29,12 @@ import {
   signManifest,
   verifyManifest,
 } from "./carry.ts";
-import { dataEntryPath, recordPath, sourcePath } from "../folder/layout.ts";
+import {
+  dataEntryPath,
+  packageFilePath,
+  recordPath,
+  sourcePath,
+} from "../folder/layout.ts";
 import { encodeRecord, sourceMetaSchema } from "../folder/records.ts";
 
 const random = seededRandom(11);
@@ -349,4 +354,56 @@ test("event file은 path의 기계·앱·id와 같고 때가 범위 안일 때�
   for (const [name, bytes, now] of refused) {
     assert.equal(readEventFile(path, bytes, now), null, name);
   }
+});
+
+test("manifest의 선택 칸 packages가 @me/* package file을 서명 사슬에 싣고 다른 기계·files 오용을 막는다", () => {
+  const pkgPath = packageFilePath(b.machine, "@me/shared", "1.0.0");
+  const pkgBytes = text('{"name":"@me/shared"}\n');
+  const body: ManifestBody = {
+    ...bodyOf(b.machine),
+    packages: [listed(pkgPath, pkgBytes)],
+  };
+  const signedText = signManifest(body, b.signing.secretKey);
+  const verified = verifyManifest(signedText, signingKeyOf);
+  assert.deepEqual(verified?.body, body);
+  assert.deepEqual(
+    expectedFile(body, pkgPath, () => null),
+    { size: pkgBytes.byteLength, sha256: hex(pkgBytes) },
+  );
+  assert.equal(expectedFiles(body, () => null).has(pkgPath), true);
+  assert.equal(
+    carryFile.input.safeParse({
+      machine: b.machine,
+      path: pkgPath,
+      offset: 0,
+      length: 1,
+    }).success,
+    true,
+  );
+  // packages 항목을 변조하면 서명이 깨진다.
+  const tampered = JSON.parse(signedText) as { body: ManifestBody };
+  tampered.body.packages![0]!.sha256 = "0".repeat(64);
+  assert.equal(verifyManifest(JSON.stringify(tampered), signingKeyOf), null);
+  // package path는 옛 판 호환을 위해 files에 넣지 못한다.
+  assert.throws(() =>
+    signManifest(
+      {
+        ...bodyOf(b.machine),
+        files: [...bodyOf(b.machine).files, listed(pkgPath, pkgBytes)],
+      },
+      b.signing.secretKey,
+    ),
+  );
+  // 다른 기계의 package path는 실을 수 없다.
+  assert.throws(() =>
+    signManifest(
+      {
+        ...bodyOf(b.machine),
+        packages: [
+          listed(packageFilePath(a.machine, "@me/shared", "1.0.0"), pkgBytes),
+        ],
+      },
+      b.signing.secretKey,
+    ),
+  );
 });

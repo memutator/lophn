@@ -153,7 +153,14 @@ export const runsWiring: WiringFactory = () => {
             workspace: s.workspace,
           });
         },
-        async open(agent: AgentAtWorkspace, session: Id<"ses">) {
+        async open(
+          agent: AgentAtWorkspace,
+          session: Id<"ses">,
+          options?: { remote?: boolean },
+        ) {
+          if (options?.remote === true) {
+            ctx.peek.markRemoteSession?.(session);
+          }
           const opened = await command(RUNS_CONTEXT, workspaceSessionOpen, {
             id: session,
             agent: agent.agent,
@@ -291,7 +298,11 @@ export const runsWiring: WiringFactory = () => {
                 },
                 {
                   actor: "program",
-                  program: { job: origin.job, job_run: origin.job_run },
+                  program: {
+                    job: origin.job,
+                    job_run: origin.job_run,
+                    remote: origin.remote,
+                  },
                 },
               );
         },

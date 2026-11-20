@@ -1,4 +1,5 @@
 // `computers` 폴더의 자기 하위 폴더에 서명한 file 목록을 쓴다: 앱마다 `apps/<app>/files.json`, 그 위에 `manifest.json`.
+// `@me/*` package file(`packages/<part>@<version>.json`)은 manifest가 직접 싣는다.
 // 목록은 내보내기가 쓴 file의 기록(`folder_written`)과 자기 기록 file(`record.json`, `roster.json`)로 만들고 폴더를 훑지
 // 않는다: 쓰는 중에 훑은 목록은 서명된 채 빠진 file이 있어 받는 쪽이 멀쩡한 사본을 지운다. 목록이 같으면 다시 쓰지 않는다.
 import {
@@ -26,6 +27,8 @@ import {
 import {
   decodeRecord,
   encodeRecord,
+  PACKAGE_FILE_MAX_BYTES,
+  packagesDir,
   RECORD_MAX_BYTES,
   recordPath,
 } from "../../../protocol/folder/mod.ts";
@@ -135,6 +138,17 @@ export async function publishManifest(
     if (read.ok) top.push(await entryOf(path, read.value));
   }
 
+  // `packages/` file은 version마다 바뀌지 않고 temp와 rename으로만 놓여 폴더를 훑어도 반만 쓴 file이 없다.
+  // 옛 판(2) 호환을 위해 `files`가 아니라 선택 칸 `packages`에 싣는다.
+  const packageEntries: CarryFileEntry[] = [];
+  const packages = await reader.list(packagesDir(me));
+  for (const name of packages.ok ? packages.value : []) {
+    const path = `${packagesDir(me)}/${name}`;
+    const read = await reader.read(path, PACKAGE_FILE_MAX_BYTES);
+    if (read.ok) packageEntries.push(await entryOf(path, read.value));
+  }
+  packageEntries.sort((a, b) => (a.path < b.path ? -1 : 1));
+
   const rows = sql
     .all(
       `SELECT path, app, stream, n, sha256, size FROM folder_written
@@ -214,6 +228,7 @@ export async function publishManifest(
   if (
     before !== null &&
     canonicalize(before.files) === canonicalize(top) &&
+    canonicalize(before.packages ?? []) === canonicalize(packageEntries) &&
     mark <= before.revision
   ) {
     return ok(false);
@@ -228,6 +243,7 @@ export async function publishManifest(
     ),
     written_at: now,
     files: top,
+    ...(packageEntries.length > 0 ? { packages: packageEntries } : {}),
   });
   if (text === null) return ok(false);
   const bytes = encoder.encode(text);

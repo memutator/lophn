@@ -78,6 +78,7 @@ import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { PanelTerminal } from "./panel-types.ts";
 import { movedTab, putTab, sessionTab } from "./move-tab.ts";
+import { takeInText } from "../../apps/take-in-note.ts";
 import { CloneNote, type CloneState, cloneResult } from "./clone-note.tsx";
 
 const NO_WORKFLOWS: readonly string[] = [];
@@ -479,10 +480,23 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       return next;
     });
   // 다른 기계의 project이고 이 컴퓨터에 같은 project가 없으면 가져오는 menu를 둔다. git은 remote가 있어야 clone한다.
+  // 다른 기계의 앱이고 이 컴퓨터에 같은 id의 앱이 없으면 들이는 menu를 둔다: 그 앱이 들일 수 있는지는 누를 때 읽는다.
   const bringItems = (workspace: SidebarWorkspace) => {
-    const { listed } = workspace;
+    const { listed, ref } = workspace;
     if (
-      workspace.ref.machine === undefined ||
+      ref.kind === "app" &&
+      ref.machine !== undefined &&
+      workspace.offline !== true &&
+      !(
+        lists.lists
+          .find((list) => list.machine === null)
+          ?.apps.some((app) => app.id === ref.id) ?? true
+      )
+    ) {
+      return [{ id: "install", label: t("take-in.button.install") }];
+    }
+    if (
+      ref.machine === undefined ||
       workspace.offline === true ||
       listed === undefined ||
       listed.identity === null ||
@@ -501,14 +515,49 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const bring = (workspace: SidebarWorkspace, id: string) => {
     const { listed } = workspace;
     const machineId = workspace.ref.machine;
-    if (listed === undefined || machineId === undefined) return;
+    if (machineId === undefined) return;
+    const key = workspaceKey(workspace.ref);
+    if (id === "install") {
+      if (workspace.ref.kind !== "app") return;
+      const appId = workspace.ref.id;
+      const name = workspace.name;
+      const from = lists.names.get(machineId) ?? "";
+      setClone(key, {
+        state: "cloning",
+        text: t("take-in.note.installing", { name }),
+      });
+      void dataOf(null)
+        .apps.takeIn(appId)
+        .then((outcome) =>
+          setClone(key, {
+            state: outcome.ok ? "done" : "failed",
+            text: takeInText(outcome, name, from),
+            ...(outcome.ok
+              ? {
+                  onOpen: () => {
+                    const target: WorkspaceRef = {
+                      kind: "app",
+                      id: outcome.app,
+                    };
+                    if (props.onNewSessionAt !== undefined) {
+                      props.onNewSessionAt(target, {});
+                    } else {
+                      props.onWorkspaceRow(target);
+                    }
+                  },
+                }
+              : {}),
+          }),
+        );
+      return;
+    }
+    if (listed === undefined) return;
     if (id === "link") {
       setLinking({ machine: machineId, project: listed });
       return;
     }
     if (machines === null || listed.remote === null || listed.identity === null)
       return;
-    const key = workspaceKey(workspace.ref);
     setClone(key, { state: "cloning" });
     void machines
       .cloneHere({

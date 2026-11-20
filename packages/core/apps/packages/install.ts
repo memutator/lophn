@@ -103,10 +103,26 @@ export function bundleBytes(
   return out;
 }
 
+function safeBundlePath(path: string): boolean {
+  if (path === "" || path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
+    return false;
+  }
+  const segments = path.split("/");
+  return segments.every(
+    (segment) =>
+      segment !== "" &&
+      segment !== "." &&
+      segment !== ".." &&
+      !segment.includes("\\") &&
+      !segment.includes("\0"),
+  );
+}
+
 // bundleBytes의 역이다. 모양이 어긋나면 invalid_input이다(hash가 맞아도 되살리기는 이 모양만 받는다).
 export function bundleFiles(bytes: Uint8Array): Result<SourceFile[]> {
   const decoder = new TextDecoder();
   const files: SourceFile[] = [];
+  const seen = new Set<string>();
   let offset = 0;
   // 줄 하나(`\n` 앞까지)를 읽고 offset을 줄 뒤로 옮긴다.
   const line = (): string | undefined => {
@@ -122,6 +138,10 @@ export function bundleFiles(bytes: Uint8Array): Result<SourceFile[]> {
     if (path === undefined || length === undefined || !/^\d+$/.test(length)) {
       return invalid("bundle bytes are malformed");
     }
+    if (!safeBundlePath(path) || seen.has(path)) {
+      return invalid(`bundle file path is not valid: ${path}`);
+    }
+    seen.add(path);
     const size = Number(length);
     if (offset + size + 1 > bytes.length || bytes[offset + size] !== 0x0a) {
       return invalid("bundle bytes are malformed");

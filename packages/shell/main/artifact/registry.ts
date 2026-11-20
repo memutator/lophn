@@ -16,7 +16,7 @@ import {
 } from "../app-frame/crash.ts";
 import type { GuestContents } from "../app-frame/view-model.ts";
 import { ARTIFACT_PARTITION, ARTIFACT_SCHEME } from "./session.ts";
-import type { ResolvedSource } from "./source.ts";
+import type { RemoteArtifact, ResolvedSource } from "./source.ts";
 
 // 파일이 연달아 바뀌는 동안 한 번만 다시 load한다.
 const RELOAD_DEBOUNCE_MS = 150;
@@ -70,6 +70,8 @@ interface ArtifactViewsDeps {
   ensureSession(): Promise<void>;
   /** root(와 scope)마다 host를 달리해 origin을 가른다. */
   registerRoot(root: string, scope: string | null): string;
+  /** 다른 컴퓨터의 artifact도 대상마다 host를 달리해 origin을 가른다. */
+  registerRemoteRoot(target: RemoteArtifact): string;
   watch(
     input: { dir: string; recursive: boolean; debounceMs: number },
     onChange: () => void,
@@ -107,9 +109,13 @@ export interface AcceptedArtifactGuest {
   readonly partition: string;
 }
 
+const isRemote = (source: ArtifactSource): boolean =>
+  source.kind === "artifact" && source.machine !== undefined;
+
 const sameSource = (a: ArtifactSource, b: ArtifactSource) => {
   if (a.kind === "artifact") {
     if (b.kind !== "artifact" || a.name !== b.name) return false;
+    if ((a.machine ?? null) !== (b.machine ?? null)) return false;
     const [pa, pb] = [artifactWorkspaceOf(a), artifactWorkspaceOf(b)];
     return pa.kind === pb.kind && pa.id === pb.id;
   }
@@ -266,9 +272,12 @@ export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
           return { ok: true, value: state(found) };
         }
       }
-      const { root, entry: entryName, file } = resolved.value;
+      const { root, entry: entryName, file, remote } = resolved.value;
       const view_session = deps.ids.viewSession();
-      const host = deps.registerRoot(root, resolved.value.scope);
+      const host =
+        remote !== undefined
+          ? deps.registerRemoteRoot(remote)
+          : deps.registerRoot(root, resolved.value.scope);
       const entry: Entry = {
         view_session,
         window,
@@ -282,18 +291,21 @@ export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
         contents: undefined,
         accepted: undefined,
         health: "ok",
-        // 사람의 file은 그 폴더 바로 아래만 지켜본다.
-        watch: deps.watch(
-          {
-            dir: root,
-            recursive: source.kind !== "file",
-            debounceMs: RELOAD_DEBOUNCE_MS,
-          },
-          () => {
-            const live = entries.get(view_session);
-            if (live?.health === "ok") live.contents?.reload();
-          },
-        ),
+        // 다른 컴퓨터의 artifact는 이 컴퓨터 폴더를 감시하지 않는다. 사람의 file은 그 폴더 바로 아래만 지켜본다.
+        watch:
+          remote !== undefined
+            ? { stop() {} }
+            : deps.watch(
+                {
+                  dir: root,
+                  recursive: source.kind !== "file",
+                  debounceMs: RELOAD_DEBOUNCE_MS,
+                },
+                () => {
+                  const live = entries.get(view_session);
+                  if (live?.health === "ok") live.contents?.reload();
+                },
+              ),
       };
       mount(entry);
       entries.set(view_session, entry);
@@ -419,13 +431,16 @@ export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
 
     annotateView(view_session: string): AnnotateViewPort | undefined {
       const entry = entries.get(view_session);
-      return entry === undefined ? undefined : annotatePort(entry);
+      if (entry === undefined || isRemote(entry.source)) return undefined;
+      return annotatePort(entry);
     },
 
     /** IPC sender webContents의 annotate 입구. 폐기·교체된 contents는 undefined다. */
     senderAnnotateView(contentsId: number): AnnotateViewPort | undefined {
       for (const entry of entries.values()) {
-        if (entry.contents?.id === contentsId) return annotatePort(entry);
+        if (entry.contents?.id === contentsId) {
+          return isRemote(entry.source) ? undefined : annotatePort(entry);
+        }
       }
       return undefined;
     },

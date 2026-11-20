@@ -20,6 +20,7 @@ import {
   providerRead,
   type ProviderRecord,
   providerSignIn,
+  providerSignInCallback,
   providerSignInState,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -254,6 +255,12 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             key(providerSignIn),
             ((who, input) =>
               login?.signIn(who, input) ?? unready()) satisfies MemoryHandler,
+          ],
+          [
+            key(providerSignInCallback),
+            ((_who, input) =>
+              login?.signInCallback(input) ??
+              unready()) satisfies MemoryHandler,
           ],
           [
             key(providerSignInState),

@@ -4,6 +4,7 @@ import { formatRelativeTime, t } from "@lophn/i18n";
 import { Button } from "@lophn/ui/primitives";
 import { useCallback, useState } from "react";
 
+import { takeInText } from "../../../apps/take-in-note.ts";
 import { actionIcons, homeIcons } from "../../../icons/mod.ts";
 import { useStateChanged } from "../../connection/core-read.ts";
 import { useMachinesView } from "../../machines/context.tsx";
@@ -14,6 +15,7 @@ import styles from "../settings.module.css";
 import { FolderForm } from "./folder-form.tsx";
 import type {
   SaveOutcome,
+  AvailableApp as SyncAvailable,
   SyncFolder,
   SyncFolders,
   SyncSettingsSource,
@@ -71,6 +73,16 @@ export function SyncPanel({
   const [status, setStatus] = useState<Loaded<SyncStatus>>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [failed, setFailed] = useState(false);
+  // 앱 id → 들이기의 진행·결과 글. 사람이 [Install on this computer]를 누른 앱만 있다.
+  const [installs, setInstalls] = useState<
+    ReadonlyMap<
+      string,
+      {
+        readonly state: "installing" | "done" | "failed";
+        readonly text: string;
+      }
+    >
+  >(new Map());
   const view = useMachinesView();
 
   const load = useCallback(() => {
@@ -82,7 +94,7 @@ export function SyncPanel({
     });
   }, [source]);
   useStateChanged(
-    ["settings", "remote_devices", "carry_files", "app_runtime"],
+    ["settings", "remote_devices", "carry_files", "app_runtime", "apps"],
     load,
   );
 
@@ -91,6 +103,25 @@ export function SyncPanel({
     const done = await run;
     setFailed(!done.ok);
   }
+
+  function install(app: SyncAvailable): void {
+    const put = (state: {
+      state: "installing" | "done" | "failed";
+      text: string;
+    }) => setInstalls((now) => new Map(now).set(app.app, state));
+    put({
+      state: "installing",
+      text: t("take-in.note.installing", { name: app.name }),
+    });
+    void source.takeIn(app.app).then((outcome) =>
+      put({
+        state: outcome.ok ? "done" : "failed",
+        text: takeInText(outcome, app.name, machineName(app.machine)),
+      }),
+    );
+  }
+  const machineName = (id: string): string =>
+    view?.machines.find((machine) => machine.id === id)?.name ?? id;
 
   if (folders === null) return null;
   if (folders === "failed") {
@@ -114,6 +145,8 @@ export function SyncPanel({
       ? null
       : status.shared.state;
   const apps = status === "failed" || status === null ? [] : status.apps;
+  const available =
+    status === "failed" || status === null ? [] : status.available;
   const duplicates = duplicateMachineIds(status, view);
   const renderedIds = new Set<string>([
     ...(view?.thisComputer == null ? [] : [view.thisComputer.id]),
@@ -389,6 +422,73 @@ export function SyncPanel({
             ) : null}
           </ul>
         )}
+      </section>
+
+      <section className={styles.groupBlock} data-sync-section="available">
+        <h2 className={styles.groupTitle}>
+          {t("settings-sync.heading.available")}
+        </h2>
+        {available.length === 0 ? (
+          <p className={styles.lineHelp} data-sync="no-available">
+            {t("settings-sync.note.available-empty")}
+          </p>
+        ) : (
+          <ul className={styles.lines}>
+            {available.map((app) => {
+              const progress = installs.get(app.app);
+              return (
+                <li
+                  key={app.app}
+                  className={styles.line}
+                  data-sync-available={app.app}
+                >
+                  <div className={styles.lineMain}>
+                    <span className={styles.lineName}>{app.name}</span>
+                    <span className={styles.lineHelp}>
+                      {t("settings-sync.note.available-from", {
+                        machine: machineName(app.machine),
+                      })}
+                    </span>
+                    {progress === undefined ? null : (
+                      <span
+                        className={
+                          progress.state === "failed"
+                            ? styles.rejected
+                            : styles.lineHelp
+                        }
+                        role={progress.state === "failed" ? "alert" : undefined}
+                        data-sync-install={progress.state}
+                      >
+                        {progress.text}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.lineControl}>
+                    <Button
+                      icon={actionIcons.add}
+                      data-sync-install-button=""
+                      disabled={progress?.state === "installing"}
+                      onClick={() => install(app)}
+                    >
+                      {t("take-in.button.install")}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {[...installs.entries()]
+          .filter(
+            ([appId, progress]) =>
+              progress.state === "done" &&
+              !available.some((one) => one.app === appId),
+          )
+          .map(([appId, progress]) => (
+            <p key={appId} className={styles.lineHelp} data-sync-install="done">
+              {progress.text}
+            </p>
+          ))}
       </section>
 
       <section className={styles.groupBlock} data-sync-section="apps">

@@ -32,7 +32,10 @@ interface ArtifactIpcDeps {
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
   views: Pick<ArtifactViews, "open" | "reload">;
-  list(workspace: ArtifactWorkspace): Promise<ArtifactListItem[]>;
+  list(
+    workspace: ArtifactWorkspace,
+    machine?: string,
+  ): Promise<ArtifactListItem[]>;
   /** project의 artifact 폴더를 지우고 그 폴더를 연 view를 버린다. */
   remove(input: {
     project: string;
@@ -97,7 +100,10 @@ export function createArtifactIpc(deps: ArtifactIpcDeps): ArtifactIpcHandlers {
       return {
         ok: true,
         value: {
-          artifacts: await deps.list(artifactWorkspaceOf(checked.value)),
+          artifacts: await deps.list(
+            artifactWorkspaceOf(checked.value),
+            checked.value.machine,
+          ),
         },
       };
     },

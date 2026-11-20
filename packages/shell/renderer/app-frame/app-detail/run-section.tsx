@@ -6,6 +6,7 @@ import { t } from "@lophn/i18n";
 
 import { Loadable } from "./loadable.tsx";
 import { PaneToast } from "./parts.tsx";
+import { useReadOnly } from "./read-only.ts";
 import { useRunView } from "./reads.ts";
 import type { AppDetailSource, RunState } from "./source.ts";
 import styles from "./app-section.module.css";
@@ -36,6 +37,7 @@ export function RunSection({
   now: () => Date;
 }) {
   const [failed, setFailed] = useState<boolean | null>(null);
+  const readOnly = useReadOnly();
   // 앱 process가 뜨고 멈추는 것은 app_runtime 변경으로 다시 읽는다.
   const read = useRunView(app);
 
@@ -73,15 +75,17 @@ export function RunSection({
                 <p className={styles.note}>{NOTE[view.state]()}</p>
               )}
             </span>
-            <span className={styles.action}>
-              <Switch
-                size="sm"
-                label={t("app-detail.label.run-switch")}
-                checked={view.enabled}
-                disabled={view.state === "preparing"}
-                onCheckedChange={(next) => void change(next)}
-              />
-            </span>
+            {readOnly ? null : (
+              <span className={styles.action}>
+                <Switch
+                  size="sm"
+                  label={t("app-detail.label.run-switch")}
+                  checked={view.enabled}
+                  disabled={view.state === "preparing"}
+                  onCheckedChange={(next) => void change(next)}
+                />
+              </span>
+            )}
           </div>
         )}
       </Loadable>

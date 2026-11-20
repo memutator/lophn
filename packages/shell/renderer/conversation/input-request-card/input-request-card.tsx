@@ -5,13 +5,13 @@
 // 다른 기계의 범위에서는 secret의 [Enter]가 그 기계로 값을 보내는 보호 창을 연다. sign_in은 provider의 device code 로그인만 단추이고
 // 그 기계의 browser로 돌아와야 하는 로그인(loopback provider, 앱 OAuth, MCP OAuth)과 이 컴퓨터의 browser에 치는 login은 한 줄이다.
 import { useEffect, useRef, useState } from "react";
+import { Input } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type {
   InputRequestView,
   SignInRequestView,
 } from "../../../../protocol/lophn-agent/input-request.ts";
-import { oauthFlowOf } from "../../../../protocol/lophn-agent/provider-values.ts";
 import type {
   SecretInputOpenReply,
   SecretInputRequestOpen,
@@ -19,6 +19,7 @@ import type {
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import { useOptionalEventClient } from "../../desktop/connection/events/hooks.tsx";
 import { useScopeMachineItem } from "../../desktop/machines/context.tsx";
+import type { SignInHandoff } from "../../desktop/settings/sign-in.ts";
 import { inputRequestTitle } from "./title.ts";
 import styles from "./input-request-card.module.css";
 
@@ -69,8 +70,14 @@ export function InputRequestCard({
   const [busy, setBusy] = useState(false);
   const events = useOptionalEventClient();
   const [failed, setFailed] = useState(false);
-  // 로그인을 돌리는 중이면 그만둘 신호와 device code다.
-  const [signing, setSigning] = useState<{ code: string | null } | null>(null);
+  // 로그인을 돌리는 중이면 그만둘 신호와 device code·원격 handoff다.
+  const [signing, setSigning] = useState<{
+    code: string | null;
+    handoff: SignInHandoff | null;
+  } | null>(null);
+  const [pastedUrl, setPastedUrl] = useState("");
+  const [callbackError, setCallbackError] = useState<string | null>(null);
+  const [sendingCallback, setSendingCallback] = useState(false);
   const stop = useRef<AbortController | null>(null);
   const machine = useScopeMachineItem();
   useEffect(() => {
@@ -83,18 +90,11 @@ export function InputRequestCard({
     };
   }, [source, session, toolCall]);
   if (view === null) return null;
-  // 다른 기계의 범위에서 이 card가 끝내지 못하는 요청이면 단추 대신 놓는 한 줄이다.
+  // 다른 기계의 범위에서 이 card가 끝내지 못하는 요청이면 단추 대신 놓는 한 줄이다(browser site login만).
   const elsewhere =
-    machine === null
-      ? null
-      : view.kind === "login"
-        ? t("machines.notice.only-here", { name: machine.name })
-        : view.kind === "sign_in" && !deviceCode(view)
-          ? t("machines.notice.sign-in-there", {
-              product: view.subject,
-              name: machine.name,
-            })
-          : null;
+    machine !== null && view.kind === "login"
+      ? t("machines.notice.only-here", { name: machine.name })
+      : null;
   const enter = async () => {
     setBusy(true);
     setFailed(false);
@@ -106,7 +106,9 @@ export function InputRequestCard({
     const controller = new AbortController();
     stop.current = controller;
     setFailed(false);
-    setSigning({ code: null });
+    setPastedUrl("");
+    setCallbackError(null);
+    setSigning({ code: null, handoff: null });
     const result = await source.signInInputRequest?.({
       session,
       toolCall,
@@ -114,15 +116,39 @@ export function InputRequestCard({
       events,
       progress: {
         signal: controller.signal,
-        started: (info) => setSigning({ code: info.userCode }),
+        started: (info) =>
+          setSigning({ code: info.userCode, handoff: info.handoff ?? null }),
       },
     });
     stop.current = null;
     setSigning(null);
+    setPastedUrl("");
+    setCallbackError(null);
     // 사람이 그만두면 요청도 접는다. 그 밖의 실패는 core가 결과로 받아 agent에게 알린다.
     if (result?.ok === false && result.code === "cancelled") {
       void source.cancelInputRequest?.({ session, toolCall });
     }
+  };
+  const submitCallback = async () => {
+    const handoff = signing?.handoff;
+    if (handoff === null || handoff === undefined || sendingCallback) return;
+    const value = pastedUrl.trim();
+    if (value === "") return;
+    setSendingCallback(true);
+    setCallbackError(null);
+    const done = await handoff.submitCallback(value);
+    setSendingCallback(false);
+    if (done.ok) {
+      setPastedUrl("");
+      return;
+    }
+    setCallbackError(
+      t(
+        done.code === "invalid_input"
+          ? "settings.error.sign-in-callback-invalid"
+          : "settings.error.connect-failed",
+      ),
+    );
   };
   const cancel = () => {
     if (stop.current !== null) stop.current.abort();
@@ -193,11 +219,46 @@ export function InputRequestCard({
           ) : null}
         </>
       )}
+      {signing?.handoff !== null && signing?.handoff !== undefined ? (
+        <div className={styles.handoff} data-sign-in-handoff="">
+          <div className={styles.handoffRow}>
+            <Input
+              size="sm"
+              value={pastedUrl}
+              placeholder={t("settings.label.sign-in-callback-placeholder")}
+              autoComplete="off"
+              data-callback-url=""
+              onChange={(event) => {
+                setPastedUrl(event.currentTarget.value);
+                if (callbackError !== null) setCallbackError(null);
+              }}
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={sendingCallback || pastedUrl.trim() === ""}
+              onClick={() => void submitCallback()}
+            >
+              {t("settings.button.sign-in-complete")}
+            </Button>
+          </div>
+          {callbackError === null ? null : (
+            <p className={`${styles.note} ${styles.error}`}>{callbackError}</p>
+          )}
+        </div>
+      ) : null}
       <div className={styles.foot}>
         <p className={failed ? `${styles.note} ${styles.error}` : styles.note}>
           {signing !== null
             ? signing.code === null
-              ? t("conversation.notice.input-request-signing-in")
+              ? signing.handoff === null
+                ? t("conversation.notice.input-request-signing-in")
+                : t(
+                    signing.handoff.autoListening
+                      ? "settings.notice.sign-in-handoff-auto"
+                      : "settings.notice.sign-in-handoff-paste",
+                    { product: view.kind === "sign_in" ? view.subject : "" },
+                  )
               : t("conversation.notice.input-request-user-code", {
                   code: signing.code,
                 })
@@ -235,15 +296,5 @@ export function InputRequestCard({
         )}
       </div>
     </section>
-  );
-}
-
-/** provider의 device code 로그인. 어느 browser에서나 끝나 다른 기계의 범위에서도 단추다. */
-function deviceCode(view: SignInRequestView): boolean {
-  const { target } = view;
-  return (
-    target.type === "provider" &&
-    target.login.definition.oauth !== null &&
-    oauthFlowOf(target.login.definition.oauth.product) === "device_code"
   );
 }

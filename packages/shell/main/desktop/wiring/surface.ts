@@ -154,7 +154,30 @@ export function register(
     };
     window.on("minimize", each(stream.blank));
     window.on("hide", each(stream.blank));
-    window.on("restore", each(stream.wake));
+    // Wayland에서는 `restore()`가 guest를 다시 그리게 하지 못한다(screencast frame 0). hide 뒤 show만 돌아오므로 창이 한 번
+    // 깜빡이는 값을 치른다. hide와 show가 blank와 wake를 거쳐 마지막은 wake다.
+    const wayland =
+      process.platform === "linux" &&
+      !process.argv.includes("--ozone-platform=x11") &&
+      process.env["ELECTRON_OZONE_PLATFORM_HINT"] !== "x11" &&
+      (process.env["XDG_SESSION_TYPE"] === "wayland" ||
+        Boolean(process.env["WAYLAND_DISPLAY"]));
+    let repainting = false;
+    window.on("restore", () => {
+      if (window.isDestroyed() || repainting) return;
+      const hosts = [...bound.values()].some((at) => at.window === id);
+      if (wayland && hosts) {
+        repainting = true;
+        try {
+          window.hide();
+          window.show();
+        } finally {
+          repainting = false;
+        }
+      } else {
+        each(stream.wake)();
+      }
+    });
     window.on("show", each(stream.wake));
   });
 

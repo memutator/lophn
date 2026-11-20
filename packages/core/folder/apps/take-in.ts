@@ -2,7 +2,6 @@
 // 이 기계의 source 저장소를 만들거나(이미 있으면 fetch) 같은 app id로 등록하고, 그 commit에서 이 기계의
 // release 준비(`prepareRelease`)를 돌려 `prepared` release로 적는다.
 // grant, 동의, secret, OAuth, invocation 기록, 앱 data는 옮기지 않는다: 활성화는 이 기계에서 사람에게 묻는다.
-import { stat } from "node:fs/promises";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
@@ -22,6 +21,12 @@ import {
   type PeerSource,
   type PeerSourceResult,
 } from "./source.ts";
+import {
+  commitDependencies,
+  hasMePackage,
+  isInstalledPackage,
+  takeInPackages,
+} from "./packages.ts";
 import { setSourceRead, sourceCursor } from "./state.ts";
 
 const incomplete = (message: string): Result<never> =>
@@ -53,64 +58,26 @@ export function pickRecord(
   return best;
 }
 
-async function isInstalledPackage(path: string): Promise<boolean> {
-  try {
-    return (await stat(`${path}/package.json`)).isFile();
-  } catch {
-    return false;
-  }
-}
-
-const SDK_FILE_DEP = /^file:(?:\.\/)?\.lophn\/sdk\/(.+)$/;
-
-// commit의 `package.json`이 고정한 `@lophn/*` 판은 이 기계의 설치 사본에, `@me/*` 판은 이 기계의 catalog와
-// 설치 사본에 있어야 한다. 앱을 등록하거나 build를 띄우기 전에 먼저 본다.
+// commit의 `package.json`이 고정한 `@lophn/*` 판은 이 기계의 설치 사본에, `@me/*` 판은 이 기계의 catalog와 설치 사본에
+// 있어야 한다. 앱을 등록하거나 build를 띄우기 전에 먼저 본다. 빠진 `@me/*`는 이 앱을 내놓은 기계들이 폴더에 낸 package
+// file에서 먼저 들인다(`packages.ts`). `@lophn/*`는 lophn 판의 일이라 폴더에서 들이지 않는다.
 async function checkCommitDependencies(
+  deps: FolderAppsDeps,
+  host: FolderAppsHost,
+  copies: readonly FolderAppRecordCopy[],
+  app: Id<"app">,
   repo: string,
   commit: string,
-  dataRoot: string,
-  host: FolderAppsHost,
+  preferredOrigin?: Id<"mch">,
 ): Promise<Result<void>> {
-  const shown = await git(repo, "show", `${commit}:package.json`);
-  if (!shown.ok) return ok(undefined);
-  let manifest: {
-    dependencies?: Record<string, unknown>;
-    devDependencies?: Record<string, unknown>;
-  };
-  try {
-    manifest = JSON.parse(shown.value);
-  } catch {
-    return ok(undefined);
-  }
-  if (typeof manifest !== "object" || manifest === null) return ok(undefined);
-  const all = { ...manifest.devDependencies, ...manifest.dependencies };
+  const wanted = await commitDependencies(repo, commit);
   const sdk: string[] = [];
-  const mine: string[] = [];
-  for (const name of Object.keys(all).sort()) {
-    const value = all[name];
-    if (typeof value !== "string") continue;
-    const match = SDK_FILE_DEP.exec(value);
-    if (match === null) continue;
-    const rest = match[1]!;
-    if (rest.startsWith("@me/")) {
-      const parts = rest.slice("@me/".length).split("/");
-      if (parts.length !== 2) continue;
-      const [part, version] = parts as [string, string];
-      if (name !== `@me/${part}`) continue;
-      if (
-        !host.published(name, version) ||
-        !(await isInstalledPackage(`${dataRoot}/sdk/@me/${part}/${version}`))
-      ) {
-        mine.push(`${name}@${version}`);
-      }
-    } else {
-      const parts = rest.split("/");
-      if (parts.length !== 2) continue;
-      const [part, version] = parts as [string, string];
-      if (name !== `@lophn/${part}`) continue;
-      if (!(await isInstalledPackage(`${dataRoot}/sdk/${part}/${version}`))) {
-        sdk.push(`${name}@${version}`);
-      }
+  for (const pin of wanted.sdk) {
+    const part = pin.name.slice("@lophn/".length);
+    if (
+      !(await isInstalledPackage(`${deps.dataRoot}/sdk/${part}/${pin.version}`))
+    ) {
+      sdk.push(`${pin.name}@${pin.version}`);
     }
   }
   if (sdk.length > 0) {
@@ -119,9 +86,31 @@ async function checkCommitDependencies(
       { reason: "sdk_missing", packages: sdk },
     );
   }
+  const missing = async () => {
+    const out: string[] = [];
+    for (const pin of wanted.mine) {
+      if (!(await hasMePackage(host, deps.dataRoot, pin))) {
+        out.push(`${pin.name}@${pin.version}`);
+      }
+    }
+    return out;
+  };
+  let mine = await missing();
+  if (mine.length > 0) {
+    const taken = await takeInPackages(
+      deps,
+      host,
+      copies,
+      app,
+      wanted.mine,
+      preferredOrigin,
+    );
+    if (!taken.ok) return taken;
+    mine = await missing();
+  }
   if (mine.length > 0) {
     return conflict(
-      `${mine.join(", ")} is not published on this machine; publish the same package version here first`,
+      `${mine.join(", ")} is not published on this machine and no other computer has carried it; publish the same package version here first`,
       { reason: "dependency_missing", packages: mine },
     );
   }
@@ -234,7 +223,15 @@ export async function takeIn(
       commit,
       random: deps.random,
       beforeFinalize: (dir) =>
-        checkCommitDependencies(dir, commit, deps.dataRoot, host),
+        checkCommitDependencies(
+          deps,
+          host,
+          copies,
+          app,
+          dir,
+          commit,
+          found.origin,
+        ),
     });
     if (!repo.ok) return repo;
     if (repo.value === null) {
@@ -265,7 +262,15 @@ export async function takeIn(
       commit,
       random: deps.random,
       beforeFinalize: (dir) =>
-        checkCommitDependencies(dir, commit, deps.dataRoot, host),
+        checkCommitDependencies(
+          deps,
+          host,
+          copies,
+          app,
+          dir,
+          commit,
+          found.origin,
+        ),
     });
     if (!repo.ok) return repo;
     if (repo.value === null) {
@@ -298,10 +303,13 @@ export async function takeIn(
       }
     }
     const checked = await checkCommitDependencies(
+      deps,
+      host,
+      copies,
+      app,
       sourcePath,
       commit,
-      deps.dataRoot,
-      host,
+      found.origin,
     );
     if (!checked.ok) return checked;
   }

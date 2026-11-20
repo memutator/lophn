@@ -697,3 +697,70 @@ test("the sent flag is true for a call that timed out after leaving, false for o
   assert.equal((await ninth).sent, false);
   crowded.close();
 });
+
+// Slow app commands (4 places, their own deadline) must not hold the screen's reads and the carry on the same link.
+test("app commands wait in their own lane, so a full command lane leaves the screen's places free, and a call can set its own deadline", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const frames: RemoteClientFrame[] = [];
+  const waits: { ms: number; fn: () => void }[] = [];
+  const dial = async () => {
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: MACHINE,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      opened.value.onFrame((frame) => {
+        frames.push(frame);
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+  const connection = createConnection({
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+      machine: MACHINE.id,
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
+    dial,
+    random: cryptoRandom,
+    name: "Mina's laptop",
+    now: () => 1,
+    wait: (ms, fn) => {
+      waits.push({ ms, fn });
+      return () => {};
+    },
+    onRevoked: () => {},
+  });
+  await settle();
+  const sentCalls = () =>
+    frames.filter((frame) => frame.type === "call").length;
+
+  for (let i = 0; i < 5; i++) {
+    void connection.call({
+      resource: "apps",
+      method: "remote_call",
+      body: {},
+      lane: "command",
+      deadlineMs: 600_000,
+    });
+  }
+  await settle();
+  // The fifth command waits; the screen still sends all eight of its own.
+  assert.equal(sentCalls(), 4);
+  for (let i = 0; i < 8; i++) {
+    void connection.call({ resource: "machines", method: "list", body: {} });
+  }
+  await settle();
+  assert.equal(sentCalls(), 12);
+  assert.equal(waits.filter((one) => one.ms === 600_000).length, 4);
+  assert.equal(waits.filter((one) => one.ms === 120_000).length, 8);
+  connection.close();
+});

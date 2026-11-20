@@ -1,6 +1,6 @@
 ---
 name: connect-computers
-description: Help the person keep their apps' data and files in step across their computers (home and work, a dual boot, a laptop and a desktop) or reach a computer directly from outside their network. Explains what lophn does by itself, and sets up the folder all computers see and Tailscale when they need more.
+description: Help the person keep their apps' data and files in step across their computers (home and work, a dual boot, a laptop and a desktop) or reach a computer directly from outside their network. Explains what lophn does by itself, installs on this computer an app that another computer shares, and sets up the folder all computers see and Tailscale when they need more.
 ---
 
 # Connect computers
@@ -33,6 +33,31 @@ Remote must be on (`lophn remote on`). The person makes an invite on one
 computer (Settings › Remote, or `lophn remote invite computer`) and joins with
 it on the other. For a computer that cannot be on at the same time (the other
 system of a dual boot, a home and a work computer) use `--long`.
+
+## When an app is on another computer but not on this one
+
+An app that declares `sync_to` is offered to the person's other computers, and
+the person can install it here from Settings › Sync ("Available from other
+computers") or from the app's row under that computer in the sidebar ("Install
+on this computer"). When they ask you to do it:
+
+1. `lophn machine environment`. The app is installable when it is listed in
+   `available` (with the computer it came from). If it is not there, sync is
+   off for it on that computer (no `sync_to`) or its files have not arrived yet:
+   say which, and hand the `sync_to` change to lophn at the app on that
+   computer. Do not try anything else.
+2. `lophn app take-in <app>` (`--from <machine>` when more than one computer
+   offers it). It installs the app and prepares its release here; nothing runs
+   yet. `conflict` says why in `details.reason`: `sdk_missing` (the person
+   updates lophn here), `slug_in_use`, `dependency_missing`. `invalid_input`
+   with `source_incomplete` means the files have not fully arrived; try again
+   later.
+3. Activation is done by lophn at the app, and that is where the person is
+   asked. Send it with `lophn call send` (`to: {agent: "lophn", workspace: {app:
+   "<the app's slug>"}}`, `--reply none`), asking it to run `lophn release
+   activate <release>` with the release id `take-in` returned. The person sees
+   the consent card there (first activation, new permissions) and allows it;
+   you cannot allow it for them. Tell them in one line where the card is.
 
 ## When the computers are rarely on together: a folder all of them see
 
@@ -80,9 +105,10 @@ Then:
 4. Repeat on the other computers, each with its own path. Files arrive as fast as
    the tool moves the folder, not live.
 
-`lophn settings set` works only in the home conversation. Anywhere else, or when
-nothing can ask the person, give them the explanation and the exact command to
-run in their own terminal.
+`lophn settings set` for these approval settings works only in the home
+conversation. Anywhere else, or when nothing can ask the person, tell them where
+it is in Settings (Sync for the folder, Remote for the addresses) or give them
+the exact command to run in their own terminal.
 
 ## When they should connect directly from anywhere: Tailscale
 
@@ -96,16 +122,21 @@ it from any network, and lophn uses such a name when it is told.
    or an auth key in the chat.
 2. Read the computer's name with `tailscale status` (a MagicDNS name such as
    `studio.tail1234.ts.net`, or its 100.x address).
-3. The name goes in the setting `remote.addresses`, one list per computer. It
-   is a setting only the person can change, so you cannot set it: tell them the
-   exact line to run in their own terminal:
+3. The name goes in the setting `remote.addresses`, one list per computer
+   (without a port). The person can type it in Settings › Remote ›
+   Addresses, which saves at once. Or set it yourself in the home
+   conversation, after saying in plain words what it is (the addresses other
+   devices try to reach this computer at). Read `lophn settings get
+   remote.addresses` first and keep the entries already there:
 
    ```
    lophn settings set remote.addresses '["studio.tail1234.ts.net"]'
    ```
 
-   Other devices pick the new address up on their next connection; nothing is
-   paired again.
+   The person sees an approval card ("Add address studio.tail1234.ts.net") and
+   allows that one change; if they reject it nothing changes. Other devices pick
+   the new address up on their next connection; nothing is paired again.
+
 4. Check in Settings › Sync that the computer shows as connected directly instead
    of through the relay.
 

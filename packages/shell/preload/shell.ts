@@ -6,6 +6,11 @@ import type {
   DecisionHandleRequest,
 } from "../ipc/confirmation.ts";
 import {
+  OAUTH_HANDOFF_CHANNEL,
+  type OAuthHandoffReply,
+  type OAuthHandoffRequest,
+} from "../ipc/oauth-handoff.ts";
+import {
   OPEN_EXTERNAL_CHANNEL,
   type OpenExternalReply,
 } from "../ipc/open-external.ts";
@@ -73,6 +78,19 @@ contextBridge.exposeInMainWorld(
             return (await ipcRenderer.invoke(OPEN_EXTERNAL_CHANNEL, {
               url,
             })) as OpenExternalReply;
+          } catch {
+            return { ok: false, code: "unavailable" };
+          }
+        },
+        // 다른 컴퓨터의 loopback OAuth callback을 이 컴퓨터의 browser에서 받아 넘긴다.
+        async oauthHandoff(
+          request: OAuthHandoffRequest,
+        ): Promise<OAuthHandoffReply> {
+          try {
+            return (await ipcRenderer.invoke(
+              OAUTH_HANDOFF_CHANNEL,
+              request,
+            )) as OAuthHandoffReply;
           } catch {
             return { ok: false, code: "unavailable" };
           }

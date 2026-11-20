@@ -464,9 +464,10 @@ export function LeftSidebar({
                 : workspace.name}
             </span>
           </button>
-          {/* 설정 탭은 이 컴퓨터의 workspace만 연다. */}
-          {workspace.ref.kind !== "home" &&
-          workspace.ref.machine === undefined &&
+          {/* Project settings는 이 컴퓨터만, App details는 다른 기계의 앱도 연다(오프라인 제외). */}
+          {((workspace.ref.kind === "project" &&
+            workspace.ref.machine === undefined) ||
+            (workspace.ref.kind === "app" && !workspace.offline)) &&
           onWorkspaceSettings !== undefined ? (
             <span className={styles.workspaceSettings}>
               <button

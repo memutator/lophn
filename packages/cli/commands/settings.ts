@@ -272,7 +272,7 @@ const set = defineCommand({
     "The answer carries `previous`, the value before the change; to undo, set it back (or `settings unset` when `previous` was the default). " +
     "`notes` are things that were accepted but need a look, such as a theme color pair with low contrast. " +
     "A locked setting is forbidden: only the person changes it, in the Settings screen. " +
-    'A setting with `approval: "person"` (sync folders) shows the person exactly what changes and waits for their answer; ' +
+    'A setting with `approval: "person"` (such as sync folders or remote addresses) shows the person exactly what changes and waits for their answer; ' +
     "if they reject it, nothing changes and the answer is forbidden with their reason. Tell the person why before you run it.",
   input: z.strictObject({ key: keySchema, value: z.string() }),
   positional: ["key", "value"],

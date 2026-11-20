@@ -7,15 +7,24 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
+import {
+  appsOAuthBegin,
+  appsOAuthCallback,
+} from "../../protocol/apps/oauth.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import { settingsUpdate } from "../../protocol/config/file.ts";
 import { agentCreate } from "../../protocol/lophn-agent/agent-definitions.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import { inputRequestAnswerSecret } from "../../protocol/lophn-agent/input-request.ts";
-import { mcpAuthBegin } from "../../protocol/lophn-agent/mcp-settings.ts";
+import {
+  mcpAuthBegin,
+  mcpAuthCallback,
+  mcpAuthComplete,
+} from "../../protocol/lophn-agent/mcp-settings.ts";
 import {
   disconnectProvider,
   providerConnectKey,
+  providerSignInCallback,
 } from "../../protocol/lophn-agent/providers.ts";
 import { changeSessionSkip } from "../../protocol/lophn-agent/sessions.ts";
 import { resolveMachine } from "../../protocol/machine/requester.ts";
@@ -77,6 +86,7 @@ const PLAIN = `dev_0${"2".repeat(25)}`;
 const SESSION = `ses_0${"1".repeat(25)}`;
 const TURN = `trn_0${"1".repeat(25)}`;
 const PROVIDER = `pvd_0${"1".repeat(25)}`;
+const APP = `app_0${"1".repeat(25)}`;
 const SECRET_VALUE = "sk-should-never-leave";
 
 const routes: Route[] = [
@@ -84,6 +94,11 @@ const routes: Route[] = [
   providerConnectKey,
   inputRequestAnswerSecret,
   disconnectProvider,
+  providerSignInCallback,
+  mcpAuthBegin,
+  mcpAuthCallback,
+  appsOAuthBegin,
+  appsOAuthCallback,
   settingsUpdate,
   agentCreate,
   projectApi.register,
@@ -112,7 +127,7 @@ const NEVER: Route[] = [
   devicesPushTargets,
   machinesCall,
   machinesWatch,
-  mcpAuthBegin,
+  mcpAuthComplete,
   changeSessionSkip,
 ];
 
@@ -140,6 +155,35 @@ const table: [string, unknown][] = [
     { ...command({ provider: PROVIDER }, { revision: 1 }), confirmation: "x" },
   ],
   ["settings/update", { changes: [] }],
+  // loopback 로그인의 callback handoff: 기기가 사람이 돌아온 주소를 이 기계의 core에 건넨다.
+  [
+    "providers/sign-in-callback",
+    { provider: PROVIDER, login: "lgn", callback_url: "code=c&state=s" },
+  ],
+  [
+    "agent-mcp-auth/begin",
+    {
+      name: "notion",
+      workspace: null,
+      agent: null,
+      client_id: "c1",
+      scopes: ["read"],
+    },
+  ],
+  [
+    "agent-mcp-auth/callback",
+    {
+      name: "notion",
+      workspace: null,
+      agent: null,
+      callback_url: "code=c&state=s",
+    },
+  ],
+  ["apps/oauth_begin", { app: APP, name: "gh_token" }],
+  [
+    "apps/oauth_callback",
+    { app: APP, name: "gh_token", callback_url: "code=c&state=s" },
+  ],
   [
     "agents/create",
     command({ definition: { handle: "helper", name: "Helper", body: "hi" } }),
@@ -223,6 +267,11 @@ function setup(
           return options.settings?.() ?? ok({ changed: [], rejected: [] });
         },
       ],
+      [pathOf(providerSignInCallback), reach(pathOf(providerSignInCallback))],
+      [pathOf(mcpAuthBegin), reach(pathOf(mcpAuthBegin))],
+      [pathOf(mcpAuthCallback), reach(pathOf(mcpAuthCallback))],
+      [pathOf(appsOAuthBegin), reach(pathOf(appsOAuthBegin))],
+      [pathOf(appsOAuthCallback), reach(pathOf(appsOAuthCallback))],
       ...NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
     ]),
     reads: new Map(
@@ -346,6 +395,11 @@ test("터미널 입력 허락이 없는 기기는 secret, provider, 설정 쓰�
     "input_request/answer_secret",
     "writer providers/disconnect",
     "settings/update",
+    "providers/sign-in-callback",
+    "agent-mcp-auth/begin",
+    "agent-mcp-auth/callback",
+    "apps/oauth_begin",
+    "apps/oauth_callback",
     "writer agents/create",
     "writer projects/create",
   ]);
@@ -381,7 +435,15 @@ test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요�
   });
   for (const who of [agent, person]) {
     const codes = await s.run(who);
-    for (const path of ["secrets/put", "providers/disconnect"]) {
+    for (const path of [
+      "secrets/put",
+      "providers/disconnect",
+      "providers/sign-in-callback",
+      "agent-mcp-auth/begin",
+      "agent-mcp-auth/callback",
+      "apps/oauth_begin",
+      "apps/oauth_callback",
+    ]) {
       assert.deepEqual(
         codes.find(([each]) => each === path),
         [path, "forbidden"],
@@ -393,7 +455,7 @@ test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요�
   assert.deepEqual(s.issued, []);
 });
 
-test("허락받은 기기가 roster, logins, 목록 밖 devices, machines, MCP 로그인 시작, change-skip, vault 이름의 secrets/put을 부르면 forbidden이다", async () => {
+test("허락받은 기기가 roster, logins, 목록 밖 devices, machines, MCP 로그인 완료, change-skip, vault 이름의 secrets/put을 부르면 forbidden이다", async () => {
   const s = setup();
   const granted = await s.device(GRANTED);
   for (const route of NEVER) {

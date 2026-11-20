@@ -38,6 +38,11 @@ export type CoreCall = {
   body: unknown;
   // Who asked, for a computer's core to say to the other computer. A phone sends none.
   by?: Requester;
+  // `command` is an app command sent for an agent or an app. It has its own places so a slow one does not hold the
+  // screen's reads and the folder carry on the same link.
+  lane?: "command";
+  // Overrides CALL_DEADLINE_MS for this call.
+  deadlineMs?: number;
 };
 export type CoreReply = {
   ok: boolean;
@@ -74,6 +79,8 @@ const IN_FLIGHT = 8;
 // place for good. Longer than the slowest route (opening a coding session waits up to 55 s) plus a full frame over a
 // slow phone link.
 const CALL_DEADLINE_MS = 120_000;
+// Places of the `command` lane. Fewer than IN_FLIGHT: the receiving core runs these as app calls, not reads.
+const COMMAND_IN_FLIGHT = 4;
 
 // Which way the open channel goes: straight to one of the computer's addresses, or through its relay.
 export type ConnectionPath = "direct" | "relay";
@@ -278,8 +285,17 @@ export function createConnection(
   const pending = new Map<string, (reply: CoreReply) => void>();
   // Ids of the `roster` frames sent and not answered yet.
   const rosters = new Set<string>();
-  // Calls past IN_FLIGHT wait here for an answer to free a place.
-  const queued: { input: CoreCall; resolve: (reply: CoreReply) => void }[] = [];
+  // Calls past a lane's places wait in its queue for an answer to free a place.
+  type Lane = {
+    limit: number;
+    open: number;
+    queued: { input: CoreCall; resolve: (reply: CoreReply) => void }[];
+  };
+  const screen: Lane = { limit: IN_FLIGHT, open: 0, queued: [] };
+  const command: Lane = { limit: COMMAND_IN_FLIGHT, open: 0, queued: [] };
+  const laneOf = (input: CoreCall) =>
+    input.lane === "command" ? command : screen;
+  const laneById = new Map<string, Lane>();
   const stateListeners = new Set<(state: ConnectionState) => void>();
   const eventListeners = new Set<(message: CoreEventMessage) => void>();
 
@@ -370,13 +386,19 @@ export function createConnection(
     cancelProbe = undefined;
     for (const [id, resolve] of pending) {
       pending.delete(id);
+      laneById.delete(id);
       resolve({
         ok: false,
         error: { code: "unavailable", message: "connection closed" },
         sent: true,
       });
     }
-    for (const { resolve } of queued.splice(0)) {
+    screen.open = 0;
+    command.open = 0;
+    for (const { resolve } of [
+      ...screen.queued.splice(0),
+      ...command.queued.splice(0),
+    ]) {
       resolve({
         ok: false,
         error: { code: "unavailable", message: "connection closed" },
@@ -426,8 +448,11 @@ export function createConnection(
     if (!sent.ok) {
       return Promise.resolve({ ok: false, error: sent.error, sent: false });
     }
+    const lane = laneOf(input);
+    lane.open += 1;
+    laneById.set(id, lane);
     return new Promise((resolve) => {
-      const cancel = deps.wait(CALL_DEADLINE_MS, () =>
+      const cancel = deps.wait(input.deadlineMs ?? CALL_DEADLINE_MS, () =>
         answered(id, {
           ok: false,
           error: { code: "unavailable", message: "no answer in time" },
@@ -446,8 +471,11 @@ export function createConnection(
     const resolve = pending.get(id);
     if (!resolve) return;
     pending.delete(id);
+    const lane = laneById.get(id)!;
+    laneById.delete(id);
+    lane.open -= 1;
     resolve(reply);
-    const next = queued.shift();
+    const next = lane.queued.shift();
     if (next) void send(next.input).then(next.resolve);
   }
 
@@ -504,8 +532,9 @@ export function createConnection(
     path: () => path,
     update: () => update,
     call(input) {
-      if (pending.size < IN_FLIGHT) return send(input);
-      return new Promise((resolve) => queued.push({ input, resolve }));
+      const lane = laneOf(input);
+      if (lane.open < lane.limit) return send(input);
+      return new Promise((resolve) => lane.queued.push({ input, resolve }));
     },
     watch(conditions) {
       // The core closes the channel on a condition it cannot parse (a session id that is not one), and every new channel

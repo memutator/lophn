@@ -582,6 +582,14 @@ files:
     covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]
     note: 등록 폴더 밖 path(.., 절대 path, symlink)는 목록도 읽기도 거절, 1 MiB 넘으면 글자 경계에서 잘림
 
+  - path: packages/core/projects/artifacts/artifacts_test.ts
+    covers:
+      - artifacts-list:ok
+      - artifacts-file:ok
+      - artifacts-file:not-found
+      - artifacts-file:invalid-input
+    note: "artifact 목록에서 symlink 폴더를 제외하고, file 읽기가 폴더 밖 symlink·형제 폴더·4 MiB 초과를 not_found로, ..·절대 path·잘못된 slug를 invalid_input으로 거절하며 data/_entries.json을 낸다"
+
   - path: packages/core/projects/search/search_test.ts
     covers: [project-search:ok]
     note: gitignore, symlink 밖 제외, NFC와 대소문자, 페이지 나눔

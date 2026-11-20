@@ -34,7 +34,7 @@ export const annotationPersist = defineCommand({
     annotations: z.array(annotationIdSchema),
   }),
   compare: noCompare,
-  actors: ["user"],
+  actors: ["user", "machine"],
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 
@@ -46,7 +46,7 @@ export const annotationDiscard = defineCommand({
   input: z.strictObject({ batch: annotationBatchIdSchema }),
   output: z.object({}),
   compare: noCompare,
-  actors: ["user"],
+  actors: ["user", "machine"],
   errors: ["forbidden"],
 });
 
@@ -62,7 +62,7 @@ export const annotationAddRefs = defineCommand({
   }),
   output: z.object({}),
   compare: noCompare,
-  actors: ["user"],
+  actors: ["user", "machine"],
   errors: ["forbidden", "not_found"],
 });
 
@@ -91,7 +91,9 @@ export function createAnnotationCommands(): {
     persist: {
       route: annotationPersist,
       handle(tx, ctx, input) {
-        if (ctx.actor !== "user") return forbidden("only a person sends");
+        if (ctx.actor !== "user" && ctx.actor !== "machine") {
+          return forbidden("only a person sends");
+        }
         // artifact의 그릇과 file의 project는 검사하지 않는다. 없거나 보관한 그릇은 전달에서 session을 열지 못해
         // 실패하고 send가 이 묶음을 지운다.
         if (input.target.kind === "app") {
@@ -122,7 +124,7 @@ export function createAnnotationCommands(): {
             "project" in target ? target.project : null,
             target.kind === "artifact" ? target.name : null,
             tx.now(),
-            ctx.actor,
+            "user",
           ],
         );
         const registeredSeq = headSeq(tx.sql);
@@ -168,7 +170,9 @@ export function createAnnotationCommands(): {
     discard: {
       route: annotationDiscard,
       handle(tx, ctx, input) {
-        if (ctx.actor !== "user") return forbidden("only a person sends");
+        if (ctx.actor !== "user" && ctx.actor !== "machine") {
+          return forbidden("only a person sends");
+        }
         const ids = tx.sql
           .all("SELECT id FROM annotations WHERE batch = ?", [input.batch])
           .map((row) => String(row["id"]));
@@ -179,7 +183,9 @@ export function createAnnotationCommands(): {
     addRefs: {
       route: annotationAddRefs,
       handle(tx, ctx, input) {
-        if (ctx.actor !== "user") return forbidden("only a person sends");
+        if (ctx.actor !== "user" && ctx.actor !== "machine") {
+          return forbidden("only a person sends");
+        }
         for (const id of input.annotations) {
           if (
             tx.sql.get("SELECT 1 AS found FROM annotations WHERE id = ?", [

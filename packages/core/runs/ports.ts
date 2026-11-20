@@ -14,6 +14,8 @@ import type { Input } from "../../protocol/server/mod.ts";
 export type JobOrigin = {
   job: Id<"job">;
   job_run: Id<"jbr">;
+  // 다른 컴퓨터의 event가 연 차례다. 그 agent와 tool은 또 다른 컴퓨터를 부르지 못한다.
+  remote: boolean;
 };
 
 // flow instance가 run을 열 때 붙이는 출처다. creator는 flow의 앱 tool 호출을 맡는
@@ -38,7 +40,11 @@ export type RunAgents = {
   resolve(address: AgentAddress): Promise<Result<AgentAtWorkspace>>;
   // 없으면 not_found, 열린 session이 아니면 conflict.
   agentOf(session: Id<"ses">): Promise<Result<AgentAtWorkspace>>;
-  open(agent: AgentAtWorkspace, session: Id<"ses">): Promise<Result<void>>;
+  open(
+    agent: AgentAtWorkspace,
+    session: Id<"ses">,
+    options?: { remote?: boolean },
+  ): Promise<Result<void>>;
   // run이 새로 연 session을 사람이 볼 Agent 탭으로 요청한다. 요청이 늦거나 잃어도 run에는 영향이 없다.
   showTab(agent: AgentAtWorkspace, session: Id<"ses">): void;
   // unattended로 넣는다.

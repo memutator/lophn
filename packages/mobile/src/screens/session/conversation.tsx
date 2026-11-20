@@ -19,6 +19,7 @@ import { Ellipsis, Monitor } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import type { AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { codingBuiltinOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { duration, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
@@ -28,7 +29,7 @@ import type {
   QueuedView,
   ThreadSubagent,
 } from "../../../../shell/renderer/conversation/agent-tab-source.ts";
-import { capabilitiesOf, clockOf, messagesOf, slashEntriesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
+import { capabilitiesOf, clockOf, messagesOf, slashEntriesOf, textOfParts } from "../../../../shell/renderer/conversation/agent-view-model.ts";
 import { runComposerCommand } from "../../../../shell/renderer/conversation/composer/slash-actions.ts";
 import {
   afterReply,
@@ -74,6 +75,7 @@ import {
   PermissionsSheet,
   QueuedMenu,
   RenameSheet,
+  RewindSheet,
   SessionMenu,
   StepsSheet,
   ThoughtSheet,
@@ -86,12 +88,13 @@ type SheetState =
   | { readonly kind: "queued"; readonly queued: QueuedView }
   | { readonly kind: "permissions"; readonly view: PermissionsView | null }
   | { readonly kind: "child"; readonly entry: ThreadSubagent }
+  | { readonly kind: "rewind"; readonly message: string; readonly excerpt: string }
   | {
       readonly kind: "attach" | "files" | "commands" | "model" | "menu" | "rename" | "context";
     };
 
-// Commands the phone can carry out: run as they are, or opened in one of this screen's sheets. The others (fork, rewind,
-// a new session, ...) are done on the computer; typed here they say so instead of going out as a message.
+// Commands the phone can carry out: run as they are, or opened in one of this screen's sheets. The others (a new
+// session, ...) are done on the computer; typed here they say so instead of going out as a message.
 const OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
   null,
   "model",
@@ -103,6 +106,8 @@ const OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
   "rename",
   "archive",
   "compact",
+  "fork",
+  "rewind",
 ]);
 
 // Long-pressing the face on the sample computer steps through the four states the sample conversation can show.
@@ -355,6 +360,12 @@ function ChatScreen({
       case "compact":
         void source.act(session, { type: "compact", session, key: actKey("compact") });
         return;
+      case "fork":
+        void fork(null);
+        return;
+      case "rewind":
+        if (lastUser !== null) setSheet({ kind: "rewind", message: lastUser.id, excerpt: lastUser.text });
+        return;
       case "permissions":
         void openPermissions();
         return;
@@ -452,8 +463,45 @@ function ChatScreen({
   const sending = outgoing?.phase === "sending" || outgoing?.phase === "accepted";
   const working = active !== null || (sending && rows.at(-1)?.kind === "outgoing");
 
+  const fork = useCallback(
+    async (through: string | null) => {
+      const result = await source.act(session, {
+        type: "fork",
+        session,
+        key: actKey("fork"),
+        message: through,
+      });
+      if (!result.ok) {
+        setSlashNote(t("waiting.notice.action-failed"));
+        return;
+      }
+      if (result.value.session !== undefined && lophn !== null) {
+        nav.open({
+          name: "session",
+          session: result.value.session,
+          agent: lophn.agent,
+          workspace: lophn.workspace,
+        });
+      }
+    },
+    [source, session, lophn, nav],
+  );
+
+  // The last non-steer user message, for `/rewind` and the session menu's Rewind row.
+  const lastUser = useMemo(() => {
+    for (let at = rows.length - 1; at >= 0; at -= 1) {
+      const one = rows[at]!;
+      if (one.kind === "user" && one.message.delivery !== "steer") {
+        return { id: one.message.id, text: textOfParts(one.message.parts) };
+      }
+    }
+    return null;
+  }, [rows]);
+
   // One value for the whole list: rows redraw only when what they show changes (the agent's face, read-only, Retry).
   const canRetry = caps.retry;
+  const canFork = caps.fork;
+  const canRewind = caps.rewind && !readOnly;
   const apps = names.apps;
   const whoKey = `${who.name}\0${JSON.stringify(who.profile)}`;
   const actions = useMemo<ThreadActions>(
@@ -463,6 +511,8 @@ function ChatScreen({
       agent: who,
       readOnly,
       canRetry,
+      canFork,
+      canRewind,
       apps,
       openSteps: (calls, output = null) => setSheet({ kind: "steps", calls, output }),
       openThought: (text) => setSheet({ kind: "thought", text }),
@@ -470,9 +520,11 @@ function ChatScreen({
       openChild: (entry) => setSheet({ kind: "child", entry }),
       openQueued: (queued) => setSheet({ kind: "queued", queued }),
       resend: (message) => void deliver({ ...message, phase: "sending", checked: false }),
+      onFork: (messageId) => void fork(messageId),
+      onRewind: (messageId, excerpt) => setSheet({ kind: "rewind", message: messageId, excerpt }),
     }),
     // `who` is a new object on every read of the workspace list; its name and face are what rows show.
-    [session, source, whoKey, readOnly, canRetry, apps, nav, target, deliver],
+    [session, source, whoKey, readOnly, canRetry, canFork, canRewind, apps, nav, target, deliver, fork],
   );
 
   // ---- top and bottom
@@ -489,7 +541,7 @@ function ChatScreen({
       ? under
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
-  const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed?.project ?? null);
+  const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed === null || relayed.project === HOME_TERMINAL_PROJECT ? null : relayed.project);
   // A relayed coding session's pictures go to its terminal's temporary folder on the computer (the source's `uploadImage`).
   const pictures = caps.images;
 
@@ -671,9 +723,36 @@ function ChatScreen({
         context={contextLine(meta)}
         canRename={caps.rename && !readOnly}
         onRename={() => setSheet({ kind: "rename" })}
+        onFork={caps.fork ? () => void fork(null) : null}
+        onRewind={canRewind && lastUser !== null ? () => setSheet({ kind: "rewind", message: lastUser.id, excerpt: lastUser.text }) : null}
         onPermissions={relayed === null ? () => void openPermissions() : null}
         onContext={() => setSheet({ kind: "context" })}
         onArchive={caps.sessions && !archived ? () => void archive() : null}
+      />
+      <RewindSheet
+        open={sheet?.kind === "rewind"}
+        source={source}
+        session={session}
+        message={sheet?.kind === "rewind" ? sheet.message : null}
+        excerpt={sheet?.kind === "rewind" ? sheet.excerpt : ""}
+        withFiles={caps.rewind_files}
+        onClose={close}
+        onRewind={async (choice) => {
+          if (sheet?.kind !== "rewind") return { ok: false, code: "invalid_input" };
+          const result = await source.act(session, {
+            type: "rewind",
+            session,
+            key: actKey("rewind"),
+            message: sheet.message,
+            files: choice.files,
+            apps: [...choice.apps],
+          });
+          if (result.ok) {
+            if (sheet.excerpt !== "") edit(sheet.excerpt);
+            void conversation.reload();
+          }
+          return result;
+        }}
       />
       <RenameSheet
         open={sheet?.kind === "rename"}

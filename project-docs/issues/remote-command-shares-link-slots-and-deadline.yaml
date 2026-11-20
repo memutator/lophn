@@ -1,7 +1,7 @@
 id: remote-command-shares-link-slots-and-deadline
 title: 다른 컴퓨터로 보낸 앱 command가 화면과 나르기와 연결의 call 8개와 120초를 같이 쓰고, 120초를 넘기면 결과 모름으로 끝난다
 kind: bug
-status: kept
+status: fixed
 topic: remote
 modules: [packages/remote-client, packages/core/remote, packages/core/apps]
 now: |

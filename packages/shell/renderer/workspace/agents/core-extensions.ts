@@ -23,7 +23,9 @@ import type {
   MemoryApi,
   MemoryTarget as MemoryOpen,
 } from "../../../ipc/memory.ts";
+import type { OAuthHandoffApi } from "../../../ipc/oauth-handoff.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
+import { windowOAuthHandoff } from "../../desktop/settings/core-call.ts";
 import type { ReadResult } from "../source.ts";
 import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
@@ -315,9 +317,30 @@ export async function readServers(
   };
 }
 
+// 진행 중인 원격 MCP OAuth의 로컬 loopback listener id. 취소·재시작 시 닫는다.
+const mcpHandoffs = new Map<string, string>();
+const mcpHandoffKey = (server: {
+  readonly name: string;
+  readonly login: Pick<McpLogin, "workspace" | "agent">;
+}) =>
+  `${JSON.stringify(server.login.workspace)}\0${server.login.agent ?? ""}\0${server.name}`;
+
+function stopMcpLocalListener(
+  key: string,
+  handoffApi:
+    | OAuthHandoffApi["oauthHandoff"]
+    | undefined = windowOAuthHandoff(),
+): void {
+  const id = mcpHandoffs.get(key);
+  if (id === undefined) return;
+  mcpHandoffs.delete(key);
+  if (handoffApi !== undefined) void handoffApi({ action: "cancel", id });
+}
+
 /**
  * OAuth server 로그인이다. core가 만든 authorize 주소를 OS browser로 열고, 사람이 돌아올 때까지 complete가
- * 기다린다. 주소를 열지 못하면 시작한 로그인을 그만두고 unavailable이다.
+ * 기다린다. 다른 컴퓨터의 로그인(`remote_handoff`)이면 이 컴퓨터에서 임시 loopback listener를 열어 돌아온 주소를
+ * `agent-mcp-auth/callback`으로 넘긴다. 주소를 열지 못하면 시작한 로그인을 그만두고 unavailable이다.
  */
 export async function signInMcpServer(
   link: Link,
@@ -329,19 +352,70 @@ export async function signInMcpServer(
       "workspace" | "agent" | "client_id" | "scopes"
     >;
   },
+  handoffApi:
+    | OAuthHandoffApi["oauthHandoff"]
+    | undefined = windowOAuthHandoff(),
 ): Promise<ReadResult<null>> {
-  const begun = await link.memory<{ url: string; callback_port: number }>(
-    "agent-mcp-auth",
-    "begin",
-    {
-      name: server.name,
-      workspace: server.login.workspace,
-      agent: server.login.agent,
-      client_id: server.login.client_id,
-      scopes: [...server.login.scopes],
-    },
-  );
+  const key = mcpHandoffKey(server);
+  stopMcpLocalListener(key, handoffApi);
+  const begun = await link.memory<{
+    url: string;
+    callback_port: number;
+    callback_mode?: "local" | "remote_handoff";
+    redirect_uri?: string;
+  }>("agent-mcp-auth", "begin", {
+    name: server.name,
+    workspace: server.login.workspace,
+    agent: server.login.agent,
+    client_id: server.login.client_id,
+    scopes: [...server.login.scopes],
+  });
   if (!begun.ok) return begun;
+  const isHandoff =
+    begun.value.callback_mode === "remote_handoff" &&
+    begun.value.redirect_uri !== undefined;
+  let handoffId: string | null = null;
+  if (isHandoff) {
+    if (handoffApi === undefined) {
+      await link.memory("agent-mcp-auth", "cancel", {
+        name: server.name,
+        workspace: server.login.workspace,
+        agent: server.login.agent,
+      });
+      return { ok: false, message: "unavailable" };
+    }
+    let state: string | null = null;
+    try {
+      state = new URL(begun.value.url).searchParams.get("state");
+    } catch {
+      state = null;
+    }
+    if (state === null) {
+      await link.memory("agent-mcp-auth", "cancel", {
+        name: server.name,
+        workspace: server.login.workspace,
+        agent: server.login.agent,
+      });
+      return { ok: false, message: "unavailable" };
+    }
+    const id = crypto.randomUUID();
+    const started = await handoffApi({
+      action: "start",
+      id,
+      redirectUri: begun.value.redirect_uri!,
+      state,
+    });
+    if (!started.ok) {
+      await link.memory("agent-mcp-auth", "cancel", {
+        name: server.name,
+        workspace: server.login.workspace,
+        agent: server.login.agent,
+      });
+      return { ok: false, message: started.code };
+    }
+    handoffId = id;
+    mcpHandoffs.set(key, id);
+  }
   let opened = false;
   if (openLink !== undefined) {
     try {
@@ -351,12 +425,30 @@ export async function signInMcpServer(
     }
   }
   if (!opened) {
+    stopMcpLocalListener(key, handoffApi);
     await link.memory("agent-mcp-auth", "cancel", {
       name: server.name,
       workspace: server.login.workspace,
       agent: server.login.agent,
     });
     return { ok: false, message: "unavailable" };
+  }
+  if (isHandoff && handoffId !== null && handoffApi !== undefined) {
+    const captured = await handoffApi({ action: "wait", id: handoffId });
+    if (mcpHandoffs.get(key) === handoffId) mcpHandoffs.delete(key);
+    if (!captured.ok || captured.callbackUrl === undefined) {
+      return {
+        ok: false,
+        message: captured.ok ? "unavailable" : captured.code,
+      };
+    }
+    const done = await link.memory("agent-mcp-auth", "callback", {
+      name: server.name,
+      workspace: server.login.workspace,
+      agent: server.login.agent,
+      callback_url: captured.callbackUrl,
+    });
+    return done.ok ? { ok: true, value: null } : done;
   }
   const done = await link.memory("agent-mcp-auth", "complete", {
     name: server.name,
@@ -374,7 +466,11 @@ export function cancelMcpSignIn(
     readonly name: string;
     readonly login: Pick<McpLogin, "workspace" | "agent">;
   },
+  handoffApi:
+    | OAuthHandoffApi["oauthHandoff"]
+    | undefined = windowOAuthHandoff(),
 ): Promise<ReadResult<null>> {
+  stopMcpLocalListener(mcpHandoffKey(server), handoffApi);
   return link.memory("agent-mcp-auth", "cancel", {
     name: server.name,
     workspace: server.login.workspace,

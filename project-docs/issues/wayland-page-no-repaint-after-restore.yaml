@@ -1,7 +1,7 @@
 id: wayland-page-no-repaint-after-restore
 title: Wayland에서 agent page를 든 창을 최소화했다 되살리면 그 page가 다시 그려지지 않는다
 kind: bug
-status: open
+status: fixed
 topic: browser-tab
 modules: [packages/shell/main]
 now: |
@@ -14,3 +14,6 @@ impact: |
 fix: |
   - 작음(추천): Wayland에서 `restore`가 오면 창을 `hide()` 뒤 `show()`해 guest를 다시 그리게 한다(spike에서 돌아온 길). 잃는 것: 창이 한 번 깜빡인다. 사람이 눈으로 확인한 뒤 한다.
   - 작음: Linux desktop 앱을 늘 `--ozone-platform=x11`로 띄운다. 잃는 것: Wayland의 HiDPI·입력 처리를 XWayland로 대신한다.
+closed: |
+  `packages/shell/main/desktop/wiring/surface.ts`의 `restore` handler가 Linux Wayland에서 agent page를 든 창을 되살릴 때 `window.hide()` 뒤 `window.show()`를 불러 guest를 다시 그리게 한다(재진입·파괴 guard 포함, `--ozone-platform=x11` 제외).
+guard: 없음

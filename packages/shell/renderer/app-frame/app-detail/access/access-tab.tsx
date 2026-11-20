@@ -10,6 +10,7 @@ import { t } from "@lophn/i18n";
 import { Loadable } from "../loadable.tsx";
 import { resourceDetail, resourceKindText } from "../model.ts";
 import { EffectPill, Mono, Note, PaneToast, Pill, Section } from "../parts.tsx";
+import { useReadOnly } from "../read-only.ts";
 import { useAccessView } from "../reads.ts";
 import type { AccessView, AppDetailSource, SourceResult } from "../source.ts";
 import { type SecretActions, SecretRow } from "./secret-row.tsx";
@@ -143,7 +144,9 @@ function RevokeEnd({
   stage: RevokeStage | null;
   onRevoke: () => void;
 }) {
+  const readOnly = useReadOnly();
   if (stage === null) {
+    if (readOnly) return null;
     return (
       <Button
         size="sm"

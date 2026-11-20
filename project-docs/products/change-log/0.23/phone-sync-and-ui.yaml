@@ -1,0 +1,28 @@
+id: phone-sync-and-ui
+version: 0.23.98
+title: 폰 backend 분리 entry, Wayland restore 재그리기, Home 터미널 coding session, 모바일 UI 보강
+modules:
+  - packages/protocol
+  - packages/core/apps
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/shell/main
+  - packages/design/native
+  - packages/design
+  - packages/sdk
+  - packages/mobile
+change: |
+  - 폰 backend bundle(`packages/core/apps/releases/phone-backend/`): 앱 root에 선택적 `phone-main.ts`가 있으면 폰은 그것만 묶고 load 검사도 `operations`만 본다. 컴퓨터 전용 command·구독의 `node:`·`@lophn/cap-fs`·`@lophn/flow` import는 `main.ts`에 남길 수 있다.
+  - Wayland agent page restore(`packages/shell/main/desktop/wiring/surface.ts`): Linux Wayland에서 agent page를 든 창을 `restore`할 때 `hide()` 뒤 `show()`를 불러 guest가 다시 그려지도록 한다.
+  - Home 터미널 coding session: `coding_sessions/list`·`coding_sessions/open`과 `TerminalSessionReport`가 `project: "home"`을 허용하고, 모바일 새 session·대화·터미널 화면이 Home을 연다.
+  - 원격 `annotations/send` 허용: `REMOTE_ALLOWED_ROUTES`에 `annotationSend`를 더하고, `annotationsWiring`이 원격 기기의 `screenshot: null` annotation 저장 command를 대행한다.
+  - 모바일 앱 화면·Home·sidebar: 새 판 toast에 `What changed`, 앱 ⋯ menu에 `Annotate this screen`(위치 찍기 overlay + `annotations/send`), Home과 sidebar에 `New app` sheet를 더했다.
+  - 모바일 대화 화면: Fork(session menu, `/fork`, turn 끝 Fork 단추)와 Rewind(session menu, `/rewind`, 내 메시지 길게 누르기 → `RewindSheet` 미리보기/실행) 및 `coding_sessions/rewind_preview`를 연결했다.
+  - `@lophn/ui-native` 0.3.1(`@lophn/app-ui-native` 1.9.1): `Markdown`이 WebView 없이 inline/display TeX 수식을 Unicode 수식으로, Mermaid(`flowchart`/`graph`/`sequenceDiagram`/`stateDiagram`)를 native 다이어그램 카드로 그린다(원문 토글·복사 지원).
+why: |
+  폰↔컴퓨터 sync 앱의 컴퓨터 전용 command 충돌, Wayland 최소화 복원 후 원격 페이지 멈춤, 모바일 Home 터미널 누락, 그리고 모바일 앱·대화 화면의 주요 UI 공백을 한 번에 닫기 위해서다.
+decisions:
+  - text: "폰 backend 분리는 선택적 `phone-main.ts` 파일로 둔다. 버린 길: 선언 schema에 entry 칸 추가(기존 앱과 선언 hash 호환을 깨지 않기 위해)."
+    by: agent
+  - text: "모바일 수식·Mermaid는 WebView를 다시 들이지 않고 순수 React Native 변환기(`math.ts`, `mermaid.ts`) + 원문 토글로 처리한다. 버린 길: 격리 WebView 재도입(보안 경계 비용)."
+    by: agent

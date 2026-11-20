@@ -26,6 +26,7 @@ import {
   providerSignInState,
   type ProviderSignInState,
   recordProviderModels,
+  providerSignInCallbackInputSchema,
   providerSignInOutputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
@@ -105,6 +106,7 @@ export function withProviderLogin(
   endAll(): Promise<void>;
   signIn(who: AuthenticatedContext, input: unknown): Promise<Result<unknown>>;
   signInState(input: unknown): Result<unknown>;
+  signInCallback(input: unknown): Result<unknown>;
 } {
   const login = createProviderOAuth<ConnectTarget>({
     http: deps.http,
@@ -326,19 +328,13 @@ export function withProviderLogin(
         err({ code: "invalid_input", message: "no sign-in for this provider" }),
       );
     }
-    // loopback 로그인은 이 기계의 browser로 돌아와야 끝나고 그동안 고정 port를 쥔다. 기기(폰, 다른 컴퓨터)는 device code만
-    // 시작한다. 같은 정의의 로그인을 치우기 전에 거절해 이 기계에서 기다리던 로그인이 남는다. agent 요청은 열린 채 둔다.
-    if (
+    // 기기(폰, 다른 컴퓨터)가 시작한 loopback 로그인은 이 기계에 browser가 없어도 끝나야 한다. port를 쥐지 않고 PKCE·state만
+    // 만들어 주소를 내주고, 그 기기가 사람이 돌아온 주소를 `providers/sign-in-callback`으로 건넨다(교환과 저장은 이 core다).
+    const handoff =
       who.principal.startsWith("device:") &&
-      oauthFlowOf(oauth.product) !== "device_code"
-    ) {
-      return err({
-        code: "forbidden",
-        message: "another device starts only a device-code sign-in",
-      });
-    }
+      oauthFlowOf(oauth.product) !== "device_code";
     await clear(connect.definition.key, request);
-    const begun = await login.begin(provider, oauth, connect);
+    const begun = await login.begin(provider, oauth, connect, handoff);
     if (!begun.ok) return failed(begun);
     const expires_at = at(begun.value.expires_at_ms);
     const entry: Login = {
@@ -350,6 +346,8 @@ export function withProviderLogin(
         flow: begun.value.flow,
         expires_at,
         sign_in: begun.value.sign_in,
+        callback_mode: begun.value.callback_mode,
+        redirect_uri: begun.value.redirect_uri,
       },
     };
     logins.set(begun.value.login, entry);
@@ -363,8 +361,29 @@ export function withProviderLogin(
         interval_ms: begun.value.interval_ms,
         expires_at,
         sign_in: begun.value.sign_in,
+        callback_mode: begun.value.callback_mode,
+        redirect_uri: begun.value.redirect_uri,
       }),
     );
+  }
+
+  // 다른 기기가 건넨 callback이다. state 대조와 token 교환은 follow가 이어서 한다.
+  function signInCallback(raw: unknown): Result<{ accepted: true }> {
+    const input = providerSignInCallbackInputSchema.safeParse(raw);
+    if (!input.success) {
+      return err({ code: "invalid_input", message: "callback input is wrong" });
+    }
+    const { provider, login: id, callback_url } = input.data;
+    const entry = logins.get(id);
+    if (
+      entry === undefined ||
+      entry.state.state !== "waiting" ||
+      entry.state.provider !== provider
+    ) {
+      return err({ code: "not_found", message: "login not found" });
+    }
+    const delivered = login.deliver(provider, id, callback_url);
+    return delivered.ok ? ok({ accepted: true }) : delivered;
   }
 
   function signInState(raw: unknown): Result<ProviderSignInState> {
@@ -467,6 +486,7 @@ export function withProviderLogin(
     },
     signIn,
     signInState,
+    signInCallback,
     // 기다림을 멈춘다. 끝나는 core라 요청을 끝내거나 알리지 않는다.
     async endAll() {
       for (const entry of logins.values()) {

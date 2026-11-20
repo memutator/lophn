@@ -8,6 +8,7 @@ import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import { oauthStatus } from "../model.ts";
+import { useReadOnly } from "../read-only.ts";
 import { Mono, Pill } from "../parts.tsx";
 import type { SecretInfo } from "../source.ts";
 import appDetail from "../app-detail.module.css";
@@ -246,7 +247,8 @@ export function SecretRow({
   steps: ReactNode;
 }) {
   const { oauth } = info;
-  const revoking = steps !== null;
+  const readOnly = useReadOnly();
+  const revoking = steps !== null || readOnly;
   if (oauth === null) {
     return (
       <li className={appDetail.item} data-secret={name}>
@@ -254,9 +256,11 @@ export function SecretRow({
           <Head
             name={name}
             hint={
-              info.configured
-                ? t("app-detail.label.secret-set")
-                : t("app-detail.label.secret-not-set")
+              info.configured === null
+                ? ""
+                : info.configured
+                  ? t("app-detail.label.secret-set")
+                  : t("app-detail.label.secret-not-set")
             }
             steps={steps}
             revoke={revoke}
@@ -301,7 +305,14 @@ export function SecretRow({
           steps={steps}
           revoke={revoke}
         />
-        {revoking ? null : (
+        {readOnly ? (
+          <Setting action={null}>
+            <StatusMark
+              tone={oauthStatus(oauth.state, oauth.reason).tone}
+              label={oauthStatus(oauth.state, oauth.reason).label}
+            />
+          </Setting>
+        ) : revoking ? null : (
           <>
             <ClientId value={oauth.clientId} onSave={actions.setClientId} />
             <ClientSecret

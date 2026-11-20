@@ -1088,6 +1088,30 @@ flows:
     refs: [A2, L7]
     docs: [architecture/app-call.md]
 
+  - id: app-remote-calls-read
+    title: "이 컴퓨터의 agent·앱이 다른 컴퓨터의 앱에 보낸 호출 기록을 읽는다"
+    actor: person
+    entries: [route:apps/remote_calls]
+    boundary: [app-runtime]
+    code: [packages/core/apps/calls/outbound.ts]
+    steps:
+      - "app, caller_app, session 필터와 cursor(rcl id, 최대 200개)로 부른 컴퓨터에 남긴 다른 컴퓨터 호출 기록을 새 것부터 읽는다."
+      - "받는 컴퓨터가 꺼져 있어도 읽힌다. App details의 Activity가 로컬 invocation과 함께 보인다."
+    outcomes:
+      - id: listed
+        observe: [response]
+      - id: invalid-cursor
+        code: invalid_input
+        when: "cursor가 rcl id 꼴이 아님"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "user 밖의 actor(route actors는 user뿐)"
+        observe: [response]
+    crosses_process: false
+    declared_only: [unauthorized, unavailable]
+    docs: [architecture/app-call.md]
+
   - id: app-rewind-plan
     title: "앱 data를 고른 호출 시점으로 되돌릴 목록을 계산한다"
     actor: person
@@ -2092,9 +2116,9 @@ flows:
   - id: app-oauth-callback
     title: "브라우저의 sign-in 응답을 받아 token으로 바꿔 보관한다"
     actor: system
-    entries: [system:app-oauth-callback]
+    entries: [system:app-oauth-callback, route:apps/oauth_callback]
     boundary: [secrets, app-runtime]
-    code: [packages/core/lophn-agent/extensions/mcp-auth.ts, packages/core/lophn-agent/extensions/mcp-oauth.ts, packages/core/apps/oauth/service.ts]
+    code: [packages/core/lophn-agent/extensions/mcp-auth.ts, packages/core/lophn-agent/extensions/callback-handoff.ts, packages/core/lophn-agent/extensions/mcp-oauth.ts, packages/core/apps/oauth/service.ts]
     steps:
       - "sign-in을 시작하면 core가 loopback callback을 background로 기다린다. 사람이 browser에서 허락한다. 기다리는 시간은 5분이고 타이머와 지연 검사로 본다."
       - "callback이 두 번째로 오면 409로 답하고 계속 기다린다. code나 state가 없으면 400으로 답하고 계속 기다린다."
@@ -2122,6 +2146,22 @@ flows:
         observe: ["response:apps/oauth_state"]
       - id: callback-ignored
         when: "두 번째 callback(409), code나 state가 빈 요청(400). 계속 기다린다"
+        observe: [response]
+      - id: handoff-invalid-input
+        code: invalid_input
+        when: "원격 callback 입력 모양이 맞지 않거나 state·path가 이 시도의 것이 아니다"
+        observe: [response]
+      - id: handoff-forbidden
+        code: forbidden
+        when: "사람이 아니거나 터미널 입력 허락이 없는 기기다(dispatch)"
+        observe: [response]
+      - id: handoff-not-found
+        code: not_found
+        when: "선언에 oauth 블록이 없거나 앱에 활성 release가 없다"
+        observe: [response]
+      - id: handoff-conflict
+        code: conflict
+        when: "기기가 시작한 진행 중인 시도가 없거나 이미 callback을 받았다"
         observe: [response]
     crosses_process: false
     risk: [secret]
@@ -2744,7 +2784,7 @@ flows:
       - "machines: 이 기계(첫 줄)와 그 앱 기록이 있는 기계의 활성 release(이 기계에 있으면 r<n> 번호), 그리고 꼴 판이 범위 밖이라 앱 기록을 읽지 않은 기계(release null)와 각 기계의 lophn 판·exchange. 범위 밖 기계는 범위 밖이 되기 전에 읽은 그 기계의 앱 기록 사본이 있는 앱에만 선다(사본이 하나도 없으면 모든 앱에 선다)"
       - "held: 출처와 release마다 변경 수·bytes·한도. 이 기계의 따라가기가 갈라졌고 그 release의 held면 diverged(합친 release가 나와야 온다), 이 기계가 지금 release보다 먼저 들인 release(번호가 낮다)이거나 data schema가 지금보다 낮으면 older_release, 아니면 newer_release(사람이 돌아가 내려놓은 release도 newer_release다). 지금 release의 held(적용 중)는 뺀다"
       - "follow 상태·held·기계 범위가 바뀌거나 scan이 새 기록을 읽으면 folder wiring이 StateChanged(app_runtime)를 내고, 활성 release가 바뀌면 releases 변경으로 화면이 다시 읽는다"
-      - "App details의 Machines 절(이 컴퓨터 창만)이 기계마다 한 줄, 이 기계 줄 아래 따라가기 상태, 다른 기계 줄 아래 기다리는 변경과 범위 밖 안내, 기다리는 동안 앱이 이 기계의 data로 돈다는 한 줄을 보인다. 동의를 기다리면 Open waiting list가 대기 panel을 연다. 올리는 단추는 없다. 폴더로 맞추지 않는 앱(not_found)이나 첫 읽기가 실패하면 절이 서지 않는다"
+      - "App details의 Machines 절이 기계마다 한 줄, 이 기계 줄 아래 따라가기 상태, 다른 기계 줄 아래 기다리는 변경과 범위 밖 안내, 기다리는 동안 앱이 이 기계의 data로 돈다는 한 줄을 보인다. 동의를 기다리면 Open waiting list가 대기 panel을 연다. 올리는 단추는 없다. 폴더로 맞추지 않는 앱(not_found)이나 첫 읽기가 실패하면 절이 서지 않는다"
     outcomes:
       - id: read
         observe: [response, "screen:app-machines-waiting"]

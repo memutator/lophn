@@ -1,7 +1,7 @@
 id: phone-conversation-math-mermaid-as-code
 title: 폰의 대화에서 수식과 mermaid diagram이 그림이 아니라 code box로 보인다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/design/native]
 now: |
@@ -14,3 +14,6 @@ fix: |
   - 없음(추천): 폰에서 수식과 diagram을 얼마나 보게 되는지 써 보고 정한다. 그때까지 code box로 둔다.
 decide: |
   폰에서 수식과 diagram을 그림으로 봐야 하는가. 필요하면 격리한 WebView를 다시 들이는 비용(보안 경계)이 든다.
+closed: |
+  WebView 없이 순수 React Native로 개선했다(`@lophn/ui-native` 0.3.1): inline·display 수식은 Unicode 수식 변환(`math.ts`)과 원문 TeX 토글 카드로, Mermaid(`flowchart`/`graph`/`sequenceDiagram`/`stateDiagram`)는 경량 parser(`mermaid.ts`)와 native 노드·화살표 카드(원문 코드 토글 및 미지원 diagram은 `CodeBlock` fallback)로 그린다.
+guard: packages/design/native/reading/math_test.ts, packages/design/native/reading/mermaid_test.ts

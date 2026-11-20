@@ -9,6 +9,7 @@ import type {
 } from "../../../protocol/folder/take-in.ts";
 import { createFolderReader, createFolderWriter } from "../fs.ts";
 import type { FolderAppsDeps } from "./deps.ts";
+import { exportPackages } from "./packages.ts";
 import { writeAppRecord } from "./records.ts";
 import {
   createRepository,
@@ -90,6 +91,11 @@ export function createFolderApps(deps: FolderAppsDeps): FolderApps {
           { ...source.error, at: now() },
         );
         first = err({ code: "unavailable", message: source.error.message });
+      }
+      // package file도 앱 기록과 같이 막지 않는다. 실패는 다음 계기에 다시 시도한다.
+      const packages = await exportPackages(target, host);
+      if (!packages.ok && first.ok) {
+        first = err({ code: "unavailable", message: packages.error.message });
       }
       const record = await writeAppRecord(target, deps.progress(id));
       if (!record.ok) return record;

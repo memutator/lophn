@@ -3,8 +3,10 @@
 // 화면이 쓰는 field만 옮긴 것이다.
 import type { AppViewOpen } from "../../ipc/app-frame.ts";
 import type { SourceResult } from "../source-result.ts";
+import type { AvailableApp, TakeInOutcome } from "./take-in.ts";
 
 export type { SourceResult };
+export type { AvailableApp, TakeInOutcome };
 
 /** 등록한 앱 하나. 이름은 사람이 지은 그대로다. */
 export interface AppRow {
@@ -38,6 +40,10 @@ export interface OpenScreen {
 }
 
 export interface AppsSource {
+  /** 다른 컴퓨터가 내놓았고 이 컴퓨터에 아직 없는 앱(`machine/environment`의 `available`). */
+  available(): Promise<SourceResult<readonly AvailableApp[]>>;
+  /** 그 앱을 이 컴퓨터에 들여 release를 준비한다. 앱이 `available`에 없으면 `sync_off`다. 켜는 것은 따로다. */
+  takeIn(app: string): Promise<TakeInOutcome>;
   /** 보관한 앱까지 모두. */
   list(): Promise<SourceResult<readonly AppRow[]>>;
   /** 없는 앱·범위 밖 앱은 null이다. */

@@ -107,8 +107,7 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       if (
         (agent === undefined && !guided) ||
         runtime.state === "exited" ||
-        runtime.state === "unknown" ||
-        !runtime.project.startsWith("prj_")
+        runtime.state === "unknown"
       ) {
         return [];
       }
@@ -116,7 +115,7 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       return [
         {
           terminal_ref: runtime.terminal_ref,
-          project: runtime.project as TerminalSessionReport["project"],
+          project: runtime.project,
           harness: guided ? tab.harness : (agent?.harness ?? ""),
           state: guided ? tab.state : (agent?.state ?? "unknown"),
           cli_session:

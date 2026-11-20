@@ -22,6 +22,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 import {
   Bot,
+  GitBranch,
   Info,
   LayoutGrid,
   ListChecks,
@@ -141,6 +142,10 @@ export interface ThreadActions {
   openChild(entry: Extract<ThreadEntry, { kind: "subagent" }>): void;
   openQueued(queued: QueuedView): void;
   resend(outgoing: Outgoing): void;
+  readonly canFork: boolean;
+  readonly canRewind: boolean;
+  onFork(message: string): void;
+  onRewind(message: string, excerpt: string): void;
 }
 
 export const ThreadContext = createContext<ThreadActions | null>(null);
@@ -256,6 +261,7 @@ function Attached({ parts }: { parts: readonly BodyPart[] }) {
 }
 
 function UserMessage({ message }: { message: ThreadMessage }) {
+  const { canRewind, readOnly, onRewind } = useActions();
   const text = textOfParts(message.parts);
   const note =
     message.delivery === "steer"
@@ -263,7 +269,8 @@ function UserMessage({ message }: { message: ThreadMessage }) {
       : message.via !== undefined
         ? t("conversation.label.via", { app: message.via })
         : undefined;
-  return (
+  const rewindable = canRewind && !readOnly && message.delivery !== "steer";
+  const body = (
     <View style={{ gap: 6 }}>
       <Attached parts={message.parts} />
       {text !== "" && (
@@ -272,6 +279,15 @@ function UserMessage({ message }: { message: ThreadMessage }) {
         </UserBubble>
       )}
     </View>
+  );
+  if (!rewindable) return body;
+  return (
+    <Pressable
+      onLongPress={() => onRewind(message.id, text)}
+      accessibilityHint={t("conversation.button.rewind-here")}
+    >
+      {body}
+    </Pressable>
   );
 }
 
@@ -637,19 +653,32 @@ function CommandOutput({ entry }: { entry: Extract<ThreadEntry, { kind: "command
 }
 
 function TurnEnd({ entry, said }: { entry: Extract<ThreadEntry, { kind: "turn-end" }>; said?: readonly ThreadEntry[] }) {
-  const { readOnly } = useActions();
+  const { readOnly, canFork, onFork } = useActions();
   if (entry.outcome === "failed") {
     return <StatusMark tone="serious" label={t("conversation.label.status-stopped")} />;
   }
   const time = messageTime(entry.at, new Date());
   const text = said === undefined ? "" : copyTextOf(said);
+  const lastId = said === undefined ? null : (said.at(-1)?.id ?? null);
   return (
-    <Meta onCopy={readOnly || text === "" ? undefined : () => void Clipboard.setStringAsync(text)}>
-      {t(entry.outcome === "stopped" ? "mobile.session.label.stopped-after-at" : "mobile.session.label.worked-for-at", {
-        duration: duration(entry.activeMs),
-        time,
-      })}
-    </Meta>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      <Meta onCopy={readOnly || text === "" ? undefined : () => void Clipboard.setStringAsync(text)}>
+        {t(entry.outcome === "stopped" ? "mobile.session.label.stopped-after-at" : "mobile.session.label.worked-for-at", {
+          duration: duration(entry.activeMs),
+          time,
+        })}
+      </Meta>
+      {canFork && lastId !== null && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("conversation.button.fork-here")}
+          hitSlop={12}
+          onPress={() => onFork(lastId)}
+        >
+          <GitBranch size={15} strokeWidth={1.6} color="#888888" />
+        </Pressable>
+      )}
+    </View>
   );
 }
 

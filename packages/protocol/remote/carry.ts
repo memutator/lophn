@@ -25,6 +25,8 @@ import {
   MACHINES_DIR,
   machineDir,
   parseDataEntry,
+  parsePackageEntry,
+  parsePackagePath,
   parseSourceEntry,
 } from "../folder/layout.ts";
 import { CLOCK_AHEAD_MAX_MS } from "../folder/limits.ts";
@@ -92,7 +94,8 @@ export function manifestPathMachine(path: string): Id<"mch"> | null {
 
 /**
  * 기계 사이로 옮기는 file의 path(destination 기준)와 그 file의 크기·sha256을 싣는 목록 file. 덮는 사슬은 셋이다.
- * - manifest가 싣는다(`coveredBy` null): `record.json`, `roster.json`, `apps/<app>/files.json`.
+ * - manifest가 싣는다(`coveredBy` null): `record.json`, `roster.json`, `apps/<app>/files.json`,
+ *   `packages/<part>@<version>.json`.
  * - 앱 목록 `apps/<app>/files.json`이 싣는다: `app.json`, `data/<n>.*`, `source/<n>.json`, `events/<id>.json`.
  * - `source/<n>.json`이 `source/<n>.bundle`을 싣는다.
  * 그 밖의 path(`manifest.json` 포함)는 null이다.
@@ -107,6 +110,11 @@ export function parseCarryPath(
   const top = { machine, coveredBy: null };
   if (parts.length === 3) {
     return parts[2] === "record.json" || parts[2] === "roster.json"
+      ? top
+      : null;
+  }
+  if (parts[2] === "packages") {
+    return parts.length === 4 && parsePackageEntry(parts[3]!) !== null
       ? top
       : null;
   }
@@ -149,7 +157,8 @@ export type CarryFileEntry = z.infer<typeof fileEntrySchema>;
 const distinctPaths = (files: readonly CarryFileEntry[]) =>
   new Set(files.map((file) => file.path)).size === files.length;
 
-// path는 모두 그 기계의 manifest가 싣는 file(`record.json`, `roster.json`, 앱마다 `files.json`)이고 겹치지 않는다.
+// `files`는 기존 최상위 file(`record.json`, `roster.json`, 앱마다 `files.json`)만 싣고, `@me/*` package file은 선택 칸
+// `packages`로 싣는다: 옛 판(2)은 모르는 칸을 버리고 원본 canonical body로 서명을 검증해 호환이 유지된다.
 export const manifestBodySchema = z
   .object({
     format: z.literal(1),
@@ -157,6 +166,7 @@ export const manifestBodySchema = z
     revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
     written_at: atSchema,
     files: z.array(fileEntrySchema),
+    packages: z.array(fileEntrySchema).optional(),
   })
   .refine(
     (body) =>
@@ -166,12 +176,25 @@ export const manifestBodySchema = z
         return (
           parsed !== null &&
           parsed.machine === body.machine &&
-          parsed.coveredBy === null
+          parsed.coveredBy === null &&
+          parsePackagePath(file.path) === null
         );
-      }),
+      }) &&
+      (body.packages === undefined ||
+        (distinctPaths(body.packages) &&
+          body.packages.every(
+            (file) => parsePackagePath(file.path)?.machine === body.machine,
+          ))),
     { message: "manifest files must be distinct top paths of its machine" },
   );
 export type ManifestBody = z.infer<typeof manifestBodySchema>;
+
+/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`). */
+export function manifestEntries(body: ManifestBody): CarryFileEntry[] {
+  return body.packages === undefined
+    ? body.files
+    : [...body.files, ...body.packages];
+}
 
 // `machines/<mch>/apps/<app>/files.json`: 그 앱의 file 목록. 서명하지 않는다(manifest가 크기·sha256을 싣는다).
 export const appFilesSchema = z.object({
@@ -377,7 +400,7 @@ export function expectedFile(
   const parsed = parseCarryPath(path);
   if (parsed === null || parsed.machine !== body.machine) return null;
   if (parsed.coveredBy === null) {
-    return pick(body.files.find((file) => file.path === path));
+    return pick(manifestEntries(body).find((file) => file.path === path));
   }
   const cover = expectedFile(body, parsed.coveredBy, heldBytes);
   if (cover === null) return null;
@@ -394,7 +417,7 @@ export function expectedFiles(
   heldBytes: HeldBytes,
 ): Map<string, Expected> {
   const out = new Map<string, Expected>();
-  const queue: CarryFileEntry[] = [...body.files];
+  const queue: CarryFileEntry[] = [...manifestEntries(body)];
   for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
     if (out.has(file.path)) continue;
     const expected = { size: file.size, sha256: file.sha256 };

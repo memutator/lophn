@@ -43,6 +43,19 @@ export type LocalApp = {
   code_commit: string | null;
 };
 
+/** 기계 사이로 옮기는 `@me/*` package의 한 version. catalog 행과 bundle·guide bytes다. */
+export type CarriedPackage = {
+  name: string;
+  version: string;
+  description: string;
+  owner_app: Id<"app">;
+  permissions: string[];
+  /** 이 package가 의존하는 `@me/*`의 정확한 version. */
+  requires: { name: string; version: string }[];
+  bundle: Uint8Array;
+  guide: Uint8Array;
+};
+
 /** take-in과 source 받기가 core/apps에 기대는 면. core/apps가 구현하고(apps/folder-host.ts) 조립이 넘긴다. */
 export type FolderAppsHost = {
   app(id: Id<"app">): Result<LocalApp | null>;
@@ -52,6 +65,13 @@ export type FolderAppsHost = {
     codeCommit: string,
   ): Result<Id<"rel"> | null>;
   published(name: string, version: string): boolean;
+  /** 이 기계 catalog의 `@me/*` version. bundle·guide bytes를 잃었거나 주인 앱이 없으면 null. */
+  carriedPackage(
+    name: string,
+    version: string,
+  ): Promise<Result<CarriedPackage | null>>;
+  /** 받은 `@me/*` version을 이 기계 catalog에 등록하고 설치 사본을 쓴다. 같은 bytes가 이미 있으면 그대로 둔다. */
+  installPackage(pkg: CarriedPackage): Promise<Result<void>>;
   createApp(input: {
     id: Id<"app">;
     slug: string;

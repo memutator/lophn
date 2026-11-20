@@ -114,8 +114,8 @@ export type OAuthReason =
 
 /** secret 줄 하나의 상태. 값·token은 없다. */
 export interface SecretInfo {
-  /** 값이 들어 있는가. OAuth 줄에서는 쓰지 않는다. */
-  readonly configured: boolean;
+  /** 값이 들어 있는가. OAuth 줄에서는 쓰지 않는다. 다른 컴퓨터가 secret 상태를 내주지 않으면(`secrets/status`는 사람의 route다) null이다. */
+  readonly configured: boolean | null;
   readonly oauth: null | {
     /** 앱이 선언한 sign-in 곳. 사람이 바꿀 수 없다. */
     readonly authorizeHost: string;
@@ -183,11 +183,11 @@ export type Caller =
       readonly agent: string;
       /** agent 이름. 읽지 못하면 null이다. */
       readonly name: string | null;
-      readonly session: string;
+      readonly session: string | null;
       /** session 이름. 읽지 못하면 null이다. */
       readonly title: string | null;
-      readonly turn: string;
-      readonly toolCall: string;
+      readonly turn: string | null;
+      readonly toolCall: string | null;
     }
   | {
       readonly kind: "app";
@@ -237,6 +237,12 @@ export interface ActivityRow {
   readonly inputHash: string | null;
   /** 결과 한 줄 요약. 없으면 빈 문자열이다. */
   readonly result: string;
+  /** 이 컴퓨터가 다른 컴퓨터의 앱 command를 부른 기록. changeset과 rewind가 없다. */
+  readonly remoteTarget?: {
+    readonly machine: string;
+    readonly app: string;
+    readonly appName: string | null;
+  };
 }
 
 /** 그 앱의 영구 기록 한 줄(release 결과, 앱 멈춤, 앱이 남긴 영구 알림). */
@@ -353,6 +359,8 @@ export interface UnresolvedSubscription {
 }
 
 export interface AppDetailSource {
+  /** 다른 컴퓨터의 source다. 읽기만 하고 아래 쓰기는 모두 unavailable이며 화면은 쓰는 단추를 그리지 않는다. */
+  readonly readOnly?: true;
   /** 사람이 지은 앱 이름을 바꾼다. 비면 `invalid_input`이다. */
   rename(app: string, name: string): Promise<SourceResult<true>>;
   /** 앱을 보관한다(실행도 끈다). Home의 Workspaces panel에서 꺼낸다. */

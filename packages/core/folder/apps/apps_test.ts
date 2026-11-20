@@ -15,6 +15,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import {
   createIdSource,
+  err,
   manualClock,
   ok,
   type Result,
@@ -34,8 +35,16 @@ import {
   appRecordPath,
   appRecordSchema,
   decodeRecord,
+  packageFilePath,
   sourcePath,
 } from "../../../protocol/folder/mod.ts";
+import {
+  COMPUTERS_DESTINATION,
+  COMPUTERS_DIR,
+  signManifest,
+} from "../../../protocol/remote/carry.ts";
+import { remoteKeyText } from "../../../protocol/remote/noise.ts";
+import { generateSigningKey } from "../../../protocol/remote/roster.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -48,7 +57,14 @@ import {
   createFolderAppsHost,
   type FolderCommand,
 } from "../../apps/folder-host.ts";
+import { createSdkCommands } from "../../apps/packages/commands.ts";
+import {
+  bundleBytes,
+  type PrepareBlob,
+  prepareBundleBlobs,
+} from "../../apps/packages/install.ts";
 import { sdkSchemaSteps } from "../../apps/packages/schema.ts";
+import { loadPackage } from "../../apps/packages/store.ts";
 import { permissionsSchemaSteps } from "../../apps/permissions/schema.ts";
 import { createAppCommands } from "../../apps/registration/commands.ts";
 import { appsSchemaSteps } from "../../apps/registration/schema.ts";
@@ -68,7 +84,13 @@ import {
 } from "../../apps/releases/store.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import type { DestinationsView } from "../destinations.ts";
-import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import { publishManifest } from "../export/manifest.ts";
+import { createReplica } from "../replica.ts";
+import {
+  FOLDER_CARRY_MARKS_STEPS,
+  FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_SCHEMA_STEPS,
+} from "../schema.ts";
 import {
   createFolderApps,
   type FolderAppRecordCopy,
@@ -115,6 +137,25 @@ const machineCtx: RequestContext = {
   credential_ref: "machine:folder-apps",
 };
 
+function createMemoryBlobs() {
+  const store = new Map<string, Uint8Array>();
+  const prepareBlob: PrepareBlob = async ({ bytes }) => {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of bytes) chunks.push(chunk);
+    const all = new Uint8Array(Buffer.concat(chunks));
+    const hash = await sha256Hex(all);
+    store.set(hash, all);
+    return ok({ hash, size_bytes: all.byteLength });
+  };
+  const readBlob = async (hash: string): Promise<Result<Uint8Array>> => {
+    const found = store.get(hash);
+    return found === undefined
+      ? err({ code: "not_found", message: `blob ${hash} not found` })
+      : ok(found);
+  };
+  return { store, prepareBlob, readBlob };
+}
+
 function commandPort(db: DatabaseSync, now: () => string): FolderCommand {
   const ids = createIdSource({
     clock: { now, nowMs: () => Date.parse(now()) },
@@ -131,13 +172,16 @@ function commandPort(db: DatabaseSync, now: () => string): FolderCommand {
     now,
     emit: () => String(++seq),
     port: (key: unknown) => ports.get(key),
+    registerBlobRef: () => ok(undefined),
   } as unknown as Tx;
   const apps = createAppCommands();
   const releases = createReleaseCommands();
+  const sdk = createSdkCommands();
   const table: Record<string, [CommandDefinition, RequestContext]> = {
     "app.create": [apps.create as never, machineCtx],
     "app.connect_source": [apps.connectSource as never, machineCtx],
     "release.record": [releases.record as never, machineCtx],
+    "package.register_version": [sdk.registerVersion as never, machineCtx],
   };
   return async (envelope) => {
     const [definition, ctx] = table[envelope.command]!;
@@ -300,6 +344,10 @@ type World = {
   rootB: string;
   dbA: DatabaseSync;
   dbB: DatabaseSync;
+  blobsA: ReturnType<typeof createMemoryBlobs>;
+  blobsB: ReturnType<typeof createMemoryBlobs>;
+  cmdA: FolderCommand;
+  cmdB: FolderCommand;
   repoA: string;
   local: FolderLocalApp;
   folderA: FolderApps;
@@ -317,9 +365,15 @@ function openLedger(full: boolean): DatabaseSync {
         ...permissionsSchemaSteps,
         ...sdkSchemaSteps,
         ...FOLDER_SCHEMA_STEPS,
+        ...FOLDER_CARRY_MARKS_STEPS,
         ...FOLDER_CODE_COMMIT_STEPS,
       ]
-    : [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS];
+    : [
+        ...sdkSchemaSteps,
+        ...FOLDER_SCHEMA_STEPS,
+        ...FOLDER_CARRY_MARKS_STEPS,
+        ...FOLDER_CODE_COMMIT_STEPS,
+      ];
   for (const step of steps) db.exec(step.sql);
   return db;
 }
@@ -372,6 +426,8 @@ async function world(): Promise<World> {
     },
   };
   const progress = () => ({ read: {}, settled: null, horizon: null });
+  const blobsA = createMemoryBlobs();
+  const cmdA = commandPort(dbA, () => clock.now());
   const folderA = createFolderApps({
     machine: () => A,
     destinations: destinations(dest),
@@ -380,13 +436,21 @@ async function world(): Promise<World> {
     progress,
     host: createFolderAppsHost({
       sql: sqlOf(dbA),
-      command: () => {
-        throw new Error("A takes nothing in");
-      },
+      command: cmdA,
       prepareCommit: () => {
         throw new Error("A takes nothing in");
       },
       random: seededRandom(3),
+      dataRoot: rootA,
+      readBlob: blobsA.readBlob,
+      prepareBlob: blobsA.prepareBlob,
+      registerVersion: (input) =>
+        cmdA({
+          command: "package.register_version",
+          input,
+          idempotency_key: `pkg-a-${input.name}-${input.version}`,
+          compare: {},
+        }),
     }),
     sql: sqlOf(dbA),
     clock,
@@ -394,6 +458,7 @@ async function world(): Promise<World> {
     dataRoot: rootA,
   });
   const preparedB: { app: string; sourcePath: string; commit: string }[] = [];
+  const blobsB = createMemoryBlobs();
   const cmdB = commandPort(dbB, () => clock.now());
   const folderB = createFolderApps({
     machine: () => B,
@@ -406,6 +471,16 @@ async function world(): Promise<World> {
       command: cmdB,
       prepareCommit: makeLocalPrepare(rootB, cmdB, preparedB),
       random: seededRandom(4),
+      dataRoot: rootB,
+      readBlob: blobsB.readBlob,
+      prepareBlob: blobsB.prepareBlob,
+      registerVersion: (input) =>
+        cmdB({
+          command: "package.register_version",
+          input,
+          idempotency_key: `pkg-b-${input.name}-${input.version}`,
+          compare: {},
+        }),
     }),
     sql: sqlOf(dbB),
     clock,
@@ -419,6 +494,10 @@ async function world(): Promise<World> {
     rootB,
     dbA,
     dbB,
+    blobsA,
+    blobsB,
+    cmdA,
+    cmdB,
     repoA,
     local,
     folderA,
@@ -714,11 +793,21 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
       progress: () => ({ read: {}, settled: null, horizon: null }),
       host: createFolderAppsHost({
         sql: sqlOf(w.dbB),
-        command: commandPort(w.dbB, () => w.clock.now()),
+        command: w.cmdB,
         prepareCommit: () => {
           throw new Error("unused");
         },
         random: seededRandom(5),
+        dataRoot: w.rootB,
+        readBlob: w.blobsB.readBlob,
+        prepareBlob: w.blobsB.prepareBlob,
+        registerVersion: (input) =>
+          w.cmdB({
+            command: "package.register_version",
+            input,
+            idempotency_key: `pkg-b-exp-${input.name}-${input.version}`,
+            compare: {},
+          }),
       }),
       sql: sqlOf(w.dbB),
       clock: w.clock,
@@ -739,6 +828,7 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
       const preparedC: { app: string; sourcePath: string; commit: string }[] =
         [];
       const cmdC = commandPort(dbC, () => w.clock.now());
+      const blobsC = createMemoryBlobs();
       const folderC = createFolderApps({
         machine: () => C,
         destinations: destinations(w.dest),
@@ -750,6 +840,16 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
           command: cmdC,
           prepareCommit: makeLocalPrepare(rootC, cmdC, preparedC),
           random: seededRandom(8),
+          dataRoot: rootC,
+          readBlob: blobsC.readBlob,
+          prepareBlob: blobsC.prepareBlob,
+          registerVersion: (input) =>
+            cmdC({
+              command: "package.register_version",
+              input,
+              idempotency_key: `pkg-c-${input.name}-${input.version}`,
+              compare: {},
+            }),
         }),
         sql: sqlOf(dbC),
         clock: w.clock,
@@ -773,5 +873,401 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
     } finally {
       dbC.close();
     }
+  });
+});
+
+async function publishTestPackage(
+  cmd: FolderCommand,
+  blobs: ReturnType<typeof createMemoryBlobs>,
+  input: {
+    name: string;
+    version: string;
+    description: string;
+    owner_app: Id<"app">;
+    permissions: string[];
+    files: { path: string; text: string }[];
+    guide?: string;
+  },
+) {
+  const enc = new TextEncoder();
+  const bundle = bundleBytes(
+    input.files.map((file) => ({
+      path: file.path,
+      bytes: enc.encode(file.text),
+    })),
+  );
+  const guide = enc.encode(input.guide ?? "# Purpose\n\ntest\n");
+  const prepared = await prepareBundleBlobs(
+    bundle,
+    guide,
+    "machine:install",
+    blobs.prepareBlob,
+  );
+  assert.ok(prepared.ok);
+  const done = await cmd({
+    command: "package.register_version",
+    input: {
+      name: input.name,
+      version: input.version,
+      description: input.description,
+      owner_app: input.owner_app,
+      permissions: input.permissions,
+      bundle_hash: prepared.value.bundleHash,
+      guide_hash: prepared.value.guideHash,
+    },
+    idempotency_key: `pub-${input.name}-${input.version}`,
+    compare: {},
+  });
+  assert.ok(done.ok, done.ok ? "" : done.error.message);
+  return {
+    bundleHash: prepared.value.bundleHash,
+    guideHash: prepared.value.guideHash,
+  };
+}
+
+test("기계 A가 내보낸 @me/* package(의존 사슬 포함)를 기계 B가 take-in 때 자동으로 들이고 release를 준비한다", async () => {
+  await withWorld(async (w) => {
+    const ownerApp = "app_01hyyyyyyyyyyyyyyyyyyyyyyy" as Id<"app">;
+    // cap-net SDK 사본이 B에 있어야 @me/base가 요구하는 SDK 검사를 지난다.
+    const capNetB = join(w.rootB, "sdk", "cap-net", "1.0.0");
+    mkdirSync(capNetB, { recursive: true });
+    writeFileSync(
+      join(capNetB, "package.json"),
+      JSON.stringify({ name: "@lophn/cap-net", version: "1.0.0" }),
+    );
+    const baseHashes = await publishTestPackage(w.cmdA, w.blobsA, {
+      name: "@me/base",
+      version: "1.0.0",
+      description: "Base HTTP helper",
+      owner_app: ownerApp,
+      permissions: ["net.fetch"],
+      files: [
+        {
+          path: "package.json",
+          text: JSON.stringify({
+            name: "@me/base",
+            version: "1.0.0",
+            dependencies: { "@lophn/cap-net": "1.0.0" },
+          }),
+        },
+        { path: "index.js", text: "export const base = 1;\n" },
+      ],
+    });
+    const utilsHashes = await publishTestPackage(w.cmdA, w.blobsA, {
+      name: "@me/utils",
+      version: "1.2.0",
+      description: "Shared utilities",
+      owner_app: ownerApp,
+      permissions: ["net.fetch"],
+      files: [
+        {
+          path: "package.json",
+          text: JSON.stringify({
+            name: "@me/utils",
+            version: "1.2.0",
+            dependencies: { "@me/base": "1.0.0" },
+          }),
+        },
+        {
+          path: "index.js",
+          text: 'import { base } from "@me/base"; export const v = base + 1;\n',
+        },
+      ],
+    });
+
+    writeFileSync(
+      join(w.repoA, "package.json"),
+      JSON.stringify({
+        name: "notes",
+        dependencies: {
+          "@lophn/declaration": "file:.lophn/sdk/declaration/4.9.0",
+          "@me/utils": "file:.lophn/sdk/@me/utils/1.2.0",
+        },
+      }),
+    );
+    git(w.repoA, "commit", "-q", "-am", "depend on @me/utils");
+    w.local.release = {
+      ...w.local.release!,
+      code_commit: git(w.repoA, "rev-parse", "HEAD"),
+    };
+
+    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.equal(
+      existsSync(join(w.dest, packageFilePath(A, "@me/utils", "1.2.0"))),
+      true,
+    );
+    assert.equal(
+      existsSync(join(w.dest, packageFilePath(A, "@me/base", "1.0.0"))),
+      true,
+    );
+
+    const taken = await w.folderB.takeIn({ app: APP });
+    assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
+    assert.equal(taken.value.installed, "app_and_release");
+    assert.equal(w.preparedB.length, 1);
+
+    const sqlB = sqlOf(w.dbB);
+    const loadedBase = loadPackage(sqlB, "@me/base");
+    assert.ok(loadedBase.ok && loadedBase.value !== null);
+    assert.equal(loadedBase.value.owner_app, ownerApp);
+    assert.equal(
+      loadedBase.value.versions[0]?.bundle_hash,
+      baseHashes.bundleHash,
+    );
+    assert.deepEqual(loadedBase.value.versions[0]?.permissions, ["net.fetch"]);
+
+    const loadedUtils = loadPackage(sqlB, "@me/utils");
+    assert.ok(loadedUtils.ok && loadedUtils.value !== null);
+    assert.equal(
+      loadedUtils.value.versions[0]?.bundle_hash,
+      utilsHashes.bundleHash,
+    );
+    assert.equal(
+      existsSync(join(w.rootB, "sdk", "@me", "utils", "1.2.0", "index.js")),
+      true,
+    );
+    const copiedPkg = JSON.parse(
+      readFileSync(
+        join(w.rootB, "sdk", "@me", "utils", "1.2.0", "package.json"),
+        "utf8",
+      ),
+    ) as { dependencies: Record<string, string> };
+    assert.equal(copiedPkg.dependencies["@me/base"], "file:../../base/1.0.0");
+  });
+});
+
+test("computers carry(서명된 manifest·replica)로 @me/* package를 옮기고, 권한 누락·경로 탈출 package는 거절한다", async () => {
+  await withWorld(async (w) => {
+    const signingA = generateSigningKey(seededRandom(51));
+    const keyA = remoteKeyText(signingA.publicKey);
+    const compA = join(w.rootA, COMPUTERS_DIR);
+    const compB = join(w.rootB, COMPUTERS_DIR);
+    mkdirSync(compA, { recursive: true });
+    mkdirSync(compB, { recursive: true });
+
+    const capNetB = join(w.rootB, "sdk", "cap-net", "1.0.0");
+    mkdirSync(capNetB, { recursive: true });
+    writeFileSync(
+      join(capNetB, "package.json"),
+      JSON.stringify({ name: "@lophn/cap-net", version: "1.0.0" }),
+    );
+    await publishTestPackage(w.cmdA, w.blobsA, {
+      name: "@me/shared",
+      version: "1.0.0",
+      description: "Carried over computers",
+      owner_app: APP,
+      permissions: ["net.fetch"],
+      files: [
+        {
+          path: "package.json",
+          text: JSON.stringify({
+            name: "@me/shared",
+            version: "1.0.0",
+            dependencies: { "@lophn/cap-net": "1.0.0" },
+          }),
+        },
+        { path: "index.js", text: "export const ok = true;\n" },
+      ],
+    });
+    writeFileSync(
+      join(w.repoA, "package.json"),
+      JSON.stringify({
+        name: "notes",
+        dependencies: {
+          "@lophn/declaration": "file:.lophn/sdk/declaration/4.9.0",
+          "@me/shared": "file:.lophn/sdk/@me/shared/1.0.0",
+        },
+      }),
+    );
+    git(w.repoA, "commit", "-q", "-am", "use @me/shared");
+    const commit = git(w.repoA, "rev-parse", "HEAD");
+    const localComp: FolderLocalApp = {
+      ...w.local,
+      sync_to: COMPUTERS_DESTINATION,
+      release: { ...w.local.release!, code_commit: commit },
+    };
+    const compDest = (path: string): DestinationsView => ({
+      list: () => [{ name: COMPUTERS_DESTINATION, path, state: "ok" }],
+      resolve: (name) =>
+        name === COMPUTERS_DESTINATION ? { path, state: "ok" } : null,
+    });
+    const folderAComp = createFolderApps({
+      machine: () => A,
+      destinations: compDest(compA),
+      apps: () => [localComp],
+      records: () => [],
+      progress: () => ({ read: {}, settled: null, horizon: null }),
+      host: createFolderAppsHost({
+        sql: sqlOf(w.dbA),
+        command: w.cmdA,
+        prepareCommit: () => {
+          throw new Error("A does not prepare");
+        },
+        random: seededRandom(12),
+        dataRoot: w.rootA,
+        readBlob: w.blobsA.readBlob,
+        prepareBlob: w.blobsA.prepareBlob,
+        registerVersion: (input) =>
+          w.cmdA({
+            command: "package.register_version",
+            input,
+            idempotency_key: `comp-a-${input.name}-${input.version}`,
+            compare: {},
+          }),
+      }),
+      sql: sqlOf(w.dbA),
+      clock: w.clock,
+      random: seededRandom(13),
+      dataRoot: w.rootA,
+    });
+    assert.ok((await folderAComp.runApp(APP)).ok);
+
+    // manifest.json을 쓰고 replica B가 manifest → wants → receive로 모든 file(packages 포함)을 받는다.
+    const txA = <T>(fn: (tx: { sql: Sql }) => Result<T>) =>
+      fn({ sql: sqlOf(w.dbA) });
+    const published = await publishManifest({
+      me: A,
+      root: compA,
+      sql: sqlOf(w.dbA),
+      transaction: txA,
+      clock: w.clock,
+      random: seededRandom(14),
+      sign: (body) => signManifest(body, signingA.secretKey),
+    });
+    assert.ok(published.ok && published.value);
+
+    const replicaB = createReplica({
+      dataRoot: w.rootB,
+      machine: () => B,
+      signingKey: (machine) => (machine === A ? keyA : null),
+      removed: () => false,
+      sql: sqlOf(w.dbB),
+      transaction: (fn) => fn({ sql: sqlOf(w.dbB) }),
+      clock: w.clock,
+      random: seededRandom(15),
+      manifestsChanged: () => {},
+      filesChanged: () => {},
+    });
+    const manifestText = readFileSync(
+      join(compA, "machines", A, "manifest.json"),
+      "utf8",
+    );
+    const offered = await replicaB.offerManifest(manifestText, "link");
+    assert.ok(offered.ok && offered.value === "accepted");
+
+    const pkgRel = packageFilePath(A, "@me/shared", "1.0.0");
+    let sawPkg = false;
+    for (let pass = 0; pass < 4; pass++) {
+      const wants = await replicaB.wantedOf(A);
+      if (wants.length === 0) break;
+      for (const want of wants) {
+        if (want.path === pkgRel) sawPkg = true;
+        const bytes = readFileSync(join(compA, ...want.path.split("/")));
+        const rec = await replicaB.receive({
+          machine: A,
+          path: want.path,
+          size: want.size,
+          sha256: want.sha256,
+          via: "link",
+          chunks: (async function* () {
+            yield bytes;
+          })(),
+        });
+        assert.ok(rec.ok && rec.value === "accepted", want.path);
+      }
+    }
+    assert.equal(sawPkg, true);
+    assert.equal(await replicaB.holds(A, pkgRel), true);
+
+    const folderBComp = createFolderApps({
+      machine: () => B,
+      destinations: compDest(compB),
+      apps: () => [],
+      records: () => {
+        const record = decodeRecord(
+          appRecordSchema,
+          readFileSync(join(compB, appRecordPath(A, APP))),
+        );
+        assert.ok(record.ok);
+        return [
+          {
+            origin: A,
+            destination: COMPUTERS_DESTINATION,
+            record: record.value,
+          },
+        ];
+      },
+      progress: () => ({ read: {}, settled: null, horizon: null }),
+      host: createFolderAppsHost({
+        sql: sqlOf(w.dbB),
+        command: w.cmdB,
+        prepareCommit: makeLocalPrepare(w.rootB, w.cmdB, w.preparedB),
+        random: seededRandom(16),
+        dataRoot: w.rootB,
+        readBlob: w.blobsB.readBlob,
+        prepareBlob: w.blobsB.prepareBlob,
+        registerVersion: (input) =>
+          w.cmdB({
+            command: "package.register_version",
+            input,
+            idempotency_key: `comp-b-${input.name}-${input.version}`,
+            compare: {},
+          }),
+      }),
+      sql: sqlOf(w.dbB),
+      clock: w.clock,
+      random: seededRandom(17),
+      dataRoot: w.rootB,
+    });
+
+    // 변조 검사 1: cap-net 의존인데 permissions를 비운 file은 거절된다.
+    const pkgPathB = join(compB, pkgRel);
+    const goodBytes = readFileSync(pkgPathB);
+    const badPerm = JSON.parse(goodBytes.toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+    badPerm["permissions"] = [];
+    writeFileSync(pkgPathB, JSON.stringify(badPerm));
+    const deniedPerm = await folderBComp.takeIn({ app: APP });
+    assert.ok(!deniedPerm.ok);
+    assert.equal(deniedPerm.error.code, "conflict");
+    assert.equal(deniedPerm.error.details?.reason, "dependency_missing");
+    assert.deepEqual(rows(w.dbB, "SELECT id FROM packages"), []);
+
+    // 변조 검사 2: bundle 안에 상위 경로(`../escape.js`)를 넣은 file은 거절된다.
+    const evilBundle = bundleBytes([
+      {
+        path: "package.json",
+        bytes: new TextEncoder().encode(
+          JSON.stringify({ name: "@me/shared", version: "1.0.0" }),
+        ),
+      },
+      {
+        path: "../escape.js",
+        bytes: new TextEncoder().encode("pwned\n"),
+      },
+    ]);
+    const badPath = JSON.parse(goodBytes.toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+    badPath["bundle"] = Buffer.from(evilBundle).toString("base64");
+    badPath["bundle_hash"] = await sha256Hex(evilBundle);
+    writeFileSync(pkgPathB, JSON.stringify(badPath));
+    const deniedPath = await folderBComp.takeIn({ app: APP });
+    assert.ok(!deniedPath.ok);
+    assert.equal(deniedPath.error.code, "conflict");
+    assert.equal(deniedPath.error.details?.reason, "dependency_missing");
+    assert.equal(
+      existsSync(join(w.rootB, "sdk", "@me", "shared", "escape.js")),
+      false,
+    );
+
+    // 정상 file을 복원하면 take-in이 package 설치와 release 준비를 끝낸다.
+    writeFileSync(pkgPathB, goodBytes);
+    const taken = await folderBComp.takeIn({ app: APP });
+    assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
+    assert.equal(taken.value.installed, "app_and_release");
   });
 });

@@ -9,9 +9,14 @@ export * from "./identity-api.ts";
 export * from "./clone-api.ts";
 export * from "./project-search.ts";
 export * from "./project-files.ts";
+export * from "./artifact-api.ts";
 
 import { PROJECT_SEARCH_ROUTES } from "./project-search.ts";
 import { PROJECT_FILES_ROUTES } from "./project-files.ts";
+import {
+  ARTIFACT_FILE_ROUTES,
+  ARTIFACT_MEMORY_ROUTES,
+} from "./artifact-api.ts";
 
 import { PROJECT_API_ROUTES } from "./project-api.ts";
 import {
@@ -30,4 +35,6 @@ export const ROUTES = [
   ...PROJECT_IDENTITY_MEMORY_ROUTES,
   ...PROJECT_SEARCH_ROUTES,
   ...PROJECT_FILES_ROUTES,
+  ...ARTIFACT_MEMORY_ROUTES,
+  ...ARTIFACT_FILE_ROUTES,
 ] as const;

@@ -2,6 +2,7 @@
 // runs and release: plain reads of the routes the phone may call. The sample computer answers them from its fake core.
 import type { z } from "zod";
 import { releasesListRecords } from "../../../protocol/apps/activation/activation.ts";
+import { annotationSend } from "../../../protocol/apps/annotation.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
@@ -336,6 +337,7 @@ export function useAppActivity(
 }
 
 export interface AppRelease {
+  readonly id: string;
   readonly number: number;
   readonly activatedAt: string;
 }
@@ -356,6 +358,7 @@ export function useAppRelease(app: string): ReadHandle<AppRelease | null> {
         live === undefined
           ? null
           : {
+              id: live.id,
               number: live.number,
               activatedAt: live.activated_at ?? live.created_at,
             },
@@ -364,4 +367,44 @@ export function useAppRelease(app: string): ReadHandle<AppRelease | null> {
     [{ name: "releases", id: app }],
     app,
   );
+}
+
+/** Sends a single screen annotation to the app's agent session on the computer. */
+export function useSendAppAnnotation() {
+  const core = useCore();
+  return async (input: {
+    app: string;
+    release: string;
+    screen: string;
+    note: string;
+    xRatio: number;
+    yPx: number;
+  }): Promise<{ ok: true; session: string } | { ok: false }> => {
+    const sent = await ask(core, annotationSend, {
+      target: { kind: "app", app: input.app },
+      session: null,
+      annotations: [
+        {
+          n: 1,
+          kind: "region",
+          note: input.note,
+          screenshot: null,
+          component: null,
+          element: { role: null, name: null, text: null },
+          rect: {
+            x_ratio: Math.max(0, Math.min(1, input.xRatio)),
+            width_ratio: 0.1,
+            y_px: Math.max(0, Math.round(input.yPx)),
+            height_px: 44,
+            scroll_x: 0,
+            scroll_y: 0,
+          },
+          view: { screen: input.screen, path: "" },
+          release: input.release,
+          preview_bundle: null,
+        },
+      ],
+    });
+    return sent.ok ? { ok: true, session: sent.value.session } : { ok: false };
+  };
 }

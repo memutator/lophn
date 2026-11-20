@@ -66,8 +66,11 @@ The backend runs inside the app's screen on the phone, one call at a time, with
 no network.
 
 - Do not import `node:` modules, `@lophn/cap-fs` or `@lophn/flow` anywhere in the
-  backend. It is one bundle for both sides, so a command that only runs on the
-  computer cannot import them either.
+  phone backend bundle. If a computer-only command or subscription needs them,
+  add a separate `phone-main.ts` entry at the app root that registers only the
+  declared `operations`; when `phone-main.ts` exists, `lophn release prepare`
+  bundles it for the phone and keeps `main.ts` for the computer. Without
+  `phone-main.ts`, `main.ts` is bundled for both sides.
 - A read or write operation runs on the phone in one transaction and gets at most
   3 seconds. A longer call is rolled back and answers `unavailable`. Do the work
   in small steps.

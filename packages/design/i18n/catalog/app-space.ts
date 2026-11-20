@@ -42,6 +42,8 @@ export const appSpace = {
   "app-detail.heading.archive": "Archive this app",
   "app-detail.heading.folders": "Folders",
   "app-detail.heading.general": "General",
+  "app-detail.note.read-only":
+    "This app runs on another computer, so this is a read-only view. To change it, open the app on that computer.",
   "app-detail.heading.icon": "Icon",
   "app-detail.heading.last-activation": "Last activation",
   "app-detail.heading.other-apps": "Other apps",
@@ -122,6 +124,7 @@ export const appSpace = {
   "app-detail.label.fact-reason": "Reason",
   "app-detail.label.fact-result": "Result",
   "app-detail.label.fact-schema": "Data schema",
+  "app-detail.label.fact-target": "Target",
   "app-detail.label.fact-tried": "Tried",
   "app-detail.label.fact-undo": "Undo record",
   "app-detail.label.failed-still-active":
@@ -182,6 +185,8 @@ export const appSpace = {
   "app-detail.label.tab-activity": "Activity",
   "app-detail.label.tab-version": "Version",
   "app-detail.label.time-unknown": "time unknown",
+  "app-detail.label.to-machine": "to {machine}",
+  "app-detail.label.to-machine-app": "to {app} on {machine}",
   "app-detail.label.tool-call": "tool call",
   "app-detail.label.turn": "turn",
   "app-detail.label.undo-none": "None",

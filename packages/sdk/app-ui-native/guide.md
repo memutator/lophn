@@ -74,7 +74,7 @@ root의 오류 경계는 폰 앱의 base가 둔다. 폰 화면의 머리 줄은 
 
 | peer                 | version |
 | -------------------- | ------- |
-| `@lophn/ui-native`   | 0.3.0   |
+| `@lophn/ui-native`   | 0.3.1   |
 | `react-native`       | 0.88.1  |
 | `react`              | 19.3.0  |
 | `@lophn/declaration` | 4.9.0 (이 package가 의존으로 가져온다) |
@@ -84,13 +84,13 @@ root의 오류 경계는 폰 앱의 base가 둔다. 폰 화면의 머리 줄은 
 
 ```json
 "devDependencies": {
-  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.9.0"
+  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.9.1"
 }
 ```
 
 ```ts
 sdk_dependencies: [
-  { name: "@lophn/app-ui-native", version: "1.9.0" },
+  { name: "@lophn/app-ui-native", version: "1.9.1" },
 ],
 ```
 

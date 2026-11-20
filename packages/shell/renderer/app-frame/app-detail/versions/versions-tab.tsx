@@ -8,6 +8,7 @@ import { t } from "@lophn/i18n";
 import { Loadable } from "../loadable.tsx";
 import { dateTime, releaseName, stepText } from "../model.ts";
 import { Facts, Mono, Note, PaneToast, Section } from "../parts.tsx";
+import { useReadOnly } from "../read-only.ts";
 import { useReleaseChanges, useVersionView } from "../reads.ts";
 import type {
   AppDetailSource,
@@ -321,6 +322,7 @@ function Earlier({
   busy: boolean;
   onGoBack: (release: ReleaseCard) => void;
 }) {
+  const readOnly = useReadOnly();
   if (earlier.length === 0) return null;
   return (
     <Section title={t("app-detail.heading.earlier-releases")}>
@@ -364,17 +366,19 @@ function Earlier({
                   <span className={styles.muted}>{reason}</span>
                 )}
               </div>
-              <Button
-                size="sm"
-                icon={actionIcons.rewind}
-                disabled={reason !== null}
-                data-go-back={release.number}
-                onClick={() => onGoBack(release)}
-              >
-                {t("app-detail.button.go-back", {
-                  release: releaseName(release.number),
-                })}
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  size="sm"
+                  icon={actionIcons.rewind}
+                  disabled={reason !== null}
+                  data-go-back={release.number}
+                  onClick={() => onGoBack(release)}
+                >
+                  {t("app-detail.button.go-back", {
+                    release: releaseName(release.number),
+                  })}
+                </Button>
+              )}
             </li>
           );
         })}

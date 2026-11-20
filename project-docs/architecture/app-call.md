@@ -82,10 +82,10 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 - 누가 부르나: agent는 사람이 부르는 컴퓨터에서 그 agent에 할당한 `(컴퓨터, 앱)` 줄이 있고 command가 뺀 것이 아닐 때, 앱은 active grant의 `app.call`이 그 앱을 덮을 때, 사람의 터미널은 `lophn <앱> <command> --on <컴퓨터>`다. 컴퓨터는 이름, `mch_`, `dev_`로 고르고 같은 이름이 둘이면 후보를 보이며(`invalid_input`) 이 컴퓨터를 고르면 `invalid_input`이다. 앱이 붙이는 칸은 broker 본문의 `machine`이고 SDK `connectCommands`의 `on`이 채운다. 앱의 command는 최상위 입력 필드 `on`을 선언하지 못한다(CLI의 `--on`과 부딪힌다).
 - 판정은 두 번 한다. 부르는 컴퓨터가 보내기 전에 지금 규칙을 먼저 본다: 부른 쪽 workspace의 private, 받은 호출을 다시 넘기지 않기(둘 다 `forbidden`), 할당과 grant(없으면 `denied(gate_blocked)`). 아니면 아무것도 보내지 않는다. 받는 컴퓨터가 자기 data로 다시 본다: 요청한 컴퓨터가 명단에 있는지, 터미널 입력 허락이 있는지, command가 `public`인지, 대상 앱의 workspace가 private이 아닌지(`approval.md`). 앞의 판정이 뒤를 대신하지 않고 뒤의 판정이 앞을 다시 따지지 않는다. 컴퓨터는 서로 대등하다.
 - 받는 컴퓨터는 호출을 caller `remote {machine, device, requester}`로 지난다. 요청한 쪽(`screen`, `terminal`, `agent`, `app`)은 call frame의 `by`로만 오고 부른 컴퓨터가 쓴 값이라 이름은 주장된 대로 기록한다. 받는 컴퓨터의 handler가 자격을 만들고 `app.call_tool`로는 이 caller를 주장하지 못한다.
-- 받은 호출은 다른 컴퓨터로 다시 넘기지 않는다. 받는 컴퓨터에서 도는 앱이 `remote` target을 부르면 부르는 쪽 컴퓨터가 거절한다.
+- 받은 호출은 다른 컴퓨터로 다시 넘기지 않는다. 받는 컴퓨터에서 도는 앱이나 다른 컴퓨터의 event(또는 받은 호출이 낳은 이 기계의 event)로 연 job의 tool·agent가 `remote` target을 부르면 부르는 쪽 컴퓨터가 거절한다.
 - 다른 컴퓨터가 준 글은 믿지 않는다. agent가 보는 command 목록(`machines/app_tools`가 그 컴퓨터의 `apps/tools`를 읽는다)은 이 컴퓨터가 낸 선언이 지나는 이름 규칙과 schema 검사로 다시 거르고(틀린 command만 뺀다), 설명·schema·개수·답 전체에 상한을 두고, 읽는 데 짧은 시한(5초)을 둔다(닿지 않으면 "지금 닿지 않는다"). agent에게는 컴퓨터 이름을 붙여 보이고(tool 이름 `<slug>.<command>.on_<컴퓨터 id의 끝 8자>`) 결과가 말하는 빠진 secret은 그 컴퓨터에서 채우라고만 말한다.
-- 연결 하나의 call 한도(같이 8개, 하나 120초)는 화면이 부르는 `machines/call`과 같이 쓴다. 보냈는데 답을 잃은 호출은 `unknown`이고 보내지 못한 호출은 `unavailable`이다(`details.sent`가 나갔는지 말한다).
-- 기록은 받는 컴퓨터에만 있다. 부르는 컴퓨터에는 agent나 앱의 호출 기록이 따로 없다(대화의 tool 호출뿐).
+- 연결에서 앱 command는 화면이 부르는 `machines/call`·나르기와 자리를 나눠 쓴다(`command` 자리 4개, 시한 10분; 화면·나르기는 8개, 120초). 보냈는데 답을 잃은 호출은 `unknown`이고 보내지 못한 호출은 `unavailable`이다(`details.sent`가 나갔는지 말한다).
+- 부르는 컴퓨터는 보낼 때 가벼운 기록(`app_remote_calls`: caller, 대상 컴퓨터·앱·command, 시작·끝 시각, 상태 또는 `unknown`, 오류 한 줄)을 남긴다. changeset과 rewind는 없고, `app.remote_calls`로 읽어 App details의 Activity가 다른 컴퓨터로 보낸 호출로 함께 보인다(받는 컴퓨터가 꺼져 있어도 읽힌다). 기동 때 `running`으로 남은 줄은 `unknown`으로 닫는다.
 
 ### 앱 event
 
@@ -141,7 +141,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 9. 앱 호출 사슬은 같은 앱이 다시 나오면(`call_loop`) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.
 10. event 전달은 앱 호출 경로의 호출 하나다(caller `{kind: event, publisher, event, publication, trace_id, chain, parent_invocation, machine?}`). 구독 handler는 operation 자리로 부르고(선언에 따로 없는 이름이라 core의 선언 찾기가 구독만 operation으로 찾아 준다) effect는 write로 고정한다. 앱 DB를 바꿀 수 있어 changeset을 뜨고 rewind 대상이어야 하기 때문이다. 사람이나 다른 caller가 그 이름을 부르면 `denied(not_declared)`다. Gate는 묻지 않는다: 구독은 발행 앱이 내놓은 event를 받겠다는 선언이고 사람 허락을 두지 않았다. event로 이어지는 고리는 살아 있는 호출 사슬로 끊을 수 없다(전달은 구독자를 기다리지 않아 발행 앱의 호출이 먼저 끝난다). 그래서 caller의 `chain`(이 event를 부른 인과의 앱들, 발행자 포함)이 사슬을 싣고 간다: 구독 handler 안에서 낸 event의 chain은 그 handler가 불린 caller의 chain(호출 기록에서 읽는다)에 이어진다. 구독자가 chain에 이미 있거나 chain이 깊이 한도에 닿았으면 호출을 넘기지 않고 발행 기록의 `refused`에 센다.
 11. 다른 기계의 앱은 command만, agent와 앱만 부른다. target이 `remote`인 호출에서 operation이거나 caller가 사람·program·flow·event·`remote`이면 `forbidden`이다. 사람의 화면과 터미널은 이 길이 아니라 `machines/call`로 다른 기계를 부른다. 부르는 기계가 보는 것은 할당과 private뿐이고(`architecture/approval.md`), 받는 기계가 자기 규칙(명단, 터미널 입력 허락, 대상 앱 workspace의 private, `public` command)을 따로 본다. 요청한 쪽은 call frame의 `by`로만 오고 `apps/remote_call`의 입력에는 그 칸이 없다. 받는 기계의 handler는 `by`가 없는 호출을 거절한다. 부르는 기계의 `remote` target은 Gate를 지나지 않으므로 보내는 쪽이 할당(`remote_apps`의 줄과 뺀 command), 앱의 `app.call` grant, 부른 workspace의 private을 보낸 뒤가 아니라 보내기 전에 본다.
-12. 받은 call은 다른 기계로 다시 넘기지 않는다. 도는 호출(flight)이 caller가 `remote`이거나 부모 호출이 그렇다는 표시를 쥐고, 그 호출 안에서 앱이 `remote` target을 부르면 부르는 기계가 거절한다. 그러지 않으면 A의 요청이 B를 거쳐 C까지 닿아 B의 허락이 A에 넓어진다.
+12. 받은 call은 다른 기계로 다시 넘기지 않는다. 도는 호출(flight)이 caller가 `remote`이거나, 다른 기계의 event로 불린 handler·job(`program`, `agent`)이거나, 부모 호출이 그렇다는 표시를 쥐고, 그 안에서 `remote` target을 부르면 부르는 기계가 거절한다. 그러지 않으면 A의 요청이 B를 거쳐 C까지 닿아 B의 허락이 A에 넓어진다.
 
 ### 공개 범위와 사용 관계
 
@@ -207,7 +207,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - live view는 지금 도는 release를 따르고 card view는 묶인 release에 고정된다. 같은 인자로 다시 열면 지금 binding을 다시 읽어 돌려준다(host가 끊겼다 돌아올 때). card가 아닌 live view의 `release`는 처음 열 때의 전제일 뿐 신원이 아니라 다시 열기에서 견주지 않는다. 그래서 host는 다시 열 때 `release: null`을 보내, core가 view를 잃었어도(core 재시작, 내보냄) 지금 도는 release로 다시 연다. owner마다 64개이고 넘치면 가장 오래 쓰지 않은 view를 내보낸다. core가 shell보다 오래 살아 옛 view가 남기 때문이다.
    - release가 바뀌면(`AppViewChanged`) 표가 그 앱의 view를 다시 묶어 `AppViewEvent`(`rebound`나 `lost`)를 내고, 앱 event는 묶인 release가 구독을 선언한 live view에만 `AppViewEvent`(`event`)로 간다. `AppViewEvent`는 view를 연 owner의 Gateway 연결에만 간다(`architecture/event.md`).
    - shell main은 host다. view id를 정해 열고, 처음 보낸 열기 요청을 쥐었다가 다시 묶을 때(`rebound`·`lost`를 받았을 때, core에 다시 붙었을 때, core가 view를 모른다고 답했을 때) 같은 요청을 다시 보낸다. `app:call-operation`은 page 값에서 `{operation, input}`만 꺼내 그 view id로 `app_views.call`에 넘기고, `app:event`는 받은 `AppViewEvent`(`event`)를 그 view의 page에 옮긴다. 화면의 바깥 host(CSP)와 화면 byte는 shell main이 그 binding으로 정한다.
-4. 다른 기계의 앱 화면. 이 컴퓨터의 창은 다른 기계의 앱 화면(탭의 앱 화면, 앱 panel, 세션 카드)을 그 기계의 view 표로 연다. 다른 기계의 앱은 live 화면만 연다: preview와 App details는 개발과 관리라 이 컴퓨터의 것만 연다.
+4. 다른 기계의 앱 화면. 이 컴퓨터의 창은 다른 기계의 앱 화면(탭의 앱 화면, 앱 panel, 세션 카드)을 그 기계의 view 표로 연다. 다른 기계의 앱은 live 화면과 읽기만 하는 App details를 연다: preview는 개발이라 이 컴퓨터의 것만 연다. 다른 기계의 App details는 그 기계의 core를 기기 route로 읽어(실행 상태, 이은 폴더, release 줄, Activity, grant, SDK 판, 따라가기 상태) 보이고, 이름·보관·icon과 실행 switch·폴더 더하기/빼기·돌아가기·거두기·secret·rewind 단추는 그리지 않는다(쓰는 route가 기기 목록에 없거나 이 컴퓨터의 창 통로를 거친다). secret이 든 지는 사람의 route(`secrets/status`)라 허락 없는 기기에는 모른다고 보인다. 동의 card는 그 기계 사람의 것이라 이 컴퓨터의 대기 panel로 열지 않는다.
    - 탭의 기계 범위가 다른 기계면 view 열기 입력에 그 기계가 실린다. 같은 앱 id는 기계를 건너 한 앱이라 이 컴퓨터에 그 앱이 있으면 탭의 기계가 달라도 이 컴퓨터의 것을 연다.
    - binding은 그 기계의 `app_views.open|call|close`이고 shell main이 이 컴퓨터 core의 `machines/call`로 보낸다. owner는 그 기계가 보는 이 컴퓨터(`device:<이 컴퓨터>`)다. 화면 byte는 그 기계의 `apps/screen_file`(기기 call은 JSON이라 base64, 한 file 8 MiB), 바깥 host는 그 기계의 grant와 선언이다.
    - 앱 preload의 통로(`app:call-operation`, agent, session, call, project 읽기, 화면 오류)는 sender view가 묶인 기계의 core로만 간다. 그 기계는 이 컴퓨터를 기기로 보고 기기 route 목록으로 거른다. 목록에 없는 route는 그 기계가 `forbidden`으로 거절하고 shell main은 그 거절을 화면에 그대로 돌려준다(화면이 숨기지 않는다).

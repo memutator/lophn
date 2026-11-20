@@ -539,7 +539,14 @@ export function createLinks(deps: LinksDeps) {
   // 떠났으면 그 기계에서 돌았을 수 있고 아니면 돌지 않았다. 그 기계가 답한 오류(code, message, details)는 그대로다.
   async function deliver(
     body: RosterEntryBody | undefined,
-    input: { resource: string; method: string; body: unknown; by?: Requester },
+    input: {
+      resource: string;
+      method: string;
+      body: unknown;
+      by?: Requester;
+      lane?: "command";
+      deadlineMs?: number;
+    },
   ): Promise<Result<unknown>> {
     const link = body === undefined ? undefined : links.get(body.id);
     if (link === undefined || link.refused) {
@@ -554,6 +561,10 @@ export function createLinks(deps: LinksDeps) {
       method: input.method,
       body: input.body,
       ...(input.by === undefined ? {} : { by: input.by }),
+      ...(input.lane === undefined ? {} : { lane: input.lane }),
+      ...(input.deadlineMs === undefined
+        ? {}
+        : { deadlineMs: input.deadlineMs }),
     });
     if (reply.ok) return ok(reply.value);
     const error = reply.error as LophnError;
@@ -633,6 +644,8 @@ export function createLinks(deps: LinksDeps) {
         method: string;
         body: unknown;
         by: Requester;
+        lane?: "command";
+        deadlineMs?: number;
       },
     ): Promise<Result<unknown>> {
       const self = deps.roster.self()?.id;

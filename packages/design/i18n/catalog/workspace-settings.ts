@@ -280,6 +280,18 @@ export const workspaceSettings = {
   "settings.heading.keep-running": "Keep running",
   "settings.heading.remote-devices": "My devices",
   "settings.heading.remote-add": "Add a device",
+  "settings.heading.remote-addresses": "Addresses",
+  "settings.note.remote-addresses":
+    "Names or IP addresses, without a port, where your phones and other computers can reach this computer from anywhere: a Tailscale name such as studio.tail1234.ts.net, a domain, or a VM's public IP. They are tried before this computer's own network addresses. Other devices pick up a change on their next connection.",
+  "settings.note.remote-addresses-empty": "No addresses added.",
+  "settings.label.remote-address": "Address",
+  "settings.placeholder.remote-address": "studio.tail1234.ts.net",
+  "settings.button.remote-address-add": "Add address",
+  "settings.button.remote-address-edit": "Edit",
+  "settings.button.remote-address-remove": "Remove",
+  "settings.error.remote-address-invalid":
+    "Enter a host name or IP address without a port or a scheme.",
+  "settings.error.remote-addresses-not-saved": "Couldn't save the addresses.",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-global": "Global",

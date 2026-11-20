@@ -41,6 +41,7 @@ import {
   isCover,
   type ManifestBody,
   manifestBodySchema,
+  manifestEntries,
   manifestPath,
   manifestPathMachine,
   newerManifest,
@@ -333,7 +334,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
     const parsed = parseCarryPath(path);
     if (parsed === null || parsed.machine !== machine) return null;
     if (parsed.coveredBy === null) {
-      const found = body.files.find((file) => file.path === path);
+      const found = manifestEntries(body).find((file) => file.path === path);
       return found === undefined
         ? null
         : { size: found.size, sha256: found.sha256 };
@@ -348,7 +349,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
   function chainOf(machine: Id<"mch">, body: ManifestBody) {
     const files = new Map<string, Expected>();
     const current = new Set<string>();
-    const queue: [string, Expected][] = body.files.map((file) => [
+    const queue: [string, Expected][] = manifestEntries(body).map((file) => [
       file.path,
       { size: file.size, sha256: file.sha256 },
     ]);

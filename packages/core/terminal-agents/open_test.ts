@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok, type Result } from "../../base/mod.ts";
+import {
+  codingSessionsList,
+  codingSessionsOpen,
+} from "../../protocol/coding-agent/relay.ts";
+import { HOME_TERMINAL_PROJECT } from "../../protocol/coding-agent/terminals.ts";
 import { type CodingOpenDeps, createCodingOpen } from "./open.ts";
 
 const PROJECT = `prj_${"0".repeat(26)}`;
@@ -77,4 +82,28 @@ test("harness-gui가 꺼져 있으면 extension_off로 곧 실패하고 터미�
   assert.deepEqual(!done.ok && done.error.details, { reason: "extension_off" });
   assert.deepEqual(calls, []);
   assert.deepEqual(holds, []);
+});
+
+test("Home(project: home) coding session도 schema와 open이 받고 터미널을 연다", async () => {
+  assert.ok(
+    codingSessionsList.input.safeParse({ project: HOME_TERMINAL_PROJECT })
+      .success,
+  );
+  assert.ok(
+    codingSessionsOpen.input.safeParse({
+      project: HOME_TERMINAL_PROJECT,
+      harness: "claude",
+      key: "k-home",
+    }).success,
+  );
+  const { opener, calls } = setup([]);
+  const done = await opener.open({
+    project: HOME_TERMINAL_PROJECT,
+    harness: "claude",
+    key: "k-home",
+  });
+  assert.deepEqual(done, ok({ session: `ses_${"2".repeat(26)}` }));
+  assert.deepEqual(calls, [
+    { project: HOME_TERMINAL_PROJECT, command: "claude gui" },
+  ]);
 });

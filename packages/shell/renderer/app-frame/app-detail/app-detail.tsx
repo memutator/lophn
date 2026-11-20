@@ -13,6 +13,7 @@ import { ActivityTab } from "./activity/activity-tab.tsx";
 import { FoldersSection } from "./folders-section.tsx";
 import { IconSection } from "./icon-section.tsx";
 import { MachinesSection } from "./machines-section.tsx";
+import { ReadOnlyProvider } from "./read-only.ts";
 import { RunSection } from "./run-section.tsx";
 import { SubscriptionsSection } from "./subscriptions-section.tsx";
 import type { AppDetailSource } from "./source.ts";
@@ -149,55 +150,66 @@ export function AppDetail({
   onArchived,
   now = systemNow,
 }: AppDetailProps) {
+  const readOnly = source.readOnly === true;
   return (
-    <div className={styles.root} data-app-detail={app}>
-      <div className={styles.top}>
-        <h3 className={styles.name} data-app-detail-name="">
-          {name}
-        </h3>
+    <ReadOnlyProvider value={readOnly}>
+      <div className={styles.root} data-app-detail={app}>
+        <div className={styles.top}>
+          <h3 className={styles.name} data-app-detail-name="">
+            {name}
+          </h3>
+        </div>
+        {readOnly ? (
+          <p className={sectionStyles.note} data-app-read-only="">
+            {t("app-detail.note.read-only")}
+          </p>
+        ) : (
+          <>
+            <GeneralSection
+              // 창이 앱 이름을 읽어 오면 초안을 그 값에서 다시 시작한다.
+              key={name}
+              app={app}
+              name={name}
+              source={source}
+              onRenamed={onRenamed}
+              onArchived={onArchived}
+            />
+            <IconSection app={app} name={name} source={source} />
+          </>
+        )}
+        <RunSection app={app} source={source} now={now} />
+        <FoldersSection app={app} source={source} />
+        <MachinesSection app={app} now={now} />
+        <SubscriptionsSection app={app} />
+        <Tabs defaultValue="version">
+          <TabList>
+            <Tab value="version" size="sm">
+              {t("app-detail.label.tab-version")}
+            </Tab>
+            <Tab value="access" size="sm">
+              {t("app-detail.label.tab-access")}
+            </Tab>
+            <Tab value="activity" size="sm">
+              {t("app-detail.label.tab-activity")}
+            </Tab>
+          </TabList>
+          <TabPanel value="version">
+            <VersionsTab app={app} source={source} now={now} />
+          </TabPanel>
+          <TabPanel value="access">
+            <AccessTab app={app} source={source} now={now} />
+          </TabPanel>
+          <TabPanel value="activity">
+            <ActivityTab
+              app={app}
+              name={name}
+              source={source}
+              now={now}
+              onOpenSession={onOpenSession}
+            />
+          </TabPanel>
+        </Tabs>
       </div>
-      <GeneralSection
-        // 창이 앱 이름을 읽어 오면 초안을 그 값에서 다시 시작한다.
-        key={name}
-        app={app}
-        name={name}
-        source={source}
-        onRenamed={onRenamed}
-        onArchived={onArchived}
-      />
-      <IconSection app={app} name={name} source={source} />
-      <RunSection app={app} source={source} now={now} />
-      <FoldersSection app={app} source={source} />
-      <MachinesSection app={app} now={now} />
-      <SubscriptionsSection app={app} />
-      <Tabs defaultValue="version">
-        <TabList>
-          <Tab value="version" size="sm">
-            {t("app-detail.label.tab-version")}
-          </Tab>
-          <Tab value="access" size="sm">
-            {t("app-detail.label.tab-access")}
-          </Tab>
-          <Tab value="activity" size="sm">
-            {t("app-detail.label.tab-activity")}
-          </Tab>
-        </TabList>
-        <TabPanel value="version">
-          <VersionsTab app={app} source={source} now={now} />
-        </TabPanel>
-        <TabPanel value="access">
-          <AccessTab app={app} source={source} now={now} />
-        </TabPanel>
-        <TabPanel value="activity">
-          <ActivityTab
-            app={app}
-            name={name}
-            source={source}
-            now={now}
-            onOpenSession={onOpenSession}
-          />
-        </TabPanel>
-      </Tabs>
-    </div>
+    </ReadOnlyProvider>
   );
 }

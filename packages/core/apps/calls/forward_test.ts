@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Result } from "../../../base/mod.ts";
+import type { OutboundCalls } from "./outbound.ts";
 import {
   createIdSource,
   err,
   manualClock,
   ok,
+  type Result,
   seededRandom,
 } from "../../../base/mod.ts";
 import type { Assignment } from "../../../protocol/approvals/mod.ts";
@@ -34,6 +35,7 @@ import { resolveAppCall } from "../../lophn-agent/tools/lophn/resolve.ts";
 import type { VerifiedCaller } from "./caller.ts";
 import {
   createRemoteForward,
+  REMOTE_COMMAND_DEADLINE_MS,
   type RemoteForwardDeps,
   type RemoteMachines,
 } from "./forward.ts";
@@ -80,11 +82,29 @@ function setup(
   } = {},
 ) {
   const sent: Sent[] = [];
+  // 보낼 때 고른 lane과 시한.
+  const lanes: { lane?: string; deadlineMs?: number }[] = [];
+  const records: {
+    begin: Parameters<OutboundCalls["begin"]>[0];
+    end?: Parameters<OutboundCalls["finish"]>[1];
+  }[] = [];
+  const outbound: OutboundCalls = {
+    begin: (call) => {
+      records.push({ begin: call });
+      return ok(undefined);
+    },
+    finish: (id, end) => {
+      records.find((one) => one.begin.id === id)!.end = end;
+      return ok(undefined);
+    },
+    closeStale: () => ok(undefined),
+  };
   const computers = options.computers ?? [STUDIO, SELF];
   const machines: RemoteMachines = {
     computers: () => computers,
     resolve: (ref) => resolveMachine(ref, computers),
-    call: (device, call, by) => {
+    call: (device, { lane, deadlineMs, ...call }, by) => {
+      lanes.push({ lane, deadlineMs });
       sent.push({ device, call, by });
       return Promise.resolve(options.reply ?? ok(SUCCEEDED));
     },
@@ -107,8 +127,14 @@ function setup(
     machines: () => machines,
     policy: () => options.policy ?? DEFAULT_CALL_POLICY,
     agentName: () => (options.name === undefined ? "Ada" : options.name),
+    outbound,
+    clock: manualClock(Date.parse("2026-10-16T00:00:00.000Z")),
+    ids: createIdSource({
+      clock: manualClock(Date.parse("2026-10-16T00:00:00.000Z")),
+      random: seededRandom(7),
+    }),
   };
-  return { forward: createRemoteForward(deps), sent };
+  return { forward: createRemoteForward(deps), sent, lanes, records };
 }
 
 function agentCaller(
@@ -527,4 +553,60 @@ test("lophn <app> <command> --on <기계>는 apps/call_tool(remote)과 forward�
       by: { kind: "agent", agent: AGENT, session: SES, name: "Ada" },
     },
   ]);
+});
+
+test("보낼 때 command lane과 긴 시한으로 보내고, 부른 컴퓨터에 시작과 끝 기록을 남긴다", async () => {
+  const t = setup();
+  const done = await t.forward({
+    caller: agentCaller(),
+    target: target(),
+    name: "add",
+    input: undefined,
+  });
+  assert.ok(done.ok);
+  assert.deepEqual(t.lanes, [
+    { lane: "command", deadlineMs: REMOTE_COMMAND_DEADLINE_MS },
+  ]);
+  assert.equal(t.records.length, 1);
+  const [record] = t.records;
+  assert.deepEqual(record.begin.caller, {
+    kind: "agent",
+    agent: AGENT,
+    session: SES,
+    name: "Ada",
+  });
+  assert.equal(record.begin.machine, STUDIO.machine);
+  assert.equal(record.begin.app, APP);
+  assert.equal(record.begin.command, "add");
+  assert.equal(record.end?.status, "succeeded");
+
+  // 답을 잃으면 unknown으로 남는다: 그 컴퓨터가 꺼져 있어도 부른 쪽 기록은 읽힌다.
+  const lost = setup({
+    grants: [grant(["add"])],
+    reply: err({
+      code: "unavailable",
+      message: "connection closed",
+      details: { sent: true },
+    }),
+  });
+  await lost.forward({
+    caller: appCaller(),
+    target: target(),
+    name: "add",
+    input: undefined,
+  });
+  assert.deepEqual(lost.records[0].end?.status, "unknown");
+});
+
+test("다른 컴퓨터의 event로 연 job의 agent는 또 다른 컴퓨터를 부르지 못하고 기록도 남지 않는다", async () => {
+  const t = setup();
+  const done = await t.forward({
+    caller: { ...agentCaller(), remote: true },
+    target: target(),
+    name: "add",
+    input: undefined,
+  });
+  assert.equal(!done.ok && done.error.code, "forbidden");
+  assert.deepEqual(t.sent, []);
+  assert.deepEqual(t.records, []);
 });

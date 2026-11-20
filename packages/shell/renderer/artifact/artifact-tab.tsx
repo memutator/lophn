@@ -29,6 +29,7 @@ import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
 import { useAgentControl } from "../workspace/use-surface-requests.ts";
+import { useScopeMachine } from "../desktop/machines/context.tsx";
 import { CardHeadContext } from "../parts/card-head/card-head.tsx";
 import { fileNameOf } from "../editor/model.ts";
 import { artifactIcons, editorIcons } from "../icons/mod.ts";
@@ -62,7 +63,7 @@ interface ArtifactTabProps {
 // 열기 입력을 이은 글. 입력이 바뀐 view를 다시 쓰지 않게 한다.
 function signatureOf(source: ArtifactSource): string {
   return source.kind === "artifact"
-    ? `artifact\n${"app" in source ? source.app : source.project}\n${source.name}`
+    ? `artifact\n${source.machine ?? ""}\n${"app" in source ? source.app : source.project}\n${source.name}`
     : source.kind === "file"
       ? `file\n${source.project}\n${source.path}`
       : `workflow\n${source.project}\n${source.workflow}\n${source.view}\n${
@@ -74,6 +75,7 @@ export function ArtifactTab(props: ArtifactTabProps) {
   const views = useAppViews()?.views;
   const api = useArtifactApi();
   const webviews = useWebviewHost();
+  const scopeMachine = useScopeMachine();
   if (views === undefined || api === null || webviews === null) {
     return (
       <ErrorState
@@ -82,7 +84,13 @@ export function ArtifactTab(props: ArtifactTabProps) {
       />
     );
   }
-  return <OpenTab {...props} api={api} webviews={webviews} />;
+  const source: ArtifactSource =
+    props.source.kind === "artifact" &&
+    props.source.machine === undefined &&
+    scopeMachine !== null
+      ? { ...props.source, machine: scopeMachine }
+      : props.source;
+  return <OpenTab {...props} source={source} api={api} webviews={webviews} />;
 }
 
 function OpenTab(
@@ -92,6 +100,8 @@ function OpenTab(
   },
 ) {
   const { api, source, shown, keeps, keepKey, webviews } = props;
+  // 다른 컴퓨터의 artifact는 읽기 전용이다(Edit source·Annotate·agent 조작 없음).
+  const remote = source.kind === "artifact" && source.machine !== undefined;
   const layer = useViewLayer();
   const [viewSession, setViewSession] = useState<string | null>(null);
   const [state, setState] = useState<ArtifactViewState | null>(null);
@@ -213,7 +223,7 @@ function OpenTab(
 
   // agent가 `lophn tab open --artifact`로 연 탭(key `host:`)이면 view session을 main에 알리고 take control 상태를 받는다.
   // agent가 다루는 동안은 가려져도 그리기를 이어 간다(screenshot과 입력이 되려면 guest가 그려져야 한다).
-  const agent = useAgentControl(keepKey, viewSession);
+  const agent = useAgentControl(keepKey, remote ? null : viewSession);
   const driven = agent !== null;
   useEffect(() => {
     webviews.setDriven(keepKey, driven);
@@ -223,7 +233,11 @@ function OpenTab(
 
   // ---- annotate ----
 
-  const annotating = useAnnotate(useAnnotateApi(), viewSession);
+  const annotateApi = useAnnotateApi();
+  const annotating = useAnnotate(
+    remote ? undefined : annotateApi,
+    remote ? null : viewSession,
+  );
   const toast = useViewToast(useBrowserOverlay() ?? undefined);
   const annotateOn = annotating.state?.on ?? false;
   const count = annotating.state?.items.length ?? 0;
@@ -275,7 +289,7 @@ function OpenTab(
         {t("artifact.note.file-root", { folder })}
       </span>
     );
-  const editSource = (
+  const editSource = remote ? null : (
     <Button
       size="sm"
       variant="ghost"
@@ -289,8 +303,8 @@ function OpenTab(
       {t("artifact.button.edit-source")}
     </Button>
   );
-  // card 밖(floated)에는 ⋯ 메뉴가 없어 Annotate도 단추로 둔다.
-  const buttons = (
+  // card 밖(floated)에는 ⋯ 메뉴가 없어 Annotate도 단추로 둔다. 다른 컴퓨터의 artifact는 읽기 전용이라 감춘다.
+  const buttons = remote ? null : (
     <span className={styles.actions} data-artifact-toolbar="">
       {editSource}
       <Button
@@ -329,6 +343,7 @@ function OpenTab(
     shellHead: {
       key: JSON.stringify([
         ready,
+        remote,
         annotateOn,
         folder,
         count,
@@ -337,26 +352,29 @@ function OpenTab(
         agent?.held,
         driven,
       ]),
-      ...(annotateBar ?? {
-        actions: (
-          <>
-            {rootNote}
-            {agentBar}
-            {editSource}
-          </>
-        ),
-        menu: {
-          items: [
-            {
-              id: ANNOTATE_ITEM,
-              label: t("artifact.button.annotate"),
-              leading: <MenuIcon icon={editorIcons.edit} />,
-              ...(ready ? {} : { disabled: true }),
-            },
-          ],
-          onSelect: () => latest.current.annotating.setMode(true),
-        },
-      }),
+      ...(annotateBar ??
+        (remote
+          ? {}
+          : {
+              actions: (
+                <>
+                  {rootNote}
+                  {agentBar}
+                  {editSource}
+                </>
+              ),
+              menu: {
+                items: [
+                  {
+                    id: ANNOTATE_ITEM,
+                    label: t("artifact.button.annotate"),
+                    leading: <MenuIcon icon={editorIcons.edit} />,
+                    ...(ready ? {} : { disabled: true }),
+                  },
+                ],
+                onSelect: () => latest.current.annotating.setMode(true),
+              },
+            })),
     },
   });
 

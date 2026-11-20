@@ -279,8 +279,12 @@ export function createAppCalls(deps: AppCallsDeps): {
           "only an agent or an app calls a command on another machine",
         );
       }
-      // 받은 call은 다른 기계로 다시 넘기지 않는다. 받은 call을 돌리는 중인 이 기계의 앱(부모 호출이 remote)이 또 다른 기계를 부르는 길도 같다.
-      if (caller.kind === "app" && caller.parent.remote) {
+      // 받은 call은 다른 기계로 다시 넘기지 않는다. 받은 call을 돌리는 중인 이 기계의 앱(부모 호출이 remote)이나
+      // 다른 컴퓨터의 event로 연 job의 agent가 또 다른 기계를 부르는 길도 같다.
+      if (
+        (caller.kind === "app" && caller.parent.remote) ||
+        (caller.kind === "agent" && caller.remote)
+      ) {
         return forbidden("a received remote call is not forwarded again");
       }
       return deps.forward({
@@ -426,6 +430,8 @@ export function createAppCalls(deps: AppCallsDeps): {
       remote:
         caller.kind === "remote" ||
         (caller.kind === "event" && caller.remote) ||
+        ((caller.kind === "agent" || caller.kind === "program") &&
+          caller.remote) ||
         (parentOf(caller)?.remote ?? false),
       async abandon() {
         abandoned = true;

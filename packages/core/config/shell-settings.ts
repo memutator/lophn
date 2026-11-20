@@ -423,14 +423,34 @@ export const remotePortSetting = declareSetting({
 });
 
 // 사람이 적는 이 컴퓨터의 주소(domain이나 IP). interface에 붙지 않는 공인 주소(VM)나 이름으로 닿는 곳을 폰에 알린다.
-// QR과 hello의 주소 후보에서 interface 주소 앞에 선다. 폰이 거는 곳이라 사람만 바꾼다.
+// QR과 hello의 주소 후보에서 interface 주소 앞에 선다. 폰이 거는 곳이라 agent의 바꾸기는 사람의 승인이다(승인 카드가 줄을 그대로 보인다).
+function describeAddresses(
+  before: string[] | undefined,
+  after: string[] | undefined,
+): string[] {
+  const was = before ?? [];
+  const now = after ?? [];
+  const lines = [
+    ...now
+      .filter((one) => !was.includes(one))
+      .map((one) => `Add address ${one}`),
+    ...was
+      .filter((one) => !now.includes(one))
+      .map((one) => `Remove address ${one}`),
+  ];
+  return lines.length > 0 || was.join() === now.join()
+    ? lines
+    : [`Reorder addresses: ${now.join(", ")}`];
+}
+
 export const remoteAddressesSetting = declareSetting({
   key: "remote.addresses",
   type: remoteAddressesSchema,
   default: [],
   description:
-    "Extra addresses (host names or IP addresses, no port) where paired phones and other computers can reach this computer, such as a VM's public address or a Tailscale name. They are offered before this computer's own network addresses when `remote.enabled` is on.",
-  locked: true,
+    "Extra addresses (host names or IP addresses, no port) where paired phones and other computers can reach this computer, such as a VM's public address or a Tailscale name. They are offered before this computer's own network addresses when `remote.enabled` is on. When you change it, the person is asked to allow that exact change.",
+  approval: "person",
+  describe: describeAddresses,
 });
 
 // 폰이 다른 network에서 붙는 relay. 기본은 lophn이 Fly.io에 띄운 relay다. 비우면 relay를 쓰지 않는다.

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
+import { terminalProjectSchema } from "./terminals.ts";
 import type {
   AcpCliSession,
   AcpRewindPreview,
@@ -26,7 +27,8 @@ export const codingSessionSchema = z.strictObject({
   harness: z.string().min(1),
   // harness의 보이는 이름(`Claude Code`). 모르는 harness면 id 그대로다.
   label: z.string(),
-  project: idSchema("prj"),
+  // Home의 터미널은 `home`이다.
+  project: terminalProjectSchema,
   cwd: z.string().nullable(),
   title: z.string().nullable(),
   state: z.enum(["running", "waiting", "idle", "unknown"]),
@@ -55,7 +57,7 @@ export const codingSessionsList = defineRead({
   resource: "coding_sessions",
   method: "list",
   name: "CodingSessionsList",
-  input: z.strictObject({ project: idSchema("prj").optional() }),
+  input: z.strictObject({ project: terminalProjectSchema.optional() }),
   output: z.strictObject({
     sessions: z.array(codingSessionSchema),
   }),
@@ -121,7 +123,7 @@ export const codingSessionsOpen = defineMemory({
   name: "CodingSessionsOpen",
   changes: ["coding_sessions"],
   input: z.strictObject({
-    project: idSchema("prj"),
+    project: terminalProjectSchema,
     harness: z.string().min(1).max(64),
     resume: z.strictObject({ session: idSchema("ses") }).optional(),
     key: z.string().min(1).max(200),

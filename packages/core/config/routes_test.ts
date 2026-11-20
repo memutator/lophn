@@ -11,6 +11,7 @@ import type {
 } from "../../protocol/approvals/mod.ts";
 import { destinationsSetting } from "../folder/destinations.ts";
 import { createSettingsRegistry } from "./registry.ts";
+import { remoteAddressesSetting } from "./shell-settings.ts";
 import { type AskPerson, settingsUpdateHandler } from "./routes.ts";
 import { createSettingsStore } from "./store.ts";
 
@@ -318,4 +319,95 @@ test("기기 자격의 remote 설정 쓰기는 forbidden이고 같이 보낸 바
     );
     assert.equal(readFileSync(file, "utf8"), original);
   });
+});
+
+// remote.addresses는 폰이 거는 곳을 정한다: agent의 바꾸기는 사람이 바뀜을 보고 허락하고, 사람(Settings 화면)은 바로 쓴다.
+test("remote.addresses는 agent가 바꾸면 승인 카드에 바뀜을 보이고 사람은 바로 쓴다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-settings-addresses-"));
+  const store = createSettingsStore({
+    root,
+    registry: createSettingsRegistry([remoteAddressesSetting]),
+    publish: () => {},
+    log: () => {},
+  });
+  const asked: ToolGateInput[] = [];
+  const update = settingsUpdateHandler(store, (_who, one) => {
+    asked.push(one);
+    return Promise.resolve(ok({ kind: "run" }));
+  });
+  try {
+    const first = await update(
+      { ...(PERSON as object), principal: "user" } as never,
+      {
+        changes: [
+          { key: "remote.addresses", action: "set", value: ["a.example.com"] },
+        ],
+      },
+    );
+    assert.deepStrictEqual(asked, []);
+    assert.equal((first as { ok: boolean }).ok, true);
+
+    const second = await update(
+      { ...(AGENT as object), principal: "user" } as never,
+      {
+        tool_call: TOOL_CALL,
+        changes: [
+          {
+            key: "remote.addresses",
+            action: "set",
+            value: ["studio.tail1234.ts.net"],
+          },
+        ],
+      },
+    );
+    assert.deepStrictEqual(
+      asked.map((one: ToolGateInput) => one.call),
+      [
+        {
+          kind: "setting",
+          key: "remote.addresses",
+          lines: [
+            "Add address studio.tail1234.ts.net",
+            "Remove address a.example.com",
+          ],
+        },
+      ],
+    );
+    assert.deepStrictEqual(second, {
+      ok: true,
+      value: { changed: ["remote.addresses"], rejected: [], notes: [] },
+    });
+
+    // Rejecting leaves the saved addresses unchanged.
+    const refused = await settingsUpdateHandler(store, () =>
+      Promise.resolve(
+        ok({ kind: "rejected", reason: "wrong host", by: "person" }),
+      ),
+    )({ ...(AGENT as object), principal: "user" } as never, {
+      tool_call: TOOL_CALL,
+      changes: [
+        { key: "remote.addresses", action: "set", value: ["evil.example"] },
+      ],
+    });
+    assert.deepStrictEqual(refused, {
+      ok: true,
+      value: {
+        changed: [],
+        rejected: [
+          {
+            key: "remote.addresses",
+            reason: "needs_approval",
+            message: "the person rejected this change: wrong host",
+          },
+        ],
+        notes: [],
+      },
+    });
+    assert.deepStrictEqual(store.chosen()["remote.addresses"], [
+      "studio.tail1234.ts.net",
+    ]);
+  } finally {
+    store.close();
+    await rm(root, { recursive: true, force: true });
+  }
 });

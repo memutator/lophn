@@ -235,6 +235,7 @@ function computer() {
     now: () => clock.now(),
     changed: () => {},
   });
+  const dataChangedApps: Id<"app">[] = [];
   const calls = createAppCalls({
     callers: { agentToolCall: () => ok(null) },
     lookup: {
@@ -253,6 +254,7 @@ function computer() {
     forward: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
     sync: log,
+    dataChanged: (app) => dataChangedApps.push(app),
   });
   const appSync = createAppSync({
     log,
@@ -419,6 +421,7 @@ function computer() {
     write,
     phone,
     logRows,
+    dataChangedApps,
     dump: () => dumpData(state.sync!.db),
     close: () => closeConnection(file),
   };
@@ -830,6 +833,28 @@ test("held 줄의 bytes는 풀어도, release가 바뀌어도 남고 폰 pull에
         [String(held.value), row["changeset_hash"]],
       ) !== undefined,
     );
+  } finally {
+    pc.close();
+  }
+});
+
+test("폰 push가 변경을 적용하면 dataChanged가 한 번 불리고 duplicate에는 다시 불리지 않는다", async () => {
+  const pc = computer();
+  try {
+    const phoneA = await pc.phone("evt");
+    const change = phoneA.write(
+      clock.nowMs() + 10,
+      "insert into item values ('e1', 'eggs', 0)",
+    );
+    const first = await phoneA.push([change]);
+    assert.ok(first.ok);
+    assert.equal(first.value.results[0]!.status, "applied");
+    assert.deepEqual(pc.dataChangedApps, [APP]);
+
+    const duplicate = await phoneA.push([change]);
+    assert.ok(duplicate.ok);
+    assert.equal(duplicate.value.results[0]!.status, "duplicate");
+    assert.deepEqual(pc.dataChangedApps, [APP]);
   } finally {
     pc.close();
   }

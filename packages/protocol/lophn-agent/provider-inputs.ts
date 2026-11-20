@@ -7,6 +7,7 @@ import { ERROR_CODES } from "../../base/mod.ts";
 import {
   CREDENTIAL_STATES,
   modelBlockSchema,
+  OAUTH_CALLBACK_MODES,
   OAUTH_FLOWS,
   providerAccountSchema,
   providerAuthKindSchema,
@@ -179,11 +180,22 @@ export const providerSignInOutputSchema = z.object({
   flow: z.enum(OAUTH_FLOWS),
   interval_ms: durationMsSchema,
   expires_at: atSchema,
-  // 사람이 OS browser에서 열 공식 로그인 주소와 device code. 값 없는 안내라 secret이 아니다.
+  // 사람이 OS browser에서 열 공식 로그인 주소(auth_url)와 device code. 값 없는 안내라 secret이 아니다.
   sign_in: z.object({
     url: z.string(),
     user_code: nonblankSchema.nullable(),
   }),
+  // remote_handoff면 발급자가 돌려보낼 loopback 주소(`redirect_uri`)다. 시작한 기기가 그 port를 듣거나, 사람이 돌아온 주소를
+  // 붙여 넣어 `providers/sign-in-callback`으로 건넨다. 그 밖에는 null이다.
+  callback_mode: z.enum(OAUTH_CALLBACK_MODES),
+  redirect_uri: z.string().nullable(),
+});
+
+// 다른 기기가 사람이 돌아온 주소(전체 URL 또는 `code=...&state=...`)를 시작한 기계의 core에 건넨다.
+export const providerSignInCallbackInputSchema = z.strictObject({
+  provider: idSchema("pvd"),
+  login: nonblankSchema,
+  callback_url: z.string().min(1).max(4096),
 });
 
 export const loginCancelInputSchema = z.strictObject({
@@ -227,6 +239,8 @@ export const providerSignInStateSchema = z.discriminatedUnion("state", [
     flow: z.enum(OAUTH_FLOWS),
     expires_at: atSchema,
     sign_in: providerSignInOutputSchema.shape.sign_in,
+    callback_mode: providerSignInOutputSchema.shape.callback_mode,
+    redirect_uri: providerSignInOutputSchema.shape.redirect_uri,
   }),
   z.object({ state: z.literal("connected"), provider: idSchema("pvd") }),
   z.object({

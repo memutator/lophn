@@ -17,6 +17,8 @@ export type CallAuth = {
   program?: {
     job: Id<"job">;
     job_run: Id<"jbr">;
+    // 다른 컴퓨터의 event가 연 차례다.
+    remote: boolean;
   };
   // actor가 flow일 때만 있다. program과 같이 route는 만들지 못하고 core 안 run 연산만 만든다.
   flow?: {
@@ -53,9 +55,11 @@ export type VerifiedCaller =
       session: Id<"ses">;
       turn: Id<"trn">;
       toolCall: Id<"tcl">;
+      // 다른 컴퓨터의 event로 연 job의 session이다(그 호출과 발행은 다른 컴퓨터로 되돌아가지 않는다).
+      remote: boolean;
     }
   | { kind: "app"; app: Id<"app">; parent: Flight }
-  | { kind: "program"; job: Id<"job">; job_run: Id<"jbr"> }
+  | { kind: "program"; job: Id<"job">; job_run: Id<"jbr">; remote: boolean }
   // remote: 다른 기계에서 온 event가 부른 handler다(다른 컴퓨터를 다시 부르지 못하고 낸 event도 다른 컴퓨터로 가지 않는다).
   | { kind: "event"; parent: Flight | null; remote: boolean }
   | {
@@ -150,6 +154,7 @@ export function verifyCaller(
       session: caller.session as Id<"ses">,
       turn: caller.turn as Id<"trn">,
       toolCall: caller.tool_call as Id<"tcl">,
+      remote: found.value.remote,
     });
   }
 
@@ -173,6 +178,7 @@ export function verifyCaller(
       kind: "program",
       job: program.job,
       job_run: program.job_run,
+      remote: program.remote,
     });
   }
 

@@ -8,6 +8,7 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import type { ArtifactListItem } from "../../../ipc/artifact.ts";
 import { useArtifactApi } from "../../artifact/artifact-api.tsx";
 import { useArtifactList } from "../../artifact/use-artifact-list.ts";
+import { useScopeMachine } from "../../desktop/machines/context.tsx";
 import { actionIcons, artifactIcons } from "../../icons/mod.ts";
 import {
   PanelEmpty,
@@ -25,6 +26,7 @@ export function ArtifactPanel({
   onOpen: (name: string) => void;
 }) {
   const api = useArtifactApi();
+  const remote = useScopeMachine() !== null;
   const { items, reload } = useArtifactList({ kind: "project", id: project });
   const [target, setTarget] = useState<ArtifactListItem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,18 +73,22 @@ export function ArtifactPanel({
               title={item.title}
               tag={item.name}
               meta={item.description}
-              hoverTrailing
-              trailing={
-                <Tooltip content={label}>
-                  <IconButton
-                    icon={actionIcons.delete}
-                    label={label}
-                    size="sm"
-                    data-action="delete-artifact"
-                    onClick={() => setTarget(item)}
-                  />
-                </Tooltip>
-              }
+              {...(remote
+                ? {}
+                : {
+                    hoverTrailing: true,
+                    trailing: (
+                      <Tooltip content={label}>
+                        <IconButton
+                          icon={actionIcons.delete}
+                          label={label}
+                          size="sm"
+                          data-action="delete-artifact"
+                          onClick={() => setTarget(item)}
+                        />
+                      </Tooltip>
+                    ),
+                  })}
               onClick={() => onOpen(item.name)}
             />
           );

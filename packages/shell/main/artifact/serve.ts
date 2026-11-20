@@ -5,6 +5,7 @@ import { extname } from "node:path";
 
 import { ENTRIES_PATH, listDataEntries } from "./entries.ts";
 import { resolveInsideRoot } from "./paths.ts";
+import type { RemoteArtifact } from "./source.ts";
 
 // rea DEFAULT_CSP에서 connect-src만 'self'다. template이 자기 data/를 fetch해야 갈아끼우기와 series가 된다.
 const CSP = [
@@ -50,6 +51,9 @@ const CONTENT_TYPES: Record<string, string> = {
 export function createArtifactServer(deps: {
   rootOf(host: string): string | undefined;
   scopeOf(host: string): string | undefined;
+  /** 다른 컴퓨터의 artifact를 연 host면 그 대상. root 대신 그 컴퓨터가 file을 준다. */
+  remoteOf(host: string): RemoteArtifact | undefined;
+  readRemote(target: RemoteArtifact, path: string): Promise<Uint8Array | null>;
   readInstance(instance: string): Promise<string | null>;
   kit(name: "kit.js" | "kit.css"): Promise<Uint8Array<ArrayBuffer> | null>;
   maxBytes: number;
@@ -71,14 +75,15 @@ export function createArtifactServer(deps: {
       return new Response(null, { status: 405 });
     }
     const url = new URL(request.url);
+    const remote = deps.remoteOf(url.hostname);
     const root = deps.rootOf(url.hostname);
-    if (root === undefined) return notFound();
+    if (root === undefined && remote === undefined) return notFound();
     let path = url.pathname;
     if (path.endsWith("/")) path += "index.html";
     const head = request.method === "HEAD";
 
     const key = path.replace(/^\/+/, "");
-    if (key === ENTRIES_PATH) {
+    if (root !== undefined && key === ENTRIES_PATH) {
       return new Response(head ? null : await listDataEntries(root), {
         status: 200,
         headers: headers("application/json; charset=utf-8", CSP),
@@ -94,6 +99,37 @@ export function createArtifactServer(deps: {
         headers: headers(kit.type, CSP),
       });
     }
+
+    if (remote !== undefined) {
+      // core가 폴더 밖 path를 거절하지만 여기서도 어휘로 한 번 거른다.
+      let decoded: string;
+      try {
+        decoded = decodeURIComponent(key);
+      } catch {
+        return notFound();
+      }
+      if (
+        decoded === "" ||
+        decoded.includes("\0") ||
+        decoded.includes("\\") ||
+        decoded
+          .split("/")
+          .some((part) => part === ".." || part === "." || part === "")
+      ) {
+        return notFound();
+      }
+      const bytes = await deps.readRemote(remote, decoded);
+      if (bytes === null || bytes.byteLength > deps.maxBytes) return notFound();
+      return new Response(head ? null : new Uint8Array(bytes), {
+        status: 200,
+        headers: headers(
+          CONTENT_TYPES[extname(decoded).toLowerCase()] ??
+            "application/octet-stream",
+          CSP,
+        ),
+      });
+    }
+    if (root === undefined) return notFound();
 
     const scope =
       key === INSTANCE_PATH ? deps.scopeOf(url.hostname) : undefined;

@@ -1,11 +1,13 @@
 // Settings › Sync의 가짜 통로. core를 부르지 않고 메모리에 둔다. 거절은 `refuse`로 고정한다.
 import type { MachineItem } from "../../../machines/source.ts";
 import type {
+  AvailableApp,
   SaveOutcome,
   SyncAppRow,
   SyncFolder,
   SyncReceived,
   SyncSettingsSource,
+  TakeInOutcome,
 } from "../source.ts";
 
 const HOUR = 60 * 60 * 1000;
@@ -20,6 +22,10 @@ export interface FakeSyncOptions {
   remoteEnabled?: boolean;
   received?: SyncReceived[];
   apps?: SyncAppRow[];
+  /** 다른 컴퓨터가 내놓은 앱. 없으면 하나(`Recipes`)다. */
+  available?: AvailableApp[];
+  /** [Install on this computer]의 결과. 없으면 준비된다. */
+  takeIn?: TakeInOutcome;
   /** 명단에 같은 machine id가 둘 이상인 컴퓨터. */
   duplicateMachines?: string[];
   /** 같이 보는 폴더의 상태. 없으면 쓸 수 있다. */
@@ -132,7 +138,22 @@ export function fakeSync(options: FakeSyncOptions = {}) {
         received: options.received ?? sampleReceived(),
         apps: options.apps ?? sampleApps(),
         duplicateMachines: options.duplicateMachines ?? [],
+        available: options.available ?? [
+          {
+            app: "app_01jd00000000000000000000rc",
+            name: "Recipes",
+            machine: "mch_homeserver",
+          },
+        ],
       }),
+    takeIn: (app) =>
+      Promise.resolve(
+        options.takeIn ?? {
+          ok: true,
+          app,
+          release: "rel_01jd00000000000000000000rc",
+        },
+      ),
     async saveNamed({ name, path, was }) {
       const done = await saved();
       if (!done.ok) return done;

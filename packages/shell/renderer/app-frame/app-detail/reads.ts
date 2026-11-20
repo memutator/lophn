@@ -13,6 +13,8 @@ import {
   appGrantsList,
   type AppInvocation,
   appInvocations,
+  type AppRemoteCallRecord,
+  appRemoteCalls,
   appRewindPlan,
   appRuntime,
   appSdkStatus,
@@ -528,7 +530,7 @@ type OAuthLine = z.output<typeof appsOAuthState.output>["secrets"][number];
 
 function secretInfo(
   scope: Extract<AppGrant["scope"], { kind: "secret.use" }>,
-  configured: boolean,
+  configured: boolean | null,
   line: OAuthLine | undefined,
 ): SecretInfo {
   const oauth = scope.oauth;
@@ -595,19 +597,19 @@ export function useAccessView(app: string): ReadHandle<AccessView> {
         readRoute(core, appsOAuthState, { app }),
         readRoute(core, appGet, { app }),
       ]);
-      if (!listedRead.ok || !statusRead.ok || !foundRead.ok) {
-        return { ok: false };
-      }
+      if (!listedRead.ok || !foundRead.ok) return { ok: false };
       const listed = listedRead.value;
-      const status = statusRead.value;
       const oauth = valueOr(oauthRead);
       const found = foundRead.value;
       const lookup = lookups(core);
-      const configured = new Set(
-        status.secrets
-          .filter((item) => item.configured)
-          .map((item) => item.name),
-      );
+      // 다른 컴퓨터는 사람의 허락이 없으면 secret 상태를 내주지 않는다(forbidden). 그때는 값이 든지 모른다고 보인다.
+      const configured = statusRead.ok
+        ? new Set(
+            statusRead.value.secrets
+              .filter((item) => item.configured)
+              .map((item) => item.name),
+          )
+        : null;
       const lines = new Map(
         (oauth?.secrets ?? []).map((line) => [line.name, line]),
       );
@@ -621,7 +623,7 @@ export function useAccessView(app: string): ReadHandle<AccessView> {
             scope.kind === "secret.use"
               ? secretInfo(
                   scope,
-                  configured.has(scope.name),
+                  configured === null ? null : configured.has(scope.name),
                   lines.get(scope.name),
                 )
               : undefined,
@@ -771,30 +773,110 @@ const nameOf = (operation: AppInvocation["operation"]) =>
     ? operation.name
     : null;
 
+function outboundStateOf(status: AppRemoteCallRecord["status"]): CallState {
+  switch (status) {
+    case "running":
+      return "running";
+    case "succeeded":
+      return "done";
+    case "failed":
+    case "denied":
+      return "failed";
+    case "unknown":
+      return "unknown";
+  }
+}
+
+async function outboundRowOf(
+  record: AppRemoteCallRecord,
+  names: Names,
+): Promise<ActivityRow> {
+  const by = record.caller;
+  let caller: Caller;
+  if (by.kind === "agent") {
+    const session =
+      by.session !== null ? await names.session(by.session) : null;
+    const name = (await names.agentName(by.agent)) ?? by.name;
+    caller = {
+      kind: "agent",
+      agent: by.agent,
+      name,
+      session: by.session,
+      title: session?.title ?? null,
+      turn: null,
+      toolCall: null,
+    };
+  } else {
+    caller = {
+      kind: "app",
+      app: by.app,
+      appName: await names.appName(by.app),
+      releaseNumber: null,
+    };
+  }
+  const appName = await names.appName(record.app);
+  return {
+    id: record.id,
+    at: record.finished_at ?? record.started_at,
+    caller,
+    tool: record.command,
+    kind: "call",
+    effect: "external",
+    state: outboundStateOf(record.status),
+    undone: false,
+    releaseNumber: null,
+    earlier: false,
+    inputHash: null,
+    result: record.error ?? "",
+    remoteTarget: {
+      machine: record.computer,
+      app: record.app,
+      appName,
+    },
+  };
+}
+
 export function useActivityView(app: string): ReadHandle<ActivityView> {
   const invocationsInput = {
     app,
     mode: "live" as const,
     limit: ACTIVITY_LIMIT,
   };
+  const remoteToInput = { app, limit: ACTIVITY_LIMIT };
+  const remoteFromInput = { caller_app: app, limit: ACTIVITY_LIMIT };
   const releasesInput = { app, limit: RELEASE_LIMIT };
   const noticesInput = { app, persistent: true, limit: NOTICE_LIMIT };
   return useFollowedRead<ActivityView>(
     async (core) => {
-      const [invocationsRead, releasesRead, foundRead, historyRead] =
-        await Promise.all([
-          readRoute(core, appInvocations, invocationsInput),
-          readRoute(core, releasesListRecords, releasesInput),
-          readRoute(core, appGet, { app }),
-          readRoute(core, noticesList, noticesInput),
-        ]);
+      const [
+        invocationsRead,
+        remoteToRead,
+        remoteFromRead,
+        releasesRead,
+        foundRead,
+        historyRead,
+      ] = await Promise.all([
+        readRoute(core, appInvocations, invocationsInput),
+        readRoute(core, appRemoteCalls, remoteToInput),
+        readRoute(core, appRemoteCalls, remoteFromInput),
+        readRoute(core, releasesListRecords, releasesInput),
+        readRoute(core, appGet, { app }),
+        readRoute(core, noticesList, noticesInput),
+      ]);
       if (!invocationsRead.ok || !foundRead.ok) return { ok: false };
       const invocations = invocationsRead.value;
       // release 번호를 못 읽어도 호출 기록은 보인다.
       const releases = valueOr(releasesRead);
       const found = foundRead.value;
-      // 영구 기록을 못 읽어도 호출 기록은 보이게 비운다.
+      // 영구 기록이나 다른 컴퓨터 호출 기록을 못 읽어도 이 컴퓨터 호출 기록은 보이게 비운다.
       const history = valueOr(historyRead);
+      const outboundMap = new Map<string, AppRemoteCallRecord>();
+      for (const call of valueOr(remoteToRead)?.calls ?? []) {
+        outboundMap.set(call.id, call);
+      }
+      for (const call of valueOr(remoteFromRead)?.calls ?? []) {
+        outboundMap.set(call.id, call);
+      }
       const active = found.app.active_release;
       const numbers = new Map(
         (releases?.releases ?? []).map((release) => [
@@ -803,26 +885,34 @@ export function useActivityView(app: string): ReadHandle<ActivityView> {
         ]),
       );
       const lookup = lookups(core);
-      const rows: ActivityRow[] = await Promise.all(
-        invocations.invocations.map(async (invocation) => ({
-          id: invocation.id,
-          at: invocation.finished_at ?? invocation.started_at,
-          caller: await callerOf(
-            invocation.caller,
-            startReason(invocation.operation),
-            lookup,
+      const [localRows, outboundRows] = await Promise.all([
+        Promise.all(
+          invocations.invocations.map(async (invocation) => ({
+            id: invocation.id,
+            at: invocation.finished_at ?? invocation.started_at,
+            caller: await callerOf(
+              invocation.caller,
+              startReason(invocation.operation),
+              lookup,
+            ),
+            tool: nameOf(invocation.operation),
+            kind: kindOf(invocation.operation),
+            effect: invocation.effect,
+            state: stateOf(invocation),
+            undone: invocation.reverted_by !== null,
+            releaseNumber: numbers.get(invocation.release) ?? null,
+            earlier: active !== null && invocation.release !== active,
+            inputHash: invocation.input_hash,
+            result: resultText(invocation.summary),
+          })),
+        ),
+        Promise.all(
+          [...outboundMap.values()].map((record) =>
+            outboundRowOf(record, lookup),
           ),
-          tool: nameOf(invocation.operation),
-          kind: kindOf(invocation.operation),
-          effect: invocation.effect,
-          state: stateOf(invocation),
-          undone: invocation.reverted_by !== null,
-          releaseNumber: numbers.get(invocation.release) ?? null,
-          earlier: active !== null && invocation.release !== active,
-          inputHash: invocation.input_hash,
-          result: resultText(invocation.summary),
-        })),
-      );
+        ),
+      ]);
+      const rows: ActivityRow[] = [...localRows, ...outboundRows];
       // 새것부터. 아직 시작하지 않은 호출(시각 없음)은 맨 위에 둔다.
       rows.sort((a, b) =>
         a.at === null
@@ -845,6 +935,8 @@ export function useActivityView(app: string): ReadHandle<ActivityView> {
     },
     [
       ...readsOf(appInvocations, invocationsInput),
+      ...readsOf(appRemoteCalls, remoteToInput),
+      ...readsOf(appRemoteCalls, remoteFromInput),
       ...readsOf(releasesListRecords, releasesInput),
       ...readsOf(appGet, { app }),
       ...readsOf(noticesList, noticesInput),

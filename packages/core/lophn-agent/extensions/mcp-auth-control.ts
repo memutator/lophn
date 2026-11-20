@@ -1,8 +1,16 @@
-import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
+import {
+  cryptoRandom,
+  err,
+  errorCode,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import {
   type AgentId,
   mcpAuthBegin,
   mcpAuthBeginInputSchema,
+  mcpAuthCallback,
+  mcpAuthCallbackInputSchema,
   mcpAuthCancel,
   mcpAuthCancelInputSchema,
   mcpAuthComplete,
@@ -16,6 +24,7 @@ import {
   type SecretFileUse,
   type SecretStorePort,
 } from "../../../protocol/secrets/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { serve, type ServeHandle } from "../../server/serve.ts";
 import {
   type AuthDeadline,
@@ -27,6 +36,11 @@ import {
   type McpOAuthVault,
   mcpTokenNames,
 } from "./mod.ts";
+import {
+  createHandoffListener,
+  type HandoffListener,
+  handoffPort,
+} from "./callback-handoff.ts";
 import { mcpOwnerScope } from "./mcp-oauth-vault.ts";
 import type { McpRuntimeServer } from "./mcp-server.ts";
 import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
@@ -41,7 +55,7 @@ import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 // - ledger를 거치지 않는다: 진행 중인 로그인은 작업 메모리가 곧 상태다.
 
 type McpAuthMemoryHandler = (
-  ctx: unknown,
+  ctx: AuthenticatedContext,
   input: unknown,
 ) => Promise<Result<unknown>>;
 
@@ -137,6 +151,14 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     deadline: deps.deadline ?? timerDeadline,
   });
 
+  // 기기가 시작한 로그인의 callback 받는 자리다. 서버(소유자와 이름)마다 하나다.
+  const handoffs = new Map<string, HandoffListener>();
+  const ownerKey = (
+    workspace: McpOwnerWorkspace | null,
+    agent: AgentId | null,
+    name: string,
+  ) => `${mcpOwnerScope(workspace)}\0${agent ?? ""}\0${name}`;
+
   // 사람이 넣은 client secret 값이다. 없는 이름과 빈 값은 없는 것으로 본다.
   function secretValue(name: string): string | null {
     const got = deps.secrets.get(name);
@@ -186,7 +208,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     return ok(server);
   }
 
-  const begin: McpAuthMemoryHandler = async (_ctx, input) => {
+  const begin: McpAuthMemoryHandler = async (ctx, input) => {
     const parsed = mcpAuthBeginInputSchema.safeParse(input);
     if (!parsed.success) {
       return err({
@@ -205,18 +227,63 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         message: "client_id가 등록한 것과 다르다",
       });
     }
+    // 기기(폰, 다른 컴퓨터)가 시작한 로그인은 이 기계에 browser가 없어도 끝나야 한다: port를 쥐지 않고 그 기기가 건네는
+    // callback을 기다린다.
+    const handoff = ctx.principal.startsWith("device:")
+      ? createHandoffListener({
+          port: handoffPort(cryptoRandom),
+          path: "/callback",
+        })
+      : null;
     // 사람 credential의 callback listener다(사람 credential의 loopback callback).
-    const listener = await deps.openListener();
+    const listener = handoff === null ? await deps.openListener() : ok(handoff);
     if (!listener.ok) return listener;
     const begun = await oauth.begin(target.value, {
       scopes: parsed.data.scopes,
       listener: listener.value,
     });
     if (!begun.ok) return begun;
+    const id = ownerKey(workspace, agent, name);
+    if (handoff === null) handoffs.delete(id);
+    else {
+      const stateParam = new URL(begun.value.url).searchParams.get("state");
+      if (stateParam !== null) handoff.expectState(stateParam);
+      handoffs.set(id, handoff);
+    }
     return ok({
       url: begun.value.url,
       callback_port: begun.value.callbackPort,
+      callback_mode: handoff === null ? "local" : "remote_handoff",
+      redirect_uri: `http://127.0.0.1:${begun.value.callbackPort}/callback`,
     });
+  };
+
+  // 건넨 callback으로 교환까지 마친다. 기기는 오래 기다리는 complete를 부르지 않는다.
+  const callback: McpAuthMemoryHandler = async (_ctx, input) => {
+    const parsed = mcpAuthCallbackInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "서버 이름이 올바르지 않다",
+      });
+    }
+    const { name, workspace, agent, callback_url } = parsed.data;
+    if (workspace !== null && agent !== null) return TWO_OWNERS;
+    const target = await oauthTarget(workspace, agent, name);
+    if (!target.ok) return target;
+    const id = ownerKey(workspace, agent, name);
+    const held = handoffs.get(id);
+    if (held === undefined) {
+      return err({
+        code: "conflict",
+        message: "기기가 시작한 로그인이 아니다",
+      });
+    }
+    const delivered = held.deliver(callback_url);
+    if (!delivered.ok) return delivered;
+    handoffs.delete(id);
+    const done = await oauth.complete(target.value);
+    return done.ok ? ok({ completed: true }) : done;
   };
 
   const complete: McpAuthMemoryHandler = async (_ctx, input) => {
@@ -247,6 +314,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     // 설정에서 지워진 서버의 기다리는 로그인도 그만둘 수 있어야 한다.
     const { name, workspace, agent } = parsed.data;
     if (workspace !== null && agent !== null) return TWO_OWNERS;
+    handoffs.delete(ownerKey(workspace, agent, name));
     return ok({
       cancelled: await oauth.cancel({ key: { workspace, agent, name } }),
     });
@@ -289,6 +357,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     handlers: new Map([
       [`${mcpAuthBegin.resource}/${mcpAuthBegin.method}`, begin],
       [`${mcpAuthComplete.resource}/${mcpAuthComplete.method}`, complete],
+      [`${mcpAuthCallback.resource}/${mcpAuthCallback.method}`, callback],
       [`${mcpAuthState.resource}/${mcpAuthState.method}`, state],
       [`${mcpAuthCancel.resource}/${mcpAuthCancel.method}`, cancel],
     ]),

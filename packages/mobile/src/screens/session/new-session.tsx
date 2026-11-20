@@ -25,6 +25,7 @@ import { View } from "react-native";
 import type { AcpCommand, AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { GuiHarness } from "../../../../protocol/extensions/mod.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { TERMINAL_SESSION_PREFIX } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { type AgentId, lophnIdOf, type Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -144,7 +145,8 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const usable = new Set(slashEntriesOf(meta?.commands ?? [], "", false).map((entry) => entry.name));
   const commands = (meta?.commands ?? []).filter((command) => usable.has(command.name) && BEFORE_SESSION.has(command.opens));
   const canCommand = caps.commands && commands.length > 0;
-  const project = workspace?.kind === "project" ? workspace.id : null;
+  // A session with no workspace is Home's; its terminals and coding sessions are the core's project `home`.
+  const project = workspace === null ? HOME_TERMINAL_PROJECT : workspace.kind === "project" ? workspace.id : null;
 
   // The coding agent's first message: open it on the computer (once), send the words, go to its chat. On a failure the
   // words stay in the composer.

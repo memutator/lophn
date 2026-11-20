@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useStateChanged } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
 import { AddDevice } from "./add-device.tsx";
+import { AddressesSection } from "./addresses-section.tsx";
 import { KeepRunningSection } from "./keep-running-section.tsx";
 import { MyDevices } from "./my-devices.tsx";
 import type {
@@ -137,6 +138,12 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                   removedAt={removedAt}
                   reload={() => void loadDevices()}
                 />
+              </section>
+              <section className={styles.groupBlock}>
+                <h2 className={styles.groupTitle}>
+                  {t("settings.heading.remote-addresses")}
+                </h2>
+                <AddressesSection source={source} />
               </section>
               <section className={styles.groupBlock}>
                 <h2 className={styles.groupTitle}>

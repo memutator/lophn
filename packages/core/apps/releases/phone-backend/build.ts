@@ -3,6 +3,7 @@
 // 거절한다. esbuild는 앱 code를 묶을 뿐 실행하지 않는다(load 검사가 child에서 실행한다).
 // import는 staging 안에서만 푼다(`stagingGuard`): staging 밖 file(저장소 node_modules 등)이 묶이면 build가 실패한다.
 import {
+  access,
   mkdir,
   readdir,
   readFile,
@@ -30,6 +31,20 @@ import { stagingGuard } from "../ui-build/staging-guard.ts";
 const NO_PHONE_ENTRY = ["@lophn/cap-fs", "@lophn/flow"];
 // 묶인 SDK 사본(`.lophn/sdk/<part>/<version>/`)의 판을 manifest에 싣는다.
 const SDK_PARTS = ["cap-store", "cap-tool"] as const;
+
+// 앱이 `phone-main.ts`를 두면 폰은 그것만 묶는다: operation만 등록하므로 컴퓨터에서만 도는 command의
+// `node:` import가 폰 backend에 들어오지 않는다. 없으면 `main.ts` 한 bundle이 양쪽이다.
+export const PHONE_ENTRY = "phone-main.ts";
+const APP_ENTRY = "main.ts";
+
+export async function phoneEntryOf(root: string): Promise<string> {
+  try {
+    await access(join(root, PHONE_ENTRY));
+    return PHONE_ENTRY;
+  } catch {
+    return APP_ENTRY;
+  }
+}
 
 export type PhoneBackendDeclaration = {
   operations: readonly {
@@ -120,11 +135,12 @@ export async function buildPhoneBackend(
   declaration: PhoneBackendDeclaration,
 ): Promise<Result<PhoneBackendBuild, LophnError>> {
   const root = await realpath(staging);
+  const entry = await phoneEntryOf(root);
   let built: esbuild.BuildResult<{ write: false; metafile: true }>;
   try {
     built = await esbuild.build({
       absWorkingDir: root,
-      entryPoints: [join(root, "main.ts")],
+      entryPoints: [join(root, entry)],
       outfile: join(root, "phone/backend.js"),
       write: false,
       metafile: true,
@@ -168,7 +184,7 @@ export async function buildPhoneBackend(
       .find((found) => found !== undefined);
     if (version === undefined) {
       return invalid(
-        `a phone backend must import @lophn/${part} (main.ts does not reach it)`,
+        `a phone backend must import @lophn/${part} (${entry} does not reach it)`,
       );
     }
     sdk[`@lophn/${part}`] = version;

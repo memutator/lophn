@@ -1,5 +1,5 @@
 id: remote-chrome-explorer-selector-harness-gui
-version: 0.23.101
+version: 0.23.102
 title: remote workspace에서 로컬 chrome·앱 아이콘 유지, 캐시 최적화 remote Explorer·DocumentEditor, UI kit MachineSelector 추가, harness-gui 기본 내장화
 modules:
   - packages/protocol

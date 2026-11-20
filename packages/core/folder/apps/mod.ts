@@ -7,6 +7,7 @@ import type {
   TakeInInput,
   TakeInOutput,
 } from "../../../protocol/folder/take-in.ts";
+import { COMPUTERS_DESTINATION } from "../../../protocol/remote/carry.ts";
 import { createFolderReader, createFolderWriter } from "../fs.ts";
 import type { FolderAppsDeps } from "./deps.ts";
 import { exportPackages } from "./packages.ts";
@@ -53,20 +54,22 @@ export function createFolderApps(deps: FolderAppsDeps): FolderApps {
     async runApp(id) {
       const app = deps.apps().find((each) => each.app === id);
       if (app === undefined) return ok(undefined);
-      const destination = deps.destinations.resolve(app.sync_to);
+      // `sync_to`가 없는 앱도 source·`@me/*` package·`app.json`은 `computers`로 내보내 다른 컴퓨터에서 바로 들이게 한다.
+      const destinationName = app.sync_to ?? COMPUTERS_DESTINATION;
+      const destination = deps.destinations.resolve(destinationName);
       // 이 기계에 그 이름이 없으면 이 기계에서 내보내지 않는다.
       if (destination === null) return ok(undefined);
       if (destination.state !== "ok") {
         return err({
           code: "unavailable",
-          message: `the sync folder "${app.sync_to}" is ${destination.state}`,
+          message: `the sync folder "${destinationName}" is ${destination.state}`,
         });
       }
       const me = deps.machine();
       const target: Target = {
         me,
         app,
-        destination: app.sync_to,
+        destination: destinationName,
         writer: createFolderWriter({
           root: destination.path,
           machine: me,
@@ -79,7 +82,7 @@ export function createFolderApps(deps: FolderAppsDeps): FolderApps {
         now,
         nowMs: () => deps.clock.nowMs(),
       };
-      const key = { machine: me, app: id, destination: app.sync_to };
+      const key = { machine: me, app: id, destination: destinationName };
       let first: Result<void> = ok(undefined);
       // source가 실패해도 앱 기록과 data 내보내기는 막지 않는다. 그 앱의 오류로 남긴다.
       const source = await exportSource(target);

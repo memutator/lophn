@@ -43,7 +43,10 @@ decisions of the plan.
   `connect-computers`: `lophn machine environment` to see it in `available`,
   `lophn app take-in <app>`, then `lophn call send` to lophn at the app to run
   `lophn release activate <release>`, which gives the person the consent card.
-  If the app is not in `available`, sync is off for it on that computer.
+  Every non-private active app shares its source across computers automatically
+  even when data sync (`sync_to`) is off (its data stays local per computer);
+  if the app is not in `available` yet, it may be private on that computer or
+  still arriving.
 - When the plan is work on a project's skills, or
   needs a body of material or a search over documents, give it to lophn at that
   project (`to: {agent: "lophn", workspace: {project: "<the project's name>"}}`) with

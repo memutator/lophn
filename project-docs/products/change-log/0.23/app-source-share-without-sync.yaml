@@ -1,0 +1,21 @@
+id: app-source-share-without-sync
+version: 0.23.100
+title: 데이터 동기화(sync_to)가 꺼진 non-private 활성 앱도 computers 길로 source와 앱 기록을 자동 공유해 다른 컴퓨터에서 바로 들이고 따라간다
+modules:
+  - packages/core/folder
+  - packages/core/main
+  - packages/core/agent-workspaces
+  - packages/design
+change: |
+  - 앱 소스 공유와 데이터 동기화(`sync_to`) 분리: `FolderLocalApp.sync_to`를 `string | null`로 넓히고, `sync_to`가 없는 앱도 `private` workspace가 아닌 활성 앱이면 기본 `computers` destination으로 `app.json`(`sync_to: null`), `source/<n>.bundle`, `@me/*` 의존성을 자동 내보내기·가져오기·follow하도록 바꿨다.
+  - DB data stream(`<n>.changes`, `<n>.snapshot`)과 `across_machines` event는 기존처럼 `sync_to`가 선언된 앱만 동기화한다. `sync_to` 없는 앱을 다른 컴퓨터에 들이면 코드는 같은 앱으로 공유·추적되되 데이터는 각 컴퓨터에 독립 저장된다.
+  - `callPolicySetting` 변경 시에도 `exportAll()`이 돌아 `private` 해제된 앱의 소스를 즉시 내보낸다.
+  - Home prompt(`home.md`), `connect-computers` skill, `take-in.note.sync-off` 문구, `architecture/folder-sync.md`를 새 동작에 맞게 고쳤다.
+why: |
+  기존에는 `sync_to`가 선언된 앱만 `app.json`과 `source` bundle을 내보내, 데이터 동기화가 필요 없는 모니터링·로컬 유틸 앱을 다른 컴퓨터나 VM에 설치하려면 앱 코드를 고쳐 `sync_to`와 sync DB 제약까지 켜야 했다. 앱 코드 배포와 데이터 동기화를 분리해 모든 non-private 앱을 어느 컴퓨터에서나 바로 들일 수 있게 한다.
+decisions:
+  - text: "`private`이 아닌 모든 활성 앱은 `sync_to`가 없어도 `computers` 길로 source·`@me/*`·`app.json`을 자동 공유하고, 데이터(DB)·event만 `sync_to`가 있는 앱으로 한정한다(안 A)."
+    by: person
+checklist:
+  - "MainHome에서 `sync_to`가 없는 non-private 활성 앱(예: Agent Monitor)이 다른 컴퓨터(VM)의 `lophn machine environment` `available`과 `Settings › Sync`에 자동으로 보이고 `[Install on this computer]` 또는 Home 대화를 통해 바로 설치되는지 확인한다"
+  - "`private`으로 설정한 앱은 `sync_to`가 없을 때 `computers/`로 소스가 나가지 않는지 확인한다"

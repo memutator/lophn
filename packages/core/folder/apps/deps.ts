@@ -4,13 +4,13 @@ import type { AppRecord } from "../../../protocol/folder/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { DestinationsView } from "../destinations.ts";
 
-/** 이 기계에서 활성 선언에 `sync_to`가 있는 앱. */
+/** 이 기계에서 다른 기계로 source와 앱 기록을 내보내는 앱(`sync_to`가 없으면 기본 `computers`로 source만 내보낸다). */
 export type FolderLocalApp = {
   app: Id<"app">;
   slug: string;
   name: string;
   description: string;
-  sync_to: string;
+  sync_to: string | null;
   source_path: string | null;
   release: {
     id: Id<"rel">;

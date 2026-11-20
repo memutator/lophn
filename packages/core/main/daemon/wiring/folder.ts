@@ -65,6 +65,11 @@ import {
   type SyncLog,
   type SyncLogRow,
 } from "../../../apps/sync/log.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
 import {
   remoteEnabledSetting,
   remotePortSetting,
@@ -360,6 +365,17 @@ export const folderWiring: WiringFactory = () => {
         localApps().filter((app): app is SyncApp => app.sync_to !== null);
       const syncApp = (app: Id<"app">) =>
         syncApps().find((each) => each.app === app);
+      // source·앱 기록·`@me/*` package를 내보내고 따라가는 앱: `sync_to`가 있는 앱 전부와, `sync_to`가 없더라도
+      // `private`이 아닌 활성 앱(`computers`로 source만 내보내 다른 컴퓨터에서 바로 들이게 한다).
+      const shareApps = (): LocalApp[] => {
+        const policy =
+          ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
+        return localApps().filter(
+          (app) =>
+            app.sync_to !== null ||
+            !isPrivate(policy, { kind: "app", id: app.app }),
+        );
+      };
 
       const dataKey = (app: SyncApp) => ({
         machine: me(),
@@ -527,7 +543,7 @@ export const folderWiring: WiringFactory = () => {
       const apps = createFolderApps({
         machine: me,
         destinations,
-        apps: () => syncApps(),
+        apps: () => shareApps(),
         records: () =>
           importer.records().apps.map((row) => ({
             origin: row.machine,
@@ -584,7 +600,7 @@ export const folderWiring: WiringFactory = () => {
       const follow = createFollow({
         sql,
         apps: () =>
-          syncApps().flatMap((app) =>
+          shareApps().flatMap((app) =>
             app.release === null
               ? []
               : [
@@ -880,6 +896,8 @@ export const folderWiring: WiringFactory = () => {
         if (exportAfter) exportAll();
         for (const app of syncApps()) {
           kick(`import:${app.app}`, () => importApp(app.app));
+        }
+        for (const app of shareApps()) {
           kick(`source:${app.app}`, () => importSource(app.app));
         }
         const packagesNow = peerPackagesFingerprint();
@@ -1010,8 +1028,12 @@ export const folderWiring: WiringFactory = () => {
 
       function exportAll() {
         kick("records", () => publishRecords());
-        for (const app of syncApps()) {
-          kick(`export:${app.app}`, () => exportApp(app.app));
+        for (const app of shareApps()) {
+          if (app.sync_to !== null) {
+            kick(`export:${app.app}`, () => exportApp(app.app));
+          } else {
+            kick(`app:${app.app}`, () => writeAppRecord(app.app));
+          }
         }
       }
 
@@ -1345,7 +1367,8 @@ export const folderWiring: WiringFactory = () => {
                       change.name === "settings" &&
                       (change.id === null ||
                         change.id === DESTINATIONS_KEY ||
-                        change.id === SHARED_FOLDER_KEY),
+                        change.id === SHARED_FOLDER_KEY ||
+                        change.id === callPolicySetting.key),
                   )
                 ) {
                   rewatch();

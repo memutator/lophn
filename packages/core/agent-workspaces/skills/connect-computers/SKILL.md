@@ -36,16 +36,18 @@ system of a dual boot, a home and a work computer) use `--long`.
 
 ## When an app is on another computer but not on this one
 
-An app that declares `sync_to` is offered to the person's other computers, and
-the person can install it here from Settings › Sync ("Available from other
-computers") or from the app's row under that computer in the sidebar ("Install
-on this computer"). When they ask you to do it:
+Every non-private active app automatically shares its source and record across
+the person's computers via `computers` (even when `sync_to` is off; in that case
+its data stays local per computer). The person can install it here from Settings
+› Sync ("Available from other computers") or from the app's row under that
+computer in the sidebar ("Install on this computer"). When they ask you to do
+it:
 
 1. `lophn machine environment`. The app is installable when it is listed in
-   `available` (with the computer it came from). If it is not there, sync is
-   off for it on that computer (no `sync_to`) or its files have not arrived yet:
-   say which, and hand the `sync_to` change to lophn at the app on that
-   computer. Do not try anything else.
+   `available` (with the computer it came from). If it is not there yet, the app
+   may be private on that computer (when `sync_to` is off) or its files have not
+   arrived yet: say which. Do not ask them to turn on data sync (`sync_to`) just
+   to install the app unless they also want its data synced.
 2. `lophn app take-in <app>` (`--from <machine>` when more than one computer
    offers it). It installs the app and prepares its release here; nothing runs
    yet. `conflict` says why in `details.reason`: `sdk_missing` (the person

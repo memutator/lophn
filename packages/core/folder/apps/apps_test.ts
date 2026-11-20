@@ -1271,3 +1271,98 @@ test("computers carry(서명된 manifest·replica)로 @me/* package를 옮기고
     assert.equal(taken.value.installed, "app_and_release");
   });
 });
+
+test("sync_to가 null인 앱도 computers destination으로 source와 app.json을 내보내 다른 기계가 take-in할 수 있다", async () => {
+  await withWorld(async (w) => {
+    const comp = join(w.rootA, "computers-nosync");
+    mkdirSync(comp, { recursive: true });
+    const compDest: DestinationsView = {
+      list: () => [{ name: COMPUTERS_DESTINATION, path: comp, state: "ok" }],
+      resolve: (name) =>
+        name === COMPUTERS_DESTINATION ? { path: comp, state: "ok" } : null,
+    };
+    const localNoSync = { ...w.local, sync_to: null };
+    const folderANoSync = createFolderApps({
+      machine: () => A,
+      destinations: compDest,
+      apps: () => [localNoSync],
+      records: () => [],
+      progress: () => ({ read: {}, settled: null, horizon: null }),
+      host: createFolderAppsHost({
+        sql: sqlOf(w.dbA),
+        command: w.cmdA,
+        prepareCommit: () => {
+          throw new Error("A does not prepare");
+        },
+        random: seededRandom(20),
+        dataRoot: w.rootA,
+        readBlob: w.blobsA.readBlob,
+        prepareBlob: w.blobsA.prepareBlob,
+        registerVersion: (input) =>
+          w.cmdA({
+            command: "package.register_version",
+            input,
+            idempotency_key: `nosync-a-${input.name}-${input.version}`,
+            compare: {},
+          }),
+      }),
+      sql: sqlOf(w.dbA),
+      clock: w.clock,
+      random: seededRandom(21),
+      dataRoot: w.rootA,
+    });
+    const ran = await folderANoSync.runApp(APP);
+    assert.ok(ran.ok, ran.ok ? "" : ran.error.message);
+
+    const decoded = decodeRecord(
+      appRecordSchema,
+      readFileSync(join(comp, appRecordPath(A, APP))),
+    );
+    assert.ok(decoded.ok);
+    assert.equal(decoded.value.sync_to, null);
+    assert.equal(decoded.value.data.head, 0);
+    assert.equal(decoded.value.source.head, 1);
+
+    const folderBNoSync = createFolderApps({
+      machine: () => B,
+      destinations: compDest,
+      apps: () => [],
+      records: () => [
+        {
+          origin: A,
+          destination: COMPUTERS_DESTINATION,
+          record: decoded.value,
+        },
+      ],
+      progress: () => ({ read: {}, settled: null, horizon: null }),
+      host: createFolderAppsHost({
+        sql: sqlOf(w.dbB),
+        command: w.cmdB,
+        prepareCommit: makeLocalPrepare(w.rootB, w.cmdB, w.preparedB),
+        random: seededRandom(22),
+        dataRoot: w.rootB,
+        readBlob: w.blobsB.readBlob,
+        prepareBlob: w.blobsB.prepareBlob,
+        registerVersion: (input) =>
+          w.cmdB({
+            command: "package.register_version",
+            input,
+            idempotency_key: `nosync-b-${input.name}-${input.version}`,
+            compare: {},
+          }),
+      }),
+      sql: sqlOf(w.dbB),
+      clock: w.clock,
+      random: seededRandom(23),
+      dataRoot: w.rootB,
+    });
+    const avail = folderBNoSync.available();
+    assert.ok(avail.ok);
+    assert.equal(avail.value.length, 1);
+    assert.equal(avail.value[0]?.app, APP);
+
+    const taken = await folderBNoSync.takeIn({ app: APP });
+    assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
+    assert.equal(taken.value.installed, "app_and_release");
+  });
+});

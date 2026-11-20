@@ -5,7 +5,7 @@ export const takeIn = {
   "take-in.note.installed":
     "{name} is installed on this computer but not running yet. Open it from this computer's list and ask lophn to activate it; you will be asked to allow it here.",
   "take-in.note.sync-off":
-    "Sync is off for {name} on {machine}, so it can't be installed here. Turn on sync for the app on that computer, then try again.",
+    "{name} from {machine} is not available here yet (it may be private on {machine} or still syncing). Try again in a moment.",
   "take-in.note.sdk-missing":
     "{name} needs a newer lophn than this computer has. Update lophn here, then try again.",
   "take-in.note.slug-in-use":

@@ -1,5 +1,5 @@
 id: app-source-share-without-sync
-version: 0.23.100
+version: 0.23.101
 title: 데이터 동기화(sync_to)가 꺼진 non-private 활성 앱도 computers 길로 source와 앱 기록을 자동 공유해 다른 컴퓨터에서 바로 들이고 따라간다
 modules:
   - packages/core/folder

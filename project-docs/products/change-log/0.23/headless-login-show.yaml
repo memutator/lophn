@@ -1,5 +1,5 @@
 id: headless-login-show
-version: 0.23.102
+version: 0.23.103
 title: "화면 없는 기계의 browser page가 사람이 보는 화면에 뜨고, 받을 수 없는 login 요청은 바로 끊는다"
 modules: [packages/protocol, packages/core/main, packages/shell/main, packages/shell/renderer]
 checked: []

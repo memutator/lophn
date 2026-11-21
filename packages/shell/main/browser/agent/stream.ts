@@ -14,7 +14,8 @@ import {
 } from "../../../../protocol/lophn-agent/page-view.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { ControlState, TabControl } from "./control.ts";
-import { type CdpSend, pressKey, typeText } from "./keys.ts";
+import type { DriverInput } from "./driver.ts";
+import { type KeyEvent, pressEvents, typeEvents } from "./keys.ts";
 import type { Page } from "./page.ts";
 
 // 보내기 사이의 최소 간격(10 fps). spike에서 screencast 10 fps가 core 하나의 약 16%였다.
@@ -46,6 +47,8 @@ export interface PageStreamDeps {
   nowMs(): number;
   /** run을 ms 뒤 부르고 취소 함수를 돌려준다. */
   schedule(run: () => void, ms: number): () => void;
+  /** 입력을 넣는 동안 page를 표시하는 곳(driver.ts). 창이 없는 곳은 주지 않는다. */
+  input?: DriverInput;
 }
 
 interface Stream {
@@ -238,8 +241,13 @@ export function createPageStream(deps: PageStreamDeps) {
     await page.send("Input.dispatchMouseEvent", params);
   }
 
+  // page가 받지 않은 key 뒤로는 보내지 않는다.
+  const keys = (page: Page, strokes: KeyEvent[][]): HostToolOutput =>
+    strokes.every((stroke) => stroke.every((event) => page.sendKey(event)))
+      ? OK
+      : failure("unavailable", "The page did not take the input.");
+
   async function put(page: Page, input: PageInput): Promise<HostToolOutput> {
-    const send: CdpSend = (method, params) => page.send(method, params);
     switch (input.type) {
       case "pointer": {
         await mouse(page, {
@@ -265,12 +273,13 @@ export function createPageStream(deps: PageStreamDeps) {
         });
         return OK;
       case "text":
-        await typeText(send, input.text);
-        return OK;
-      case "key":
-        return (await pressKey(send, input.key))
-          ? OK
-          : failure("invalid_input", `unknown key: ${input.key}`);
+        return keys(page, typeEvents(input.text));
+      case "key": {
+        const events = pressEvents(input.key);
+        return events === undefined
+          ? failure("invalid_input", `unknown key: ${input.key}`)
+          : keys(page, [events]);
+      }
       case "navigate": {
         const decision = decideNavigation({
           url: input.url,
@@ -366,8 +375,11 @@ export function createPageStream(deps: PageStreamDeps) {
       const stream = streams.get(payload.tab);
       if (stream === undefined) return NOT_STREAMING;
       if (stream.page.isDestroyed()) return NOT_FOUND;
+      const { page } = stream;
       try {
-        return await put(stream.page, payload.input);
+        return await (deps.input?.sending(page.id, () =>
+          put(page, payload.input),
+        ) ?? put(page, payload.input));
       } catch {
         return failure("unavailable", "The page did not take the input.");
       }

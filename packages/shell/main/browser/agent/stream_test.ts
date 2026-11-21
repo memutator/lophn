@@ -22,6 +22,7 @@ test("멀리서 잡은 동안 agent의 act·navigate·evaluate가 conflict이고
     detach: () => {},
     emulated: () => false,
     subscribe: () => {},
+    sendKey: () => true,
     send: ((method: string) =>
       Promise.resolve(
         method === "Runtime.evaluate"

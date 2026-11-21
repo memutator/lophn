@@ -1,5 +1,5 @@
 // core의 `browser_call` 요청을 실제 탭에 돌리는 port다. surface가 `/host-link`로 받은 요청을 여기에 넘기고 결과를 연결의 `response`에 싣는다.
-// 탭의 page에는 `webContents.debugger`(CDP)로 붙는다. 마우스·키는 CDP `Input.*`만 쓴다: webContents의 입력 주입 API는 webview guest에 닿지 않는다.
+// 탭의 page에는 `webContents.debugger`(CDP)로 붙는다. 마우스는 CDP `Input.*`, 키는 page에만 가는 `Page.sendKey`다(keys.ts).
 import { ERROR_CODES } from "../../../../base/mod.ts";
 import type {
   BrowserAct,
@@ -8,7 +8,7 @@ import type {
 } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { TabControl } from "./control.ts";
-import { type CdpSend, pressKey, typeChar, typeText } from "./keys.ts";
+import { type KeyEvent, pressEvents, typeEvents } from "./keys.ts";
 import { type Page, type PageLookup, pageOf } from "./page.ts";
 import { type AxNode, createRefs, type Refs } from "./snapshot.ts";
 
@@ -35,30 +35,37 @@ export type LoginRelease =
   | { ok: false; error: { code: string; message: string } };
 
 /**
- * driver가 지금 key event를 보내는 page 표시(webContents id). wiring이 하나 만들어 driver와 창 단축키 전달(desktop.ts)에 같이 준다.
- * CDP `Input.dispatchKeyEvent`도 guest의 before-input-event를 거쳐, agent가 누른 Control+w가 창의 `tab.close`가 되어 사람의 탭을
- * 닫았다. 표시된 page의 키는 창 단축키로 넘기지도 삼키지도 않아 page에만 간다. Chromium은 key가 before-input-event를 지난 뒤에 그
- * 명령에 답하므로 보내는 동안만 표시하면 된다(실제 Electron에서 확인하지 않았다).
+ * lophn이 지금 input을 보내는 page 표시(webContents id). wiring이 하나 만들어 driver, 멀리서 보기의 입력(stream.ts), 창 단축키
+ * 전달(desktop.ts)에 같이 준다. 표시된 page가 받은 키는 창 단축키도 menu 단축키도 되지 않고 page에만 간다(agent가 누른
+ * Control+w가 창의 탭을 닫았다). page를 누르거나 page 끝에서 Tab을 누르면 Chromium이 창의 keyboard focus를 옮기므로, 표시하는
+ * 동안 그 창의 shell이 사람의 focus를 제자리에 둔다(`marked` hook).
  */
-export interface DriverKeys {
-  /** page에 key event를 보내는 동안 그 page를 표시한다. */
+export interface DriverInput {
+  /** page에 input을 보내는 동안 그 page를 표시한다. */
   sending<T>(page: number, run: () => Promise<T>): Promise<T>;
-  /** driver가 지금 이 webContents에 key를 보내는 중이다. 사람이 그 탭에 친 키는 표시되지 않는다. */
+  /** 지금 lophn이 이 webContents에 input을 보내는 중이다. */
   marked(contents: number): boolean;
 }
 
-export function createDriverKeys(): DriverKeys {
+export function createDriverInput(
+  /** page의 표시가 켜지고(0→1) 꺼질(1→0) 때. */
+  onMark: (page: number, on: boolean) => void = () => {},
+): DriverInput {
   // webContents id → 보내는 중인 수.
   const sending = new Map<number, number>();
   return {
     async sending(page, run) {
-      sending.set(page, (sending.get(page) ?? 0) + 1);
+      const count = sending.get(page) ?? 0;
+      sending.set(page, count + 1);
+      if (count === 0) onMark(page, true);
       try {
         return await run();
       } finally {
         const left = (sending.get(page) ?? 1) - 1;
-        if (left === 0) sending.delete(page);
-        else sending.set(page, left);
+        if (left === 0) {
+          sending.delete(page);
+          onMark(page, false);
+        } else sending.set(page, left);
       }
     },
     marked: (contents) => sending.has(contents),
@@ -78,8 +85,8 @@ export interface BrowserDriverDeps {
   lookup: PageLookup;
   control: TabControl;
   nowMs(): number;
-  /** key를 보내는 동안 page를 표시하는 곳. 창 단축키가 없는 곳(창 없는 page host)은 주지 않는다. */
-  keys?: DriverKeys;
+  /** input을 보내는 동안 page를 표시하는 곳. 창이 없는 곳(창 없는 page host)은 주지 않는다. */
+  input?: DriverInput;
 }
 
 type ErrorCode = Extract<HostToolOutput, { error: unknown }>["error"]["code"];
@@ -103,6 +110,8 @@ const NET_ERROR = /^net::ERR_[A-Z0-9_]+$/;
 
 const LOG_LINES = 200;
 const CALL_MS = 20_000;
+// input을 보낸 뒤 page가 key를 다 받고 그 결과(page 끝의 Tab이 창 focus를 옮기는 것, 이동의 시작)가 나기까지의 틈.
+const INPUT_TAIL_MS = 150;
 // 다른 탭 뒤에 숨은 <webview>는 그리지 않아 captureScreenshot이 끝나지 않는다. 오래 매달리지 않는다.
 const SHOT_MS = 8_000;
 const LOAD_MS = 15_000;
@@ -128,8 +137,6 @@ interface Session {
   refs: Refs;
   attached: boolean;
   attaching: Promise<void> | undefined;
-  /** attach한 뒤 마우스를 눌러 guest가 키보드 focus를 얻었다. */
-  grabbed: boolean;
   logs: string[];
   /** 아직 결과에 싣지 않은, 자동으로 닫은 dialog. */
   dialogs: { type: string; message: string }[];
@@ -179,7 +186,6 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       refs: known?.refs ?? createRefs(),
       attached: false,
       attaching: undefined,
-      grabbed: false,
       logs: [],
       dialogs: [],
       typing: undefined,
@@ -280,7 +286,6 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         throw error;
       }
       session.attached = true;
-      session.grabbed = false;
     })().finally(() => {
       session.attaching = undefined;
     });
@@ -389,58 +394,37 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     await send(session, "Input.dispatchMouseEvent", params);
   }
 
-  // 기한을 건 send다(keys.ts의 key·글 치기가 쓴다). key event를 보내는 동안은 그 page를 표시해 창 단축키로 넘어가지 않게 한다.
-  const cdp =
-    (session: Session): CdpSend =>
-    (method, params) =>
-      method === "Input.dispatchKeyEvent"
-        ? (deps.keys?.sending(session.page.id, () =>
-            send(session, method, params),
-          ) ?? send(session, method, params))
-        : send(session, method, params);
-
-  async function key(session: Session, spec: string): Promise<void> {
-    if (!(await pressKey(cdp(session), spec))) {
-      throw fail("invalid_input", `unknown key: ${spec}`);
+  // key event를 그 page에만 넣는다. page가 받지 않으면 남은 key를 보내지 않는다. 다른 곳으로 돌려 보내지 않는다.
+  function keys(session: Session, strokes: KeyEvent[][]): void {
+    for (const stroke of strokes) {
+      for (const event of stroke) {
+        if (!session.page.sendKey(event)) {
+          throw fail(
+            "unavailable",
+            "The page did not take the key input, so the keys from that point on were not sent. The tab may be closing or reloading; run browser snapshot, then try once more. If it fails again, tell the person.",
+          );
+        }
+      }
     }
   }
 
-  // guest가 키보드 focus를 갖지 못하면 key event가 버려진다(headless에서 확인: 첫 묶음 뒤 안 들어간다). 마우스를 누르면 focus를
-  // 얻으므로 키를 보내기 전에 대상(ref가 없으면 focus가 있는 요소)을 누른다. Input.insertText도 같은 이유로 글이 안 들어간다.
-  // ref 없는 press는 앞 동작이 만든 선택(Control+a 뒤 Delete)을 누름이 깨지 않도록 아직 안 눌렀을 때만 누른다.
-  async function grab(session: Session, ref?: string): Promise<void> {
-    if (ref === undefined && session.grabbed) return;
-    let at: { x: number; y: number } | undefined;
-    if (ref !== undefined) at = await center(session, ref);
-    else {
-      const { result } = await send<{ result: { value: number[] | null } }>(
-        session,
-        "Runtime.evaluate",
-        {
-          expression: `(() => { const e = document.activeElement; if (!e || e === document.body) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`,
-          returnByValue: true,
-        },
-      );
-      if (result.value)
-        at = { x: result.value[0] ?? 0, y: result.value[1] ?? 0 };
+  function key(session: Session, spec: string): void {
+    const events = pressEvents(spec);
+    if (events === undefined) {
+      throw fail("invalid_input", `unknown key: ${spec}`);
     }
-    if (at === undefined) return;
-    session.grabbed = true;
-    const press = { ...at, button: "left", clickCount: 1 };
-    await mouse(session, { type: "mousePressed", ...press });
-    await mouse(session, { type: "mouseReleased", ...press });
+    keys(session, [events]);
   }
 
   // 전체를 고르고 지운다. 빈 글이면 지우기만 한다.
   async function clearValue(session: Session, ref: string): Promise<void> {
     await focus(session, ref);
-    await grab(session, ref);
     await callOn(
       session,
       ref,
       `function(){ if (this.select) this.select(); else document.execCommand("selectAll"); }`,
     );
-    await key(session, "Backspace");
+    key(session, "Backspace");
   }
 
   // value를 찍으면 안 되는 `type=password` 칸의 backend node id들이다. 값이 있는 칸이 없으면 DOM을 읽지 않는다.
@@ -566,9 +550,11 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       try {
         stop();
         await clearValue(session, ref);
-        for (const char of value) {
+        for (const stroke of typeEvents(value)) {
           stop();
-          await Promise.all(typeChar(cdp(session), char));
+          keys(session, [stroke]);
+          // sendInputEvent는 page의 답을 기다리지 않는다. page를 한 번 다녀와 그 글자를 받게 하고 그사이 온 이동 event를 본 뒤 다음 글자를 친다.
+          await send(session, "Runtime.evaluate", { expression: "0" });
         }
       } catch (error) {
         if (error instanceof CallError) throw error;
@@ -620,7 +606,6 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       await mouse(session, { type: "mouseReleased", ...press });
     } else if (action.type === "type") {
       await focus(session, action.ref);
-      await grab(session, action.ref);
       // 값 끝에 이어 쓴다. 누른 자리가 아니라 끝에 caret을 둔다.
       await callOn(
         session,
@@ -635,17 +620,16 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
           }
         }`,
       );
-      await typeText(cdp(session), action.text);
+      keys(session, typeEvents(action.text));
     } else if (action.type === "fill") {
       await clearValue(session, action.ref);
-      await typeText(cdp(session), action.text);
+      keys(session, typeEvents(action.text));
     } else if (action.type === "fill_login") {
       await fillLogin(session, action);
     } else if (action.type === "press") {
-      // 누르면 버튼이 눌리므로 ref는 focus만 옮긴다. 키가 들어가려면 앞서 한 번 눌러 focus를 얻은 뒤여야 한다(grab).
+      // 누르면 버튼이 눌리므로 ref는 focus만 옮긴다. ref가 없으면 page 안에서 focus가 있는 요소가 받는다.
       if (action.ref !== undefined) await focus(session, action.ref);
-      else await grab(session);
-      await key(session, action.key);
+      key(session, action.key);
     } else if (action.type === "select") {
       await callOn(
         session,
@@ -700,8 +684,22 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
 
   // 누른 뒤 시작한 이동이 끝나기를 잠시 기다린다.
   async function settle(page: Page, until: number): Promise<void> {
-    await sleep(150);
+    await sleep(INPUT_TAIL_MS);
+    await loaded(page, until);
+  }
+
+  async function loaded(page: Page, until: number): Promise<void> {
     while (page.isLoading() && deps.nowMs() < until) await sleep(100);
+  }
+
+  // input을 보내는 동안과 그 뒤 잠시 page를 표시한다. 이동이 끝나기까지 기다리는 동안은 표시하지 않는다: 표시가 길면 그사이 사람이
+  // 다른 page를 누른 focus까지 shell이 되돌린다.
+  async function input(session: Session, run: () => Promise<void>) {
+    const go = async () => {
+      await run();
+      await sleep(INPUT_TAIL_MS);
+    };
+    await (deps.input?.sending(session.page.id, go) ?? go());
   }
 
   function where(session: Session) {
@@ -798,8 +796,8 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       };
     }
     if (action.kind === "act") {
-      await act(session, action.act);
-      await settle(page, deps.nowMs() + LOAD_MS);
+      await input(session, () => act(session, action.act));
+      await loaded(page, deps.nowMs() + LOAD_MS);
       return reply(where(session));
     }
     if (action.kind === "navigate") {
@@ -908,16 +906,18 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     async typeOnce({ tab, view, ref, origin, value }) {
       try {
         const { session, page } = await sessionFor(tab, view, true);
-        await typeGuarded(session, ref, (now) => {
-          if (now !== origin) {
-            throw fail(
-              "conflict",
-              "the page origin changed since the request; nothing was typed",
-            );
-          }
-          return Promise.resolve(value);
-        });
-        await settle(page, deps.nowMs() + LOAD_MS);
+        await input(session, () =>
+          typeGuarded(session, ref, (now) => {
+            if (now !== origin) {
+              throw fail(
+                "conflict",
+                "the page origin changed since the request; nothing was typed",
+              );
+            }
+            return Promise.resolve(value);
+          }),
+        );
+        await loaded(page, deps.nowMs() + LOAD_MS);
         return reply({});
       } catch (error) {
         return failed(error);

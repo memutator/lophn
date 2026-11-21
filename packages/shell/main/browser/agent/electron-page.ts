@@ -55,6 +55,22 @@ function electronPage(contents: WebContents, profile: string | null): Page {
     },
     send: (method, params) =>
       contents.debugger.sendCommand(method, params) as Promise<never>,
+    // input-event는 page의 widget이 event를 받을 때 sendInputEvent 안에서 바로 난다. 나지 않았으면 event가 버려진 것이다.
+    sendKey(event) {
+      let taken = false;
+      const seen = () => {
+        taken = true;
+      };
+      contents.on("input-event", seen);
+      try {
+        contents.sendInputEvent(event);
+      } catch {
+        return false;
+      } finally {
+        contents.off("input-event", seen);
+      }
+      return taken;
+    },
     subscribe(events) {
       contents.debugger.on("message", (_event, method, params) =>
         events.cdp(method, params as Record<string, unknown>),

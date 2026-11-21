@@ -5,8 +5,8 @@ import { createTabControl } from "./control.ts";
 import {
   type BrowserCallPayload,
   createBrowserDriver,
-  createDriverKeys,
-  type DriverKeys,
+  createDriverInput,
+  type DriverInput,
 } from "./driver.ts";
 import type { Page, PageEvents, PageLookup } from "./page.ts";
 import type { AxNode } from "./snapshot.ts";
@@ -44,6 +44,8 @@ function fakePage() {
     } as Record<string, unknown>,
     typed: [] as string[],
     onKey: (_char: string) => {},
+    /** page가 key를 받는다. false면 sendKey가 false다. */
+    takes: true,
   };
   let events: PageEvents | undefined;
   const page: Page = {
@@ -83,10 +85,6 @@ function fakePage() {
       if (method === "Page.getFrameTree") {
         return Promise.resolve({ frameTree: state.frames });
       }
-      if (method === "Input.dispatchKeyEvent" && params?.type === "keyDown") {
-        state.typed.push(params.text as string);
-        state.onKey(params.text as string);
-      }
       if (method === "Runtime.evaluate") {
         return Promise.resolve({ result: { value: 1 } });
       }
@@ -95,6 +93,14 @@ function fakePage() {
       }
       return Promise.resolve({});
     }) as Page["send"],
+    sendKey: (event) => {
+      if (!state.takes) return false;
+      if (event.type === "char") {
+        state.typed.push(event.keyCode);
+        state.onKey(event.keyCode);
+      }
+      return true;
+    },
   };
   return {
     page,
@@ -107,7 +113,7 @@ const PASSWORD = "hunter2";
 
 function setup(
   mode: "live" | "preview" = "preview",
-  keys: DriverKeys = createDriverKeys(),
+  input: DriverInput = createDriverInput(),
 ) {
   const fake = fakePage();
   const control = createTabControl(() => {});
@@ -131,7 +137,7 @@ function setup(
     lookup,
     control,
     nowMs: () => Date.now(),
-    keys,
+    input,
   });
   const run = (
     action: BrowserCallPayload["action"],
@@ -362,22 +368,55 @@ test("fill_login은 page의 browser profile을 실어 값을 청한다", async (
   );
 });
 
-test("driver가 보내는 key는 그 page에서 창 단축키로 넘어가지 않고, 끝나면 사람의 키는 다시 넘어간다", async () => {
-  const keys = createDriverKeys();
-  const { fake, run } = setup("preview", keys);
+// CDP key event는 page가 아니라 창에서 focus가 있는 곳(shell 입력칸, 사람의 다른 page)에 가서 사람의 탭을 닫았다. 두 번째로 고친 길이다.
+test("agent의 key는 표시한 그 page에만 가고 CDP key 길을 쓰지 않으며, page가 받지 않으면 멈추고 unavailable이다", async () => {
+  const marks: [number, boolean][] = [];
+  const input = createDriverInput((page, on) => marks.push([page, on]));
+  const { fake, run } = setup("preview", input);
   const original = fake.page.send;
-  const during: boolean[] = [];
+  const cdp: string[] = [];
   (fake.page as { send: Page["send"] }).send = ((method, params) => {
-    if (method === "Input.dispatchKeyEvent") {
-      during.push(keys.marked(fake.page.id));
-    }
+    cdp.push(method);
     return original(method, params);
   }) as Page["send"];
-  const out = await run({
+  const during: boolean[] = [];
+  const sendKey = fake.page.sendKey;
+  (fake.page as { sendKey: Page["sendKey"] }).sendKey = (event) => {
+    during.push(input.marked(fake.page.id));
+    return sendKey(event);
+  };
+  fake.state.nodes = tree([2, "Name"]);
+  await run({ kind: "snapshot" });
+  for (const act of [
+    { type: "press", key: "Control+w" },
+    { type: "type", ref: "e2", text: "hi" },
+    { type: "fill", ref: "e2", text: "yo" },
+  ] as const) {
+    const out = await run({ kind: "act", act });
+    assert.ok("content" in out, JSON.stringify(out));
+  }
+  assert.equal(fake.state.typed.join(""), "hiyo");
+  assert.ok(during.length > 0 && during.every(Boolean));
+  assert.equal(input.marked(fake.page.id), false);
+  assert.deepEqual(
+    cdp.filter((method) => /^Input\.(dispatchKey|insertText|ime)/.test(method)),
+    [],
+  );
+  assert.deepEqual(marks, [
+    [fake.page.id, true],
+    [fake.page.id, false],
+    [fake.page.id, true],
+    [fake.page.id, false],
+    [fake.page.id, true],
+    [fake.page.id, false],
+  ]);
+
+  fake.state.takes = false;
+  fake.state.typed = [];
+  const lost = await run({
     kind: "act",
-    act: { type: "press", key: "Control+w" },
+    act: { type: "type", ref: "e2", text: "abc" },
   });
-  assert.ok("content" in out, JSON.stringify(out));
-  assert.deepEqual(during, [true, true]);
-  assert.equal(keys.marked(fake.page.id), false);
+  assert.ok("error" in lost && lost.error.code === "unavailable");
+  assert.equal(fake.state.typed.length, 0);
 });

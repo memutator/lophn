@@ -19,7 +19,15 @@ export function isWindowShortcut(value: unknown): value is WindowShortcut {
 
 export interface ShortcutApi {
   subscribe(listener: (shortcut: WindowShortcut) => void): () => void;
+  /** lophn이 이 창의 page에 input을 보내기 시작했다(true)·끝냈다(false). page마다 한 번씩 온다. */
+  subscribeDriverInput(listener: (on: boolean) => void): () => void;
 }
+
+/**
+ * main이 shell renderer로 보내는 channel. payload는 boolean 하나다. agent·멀리서 보기의 input이 창의 page에 들어가는 동안
+ * 창이 사람의 keyboard focus를 제자리에 두게 한다(driver.ts `DriverInput`).
+ */
+export const DRIVER_INPUT_CHANNEL = "shell:driver-input";
 
 /** OS 전역 단축키 하나. main만 등록하고 renderer는 키 이름을 그릴 때만 본다. */
 export const GLOBAL_PALETTE_ACCELERATOR = "CommandOrControl+Shift+K";

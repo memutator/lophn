@@ -1,137 +1,87 @@
-// `press`의 key 이름("Enter", "Control+a")을 CDP `Input.dispatchKeyEvent` 값으로 바꾼다.
-const MODIFIERS: Record<string, number> = {
-  alt: 1,
-  control: 2,
-  ctrl: 2,
-  meta: 4,
-  cmd: 4,
-  command: 4,
-  shift: 8,
-};
+// `press`의 key 이름("Enter", "Control+a")과 칠 글을 page의 webContents에 넣는 Electron keyboard event로 바꾼다.
+// CDP `Input.dispatchKeyEvent`는 쓰지 않는다: 창 안에서 keyboard focus가 있는 곳(shell 입력칸, 사람이 보던 다른 page)으로
+// 가서, agent가 누른 Control+w가 사람의 탭을 닫았다. webContents.sendInputEvent는 focus와 상관없이 그 page에만 간다(실제
+// Electron에서 확인: 숨은 탭, 1px로 접힌 guest, shell 입력칸에 focus가 있을 때 모두 page만 받았다).
 
-const NAMED: Record<string, { code: string; keyCode: number; text?: string }> =
-  {
-    Enter: { code: "Enter", keyCode: 13, text: "\r" },
-    Tab: { code: "Tab", keyCode: 9 },
-    Escape: { code: "Escape", keyCode: 27 },
-    Backspace: { code: "Backspace", keyCode: 8 },
-    Delete: { code: "Delete", keyCode: 46 },
-    ArrowUp: { code: "ArrowUp", keyCode: 38 },
-    ArrowDown: { code: "ArrowDown", keyCode: 40 },
-    ArrowLeft: { code: "ArrowLeft", keyCode: 37 },
-    ArrowRight: { code: "ArrowRight", keyCode: 39 },
-    Home: { code: "Home", keyCode: 36 },
-    End: { code: "End", keyCode: 35 },
-    PageUp: { code: "PageUp", keyCode: 33 },
-    PageDown: { code: "PageDown", keyCode: 34 },
-    Space: { code: "Space", keyCode: 32, text: " " },
-  };
+export type KeyModifier = "shift" | "control" | "alt" | "meta";
 
-// 글자가 아닌 편집 key는 text가 없어 page가 focus를 가진 것처럼 처리하지 않으면 안 먹는다. 편집 command를 같이 보낸다.
-const COMMANDS: Record<string, string> = {
-  Backspace: "deleteBackward",
-  Delete: "deleteForward",
-  ArrowLeft: "moveLeft",
-  ArrowRight: "moveRight",
-  ArrowUp: "moveUp",
-  ArrowDown: "moveDown",
-};
-const SHORTCUTS: Record<string, string> = {
-  a: "selectAll",
-  c: "copy",
-  x: "cut",
-  v: "paste",
-  z: "undo",
-};
-
+/** Electron `KeyboardInputEvent`. keyCode는 Electron accelerator 이름이나 글자 하나다. */
 export interface KeyEvent {
-  key: string;
-  code: string;
-  windowsVirtualKeyCode: number;
-  modifiers: number;
-  text?: string;
-  commands?: string[];
+  type: "keyDown" | "char" | "keyUp";
+  keyCode: string;
+  modifiers: KeyModifier[];
 }
 
-export function parseKey(spec: string): KeyEvent | undefined {
-  const parts = spec.split("+");
-  const name = parts.pop() ?? "";
-  let modifiers = 0;
-  for (const part of parts) {
-    const bit = MODIFIERS[part.toLowerCase()];
-    if (bit === undefined) return undefined;
-    modifiers |= bit;
-  }
-  // 글자가 입력되는 조합만 text를 싣는다. Control+a 같은 조합은 단축키다.
-  const types = (modifiers & 7) === 0;
-  const named = NAMED[name];
-  const command = (modifiers & 6) !== 0 ? SHORTCUTS[name] : COMMANDS[name];
-  if (named !== undefined) {
-    return {
-      ...(command === undefined ? {} : { commands: [command] }),
-      key: name === "Space" ? " " : name,
-      code: named.code,
-      windowsVirtualKeyCode: named.keyCode,
-      modifiers,
-      ...(types && named.text !== undefined ? { text: named.text } : {}),
-    };
-  }
-  if ([...name].length !== 1) return undefined;
-  const upper = name.toUpperCase();
-  const letter = /^[a-z]$/i.test(name);
-  const key = letter && (modifiers & 8) !== 0 ? upper : name;
-  return {
-    key,
-    code: letter ? `Key${upper}` : /^[0-9]$/.test(name) ? `Digit${name}` : "",
-    windowsVirtualKeyCode:
-      letter || /^[0-9]$/.test(name) ? upper.charCodeAt(0) : name.charCodeAt(0),
-    modifiers,
-    ...(types ? { text: key } : {}),
-    ...(command === undefined ? {} : { commands: [command] }),
-  };
-}
+const MODIFIERS: Record<string, KeyModifier> = {
+  alt: "alt",
+  control: "control",
+  ctrl: "control",
+  meta: "meta",
+  cmd: "meta",
+  command: "meta",
+  shift: "shift",
+};
 
-/** CDP 명령 하나를 보내는 길이다. driver는 기한을 건 send를 준다. */
-export type CdpSend = (
-  method: string,
-  params?: Record<string, unknown>,
-) => Promise<unknown>;
+// press가 받는 이름 → accelerator 이름과 그 key가 치는 글자.
+const NAMED: Record<string, { keyCode: string; text?: string }> = {
+  Enter: { keyCode: "Enter", text: "\r" },
+  Tab: { keyCode: "Tab" },
+  Escape: { keyCode: "Escape" },
+  Backspace: { keyCode: "Backspace" },
+  Delete: { keyCode: "Delete" },
+  ArrowUp: { keyCode: "Up" },
+  ArrowDown: { keyCode: "Down" },
+  ArrowLeft: { keyCode: "Left" },
+  ArrowRight: { keyCode: "Right" },
+  Home: { keyCode: "Home" },
+  End: { keyCode: "End" },
+  PageUp: { keyCode: "PageUp" },
+  PageDown: { keyCode: "PageDown" },
+  Space: { keyCode: "Space", text: " " },
+};
 
-/** `press`의 key 하나를 누르고 뗀다. 모르는 이름이면 보내지 않고 false다. */
-export async function pressKey(send: CdpSend, spec: string): Promise<boolean> {
-  const event = parseKey(spec);
-  if (event === undefined) return false;
-  await send("Input.dispatchKeyEvent", {
-    ...event,
-    type: event.text === undefined ? "rawKeyDown" : "keyDown",
-  });
-  await send("Input.dispatchKeyEvent", {
-    type: "keyUp",
-    key: event.key,
-    code: event.code,
-    windowsVirtualKeyCode: event.windowsVirtualKeyCode,
-    modifiers: event.modifiers,
-  });
-  return true;
-}
-
-/** 글자 하나의 keyDown·keyUp이다. text를 달아 보낸다. */
-export function typeChar(send: CdpSend, char: string): Promise<unknown>[] {
-  const enter = char === "\n" || char === "\r";
-  const key = enter ? "Enter" : char;
-  const typed = enter ? "\r" : char;
+function stroke(
+  keyCode: string,
+  modifiers: KeyModifier[],
+  text: string | undefined,
+): KeyEvent[] {
   return [
-    send("Input.dispatchKeyEvent", {
-      type: "keyDown",
-      key,
-      text: typed,
-      unmodifiedText: typed,
-    }),
-    send("Input.dispatchKeyEvent", { type: "keyUp", key }),
+    { type: "keyDown", keyCode, modifiers },
+    ...(text === undefined
+      ? []
+      : [{ type: "char" as const, keyCode: text, modifiers }]),
+    { type: "keyUp", keyCode, modifiers },
   ];
 }
 
-/** 글을 글자마다 친다. */
-export async function typeText(send: CdpSend, text: string): Promise<void> {
-  await Promise.all([...text].flatMap((char) => typeChar(send, char)));
+/** `press`의 key 하나를 누르고 떼는 event. 모르는 이름이면 undefined다. */
+export function pressEvents(spec: string): KeyEvent[] | undefined {
+  const parts = spec.split("+");
+  const name = parts.pop() ?? "";
+  const modifiers: KeyModifier[] = [];
+  for (const part of parts) {
+    const modifier = MODIFIERS[part.toLowerCase()];
+    if (modifier === undefined) return undefined;
+    if (!modifiers.includes(modifier)) modifiers.push(modifier);
+  }
+  // 글자가 입력되는 조합만 글자를 싣는다. Control+a 같은 조합은 단축키다.
+  const types = !modifiers.some((m) => m !== "shift");
+  const named = NAMED[name];
+  if (named !== undefined) {
+    return stroke(named.keyCode, modifiers, types ? named.text : undefined);
+  }
+  if ([...name].length !== 1) return undefined;
+  const shifted =
+    /^[a-z]$/i.test(name) && modifiers.includes("shift")
+      ? name.toUpperCase()
+      : name;
+  return stroke(shifted, modifiers, types ? shifted : undefined);
+}
+
+/** 글을 글자마다 친다. 대문자는 Shift를 같이 누른다. 줄바꿈은 Enter다. */
+export function typeEvents(text: string): KeyEvent[][] {
+  return [...text].map((char) => {
+    if (char === "\n" || char === "\r") return stroke("Enter", [], "\r");
+    return stroke(char, /^[A-Z]$/.test(char) ? ["shift"] : [], char);
+  });
 }

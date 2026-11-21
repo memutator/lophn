@@ -42,6 +42,7 @@ import { Desktop } from "./main.tsx";
 import { catalogSource, connectedProjects } from "./palette/core-catalog.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { fileSearch } from "./palette/search.ts";
+import { keepPersonFocus } from "./person-focus.ts";
 import {
   openApp,
   openAppWindow,
@@ -62,8 +63,8 @@ import { coreProviderSettingsSource } from "./settings/providers/core-source.ts"
 import { coreQuickPrefsSource } from "./settings/quick-launch/core-source.ts";
 import { QuickPrefsProvider } from "./settings/quick-launch/store.tsx";
 import { coreRemoteSource } from "./settings/remote/core-source.ts";
-import { coreSyncSource } from "./settings/sync/core-source.ts";
 import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
+import { coreSyncSource } from "./settings/sync/core-source.ts";
 import {
   coreProjectsSource,
   windowFolderPicker,
@@ -102,6 +103,13 @@ const bridges = globalThis as {
   lophnArtifact?: LophnArtifactApi;
   lophnDetached?: LophnDetachedApi;
 };
+// 창의 다른 focus listener보다 먼저 건다(person-focus.ts).
+const shortcuts = bridges.lophnShortcuts;
+if (shortcuts !== undefined) {
+  keepPersonFocus(window, (listener) =>
+    shortcuts.subscribeDriverInput(listener),
+  );
+}
 // shell preload의 앱 view 통로. desktop 창 preload에만 있다.
 const views: LophnShellViewsApi | undefined =
   mock?.views ??

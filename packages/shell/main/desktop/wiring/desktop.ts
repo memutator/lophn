@@ -358,8 +358,8 @@ export function register(
       contents,
       process.platform,
       (shortcut, send) => {
-        // agent의 driver가 이 page에 보내는 key는 page에만 간다. 넘기지도 삼키지도 않는다(agent가 누른 Control+w가 창의 탭을 닫았다).
-        if (ctx.driverKeys.marked(contents.id)) return false;
+        // lophn이 이 page에 보내는 key는 page에만 간다. 넘기지도 삼키지도 않는다(agent가 누른 Control+w가 창의 탭을 닫았다).
+        if (ctx.driverInput.marked(contents.id)) return false;
         // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
         const host =
           contents.getType() === "webview" ? contents.hostWebContents : null;

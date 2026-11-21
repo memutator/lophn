@@ -1,5 +1,7 @@
 // driver가 한 탭의 page(webContents)에 대해 아는 것. Electron을 모르는 port라 driver를 가짜 page로 본다.
 // 실제 구현은 electron-page.ts다.
+import type { KeyEvent } from "./keys.ts";
+
 export interface PageEvents {
   /** CDP event. */
   cdp(method: string, params: Record<string, unknown>): void;
@@ -33,6 +35,8 @@ export interface Page {
     method: string,
     params?: Record<string, unknown>,
   ): Promise<T>;
+  /** key event 하나를 이 page에만 넣는다. page가 받지 않았으면(그릴 view가 없다) false다. */
+  sendKey(event: KeyEvent): boolean;
   subscribe(events: PageEvents): void;
 }
 

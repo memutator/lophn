@@ -1,0 +1,18 @@
+id: agent-input-page-only
+version: 0.23.112
+title: agent가 page에 넣는 키는 그 page에만 가고 사람의 keyboard focus를 옮기지 않는다
+modules: [packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc]
+change: |
+  - 이전에는 agent의 `browser act press|type|fill`이 CDP key event로 들어가 page가 아니라 창에서 focus가 있는 곳(주소 칸, 사람이 보던 다른 page)에 갔다. agent가 누른 Control+w가 사람이 고른 탭을 닫고, Control+Tab이 탭을 바꾸고, 글자가 주소 칸에 쳐졌다. 이제 키와 글은 webContents.sendInputEvent로 그 page에만 간다(탭이 숨었든 float에 접혔든, 사람의 focus가 shell이나 다른 page에 있든). page가 받지 않으면 남은 키를 보내지 않고 unavailable이다.
+  - 이전에는 키를 넣기 전에 page를 마우스로 눌러 focus를 얻었다. 사람이 이어 친 글이 agent의 page로 갔고, ref 없는 press가 page의 focus 요소(버튼)를 한 번 더 눌렀다. 이 누르기를 지웠다.
+  - agent의 click이나 page 끝의 Tab은 여전히 Chromium이 창 focus를 page로 옮긴다. input을 넣는 동안 main이 창에 `shell:driver-input`을 보내고, 창은 사람이 하지 않은 focus 이동을 곧바로 사람이 있던 요소(입력칸이면 선택까지)로 되돌리며 그 focus event를 삼킨다(칸 focus, float 접기, popover 닫기가 일어나지 않는다).
+  - 넣는 동안 그 page의 키는 창 단축키도 menu 단축키(Close Window)도 되지 않는다. 멀리서 보기(page_view)의 입력도 같은 길이다.
+why: |
+  agent가 일하는 동안 사람의 탭이 닫히고 사람이 치던 글이 agent의 page로 갔다. agent의 input은 그 page에만 닿고 사람이 하던 일을 바꾸지 않아야 한다.
+decisions:
+  - text: 키는 sendInputEvent로 넣는다. CDP(guest에 focus emulation을 켜도, embedder의 target session으로도)는 창의 focus 요소로 가고, Electron insertText는 key event가 없다. 실제 Electron 44에서 재서 sendInputEvent만 숨은 guest에 trusted keydown으로 닿고 창 focus를 옮기지 않았다.
+    by: agent
+  - text: click은 진짜 마우스 event로 두고 옮겨진 focus를 shell이 되돌린다. page를 누르는 어떤 길(CDP, sendInputEvent, touch, mousedown preventDefault)도 창 focus를 옮겼고, JS click은 isTrusted가 false이고 user activation이 없어 popup·file 선택이 깨진다.
+    by: agent
+  - text: 사람이 누르거나 focus를 옮기는 키(입력칸의 글자 치기는 빼고)를 친 뒤 300ms 안의 focus 이동은 사람의 것으로 따른다. 사람이 다른 page를 누른 것은 shell이 볼 수 없어, agent의 act 동안(수십~수백 ms)에는 되돌린다.
+    by: agent

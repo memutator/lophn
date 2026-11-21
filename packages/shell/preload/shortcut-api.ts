@@ -3,6 +3,7 @@
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
+  DRIVER_INPUT_CHANNEL,
   type IntentApi,
   isDesktopIntent,
   isWindowShortcut,
@@ -29,6 +30,13 @@ export function createShortcutApi(transport: ShortcutTransport): ShortcutApi {
       };
       transport.on(WINDOW_SHORTCUT_CHANNEL, callback);
       return () => transport.removeListener(WINDOW_SHORTCUT_CHANNEL, callback);
+    },
+    subscribeDriverInput(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (typeof payload === "boolean") listener(payload);
+      };
+      transport.on(DRIVER_INPUT_CHANNEL, callback);
+      return () => transport.removeListener(DRIVER_INPUT_CHANNEL, callback);
     },
   } satisfies ShortcutApi);
 }

@@ -124,6 +124,7 @@ export function register(
       const timer = setTimeout(run, ms);
       return () => clearTimeout(timer);
     },
+    input: ctx.driverInput,
   });
   control.onForget((tab) => stream.forget(tab));
   // 풀린 기기는 모든 창에 알리고 그 view session의 preview 탭만 듣는다(사람이 연 preview 탭은 bind하지 않아 창을 모른다).
@@ -144,7 +145,7 @@ export function register(
     lookup,
     control,
     nowMs: () => Date.now(),
-    keys: ctx.driverKeys,
+    input: ctx.driverInput,
   });
 
   // 최소화되거나 숨겨진 창의 page는 그리지 않는다. 되살아나면 screencast를 다시 켠다(frame이 와야 그린다고 본다).

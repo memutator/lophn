@@ -42,6 +42,9 @@ mail의 main thread 쪽을 짠다: agent가 부르는 보내는 입구(`calls/se
    - 답: ok면 `callsMailSent {result: {kind: "acked", applied}}`. `unavailable`이고 `details.sent === true`면 `{kind: "unknown"}`을 적고 그 peer를 멈춘다(받는 쪽이 id로 걸러 다음에 다시 보내도 한 번만 돈다. README "결과를 모르는 mail"). `not_found`(그 route를 모른다)나 `invalid_input`(그 판이 이 mail의 꼴을 읽지 못한다)이면 `{kind: "refused"}`(call은 `old_version`으로 닫힌다)이고 다음 줄로 간다. 그대로 두면 그 peer의 줄이 영영 막힌다. 그 밖의 오류(`unavailable` sent false, `forbidden` 등)는 그 peer를 멈추고 다음 때에 다시 한다.
 6. `context.ts`: late key `mailInbox`(위 "내놓는 것").
 
+7. (lead가 더함, `mail-router` 보고에서) 등록을 이 task가 한다. `mail-router`는 handler가 없어 등록하지 못했다(core는 handler 없는 memory route가 있으면 기동을 거절하고, 허용 목록의 route가 등록되지 않으면 `schema-steps_test`가 실패한다). 추가 소유: `packages/protocol/lophn-agent/registry.ts`(`MAIL_ROUTES` 등록), `packages/protocol/remote/allowlist.ts`(`REMOTE_ALLOWED_ROUTES`와 `REMOTE_AGENT_ROUTES`에 `a2aMail`), `packages/core/main/daemon/assembly.ts`(`WIRINGS`에 `mailWiring`을 `routerWiring` 뒤, `remoteWiring` 앞에). 이 branch에서 core가 두 번 뜨는 것(`boot.sh`)까지 본다.
+8. (lead가 더함, `mail-router` 보고에서) 본문 준비가 빠진 곳을 모두 채운다. `calls/mail-apply`가 받는 session에 적는 call·reply 본문만이 아니라, `calls/mail-apply`·`calls/mail-sent`·켤 때 정산(`failAll`)이 **이 기계의 session**에 넣는 실패 알림과 취소 알림도 blob이 준비되어 있어야 기록된다. 지금 준비하는 자리는 `packages/core/main/daemon/wiring/router.ts`의 `createCallBodyPreparer`이고 네 mail 명령은 거기에 없다. 추가 소유: 그 file에서 네 mail 명령의 본문을 준비하는 범위만. 위험 test에 "상대가 old_version으로 닫은 call의 실패 알림이 보낸 session의 입력으로 기록된다"를 더한다.
+
 ## 끝남
 
 - `npm run check`가 통과한다.

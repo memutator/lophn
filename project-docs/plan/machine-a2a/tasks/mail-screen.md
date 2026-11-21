@@ -35,6 +35,8 @@
 5. sidebar: 다른 기계에서 연 session은 지금 그 기계의 묶음에 기계 꼬리표(`MachineTag`)와 함께 선다. gallery의 shell 화면에서 mail로 열린 session이 그 기계 묶음에 보이는지만 확인하고 새 sidebar UI는 만들지 않는다(정한 것: 가장 적은 새 UI. 보고에 확인한 결과를 적는다).
 6. 글은 i18n catalog `conversation.ts`에. gallery `conversation.tsx`에 다른 컴퓨터 call의 상태 넷과 받은 쪽 chip이 보이는 장면을 더한다.
 
+(lead가 더함, `mail-router` 보고에서) 보낸 쪽이 `remote`인 입력의 표시를 끝까지 맞춘다. `mail-router`는 shell의 `agent-tab-core-source-bodies.ts`의 `senderOf`만 최소로 맞췄고(`{kind: "agent", agent: null, name: "<name> (<computer>)"}`), ACP 쪽(`acp-project.ts`의 live 변환과 `acp-build.ts`의 이력 만들기)은 remote 보낸 쪽을 이름 없이 낸다. live와 이력이 같은 이름("<agent 이름> · <컴퓨터 이름>")을 내게 한다. 추가 소유: `packages/core/main/daemon/wiring/acp-project.ts`가 소유에 없으면 그 file의 보낸 쪽 변환 범위만.
+
 ## 끝남
 
 - `npm run check`가 통과한다. renderer build(`node packages/shell/renderer/build.ts`)가 된다.

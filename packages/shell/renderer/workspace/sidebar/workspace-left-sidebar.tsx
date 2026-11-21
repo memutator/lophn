@@ -14,6 +14,7 @@ import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adap
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { lophnIdAt } from "../agents/agent-key.ts";
+import type { HandoffNote } from "../../../../protocol/lophn-agent/handoff.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
@@ -27,6 +28,11 @@ import {
   RegisterDialog,
   type RegisterTarget,
 } from "../../desktop/workspaces/register-dialog.tsx";
+import {
+  continueHandoff,
+  HandoffProvider,
+  useHandoffNotes,
+} from "../../desktop/workspaces/projects/handoff-source.ts";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import {
   useMachines,
@@ -234,6 +240,16 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const projectId = current.kind === "project" ? current.id : null;
   const lists = useMachineLists();
   const { entries, dataOf } = lists;
+  // 다른 컴퓨터가 남긴 handoff note는 이 컴퓨터의 core가 낸다(창이 다른 기계를 보고 있어도).
+  const here = dataOf(null);
+  const handoffNotes = useHandoffNotes(here.events);
+  const handoffs = useMemo(
+    () => ({
+      notes: handoffNotes,
+      open: (note: HandoffNote) => void continueHandoff(here.core, note),
+    }),
+    [handoffNotes, here.core],
+  );
   // 모든 기계의 session 제목. 창에 하나이고 탭 줄과 같은 값이다.
   const { known } = props.sessionTitles;
   const workspaceRefs = useMemo(
@@ -912,7 +928,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { start: startDrag } = useTabDrag();
 
   return (
-    <>
+    <HandoffProvider value={handoffs}>
       <LeftSidebar
         onRowDrag={(event, workspace, item) =>
           startDrag(
@@ -1056,6 +1072,6 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           }}
         />
       )}
-    </>
+    </HandoffProvider>
   );
 }

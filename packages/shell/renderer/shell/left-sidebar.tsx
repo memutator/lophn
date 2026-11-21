@@ -61,6 +61,8 @@ import {
   sessionKey,
   withChildren,
 } from "./left-sidebar-model.ts";
+import { useHandoffs } from "../desktop/workspaces/projects/handoff-source.ts";
+import { HandoffRow } from "../workspace/sidebar/handoff-row.tsx";
 import styles from "./left-sidebar.module.css";
 import {
   HoverList,
@@ -353,6 +355,7 @@ export function LeftSidebar({
       ? t("machine-update.viewer.status-desktop-client")
       : t("machine-update.viewer.status-host", { name: nameOf(machine) ?? "" });
   };
+  const handoffs = useHandoffs();
   const keyLabel = useKeyLabel();
   const newSessionKeys = keyLabel("new.agent");
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
@@ -573,6 +576,10 @@ export function LeftSidebar({
     const key = workspaceKey(workspace.ref);
     const here = key === currentKey;
     const open = expanded.has(key);
+    const projectId =
+      workspace.ref.kind === "project" && workspace.ref.machine === undefined
+        ? workspace.ref.id
+        : undefined;
     // 줄이 줄어 page가 사라지면 마지막 page를 보인다.
     const pageCount = Math.ceil(workspace.recent.length / RECENT_PAGE);
     const page = Math.min(pages.get(key) ?? 0, Math.max(pageCount - 1, 0));
@@ -685,6 +692,20 @@ export function LeftSidebar({
           )}
         </div>
         {renderNote?.(workspace)}
+        {/* 이어서 할 곳은 이 컴퓨터라 다른 기계 묶음의 project 줄에는 두지 않는다. */}
+        {handoffs === null || projectId === undefined
+          ? null
+          : handoffs.notes
+              .filter((note) => note.project === projectId)
+              .map((note) => (
+                <HandoffRow
+                  key={`${note.machine}:${note.session}`}
+                  note={note}
+                  tag={<MachineTag name={note.computer} />}
+                  age={ageOf(Date.parse(note.written_at))}
+                  onOpen={() => handoffs.open(note)}
+                />
+              ))}
         {workspace.current.map((group) => (
           <Fragment key={group.desk?.key ?? ""}>
             {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}

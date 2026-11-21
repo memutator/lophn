@@ -394,6 +394,27 @@
   font-variant-numeric: var(--font-numeric);
 }
 
+/* handoff note 줄. 좁으면 branch가 먼저, 그다음 꼬리표가 줄어 첫 줄이 읽힌다. */
+.handoffBranch {
+  flex: 0 10 auto;
+  min-width: var(--space-0);
+  max-width: var(--space-12);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.handoffLabel {
+  min-width: var(--space-12);
+}
+
+/* handoff note의 전체 글 tooltip. 글은 줄바꿈을 그대로 둔다. */
+.handoffTip {
+  max-width: calc(var(--space-12) * 5);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .rowDot {
   display: inline-flex;
   flex: none;

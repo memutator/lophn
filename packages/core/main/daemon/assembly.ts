@@ -49,6 +49,7 @@ import type { WiringFactory } from "./wiring/context.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { machineWiring } from "./wiring/machine.ts";
 import { mailWiring } from "./wiring/mail.ts";
+import { handoffWiring } from "./wiring/handoff.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
 import { lophnSplitWiring } from "./wiring/lophn-split.ts";
 import { eventsWiring } from "./wiring/events.ts";
@@ -245,6 +246,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   // router 뒤다: mail 명령의 본문 준비는 router의 쓰기 앞 처리기가 한다. 명단과 link(remote)는 부를 때 읽는다.
   mailWiring,
   a2aListsWiring,
+  handoffWiring,
   // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step(host key의 machine 표지)은 앞 step과 상관없다.
   remoteWiring,
 ];

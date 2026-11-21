@@ -52,6 +52,7 @@ import {
   MAIL_HOLD_ROUTES,
   MAIL_ROUTES,
 } from "../../protocol/lophn-agent/mail.ts";
+import { HANDOFF_ROUTES } from "../../protocol/lophn-agent/handoff.ts";
 import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
@@ -986,6 +987,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       // 기계 사이 mail의 보내는 입구와 받는 입구, 늦게 온 mail의 대기 목록. handler는 wiring/mail.ts가 붙인다.
       ...MAIL_ROUTES,
       ...MAIL_HOLD_ROUTES,
+      // handoff note를 남기는 입구와 다른 컴퓨터의 note 목록. handler는 wiring/handoff.ts가 붙인다.
+      ...HANDOFF_ROUTES,
       // provider 잇기(이 기계의 주소)와 구독 로그인의 시작·상태. handler는 wiring/lophn-agent.ts의 provider login이 붙인다.
       providerConnectLocal,
       providerSignIn,

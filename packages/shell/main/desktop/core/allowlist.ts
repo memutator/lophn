@@ -27,6 +27,8 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 사람이 browser 탭을 이 기계의 session에 넘기기와 창이 core에 다시 붙을 때 넘긴 탭을 다시 알리기(`tabs/hand`)
 // - key 없이 이 기계의 주소로 provider 잇기, 구독 로그인 시작과 상태 읽기(`providers/connect-local`·`sign-in`·`sign-in-state`. Settings › Providers와
 //   agent의 sign_in card). key로 잇기(`providers/connect-key`)는 upload라 main의 secret 입력 창만 부른다.
+// - 다른 컴퓨터에서 늦게 온 mail의 보류 목록 읽기와 결정(`mail/holds`·`mail/decide_hold`. 대기 목록의 Mail from other computers)
+// - 다른 컴퓨터에서 남긴 handoff note 읽기(`handoff/list`. sidebar의 project 줄 아래)
 // 다른 memory route는 main의 고정 통로만 부른다.
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/begin",
@@ -72,6 +74,9 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:roster/set_terminal_input",
   "memory:roster/rename",
   "memory:machines/list",
+  "memory:mail/holds",
+  "memory:mail/decide_hold",
+  "memory:handoff/list",
   "memory:machine/status",
   "memory:machine/rename",
   "memory:always_on/status",

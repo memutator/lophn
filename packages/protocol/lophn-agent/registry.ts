@@ -18,6 +18,7 @@ import { TURN_COMMANDS } from "./turns.ts";
 import { TURN_READS } from "./turn-reads.ts";
 import { AGENT_CALL_ROUTES } from "./calls.ts";
 import { MAIL_HOLD_ROUTES, MAIL_ROUTES } from "./mail.ts";
+import { HANDOFF_ROUTES } from "./handoff.ts";
 import { TEAM_ROUTES } from "./team.ts";
 import {
   QUEUED_INPUT_ROUTES,
@@ -74,6 +75,8 @@ export const ROUTES = [
   // 기계 사이 mail: agent가 다른 컴퓨터로 보내는 입구와 다른 컴퓨터의 core가 넘기는 입구.
   ...MAIL_ROUTES,
   ...MAIL_HOLD_ROUTES,
+  // handoff note: session이 남기는 입구와 이 컴퓨터의 사람이 다른 컴퓨터의 note를 읽는 입구.
+  ...HANDOFF_ROUTES,
   ...TEAM_ROUTES,
   sendMessage,
   recordShellMessage,

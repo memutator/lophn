@@ -14,6 +14,8 @@ export type DebuggerOwner = "driver" | "emulation" | "stream";
 export interface Page {
   /** webContents id. 같은 page인지는 이것으로 본다. */
   readonly id: number;
+  /** browser 탭 page의 browser profile(null은 기본). browser 탭이 아닌 page도 null이다. */
+  readonly profile: string | null;
   isDestroyed(): boolean;
   isDevToolsOpened(): boolean;
   isLoading(): boolean;

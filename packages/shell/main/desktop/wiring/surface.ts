@@ -108,7 +108,7 @@ export function register(
     pushControl(tab, state);
     stream.controlChanged(tab, state);
   });
-  const lookup = electronLookup(appFrame, artifacts);
+  const lookup = electronLookup(appFrame, artifacts, ctx.settings);
   // 멀리서 보는 것은 host browser 탭뿐이다(preview·artifact는 보지 않는다).
   const stream = createPageStream({
     page: (tab) => {

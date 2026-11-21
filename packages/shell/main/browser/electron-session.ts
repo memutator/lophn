@@ -1,10 +1,12 @@
-// BrowserSessionHandle을 Electron의 browser partition에 잇는다.
+// BrowserSessionHandle을 Electron의 browser partition 하나에 잇는다.
 import { session as electronSession } from "electron";
 
-import { BROWSER_PARTITION, type BrowserSessionHandle } from "./session.ts";
+import type { BrowserSessionHandle } from "./session.ts";
 
-export function electronBrowserSession(): BrowserSessionHandle {
-  const session = electronSession.fromPartition(BROWSER_PARTITION);
+export function electronBrowserSession(
+  partition: string,
+): BrowserSessionHandle {
+  const session = electronSession.fromPartition(partition);
   return {
     onPermissionRequest(decide) {
       session.setPermissionRequestHandler(

@@ -1,8 +1,10 @@
 // shell renderer와 main 사이 browser 탭 경계.
-// main·preload·renderer가 함께 부르므로 import는 zod뿐이다.
+// main·preload·renderer가 함께 부르므로 import는 zod와 protocol의 profile id 꼴뿐이다.
 // view의 bounds·숨기기·폐기는 app-frame.ts의 shell:view-bounds, shell:views-hidden,
 // shell:view-close를 그대로 쓴다.
 import { z } from "zod";
+
+import { browserProfileIdSchema } from "../../protocol/shell/browser-profiles.ts";
 
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 // app-frame.ts의 viewSession과 같은 규칙.
@@ -61,6 +63,11 @@ export const browserDevtoolsWindowSchema = z
     devtools_session: viewSession,
     window: z.boolean(),
   })
+  .strict();
+
+// 그 profile(null은 기본)의 partition 하나만 지운다. 목록에 없는 id도 받는다: 지운 profile의 data를 지우는 길이다.
+export const browserClearDataSchema = z
+  .object({ profile: browserProfileIdSchema.nullable() })
   .strict();
 
 export const browserCommandSchema = z
@@ -178,6 +185,7 @@ export const bookmarkReasonSchema = z.enum([
 export type BrowserAdopt = z.infer<typeof browserAdoptSchema>;
 export type BrowserNavigate = z.infer<typeof browserNavigateSchema>;
 export type BrowserCommand = z.infer<typeof browserCommandSchema>;
+export type BrowserClearData = z.infer<typeof browserClearDataSchema>;
 export type BrowserDevtoolsOpen = z.infer<typeof browserDevtoolsOpenSchema>;
 export type BrowserDevtoolsClose = z.infer<typeof browserDevtoolsCloseSchema>;
 export type BrowserDevtoolsWindow = z.infer<typeof browserDevtoolsWindowSchema>;
@@ -222,7 +230,8 @@ export interface LophnBrowserApi {
   adopt(input: BrowserAdopt): Promise<BrowserViewState>;
   navigate(input: BrowserNavigate): Promise<BrowserViewState>;
   command(input: BrowserCommand): Promise<void>;
-  clearData(): Promise<void>;
+  /** 그 profile(null은 기본)의 cookie·저장소·cache를 지우고 그 profile의 열린 page를 다시 load한다. */
+  clearData(profile: string | null): Promise<void>;
   devtools: {
     open(input: BrowserDevtoolsOpen): Promise<{ devtools_session: string }>;
     close(input: BrowserDevtoolsClose): Promise<void>;

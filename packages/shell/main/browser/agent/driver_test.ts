@@ -43,6 +43,7 @@ function fakePage() {
   let events: PageEvents | undefined;
   const page: Page = {
     id: 7,
+    profile: null,
     isDestroyed: () => false,
     isDevToolsOpened: () => false,
     isLoading: () => false,

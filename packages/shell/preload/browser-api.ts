@@ -82,8 +82,8 @@ export function createBrowserApi(transport: BrowserTransport): LophnBrowserApi {
     command: async (input) => {
       await call<null>(transport, BROWSER_COMMAND_CHANNEL, input);
     },
-    clearData: async () => {
-      await call<null>(transport, BROWSER_CLEAR_DATA_CHANNEL, undefined);
+    clearData: async (profile) => {
+      await call<null>(transport, BROWSER_CLEAR_DATA_CHANNEL, { profile });
     },
     devtools: Object.freeze({
       open: (input) =>

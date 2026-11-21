@@ -10,6 +10,7 @@ import {
   BROWSER_DEVTOOLS_WINDOW_CHANNEL,
   BROWSER_NAVIGATE_CHANNEL,
   browserAdoptSchema,
+  browserClearDataSchema,
   browserCommandSchema,
   browserDevtoolsCloseSchema,
   browserDevtoolsOpenSchema,
@@ -25,6 +26,7 @@ import {
   type ContentsRegistry,
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import type { BrowserViews } from "./registry.ts";
 
 interface BrowserIpcDeps {
@@ -36,13 +38,13 @@ interface BrowserIpcDeps {
     | "adopt"
     | "navigate"
     | "command"
-    | "reloadAll"
+    | "reloadPartition"
     | "openDevtools"
     | "closeDevtools"
     | "devtoolsWindow"
   >;
-  /** installBrowserSession이 돌려준 것. */
-  clearData(): Promise<void>;
+  /** 그 partition에 installBrowserSession이 돌려준 clearData. */
+  clearData(partition: string): Promise<void>;
 }
 
 interface BrowserIpcHandlers {
@@ -55,7 +57,7 @@ interface BrowserIpcHandlers {
     input: unknown,
   ): Promise<BrowserReply<BrowserViewState>>;
   command(event: IpcEvent, input: unknown): Promise<BrowserReply<null>>;
-  clearData(event: IpcEvent): Promise<BrowserReply<null>>;
+  clearData(event: IpcEvent, input: unknown): Promise<BrowserReply<null>>;
   devtoolsOpen(
     event: IpcEvent,
     input: unknown,
@@ -154,18 +156,21 @@ export function createBrowserIpc(deps: BrowserIpcDeps): BrowserIpcHandlers {
         ),
       );
     },
-    async clearData(event) {
+    async clearData(event, input) {
       const window = callerWindow(event);
       if (!window.ok) return window;
+      const checked = checkInput(browserClearDataSchema, input);
+      if (!checked.ok) return checked;
+      const partition = browserPartition(checked.value.profile);
       try {
-        await deps.clearData();
+        await deps.clearData(partition);
       } catch {
         return {
           ok: false,
           error: { code: "unavailable", message: "could not clear data" },
         };
       }
-      deps.views.reloadAll();
+      deps.views.reloadPartition(partition);
       return { ok: true, value: null };
     },
   };

@@ -3,10 +3,10 @@
 import { BrowserWindow, type Event as ElectronEvent } from "electron";
 
 import type { BrowserTabState } from "../../../protocol/lophn-agent/host-queue.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import { createPages } from "../browser/agent/electron-page.ts";
 import type { Page } from "../browser/agent/page.ts";
 import { decideNavigation } from "../browser/navigation.ts";
-import { BROWSER_PARTITION } from "../browser/session.ts";
 
 // 창 하나의 agent page 상한(renderer `MAX_AGENT_PAGES`)과 같다. page host에는 창이 없어 이 기계 전체의 상한이다.
 const MAX_PAGES = 12;
@@ -26,9 +26,17 @@ export function createPageHostPages(
 ) {
   const pageOf = createPages();
   // 넣은 차례가 쓴 차례다. 쓰면 맨 뒤로 옮긴다.
-  const windows = new Map<string, BrowserWindow>();
+  const windows = new Map<
+    string,
+    { window: BrowserWindow; profile: string | null }
+  >();
 
-  async function open(tab: string, address: string): Promise<void> {
+  /** `profile`(null은 기본)의 partition으로 연다. 이미 열린 탭은 처음 연 profile 그대로다. */
+  async function open(
+    tab: string,
+    address: string,
+    profile: string | null,
+  ): Promise<void> {
     if (windows.has(tab)) return touch(tab);
     while (windows.size >= MAX_PAGES) {
       const [oldest] = windows.keys();
@@ -38,17 +46,17 @@ export function createPageHostPages(
       show: false,
       webPreferences: {
         offscreen: true,
-        partition: BROWSER_PARTITION,
+        partition: browserPartition(profile),
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
         backgroundThrottling: false,
       },
     });
-    windows.set(tab, window);
+    windows.set(tab, { window, profile });
     onCount?.(windows.size);
     window.once("closed", () => {
-      if (windows.get(tab) === window) {
+      if (windows.get(tab)?.window === window) {
         windows.delete(tab);
         onCount?.(windows.size);
       }
@@ -74,7 +82,7 @@ export function createPageHostPages(
 
     // 아무것도 load하지 않은 page에 크기 emulation을 보내면 process가 죽는다(headless, 확인함). 빈 page를 먼저 연다.
     // owner는 page가 사는 동안 떼지 않는다(떼면 override가 풀린다).
-    const page = pageOf(contents);
+    const page = pageOf(contents, profile);
     const emulate = () => page.send("Emulation.setDeviceMetricsOverride", SIZE);
     try {
       await contents.loadURL("about:blank");
@@ -116,16 +124,16 @@ export function createPageHostPages(
   }
 
   function close(tab: string): void {
-    const window = windows.get(tab);
+    const window = windows.get(tab)?.window;
     if (windows.delete(tab)) onCount?.(windows.size);
     if (window !== undefined && !window.isDestroyed()) window.destroy();
   }
 
   function touch(tab: string): void {
-    const window = windows.get(tab);
-    if (window === undefined) return;
+    const opened = windows.get(tab);
+    if (opened === undefined) return;
     windows.delete(tab);
-    windows.set(tab, window);
+    windows.set(tab, opened);
   }
 
   return {
@@ -134,10 +142,10 @@ export function createPageHostPages(
     touch,
     count: () => windows.size,
     page(tab: string): Page | undefined {
-      const window = windows.get(tab);
-      return window === undefined || window.isDestroyed()
+      const opened = windows.get(tab);
+      return opened === undefined || opened.window.isDestroyed()
         ? undefined
-        : pageOf(window.webContents);
+        : pageOf(opened.window.webContents, opened.profile);
     },
   };
 }

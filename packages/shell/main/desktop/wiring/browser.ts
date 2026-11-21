@@ -1,4 +1,4 @@
-// browser 탭: persistent session 정책, 창의 `<webview>` 붙이기 판정과 guest 등록, 크기 준 popup의
+// browser 탭: profile partition마다의 persistent session 정책, 창의 `<webview>` 붙이기 판정과 guest 등록, 크기 준 popup의
 // native view 목록, renderer IPC. app·artifact view의 붙이기도 이 한 handler가 함께 판정한다
 // (preventDefault와 prefs 수정은 여기 한 곳만 한다). native popup·DevTools의 위치·숨김은
 // native-bounds.ts가 한다.
@@ -16,6 +16,7 @@ import {
   BROWSER_EVENT_CHANNEL,
   BROWSER_STATE_CHANNEL,
 } from "../../../ipc/browser.ts";
+import { BROWSER_PROFILES_SETTING } from "../../../../protocol/shell/browser-profiles.ts";
 import { createActivation } from "../../browser/activation.ts";
 import { electronBrowserViews } from "../../browser/electron-view.ts";
 import { electronBrowserSession } from "../../browser/electron-session.ts";
@@ -32,7 +33,10 @@ import {
   registerBrowserIpc,
   removeBrowserIpc,
 } from "../../browser/browser-ipc.ts";
-import { installBrowserSession } from "../../browser/session.ts";
+import {
+  installBrowserSession,
+  knownBrowserPartitions,
+} from "../../browser/session.ts";
 import { windowBrowserViewOrders } from "../../browser/view-order.ts";
 import {
   type AcceptedWebviewGuest,
@@ -56,23 +60,29 @@ export function register(ctx: ShellContext): BrowserWiring {
   const { headless, overlays, ipc, log, windowRef, windowOfRef } = ctx;
 
   const activation = createActivation({ nowMs: () => Date.now() });
-  // userData(desktop.ts)를 잡은 뒤, 첫 view나 Clear browsing data가 올 때 한 번만 설치한다.
+  // userData(desktop.ts)를 잡은 뒤, partition마다 그 첫 view나 Clear browsing data가 올 때 한 번만 설치한다.
   // 그 전에 partition을 만들면 저장이 데이터 root 밖에 생긴다.
-  let session: ReturnType<typeof installBrowserSession> | undefined;
-  const ensureSession = () =>
-    (session ??= installBrowserSession(electronBrowserSession(), {
-      activation,
-      // 받는 중에는 renderer가 그 탭의 page를 workspace를 떠나도 살려 두게 알린다.
-      downloading(contentsId, active) {
-        webContents
-          .fromId(contentsId)
-          ?.hostWebContents?.send(BROWSER_EVENT_CHANNEL, {
-            kind: "download",
-            view_session: guestViewSession(contentsId),
-            active,
-          });
-      },
-    }));
+  const sessions = new Map<string, ReturnType<typeof installBrowserSession>>();
+  const ensureSession = (partition: string) => {
+    let installed = sessions.get(partition);
+    if (installed === undefined) {
+      installed = installBrowserSession(electronBrowserSession(partition), {
+        activation,
+        // 받는 중에는 renderer가 그 탭의 page를 workspace를 떠나도 살려 두게 알린다.
+        downloading(contentsId, active) {
+          webContents
+            .fromId(contentsId)
+            ?.hostWebContents?.send(BROWSER_EVENT_CHANNEL, {
+              kind: "download",
+              view_session: guestViewSession(contentsId),
+              active,
+            });
+        },
+      });
+      sessions.set(partition, installed);
+    }
+    return installed;
+  };
 
   const orderOf = windowBrowserViewOrders<BrowserWindow, WebContentsView>(
     (window) => overlays.raise(window),
@@ -94,9 +104,9 @@ export function register(ctx: ShellContext): BrowserWiring {
   const views = createBrowserViews({
     host: {
       ...host,
-      create(hooks) {
-        ensureSession();
-        return host.create(hooks);
+      create(hooks, partition) {
+        ensureSession(partition);
+        return host.create(hooks, partition);
       },
     },
     activation,
@@ -143,7 +153,7 @@ export function register(ctx: ShellContext): BrowserWiring {
         return window === undefined ? undefined : windowRef(window);
       },
       views,
-      clearData: () => ensureSession().clearData(),
+      clearData: (partition) => ensureSession(partition).clearData(),
     }),
   );
   ctx.windowHooks.closed.push(({ ref }) => {
@@ -185,6 +195,10 @@ export function register(ctx: ShellContext): BrowserWiring {
         params: params as unknown as Record<string, string>,
         app: guest?.target.kind === "app" ? guest.target : undefined,
         artifact: guest?.target.kind === "artifact" ? guest.target : undefined,
+        // 붙일 때마다 지금 설정을 읽는다. 막 만든 profile을 main이 아직 읽지 못했으면 거절된다(빈 page).
+        browserPartitions: knownBrowserPartitions(
+          ctx.settings.get(BROWSER_PROFILES_SETTING),
+        ),
         base,
       });
       if (target === undefined) {
@@ -199,7 +213,7 @@ export function register(ctx: ShellContext): BrowserWiring {
           target,
           bind(webContents: WebContents) {
             view_session = guestViewSession(webContents.id);
-            views.addGuest(ref, view_session, (hooks) =>
+            views.addGuest(ref, view_session, target.partition, (hooks) =>
               host.guest(webContents, hooks),
             );
           },
@@ -207,8 +221,8 @@ export function register(ctx: ShellContext): BrowserWiring {
             if (view_session !== undefined) views.forgetGuest(view_session);
           },
         });
-        // guest가 생기기 전에 partition의 정책을 깐다.
-        ensureSession();
+        // guest가 생기기 전에 그 partition의 정책을 깐다.
+        ensureSession(target.partition);
         return;
       }
       // app·artifact는 resolver가 받아 둔 붙이기 그대로 묶는다.

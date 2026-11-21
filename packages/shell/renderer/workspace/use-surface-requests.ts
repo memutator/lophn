@@ -267,7 +267,12 @@ export function useSurfaceRequests(args: Args): void {
         }
         return;
       }
-      openBrowserTab(host(), target.browser.url, open);
+      // core가 연 session의 agent 정의로 고른 profile이다. 없으면 기본 profile이다.
+      const { profile } = target.browser;
+      openBrowserTab(host(), target.browser.url, {
+        ...open,
+        ...(profile === undefined ? {} : { profile }),
+      });
       done();
     });
   }, [surface, ready]);
@@ -294,17 +299,16 @@ export function useSurfaceRequests(args: Args): void {
     const pending = takePending?.();
     if (pending === undefined) return;
     for (const item of pending.opens) {
-      openBrowserTab(
-        host(),
-        item.url,
-        placementOf(
+      openBrowserTab(host(), item.url, {
+        ...placementOf(
           host,
           `${HOST_KEY}${item.tab}`,
           item.relation,
           item.source,
           "browser",
         ),
-      );
+        ...(item.profile === null ? {} : { profile: item.profile }),
+      });
     }
     const keys = new Set(
       host()

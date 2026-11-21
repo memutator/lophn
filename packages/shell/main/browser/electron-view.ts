@@ -1,5 +1,5 @@
 // browser 탭의 page를 Electron에 잇는다. 보통 탭은 shell renderer의 <webview> guest이고, 크기 준
-// popup만 native view다. 둘 다 persistent browser partition을 쓰고 preload가 없다. contents에 거는
+// popup만 native view다. 둘 다 그 탭 profile의 persistent browser partition을 쓰고 preload가 없다. contents에 거는
 // hook은 한 함수로 묶어 guest와 popup이 같은 규칙을 쓴다. native view는 이 map에만 있다.
 import {
   type BrowserWindow,
@@ -27,7 +27,6 @@ import { openDevtoolsView } from "./devtools.ts";
 import { decideNavigation } from "./navigation.ts";
 import { faviconData } from "./favicon.ts";
 import { windowOpenHandler } from "./popup-host.ts";
-import { BROWSER_PARTITION } from "./session.ts";
 
 interface ElectronBrowserViewsInput {
   windowOf(ref: string): BrowserWindow | undefined;
@@ -166,6 +165,7 @@ export function electronBrowserViews(
         hooks,
         adopt: (popup, popupHooks) =>
           wrap(new WebContentsView({ webContents: popup }), popupHooks),
+        // partition을 적지 않는다: Electron은 popup contents를 opener의 session으로 만들어 popup이 연 탭의 profile을 따른다.
         overrides: surfaceOptions(
           {
             webPreferences: {
@@ -276,7 +276,7 @@ export function electronBrowserViews(
       native.set(adapter, opened.view);
       return adapter;
     },
-    create(hooks) {
+    create(hooks, partition) {
       // crash한 native popup을 다시 열 때 쓴다. browser view만 packaged에서도 DevTools를 연다.
       return wrap(
         new WebContentsView(
@@ -284,7 +284,7 @@ export function electronBrowserViews(
             {
               webPreferences: {
                 ...webPreferences(input.packaged),
-                partition: BROWSER_PARTITION,
+                partition,
                 devTools: true,
               },
             },

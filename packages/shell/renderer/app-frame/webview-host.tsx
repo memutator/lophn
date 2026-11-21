@@ -24,11 +24,9 @@ import {
   type TabHead,
   type TabHeadEvent,
 } from "../../ipc/app-tab-head.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import { type AppKeysBridge, useAppKeysBridge } from "../commands/app-keys.ts";
 import styles from "./webview-host.module.css";
-
-// main의 BROWSER_PARTITION(main/browser/session.ts)과 같은 이름이다. 다르면 main이 attach를 거절한다.
-const PARTITION = "persist:lophn-browser";
 
 /**
  * 앱 화면의 주소(`lophn-app://app-<id 소문자>/…`, 다른 기계의 앱은 `app-<id>-<기계 id>`)에서 앱 id(`app_<id>`)를 낸다.
@@ -116,9 +114,10 @@ interface Entry {
 export interface WebviewHost {
   /**
    * key의 <webview>를 만든다(이미 있으면 그대로). 앱·artifact의 src가 element를 만든 값과 다르면
-   * 그 자리에서 element를 새로 만든다. browser의 src는 처음 만들 때만 쓴다.
+   * 그 자리에서 element를 새로 만든다. browser의 src와 partition(그 탭 profile의 것, 없으면 기본)은 처음 만들 때만
+   * 쓴다: 탭의 profile은 정해지면 바뀌지 않는다. main은 알려진 profile의 partition만 붙인다.
    */
-  ensure(key: string, src: string, kind: WebviewKind): void;
+  ensure(key: string, src: string, kind: WebviewKind, partition?: string): void;
   /** guest가 붙으면 session을 알린다. 이미 붙었으면 바로 부른다. */
   onSession(key: string, listener: (session: string) => void): () => void;
   /** 자리 사각형(그릇 기준이 아닌 화면 좌표)과 층. null이면 숨긴다. */
@@ -466,7 +465,12 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     });
   }
 
-  function make(key: string, src: string, kind: WebviewKind): Entry {
+  function make(
+    key: string,
+    src: string,
+    kind: WebviewKind,
+    partition: string | undefined,
+  ): Entry {
     const entry: Entry = {
       element: createElement(key, kind),
       kind,
@@ -492,7 +496,10 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     if (entry.agent) entry.shownAt = now();
     bind(entry, entry.element);
     if (kind === "browser") {
-      entry.element.setAttribute("partition", PARTITION);
+      entry.element.setAttribute(
+        "partition",
+        partition ?? browserPartition(null),
+      );
       entry.element.setAttribute("allowpopups", "");
       // 빈 주소 칸도 guest가 붙도록 about:blank로 연다. 첫 주소는 main이 attach 때 다시 검사한다.
       entry.element.setAttribute("src", src === "" ? "about:blank" : src);
@@ -525,15 +532,15 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
   }
 
   return {
-    ensure(key, src, kind) {
+    ensure(key, src, kind, partition) {
       const existing = entries.get(key);
       if (existing === undefined) {
-        entries.set(key, make(key, src, kind));
+        entries.set(key, make(key, src, kind, partition));
         return;
       }
       if (existing.kind !== kind) {
         existing.element.remove();
-        entries.set(key, make(key, src, kind));
+        entries.set(key, make(key, src, kind, partition));
         return;
       }
       // browser element는 tab마다 하나이고 주소는 main이 민다. 앱·artifact는 주소가 곧 신원이다.
@@ -710,12 +717,14 @@ export function useWebviewSlot(input: {
   key: string;
   /** element를 만들 주소. 앱·artifact는 이 값이 바뀌면 element를 새로 만든다. */
   src: string;
+  /** browser: 탭 profile의 partition. 없으면 기본 profile이다. element를 처음 만들 때만 쓴다. */
+  partition?: string;
   ref: { readonly current: HTMLElement | null };
   shown: boolean;
   layer: number;
   onSession?(session: string): void;
 }): void {
-  const { host, kind, enabled, key, ref, shown, layer, src } = input;
+  const { host, kind, enabled, key, ref, shown, layer, src, partition } = input;
   const onSession = useRef(input.onSession);
   onSession.current = input.onSession;
   const wantsSession = input.onSession !== undefined;
@@ -723,10 +732,10 @@ export function useWebviewSlot(input: {
 
   useEffect(() => {
     if (host === null || !enabled) return;
-    host.ensure(key, src, kind);
+    host.ensure(key, src, kind, partition);
     if (!wantsSession) return;
     return host.onSession(key, (session) => onSession.current?.(session));
-  }, [host, kind, enabled, key, src, wantsSession]);
+  }, [host, kind, enabled, key, src, partition, wantsSession]);
 
   // 앱 화면만 key를 맞춘다. element를 새로 만들면(src 바뀜) 위 effect가 먼저 돌아 그 element에 붙는다.
   useEffect(() => {

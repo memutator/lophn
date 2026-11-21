@@ -1,10 +1,26 @@
-// 인터넷 탭이 함께 쓰는 persistent session의 정책. permission은 기본 거절(clipboard write만 허락),
-// download는 사용자 입력 직후만, UA에서는 Electron token을 뺀다(앱 이름은 남긴다, user-agent.ts).
-// 이 session은 browser 탭만 쓰므로 onBeforeSendHeaders도 여기서 한 번만 단다.
+// 인터넷 탭의 persistent session 정책. browser profile마다 partition이 하나이고 정책은 partition마다 한 번 깐다.
+// permission은 기본 거절(clipboard write만 허락), download는 사용자 입력 직후만, UA에서는 Electron token을 뺀다
+// (앱 이름은 남긴다, user-agent.ts). 이 session은 browser 탭만 쓰므로 onBeforeSendHeaders도 여기서 한 번만 단다.
+import {
+  browserPartition,
+  browserProfilesSchema,
+} from "../../../protocol/shell/browser-profiles.ts";
 import { decidePermission } from "./permission.ts";
 import { browserUserAgent } from "./user-agent.ts";
 
-export const BROWSER_PARTITION = "persist:lophn-browser";
+/**
+ * 알려진 browser partition: 기본 profile과 설정 `shell.browser_profiles`(아직 읽지 못했거나 깨졌으면 없는 것)의 profile들.
+ * `stored`는 `ShellSettings.get(BROWSER_PROFILES_SETTING)`이다.
+ */
+export function knownBrowserPartitions(stored: unknown): ReadonlySet<string> {
+  const profiles = browserProfilesSchema.safeParse(stored);
+  return new Set([
+    browserPartition(null),
+    ...(profiles.success
+      ? profiles.data.map((profile) => browserPartition(profile.id))
+      : []),
+  ]);
+}
 
 interface PermissionInput {
   permission: string;

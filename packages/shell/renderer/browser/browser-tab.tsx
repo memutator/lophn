@@ -36,6 +36,7 @@ import { useBrowserApi } from "./browser-api.tsx";
 import { useBookmarks } from "./bookmarks.ts";
 import { BrowserChrome } from "./browser-chrome.tsx";
 import { BlankTabPage } from "./blank-tab-page.tsx";
+import { useBrowserPartition } from "./profiles.tsx";
 import {
   useWebviewHost,
   useWebviewSlot,
@@ -46,6 +47,8 @@ import styles from "./browser-tab.module.css";
 interface BrowserTabProps {
   /** page를 처음 열 때만 쓴다. 빈 글이면 빈 주소 칸으로 연다. */
   url: string;
+  /** 탭의 browser profile(bpf id). 없으면 기본 profile이다. 정해지면 바뀌지 않는다. */
+  profile?: string;
   /** false면 page를 남긴 채 숨긴다(다른 탭·다른 공간·접힌 패널). */
   shown: boolean;
   /** floated 탭의 층(floats index + 1). detached 창의 탭은 1, pane 탭은 0이다. */
@@ -242,13 +245,16 @@ function OpenTab(
   const applyRef = useRef(apply);
   applyRef.current = apply;
 
+  // profile 목록을 읽기 전에는 page를 만들지 않는다(null).
+  const partition = useBrowserPartition(props.profile);
   // guest 탭: <webview>가 붙으면 session을 얻는다. 다시 mount되면 지금 page를 element에서 읽는다.
   useWebviewSlot({
     host: webviews,
     kind: "browser",
-    enabled: !native,
+    enabled: !native && partition !== null,
     key: props.keepKey,
     src: props.url,
+    ...(partition === null ? {} : { partition }),
     ref: region,
     shown: !native && shown && state.url !== "" && state.health !== "crashed",
     layer: props.layer,

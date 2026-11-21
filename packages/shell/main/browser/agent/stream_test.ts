@@ -12,6 +12,7 @@ const TAB = "tab_01hzzzzzzzzzzzzzzzzzzzzzzz";
 test("멀리서 잡은 동안 agent의 act·navigate·evaluate가 conflict이고 놓으면 다시 된다", async () => {
   const page: Page = {
     id: 7,
+    profile: null,
     isDestroyed: () => false,
     isDevToolsOpened: () => false,
     isLoading: () => false,

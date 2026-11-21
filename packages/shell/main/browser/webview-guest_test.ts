@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BROWSER_PARTITION } from "./session.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
+import { knownBrowserPartitions } from "./session.ts";
 import { hardenWebviewAttach, type WebviewTarget } from "./webview-guest.ts";
 
+const DEFAULT = browserPartition(null);
 const BASE = { sandbox: true, contextIsolation: true, nodeIntegration: false };
+
+const WORK = "bpf_01hzy3m6z5v8q2w4e6r8t0y2a4";
+const REMOVED = "bpf_01hzy3m6z5v8q2w4e6r8t0y2a5";
+// 설정 `shell.browser_profiles`에 profile 하나가 있다.
+const KNOWN = knownBrowserPartitions([
+  { id: WORK, name: "Work", color: "coral" },
+]);
 
 const APP_SRC =
   "lophn-app://app-abc/panel/index.html?view_session=view-1&mount=1";
@@ -44,6 +53,7 @@ function attach(
     params,
     app: overrides.app,
     artifact: overrides.artifact,
+    browserPartitions: KNOWN,
     base: BASE,
   });
   return { target, webPreferences, params };
@@ -52,7 +62,7 @@ function attach(
 test("browser webview attach takes only our partition from the shell and hardens it", () => {
   assert.equal(
     attach(
-      { partition: BROWSER_PARTITION, src: "https://a.example/" },
+      { partition: DEFAULT, src: "https://a.example/" },
       {
         fromShell: false,
       },
@@ -63,7 +73,7 @@ test("browser webview attach takes only our partition from the shell and hardens
   assert.equal(attach({ src: "https://a.example/" }).target, undefined);
 
   const ok = attach({
-    partition: BROWSER_PARTITION,
+    partition: DEFAULT,
     src: "https://a.example/",
     preload: "file:///tmp/evil.js",
     webpreferences: "nodeIntegration=yes",
@@ -72,7 +82,7 @@ test("browser webview attach takes only our partition from the shell and hardens
   assert.equal(ok.target?.kind, "browser");
   assert.deepEqual(ok.webPreferences, {
     ...BASE,
-    partition: BROWSER_PARTITION,
+    partition: DEFAULT,
     disablePopups: false,
     devTools: true,
   });
@@ -86,11 +96,7 @@ test("browser webview attach takes only our partition from the shell and hardens
     "lophn-app://x/index.html",
     "lophn-artifact://artifact-1/index.html",
   ]) {
-    assert.equal(
-      attach({ partition: BROWSER_PARTITION, src }).target,
-      undefined,
-      src,
-    );
+    assert.equal(attach({ partition: DEFAULT, src }).target, undefined, src);
   }
 
   for (const src of [
@@ -99,7 +105,7 @@ test("browser webview attach takes only our partition from the shell and hardens
     "data:text/html,<p>x</p>",
   ]) {
     assert.equal(
-      attach({ partition: BROWSER_PARTITION, src }).params.src,
+      attach({ partition: DEFAULT, src }).params.src,
       "about:blank",
       src,
     );
@@ -108,7 +114,7 @@ test("browser webview attach takes only our partition from the shell and hardens
 
 test("app webview attach takes only the src its registry accepted and forces its partition", () => {
   // 다른 창의 view·모르는 src·이미 쓴 src는 registry의 acceptGuest가 undefined를 준다.
-  const unknown = attach({ src: APP_SRC, partition: BROWSER_PARTITION });
+  const unknown = attach({ src: APP_SRC, partition: DEFAULT });
   assert.equal(unknown.target, undefined);
   // 거절하면 prefs를 건드리지 않는다. 부르는 쪽이 그대로 preventDefault한다.
   assert.equal(unknown.webPreferences.nodeIntegration, true);
@@ -117,7 +123,7 @@ test("app webview attach takes only the src its registry accepted and forces its
     {
       src: APP_SRC,
       // app view는 partition 속성을 적지 않는다. 적어도 app partition으로 덮인다.
-      partition: BROWSER_PARTITION,
+      partition: DEFAULT,
       preload: "file:///tmp/evil.js",
       webpreferences: "nodeIntegration=yes",
       disablewebsecurity: "on",
@@ -165,10 +171,7 @@ test("artifact webview attach uses the artifact partition and preload only", () 
 });
 
 test("a matching app src wins over a browser partition attribute", () => {
-  const ok = attach(
-    { src: APP_SRC, partition: BROWSER_PARTITION },
-    { app: APP_TARGET },
-  );
+  const ok = attach({ src: APP_SRC, partition: DEFAULT }, { app: APP_TARGET });
   assert.equal(ok.target?.kind, "app");
   assert.equal(
     (ok.webPreferences as Record<string, unknown>).partition,
@@ -179,7 +182,7 @@ test("a matching app src wins over a browser partition attribute", () => {
 test("a target whose src does not match the element is not attached as that kind", () => {
   assert.equal(
     attach(
-      { src: "https://a.example/", partition: BROWSER_PARTITION },
+      { src: "https://a.example/", partition: DEFAULT },
       {
         app: APP_TARGET,
         artifact: ARTIFACT_TARGET,
@@ -190,5 +193,42 @@ test("a target whose src does not match the element is not attached as that kind
   assert.equal(
     attach({ src: ARTIFACT_SRC }, { app: APP_TARGET }).target,
     undefined,
+  );
+});
+
+test("a known browser profile partition attaches as a browser guest with that partition forced, and unknown profile, app and view-scheme attaches are refused", () => {
+  const work = browserPartition(WORK);
+  const ok = attach({
+    partition: work,
+    src: "https://a.example/",
+    preload: "file:///tmp/evil.js",
+  });
+  assert.equal(ok.target?.kind, "browser");
+  assert.equal(ok.target?.partition, work);
+  assert.equal((ok.webPreferences as Record<string, unknown>).partition, work);
+  assert.equal(ok.params.partition, work);
+  assert.equal(ok.params.preload, undefined);
+
+  for (const [partition, src] of [
+    // 목록에 없는(지웠거나 아직 모르는) profile의 partition.
+    [browserPartition(REMOVED), "https://a.example/"],
+    // 앱·artifact partition을 browser로 적은 붙이기.
+    [APP_TARGET.partition, "https://a.example/"],
+    [ARTIFACT_TARGET.partition, "https://a.example/"],
+    // 알려진 profile이어도 shell·앱 문서 scheme은 browser guest로 열지 않는다.
+    [work, "lophn-app://x/index.html"],
+    [work, "lophn-shell://desktop/"],
+  ] as const) {
+    assert.equal(attach({ partition, src }).target, undefined, partition);
+  }
+  // 설정이 없거나 깨졌으면 기본 partition뿐이다.
+  assert.deepEqual([...knownBrowserPartitions(undefined)], [DEFAULT]);
+  assert.deepEqual(
+    [
+      ...knownBrowserPartitions([
+        { id: "not-an-id", name: "x", color: "coral" },
+      ]),
+    ],
+    [DEFAULT],
   );
 });

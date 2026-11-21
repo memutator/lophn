@@ -85,7 +85,8 @@ export interface BrowserViewHost
     NativeViewHost,
     "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
   > {
-  create(hooks: BrowserHooks): BrowserContents;
+  /** crash한 native popup을 그 popup이 쓰던 partition(profile)으로 다시 연다. */
+  create(hooks: BrowserHooks, partition: string): BrowserContents;
   /** page의 DevTools를 새 view에 연다. page가 이미 없으면 undefined. 연결이 끊기면 gone을 부른다. */
   devtools(
     page: BrowserContents,
@@ -106,6 +107,8 @@ interface BrowserViewsDeps {
 interface Item {
   view_session: string;
   window: string;
+  // 이 page의 browser profile partition. popup은 opener의 contents가 만들어 opener와 같다.
+  partition: string;
   contents: BrowserContents;
   // popup으로 생긴 view는 renderer가 탭을 만들어 가져가기(adopt) 전까지 false다. guest는 늘 true다.
   adopted: boolean;
@@ -186,8 +189,9 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
   // 교체·폐기된 contents가 늦게 보낸 신호는 지금 view의 것이 아니다.
   function spawn(
     view_session: string,
+    partition: string,
     make: (hooks: BrowserHooks) => BrowserContents = (hooks) =>
-      deps.host.create(hooks),
+      deps.host.create(hooks, partition),
   ): BrowserContents {
     const live = () => {
       const entry = find(view_session);
@@ -276,8 +280,9 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     const entry: Entry = {
       view_session,
       window: opener.window,
+      partition: opener.partition,
       bounds: { x: 0, y: 0, width: 0, height: 0 },
-      contents: spawn(view_session, make),
+      contents: spawn(view_session, opener.partition, make),
       generation: 0,
       shown: false,
       ready: false,
@@ -316,12 +321,14 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     addGuest(
       window: string,
       view_session: string,
+      partition: string,
       make: (hooks: BrowserHooks) => BrowserContents,
     ): void {
       const item: Item = {
         view_session,
         window,
-        contents: spawn(view_session, make),
+        partition,
+        contents: spawn(view_session, partition, make),
         adopted: true,
         health: "ok",
         lastUrl: "",
@@ -452,7 +459,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
         // 깨진 contents는 reload로 살아나지 않는다. 같은 view_session에 새 contents를 만든다.
         placement.unmounted(native);
         native.contents.destroy();
-        native.contents = spawn(view_session);
+        native.contents = spawn(view_session, native.partition);
         native.health = "ok";
         placement.mounted(native);
         if (native.lastUrl !== "") load(native, native.lastUrl);
@@ -521,10 +528,14 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       if (entry !== undefined) dispose(entry);
     },
 
-    /** Clear browsing data 뒤. 빈 주소 칸과 crash한 view는 건드리지 않는다. */
-    reloadAll(): void {
+    /** 그 partition의 데이터를 지운 뒤. 그 profile의 page만 다시 load하고, 빈 주소 칸과 crash한 view는 건드리지 않는다. */
+    reloadPartition(partition: string): void {
       for (const entry of [...entries.values(), ...guests.values()]) {
-        if (entry.health === "crashed" || entry.contents.page().url === "") {
+        if (
+          entry.partition !== partition ||
+          entry.health === "crashed" ||
+          entry.contents.page().url === ""
+        ) {
           continue;
         }
         entry.contents.reload();

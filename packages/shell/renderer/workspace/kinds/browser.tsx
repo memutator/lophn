@@ -1,6 +1,8 @@
-// browser 탭 kind. url과 favicon만 저장하고 title은 page가 알려 주는 대로 탭 이름에 쓴다.
+// browser 탭 kind. url·favicon·browser profile만 저장하고 title은 page가 알려 주는 대로 탭 이름에 쓴다.
+// 탭에서 연 탭과 popup은 연 탭의 profile을 그대로 따른다.
 import { t } from "@lophn/i18n";
 
+import { browserProfileIdSchema } from "../../../../protocol/shell/browser-profiles.ts";
 import type { BrowserViewState } from "../../../ipc/browser.ts";
 import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";
@@ -30,9 +32,19 @@ function newKey(): string {
   return `browser-${Date.now().toString(36)}-${++browserCount}`;
 }
 
+/** 탭 값의 browser profile. bpf id 꼴이 아니면 기본 profile(undefined)이다. */
+function profileOf(value: unknown): string | undefined {
+  const parsed = browserProfileIdSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function profileField(profile: string | undefined): { profile?: string } {
+  return profile === undefined ? {} : { profile };
+}
+
 /**
  * 새 browser 탭. 빈 url이면 빈 주소 칸으로 열린다. agent가 연 탭은 `open`으로 key와 자리를 주고, 고르지 않고
- * 열며 float이면 떠 있는 패널로 연다.
+ * 열며 float이면 떠 있는 패널로 연다. `profile`이 없으면 기본 profile이다.
  */
 export function openBrowserTab(
   host: TabHost,
@@ -41,13 +53,14 @@ export function openBrowserTab(
     readonly key?: string;
     readonly options?: Parameters<TabHost["openTab"]>[1];
     readonly float?: boolean;
+    readonly profile?: string;
   },
 ): void {
   const tab = {
     key: open?.key ?? newKey(),
     kind: "browser",
     title: nameOf("", url ?? ""),
-    fields: { url: url ?? "" },
+    fields: { url: url ?? "", ...profileField(open?.profile) },
   };
   if (open?.float === true) host.openFloat(tab, undefined, open.options);
   else host.openTab(tab, open?.options);
@@ -68,7 +81,7 @@ export const browserKind: TabKindDef = {
     return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;
   },
   fromStored(stored, { key }) {
-    const { url, favicon, keep_alive } = stored;
+    const { url, favicon, keep_alive, profile } = stored;
     if (typeof url !== "string" || url.length > MAX_URL) return null;
     return {
       key,
@@ -76,6 +89,7 @@ export const browserKind: TabKindDef = {
       title: nameOf("", url),
       fields: {
         url,
+        ...profileField(profileOf(profile)),
         ...(typeof favicon === "string" ? { favicon } : {}),
         ...(keep_alive === true ? { keepAlive: true } : {}),
       },
@@ -94,6 +108,7 @@ export const browserKind: TabKindDef = {
       kind: "browser",
       key: tab.key,
       url,
+      ...profileField(profileOf(tab.fields?.profile)),
       ...(keep ? { favicon } : {}),
       ...(tab.fields?.keepAlive === true ? { keep_alive: true } : {}),
     };
@@ -138,6 +153,7 @@ export const browserKind: TabKindDef = {
     const url = tab.fields?.url;
     const adopt = tab.fields?.adopt;
     const favicon = tab.fields?.favicon;
+    const profile = profileOf(tab.fields?.profile);
     // floated 탭의 층(FloatLayer에 가는 펴진 float의 index + 1). detached 창의 탭은 1(그 창의 유일한 view라
     // card의 탭으로 오인돼 dock되지 않게 한다). card의 탭은 0이다.
     const floated =
@@ -152,6 +168,7 @@ export const browserKind: TabKindDef = {
     return (
       <BrowserTab
         url={typeof url === "string" ? url : ""}
+        {...profileField(profile)}
         adopt={typeof adopt === "string" ? adopt : undefined}
         favicon={typeof favicon === "string" ? favicon : undefined}
         native={tab.fields?.native === true}
@@ -172,7 +189,12 @@ export const browserKind: TabKindDef = {
               key: newKey(),
               kind: "browser",
               title: nameOf("", ""),
-              fields: { url: "", adopt: event.view_session, native: true },
+              fields: {
+                url: "",
+                adopt: event.view_session,
+                native: true,
+                ...profileField(profile),
+              },
               transient: true,
             },
             event.placement.kind === "floated" ? event.placement : undefined,
@@ -184,7 +206,7 @@ export const browserKind: TabKindDef = {
               key: newKey(),
               kind: "browser",
               title: nameOf("", next),
-              fields: { url: next },
+              fields: { url: next, ...profileField(profile) },
             },
             { after: tab.key },
           )
@@ -202,7 +224,9 @@ export const browserKind: TabKindDef = {
           }))
         }
         onCloseRequested={() => host.removeTab(tab.key)}
-        onOpenInNewTab={(next) => openBrowserTab(host, next)}
+        onOpenInNewTab={(next) =>
+          openBrowserTab(host, next, profileField(profile))
+        }
         // DevTools 자리는 fields에 둔다(저장하지 않는다). Float·Dock으로 다시 mount되어도 남는다.
         devtools={readDevtools(tab.fields?.devtools)}
         onDevtools={(next, later) =>

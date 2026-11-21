@@ -1,5 +1,5 @@
 // shell renderer의 <webview> 붙이기 규칙. shell renderer가 적은 속성은 믿지 않는다: 붙이기 전에
-// main이 붙이기의 종류(browser, app, artifact)에 맞는 partition을 강제하고, preload와 몰래 넣는
+// main이 붙이기의 종류(browser, app, artifact)에 맞는 partition을 강제하고(browser는 알려진 profile의 partition 하나), preload와 몰래 넣는
 // 설정을 지우고, webPreferences를 hardened 값으로 덮는다. browser의 첫 주소는 navigation 규칙에
 // 지나게 하고, app·artifact의 주소는 registry가 받아 준 그대로만 쓴다. Electron 없는 순수 함수다.
 import type { WebContents } from "electron";
@@ -7,7 +7,6 @@ import type { WebContents } from "electron";
 import { isViewScheme } from "../desktop/security.ts";
 import { normalizeAddress } from "./address.ts";
 import { decideNavigation } from "./navigation.ts";
-import { BROWSER_PARTITION } from "./session.ts";
 
 export type WebviewKind = "browser" | "app" | "artifact";
 
@@ -55,6 +54,8 @@ export function hardenWebviewAttach(input: {
   params: Record<string, string>;
   app: WebviewTarget | undefined;
   artifact: WebviewTarget | undefined;
+  /** 알려진 browser profile의 partition(`knownBrowserPartitions`). browser 붙이기는 이 가운데 하나만 받는다. */
+  browserPartitions: ReadonlySet<string>;
   base: Record<string, unknown>;
 }): WebviewTarget | undefined {
   const { params, webPreferences } = input;
@@ -66,11 +67,12 @@ export function hardenWebviewAttach(input: {
       ? input.app
       : input.artifact !== undefined && input.artifact.src === params.src
         ? input.artifact
-        : params.partition === BROWSER_PARTITION &&
+        : params.partition !== undefined &&
+            input.browserPartitions.has(params.partition) &&
             !isViewScheme(params.src ?? "")
           ? {
               kind: "browser" as const,
-              partition: BROWSER_PARTITION,
+              partition: params.partition,
               src: null,
             }
           : undefined;

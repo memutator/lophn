@@ -18,6 +18,7 @@ import { SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 import { workspaceKey } from "../shell/desk-model.ts";
 import { surfaceApi } from "../workspace/use-surface-requests.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import { useAppViews } from "./app-views.tsx";
 import { createViewKeeps, type ViewKeeps } from "./view-keeps.ts";
 import { createWebviewHost, type WebviewHost } from "./webview-host.tsx";
@@ -32,6 +33,8 @@ export const MAX_AGENT_PAGES = 12;
 export interface HostPlacement {
   tab: string;
   url: string;
+  /** core가 연 session의 agent 정의로 고른 browser profile(core가 알려진 목록에서 고른 값). null은 기본이다. */
+  profile: string | null;
   relation: TabRelation | null;
   source: string | null;
 }
@@ -251,7 +254,12 @@ export function createWorkspaceViews(
       const found = pendingOf(workspace);
       if (found.opens.some((item) => item.tab === placement.tab)) return;
       found.opens.push(placement);
-      pool.webviews.ensure(key, placement.url, "browser");
+      pool.webviews.ensure(
+        key,
+        placement.url,
+        "browser",
+        browserPartition(placement.profile),
+      );
       pool.parked.add(key);
       pool.offBind.set(
         key,
@@ -330,6 +338,7 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
         views.hostPage(workspace, {
           tab,
           url: target.browser.url,
+          profile: target.browser.profile ?? null,
           relation,
           source,
         });

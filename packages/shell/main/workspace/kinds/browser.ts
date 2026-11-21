@@ -1,5 +1,7 @@
-// browser 탭 kind. url과 favicon만 저장하고 title과 history는 저장하지 않는다.
+// browser 탭 kind. url·favicon·browser profile만 저장하고 title과 history는 저장하지 않는다.
 import { z } from "zod";
+
+import { browserProfileIdSchema } from "../../../../protocol/shell/browser-profiles.ts";
 
 import { defineTabKind } from "./kind.ts";
 import { tabKey } from "./values.ts";
@@ -17,6 +19,8 @@ const layout = z.strictObject({
     .optional(),
   // 사람이 켠 Keep alive. 선택 필드라 없는 옛 파일은 꺼진 것이다.
   keep_alive: z.literal(true).optional(),
+  // 탭의 browser profile. 없으면 기본 profile이다. 정해지면 바뀌지 않는다.
+  profile: browserProfileIdSchema.optional(),
 });
 
 type BrowserLayout = z.infer<typeof layout>;

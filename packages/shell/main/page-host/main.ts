@@ -9,6 +9,7 @@ import { createTabControl } from "../browser/agent/control.ts";
 import { createBrowserDriver } from "../browser/agent/driver.ts";
 import { createPageStream } from "../browser/agent/stream.ts";
 import { electronBrowserSession } from "../browser/electron-session.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import { installBrowserSession } from "../browser/session.ts";
 import { createHostLink } from "../desktop/core/host-link.ts";
 import { nodeSockets } from "../desktop/core/node-io.ts";
@@ -100,10 +101,15 @@ function run(dataRoot: string, isLeaving: () => boolean): void {
     log,
   });
 
-  // 저장 dialog를 띄울 화면이 없어 download는 모두 거절한다(사용자 입력이 없는 것과 같다).
-  installBrowserSession(electronBrowserSession(), {
-    activation: { fresh: () => false },
-  });
+  // partition(profile)마다 처음 쓸 때 정책을 한 번 깐다. 저장 dialog를 띄울 화면이 없어 download는 모두 거절한다(사용자 입력이 없는 것과 같다).
+  const installed = new Set<string>();
+  const ensureSession = (partition: string) => {
+    if (installed.has(partition)) return;
+    installBrowserSession(electronBrowserSession(partition), {
+      activation: { fresh: () => false },
+    });
+    installed.add(partition);
+  };
 
   const idle = createIdleWatch({
     schedule: (fire, ms) => {
@@ -156,7 +162,10 @@ function run(dataRoot: string, isLeaving: () => boolean): void {
   };
   link.onRequest("tab_open", async (payload) => {
     if (!("browser" in payload.target)) return NOT_HERE;
-    await pages.open(payload.tab, payload.target.browser.url);
+    // core가 연 session의 agent 정의로 고른 profile이다. 없으면 기본 profile이다.
+    const profile = payload.target.browser.profile ?? null;
+    ensureSession(browserPartition(profile));
+    await pages.open(payload.tab, payload.target.browser.url, profile);
     return OPENED;
   });
   link.onRequest("tab_close", (payload, request) => {

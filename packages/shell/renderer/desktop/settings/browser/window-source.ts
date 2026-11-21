@@ -71,7 +71,8 @@ export function windowBrowserSettings(
     }
   }
   return {
-    clearData: () => call((api) => api.clearData().then(() => null)),
+    // 기본 profile의 data만 지운다.
+    clearData: () => call((api) => api.clearData(null).then(() => null)),
     bookmarks: () => call((api) => api.bookmarks.list()),
     updateBookmark: (input) =>
       call((api) => api.bookmarks.update(input).then(() => null)),

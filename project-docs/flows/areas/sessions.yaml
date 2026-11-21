@@ -1617,6 +1617,86 @@ flows:
     declared_only: [internal]
     unclear: []
 
+  - id: calls-mail-decide
+    title: "대기 목록의 mail을 사람이 정한 대로 돌리거나 닫는다"
+    actor: system
+    entries: [route:calls/mail-decide]
+    boundary: [router, agent-sessions]
+    code:
+      - packages/core/router/commands.ts
+      - packages/core/router/router.ts
+      - packages/core/router/mail-store.ts
+    steps:
+      - "core 안 machine이 아니면 forbidden이다. 그 기계의 그 mail 줄이 없으면 not_found, held가 아니면(시작, 건너뜀, 취소, 만료) conflict다."
+      - "만료가 지났으면 줄을 expired로 닫고(든 mail을 지운다) 실패 mail(expired)을 내고 {failed, expired}를 돌려준다."
+      - "skip이면 줄을 skipped로 닫고 실패 mail(skipped)을 낸다."
+      - "run_now면 줄을 started로 닫고 늦은 판정 없이 mail-apply와 같은 길로 돌린다(skip은 입력의 지금 허락). 받은 상태를 state mail(running, session)로 알린다. 풀리지 않으면 실패 mail이다."
+      - "줄이 바뀌면 StateChanged(mail_holds)를 낸다."
+    outcomes:
+      - id: started
+        observe: [ledger:mail_seen, ledger:agent_calls, ledger:sessions, ledger:mail_outbox, event:MessageReceived, event:StateChanged, response]
+      - id: skipped
+        observe: [ledger:mail_seen, ledger:mail_outbox, event:StateChanged, response]
+      - id: expired
+        observe: [ledger:mail_seen, ledger:mail_outbox, event:StateChanged, response]
+        when: "정하는 때 만료가 지났다"
+      - id: forbidden
+        code: forbidden
+        when: "core 안 machine이 아닌 호출자다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "그 줄이 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "줄이 held가 아니다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "router나 environment가 아직 없다"
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-call.md]
+    declared_only: [internal]
+    unclear: []
+
+  - id: calls-mail-sweep
+    title: "만료된 mail을 닫는다(낸 줄, 대기 목록의 줄)"
+    actor: system
+    entries: [route:calls/mail-sweep]
+    boundary: [router]
+    code:
+      - packages/core/router/commands.ts
+      - packages/core/router/router.ts
+      - packages/core/router/mail-store.ts
+      - packages/core/remote/mail-drain.ts
+    steps:
+      - "drain의 주기 timer(60초)가 만료 알림 글을 준비한 뒤 부른다. core 안 machine이 아니면 forbidden이다."
+      - "outbox에서 만료가 지난 줄을 지운다. call mail이고 그 행이 끝나지 않았으면 행을 failed(expired)로 닫고 보낸 session에 늦은 실패로 알린다."
+      - "대기 목록에서 만료가 지난 줄을 expired로 닫고 실패 mail(expired)을 낸다. StateChanged(mail_holds)."
+      - "대기 중이 아닌 받은 기록 가운데 닿은 지 만료의 두 배가 지난 것을 지운다."
+    outcomes:
+      - id: ok
+        observe: [ledger:agent_calls, ledger:mail_outbox, ledger:mail_seen, event:MessageReceived, event:StateChanged, response]
+      - id: forbidden
+        code: forbidden
+        when: "core 안 machine이 아닌 호출자다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "router나 environment가 아직 없다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/agent-call.md]
+    declared_only: [internal]
+    unclear: []
+
   - id: queue-restore-on-start
     title: "켜질 때 접수만 되고 turn이 가져가지 않은 사람 메시지를 queue에 되돌린다"
     actor: system

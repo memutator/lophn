@@ -44,7 +44,7 @@ import {
 import { appSdkStatus } from "../apps/sdk-status.ts";
 import { appUpdateState } from "../apps/update-state.ts";
 import { appRemoteCall } from "../apps/calls/remote.ts";
-import { a2aMail } from "../lophn-agent/mail.ts";
+import { a2aMail, mailDecideHold, mailHolds } from "../lophn-agent/mail.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
 import { appScreenFile } from "../apps/calls/screen.ts";
@@ -361,6 +361,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobApprove,
   shareRequestList,
   shareRequestDecide,
+  // 늦게 닿아 대기 목록에 선 다른 컴퓨터의 mail(정하는 것은 REMOTE_PERSON_ROUTES)
+  mailHolds,
   // Agents
   agentCard,
   agentProfileImageRead,
@@ -534,6 +536,8 @@ export const REMOTE_PERSON_ROUTES = [
   // 늘 켜 두기(다른 컴퓨터의 Settings › Remote › Keep running). 화면 없는 기계는 가서 켤 곳이 없다
   alwaysOnStatus,
   alwaysOnSet,
+  // 늦게 닿은 다른 컴퓨터의 mail을 돌릴지 정한다. 이 컴퓨터의 사람만 정하므로 job hold와 달리 허락 없는 폰도 받지 않는다
+  mailDecideHold,
 ] as const;
 
 // 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):
@@ -558,7 +562,7 @@ export const REMOTE_CORE_ROUTES = [...CARRY_ROUTES] as const;
 // agent가 친 것인지 가를 수 없고, 터미널 입력 허락은 그 컴퓨터의 화면에게 준 것이지 그 컴퓨터의 shell에서 도는 것에게 준 것이 아니다.
 // 그래서 (가) 터미널·browser page를 움직이는 route는 컴퓨터의 허락이 있어도 `screen` 요청만 받고(`terminals/open`은 빈 터미널도
 // 같이 막는다. `terminals/close|restart`는 REMOTE_PERSON_ROUTES라 어차피 못 받는다), (나) agent가 사람에게 물은 것에 사람의 결정을
-// 남기는 route(turn request, 질문 답, job 승인, 동의, 공유 요청)는 받지 않는다. `acp/send`는 안에서 그 결정 route들을 부르는 입구라
+// 남기는 route(turn request, 질문 답, job 승인, 늦게 온 mail, 동의, 공유 요청)는 받지 않는다. `acp/send`는 안에서 그 결정 route들을 부르는 입구라
 // 같이 막는다. 요청한 쪽이 `screen`이거나 `by`가 없는 폰이면 이 목록을 보지 않는다. `agent`·`app` 요청은 REMOTE_AGENT_ROUTES뿐이다.
 export const REMOTE_TERMINAL_DENIED = [
   terminalsInput,
@@ -570,6 +574,7 @@ export const REMOTE_TERMINAL_DENIED = [
   askAnswer,
   jobDecideHold,
   jobApprove,
+  mailDecideHold,
   activationConsent,
   shareRequestDecide,
   acpSend,

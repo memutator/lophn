@@ -1,5 +1,5 @@
 // outbox의 mail을 link로 내보낸다. 상대 기계마다 한 번에 하나이고 seq 순이다. 깨우는 때: outbox에 줄이 생김, link 상태가 바뀜(wiring이
-// 부른다), 주기 timer, 시작할 때 한 번. 받은 답을 `calls/mail-sent`로 적는다.
+// 부른다), 주기 timer, 시작할 때 한 번. 받은 답을 `calls/mail-sent`로 적는다. 주기 timer는 먼저 만료된 mail을 닫는다.
 import type { LophnError, Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
@@ -23,6 +23,8 @@ export type MailDrainDeps = {
     by: Requester,
   ): Promise<Result<unknown>>;
   record(mail: Id<"mal">, result: MailSendResult): Promise<Result<unknown>>;
+  // 만료된 mail을 닫는다(`calls/mail-sweep`). 주기 timer마다 부른다.
+  sweep(): Promise<Result<unknown>>;
   // 주기 timer. 멈추는 함수를 돌려준다.
   every(ms: number, fn: () => Promise<void>): () => void;
   warn(event: string, fields: Record<string, unknown>): void;
@@ -44,7 +46,7 @@ export type MailDrain = {
   // 그 기계의 줄을 돈다. 도는 중이면 끝난 뒤 한 번 더 돈다. 돌기가 끝나면 풀린다.
   wake(peer: Id<"mch">): Promise<void>;
   wakeAll(): Promise<void>;
-  // 주기 timer를 걸고 한 번 돈다.
+  // 주기 timer를 걸고 한 번 돈다(sweep은 timer에서만).
   start(): void;
   stop(): void;
 };
@@ -181,7 +183,13 @@ export function createMailDrain(deps: MailDrainDeps): MailDrain {
     wakeAll: () => wakeAll(),
     start() {
       if (stopped || cancelTimer !== undefined) return;
-      cancelTimer = deps.every(DRAIN_EVERY_MS, () => wakeAll(true));
+      cancelTimer = deps.every(DRAIN_EVERY_MS, async () => {
+        const swept = await deps.sweep();
+        if (!swept.ok) {
+          deps.warn("mail_sweep_failed", { code: swept.error.code });
+        }
+        await wakeAll(true);
+      });
       void wakeAll();
     },
     stop() {

@@ -7,12 +7,17 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { CallPolicy } from "../../protocol/lophn-agent/call-policy.ts";
 import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
-import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
+import {
+  blocksText,
+  type ContentBlock,
+} from "../../protocol/lophn-agent/content-block.ts";
 import {
   type callSendRemote,
   type Mail,
   type MailApplied,
   mailBodySchema,
+  type MailHold,
+  type mailDecideHold,
   type RemoteAddress,
 } from "../../protocol/lophn-agent/mail.ts";
 import type {
@@ -22,8 +27,10 @@ import type {
 import type { AuthenticatedContext, Sql } from "../../protocol/server/mod.ts";
 import {
   callsMailApply,
+  callsMailDecide,
   callsMailRefuse,
   callsMailSend,
+  heldMails,
   remoteReach,
   remoteWorkspaceOf,
 } from "../router/mod.ts";
@@ -56,6 +63,9 @@ export type MailEntryDeps = {
   granted(machine: string): boolean;
   // 기기 연결의 call 처리가 자격 옆에 실은 요청한 쪽(frame의 `by`).
   requesterOf(ctx: AuthenticatedContext): Requester | undefined;
+  // 받는 session 기록에 쓰일 본문을 이 자격(core 안 machine)으로 미리 blob으로 준비한다.
+  prepare(bodies: readonly (readonly ContentBlock[])[]): Promise<Result<void>>;
+  now(): string;
 };
 
 const forbidden = (message: string): Result<never> =>
@@ -145,7 +155,6 @@ function remoteAddressOf(
 
 // `a2a/mail`: 명단의 다른 컴퓨터의 core가 link로 넘긴 mail 하나. 이 route는 not_found를 내지 않는다(보낸 쪽은 not_found를 옛 판으로 읽는다).
 export function mailHandler(deps: MailEntryDeps): MemoryHandler {
-  const inbox = createMailInbox(deps);
   return async (ctx, body) => {
     const { principal } = ctx;
     if (
@@ -220,4 +229,63 @@ async function applyFrom(
     reason: mail.kind === "call" ? reason : null,
     session: null,
   });
+}
+
+// 대기 목록 card가 보이는 본문 글의 길이.
+const HOLD_TEXT_MAX = 500;
+
+// `mail/holds`: 늦게 닿아 대기 목록에 선 call mail. 오래 기다린 것부터다. 만료된 줄은 sweep이 닫기 전에도 보이지 않는다.
+export function holdsHandler(deps: MailEntryDeps): MemoryHandler {
+  return async () => {
+    const now = deps.now();
+    const holds: MailHold[] = heldMails(deps.sql)
+      .filter(({ mail }) => now <= mail.expires_at)
+      .map(({ origin, computer, arrived_at, mail }) => ({
+        origin,
+        mail: mail.id,
+        computer,
+        from: mail.from,
+        address: mail.address,
+        reply: mail.reply,
+        text: blocksText(mail.body).slice(0, HOLD_TEXT_MAX),
+        sent_at: mail.sent_at,
+        arrived_at,
+        expires_at: mail.expires_at,
+      }));
+    return ok({ holds });
+  };
+}
+
+// `mail/decide_hold`: 받는 기계의 사람이 [Start now]나 [Skip]을 고른다. 누가 부를 수 있는지는 route의 actor(사람)와 기기 목록(허락받은
+// 기기의 화면만)이 정한다. skip을 따를지는 정하는 때의 허락으로 본다.
+export function decideHoldHandler(deps: MailEntryDeps): MemoryHandler {
+  return async (_ctx, body) => {
+    const input = body as z.infer<typeof mailDecideHold.input>;
+    if (input.decision === "run_now") {
+      // 줄에 남은 본문은 받을 때 redaction을 거쳤다. 받는 session 기록에 쓰이도록 준비만 한다. 줄이 없거나 끝났으면 명령이 답한다.
+      const held = heldMails(deps.sql).find(
+        (each) => each.origin === input.origin && each.mail.id === input.mail,
+      );
+      if (held !== undefined) {
+        const prepared = await deps.prepare([held.mail.body]);
+        if (!prepared.ok) return prepared;
+      }
+    }
+    const decided = await deps.command(callsMailDecide, {
+      origin: input.origin,
+      mail: input.mail,
+      decision: input.decision,
+      skip_allowed: deps.granted(input.origin),
+    });
+    if (!decided.ok) return decided;
+    const applied = decided.value as MailApplied;
+    // 명령은 만료된 줄을 닫고 실패 mail을 낸 뒤 끝난다(오류면 그 닫음이 되돌아간다). 사람에게는 이미 끝난 줄이다.
+    if (applied.reason === "expired") {
+      return err({
+        code: "conflict",
+        message: "this mail expired before it was decided",
+      });
+    }
+    return ok(applied);
+  };
 }

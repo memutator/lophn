@@ -368,6 +368,8 @@ async function machine(self: Id<"mch">) {
     kind: (principal) => kinds.get(principal) ?? null,
     granted: (machine) => grants.has(machine),
     requesterOf,
+    prepare: async () => ok(undefined),
+    now: () => "2026-11-21T00:00:00.000Z",
   };
   // drain의 주기 timer. test가 손으로 돌린다.
   let timer: (() => Promise<void>) | undefined;
@@ -382,6 +384,7 @@ async function machine(self: Id<"mch">) {
         : null,
     call: links.call,
     record: (mail, result) => command(callsMailSent, { mail, result }),
+    sweep: async () => ok({}),
     every(_ms, fn) {
       timer = fn;
       return () => {

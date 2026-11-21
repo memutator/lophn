@@ -258,6 +258,46 @@ export const callsMailSent = defineCommand({
   errors: ["invalid_input", "forbidden", "unavailable", "internal"],
 });
 
+// 받는 기계의 사람이 대기 목록의 mail을 정한다(`mail/decide_hold`가 본문을 준비하고 부른다). 줄이 없으면 not_found, 이미 끝났으면 conflict다.
+// 만료된 줄은 expired로 닫고 {failed, expired}를 돌려준다. core 안 machine만 쓴다.
+export const callsMailDecide = defineCommand({
+  resource: "calls",
+  method: "mail-decide",
+  name: "DecideCallMail",
+  changes: [],
+  input: z.strictObject({
+    origin: idSchema("mch"),
+    mail: idSchema("mal"),
+    decision: z.enum(["run_now", "skip"]),
+    // 정하는 때 그 기계에 준 터미널 입력 허락. 열리는 session이 agent의 skip을 따를지다.
+    skip_allowed: z.boolean(),
+  }),
+  output: mailAppliedSchema,
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+    "internal",
+  ],
+});
+
+// 만료된 mail을 닫는다(낸 줄, 대기 목록의 줄)과 오래 지난 받은 기록을 지운다. drain의 주기 timer가 부른다. core 안 machine만 쓴다.
+export const callsMailSweep = defineCommand({
+  resource: "calls",
+  method: "mail-sweep",
+  name: "SweepCallMail",
+  changes: [],
+  input: z.strictObject({}),
+  output: z.strictObject({ expired: z.number().int() }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "unavailable", "internal"],
+});
+
 function machineOnly(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "machine"
     ? ok(undefined)
@@ -616,6 +656,33 @@ const mailSentCommand: CommandDefinition<typeof callsMailSent> = {
   },
 };
 
+const mailDecideCommand: CommandDefinition<typeof callsMailDecide> = {
+  route: callsMailDecide,
+  handle(tx, ctx, input) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    return router.value.decideHold(tx, {
+      origin: input.origin,
+      mail: input.mail,
+      decision: input.decision,
+      skipAllowed: input.skip_allowed,
+    });
+  },
+};
+
+const mailSweepCommand: CommandDefinition<typeof callsMailSweep> = {
+  route: callsMailSweep,
+  handle(tx, ctx) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    return router.value.sweepMail(tx);
+  },
+};
+
 export const ROUTER_COMMANDS = [
   sendCallCommand,
   teamSpawnCommand,
@@ -631,4 +698,6 @@ export const ROUTER_COMMANDS = [
   mailApplyCommand,
   mailRefuseCommand,
   mailSentCommand,
+  mailDecideCommand,
+  mailSweepCommand,
 ] as const;

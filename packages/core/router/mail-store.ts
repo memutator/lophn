@@ -61,6 +61,14 @@ export function createMailOutbox(): MailOutbox {
       );
       return row === undefined ? null : mailOf(row["mail"]);
     },
+    expired(tx, now) {
+      return tx.sql
+        .all(
+          "select mail from mail_outbox where expires_at < ? order by peer, seq",
+          [now],
+        )
+        .flatMap((row) => mailOf(row["mail"]) ?? []);
+    },
   };
 }
 
@@ -111,7 +119,58 @@ export function createMailSeen(): MailSeen {
         ) !== undefined
       );
     },
+    close(tx, origin, id, state) {
+      tx.sql.run(
+        "update mail_seen set state = ?, mail = null where origin = ? and id = ?",
+        [state, origin, id],
+      );
+    },
+    heldOfCall(tx, origin, call) {
+      const row = tx.sql.get(
+        "select * from mail_seen where origin = ? and call = ? and state = 'held'",
+        [origin, call],
+      );
+      return row === undefined ? null : seenOf(row);
+    },
+    held(tx) {
+      return tx.sql
+        .all("select * from mail_seen where state = 'held'", [])
+        .map(seenOf);
+    },
+    prune(tx, before) {
+      tx.sql.run(
+        "delete from mail_seen where state <> 'held' and arrived_at < ?",
+        [before],
+      );
+    },
   };
+}
+
+// 대기 목록에 선 call mail. 오래 기다린 것부터다. 줄의 mail은 사람이 정할 때까지 남는다.
+export function heldMails(sql: ReadSql): {
+  origin: Id<"mch">;
+  computer: string;
+  arrived_at: string;
+  mail: Extract<Mail, { kind: "call" }>;
+}[] {
+  return sql
+    .all(
+      "select * from mail_seen where state = 'held' order by arrived_at, id",
+      [],
+    )
+    .flatMap((row) => {
+      const seen = seenOf(row);
+      return seen.mail?.kind === "call"
+        ? [
+            {
+              origin: seen.origin as Id<"mch">,
+              computer: seen.computer,
+              arrived_at: seen.arrived_at,
+              mail: seen.mail,
+            },
+          ]
+        : [];
+    });
 }
 
 // main thread의 drain이 읽는다. 상대 기계마다 seq 순이다.

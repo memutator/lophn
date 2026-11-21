@@ -33,6 +33,7 @@ export const CHANGE_NAMES = [
   "browser_pages",
   "carry_files",
   "agent_calls",
+  "mail_holds",
 ] as const;
 
 export type ChangeName = (typeof CHANGE_NAMES)[number];

@@ -1,12 +1,15 @@
 // 기계 사이 mail의 main thread 쪽이다: agent가 부르는 보내는 입구(`calls/send_remote`), 다른 컴퓨터가 부르는 받는 입구(`a2a/mail`),
-// outbox를 link로 내보내는 drain. 쓰기는 core 안 machine 자격으로 `calls/mail-*`를 접은 writer로 부른다(본문 준비는 router wiring의 층).
+// 늦게 닿은 mail의 대기 목록(`mail/holds`, `mail/decide_hold`), outbox를 link로 내보내고 만료를 닫는 drain. 쓰기는 core 안 machine 자격으로 `calls/mail-*`를 접은 writer로 부른다(본문 준비는 router wiring의 층).
 // 읽기는 같은 ledger를 읽는 main thread 연결로 한다(app-calls와 같다). 명단과 link는 remote wiring이 늦게 내므로 부를 때 읽는다.
-import { ok } from "../../../../base/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import {
   a2aMail,
   callSendRemote,
+  mailDecideHold,
+  mailHolds,
 } from "../../../../protocol/lophn-agent/mail.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
@@ -15,15 +18,20 @@ import { requesterOf } from "../../../remote/call.ts";
 import { createMailDrain, type MailDrain } from "../../../remote/mail-drain.ts";
 import {
   createMailInbox,
+  decideHoldHandler,
+  holdsHandler,
   type MailEntryDeps,
   mailHandler,
   sendRemoteHandler,
 } from "../../../remote/mail-entry.ts";
 import {
   callsMailApply,
+  callsMailDecide,
   callsMailRefuse,
   callsMailSend,
   callsMailSent,
+  callsMailSweep,
+  FAILURE_TEXTS,
   MAIL_QUEUED_TOPIC,
   outboxPeers,
   pendingMails,
@@ -34,6 +42,7 @@ import {
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
+import { prepareBodies } from "./router.ts";
 
 const MAIL_PRINCIPAL = "machine:mail";
 const MAIL_CONTEXT: AuthenticatedContext = {
@@ -45,6 +54,8 @@ const MAIL_CONTEXT: AuthenticatedContext = {
       callsMailApply.name,
       callsMailRefuse.name,
       callsMailSent.name,
+      callsMailDecide.name,
+      callsMailSweep.name,
     ],
     targets: {},
   },
@@ -87,6 +98,17 @@ export const mailWiring: WiringFactory = () => {
         kind: (principal) => ctx.deviceKind(principal),
         granted: (machine) => ctx.computerGranted(machine),
         requesterOf,
+        async prepare(bodies) {
+          const relay = ctx.peek.bodyPrepare;
+          if (relay === undefined) {
+            return err({
+              code: "unavailable",
+              message: "blob preparation is not available",
+            });
+          }
+          return await prepareBodies(relay, MAIL_CONTEXT, bodies);
+        },
+        now: () => ctx.clock.now(),
       };
       ctx.provide("mailInbox", createMailInbox(deps));
       const draining = createMailDrain({
@@ -110,6 +132,14 @@ export const mailWiring: WiringFactory = () => {
         },
         call: (device, call, by) => ctx.machineLinks.call(device, call, by),
         record: (mail, result) => command(callsMailSent, { mail, result }),
+        // 닿지 못하고 만료된 call은 보낸 session에 실패 알림이 간다. 그 글을 먼저 준비한다.
+        async sweep() {
+          const prepared = await deps.prepare([
+            textBlocks(FAILURE_TEXTS.expired),
+          ]);
+          if (!prepared.ok) return prepared;
+          return await command(callsMailSweep, {});
+        },
         every(ms, fn) {
           const timer = setInterval(() => void fn(), ms);
           timer.unref();
@@ -126,6 +156,11 @@ export const mailWiring: WiringFactory = () => {
             sendRemoteHandler(deps),
           ],
           [`${a2aMail.resource}/${a2aMail.method}`, mailHandler(deps)],
+          [`${mailHolds.resource}/${mailHolds.method}`, holdsHandler(deps)],
+          [
+            `${mailDecideHold.resource}/${mailDecideHold.method}`,
+            decideHoldHandler(deps),
+          ],
         ],
         writer: (inner) =>
           withAfterCommit(

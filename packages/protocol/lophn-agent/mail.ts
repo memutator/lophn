@@ -156,3 +156,52 @@ export const callSendRemote = defineMemory({
 });
 
 export const MAIL_ROUTES = [a2aMail, callSendRemote] as const;
+
+// 늦게 닿아 받는 기계의 대기 목록에 선 call mail 하나. 사람이 [Start now]나 [Skip]으로 정한다. text는 본문 글을 500자까지 자른 것이다.
+export const mailHoldSchema = z.strictObject({
+  origin: idSchema("mch"),
+  mail: idSchema("mal"),
+  computer: z.string(),
+  from: mailAuthorSchema,
+  address: remoteAddressSchema,
+  reply: callReplySchema,
+  text: z.string(),
+  sent_at: atSchema,
+  arrived_at: atSchema,
+  expires_at: atSchema,
+});
+export type MailHold = z.infer<typeof mailHoldSchema>;
+
+// 대기 목록의 mail. 오래된 것부터다.
+export const mailHolds = defineMemory({
+  resource: "mail",
+  method: "holds",
+  name: "mail.holds",
+  input: z.strictObject({}),
+  output: z.strictObject({ holds: z.array(mailHoldSchema) }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+// 받는 기계의 사람이 대기 중인 mail을 정한다. 이미 정했거나 만료됐으면 conflict, 없으면 not_found다.
+export const mailDecideHold = defineMemory({
+  resource: "mail",
+  method: "decide_hold",
+  name: "mail.decide_hold",
+  input: z.strictObject({
+    origin: idSchema("mch"),
+    mail: idSchema("mal"),
+    decision: z.enum(["run_now", "skip"]),
+  }),
+  output: mailAppliedSchema,
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
+});
+
+export const MAIL_HOLD_ROUTES = [mailHolds, mailDecideHold] as const;

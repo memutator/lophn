@@ -32,6 +32,7 @@ import {
   type MailApplied,
   type MailAuthor,
   MAIL_EXPIRY_MS,
+  MAIL_LATE_MS,
   MAIL_TEXT_MAX_BYTES,
   mailBodySchema,
 } from "../../protocol/lophn-agent/mail.ts";
@@ -159,7 +160,20 @@ export interface Router {
     tx: Tx,
     input: { mail: string; result: MailSendResult },
   ): Result<void>;
+  // 받는 기계의 사람이 대기 목록의 mail을 정한다. 줄이 없으면 not_found, 이미 끝난 줄이면 conflict다. 만료됐으면 줄을 expired로
+  // 닫고 {failed, expired}를 돌려준다(오류로 돌리면 닫은 것이 되돌아간다).
+  decideHold(tx: Tx, input: DecideHoldInput): Result<MailApplied>;
+  // 만료된 mail을 닫는다: 이 기계가 낸 줄(보낸 call은 expired로 끝낸다), 대기 목록의 줄. 오래 지난 받은 기록을 지운다.
+  sweepMail(tx: Tx): Result<{ expired: number }>;
 }
+
+export type DecideHoldInput = {
+  origin: string;
+  mail: string;
+  decision: "run_now" | "skip";
+  // 지금 그 기계에 준 허락. 정하는 때의 것을 쓴다.
+  skipAllowed: boolean;
+};
 
 // mail을 보낸 기계. computer는 이 기계 명단의 그 컴퓨터 이름이다.
 export type MailOrigin = { machine: string; computer: string };
@@ -1057,9 +1071,16 @@ export function createRouter(deps: RouterDeps): Router {
     return { ok: true, to: local };
   }
 
-  // 지난 적용의 결과. 받은 call 행에서 읽는다.
+  // 지난 적용의 결과. 대기 목록에서 끝난 줄은 그 끝으로, 아니면 받은 call 행에서 읽는다.
   function appliedBefore(tx: Tx, mail: Mail, origin: string): MailApplied {
     if (mail.kind !== "call") return NOT_APPLIED;
+    const state = seen.read(tx, origin, mail.id)?.state;
+    if (state === "held") {
+      return { delivery: "held", reason: null, session: null };
+    }
+    if (state === "expired" || state === "skipped") {
+      return { delivery: "failed", reason: state, session: null };
+    }
     const record = store.read(tx, calId(mail.call));
     if (
       record === null ||
@@ -1073,11 +1094,13 @@ export function createRouter(deps: RouterDeps): Router {
       : { delivery: "running", reason: null, session: record.receiver_session };
   }
 
+  // 받은 call mail을 이 기계의 Router로 돌린다. tellState면 받은 상태를 state mail로 보낸 기계에 알린다(답이 없는 길: 폴더, 대기 뒤 시작).
   function applyCall(
     tx: Tx,
     mail: Extract<Mail, { kind: "call" }>,
     origin: MailOrigin,
-    input: ApplyMailInput,
+    skipAllowed: boolean,
+    tellState: boolean,
   ): Result<MailApplied> {
     const from: CallFrom = {
       kind: "remote",
@@ -1095,7 +1118,7 @@ export function createRouter(deps: RouterDeps): Router {
       delivery: "next_turn",
       unattended: mail.unattended,
       call: mail.call,
-      skipAllowed: input.skipAllowed,
+      skipAllowed,
     };
     const address = localAddress(mail.address, origin.machine);
     const routed = address.ok
@@ -1114,19 +1137,60 @@ export function createRouter(deps: RouterDeps): Router {
       if (!queued.ok) return queued;
       return ok({ delivery: "failed", reason: fail_reason, session: null });
     }
-    if (input.via === "folder") {
-      const queued = queue(tx, {
-        kind: "state",
-        call: mail.call,
-        from: authorOf(session),
-        to_machine: origin.machine,
-        ...stamp(tx),
-        delivery: "running",
+    if (tellState) {
+      const queued = queueState(
+        tx,
+        mail.call,
+        origin.machine,
+        "running",
         session,
-      });
+      );
       if (!queued.ok) return queued;
     }
     return ok({ delivery: "running", reason: null, session });
+  }
+
+  function queueState(
+    tx: Tx,
+    call: string,
+    peer: string,
+    delivery: "held" | "running",
+    session: string | null,
+  ): Result<Mail> {
+    return queue(tx, {
+      kind: "state",
+      call: calId(call),
+      from: authorOf(session),
+      to_machine: peer,
+      ...stamp(tx),
+      delivery,
+      session: session === null ? null : sesId(session),
+    });
+  }
+
+  // 대기 목록이 바뀌었다(줄이 생기고, 정해지고, 만료되고, 취소됐다). 화면의 대기 목록이 다시 읽는다. mail 본문은 싣지 않는다.
+  function holdsChanged(tx: Tx, mail: string): void {
+    announce(tx, STATE_CHANGED_TOPIC, [{ name: "mail_holds", id: mail }]);
+  }
+
+  // 대기 목록의 줄을 끝내고, 돌지 않은 call의 실패를 보낸 기계에 알린다.
+  function closeHold(
+    tx: Tx,
+    row: { origin: string; id: string },
+    mail: Extract<Mail, { kind: "call" }>,
+    reason: "expired" | "skipped",
+  ): Result<MailApplied> {
+    seen.close(tx, row.origin, row.id, reason);
+    holdsChanged(tx, row.id);
+    const queued = queueFailure(
+      tx,
+      mail.call,
+      row.origin,
+      reason,
+      mail.unattended,
+    );
+    if (!queued.ok) return queued;
+    return ok({ delivery: "failed", reason, session: null });
   }
 
   // 그 call의 아직 내지 못한 call mail을 지운다.
@@ -1218,24 +1282,50 @@ export function createRouter(deps: RouterDeps): Router {
         message: "this mail is not from that computer to this one",
       });
     }
+    const now = tx.now();
+    // 만료된 mail은 돌지 않는다. 늦게 온 call은 돌지 않고 대기 목록에 서서 사람을 기다린다(reply·cancel·state는 늦어도 바로 적용한다).
+    // 이미 있는 call id는 쓰지 않는다(insert가 터지면 그 기계의 drain이 같은 mail을 끝없이 다시 낸다).
+    const expired = now > mail.expires_at;
+    const clash =
+      mail.kind === "call" && store.read(tx, calId(mail.call)) !== null;
+    // 보낸 기계가 이미 취소한 call이다(cancel mail이 먼저 닿았다). 늦었어도 대기에 서지 않는다.
+    const withdrawn =
+      mail.kind === "call" && seen.cancelSeen(tx, origin.machine, mail.call);
+    const late =
+      mail.kind === "call" &&
+      !expired &&
+      !clash &&
+      !withdrawn &&
+      Date.parse(now) - Date.parse(mail.sent_at) > MAIL_LATE_MS;
     const fresh = seen.mark(tx, {
       origin: origin.machine,
       id: mail.id,
       call: mail.call,
       kind: mail.kind,
-      state: "applied",
-      mail: null,
+      state: expired ? "expired" : late ? "held" : "applied",
+      mail: late ? mail : null,
       computer: origin.computer,
-      arrived_at: tx.now(),
+      arrived_at: now,
     });
     if (!fresh) return ok(appliedBefore(tx, mail, origin.machine));
+    if (expired) {
+      if (mail.kind !== "call") return ok(NOT_APPLIED);
+      const queued = queueFailure(
+        tx,
+        mail.call,
+        origin.machine,
+        "expired",
+        mail.unattended,
+      );
+      if (!queued.ok) return queued;
+      return ok({ delivery: "failed", reason: "expired", session: null });
+    }
     if (mail.kind === "call") {
-      // 이미 있는 call id는 쓰지 않는다(insert가 터지면 그 기계의 drain이 같은 mail을 끝없이 다시 낸다).
-      if (store.read(tx, calId(mail.call)) !== null) {
+      if (clash) {
         return ok({ delivery: "failed", reason: "not_found", session: null });
       }
-      // 보낸 기계가 이미 취소한 call이다(cancel mail이 먼저 닿았다). 돌리지 않고 닫힌 call로 답한다.
-      if (seen.cancelSeen(tx, origin.machine, mail.call)) {
+      // 돌리지 않고 닫힌 call로 답한다.
+      if (withdrawn) {
         const queued = queueFailure(
           tx,
           mail.call,
@@ -1246,10 +1336,41 @@ export function createRouter(deps: RouterDeps): Router {
         if (!queued.ok) return queued;
         return ok({ delivery: "failed", reason: "closed", session: null });
       }
-      return applyCall(tx, mail, origin, input);
+      if (late) {
+        holdsChanged(tx, mail.id);
+        if (input.via === "folder") {
+          const queued = queueState(
+            tx,
+            mail.call,
+            origin.machine,
+            "held",
+            null,
+          );
+          if (!queued.ok) return queued;
+        }
+        return ok({ delivery: "held", reason: null, session: null });
+      }
+      return applyCall(
+        tx,
+        mail,
+        origin,
+        input.skipAllowed,
+        input.via === "folder",
+      );
     }
     const record = store.read(tx, calId(mail.call));
-    if (record === null) return ok(NOT_APPLIED);
+    if (record === null) {
+      // 보낸 쪽이 대기 목록에 선 call을 취소했다. session을 열지 않고 줄만 닫는다.
+      const held =
+        mail.kind === "cancel"
+          ? seen.heldOfCall(tx, origin.machine, mail.call)
+          : null;
+      if (held !== null) {
+        seen.close(tx, held.origin, held.id, "cancelled");
+        holdsChanged(tx, held.id);
+      }
+      return ok(NOT_APPLIED);
+    }
     switch (mail.kind) {
       case "reply": {
         const applied = applyReply(tx, mail, origin, record);
@@ -1392,6 +1513,62 @@ export function createRouter(deps: RouterDeps): Router {
     }
   }
 
+  function decideHold(tx: Tx, input: DecideHoldInput): Result<MailApplied> {
+    const row = seen.read(tx, input.origin, input.mail);
+    if (row === null) {
+      return err({ code: "not_found", message: "no such mail on hold" });
+    }
+    if (row.state !== "held" || row.mail?.kind !== "call") {
+      return err({
+        code: "conflict",
+        message: "this mail is no longer on hold",
+      });
+    }
+    const mail = row.mail;
+    if (tx.now() > mail.expires_at) {
+      return closeHold(tx, row, mail, "expired");
+    }
+    if (input.decision === "skip") return closeHold(tx, row, mail, "skipped");
+    seen.close(tx, row.origin, row.id, "started");
+    holdsChanged(tx, row.id);
+    // 늦은 판정 없이 받는 길로 돌린다. 답이 없는 때라 받은 상태를 state mail로 알린다.
+    return applyCall(
+      tx,
+      mail,
+      { machine: row.origin, computer: row.computer },
+      input.skipAllowed,
+      true,
+    );
+  }
+
+  function sweepMail(tx: Tx): Result<{ expired: number }> {
+    const now = tx.now();
+    let expired = 0;
+    // 이 기계가 낸 줄: 닿지 못한 call은 보낸 session에 늦은 실패로 알린다.
+    for (const mail of outbox.expired(tx, now)) {
+      const removed = outbox.remove(tx, mail.id);
+      if (!removed.ok) return removed;
+      expired++;
+      if (mail.kind !== "call") continue;
+      const record = store.read(tx, calId(mail.call));
+      if (record === null || isFinished(record.state)) continue;
+      const failed = failSent(tx, record, "expired");
+      if (!failed.ok) return failed;
+    }
+    for (const row of seen.held(tx)) {
+      if (row.mail?.kind !== "call" || !(now > row.mail.expires_at)) continue;
+      const closed = closeHold(tx, row, row.mail, "expired");
+      if (!closed.ok) return closed;
+      expired++;
+    }
+    // 만료의 두 배 안에 같은 mail이 다시 와도 한 번만 돈다. 그보다 옛 기록은 쓸 일이 없다.
+    seen.prune(
+      tx,
+      new Date(Date.parse(now) - 2 * MAIL_EXPIRY_MS).toISOString(),
+    );
+    return ok({ expired });
+  }
+
   return {
     appSender(app) {
       const info = directory.app(app);
@@ -1476,5 +1653,7 @@ export function createRouter(deps: RouterDeps): Router {
     applyMail,
     refuseMail,
     mailSent,
+    decideHold,
+    sweepMail,
   };
 }

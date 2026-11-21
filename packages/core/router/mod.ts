@@ -1,6 +1,7 @@
 export {
   type ApplyMailInput,
   createRouter,
+  type DecideHoldInput,
   type MailOrigin,
   type MailSendResult,
   type Router,
@@ -27,9 +28,11 @@ export {
   callsAppCancel,
   callsAppSend,
   callsMailApply,
+  callsMailDecide,
   callsMailRefuse,
   callsMailSend,
   callsMailSent,
+  callsMailSweep,
   callsAskOpen,
   callsAskWithdraw,
   callsAutoReply,
@@ -43,6 +46,7 @@ export { mailSchemaSteps } from "./mail-schema.ts";
 export {
   createMailOutbox,
   createMailSeen,
+  heldMails,
   mailSeen,
   outboxPeers,
   pendingMails,

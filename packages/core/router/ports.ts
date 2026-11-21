@@ -175,6 +175,8 @@ export interface MailOutbox {
   read(tx: Tx, id: string): Mail | null;
   // 그 call의 아직 내지 못한 call mail.
   callMailOf(tx: Tx, call: string): Mail | null;
+  // 만료 시각(expires_at)이 now보다 앞인 줄.
+  expired(tx: Tx, now: string): Mail[];
 }
 
 export const MAIL_SEEN_STATES = [
@@ -207,4 +209,17 @@ export interface MailSeen {
   read(tx: Tx, origin: string, id: string): MailSeenRow | null;
   // 그 기계가 그 call의 cancel mail을 보냈는지. 폴더 길은 cancel이 call보다 먼저 닿을 수 있다.
   cancelSeen(tx: Tx, origin: string, call: string): boolean;
+  // 대기 목록에 선 줄의 끝(정함, 만료, 취소). 든 mail을 지운다.
+  close(
+    tx: Tx,
+    origin: string,
+    id: string,
+    state: Exclude<MailSeenState, "applied" | "held" | "refused">,
+  ): void;
+  // 그 기계의 그 call로 대기 목록에 선 줄.
+  heldOfCall(tx: Tx, origin: string, call: string): MailSeenRow | null;
+  // 대기 목록에 선 모든 줄.
+  held(tx: Tx): MailSeenRow[];
+  // 대기 목록에 서지 않은 줄 가운데 before보다 먼저 닿은 것을 지운다.
+  prune(tx: Tx, before: string): void;
 }

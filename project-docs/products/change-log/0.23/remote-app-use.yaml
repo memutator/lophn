@@ -1,5 +1,5 @@
 id: remote-app-use
-version: 0.23.105
+version: 0.23.107
 title: 다른 컴퓨터의 앱은 그 컴퓨터의 것으로 열고, 다른 컴퓨터의 늘 켜 두기를 여기서 켠다
 modules: [packages/protocol, packages/shell/renderer, packages/design]
 change: |

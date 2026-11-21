@@ -234,12 +234,20 @@ async function applyFrom(
 // 대기 목록 card가 보이는 본문 글의 길이.
 const HOLD_TEXT_MAX = 500;
 
-// `mail/holds`: 늦게 닿아 대기 목록에 선 call mail. 오래 기다린 것부터다. 만료된 줄은 sweep이 닫기 전에도 보이지 않는다.
+// 보낸 기계가 지금 명단의 다른 컴퓨터인가. 명단에서 빠진 컴퓨터의 대기 줄은 보이지 않고 시작하지 못한다.
+function inRoster(deps: MailEntryDeps, origin: string): boolean {
+  return deps.computers().some((each) => each.machine === origin && !each.self);
+}
+
+// `mail/holds`: 늦게 닿아 대기 목록에 선 call mail. 오래 기다린 것부터다. 만료된 줄은 sweep이 닫기 전에도, 명단에서 빠진 컴퓨터의 줄은
+// 정하기 전에도 보이지 않는다.
 export function holdsHandler(deps: MailEntryDeps): MemoryHandler {
   return async () => {
     const now = deps.now();
     const holds: MailHold[] = heldMails(deps.sql)
-      .filter(({ mail }) => now <= mail.expires_at)
+      .filter(
+        ({ origin, mail }) => now <= mail.expires_at && inRoster(deps, origin),
+      )
       .map(({ origin, computer, arrived_at, mail }) => ({
         origin,
         mail: mail.id,
@@ -262,6 +270,17 @@ export function holdsHandler(deps: MailEntryDeps): MemoryHandler {
 export function decideHoldHandler(deps: MailEntryDeps): MemoryHandler {
   return async (_ctx, body) => {
     const input = body as z.infer<typeof mailDecideHold.input>;
+    // 보낸 컴퓨터가 명단에서 빠졌다: 돌리지 않고 줄을 닫으며(돌려보낼 상대가 없다) 없는 줄처럼 답한다.
+    if (!inRoster(deps, input.origin)) {
+      const dropped = await deps.command(callsMailDecide, {
+        origin: input.origin,
+        mail: input.mail,
+        decision: "drop",
+        skip_allowed: false,
+      });
+      if (!dropped.ok && dropped.error.code === "unavailable") return dropped;
+      return err({ code: "not_found", message: "no such mail on hold" });
+    }
     if (input.decision === "run_now") {
       // 줄에 남은 본문은 받을 때 redaction을 거쳤다. 받는 session 기록에 쓰이도록 준비만 한다. 줄이 없거나 끝났으면 명령이 답한다.
       const held = heldMails(deps.sql).find(

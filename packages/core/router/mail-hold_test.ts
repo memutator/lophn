@@ -313,12 +313,14 @@ async function machine(self: Id<"mch">) {
 
   // 이 컴퓨터에서 터미널 입력을 허락받은 기계.
   const grants = new Set<string>();
+  // 이 기계의 명단. test가 컴퓨터를 뺀다.
+  const roster = [...ROSTER];
   const entry: MailEntryDeps = {
     command,
     sql,
     policy: () => DEFAULT_CALL_POLICY,
     computers: () =>
-      ROSTER.map((each) => ({ ...each, self: each.machine === self })),
+      roster.map((each) => ({ ...each, self: each.machine === self })),
     resolve: () => err({ code: "not_found", message: "unused" }),
     self: () => self,
     redact: (blocks) => [...blocks],
@@ -383,14 +385,21 @@ async function machine(self: Id<"mch">) {
     return opened.value.session;
   };
   // 이 기계의 session이 to 기계의 agent에게 call을 보낸다.
-  const send = async (session: string, to: Id<"mch">, agent = "reviewer") => {
+  const send = async (
+    session: string,
+    to: Id<"mch">,
+    agent: string | object = "reviewer",
+  ) => {
     const sent = await command(callsMailSend, {
       session,
       turn: null,
       dedup: `d${++counter}`,
       self,
       peer: { machine: to, computer: "windows" },
-      address: { agent, workspace: { home: true } },
+      address:
+        typeof agent === "string"
+          ? { agent, workspace: { home: true } }
+          : agent,
       reply: "result",
       body: textBlocks(TEXT),
     });
@@ -404,6 +413,7 @@ async function machine(self: Id<"mch">) {
     db,
     sql,
     grants,
+    roster,
     entry,
     changes,
     command,
@@ -444,6 +454,16 @@ const code = (done: Result<unknown>) => (done.ok ? "ok" : done.error.code);
 const later = (ms: number) => {
   clock.ms += ms;
 };
+// 그 session의 agent 자격(turn이 있다).
+const agentOf = (session: string) =>
+  ({
+    principal: `agent:${session}`,
+    actor: `agent:${session}`,
+    scope: { operations: [], targets: {} },
+    conditions: { session },
+    credential_ref: "agent",
+    turn: "trn_00000000000000000000000001",
+  }) as unknown as AuthenticatedContext;
 // 보낸 session에 기록된 실패 알림의 이유.
 const failures = (m: Machine) =>
   m.db
@@ -514,15 +534,35 @@ test("만료된 call mail은 받는 기계에서 session을 열지 않고, 보�
   await b.tick();
   assert.equal(b.count("mail_seen"), 0);
 
-  // 받는 기계가 받고(대기, 실행) 다시 오지 않았다: 보낸 기계의 sweep이 만료 뒤 10분(시계 차이의 여유)에 닫고 한 번 알린다.
+  // 받는 기계의 대기 목록에 서고 그 기계가 다시 오지 않았다: 보낸 기계의 sweep이 만료 뒤 10분(시계 차이의 여유)에 닫고 한 번 알린다.
+  // 돌기 시작한 call은 나이로 닫지 않는다: 만료가 지나도 열려 있고 뒤에 온 답이 보낸 session에 들어간다.
   const waiting = await a.send(sender, B);
   const sentAt = clock.ms;
-  later(MAIL_LATE_MS + 1);
   const running = await a.send(sender, B);
-  assert.deepStrictEqual(
-    (await carry(a, b)).map((applied) => applied.delivery),
-    ["held", "running"],
-  );
+  // running은 닿자마자 돌고 waiting만 늦게 닿게, waiting의 mail을 늦은 때 넣는다.
+  const [waitingMail, runningMail] = pendingMails(a.sql, B);
+  const runningApplied = await b.inbox.apply({
+    mail: runningMail!,
+    origin: A,
+    via: "link",
+  });
+  assert.ok(runningApplied.ok);
+  await a.command(callsMailSent, {
+    mail: runningMail!.id,
+    result: { kind: "acked", applied: runningApplied.value },
+  });
+  later(MAIL_LATE_MS + 1);
+  const waitingApplied = await b.inbox.apply({
+    mail: waitingMail!,
+    origin: A,
+    via: "link",
+  });
+  assert.ok(waitingApplied.ok);
+  assert.equal(waitingApplied.value.delivery, "held");
+  await a.command(callsMailSent, {
+    mail: waitingMail!.id,
+    result: { kind: "acked", applied: waitingApplied.value },
+  });
   clock.ms = sentAt + MAIL_EXPIRY_MS + MAIL_LATE_MS;
   await a.tick();
   assert.equal(a.callRow(waiting)?.["state"], "accepted");
@@ -530,31 +570,22 @@ test("만료된 call mail은 받는 기계에서 session을 열지 않고, 보�
   a.forget();
   await a.tick();
   assert.equal(a.callRow(waiting)?.["fail_reason"], "expired");
+  later(MAIL_EXPIRY_MS);
+  await a.tick();
   assert.equal(a.callRow(running)?.["state"], "accepted");
-  later(MAIL_LATE_MS + 1);
-  await a.tick();
-  await a.tick();
-  assert.equal(a.callRow(running)?.["fail_reason"], "expired");
-  assert.deepStrictEqual(failures(a), Array(5).fill("expired"));
-  // 닫은 뒤 그 기계의 답이 와도 끝난 call의 답이라 아무것도 넣지 않는다.
+  assert.equal(a.callRow(running)?.["delivery"], "running");
+  assert.deepStrictEqual(failures(a), Array(4).fill("expired"));
   const receiver = String(a.callRow(running)?.["remote_session"]);
   const answered = await b.command(
     callReply,
     { call: running, body: textBlocks("built and tested"), refs: [] },
-    {
-      principal: `agent:${receiver}`,
-      actor: `agent:${receiver}`,
-      scope: { operations: [], targets: {} },
-      conditions: { session: receiver },
-      credential_ref: "agent",
-      turn: "trn_00000000000000000000000001",
-    } as unknown as AuthenticatedContext,
+    agentOf(receiver),
   );
   assert.ok(answered.ok, JSON.stringify(answered));
   const messages = a.count("messages");
   await carry(b, a);
-  assert.equal(a.count("messages"), messages);
-  assert.equal(a.callRow(running)?.["fail_reason"], "expired");
+  assert.equal(a.count("messages"), messages + 1);
+  assert.equal(a.callRow(running)?.["state"], "done");
 });
 
 test("10분 넘게 늦게 온 call mail은 session을 열지 않고 대기 목록에 서며, Start now에서만 열리고 Skip이면 skipped 실패 mail이 돌아간다", async () => {
@@ -763,14 +794,18 @@ test("대기 중인 mail은 사람이 이 컴퓨터나 자기 기기의 화면�
     });
   };
   // 이 컴퓨터의 HTTP API: 자격의 actor만 다르다.
-  const local = async (actor: string, body: unknown) => {
+  const local = async (
+    actor: string,
+    body: unknown,
+    method = "decide_hold",
+  ) => {
     const done = await dispatchHttp(
-      new Request("http://local/mail/decide_hold", {
+      new Request(`http://local/mail/${method}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       }),
-      routes.lookup("/mail/decide_hold")!,
+      routes.lookup(`/mail/${method}`)!,
       {
         principal: actor,
         actor,
@@ -790,6 +825,29 @@ test("대기 중인 mail은 사람이 이 컴퓨터나 자기 기기의 화면�
       (done as { json: { error?: { code: string } } }).json.error?.code ?? "ok"
     );
   };
+  const AGENT_BY: Requester = {
+    kind: "agent",
+    agent: "lophn_home",
+    session: null,
+    name: "lophn",
+  };
+  const APP_BY: Requester = {
+    kind: "app",
+    app: "app_00000000000000000000000001",
+  };
+  // 목록도 다른 컴퓨터의 agent·앱과 이 컴퓨터의 agent 자격은 읽지 못한다(본문 앞부분이 실려 있다).
+  for (const by of [AGENT_BY, APP_BY]) {
+    assert.equal(
+      code(await remote(A_DEV, "holds", {}, by)),
+      "forbidden",
+      `holds by ${by.kind}`,
+    );
+  }
+  assert.equal(
+    await local("agent:ses_00000000000000000000000001", {}, "holds"),
+    "forbidden",
+  );
+  assert.equal(await local("user", {}, "holds"), "ok");
   const refused: [string, () => Promise<Result<unknown>>][] = [
     [
       "terminal",
@@ -853,4 +911,120 @@ test("대기 중인 mail은 사람이 이 컴퓨터나 자기 기기의 화면�
       .map((row) => row["skip"]),
     [0, 0, 0],
   );
+});
+
+test("받을 곳이 없는 늦은 call은 대기에 서지 않고 바로 실패 mail로 돌아가며, 명단에서 빠진 컴퓨터의 대기 줄은 보이지 않고 시작하지 못한다", async () => {
+  clock.ms = START;
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  // B의 사람이 연 session: 다른 컴퓨터의 mail은 이 session에 들어가지 못한다.
+  const human = b.openSession(REVIEWER);
+  // A의 mail이 연 session을 B의 사람이 archive했다.
+  const opener = await a.send(sender, B);
+  await carry(a, b);
+  const closed = String(a.callRow(opener)?.["remote_session"]);
+  b.db
+    .prepare("update sessions set lifecycle = 'archived' where id = ?")
+    .run(closed);
+  const nobody = await a.send(sender, B, "nobody");
+  const intrude = await a.send(sender, B, { session: human });
+  const archived = await a.send(sender, B, { session: closed });
+  const valid = await a.send(sender, B);
+  later(MAIL_LATE_MS + 1);
+  assert.deepStrictEqual(
+    (await carry(a, b)).map((applied) => [applied.delivery, applied.reason]),
+    [
+      ["failed", "not_found"],
+      ["failed", "not_found"],
+      ["failed", "closed"],
+      ["held", null],
+    ],
+  );
+  for (const call of [nobody, intrude, archived]) {
+    assert.equal(a.callRow(call)?.["state"], "failed");
+  }
+  const holds = await b.holds();
+  assert.deepStrictEqual(
+    holds.map((hold) => hold.text),
+    [TEXT],
+  );
+  assert.equal(b.count("mail_seen", "mail is not null"), 1);
+  assert.equal(b.count("sessions"), 2);
+
+  // A가 B의 명단에서 빠졌다: 줄은 목록에 없고, 정하려 하면 돌지 않고 닫히며 없는 줄처럼 답한다. 돌려보낼 mail도 없다.
+  await carry(b, a);
+  b.roster.splice(
+    b.roster.findIndex((each) => each.machine === A),
+    1,
+  );
+  assert.deepStrictEqual(await b.holds(), []);
+  assert.equal(code(await b.decide(A, holds[0]!.mail, "run_now")), "not_found");
+  assert.equal(b.count("mail_seen", "state = 'held'"), 0);
+  assert.equal(b.count("mail_seen", "mail is not null"), 0);
+  assert.equal(b.count("sessions"), 2);
+  assert.equal(b.count("mail_outbox"), 0);
+  assert.equal(code(await b.decide(A, holds[0]!.mail, "skip")), "not_found");
+  assert.equal(b.count("mail_outbox"), 0);
+  assert.equal(a.callRow(valid)?.["delivery"], "held");
+});
+
+test("폴더 길로 늦게 온 call은 state held mail 하나를 내고 Start now는 state running을 내며, 만료된 reply·cancel·state mail은 본 것으로만 적힌다", async () => {
+  clock.ms = START;
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const answered = await a.send(sender, B);
+  const withdrawn = await a.send(sender, B);
+  await carry(a, b);
+  const late = await a.send(sender, B);
+  later(MAIL_LATE_MS + 1);
+  const [lateMail] = pendingMails(a.sql, B);
+  const held = await b.inbox.apply({
+    mail: lateMail!,
+    origin: A,
+    via: "folder",
+  });
+  assert.deepStrictEqual(held, {
+    ok: true,
+    value: { delivery: "held", reason: null, session: null },
+  });
+  await a.command(callsMailSent, {
+    mail: lateMail!.id,
+    result: { kind: "acked", applied: held.value },
+  });
+  const states = () =>
+    pendingMails(b.sql, A).flatMap((mail) =>
+      mail.kind === "state" ? [mail.delivery] : [],
+    );
+  assert.deepStrictEqual(states(), ["held"]);
+  assert.ok((await b.decide(A, lateMail!.id, "run_now")).ok);
+  assert.deepStrictEqual(states(), ["held", "running"]);
+
+  // 만료까지 닿지 못한 답·취소·상태: 받는 쪽은 본 것으로만 적고 아무것도 바꾸지 않는다.
+  const receiver = String(a.callRow(answered)?.["remote_session"]);
+  assert.ok(
+    (
+      await b.command(
+        callReply,
+        { call: answered, body: textBlocks("done"), refs: [] },
+        agentOf(receiver),
+      )
+    ).ok,
+  );
+  assert.ok((await a.command(callCancel, { call: withdrawn }, PERSON)).ok);
+  later(MAIL_EXPIRY_MS + 1);
+  const aMessages = a.count("messages");
+  const bMessages = b.count("messages");
+  await carry(b, a);
+  assert.equal(a.count("mail_seen", "state = 'expired'"), 3);
+  assert.equal(a.callRow(answered)?.["state"], "accepted");
+  assert.equal(a.callRow(late)?.["delivery"], "held");
+  assert.equal(a.count("messages"), aMessages);
+  assert.equal(a.count("mail_outbox", "kind <> 'cancel'"), 0);
+  await carry(a, b);
+  assert.equal(b.count("mail_seen", "state = 'expired'"), 1);
+  assert.equal(b.callRow(withdrawn)?.["state"], "accepted");
+  assert.equal(b.count("messages"), bMessages);
+  assert.equal(b.count("mail_outbox"), 0);
 });

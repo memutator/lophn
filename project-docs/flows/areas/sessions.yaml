@@ -1514,7 +1514,7 @@ flows:
     steps:
       - "core 안 machine이 아니면 forbidden이다. mail을 쓴 기계가 보낸 기계(origin)가 아니거나 받는 기계가 이 기계가 아니면 forbidden이다."
       - "같은 기계의 같은 mail id를 이미 받았으면 아무것도 하지 않고 지난 결과(대기 중이면 held, 만료·건너뜀이면 그 실패, 아니면 받은 call 행의 상태와 session)를 돌려준다."
-      - "만료(expires_at)가 지난 mail은 돌지 않는다: call mail이면 실패 mail(expired)을 내고 reply·cancel·state는 본 것으로만 적는다. call mail의 call id로 된 행이 이미 있으면 길을 타지 않고 failed(not_found)로 답한다(session도 행도 만들지 않는다). 같은 기계의 cancel mail이 먼저 닿았던 call이면(폴더 길은 순서가 바뀔 수 있다) 늦었어도 대기에 세우지 않고 돌리지도 않으며 failed(closed)로 답하고 실패 reply mail만 낸다. 다른 기계의 cancel은 막지 못한다. 보낸 시각보다 10분 넘게 늦은 call mail은 돌지 않고 mail을 든 대기 줄(held)이 되며 StateChanged(mail_holds)를 낸다. 폴더 길이면 state mail(held)을 낸다. 늦음은 이 기계의 시계로 잰다."
+      - "만료(expires_at)가 지난 mail은 돌지 않는다: call mail이면 실패 mail(expired)을 내고 reply·cancel·state는 본 것으로만 적는다. call mail의 call id로 된 행이 이미 있으면 길을 타지 않고 failed(not_found)로 답한다(session도 행도 만들지 않는다). 같은 기계의 cancel mail이 먼저 닿았던 call이면(폴더 길은 순서가 바뀔 수 있다) 늦었어도 대기에 세우지 않고 돌리지도 않으며 failed(closed)로 답하고 실패 reply mail만 낸다. 다른 기계의 cancel은 막지 못한다. 보낸 시각보다 10분 넘게 늦은 call mail은 받을 곳이 있으면(풀리고 private이 아니며 session 주소면 그 기계의 mail이 연 열린 session) 돌지 않고 mail을 든 대기 줄(held)이 되며(받을 곳이 없으면 아래 배달 실패 길이다) StateChanged(mail_holds)를 낸다. 폴더 길이면 state mail(held)을 낸다. 늦음은 이 기계의 시계로 잰다."
       - "call mail: 주소를 푼다. project 정체(pri_)는 이 기계의 project로, 앱은 앱 id로, home은 home으로 푼다. session을 가리키는 주소는 그 기계의 mail이 연 session일 때만 그 session이다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다). 받는 workspace가 이 기계의 call 정책에서 private이면 없는 것과 같다."
       - "풀리면 같은 call id로 받는 session에 넣는다(보낸 쪽 remote, 명함 검사 없음, 탭 열기 없음). 새 session은 그 기계가 연 것으로 표시되고 받는 기계의 허락이 없으면 agent 정의가 skip이어도 묻는 session이다. 폴더 길이면 state mail(running)을 낸다."
       - "풀리지 않거나 닫혔으면 실패 행(풀린 받는 곳이 있으면)과 실패 reply mail을 그 기계의 outbox에 넣는다."
@@ -1637,6 +1637,7 @@ flows:
       - "만료가 지났으면 줄을 expired로 닫고(든 mail을 지운다) 실패 mail(expired)을 내고 {failed, expired}를 돌려준다."
       - "skip이면 줄을 skipped로 닫고 실패 mail(skipped)을 낸다."
       - "run_now면 줄을 started로 닫고 늦은 판정 없이 mail-apply와 같은 길로 돌린다(skip은 입력의 지금 허락). 받은 상태를 state mail(running, session)로 알린다. 풀리지 않으면 실패 mail이다."
+      - "drop(보낸 컴퓨터가 명단에서 빠졌다)이면 줄을 cancelled로 닫기만 한다. session도 mail도 없다."
       - "줄이 바뀌면 StateChanged(mail_holds)를 낸다."
     outcomes:
       - id: started
@@ -1685,7 +1686,7 @@ flows:
     steps:
       - "drain의 주기 timer(60초)가 만료 알림 글을 준비한 뒤 부른다. core 안 machine이 아니면 forbidden이다."
       - "outbox에서 만료가 지난 줄을 지운다. call mail이고 그 행이 끝나지 않았으면 행을 failed(expired)로 닫고 보낸 session에 늦은 실패로 알린다."
-      - "그 기계가 받았거나(held, running) 받았는지 모르는(unknown) 이 기계의 끝나지 않은 call은 행을 쓴 때부터 만료 뒤 10분(시계 차이의 여유)이 지나면 failed(expired)로 닫고 보낸 session에 알린다. 받는 기계는 만료된 대기 줄을 시작하지 않고, 뒤에 온 그 call의 답은 끝난 call의 답처럼 무시된다."
+      - "그 기계의 대기 목록에 섰거나(held) 받았는지 모르는(unknown) 이 기계의 끝나지 않은 call은 행을 쓴 때부터 만료 뒤 10분(시계 차이의 여유)이 지나면 failed(expired)로 닫고 보낸 session에 알린다. 받는 기계는 만료된 대기 줄을 시작하지 않고, 뒤에 온 그 call의 답은 끝난 call의 답처럼 무시된다. 돌기 시작한(running) call은 나이로 닫지 않는다."
       - "대기 목록에서 만료가 지난 줄을 expired로 닫고 실패 mail(expired)을 낸다. StateChanged(mail_holds)."
       - "대기 중이 아닌 받은 기록 가운데 닿은 지 만료의 두 배가 지난 것을 지운다."
     outcomes:

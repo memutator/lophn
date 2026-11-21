@@ -170,7 +170,8 @@ export interface Router {
 export type DecideHoldInput = {
   origin: string;
   mail: string;
-  decision: "run_now" | "skip";
+  // drop은 사람의 결정이 아니다: 보낸 컴퓨터가 명단에 없어 줄을 닫는다.
+  decision: "run_now" | "skip" | "drop";
   // 지금 그 기계에 준 허락. 정하는 때의 것을 쓴다.
   skipAllowed: boolean;
 };
@@ -1071,6 +1072,14 @@ export function createRouter(deps: RouterDeps): Router {
     return { ok: true, to: local };
   }
 
+  // 지금 돌리면 받는 session에 닿는가(session을 열지는 않는다).
+  function receivable(address: RemoteAddress, origin: string): boolean {
+    const local = localAddress(address, origin);
+    if (!local.ok) return false;
+    if ("agent" in local.to) return true;
+    return directory.find(sesId(local.to.session))?.accepting === true;
+  }
+
   // 지난 적용의 결과. 대기 목록에서 끝난 줄은 그 끝으로, 아니면 받은 call 행에서 읽는다.
   function appliedBefore(tx: Tx, mail: Mail, origin: string): MailApplied {
     if (mail.kind !== "call") return NOT_APPLIED;
@@ -1292,12 +1301,15 @@ export function createRouter(deps: RouterDeps): Router {
     // 보낸 기계가 이미 취소한 call이다(cancel mail이 먼저 닿았다). 늦었어도 대기에 서지 않는다.
     const withdrawn =
       mail.kind === "call" && seen.cancelSeen(tx, origin.machine, mail.call);
+    // 대기 목록에는 돌았을 call만 선다. 받을 곳이 없는 call(없는 agent·workspace, private, 그 기계의 mail이 열지 않은 session, 닫힌
+    // session)은 늦었어도 바로 배달 실패 길로 간다.
     const late =
       mail.kind === "call" &&
       !expired &&
       !clash &&
       !withdrawn &&
-      Date.parse(now) - Date.parse(mail.sent_at) > MAIL_LATE_MS;
+      Date.parse(now) - Date.parse(mail.sent_at) > MAIL_LATE_MS &&
+      receivable(mail.address, origin.machine);
     const fresh = seen.mark(tx, {
       origin: origin.machine,
       id: mail.id,
@@ -1525,6 +1537,12 @@ export function createRouter(deps: RouterDeps): Router {
         message: "this mail is no longer on hold",
       });
     }
+    // 보낸 컴퓨터가 명단에서 빠졌다. 돌리지 않고 줄만 닫는다(알릴 상대가 없다).
+    if (input.decision === "drop") {
+      seen.close(tx, row.origin, row.id, "cancelled");
+      holdsChanged(tx, row.id);
+      return ok(NOT_APPLIED);
+    }
     const mail = row.mail;
     if (tx.now() > mail.expires_at) {
       return closeHold(tx, row, mail, "expired");
@@ -1556,9 +1574,9 @@ export function createRouter(deps: RouterDeps): Router {
       const failed = failSent(tx, record, "expired");
       if (!failed.ok) return failed;
     }
-    // 그 기계가 받고 답이 없는 call: 그 기계가 다시 오지 않아도 보낸 쪽에 영영 열려 있지 않게 닫는다. 받는 기계는 만료된 대기 줄을 시작하지
-    // 않으므로 늦은 Start now가 여기서 닫은 call을 돌리지 않는다. 만료 뒤 10분은 두 기계의 시계 차이를 위한 여유다. 만료는 행을 쓴 때(call
-    // mail의 sent_at과 같은 tx 시각)에서 센다.
+    // 그 기계의 대기 목록에 섰거나 받았는지 모르는 call: 그 기계가 다시 오지 않아도 보낸 쪽에 영영 열려 있지 않게 닫는다. 받는 기계는 만료된
+    // 대기 줄을 시작하지 않으므로 늦은 Start now가 여기서 닫은 call을 돌리지 않는다. 만료 뒤 10분은 두 기계의 시계 차이를 위한 여유다. 만료는
+    // 행을 쓴 때(call mail의 sent_at과 같은 tx 시각)에서 센다. 돌기 시작한 call은 나이로 닫지 않는다.
     const sentBefore = new Date(
       Date.parse(now) - MAIL_EXPIRY_MS - MAIL_LATE_MS,
     ).toISOString();

@@ -73,7 +73,7 @@ export function createMailOutbox(): MailOutbox {
       return tx.sql
         .all(
           `select call from agent_calls where state = 'accepted'
-           and delivery in ('held', 'running', 'unknown') and created_at < ?`,
+           and delivery in ('held', 'unknown') and created_at < ?`,
           [before],
         )
         .map((row) => String(row["call"]));

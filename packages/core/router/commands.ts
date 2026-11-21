@@ -268,7 +268,8 @@ export const callsMailDecide = defineCommand({
   input: z.strictObject({
     origin: idSchema("mch"),
     mail: idSchema("mal"),
-    decision: z.enum(["run_now", "skip"]),
+    // drop: 보낸 컴퓨터가 명단에서 빠져 돌리지 않고 줄만 닫는다(실패 mail도 없다).
+    decision: z.enum(["run_now", "skip", "drop"]),
     // 정하는 때 그 기계에 준 터미널 입력 허락. 열리는 session이 agent의 skip을 따를지다.
     skip_allowed: z.boolean(),
   }),

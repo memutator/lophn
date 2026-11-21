@@ -693,8 +693,12 @@ files:
       - calls-mail-sweep:ok
       - calls-mail-apply:held
       - calls-mail-apply:expired
+      - calls-mail-apply:failed
+      - calls-mail-apply:applied
+      - a2a-mail-receive:failed
+      - mail-holds-list:forbidden
       - mail-drain:swept
-    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 대기 목록 handler에서 writer 명령과 Router까지 잇는다. 10분 넘게 늦은 call은 session을 열지 않고 대기에 서며 Start now에서만 열리고(본문 blob을 그때 준비한다) Skip은 보낸 쪽 call을 skipped로 닫는다. 두 번 정하기, 보낸 쪽 취소 뒤, 만료 뒤는 conflict이고 양쪽 상태가 하나다. skip은 누른 기기가 아니라 보낸 컴퓨터에 정하는 때 준 허락만 따른다. 허락 없는 폰의 화면과 사람 자격은 정하고, 터미널(허락이 있어도)·다른 컴퓨터의 agent·앱 요청과 agent 자격은 정하지 못한다. 만료된 call은 받는 기계에서 돌지 않고, 보낸 기계와 받는 기계의 sweep이 expired로 닫아 보낸 session에 한 번 알린다. 받는 기계가 받고 다시 오지 않으면 보낸 기계가 만료 뒤 10분에 닫고 그 뒤 온 답은 무시한다. 받은 기록은 만료의 두 배 뒤에 지운다. 대기 목록의 바뀜에는 본문이 없다"
+    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 대기 목록 handler에서 writer 명령과 Router까지 잇는다. 10분 넘게 늦은 call은 session을 열지 않고 대기에 서며 Start now에서만 열리고(본문 blob을 그때 준비한다) Skip은 보낸 쪽 call을 skipped로 닫는다. 두 번 정하기, 보낸 쪽 취소 뒤, 만료 뒤는 conflict이고 양쪽 상태가 하나다. skip은 누른 기기가 아니라 보낸 컴퓨터에 정하는 때 준 허락만 따른다. 허락 없는 폰의 화면과 사람 자격은 정하고, 터미널(허락이 있어도)·다른 컴퓨터의 agent·앱 요청과 agent 자격은 정하지 못한다. 만료된 call은 받는 기계에서 돌지 않고, 보낸 기계와 받는 기계의 sweep이 expired로 닫아 보낸 session에 한 번 알린다. 받는 기계의 대기 줄이 끝나지 않으면 보낸 기계가 만료 뒤 10분에 닫고 그 뒤 온 답은 무시하며, 돌기 시작한 call은 만료가 지나도 열려 있어 답이 들어간다. 받을 곳이 없는 늦은 call(없는 agent, 사람이 연 session, archive된 session)은 대기에 서지 않고 바로 실패다. 명단에서 빠진 컴퓨터의 대기 줄은 목록에 없고 정하면 닫히며 not_found다. 목록도 agent 자격과 다른 컴퓨터의 agent·앱은 읽지 못한다. 폴더 길의 대기는 state held 하나, Start now는 state running을 낸다. 만료된 reply·cancel·state는 본 것으로만 적힌다. 받은 기록은 만료의 두 배 뒤에 지운다. 대기 목록의 바뀜에는 본문이 없다"
 
   - path: packages/core/remote/mail_test.ts
     covers:

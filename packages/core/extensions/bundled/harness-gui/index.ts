@@ -15,6 +15,7 @@ import {
   type HarnessGuiCarry,
   type HarnessGuiRun,
 } from "./adapter.ts";
+import { receivedSends } from "./received.ts";
 
 let stopAll: (() => void) | undefined;
 
@@ -174,14 +175,15 @@ export function activate(ctx: ExtensionContext): void {
         ...(request.resume === undefined ? {} : { resume: request.resume }),
         ...(request.args === undefined ? {} : { args: request.args }),
         ...(carry === undefined ? {} : { carry }),
-        session: {
+        ...(request.member === undefined ? {} : { member: request.member }),
+        session: receivedSends({
           ...session,
           publish(update) {
             session.publish(update);
             if (adapter.handoff === "shared")
               void followSession(tab).catch(() => {});
           },
-        },
+        }),
         spawn: spawnFor(terminal),
         clock: ctx.clock,
         ids: ctx.ids,

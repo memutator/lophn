@@ -75,6 +75,8 @@ export type AcpTabRequest = {
   resume?: string;
   /** `<harness> --gui ...`나 TUI argv에서 전달된 CLI flag(resume 제외). */
   args?: readonly string[];
+  /** 이 탭이 lophn 팀원이다. adapter는 CLI가 `lophn`을 부를 길을 연다(headless host가 넣는 것과 같다). `deny`는 그 agent 정의의 deny 규칙이다. */
+  member?: { deny: readonly string[] };
 };
 
 /** 그 CLI가 이 폴더에서 가진 지난 session 하나(`open_session`의 `cli_session`이 `id`다). */

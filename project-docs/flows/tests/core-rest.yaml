@@ -389,6 +389,13 @@ files:
       - assignment-file-migrate:moved
       - assignment-file-migrate:deny-rule-slugged
 
+  - path: packages/core/main/daemon/wiring/gui-member_test.ts
+    covers:
+      - gui-member-call:delivered
+      - gui-member-call:replied
+      - harness-gui-user-message:received
+    note: "lophn agent가 GUI 탭 팀원에게 보낸 result call은 그 탭의 turn 하나가 되고(받은 메시지로 그린다) 그 turn의 마지막 agent 글이 답으로 가 call이 done이다. 실제 Router·GUI 연결·자동 답 판정과 녹화한 agy 재생"
+
   - path: packages/core/main/daemon/wiring/custom-reply_test.ts
     covers:
       - custom-call-reply:replied

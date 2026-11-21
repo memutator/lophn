@@ -1,6 +1,7 @@
 // 사람이 치지 않은 user 글(다른 agent나 앱의 lophn call·reply, program의 알림, 다른 session)을 가려낸다. 모르는 꼴은 null이라
 // 호출한 쪽이 지금처럼 사람 메시지로 둔다.
 import type { AcpSender } from "../../../../protocol/acp/items.ts";
+import type { AcpSessionHandle } from "../../../../protocol/extensions/mod.ts";
 
 export type ReceivedText = {
   sender: AcpSender;
@@ -99,4 +100,48 @@ export function isTaskNotification(
   return (
     origin?.kind === "task-notification" || /^\s*<task-notification>/.test(text)
   );
+}
+
+// lophn 팀원 탭에 core가 넣은 입력(call, reply, 알림)은 lophn tag로 싼 `send`다. adapter는 live로 그 글을 사람 메시지로 그리므로 그 id의
+// message를 받은 메시지로 바꿔 내고, 사람 메시지만 받는 CLI message id(rewind 시점, bookmark)도 붙이지 않는다. 다시 열 때는 adapter가
+// 같은 글을 `classifyReceived`로 가른다.
+export function receivedSends(session: AcpSessionHandle): AcpSessionHandle {
+  const injected = new Map<string, ReceivedText>();
+  return {
+    id: session.id,
+    publish(update) {
+      if (update.type === "origin_set" && injected.has(update.message)) return;
+      const received =
+        update.type === "message_added" && update.item.actor === "user"
+          ? injected.get(update.item.id)
+          : undefined;
+      session.publish(
+        received === undefined || update.type !== "message_added"
+          ? update
+          : {
+              ...update,
+              item: {
+                ...update.item,
+                actor: "received",
+                sender: received.sender,
+                call: received.call,
+                reply_to: received.reply_to,
+                origin: null,
+                content: [{ type: "text", text: received.text }],
+              },
+            },
+      );
+    },
+    onInput(listener) {
+      session.onInput((input) => {
+        if (input.type === "send") {
+          const received = classifyBlocks(input.content);
+          if (received !== null) injected.set(input.id, received);
+        }
+        listener(input);
+      });
+    },
+    onClose: (listener) => session.onClose(listener),
+    close: () => session.close(),
+  };
 }

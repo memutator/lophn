@@ -16,7 +16,10 @@ import {
 } from "../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../protocol/events/bus.ts";
 import { publishStateChanged } from "../../protocol/events/changes.ts";
-import type { AcpTabHandlers } from "../../protocol/extensions/acp-session.ts";
+import type {
+  AcpTabHandlers,
+  GuiHarness,
+} from "../../protocol/extensions/acp-session.ts";
 import { terminalSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { Terminals } from "../terminals/ports.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
@@ -58,6 +61,8 @@ export type TerminalAgentsDeps = {
   credentials?: CredentialFiles | null;
   // GUI 탭의 팀원 session(harness wiring). 아직 없으면 null이고 탭은 팀원이 되지 않는다.
   members?(): HarnessMembers | null;
+  // 그 GUI harness의 내장 coding agent 정의가 가진 deny 규칙. 팀원 탭의 CLI를 띄울 때 넣는다.
+  memberDeny?(harness: GuiHarness): readonly string[];
   ids: { request(): string };
   // 그 터미널에 준 hook env. GUI가 띄운 CLI도 같은 탭으로 hook을 보내게 한다.
   hookEnv(terminalRef: string): Record<string, string>;
@@ -219,9 +224,12 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     },
     images: deps.images,
     // project 터미널의 GUI 탭이 팀원이다(Home과 앱 workspace는 아니다).
-    credentialFile: (ref) =>
-      deps.credentials != null && project(ref)?.startsWith("prj_") === true
-        ? deps.credentials.pathOf(ref)
+    member: (ref, harness) =>
+      project(ref)?.startsWith("prj_") === true
+        ? {
+            credentialFile: deps.credentials?.pathOf(ref) ?? null,
+            deny: deps.memberDeny?.(harness) ?? [],
+          }
         : null,
     log: deps.log,
     changed: () => coding.changed(),

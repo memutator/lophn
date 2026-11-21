@@ -78,9 +78,13 @@ export type TabGuiDeps = {
     read(path: string): Promise<Uint8Array | null>;
   };
   /**
-   * 그 탭의 CLI가 `lophn`을 부를 turn 자격 file. 팀원이 되는 탭(project 터미널)만 있고 아니면 null이다. CLI의 env에 경로만 넣는다.
+   * 팀원이 되는 탭(project 터미널)이면 그 CLI가 `lophn`을 부를 turn 자격 file(없으면 null)과 그 harness agent 정의의 deny 규칙이고,
+   * 아니면 null이다. CLI의 env에는 file 경로만 넣는다.
    */
-  credentialFile?(terminalRef: string): string | null;
+  member?(
+    terminalRef: string,
+    harness: GuiHarness,
+  ): { credentialFile: string | null; deny: readonly string[] } | null;
   log(message: string): void;
   /** handle이 열리거나 닫히거나, view나 그 session의 상태(title, turn phase)가 바뀌었다. coding session 목록을 다시 만든다. */
   changed?(): void;
@@ -246,7 +250,8 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     harness: GuiHarness,
     cwd: string,
   ): AcpTerminal {
-    const credential = deps.credentialFile?.(terminalRef) ?? null;
+    const credential =
+      deps.member?.(terminalRef, harness)?.credentialFile ?? null;
     return {
       id: terminalRef,
       cwd,
@@ -303,11 +308,13 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           message: "Chat view is not ready yet.",
         };
       }
+      const member = deps.member?.(terminalRef, harness) ?? null;
       const request: AcpTabRequest = {
         terminal: terminalOf(terminalRef, harness, cwd),
         harness,
         ...(resume === undefined ? {} : { resume }),
         ...(args === undefined ? {} : { args }),
+        ...(member === null ? {} : { member: { deny: member.deny } }),
       };
       await handlers.gui(request);
       if (!checkStarted || handlers.running(terminalRef) !== null) {

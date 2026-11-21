@@ -69,6 +69,8 @@ export type HarnessGuiAdapter = {
     args?: readonly string[];
     /** 앞 run이 `carry()`로 넘긴 값. */
     carry?: HarnessGuiCarry;
+    /** 이 탭이 lophn 팀원이다(`AcpTabRequest.member`). Claude는 `Bash(lophn *)`를 허락하고 deny를 막고, Codex는 network를 연다. */
+    member?: { deny: readonly string[] };
     session: AcpSessionHandle;
     spawn: ExtensionSpawn;
     clock: Clock;

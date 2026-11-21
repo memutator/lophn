@@ -5,6 +5,7 @@
 // 이 session 동안의 허락, fast·thinking)를 옵션으로 다시 넣는다. subagent의 대화는 `parent_tool_use_id`로 줄기(Lane)를 나눠
 // `child_update`로 내고, `/clear`는 CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. `!` 명령은 model에 보내지 않고 adapter가 돌린 뒤
 // 결과를 `shouldQuery: false` 사람 메시지로 transcript에만 붙인다(model은 다음 turn에 본다).
+import { claudeHeadless } from "../../../../protocol/coding-agent/headless/claude.ts";
 import { GUI_HANDOFF } from "../../../../protocol/extensions/mod.ts";
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
@@ -928,6 +929,9 @@ function parseClaudeArgs(raw: readonly string[]) {
   };
 }
 
+// lophn 팀원 탭의 CLI가 `lophn`을 부르는 길(headless host의 `--allowed-tools`와 같다).
+const LOPHN_BASH = "Bash(lophn *)";
+
 const start: (sdk: ClaudeSdk) => Start =
   (sdk) =>
   async ({
@@ -936,6 +940,7 @@ const start: (sdk: ClaudeSdk) => Start =
     resume,
     args: givenArgs,
     carry: given,
+    member,
     session,
     spawn,
     clock,
@@ -2684,7 +2689,20 @@ const start: (sdk: ClaudeSdk) => Start =
         // flag 층의 설정이라 사람의 설정 file에는 쓰이지 않는다.
         ...(carry.fast === null ? {} : { settings: { fastMode: carry.fast } }),
         ...(carry.thinking === false ? { thinking: { type: "disabled" } } : {}),
-        ...(carry.rules.size === 0 ? {} : { allowedTools: [...carry.rules] }),
+        // lophn 팀원 탭은 `lophn`을 부를 Bash를 허락하고 정의의 deny를 막는다(headless host와 같다. deny가 allow보다 앞선다).
+        ...(carry.rules.size === 0 && member === undefined
+          ? {}
+          : {
+              allowedTools: [
+                ...carry.rules,
+                ...(member === undefined ? [] : [LOPHN_BASH]),
+              ],
+            }),
+        ...(member === undefined || member.deny.length === 0
+          ? {}
+          : {
+              disallowedTools: claudeHeadless.permissions(member.deny) ?? [],
+            }),
         ...(carry.dirs.size === 0
           ? {}
           : { additionalDirectories: [...carry.dirs] }),

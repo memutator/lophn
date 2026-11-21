@@ -59,6 +59,7 @@ import {
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
@@ -68,6 +69,7 @@ import {
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
 import { bytesFileStream } from "../../../server/mod.ts";
 import {
@@ -330,6 +332,16 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 },
               }),
         members: () => ctx.peek.harnessMembers ?? null,
+        memberDeny: (harness) => {
+          const deny = ledgerSnapshot(
+            ctx.ledgerPath,
+            (lookup) =>
+              workspaceDepsOf(lookup.sql).agents.agent(
+                `coding_${harness}` as AgentId,
+              )?.deny ?? [],
+          );
+          return deny.ok ? deny.value : [];
+        },
         ids: { request: () => randomUUID() },
         hookEnv: (ref) => ingress?.envOf(ref) ?? {},
         identified: (harness, ref) => installer.ensureOnce(harness, ref),

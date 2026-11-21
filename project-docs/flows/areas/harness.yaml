@@ -4101,6 +4101,7 @@ flows:
     entries: [system:harness-gui-user-message]
     boundary: [shell-extension, acp]
     code:
+      - packages/core/extensions/bundled/harness-gui/index.ts
       - packages/core/extensions/bundled/harness-gui/codex.ts
       - packages/core/extensions/bundled/harness-gui/omp.ts
       - packages/core/extensions/bundled/harness-gui/opencode.ts
@@ -4110,6 +4111,7 @@ flows:
       - "CLI가 사용자 글 항목을 알린다. adapter는 lophn 호출과 답, task 알림 글을 received(사람 아님)로 가른다"
       - "우리 창이 보낸 글의 echo는 이미 그렸으므로 다시 그리지 않는다(codex는 clientId로, omp는 대기 중인 echo 글과 맞춰 본다)"
       - "그 밖의 사람 글은 사람 메시지로 그린다. claude는 살아 있는 경로에서 사람 글을 그리지 않고, resume 때만 사람 메시지로 다시 그린다"
+      - "core가 팀원 탭에 넣은 send(lophn tag로 싼 call·reply·알림)는 adapter가 사람 메시지로 내도 index의 receivedSends가 received로 바꾸고 CLI message id(rewind 시점)를 붙이지 않는다"
     outcomes:
       - id: shown-as-human
         when: "다른 client가 보낸 사람 글이다. codex는 turn이 돌면 steer, 아니면 next_turn으로 쌓는다. omp는 message_end의 글을 사람 메시지로 넣는다. opencode는 inbox 항목을 queue를 거쳐 보인다"
@@ -4162,10 +4164,13 @@ flows:
     code:
       - packages/core/terminal-agents/gui.ts
       - packages/core/main/daemon/wiring/terminal-agents.ts
+      - packages/core/extensions/bundled/harness-gui/claude.ts
+      - packages/core/extensions/bundled/harness-gui/codex.ts
     steps:
       - "extension이 adapter.start로 CLI를 띄울 때 env를 만든다. login shell env < 탭의 hook env < adapter가 바꾸는 칸 순서다"
-      - "LOPHN_HOME을 data root로 늘 넣는다"
+      - "LOPHN_HOME을 data root로 늘 넣는다. project 터미널의 탭(lophn 팀원)이면 turn 자격 file 경로 LOPHN_AGENT_CREDENTIAL_FILE도 넣는다(secret이 아니다)"
       - "lophn이 Claude Code 등 상위 session 안에서 떴을 때 물려받은 session 표지(CLAUDECODE, CODEX_THREAD_ID 등)는 지운다. API key 같은 사용자 설정은 지우지 않는다"
+      - "팀원 탭이면 adapter가 lophn을 부를 길을 연다: Claude는 Bash(lophn *) 허락과 그 harness agent 정의의 deny, Codex는 app-server에 sandbox network 허락(headless host와 같다)"
     outcomes:
       - id: spawned
         when: "CLI를 그 env로 띄웠다"

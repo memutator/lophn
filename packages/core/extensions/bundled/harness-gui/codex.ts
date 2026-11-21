@@ -740,6 +740,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       resume,
       args: givenArgs,
       carry,
+      member,
       session,
       spawn,
       clock,
@@ -819,6 +820,10 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           if (val !== undefined) tuiExtra.push(flag, val);
           continue;
         }
+      }
+      // lophn 팀원 탭의 `lophn`이 core에 닿게 한다. workspace-write sandbox는 loopback까지 막는다(headless host의 `codex exec`와 같다).
+      if (member !== undefined) {
+        serverArgs.push("-c", "sandbox_workspace_write.network_access=true");
       }
       const hasExplicitPolicy = Object.keys(explicitPolicy).length > 0;
       let closed = false;

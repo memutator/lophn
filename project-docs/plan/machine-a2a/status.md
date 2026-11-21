@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py machine-a2a build`가 `tasks/*.md`에서 id,
 | `mail-lists` | mail | 1 | mail-router | merged | mail/mail-lists | e79569113 |  |
 | `mail-router` | mail | 1 | 없음 | merged | mail/mail-router | db3b2dc69 |  |
 | `mail-screen` | mail | 1 | mail-router | merged | mail/mail-screen | 2ff28f1f0 |  |
-| `mail-carry` | mail | 2 | 없음 | running | mail/mail-carry |  |  |
+| `mail-carry` | mail | 2 | 없음 | merged | mail/mail-carry | fdef44a5b |  |
 | `mail-hold` | mail | 2 | 없음 | running | mail/mail-hold |  |  |
 | `mail-hold-card` | mail | 2 | mail-hold | todo |  |  |  |
 | `handoff-note` | handoff | 3 | 없음 | todo |  |  |  |

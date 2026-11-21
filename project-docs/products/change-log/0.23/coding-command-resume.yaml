@@ -1,5 +1,5 @@
 id: coding-command-resume
-version: 0.23.112
+version: 0.23.113
 title: Settings에 저장한 coding agent flag를 resume과 GUI 열기에도 함께 적용한다
 modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/main]
 change: |

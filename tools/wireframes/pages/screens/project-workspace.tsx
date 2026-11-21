@@ -481,7 +481,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-float-minimized",
       title: "Project · minimized floats",
       description:
-        "접은 탭이 상단 bar에 칸(span)으로 줄지어 있고 폭이 모자라 넘치는 것은 +N 하나로 묶인다. 칸을 누르면 패널이 다시 펼쳐지고, +N은 나머지 목록을 연다.",
+        "접은 탭이 상단 bar에 칸(span)으로 줄지어 있고 폭이 모자라 넘치는 것은 +N 하나로 묶인다. 칸을 누르면 패널이 다시 펼쳐지고, +N은 나머지 목록을 연다. agent가 주인인 탭은 주인마다 칸 하나(얼굴과 개수)로 묶이고, 누르면 그 주인의 접은 탭 목록이 펴진다.",
       render: () => <FloatMinimized />,
     },
     {
@@ -557,7 +557,7 @@ export const projectWorkspaceArea: Area = {
       id: "browser-agent-control",
       title: "Browser · agent controlling",
       description:
-        'agent가 연 탭의 머리. 머리에 "Agent is controlling this tab"과 [Take control]이 선다.',
+        'agent가 연 탭의 머리. 머리에 "Researcher is controlling this tab"처럼 주인의 이름을 말하는 문장과 [Take control]이 선다. 주인을 모르면 "An agent is controlling this tab"이다.',
       render: () => <BrowserAgentControl />,
     },
     {
@@ -578,7 +578,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-tab-menu-browser",
       title: "Browser · new tab menu",
       description:
-        "탭 줄 끝의 + menu에 Browser가 있다. 고르면 빈 주소 칸의 browser 탭이 열린다.",
+        "탭 줄 끝의 + menu에 Browser가 있다. 고르면 빈 주소 칸의 browser 탭이 열린다. browser profile이 하나라도 있으면 Browser 아래에 Default profile과 profile들이 서고, 고른 profile로 탭이 열린다.",
       render: () => <NewTabMenuBrowser />,
     },
     {

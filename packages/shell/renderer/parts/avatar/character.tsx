@@ -1,7 +1,8 @@
 import type { CharacterProfile } from "../../../../protocol/lophn-agent/agent-values.ts";
 import styles from "./avatar.module.css";
 
-const COLORS: Record<CharacterProfile["color"], string> = {
+/** 캐릭터 색 이름의 값. browser profile의 색 점도 같은 이름 목록(`AGENT_CHARACTER_COLORS`)을 쓴다. */
+export const CHARACTER_COLORS: Record<CharacterProfile["color"], string> = {
   coral: "#ff806b",
   periwinkle: "#7b91f5",
   yellow: "#ffd465",
@@ -51,7 +52,7 @@ export function AgentCharacter({ profile }: { profile: CharacterProfile }) {
       aria-hidden="true"
       focusable="false"
     >
-      <path d={body.path} fill={COLORS[profile.color]} />
+      <path d={body.path} fill={CHARACTER_COLORS[profile.color]} />
       <g fill="#1c2530">
         <circle cx="37" cy={body.eyes} r="4.8" />
         <circle cx="59" cy={body.eyes} r="4.8" />

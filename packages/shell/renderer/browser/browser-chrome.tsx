@@ -16,6 +16,7 @@ import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";
 import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import type { AgentControl } from "../workspace/use-surface-requests.ts";
 import { browserIcons } from "../icons/mod.ts";
+import { CHARACTER_COLORS } from "../parts/avatar/character.tsx";
 import { useCardHead } from "../parts/card-head/card-head.tsx";
 import { useOwner } from "../parts/agent-session/owner.tsx";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
@@ -93,23 +94,12 @@ const DEVTOOLS_ITEMS = [
 ] as const;
 
 // profile 색. character 색(parts/avatar/character.tsx)과 같은 값이다: profile은 agent 얼굴과 같은 색 이름을 쓴다.
-const PROFILE_COLORS: Record<BrowserProfile["color"], string> = {
-  coral: "#ff806b",
-  periwinkle: "#7b91f5",
-  yellow: "#ffd465",
-  sage: "#84bc9b",
-  lavender: "#af8cdb",
-  peach: "#ffb693",
-  blue: "#649df0",
-  teal: "#6ba5a4",
-};
-
 /** 기본이 아닌 browser profile의 색 점. 탭 줄과 칸 머리에서 kind 아이콘 옆에 선다. */
 export function ProfileMark(props: { profile: BrowserProfile }) {
   return (
     <span
       className={styles.profileMark}
-      style={{ background: PROFILE_COLORS[props.profile.color] }}
+      style={{ background: CHARACTER_COLORS[props.profile.color] }}
       role="img"
       aria-label={t("browser.label.profile", { name: props.profile.name })}
       data-profile={props.profile.id}

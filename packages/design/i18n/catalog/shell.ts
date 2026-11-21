@@ -33,6 +33,7 @@ export const shell = {
   "shell.button.tab-copy-relative-path": "Copy relative path",
   "shell.button.tab-detach": "Move to new window",
   "shell.button.tab-float": "Float",
+  "shell.button.tab-hand": "Hand to",
   "shell.button.tab-keep-open": "Keep open",
   "shell.button.tab-menu": "Tab menu",
   "shell.button.tab-rename": "Rename",
@@ -40,6 +41,7 @@ export const shell = {
   "shell.button.tab-split-down": "Split down",
   "shell.button.tab-split-remove": "Remove from split",
   "shell.button.tab-split-right": "Split right",
+  "shell.button.tab-take-back": "Take back",
   "shell.button.tab-unstack": "Move out of pane",
   "shell.button.tab-unsplit": "Unsplit",
   "shell.button.tab-unsplit-all": "Unsplit all",
@@ -88,4 +90,6 @@ export const shell = {
   "shell.label.taskbar": "Taskbar",
   "shell.label.tray": "Tray",
   "shell.label.tray-item": "{title}: {text}",
+  "shell.text.tab-hand-none": "No running session on this computer",
+  "shell.toast.tab-hand-failed": "Couldn't hand this tab over. Try again.",
 } as const;

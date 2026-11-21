@@ -21,7 +21,6 @@ import type {
   ProjectChange,
   ProjectItem,
   ProjectsSource,
-  RegisteredProject,
   SourceResult,
 } from "./source.ts";
 
@@ -36,26 +35,23 @@ interface ProjectValue {
     description: string;
     found: boolean;
   }[];
-  identity: string | null;
+  identity: string;
   repo: "git" | "none" | null;
 }
 
-// project.identity·create_identity·renew_identity의 출력에서 이 화면이 읽는 칸.
+// project.identity의 출력에서 이 화면이 읽는 칸.
 interface IdentityValue {
   project: string;
-  identity: string | null;
-  file: IdentityStatus["file"];
+  identity: string;
   repo: IdentityStatus["repo"];
-  folder: string | null;
+  remote: { key: string } | null;
   found: boolean;
-  duplicate_of: string | null;
+  same_repository: string | null;
 }
 
 interface MatchValue {
   repo: FolderMatch["repo"];
-  file: FolderMatch["file"];
-  same: ProjectValue | null;
-  suggestions: ProjectValue[];
+  same_repository: ProjectValue[];
 }
 
 interface ProjectListValue {
@@ -145,33 +141,29 @@ async function addProject(
 
 async function identityStatus(
   core: CoreSource,
-  route:
-    | typeof projectIdentityApi.identity
-    | typeof projectIdentityApi.createIdentity
-    | typeof projectIdentityApi.renewIdentity,
   project: string,
 ): Promise<SourceResult<IdentityStatus>> {
   const reply = await core.call({
     kind: "memory",
-    resource: route.resource,
-    method: route.method,
+    resource: projectIdentityApi.identity.resource,
+    method: projectIdentityApi.identity.method,
     body: { project },
   });
   if (!reply.ok) return failed(reply);
   const value = reply.value as IdentityValue;
-  let duplicateOf: IdentityStatus["duplicateOf"] = null;
-  if (value.duplicate_of !== null) {
+  let sameRepository: IdentityStatus["sameRepository"] = null;
+  if (value.same_repository !== null) {
     const found = await core.call({
       kind: "read",
       resource: "projects",
       method: "get",
-      body: { project: value.duplicate_of },
+      body: { project: value.same_repository },
     });
-    duplicateOf = {
-      id: value.duplicate_of,
+    sameRepository = {
+      id: value.same_repository,
       title: found.ok
         ? (found.value as { project: ProjectValue }).project.title
-        : value.duplicate_of,
+        : value.same_repository,
     };
   }
   return {
@@ -179,11 +171,10 @@ async function identityStatus(
     value: {
       project: value.project,
       identity: value.identity,
-      file: value.file,
       repo: value.repo,
-      folder: value.folder,
+      remote: value.remote !== null,
       found: value.found,
-      duplicateOf,
+      sameRepository,
     },
   };
 }
@@ -264,26 +255,7 @@ export function coreProjectsSource(
       return chosen.ok ? chosen : { ok: false };
     },
 
-    // id file을 만들지 못해도 등록은 되돌리지 않는다. 상세의 줄이 [Set up]으로 보인다.
-    async register(draft): Promise<SourceResult<RegisteredProject>> {
-      const created = await addProject(core, draft);
-      if (!created.ok || !draft.shareIdentity) return created;
-      const shared = await identityStatus(
-        core,
-        projectIdentityApi.createIdentity,
-        created.value.id,
-      );
-      return shared.ok
-        ? {
-            ok: true,
-            value: {
-              ...created.value,
-              identity: shared.value.identity,
-              repo: shared.value.repo,
-            },
-          }
-        : { ok: true, value: { ...created.value, identityFailed: true } };
-    },
+    register: (draft) => addProject(core, draft),
 
     async match(path) {
       const reply = await core.call({
@@ -298,9 +270,7 @@ export function coreProjectsSource(
         ok: true,
         value: {
           repo: value.repo,
-          file: value.file,
-          same: value.same === null ? null : projectItemOf(value.same),
-          suggestions: value.suggestions.map(projectItemOf),
+          sameRepository: value.same_repository.map(projectItemOf),
         },
       };
     },
@@ -313,12 +283,18 @@ export function coreProjectsSource(
         project.revision,
       ),
 
-    identity: (project) =>
-      identityStatus(core, projectIdentityApi.identity, project.id),
-    createIdentity: (project) =>
-      identityStatus(core, projectIdentityApi.createIdentity, project.id),
-    renewIdentity: (project) =>
-      identityStatus(core, projectIdentityApi.renewIdentity, project.id),
+    identity: (project) => identityStatus(core, project.id),
+
+    async renewIdentity(project) {
+      const reply = await core.call(
+        commandCall(projectIdentityApi.renewIdentity, {
+          input: { project: project.id },
+          compare: {},
+          key: `projects-renew_identity-${crypto.randomUUID()}`,
+        }),
+      );
+      return reply.ok ? identityStatus(core, project.id) : failed(reply);
+    },
 
     async linkIdentity(project, identity) {
       const reply = await core.call(

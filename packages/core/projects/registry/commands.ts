@@ -29,7 +29,6 @@ import {
 import { folderResolverPort } from "./ports.ts";
 import { recordOf } from "./record.ts";
 import {
-  clearIdentity,
   identityHeldElsewhere,
   insertProject,
   loadProject,
@@ -98,23 +97,29 @@ export function createProjectCommands(): {
   setIcon: CommandDefinition<typeof projectApi.setIcon>;
   recordIdentity: CommandDefinition<typeof projectIdentityApi.recordIdentity>;
   linkIdentity: CommandDefinition<typeof projectIdentityApi.linkIdentity>;
+  renewIdentity: CommandDefinition<typeof projectIdentityApi.renewIdentity>;
 } {
   return {
     register: {
       route: projectApi.register,
       handle(tx, ctx, input) {
         // clone한 저장소는 core가 machine 자격으로 등록한다.
-        const actor =
-          parseActor(ctx.actor)?.kind === "machine"
-            ? requireMachine(ctx, PROJECT_CLONE_PRINCIPAL)
-            : requireUser(ctx);
+        const machine = parseActor(ctx.actor)?.kind === "machine";
+        const actor = machine
+          ? requireMachine(ctx, PROJECT_CLONE_PRINCIPAL)
+          : requireUser(ctx);
         if (!actor.ok) return actor;
+        // 다른 기계의 id를 들고 오는 것은 clone뿐이다.
+        if (input.identity !== undefined && !machine) {
+          return invalid("only a clone brings an identity");
+        }
         const shape = validateFolderRoots(input.folders);
         if (!shape.ok) return shape;
+        const { identity: brought, ...fields } = input;
         const candidate: ProjectCandidate = {
-          ...input,
+          ...fields,
           status: "active",
-          identity: null,
+          identity: brought ?? tx.newId("pri"),
           former_identities: [],
           repo: null,
           remote: null,
@@ -135,6 +140,13 @@ export function createProjectCommands(): {
           input.name,
         ]);
         if (named !== undefined) return conflict("project name already exists");
+        if (identityHeldElsewhere(tx.sql, candidate.identity, input.id)) {
+          return err({
+            code: "conflict",
+            message: "another project on this computer has that identity",
+            details: { reason: "identity_in_use" },
+          });
+        }
         const resolver = resolverOf(tx);
         if (!resolver.ok) return resolver;
         const project: Project = { ...candidate, revision: "1" };
@@ -295,17 +307,10 @@ export function createProjectCommands(): {
         if (!access.ok) return access;
         const resolver = resolverOf(tx);
         if (!resolver.ok) return resolver;
-        // 폴더를 읽지 못했으면 아무것도 지우지 않는다.
+        // 폴더를 읽지 못했으면 아무것도 바꾸지 않는다.
         if (!input.found) return ok(recordOf(before, resolver.value));
-        const identity = recordedIdentity(tx, before, input.file_identity);
-        if (!identity.ok) return identity;
-        // git이 아닌 project는 옮길 file이 없어 id가 ledger에서 난다. git project의 id는 file에서만 온다.
-        const born =
-          identity.value === null && input.repo === "none"
-            ? tx.newId("pri")
-            : identity.value;
         const project = storeIdentity(tx, before, {
-          identity: born,
+          identity: before.identity,
           repo: input.repo,
           remote: input.remote,
         });
@@ -338,11 +343,11 @@ export function createProjectCommands(): {
         if (before.identity === input.identity) {
           return ok(recordOf(before, resolver.value));
         }
-        // git project의 id는 저장소의 id file이 정한다. 아직 폴더를 읽지 못한 project(repo null)도 git일 수 있다.
+        // git project는 저장소로 자동으로 맞춰진다. 아직 폴더를 읽지 못한 project(repo null)도 git일 수 있다.
         if (before.repo !== "none") {
           return err({
             code: "conflict",
-            message: "a git project takes its identity from its id file",
+            message: "a git project is matched by its repository",
             details: { reason: "git_project" },
           });
         }
@@ -355,6 +360,33 @@ export function createProjectCommands(): {
         }
         const project = storeIdentity(tx, before, {
           identity: input.identity,
+          repo: before.repo,
+          remote: before.remote,
+        });
+        return ok(recordOf(project, resolver.value));
+      },
+    },
+    renewIdentity: {
+      route: projectIdentityApi.renewIdentity,
+      handle(tx, ctx, input) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadProject(tx.sql, input.project);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const before = current.value;
+        const { revision: _revision, ...metadata } = before;
+        const access = authorizeProject(
+          tx.port,
+          ctx,
+          projectIdentityApi.renewIdentity.name,
+          { kind: "command", before, after: metadata },
+        );
+        if (!access.ok) return access;
+        const resolver = resolverOf(tx);
+        if (!resolver.ok) return resolver;
+        const project = storeIdentity(tx, before, {
+          identity: tx.newId("pri"),
           repo: before.repo,
           remote: before.remote,
         });
@@ -386,31 +418,6 @@ export function createProjectCommands(): {
       },
     },
   };
-}
-
-// file이 없거나 못 읽으면(null) ledger의 id를 잊지 않는다. 한 기계에서 한 id는 project 하나만 갖는다: 먼저 가진
-// project가 갖고 같은 file을 읽은 두 번째 copy는 id 없이 남는다. 보관한 holder는 active project에 넘긴다.
-function recordedIdentity(
-  tx: Tx,
-  project: Project,
-  read: string | null,
-): Result<string | null> {
-  if (read === null || read === project.identity) return ok(project.identity);
-  const row = tx.sql.get("SELECT id FROM projects WHERE identity = ?", [read]);
-  if (row === undefined) return ok(read);
-  if (typeof row.id !== "string") return invalidStored();
-  const holder = loadProject(tx.sql, row.id);
-  if (!holder.ok) return holder;
-  if (holder.value === null) return invalidStored();
-  if (holder.value.status === "archived" && project.status === "active") {
-    clearIdentity(tx, holder.value.id);
-    return ok(read);
-  }
-  return ok(null);
-}
-
-function invalidStored(): Result<never> {
-  return err({ code: "internal", message: "invalid stored project" });
 }
 
 // 보관해도 폴더의 파일은 그대로다. 이 command는 상태 칸만 바꾼다.

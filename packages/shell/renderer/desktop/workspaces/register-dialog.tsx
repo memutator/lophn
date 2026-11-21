@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Field, Input, Select, Switch, Textarea } from "@lophn/ui/input";
+import { Field, Input, Select, Textarea } from "@lophn/ui/input";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { actionIcons, commonIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
@@ -70,7 +70,6 @@ export function RegisterDialog({
   const [pickFailed, setPickFailed] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [match, setMatch] = useState<FolderMatch | null>(null);
-  const [share, setShare] = useState(true);
   const [relinkFailed, setRelinkFailed] = useState(false);
   const machine = useScopeMachineItem();
   const denied = useMachineGrant(open) === "denied";
@@ -78,7 +77,6 @@ export function RegisterDialog({
   const firstPath = folders[0]?.path;
   useEffect(() => {
     setMatch(null);
-    setShare(true);
     setRelinkFailed(false);
     if (firstPath === undefined) return;
     let stale = false;
@@ -90,15 +88,15 @@ export function RegisterDialog({
     };
   }, [firstPath, source]);
 
-  // id file이 없는 git 폴더만 켬 줄이 선다.
-  const canShare =
-    match !== null &&
-    match.repo === "git" &&
-    match.file === "none" &&
-    match.same === null;
-  const lost = match?.suggestions.find(
+  // 같은 저장소의 project가 폴더를 잃었으면 그 project에 이어 주기를 권한다. 아니면 같은 저장소의 active project가 있다고
+  // 알린다: 이 기계에 같은 저장소가 둘이면 어느 쪽도 다른 컴퓨터와 자동으로 맞춰지지 않는다.
+  const lost = match?.sameRepository.find(
     (project) => !project.archived && missingFolder(project) !== undefined,
   );
+  const same =
+    lost === undefined
+      ? match?.sameRepository.find((project) => !project.archived)
+      : undefined;
 
   const reset = () => {
     setTitle("");
@@ -138,7 +136,6 @@ export function RegisterDialog({
         path: folder.path,
         description: folder.description.trim(),
       })),
-      shareIdentity: canShare && share,
     });
     setBusy(false);
     if (!result.ok) {
@@ -316,26 +313,13 @@ export function RegisterDialog({
                   {t("home.note.identity-not-git")}
                 </p>
               ) : null}
-              {match.same === null ? null : (
-                <>
-                  <p className={styles.note} data-identity-note="registered">
-                    {t("home.note.identity-registered", {
-                      title: match.same.title,
-                    })}
-                  </p>
-                  <p className={styles.note} data-identity-note="another-copy">
-                    {t("home.note.identity-another-copy")}
-                  </p>
-                </>
-              )}
-              {match.repo === "git" &&
-              match.same === null &&
-              match.file !== "none" &&
-              match.file !== "unreadable" ? (
-                <p className={styles.note} data-identity-note="existing">
-                  {t("home.note.identity-existing")}
+              {same === undefined ? null : (
+                <p className={styles.note} data-identity-note="same-repository">
+                  {t("home.note.identity-same-repository", {
+                    title: same.title,
+                  })}
                 </p>
-              ) : null}
+              )}
               {lost === undefined ? null : (
                 <div className={styles.line} data-identity-note="relink">
                   <p className={styles.note}>
@@ -356,25 +340,6 @@ export function RegisterDialog({
                 <p className={styles.error} role="alert" data-relink-failed="">
                   {t("home.error.relink-failed")}
                 </p>
-              ) : null}
-              {canShare ? (
-                <div data-identity-note="share">
-                  <div className={styles.line}>
-                    <span className={styles.shareLabel}>
-                      {t("home.label.share-identity")}
-                    </span>
-                    <span className={styles.toggleCell}>
-                      <Switch
-                        label={t("home.label.share-identity")}
-                        checked={share}
-                        onCheckedChange={setShare}
-                      />
-                    </span>
-                  </div>
-                  <p className={styles.note}>
-                    {t("home.note.identity-adds-file")}
-                  </p>
-                </div>
               ) : null}
             </div>
           )}

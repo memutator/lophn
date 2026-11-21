@@ -71,8 +71,8 @@ export const projectsSchemaSteps: readonly SchemaStep[] = [
   },
 ];
 
-// 저장소 file `.lophn-project.json`에서 읽은 기계를 넘는 id(identity)와 폴더의 git 여부, 대표 remote의 cache.
-// 기존 project는 모두 null로 이어지고 id는 file을 읽을 때 생긴다. 한 기계에서 한 id는 project 하나만 갖는다.
+// 기계를 넘는 id(identity)와 폴더의 git 여부, 대표 remote. id는 등록할 때 ledger에서 난다.
+// 기존 project는 null로 이어지고 data step이 id를 준다. 한 기계에서 한 id는 project 하나만 갖는다.
 // 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) WIRINGS 맨 뒤 wiring(remote)의 schemaStepsAfterTeams에서 잇는다.
 export const PROJECTS_IDENTITY_STEPS: readonly SchemaStep[] = [
   {

@@ -1,6 +1,7 @@
-// 기계를 넘는 project id의 route. record_identity는 core가 폴더에서 읽은 값을 ledger에 적는 machine command,
-// link_identity는 사람이 git이 아닌 project를 다른 기계의 project와 잇는 command이고, 나머지는 폴더를 읽고 쓰는 memory
-// route다.
+// 기계를 넘는 project id의 route. id는 등록할 때 ledger에서 나고 lophn은 사람의 저장소에 아무것도 쓰지 않는다.
+// record_identity는 core가 폴더에서 읽은 git 여부와 remote를 적는 machine command, link_identity는 사람이 git이 아닌
+// project를 다른 기계의 project와 잇는 command, renew_identity는 사람의 [Separate project]이고, identity·match는 폴더를
+// 읽는 memory route다.
 import { z } from "zod";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { projectRecordSchema } from "./project-api.ts";
@@ -13,58 +14,40 @@ import {
 const repoSchema = z.enum(["git", "none"]).nullable();
 const remoteSchema = z.object({ key: z.string(), url: z.string() }).nullable();
 
-// missing은 ledger에 id가 있는데 file이 없다는 뜻, ignored는 `.gitignore`가 file을 빼 다른 기계로 가지 않는다는 뜻이다.
-const identityFileStateSchema = z.enum([
-  "none",
-  "committed",
-  "uncommitted",
-  "ignored",
-  "conflict",
-  "missing",
-  "unreadable",
-]);
-
 export const projectIdentityStatusSchema = z.object({
   project: projectIdSchema,
-  identity: projectIdentitySchema.nullable(),
-  file: identityFileStateSchema,
+  identity: projectIdentitySchema,
   repo: repoSchema,
   folder: absolutePathSchema.nullable(),
   found: z.boolean(),
   remote: remoteSchema,
-  // 같은 id를 먼저 가진 이 기계의 다른 project(같은 저장소의 두 번째 copy).
-  duplicate_of: projectIdSchema.nullable(),
+  // 같은 remote key를 가진 이 기계의 다른 active project. 있으면 둘 다 다른 컴퓨터와 자동으로 맞춰지지 않는다.
+  same_repository: projectIdSchema.nullable(),
 });
 export type ProjectIdentityStatus = z.infer<typeof projectIdentityStatusSchema>;
 
-// 등록 전 폴더를 읽은 값과 이 기계의 힌트. same은 같은 id를 가진 project, suggestions는 remote key가 같은 project다.
+// 등록 전 폴더를 읽은 값. same_repository는 같은 remote key를 가진 이 기계의 project다(폴더를 잃은 project의 relink 제안 포함).
 export const projectMatchSchema = z.object({
   found: z.boolean(),
   repo: repoSchema,
-  file: identityFileStateSchema,
-  identity: projectIdentitySchema.nullable(),
   remote: remoteSchema,
-  same: projectRecordSchema.nullable(),
-  suggestions: z.array(projectRecordSchema),
+  same_repository: z.array(projectRecordSchema),
 });
 export type ProjectMatch = z.infer<typeof projectMatchSchema>;
 
 const projectInputSchema = z.strictObject({ project: projectIdSchema });
 
 export const projectIdentityApi = {
-  // found가 false면 아무것도 바꾸지 않는다. file_identity가 null이면 ledger의 id를 잊지 않는다. repo가 none(폴더가 없는
-  // project 포함)이고 id가 없으면 ledger에서 새 id를 낸다. revision은 올리지 않는다.
+  // found가 false면 아무것도 바꾸지 않는다. identity는 바꾸지 않는다. revision은 올리지 않는다.
   recordIdentity: defineCommand({
     resource: "projects",
     method: "record_identity",
     name: "project.record_identity",
-    // 같은 id를 가진 다른 project의 값도 바뀔 수 있어 표 전체를 알린다.
-    changes: ["projects"],
+    changes: [{ name: "projects", id: (input) => input.project }],
     input: z.strictObject({
       project: projectIdSchema,
       found: z.boolean(),
       repo: repoSchema,
-      file_identity: projectIdentitySchema.nullable(),
       remote: z
         .strictObject({
           key: z.string().min(1).max(1024),
@@ -76,7 +59,7 @@ export const projectIdentityApi = {
     actors: ["machine"],
     errors: ["invalid_input", "not_found", "forbidden"],
   }),
-  // git이 아닌 project에 다른 기계의 같은 project의 identity를 적는다. git project의 identity는 id file이 정해 거절한다
+  // git이 아닌 project에 다른 기계의 같은 project의 identity를 적는다. git project는 저장소로 자동으로 맞춰져 거절한다
   // (`details.reason: "git_project"`). 이 기계의 다른 project(보관 포함)가 지금이나 옛 identity로 가진 id도 거절한다
   // (`identity_in_use`). 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다. revision은 올리지 않는다.
   linkIdentity: defineCommand({
@@ -92,6 +75,18 @@ export const projectIdentityApi = {
     actors: ["user"],
     errors: ["invalid_input", "not_found", "conflict", "forbidden"],
   }),
+  // [Separate project]: 새 id를 준다. 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다. revision은 올리지 않는다.
+  renewIdentity: defineCommand({
+    resource: "projects",
+    method: "renew_identity",
+    name: "project.renew_identity",
+    changes: [{ name: "projects", id: (input) => input.project }],
+    input: projectInputSchema,
+    output: projectRecordSchema,
+    actors: ["user"],
+    errors: ["invalid_input", "not_found", "forbidden"],
+  }),
+  // 첫 폴더를 다시 읽어 적고 id와 같은 저장소를 돌려준다.
   identity: defineMemory({
     resource: "projects",
     method: "identity",
@@ -100,34 +95,6 @@ export const projectIdentityApi = {
     input: projectInputSchema,
     output: projectIdentityStatusSchema,
     actors: ["user", "agent"],
-    errors: ["invalid_input", "not_found", "forbidden", "unavailable"],
-  }),
-  // file이 없을 때만 만든다. 읽을 수 있는 file은 덮지 않는다.
-  createIdentity: defineMemory({
-    resource: "projects",
-    method: "create_identity",
-    name: "project.create_identity",
-    changes: [{ name: "projects", id: (input) => input.project }],
-    input: projectInputSchema,
-    output: projectIdentityStatusSchema,
-    actors: ["user", "agent"],
-    errors: [
-      "invalid_input",
-      "not_found",
-      "conflict",
-      "forbidden",
-      "unavailable",
-    ],
-  }),
-  // 새 id로 덮어 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다.
-  renewIdentity: defineMemory({
-    resource: "projects",
-    method: "renew_identity",
-    name: "project.renew_identity",
-    changes: [{ name: "projects", id: (input) => input.project }],
-    input: projectInputSchema,
-    output: projectIdentityStatusSchema,
-    actors: ["user"],
     errors: ["invalid_input", "not_found", "forbidden", "unavailable"],
   }),
   match: defineMemory({
@@ -145,7 +112,5 @@ export const projectIdentityApi = {
 // ROUTES에는 handler를 짓는 쪽이 펼친다: core 기동은 handler 없는 memory route를 거절한다.
 export const PROJECT_IDENTITY_MEMORY_ROUTES = [
   projectIdentityApi.identity,
-  projectIdentityApi.createIdentity,
-  projectIdentityApi.renewIdentity,
   projectIdentityApi.match,
 ] as const;

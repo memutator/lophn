@@ -8,15 +8,11 @@ import {
   type RandomSource,
   type Result,
 } from "../../../base/mod.ts";
-import {
-  PROJECT_IDENTITY_FILE,
-  parseIdentityFile,
-  type ProjectRecord,
-} from "../../../protocol/projects/mod.ts";
+import type { ProjectRecord } from "../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 import { addProject } from "../add.ts";
-import { projectByIdentity } from "../lookups.ts";
+import { projectByIdentity, projectHoldingIdentity } from "../lookups.ts";
 import { PROJECT_CLONE_CONTEXT } from "../registry/contexts.ts";
 import { loadProject } from "../registry/store.ts";
 import { CLONE_TIMEOUT_MS, type CloneRunner } from "./runner.ts";
@@ -33,7 +29,6 @@ export type CloneOutput = {
   project: ProjectRecord;
   path: string;
   cloned: boolean;
-  note: string | null;
 };
 
 export type CloneFs = {
@@ -42,8 +37,6 @@ export type CloneFs = {
   exists(path: string): Promise<boolean>;
   rename(from: string, to: string): Promise<void>;
   rm(path: string): Promise<void>;
-  // 없으면 null이다.
-  readText(path: string): Promise<string | null>;
 };
 
 export type CloneDeps = {
@@ -67,11 +60,6 @@ const AUTH_FAILED = [
   "Permission denied (publickey)",
   "Repository not found",
 ];
-const NO_IDENTITY_FILE = `This repository has no ${PROJECT_IDENTITY_FILE} yet. Commit and push it on the other computer, then pull here; lophn links the project when the file arrives.`;
-const UNREADABLE_IDENTITY_FILE = `This repository's ${PROJECT_IDENTITY_FILE} cannot be read; this lophn may be older than the one that wrote it. Update lophn or fix the file.`;
-const UNKNOWN_IDENTITY =
-  " lophn could not check that this is the project you meant.";
-
 function fail(
   code: "invalid_input" | "conflict" | "unavailable",
   message: string,
@@ -143,7 +131,6 @@ async function alreadyHere(
     project: { ...project, folders },
     path: first.path,
     cloned: false,
-    note: "already on this computer",
   };
 }
 
@@ -185,6 +172,17 @@ export async function cloneProject(
   if (input.identity !== undefined) {
     const here = await alreadyHere(input.identity, deps);
     if (here !== null) return ok(here);
+    // 그 id를 가진 project가 폴더를 잃었거나 사람이 나눠 옛 id로 갖고 있다. 받아도 등록하지 못한다.
+    const holder = deps.snapshot((sql) =>
+      projectHoldingIdentity(sql, input.identity!),
+    );
+    if (holder !== null) {
+      return fail(
+        "conflict",
+        "Another project on this computer has this project's identity. Relink that project's folder instead of cloning",
+        { reason: "identity_in_use", project: holder },
+      );
+    }
   }
 
   const parent = await parentFolder(input, deps);
@@ -241,25 +239,6 @@ export async function cloneProject(
     });
   }
 
-  let note: string | null = null;
-  const text = await deps.fs.readText(`${staging}/${PROJECT_IDENTITY_FILE}`);
-  const read = text === null ? null : parseIdentityFile(text);
-  if (read === null) {
-    note = NO_IDENTITY_FILE;
-  } else if (read.kind === "unreadable") {
-    note =
-      input.identity === undefined
-        ? UNREADABLE_IDENTITY_FILE
-        : UNREADABLE_IDENTITY_FILE + UNKNOWN_IDENTITY;
-  } else if (input.identity !== undefined && read.id !== input.identity) {
-    await deps.fs.rm(staging);
-    return fail(
-      "conflict",
-      "This repository is a different project than the one you meant",
-      { reason: "different_project", identity: read.id },
-    );
-  }
-
   // rename은 비어 있는 폴더 위에 덮을 수 있으므로 바로 앞에서 한 번 더 본다.
   if (await deps.fs.exists(target)) {
     await deps.fs.rm(staging);
@@ -274,6 +253,7 @@ export async function cloneProject(
       title: input.title ?? name,
       purpose: "",
       folders: [{ path: target, description: "" }],
+      ...(input.identity === undefined ? {} : { identity: input.identity }),
     },
     deps,
   );
@@ -288,5 +268,5 @@ export async function cloneProject(
       details: { ...project.error.details, path: target },
     });
   }
-  return ok({ project: project.value, path: target, cloned: true, note });
+  return ok({ project: project.value, path: target, cloned: true });
 }

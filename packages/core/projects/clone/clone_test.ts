@@ -8,11 +8,14 @@ import { type CloneDeps, cloneProject } from "./clone.ts";
 import { nodeCloneFs } from "./mod.ts";
 import type { CloneRun } from "./runner.ts";
 
-const OTHER = "pri_01jzzzzzzzzzzzzzzzzzzzzzzz";
 const WANTED = "pri_01aaaaaaaaaaaaaaaaaaaaaaaa";
 
 // 받은 저장소 흉내다. staging 폴더(argv의 끝)에 file을 만들거나 stderr로 실패한다.
-function setup(run: (staging: string) => Promise<CloneRun>) {
+// held: 그 id를 옛 identity로 가진 이 기계의 project.
+function setup(
+  run: (staging: string) => Promise<CloneRun>,
+  held: string | null = null,
+) {
   const calls: string[][] = [];
   const registered: unknown[] = [];
   const logger = {
@@ -40,7 +43,14 @@ function setup(run: (staging: string) => Promise<CloneRun>) {
         return Promise.resolve(ok({ result: { id: "prj_x" } } as never));
       },
     },
-    snapshot: (read) => read({ get: () => undefined, all: () => [] }),
+    snapshot: (read) =>
+      read({
+        get: (query: string) =>
+          held !== null && query.includes("former_identities")
+            ? { id: held }
+            : undefined,
+        all: () => [],
+      } as never),
     settings: { folder: () => parent, remember: () => Promise.resolve() },
     logger,
   });
@@ -93,34 +103,39 @@ test("대상 폴더가 있으면 그 안에 아무것도 쓰지 않고 conflict�
   assert.equal(failing.registered.length, 0);
 });
 
-test("기대한 id와 다른 저장소는 지워지고 등록되지 않으며, 자격이 박힌 URL은 git을 띄우기 전에 거절된다", async () => {
+test("들고 온 id로 등록하고, 그 id를 이 기계의 다른 project가 옛 identity로 가지면 git을 띄우지 않고 거절하며, 자격이 박힌 URL은 git을 띄우기 전에 거절된다", async () => {
   const parent = await parentWith();
-  const other = setup(async (staging) => {
+  const done = setup(async (staging) => {
     await mkdir(staging);
-    await writeFile(
-      join(staging, ".lophn-project.json"),
-      JSON.stringify({ lophn_project: 1, id: OTHER }),
-    );
     return { kind: "done", code: 0, stderr: "" };
   });
-  const wrong = await cloneProject(
+  const cloned = await cloneProject(
     { url: "git@github.com:a/demo.git", identity: WANTED },
-    other.make(parent),
+    done.make(parent),
   );
-  assert.ok(!wrong.ok);
-  assert.equal(wrong.error.details?.["reason"], "different_project");
-  assert.equal(wrong.error.details?.["identity"], OTHER);
-  assert.deepEqual(await readdir(parent), []);
-  assert.equal(other.registered.length, 0);
+  assert.ok(cloned.ok);
+  assert.equal((done.registered[0] as { identity?: string }).identity, WANTED);
+
+  const held = setup(() => {
+    throw new Error("git must not run");
+  }, "prj_00000000000000000000000009");
+  const refused = await cloneProject(
+    { url: "git@github.com:a/again.git", identity: WANTED },
+    held.make(parent),
+  );
+  assert.ok(!refused.ok);
+  assert.equal(refused.error.details?.["reason"], "identity_in_use");
+  assert.equal(held.calls.length, 0);
+  assert.deepEqual(await readdir(parent), ["demo"]);
 
   for (const url of [
     "https://user:token@github.com/a/demo.git",
     "https://token@github.com/a/demo.git",
     "user:pass@github.com:a/demo.git",
   ]) {
-    const refused = await cloneProject({ url }, other.make(parent));
-    assert.ok(!refused.ok);
-    assert.equal(refused.error.code, "invalid_input");
+    const bad = await cloneProject({ url }, done.make(parent));
+    assert.ok(!bad.ok);
+    assert.equal(bad.error.code, "invalid_input");
   }
-  assert.equal(other.calls.length, 1);
+  assert.equal(done.calls.length, 1);
 });

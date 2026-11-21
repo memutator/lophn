@@ -533,7 +533,7 @@ components:
   - id: architecture-project-identity
     kind: doc
     roles: [planner, lead]
-    description: git 저장소인 project가 어느 기계에서도 같은 project로 보이게 하는 설계(저장소 안 `.lophn-project.json`, 두 층 id, 이 기계에 없는 project의 clone, 한 창 목록에서 컴퓨터를 건너 한 줄로 묶어 보이기).
+    description: 사람의 여러 컴퓨터에서 같은 project를 같은 project로 보이게 하는 설계(ledger에서 나는 두 층 id, 사람의 저장소에 쓰지 않기, 이 기계에 없는 project의 clone, 한 창 목록에서 컴퓨터를 건너 같은 id로 묶어 보이기).
     path: project-docs/architecture/project-identity.md
     change_reasons:
       paths: [packages/core/projects/identity/, packages/core/projects/clone/, packages/protocol/projects/identity.ts, packages/protocol/projects/identity-api.ts, packages/protocol/projects/clone-api.ts]

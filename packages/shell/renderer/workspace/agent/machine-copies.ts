@@ -1,10 +1,5 @@
 // 같은 project(`pri_` identity)가 있는 기계들. Agent 탭의 composer가 새 session을 어느 기계에서 돌릴지 고르는 데 쓴다.
 // sidebar의 목록 모양과 떼어 두어(필요한 칸만 받는다) 목록을 어떻게 그리든 이 계산은 그대로다.
-import {
-  matchProjects,
-  type ProjectKeys,
-} from "../../../../protocol/projects/identity.ts";
-
 /** 기계 하나의 project 목록. `null`이 이 컴퓨터다. */
 export interface MachineProjects {
   readonly machine: string | null;
@@ -26,15 +21,6 @@ export interface ProjectCopy {
   readonly project: string;
 }
 
-const keysOf = (ids: readonly { id: string; identity: string | null }[]) =>
-  ids.map(
-    (item): ProjectKeys => ({
-      id: item.id,
-      identity: item.identity,
-      remote_key: null,
-    }),
-  );
-
 /**
  * `machine`의 `project`와 같은 project를 가진 기계들(자기 자신 포함). 이 컴퓨터가 맨 앞이고 나머지는 목록 순서다.
  * identity가 없거나 목록에서 못 찾으면 빈 목록이다(어느 사본과도 같다고 말할 수 없다).
@@ -55,9 +41,9 @@ export function copiesOfProject(
       (item) =>
         !item.archived || (list.machine === machine && item.id === project),
     );
-    const found = matchProjects(keysOf([mine]), keysOf(rows)).same.map(
-      ([, right]) => right.id,
-    );
+    const found = rows
+      .filter((item) => item.identity === mine.identity)
+      .map((item) => item.id);
     const id =
       found.includes(project) && list.machine === machine ? project : found[0];
     if (id === undefined) continue;

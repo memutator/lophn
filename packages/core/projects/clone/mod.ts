@@ -1,4 +1,4 @@
-import { lstat, readFile, rename, rm, stat } from "node:fs/promises";
+import { lstat, rename, rm, stat } from "node:fs/promises";
 import { errorCode } from "../../../base/mod.ts";
 import type { CloneFs } from "./clone.ts";
 
@@ -27,5 +27,4 @@ export const nodeCloneFs: CloneFs = {
   exists: (path) => missing(async () => (await lstat(path), true), false),
   rename,
   rm: (path) => rm(path, { recursive: true, force: true }),
-  readText: (path) => missing(() => readFile(path, "utf8"), null),
 };

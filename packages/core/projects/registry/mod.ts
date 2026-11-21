@@ -19,7 +19,7 @@ export {
   symlinkEscapesRoot,
 } from "./rules.ts";
 export {
-  assignBornIdentities,
+  assignMissingIdentities,
   loadProject,
   loadProjects,
 } from "./store.ts";

@@ -12,7 +12,7 @@ export const slugSchema = z
 export const artifactNameSchema = slugSchema;
 
 export const projectIdSchema = idSchema("prj");
-// 기계를 넘는 project id. 저장소 안 `.lophn-project.json`에 있다(identity.ts).
+// 기계를 넘는 project id. 등록할 때 ledger에서 나고, 내 다른 컴퓨터의 같은 저장소와 자동으로 맞춰진다.
 export const projectIdentitySchema = idSchema("pri");
 // project가 남기는 옛 identity의 상한. 정체가 바뀌는 일은 드물고, 상한이 있어야 schema가 모양을 거절할 수 있다.
 export const PROJECT_FORMER_IDENTITIES_MAX = 16;

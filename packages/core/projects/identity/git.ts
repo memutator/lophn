@@ -4,14 +4,11 @@ import process from "node:process";
 
 import type { Logger } from "../../../base/mod.ts";
 
-export type GitFileState = "tracked" | "changed" | "untracked" | "ignored";
-
 export type GitReader = {
   // work tree의 맨 위. work tree가 아니거나 git이 없으면 null이다.
   topLevel(dir: string): Promise<string | null>;
   // fetch remote만.
   remotes(dir: string): Promise<{ name: string; url: string }[]>;
-  fileState(dir: string, file: string): Promise<GitFileState>;
 };
 
 const GIT_TIMEOUT_MS = 10_000;
@@ -51,16 +48,6 @@ function run(args: readonly string[]): Promise<Ran> {
   });
 }
 
-// porcelain v1의 XY 두 칸. merge가 끝나지 않은 file(U, AA, DD)도 changed다: 충돌인지는 file 안의 표지가 정하고,
-// 표지가 없으면 [Resolve]나 사람이 이미 푼 것이라 남은 일은 commit이다.
-function stateOf(line: string): GitFileState {
-  if (line === "") return "tracked";
-  const xy = line.slice(0, 2);
-  if (xy === "??") return "untracked";
-  if (xy === "!!") return "ignored";
-  return "changed";
-}
-
 export function createGitReader(deps: { logger: Logger }): GitReader {
   const git = async (dir: string, ...args: string[]) => {
     const ran = await run(["-C", dir, ...args]);
@@ -86,20 +73,6 @@ export function createGitReader(deps: { logger: Logger }): GitReader {
         const found = /^(\S+)\s+(.+?)\s+\(fetch\)$/.exec(line);
         return found === null ? [] : [{ name: found[1]!, url: found[2]! }];
       });
-    },
-    async fileState(dir, file) {
-      const ran = await git(
-        dir,
-        "status",
-        "--porcelain=v1",
-        "--ignored=matching",
-        "--",
-        file,
-      );
-      if (ran === null || ran.code !== 0) {
-        throw new Error(`git status failed in ${dir}`);
-      }
-      return stateOf(ran.stdout.split(/\r?\n/)[0] ?? "");
     },
   };
 }

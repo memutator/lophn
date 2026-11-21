@@ -36,6 +36,8 @@ export type ProjectAddInput = {
   title: string;
   purpose: string;
   folders: readonly ProjectFolder[];
+  // clone이 다른 기계에서 들고 온 id.
+  identity?: string;
 };
 
 export type ProjectAddDeps = {
@@ -64,6 +66,7 @@ export async function addProject(
         title: input.title,
         purpose: input.purpose,
         folders: input.folders,
+        ...(input.identity === undefined ? {} : { identity: input.identity }),
       },
       idempotency_key: `project-add-${id}-${attempt}`,
       compare: {},
@@ -71,7 +74,12 @@ export async function addProject(
     });
     if (done.ok) return ok(done.value.result as ProjectRecord);
     last = done;
-    if (done.error.code !== "conflict") break;
+    if (
+      done.error.code !== "conflict" ||
+      done.error.details?.["reason"] === "identity_in_use"
+    ) {
+      break;
+    }
   }
   return last;
 }

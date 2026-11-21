@@ -30,13 +30,12 @@ import { browseFolders } from "../../../projects/browse.ts";
 import { projectFilesMutationHandlers } from "../../../projects/files/mod.ts";
 import {
   createGitReader,
-  createIdentityFs,
   createIdentityService,
   type IdentityService,
+  nodeFolderProbe,
 } from "../../../projects/identity/mod.ts";
-import { hasGitAbove } from "../../../projects/identity/file.ts";
 import {
-  assignBornIdentities,
+  assignMissingIdentities,
   loadProjects,
   type Project,
   PROJECT_IDENTITY_CONTEXT,
@@ -64,7 +63,7 @@ function snapshot<T>(
   }
 }
 
-// 이 command가 commit되면 폴더가 바뀌었거나 다시 쓰이므로 id file을 다시 읽는다.
+// 이 command가 commit되면 폴더가 바뀌었으므로 git 여부와 remote를 다시 읽는다.
 const FOLDER_CHANGES = new Set<string>([
   projectApi.register.name,
   projectApi.relinkFolder.name,
@@ -84,26 +83,40 @@ function realHome(): string | null {
   }
 }
 
-// 이 판 전에 등록한 git이 아닌 project와 폴더가 없는 project에 ledger에서 난 id를 준다. id가 IdSource에서 나야 해서
-// SQL schema step이 아니라 data step이다. runtime이 열리기 전에 돌아 writer와 겹치지 않는다.
-export const projectsBornIdentityStep = {
-  id: "projects.born-identity",
-  async run(root: string, { ids }: DataStepDeps): Promise<Result<void>> {
-    const opened = openConnection(`${root}/lophn.db`);
-    if (!opened.ok) return opened;
-    try {
-      assignBornIdentities(opened.value.sql, ids, hasGitAbove);
-      return ok(undefined);
-    } catch (thrown) {
-      return err({
-        code: "unavailable",
-        message: `projects outside git could not be given an identity: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
-      });
-    } finally {
-      opened.value.close();
-    }
-  },
-} satisfies DataStep;
+// id가 없는 project에 ledger에서 난 id를 준다. id가 IdSource에서 나야 해서 SQL schema step이 아니라 data step이다.
+// runtime이 열리기 전에 돌아 writer와 겹치지 않는다.
+function identityStep(id: string, what: string): DataStep {
+  return {
+    id,
+    async run(root: string, { ids }: DataStepDeps): Promise<Result<void>> {
+      const opened = openConnection(`${root}/lophn.db`);
+      if (!opened.ok) return opened;
+      try {
+        assignMissingIdentities(opened.value.sql, ids);
+        return ok(undefined);
+      } catch (thrown) {
+        return err({
+          code: "unavailable",
+          message: `${what} could not be given an identity: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
+        });
+      } finally {
+        opened.value.close();
+      }
+    },
+  };
+}
+
+// 앞 판이 git이 아닌 project와 폴더가 없는 project에 id를 주던 step. 이미 돈 data root가 있어 id를 지우지 못한다.
+export const projectsBornIdentityStep = identityStep(
+  "projects.born-identity",
+  "projects outside git",
+);
+// git project도 id를 ledger에서 얻는다(저장소 file을 읽지 않는다). id file이 없던 git project와 같은 file을 읽은 두 번째
+// copy가 여기서 id를 얻는다. 이미 가진 id(file에서 왔던 것 포함)는 그대로다.
+export const projectsIdentityForAllStep = identityStep(
+  "projects.identity-for-all",
+  "projects",
+);
 
 export const projectsWiring: WiringFactory = () => {
   let startup: Promise<void> = Promise.resolve();
@@ -111,7 +124,7 @@ export const projectsWiring: WiringFactory = () => {
   let stopping = false;
   return {
     name: "projects",
-    dataSteps: [projectsBornIdentityStep],
+    dataSteps: [projectsBornIdentityStep, projectsIdentityForAllStep],
     // project 키워드 검색이 project 폴더를 찾는 ledger snapshot.
     environment: (ctx) => ({
       projectSearch: {
@@ -133,7 +146,7 @@ export const projectsWiring: WiringFactory = () => {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const identity: IdentityService = createIdentityService({
         git: createGitReader({ logger }),
-        fs: createIdentityFs(ids),
+        fs: nodeFolderProbe,
         ids,
         writer: () => ctx.writer,
         snapshot: (read) => snapshot(ctx.ledgerPath, (sql) => read(sql)),
@@ -151,7 +164,7 @@ export const projectsWiring: WiringFactory = () => {
           });
         }
       };
-      // pull로 바뀐 file을 따라가려고 기동 때 active project를 몇 개씩 다시 읽는다.
+      // 바뀐 remote를 따라가려고 기동 때 active project를 몇 개씩 다시 읽는다.
       reconcileActive = async () => {
         const projects = snapshot(ctx.ledgerPath, (sql) => loadProjects(sql));
         if (!projects.ok) {
@@ -205,16 +218,6 @@ export const projectsWiring: WiringFactory = () => {
             `${projectIdentityApi.identity.resource}/${projectIdentityApi.identity.method}`,
             (_who, body) =>
               identity.status((body as { project: string }).project),
-          ],
-          [
-            `${projectIdentityApi.createIdentity.resource}/${projectIdentityApi.createIdentity.method}`,
-            (_who, body) =>
-              identity.create((body as { project: string }).project),
-          ],
-          [
-            `${projectIdentityApi.renewIdentity.resource}/${projectIdentityApi.renewIdentity.method}`,
-            (_who, body) =>
-              identity.renew((body as { project: string }).project),
           ],
           [
             `${projectIdentityApi.match.resource}/${projectIdentityApi.match.method}`,

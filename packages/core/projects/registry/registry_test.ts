@@ -17,7 +17,7 @@ import {
   PROJECTS_IDENTITY_STEPS,
   projectsSchemaSteps,
 } from "./schema.ts";
-import { loadProject } from "./store.ts";
+import { assignMissingIdentities, loadProject } from "./store.ts";
 
 const user: RequestContext = {
   principal: "user",
@@ -148,7 +148,25 @@ test("새 identity step들을 지나도 기존 project와 그 id를 key로 쓰�
     const sql = {
       get: (query: string, params: never[]) => db.prepare(query).get(...params),
       all: (query: string, params: never[]) => db.prepare(query).all(...params),
+      run: (query: string, params: never[]) => db.prepare(query).run(...params),
     } as unknown as Sql;
+    // 옛 행은 identity가 비어 있다. data step이 채운 뒤 읽힌다.
+    assert.deepStrictEqual(
+      {
+        ...db
+          .prepare(
+            "SELECT identity, repo, former_identities FROM projects WHERE id = ?",
+          )
+          .get(PROJECT),
+      },
+      { identity: null, repo: null, former_identities: "[]" },
+    );
+    assignMissingIdentities(
+      sql as never,
+      {
+        newId: () => "pri_00000000000000000000000008",
+      } as never,
+    );
     const project = loadProject(sql, PROJECT);
     assert.ok(project.ok);
     assert.deepStrictEqual(project.value, {
@@ -159,7 +177,7 @@ test("새 identity step들을 지나도 기존 project와 그 id를 key로 쓰�
       revision: "3",
       status: "archived",
       folders: [{ path: "/srv/notes", description: "root" }],
-      identity: null,
+      identity: "pri_00000000000000000000000008",
       former_identities: [],
       repo: null,
       remote: null,
@@ -184,19 +202,22 @@ test("새 identity step들을 지나도 기존 project와 그 id를 key로 쓰�
 });
 
 const SECOND = "prj_00000000000000000000000002";
-const SHARED = "pri_00000000000000000000000001";
+const THIRD = "prj_00000000000000000000000003";
+const LINKED = "pri_00000000000000000000000002";
+const REMOTE = {
+  key: "github.com/me/notes",
+  url: "git@github.com:me/notes.git",
+};
 
-function record(project: string, file_identity: string | null) {
-  return {
-    project,
-    found: true,
-    repo: "git" as const,
-    file_identity,
-    remote: { key: "github.com/me/notes", url: "git@github.com:me/notes.git" },
-  };
+function record(
+  project: string,
+  repo: "git" | "none" = "git",
+  remote: typeof REMOTE | null = repo === "git" ? REMOTE : null,
+) {
+  return { project, found: true, repo, remote };
 }
 
-test("record_identity: 없는 file은 id를 지우지 않고, 한 기계에서 한 id는 project 하나만 갖는다", () => {
+test("record_identity는 git 여부와 remote만 적고 identity는 바꾸지 않으며, 폴더를 읽지 못하면 아무것도 바꾸지 않고, machine:projects-identity 자격만 받는다", () => {
   const { db, tx, commands } = setup();
   const machine = PROJECT_IDENTITY_CONTEXT;
   try {
@@ -214,91 +235,33 @@ test("record_identity: 없는 file은 id를 지우지 않고, 한 기계에서 �
       {},
     );
     assert.ok(second.ok);
-    const folders = () =>
-      db
-        .prepare("SELECT project, path FROM project_folders ORDER BY project")
-        .all()
-        .map((row) => ({ ...row }));
-    const foldersBefore = folders();
+    assert.notEqual(first.value.identity, second.value.identity);
 
-    const read = commands.recordIdentity.handle(
-      tx,
-      machine,
-      record(PROJECT, SHARED),
-      {},
-    );
-    assert.ok(read.ok);
-    assert.deepStrictEqual(read.value.identity, SHARED);
-    assert.deepStrictEqual(read.value.remote?.key, "github.com/me/notes");
-
-    // file이 없어졌다(지웠거나 file 없는 branch). 읽지 못한 폴더도 마찬가지다.
-    const gone = commands.recordIdentity.handle(
-      tx,
-      machine,
-      record(PROJECT, null),
-      {},
-    );
-    assert.ok(gone.ok);
-    assert.deepStrictEqual(gone.value.identity, SHARED);
+    // 같은 저장소를 읽은 두 project는 각자 id를 둔다.
+    for (const project of [PROJECT, SECOND]) {
+      const read = commands.recordIdentity.handle(
+        tx,
+        machine,
+        record(project),
+        {},
+      );
+      assert.ok(read.ok);
+      assert.equal(read.value.remote?.key, REMOTE.key);
+    }
     const unfound = commands.recordIdentity.handle(
       tx,
       machine,
-      { ...record(PROJECT, null), found: false, repo: null, remote: null },
+      { project: PROJECT, found: false, repo: null, remote: null },
       {},
     );
     assert.ok(unfound.ok);
-    assert.deepStrictEqual(unfound.value.identity, SHARED);
-    assert.deepStrictEqual(unfound.value.repo, "git");
-
-    // 같은 저장소의 두 번째 copy는 id 없이 남는다.
-    const copy = commands.recordIdentity.handle(
-      tx,
-      machine,
-      record(SECOND, SHARED),
-      {},
-    );
+    assert.equal(unfound.value.repo, "git");
+    assert.equal(unfound.value.identity, first.value.identity);
+    assert.equal(unfound.value.revision, first.value.revision);
+    const copy = loadProject(tx.sql, SECOND);
     assert.ok(copy.ok);
-    assert.deepStrictEqual(copy.value.identity, null);
+    assert.equal(copy.value?.identity, second.value.identity);
 
-    // 보관한 holder는 같은 id를 읽은 active project에 넘긴다.
-    const archived = commands.archive.handle(
-      tx,
-      user,
-      { project: PROJECT },
-      { base_revision: first.value.revision },
-    );
-    assert.ok(archived.ok);
-    const moved = commands.recordIdentity.handle(
-      tx,
-      machine,
-      record(SECOND, SHARED),
-      {},
-    );
-    assert.ok(moved.ok);
-    assert.deepStrictEqual(moved.value.identity, SHARED);
-    assert.deepStrictEqual(moved.value.revision, second.value.revision);
-    const holder = loadProject(tx.sql, PROJECT);
-    assert.ok(holder.ok);
-    assert.deepStrictEqual(holder.value?.identity, null);
-    assert.deepStrictEqual(holder.value?.revision, archived.value.revision);
-
-    assert.deepStrictEqual(folders(), foldersBefore);
-    assert.deepStrictEqual(
-      db
-        .prepare("SELECT id FROM projects ORDER BY id")
-        .all()
-        .map((row) => row.id),
-      [PROJECT, SECOND],
-    );
-  } finally {
-    db.close();
-  }
-});
-
-test("record_identity는 machine:projects-identity 자격만 받는다", () => {
-  const { db, tx, commands } = setup();
-  try {
-    assert.ok(commands.register.handle(tx, user, input([]), {}).ok);
     const other = {
       ...PROJECT_IDENTITY_CONTEXT,
       principal: "machine:apps-source",
@@ -308,7 +271,7 @@ test("record_identity는 machine:projects-identity 자격만 받는다", () => {
       const result = commands.recordIdentity.handle(
         tx,
         ctx,
-        record(PROJECT, SHARED),
+        record(PROJECT, "none"),
         {},
       );
       assert.ok(!result.ok);
@@ -316,27 +279,14 @@ test("record_identity는 machine:projects-identity 자격만 받는다", () => {
     }
     const loaded = loadProject(tx.sql, PROJECT);
     assert.ok(loaded.ok);
-    assert.deepStrictEqual(loaded.value?.identity, null);
+    assert.equal(loaded.value?.repo, "git");
   } finally {
     db.close();
   }
 });
 
-const THIRD = "prj_00000000000000000000000003";
-const LINKED = "pri_00000000000000000000000002";
-
-function plain(project: string) {
-  return {
-    project,
-    found: true,
-    repo: "none" as const,
-    file_identity: null,
-    remote: null,
-  };
-}
-
-test("link_identity: git project의 identity는 바꾸지 못하고, 다른 project가 지금이나 옛 identity로 가진 id는 적지 못하며, 적은 id는 다시 읽어도 남는다", () => {
-  const { db, tx, commands } = setup();
+test("link_identity: git project의 identity는 바꾸지 못하고, 다른 project가 지금이나 옛 identity로 가진 id는 적지 못하며, 잇기와 나누기로 바뀐 identity는 project.list에 옛 identity로 남는다", () => {
+  const { db, sql, tx, commands } = setup();
   const machine = PROJECT_IDENTITY_CONTEXT;
   try {
     const reason = (result: {
@@ -346,28 +296,33 @@ test("link_identity: git project의 identity는 바꾸지 못하고, 다른 proj
       result.ok
         ? "ok"
         : `${result.error?.code}:${result.error?.details?.reason}`;
-    const register = (id: string, name: string, path: string) => {
+    const born = new Map<string, string>();
+    for (const [id, name] of [
+      [PROJECT, "notes"],
+      [SECOND, "plain"],
+      [THIRD, "other"],
+    ] as const) {
       const done = commands.register.handle(
         tx,
         user,
-        input([{ path, description: "" }], id, name),
+        input([{ path: `/srv/${name}`, description: "" }], id, name),
         {},
       );
       assert.ok(done.ok);
-    };
-    register(PROJECT, "notes", "/srv/notes");
-    register(SECOND, "plain", "/srv/plain");
-    register(THIRD, "other", "/srv/other");
+      born.set(id, done.value.identity);
+    }
     assert.ok(
-      commands.recordIdentity.handle(tx, machine, record(PROJECT, SHARED), {})
+      commands.recordIdentity.handle(tx, machine, record(PROJECT), {}).ok,
+    );
+    assert.ok(
+      commands.recordIdentity.handle(tx, machine, record(SECOND, "none"), {})
         .ok,
     );
-    const born = commands.recordIdentity.handle(tx, machine, plain(SECOND), {});
-    assert.ok(born.ok && born.value.identity !== null);
-    const bornId = born.value.identity;
-    assert.ok(commands.recordIdentity.handle(tx, machine, plain(THIRD), {}).ok);
+    assert.ok(
+      commands.recordIdentity.handle(tx, machine, record(THIRD, "none"), {}).ok,
+    );
 
-    // git project는 id file이 정한다. 아직 읽지 않은(repo null) project도 git일 수 있어 같다.
+    // git project는 저장소로 맞춰진다.
     const git = commands.linkIdentity.handle(
       tx,
       user,
@@ -375,14 +330,11 @@ test("link_identity: git project의 identity는 바꾸지 못하고, 다른 proj
       {},
     );
     assert.equal(reason(git), "conflict:git_project");
-    const kept = loadProject(tx.sql, PROJECT);
-    assert.ok(kept.ok);
-    assert.equal(kept.value?.identity, SHARED);
 
     const taken = commands.linkIdentity.handle(
       tx,
       user,
-      { project: SECOND, identity: SHARED },
+      { project: SECOND, identity: born.get(PROJECT)! },
       {},
     );
     assert.equal(reason(taken), "conflict:identity_in_use");
@@ -395,88 +347,54 @@ test("link_identity: git project의 identity는 바꾸지 못하고, 다른 proj
     );
     assert.ok(linked.ok);
     assert.equal(linked.value.identity, LINKED);
-    assert.equal(linked.value.revision, born.value.revision);
+    assert.equal(linked.value.revision, "1");
 
-    // SECOND의 옛 identity도 그 project의 것이다(보관해도 같다).
-    const archived = commands.archive.handle(
-      tx,
-      user,
-      { project: SECOND },
-      { base_revision: linked.value.revision },
-    );
-    assert.ok(archived.ok);
+    // SECOND의 옛 identity도 그 project의 것이다.
     const former = commands.linkIdentity.handle(
       tx,
       user,
-      { project: THIRD, identity: bornId },
+      { project: THIRD, identity: born.get(SECOND)! },
       {},
     );
     assert.equal(reason(former), "conflict:identity_in_use");
 
+    // 다시 읽어도 적은 id가 남는다.
     const reread = commands.recordIdentity.handle(
       tx,
       machine,
-      plain(SECOND),
+      record(SECOND, "none"),
       {},
     );
     assert.ok(reread.ok);
     assert.equal(reread.value.identity, LINKED);
-    const again = commands.linkIdentity.handle(
+
+    // [Separate project]는 사람만 한다.
+    const agent = { ...user, actor: "agent:agt_00000000000000000000000001" };
+    assert.equal(
+      reason(
+        commands.renewIdentity.handle(tx, agent, { project: PROJECT }, {}),
+      ),
+      "forbidden:undefined",
+    );
+    assert.equal(
+      reason(
+        commands.linkIdentity.handle(
+          tx,
+          agent,
+          { project: THIRD, identity: "pri_00000000000000000000000003" },
+          {},
+        ),
+      ),
+      "forbidden:undefined",
+    );
+    const renewed = commands.renewIdentity.handle(
       tx,
       user,
-      { project: SECOND, identity: LINKED },
+      { project: PROJECT },
       {},
     );
-    assert.ok(again.ok);
-    assert.deepStrictEqual(again.value.former_identities, [bornId]);
-    // agent는 잇지 못한다.
-    const agent = commands.linkIdentity.handle(
-      tx,
-      { ...user, actor: "agent:agt_00000000000000000000000001" },
-      { project: THIRD, identity: "pri_00000000000000000000000003" },
-      {},
-    );
-    assert.equal(reason(agent), "forbidden:undefined");
-  } finally {
-    db.close();
-  }
-});
-
-test("잇기와 renew 뒤 다시 읽기로 identity가 바뀌면 project.list가 옛 identity를 싣는다", () => {
-  const { db, sql, tx, commands } = setup();
-  const machine = PROJECT_IDENTITY_CONTEXT;
-  try {
-    for (const [id, name] of [
-      [PROJECT, "notes"],
-      [SECOND, "plain"],
-    ] as const) {
-      assert.ok(
-        commands.register.handle(
-          tx,
-          user,
-          input([{ path: `/srv/${name}`, description: "" }], id, name),
-          {},
-        ).ok,
-      );
-    }
-    const born = commands.recordIdentity.handle(tx, machine, plain(SECOND), {});
-    assert.ok(born.ok);
-    assert.ok(
-      commands.linkIdentity.handle(
-        tx,
-        user,
-        { project: SECOND, identity: LINKED },
-        {},
-      ).ok,
-    );
-    // renew: file에 새 id를 쓴 뒤 다시 읽는다.
-    const renewed = "pri_00000000000000000000000004";
-    for (const file of [SHARED, renewed]) {
-      assert.ok(
-        commands.recordIdentity.handle(tx, machine, record(PROJECT, file), {})
-          .ok,
-      );
-    }
+    assert.ok(renewed.ok);
+    assert.notEqual(renewed.value.identity, born.get(PROJECT));
 
     const reads = createProjectReads({ folders: createFolderResolver() });
     const listed = reads.list.handle(
@@ -486,14 +404,16 @@ test("잇기와 renew 뒤 다시 읽기로 identity가 바뀌면 project.list가
     );
     assert.ok(listed.ok);
     assert.deepStrictEqual(
-      listed.value.projects.map((project) => [
-        project.id,
-        project.identity,
-        project.former_identities,
-      ]),
+      listed.value.projects
+        .filter((project) => project.id !== THIRD)
+        .map((project) => [
+          project.id,
+          project.identity,
+          project.former_identities,
+        ]),
       [
-        [PROJECT, renewed, [SHARED]],
-        [SECOND, LINKED, [born.value.identity]],
+        [PROJECT, renewed.value.identity, [born.get(PROJECT)]],
+        [SECOND, LINKED, [born.get(SECOND)]],
       ],
     );
   } finally {

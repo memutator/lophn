@@ -57,6 +57,7 @@ export function createLedgerRegistration(
       commands.setIcon,
       commands.recordIdentity,
       commands.linkIdentity,
+      commands.renewIdentity,
     ],
     reads: [reads.list, reads.get, reads.resolve, reads.icon],
     apiReads: [
@@ -67,7 +68,7 @@ export function createLedgerRegistration(
         exists: (path) => folders.exists(path),
       }),
     ],
-    // 폴더의 id file을 읽고 쓰는 route, project 더하기·폴더 목록, 등록 폴더 안 file 쓰기·만들기·옮기기·지우기. handler는 wiring/projects.ts가 단다.
+    // 폴더의 git 여부와 remote를 읽는 route, project 더하기·폴더 목록, 등록 폴더 안 file 쓰기·만들기·옮기기·지우기. handler는 wiring/projects.ts가 단다.
     memoryRoutes: [
       ...PROJECT_IDENTITY_MEMORY_ROUTES,
       ...PROJECT_ADD_ROUTES,

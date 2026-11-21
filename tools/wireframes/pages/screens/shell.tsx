@@ -276,7 +276,7 @@ export const shellArea: Area = {
       id: "shell-project-identity",
       title: "Shell · Project identity",
       description:
-        "project가 다른 컴퓨터에서도 같은 project라는 표시. 위 셋은 등록 dialog: 첫 폴더가 id file 없는 git 저장소면 켬 줄 'Same project on my other computers'(기본 켬, 등록하면 .lophn-project.json을 만든다), 폴더를 잃은 project와 같은 저장소면 [Relink … here], git이 아니면 한 줄 안내. 아래 여섯은 project 상세의 'Other computers' 줄: 아직 안 만듦([Set up]), commit 전, commit됨(⋯ menu의 Separate project), 두 컴퓨터가 따로 만들어 충돌([Resolve]), file이 사라짐([Restore]), 이 컴퓨터의 다른 copy([Separate project]). iframe 하나가 상태 하나이고 `?state=`로 한 상태만 창 크기로 본다.",
+        "project가 내 다른 컴퓨터의 같은 저장소와 맞춰지는 표시. lophn은 저장소에 아무것도 쓰지 않는다. 위 넷은 등록 dialog의 저장소 줄: 같은 저장소의 project가 없으면 줄이 없고, 이 컴퓨터에 같은 저장소의 project가 있으면 둘 다 맞춰지지 않는다는 한 줄, 폴더를 잃은 project와 같은 저장소면 [Relink … here], git이 아니면 한 줄 안내. 아래는 project 상세의 'Other computers' 줄: 저장소로 맞춰짐(⋯ menu의 Separate project), 같은 저장소가 이 컴퓨터에 둘([Separate project]), remote 없음, git이 아님. iframe 하나가 상태 하나이고 `?state=`로 한 상태만 창 크기로 본다.",
       height: PROJECT_IDENTITY_BOARD_HEIGHT,
       render: () => <ProjectIdentityScene />,
     },
@@ -284,7 +284,7 @@ export const shellArea: Area = {
       id: "shell-project-link",
       title: "Shell · Link a project outside git",
       description:
-        "다른 기계(Home server)의 git이 아닌 project(Recipes)를 이 컴퓨터의 git이 아닌 project와 잇는 dialog. 이 컴퓨터의 후보(git이 아니고 아직 그 id가 아닌 project)를 고르면 '<project>가 Home server의 Recipes와 같은 project가 된다'는 한 줄이 서고 [Link]가 그 project에 그 기계의 id를 적는다. git project는 저장소의 id file이 정해 후보에 없다.",
+        "다른 기계(Home server)의 git이 아닌 project(Recipes)를 이 컴퓨터의 git이 아닌 project와 잇는 dialog. 이 컴퓨터의 후보(git이 아니고 아직 그 id가 아닌 project)를 고르면 '<project>가 Home server의 Recipes와 같은 project가 된다'는 한 줄이 서고 [Link]가 그 project에 그 기계의 id를 적는다. git project는 저장소로 자동으로 맞춰져 후보에 없다.",
       render: () => <ProjectLinkScene />,
     },
     {

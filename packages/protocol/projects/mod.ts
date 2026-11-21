@@ -30,6 +30,7 @@ export const ROUTES = [
   ...PROJECT_API_ROUTES,
   projectIdentityApi.recordIdentity,
   projectIdentityApi.linkIdentity,
+  projectIdentityApi.renewIdentity,
   ...PROJECT_CLONE_ROUTES,
   ...PROJECT_ADD_ROUTES,
   ...PROJECT_IDENTITY_MEMORY_ROUTES,

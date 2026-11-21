@@ -517,7 +517,6 @@ export const REMOTE_PERSON_ROUTES = [
   projectApi.archive,
   projectApi.unarchive,
   projectIdentityApi.identity,
-  projectIdentityApi.createIdentity,
   projectIdentityApi.renewIdentity,
   projectIdentityApi.match,
   projectAdd,

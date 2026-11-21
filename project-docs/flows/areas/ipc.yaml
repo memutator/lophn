@@ -417,7 +417,7 @@ flows:
         when: "이 컴퓨터의 git에 그 저장소의 자격이 없다. details.command(gh auth login, ssh -T git@<host>)가 그대로 간다"
         observe: [response]
       - id: clone-failed
-        when: "core가 그 밖의 이유로 clone을 거절했다(git_failed, timeout은 unavailable, target_exists, different_project는 conflict). 답이 그대로 간다"
+        when: "core가 그 밖의 이유로 clone을 거절했다(git_failed, timeout은 unavailable, target_exists, identity_in_use는 conflict). 답이 그대로 간다"
         observe: [response]
       - id: forbidden
         code: forbidden

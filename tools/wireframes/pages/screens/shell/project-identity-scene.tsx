@@ -1,6 +1,6 @@
-// project id를 보이는 화면 아홉: 등록 dialog의 "Same project on my other computers" 줄 셋과 project 상세의 "Other computers" 줄 여섯.
+// project가 다른 컴퓨터와 맞춰지는 것을 보이는 화면: 등록 dialog의 저장소 줄 넷과 project 상세의 "Other computers" 줄.
 // 화면은 renderer의 WorkspacesPanel이 여는 RegisterDialog와 ProjectDetailDialog 그대로이고 여기서는 fake source의 상태와 drive만 건다.
-// dialog는 modal이라 한 문서에 하나만 열 수 있다. 그래서 `?state=`가 없으면 아홉 상태를 iframe으로 나란히 보이는 board이고,
+// dialog는 modal이라 한 문서에 하나만 열 수 있다. 그래서 `?state=`가 없으면 모든 상태를 iframe으로 나란히 보이는 board이고,
 // `?state=<상태>`는 그 상태 하나를 창 크기로 그린다.
 import { useMemo, useState } from "react";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -32,14 +32,14 @@ import {
 
 const noop = () => {};
 
-// 등록 dialog가 읽는 폴더 상태 셋.
+// 등록 dialog가 읽는 폴더 상태.
 const LOST_FOLDER_PROJECT: ProjectItem = {
   id: "prj_01h455vb4pex5v6nkc6gd5fd09",
   title: "Autumn trips",
   purpose: "Plan the autumn trip.",
   revision: "3",
   archived: false,
-  identity: null,
+  identity: "pri_01h455vb4pex5v6nkc6gd5fd09",
   repo: "git",
   folders: [
     {
@@ -49,12 +49,14 @@ const LOST_FOLDER_PROJECT: ProjectItem = {
     },
   ],
 };
-const GIT_FOLDER: FolderMatch = {
-  repo: "git",
-  file: "none",
-  same: null,
-  suggestions: [],
+const SAME_REPOSITORY_PROJECT: ProjectItem = {
+  ...LOST_FOLDER_PROJECT,
+  id: "prj_01h455vb4pex5v6nkc6gd5fd10",
+  title: "Trip planner",
+  identity: "pri_01h455vb4pex5v6nkc6gd5fd10",
+  folders: [{ path: "/home/mina/trips/planner", description: "", found: true }],
 };
+const GIT_FOLDER: FolderMatch = { repo: "git", sameRepository: [] };
 
 interface Scene {
   readonly title: string;
@@ -82,10 +84,17 @@ const SCENES = {
     options: { match: GIT_FOLDER },
     steps: REGISTER,
   },
+  "register-same-repository": {
+    title: "Register · Same repository here",
+    options: {
+      match: { ...GIT_FOLDER, sameRepository: [SAME_REPOSITORY_PROJECT] },
+    },
+    steps: REGISTER,
+  },
   "register-relink": {
     title: "Register · Relink suggestion",
     options: {
-      match: { ...GIT_FOLDER, suggestions: [LOST_FOLDER_PROJECT] },
+      match: { ...GIT_FOLDER, sameRepository: [LOST_FOLDER_PROJECT] },
     },
     steps: REGISTER,
   },
@@ -94,42 +103,31 @@ const SCENES = {
     options: { match: { ...GIT_FOLDER, repo: "none" } },
     steps: REGISTER,
   },
-  "row-none": {
-    title: "Detail · Not set up",
-    options: { identity: { file: "none" } },
+  "row-matched": {
+    title: "Detail · Matched by repository",
+    options: {},
     steps: DETAILS,
   },
-  "row-uncommitted": {
-    title: "Detail · Not committed",
-    options: { identity: { file: "uncommitted" } },
-    steps: DETAILS,
-  },
-  "row-committed": {
-    title: "Detail · Committed",
-    options: { identity: { file: "committed" } },
-    steps: DETAILS,
-  },
-  "row-conflict": {
-    title: "Detail · Conflict",
-    options: { identity: { file: "conflict" } },
-    steps: DETAILS,
-  },
-  "row-missing": {
-    title: "Detail · File missing",
-    options: { identity: { file: "missing" } },
-    steps: DETAILS,
-  },
-  "row-duplicate": {
-    title: "Detail · Another copy",
+  "row-same-repository": {
+    title: "Detail · Same repository here",
     options: {
       identity: {
-        file: "committed",
-        duplicateOf: {
+        sameRepository: {
           id: "prj_01h455vb4pex5v6nkc6gd5fd02",
           title: "grocery-budget",
         },
       },
     },
+    steps: DETAILS,
+  },
+  "row-no-remote": {
+    title: "Detail · No git remote",
+    options: { identity: { remote: false } },
+    steps: DETAILS,
+  },
+  "row-not-git": {
+    title: "Detail · Not in git",
+    options: { identity: { repo: "none" } },
     steps: DETAILS,
   },
 } as const satisfies Record<string, Scene>;
@@ -188,7 +186,7 @@ function Stage({ scene }: { scene: Scene }) {
 
 const CELL = { width: 1280, height: 800, scale: 0.5 };
 
-// 아홉 상태를 iframe으로 나란히 보이는 board. 각 iframe은 같은 page의 `?state=`다.
+// 모든 상태를 iframe으로 나란히 보이는 board. 각 iframe은 같은 page의 `?state=`다.
 function Board() {
   const theme = new URLSearchParams(location.search).get("theme");
   return (
@@ -251,6 +249,6 @@ export function ProjectIdentityScene() {
   return scene === undefined ? <Board /> : <Stage scene={SCENES[scene]} />;
 }
 
-/** board가 아홉 상태를 5줄로 그리는 높이. */
+/** board가 모든 상태를 두 칸씩 그리는 높이. */
 export const PROJECT_IDENTITY_BOARD_HEIGHT =
-  5 * (CELL.height * CELL.scale + 56);
+  Math.ceil(IDS.length / 2) * (CELL.height * CELL.scale + 56);

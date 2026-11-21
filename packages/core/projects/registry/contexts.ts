@@ -18,7 +18,7 @@ function machineContext(
   };
 }
 
-// 폴더의 `.lophn-project.json`과 git remote를 읽은 값을 ledger에 적는다.
+// 폴더의 git 여부와 remote를 읽은 값을 ledger에 적는다.
 export const PROJECT_IDENTITY_PRINCIPAL = "machine:projects-identity";
 export const PROJECT_IDENTITY_CONTEXT = machineContext(
   PROJECT_IDENTITY_PRINCIPAL,

@@ -94,7 +94,7 @@ C7~C9는 용어와 그릇 밖의 일, C24 이후는 그릇의 skill과 artifact,
 - C27. 그 project가 쓰는 공개 command가 바뀌었다고 알림이 오면, project workspace의 session이 바뀐 command를 읽고 그 command를 부르는 skill을 다시 본다.
 - C28. agent가 쓴 결과 문서가 필요하면, 그 그릇 workspace의 session이 그릇의 artifact를 쓴다. node 그림(상태 흐름 같은 것)을 둘지와 모양은 session이 정한다(F5). workflow 그림(C29)과 같다.
 - C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, project workspace의 session이 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)를 둘지는 session이 정한다(F5). workflow 정의를 쓰는 것은 그 project workspace의 session뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)에게 할당한 공개 command만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다(F3).
-- C30. project가 다른 기계에서도 같은 project여야 하면, session이 `lophn project share`로 저장소 안 id file을 만들고 그 file의 commit은 session이나 사람이 한다(lophn은 git 쓰기를 하지 않는다). 이 기계에 없는 project가 필요하면 `lophn project clone`으로 받는다. 처음이면 project를 둘 폴더를 사람에게 한 번 묻는다. git 자격이 없다는 실패가 오면 돌려받은 명령을 사람에게 알린다. 나누기([Separate project])는 사람만 한다(`architecture/project-identity.md`).
+- C30. project의 기계를 넘는 id(`pri_`)는 lophn이 정하고 사람의 저장소에 아무것도 쓰지 않는다. session은 `lophn project identity`로 그 id를 읽는다. 이 기계에 없는 project가 필요하면 `lophn project clone`으로 받는다. 처음이면 project를 둘 폴더를 사람에게 한 번 묻는다. git 자격이 없다는 실패가 오면 돌려받은 명령을 사람에게 알린다. 나누기([Separate project])는 사람만 한다(`architecture/project-identity.md`).
 
 ### workflow 참가자
 

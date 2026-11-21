@@ -49,7 +49,7 @@ async function setup() {
             purpose: "",
             revision: "1",
             status: "active",
-            identity: null,
+            identity: "pri_01aaaaaaaaaaaaaaaaaaaaaaaa",
             former_identities: "[]",
             repo: null,
             remote_key: null,

@@ -79,3 +79,18 @@ export function projectByIdentity(
   const row = sql.get("select id from projects where identity = ?", [identity]);
   return row === undefined ? null : String(row["id"]);
 }
+
+// 그 id를 지금이나 옛 identity로 가진 이 기계의 project(보관 포함). 지금 가진 것이 먼저다.
+export function projectHoldingIdentity(
+  sql: ReadSql,
+  identity: string,
+): string | null {
+  const row = sql.get(
+    `select id from projects
+      where identity = ?
+         or exists (select 1 from json_each(former_identities) where value = ?)
+      order by identity = ? desc, id limit 1`,
+    [identity, identity, identity],
+  );
+  return row === undefined ? null : String(row["id"]);
+}

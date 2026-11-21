@@ -3,72 +3,43 @@ import { t } from "@lophn/i18n";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Dialog, Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 
-import { actionIcons, homeIcons } from "../../../icons/mod.ts";
-import { shellIcons } from "../../../icons/mod.ts";
+import { homeIcons, shellIcons } from "../../../icons/mod.ts";
 import type { IdentityStatus, ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./identity-row.module.css";
 
-type Action = "set-up" | "resolve" | "restore" | "separate";
-
 /** 글의 key 끝(`projects.state.identity-<state>`). */
-type LineState = "not-git" | "duplicate" | IdentityStatus["file"];
+type LineState = "not-git" | "no-remote" | "same-repository" | "matched";
 
 interface Line {
   readonly state: LineState;
   readonly title?: string;
-  /** 줄 오른쪽 끝 단추. */
-  readonly button?: Action;
+  /** 줄 오른쪽 끝에 [Separate project] 단추를 둔다. */
+  readonly button?: true;
   /** 줄 끝 menu에 [Separate project]를 둔다. */
   readonly menu?: true;
 }
 
-// 상태마다 글 하나와 단추 하나. 폴더를 못 찾으면(폴더 줄이 이미 알린다) 줄을 그리지 않는다.
+// 상태마다 글 하나. 폴더를 못 찾으면(폴더 줄이 이미 알린다) 줄을 그리지 않는다.
 function lineOf(status: IdentityStatus): Line | null {
   if (!status.found || status.repo === null) return null;
   if (status.repo === "none") return { state: "not-git" };
-  if (status.duplicateOf !== null) {
+  if (!status.remote) return { state: "no-remote" };
+  if (status.sameRepository !== null) {
     return {
-      state: "duplicate",
-      title: status.duplicateOf.title,
-      button: "separate",
+      state: "same-repository",
+      title: status.sameRepository.title,
+      button: true,
     };
   }
-  switch (status.file) {
-    case "none":
-      return { state: "none", button: "set-up" };
-    case "uncommitted":
-    case "committed":
-      return { state: status.file, menu: true };
-    case "conflict":
-      return { state: "conflict", button: "resolve" };
-    case "missing":
-      return { state: "missing", button: "restore" };
-    case "ignored":
-    case "unreadable":
-      return { state: status.file };
-  }
+  return { state: "matched", menu: true };
 }
 
-const BUTTONS = {
-  "set-up": {
-    icon: actionIcons.create,
-    label: () => t("projects.button.identity-set-up"),
-  },
-  resolve: {
-    icon: actionIcons.confirm,
-    label: () => t("projects.button.identity-resolve"),
-  },
-  restore: {
-    icon: actionIcons.retry,
-    label: () => t("projects.button.identity-restore"),
-  },
-  separate: {
-    icon: shellIcons.splitRemove,
-    label: () => t("projects.button.identity-separate"),
-  },
+const SEPARATE = {
+  icon: shellIcons.splitRemove,
+  label: () => t("projects.button.identity-separate"),
 } as const;
 
-// 상세의 "Other computers" 줄. 열 때 한 번 읽고, 단추를 누르면 그 결과로 줄을 다시 그린다.
+// 상세의 "Other computers" 줄. 열 때 한 번 읽고, [Separate project]를 누르면 그 결과로 줄을 다시 그린다.
 // 단추가 실패하면 줄 아래에 알리고 줄은 다시 읽는다.
 export function IdentityRow({
   source,
@@ -92,12 +63,10 @@ export function IdentityRow({
     };
   }, [source, project.id]);
 
-  const run = async (
-    write: (item: ProjectItem) => ReturnType<ProjectsSource["createIdentity"]>,
-  ) => {
+  const separate = async () => {
     setBusy(true);
     setFailed(false);
-    const result = await write(project);
+    const result = await source.renewIdentity(project);
     if (result.ok) {
       setStatus(result.value);
     } else {
@@ -108,15 +77,8 @@ export function IdentityRow({
     setBusy(false);
   };
 
-  const act = (action: Action) => {
-    if (action === "separate") setConfirming(true);
-    else void run(source.createIdentity);
-  };
-
   const line = status === null ? null : lineOf(status);
   if (line === null) return null;
-  const button = line.button === undefined ? null : BUTTONS[line.button];
-  const separate = BUTTONS.separate;
   const more = t("projects.button.identity-more");
 
   return (
@@ -132,15 +94,15 @@ export function IdentityRow({
             })}
           </span>
         </div>
-        {line.button !== undefined && button !== null ? (
+        {line.button ? (
           <Button
             size="sm"
-            icon={button.icon}
+            icon={SEPARATE.icon}
             disabled={busy}
-            data-identity-action={line.button}
-            onClick={() => act(line.button!)}
+            data-identity-action="separate"
+            onClick={() => setConfirming(true)}
           >
-            {button.label()}
+            {SEPARATE.label()}
           </Button>
         ) : null}
         {line.menu ? (
@@ -158,9 +120,9 @@ export function IdentityRow({
             items={[
               {
                 id: "separate",
-                label: separate.label(),
+                label: SEPARATE.label(),
                 data: { "data-menu-item": "separate" },
-                leading: <MenuIcon icon={separate.icon} />,
+                leading: <MenuIcon icon={SEPARATE.icon} />,
               },
             ]}
             onSelect={() => setConfirming(true)}
@@ -186,14 +148,14 @@ export function IdentityRow({
               </Button>
               <Button
                 variant="secondary"
-                icon={separate.icon}
+                icon={SEPARATE.icon}
                 data-identity-confirm=""
                 onClick={() => {
                   setConfirming(false);
-                  void run(source.renewIdentity);
+                  void separate();
                 }}
               >
-                {separate.label()}
+                {SEPARATE.label()}
               </Button>
             </>
           }

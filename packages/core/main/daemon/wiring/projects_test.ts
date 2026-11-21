@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -27,7 +27,8 @@ type Row = {
   folder: "plain" | "git" | null;
 };
 
-// 이 판 전의 data root에 있을 수 있는 project 모양들. none-git은 git이 답하지 않아 none으로 적혔지만 `.git`이 있는 것이다.
+// 이 판 전의 data root에 있을 수 있는 project 모양들. git은 id file이 없던 git project, none-git은 git이 답하지 않아 none으로
+// 적혔지만 `.git`이 있는 것이다.
 const ROWS: Row[] = [
   {
     name: "plain",
@@ -85,58 +86,76 @@ function makeRoot(): string {
   return root;
 }
 
-function identities(root: string): Record<string, unknown> {
+function rows(root: string): Record<string, Record<string, unknown>> {
   const db = new DatabaseSync(join(root, "lophn.db"));
   try {
     return Object.fromEntries(
       db
-        .prepare("SELECT name, identity FROM projects")
+        .prepare("SELECT name, status, repo, identity FROM projects")
         .all()
-        .map((row) => [row.name, row.identity]),
+        .map((row) => [String(row.name), { ...row }]),
     );
   } finally {
     db.close();
   }
 }
 
-test("projects wiring의 data step은 옛 data root에서 git이 아닌 것·폴더 없는 것·보관한 것에만 id를 주고, 다시 돌아도 같으며 새 root에서는 돌지 않는다", async () => {
+const identityOf = (root: string) =>
+  Object.fromEntries(
+    Object.entries(rows(root)).map(([name, row]) => [name, row["identity"]]),
+  );
+
+test("projects wiring의 data step은 옛 data root(앞 step을 돌았든 아니든)에서 id가 없는 모든 project에 서로 다른 id를 주고 가진 id와 다른 칸은 두며, 다시 돌아도 같고 새 root에서는 돌지 않는다", async () => {
   const steps = projectsWiring().dataSteps ?? [];
   const deps = {
     ids: createIdSource({ clock: manualClock(0), random: seededRandom(3) }),
   };
   const old = makeRoot();
+  // 앞 판이 `projects.born-identity`까지 돈 root. git project는 그때 id를 얻지 못했다.
+  const bornDone = makeRoot();
+  writeFileSync(
+    join(bornDone, "data-migrations.json"),
+    `${JSON.stringify({ applied: ["projects.born-identity"] })}\n`,
+  );
   const fresh = makeRoot();
   try {
-    assert.deepEqual(await applyDataSteps(old, steps, false, deps), {
-      ok: true,
-      value: 1,
-    });
-    const after = identities(old);
-    for (const name of ["plain", "folderless", "archived"]) {
-      assert.match(String(after[name]), /^pri_/, name);
+    for (const [root, ran] of [
+      [old, 2],
+      [bornDone, 1],
+    ] as const) {
+      const before = rows(root);
+      assert.deepEqual(await applyDataSteps(root, steps, false, deps), {
+        ok: true,
+        value: ran,
+      });
+      const after = rows(root);
+      const given = ROWS.filter((row) => row.identity === null).map(
+        (row) => after[row.name]?.["identity"],
+      );
+      for (const identity of given) assert.match(String(identity), /^pri_/);
+      assert.equal(new Set(given).size, given.length, "distinct");
+      assert.equal(after["had"]?.["identity"], HAD);
+      for (const row of ROWS) {
+        const { identity: _a, ...was } = before[row.name]!;
+        const { identity: _b, ...now } = after[row.name]!;
+        assert.deepEqual(now, was, row.name);
+      }
+      assert.deepEqual(await applyDataSteps(root, steps, false, deps), {
+        ok: true,
+        value: 0,
+      });
+      assert.deepEqual(rows(root), after);
     }
-    assert.equal(
-      new Set([after["plain"], after["folderless"], after["archived"]]).size,
-      3,
-    );
-    assert.equal(after["git"], null);
-    assert.equal(after["none-git"], null);
-    assert.equal(after["had"], HAD);
 
-    assert.deepEqual(await applyDataSteps(old, steps, false, deps), {
-      ok: true,
-      value: 0,
-    });
-    assert.deepEqual(identities(old), after);
-
-    const before = identities(fresh);
+    const before = identityOf(fresh);
     assert.deepEqual(await applyDataSteps(fresh, steps, true, deps), {
       ok: true,
       value: 0,
     });
-    assert.deepEqual(identities(fresh), before);
+    assert.deepEqual(identityOf(fresh), before);
   } finally {
     rmSync(old, { recursive: true, force: true });
+    rmSync(bornDone, { recursive: true, force: true });
     rmSync(fresh, { recursive: true, force: true });
   }
 });

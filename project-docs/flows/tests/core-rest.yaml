@@ -532,7 +532,7 @@ files:
   - path: packages/core/main/daemon/wiring/projects_test.ts
     covers:
       - projects-born-identity:assigned
-    note: "projects wiring의 dataSteps를 실제 lophn.db의 옛 data root에 applyDataSteps로 돌린다. git이 아닌·폴더 없는·보관한 project에만 서로 다른 id를 주고 git·.git이 있는 none·이미 id가 있는 project는 두며, 두 번째는 바꾸지 않고 새 root에서는 돌지 않는다"
+    note: "projects wiring의 dataSteps를 실제 lophn.db의 옛 data root(앞 step을 돈 root 포함)에 applyDataSteps로 돌린다. id가 없는 모든 project(git 포함)에 서로 다른 id를 주고 이미 가진 id와 다른 칸은 두며, 두 번째는 바꾸지 않고 새 root에서는 돌지 않는다"
 
   - path: packages/core/main/daemon/workspace-folders-glue_test.ts
     covers:
@@ -560,32 +560,25 @@ files:
       - project-unarchive:unarchived
       - project-identity-record:recorded
       - project-identity-record:kept
-      - project-identity-record:second-copy
-      - project-identity-record:handed-over
-      - project-identity-record:replaced
       - project-identity-link:linked
-      - project-identity-link:already
       - project-identity-link:git-project
       - project-identity-link:identity-in-use
       - project-identity-link:forbidden
       - project-identity-record:forbidden
-    note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 없는 file로 id를 지우지 않고 한 기계에 한 id만 두며 다른 자격을 거절한다"
+      - project-identity-renew:renewed
+      - project-identity-renew:forbidden
+    note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 git 여부와 remote만 적고 identity를 바꾸지 않으며 다른 자격을 거절한다. 잇기와 나누기는 사람만 하고 옛 id가 project.list에 남는다"
 
   - path: packages/core/projects/clone/clone_test.ts
-    covers: [project-clone:target-exists, project-clone:different-project, project-clone:auth, project-clone:invalid-input]
-    note: 있는 대상 폴더 안에 쓰지 않고, 실패한 clone과 다른 id의 저장소는 부모 폴더에 남지 않고 등록되지 않으며, 자격이 박힌 URL은 git 전에 거절된다(가짜 git)
+    covers: [project-clone:cloned, project-clone:target-exists, project-clone:identity-in-use, project-clone:auth, project-clone:invalid-input]
+    note: 있는 대상 폴더 안에 쓰지 않고, 실패한 clone은 부모 폴더에 남지 않으며, 들고 온 id로 등록하고 그 id를 옛 identity로 가진 project가 있으면 git을 띄우지 않고 거절하며, 자격이 박힌 URL은 git 전에 거절된다(가짜 git)
   - path: packages/core/projects/identity/identity_test.ts
     covers:
-      - project-identity-create:created
-      - project-identity-create:already
-      - project-identity-create:unreadable
-      - project-identity-create:resolved
-      - project-identity-create:not-git
-      - project-identity-create:not-found
-      - project-identity-renew:renewed
-      - project-identity-record:born
+      - project-register:ok
+      - project-register:identity-in-use
+      - project-register:identity-by-person
       - project-identity-read:git-unreadable
-    note: "create는 폴더에 .lophn-project.json 하나만 더하고 있는 file(못 읽는 것 포함)의 byte를 바꾸지 않는다. renew와 충돌 create만 덮고 충돌은 양쪽 순서와 상관없이 작은 id다. 폴더가 없거나 git이 아니면 file을 만들지 않는다. git이 아닌 폴더와 폴더 없는 project는 읽을 때 ledger에서 id를 얻고 다시 읽어도 그대로이며 git 폴더는 얻지 않는다. migration은 git이 아닌·폴더 없는(보관 포함) project에만 서로 다른 id를 주고 git·.git이 있는 none·아직 읽지 않은 project와 있는 id는 두며 다시 돌아도 같다. git이 답하지 않는데 폴더나 위 폴더에 .git이 있으면 unavailable이고 ledger를 바꾸지 않는다. git은 가짜, 폴더는 임시"
+    note: "등록은 새 id를 주고 clone 자격만 다른 기계의 id를 들고 오며, 이 기계의 다른 project가 지금이나 옛 identity로 가진 id는 받지 않는다. git이 답하지 않는데 폴더나 위 폴더에 .git이 있으면 unavailable이고 ledger를 바꾸지 않는다. git은 가짜, 폴더는 임시"
 
   - path: packages/core/projects/files/files_test.ts
     covers:

@@ -1,15 +1,9 @@
+export { createGitReader, type GitReader } from "./git.ts";
 export {
-  createIdentityFile,
-  createIdentityFs,
-  type IdentityFs,
-  readIdentityFile,
-  replaceIdentityFile,
-} from "./file.ts";
-export { createGitReader, type GitFileState, type GitReader } from "./git.ts";
-export {
-  type FolderFileState,
   type FolderIdentity,
+  type FolderProbe,
   inspectFolder,
+  nodeFolderProbe,
 } from "./inspect.ts";
 export {
   createIdentityService,

@@ -12,28 +12,13 @@ export interface ProjectDraft {
   readonly title: string;
   readonly purpose: string;
   readonly folders: readonly FolderDraft[];
-  /** 등록 뒤 첫 폴더의 저장소에 기계를 넘는 id file을 만든다. */
-  readonly shareIdentity: boolean;
 }
 
-/** 폴더를 읽은 값의 file 상태. project route의 `file` 칸이다. */
-export type IdentityFile =
-  | "none"
-  | "committed"
-  | "uncommitted"
-  | "ignored"
-  | "conflict"
-  | "missing"
-  | "unreadable";
-
-/** 등록 전 폴더를 읽은 값(`project.match`). 이 기계의 같은 저장소와 폴더를 잃은 project 제안이 따라온다. */
+/** 등록 전 폴더를 읽은 값(`project.match`). 같은 저장소(remote key)인 이 기계의 project가 따라온다. */
 export interface FolderMatch {
   readonly repo: "git" | "none" | null;
-  readonly file: IdentityFile;
-  /** 이 기계에 같은 id로 이미 등록된 project. */
-  readonly same: ProjectItem | null;
-  /** 같은 remote인 project. */
-  readonly suggestions: readonly ProjectItem[];
+  /** 같은 remote key인 project(보관한 것과 폴더를 잃은 것 포함). */
+  readonly sameRepository: readonly ProjectItem[];
 }
 
 type RegisterResult<T> = { ok: true; value: T } | { ok: false; code: string };
@@ -42,10 +27,7 @@ export type FolderPick = { ok: true; path: string | null } | { ok: false };
 
 /** 등록 dialog가 쓰는 통로. ProjectsSource가 이 모양을 채운다. */
 export interface RegisterSource {
-  /** identityFailed: 등록은 됐지만 id file을 만들지 못했다. 상세의 줄이 [Set up]으로 보인다. */
-  register(
-    draft: ProjectDraft,
-  ): Promise<RegisterResult<{ id: string; identityFailed?: boolean }>>;
+  register(draft: ProjectDraft): Promise<RegisterResult<{ id: string }>>;
   /** 고른 폴더를 읽는다. 실패하면 등록 dialog는 줄을 그리지 않는다. */
   match(path: string): Promise<RegisterResult<FolderMatch>>;
   /** 폴더를 잃은 project의 그 폴더를 path로 다시 잇는다. */

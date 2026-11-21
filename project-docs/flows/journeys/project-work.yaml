@@ -11,14 +11,14 @@ journeys:
       - {do: "왼쪽 sidebar의 새 project 줄을 누른다", screen: shell-left-sidebar-project, flow: workspace-switch:to-project}
       - {do: "layout 파일이 없어 기본 layout(Main 하나)으로 그린다", screen: shell-empty, flow: layout-restore:fresh-absent}
 
-  - id: project-register-share-identity
-    title: "git 폴더를 등록하며 다른 컴퓨터에서도 같은 project로 만든다"
+  - id: project-register-same-repository
+    title: "같은 저장소를 두 컴퓨터에 등록하면 저절로 같은 project가 된다"
     actor: person
-    goal: "git 저장소 폴더를 등록할 때 켬 줄을 켜 두면 폴더에 id file이 생기고, 상세에서 그 상태를 본다"
+    goal: "git 저장소 폴더를 등록하면 lophn이 저장소에 아무것도 쓰지 않고, 내 다른 컴퓨터의 같은 저장소와 같은 project로 맞춘다"
     steps:
-      - {do: "등록 dialog에서 git 폴더를 고르면 Same project on my other computers 줄이 기본 켜짐으로 선다", screen: shell-project-identity, flow: project-identity-register-line:registered-shared}
-      - {do: "등록하면 .lophn-project.json이 폴더에 생긴다. 사람이 commit한다", screen: shell-project-identity, flow: project-identity-register-line:registered-shared}
-      - {do: "상세의 Other computers 줄이 상태를 보인다. 아직 id가 없으면 [Set up]으로 만든다", screen: shell-project-identity, flow: project-identity-row:set-up}
+      - {do: "등록 dialog에서 git 폴더를 골라 등록한다. 저장소에 file이 생기지 않는다", screen: shell-project-identity, flow: project-identity-register-line:registered}
+      - {do: "상세의 Other computers 줄이 저장소로 맞춰졌다고 보인다", screen: shell-project-identity, flow: project-identity-row:shown}
+      - {do: "같은 저장소의 다른 project가 이 컴퓨터에 있으면 그 줄이 둘 다 맞춰지지 않는다고 말하고, 하나를 [Separate project]로 나눈다", screen: shell-project-identity, flow: project-identity-row:separated}
 
   - id: project-register-refused
     title: "겹치는 폴더로 등록이 막히면 폴더를 바로잡아 다시 등록한다"

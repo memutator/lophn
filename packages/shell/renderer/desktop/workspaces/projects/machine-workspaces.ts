@@ -4,13 +4,9 @@
 // 규칙
 // - 줄은 기계를 건너 합치지 않는다. 기계마다 Home, project, 앱 순서이고 이 컴퓨터가 맨 앞이다. sidebar는 기계마다 묶음으로 나눠
 //   그린다. 이유: 합친 줄은 어느 기계의 것을 여는지 숨기고, 다른 기계의 session이 이 컴퓨터의 workspace 사이에 끼었다.
-// - 같은 project(기계를 건너는 id `pri_`가 같다, `matchProjects`의 same)인 다른 기계의 줄은 `also`에 적는다. composer가 기계를
-//   고르고 Home의 panel이 "also on"을 쓴다.
+// - 같은 project(기계를 건너는 id `pri_`가 같다. 같은 저장소면 core가 id를 맞춘다)인 다른 기계의 줄은 `also`에 적는다.
+//   composer가 기계를 고르고 Home의 panel이 "also on"을 쓴다.
 // - 보관한 project·앱은 줄이 아니다.
-import {
-  matchProjects,
-  type ProjectKeys,
-} from "../../../../../protocol/projects/identity.ts";
 import type { WorkspaceRef } from "../../../shell/desk-model.ts";
 import type { MachineRef } from "../../machines/scope.tsx";
 
@@ -69,39 +65,19 @@ export function machineWorkspaces(
   lists: readonly MachineLists[],
   homeName: (machineName: string | null) => string,
 ): MachineWorkspace[] {
-  // 같은 project의 묶음. 기계마다 그 목록을 지금까지의 묶음과 맞춘다.
+  // 같은 project의 묶음. identity가 같은 줄이 한 묶음이다. 한 기계에 같은 identity가 둘이면 앞의 것만 든다.
   type Member = { readonly machine: MachineRef; readonly item: ListedProject };
-  const groups: Member[][] = [];
+  const groups = new Map<string, Member[]>();
   const groupOf = new Map<ListedProject, Member[]>();
   for (const list of lists) {
-    const rows = list.projects.filter((item) => !item.archived);
-    const keys = (items: readonly { identity: string | null }[], at: string) =>
-      items.map(
-        (item, index): ProjectKeys => ({
-          id: `${at}${index}`,
-          identity: item.identity,
-          remote_key: null,
-        }),
-      );
-    const { same } = matchProjects(
-      keys(
-        groups.map((group) => group[0]!.item),
-        "g",
-      ),
-      keys(rows, "r"),
-    );
-    const joined = new Map<number, number>();
-    for (const [left, right] of same) {
-      const row = Number(right.id.slice(1));
-      if (!joined.has(row)) joined.set(row, Number(left.id.slice(1)));
-    }
-    rows.forEach((item, index) => {
-      const at = joined.get(index);
-      const group: Member[] = at === undefined ? [] : groups[at]!;
-      if (at === undefined) groups.push(group);
+    for (const item of list.projects) {
+      if (item.archived || item.identity === null) continue;
+      const group = groups.get(item.identity) ?? [];
+      if (group.some((one) => one.machine === list.machine)) continue;
+      groups.set(item.identity, group);
       group.push({ machine: list.machine, item });
       groupOf.set(item, group);
-    });
+    }
   }
 
   return lists.flatMap((list): MachineWorkspace[] => {

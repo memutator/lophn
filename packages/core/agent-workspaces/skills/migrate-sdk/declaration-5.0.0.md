@@ -75,10 +75,9 @@ The SDK guide replaced `sync_to` with `sync` and states which rules apply to lis
 +  원본에서 모은 집계)을 보내면 PRIMARY KEY에 그 컴퓨터의 id를 넣는다: 같은 key를 두 컴퓨터가 쓰면 칸마다 나중 것이 이겨
 +  서로의 값을 덮는다.
 # design-app SKILL.md
-@@ -304 +304,2 @@ data also run on the phone (`runs_on`); `folder-sync.md` when its data must
+@@ -304 +304 @@ data also run on the phone (`runs_on`); `folder-sync.md` when its data must
 -reach the person's other computers (`sync_to`, `"computers"` first; changes
-+reach the person's other computers (`sync`, only the tables that must leave,
-+`"computers"` first; changes
++reach the person's other computers (`sync`, `"computers"` first; changes
 # design-app folder-sync.md (main hunks)
 @@ -43,7 +45 @@
 -The limits of `sync_to` come before the choice. Today it moves the whole app

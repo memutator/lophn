@@ -185,7 +185,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - 앱 process에 닿기 전에 막히면 rewind는 취소(`app_unavailable`)다. 보낸 뒤 답을 잃으면(끊김, 기한) 앱 DB가 되돌려졌는지 모르므로 취소가 아니라 결과 모름(`unknown`)으로 끝난다. 보낸 invocation 목록과 이유를 남기고 되돌림 표시와 sync log의 `rewind` 줄은 남기지 않는다. 다시 rewind하면 이미 되돌린 행은 앱이 충돌로 거절한다. App details는 `unknown`을 따로 그리지 않고 충돌 단계에 이유 글로 보인다.
 4. 결과 모름으로 닫혀 changeset이 없는 write가 범위에 있으면 rewind를 막는다. 얼마나 바뀌었는지 모르기 때문이다. 크기 한도로 changeset을 못 붙인 write는 막지 않고 "DB를 되돌리지 못함"으로 표시한다.
 5. 되돌린 invocation은 지우지 않고 표시한다. release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
-6. sync 앱(폰에서도 돌거나 `sync_to`가 있는 앱, `app-sync.md`)의 rewind는 적용한 effective 변경과 새 clock을 그 앱의 sync log에 `rewind` 줄로 남겨 폰이 받고 폴더로도 나간다. 폰이나 다른 기계에서 온 invocation도 범위에 다른 live write처럼 든다. rewind 전에 폰에서 했으나 그 뒤에 push된 변경은 규칙대로 적용된다(rewind는 그 시각의 컴퓨터 DB를 되돌리는 것이다).
+6. sync 앱(폰에서도 돌거나 선언의 `sync`가 표를 보내는 앱, `app-sync.md`)의 rewind는 적용한 effective 변경과 새 clock을 그 앱의 sync log에 `rewind` 줄로 남겨 폰이 받고 폴더로도 나간다. 폰이나 다른 기계에서 온 invocation도 범위에 다른 live write처럼 든다. rewind 전에 폰에서 했으나 그 뒤에 push된 변경은 규칙대로 적용된다(rewind는 그 시각의 컴퓨터 DB를 되돌리는 것이다).
 7. session rewind는 앱 data를 저절로 되돌리지 않는다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다.
 
 ### preview

@@ -54,7 +54,7 @@
 | `app_data_migrated`, `app_data_restored` | 앱 data migration이 적용됨, 백업에서 복원됨. 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | 제품 판이 바뀐 기동(아래 "제품 판 marker") | 없음 |
 | `phone_changed` | 사람의 기준 폰이 바뀜(새 pairing이나 기준 바꾸기. `devices`의 `is_primary` 기기 id가 core가 마지막으로 본 id와 달라짐, 지운 뒤 다른 기기가 기준이 된 것 포함. 이름 바꾸기와 연결 갱신은 id가 같아 알리지 않는다). 폰 화면(`places`에 `phone`)을 가진 활성 앱이 하나 이상일 때만 앱 없는 줄 하나 | `phone_changed`(되풀이를 한 줄로 합친다) |
-| `app_sync_away` | sync 폴더로 data를 주고받는 앱(`sync_to`)이 이 컴퓨터에서 다른 기계의 흔적 정리 경계(horizon) 밖으로 떨어졌거나, 내보내기가 이 컴퓨터의 변경을 held로 두었음(`architecture/folder-sync.md`). held 수가 늘면 다시 쓴다. 떨어져 있음이 끝나거나 사람이 held를 풀어 수가 줄면 같은 줄을 "따라잡았다"로 바꾼다 | `app_sync_away`(앱마다 한 줄) |
+| `app_sync_away` | sync 폴더로 data를 주고받는 앱(선언의 `sync`가 표를 보냄)이 이 컴퓨터에서 다른 기계의 흔적 정리 경계(horizon) 밖으로 떨어졌거나, 내보내기가 이 컴퓨터의 변경을 held로 두었음(`architecture/folder-sync.md`). held 수가 늘면 다시 쓴다. 떨어져 있음이 끝나거나 사람이 held를 풀어 수가 줄면 같은 줄을 "따라잡았다"로 바꾼다 | `app_sync_away`(앱마다 한 줄) |
 | `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태 read"와 "SDK 업데이트 감지와 맡기기"). 필수 SDK가 있거나 아직 검토하지 않은 SDK 메모(`unreviewed`)가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
 
 `sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 home이 아직 검토하지 않은 새 메모가 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.

@@ -1,5 +1,5 @@
 id: home-shell-run-and-bash-mode
-version: 0.23.114
+version: 0.23.115
 title: Home의 lophn agent도 shell.run을 쓰고 Home 대화창에서도 `!` Bash mode가 동작한다
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/shell/renderer]
 change: |

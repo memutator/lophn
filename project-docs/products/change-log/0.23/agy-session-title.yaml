@@ -1,5 +1,5 @@
 id: agy-session-title
-version: 0.23.110
+version: 0.23.111
 title: shell prompt OSC 제목이 coding agent 이름을 덮는 버그를 고치고 agy TUI의 AI 제목을 표시한다
 modules: [packages/core/terminal-agents, packages/core/main]
 change: |

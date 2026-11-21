@@ -250,7 +250,13 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
       const prompt = inputParts(head, "antigravity")
         .flatMap((p) => (p.kind === "text" ? [p.text] : []))
         .join("\n");
-      return { message: head.message, kind: head.kind, prompt };
+      return {
+        message: head.message,
+        kind: head.kind,
+        call: head.call,
+        reply: head.reply,
+        prompt,
+      };
     },
     start: async (_session, message) => {
       const input = memberQueue.shift()!;
@@ -266,6 +272,7 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     },
     finish: async (turn, end) =>
       autoReply({ turn, outcome: { kind: end } }) as never,
+    failCall: async () => ok(undefined),
     end: () => {},
     onQueued: (listener) => {
       queued.add(listener);
@@ -276,6 +283,7 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     members: () => members,
     files: null,
     projectOf: () => `prj_${"0".repeat(25)}2`,
+    after: () => () => {},
     log: (message) => assert.fail(message),
   });
 

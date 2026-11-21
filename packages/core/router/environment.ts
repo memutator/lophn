@@ -79,6 +79,16 @@ export const messageDirectory = {
   },
 };
 
+// 받은 turn이 답 없이 끝난 call 하나를 같은 tx에서 닫는다(GUI 탭 팀원).
+export function failReceivedCall(
+  tx: Tx,
+  session: string,
+  call: string,
+): Result<boolean> {
+  const router = routerFor(tx);
+  return router.ok ? router.value.failReceived(tx, session, call) : router;
+}
+
 // session을 archive하거나 지울 때 같은 tx에서 그 session이 받은 열린 call을 닫는다.
 export function failReceivedCalls(tx: Tx, session: string): Result<void> {
   const router = routerFor(tx);

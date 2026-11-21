@@ -54,7 +54,12 @@ type CliIo = {
   dial?: ControlDial;
   spawnDetached?: SpawnDetached;
   readCredential?: ReadCredentialFile;
+  // turn 자격 file을 기다리는 한도. core는 turn이 열린 바로 뒤에 file을 쓰므로 turn 첫 명령이 그보다 먼저 올 수 있다.
+  credentialWaitMs?: number;
 };
+
+const CREDENTIAL_WAIT_MS = 2_000;
+const CREDENTIAL_POLL_MS = 100;
 
 const TIMER: EnsureTimer = {
   setTimeout: (callback, ms) => setTimeout(callback, ms),
@@ -232,7 +237,15 @@ export async function openConnection(
   }
   const io = ioOf(request);
   if (!io.ok) return io;
-  const agent = agentCredential(request.env, request.readCredential);
+  let agent = agentCredential(request.env, request.readCredential);
+  const deadline =
+    systemClock.nowMs() + (request.credentialWaitMs ?? CREDENTIAL_WAIT_MS);
+  while (agent?.token === null && systemClock.nowMs() < deadline) {
+    await new Promise<void>((resolve) =>
+      TIMER.setTimeout(resolve, CREDENTIAL_POLL_MS),
+    );
+    agent = agentCredential(request.env, request.readCredential);
+  }
   if (agent !== undefined) {
     // turn 밖의 GUI 탭 CLI다. 사람 자격으로 바꾸지 않는다.
     if (agent.token === null) {

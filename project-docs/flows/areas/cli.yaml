@@ -14,7 +14,7 @@ flows:
       - packages/cli/connection/client/token.ts
     steps:
       - "LOPHN_AGENT_SHELL=1이고 LOPHN_AGENT_CREDENTIAL이 없으면(lophn agent의 shell.run·ACP terminal 안) 붙지도 띄우지도 않고 forbidden으로 끝낸다. 오류 글은 lophn tool을 쓰라고 알린다"
-      - "agent 자격(LOPHN_AGENT_CREDENTIAL env, 없으면 LOPHN_AGENT_CREDENTIAL_FILE이 가리키는 GUI 탭의 turn 자격 file)이 있으면 그 자격으로만 부른다. connect도 띄우기도 하지 않고 identify로 core가 ready인지만 본다. file이 없거나 비었으면(turn 밖) 사람 자격으로 바꾸지 않고 unauthorized다"
+      - "agent 자격(LOPHN_AGENT_CREDENTIAL env, 없으면 LOPHN_AGENT_CREDENTIAL_FILE이 가리키는 GUI 탭의 turn 자격 file)이 있으면 그 자격으로만 부른다. connect도 띄우기도 하지 않고 identify로 core가 ready인지만 본다. file이 없으면 2초까지 다시 읽고(turn 첫 명령이 core의 file 쓰기보다 먼저 올 수 있다) 그래도 없거나 비었으면(turn 밖) 사람 자격으로 바꾸지 않고 unauthorized다"
       - "LOPHN_DAEMON_URL이 있으면 loopback http 주소인지 보고, identify가 알린 api_url과 같은 core일 때만 control connect로 user 자격을 받는다. 띄우지 않는다"
       - "그 밖에는 system:core-ensure로 붙거나 띄운다. 판이 다른 core는 ensure가 한 번 갈아 띄운다. 받은 자격으로 core route를 HTTP로 부른다"
       - "data root(LOPHN_HOME, 없으면 $HOME/.lophn)를 못 구하면 control socket 자리도 못 구해 unavailable이다"

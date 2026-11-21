@@ -3,6 +3,10 @@
 // 뜨지 않는다). 이 run에서 `set_mode`로 바꾼 뒤에만 `--approval-mode`를 싣고 같은 session을 다시 띄운다.
 // 판은 사람 기계의 18.8.7에 맞춘다: plan mode와 승인 mode를 바꾸는 RPC, 승인의 "이 session 동안" 선택지가 없다.
 // `~/.omp` 설정(role, 승인 mode)은 읽기만 한다.
+import {
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "../../../../protocol/coding-agent/headless/env.ts";
 import { GUI_HANDOFF } from "../../../../protocol/extensions/mod.ts";
 import { open, readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -880,11 +884,12 @@ function thread(
           );
         }
       } else if (msg.role === "bashExecution") {
+        const command = withoutPersonShell(msg.command ?? "");
         const call = toolStart(
           `replay-bash-${++bashes}`,
           "bash",
-          { command: msg.command ?? "" },
-          { user: msg.command ?? "" },
+          { command },
+          { user: command },
         );
         toolEnd(
           call,
@@ -987,6 +992,7 @@ const start: (io: OmpIo) => Start =
     resume,
     args: givenArgs,
     carry,
+    member,
     session,
     spawn,
     clock,
@@ -2419,7 +2425,9 @@ const start: (io: OmpIo) => Start =
         { user: command },
       );
       bashCalls.add(call.id);
-      const reply = await request<BashResult>("bash", { command });
+      const reply = await request<BashResult>("bash", {
+        command: `${member === undefined ? "" : PERSON_SHELL_PREFIX}${command}`,
+      });
       bashCalls.delete(call.id);
       bashJobs -= 1;
       main.toolEnd(

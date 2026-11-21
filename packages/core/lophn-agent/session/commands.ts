@@ -19,6 +19,7 @@ import {
   type sendMessage,
   type bindHarnessSession,
   CODING_BUILTINS,
+  failHarnessMemberCall,
   openHarnessMember,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { teamEnd } from "../../../protocol/lophn-agent/team.ts";
@@ -76,6 +77,8 @@ type ConversationDeps = {
   open: (tx: Tx) => OpenDeps;
   // archive와 지움이 묶는 영향.
   end: EndDeps;
+  // GUI 탭 팀원이 답하지 못한 call 하나를 같은 Tx에서 닫는다(Router가 놓는다).
+  failCall?: (tx: Tx, session: string, call: string) => Result<boolean>;
 };
 
 function openedOf(row: SessionRow) {
@@ -91,6 +94,7 @@ export function createConversationCommands(deps: ConversationDeps): {
   open: CommandDefinition<typeof workspaceSessionOpen>;
   appOpen: CommandDefinition<typeof workspaceSessionAppOpen>;
   memberOpen: CommandDefinition<typeof openHarnessMember>;
+  memberFail: CommandDefinition<typeof failHarnessMemberCall>;
   rename: CommandDefinition<typeof renameSession>;
   aiTitle: CommandDefinition<typeof setSessionAiTitle>;
   archive: CommandDefinition<typeof archiveSession>;
@@ -204,6 +208,28 @@ export function createConversationCommands(deps: ConversationDeps): {
           [input.external_session_id, seq, input.id],
         );
         return ok({ id: input.id, state_seq: String(seq) });
+      },
+    },
+    // GUI 탭 팀원의 turn이 받은 result call에 답하지 못하고 끝났다. 보낸 쪽에 receiver_ended로 돌려준다.
+    memberFail: {
+      route: failHarnessMemberCall,
+      handle(
+        tx,
+        ctx: RequestContext,
+        input: Input<typeof failHarnessMemberCall>,
+      ) {
+        const machine = requireMachine(ctx);
+        if (!machine.ok) return machine;
+        const row = loadSession(tx, input.session);
+        if (row === undefined) return sessionNotFound();
+        if (!row.harness_gui) {
+          return reject("forbidden", "not a member session");
+        }
+        if (deps.failCall === undefined) {
+          return reject("unavailable", "the router is not wired");
+        }
+        const failed = deps.failCall(tx, input.session, input.call);
+        return failed.ok ? ok({ failed: failed.value }) : failed;
       },
     },
     rename: {

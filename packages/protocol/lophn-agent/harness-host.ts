@@ -179,6 +179,24 @@ export const openHarnessMember = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 
+// GUI 탭 팀원의 turn이 받은 result call에 답하지 못하고 끝났다(멈춤, 실패, 탭이나 handle이 닫힘, turn이 열리지 않음). call을
+// failed(receiver_ended)로 닫아 보낸 쪽에 돌려준다. session은 열린 채 남아 archive가 닫아 주지 않으므로 따로 닫는다. 이미 닫힌 call이면
+// `failed: false`다.
+export const failHarnessMemberCall = defineCommand({
+  resource: "harness",
+  method: "fail_call",
+  name: "FailHarnessMemberCall",
+  changes: [],
+  input: z.strictObject({
+    session: idSchema("ses"),
+    call: idSchema("cal"),
+  }),
+  output: z.strictObject({ failed: z.boolean() }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "not_found", "unavailable"],
+});
+
 export const HARNESS_HOST_MEMORY_ROUTES = [
   harnessTake,
   harnessStartTurn,
@@ -191,4 +209,5 @@ export const HARNESS_HOST_ROUTES = [
   ...HARNESS_HOST_MEMORY_ROUTES,
   bindHarnessSession,
   openHarnessMember,
+  failHarnessMemberCall,
 ] as const;

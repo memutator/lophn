@@ -2,6 +2,10 @@
 // HTTP+SSE API를 손으로 짠 client로 말한다(`@opencode/client`는 쓰지 않는다: effect에 기대고 OpenCode 판 하나에 묶인다).
 // 탭마다 server 하나를 띄우고(`--stdio`: stdin을 쥐고 있는 동안이 server의 lease) GUI와 TUI(`opencode --server <url>`)가 같이 붙는다.
 // server event를 ACP 갱신으로, 창의 ACP 입력을 API 호출로 옮긴다. 권한은 사람의 OpenCode 설정을 따른다(ask 규칙이 없으면 승인 카드는 뜨지 않는다).
+import {
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "../../../../protocol/coding-agent/headless/env.ts";
 import { GUI_HANDOFF } from "../../../../protocol/extensions/mod.ts";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -594,6 +598,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     resume,
     args: givenArgs,
     carry,
+    member,
     session,
     spawn,
     clock,
@@ -1815,7 +1820,10 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       const key = str(shell.id);
       let line = shells.get(key);
       if (line === undefined) {
-        line = { id: ids.newId("tcl"), command: str(shell.command) };
+        line = {
+          id: ids.newId("tcl"),
+          command: withoutPersonShell(str(shell.command)),
+        };
         shells.set(key, line);
         emit({
           type: "tool_started",
@@ -2317,7 +2325,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     // `!` 뒤의 글을 사람이 돌린 명령으로 보낸다. 결과는 `session.shell.*` event로 shellLine이 그린다.
     async function runShell(command: string) {
       if (command.trim() === "") return;
-      await api.shell(sessionId, { command: command.trim() });
+      await api.shell(sessionId, {
+        command: `${member === undefined ? "" : PERSON_SHELL_PREFIX}${command.trim()}`,
+      });
     }
 
     async function sendPrompt(

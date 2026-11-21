@@ -4,6 +4,7 @@ export {
   createRouterRegistration,
 } from "./registration.ts";
 export {
+  failReceivedCall,
   failReceivedCalls,
   installRouterEnvironment,
   messageApp,

@@ -53,6 +53,7 @@ import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import {
   callSignals,
+  failReceivedCall,
   failReceivedCalls,
   messageApp,
   messageDirectory,
@@ -325,6 +326,7 @@ const conversationCommands = createConversationCommands({
   // project와 앱, agent 정의는 wiring이 놓는다(workspaces/environment.ts). 놓기 전에는 새 session을 열지 못한다.
   // SessionStarted는 commit 뒤에 Bus로 간다.
   open: openDepsOf,
+  failCall: failReceivedCall,
   // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. queue 비우기와 Bus event는 commit 뒤에 main thread가 한다.
   end: {
     ...UNWIRED_END_DEPS,
@@ -866,6 +868,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.open,
       conversationCommands.appOpen,
       conversationCommands.memberOpen,
+      conversationCommands.memberFail,
       conversationCommands.rename,
       conversationCommands.aiTitle,
       conversationCommands.archive,

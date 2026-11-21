@@ -139,6 +139,11 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
   );
   const text = "---\nruntime: custom\n---\nbody\n";
   assert.ok(!parseAgentFile(text, builtin).ok);
+  // headless 명령이 없는 harness는 사람이 만든 agent의 runtime이 아니다(그 session이 돌 길이 없다).
+  for (const runtime of ["omp", "antigravity"]) {
+    const harness = `---\nhandle: ops\nname: ops\nruntime: ${runtime}\n---\nbody\n`;
+    assert.ok(!parseAgentFile(harness, target).ok, runtime);
+  }
 });
 
 // lophn.md에 handle을 적으면 주소가 흔들린다. name은 사람이 바꿀 수 있고 바꾼 값만 file에 남는다.

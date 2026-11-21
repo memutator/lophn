@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
+import { createConversationCommands } from "./commands.ts";
 import { createHarnessCommands, harnessOf, harnessTaker } from "./harness.ts";
 import { loadSession } from "./model.ts";
 import { conversationTestSteps } from "./test-steps.ts";
@@ -90,5 +91,27 @@ test("only the GUI tab takes a member session's queue and the mark never changes
     );
   } finally {
     db.close();
+  }
+});
+
+// 팀원 session은 core 안 GUI 연결만 연다. 사람이나 agent가 열면 headless 설정을 건너뛴 harness session을 마음대로 만든다.
+test("only core opens or fails a GUI member session; a person or an agent is forbidden", () => {
+  const commands = createConversationCommands({} as never);
+  const input = {
+    id: "ses_00000000000000000000000001",
+    harness: "omp",
+    project: "prj_00000000000000000000000001",
+    external_session_id: null,
+  } as never;
+  const fail = {
+    session: "ses_00000000000000000000000001",
+    call: "cal_00000000000000000000000001",
+  } as never;
+  for (const actor of ["user", "agent"]) {
+    const ctx = { actor } as unknown as RequestContext;
+    const opened = commands.memberOpen.handle({} as Tx, ctx, input, {});
+    assert.ok(!opened.ok && opened.error.code === "forbidden", actor);
+    const failed = commands.memberFail.handle({} as Tx, ctx, fail, {});
+    assert.ok(!failed.ok && failed.error.code === "forbidden", actor);
   }
 });

@@ -167,6 +167,14 @@ function checkDefinition(
       addIssue(issues, "runtime", "not_allowed");
     }
   } else {
+    // headless 명령이 없는 harness(omp, antigravity)는 사람이 만든 agent의 runtime이 될 수 없다. 그 session은 내장 coding agent의 GUI 탭
+    // 팀원으로만 돈다(headless host를 걷어낼 때 이 거절도 함께 푼다).
+    if (
+      coding === null &&
+      (fields.runtime === "omp" || fields.runtime === "antigravity")
+    ) {
+      addIssue(issues, "runtime", "not_allowed");
+    }
     for (const key of ["handle", "name"]) {
       const value = fields[key];
       if (

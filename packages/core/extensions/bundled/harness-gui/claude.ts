@@ -6,6 +6,7 @@
 // `child_update`로 내고, `/clear`는 CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. `!` 명령은 model에 보내지 않고 adapter가 돌린 뒤
 // 결과를 `shouldQuery: false` 사람 메시지로 transcript에만 붙인다(model은 다음 turn에 본다).
 import { claudeHeadless } from "../../../../protocol/coding-agent/headless/claude.ts";
+import { PERSON_SHELL_ENV } from "../../../../protocol/coding-agent/headless/env.ts";
 import { GUI_HANDOFF } from "../../../../protocol/extensions/mod.ts";
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
@@ -2994,7 +2995,10 @@ const start: (sdk: ClaudeSdk) => Start =
     function runShell(command: string) {
       const id = shellStart(command);
       const script = `${command}\n__lophn_rc=$?; printf '${CWD_MARK}%s\\n' "$PWD"; exit $__lophn_rc`;
-      const proc = spawn("/bin/sh", ["-c", script], { cwd: shellCwd });
+      const proc = spawn("/bin/sh", ["-c", script], {
+        cwd: shellCwd,
+        ...(member === undefined ? {} : { env: PERSON_SHELL_ENV }),
+      });
       const entry = { proc, killed: false };
       shells.set(id, entry);
       const cap = ACP_TOOL_BODY_LIMIT * 2;

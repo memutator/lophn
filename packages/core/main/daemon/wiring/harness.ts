@@ -19,6 +19,7 @@ import {
   harnessSetExternalId,
   harnessStartTurn,
   harnessTake,
+  failHarnessMemberCall,
   messageBody,
   openHarnessMember,
   recordMessage,
@@ -86,6 +87,7 @@ const HARNESS_CONTEXT: AuthenticatedContext = {
       recordMessage.name,
       bindHarnessSession.name,
       openHarnessMember.name,
+      failHarnessMemberCall.name,
       turnRead.name,
       messageBody.name,
     ],
@@ -506,6 +508,8 @@ export const harnessWiring: WiringFactory = () => {
             : {
                 message: taken.head.message as string,
                 kind: taken.head.kind,
+                call: taken.head.call,
+                reply: taken.head.reply,
                 prompt: taken.prompt,
               };
         },
@@ -551,6 +555,13 @@ export const harnessWiring: WiringFactory = () => {
           return done.ok ? ok(undefined) : done;
         },
         finish: (turn, end) => finishOf(turn, outcomeOf(end)),
+        async failCall(session, call) {
+          const done = await command(failHarnessMemberCall.name, {
+            session,
+            call,
+          });
+          return done.ok ? ok(undefined) : done;
+        },
         end: (turn) => turnCredentials.end(turn),
         onQueued(listener) {
           queued.add(listener);
@@ -565,10 +576,11 @@ export const harnessWiring: WiringFactory = () => {
           const row = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
             loadSession(lookup, session),
           );
-          // 아직 commit되지 않은 session은 모른다. 다음 event에서 다시 본다.
-          if (!row.ok || row.value === undefined) return false;
-          memberOf.set(session, row.value.harness_gui);
-          return row.value.harness_gui;
+          // 새 팀원은 open_member 앞에 표시하므로 여기서 "아니다"를 쥐어도 낡지 않는다. 읽지 못했으면 쥐지 않는다.
+          if (!row.ok) return false;
+          const member = row.value?.harness_gui === true;
+          memberOf.set(session, member);
+          return member;
         },
       });
 

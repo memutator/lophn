@@ -240,6 +240,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
   const members = createGuiMembers({
     members: () => deps.members?.() ?? null,
     files: deps.credentials ?? null,
+    after: deps.after,
     projectOf: (ref) => {
       const where = project(ref);
       return where?.startsWith("prj_") === true ? where : null;

@@ -3,6 +3,10 @@
 // 설정과 login은 사람의 것을 쓴다. 사람 설정이 never·danger-full-access일 때만 on-request·workspace-write로 바꾼다.
 // 대화 하나의 도는 상태는 `Lane`이다: root가 탭의 thread이고 subagent thread는 자식 lane이라 그 갱신은 `child_update`로 싸서 낸다.
 // 흐름과 이유는 architecture/harness-gui.md의 Codex adapter 절이다.
+import {
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "../../../../protocol/coding-agent/headless/env.ts";
 import { GUI_HANDOFF } from "../../../../protocol/extensions/mod.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
@@ -1252,8 +1256,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             const actions = (item.commandActions ?? []).map(
               (one) => one.command,
             );
-            const shown =
-              actions.length > 0 ? actions.join(" && ") : (item.command ?? "");
+            const shown = withoutPersonShell(
+              actions.length > 0 ? actions.join(" && ") : (item.command ?? ""),
+            );
             tool = "shell";
             category = commandCategory(item);
             if (item.source === "userShell") {
@@ -3091,12 +3096,13 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         if (text === "") return;
         shellSent.push(text);
         void attempt("Shell command", () =>
-          request("thread/shellCommand", { threadId, command: text }).catch(
-            (cause: Error) => {
-              shellSent.splice(shellSent.indexOf(text), 1);
-              throw cause;
-            },
-          ),
+          request("thread/shellCommand", {
+            threadId,
+            command: `${member === undefined ? "" : PERSON_SHELL_PREFIX}${text}`,
+          }).catch((cause: Error) => {
+            shellSent.splice(shellSent.indexOf(text), 1);
+            throw cause;
+          }),
         );
       }
 

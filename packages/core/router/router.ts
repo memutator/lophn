@@ -101,6 +101,9 @@ export interface Router {
   ): Result<AgentCallRow>;
   // session을 archive하거나 지울 때 그 session이 받은 열린 call을 failed(receiver_ended)로 닫는다.
   failReceivedBy(tx: Tx, session: string): Result<void>;
+  // 그 session이 받은 열린 call 하나를 failed(receiver_ended)로 닫는다. 받은 turn이 답 없이 끝났는데 session은 살아 있을 때다(GUI 탭 팀원).
+  // 열린 call이 아니면(이미 답했거나 닫혔다) false다.
+  failReceived(tx: Tx, session: string, call: string): Result<boolean>;
   // lophn을 켤 때 부른다. queue와 앱 줄이 메모리라 잃어버린 call을 failed(lophn_restarted)로 닫는다.
   // `notify`이면 보낸 session에 이유를 돌려준다. 닫은 수를 돌려준다.
   failLostOnStart(tx: Tx, notify: boolean): Result<number>;
@@ -668,6 +671,18 @@ export function createRouter(deps: RouterDeps): Router {
         );
       const done = failAll(tx, records, "receiver_ended", true);
       return done.ok ? ok(undefined) : done;
+    },
+    failReceived(tx, session, call) {
+      const record = store.read(tx, calId(call));
+      if (
+        record === null ||
+        record.state !== "accepted" ||
+        record.receiver_session !== session
+      ) {
+        return ok(false);
+      }
+      const done = failAll(tx, [record], "receiver_ended", true);
+      return done.ok ? ok(true) : done;
     },
     failLostOnStart(tx, notify) {
       return failAll(tx, store.lost(tx), "lophn_restarted", notify);

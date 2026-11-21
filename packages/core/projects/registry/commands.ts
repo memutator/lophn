@@ -32,7 +32,6 @@ import {
   identityHeldElsewhere,
   insertProject,
   loadProject,
-  loadProjects,
   replaceChildren,
   replaceMetadata,
   storeIdentity,
@@ -446,21 +445,8 @@ export function createProjectCommands(): {
         ) {
           return refused("not_allowed");
         }
-        // 이 기계에 같은 저장소가 둘이면 어느 쪽인지 모른다.
-        const others = loadProjects(tx.sql);
-        if (!others.ok) return others;
-        if (
-          others.value.some(
-            (other) =>
-              other.id !== before.id &&
-              other.status === "active" &&
-              other.repo === "git" &&
-              !other.separated &&
-              other.remote?.key === key,
-          )
-        ) {
-          return refused("same_repository");
-        }
+        // 이 기계에 같은 저장소가 둘인지는 부르는 쪽(자동 match)이 본다: private인 project는 세지 않는데 private은 ledger 밖의
+        // 설정이다.
         const project = storeIdentity(tx, before, {
           identity: input.identity,
           repo: before.repo,

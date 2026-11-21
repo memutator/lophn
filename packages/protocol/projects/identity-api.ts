@@ -24,7 +24,8 @@ export const projectIdentityStatusSchema = z.object({
   separated: z.boolean(),
   // private workspace다. 다른 컴퓨터로 목록을 내보내지 않고 자동으로 맞추지 않는다.
   private: z.boolean(),
-  // 같은 remote key를 가진 이 기계의 다른 active project(나누지 않은 것). 있으면 둘 다 다른 컴퓨터와 자동으로 맞춰지지 않는다.
+  // 같은 remote key를 가진 이 기계의 다른 project 가운데 자동 match에 드는 것(active, git, 나누지 않음, private 아님). 있으면
+  // 둘 다 다른 컴퓨터와 자동으로 맞춰지지 않는다.
   same_repository: projectIdSchema.nullable(),
 });
 export type ProjectIdentityStatus = z.infer<typeof projectIdentityStatusSchema>;
@@ -64,7 +65,8 @@ export const projectIdentityApi = {
   }),
   // 내 다른 컴퓨터의 같은 저장소의 project에 맞춘다: 더 작은 id로 바꾸거나(identity), 다른 컴퓨터가 나눈 project의 id를 가졌으면
   // 나눈 것으로 적는다(separated). 지금 identity가 from이 아니거나 규칙에 맞지 않으면 conflict이고 아무것도 바꾸지 않는다(늦게 돈
-  // 계산이 덮지 않게). core 안 machine 자격만 부른다. revision은 올리지 않는다.
+  // 계산이 덮지 않게). 이 기계에 같은 저장소가 둘인지는 부르는 쪽이 본다(private은 ledger 밖의 설정이다). core 안 machine
+  // 자격만 부른다. revision은 올리지 않는다.
   matchIdentity: defineCommand({
     resource: "projects",
     method: "match_identity",

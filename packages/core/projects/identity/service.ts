@@ -57,10 +57,12 @@ async function guarded<T>(work: () => Promise<Result<T>>): Promise<Result<T>> {
   }
 }
 
-// 자동 match에 드는(active, git, 나누지 않은) 이 기계의 다른 project 가운데 같은 remote key를 가진 것.
+// 자동 match에 드는(active, git, 나누지 않음, private 아님) 이 기계의 다른 project 가운데 같은 remote key를 가진 것. 자동
+// match가 같은 저장소의 수를 세는 규칙과 같다(match.ts).
 export function sameRepository(
   projects: readonly Project[],
   project: Pick<Project, "id" | "remote">,
+  isPrivate: (project: string) => boolean,
 ): Project | null {
   const key = project.remote?.key;
   if (key === undefined) return null;
@@ -71,6 +73,7 @@ export function sameRepository(
         other.status === "active" &&
         other.repo === "git" &&
         !other.separated &&
+        !isPrivate(other.id) &&
         other.remote?.key === key,
     ) ?? null
   );
@@ -125,7 +128,7 @@ export function createIdentityService(deps: IdentityServiceDeps) {
       private: deps.isPrivate(project),
       same_repository: record.separated
         ? null
-        : (sameRepository(projects.value, record)?.id ?? null),
+        : (sameRepository(projects.value, record, deps.isPrivate)?.id ?? null),
     });
   }
 

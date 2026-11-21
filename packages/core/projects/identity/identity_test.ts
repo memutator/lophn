@@ -53,7 +53,10 @@ const silent = {
 };
 
 // 실제 project 표와 command, 실제 임시 폴더. git은 가짜다: `.git`이 있는 폴더를 work tree로 본다.
-function setup(answers: "git" | "fails" = "git") {
+function setup(
+  answers: "git" | "fails" = "git",
+  options: { isPrivate?: (project: string) => boolean } = {},
+) {
   const root = mkdtempSync(join(tmpdir(), "lophn-identity-"));
   const db = new DatabaseSync(":memory:");
   for (const step of [
@@ -88,7 +91,8 @@ function setup(answers: "git" | "fails" = "git") {
       Promise.resolve(
         answers === "git" && readdirSync(dir).includes(".git") ? dir : null,
       ),
-    remotes: () => Promise.resolve([]),
+    remotes: () =>
+      Promise.resolve([{ name: "origin", url: "git@github.com:me/notes.git" }]),
   };
   const writer = {
     command: (ctx, envelope) => {
@@ -106,7 +110,7 @@ function setup(answers: "git" | "fails" = "git") {
   const service = createIdentityService({
     git,
     fs: nodeFolderProbe,
-    isPrivate: () => false,
+    isPrivate: options.isPrivate ?? (() => false),
     ids,
     writer: () => writer,
     snapshot: (read) => read(sql),
@@ -223,6 +227,30 @@ test("git이 답하지 않는 project는 폴더에 `.git`이 있으면 unavailab
         assert.equal(!done.ok && done.error.code, "unavailable", name);
         assert.equal(row?.repo, null, name);
       }
+    } finally {
+      close();
+    }
+  }
+});
+
+test("같은 저장소의 다른 project는 자동 match에 드는 것(active, git, 나누지 않음, private 아님)만 same_repository로 알린다", async () => {
+  const COPY = "prj_00000000000000000000000002";
+  for (const copyIsPrivate of [false, true]) {
+    const { root, service, register, close } = setup("git", {
+      isPrivate: (project) => copyIsPrivate && project === COPY,
+    });
+    try {
+      register(gitFolder(root, "notes"));
+      register(gitFolder(root, "copy"), COPY);
+      const copy = await service.status(COPY);
+      assert.ok(copy.ok);
+      const status = await service.status(PROJECT);
+      assert.ok(status.ok);
+      assert.equal(
+        status.value.same_repository,
+        copyIsPrivate ? null : COPY,
+        `copy private: ${copyIsPrivate}`,
+      );
     } finally {
       close();
     }

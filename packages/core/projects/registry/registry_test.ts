@@ -478,11 +478,6 @@ test("match_identity는 계산한 뒤 바뀐 project(지금 id가 from이 아님
       );
     const SMALL = "pri_00000000000000000000000001";
 
-    // 같은 저장소가 이 기계에 둘이다.
-    assert.equal(
-      reason(match(PROJECT, { identity: SMALL })),
-      "conflict:same_repository",
-    );
     // THIRD의 지금 id, 더 큰 id는 받지 않는다.
     assert.equal(
       reason(match(PROJECT, { identity: born.get(THIRD)! })),

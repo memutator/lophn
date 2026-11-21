@@ -100,7 +100,7 @@
   - 거울: 읽기 scan 때 사람의 폴더에 있는 다른 기계의 manifest와 file을 받는 자리에 넘긴다.
   - `carry/wants`는 (machine, path) 글자 순서이고 `after: {machine, path}` 뒤부터 준다. 앞 page의 file을 들지 않은 상대도 다음 page로 간다.
   - 이 route가 없는 상대(옛 lophn)는 `not_found`로 답한다. 나르는 쪽은 그것을 "이 상대는 나르지 않는다"로 보고 다음 계기까지 묻지 않는다.
-  - 이 기계가 든 manifest가 바뀌면 `StateChanged{carry_files}`를 낸다. link의 상대와 폰이 그것으로 다시 본다.
+  - 이 기계가 든 manifest가 바뀌거나 다른 컴퓨터의 file을 받아 놓거나 지우면 `StateChanged{carry_files}`를 낸다(받은 file은 다음 읽기 scan에서 묶어 한 번). link의 상대와 폰, 이 컴퓨터의 화면이 그것으로 다시 본다. manifest가 file보다 먼저 닿으므로 manifest 때만 알리면 화면이 file이 닿기 전에 읽는다.
 - **명단 file.** `machines/<mch>/roster.json` = `{format: 1, machine, written_at, statements}`(8 MiB까지). remote가 켜져 있고 자기 항목이 있는 컴퓨터가 쓴다. 주소(reach)는 싣지 않고, 읽을 때도 statement만 명단에 넘긴다: 폴더는 명단 밖의 누구나 쓸 수 있어, 서명 없는 주소를 받으면 기기들이 거는 곳을 그가 정한다. 주소는 Noise로 확인한 연결로만 온다. 명단 규칙이 서명을 보고 statement를 스스로 거른다(믿는 서명이 없는 statement는 모르는 서명자 상한 안에서만 남고 기기가 되지 않는다). `roster.json`은 manifest가 없어도 받아 명단에 넘긴다: 아직 믿지 못하는 컴퓨터(dual boot의 다른 OS)의 들어오기 statement가 이 길로만 온다. 하위 폴더에 두는 것은 목록에 있을 때만이다.
 - **기계를 건너는 event file.** `machines/<mch>/apps/<app>/events/<id>.json`(id는 ULID) = `{format: 2, machine, app, id, code_commit, name, payload, at}`(64 KiB까지). 앱 선언이 그 event에 `across_machines`를 단 것만 쓴다.
   - 난 기계, 앱, id는 path에서 얻는다(서명된 목록이 싣는 것은 path다). 내용의 `machine`, `app`, `id`가 path와 다르면 거절한다. 그래서 믿는 컴퓨터도 자기 하위 폴더에서 다른 기계가 낸 event인 척하지 못한다.

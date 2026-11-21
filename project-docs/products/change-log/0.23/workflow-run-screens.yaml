@@ -1,5 +1,5 @@
 id: workflow-run-screens
-version: 0.23.112
+version: 0.23.116
 title: "workflow 탭이 workflow 화면과 run 화면 둘로 나뉘고, 누가 어느 step을 맡는지와 사람이 다음에 할 일을 먼저 보인다"
 modules: [packages/shell/renderer, packages/design]
 checked: []

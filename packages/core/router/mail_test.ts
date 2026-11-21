@@ -31,6 +31,7 @@ import {
 } from "../../protocol/lophn-agent/mail.ts";
 import type { Participant } from "../../protocol/workflows/mod.ts";
 import { createWorkflowCommands } from "../workflows/commands.ts";
+import { parseDeclaration } from "../workflows/declaration.ts";
 import { planHandoff } from "../workflows/plan.ts";
 import type { WorkflowRemote } from "../workflows/ports.ts";
 import {
@@ -264,9 +265,24 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
       remote_steps: remoteStepsOf(sql, id),
     };
   };
+  // project "shop"의 workflows 폴더. test가 선언 글(workflow.yaml)을 넣는다.
+  const declarations = new Map<string, string>();
   const workflows = createWorkflowService({
-    files: {} as never,
-    projects: {} as never,
+    files: {
+      list: async () =>
+        ok(
+          [...declarations].map(([name, declaration]) => ({
+            name,
+            declaration,
+            flow: false,
+            artifacts: { static: false, instance: false },
+          })),
+        ),
+    },
+    projects: {
+      resolve: async () => ok({ id: PROJECT as Id<"prj">, name: "shop" }),
+      nameOf: async () => ok("shop"),
+    },
     turns: { stopSession: async () => ok(undefined) } as never,
     flows: { stop: async () => ok(undefined) } as never,
     remote,
@@ -412,6 +428,7 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     call,
     openSession,
     workflows,
+    declarations,
     commands,
     inbox,
     start,
@@ -1229,6 +1246,91 @@ test("명단에서 빠진 컴퓨터로 보낸 call과 step은 만료를 기다�
       notHanded[0]?.kind === "not_handed" &&
       /no longer one of the person's computers/.test(notHanded[0].message),
   );
+});
+
+// 사람이 쓴 선언 글을 file 읽기가 낸 그대로 시작한다: 참가자의 on이 선언에서 instance와 목록까지 간다.
+const DECLARATION = (on: string) => `kind: agent
+participants:
+  here: { agent: reviewer, workspace: { home: true } }
+  there: { agent: reviewer, workspace: { home: true }, on: ${on} }
+steps:
+  one:
+    by: here
+    prompt: Start it.
+    next: [two]
+  two:
+    by: there
+    prompt: Finish it there.
+    next: [end]
+`;
+
+test("선언 file의 on이 instance와 목록까지 가서 다음 step이 그 컴퓨터로 넘어가고, 모르는 컴퓨터는 unknown_computer다", async () => {
+  const a = await machine(A);
+  a.declarations.set("ship", DECLARATION("windows"));
+  const listed = await a.workflows.list({ project: "shop" }, null);
+  assert.ok(listed.ok);
+  assert.deepStrictEqual(listed.value.workflows[0]?.participants?.["there"], {
+    agent: "reviewer",
+    workspace: { home: true },
+    on: "windows",
+  });
+  const started = await a.workflows.start(
+    { workflow: "shop/ship", text: "go" },
+    { kind: "user" },
+  );
+  assert.ok(started.ok, JSON.stringify(started));
+  const id = started.value.instance.id;
+  assert.equal(
+    (started.value.instance.participants["there"] as { on?: string }).on,
+    "windows",
+  );
+  const here = a.delivered.at(-1)!;
+  assert.equal(here.input.step?.step, "one");
+  const reported = await a.workflows.report(
+    { instance: id, step: "one", text: "half done", next: "two" },
+    { kind: "agent", session: here.session as Id<"ses"> },
+  );
+  assert.ok(reported.ok, JSON.stringify(reported));
+  assert.ok(
+    reported.value.handed?.outcome === "handed" &&
+      reported.value.handed.receiver === null,
+    JSON.stringify(reported.value.handed),
+  );
+  const [step] = a.read(id).remote_steps;
+  assert.equal(step?.step, "two");
+  assert.equal(step?.machine, B);
+  const [mail] = pendingMails(a.sql, B as never);
+  assert.ok(mail?.kind === "call" && mail.step?.name === "two");
+
+  // 사람이 쓴 이름이 명단에 없으면 그 이유로 남는다.
+  a.declarations.set("ship", DECLARATION("nowhere"));
+  const again = await a.workflows.start(
+    { workflow: "shop/ship", text: "go", step: "two" },
+    { kind: "user" },
+  );
+  assert.ok(again.ok, JSON.stringify(again));
+  assert.ok(
+    again.value.handed?.outcome === "not_handed" &&
+      again.value.handed.reason === "unknown_computer",
+    JSON.stringify(again.value.handed),
+  );
+});
+
+test("사람 참가자의 on은 틀린 선언이다", () => {
+  const parsed = parseDeclaration({
+    name: "ship",
+    declaration: `kind: agent
+participants:
+  me: { kind: human, on: windows }
+steps:
+  one:
+    by: me
+    prompt: Do it.
+`,
+    flow: false,
+    artifacts: { static: false, instance: false },
+  });
+  assert.ok(!parsed.ok && parsed.problem.reason === "invalid_declaration");
 });
 
 test("늦게 닿은 step은 대기 목록에 서고, 그 컴퓨터의 사람이 건너뛰면 시작한 컴퓨터에 읽을 수 있는 줄이 남는다", async () => {

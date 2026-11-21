@@ -12,14 +12,14 @@ flows:
     steps:
       - "project 이름과 workflow 이름으로 project id와 선언(workflow.yaml)을 푼다. 선언이 틀리면 conflict로 거절한다. workflows 폴더를 못 읽으면 unavailable"
       - "step을 고르지 않으면 선언의 첫 step, 골랐으면 그 step을 찾는다. 없으면 not_found"
-      - "참가자 담당을 풀어(plan.ts) 받을 session과 step 메시지 본문을 command 앞에서 정한다"
+      - "선언의 참가자에서 읽는 칸(agent, workspace, on, kind)을 instance로 옮긴다. 참가자 담당을 풀어(plan.ts) 받을 session과 step 메시지 본문을 command 앞에서 정한다. on이 있으면 명단의 그 컴퓨터로 넘길 step call이다"
       - "CreateWorkflowInstance가 instance 행과 started 줄을 쓰고 Router에 step 메시지를 넣는다"
       - "담당을 못 풀면 넘기지 않고 not_handed 줄만 남긴다. instance는 running 그대로다"
     outcomes:
       - id: handed
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not-handed
-        when: "instance는 만들었지만 첫 step을 넘기지 못함(unknown_participant, no_with, unresolved)"
+        when: "instance는 만들었지만 첫 step을 넘기지 못함(unknown_participant, no_with, unresolved, on이 명단의 다른 컴퓨터로 풀리지 않으면 unknown_computer)"
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not_found
         code: not_found

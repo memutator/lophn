@@ -68,6 +68,7 @@ export function participantsOf(
         : {
             agent: p.agent,
             ...(p.workspace !== undefined && { workspace: p.workspace }),
+            ...(p.on !== undefined && { on: p.on }),
           };
   }
   return out;

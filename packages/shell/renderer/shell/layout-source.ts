@@ -3,7 +3,8 @@
 // tab 읽기·쓰기 보조는 옛 workspace/layout-map.ts와 같은 규칙이다(그 파일은 옛 layout을 지울 때 같이 없어진다).
 // 저장하지 않는 kind(Agent 탭)의 탭은 파일에 없고, 이 창이 workspace마다 마지막으로 읽거나 쓴 layout을 메모리에 들고 있다가
 // 파일이 그 layout 그대로일 때 돌려준다(아래 createLayoutSource). 창을 닫거나 다시 켜면 사라진다.
-// 탭이 보는 기계(`TabItem.machine`)는 kind마다가 아니라 탭 공통 칸 `machine`으로 저장한다(없으면 그 workspace의 기계).
+// 탭 공통 칸은 kind마다가 아니라 탭 값에 바로 붙는다: 탭이 보는 기계 `TabItem.machine` → `machine`(없으면 그 workspace의 기계),
+// 주인 session `TabItem.owner` → `owner`(없으면 사람), 넘긴 browser 탭의 core 탭 id `TabItem.handedTab` → `handed_tab`.
 import type {
   WorkspaceLayoutReadResult,
   WorkspaceLayoutSaveResult,
@@ -227,9 +228,15 @@ export function tabFromStored(value: unknown): TabItem | null {
     key: tab.key,
     position: readPosition(tab.read_position),
   });
-  return item !== null && typeof tab.machine === "string"
-    ? { ...item, machine: tab.machine }
-    : item;
+  if (item === null) return null;
+  return {
+    ...item,
+    ...(typeof tab.machine === "string" ? { machine: tab.machine } : {}),
+    ...(typeof tab.owner === "string" ? { owner: tab.owner } : {}),
+    ...(typeof tab.handed_tab === "string"
+      ? { handedTab: tab.handed_tab }
+      : {}),
+  };
 }
 
 /**
@@ -242,9 +249,13 @@ export function tabToStored(tab: TabItem): Record<string, unknown> | null {
     tabKindOf(tab.kind)?.toStored?.(tab, {
       position: readPosition(tab.readPosition),
     }) ?? null;
-  return stored !== null && tab.machine !== undefined
-    ? { ...stored, machine: tab.machine }
-    : stored;
+  if (stored === null) return null;
+  return {
+    ...stored,
+    ...(tab.machine === undefined ? {} : { machine: tab.machine }),
+    ...(tab.owner === undefined ? {} : { owner: tab.owner }),
+    ...(tab.handedTab === undefined ? {} : { handed_tab: tab.handedTab }),
+  };
 }
 
 function rectOf(value: unknown): FloatRect | null {

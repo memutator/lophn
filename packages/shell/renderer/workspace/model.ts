@@ -31,6 +31,18 @@ export interface TabItem {
    * 안에서 다른 기계의 session·터미널을 열 때 단다. layout 파일의 탭 공통 칸 `machine`으로 저장한다.
    */
   readonly machine?: string;
+  /** 탭의 주인 session(`ses_`). 없으면 사람이 연 탭이다. layout 파일의 탭 공통 칸 `owner`로 저장한다. */
+  readonly owner?: string;
+  /** 사람이 session에 넘긴 browser 탭의 core 탭 id(`tab_`). 없으면 넘기지 않은 탭이다. 공통 칸 `handed_tab`으로 저장한다. */
+  readonly handedTab?: string;
+}
+
+/** 탭이 가리키는 core 탭 표의 id. agent가 연 탭(`host:` key)이면 그 뒤, 사람이 넘긴 탭이면 `handedTab`, 아니면 null이다. */
+export function hostTabOf(
+  tab: Pick<TabItem, "key" | "handedTab">,
+): string | null {
+  if (tab.key.startsWith("host:")) return tab.key.slice("host:".length);
+  return tab.handedTab ?? null;
 }
 
 /** float 층(title bar 아래 창 몸통, 양쪽 sidebar 포함) 왼쪽 위를 (0,0)으로 한 CSS px 정수 사각형. */

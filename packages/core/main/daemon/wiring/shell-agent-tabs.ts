@@ -4,7 +4,8 @@
 // - tabs·floats·detached의 `kind: "agent"` 탭을 지운다.
 // - Agent 탭이 든 group은 풀고(남은 탭은 tabs에 그대로 남는다) 고른 탭이 지워졌으면 첫 보이는 탭을 고른다. artifact-move와 같은 규칙이다.
 // 다른 판(손상, 옛 판)의 파일은 건드리지 않는다. 다시 돌아도 같다(Agent 탭이 없으면 아무것도 쓰지 않는다).
-// 같은 wiring의 `shell.layout-machines`가 그 뒤에 두 파일의 판만 올린다(layout 10 → 11, 전역 float 2 → 3).
+// 같은 wiring의 `shell.layout-machines`와 `shell.layout-owners`가 그 뒤에 두 파일의 판만 올린다(layout 10 → 11 → 12,
+// 전역 float 2 → 3 → 4).
 import { readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { DataStep } from "../../../storage/migration/mod.ts";
@@ -184,8 +185,8 @@ export const shellAgentTabsStep: DataStep = {
   },
 };
 
-// 판 11 layout과 판 3 전역 float은 탭 공통 칸 `machine`(전역 float은 workspace에도)을 더했을 뿐이다. 없으면 그 workspace의 기계,
-// 곧 이 컴퓨터라 탭 값은 고칠 것이 없고 판만 올린다. 다른 판과 손상된 파일은 그대로 둔다(`layoutTextOf`와 같은 규칙).
+// 판을 올리는 step은 탭 값을 고칠 것이 없다: 새 판은 선택 칸을 더했을 뿐이고 칸이 없으면 옛 뜻 그대로다.
+// 다른 판과 손상된 파일은 그대로 둔다(`layoutTextOf`와 같은 규칙).
 const bumpVersion = (from: number, to: number) => (text: string) => {
   let file: unknown;
   try {
@@ -197,35 +198,60 @@ const bumpVersion = (from: number, to: number) => (text: string) => {
   return JSON.stringify({ ...file, schema_version: to });
 };
 
-const layoutVersion11 = bumpVersion(10, 11);
-const globalFloatsVersion3 = bumpVersion(2, 3);
-
-export const shellLayoutMachinesStep: DataStep = {
-  id: "shell.layout-machines",
-  async run(root): Promise<Result<void>> {
-    try {
-      const folder = `${root}/shell/workspaces`;
-      const names = await readdir(folder).catch((thrown: unknown) => {
-        if (errorCode(thrown) === "ENOENT") return [];
-        throw thrown;
-      });
-      for (const name of names) {
-        if (name.endsWith(".json")) {
-          await rewrite(`${folder}/${name}`, layoutVersion11);
+function bumpStep(
+  id: string,
+  layout: [from: number, to: number],
+  globalFloats: [from: number, to: number],
+): DataStep {
+  const layoutNext = bumpVersion(...layout);
+  const globalFloatsNext = bumpVersion(...globalFloats);
+  return {
+    id,
+    async run(root): Promise<Result<void>> {
+      try {
+        const folder = `${root}/shell/workspaces`;
+        const names = await readdir(folder).catch((thrown: unknown) => {
+          if (errorCode(thrown) === "ENOENT") return [];
+          throw thrown;
+        });
+        for (const name of names) {
+          if (name.endsWith(".json")) {
+            await rewrite(`${folder}/${name}`, layoutNext);
+          }
         }
+        await rewrite(`${root}/shell/global-floats.json`, globalFloatsNext);
+        return ok(undefined);
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "shell layout 파일의 판을 올리지 못했다",
+        });
       }
-      await rewrite(`${root}/shell/global-floats.json`, globalFloatsVersion3);
-      return ok(undefined);
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "shell layout 파일의 판을 올리지 못했다",
-      });
-    }
-  },
-};
+    },
+  };
+}
+
+// 판 11 layout과 판 3 전역 float은 탭 공통 칸 `machine`(전역 float은 workspace에도)을 더했다. 없으면 그 workspace의 기계,
+// 곧 이 컴퓨터다.
+export const shellLayoutMachinesStep = bumpStep(
+  "shell.layout-machines",
+  [10, 11],
+  [2, 3],
+);
+
+// 판 12 layout과 판 4 전역 float은 탭 공통 칸 `owner`(주인 session)와 `handed_tab`(사람이 넘긴 browser 탭의 core 탭 id)을
+// 더했다. 없으면 사람이 연 탭, 넘기지 않은 탭이다.
+export const shellLayoutOwnersStep = bumpStep(
+  "shell.layout-owners",
+  [11, 12],
+  [3, 4],
+);
 
 export const shellAgentTabsWiring: WiringFactory = () => ({
   name: "shell-agent-tabs",
-  dataSteps: [shellAgentTabsStep, shellLayoutMachinesStep],
+  dataSteps: [
+    shellAgentTabsStep,
+    shellLayoutMachinesStep,
+    shellLayoutOwnersStep,
+  ],
 });

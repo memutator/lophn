@@ -1035,7 +1035,7 @@ flows:
       - "kind의 transfer를 부른다. null이면 옮기지 않는다. 그 사이 float이 닫혔으면 아무 일도 없다"
       - "global-floats.tsx의 add가 탭, 탭이 나온 workspace, rect, 접힘, 고정을 전역 목록에 더한다(앱 panel은 같은 화면이 있으면, 다른 kind는 같은 key가 있으면 먼저 뺀다). transfer는 본문이 처음 그리기 전에 kind의 receive로 받는다. 전역 목록을 아직 읽기 전이면 바뀌지 않고 false다"
       - "더하기에 성공하면 desk float을 닫는다. 전역 목록이 20개 상한이면 옮기지 않아 desk float은 그대로 남는다"
-      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다(탭은 kind의 toStored 값에 다른 기계의 탭이면 `machine`을 단 것, workspace도 다른 기계의 것이면 `machine`을 가진다)"
+      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다(탭은 kind의 toStored 값에 다른 기계의 탭이면 `machine`을, 주인 session이 있으면 `owner`를, 넘긴 browser 탭이면 `handed_tab`을 단 것, workspace도 다른 기계의 것이면 `machine`을 가진다)"
     uses: [ipc:shell:global-floats-save, ipc:shell:workspace-layout-save]
     outcomes:
       - id: moved
@@ -1405,7 +1405,7 @@ flows:
     steps:
       - "전역 float 목록이 바뀌면 store가 저장을 예약하고(SAVE_DELAY 뒤 flush) shell:global-floats-save로 보낸다"
       - "main이 보낸 쪽이 desktop 창이 아니면 거절한다"
-      - "main이 schema(판 3, 전역 float 20개 상한 포함, 탭은 workspace layout의 kind registry와 공통 칸 `machine`)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
+      - "main이 schema(판 4, 전역 float 20개 상한 포함, 탭은 workspace layout의 kind registry와 공통 칸 `machine`·`owner`·`handed_tab`)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
       - "쓰기가 실패하면 파일은 그대로다. renderer는 결과를 무시한다"
     uses: [ipc:shell:global-floats-save]
     outcomes:
@@ -1441,7 +1441,7 @@ flows:
       - "Desktop에 전역 float 층이 붙을 때 store.load가 shell:global-floats-read로 목록을 읽는다"
       - "처음 읽기 전에 바뀐 것은 읽은 목록 위에 얹는다"
       - "읽기가 실패하면(forbidden 포함) 빈 목록으로 시작한다"
-      - "main은 판 3 파일의 float을 하나씩 검증해 모르는 kind나 틀린 탭은 그 float만 뺀다. renderer는 kind의 fromStored로 탭을 되살리고 탭의 공통 칸 `machine`을 `TabItem.machine`으로 붙인다(터미널은 layout 복원과 같다). 이 컴퓨터의 살아 있는 PTY가 없는 터미널 float은 뺀다. 다른 기계의 float은 그 기계가 꺼져 있어도 남는다"
+      - "main은 판 4 파일의 float을 하나씩 검증해 모르는 kind나 틀린 탭은 그 float만 뺀다(판 3은 core의 data step shell.layout-owners가 판만 올린다). renderer는 kind의 fromStored로 탭을 되살리고 탭의 공통 칸 `machine`·`owner`·`handed_tab`을 `TabItem.machine`·`owner`·`handedTab`으로 붙인다(터미널은 layout 복원과 같다). 이 컴퓨터의 살아 있는 PTY가 없는 터미널 float은 뺀다. 다른 기계의 float은 그 기계가 꺼져 있어도 남는다"
     uses: [ipc:shell:global-floats-read]
     outcomes:
       - id: loaded
@@ -1466,8 +1466,8 @@ flows:
       - packages/shell/main/desktop/core/layout-ipc.ts
     steps:
       - "WorkspaceWindow가 mount될 때(창을 열거나 workspace를 옮길 때) shell:workspace-layout-read로 그 workspace 파일을 읽는다. project 목록과 파일은 기다리지 않는다"
-      - "파일 이름은 workspace key다: 이 컴퓨터의 workspace는 `home` | project id | app id, 다른 기계의 workspace(\"Home · X\", 그 기계에만 있는 project·앱)는 그 뒤에 `-<mch>`를 붙인다. 판 11만 읽는다(판 10은 core의 data step shell.layout-machines가 판만 올린다)"
-      - "값이 있으면 desk layout으로 쓴다. 탭의 공통 칸 `machine`이 있으면 `TabItem.machine`이다(없으면 그 workspace의 기계). 없거나 읽기가 실패하면 freshLayout을 쓴다(Main 하나, 앱 workspace는 앱 화면 탭 하나)"
+      - "파일 이름은 workspace key다: 이 컴퓨터의 workspace는 `home` | project id | app id, 다른 기계의 workspace(\"Home · X\", 그 기계에만 있는 project·앱)는 그 뒤에 `-<mch>`를 붙인다. 판 12만 읽는다(판 10은 core의 data step shell.layout-machines가, 판 11은 shell.layout-owners가 판만 올린다)"
+      - "값이 있으면 desk layout으로 쓴다. 탭의 공통 칸 `machine`이 있으면 `TabItem.machine`이다(없으면 그 workspace의 기계). `owner`(주인 session, 없으면 사람)와 `handed_tab`(사람이 넘긴 browser 탭의 core 탭 id)은 `TabItem.owner`·`handedTab`이다. 없거나 읽기가 실패하면 freshLayout을 쓴다(Main 하나, 앱 workspace는 앱 화면 탭 하나)"
       - "읽기가 실패했거나(IPC 오류, 거절) 판이 다르면(unsupported_schema) layout source가 그 workspace의 쓰기를 막는다: 기본 layout이 사람의 파일을 덮지 않는다. 창의 알림 줄에 저장하지 않는다는 알림 card가 서고 다음 읽기가 되면 다시 쓴다. 손상(corrupt)은 잃을 것이 없어 막지 않는다. main이 읽을 때 <workspace>.json.bak으로 한 벌 남긴다"
       - "보이는 desk의 detached 창을 transfer 없이 되살린다. 다른 desk의 창은 그 desk로 갈 때 연다"
       - "읽는 동안 card는 빈 채로 둔다"

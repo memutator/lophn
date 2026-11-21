@@ -76,11 +76,11 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
     const unknown = { ...floats[0], tab: { kind: "nope", key: "x" } };
     await writeFile(
       file,
-      JSON.stringify({ schema_version: 3, floats: [unknown, floats[1]] }),
+      JSON.stringify({ schema_version: 4, floats: [unknown, floats[1]] }),
     );
     assert.deepEqual(await store.read(), [floats[1]]);
-    // 판 2는 core의 data step이 올리기 전에는 읽지 않는다.
-    await writeFile(file, JSON.stringify({ schema_version: 2, floats }));
+    // 판 3은 core의 data step이 올리기 전에는 읽지 않는다.
+    await writeFile(file, JSON.stringify({ schema_version: 3, floats }));
     assert.deepEqual(await store.read(), []);
   });
 });

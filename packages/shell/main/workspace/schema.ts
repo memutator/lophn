@@ -9,9 +9,15 @@ export const DEFAULT_DESK = "_default";
 
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
 // 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, workspace-layout의 parseWorkspaceLayoutFile이 먼저 그런 탭을 건너뛴다.
-// `machine`(탭이 보는 기계 `mch_`)은 kind마다가 아니라 탭 공통 칸이다: 이 칸만 떼어 검사하고 나머지를 kind의 schema에 준다.
-// 없으면 그 workspace의 기계다(이 컴퓨터의 workspace면 이 컴퓨터).
-type StoredTab = LayoutTab & { machine?: string | undefined };
+// 탭 공통 칸은 kind마다가 아니다: 이 칸들만 떼어 검사하고 나머지를 kind의 schema에 준다.
+// - `machine`: 탭이 보는 기계(`mch_`). 없으면 그 workspace의 기계다(이 컴퓨터의 workspace면 이 컴퓨터).
+// - `owner`: 탭의 주인 session(`ses_`). 없으면 사람이 연 탭이다.
+// - `handed_tab`: 사람이 session에 넘긴 browser 탭의 core 탭 id(`tab_`). 없으면 넘기지 않은 탭이다.
+type StoredTab = LayoutTab & {
+  machine?: string | undefined;
+  owner?: string | undefined;
+  handed_tab?: string | undefined;
+};
 
 export const layoutTabSchema: z.ZodType<StoredTab> = z
   .unknown()
@@ -21,9 +27,17 @@ export const layoutTabSchema: z.ZodType<StoredTab> = z
       ctx.addIssue({ code: "custom", message: "unknown tab kind" });
       return z.NEVER;
     }
-    const { machine, ...rest } = value as { machine?: unknown };
-    if (machine !== undefined && idOf("mch", machine) === null) {
-      ctx.addIssue({ code: "custom", message: "invalid tab machine" });
+    const { machine, owner, handed_tab, ...rest } = value as {
+      machine?: unknown;
+      owner?: unknown;
+      handed_tab?: unknown;
+    };
+    if (
+      (machine !== undefined && idOf("mch", machine) === null) ||
+      (owner !== undefined && idOf("ses", owner) === null) ||
+      (handed_tab !== undefined && idOf("tab", handed_tab) === null)
+    ) {
+      ctx.addIssue({ code: "custom", message: "invalid tab common field" });
       return z.NEVER;
     }
     const parsed = kind.layout.safeParse(rest);
@@ -34,6 +48,8 @@ export const layoutTabSchema: z.ZodType<StoredTab> = z
     return {
       ...(parsed.data as LayoutTab),
       ...(machine === undefined ? {} : { machine: machine as string }),
+      ...(owner === undefined ? {} : { owner: owner as string }),
+      ...(handed_tab === undefined ? {} : { handed_tab: handed_tab as string }),
     };
   }) as unknown as z.ZodType<StoredTab>;
 

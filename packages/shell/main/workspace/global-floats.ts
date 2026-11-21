@@ -1,7 +1,8 @@
 // <data>/shell/global-floats.json은 main만 쓴다. workspace와 재시작을 넘는 전역 float의 탭, 접힘, rect, pin이다.
 // 탭 값은 workspace layout 파일의 탭과 같다(kind registry가 검증하고 공통 칸 `machine`을 가진다). 파일이 없거나 틀리면 빈 목록이다.
 // 판 1(앱 panel만, `{app, screen, ...}`)은 core의 data step `shell.global-floats-tabs`가 판 2로 옮기고, 판 2는 `shell.layout-machines`가
-// 판 3으로 올린다(판 3은 workspace와 탭에 `machine`을 더했을 뿐이라 값은 그대로다).
+// 판 3으로, 판 3은 `shell.layout-owners`가 판 4로 올린다(판 3은 workspace와 탭에 `machine`을, 판 4는 탭에 `owner`·`handed_tab`을
+// 더했을 뿐이라 값은 그대로다).
 import { join } from "node:path";
 import { z } from "zod";
 
@@ -14,7 +15,7 @@ import {
 import { idOf } from "./kinds/values.ts";
 import { layoutTabSchema, windowBounds } from "./schema.ts";
 
-export const GLOBAL_FLOATS_SCHEMA_VERSION = 3;
+export const GLOBAL_FLOATS_SCHEMA_VERSION = 4;
 export const GLOBAL_FLOATS_MAX = 20;
 
 // workspace가 다른 기계의 것이면 그 기계(`mch_`). 없으면 이 컴퓨터의 workspace다.

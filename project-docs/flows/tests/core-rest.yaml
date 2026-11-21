@@ -532,7 +532,8 @@ files:
   - path: packages/core/main/daemon/wiring/shell-agent-tabs_test.ts
     covers:
       - shell-agent-tabs-unsaved:stripped
-    note: "저장된 layout과 전역 float에서 Agent 탭만 걷어내고 group·고른 탭을 맞추며 다시 돌아도 같다"
+      - layout-restore:restored
+    note: "저장된 layout과 전역 float에서 Agent 탭만 걷어내고 group·고른 탭을 맞추며 다시 돌아도 같다. 판 10·11 layout과 판 2·3 전역 float은 탭 값 그대로 판만 올라 새 판으로 읽히고, 다른 판과 깨진 파일은 그대로다"
 
   - path: packages/core/main/daemon/wiring/projects_test.ts
     covers:

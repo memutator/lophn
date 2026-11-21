@@ -2394,20 +2394,28 @@ flows:
     docs: [architecture/workspace-layout.md]
 
   - id: sidebar-session-open
-    title: "왼쪽 sidebar의 session, 터미널, workflow 줄을 연다"
+    title: "왼쪽 sidebar의 session, 터미널, workflow 줄과 session 줄 아래의 탭 줄을 연다"
     actor: person
-    entries: [ui:sidebar-session-open]
-    when: "왼쪽 sidebar의 session 줄, 터미널 줄, draft 줄, workflow 줄을 누른다"
+    entries: [ui:sidebar-session-open, ui:sidebar-session-tab-open]
+    when: "왼쪽 sidebar의 session 줄, 터미널 줄, draft 줄, workflow 줄을 누르거나, session 줄의 펼침 단추로 편 탭 줄을 누른다"
     boundary: [shell]
     code:
       - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
       - packages/shell/renderer/shell/left-sidebar-model.ts
+      - packages/shell/renderer/shell/left-sidebar-workspaces.ts
+      - packages/shell/renderer/shell/left-sidebar.tsx
     steps:
+      - "current 줄은 desk 묶음마다 팀(spawn tree)으로 선다: 부모(session의 spawned_by)가 같은 묶음에 있는 session 줄은 그 부모 줄 아래에 한 단계씩 들여쓴다. 부모가 다른 desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 단계마다 순서는 id 순 그대로다"
+      - "lophn session 줄은 그 session이 주인(TabItem.owner)인 탭을 이 창이 아는 모든 workspace layout에서 자리(탭 줄, group 칸, float, 접힌 float, detached)와 상관없이 모은다. 그 session의 대화 탭은 빼고 자식의 대화 탭은 든다. 하나라도 있으면 줄 앞에 펼침 단추가 서고, 펴면 줄 아래에 탭 줄(kind 아이콘과 제목)이 선다. 펼침은 창 메모리다"
       - "이 workspace의 session이면 openSessionTab이 agent 탭을 연다. 이미 있으면 고른다. session이나 agent 목록을 모르면 열지 않는다"
       - "draft 줄이면 그 탭을 고르고, 터미널 줄이면 터미널 탭을 연다(terminal-tab-focus와 같은 길)"
-      - "다른 workspace의 session이나 터미널이면 showTerminalAt이 그 workspace의 저장된 layout에서 탭을 골라 두고 그 workspace로 간다. layout을 못 읽었거나 탭이 없으면 저장 없이 그 workspace로만 간다"
+      - "다른 workspace의 session이나 터미널이면 showTabAt이 그 workspace의 저장된 layout에서 탭을 골라 두고 그 workspace로 간다. layout을 못 읽었거나 탭이 없으면 저장 없이 그 workspace로만 간다"
+      - "탭 줄이면 이 workspace의 탭은 창이 그 탭으로 간다(그 desk로 가서 고르고, 접힌 float은 펴서 맨 위로, detached는 그 창을 앞으로). 다른 workspace의 탭은 showTabAt이 그 layout에서 그 desk를 보이게 하고 탭을 고르거나 float을 펴 두고 그 workspace로 간다"
     uses: [ipc:shell:workspace-layout-save, ipc:shell:workspace-layout-read]
     outcomes:
+      - id: owned-tab-shown
+        when: "펼친 session 줄 아래의 탭 줄을 눌러 그 탭이 보인다(접힌 float은 펴진다)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "screen:shell-left-sidebar-project"]
       - id: tab-opened
         observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
       - id: tab-selected

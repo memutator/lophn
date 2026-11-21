@@ -41,7 +41,34 @@ export interface SidebarSession {
     readonly tab: string | null;
     readonly harness: string;
   };
+  /** 팀(spawn tree)에서 이 줄의 자식. 같은 desk 묶음 안에 부모가 있는 session 줄이 그 부모 아래로 온다. */
+  readonly children?: readonly SidebarSession[];
+  /** lophn session이 주인인 탭(자기 대화 탭은 빼고). 줄을 펴면 보인다. 없으면 펼침 단추가 없다. */
+  readonly tabs?: readonly SidebarTab[];
 }
+
+/** 탭의 자리. 탭 줄(group 칸 포함), 펴진 float, 접힌 float, detached. */
+export type OwnedTabPlace = "tab" | "float" | "minimized" | "detached";
+
+/** session이 주인인 탭 하나. layout 하나에서 모은 값이다. */
+export interface OwnedTab {
+  readonly key: string;
+  readonly title: string;
+  readonly kind: string;
+  readonly desk: string;
+  readonly place: OwnedTabPlace;
+}
+
+/** session 줄 아래의 탭 줄. 탭이 있는 workspace를 단다(session 줄과 다른 workspace일 수 있다). */
+export interface SidebarTab extends OwnedTab {
+  readonly workspace: WorkspaceRef;
+}
+
+/** 줄과 그 팀 자식 줄 전부(위에서 아래 순서). */
+export const withChildren = (item: SidebarSession): SidebarSession[] => [
+  item,
+  ...(item.children ?? []).flatMap(withChildren),
+];
 
 export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>
   `${item.kind}:${item.ref}`;
@@ -50,6 +77,7 @@ export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>
 export interface SidebarDeskGroup {
   /** 줄이 속한 desk. 탭 없는 줄도 Main desk에 든다. layout을 아직 못 읽은 workspace의 묶음 하나만 null이다. */
   readonly desk: { readonly key: string; readonly label: string } | null;
+  /** 팀 tree의 맨 위 단계 줄. 자식 줄은 `children`에 든다. */
   readonly items: readonly SidebarSession[];
 }
 

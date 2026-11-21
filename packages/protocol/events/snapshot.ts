@@ -19,6 +19,8 @@ const sessionSnapshotSchema = z.object({
   // 창을 연 뒤 만난 session도 누구의 session인지 알게 싣는다.
   agent: agentIdSchema,
   workspace: workspaceOutputSchema.nullable(),
+  // 팀(spawn tree)의 부모. 화면이 sidebar에 팀 tree를 그린다.
+  spawned_by: idSchema("ses").nullable(),
   state: sessionStateSchema,
   turn_requests: z.array(turnRequestSchema),
   questions: z.array(

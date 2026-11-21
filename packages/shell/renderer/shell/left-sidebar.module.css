@@ -257,6 +257,60 @@
   outline: none;
 }
 
+/* 주인 탭이 있는 session 줄의 펼침 단추. 줄의 agent 아이콘 앞 빈 자리에 선다. */
+.treeLine {
+  position: relative;
+}
+
+.tabsToggle {
+  position: absolute;
+  inset-block: var(--space-0);
+  inset-inline-start: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.tabsToggle:hover {
+  color: var(--color-text-primary);
+}
+
+/* 팀 자식 줄과 펼친 탭 줄은 한 단계마다 들여쓴다. */
+.teamChildren,
+.sessionTabs {
+  display: flex;
+  flex-direction: column;
+  padding-inline-start: var(--space-5);
+}
+
+.tabRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-sm-height);
+  padding: var(--space-1) var(--space-3) var(--space-1)
+    calc(var(--space-3) + var(--space-6));
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-small-size);
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.tabRow:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
 /* current 줄을 나눈 desk 이름. session 줄의 글 자리에 맞춰 들인 작은 글이다. */
 .deskHead {
   overflow: hidden;

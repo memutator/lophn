@@ -41,6 +41,10 @@ import {
   type QuickCommand,
   type TabDragItem,
   closeTab,
+  findTab,
+  restoreFloat,
+  setActiveDesk,
+  updateDesk,
   workspaceKey,
   type WorkspaceRef,
   selectTab,
@@ -51,8 +55,10 @@ import { LeftSidebar } from "../../shell/left-sidebar.tsx";
 import type { QuickLaunch } from "../../shell/quick-launch.tsx";
 import { agentChoices, codingCommand } from "../../shell/agent-sections.tsx";
 import {
-  type SidebarWorkspace,
   type SidebarSession,
+  type SidebarTab,
+  type SidebarWorkspace,
+  withChildren,
 } from "../../shell/left-sidebar-model.ts";
 import {
   type LayoutDesks,
@@ -184,7 +190,7 @@ export interface WorkspaceLeftSidebarProps {
   onAgents?: () => void;
   /** 맨 아래 줄의 빠른 실행. 작업 표시줄이 켜져 있으면 주지 않는다(작업 표시줄이 그린다). */
   quick?: QuickLaunch;
-  /** 이 창의 탭(draft 줄)을 고른다. */
+  /** 이 창의 탭(draft 줄, session 줄 아래의 탭 줄)을 고른다. float이면 펴고 detached면 그 창을 앞으로 한다. */
   onTab: (key: string) => void;
   /** 이 창의 탭이 그 session·터미널이면 탭 이름 바꾸기와 같은 길로 바꾸고 true다. 탭이 없으면 false다. */
   onRenameTab?: (item: SidebarSession, title: string) => boolean;
@@ -593,20 +599,24 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     [live, dataOf],
   );
 
-  // 다른 workspace의 터미널 탭: 그 workspace의 layout에서 탭을 골라 두고 workspace로 간다.
-  const showTerminalAt = async (ref: WorkspaceRef, tab: string) => {
+  // 다른 workspace의 탭: 그 workspace의 layout에서 탭을 골라 두고(접힌 float은 펴고) workspace로 간다. detached 탭은 그 desk만
+  // 보이게 둔다(그 창은 그 workspace가 열려야 선다).
+  const showTabAt = async (ref: WorkspaceRef, tab: string) => {
     const read = await layoutOf(ref).readWorkspaceLayout(ref);
-    if (read.ok && read.layout !== null) {
-      const desk = Object.values(read.layout.desks).find((item) =>
-        item.tabs.some((row) => row.key === tab),
+    const found =
+      read.ok && read.layout !== null ? findTab(read.layout, tab) : null;
+    if (read.ok && read.layout !== null && found !== null) {
+      await layoutOf(ref).saveWorkspaceLayout(
+        ref,
+        updateDesk(
+          setActiveDesk(read.layout, found.desk),
+          found.desk,
+          (desk) =>
+            found.where === "float"
+              ? restoreFloat(desk, tab)
+              : selectTab(desk, tab),
+        ),
       );
-      if (desk !== undefined) {
-        await layoutOf(ref).saveWorkspaceLayout(ref, {
-          ...read.layout,
-          active: desk.key,
-          desks: { ...read.layout.desks, [desk.key]: selectTab(desk, tab) },
-        });
-      }
     }
     props.onWorkspace(ref);
   };
@@ -674,7 +684,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     const here = workspaceKey(workspace.ref) === workspaceKey(current);
     if (remote.tab !== null) {
       if (here) props.onTab(remote.tab);
-      else void showTerminalAt(workspace.ref, remote.tab);
+      else void showTabAt(workspace.ref, remote.tab);
     } else if (here) {
       props.onTerminal({
         key: item.ref,
@@ -711,13 +721,20 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     } else if (item.kind === "terminal") {
       const terminal = props.terminals.find((row) => row.key === item.ref);
       if (terminal !== undefined) props.onTerminal(terminal);
-      else if (!here) void showTerminalAt(workspace.ref, item.ref);
+      else if (!here) void showTabAt(workspace.ref, item.ref);
     } else {
       const agent = entries.find((row) => row.session === item.ref)?.agent;
       if (agent !== null && agent !== undefined) {
         props.onOpenHere(item.ref, agent);
       }
     }
+  };
+
+  // session 줄 아래의 탭 줄. 이 창의 탭은 창이 고른다(접힌 float은 펴고 detached는 그 창을 앞으로).
+  const openSessionTab = (tab: SidebarTab) => {
+    if (workspaceKey(tab.workspace) === workspaceKey(current)) {
+      props.onTab(tab.key);
+    } else void showTabAt(tab.workspace, tab.key);
   };
 
   // tab 없이 current에 있는 lophn session(도는 중, 기다리는 중)은 그 기계의 agent source로 바로 부른다.
@@ -792,7 +809,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     );
   const itemOf = (row: NonNullable<TabDragItem["row"]>) =>
     rowOf(row)
-      ?.current.flatMap((group) => group.items)
+      ?.current.flatMap((group) => group.items.flatMap(withChildren))
       .concat(rowOf(row)?.recent ?? [])
       .find((one) => one.kind === row.kind && one.ref === row.ref);
   const matches =
@@ -945,6 +962,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(props.onAgents === undefined ? {} : { onAgents: props.onAgents })}
         onWorkspace={props.onWorkspaceRow}
         onSession={open}
+        onSessionTab={openSessionTab}
         onRemoveRecent={(workspace, item) => {
           recentHidden.hide(item.ref, item.at);
           // 터미널 coding session을 지우면 그 GUI 탭이 맡던 팀원 session도 보관해 더는 불리지 않게 한다.

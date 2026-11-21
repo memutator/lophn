@@ -780,6 +780,7 @@ function sampleCore(): CoreSource {
     session: one.id,
     agent: one.agent,
     workspace: one.workspace,
+    spawned_by: null,
     state: one.state,
     turn_requests: [],
     questions: [],

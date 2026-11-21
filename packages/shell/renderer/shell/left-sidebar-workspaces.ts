@@ -17,6 +17,10 @@
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
 // - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 Main desk 묶음에 둔다.
+// - 팀(spawn tree): desk 묶음마다 부모(`spawnedBy`)가 같은 묶음에 있는 session 줄은 그 부모 줄 아래(`children`)로 간다. 부모가 다른
+//   desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 순서 규칙은 단계마다 그대로다. 묶음을 건너 옮기면 desk 묶음의 뜻이 흐려진다.
+// - lophn session 줄의 `tabs`는 그 session이 주인인 탭이다(`TabItem.owner`). 이 창이 아는 모든 workspace layout에서 자리(탭 줄, float,
+//   접힌 float, detached)와 상관없이 모으고 그 session의 대화 탭은 뺀다(줄 자체가 그 탭이다).
 // - 줄(workspace)은 기계마다 따로다(`desktop/workspaces/projects/machine-workspaces.ts`). session은 자기 기계의 workspace 줄에 선다.
 //   꺼진 기계의 session은 마지막으로 본 대로 흐리게 남는다.
 // - lophn 이름(`lophn_home`, `lophn_<app id>`)은 기계마다 같은 id라 이 컴퓨터의 session에만 쓴다.
@@ -46,16 +50,18 @@ import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import { sessionRowTitle } from "./session-titles.ts";
 import {
-  deskTabs,
   MAIN_DESK,
+  type TabItem,
   type WorkspaceLayout,
   workspaceKey,
   type WorkspaceRef,
 } from "./desk-model.ts";
 import type {
+  OwnedTab,
   SidebarDeskGroup,
-  SidebarWorkspace,
   SidebarSession,
+  SidebarTab,
+  SidebarWorkspace,
 } from "./left-sidebar-model.ts";
 
 // lophn의 기본 얼굴(core의 `LOPHN_PROFILE`과 같다).
@@ -74,26 +80,53 @@ export type KnownSessions = ReadonlyMap<
 /** 다른 기계(`machine`)의 터미널에서 도는 coding agent. */
 export type RemoteTerminal = CodingSession & { readonly machine: string };
 
-/** workspace layout의 desk와, 줄이 가리키는 것(탭 key, Agent 탭의 session id, `workflow:<이름>`)이 있는 desk의 key. */
+/**
+ * workspace layout의 desk와, 줄이 가리키는 것(탭 key, Agent 탭의 session id, `workflow:<이름>`)이 있는 desk의 key.
+ * `owned`는 session id → 그 session이 주인인 탭(그 session의 대화 탭은 빼고)이다.
+ */
 export interface LayoutDesks {
   readonly list: readonly { readonly key: string; readonly label: string }[];
   readonly at: ReadonlyMap<string, string>;
+  readonly owned: ReadonlyMap<string, readonly OwnedTab[]>;
 }
 
 export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
   const list: { key: string; label: string }[] = [];
   const at = new Map<string, string>();
+  const owned = new Map<string, OwnedTab[]>();
   for (const desk of Object.values(layout.desks)) {
     list.push({ key: desk.key, label: desk.label });
     if (desk.workflow !== undefined)
       at.set(`workflow:${desk.workflow}`, desk.key);
-    for (const tab of deskTabs(desk)) {
+    const places: { tab: TabItem; place: OwnedTab["place"] }[] = [
+      ...desk.tabs.map((tab) => ({ tab, place: "tab" as const })),
+      ...desk.floats.map((item) => ({
+        tab: item.tab,
+        place: item.minimized ? ("minimized" as const) : ("float" as const),
+      })),
+      ...desk.detached.map((item) => ({
+        tab: item.tab,
+        place: "detached" as const,
+      })),
+    ];
+    for (const { tab, place } of places) {
       at.set(tab.key, desk.key);
       const session = tab.kind === "agent" ? sessionOf(tab) : null;
       if (session !== null) at.set(session, desk.key);
+      if (tab.owner === undefined || tab.owner === session) continue;
+      owned.set(tab.owner, [
+        ...(owned.get(tab.owner) ?? []),
+        {
+          key: tab.key,
+          title: tab.title,
+          kind: tab.kind,
+          desk: desk.key,
+          place,
+        },
+      ]);
     }
   }
-  return { list, at };
+  return { list, at, owned };
 }
 
 /** 사람이 Recent에서 지운 줄의 key → 지운 때(epoch ms). */
@@ -177,6 +210,21 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       row,
     );
   }
+  // session id → 그 session이 주인인 탭. 이 창이 아는 모든 workspace의 layout에서 모은다.
+  const owned = new Map<string, SidebarTab[]>();
+  for (const [key, desks] of input.desks) {
+    const ref = byKey.get(key)?.ref;
+    if (ref === undefined) continue;
+    for (const [session, tabs] of desks.owned) {
+      owned.set(session, [
+        ...(owned.get(session) ?? []),
+        ...tabs.map((tab) => ({ ...tab, workspace: ref })),
+      ]);
+    }
+  }
+  const spawnedBy = new Map(
+    input.entries.map((entry) => [entry.session, entry.spawnedBy]),
+  );
   const current = new Map<string, SidebarSession[]>();
   const recent = new Map<string, SidebarSession[]>();
   const add = (
@@ -241,8 +289,11 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       now: input.now,
       hiddenAt: input.hidden.get(entry.session),
     });
-    if (place === "current") add(current, workspace, item);
-    else if (place === "recent" && workspace === here) add(recent, here, item);
+    const tabs = owned.get(entry.session);
+    if (place === "current") {
+      add(current, workspace, tabs === undefined ? item : { ...item, tabs });
+    } else if (place === "recent" && workspace === here)
+      add(recent, here, item);
   }
 
   for (const draft of input.drafts) {
@@ -341,6 +392,29 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     });
   }
 
+  // 부모가 같은 묶음에 있는 session 줄을 그 부모 아래로 옮긴다. `items`의 순서를 단계마다 지킨다.
+  const teamTree = (items: readonly SidebarSession[]): SidebarSession[] => {
+    const inGroup = new Set(
+      items.flatMap((item) => (item.kind === "session" ? [item.ref] : [])),
+    );
+    const parentOf = (item: SidebarSession) => {
+      const parent =
+        item.kind === "session" ? spawnedBy.get(item.ref) : undefined;
+      return parent != null && inGroup.has(parent) ? parent : null;
+    };
+    const children = new Map<string, SidebarSession[]>();
+    for (const item of items) {
+      const parent = parentOf(item);
+      if (parent !== null)
+        children.set(parent, [...(children.get(parent) ?? []), item]);
+    }
+    const grow = (item: SidebarSession): SidebarSession => {
+      const kids = item.kind === "session" ? children.get(item.ref) : undefined;
+      return kids === undefined ? item : { ...item, children: kids.map(grow) };
+    };
+    return items.filter((item) => parentOf(item) === null).map(grow);
+  };
+
   // 종류 안에서는 만든 순이다. 새 줄은 끝에 붙고 다시 시작해도 같다.
   const order = { session: 0, draft: 1, terminal: 2, workflow: 3 };
   const stable = (a: SidebarSession, b: SidebarSession) =>
@@ -381,7 +455,9 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     return {
       ref,
       name,
-      current: groups.filter((group) => group.items.length > 0),
+      current: groups
+        .filter((group) => group.items.length > 0)
+        .map((group) => ({ ...group, items: teamTree(group.items) })),
       recent: (recent.get(key) ?? []).sort(byNewest),
       also: row.also,
       ...(row.listed === undefined ? {} : { listed: row.listed }),

@@ -106,6 +106,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             session: row.id,
             agent: row.agent,
             workspace: workspaceOf(row),
+            spawned_by: row.spawned_by as SessionSnapshot["spawned_by"],
             state: sessionStateOf(sql, row.id, {
               approval: turn_requests.length > 0,
               question: questions.length > 0,

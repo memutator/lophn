@@ -509,6 +509,7 @@ export function createFakeWaiting(
         session: session.id,
         agent: session.agent,
         workspace: session.workspace,
+        spawned_by: null,
         state: "waiting",
         turn_requests: [],
         questions: [],
@@ -570,6 +571,7 @@ export function createFakeWaiting(
           payload: {
             agent: session.agent,
             workspace: session.workspace,
+            spawned_by: null,
             revived: false,
           },
         });

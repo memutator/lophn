@@ -164,6 +164,7 @@ export function startSession(
     payload: {
       agent: row.agent,
       workspace: workspaceOf(row),
+      spawned_by: row.spawned_by as Id<"ses"> | null,
       revived: false,
     },
   });

@@ -27,6 +27,7 @@ import {
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
+import { tabKindOf } from "../workspace/kinds/registry.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
@@ -53,9 +54,11 @@ import {
 import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { workspaceKey, type WorkspaceRef } from "./desk-model.ts";
 import {
-  type SidebarWorkspace,
   type SidebarSession,
+  type SidebarTab,
+  type SidebarWorkspace,
   sessionKey,
+  withChildren,
 } from "./left-sidebar-model.ts";
 import styles from "./left-sidebar.module.css";
 import {
@@ -89,6 +92,8 @@ export interface LeftSidebarProps {
   /** workspace 줄 누르기. 앱 줄이면 그 앱 화면 탭으로 간다. */
   onWorkspace: (ref: WorkspaceRef) => void;
   onSession: (workspace: SidebarWorkspace, session: SidebarSession) => void;
+  /** 펼친 session 줄 아래의 탭 줄 누르기. 그 탭으로 간다(접힌 float이면 편다). */
+  onSessionTab?: (tab: SidebarTab) => void;
   /** Recent 줄을 목록에서 지운다. 주지 않으면 menu가 없다. */
   onRemoveRecent?: (
     workspace: SidebarWorkspace,
@@ -316,6 +321,7 @@ export function LeftSidebar({
   onAgents,
   onWorkspace,
   onSession,
+  onSessionTab,
   onRemoveRecent,
   onRegisterProject,
   onCreateApp,
@@ -354,6 +360,14 @@ export function LeftSidebar({
     setExpanded((all) => {
       const next = new Set(all);
       if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  // 탭 줄을 펼친 session. 창 메모리에 둔다.
+  const [tabsExpanded, setTabsExpanded] = useRemembered("sessionTabsOpen");
+  const toggleSessionTabs = (session: string) =>
+    setTabsExpanded((all) => {
+      const next = new Set(all);
+      if (!next.delete(session)) next.add(session);
       return next;
     });
   // 펼친 다른 기계 묶음. 창 메모리에 둔다.
@@ -407,6 +421,143 @@ export function LeftSidebar({
     onRowDrag !== undefined &&
     item.kind !== "workflow" &&
     item.offline !== true;
+  // current 줄 하나와, 펼쳤으면 그 session의 탭 줄, 그 아래 팀 자식 줄(한 단계 들여쓴다).
+  const renderItem = (
+    workspace: SidebarWorkspace,
+    here: boolean,
+    item: SidebarSession,
+  ): ReactElement => {
+    const itemKey = sessionKey(item);
+    const actions =
+      item.actions &&
+      (onRenameSession !== undefined || onStopSession !== undefined);
+    const tabs = item.tabs ?? [];
+    const tabsOpen = tabs.length > 0 && tabsExpanded.has(item.ref);
+    // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
+    const row = (
+      <SessionRow
+        item={item}
+        selected={here && itemKey === selected}
+        recent={false}
+        dot={!actions || onStopSession === undefined}
+        machineName={nameOf(item.machine)}
+        onClick={() => onSession(workspace, item)}
+        {...(canDrag(item) ? { onDragStart: dragFrom(workspace, item) } : {})}
+      />
+    );
+    const toggleTabs =
+      tabs.length === 0 ? null : (
+        <button
+          type="button"
+          className={styles.tabsToggle}
+          aria-expanded={tabsOpen}
+          aria-label={t(
+            tabsOpen
+              ? "left-sidebar.button.session-tabs-hide"
+              : "left-sidebar.button.session-tabs-show",
+          )}
+          data-session-tabs-toggle={item.ref}
+          onClick={() => toggleSessionTabs(item.ref)}
+        >
+          <Icon
+            icon={tabsOpen ? shellIcons.expand : sidebarIcons.collapsed}
+            pixels={12}
+          />
+        </button>
+      );
+    let line: ReactElement;
+    if (actions && renaming === itemKey) {
+      line = (
+        <SessionRename
+          title={item.title}
+          onDone={(name) => {
+            setRenaming(null);
+            if (name !== null) onRenameSession?.(workspace, item, name);
+          }}
+        />
+      );
+    } else if (actions) {
+      line = (
+        <div className={styles.sessionLine} data-session-line={itemKey}>
+          {toggleTabs}
+          {row}
+          <span className={styles.rowActions}>
+            {onRenameSession === undefined ||
+            item.kind === "draft" ||
+            item.noRename === true ? null : (
+              <button
+                type="button"
+                className={styles.rowAction}
+                aria-label={t("left-sidebar.button.rename-session")}
+                data-session-rename=""
+                onClick={() => setRenaming(itemKey)}
+              >
+                <Icon icon={actionIcons.edit} pixels={14} />
+              </button>
+            )}
+            {onStopSession === undefined ? null : (
+              <button
+                type="button"
+                className={styles.rowAction}
+                aria-label={t("left-sidebar.button.stop-session")}
+                data-session-stop=""
+                data-dot={item.dot === null ? undefined : ""}
+                onClick={() => onStopSession(workspace, item)}
+              >
+                {item.dot === null ? null : (
+                  <TabStateDot dot={item.dot} className={styles.stopDot} />
+                )}
+                <Icon
+                  icon={shellIcons.close}
+                  pixels={14}
+                  className={styles.stopCross}
+                />
+              </button>
+            )}
+          </span>
+        </div>
+      );
+    } else if (toggleTabs !== null) {
+      line = (
+        <div className={styles.treeLine}>
+          {toggleTabs}
+          {row}
+        </div>
+      );
+    } else line = row;
+    return (
+      <Fragment key={itemKey}>
+        {line}
+        {tabsOpen ? (
+          <div className={styles.sessionTabs} data-session-tabs={item.ref}>
+            {tabs.map((tab) => (
+              <button
+                key={`${workspaceKey(tab.workspace)}\0${tab.key}`}
+                type="button"
+                className={styles.tabRow}
+                data-owned-tab={tab.key}
+                data-place={tab.place}
+                onClick={() => onSessionTab?.(tab)}
+              >
+                <span className={styles.rowIcon}>
+                  <Icon
+                    icon={tabKindOf(tab.kind)?.icon ?? shellIcons.app}
+                    pixels={14}
+                  />
+                </span>
+                <span className={styles.rowLabel}>{tab.title}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {item.children === undefined ? null : (
+          <div className={styles.teamChildren} data-team-children={item.ref}>
+            {item.children.map((child) => renderItem(workspace, here, child))}
+          </div>
+        )}
+      </Fragment>
+    );
+  };
   const renderWorkspace = (workspace: SidebarWorkspace) => {
     const key = workspaceKey(workspace.ref);
     const here = key === currentKey;
@@ -534,86 +685,7 @@ export function LeftSidebar({
                 {group.desk?.label}
               </div>
             )}
-            {group.items.map((item) => {
-              const itemKey = sessionKey(item);
-              const actions =
-                item.actions &&
-                (onRenameSession !== undefined || onStopSession !== undefined);
-              // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
-              const row = (
-                <SessionRow
-                  item={item}
-                  selected={here && itemKey === selected}
-                  recent={false}
-                  dot={!actions || onStopSession === undefined}
-                  machineName={nameOf(item.machine)}
-                  onClick={() => onSession(workspace, item)}
-                  {...(canDrag(item)
-                    ? { onDragStart: dragFrom(workspace, item) }
-                    : {})}
-                />
-              );
-              if (!actions) return <Fragment key={itemKey}>{row}</Fragment>;
-              if (renaming === itemKey) {
-                return (
-                  <SessionRename
-                    key={itemKey}
-                    title={item.title}
-                    onDone={(name) => {
-                      setRenaming(null);
-                      if (name !== null)
-                        onRenameSession?.(workspace, item, name);
-                    }}
-                  />
-                );
-              }
-              return (
-                <div
-                  key={itemKey}
-                  className={styles.sessionLine}
-                  data-session-line={itemKey}
-                >
-                  {row}
-                  <span className={styles.rowActions}>
-                    {onRenameSession === undefined ||
-                    item.kind === "draft" ||
-                    item.noRename === true ? null : (
-                      <button
-                        type="button"
-                        className={styles.rowAction}
-                        aria-label={t("left-sidebar.button.rename-session")}
-                        data-session-rename=""
-                        onClick={() => setRenaming(itemKey)}
-                      >
-                        <Icon icon={actionIcons.edit} pixels={14} />
-                      </button>
-                    )}
-                    {onStopSession === undefined ? null : (
-                      <button
-                        type="button"
-                        className={styles.rowAction}
-                        aria-label={t("left-sidebar.button.stop-session")}
-                        data-session-stop=""
-                        data-dot={item.dot === null ? undefined : ""}
-                        onClick={() => onStopSession(workspace, item)}
-                      >
-                        {item.dot === null ? null : (
-                          <TabStateDot
-                            dot={item.dot}
-                            className={styles.stopDot}
-                          />
-                        )}
-                        <Icon
-                          icon={shellIcons.close}
-                          pixels={14}
-                          className={styles.stopCross}
-                        />
-                      </button>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
+            {group.items.map((item) => renderItem(workspace, here, item))}
           </Fragment>
         ))}
         {workspace.recent.length === 0 ? null : (
@@ -784,7 +856,10 @@ export function LeftSidebar({
           const running = rows.reduce(
             (count, row) =>
               count +
-              row.current.reduce((all, group) => all + group.items.length, 0),
+              row.current.reduce(
+                (all, group) => all + group.items.flatMap(withChildren).length,
+                0,
+              ),
             0,
           );
           return (

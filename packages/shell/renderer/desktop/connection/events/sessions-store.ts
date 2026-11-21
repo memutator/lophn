@@ -26,6 +26,8 @@ export interface SessionEntry {
   readonly ended: EndReason | null;
   readonly agent: AgentId | null;
   readonly workspace: Workspace | null;
+  /** 팀(spawn tree)의 부모 session. 팀 밖이거나 모르면 null. */
+  readonly spawnedBy: string | null;
   /** 사람이 보지 않는 사이 turn이 끝났다(Agent 탭의 finished 점). core가 정한다(`unseen`). */
   readonly unseen: boolean;
 }
@@ -55,6 +57,7 @@ interface Record_ {
   ended: EndReason | null;
   agent: AgentId | null;
   workspace: Workspace | null;
+  spawnedBy: string | null;
 }
 
 interface SessionsStore {
@@ -85,6 +88,7 @@ export function createSessionsStore(
         ended: record.ended,
         agent: record.agent,
         workspace: record.workspace,
+        spawnedBy: record.spawnedBy,
         unseen: unseen?.get().marks.has(session) ?? false,
       });
     }
@@ -101,6 +105,7 @@ export function createSessionsStore(
         ended: null,
         agent: null,
         workspace: null,
+        spawnedBy: null,
       };
       records.set(session, record);
     }
@@ -110,7 +115,7 @@ export function createSessionsStore(
   function apply(event: BusEvent) {
     switch (event.type) {
       case "SessionStarted": {
-        const { agent, workspace } = event.payload;
+        const { agent, workspace, spawned_by } = event.payload;
         records.set(event.session, {
           base: "idle",
           turnActive: false,
@@ -118,6 +123,7 @@ export function createSessionsStore(
           ended: null,
           agent,
           workspace,
+          spawnedBy: spawned_by,
         });
         break;
       }
@@ -173,6 +179,7 @@ export function createSessionsStore(
         ended: null,
         agent: snapshot.agent,
         workspace: snapshot.workspace,
+        spawnedBy: snapshot.spawned_by,
       });
     }
     records = next;

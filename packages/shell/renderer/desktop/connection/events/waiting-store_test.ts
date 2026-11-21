@@ -92,6 +92,7 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
         session: SES,
         agent: "lophn_home",
         workspace: null,
+        spawned_by: null,
         state: "waiting",
         turn_requests: [permission(1)],
         questions: [],
@@ -124,6 +125,7 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
         session: SES,
         agent: "lophn_home",
         workspace: null,
+        spawned_by: null,
         state: "waiting",
         turn_requests: [permission(3)],
         questions: [
@@ -162,6 +164,7 @@ test("팀 자식의 요청과 질문(to_parent)은 사람의 대기 목록에 �
         session: SES,
         agent: "lophn_home",
         workspace: null,
+        spawned_by: null,
         state: "waiting",
         turn_requests: [toParent, permission(8)],
         questions: [

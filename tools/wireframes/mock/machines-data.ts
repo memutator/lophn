@@ -294,6 +294,7 @@ export function machineSidebar(
     session,
     agent: agent as SessionEntry["agent"],
     workspace: workspace as SessionEntry["workspace"],
+    spawnedBy: null,
     state,
     archived: false,
     ended: null,

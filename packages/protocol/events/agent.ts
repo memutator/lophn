@@ -55,6 +55,7 @@ const sessionStarted = defineAgentEvent(
   z.strictObject({
     agent: agentIdSchema,
     workspace: workspaceOutputSchema.nullable(),
+    spawned_by: idSchema("ses").nullable(),
     revived: z.boolean(),
   }),
 );

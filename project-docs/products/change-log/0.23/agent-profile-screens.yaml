@@ -1,5 +1,5 @@
 id: agent-profile-screens
-version: 0.23.121
+version: 0.23.124
 title: agent 정의를 네 묶음(Who, Runs on, Sees, Works how)의 한 장 profile로 보이고 복제를 더한다
 modules: [packages/shell/renderer, packages/design, tools]
 change: |

@@ -1,6 +1,6 @@
 {
   "name": "lophn",
-  "version": "0.23.123",
+  "version": "0.23.124",
   "private": true,
   "type": "module",
   "workspaces": [

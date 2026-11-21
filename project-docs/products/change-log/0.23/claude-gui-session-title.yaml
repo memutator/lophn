@@ -1,0 +1,11 @@
+id: claude-gui-session-title
+version: 0.23.112
+title: Claude Code GUI 세션 제목이 마지막 프롬프트로 덮어씌워지는 버그를 고친다
+modules: [packages/core/extensions]
+change: |
+  전: Claude Code GUI adapter(`claude.ts`)가 `sdk.getSessionInfo()`의 `customTitle ?? summary`를 세션 제목으로 썼다. SDK의 `summary`는 `customTitle`/`aiTitle`이 없을 때 `lastPrompt`를 먼저 돌려줘, 매 turn이 끝날 때마다 세션 이름이 마지막으로 친 프롬프트로 덮어씌워졌다.
+  후: `customTitle ?? firstPrompt ?? summary` 순서로 읽어 `/rename`·AI 제목이 있으면 그 값을, 없으면 첫 프롬프트를 유지한다. 지난 세션 목록(`sessions()`)에도 같은 순서를 쓴다.
+why: |
+  Claude Code GUI에서 대화를 이어갈 때마다 탭·sidebar 이름이 매번 마지막 프롬프트로 바뀌어 세션을 알아보기 어려웠다.
+checklist:
+  - "Claude Code GUI(`claude --gui`)에서 첫 번째·두 번째 프롬프트를 연달아 보냈을 때 세션 이름이 두 번째 프롬프트로 바뀌지 않는지 확인한다"

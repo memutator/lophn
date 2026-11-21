@@ -1933,7 +1933,10 @@ const start: (sdk: ClaudeSdk) => Start =
     async function refreshTitle() {
       try {
         const found = await sdk.getSessionInfo(cliSession, { dir: cwd });
-        const title = found?.customTitle ?? found?.summary ?? null;
+        // SDK의 `summary`는 `customTitle`/`aiTitle`이 없으면 `lastPrompt`를 먼저 넣어 매 turn마다 제목이 마지막 프롬프트로 바뀐다.
+        // `customTitle`(SDK가 `aiTitle` 포함) → `firstPrompt` → `summary` 순으로 읽는다.
+        const title =
+          found?.customTitle ?? found?.firstPrompt ?? found?.summary ?? null;
         if (title !== null && title !== titled) {
           titled = title;
           changed({ title });
@@ -3448,7 +3451,7 @@ const start: (sdk: ClaudeSdk) => Start =
         .sort((a, b) => b.lastModified - a.lastModified)
         .map((one) => ({
           id: one.sessionId,
-          title: one.customTitle ?? one.summary,
+          title: one.customTitle ?? one.firstPrompt ?? one.summary,
           updated_at: new Date(one.lastModified).toISOString(),
         }));
     }

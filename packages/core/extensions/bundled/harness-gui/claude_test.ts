@@ -108,6 +108,12 @@ async function setup(
     hang?: boolean;
     /** 두 번째부터의 query는 메시지 없이 끝나거나(`true`) query()가 바로 던진다(`"throw"`). 새 CLI가 뜨지 못함. */
     emptyReopen?: boolean | "throw";
+    /** getSessionInfo가 돌려줄 metadata. */
+    sessionInfo?: () => {
+      customTitle?: string;
+      firstPrompt?: string;
+      summary: string;
+    };
   } = {},
 ) {
   const sdkMessages: unknown[] = [];
@@ -189,7 +195,11 @@ async function setup(
       Promise.resolve(
         options.unsaved
           ? undefined
-          : { sessionId: id, summary: "", lastModified: 0 },
+          : {
+              sessionId: id,
+              lastModified: 0,
+              ...(options.sessionInfo?.() ?? { summary: "" }),
+            },
       ),
     importSessionToStore: async (
       _id: string,
@@ -1413,4 +1423,26 @@ test("interrupt에 답하지 않는 CLI도 stop()이 3초 뒤 query를 닫고 �
   } finally {
     mock.timers.reset();
   }
+});
+
+test("세션 제목은 SDK summary(lastPrompt)보다 firstPrompt를 먼저 쓰고 customTitle이 생기면 갱신한다", async () => {
+  let info: { customTitle?: string; firstPrompt?: string; summary: string } = {
+    firstPrompt: "First prompt",
+    summary: "Last prompt after second turn",
+  };
+  const t = await setup({ sessionInfo: () => info });
+  await t.input(t.send("1", "First prompt"));
+  await t.feed({ type: "result", subtype: "success", is_error: false });
+  await flush();
+  assert.equal(t.state.session?.title, "First prompt");
+
+  info = {
+    customTitle: "AI Generated Title",
+    firstPrompt: "First prompt",
+    summary: "AI Generated Title",
+  };
+  await t.input(t.send("2", "Second prompt"));
+  await t.feed({ type: "result", subtype: "success", is_error: false });
+  await flush();
+  assert.equal(t.state.session?.title, "AI Generated Title");
 });

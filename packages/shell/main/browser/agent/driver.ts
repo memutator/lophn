@@ -327,18 +327,34 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     declaration: string,
     argument?: unknown,
   ): Promise<unknown> {
-    let objectId: string;
+    return callObject(
+      session,
+      await objectOf(session, ref),
+      declaration,
+      argument,
+    );
+  }
+
+  async function objectOf(session: Session, ref: string): Promise<string> {
     try {
       const resolved = await send<{ object: { objectId: string } }>(
         session,
         "DOM.resolveNode",
         { backendNodeId: node(session, ref) },
       );
-      objectId = resolved.object.objectId;
+      return resolved.object.objectId;
     } catch (error) {
       if (error instanceof CallError) throw error;
       throw stale(ref);
     }
+  }
+
+  async function callObject(
+    session: Session,
+    objectId: string,
+    declaration: string,
+    argument?: unknown,
+  ): Promise<unknown> {
     const called = await send<{
       result?: { value?: unknown };
       exceptionDetails?: { exception?: { description?: string }; text: string };
@@ -513,14 +529,23 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
           );
         }
       };
-      // 글자마다 그 칸이 아직 page의 keyboard focus인지 본다. page script가 focus를 다른 칸(다른 origin의 frame일 수 있다)으로
-      // 옮기면 남은 글자가 그 칸에 쳐진다. 이 확인은 page를 한 번 다녀오므로 앞 글자를 page가 받은 뒤이고 그사이 온 이동 event도 본다.
+      // 글자마다 keyboard focus가 아직 그 칸의 문서(같은 origin)에 있고 입력칸에 있는지 본다. page script가 focus를 다른
+      // origin의 frame으로 옮기면 남은 글자가 그 frame에 쳐진다. 칸 자체는 보지 않는다: 비밀번호 보기 단추나 mask가 입력 중에
+      // 칸을 새 요소로 바꾸고, 한 자리씩인 OTP 칸은 다음 칸으로 넘어간다. 이 확인은 page를 한 번 다녀오므로 앞 글자를 page가
+      // 받은 뒤이고 그사이 온 이동 event도 본다. 칸이 바뀌어도 쓰도록 처음 잡은 object로 부른다.
+      let field: string | undefined;
       const focused = async () => {
         stop();
-        const held = await callOn(
+        field ??= await objectOf(session, ref);
+        const held = await callObject(
           session,
-          ref,
-          "function(){ return this.ownerDocument.hasFocus() && this.ownerDocument.activeElement === this; }",
+          field,
+          `function(){
+            const doc = this.ownerDocument;
+            const active = doc.activeElement;
+            return doc.hasFocus() && active !== null &&
+              (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+          }`,
         );
         if (held !== true) {
           throw fail(
@@ -539,12 +564,13 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
             keys(session, [stroke]);
           }
           await focused();
-          const length = await callOn(
+          // 칸이 그대로일 때만 글 길이를 값과 견준다(글자 수는 code point로 센다). 바뀐 칸이나 넘어간 OTP 칸은 견줄 글이 없다.
+          const length = await callObject(
             session,
-            ref,
-            "function(){ return typeof this.value === 'string' ? this.value.length : -1; }",
+            field ?? (await objectOf(session, ref)),
+            "function(){ return this.ownerDocument.activeElement === this && typeof this.value === 'string' ? [...this.value].length : -1; }",
           );
-          if (length !== strokes.length) {
+          if (length !== -1 && length !== strokes.length) {
             throw fail(
               "conflict",
               "The login field does not hold the whole value after typing (the page changed or cut it). Clear the field and try fill-login once more; if it fails again, tell the person.",

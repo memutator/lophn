@@ -16,6 +16,11 @@ export interface DriverInput {
   sending<T>(page: number, run: () => Promise<T>): Promise<T>;
   /** 지금 lophn이 이 webContents에 input을 보내는 중이다. */
   marked(contents: number): boolean;
+  /**
+   * 그 page의 표시를 창이 받았을 때 풀린다(표시가 없으면 바로). 표시하지 않고 넣는 input(멀리서 보기의 move·up·scroll)도
+   * 이것을 기다려야 먼저 온 input(down)보다 앞서 들어가지 않는다.
+   */
+  ready(page: number): Promise<void>;
   /** lophn의 key event 하나를 page에 넣는다. 받지 않았으면 false다. Tab이면 창에 먼저 알린다. */
   sendKey(page: Page, event: KeyEvent): boolean;
   /** lophn의 마우스 event를 넣는 동안. 그사이 그 page의 mouseDown은 사람의 것이 아니다. */
@@ -39,20 +44,29 @@ export function createDriverInput(
     event: DriverInputEvent,
   ) => void | Promise<void> = () => {},
 ): DriverInput {
-  // webContents id → 보내는 중인 수와, 켤 때 사람의 focus가 그 page에 있었나.
-  const marks = new Map<number, { count: number; person: boolean }>();
+  // webContents id → 보내는 중인 수, 켤 때 사람의 focus가 그 page에 있었나, 창이 표시를 받았을 때 풀리는 promise.
+  const marks = new Map<
+    number,
+    { count: number; person: boolean; ready: Promise<void> }
+  >();
   let keyOf: number | undefined;
   const mice = new Map<number, number>();
   const input: DriverInput = {
     async sending(page, run) {
-      const mark = marks.get(page);
+      let mark = marks.get(page);
       if (mark !== undefined) mark.count += 1;
       else {
-        marks.set(page, { count: 1, person: false });
         // 창이 표시를 받기 전에 input이 창 focus를 옮기면 창은 그 이동이 agent의 것인지 모른다(webContents.send가 focus
         // 이동보다 늦게 닿았다). 창이 답한 뒤에 넣는다.
-        await notify(page, "start");
+        mark = {
+          count: 1,
+          person: false,
+          ready: Promise.resolve(notify(page, "start")),
+        };
+        marks.set(page, mark);
       }
+      // 답을 기다리는 사이 온 다음 input도 같은 답을 기다린다. 먼저 기다린 것이 먼저 풀려 들어가는 순서가 지켜진다.
+      await mark.ready;
       try {
         return await run();
       } finally {
@@ -64,6 +78,7 @@ export function createDriverInput(
       }
     },
     marked: (contents) => marks.has(contents),
+    ready: (page) => marks.get(page)?.ready ?? Promise.resolve(),
     sendKey(page, event) {
       if (event.keyCode === "Tab" && event.type === "keyDown") {
         notify(page.id, "tab");

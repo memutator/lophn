@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import { createActivation } from "./activation.ts";
 import { decidePopup } from "./popup.ts";
+import { windowOpenHandler } from "./popup-host.ts";
+import type { BrowserHooks } from "./registry.ts";
 
 function setup() {
   let now = 100_000;
@@ -68,13 +70,37 @@ test("popup url that fails the navigation check is denied even with input", () =
 });
 
 // 깨지면 agent의 click이 사람의 컴퓨터에서 mailto 같은 OS 앱을 연다.
-test("lophn이 넣은 input은 popup에는 활동이지만 OS 앱으로 넘기기에는 사람의 입력이 아니다", () => {
+test("lophn이 넣은 input은 popup에는 활동이지만 window.open의 mailto를 OS 앱으로 넘기지 않는다", () => {
   let driven = true;
   const activation = createActivation({ nowMs: () => 100_000 }, () => driven);
+  const opened: string[] = [];
+  const blocked: string[] = [];
+  const hooks = {
+    activation,
+    openExternal: (url: string) => void opened.push(url),
+    popup: {
+      blocked: () => void blocked.push("blocked"),
+      open: () => {},
+      tab: () => {},
+    },
+  } as unknown as BrowserHooks;
+  const handle = windowOpenHandler({
+    openerId: 1,
+    hooks,
+    adopt: () => {
+      throw new Error("unused");
+    },
+    overrides: {},
+  });
+  const open = (url: string) =>
+    handle({ url, features: "" } as Parameters<typeof handle>[0]);
   activation.mark(1);
   assert.equal(activation.fresh(1), true);
-  assert.equal(activation.freshPerson(1), false);
+  open("mailto:a@example.test");
+  assert.deepEqual(opened, []);
+  assert.deepEqual(blocked, []);
   driven = false;
   activation.mark(1);
-  assert.equal(activation.freshPerson(1), true);
+  open("mailto:a@example.test");
+  assert.deepEqual(opened, ["mailto:a@example.test"]);
 });

@@ -382,15 +382,23 @@ export function createPageStream(deps: PageStreamDeps) {
       const { page } = stream;
       const { input } = payload;
       // 키와 누르기는 driver처럼 page가 답하고 잠시 뒤까지 표시한다(창 focus 되돌리기, menu 단축키 끄기). move·up·scroll은
-      // focus도 menu도 건드리지 않고 끌기 중에 초당 30번 오므로 기다리지 않는다.
+      // focus도 menu도 건드리지 않고 끌기 중에 초당 30번 오므로 표시하지 않고, 앞 input의 표시를 창이 받기만 기다린다(보는
+      // 쪽은 답을 기다리지 않고 보내므로, 기다리지 않으면 up이 down보다 먼저 들어간다).
       const settles =
         input.type === "key" ||
         input.type === "text" ||
         (input.type === "pointer" && input.phase === "down");
       try {
-        return settles
-          ? await withInput(deps.input, page, () => put(page, input), wait)
-          : await put(page, input);
+        if (settles) {
+          return await withInput(
+            deps.input,
+            page,
+            () => put(page, input),
+            wait,
+          );
+        }
+        await deps.input?.ready(page.id);
+        return await put(page, input);
       } catch {
         return failure("unavailable", "The page did not take the input.");
       }

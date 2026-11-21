@@ -5,8 +5,8 @@ modules: [packages/shell/main, packages/shell/renderer, packages/shell/preload, 
 change: |
   - 이전에는 agent의 `browser act press|type|fill`이 CDP key event로 들어가 page가 아니라 창에서 focus가 있는 곳(주소 칸, 사람이 보던 다른 page)에 갔다. agent가 누른 Control+w가 사람이 고른 탭을 닫고, Control+Tab이 탭을 바꾸고, 글자가 주소 칸에 쳐졌다. 이제 키와 글은 webContents.sendInputEvent로 그 page에만 간다(탭이 숨었든 float에 접혔든, 사람의 focus가 shell이나 다른 page에 있든). page가 받지 않으면 남은 키를 보내지 않고 unavailable이다. 멀리서 보기(page_view)의 입력도 같은 길이다.
   - 이전에는 키를 넣기 전에 page를 마우스로 눌러 focus를 얻었다. 사람이 이어 친 글이 agent의 page로 갔고, ref 없는 press가 page의 focus 요소(버튼)를 한 번 더 눌렀다. 이 누르기를 지웠다.
-  - input을 넣는 동안(page를 한 번 다녀오고 150ms 뒤까지) 그 page를 표시한다. 표시는 창이 받았다고 답한 뒤에 넣는다(`shell:driver-input`, `shell:driver-focus`). 표시 중 lophn의 키는 창·menu 단축키가 아니고, agent의 click이나 page 끝의 Tab이 옮긴 창 focus는 창이 곧바로 사람이 있던 요소로(입력칸의 선택과 고치던 글까지) 되돌린다. 그사이 다른 focus 이동(timer가 연 dialog, 사람이 누른 다른 page)은 그대로 둔다. focus가 잠깐 그 page에 간 사이 사람이 친 키는 버린다(사람이 그 page에서 치고 있었으면 그대로 둔다).
-  - fill_login은 글자마다 그 칸이 아직 keyboard focus인지 보고, 아니면 멈추고 conflict다. 다 친 뒤 칸의 글 길이가 값과 다르면 conflict다. 이전에는 page script가 focus를 다른 칸·다른 origin의 frame으로 옮기면 비밀번호의 남은 글자가 그곳에 쳐졌다. core에서 값을 받는 동안은 표시하지 않는다.
+  - input을 넣는 동안(page를 한 번 다녀오고 150ms 뒤까지) 그 page를 표시한다. 멀리서 보기의 key·text·pointer down도 그렇고, move·up·scroll은 표시를 받기만 기다려 앞 input을 앞지르지 않는다. 표시는 창이 받았다고 답한 뒤에 넣는다(`shell:driver-input`, `shell:driver-focus`). 표시 중 lophn의 키는 창·menu 단축키가 아니고, agent의 click이나 page 끝의 Tab이 옮긴 창 focus는 창이 곧바로 사람이 있던 요소로(입력칸의 선택과 고치던 글까지) 되돌린다. 그사이 다른 focus 이동(timer가 연 dialog, 사람이 누른 다른 page)은 그대로 둔다. focus가 잠깐 그 page에 간 사이 사람이 친 키는 버린다(사람이 그 page에서 치고 있었으면 그대로 둔다).
+  - fill_login은 글자마다 keyboard focus가 아직 그 칸의 문서(origin)의 입력칸에 있는지 보고, 아니면 멈추고 conflict다. 칸이 새 요소로 바뀌거나(비밀번호 보기, mask) OTP 칸이 다음 칸으로 넘어가도 친다. 다 친 뒤 그 칸이 그대로 focus면 글 길이(code point)가 값과 다를 때 conflict다. 이전에는 page script가 focus를 다른 origin의 frame으로 옮기면 비밀번호의 남은 글자가 그곳에 쳐졌다. 지금도 같은 process의 다른 origin frame이 focus를 가져가면 멈추기 전에 한 글자가 그곳에 갈 수 있다(64자를 20번 쳐서 한 번). core에서 값을 받는 동안은 표시하지 않는다.
   - lophn이 넣은 input은 popup·download에는 사용자 입력이지만 mailto·tel을 OS 앱으로 넘기는 데에는 세지 않는다.
 why: |
   agent가 일하는 동안 사람의 탭이 닫히고 사람이 치던 글이 agent의 page로 갔다. agent의 input은 그 page에만 닿고 사람이 하던 일을 바꾸지 않아야 한다. 저장된 비밀번호는 그 칸에만 쳐져야 한다.
@@ -17,7 +17,9 @@ decisions:
     by: agent
   - text: 창은 focus가 표시된 page로 들어간 것, 창 문서가 focus를 잃은 것, 그 page에 Tab을 넣은 뒤의 이동만 되돌린다. 처음에는 사람이 하지 않은 모든 이동을 되돌려 timer가 연 dialog와 사람이 누른 다른 page까지 되돌렸다(review). 사람이 다른 page를 누른 것은 main이 그 guest의 mouseDown으로 알린다.
     by: agent
-  - text: 표시를 켜는 알림은 창의 답을 기다린다(300ms까지). webContents.send는 Chromium의 focus 이동보다 늦게 닿아 창이 agent의 click을 모른 채 focus를 잃었다(실제 창에서 쟀다).
+  - text: 표시를 켜는 알림은 창의 답을 기다린다(300ms까지, 재 보니 1~2ms). webContents.send는 Chromium의 focus 이동보다 늦게 닿아 창이 agent의 click을 모른 채 focus를 잃었다(실제 창에서 쟀다). 답을 기다리는 사이 온 같은 page의 input도 같은 답을 기다려 순서를 지킨다.
+    by: agent
+  - text: fill_login이 지키는 경계는 칸이 아니라 origin이다. 칸 자체를 보면 칸을 새 요소로 바꾸는 정직한 site와 OTP 칸이 실패한다(review).
     by: agent
   - text: agent가 연 popup(로그인)은 지금처럼 agent input으로 연다. OS 앱으로 넘기기만 사람의 입력을 요구한다(lead의 지시).
     by: agent

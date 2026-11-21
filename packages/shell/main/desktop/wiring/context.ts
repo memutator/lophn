@@ -1,6 +1,6 @@
 // 영역 file(`wiring/*.ts`)이 함께 쓰는 값. 영역끼리는 서로 import하지 않고 이 context와
 // `register`가 돌려주는 값으로만 주고받는다.
-import { app, type BrowserWindow, ipcMain } from "electron";
+import { app, type BrowserWindow, ipcMain, webContents } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -274,7 +274,16 @@ export function createShellContext(): ShellContext {
     },
     relay,
     windowHooks: { created: [], closed: [] },
-    driverInput: electronDriverInput(),
+    driverInput: electronDriverInput({
+      contents(id) {
+        const found = webContents.fromId(id);
+        return found === undefined || found.isDestroyed() ? undefined : found;
+      },
+      schedule(run, ms) {
+        const timer = setTimeout(run, ms);
+        return () => clearTimeout(timer);
+      },
+    }),
     appConnector: createAppConnector(coreInternal),
     closeGuards: new CloseGuards(),
     quit: { requested: false, active: () => false },

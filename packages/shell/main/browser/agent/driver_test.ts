@@ -8,6 +8,7 @@ import {
   type DriverInput,
   type DriverInputEvent,
   INPUT_TAIL_MS,
+  withInput,
 } from "./input.ts";
 import type { Page, PageEvents, PageLookup } from "./page.ts";
 import type { AxNode } from "./snapshot.ts";
@@ -49,8 +50,10 @@ function fakePage() {
     takes: true,
     /** 그 칸에 쳐진 글(전체를 고른 뒤 Backspace면 비운다). */
     field: "",
-    /** 칸이 page의 keyboard focus다. */
+    /** keyboard focus가 칸의 문서 안 입력칸에 있다. */
     focused: () => true,
+    /** page가 칸을 새 요소로 바꿨다(비밀번호 보기 단추, mask). */
+    replaced: false,
   };
   let events: PageEvents | undefined;
   const page: Page = {
@@ -98,8 +101,10 @@ function fakePage() {
         if (declaration.includes("hasFocus")) {
           return Promise.resolve({ result: { value: state.focused() } });
         }
-        if (declaration.includes("value.length")) {
-          return Promise.resolve({ result: { value: state.field.length } });
+        if (declaration.includes("[...this.value].length")) {
+          return Promise.resolve({
+            result: { value: state.replaced ? -1 : [...state.field].length },
+          });
         }
       }
       if (method === "Page.captureScreenshot") {
@@ -141,6 +146,8 @@ function setup(
     origin: string;
     profile: string | null;
   }[] = [];
+  // core에서 값을 받는 동안 page가 표시되어 있었나.
+  const markedAtRelease: boolean[] = [];
   const lookup: PageLookup = {
     guest: () => fake.page,
     app: () => ({ mode, page: fake.page }),
@@ -150,6 +157,7 @@ function setup(
     viewSession: () => "view-1",
     releaseLogin: (request) => {
       released.push(request);
+      markedAtRelease.push(input.marked(fake.page.id));
       return Promise.resolve({ ok: true, value: { value: PASSWORD } });
     },
     lookup,
@@ -161,7 +169,7 @@ function setup(
     action: BrowserCallPayload["action"],
     view: "browser" | "preview" = "preview",
   ) => driver.run({ tab: TAB, view, action });
-  return { fake, control, run, released, driver };
+  return { fake, control, run, released, driver, markedAtRelease };
 }
 
 const text = (output: Awaited<ReturnType<ReturnType<typeof setup>["run"]>>) =>
@@ -497,4 +505,67 @@ test("fill_login은 칸이 keyboard focus를 잃으면 멈추고, 다 친 뒤 �
   const cut = await run(fillLogin);
   assert.ok("error" in cut && cut.error.code === "conflict");
   assert.ok(!JSON.stringify(cut).includes(PASSWORD));
+});
+
+// 깨지면 page가 들어온 순서와 다르게 input을 받는다(멀리서 누른 것이 up 다음 down이 되고, 친 글자의 순서가 바뀐다).
+test("창이 표시를 받기를 기다리는 동안 온 다음 input도 먼저 온 input 뒤에 들어간다", async () => {
+  const sleep = (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms));
+  const input = createDriverInput((_page, event) =>
+    event === "start" ? sleep(40) : undefined,
+  );
+  const page = fakePage().page;
+  const order: string[] = [];
+  const put = (name: string) => async () => void order.push(name);
+  // 멀리서 보기: down은 표시하고, up은 표시하지 않고 표시를 받기만 기다린다(stream.ts).
+  const down = withInput(input, page, put("down"), sleep);
+  await sleep(5);
+  const up = input.ready(page.id).then(put("up"));
+  const h = withInput(input, page, put("h"), sleep);
+  await sleep(5);
+  const i = withInput(input, page, put("i"), sleep);
+  await Promise.all([down, up, h, i]);
+  assert.deepEqual(order, ["down", "up", "h", "i"]);
+});
+
+// 깨지면 agent의 누르기를 사람이 그 page를 누른 것으로 보고 창이 되돌리지 않는다.
+test("agent의 click은 lophn의 mouse로 표시되고, fill_login은 core에서 값을 받는 동안을 빼고 치는 동안만 표시한다", async () => {
+  const input = createDriverInput();
+  const { fake, run } = setup("preview", input);
+  const original = fake.page.send;
+  const mice: boolean[] = [];
+  (fake.page as { send: Page["send"] }).send = ((method, params) => {
+    if (method === "Input.dispatchMouseEvent") {
+      mice.push(input.driverMouse(fake.page.id));
+    }
+    return original(method, params);
+  }) as Page["send"];
+  fake.state.nodes = tree([2, "Go"]);
+  await run({ kind: "snapshot" });
+  assert.ok("content" in (await run(click("e2"))));
+  assert.ok(mice.length > 0 && mice.every(Boolean));
+
+  const login = setup("preview", input);
+  framed(login.fake);
+  await login.run({ kind: "snapshot" });
+  const typing: boolean[] = [];
+  const sendKey = login.fake.page.sendKey;
+  (login.fake.page as { sendKey: Page["sendKey"] }).sendKey = (event) => {
+    typing.push(input.marked(login.fake.page.id));
+    return sendKey(event);
+  };
+  assert.ok("content" in (await login.run(fillLogin)));
+  assert.deepEqual(login.markedAtRelease, [false]);
+  assert.ok(typing.length > 0 && typing.every(Boolean));
+});
+
+// 비밀번호 보기 단추나 mask가 입력 중에 칸을 새 요소로 바꾸는 정직한 site도 친다(그 칸 문서의 입력칸에 focus가 남는다).
+test("fill_login은 칸이 새 요소로 바뀌어도 focus가 그 문서의 입력칸에 있으면 끝까지 친다", async () => {
+  const { fake, run } = setup();
+  framed(fake);
+  await run({ kind: "snapshot" });
+  fake.state.replaced = true;
+  const out = await run(fillLogin);
+  assert.ok("content" in out, JSON.stringify(out));
+  assert.equal(fake.state.typed.join(""), PASSWORD);
 });

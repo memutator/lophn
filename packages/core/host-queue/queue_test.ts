@@ -6,7 +6,7 @@ import type {
   HostRequest,
   HostWorkspace,
 } from "../../protocol/lophn-agent/host-queue.ts";
-import { createHostQueue, type HostQueueService } from "./queue.ts";
+import { createHostQueue, type HostQueueService, withinTeam } from "./queue.ts";
 
 const OWNER = "ses_owner" as Id<"ses">;
 const OTHER = "ses_other" as Id<"ses">;
@@ -166,4 +166,108 @@ test("연결 요청은 연결이 없으면 대기하지 않고 바로 unavailabl
   // 앞 연결이 없을 때 부른 것도 남지 않았다.
   second.link.pump();
   assert.equal(second.next(), null);
+});
+
+// 넘겨받은 탭을 agent가 닫으면 사람이 쓰던 page(로그인, 입력)가 사라진다.
+test("넘겨받은 browser 탭은 주인 session이 닫으려 해도 forbidden이고 탭은 표에 남는다", () => {
+  const { queue } = setup();
+  const handed = queue.hand({
+    owner: OWNER,
+    workspace: HOME,
+    profile: null,
+    url: "https://mail.example.com/",
+  });
+  assert.ok(handed.ok);
+  const tab = handed.value;
+  const closed = queue.close(tab, OWNER);
+  assert.equal(!closed.ok && closed.error.code, "forbidden");
+  assert.equal(queue.read(tab, OWNER).ok, true);
+  const listed = queue.list(
+    (owner) => owner === OWNER,
+    () => "",
+  );
+  assert.deepStrictEqual(
+    listed.map((item) => [item.tab, item.handed, item.url]),
+    [[tab, true, "https://mail.example.com/"]],
+  );
+});
+
+// 사람이 agent의 탭을 다른 session에 "넘기면" 그 탭이 닫지 못하는 탭이 되고 연 session은 탭을 잃는다.
+test("tabs/hand는 agent가 연 탭을 사람에게 넘겨받은 탭으로 바꾸지 못한다(conflict)", () => {
+  const { queue } = setup();
+  const tab = queue.openTab({
+    owner: OWNER,
+    workspace: HOME,
+    target: { browser: { url: "https://example.com" } },
+    relation: null,
+    source: OWNER,
+  });
+  const handed = queue.hand({
+    tab,
+    owner: OTHER,
+    workspace: HOME,
+    profile: null,
+    url: "https://example.com/",
+  });
+  assert.equal(!handed.ok && handed.error.code, "conflict");
+  assert.equal(queue.close(tab, OWNER).ok, true);
+});
+
+// 목록이 남의 탭을 내면 agent가 부모·형제의 page(사람의 로그인) 제목과 주소를 읽는다.
+test("tab list는 자기 탭과 자기 밑 session의 탭만 내고 부모·형제 session의 탭은 내지 않는다", () => {
+  const { queue } = setup();
+  const PARENT = "ses_parent" as Id<"ses">;
+  const CALLER = "ses_caller" as Id<"ses">;
+  const CHILD = "ses_child" as Id<"ses">;
+  const GRANDCHILD = "ses_grandchild" as Id<"ses">;
+  const SIBLING = "ses_sibling" as Id<"ses">;
+  const parents: Record<string, string | null> = {
+    [PARENT]: null,
+    [CALLER]: PARENT,
+    [CHILD]: CALLER,
+    [GRANDCHILD]: CHILD,
+    [SIBLING]: PARENT,
+  };
+  const parentOf = (session: string) => parents[session] ?? null;
+  const tabOf = new Map<string, Id<"tab">>();
+  for (const owner of [
+    PARENT,
+    CALLER,
+    CHILD,
+    GRANDCHILD,
+    SIBLING,
+    "person",
+  ] as const) {
+    tabOf.set(
+      owner,
+      queue.openTab({
+        owner,
+        workspace: HOME,
+        target: { browser: { url: `https://example.com/${owner}` } },
+        relation: null,
+        source: null,
+      }),
+    );
+  }
+  const seen = (caller: Id<"ses"> | "person") =>
+    queue
+      .list(
+        (owner) => withinTeam(caller, owner, parentOf),
+        () => "",
+      )
+      .map((item) => item.tab);
+  const cases: [Id<"ses"> | "person", string[]][] = [
+    [CALLER, [CALLER, CHILD, GRANDCHILD]],
+    [CHILD, [CHILD, GRANDCHILD]],
+    [SIBLING, [SIBLING]],
+    [PARENT, [PARENT, CALLER, CHILD, GRANDCHILD, SIBLING]],
+    ["person", ["person"]],
+  ];
+  for (const [caller, owners] of cases) {
+    assert.deepStrictEqual(
+      seen(caller),
+      owners.map((owner) => tabOf.get(owner)),
+      caller,
+    );
+  }
 });

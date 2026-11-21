@@ -376,7 +376,7 @@ export const tabsOpen = defineMemory({
   errors,
 });
 
-// 자기가 연 탭만 닫는다. 남이 연 탭이면 `forbidden`, 없는 탭이면 `not_found`다.
+// 자기가 연 탭만 닫는다. 남이 연 탭과 사람이 넘겨준 탭이면 `forbidden`, 없는 탭이면 `not_found`다.
 export const tabsClose = defineMemory({
   resource: "tabs",
   method: "close",
@@ -548,10 +548,73 @@ export const tabsShow = defineMemory({
   errors,
 });
 
+// 자기 탭과 `team spawn`으로 연 자기 밑 session(`spawned_by`를 거슬러 닿는)의 탭이다. 사람 token은 사람 token이 연 탭만 본다.
+// 사람이 손으로 연 탭은 사람이 넘겨야(`tabs/hand`) 나온다. title·url은 page가 정한 글이라 redaction을 거친다.
+// title은 session 탭이면 session 제목, browser는 page 제목, preview·phone은 앱 id, artifact는 이름, terminal은 ""이다.
+export const TAB_LIST_KINDS = [
+  "session",
+  "terminal",
+  "browser",
+  "preview",
+  "artifact",
+  "phone",
+] as const;
+const tabListItemSchema = z.strictObject({
+  tab: idSchema("tab"),
+  // 사람 token이 연 탭은 null이다.
+  owner: idSchema("ses").nullable(),
+  kind: z.enum(TAB_LIST_KINDS),
+  title: z.string(),
+  // browser만. 마지막 상태의 url, 없으면 연 url이다.
+  url: z.string().nullable(),
+  // artifact만. `artifacts/<name>`이다.
+  path: z.string().nullable(),
+  // browser만. 상태가 없으면 null이다.
+  loading: z.boolean().nullable(),
+  // 사람이 넘겨준 탭이다. 닫지 못한다.
+  handed: z.boolean(),
+});
+export type TabListItem = z.infer<typeof tabListItemSchema>;
+export const tabsList = defineMemory({
+  resource: "tabs",
+  method: "list",
+  name: "ListTabs",
+  input: z.strictObject({}),
+  output: z.strictObject({ tabs: z.array(tabListItemSchema) }),
+  actors: ["agent", "user"],
+  errors,
+});
+
+// 사람이 창의 browser 탭을 열린 session에 넘긴다. 탭은 그 자리에 그대로 있고 core 표의 주인만 그 session이 된다. 넘겨받은 탭은
+// 그 session이 browser 호출로 다루지만 닫지 못한다(`tabs/close`가 `forbidden`). session이 없거나 열려 있지 않으면 `not_found`,
+// agent가 연 탭(넘겨받은 탭 밖)이거나 browser 탭이 아니면 `conflict`다. 창이 core에 다시 붙을 때 같은 `tab`으로 다시 부른다.
+export const tabsHand = defineMemory({
+  resource: "tabs",
+  method: "hand",
+  name: "HandTab",
+  changes: [],
+  input: z.strictObject({
+    // 없으면 새 id다(사람이 손으로 연 탭). 있으면 그 id로 둔다(다시 알리기, 다른 session에 다시 넘기기).
+    tab: idSchema("tab").optional(),
+    session: idSchema("ses"),
+    // 탭이 있는 workspace다.
+    workspace: hostWorkspaceSchema,
+    // 탭의 browser profile이다. 없으면 기본이다.
+    profile: idSchema("bpf").optional(),
+    // 지금 주소다. 상태가 오기 전에는 tab list가 이것을 낸다.
+    url: z.string().max(8192),
+  }),
+  output: z.strictObject({ tab: idSchema("tab") }),
+  actors: ["user"],
+  errors,
+});
+
 export const HOST_QUEUE_MEMORY_ROUTES = [
   tabsOpen,
   tabsClose,
   tabsShow,
+  tabsList,
+  tabsHand,
   browserRead,
   browserSnapshot,
   browserAct,

@@ -199,6 +199,8 @@ files:
 
   - path: packages/core/host-queue/queue_test.ts
     covers:
+      - host-tab-hand:conflict
+      - host-tab-list:ok
       - host-browser-read:state
       - host-browser-read:not_found
       - host-tab-close:accepted

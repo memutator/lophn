@@ -893,10 +893,69 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "주인이 다른 탭이거나, agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "주인이 다른 탭이거나, 사람이 넘겨준 탭이거나(주인 session도 못 닫는다. model이 그대로 받는 고정 문장), agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
+
+  - id: host-tab-list
+    title: agent나 사람 token이 자기 탭과 자기 밑 session의 탭 목록을 읽는다
+    actor: agent
+    entries: [route:tabs/list]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
+      - "core 표에서 주인이 부른 session 자신이거나 그 밑(주인에서 spawned_by를 64번까지 거슬러 부른 session을 만남)인 탭만 고른다. 부모·형제 session의 탭은 빠진다. 사람 token은 사람 token이 연 탭만 본다. 사람이 손으로 연 탭은 넘겨야 표에 있다"
+      - "탭마다 kind(session, terminal, browser, preview, artifact, phone), title(session 제목, page 제목, 앱 id, artifact 이름), browser의 url·loading, artifact의 path, handed를 낸다"
+      - "title·url은 redaction을 거친다. CLI는 찍는 글을 lophn-untrusted source tab.list로 감싼다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "알려진 secret을 아직 다 몰라 title·url의 redaction을 끝내지 못했다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
+
+  - id: host-tab-hand
+    title: 사람이 창의 browser 탭을 열린 session에 넘긴다
+    actor: person
+    entries: [route:tabs/hand]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "사람 token만 부른다(route actor). 받을 session이 없거나 열려 있지 않으면 not_found"
+      - "tab이 없으면 새 id로, tab이 있고 core 표에 없으면 그 id로 browser 탭을 표에 올린다(주인 그 session, handed, 받은 profile, 상태는 받은 url). 탭은 이미 창에 있어 tab_open 요청을 넣지 않는다. 창이 core에 다시 붙을 때 같은 tab으로 다시 부른다"
+      - "표에 있고 넘겨받은 탭이거나 사람 token이 연 browser 탭이면 주인·profile을 바꾸고 handed로 둔다. agent가 연 탭이나 browser 탭이 아니면 conflict"
+      - "멀리서 보기 목록이 바뀌었다고 알린다(browser_pages). 넘겨받은 session은 browser 호출로 그 탭을 다루지만 tabs/close는 forbidden이다"
+    outcomes:
+      - id: handed
+        observe: [response, event:StateChanged]
+      - id: not_found
+        code: not_found
+        when: "받을 session이 없거나 열려 있지 않다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "그 탭이 agent가 연 탭(넘겨받은 탭 밖)이거나 browser 탭이 아니다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token이 아니다(route actor 검사)"
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
 
   - id: host-tab-show
     title: agent나 사람 token이 자기가 연 접힌 탭을 사람에게 편다

@@ -38,6 +38,8 @@ import {
   pageViewSnapshot,
   pageViewWatch,
   tabsClose,
+  tabsHand,
+  tabsList,
   tabsOpen,
   tabsShow,
 } from "../../../../protocol/lophn-agent/mod.ts";
@@ -56,6 +58,7 @@ import {
   SHELL_NOT_ATTACHED,
   SHELL_START_FAILED,
   type TabOwner,
+  withinTeam,
 } from "../../../host-queue/mod.ts";
 import {
   createPhoneDriver,
@@ -513,6 +516,50 @@ export function createTabHandlers(deps: TabDeps) {
       ? ok({ tab: shown.value, status: "accepted" as const })
       : shown;
   };
+  // 자기 탭과 자기 밑 session의 탭이다. 사람 token은 사람 token의 탭만 본다.
+  const list: MemoryHandler = (who) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    const items = queue.list(
+      (found) =>
+        withinTeam(
+          caller.value,
+          found,
+          (session) => sessionRow(session)?.spawned_by ?? null,
+        ),
+      (session) => sessionRow(session)?.title ?? "",
+    );
+    const tabs = [];
+    for (const item of items) {
+      // page가 정한 url·title도 caller에 가기 전에 secret을 지운다.
+      const title = deps.redact(item.title);
+      const url = item.url === null ? null : deps.redact(item.url);
+      if (title === null || (item.url !== null && url === null)) {
+        return err({
+          code: "unavailable",
+          message: "the browser result could not be checked for secrets",
+        });
+      }
+      tabs.push({ ...item, title, url });
+    }
+    return ok({ tabs });
+  };
+  // 사람이 창의 browser 탭을 열린 session에 넘긴다(route actor가 사람뿐이다).
+  const hand: MemoryHandler = (_who, body) => {
+    const input = tabsHand.input.parse(body);
+    const row = sessionRow(input.session);
+    if (row === undefined || row.lifecycle !== "open") {
+      return err({ code: "not_found", message: "session not found" });
+    }
+    const handed = queue.hand({
+      ...(input.tab === undefined ? {} : { tab: input.tab as Id<"tab"> }),
+      owner: input.session as Id<"ses">,
+      workspace: input.workspace,
+      profile: (input.profile ?? null) as Id<"bpf"> | null,
+      url: input.url,
+    });
+    return handed.ok ? ok({ tab: handed.value }) : handed;
+  };
   const read: MemoryHandler = (who, body) => {
     const caller = owner(who);
     if (!caller.ok) return caller;
@@ -752,6 +799,8 @@ export function createTabHandlers(deps: TabDeps) {
     open,
     close,
     show,
+    list,
+    hand,
     read,
     snapshot,
     act,
@@ -949,6 +998,8 @@ export const hostQueueWiring: WiringFactory = () => {
           [key(tabsOpen), handlers.open],
           [key(tabsClose), handlers.close],
           [key(tabsShow), handlers.show],
+          [key(tabsList), handlers.list],
+          [key(tabsHand), handlers.hand],
           [key(browserRead), handlers.read],
           [key(browserSnapshot), handlers.snapshot],
           [key(browserAct), handlers.act],

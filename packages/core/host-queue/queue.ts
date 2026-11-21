@@ -18,6 +18,7 @@ import {
   LINK_REQUEST_KINDS,
   type LinkRequest,
   type LinkRequestKind,
+  type TabListItem,
   type TabRelation,
 } from "../../protocol/lophn-agent/host-queue.ts";
 
@@ -58,10 +59,16 @@ type TabEntry = {
   owner: TabOwner;
   workspace: HostWorkspace;
   kind: "agent" | "browser" | "preview" | "artifact" | "phone";
+  // 연 대상이다. 탭 목록의 kind·title·path를 낸다. browser는 연 url이다.
+  target: HostTabTarget | { phone: { app: Id<"app"> } };
   // preview·phone 탭은 앱마다, artifact 탭은 artifact마다 하나라 이 key로 찾는다. 다른 탭은 null이다.
   single: string | null;
   state: BrowserTabState | null;
   phone: PhoneTab | null;
+  // 사람이 넘겨준 browser 탭이다. 주인 session도 닫지 못한다.
+  handed: boolean;
+  // browser 탭의 profile이다. null은 기본 profile이다.
+  profile: Id<"bpf"> | null;
 };
 export type BrowserTabView =
   | { view: "browser" | "preview" | "artifact" }
@@ -72,6 +79,27 @@ type BrowserCallPayload = Extract<
   { kind: "browser_call" }
 >["payload"];
 type CallResult = Result<HostToolContent[]>;
+
+// 탭 주인 owner가 caller 자신이거나 caller 밑(`team spawn`으로 연 session)이다. owner에서 spawned_by를 SPAWN_DEPTH번까지 거슬러
+// caller를 만나면 참이다. 부모·형제는 거짓이다. 사람 token은 사람 token의 탭만 본다.
+const SPAWN_DEPTH = 64;
+export function withinTeam(
+  caller: TabOwner,
+  owner: TabOwner,
+  parentOf: (session: Id<"ses">) => string | null,
+): boolean {
+  if (caller === "person" || owner === "person") return caller === owner;
+  let up: string | null = owner;
+  for (let step = 0; up !== null && step <= SPAWN_DEPTH; step++) {
+    if (up === caller) return true;
+    up = parentOf(up as Id<"ses">);
+  }
+  return false;
+}
+
+// 넘겨받은 탭을 닫으려 할 때 model이 그대로 받는 문장이다.
+const HANDED_TAB =
+  "The person handed you this tab; you cannot close it. Tell the person when you are done.";
 
 // 다른 wiring(browser·tab route, 터미널 탭 열기, 멀리서 page 보기)이 쓰는 port다.
 export type HostQueue = {
@@ -112,6 +140,14 @@ export type HostQueue = {
   startShell(launch: (failed: () => void) => void): boolean;
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
+  // 사람이 창의 browser 탭을 session에 넘긴다. tab이 없거나 표에 없으면 그 id(없으면 새 id)로 표에 올리고(tab_open은 넣지 않는다.
+  // 탭은 이미 창에 있다), 표에 있으면 넘겨받은 탭이거나 사람의 browser 탭일 때만 주인을 바꾼다. agent가 연 탭은 `conflict`다.
+  hand(input: HandInput): Result<Id<"tab">>;
+  // inScope가 참인 주인의 탭 목록이다. session 탭의 title은 sessionTitle로 읽는다. title·url은 부른 쪽이 redaction을 거친다.
+  list(
+    inScope: (owner: TabOwner) => boolean,
+    sessionTitle: (session: string) => string,
+  ): TabListItem[];
   // `/host-link` 연결이 열려 있다.
   attached(): boolean;
 };
@@ -124,6 +160,16 @@ type OpenInput = {
   source: Id<"ses"> | null;
   // 미리 받은 `newTabId()`다(handoff file 이름에 쓴 탭 id).
   tab?: Id<"tab">;
+  // browser 탭의 profile이다. 없으면 기본 profile이다.
+  profile?: Id<"bpf">;
+};
+
+type HandInput = {
+  tab?: Id<"tab">;
+  owner: Id<"ses">;
+  workspace: HostWorkspace;
+  profile: Id<"bpf"> | null;
+  url: string;
 };
 
 const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
@@ -174,6 +220,49 @@ export const SHELL_LOST =
 // 없는 탭, 닫힌 탭, 남의 탭에 같은 문장을 써서 남의 탭이 있는지 새지 않게 한다.
 const NO_SUCH_TAB =
   "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";
+
+function listItem(
+  tab: Id<"tab">,
+  entry: TabEntry,
+  sessionTitle: (session: string) => string,
+): TabListItem {
+  const { target, state } = entry;
+  const item = {
+    tab,
+    owner: entry.owner === "person" ? null : entry.owner,
+    title: "",
+    url: null,
+    path: null,
+    loading: null,
+    handed: entry.handed,
+  };
+  if ("session" in target) {
+    return { ...item, kind: "session", title: sessionTitle(target.session) };
+  }
+  if ("terminal" in target) return { ...item, kind: "terminal" };
+  if ("preview" in target) {
+    return { ...item, kind: "preview", title: target.preview.app };
+  }
+  if ("phone" in target) {
+    return { ...item, kind: "phone", title: target.phone.app };
+  }
+  if ("artifact" in target) {
+    const { name } = target.artifact;
+    return {
+      ...item,
+      kind: "artifact",
+      title: name,
+      path: `artifacts/${name}`,
+    };
+  }
+  return {
+    ...item,
+    kind: "browser",
+    title: state?.title ?? "",
+    url: state?.url ?? target.browser.url,
+    loading: state?.loading ?? null,
+  };
+}
 
 export function createHostQueue(deps: {
   clock: Clock;
@@ -324,7 +413,7 @@ export function createHostQueue(deps: {
     }
   }
 
-  // 자기가 연 탭만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: 같은 not_found 문장).
+  // 자기 탭(연 탭, 넘겨받은 탭)만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: 같은 not_found 문장).
   function owned(
     tab: Id<"tab">,
     caller: TabOwner,
@@ -366,6 +455,10 @@ export function createHostQueue(deps: {
         : "artifact" in target && workspace.kind !== "home"
           ? `artifact:${workspace.kind}:${workspace.id}:${target.artifact.name}`
           : null;
+    const sent: HostTabTarget =
+      "browser" in target && input.profile !== undefined
+        ? { browser: { ...target.browser, profile: input.profile } }
+        : target;
     const open = (tab: Id<"tab">) => {
       const request: HostRequest = {
         id: deps.ids.newId("hrq") as Id<"hrq">,
@@ -373,9 +466,10 @@ export function createHostQueue(deps: {
         workspace: input.workspace,
         payload: {
           tab,
-          target: input.target,
+          target: sent,
           relation: input.relation,
           source: input.source,
+          ...(input.owner === "person" ? {} : { owner: input.owner }),
         },
       };
       if (!wait) {
@@ -394,12 +488,14 @@ export function createHostQueue(deps: {
     if (single !== null) {
       for (const [id, entry] of tabs) {
         if (entry.single === single) {
+          const moved = entry.owner !== input.owner;
           entry.owner = input.owner;
-          // 이미 열린 탭에 기기나 화면을 주면 같은 탭에 다시 알린다(창이 그 탭의 기기·화면만 바꾼다).
+          // 이미 열린 탭의 주인이 바뀌거나 기기나 화면을 주면 같은 탭에 다시 알린다(창이 그 탭의 주인·기기·화면만 바꾼다).
           if (
-            "preview" in input.target &&
-            (input.target.preview.device !== null ||
-              input.target.preview.screen !== null)
+            moved ||
+            ("preview" in input.target &&
+              (input.target.preview.device !== null ||
+                input.target.preview.screen !== null))
           ) {
             open(id);
           }
@@ -420,9 +516,12 @@ export function createHostQueue(deps: {
       owner: input.owner,
       workspace: input.workspace,
       kind,
+      target,
       single,
       state: null,
       phone: null,
+      handed: false,
+      profile: input.profile ?? null,
     });
     if (kind === "browser") deps.changed?.();
     return { tab, sent: open(tab) };
@@ -537,6 +636,48 @@ export function createHostQueue(deps: {
       return launchedAt !== null;
     },
     newTabId: () => deps.ids.newId("tab") as Id<"tab">,
+    hand(input: HandInput): Result<Id<"tab">> {
+      const found = input.tab === undefined ? undefined : tabs.get(input.tab);
+      if (found === undefined) {
+        const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
+        tabs.set(tab, {
+          owner: input.owner,
+          workspace: input.workspace,
+          kind: "browser",
+          target: { browser: { url: input.url } },
+          single: null,
+          state: { url: input.url, title: "", loading: false },
+          phone: null,
+          handed: true,
+          profile: input.profile,
+        });
+        deps.changed?.();
+        return ok(tab);
+      }
+      if (
+        found.kind !== "browser" ||
+        (!found.handed && found.owner !== "person")
+      ) {
+        return err({
+          code: "conflict" as const,
+          message:
+            "an agent opened this tab; only a person's browser tab can be handed",
+        });
+      }
+      found.owner = input.owner;
+      found.profile = input.profile;
+      found.handed = true;
+      deps.changed?.();
+      return ok(input.tab!);
+    },
+    list(
+      inScope: (owner: TabOwner) => boolean,
+      sessionTitle: (session: string) => string,
+    ): TabListItem[] {
+      return [...tabs]
+        .filter(([, entry]) => inScope(entry.owner))
+        .map(([tab, entry]) => listItem(tab, entry, sessionTitle));
+    },
     // browser 탭 전부다(멀리서 보기의 대상). state는 renderer가 아직 알리지 않았으면 null이다.
     pages(): {
       tab: Id<"tab">;
@@ -570,9 +711,12 @@ export function createHostQueue(deps: {
         owner: input.owner,
         workspace: { kind: "app", id: input.app },
         kind: "phone",
+        target: { phone: { app: input.app } },
         single,
         state: null,
         phone: { app: input.app, screen: input.screen, counter: 0, last: null },
+        handed: false,
+        profile: null,
       });
       return tab;
     },
@@ -594,6 +738,9 @@ export function createHostQueue(deps: {
     close(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
       const found = owned(tab, caller, "close");
       if (!found.ok) return found;
+      if (found.value.handed) {
+        return err({ code: "forbidden" as const, message: HANDED_TAB });
+      }
       forget(tab);
       if (found.value.kind === "phone") return ok(tab);
       enqueue(

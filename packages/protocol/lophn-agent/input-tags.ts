@@ -59,6 +59,7 @@ export const UNTRUSTED_SOURCES = [
   "browser.evaluate",
   "browser.logs",
   "browser.wait",
+  "tab.list",
 ] as const;
 export type UntrustedSource = (typeof UNTRUSTED_SOURCES)[number];
 

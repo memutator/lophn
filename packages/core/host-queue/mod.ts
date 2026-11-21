@@ -8,4 +8,5 @@ export {
   SHELL_NOT_ATTACHED,
   SHELL_START_FAILED,
   type TabOwner,
+  withinTeam,
 } from "./queue.ts";

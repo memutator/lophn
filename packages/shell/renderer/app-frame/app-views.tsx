@@ -92,21 +92,24 @@ export function AppWorkspaceProvider(props: {
   const id = workspace.kind === "home" ? "home" : workspace.id;
   const folders = JSON.stringify(props.folders);
   const former = JSON.stringify(props.formerIdentities);
+  // project를 아직 읽지 못한 창은 그 project의 id를 모른다. 틀린 key로 쓰지 않게 workspace 없이 연다.
   const value = useMemo<AppViewOpen["workspace"]>(
     () =>
-      workspace.kind === "project"
-        ? {
-            kind: "project",
-            id,
-            identity,
-            formerIdentities: JSON.parse(former) as string[],
-            folders: JSON.parse(folders) as string[],
-          }
-        : {
-            kind: workspace.kind,
-            id,
-            folders: JSON.parse(folders) as string[],
-          },
+      workspace.kind === "project" && identity === null
+        ? undefined
+        : workspace.kind === "project"
+          ? {
+              kind: "project",
+              id,
+              identity,
+              formerIdentities: JSON.parse(former) as string[],
+              folders: JSON.parse(folders) as string[],
+            }
+          : {
+              kind: workspace.kind,
+              id,
+              folders: JSON.parse(folders) as string[],
+            },
     [workspace.kind, id, identity, former, folders],
   );
   return (

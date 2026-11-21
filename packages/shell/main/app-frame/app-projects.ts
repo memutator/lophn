@@ -20,6 +20,7 @@ function projectOf(value: unknown): AppProject | undefined {
   const row = record(value);
   if (
     typeof row?.id !== "string" ||
+    typeof row.identity !== "string" ||
     typeof row.name !== "string" ||
     typeof row.title !== "string" ||
     typeof row.purpose !== "string" ||
@@ -29,7 +30,7 @@ function projectOf(value: unknown): AppProject | undefined {
   }
   return {
     id: row.id,
-    identity: typeof row.identity === "string" ? row.identity : null,
+    identity: row.identity,
     formerIdentities: Array.isArray(row.former_identities)
       ? row.former_identities.filter((id) => typeof id === "string")
       : [],

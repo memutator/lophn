@@ -1,0 +1,13 @@
+id: project-separate-moves-shared-app-rows
+title: "[Separate project] 뒤 앱이 다른 컴퓨터와 같이 쓰던 id의 줄을 이 컴퓨터의 새 id로 옮겨 간다"
+kind: bug
+status: open
+topic: project-identity
+modules: [packages/core/projects, packages/sdk]
+now: |
+  `project.renew_identity`(`packages/core/projects/registry/commands.ts`)는 새 id를 적고 `storeIdentity`(`registry/store.ts`)가 옛 id를 `former_identities`에 남긴다. 앱 지침(`packages/sdk/app-ui/guide.md` "project에 붙는 앱")은 화면이 열릴 때 `formerIdentities`의 id로 붙은 줄을 `identity`로 옮기라고 한다. 나누기 전의 id는 다른 컴퓨터의 같은 project가 지금도 쓰는 id이고, 앱 data는 `sync_to`로 그 컴퓨터들과 맞춰진다. 그래서 나눈 컴퓨터의 앱이 그 id의 줄(다른 컴퓨터에서 만든 줄 포함)을 새 id로 옮기면 그 옮김이 다른 컴퓨터로 가 거기서는 그 줄이 어느 project의 것도 아니게 된다.
+impact: |
+  틀리게 자동으로 맞춰진 project를 사람이 [Separate project]로 되돌리면, 다른 컴퓨터의 project에서 그 project의 앱 data(할 일, 일정)가 사라져 보인다(줄은 지워지지 않고 나눈 컴퓨터의 새 id 밑에 있다). 자동 match가 생겨 나누기가 전보다 잦아질 수 있다.
+fix: |
+  - (작음, 추천) 나누기의 옛 id는 `former_identities`에 남기지 않는다(store 함수에 "나누기" 갈래를 두거나 나누기 전 id를 따로 적는다). 앱은 나누기 전의 줄을 옮기지 않고 그 줄은 다른 컴퓨터의 project에 남는다. 잃는 것: 나눈 컴퓨터에서 나누기 전에 만든 줄은 나눈 project 밑에 보이지 않는다.
+  - (중간) 앱이 옮길 때 그 줄이 어느 컴퓨터에서 만들어졌는지 보게 지침을 바꾼다. 잃는 것: 앱마다 출처를 기록해야 하고 지침이 복잡해진다.

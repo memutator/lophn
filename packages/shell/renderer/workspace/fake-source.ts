@@ -1016,7 +1016,7 @@ export function fakeWorkspaceSource(
         ok: true,
         value: {
           id,
-          identity: null,
+          identity: "pri_01h455vb4pex5v6nkc6gd5fe01",
           formerIdentities: [],
           title: "phroner",
           folders: FOLDERS.map((item) => ({
@@ -1031,7 +1031,7 @@ export function fakeWorkspaceSource(
         ok: true,
         value: {
           id,
-          identity: null,
+          identity: "pri_01h455vb4pex5v6nkc6gd5fe01",
           formerIdentities: [],
           title: "phroner",
           folders: FOLDERS.filter((item) => item.path !== path),

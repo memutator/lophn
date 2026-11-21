@@ -38,7 +38,7 @@ interface DocumentRow {
 interface ProjectGetValue {
   project: {
     id: string;
-    identity?: string | null;
+    identity: string;
     former_identities?: string[];
     title: string;
     revision: string;
@@ -244,7 +244,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       ok: true,
       value: {
         id: value.id,
-        identity: value.identity ?? null,
+        identity: value.identity,
         formerIdentities: value.former_identities ?? [],
         title: value.title,
         folders: (value.folders ?? []).map((folder) => ({

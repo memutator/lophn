@@ -1,7 +1,7 @@
 id: project-identity-agent-project-scope
 title: agent가 identity route로 자기 workspace 밖 project의 id file을 만들 수 있어야 하나
 kind: defect
-status: kept
+status: fixed
 topic: project-identity
 modules: [packages/core/main, packages/core/projects]
 now: |
@@ -16,5 +16,5 @@ fix: |
 decided: |
   정할 것 없음: AGENTS.md "속도"의 막을 것(agent의 data 잃기, 폴더 밖 쓰기)에 들지 않아 그대로 둔다.
 closed: |
-  남긴다. agent가 부를 수 있는 다른 memory route와 같은 꼴이고, 쓰는 것은 등록된 project 폴더의 `.lophn-project.json` 하나이며 읽을 수 있는 file은 덮지 않는다. AGENTS.md가 막으라는 것(data 잃기, lophn 밖 폴더 쓰기, 틀린 되돌리기)이 아니다. Home의 lophn agent는 여러 project를 다뤄 `share --project`가 필요하다.
+  이 문제가 기대던 길이 없어졌다. lophn은 사람의 저장소에 file을 쓰지 않고 `project.create_identity`와 `lophn project share`는 지웠다. agent가 부르는 `project.identity`는 폴더의 git 여부와 remote만 다시 적고 id를 내지 않는다(id는 등록할 때 난다).
 guard: 없음

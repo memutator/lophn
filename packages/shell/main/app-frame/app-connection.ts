@@ -68,7 +68,7 @@ export type PlaceWorkspace =
   | {
       kind: "project";
       id: string;
-      identity: string | null;
+      identity: string;
       formerIdentities: string[];
       folders: string[];
     }

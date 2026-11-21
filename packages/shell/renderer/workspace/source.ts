@@ -16,8 +16,8 @@ export interface ProjectFolderView {
 /** projects.get 결과에서 작업대가 쓰는 부분. */
 export interface ProjectView {
   readonly id: string;
-  /** 기계를 넘는 id(`pri_`). 앱 화면의 `place.workspace`로 간다. git project가 아직 나누지 않았으면 null이다. */
-  readonly identity: string | null;
+  /** 기계를 넘는 id(`pri_`). 앱 화면의 `place.workspace`로 간다. */
+  readonly identity: string;
   /** 이 project가 전에 가졌던 `identity`(오래된 것이 앞). 앱 화면의 `place.workspace`로 간다. */
   readonly formerIdentities: readonly string[];
   readonly title: string;

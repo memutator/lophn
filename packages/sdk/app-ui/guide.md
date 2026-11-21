@@ -100,7 +100,7 @@ import {
   `{status: "failed", code}`다. project는
   `{id, identity, formerIdentities, name, title, purpose, status}`다.
   `id`는 이 컴퓨터에서만 뜻이 있고, `identity`는 내 다른 컴퓨터에서도 같은 project를
-  가리킨다(아직 나누지 않은 project는 `null`). `formerIdentities`는 그 project가 전에
+  가리킨다(모든 project가 갖는다). `formerIdentities`는 그 project가 전에
   가졌던 `identity`다(오래된 것이 앞, 없으면 `[]`).
   `title`은 사람에게 보일 이름, `name`은 agent 주소에 쓰는 slug, `status`는
   `active`·`archived`다. 폴더 path는 주지 않는다(지금 열린 project의 폴더만
@@ -259,19 +259,16 @@ function Orders() {
 두지 않고, 앱 data에는 lophn project를 key로 붙인다(이름과 제목은 바뀌므로 key로 쓰지
 않는다). project 만들기와 고치기는 사람이 lophn에서 한다.
 
-- key는 `identity ?? id`다. 앱 data는 사람의 다른 컴퓨터로 옮겨질 수 있고, 거기서 같은
+- key는 `identity`다. 앱 data는 사람의 다른 컴퓨터로 옮겨질 수 있고, 거기서 같은
   project를 가리키는 것은 `identity`뿐이다. `id`는 이 컴퓨터에서만 뜻이 있어 다른
-  컴퓨터에서는 주인 없는 줄이 된다.
-- `identity`가 `null`이면 그 project는 아직 다른 컴퓨터와 나누지 않았다(git 저장소인
-  project를 사람이 lophn의 project 상세 "Other computers"에서 켜지 않았다). 그동안은
-  `id`로 붙이고 그 data는 이 컴퓨터에 머문다.
-- 화면이 열릴 때 `useProjects()` 목록에서 `identity`가 있는 project마다 `id`로 붙은 줄을
-  `identity`로 옮긴다(옮길 것이 없으면 아무것도 하지 않는 write operation 하나). 나중에
-  나누게 된 project의 data가 그렇게 따라간다.
-- 옛 `identity`로 붙은 줄도 `identity`로 옮긴다. 사람이 project를 다른 컴퓨터의 project와
-  잇거나 나누면 `identity`가 바뀌고 옛 값은 `formerIdentities`에 남는다. 같은 write
-  operation이 `formerIdentities`의 id로 붙은 줄도 옮긴다. 옮기지 않으면 그 줄은 어느
-  project의 것도 아닌 줄이 된다.
+  컴퓨터에서는 주인 없는 줄이 된다. 모든 project가 `identity`를 갖는다.
+- `identity`는 바뀔 수 있다. lophn은 사람의 다른 컴퓨터에 같은 git 저장소의 project가
+  있으면 묻지 않고 같은 `identity`(먼저 만든 것)로 맞추고, 사람이 project를 잇거나
+  나눠도 바뀐다. 옛 값은 `formerIdentities`에 남는다.
+- 화면이 열릴 때 `useProjects()` 목록의 project마다 `id`와 `formerIdentities`의 id로 붙은
+  줄을 `identity`로 옮긴다(옮길 것이 없으면 아무것도 하지 않는 write operation 하나).
+  예전에 `id`로 붙인 줄과 `identity`가 바뀌기 전에 붙인 줄이 그렇게 따라간다. 옮기지
+  않으면 그 줄은 어느 project의 것도 아닌 줄이 된다.
 
 - 화면이 project workspace에서 열렸으면(`usePlace().workspace?.kind === "project"`) 그
   project의 data만 보인다. 사람에게 project를 고르게 하지 않는다.
@@ -291,9 +288,9 @@ function Board() {
   const shown = state.projects.filter((p) =>
     only === null ? p.status === "active" : p.id === only,
   );
-  // 앱 data는 operation 입력으로 project key(identity ?? id)를 넘겨 읽는다.
+  // 앱 data는 operation 입력으로 project key(identity)를 넘겨 읽는다.
   return shown.map((p) => (
-    <ProjectTasks key={p.id} project={p.identity ?? p.id} title={p.title} />
+    <ProjectTasks key={p.id} project={p.identity} title={p.title} />
   ));
 }
 ```

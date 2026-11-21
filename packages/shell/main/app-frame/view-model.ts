@@ -148,7 +148,7 @@ function checkWorkspace(value: unknown): value is PlaceWorkspace {
     Object.keys(value).length === (project ? 5 : 3) &&
     ["project", "home", "app"].includes(value.kind as string) &&
     (!project ||
-      ((value.identity === null || typeof value.identity === "string") &&
+      (typeof value.identity === "string" &&
         Array.isArray(value.formerIdentities) &&
         value.formerIdentities.every((id) => typeof id === "string"))) &&
     typeof value.id === "string" &&

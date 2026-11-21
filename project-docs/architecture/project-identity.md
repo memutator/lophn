@@ -83,7 +83,7 @@ ledger projects 줄 (기계별)
 - 순수 함수: remote key는 protocol에 있다.
 - 저장: ledger schema step `projects.registry.identity`(projects 표에 칸 넷과 `identity` unique index), `projects.registry.former-identities`(`former_identities`, JSON 배열, 기본 `[]`), `projects.registry.separated`(`separated`, 0·1, 기본 0). data step `projects.born-identity`(앞 판의 것)와 `projects.identity-for-all`이 id가 없는 모든 project에 새 id를 준다. 한 data root에서 아직 돌지 않은 것만 돈다.
 - 앱 slug `project`는 예약 이름이다(`lophn project` 명령과 겹치지 않게).
-- 앱: 앱 화면이 받는 project(`lophnApp.projects.list()`의 project, project workspace의 `place.workspace`)에 `identity`와 `formerIdentities`가 실린다. 앱은 기계 사이에 맞추는 data를 `identity ?? id`로 key한다(`app-call.md` "앱 화면의 project 읽기").
+- 앱: 앱 화면이 받는 project(`lophnApp.projects.list()`의 project, project workspace의 `place.workspace`)에 `identity`와 `formerIdentities`가 실린다. 앱은 기계 사이에 맞추는 data를 `identity`로 key한다(SDK `@lophn/app-ui` 2.24.0)(`app-call.md` "앱 화면의 project 읽기").
 - 앱이 받는 `identity`는 바뀔 수 있다(자동 match, 잇기, [Separate project]). 그때 옛 id는 `formerIdentities`에 남고, 앱은 `id`로 붙은 줄을 옮기는 같은 write operation으로 옛 id로 붙은 줄을 `identity`로 옮긴다(SDK `@lophn/app-ui` guide "project에 붙는 앱").
 
 ## 결정

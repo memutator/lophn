@@ -1,12 +1,13 @@
-// 이 컴퓨터의 project 줄 아래, 다른 컴퓨터의 agent가 남긴 handoff note 한 줄. 누르면 그 note로 새 session을 연다.
+// 이 컴퓨터의 project 줄 아래, 다른 컴퓨터의 agent가 남긴 handoff note 한 줄(아이콘 없이 위 이름 "From other computers"의 글 자리에 맞춘다). 누르면 그 note로 새 session을 열고,
+// hover하면 오른쪽 끝의 x가 age 자리에서 note를 목록에서 뺀다(session 줄의 Stop과 같은 자리). branch와 commit은 hover 글에 있다.
 // 꼬리표와 상대 시각은 sidebar가 만드는 같은 조각이라 받는다.
 import { t } from "@lophn/i18n";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 
 import type { HandoffNote } from "../../../../protocol/lophn-agent/handoff.ts";
-import { actionIcons } from "../../icons/mod.ts";
+import { shellIcons } from "../../icons/mod.ts";
 import styles from "../../shell/left-sidebar.module.css";
 
 // 32 KiB까지 올 수 있는 글을 tooltip에 다 그리지 않는다.
@@ -17,13 +18,17 @@ export function HandoffRow({
   tag,
   age,
   onOpen,
+  onDismiss,
 }: {
   note: HandoffNote;
   /** 그 컴퓨터의 꼬리표. */
   tag: ReactNode;
   age: string;
-  onOpen: () => void;
+  /** 끝날 때까지 이 줄의 다른 click은 무시한다(두 번 눌러 session이 둘 열리지 않게). */
+  onOpen: () => Promise<void>;
+  onDismiss: () => void;
 }) {
+  const opening = useRef(false);
   const first =
     note.text
       .split("\n")
@@ -38,9 +43,15 @@ export function HandoffRow({
       {note.text.length > TIP_CHARS
         ? `${note.text.slice(0, TIP_CHARS)}…`
         : note.text}
-      {note.commit === null ? null : (
+      {note.branch === null ? null : (
         <>
           {"\n\n"}
+          {t("left-sidebar.label.handoff-branch", { branch: note.branch })}
+        </>
+      )}
+      {note.commit === null ? null : (
+        <>
+          {note.branch === null ? "\n\n" : "\n"}
           {t("left-sidebar.label.handoff-commit", { commit: note.commit })}
         </>
       )}
@@ -49,27 +60,41 @@ export function HandoffRow({
     </div>
   );
   return (
-    <Tooltip content={tip} placement="beside">
-      <button
-        type="button"
-        className={styles.sessionRow}
-        data-handoff={note.session}
-        onClick={onOpen}
-      >
-        <span className={styles.rowIcon}>
-          <Icon icon={actionIcons.download} pixels={14} />
-        </span>
-        <span className={`${styles.rowLabel} ${styles.handoffLabel}`}>
-          {first}
-        </span>
-        {tag}
-        {note.branch === null ? null : (
-          <span className={`${styles.rowMeta} ${styles.handoffBranch}`}>
-            {note.branch}
+    <div className={styles.handoffLine} data-handoff-line={note.session}>
+      <Tooltip content={tip} placement="beside">
+        <button
+          type="button"
+          className={styles.sessionRow}
+          data-handoff={note.session}
+          onClick={() => {
+            if (opening.current) return;
+            opening.current = true;
+            void onOpen().finally(() => {
+              opening.current = false;
+            });
+          }}
+        >
+          <span className={`${styles.rowLabel} ${styles.handoffLabel}`}>
+            {first}
           </span>
-        )}
-        <span className={styles.rowMeta}>{age}</span>
-      </button>
-    </Tooltip>
+          <span className={styles.handoffTag}>{tag}</span>
+          <span className={styles.handoffAge}>{age}</span>
+        </button>
+      </Tooltip>
+      <Tooltip
+        content={t("left-sidebar.button.dismiss-handoff")}
+        placement="beside"
+      >
+        <button
+          type="button"
+          className={`${styles.rowAction} ${styles.handoffDismiss}`}
+          aria-label={t("left-sidebar.button.dismiss-handoff")}
+          data-handoff-dismiss=""
+          onClick={onDismiss}
+        >
+          <Icon icon={shellIcons.close} pixels={14} />
+        </button>
+      </Tooltip>
+    </div>
   );
 }

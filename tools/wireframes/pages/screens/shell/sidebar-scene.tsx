@@ -80,7 +80,7 @@ const HANDOFFS: Handoffs = {
       session: "ses_01h455vb4pex5v6nkc6gd5fn01",
       project: "prj_phroner",
       agent_name: "lophn",
-      text: "Checkout totals are rounded per line, not per order.\nThe rounding fix is half done: tests in cart_test.ts still fail for 3 items.",
+      text: "Checkout flow half done: rounding is per line, not per order.\nTests in cart_test.ts still fail for 3 items.",
       branch: "fix/checkout-rounding",
       commit: "9f2c1ab",
       written_at: ago(25),
@@ -97,7 +97,8 @@ const HANDOFFS: Handoffs = {
       written_at: ago(3 * 60),
     },
   ],
-  open: noop,
+  open: () => Promise.resolve(),
+  dismiss: noop,
 };
 
 export const sidebarSteps = {

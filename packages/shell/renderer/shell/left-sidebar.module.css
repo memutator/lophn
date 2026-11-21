@@ -394,18 +394,57 @@
   font-variant-numeric: var(--font-numeric);
 }
 
-/* handoff note 줄. 좁으면 branch가 먼저, 그다음 꼬리표가 줄어 첫 줄이 읽힌다. */
-.handoffBranch {
-  flex: 0 10 auto;
-  min-width: var(--space-0);
-  max-width: var(--space-12);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* handoff note 줄. 첫 줄이 남는 자리를 쓰고(줄어도 최소 폭이 있다), 꼬리표는 그다음에 줄어든다. age는 session 줄의 Stop 자리와
+   같은 고정 열이고, 줄에 hover하거나 focus가 오면 그 자리에 x(.handoffDismiss)가 뜬다. */
+.handoffLine {
+  position: relative;
 }
 
 .handoffLabel {
   min-width: var(--space-12);
+}
+
+.handoffTag {
+  display: inline-flex;
+  flex: 0 0.1 auto;
+  min-width: var(--space-0);
+  max-width: calc(var(--space-12) + var(--space-9));
+}
+
+.handoffAge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  width: calc(var(--space-7) + var(--space-3));
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: var(--font-numeric);
+}
+
+.handoffDismiss {
+  position: absolute;
+  inset-block: var(--space-0);
+  inset-inline-end: var(--space-0);
+  display: none;
+}
+
+.handoffLine:hover .handoffAge,
+.handoffLine:focus-within .handoffAge {
+  visibility: hidden;
+}
+
+.handoffLine:hover .handoffDismiss,
+.handoffLine:focus-within .handoffDismiss {
+  display: inline-flex;
+}
+
+/* 실패 알림을 overlay 없이 그리는 창(mock)의 자리. */
+.handoffToast {
+  position: fixed;
+  inset-block-end: var(--space-7);
+  inset-inline-start: var(--space-5);
+  z-index: var(--z-toast);
 }
 
 /* handoff note의 전체 글 tooltip. 글은 줄바꿈을 그대로 둔다. */

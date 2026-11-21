@@ -2,6 +2,7 @@
 // 터미널 coding agent session, 사람 차례인 workflow desk(project만). 등록·생성·잇기 dialog도 여기서 연다.
 // 줄과 session은 창의 목록(`useMachineLists`)이 기계마다 읽은 것이다. 이 창이 보는 workspace가 다른 기계의 것이어도 줄은 같다.
 import { t } from "@lophn/i18n";
+import { Toast } from "@lophn/ui/overlay";
 import {
   useCallback,
   useEffect,
@@ -33,6 +34,8 @@ import {
   HandoffProvider,
   useHandoffNotes,
 } from "../../desktop/workspaces/projects/handoff-source.ts";
+import { STAY, useViewToast } from "../../app-frame/annotate/use-view-toast.ts";
+import { useBrowserOverlay } from "../../browser/browser-api.tsx";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import {
   useMachines,
@@ -40,6 +43,7 @@ import {
 } from "../../desktop/machines/context.tsx";
 import { type AgentChoice } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot } from "../../parts/agent-session/coding.ts";
+import leftStyles from "../../shell/left-sidebar.module.css";
 import { newId } from "../../prefixed-id.ts";
 import type { NewSessionStart } from "../../desktop/router.ts";
 import {
@@ -243,12 +247,22 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   // 다른 컴퓨터가 남긴 handoff note는 이 컴퓨터의 core가 낸다(창이 다른 기계를 보고 있어도).
   const here = dataOf(null);
   const handoffNotes = useHandoffNotes(here.events);
+  const failToast = useViewToast(useBrowserOverlay() ?? undefined);
+  const hideHandoff = handoffNotes.hide;
   const handoffs = useMemo(
     () => ({
-      notes: handoffNotes,
-      open: (note: HandoffNote) => void continueHandoff(here.core, note),
+      notes: handoffNotes.notes,
+      open: async (note: HandoffNote) => {
+        if (await continueHandoff(here.core, note)) hideHandoff(note);
+        else {
+          failToast.show({
+            title: t("left-sidebar.error.handoff-continue-failed"),
+          });
+        }
+      },
+      dismiss: hideHandoff,
     }),
-    [handoffNotes, here.core],
+    [handoffNotes.notes, hideHandoff, here.core, failToast.show],
   );
   // 모든 기계의 session 제목. 창에 하나이고 탭 줄과 같은 값이다.
   const { known } = props.sessionTitles;
@@ -1071,6 +1085,16 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             props.onNewApp(created.id);
           }}
         />
+      )}
+      {failToast.dom === null ? null : (
+        <div className={leftStyles.handoffToast}>
+          <Toast
+            tone="error"
+            title={failToast.dom.title}
+            timer={STAY}
+            onClose={failToast.hide}
+          />
+        </div>
       )}
     </HandoffProvider>
   );

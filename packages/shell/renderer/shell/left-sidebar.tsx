@@ -61,7 +61,10 @@ import {
   sessionKey,
   withChildren,
 } from "./left-sidebar-model.ts";
-import { useHandoffs } from "../desktop/workspaces/projects/handoff-source.ts";
+import {
+  type Handoffs,
+  useHandoffs,
+} from "../desktop/workspaces/projects/handoff-source.ts";
 import { HandoffRow } from "../workspace/sidebar/handoff-row.tsx";
 import styles from "./left-sidebar.module.css";
 import {
@@ -572,6 +575,26 @@ export function LeftSidebar({
       </Fragment>
     );
   };
+  const handoffRows = (handoffs: Handoffs, project: string) => {
+    const notes = handoffs.notes.filter((note) => note.project === project);
+    return notes.length === 0 ? null : (
+      <>
+        <div className={styles.deskHead}>
+          {t("left-sidebar.label.handoff-group")}
+        </div>
+        {notes.map((note) => (
+          <HandoffRow
+            key={`${note.machine}:${note.session}`}
+            note={note}
+            tag={<MachineTag name={note.computer} />}
+            age={ageOf(Date.parse(note.written_at))}
+            onOpen={() => handoffs.open(note)}
+            onDismiss={() => handoffs.dismiss(note)}
+          />
+        ))}
+      </>
+    );
+  };
   const renderWorkspace = (workspace: SidebarWorkspace) => {
     const key = workspaceKey(workspace.ref);
     const here = key === currentKey;
@@ -695,17 +718,7 @@ export function LeftSidebar({
         {/* 이어서 할 곳은 이 컴퓨터라 다른 기계 묶음의 project 줄에는 두지 않는다. */}
         {handoffs === null || projectId === undefined
           ? null
-          : handoffs.notes
-              .filter((note) => note.project === projectId)
-              .map((note) => (
-                <HandoffRow
-                  key={`${note.machine}:${note.session}`}
-                  note={note}
-                  tag={<MachineTag name={note.computer} />}
-                  age={ageOf(Date.parse(note.written_at))}
-                  onOpen={() => handoffs.open(note)}
-                />
-              ))}
+          : handoffRows(handoffs, projectId)}
         {workspace.current.map((group) => (
           <Fragment key={group.desk?.key ?? ""}>
             {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}

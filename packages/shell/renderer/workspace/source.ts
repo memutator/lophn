@@ -60,7 +60,20 @@ export interface WorkflowEntryView {
     readonly reason: string;
     readonly message: string;
   } | null;
-  /** 시작 dialog의 step 고르기. */
+  /** 선언의 참가자(key → agent handle이나 사람). 틀린 선언이면 null이다. */
+  readonly participants: Readonly<
+    Record<
+      string,
+      | {
+          readonly agent: string;
+          readonly workspace?:
+            | { readonly project: string }
+            | { readonly app: string };
+        }
+      | { readonly kind: "human" }
+    >
+  > | null;
+  /** 선언의 step 순서. 시작할 step 고르기와 workflow 화면의 step 줄이 읽는다. */
   readonly steps:
     | readonly {
         readonly name: string;

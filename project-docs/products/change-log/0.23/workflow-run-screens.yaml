@@ -1,0 +1,43 @@
+id: workflow-run-screens
+version: 0.23.112
+title: "workflow 탭이 workflow 화면과 run 화면 둘로 나뉘고, 누가 어느 step을 맡는지와 사람이 다음에 할 일을 먼저 보인다"
+modules: [packages/shell/renderer, packages/design]
+checked: []
+change: |
+  전: workflow 탭은 한 화면에 머리, instance 목록, 고른 instance를 위아래로 쌓았다. 시작은 [Start] dialog였다. step은 이름과 상태 글자뿐이라 누가 맡는지는 줄을 읽어야 알았고, step의 대화로 가는 단추는 사람 차례에만 있었다. 목록은 새것 순 하나였다. sidebar의 Workflows panel은 도는 수만 보였다.
+  후:
+  - 탭 안의 화면이 둘이다. workflow 화면(머리, step 줄, 새 run 칸, run 목록)과 run 화면(머리, step 줄, "지금" 한 장, step 목록). 사람에게 보이는 말은 instance가 아니라 run이고, run의 이름은 시작 입력의 첫 줄이다.
+  - step 줄이 step마다 맡은 쪽을 보인다(agent의 얼굴과 이름, 사람, program). run 화면에서는 step마다 상태를 싣고, 넘기지 못한 step은 "Not sent"다.
+  - 시작은 dialog가 아니라 workflow 화면 안의 새 run 칸이다(입력 글, step이 둘 이상인 agent kind는 첫 step, [Start]).
+  - run 목록이 Needs you, Running, Earlier 세 묶음이다. Earlier는 다섯만 보이고 [Show all]로 편다.
+  - run 화면의 "지금" 한 장이 run이 어디에 있는지 한 문장과 사람이 할 일의 단추를 보인다. agent가 맡은 step인데 그 session이 사람의 답을 기다리면 사람 차례와 같은 무게다.
+  - step마다 [Open session]이 그 step을 받은 session의 대화를 workflow 탭 옆에 연다. 이 창이 열 수 없는 session(다른 workspace의 참가자)에는 단추가 없다(전에는 사람 차례의 [Open conversation]이 눌러도 아무 일이 없었다). step의 줄은 접힌 Activity 안으로 갔다.
+  - sidebar의 Workflows panel이 사람 차례인 run 수를 같이 보이고(점이 주황), 목록 아래 [Ask lophn for a workflow]가 lophn과 새 대화를 연다.
+  - `npm run dev:mock`이 빈 창으로 뜨던 것을 고쳤다. mock이 preload가 둔 읽기 전용 `lophnGlobalFloats`를 덮으려다 throw했다. 이제 preload의 것이 있으면 그대로 쓴다.
+  core와 protocol은 그대로다. 사람 화면이 부르는 route는 여전히 `ListWorkflows`, `StartWorkflow`, `StopWorkflow`다. 폰 앱은 바뀌지 않는다.
+why: |
+  사람: "workflow ui/ux도 완전 대격변하고 싶음 너가 알아서 잘 해주셈". workflow는 사람과 agent 여럿이 step을 넘기는 일인데 화면은 줄의 기록으로만 읽혔다. 누가 무엇을 맡는지, 지금 누구 차례인지, 사람이 무엇을 하면 되는지가 한눈에 보이지 않았고, agent가 하는 일을 보려면 sidebar에서 그 session을 따로 찾아야 했다.
+decisions:
+  - text: |
+      탭을 run 중심으로 다시 짠다. 모양(두 화면, step 줄, "지금" 한 장, 세 묶음 목록)은 agent가 정했다. 버린 길: 목록과 고른 run을 한 화면에 계속 쌓기(사람 차례가 묻힌다), run마다 탭을 따로 열기("workflow 하나가 탭 하나"라는 2026-10-22 결정과 다르다).
+    by: agent
+  - text: |
+      graph는 그리지 않고 step 줄은 선언의 순서대로 한 줄로 놓는다. `next`는 자연어라 lophn이 읽지 않고(지키는 것 3), 분기를 그리면 program이 순서를 아는 것처럼 보인다. 그림이 필요하면 workflow의 artifact가 그린다.
+    by: agent
+  - text: |
+      step을 옮기거나 다시 넘기는 단추는 여전히 두지 않는다(사람, 2026-10-22). 막힌 run에서 화면이 주는 것은 그 agent의 대화로 가는 [Open session]이다.
+    by: agent
+  - text: |
+      workflow를 만드는 form이나 editor는 두지 않는다. 만드는 것은 project workspace agent의 책임이라(사람, 2026-10-22) panel의 단추는 lophn과 새 대화를 열 뿐이다. 버린 길: 대화에 글을 미리 채워 넣기(draft key를 panel이 알아야 한다. 요구가 생기면 한다).
+    by: agent
+  - text: |
+      참가자의 얼굴은 탭이 project의 agent 목록에서 찾고 protocol에 싣지 않는다. 다른 workspace의 agent는 선언에 적힌 글 그대로 보인다.
+    by: agent
+follow_up: |
+  다른 workspace의 참가자가 받은 step은 run 화면에서 그 대화로 갈 길이 없다(단추를 숨긴다). 그 workspace의 창으로 건너가 여는 길은 요구가 생기면 한다.
+  mock 앱의 session 목록과 fake workflow의 receiver session이 달라 [Open session]을 누르는 길은 mock에서 볼 수 없다. 설치한 앱에서 확인한다.
+checklist:
+  - "해야: 앱을 다시 build한다"
+  - project의 Workflows panel에서 workflow를 열어 step 줄에 참가자 얼굴이 보이는지 본다
+  - 새 run 칸에서 run을 시작하고, run 화면의 "지금" 한 장과 [Open session]이 그 agent의 대화를 옆에 여는지 본다
+  - 사람 step이 있는 workflow에서 run이 Needs you 묶음에 서는지 본다

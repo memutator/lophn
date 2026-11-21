@@ -1,0 +1,98 @@
+/* run 목록: 묶음(사람 차례, 도는 것, 앞선 것)마다 제목과 줄들. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4) var(--space-3);
+  border: var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--color-surface-muted);
+}
+
+.row:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-width) * -1);
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+.title {
+  overflow: hidden;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 줄 오른쪽 끝의 고정 칸. */
+.go {
+  display: flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.more {
+  display: flex;
+}

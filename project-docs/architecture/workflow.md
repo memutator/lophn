@@ -159,11 +159,15 @@ artifact
 - kit은 전역 `LophnKit.renderGraph(element, {nodes, edges})`를 내고 node에 `status`(label, tone)와 `note`를 받는다. 상태 값의 뜻은 component가 모르고 artifact가 정한다(`architecture/ui-kit.md`).
 
 화면
-- workflow 하나가 탭 하나다(kind `workflow`, key `workflow:<name>`, 필드 `{workflow, instance?}`). 탭 안에서 instance를 고르고, 고른 instance는 layout에 남는다.
-- 탭 머리는 이름, kind, 도는 instance 수, [Start], static artifact가 있으면 [Open artifact]다. 틀린 선언과 flow code가 없는 flow는 이유 한 줄을 보이고 시작하지 못한다. flow의 [Start] dialog는 입력 글만 받는다(첫 step을 고르지 않는다). instance 목록은 새것이 앞이고 job이 시작한 instance 줄은 시작한 쪽으로 job 제목을 보인다(지운 job이면 제목 없이 "Job"). 고른 instance의 머리도 같다. 제목은 읽는 쪽이 `job.list`로 붙인다.
-- 고른 instance는 step마다 상태, 마지막 report 글, 그 step의 줄을 보이고, step 없는 줄(`ended`, `stopped`, `program_exited`, step 없는 `edit`과 `lophn_restarted`)은 머리에 둔다. `program_exited`는 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 보인다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. `not_handed`와 `lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)을, running이면 [Stop]을(되돌릴 수 없어 danger), instance artifact가 있으면 [Open instance artifact]를 둔다. graph는 그리지 않는다.
-- 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. instance 목록과 고른 instance는 처음, `workflow_instances` 변경이 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
-- project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `workflow_instances` 변경 때 읽는다.
+- workflow 하나가 탭 하나다(kind `workflow`, key `workflow:<name>`, 필드 `{workflow, instance?}`). 탭 안의 화면은 둘이다: workflow 화면과 run 화면. 사람에게 보이는 말은 instance가 아니라 run이다. 고른 run은 layout에 남고 [All runs]로 workflow 화면에 돌아온다.
+- workflow 화면은 위에서부터 머리, step 줄, 새 run 칸, run 목록이다. 머리는 이름, 종류와 도는 run 수, [Refresh], static artifact가 있으면 [Open artifact]다. step 줄은 선언의 step을 순서대로 놓고 step마다 맡은 쪽을 보인다: agent는 얼굴과 이름, 사람은 "You"(같이 이야기할 agent가 있으면 그 이름도), flow의 step은 program이다. graph는 그리지 않는다. 새 run 칸은 dialog가 아니라 화면 안에 있다: 입력 글, agent kind에서 step이 둘 이상이면 첫 step 고르기, [Start]. flow는 입력 글만 받는다. flow code가 없는 flow는 이유 한 줄을 보이고 시작하지 못한다. 틀린 선언은 이유 한 줄만 있고 새 run 칸과 목록이 없다.
+- run 목록은 세 묶음이다: Needs you(사람 차례), Running, Earlier(끝났거나 멈춘 것, 다섯을 넘으면 [Show all]). 묶음 안은 새것이 앞이다. 줄은 run의 이름(시작 입력의 첫 줄), 상태, 지금 step, 시작하거나 끝난 때이고, job이 시작한 run은 job 제목을 보인다(지운 job이면 제목 없이 "Job"). run 화면의 머리도 같다. 제목은 읽는 쪽이 `job.list`로 붙인다.
+- run 화면은 머리, step 줄, "지금" 한 장, step 목록이다. 머리는 run의 이름, 상태, 시작한 때, running이면 [Stop](되돌릴 수 없어 danger), run artifact가 있으면 [Open run artifact]다. step 줄은 step마다 상태를 싣는다.
+- "지금" 한 장은 run이 어디에 있는지 한 문장과 사람이 다음에 할 일의 단추다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)이다. agent가 일하는 중이면 그 agent와 [Open session]이고, 그 session이 사람의 답을 기다리면 사람 차례와 같은 무게로 보인다. 넘기지 못했거나(`not_handed`) lophn이 다시 켜져 끊겼으면(`lophn_restarted`) 이유와 말을 걸 session이다. 끝났으면 마지막 report 글이고, flow는 `program_exited`의 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 같이 보인다. 멈췄으면 멈춘 때다.
+- step 목록은 step마다 맡은 쪽, 상태, 마지막 report 글이다. 그 step의 줄은 접힌 Activity 안에 있다. step을 받은 session이 있으면 [Open session]이 그 대화를 workflow 탭 옆에 연다. 단추는 이 창이 열 수 있는 session(이 workspace의 agent의 session)에만 있다. 다른 workspace의 참가자가 받은 session에는 "지금" 한 장에도 step 목록에도 단추가 없다. `not_handed`와 `lophn_restarted`는 그 step에 이유 한 줄이고 step 줄의 그 칸이 "Not sent"가 된다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. step 없는 `edit`과 `lophn_restarted`는 "지금" 한 장 아래 한 줄이다. step을 옮기는 단추는 없다.
+- 참가자의 얼굴과 이름은 탭이 그 project의 agent 목록에서 찾는다. 다른 workspace의 agent와 목록에 없는 이름은 선언에 적힌 글 그대로다.
+- 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. run 목록과 고른 run은 처음, `workflow_instances` 변경이 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
+- project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 사람 차례인 run 수와 도는 run 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. 목록 아래 [Ask lophn for a workflow]는 그 workspace에서 lophn과 새 대화를 연다(workflow는 agent가 만든다). panel은 열려 있는 동안 열릴 때와 `workflow_instances` 변경 때 읽는다.
 
 ## 결정
 
@@ -177,6 +181,7 @@ artifact
 - instance 상태는 workflow 안에서 고친다. 사람이 화면에서 step을 옮기는 길을 따로 두지 않는다. (사람, 2026-10-22) 사람 화면은 report와 고치기를 부르지 않는다. (agent, roadmap)
 - 정의는 셋이다: 선언, 자연어 글(`workflow.md`), artifact(정적인 것과 instance 상태까지 보이는 것). 모든 workflow에 artifact가 필요한 것은 아니다. workflow를 만드는 것은 project workspace의 agent의 책임이다. node 시각화는 kit에서 재사용할 수 있게 만든다. (사람, 2026-10-22) artifact를 둘지와 모양은 사람에게 묻지 않고 agent가 정한다(`products/AGENT.md` F5). (사람, 2026-11-09)
 - 사람 화면은 workflow 하나가 탭 하나다. 오른쪽 sidebar는 panel icon tab을 둔다(항목이 많아 segmented control로는 감당하지 못한다). wireframe을 추천안 그대로 승인했다. (사람, 2026-10-22)
+- 탭은 run 중심으로 읽힌다: workflow 화면(누가 어느 step을 맡는지와 run 목록)과 run 화면(지금 어디에 있고 사람이 무엇을 하면 되는지)으로 나눈다. 사람이 화면을 통째로 다시 짜라고 했다. (사람, 2026-11-21) 모양은 agent가 정했다: 목록과 고른 것을 한 화면에 쌓으면 사람 차례가 묻히고, step의 대화로 가는 길이 사람 차례에만 있어 agent가 무엇을 하는지 보려면 sidebar에서 session을 찾아야 했다. core와 protocol은 그대로다(사람 화면이 부르는 route는 여전히 List, Start, Stop 셋). (agent, 2026-11-21)
 - coding agent 같은 third party harness는 참가자가 된다. harness는 programmatic 실행을 공식으로 지원하므로 사람 없이(workflow, job) 돌려도 된다. 이름 없는 `{kind: harness}` 참가자는 지웠고, harness agent는 이름이 있는 agent라 `{agent}` 참가자다. (사람, 2026-11-04)
 
 기록과 넘기기

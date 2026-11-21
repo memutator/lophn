@@ -1,0 +1,106 @@
+/* step 줄. 좁으면 다음 줄로 넘어간다. */
+.relay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.arrow {
+  display: flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-full);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.name {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.who {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 아직 닿지 않은 step은 흐리게, 지금 step은 테두리와 상태 글로 드러낸다. */
+.item[data-shown="waiting"] .step {
+  border-style: dashed;
+}
+
+.item[data-shown="waiting"] .name {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.item[data-shown="current"] .step {
+  border-color: var(--status-good-text);
+}
+
+.item[data-shown="current"] .who {
+  color: var(--status-good-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.item[data-shown="human"] .step {
+  border-color: var(--status-warning-text);
+}
+
+.item[data-shown="human"] .who {
+  color: var(--status-warning-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.item[data-shown="stopped"] .step {
+  border-color: var(--status-serious-text);
+}
+
+.item[data-shown="stopped"] .who {
+  color: var(--status-serious-text);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 넘기지 못한 step. 상태 색보다 앞선다. */
+.item[data-blocked] .step {
+  border-style: solid;
+  border-color: var(--status-serious-text);
+}
+
+.item[data-blocked] .who {
+  color: var(--status-serious-text);
+  font-weight: var(--font-weight-medium);
+}

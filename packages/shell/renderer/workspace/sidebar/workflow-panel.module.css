@@ -1,8 +1,18 @@
-/* 도는 instance가 있다는 점. 숫자 글이 이름이라 점만으로 뜻을 싣지 않는다. */
+/* 도는 run이 있다는 점. 사람 차례인 run이 있으면 색이 바뀐다. 숫자 글이 이름이라 점만으로 뜻을 싣지 않는다. */
 .dot {
   display: block;
   width: var(--space-4);
   height: var(--space-4);
   border-radius: var(--radius-full);
   background: var(--status-good-marker);
+}
+
+.dot[data-tone="warning"] {
+  background: var(--status-warning-marker);
+}
+
+/* 목록 아래의 단추 줄. */
+.ask {
+  display: flex;
+  padding: var(--space-4) var(--space-3);
 }

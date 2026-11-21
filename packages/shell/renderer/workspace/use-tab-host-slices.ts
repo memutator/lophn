@@ -124,13 +124,14 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
           dotOf: (session) => lophnSessionDot(sessionStates, session),
           openSettings: () => onSettings("tools"),
           openConnections: () => onSettings("providers"),
-          openSession: (session) => {
+          openSession: (session, open) => {
             const row = rowOfSession(session);
             if (row === undefined) return;
             openAgent(hostRef.current(), {
               agent: row.assignment,
               name: row.name,
               session,
+              ...open,
             });
           },
           workspaceLophnSession: () =>

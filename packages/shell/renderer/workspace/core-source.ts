@@ -382,6 +382,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           startable: entry.startable,
           kind: entry.kind,
           problem: entry.problem,
+          participants: entry.participants ?? null,
           steps: entry.steps,
           artifacts: entry.artifacts,
         })),

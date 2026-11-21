@@ -726,8 +726,10 @@ journeys:
     refs: [H7, W1, E9]
     steps:
       - {do: "Workflows 목록에서 workflow를 고른다", screen: new-sidebar-workflows, flow: workflow-list:ok}
-      - {do: "입력 글을 적고 Start를 누른다", screen: workflow-start-dialog, flow: workflow-start-agent:handed}
-      - {do: "instance 탭에서 진행을 읽는다", screen: workflow-tab-running, flow: workflow-instance-read:ok}
+      - {do: "workflow 화면에서 누가 어느 step을 맡는지 읽는다", screen: workflow-home, flow: workflow-list:ok}
+      - {do: "새 run 칸에 입력 글을 적고 Start를 누른다", screen: workflow-start-dialog, flow: workflow-start-agent:handed}
+      - {do: "run 화면에서 지금 어느 step을 누가 하는지 읽는다", screen: workflow-tab-running, flow: workflow-instance-read:ok}
+      - {do: "Open session으로 그 step을 받은 agent의 대화를 workflow 탭 옆에 연다", screen: new-agent-conversation, flow: session-read:ok}
       - {do: "참가자가 report하고 다음 step으로 넘긴다", screen: workflow-tab-running, flow: workflow-report:handed}
       - {do: "마지막 참가자가 next를 end로 report한다", screen: workflow-tab-ended, flow: workflow-report:ended}
 
@@ -738,6 +740,7 @@ journeys:
     refs: [H8, W1, E9]
     steps:
       - {do: "참가자가 report하며 사람 step으로 넘긴다", screen: workflow-tab-human-turn, flow: workflow-report:handed}
+      - {do: "run 목록의 Needs you에서 그 run을 고르고 Open conversation을 누른다", screen: workflow-home, flow: workflow-instance-read:ok}
       - {do: "사람이 with agent의 session에 글을 보낸다", screen: new-agent-conversation, flow: session-send:ok}
       - {do: "with agent가 결과를 report하고 다음 step으로 넘긴다", flow: workflow-report:handed}
 

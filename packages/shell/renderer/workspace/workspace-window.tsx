@@ -2809,6 +2809,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             onOpenArtifact: (name) => openArtifact(host, name),
             onOpenWorkflow: (workflow) => openWorkflow(host, workflow),
             activeWorkflow: desk.workflow,
+            onNewWorkflow: () => void openLophn(),
             explorer: {
               current:
                 currentTab?.kind === "document_editor" ? currentTab.key : null,

@@ -1,0 +1,23 @@
+.stateMark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.stateMark[data-shown="running"] {
+  color: var(--status-good-text);
+}
+
+.stateMark[data-shown="human"] {
+  color: var(--status-warning-text);
+}
+
+.stateMark[data-shown="ended"] {
+  color: var(--status-neutral-text);
+}
+
+.stateMark[data-shown="stopped"] {
+  color: var(--status-serious-text);
+}

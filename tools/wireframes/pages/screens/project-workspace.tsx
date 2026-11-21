@@ -136,7 +136,12 @@ function SidebarWorkflowsEmpty() {
       >
         <div style={{ width: 320, padding: "var(--space-4)" }}>
           <RightSidebar title="Workflows" panel="workflow">
-            <WorkflowPanel project="prj_empty" source={source} onOpen={noop} />
+            <WorkflowPanel
+              project="prj_empty"
+              source={source}
+              onOpen={noop}
+              onNew={noop}
+            />
           </RightSidebar>
         </div>
       </div>
@@ -629,14 +634,14 @@ export const projectWorkspaceArea: Area = {
       id: "new-sidebar-workflows",
       title: "Sidebar · Workflows",
       description:
-        "오른쪽 sidebar의 Workflows panel이다. workflow마다 아이콘, 이름, 아래 줄이 있고, 도는 instance가 있으면 아래 줄에 도는 수와 오른쪽 끝 점이 보인다. 선언이 틀린 workflow는 경고 아이콘과 빨간 글자이고 flow는 여기서 시작하지 못한다는 글이 보인다. 줄을 누르면 그 workflow의 탭이 열린다.",
+        "오른쪽 sidebar의 Workflows panel이다. workflow마다 아이콘, 이름, 아래 줄이 있다. 아래 줄은 사람 차례인 run 수와 도는 run 수이고, 사람 차례가 있으면 오른쪽 끝 점이 주황, 도는 것만 있으면 초록이다. 선언이 틀린 workflow는 경고 아이콘과 빨간 글자다. 줄을 누르면 그 workflow의 탭이 열린다. 목록 아래 [Ask lophn for a workflow]는 lophn과 새 대화를 연다(workflow는 agent가 만든다).",
       render: () => <SidebarWorkflows />,
     },
     {
       id: "new-sidebar-workflows-empty",
       title: "Sidebar · Workflows · empty",
       description:
-        "workflow가 하나도 없는 project의 Workflows panel이다. 안내 글 한 줄만 있다.",
+        "workflow가 하나도 없는 project의 Workflows panel이다. 안내 글 한 줄과 [Ask lophn for a workflow]가 있다.",
       render: () => <SidebarWorkflowsEmpty />,
     },
     {

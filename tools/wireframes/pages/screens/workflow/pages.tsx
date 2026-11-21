@@ -15,6 +15,7 @@ import {
 import { PaddedTab } from "../../../../../packages/shell/renderer/workspace/padded-tab.tsx";
 import { WorkflowPage } from "../../../../../packages/shell/renderer/workflow/workflow-page.tsx";
 import type { WorkspaceSource } from "../../../../../packages/shell/renderer/workspace/source.ts";
+import type { FaceOf } from "../../../../../packages/shell/renderer/workflow/model.ts";
 import { click, type, useDrive } from "../../../mock/drive.ts";
 
 const noop = () => {};
@@ -35,16 +36,32 @@ const [
 
 const PROJECT = FAKE_WORKFLOWS[0].project;
 
+// 참가자 agent의 얼굴. 실제 창은 agent 목록에서 읽는다.
+const FACES: Readonly<Record<string, ReturnType<FaceOf>>> = {
+  lophn: {
+    name: "lophn",
+    profile: { kind: "character", shape: "square", color: "coral" },
+  },
+  "Eval analyst": {
+    name: "Eval analyst",
+    profile: { kind: "character", shape: "arch", color: "sage" },
+  },
+};
+const faceOf: FaceOf = (handle) => FACES[handle];
+
 /** workflow 탭 한 개가 선 창. 본문은 실제 card처럼 여백 없이 붙고 page가 스스로 여백을 둔다. */
 function WorkflowWindow({
   name,
   instance = null,
   source: given,
+  asking = false,
 }: {
   name: string;
-  /** 탭이 처음 고른 instance. */
+  /** 탭이 처음 고른 run. 없으면 workflow 화면이다. */
   instance?: string | null;
   source?: WorkspaceSource;
+  /** step을 받은 session이 사람의 답을 기다린다. */
+  asking?: boolean;
 }) {
   const source = useMemo(() => given ?? fakeWorkspaceSource(), [given]);
   const client = useMemo(() => createEventClient(createFakeSource()), []);
@@ -74,9 +91,11 @@ function WorkflowWindow({
                     workflow={name}
                     instance={selected}
                     source={source}
+                    faceOf={faceOf}
+                    dotOf={() => (asking ? "waiting" : "working")}
                     onInstance={setSelected}
                     onOpenArtifact={noop}
-                    onOpenConversation={noop}
+                    onOpenSession={noop}
                   />
                 </PaddedTab>
               ),
@@ -93,9 +112,13 @@ function WorkflowWindow({
   );
 }
 
+export const Home = () => <WorkflowWindow name="eval-loop" />;
 export const Empty = () => <WorkflowWindow name="paper-review" />;
 export const Running = () => (
   <WorkflowWindow name="eval-loop" instance={RUNNING} />
+);
+export const Asking = () => (
+  <WorkflowWindow name="eval-loop" instance={RUNNING} asking />
 );
 export const HumanTurn = () => (
   <WorkflowWindow name="eval-loop" instance={HUMAN_TURN} />
@@ -131,23 +154,22 @@ export function FlowMissing() {
   return <WorkflowWindow name="missing-flow" />;
 }
 
-// [Start]를 눌러 dialog를 열고 입력 글을 채운다.
-const fillStartDialog = async () => {
-  await click("[data-start]");
+// 새 run 칸에 입력 글을 채운다.
+const fillStart = async () => {
   await type(
-    '[role="dialog"] textarea',
+    "[data-start-box] textarea",
     "Compare the quest tool changes on the full ftb quests scenario set",
   );
 };
 
-export function StartDialog() {
-  useDrive(fillStartDialog);
-  return <WorkflowWindow name="eval-loop" instance={RUNNING} />;
+export function Start() {
+  useDrive(fillStart);
+  return <WorkflowWindow name="eval-loop" />;
 }
 
-export function StartDialogFlow() {
-  useDrive(fillStartDialog);
-  return <WorkflowWindow name="nightly-flow" instance={FLOW_RUNNING} />;
+export function StartFlow() {
+  useDrive(fillStart);
+  return <WorkflowWindow name="nightly-flow" />;
 }
 
 export function StartFailed() {
@@ -160,8 +182,8 @@ export function StartFailed() {
     [],
   );
   useDrive(async () => {
-    await fillStartDialog();
-    await click('[role="dialog"] button', "Start");
+    await fillStart();
+    await click("[data-start]");
   });
-  return <WorkflowWindow name="eval-loop" instance={RUNNING} source={source} />;
+  return <WorkflowWindow name="eval-loop" source={source} />;
 }

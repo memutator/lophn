@@ -56,6 +56,8 @@ export interface SidebarCtx {
     readonly onOpenWorkflow: (workflow: string) => void;
     /** 보이는 desk가 workflow의 것이면 그 이름. Workflows 줄이 강조한다. */
     readonly activeWorkflow?: string;
+    /** workflow를 만들어 달라고 말할 이 project의 lophn 대화를 연다. agent 탭을 열 수 없는 창에는 없다. */
+    readonly onNewWorkflow?: () => void;
   } | null;
   readonly home: WorkspacesPanelProps | null;
   readonly app: {
@@ -130,6 +132,7 @@ function builtinPanels(): readonly SidebarPanel[] {
               source={project.source}
               active={project.activeWorkflow}
               onOpen={project.onOpenWorkflow}
+              onNew={project.onNewWorkflow}
             />
           </RightSidebar>
         ),

@@ -20,6 +20,8 @@ import {
   Plus,
   Search,
   Settings,
+  SquareTerminal,
+  UserRound,
   Users,
   Workflow,
 } from "lucide-react";
@@ -50,4 +52,7 @@ export const commonIcons = {
   stateStopped: CircleStop,
   stateYourTurn: MessageCircleMore,
   stateNotReached: Circle,
+  // workflow의 step을 맡은 쪽이 사람이거나 flow의 program일 때의 얼굴.
+  person: UserRound,
+  program: SquareTerminal,
 } as const satisfies Record<string, LucideIcon>;

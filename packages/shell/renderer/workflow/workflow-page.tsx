@@ -1,6 +1,6 @@
-// workflow 탭 한 개의 본문. 머리(이름, kind, 도는 수, [Open artifact], [Start]), instance 목록, 고른 instance의 기본 view.
-// `host`를 모른다. 탭 kind가 props를 채우고, gallery는 Workspace 없이 이 component를 세운다.
-import { type ReactElement, useState } from "react";
+// workflow 탭 한 개의 본문. 화면은 둘이다: workflow 화면(이름, step 줄, 새 run 칸, run 목록)과 run 하나의 화면.
+// 탭이 고른 run이 있으면 run 화면이고 [All runs]로 돌아온다. `host`를 모른다. 탭 kind가 props를 채우고, gallery는 Workspace 없이 세운다.
+import type { ReactElement } from "react";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import {
   EmptyState,
@@ -8,7 +8,7 @@ import {
   Skeleton,
   useDelayedLoading,
 } from "@lophn/ui/feedback";
-import { Toast, Tooltip } from "@lophn/ui/overlay";
+import { Toast } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
@@ -19,14 +19,16 @@ import {
   homeIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
+import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type {
   WorkflowEntryView,
   WorkspaceSource,
 } from "../workspace/source.ts";
-import { InstanceList } from "./instance-list.tsx";
-import { InstanceView } from "./instance-view.tsx";
-import { runningCount } from "./model.ts";
-import { StartDialog } from "./start-dialog.tsx";
+import { type FaceOf, relayOfEntry, runningCount } from "./model.ts";
+import { Relay } from "./relay.tsx";
+import { RunList } from "./run-list.tsx";
+import { RunView } from "./run-view.tsx";
+import { StartBox } from "./start-box.tsx";
 import { useWorkflow } from "./use-workflow.ts";
 import styles from "./workflow-page.module.css";
 
@@ -35,23 +37,31 @@ export interface WorkflowPageProps {
   project: string;
   /** workflow 이름(slug). */
   workflow: string;
-  /** 탭이 고른 instance. 없으면 목록만 보인다. */
+  /** 탭이 고른 run. 없으면 workflow 화면이다. */
   instance: string | null;
   source: WorkspaceSource;
   onInstance: (instance: string | null) => void;
   onOpenArtifact: (view: "static" | "instance", instance?: string) => void;
-  /** 사람 차례의 [Open conversation]. null이면 단추를 그리지 않는다. */
-  onOpenConversation: ((session: string) => void) | null;
+  /** step을 받은 session의 대화를 연다. null이면 단추를 그리지 않는다. */
+  onOpenSession: ((session: string) => void) | null;
+  /** 이 창이 열 수 있는 session인가. 없으면 모두 연다. */
+  canOpenSession?: (session: string) => boolean;
+  /** 참가자 agent의 얼굴. 없으면 선언에 적힌 이름만 보인다. */
+  faceOf?: FaceOf;
+  /** session의 지금 상태. 없으면 run 화면이 session의 기다림을 모른다. */
+  dotOf?: (session: string) => SessionDot | null;
 }
 
 export function WorkflowPage(props: WorkflowPageProps): ReactElement {
-  const { instance, onInstance } = props;
+  const { instance, onInstance, faceOf } = props;
   const state = useWorkflow(props);
-  const [starting, setStarting] = useState(false);
   const { definitions, instances, detail, notice } = state;
   const showPageLoading = useDelayedLoading(definitions.state === "loading");
-  const showInstancesLoading = useDelayedLoading(
+  const showRunsLoading = useDelayedLoading(
     definitions.state === "ready" && instances === null,
+  );
+  const showRunLoading = useDelayedLoading(
+    instance !== null && detail === null,
   );
 
   if (definitions.state === "loading") {
@@ -86,24 +96,65 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
       </div>
     );
   }
+  const toast =
+    notice === null ? null : (
+      <div className={styles.toastSlot}>
+        <Toast
+          tone="error"
+          title={notice.title}
+          body={notice.body}
+          onClose={state.closeNotice}
+        />
+      </div>
+    );
+  if (instance !== null) {
+    return (
+      <>
+        {toast}
+        <div className={styles.page} data-workflow-page="run">
+          {detail === null ? (
+            <>
+              <div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={commonIcons.back}
+                  onClick={() => onInstance(null)}
+                >
+                  {t("workflow.button.all-runs")}
+                </Button>
+              </div>
+              {showRunLoading ? <Skeleton shape="line" lines={6} /> : null}
+            </>
+          ) : (
+            <RunView
+              detail={detail}
+              hasArtifact={entry.artifacts.instance}
+              faceOf={faceOf}
+              dotOf={props.dotOf}
+              onBack={() => onInstance(null)}
+              onStop={state.stop}
+              onOpenArtifact={() =>
+                props.onOpenArtifact("instance", detail.instance.id)
+              }
+              onOpenSession={props.onOpenSession}
+              canOpenSession={props.canOpenSession}
+            />
+          )}
+        </div>
+      </>
+    );
+  }
+  const steps = relayOfEntry(entry);
   return (
     <>
-      {notice === null ? null : (
-        <div className={styles.toastSlot}>
-          <Toast
-            tone="error"
-            title={notice.title}
-            body={notice.body}
-            onClose={state.closeNotice}
-          />
-        </div>
-      )}
+      {toast}
       <div className={styles.page} data-workflow-page="ready">
         <Head
           entry={entry}
           running={instances === null ? 0 : runningCount(instances)}
-          onStart={() => setStarting(true)}
           onOpenArtifact={() => props.onOpenArtifact("static")}
+          onRefresh={state.refresh}
         />
         {entry.problem === null ? null : (
           <p className={styles.problem}>
@@ -117,86 +168,28 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               />
             </span>
             <span>{entry.problem.message}</span>
-            {entry.invalid ? (
-              // 목록 절이 없는 탭도 정의를 다시 읽을 수 있어야 한다(선언을 고친 뒤).
-              <span className={styles.refresh}>
-                <IconButton
-                  icon={workspaceIcons.refresh}
-                  label={t("workflow.button.refresh")}
-                  size="sm"
-                  onClick={state.refresh}
-                />
-              </span>
-            ) : null}
           </p>
         )}
+        {steps.length === 0 ? null : <Relay steps={steps} faceOf={faceOf} />}
         {entry.invalid ? null : (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
+          <>
+            <StartBox entry={entry} onStart={state.start} />
+            <section className={styles.section}>
               <h2 className={styles.sectionTitle}>
                 {t("workflow.heading.instances")}
               </h2>
-              <span className={styles.count}>{instances?.length ?? 0}</span>
-              <span className={styles.refresh}>
-                <IconButton
-                  icon={workspaceIcons.refresh}
-                  label={t("workflow.button.refresh")}
-                  size="sm"
-                  onClick={state.refresh}
-                />
-              </span>
-            </div>
-            {instances === null && showInstancesLoading ? (
-              <Skeleton shape="line" lines={3} />
-            ) : null}
-            {instances?.length === 0 ? (
-              <EmptyState
-                icon={commonIcons.workflow}
-                message={t("workflow.empty.instances")}
-                action={
-                  entry.startable
-                    ? {
-                        label: t("workflow.button.start"),
-                        onSelect: () => setStarting(true),
-                      }
-                    : {
-                        label: t("workflow.button.refresh"),
-                        onSelect: state.refresh,
-                      }
-                }
-              />
-            ) : null}
-            {instances !== null && instances.length > 0 ? (
-              <InstanceList
-                instances={instances}
-                selected={instance}
-                onSelect={onInstance}
-              />
-            ) : null}
-          </section>
+              {instances === null && showRunsLoading ? (
+                <Skeleton shape="line" lines={3} />
+              ) : null}
+              {instances?.length === 0 ? (
+                <p className={styles.empty}>{t("workflow.empty.instances")}</p>
+              ) : null}
+              {instances !== null && instances.length > 0 ? (
+                <RunList instances={instances} onSelect={onInstance} />
+              ) : null}
+            </section>
+          </>
         )}
-        {detail === null ? null : (
-          <InstanceView
-            detail={detail}
-            hasArtifact={entry.artifacts.instance}
-            onStop={state.stop}
-            onOpenArtifact={() =>
-              props.onOpenArtifact("instance", detail.instance.id)
-            }
-            onOpenConversation={props.onOpenConversation}
-          />
-        )}
-        {starting ? (
-          <StartDialog
-            entry={entry}
-            onCancel={() => setStarting(false)}
-            onStart={async (text, step) => {
-              const started = await state.start(text, step);
-              if (started) setStarting(false);
-              return started;
-            }}
-          />
-        ) : null}
       </div>
     </>
   );
@@ -205,13 +198,13 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
 function Head({
   entry,
   running,
-  onStart,
   onOpenArtifact,
+  onRefresh,
 }: {
   entry: WorkflowEntryView;
   running: number;
-  onStart: () => void;
   onOpenArtifact: () => void;
+  onRefresh: () => void;
 }) {
   const sub =
     entry.kind === "agent"
@@ -229,29 +222,17 @@ function Head({
         <p className={styles.sub}>{sub}</p>
       </div>
       <span className={styles.actions}>
+        <IconButton
+          icon={workspaceIcons.refresh}
+          label={t("workflow.button.refresh")}
+          size="sm"
+          onClick={onRefresh}
+        />
         {entry.artifacts.static ? (
           <Button trailingIcon={actionIcons.open} onClick={onOpenArtifact}>
             {t("workflow.button.open-artifact")}
           </Button>
         ) : null}
-        {entry.invalid ? null : entry.startable ? (
-          <Button
-            variant="primary"
-            icon={actionIcons.run}
-            onClick={onStart}
-            data-start=""
-          >
-            {t("workflow.button.start")}
-          </Button>
-        ) : (
-          <Tooltip content={entry.problem?.message ?? ""}>
-            <span className={styles.tipTarget} tabIndex={0} data-start-tip="">
-              <Button variant="primary" icon={actionIcons.run} disabled>
-                {t("workflow.button.start")}
-              </Button>
-            </span>
-          </Tooltip>
-        )}
       </span>
     </header>
   );

@@ -1,4 +1,4 @@
-/* workflow 탭의 머리, 오류 안내, instance 목록 절. 본문은 최대 폭 기둥을 가로 가운데에 둔다. */
+/* workflow 탭의 머리, 오류 안내, run 목록 절. 본문은 최대 폭 기둥을 가로 가운데에 둔다. */
 .page {
   box-sizing: border-box;
   display: flex;
@@ -25,9 +25,10 @@
   color: var(--color-text-muted);
 }
 
+/* 이름 쪽이 줄의 반을 얻지 못하면 단추 묶음이 아래 줄로 내려간다. */
 .headText {
   display: flex;
-  flex: 1;
+  flex: 1 1 50%;
   flex-direction: column;
   min-width: var(--space-0);
 }
@@ -91,31 +92,12 @@
   gap: var(--space-4);
 }
 
-.sectionHead {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
 .sectionTitle {
   margin: var(--space-0);
   color: var(--color-text-primary);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
   font-weight: var(--font-weight-semibold);
-}
-
-.count {
-  color: var(--color-text-muted);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.refresh {
-  display: flex;
-  flex: none;
-  align-items: center;
-  margin-left: auto;
 }
 
 /* 알림은 탭 위쪽에 toast로 뜬다. 높이 0으로 붙어 있어 본문을 밀지 않는다. */
@@ -136,7 +118,9 @@
   pointer-events: auto;
 }
 
-/* disabled 단추의 tooltip을 받는 틀. 단추는 focus를 못 받아서 이 틀이 받는다. */
-.tipTarget {
-  display: inline-flex;
+.empty {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
 }

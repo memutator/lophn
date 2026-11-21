@@ -1,0 +1,35 @@
+/* 새 run 칸: 입력 글 아래에 시작할 step 고르기(왼쪽)와 [Start](오른쪽 끝). */
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.step {
+  min-width: calc(var(--space-12) * 4);
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.tipTarget {
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+}
+
+.tipTarget:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}

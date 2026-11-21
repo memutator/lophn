@@ -831,6 +831,7 @@ export function PageProjectPanel(props: SidebarProps & { tab: SidebarTab }) {
       source: DEMO_SOURCE,
       onOpenArtifact: () => {},
       onOpenWorkflow: () => {},
+      onNewWorkflow: () => {},
       explorer: {
         current: props.current === undefined ? null : absolute(props.current),
         onOpenFile: (path) =>

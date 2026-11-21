@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py tab-scope build`가 `tasks/*.md`에서 id, �
 |---|---|---|---|---|---|---|---|
 | `browser-profile-partitions` | browser-profile | 1 | 없음 | running | browser-profile/browser-profile-partitions |  |  |
 | `tab-owner-core` | tab-owner | 1 | 없음 | running | tab-owner/tab-owner-core |  |  |
-| `tab-owner-layout` | tab-owner | 1 | 없음 | running | tab-owner/tab-owner-layout |  |  |
+| `tab-owner-layout` | tab-owner | 1 | 없음 | merged | tab-owner/tab-owner-layout | e15f21b51 |  |
 | `browser-profile-core` | browser-profile | 2 | tab-owner-core, browser-profile-partitions | todo |  |  |  |
 | `tab-owner-screen` | tab-owner | 2 | tab-owner-core, tab-owner-layout, browser-profile-partitions | todo |  |  |  |
 | `tab-owner-sidebar` | tab-owner | 2 | tab-owner-layout | todo |  |  |  |

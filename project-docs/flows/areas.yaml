@@ -119,6 +119,7 @@ areas:
     entries:
       - packages/protocol/lophn-agent/agent-definitions.ts
       - packages/protocol/lophn-agent/calls.ts
+      - packages/protocol/lophn-agent/mail.ts
       - packages/protocol/lophn-agent/team.ts
       - packages/protocol/lophn-agent/instructions.ts
       - packages/protocol/lophn-agent/skill-settings.ts

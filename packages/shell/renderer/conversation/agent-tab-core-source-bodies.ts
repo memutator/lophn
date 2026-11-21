@@ -58,7 +58,14 @@ async function senderOf(
       return { kind: "program", label: null };
     case "app":
       return { kind: "app", app: from.app, name: from.slug };
-    default: {
+    // 기계와 agent를 제대로 그리는 것은 다음 일이다. 지금은 이름에 컴퓨터를 붙인다.
+    case "remote":
+      return {
+        kind: "agent",
+        agent: null,
+        name: `${from.name} (${from.computer})`,
+      };
+    case "agent": {
       const agent = await agentOf(env, memo, from.session);
       return {
         kind: "agent",

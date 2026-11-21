@@ -8,6 +8,7 @@ import type {
 } from "../../protocol/lophn-agent/calls.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
 import { appSenderSchemaSteps } from "./app-sender-schema.ts";
+import { remoteSenderCallsSchemaSteps } from "./remote-sender-schema.ts";
 import { ROUTER_SCHEMA_STEPS } from "./schema.ts";
 import {
   callsOfSession,
@@ -33,6 +34,7 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
       (step) => step.id === "router.app-sender.agent-calls",
     )!.sql,
   );
+  db.exec(remoteSenderCallsSchemaSteps[0]!.sql);
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,
@@ -63,6 +65,8 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
       created_at: AT,
       state_changed_at: AT,
       result: null,
+      delivery: null,
+      remote_session: null,
     });
     assert.ok(stored.ok);
   }
@@ -97,6 +101,7 @@ test("앱이 받은 답 글은 받은 session을 지울 때 같이 지워지고 
       (step) => step.id === "router.app-sender.agent-calls",
     )!.sql,
   );
+  db.exec(remoteSenderCallsSchemaSteps[0]!.sql);
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,
@@ -133,6 +138,8 @@ test("앱이 받은 답 글은 받은 session을 지울 때 같이 지워지고 
     created_at: AT,
     state_changed_at: AT,
     result: null,
+    delivery: null,
+    remote_session: null,
   });
   assert.ok(store.insert(tx, row("cal_a1", appA, RECEIVER, "k")).ok);
   assert.ok(store.insert(tx, row("cal_b1", appB, RECEIVER, "k")).ok);

@@ -96,6 +96,10 @@ export function startSession(
     // 터미널 GUI 탭의 팀원 session이다. `tab`은 사람이 연 탭이라 headless 설정과 상관없이 열고, `called`는 core가 탭을 열어야 해서
     // 사람이 coding agent를 lophn이 돌리게 켰을 때만 연다.
     gui?: "tab" | "called";
+    // 다른 컴퓨터의 mail이 열었으면 그 기계.
+    openedByMachine?: string | null;
+    // false면 agent 정의가 skip이어도 묻는 session으로 연다(다른 컴퓨터의 mail은 받는 기계의 허락이 있을 때만 skip을 따른다).
+    skipAllowed?: boolean;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(workspace-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -132,8 +136,9 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine,
+       created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -145,13 +150,14 @@ export function startSession(
       inherit?.forked_from?.session ?? null,
       inherit?.forked_from?.through_seq ?? null,
       inherit?.model_selection ?? null,
-      definition.skip ? 1 : 0,
+      definition.skip && input.skipAllowed !== false ? 1 : 0,
       harness,
       input.gui !== undefined && harness !== null ? 1 : 0,
       input.calledFrom?.kind ?? null,
       input.calledFrom?.id ?? null,
       input.spawnedBy ?? null,
       input.openedByApp ?? null,
+      input.openedByMachine ?? null,
       seq,
       seq,
     ],

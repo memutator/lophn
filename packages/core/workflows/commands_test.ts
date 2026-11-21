@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { DatabaseSync } from "node:sqlite";
-import { ok } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import type { HandoffPlan } from "../../protocol/workflows/mod.ts";
@@ -56,8 +56,14 @@ test("a stopped instance is not handed: report with next records the line only a
         app: () => null,
         accepts: () => null,
         listOpen: () => [],
+        projectOfIdentity: () => null,
+        identityOfProject: () => ok(null),
+        appIdOf: () => err({ code: "not_found", message: "app not found" }),
       },
       store: {} as never,
+      outbox: {} as never,
+      seen: {} as never,
+      self: () => "mch_self",
       announce: () => {},
       callPolicy: () => DEFAULT_CALL_POLICY,
       transport: {

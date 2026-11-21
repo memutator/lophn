@@ -382,5 +382,21 @@
   {
     "id": "lophn-agent.sessions.gui-member",
     "sha256": "d0c4ba7bff1e9a0ff84cccf1ad1d86f237bb49a5fedbf7668bb1a3907b59dff4"
+  },
+  {
+    "id": "router.remote-sender.agent-calls",
+    "sha256": "2c0a93322ba378820c163af827af107fbe7a124fb6aad7ef8bf5f3b6a9daaa07"
+  },
+  {
+    "id": "lophn-agent.remote-sender.messages",
+    "sha256": "fc815a3448480f106352170380c172ab382511c4876d9263d24399121aef874d"
+  },
+  {
+    "id": "lophn-agent.remote-sender.sessions",
+    "sha256": "ae4383a80c792bb6d3b64a638a56b64368ecce68f8fe81dbf5185f901f9a212a"
+  },
+  {
+    "id": "router.mail.tables",
+    "sha256": "c03c7f8d3c609102eaac18273fa4053787a9c741169d786e1713aa02825c41fe"
   }
 ]

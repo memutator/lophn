@@ -48,6 +48,7 @@ function world(refuse: boolean) {
     agent: { agent: "lophn_app", workspace: null },
     accepting: true,
     spawned_by: null,
+    opened_by_machine: null,
   };
   installRouterEnvironment({
     unattendedTurn: () => false,
@@ -65,7 +66,13 @@ function world(refuse: boolean) {
         accepts: () => null,
         listOpen: () => [],
         app: () => null,
+        projectOfIdentity: () => null,
+        identityOfProject: () => ok(null),
+        appIdOf: () => err({ code: "not_found", message: "app not found" }),
       },
+      outbox: {} as never,
+      seen: {} as never,
+      self: () => "mch_self",
       transport: { deliver: () => ok(undefined), cancel: () => ok(undefined) },
       store: {
         insert: (_tx, record) => {
@@ -80,6 +87,7 @@ function world(refuse: boolean) {
           return ok(moved);
         },
         markConsumed: () => ok(undefined),
+        setDelivery: () => ok(undefined),
         lost: () => [],
         openReceivedBy: () => [],
       },

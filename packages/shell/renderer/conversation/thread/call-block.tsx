@@ -29,6 +29,9 @@ const FAIL_DETAIL: Record<CallFailReason, MessageKey> = {
   closed: "conversation.notice.call-fail-closed",
   receiver_ended: "conversation.notice.call-fail-receiver-ended",
   lophn_restarted: "conversation.notice.call-fail-lophn-restarted",
+  expired: "conversation.notice.call-fail-expired",
+  skipped: "conversation.notice.call-fail-skipped",
+  old_version: "conversation.notice.call-fail-old-version",
 };
 
 interface CallBlockProps {

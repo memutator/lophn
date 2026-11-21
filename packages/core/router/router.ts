@@ -7,19 +7,35 @@ import {
 } from "../../protocol/lophn-agent/content-block.ts";
 import type {
   AgentCallRow,
+  CallAddressInput,
   CallDecision,
   CallFailReason,
   CallFrom,
   CallRef,
+  CallReply,
   CallState,
   CallTarget,
+  RemoteAddress,
 } from "../../protocol/lophn-agent/calls.ts";
-import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
+import {
+  LOPHN_AGENT_HANDLE,
+  type Modality,
+} from "../../protocol/lophn-agent/agent-values.ts";
 import {
   type CallPolicy,
+  isPrivate,
   mayCall,
   mayReachWorkspace,
 } from "../../protocol/lophn-agent/call-policy.ts";
+import {
+  type Mail,
+  type MailApplied,
+  type MailAuthor,
+  MAIL_EXPIRY_MS,
+  MAIL_TEXT_MAX_BYTES,
+  mailBodySchema,
+} from "../../protocol/lophn-agent/mail.ts";
+import { requesterName } from "../../protocol/machine/requester.ts";
 import {
   type AgentAddress,
   type AgentAtWorkspace,
@@ -28,6 +44,7 @@ import {
   lophnIdOf,
   type Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
+import { STATE_CHANGED_TOPIC } from "../storage/ledger/after-commit.ts";
 import {
   addressingOf,
   APP_CALL_SETTLED_TOPIC,
@@ -39,6 +56,7 @@ import {
   failureCode,
   failureInput,
   isFinished,
+  MAIL_QUEUED_TOPIC,
   type RouteInput,
   type RouteResult,
   sesId,
@@ -47,6 +65,9 @@ import {
 import type {
   CallStore,
   InputTransport,
+  MailDraft,
+  MailOutbox,
+  MailSeen,
   RoutedInput,
   SessionDirectory,
   TargetSession,
@@ -56,6 +77,11 @@ export type RouterDeps = {
   directory: SessionDirectory;
   transport: InputTransport;
   store: CallStore;
+  // 다른 기계로 낼 mail과 받은 mail.
+  outbox: MailOutbox;
+  seen: MailSeen;
+  // 이 기계(`machine.json`).
+  self(): string;
   // 지금 call 정책. 설정이 바뀌면 다음 call부터 닿는다.
   callPolicy(): CallPolicy;
   // commit 뒤 main thread에 일을 알린다(tx가 되돌아가면 버려진다). ask call의 답과 끝남이 이 길로 간다.
@@ -109,7 +135,62 @@ export interface Router {
   failLostOnStart(tx: Tx, notify: boolean): Result<number>;
   // 받는 session의 turn이 이 call의 입력을 가져갔다(turn을 시작할 때 부른다).
   markConsumed(tx: Tx, call: string): Result<void>;
+  // 다른 컴퓨터의 agent에게 call mail을 낸다. 행이 있고 queue가 없다(앱이 보낸 call처럼). 검사는 main thread가 마쳤다.
+  sendRemote(tx: Tx, input: SendRemoteInput): Result<SentRemote>;
+  // 다른 컴퓨터에서 온 mail 하나를 적용한다. 같은 mail id는 한 번만 돈다.
+  applyMail(tx: Tx, input: ApplyMailInput): Result<MailApplied>;
+  // applyMail이 오류로 되돌아간 mail을 본 것으로 적고, call mail이면 실패 mail을 낸다.
+  refuseMail(
+    tx: Tx,
+    input: { mail: Mail; origin: MailOrigin; reason: CallFailReason },
+  ): Result<void>;
+  // 낸 mail의 결과를 적는다.
+  mailSent(
+    tx: Tx,
+    input: { mail: string; result: MailSendResult },
+  ): Result<void>;
 }
+
+// mail을 보낸 기계. computer는 이 기계 명단의 그 컴퓨터 이름이다.
+export type MailOrigin = { machine: string; computer: string };
+
+export type SendRemoteInput = {
+  session: string;
+  dedup: string;
+  self: string;
+  peer: MailOrigin;
+  address: RemoteAddress;
+  reply: CallReply;
+  body: ContentBlock[];
+  unattended: boolean;
+};
+
+export type SentRemote = {
+  call: string;
+  state: CallState;
+  fail_reason: CallFailReason | null;
+};
+
+export type ApplyMailInput = {
+  mail: Mail;
+  origin: MailOrigin;
+  // 받는 기계의 사람이 그 기계에 허락을 주었으면 agent 정의의 skip을 따른다.
+  skipAllowed: boolean;
+  // 폴더 길은 답이 없어 받은 call의 상태를 state mail로 알린다.
+  via: "link" | "folder";
+};
+
+export type MailSendResult =
+  | { kind: "acked"; applied: MailApplied }
+  | { kind: "unknown" }
+  // 상대가 mail route를 모른다(옛 판).
+  | { kind: "refused" };
+
+const NOT_APPLIED: MailApplied = {
+  delivery: null,
+  reason: null,
+  session: null,
+};
 
 // 받는 곳을 푼 결과. 실패하면 이유와, 행에 남길 수 있는 풀린 받는 곳(이름을 못 풀었으면 null)이다.
 type Resolved =
@@ -128,7 +209,16 @@ const MODALITY_OF = {
 } as const satisfies Record<ContentBlock["type"], Modality>;
 
 export function createRouter(deps: RouterDeps): Router {
-  const { directory, transport, store, callPolicy, announce } = deps;
+  const {
+    directory,
+    transport,
+    store,
+    outbox,
+    seen,
+    self,
+    callPolicy,
+    announce,
+  } = deps;
 
   function open(
     tx: Tx,
@@ -136,12 +226,14 @@ export function createRouter(deps: RouterDeps): Router {
     agent: AgentAtWorkspace,
     to: CallTarget,
     spawn: boolean,
+    skipAllowed: boolean | undefined,
   ): Result<Resolved> {
     const opened = directory.open(
       tx,
       agent,
       from,
       spawn && from.kind === "agent" ? sesId(from.session) : null,
+      { skipAllowed },
     );
     if (opened.ok) {
       return ok({ ok: true, to, target: opened.value, opened: true });
@@ -210,7 +302,7 @@ export function createRouter(deps: RouterDeps): Router {
       : resolved.value;
     if (session === null) {
       const to: CallTarget = { kind: "new_session", agent };
-      return open(tx, from, agent, to, spawn);
+      return open(tx, from, agent, to, spawn, input.skipAllowed);
     }
     const to: CallTarget = {
       kind: "open_session_or_new",
@@ -221,7 +313,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (target !== null && target.accepting) {
       return ok({ ok: true, to, target });
     }
-    return open(tx, from, agent, to, spawn);
+    return open(tx, from, agent, to, spawn, input.skipAllowed);
   }
 
   function inputOf(input: RouteInput, call: string | null): RoutedInput {
@@ -269,7 +361,7 @@ export function createRouter(deps: RouterDeps): Router {
     tx: Tx,
     call: string,
     from: CallFrom,
-    input: RouteInput,
+    input: Omit<RouteInput, "to">,
     to: CallTarget,
     receiver: string | null,
     state: CallState,
@@ -290,13 +382,15 @@ export function createRouter(deps: RouterDeps): Router {
       created_at: at,
       state_changed_at: at,
       result: null,
+      delivery: null,
+      remote_session: null,
     };
   }
 
   // 배달 실패. 조용히 버리지 않는다.
   function deliveryFailed(
     tx: Tx,
-    input: RouteInput,
+    input: Omit<RouteInput, "to">,
     to: CallTarget | null,
     reason: CallFailReason,
   ): Result<RouteResult> {
@@ -304,7 +398,11 @@ export function createRouter(deps: RouterDeps): Router {
     if (from.kind === "human") {
       return err({ code: failureCode(reason), message: FAILURE_TEXTS[reason] });
     }
-    if (from.kind !== "agent" && from.kind !== "app") {
+    if (
+      from.kind !== "agent" &&
+      from.kind !== "app" &&
+      from.kind !== "remote"
+    ) {
       return ok({
         call: null,
         state: "failed",
@@ -312,14 +410,22 @@ export function createRouter(deps: RouterDeps): Router {
         session: null,
       });
     }
-    const call = tx.newId("cal");
+    const call = input.call ?? tx.newId("cal");
     // 이름을 못 푼 call은 받는 곳을 적을 수 없어 행이 없다. ID와 이유는 그대로 돌려준다.
     if (to !== null) {
-      const stored = store.insert(
+      const record = newRecord(
         tx,
-        newRecord(tx, call, from, input, to, null, "failed", reason),
+        call,
+        from,
+        input,
+        to,
+        null,
+        "failed",
+        reason,
       );
+      const stored = store.insert(tx, record);
       if (!stored.ok) return stored;
+      changedIfRemote(tx, record);
     }
     return ok({ call, state: "failed", fail_reason: reason, session: null });
   }
@@ -416,7 +522,107 @@ export function createRouter(deps: RouterDeps): Router {
         fail_reason: reason,
       });
     }
+    if (moved.ok) changedIfRemote(tx, record);
     return moved;
+  }
+
+  // 다른 컴퓨터를 건넌 call 행이 바뀌면 화면의 call card가 다시 읽는다.
+  function changedIfRemote(tx: Tx, record: AgentCallRow): void {
+    if (record.from.kind === "remote" || record.to.kind === "remote") {
+      announce(tx, STATE_CHANGED_TOPIC, [
+        { name: "agent_calls", id: record.call },
+      ]);
+    }
+  }
+
+  function stamp(tx: Tx): { sent_at: string; expires_at: string } {
+    const sent_at = tx.now();
+    return {
+      sent_at,
+      expires_at: new Date(Date.parse(sent_at) + MAIL_EXPIRY_MS).toISOString(),
+    };
+  }
+
+  // mail을 쓴 쪽. session이 없는 알림(배달 실패)은 그 기계의 lophn 이름으로 낸다.
+  function authorOf(session: string | null): MailAuthor {
+    const target = session === null ? null : directory.find(sesId(session));
+    if (target === null) {
+      return {
+        machine: self(),
+        agent: LOPHN_AGENT_HANDLE,
+        session: null,
+        name: LOPHN_AGENT_HANDLE,
+      };
+    }
+    const agent = target.agent.agent;
+    return {
+      machine: self(),
+      agent,
+      session: target.session,
+      name: requesterName(directory.accepts(agent)?.name ?? agent),
+    };
+  }
+
+  // outbox에 넣고 commit 뒤 main thread의 drain을 깨운다.
+  function queue(tx: Tx, draft: MailDraft): Result<Mail> {
+    const put = outbox.put(tx, draft);
+    if (put.ok) announce(tx, MAIL_QUEUED_TOPIC, { peer: draft.to_machine });
+    return put;
+  }
+
+  // 받은 call의 실패를 보낸 기계에 알린다. 글은 받는 쪽이 자기 글로 만든다.
+  function queueFailure(
+    tx: Tx,
+    call: string,
+    peer: string,
+    reason: CallFailReason,
+    unattended: boolean,
+  ): Result<Mail> {
+    return queue(tx, {
+      kind: "reply",
+      call,
+      from: authorOf(null),
+      to_machine: peer,
+      ...stamp(tx),
+      body: null,
+      outcome: { state: "failed", reason },
+      unattended,
+    });
+  }
+
+  // 받은 call의 끝(답 없는 call의 소비, 받는 기계의 사람이 취소)을 보낸 기계에 알린다. 입력을 넣지 않고 행만 닫는다.
+  function queueClosed(
+    tx: Tx,
+    record: AgentCallRow,
+    state: "done" | "cancelled",
+  ): Result<Mail> | null {
+    if (record.from.kind !== "remote") return null;
+    return queue(tx, {
+      kind: "reply",
+      call: calId(record.call),
+      from: authorOf(record.receiver_session),
+      to_machine: record.from.machine,
+      ...stamp(tx),
+      body: null,
+      outcome: { state, reason: null },
+      unattended: record.unattended,
+    });
+  }
+
+  // 다른 컴퓨터로 가는 답은 글만 싣는다(image blob은 기계를 건너지 않는다).
+  function remoteBody(body: ContentBlock[]): Result<ContentBlock[]> {
+    if (body.some((block) => block.type !== "text")) {
+      return err({
+        code: "invalid_input",
+        message: "a reply to another computer carries text only",
+      });
+    }
+    return mailBodySchema.safeParse(body).success
+      ? ok(body)
+      : err({
+          code: "invalid_input",
+          message: `a reply to another computer is at most ${MAIL_TEXT_MAX_BYTES} bytes of text`,
+        });
   }
 
   function route(tx: Tx, input: RouteInput): Result<RouteResult> {
@@ -458,17 +664,26 @@ export function createRouter(deps: RouterDeps): Router {
         refusal(target.agent.agent, input);
       if (refused !== null) return refused;
     }
-    const hasRow = from.kind === "agent" || from.kind === "app";
-    const call = hasRow ? tx.newId("cal") : null;
+    const hasRow =
+      from.kind === "agent" || from.kind === "app" || from.kind === "remote";
+    const call = hasRow ? (input.call ?? tx.newId("cal")) : null;
     const delivered = transport.deliver(tx, target, inputOf(input, call));
     if (!delivered.ok) return delivered;
     const receiver = target.session;
     if (call !== null && hasRow) {
-      const stored = store.insert(
+      const record = newRecord(
         tx,
-        newRecord(tx, call, from, input, to, receiver, "accepted", null),
+        call,
+        from,
+        input,
+        to,
+        receiver,
+        "accepted",
+        null,
       );
+      const stored = store.insert(tx, record);
       if (!stored.ok) return stored;
+      changedIfRemote(tx, record);
     }
     // team spawn의 자식 탭은 그 command가 relation과 같이 따로 요청한다. 앱이 연 session은 앱 화면이 자리다.
     if (opened === true && from.kind === "agent" && input.spawn !== true) {
@@ -512,6 +727,34 @@ export function createRouter(deps: RouterDeps): Router {
       return err({ code: "conflict", message: "this call takes no reply" });
     }
     if (isFinished(record.state)) return ok({ delivered: false, closed: true });
+    // 다른 컴퓨터를 건넌 call의 답은 queue가 아니라 그 기계로 가는 mail이다.
+    const peer =
+      asReceiver && record.from.kind === "remote"
+        ? record.from.machine
+        : asSender && record.to.kind === "remote"
+          ? record.to.machine
+          : null;
+    if (peer !== null) {
+      const body = remoteBody(input.body);
+      if (!body.ok) return body;
+      const result = asReceiver && record.reply === "result";
+      const queued = queue(tx, {
+        kind: "reply",
+        call: calId(record.call),
+        from: authorOf(from.session),
+        to_machine: peer,
+        ...stamp(tx),
+        body: body.value,
+        outcome: result ? { state: "done", reason: null } : null,
+        unattended: input.unattended === true,
+      });
+      if (!queued.ok) return queued;
+      if (result) {
+        const closed = finish(tx, record, "done", null);
+        if (!closed.ok) return closed;
+      }
+      return ok({ delivered: true, closed: false });
+    }
     if (record.from.kind === "app") {
       // 앱에는 받을 queue가 없다. 답은 call 행에 글로 남고 앱은 `call.settled`를 받아 읽는다.
       const closed = finish(tx, record, "done", null, blocksText(input.body));
@@ -604,6 +847,27 @@ export function createRouter(deps: RouterDeps): Router {
     if (isFinished(record.state)) return ok(record);
     const moved = finish(tx, record, "cancelled", null);
     if (!moved.ok) return moved;
+    // 다른 컴퓨터로 보낸 call은 받는 session이 이 기계에 없다. 아직 닿지 않았으면 낼 call mail만 지운다(상대는 본 적이 없다).
+    if (record.to.kind === "remote") {
+      const pending = outbox.callMailOf(tx, calId(record.call));
+      if (record.delivery === "pending" && pending !== null) {
+        const removed = outbox.remove(tx, pending.id);
+        return removed.ok ? moved : removed;
+      }
+      const queued = queue(tx, {
+        kind: "cancel",
+        call: calId(record.call),
+        from: authorOf(
+          record.from.kind === "agent" ? record.from.session : null,
+        ),
+        to_machine: record.to.machine,
+        ...stamp(tx),
+      });
+      return queued.ok ? moved : queued;
+    }
+    // 받는 기계의 사람이 다른 컴퓨터에서 받은 call을 취소했다. 보낸 기계의 행도 닫는다.
+    const closed = queueClosed(tx, record, "cancelled");
+    if (closed !== null && !closed.ok) return closed;
     const target =
       record.receiver_session === null
         ? null
@@ -633,6 +897,18 @@ export function createRouter(deps: RouterDeps): Router {
         }
         continue;
       }
+      // 다른 컴퓨터에서 받은 call의 실패는 queue 알림 대신 그 기계로 가는 mail이다.
+      if (record.from.kind === "remote") {
+        const queued = queueFailure(
+          tx,
+          calId(record.call),
+          record.from.machine,
+          reason,
+          record.unattended,
+        );
+        if (!queued.ok) return queued;
+        continue;
+      }
       if (notify && record.from.kind === "agent") {
         const told = notifyFailed(
           tx,
@@ -645,6 +921,436 @@ export function createRouter(deps: RouterDeps): Router {
       }
     }
     return ok(records.length);
+  }
+
+  function sendRemote(tx: Tx, input: SendRemoteInput): Result<SentRemote> {
+    const from: CallFrom = { kind: "agent", session: sesId(input.session) };
+    const prior = store.byDedup(tx, from, input.dedup);
+    if (prior !== null) {
+      return ok({
+        call: calId(prior.call),
+        state: prior.state,
+        fail_reason: prior.fail_reason,
+      });
+    }
+    const sender = directory.find(sesId(input.session));
+    if (sender === null) {
+      return err({ code: "not_found", message: "sender session not found" });
+    }
+    const call = tx.newId("cal") as Id<"cal">;
+    const agent = sender.agent.agent;
+    const queued = queue(tx, {
+      kind: "call",
+      call,
+      from: {
+        machine: input.self,
+        agent,
+        session: input.session,
+        name: requesterName(directory.accepts(agent)?.name ?? agent),
+      },
+      to_machine: input.peer.machine,
+      ...stamp(tx),
+      address: input.address,
+      reply: input.reply,
+      body: input.body,
+      unattended: input.unattended,
+    });
+    if (!queued.ok) return queued;
+    const at = tx.now();
+    const record: AgentCallRow = {
+      call,
+      from,
+      to: {
+        kind: "remote",
+        machine: input.peer.machine,
+        computer: input.peer.computer,
+        address: input.address,
+      },
+      receiver_session: null,
+      reply: input.reply,
+      state: "accepted",
+      fail_reason: null,
+      dedup: input.dedup,
+      unattended: input.unattended,
+      ask: null,
+      result: null,
+      created_at: at,
+      state_changed_at: at,
+      delivery: "pending",
+      remote_session: null,
+    };
+    const stored = store.insert(tx, record);
+    if (!stored.ok) return stored;
+    changedIfRemote(tx, record);
+    return ok({ call, state: "accepted", fail_reason: null });
+  }
+
+  // mail의 주소를 이 기계의 call 주소로 푼다. 실패면 이유와 행에 남길 풀린 받는 곳이다.
+  // 다른 컴퓨터의 mail은 그 기계의 mail이 연 session에만 이어 들어간다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다).
+  // 받는 workspace가 private이면 없는 것과 같다(있는지를 알리지 않는다).
+  function localAddress(
+    address: RemoteAddress,
+    origin: string,
+  ):
+    | { ok: true; to: CallAddressInput }
+    | { ok: false; reason: CallFailReason; to: CallTarget | null } {
+    const policy = callPolicy();
+    const ours = (session: string) => {
+      const target = directory.find(sesId(session));
+      return target !== null &&
+        target.opened_by_machine === origin &&
+        !isPrivate(policy, target.agent.workspace)
+        ? target
+        : null;
+    };
+    if (!("agent" in address)) {
+      return ours(address.session) === null
+        ? {
+            ok: false,
+            reason: "not_found",
+            to: { kind: "open_session", session: address.session },
+          }
+        : { ok: true, to: address };
+    }
+    const named = address.workspace;
+    let workspace: AgentAddress["workspace"];
+    if ("project" in named) {
+      const project = directory.projectOfIdentity(named.project);
+      if (project === null) return { ok: false, reason: "not_found", to: null };
+      workspace = { project };
+    } else {
+      workspace = named;
+    }
+    const local = { agent: address.agent, workspace };
+    const resolved = directory.resolveAddress(local);
+    if (!resolved.ok || isPrivate(policy, resolved.value.workspace)) {
+      return { ok: false, reason: "not_found", to: null };
+    }
+    if ("session" in address && ours(address.session) !== null) {
+      return {
+        ok: true,
+        to: { ...local, session: address.session, fallback: "new" },
+      };
+    }
+    return { ok: true, to: local };
+  }
+
+  // 지난 적용의 결과. 받은 call 행에서 읽는다.
+  function appliedBefore(tx: Tx, mail: Mail, origin: string): MailApplied {
+    if (mail.kind !== "call") return NOT_APPLIED;
+    const record = store.read(tx, calId(mail.call));
+    if (
+      record === null ||
+      record.from.kind !== "remote" ||
+      record.from.machine !== origin
+    ) {
+      return { delivery: "failed", reason: "not_found", session: null };
+    }
+    return record.state === "failed"
+      ? { delivery: "failed", reason: record.fail_reason, session: null }
+      : { delivery: "running", reason: null, session: record.receiver_session };
+  }
+
+  function applyCall(
+    tx: Tx,
+    mail: Extract<Mail, { kind: "call" }>,
+    origin: MailOrigin,
+    input: ApplyMailInput,
+  ): Result<MailApplied> {
+    const from: CallFrom = {
+      kind: "remote",
+      ...mail.from,
+      computer: origin.computer,
+    };
+    const routeInput: Omit<RouteInput, "to"> = {
+      from,
+      reply: mail.reply,
+      body: mail.body,
+      refs: [],
+      reply_to: null,
+      dedup: null,
+      kind: "call",
+      delivery: "next_turn",
+      unattended: mail.unattended,
+      call: mail.call,
+      skipAllowed: input.skipAllowed,
+    };
+    const address = localAddress(mail.address, origin.machine);
+    const routed = address.ok
+      ? route(tx, { ...routeInput, to: address.to })
+      : deliveryFailed(tx, routeInput, address.to, address.reason);
+    if (!routed.ok) return routed;
+    const { fail_reason, session } = routed.value;
+    if (fail_reason !== null) {
+      const queued = queueFailure(
+        tx,
+        mail.call,
+        origin.machine,
+        fail_reason,
+        mail.unattended,
+      );
+      if (!queued.ok) return queued;
+      return ok({ delivery: "failed", reason: fail_reason, session: null });
+    }
+    if (input.via === "folder") {
+      const queued = queue(tx, {
+        kind: "state",
+        call: mail.call,
+        from: authorOf(session),
+        to_machine: origin.machine,
+        ...stamp(tx),
+        delivery: "running",
+        session,
+      });
+      if (!queued.ok) return queued;
+    }
+    return ok({ delivery: "running", reason: null, session });
+  }
+
+  // 그 call의 아직 내지 못한 call mail을 지운다(받는 기계가 이미 받았다).
+  function dropCallMail(tx: Tx, call: string): Result<void> {
+    const pending = outbox.callMailOf(tx, call);
+    return pending === null ? ok(undefined) : outbox.remove(tx, pending.id);
+  }
+
+  function applyReply(
+    tx: Tx,
+    mail: Extract<Mail, { kind: "reply" }>,
+    origin: MailOrigin,
+    record: AgentCallRow,
+  ): Result<void> {
+    if (isFinished(record.state)) return ok(undefined);
+    const from: CallFrom = {
+      kind: "remote",
+      ...mail.from,
+      computer: origin.computer,
+    };
+    const replyInput = (outcome: RoutedInput["outcome"]): RoutedInput | null =>
+      mail.body === null
+        ? null
+        : {
+            kind: "reply",
+            from,
+            call: calId(record.call),
+            reply_to: calId(record.call),
+            body: mail.body,
+            refs: [],
+            delivery: "next_turn",
+            message: null,
+            reply: null,
+            outcome,
+            event: null,
+            notice: null,
+            step: null,
+            unattended: mail.unattended,
+          };
+    // (가) 이 기계가 그 기계로 보낸 call의 답·실패·끝.
+    if (
+      record.to.kind === "remote" &&
+      record.to.machine === origin.machine &&
+      record.from.kind === "agent"
+    ) {
+      const outcome = mail.outcome;
+      const reason =
+        outcome?.state === "failed"
+          ? (outcome.reason ?? "receiver_ended")
+          : null;
+      const input =
+        reason !== null
+          ? failureInput(calId(record.call), reason, mail.unattended)
+          : replyInput(
+              outcome === null ? null : { state: outcome.state, reason: null },
+            );
+      const target = directory.find(sesId(record.from.session));
+      if (input !== null && target !== null && target.accepting) {
+        const delivered = transport.deliver(tx, target, input);
+        if (!delivered.ok) return delivered;
+      }
+      if (outcome === null) return ok(undefined);
+      const moved = finish(tx, record, outcome.state, reason);
+      if (!moved.ok) return moved;
+      return dropCallMail(tx, calId(record.call));
+    }
+    // (나) 그 기계에서 받은 conversation call에 보낸 쪽이 잇는 말.
+    if (
+      record.from.kind === "remote" &&
+      record.from.machine === origin.machine &&
+      record.reply === "conversation" &&
+      record.receiver_session !== null
+    ) {
+      const input = replyInput(null);
+      const target = directory.find(sesId(record.receiver_session));
+      if (input === null || target === null || !target.accepting) {
+        return ok(undefined);
+      }
+      return transport.deliver(tx, target, input);
+    }
+    return ok(undefined);
+  }
+
+  function applyMail(tx: Tx, input: ApplyMailInput): Result<MailApplied> {
+    const { mail, origin } = input;
+    if (mail.from.machine !== origin.machine || mail.to_machine !== self()) {
+      return err({
+        code: "forbidden",
+        message: "this mail is not from that computer to this one",
+      });
+    }
+    const fresh = seen.mark(tx, {
+      origin: origin.machine,
+      id: mail.id,
+      call: mail.call,
+      kind: mail.kind,
+      state: "applied",
+      mail: null,
+      computer: origin.computer,
+      arrived_at: tx.now(),
+    });
+    if (!fresh) return ok(appliedBefore(tx, mail, origin.machine));
+    if (mail.kind === "call") return applyCall(tx, mail, origin, input);
+    const record = store.read(tx, calId(mail.call));
+    if (record === null) return ok(NOT_APPLIED);
+    switch (mail.kind) {
+      case "reply": {
+        const applied = applyReply(tx, mail, origin, record);
+        return applied.ok ? ok(NOT_APPLIED) : applied;
+      }
+      case "cancel": {
+        if (
+          isFinished(record.state) ||
+          record.from.kind !== "remote" ||
+          record.from.machine !== origin.machine ||
+          record.from.session !== mail.from.session
+        ) {
+          return ok(NOT_APPLIED);
+        }
+        const moved = finish(tx, record, "cancelled", null);
+        if (!moved.ok) return moved;
+        const target =
+          record.receiver_session === null
+            ? null
+            : directory.find(sesId(record.receiver_session));
+        const cancelled = transport.cancel(
+          tx,
+          target,
+          calId(record.call),
+          record.unattended,
+        );
+        return cancelled.ok ? ok(NOT_APPLIED) : cancelled;
+      }
+      case "state": {
+        if (
+          isFinished(record.state) ||
+          record.to.kind !== "remote" ||
+          record.to.machine !== origin.machine
+        ) {
+          return ok(NOT_APPLIED);
+        }
+        const set = store.setDelivery(
+          tx,
+          calId(record.call),
+          mail.delivery,
+          mail.session === null ? null : sesId(mail.session),
+        );
+        if (!set.ok) return set;
+        changedIfRemote(tx, record);
+        const dropped = dropCallMail(tx, calId(record.call));
+        return dropped.ok ? ok(NOT_APPLIED) : dropped;
+      }
+    }
+  }
+
+  function refuseMail(
+    tx: Tx,
+    input: { mail: Mail; origin: MailOrigin; reason: CallFailReason },
+  ): Result<void> {
+    const { mail, origin } = input;
+    const fresh = seen.mark(tx, {
+      origin: origin.machine,
+      id: mail.id,
+      call: mail.call,
+      kind: mail.kind,
+      state: "refused",
+      mail: null,
+      computer: origin.computer,
+      arrived_at: tx.now(),
+    });
+    // 그 기계가 쓴 call mail에만 답한다.
+    if (
+      !fresh ||
+      mail.kind !== "call" ||
+      mail.from.machine !== origin.machine
+    ) {
+      return ok(undefined);
+    }
+    const queued = queueFailure(
+      tx,
+      mail.call,
+      origin.machine,
+      input.reason,
+      mail.unattended,
+    );
+    return queued.ok ? ok(undefined) : queued;
+  }
+
+  // 보낸 call이 받는 기계에서 실패했다. 행을 닫고 보낸 session에 늦은 실패로 알린다.
+  function failSent(
+    tx: Tx,
+    record: AgentCallRow,
+    reason: CallFailReason,
+  ): Result<void> {
+    const moved = finish(tx, record, "failed", reason);
+    if (!moved.ok) return moved;
+    return record.from.kind === "agent"
+      ? notifyFailed(
+          tx,
+          record.from.session,
+          record.call,
+          reason,
+          record.unattended,
+        )
+      : ok(undefined);
+  }
+
+  function mailSent(
+    tx: Tx,
+    input: { mail: string; result: MailSendResult },
+  ): Result<void> {
+    const sent = outbox.read(tx, input.mail);
+    if (sent === null) return ok(undefined);
+    const { result } = input;
+    if (result.kind !== "unknown") {
+      const removed = outbox.remove(tx, sent.id);
+      if (!removed.ok) return removed;
+    }
+    if (sent.kind !== "call") return ok(undefined);
+    const call = calId(sent.call);
+    const record = store.read(tx, call);
+    if (record === null || isFinished(record.state)) return ok(undefined);
+    switch (result.kind) {
+      case "refused":
+        return failSent(tx, record, "old_version");
+      case "unknown": {
+        const set = store.setDelivery(tx, call, "unknown");
+        if (set.ok) changedIfRemote(tx, record);
+        return set;
+      }
+      case "acked": {
+        const { applied } = result;
+        if (applied.delivery === "failed") {
+          return failSent(tx, record, applied.reason ?? "not_found");
+        }
+        if (applied.delivery === null) return ok(undefined);
+        const set = store.setDelivery(
+          tx,
+          call,
+          applied.delivery,
+          applied.session === null ? null : sesId(applied.session),
+        );
+        if (set.ok) changedIfRemote(tx, record);
+        return set;
+      }
+    }
   }
 
   return {
@@ -691,13 +1397,15 @@ export function createRouter(deps: RouterDeps): Router {
       const before = store.read(tx, calId(call));
       const marked = store.markConsumed(tx, calId(call));
       if (!marked.ok) return marked;
-      // 답 없는 call은 소비하는 순간 끝난다. 앱이 보낸 것이면 그 앱에 알린다.
+      // 답 없는 call은 소비하는 순간 끝난다. 앱이 보낸 것이면 그 앱에, 다른 컴퓨터가 보낸 것이면 그 기계에 알린다.
       if (
-        before !== null &&
-        before.from.kind === "app" &&
-        before.state === "accepted" &&
-        before.reply === "none"
+        before === null ||
+        before.state !== "accepted" ||
+        before.reply !== "none"
       ) {
+        return ok(undefined);
+      }
+      if (before.from.kind === "app") {
         announce(tx, APP_CALL_SETTLED_TOPIC, {
           app: before.from.app,
           call: before.call,
@@ -705,7 +1413,13 @@ export function createRouter(deps: RouterDeps): Router {
           fail_reason: null,
         });
       }
-      return ok(undefined);
+      changedIfRemote(tx, before);
+      const closed = queueClosed(tx, before, "done");
+      return closed === null || closed.ok ? ok(undefined) : closed;
     },
+    sendRemote,
+    applyMail,
+    refuseMail,
+    mailSent,
   };
 }

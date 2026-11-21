@@ -11,8 +11,15 @@ import {
   callFailReasonSchema,
   type CallFrom,
   callReply,
+  callReplySchema,
   callStateSchema,
 } from "../../protocol/lophn-agent/calls.ts";
+import {
+  mailAppliedSchema,
+  mailBodySchema,
+  mailSchema,
+  remoteAddressSchema,
+} from "../../protocol/lophn-agent/mail.ts";
 import { teamSpawn } from "../../protocol/lophn-agent/team.ts";
 import { afterCommit } from "../storage/ledger/after-commit.ts";
 import type {
@@ -155,6 +162,107 @@ export const callsAppCancel = defineCommand({
   actors: ["machine"],
   errors: ["forbidden", "not_found", "conflict", "unavailable", "internal"],
 });
+
+const originSchema = z.strictObject({
+  machine: idSchema("mch"),
+  computer: z.string().min(1),
+});
+
+// 다른 컴퓨터의 agent에게 call mail을 낸다. 보낸 session의 agent credential이 아니라 main thread의 보내는 입구가 검사(private, mail이 연
+// session, 명단, 주소 풀기)를 마친 뒤 core 안 machine 자격으로 부른다. 행과 outbox 줄을 한 tx에 쓴다.
+export const callsMailSend = defineCommand({
+  resource: "calls",
+  method: "mail-send",
+  name: "SendCallMail",
+  changes: [],
+  input: z.strictObject({
+    session: idSchema("ses"),
+    // 보낸 turn. unattended 표시를 그 turn의 mode에서 찍는다.
+    turn: idSchema("trn").nullable(),
+    dedup: z.string().min(1),
+    self: idSchema("mch"),
+    peer: originSchema,
+    address: remoteAddressSchema,
+    reply: callReplySchema,
+    body: mailBodySchema,
+  }),
+  output: z.object({
+    call: idSchema("cal"),
+    state: callStateSchema,
+    fail_reason: callFailReasonSchema.nullable(),
+  }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "unavailable",
+    "internal",
+  ],
+});
+
+// 다른 컴퓨터에서 온 mail 하나를 이 기계의 Router에 적용한다. 같은 mail id는 한 번만 돈다. core 안 machine만 쓴다.
+export const callsMailApply = defineCommand({
+  resource: "calls",
+  method: "mail-apply",
+  name: "ApplyCallMail",
+  changes: [],
+  input: z.strictObject({
+    mail: mailSchema,
+    origin: originSchema,
+    // 받는 기계의 사람이 그 기계에 허락을 주었으면 agent 정의의 skip을 따른다.
+    skip_allowed: z.boolean(),
+    via: z.enum(["link", "folder"]),
+  }),
+  output: mailAppliedSchema,
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable", "internal"],
+});
+
+// mail-apply가 오류로 되돌아간 mail을 본 것으로 적고, call mail이면 실패 mail을 낸다. core 안 machine만 쓴다.
+export const callsMailRefuse = defineCommand({
+  resource: "calls",
+  method: "mail-refuse",
+  name: "RefuseCallMail",
+  changes: [],
+  input: z.strictObject({
+    mail: mailSchema,
+    origin: originSchema,
+    reason: callFailReasonSchema,
+  }),
+  output: z.strictObject({}),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable", "internal"],
+});
+
+// 낸 mail의 결과를 적는다: 받았음(그 기계가 적용한 결과), 답을 잃음, 상대가 mail route를 모름(옛 판). core 안 machine만 쓴다.
+export const callsMailSent = defineCommand({
+  resource: "calls",
+  method: "mail-sent",
+  name: "RecordCallMailSent",
+  changes: [],
+  input: z.strictObject({
+    mail: idSchema("mal"),
+    result: z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("acked"), applied: mailAppliedSchema }),
+      z.strictObject({ kind: z.literal("unknown") }),
+      z.strictObject({ kind: z.literal("refused") }),
+    ]),
+  }),
+  output: z.strictObject({}),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable", "internal"],
+});
+
+function machineOnly(ctx: RequestContext): Result<void> {
+  return parseActor(ctx.actor)?.kind === "machine"
+    ? ok(undefined)
+    : err({ code: "forbidden", message: "only core handles call mail" });
+}
 
 // 호출한 agent의 session이다. agent 자격은 session에 묶인다.
 function agentSession(ctx: RequestContext): Result<string> {
@@ -442,6 +550,71 @@ const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
   },
 };
 
+const mailSendCommand: CommandDefinition<typeof callsMailSend> = {
+  route: callsMailSend,
+  handle(tx, ctx, input) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const environment = routerEnvironment();
+    if (!environment.ok) return environment;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const sent = router.value.sendRemote(tx, {
+      session: input.session,
+      dedup: input.dedup,
+      self: input.self,
+      peer: input.peer,
+      address: input.address,
+      reply: input.reply,
+      body: input.body,
+      unattended:
+        input.turn !== null && environment.value.unattendedTurn(tx, input.turn),
+    });
+    if (!sent.ok) return sent;
+    return ok({ ...sent.value, call: calId(sent.value.call) });
+  },
+};
+
+const mailApplyCommand: CommandDefinition<typeof callsMailApply> = {
+  route: callsMailApply,
+  handle(tx, ctx, input) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    return router.value.applyMail(tx, {
+      mail: input.mail,
+      origin: input.origin,
+      skipAllowed: input.skip_allowed,
+      via: input.via,
+    });
+  },
+};
+
+const mailRefuseCommand: CommandDefinition<typeof callsMailRefuse> = {
+  route: callsMailRefuse,
+  handle(tx, ctx, input) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const refused = router.value.refuseMail(tx, input);
+    return refused.ok ? ok({}) : refused;
+  },
+};
+
+const mailSentCommand: CommandDefinition<typeof callsMailSent> = {
+  route: callsMailSent,
+  handle(tx, ctx, input) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const recorded = router.value.mailSent(tx, input);
+    return recorded.ok ? ok({}) : recorded;
+  },
+};
+
 export const ROUTER_COMMANDS = [
   sendCallCommand,
   teamSpawnCommand,
@@ -453,4 +626,8 @@ export const ROUTER_COMMANDS = [
   recoverCallsCommand,
   appSendCommand,
   appCancelCommand,
+  mailSendCommand,
+  mailApplyCommand,
+  mailRefuseCommand,
+  mailSentCommand,
 ] as const;

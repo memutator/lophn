@@ -7,7 +7,10 @@ export type CallFailReason =
   | "not_found"
   | "closed"
   | "receiver_ended"
-  | "lophn_restarted";
+  | "lophn_restarted"
+  | "expired"
+  | "skipped"
+  | "old_version";
 
 /**
  * 받는 곳. `session`은 보이는 session이고, `agent`는 handle이다(workspace를 빼면 이 앱 workspace에 새 session이 열린다. Home은 `{home: true}`로 밝힌다).
@@ -48,7 +51,22 @@ export type CallFrom =
   | { kind: "human" }
   | { kind: "program" }
   | { kind: "agent"; session: string }
-  | { kind: "app"; app: string; slug: string };
+  | { kind: "app"; app: string; slug: string }
+  /** 다른 컴퓨터의 agent가 보낸 call. `computer`는 그 컴퓨터의 이름이다. */
+  | {
+      kind: "remote";
+      machine: string;
+      computer: string;
+      agent: string;
+      session: string | null;
+      name: string;
+    };
+
+/** 다른 컴퓨터의 workspace. project는 컴퓨터 사이에 같은 id(`pri_`)다. */
+export type RemoteWorkspace =
+  | { project: string }
+  | { app: string }
+  | { home: true };
 
 export type CallTarget =
   | {
@@ -66,6 +84,21 @@ export type CallTarget =
         agent: string;
         workspace: { kind: "project" | "app"; id: string } | null;
       };
+    }
+  /** 다른 컴퓨터로 보낸 call. */
+  | {
+      kind: "remote";
+      machine: string;
+      computer: string;
+      address:
+        | { session: string }
+        | { agent: string; workspace: RemoteWorkspace }
+        | {
+            agent: string;
+            workspace: RemoteWorkspace;
+            session: string;
+            fallback: "new";
+          };
     };
 
 export type CallRow = {

@@ -6,6 +6,7 @@ import {
   callFromOfRow,
   callFromRef,
   type CallFailReason,
+  type CallFrom,
   type CallState,
   callTargetSchema,
 } from "../../protocol/lophn-agent/calls.ts";
@@ -19,8 +20,18 @@ export type SqlView = {
   port<T>(key: PortKey<T>): T;
 };
 
-const COLUMNS = `call, from_session, from_app, "to", receiver_session, reply, state, fail_reason, dedup,
-   unattended, ask, created_at, state_at, result`;
+const COLUMNS = `call, from_session, from_app, from_machine, "to", receiver_session, reply, state, fail_reason, dedup,
+   unattended, ask, created_at, state_at, result, delivery, remote_session`;
+
+function senderOf(row: Record<string, unknown>): CallFrom {
+  if (row["from_session"] !== null && row["from_session"] !== undefined) {
+    return { kind: "agent", session: row["from_session"] as Id<"ses"> };
+  }
+  if (row["from_app"] !== null && row["from_app"] !== undefined) {
+    return callFromOfRow("app", String(row["from_app"]));
+  }
+  return callFromOfRow("remote", String(row["from_machine"]));
+}
 
 function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
   let to: unknown;
@@ -33,11 +44,8 @@ function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
   if (!parsed.success) return err(internalError());
   return ok({
     call: row["call"] as Id<"cal">,
-    // 보낸 쪽은 session이거나 앱이다. 앱은 `<앱 id>|<slug>`로 남아 있다(message의 from_ref와 같은 꼴).
-    from:
-      row["from_session"] === null || row["from_session"] === undefined
-        ? callFromOfRow("app", String(row["from_app"]))
-        : { kind: "agent", session: row["from_session"] as Id<"ses"> },
+    // 보낸 쪽은 session, 앱, 다른 컴퓨터다. 앱과 다른 컴퓨터는 message의 from_ref와 같은 꼴로 남아 있다.
+    from: senderOf(row),
     to: parsed.data,
     receiver_session: (row["receiver_session"] ?? null) as Id<"ses"> | null,
     reply: row["reply"] as AgentCallRow["reply"],
@@ -49,6 +57,8 @@ function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
     created_at: String(row["created_at"]),
     state_changed_at: String(row["state_at"]),
     result: (row["result"] ?? null) as string | null,
+    delivery: (row["delivery"] ?? null) as AgentCallRow["delivery"],
+    remote_session: (row["remote_session"] ?? null) as Id<"ses"> | null,
   });
 }
 
@@ -78,21 +88,23 @@ function many(
 export function createCallStore(): CallStore {
   return {
     insert(tx, record) {
-      if (record.from.kind !== "agent" && record.from.kind !== "app") {
+      const kind = record.from.kind;
+      if (kind !== "agent" && kind !== "app" && kind !== "remote") {
         return err({
           code: "invalid_input",
-          message: "only an agent- or app-sent call has a row",
+          message: "only an agent-, app- or remote-sent call has a row",
         });
       }
       tx.sql.run(
-        `insert into agent_calls (call, from_session, from_app, "to", receiver_session,
+        `insert into agent_calls (call, from_session, from_app, from_machine, "to", receiver_session,
            reply, state, fail_reason, dedup, consumed, unattended, ask,
-           created_at, state_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+           created_at, state_at, delivery, remote_session)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
         [
           record.call,
           record.from.kind === "agent" ? record.from.session : null,
-          record.from.kind === "app" ? callFromRef(record.from) : null,
+          kind === "app" ? callFromRef(record.from) : null,
+          kind === "remote" ? callFromRef(record.from) : null,
           JSON.stringify(record.to),
           record.receiver_session,
           record.reply,
@@ -103,7 +115,17 @@ export function createCallStore(): CallStore {
           record.ask,
           record.created_at,
           record.state_changed_at,
+          record.delivery,
+          record.remote_session,
         ],
+      );
+      return ok(undefined);
+    },
+    setDelivery(tx, call, delivery, session) {
+      tx.sql.run(
+        `update agent_calls set delivery = ?, remote_session = coalesce(?, remote_session)
+         where call = ? and state = 'accepted' and delivery is not null`,
+        [delivery, session ?? null, call],
       );
       return ok(undefined);
     },
@@ -167,11 +189,12 @@ export function createCallStore(): CallStore {
       return ok(undefined);
     },
     // ask call은 부모가 가져갔어도 닫는다: 자식의 request·질문이 메모리라 사라져 부모의 늦은 답이 갈 곳이 없다.
+    // 다른 컴퓨터로 보낸 행(delivery가 있다)은 이 기계의 queue에 있지 않아 잃지 않는다. 답은 outbox와 그 기계가 맡는다.
     lost(tx) {
       return many(
         tx.sql.all(
           `select ${COLUMNS} from agent_calls
-         where state = 'accepted' and (consumed = 0 or ask is not null)
+         where state = 'accepted' and (consumed = 0 or ask is not null) and delivery is null
          order by created_at, call`,
           [],
         ),

@@ -1,7 +1,7 @@
 import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ok } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import type { AgentCallRow } from "../../protocol/lophn-agent/calls.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import type { CommandDefinition, Tx } from "../../protocol/server/mod.ts";
@@ -32,6 +32,7 @@ function world() {
     agent: { agent: "lophn_home", workspace: null },
     accepting: true,
     spawned_by: null,
+    opened_by_machine: null,
   });
   installRouterEnvironment({
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",
@@ -45,7 +46,13 @@ function world() {
         app: () => null,
         accepts: () => null,
         listOpen: () => [],
+        projectOfIdentity: () => null,
+        identityOfProject: () => ok(null),
+        appIdOf: () => err({ code: "not_found", message: "app not found" }),
       },
+      outbox: {} as never,
+      seen: {} as never,
+      self: () => "mch_self",
       transport: {
         deliver: (_tx, _to, input) => {
           delivered.push(input);
@@ -73,6 +80,7 @@ function world() {
           return ok(moved);
         },
         markConsumed: () => ok(undefined),
+        setDelivery: () => ok(undefined),
         lost: () => [],
         openReceivedBy: () => [],
       },

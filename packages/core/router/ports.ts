@@ -9,7 +9,9 @@ import type {
   CallRef,
   CallReply,
   CallState,
+  MailDelivery,
 } from "../../protocol/lophn-agent/calls.ts";
+import type { Mail } from "../../protocol/lophn-agent/mail.ts";
 import type {
   AgentRuntime,
   Modality,
@@ -38,6 +40,8 @@ export type TargetSession = {
   accepting: boolean;
   // `team spawn`으로 열린 session이면 연 session. 팀 규칙이 보낸 쪽과 받는 쪽의 관계를 이걸로 푼다.
   spawned_by: Id<"ses"> | null;
+  // 다른 컴퓨터에서 온 mail이 연 session이면 그 기계. 그 session은 다른 컴퓨터로 보내지 못하고, 그 기계의 mail만 이 session에 이어 들어간다.
+  opened_by_machine: Id<"mch"> | null;
 };
 
 // 한 번 배달할 입력. 종류마다 tag를 고르는 것은 받는 쪽이 한다.
@@ -86,12 +90,21 @@ export interface SessionDirectory {
   // 이름을 짐작하지 않는다. 없으면 not_found.
   resolveAddress(address: AgentAddress): Result<AgentAtWorkspace>;
   // spawnedBy는 `team spawn`이 연 session(팀의 부모)이고 그 밖의 call은 null이다. 팀이 상한을 넘으면 conflict.
+  // skipAllowed가 아니면 agent 정의가 skip이어도 묻는 session으로 연다(다른 컴퓨터의 mail은 받는 기계의 허락이 있을 때만 skip을 따른다).
+  // 없으면 정의대로다.
   open(
     tx: Tx,
     agent: AgentAtWorkspace,
     opener: CallFrom,
     spawnedBy: Id<"ses"> | null,
+    options?: { skipAllowed?: boolean },
   ): Result<TargetSession>;
+  // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.
+  projectOfIdentity(identity: string): Id<"prj"> | null;
+  // 이 기계의 project(id나 정확한 이름)의 기계를 건너는 정체. 없는 project는 not_found, 정체가 없으면 null이다.
+  identityOfProject(project: string): Result<string | null>;
+  // 이 기계의 앱(id, slug, 표시 이름)의 id.
+  appIdOf(app: string): Result<Id<"app">>;
 
   // 앱의 slug와 보관 여부. 없는 앱은 null이다.
   app(id: string): { slug: string; archived: boolean } | null;
@@ -137,8 +150,59 @@ export interface CallStore {
   // 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
   // 끝나지 않았고 아직 가져가지 않은 call, 그리고 가져갔어도 끝나지 않은 ask call. queue와 앱 줄이 메모리라 lophn을 켤 때
-  // 잃어버린 것이다.
+  // 잃어버린 것이다. 다른 컴퓨터로 보낸 call은 이 기계의 queue에 없어 빠진다.
   lost(tx: Tx): readonly AgentCallRow[];
+  // 다른 컴퓨터로 보낸 끝나지 않은 행의 배달 상태와 그 기계에서 받은 session(알면)을 적는다.
+  setDelivery(
+    tx: Tx,
+    call: Id<"cal">,
+    delivery: MailDelivery,
+    session?: Id<"ses"> | null,
+  ): Result<void>;
   // 이 session이 받은 끝나지 않은 call. archive나 지움에서 receiver_ended로 닫는다.
   openReceivedBy(tx: Tx, session: Id<"ses">): readonly AgentCallRow[];
+}
+
+// outbox에 넣을 mail. id와 seq는 넣을 때 정한다.
+type Draft<M> = M extends Mail ? Omit<M, "id" | "seq"> : never;
+export type MailDraft = Draft<Mail>;
+
+// 다른 기계로 낼 mail. 받는 기계가 ack할 때까지 남는다.
+export interface MailOutbox {
+  // seq는 받는 기계(to_machine)마다 하나씩 는다.
+  put(tx: Tx, draft: MailDraft): Result<Mail>;
+  remove(tx: Tx, id: string): Result<void>;
+  read(tx: Tx, id: string): Mail | null;
+  // 그 call의 아직 내지 못한 call mail.
+  callMailOf(tx: Tx, call: string): Mail | null;
+}
+
+export const MAIL_SEEN_STATES = [
+  "applied",
+  "held",
+  "started",
+  "skipped",
+  "expired",
+  "cancelled",
+  "refused",
+] as const;
+export type MailSeenState = (typeof MAIL_SEEN_STATES)[number];
+
+export type MailSeenRow = {
+  origin: string;
+  id: string;
+  call: string;
+  kind: Mail["kind"];
+  state: MailSeenState;
+  // 대기 목록에 선(held) 줄만 mail을 든다.
+  mail: Mail | null;
+  computer: string;
+  arrived_at: string;
+};
+
+// 받은 mail. 같은 mail id(보낸 기계마다)를 한 번만 적용한다.
+export interface MailSeen {
+  // 처음 본 mail이면 적고 true, 이미 본 것이면 false.
+  mark(tx: Tx, row: MailSeenRow): boolean;
+  read(tx: Tx, origin: string, id: string): MailSeenRow | null;
 }

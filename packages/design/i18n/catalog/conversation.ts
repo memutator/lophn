@@ -438,11 +438,17 @@ export const conversation = {
   "conversation.notice.call-cancel-failed": "Couldn't cancel it. Try again.",
   "conversation.notice.call-cancelled": "It was cancelled before it finished.",
   "conversation.notice.call-fail-closed": "That session is closed.",
+  "conversation.notice.call-fail-expired":
+    "The other computer didn't take it within seven days.",
   "conversation.notice.call-fail-lophn-restarted":
     "lophn restarted before it finished.",
   "conversation.notice.call-fail-not-found": "That session couldn't be found.",
+  "conversation.notice.call-fail-old-version":
+    "The other computer's lophn is too old for it. Update lophn there.",
   "conversation.notice.call-fail-receiver-ended":
     "The other session ended before it answered.",
+  "conversation.notice.call-fail-skipped":
+    "The person on the other computer chose not to run it.",
   "conversation.notice.custom-model":
     "Add models this provider doesn't list, and tell lophn what they can do.",
   "conversation.notice.decide-failed":

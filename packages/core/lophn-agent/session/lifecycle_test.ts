@@ -21,7 +21,7 @@ const ME = app("m1");
 function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec(
-    "CREATE TABLE sessions (id TEXT, agent TEXT, project TEXT, app TEXT, workspace_kind TEXT, workspace_id TEXT, title TEXT, lifecycle TEXT, forked_from_session TEXT, forked_from_through_seq TEXT, model_selection TEXT, compaction_through_seq TEXT, compaction_summary_call TEXT, skip INTEGER, harness TEXT, harness_session TEXT, harness_gui INTEGER DEFAULT 0, called_from_kind TEXT, called_from_id TEXT, spawned_by TEXT, opened_by_app TEXT, created_seq TEXT, state_seq TEXT);" +
+    "CREATE TABLE sessions (id TEXT, agent TEXT, project TEXT, app TEXT, workspace_kind TEXT, workspace_id TEXT, title TEXT, lifecycle TEXT, forked_from_session TEXT, forked_from_through_seq TEXT, model_selection TEXT, compaction_through_seq TEXT, compaction_summary_call TEXT, skip INTEGER, harness TEXT, harness_session TEXT, harness_gui INTEGER DEFAULT 0, called_from_kind TEXT, called_from_id TEXT, spawned_by TEXT, opened_by_app TEXT, opened_by_machine TEXT, created_seq TEXT, state_seq TEXT);" +
       "CREATE TABLE turns (id TEXT, session TEXT, state TEXT, state_seq TEXT, started_at TEXT, finished_at TEXT);",
   );
   const policy: CallPolicy = {

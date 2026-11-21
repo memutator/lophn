@@ -1,0 +1,156 @@
+import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
+import { defineMemory } from "../base/route.ts";
+import { atSchema } from "../base/values.ts";
+import { contentBlocksSchema } from "./content-block.ts";
+import {
+  agentCallSend,
+  callFailReasonSchema,
+  callReplySchema,
+  remoteAddressSchema,
+} from "./calls.ts";
+import { agentAddressSchema } from "./workspaces.ts";
+
+export {
+  MAIL_DELIVERIES,
+  type MailDelivery,
+  mailDeliverySchema,
+  type RemoteAddress,
+  remoteAddressSchema,
+  type RemoteWorkspace,
+  remoteWorkspaceSchema,
+} from "./calls.ts";
+
+// 기계 사이 mail이다. 다른 컴퓨터의 agent에게 보내는 call과 그 답·실패·취소·받은 상태가 이 봉투 하나로 오간다.
+// 보내는 기계는 outbox에 넣고 call id를 바로 돌려준다. 받는 기계는 mail id마다 한 번만 적용한다.
+
+export const MAIL_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+// 보낸 시각보다 이만큼 넘게 늦게 닿은 mail은 돌지 않고 대기 목록에 선다(job의 hold가 놓친 차례를 가르는 10분과 같다).
+export const MAIL_LATE_MS = 10 * 60 * 1000;
+// 한 mail 본문 글의 UTF-8 byte 합.
+export const MAIL_TEXT_MAX_BYTES = 64 * 1024;
+
+// mail을 쓴 쪽이다. 받는 기계는 machine만 믿고(link의 기기나 폴더의 기계 폴더와 같아야 한다) 나머지는 표시다.
+// name은 `requesterName`으로 만든다.
+export const mailAuthorSchema = z.strictObject({
+  machine: idSchema("mch"),
+  agent: z.string().min(1).max(64),
+  session: idSchema("ses").nullable(),
+  name: z.string().min(1).max(64),
+});
+export type MailAuthor = z.infer<typeof mailAuthorSchema>;
+
+const encoder = new TextEncoder();
+
+// 본문은 글만이다(image blob은 기계를 건너지 않는다).
+export const mailBodySchema = contentBlocksSchema.refine(
+  (blocks) => {
+    let bytes = 0;
+    for (const block of blocks) {
+      if (block.type !== "text") return false;
+      bytes += encoder.encode(block.text).length;
+    }
+    return bytes <= MAIL_TEXT_MAX_BYTES;
+  },
+  {
+    message: `a mail body is text of at most ${MAIL_TEXT_MAX_BYTES} bytes`,
+  },
+);
+
+const common = {
+  id: idSchema("mal"),
+  call: idSchema("cal"),
+  from: mailAuthorSchema,
+  to_machine: idSchema("mch"),
+  seq: z.number().int().min(1),
+  sent_at: atSchema,
+  expires_at: atSchema,
+};
+
+// reply의 outcome: 결과 답은 body와 `{done, null}`, conversation의 말은 body와 outcome null, 실패 알림은 body null과
+// `{failed, <이유>}`(받는 쪽이 자기 글로 만든다). body null과 `{done}`이나 `{cancelled}`는 행만 닫고 입력을 넣지 않는다.
+export const mailSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("call"),
+    ...common,
+    address: remoteAddressSchema,
+    reply: callReplySchema,
+    body: mailBodySchema,
+    unattended: z.boolean(),
+  }),
+  z.strictObject({
+    kind: z.literal("reply"),
+    ...common,
+    body: mailBodySchema.nullable(),
+    outcome: z
+      .strictObject({
+        state: z.enum(["done", "failed", "cancelled"]),
+        reason: callFailReasonSchema.nullable(),
+      })
+      .nullable(),
+    unattended: z.boolean(),
+  }),
+  z.strictObject({ kind: z.literal("cancel"), ...common }),
+  // 받는 기계가 call mail을 어떻게 받았는지 보낸 기계에 알린다.
+  z.strictObject({
+    kind: z.literal("state"),
+    ...common,
+    delivery: z.enum(["held", "running"]),
+    session: idSchema("ses").nullable(),
+  }),
+]);
+export type Mail = z.infer<typeof mailSchema>;
+
+// 받는 기계가 mail 하나를 적용한 결과. call mail이 아니면 delivery는 null이다.
+export const mailAppliedSchema = z.strictObject({
+  delivery: z.enum(["running", "held", "failed"]).nullable(),
+  reason: callFailReasonSchema.nullable(),
+  session: idSchema("ses").nullable(),
+});
+export type MailApplied = z.infer<typeof mailAppliedSchema>;
+
+// 받는 기계의 mail 입구. 다른 컴퓨터의 core만 부른다(기기 자격). not_found를 내지 않는다: 보낸 쪽은 not_found를
+// "이 route를 모르는 옛 판"으로 읽는다.
+export const a2aMail = defineMemory({
+  resource: "a2a",
+  method: "mail",
+  name: "a2a.mail",
+  input: z.strictObject({ mail: mailSchema }),
+  output: mailAppliedSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+const machineRef = { machine: z.string().min(1) };
+
+// 다른 컴퓨터의 agent에게 call을 보낸다. 받는 곳은 이 기계의 call 주소 꼴에 컴퓨터를 더한 것이다(workspace는 이 기계의 이름 꼴).
+export const callSendRemote = defineMemory({
+  resource: "calls",
+  method: "send_remote",
+  name: "SendRemoteCall",
+  input: z.strictObject({
+    to: z.union([
+      z.strictObject({ session: idSchema("ses"), ...machineRef }),
+      agentAddressSchema.extend(machineRef),
+      agentAddressSchema.extend({
+        session: idSchema("ses"),
+        fallback: z.literal("new"),
+        ...machineRef,
+      }),
+    ]),
+    reply: callReplySchema,
+    body: contentBlocksSchema,
+    dedup: z.string().min(1),
+  }),
+  output: agentCallSend.output,
+  actors: ["agent"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "unavailable",
+    "unauthorized",
+  ],
+});
+
+export const MAIL_ROUTES = [a2aMail, callSendRemote] as const;

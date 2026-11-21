@@ -125,6 +125,9 @@ export type AcpToolDetail =
         | "closed"
         | "receiver_ended"
         | "lophn_restarted"
+        | "expired"
+        | "skipped"
+        | "old_version"
         | null;
       session: string | null;
     }

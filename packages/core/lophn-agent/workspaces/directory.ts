@@ -25,10 +25,10 @@ type SessionDirectoryDeps = OpenDeps & {
   sql(): Pick<Sql, "get" | "all">;
 };
 
-// Router가 쓰는 SessionDirectory를 구현한다. session 행이 곧 받는 곳이다.
+// Router가 쓰는 SessionDirectory를 구현한다. session 행이 곧 받는 곳이다. project 정체는 projects module의 것이라 wiring이 더한다.
 export function createSessionDirectory(
   deps: SessionDirectoryDeps,
-): SessionDirectory {
+): Omit<SessionDirectory, "projectOfIdentity" | "identityOfProject"> {
   // 없는 workspace는 보관한 workspace와 같이 새 입력을 받지 못한다.
   function workspaceArchived(workspace: Workspace | null): boolean {
     if (workspace === null) return false;
@@ -46,6 +46,7 @@ export function createSessionDirectory(
       agent: { agent: row.agent, workspace: workspaceOf(row) },
       accepting: acceptsInput(row, workspaceArchived(workspaceOf(row))),
       spawned_by: row.spawned_by as Id<"ses"> | null,
+      opened_by_machine: row.opened_by_machine as Id<"mch"> | null,
     };
   }
 
@@ -55,7 +56,7 @@ export function createSessionDirectory(
       return row === undefined ? null : targetOf(row);
     },
     resolveAddress: deps.names.resolveAddress,
-    open(tx, agent, opener, spawnedBy) {
+    open(tx, agent, opener, spawnedBy, options) {
       if (spawnedBy !== null) {
         // writer Worker 안에서 설정 파일을 읽는다. 읽지 못하면 기본 상한이다.
         const root = dataRootOf(tx.sql, undefined);
@@ -68,7 +69,9 @@ export function createSessionDirectory(
       }
       // archived 앱은 agent에게 없는 앱이다. 사람과 program은 conflict로 닫힘을 안다.
       if (
-        (opener.kind === "agent" || opener.kind === "app") &&
+        (opener.kind === "agent" ||
+          opener.kind === "app" ||
+          opener.kind === "remote") &&
         agent.workspace?.kind === "app" &&
         deps.apps.app(agent.workspace.id as Id<"app">)?.archived === true
       ) {
@@ -104,8 +107,15 @@ export function createSessionDirectory(
         ...(isCodingBuiltin(agent.agent) && agent.workspace?.kind === "project"
           ? { gui: "called" as const }
           : {}),
+        // 다른 컴퓨터의 mail이 연 session은 다른 컴퓨터로 보내지 못한다. 부른 workspace는 이 기계의 것이 아니라 남기지 않는다.
+        openedByMachine: opener.kind === "remote" ? opener.machine : null,
+        skipAllowed: options?.skipAllowed,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
+    },
+    appIdOf(app) {
+      const found = deps.apps.appByName(app);
+      return found.ok ? ok(found.value.id) : found;
     },
     app(id) {
       const info = deps.apps.app(id as Id<"app">);

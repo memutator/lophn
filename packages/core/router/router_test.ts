@@ -47,6 +47,7 @@ function target(
     agent,
     accepting,
     spawned_by: spawned_by as TargetSession["spawned_by"],
+    opened_by_machine: null,
   };
 }
 
@@ -93,6 +94,7 @@ function setup(
       return ok(moved);
     },
     markConsumed: () => ok(undefined),
+    setDelivery: () => ok(undefined),
     lost: () => [],
     openReceivedBy: (_tx, session) =>
       [...rows.values()].filter(
@@ -111,10 +113,16 @@ function setup(
     app: (id) => ({ slug: id.replace("app_", ""), archived: false }),
     accepts,
     listOpen: () => [],
+    projectOfIdentity: () => null,
+    identityOfProject: () => ok(null),
+    appIdOf: () => ok("app_x"),
   };
   const router = createRouter({
     directory,
     store,
+    outbox: {} as never,
+    seen: {} as never,
+    self: () => "mch_self",
     callPolicy: () => policy,
     announce: (_tx, topic, data) => announced.push({ topic, data }),
     transport: {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalize } from "../../base/mod.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { type Id, idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
@@ -34,12 +35,23 @@ function fromSchemas(strict: boolean) {
       app: idSchema("app"),
       slug: z.string().min(1),
     }),
+    // 다른 컴퓨터의 agent가 mail로 보낸 call이다. 받는 기계만 이 보낸 쪽을 쓴다. computer는 받은 때 이 기계 명단의 그 컴퓨터 이름이고
+    // name은 mail의 것이다. 둘 다 얼린다(받은 message의 `from="remote:<name>@<computer>"` tag가 늘 같은 bytes여야 한다).
+    obj(strict, {
+      kind: z.literal("remote"),
+      machine: idSchema("mch"),
+      computer: z.string().min(1).max(64),
+      agent: z.string().min(1).max(64),
+      session: idSchema("ses").nullable(),
+      name: z.string().min(1).max(64),
+    }),
   ]);
 }
 export const callFromOutputSchema = fromSchemas(false);
 export type CallFrom = z.infer<typeof callFromOutputSchema>;
 
-// message 행의 `from_ref`다. agent는 보낸 session이고 앱은 `<앱 id>|<slug>`다. 사람과 program은 근거가 없다.
+// message 행의 `from_ref`다. agent는 보낸 session이고 앱은 `<앱 id>|<slug>`다. 다른 컴퓨터는 kind를 뺀 객체의 canonical JSON이다.
+// 사람과 program은 근거가 없다.
 export function callFromRef(from: CallFrom): string | null {
   switch (from.kind) {
     case "human":
@@ -49,6 +61,10 @@ export function callFromRef(from: CallFrom): string | null {
       return from.session;
     case "app":
       return `${from.app}|${from.slug}`;
+    case "remote": {
+      const { kind: _kind, ...rest } = from;
+      return canonicalize(rest);
+    }
   }
 }
 
@@ -66,6 +82,14 @@ export function callFromOfRow(
       const [app, ...slug] = ref!.split("|");
       return { kind, app: app as Id<"app">, slug: slug.join("|") };
     }
+    case "remote":
+      return {
+        kind,
+        ...(JSON.parse(ref!) as Omit<
+          Extract<CallFrom, { kind: "remote" }>,
+          "kind"
+        >),
+      };
   }
 }
 
@@ -85,11 +109,16 @@ export const CALL_STATES = ["accepted", "done", "failed", "cancelled"] as const;
 export const callStateSchema = z.enum(CALL_STATES);
 export type CallState = z.infer<typeof callStateSchema>;
 
+// expired, skipped, old_version은 다른 컴퓨터로 보낸 call만 받는다: 만료 전에 닿지 않음, 받는 기계의 사람이 돌리지 않음,
+// 받는 기계의 lophn이 mail route를 모름.
 export const CALL_FAIL_REASONS = [
   "not_found",
   "closed",
   "receiver_ended",
   "lophn_restarted",
+  "expired",
+  "skipped",
+  "old_version",
 ] as const;
 export const callFailReasonSchema = z.enum(CALL_FAIL_REASONS);
 export type CallFailReason = z.infer<typeof callFailReasonSchema>;
@@ -176,6 +205,42 @@ export const callAddressInputSchema = z.union([
 ]);
 export type CallAddressInput = z.infer<typeof callAddressInputSchema>;
 
+// 기계를 건너는 workspace 이름이다. project는 기계 사이에 같은 정체(`pri_`), 앱은 앱 id, home은 그 기계의 home이다.
+export const remoteWorkspaceSchema = z.union([
+  z.strictObject({ project: idSchema("pri") }),
+  z.strictObject({ app: idSchema("app") }),
+  z.strictObject({ home: z.literal(true) }),
+]);
+export type RemoteWorkspace = z.infer<typeof remoteWorkspaceSchema>;
+
+// mail 안의 받는 곳. workspace를 늘 밝힌다(빼는 규칙은 보내는 입구가 푼다).
+export const remoteAddressSchema = z.union([
+  z.strictObject({ session: idSchema("ses") }),
+  z.strictObject({
+    agent: z.string().min(1).max(64),
+    workspace: remoteWorkspaceSchema,
+  }),
+  z.strictObject({
+    agent: z.string().min(1).max(64),
+    workspace: remoteWorkspaceSchema,
+    session: idSchema("ses"),
+    fallback: z.literal("new"),
+  }),
+]);
+export type RemoteAddress = z.infer<typeof remoteAddressSchema>;
+
+// 다른 컴퓨터로 보낸 call의 배달 상태다. call은 그동안 accepted다.
+// pending 아직 닿지 않음, unknown 보냈는데 답을 잃음(받았는지 모름), held 받는 기계의 대기 목록에서 기다림, running 받는 기계가 받아 돌림.
+// mail.ts가 다시 낸다(calls.ts가 mail.ts를 import하면 순환이다).
+export const MAIL_DELIVERIES = [
+  "pending",
+  "unknown",
+  "held",
+  "running",
+] as const;
+export const mailDeliverySchema = z.enum(MAIL_DELIVERIES);
+export type MailDelivery = z.infer<typeof mailDeliverySchema>;
+
 export const callTargetSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("new_session"),
@@ -186,6 +251,13 @@ export const callTargetSchema = z.discriminatedUnion("kind", [
     kind: z.literal("open_session_or_new"),
     session: idSchema("ses"),
     agent: agentAtWorkspaceOutputSchema,
+  }),
+  // 다른 컴퓨터로 보낸 call. 보낸 기계의 행에만 있다. computer는 보낼 때의 명단 이름이다.
+  z.object({
+    kind: z.literal("remote"),
+    machine: idSchema("mch"),
+    computer: z.string(),
+    address: remoteAddressSchema,
   }),
 ]);
 export type CallTarget = z.infer<typeof callTargetSchema>;
@@ -230,6 +302,10 @@ export const agentCallRowSchema = z
     ask: callAskKindSchema.nullable(),
     // 앱이 보낸 result call의 답 글. 앱 말고는 보낸 쪽에 답이 가는 곳이 call 행이 아니라 queue라 늘 null이다.
     result: z.string().nullable(),
+    // 다른 컴퓨터로 보낸 행에만 있다. 아니면 null이다.
+    delivery: mailDeliverySchema.nullable(),
+    // 다른 컴퓨터로 보낸 call을 그 기계에서 받은 session(알면).
+    remote_session: idSchema("ses").nullable(),
     created_at: atSchema,
     state_changed_at: atSchema,
   })

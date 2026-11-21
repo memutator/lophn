@@ -286,6 +286,8 @@ export type AgentSessionRow = {
   spawned_by: string | null;
   // 앱이 열었으면 그 앱. 앱은 자기가 연 session만 끝낼 수 있고 알림 규칙이 turn 끝 알림을 거른다. 열 때 정해 바뀌지 않는다.
   opened_by_app: string | null;
+  // 다른 컴퓨터에서 온 mail이 열었으면 그 기계(`mch_`). 그 session은 다른 컴퓨터로 보내지 못한다. 열 때 정해 바뀌지 않는다.
+  opened_by_machine: string | null;
   created_seq: string;
   state_seq: string;
 };
@@ -295,7 +297,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
   workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -324,6 +326,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     called_from_id: text(row["called_from_id"]),
     spawned_by: text(row["spawned_by"]),
     opened_by_app: text(row["opened_by_app"]),
+    opened_by_machine: text(row["opened_by_machine"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };

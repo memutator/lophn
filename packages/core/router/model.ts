@@ -51,6 +51,10 @@ export type RouteInput = {
   ask?: CallAskKind | null;
   // `team spawn`이면 true: 받는 곳의 새 session은 보낸 session의 자식(spawned_by)으로 열리고 workspace를 빼면 보낸 session의 workspace다.
   spawn?: boolean;
+  // 다른 컴퓨터에서 받은 call은 보낸 기계가 정한 call id를 그대로 쓴다.
+  call?: string;
+  // 새 session을 열 때 agent 정의의 skip을 따를지. 다른 컴퓨터에서 받은 call만 싣는다(받는 기계의 허락). 없으면 정의대로다.
+  skipAllowed?: boolean;
 };
 
 export type RouteResult = {
@@ -115,6 +119,9 @@ export const ASK_ENDED_TOPIC = "router.ask-ended";
 // 앱이 보낸 call이 끝났다(답, 실패, 취소, 답 없는 call의 소비). commit 뒤 main thread가 그 앱에 `call.settled` event를 낸다.
 export const APP_CALL_SETTLED_TOPIC = "router.app-call-settled";
 
+// outbox에 mail을 더한 tx가 commit됐다(`{peer}`). main thread의 drain이 그 기계로 낸다.
+export const MAIL_QUEUED_TOPIC = "router.mail-queued";
+
 export function isFinished(state: CallState): boolean {
   return state !== "accepted";
 }
@@ -128,8 +135,12 @@ export function failureCode(
       return "not_found";
     case "closed":
       return "conflict";
+    case "skipped":
+      return "conflict";
     case "receiver_ended":
     case "lophn_restarted":
+    case "expired":
+    case "old_version":
       return "unavailable";
   }
 }
@@ -141,6 +152,10 @@ export const FAILURE_TEXTS: Record<CallFailReason, string> = {
     "The call was not delivered: that session is closed. Call its agent and workspace to open a new session.",
   receiver_ended: "The receiving session ended without replying.",
   lophn_restarted: "lophn restarted before the receiving session got the call.",
+  expired: "The call expired before the other computer took it.",
+  skipped: "The person on the other computer chose not to run this call.",
+  old_version:
+    "The other computer runs an older lophn that cannot take this call; update lophn there.",
 };
 
 // 취소 알림은 글이 없다. 알림 종류(call_cancelled)가 말한다.

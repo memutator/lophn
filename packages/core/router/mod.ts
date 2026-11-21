@@ -1,4 +1,12 @@
-export { createRouter, type Router, type RouterDeps } from "./router.ts";
+export {
+  type ApplyMailInput,
+  createRouter,
+  type MailOrigin,
+  type MailSendResult,
+  type Router,
+  type RouterDeps,
+  type SendRemoteInput,
+} from "./router.ts";
 export {
   createRouterReaderRegistration,
   createRouterRegistration,
@@ -17,6 +25,10 @@ export {
 export {
   callsAppCancel,
   callsAppSend,
+  callsMailApply,
+  callsMailRefuse,
+  callsMailSend,
+  callsMailSent,
   callsAskOpen,
   callsAskWithdraw,
   callsAutoReply,
@@ -25,6 +37,16 @@ export {
 } from "./commands.ts";
 export { ROUTER_READS } from "./reads.ts";
 export { ROUTER_SCHEMA_STEPS } from "./schema.ts";
+export { remoteSenderCallsSchemaSteps } from "./remote-sender-schema.ts";
+export { mailSchemaSteps } from "./mail-schema.ts";
+export {
+  createMailOutbox,
+  createMailSeen,
+  mailSeen,
+  outboxPeers,
+  pendingMails,
+} from "./mail-store.ts";
+export { remoteReach, remoteWorkspaceOf } from "./remote-reach.ts";
 export {
   callSignals,
   callsOfSession,
@@ -43,5 +65,6 @@ export {
   type RouteInput,
   type RouteResult,
   CALL_SESSION_OPENED_TOPIC,
+  MAIL_QUEUED_TOPIC,
   TEAM_SPAWNED_TOPIC,
 } from "./model.ts";

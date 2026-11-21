@@ -33,12 +33,29 @@ type Deps = {
   secrets: Pick<SecretStore, "names" | "get" | "delete">;
 };
 
+// 탭의 profile. "not_browser"는 profile이 없는 preview·artifact·phone 탭이다(host-queue의 NOT_BROWSER_TAB).
+type TabProfile = string | null | "not_browser";
+// 다룰 login이 없다. profile id(`bpf_…`)와 겹치지 않는다.
+export const NO_LOGINS = "none";
+
+// 탭에서 다룰 login의 profile. browser 탭은 그 탭의 profile이다. browser 탭이 아닌 탭의 login은 기본 profile의 것이고,
+// 자기 profile(`own`)이 기본인 쪽(사람, 기본 profile의 agent)만 다룬다. 다른 profile의 agent에게는 NO_LOGINS다.
+export function loginProfileOn(
+  tab: TabProfile,
+  own: () => Result<string | null>,
+): Result<string | null | typeof NO_LOGINS> {
+  if (tab !== "not_browser") return ok(tab);
+  const mine = own();
+  if (!mine.ok) return mine;
+  return ok(mine.value === null ? null : NO_LOGINS);
+}
+
 // 탭 주인은 session id이거나 사람 token의 "person"이다(host-queue의 TabOwner).
 export type ProfileDeps = {
   // 부른 쪽 자기 탭의 profile. 없는 탭·남의 탭은 not_found다.
-  tabProfile(tab: string, caller: string): Result<string | null>;
-  // session의 agent 정의가 고른 profile. 없거나 지운 profile이면 null(기본)이다.
-  agentBrowserProfile(session: string): string | null;
+  tabProfile(tab: string, caller: string): Result<TabProfile>;
+  // session의 agent 정의가 고른 profile. 없거나 지운 profile이면 null(기본)이고, 정의를 읽지 못하면 오류다.
+  agentBrowserProfile(session: string): Result<string | null>;
 };
 
 // 볼 login의 profile이다. undefined는 전부(사람이 탭 없이 부를 때)다.
@@ -48,15 +65,19 @@ function listedProfile(
   deps: ProfileDeps,
 ): Result<string | null | undefined> {
   if (who.actor === "user") {
-    return tab === undefined ? ok(undefined) : deps.tabProfile(tab, "person");
+    if (tab === undefined) return ok(undefined);
+    const on = deps.tabProfile(tab, "person");
+    return on.ok ? loginProfileOn(on.value, () => ok(null)) : on;
   }
   const session = who.conditions.session;
   if (!who.actor.startsWith("agent:") || session === undefined) {
     return err({ code: "forbidden", message: "only an agent session" });
   }
-  return tab === undefined
-    ? ok(deps.agentBrowserProfile(session))
-    : deps.tabProfile(tab, session);
+  if (tab === undefined) return deps.agentBrowserProfile(session);
+  const on = deps.tabProfile(tab, session);
+  return on.ok
+    ? loginProfileOn(on.value, () => deps.agentBrowserProfile(session))
+    : on;
 }
 
 export function loginsListHandler(deps: Deps & ProfileDeps) {

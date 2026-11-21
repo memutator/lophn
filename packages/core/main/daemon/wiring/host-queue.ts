@@ -81,7 +81,7 @@ import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
-import { createLoginStore } from "../../../secrets/mod.ts";
+import { createLoginStore, loginProfileOn } from "../../../secrets/mod.ts";
 import { agentBrowserProfile } from "./browser-profile.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -162,8 +162,9 @@ type TabDeps = {
   launchShell?: (failed: () => void) => void;
   // fill_login이 가리키는 login의 metadata(값은 없다). 없으면 undefined, 못 읽으면 오류.
   login(id: string): Promise<Result<Login | undefined>>;
-  // session의 agent 정의가 고른 browser profile(`wiring/browser-profile.ts`). 없거나 지운 profile이면 null(기본)이다.
-  browserProfile(session: Id<"ses">): Id<"bpf"> | null;
+  // session의 agent 정의가 고른 browser profile(`wiring/browser-profile.ts`). 없거나 지운 profile이면 null(기본)이고,
+  // 정의를 읽지 못하면 오류다.
+  browserProfile(session: Id<"ses">): Result<Id<"bpf"> | null>;
   // browser 결과가 caller에 가기 전에 거치는 redaction. 알려진 값을 아직 다 모르면 null이다.
   redact(text: string): string | null;
   // 그 앱의 기기가 연 preview view(`apps/views`). phone 탭이 다룰 화면을 고른다.
@@ -475,6 +476,11 @@ export function createTabHandlers(deps: TabDeps) {
       const tab = queue.openTab(opening);
       return ok({ tab, status: "accepted" as const });
     }
+    // agent가 여는 browser 탭은 그 agent 정의의 profile을 쓴다. 사람 token은 기본 profile이다. 모르면 열지 않는다.
+    const profile = person
+      ? ok(null)
+      : deps.browserProfile(caller.value as Id<"ses">);
+    if (!profile.ok) return profile;
     // browser 탭은 page가 생겼다는 shell의 답을 기다린다. 사람이 그 workspace를 띄우지 않아도 열린다.
     // shell이 없으면 띄우고 붙을 때까지 기다린다. 창이 없는 것은 shell이 창을 열어 푼다.
     const starting = !queue.attached();
@@ -486,12 +492,8 @@ export function createTabHandlers(deps: TabDeps) {
         return err({ code: "unavailable", message: SHELL_START_FAILED });
       }
     }
-    // agent가 여는 browser 탭은 그 agent 정의의 profile을 쓴다. 사람 token은 기본 profile이다.
-    const profile = person
-      ? null
-      : deps.browserProfile(caller.value as Id<"ses">);
     const sent = queue.openAndWait(
-      profile === null ? opening : { ...opening, profile },
+      profile.value === null ? opening : { ...opening, profile: profile.value },
     );
     const opened = await settled(sent.id, sent.result, starting);
     if (!opened.ok) {
@@ -726,8 +728,13 @@ export function createTabHandlers(deps: TabDeps) {
       if (act.type !== "fill_login") return ok({ kind: "act", act });
       const login = await deps.login(act.login);
       if (!login.ok) return login;
-      // 다른 profile의 login은 이 탭에서 없는 login이다(list에도 나오지 않는다).
-      const profile = queue.tabProfile(tab as Id<"tab">, caller);
+      // 다른 profile의 login은 이 탭에서 없는 login이다(list에도 나오지 않는다). browser 탭이 아닌 탭은 기본 profile의
+      // login이고 자기 profile이 기본인 쪽만 친다.
+      const on = queue.tabProfile(tab as Id<"tab">, caller);
+      if (!on.ok) return on;
+      const profile = loginProfileOn(on.value, () =>
+        caller === "person" ? ok(null) : deps.browserProfile(caller),
+      );
       if (!profile.ok) return profile;
       if (login.value === undefined || login.value.profile !== profile.value) {
         return err({ code: "not_found", message: "no login with that id" });

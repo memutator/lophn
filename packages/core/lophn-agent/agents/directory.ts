@@ -33,8 +33,9 @@ export type AgentInfo = {
   deny: readonly string[];
   // 할당한 다른 기계의 앱. id로 둔다(그 앱은 이 기계에 slug가 없다). 사람만 쓰는 칸이다.
   remoteApps: readonly RemoteAppLine[];
-  // 정의의 browser profile id 그대로다(지운 profile일 수 있다). null은 기본 profile이다. 사람만 쓰는 칸이다.
-  browserProfile: string | null;
+  // 정의의 browser profile id 그대로다(지운 profile일 수 있다). null은 기본 profile이고, 정의 file이 틀려 읽지 못하면
+  // undefined다(어느 profile인지 모른다). 사람만 쓰는 칸이다.
+  browserProfile: string | null | undefined;
 };
 
 export type RemoteAppLine = {
@@ -62,7 +63,10 @@ function infoOf(loaded: Loaded): AgentInfo {
     apps: loaded.definition?.apps ?? [],
     deny: loaded.definition?.permissions?.deny ?? [],
     remoteApps: loaded.definition?.remote_apps ?? [],
-    browserProfile: loaded.definition?.browser_profile ?? null,
+    browserProfile:
+      loaded.definition === null
+        ? undefined
+        : (loaded.definition.browser_profile ?? null),
   };
 }
 

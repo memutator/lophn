@@ -493,7 +493,7 @@ flows:
     steps:
       - "agent면 자격의 session 행을 읽는다(없으면 not_found, session 자격이 없으면 forbidden). 사람 token의 주인은 person이다. url이 http나 https가 아니면 invalid_input"
       - "shell이 붙어 있지 않으면(/host-link 연결이 없으면) 앱을 띄운다(host-shell-launch). 띄울 길이 없으면 바로 unavailable이다. 띄우는 시도가 쉬는 중이거나 바로 실패해도 unavailable이다"
-      - "탭 표에 주인과 workspace(agent면 그 session의 것, 사람 token이면 입력의 workspace나 home)와 profile을 적고 tab_open 요청을 넣는다. profile은 agent면 그 session의 agent 정의 `browser_profile`(설정 `shell.browser_profiles`에 없는 지운 profile이거나 칸이 없으면 기본), 사람 token이면 기본이고, 기본이 아니면 browser target에 싣는다. 입력 target에는 profile 칸이 없어 agent가 고르지 못한다. 요청은 workspace를 가리지 않고 아무 shell main이 가져간다"
+      - "탭 표에 주인과 workspace(agent면 그 session의 것, 사람 token이면 입력의 workspace나 home)와 profile을 적고 tab_open 요청을 넣는다. profile은 agent면 그 session의 agent 정의 `browser_profile`(설정 `shell.browser_profiles`에 없는 지운 profile이거나 칸이 없으면 기본), 사람 token이면 기본이고, 기본이 아니면 browser target에 싣는다. ledger나 정의를 읽지 못하면 기본으로 열지 않고 앱을 띄우기 전에 unavailable이다. 입력 target에는 profile 칸이 없어 agent가 고르지 못한다. 요청은 workspace를 가리지 않고 아무 shell main이 가져간다"
       - "shell main은 그 workspace를 보이는 창(가장 최근에 focus를 받은 것), 없으면 가장 최근 일반 창에 보낸다. 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive)"
       - "창이 그 workspace를 mount하고 있으면 평소처럼 자리를 정해 탭을 연다. mount하지 않았으면 그 workspace의 pool에 page만 숨은 항목으로 만들고 자리는 다음 mount로 미룬다(agent-browser-page-host). 어느 쪽이든 ack한다"
       - "page의 guest가 dom-ready로 붙어 창이 bind를 알리면 shell main이 done으로 답하고 core는 tab id와 accepted를 돌려준다. 기한은 shell이 붙어 있으면 10초, 앱을 띄웠으면 30초(앱 시작과 창 열기와 page까지)다. 같은 시도를 기다리던 열기는 함께 끝난다"
@@ -508,6 +508,10 @@ flows:
       - id: opened-app-started
         when: "shell이 붙어 있지 않아 core가 앱을 띄웠고 그 앱의 창에 page가 붙었다(기한 30초)"
         observe: [response, "process:앱 process가 detached로 뜬다"]
+      - id: profile-unknown
+        code: unavailable
+        when: "agent의 session이나 agent 정의를 읽지 못해 탭의 browser profile을 모른다. 탭을 만들지 않는다"
+        observe: [response]
       - id: shell-not-attached
         code: unavailable
         when: "shell이 붙어 있지 않은데 앱을 띄울 길이 없다(그 core를 띄운 쪽이 켜지 않았거나, build하지 않은 개발 저장소). 앱을 열라고 사람에게 알리라는 고정 문장"
@@ -1152,7 +1156,7 @@ flows:
       - "host-browser-inspect와 같이 주인을 대조한다. act는 type별 칸을 다시 검사하고, navigate는 preview·artifact 탭이면 거절하고 url이 http·https·about:blank인지 본다"
       - "shell이 붙어 있으면 browser_call을 넣고 결과를 기다린다. 사람이 그 탭을 가져가(take control) 있으면 shell이 conflict로 거절한다"
       - "act는 ref가 가리키는 node에 click, type, fill, press, hover, select, scroll을 하고 page가 가라앉기를 기다린 뒤 url, title을 돌려준다. 낡은 ref는 conflict다"
-      - "act fill_login은 login id가 있고 그 login의 browser profile이 탭의 profile과 같은지 core가 먼저 본다(아니면 not_found). page의 profile은 shell main이 값을 받을 때 다시 싣는다(login-release). queue 항목에는 login id만 싣는다. field가 username이면 core가 metadata의 글을 fill로 바꿔 넣고, password·totp는 shell main이 값을 받아 친다(browser-call-run). 결과는 url, title과 filled: true이고 값은 없다"
+      - "act fill_login은 login id가 있고 그 login의 browser profile이 탭에서 다룰 profile과 같은지 core가 먼저 본다(아니면 not_found). preview·artifact 탭의 login은 기본 profile의 것이고 agent 정의의 profile이 기본인 쪽만 친다. page의 profile은 shell main이 값을 받을 때 다시 싣는다(login-release). queue 항목에는 login id만 싣는다. field가 username이면 core가 metadata의 글을 fill로 바꿔 넣고, password·totp는 shell main이 값을 받아 친다(browser-call-run). 결과는 url, title과 filled: true이고 값은 없다"
       - "navigate는 이동하고 가라앉기를 기다린다. evaluate는 page에서 식을 돌려 JSON 값을 돌려준다. page 안의 예외는 오류가 아니라 exception 글이다"
     outcomes:
       - id: ok
@@ -1163,7 +1167,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이거나, fill_login의 login id가 없거나 그 login이 다른 browser profile의 것이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이거나, fill_login의 login id가 없거나 그 login이 다른 browser profile의 것이거나 기본이 아닌 profile의 agent가 preview·artifact 탭에서 쳤다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1269,7 +1273,7 @@ flows:
     steps:
       - "agent 자격(session 조건 있음)만 부른다. 사람이 없는 turn(unattended)이면 탭이나 자리를 보기 전에 {unattended: true}를 돌려준다"
       - "kind secret: agent는 secret 이름이 아니라 자리를 넘기고 core가 자리를 풀어 요청을 secret(값 넣기)이나 sign_in(로그인)으로 만든다. provider 자리(내장 정의 key)는 home session만 청한다. 정의가 API key를 가졌으면 기본이 API key이고(같은 정의의 provider가 이미 있으면 그 `provider.<id>`의 값 바꾸기, 없으면 새 id를 만들어 값 저장 뒤 보낼 연결 입력을 요청에 싣는다), sign_in을 주었거나 구독 로그인뿐인 정의면 로그인이다(이미 연결된 provider면 conflict). custom provider 자리(display_name, base_url, protocol)도 home만이고 Settings의 Custom 연결과 같은 규칙으로 주소를 검사한다: https 주소만(이 컴퓨터의 http 주소는 key가 없어 요청으로 만들 수 없다). 정의 key는 display_name에서 core가 만들고 내장 정의 key와 겹치면 안 된다. 앱 자리(app id와 이름)는 그 앱 workspace의 session이나 home session만 청하고, 그 앱의 active grant에 그 이름의 secret.use가 있어야 한다(OAuth를 선언했으면 로그인이고 client id가 아직 없으면 conflict). MCP server 자리(이름, 고를 때 part)는 등록된 server 중 이 session이 닿는 층만 본다: home은 전역·Home 층·자기 agent 정의 층, project·앱 session은 자기 agent 정의 층과 자기 workspace 층. 같은 이름이면 agent 층 > workspace 층 > 전역이 이긴다. http server가 가리키는 `mcp.` secret(header, bearer·api_key credential, oauth2 client credential)과 oauth2 로그인이 청할 것이고 stdio·청할 것 없는 server는 not_found, 청할 것이 여럿인데 part가 없거나 틀리면 invalid_input이 고를 목록을 준다. card에 보일 목적지(provider endpoint, 앱의 net.fetch grant, MCP server 주소나 발급자 origin)와 로그인 target은 core가 정의·선언·설정에서 읽는다. 요청을 같은 대기열에 세운다"
-      - "kind login: 탭의 주인을 대조한다(host-browser-inspect와 같다). 남의 탭이면 not_found다"
+      - "kind login: 탭의 주인을 대조한다(host-browser-inspect와 같다). 남의 탭이면 not_found다. 저장할 profile은 browser 탭이면 그 탭의 profile이고, preview·artifact 탭이면 기본 profile이다. 그때 agent 정의의 profile이 기본이 아니면 save는 forbidden이다(once는 저장하지 않아 그대로 간다). 정의를 읽지 못하면 unavailable이다"
       - "shell main에 browser_call frame_origin을 넣어 ref 요소가 든 frame의 origin을 CDP로 잰다(browser-call-run). agent가 적은 글이 아니고 최상위 URL도 아니다. 그 frame이 origin을 못 내면 forbidden이다"
       - "요청(mode, label, 잰 origin, 탭 제목, 탭의 browser profile)을 `ask`와 같은 session별 대기열에 세운다. 앞 질문이나 요청이 풀리면 열리고 QuestionAsked가 나간다. 대화는 질문 내용이 없는 대기 항목으로 보고 card를 그린다(input-request-card)"
       - "사람이 보호 창에서 끝내면(input-request-finish) 결과를 돌려준다: save는 {login: id}, once는 {filled: true}, secret은 {stored: true}, sign_in은 {signed_in: true}(card의 로그인이 끝난 뒤). Cancel, turn 끝, session 닫힘, 사람의 메시지는 {cancelled: true}다"
@@ -1298,7 +1302,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "agent 자격이 아니거나 session이 없다. ref의 frame이 origin을 내지 못한다. home이 아닌 session이 provider·custom provider 자리를, 그 앱이나 home이 아닌 session이 앱 자리를 청했다"
+        when: "agent 자격이 아니거나 session이 없다. ref의 frame이 origin을 내지 못한다. 기본이 아닌 browser profile의 agent가 preview·artifact 탭에서 save를 청했다(그 탭의 login은 기본 profile의 것이다). home이 아닌 session이 provider·custom provider 자리를, 그 앱이나 home이 아닌 session이 앱 자리를 청했다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -1306,7 +1310,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "shell이 붙어 있지 않거나 탭이 창에 열려 있지 않거나 origin 재기가 기한을 넘겼다. 탭이 화면 없는 기계의 page host에 있어 보호 입력 창을 띄울 수 없다(page-host-serve:no-login-window). once 값을 알려진 값으로 올리지 못했다. 값은 저장했지만 provider 연결이 실패했다(값은 지운다. core가 낸 code를 그대로 돌려줘 다른 code일 수 있다)"
+        when: "shell이 붙어 있지 않거나 탭이 창에 열려 있지 않거나 origin 재기가 기한을 넘겼다. preview·artifact 탭의 login 요청인데 agent 정의를 읽지 못해 profile을 모른다. 탭이 화면 없는 기계의 page host에 있어 보호 입력 창을 띄울 수 없다(page-host-serve:no-login-window). once 값을 알려진 값으로 올리지 못했다. 값은 저장했지만 provider 연결이 실패했다(값은 지운다. core가 낸 code를 그대로 돌려줘 다른 code일 수 있다)"
         observe: [response]
       - id: invalid_input
         code: invalid_input

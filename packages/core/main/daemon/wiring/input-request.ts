@@ -9,6 +9,8 @@ import {
   inputRequestDone,
   inputRequestHold,
   inputRequestRead,
+  type LoginRequestMode,
+  type LoginRequestView,
 } from "../../../../protocol/lophn-agent/input-request.ts";
 import {
   providerDefinitions,
@@ -32,7 +34,10 @@ import {
   createKeyConnect,
   secretAnswerHandler,
 } from "../../../lophn-agent/providers/connect-key.ts";
+import type { HostQueue } from "../../../host-queue/mod.ts";
+import { loginProfileOn, NO_LOGINS } from "../../../secrets/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
+import { agentBrowserProfile } from "./browser-profile.ts";
 import type { WiringFactory } from "./context.ts";
 
 // agent의 입력 요청(`lophn login request`, `lophn ask secret`)의 core 쪽이다. 대기열은 `ask`와 같은 questionWaits이고,
@@ -62,6 +67,64 @@ const WATCH_MS = 1000;
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
+
+// login 저장 요청을 browser 탭이 아닌 탭(preview·artifact)에서 다른 profile의 agent가 낼 때의 거절이다.
+const SAVE_OFF_PROFILE =
+  "Logins saved from a preview or artifact tab belong to the default browser profile, and your agent uses another profile. Ask for this login in a browser tab you open with `lophn tab open --url`.";
+
+export type LoginAskDeps = {
+  queue: Pick<HostQueue, "browserTab" | "tabProfile">;
+  // session의 agent 정의가 고른 browser profile(`agentBrowserProfile`).
+  ownProfile(session: string): Result<string | null>;
+  // ref 요소가 든 frame의 origin을 shell main이 잰다.
+  measure(
+    tab: Id<"tab">,
+    view: "browser" | "preview" | "artifact",
+    ref: string,
+  ): Promise<Result<{ origin: string; title: string }>>;
+  // 요청을 session의 대기열에 세우고 끝날 때까지 기다린다.
+  ask(view: Omit<LoginRequestView, "group">): Promise<Result<unknown>>;
+};
+
+// login 요청(save·once): 자기 탭인지 보고, 저장할 profile을 정하고, origin을 재어 요청을 세운다. save는 그 탭에서 다룰
+// login의 profile(`loginProfileOn`)에 login을 두므로, 다룰 login이 없는 탭(다른 profile의 agent가 낸 preview·artifact 탭)의
+// save는 거절한다. once는 저장하지 않아 profile을 보지 않는다.
+export async function askLogin(
+  deps: LoginAskDeps,
+  session: string,
+  input: { tab: string; ref: string; mode: LoginRequestMode; label?: string },
+): Promise<Result<unknown>> {
+  const tab = input.tab as Id<"tab">;
+  const found = deps.queue.browserTab(tab, session as Id<"ses">);
+  if (!found.ok) return found;
+  if (found.value.view === "phone") {
+    return err({
+      code: "invalid_input",
+      message: PHONE_TAB_TEXT.unsupported("a login request"),
+    });
+  }
+  const on = deps.queue.tabProfile(tab, session as Id<"ses">);
+  if (!on.ok) return on;
+  const profile = loginProfileOn(on.value, () => deps.ownProfile(session));
+  if (!profile.ok) return profile;
+  if (profile.value === NO_LOGINS && input.mode === "save") {
+    return err({ code: "forbidden", message: SAVE_OFF_PROFILE });
+  }
+  const origin = await deps.measure(tab, found.value.view, input.ref);
+  if (!origin.ok) return origin;
+  return await deps.ask({
+    kind: "login",
+    tab,
+    view: found.value.view,
+    ref: input.ref,
+    mode: input.mode,
+    label: input.label ?? new URL(origin.value.origin).host,
+    origin: origin.value.origin,
+    title: origin.value.title,
+    profile:
+      profile.value === NO_LOGINS ? null : (profile.value as Id<"bpf"> | null),
+  });
+}
 
 export const inputRequestWiring: WiringFactory = () => {
   let abandonAll: (() => void) | undefined;
@@ -207,42 +270,15 @@ export const inputRequestWiring: WiringFactory = () => {
           if (!content.ok) return content;
           return await waits.askRequest({ session, turn }, content.value);
         }
-        const found = queue.browserTab(
-          input.tab as Id<"tab">,
-          session as Id<"ses">,
-        );
-        if (!found.ok) return found;
-        if (found.value.view === "phone") {
-          return err({
-            code: "invalid_input",
-            message: PHONE_TAB_TEXT.unsupported("a login request"),
-          });
-        }
-        const origin = await measure(
-          input.tab as Id<"tab">,
-          found.value.view,
-          input.ref,
-        );
-        if (!origin.ok) return origin;
-        // save는 이 탭의 profile에 login을 둔다.
-        const profile = queue.tabProfile(
-          input.tab as Id<"tab">,
-          session as Id<"ses">,
-        );
-        if (!profile.ok) return profile;
-        return await waits.askRequest(
-          { session, turn },
+        return await askLogin(
           {
-            kind: "login",
-            tab: input.tab as Id<"tab">,
-            view: found.value.view,
-            ref: input.ref,
-            mode: input.mode,
-            label: input.label ?? new URL(origin.value.origin).host,
-            origin: origin.value.origin,
-            title: origin.value.title,
-            profile: profile.value,
+            queue,
+            ownProfile: (session) => agentBrowserProfile(ctx, session),
+            measure,
+            ask: (view) => waits.askRequest({ session, turn }, view),
           },
+          session,
+          input,
         );
       };
 

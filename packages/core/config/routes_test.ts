@@ -11,7 +11,11 @@ import type {
 } from "../../protocol/approvals/mod.ts";
 import { destinationsSetting } from "../folder/destinations.ts";
 import { createSettingsRegistry } from "./registry.ts";
-import { remoteAddressesSetting } from "./shell-settings.ts";
+import {
+  remoteAddressesSetting,
+  shellSettingFolders,
+  shellSettings,
+} from "./shell-settings.ts";
 import { type AskPerson, settingsUpdateHandler } from "./routes.ts";
 import { createSettingsStore } from "./store.ts";
 
@@ -406,6 +410,63 @@ test("remote.addresses는 agent가 바꾸면 승인 카드에 바뀜을 보이�
     assert.deepStrictEqual(store.chosen()["remote.addresses"], [
       "studio.tail1234.ts.net",
     ]);
+  } finally {
+    store.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// browser profile 목록은 agent가 쓰는 cookie와 저장 login을 정한다. 깨지면 agent가 profile을 지우거나 더해 다른 로그인으로 옮겨 간다.
+test("agent 자격은 shell.browser_profiles를 바꾸지 못하고 사람은 바꾼다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-settings-profiles-"));
+  const store = createSettingsStore({
+    root,
+    registry: createSettingsRegistry(shellSettings, shellSettingFolders),
+    publish: () => {},
+    log: () => {},
+  });
+  const update = settingsUpdateHandler(store, () =>
+    Promise.resolve(ok({ kind: "run" })),
+  );
+  const change = {
+    changes: [
+      {
+        key: "shell.browser_profiles",
+        action: "set",
+        value: [{ id: `bpf_${"1".repeat(26)}`, name: "Work", color: "sage" }],
+      },
+    ],
+  };
+  try {
+    const refused = await update(
+      { ...(AGENT as object), principal: "user" } as never,
+      { tool_call: TOOL_CALL, ...change },
+    );
+    assert.deepStrictEqual(refused, {
+      ok: true,
+      value: {
+        changed: [],
+        rejected: [{ key: "shell.browser_profiles", reason: "locked" }],
+        notes: [],
+      },
+    });
+    const written = () => {
+      try {
+        return readFileSync(join(root, "settings.json"), "utf8");
+      } catch {
+        return "";
+      }
+    };
+    assert.ok(!written().includes("shell.browser_profiles"));
+    const done = await update(
+      { ...(PERSON as object), principal: "user" } as never,
+      change,
+    );
+    assert.deepStrictEqual(
+      (done as { value: { changed: string[] } }).value.changed,
+      ["shell.browser_profiles"],
+    );
+    assert.ok(written().includes("shell.browser_profiles"));
   } finally {
     store.close();
     await rm(root, { recursive: true, force: true });

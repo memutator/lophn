@@ -75,9 +75,11 @@ const KNOWN = "hunter2";
 // browser profile: 설정에는 WORK만 있다. session 5의 agent 정의는 WORK, session 6의 정의는 지운 profile GONE을 가리킨다.
 const WORK = `bpf_${"1".repeat(26)}`;
 const GONE = `bpf_${"2".repeat(26)}`;
-const DEFINED: Record<string, string> = {
+// session 4의 정의는 읽지 못한다(undefined).
+const DEFINED: Record<string, string | undefined> = {
   [id("ses", 5)]: WORK,
   [id("ses", 6)]: GONE,
+  [id("ses", 4)]: undefined,
 };
 const WORK_LOGIN = `lgn_${"2".repeat(26)}`;
 const WORK_LOGIN_ENTRY = { ...LOGIN_ENTRY, id: WORK_LOGIN, profile: WORK };
@@ -157,7 +159,10 @@ function setup(
         ),
       ),
     browserProfile: (session) =>
-      liveBrowserProfile(DEFINED[session] ?? null, [{ id: WORK }]),
+      liveBrowserProfile(
+        Object.hasOwn(DEFINED, session) ? DEFINED[session] : null,
+        [{ id: WORK }],
+      ),
     redact: (text) => text.replaceAll(KNOWN, "[REDACTED]"),
     previewViews: (app) => phone.previewViews(app),
     phoneCall: (call) => {
@@ -1046,6 +1051,17 @@ test("agent가 여는 browser 탭은 정의의 profile이 설정에 있을 때�
       ok(null),
     );
   }
+  // 정의를 읽지 못하면 기본 profile로 열지 않는다. 새어 나갔으면 답을 주고(기다리는 열기가 남지 않게) 실패한다.
+  const unknown = open(agent(4), browser);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const leaked = host.next();
+  if (leaked !== null) {
+    queue.done(leaked.id as Id<"hrq">, "done", {
+      content: [{ type: "text", text: "bound" }],
+    });
+  }
+  assert.equal(leaked, null);
+  assert.equal(code(await unknown), "unavailable");
   // 입력에는 profile 칸이 없다. 실어 보내면 열지 않고 shell에도 가지 않는다.
   for (const body of [
     { target: { browser: { url: "https://example.com", profile: WORK } } },
@@ -1054,4 +1070,55 @@ test("agent가 여는 browser 탭은 정의의 profile이 설정에 있을 때�
     await assert.rejects(async () => open(agent(6), body));
     assert.equal(host.next(), null);
   }
+});
+
+// 깨지면 다른 profile의 agent가 자기 preview·artifact 탭에서 기본 profile의 login을 친다.
+test("browser 탭이 아닌 탭의 fill_login은 기본 profile의 login만이고 자기 profile이 기본인 agent만 친다", async () => {
+  const { queue, act } = setup(true);
+  const host = connect(queue);
+  const artifactOf = (session: number, name: string) =>
+    queue.openTab({
+      owner: id("ses", session) as Id<"ses">,
+      workspace: PROJECT_1,
+      target: { artifact: { name } },
+      relation: null,
+      source: null,
+    });
+  const plainTab = artifactOf(1, "report");
+  const workTab = artifactOf(5, "notes");
+  while (host.next() !== null);
+  const fill = (who: number, tab: string, login: string) =>
+    act(agent(who), {
+      tab,
+      type: "fill_login",
+      ref: "e2",
+      login,
+      field: "password",
+    });
+  for (const login of [LOGIN, WORK_LOGIN]) {
+    const reply = fill(5, workTab, login);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const leaked = host.next();
+    if (leaked !== null) {
+      queue.done(leaked.id as Id<"hrq">, "done", {
+        content: [{ type: "text", text: "{}" }],
+      });
+    }
+    assert.equal(leaked, null);
+    const refused = await reply;
+    assert.equal(code(refused), "not_found");
+    assert.equal(message(refused), "no login with that id");
+  }
+  const reply = fill(1, plainTab, LOGIN);
+  const request = await host.arrive();
+  assert.equal(request.kind, "browser_call");
+  queue.done(request.id as Id<"hrq">, "done", {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({ url: "https://example.com/", title: "t" }),
+      },
+    ],
+  });
+  assert.equal(code(await reply), "ok");
 });

@@ -97,6 +97,8 @@ export function withinTeam(
   return false;
 }
 
+export const NOT_BROWSER_TAB = "not_browser";
+
 // 넘겨받은 탭을 닫으려 할 때 model이 그대로 받는 문장이다.
 const HANDED_TAB =
   "The person handed you this tab; you cannot close it. Tell the person when you are done.";
@@ -117,8 +119,12 @@ export type HostQueue = {
   expire(): void;
   // 자기가 연 browser·preview·artifact·phone 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
   browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView>;
-  // 자기 탭(browserTab과 같은 탭)의 browser profile. null은 기본 profile이다(preview·artifact·phone 탭도 null). 없는 탭과 남의 탭은 `not_found`다.
-  tabProfile(tab: Id<"tab">, caller: TabOwner): Result<Id<"bpf"> | null>;
+  // 자기 탭(browserTab과 같은 탭)의 browser profile. null은 기본 profile이고, preview·artifact·phone 탭은 profile이 없어
+  // NOT_BROWSER_TAB이다(그 탭의 login을 누가 다루는지는 부르는 쪽이 정한다). 없는 탭과 남의 탭은 `not_found`다.
+  tabProfile(
+    tab: Id<"tab">,
+    caller: TabOwner,
+  ): Result<Id<"bpf"> | null | typeof NOT_BROWSER_TAB>;
 
   // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
   // 돌려준다(preview에 기기나 화면이 있으면 같은 탭 id로 tab_open을 다시 넣는다).
@@ -625,12 +631,15 @@ export function createHostQueue(deps: {
         ? ok({ view: kind, phone: phone! })
         : ok({ view: kind });
     },
-    tabProfile(tab: Id<"tab">, caller: TabOwner): Result<Id<"bpf"> | null> {
+    tabProfile(
+      tab: Id<"tab">,
+      caller: TabOwner,
+    ): Result<Id<"bpf"> | null | typeof NOT_BROWSER_TAB> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
-      return found.value.kind === "agent"
-        ? noSuchTab()
-        : ok(found.value.profile);
+      const { kind, profile } = found.value;
+      if (kind === "agent") return noSuchTab();
+      return ok(kind === "browser" ? profile : NOT_BROWSER_TAB);
     },
     attached,
     startShell(launch: (failed: () => void) => void): boolean {

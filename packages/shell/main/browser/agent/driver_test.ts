@@ -338,3 +338,17 @@ test("snapshot은 type=password 칸의 value를 찍지 않는다", async () => {
   assert.ok(!shown.includes(PASSWORD));
   assert.equal(shown.match(/value=/g)?.length, 2);
 });
+
+// core는 이 profile이 login의 profile과 같을 때만 값을 준다. 깨지면 다른 profile의 page에 그 login이 쳐지거나 맞는 page에서도 못 친다.
+test("fill_login은 page의 browser profile을 실어 값을 청한다", async () => {
+  const { fake, run, released } = setup();
+  const work = `bpf_${"1".repeat(26)}`;
+  (fake.page as { profile: string | null }).profile = work;
+  framed(fake);
+  await run({ kind: "snapshot" });
+  assert.ok("content" in (await run(fillLogin)));
+  assert.deepEqual(
+    released.map((one) => one.profile),
+    [work],
+  );
+});

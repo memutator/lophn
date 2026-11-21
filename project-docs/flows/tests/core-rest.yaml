@@ -97,7 +97,8 @@ files:
       - settings-update:changed
       - settings-update:rejected
       - settings-update:device-remote-refused
-    note: "agent의 folder.destinations 두기·바꾸기·지우기는 사람이 허락한 그 값만 그 한 번 쓰이고, 묻는 자리가 없거나 거절·막힘·취소·묻기 실패·결정 사이 바뀜이면 needs_approval이고 설정 file이 bytes 그대로다. 카드 줄은 이름과 전체 경로다. 사람 자격은 묻지 않고 쓰고, 틀린 값은 묻기 전에 거절된다. 기기 자격의 remote.* 쓰기는 forbidden이고 같이 보낸 다른 바꿈도 쓰이지 않는다"
+      - settings-update:locked
+    note: "agent는 사람만 바꾸는 shell.browser_profiles를 바꾸지 못하고(locked) 사람은 바꾼다. agent의 folder.destinations 두기·바꾸기·지우기는 사람이 허락한 그 값만 그 한 번 쓰이고, 묻는 자리가 없거나 거절·막힘·취소·묻기 실패·결정 사이 바뀜이면 needs_approval이고 설정 file이 bytes 그대로다. 카드 줄은 이름과 전체 경로다. 사람 자격은 묻지 않고 쓰고, 틀린 값은 묻기 전에 거절된다. 기기 자격의 remote.* 쓰기는 forbidden이고 같이 보낸 다른 바꿈도 쓰이지 않는다"
 
   - path: packages/core/config/shell-settings_test.ts
     covers:
@@ -460,6 +461,7 @@ files:
       - host-browser-act:not_found
       - host-browser-read:not_found
       - host-browser-tab-open:opened
+      - host-browser-tab-open:profile-unknown
       - host-browser-tab-open:opened-app-started
       - host-browser-tab-open:shell-not-attached
       - host-browser-tab-open:start-failed
@@ -479,7 +481,7 @@ files:
       - page-view-input:forbidden
       - page-view-control:forbidden
       - page-view-open:forbidden
-    note: "page_view route는 hostQueueWiring을 실제로 build해 dispatchHttp로 부른다: 터미널 입력 허락(ctx.peek.terminalInputGrant)이 없는 기기의 input·control·open과 agent 자격의 page_view/* 모두 forbidden이다. 나머지는 createTabHandlers 직접 호출. phone 탭은 그 앱 workspace의 session과 사람 token만 열고, 남의 session이 연 phone 탭은 없는 탭과 같은 not_found이며 폰에 아무것도 묻지 않는다. 기기는 메모리 view 표(createAppViews)에서 기기 owner의 그 앱 preview view만 고르고 live view·shell owner의 view·다른 앱의 view는 고르지 않으며, preview view가 없으면 폰에 묻지 않고 unavailable이다. 정상 경로(open, snapshot 글과 redaction, click의 node, JPEG screenshot, read)는 가짜 phoneLink로 본다. fill_login은 없는 login id가 not_found이고 queue 항목에 login id만 있으며 username은 metadata의 글로 fill이 되고 결과에 filled가 붙는다. browser 결과의 알려진 secret 값은 지워진다. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖. browser 탭 열기는 workspace를 띄운 창 없이도 shell에 가고 page가 붙어야 성공하며 기한이 지나면 unavailable에 탭이 남지 않는다. shell이 없으면 한 번만 띄우고 붙어서 bind되면 성공하고, 30초 안에 붙지 않거나 spawn이 실패하면 같은 시도가 함께 unavailable이며 5분은 다시 띄우지 않고 바로 실패한다. 앱이 끝나 shell이 없으면 browser 탭은 표에서 빠지고 없는 탭과 같은 not_found 문장이다. preview·artifact 탭은 shell이 없어도 띄우지 않는다. fill_login은 탭과 다른 browser profile의 login을 없는 login과 같은 not_found 문장으로 답하고 shell에 보내지 않으며 같은 profile이면 간다. agent가 여는 browser 탭은 정의의 profile이 설정에 있을 때만 그 profile을 tab_open에 싣고, 지운 profile·사람 token은 기본이며, 입력에 profile을 실으면 열지 않는다"
+    note: "page_view route는 hostQueueWiring을 실제로 build해 dispatchHttp로 부른다: 터미널 입력 허락(ctx.peek.terminalInputGrant)이 없는 기기의 input·control·open과 agent 자격의 page_view/* 모두 forbidden이다. 나머지는 createTabHandlers 직접 호출. phone 탭은 그 앱 workspace의 session과 사람 token만 열고, 남의 session이 연 phone 탭은 없는 탭과 같은 not_found이며 폰에 아무것도 묻지 않는다. 기기는 메모리 view 표(createAppViews)에서 기기 owner의 그 앱 preview view만 고르고 live view·shell owner의 view·다른 앱의 view는 고르지 않으며, preview view가 없으면 폰에 묻지 않고 unavailable이다. 정상 경로(open, snapshot 글과 redaction, click의 node, JPEG screenshot, read)는 가짜 phoneLink로 본다. fill_login은 없는 login id가 not_found이고 queue 항목에 login id만 있으며 username은 metadata의 글로 fill이 되고 결과에 filled가 붙는다. browser 결과의 알려진 secret 값은 지워진다. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖. browser 탭 열기는 workspace를 띄운 창 없이도 shell에 가고 page가 붙어야 성공하며 기한이 지나면 unavailable에 탭이 남지 않는다. shell이 없으면 한 번만 띄우고 붙어서 bind되면 성공하고, 30초 안에 붙지 않거나 spawn이 실패하면 같은 시도가 함께 unavailable이며 5분은 다시 띄우지 않고 바로 실패한다. 앱이 끝나 shell이 없으면 browser 탭은 표에서 빠지고 없는 탭과 같은 not_found 문장이다. preview·artifact 탭은 shell이 없어도 띄우지 않는다. fill_login은 탭과 다른 browser profile의 login을 없는 login과 같은 not_found 문장으로 답하고 shell에 보내지 않으며 같은 profile이면 간다. agent가 여는 browser 탭은 정의의 profile이 설정에 있을 때만 그 profile을 tab_open에 싣고, 지운 profile·사람 token은 기본이며, 정의를 읽지 못하면 unavailable이고 tab_open이 나가지 않으며, 입력에 profile을 실으면 열지 않는다. artifact 탭의 fill_login은 기본 profile의 login이고 기본이 아닌 profile의 agent는 not_found다"
 
   - path: packages/core/main/daemon/wiring/lophn-agent-registration_test.ts
     covers: [call-send:ambiguous-app]
@@ -701,7 +703,14 @@ files:
       - login-list:not_found
       - login-save:saved
       - login-delete:deleted
-    note: origin이나 browser profile이 다르거나 shell capability가 아니면 값을 내주지 않고, list는 값을 싣지 않고 그 탭이나 agent 정의의 profile에 든 login만 내며, profile 칸이 없는 옛 login은 기본 profile이고, 지우면 두 secret 이름도 지워진다
+    note: origin이나 browser profile이 다르거나 shell capability가 아니면 값을 내주지 않고, list는 값을 싣지 않고 그 탭이나 agent 정의의 profile에 든 login만 내며, 탭은 실제 탭 표로 부른 쪽의 것이어야 하고(남의 탭은 not_found), preview·artifact 탭의 login은 기본 profile의 것이라 기본 profile의 agent와 사람만 보며, profile 칸이 없는 옛 login은 기본 profile이고, 지우면 두 secret 이름도 지워진다
+
+  - path: packages/core/main/daemon/wiring/input-request_test.ts
+    covers:
+      - input-request-ask:not_found
+      - input-request-ask:forbidden
+      - input-request-ask:unavailable
+    note: "login 요청의 view는 그 탭에서 다룰 login의 profile을 싣는다: browser 탭은 그 탭의 profile, preview·artifact 탭은 기본이다. 기본이 아닌 profile의 agent가 preview·artifact 탭에서 낸 save는 forbidden이고 once는 간다. 정의를 읽지 못하면 unavailable, 남의 탭은 not_found이며 거절은 origin을 재기 전이다"
 
   - path: packages/core/secrets/file-store_test.ts
     covers:

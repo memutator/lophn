@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { createIdSource, err, ok } from "../../base/mod.ts";
+import {
+  createIdSource,
+  err,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../base/mod.ts";
+import type { Id } from "../../protocol/base/ids.ts";
+import { createHostQueue } from "../host-queue/mod.ts";
 import { loginsRelease } from "../../protocol/secrets/mod.ts";
 import {
   loginsDeleteHandler,
@@ -88,8 +96,10 @@ async function setup(agentProfile: string | null = null) {
       secrets,
       tabProfile,
       agentBrowserProfile: (session) =>
-        session === SESSION ? agentProfile : null,
+        ok(session === SESSION ? agentProfile : null),
     }),
+    logins,
+    secrets,
     remove: loginsDeleteHandler({ logins, secrets }),
     done: () => rm(root, { recursive: true, force: true }),
   };
@@ -315,6 +325,86 @@ test("profile 칸이 없는 저장 login은 기본 profile의 login으로 읽히
     const stored = JSON.parse(await readFile(path, "utf8")) as object[];
     assert.ok(!Object.hasOwn(stored[0]!, "profile"));
     assert.deepEqual(await ids({ tab: TAB_DEFAULT }), [old]);
+  } finally {
+    await t.done();
+  }
+});
+
+// 깨지면 agent가 남의 탭 id로 그 탭 profile의 login을 보거나, 다른 profile의 agent가 자기 preview·artifact 탭에서 기본 profile의 login을 본다.
+test("logins/list의 탭은 부른 쪽의 탭이어야 하고, browser 탭이 아닌 탭의 login은 기본 profile의 것이라 기본 profile의 agent와 사람만 본다", async () => {
+  const t = await setup();
+  try {
+    const plain = `ses_${"2".repeat(26)}` as Id<"ses">;
+    const worker = `ses_${"3".repeat(26)}` as Id<"ses">;
+    const own: Record<string, string | null> = {
+      [plain]: null,
+      [worker]: WORK,
+    };
+    const clock = manualClock(0);
+    const queue = createHostQueue({
+      clock,
+      ids: createIdSource({ clock, random: seededRandom(1) }),
+    });
+    const list = loginsListHandler({
+      logins: t.logins,
+      secrets: t.secrets,
+      tabProfile: (tab, caller) =>
+        queue.tabProfile(tab as Id<"tab">, caller as Id<"ses"> | "person"),
+      agentBrowserProfile: (session) => ok(own[session] ?? null),
+    });
+    const saved = await t.save(CTX, {
+      label: "Work account",
+      origin: ORIGIN,
+      username: "worker",
+      profile: WORK,
+    });
+    assert.ok(saved.ok);
+    const work = (saved.value as { id: string }).id;
+    const place = (
+      owner: Id<"ses"> | "person",
+      target: Parameters<typeof queue.openTab>[0]["target"],
+      profile?: Id<"bpf">,
+    ) =>
+      queue.openTab({
+        owner,
+        workspace: { kind: "project", id: `prj_${"1".repeat(26)}` as never },
+        target,
+        relation: null,
+        source: null,
+        ...(profile === undefined ? {} : { profile }),
+      });
+    const workerBrowser = place(
+      worker,
+      { browser: { url: ORIGIN } },
+      WORK as Id<"bpf">,
+    );
+    const workerPreview = place(worker, {
+      preview: { app: `app_${"1".repeat(26)}`, device: null, screen: null },
+    });
+    const plainArtifact = place(plain, { artifact: { name: "report" } });
+    const personArtifact = place("person", { artifact: { name: "notes" } });
+    const agentOf = (session: string) =>
+      ({ actor: `agent:${session}`, conditions: { session } }) as never;
+    const ids = async (who: never, tab: string) => {
+      const result = await list(who, { tab });
+      assert.ok(result.ok, JSON.stringify(result));
+      return (result.value as { id: string }[]).map((l) => l.id);
+    };
+    assert.deepEqual(await ids(agentOf(worker), workerBrowser), [work]);
+    assert.deepEqual(await ids(agentOf(plain), plainArtifact), [t.id]);
+    assert.deepEqual(await ids(PERSON, personArtifact), [t.id]);
+    assert.deepEqual(await ids(agentOf(worker), workerPreview), []);
+    // 남의 탭은 없는 탭과 같고 login은 하나도 싣지 않는다.
+    for (const [who, tab] of [
+      [agentOf(plain), workerBrowser],
+      [PERSON, workerBrowser],
+      [agentOf(worker), plainArtifact],
+    ] as const) {
+      const refused = await list(who, { tab });
+      assert.ok(!refused.ok);
+      assert.equal(refused.error.code, "not_found");
+      assert.ok(!JSON.stringify(refused).includes("Work account"));
+    }
   } finally {
     await t.done();
   }

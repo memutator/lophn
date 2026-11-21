@@ -17,7 +17,7 @@ const list = defineCommand({
   summary: "List saved site logins",
   description:
     "List the site logins the person saved: id, label, origin, username, note, browser profile and whether a TOTP seed is set. Passwords are never shown. " +
-    "Only logins of one browser profile are listed: with --tab, the profile of that tab you opened; without it, the profile your agent's tabs open with. `browser act fill-login` fills only logins listed for that tab. " +
+    "Only logins of one browser profile are listed: with --tab, the profile of that tab you opened; without it, the profile your agent's tabs open with. A preview or artifact tab holds the default profile's logins, listed only when your agent uses the default profile. `browser act fill-login` fills only logins listed for that tab. " +
     "Pass --origin (like https://example.com) to list only logins for that exact origin.",
   input: z.strictObject({
     origin: loginOriginSchema.optional(),

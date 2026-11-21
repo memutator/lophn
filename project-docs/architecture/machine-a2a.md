@@ -227,5 +227,5 @@ agent가 누구를 부를지 고르는 길이다. system prompt에 싣지 않고
 - 늦음은 두 기계의 시계를 견준다. 시계가 10분 넘게 어긋난 두 컴퓨터는 모든 mail이 서거나 하나도 서지 않는다.
 - 명단에서 빠진 컴퓨터로 간 mail은 만료(7일)로만 끝난다. 보낸 agent는 그동안 `pending`을 본다.
 - `unknown`인 동안 그 기계의 줄은 다음 깨움(새 mail, link 바뀜, 60초 timer)까지 멈춘다. 그 사이 뒤의 mail(취소 포함)도 기다린다.
-- handoff note와 다른 컴퓨터의 workflow step은 실제 두 컴퓨터로 돌려 보지 않았다(unit test와 review만). folder 길은 실제 동기 도구(Syncthing, Google Drive)로 돌려 보지 않았다.
+- 확인은 한 기계에 띄운 개발 core 둘(link로 붙인 것)로 했다. 서로 다른 기계와 OS, 폰을 거치는 길, 실제 동기 도구(Syncthing, Google Drive)로 가는 folder 길은 돌려 보지 않았다.
 - 다른 컴퓨터가 가져간 workflow step의 turn이 실패·멈춤·재시작으로 끝나면 시작한 컴퓨터에 줄이 남지 않는다. 이슈 `workflow-remote-step-turn-end-no-line`.

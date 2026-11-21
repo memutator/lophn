@@ -27,5 +27,5 @@
 
 ## 확인하지 않은 것
 
-- handoff note와 다른 컴퓨터의 workflow step은 실제 두 컴퓨터로 돌려 보지 않았다(unit test와 review만).
+- 확인은 한 기계에 띄운 개발 core 둘로 했다. 서로 다른 기계와 OS로는 돌려 보지 않았다.
 - folder-sync의 길은 실제 도구(Syncthing, Google Drive)와 실제 두 기계로 돌려 본 적이 없다(`multi-machine.md` "남은 것").

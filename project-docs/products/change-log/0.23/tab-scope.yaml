@@ -1,5 +1,5 @@
 id: tab-scope
-version: 0.23.112
+version: 0.23.121
 title: 탭마다 주인을 두고 사람이 browser 탭을 session에 넘기며, browser profile로 cookie와 저장 login을 나눠 agent에 단다
 modules: [packages/protocol, packages/cli, packages/core/config, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/secrets, packages/design, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
 checked: [tool-check, agent-policy, context-component-registry, architecture-layers, architecture-testing, architecture-activation, architecture-app-call, architecture-package, architecture-app-notice, architecture-workspace-session, architecture-run, architecture-workflow, architecture-coding-agent, architecture-extension, architecture-terminal-agent, architecture-agent-chat, architecture-acp, architecture-artifact, architecture-ui-kit, architecture-appearance, architecture-remote, architecture-phone-screen, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-package, tool-models-snapshot, skill-ui-design]

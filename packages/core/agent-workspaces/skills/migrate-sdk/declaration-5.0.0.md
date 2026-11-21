@@ -19,7 +19,8 @@ To keep exactly what the app does today, list every table the app's migrations c
 
 - Keep a table when the person needs its rows on the other computers: what they write by hand, and small summaries other computers show.
 - Remove a table that describes this computer or can be rebuilt here: raw records read from local files, file read positions, caches, large imports. Its rows stay on this computer; rows the other computers already received stay there.
-- Rows each computer makes from its own source (an hourly rollup of this computer's records) must carry the computer's id in the primary key, for example `(machine, hour)`, read from `machines()` in `@lophn/cap-tool` (the entry with `current: true`). Without it two computers write the same key and overwrite each other's numbers column by column. Changing a primary key is a new table and a migration: create the new table, copy, and list the new one.
+- When a table is listed in `sync` (for the first time, or again after it was removed), the rows already on this computer count as written at the moment the new release starts here. On another computer that lists it too, the same row from both computers ends up with the one written later; a computer that kept an older copy of the table does not undo them.
+- Rows each computer makes from its own source (an hourly rollup of this computer's records) must carry the computer's id in the primary key, for example `(machine, hour)`, read from `machines()` in `@lophn/cap-tool` (the entry with `current: true`). Without it two computers write the same key and overwrite each other's numbers column by column. Changing a primary key is a new table and a migration: create the new table, rebuild it from this computer's own raw rows (do not copy the old rollup: its rows were already merged across computers, and copying would tag the other computers' numbers with this computer's id), list the new one and drop the old one from `sync`.
 
 The schema rules for synced data now apply to the listed tables only (all tables for an app with `"phone"` in `runs_on`, whose phone copy keeps the whole store). Release preparation checks, with `invalid_input`-style reasons the agent can fix:
 
@@ -103,6 +104,12 @@ The SDK guide replaced `sync_to` with `sync` and states which rules apply to lis
 -     the store: keep it in `localStorage`.
 +   - State that belongs to one machine (window layout, a local path, the last
 +     opened file) does not go in the store at all: keep it in `localStorage`.
+@@ -74,5 +73,21 @@
++When a migration adds a table, add it to `sync` only if it must leave this
++computer. Removing a table from `sync` keeps its rows here; the rows the other
++computers already received stay there. When a table is listed (first time or
++again), the rows already on each computer count as written when the release
++starts there: for a row with the same key on two computers, the later one wins.
 @@ -85,4 +97,6 @@
 -An app with `sync_to` is a sync app on the computer: every computer that has the
 -app writes rows and the copies are merged per column. Follow the "Data" section of

@@ -41,7 +41,7 @@
 - 거절하는 경로: 상대 경로, data root 안이나 data root를 품은 경로, 다른 이름과 같거나 서로 안에 있는 경로(symlink를 따라간 꼴과 글자 그대로의 꼴 둘 다 본다). 사람이 `settings.json`을 손으로 고쳐 검사를 지나친 값은 없는 것으로 본다. 그 밖의 위험(data root를 network·sync 폴더 위에 두기)은 code가 도구를 모르니 지침이 막는다.
 - destination을 더하고 바꾸고 지우는 것은 사람의 승인이다(사람은 Settings › Sync나 자기 터미널의 `lophn settings`에서 직접 바꾼다. 사람 자격이라 승인 카드 없이 바로 바뀌고, 바꾸기 전에 file이 평문으로 나갈 수 있다는 경고를 화면이 보인다). 설정 선언이 `approval: "person"`과 바뀜을 사람의 말로 쓰는 `describe(before, after)`를 갖는다(`settings.md`, `approval.md`). 카드는 `Add sync folder "personal": /home/me/Sync/lophn`처럼 이름과 전체 경로를 보인다.
 - `sync`가 표를 보내는 앱은 컴퓨터에서 sync 앱이다(clock 표와 sync log, `app-sync.md`). 그래서 보내는 표에 폰 앱과 같은 schema 규칙과 `@lophn/cap-store` 2.0.0 하한을 release 준비가 본다. 지금은 한 앱의 표가 모두 같은 destination이다. `runs_on: ["phone"]`은 `sync`를 쓰지 못한다(컴퓨터 사본이 없다). 켜 둔 옛 release의 선언이 가진 destination 하나(`sync_to`)는 모든 표를 그리 보내는 것으로 읽는다(`app-sync.md`).
-- 폴더로 가는 것은 보내는 표뿐이다: changes file은 sync log 줄의 changeset에서 보내는 표의 구간만 담고(남는 것이 없는 줄은 건너뛴다), snapshot은 보내는 표와 그 clock 줄, sync 상태만 담은 DB file이다. 받는 쪽은 자기 선언(같은 `code_commit`이라 같은 표)의 보내는 표만 합친다.
+- 폴더로 가는 것은 보내는 표뿐이다: changes file은 sync log 줄의 changeset에서 보내는 표의 구간만 담고(남는 것이 없는 줄은 건너뛴다), snapshot은 보내는 표와 그 clock 줄, sync 상태만 담은 DB file이다. 받는 쪽은 자기 선언(같은 `code_commit`이라 같은 표)의 보내는 표만 합치고, 받은 changes file에서도 보내지 않는 표의 구간을 버린다. 내보내기는 log 줄마다 그 줄의 release가 보내는 표로 거른다. 표가 `sync`에 (처음이든 다시든) 오르면 그 release가 뜰 때 이 기계에 있던 row가 그 순간의 로컬 write로 찍힌다(`app-sync.md`): 같은 key의 row는 나중 찍은 기계의 것이 되고, 옛 release에 머문 기계의 옛 사본이 그것을 덮지 못한다.
 
 ### 폴더 배치
 

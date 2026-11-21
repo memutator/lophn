@@ -1203,14 +1203,14 @@ flows:
       - TurnEnded(commit 뒤)가 오면 wiring이 그 turn을 읽는다
       - 끝 상태가 completed이고, 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn의 resolved runtime이 custom이거나 harness session의 turn인지 본다
       - 마지막 agent 메시지 글이 비지 않았으면 redaction을 거쳐 calls/auto-reply로 답한다. agent의 reply와 같은 규칙이다. 본문 준비와 route의 오류 갈래는 custom-reply-auto가 정한다
-      - 그 밖(멈춤, 실패, 빈 글, conversation이나 none call, 이미 reply로 답함)은 보내지 않고 call은 accepted로 남는다
+      - 그 밖(멈춤, 실패, 빈 글, conversation이나 none call, 이미 reply로 답함)은 보내지 않는다. 멈추거나 실패한 turn이 가져간 result call은 turn 끝에서 receiver_ended로 닫히고(turns area) 빈 글로 끝난 turn의 call은 accepted로 남는다
     outcomes:
       - id: replied
         observe: [ledger:agent_calls, event:MessageReceived]
         when: calls/auto-reply가 ok로 답해 메시지가 갔다. route의 나머지 갈래(not_found, forbidden, conflict, unavailable)는 custom-reply-auto의 outcome이라 여기 반복하지 않는다
       - id: not-sent
         observe: [ledger:agent_calls]
-        when: 위 조건 가운데 하나라도 맞지 않는다(멈춤, 실패, conversation이나 none call, custom도 harness도 아닌 runtime, 빈 글, 이미 reply로 답함). call은 archive나 지움 때 receiver_ended로 닫힌다
+        when: 위 조건 가운데 하나라도 맞지 않는다(멈춤, 실패, conversation이나 none call, custom도 harness도 아닌 runtime, 빈 글, 이미 reply로 답함). 멈춤·실패로 끝난 turn의 result call은 turn 끝이 receiver_ended로 닫고, 빈 글로 끝난 call은 archive나 지움 때 receiver_ended로 닫힌다
       - id: unavailable
         code: unavailable
         when: redaction이 끝나지 않았다(알려진 값을 다 모름, fail-closed). calls/auto-reply를 부르지 않는다. log로 남고 call은 accepted로 남는다

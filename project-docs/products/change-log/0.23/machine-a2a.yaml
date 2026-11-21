@@ -1,0 +1,85 @@
+id: machine-a2a
+version: 0.23.112
+title: agent가 사람의 다른 컴퓨터의 agent에게 call을 보내고, 늦게 온 call은 그 컴퓨터의 사람이 정하며, handoff note가 다른 컴퓨터로 흐른다
+modules: [packages/protocol, packages/cli, packages/coding-agent, packages/design, packages/sdk, packages/core/apps, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/remote, packages/core/folder, packages/core/projects, packages/core/workflows, packages/core/storage, packages/shell/main, packages/shell/renderer, packages/mobile]
+checked: [tool-check, tool-doctor, agent-policy, architecture-layers, architecture-testing, architecture-activation, architecture-package, architecture-app-notice, architecture-run, architecture-terminal-agent, architecture-annotation, architecture-browser-tab, architecture-keybindings, architecture-agent-chat, architecture-artifact, architecture-ui-kit, architecture-appearance, architecture-phone-screen, architecture-project-identity, tool-worktree-prep, tool-e2e, tool-test-live, skill-sdk-note, skill-flows, tool-check-deps, tool-check-sdk-notes, tool-dev, tool-package, tool-models-snapshot, skill-ui-design]
+change: |
+  전: agent가 다른 컴퓨터에 닿는 길은 앱 command(`apps/call_tool`의 `remote` target)뿐이었다. call(`calls/send`)은 한 컴퓨터 안의 일이었고, agent의 `--on`은 앱 command에만 붙었으며, agent는 다른 컴퓨터의 agent·session 목록을 읽을 수 없었다. 결과 call을 가져간 turn이 답 없이 실패하거나 멈추거나 재시작으로 끊기면 call은 accepted로 남아 보낸 쪽이 받은 session이 보관될 때까지 기다렸다.
+  후:
+  - mail: `lophn call send --on <컴퓨터>`(route `calls/send_remote`)가 call 행과 mail을 한 tx에 outbox에 넣고 call id를 바로 돌려준다. mail(`mal_` id, 종류 call·reply·cancel·state, 글만 64 블록·64 KiB, 7일 만료)은 받는 기계마다 seq 순으로 link(`a2a/mail`, 요청한 쪽 `agent`)로 가고, outbox에 60초 넘게 남으면 `computers` 폴더의 `machines/<mch>/mail/<mal>.json` file로도 간다(manifest 선택 칸 `mail`, 받은 id는 `mail/acks.json`). 받는 기계는 명단의 컴퓨터가 쓰고 이 기계로 보낸 mail만, mail id마다 한 번 적용해 자기 Router로 같은 call id의 call로 돌린다. 답·실패·취소·받은 상태도 mail로 돌아간다. 보낸 행은 배달 상태(`pending`·`unknown`·`held`·`running`)를 갖고, 답을 잃으면 같은 id로 다시 가며, 옛 판(`not_found`·`invalid_input`)이면 `old_version`, timer의 `internal` 다섯 번이면 버리고 `expired`로 닫는다.
+  - 받는 쪽 규칙: 다른 컴퓨터의 mail은 그 기계의 mail이 연 session에만 이어 들어가고, private workspace는 없는 workspace와 같으며, mail이 연 session(`sessions.opened_by_machine`)은 다른 컴퓨터로 보내지 못한다. 그 session은 받는 컴퓨터가 보낸 컴퓨터에 터미널 입력 허락을 켰을 때만 skip이다. 받은 입력의 tag는 `from="remote:<name>@<computer>"`와 고정 줄이다.
+  - 늦게 온 mail: 보낸 지 10분 넘게 늦은 call mail은 돌지 않고 대기 줄이 된다(`mail/holds`, `mail/decide_hold {origin, mail, decision: run_now | skip}`, `StateChanged{mail_holds}`). desktop 대기 목록과 폰 Inbox의 "Mail from other computers" card에서 [Start now]·[Skip]으로 정한다. 다른 컴퓨터의 터미널과 agent·앱은 정하지 못한다(`REMOTE_TERMINAL_DENIED`). [Skip]은 보낸 call을 `skipped`로 닫는다. 60초 쓸기가 만료된 outbox 줄과 대기 줄을 `expired`로 닫고, 그 기계가 가져갔는지 모르거나 대기 중인 보낸 call을 7일 + 10분 뒤 닫는다.
+  - 목록과 명함: `lophn machine computers`(route `machine/computers`에 actor agent), `lophn agent list [--workspace] [--on]`(새 명령. route `agents/cards`가 actor agent와 home(null)과 `without_apps`를 받는다), `agent card --on`, `session list --on`. 보내는 쪽 `machines/sessions|agents`(agent), 받는 쪽 `a2a/sessions|agents`(명단의 컴퓨터만, private을 빼고 private 앱을 명함에서 뺀다). 다른 컴퓨터의 글은 다시 검사하고 줄인다. agent 자격의 binary는 `on` 칸을 가진 네 명령의 `--on`을 그 명령의 칸으로 보내고 다른 명령의 `--on`은 거절한다.
+  - 화면: call card가 컴퓨터 이름과 배달 상태를 `StateChanged{agent_calls}`로 실시간 보이고 [Open conversation]이 그 컴퓨터의 session을 연다. 받은 메시지의 보낸 쪽 chip은 "<name> on <computer>"다. ACP call 항목에 `remote {machine, computer, delivery, session}`.
+  - handoff note: `lophn handoff write --body`(route `handoff/write`, agent)가 자기 session의 note를 `computers` 폴더의 `machines/<mch>/notes/<ses>.json`(manifest 선택 칸 `notes`)에 쓴다. program이 기계, project의 기계를 건너는 id, branch·commit, 시각, agent 이름을 붙이고 글은 redaction·32 KiB. `handoff/list`(사람, desktop 창만)가 다른 컴퓨터의 note를 검사해 읽는다. 왼쪽 sidebar의 이 컴퓨터 project 줄 아래 "From other computers" 줄을 누르면 고정 머리말과 note를 첫 말로 새 session을 열고, x로 뺀다(이 창의 localStorage). 앱 slug `handoff`를 예약했다.
+  - workflow: agent 참가자의 `on: <컴퓨터>`가 step을 call mail(`step`)로 넘기고, 그 컴퓨터의 `workflow report`가 reply mail(`report`, core 안 명령 `calls/step-report`)로 돌아와 `ApplyWorkflowChange`의 `mail` 칸으로 적용된다. `handed` 줄의 `remote`, `not_handed`의 `unknown_computer`·`remote_failed`, report 줄의 `by` `remote`, `ReadWorkflowInstance`의 `remote_steps`.
+  - 가져간 result call: turn이 실패하거나 멈추면 `receiver_ended`, 재시작으로 끊기면 `lophn_restarted`로 닫혀 보낸 쪽에 늦은 실패로 간다(다른 컴퓨터가 보낸 call이면 실패 mail).
+  - 계약: `CallFrom`·`CallTarget`의 `remote`, `agent_calls`의 `delivery`·`remote_session`, 실패 이유 `expired`·`skipped`·`old_version`, `StateChanged` change `agent_calls`·`mail_holds`, 기기 route 목록과 `REMOTE_AGENT_ROUTES`에 `a2a/mail|sessions|agents`, 기기 route 목록에 `mail/holds|decide_hold`, desktop renderer memory route에 `mail/holds`, `mail/decide_hold`, `handoff/list`. remote protocol 판은 그대로다.
+  - 저장: schema step `router.remote-sender.agent-calls`(agent_calls 다시 짜기: `from_machine`, `delivery`, `remote_session`, 새 실패 이유, 보낸 쪽 없는 step 행), `lophn-agent.remote-sender.messages`(`from_kind` `remote`), `lophn-agent.remote-sender.sessions`(`opened_by_machine`과 바뀌지 않게 하는 trigger), `router.mail.tables`(`mail_outbox`, `mail_seq`, `mail_seen`). 옛 행은 칸 이름으로 옮긴다.
+  - SDK: `@lophn/agent` 1.16.0(call 값이 넓어졌다. API 변화 없음, migrate-sdk 메모 `agent-1.16.0`). 앱 template이 1.16.0을 쓴다. skill `lophn-agent`에 "Other computers"와 "Handoff note", `write-workflow`에 참가자의 `on`.
+why: |
+  agent가 다른 컴퓨터에 일을 맡길 길이 앱 command뿐이라 Windows에서만 되는 build, 늘 켜 둔 기계의 긴 일, 집에서 하던 일을 직장에서 잇는 일을 맡길 수 없었다. 두 컴퓨터가 같은 때 켜지지 않는 사람(집과 직장, dual boot)도 늦게라도 닿게 하되, 늦게 온 일은 사람이 정하게 했다. 가져간 call이 답 없이 끝나면 보낸 쪽이 끝없이 기다리던 결함은 다른 컴퓨터에서 더 드러나 같이 고쳤다.
+decisions:
+  - text: 꺼져 있는 컴퓨터에 맡겨 둔다. 늦게 온 mail은 사람에게 묻고 돈다(묻는 꼴은 job의 hold). 버린 길은 늦은 mail을 그대로 돌리기(바뀐 상황에 일이 돈다)다.
+    by: person
+  - text: agent가 다른 컴퓨터를 부르는 길을 열고, 누가 언제 어느 컴퓨터를 고르는지는 workflow·지침·prompt가 정한다. program은 고르지도 검사하지도 않는다. 버린 길은 program이 기계를 고르거나 꺼진 기계 대신 이 기계에서 돌리기다.
+    by: person
+  - text: agent 정의는 기계 사이에 맞추지 않는다. 부르는 쪽은 그 기계·workspace의 agent 목록을 읽어 고른다. 버린 길은 정의 동기화(환경과 지침이 기계마다 다르다)다.
+    by: person
+  - text: 받는 컴퓨터에 project가 없거나 옛것일 때의 처리는 지침의 일이다. program은 기계를 건너는 id로 찾고 없으면 not_found로 답한다. 버린 길은 code 옮기기다.
+    by: person
+  - text: 명단에 든 내 컴퓨터끼리는 mail을 받는다. 컴퓨터마다 켜는 스위치를 두지 않는다. 버린 길은 앱 command처럼 터미널 입력 허락이 있어야 받기다.
+    by: person
+  - text: handoff 재료는 미리 남겨 두고 사람이 정해 둔 길(폴더 길)을 따라 흐른다. 버린 길은 꺼진 컴퓨터의 transcript를 꺼내 옮기기다.
+    by: person
+  - text: transcript, file, 커밋하지 않은 변경, 자격은 가지 않는다. 글만 간다.
+    by: person
+  - text: private인 workspace는 mail을 보내지도 받지도 않고 handoff note도 남기지 않는다.
+    by: person
+  - text: workflow 참가자에 컴퓨터를 적을 수 있고 그 step은 그 컴퓨터의 agent에게 mail로 간다(run 화면의 표시는 남은 일).
+    by: person
+  - text: 터미널 입력 허락은 mail을 받을지가 아니라 mail이 연 session이 skip을 따를지에만 쓴다. [Start now]는 정하는 때의 허락으로 본다. 버린 길은 허락 없이 skip을 따르기(꺼 둔 허락이 mail로 뚫린다)다.
+    by: agent
+  - text: 기계 사이 call·답·취소·받은 상태는 mail 하나이고 id는 보낸 쪽이 짓는다. 같은 mail이 link와 폴더 두 길로 와도 받는 쪽이 id로 한 번만 적용한다. 버린 길은 종류마다 다른 길(실패 처리가 여러 벌)이다.
+    by: agent
+  - text: mail은 응답을 기다리지 않는다. outbox(ledger 표)에 넣고 call id를 바로 돌려준다. 버린 길은 앱 command처럼 link의 call lane을 turn 끝까지 쥐는 동기 호출이다.
+    by: agent
+  - text: 결과를 잃은 mail은 같은 id로 다시 보낸다(unknown은 지나가는 배달 상태). 받는 쪽이 id로 걸러 일이 두 번 돌지 않는다. 버린 길은 결과를 모르는 mail을 다시 보내지 않기(보낸 agent가 영영 기다린다)다.
+    by: agent
+  - text: 다른 컴퓨터의 mail이 가리킬 수 있는 session은 그 기계의 mail이 연 session뿐이다. 받은 mail로 열린 session은 다른 컴퓨터로 보내지 못한다. 버린 길은 session 주소를 그대로 받기(사람의 대화에 끼어들고 셋째 컴퓨터로 넘기는 길이 열린다)다.
+    by: agent
+  - text: 늦음은 10분(job hold와 같다), 만료는 7일(across_machines file과 같다)이다. 대기 목록에는 돌았을 call만 서고 받을 곳이 없는 call은 바로 실패로 답한다.
+    by: agent
+  - text: 대기 줄은 push와 toast를 내지 않고 대기 목록 card와 badge로만 보인다. 버린 길은 job의 JobHeld처럼 push를 내기다. 요구가 생기면 더한다.
+    by: agent
+  - text: 대기 줄의 결정은 job hold와 같은 사람의 길이다(기기 목록, screen과 폰은 허락 없이, 다른 컴퓨터의 터미널과 agent·앱은 막는다). 버린 길은 받는 컴퓨터 앞에서만 정하기다.
+    by: agent
+  - text: 보낸 쪽은 가져갔는지 모르거나 대기 중인 call을 만료 + 10분 뒤 닫고, 늘 internal로 거절되는 맨 앞 mail은 timer 다섯 번 뒤 버린다. 도는 call은 나이로 닫지 않는다. 버린 길은 닫지 않기(돌아오지 않는 컴퓨터로 보낸 call이 영영 열린다)다.
+    by: agent
+  - text: 옛 판의 상대는 not_found·invalid_input으로 알고 그 call을 old_version으로 닫는다. 받는 쪽 route는 그래서 not_found를 내지 않는다. 버린 길은 remote protocol 판을 올려 옛 컴퓨터와 붙지 않기(다른 길까지 끊긴다)다.
+    by: agent
+  - text: 다른 컴퓨터에 내주는 명함은 private 앱을 할당하지 않은 것처럼 만들고, 받은 목록과 명함의 글은 보내는 쪽이 다시 검사하고 줄인다.
+    by: agent
+  - text: 가져간 result call은 그 turn이 실패하거나 사람이 멈추거나 재시작으로 끊겨도 보낸 쪽에 실패로 돌아간다(receiver_ended, lophn_restarted). 버린 길은 accepted로 두기(보낸 쪽이 받은 session이 보관될 때까지 기다린다)다.
+    by: agent
+  - text: 다른 컴퓨터가 가져간 workflow step은 그 turn이 실패하거나 끊겨도 닫지 않는다(이슈 workflow-remote-step-turn-end-no-line). 그 turn에서 닫으면 사람이 그 session을 다시 밀어 낸 report가 거절된다. 버린 길은 그 turn에서 step을 닫기다.
+    by: agent
+  - text: workflow step과 report는 새 mail 종류가 아니라 call·reply mail의 칸(step, report)이고, 시작한 컴퓨터에 보낸 쪽 program인 call 행이 배달 상태를 맡는다. 버린 길은 step·report 종류를 더하기(받는 규칙마다 둘째 갈래)와 workflow 표에 배달 상태를 따로 두기다.
+    by: agent
+  - text: handoff note는 ledger 표가 아니라 session마다 `computers` 폴더의 file 하나이고, 글은 agent가 쓰고 언제 쓸지는 지침이 정한다. program은 사실만 붙인다. 버린 길은 표에 두고 내보내기다.
+    by: agent
+  - text: "\"Continue here\"의 첫 말은 고정 머리말과 note 글이고 믿지 못할 data로 싸지 않는다. 사람의 누름이 명령이기 때문이다. 버린 길은 note를 다른 agent의 입력처럼 tag로 싸기다."
+    by: agent
+  - text: 이어 열거나 뺀 note는 이 컴퓨터의 창에서만 숨기고(key에 쓴 때) 다시 쓴 note는 다시 보인다. 버린 길은 core에 숨김 표 두기다.
+    by: agent
+follow_up: |
+  - workflow run 화면이 다른 컴퓨터로 넘긴 step의 컴퓨터와 배달 상태를 아직 보이지 않는다(`remote_steps`는 읽기에 있다). roadmap `a2a-multi-device.md`, 이슈 `workflow-remote-step-turn-end-no-line`.
+  - handoff note와 다른 컴퓨터의 workflow step을 실제 두 컴퓨터로 확인하는 일이 남았다.
+  - `team spawn`이 기계를 건너는 것(roadmap 단계 4).
+checklist:
+  - "해야: 앱을 다시 build한다"
+  - "해야: 다른 컴퓨터도 같은 판으로 올린다(옛 판 컴퓨터로 보낸 call은 old_version으로 실패하고, 그 컴퓨터의 목록은 'runs an older lophn'으로 거절된다)"
+  - "한 컴퓨터의 agent에게 `lophn machine computers`로 다른 컴퓨터를 읽고 `lophn call send --on <컴퓨터>`로 그 컴퓨터의 agent에게 결과 call을 보내게 해서, call card에 컴퓨터 이름과 상태가 보이고 답이 돌아오는지 본다"
+  - "받는 컴퓨터를 끄고 call을 보낸 뒤 10분 넘게 지나 켠다. 받는 컴퓨터의 대기 목록(또는 폰 Inbox)의 \"Mail from other computers\" card에서 [Start now]와 [Skip]을 각각 골라, 시작하면 답이 오고 건너뛰면 보낸 쪽이 실패 글을 받는지 본다"
+  - "한 컴퓨터의 project session에서 agent에게 `lophn handoff write`로 note를 남기게 하고, 다른 컴퓨터의 왼쪽 sidebar 그 project 줄 아래 \"From other computers\"에 note가 서는지, 누르면 새 session이 note로 시작하는지, x로 빠지는지 본다"
+  - "참가자에 `on: <다른 컴퓨터>`를 적은 workflow를 돌려 그 step이 다른 컴퓨터의 agent에게 가고 그 agent의 `workflow report`가 이 컴퓨터의 instance에 줄로 남는지 본다"

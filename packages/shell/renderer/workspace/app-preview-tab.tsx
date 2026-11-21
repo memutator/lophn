@@ -32,6 +32,7 @@ import { devicesList } from "../../../protocol/remote/routes.ts";
 import { useCoreRead } from "../desktop/connection/core-read.ts";
 import type { AgentViewSlice } from "./kinds/host.ts";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
+import { hostTabOf } from "./model.ts";
 import { surfaceApi, useAgentControl } from "./use-surface-requests.ts";
 import { useTabAnnotate } from "./use-tab-annotate.tsx";
 import styles from "./app-preview-tab.module.css";
@@ -358,7 +359,10 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
     });
   }, [surface, viewSession]);
 
-  const agent = useAgentControl(props.tabKey, state?.view_session ?? null);
+  const agent = useAgentControl(
+    hostTabOf({ key: props.tabKey }),
+    state?.view_session ?? null,
+  );
   // agent가 다루는 동안은 가려져도 그리기를 이어 간다. view의 element key가 view session이다.
   const webviews = useWebviewHost();
   const drivenKey = state?.view_session ?? null;

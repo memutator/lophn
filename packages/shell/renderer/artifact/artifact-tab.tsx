@@ -28,6 +28,7 @@ import {
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
+import { hostTabOf } from "../workspace/model.ts";
 import { useAgentControl } from "../workspace/use-surface-requests.ts";
 import { useScopeMachine } from "../desktop/machines/context.tsx";
 import { CardHeadContext } from "../parts/card-head/card-head.tsx";
@@ -46,6 +47,8 @@ interface ArtifactTabProps {
   /** Float·Dock으로 다시 mount해도 view를 이어 쓰는 보관소와 탭 key. */
   keeps: ViewKeeps;
   keepKey: string;
+  /** 탭의 주인 session. agent가 다루는 동안 머리가 그 agent의 이름을 말한다. 없으면 사람이 연 탭이다. */
+  owner?: string | undefined;
   /** 탭 이름이 바뀌었다(page의 title, 없으면 이름). */
   onTitle(title: string): void;
   /** page에서 누른 http/https link. */
@@ -223,13 +226,19 @@ function OpenTab(
 
   // agent가 `lophn tab open --artifact`로 연 탭(key `host:`)이면 view session을 main에 알리고 take control 상태를 받는다.
   // agent가 다루는 동안은 가려져도 그리기를 이어 간다(screenshot과 입력이 되려면 guest가 그려져야 한다).
-  const agent = useAgentControl(keepKey, remote ? null : viewSession);
+  const agent = useAgentControl(
+    hostTabOf({ key: keepKey }),
+    remote ? null : viewSession,
+  );
   const driven = agent !== null;
   useEffect(() => {
     webviews.setDriven(keepKey, driven);
     return () => webviews.setDriven(keepKey, false);
   }, [webviews, keepKey, driven]);
-  const agentBar = agent === null ? null : <AgentControlBar control={agent} />;
+  const agentBar =
+    agent === null ? null : (
+      <AgentControlBar control={agent} owner={props.owner} />
+    );
 
   // ---- annotate ----
 

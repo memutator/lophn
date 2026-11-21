@@ -258,6 +258,7 @@ function SessionRow({
   dot = true,
   machineName,
   onDragStart,
+  dropSession,
 }: {
   item: SidebarSession;
   selected: boolean;
@@ -268,12 +269,15 @@ function SessionRow({
   dot?: boolean;
   machineName?: string;
   onDragStart?: (event: PointerEvent<HTMLButtonElement>) => void;
+  /** 끄는 browser 탭을 이 줄에 놓으면 이 session에 넘긴다(tab-drag.tsx). 이 컴퓨터의 lophn session 줄만이다. */
+  dropSession?: string;
 }) {
   return (
     <button
       type="button"
       className={styles.sessionRow}
       onPointerDown={onDragStart}
+      data-drop-session={dropSession}
       disabled={item.offline}
       data-offline={item.offline}
       data-machine={item.machine}
@@ -443,6 +447,11 @@ export function LeftSidebar({
         machineName={nameOf(item.machine)}
         onClick={() => onSession(workspace, item)}
         {...(canDrag(item) ? { onDragStart: dragFrom(workspace, item) } : {})}
+        {...(item.kind === "session" &&
+        workspace.ref.machine === undefined &&
+        item.offline !== true
+          ? { dropSession: item.ref }
+          : {})}
       />
     );
     const toggleTabs =

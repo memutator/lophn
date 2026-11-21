@@ -1,6 +1,7 @@
 // core의 host queue가 시킨 탭 열기·닫기(agent가 `lophn tab open|close`로 한 것)를 이 창에서 한다. main이 이 창이 보이는
 // workspace를 알아야 요청을 보내므로 layout을 다 읽은 뒤에 알리고, 탭을 연 뒤에만 ack한다(못 열면 ack하지 않아 main이
-// retry로 되돌린다). 열린 탭의 key는 `host:<tab id>`다. host 탭의 browser 상태와 닫힘은 main을 거쳐 core에 알린다.
+// retry로 되돌린다). 열린 탭의 key는 `host:<tab id>`다. core 탭 표에 있는 탭(agent가 연 탭, 사람이 넘긴 탭)의 id는
+// `hostTabOf()`로만 찾고, 그 탭의 닫힘(넘긴 탭은 되찾음도)은 main을 거쳐 core에 알린다.
 import { useEffect, useRef, useState } from "react";
 
 import { type LophnSurfaceApi, SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
@@ -17,6 +18,7 @@ import { artifactTab } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
+import { hostTabOf, type TabItem } from "./model.ts";
 import { closeTerminalTab } from "../terminal/deps.ts";
 import { type AgentOpen, openAt } from "./open-policy.ts";
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
@@ -80,17 +82,18 @@ export interface AgentControl {
 }
 
 /**
- * host 탭(key가 `host:<tab>`)의 view session을 main에 알리고(agent가 이 탭의 page를 찾는 길) take control 상태를 받는다.
- * agent가 다루지 않는 탭이나 host 탭이 아니면 null이다.
+ * core 탭 표에 있는 탭(`hostTabOf()`가 준 id. agent가 연 탭, 사람이 넘긴 탭)의 view session을 main에 알리고(agent가 이 탭의
+ * page를 찾는 길) take control 상태를 받는다. agent가 다루지 않는 탭이나 `tab`이 null이면 null이다.
  */
 export function useAgentControl(
-  key: string,
+  tab: string | null,
   viewSession: string | null,
 ): AgentControl | null {
   const surface = surfaceApi();
-  const tab = key.startsWith(HOST_KEY) ? key.slice(HOST_KEY.length) : null;
   const [state, setState] = useState({ agent: false, held: false });
   useEffect(() => {
+    // 되찾았다가 다시 넘긴 탭은 id가 새것이라 앞 id의 상태를 이어 보이지 않는다.
+    setState({ agent: false, held: false });
     if (surface === null || tab === null || viewSession === null) return;
     // 구독을 먼저 한다: bind에 main이 지금 상태로 답한다.
     const off = surface.control((control) => {
@@ -123,6 +126,8 @@ type Args = {
   takePending: (() => PendingHost) | undefined;
   /** 이 창의 pool에 그 key의 page가 이미 있다(떠나며 남긴 것). */
   hasPage: ((key: string) => boolean) | undefined;
+  /** 이 창의 전역 float 탭. 넘긴 탭이 전역 float으로 옮겨도 core 표에 남는다. */
+  globalTabs: readonly TabItem[];
 };
 
 export function useSurfaceRequests(args: Args): void {
@@ -207,7 +212,7 @@ export function useSurfaceRequests(args: Args): void {
             (tab) =>
               tab.kind === "app_preview" &&
               tab.app === target.preview.app &&
-              !tab.key.startsWith(HOST_KEY),
+              hostTabOf(tab) === null,
           );
         const tab = {
           ...appPreviewTab(
@@ -300,14 +305,15 @@ export function useSurfaceRequests(args: Args): void {
   useEffect(() => {
     if (!ready) return;
     const { host, takePending, hasPage } = latest.current;
-    // 창이 닫힐 때 core가 버린 agent 탭이 접힌 채 layout에 남았다. page가 없는 접힌 것은 사람의 탭이 아니므로 뺀다.
+    // 창이 닫힐 때 core가 버린 agent 탭이 접힌 채 layout에 남았다. page가 없는 접힌 것은 사람의 탭이 아니므로 뺀다. agent가 연
+    // 탭은 key가 곧 core 탭 id다(넘긴 탭은 사람의 key라 여기 들지 않는다).
     if (hasPage !== undefined) {
       for (const float of host().desk.floats) {
         const { key, kind } = float.tab;
         if (
           float.minimized &&
           kind === "browser" &&
-          key.startsWith(HOST_KEY) &&
+          hostTabOf({ key }) !== null &&
           !hasPage(key)
         ) {
           host().removeTab(key);
@@ -316,6 +322,10 @@ export function useSurfaceRequests(args: Args): void {
     }
     const pending = takePending?.();
     if (pending === undefined) return;
+    // 떠나 있는 사이 상한으로 page를 놓은 넘긴 탭. core 표에서는 이미 빠졌으니 주인을 지워 사람의 탭으로 돌린다.
+    for (const key of pending.released) {
+      host().patchTab(key, { owner: undefined, handedTab: undefined });
+    }
     for (const item of pending.opens) {
       openBrowserTab(host(), item.url, {
         ...placementOf(
@@ -337,23 +347,18 @@ export function useSurfaceRequests(args: Args): void {
     for (const key of pending.closes) if (keys.has(key)) host().removeTab(key);
   }, [ready]);
 
-  // 사람이 host 탭을 닫으면 core의 표에서 뺀다. layout을 읽는 중에 사라진 것은 닫힘이 아니라 읽기 전이라 ready 뒤부터 본다.
+  // 창의 탭(이 workspace layout과 전역 float)에서 core 탭 id가 사라지면 core의 표에서 뺀다. 사람이 탭을 닫은 것과 넘긴 탭을
+  // 되찾은 것(`handedTab`을 지움)이 같은 길이다. layout을 읽는 중에 사라진 것은 닫힘이 아니라 읽기 전이라 ready 뒤부터 본다.
   const open = useRef<ReadonlySet<string>>(new Set());
-  const tabs = args.host().windowTabs();
-  const hostKeys = tabs.flatMap((tab) =>
-    tab.key.startsWith(HOST_KEY) ? [tab.key] : [],
+  const hostTabs = [...args.host().windowTabs(), ...args.globalTabs].flatMap(
+    (tab) => hostTabOf(tab) ?? [],
   );
-  const joined = hostKeys.join();
+  const joined = hostTabs.join();
   useEffect(() => {
     if (surface === null || !ready) return;
-    const now = new Set(hostKeys);
-    for (const key of open.current) {
-      if (!now.has(key)) {
-        void surface.report({
-          tab: key.slice(HOST_KEY.length),
-          state: "closed",
-        });
-      }
+    const now = new Set(hostTabs);
+    for (const tab of open.current) {
+      if (!now.has(tab)) void surface.report({ tab, state: "closed" });
     }
     open.current = now;
   }, [surface, ready, joined]);

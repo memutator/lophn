@@ -166,6 +166,7 @@ export const artifactKind: TabKindDef = {
         shown={shown}
         keeps={host.viewKeeps}
         keepKey={tab.key}
+        owner={tab.owner}
         onTitle={(title) => host.patchTab(tab.key, { title }, { later: true })}
         onOpenLink={(url) => openBrowserTab(host, url)}
         onEditSource={(file) => openFile(host, file, { source: true })}

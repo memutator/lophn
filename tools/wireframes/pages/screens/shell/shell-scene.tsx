@@ -1,5 +1,6 @@
 // shell 틀을 fake desk 상태로 그린다. 진짜 연결은 project 화면 task가 하고, 여기는 틀이 callback에 맞게 움직이는지 보이려고
-// 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다.
+// 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다. 사람이 session에 넘긴 browser
+// 탭(`handed`)은 주인만 이 장면의 state로 바꾼다(Hand to로 다른 session, Take back으로 사람).
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
@@ -14,7 +15,12 @@ import {
   browserIcons,
   shellIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import { OwnerProvider } from "../../../../../packages/shell/renderer/parts/agent-session/owner.tsx";
+import { AgentControlBar } from "../../../../../packages/shell/renderer/browser/browser-chrome.tsx";
+import { useCardHead } from "../../../../../packages/shell/renderer/parts/card-head/card-head.tsx";
+import {
+  type OwnerLookup,
+  OwnerProvider,
+} from "../../../../../packages/shell/renderer/parts/agent-session/owner.tsx";
 import {
   ContentCard,
   type TabAction,
@@ -26,6 +32,7 @@ import {
 import { DeskSwitcher } from "../../../../../packages/shell/renderer/shell/desk-switcher.tsx";
 import { FloatLayer } from "../../../../../packages/shell/renderer/shell/float-layer.tsx";
 import {
+  type HandTarget,
   TabContextMenu,
   type TabMenuState,
 } from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
@@ -92,6 +99,8 @@ import {
   OWNED_FLOATS,
   OWNED_GLOBAL,
   OWNED_TAB,
+  RESEARCHER,
+  REVIEWER,
   TAB_MARKS,
 } from "../../../mock/tab-owners.ts";
 import { PageLeftSidebar, pageQuick } from "../project-window.tsx";
@@ -99,11 +108,74 @@ import {
   click,
   contextMenu,
   dragPointer,
+  find,
   press,
   type Spot,
   useDrive,
   wait,
 } from "../../../mock/drive.ts";
+
+// 사람이 쓰던 browser 탭(Stripe의 Billing)을 Researcher에게 넘겼다. 탭 줄 끝에 고른 채 선다.
+const HANDED_MOCK: MockTab = {
+  key: "h-billing",
+  kind: "file",
+  title: "Billing · Stripe",
+  crumbs: ["dashboard.stripe.com", "Billing"],
+};
+const HANDED_TAB: TabItem = {
+  key: HANDED_MOCK.key,
+  kind: "mock",
+  title: HANDED_MOCK.title,
+  fields: { mock: HANDED_MOCK },
+};
+// tab-owners.ts의 둘 말고 이 컴퓨터에 열린 session 하나 더(Hand to의 상대).
+const WRITER = "ses_01h455vb4pex5v6nkc6gd5tw03";
+const handOwners: OwnerLookup = (session) =>
+  session === WRITER
+    ? {
+        name: "Writer",
+        face: {
+          kind: "lophn",
+          profile: { kind: "character", shape: "square", color: "coral" },
+        },
+      }
+    : undefined;
+// Hand to 줄의 이름은 session 제목이다. 지금 workspace의 session이 먼저다.
+const HAND_TARGETS: readonly HandTarget[] = [
+  { session: RESEARCHER, name: "Collect eye-tracking papers" },
+  { session: REVIEWER, name: "Review the gaze PR" },
+  { session: WRITER, name: "Draft the changelog" },
+];
+
+// 넘긴 탭의 본문. agent가 다루는 중이라 card 머리에 take control 줄과 [Take back]이 선다(browser 탭이 머리에 올리는 것과 같다).
+// page(`<webview>`)는 gallery에 없어 빈 자리다.
+function HandedBody({
+  owner,
+  onTakeBack,
+}: {
+  owner: string;
+  onTakeBack: () => void;
+}) {
+  const [held, setHeld] = useState(false);
+  useCardHead(
+    {
+      actions: (
+        <AgentControlBar
+          control={{
+            agent: true,
+            held,
+            take: () => setHeld(true),
+            release: () => setHeld(false),
+          }}
+          owner={owner}
+          onTakeBack={onTakeBack}
+        />
+      ),
+    },
+    [held, owner],
+  );
+  return null;
+}
 
 const PANELS = [
   { key: "files", label: "Files", icon: shellIcons.folder },
@@ -117,6 +189,7 @@ export function ShellScene({
   left = true,
   right = true,
   open,
+  submenu,
   context,
   drag,
   closeDesk,
@@ -127,8 +200,14 @@ export function ShellScene({
   globalFloats = false,
   taskbar = true,
   owners = false,
+  handed = false,
 }: {
   variant: Variant;
+  /**
+   * 사람이 Researcher에게 넘긴 browser 탭 하나를 Main desk의 탭 줄 끝에 고른 채 둔다. 탭에 주인 avatar가 서고 card 머리에 take
+   * control 줄과 [Take back]이, ⋯ menu에 Hand to와 Take back이 선다. `owners`와 같이 쓴다.
+   */
+  handed?: boolean;
   /**
    * 탭 주인(mock/tab-owners.ts). 몇 탭과 float이 agent의 것이고 Main desk와 전역 float에 agent가 연 접힌 float이 더 있다. 탭 줄과
    * 칸 머리에 주인 avatar(browser 탭은 profile 점)가, float bar에 주인이 서고, chip은 주인마다 하나로 묶인다.
@@ -144,6 +223,8 @@ export function ShellScene({
   right?: boolean;
   /** mount 뒤 눌러서 열어 둘 요소의 selector. */
   open?: string;
+  /** `open`으로 연 menu에서 이 selector의 항목의 하위 menu를 편다. */
+  submenu?: string;
   /** mount 뒤 오른쪽 클릭할 tab의 이름 조각. 그 tab의 menu가 열린다. */
   context?: string;
   /** mount 뒤 pointer로 끌 것. release가 false면 끄는 도중에 멈춘다. */
@@ -181,13 +262,26 @@ export function ShellScene({
                 model: OWNED_FLOATS.reduce(
                   (model, tab) =>
                     openFloatTab(model, tab, FLOAT_RECTS[2]!, true),
-                  openTab(d.model, OWNED_TAB, { select: false, after: "c1" }),
+                  handed
+                    ? openTab(
+                        openTab(d.model, OWNED_TAB, {
+                          select: false,
+                          after: "c1",
+                        }),
+                        HANDED_TAB,
+                      )
+                    : openTab(d.model, OWNED_TAB, {
+                        select: false,
+                        after: "c1",
+                      }),
                 ),
               }
             : d,
         )
       : mockDesks(variant),
   );
+  // 넘긴 탭의 주인. null이면 되찾아 사람의 탭이다.
+  const [handedOwner, setHandedOwner] = useState<string | null>(RESEARCHER);
   const floatRef = useRef<HTMLDivElement>(null);
   const floatArea = useObservedSize(floatRef);
   // 전역 float도 desk model의 floats 규칙을 그대로 쓴다(앱의 shell/global-floats/store.ts와 같다).
@@ -218,6 +312,15 @@ export function ShellScene({
   } | null>(null);
   useDrive(async () => {
     if (open !== undefined) await press(open);
+    if (submenu !== undefined) {
+      // Radix 하위 menu는 그 항목에서 → 키로 편다.
+      const item = await find(submenu);
+      item.focus();
+      item.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
+      await wait(60);
+    }
     if (closeDesk !== undefined) {
       await press("[data-desk-button]");
       await click(`[aria-label="Delete desk ${closeDesk}"]`);
@@ -251,11 +354,18 @@ export function ShellScene({
       ),
     );
 
-  // 주인 표(mock/tab-owners.ts)를 켰을 때만 탭에 주인과 profile을 단다.
-  const marks = (key: string) => (owners ? (TAB_MARKS[key] ?? {}) : {});
-  // profile이 있는 탭은 browser 탭이라 지구본 아이콘이다(shell 틀 mock에는 browser kind가 없다).
+  // 주인 표(mock/tab-owners.ts)를 켰을 때만 탭에 주인과 profile을 단다. 넘긴 탭의 주인은 이 장면의 state다.
+  const marks = (key: string) =>
+    key === HANDED_TAB.key
+      ? handedOwner === null
+        ? {}
+        : { owner: handedOwner }
+      : owners
+        ? (TAB_MARKS[key] ?? {})
+        : {};
+  // profile이 있는 탭과 넘긴 탭은 browser 탭이라 지구본 아이콘이다(shell 틀 mock에는 browser kind가 없다).
   const iconOf = (tab: MockTab): ReactNode =>
-    marks(tab.key).profile === undefined ? (
+    marks(tab.key).profile === undefined && tab.key !== HANDED_TAB.key ? (
       tabIcon(tab)
     ) : (
       <Icon icon={browserIcons.globe} pixels={14} />
@@ -355,6 +465,8 @@ export function ShellScene({
       patch((d) => ungroupTab(d, key));
     }
     if (what === "unsplit") patch((d) => ungroup(d, key));
+    if (what === "take-back") setHandedOwner(null);
+    if (what.startsWith("hand:")) setHandedOwner(what.slice("hand:".length));
   };
 
   const toggleGlobal = (key: string) =>
@@ -397,6 +509,17 @@ export function ShellScene({
         splitPartner(desk, tab.key) !== null,
       hasOthers: desk.tabs.length > span.length,
       hasRight: at < desk.tabs.length - 1,
+      ...(tab.key === HANDED_TAB.key
+        ? {
+            renamable: false,
+            file: false,
+            handable: true,
+            handed: handedOwner !== null,
+            handTo: HAND_TARGETS.filter(
+              (target) => target.session !== handedOwner,
+            ),
+          }
+        : {}),
     };
   };
   const menuTab =
@@ -421,10 +544,23 @@ export function ShellScene({
               ? tab.key === desk.selected
               : leavesOf(group.layout).includes(tab.key),
           )
-          .map((tab) => ({
-            ...cardPane(mockOf(tab), menuState(tab)),
-            ...marks(tab.key),
-          }));
+          .map((tab) => {
+            const pane = {
+              ...cardPane(mockOf(tab), menuState(tab)),
+              ...marks(tab.key),
+            };
+            return tab.key === HANDED_TAB.key && handedOwner !== null
+              ? {
+                  ...pane,
+                  body: (
+                    <HandedBody
+                      owner={handedOwner}
+                      onTakeBack={() => setHandedOwner(null)}
+                    />
+                  ),
+                }
+              : pane;
+          });
   const chosen = PANELS.find((p) => p.key === panel) ?? PANELS[0]!;
   const deskChips = desk.floats.map((f) => strip(mockOf(f.tab)));
   const globalChips = globals.floats.map((f) => strip(mockOf(f.tab)));
@@ -440,8 +576,13 @@ export function ShellScene({
           ? undefined
           : { title: mockOf(found).title, icon: tabIcon(mockOf(found)) };
       }}
-      state={(item, hit) => tabDropState(desk, item, hit)}
-      onDrop={(item, hit) => patch((d) => applyTabDrop(d, item, hit))}
+      // session 줄과 주인 chip에 놓아 넘기는 것은 이 장면에서 다루지 않는다.
+      state={(item, hit) =>
+        hit.kind === "session" ? "none" : tabDropState(desk, item, hit)
+      }
+      onDrop={(item, hit) => {
+        if (hit.kind !== "session") patch((d) => applyTabDrop(d, item, hit));
+      }}
     >
       <ShellFrame
         left={leftOpen}
@@ -695,7 +836,13 @@ export function ShellScene({
     </TabDragProvider>
   );
   const owned = owners ? (
-    <OwnerProvider lookup={mockOwners}>{frame}</OwnerProvider>
+    <OwnerProvider lookup={mockOwners}>
+      {handed ? (
+        <OwnerProvider lookup={handOwners}>{frame}</OwnerProvider>
+      ) : (
+        frame
+      )}
+    </OwnerProvider>
   ) : (
     frame
   );

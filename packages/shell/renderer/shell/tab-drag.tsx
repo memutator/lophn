@@ -1,7 +1,9 @@
 // tab을 끄는 pointer drag. tab 줄의 칸(group 칸이면 그 안의 tab 하나나 칸 통째)과 group 칸의 머리 줄이 start로 시작하고, 끄는 동안 이 provider가 놓을 자리를 좌표로
 // 찾는다(요소 위의 event가 아니라 칸·줄의 사각형으로 찾아서 <webview> 위에서도 같다). 모양은 셋이다: 커서를 따라가는 알약,
 // 칸 위의 놓을 구역 미리보기, 줄이 쓰는 자리 비우기(TabStrip이 drag 값으로 그린다). 알약과 미리보기는 portal이라 webview
-// 그릇보다 위에 선다. 어디에 놓으면 무엇이 되는지는 provider 밖(desk model의 tabDropState·applyTabDrop)이 정한다.
+// 그릇보다 위에 선다. 어디에 놓으면 무엇이 되는지는 provider 밖(desk model의 tabDropState·applyTabDrop)이 정한다. sidebar의
+// workspace 줄(`data-drop-workspace`)에 놓으면 탭을 그 workspace로 옮기고, session 줄과 주인 chip(`data-drop-session`)에 놓으면
+// 탭을 그 session에 넘긴다.
 import {
   createContext,
   type PointerEvent as ReactPointerEvent,
@@ -42,11 +44,16 @@ export interface Rect {
   readonly height: number;
 }
 
+/** 놓을 자리. desk model의 자리에 더해 session(값은 session id)이 있다: 놓으면 탭을 그 session에 넘긴다. */
+export type DragHit =
+  | TabDropHit
+  | { readonly kind: "session"; readonly target: string };
+
 export interface TabDragSpec {
   /** 알약에 보일 이름과 아이콘. */
   describe: (key: string) => { title: string; icon: ReactNode } | undefined;
-  state: (item: TabDragItem, hit: TabDropHit) => TabDropState;
-  onDrop: (item: TabDragItem, hit: TabDropHit) => void;
+  state: (item: TabDragItem, hit: DragHit) => TabDropState;
+  onDrop: (item: TabDragItem, hit: DragHit) => void;
 }
 
 export interface ActiveDrag {
@@ -55,7 +62,7 @@ export interface ActiveDrag {
   readonly origin: "strip" | "leaf";
   readonly x: number;
   readonly y: number;
-  readonly hit: TabDropHit | null;
+  readonly hit: DragHit | null;
   readonly state: TabDropState;
   /** 칸 위의 미리보기 사각형(viewport 좌표). */
   readonly preview: Rect | null;
@@ -183,7 +190,7 @@ export function TabDragProvider({
     let live: ActiveDrag | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    // 놓을 자리로 표시한 sidebar의 workspace 줄. 끌기 중 pointer를 잡아 :hover가 따라오지 않아 직접 표시한다.
+    // 놓을 자리로 표시한 sidebar의 workspace 줄과 session 줄, 주인 chip. 끌기 중 pointer를 잡아 :hover가 따라오지 않아 직접 표시한다.
     let marked: HTMLElement | null = null;
     const mark = (element: HTMLElement | null) => {
       if (marked === element) return;
@@ -192,6 +199,19 @@ export function TabDragProvider({
       marked = element;
     };
     const resolve = (x: number, y: number) => {
+      // session 줄이나 주인 chip이면 탭을 그 session에 넘긴다.
+      const owner = doc
+        .elementFromPoint(x, y)
+        ?.closest<HTMLElement>("[data-drop-session]");
+      if (owner != null) {
+        return {
+          hit: {
+            kind: "session",
+            target: owner.dataset.dropSession!,
+          } as const,
+          row: owner,
+        };
+      }
       // 왼쪽 sidebar의 workspace 줄이면 탭을 그 workspace로 옮긴다.
       const row = doc
         .elementFromPoint(x, y)
@@ -263,7 +283,7 @@ export function TabDragProvider({
 
     const measure = (x: number, y: number) => {
       const { hit, box, row } = resolve(x, y) as {
-        hit: TabDropHit | null;
+        hit: DragHit | null;
         box?: Rect;
         row?: HTMLElement;
       };

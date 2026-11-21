@@ -221,6 +221,21 @@ export const shellArea: Area = {
       ),
     },
     {
+      id: "shell-tab-hand",
+      title: "Shell · Hand a tab to a session",
+      description:
+        '사람이 쓰던 browser 탭(Billing · Stripe)을 이 컴퓨터의 session(Researcher)에 넘긴 상태. 탭의 자리·page·profile은 그대로이고 탭 줄에 주인 avatar가 붙는다. agent가 다루는 중이라 card 머리에 "Researcher is controlling this tab"과 [Take control], 넘긴 탭에만 있는 [Take back]이 선다. ⋯ menu의 Hand to를 펴면 이 컴퓨터에 열린 다른 lophn session이 이름(session 제목)과 얼굴로 서고(지금 workspace의 것이 먼저), Take back은 탭을 사람에게 되돌린다. 탭을 sidebar의 session 줄이나 작업 표시줄의 주인 chip에 끌어 놓아도 넘긴다.',
+      render: () => (
+        <ShellScene
+          variant="project"
+          owners
+          handed
+          open="[data-tab-menu]"
+          submenu="[data-tab-hand]"
+        />
+      ),
+    },
+    {
       id: "shell-sidebar-app-panel",
       title: "Shell · Sidebar app panel",
       description:
@@ -490,6 +505,13 @@ export const shellArea: Area = {
       render: () => (
         <SidebarScene workspace="project" steps={sidebarSteps.appMenu} />
       ),
+    },
+    {
+      id: "shell-left-sidebar-team",
+      title: "Shell · Left sidebar · Team",
+      description:
+        "팀(spawn tree)이 도는 project의 왼쪽 sidebar. coordinator 줄 밑에 자식과 손자가 들여쓰기로 서고, 편 줄 아래에 그 session이 주인인 탭(자식의 대화 탭, artifact 탭, 접힌 browser float)이 자리와 상관없이 나온다.",
+      render: () => <SidebarScene workspace="team" />,
     },
     {
       id: "shell-left-sidebar-home",

@@ -1,7 +1,7 @@
 // float chip 묶음. 전역 float이 먼저이고 그 뒤가 지금 desk의 float이다. 작업 표시줄(아이콘과 이름)과 꺼졌을 때의
 // tab 줄 끝(아이콘만)이 같이 쓴다. 바깥을 누를 때 float이 접히지 않도록 `data-float-chips`를 단다(float-layer.tsx NOT_OUTSIDE).
 // 주인(agent session)이 있는 float은 전역·desk를 가리지 않고 주인마다 chip 하나(avatar와 개수)로 묶여 그 주인의 첫 float 자리에 서고,
-// 누르면 그 주인의 float 목록이 펴진다. 사람의 float은 하나씩 선다.
+// 누르면 그 주인의 float 목록이 펴진다. 사람의 float은 하나씩 선다. 끄는 browser 탭을 주인 chip에 놓으면 그 session에 넘긴다(tab-drag.tsx).
 import { t } from "@lophn/i18n";
 import { Icon } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
@@ -111,6 +111,7 @@ function OwnerChip({
           className={styles.chip}
           data-named={named || undefined}
           data-owner-chip={owner}
+          data-drop-session={owner}
           aria-label={label}
           aria-pressed={members.some((member) =>
             pressed.includes(member.chip.key),

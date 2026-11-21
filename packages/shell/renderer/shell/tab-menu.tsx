@@ -3,7 +3,13 @@ import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 
 import { useKeyLabel } from "../commands/react.tsx";
-import { editorIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
+import {
+  actionIcons,
+  editorIcons,
+  shellIcons,
+  workspaceIcons,
+} from "../icons/mod.ts";
+import { OwnerMark } from "../parts/agent-session/owner.tsx";
 import styles from "./tab-menu.module.css";
 
 export type TabAction =
@@ -25,10 +31,14 @@ export type TabAction =
   | "detach"
   | "copy-path"
   | "copy-relative-path"
-  | "reveal";
+  | "reveal"
+  /** 넘긴 browser 탭을 사람에게 되돌린다. */
+  | "take-back"
+  /** browser 탭을 그 session에 넘긴다(`hand:<session id>`). */
+  | `hand:${string}`;
 
-// menu 항목 옆에 보일 키의 binding id. 키는 누른 tab이 아니라 고른 tab에 하지만 같은 일이다.
-const TAB_BINDING: Record<TabAction, string> = {
+// menu 항목 옆에 보일 키의 binding id. 키는 누른 tab이 아니라 고른 tab에 하지만 같은 일이다. 키가 없는 항목(Hand to, Take back)은 표에 없다.
+const TAB_BINDING: Partial<Record<TabAction, string>> = {
   rename: "tab.rename",
   close: "tab.close",
   "close-others": "tab.close-others",
@@ -69,6 +79,60 @@ export interface TabMenuState {
   readonly hasOthers: boolean;
   /** 이 칸 오른쪽에 tab이 있다. */
   readonly hasRight: boolean;
+  /** 이 컴퓨터의 session에 넘길 수 있는 browser 탭이다(사람의 탭이거나 이미 넘긴 탭). Hand to가 선다. */
+  readonly handable?: boolean;
+  /** Hand to의 상대(이 컴퓨터의 열린 lophn session, 지금 workspace의 것이 먼저). 비면 없다는 한 줄이 선다. */
+  readonly handTo?: readonly HandTarget[];
+  /** 사람이 session에 넘긴 탭이다. Take back이 선다. */
+  readonly handed?: boolean;
+}
+
+/** Hand to 하위 menu의 줄 하나. 얼굴은 그 session의 주인 avatar다. */
+export interface HandTarget {
+  readonly session: string;
+  readonly name: string;
+}
+
+// Hand to(하위 menu)와 Take back. 탭을 다른 session에 다시 넘기면 Take back과 Hand to가 같이 선다.
+function handItems(state: TabMenuState): MenuItem[] {
+  const targets = state.handTo ?? [];
+  const items: MenuItem[] = [];
+  if (state.handable === true) {
+    items.push({
+      id: "hand",
+      label: t("shell.button.tab-hand"),
+      leading: <MenuIcon icon={actionIcons.send} />,
+      data: { "data-tab-hand": "" },
+      items:
+        targets.length === 0
+          ? [
+              {
+                id: "hand-none",
+                label: t("shell.text.tab-hand-none"),
+                disabled: true,
+              },
+            ]
+          : targets.map((target) => ({
+              id: `hand:${target.session}`,
+              label: target.name,
+              leading: (
+                <MenuIcon>
+                  <OwnerMark owner={target.session} />
+                </MenuIcon>
+              ),
+            })),
+    });
+  }
+  if (state.handed === true) {
+    items.push({
+      id: "take-back",
+      label: t("shell.button.tab-take-back"),
+      leading: <MenuIcon icon={actionIcons.reset} />,
+    });
+  }
+  return items.map((item, index) =>
+    index === 0 ? { ...item, separatorBefore: true } : item,
+  );
 }
 
 // Split right·down은 늘 있다(group 안에서는 그 leaf 옆에 다음 plain tab을 붙인다). 칸이 여러 tab을 돌려 보면
@@ -128,7 +192,8 @@ export function tabMenuItems(
   label?: (bindingId: string) => string | null,
 ): MenuItem[] {
   const items = baseItems(state).map((item) => {
-    const key = label?.(TAB_BINDING[item.id as TabAction]);
+    const binding = TAB_BINDING[item.id as TabAction];
+    const key = binding === undefined ? null : label?.(binding);
     return key == null ? item : { ...item, shortcut: key };
   });
   return extra.length === 0
@@ -207,6 +272,7 @@ function baseItems(state: TabMenuState): MenuItem[] {
           },
         ]
       : []),
+    ...handItems(state),
     ...(state.file
       ? [
           {

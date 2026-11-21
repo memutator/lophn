@@ -59,6 +59,8 @@ interface BrowserChromeProps {
   agent: AgentControl | null;
   /** 탭의 주인 session. 조작 중 문장이 그 agent의 이름을 말한다. */
   owner: string | undefined;
+  /** 사람이 넘긴 탭이면 조작 중 줄에 [Take back]을 둔다. */
+  onTakeBack?: () => void;
 }
 
 type DevtoolsAction = DevtoolsPlace | "open" | "close";
@@ -108,12 +110,13 @@ export function ProfileMark(props: { profile: BrowserProfile }) {
 }
 
 /**
- * browser 탭 머리와 preview 탭 안내 줄이 같이 쓴다. 가져오면 "내가 조작 중"과 [돌려주기]로 바뀐다. 조작 중 문장은 탭 주인의 이름을
- * 말하고, 주인이 없으면(옛 탭) "An agent"다.
+ * browser 탭 머리와 preview 탭 안내 줄, artifact 탭 머리가 같이 쓴다. 가져오면 "내가 조작 중"과 [돌려주기]로 바뀐다. 조작 중 문장은
+ * 탭 주인의 이름을 말하고, 주인이 없으면(옛 탭) "An agent"다. 사람이 넘긴 탭이면 [Take back]이 더 선다(주인을 지워 agent가 손을 뗀다).
  */
 export function AgentControlBar(props: {
   control: AgentControl;
   owner?: string | undefined;
+  onTakeBack?: (() => void) | undefined;
 }) {
   const { control } = props;
   const who = useOwner(props.owner);
@@ -140,6 +143,11 @@ export function AgentControlBar(props: {
             : "browser.button.agent-take",
         )}
       </Button>
+      {props.onTakeBack === undefined ? null : (
+        <Button size="sm" variant="ghost" onClick={props.onTakeBack}>
+          {t("shell.button.tab-take-back")}
+        </Button>
+      )}
     </div>
   );
 }
@@ -316,7 +324,15 @@ export function BrowserChrome(props: BrowserChromeProps) {
   const actions = (
     <>
       {props.agent === null ? null : (
-        <AgentControlBar control={props.agent} owner={props.owner} />
+        <AgentControlBar
+          control={props.agent}
+          owner={props.owner}
+          onTakeBack={
+            props.onTakeBack === undefined
+              ? undefined
+              : () => latest.current.onTakeBack?.()
+          }
+        />
       )}
       <PageActions chrome={props} />
     </>
@@ -362,6 +378,7 @@ export function BrowserChrome(props: BrowserChromeProps) {
       props.agent?.agent,
       props.agent?.held,
       props.owner,
+      props.onTakeBack === undefined,
       props.focusAddress,
       props.native,
       detached,

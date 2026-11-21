@@ -1691,6 +1691,100 @@ flows:
       - "같은 workspace를 두 창이 mount하면 page가 창마다 생긴다(이슈 agent-browser-page-duplicated-across-windows)"
       - "숨은 page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다)"
 
+  # ---- 사람이 browser 탭을 session에 넘기기와 되찾기 ----
+  - id: tab-hand
+    title: "사람이 쓰던 browser 탭을 이 컴퓨터의 session에 넘긴다"
+    actor: person
+    entries: [ui:tab-hand]
+    when: "탭 menu의 Hand to에서 session을 고르거나, 탭 줄의 browser 탭을 sidebar의 lophn session 줄(`data-drop-session`)이나 작업 표시줄의 주인 chip에 끌어 놓는다"
+    boundary: [shell, host-queue-interface]
+    code:
+      - packages/shell/renderer/workspace/hand.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/tab-menu.tsx
+      - packages/shell/renderer/shell/tab-drag.tsx
+      - packages/shell/renderer/shell/left-sidebar.tsx
+      - packages/shell/renderer/shell/taskbar/float-chips.tsx
+      - packages/shell/main/desktop/core/allowlist.ts
+    steps:
+      - "넘길 수 있는 탭은 browser 탭이고 transient·native popup이 아니며 사람이 연 탭이다(이미 넘긴 탭은 다른 session에 다시 넘긴다). `tab open`으로 연 탭(key `host:`, agent나 사람 token이 연 것)은 이미 core 표의 탭이라 넘기지 않는다. 이 컴퓨터의 workspace 창만 넘긴다"
+      - "Hand to 하위 menu는 이 컴퓨터의 열린 lophn session(지금 주인은 뺀다)을 지금 workspace의 것부터 이름(session 제목, 없으면 agent 이름)과 주인 얼굴로 보인다. 없으면 없다는 한 줄이다. 끌기는 session 줄과 주인 chip에 놓으면 넘긴다(지금 주인이면 놓을 수 없다)"
+      - "창이 memory route tabs/hand를 부른다(tab: 이미 넘긴 탭이면 그 core 탭 id, 아니면 없음, session, workspace, 탭의 profile, 지금 url). 받으면 탭 값에 owner(그 session)와 handedTab(core 탭 id)을 적고 layout을 저장한다. 탭의 자리·key·page·profile은 그대로다"
+      - "handedTab이 생긴 탭은 hostTabOf()가 그 id를 내어 본문이 view session을 bind로 알리고(agent가 그 page를 찾는다) 고르지 않아도 숨은 mount로 page가 붙는다. 그 page는 agent가 연 page처럼 workspace를 떠나도 살고 agent page 상한 12에 센다. 상태(url·title·loading)도 창 단위로 알린다"
+      - "page의 window.close()는 넘긴 탭을 닫지 않는다(사람의 탭이라 agent가 닫지 못한다). 사람은 탭의 X와 단축키로 닫는다"
+      - "core가 거절하거나(not_found: session이 끝남, conflict) 부르지 못하면 탭은 그대로이고 toast로 알린다"
+    uses: [route:tabs/hand, ipc:shell:surface-report, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: handed
+        observe: ["screen:shell-tab-hand", "disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: no-session
+        when: "이 컴퓨터에 넘길 열린 session이 없다. Hand to에 없다는 한 줄만 선다"
+        observe: ["screen:shell-tab-hand"]
+      - id: refused
+        when: "core가 거절했거나(session이 끝남, agent가 연 탭) core를 부르지 못했다. 탭은 그대로이고 toast가 뜬다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
+    unclear:
+      - "page의 window.close()를 renderer가 무시해도 Electron이 그 guest를 부수는지는 headless Electron에서 확인하지 않았다. 부순다면 탭은 남고 page만 없어진다"
+      - "agent가 browser act로 누른 키(Ctrl+W 등)가 guest의 before-input-event를 거쳐 창의 단축키로 가면 고른 탭이 닫힐 수 있다. main의 단축키 전달(desktop.ts) 소관이다"
+
+  - id: tab-take-back
+    title: "사람이 넘긴 browser 탭을 되찾는다"
+    actor: person
+    entries: [ui:tab-take-back]
+    when: "넘긴 탭의 탭 menu Take back이나 agent가 다루는 동안 머리 줄의 [Take back]"
+    boundary: [shell, host-queue-interface]
+    code:
+      - packages/shell/renderer/workspace/hand.ts
+      - packages/shell/renderer/workspace/use-surface-requests.ts
+      - packages/shell/renderer/browser/browser-chrome.tsx
+      - packages/shell/main/desktop/wiring/surface.ts
+    steps:
+      - "탭 값의 owner와 handedTab을 지우고 layout을 저장한다. core에 새 route를 부르지 않는다"
+      - "창의 탭(layout과 전역 float)에서 core 탭 id가 사라졌으므로 닫기와 같은 길로 surface-report closed를 보낸다. main이 bind와 take control 상태를 잊고 driver가 debugger를 떼어 돌고 있던 browser 호출도 그 page에 더 하지 못한다. core가 표에서 뺀 뒤의 browser 호출은 not_found다"
+      - "page는 사람의 탭으로 그대로 남는다(다시 load하지 않는다)"
+    uses: [ipc:shell:surface-report, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: taken-back
+        observe: ["screen:shell-tab-hand", "disk:<data>/shell/workspaces/<workspace>.json", "process:core 표에서 탭이 빠진다"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
+
+  - id: tab-hand-announce
+    title: "창이 넘긴 browser 탭을 core 표에 다시 올린다"
+    actor: shell
+    entries: [system:tab-hand-announce]
+    when: "창이 workspace layout을 다 읽었거나 core에 다시 붙었다(ready), 또는 session이 끝났다(SessionEnded)"
+    boundary: [shell, host-queue-interface]
+    code:
+      - packages/shell/renderer/workspace/hand.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/app-frame/workspace-views.tsx
+    steps:
+      - "core 표는 메모리라 다시 뜨면 비어 있다. 창이 그 창의 layout(모든 desk의 tabs·floats·detached)과 전역 float에서 handedTab과 owner가 있는 browser 탭마다 tabs/hand {tab: handedTab, session: owner, workspace, profile, url}을 부른다. 넘긴 적 없는 사람의 탭은 알리지 않는다"
+      - "not_found(session이 끝남)나 conflict면 그 탭의 owner·handedTab을 지운다. 그 밖의 실패는 다음 ready에 다시 한다"
+      - "mount되지 않은 workspace에서 상한(12)이 넘긴 탭의 page를 놓으면 closed를 보내고, 그 workspace가 다시 mount될 때 탭의 owner·handedTab을 지운다(탭은 layout에 남는다)"
+      - "다른 기계의 workspace는 알리지 않는다"
+    uses: [route:tabs/hand, ipc:shell:surface-report]
+    outcomes:
+      - id: announced
+        observe: ["process:core 표에 넘긴 탭이 다시 오른다"]
+      - id: returned
+        when: "주인 session이 끝났거나 core가 그 탭을 넘긴 탭으로 받지 않았다. 탭이 사람의 것으로 돌아간다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: page-capped
+        when: "상한으로 page를 놓았다. core 표에서 빠지고 다음 mount 때 주인이 지워진다"
+        observe: ["process:core 표에서 탭이 빠진다"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "core는 다시 알린 tab id를 창이 보낸 대로 믿는다(plan tab-scope 알고 가는 한계). 창이 handedTab이 있는 탭만 알리는 것이 그 검사다"
+      - "shell main의 host link만 끊겼다 붙으면 창의 ready가 오지 않아 다시 알리지 않는다(plan tab-scope 알고 가는 한계)"
+
   # ---- agent가 다루는 browser·preview 탭: take control과 기기 emulation ----
   - id: browser-tab-control
     title: "agent가 다루는 browser·preview 탭을 사람이 가져오거나 돌려준다(take control)"
@@ -2415,7 +2509,7 @@ flows:
     outcomes:
       - id: owned-tab-shown
         when: "펼친 session 줄 아래의 탭 줄을 눌러 그 탭이 보인다(접힌 float은 펴진다)"
-        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "screen:shell-left-sidebar-project"]
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "screen:shell-left-sidebar-team"]
       - id: tab-opened
         observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
       - id: tab-selected

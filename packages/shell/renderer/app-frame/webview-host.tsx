@@ -26,6 +26,7 @@ import {
 } from "../../ipc/app-tab-head.ts";
 import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import { type AppKeysBridge, useAppKeysBridge } from "../commands/app-keys.ts";
+import { hostTabOf } from "../workspace/model.ts";
 import styles from "./webview-host.module.css";
 
 /**
@@ -105,8 +106,11 @@ interface Entry {
   downloading: boolean;
   /** agent가 다루는 중이다. 가려져도 그리기를 이어 가야 screenshot과 입력이 된다. */
   driven: boolean;
-  /** agent가 `tab open --url`로 연 browser 탭의 page(key `host:`)다. 탭 mount나 workspace와 상관없이 창이 사는 동안 살고 그린다. */
-  agent: boolean;
+  /**
+   * agent가 다루는 browser page의 core 탭 id. agent가 `tab open --url`로 연 탭(key `host:`)이거나 사람이 session에 넘긴 탭이다. 있으면
+   * 탭 mount나 workspace와 상관없이 창이 사는 동안 살고 그린다. 없으면 null이다.
+   */
+  hostTab: string | null;
   /** 마지막으로 보인 때(host의 tick 값). 살려 둔 것이 넘칠 때 오래 안 본 것부터 놓는 기준이다. */
   shownAt: number;
 }
@@ -151,14 +155,21 @@ export interface WebviewHost {
   /** agent가 그 화면을 다루는 중이다. 가려진 동안에도 보이지 않게 그리기를 이어 간다. 화면이 아직 없어도 기억한다. */
   setDriven(key: string, on: boolean): void;
   /**
+   * 사람이 넘긴 browser 탭의 core 탭 id를 단다(null이면 뗀다, 되찾음). 달린 page는 agent가 연 page처럼 workspace를 떠나도 살고 agent
+   * page 상한에 센다. 화면이 아직 없어도 기억한다. agent가 연 탭(`host:` key)은 key가 id라 부르지 않아도 된다.
+   */
+  setHostTab(key: string, tab: string | null): void;
+  /**
    * workspace를 떠난다. 살려 둘 이유가 있고(앱 page 신호, 사람의 Keep alive, download, 소리 남) `tabKeys`(layout에
    * 아직 있는 탭)에 든 화면만 두고 나머지는 놓는다. 둔 key를 돌려준다.
    */
   park(tabKeys: ReadonlySet<string>): string[];
   /** 마지막으로 보인 때. 없으면 0이다. */
   shownAt(key: string): number;
-  /** agent가 연 browser 탭의 page인가. */
-  isAgentPage(key: string): boolean;
+  /** agent가 다루는 browser page(agent가 연 탭, 사람이 넘긴 탭)면 그 core 탭 id, 아니면 null이다. */
+  hostTab(key: string): string | null;
+  /** 그 core 탭 id의 page key. 없으면 undefined다. */
+  keyOfHostTab(tab: string): string | undefined;
   /** guest가 붙었는가. 붙지 못한 page는 상한을 셀 때 세지 않고 다른 page를 밀어내지도 않는다. */
   isBound(key: string): boolean;
   /** 그 화면을 방금 썼다. 오래 안 쓴 것부터 놓는 순서에 센다. */
@@ -256,7 +267,7 @@ function audible(entry: Entry): boolean {
 
 function wantsKeep(entry: Entry): boolean {
   return (
-    entry.agent ||
+    entry.hostTab !== null ||
     entry.keepAlive ||
     entry.userKeep ||
     entry.downloading ||
@@ -274,6 +285,8 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
   const loadedListeners = new Set<() => void>();
   let container: HTMLElement | null = null;
   const driven = new Set<string>();
+  // setHostTab이 단 넘긴 탭의 core 탭 id(key → id).
+  const handed = new Map<string, string>();
   let own = 0;
   const now = tick ?? (() => ++own);
 
@@ -301,7 +314,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       // 보이던 것이 가려지는 때가 마지막으로 본 때다.
       if (style.visibility === "visible") entry.shownAt = now();
       if (
-        (entry.driven || entry.agent) &&
+        (entry.driven || entry.hostTab !== null) &&
         container !== null &&
         (entry.kind === "browser" || entry.loaded)
       ) {
@@ -489,11 +502,12 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       userKeep: false,
       downloading: false,
       driven: driven.has(key),
-      agent: kind === "browser" && key.startsWith("host:"),
+      hostTab:
+        kind === "browser" ? (handed.get(key) ?? hostTabOf({ key })) : null,
       shownAt: 0,
     };
     // 새 page는 가장 최근에 쓴 것으로 센다(상한을 넘으면 오래된 것부터 놓는다).
-    if (entry.agent) entry.shownAt = now();
+    if (entry.hostTab !== null) entry.shownAt = now();
     bind(entry, entry.element);
     if (kind === "browser") {
       entry.element.setAttribute(
@@ -509,7 +523,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     }
     container?.append(entry.element);
     // agent의 page는 자리가 없어도 첫 load부터 그려야 한다.
-    if (entry.agent) apply(entry);
+    if (entry.hostTab !== null) apply(entry);
     if (entry.loaded) notifyLoaded();
     return entry;
   }
@@ -649,6 +663,18 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       entry.driven = on;
       apply(entry);
     },
+    setHostTab(key, tab) {
+      if (tab === null) handed.delete(key);
+      else handed.set(key, tab);
+      const entry = entries.get(key);
+      if (entry === undefined || entry.kind !== "browser") return;
+      const next = tab ?? hostTabOf({ key });
+      if (entry.hostTab === next) return;
+      // 넘긴 때를 방금 쓴 때로 센다. 안 그러면 오래 안 본 사람의 page가 넘기자마자 상한에 놓인다.
+      if (entry.hostTab === null) entry.shownAt = now();
+      entry.hostTab = next;
+      apply(entry);
+    },
     setDownloading(key, on) {
       const entry = entries.get(key);
       if (entry !== undefined) entry.downloading = on;
@@ -665,7 +691,13 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       return parked;
     },
     shownAt: (key) => entries.get(key)?.shownAt ?? 0,
-    isAgentPage: (key) => entries.get(key)?.agent ?? false,
+    hostTab: (key) => entries.get(key)?.hostTab ?? null,
+    keyOfHostTab(tab) {
+      for (const [key, entry] of entries) {
+        if (entry.hostTab === tab) return key;
+      }
+      return undefined;
+    },
     isBound: (key) => entries.get(key)?.session != null,
     touch(key) {
       const entry = entries.get(key);

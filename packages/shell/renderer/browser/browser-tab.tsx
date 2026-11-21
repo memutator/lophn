@@ -51,6 +51,10 @@ interface BrowserTabProps {
   profile?: string;
   /** 탭의 주인 session. agent가 다루는 동안 머리가 그 agent의 이름을 말한다. 없으면 사람이 연 탭이다. */
   owner: string | undefined;
+  /** core 탭 표의 id(agent가 연 탭, 사람이 넘긴 탭). 있으면 page를 main에 알려 agent가 다룬다. 넘기지 않은 사람의 탭은 null이다. */
+  hostTab: string | null;
+  /** 사람이 넘긴 탭이다. agent가 다루는 동안 머리 줄에 [Take back]이 선다. */
+  onTakeBack?: () => void;
   /** false면 page를 남긴 채 숨긴다(다른 탭·다른 공간·접힌 패널). */
   shown: boolean;
   /** floated 탭의 층(floats index + 1). detached 창의 탭은 1, pane 탭은 0이다. */
@@ -166,7 +170,7 @@ function OpenTab(
     ...(props.favicon === undefined ? {} : { favicon: props.favicon }),
   });
   const [failed, setFailed] = useState(false);
-  const agent = useAgentControl(props.keepKey, viewSession);
+  const agent = useAgentControl(props.hostTab, viewSession);
   // agent가 다루는 동안은 가려져도 그리기를 이어 간다(screenshot과 입력이 되려면 guest가 그려져야 한다).
   const driven = agent !== null;
   useEffect(() => {
@@ -539,6 +543,9 @@ function OpenTab(
         onKeepAlive={props.onKeepAlive}
         agent={agent}
         owner={props.owner}
+        {...(props.onTakeBack === undefined
+          ? {}
+          : { onTakeBack: props.onTakeBack })}
       />
       {notice === null ? null : (
         <div className={styles.notice}>

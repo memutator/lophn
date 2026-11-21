@@ -11,7 +11,8 @@ import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";
 import { browserIcons } from "../../icons/mod.ts";
 import { readDevtools, setDevtools } from "./browser-devtools.tsx";
-import type { TabItem } from "../model.ts";
+import { takeBack } from "../hand.ts";
+import { hostTabOf, type TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -188,6 +189,13 @@ export const browserKind: TabKindDef = {
         url={typeof url === "string" ? url : ""}
         {...profileField(profile)}
         owner={tab.owner}
+        hostTab={hostTabOf(tab)}
+        {...(tab.handedTab === undefined
+          ? {}
+          : {
+              onTakeBack: () =>
+                takeBack((key, patch) => host.patchTab(key, patch), tab.key),
+            })}
         adopt={typeof adopt === "string" ? adopt : undefined}
         favicon={typeof favicon === "string" ? favicon : undefined}
         native={tab.fields?.native === true}
@@ -242,7 +250,11 @@ export const browserKind: TabKindDef = {
             fields: { ...current.fields, keepAlive: on ? true : undefined },
           }))
         }
-        onCloseRequested={() => host.removeTab(tab.key)}
+        // 넘긴 탭은 page가 스스로 닫지 못한다: page의 window.close()는 그 page를 다루는 agent가 부를 수 있고, 넘긴 탭은 사람의 것이라
+        // agent가 닫지 못한다. 사람은 탭의 X와 단축키로 닫는다.
+        onCloseRequested={() => {
+          if (tab.handedTab === undefined) host.removeTab(tab.key);
+        }}
         onOpenInNewTab={(next) =>
           openBrowserTab(host, next, profileField(profile))
         }

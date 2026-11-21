@@ -1,5 +1,5 @@
 // 왼쪽 sidebar만 보이는 shell 틀. 맨 아래 줄의 빠른 실행(Terminal · Browser · App ▾)을 workspace마다 보인다.
-// project는 팀(spawn tree)이 도는 phroner다: coordinator 아래 자식 둘과 손자 하나가 들여쓰여 서고, coordinator 줄을 펴 그
+// `team`은 팀(spawn tree)이 도는 phroner다: coordinator 아래 자식 둘과 손자 하나가 들여쓰여 서고, coordinator 줄을 펴 그
 // session이 주인인 탭(자식의 대화 탭, artifact 탭, 접힌 browser float)이 보인다.
 import { useState } from "react";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -73,7 +73,7 @@ export function SidebarScene({
   workspace,
   steps = [],
 }: {
-  workspace: "project" | "home" | "app";
+  workspace: "project" | "home" | "app" | "team";
   steps?: readonly Step[];
 }) {
   useDrive(() => runSteps(steps));
@@ -94,7 +94,7 @@ export function SidebarScene({
         />
       }
       leftSidebar={
-        workspace === "project" ? (
+        workspace === "team" ? (
           <TeamSidebar />
         ) : (
           <PageLeftSidebar

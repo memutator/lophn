@@ -17,6 +17,7 @@ import { useBrowserApi } from "../browser/browser-api.tsx";
 import { SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 import { workspaceKey } from "../shell/desk-model.ts";
+import { hostTabOf } from "../workspace/model.ts";
 import { surfaceApi } from "../workspace/use-surface-requests.ts";
 import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import { useAppViews } from "./app-views.tsx";
@@ -26,7 +27,7 @@ import styles from "./workspace-views.module.css";
 
 /** 창마다 살려 두는 background page의 상한. 넘치면 가장 오래 안 본 것부터 놓는다. */
 export const MAX_KEPT_PAGES = 6;
-/** 창마다 둘 수 있는 agent가 연 browser page의 상한(위 상한과 따로 센다). */
+/** 창마다 둘 수 있는 agent가 다루는 browser page(agent가 연 탭, 사람이 넘긴 탭)의 상한(위 상한과 따로 센다). */
 export const MAX_AGENT_PAGES = 12;
 
 /** workspace가 mount되지 않은 동안 page만 만들어 둔 agent 탭의 자리. mount되면 `openAt()`이 정한다. */
@@ -46,6 +47,8 @@ export interface PendingHost {
   opens: HostPlacement[];
   /** layout에 이미 있는데 page가 없어진 탭 key. */
   closes: string[];
+  /** 상한으로 page를 놓은 넘긴 탭 key. 사람의 탭이라 layout에 두고 주인만 지운다. */
+  released: string[];
 }
 
 export interface WorkspaceViewPool {
@@ -79,10 +82,10 @@ export interface WorkspaceViews {
   downloading(session: string, active: boolean): void;
   /** 이 창이 그 workspace를 mount하고 있는가. */
   mounted(workspace: string): boolean;
-  /** agent가 그 page를 방금 썼다. 모든 pool에서 찾아 쓴 때를 갱신한다. */
-  touch(key: string): void;
-  /** workspace 상관없이 이 창의 어느 pool에든 있는 page의 탭 key. */
-  keyOf(session: string): string | undefined;
+  /** agent가 그 core 탭의 page를 방금 썼다. 모든 pool에서 찾아 쓴 때를 갱신한다. */
+  touch(tab: string): void;
+  /** workspace 상관없이 이 창의 어느 pool에든 있는 page가 agent가 다루는 page면 그 core 탭 id. */
+  tabOf(session: string): string | undefined;
   /** mount되지 않은 workspace에 agent가 연 browser page를 만들어 두고 자리는 mount될 때로 미룬다. */
   hostPage(workspace: string, placement: HostPlacement): void;
   /**
@@ -111,7 +114,7 @@ export function createWorkspaceViews(
   const pendingOf = (workspace: string) => {
     let found = pending.get(workspace);
     if (found === undefined) {
-      found = { opens: [], closes: [] };
+      found = { opens: [], closes: [], released: [] };
       pending.set(workspace, found);
     }
     return found;
@@ -129,9 +132,12 @@ export function createWorkspaceViews(
   const tick = () => ++order;
 
   function drop(workspace: string, pool: Pool, key: string): void {
-    if (pool.webviews.isAgentPage(key)) {
-      forget(workspace, key);
-      hooks.gone(key.slice("host:".length));
+    const tab = pool.webviews.hostTab(key);
+    if (tab !== null) {
+      // 넘긴 탭은 사람의 탭이라 layout에서 빼지 않고 mount될 때 주인만 지운다. agent가 연 탭(key가 곧 id)은 layout에서도 뺀다.
+      if (hostTabOf({ key }) === null) pendingOf(workspace).released.push(key);
+      else forget(workspace, key);
+      hooks.gone(tab);
     }
     pool.offBind.get(key)?.();
     pool.offBind.delete(key);
@@ -141,7 +147,7 @@ export function createWorkspaceViews(
     if (!pool.mounted && pool.parked.size === 0) pools.delete(workspace);
   }
 
-  // agent가 연 page는 따로 센다: 사람이 켠 Keep alive 상한에 밀려 agent의 page가 사라지면 안 된다.
+  // agent가 다루는 page(agent가 연 탭, 사람이 넘긴 탭)는 따로 센다: 사람이 켠 Keep alive 상한에 밀려 agent의 page가 사라지면 안 된다.
   // guest가 붙은 page만 센다: 느린 site의 page는 열기가 시간 초과로 끝나 어차피 놓이므로, 그 page 때문에 멀쩡한 탭을 놓지 않는다.
   // 붙지 못한 page가 나중에 붙으면 그때 다시 센다.
   function enforceCap(): void {
@@ -152,7 +158,7 @@ export function createWorkspaceViews(
           workspace,
           pool,
           key,
-          agent: pool.webviews.isAgentPage(key),
+          agent: pool.webviews.hostTab(key) !== null,
           at: pool.webviews.shownAt(key),
         })),
     );
@@ -178,7 +184,11 @@ export function createWorkspaceViews(
       carry: [],
       offBind: new Map(),
       takePending() {
-        const found = pending.get(workspace) ?? { opens: [], closes: [] };
+        const found = pending.get(workspace) ?? {
+          opens: [],
+          closes: [],
+          released: [],
+        };
         pending.delete(workspace);
         return found;
       },
@@ -236,13 +246,17 @@ export function createWorkspaceViews(
       return existing;
     },
     mounted: (workspace) => pools.get(workspace)?.mounted === true,
-    touch(key) {
-      for (const pool of pools.values()) pool.webviews.touch(key);
+    touch(tab) {
+      for (const pool of pools.values()) {
+        const key = pool.webviews.keyOfHostTab(tab);
+        if (key !== undefined) pool.webviews.touch(key);
+      }
     },
-    keyOf(session) {
+    tabOf(session) {
       for (const pool of pools.values()) {
         const key = pool.webviews.keyOf(session);
-        if (key !== undefined) return key;
+        if (key === undefined) continue;
+        return pool.webviews.hostTab(key) ?? undefined;
       }
       return undefined;
     },
@@ -357,19 +371,19 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
   }, [views]);
   // agent가 browser 호출을 할 때마다 main이 알린다. 쓴 page는 상한에서 나중에 놓인다.
   useEffect(
-    () =>
-      surfaceApi()?.control((control) => views.touch(`host:${control.tab}`)),
+    () => surfaceApi()?.control((control) => views.touch(control.tab)),
     [views],
   );
-  // host 탭의 browser 상태. page는 workspace가 mount되지 않아도 사니 창 단위로 받는다.
+  // agent가 다루는 browser 탭(agent가 연 탭, 사람이 넘긴 탭)의 상태. page는 workspace가 mount되지 않아도 사니 창 단위로 받는다.
+  // 넘기지 않은 사람의 탭은 core 탭 id가 없어 알리지 않는다.
   useEffect(() => {
     const surface = surfaceApi();
     if (surface === null || browser === null) return;
     return browser.subscribeState((state) => {
-      const key = views.keyOf(state.view_session);
-      if (key === undefined || !key.startsWith("host:")) return;
+      const tab = views.tabOf(state.view_session);
+      if (tab === undefined) return;
       void surface.report({
-        tab: key.slice("host:".length),
+        tab,
         state: { url: state.url, title: state.title, loading: state.loading },
       });
     });

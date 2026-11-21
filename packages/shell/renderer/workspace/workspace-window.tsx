@@ -1,3 +1,4 @@
+import { Toast, ToastStack } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
@@ -79,7 +80,6 @@ import {
   entryKey,
   findTab,
   type TabDragItem,
-  type TabDropHit,
   type TabDropState,
   floatTab,
   focusLeaf,
@@ -143,8 +143,12 @@ import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
 import { Taskbar } from "../shell/taskbar/taskbar.tsx";
 import { TrayHost } from "../shell/tray/tray.tsx";
-import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
-import { TabDragProvider } from "../shell/tab-drag.tsx";
+import {
+  type HandTarget,
+  TabContextMenu,
+  type TabMenuState,
+} from "../shell/tab-menu.tsx";
+import { type DragHit, TabDragProvider } from "../shell/tab-drag.tsx";
 import {
   movedTab,
   placedIn,
@@ -202,7 +206,8 @@ import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
 import { keepsSavedFile } from "../shell/layout-source.ts";
 import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
-import { clampFloatRect } from "./model.ts";
+import { clampFloatRect, hostTabOf } from "./model.ts";
+import { announceHanded, canHand, handTab, takeBack } from "./hand.ts";
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { Favicon } from "../browser/favicon.tsx";
 import { launchKey } from "../desktop/settings/quick-launch/source.ts";
@@ -1219,7 +1224,18 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     machineLists.rows.find((row) => workspaceKey(row.ref) === key)?.ref;
   // sidebar 줄의 탭을 찾고 옮기는 길. sidebar가 등록한다(다른 workspace의 layout과 모든 기계의 session을 sidebar가 안다).
   const rowDrops = useRef<SidebarRowDrops | null>(null);
-  const dropState = (item: TabDragItem, hit: TabDropHit): TabDropState => {
+  const dropState = (item: TabDragItem, hit: DragHit): TabDropState => {
+    // session 줄이나 주인 chip에 놓으면 그 session에 넘긴다. 탭 줄의 넘길 수 있는 browser 탭만이다.
+    if (hit.kind === "session") {
+      const tab = desk.tabs.find((one) => one.key === item.key);
+      return item.row === undefined &&
+        tab !== undefined &&
+        machine === null &&
+        canHand(tab) &&
+        tab.owner !== hit.target
+        ? "ok"
+        : "none";
+    }
     if (item.row !== undefined) {
       if (item.row.kind === "workflow") return "none";
       if (hit.kind !== "workspace") return "ok";
@@ -1237,7 +1253,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       ? "ok"
       : "none";
   };
-  const drop = async (item: TabDragItem, hit: TabDropHit) => {
+  const drop = async (item: TabDragItem, hit: DragHit) => {
+    if (hit.kind === "session") {
+      handTo(item.key, hit.target);
+      return;
+    }
     const row = item.row;
     if (row === undefined) {
       if (hit.kind !== "workspace") {
@@ -1468,7 +1488,107 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     },
     takePending: pool?.takePending,
     hasPage: pool === null ? undefined : (key) => pool.carried().includes(key),
+    globalTabs: globalFloats.floats.map((item) => item.tab),
   });
+
+  // 넘긴 browser 탭의 page는 agent가 연 page처럼 workspace를 떠나도 살고 agent page 상한에 센다(app-frame/webview-host.tsx).
+  // 되찾으면 뗀다. workspace를 떠날 때는 떼지 않는다(page가 pool에 남아 agent가 계속 다룬다).
+  const handedPages = JSON.stringify(
+    allTabs(layout).flatMap((tab) =>
+      tab.kind === "browser" && tab.handedTab !== undefined
+        ? [[tab.key, tab.handedTab]]
+        : [],
+    ),
+  );
+  const markedPages = useRef(new Map<string, string>());
+  useEffect(() => {
+    const now = new Map(JSON.parse(handedPages) as [string, string][]);
+    for (const key of markedPages.current.keys()) {
+      if (!now.has(key)) webviews.setHostTab(key, null);
+    }
+    for (const [key, tab] of now) {
+      if (markedPages.current.get(key) !== tab) webviews.setHostTab(key, tab);
+    }
+    markedPages.current = now;
+  }, [webviews, handedPages]);
+
+  // 넘긴 탭을 core 표에 다시 올린다(hand.ts). core 표는 메모리라 layout을 다 읽은 뒤와 core에 다시 붙을 때(ready) 알리고, session이
+  // 끝나면 다시 알려 그 session이 주인인 탭을 사람에게 되돌린다. 넘기기는 이 컴퓨터의 일이라 다른 기계의 workspace는 알리지 않는다.
+  const globalFloatsRef = useRef(globalFloats);
+  globalFloatsRef.current = globalFloats;
+  const layoutReady = readyWorkspace === workspaceId;
+  useEffect(() => {
+    if (!layoutReady) return;
+    const { client } = machineData(null).stores;
+    return client.subscribe({ types: ["SessionEnded"] }, (message) => {
+      if (message.kind === "disconnected") return;
+      const globals = globalFloatsRef.current;
+      announceHanded(client.core, [
+        ...(machine === null
+          ? allTabs(latestLayout.current).map((tab) => ({
+              tab,
+              workspace,
+              patch: patchTabRef.current,
+            }))
+          : []),
+        ...globals.floats
+          .filter((item) => item.workspace.machine === undefined)
+          .map((item) => ({
+            tab: item.tab,
+            workspace: item.workspace,
+            patch: globals.patch,
+          })),
+      ]);
+    });
+  }, [layoutReady]);
+
+  // 탭 줄의 browser 탭을 이 컴퓨터의 session에 넘긴다(Hand to, session 줄·주인 chip에 끌어 놓기). 실패하면 toast로 알린다.
+  const [handFailed, setHandFailed] = useState(0);
+  const handTo = (key: string, session: string) => {
+    const tab = allTabs(latestLayout.current).find((item) => item.key === key);
+    if (tab === undefined || machine !== null) return;
+    void handTab(
+      machineData(null).stores.client.core,
+      tab,
+      session,
+      workspace,
+      patchTabRef.current,
+    ).then((ok) => {
+      if (!ok) setHandFailed((count) => count + 1);
+    });
+  };
+  // "Hand to"의 상대: 이 컴퓨터의 열린 lophn session(지금 주인은 뺀다). 이 workspace의 것이 먼저다. 이름은 session 제목, 없으면 agent 이름이다.
+  const handTargets = (owner: string | undefined): HandTarget[] => {
+    const entries = machineData(null)
+      .stores.sessions.get()
+      .sessions.filter(
+        (entry) =>
+          entry.ended === null &&
+          !entry.archived &&
+          entry.agent !== null &&
+          entry.session !== owner,
+      );
+    const here = (entry: (typeof entries)[number]) =>
+      workspace.kind === "home"
+        ? entry.workspace === null
+        : entry.workspace?.kind === workspace.kind &&
+          entry.workspace.id === workspace.id;
+    const names = ownerLookup(
+      entries,
+      sidebarAgents.agents,
+      sidebarAgents.lophnNames,
+    );
+    return [
+      ...entries.filter(here),
+      ...entries.filter((entry) => !here(entry)),
+    ].map((entry) => ({
+      session: entry.session,
+      name:
+        sessionTitles.known.get(entry.session)?.title ||
+        names(entry.session)?.name ||
+        t("shell.label.owner-unknown"),
+    }));
+  };
 
   // 이 창의 탭 하나를 그 자리(desk, float, 뗀 창)에서 앞으로 낸다.
   const revealTab = (key: string) => {
@@ -2473,7 +2593,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const shown = (
     group === null ? [desk.selected] : leavesOf(group.layout)
   ).flatMap((key) => deskTab(key) ?? []);
-  // agent가 연 browser·preview·artifact 탭(key `host:`)은 사람이 고르기 전에도 본문을 mount한다. 그래야 page가 붙어 agent가 바로 다룬다.
+  // agent가 연 browser·preview·artifact 탭(key `host:`)과 사람이 넘긴 browser 탭은 사람이 고르기 전에도 본문을 mount한다. 그래야 page가
+  // 붙어 agent가 바로 다룬다.
   // 자리가 없어(display: none) 사람 화면에는 나오지 않고, 고르면 이 자리에서 pane 안으로 옮겨 mount된다(webview는 key로 이어진다).
   // 고르지 않은 tab, 접힌 float, 다른 desk의 tab·float이 모두 대상이다. 보이는 것(card의 칸, 펴진 float)은 제 자리에서 mount한다.
   // detached는 그 창이 mount한다.
@@ -2488,7 +2609,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     ])
     .filter(
       (tab) =>
-        tab.key.startsWith("host:") &&
+        hostTabOf(tab) !== null &&
         (tab.kind === "browser" ||
           tab.kind === "app_preview" ||
           tab.kind === "artifact") &&
@@ -2523,6 +2644,10 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         splitPartner(desk, tab.key) !== null,
       hasOthers: tabs.length > span.length,
       hasRight: lastAt < tabs.length - 1,
+      ...(machine === null && canHand(tab)
+        ? { handable: true, handTo: handTargets(tab.owner) }
+        : {}),
+      handed: tab.handedTab !== undefined,
     };
   };
 
@@ -2540,6 +2665,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const runTabAction = (action: TabAction, key: string) => {
     const tab = desk.tabs.find((item) => item.key === key);
     if (tab === undefined) return;
+    if (action === "take-back") {
+      takeBack(patchTabRef.current, key);
+      return;
+    }
+    if (action.startsWith("hand:")) {
+      handTo(key, action.slice("hand:".length));
+      return;
+    }
     const path = pathOfTab(tab);
     switch (action) {
       case "rename":
@@ -3538,6 +3671,17 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               onSelect={(action) => runTabAction(action, menuTab.key)}
               onClose={() => setTabMenu(null)}
             />
+          )}
+          {handFailed === 0 ? null : (
+            <ToastStack>
+              <Toast
+                key={handFailed}
+                title={t("shell.toast.tab-hand-failed")}
+                tone="error"
+                duration="brief"
+                onClose={() => setHandFailed(0)}
+              />
+            </ToastStack>
           )}
         </div>
       </WebviewHostProvider>

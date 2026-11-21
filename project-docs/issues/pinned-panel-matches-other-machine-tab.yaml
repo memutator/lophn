@@ -1,0 +1,13 @@
+id: pinned-panel-matches-other-machine-tab
+title: quick launch의 고정 앱 panel이 같은 앱·같은 화면의 다른 컴퓨터 탭을 고를 수 있다
+kind: bug
+status: open
+topic: remote
+modules: [packages/shell/renderer]
+now: |
+  quick launch에 고정한 앱 panel을 열 때 이미 열린 탭이나 float을 앱과 화면으로만 찾는다(`openPinnedAppPanel`, 전역 float의 `find`). 탭의 기계는 보지 않는다. 고정 panel은 이 컴퓨터의 앱에서만 생기는데, 한 창에 같은 앱·같은 화면의 panel이 이 컴퓨터 것과 다른 컴퓨터 것으로 둘 다 열려 있으면 다른 컴퓨터의 탭이 골라질 수 있다.
+  change-log `remote-app-use`가 "이 컴퓨터에 그 앱이 있으면 이 컴퓨터의 것을 연다"를 지운 뒤로 두 컴퓨터의 같은 panel이 한 창에 같이 설 수 있게 되어 생긴다. 실제 창에서 재현하지는 않았다(코드를 읽어 찾았다).
+  같은 뿌리: 다른 컴퓨터의 workspace에서 `+` › App panel 빠른 메뉴는 이 컴퓨터의 panel만 낸다. 그 컴퓨터의 panel은 "App panel" 고르기에서만 나온다.
+impact: 사람이 quick launch로 이 컴퓨터의 panel을 열려 했는데 다른 컴퓨터의 data를 그린 탭이 앞으로 온다. data를 잃지는 않지만 어느 컴퓨터의 숫자인지 헷갈린다(탭 머리의 꼬리표로만 구별된다).
+fix: |
+  열린 탭과 float을 찾을 때 기계도 같이 댄다(고정 panel은 이 컴퓨터의 것이므로 기계가 없는 탭만 맞는다). 찾는 곳마다 탭의 기계를 정하는 방식이 달라 한 함수로 모은 뒤 고친다.

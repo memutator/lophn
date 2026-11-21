@@ -1,5 +1,5 @@
 id: sync-tables
-version: 0.23.119
+version: 0.23.120
 title: "앱 선언이 표마다 data의 destination을 적고, 적지 않은 표는 그 컴퓨터를 떠나지 않는다(roadmap sync-tables 1단계)"
 modules: [packages/base, packages/protocol, packages/protocol/apps/sync, packages/sdk, packages/cli, packages/core/apps, packages/core/apps/sync, packages/core/apps/update-state, packages/core/folder, packages/core/agent-workspaces, packages/core/main, packages/shell/renderer]
 checked: [boundary-catalog]

@@ -41,7 +41,6 @@ import {
   loadProjects,
   type Project,
   PROJECT_IDENTITY_CONTEXT,
-  PROJECT_MATCH_CONTEXT,
 } from "../../../projects/registry/mod.ts";
 import type { DataStep, DataStepDeps } from "../../../storage/migration/mod.ts";
 import type { WiringFactory } from "./context.ts";
@@ -165,7 +164,7 @@ export const projectsWiring: WiringFactory = () => {
         kind: "command",
       },
     ],
-    records: () => [PROJECT_IDENTITY_CONTEXT, PROJECT_MATCH_CONTEXT],
+    records: () => [PROJECT_IDENTITY_CONTEXT],
     build(ctx) {
       const logger = ctx.telemetry.logger;
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
@@ -223,7 +222,7 @@ export const projectsWiring: WiringFactory = () => {
           roster,
         )) {
           if (stopping) return;
-          const done = await ctx.writer.command(PROJECT_MATCH_CONTEXT, {
+          const done = await ctx.writer.command(PROJECT_IDENTITY_CONTEXT, {
             command: projectIdentityApi.matchIdentity.name,
             input: action,
             idempotency_key: ids.newId("idk"),

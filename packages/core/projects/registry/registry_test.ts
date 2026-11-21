@@ -8,7 +8,7 @@ import { ok } from "../../../base/mod.ts";
 import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { createProjectCommands } from "./commands.ts";
-import { PROJECT_IDENTITY_CONTEXT, PROJECT_MATCH_CONTEXT } from "./contexts.ts";
+import { PROJECT_IDENTITY_CONTEXT } from "./contexts.ts";
 import { createFolderResolver } from "./folder-resolver.ts";
 import { folderResolverPort } from "./ports.ts";
 import { createProjectReads } from "./reads.ts";
@@ -468,7 +468,7 @@ test("match_identity는 계산한 뒤 바뀐 project(지금 id가 from이 아님
       project: string,
       body: { identity: string } | { separated: true },
       from = born.get(project)!,
-      ctx = PROJECT_MATCH_CONTEXT,
+      ctx = PROJECT_IDENTITY_CONTEXT,
     ) =>
       commands.matchIdentity.handle(
         tx,
@@ -499,7 +499,7 @@ test("match_identity는 계산한 뒤 바뀐 project(지금 id가 from이 아님
     for (const ctx of [
       user,
       {
-        ...PROJECT_MATCH_CONTEXT,
+        ...PROJECT_IDENTITY_CONTEXT,
         principal: "machine:apps-source",
         credential_ref: "machine:apps-source",
       },

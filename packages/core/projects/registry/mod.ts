@@ -15,7 +15,6 @@ export {
 export {
   PROJECT_CLONE_CONTEXT,
   PROJECT_IDENTITY_CONTEXT,
-  PROJECT_MATCH_CONTEXT,
 } from "./contexts.ts";
 export { createProjectCommands } from "./commands.ts";
 export {

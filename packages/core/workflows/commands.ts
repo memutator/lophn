@@ -18,7 +18,7 @@ import {
   type WorkflowState,
 } from "../../protocol/workflows/mod.ts";
 import { FAILURE_TEXTS, type Router, routerFor } from "../router/mod.ts";
-import { remoteCallsOf, remoteHandOf } from "./remote.ts";
+import { remoteCallsOf } from "./remote.ts";
 import type { NewLine } from "./rows.ts";
 import {
   appendLine,
@@ -109,7 +109,17 @@ function handOff(
       address: delivery.remote.address,
       body: textBlocks(delivery.body),
     });
-    if (!sent.ok) return sent;
+    // 넘길 수 없는 step(redaction 뒤 64 KiB를 넘는 글, 그 사이 private이 된 project)은 이 컴퓨터의 넘기기처럼 not_handed 줄이다.
+    // 다른 컴퓨터에서 온 report도 줄은 남고 다음 step만 넘기지 못한다.
+    if (!sent.ok) {
+      if (
+        sent.error.code !== "invalid_input" &&
+        sent.error.code !== "forbidden"
+      ) {
+        return sent;
+      }
+      return notHanded("unresolved", sent.error.message);
+    }
     return handed(scope, plan, null, {
       machine: delivery.remote.machine,
       computer: delivery.remote.computer,
@@ -335,14 +345,6 @@ export function createWorkflowCommands(
           case "report": {
             // 다른 컴퓨터의 참가자가 낸 report: 그 step을 넘긴 call의 reply mail이어야 하고 한 번만 적용한다.
             if (input.mail !== undefined) {
-              const hand = remoteHandOf(tx.sql, input.mail.mail.call);
-              if (
-                hand === null ||
-                hand.instance !== input.instance ||
-                hand.step !== change.step
-              ) {
-                return fail("conflict", "this report is not for that step");
-              }
               const made = router(tx);
               if (!made.ok) return made;
               const accepted = made.value.acceptStepReport(tx, input.mail);

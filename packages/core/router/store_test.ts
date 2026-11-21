@@ -182,3 +182,53 @@ test("앱이 받은 답 글은 받은 session을 지울 때 같이 지워지고 
   assert.ok(deleteCallsSentByApp(tx, appA.app).ok);
   assert.equal(store.read(tx, "cal_a2"), null);
 });
+
+// 끝난 call이 배달 중으로 보이면 화면과 목록이 끝난 일을 아직 가는 중으로 그린다. 끝난 행에 남은 값(옛 판이 쓴 것)도 null로 읽는다.
+test("끝난 call의 delivery는 null로 읽힌다", () => {
+  const db = new DatabaseSync(":memory:");
+  for (const step of ROUTER_SCHEMA_STEPS) db.exec(step.sql);
+  db.exec(
+    appSenderSchemaSteps.find(
+      (step) => step.id === "router.app-sender.agent-calls",
+    )!.sql,
+  );
+  db.exec(remoteSenderCallsSchemaSteps[0]!.sql);
+  const sql: Sql = {
+    run: (query, params) => db.prepare(query).run(...params),
+    get: (query, params) => db.prepare(query).get(...params) as never,
+    all: (query, params) => db.prepare(query).all(...params) as never,
+  };
+  const tx = { sql, now: () => AT } as unknown as Tx;
+  const store = createCallStore();
+  for (const [call, state] of [
+    ["cal_open", "accepted"],
+    ["cal_done", "done"],
+  ] as const) {
+    assert.ok(
+      store.insert(tx, {
+        call,
+        from: { kind: "agent", session: SENDER },
+        to: {
+          kind: "remote",
+          machine: `mch_0${"b".repeat(25)}`,
+          computer: "windows",
+          address: { session: RECEIVER },
+        },
+        receiver_session: null,
+        reply: "result",
+        state,
+        fail_reason: null,
+        dedup: null,
+        unattended: false,
+        ask: null,
+        created_at: AT,
+        state_changed_at: AT,
+        result: null,
+        delivery: "running",
+        remote_session: null,
+      }).ok,
+    );
+  }
+  assert.equal(store.read(tx, "cal_open")?.delivery, "running");
+  assert.equal(store.read(tx, "cal_done")?.delivery, null);
+});

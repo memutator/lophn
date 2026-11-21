@@ -232,7 +232,7 @@ export const callsStepReport = defineCommand({
     call: idSchema("cal"),
     session: idSchema("ses"),
     text: z.string().min(1),
-    next: z.string().min(1).nullable(),
+    next: z.string().min(1).max(63).nullable(),
     choice: z.enum(["new", "same"]),
     unattended: z.boolean(),
   }),

@@ -402,7 +402,11 @@ export function createWorkflowService(deps: {
           mail: { mail, origin },
         });
       });
-      return done.ok ? ok({ line: done.value.line }) : done;
+      if (done.ok) return ok({ line: done.value.line });
+      // 다시 읽어 걸어도 instance가 계속 바뀌었다. 본 것으로 적지 않고 그 컴퓨터가 같은 mail을 다시 보내게 한다.
+      return done.error.code === "conflict"
+        ? err({ code: "unavailable", message: done.error.message })
+        : done;
     },
 
     async edit(input: z.output<typeof workflowEdit.input>, by: LineBy) {

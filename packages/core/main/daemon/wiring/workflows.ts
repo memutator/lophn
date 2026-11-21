@@ -27,6 +27,7 @@ import {
 import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { loadSession } from "../../../lophn-agent/session/model.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   type CommandEnvelope,
@@ -63,6 +64,7 @@ const WORKFLOWS_CONTEXT: AuthenticatedContext = {
       workflowInstanceCreate.name,
       workflowInstanceApply.name,
       workflowInstanceRead.name,
+      callsStepReport.name,
       receivedMessageList.name,
       turnRead.name,
       turnList.name,
@@ -407,6 +409,13 @@ export const workflowsWiring: WiringFactory = () => {
             { kind: "project", id: project },
           ),
         async receivedStep(session, instance, step) {
+          // 다른 컴퓨터의 mail이 연 session만 그런 step을 받는다. 이 컴퓨터의 session은 기록을 읽지 않는다.
+          const opened = ledgerSnapshot(
+            ctx.ledgerPath,
+            (lookup) => loadSession(lookup, session)?.opened_by_machine ?? null,
+          );
+          if (!opened.ok) return opened;
+          if (opened.value === null) return ok(null);
           const pages = await readAll<Output<typeof receivedMessageList>>(
             receivedMessageList,
             { session },

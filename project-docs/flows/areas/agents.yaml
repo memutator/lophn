@@ -441,7 +441,7 @@ flows:
       - 화면이 call을 취소한다. agent가 lophn call cancel로 같은 route를 부르면 자기가 보낸 call만 된다
       - 끝나지 않은 call을 cancelled로 바꾼다
       - 받은 session(lophn이든 harness든)이 있으면 call_cancelled 알림을 queue에 넣는다(다음 turn 입력)
-      - 다른 컴퓨터로 보낸 call이면 남은 call mail을 지우고 cancel mail을 그 기계로 낸다(drain이 call mail을 이미 냈을 수 있다. 받는 쪽은 모르는 call의 cancel을 무시한다)
+      - 다른 컴퓨터로 보낸 call이면 남은 call mail을 지우고 cancel mail을 그 기계로 낸다(drain이 call mail을 이미 냈을 수 있다. 받는 쪽은 모르는 call의 cancel을 무시한다). workflow가 넘긴 step call이면 그 instance에 이 컴퓨터에서 취소했다는 not_handed 줄을 남긴다(StopWorkflow가 거둔 것은 빼고)
       - 다른 컴퓨터에서 받은 call을 이 기계의 사람이 취소하면 받는 session에 알리고 보낸 기계에 cancelled reply mail을 낸다(보낸 session에는 입력이 없다)
     outcomes:
       - id: cancelled

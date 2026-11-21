@@ -83,6 +83,7 @@ import {
   callsRecover,
   FAILURE_TEXTS,
   remoteStepBody,
+  TAKEN_RESTART_TEXTS,
   TEAM_SPAWNED_TOPIC,
 } from "../../../router/mod.ts";
 import {
@@ -229,7 +230,7 @@ export function createCallBodyPreparer(deps: {
       bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
     } else if (name === interruptTurns.name) {
       // agent runtime이 사라져 닫는 turn이 가져간 call의 알림이다.
-      bodies.push(textBlocks(FAILURE_TEXTS.lophn_restarted));
+      bodies.push(textBlocks(TAKEN_RESTART_TEXTS.local));
     } else if (name === callsMailApply.name) {
       // 다른 컴퓨터의 mail이 이 기계의 session에 넣는 글: call·reply의 본문(보낸 기계가 했어도 redaction을 한 번 더 거친다), 실패 알림,
       // 취소 알림.
@@ -626,8 +627,10 @@ export const routerWiring: WiringFactory = () => {
         publish: (event) => ctx.bus.publish(event),
       });
       // 보낸 session에 이유를 돌려줄 글을 준비하지 못하면 알림 없이 닫는다.
+      // 가져가기 전에 잃은 call과 가져가 일하던 call은 글이 다르다.
       const prepared = await prepareTexts(ctx.bodyPrepare, ROUTER_CONTEXT, [
         FAILURE_TEXTS.lophn_restarted,
+        TAKEN_RESTART_TEXTS.local,
       ]);
       const done = await ctx.writer.command(ROUTER_CONTEXT, {
         command: callsRecover.name,

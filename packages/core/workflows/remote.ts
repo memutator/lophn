@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../base/mod.ts";
-import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
+import type { StepEnding } from "../router/ports.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
 import type { HandedLine } from "../../protocol/workflows/mod.ts";
 import { STATE_CHANGED_TOPIC } from "../storage/ledger/after-commit.ts";
@@ -60,9 +60,13 @@ export function remoteStepsOf(sql: Query, instance: string): RemoteStep[] {
 // 사람이 읽는 글. 받는 쪽이 낸 이유마다 다른 컴퓨터에서 무슨 일이 있었는지 말한다.
 export function remoteFailureText(
   computer: string,
-  reason: CallFailReason,
+  reason: StepEnding,
 ): string {
   switch (reason) {
+    case "closed_there":
+      return `The step was closed on ${computer} without a report.`;
+    case "cancelled_here":
+      return `The step was cancelled on this computer before ${computer} reported it.`;
     case "skipped":
       return `The person on ${computer} chose not to run this step.`;
     case "expired":
@@ -84,7 +88,7 @@ export function remoteFailureText(
 export function remoteStepFailed(
   tx: Tx,
   call: string,
-  reason: CallFailReason,
+  reason: StepEnding,
   announce: (tx: Tx, topic: string, data: unknown) => void,
 ): Result<void> {
   const hand = remoteHandOf(tx.sql, call);
@@ -93,6 +97,13 @@ export function remoteStepFailed(
   if (!loaded.ok) return loaded;
   const instance = loaded.value;
   if (instance === null) return ok(undefined);
+  // StopWorkflow가 거둔 step: 같은 command가 남긴 stopped 줄이 말한다(한 command는 instance를 한 번 고친다).
+  if (
+    reason === "cancelled_here" &&
+    lastKind(tx.sql, instance.id) === "stopped"
+  ) {
+    return ok(undefined);
+  }
   appendLine(tx.sql, instance.id, tx.now(), {
     kind: "not_handed",
     by: { kind: "lophn" },
@@ -109,6 +120,14 @@ export function remoteStepFailed(
   if (!updated.ok) return updated;
   remoteStepChanged(tx, call, announce);
   return ok(undefined);
+}
+
+function lastKind(sql: Query, instance: string): string | null {
+  const row = sql.get(
+    "SELECT kind FROM workflow_lines WHERE instance = ? ORDER BY seq DESC LIMIT 1",
+    [instance],
+  );
+  return row === undefined ? null : String(row["kind"]);
 }
 
 // 배달 상태가 바뀌었다. instance를 보는 화면이 다시 읽는다(행의 상태는 ReadWorkflowInstance의 remote_steps가 준다).

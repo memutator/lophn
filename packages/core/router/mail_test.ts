@@ -60,7 +60,11 @@ import {
 import type { Id } from "../../protocol/base/ids.ts";
 import type { CallSignals } from "../lophn-agent/run-loop/ports.ts";
 import { interruptRunningTurns } from "../lophn-agent/run-loop/interrupt.ts";
+import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
+import { createMailInbox, type MailEntryDeps } from "../remote/mail-entry.ts";
+import { callsMailApply, callsMailRefuse } from "./commands.ts";
 import type { RoutedInput } from "./ports.ts";
+import { TAKEN_RESTART_TEXTS } from "./model.ts";
 import { createRouter } from "./router.ts";
 import { createCallStore } from "./store.ts";
 
@@ -278,6 +282,42 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
       running: async () => ok([]),
     },
   });
+  // mail 입구(link·폴더가 같이 쓴다). 명령은 Router를 같은 tx에서 바로 부른다.
+  const inbox = createMailInbox({
+    command: async (route: { name: string }, input: never) => {
+      const given = input as {
+        mail: Mail;
+        origin: { machine: string; computer: string };
+        skip_allowed: boolean;
+        via: "link" | "folder";
+        reason: CallFailReason;
+      };
+      if (route.name === callsMailApply.name) {
+        return router.applyMail(tx, {
+          mail: given.mail,
+          origin: given.origin,
+          skipAllowed: given.skip_allowed,
+          via: given.via,
+        });
+      }
+      assert.equal(route.name, callsMailRefuse.name);
+      const refused = router.refuseMail(tx, given);
+      return refused.ok ? ok({}) : refused;
+    },
+    computers: () =>
+      Object.entries(ROSTER).map(([name, machine]) => ({
+        machine,
+        device: `dev_0${machine.slice(5)}`,
+        name,
+        self: machine === self,
+      })),
+    self: () => self as Id<"mch">,
+    granted: () => false,
+    stepReport: (
+      mail: Extract<Mail, { kind: "reply" }>,
+      origin: { machine: string; computer: string },
+    ) => workflows.remoteReport(mail, origin),
+  } as unknown as MailEntryDeps);
   // review는 이 컴퓨터의 reviewer, build는 windows 컴퓨터의 reviewer다.
   const start = (participants: Record<string, Participant>) => {
     const id = tx.newId("wfi");
@@ -296,6 +336,16 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
         by: "lead",
         with: null,
         prompt: "Review it.",
+        in: "",
+        out: "",
+        next: ["end"],
+      },
+      // windows에 넘기려 하면 글이 mail 상한을 넘는 step.
+      {
+        name: "huge",
+        by: "builder",
+        with: null,
+        prompt: "x".repeat(70 * 1024),
         in: "",
         out: "",
         next: ["end"],
@@ -361,6 +411,7 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     openSession,
     workflows,
     commands,
+    inbox,
     start,
     lines,
     read,
@@ -418,29 +469,14 @@ async function deliver(
   to: Machine,
   mails = pendingMails(from.sql, to.self as never),
 ) {
-  const origin = { machine: from.self, computer: "from" };
-  const results: Result<unknown>[] = [];
+  const results: Result<MailApplied>[] = [];
   for (const mail of mails) {
-    let applied: Result<MailApplied>;
-    if (mail.kind === "reply" && mail.report !== undefined) {
-      const done = await to.workflows.remoteReport(mail, origin);
-      applied = done.ok
-        ? ok({ delivery: null, reason: null, session: null })
-        : done;
-    } else {
-      applied = to.router.applyMail(to.tx, {
-        mail,
-        origin,
-        skipAllowed: false,
-        via: "link",
-      });
-    }
+    const applied = await to.inbox.apply({
+      mail,
+      origin: from.self as Id<"mch">,
+      via: "link",
+    });
     results.push(applied);
-    if (!applied.ok) {
-      assert.ok(
-        to.router.refuseMail(to.tx, { mail, origin, reason: "closed" }).ok,
-      );
-    }
     assert.ok(
       from.router.mailSent(from.tx, {
         mail: mail.id,
@@ -860,6 +896,11 @@ test("다른 컴퓨터에서 받은 result call을 가져간 turn이 재시작�
   );
   assert.equal(a.delivered.at(-1)?.session, sender);
   assert.equal(a.delivered.at(-1)?.input.outcome?.reason, "lophn_restarted");
+  // 가져가 일하던 call이라 "가져가기 전에" 글이 아니다.
+  assert.equal(
+    blocksText(a.delivered.at(-1)!.input.body),
+    TAKEN_RESTART_TEXTS.remote,
+  );
 });
 
 test("한 컴퓨터 안의 result call도 가져간 turn이 재시작으로 끝나면 보낸 session에 lophn_restarted로 돌아가고, 답한 call은 그대로다", async () => {
@@ -887,6 +928,10 @@ test("한 컴퓨터 안의 result call도 가져간 turn이 재시작으로 끝�
   assert.equal(a.call(open)?.["fail_reason"], "lophn_restarted");
   assert.equal(a.delivered.at(-1)?.session, sender);
   assert.equal(a.delivered.at(-1)?.input.outcome?.reason, "lophn_restarted");
+  assert.equal(
+    blocksText(a.delivered.at(-1)!.input.body),
+    TAKEN_RESTART_TEXTS.local,
+  );
 
   const answered = local("t2");
   assert.ok(
@@ -990,7 +1035,7 @@ test("다른 컴퓨터로 넘긴 step은 그 컴퓨터의 step 입력이 되고,
   const [got] = b.delivered;
   assert.equal(got?.input.kind, "step");
   assert.deepStrictEqual(got.input.step, { instance: id, step: "build" });
-  assert.match(blocksText(got.input.body), /workflow on the computer from/);
+  assert.match(blocksText(got.input.body), /workflow on the computer laptop/);
   assert.equal(a.read(id).remote_steps[0]?.delivery, "running");
 
   // 그 step을 받지 않은 session의 report는 이 컴퓨터의 instance를 찾다 없다.
@@ -1021,8 +1066,7 @@ test("다른 컴퓨터로 넘긴 step은 그 컴퓨터의 step 입력이 되고,
   assert.ok(progress.ok);
   const halfway = pendingMails(b.sql, A as never);
   await deliver(b, a, halfway);
-  const [twice] = await deliver(b, a, halfway);
-  assert.ok(twice !== undefined && !twice.ok);
+  await deliver(b, a, halfway);
   assert.equal(linesOf(a, id, "report").length, 1);
   const reported = await b.workflows.report(
     { instance: id, step: "build", text: "built", next: "review" },
@@ -1043,20 +1087,18 @@ test("다른 컴퓨터로 넘긴 step은 그 컴퓨터의 step 입력이 되고,
     id: `mal_0${"9".repeat(25)}`,
     from: { ...mails[0]!.from, machine: C },
   };
-  const [fake] = await deliver(c, a, [forged]);
-  assert.ok(fake !== undefined && !fake.ok);
+  await deliver(c, a, [forged]);
   assert.equal(linesOf(a, id, "report").length, 1);
 
   const [first] = await deliver(b, a, mails);
   assert.ok(first?.ok, JSON.stringify(first));
-  const [second] = await deliver(b, a, mails);
-  assert.ok(second !== undefined && !second.ok);
+  await deliver(b, a, mails);
   const reports = linesOf(a, id, "report");
   assert.equal(reports.length, 2);
   assert.deepStrictEqual(reports[1]!.by, {
     kind: "remote",
     machine: B,
-    computer: "from",
+    computer: "windows",
     name: mails[0]!.from.name,
   });
   // 다음 step(review)은 이 컴퓨터의 session으로 넘어갔다.
@@ -1066,6 +1108,74 @@ test("다른 컴퓨터로 넘긴 step은 그 컴퓨터의 step 입력이 되고,
     handedLines[1]?.kind === "handed" &&
       handedLines[1].step === "review" &&
       handedLines[1].receiver !== null,
+  );
+  assert.equal(a.read(id).remote_steps[0]?.state, "done");
+});
+
+test("다른 컴퓨터로 넘긴 step이 report 없이 끝나면(그 컴퓨터에서 취소, call 답, 이 컴퓨터에서 취소) 시작한 컴퓨터에 읽을 수 있는 줄이 남는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const ending = async (end: (call: string, session: string) => void) => {
+    const { id } = a.start(REMOTE_BUILD);
+    await deliver(a, b);
+    const got = b.delivered.at(-1)!;
+    end(got.input.call!, got.session);
+    await deliver(b, a);
+    const lines = linesOf(a, id, "not_handed");
+    assert.equal(lines.length, 1);
+    return lines[0]?.kind === "not_handed" ? lines[0].message : "";
+  };
+  // 그 컴퓨터의 사람이 받은 step call을 취소했다.
+  assert.match(
+    await ending((call) => {
+      assert.ok(b.router.cancel(b.tx, { kind: "human" }, { call }).ok);
+    }),
+    /closed on windows without a report/,
+  );
+  // 그 컴퓨터의 agent가 workflow report 대신 call 답을 했다.
+  assert.match(
+    await ending((call, session) => {
+      const replied = b.router.reply(
+        b.tx,
+        { session: session as Id<"ses"> },
+        { call: call as Id<"cal">, body: textBlocks("done"), refs: [] },
+      );
+      assert.ok(replied.ok, JSON.stringify(replied));
+    }),
+    /closed on windows without a report/,
+  );
+  // 이 컴퓨터의 사람이 그 step call을 id로 취소했다.
+  const { id } = a.start(REMOTE_BUILD);
+  const [sent] = a.read(id).remote_steps;
+  assert.ok(a.router.cancel(a.tx, { kind: "human" }, { call: sent!.call }).ok);
+  const cancelled = linesOf(a, id, "not_handed");
+  assert.ok(
+    cancelled.length === 1 &&
+      cancelled[0]?.kind === "not_handed" &&
+      /cancelled on this computer/.test(cancelled[0].message),
+  );
+});
+
+test("다른 컴퓨터의 report는 다음 step을 넘기지 못해도 report 줄과 not_handed 줄로 남는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { id } = a.start(REMOTE_BUILD);
+  await deliver(a, b);
+  const got = b.delivered[0]!;
+  const reported = await b.workflows.report(
+    { instance: id, step: "build", text: "built", next: "huge" },
+    { kind: "agent", session: got.session as Id<"ses"> },
+  );
+  assert.ok(reported.ok);
+  const [applied] = await deliver(b, a);
+  assert.ok(applied?.ok, JSON.stringify(applied));
+  assert.equal(linesOf(a, id, "report").length, 1);
+  const notHanded = linesOf(a, id, "not_handed");
+  assert.ok(
+    notHanded.length === 1 &&
+      notHanded[0]?.kind === "not_handed" &&
+      notHanded[0].step === "huge" &&
+      /cannot go to another computer/.test(notHanded[0].message),
   );
   assert.equal(a.read(id).remote_steps[0]?.state, "done");
 });
@@ -1151,6 +1261,8 @@ test("멈춘 instance는 아직 가져가지 않은 다른 컴퓨터의 step을 
   );
   const [step] = a.read(id).remote_steps;
   assert.equal(step?.state, "cancelled");
+  // 거둔 step은 stopped 줄이 말한다. 따로 not_handed 줄을 남기지 않는다.
+  assert.equal(linesOf(a, id, "not_handed").length, 0);
   assert.equal(step?.delivery, null);
   await deliver(a, b);
   await deliver(a, b, read);

@@ -205,10 +205,13 @@ export type MailSeenRow = {
   arrived_at: string;
 };
 
+export type StepEnding = CallFailReason | "closed_there" | "cancelled_here";
+
 // workflow가 다른 컴퓨터로 넘긴 step(보낸 쪽이 program인 call 행)의 끝과 바뀜을 workflows에 알린다. 구현은 wiring이 끼운다.
 export interface SentSteps {
-  // 그 컴퓨터에서 돌지 못하고 끝났다. instance에 사람이 읽는 줄을 남긴다.
-  failed(tx: Tx, call: string, reason: CallFailReason): Result<void>;
+  // report 없이 끝났다. instance에 사람이 읽는 줄을 남긴다. closed_there는 그 컴퓨터에서 report 아닌 길로 닫힌 것(취소, call 답)이고
+  // cancelled_here는 이 컴퓨터에서 그 call을 취소한 것이다.
+  failed(tx: Tx, call: string, ending: StepEnding): Result<void>;
   // 배달 상태나 받은 session이 바뀌었다. instance를 보는 화면이 다시 읽는다.
   changed(tx: Tx, call: string): void;
 }

@@ -134,11 +134,11 @@ flow
 다른 컴퓨터의 참가자
 45. agent 참가자는 `on: <컴퓨터>`(명단의 이름이나 `mch_`, `call send --on`과 같은 풀이)를 가질 수 있다. 사람 참가자는 갖지 못한다(틀린 선언). `on`이 없으면 지금과 같다.
 46. `on`은 넘길 때마다 푼다. 없거나 여럿에 맞는 이름, 이 컴퓨터, 명단에 없는 컴퓨터는 `not_handed`(`unknown_computer`)다. instance의 project가 private이면 넘기지 않는다(`not_handed` `unresolved`). workspace는 기계를 건너는 이름으로 바꾼다(project는 `pri_`, 없으면 instance의 project의 `pri_`).
-47. 다른 컴퓨터로 넘기는 step은 call mail이다(`step: {instance, name}`를 실은 `call`). 그래서 call mail의 규칙이 모두 선다: mail id마다 한 번, 보낸 기계와 받는 기계 확인, 늦은 mail의 대기(사람의 [Start now]·[Skip]), 7일 만료, 먼저 닿은 취소, private, 그 기계의 mail이 연 session에만 이어 들어감, 받은 기계의 재시작·session 끝. 보낸 컴퓨터에는 보낸 쪽이 program인 call 행이 하나 남고 배달 상태(`delivery`)와 받은 session을 그 행이 맡는다.
+47. 다른 컴퓨터로 넘기는 step은 call mail이다(`step: {instance, name}`를 실은 `call`). 그래서 call mail의 규칙이 모두 선다: mail id마다 한 번, 보낸 기계와 받는 기계 확인, 늦은 mail의 대기(사람의 [Start now]·[Skip]), 7일 만료, 먼저 닿은 취소, private, 그 기계의 mail이 연 session에만 이어 들어감, 가져가기 전 받은 기계의 재시작과 받은 session의 끝. 보낸 컴퓨터에는 보낸 쪽이 program인 call 행이 하나 남고 배달 상태(`delivery`)와 받은 session을 그 행이 맡는다.
 48. 받는 컴퓨터는 그 agent와 workspace의 step 입력(보낸 쪽 program, 입력 종류 `step`)으로 넣는다. 본문 앞에 다른 컴퓨터에서 온 step이라는 고정 줄 하나를 붙인다. tag, 고정 영어 줄, report하는 법은 이 컴퓨터의 step과 같다. skip은 call처럼 그 컴퓨터의 터미널 입력 허락을 따른다.
 49. report는 같은 명령(`workflow report`)이다. 받은 컴퓨터에는 instance가 없으므로, 그 session이 그 instance·step의 step 입력을 다른 컴퓨터에서 받았으면 report를 그 call의 reply mail(`report: {next, session}`, 글은 본문)로 낸다. 그 step을 받은 session만 낼 수 있고, `next`가 있는 report는 그 call을 끝내 한 번뿐이다(진행 글은 call이 열린 동안 여러 번). 다른 session의 report는 이 컴퓨터의 instance를 찾다 `not_found`다.
-50. 시작한 컴퓨터는 그 reply mail을 `ApplyWorkflowChange`의 report로 한 transaction에서 적용한다: mail을 본 것으로 적고(한 번), call 행이 그 기계로 보낸 열린 행인지 보고, report 줄(by `remote`)을 남기고, 다음 step을 지금처럼 넘긴다(이 컴퓨터든 다른 컴퓨터든). 다른 기계나 끝난 call의 report는 아무것도 바꾸지 않는다.
-51. 넘긴 step이 그 컴퓨터에서 돌지 못하면(건너뜀, 만료, 옛 판, 거절, 없는 받는 곳, 받은 기계의 재시작이나 session 끝) call 행이 실패로 끝나며 `not_handed`(`remote_failed`) 줄과 사람이 읽는 글이 남는다. `StopWorkflow`는 그 instance의 열린 다른 컴퓨터 step call을 취소한다(아직 닿지 않았으면 낼 call mail을 지우고 cancel mail을 낸다).
+50. 시작한 컴퓨터는 그 reply mail을 `ApplyWorkflowChange`의 report로 한 transaction에서 적용한다: mail을 본 것으로 적고(한 번), call 행이 그 기계로 보낸 열린 행인지 보고, report 줄(by `remote`)을 남기고, 다음 step을 지금처럼 넘긴다(이 컴퓨터든 다른 컴퓨터든). 다음 step을 넘길 수 없으면(redaction 뒤 64 KiB를 넘는 글, 그 사이 private이 된 project) report는 그대로 남고 다음 step은 `not_handed` 줄이다. 다른 기계나 끝난 call의 report는 아무것도 바꾸지 않는다. instance가 계속 바뀌어 적용하지 못하면 `unavailable`로 답해 그 기계가 같은 mail을 다시 보낸다.
+51. 다른 컴퓨터로 넘긴 step이 report 없이 끝나면 늘 시작한 컴퓨터에 `not_handed`(`remote_failed`) 줄과 사람이 읽는 글이 남는다: 그 컴퓨터에서 돌지 못함(건너뜀, 만료, 옛 판, 거절, 없는 받는 곳, 가져가기 전 재시작, 받은 session의 끝), 그 컴퓨터에서 report 아닌 길로 닫힘(사람의 취소, `call reply`), 이 컴퓨터에서 그 call을 취소함. 가져간 뒤 그 컴퓨터의 turn이 실패하거나 멈추거나 재시작으로 끊기면 step은 열린 채다(이 컴퓨터의 step이 실패한 turn으로 닫히지 않는 것과 같다. 뒤에 낸 report가 닿아야 한다). `StopWorkflow`는 그 instance의 열린 다른 컴퓨터 step call을 취소한다(낼 call mail을 지우고 cancel mail을 낸다). 그 취소는 따로 줄을 남기지 않는다(stopped 줄이 말한다).
 52. `handed` 줄은 다른 컴퓨터로 넘긴 때 `receiver`가 null이고 `remote: {machine, computer, call}`을 싣는다. `ReadWorkflowInstance`의 `remote_steps`가 그 call마다 지금 상태(`state`, `delivery`, `fail_reason`, `session`)를 준다. 배달 상태가 바뀌면 `workflow_instances` 변경이 난다. `workflow edit`을 다른 컴퓨터에서 하는 길은 없다.
 
 ## 경계와 계약
@@ -228,6 +228,8 @@ flow
 - 받은 step의 다른 컴퓨터 표시는 본문 앞 고정 줄이다. 이유: step 입력은 보낸 쪽이 program이어야 하고(`messages` 표의 규칙) 이력 재생이 같은 bytes를 만들려면 표시가 저장된 본문에 있어야 한다. (agent)
 
 ## 열린 것
+
+- 다른 컴퓨터가 가져간 step의 turn이 실패하거나 멈추거나 재시작으로 끊기면 시작한 컴퓨터에 줄이 남지 않는다. 사람은 그 step의 배달 상태(`remote_steps`의 running)와 그 컴퓨터의 session으로만 안다. 그 turn에서 step을 닫으면 뒤의 report가 거절되고, 이 컴퓨터의 step도 실패한 turn으로 닫지 않는다.
 
 - flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory는 V8 heap 512 MiB에서 막힌다. CPU를 막으려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`.
 - `workflow.yaml`에 남은 옛 `{kind: harness}` 참가자는 옮기지 않는다. `invalid_declaration`이고 손으로 고친다(agent 이름을 알 수 없다).

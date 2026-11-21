@@ -173,6 +173,15 @@ export const FAILURE_TEXTS: Record<CallFailReason, string> = {
     "The other computer runs an older lophn that cannot take this call; update lophn there.",
 };
 
+// 받는 session이 이미 가져가 일하던 call이 재시작으로 끊겼다(lophn_restarted의 다른 글: 기본 글은 가져가기 전에 잃은 call이다).
+// 다른 컴퓨터의 글은 그 기계가 실패 mail의 본문으로 싣는다.
+export const TAKEN_RESTART_TEXTS = {
+  local:
+    "lophn restarted while the receiving session was working on this call.",
+  remote:
+    "lophn restarted on the other computer while the receiving session was working on this call.",
+} as const;
+
 // 취소 알림은 글이 없다. 알림 종류(call_cancelled)가 말한다.
 export const CANCEL_TEXT = "";
 

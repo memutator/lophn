@@ -1,7 +1,5 @@
 import type { AgentAddress } from "../../protocol/lophn-agent/mod.ts";
 import type { RemoteAddress } from "../../protocol/lophn-agent/calls.ts";
-import { mailBodySchema } from "../../protocol/lophn-agent/mail.ts";
-import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { WorkflowRemote } from "./ports.ts";
 import type {
@@ -135,14 +133,7 @@ export function planHandoff(input: {
   const body = stepBody({ step, received });
   if ("remote" in resolved) {
     const { machine, computer, agent, workspace } = resolved.remote;
-    if (!mailBodySchema.safeParse(textBlocks(body)).success) {
-      return fail(
-        unresolved(
-          "unresolved",
-          "the step text is too large to hand to another computer",
-        ),
-      );
-    }
+    // 글 크기는 redaction 뒤에 Router의 sendStep이 본다(not_handed 줄이 된다).
     return {
       ...base,
       participant: key,

@@ -61,6 +61,7 @@ import {
   MAIL_QUEUED_TOPIC,
   remoteStepBody,
   type RouteInput,
+  TAKEN_RESTART_TEXTS,
   type RouteResult,
   sesId,
   teamMayReach,
@@ -72,6 +73,7 @@ import type {
   MailOutbox,
   MailSeen,
   SentSteps,
+  StepEnding,
   RoutedInput,
   SessionDirectory,
   TargetSession,
@@ -408,13 +410,16 @@ export function createRouter(deps: RouterDeps): Router {
     call: string,
     reason: CallFailReason,
     unattended: boolean,
+    // 이유의 기본 글 대신 쓸 글(가져간 뒤 재시작, 다른 컴퓨터가 실은 글).
+    body?: ContentBlock[],
   ): Result<void> {
     const target = directory.find(sesId(sender));
     if (target === null || !target.accepting) return ok(undefined);
+    const input = failureInput(calId(call), reason, unattended);
     const delivered = transport.deliver(
       tx,
       target,
-      failureInput(calId(call), reason, unattended),
+      body === undefined ? input : { ...input, body },
     );
     return delivered.ok ? ok(undefined) : delivered;
   }
@@ -642,6 +647,7 @@ export function createRouter(deps: RouterDeps): Router {
     peer: string,
     reason: CallFailReason,
     unattended: boolean,
+    text?: string,
   ): Result<Mail> {
     return queue(tx, {
       kind: "reply",
@@ -649,7 +655,7 @@ export function createRouter(deps: RouterDeps): Router {
       from: authorOf(null),
       to_machine: peer,
       ...stamp(tx),
-      body: null,
+      body: text === undefined ? null : textBlocks(text),
       outcome: { state: "failed", reason },
       unattended,
     });
@@ -926,7 +932,13 @@ export function createRouter(deps: RouterDeps): Router {
         to_machine: record.to.machine,
         ...stamp(tx),
       });
-      return queued.ok ? moved : queued;
+      if (!queued.ok) return queued;
+      // workflow step이면 이 컴퓨터에서 취소했다는 줄을 남긴다.
+      if (record.from.kind === "program") {
+        const told = deps.steps.failed(tx, record.call, "cancelled_here");
+        if (!told.ok) return told;
+      }
+      return moved;
     }
     // 받는 기계의 사람이 다른 컴퓨터에서 받은 call을 취소했다. 보낸 기계의 행도 닫는다.
     const closed = queueClosed(tx, record, "cancelled");
@@ -949,7 +961,10 @@ export function createRouter(deps: RouterDeps): Router {
     records: readonly AgentCallRow[],
     reason: CallFailReason,
     notify: boolean,
+    // 받는 session이 가져가 일하던 call이다(재시작이면 다른 글).
+    taken = false,
   ): Result<number> {
+    const restartedTaken = taken && reason === "lophn_restarted";
     for (const record of records) {
       const moved = finish(tx, record, "failed", reason);
       if (!moved.ok) return moved;
@@ -968,6 +983,7 @@ export function createRouter(deps: RouterDeps): Router {
           record.from.machine,
           reason,
           record.unattended,
+          restartedTaken ? TAKEN_RESTART_TEXTS.remote : undefined,
         );
         if (!queued.ok) return queued;
         continue;
@@ -979,6 +995,7 @@ export function createRouter(deps: RouterDeps): Router {
           record.call,
           reason,
           record.unattended,
+          restartedTaken ? textBlocks(TAKEN_RESTART_TEXTS.local) : undefined,
         );
         if (!told.ok) return told;
       }
@@ -1301,7 +1318,11 @@ export function createRouter(deps: RouterDeps): Router {
           : null;
       const input =
         reason !== null
-          ? failureInput(calId(record.call), reason, mail.unattended)
+          ? {
+              ...failureInput(calId(record.call), reason, mail.unattended),
+              // 그 기계가 실은 글이 있으면 그 글이다(가져간 뒤 재시작처럼 이유의 기본 글이 맞지 않을 때).
+              ...(mail.body === null ? {} : { body: mail.body }),
+            }
           : replyInput(
               outcome === null ? null : { state: outcome.state, reason: null },
             );
@@ -1323,14 +1344,12 @@ export function createRouter(deps: RouterDeps): Router {
     ) {
       const outcome = mail.outcome;
       if (outcome === null || mail.report !== undefined) return ok(undefined);
-      if (outcome.state === "failed") {
-        const dropped = dropCallMail(tx, record.call);
-        if (!dropped.ok) return dropped;
-        return failSent(tx, record, outcome.reason ?? "receiver_ended");
-      }
-      const moved = finish(tx, record, outcome.state, null);
-      if (!moved.ok) return moved;
-      return dropCallMail(tx, record.call);
+      const dropped = dropCallMail(tx, record.call);
+      if (!dropped.ok) return dropped;
+      // report 없이 끝난 step(그 컴퓨터에서 취소됐거나 call 답으로 닫혔다)도 사람이 읽는 줄을 남긴다. instance가 말없이 기다리지 않게.
+      return outcome.state === "failed"
+        ? failSent(tx, record, outcome.reason ?? "receiver_ended")
+        : failSent(tx, record, "closed", "closed_there");
     }
     // (나) 그 기계에서 받은 conversation call에 보낸 쪽이 잇는 말.
     if (
@@ -1537,11 +1556,12 @@ export function createRouter(deps: RouterDeps): Router {
     tx: Tx,
     record: AgentCallRow,
     reason: CallFailReason,
+    ending: StepEnding = reason,
   ): Result<void> {
     const moved = finish(tx, record, "failed", reason);
     if (!moved.ok) return moved;
     if (record.from.kind === "program") {
-      return deps.steps.failed(tx, record.call, reason);
+      return deps.steps.failed(tx, record.call, ending);
     }
     return record.from.kind === "agent"
       ? notifyFailed(
@@ -1605,7 +1625,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (!mailBodySchema.safeParse(input.body).success) {
       return err({
         code: "invalid_input",
-        message: `a step to another computer is text of at most ${MAIL_TEXT_MAX_BYTES} bytes`,
+        message: `the step text is over ${MAIL_TEXT_MAX_BYTES} bytes and cannot go to another computer`,
       });
     }
     const call = tx.newId("cal") as Id<"cal">;
@@ -1670,8 +1690,9 @@ export function createRouter(deps: RouterDeps): Router {
         message: "this mail is not from that computer to this one",
       });
     }
+    // conflict가 아니다: workflows는 conflict를 instance 경합으로 보고 다시 건다.
     const refused = err({
-      code: "conflict" as const,
+      code: "forbidden" as const,
       message: "this report is not for an open step sent to that computer",
     });
     const record = store.read(tx, calId(mail.call));
@@ -1902,7 +1923,7 @@ export function createRouter(deps: RouterDeps): Router {
       ) {
         return ok(undefined);
       }
-      const done = failAll(tx, [record], input.reason, input.notify);
+      const done = failAll(tx, [record], input.reason, input.notify, true);
       return done.ok ? ok(undefined) : done;
     },
     sendRemote,

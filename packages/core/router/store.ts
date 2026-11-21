@@ -61,7 +61,11 @@ function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
     created_at: String(row["created_at"]),
     state_changed_at: String(row["state_at"]),
     result: (row["result"] ?? null) as string | null,
-    delivery: (row["delivery"] ?? null) as AgentCallRow["delivery"],
+    // 끝난 call은 배달 중이 아니다(이 판 앞에 끝난 행에는 값이 남아 있을 수 있다).
+    delivery:
+      row["state"] === "accepted"
+        ? ((row["delivery"] ?? null) as AgentCallRow["delivery"])
+        : null,
     remote_session: (row["remote_session"] ?? null) as Id<"ses"> | null,
   });
 }

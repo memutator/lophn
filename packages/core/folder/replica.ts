@@ -77,7 +77,7 @@ export type ReplicaDeps = {
   random: RandomSource;
   /** 든 manifest가 바뀌었다(`StateChanged{carry_files}`). */
   manifestsChanged(): void;
-  /** 다른 기계의 하위 폴더에 file을 두거나 지웠다(읽기 scan을 깨운다). */
+  /** 다른 기계의 하위 폴더에 file을 두거나 지웠다(읽기 scan을 깨우고, 그 scan이 `StateChanged{carry_files}`를 한 번 낸다). */
   filesChanged(): void;
 };
 

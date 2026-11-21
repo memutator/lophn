@@ -256,6 +256,8 @@ export const folderWiring: WiringFactory = () => {
   // 다음 scan이 2분 timer가 깨운 것이다. 폴더 길 mail의 버리기 규칙은 이 scan의 실패만 센다(file이 올 때마다 도는 scan은 몇 초
   // 사이로 몰린다).
   let timerScan = false;
+  // 받는 자리가 다른 기계의 file을 두거나 지웠고 아직 `carry_files`로 알리지 않았다. 다음 scan이 한 번 알린다.
+  let filesArrived = false;
   const mailFailures: MailFailures = new Map();
   const loggedMail = new Set<string>();
   // build가 만들고 start가 건다.
@@ -324,7 +326,10 @@ export const folderWiring: WiringFactory = () => {
         clock: ctx.clock,
         random: ctx.random,
         manifestsChanged: carryChanged,
-        filesChanged: () => scheduleScan(),
+        filesChanged: () => {
+          filesArrived = true;
+          scheduleScan();
+        },
       });
       ctx.provide("folderReplica", replica);
       ctx.provide("folderCarry", { kick: () => scheduleCarry() });
@@ -1046,6 +1051,13 @@ export const folderWiring: WiringFactory = () => {
           await rosterFiles.readKnown(computersRoot);
         } catch (thrown) {
           log("carry_in_threw", thrown);
+        }
+        // 든 file이 바뀌었다(link·폰·거울로 온 file, 지운 앞 판). 받은 묶음마다 한 번 알린다: 화면(다른 기계의 handoff note,
+        // Settings › Sync)이 다시 읽고, 연결의 상대와 폰은 이 기계가 새로 든 file을 다시 본다. manifest를 받아 들인 때는 그
+        // file이 아직 오기 전이라 그 알림만으로는 화면이 새 file을 보지 못한다.
+        if (filesArrived) {
+          filesArrived = false;
+          carryChanged();
         }
         const byTimer = timerScan;
         timerScan = false;

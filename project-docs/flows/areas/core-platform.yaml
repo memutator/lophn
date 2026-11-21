@@ -3015,6 +3015,7 @@ flows:
       - "받는 자리의 wants(믿는 목록 사슬이 싣는데 없는 file)를 cursor로 빈 page까지 넘기며 file마다 상대의 조각을 받는 자리의 한 번의 받기로 흘린다. 상대가 다른 컴퓨터의 file을 들고 있으면 그것도 받는다. 상대가 들고 있지 않은 file은 건너뛴다. 새로 받은 목록 file이 더 바라게 할 수 있어 받은 것이 있으면 한 번 더 돈다"
       - "서명, revision 표시, 사슬, 크기·sha256 검사는 받는 자리가 한다. 이 flow는 검증하거나 쓰지 않는다"
       - "manifest가 직접 싣는 file에는 mail 폴더의 file(mail/<mal id>.json, mail/acks.json, mail-folder)도 있다"
+      - "받는 자리가 manifest를 받아 들이면 바로, file을 두거나 지우면 다음 읽기 scan(2초 debounce)에서 묶음마다 한 번 StateChanged(carry_files)를 낸다. 화면(handoff note 줄, Settings › Sync)이 새로 온 file을 다시 읽는다"
     outcomes:
       - id: received
         when: "받는 자리가 manifest나 file을 받아 들였다"
@@ -3084,7 +3085,7 @@ flows:
       - "dispatch가 actors(user, 기기 연결의 컴퓨터와 폰)를 본다"
       - "manifests: 이 컴퓨터의 manifest와, 받아 들였고 그것을 검증한 서명 key가 지금 명단의 key인 다른 컴퓨터의 manifest마다 machine, revision, 크기, sha256. 글은 carry/file로 읽는다"
       - "wants: 지금 목록인 다른 컴퓨터의 manifest에서 시작한 목록 사슬(앱 목록, source/<n>.json)이 싣는데 computers 폴더에 그 크기·sha256으로 없는 file을 (machine, path) 순서로 after 뒤부터 limit(기본 1,000)개"
-      - "이 컴퓨터가 든 manifest가 바뀌면(받아 들임, 내보내기, 명단이 바뀌어 다시 검증) StateChanged(carry_files)로 다시 읽는다"
+      - "이 컴퓨터가 든 manifest가 바뀌거나(받아 들임, 내보내기, 명단이 바뀌어 다시 검증) 받는 자리가 다른 컴퓨터의 file을 두거나 지우면(읽기 scan마다 한 번) StateChanged(carry_files)로 다시 읽는다"
     outcomes:
       - id: ok
         observe: [response]

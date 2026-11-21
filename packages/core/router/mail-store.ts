@@ -69,6 +69,18 @@ export function createMailOutbox(): MailOutbox {
         )
         .flatMap((row) => mailOf(row["mail"]) ?? []);
     },
+    dropPeer(tx, peer) {
+      tx.sql.run("delete from mail_outbox where peer = ?", [peer]);
+    },
+    openSentTo(tx, peer) {
+      return tx.sql
+        .all(
+          `select call from agent_calls where state = 'accepted'
+           and delivery is not null and json_extract("to", '$.machine') = ?`,
+          [peer],
+        )
+        .map((row) => String(row["call"]));
+    },
     sentOpenBefore(tx, before) {
       return tx.sql
         .all(
@@ -191,6 +203,18 @@ export function pendingMails(sql: ReadSql, peer?: Id<"mch">): Mail[] {
           peer,
         ]);
   return rows.flatMap((row) => mailOf(row["mail"]) ?? []);
+}
+
+// 이 기계가 mail을 내거나 call을 보내 둔 상대 기계(낼 줄이 있거나 끝나지 않은 보낸 call이 있다).
+export function sentPeers(sql: ReadSql): Id<"mch">[] {
+  return sql
+    .all(
+      `select peer from mail_outbox
+       union select json_extract("to", '$.machine') from agent_calls
+       where state = 'accepted' and delivery is not null`,
+      [],
+    )
+    .map((row) => String(row["peer"]) as Id<"mch">);
 }
 
 // 낼 mail이 남은 상대 기계.

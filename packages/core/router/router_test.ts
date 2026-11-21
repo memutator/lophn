@@ -114,7 +114,7 @@ function setup(
     accepts,
     listOpen: () => [],
     projectOfIdentity: () => null,
-    identityOfProject: () => ok(null),
+    identityOfProject: () => ok("pri_test"),
     appIdOf: () => ok("app_x"),
   };
   const router = createRouter({

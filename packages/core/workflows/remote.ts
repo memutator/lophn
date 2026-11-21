@@ -65,6 +65,8 @@ export function remoteFailureText(
   switch (reason) {
     case "closed_there":
       return `The step was closed on ${computer} without a report.`;
+    case "left_roster":
+      return `${computer} is no longer one of the person's computers; the step was closed.`;
     case "cancelled_here":
       return `The step was cancelled on this computer before ${computer} reported it.`;
     case "skipped":

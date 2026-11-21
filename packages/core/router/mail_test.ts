@@ -64,7 +64,7 @@ import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
 import { createMailInbox, type MailEntryDeps } from "../remote/mail-entry.ts";
 import { callsMailApply, callsMailRefuse } from "./commands.ts";
 import type { RoutedInput } from "./ports.ts";
-import { TAKEN_RESTART_TEXTS } from "./model.ts";
+import { LEFT_ROSTER_TEXT, TAKEN_RESTART_TEXTS } from "./model.ts";
 import { createRouter } from "./router.ts";
 import { createCallStore } from "./store.ts";
 
@@ -1180,6 +1180,55 @@ test("다른 컴퓨터의 report는 다음 step을 넘기지 못해도 report �
       /cannot go to another computer/.test(notHanded[0].message),
   );
   assert.equal(a.read(id).remote_steps[0]?.state, "done");
+});
+
+test("명단에서 빠진 컴퓨터로 보낸 call과 step은 만료를 기다리지 않고 곧바로 읽을 수 있는 실패로 닫힌다", async () => {
+  const a = await machine(A);
+  const sender = a.openSession("lophn_home");
+  const to = { agent: "reviewer", workspace: { home: true as const } };
+  // 아직 닿지 않음(pending), 받았는지 모름(unknown), 대기 목록(held).
+  const pending = send(a, sender, B, to, "t1");
+  const unknown = send(a, sender, B, to, "t2");
+  const held = send(a, sender, B, to, "t3");
+  const mails = pendingMails(a.sql, B as never);
+  const mailOf = (call: string) => mails.find((mail) => mail.call === call)!;
+  assert.ok(
+    a.router.mailSent(a.tx, {
+      mail: mailOf(unknown).id,
+      result: { kind: "unknown" },
+    }).ok,
+  );
+  assert.ok(
+    a.router.mailSent(a.tx, {
+      mail: mailOf(held).id,
+      result: {
+        kind: "acked",
+        applied: { delivery: "held", reason: null, session: null },
+      },
+    }).ok,
+  );
+  const { id } = a.start(REMOTE_BUILD);
+  // 명단에 남은 컴퓨터로 보낸 call은 그대로다.
+  const kept = send(a, sender, C, to, "t4");
+
+  const swept = a.router.sweepMail(a.tx, [B]);
+  assert.ok(swept.ok, JSON.stringify(swept));
+  for (const call of [pending, unknown, held]) {
+    assert.equal(a.call(call)?.["state"], "failed");
+  }
+  assert.equal(a.call(kept)?.["state"], "accepted");
+  assert.equal(pendingMails(a.sql, B as never).length, 0);
+  const told = a.delivered.filter((each) => each.session === sender);
+  assert.equal(told.length, 3);
+  for (const each of told) {
+    assert.equal(blocksText(each.input.body), LEFT_ROSTER_TEXT);
+  }
+  const notHanded = linesOf(a, id, "not_handed");
+  assert.ok(
+    notHanded.length === 1 &&
+      notHanded[0]?.kind === "not_handed" &&
+      /no longer one of the person's computers/.test(notHanded[0].message),
+  );
 });
 
 test("늦게 닿은 step은 대기 목록에 서고, 그 컴퓨터의 사람이 건너뛰면 시작한 컴퓨터에 읽을 수 있는 줄이 남는다", async () => {

@@ -1,7 +1,7 @@
 // 기계 사이 mail의 main thread 쪽이다: agent가 부르는 보내는 입구(`calls/send_remote`), 다른 컴퓨터가 부르는 받는 입구(`a2a/mail`),
 // 늦게 닿은 mail의 대기 목록(`mail/holds`, `mail/decide_hold`), outbox를 link로 내보내고 만료를 닫는 drain. 쓰기는 core 안 machine 자격으로 `calls/mail-*`를 접은 writer로 부른다(본문 준비는 router wiring의 층).
 // 읽기는 같은 ledger를 읽는 main thread 연결로 한다(app-calls와 같다). 명단과 link는 remote wiring이 늦게 내므로 부를 때 읽는다.
-import { err, ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   DEFAULT_CALL_POLICY,
@@ -36,9 +36,11 @@ import {
   callsMailSent,
   callsMailSweep,
   FAILURE_TEXTS,
+  LEFT_ROSTER_TEXT,
   MAIL_QUEUED_TOPIC,
   outboxPeers,
   pendingMails,
+  sentPeers,
 } from "../../../router/mod.ts";
 import {
   type LedgerConnection,
@@ -70,6 +72,7 @@ const MAIL_CONTEXT: AuthenticatedContext = {
 export const mailWiring: WiringFactory = () => {
   let connection: LedgerConnection | undefined;
   let drain: MailDrain | undefined;
+  let sweep: (() => Promise<Result<unknown>>) | undefined;
   let unsubscribe: (() => void) | undefined;
   return {
     name: "mail",
@@ -125,6 +128,20 @@ export const mailWiring: WiringFactory = () => {
           ctx.workflowService.remoteReport(mail, origin),
       };
       ctx.provide("mailInbox", createMailInbox(deps));
+      // 만료된 mail과 명단에서 빠진 기계로 보낸 call을 닫는다. 닫히는 call은 보낸 session에 실패 알림이 간다. 그 글을 먼저 준비한다.
+      const sweeping = async () => {
+        const prepared = await deps.prepare([
+          textBlocks(FAILURE_TEXTS.expired),
+          textBlocks(LEFT_ROSTER_TEXT),
+        ]);
+        if (!prepared.ok) return prepared;
+        // 없음이 아니라 정해진 빼기로 빠진 기계만이다(명단을 아직 읽지 못한 때 모든 call을 닫지 않게).
+        const removed = sentPeers(sql).filter(
+          (peer) => ctx.peek.computerRemoved?.(peer) ?? false,
+        );
+        return await command(callsMailSweep, { removed });
+      };
+      sweep = sweeping;
       const draining = createMailDrain({
         peers: () => outboxPeers(sql),
         pending: (peer) => pendingMails(sql, peer),
@@ -146,14 +163,7 @@ export const mailWiring: WiringFactory = () => {
         },
         call: (device, call, by) => ctx.machineLinks.call(device, call, by),
         record: (mail, result) => command(callsMailSent, { mail, result }),
-        // 닿지 못하고 만료된 call은 보낸 session에 실패 알림이 간다. 그 글을 먼저 준비한다.
-        async sweep() {
-          const prepared = await deps.prepare([
-            textBlocks(FAILURE_TEXTS.expired),
-          ]);
-          if (!prepared.ok) return prepared;
-          return await command(callsMailSweep, {});
-        },
+        sweep: sweeping,
         every(ms, fn) {
           const timer = setInterval(() => void fn(), ms);
           timer.unref();
@@ -193,12 +203,14 @@ export const mailWiring: WiringFactory = () => {
     async afterReady(ctx) {
       if (drain === undefined) return;
       const draining = drain;
-      // link가 붙거나 끊기면 remote_devices가 바뀐다.
+      const sweeping = sweep;
+      // link가 붙거나 끊기면 remote_devices가 바뀐다. 명단에서 컴퓨터가 빠져도 바뀌므로 그 기계로 보낸 call을 바로 닫는다.
       unsubscribe = ctx.bus.subscribe([{ types: ["StateChanged"] }], {
         send(event) {
           const changes = (event.payload as { changes: { name: string }[] })
             .changes;
           if (changes.some((change) => change.name === "remote_devices")) {
+            void sweeping?.();
             void draining.wakeAll();
           }
         },

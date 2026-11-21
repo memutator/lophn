@@ -67,7 +67,7 @@ export type A2aListsDeps = {
   openSessions(): OpenSession[];
   project(
     id: string,
-  ): { identity: string | null; name: string; archived: boolean } | null;
+  ): { identity: string; name: string; archived: boolean } | null;
   projectByIdentity(identity: string): string | null;
   app(id: string): { name: string; archived: boolean } | null;
   // 명함은 `withoutApps`(slug)의 앱을 싣지 않고 만든다.
@@ -186,7 +186,8 @@ export function createA2aLists(deps: A2aListsDeps) {
       : ok(found.machine as Id<"mch">);
   }
 
-  function crossing(workspace: Workspace | null): RemoteWorkspaceOutput {
+  // 없는 project의 workspace는 null이다(목록에서 뺀다).
+  function crossing(workspace: Workspace | null): RemoteWorkspaceOutput | null {
     if (workspace === null) return { kind: "home" };
     if (workspace.kind === "app") {
       return {
@@ -196,10 +197,11 @@ export function createA2aLists(deps: A2aListsDeps) {
       };
     }
     const project = deps.project(workspace.id);
+    if (project === null) return null;
     return {
       kind: "project",
-      identity: (project?.identity ?? null) as Id<"pri"> | null,
-      name: project?.name ?? workspace.id,
+      identity: project.identity as Id<"pri">,
+      name: project.name,
     };
   }
 
@@ -238,12 +240,14 @@ export function createA2aLists(deps: A2aListsDeps) {
       ) {
         continue;
       }
+      const workspace = crossing(one.workspace);
+      if (workspace === null) continue;
       listed.push({
         session: one.session,
         handle: one.handle,
         name: one.name,
         title: one.title,
-        workspace: crossing(one.workspace),
+        workspace,
         state:
           SENDABLE_SESSION_STATES.find((state) => state === one.state) ??
           "unknown",

@@ -47,7 +47,7 @@ function world() {
         accepts: () => null,
         listOpen: () => [],
         projectOfIdentity: () => null,
-        identityOfProject: () => ok(null),
+        identityOfProject: () => ok("pri_test"),
         appIdOf: () => err({ code: "not_found", message: "app not found" }),
       },
       outbox: {} as never,

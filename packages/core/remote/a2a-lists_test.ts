@@ -259,7 +259,11 @@ test("다른 컴퓨터의 목록과 명함은 모든 글 칸을 줄이고, 틀�
     handle: MESSY,
     name: MESSY,
     title: MESSY,
-    workspace: { kind: "project", identity: null, name: MESSY },
+    workspace: {
+      kind: "project",
+      identity: `pri_0${"1".repeat(25)}`,
+      name: MESSY,
+    },
     state: "idle",
     last_active_at: at === 0 ? "yesterday\u0007" : AT,
   });

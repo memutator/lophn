@@ -173,6 +173,10 @@ export const FAILURE_TEXTS: Record<CallFailReason, string> = {
     "The other computer runs an older lophn that cannot take this call; update lophn there.",
 };
 
+// 받는 컴퓨터가 사람의 명단에서 빠져 보낸 call이 닿을 길이 없다(not_found의 다른 글).
+export const LEFT_ROSTER_TEXT =
+  "The other computer is no longer one of the person's computers; the call was closed.";
+
 // 받는 session이 이미 가져가 일하던 call이 재시작으로 끊겼다(lophn_restarted의 다른 글: 기본 글은 가져가기 전에 잃은 call이다).
 // 다른 컴퓨터의 글은 그 기계가 실패 mail의 본문으로 싣는다.
 export const TAKEN_RESTART_TEXTS = {

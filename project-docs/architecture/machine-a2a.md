@@ -48,7 +48,7 @@
   - `cancel`: 보낸 쪽이 call을 취소했다.
   - `state`: 받는 기계가 call을 어떻게 받았는지(`held`, `running`, 받은 session)를 알린다. 답이 없는 길(폴더, 대기 뒤 시작)에서만 낸다. link는 답(`{delivery, reason, session}`)이 같은 일을 한다.
 - **본문.** 글 block만이고 64개까지, 글의 UTF-8 합이 64 KiB까지다. 보내는 쪽이 redaction을 거치고, 받는 쪽이 받는 session 기록에 쓰기 전에 한 번 더 거친다.
-- **만료.** `expires_at`은 보낸 때 + 7일이다.
+- **만료.** `expires_at`은 보낸 때 + 7일이다. 받는 컴퓨터가 정해진 빼기로 명단에서 빠지면 만료를 기다리지 않는다: 그 기계로 낼 줄을 지우고, 그 기계로 보낸 끝나지 않은 call(닿지 않음, 대기, 모름, 도는 중)을 곧바로 `failed(not_found)`로 닫아 보낸 session에 "그 컴퓨터가 더 이상 사람의 컴퓨터가 아니다"라는 글을 준다(workflow step이면 `not_handed` 줄). 주기 sweep과 명단이 바뀔 때(`remote_devices`) 한다.
 
 ### 주소
 

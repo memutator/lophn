@@ -51,6 +51,7 @@ export {
   mailSeen,
   outboxPeers,
   pendingMails,
+  sentPeers,
 } from "./mail-store.ts";
 export { remoteReach, remoteWorkspaceOf } from "./remote-reach.ts";
 export {
@@ -70,6 +71,7 @@ export {
   type RouteInput,
   type RouteResult,
   CALL_SESSION_OPENED_TOPIC,
+  LEFT_ROSTER_TEXT,
   MAIL_QUEUED_TOPIC,
   TAKEN_RESTART_TEXTS,
   remoteStepBody,

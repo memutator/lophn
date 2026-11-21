@@ -245,7 +245,7 @@ async function machine(self: Id<"mch">) {
     directory: {
       ...directoryOf(sql),
       projectOfIdentity: () => null,
-      identityOfProject: () => ok(null),
+      identityOfProject: () => ok("pri_test"),
     },
     transport: createLophnInputTransport({
       record: createReceivedRecorder({ principal: () => MAIL_PRINCIPAL })
@@ -346,7 +346,7 @@ async function machine(self: Id<"mch">) {
     async sweep() {
       const ready = await entry.prepare([textBlocks(FAILURE_TEXTS.expired)]);
       if (!ready.ok) return ready;
-      return await command(callsMailSweep, {});
+      return await command(callsMailSweep, { removed: [] });
     },
     every(_ms, fn) {
       timer = fn;

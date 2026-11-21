@@ -87,12 +87,6 @@ function projectCrossing(
     });
   }
   if (!identity.ok) return identity;
-  if (identity.value === null) {
-    return err({
-      code: "invalid_input",
-      message: "this project has no id shared across computers",
-    });
-  }
   return ok({ project: identity.value });
 }
 

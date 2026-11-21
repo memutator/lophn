@@ -102,7 +102,7 @@ export interface SessionDirectory {
   // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.
   projectOfIdentity(identity: string): Id<"prj"> | null;
   // 이 기계의 project(id나 정확한 이름)의 기계를 건너는 정체. 없는 project는 not_found, 정체가 없으면 null이다.
-  identityOfProject(project: string): Result<string | null>;
+  identityOfProject(project: string): Result<Id<"pri">>;
   // 이 기계의 앱(id, slug, 표시 이름)의 id.
   appIdOf(app: string): Result<Id<"app">>;
 
@@ -180,6 +180,10 @@ export interface MailOutbox {
   // 이 기계가 다른 컴퓨터로 보내 그 기계의 대기 목록에 섰거나(held) 받았는지 모르는(unknown) 끝나지 않은 call 가운데 before보다 먼저 보낸 것.
   // 돌기 시작한(running) call은 빠진다: 나이가 아니라 답, 실패, 취소, 재시작 규칙으로 끝난다.
   sentOpenBefore(tx: Tx, before: string): string[];
+  // 그 기계로 낼 줄 전부를 지운다(그 기계가 명단에서 빠졌다).
+  dropPeer(tx: Tx, peer: string): void;
+  // 이 기계가 그 기계로 보낸 끝나지 않은 call.
+  openSentTo(tx: Tx, peer: string): string[];
 }
 
 export const MAIL_SEEN_STATES = [
@@ -205,7 +209,11 @@ export type MailSeenRow = {
   arrived_at: string;
 };
 
-export type StepEnding = CallFailReason | "closed_there" | "cancelled_here";
+export type StepEnding =
+  | CallFailReason
+  | "closed_there"
+  | "cancelled_here"
+  | "left_roster";
 
 // workflow가 다른 컴퓨터로 넘긴 step(보낸 쪽이 program인 call 행)의 끝과 바뀜을 workflows에 알린다. 구현은 wiring이 끼운다.
 export interface SentSteps {

@@ -1712,7 +1712,7 @@ flows:
     unclear: []
 
   - id: calls-mail-sweep
-    title: "만료된 mail을 닫는다(낸 줄, 대기 목록의 줄)"
+    title: "만료된 mail과 명단에서 빠진 컴퓨터로 보낸 call을 닫는다"
     actor: system
     entries: [route:calls/mail-sweep]
     boundary: [router]
@@ -1722,7 +1722,8 @@ flows:
       - packages/core/router/mail-store.ts
       - packages/core/remote/mail-drain.ts
     steps:
-      - "drain의 주기 timer(60초)가 만료 알림 글을 준비한 뒤 부른다. core 안 machine이 아니면 forbidden이다."
+      - "drain의 주기 timer(60초)와 명단이 바뀔 때(remote_devices)가 알림 글을 준비하고 정해진 빼기로 명단에서 빠진 상대 기계(removed)를 모아 부른다. core 안 machine이 아니면 forbidden이다."
+      - "빠진 기계로 낼 줄을 모두 지우고, 그 기계로 보낸 끝나지 않은 call(닿지 않음, 대기, 모름, 도는 중)을 failed(not_found)로 닫아 보낸 session에 그 컴퓨터가 더 이상 사람의 컴퓨터가 아니라는 글을 준다. workflow step이면 not_handed 줄이다."
       - "outbox에서 만료가 지난 줄을 지운다. call mail이고 그 행이 끝나지 않았으면 행을 failed(expired)로 닫고 보낸 session에 늦은 실패로 알린다."
       - "그 기계의 대기 목록에 섰거나(held) 받았는지 모르는(unknown) 이 기계의 끝나지 않은 call은 행을 쓴 때부터 만료 뒤 10분(시계 차이의 여유)이 지나면 failed(expired)로 닫고 보낸 session에 알린다. 받는 기계는 만료된 대기 줄을 시작하지 않고, 뒤에 온 그 call의 답은 끝난 call의 답처럼 무시된다. 돌기 시작한(running) call은 나이로 닫지 않는다."
       - "대기 목록에서 만료가 지난 줄을 expired로 닫고 실패 mail(expired)을 낸다. StateChanged(mail_holds)."

@@ -313,8 +313,12 @@ export const callsMailSweep = defineCommand({
   method: "mail-sweep",
   name: "SweepCallMail",
   changes: [],
-  input: z.strictObject({}),
-  output: z.strictObject({ expired: z.number().int() }),
+  // 사람의 명단에서 정해진 빼기로 빠진 기계(부르는 쪽이 명단으로 정한다).
+  input: z.strictObject({ removed: z.array(idSchema("mch")) }),
+  output: z.strictObject({
+    expired: z.number().int(),
+    gone: z.number().int(),
+  }),
   compare: z.strictObject({}),
   actors: ["machine"],
   errors: ["forbidden", "unavailable", "internal"],
@@ -708,12 +712,12 @@ const mailDecideCommand: CommandDefinition<typeof callsMailDecide> = {
 
 const mailSweepCommand: CommandDefinition<typeof callsMailSweep> = {
   route: callsMailSweep,
-  handle(tx, ctx) {
+  handle(tx, ctx, input) {
     const allowed = machineOnly(ctx);
     if (!allowed.ok) return allowed;
     const router = routerFor(tx);
     if (!router.ok) return router;
-    return router.value.sweepMail(tx);
+    return router.value.sweepMail(tx, input.removed);
   },
 };
 

@@ -9,13 +9,12 @@ import { workspaceNameSchema } from "./workspaces.ts";
 // agent가 다른 컴퓨터에서 부를 수 있는 것(열린 session, agent 명함)을 읽는 길이다. 보내는 컴퓨터의 core가 agent 대신 받는 컴퓨터의
 // `a2a/*`를 기기 자격으로 부른다. 받는 컴퓨터는 이 기계에서 private인 workspace의 것을 내주지 않는다. 누구를 부를지는 지침이 정한다.
 
-// 기계를 건너는 workspace의 표시다. project는 기계 사이의 정체(`pri_`)와 이름이고, identity가 null인 project는 다른 컴퓨터에서
-// 부를 수 없다. 앱은 앱 id와 slug다.
+// 기계를 건너는 workspace의 표시다. project는 기계 사이의 정체(`pri_`)와 이름이다. 앱은 앱 id와 slug다.
 export const remoteWorkspaceOutputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("home") }),
   z.object({
     kind: z.literal("project"),
-    identity: idSchema("pri").nullable(),
+    identity: idSchema("pri"),
     name: z.string(),
   }),
   z.object({ kind: z.literal("app"), app: idSchema("app"), name: z.string() }),

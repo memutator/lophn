@@ -59,6 +59,7 @@ import {
   failureInput,
   isFinished,
   MAIL_QUEUED_TOPIC,
+  LEFT_ROSTER_TEXT,
   remoteStepBody,
   type RouteInput,
   TAKEN_RESTART_TEXTS,
@@ -181,7 +182,11 @@ export interface Router {
   // 닫고 {failed, expired}를 돌려준다(오류로 돌리면 닫은 것이 되돌아간다).
   decideHold(tx: Tx, input: DecideHoldInput): Result<MailApplied>;
   // 만료된 mail을 닫는다: 이 기계가 낸 줄(보낸 call은 expired로 끝낸다), 대기 목록의 줄. 오래 지난 받은 기록을 지운다.
-  sweepMail(tx: Tx): Result<{ expired: number }>;
+  // removed는 사람의 명단에서 정해진 빼기로 빠진 기계다. 그 기계로 보낸 끝나지 않은 call은 곧바로 닫고 낼 줄은 지운다.
+  sweepMail(
+    tx: Tx,
+    removed: readonly string[],
+  ): Result<{ expired: number; gone: number }>;
 }
 
 export type SendStepInput = {
@@ -1557,6 +1562,8 @@ export function createRouter(deps: RouterDeps): Router {
     record: AgentCallRow,
     reason: CallFailReason,
     ending: StepEnding = reason,
+    // 이유의 기본 글 대신 보낸 session에 줄 글.
+    body?: ContentBlock[],
   ): Result<void> {
     const moved = finish(tx, record, "failed", reason);
     if (!moved.ok) return moved;
@@ -1570,6 +1577,7 @@ export function createRouter(deps: RouterDeps): Router {
           record.call,
           reason,
           record.unattended,
+          body,
         )
       : ok(undefined);
   }
@@ -1805,9 +1813,30 @@ export function createRouter(deps: RouterDeps): Router {
     );
   }
 
-  function sweepMail(tx: Tx): Result<{ expired: number }> {
+  function sweepMail(
+    tx: Tx,
+    removed: readonly string[],
+  ): Result<{ expired: number; gone: number }> {
     const now = tx.now();
     let expired = 0;
+    let gone = 0;
+    // 명단에서 빠진 기계: 닿을 길이 없으니 만료까지 기다리지 않는다(대기·모름·도는 중 모두). 그 기계가 보내던 답도 이제 받지 않는다.
+    for (const peer of removed) {
+      outbox.dropPeer(tx, peer);
+      for (const call of outbox.openSentTo(tx, peer)) {
+        const record = store.read(tx, calId(call));
+        if (record === null || isFinished(record.state)) continue;
+        const failed = failSent(
+          tx,
+          record,
+          "not_found",
+          "left_roster",
+          textBlocks(LEFT_ROSTER_TEXT),
+        );
+        if (!failed.ok) return failed;
+        gone++;
+      }
+    }
     // 이 기계가 낸 줄: 닿지 못한 call은 보낸 session에 늦은 실패로 알린다.
     for (const mail of outbox.expired(tx, now)) {
       const removed = outbox.remove(tx, mail.id);
@@ -1843,7 +1872,7 @@ export function createRouter(deps: RouterDeps): Router {
       tx,
       new Date(Date.parse(now) - 2 * MAIL_EXPIRY_MS).toISOString(),
     );
-    return ok({ expired });
+    return ok({ expired, gone });
   }
 
   return {

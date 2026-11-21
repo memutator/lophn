@@ -64,7 +64,10 @@ const environment: RouterEnvironment = {
           });
         }
         const loaded = loadProject(view.sql, found.id);
-        return loaded.ok ? ok(loaded.value?.identity ?? null) : loaded;
+        if (!loaded.ok) return loaded;
+        return loaded.value === null
+          ? err({ code: "not_found" as const, message: "project not found" })
+          : ok(loaded.value.identity as Id<"pri">);
       },
     };
     const { record } = createReceivedRecorder({ principal: who });

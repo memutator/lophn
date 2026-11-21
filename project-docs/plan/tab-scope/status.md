@@ -11,4 +11,4 @@ lead만 고친다. `tools/status.py tab-scope build`가 `tasks/*.md`에서 id, �
 | `tab-owner-screen` | tab-owner | 2 | tab-owner-core, tab-owner-layout, browser-profile-partitions | merged | tab-owner/tab-owner-screen | 7d833eb0c |  |
 | `tab-owner-sidebar` | tab-owner | 2 | tab-owner-layout | merged | tab-owner/tab-owner-sidebar | 4d2fce7cd |  |
 | `browser-profile-settings` | browser-profile | 3 | browser-profile-core, browser-profile-partitions | merged | browser-profile/browser-profile-settings | 2bb48f0f8 |  |
-| `tab-owner-hand` | tab-owner | 3 | tab-owner-core, tab-owner-screen, tab-owner-sidebar | running | tab-owner/tab-owner-hand |  |  |
+| `tab-owner-hand` | tab-owner | 3 | tab-owner-core, tab-owner-screen, tab-owner-sidebar | merged | tab-owner/tab-owner-hand | 89987b6dc |  |

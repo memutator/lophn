@@ -76,6 +76,7 @@ import {
 } from "../../apps/releases/bundle/seal.ts";
 import { createReleaseCommands } from "../../apps/releases/commands.ts";
 import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
+import { sdkMissingMessage } from "./sdk-missing.ts";
 import { compareForActivation } from "../../apps/releases/compare.ts";
 import { releasesSchemaSteps } from "../../apps/releases/schema.ts";
 import {
@@ -1424,4 +1425,27 @@ test("data를 보내지 않는 앱도 computers destination으로 source와 app.
     assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
     assert.equal(taken.value.installed, "app_and_release");
   });
+});
+
+// 지우면 이 lophn보다 옛 SDK로 지은 앱을 새 컴퓨터가 들이지 못할 때 "lophn을 올려라"라고 말해, 사람이 할 수 있는 일이 없다.
+test("빠진 SDK 판이 이 lophn보다 옛 것이면 앱을 지금 SDK로 옮기라고, 더 새 것이거나 없으면 lophn을 올리라고 말한다", () => {
+  const older = sdkMissingMessage([
+    { name: "@lophn/declaration", version: "4.13.0", installed: "5.0.0" },
+  ]);
+  assert.match(older, /built with @lophn\/declaration@4\.13\.0/);
+  assert.match(older, /update the app to the current SDK/);
+  assert.doesNotMatch(older, /update lophn/);
+  for (const installed of ["4.12.0", null]) {
+    const newer = sdkMissingMessage([
+      { name: "@lophn/declaration", version: "4.13.0", installed },
+    ]);
+    assert.match(newer, /update lophn on this machine/);
+    assert.doesNotMatch(newer, /current SDK/);
+  }
+  const both = sdkMissingMessage([
+    { name: "@lophn/declaration", version: "4.13.0", installed: "5.0.0" },
+    { name: "@lophn/app-ui", version: "9.0.0", installed: "2.24.2" },
+  ]);
+  assert.match(both, /does not have @lophn\/app-ui@9\.0\.0; update lophn/);
+  assert.match(both, /built with @lophn\/declaration@4\.13\.0/);
 });

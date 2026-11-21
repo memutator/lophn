@@ -37,6 +37,7 @@ import {
 } from "./releases/sdk-permissions.ts";
 import { loadReleases } from "./releases/store.ts";
 import type { FolderAppsHost } from "../folder/apps/deps.ts";
+import { missingSdkOf, sdkMissingMessage } from "../folder/apps/sdk-missing.ts";
 
 /** core command를 폴더 take-in 자격으로 부른다. 성공이면 command의 result다. */
 export type FolderCommand = (envelope: {
@@ -49,16 +50,22 @@ export type FolderCommand = (envelope: {
 // `syncAppSdk`가 낸 실패 글에서 빠진 `@lophn/*` 또는 `@me/*` package를 뽑는다.
 const MISSING_SDK_RE = /SDK is not installed: (@(?:lophn|me)\/[^\s@]+@\S+)/;
 
-function failureFromPrepare(
+async function failureFromPrepare(
+  dataRoot: string,
   stage: "build" | "dependencies" | "migration" | "handlers" | "release",
   reason: string,
-): Result<never> {
+): Promise<Result<never>> {
   const missing = MISSING_SDK_RE.exec(reason)?.[1];
   if (missing !== undefined) {
     if (missing.startsWith("@lophn/")) {
+      const at = missing.lastIndexOf("@");
       return err({
         code: "conflict",
-        message: `this lophn does not have ${missing}; update lophn on this machine`,
+        message: sdkMissingMessage(
+          await missingSdkOf(dataRoot, [
+            { name: missing.slice(0, at), version: missing.slice(at + 1) },
+          ]),
+        ),
         details: { reason: "sdk_missing", packages: [missing] },
       });
     }
@@ -183,6 +190,7 @@ export function createFolderAppsHost(deps: {
       const declared = new Set<string>(pkg.permissions);
       const userPermissions = new Map<string, readonly string[]>();
       const missingSdk: string[] = [];
+      const missingPins: { name: string; version: string }[] = [];
       for (const need of dependencies) {
         if (need.name.startsWith("@lophn/")) {
           const part = need.name.slice("@lophn/".length);
@@ -190,9 +198,13 @@ export function createFolderAppsHost(deps: {
             const info = await stat(
               `${deps.dataRoot}/sdk/${part}/${need.version}/package.json`,
             );
-            if (!info.isFile()) missingSdk.push(`${need.name}@${need.version}`);
+            if (!info.isFile()) {
+              missingSdk.push(`${need.name}@${need.version}`);
+              missingPins.push(need);
+            }
           } catch {
             missingSdk.push(`${need.name}@${need.version}`);
+            missingPins.push(need);
           }
           continue;
         }
@@ -214,7 +226,9 @@ export function createFolderAppsHost(deps: {
       if (missingSdk.length > 0) {
         return err({
           code: "conflict",
-          message: `this lophn does not have ${missingSdk.join(", ")}; update lophn on this machine`,
+          message: sdkMissingMessage(
+            await missingSdkOf(deps.dataRoot, missingPins),
+          ),
           details: { reason: "sdk_missing", packages: missingSdk },
         });
       }
@@ -295,7 +309,11 @@ export function createFolderAppsHost(deps: {
       });
       if (!prepared.ok) return prepared;
       if (prepared.value.status === "failed") {
-        return failureFromPrepare(prepared.value.stage, prepared.value.reason);
+        return failureFromPrepare(
+          deps.dataRoot,
+          prepared.value.stage,
+          prepared.value.reason,
+        );
       }
       return ok(prepared.value.release.id as Id<"rel">);
     },

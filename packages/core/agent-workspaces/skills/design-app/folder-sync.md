@@ -62,7 +62,6 @@ to another machine".
      small summaries the other computers show.
    - Leave a table out when it describes this computer or can be rebuilt here: raw
      records read from local files, file read positions, caches, large imports.
-     Leaving out a large raw table is what keeps the synced data small.
    - Do not send sensitive data (health, money, private notes) out unless the
      person asks: leave its table out, or use a destination that stays on the
      person's own machines.
@@ -87,8 +86,11 @@ sync: {
 
 When a migration adds a table, add it to `sync` only if it must leave this
 computer. Removing a table from `sync` keeps its rows here; the rows the other
-computers already received stay there. A newly listed table's rows count as
-written when its release starts; of two computers, the later wins a shared key.
+computers already received stay there. Listing a table with rows on several
+computers merges the copies: a shared row takes the copy of the computer that
+starts the release last, over edits and deletions made elsewhere while the
+table was local. If that is not acceptable, sync a new table and move this
+computer's rows into it.
 
 Write the choice and the reason in DESIGN.md (Model): which tables go where, which
 stay on each computer, which tool moves them, whether it is encrypted.
@@ -107,8 +109,7 @@ first three rules:
   computers that hand out the same number lose a row.
 - No trigger on a listed table: a change from another computer applies to it and
   fires the trigger again. A trigger on a table you did not list may write to a
-  listed table (it runs once, on the computer that wrote, and what it wrote is
-  sent). A listed table must not reference a table you did not list (the other
+  listed table (it runs once, where the write happened). A listed table must not reference a table you did not list (the other
   computers have no such parent row). A table you did not list may reference a
   listed one, without `ON DELETE` or `ON UPDATE` `CASCADE`, `SET NULL` or
   `SET DEFAULT` (changes from another computer do not run them).
@@ -131,8 +132,7 @@ Know and design for these:
   change from another release waits on this computer, not lost, until this
   computer runs that release. The other computers that have the app follow a new
   release by themselves (see "Bring an app to another machine").
-- Keep the listed tables well under 1 GiB: a larger copy of them cannot go to the
-  folder. Tables you did not list do not count.
+- Keep the listed tables well under 1 GiB; tables you did not list do not count.
 
 ## Know when data changed
 

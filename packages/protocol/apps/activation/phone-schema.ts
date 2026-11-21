@@ -82,7 +82,7 @@ export function phoneSchemaProblems(
     for (const foreign of table.foreignKeys) {
       if (isSynced(table.name) && !isSynced(foreign.table)) {
         problems.push(
-          `Table ${table.name} syncs but references ${foreign.table}, which stays on this computer. Other computers have no such parent row; list ${foreign.table} in sync too, or drop the reference.`,
+          `Table ${table.name} syncs but references ${foreign.table}, which stays on this computer. Other computers have no such parent row; list ${foreign.table} in sync too (then it must follow these sync schema rules as well: a text primary key, no AUTOINCREMENT, UNIQUE, CHECK or trigger), or drop the reference.`,
         );
       } else if (
         !isSynced(table.name) &&

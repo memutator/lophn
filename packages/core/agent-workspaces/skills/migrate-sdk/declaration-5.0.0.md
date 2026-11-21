@@ -19,7 +19,7 @@ To keep exactly what the app does today, list every table the app's migrations c
 
 - Keep a table when the person needs its rows on the other computers: what they write by hand, and small summaries other computers show.
 - Remove a table that describes this computer or can be rebuilt here: raw records read from local files, file read positions, caches, large imports. Its rows stay on this computer; rows the other computers already received stay there.
-- When a table is listed in `sync` (for the first time, or again after it was removed), the rows already on this computer count as written at the moment the new release starts here. On another computer that lists it too, the same row from both computers ends up with the one written later; a computer that kept an older copy of the table does not undo them.
+- When a table is listed in `sync` (for the first time, or again after it was removed), the rows already on each computer count as written at the moment the new release starts there. Listing a table that already has rows on more than one computer merges the copies: for a row that exists on several computers, the copy of the computer that starts the new release last wins, also over edits and deletions made elsewhere while the table was local. If that is not acceptable, sync a new table instead and move this computer's rows into it.
 - Rows each computer makes from its own source (an hourly rollup of this computer's records) must carry the computer's id in the primary key, for example `(machine, hour)`, read from `machines()` in `@lophn/cap-tool` (the entry with `current: true`). Without it two computers write the same key and overwrite each other's numbers column by column. Changing a primary key is a new table and a migration: create the new table, rebuild it from this computer's own raw rows (do not copy the old rollup: its rows were already merged across computers, and copying would tag the other computers' numbers with this computer's id), list the new one and drop the old one from `sync`.
 
 The schema rules for synced data now apply to the listed tables only (all tables for an app with `"phone"` in `runs_on`, whose phone copy keeps the whole store). Release preparation checks, with `invalid_input`-style reasons the agent can fix:
@@ -89,7 +89,7 @@ The SDK guide replaced `sync_to` with `sync` and states which rules apply to lis
 -other computers' summaries with `connectCommands(…, { on })`, and cache the small
 -result locally if the screen must show it while that computer is off.
 +## Pick the tables and the destination
-@@ -65 +59,7 @@
+@@ -65 +59,6 @@
 -3. Decide per app, not once for the person:
 +3. Decide per table, not once for the app:
 +   - List a table when the person needs its rows on the other computers: what they
@@ -97,7 +97,6 @@ The SDK guide replaced `sync_to` with `sync` and states which rules apply to lis
 +     small summaries the other computers show.
 +   - Leave a table out when it describes this computer or can be rebuilt here: raw
 +     records read from local files, file read positions, caches, large imports.
-+     Leaving out a large raw table is what keeps the synced data small.
 @@ -69,3 +69,2 @@
 -   - Every table of the app's store goes to the destination. State that belongs to
 -     one machine (window layout, a local path, the last opened file) does not go in
@@ -107,8 +106,11 @@ The SDK guide replaced `sync_to` with `sync` and states which rules apply to lis
 @@ -74,5 +73,21 @@
 +When a migration adds a table, add it to `sync` only if it must leave this
 +computer. Removing a table from `sync` keeps its rows here; the rows the other
-+computers already received stay there. A newly listed table's rows count as
-+written when its release starts; of two computers, the later wins a shared key.
++computers already received stay there. Listing a table with rows on several
++computers merges the copies: a shared row takes the copy of the computer that
++starts the release last, over edits and deletions made elsewhere while the
++table was local. If that is not acceptable, sync a new table and move this
++computer's rows into it.
 @@ -85,4 +97,6 @@
 -An app with `sync_to` is a sync app on the computer: every computer that has the
 -app writes rows and the copies are merged per column. Follow the "Data" section of

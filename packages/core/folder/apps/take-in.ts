@@ -27,6 +27,7 @@ import {
   isInstalledPackage,
   takeInPackages,
 } from "./packages.ts";
+import { missingSdkOf, sdkMissingMessage } from "./sdk-missing.ts";
 import { setSourceRead, sourceCursor } from "./state.ts";
 
 const incomplete = (message: string): Result<never> =>
@@ -71,20 +72,20 @@ async function checkCommitDependencies(
   preferredOrigin?: Id<"mch">,
 ): Promise<Result<void>> {
   const wanted = await commitDependencies(repo, commit);
-  const sdk: string[] = [];
+  const sdk: { name: string; version: string }[] = [];
   for (const pin of wanted.sdk) {
     const part = pin.name.slice("@lophn/".length);
     if (
       !(await isInstalledPackage(`${deps.dataRoot}/sdk/${part}/${pin.version}`))
     ) {
-      sdk.push(`${pin.name}@${pin.version}`);
+      sdk.push(pin);
     }
   }
   if (sdk.length > 0) {
-    return conflict(
-      `this lophn does not have ${sdk.join(", ")}; update lophn on this machine`,
-      { reason: "sdk_missing", packages: sdk },
-    );
+    return conflict(sdkMissingMessage(await missingSdkOf(deps.dataRoot, sdk)), {
+      reason: "sdk_missing",
+      packages: sdk.map((pin) => `${pin.name}@${pin.version}`),
+    });
   }
   const missing = async () => {
     const out: string[] = [];

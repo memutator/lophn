@@ -1,5 +1,5 @@
 id: claude-gui-session-title
-version: 0.23.112
+version: 0.23.114
 title: Claude Code GUI 세션 제목이 마지막 프롬프트로 덮어씌워지는 버그를 고친다
 modules: [packages/core/extensions]
 change: |

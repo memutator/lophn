@@ -1,7 +1,7 @@
 id: phone-guest-remounts-after-background
 title: 컴퓨터에서 도는 앱의 폰 화면은 폰 앱이 잠시 뒤로 가도 연결이 끊기면 guest가 내려가 화면 상태를 잃는다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile, packages/remote-client]
 now: |
@@ -24,3 +24,6 @@ fix: |
   - 중간(추천): `useAppScreen`이 한 번 `running`이 된 guest는 연결 상태와 목록 읽기 상태가 바뀌어도 내리지 않고(release가 바뀌거나 사람이
     Try again을 누를 때만 새로 띄운다) 연결 끊김과 다시 여는 중은 guest 위의 줄로 알린다. view가 `lost`면 그때 내린다.
   - 큼: 폰 앱이 뒤로 가도 연결을 유지한다(background 연결은 이 일의 범위 밖).
+closed: |
+  중간 안으로 고쳤다. `use-app-screen.ts`가 사실을 모으고 순수 함수 `decideScreen`(`screen-state.ts`)이 정한다: 한 번 `running`이 된 guest는 연결, 목록 읽기, view 다시 열기에 내려가지 않고(같은 key), 컴퓨터가 닿지 않는 동안 guest 위의 layout 한 줄("Can't reach <컴퓨터>")로 알린다. 호출은 연결 없이 `unavailable`로 답한다(`remote-client`가 연결이 없을 때와 끊길 때 곧바로 답한다). guest가 새로 뜨는 것은 새 bundle, Try again, guest 실패, 앱이 안 돎·항목 사라짐·호환 거절, 그리고 컴퓨터가 view에 5분(`STALE_AFTER_MS`)을 넘게 닿지 않았을 때다(core는 기기의 연결이 닫히면 그 기기의 view를 지우고 앱 event는 replay하지 않으므로 view는 같은 id로 다시 열고, 긴 부재 뒤에는 낡은 화면을 지키지 않는다). 기기(emulator)에서는 아직 보지 못했다: 상태를 만든 뒤 다른 앱에 20초쯤 갔다 와 그대로인지 본다.
+guard: packages/mobile/src/apps/screen-state.test.ts와 view.test.ts(5분 규칙의 양쪽, 연결 없는 호출)

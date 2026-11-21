@@ -33,6 +33,7 @@ import {
   appSyncSnapshot,
   appSyncSnapshotFile,
 } from "../apps/app-sync.ts";
+import { appFilesPut, appFilesRead } from "../apps/app-files.ts";
 import { appGet, appList } from "../apps/apps.ts";
 import {
   appsOAuthBegin,
@@ -270,6 +271,9 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // `apps/log_view_error`는 넣지 않고(입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다), 자기가 연 view에만 쓰는 `app_views/log_error`만 둔다.
 // 다른 컴퓨터의 창에 뜬 이 기계의 앱 화면: 그 화면의 agent 길(`app_sessions/*`, `app_calls/*`, `app_agents/list`)을 둔다. 기기는 자기가 연
 // view를 실어야 하고 앱은 core가 그 view로 정한다(입력의 앱을 믿지 않는다).
+// 앱 file(`app_files/*`): 폰이 앱의 file을 컴퓨터에 올리고 내려받으며, 다른 컴퓨터의 창에 뜬 이 기계의 앱 화면도 file을 읽는다. 앱을 입력에서 받는데도
+// 열어 두는 이유는 `app_sync/*`와 같다: 기기는 그 사람 자신의 폰이고, 올리는 것은 hash가 이름인 bytes를 앱 자신의 file 자리에 두는 것뿐이며(앱의
+// 코드도 DB도 바꾸지 못한다) 읽는 것도 그 앱의 file 자리에서 hash를 아는 file뿐이다.
 // 폰에서 도는 앱: 폰이 앱 backend와 migration file(`apps/phone_file`)을 받고 자기 사본을 컴퓨터와 맞춘다(`app_sync/*`). `app_sync/push`는
 // 기기 자격(principal `device:<id>`)만 받는다.
 export const REMOTE_ALLOWED_ROUTES = [
@@ -435,6 +439,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   appSyncPull,
   appSyncSnapshot,
   appSyncSnapshotFile,
+  // 앱 file(사진, 고른 file): 폰이 컴퓨터에서 도는 앱의 file을 조각으로 올리고(put) 컴퓨터가 가진 file을 범위로 받는다(read)
+  appFilesPut,
+  appFilesRead,
   // 컴퓨터끼리 맞추는 file을 나른다(연결된 컴퓨터, 폰). 받는 쪽은 명단의 컴퓨터가 서명한 manifest에 맞는 file만 둔다
   ...CARRY_ROUTES,
   // 기기가 자기를 내 기기 명단에서 뺀다

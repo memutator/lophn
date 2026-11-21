@@ -1,7 +1,7 @@
 // The screen of an app that runs on the phone: it opens from the phone's own copy, with or without its computer. The
 // guest runs the app's backend on app.sqlite; external operations push the outbox first and then go to the view on the
 // computer (opened while it is reachable). Not installed yet: it installs while the computer is reachable.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { APP_SYNC_CHANGE_MAX_BYTES } from "../../../../protocol/apps/app-sync.ts";
 import { type PhoneLocal, phoneCanRun } from "../../../../protocol/apps/phone-screen.ts";
 import { useEventClient } from "../../../../shell/renderer/desktop/connection/events/hooks.tsx";
@@ -16,9 +16,12 @@ import {
   type GuestState,
   guestHostInfo,
 } from "../guest/mod.ts";
+import { createFilePlace, type FilePlace } from "../files/place.ts";
 import { baseReady } from "../use-app-screen.ts";
 import { linkView, type ViewLink } from "../view.ts";
 import { paths, releaseFiles, runsOnPhone } from "./folder.ts";
+import { localFiles } from "./native.ts";
+import { ackFile } from "./held.ts";
 
 export type LocalScreenState =
   | { readonly kind: "loading" }
@@ -42,6 +45,9 @@ export type LocalScreenState =
       readonly local: PhoneLocal;
       readonly appDb: GuestAppDbProp;
       readonly onLocalChange: () => void;
+      /** The app's files in its own folder on the phone; a sync app's are uploaded at the next sync. */
+      readonly files: FilePlace;
+      readonly interactive: (open: boolean) => void;
     };
 
 export interface LocalScreen {
@@ -100,6 +106,7 @@ export function useLocalScreen({
     const next = linkView({
       client,
       input: { view, mode: "live", app: appId, release: null, screen: screenKey, place: "phone", params: {} },
+      now: Date.now,
       onState: () => {},
       onRebound: () => {},
     });
@@ -132,6 +139,33 @@ export function useLocalScreen({
     if (isLocal && installed === null && idle && online) store?.install(appId, computer?.key);
   }, [isLocal, installed, idle, online, store, appId, computer?.key]);
 
+  // The app's files folder is the app's own data: a capability that makes a file answers its handle at once. A sync app
+  // syncs soon; each computer gets the files it lacks before any row that may name them.
+  const place = useMemo<FilePlace | null>(
+    () =>
+      store === null
+        ? null
+        : createFilePlace({
+            files: localFiles,
+            dir: paths(appId).files,
+            app: appId,
+            // The install record decides each time (a screen may have been drawn before the app was installed).
+            keeping: () =>
+              store.installed(appId)?.kind === "sync"
+                ? {
+                    kind: "sync",
+                    changed: () => store.syncNow(appId),
+                    acked: (computer, file) => ackFile(localFiles, appId, computer, file),
+                  }
+                : { kind: "local" },
+            links: () => store.links(appId),
+            target: () => ({ mode: "live", app: appId, release: null }),
+            newName: () => newId("stg"),
+            now: Date.now,
+            sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          }),
+    [store, appId],
+  );
   const guestKey = `${installed?.release}:${screenKey}:${attempt}`;
   const state = ((): LocalScreenState => {
     if (entry?.state === "installing") return { kind: "installing" };
@@ -139,7 +173,7 @@ export function useLocalScreen({
       if (entry?.state === "failed") return { kind: "failed", failure: entry.failure };
       return online ? { kind: "installing" } : { kind: "offline" };
     }
-    if (screen === undefined || fits === null) return { kind: "failed" };
+    if (screen === undefined || fits === null || place === null) return { kind: "failed" };
     if (!fits.ok) return { kind: "refused", reason: fits.reason };
     if (baseOk === null) return { kind: "loading" };
     if (!baseOk) return { kind: "failed" };
@@ -172,6 +206,8 @@ export function useLocalScreen({
       },
       appDb: { path: absolute(paths(appId).db), record: sync },
       onLocalChange: () => store!.localChange(appId),
+      files: place,
+      interactive: (open) => link.current?.interactive(open),
     };
   })();
 

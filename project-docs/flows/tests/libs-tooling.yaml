@@ -170,7 +170,7 @@ files:
     note: 폰이 화면 manifest를 열지 정하는 phoneCanRun(폰보다 새 base·kit·모르는 module은 phone_too_old, 옛 major는 screen_too_old, 같은 major의 옛 판은 ok)과 guest 메시지 schema(64 KiB 넘는 call input, 모르는 칸 거절)
   - path: packages/protocol/phone/capabilities_test.ts
     covers: []
-    note: "@lophn/cap-phone이 손으로 가진 사본(기능 이름, backend가 부를 수 있는 기능, 진동 kind, 링크 scheme, backend 길의 stand-in 값)이 protocol의 기능 표와 선언 SDK의 이름 목록과 같다"
+    note: "@lophn/cap-phone이 손으로 가진 사본(기능 이름, backend가 부를 수 있는 기능, 진동 kind, 링크 scheme, backend 길의 stand-in 값, 사진·file 기능의 한도(고르는 수 10, types 수와 무늬, 64 MiB, hash 모양))이 protocol의 기능 표와 선언 SDK의 이름 목록과 같다"
   - path: packages/protocol/phone/drive_test.ts
     covers: []
     note: 폰 preview를 다루는 kind 넷(drive.snapshot·act·screenshot·wait)의 입력·출력이 schema를 통과하고, drive.act의 모르는 type과 Enter 밖 press key를 거절한다. 아직 쓰는 쪽이 없어 outcome이 없다
@@ -288,4 +288,3 @@ files:
   - path: tools/install-checklist_test.ts
     covers: []
     note: 설치 체크리스트가 깔린 판 초과 설치할 판 이하의 항목만 모으고 downgrade는 경고만 내는지 보는 도구 test
-

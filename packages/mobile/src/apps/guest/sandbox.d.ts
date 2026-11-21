@@ -20,6 +20,7 @@ declare module "@callstack/react-native-sandbox" {
     jsBundleSource?: string;
     allowedTurboModules?: string[];
     turboModuleSubstitutions?: Record<string, string>;
+    imageFolder?: string;
     onMessage?: (data: unknown) => void;
     onError?: (error: ErrorEvent) => void;
   }

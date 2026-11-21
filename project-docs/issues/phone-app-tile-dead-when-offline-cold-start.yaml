@@ -1,0 +1,19 @@
+id: phone-app-tile-dead-when-offline-cold-start
+title: 컴퓨터가 꺼진 채 폰 앱을 새로 켜면 Home의 앱 줄을 눌러도 열리지 않고 안내 화면의 앱 이름이 빈다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile]
+now: |
+  emulator(release build, 2026-11-22)에서 개발 core를 끄고 폰 앱을 강제 종료한 뒤 새로 켰다. Home은 "<컴퓨터> is offline"과
+  Try again을 보였고, 컴퓨터에서 도는 앱의 줄을 눌러도 아무 일도 없었다. `lophn://open?host=…&kind=app&app=…` link로 열면 안내
+  화면이 섰는데 문구의 앱 이름 자리가 비었다(" runs on <컴퓨터>", "…so  cannot open right now."). 앱 목록을 아직 읽지 못해
+  이름을 모르는 상태다. core를 다시 켜면 저절로 열렸다. 폰 화면이 연결이 끊겨도 남게 한 변경(`phone-guest-stays-mounted`) 전에도
+  그랬는지는 보지 않았다.
+impact: |
+  컴퓨터가 꺼진 동안 폰 앱을 새로 켠 사람은 앱 줄을 눌러도 반응이 없어 고장으로 본다. 안내 화면에 닿아도 어느 앱인지 문구가
+  말하지 않는다.
+fix: |
+  - 작음(추천): 폰이 마지막으로 읽은 앱 목록(`phone-screens/<컴퓨터>/apps.json`)의 이름으로 줄을 열고 안내 화면의 이름을 채운다.
+    목록이 아예 없으면 줄을 그리지 않는다.
+  - 중간: Home의 offline 상태에서 앱 줄을 흐리게 하고 누르면 안내 화면으로 간다.

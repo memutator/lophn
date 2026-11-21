@@ -3,6 +3,7 @@
 export type CapabilityErrorCode =
   | "invalid_input"
   | "forbidden"
+  | "not_found"
   | "conflict"
   | "unavailable";
 

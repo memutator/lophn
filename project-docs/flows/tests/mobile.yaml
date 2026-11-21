@@ -20,13 +20,17 @@ files:
     covers: []
     note: "폰 preview drive controller 경계. 해당 컴퓨터용으로 연 preview 밖의 view는 native module에 닿지 않고(no_preview), 사람이 제어권을 잡으면 act만 conflict(taken_over)다"
 
+  - path: packages/mobile/src/apps/files/place.test.ts
+    covers: []
+    note: "폰 앱의 file 자리. 내려받은 bytes가 손잡이 이름의 sha256이나 크기와 다르면 자리에 보이지 않고 locate가 실패하며(남는 bytes 없음), 컴퓨터가 not_found면 not_found·닿지 못하면 unavailable이다. 컴퓨터에서 도는 앱의 사진은 조각마다 이어 올려 stored에야 손잡이를 답하고, 끊기면 컴퓨터가 쥔 bytes에서 잇고, 연결을 60초(시각을 넘겨 줌) 안쪽에서만 기다리며, 못 올리면 reason을 달아 unavailable이고 손잡이도 남는 bytes도 없다"
+
   - path: packages/mobile/src/apps/guest/local-call.test.ts
     covers: []
     note: "폰에서 도는 앱 backend의 local 호출 transaction 경계. write와 outbox 줄을 같은 transaction으로 commit하고, endCall 실패·상한 초과·시간 초과는 rollback, 끝나지 않는 handler는 fatal, external만 host로 간다"
 
   - path: packages/mobile/src/apps/guest/session.test.ts
     covers: []
-    note: "폰 앱 화면 guest bridge 경계. 메시지가 내세우는 앱·release·view, 모르는 모양, 상한 초과 메시지는 버리고 call은 host가 묶은 view로만 간다. phone 요청은 grant가 없으면 forbidden이고 handler를 돌리지 않으며 메시지에 앱이나 grant를 실을 수 없고, 폰 앱이 앞에 없으면 unavailable(phone_in_background)이며, stand-in(preview) 모드는 선언한 기능에만 값을 주고 선언하지 않은 기능은 forbidden이며 handler를 돌리지 않는다"
+    note: "폰 앱 화면 guest bridge 경계. 메시지가 내세우는 앱·release·view, 모르는 모양, 상한 초과 메시지는 버리고 call은 host가 묶은 view로만 간다. phone 요청은 grant가 없으면 forbidden이고 handler를 돌리지 않으며 메시지에 앱이나 grant를 실을 수 없고, 폰 앱이 앞에 없으면 unavailable(phone_in_background)이며, stand-in(preview) 모드는 선언한 기능(사진·file 기능은 sample file의 손잡이)에만 값을 주고 선언하지 않은 기능은 forbidden이며 handler를 돌리지 않는다"
 
   - path: packages/mobile/src/apps/local/local.test.ts
     covers:
@@ -39,11 +43,15 @@ files:
       - phone-app-external:unavailable
       - phone-app-prune:removed
       - phone-app-prune:kept
-    note: "폰에서 도는 앱의 설치, outbox push·pull(transaction 단위 적용과 실패 시 유지), release 전환(실패 시 기존 DB·outbox 보존, 첫 push까지 backup 유지), external 호출 전 outbox 선전송, 안 보낸 변경과 standalone data의 prune 보호"
+    note: "폰에서 도는 앱의 설치, outbox push·pull(transaction 단위 적용과 실패 시 유지), release 전환(실패 시 기존 DB·outbox 보존, 첫 push까지 backup 유지), external 호출 전 outbox 선전송, 안 보낸 변경과 standalone data의 prune 보호. 컴퓨터마다의 file 기록: 컴퓨터마다 폴더에서 기록을 뺀 file이 row보다 먼저 가고(컴퓨터 둘이 각각 받는다), 끊기면 row도 안 가며, 기록을 읽지 못하면 다시 내밀어 have로 답하고, 영영 거절한 file은 row를 막지 않고, 어느 컴퓨터가 file을 빠뜨린 앱 folder는 prune하지 않는다"
 
   - path: packages/mobile/src/apps/view.test.ts
     covers: []
-    note: "앱 화면 view binding(linkView). 자기 view의 AppViewEvent만 guest로 전달하고 다른 view의 event는 버린다"
+    note: "앱 화면 view binding(linkView). 자기 view의 AppViewEvent만 guest로 전달하고 다른 view의 event는 버린다. 컴퓨터가 view에 5분 넘게 닿지 않았을 때만 화면이 새로 뜨는 epoch가 서고(연결이 끊긴 때나 폰 앱이 background에 간 때부터 세며, 돌아왔을 때 연결이 살아 있었으면 세지 않는다), 연결이 없을 때 호출은 unavailable이고 그 연결 실패를 앱이 안 도는 것으로 읽지 않는다. 이 화면이 연 카메라·선택기(interactive 요청)에 머문 시간은 부재에 세지 않아 5분을 넘어도 새로 뜨지 않고, 돌아온 때부터 다시 센다"
+
+  - path: packages/mobile/src/apps/screen-state.test.ts
+    covers: []
+    note: "앱 화면 상태 결정. 한 번 running이 된 guest는 연결 끊김·목록 다시 읽기·view 다시 열기에 같은 key로 남고, 새 bundle·Try again·epoch는 새 key, guest 실패·앱이 안 돎·항목 사라짐·호환 거절은 안내 화면이다. 아직 running이 된 적 없으면 컴퓨터가 offline일 때 안내 화면"
 
   - path: packages/mobile/src/data/coding.test.ts
     covers: []

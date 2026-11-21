@@ -1,59 +1,126 @@
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImageControllerBuilder.java b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImageControllerBuilder.java
 new file mode 100644
-index 0000000..67dff04
+index 0000000..6298325
 --- /dev/null
 +++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImageControllerBuilder.java
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,105 @@
 +package io.callstack.rnsandbox;
 +
-+// lophn: Fresco's controller builder for a guest's image views: loads of network URIs fail (see GuestImages.kt).
++// lophn: Fresco's controller builder for a guest's image views: a guest draws no network image, no `content:` image and no
++// `file:` image outside the one folder the host gave it (its file place); see GuestImages.kt.
++//
++// Why `build()` and not the data source. ReactImageView sets the main request, the low-resolution request and (for several
++// sources) the first-available requests on the builder and calls `build()`. The controller `build()` makes looks a finished
++// image up in Fresco's bitmap memory cache by the cache key of the main request BEFORE it asks any data source, and that cache
++// is shared by the whole process and keyed by URI: a file the host or another guest already drew would be served without a
++// check on the data source running. So the check is made here, on every request the builder holds, before the controller
++// exists. A request that is not allowed is removed (the controller then has no cache key to look up) and the controller is
++// given a data source supplier that only fails, so there is nothing a cache can answer.
++//
++// The builder is shared: ReactImageManager gives every image view of a guest this one instance, and each view does
++// `reset()`, sets its requests, `build()`, `reset()`. Fresco's `reset()` clears the requests but NOT the data source supplier,
++// so a supplier left behind would make the next image's `build()` fail Fresco's validation ("Cannot specify DataSourceSupplier
++// with other ImageRequests"). `build()` therefore clears the supplier again before it returns, whatever happened: every build
++// starts and ends with no supplier set.
 +// Java because Fresco passes a null caller context where its signature says non-null, which Kotlin would reject.
 +
 +import android.content.Context;
++import android.net.Uri;
++import com.facebook.common.internal.Supplier;
 +import com.facebook.common.references.CloseableReference;
 +import com.facebook.common.util.UriUtil;
 +import com.facebook.datasource.DataSource;
 +import com.facebook.datasource.DataSources;
 +import com.facebook.drawee.backends.pipeline.PipelineDraweeControllerBuilder;
 +import com.facebook.drawee.backends.pipeline.PipelineDraweeControllerFactory;
-+import com.facebook.drawee.interfaces.DraweeController;
++import com.facebook.drawee.controller.AbstractDraweeController;
 +import com.facebook.imagepipeline.core.ImagePipeline;
 +import com.facebook.imagepipeline.image.CloseableImage;
 +import com.facebook.imagepipeline.request.ImageRequest;
++import java.io.File;
++import java.io.IOException;
 +import java.util.Collections;
 +
 +class GuestImageControllerBuilder extends PipelineDraweeControllerBuilder {
++  // Canonical path of the only folder a guest may draw files from; null when the host gave none.
++  private final String allowedFolder;
++
 +  GuestImageControllerBuilder(
-+      Context context, PipelineDraweeControllerFactory factory, ImagePipeline pipeline) {
++      Context context,
++      PipelineDraweeControllerFactory factory,
++      ImagePipeline pipeline,
++      String imageFolder) {
 +    super(context, factory, pipeline, Collections.emptySet(), Collections.emptySet());
++    String canonical = null;
++    if (imageFolder != null && !imageFolder.isEmpty()) {
++      try {
++        canonical = new File(imageFolder).getCanonicalPath();
++      } catch (IOException e) {
++        canonical = null;
++      }
++    }
++    this.allowedFolder = canonical;
++  }
++
++  // `data:`, `res:` and `asset:` stay as they were; a `file:` URI must name a file under the folder (symlinks and `..`
++  // resolved), `content:` reaches other apps' providers and a network URI is a way out: none of those load.
++  private boolean allowed(ImageRequest request) {
++    if (request == null) return true;
++    Uri uri = request.getSourceUri();
++    if (UriUtil.isNetworkUri(uri)) return false;
++    String scheme = uri.getScheme();
++    if ("content".equals(scheme)) return false;
++    if (!"file".equals(scheme)) return true;
++    if (allowedFolder == null || uri.getPath() == null) return false;
++    try {
++      return new File(uri.getPath()).getCanonicalPath().startsWith(allowedFolder + File.separator);
++    } catch (IOException e) {
++      return false;
++    }
 +  }
 +
 +  @Override
-+  protected DataSource<CloseableReference<CloseableImage>> getDataSourceForRequest(
-+      DraweeController controller,
-+      String controllerId,
-+      ImageRequest imageRequest,
-+      Object callerContext,
-+      CacheLevel cacheLevel) {
-+    if (UriUtil.isNetworkUri(imageRequest.getSourceUri())) {
-+      return DataSources.immediateFailedDataSource(
-+          new SecurityException("a phone screen has no network"));
++  public AbstractDraweeController build() {
++    boolean ok = allowed(getImageRequest()) && allowed(getLowResImageRequest());
++    ImageRequest[] first = getFirstAvailableImageRequests();
++    if (first != null) {
++      for (ImageRequest request : first) {
++        if (!allowed(request)) ok = false;
++      }
 +    }
-+    return super.getDataSourceForRequest(
-+        controller, controllerId, imageRequest, callerContext, cacheLevel);
++    if (!ok) {
++      setImageRequest(null);
++      setLowResImageRequest(null);
++      setFirstAvailableImageRequests((ImageRequest[]) null);
++      setDataSourceSupplier(
++          new Supplier<DataSource<CloseableReference<CloseableImage>>>() {
++            @Override
++            public DataSource<CloseableReference<CloseableImage>> get() {
++              return DataSources.immediateFailedDataSource(
++                  new SecurityException("a phone screen draws only its own files"));
++            }
++          });
++    }
++    try {
++      return super.build();
++    } finally {
++      // The controller took the supplier when it was initialised; the shared builder must not keep it.
++      if (!ok) setDataSourceSupplier(null);
++    }
 +  }
 +}
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImages.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImages.kt
 new file mode 100644
-index 0000000..77e9276
+index 0000000..30810ac
 --- /dev/null
 +++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImages.kt
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,71 @@
 +package io.callstack.rnsandbox
 +
 +// lophn: a guest has no network, and images are a way out too: an <Image> with an http URL or Image.prefetch sends a
 +// request (with whatever the screen put in the URL) through the host's Fresco pipeline. A guest gets an image view
-+// whose loads of network URIs fail and an ImageLoader that refuses every call.
++// whose loads of network URIs fail and an ImageLoader that refuses every call. Files are the same: a guest draws a `file:`
++// URI only from `imageFolder` (the host's file place for this guest) and never a `content:` URI.
 +
 +import android.content.Context
 +import com.facebook.common.executors.UiThreadImmediateExecutorService
@@ -71,8 +138,11 @@ index 0000000..77e9276
 +private const val NO_NETWORK = "a phone screen has no network"
 +
 +// The same image view manager as React Native's, over a controller builder made like Fresco's own
-+// (PipelineDraweeControllerBuilderSupplier) but refusing network URIs.
-+internal fun guestImageManager(context: Context): ReactImageManager {
++// (PipelineDraweeControllerBuilderSupplier) but refusing network URIs and files outside `imageFolder`.
++internal fun guestImageManager(
++    context: Context,
++    imageFolder: String?,
++): ReactImageManager {
 +    val pipelineFactory = Fresco.getImagePipelineFactory()
 +    val pipeline = pipelineFactory.imagePipeline
 +    val factory = PipelineDraweeControllerFactory()
@@ -86,7 +156,7 @@ index 0000000..77e9276
 +        null,
 +        null,
 +    )
-+    return ReactImageManager(GuestImageControllerBuilder(context, factory, pipeline))
++    return ReactImageManager(GuestImageControllerBuilder(context, factory, pipeline, imageFolder))
 +}
 +
 +internal class GuestImageLoaderModule(
@@ -117,7 +187,7 @@ index 0000000..77e9276
 +    ) = promise.resolve(Arguments.createMap())
 +}
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
-index d101298..884044b 100644
+index d101298..8790db2 100644
 --- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
 +++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
 @@ -27,6 +27,8 @@ import com.facebook.react.runtime.ReactHostImpl
@@ -129,7 +199,25 @@ index d101298..884044b 100644
  
  class SandboxReactNativeDelegate(
      private val context: Context,
-@@ -195,6 +197,10 @@ class SandboxReactNativeDelegate(
+@@ -101,6 +103,9 @@ class SandboxReactNativeDelegate(
+     var jsBundleSource: String = ""
+     var allowedTurboModules: Set<String> = emptySet()
+     var turboModuleSubstitutions: Map<String, String> = emptyMap()
++
++    // lophn: the one folder this guest may draw `file:` images from (GuestImages.kt); null draws no file.
++    var imageFolder: String? = null
+     var allowedOrigins: Set<String> = emptySet()
+     var idleTTLMs: Long = 0
+ 
+@@ -178,6 +183,7 @@ class SandboxReactNativeDelegate(
+                             capturedSubstitutions,
+                             capturedSubstitutionPackages,
+                             capturedOrigin,
++                            imageFolder,
+                         ),
+                     )
+ 
+@@ -195,6 +201,10 @@ class SandboxReactNativeDelegate(
                          jsRuntimeFactory = HermesInstance(),
                          turboModuleManagerDelegateBuilder = tmmDelegateBuilder,
                          bindingsInstaller = bindingsInstaller,
@@ -140,7 +228,7 @@ index d101298..884044b 100644
                      )
  
                  val componentFactory = ComponentFactory()
-@@ -205,8 +211,9 @@ class SandboxReactNativeDelegate(
+@@ -205,8 +215,9 @@ class SandboxReactNativeDelegate(
                          sandboxContext,
                          hostDelegate,
                          componentFactory,
@@ -152,7 +240,7 @@ index d101298..884044b 100644
                      )
  
                  ownsReactHost = true
-@@ -296,12 +303,42 @@ class SandboxReactNativeDelegate(
+@@ -296,12 +307,42 @@ class SandboxReactNativeDelegate(
                  JSBundleLoader.createFileLoader(bundleSource)
              }
  
@@ -195,7 +283,7 @@ index d101298..884044b 100644
      fun onJSIBindingsInstalled(stateHandle: Long) {
          jsiStateHandle = stateHandle
          // Store on the shared host so views that reuse this host can
-@@ -494,12 +531,19 @@ class SandboxReactNativeDelegate(
+@@ -494,12 +535,19 @@ class SandboxReactNativeDelegate(
                                      sharedHosts.remove(capturedOrigin)
                                      current.reactHost.onHostDestroy()
                                      current.reactHost.destroy("lazy sandbox cleanup", null)
@@ -215,7 +303,7 @@ index d101298..884044b 100644
                          }
                      }
                  }
-@@ -514,6 +558,8 @@ class SandboxReactNativeDelegate(
+@@ -514,6 +562,8 @@ class SandboxReactNativeDelegate(
  
      fun destroy() {
          cleanup()
@@ -224,7 +312,15 @@ index d101298..884044b 100644
      }
  
      /**
-@@ -598,6 +644,9 @@ class SandboxReactNativeDelegate(
+@@ -559,6 +609,7 @@ class SandboxReactNativeDelegate(
+         private val substitutions: Map<String, String>,
+         private val substitutionPackages: List<ReactPackage>,
+         private val origin: String,
++        private val imageFolder: String?,
+     ) : BaseReactPackage() {
+         private val substitutedInstances = java.util.concurrent.ConcurrentHashMap<String, NativeModule>()
+ 
+@@ -598,6 +649,9 @@ class SandboxReactNativeDelegate(
                  return null
              }
  
@@ -234,7 +330,7 @@ index d101298..884044b 100644
              delegate.getModule(name, reactContext)?.let { return it }
  
              for (pkg in hostPackages) {
-@@ -641,7 +690,28 @@ class SandboxReactNativeDelegate(
+@@ -641,7 +695,30 @@ class SandboxReactNativeDelegate(
              }
          }
  
@@ -247,7 +343,7 @@ index d101298..884044b 100644
 +                delegate
 +                    .createViewManagers(reactContext)
 +                    .filter { it.name != "RCTModalHostView" }
-+                    .map { if (it.name == ReactImageManager.REACT_CLASS) guestImageManager(reactContext) else it }
++                    .map { if (it.name == ReactImageManager.REACT_CLASS) guestImageManager(reactContext, imageFolder) else it }
 +                    .toMutableList()
 +            // lophn: the kit's native views. Every view manager given to a guest is reachable from screen code
 +            // through its props, so this list stays as short as the kit allows.
@@ -255,7 +351,9 @@ index d101298..884044b 100644
 +            for (pkg in hostPackages) {
 +                try {
 +                    for (vm in pkg.createViewManagers(reactContext)) {
-+                        if (prefixes.any { vm.name.startsWith(it) }) own.add(vm)
++                        // lophn: RNSVGImage loads a picture through Fresco's pipeline directly, past GuestImageControllerBuilder,
++                        // so it could draw any file or network image: a guest does not get it.
++                        if (vm.name != "RNSVGImage" && prefixes.any { vm.name.startsWith(it) }) own.add(vm)
 +                    }
 +                } catch (e: Exception) {
 +                    Log.w(TAG, "view managers of ${pkg.javaClass.simpleName} failed: ${e.message}")
@@ -290,7 +388,7 @@ index 3729790..e975693 100644
      }
  }
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt
-index c63255e..a869be3 100644
+index c63255e..9e5fc2f 100644
 --- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt
 +++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeViewManager.kt
 @@ -40,6 +40,9 @@ class SandboxReactNativeViewManager :
@@ -303,6 +401,27 @@ index c63255e..a869be3 100644
          view.delegate?.destroy()
          view.delegate = null
      }
+@@ -151,6 +154,20 @@ class SandboxReactNativeViewManager :
+         }
+     }
+ 
++    // lophn: where this guest's file place is; a change loads the guest again like the module lists do.
++    @ReactProp(name = "imageFolder")
++    override fun setImageFolder(
++        view: SandboxReactNativeView,
++        value: String?,
++    ) {
++        val delegate = view.delegate ?: return
++        if (delegate.imageFolder == value) return
++        delegate.imageFolder = value
++        if (view.childCount > 0) {
++            scheduleLoad(view)
++        }
++    }
++
+     @ReactProp(name = "allowedOrigins")
+     override fun setAllowedOrigins(
+         view: SandboxReactNativeView,
 diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt
 index df55509..5a98244 100644
 --- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt
@@ -416,8 +535,25 @@ index df55509..5a98244 100644
          }
          return false
      }
+diff --git a/node_modules/@callstack/react-native-sandbox/specs/NativeSandboxReactNativeView.ts b/node_modules/@callstack/react-native-sandbox/specs/NativeSandboxReactNativeView.ts
+index 98b8b8c..8871e84 100644
+--- a/node_modules/@callstack/react-native-sandbox/specs/NativeSandboxReactNativeView.ts
++++ b/node_modules/@callstack/react-native-sandbox/specs/NativeSandboxReactNativeView.ts
+@@ -66,6 +66,12 @@ export interface NativeProps extends ViewProps {
+    */
+   turboModuleSubstitutions?: CodegenTypes.UnsafeMixed
+ 
++  /**
++   * lophn: the one folder (absolute path) this sandbox may draw `file:` images from. Without it no `file:` image
++   * loads, and a `content:` image never loads.
++   */
++  imageFolder?: string
++
+   /** Array of sandbox origins that are allowed to send messages to this sandbox */
+   allowedOrigins?: readonly string[]
+ 
 diff --git a/node_modules/@callstack/react-native-sandbox/src/index.tsx b/node_modules/@callstack/react-native-sandbox/src/index.tsx
-index 0e6bf07..074baa3 100644
+index 0e6bf07..2c45d5b 100644
 --- a/node_modules/@callstack/react-native-sandbox/src/index.tsx
 +++ b/node_modules/@callstack/react-native-sandbox/src/index.tsx
 @@ -15,13 +15,18 @@ import NativeSandboxReactNativeView, {
@@ -462,7 +598,20 @@ index 0e6bf07..074baa3 100644
  ]
  
  /**
-@@ -307,7 +306,8 @@ const SandboxReactNativeView = forwardRef<
+@@ -111,6 +110,12 @@ export interface SandboxReactNativeViewProps extends ViewProps {
+    */
+   turboModuleSubstitutions?: Record<string, string>
+ 
++  /**
++   * lophn: the one folder (absolute path) this sandbox may draw `file:` images from. Without it no `file:` image
++   * loads, and a `content:` image never loads.
++   */
++  imageFolder?: string
++
+   /**
+    * Array of sandbox origins that are allowed to send messages to this sandbox.
+    * If not provided or empty, no other sandboxes will be allowed to send messages.
+@@ -307,7 +312,8 @@ const SandboxReactNativeView = forwardRef<
  
      const _style: StyleProp<ViewStyle> = useMemo(
        () => ({

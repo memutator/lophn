@@ -11,6 +11,7 @@
 import type { PhoneScreen } from "../../data/apps.ts";
 import type { CallOutcome } from "../guest/mod.ts";
 import { outboxCount, withDb } from "./db.ts";
+import { missingFor } from "./held.ts";
 import {
   compareRelease,
   dropComputerReleases,
@@ -28,6 +29,7 @@ import {
   writeInstalled,
 } from "./folder.ts";
 import { type Ctx, type InstallStep, install } from "./install.ts";
+import type { Link } from "../files/place.ts";
 import type { LocalDeps, Remote } from "./ports.ts";
 import { pruneApp } from "./prune.ts";
 import { switchRelease } from "./release.ts";
@@ -71,6 +73,8 @@ export interface LocalApps {
   installed(app: string): Installed | null;
   /** The absolute path of a path in the app folders (folder.ts). */
   absolute(path: string): string;
+  /** The computers reachable now that know `app` (to take a file from; no order is promised). */
+  links(app: string): readonly Link[];
   /** `computer` is reachable through `remote`, or not (null). */
   connect(computer: string, remote: Remote | null): void;
   /**
@@ -199,7 +203,11 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       pending.delete(app);
       return;
     }
-    pending.set(app, await withDb(deps, paths(app).db, outboxCount));
+    // Changes the computer has not taken, and the most files any computer of the app still lacks (a file a computer refused
+    // for good is not counted).
+    const rows = await withDb(deps, paths(app).db, outboxCount);
+    const lacking = Math.max(0, ...one.computers.map((computer) => missingFor(files, app, computer).length));
+    pending.set(app, rows + lacking);
   }
 
   function untilUnmounted(app: string): Promise<void> {
@@ -519,6 +527,12 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     },
     installed: (app) => installed.get(app) ?? null,
     absolute: (path) => files.absolute(path),
+    links(app) {
+      const one = readInstalled(files, app);
+      return one === null
+        ? []
+        : connectedFor(app, one).map((computer) => ({ computer, remote: remotes.get(computer)! }));
+    },
     connect(computer, next) {
       if (next === null) {
         if (!remotes.has(computer)) return;

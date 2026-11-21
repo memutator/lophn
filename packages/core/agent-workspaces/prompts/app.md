@@ -115,13 +115,17 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   declare `widgets` and publish it with `setWidget` (read the skill `design-app`,
   "Widgets", and the `@lophn/cap-notify` guide).
 - When the app needs the person's phone (location, network state, vibration,
-  clipboard text, a QR or barcode scan, opening a link, the share sheet), declare
-  `phone.use` once per capability and read the skill `design-app`, "Phone
-  features", and the `@lophn/cap-phone` guide. A phone screen can use all of
-  them; the computer's backend only location and network state, and only while
-  the lophn phone app is in front. Handle `forbidden` and `unavailable`, the
-  preview returns stand-in values, and photos, files, camera capture and
-  background work do not exist.
+  clipboard text, a QR or barcode scan, opening a link, the share sheet, the
+  camera, picking photos or files), declare `phone.use` once per capability and
+  read the skill `design-app`, "Phone features" and "App files", and the
+  `@lophn/cap-phone` guide. A phone screen can use all of them; the computer's
+  backend only location and network state, and only while the lophn phone app is
+  in front. Handle `forbidden`, `unavailable` and a cancelled pick; the preview
+  returns stand-in values. A photo or file is an app file: the phone feature
+  answers a handle (never bytes), you pass the handle through operations and keep
+  it in a row, a screen shows it with `useAppFile` and a computer backend reads it
+  with `readAppFile` (`@lophn/cap-store`). Files are never deleted. Video, audio
+  recording, saving to the gallery and handing a photo to an agent do not exist.
 - When the app must tell other apps that something happened (one fact, many
   listeners), declare `events` (publisher) and `subscriptions` (listener) and read
   the `@lophn/cap-tool` guide. Delivery is once and not stored, so the publisher

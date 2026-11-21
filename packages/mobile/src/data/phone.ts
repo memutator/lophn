@@ -14,7 +14,7 @@ import {
 } from "../../../remote-client/mod.ts";
 import { drive } from "../apps/drive/mod.ts";
 import { answerRequest, phoneCapabilities } from "../link/answer.ts";
-import { noScanner } from "../link/capabilities.ts";
+import { noFiles, noScanner } from "../link/capabilities.ts";
 import { phonePorts } from "../link/native.ts";
 import { join, phoneScreen } from "../pairing/pair.ts";
 import {
@@ -66,6 +66,7 @@ export function createPhoneComputers(): Computers<ComputerData> {
       const ctx = {
         ...phonePorts,
         scanner: noScanner,
+        files: noFiles,
         drive: drive.port(computer.key),
       };
       return linkOf(

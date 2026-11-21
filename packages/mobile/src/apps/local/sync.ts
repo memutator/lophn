@@ -18,9 +18,11 @@ import {
   readOutbox,
   stampOutbox,
 } from "../../../../protocol/apps/sync/mod.ts";
+import { handleOf, uploadFile } from "../files/place.ts";
 import { outboxCount, transaction, withDb } from "./db.ts";
 import { type Installed, paths, removeDb, writeInstalled } from "./folder.ts";
 import type { HostDb, LocalDeps, Remote } from "./ports.ts";
+import { ackFile, missingFor, refuseFile } from "./held.ts";
 import { ask, failed, fromBase64, toBase64 } from "./transfer.ts";
 
 type Ctx = { deps: LocalDeps; remote: Remote; computer: string };
@@ -100,7 +102,54 @@ const answered = (value: unknown): string[] =>
   Array.isArray(value) ? value.map((one) => String((one as { id: unknown }).id)) : [];
 
 /**
- * Stamps the outbox and sends it in commit order. A row leaves the outbox only once the computer answered for it
+ * Sends the computer the app's files it does not hold: a look at the folder minus the computer's record, a put for each (it
+ * asks first, so a file the computer has costs no bytes), an acknowledgement written for each `stored` or `have`, and another
+ * look, until a fresh look finds nothing missing (a file added meanwhile is included). A file the computer refuses for good
+ * (the bytes are not their name, a value it can never accept) is remembered as refused for that computer and skipped from then
+ * on; it blocks nothing and is counted as pending nowhere. A transient failure ends the pass with the error (the link
+ * dropped); the app being absent on that computer ends only the files (`blocked`).
+ */
+export async function sendFiles(ctx: Ctx, app: string): Promise<Result<{ blocked: boolean }>> {
+  const { files } = ctx.deps;
+  const dir = paths(app).files;
+  for (;;) {
+    const missing = missingFor(files, app, ctx.computer);
+    if (missing.length === 0) return ok({ blocked: false });
+    for (const file of missing) {
+      const handle = await handleOf(files, dir, file);
+      if (handle === null) {
+        console.warn(`sync: ${file} is in the folder listing but not readable; skipped`);
+        refuseFile(files, app, ctx.computer, file);
+        continue;
+      }
+      const done = await uploadFile({ files, dir, remote: ctx.remote, app }, handle);
+      if (done.ok) {
+        ackFile(files, app, ctx.computer, file);
+        continue;
+      }
+      const { code, details } = done.error;
+      if (code === "not_found" && details?.["reason"] === "local_missing") {
+        console.warn(`sync: ${file} is in the folder listing but gone from the phone; skipped`);
+        refuseFile(files, app, ctx.computer, file);
+        continue;
+      }
+      if (code === "not_found") {
+        // The app is not active on that computer (or the file vanished from the phone): no more files this pass.
+        console.warn(`sync: ${ctx.computer} does not take files of ${app}: ${done.error.message}`);
+        return ok({ blocked: true });
+      }
+      if (code === "invalid_input" && (details?.["reason"] === "mismatch" || details?.["received"] === undefined)) {
+        console.warn(`sync: ${ctx.computer} refuses ${file} for good (${done.error.message}); it is skipped from now on`);
+        refuseFile(files, app, ctx.computer, file);
+        continue;
+      }
+      return done;
+    }
+  }
+}
+
+/**
+ * Sends the files the computer lacks, then stamps the outbox and sends it in commit order. A row leaves the outbox only once the computer answered for it
  * (applied, duplicate or skipped); on an error the rows the computer already took (its `details.results`) leave and
  * the rest stay. A `conflict` carries the computer's `active_release`.
  */
@@ -110,6 +159,13 @@ export async function push(
   release: string = installed.release,
 ): Promise<Result<Pushed>> {
   const { deps } = ctx;
+  // Before any row: a row may hold the handle of a file the computer must have by the time it reads the row. When the app is
+  // not taken there, the rows wait too and the pull still runs.
+  const sentFiles = await sendFiles(ctx, installed.app);
+  if (!sentFiles.ok) return sentFiles;
+  if (sentFiles.value.blocked) {
+    return withDb(deps, paths(installed.app).db, (db) => ok({ pushed: 0, left: outboxCount(db) }));
+  }
   return withDb(deps, paths(installed.app).db, async (db) => {
     const stamped = stamp(deps, db);
     if (!stamped.ok) return stamped;

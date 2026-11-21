@@ -1,6 +1,6 @@
 # app file: 앱이 사진과 file을 둔다
 
-상태: 로드맵 초안. 2026-11-22 사람이 폰 기능 단계 2를 진행하라고 했고 planner가 썼다. 사람의 검수 전이다. `(agent)`로 적은 것은 planner가 근거를 적어 정한 것이라 검수에서 뒤집을 수 있다.
+상태: `feat/app-file` branch에 지었다(2026-11-22. 설계는 `architecture/app-file.md`, change-log `app-file`). 컴퓨터 쪽(protocol, core 저장, route, desktop `_files`, SDK)과 폰 쪽(file 자리, 사진·file 기능 넷, guest의 `locate`와 file 제한)을 모두 지었고 emulator와 headless Electron에서 보았다(2026-11-22: 컴퓨터에서 도는 앱의 사진이 desktop 화면에 보임, 선택기, 60 MiB 내려받기, preview, 폰에서 도는 앱의 offline 사용과 sync). 그 확인과 독립 review가 찾은 결함을 고쳤다(큰 조각이 기기 link에서 거절됨, 카메라 뒤 연결, 이미지 길의 cache 우회와 SVG image, 올릴 file 목록을 컴퓨터마다의 기록으로 바꿈). 고친 뒤의 폰 재확인과 실제 폰은 아직이다(아래 "확인하지 않은 것"). 이 문서의 나머지는 2026-11-22 사람이 폰 기능 단계 2를 진행하라고 한 뒤 planner가 쓴 로드맵이다. `(agent)`로 적은 것은 planner가 근거를 적어 정한 것이라 검수에서 뒤집을 수 있다.
 배경 문서: `project-docs/products/roadmap/phone-capability.md`(단계 2), `project-docs/architecture/{app-call,app-sync,phone-screen,remote,folder-sync,activation}.md`.
 조사: worker의 코드 조사(2026-11-22, main 0.23.120).
 
@@ -81,6 +81,10 @@
 - guest에 file을 그리게 하면서 guest의 `file:`과 `content:`를 자기 앱의 폴더로 좁힌다. 이유: 지금은 막는 code가 없다. (agent)
 - 이번에 여는 것은 넷이다(위 표). 녹음과 재생, 사진 보관함에 저장, 클립보드 그림은 `phone-capability.md`의 단계 3으로 넘긴다. 이유: 녹음은 `RECORD_AUDIO`와 녹음 화면이 따로 들고, 보관함 저장은 저장소 권한을 manifest에 더한다. file 자리가 서면 이것들은 기능 하나씩이다. (agent)
 
+- 폰에서 도는 sync 앱의 file은 컴퓨터마다 그 컴퓨터가 가진 file의 기록을 폰에 두고, 컴퓨터에 가야 할 것은 폴더에서 그 기록을 뺀 것이다. 이유: 처음 모양(앱 폴더 하나의 "올릴 file 목록"과 한 컴퓨터가 받으면 항목을 지움)은 컴퓨터 둘이면 둘째가 file을 못 받은 채 그것을 가리키는 row를 받고, 목록 file이 깨지면 가짜 항목이 진짜를 가려 폴더를 영영 못 지우며, 긴 올리기 중에 더한 file이 row보다 뒤에 가고, 영영 못 올리는 file 하나가 sync 전체를 막았다. (agent, 2026-11-22, review)
+- 컴퓨터에서 도는 앱의 사진은 올리기 전에 지금의 연결을 60초까지 기다리고 끊기면 이어 올린다. 이유: 카메라와 선택기가 열린 동안 폰 앱은 뒤에 있어 연결이 끊기는 것이 설계라 돌아온 순간의 "연결 없음"으로 file을 버리면 대부분 사라진다(emulator에서 본 실패). (agent, 2026-11-22, 장치 확인)
+- guest의 이미지는 요청을 쥔 controller를 만들기 전에 검사하고 SVG의 image는 guest에 주지 않는다. 이유: Fresco의 bitmap cache는 process 전체이고 URI로 찾으며 controller는 data source보다 cache를 먼저 보므로 data source 쪽 검사는 다른 guest가 이미 그린 file을 막지 못했고, `react-native-svg`의 image는 Fresco를 직접 불러 검사를 지나지 않는다. (agent, 2026-11-22, review)
+
 ## 단계
 
 1. 폰 화면이 뒤로 갔다 와도 남게 한다(이슈 `phone-guest-remounts-after-background`). 카메라와 고르기는 다른 activity로 나갔다 오므로 이것이 먼저다.
@@ -89,7 +93,7 @@
 ## 하지 않는 것
 
 - 지우기와 용량 한도, 앱마다의 용량 보기.
-- 기계 사이로 맞추는 앱(`sync_to`)의 file을 다른 컴퓨터로 옮기는 것. row는 가고 file은 가지 않아 다른 컴퓨터에서는 그림이 비어 보인다. 폴더 꼴(`folder-sync.md`)에 file을 더하는 일이라 따로 한다.
+- 기계 사이로 맞추는 앱(선언의 `sync`가 표를 보내는 앱)의 file을 다른 컴퓨터로 옮기는 것. `sync`에 적은 표의 row는 가고 file은 가지 않아 다른 컴퓨터에서는 그림이 비어 보인다. 폴더 꼴(`folder-sync.md`)에 file을 더하는 일이라 따로 한다.
 - desktop 화면에서 file을 넣는 것(끌어 놓기, 고르기). desktop의 backend는 넣을 수 있다.
 - 앱이 agent나 model에 사진을 넘기는 것. "영수증을 읽는 agent"는 이 길이 있어야 한다. 다음 후보다.
 - 영상, 녹음, 폰에서 도는 backend가 bytes를 읽는 것.
@@ -97,6 +101,14 @@
 - background, 배포 형식, iOS(`phone-capability.md`와 같다).
 
 ## 확인하지 않은 것
+
+지은 뒤 상태(2026-11-22). 위는 짓기 전의 물음이고, 지은 뒤에는 이렇다.
+
+- 지었고 emulator release APK에서 build되어 돌았다(2026-11-22): guest의 이미지 길을 sandbox patch의 prop 하나(`imageFolder`)로 좁혔다. 이 라운드는 controller의 검사를 요청을 쥔 `build()` 앞으로 옮기고(Fresco 3.7.0에 대해 compile만 확인) SVG image를 guest에서 뺐다. `expo-document-picker` 58.0.5와 `expo-sharing` 58.0.23은 Android manifest에 sharing의 FileProvider와 queries만 더한다(plugin은 더하지 않았다).
+- 폰에서 다시 확인할 것(`architecture/app-file.md`의 열린 것): 큰 file의 올리기(고친 body 한도), 카메라에서 돌아온 뒤의 올리기, 문서 선택, core를 올리는 도중 멈췄다 켜기, 다른 guest가 이미 그린 file을 다른 앱이 그리지 못하는 것(cache), SVG image의 file·https·content, 컴퓨터가 꺼진 동안 "아직 안 맞춘 것" 수, 컴퓨터 둘.
+- 여전히 모르는 것: 큰 file(수십 MiB)의 조각 올리기·내려받기의 시간과 메모리, relay를 거칠 때의 속도, desktop의 `_files`가 큰 media를 Range 없이 내줘도 쓸 만한지, 카메라 activity 동안 Android가 폰 앱을 죽이면 결과를 잃는 일의 빈도.
+
+아래는 짓기 전에 적은 물음이다.
 
 - guest의 그림 길에 origin마다의 폴더를 묶는 native 변경(sandbox patch)이 얼마나 드는지. `LophnAppDb`의 `bind`가 본보기다.
 - `expo-document-picker`와 `expo-sharing`이 Android manifest에 더하는 것과 실제 동작. 조사는 설치하지 않고 registry의 설명만 보았다.

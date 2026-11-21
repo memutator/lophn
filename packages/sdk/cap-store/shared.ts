@@ -14,3 +14,9 @@ export type {
   StoreHooks,
   StoreHost,
 } from "./host.ts";
+export { APP_FILE_MAX_BYTES } from "./files.ts";
+export type {
+  AppFileHandle,
+  AppFileMeta,
+  AppFileOptions,
+} from "./files.ts";

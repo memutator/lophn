@@ -89,6 +89,12 @@ export const data = {
     "Open links, calls, texts and emails from your phone. Data from this app can leave through a link.",
   "waiting.label.declared-phone-share-text":
     "Share text from this app to other apps on your phone",
+  "waiting.label.declared-phone-camera-capture":
+    "Take photos with your phone's camera",
+  "waiting.label.declared-phone-photos-pick": "Pick photos from your phone",
+  "waiting.label.declared-phone-files-pick": "Pick files from your phone",
+  "waiting.label.declared-phone-share-file":
+    "Share this app's files to other apps on your phone",
   "waiting.label.declared-secret": "Secret",
   "waiting.label.effect-external": "external",
   "waiting.label.effect-read": "read",

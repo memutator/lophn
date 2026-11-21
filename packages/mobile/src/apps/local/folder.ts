@@ -4,6 +4,10 @@
 //   app.before-<rel>.sqlite            the backup taken when <rel> replaced the release before; kept until the first
 //                                      push on <rel> succeeds
 //   release/<rel>/backend.js, backend.json, migrations/<from>-<to>.sql, screens/<screen>/phone.js
+//   files/<two hex>/<sha256>           the app's files (immutable, named by their content); the app's data like its database
+//   held/<computer>.json               which of the app's files that computer has acknowledged (`stored` or `have`) and which it
+//                                      refused for good; what a computer still lacks is the files/ folder minus this record. The
+//                                      folder stays while a computer lacks a file
 //   work/                              files being put together (a snapshot, a migrated copy); gone after each step
 import type { PhoneBackendManifest } from "../../../../protocol/apps/phone-backend.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
@@ -131,6 +135,8 @@ export const paths = (app: string) => {
     releases: `${dir}/release`,
     release: (release: string) => `${dir}/release/${release}`,
     work: `${dir}/work`,
+    files: `${dir}/files`,
+    held: (computer: string) => `${dir}/held/${computer}.json`,
   };
 };
 

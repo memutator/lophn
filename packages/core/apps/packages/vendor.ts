@@ -130,7 +130,12 @@ const UI_NATIVE: VendorRule = {
 
 // @lophn/app-ui-native: hook은 desktop `@lophn/app-ui`의 DOM 없는 file 그대로다(갈라지지 않게 사본을 따로 쓰지 않는다).
 // use-operation.ts가 쓰는 `@lophn/declaration` type은 사본의 dependencies로 닿는다.
-const APP_UI_HOOKS = ["use-operation", "use-event", "use-place"];
+const APP_UI_HOOKS = [
+  "use-operation",
+  "use-event",
+  "use-place",
+  "use-app-file",
+];
 const APP_UI_NATIVE: VendorRule = {
   files: Object.fromEntries(
     APP_UI_HOOKS.map((file) => [

@@ -9,6 +9,13 @@ export const TurboModuleRegistry = { get: () => null, getEnforcing: () => ({}) }
   // react-native-svg의 web image 경로가 부른다. preview에는 asset registry가 없다.
   "@react-native/assets-registry/registry": `export const getAssetByID = () => undefined;
 `,
+  // 폰의 guest는 react-native-svg의 `Image`(URI로 그림을 그린다)를 주지 않는다: 폰 화면은 자기 file 자리 밖의 그림과 network 그림을 그릴 수
+  // 없고 SVG의 image는 그 검사를 지나지 않기 때문이다. preview도 같은 곳에서 실패해 앱 agent가 release 전에 본다.
+  "react-native-svg": `export * from "react-native-svg/lib/module/index.js";
+export { default } from "react-native-svg/lib/module/index.js";
+export const Image = undefined;
+export const FeImage = undefined;
+`,
   "expo-clipboard": `export async function setStringAsync(text) {
   await navigator.clipboard?.writeText(text);
   return true;

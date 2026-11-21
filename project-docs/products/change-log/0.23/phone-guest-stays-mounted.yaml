@@ -1,0 +1,27 @@
+id: phone-guest-stays-mounted
+version: 0.23.125
+title: 컴퓨터에서 도는 앱의 폰 화면이 폰 앱이 잠시 뒤로 가거나 연결이 끊겨도 상태를 지키고, 닿지 않는다는 말은 화면 위 한 줄로 한다
+modules: [packages/mobile, packages/design]
+change: |
+  - 앱 화면(`useAppScreen`)의 상태를 순수 함수 `decideScreen`(`screen-state.ts`)으로 뽑았다. 전에는 연결이 connecting·offline이거나 앱 목록을 읽는 중이거나 view를 다시 여는 중이면 `loading`·`offline`을 돌려 `GuestScreen`을 내렸고 연결이 돌아온 뒤 새 guest가 초기 상태로 떴다. 이제 한 번 `running`이 된 guest는 이런 때 같은 key로 남아 JS 상태를 지킨다. 안내 화면은 처음 열 때(guest가 running이 된 적 없을 때)만 서고, 새 release·bundle(`rebound`, "Updated to Release N"), Try again, guest 실패·`crashed`, 앱이 컴퓨터에서 안 돎(멈춤·보관·live release 없음), 폰 화면 항목이 사라짐, 호환 검사의 거절에는 전처럼 내려간다.
+  - 컴퓨터가 닿지 않는 동안 guest 위의 layout 한 줄 "Can't reach <컴퓨터>"(`mobile.apps.away.title`·`.sub`)가 서고 돌아오면 사라진다(guest를 덮는 층이 아니다). 컴퓨터가 필요한 operation 호출은 `unavailable`로 답한다(`remote-client`가 연결이 없을 때와 호출 중 끊길 때 곧바로 답한다. 이미 그랬고 test로 못박았다). tools/wireframes의 Orders에 이 상태를 더했다.
+  - `linkView`(view binding): 연결 실패(`sent` 있음)를 core의 "앱이 안 돈다" 답과 구별해 앞의 것은 화면 상태를 바꾸지 않는다(전에는 view를 열다 연결이 끊기면 `stopped`가 되어 guest를 내렸다). 컴퓨터가 이 view에 닿지 않은 시간을 재서(연결이 끊긴 때, 또는 폰 앱이 background에 간 때부터. 돌아왔을 때 연결이 살아 있었으면 세지 않는다) 5분(`STALE_AFTER_MS`)을 넘고 view가 다시 열리면 `epoch`를 올려 guest key를 바꾼다. 앱 event는 저장도 replay도 없어서 끊긴 사이 event를 잃기 때문이다. 폰 앱이 core의 view를 다시 열 때는 같은 view id와 `release: null`로 연다(core는 기기 연결이 닫히면 그 기기의 view를 지우고 같은 인자로 다시 열면 새 binding이 선다).
+  - 폰의 Preview 화면과 폰에서 도는 앱의 화면은 이 길이 아니다(Preview는 연결이 끊기면 전처럼 안내 화면으로 바뀐다).
+why: |
+  전화·브라우저·공유로 폰 앱이 뒤로 가 ~10초 지나면 socket이 죽어 컴퓨터에서 도는 앱의 화면이 연결이 돌아올 때까지 내려가고 돌아온 화면은 입력 중이던 글과 열어 둔 화면을 잃었다. 단계 2의 카메라 촬영과 고르기는 다른 activity에서 결과를 돌려주는 동안 폰 앱이 뒤에 있어 같은 문제를 만난다.
+decisions:
+  - text: >-
+      한 번 `running`이 된 guest는 연결 끊김, 목록 읽기, view 다시 열기에 내리지 않고 닿지 않는다는 말은 guest 위의 한 줄로 한다. 이유: 폰 앱이 background에 있는 동안 연결이 먼저 죽고, 입력 중이던 상태를 잃는 것이 가장 큰 손해다. 버린 안: 연결 상태를 알리지 않고 늘 guest를 두기(컴퓨터가 필요한 동작이 왜 안 되는지 모른다), 폰 앱이 background에서도 연결을 유지하기(이 일의 범위 밖. 배터리를 쓴다).
+    by: agent
+  - text: >-
+      컴퓨터가 view에 5분을 넘게 닿지 않았으면 돌아올 때 guest를 새로 띄운다. core는 기기 연결이 닫히면 그 기기의 view를 지우고 앱 event를 replay하지 않아(`event.md`) 끊긴 사이 event는 잃는다. 오래 둔 guest는 낡은 data를 낡은 줄 모르고 보이고 새 guest는 지금 data를 읽는다. 5분은 짧은 나감(전화, 브라우저, 공유, 고르기)을 지키고 긴 부재를 새로 띄우는 추천값이고 써 보고 고친다. 버린 안: 늘 새로 띄우기(원래 문제), 늘 지키기(낡은 화면), 다시 연결되었다는 SDK 신호를 guest에 더하기(SDK 판과 앱 agent 지침이 바뀐다. 쓸 데가 생기면 그때 연다).
+    by: agent
+  - text: >-
+      부재 시간은 연결이 끊긴 때와 폰 앱이 background에 간 때 가운데 먼저인 때부터 재고, 돌아왔을 때 연결이 살아 있었으면(resume의 probe가 답했다) 세지 않는다. 이유: background에서 죽은 socket은 폰이 돌아올 때까지 모르므로 끊긴 때만 보면 오래 있다 와도 부재가 몇 초로 보인다. 버린 안: 연결 쪽(`remote-client`)이 마지막으로 닿은 시각을 재기(연결은 안 움직일 때 시각을 갱신하지 않아 조용한 연결이 길어도 오래되어 보인다).
+    by: agent
+  - text: >-
+      Preview 화면은 이번에 바꾸지 않는다. 이유: preview는 bundle마다 view id가 새로 서고 도는 process가 멈추면 끝나는 임시 화면이라 상태 결정이 다르다(`lingering`, stand-in). 같은 구조에 얹으면 별도 분기가 는다.
+    by: agent
+checklist:
+  - "해야: 폰 앱을 새로 build해 깐다"
+  - "앱 화면을 열고 글을 입력한 뒤 다른 앱에 20초쯤 갔다 온다. 입력한 글이 그대로 있는지 본다"

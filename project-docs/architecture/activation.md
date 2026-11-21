@@ -45,7 +45,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 ```
 
 - 선언 사실은 release 선언에서 권한 요구, 다른 앱 tool 쓰기, tool 이름만 뽑아 준비 때 한 번 계산해 release 행의 `facts` 열에 둔 값이다. 동의를 묻는 판정과 complete의 grant 맞춤이 이 값만 본다.
-- 권한 요구 가운데 `phone.use`(scope `{capability}`. 기능은 여덟이고 `remote.md`의 폰 기능 표가 정한다)는 앱이 사람의 폰 기능을 쓰겠다는 요구다. 기능마다 이 동의 카드가 한 번씩 묻고 카드는 항목 "Phone"에 기능마다 사람이 읽는 한 문장을 보인다("Use your phone's location", "See whether your phone is online", "Vibrate your phone" 같은 글이고 링크 열기는 "Data from this app can leave through a link."까지 말한다. 앱 상세의 권한에도 같은 글이 선다. 글은 기능마다 한 곳에서 와 빠진 기능은 type 오류다. 이 줄은 desktop 창에서 보지 못했다). 기능을 더 선언한 release는 늘어난 선언으로 다시 묻는다. 허락은 grant가 되고 사람이 거둘 수 있다(`remote.md`). 이것은 lophn의 동의이고 OS의 위치 권한은 폰이 처음 쓸 때 따로 묻는다.
+- 권한 요구 가운데 `phone.use`(scope `{capability}`. 기능은 열둘이고 `remote.md`의 폰 기능 표가 정한다)는 앱이 사람의 폰 기능을 쓰겠다는 요구다. 기능마다 이 동의 카드가 한 번씩 묻고 카드는 항목 "Phone"에 기능마다 사람이 읽는 한 문장을 보인다("Use your phone's location", "See whether your phone is online", "Vibrate your phone", "Take photos with your phone's camera", "Pick photos from your phone", "Pick files from your phone", "Share this app's files to other apps on your phone" 같은 글이고 링크 열기는 "Data from this app can leave through a link."까지 말한다. 앱 상세의 권한에도 같은 글이 선다. 글은 기능마다 한 곳에서 와 빠진 기능은 type 오류다. 이 줄은 desktop 창에서 보지 못했다). 기능을 더 선언한 release는 늘어난 선언으로 다시 묻는다. 허락은 grant가 되고 사람이 거둘 수 있다(`remote.md`). 이것은 lophn의 동의이고 OS의 위치 권한은 폰이 처음 쓸 때 따로 묻는다.
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
 - 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
 - 다른 기계가 sync 폴더에 내놓은 앱(`folder-sync.md`)은 `app.take_in`이 이 기계에 들인다. 같은 앱 id로 등록하고(앱 id를 고를 수 있는 것은 사람과 폴더 take-in 자격 `machine:folder-apps`뿐이다) 다른 기계의 증분 `git bundle`(`source/<n>.bundle`)에서 목표 `code_commit`을 받아 이 기계에서 직접 release를 준비(`npm install`·build·봉인·검사)해 `prepared` release로 적는다(`created_by`는 `machine`). 이미 들인 앱이면 앱 행을 건드리지 않고 source를 이어 받아 그 commit의 release만 준비한다. activation은 이 문서의 길 그대로다: 이 기계의 `release.activate`가 시작하고, 이 기계에는 그 앱의 grant가 없으니 첫 activation은 이 기계에서 사람의 동의를 묻는다. grant, 동의, secret, OAuth는 기계를 넘지 않는다.
@@ -83,7 +83,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 순서
 17. 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않는다. 특히 이전 process의 종료를 확인하기 전에는 DB 작업도 새 process도 없다. 두 process가 한 DB를 열면 안 된다. 종료가 확인되지 않으면 진행하지 않는다.
 18. migration의 출발 schema는 ledger 값이 아니라 종료 뒤 읽은 실제 DB의 값이다. 기록과 실제가 어긋날 수 있다.
-19. 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다.
+19. 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다. 복구본은 `app.sqlite`만 뜬다: 앱 data 영역의 앱 file(`app-file.md`)은 바뀌지 않고 지우지 않아 migration이 건드리지 않으므로 복원해도 그대로 두고 복원된 row의 손잡이는 살아 있다.
 20. 새 process는 준비 모드로 확인까지만 하고 업무 통로는 complete가 commit된 뒤에 연다. 그 전에 업무가 들어오면 실패해도 되돌릴 수 없는 쓰기가 생긴다.
     - 후보의 시작 code가 broker를 부르는 것은 채택 중에만 일어난다(process를 먼저 띄우고 commit으로 release를 active로 잇는다). broker는 supervisor가 아는 후보(prepare로 띄웠고 아직 열리지 않은 자식)에게만 예외를 둔다: 읽기뿐인 `sessions`는 그 release의 선언으로 답하고, 발행·net·secret·notify(위젯 값 포함)·폰 요청은 `forbidden`이 아니라 `unavailable`(곧 된다, 다시 시도)이다. core의 발행과 알림이 active release를 보고 일하기 때문이다. 교체된 옛 release의 자식은 후보가 아니므로 그대로 `forbidden`이다.
 21. complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우지 않는다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이다. 같은 앱 조건의 agent credential(coding session의 CLI 등)은 남는다.

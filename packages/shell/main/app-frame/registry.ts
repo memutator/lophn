@@ -9,6 +9,7 @@
 import { APP_EVENT_CHANNEL } from "../../ipc/app-events.ts";
 import {
   appEntryUrl,
+  createFileReader,
   type ProtocolView,
   type ScreenTarget,
   type Upstream,
@@ -202,6 +203,7 @@ export function createAppFrame(deps: AppFrameDeps) {
         };
       },
       upstream: (request) => deps.core(request.machine).upstream(request),
+      files: createFileReader((machine) => deps.core(machine).call),
       stale: resume,
     },
   });

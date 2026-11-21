@@ -1,0 +1,66 @@
+id: app-file
+version: 0.23.125
+title: "앱 file(사진, 고른 file): 앱 data 영역의 files/와 손잡이, 폰의 카메라·사진·file 선택기·공유, desktop과 폰 화면이 그리는 길"
+modules: [packages/protocol, packages/core/apps, packages/core/main, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/sdk, packages/core/agent-workspaces, packages/design, packages/mobile]
+change: |
+  - 앱 file: 바뀌지 않는 bytes이고 이름은 내용의 sha256이다(한 file 64 MiB까지). 손잡이 `{file, type, size, name?, width?, height?}`(작은 JSON)가 화면, operation의 입력·출력, DB row를 그대로 지나가 폰과 컴퓨터에서 같은 file을 가리킨다. file은 앱 data 영역 안 `files/<두 글자>/<sha256>`와 sidecar `<sha256>.json`(`{type, size, name?}`)에 있고(preview의 일회용 영역도 같은 모양이며 sample file 둘, 64x64 PNG와 짧은 글이 들어 있다), 앱을 지우면 앱 폴더와 함께 없어진다. 지우는 길, 용량 한도, 정리가 없다. ledger에는 표도 schema step도 blob 참조도 없다. protocol의 새 file `app-files`와 `app-file-values`(한도, sample).
+  - route 둘(memory, 사람 자격, 기기 route 목록에도 있다): `app_files/read {target, file, offset, length ≤ 8 MiB}` → `{type, size, name?, bytes_base64}`(live 또는 preview 대상. 다른 앱의 file과 live의 file을 preview로 묻는 것은 `not_found`), `app_files/put {app, file, size, type, name?, offset, bytes_base64 ≤ 8 MiB}` → `{status: stored|partial|have, received}`(운영 앱만. 이어지지 않는 offset, 조각이 size를 넘음, 다 찬 file의 sha256·크기 불일치는 `invalid_input`이고 offset 오류는 `details.received`로 쥔 bytes를 알린다. 폰에서만 도는 앱은 `unavailable`). 조각은 임시 이름으로 쓰고 확인한 뒤 rename으로 놓으며 sidecar를 마지막에 놓고 한 번 놓은 file은 다시 쓰지 않는다. 끝나지 않은 조각은 한 시간 뒤 같은 앱의 다음 put이 지운다.
+  - desktop 화면: `lophn-app://<앱 label>/_files/<sha256>`을 어느 화면에서나 받는다. 앱과 대상은 shell main이 view에서 정하고 주소에서는 hash만 읽으며 `app_files/read`를 4 MiB 조각으로 불러 stream으로 낸다(다른 기계의 앱도 같은 route를 `machines/call`로). content type은 이미지·소리·영상·pdf·글의 허용 목록에 있을 때만 쓰고 나머지는 `application/octet-stream`이다(html·script·css·xml·svg는 적힌 type이 무엇이든 나가지 않는다). 화면의 `lophnApp.files.locate(sha256)`는 IPC 없이 `/_files/<sha256>`을 준다.
+  - 폰 기능 넷(화면 길 전용, 사람의 손이 듦, deadline 600초): `camera.capture`, `photos.pick`(1~10), `files.pick`(types 10개까지, 1~10), `share.file`. 앞 셋은 취소하면 `cancelled`, 아니면 손잡이를 답한다(bytes는 답하지 않는다). 사진은 JPEG 품질 0.8, 64 MiB를 넘으면 `invalid_input`. preview의 stand-in은 sample 손잡이다. 동의 글 넷과 `@lophn/declaration`의 `PHONE_CAPABILITIES`가 열둘이 되었다. 폰: `expo-image-picker`(카메라, 사진 선택기), `expo-document-picker` 58.0.5와 `expo-sharing` 58.0.23(새 의존. `app.json` plugin은 더하지 않았고 권한 안내 글 둘만 고쳤다).
+  - 폰의 file 자리(guest마다 하나): 컴퓨터에서 도는 앱은 컴퓨터·앱마다 cache folder(preview는 따로)이고 사진·file을 `app_files/put`으로 1 MiB 조각씩 올린 뒤에만 손잡이를 답한다: 올리기 전에 지금의 연결을 60초까지 기다리고(카메라와 선택기에서 돌아온 직후 연결이 끊겨 있다), 끊기면 컴퓨터가 쥔 bytes에서 이어 올리며, 안 되면 `unavailable`(`reason`: `no_connection`, `transfer_broken`, `refused`와 컴퓨터의 말)이고 bytes를 지운다. 폰에서 도는 앱은 앱 폴더 안 `files/`(과 sidecar)에 두고 손잡이를 바로 답한다. sync 앱은 컴퓨터마다 앱 폴더의 `held/<컴퓨터>.json`에 그 컴퓨터가 `stored`·`have`로 답한 file과 영영 거절한 file을 적고, 컴퓨터에 가야 할 것은 `files/`에서 그 기록을 뺀 것이다. sync는 그 컴퓨터에 file → row 순서(폴더를 다시 보아 빠진 것이 없을 때까지)이고 끊기면 row도 안 보내며, 영영 거절하는 file은 건너뛰어 row와 pull을 막지 않고, 앱이 그 컴퓨터에 없으면 file만 멈춘다. 폰이 보이는 "안 맞춘 것" 수에 컴퓨터가 아직 갖지 못한 file이 든다. 설치된 어느 컴퓨터가 file을 빠뜨린 앱 폴더는 prune하지 않는다.
+  - 이 route의 body 한도: `app_files/put`이 route 정의의 `body_max_bytes`로 JSON body 한도를 조각 상한의 base64만큼 키운다(기본 256 KiB는 기기 link에서 190 KB 넘는 file을 모두 거절했다. dispatch가 한도를 정한다). 빈 조각은 묻기(`have`나 `partial`)다. core의 store는 hash가 아닌 이름을 스스로 거절한다. 폰에 없는 file은 닿는 컴퓨터에서 `app_files/read`로 받아 sha256과 크기가 맞을 때만 보인다(`locate`, `share.file`).
+  - 폰 화면: guest의 새 메시지 `locate {id, file}`과 `lophnApp.files.locate`가 같은 `reply`로 `{uri}`를 받는다. `PHONE_BASE_FORMAT` 4 → 5. guest의 이미지는 `data:`와 그 guest의 file 자리 folder 안의 `file:`만 그린다: sandbox patch에 view prop `imageFolder`를 더했고(알리지 않으면 어떤 `file:`도 안 그린다) 그 밖의 `file:`과 모든 `content:`와 network 주소는 요청을 쥔 controller를 만들기 전에 검사해(memory cache가 대신 답하지 못한다) 실패만 하는 controller가 된다. `react-native-svg`의 `Image`(Fresco를 직접 불러 검사를 지나던 길)는 guest에서 뺐다(view manager, JS export, desktop preview).
+  - SDK 판: `@lophn/cap-store` 2.1.0(`putAppFile`, `readAppFile`, `hasAppFile`. 폰에서 도는 backend는 `unavailable`. `CapabilityError`에 `not_found`), `@lophn/app-ui` 2.25.0과 `@lophn/app-ui-native` 1.11.0(`useAppFile(손잡이)`: `loading`·`ready{uri}`·`failed{code}`), `@lophn/cap-phone` 1.2.0(`capturePhoto`, `pickPhotos`, `pickFiles`, `shareFile`), `@lophn/declaration` 5.1.0(네 기능. 5.0.0의 `sync` 위에). guide와 `migrate-sdk` 메모(`cap-store-2.1.0`, `app-ui-2.25.0`, `app-ui-native-1.11.0`, `cap-phone-1.2.0`, `declaration-5.1.0`)와 pin을 같이 올렸다.
+  - agent 지침: `design-app`의 `phone-features.md`에 기능 넷과 새 절 "App files"(손잡이를 operation에 넘기고 row에 JSON 글로 둔다, bytes를 operation 입력에 넣지 않는다, `useAppFile`, backend는 `readAppFile`, 컴퓨터에서 도는 앱은 컴퓨터에 닿아야 한다, 지우지 않는다, 없는 것), 앱 prompt, SDK guide 다섯.
+  - 문서: `architecture/app-file.md`를 새로 썼고 `phone-screen.md`, `remote.md`, `app-sync.md`, `app-call.md`, `activation.md`, `folder-sync.md`, boundary·module catalog, registry, 두 roadmap, flow catalog를 고쳤다.
+why: |
+  앱이 bytes를 둘 곳이 없었다: 화면이 operation에 넘길 입력은 64 KiB이고 화면과 host 사이는 JSON뿐이며 앱의 저장소는 SQLite 하나였다. 그래서 사진 찍기, 사진·file 고르기, file 공유를 앱에 열 수 없었다("영수증을 찍어 가계부에 넣는 앱"을 만들 수 없었다). 폰 기능 단계 2다. bytes를 DB에 넣으면 목록 읽기, sync log, rewind가 모두 끌고 다녀서 앱 data 영역의 file로 두었고, file을 바뀌지 않게 하고 지우지 않아 rewind, 복구본, 폰과 컴퓨터의 맞추기가 따로 할 일이 없게 했다.
+decisions:
+  - text: 폰 기능 단계 2(앱 file 자리와 사진·file 기능)를 진행한다. (사람, 2026-11-22)
+    by: person
+  - text: >-
+      앱 file은 blob store가 아니라 앱 data 영역의 file로 둔다. 이유: 앱 file은 앱의 data이고 `app.sqlite` 옆이 그 자리다(앱을 지우면 같이 없어지고 schema step이 없다). blob store는 주인이 ledger row이고 지우기가 erase window와 멈춘 정비에 묶여 있어 앱의 DB row가 가리키는 file에 맞지 않는다.
+    by: agent
+  - text: >-
+      이름은 내용의 hash다. 이유: 폰과 컴퓨터가 id를 맞출 필요가 없고 나른 것을 받는 쪽이 확인한다.
+    by: agent
+  - text: >-
+      지우지 않는다. 이유: 지우기가 있으면 rewind가 되살린 row의 그림이 깨지고 폰과 컴퓨터 사이에 "지웠다"를 맞춰야 한다. 지우지 않으면 rewind, backup, sync가 모두 따로 할 일이 없다. 잃는 것은 용량이고, 사람이 앱에서 지운 사진의 bytes도 앱을 지울 때까지 디스크에 남는다. 나중에 정리를 더해도 계약이 바뀌지 않는다.
+    by: agent
+  - text: >-
+      컴퓨터에서 도는 앱의 폰 기능은 올린 뒤에 답한다. 이유: 손잡이를 받은 backend가 바로 읽을 수 있어야 하고 폰에 "아직 안 올라간 file"의 상태를 두지 않는다. 버린 안: 먼저 답하고 나중에 올리기(backend가 없는 file을 읽는다).
+    by: agent
+  - text: >-
+      backend의 file API는 `@lophn/cap-store`에 둔다. 이유: 앱 data의 part이고 모든 앱이 이미 쓴다. 새 part를 만들면 앱마다 의존을 더해야 한다.
+    by: agent
+  - text: >-
+      desktop 화면은 `_files` 경로로 그린다. 이유: main이 이미 요청의 view를 알고 CSP의 `'self'`에 든다. 화면에 base64를 넘기는 길은 목록 화면에서 무겁다.
+    by: agent
+  - text: >-
+      guest에 file을 그리게 하면서 guest의 `file:`과 `content:`를 자기 앱의 폴더로 좁힌다. 이유: 지금은 막는 code가 없다. 좁히는 길은 sandbox view의 prop 하나다. 버린 안: file을 `data:` 주소로 주기(큰 사진이 JS 문자열이 된다).
+    by: agent
+  - text: >-
+      이번에 여는 것은 폰 기능 넷이다. 녹음과 재생, 사진 보관함에 저장, 클립보드 그림은 단계 3으로 넘긴다. 이유: 녹음은 `RECORD_AUDIO`와 녹음 화면이 따로 들고, 보관함 저장은 저장소 권한을 manifest에 더한다.
+    by: agent
+  - text: >-
+      폰에서 도는 sync 앱의 file은 먼저 답하고, 컴퓨터마다 그 컴퓨터가 가진 file의 기록을 폰에 둔다(컴퓨터에 가야 할 것은 폴더에서 그 기록을 뺀 것이고 row보다 먼저 간다). 이유: 그 앱은 컴퓨터 없이 쓰이는 앱이라 올릴 때까지 기다리면 쓸 수 없다. 버린 안: 앱 폴더 하나의 "올릴 file 목록"과 한 컴퓨터가 받으면 항목을 지우기. 컴퓨터 둘이면 둘째가 file 없이 row를 받고, 목록 file이 깨지면 폴더를 영영 지우지 못하고, 긴 올리기 중 더한 file이 row보다 뒤에 가고, 영영 못 올리는 file 하나가 sync를 막는다.
+    by: agent
+  - text: >-
+      컴퓨터에서 도는 앱의 사진·file은 올리기 전에 지금의 연결을 60초까지 기다리고 끊기면 이어 올린다. 이유: 카메라와 선택기가 열린 동안 폰 앱은 뒤에 있어 연결이 끊기는 것이 설계라 돌아온 순간의 "연결 없음"으로 file을 버리면 대부분 사라진다. 버린 안: 바로 `unavailable`(처음 모양), 폰에 쌓아 두었다 나중에 올리기(앱이 없는 file을 읽는다).
+    by: agent
+  - text: >-
+      guest의 이미지 검사를 요청을 쥔 controller를 만들기 전으로 옮기고 SVG의 image를 guest에서 뺀다. 이유: Fresco의 bitmap cache는 process 전체이고 URI로 찾으며 controller가 data source보다 먼저 보므로 data source 쪽 검사는 다른 guest가 이미 그린 file을 막지 못했다. SVG의 image는 Fresco를 직접 불러 검사를 지난 적이 없다(network 그림도 그렸다).
+    by: agent
+  - text: >-
+      화면이 사람에게 연 카메라·선택기·공유 sheet에 머문 시간은 5분 신선도 규칙(`STALE_AFTER_MS`)의 부재에 세지 않고, 돌아와도 guest를 새로 띄우지 않는다(연결이 그동안 끊겼으면 돌아온 때부터 다시 센다). 이유: 그 사람은 화면을 두고 떠난 것이 아니고 결과(사진)가 갈 guest가 그 화면이다. 5분 넘게 카메라에 있다 오면 guest가 새로 떠서 파일은 컴퓨터에 올라갔는데 row가 없고 써 둔 글이 사라졌다. 그 사이 놓친 앱 event는 받아들인다.
+    by: agent
+  - text: >-
+      이미지 controller builder는 모든 이미지 view가 같이 쓰므로 실패 controller를 만든 뒤 data source supplier를 다시 치운다. 이유: Fresco의 `reset()`이 supplier를 지우지 않아 막힌 이미지 다음 이미지의 build가 Fresco의 검사에 걸려 guest가 죽었다. `react-native-svg`의 기본 import는 `"type": "module"` 앱에서 module 객체가 되어 폰에서 깨지므로 guest의 module을 고치지 않고 release 준비가 source에서 거절한다(file:line과 이름 import 안내. 기본 import를 컴포넌트로 만든 wrapper는 기기에서 `<Svg>`를 깨서 되돌렸고 원인은 찾지 못했다). 이름 import만 지원한다.
+    by: agent
+checklist:
+  - "해야: 폰 앱을 새로 build해 깐다(화면 base format 5. 옛 폰 앱은 새로 지은 앱 화면을 phone_too_old로 거절한다. sandbox patch와 새 native 의존 둘이 들었다)"
+  - 컴퓨터에서 도는 앱에서 폰으로 사진을 찍어 앱 화면에 보이는지, 같은 사진이 desktop 화면에도 보이는지 본다
+  - 폰에서 PDF를 고르고(`files.pick`) 그 file을 공유 sheet로 보낼 수 있는지(`share.file`) 본다
+  - 폰에서 도는 sync 앱을 컴퓨터 없이 쓰며 사진을 찍고, 컴퓨터에 다시 닿으면 컴퓨터에서 그 사진을 읽을 수 있는지 본다
+  - 앱 화면이 자기 file 자리 밖의 `file:` 주소를 그리지 못하는지 본다(막힌 이미지와 자기 이미지를 섞어 같이 mount해도 guest가 죽지 않는지)
+  - 5분 넘게 카메라에 있다 와도 사진이 화면에 닿고 쓰던 글이 그대로인지 본다

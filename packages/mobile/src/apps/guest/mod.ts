@@ -9,9 +9,11 @@ export { ensureBase } from "./files.ts";
 export { guestHostInfo } from "./host-info.ts";
 export {
   GUEST_BLOCKED_RN_EXPORTS,
+  GUEST_BLOCKED_SVG_EXPORTS,
   GUEST_BLOCKED_VIEWS,
   GUEST_MODULES,
   guestReactNative,
+  guestSvg,
 } from "./modules.ts";
 export {
   GUEST_START_LIMIT_MS,

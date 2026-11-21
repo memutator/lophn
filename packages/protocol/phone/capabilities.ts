@@ -1,5 +1,10 @@
 import { z } from "zod";
 import type { PhoneCapability } from "../apps/phone-request.ts";
+import { appFileHandleSchema } from "../apps/app-files.ts";
+import {
+  APP_FILE_SAMPLE_IMAGE,
+  APP_FILE_SAMPLE_TEXT,
+} from "../apps/app-file-values.ts";
 import { atSchema } from "../base/values.ts";
 
 // 앱이 쓰는 폰 기능의 표 하나다. key는 선언 SDK의 이름 목록(`PHONE_CAPABILITIES`)과 같아야 한다: 이름이 표에 없거나 표에만
@@ -58,6 +63,22 @@ const codeScanSchema = z.discriminatedUnion("cancelled", [
     text: z.string(),
   }),
 ]);
+
+// 사진·file을 내는 기능의 답: 취소했거나 file 손잡이(bytes가 아니다. 앱 file은 `apps/app-files.ts`)다. 한 번에 고르는 수는 10까지다.
+const PICK_MAX = 10;
+const pickMaxSchema = z.number().int().min(1).max(PICK_MAX).optional();
+const pickedFilesSchema = z.discriminatedUnion("cancelled", [
+  z.strictObject({ cancelled: z.literal(true) }),
+  z.strictObject({
+    cancelled: z.literal(false),
+    files: z.array(appFileHandleSchema).min(1).max(PICK_MAX),
+  }),
+]);
+// content type이나 `image/*` 같은 무늬다.
+const filePatternSchema = z
+  .string()
+  .max(127)
+  .regex(/^[A-Za-z0-9!#$&^_.+-]+\/(\*|[A-Za-z0-9!#$&^_.+-]+)$/);
 
 type Spec<O extends z.ZodType> = {
   input: z.ZodType;
@@ -150,6 +171,51 @@ export const PHONE_CAPABILITY_TABLE = {
     output: emptySchema,
     deadline_ms: 10_000,
     interactive: false,
+    from: ["screen"],
+    stand_in: {},
+  }),
+  // 사람의 손이 드는 기능이고 file을 옮길 수 있어 deadline이 길다(고른 file이 컴퓨터로 올라간 뒤에 답한다).
+  "camera.capture": entry({
+    input: emptySchema,
+    output: z.discriminatedUnion("cancelled", [
+      z.strictObject({ cancelled: z.literal(true) }),
+      z.strictObject({
+        cancelled: z.literal(false),
+        file: appFileHandleSchema,
+      }),
+    ]),
+    deadline_ms: 600_000,
+    interactive: true,
+    from: ["screen"],
+    stand_in: { cancelled: false, file: APP_FILE_SAMPLE_IMAGE.handle },
+  }),
+  "photos.pick": entry({
+    input: z.strictObject({ max: pickMaxSchema }),
+    output: pickedFilesSchema,
+    deadline_ms: 600_000,
+    interactive: true,
+    from: ["screen"],
+    stand_in: { cancelled: false, files: [APP_FILE_SAMPLE_IMAGE.handle] },
+  }),
+  "files.pick": entry({
+    input: z.strictObject({
+      types: z.array(filePatternSchema).max(10).optional(),
+      max: pickMaxSchema,
+    }),
+    output: pickedFilesSchema,
+    deadline_ms: 600_000,
+    interactive: true,
+    from: ["screen"],
+    stand_in: { cancelled: false, files: [APP_FILE_SAMPLE_TEXT.handle] },
+  }),
+  "share.file": entry({
+    input: z.strictObject({
+      file: appFileHandleSchema,
+      title: z.string().optional(),
+    }),
+    output: emptySchema,
+    deadline_ms: 600_000,
+    interactive: true,
     from: ["screen"],
     stand_in: {},
   }),

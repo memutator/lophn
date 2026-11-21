@@ -1,5 +1,5 @@
 // preview의 disposable 영역. `apps/<app ID>/preview/<process nonce>/`에 만들고
-// fixture를 `app.sqlite`로 놓는다. 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. 종료 확인 뒤
+// fixture를 `app.sqlite`로 놓고 앱 file 자리에 sample file 둘을 둔다. 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. 종료 확인 뒤
 // 폐기한다. core 안에서 쓰므로 동기 파일 I/O를 쓰지 않는다.
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 
@@ -9,6 +9,7 @@ import {
   appIdSchema,
   appPreviewFolder,
 } from "../../../protocol/apps/mod.ts";
+import { seedAppFiles } from "../app-files/store.ts";
 import { validNonce } from "./model.ts";
 
 export type PreviewArea = {
@@ -42,7 +43,8 @@ export function createFsPreviewArea(dataRoot: string): PreviewArea {
       }
       try {
         await mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
-        await mkdir(`${directory}/files`, { mode: DIRECTORY_MODE });
+        // 앱 file 자리(`files/`)와 sample 둘. 읽는 쪽이 preview를 따로 다루지 않게 영역이 이것을 가진다.
+        await seedAppFiles(directory);
         if (fixture !== null) {
           await writeFile(`${directory}/app.sqlite`, fixture, {
             flag: "wx",

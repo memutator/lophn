@@ -117,6 +117,10 @@ export const PHONE_CAPABILITIES = [
   "code.scan",
   "link.open",
   "share.text",
+  "camera.capture",
+  "photos.pick",
+  "files.pick",
+  "share.file",
 ] as const;
 
 // core가 authorize URL을 만들 때도 같은 목록으로 params의 덮어쓰기를 막는다.

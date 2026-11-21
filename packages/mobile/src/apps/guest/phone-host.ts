@@ -58,9 +58,17 @@ export function createPhoneHost(options: {
   wait: (ms: number, fn: () => void) => () => void;
   // Closes what an interactive capability put on screen (the scanner).
   dismiss: () => void;
+  // An interactive request (one that shows something to the person: the camera, a picker, the share sheet) opened (true) or
+  // ended (false). The view uses it so a long stay there is not counted as the screen being left alone.
+  onInteractive?: (open: boolean) => void;
 }): PhoneHost {
   // One interactive capability at a time.
   let interactive = false;
+  const setInteractive = (open: boolean) => {
+    if (interactive === open) return;
+    interactive = open;
+    options.onInteractive?.(open);
+  };
   const screenCapabilities = () =>
     Object.keys(PHONE_CAPABILITY_TABLE).filter((name) =>
       capabilityFrom(name as PhoneCapability, "screen"),
@@ -86,7 +94,7 @@ export function createPhoneHost(options: {
     if (spec.interactive && interactive) {
       return fail("conflict", "another phone capability that needs the person is open");
     }
-    if (spec.interactive) interactive = true;
+    if (spec.interactive) setInteractive(true);
     let cancel = () => {};
     const late = new Promise<CallOutcome>((resolve) => {
       cancel = options.wait(spec.deadline_ms, () => {
@@ -105,7 +113,7 @@ export function createPhoneHost(options: {
       ]);
     } finally {
       cancel();
-      if (spec.interactive) interactive = false;
+      if (spec.interactive) setInteractive(false);
     }
   }
 
@@ -134,7 +142,11 @@ export function createPhoneHost(options: {
       return run(capability, input);
     },
     close() {
-      if (interactive) options.dismiss();
+      if (interactive) {
+        options.dismiss();
+        // The guest is gone: its request no longer holds the view (the late result is dropped).
+        setInteractive(false);
+      }
     },
   };
 }

@@ -35,7 +35,11 @@ import {
 } from "./folder.ts";
 import { type Ctx, install } from "./install.ts";
 import type { HostDb, LocalDeps, LocalFiles, Remote } from "./ports.ts";
+import { fakeFiles } from "../files/fake-computer.ts";
+import { createFilePlace } from "../files/place.ts";
+import type { AppFileHandle } from "../../../../protocol/apps/app-file-values.ts";
 import { pruneApp } from "./prune.ts";
+import { missingFor } from "./held.ts";
 import { switchRelease } from "./release.ts";
 import { createLocalApps } from "./store.ts";
 import { applyBatch, cursorKey, pull, push, readCursor } from "./sync.ts";
@@ -70,6 +74,12 @@ function nodeFiles(root: string): LocalFiles {
       return { size: bytes.byteLength, sha256: sha(bytes) };
     },
     absolute: at,
+    readRange: (path, offset, length) =>
+      new Uint8Array(readFileSync(at(path)).subarray(offset, offset + length)),
+    async copyIn(source, path) {
+      copyFileSync(source, made(path));
+    },
+    uri: (path) => `file://${at(path)}`,
   };
 }
 
@@ -401,6 +411,80 @@ test("outbox rows leave only when the computer answered for them; unsent data an
   localWrite(alone.dbPath, "insert into item values ('x', 'only here')", false);
   assert.equal(await pruneApp(alone.deps, APP), false);
   assert.deepEqual(items(alone.dbPath), ["x:only here"]);
+});
+
+// A photo taken in a phone-run sync app is the app's data until every computer of the app has it. What a computer lacks is the
+// files folder minus that computer's record, so each computer gets each file once, a record that cannot be read costs a cheap
+// `have` and not a file, a file one computer refuses for good blocks no rows, and the folder is kept while a computer lacks one.
+test("each computer gets the files it lacks before any row; a lost record offers again; a refused file blocks nothing; prune waits", async () => {
+  const t = await setup();
+  await t.install();
+  let n = 0;
+  const place = createFilePlace({
+    files: t.files,
+    dir: t.at.files,
+    app: APP,
+    keeping: () => ({ kind: "sync", changed: () => {}, acked: () => {} }),
+    links: () => [],
+    target: () => ({ mode: "live", app: APP, release: null }),
+    newName: () => `n${++n}`,
+    now: Date.now,
+    sleep: async () => {},
+  });
+  const handles: AppFileHandle[] = [];
+  for (const text of ["first photo", "second photo"]) {
+    t.files.write("picked/p", text);
+    const added = await place.add({ uri: t.files.absolute("picked/p"), type: "image/jpeg" });
+    assert.ok(added.ok);
+    handles.push(added.value);
+  }
+  const [first, second] = handles as [AppFileHandle, AppFileHandle];
+  const installed = () => ({ ...t.installed(), computers: ["c1", "c2"] });
+  writeInstalled(t.files, installed());
+
+  // c1 is away for the files: no row goes (files before rows) and nothing is acknowledged.
+  const c1 = fakeFiles(t.computer.remote);
+  c1.breaks = 100;
+  localWrite(t.dbPath, "insert into item values ('p1', 'names a photo')");
+  assert.equal((await push({ ...t.ctx, remote: c1.remote }, installed())).ok, false);
+  assert.deepEqual(t.computer.items(), []);
+  assert.equal(missingFor(t.files, APP, "c1").length, 2);
+
+  // c1 takes both files, then the rows. c2 has none of them in its record: it gets them too (a file added once).
+  c1.breaks = 0;
+  assert.ok((await push({ ...t.ctx, remote: c1.remote }, installed())).ok);
+  assert.deepEqual([...c1.files.keys()].sort(), [first.file, second.file].sort());
+  assert.deepEqual(t.computer.items(), ["p1:names a photo"]);
+  const c2 = fakeFiles(t.computer.remote);
+  assert.ok((await push({ ...t.ctx, computer: "c2", remote: c2.remote }, installed())).ok);
+  assert.deepEqual([...c2.files.keys()].sort(), [first.file, second.file].sort());
+
+  // c1's record is lost: both files are offered again and answered `have` after an empty piece, no bytes are sent again.
+  t.files.write(t.at.held("c1"), "{not json");
+  c1.puts.length = 0;
+  assert.ok((await push({ ...t.ctx, remote: c1.remote }, installed())).ok);
+  assert.deepEqual(c1.puts, [[0, 0], [0, 0]]);
+  assert.equal(missingFor(t.files, APP, "c1").length, 0);
+
+  // A third file that c1 refuses for good: it is remembered, the rows still go, and it is not pending nor offered again.
+  t.files.write("picked/p", "a file c1 cannot take");
+  const third = await place.add({ uri: t.files.absolute("picked/p"), type: "image/jpeg" });
+  assert.ok(third.ok);
+  c1.refuse.add(third.value.file);
+  localWrite(t.dbPath, "insert into item values ('p2', 'after the refusal')");
+  const sent = await push({ ...t.ctx, remote: c1.remote }, installed());
+  assert.ok(sent.ok);
+  assert.ok(t.computer.items().includes("p2:after the refusal"));
+  assert.equal(missingFor(t.files, APP, "c1").length, 0);
+  c1.puts.length = 0;
+  assert.ok((await push({ ...t.ctx, remote: c1.remote }, installed())).ok);
+  assert.deepEqual(c1.puts, []);
+
+  // c2 has not taken the third file: the app's folder stays even with no row left to send.
+  assert.equal(await pruneApp(t.deps, APP), false);
+  assert.ok(t.files.exists(t.at.db));
+  assert.ok((await push({ ...t.ctx, computer: "c2", remote: c2.remote }, installed())).ok);
+  assert.equal(await pruneApp(t.deps, APP), true);
 });
 
 test("a release change that fails leaves app.sqlite and its outbox as they were; the backup stays until the first push on the new release", async () => {

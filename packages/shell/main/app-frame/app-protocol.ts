@@ -1,6 +1,8 @@
 // lophn-app:// 요청을 view가 묶인 대상의 화면 byte로 바꾼다. byte는 core의 `app.screen_file`이
 // 내주고(UI bundle 사본), 대상(앱·release·preview process)은 view가 정한다.
 // redirect, 허용하지 않은 MIME은 거절하고 CSP를 겹친다. 요청이 취소되면 upstream도 끊는다.
+import { APP_FILE_HASH } from "../../../protocol/apps/app-file-values.ts";
+import type { CallResult, CoreCaller } from "./app-connection.ts";
 import {
   APP_SCHEME,
   appContentSecurityPolicy,
@@ -44,10 +46,25 @@ interface UpstreamResponse {
 
 export type Upstream = (request: UpstreamRequest) => Promise<UpstreamResponse>;
 
+/** 앱 file의 한 조각(`app_files/read`). 실패는 응답 status로 옮겨 둔 값이다. */
+export type FilePiece =
+  | { ok: true; type: string; size: number; bytes: Uint8Array }
+  | { ok: false; status: number };
+
+export type FileReader = (request: {
+  machine: string | null;
+  target: ScreenTarget;
+  file: string;
+  offset: number;
+  length: number;
+}) => Promise<FilePiece>;
+
 export interface AppProtocolDeps {
   /** header 값(없으면 null)에서 이 session의 view를 찾는다. 다른 앱의 view는 돌려주지 않는다. */
   viewFor(token: string | null, appLabel: string): ProtocolView | undefined;
   upstream: Upstream;
+  /** `/_files/<sha256>`의 bytes. 앱과 대상은 view가 정한다. */
+  files: FileReader;
   /** core가 그 대상의 화면을 내주지 못한다(process 교체·중지). registry가 묶음을 다시 읽는다. */
   stale(view_session: string): void;
 }
@@ -78,6 +95,37 @@ const SAFE_MEDIA_TYPES = new Set([
   "video/mp4",
   "video/webm",
 ]);
+
+// `_files`로 내줄 수 있는 content type. 사람이 고른 file이 앱처럼 돌지 않게 html·script·css·xml·svg는 어떤 값이 적혀 있어도
+// 여기 없고, 이 밖은 모두 octet-stream이다.
+const FILE_MEDIA_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heif",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/mp4",
+  "audio/aac",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "application/pdf",
+  "text/plain",
+]);
+
+// 한 번에 core에서 받는 조각. route의 상한(8 MiB)보다 작게 잡아 base64 JSON이 한 번에 메모리에 크게 서지 않게 한다.
+const FILE_PIECE_BYTES = 4 * 1024 * 1024;
+
+function fileMediaType(stored: string): string {
+  const base = (stored.split(";", 1)[0] ?? "").trim().toLowerCase();
+  if (base === "text/plain") return "text/plain; charset=utf-8";
+  return FILE_MEDIA_TYPES.has(base) ? base : "application/octet-stream";
+}
 
 function plain(status: number): Response {
   return new Response(null, {
@@ -191,6 +239,109 @@ function discard(body: ReadableStream<Uint8Array> | null): void {
   if (body !== null) void body.cancel().catch(() => {});
 }
 
+const FILES_PATH = "_files";
+
+// `/_files/<sha256>`. 앱과 대상은 view가 정한 값이고 주소에서는 hash만 읽는다. 조각마다 core에서 받아 전체를 stream으로 낸다.
+async function serveFile(
+  deps: AppProtocolDeps,
+  view: ProtocolView,
+  asset: string[],
+  signal: AbortSignal,
+): Promise<Response> {
+  const file = asset[0];
+  if (asset.length !== 1 || file === undefined || !APP_FILE_HASH.test(file)) {
+    return plain(404);
+  }
+  const read = (offset: number) =>
+    deps.files({
+      machine: view.machine,
+      target: view.target,
+      file,
+      offset,
+      length: FILE_PIECE_BYTES,
+    });
+  let first: FilePiece;
+  try {
+    first = await read(0);
+  } catch {
+    return plain(signal.aborted ? 499 : 503);
+  }
+  if (!first.ok) return plain(first.status);
+  const { size } = first;
+  let offset = 0;
+  let next: FilePiece | undefined = first;
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (next === undefined) {
+        if (signal.aborted) return controller.error(new Error("aborted"));
+        next = await read(offset).catch(
+          (): FilePiece => ({ ok: false, status: 503 }),
+        );
+      }
+      const piece = next;
+      next = undefined;
+      // 쥔 file이 바뀌지 않으므로 빈 조각이나 실패는 중간에 끊긴 것이다.
+      if (!piece.ok || (piece.bytes.byteLength === 0 && offset < size)) {
+        return controller.error(new Error("app file read failed"));
+      }
+      offset += piece.bytes.byteLength;
+      controller.enqueue(piece.bytes);
+      if (offset >= size) controller.close();
+    },
+  });
+  const headers = new Headers({
+    "content-type": fileMediaType(first.type),
+    "content-length": String(size),
+    "x-content-type-options": "nosniff",
+    "cache-control": "no-store",
+  });
+  headers.append(
+    "content-security-policy",
+    appContentSecurityPolicy(view.hosts),
+  );
+  return new Response(size === 0 ? null : body, { status: 200, headers });
+}
+
+// core의 `app_files/read` 답을 조각 하나로. 오류 code는 화면 byte 응답의 status로 옮긴다.
+const FILE_STATUS: Record<string, number> = {
+  invalid_input: 404,
+  not_found: 404,
+  forbidden: 403,
+  unavailable: 503,
+};
+
+export function createFileReader(
+  callFor: (machine: string | null) => CoreCaller,
+): FileReader {
+  return async (request) => {
+    const reply: CallResult = await callFor(request.machine)(
+      "memory",
+      "app_files",
+      "read",
+      {
+        target: request.target,
+        file: request.file,
+        offset: request.offset,
+        length: request.length,
+      },
+    );
+    if (!reply.ok) {
+      return { ok: false, status: FILE_STATUS[reply.error.code] ?? 502 };
+    }
+    const value = reply.value as {
+      type: string;
+      size: number;
+      bytes_base64: string;
+    };
+    return {
+      ok: true,
+      type: value.type,
+      size: value.size,
+      bytes: new Uint8Array(Buffer.from(value.bytes_base64, "base64")),
+    };
+  };
+}
+
 /**
  * session 하나의 lophn-app handler를 만든다. `appLabel`은 그 session이 묶인 앱이다.
  * 모르는 view, 다른 screen, 깨진 경로는 모두 같은 404다(있는지 새지 않는다).
@@ -203,13 +354,12 @@ export function createAppProtocolHandler(
     if (request.method !== "GET") return plain(405);
     const parsed = parseAppUrl(request.url, appLabel);
     const view = deps.viewFor(request.headers.get(VIEW_HEADER), appLabel);
-    if (
-      parsed === undefined ||
-      view === undefined ||
-      parsed.screen !== view.screen
-    ) {
-      return plain(404);
+    if (parsed === undefined || view === undefined) return plain(404);
+    // 앱 file은 어느 화면이든 그 view의 앱 것만 받는다. 화면 key는 `_files`가 될 수 없다(build가 `[a-z0-9]`로 시작하는 key만 짓는다).
+    if (parsed.screen === FILES_PATH) {
+      return serveFile(deps, view, parsed.asset, request.signal);
     }
+    if (parsed.screen !== view.screen) return plain(404);
     let upstream: UpstreamResponse;
     try {
       upstream = await deps.upstream({

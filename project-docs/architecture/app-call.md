@@ -184,13 +184,13 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - core는 control frame 한도를 넘을 수 있는 이 본문을 json 요청(`apps.apply`, payload는 `{ app }`) 뒤 같은 channel의 bytes frame과 `end`로 supervisor에 보낸다. 보내다 실패하거나 기한이 지나면 `abort`를 보내고 `unavailable`로 끝낸다. write 하나씩 나눠 보내면 중간 실패 때 일부만 되돌아간다.
    - 앱 process에 닿기 전에 막히면 rewind는 취소(`app_unavailable`)다. 보낸 뒤 답을 잃으면(끊김, 기한) 앱 DB가 되돌려졌는지 모르므로 취소가 아니라 결과 모름(`unknown`)으로 끝난다. 보낸 invocation 목록과 이유를 남기고 되돌림 표시와 sync log의 `rewind` 줄은 남기지 않는다. 다시 rewind하면 이미 되돌린 행은 앱이 충돌로 거절한다. App details는 `unknown`을 따로 그리지 않고 충돌 단계에 이유 글로 보인다.
 4. 결과 모름으로 닫혀 changeset이 없는 write가 범위에 있으면 rewind를 막는다. 얼마나 바뀌었는지 모르기 때문이다. 크기 한도로 changeset을 못 붙인 write는 막지 않고 "DB를 되돌리지 못함"으로 표시한다.
-5. 되돌린 invocation은 지우지 않고 표시한다. release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
+5. rewind는 앱 DB의 row만 되돌리고 앱 file(`app-file.md`)은 건드리지 않는다. 앱 file은 바뀌지 않고 지우지 않으므로 되살아난 row의 손잡이는 늘 살아 있어 되돌릴 것이 없다. 사람이 앱에서 지운 사진의 bytes는 앱을 지울 때까지 data 영역에 남는다. 되돌린 invocation은 지우지 않고 표시한다. release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
 6. sync 앱(폰에서도 돌거나 선언의 `sync`가 표를 보내는 앱, `app-sync.md`)의 rewind는 적용한 effective 변경과 새 clock을 그 앱의 sync log에 `rewind` 줄로 남겨 폰이 받고 폴더로도 나간다. 폰이나 다른 기계에서 온 invocation도 범위에 다른 live write처럼 든다. rewind 전에 폰에서 했으나 그 뒤에 push된 변경은 규칙대로 적용된다(rewind는 그 시각의 컴퓨터 DB를 되돌리는 것이다).
 7. session rewind는 앱 data를 저절로 되돌리지 않는다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다.
 
 ### preview
 
-1. preview는 따로 띄운 process와 일회용 DB로 돈다. invocation을 남기지 않고(응답의 `invocation`은 null) rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
+1. preview는 따로 띄운 process와 일회용 DB로 돈다(일회용 data 영역의 `files/`에는 sample file 둘이 들어 있다. `app-file.md`). invocation을 남기지 않고(응답의 `invocation`은 null) rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
 2. preview 호출은 그 preview bundle의 선언으로 tool과 effect를 판정한다. 아직 release에 없는 새 앱과 새 tool도 부를 수 있다. ledger의 `release`는 비울 수 없어 release 없는 bundle의 호출은 기록할 자리도 없다.
 3. preview를 부르는 쪽은 사람과 그 앱 workspace의 session(`preview.call`)이다. agent caller는 그 앱 workspace의 session일 때만 preview target을 부르고, 다른 workspace의 session은 `forbidden`이다. 앱 workspace의 session이 지은 release를 운영 data 없이 확인하는 길이다. agent의 live 호출 규칙(활성 release, `release` 없음)은 그대로다.
 4. preview는 shell의 preview 탭(`app_preview`, `workspace-layout.md` "agent가 연 탭")으로 본다. `lophn preview start`가 ready 뒤 그 탭을 열고, 사람은 앱 화면 탭의 [Preview]로 연다. 앱 live 화면은 preview 탭이 되지 않는다.
@@ -296,7 +296,8 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 - 정의의 deny 규칙은 `lophn(<slug> <낱말>)`이다.
 - agent 명령: `lophn <app> <command>`(`lophn <slug> --help`가 description과 입력을 보인다). 기록 이름은 `<slug>.<command>`(argv 낱말은 `.`로 나누고 `_`는 `-`)이고 effect는 선언에서 온다. 사람은 binary의 `lophn <slug> <command>`로 run을 거쳐 부른다.
 - 앱 workspace의 command 안내는 선언 ID 대신 그대로 호출할 수 있는 CLI 문법과 앱별 help 경로를 보여 준다. 잘못된 이름이 현재 부를 수 있는 command의 `.`·`_` 표기를 그대로 쓴 경우 정확한 호출법을 `invalid_input`에 안내하고 실행하지 않는다. 할당 밖 command를 추천하지 않는다. 현재 group에 속한 다른 잘못된 명령도 group의 help 경로를 알려 준다.
-- 같이 보는 문서: `architecture/phone-screen.md`(폰 화면), `architecture/approval.md`(tool gate), `architecture/job.md`(program), `architecture/workflow.md`(flow), `architecture/activation.md`(release 교체와 grant), `architecture/workspace-session.md`(session rewind), `architecture/workspace-layout.md`, `architecture/agent-definition.md`, `architecture/coding-agent.md`, `architecture/app-notice.md`.
+- 앱 data 영역은 `<data root>/apps/<app>/data/`다. `app.sqlite`와 lock, backup 옆에 앱 file의 자리 `files/`가 있다(`app-file.md`). rewind와 activation의 복구본은 DB만 다룬다: 앱 file은 바뀌지 않고 지우지 않아 되돌릴 것도 복원할 것도 없고, 복원된 DB의 row가 가리키는 file은 늘 있다. 앱을 지우면 앱 폴더와 함께 없어진다.
+- 같이 보는 문서: `architecture/app-file.md`(앱 file), `architecture/phone-screen.md`(폰 화면), `architecture/approval.md`(tool gate), `architecture/job.md`(program), `architecture/workflow.md`(flow), `architecture/activation.md`(release 교체와 grant), `architecture/workspace-session.md`(session rewind), `architecture/workspace-layout.md`, `architecture/agent-definition.md`, `architecture/coding-agent.md`, `architecture/app-notice.md`.
 
 ## 결정
 

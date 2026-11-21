@@ -23,6 +23,7 @@ import {
   appsOAuthSignOut,
   appsOAuthState,
   appsSecretValue,
+  APP_FILE_ROUTES,
   APP_VIEW_ROUTES,
   declarationCheck,
   packagePublish,
@@ -309,6 +310,8 @@ export function createLedgerRegistration(
       // 폰 sync. handler는 wiring/apps.ts가 붙인다.
       appSyncPush,
       appSyncSnapshot,
+      // 앱 file. handler는 wiring/apps.ts가 붙인다.
+      ...APP_FILE_ROUTES,
       // 기계 사이 판 차이. handler는 wiring/folder.ts가 붙인다.
       appUpdateState,
     ],

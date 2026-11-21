@@ -246,7 +246,10 @@ export async function dispatchHttp(
       return rejected(asInternalError(thrown));
     }
   }
-  const maxBytes = deps.bodyLimit?.(route) ?? deps.jsonMaxBytes;
+  const maxBytes =
+    deps.bodyLimit?.(route) ??
+    (isMemoryRoute(route) ? route.body_max_bytes : undefined) ??
+    deps.jsonMaxBytes;
   const body = await readLimitedBody(request, {
     maxBytes,
     timeoutMs: deps.bodyTimeoutMs,
@@ -258,7 +261,7 @@ export async function dispatchHttp(
       message: "content type not allowed",
     });
   }
-  const parsed = parseLimitedJson(body.value);
+  const parsed = parseLimitedJson(body.value, maxBytes);
   if (!parsed.ok) return fromFailure(parsed.error);
   try {
     if (isCommandRoute(route)) {

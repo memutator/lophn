@@ -24,6 +24,12 @@ export interface LocalFiles {
   digest(path: string): Promise<{ size: number; sha256: string } | null>;
   /** The absolute path the database module and the guest's loader take. */
   absolute(path: string): string;
+  /** `length` bytes from `offset` (fewer at the end of the file). */
+  readRange(path: string, offset: number, length: number): Uint8Array;
+  /** Copies a file from anywhere the phone can read (a picker's result, a `file:` URI) to `path`. */
+  copyIn(source: string, path: string): Promise<void>;
+  /** The `file:` URI of `path`, the form an image and the share sheet take. */
+  uri(path: string): string;
 }
 
 /** The host's connection to an app database (modules/lophn-app-db `openHost`). */

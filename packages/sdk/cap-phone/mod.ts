@@ -1,12 +1,16 @@
 export {
+  capturePhoto,
   createPhoneClient,
   getLocation,
   getNetwork,
   getPhoneAccess,
   openLink,
+  pickFiles,
+  pickPhotos,
   playHaptic,
   readClipboard,
   scanCode,
+  shareFile,
   shareText,
   writeClipboard,
 } from "./phone.ts";
@@ -19,10 +23,13 @@ export type {
   PhoneCapabilityName,
   PhoneClient,
   PhoneClientDeps,
+  PhoneCapture,
   PhoneClipboardText,
   PhoneDone,
+  PhoneFileHandle,
   PhoneLocation,
   PhoneNetwork,
+  PhonePicked,
   PhoneScan,
 } from "./phone.ts";
 export { CapabilityError } from "./errors.ts";

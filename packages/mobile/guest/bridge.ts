@@ -3,6 +3,7 @@
 // run unchanged. For an app that runs on the phone (`init.local`), read and write operations go to the local runner
 // (src/apps/guest/local-call.ts) instead of the host.
 import type { JsonValue } from "../../protocol/base/json-values.ts";
+import { APP_FILE_HASH } from "../../protocol/apps/app-file-values.ts";
 import {
   PHONE_CALL_INPUT_MAX_BYTES,
   type PhoneGuestMessage,
@@ -141,6 +142,22 @@ export function installBridge(): Bridge {
               const id = nextId++;
               pending.set(id, { resolve, reject });
               send({ type: "phone", id, capability, input: json });
+            }),
+        );
+      },
+    },
+    // The host answers with a URI of this guest's own file place (the sandbox draws no other `file:` or `content:` URI).
+    files: {
+      locate(file) {
+        if (typeof file !== "string" || !APP_FILE_HASH.test(file)) {
+          return Promise.reject(new Error("invalid_input: a file is named by its sha256"));
+        }
+        return first.then(
+          () =>
+            new Promise<{ uri: string }>((resolve, reject) => {
+              const id = nextId++;
+              pending.set(id, { resolve: (value) => resolve(value as { uri: string }), reject });
+              send({ type: "locate", id, file });
             }),
         );
       },

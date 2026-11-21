@@ -142,6 +142,10 @@ const PHONE_CAPABILITY_LABELS = {
   "code.scan": "waiting.label.declared-phone-code-scan",
   "link.open": "waiting.label.declared-phone-link-open",
   "share.text": "waiting.label.declared-phone-share-text",
+  "camera.capture": "waiting.label.declared-phone-camera-capture",
+  "photos.pick": "waiting.label.declared-phone-photos-pick",
+  "files.pick": "waiting.label.declared-phone-files-pick",
+  "share.file": "waiting.label.declared-phone-share-file",
 } as const satisfies Record<PhoneCapability, string>;
 
 /** 폰 기능 grant의 이름. 동의 카드의 줄과 앱 상세가 같은 문장을 쓴다. 모르는 capability는 이름 그대로다. */

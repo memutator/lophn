@@ -72,3 +72,27 @@ useTabHead({ actions: [{ id: "a", label: "A", icon: "add" }], menu: [{ id: "m", 
   });
   assert.equal(ok, null);
 });
+
+// 폰 build와 desktop preview가 같은 source를 다르게 읽는 기본 import는 release 준비에서 한 번에 거절한다.
+test("react-native-svg의 기본 import는 file:line과 이름 import 안내로 거절하고 이름 import와 type import는 거절하지 않는다", () => {
+  const reason = check({
+    "src/a.tsx": `import { View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
+export const A = () => <Svg><Circle /></Svg>;`,
+    "src/b.tsx": `import Svg from 'react-native-svg'`,
+  });
+  assert.match(
+    reason ?? "",
+    /src\/a\.tsx:2: .*import Svg from "react-native-svg".*import \{ Svg, Circle, Path \}/,
+  );
+  assert.match(reason ?? "", /src\/b\.tsx:1: /);
+  assert.equal(
+    check({
+      "src/c.tsx": `import { Svg, Circle } from "react-native-svg";
+import type Other from "react-native-svg";
+import * as All from "react-native-svg";
+// import Svg from "react-native-svg"`,
+    }),
+    null,
+  );
+});

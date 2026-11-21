@@ -12,6 +12,10 @@ import {
   appsOAuthCallback,
 } from "../../protocol/apps/oauth.ts";
 import { alwaysOnSet } from "../../protocol/always-on/mod.ts";
+import {
+  APP_FILE_PIECE_MAX_BYTES,
+  appFilesPut,
+} from "../../protocol/apps/app-files.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import { settingsUpdate } from "../../protocol/config/file.ts";
 import { agentCreate } from "../../protocol/lophn-agent/agent-definitions.ts";
@@ -284,7 +288,7 @@ function setup(
     : registry;
   const call = createRemoteCall({
     registry: seen,
-    routes: new RouteRegistry([...routes, ...NEVER]),
+    routes: new RouteRegistry([...routes, ...NEVER, appFilesPut]),
     clock,
     memory: new Map([
       [
@@ -310,6 +314,7 @@ function setup(
       [pathOf(projectFilesRename), reach(pathOf(projectFilesRename))],
       [pathOf(projectFilesRemove), reach(pathOf(projectFilesRemove))],
       [pathOf(alwaysOnSet), reach(pathOf(alwaysOnSet))],
+      [pathOf(appFilesPut), reach(pathOf(appFilesPut))],
       ...NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
     ]),
     reads: new Map(
@@ -576,6 +581,28 @@ test("허락받은 기기가 roster, logins, 목록 밖 devices, machines, MCP �
       .map((route) => route.name),
     [],
   );
+});
+
+// 한도는 body를 읽는 dispatch가 정한다: handler와 route schema만 보는 test는 기본 256 KiB를 넘는 조각이 기기 link에서 거절되는 것을 보지 못한다.
+test("기기가 app_files/put으로 256 KiB보다 큰 조각은 보낼 수 있고 조각 상한을 넘는 것은 handler에 닿기 전에 거절된다", async () => {
+  const s = setup();
+  const who = await s.device(GRANTED);
+  const piece = (bytes: number) => ({
+    app: APP,
+    file: "a".repeat(64),
+    size: 64 * 1024 * 1024,
+    type: "image/jpeg",
+    offset: 0,
+    bytes_base64: Buffer.alloc(bytes, 1).toString("base64"),
+  });
+  const send = (bytes: number) =>
+    s.call(who, { resource: "app_files", method: "put", body: piece(bytes) });
+  const fits = await send(1024 * 1024);
+  assert.ok(fits.ok, JSON.stringify(fits));
+  assert.deepEqual(s.reached, ["app_files/put"]);
+  const over = await send(APP_FILE_PIECE_MAX_BYTES + 3);
+  assert.ok(!over.ok && over.error.code === "invalid_input");
+  assert.deepEqual(s.reached, ["app_files/put"]);
 });
 
 test("handler가 낸 오류의 details가 기기의 call 결과에 그대로 온다", async () => {

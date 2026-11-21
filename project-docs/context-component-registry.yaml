@@ -497,6 +497,15 @@ components:
       boundaries: [mobile, design-native]
       paths: [packages/core/apps/phone/, packages/core/apps/views/]
 
+  - id: architecture-app-file
+    kind: doc
+    roles: [planner, lead]
+    description: 앱 file(바뀌지 않는 bytes, 이름은 sha256, 손잡이 JSON)의 설계. 앱 data 영역의 files/, 폰의 file 자리와 올리기, desktop 화면의 `_files`, 폰 기능 넷과 SDK, 지우지 않는 것이 rewind·복구본·sync를 단순하게 하는 이유.
+    path: project-docs/architecture/app-file.md
+    change_reasons:
+      boundaries: [app-data, mobile]
+      paths: [packages/core/apps/app-files/, packages/mobile/src/apps/files/]
+
   - id: architecture-phone-home-screen
     kind: doc
     roles: [planner, lead]

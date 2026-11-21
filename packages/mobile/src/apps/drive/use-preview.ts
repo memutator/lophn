@@ -11,6 +11,8 @@ import { bundleFiles } from "../bundle-files.ts";
 import { createUpdateCoalescer, ensureBase, type GuestState, guestHostInfo } from "../guest/mod.ts";
 import type { AppScreenState } from "../use-app-screen.ts";
 import { linkView, type ViewLink, type ViewState } from "../view.ts";
+import { cacheFiles } from "../local/native.ts";
+import { createFilePlace, type FilePlace } from "../files/place.ts";
 import { drive, keepScreenOn, type PreviewHandle } from "./mod.ts";
 
 const REOPEN_MS = 2_000;
@@ -88,6 +90,7 @@ export function usePreview({
     const next = linkView({
       client,
       input: { view, mode: "preview", app: appId, release: null, screen: screenKey, place: "phone", params: {} },
+      now: Date.now,
       onState: setBound,
       // A rebuilt preview: the list read again carries its new bundle, which opens a new view.
       onRebound: () => reload.current(),
@@ -149,6 +152,34 @@ export function usePreview({
   const [guest, setGuest] = useState<{ key: string; state: GuestState } | null>(null);
   const guestKey = `${view}:${attempt}`;
 
+  // The preview's file place: a cache of its own (a preview must not show the live app's files). Its files are the
+  // computer's samples, read from the preview's data area.
+  const computerNow = useRef(computer);
+  computerNow.current = computer;
+  const clientNow = useRef(client);
+  clientNow.current = client;
+  const nonce = preview?.process_nonce;
+  const place = useMemo<FilePlace | null>(
+    () =>
+      appId === undefined || computerKey === undefined || nonce === undefined
+        ? null
+        : createFilePlace({
+            files: cacheFiles,
+            dir: `${computerKey}/${appId}/preview`,
+            app: appId,
+            keeping: () => ({ kind: "upload" }),
+            links: () =>
+              computerNow.current?.status === "connected"
+                ? [{ computer: computerKey, remote: clientNow.current.core }]
+                : [],
+            target: () => ({ mode: "preview", app: appId, process_nonce: nonce }),
+            newName: () => newId("stg"),
+            now: Date.now,
+            sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+          }),
+    [appId, computerKey, nonce],
+  );
+
   const retry = () => {
     setGuest(null);
     coalescer.reset();
@@ -170,8 +201,10 @@ export function usePreview({
     if (bundle === null || bundle.view !== view) return { kind: "loading" };
     if (!bundle.got.ok) return { kind: "failed" };
     if (guest?.key === guestKey && typeof guest.state === "object") return { kind: "failed" };
+    if (place === null) return { kind: "loading" };
     return {
       kind: "running",
+      away: false,
       key: guestKey,
       view,
       file: bundle.got.file,
@@ -179,6 +212,8 @@ export function usePreview({
       subscribe: link.subscribe,
       // A preview never reaches the phone: what its declaration declares answers with stand-in values, the rest is forbidden.
       phone: { granted: preview?.phone_capabilities ?? [], standIn: true },
+      files: place,
+      interactive: link.interactive,
       onState: (next) => setGuest({ key: guestKey, state: next }),
     };
   })();

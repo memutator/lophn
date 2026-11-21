@@ -3,6 +3,7 @@
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";
+import { APP_FILE_HASH } from "../../protocol/apps/app-file-values.ts";
 import {
   capabilityFrom,
   isPhoneCapability,
@@ -357,6 +358,15 @@ export function createAppTool(
     async openExternal(url: string): Promise<void> {
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
     },
+    // 앱 file은 main이 이 view의 앱 것만 `/_files/<sha256>`로 내준다(app-protocol.ts). 주소는 늘 같은 꼴이라 IPC가 없다.
+    files: Object.freeze({
+      async locate(file: string): Promise<{ uri: string }> {
+        if (typeof file !== "string" || !APP_FILE_HASH.test(file)) {
+          throw new Error("invalid_input: a file is named by its sha256");
+        }
+        return { uri: `/_files/${file}` };
+      },
+    }),
     agent: Object.freeze({
       open: (input: {
         agent: string;

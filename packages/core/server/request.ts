@@ -218,8 +218,9 @@ export async function readLimitedBody(
 // 깊이 16, object/array 항목 4,096. 읽은 bytes 위에서만 센다.
 export function parseLimitedJson(
   bytes: Uint8Array,
+  maxBytes: number = JSON_MAX_BYTES,
 ): Result<unknown, RequestFailure> {
-  if (bytes.byteLength > JSON_MAX_BYTES) {
+  if (bytes.byteLength > maxBytes) {
     return err(
       failure({
         code: "invalid_input",

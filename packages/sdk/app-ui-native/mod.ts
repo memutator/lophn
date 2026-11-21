@@ -18,6 +18,11 @@ export {
 } from "../app-ui/use-operation.ts";
 export { type EventBridge, useEvent } from "../app-ui/use-event.ts";
 export {
+  type AppFileState,
+  type FilesBridge,
+  useAppFile,
+} from "../app-ui/use-app-file.ts";
+export {
   type Place,
   type PlaceValue,
   type PlaceWorkspace,

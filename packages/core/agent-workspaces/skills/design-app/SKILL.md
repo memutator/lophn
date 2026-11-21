@@ -249,9 +249,9 @@ Rules:
   instead.
 - There is no network: no `fetch`, no WebSocket. Data comes only through
   operations (`useOperation`, `OperationButton`) and events (`useEvent`), and
-  the declaration must list them. Images are the kit's `Icon` and `data:`
-  URIs. Phone features come from `@lophn/cap-phone` (`phone.use`, see
-  `phone-features.md`).
+  the declaration must list them. Images are the kit's `Icon`, `data:` URIs
+  and app files (`useAppFile`). Phone features and files:
+  `phone-features.md`.
 
 An example, `src/screens/orders/phone.tsx`:
 

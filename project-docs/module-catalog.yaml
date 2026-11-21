@@ -58,6 +58,10 @@ modules:
     boundary: apps
     notes: calls/forward.ts는 다른 컴퓨터의 앱 command를 부르는 길(보내기 전의 private, 받은 호출의 hop, 할당, grant 검사)이고 calls/remote-entry.ts는 받는 쪽의 입구 `apps/remote_call`(`remote` caller를 만든다)이다. widgets/는 앱의 위젯 값(memory)과 `app_widgets.list`, phone-request/는 앱이 폰에 묻는 `app_phone.request`다. 어느 폰에 묻는지(기준 폰)와 폰으로 보내는 일은 port이고 core/main의 wiring이 core/remote의 `PhoneLink`를 끼운다. `phone.use` grant는 permissions/(broker `phone`)에 있다.
 
+  - path: packages/core/apps/app-files
+    boundary: app-data
+    notes: 앱 file(앱 data 영역의 `files/`)의 자리 규칙과 읽기·쓰기, route `app_files/read|put`의 처리기다. 이 layout을 만지는 core의 코드는 store 하나이고 preview의 data 영역이 같은 store로 sample file을 심는다. `@lophn/cap-store`의 앱 file 함수가 같은 규칙의 사본을 갖고(SDK는 core를 import하지 못한다) 이 폴더의 parity test가 둘이 서로의 file을 읽는지 본다.
+
   - path: packages/core/apps/sync
     boundary: app-sync
     notes: sync 앱의 ledger sync log(`app_sync_log`. 폰·컴퓨터·다른 기계(origin `machine`)의 변경, rewind, 다시 snapshot, held 줄), 폰이 부르는 `app_sync/*` route, 임시 snapshot. 앱 DB는 열지 않고(앱 process가 연다) 변경은 앱 process의 `apps.sync_apply`·`apps.snapshot`으로 적용한다. 폴더 쪽(`core/folder`)은 이 log를 port로 읽고 쓴다.
@@ -198,7 +202,7 @@ modules:
 
   - path: packages/mobile
     boundary: mobile
-    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다. modules/lophn-widgets는 폰의 홈 화면 native 층(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기, 앱 아이콘 pin·disable·enable)이다. widgets/, shortcuts/, open/, link/는 위젯 store, 아이콘, open target, 컴퓨터의 `request`에 답하는 handler다. modules/lophn-drive는 guest의 Android view tree를 읽고 누르는 Kotlin Expo module이다(그 view가 이 폰이 연 preview인지는 `src/apps/drive`가 먼저 본다). `guest/`는 사용자 앱의 폰 화면을 돌리는 guest runtime의 base bundle(폰 앱 build가 Hermes bytecode로 컴파일해 APK에 싣는다)이고 `patches/`의 patch가 `@callstack/react-native-sandbox`를 고친다(`npm ci`의 postinstall이 적용한다). `src/apps/carry/`는 폰이 컴퓨터 사이에서 `computers`의 file을 읽지 않고 나르는 규칙(받아 두기, 넘기기, 지우기, 모바일 데이터의 크기 선택)을 React Native 없이 두고(`carry.test.ts`가 `node --test`로 돈다), `src/apps/local/`이 폰에서 도는 앱의 설치, sync, release 바뀜, 지우기 규칙을 React Native 없이 두고(`node --test`로 돈다) `src/data/local-apps.ts`와 `local-stores.ts`가 그것을 화면에 잇는다.
+    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다. modules/lophn-widgets는 폰의 홈 화면 native 층(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기, 앱 아이콘 pin·disable·enable)이다. widgets/, shortcuts/, open/, link/는 위젯 store, 아이콘, open target, 컴퓨터의 `request`에 답하는 handler다. src/apps/files/는 guest마다의 앱 file 자리(받아 두기, 컴퓨터에 올리기, 내려받아 확인하기, 그릴 주소)를 React Native 없이 두고(`node --test`) `src/apps/local/uploads.ts`가 폰에서 도는 sync 앱의 올릴 file 목록이다. patches/의 patch는 guest의 이미지가 `file:`을 그 guest의 자리 folder 안에서만 그리게 하는 prop 하나(`imageFolder`)도 더한다. modules/lophn-drive는 guest의 Android view tree를 읽고 누르는 Kotlin Expo module이다(그 view가 이 폰이 연 preview인지는 `src/apps/drive`가 먼저 본다). `guest/`는 사용자 앱의 폰 화면을 돌리는 guest runtime의 base bundle(폰 앱 build가 Hermes bytecode로 컴파일해 APK에 싣는다)이고 `patches/`의 patch가 `@callstack/react-native-sandbox`를 고친다(`npm ci`의 postinstall이 적용한다). `src/apps/carry/`는 폰이 컴퓨터 사이에서 `computers`의 file을 읽지 않고 나르는 규칙(받아 두기, 넘기기, 지우기, 모바일 데이터의 크기 선택)을 React Native 없이 두고(`carry.test.ts`가 `node --test`로 돈다), `src/apps/local/`이 폰에서 도는 앱의 설치, sync, release 바뀜, 지우기 규칙을 React Native 없이 두고(`node --test`로 돈다) `src/data/local-apps.ts`와 `local-stores.ts`가 그것을 화면에 잇는다.
 
   - path: packages/mobile/modules/lophn-app-db
     boundary: mobile

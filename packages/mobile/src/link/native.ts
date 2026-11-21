@@ -1,15 +1,22 @@
 import { Camera } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
+import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as Network from "expo-network";
+import { Directory, File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { Linking, Share } from "react-native";
+import { type Candidate, shareName } from "../apps/files/place.ts";
 import type {
+  CameraPort,
   CapabilityCtx,
   ClipboardPort,
   HapticsPort,
   LinkingPort,
   NetworkPort,
+  PickerPort,
   ScanPort,
   SharePort,
 } from "./capabilities.ts";
@@ -113,6 +120,75 @@ const nativeSharePort: SharePort = {
   async text(text, title) {
     await Share.share({ message: text, ...(title === undefined ? {} : { title }) });
   },
+  async file({ uri, type, name, title }) {
+    if (!(await Sharing.isAvailableAsync())) return false;
+    // The place names a file by its hash; the receiving app should see the name the person knows. The copy is cache; the
+    // previous one goes first.
+    const folder = new Directory(Paths.cache, "app-file-shares");
+    if (folder.exists) folder.delete();
+    folder.create({ intermediates: true });
+    const shown = new File(folder, shareName(name));
+    await new File(uri).copy(shown);
+    await Sharing.shareAsync(shown.uri, {
+      mimeType: type,
+      ...(title === undefined ? {} : { dialogTitle: title }),
+    });
+    return true;
+  },
+};
+
+// Photos and camera shots are re-encoded as JPEG at this quality, as for a photo added to a message (a modern phone's
+// original is large).
+const QUALITY = 0.8;
+
+const candidatesOfImages = (result: ImagePicker.ImagePickerResult): Candidate[] =>
+  result.canceled
+    ? []
+    : result.assets.map((asset) => ({
+        uri: asset.uri,
+        type: asset.mimeType ?? "image/jpeg",
+        ...(asset.fileName ? { name: asset.fileName } : {}),
+        width: asset.width,
+        height: asset.height,
+        ...(asset.fileSize === undefined ? {} : { size: asset.fileSize }),
+      }));
+
+const expoCameraPort: CameraPort = {
+  // The OS permission the scanner asks for is the camera's, so one answer serves both.
+  permission: () => cameraPermission(),
+  async capture() {
+    const taken = candidatesOfImages(
+      await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: QUALITY }),
+    );
+    return taken[0] ?? null;
+  },
+};
+
+const expoPickerPort: PickerPort = {
+  async photos(max) {
+    return candidatesOfImages(
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: max > 1,
+        ...(max > 1 ? { selectionLimit: max } : {}),
+        quality: QUALITY,
+      }),
+    );
+  },
+  async files({ types, max }) {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: types ?? "*/*",
+      multiple: max > 1,
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return [];
+    return result.assets.slice(0, max).map((asset) => ({
+      uri: asset.uri,
+      ...(asset.mimeType ? { type: asset.mimeType } : {}),
+      name: asset.name,
+      ...(asset.size === undefined ? {} : { size: asset.size }),
+    }));
+  },
 };
 
 // The camera permission of the scanner. Unlike location (asked once), this asks again for as long as the OS allows it
@@ -125,12 +201,15 @@ export const cameraPermission: ScanPort["permission"] = async () => {
   return (await Camera.requestCameraPermissionsAsync()).granted;
 };
 
-// Everything a handler uses except the scanner, which is lophn's own screen over one app screen (`apps/guest`).
-export const phonePorts: Omit<CapabilityCtx, "scanner"> = {
+// Everything a handler uses except the scanner (lophn's own screen over one app screen, `apps/guest`) and the file place
+// (one per guest).
+export const phonePorts: Omit<CapabilityCtx, "scanner" | "files"> = {
   location: expoLocationPort,
   network: expoNetworkPort,
   haptics: expoHapticsPort,
   clipboard: expoClipboardPort,
   linking: nativeLinkingPort,
   share: nativeSharePort,
+  camera: expoCameraPort,
+  picker: expoPickerPort,
 };

@@ -121,6 +121,8 @@ import {
   withStartInvocation,
 } from "../../../apps/routes.ts";
 import { phoneFileStream } from "../../../apps/phone/files.ts";
+import { appFileRoutes } from "../../../apps/app-files/routes.ts";
+import { createAppFileStore } from "../../../apps/app-files/store.ts";
 import { NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
 import {
   readSdkStatus,
@@ -888,6 +890,18 @@ export const appsWiring: WiringFactory = () => {
         memory: [
           ...appOAuth.handlers,
           ...appViewHandlers(views),
+          ...appFileRoutes({
+            dataRoot: ctx.root.path,
+            store: createAppFileStore({ clock: ctx.clock }),
+            appStatus(app) {
+              const loaded = loadApp(link.sql, app);
+              return loaded.ok && loaded.value !== null
+                ? loaded.value.status
+                : null;
+            },
+            previewRunning: (app, nonce) =>
+              appsControl.previews.bundleHashOf(app, nonce) !== null,
+          }),
           [
             "apps/call_tool",
             async (who, body) => {

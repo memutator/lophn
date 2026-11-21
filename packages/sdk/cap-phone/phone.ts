@@ -25,6 +25,10 @@ export const PHONE_CAPABILITY_NAMES = [
   "code.scan",
   "link.open",
   "share.text",
+  "camera.capture",
+  "photos.pick",
+  "files.pick",
+  "share.file",
 ] as const;
 export type PhoneCapabilityName = (typeof PHONE_CAPABILITY_NAMES)[number];
 
@@ -47,6 +51,14 @@ export const HAPTIC_KINDS = [
   "error",
 ] as const;
 export const LINK_SCHEMES = ["https", "http", "tel", "sms", "mailto", "geo"];
+// 한 번에 고르는 file 수와 `pickFiles`의 `types` 수·무늬(content type이나 `image/*`)다.
+export const PICK_MAX = 10;
+export const FILE_TYPES_MAX = 10;
+export const FILE_PATTERN =
+  /^[A-Za-z0-9!#$&^_.+-]+\/(\*|[A-Za-z0-9!#$&^_.+-]+)$/;
+// 앱 file 손잡이의 sha256 모양이고 file 하나의 한도다(`@lophn/cap-store`·protocol/apps/app-file-values.ts와 같다).
+export const FILE_HASH = /^[0-9a-f]{64}$/;
+export const FILE_MAX_BYTES = 64 * 1024 * 1024;
 
 export type LocationAccuracy = (typeof ACCURACIES)[number];
 export type HapticKind = (typeof HAPTIC_KINDS)[number];
@@ -84,6 +96,25 @@ export type PhoneScan =
   | (StandIn & { cancelled: true })
   | (StandIn & { cancelled: false; format: string; text: string });
 
+// 앱 file의 손잡이다(`@lophn/cap-store`의 `AppFileHandle`과 같은 모양). 기능은 bytes가 아니라 이것을 답한다.
+export type PhoneFileHandle = {
+  file: string;
+  type: string;
+  size: number;
+  name?: string;
+  width?: number;
+  height?: number;
+};
+
+// 사람이 카메라를 닫으면 `cancelled: true`다(오류가 아니다).
+export type PhoneCapture =
+  | (StandIn & { cancelled: true })
+  | (StandIn & { cancelled: false; file: PhoneFileHandle });
+
+export type PhonePicked =
+  | (StandIn & { cancelled: true })
+  | (StandIn & { cancelled: false; files: PhoneFileHandle[] });
+
 // 값이 없는 기능(진동, 클립보드 쓰기, 링크 열기, 공유)의 결과다.
 export type PhoneDone = StandIn;
 
@@ -103,6 +134,13 @@ export type PhoneClient = {
   scanCode(): Promise<PhoneScan>;
   openLink(url: string): Promise<PhoneDone>;
   shareText(text: string, options?: { title?: string }): Promise<PhoneDone>;
+  capturePhoto(): Promise<PhoneCapture>;
+  pickPhotos(options?: { max?: number }): Promise<PhonePicked>;
+  pickFiles(options?: { types?: string[]; max?: number }): Promise<PhonePicked>;
+  shareFile(
+    file: PhoneFileHandle,
+    options?: { title?: string },
+  ): Promise<PhoneDone>;
   getPhoneAccess(): PhoneAccess;
 };
 
@@ -205,6 +243,70 @@ function scan(value: unknown): PhoneScan {
     return { cancelled: false, format: v.format, text: v.text };
   }
   throw bad("a scan");
+}
+
+function fileHandle(
+  value: unknown,
+  what: string,
+  fail: (what: string) => CapabilityError = bad,
+): PhoneFileHandle {
+  const v = record(value);
+  const positive = (n: unknown) =>
+    n === undefined || (Number.isInteger(n) && (n as number) > 0);
+  if (
+    v &&
+    typeof v.file === "string" &&
+    FILE_HASH.test(v.file) &&
+    typeof v.type === "string" &&
+    v.type.length > 0 &&
+    Number.isInteger(v.size) &&
+    num(v.size, 0, FILE_MAX_BYTES) &&
+    (v.name === undefined || typeof v.name === "string") &&
+    positive(v.width) &&
+    positive(v.height)
+  ) {
+    return {
+      file: v.file,
+      type: v.type,
+      size: v.size as number,
+      ...(v.name === undefined ? {} : { name: v.name as string }),
+      ...(v.width === undefined ? {} : { width: v.width as number }),
+      ...(v.height === undefined ? {} : { height: v.height as number }),
+    };
+  }
+  throw fail(what);
+}
+
+function capture(value: unknown): PhoneCapture {
+  const v = record(value);
+  if (v?.cancelled === true) return { cancelled: true };
+  if (v?.cancelled === false) {
+    return { cancelled: false, file: fileHandle(v.file, "a photo") };
+  }
+  throw bad("a photo");
+}
+
+function picked(value: unknown): PhonePicked {
+  const v = record(value);
+  if (v?.cancelled === true) return { cancelled: true };
+  if (v?.cancelled === false && Array.isArray(v.files) && v.files.length > 0) {
+    return {
+      cancelled: false,
+      files: v.files.map((one) => fileHandle(one, "a picked file")),
+    };
+  }
+  throw bad("a picked file");
+}
+
+function checkMax(max: unknown): void {
+  if (
+    max !== undefined &&
+    (!Number.isInteger(max) ||
+      (max as number) < 1 ||
+      (max as number) > PICK_MAX)
+  ) {
+    throw invalid(`max must be an integer from 1 to ${PICK_MAX}`);
+  }
 }
 
 const done = (): PhoneDone => ({});
@@ -350,6 +452,56 @@ export function createPhoneClient(deps: PhoneClientDeps = {}): PhoneClient {
         done,
       );
     },
+    capturePhoto: () => ask("camera.capture", {}, capture),
+    async pickPhotos(options = {}) {
+      checkMax(options.max);
+      return ask(
+        "photos.pick",
+        options.max === undefined ? {} : { max: options.max },
+        picked,
+      );
+    },
+    async pickFiles(options = {}) {
+      checkMax(options.max);
+      const { types } = options;
+      if (
+        types !== undefined &&
+        (!Array.isArray(types) ||
+          types.length > FILE_TYPES_MAX ||
+          types.some(
+            (type) =>
+              typeof type !== "string" ||
+              type.length > 127 ||
+              !FILE_PATTERN.test(type),
+          ))
+      ) {
+        throw invalid(
+          `types is at most ${FILE_TYPES_MAX} content types or patterns like image/*`,
+        );
+      }
+      return ask(
+        "files.pick",
+        {
+          ...(types === undefined ? {} : { types }),
+          ...(options.max === undefined ? {} : { max: options.max }),
+        },
+        picked,
+      );
+    },
+    async shareFile(file, options = {}) {
+      const handle = fileHandle(file, "the file", (what) =>
+        invalid(`${what} must be a file handle`),
+      );
+      if (options.title !== undefined) checkText("title", options.title);
+      return ask(
+        "share.file",
+        {
+          file: handle,
+          ...(options.title === undefined ? {} : { title: options.title }),
+        },
+        done,
+      );
+    },
     getPhoneAccess() {
       const app = phoneApp();
       return {
@@ -373,4 +525,13 @@ export const scanCode = () => shared.scanCode();
 export const openLink = (url: string) => shared.openLink(url);
 export const shareText = (text: string, options?: { title?: string }) =>
   shared.shareText(text, options);
+export const capturePhoto = () => shared.capturePhoto();
+export const pickPhotos = (options?: { max?: number }) =>
+  shared.pickPhotos(options);
+export const pickFiles = (options?: { types?: string[]; max?: number }) =>
+  shared.pickFiles(options);
+export const shareFile = (
+  file: PhoneFileHandle,
+  options?: { title?: string },
+) => shared.shareFile(file, options);
 export const getPhoneAccess = () => shared.getPhoneAccess();

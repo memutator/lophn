@@ -3,7 +3,11 @@ import { compareVersions, err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 import { sha256Schema } from "../base/values.ts";
-import type { LophnAppPhone } from "../shell/app-bridge-types.ts";
+import type {
+  LophnAppFiles,
+  LophnAppPhone,
+} from "../shell/app-bridge-types.ts";
+import { APP_FILE_HASH } from "./app-file-values.ts";
 
 // 앱의 폰 화면(React Native)이 core, 폰 앱의 host, 폰의 guest runtime 사이에서 지키는 모양이다. 이 file이 고정하는 것:
 // 화면이 import할 수 있는 host module 목록, 화면 bundle의 manifest(`screens/<key>/phone.json`)와 폰의 호환 검사,
@@ -27,9 +31,10 @@ export const PHONE_HOST_MODULES = [
 
 // base bundle의 약속(전역 이름, 메시지)이 바뀔 때 올린다. 2: 폰에서 도는 앱의 backend를 base 뒤에 싣는다(`init`의
 // `local`, `local_change`). 3: `init.local`이 앱 id, release, 변경 하나의 상한을 싣고 backend의 호출 문맥이 앱 id와
-// release를 본다. 4: 폰 기능 길(guest의 `phone` 메시지, `init.phone`, `lophnApp.phone`). 옛 판으로 지은 화면은 새 폰에서
+// release를 본다. 4: 폰 기능 길(guest의 `phone` 메시지, `init.phone`, `lophnApp.phone`). 5: 앱 file을 그릴 주소(guest의
+// `locate` 메시지, `lophnApp.files`). 옛 판으로 지은 화면은 새 폰에서
 // 그대로 돈다(`phoneCanRun`은 화면의 base가 폰보다 클 때만 막는다).
-export const PHONE_BASE_FORMAT = 4;
+export const PHONE_BASE_FORMAT = 5;
 
 // guest의 base bundle이 내는 전역 이름이다. 화면 bundle의 진입은 `__lophnMount(Screen)`을 부르고 평가 전체를
 // `try{…}catch(e){__lophnFatal(e)}`로 감싼다(평가 중 예외는 host process를 죽인다).
@@ -137,6 +142,13 @@ export const phoneGuestMessageSchema = z.discriminatedUnion("type", [
     capability: z.string(),
     input: callInputSchema,
   }),
+  // 앱 file 하나를 그릴 주소로 바꿔 달라고 host에 묻는다(`lophnApp.files.locate`). host는 그 guest의 file 자리 것만 풀어 주고 같은
+  // `reply`로 `{uri}`를 답한다. file 자리와 다운로드는 host가 안다: 메시지에는 sha256뿐이다.
+  z.strictObject({
+    type: z.literal("locate"),
+    id: z.number().int(),
+    file: z.string().regex(APP_FILE_HASH),
+  }),
 ]);
 export type PhoneGuestMessage = z.infer<typeof phoneGuestMessageSchema>;
 
@@ -240,6 +252,8 @@ export type PhoneLophnApp = {
   callOperation(operation: string, input: unknown): Promise<unknown>;
   // 폰 기능. `capabilities`는 `init.phone`의 값이다(`init` 전에는 비어 있다).
   phone: LophnAppPhone;
+  // 앱 file의 주소. desktop의 `lophnApp.files`와 같은 뜻이다(폰에 없는 file은 컴퓨터에서 받아 오느라 기다릴 수 있다).
+  files: LophnAppFiles;
   events: {
     subscribe(
       source: string,

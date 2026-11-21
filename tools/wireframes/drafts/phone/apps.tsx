@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ScrollText,
   SquarePlus,
+  WifiOff,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
@@ -43,10 +44,13 @@ const ORDERS = [
 function Orders({
   over,
   updated,
+  away,
 }: {
   over?: ReactNode;
   /** Release 8: the filter the person asked for is there. */
   updated?: boolean;
+  /** The computer cannot be reached: the screen stays and a line above it says so. */
+  away?: boolean;
 }) {
   return (
     <Phone tone="floor" over={over}>
@@ -65,6 +69,16 @@ function Orders({
             What changed
           </Btn>
         </div>
+      )}
+      {away && (
+        <>
+          <Row
+            lead={<Ic icon={WifiOff} />}
+            title="Can't reach mina-desktop"
+            sub="Anything that needs the computer won't work until it is back."
+          />
+          <div className={s.hair} />
+        </>
       )}
       <div className={s.appBody}>
         <div className={s.between}>
@@ -416,6 +430,12 @@ export function AppsFlow() {
         text="Inbox에서 새 판을 허락하면 열려 있던 앱이 바뀌고 위에 한 줄로 알린다. 부탁한 Last 7 days 거르기가 생겼다."
       >
         <Orders updated />
+      </Shot>
+      <Shot
+        title="Computer out of reach while the app is open"
+        text="연결이 끊겨도(전화나 브라우저로 나갔다 온 뒤 같은 때) 화면은 그대로 두고 위에 한 줄로 알린다. 컴퓨터가 필요한 동작만 안 된다. 5분 넘게 끊겼다 돌아오면 화면을 새로 연다."
+      >
+        <Orders away />
       </Shot>
       <Shot
         title="An app on the phone · Calendar"

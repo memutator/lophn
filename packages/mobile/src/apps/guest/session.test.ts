@@ -7,8 +7,12 @@ import {
 } from "../../../../protocol/apps/phone-screen.ts";
 import type { JsonValue } from "../../../../protocol/base/json-values.ts";
 import { ok } from "../../../../base/mod.ts";
+import {
+  APP_FILE_SAMPLE_IMAGE as SAMPLE_IMAGE,
+  APP_FILE_SAMPLE_TEXT as SAMPLE_TEXT,
+} from "../../../../protocol/apps/app-file-values.ts";
 import { createUpdateCoalescer } from "./coalesce.ts";
-import { GUEST_BLOCKED_VIEWS, GUEST_MODULES, guestReactNative } from "./modules.ts";
+import { GUEST_BLOCKED_VIEWS, GUEST_MODULES, guestReactNative, guestSvg } from "./modules.ts";
 import { createPhoneHost } from "./phone-host.ts";
 import { createGuestSession, type GuestState } from "./session.ts";
 
@@ -31,6 +35,7 @@ function setup() {
       return { ok: true, value: operation };
     },
     phone: noPhone(),
+    locate: noLocate,
     post: (message) => posted.push(message),
     onState: (state) => states.push(state),
     onLocalChange: () => {},
@@ -50,6 +55,8 @@ const noPhone = () =>
     wait: () => () => {},
     dismiss: () => {},
   });
+
+const noLocate = async () => ({ ok: false as const, error: { code: "not_found", message: "no file place in this test" } });
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -123,6 +130,15 @@ test("guestReactNative omits Modal without triggering lazy react-native getters"
   assert.deepEqual(Object.keys(wrapped), ["View", "Networking"]);
   assert.equal(networkTouched, false);
   assert.ok(GUEST_BLOCKED_VIEWS.includes("RCTModalHostView"));
+  // The SVG image draws by URI through the pipeline directly, so a guest gets neither its view nor its component.
+  assert.ok(GUEST_BLOCKED_VIEWS.includes("RNSVGImage"));
+  const circle = () => "circle";
+  const svg = guestSvg({ Svg: 1, Circle: circle, Image: () => "image", FeImage: () => "feimage" }) as Record<string, unknown>;
+  assert.equal(svg.Circle, circle);
+  assert.equal(svg.Svg, 1);
+  assert.equal(svg.Image, undefined);
+  assert.equal(svg.FeImage, undefined);
+  assert.deepEqual(Object.keys(svg), ["Svg", "Circle"]);
   assert.equal(GUEST_MODULES.includes("StatusBarManager"), false);
   assert.equal(GUEST_MODULES.includes("Networking"), false);
 });
@@ -186,6 +202,7 @@ test("closing a guest session drops late replies from in-flight calls and ignore
         resolveCall = resolve;
       }),
     phone: noPhone(),
+    locate: noLocate,
     post: (message) => posted.push(message),
     onState: () => {},
     onLocalChange: () => {},
@@ -227,6 +244,7 @@ test("a phone request for a capability the app is not granted is forbidden and i
       wait: () => () => {},
       dismiss: () => {},
     }),
+    locate: noLocate,
     post: (message) => posted.push(message),
     onState: () => {},
     onLocalChange: () => {},
@@ -278,39 +296,61 @@ test("in stand-in mode a declared capability answers its stand-in value and an u
     ran.push(name);
     return ok({});
   };
+  const FILE_CAPABILITIES = ["camera.capture", "photos.pick", "files.pick", "share.file"];
   const session = createGuestSession({
     init,
     call: async () => ({ ok: true, value: null }),
     phone: createPhoneHost({
-      granted: () => ["network.get", "code.scan"],
+      granted: () => ["network.get", "code.scan", ...FILE_CAPABILITIES.slice(0, 3)],
       standIn: true,
       // a preview is usable with the phone app in the background too
       isActive: () => false,
-      handlers: { "network.get": handler("network.get"), "code.scan": handler("code.scan") } as never,
+      handlers: Object.fromEntries(
+        ["network.get", "code.scan", ...FILE_CAPABILITIES].map((name) => [name, handler(name)]),
+      ) as never,
+      // a handler that reached for the camera, a picker or the file place would throw on this
       ctx: {} as never,
       wait: () => () => {},
       dismiss: () => {},
     }),
+    locate: noLocate,
     post: (message) => posted.push(message),
     onState: () => {},
     onLocalChange: () => {},
     log: () => {},
   });
   session.receive(JSON.stringify({ type: "ready" }));
-  for (const [id, capability] of [[1, "network.get"], [2, "code.scan"], [3, "haptics.play"]] as const) {
-    session.receive(JSON.stringify({ type: "phone", id, capability, input: {} }));
-  }
+  const asked = [
+    ["network.get", {}],
+    ["code.scan", {}],
+    ["haptics.play", {}],
+    ["camera.capture", {}],
+    ["photos.pick", { max: 3 }],
+    ["files.pick", { types: ["application/pdf"] }],
+    ["share.file", { file: SAMPLE_IMAGE.handle }],
+  ] as const;
+  asked.forEach(([capability, input], at) => {
+    session.receive(JSON.stringify({ type: "phone", id: at + 1, capability, input }));
+  });
   await settle();
 
   assert.deepEqual(ran, []);
   const init0 = posted[0];
   assert.ok(init0?.type === "init" && init0.phone.stand_in);
-  assert.deepEqual(init0.phone.capabilities, ["network.get", "code.scan"]);
-  const [one, two, three] = posted.slice(1).map((message) => message.type === "reply" && message.outcome);
+  assert.deepEqual(init0.phone.capabilities, ["network.get", "code.scan", ...FILE_CAPABILITIES.slice(0, 3)]);
+  const [one, two, three, four, five, six, seven] = posted
+    .slice(1)
+    .map((message) => message.type === "reply" && message.outcome);
   assert.deepEqual(one, { ok: true, value: { online: true, type: "wifi" } });
   assert.deepEqual(two, { ok: true, value: { cancelled: false, format: "qr", text: "https://example.com" } });
   assert.ok(three && !three.ok && three.error.code === "forbidden");
   assert.deepEqual(three.error.scope, { capability: "haptics.play" });
+  // The files the preview answers are the samples (the computer's preview area has them), never a file of the phone.
+  assert.deepEqual(four, { ok: true, value: { cancelled: false, file: SAMPLE_IMAGE.handle } });
+  assert.deepEqual(five, { ok: true, value: { cancelled: false, files: [SAMPLE_IMAGE.handle] } });
+  assert.deepEqual(six, { ok: true, value: { cancelled: false, files: [SAMPLE_TEXT.handle] } });
+  assert.ok(seven && !seven.ok && seven.error.code === "forbidden");
+  assert.deepEqual(seven.error.scope, { capability: "share.file" });
 });
 
 // The phone is read only while lophn is in front (remote.md): a guest timer cannot reach the phone from the background.
@@ -335,6 +375,7 @@ test("a phone request while the phone app is not in front is unavailable (phone_
       wait: () => () => {},
       dismiss: () => {},
     }),
+    locate: noLocate,
     post: (message) => posted.push(message),
     onState: () => {},
     onLocalChange: () => {},

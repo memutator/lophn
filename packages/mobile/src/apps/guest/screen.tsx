@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, View } from "react-native";
 import type { PhoneLocal, PhonePlace } from "../../../../protocol/apps/phone-screen.ts";
 import { CAPABILITY_HANDLERS } from "../../link/capabilities.ts";
+import type { FilePlace } from "../files/place.ts";
 import { cameraPermission, phonePorts } from "../../link/native.ts";
 import { APP_DB_SUBSTITUTION, type GuestAppDbProp, useAppDbBinding } from "./app-db.ts";
 import { basePath, fileExists, wrapBackend } from "./files.ts";
@@ -40,6 +41,8 @@ export interface GuestScreenProps {
   onState: (state: GuestState) => void;
   // Why the guest failed, for the developer. Default: console.warn.
   log?: (line: string) => void;
+  // This guest's file place: where the files of the app live for this guest. The guest draws files only from it.
+  files: FilePlace;
   // An app that runs on the phone gives these together. The guest then loads base|backend|screen and runs the app's
   // read and write operations itself; external ones still come to `call`.
   // Absolute path of the app's backend.js, downloaded and checked against its manifest hash.
@@ -50,6 +53,9 @@ export interface GuestScreenProps {
   appDb?: GuestAppDbProp;
   // A local call committed a change; it is in the outbox.
   onLocalChange?: () => void;
+  // The guest's camera, picker or share sheet opened (true) or ended (false): the view does not count that time as the
+  // screen left alone.
+  onInteractive?: (open: boolean) => void;
 }
 
 // One user app phone screen in its own React Native runtime. It starts on mount and is destroyed on unmount (no idle
@@ -99,18 +105,24 @@ export function GuestScreen(props: GuestScreenProps) {
         local: props.local ?? null,
       },
       call: (operation, input) => latest.current.call(operation, input),
+      locate: (file) => latest.current.files.ensure(file),
       phone: createPhoneHost({
         granted: () => latest.current.phone.granted,
         standIn: props.phone.standIn,
         // The notion the link entrance uses: the connection pauses when the app state is not "active".
         isActive: () => AppState.currentState === "active",
         handlers: CAPABILITY_HANDLERS,
-        ctx: { ...phonePorts, scanner: { permission: cameraPermission, scan: scanner.scan } },
+        ctx: {
+          ...phonePorts,
+          scanner: { permission: cameraPermission, scan: scanner.scan },
+          files: latest.current.files,
+        },
         wait: (ms, fn) => {
           const timer = setTimeout(fn, ms);
           return () => clearTimeout(timer);
         },
         dismiss: scanner.close,
+        onInteractive: (open) => latest.current.onInteractive?.(open),
       }),
       post: (message) => ref.current?.postMessage(message),
       onState: (state) => {
@@ -158,6 +170,7 @@ export function GuestScreen(props: GuestScreenProps) {
         jsBundleSource={scripts.join("|")}
         allowedTurboModules={GUEST_MODULES}
         turboModuleSubstitutions={props.appDb ? APP_DB_SUBSTITUTION : undefined}
+        imageFolder={props.files.folder()}
         onMessage={session.receive}
         onError={session.error}
         style={{ flex: 1 }}

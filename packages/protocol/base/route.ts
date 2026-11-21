@@ -80,7 +80,11 @@ export type FileRoute<I extends z.ZodType = z.ZodType> = RouteBase<
 export type MemoryRoute<
   I extends z.ZodType = z.ZodType,
   O extends z.ZodType = z.ZodType,
-> = RouteBase<"memory", I, O>;
+> = RouteBase<"memory", I, O> & {
+  // JSON body 한도를 기본(`RPC_JSON_MAX_BYTES`)보다 키운다. bytes를 base64로 싣는 route만 쓴다(한 조각이 기본 한도보다 큰 것).
+  // 어느 길(HTTP, 기기 link)이든 dispatch가 이 값으로 body를 읽는다.
+  body_max_bytes?: number;
+};
 
 // 요청 body가 JSON이 아니라 바이트 stream인 route다. 입력(JSON)은 header로 오고, core는
 // 바이트를 해석하거나 모으지 않고 등록된 handler로 흘려 보낸다. 상한은 route가 정한다.
@@ -195,8 +199,19 @@ export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<
     DefineOptions<I, O>,
     "confirmation" | "binding" | "confirmation_kind"
-  > & { changes?: Changes<I, O>; reads?: Reads<I> },
+  > & {
+    changes?: Changes<I, O>;
+    reads?: Reads<I>;
+    body_max_bytes?: number;
+  },
 ): MemoryRoute<I, O> {
+  if (
+    options.body_max_bytes !== undefined &&
+    (!Number.isSafeInteger(options.body_max_bytes) ||
+      options.body_max_bytes < 1)
+  ) {
+    throw new Error("memory route needs a positive body_max_bytes");
+  }
   const given = options as DefineOptions<I, O>;
   if (
     given.confirmation !== undefined ||

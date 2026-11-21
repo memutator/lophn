@@ -6,6 +6,9 @@ export const mobileApps = {
     "Tap the screen to mark a spot, then write what should change.",
   "mobile.apps.annotate.placeholder": "What should change here?",
   "mobile.apps.annotate.send": "Send",
+  "mobile.apps.away.sub":
+    "Anything that needs the computer won't work until it is back.",
+  "mobile.apps.away.title": "Can't reach {computer}",
   "mobile.apps.button.what-changed": "What changed",
   "mobile.apps.failed.body":
     "Something went wrong while it started. Try again, or ask lophn to look at it.",

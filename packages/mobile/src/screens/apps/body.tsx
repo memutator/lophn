@@ -1,8 +1,8 @@
 // What a user app's screen shows under lophn's top line, for the live app (index.tsx) and its preview (preview.tsx): the
 // guest, or why it cannot show (NeedsComputer and the other states drawn like it).
 import { LOPHN_LOCALE, t } from "@lophn/i18n";
-import { Button, Text, useTheme } from "@lophn/ui-native";
-import { RefreshCw } from "lucide-react-native";
+import { Button, Divider, Icon, Row, Text, useTheme } from "@lophn/ui-native";
+import { RefreshCw, WifiOff } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { GuestScreen } from "../../apps/guest/mod.ts";
@@ -45,9 +45,21 @@ export function Body({
         />
       );
     case "running":
-      // Nothing may cover the guest: the sandbox hands a touch on a covered guest to the host.
+      // Nothing may cover the guest: the sandbox hands a touch on a covered guest to the host. The line that says the
+      // computer is away is a row above it.
       return (
         <View style={{ flex: 1 }}>
+          {"away" in state && state.away && (
+            <>
+              <Row
+                lead={<Icon icon={WifiOff} />}
+                title={t("mobile.apps.away.title", { computer })}
+                sub={t("mobile.apps.away.sub")}
+                wrap
+              />
+              <Divider inset={0} />
+            </>
+          )}
           <GuestScreen
             key={state.key}
             view={state.view}
@@ -57,6 +69,8 @@ export function Body({
             locale={LOPHN_LOCALE}
             call={state.call}
             phone={state.phone}
+            files={state.files}
+            onInteractive={state.interactive}
             subscribe={state.subscribe}
             onState={state.onState}
             {...("local" in state

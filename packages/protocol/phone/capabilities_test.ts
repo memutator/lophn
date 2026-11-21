@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { APP_FILE_HASH, APP_FILE_MAX_BYTES } from "../apps/app-file-values.ts";
 import { PHONE_CAPABILITIES } from "../apps/declaration/types.ts";
 import {
   BACKEND_CAPABILITIES,
   BROKER_STAND_IN,
+  FILE_HASH as SDK_FILE_HASH,
+  FILE_MAX_BYTES as SDK_FILE_MAX_BYTES,
+  FILE_PATTERN as SDK_FILE_PATTERN,
+  FILE_TYPES_MAX as SDK_FILE_TYPES_MAX,
   HAPTIC_KINDS as SDK_HAPTIC_KINDS,
+  PICK_MAX as SDK_PICK_MAX,
   LINK_SCHEMES as SDK_LINK_SCHEMES,
   PHONE_CAPABILITY_NAMES,
 } from "../../sdk/cap-phone/phone.ts";
@@ -39,5 +45,32 @@ test("the SDK's copies of the capability table agree with the table", () => {
       name as keyof PhoneCapabilityTable
     ].stand_in as Record<string, unknown>;
     assert.deepEqual(mine, table, name);
+  }
+  // The file capabilities' limits, where a copy that drifts refuses what the phone takes or lets through what it refuses.
+  assert.equal(SDK_FILE_MAX_BYTES, APP_FILE_MAX_BYTES);
+  assert.equal(SDK_FILE_HASH.source, APP_FILE_HASH.source);
+  const input = (name: "photos.pick" | "files.pick") =>
+    PHONE_CAPABILITY_TABLE[name].input;
+  assert.ok(input("photos.pick").safeParse({ max: SDK_PICK_MAX }).success);
+  assert.ok(!input("photos.pick").safeParse({ max: SDK_PICK_MAX + 1 }).success);
+  const types = (count: number) => ({
+    types: Array.from({ length: count }, () => "image/*"),
+  });
+  assert.ok(input("files.pick").safeParse(types(SDK_FILE_TYPES_MAX)).success);
+  assert.ok(
+    !input("files.pick").safeParse(types(SDK_FILE_TYPES_MAX + 1)).success,
+  );
+  for (const [type, accepted] of [
+    ["image/*", true],
+    ["application/pdf", true],
+    ["*/*", false],
+    ["pdf", false],
+  ] as const) {
+    assert.equal(SDK_FILE_PATTERN.test(type), accepted, type);
+    assert.equal(
+      input("files.pick").safeParse({ types: [type] }).success,
+      accepted,
+      type,
+    );
   }
 });

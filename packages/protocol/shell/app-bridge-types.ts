@@ -225,10 +225,20 @@ export type LophnAppPhone = {
   request(capability: string, input: unknown): Promise<unknown>;
 };
 
+/**
+ * 앱 file(사진, 고른 file)을 화면이 그릴 주소로 바꾼다. `file`은 손잡이의 sha256이다. 주소는 `<img src>`나 `<audio src>`에 그대로 쓴다.
+ * desktop에서는 바로 풀리고(이 화면의 앱 것만 내준다) 폰 화면은 폰에 없는 file을 받아 오느라 기다릴 수 있어 promise다.
+ * 모양이 틀린 hash는 `invalid_input`으로 reject한다.
+ */
+export type LophnAppFiles = {
+  locate(file: string): Promise<{ uri: string }>;
+};
+
 export type LophnApp = {
   place: AppPlace;
   callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
+  files: LophnAppFiles;
   agent: LophnAppAgent;
   calls: LophnAppCalls;
   agents: LophnAppAgents;

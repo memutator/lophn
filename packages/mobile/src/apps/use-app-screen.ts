@@ -1,6 +1,7 @@
 // What a user app's phone screen shows, put together: the computer's state, the app in the screen list, whether this
 // phone can run the screen, its bundle in the cache, the view on the computer and the guest itself.
 import { useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { phoneCanRun } from "../../../protocol/apps/phone-screen.ts";
 import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
@@ -15,6 +16,9 @@ import {
   type GuestState,
   guestHostInfo,
 } from "./guest/mod.ts";
+import { cacheFiles } from "./local/native.ts";
+import { createFilePlace, type FilePlace } from "./files/place.ts";
+import { decideScreen } from "./screen-state.ts";
 import { linkView, type ViewLink, type ViewState } from "./view.ts";
 
 export type AppScreenState =
@@ -27,8 +31,10 @@ export type AppScreenState =
   | { readonly kind: "failed" }
   | {
       readonly kind: "running";
-      /** A new value runs the guest again: a new bundle or Try again. */
+      /** A new value runs the guest again: a new bundle, Try again, or the computer away for too long (`STALE_AFTER_MS`). */
       readonly key: string;
+      /** The computer is not reachable: the guest stays and the screen says so above it. */
+      readonly away: boolean;
       readonly view: string;
       readonly file: string;
       readonly call: GuestCall;
@@ -36,6 +42,10 @@ export type AppScreenState =
       readonly onState: (state: GuestState) => void;
       /** What the screen may ask of the phone: this app's grants from the computer's list. */
       readonly phone: { readonly granted: readonly string[]; readonly standIn: boolean };
+      /** The files of this app on this computer, as this guest sees them (a cache; the computer keeps the files). */
+      readonly files: FilePlace;
+      /** The guest's camera or picker opened or ended (not counted as the screen left alone, `view.ts`). */
+      readonly interactive: (open: boolean) => void;
     };
 
 // The guest's base bundle is copied out of the APK once per app start, before the first screen runs. Every screen waits
@@ -99,6 +109,7 @@ export function useAppScreen({
         place: "phone",
         params: {},
       },
+      now: Date.now,
       onState: setBound,
       onRebound: () => reload.current(),
     });
@@ -108,6 +119,47 @@ export function useAppScreen({
       next.close();
     };
   }, [client, view, appId, screenKey, runs]);
+  useEffect(() => {
+    if (link === null) return;
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next !== "active") link.background();
+    });
+    return () => subscription.remove();
+  }, [link]);
+  const epoch = useRef(0);
+  if (bound.kind === "open") epoch.current = bound.epoch;
+
+  // The file place of this view: a cache folder of this computer and app. A file made here is uploaded to the computer
+  // before the screen gets its handle, and a file the cache lacks is taken from the computer.
+  const computerNow = useRef(computer);
+  computerNow.current = computer;
+  const clientNow = useRef(client);
+  clientNow.current = client;
+  const [places] = useState(() => new Map<string, FilePlace>());
+  const place = (computerKey: string, app: string): FilePlace => {
+    const key = `${computerKey}/${app}`;
+    let found = places.get(key);
+    if (found === undefined) {
+      found = createFilePlace({
+        files: cacheFiles,
+        dir: `${key}/live`,
+        app,
+        keeping: () => ({ kind: "upload" }),
+        // The link as it is when the file is ready: the one captured at render time is dead after the phone app was in the
+        // background (the camera, a picker).
+        links: () =>
+          computerNow.current?.status === "connected"
+            ? [{ computer: computerKey, remote: clientNow.current.core }]
+            : [],
+        target: () => ({ mode: "live", app, release: null }),
+        newName: () => newId("stg"),
+        now: Date.now,
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      });
+      places.set(key, found);
+    }
+    return found;
+  };
 
   // A stopped view is opened again when a new read of the list says the app runs (its process came back, or it was
   // still starting when the view was opened). Once per read, so a view that keeps failing does not loop.
@@ -158,7 +210,6 @@ export function useAppScreen({
   // The guest: failed until Try again or a new bundle.
   const [guest, setGuest] = useState<{ key: string; state: GuestState } | null>(null);
   const shown = bundle?.got.ok === true ? bundle.hash : null;
-  const guestKey = `${shown}:${attempt}`;
 
   // Which bundle was first shown; any other one shown later is an update.
   const first = useRef<string | null>(null);
@@ -173,30 +224,43 @@ export function useAppScreen({
     link?.reopen();
   };
 
+  const decision = decideScreen({
+    computer: computer?.status ?? null,
+    list: apps.state,
+    entry: screen !== undefined,
+    fits,
+    bound,
+    linked: link !== null,
+    bundle: bundle === null ? null : { hash: bundle.hash, ok: bundle.got.ok },
+    attempt,
+    epoch: epoch.current,
+    guest,
+  });
+
   const state = ((): AppScreenState => {
-    if (computer === null || computer.status === "connecting") return { kind: "loading" };
-    if (!online) return { kind: "offline" };
-    if (apps.state === "failed") return { kind: "failed" };
-    if (apps.state === "loading") return { kind: "loading" };
-    if (screen === undefined || fits === null) return { kind: "stopped" };
-    if (!fits.ok) return { kind: "refused", reason: fits.reason };
-    if (bound.kind === "stopped") return { kind: "stopped" };
-    if (bound.kind === "failed") return { kind: "failed" };
-    if (bound.kind === "opening" || link === null) return { kind: "loading" };
-    // A bundle of the release before stays on screen until the new one is ready.
-    if (bundle === null) return { kind: "loading" };
-    if (!bundle.got.ok) return { kind: "failed" };
-    if (guest?.key === guestKey && typeof guest.state === "object") return { kind: "failed" };
+    if (
+      decision.kind !== "running" ||
+      link === null ||
+      bundle?.got.ok !== true ||
+      computer === null ||
+      appId === undefined
+    ) {
+      return decision.kind === "running" ? { kind: "loading" } : decision;
+    }
+    const key = decision.key;
     return {
       kind: "running",
-      key: guestKey,
+      key,
+      away: decision.away,
       view,
       file: bundle.got.file,
       call: link.call,
       subscribe: link.subscribe,
-      phone: { granted: screen.phone_capabilities, standIn: false },
+      phone: { granted: screen?.phone_capabilities ?? [], standIn: false },
+      files: place(computer.key, appId),
+      interactive: link.interactive,
       onState: (next) => {
-        setGuest({ key: guestKey, state: next });
+        setGuest({ key, state: next });
         if (typeof next === "object") {
           link.logError({
             observation: next.failed,

@@ -38,15 +38,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "lophn uses the camera to scan the pairing QR code shown on your computer and to take photos you add to a message.",
+          "cameraPermission": "lophn uses the camera to scan the pairing QR code shown on your computer, to take photos you add to a message, and to take photos for an app you allowed to use the camera.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "lophn reads the photos you choose to add to a message.",
-          "cameraPermission": "lophn uses the camera to scan the pairing QR code shown on your computer and to take photos you add to a message.",
+          "photosPermission": "lophn reads the photos you choose to add to a message or to give to an app you allowed to use your photos.",
+          "cameraPermission": "lophn uses the camera to scan the pairing QR code shown on your computer, to take photos you add to a message, and to take photos for an app you allowed to use the camera.",
           "microphonePermission": false
         }
       ],

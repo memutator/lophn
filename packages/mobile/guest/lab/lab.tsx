@@ -25,6 +25,8 @@ import {
   guestHostInfo,
 } from "../../src/apps/guest/mod.ts";
 import { pathOf } from "../../src/apps/guest/files.ts";
+import { createFilePlace } from "../../src/apps/files/place.ts";
+import { cacheFiles } from "../../src/apps/local/native.ts";
 import { type AppDbConnection, openHost } from "../../modules/lophn-app-db/index.ts";
 import { keepScreenOn } from "../../modules/lophn-drive/index.ts";
 import { dumpNodes, runDrive, shoot, watchDrive } from "./drive.ts";
@@ -52,6 +54,19 @@ async function extractFixtures(): Promise<string> {
 
 const describe = (state: GuestState) =>
   typeof state === "string" ? state : `failed ${state.failed}`;
+
+// A file place of the lab's own: a cache folder, no computer to take files from.
+const labFiles = createFilePlace({
+  files: cacheFiles,
+  dir: "lab",
+  app: "lab",
+  keeping: () => ({ kind: "local" }),
+  links: () => [],
+  target: () => ({ mode: "live", app: "lab", release: null }),
+  newName: () => `lab${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+  now: Date.now,
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+});
 
 export default function Lab() {
   const [dir, setDir] = useState<string>();
@@ -254,6 +269,7 @@ export default function Lab() {
                 locale="en"
                 call={(operation, input) => call(operation, input, slot)}
                 phone={{ granted: [], standIn: true }}
+                files={labFiles}
                 subscribe={(listener) => {
                   listeners.current.add(listener);
                   return () => listeners.current.delete(listener);

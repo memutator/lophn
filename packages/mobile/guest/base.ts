@@ -12,7 +12,7 @@ import type {
 import { TurboModuleRegistry } from "react-native";
 import { installGuest } from "../modules/lophn-app-db/index.ts";
 import { installLocalBackend } from "../src/apps/guest/local-call.ts";
-import { guestReactNative } from "../src/apps/guest/modules.ts";
+import { guestReactNative, guestSvg } from "../src/apps/guest/modules.ts";
 import { installBridge } from "./bridge.ts";
 import { registerRoot } from "./root.tsx";
 
@@ -22,7 +22,7 @@ const registry = {
   react: require("react"),
   "react/jsx-runtime": require("react/jsx-runtime"),
   "react-native": guestReactNative(require("react-native")),
-  "react-native-svg": require("react-native-svg"),
+  "react-native-svg": guestSvg(require("react-native-svg")),
   "react-native-safe-area-context": require("react-native-safe-area-context"),
   "lucide-react-native": require("lucide-react-native"),
   "@lophn/ui-native": require("@lophn/ui-native"),

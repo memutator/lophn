@@ -1427,6 +1427,7 @@ flows:
     code: [packages/mobile/src/apps/local/sync.ts, packages/mobile/src/apps/local/store.ts, packages/mobile/src/data/local-apps.ts]
     steps:
       - "폰 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다. 계기: guest의 local 호출이 변경을 commit함(local_change), 연결됨, AppSyncChanged, syncNow. 앱마다 한 번에 하나다."
+      - "push 앞에: 그 컴퓨터가 갖지 못한 앱 file(files/ 폴더에서 그 컴퓨터의 기록 held/<컴퓨터>.json을 뺀 것)을 app_files/put으로 올린다(빈 조각으로 먼저 묻고 1 MiB 조각씩 잇는다). stored나 have로 답한 file만 기록에 적고, 폴더를 다시 보아 빠진 것이 없을 때까지 되풀이한 뒤 row를 보낸다. 끊기는 일시적 실패는 row도 보내지 않고 pass를 끝낸다. 영영 거절하는 file(bytes가 이름과 맞지 않음)은 거절로 적어 건너뛰고 row와 pull을 막지 않는다. 앱이 그 컴퓨터에 없으면(not_found) file만 멈추고 pull은 계속한다."
       - "push: host transaction 하나로 outbox의 clock 없는 줄을 commit 순서로 찍고, 256개·10 MiB씩 app_sync/push로 보낸다. 답(applied, duplicate, skipped)을 받은 줄만 outbox에서 지운다. 오류면 details.results의 줄만 지우고 나머지는 남는다."
       - "pull: cursor 뒤를 more가 false일 때까지 받는다. 묶음마다 host transaction 하나(foreign_keys off)에서 outbox 찍기, 변경 적용(칸 단위 last-write-wins), cursor 올리기를 한다. 도중에 오류면 묶음 전체가 rollback되고 cursor는 그대로다. 제약에 걸린 변경 하나는 건너뛴다."
       - "guest 호출은 host transaction이 끝날 때까지 기다린다(busy timeout). 들어온 변경은 호출 사이에만 들어간다."
@@ -1501,17 +1502,56 @@ flows:
     steps:
       - "계기: 컴퓨터의 apps/phone_screens 목록에 폰에서 도는 앱이 더는 없음(앱이 보관·삭제·release 없음), 또는 Settings에서 컴퓨터를 지워 폰이 그 컴퓨터를 더는 pairing하지 않음. 앞의 계기는 그 앱의 guest가 mount되어 있지 않을 때만 처리한다."
       - "컴퓨터를 지운 계기는 그 컴퓨터의 폴더를 훑는다. installed.json이 없는 폴더(멈춘 설치)는 바로 지우고, 있는 앱은 아래 규칙으로 정리한다. 앱이 하나도 안 남으면 그 컴퓨터 폴더도 지운다."
-      - "sync 앱: outbox를 읽어 비어 있을 때만 앱 폴더(app.sqlite, backup, release 폴더)를 지운다. 안 보낸 변경이 있으면 폴더와 data를 그대로 둔다(다시 같은 컴퓨터와 pairing하거나 앱이 목록에 돌아오면 다시 맞춘다)."
+      - "sync 앱: outbox가 비어 있고 앱이 설치된 어느 컴퓨터도 앱의 file을 빠뜨리지 않았을 때만 앱 폴더(app.sqlite, backup, release 폴더, files/)를 지운다(거절한 file은 빠뜨린 것이 아니다). 안 보낸 변경이나 어느 컴퓨터가 갖지 못한 file이 있으면 폴더와 data를 그대로 둔다(다시 같은 컴퓨터와 pairing하거나 앱이 목록에 돌아오면 다시 맞춘다)."
       - "standalone 앱: 컴퓨터가 그 data를 모르므로 자동으로 지우지 않는다. 컴퓨터의 목록에서 빠져도 폰의 목록에 남고 그대로 열린다."
     outcomes:
       - id: removed
-        when: "outbox가 빈 sync 앱 폴더, 멈춘 설치의 폴더"
+        when: "outbox가 비고 설치된 모든 컴퓨터가 file을 다 가진 sync 앱 폴더, 멈춘 설치의 폴더"
         observe: ["disk:files/apps/<computer>/<app>"]
       - id: kept
-        when: "안 보낸 변경이 있는 sync 앱, standalone 앱, guest가 mount된 앱"
+        when: "안 보낸 변경이나 어느 컴퓨터가 갖지 못한 file이 있는 sync 앱, standalone 앱, guest가 mount된 앱"
         observe: ["disk:files/apps/<computer>/<app>"]
     crosses_process: false
     risk: [data-loss]
+
+  - id: phone-app-file-place
+    title: "폰 화면의 guest가 쓰는 file 자리: 사진·file을 받아 두고(컴퓨터에서 도는 앱은 컴퓨터에 올린 뒤) 그릴 주소를 준다"
+    actor: person
+    entries: [system:phone-app-file-place]
+    uses: [route:app_files/put, route:app_files/read]
+    boundary: [mobile, app-runtime]
+    code: [packages/mobile/src/apps/files/place.ts, packages/mobile/src/link/capabilities.ts, packages/mobile/src/link/native.ts, packages/mobile/src/apps/guest/session.ts, packages/mobile/src/apps/local/held.ts]
+    steps:
+      - "guest마다 file 자리가 하나다. 컴퓨터에서 도는 앱은 그 컴퓨터와 앱의 cache folder(preview는 따로), 폰에서 도는 앱은 앱 폴더의 files/다. guest의 요청이 닿는 곳은 이 자리뿐이다."
+      - "camera.capture, photos.pick, files.pick: 카메라(OS 권한), 시스템 사진 선택기, 시스템 file 선택기의 결과를 staging에 복사해 sha256과 크기를 재고(64 MiB를 넘으면 invalid_input) `<앞 두 글자>/<sha256>`로 놓는다. 닫았으면 cancelled다."
+      - "컴퓨터에서 도는 앱: 지금의 연결로 app_files/put을 부른다. 연결이 없으면 60초까지 기다리고, 끊기면 컴퓨터가 쥔 bytes(received)에서 이어 보내며, 다 올린 뒤에야 손잡이를 답한다. 그래도 안 되면 unavailable(reason no_connection, transfer_broken, refused와 컴퓨터의 말)이고 방금 놓은 bytes를 지운다(손잡이 없음)."
+      - "폰에서 도는 앱: 손잡이를 바로 답한다. sync 앱은 sync를 부르고(컴퓨터마다의 기록에 없는 file이 다음 sync에서 row보다 먼저 간다) standalone은 폰에만 둔다."
+      - "locate(그릴 주소)와 share.file: 자리에 있으면 그 file URI를 주고, 없으면 닿는 컴퓨터에서 app_files/read로 조각씩 받아 sha256과 크기가 이름과 맞을 때만 자리에 놓는다(맞지 않으면 놓지 않고 실패). 컴퓨터가 not_found면 not_found, 닿는 컴퓨터가 없으면 unavailable이다. share.file은 그 file을 폰의 공유 sheet로 보낸다."
+      - "guest의 image view는 controller를 만들기 전에 요청 전부를 보고 이 자리 folder의 file: 주소만 그린다. 그 밖의 file:·content: 주소는 network 주소처럼 실패한다(cache가 대신 답하지 못한다). react-native-svg의 Image는 guest에 없다."
+    outcomes:
+      - id: kept
+        when: "고르거나 찍은 file이 자리에 놓이고(컴퓨터에서 도는 앱은 컴퓨터가 받은 뒤) 손잡이를 답했다"
+        observe: ["disk:files/apps/<app>/files", "response"]
+      - id: cancelled
+        when: "사람이 카메라나 선택기를 닫았다"
+        observe: ["response"]
+      - id: not-kept
+        code: unavailable
+        when: "컴퓨터에서 도는 앱의 file을 컴퓨터에 올리지 못했다(60초 안에 연결이 없음, 올리다 끊김, 컴퓨터가 거절. bytes를 지운다), 또는 file을 읽지 못했다"
+        observe: ["response"]
+      - id: too-large
+        code: invalid_input
+        when: "file이 64 MiB를 넘는다"
+        observe: ["response"]
+      - id: located
+        when: "그릴 주소를 답했다(자리에 있었거나 받아 와서 맞았다)"
+        observe: ["response"]
+      - id: locate-failed
+        when: "자리에 없고 컴퓨터가 not_found이거나 닿는 컴퓨터가 없거나(unavailable) 받은 bytes가 이름과 맞지 않다(internal, 놓지 않는다)"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss, sandbox]
+    docs: [architecture/app-file.md]
 
   # ---------- 사용 관계, sdk 상태, 화면 파일 ----------
 
@@ -3023,3 +3063,67 @@ flows:
         when: "적용된 것이 없다(전부 건너뜀, held, 이미 받은 변경). 낼 구독자가 없으면 기록도 남기지 않는다"
         observe: []
     crosses_process: false
+
+  - id: app-file-put
+    title: "앱 file 하나를 조각으로 앱 data 영역에 넣는다(폰이 컴퓨터에서 도는 앱의 사진을 올릴 때)"
+    actor: person
+    entries: [route:app_files/put]
+    boundary: [app-runtime, app-data]
+    code: [packages/core/apps/app-files/routes.ts, packages/core/apps/app-files/store.ts]
+    steps:
+      - "활성 앱이 아니면 not_found, 그 앱의 data 영역(apps/<app>/data)이 이 컴퓨터에 없으면(폰에서만 도는 앱) unavailable이다."
+      - "body 한도는 route가 갖는다: 조각 상한(8 MiB)의 base64와 그 밖의 칸. 기본 256 KiB를 넘는 조각도 기기 link를 지난다(dispatch가 body를 읽을 때 정한다)."
+      - "files/<sha256 앞 두 글자>/<sha256>의 sidecar가 이미 있으면 아무것도 쓰지 않고 have다. hash가 아닌 이름은 invalid_input이다."
+      - "빈 조각(size가 0이 아닐 때)은 묻기다: 아무것도 쓰지 않고 have나 partial(쥔 bytes)로 답한다."
+      - "offset이 staging에 쥔 bytes와 정확히 같을 때만 잇는다. 아니면 쥔 bytes를 details.received로 알리고 보낸 쪽은 거기서 다시 보낸다. 한 시간 넘은 staging은 이때 지운다."
+      - "size를 넘는 조각은 staging을 버리고 거절한다. 다 차면 sha256과 크기를 확인해 맞지 않으면 staging을 버리고 거절한다."
+      - "맞으면 rename으로 놓고 sidecar({type, size, name?})를 마지막에 놓는다. 한 번 놓은 file은 다시 쓰지 않는다. 지우는 길이 없다."
+    outcomes:
+      - id: stored
+        when: "마지막 조각까지 받아 sha256과 크기가 맞았다"
+        observe: ["disk:apps/<app>/data/files/", response]
+      - id: partial
+        when: "아직 덜 받았다. received가 쥔 bytes다"
+        observe: ["disk:apps/<app>/data/files/_staging/", response]
+      - id: have
+        when: "이미 완성한 file이 있다. 쓰지 않는다"
+        observe: [response]
+      - id: wrong-offset
+        code: invalid_input
+        when: "offset이 쥔 bytes와 다르다. details.received가 쥔 bytes다"
+        observe: [response]
+      - id: wrong-file
+        code: invalid_input
+        when: "조각이 size를 넘거나, 다 찬 file의 sha256·크기가 맞지 않다(details.reason mismatch). 쥔 bytes를 버리고 읽히는 file이 남지 않는다"
+        observe: ["disk:apps/<app>/data/files/", response]
+      - id: not-found
+        code: not_found
+        when: "없는 앱이거나 보관한 앱이다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 컴퓨터에 그 앱의 data 영역이 없다(폰에서만 도는 앱), 또는 disk를 쓰지 못했다"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/app-call.md]
+
+  - id: app-file-read
+    title: "앱 file의 한 조각을 읽는다(운영 앱은 그 앱의 data 영역, preview는 그 preview의 영역)"
+    actor: person
+    entries: [route:app_files/read]
+    boundary: [app-runtime, app-data]
+    code: [packages/core/apps/app-files/routes.ts, packages/core/apps/app-files/store.ts, packages/core/apps/preview/area.ts]
+    steps:
+      - "없는 앱은 not_found다. live 대상은 그 앱의 data 영역, preview 대상은 그 preview의 영역(preview를 열 때 sample file 둘을 심어 둔다)에서만 읽는다. 지금 도는 preview가 아니면 not_found다."
+      - "sidecar가 있는 file만 읽힌다. offset부터 length(최대 8 MiB)를 base64로 주고 size는 file 전체의 크기다."
+    outcomes:
+      - id: served
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "없는 앱, 이 대상의 영역에 그 file이 없음(다른 앱의 file, live의 file을 preview로 묻기), 멈춘 preview"
+        observe: [response]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/app-call.md]

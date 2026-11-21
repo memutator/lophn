@@ -57,10 +57,17 @@ export interface GuestSession {
   close(): void;
 }
 
+// What the host does for `lophnApp.files.locate`: the URI of a file in this guest's place, or why not (the codes of the
+// place's errors pass through).
+export type GuestLocate = (
+  file: string,
+) => Promise<{ ok: true; value: { uri: string } } | { ok: false; error: { code: string; message: string } }>;
+
 export function createGuestSession(options: {
   init: GuestInit;
   call: GuestCall;
   phone: PhoneHost;
+  locate: GuestLocate;
   post: (message: PhoneHostMessage) => void;
   onState: (state: GuestState) => void;
   // A local call in the guest committed a change (it is in the outbox).
@@ -114,6 +121,23 @@ export function createGuestSession(options: {
         case "phone":
           current.phone.request(message.capability, message.input).then(
             (outcome) => reply(message.id, outcome),
+            (thrown: unknown) =>
+              reply(message.id, {
+                ok: false,
+                error: {
+                  code: "internal",
+                  message: thrown instanceof Error ? thrown.message : String(thrown),
+                },
+              }),
+          );
+          return;
+        case "locate":
+          current.locate(message.file).then(
+            (located) =>
+              reply(
+                message.id,
+                located.ok ? { ok: true, value: located.value } : { ok: false, error: located.error },
+              ),
             (thrown: unknown) =>
               reply(message.id, {
                 ok: false,

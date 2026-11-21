@@ -1771,5 +1771,29 @@ flows:
     crosses_process: false
     docs: [architecture/app-call.md]
 
+  - id: app-file-view-serve
+    title: "desktop 앱 화면이 자기 앱의 file을 lophn-app://<앱>/_files/<sha256>로 받는다"
+    actor: person
+    entries: [system:app-file-view-serve]
+    uses: [route:app_files/read]
+    boundary: [shell, app-runtime]
+    code: [packages/shell/main/app-frame/app-protocol.ts, packages/shell/main/app-frame/registry.ts, packages/shell/preload/app-tool.ts]
+    steps:
+      - "화면 key와 무관하게 `_files/<64자 hex>`만 받는다(`_files`는 화면 key가 될 수 없다). 앱과 대상(live의 release, preview의 nonce, 기계)은 요청을 보낸 view가 정한 값이고 주소에서는 hash만 읽는다. 다른 앱의 view는 이 session에서 찾지 못한다."
+      - "그 기계의 core app_files/read를 4 MiB 조각으로 불러 전체를 stream으로 낸다. 다른 기계의 앱도 같은 route를 machines/call로 부른다(조각이 frame에 든다)."
+      - "content type은 넣을 때 적은 값이 허용 목록(이미지, 소리·영상, pdf, text/plain)에 있을 때만 쓰고 나머지는 application/octet-stream이다. html·script·css·xml·svg는 적힌 값이 무엇이든 나가지 않는다. nosniff와 CSP는 다른 화면 byte와 같다."
+    outcomes:
+      - id: served
+        observe: [response]
+      - id: not-found
+        when: "모르는 view나 다른 앱의 주소, hash가 아니거나 `_files` 밖의 모양, 그 앱에 없는 file(core의 not_found)"
+        observe: [response]
+      - id: unavailable
+        when: "core나 다른 기계에 닿지 못했다(503)"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/app-call.md]
+
 links: []
 ignore: []

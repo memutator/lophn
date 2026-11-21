@@ -1,6 +1,9 @@
-// release 준비가 앱 source(commit에 든 .tsx/.jsx/.ts/.js)에서 보는, 빌드(esbuild)가 못 잡는 실수 둘.
+// release 준비가 앱 source(commit에 든 .tsx/.jsx/.ts/.js)에서 보는, 빌드(esbuild)가 못 잡는 실수 셋.
 // 1. 소문자 JSX 요소의 `title=` 속성: 브라우저 기본 tooltip이 뜬다. `Tooltip`(`@lophn/ui/overlay`)을 쓴다. 폰 화면은 보지 않는다.
 // 2. `useTabHead`의 `actions` 항목에서 목록에 없는 `icon` 이름: shell이 조용히 버린다.
+// 3. `import Svg from "react-native-svg"`(기본 import): 화면이 ES module로 지어지면(앱 package.json의 `"type": "module"`) 기본
+//    import가 module 객체 자체라서 폰에서 `<Svg>`가 깨지는데, 같은 source를 desktop preview는 그리므로 두 build가 갈린다. 이름
+//    import(`import { Svg } from "react-native-svg"`)는 어디서나 된다.
 // JS parser가 없어서(typescript 7은 JS AST API가 없다) 가볍게 훑는다. 놓치는 쪽은 괜찮고 잘못 잡는 쪽은 release를 막으므로
 // 모양이 분명하지 않으면 그냥 넘어간다.
 import { TAB_HEAD_ICONS } from "../../../../protocol/shell/app-bridge-types.ts";
@@ -164,6 +167,19 @@ function tabHeadIcons(path: string, text: string): string[] {
   return found;
 }
 
+// `import Svg from "react-native-svg"`와 `import Svg, { Circle } from ...`(`import type`과 `import * as`, 이름만 가져오는 것은 뺀다).
+function svgDefaultImports(path: string, text: string): string[] {
+  const found: string[] = [];
+  const pattern =
+    /\bimport\s+(?!type\b)([A-Za-z_$][\w$]*)\s*(?:,\s*(?:\{[^}]*\}|\*\s*as\s+[\w$]+))?\s*from\s*["']react-native-svg["']/g;
+  for (const match of text.matchAll(pattern)) {
+    found.push(
+      `${path}:${lineOf(text, match.index)}: \`import ${match[1]} from "react-native-svg"\` does not work in a phone screen: the default import is the module object, not the Svg component. Import the names instead: \`import { Svg, Circle, Path } from "react-native-svg"\`.`,
+    );
+  }
+  return found;
+}
+
 // 문제 없으면 null, 있으면 agent가 읽고 고칠 글.
 export function checkAppSource(files: readonly SourceFile[]): string | null {
   const found: string[] = [];
@@ -182,6 +198,7 @@ export function checkAppSource(files: readonly SourceFile[]): string | null {
     )
       found.push(...titleAttributes(file.path, text));
     found.push(...tabHeadIcons(file.path, text));
+    found.push(...svgDefaultImports(file.path, text));
   }
   if (found.length === 0) return null;
   const shown = found.slice(0, MAX_REPORTED);

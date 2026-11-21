@@ -29,7 +29,7 @@
 - 호출은 guest의 counter id와 `pending` Map으로 짝짓는다(`packages/mobile/guest/bridge.ts`). 이 길에는 timeout이 없다. session이 닫히면 늦은 답을 버리고 guest의 promise는 끝나지 않는다.
 - 크기: `callOperation` 입력은 64 KiB(`PHONE_CALL_INPUT_MAX_BYTES`), message 하나는 8 MiB + 1 KiB(`PHONE_MESSAGE_MAX_BYTES`)다. JSON만 지나가서 bytes는 base64 글이어야 한다.
 - guest가 받는 native module은 넷이다(`GUEST_MODULES`, `packages/mobile/src/apps/guest/modules.ts`: `RNCSafeAreaContext`, `KeyboardController`, `ReanimatedModule`, `WorkletsModule`). 폰에서 도는 앱에만 `LophnAppDb`가 origin에 묶여 더해진다(host가 guest마다 따로 묶어 주는 module의 본보기). Expo package는 guest에 넘기지 않는다(`packages/mobile/plugins/with-guest-runtime.js`).
-- 화면 bundle이 require할 수 있는 module은 여덟이다(`PHONE_HOST_MODULES`). `lophnApp`의 모양이나 이 목록이 바뀌면 `PHONE_BASE_FORMAT`(지금 3)을 올리고, 옛 폰은 `phone_too_old`로 거절한다(`phoneCanRun`).
+- 화면 bundle이 require할 수 있는 module은 여덟이다(`PHONE_HOST_MODULES`). `lophnApp`의 모양이나 이 목록이 바뀌면 `PHONE_BASE_FORMAT`(지금 5)을 올리고, 옛 폰은 `phone_too_old`로 거절한다(`phoneCanRun`).
 
 ### 컴퓨터가 폰에 묻는 길
 
@@ -43,7 +43,7 @@
 
 - 손으로 적은 기능 목록이 셋이고 서로 맞는지 보는 test가 없다: `PHONE_KINDS`, `phoneCapabilitySchema`(`packages/protocol/apps/phone-request.ts`의 `z.enum`), `PHONE_CAPABILITIES`(`packages/protocol/apps/declaration/types.ts`).
 - 동의 카드와 앱 상세의 글이 `capability === "location.get"` 삼항 둘이다(`packages/shell/renderer/desktop/connection/waiting/model.ts`, `packages/shell/renderer/app-frame/app-detail/model.ts`). 모르는 기능은 이름이 그대로 보인다. 폰은 같은 code를 import해 쓴다.
-- `PHONE_CAPABILITIES`는 `@lophn/declaration`(4.12.0)에 묶여 나가서 기능을 더하면 그 SDK의 bytes가 바뀐다. 그것을 정확히 pin하는 `@lophn/app-ui`(2.23.0)와 `@lophn/app-ui-native`(1.9.3)도 같이 올라가고 판마다 `migrate-sdk` 메모가 든다.
+- `PHONE_CAPABILITIES`는 `@lophn/declaration`(5.1.0)에 묶여 나가서 기능을 더하면 그 SDK의 bytes가 바뀐다. 그것을 정확히 pin하는 `@lophn/app-ui`(2.25.0)와 `@lophn/app-ui-native`(1.11.0)도 같이 올라가고 판마다 `migrate-sdk` 메모가 든다.
 - grant 표(`grants`)는 scope를 JSON 글로 들어 기능을 더해도 schema step이 없다. broker, `app_phone.request`, `PhoneLink`는 기능을 가리지 않는다.
 
 ### 허락
@@ -122,7 +122,7 @@
 ## 단계
 
 1. **길과 작은 값의 기능. 끝남(2026-11-21, branch `feat/phone-capability`).** 계획과 다른 점: preview는 모든 기능에 stand-in을 주지 않고 preview 선언이 선언한 기능에만 주며 선언하지 않은 기능은 live처럼 `forbidden`이다(폰의 preview와 desktop preview 모두. 목록은 core가 `app_views/open`의 답으로 준다). 화면 길도 폰 앱이 앞에 있을 때만 답한다. 기능 표를 하나로 맞추고(목록 셋, 글 삼항 둘), 화면 길, 폰의 허락 확인, 기능마다 켜고 끄기, preview stand-in을 만든다. 새 native 의존 없이 여는 기능: 진동, 클립보드 글 읽기와 쓰기, QR·바코드 읽기, 위치(화면 길 추가), 연결 상태, 링크 열기(전화, 문자, 메일 쓰기 화면 포함), 글 공유. `PHONE_BASE_FORMAT`과 SDK 판(`@lophn/cap-phone`, `@lophn/declaration`, `@lophn/app-ui`, `@lophn/app-ui-native`)이 오르고 지침(`design-app`의 `phone-features.md`, guide 셋, `prompts/app.md`)을 고친다.
-2. **앱 file 자리와 media.** 사진 찍기, 사진 고르기, file 고르기, 녹음과 재생, file 공유, 사진 저장, 클립보드 그림.
+2. **앱 file 자리와 media. 일부 끝남(2026-11-22, branch `feat/app-file`, `architecture/app-file.md`, `products/roadmap/app-file.md`).** 앱 file 자리(앱 data 영역의 `files/`, 손잡이, `app_files/*`, desktop `_files`, SDK)와 사진 찍기(`camera.capture`), 사진 고르기(`photos.pick`), file 고르기(`files.pick`), file 공유(`share.file`)를 지었다. 실제 폰에서는 아직 보지 못했다. 녹음과 재생, 사진 보관함에 저장, 클립보드 그림은 단계 3으로 넘겼다. 계획과 다른 점: `PHONE_BASE_FORMAT` 4 → 5, `@lophn/declaration` 4.14.0(열두 기능).
 3. **나머지 묶음.** 지문 확인, 연락처, 캘린더, 음성 인식과 읽기, 센서, 배터리, 기기 정보, 화면 켜두기와 밝기와 방향, 인쇄, 걸음 수와 건강 정보(앱을 열 때 지난 기록 읽기). 계속 받는 값(센서, 음성)은 host → guest `event`로 보낸다.
 
 단계 1은 한 줄로 한다(`planner-persona`의 "어떻게 할지 고르기"): protocol의 표, 폰의 host, SDK가 서로 기대고 같은 file을 고친다. 단계 1이 끝나면 기능 하나가 handler 하나라 단계 3은 병렬 계획으로 열 수 있다.
@@ -140,7 +140,7 @@
 ## 확인하지 않은 것
 
 - 카메라나 고르기 activity가 떠 있는 동안 Android가 lophn process를 죽이면 guest가 새로 떠서 결과를 잃는다. 얼마나 자주인지, 결과를 되찾을 길이 필요한지. 단계 1의 스캐너는 같은 activity 안의 화면이라 이 문제가 없다. 단계 2의 카메라 촬영과 고르기는 다른 activity에서 결과가 온다.
-- 단계 2가 풀어야 할 것: (1) 폰 앱이 뒤로 가 연결이 끊기면 컴퓨터에서 도는 앱의 guest가 새로 떠 화면 상태를 잃는다(이슈 `phone-guest-remounts-after-background`. 폰에서 도는 앱은 영향이 없다). 다른 activity의 결과를 받으려면 같은 guest가 살아 있어야 한다. (2) 열린 요청의 결과를 process가 죽은 뒤 되찾는 길.
+- 단계 2가 풀어야 할 것: (1) 폰 앱이 뒤로 가 연결이 끊겨도 컴퓨터에서 도는 앱의 guest가 상태를 지키도록 고쳤다(`phone-screen.md`. 5분 넘게 닿지 않으면 새로 뜬다). 기기에서는 아직 보지 못했고, 카메라나 고르기가 길게 걸려 5분을 넘기면 결과가 와야 할 guest가 새로 뜰 수 있는지 단계 2에서 본다. (2) 열린 요청의 결과를 process가 죽은 뒤 되찾는 길.
 - OS 대화가 그것을 연 요청을 끊지 않는 것은 알려졌다: 위치 요청은 OS 권한 대화와 Play services의 위치 설정 대화 뒤에 답했다(emulator, 2026-11-21). host가 폰 앱이 앞에 있는지를 요청이 시작할 때만 보기 때문이다. 고르기 activity가 뜨는 동안 `AppState`가 어떻게 되는지는 단계 2에서 본다.
 - 기능 하나하나가 Expo module로 실제로 되는지와 Android 판마다의 차이는 단계 1의 기능만 emulator로 보았다. 걸음 수와 건강 정보(Health Connect)를 앞에 있을 때 지난 기록까지 읽을 수 있는지는 단계 3.
 - 실제 폰. 지금까지 폰 기능은 emulator에서만 보았다(`remote.md` "열린 것").

@@ -220,6 +220,7 @@ areas:
       - packages/protocol/apps/app-log.ts
       - packages/protocol/apps/sdk-status.ts
       - packages/protocol/apps/app-sync.ts
+      - packages/protocol/apps/app-files.ts
       - packages/protocol/apps/update-state.ts
       - packages/protocol/folder/
     owns:
@@ -231,6 +232,8 @@ areas:
       - capability broker(fs, net, secret, store, notify, problem)
       - 앱 OAuth, grant, 앱 log
       - 폰에서도 도는 앱(sync 앱)의 sync log와 폰의 push·pull·snapshot
+      - 앱 file(사진, 고른 file)의 저장과 읽기: 앱 data 영역의 files/
+      - 폰 화면의 file 자리(사진·file 기능, 그릴 주소, 컴퓨터마다의 file 기록)
       - 앱 data·release·source·기계 기록을 폴더로 내보내고 읽어 들이기
     read:
       - architecture/app-call.md
@@ -254,6 +257,7 @@ areas:
       - notice(사람에게 알리기)
       - tray
       - annotation(screenshot 올리기와 앱 workspace agent에게 전하기)
+      - 앱 화면이 앱 file을 받는 길(desktop의 lophn-app://<앱>/_files/<sha256>)
     read:
       - architecture/annotation.md
       - architecture/app-notice.md

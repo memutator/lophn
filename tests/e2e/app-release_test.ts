@@ -215,8 +215,15 @@ test("E2E 앱 workspace의 lophn이 준비하고 preview로 확인한 template �
         const bundle = appBundleCopy(c.run.home, notes.app, record.bundle_hash);
         assert.ok((await countFiles(bundle)) < RELEASE_FILE_MAX_COUNT);
         assert.ok((await stat(`${bundle}/screens/items/main.js.map`)).isFile());
+        // 판을 박아 두면 SDK를 올릴 때마다 깨진다. 지금 판은 그 SDK 부분의 package.json이 안다.
+        const ui = JSON.parse(
+          await readFile(
+            new URL("../../packages/design/package.json", import.meta.url),
+            "utf8",
+          ),
+        ) as { version: string };
         assert.deepStrictEqual(
-          (await stat(`${c.run.home}/sdk/ui/1.1.0`)).mode & 0o222,
+          (await stat(`${c.run.home}/sdk/ui/${ui.version}`)).mode & 0o222,
           0,
         );
         // ledger

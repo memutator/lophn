@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AGENT_CHARACTER_COLORS } from "../base/character-colors.ts";
 
 // 기본 character는 shape·color만 저장하고 shell이 SVG로 그린다.
 // 올린 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
@@ -10,16 +11,7 @@ export const AGENT_CHARACTER_SHAPES = [
   "round",
   "arch",
 ] as const;
-export const AGENT_CHARACTER_COLORS = [
-  "coral",
-  "periwinkle",
-  "yellow",
-  "sage",
-  "lavender",
-  "peach",
-  "blue",
-  "teal",
-] as const;
+export { AGENT_CHARACTER_COLORS };
 export const characterProfileFields = {
   kind: z.literal("character"),
   shape: z.enum(AGENT_CHARACTER_SHAPES),

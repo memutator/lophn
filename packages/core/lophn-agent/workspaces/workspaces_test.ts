@@ -523,6 +523,7 @@ test("a coding agent called into a project opens as a GUI tab member only when c
                 apps: [],
                 deny: [],
                 remoteApps: [],
+                browserProfile: null,
               }
             : deps.agents.agent(id as never),
       },

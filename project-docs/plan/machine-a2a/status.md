@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py machine-a2a build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mail-link` | mail | 1 | mail-router | running | mail/mail-link |  |  |
+| `mail-link` | mail | 1 | mail-router | merged | mail/mail-link | 24189690b |  |
 | `mail-lists` | mail | 1 | mail-router | running | mail/mail-lists |  |  |
 | `mail-router` | mail | 1 | 없음 | merged | mail/mail-router | db3b2dc69 |  |
 | `mail-screen` | mail | 1 | mail-router | merged | mail/mail-screen | 2ff28f1f0 |  |

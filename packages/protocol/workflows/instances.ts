@@ -238,7 +238,8 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
     human_turn: z.boolean(),
     cause: z.enum(["start", "report", "edit"]),
     session: sessionChoiceSchema.nullable(),
-    remote: remoteHandSchema.nullable().default(null),
+    // 옛 줄에는 없다(이 컴퓨터로 넘긴 step과 같다).
+    remote: remoteHandSchema.nullable().optional(),
   }),
   line("not_handed", lophnBy, {
     step: z.string(),

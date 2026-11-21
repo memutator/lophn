@@ -101,7 +101,7 @@ modules:
 
   - path: packages/core/host-queue
     boundary: core
-    notes: core가 host(desktop 앱의 shell main, display 없는 Linux의 page host)에 시킬 일(탭 열기·닫기·보이기, browser 호출)의 메모리 queue와 agent가 연 탭의 표. host가 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다. 멀리서 보기(`page-view.ts`, `page_view/*`)는 보는 principal의 lease와 browser 탭마다 host가 민 마지막 frame(메모리)을 들고 연결 요청(`callLink`)으로 host에 frame 켜기·입력·take control을 시킨다.
+    notes: core가 host(desktop 앱의 shell main, display 없는 Linux의 page host)에 시킬 일(탭 열기·닫기·보이기, browser 호출)의 메모리 queue와 탭 표(agent가 연 탭, 사람이 넘긴 browser 탭). host가 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다. 멀리서 보기(`page-view.ts`, `page_view/*`)는 보는 principal의 lease와 browser 탭마다 host가 민 마지막 frame(메모리)을 들고 연결 요청(`callLink`)으로 host에 frame 켜기·입력·take control을 시킨다.
 
   - path: packages/core/terminal-agents
     boundary: core

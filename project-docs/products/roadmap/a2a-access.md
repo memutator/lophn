@@ -85,7 +85,7 @@ program이 내는 것은 이 셋이다.
 
 ### 보이는 것
 
-- 팀 tree는 sidebar의 desk 아래에 선다(`tab-owner.md`).
+- 팀 tree는 sidebar의 desk 아래에 선다(`architecture/workspace-layout.md` "탭의 주인").
 - call card의 상태가 실시간으로 바뀐다.
 - 사람이 팀원 탭에 직접 한 말은 부모에게 알린다.
 

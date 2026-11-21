@@ -1072,7 +1072,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
+        when: "남의 탭이거나 사람이 손으로 연 탭(넘기지 않은)이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1114,7 +1114,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
+        when: "남의 탭이거나 사람이 손으로 연 탭(넘기지 않은)이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1167,7 +1167,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이거나, fill_login의 login id가 없거나 그 login이 다른 browser profile의 것이거나 기본이 아닌 profile의 agent가 preview·artifact 탭에서 쳤다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
+        when: "남의 탭이거나 사람이 손으로 연 탭(넘기지 않은)이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이거나, fill_login의 login id가 없거나 그 login이 다른 browser profile의 것이거나 기본이 아닌 profile의 agent가 preview·artifact 탭에서 쳤다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden

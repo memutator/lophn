@@ -49,6 +49,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **부를 수 있는 session 목록**(`session.list`, route `calls/sendable`)의 항목은 session ID, agent handle·이름, 제목, workspace, 상태, 마지막 활동 시각이다. 상태는 running, waiting, idle, unknown이다. waiting은 도는 turn이 사람의 동의나 질문 답을 기다리는 것이고, 그 turn이 없으면 idle이다. 자기 자신과 닫힌 session은 빼고, 팀 member에게는 부모·형제·자기 밑만 보인다. GUI 탭 팀원(아래 28)의 상태와 제목은 그 탭의 ACP 상태에서 읽는다(harness 자신의 승인 card를 기다리면 waiting, 묶인 탭이 없으면 idle). `team read`의 상태도 같다.
 - **call 읽기**(route `calls/read`)는 agent에게 자기가 보냈거나 받은 call만 보인다.
 - **팀**은 spawn tree다. `lophn team spawn`으로 연 session은 연 session의 자식이고 `sessions.spawned_by`에 부모가 남는다(바뀌지 않는다). spawn은 새 session을 여는 call의 한 갈래라 call 하나를 같이 만든다. `call.send`의 `to: {agent, workspace}` 새 session은 `spawned_by`가 없는 팀 밖이다(Home lophn이 project lophn에 넘기는 흐름이 팀 규칙에 묶이지 않게).
+- 팀은 화면과 탭 목록에도 쓰인다. session snapshot과 `SessionStarted`가 `spawned_by`를 실어 왼쪽 sidebar가 desk 묶음 안에서 자식 session 줄을 부모 줄 아래로 들여 그리고, `lophn tab list`는 자기 탭과 자기 밑(`spawned_by`를 거슬러 닿는) session의 탭을 낸다. 부모·형제의 탭은 보지 못한다(`architecture/workspace-layout.md` "agent가 연 탭").
 
 ## 지키는 것
 

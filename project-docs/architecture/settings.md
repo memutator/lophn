@@ -54,7 +54,7 @@ shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어
 
 1. 설정을 바꾸는 길은 `settings/update` 하나다. Settings 화면, 명령, agent가 같은 route를 부르고 같은 검사를 지난다.
 2. 하나라도 거절이면 아무 file도 바뀌지 않는다. 거절과 오류에 입력한 값을 싣지 않는다.
-3. locked인 설정은 사람이 Settings 화면에서만 바꾼다. agent가 보낸 변경에 locked인 key가 하나라도 있으면 route가 전체를 거절한다. `lophn settings set`은 누가 부르든 locked인 key를 거절한다. locked인 것은 agent가 할 수 있는 일의 범위를 정하거나 사람의 터미널에서 도는 명령을 담은 설정이다: shell 승인 규칙, call 정책, 팀 한도, turn 한도, MCP server, skill folder와 끈 skill, coding agent에게 준 앱, extension 켜기, coding agent 즐겨찾기와 실행 명령어.
+3. locked인 설정은 사람이 Settings 화면에서만 바꾼다. agent가 보낸 변경에 locked인 key가 하나라도 있으면 route가 전체를 거절한다. `lophn settings set`은 누가 부르든 locked인 key를 거절한다. locked인 것은 agent가 할 수 있는 일의 범위를 정하거나 사람의 터미널에서 도는 명령을 담은 설정이다: shell 승인 규칙, call 정책, 팀 한도, turn 한도, MCP server, skill folder와 끈 skill, coding agent에게 준 앱, extension 켜기, coding agent 즐겨찾기와 실행 명령어, browser profile 목록(`shell.browser_profiles`. agent 정의가 가리키는 profile이 어느 로그인을 쓰는지 정한다).
 4. `approval: "person"`인 설정은 agent가 사람의 그 한 번의 허락 없이 바꾸지 못한다. 묻지 못하는 agent(unattended turn, 팀 자식, lophn agent turn 밖의 harness)의 바꾸기는 `needs_approval`로 거절되고 아무것도 쓰지 않는다. 기다리는 사이 그 설정이 바뀌어 바뀜이 사람이 본 줄과 다르면 쓰지 않는다.
 5. 설정을 쓰는 명령은 home workspace의 agent에게만 있다(home의 lophn과 그 밖의 home agent, workspace 없이 도는 harness session). project와 app workspace의 agent는 credential 상한에 `settings/update`가 없다.
 6. 항목 file을 쓰고 지우는 것은 그 항목의 file 하나만이다. 사람이 둔 다른 file과 읽지 못한 file은 고치거나 지우지 않는다. 쓰려는 id의 file이 이미 있는데 읽지 못했거나(JSON이 깨졌다 등) 대소문자만 다른 이름의 file이 있으면 거절한다. folder를 읽지 못하면 쓰지 않는다. 쓰기는 임시 file에 쓰고 rename한다.

@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -86,6 +86,7 @@ import {
   listenHooks,
   moveSavedSessions,
   prepareRunDir,
+  readAntigravityTitle,
   type RunDir,
   type TerminalAgents,
   type TerminalBridge,
@@ -316,6 +317,16 @@ export const terminalAgentsWiring: WiringFactory = () => {
         hookEnv: (ref) => ingress?.envOf(ref) ?? {},
         identified: (harness, ref) => installer.ensureOnce(harness, ref),
         beat: (sessions) => ctx.harnessHold.heartbeat(sessions as Id<"ses">[]),
+        readAntigravityTitle: (conversationId) =>
+          readAntigravityTitle(
+            join(
+              homedir(),
+              ".gemini",
+              "antigravity-cli",
+              "conversation_summaries.db",
+            ),
+            conversationId,
+          ),
         log,
       });
       ctx.provide("terminalAgents", service);

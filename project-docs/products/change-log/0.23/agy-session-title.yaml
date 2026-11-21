@@ -1,0 +1,14 @@
+id: agy-session-title
+version: 0.23.110
+title: shell prompt OSC 제목이 coding agent 이름을 덮는 버그를 고치고 agy TUI의 AI 제목을 표시한다
+modules: [packages/core/terminal-agents, packages/core/main]
+change: |
+  전: 터미널을 열 때 bash·zsh prompt가 설정한 OSC 제목(`user@host: ~/path`)이 tracker의 `screenTitle`에 남아, OSC 제목을 바꾸지 않는 coding agent TUI(Antigravity `agy` 등)가 뜰 때 `screen_title`이 첫 prompt보다 우선해 항상 `user@host: ~/path`로 보였다. 또한 `agy` TUI는 hook에 AI 제목을 싣지 않아 GUI와 달리 AI 제목이 표시되지 않았다.
+  후: shell이 foreground일 때 상태 글리프 없이 들어온 OSC 제목은 버리고 agent가 떠날 때 `screenTitle`을 비워, OSC 제목을 내지 않는 TUI에서 shell prompt 제목이 덮어쓰지 않게 한다. 또한 Antigravity 세션은 사람이 이름을 고정하지 않았을 때 `~/.gemini/antigravity-cli/conversation_summaries.db`를 읽기 전용으로 조회해 AI 제목을 세션 이름과 저장소에 반영한다.
+why: |
+  `agy` TUI 세션이 항상 `user@host: ~/path`로만 표시되어 세션을 구분하기 어려웠고, `agy`가 실제로 생성하는 AI 제목도 TUI에서는 보이지 않았다.
+decisions:
+  - text: "`agy` TUI의 AI 제목은 `~/.gemini/antigravity-cli/conversation_summaries.db`에서 읽기 전용으로 조회한다. 버린 길: hook payload 변경 대기(`agy` CLI가 hook에 제목을 싣지 않는다), TUI 화면 긁기(비목표)."
+    by: agent
+checklist:
+  - "터미널에서 `agy`를 실행하고 첫 대화를 보냈을 때 탭·sidebar 이름이 `user@host: ~/path`가 아니라 첫 prompt에서 AI 제목으로 바뀌는지 확인한다"

@@ -1,3 +1,4 @@
+export { readAntigravityTitle } from "./antigravity-title.ts";
 export {
   createBridge,
   type TerminalBridge,

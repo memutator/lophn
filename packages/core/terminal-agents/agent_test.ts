@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 
 import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
+import { readAntigravityTitle } from "./antigravity-title.ts";
 import { createHookIngress } from "./ingress.ts";
 import { createTitleScanner } from "./osc-title.ts";
 import { type AgentSignal, createAgentTracker } from "./tracker.ts";
@@ -410,4 +415,107 @@ test("tracker seeds resumed session and skipPermissions from foreground argv, fa
   tracker.foreground("t", null);
   tracker.foreground("t", ["agy"]);
   assert.equal(tracker.tuiOf("t")?.session, null);
+});
+
+test("shell prompt OSC title does not bleed into an agent that sets no OSC title, and TurnEnded hydrates external AI title", async () => {
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  let latest: TerminalRuntime = runtime;
+  const savedSeen: {
+    session: string;
+    title: string | null;
+    name: string | null;
+  }[] = [];
+  let aiTitle: string | null = null;
+  const tracker = createAgentTracker({
+    harnessOfProcess: (argv) => (argv[0] === "agy" ? "antigravity" : null),
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: (_harness, event, payload) => {
+      const p = payload as { conversationId?: string; prompt?: string };
+      if (event === "SessionStart") {
+        return { type: "SessionStarted", external_session: p.conversationId };
+      }
+      if (event === "PreInvocation") {
+        return {
+          type: "TurnStarted",
+          external_session: p.conversationId,
+          prompt: p.prompt,
+        };
+      }
+      return { type: "TurnEnded", external_session: p.conversationId };
+    },
+    runtimeOf: () => runtime,
+    publish: (rt) => {
+      latest = rt;
+    },
+    notify: () => {},
+    signal: () => {},
+    dismiss: () => {},
+    sessionSeen: (info) =>
+      savedSeen.push({
+        session: info.session,
+        title: info.title,
+        name: info.name,
+      }),
+    lookupSession: async () =>
+      aiTitle === null
+        ? null
+        : { title: null, name: aiTitle, pinned: false, persist: true },
+    ...fakeClock(),
+  });
+
+  // bash prompt가 설정한 OSC 제목은 상태 글리프가 없어 agent의 screen_title로 넘기지 않는다.
+  tracker.screenTitle("t", "user@host: ~/projects/lophn");
+  tracker.foreground("t", ["agy"]);
+  assert.equal(latest.agent?.screen_title, undefined);
+
+  tracker.hook("t", "antigravity", "SessionStart", {
+    conversationId: "conv-1",
+  });
+  tracker.hook("t", "antigravity", "PreInvocation", {
+    conversationId: "conv-1",
+    prompt: "fix the session title",
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(latest.agent?.title, "fix the session title");
+  assert.equal(latest.agent?.name, undefined);
+
+  // turn이 끝날 때 agy summary DB에 생성된 AI 제목이 hydrate되어 name과 저장소에 반영된다.
+  aiTitle = "Fix Session Title";
+  tracker.hook("t", "antigravity", "Stop", { conversationId: "conv-1" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(latest.agent?.name, "Fix Session Title");
+  assert.deepEqual(savedSeen.at(-1), {
+    session: "conv-1",
+    title: "fix the session title",
+    name: "Fix Session Title",
+  });
+});
+
+test("readAntigravityTitle reads non-empty titles from conversation_summaries.db read-only", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-agy-title-"));
+  try {
+    const dbPath = join(dir, "conversation_summaries.db");
+    assert.equal(readAntigravityTitle(dbPath, "missing"), null);
+
+    const db = new DatabaseSync(dbPath);
+    db.exec(
+      "CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT)",
+    );
+    db.prepare(
+      "INSERT INTO conversation_summaries (conversation_id, title) VALUES (?, ?)",
+    ).run("conv-1", "Feedback On Lophn Coding Agents");
+    db.prepare(
+      "INSERT INTO conversation_summaries (conversation_id, title) VALUES (?, ?)",
+    ).run("conv-empty", "   ");
+    db.close();
+
+    assert.equal(
+      readAntigravityTitle(dbPath, "conv-1"),
+      "Feedback On Lophn Coding Agents",
+    );
+    assert.equal(readAntigravityTitle(dbPath, "conv-empty"), null);
+    assert.equal(readAntigravityTitle(dbPath, "conv-missing"), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

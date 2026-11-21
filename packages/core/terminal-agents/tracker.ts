@@ -102,6 +102,8 @@ export type AgentTrackerDeps = {
     title: string | null;
     name: string | null;
     pinned?: boolean;
+    /** 외부 메타(예: agy summary DB)에서 새로 읽은 이름이라 session store에도 저장해야 한다. */
+    persist?: boolean;
   } | null>;
 };
 
@@ -276,6 +278,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           return;
         }
         let changed = false;
+        let nameChanged = false;
         if (current.title === null && saved.title !== null) {
           current.title = saved.title;
           changed = true;
@@ -287,8 +290,18 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         ) {
           current.name = saved.name;
           changed = true;
+          nameChanged = true;
         }
         if (changed) push(ref, current);
+        if (nameChanged && saved.persist === true && current.session !== null) {
+          deps.sessionSeen?.({
+            terminal_ref: ref,
+            harness,
+            session: current.session,
+            title: current.title,
+            name: current.name,
+          });
+        }
       })
       .catch(() => {});
   }
@@ -430,8 +443,11 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       const harness = argv === null ? null : deps.harnessOfProcess(argv);
       if (argv !== null && harness !== null) {
         if (entry.harness !== harness) {
+          const prevHarness = entry.harness;
           drop(entry);
           Object.assign(entry, fresh(harness, true));
+          // 직전이 다른 harness였으면 그 TUI가 낸 제목을 버린다. shell에서 뜰 때 TUI가 poll 직전에 낸 예비 제목은 유지한다.
+          if (prevHarness !== null) entry.screenTitle = null;
           deps.identified?.(harness, ref);
         } else {
           entry.fixed = true;
@@ -454,6 +470,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         const wasTui = entry.fixed;
         drop(entry);
         Object.assign(entry, fresh(null, false));
+        entry.screenTitle = null;
         push(ref, entry);
         if (wasTui) tuiLeft(ref);
         return;
@@ -577,6 +594,12 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       push(ref, entry);
       if (acquiredSession !== null) {
         hydrate(ref, harness, acquiredSession);
+      } else if (
+        entry.session !== null &&
+        entry.name === null &&
+        (signal.type === "TurnStarted" || signal.type === "TurnEnded")
+      ) {
+        hydrate(ref, harness, entry.session);
       }
       if (entry.session !== null) {
         deps.sessionSeen?.({
@@ -593,6 +616,13 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       const entry = entryOf(ref);
       // spinner 프레임만 바뀐 제목은 같은 이름이라 다시 알리지 않는다.
       const name = stripStatusGlyphs(title);
+      // shell이 foreground일 때 상태 글리프 없이 온 제목은 shell prompt(예: user@host: ~/path)다.
+      // OSC 제목을 내지 않는 TUI(agy 등)가 이어서 뜰 때 그 shell 제목이 agent 제목을 덮지 않게 버린다.
+      // TUI가 foreground poll 직전에 상태 글리프(`✳` 등)와 함께 낸 첫 제목만 예비로 남긴다.
+      if (entry.harness === null && name === title.trim()) {
+        entry.screenTitle = null;
+        return;
+      }
       if (entry.screenTitle === name) return;
       entry.screenTitle = name;
       push(ref, entry);

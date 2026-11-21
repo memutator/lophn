@@ -58,6 +58,8 @@ export type TerminalAgentsDeps = {
   identified(harness: string, terminalRef: string): void;
   // resume으로 연 터미널이 쥔 ledger session 전부(`HarnessHold.heartbeat`).
   beat(sessions: readonly string[]): void;
+  /** Antigravity conversation summary DB에서 AI 제목을 읽는다. 없거나 비어 있으면 null. */
+  readAntigravityTitle?(conversationId: string): string | null;
   log(message: string): void;
 };
 
@@ -150,9 +152,22 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           item.harness === info.harness &&
           item.external_session === info.session,
       );
-      return found === undefined
-        ? null
-        : { title: found.title, name: found.name, pinned: found.pinned };
+      if (found?.pinned) {
+        return { title: found.title, name: found.name, pinned: true };
+      }
+      const externalName =
+        info.harness === "antigravity"
+          ? (deps.readAntigravityTitle?.(info.session) ?? null)
+          : null;
+      if (found === undefined && externalName === null) return null;
+      const name = externalName ?? found?.name ?? null;
+      return {
+        title: found?.title ?? null,
+        name,
+        pinned: false,
+        persist:
+          externalName !== null && externalName !== (found?.name ?? null),
+      };
     },
   });
 

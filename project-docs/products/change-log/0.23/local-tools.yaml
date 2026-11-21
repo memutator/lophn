@@ -1,0 +1,18 @@
+id: local-tools
+version: 0.23.118
+title: "System Extension을 걷어내고 harness·harness-gui를 core에 내장하며 파일 기반 로컬 tool을 추가한다"
+modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/harness, packages/core/harness-gui, packages/core/terminal-agents, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/config, packages/core/main, packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전: `harness`와 `harness-gui`가 System Extension(`packages/core/extensions/`, `manifest.json`, CJS 번들링, `extensions.harness.enabled`, Settings › System › Extensions)으로 분리돼 있었고, `ext__<id>__<tool>` extension tool 파이프라인은 실제 사용자가 없었다.
+  후:
+  - System Extension 제거: `packages/core/extensions/`, `packages/protocol/extensions/`, `extension_tools/*`, `lophn ext call`, Gate의 `extension_tool`, agent 정의의 `extensions` 칸과 UI, Settings › System › Extensions를 삭제했다.
+  - `harness`·`harness-gui` 내장화: core 기동 시 바로 연결(`packages/core/harness/`, `packages/core/harness-gui/`, `wiring/harness-runners.ts`)되고, `harness-gui` 단축키 43개는 `HARNESS_KEYBINDINGS`로 옮겨 창 초기화 시 기본 바인딩된다.
+  - 기존 데이터 정리: `agents.drop-extensions` data step이 기동 시 기존 `~/.lophn/agents/*.md`의 옛 `extensions` 칸을 제거한다.
+  - 파일 기반 로컬 tool(`local__<name>`): 전역(`<data>/tools/`), workspace repo(`<folder>/.lophn/tools/`), workspace data(`<data>/{home,projects/<prj>,apps/<app>}/tools/`) 세 층의 `.ts`/`.js`/`.mjs` 단일 파일을 격리된 Node 자식 프로세스(`LOPHN_*`·내부 env 차단)로 검사·실행해 `lophn`·`custom` agent의 `tools[]`에 싣는다. workspace data의 `tools/`는 `file.write` 허용 범위에 포함된다.
+why: 사용자가 선택 설치하지 않는 본체 플러그인 층을 덜어내고, 본체 재빌드 없이 파일 하나로 agent의 native tool을 추가할 수 있게 하기 위함이다.
+decisions:
+  - text: "System Extension을 전부 걷어내고 `harness`·`harness-gui`를 core 기본 기능으로 합친다."
+    by: person
+  - text: "로컬 tool은 TS/JS 단일 파일 default export로 두고, 우선 `lophn`·`custom` agent의 `tools[]`에만 노출한다."
+    by: person

@@ -27,12 +27,12 @@ test("workspace kind tool wire names fit the provider rule and never collide", (
   }
 });
 
-// `lophn` tool은 셋 다 받고, 작업 tool은 project와 app만 받는다.
+// `lophn`·`shell.run`은 셋 다 받고, 파일 쓰기 tool은 project와 app만 받는다.
 test("each tool appears only in the workspace kinds that do its work", () => {
   const table: [string[], readonly WorkspaceKind[]][] = [
-    [["lophn"], WORKSPACE_KINDS],
+    [["lophn", "shell.run"], WORKSPACE_KINDS],
     [
-      ["file.write", "file.edit", "shell.run"],
+      ["file.write", "file.edit"],
       ["project", "app"],
     ],
   ];

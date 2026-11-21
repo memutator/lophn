@@ -1,0 +1,13 @@
+id: home-shell-run-and-bash-mode
+version: 0.23.114
+title: Home의 lophn agent도 shell.run을 쓰고 Home 대화창에서도 `!` Bash mode가 동작한다
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/shell/renderer]
+change: |
+  - `shell.run`을 `WORK_TOOLS`(project·app 전용)에서 `COMMON_TOOLS`(home·project·app 공통)로 옮겨 Home workspace의 lophn agent도 `shell.run`을 받는다.
+  - Home workspace에는 등록 폴더가 없고 `scope.read[0]`이 다른 project 폴더일 수 있으므로, `runShell`은 `ctx.kind === "home"`일 때 OS home 폴더(`homedir()`)를 `cwd`로 쓴다.
+  - ACP session/draft meta의 `capabilities.shell`을 폴더 유무로 가리지 않고 Home을 포함한 모든 workspace에서 켜며, `!` Bash mode(`run_shell`)의 기본 폴더(`workspaceBaseOf`)가 Home session일 때 OS home 폴더를 돌려준다.
+why: |
+  Home 창에서도 터미널 탭을 OS home 폴더에서 열게 되었으나, Home 대화창에서는 여전히 lophn agent가 `shell.run`을 쓰지 못하고 사람의 `!` Bash mode도 꺼져 있어 Home에서 전역 도구·환경 점검이나 shell 명령 실행을 하지 못했다.
+decisions:
+  - text: "Home의 `shell.run`과 `!` Bash mode(`run_shell`)의 시작 폴더는 Home 터미널 탭과 같이 사람의 OS home 폴더(`homedir()`)로 맞춘다. `scope.read[0]`은 읽기 범위에 들어온 다른 project 폴더일 수 있어 쓰지 않는다."
+    by: agent

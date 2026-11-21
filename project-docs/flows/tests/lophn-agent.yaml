@@ -302,7 +302,7 @@ files:
 
   - path: packages/core/lophn-agent/tools/shell/run_test.ts
     covers: [tool-shell-run:unavailable]
-    note: "Git Bash를 못 찾는 Windows에서 shell tool은 unavailable로 끝나고 아무것도 띄우지 않는다. 출력 상한 collect는 순수 함수다"
+    note: "Git Bash를 못 찾는 Windows에서 shell tool은 unavailable로 끝나고 아무것도 띄우지 않는다. Home workspace의 shell.run은 scope.read가 아니라 OS home 폴더를 cwd로 쓴다. 출력 상한 collect는 순수 함수다"
 
   - path: packages/core/lophn-agent/tools/spill_test.ts
     covers: [tool-result-spill:spilled, tool-result-spill:write-failed]

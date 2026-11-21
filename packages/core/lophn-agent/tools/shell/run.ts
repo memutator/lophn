@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { constants } from "node:os";
+import { constants, homedir } from "node:os";
 import { win32 } from "node:path";
 import process from "node:process";
 import { ok, type Result } from "../../../../base/mod.ts";
@@ -32,6 +32,8 @@ export type ShellDeps = {
   spawn: typeof spawn;
   // process가 끝날 때 동기로 부를 hook을 건다. 돌려준 함수가 푼다.
   onExit(hook: () => void): () => void;
+  // Home workspace의 shell cwd. 기본은 OS home 폴더다.
+  homeDir?: () => string;
 };
 
 // Windows의 shell tool은 Git for Windows의 bash로 돈다. 환경 변수 → 흔한 설치 자리 순이다.
@@ -232,7 +234,11 @@ export async function runShell(
   ctx: ToolContext,
   deps: ShellDeps = processShellDeps(),
 ): Promise<Result<ToolResult>> {
-  const cwd = ctx.scope.base ?? ctx.scope.read[0];
+  // Home은 등록 폴더가 없고 scope.read[0]이 다른 project 폴더일 수 있어 OS home 폴더에서 돈다.
+  const cwd =
+    ctx.kind === "home"
+      ? (deps.homeDir ?? homedir)()
+      : (ctx.scope.base ?? ctx.scope.read[0]);
   if (cwd === undefined) {
     return fail("invalid_input", "this workspace has no folder to run in");
   }

@@ -1109,26 +1109,24 @@ export const AGENT_MODES: AcpChoice[] = [
 ];
 
 // lophn agent가 가진 기능은 harness 전용 여덟(subagent 조작, task, background, toggle, goal, role, resume)을 뺀 전부다.
-// `!`(shell)는 명령을 돌릴 폴더가 있는 workspace(project·앱)의 session만 가진다. home은 없다.
+// `!`(shell)는 모든 workspace(home·project·앱)의 session이 가진다. home은 OS home 폴더에서 돈다.
 // harness session은 도는 turn에 steer를 올리지 못한다(입력이 다음 turn으로 간다).
-const capabilitiesOf = (folder: boolean, harness: boolean) =>
+const capabilitiesOf = (harness: boolean) =>
   Object.fromEntries(
     ACP_CAPABILITIES.map((name) => [
       name,
-      name === "shell"
-        ? folder
-        : name === "steer"
-          ? !harness
-          : ![
-              "stop_child",
-              "steer_child",
-              "tasks",
-              "background",
-              "toggles",
-              "goal",
-              "roles",
-              "resume",
-            ].includes(name),
+      name === "steer"
+        ? !harness
+        : ![
+            "stop_child",
+            "steer_child",
+            "tasks",
+            "background",
+            "toggles",
+            "goal",
+            "roles",
+            "resume",
+          ].includes(name),
     ]),
   ) as AcpCapabilities;
 
@@ -1287,8 +1285,6 @@ export async function readUsage(
 }
 
 type MetaParts = {
-  // 명령을 돌릴 폴더가 있는 workspace의 session인가.
-  folder: boolean;
   harness: boolean;
   title: string | null;
   skip: boolean;
@@ -1302,7 +1298,7 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
   return {
     title: parts.title === null ? null : env.redact(parts.title),
     cli_session: null,
-    capabilities: capabilitiesOf(parts.folder, parts.harness),
+    capabilities: capabilitiesOf(parts.harness),
     ...parts.model,
     modes: AGENT_MODES,
     mode: parts.skip ? "skip" : "ask",
@@ -1424,7 +1420,6 @@ export async function readSessionMeta(
     readAsCaller<Output<typeof commandsList>>(commandsList, { session }),
   ]);
   return metaOf(env, {
-    folder: record.value.workspace !== null,
     harness: record.value.harness !== null,
     title: record.value.title,
     skip: record.value.skip,
@@ -1448,7 +1443,6 @@ export async function readDraftMeta(
     readAsCaller<Output<typeof commandsList>>(commandsList, draft),
   ]);
   return metaOf(env, {
-    folder: draft.workspace !== null,
     harness: false,
     title: null,
     skip: false,

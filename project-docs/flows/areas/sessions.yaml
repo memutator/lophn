@@ -1193,8 +1193,6 @@ flows:
     crosses_process: true
     refs: [T1]
     docs: [architecture/acp.md]
-    unclear:
-      - "acp.md는 run_shell을 Home에서 unavailable로 막는다고 쓰지만 acp-send.ts는 invalid_input(this session has no folder)을 돌려준다. 코드를 맞출지 문서를 맞출지 정할 것"
 
   - id: shell-run
     title: "사람이 ! 명령을 돌려 출력과 함께 session 기록에 남긴다"
@@ -1209,7 +1207,7 @@ flows:
       - packages/core/lophn-agent/session/message-body.ts
       - packages/core/lophn-agent/tools/shell/run.ts
     steps:
-      - "호출자 scope에 RecordShellMessage가 없으면 명령을 돌리기 전에 막는다(forbidden). 명령이 비었으면 invalid_input이다. session을 읽고 기본 폴더(project나 app workspace)를 고른다. home이면 폴더가 없어 막는다."
+      - "호출자 scope에 RecordShellMessage가 없으면 명령을 돌리기 전에 막는다(forbidden). 명령이 비었으면 invalid_input이다. session을 읽고 기본 폴더(project나 app workspace는 첫 폴더, home은 OS home 폴더)를 고른다."
       - "agent의 shell.run과 같은 runner로 명령을 돌린다(env allowlist, 시간과 출력 상한)."
       - "명령, 종료 코드, 출력을 redaction하고 blob으로 준비해 사람 메시지(shell 칸, next_turn)로 저장한다. 앞 단계가 검사·redaction·준비를 끝내지 못하면 저장하지 않는다. 명령 기록은 turn을 열지 않고 checkpoint도 만들지 않는다."
       - "commit 뒤 ShellRan을 낸다. 다음 turn이 그 기록을 가져가 model이 본다(tag로 보인다)."
@@ -1224,7 +1222,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "명령이 비었다, session에 기본 폴더가 없다(home), 저장할 출력이 너무 크다, 또는 기록 본문 모양이 맞지 않다(준비 단계)"
+        when: "명령이 비었다, session에 기본 폴더가 없다, 저장할 출력이 너무 크다, 또는 기록 본문 모양이 맞지 않다(준비 단계)"
         observe: [response]
       - id: not_found
         code: not_found

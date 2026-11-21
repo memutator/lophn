@@ -20,7 +20,7 @@ function shellTitle(input: { command: string; description?: string }): string {
   return (firstLine ?? input.command).trim();
 }
 
-// workspace의 첫 폴더에서 명령을 돌린다. OS sandbox는 없다. shell 규칙으로 판정한다.
+// workspace의 첫 폴더(Home은 OS home 폴더)에서 명령을 돌린다. OS sandbox는 없다. shell 규칙으로 판정한다.
 export const SHELL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "shell.run",
@@ -31,7 +31,7 @@ export const SHELL_TOOLS: readonly ToolDefinition[] = [
     }),
     routes: [],
     description:
-      "Run a shell command with POSIX sh (Git Bash on Windows) in the workspace's first folder. Environment variables are limited and secrets are not available. timeout_ms defaults to 120000 and is at most 600000. Output is capped at about 24 KiB per stream: the first and last 12 KiB are kept and the middle is omitted.",
+      "Run a shell command with POSIX sh (Git Bash on Windows) in the workspace's first folder (or the OS home folder at Home). Environment variables are limited and secrets are not available. timeout_ms defaults to 120000 and is at most 600000. Output is capped at about 24 KiB per stream: the first and last 12 KiB are kept and the middle is omitted.",
     // 판정은 효과가 아니라 shell 규칙이 한다. read면 일시 실패에 다시 돌아 같은 명령이 두 번 돈다.
     effect: "external",
     // 승인 카드는 program이 이 호출에서 만든다. `description`을 싣지 않는다.

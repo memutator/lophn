@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { workspaceFoldersOf } from "./workspace-folders-glue.ts";
+import {
+  workspaceBaseOf,
+  workspaceFoldersOf,
+} from "./workspace-folders-glue.ts";
 
 const PRJ = "prj_0aaaaaaaaaaaaaaaaaaaaaaaaa";
 const PRJ_B = "prj_0bbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -56,5 +59,16 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
   assert.deepStrictEqual(
     workspaceFoldersOf({ sql }, "/data", "ses_missing"),
     [],
+  );
+  // `!` bash mode의 cwd: project는 첫 폴더, Home은 OS home 폴더, 없는 session은 undefined다.
+  const home = () => "/home/tester";
+  assert.equal(workspaceBaseOf({ sql }, "/data", "ses_pm", home), "/work/a");
+  assert.equal(
+    workspaceBaseOf({ sql }, "/data", "ses_home", home),
+    "/home/tester",
+  );
+  assert.equal(
+    workspaceBaseOf({ sql }, "/data", "ses_missing", home),
+    undefined,
   );
 });

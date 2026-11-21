@@ -539,7 +539,7 @@ files:
       - workspace-file-scope:project
       - workspace-file-scope:app
       - workspace-file-scope:home
-    note: rewind 쓰기 폴더 목록을 session의 workspace 종류로 고른다
+    note: "rewind 쓰기 폴더 목록과 ! 명령의 기본 폴더(project는 첫 폴더, Home은 OS home 폴더)를 session의 workspace 종류로 고른다"
 
   - path: packages/core/main/flow-host/host_test.ts
     covers: []

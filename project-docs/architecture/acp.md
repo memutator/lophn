@@ -170,12 +170,12 @@ lophn core는 입력을 지금 route로 나눈다.
 `run_shell`(사람이 composer에서 `!`로 돌리는 명령)
 
 - 부른 사람의 scope에 `RecordShellMessage`가 있는지 돌리기 전에 먼저 본다(돌린 명령은 되돌릴 수 없어서).
-- session workspace의 기본 폴더(project·앱 workspace. Home은 폴더가 없어 `invalid_input`이고 capability `shell`도 꺼짐)에서 agent `shell.run`과 같은 runner(env allowlist, 시간·출력 상한)로 승인 없이 돌린다.
+- session workspace의 기본 폴더(project·앱 workspace는 첫 폴더, Home은 OS home 폴더)에서 agent `shell.run`과 같은 runner(env allowlist, 시간·출력 상한)로 승인 없이 돌린다.
 - 명령·stdout·stderr를 redaction해 사람 메시지(`shell` 칸, `next_turn`)로 저장한다. turn을 시작하지 않고, 다음 turn이 그 입력 메시지와 같은 tx에서 가져가 `<lophn-shell command=… exit_code=…>` tag로 model에 보인다.
 - 같은 `key`는 한 번만 돈다. `ShellRan` event가 `by: "user"` tool item(turn null)이 된다(snapshot의 그 item은 `duration_ms`가 null).
 - shell 메시지는 고치기·옮기기·빼기를 `conflict`로 막고, fork는 이미 가져간 shell 메시지를 그 turn째 옮긴다.
 
-lophn agent session의 session meta: capability는 harness 전용(`stop_child`·`steer_child`·`tasks`·`background`·`toggles`·`goal`·`roles`·`resume`) 밖은 켜고 `steer`는 harness session이 아닐 때만, `shell`은 폴더가 있는 workspace session만 켠다. `harness`·`toggles`·`goal`·`roles`는 비우고 `cli_session`은 null, mode는 `ask`·`skip`, `plan`은 null이다. 이름·model·mode가 바뀐 뒤와 turn·compact가 끝난 뒤 사용량을 `session_changed`로 낸다.
+lophn agent session의 session meta: capability는 harness 전용(`stop_child`·`steer_child`·`tasks`·`background`·`toggles`·`goal`·`roles`·`resume`) 밖은 켜고 `steer`는 harness session이 아닐 때만 켠다. `harness`·`toggles`·`goal`·`roles`는 비우고 `cli_session`은 null, mode는 `ask`·`skip`, `plan`은 null이다. 이름·model·mode가 바뀐 뒤와 turn·compact가 끝난 뒤 사용량을 `session_changed`로 낸다.
 
 lophn 내장 명령 열넷(new, model, effort, permissions, status, usage, context, rewind, fork, rename, compact, archive, mcp, skills)은 `source: "app"`이고 `opens`·별칭·`argument_hint`는 core가 정한 표를 따른다(`/clear`는 `new`의 별칭, `rename`만 인자 `[title]`). skill은 `source: "skill"`, `opens: null`이고 내장 이름이나 별칭과 같은 skill은 목록에서 빠진다. session이 있어야 하는 내장(status, usage, context, rewind, fork, rename, compact, archive)은 draft meta에서 뺀다. 명령 목록은 snapshot에만 있다(skill이 바뀌는 event가 없어 화면이 `/` 메뉴를 열 때 다시 읽는다).
 

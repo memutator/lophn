@@ -320,7 +320,7 @@ flows:
     docs: [architecture/annotation.md]
 
   - id: tool-shell-run
-    title: "workspace 첫 폴더에서 shell 명령을 돌린다"
+    title: "workspace 첫 폴더(Home은 OS home 폴더)에서 shell 명령을 돌린다"
     actor: agent
     entries: [tool:shell.run]
     uses: [route:tool_gate/check]
@@ -332,7 +332,7 @@ flows:
       - packages/core/lophn-agent/tools/bundles/shell.ts
     steps:
       - "shell.run은 정의에 gate가 있어 실행기가 매 호출마다 core의 tool_gate/check에 먼저 묻는다. 허락·거절·사람에게 묻기는 approvals가 정하고, 결과 옮기기는 tool-call-execute가 한다. 이 flow는 허락된 뒤의 실행이다"
-      - "cwd는 workspace 첫 폴더다. 없으면 invalid_input으로 끝낸다"
+      - "cwd는 workspace 첫 폴더(Home은 OS home 폴더)다. 없으면 invalid_input으로 끝낸다"
       - "자식 환경 변수는 PATH HOME USER LANG LC_ALL TERM TMPDIR SHELL만 넘기고 PATH 앞에 node shim 폴더를 붙인다. LOPHN_ 값과 secret은 나가지 않는다. LOPHN_AGENT_SHELL=1만 더해 그 안의 lophn CLI가 바로 멈추게 한다(cli-core-connect:agent-shell)"
       - "POSIX는 /bin/sh -c로, Windows는 Git for Windows의 bash로 detached process group을 띄운다. bash가 없으면 unavailable이다"
       - "출력은 stream마다 앞 12 KiB와 뒤 12 KiB만 남기고 가운데는 생략 표시한다. 제한 시간(기본 120초, 최대 600초)이 지나면 group을 죽인다"

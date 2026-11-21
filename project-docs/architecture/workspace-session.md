@@ -135,6 +135,6 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 
 ## 열린 것
 
-- `shell.run`이 file 범위와 rewind를 거치지 않는다. project·app workspace의 tool 목록에 있고(home에는 없다) `/bin/sh`를 범위 폴더에서 띄우지만 OS sandbox가 없다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 file tool의 쓰기만 남긴다. agent가 shell로 범위 밖 파일을 읽고 쓰거나 지워도 막는 것이 없고, 그렇게 바뀐 파일은 session rewind로 돌아오지 않는다. 추천은 project workspace의 목록에서 `shell.run`을 빼는 것이고(app은 앱 test와 type 검사에 필요해 남긴다) 대안은 OS sandbox다. 일단 그대로 두기로 했다(사람, 2026-10-19). 이슈 `shell-run-bypasses-file-scope`.
+- `shell.run`이 file 범위와 rewind를 거치지 않는다. home·project·app workspace의 tool 목록에 있고 `/bin/sh`를 범위 폴더(home은 OS home 폴더)에서 띄우지만 OS sandbox가 없다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 file tool의 쓰기만 남긴다. agent가 shell로 범위 밖 파일을 읽고 쓰거나 지워도 막는 것이 없고, 그렇게 바뀐 파일은 session rewind로 돌아오지 않는다. 추천은 project workspace의 목록에서 `shell.run`을 빼는 것이고(app은 앱 test와 type 검사에 필요해 남긴다) 대안은 OS sandbox다. 일단 그대로 두기로 했다(사람, 2026-10-19). 이슈 `shell-run-bypasses-file-scope`.
 - turn 끝 기록(FinishTurn)이 거절되면(예: 결과 blob이 한도 초과, ledger 오류) turn을 failed(`internal`)로 닫고 다음 turn이 시작된다. 그 닫는 기록마저 실패하면 core를 다시 켜 interrupted(`restarted`)로 닫을 때까지 turn이 running으로 남아 session이 멈춘 것으로 보인다.
 - session을 지워도 이미지 blob과 옛 이미지 파일은 지우지 않는다(알려진 빈틈).

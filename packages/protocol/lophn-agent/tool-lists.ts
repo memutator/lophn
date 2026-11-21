@@ -9,6 +9,7 @@ export const COMMON_TOOLS = [
   "file.outline",
   "pdf.read",
   "image.read",
+  "shell.run",
   "web.search",
   "web.fetch",
   "lophn",
@@ -24,8 +25,8 @@ export const MEMORY_MAX_BYTES = 8192;
 // core를 새로 띄우려 하면 안 되므로, CLI는 이 표시를 보면 바로 멈추고 `lophn` tool을 쓰라고 알린다.
 export const AGENT_SHELL_ENV = "LOPHN_AGENT_SHELL";
 
-// 작업 tool은 home이 빼고 project·app이 갖는다.
-export const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
+// 파일 쓰기 tool은 home이 빼고 project·app이 갖는다.
+export const WORK_TOOLS = ["file.write", "file.edit"] as const;
 
 // 읽기 tool은 세 workspace 종류가 모두 갖는다.
 export const READ_TOOLS = ["visual.show"] as const;

@@ -59,3 +59,28 @@ test("Windows에서 Git Bash를 못 찾으면 shell tool은 unavailable로 끝�
   assert.equal(result.error.code, "unavailable");
   assert.match(result.error.message, /LOPHN_GIT_BASH/);
 });
+
+// Home은 scope.read[0]에 다른 project 폴더가 들어 있으므로 OS home 폴더에서 돌아야 한다.
+test("Home workspace의 shell.run은 scope.read가 아니라 OS home 폴더를 cwd로 쓴다", async () => {
+  let seenCwd: string | undefined;
+  const ctx = {
+    kind: "home",
+    scope: { read: ["/other/project"], write: [] },
+  } as unknown as ToolContext;
+  const deps = {
+    platform: "linux",
+    env: {},
+    exists: () => true,
+    homeDir: () => "/home/tester",
+    spawn: ((_cmd: string, _args: string[], options: { cwd?: string }) => {
+      seenCwd = options.cwd;
+      return {
+        pid: undefined,
+        on() {},
+      };
+    }) as never,
+    onExit: () => () => {},
+  };
+  await runShell({ command: "pwd" }, ctx, deps);
+  assert.equal(seenCwd, "/home/tester");
+});

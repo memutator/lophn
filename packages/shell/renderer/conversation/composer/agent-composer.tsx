@@ -222,7 +222,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const browse = useRef<HistoryBrowse | null>(null);
   // 검색 상자가 열린 동안은 연 때의 history를 든다(null이면 닫혀 있다).
   const [search, setSearch] = useState<readonly string[] | null>(null);
-  // `!`로 시작하는 글은 shell을 돌리는 명령이다. capability가 없는 곳(Home의 lophn agent 등)에서는 보통 글이다.
+  // `!`로 시작하는 글은 shell을 돌리는 명령이다. capability가 없는 곳에서는 보통 글이다.
   const shellMode = capabilities.shell && draft.text.startsWith("!");
   const shellCommand = shellMode ? draft.text.slice(1).trim() : "";
   const clearText = () => props.onDraft({ text: "", selection: [0, 0] });

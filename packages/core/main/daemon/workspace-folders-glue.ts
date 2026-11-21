@@ -1,5 +1,6 @@
 // workspace가 file tool에 여는 폴더를 rewind의 쓰기 폴더에 잇는 glue다. 규칙은 agent-workspaces의 workspace-folders가 갖고,
 // 여기는 project·앱·feature module의 lookups로 사실을 모아 넘긴다.
+import { homedir } from "node:os";
 import { dirname } from "node:path";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { artifactsFolder } from "../../../protocol/projects/mod.ts";
@@ -89,13 +90,16 @@ export function workspaceFoldersOf(
     : [...scope.write, ...memoryFolderOf(lookup, dataRoot, session)];
 }
 
-// 그 session이 명령을 돌릴 기본 폴더(절대 경로)다. home이거나 session이 없으면 undefined다.
+// 그 session이 명령을 돌릴 기본 폴더(절대 경로)다. Home은 OS home 폴더, session이 없으면 undefined다.
 export function workspaceBaseOf(
   lookup: Lookup,
   dataRoot: string,
   session: string,
+  homeDir: () => string = homedir,
 ): string | undefined {
-  return scopeOf(lookup, dataRoot, session)?.base;
+  const scope = scopeOf(lookup, dataRoot, session);
+  if (scope === undefined) return undefined;
+  return scope.base ?? homeDir();
 }
 
 // session의 기본 폴더와 workspace가 여는 폴더 목록(절대 경로)이다. session lifecycle 목록이 싣는다. home이거나 session이 없으면 폴더가 없다.

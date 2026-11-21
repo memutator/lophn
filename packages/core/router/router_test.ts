@@ -123,6 +123,7 @@ function setup(
     outbox: {} as never,
     seen: {} as never,
     self: () => "mch_self",
+    steps: {} as never,
     callPolicy: () => policy,
     announce: (_tx, topic, data) => announced.push({ topic, data }),
     transport: {

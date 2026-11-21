@@ -35,16 +35,18 @@ function handedText(handed: HandResult | null): string {
   if (handed.outcome === "not_handed") {
     return `not_handed ${handed.step}: ${handed.reason}`;
   }
-  return `handed ${handed.step} -> ${handed.receiver}${
+  return `handed ${handed.step} -> ${handed.receiver ?? "another computer"}${
     handed.human_turn ? " (human turn)" : ""
   }`;
 }
 
 function handedSummary(
   verb: string,
-  value: { line: string; handed: HandResult | null },
+  value: { line: string | null; handed: HandResult | null },
 ): string {
   const { line, handed } = value;
+  // 다른 컴퓨터에서 받은 step의 report는 그 컴퓨터로 간다. 이 컴퓨터에는 줄이 없다.
+  if (line === null) return `${verb} to the computer that started the workflow`;
   if (handed === null) return `${verb} (line ${line})`;
   return handed.outcome === "handed"
     ? `${verb}; step ${handed.step} handed`
@@ -144,7 +146,10 @@ const report = defineCommand({
     return ok({
       summary: handedSummary("reported", reported.value),
       content: { line, handed },
-      text: `line: ${line}\nhanded: ${handedText(handed)}`,
+      text:
+        line === null
+          ? "sent to the computer that started the workflow"
+          : `line: ${line}\nhanded: ${handedText(handed)}`,
     });
   },
 });

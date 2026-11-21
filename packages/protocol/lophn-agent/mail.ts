@@ -10,6 +10,11 @@ import {
   remoteAddressSchema,
 } from "./calls.ts";
 import { agentAddressSchema } from "./workspaces.ts";
+import {
+  sessionChoiceSchema,
+  stepNameSchema,
+  stepNextSchema,
+} from "../workflows/values.ts";
 
 export {
   MAIL_DELIVERIES,
@@ -79,6 +84,10 @@ export const mailSchema = z.discriminatedUnion("kind", [
     reply: callReplySchema,
     body: mailBodySchema,
     unattended: z.boolean(),
+    // workflow의 step이면 그 instance와 step. 받는 기계는 call이 아니라 step 입력으로 넣는다(`architecture/workflow.md`).
+    step: z
+      .strictObject({ instance: idSchema("wfi"), name: stepNameSchema })
+      .optional(),
   }),
   z.strictObject({
     kind: z.literal("reply"),
@@ -91,6 +100,13 @@ export const mailSchema = z.discriminatedUnion("kind", [
       })
       .nullable(),
     unattended: z.boolean(),
+    // step call에 받은 참가자가 낸 report. 글은 body다. next가 있으면 outcome이 done이다.
+    report: z
+      .strictObject({
+        next: stepNextSchema.nullable(),
+        session: sessionChoiceSchema,
+      })
+      .optional(),
   }),
   z.strictObject({ kind: z.literal("cancel"), ...common }),
   // 받는 기계가 call mail을 어떻게 받았는지 보낸 기계에 알린다.

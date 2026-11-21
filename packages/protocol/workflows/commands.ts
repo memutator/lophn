@@ -3,6 +3,8 @@ import { defineCommand } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
 import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
+import { remoteAddressSchema } from "../lophn-agent/calls.ts";
+import { mailSchema } from "../lophn-agent/mail.ts";
 import {
   participantKeySchema,
   participantSchema,
@@ -39,11 +41,19 @@ export const handoffPlanSchema = z
     human_turn: z.boolean(),
     cause: z.enum(["start", "report", "edit"]),
     session: sessionChoiceSchema.nullable(),
+    // 이 컴퓨터의 받는 곳(to)이거나, 다른 컴퓨터의 받는 곳(remote: 명단의 그 컴퓨터와 기계를 건너는 주소)이다.
     delivery: z
-      .strictObject({
-        to: deliveryToSchema,
-        body: z.string(),
-      })
+      .union([
+        z.strictObject({ to: deliveryToSchema, body: z.string() }),
+        z.strictObject({
+          remote: z.strictObject({
+            machine: idSchema("mch"),
+            computer: z.string().min(1),
+            address: remoteAddressSchema,
+          }),
+          body: z.string(),
+        }),
+      ])
       .nullable(),
     unresolved: z
       .strictObject({
@@ -126,6 +136,16 @@ export const workflowInstanceApply = defineCommand({
     change: changeSchema,
     by: lineBySchema,
     handoff: handoffPlanSchema.nullable(),
+    // 다른 컴퓨터의 참가자가 낸 report가 실려 온 reply mail. 같은 tx에서 본 것으로 적는다(한 번만 적용한다).
+    mail: z
+      .strictObject({
+        mail: mailSchema,
+        origin: z.strictObject({
+          machine: idSchema("mch"),
+          computer: z.string().min(1),
+        }),
+      })
+      .optional(),
   }),
   output: z.object({
     instance: workflowInstanceSchema,

@@ -221,6 +221,27 @@ export const callsMailApply = defineCommand({
   errors: ["invalid_input", "forbidden", "unavailable", "internal"],
 });
 
+// 다른 컴퓨터에서 받은 workflow step을 그 session이 report한다. 보낸 컴퓨터로 reply mail을 낸다. 부른 session이 그 step을 받은
+// session인지는 Router가 본다(아니면 not_found, 이미 report로 끝났으면 conflict). core 안 machine만 쓴다.
+export const callsStepReport = defineCommand({
+  resource: "calls",
+  method: "step-report",
+  name: "ReportRemoteStep",
+  changes: [],
+  input: z.strictObject({
+    call: idSchema("cal"),
+    session: idSchema("ses"),
+    text: z.string().min(1),
+    next: z.string().min(1).nullable(),
+    choice: z.enum(["new", "same"]),
+    unattended: z.boolean(),
+  }),
+  output: z.strictObject({}),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "not_found", "conflict", "unavailable", "internal"],
+});
+
 // mail-apply가 오류로 되돌아간 mail을 본 것으로 적고, call mail이면 실패 mail을 낸다. core 안 machine만 쓴다.
 export const callsMailRefuse = defineCommand({
   resource: "calls",
@@ -645,6 +666,18 @@ const mailRefuseCommand: CommandDefinition<typeof callsMailRefuse> = {
   },
 };
 
+const stepReportCommand: CommandDefinition<typeof callsStepReport> = {
+  route: callsStepReport,
+  handle(tx, ctx, input) {
+    const allowed = machineOnly(ctx);
+    if (!allowed.ok) return allowed;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const sent = router.value.reportStep(tx, input);
+    return sent.ok ? ok({}) : sent;
+  },
+};
+
 const mailSentCommand: CommandDefinition<typeof callsMailSent> = {
   route: callsMailSent,
   handle(tx, ctx, input) {
@@ -699,6 +732,7 @@ export const ROUTER_COMMANDS = [
   mailApplyCommand,
   mailRefuseCommand,
   mailSentCommand,
+  stepReportCommand,
   mailDecideCommand,
   mailSweepCommand,
 ] as const;

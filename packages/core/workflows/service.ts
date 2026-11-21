@@ -7,7 +7,11 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
-import { LOPHN_AGENT_HANDLE } from "../../protocol/lophn-agent/mod.ts";
+import {
+  blocksText,
+  LOPHN_AGENT_HANDLE,
+} from "../../protocol/lophn-agent/mod.ts";
+import type { Mail } from "../../protocol/lophn-agent/mail.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
 import type {
   LineBy,
@@ -33,12 +37,12 @@ import type {
   WorkflowFiles,
   WorkflowFlows,
   WorkflowProjects,
+  WorkflowRemote,
   WorkflowStore,
   WorkflowTurns,
 } from "./ports.ts";
 
 type State = Output<typeof workflowInstanceRead>;
-type Lines = State["lines"];
 type ApplyInput = Input<typeof workflowInstanceApply>;
 
 const fail = (
@@ -46,16 +50,17 @@ const fail = (
   message: string,
 ): Result<never> => err({ code, message });
 
-// 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session이다.
-function sameSessionIn(lines: Lines) {
+// 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session이다. 다른 컴퓨터로 넘겼으면 그 컴퓨터에서 받은 session(알면)이다.
+function sameSessionIn(state: Pick<State, "lines" | "remote_steps">) {
   return (participant: string): Id<"ses"> | null => {
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i]!;
-      if (line.kind === "handed" && line.participant === participant) {
-        return line.receiver as Id<"ses">;
-      }
-    }
-    return null;
+    const line = state.lines.findLast(
+      (l) => l.kind === "handed" && l.participant === participant,
+    );
+    if (line?.kind !== "handed") return null;
+    if (line.receiver !== null) return line.receiver as Id<"ses">;
+    const call = line.remote?.call;
+    const sent = state.remote_steps.find((each) => each.call === call);
+    return (sent?.session ?? null) as Id<"ses"> | null;
   };
 }
 
@@ -65,10 +70,11 @@ export function createWorkflowService(deps: {
   turns: WorkflowTurns;
   store: WorkflowStore;
   flows: WorkflowFlows;
+  remote: WorkflowRemote;
   ids: IdSource;
   logger: Logger;
 }) {
-  const { files, projects, turns, store, flows, ids, logger } = deps;
+  const { files, projects, turns, store, flows, remote, ids, logger } = deps;
 
   const skip = (id: string, code: string): void => {
     logger.warn({
@@ -125,7 +131,8 @@ export function createWorkflowService(deps: {
     }
     const at = lines.findLastIndex((l) => l.kind === "handed");
     const handed = lines[at];
-    if (handed?.kind !== "handed") return;
+    // 다른 컴퓨터로 넘긴 step은 그 call 행과 mail이 맡는다(받은 기계의 재시작은 실패 mail로 온다).
+    if (handed?.kind !== "handed" || handed.receiver === null) return;
     // 이미 남겼거나 그 step이 restart 전에 report했으면 또 남기지 않는다.
     const done = lines
       .slice(at + 1)
@@ -283,12 +290,33 @@ export function createWorkflowService(deps: {
           session: null,
           received: input.text,
           sameSession: () => null,
+          remote,
         }),
       });
     },
 
     async report(input: z.output<typeof workflowReport.input>, by: LineBy) {
-      const done = await apply(input.instance, ({ instance, lines }) => {
+      // 다른 컴퓨터에서 받은 step이면 이 컴퓨터에는 instance가 없다. 그 step을 받은 session의 report만 보낸 컴퓨터로 간다.
+      if (by.kind === "agent") {
+        const call = await remote.receivedStep(
+          by.session as Id<"ses">,
+          input.instance as Id<"wfi">,
+          input.step,
+        );
+        if (!call.ok) return call;
+        if (call.value !== null) {
+          const sent = await remote.report({
+            call: call.value,
+            session: by.session as Id<"ses">,
+            text: input.text,
+            next: input.next ?? null,
+            choice: input.session ?? "new",
+          });
+          return sent.ok ? ok({ line: null, handed: null }) : sent;
+        }
+      }
+      const done = await apply(input.instance, (state) => {
+        const { instance } = state;
         const next = input.next ?? null;
         // stopped·end·next 없음은 넘기지 않는다. stopped의 report는 줄만 남는다.
         // flow(program)의 report도 넘기지 않는다. next는 current를 옮기고 닫는 데만 쓴다.
@@ -315,7 +343,8 @@ export function createWorkflowService(deps: {
                 cause: "report",
                 session,
                 received: input.text,
-                sameSession: sameSessionIn(lines),
+                sameSession: sameSessionIn(state),
+                remote,
               })
             : null,
         });
@@ -325,9 +354,61 @@ export function createWorkflowService(deps: {
         : done;
     },
 
+    // 다른 컴퓨터의 참가자가 낸 report(reply mail). mail 입구가 부른다. 그 call로 넘긴 step이 없으면 null이다(Router의 보통 길로 간다).
+    // 본 기록, report 줄, 다음 넘기기가 ApplyWorkflowChange 하나에서 된다. 그 기계로 보낸 열린 step이 아니거나 이미 본 mail이면 conflict다.
+    async remoteReport(
+      mail: Extract<Mail, { kind: "reply" }>,
+      origin: { machine: string; computer: string },
+    ): Promise<Result<null | { line: string | null }>> {
+      const report = mail.report;
+      const hand = remote.handOf(mail.call);
+      if (report === undefined || mail.body === null || !hand.ok) {
+        return hand.ok ? ok(null) : hand;
+      }
+      if (hand.value === null) return ok(null);
+      const { instance: id, step } = hand.value;
+      const done = await apply(id, (state) => {
+        const { instance } = state;
+        const next = report.next;
+        const hands =
+          instance.state !== "stopped" && next !== null && next !== "end";
+        const text = blocksText(mail.body!);
+        return ok({
+          instance: instance.id,
+          change: {
+            kind: "report",
+            step,
+            text,
+            next,
+            session: report.session,
+          },
+          by: {
+            kind: "remote",
+            machine: origin.machine as Id<"mch">,
+            computer: origin.computer,
+            name: mail.from.name,
+          },
+          handoff: hands
+            ? planHandoff({
+                instance,
+                step: next,
+                cause: "report",
+                session: report.session,
+                received: text,
+                sameSession: sameSessionIn(state),
+                remote,
+              })
+            : null,
+          mail: { mail, origin },
+        });
+      });
+      return done.ok ? ok({ line: done.value.line }) : done;
+    },
+
     async edit(input: z.output<typeof workflowEdit.input>, by: LineBy) {
       const { instance: id, ...edit } = input;
-      const done = await apply(id, ({ instance, lines }) => {
+      const done = await apply(id, (state) => {
+        const { instance, lines } = state;
         if (instance.state === "stopped") {
           return fail("conflict", "workflow instance is stopped");
         }
@@ -343,7 +424,8 @@ export function createWorkflowService(deps: {
             cause: "edit",
             session,
             received: edit.text ?? lastReport?.text ?? instance.input,
-            sameSession: sameSessionIn(lines),
+            sameSession: sameSessionIn(state),
+            remote,
           });
         }
         return ok({
@@ -366,7 +448,9 @@ export function createWorkflowService(deps: {
         }
         sessions = [
           ...new Set(
-            lines.flatMap((l) => (l.kind === "handed" ? [l.receiver] : [])),
+            lines.flatMap((l) =>
+              l.kind === "handed" && l.receiver !== null ? [l.receiver] : [],
+            ),
           ),
         ];
         return ok({

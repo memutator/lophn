@@ -53,6 +53,7 @@ function world() {
       outbox: {} as never,
       seen: {} as never,
       self: () => "mch_self",
+      steps: {} as never,
       transport: {
         deliver: (_tx, _to, input) => {
           delivered.push(input);

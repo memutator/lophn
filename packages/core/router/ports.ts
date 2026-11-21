@@ -205,6 +205,14 @@ export type MailSeenRow = {
   arrived_at: string;
 };
 
+// workflow가 다른 컴퓨터로 넘긴 step(보낸 쪽이 program인 call 행)의 끝과 바뀜을 workflows에 알린다. 구현은 wiring이 끼운다.
+export interface SentSteps {
+  // 그 컴퓨터에서 돌지 못하고 끝났다. instance에 사람이 읽는 줄을 남긴다.
+  failed(tx: Tx, call: string, reason: CallFailReason): Result<void>;
+  // 배달 상태나 받은 session이 바뀌었다. instance를 보는 화면이 다시 읽는다.
+  changed(tx: Tx, call: string): void;
+}
+
 // 받은 mail. 같은 mail id(보낸 기계마다)를 한 번만 적용한다.
 export interface MailSeen {
   // 처음 본 mail이면 적고 true, 이미 본 것이면 false.

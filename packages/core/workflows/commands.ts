@@ -18,6 +18,7 @@ import {
   type WorkflowState,
 } from "../../protocol/workflows/mod.ts";
 import { FAILURE_TEXTS, type Router, routerFor } from "../router/mod.ts";
+import { remoteCallsOf, remoteHandOf } from "./remote.ts";
 import type { NewLine } from "./rows.ts";
 import {
   appendLine,
@@ -47,7 +48,15 @@ type Draft = {
   finished_at: string | null;
 };
 
-type Scope = { tx: Tx; instance: string; at: string; draft: Draft };
+type Scope = {
+  tx: Tx;
+  instance: string;
+  // 다른 컴퓨터로 넘기는 mail의 이름과 보내는 workspace.
+  workflow: string;
+  project: string;
+  at: string;
+  draft: Draft;
+};
 
 const addLine = (scope: Scope, line: NewLine) =>
   appendLine(scope.tx.sql, scope.instance, scope.at, line);
@@ -86,6 +95,27 @@ function handOff(
   const delivery = plan.delivery!;
   const made = router(scope.tx);
   if (!made.ok) return made;
+  if ("remote" in delivery) {
+    // 다른 컴퓨터의 참가자: call mail로 낸다. 받은 session은 그 컴퓨터가 받은 뒤에 안다.
+    const sent = made.value.sendStep(scope.tx, {
+      instance: scope.instance,
+      step: plan.step,
+      workflow: scope.workflow,
+      workspace: { kind: "project", id: scope.project },
+      peer: {
+        machine: delivery.remote.machine,
+        computer: delivery.remote.computer,
+      },
+      address: delivery.remote.address,
+      body: textBlocks(delivery.body),
+    });
+    if (!sent.ok) return sent;
+    return handed(scope, plan, null, {
+      machine: delivery.remote.machine,
+      computer: delivery.remote.computer,
+      call: sent.value.call,
+    });
+  }
   const routed = made.value.route(scope.tx, {
     from: { kind: "program" },
     to: delivery.to,
@@ -103,7 +133,15 @@ function handOff(
   if (routed.value.state === "failed") {
     return notHanded("unresolved", FAILURE_TEXTS[routed.value.fail_reason!]);
   }
-  const receiver = routed.value.session as Id<"ses">;
+  return handed(scope, plan, routed.value.session as Id<"ses">, null);
+}
+
+function handed(
+  scope: Scope,
+  plan: HandoffPlan,
+  receiver: Id<"ses"> | null,
+  remote: { machine: string; computer: string; call: string } | null,
+): Result<HandResult> {
   addLine(scope, {
     kind: "handed",
     by: LOPHN,
@@ -113,6 +151,7 @@ function handOff(
     human_turn: plan.human_turn,
     cause: plan.cause,
     session: plan.session,
+    remote,
   });
   scope.draft.current = { step: plan.step, human_turn: plan.human_turn };
   // ended는 넘긴 뒤에만 running으로 돌아온다. 못 넘긴 고치기가 아무도 일하지 않는 running을 만들지 않는다.
@@ -224,6 +263,8 @@ export function createWorkflowCommands(
         const scope: Scope = {
           tx,
           instance: input.id,
+          workflow: input.workflow,
+          project: input.project,
           at,
           draft: {
             state: "running",
@@ -267,6 +308,8 @@ export function createWorkflowCommands(
         const scope: Scope = {
           tx,
           instance: input.instance,
+          workflow: current.workflow,
+          project: current.project,
           at: tx.now(),
           draft: {
             state: current.state,
@@ -290,6 +333,21 @@ export function createWorkflowCommands(
         };
         switch (change.kind) {
           case "report": {
+            // 다른 컴퓨터의 참가자가 낸 report: 그 step을 넘긴 call의 reply mail이어야 하고 한 번만 적용한다.
+            if (input.mail !== undefined) {
+              const hand = remoteHandOf(tx.sql, input.mail.mail.call);
+              if (
+                hand === null ||
+                hand.instance !== input.instance ||
+                hand.step !== change.step
+              ) {
+                return fail("conflict", "this report is not for that step");
+              }
+              const made = router(tx);
+              if (!made.ok) return made;
+              const accepted = made.value.acceptStepReport(tx, input.mail);
+              if (!accepted.ok) return accepted;
+            }
             line = addLine(scope, {
               kind: "report",
               by: input.by,
@@ -348,6 +406,20 @@ export function createWorkflowCommands(
               kind: "stopped",
               by: input.by as { kind: "user" },
             });
+            // 다른 컴퓨터로 넘긴 열린 step을 거둔다(낼 call mail을 지우고 cancel mail을 낸다). 끝난 call은 그대로다.
+            const calls = remoteCallsOf(tx.sql, input.instance);
+            if (calls.length > 0) {
+              const made = router(tx);
+              if (!made.ok) return made;
+              for (const call of calls) {
+                const withdrawn = made.value.cancel(
+                  tx,
+                  { kind: "human" },
+                  { call },
+                );
+                if (!withdrawn.ok) return withdrawn;
+              }
+            }
             scope.draft.state = "stopped";
             scope.draft.current = scope.draft.current && {
               step: scope.draft.current.step,

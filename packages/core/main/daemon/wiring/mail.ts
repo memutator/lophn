@@ -109,6 +109,10 @@ export const mailWiring: WiringFactory = () => {
           return await prepareBodies(relay, MAIL_CONTEXT, bodies);
         },
         now: () => ctx.clock.now(),
+        // workflows wiring이 놓는다. 없으면 보통 길로 간다.
+        stepReport: async (mail, origin) =>
+          (await ctx.peek.workflowService?.remoteReport(mail, origin)) ??
+          ok(null),
       };
       ctx.provide("mailInbox", createMailInbox(deps));
       const draining = createMailDrain({

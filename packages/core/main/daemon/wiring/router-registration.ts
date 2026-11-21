@@ -31,6 +31,14 @@ import {
   type RouterEnvironment,
 } from "../../../router/mod.ts";
 import { afterCommit } from "../../../storage/ledger/after-commit.ts";
+import {
+  remoteStepChanged,
+  remoteStepFailed,
+} from "../../../workflows/remote.ts";
+import type { Tx } from "../../../../protocol/server/mod.ts";
+
+const announce = (tx: Tx, topic: string, data: unknown) =>
+  tx.port(afterCommit).push(topic, data);
 import { AGENT_EVENT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 
@@ -78,7 +86,12 @@ const environment: RouterEnvironment = {
         if (!machine.ok) throw new Error(machine.error.message);
         return machine.value;
       },
-      announce: (tx, topic, data) => tx.port(afterCommit).push(topic, data),
+      announce,
+      steps: {
+        failed: (tx, call, reason) =>
+          remoteStepFailed(tx, call, reason, announce),
+        changed: (tx, call) => remoteStepChanged(tx, call, announce),
+      },
       // writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더이고, 읽지 못하면 규칙이 없는 기본(모두 허용)이다.
       callPolicy: () => {
         const root = dataRootOf(view.sql, undefined);

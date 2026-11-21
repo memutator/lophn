@@ -2,6 +2,11 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import {
+  callFailReasonSchema,
+  callStateSchema,
+  mailDeliverySchema,
+} from "../lophn-agent/calls.ts";
+import {
   participantKeySchema,
   participantSchema,
   sessionChoiceSchema,
@@ -17,6 +22,13 @@ export const lineBySchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("agent"), session: idSchema("ses") }),
   z.strictObject({ kind: z.literal("lophn") }),
   z.strictObject({ kind: z.literal("program") }),
+  // 다른 컴퓨터의 참가자가 낸 report. computer는 받은 때 이 기계 명단의 이름, name은 그 참가자의 이름이다.
+  z.strictObject({
+    kind: z.literal("remote"),
+    machine: idSchema("mch"),
+    computer: z.string(),
+    name: z.string(),
+  }),
 ]);
 export type LineBy = z.infer<typeof lineBySchema>;
 
@@ -74,6 +86,10 @@ export const NOT_HANDED_REASONS = [
   "unknown_participant",
   "no_with",
   "unresolved",
+  // 참가자의 on이 명단의 다른 컴퓨터 하나로 풀리지 않는다.
+  "unknown_computer",
+  // 다른 컴퓨터로 넘긴 step이 거기서 돌지 못했다(건너뜀, 만료, 옛 판, 거절, 없는 받는 곳, 그 기계의 재시작).
+  "remote_failed",
 ] as const;
 export const notHandedReasonSchema = z.enum(NOT_HANDED_REASONS);
 export type NotHandedReason = z.infer<typeof notHandedReasonSchema>;
@@ -82,7 +98,8 @@ export const handResultSchema = z.discriminatedUnion("outcome", [
   z.object({
     step: z.string(),
     outcome: z.literal("handed"),
-    receiver: idSchema("ses"),
+    // 다른 컴퓨터로 넘겼으면 null이다(그 session은 받은 뒤에 안다).
+    receiver: idSchema("ses").nullable(),
     human_turn: z.boolean(),
   }),
   z.object({
@@ -172,6 +189,27 @@ function line<K extends string, S extends z.ZodRawShape, B extends z.ZodType>(
   });
 }
 
+// 다른 컴퓨터로 넘긴 step: 그 컴퓨터(받은 때의 명단 이름)와 이 기계에 남은 call 행.
+export const remoteHandSchema = z.strictObject({
+  machine: idSchema("mch"),
+  computer: z.string(),
+  call: idSchema("cal"),
+});
+
+// 다른 컴퓨터로 넘긴 step call의 지금 상태. delivery는 끝나지 않은 동안만 있다(pending, unknown, held, running).
+export const remoteStepSchema = z.object({
+  call: idSchema("cal"),
+  step: z.string(),
+  machine: idSchema("mch"),
+  computer: z.string(),
+  state: callStateSchema,
+  delivery: mailDeliverySchema.nullable(),
+  fail_reason: callFailReasonSchema.nullable(),
+  // 그 컴퓨터에서 step을 받은 session(알면). 이 기계의 session이 아니다.
+  session: idSchema("ses").nullable(),
+});
+export type RemoteStep = z.infer<typeof remoteStepSchema>;
+
 export const reportLineSchema = line("report", lineBySchema, {
   step: stepNameSchema,
   text: z.string(),
@@ -195,10 +233,12 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
     step: z.string(),
     // 메시지를 받은 agent의 참가자 key. 사람 step이면 with의 key
     participant: participantKeySchema,
-    receiver: idSchema("ses"),
+    // 다른 컴퓨터로 넘겼으면 null이고 remote가 있다.
+    receiver: idSchema("ses").nullable(),
     human_turn: z.boolean(),
     cause: z.enum(["start", "report", "edit"]),
     session: sessionChoiceSchema.nullable(),
+    remote: remoteHandSchema.nullable().default(null),
   }),
   line("not_handed", lophnBy, {
     step: z.string(),
@@ -220,6 +260,7 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type WorkflowLine = z.infer<typeof workflowLineSchema>;
+export type HandedLine = Extract<WorkflowLine, { kind: "handed" }>;
 
 export const workflowEntrySchema = z
   .object({

@@ -4,17 +4,42 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
-import { manualClock, ok } from "../../base/mod.ts";
+import {
+  err,
+  type Logger,
+  manualClock,
+  ok,
+  type Result,
+} from "../../base/mod.ts";
 import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
+  isPrivate,
 } from "../../protocol/lophn-agent/call-policy.ts";
 import type {
   CallReply,
   RemoteAddress,
 } from "../../protocol/lophn-agent/calls.ts";
-import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
-import { type Mail, mailSchema } from "../../protocol/lophn-agent/mail.ts";
+import {
+  blocksText,
+  textBlocks,
+} from "../../protocol/lophn-agent/content-block.ts";
+import {
+  type Mail,
+  type MailApplied,
+  mailSchema,
+} from "../../protocol/lophn-agent/mail.ts";
+import type { Participant } from "../../protocol/workflows/mod.ts";
+import { createWorkflowCommands } from "../workflows/commands.ts";
+import { planHandoff } from "../workflows/plan.ts";
+import type { WorkflowRemote } from "../workflows/ports.ts";
+import {
+  remoteHandOf,
+  remoteStepFailed,
+  remoteStepsOf,
+} from "../workflows/remote.ts";
+import { createWorkflowService } from "../workflows/service.ts";
+import { loadInstance, loadLines } from "../workflows/store.ts";
 import {
   isLophn,
   type Workspace,
@@ -48,6 +73,17 @@ const C = "mch_0ccccccccccccccccccccccccc";
 const PROJECT = "prj_00000000000000000000000001";
 const IDENTITY = "pri_00000000000000000000000001";
 const REVIEWER = "agt_00000000000000000000000001";
+// workflow 참가자의 on이 푸는 명단.
+const ROSTER = { laptop: A, windows: B, third: C } as const;
+const MACHINE = { actor: "machine" } as never;
+const SILENT: Logger = {
+  log: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  flush: () => Promise.resolve(),
+};
 // 정의가 skip인 agent.
 const SKIPPER = "agt_00000000000000000000000002";
 
@@ -166,7 +202,132 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     self: () => self,
     callPolicy: () => policy,
     announce: () => {},
+    steps: {
+      failed: (tx, call, reason) =>
+        remoteStepFailed(tx, call, reason, () => {}),
+      changed: () => {},
+    },
   });
+  // workflow: 실제 command와 service. 명단은 ROSTER, 받은 step은 위 transport가 적은 입력에서 찾는다.
+  const commands = createWorkflowCommands(() => ok(router));
+  const remote: WorkflowRemote = {
+    computer(ref) {
+      const machine = ROSTER[ref as keyof typeof ROSTER];
+      if (machine === undefined || machine === self) {
+        return err({ code: "not_found", message: `no computer ${ref}` });
+      }
+      return ok({ machine: machine as Id<"mch">, computer: ref });
+    },
+    workspace: (name) =>
+      ok(
+        name !== undefined && "home" in name
+          ? { home: true }
+          : { project: IDENTITY },
+      ),
+    isPrivate: (project) => isPrivate(policy, { kind: "project", id: project }),
+    async receivedStep(session, instance, step) {
+      const found = delivered.findLast(
+        (each) =>
+          each.session === session &&
+          each.input.step?.instance === instance &&
+          each.input.step.step === step &&
+          each.input.call !== null,
+      );
+      return ok(found?.input.call ?? null);
+    },
+    async report(input) {
+      return router.reportStep(tx, { ...input, unattended: true });
+    },
+    handOf(call) {
+      const hand = remoteHandOf(sql, call);
+      return ok(
+        hand === null
+          ? null
+          : { instance: hand.instance as Id<"wfi">, step: hand.step },
+      );
+    },
+  };
+  const read = (id: string) => {
+    const instance = loadInstance(sql, id);
+    const lines = loadLines(sql, id, { after: 0, limit: null });
+    assert.ok(instance.ok && instance.value !== null && lines.ok);
+    return {
+      instance: instance.value,
+      last_reports: {},
+      lines: lines.value,
+      remote_steps: remoteStepsOf(sql, id),
+    };
+  };
+  const workflows = createWorkflowService({
+    files: {} as never,
+    projects: {} as never,
+    turns: { stopSession: async () => ok(undefined) } as never,
+    flows: { stop: async () => ok(undefined) } as never,
+    remote,
+    ids: { newId: (prefix: never) => tx.newId(prefix) } as never,
+    logger: SILENT,
+    store: {
+      create: async (input) =>
+        commands.create.handle(tx, MACHINE, input, {}) as never,
+      apply: async (input, compare) =>
+        commands.apply.handle(tx, MACHINE, input, compare) as never,
+      read: async (id) =>
+        (loadInstance(sql, id) as { value: unknown }).value === null
+          ? err({ code: "not_found", message: "workflow instance not found" })
+          : (ok(read(id)) as never),
+      running: async () => ok([]),
+    },
+  });
+  // review는 이 컴퓨터의 reviewer, build는 windows 컴퓨터의 reviewer다.
+  const start = (participants: Record<string, Participant>) => {
+    const id = tx.newId("wfi");
+    const steps = [
+      {
+        name: "build",
+        by: "builder",
+        with: null,
+        prompt: "Build it.",
+        in: "",
+        out: "",
+        next: ["review"],
+      },
+      {
+        name: "review",
+        by: "lead",
+        with: null,
+        prompt: "Review it.",
+        in: "",
+        out: "",
+        next: ["end"],
+      },
+    ];
+    const created = commands.create.handle(
+      tx,
+      MACHINE,
+      {
+        id,
+        project: PROJECT,
+        workflow: "ship",
+        input: "go",
+        participants,
+        steps,
+        started_by: { kind: "user" },
+        handoff: planHandoff({
+          instance: { id, project: PROJECT, participants, steps },
+          step: "build",
+          cause: "start",
+          session: null,
+          received: "go",
+          sameSession: () => null,
+          remote,
+        }),
+      },
+      {},
+    );
+    assert.ok(created.ok, JSON.stringify(created));
+    return { id, handed: created.value.handed };
+  };
+  const lines = (id: string) => read(id).lines;
   const count = (table: string) =>
     Number(db.prepare(`select count(*) as n from ${table}`).get()?.["n"]);
   const call = (id: string) =>
@@ -188,7 +349,22 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     assert.ok(opened.ok);
     return opened.value.session;
   };
-  return { self, db, sql, tx, router, delivered, count, call, openSession };
+  return {
+    self,
+    db,
+    sql,
+    tx,
+    router,
+    delivered,
+    count,
+    call,
+    openSession,
+    workflows,
+    commands,
+    start,
+    lines,
+    read,
+  };
 }
 
 type Machine = Awaited<ReturnType<typeof machine>>;
@@ -233,6 +409,51 @@ function carry(from: Machine, to: Machine, skipAllowed = false) {
     assert.ok(acked.ok);
   }
   return mails;
+}
+
+// mail 입구(remote/mail-entry.ts의 applyFrom)처럼 건넨다: workflow step의 report는 workflows가, 그 밖은 Router가 받고, 적용하지
+// 못한 mail은 본 것으로 적고(call이면 실패 mail을 낸다) ack한다.
+async function deliver(
+  from: Machine,
+  to: Machine,
+  mails = pendingMails(from.sql, to.self as never),
+) {
+  const origin = { machine: from.self, computer: "from" };
+  const results: Result<unknown>[] = [];
+  for (const mail of mails) {
+    let applied: Result<MailApplied>;
+    if (mail.kind === "reply" && mail.report !== undefined) {
+      const done = await to.workflows.remoteReport(mail, origin);
+      applied = done.ok
+        ? ok({ delivery: null, reason: null, session: null })
+        : done;
+    } else {
+      applied = to.router.applyMail(to.tx, {
+        mail,
+        origin,
+        skipAllowed: false,
+        via: "link",
+      });
+    }
+    results.push(applied);
+    if (!applied.ok) {
+      assert.ok(
+        to.router.refuseMail(to.tx, { mail, origin, reason: "closed" }).ok,
+      );
+    }
+    assert.ok(
+      from.router.mailSent(from.tx, {
+        mail: mail.id,
+        result: {
+          kind: "acked",
+          applied: applied.ok
+            ? applied.value
+            : { delivery: null, reason: null, session: null },
+        },
+      }).ok,
+    );
+  }
+  return results;
 }
 
 test("같은 mail id를 두 번 적용해도 session 하나, 받은 입력 하나, call 행 하나다", async () => {
@@ -748,6 +969,193 @@ test("이미 있는 call id로 온 call mail은 session을 열지 않고 failed(
     session: null,
   });
   assert.equal(b.count("sessions"), 1);
+});
+
+// workflow 참가자: build는 windows 컴퓨터의 reviewer, review는 이 컴퓨터의 reviewer다.
+const REMOTE_BUILD: Record<string, Participant> = {
+  builder: { agent: "reviewer", workspace: { home: true }, on: "windows" },
+  lead: { agent: "reviewer", workspace: { home: true } },
+};
+
+const linesOf = (m: Machine, id: string, kind: string) =>
+  m.lines(id).filter((line) => line.kind === kind);
+
+test("다른 컴퓨터로 넘긴 step은 그 컴퓨터의 step 입력이 되고, 받은 session의 report만 시작한 컴퓨터에서 한 번 적용되어 다음 step을 넘긴다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const c = await machine(C);
+  const { id, handed } = a.start(REMOTE_BUILD);
+  assert.ok(handed?.outcome === "handed" && handed.receiver === null);
+  await deliver(a, b);
+  const [got] = b.delivered;
+  assert.equal(got?.input.kind, "step");
+  assert.deepStrictEqual(got.input.step, { instance: id, step: "build" });
+  assert.match(blocksText(got.input.body), /workflow on the computer from/);
+  assert.equal(a.read(id).remote_steps[0]?.delivery, "running");
+
+  // 그 step을 받지 않은 session의 report는 이 컴퓨터의 instance를 찾다 없다.
+  const other = b.openSession("lophn_home");
+  const stranger = await b.workflows.report(
+    { instance: id, step: "build", text: "done" },
+    { kind: "agent", session: other as Id<"ses"> },
+  );
+  assert.ok(!stranger.ok && stranger.error.code === "not_found");
+  assert.equal(pendingMails(b.sql, A as never).length, 0);
+
+  const by = { kind: "agent", session: got.session as Id<"ses"> } as const;
+  const call = got.input.call!;
+  const notMine = b.router.reportStep(b.tx, {
+    call,
+    session: other,
+    text: "done",
+    next: "review",
+    choice: "new",
+    unattended: true,
+  });
+  assert.ok(!notMine.ok && notMine.error.code === "not_found");
+  // 진행 글은 call을 끝내지 않는다. 같은 mail이 두 번 와도 줄은 하나다.
+  const progress = await b.workflows.report(
+    { instance: id, step: "build", text: "halfway" },
+    by,
+  );
+  assert.ok(progress.ok);
+  const halfway = pendingMails(b.sql, A as never);
+  await deliver(b, a, halfway);
+  const [twice] = await deliver(b, a, halfway);
+  assert.ok(twice !== undefined && !twice.ok);
+  assert.equal(linesOf(a, id, "report").length, 1);
+  const reported = await b.workflows.report(
+    { instance: id, step: "build", text: "built", next: "review" },
+    by,
+  );
+  assert.ok(reported.ok && reported.value.line === null);
+  const again = await b.workflows.report(
+    { instance: id, step: "build", text: "again", next: "review" },
+    by,
+  );
+  assert.ok(!again.ok && again.error.code === "conflict");
+
+  const mails = pendingMails(b.sql, A as never);
+  assert.equal(mails.length, 1);
+  // 셋째 컴퓨터가 같은 report를 흉내 내도 아무것도 바뀌지 않는다.
+  const forged = {
+    ...mails[0]!,
+    id: `mal_0${"9".repeat(25)}`,
+    from: { ...mails[0]!.from, machine: C },
+  };
+  const [fake] = await deliver(c, a, [forged]);
+  assert.ok(fake !== undefined && !fake.ok);
+  assert.equal(linesOf(a, id, "report").length, 1);
+
+  const [first] = await deliver(b, a, mails);
+  assert.ok(first?.ok, JSON.stringify(first));
+  const [second] = await deliver(b, a, mails);
+  assert.ok(second !== undefined && !second.ok);
+  const reports = linesOf(a, id, "report");
+  assert.equal(reports.length, 2);
+  assert.deepStrictEqual(reports[1]!.by, {
+    kind: "remote",
+    machine: B,
+    computer: "from",
+    name: mails[0]!.from.name,
+  });
+  // 다음 step(review)은 이 컴퓨터의 session으로 넘어갔다.
+  const handedLines = linesOf(a, id, "handed");
+  assert.equal(handedLines.length, 2);
+  assert.ok(
+    handedLines[1]?.kind === "handed" &&
+      handedLines[1].step === "review" &&
+      handedLines[1].receiver !== null,
+  );
+  assert.equal(a.read(id).remote_steps[0]?.state, "done");
+});
+
+test("늦게 닿은 step은 대기 목록에 서고, 그 컴퓨터의 사람이 건너뛰면 시작한 컴퓨터에 읽을 수 있는 줄이 남는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { id } = a.start(REMOTE_BUILD);
+  const [mail] = pendingMails(a.sql, B as never);
+  assert.ok(mail !== undefined);
+  await deliver(a, b, [{ ...mail, sent_at: "2026-11-20T23:00:00.000Z" }]);
+  assert.equal(b.delivered.length, 0);
+  assert.equal(a.read(id).remote_steps[0]?.delivery, "held");
+  const skipped = b.router.decideHold(b.tx, {
+    origin: A,
+    mail: mail.id,
+    decision: "skip",
+    skipAllowed: false,
+  });
+  assert.ok(skipped.ok);
+  await deliver(b, a);
+  const notHanded = linesOf(a, id, "not_handed");
+  assert.equal(notHanded.length, 1);
+  assert.ok(
+    notHanded[0]?.kind === "not_handed" &&
+      notHanded[0].reason === "remote_failed" &&
+      /chose not to run this step/.test(notHanded[0].message),
+  );
+  assert.equal(a.read(id).remote_steps[0]?.fail_reason, "skipped");
+});
+
+test("private workspace는 다른 컴퓨터로 step을 넘기지도 받지도 않는다", async () => {
+  const shut = {
+    ...DEFAULT_CALL_POLICY,
+    private: [{ kind: "project" as const, id: PROJECT }],
+  };
+  const sender = await machine(A, shut);
+  const { id: kept, handed } = sender.start(REMOTE_BUILD);
+  assert.ok(handed?.outcome === "not_handed" && handed.reason === "unresolved");
+  assert.equal(sender.count("mail_outbox"), 0);
+  assert.equal(sender.count("agent_calls"), 0);
+  assert.equal(linesOf(sender, kept, "handed").length, 0);
+
+  const a = await machine(A);
+  const b = await machine(B, shut);
+  const { id } = a.start({
+    ...REMOTE_BUILD,
+    builder: { agent: "reviewer", on: "windows" },
+  });
+  await deliver(a, b);
+  assert.equal(b.delivered.length, 0);
+  assert.equal(b.count("sessions"), 0);
+  await deliver(b, a);
+  const notHanded = linesOf(a, id, "not_handed");
+  assert.equal(notHanded.length, 1);
+  assert.ok(
+    notHanded[0]?.kind === "not_handed" &&
+      notHanded[0].reason === "remote_failed",
+  );
+});
+
+test("멈춘 instance는 아직 가져가지 않은 다른 컴퓨터의 step을 거둬 그 컴퓨터에서 돌지 않는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { id } = a.start(REMOTE_BUILD);
+  // drain이 call mail을 이미 읽었다.
+  const read = pendingMails(a.sql, B as never);
+  const stopped = a.commands.apply.handle(
+    a.tx,
+    MACHINE,
+    {
+      instance: id,
+      change: { kind: "stop" },
+      by: { kind: "user" },
+      handoff: null,
+    },
+    { state_seq: a.read(id).instance.state_seq },
+  );
+  assert.ok(stopped.ok, JSON.stringify(stopped));
+  assert.deepStrictEqual(
+    pendingMails(a.sql, B as never).map((mail) => mail.kind),
+    ["cancel"],
+  );
+  const [step] = a.read(id).remote_steps;
+  assert.equal(step?.state, "cancelled");
+  assert.equal(step?.delivery, null);
+  await deliver(a, b);
+  await deliver(a, b, read);
+  assert.equal(b.delivered.length, 0);
+  assert.equal(b.count("sessions"), 0);
 });
 
 // 사람의 ledger에는 agent_calls와 messages에 지난 call과 대화가 있다. 다시 짠 표에 옛 행이 칸마다 그대로 옮겨지고, 새 칸은 null이며,

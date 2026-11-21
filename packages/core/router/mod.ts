@@ -30,6 +30,7 @@ export {
   callsMailApply,
   callsMailDecide,
   callsMailRefuse,
+  callsStepReport,
   callsMailSend,
   callsMailSent,
   callsMailSweep,
@@ -70,5 +71,6 @@ export {
   type RouteResult,
   CALL_SESSION_OPENED_TOPIC,
   MAIL_QUEUED_TOPIC,
+  remoteStepBody,
   TEAM_SPAWNED_TOPIC,
 } from "./model.ts";

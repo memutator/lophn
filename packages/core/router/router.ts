@@ -3,6 +3,7 @@ import type { Id } from "../../protocol/base/ids.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import {
   blocksText,
+  textBlocks,
   type ContentBlock,
 } from "../../protocol/lophn-agent/content-block.ts";
 import type {
@@ -58,6 +59,7 @@ import {
   failureInput,
   isFinished,
   MAIL_QUEUED_TOPIC,
+  remoteStepBody,
   type RouteInput,
   type RouteResult,
   sesId,
@@ -69,6 +71,7 @@ import type {
   MailDraft,
   MailOutbox,
   MailSeen,
+  SentSteps,
   RoutedInput,
   SessionDirectory,
   TargetSession,
@@ -83,6 +86,8 @@ export type RouterDeps = {
   seen: MailSeen;
   // 이 기계(`machine.json`).
   self(): string;
+  // workflow가 다른 컴퓨터로 넘긴 step의 끝과 바뀜.
+  steps: SentSteps;
   // 지금 call 정책. 설정이 바뀌면 다음 call부터 닿는다.
   callPolicy(): CallPolicy;
   // commit 뒤 main thread에 일을 알린다(tx가 되돌아가면 버려진다). ask call의 답과 끝남이 이 길로 간다.
@@ -146,6 +151,16 @@ export interface Router {
       notify: boolean;
     },
   ): Result<void>;
+  // workflow의 step을 다른 컴퓨터의 참가자에게 call mail로 낸다. 보낸 쪽이 program인 행을 쓴다.
+  sendStep(tx: Tx, input: SendStepInput): Result<{ call: string }>;
+  // 다른 컴퓨터의 참가자가 낸 report(reply mail)를 받는다. mail을 본 것으로 적고, next가 있으면 그 step call을 끝낸다. 그 기계로 보낸
+  // 열린 step call이 아니거나 이미 본 mail이면 conflict다(아무것도 바꾸지 않는다).
+  acceptStepReport(
+    tx: Tx,
+    input: { mail: Mail; origin: MailOrigin },
+  ): Result<{ closes: boolean }>;
+  // 다른 컴퓨터에서 받은 step을 그 session이 report한다. 보낸 기계로 reply mail을 내고 next가 있으면 끝낸다.
+  reportStep(tx: Tx, input: ReportStepInput): Result<void>;
   // 다른 컴퓨터의 agent에게 call mail을 낸다. 행이 있고 queue가 없다(앱이 보낸 call처럼). 검사는 main thread가 마쳤다.
   sendRemote(tx: Tx, input: SendRemoteInput): Result<SentRemote>;
   // 다른 컴퓨터에서 온 mail 하나를 적용한다. 같은 mail id는 한 번만 돈다.
@@ -166,6 +181,27 @@ export interface Router {
   // 만료된 mail을 닫는다: 이 기계가 낸 줄(보낸 call은 expired로 끝낸다), 대기 목록의 줄. 오래 지난 받은 기록을 지운다.
   sweepMail(tx: Tx): Result<{ expired: number }>;
 }
+
+export type SendStepInput = {
+  instance: string;
+  step: string;
+  // mail을 쓴 쪽의 이름(hold card와 받은 쪽 표시).
+  workflow: string;
+  // 보내는 workspace(instance의 project). private이면 보내지 못한다.
+  workspace: Workspace | null;
+  peer: MailOrigin;
+  address: RemoteAddress;
+  body: ContentBlock[];
+};
+
+export type ReportStepInput = {
+  call: string;
+  session: string;
+  text: string;
+  next: string | null;
+  choice: "new" | "same";
+  unattended: boolean;
+};
 
 export type DecideHoldInput = {
   origin: string;
@@ -344,7 +380,8 @@ export function createRouter(deps: RouterDeps): Router {
   function inputOf(input: RouteInput, call: string | null): RoutedInput {
     return {
       kind: input.kind,
-      from: input.from,
+      // step 입력은 늘 program이 보낸 것이다(다른 컴퓨터에서 온 step도 행의 보낸 쪽만 remote다).
+      from: input.kind === "step" ? { kind: "program" } : input.from,
       call: call === null ? null : calId(call),
       reply_to: input.reply_to === null ? null : calId(input.reply_to),
       body: input.body,
@@ -557,6 +594,9 @@ export function createRouter(deps: RouterDeps): Router {
       announce(tx, STATE_CHANGED_TOPIC, [
         { name: "agent_calls", id: record.call },
       ]);
+    }
+    if (record.from.kind === "program" && record.to.kind === "remote") {
+      deps.steps.changed(tx, record.call);
     }
   }
 
@@ -1116,18 +1156,27 @@ export function createRouter(deps: RouterDeps): Router {
       ...mail.from,
       computer: origin.computer,
     };
+    // workflow의 step이면 step 입력으로 넣는다. 받은 행은 call처럼 남아 대기·만료·재시작·답(report)이 그 행으로 돈다.
+    const step = mail.step;
     const routeInput: Omit<RouteInput, "to"> = {
       from,
       reply: mail.reply,
-      body: mail.body,
+      body:
+        step === undefined
+          ? mail.body
+          : remoteStepBody(origin.computer, mail.body),
       refs: [],
       reply_to: null,
       dedup: null,
-      kind: "call",
+      kind: step === undefined ? "call" : "step",
       delivery: "next_turn",
       unattended: mail.unattended,
       call: mail.call,
       skipAllowed,
+      step:
+        step === undefined
+          ? null
+          : { instance: step.instance as Id<"wfi">, step: step.name },
     };
     const address = localAddress(mail.address, origin.machine);
     const routed = address.ok
@@ -1265,6 +1314,23 @@ export function createRouter(deps: RouterDeps): Router {
       const moved = finish(tx, record, outcome.state, reason);
       if (!moved.ok) return moved;
       return dropCallMail(tx, calId(record.call));
+    }
+    // workflow가 그 기계로 넘긴 step의 실패·끝. report는 workflows가 따로 받는다(acceptStepReport).
+    if (
+      record.to.kind === "remote" &&
+      record.to.machine === origin.machine &&
+      record.from.kind === "program"
+    ) {
+      const outcome = mail.outcome;
+      if (outcome === null || mail.report !== undefined) return ok(undefined);
+      if (outcome.state === "failed") {
+        const dropped = dropCallMail(tx, record.call);
+        if (!dropped.ok) return dropped;
+        return failSent(tx, record, outcome.reason ?? "receiver_ended");
+      }
+      const moved = finish(tx, record, outcome.state, null);
+      if (!moved.ok) return moved;
+      return dropCallMail(tx, record.call);
     }
     // (나) 그 기계에서 받은 conversation call에 보낸 쪽이 잇는 말.
     if (
@@ -1474,6 +1540,9 @@ export function createRouter(deps: RouterDeps): Router {
   ): Result<void> {
     const moved = finish(tx, record, "failed", reason);
     if (!moved.ok) return moved;
+    if (record.from.kind === "program") {
+      return deps.steps.failed(tx, record.call, reason);
+    }
     return record.from.kind === "agent"
       ? notifyFailed(
           tx,
@@ -1524,6 +1593,161 @@ export function createRouter(deps: RouterDeps): Router {
         return set;
       }
     }
+  }
+
+  function sendStep(tx: Tx, input: SendStepInput): Result<{ call: string }> {
+    if (isPrivate(callPolicy(), input.workspace)) {
+      return err({
+        code: "forbidden",
+        message: "a private workspace does not reach another computer",
+      });
+    }
+    if (!mailBodySchema.safeParse(input.body).success) {
+      return err({
+        code: "invalid_input",
+        message: `a step to another computer is text of at most ${MAIL_TEXT_MAX_BYTES} bytes`,
+      });
+    }
+    const call = tx.newId("cal") as Id<"cal">;
+    const queued = queue(tx, {
+      kind: "call",
+      call,
+      from: {
+        machine: self(),
+        agent: LOPHN_AGENT_HANDLE,
+        session: null,
+        name: requesterName(input.workflow),
+      },
+      to_machine: input.peer.machine,
+      ...stamp(tx),
+      address: input.address,
+      reply: "result",
+      body: input.body,
+      unattended: true,
+      step: { instance: input.instance, name: input.step },
+    });
+    if (!queued.ok) return queued;
+    const at = tx.now();
+    const record: AgentCallRow = {
+      call,
+      from: { kind: "program" },
+      to: {
+        kind: "remote",
+        machine: input.peer.machine,
+        computer: input.peer.computer,
+        address: input.address,
+      },
+      receiver_session: null,
+      reply: "result",
+      state: "accepted",
+      fail_reason: null,
+      dedup: null,
+      unattended: true,
+      ask: null,
+      result: null,
+      created_at: at,
+      state_changed_at: at,
+      delivery: "pending",
+      remote_session: null,
+    };
+    const stored = store.insert(tx, record);
+    if (!stored.ok) return stored;
+    changedIfRemote(tx, record);
+    return ok({ call });
+  }
+
+  function acceptStepReport(
+    tx: Tx,
+    input: { mail: Mail; origin: MailOrigin },
+  ): Result<{ closes: boolean }> {
+    const { mail, origin } = input;
+    if (mail.kind !== "reply" || mail.report === undefined) {
+      return err({ code: "invalid_input", message: "not a step report" });
+    }
+    if (mail.from.machine !== origin.machine || mail.to_machine !== self()) {
+      return err({
+        code: "forbidden",
+        message: "this mail is not from that computer to this one",
+      });
+    }
+    const refused = err({
+      code: "conflict" as const,
+      message: "this report is not for an open step sent to that computer",
+    });
+    const record = store.read(tx, calId(mail.call));
+    if (
+      record === null ||
+      record.from.kind !== "program" ||
+      record.to.kind !== "remote" ||
+      record.to.machine !== origin.machine ||
+      isFinished(record.state) ||
+      (record.remote_session !== null &&
+        mail.from.session !== record.remote_session)
+    ) {
+      return refused;
+    }
+    const fresh = seen.mark(tx, {
+      origin: origin.machine,
+      id: mail.id,
+      call: mail.call,
+      kind: mail.kind,
+      state: "applied",
+      mail: null,
+      computer: origin.computer,
+      arrived_at: tx.now(),
+    });
+    if (!fresh) return refused;
+    const closes = mail.report.next !== null;
+    if (!closes) {
+      const set = store.setDelivery(
+        tx,
+        calId(record.call),
+        "running",
+        mail.from.session === null ? null : sesId(mail.from.session),
+      );
+      if (!set.ok) return set;
+      changedIfRemote(tx, record);
+      return ok({ closes });
+    }
+    const moved = finish(tx, record, "done", null);
+    if (!moved.ok) return moved;
+    const dropped = dropCallMail(tx, record.call);
+    return dropped.ok ? ok({ closes }) : dropped;
+  }
+
+  function reportStep(tx: Tx, input: ReportStepInput): Result<void> {
+    const record = store.read(tx, calId(input.call));
+    if (
+      record === null ||
+      record.from.kind !== "remote" ||
+      record.receiver_session !== input.session
+    ) {
+      return err({
+        code: "not_found",
+        message: "this session did not receive that step from another computer",
+      });
+    }
+    if (isFinished(record.state)) {
+      return err({
+        code: "conflict",
+        message: "this step was already reported",
+      });
+    }
+    const queued = queue(tx, {
+      kind: "reply",
+      call: calId(record.call),
+      from: authorOf(input.session),
+      to_machine: record.from.machine,
+      ...stamp(tx),
+      body: textBlocks(input.text),
+      outcome: input.next === null ? null : { state: "done", reason: null },
+      unattended: input.unattended,
+      report: { next: input.next as never, session: input.choice },
+    });
+    if (!queued.ok) return queued;
+    if (input.next === null) return ok(undefined);
+    const moved = finish(tx, record, "done", null);
+    return moved.ok ? ok(undefined) : moved;
   }
 
   function decideHold(tx: Tx, input: DecideHoldInput): Result<MailApplied> {
@@ -1687,5 +1911,8 @@ export function createRouter(deps: RouterDeps): Router {
     mailSent,
     decideHold,
     sweepMail,
+    sendStep,
+    acceptStepReport,
+    reportStep,
   };
 }

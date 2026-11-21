@@ -329,6 +329,7 @@ async function machine(self: Id<"mch">) {
     requesterOf,
     prepare: (bodies) => prepareBodies(relay, MAIL_CONTEXT, bodies),
     now: nowAt,
+    stepReport: async () => ok(null),
   };
   // drain의 주기 timer(link 없이 sweep만 본다). 만료 알림의 글을 먼저 준비하는 것은 mail wiring과 같다.
   let timer: (() => Promise<void>) | undefined;

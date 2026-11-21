@@ -64,6 +64,7 @@ test("a stopped instance is not handed: report with next records the line only a
       outbox: {} as never,
       seen: {} as never,
       self: () => "mch_self",
+      steps: {} as never,
       announce: () => {},
       callPolicy: () => DEFAULT_CALL_POLICY,
       transport: {

@@ -82,6 +82,7 @@ import {
   callsMailSent,
   callsRecover,
   FAILURE_TEXTS,
+  remoteStepBody,
   TEAM_SPAWNED_TOPIC,
 } from "../../../router/mod.ts";
 import {
@@ -242,7 +243,12 @@ export function createCallBodyPreparer(deps: {
         if (safe === null) {
           return rejected("unavailable", "call redaction did not finish");
         }
-        bodies.push(safe);
+        // workflow step은 받는 session에 다른 컴퓨터 표시 줄이 붙은 본문으로 들어간다(Router가 같은 글을 만든다).
+        bodies.push(
+          mail.kind === "call" && mail.step !== undefined
+            ? remoteStepBody(shaped.data.origin.computer, safe)
+            : safe,
+        );
         next = {
           ...envelope,
           input: { ...shaped.data, mail: { ...mail, body: safe } },

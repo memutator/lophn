@@ -73,6 +73,7 @@ function world(refuse: boolean) {
       outbox: {} as never,
       seen: {} as never,
       self: () => "mch_self",
+      steps: {} as never,
       transport: { deliver: () => ok(undefined), cancel: () => ok(undefined) },
       store: {
         insert: (_tx, record) => {

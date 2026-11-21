@@ -30,7 +30,11 @@ function senderOf(row: Record<string, unknown>): CallFrom {
   if (row["from_app"] !== null && row["from_app"] !== undefined) {
     return callFromOfRow("app", String(row["from_app"]));
   }
-  return callFromOfRow("remote", String(row["from_machine"]));
+  if (row["from_machine"] !== null && row["from_machine"] !== undefined) {
+    return callFromOfRow("remote", String(row["from_machine"]));
+  }
+  // workflow가 다른 컴퓨터로 넘긴 step(보낸 쪽 칸이 셋 다 비었다).
+  return { kind: "program" };
 }
 
 function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
@@ -89,7 +93,14 @@ export function createCallStore(): CallStore {
   return {
     insert(tx, record) {
       const kind = record.from.kind;
-      if (kind !== "agent" && kind !== "app" && kind !== "remote") {
+      // program이 보낸 행은 workflow가 다른 컴퓨터로 넘긴 step뿐이다.
+      const remoteStep = kind === "program" && record.to.kind === "remote";
+      if (
+        kind !== "agent" &&
+        kind !== "app" &&
+        kind !== "remote" &&
+        !remoteStep
+      ) {
         return err({
           code: "invalid_input",
           message: "only an agent-, app- or remote-sent call has a row",

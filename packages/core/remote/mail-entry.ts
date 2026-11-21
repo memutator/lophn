@@ -3,7 +3,7 @@
 // 본보기는 다른 컴퓨터의 앱 command 호출(apps/calls/forward.ts, remote-entry.ts)이다. 다른 점: 보내는 쪽은 할당을 보지 않고(명단의
 // 컴퓨터는 mail을 받는다) link를 기다리지 않는다. 받는 쪽은 터미널 입력 허락을 받을지가 아니라 skip을 따를지에만 쓴다.
 import type { z } from "zod";
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { CallPolicy } from "../../protocol/lophn-agent/call-policy.ts";
 import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
@@ -32,6 +32,7 @@ import {
   callsMailSend,
   heldMails,
   remoteReach,
+  remoteStepBody,
   remoteWorkspaceOf,
 } from "../router/mod.ts";
 import type { MemoryHandler } from "../server/mod.ts";
@@ -66,6 +67,12 @@ export type MailEntryDeps = {
   // 받는 session 기록에 쓰일 본문을 이 자격(core 안 machine)으로 미리 blob으로 준비한다.
   prepare(bodies: readonly (readonly ContentBlock[])[]): Promise<Result<void>>;
   now(): string;
+  // 이 컴퓨터가 다른 컴퓨터로 넘긴 workflow step의 report(reply mail)를 workflows에 넘긴다. 그 call로 넘긴 step이 없으면 null이고
+  // 보통 길(`calls/mail-apply`)로 간다. 본 기록과 report 줄과 다음 넘기기가 한 command다.
+  stepReport(
+    mail: Extract<Mail, { kind: "reply" }>,
+    origin: { machine: string; computer: string },
+  ): Promise<Result<unknown | null>>;
 };
 
 const forbidden = (message: string): Result<never> =>
@@ -213,6 +220,13 @@ async function applyFrom(
     return forbidden("this mail is not from that computer to this one");
   }
   const origin = { machine: computer.machine, computer: computer.name };
+  if (mail.kind === "reply" && mail.report !== undefined) {
+    const reported = await deps.stepReport(mail, origin);
+    if (reported.ok && reported.value !== null) {
+      return ok({ delivery: null, reason: null, session: null });
+    }
+    if (!reported.ok) return await refuse(deps, mail, origin, reported);
+  }
   const applied = await deps.command(callsMailApply, {
     mail,
     origin,
@@ -220,6 +234,15 @@ async function applyFrom(
     via,
   });
   if (applied.ok) return ok(applied.value as MailApplied);
+  return await refuse(deps, mail, origin, applied);
+}
+
+async function refuse(
+  deps: MailEntryDeps,
+  mail: Mail,
+  origin: { machine: string; computer: string },
+  applied: { ok: false; error: LophnError },
+): Promise<Result<MailApplied>> {
   const reason = REFUSED[applied.error.code];
   if (reason === undefined) return applied;
   const refused = await deps.command(callsMailRefuse, { mail, origin, reason });
@@ -287,7 +310,12 @@ export function decideHoldHandler(deps: MailEntryDeps): MemoryHandler {
         (each) => each.origin === input.origin && each.mail.id === input.mail,
       );
       if (held !== undefined) {
-        const prepared = await deps.prepare([held.mail.body]);
+        // workflow step이면 받는 session에는 다른 컴퓨터 표시 줄이 붙은 본문이 들어간다.
+        const prepared = await deps.prepare([
+          held.mail.step === undefined
+            ? held.mail.body
+            : remoteStepBody(held.computer, held.mail.body),
+        ]);
         if (!prepared.ok) return prepared;
       }
     }

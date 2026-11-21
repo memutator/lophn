@@ -8,6 +8,9 @@ import type {
   workflowInstanceRead,
 } from "../../protocol/workflows/mod.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
+import type { RemoteWorkspace } from "../../protocol/lophn-agent/calls.ts";
+import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
+import type { SessionChoice } from "../../protocol/workflows/mod.ts";
 
 // workflows 폴더의 하위 폴더 하나. declaration은 workflow.yaml의 글(없으면 null)이다.
 export type DefinitionFile = {
@@ -61,6 +64,35 @@ export type WorkflowStore = {
   ): Promise<Result<Output<typeof workflowInstanceRead>>>;
   // 모든 project의 running instance.
   running(): Promise<Result<WorkflowInstance[]>>;
+};
+
+// 다른 컴퓨터의 참가자. 구현은 workflows wiring이 명단(machine links), call 정책, Router의 mail 명령으로 끼운다.
+export type WorkflowRemote = {
+  // 참가자의 on을 명단의 다른 컴퓨터 하나로 푼다(`call send --on`과 같은 풀이). 이 컴퓨터, 없거나 여럿인 이름은 오류다.
+  computer(ref: string): Result<{ machine: Id<"mch">; computer: string }>;
+  // 참가자의 workspace 이름(없으면 instance의 project)을 기계를 건너는 이름으로 바꾼다.
+  workspace(
+    name: AgentAddress["workspace"],
+    project: Id<"prj">,
+  ): Result<RemoteWorkspace>;
+  // instance의 project가 이 컴퓨터의 call 정책에서 private인가. private은 다른 컴퓨터로 넘기지 않는다.
+  isPrivate(project: Id<"prj">): boolean;
+  // 그 session이 다른 컴퓨터에서 받은 그 instance·step의 step call. 없으면 null이다.
+  receivedStep(
+    session: Id<"ses">,
+    instance: Id<"wfi">,
+    step: string,
+  ): Promise<Result<string | null>>;
+  // 받은 step의 report를 보낸 컴퓨터로 낸다(reply mail). 글은 여기서 redaction을 거친다.
+  report(input: {
+    call: string;
+    session: Id<"ses">;
+    text: string;
+    next: string | null;
+    choice: SessionChoice;
+  }): Promise<Result<void>>;
+  // 이 컴퓨터가 다른 컴퓨터로 넘긴 step call의 instance와 step. 없으면 null이다.
+  handOf(call: string): Result<{ instance: Id<"wfi">; step: string } | null>;
 };
 
 // flow process를 띄우고 멈춘다. 구현은 flows wiring이 끼운다.

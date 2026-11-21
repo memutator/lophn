@@ -119,6 +119,21 @@ export const ASK_ENDED_TOPIC = "router.ask-ended";
 // 앱이 보낸 call이 끝났다(답, 실패, 취소, 답 없는 call의 소비). commit 뒤 main thread가 그 앱에 `call.settled` event를 낸다.
 export const APP_CALL_SETTLED_TOPIC = "router.app-call-settled";
 
+// 다른 컴퓨터에서 온 step 입력의 본문 앞 고정 줄이다. step 입력은 보낸 쪽이 program이라 다른 컴퓨터에서 왔다는 표시가 본문에 있어야
+// 이력 재생이 같은 글을 만든다. 받는 기계의 본문 준비와 Router가 같은 글을 쓴다.
+export function remoteStepBody(
+  computer: string,
+  body: readonly ContentBlock[],
+): ContentBlock[] {
+  return [
+    {
+      type: "text",
+      text: `This step comes from a workflow on the computer ${computer}. Report it with \`lophn workflow report\` here as usual; the report goes back to that computer.`,
+    },
+    ...body,
+  ];
+}
+
 // outbox에 mail을 더한 tx가 commit됐다(`{peer}`). main thread의 drain이 그 기계로 낸다.
 export const MAIL_QUEUED_TOPIC = "router.mail-queued";
 

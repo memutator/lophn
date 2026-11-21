@@ -88,13 +88,13 @@ flows:
     steps:
       - "machine 자격만 받는다. instance id가 이미 있으면 conflict"
       - "instance 행과 started 줄을 같은 tx에 쓴다. 본문과 받는 곳은 호출한 쪽이 정해 넘긴 handoff 그대로 쓴다"
-      - "handoff가 있으면 Router에 step 메시지를 넣고 handed 줄, 못 넣으면 not_handed 줄을 쓴다"
+      - "handoff가 있으면 Router에 step 메시지를 넣고 handed 줄, 못 넣으면 not_handed 줄을 쓴다. 다른 컴퓨터의 참가자(on)면 step call mail을 outbox에 넣고 보낸 쪽 program인 call 행을 쓴 뒤 receiver 없이 remote(machine, computer, call)를 실은 handed 줄을 쓴다"
       - "Router가 err를 주면 tx 전체가 되돌아가 줄도 행도 남지 않는다"
     outcomes:
       - id: handed
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not-handed
-        when: "handoff가 있으나 담당을 못 풀거나 Router가 실패로 돌려줌(not_handed 줄)"
+        when: "handoff가 있으나 담당을 못 풀거나(on이 명단의 다른 컴퓨터로 풀리지 않으면 unknown_computer, private project에서 다른 컴퓨터로 넘기려 하면 unresolved) Router가 실패로 돌려줌(not_handed 줄)"
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: recorded
         when: "flow kind(handoff가 null). 넘기지 않는 started만 남는다"
@@ -127,6 +127,7 @@ flows:
     boundary: [core-api, workflows, router]
     code: [packages/core/workflows/service.ts, packages/core/workflows/commands.ts, packages/core/main/daemon/wiring/workflows.ts]
     steps:
+      - "다른 컴퓨터에서 받은 step이면(그 session이 그 instance·step의 step 입력을 받았다) 이 컴퓨터에는 instance가 없다. 글을 redaction해 calls/step-report로 그 call의 reply mail을 내고 line 없이 답한다. 그 session이 받지 않은 step은 이 컴퓨터의 instance를 찾아 not_found다"
       - "report의 글을 redaction한 뒤, next가 step이면 받는 곳과 step 메시지 본문을 command 앞에서 정한다"
       - "ApplyWorkflowChange가 report 줄을 쓴다. instance가 stopped면 줄만 남고 넘기지 않는다"
       - "next가 step이면 그 담당에게 넘기고 handed 줄과 current를 남긴다. 못 넘기면 not_handed 줄"
@@ -148,6 +149,9 @@ flows:
       - id: after-stop
         when: "instance가 stopped. 줄만 남고 handed는 null"
         observe: [ledger:workflow_lines, event:StateChanged, response]
+      - id: sent-remote
+        when: "다른 컴퓨터에서 받은 step의 report. 시작한 컴퓨터로 reply mail이 가고 line은 null이다"
+        observe: [ledger:mail_outbox, ledger:agent_calls, response]
       - id: not_found
         code: not_found
         when: "instance가 없음"
@@ -223,12 +227,13 @@ flows:
     code: [packages/core/workflows/service.ts, packages/core/main/daemon/wiring/workflows.ts, packages/core/main/flow-host/host.ts]
     steps:
       - "stopped 줄을 쓰고 instance를 stopped로 닫는다(by user). 이미 stopped면 conflict"
-      - "그 instance의 handed 줄에 있는 session마다 도는 turn을 멈춘다(best-effort)"
+      - "그 instance가 다른 컴퓨터로 넘긴 열린 step call을 같은 tx에서 취소한다(낼 call mail을 지우고 cancel mail을 낸다)"
+      - "그 instance의 handed 줄에 있는 이 컴퓨터의 session마다 도는 turn을 멈춘다(best-effort)"
       - "flow process가 있으면 죽이고, 그 instance가 연 run을 cancelOfInstance로 취소한다"
       - "멈춘 뒤 늦게 온 report와 program_exited는 줄만 남고 다시 running이 되지 않는다"
     outcomes:
       - id: stopped
-        observe: [ledger:workflow_instances, ledger:workflow_lines, ledger:runs, "process:flow-host", event:StateChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, ledger:runs, ledger:agent_calls, ledger:mail_outbox, "process:flow-host", event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "이미 stopped, 또는 state_seq가 3번 다시 읽어도 어긋남"

@@ -105,6 +105,7 @@ test("reconcile closes a running flow instance without launching again and leave
       files: {} as never,
       projects: {} as never,
       turns: {} as never,
+      remote: {} as never,
       logger,
       store: {
         create: (input) =>

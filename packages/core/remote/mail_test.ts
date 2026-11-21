@@ -370,6 +370,7 @@ async function machine(self: Id<"mch">) {
     requesterOf,
     prepare: async () => ok(undefined),
     now: () => "2026-11-21T00:00:00.000Z",
+    stepReport: async () => ok(null),
   };
   // drain의 주기 timer. test가 손으로 돌린다.
   let timer: (() => Promise<void>) | undefined;

@@ -14,6 +14,7 @@ import {
 } from "./values.ts";
 import {
   handResultSchema,
+  remoteStepSchema,
   reportLineSchema,
   workflowEditInputSchema,
   workflowEntrySchema,
@@ -75,7 +76,8 @@ export const workflowCheck = defineMemory({
   errors: [...readErrors],
 });
 
-// handed는 넘기지 않았을 때 null이다. line은 report 줄의 seq다(뒤따르는 handed·ended 줄이 아니다).
+// handed는 넘기지 않았을 때 null이다. line은 report 줄의 seq다(뒤따르는 handed·ended 줄이 아니다). 다른 컴퓨터에서 받은 step의
+// report는 그 컴퓨터로 가는 mail이 되어 이 컴퓨터에 줄이 없다(line null).
 export const workflowReport = defineMemory({
   resource: "workflows",
   method: "report",
@@ -89,7 +91,7 @@ export const workflowReport = defineMemory({
     session: sessionChoiceSchema.optional(),
   }),
   output: z.object({
-    line: seqSchema,
+    line: seqSchema.nullable(),
     handed: handResultSchema.nullable(),
   }),
   actors: ["user", "agent"],
@@ -137,6 +139,8 @@ export const workflowInstanceRead = defineRead({
       instance: workflowInstanceSchema,
       last_reports: z.record(stepNameSchema, reportLineSchema),
       lines: z.array(workflowLineSchema),
+      // 다른 컴퓨터로 넘긴 step call마다 지금 상태(handed 줄의 remote.call로 잇는다).
+      remote_steps: z.array(remoteStepSchema),
     }),
   ),
   reads: [{ name: "workflow_instances", id: (input) => input.instance }],

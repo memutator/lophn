@@ -35,10 +35,18 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import {
   createWorkflowService,
+  remoteHandOf,
   runningInstances,
   workflowsNoHarnessKindSteps,
   type WorkflowFlows,
+  type WorkflowRemote,
 } from "../../../workflows/mod.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import { callsStepReport, remoteWorkspaceOf } from "../../../router/mod.ts";
 import { checkWorkflow } from "../../flow-host/check.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { prepareTexts } from "./router.ts";
@@ -361,12 +369,99 @@ export const workflowsWiring: WiringFactory = () => {
           ctx.peek.flowHost?.stop(instance) ?? Promise.resolve(ok(undefined)),
       };
 
+      // 다른 컴퓨터의 참가자. 명단은 machine links(remote wiring이 나중에 놓는다)에서 부를 때 읽는다.
+      const remote: WorkflowRemote = {
+        computer(ref) {
+          const links = ctx.peek.machineLinks;
+          if (links === undefined) {
+            return err({
+              code: "unavailable",
+              message: "this computer's roster is not ready",
+            });
+          }
+          const found = links.resolve(ref);
+          if (!found.ok) return found;
+          if (found.value.self || found.value.machine === ctx.machine.id) {
+            return err({
+              code: "invalid_input",
+              message: `${ref} is this computer; leave on out to run the step here`,
+            });
+          }
+          return ok({
+            machine: found.value.machine as Id<"mch">,
+            computer: found.value.name,
+          });
+        },
+        workspace(name, project) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            remoteWorkspaceOf(lookup.sql, name ?? { project }, "", {
+              kind: "project",
+              id: project,
+            }),
+          );
+          return found.ok ? found.value : found;
+        },
+        isPrivate: (project) =>
+          isPrivate(
+            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+            { kind: "project", id: project },
+          ),
+        async receivedStep(session, instance, step) {
+          const pages = await readAll<Output<typeof receivedMessageList>>(
+            receivedMessageList,
+            { session },
+          );
+          if (!pages.ok) return pages;
+          const found = pages.value
+            .flatMap((p) => p.messages)
+            .findLast(
+              (m) =>
+                m.step?.instance === instance &&
+                m.step.step === step &&
+                m.call !== null,
+            );
+          return ok(found?.call ?? null);
+        },
+        async report(input) {
+          const text = createProductRedactor(ctx.peek.knownSecrets)(
+            SOURCE,
+            "text/plain",
+            input.text,
+          );
+          if (text === null) {
+            return err({
+              code: "unavailable",
+              message: "workflow text redaction did not finish",
+            });
+          }
+          const sent = await command(callsStepReport, {
+            ...input,
+            text,
+            unattended: true,
+          });
+          return sent.ok ? ok(undefined) : sent;
+        },
+        handOf(call) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            remoteHandOf(lookup.sql, call),
+          );
+          if (!found.ok) return found;
+          const hand = found.value;
+          return ok(
+            hand === null
+              ? null
+              : { instance: hand.instance as Id<"wfi">, step: hand.step },
+          );
+        },
+      };
+
       const built = createWorkflowService({
         files: createWorkflowFiles(ctx.root.path),
         projects,
         turns,
         store,
         flows,
+        remote,
         ids,
         logger: ctx.telemetry.logger,
       });

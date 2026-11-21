@@ -5,6 +5,7 @@ import {
   workflowInstanceList,
   workflowInstanceRead,
 } from "../../protocol/workflows/mod.ts";
+import { remoteStepsOf } from "./remote.ts";
 import {
   hasActivity,
   lastLine,
@@ -54,6 +55,7 @@ export function createWorkflowReads(): {
           instance: found.value,
           last_reports: reports.value,
           lines,
+          remote_steps: remoteStepsOf(snapshot.sql, input.instance),
           as_of_seq: snapshot.as_of_seq,
           next_cursor:
             loaded.value.length > LINES ? lines[lines.length - 1]!.seq : null,

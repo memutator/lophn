@@ -8,11 +8,15 @@ import {
 
 // lophn이 읽는 칸만 검사한다. 모르는 칸은 틀렸다고 하지 않고 읽지도 않는다.
 // by·with·next가 가리키는 이름이 있는지는 읽을 때 보지 않는다(넘길 때 "넘기지 못함" 줄이 된다).
+// 사람은 다른 컴퓨터에 있지 않다(on은 agent 참가자만).
 const declarationParticipantSchema = z.union([
-  z.looseObject({ kind: z.literal("human") }),
+  z
+    .looseObject({ kind: z.literal("human") })
+    .refine((p) => !("on" in p), { message: "a human participant has no on" }),
   z.looseObject({
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),
+    on: z.string().min(1).optional(),
   }),
 ]);
 

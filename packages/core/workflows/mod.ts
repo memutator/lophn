@@ -12,12 +12,18 @@ export type {
   WorkflowFiles,
   WorkflowFlows,
   WorkflowProjects,
+  WorkflowRemote,
   WorkflowStore,
   WorkflowTurns,
 } from "./ports.ts";
 export { createWorkflowReads } from "./reads.ts";
 export { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
 export { runningInstances } from "./store.ts";
+export {
+  remoteHandOf,
+  remoteStepChanged,
+  remoteStepFailed,
+} from "./remote.ts";
 export {
   createLedgerRegistration,
   createReaderRegistration,

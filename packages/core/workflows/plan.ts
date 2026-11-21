@@ -1,4 +1,9 @@
 import type { AgentAddress } from "../../protocol/lophn-agent/mod.ts";
+import type { RemoteAddress } from "../../protocol/lophn-agent/calls.ts";
+import { mailBodySchema } from "../../protocol/lophn-agent/mail.ts";
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
+import type { Id } from "../../protocol/base/mod.ts";
+import type { WorkflowRemote } from "./ports.ts";
 import type {
   HandoffPlan,
   InstanceStep,
@@ -11,7 +16,18 @@ import type {
 // 본문과 받는 곳을 앞에서 정해 받은 대로 넣는다.
 
 type NotHanded = NonNullable<HandoffPlan["unresolved"]>;
-type Resolved = { address: AgentAddress } | NotHanded;
+type Remote = Pick<WorkflowRemote, "computer" | "workspace" | "isPrivate">;
+type Resolved =
+  | { address: AgentAddress }
+  | {
+      remote: {
+        machine: Id<"mch">;
+        computer: string;
+        agent: string;
+        workspace: Extract<RemoteAddress, { workspace: unknown }>["workspace"];
+      };
+    }
+  | NotHanded;
 
 const unresolved = (
   reason: NotHanded["reason"],
@@ -24,9 +40,39 @@ const unresolved = (
 // 참가자는 늘 주소가 된다. workspace가 없으면 instance의 project다.
 // harness agent는 이름이 있는 agent라 `{ agent }` 참가자로 받는다(Router가 harness queue로 보낸다).
 // human은 with의 참가자가 받는다.
-function addressOf(participant: Participant, project: string): Resolved {
+function addressOf(
+  participant: Participant,
+  project: string,
+  remote: Remote,
+): Resolved {
   if ("kind" in participant) {
     return unresolved("no_with", "a human step needs a with participant");
+  }
+  // 다른 컴퓨터의 참가자. 넘길 때마다 명단과 정책으로 푼다.
+  if (participant.on !== undefined) {
+    if (remote.isPrivate(project as Id<"prj">)) {
+      return unresolved(
+        "unresolved",
+        "a private workspace does not hand steps to another computer",
+      );
+    }
+    const computer = remote.computer(participant.on);
+    if (!computer.ok) {
+      return unresolved("unknown_computer", computer.error.message);
+    }
+    const workspace = remote.workspace(
+      participant.workspace,
+      project as Id<"prj">,
+    );
+    if (!workspace.ok) return unresolved("unresolved", workspace.error.message);
+    return {
+      remote: {
+        machine: computer.value.machine,
+        computer: computer.value.computer,
+        agent: participant.agent,
+        workspace: workspace.value,
+      },
+    };
   }
   return {
     address: {
@@ -43,8 +89,9 @@ export function planHandoff(input: {
   // 요청한 값. 시작은 null이다.
   session: SessionChoice | null;
   received: string;
-  // 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session.
+  // 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(다른 컴퓨터의 참가자면 그 컴퓨터의 session).
   sameSession(participant: string): string | null;
+  remote: Remote;
 }): HandoffPlan {
   const { instance, step: name, cause, session, received } = input;
   const base = { step: name, cause, session };
@@ -81,10 +128,39 @@ export function planHandoff(input: {
     key = step.with;
     participant = helper;
   }
-  const resolved = addressOf(participant, instance.project);
-  if (!("address" in resolved)) return fail(resolved);
+  const resolved = addressOf(participant, instance.project, input.remote);
+  if ("reason" in resolved) return fail(resolved);
 
   const same = session === "same" ? input.sameSession(key) : null;
+  const body = stepBody({ step, received });
+  if ("remote" in resolved) {
+    const { machine, computer, agent, workspace } = resolved.remote;
+    if (!mailBodySchema.safeParse(textBlocks(body)).success) {
+      return fail(
+        unresolved(
+          "unresolved",
+          "the step text is too large to hand to another computer",
+        ),
+      );
+    }
+    return {
+      ...base,
+      participant: key,
+      human_turn: human,
+      delivery: {
+        remote: {
+          machine,
+          computer,
+          address:
+            same === null
+              ? { agent, workspace }
+              : { agent, workspace, session: same, fallback: "new" },
+        },
+        body,
+      },
+      unresolved: null,
+    };
+  }
   return {
     ...base,
     participant: key,
@@ -94,7 +170,7 @@ export function planHandoff(input: {
         same === null
           ? resolved.address
           : { ...resolved.address, session: same, fallback: "new" },
-      body: stepBody({ step, received }),
+      body,
     },
     unresolved: null,
   };

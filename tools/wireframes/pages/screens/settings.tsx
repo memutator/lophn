@@ -73,7 +73,6 @@ import {
 } from "./settings-pages.tsx";
 import { MockDesktop, type SettingsTab } from "../../mock/mock-desktop.tsx";
 
-// 아래 둘은 SettingsFrame의 browser 옵션 type이 모르는 profiles·agents를 fake에 넘긴다(옵션은 fake 통로가 그대로 받는다).
 const PROFILE_AGENTS = [
   { id: EVAL_ANALYST_ID, name: "Eval analyst", profile: PROFILE_WORK },
   { id: BUDGET_REVIEWER_ID, name: "Budget reviewer", profile: PROFILE_WORK },

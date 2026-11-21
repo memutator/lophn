@@ -176,14 +176,6 @@ const LOGINS = [
   },
 ];
 
-/** Settings › Browser: Logins 구역에 login 둘이 있다. 줄마다 password·TOTP 유무와 [Set password], [Set TOTP], [Edit], [Delete]가 있다. */
-export const SettingsBrowserLogins = () => (
-  <SettingsFrame
-    pane="browser"
-    browser={{ bookmarks: BOOKMARKS, logins: LOGINS }}
-  />
-);
-
 /** Settings › Browser: [Add login]을 눌러 입력 칸(Label, Site, Username, Note)이 열린 상태. */
 export const SettingsBrowserLoginAdd = () => (
   <SettingsFrame

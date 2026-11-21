@@ -1,6 +1,7 @@
 // Settings 틀. 화면은 renderer의 실제 SettingsSpace가 그린다. 화면이 읽는 route는 가짜 core(core-answers)가 답하고
 // 통로는 그 core를 나눠 쓰는 fake다. 필수 설정이 빈 상태는 fake의 설정이고, 열린 dialog 같은 모양은 mount 뒤에 사람이
 // 하듯이 눌러 만든다.
+import type { BrowserProfile } from "../../../../packages/protocol/shell/browser-profiles.ts";
 import { type ReactNode, useMemo, useState } from "react";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { AppViewsProvider } from "../../../../packages/shell/renderer/app-frame/app-views.tsx";
@@ -56,6 +57,10 @@ interface SettingsFrameProps {
     readonly devices?: Device[];
     /** Logins 구역의 login. 안 쓰면 비어 있다. */
     readonly logins?: LoginRow[];
+    /** Profiles 구역의 browser profile. 안 쓰면 Default뿐이다. */
+    readonly profiles?: BrowserProfile[];
+    /** profile을 쓰는 agent. 있으면 `agents/list`가 이 목록으로 답한다. */
+    readonly agents?: { id: string; name: string; profile: string | null }[];
   };
   /** Remote 항목. 안 쓰면 켜져 있고 명단에 이 컴퓨터, 컴퓨터 둘, 폰 둘이 있다. */
   readonly remote?: {

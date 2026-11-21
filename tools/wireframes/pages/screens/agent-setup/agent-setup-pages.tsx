@@ -138,9 +138,6 @@ export const AppAgentsPage = () => agentsAt("app", "Budget tracker · Agents");
 export const AppAgentsNoSourcePage = () =>
   agentsAt("app", "Budget tracker · Agents", { appHasSource: false });
 
-/** 사람이 만든 agent의 설정. */
-export const AgentEditorPage = () => editor(EVAL_ANALYST_ID);
-
 // 칸을 창 위로 올려 보인다. editor가 길어서 아래 칸은 열자마자 잘린다.
 const scrollTo =
   (selector: string, block: ScrollLogicalPosition = "start"): Step =>

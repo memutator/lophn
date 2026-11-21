@@ -1,5 +1,6 @@
 // Settings 화면 전체의 가짜 통로 묶음. 항목마다의 가짜 통로가 가짜 core 하나를 나눠 써서 쓰기가 같은 답을 바꾸고
 // StateChanged를 낸다. 쓰는 쪽(gallery, dev mock)은 core.answers로 fake Gateway를 만들고 core.attach로 잇는다.
+import type { BrowserProfile } from "../../../../../protocol/shell/browser-profiles.ts";
 import type { Bookmark } from "../../../../ipc/browser.ts";
 import { CUSTOM_PROVIDER } from "../../../workspace/agents/fake-source.ts";
 import { fakeAgents } from "../agents/testdata/fake-agents.ts";
@@ -38,6 +39,10 @@ export interface FakeSettingsScreenOptions {
     readonly links?: Partial<LinkValues>;
     readonly devices?: Device[];
     readonly logins?: LoginRow[];
+    /** Profiles 구역의 browser profile. 안 쓰면 Default뿐이다. */
+    readonly profiles?: BrowserProfile[];
+    /** profile을 쓰는 agent. 있으면 `agents/list`가 이 목록으로 답한다. */
+    readonly agents?: { id: string; name: string; profile: string | null }[];
   };
   readonly keyboard?: StoredKeybindings;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */

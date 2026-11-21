@@ -1,5 +1,5 @@
 id: gui-flag-and-args
-version: 0.23.111
+version: 0.23.112
 title: harness GUI 실행을 --gui flag로 일원화하고 함께 준 CLI flag를 GUI와 TUI 전환에 적용한다
 modules: [packages/protocol, packages/coding-agent, packages/cli, packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/main]
 change: |

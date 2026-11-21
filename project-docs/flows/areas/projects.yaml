@@ -534,7 +534,7 @@ flows:
     steps:
       - "사람만 부른다(project 상세와 설정 page의 Other computers 줄의 [Separate project]). user actor가 아니면 forbidden이다"
       - "project가 없으면 not_found, TargetAuthorization이 거절하면 막는다"
-      - "tx.newId로 새 pri_를 적고 옛 id를 former_identities 끝에 더한다. git이 아닌 project는 이 컴퓨터의 잇기가 풀린다. 사람의 저장소에 쓰지 않는다. revision은 올리지 않는다. projects change를 낸다"
+      - "tx.newId로 새 pri_를 적고 옛 id를 former_identities 끝에 더하고 separated를 켠다. 나눈 project는 어느 컴퓨터에서도 같은 저장소와 자동으로 맞춰지지 않는다(project-identity-auto-match). git이 아닌 project는 이 컴퓨터의 잇기가 풀린다. 사람의 저장소에 쓰지 않는다. revision은 올리지 않는다. projects change를 낸다"
     outcomes:
       - id: renewed
         observe: ["ledger:projects", "response"]
@@ -561,6 +561,90 @@ flows:
     crosses_process: false
     risk: [data-loss, permission]
     docs: [architecture/project-identity.md]
+
+  - id: project-identity-match
+    title: "내 다른 컴퓨터의 같은 저장소의 project에 맞춰 기계를 넘는 id를 바꾸거나 나눈 것으로 적는다"
+    actor: system
+    entries: [route:projects/match_identity]
+    boundary: [projects]
+    code:
+      - packages/core/projects/registry/commands.ts
+      - packages/core/projects/registry/contexts.ts
+      - packages/protocol/projects/identity-api.ts
+    steps:
+      - "core의 자동 match가 machine:projects-identity 자격으로 부른다. 다른 자격이면 forbidden이다"
+      - "project가 없으면 not_found, TargetAuthorization이 거절하면 막는다"
+      - "지금 identity가 입력의 from이 아니면 conflict(stale)이고 아무것도 바꾸지 않는다(계산한 뒤 사람이 나눴거나 다른 match가 먼저 적었다)"
+      - "active이고 git이고 remote가 있고 나누지 않은 project가 아니면 conflict(not_matched)다"
+      - "separated이면 나눈 것으로만 적는다(다른 컴퓨터가 나눈 project의 id를 가졌다. 그것을 clone했다). identity는 그대로다"
+      - "identity이면 그 id가 지금보다 작고, 자기 former_identities에 없고, 이 기계의 다른 project가 지금이나 옛 identity로 갖지 않아야 한다. 아니면 conflict(not_allowed)다. 같은 remote key의 다른 active이고 나누지 않은 git project가 있으면 conflict(same_repository)다"
+      - "identity를 적고 옛 id를 former_identities 끝에 더한다. revision은 올리지 않는다. 그 project의 projects change를 낸다"
+    outcomes:
+      - id: matched
+        when: "더 작은 id로 바꿨다"
+        observe: ["ledger:projects", "response"]
+      - id: marked-separated
+        when: "다른 컴퓨터가 나눈 project의 id라 나눈 것으로 적었다"
+        observe: ["ledger:projects", "response"]
+      - id: refused
+        code: conflict
+        when: "from이 지금 값이 아니다(stale), match에 들지 않는 project다(not_matched), id가 규칙에 맞지 않는다(not_allowed), 같은 저장소가 이 기계에 둘이다(same_repository). 아무것도 바꾸지 않는다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않는다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "machine:projects-identity 자격이 아니다, 또는 TargetAuthorization이 거절했다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "TargetAuthorization 판정을 얻지 못했다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다, 또는 folder resolver port가 붙지 않았다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, permission]
+    docs: [architecture/project-identity.md]
+
+  - id: project-identity-auto-match
+    title: "core가 내 다른 컴퓨터들의 git project 목록을 보고 같은 저장소의 project를 같은 id로 맞춘다"
+    actor: system
+    entries: [system:project-identity-auto-match]
+    uses: [route:projects/match_identity]
+    boundary: [projects, folder]
+    code:
+      - packages/core/projects/identity/match.ts
+      - packages/core/main/daemon/wiring/projects.ts
+      - packages/core/main/daemon/wiring/folder.ts
+      - packages/core/folder/export/record.ts
+      - packages/protocol/folder/records.ts
+    steps:
+      - "이 기계의 active git project 가운데 remote key가 있는 것(512개, key 256자까지)을 {identity, remote_key, separated}로 기계 기록 record.json의 projects 칸에 싣는다. 이름, 경로, url은 싣지 않는다. computers 폴더의 기록은 link, 폰, 같이 보는 폴더로 다른 컴퓨터에 간다"
+      - "project 목록이 바뀌면(등록, 고치기, relink, 보관, 보관 풀기, 다시 읽기, 나누기, 잇기, match) 기록을 다시 쓰게 하고 match를 다시 돌린다. 기동 때 다시 읽기가 끝난 뒤와 폴더 scan이 다른 기계의 바뀐 기록을 들인 뒤에도 돈다. 한 번에 하나만 돌고 도는 사이 다시 부르면 끝난 뒤 한 번 더 돈다"
+      - "명단의 다른 컴퓨터(이 컴퓨터는 빼고)의 기록만 쓴다. 명단이 없으면 아무것도 하지 않는다"
+      - "다른 컴퓨터가 나눈 project의 id를 가진 project는 나눈 것으로 적는다. 이 기계에 같은 key의 나누지 않은 active project가 하나뿐이고, 기록마다 같은 key의 나누지 않은 줄이 하나뿐이면 그 id가 후보다. 자기 옛 id와 이 기계의 다른 project가 가진 id를 뺀 후보 가운데 가장 작은 것이 지금보다 작으면 project.match_identity로 그 id로 바꾼다"
+      - "conflict는 계산한 뒤 바뀐 것이라 조용히 넘어가고 그 밖의 실패는 log 한 줄을 남긴다. 사람의 저장소에 쓰지 않는다"
+    outcomes:
+      - id: converged
+        when: "같은 저장소의 project가 내 컴퓨터들 사이에서 가장 작은 id 하나로 모였다"
+        observe: ["ledger:projects", "disk:<data root>/computers/machines/<this machine>/record.json"]
+      - id: kept-apart
+        when: "한쪽에 같은 저장소가 둘이거나 사람이 나눠 맞추지 않았다"
+        observe: ["ledger:projects"]
+      - id: failed
+        when: "ledger를 읽지 못했거나 match_identity가 conflict 밖의 이유로 실패했다"
+        observe: ["log:projects-identity"]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/project-identity.md, architecture/folder-sync.md]
 
   - id: project-match
     title: "등록 전 폴더를 읽어 이 기계의 같은 저장소 project를 찾는다"

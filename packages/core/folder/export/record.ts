@@ -1,5 +1,5 @@
 // 기계 기록 `machines/<자기 id>/record.json`을 destination마다 쓴다. 내용이 바뀌었거나 처음일 때만 쓰고 revision을 올린다.
-// 싣는 것은 schema의 칸뿐이다(id, 이름, always_on, 주소, 판). 공개 key, pairing code, binding, 자격, data root path는
+// 싣는 것은 schema의 칸뿐이다(id, 이름, always_on, 주소, 판, git project 목록). 공개 key, pairing code, binding, 자격, data root path는
 // 칸이 없어 실리지 않는다.
 import { canonicalize, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -42,6 +42,7 @@ export async function publishRecords(
           min_version: FOLDER_FORMAT.min_version,
         },
       },
+      projects: facts.projects,
     });
   const rel = recordPath(me.id);
   let failed: Result<void> = ok(undefined);

@@ -186,6 +186,7 @@ async function setup(base: string) {
     facts: () => ({
       addresses: { lan: [], port: null, relay: null },
       alwaysOn: null,
+      projects: [],
       lophn: { version: "0.23.0", protocol: { version: 2, min_version: 2 } },
     }),
     readsCaughtUp: () => knobs.caughtUp,

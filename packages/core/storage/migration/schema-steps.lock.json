@@ -374,5 +374,9 @@
   {
     "id": "lophn-agent.harness-provider.multi-credentials",
     "sha256": "366609d490e930f8b6a2d2a7b8a397709918bdde04508373318c56c32784071a"
+  },
+  {
+    "id": "projects.registry.separated",
+    "sha256": "5ce7c37f5e3a5d1f8d88133cfcdc9762bda8d139a3b6e45e7846324b960b8554"
   }
 ]

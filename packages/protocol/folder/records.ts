@@ -4,7 +4,11 @@ import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { RECORD_MAX_BYTES } from "./limits.ts";
+import {
+  RECORD_MAX_BYTES,
+  SHARED_PROJECT_KEY_MAX,
+  SHARED_PROJECTS_MAX,
+} from "./limits.ts";
 
 // 이 기계가 쓰는 꼴 판(`version`)과 읽는 하한(`min_version`). 기계 기록의 `lophn.folder`에 그대로 싣는다.
 // 변경 file 1행의 판(`lophn-folder 2`)과 기록의 `format`이 이 `version`이다. 판은 옛 판이 읽으면 틀리는 바꿈에만
@@ -50,6 +54,15 @@ export const addressesSchema = z.object({
   relay: z.string().nullable(),
 });
 
+// 이 기계의 active git project 하나. 내 다른 컴퓨터가 같은 저장소(remote key)의 project를 자동으로 같은 id로 맞추는 데
+// 쓴다(architecture `project-identity`). 이름, 경로, url은 싣지 않는다. separated는 사람이 [Separate project]로 나눈 것이다.
+export const sharedProjectSchema = z.object({
+  identity: idSchema("pri"),
+  remote_key: z.string().min(1).max(SHARED_PROJECT_KEY_MAX),
+  separated: z.boolean(),
+});
+export type SharedProject = z.infer<typeof sharedProjectSchema>;
+
 export const machineRecordSchema = z.object({
   format: formatSchema,
   machine: machineId,
@@ -64,6 +77,8 @@ export const machineRecordSchema = z.object({
     // 이 칸이 없는 기록은 꼴 판 1만 쓰고 읽는 기계다.
     folder: versionRange.default({ version: 1, min_version: 1 }),
   }),
+  // 이 칸이 없는 기록(옛 lophn)은 맞출 project가 없는 것이다.
+  projects: z.array(sharedProjectSchema).max(SHARED_PROJECTS_MAX).default([]),
 });
 export type MachineRecord = z.infer<typeof machineRecordSchema>;
 

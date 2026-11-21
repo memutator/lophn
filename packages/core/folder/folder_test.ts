@@ -846,6 +846,7 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         facts: () => ({
           addresses: { lan: [], port: null, relay: null },
           alwaysOn: null,
+          projects: [],
           lophn: {
             version: "0.23.0",
             protocol: { version: 4, min_version: 4 },

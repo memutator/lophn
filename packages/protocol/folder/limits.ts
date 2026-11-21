@@ -17,6 +17,10 @@ export const SNAPSHOT_PAYLOAD_MAX_BYTES = GIB;
 export const HEADER_MAX_BYTES = MIB;
 // `record.json`, `app.json`, `source/<n>.json`.
 export const RECORD_MAX_BYTES = 256 * KIB;
+// 기계 기록이 싣는 git project 목록(`projects`). 두 상한을 곱해도 기록 상한 안에 든다. 넘는 project는 다른 컴퓨터와 자동으로
+// 맞춰지지 않는다.
+export const SHARED_PROJECTS_MAX = 512;
+export const SHARED_PROJECT_KEY_MAX = 256;
 export const SOURCE_BUNDLE_MAX_BYTES = 64 * MIB;
 // `packages/<part>@<version>.json`. 넘는 package version은 내보내지 않는다. carry 조각(8 MiB)과 같다.
 export const PACKAGE_FILE_MAX_BYTES = 8 * MIB;

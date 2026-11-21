@@ -26,6 +26,7 @@ import { folderResolverPort } from "../registry/ports.ts";
 import {
   PROJECTS_FORMER_IDENTITY_STEPS,
   PROJECTS_IDENTITY_STEPS,
+  PROJECTS_SEPARATED_STEPS,
   projectsSchemaSteps,
 } from "../registry/schema.ts";
 import type { GitReader } from "./git.ts";
@@ -59,6 +60,7 @@ function setup(answers: "git" | "fails" = "git") {
     ...projectsSchemaSteps,
     ...PROJECTS_IDENTITY_STEPS,
     ...PROJECTS_FORMER_IDENTITY_STEPS,
+    ...PROJECTS_SEPARATED_STEPS,
   ]) {
     db.exec(step.sql);
   }

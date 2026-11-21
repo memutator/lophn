@@ -37,6 +37,8 @@ export const projectRecordSchema = z.object({
   former_identities: z
     .array(projectIdentitySchema)
     .max(PROJECT_FORMER_IDENTITIES_MAX),
+  // 사람이 [Separate project]로 나눴다. 어느 컴퓨터에서도 같은 저장소와 자동으로 맞춰지지 않는다.
+  separated: z.boolean(),
   // 폴더의 git 여부(null이면 아직 폴더를 읽지 못했다)와 대표 remote.
   repo: z.enum(["git", "none"]).nullable(),
   remote: z.object({ key: z.string(), url: z.string() }).nullable(),

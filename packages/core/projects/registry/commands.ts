@@ -32,9 +32,11 @@ import {
   identityHeldElsewhere,
   insertProject,
   loadProject,
+  loadProjects,
   replaceChildren,
   replaceMetadata,
   storeIdentity,
+  storeSeparated,
   storeProjectIcon,
 } from "./store.ts";
 
@@ -98,6 +100,7 @@ export function createProjectCommands(): {
   recordIdentity: CommandDefinition<typeof projectIdentityApi.recordIdentity>;
   linkIdentity: CommandDefinition<typeof projectIdentityApi.linkIdentity>;
   renewIdentity: CommandDefinition<typeof projectIdentityApi.renewIdentity>;
+  matchIdentity: CommandDefinition<typeof projectIdentityApi.matchIdentity>;
 } {
   return {
     register: {
@@ -121,6 +124,7 @@ export function createProjectCommands(): {
           status: "active",
           identity: brought ?? tx.newId("pri"),
           former_identities: [],
+          separated: false,
           repo: null,
           remote: null,
         };
@@ -385,8 +389,80 @@ export function createProjectCommands(): {
         if (!access.ok) return access;
         const resolver = resolverOf(tx);
         if (!resolver.ok) return resolver;
+        const project = storeSeparated(
+          tx,
+          storeIdentity(tx, before, {
+            identity: tx.newId("pri"),
+            repo: before.repo,
+            remote: before.remote,
+          }),
+        );
+        return ok(recordOf(project, resolver.value));
+      },
+    },
+    matchIdentity: {
+      route: projectIdentityApi.matchIdentity,
+      handle(tx, ctx, input) {
+        const actor = requireMachine(ctx, PROJECT_IDENTITY_PRINCIPAL);
+        if (!actor.ok) return actor;
+        const current = loadProject(tx.sql, input.project);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const before = current.value;
+        const { revision: _revision, ...metadata } = before;
+        const access = authorizeProject(
+          tx.port,
+          ctx,
+          projectIdentityApi.matchIdentity.name,
+          { kind: "command", before, after: metadata },
+        );
+        if (!access.ok) return access;
+        const resolver = resolverOf(tx);
+        if (!resolver.ok) return resolver;
+        const refused = (reason: string): Result<never> =>
+          err({
+            code: "conflict",
+            message: "the project no longer matches this way",
+            details: { reason },
+          });
+        // 계산한 뒤 바뀌었으면(사람이 나눴다, 다른 match가 먼저 적었다) 덮지 않는다.
+        if (before.identity !== input.from) return refused("stale");
+        const key = before.remote?.key;
+        if (
+          before.status !== "active" ||
+          before.repo !== "git" ||
+          key === undefined ||
+          before.separated
+        ) {
+          return refused("not_matched");
+        }
+        if ("separated" in input) {
+          return ok(recordOf(storeSeparated(tx, before), resolver.value));
+        }
+        if (
+          input.identity >= before.identity ||
+          before.former_identities.includes(input.identity) ||
+          identityHeldElsewhere(tx.sql, input.identity, before.id)
+        ) {
+          return refused("not_allowed");
+        }
+        // 이 기계에 같은 저장소가 둘이면 어느 쪽인지 모른다.
+        const others = loadProjects(tx.sql);
+        if (!others.ok) return others;
+        if (
+          others.value.some(
+            (other) =>
+              other.id !== before.id &&
+              other.status === "active" &&
+              other.repo === "git" &&
+              !other.separated &&
+              other.remote?.key === key,
+          )
+        ) {
+          return refused("same_repository");
+        }
         const project = storeIdentity(tx, before, {
-          identity: tx.newId("pri"),
+          identity: input.identity,
           repo: before.repo,
           remote: before.remote,
         });

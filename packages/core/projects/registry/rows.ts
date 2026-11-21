@@ -49,6 +49,7 @@ export function projectFromRows(
     status: row.status,
     identity: row.identity,
     former_identities: jsonOf(row.former_identities),
+    separated: row.separated === 1 || row.separated === 1n,
     repo: row.repo,
     remote:
       row.remote_key === null

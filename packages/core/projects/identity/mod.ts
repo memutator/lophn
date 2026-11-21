@@ -10,3 +10,9 @@ export {
   type IdentityService,
   type IdentityServiceDeps,
 } from "./service.ts";
+export {
+  type MatchAction,
+  matchActions,
+  type MatchProject,
+  sharedProjects,
+} from "./match.ts";

@@ -8,13 +8,14 @@ import { ok } from "../../../base/mod.ts";
 import { TargetAuthorization } from "../../../protocol/server/mod.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { createProjectCommands } from "./commands.ts";
-import { PROJECT_IDENTITY_CONTEXT } from "./contexts.ts";
+import { PROJECT_IDENTITY_CONTEXT, PROJECT_MATCH_CONTEXT } from "./contexts.ts";
 import { createFolderResolver } from "./folder-resolver.ts";
 import { folderResolverPort } from "./ports.ts";
 import { createProjectReads } from "./reads.ts";
 import {
   PROJECTS_FORMER_IDENTITY_STEPS,
   PROJECTS_IDENTITY_STEPS,
+  PROJECTS_SEPARATED_STEPS,
   projectsSchemaSteps,
 } from "./schema.ts";
 import { assignMissingIdentities, loadProject } from "./store.ts";
@@ -34,6 +35,7 @@ function setup() {
     ...projectsSchemaSteps,
     ...PROJECTS_IDENTITY_STEPS,
     ...PROJECTS_FORMER_IDENTITY_STEPS,
+    ...PROJECTS_SEPARATED_STEPS,
   ]) {
     db.exec(step.sql);
   }
@@ -143,7 +145,12 @@ test("새 identity step들을 지나도 기존 project와 그 id를 key로 쓰�
     db.prepare(
       "INSERT INTO projects (id, name, title, purpose, revision, status, identity, repo) VALUES (?, 'plain', 'Plain', '', '1', 'active', 'pri_00000000000000000000000009', 'none')",
     ).run(second);
-    for (const step of PROJECTS_FORMER_IDENTITY_STEPS) db.exec(step.sql);
+    for (const step of [
+      ...PROJECTS_FORMER_IDENTITY_STEPS,
+      ...PROJECTS_SEPARATED_STEPS,
+    ]) {
+      db.exec(step.sql);
+    }
 
     const sql = {
       get: (query: string, params: never[]) => db.prepare(query).get(...params),
@@ -179,6 +186,7 @@ test("새 identity step들을 지나도 기존 project와 그 id를 key로 쓰�
       folders: [{ path: "/srv/notes", description: "root" }],
       identity: "pri_00000000000000000000000008",
       former_identities: [],
+      separated: false,
       repo: null,
       remote: null,
     });
@@ -415,6 +423,121 @@ test("link_identity: git project의 identity는 바꾸지 못하고, 다른 proj
         [PROJECT, renewed.value.identity, [born.get(PROJECT)]],
         [SECOND, LINKED, [born.get(SECOND)]],
       ],
+    );
+  } finally {
+    db.close();
+  }
+});
+
+test("match_identity는 계산한 뒤 바뀐 project(지금 id가 from이 아님, 나눔)와 규칙에 맞지 않는 id(더 큼, 옛 id, 다른 project가 가짐, 같은 저장소가 둘)를 덮지 않고, 맞으면 옛 id를 남기며 바꾸고 machine 자격만 받는다", () => {
+  const { db, tx, commands } = setup();
+  const reason = (result: {
+    ok: boolean;
+    error?: { code: string; details?: Record<string, unknown> };
+  }) =>
+    result.ok ? "ok" : `${result.error?.code}:${result.error?.details?.reason}`;
+  try {
+    const born = new Map<string, string>();
+    for (const [id, name] of [
+      [PROJECT, "notes"],
+      [SECOND, "copy"],
+      [THIRD, "other"],
+    ] as const) {
+      const done = commands.register.handle(
+        tx,
+        user,
+        input([{ path: `/srv/${name}`, description: "" }], id, name),
+        {},
+      );
+      assert.ok(done.ok);
+      born.set(id, done.value.identity);
+      assert.ok(
+        commands.recordIdentity.handle(
+          tx,
+          PROJECT_IDENTITY_CONTEXT,
+          record(
+            id,
+            "git",
+            id === THIRD ? { ...REMOTE, key: "other" } : REMOTE,
+          ),
+          {},
+        ).ok,
+      );
+    }
+    const match = (
+      project: string,
+      body: { identity: string } | { separated: true },
+      from = born.get(project)!,
+      ctx = PROJECT_MATCH_CONTEXT,
+    ) =>
+      commands.matchIdentity.handle(
+        tx,
+        ctx,
+        { project, from, ...body } as never,
+        {},
+      );
+    const SMALL = "pri_00000000000000000000000001";
+
+    // 같은 저장소가 이 기계에 둘이다.
+    assert.equal(
+      reason(match(PROJECT, { identity: SMALL })),
+      "conflict:same_repository",
+    );
+    // THIRD의 지금 id, 더 큰 id는 받지 않는다.
+    assert.equal(
+      reason(match(PROJECT, { identity: born.get(THIRD)! })),
+      "conflict:not_allowed",
+    );
+    assert.equal(
+      reason(match(PROJECT, { identity: "pri_zzzzzzzzzzzzzzzzzzzzzzzzzz" })),
+      "conflict:not_allowed",
+    );
+    assert.equal(
+      reason(match(PROJECT, { identity: SMALL }, SMALL)),
+      "conflict:stale",
+    );
+    for (const ctx of [
+      user,
+      {
+        ...PROJECT_MATCH_CONTEXT,
+        principal: "machine:apps-source",
+        credential_ref: "machine:apps-source",
+      },
+    ]) {
+      assert.equal(
+        reason(match(PROJECT, { identity: SMALL }, born.get(PROJECT), ctx)),
+        "forbidden:undefined",
+      );
+    }
+
+    // 사람이 SECOND를 나누면 PROJECT가 그 저장소의 하나뿐인 project다.
+    const separated = commands.renewIdentity.handle(
+      tx,
+      user,
+      { project: SECOND },
+      {},
+    );
+    assert.ok(separated.ok && separated.value.separated);
+    assert.equal(
+      reason(match(SECOND, { identity: SMALL }, separated.value.identity)),
+      "conflict:not_matched",
+    );
+    const moved = match(PROJECT, { identity: SMALL });
+    assert.ok(moved.ok);
+    assert.equal(moved.value.identity, SMALL);
+    assert.deepEqual(moved.value.former_identities, [born.get(PROJECT)]);
+    assert.equal(moved.value.revision, "1");
+    // 옛 id로 돌아가지 않는다.
+    assert.equal(
+      reason(match(PROJECT, { identity: born.get(PROJECT)! }, SMALL)),
+      "conflict:not_allowed",
+    );
+    // 다른 컴퓨터가 나눈 project의 id를 가졌으면 나눈 것으로만 적고 id는 그대로다.
+    const marked = match(THIRD, { separated: true });
+    assert.ok(marked.ok);
+    assert.deepEqual(
+      [marked.value.identity, marked.value.separated],
+      [born.get(THIRD), true],
     );
   } finally {
     db.close();

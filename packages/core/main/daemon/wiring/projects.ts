@@ -32,13 +32,16 @@ import {
   createGitReader,
   createIdentityService,
   type IdentityService,
+  matchActions,
   nodeFolderProbe,
+  sharedProjects,
 } from "../../../projects/identity/mod.ts";
 import {
   assignMissingIdentities,
   loadProjects,
   type Project,
   PROJECT_IDENTITY_CONTEXT,
+  PROJECT_MATCH_CONTEXT,
 } from "../../../projects/registry/mod.ts";
 import type { DataStep, DataStepDeps } from "../../../storage/migration/mod.ts";
 import type { WiringFactory } from "./context.ts";
@@ -68,6 +71,19 @@ const FOLDER_CHANGES = new Set<string>([
   projectApi.register.name,
   projectApi.relinkFolder.name,
   projectApi.unarchive.name,
+]);
+
+// 이 command가 commit되면 이 기계의 git project 목록이 바뀌었을 수 있다: 기계 기록을 다시 쓰고 자동 match를 다시 돌린다.
+const LIST_CHANGES = new Set<string>([
+  projectApi.register.name,
+  projectApi.edit.name,
+  projectApi.relinkFolder.name,
+  projectApi.archive.name,
+  projectApi.unarchive.name,
+  projectIdentityApi.recordIdentity.name,
+  projectIdentityApi.renewIdentity.name,
+  projectIdentityApi.linkIdentity.name,
+  projectIdentityApi.matchIdentity.name,
 ]);
 
 const STARTUP_PARALLEL = 4;
@@ -121,6 +137,9 @@ export const projectsIdentityForAllStep = identityStep(
 export const projectsWiring: WiringFactory = () => {
   let startup: Promise<void> = Promise.resolve();
   let reconcileActive = (): Promise<void> => Promise.resolve();
+  let listChanged = (): void => {};
+  // 도는 자동 match. 종료가 끝을 기다린다.
+  let matchRun: Promise<void> = Promise.resolve();
   let stopping = false;
   return {
     name: "projects",
@@ -139,8 +158,14 @@ export const projectsWiring: WiringFactory = () => {
         actors: ["machine"],
         kind: "command",
       },
+      // 내 다른 컴퓨터의 같은 저장소와 id를 맞추는 core 안 machine 자격.
+      {
+        name: projectIdentityApi.matchIdentity.name,
+        actors: ["machine"],
+        kind: "command",
+      },
     ],
-    records: () => [PROJECT_IDENTITY_CONTEXT],
+    records: () => [PROJECT_IDENTITY_CONTEXT, PROJECT_MATCH_CONTEXT],
     build(ctx) {
       const logger = ctx.telemetry.logger;
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
@@ -164,6 +189,90 @@ export const projectsWiring: WiringFactory = () => {
           });
         }
       };
+      const readProjects = () => {
+        const projects = snapshot(ctx.ledgerPath, (sql) => loadProjects(sql));
+        if (!projects.ok) {
+          logger.warn({
+            component: "projects-identity",
+            event: "projects_read_failed",
+            message: projects.error.message,
+          });
+        }
+        return projects.ok ? projects.value : null;
+      };
+      // 명단의 다른 컴퓨터가 기계 기록에 실은 목록으로 같은 저장소를 맞춘다. 한 번에 하나만 돌고, 도는 사이 다시 부르면 끝난 뒤
+      // 한 번 더 돈다. 명단이 없으면(remote가 꺼졌다) 맞추지 않는다.
+      let matching = false;
+      let matchAgain = false;
+      const matchOnce = async () => {
+        const links = ctx.peek.machineLinks;
+        const records = ctx.peek.machineRecords;
+        if (links === undefined || records === undefined) return;
+        const roster = new Set<string>(
+          links
+            .computers()
+            .filter((computer) => !computer.self)
+            .map((computer) => computer.machine),
+        );
+        if (roster.size === 0) return;
+        const projects = readProjects();
+        if (projects === null) return;
+        for (const action of matchActions(
+          projects,
+          records.projects(),
+          roster,
+        )) {
+          if (stopping) return;
+          const done = await ctx.writer.command(PROJECT_MATCH_CONTEXT, {
+            command: projectIdentityApi.matchIdentity.name,
+            input: action,
+            idempotency_key: ids.newId("idk"),
+            compare: {},
+            prepared: [],
+          });
+          // conflict는 계산한 뒤 project가 바뀐 것이다. 다음 계기가 다시 본다.
+          if (!done.ok && done.error.code !== "conflict") {
+            logger.warn({
+              component: "projects-identity",
+              event: "match_failed",
+              message: `project ${action.project}: ${done.error.message}`,
+            });
+          }
+        }
+      };
+      const runMatching = (): Promise<void> => {
+        if (matching) {
+          matchAgain = true;
+          return matchRun;
+        }
+        matching = true;
+        matchRun = loopMatching();
+        return matchRun;
+      };
+      const loopMatching = async () => {
+        try {
+          do {
+            matchAgain = false;
+            await matchOnce();
+          } while (matchAgain && !stopping);
+        } catch (thrown) {
+          logger.warn({
+            component: "projects-identity",
+            event: "match_threw",
+            message: thrown instanceof Error ? thrown.message : String(thrown),
+          });
+        } finally {
+          matching = false;
+        }
+      };
+      listChanged = () => {
+        ctx.peek.machineRecords?.publish();
+        void runMatching();
+      };
+      ctx.provide("projectMatching", {
+        shared: () => sharedProjects(readProjects() ?? []),
+        peersChanged: () => void runMatching(),
+      });
       // 바뀐 remote를 따라가려고 기동 때 active project를 몇 개씩 다시 읽는다.
       reconcileActive = async () => {
         const projects = snapshot(ctx.ledgerPath, (sql) => loadProjects(sql));
@@ -206,6 +315,7 @@ export const projectsWiring: WiringFactory = () => {
                 (envelope.input as { folders?: unknown }).folders !==
                   undefined);
             if (folders) await reconcile(done.value.result as Project);
+            if (LIST_CHANGES.has(envelope.command)) listChanged();
             return done;
           },
         }),
@@ -264,12 +374,15 @@ export const projectsWiring: WiringFactory = () => {
     },
     // 기동을 막지 않는다(afterReady를 기다리면 control의 ready가 늦는다). 종료가 끝을 기다린다.
     afterReady() {
-      startup = reconcileActive();
+      startup = reconcileActive().then(() => {
+        if (!stopping) listChanged();
+      });
       return Promise.resolve();
     },
     async closeWork() {
       stopping = true;
       await startup;
+      await matchRun;
     },
   };
 };

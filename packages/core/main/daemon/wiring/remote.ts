@@ -116,6 +116,7 @@ import { readMachineId } from "../../../machine/mod.ts";
 import {
   PROJECTS_FORMER_IDENTITY_STEPS,
   PROJECTS_IDENTITY_STEPS,
+  PROJECTS_SEPARATED_STEPS,
 } from "../../../projects/registry/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
 import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
@@ -905,6 +906,7 @@ export function remoteWiring(
       ...FOLDER_CODE_COMMIT_STEPS,
       ...OUTBOUND_CALLS_SCHEMA_STEPS,
       ...providerMultiCredentialsSchemaSteps,
+      ...PROJECTS_SEPARATED_STEPS,
     ],
     dataSteps: [
       hostKeyMachineStep,

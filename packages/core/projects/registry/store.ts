@@ -163,6 +163,12 @@ export function storeIdentity(
   return project;
 }
 
+// 사람이 나눈 표시를 켠다. identity는 바꾸지 않는다(바꾸는 것은 storeIdentity). revision은 올리지 않는다.
+export function storeSeparated(tx: Pick<Tx, "sql">, before: Project): Project {
+  tx.sql.run("UPDATE projects SET separated = 1 WHERE id = ?", [before.id]);
+  return { ...before, separated: true };
+}
+
 // 이 기계에서 지금이나 옛 identity로 그 id를 가진 다른 project(보관 포함)가 있는가.
 export function identityHeldElsewhere(
   sql: Query,

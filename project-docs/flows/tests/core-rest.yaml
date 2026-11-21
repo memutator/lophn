@@ -567,6 +567,10 @@ files:
       - project-identity-record:forbidden
       - project-identity-renew:renewed
       - project-identity-renew:forbidden
+      - project-identity-match:matched
+      - project-identity-match:marked-separated
+      - project-identity-match:refused
+      - project-identity-match:forbidden
     note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 git 여부와 remote만 적고 identity를 바꾸지 않으며 다른 자격을 거절한다. 잇기와 나누기는 사람만 하고 옛 id가 project.list에 남는다"
 
   - path: packages/core/projects/clone/clone_test.ts
@@ -579,6 +583,12 @@ files:
       - project-register:identity-by-person
       - project-identity-read:git-unreadable
     note: "등록은 새 id를 주고 clone 자격만 다른 기계의 id를 들고 오며, 이 기계의 다른 project가 지금이나 옛 identity로 가진 id는 받지 않는다. git이 답하지 않는데 폴더나 위 폴더에 .git이 있으면 unavailable이고 ledger를 바꾸지 않는다. git은 가짜, 폴더는 임시"
+
+  - path: packages/core/projects/identity/match_test.ts
+    covers:
+      - project-identity-auto-match:converged
+      - project-identity-auto-match:kept-apart
+    note: "같은 저장소의 project는 셋 이상이 어느 순서로 만나도(가운데 컴퓨터를 거쳐서도) 가장 작은 id에 서고, 한쪽에 둘이거나 나눈 것은 맞추지 않으며 더 오래된 id를 든 셋째 컴퓨터나 늦은 시계가 나눈 것을 풀지 않고, 나눈 id를 clone한 project는 나눈 것이 된다. 자기 옛 id와 다른 project가 가진 id로 가지 않고 명단 밖 기계의 기록은 쓰지 않는다"
 
   - path: packages/core/projects/files/files_test.ts
     covers:

@@ -441,6 +441,7 @@ export const folderWiring: WiringFactory = () => {
               }
             : { lan: [], port: null, relay: null },
           alwaysOn: alwaysOn(ctx),
+          projects: ctx.peek.projectMatching?.shared() ?? [],
           lophn: {
             version: version ?? "unknown",
             protocol: {
@@ -541,6 +542,19 @@ export const folderWiring: WiringFactory = () => {
         clock: ctx.clock,
         random: ctx.random,
         dataRoot,
+      });
+      // 기계 기록의 git project 목록(architecture `project-identity`). projects가 목록이 바뀌면 기록을 다시 쓰게 하고, 받은
+      // 다른 기계의 목록으로 같은 저장소를 맞춘다.
+      ctx.provide("machineRecords", {
+        publish: () => kick("records", () => publishRecords()),
+        // 이 칸 전에 받아 둔 기록 사본에는 목록이 없다. 그 기계가 다음 기록을 쓰면 온다.
+        projects: () =>
+          importer.records().machines.map((row) => ({
+            machine: row.machine,
+            projects: Array.isArray(row.record.projects)
+              ? row.record.projects
+              : [],
+          })),
       });
       const apps = createFolderApps({
         machine: me,
@@ -891,8 +905,11 @@ export const folderWiring: WiringFactory = () => {
           log("scan_failed", scanned.error.message);
           return { ok: false, more: false };
         }
-        // 다른 기계의 활성 release가 바뀌었을 수 있다.
-        if (scanned.value.updated.length > 0) updateChanged(null);
+        // 다른 기계의 활성 release와 git project 목록이 바뀌었을 수 있다.
+        if (scanned.value.updated.length > 0) {
+          updateChanged(null);
+          ctx.peek.projectMatching?.peersChanged();
+        }
         // 새로 생긴 다른 기계·앱 폴더도 감시한다.
         rewatch();
         if (exportAfter) exportAll();

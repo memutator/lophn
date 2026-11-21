@@ -96,6 +96,7 @@ import type {
 } from "../../../folder/ports.ts";
 import type { ManifestBody } from "../../../../protocol/remote/carry.ts";
 import type { RemoteMachines } from "../../../apps/calls/forward.ts";
+import type { SharedProject } from "../../../../protocol/folder/mod.ts";
 import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
@@ -375,6 +376,13 @@ type Late = {
   appMachineSubscriptions: () => { app: Id<"app">; machines: string[] }[];
   // remote가 낸다. 명단의 다른 컴퓨터를 부른다: 이름 풀기와 그 기계로 route 하나 넘기기(`by`는 부른 자격에서 정한 요청한 쪽이다).
   machineLinks: RemoteMachines;
+  // projects가 낸다. 기계 기록에 싣는 이 기계의 git project 목록과, 다른 컴퓨터의 목록이 바뀌었을 때 자동 match를 다시 돌리기.
+  projectMatching: { shared(): SharedProject[]; peersChanged(): void };
+  // folder가 낸다. 기계 기록을 다시 쓰기와, 폴더로 받은 다른 기계의 기록에 실린 git project 목록.
+  machineRecords: {
+    publish(): void;
+    projects(): { machine: Id<"mch">; projects: SharedProject[] }[];
+  };
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -463,6 +471,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   eventArrived: true,
   appMachineSubscriptions: true,
   machineLinks: true,
+  projectMatching: true,
+  machineRecords: true,
 };
 
 export type WiringContext = {

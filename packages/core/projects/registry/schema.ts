@@ -95,3 +95,12 @@ export const PROJECTS_FORMER_IDENTITY_STEPS: readonly SchemaStep[] = [
     sql: `ALTER TABLE projects ADD COLUMN former_identities TEXT NOT NULL DEFAULT '[]';`,
   },
 ];
+
+// 사람이 [Separate project]로 나눈 project(1). 나눈 project는 어느 컴퓨터에서도 같은 저장소와 자동으로 맞춰지지 않는다.
+// 기존 줄은 나누지 않은 것(0)이다. PROJECTS_IDENTITY_STEPS처럼 remote wiring의 schemaStepsAfterTeams 끝에서 잇는다.
+export const PROJECTS_SEPARATED_STEPS: readonly SchemaStep[] = [
+  {
+    id: "projects.registry.separated",
+    sql: `ALTER TABLE projects ADD COLUMN separated INTEGER NOT NULL DEFAULT 0 CHECK (separated IN (0, 1));`,
+  },
+];

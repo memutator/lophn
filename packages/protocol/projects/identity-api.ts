@@ -1,7 +1,7 @@
 // 기계를 넘는 project id의 route. id는 등록할 때 ledger에서 나고 lophn은 사람의 저장소에 아무것도 쓰지 않는다.
-// record_identity는 core가 폴더에서 읽은 git 여부와 remote를 적는 machine command, link_identity는 사람이 git이 아닌
-// project를 다른 기계의 project와 잇는 command, renew_identity는 사람의 [Separate project]이고, identity·match는 폴더를
-// 읽는 memory route다.
+// record_identity는 core가 폴더에서 읽은 git 여부와 remote를 적는 machine command, match_identity는 core가 내 다른 컴퓨터의
+// 같은 저장소와 id를 맞추는 machine command, link_identity는 사람이 git이 아닌 project를 다른 기계의 project와 잇는 command,
+// renew_identity는 사람의 [Separate project]이고, identity·match는 폴더를 읽는 memory route다.
 import { z } from "zod";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { projectRecordSchema } from "./project-api.ts";
@@ -21,7 +21,8 @@ export const projectIdentityStatusSchema = z.object({
   folder: absolutePathSchema.nullable(),
   found: z.boolean(),
   remote: remoteSchema,
-  // 같은 remote key를 가진 이 기계의 다른 active project. 있으면 둘 다 다른 컴퓨터와 자동으로 맞춰지지 않는다.
+  separated: z.boolean(),
+  // 같은 remote key를 가진 이 기계의 다른 active project(나누지 않은 것). 있으면 둘 다 다른 컴퓨터와 자동으로 맞춰지지 않는다.
   same_repository: projectIdSchema.nullable(),
 });
 export type ProjectIdentityStatus = z.infer<typeof projectIdentityStatusSchema>;
@@ -59,6 +60,30 @@ export const projectIdentityApi = {
     actors: ["machine"],
     errors: ["invalid_input", "not_found", "forbidden"],
   }),
+  // 내 다른 컴퓨터의 같은 저장소의 project에 맞춘다: 더 작은 id로 바꾸거나(identity), 다른 컴퓨터가 나눈 project의 id를 가졌으면
+  // 나눈 것으로 적는다(separated). 지금 identity가 from이 아니거나 규칙에 맞지 않으면 conflict이고 아무것도 바꾸지 않는다(늦게 돈
+  // 계산이 덮지 않게). core 안 machine 자격만 부른다. revision은 올리지 않는다.
+  matchIdentity: defineCommand({
+    resource: "projects",
+    method: "match_identity",
+    name: "project.match_identity",
+    changes: [{ name: "projects", id: (input) => input.project }],
+    input: z.union([
+      z.strictObject({
+        project: projectIdSchema,
+        from: projectIdentitySchema,
+        identity: projectIdentitySchema,
+      }),
+      z.strictObject({
+        project: projectIdSchema,
+        from: projectIdentitySchema,
+        separated: z.literal(true),
+      }),
+    ]),
+    output: projectRecordSchema,
+    actors: ["machine"],
+    errors: ["invalid_input", "not_found", "conflict", "forbidden"],
+  }),
   // git이 아닌 project에 다른 기계의 같은 project의 identity를 적는다. git project는 저장소로 자동으로 맞춰져 거절한다
   // (`details.reason: "git_project"`). 이 기계의 다른 project(보관 포함)가 지금이나 옛 identity로 가진 id도 거절한다
   // (`identity_in_use`). 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다. revision은 올리지 않는다.
@@ -75,7 +100,8 @@ export const projectIdentityApi = {
     actors: ["user"],
     errors: ["invalid_input", "not_found", "conflict", "forbidden"],
   }),
-  // [Separate project]: 새 id를 준다. 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다. revision은 올리지 않는다.
+  // [Separate project]: 새 id를 주고 나눈 것으로 적는다. 나눈 project는 어느 컴퓨터에서도 같은 저장소와 자동으로 맞춰지지
+  // 않는다. 다른 기계에서 무엇이 같은 project인지를 바꾸므로 사람만 한다. revision은 올리지 않는다.
   renewIdentity: defineCommand({
     resource: "projects",
     method: "renew_identity",

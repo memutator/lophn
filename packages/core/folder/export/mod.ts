@@ -8,7 +8,10 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { FolderError } from "../../../protocol/folder/mod.ts";
+import type {
+  FolderError,
+  SharedProject,
+} from "../../../protocol/folder/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import type { DestinationsView } from "../destinations.ts";
 import type { FolderLog } from "../ports.ts";
@@ -45,6 +48,8 @@ export type ExportFacts = {
     version: string;
     protocol: { version: number; min_version: number };
   };
+  // 이 기계의 active git project 목록(architecture `project-identity`).
+  projects: SharedProject[];
 };
 
 export type FolderExportDeps = {

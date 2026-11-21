@@ -11,7 +11,7 @@
 // 모두 runtime의 `exclusive` 문 안에서 부른다. 같은 연결의 session이 겹치면 한 changeset에 섞이기 때문이다.
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/result.ts";
@@ -44,13 +44,16 @@ import {
   nodeSyncDb,
 } from "../../../../protocol/apps/sync/node-db.ts";
 import {
+  encodePk,
   readChangeset,
   rowChangeset,
 } from "../../../../protocol/apps/sync/changeset.ts";
+import { setRowClock } from "../../../../protocol/apps/sync/tables.ts";
 import {
   hiddenTable,
   ident,
   readRow,
+  readRows,
   tableShape,
 } from "../../../../protocol/apps/sync/sql.ts";
 
@@ -184,8 +187,8 @@ function moveColumnClocks(
 }
 
 // clock을 다는 표에서 빠진 표(선언의 sync에서 지운 표)의 row·칸 clock과 kept를 지운다. 그 표는 이제 이 기계를 떠나지 않아
-// clock이 더 찍히지 않는다. 남겨 두면 그 표를 다시 보낼 때 그 사이 로컬에서 고친 row가 옛 clock을 달고 나가, 옛 흔적이
-// 다시 넣은 row를 지우거나 다른 기계의 옛 값이 그 고침을 덮는다. 지운 표의 row는 sync를 켜기 전에 쓴 data처럼 clock이 없다.
+// clock이 더 찍히지 않으니 옛 clock은 그 사이의 로컬 고침을 말하지 못한다. 그 표를 다시 보내게 되면 `stampUnclockedRows`가
+// 그때 이 기계에 있는 row를 그 순간의 로컬 write로 찍는다(clock 없는 row는 어떤 clock에도 지므로 그대로 두면 안 된다).
 export function dropUnclockedClocks(db: SyncDb, clocked: TableFilter): void {
   if (clocked === null) return;
   for (const hidden of [
@@ -199,6 +202,46 @@ export function dropUnclockedClocks(db: SyncDb, clocked: TableFilter): void {
         db.run(`delete from ${hidden} where tbl = ?`, [table]);
     }
   }
+}
+
+/**
+ * 보내는 표의 row 가운데 row clock이 없는 것(처음 보내게 된 표나 빠졌다 다시 보내는 표의 row)에 이 기계의 새 clock 하나를
+ * 찍는다. 그 row는 그 순간 이 기계가 쓴 것으로 센다: clock이 없는 row는 받는 변경과 snapshot의 어떤 clock에도 져서, 다른
+ * 기계의 옛 값이나 옛 흔적이 이 기계의 data를 덮거나 지운다. 두 기계가 같은 key의 row를 찍으면 나중 찍은 쪽으로 같아진다.
+ * 옛 release(모든 표, `tables` null)는 지금까지처럼 두고, 다른 사본(폰, 폴더)은 release가 바뀐 뒤의 snapshot으로 이 clock을 받는다.
+ */
+export function stampUnclockedRows(sync: SyncStore): number {
+  const tables = sync.plan.tables;
+  if (tables === null) return 0;
+  const db = sync.db;
+  let hlc: bigint | null = null;
+  let stamped = 0;
+  for (const table of tables) {
+    const shape = tableShape(db, table);
+    if (shape === null || !shape.primaryKey.some(Boolean)) continue;
+    const clocked = new Set(
+      db
+        .all("select hex(pk) as pk from lophn_sync_row where tbl = ?", [table])
+        .map((row) => String(row["pk"])),
+    );
+    for (const values of readRows(db, shape)) {
+      const pk = encodePk(values, shape.primaryKey);
+      if (clocked.has(Buffer.from(pk).toString("hex").toUpperCase())) continue;
+      hlc ??= sync.clock.next(sync.nowMs());
+      // 칸 clock과 kept는 row clock보다 커야만 뜻이 있다. 새 row clock 아래의 것은 지운다(clock 없는 row에는 보통 없다).
+      db.run("delete from lophn_sync_col where tbl = ? and pk = ?", [
+        table,
+        pk,
+      ]);
+      db.run("delete from lophn_sync_kept where tbl = ? and pk = ?", [
+        table,
+        pk,
+      ]);
+      setRowClock(db, table, pk, hlc, false);
+      stamped++;
+    }
+  }
+  return stamped;
 }
 
 // DB에 node를 처음 적은 기계의 id다. 컴퓨터만 쓴다(폰은 이 key를 모른다). 다른 기계에서 온 DB(복제된 data root)면 node를 새것으로
@@ -219,7 +262,7 @@ function claimNode(db: SyncDb, machine: string, node: string): void {
 
 /**
  * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적히고 다른 기계의 DB면 바뀐다), clock을 달지 않게
- * 된 표의 clock을 지우고, 칸이 바뀐 표의 column clock을 칸 이름으로 옮기고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을
+ * 된 표의 clock을 지우고, 칸이 바뀐 표의 column clock을 칸 이름으로 옮기고, 보내는 표의 clock 없는 row를 지금 찍고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을
  * 찍는다. 시작 code는 transaction으로 감싸지 않아 그 변경과 clock은 따로 commit된다. `startHlc`는 그 찍은 clock이다: ready
  * 통보에 실어 core가 sync log에 남긴다.
  */
@@ -246,6 +289,7 @@ export function openSyncStore(input: {
     claimNode(db, input.machine, input.node);
     dropUnclockedClocks(db, clocked);
     remapColumnClocks(db, clocked);
+    stampUnclockedRows(sync);
     return input.startChangeset === null
       ? null
       : stamp(sync, input.startChangeset);
@@ -537,8 +581,14 @@ export function writeFolderSnapshot(
       inTransaction(db, () => {
         for (const table of tables) {
           db.exec(into(table.sql));
+          // 쓸 수 있는 칸만 옮긴다: 생성 칸(table_xinfo의 hidden 2·3)은 새 file이 자기 식으로 다시 만든다.
+          const columns = db
+            .all(`pragma main.table_xinfo(${ident(table.name)})`)
+            .filter((column) => Number(column["hidden"]) === 0)
+            .map((column) => ident(String(column["name"])))
+            .join(", ");
           db.exec(
-            `insert into ${SNAPSHOT_SCHEMA}.${ident(table.name)} select * from main.${ident(table.name)}`,
+            `insert into ${SNAPSHOT_SCHEMA}.${ident(table.name)} (${columns}) select ${columns} from main.${ident(table.name)}`,
           );
         }
         db.exec(
@@ -563,9 +613,16 @@ export function writeFolderSnapshot(
         );
       }),
     );
-  } finally {
+  } catch (error) {
+    // 반만 쓴 file은 남기지 않는다. 사본을 뜨지 못한 까닭은 내보내기의 오류로 보인다.
     db.exec(`detach database ${SNAPSHOT_SCHEMA}`);
+    rmSync(path, { force: true });
+    return err({
+      code: "internal",
+      message: `the folder snapshot could not be copied: ${errorMessage(error)}`,
+    });
   }
+  db.exec(`detach database ${SNAPSHOT_SCHEMA}`);
   const bytes = readFileSync(path);
   return ok({
     size: bytes.byteLength,

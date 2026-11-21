@@ -515,26 +515,28 @@ function machineDb(
   const raw = new DatabaseSync(path);
   raw.exec(schema);
   let session: ReturnType<DatabaseSync["createSession"]> | null = null;
-  const sync = openSyncStore({
-    database: raw,
-    node: path,
-    machine: MACHINE,
-    record: {
-      begin() {
-        session = raw.createSession();
+  // 앱 process가 새 release로 다시 뜬다(같은 DB, 같은 node).
+  const open = (next: SyncPlan) =>
+    openSyncStore({
+      database: raw,
+      node: path,
+      machine: MACHINE,
+      record: {
+        begin() {
+          session = raw.createSession();
+        },
+        end() {
+          const changeset = session!.changeset();
+          session!.close();
+          session = null;
+          return changeset.length > 0 ? changeset : null;
+        },
       },
-      end() {
-        const changeset = session!.changeset();
-        session!.close();
-        session = null;
-        return changeset.length > 0 ? changeset : null;
-      },
-    },
-    nowMs: () => now.ms,
-    startChangeset: null,
-    plan,
-  });
-  return { raw, sync };
+      nowMs: () => now.ms,
+      startChangeset: null,
+      plan: next,
+    });
+  return { raw, sync: open(plan), reopen: open, now };
 }
 
 const rowsOf = (db: DatabaseSync, sql: string) =>
@@ -819,6 +821,108 @@ test("선언의 sync에서 빠진 표의 row·칸 clock과 kept는 앱 process�
     { id: "n1", body: "x2", tag: "t" },
   ]);
   closeConnection(file);
+});
+
+// 지우면 sync에서 빠졌다 다시 오른 표(처음 오른 표도)의 row가 clock 없이 남아 어떤 clock에도 진다: 두 기계가 서로의 값을
+// 바꿔 가져 갈라지고, 그 사이 없던 기계의 옛 snapshot이 고친 값을 되돌리고 옛 흔적이 다시 넣은 row를 지운다.
+test("sync에서 빠졌다 다시 오른 표의 row는 다시 오른 release가 뜰 때 이 기계의 write로 찍혀, 두 기계가 같아지고 옛 release에 머문 기계의 snapshot이 고침과 다시 넣은 row를 덮지 못한다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-relist-"));
+  const schema =
+    "create table note (id text primary key, body text); create table other (id text primary key)";
+  const rel1 = syncPlanOf({ sync: { note: "computers", other: "computers" } });
+  const rel2 = syncPlanOf({ sync: { other: "computers" } });
+  const at = (ms: number) => ({ ms });
+  const a = machineDb(join(dir, "a.sqlite"), schema, rel1, at(1000));
+  const b = machineDb(join(dir, "b.sqlite"), schema, rel1, at(1000));
+  const c = machineDb(join(dir, "c.sqlite"), schema, rel1, at(1000));
+  const write = async (m: typeof a, sql: string) => {
+    const done = await syncedWrite(m.sync, () =>
+      Promise.resolve(m.raw.exec(sql)),
+    );
+    assert.ok(done.ok);
+    return done.value;
+  };
+  const send = (from: Awaited<ReturnType<typeof write>>, to: typeof a) => {
+    const applied = applyRemoteChanges(to.sync, [
+      { hlc: from.hlc!, changeset: from.changeset! },
+    ]);
+    assert.ok(applied.ok);
+  };
+  // rel1: A가 n1·n2를 쓰고 n2를 지운다. B와 C가 받는다.
+  const first = await write(
+    a,
+    "insert into note values ('n1', 'orig'); insert into note values ('n2', 'two')",
+  );
+  send(first, b);
+  send(first, c);
+  a.now.ms = 2000;
+  const removed = await write(a, "delete from note where id = 'n2'");
+  send(removed, b);
+  send(removed, c);
+  // rel2: note가 sync에서 빠진다. A와 B가 각자 고친다(n2는 A가 다시 넣는다).
+  a.sync = a.reopen(rel2);
+  b.sync = b.reopen(rel2);
+  a.now.ms = 3000;
+  b.now.ms = 3000;
+  await write(
+    a,
+    "update note set body = 'A-new' where id = 'n1'; insert into note values ('n2', 'A again')",
+  );
+  await write(b, "update note set body = 'B-new' where id = 'n1'");
+  // rel3: note가 다시 오른다. C는 rel2를 거치지 않고 rel1의 clock을 지닌 채 온다. B가 A보다 늦게 뜬다.
+  a.now.ms = 4000;
+  a.sync = a.reopen(rel1);
+  b.now.ms = 5000;
+  b.sync = b.reopen(rel1);
+  c.sync = c.reopen(rel1);
+  const snap = (m: typeof a, name: string) => {
+    const path = join(dir, name);
+    assert.ok(writeFolderSnapshot(m.sync, path).ok);
+    return path;
+  };
+  const fromA = snap(a, "a.snap");
+  const fromB = snap(b, "b.snap");
+  const fromC = snap(c, "c.snap");
+  assert.ok(mergeSnapshotFile(b.sync, { path: fromA }).ok);
+  assert.ok(mergeSnapshotFile(a.sync, { path: fromB }).ok);
+  const notes = (m: typeof a) =>
+    rowsOf(m.raw, "select * from note order by id");
+  // 나중에 찍은 B의 n1이 이기고, A가 다시 넣은 n2는 둘 다에 있다.
+  const expected = [
+    { id: "n1", body: "B-new" },
+    { id: "n2", body: "A again" },
+  ];
+  assert.deepEqual(notes(a), expected);
+  assert.deepEqual(notes(b), expected);
+  // rel1에 머물렀던 C의 snapshot(옛 n1, n2의 옛 흔적)은 아무것도 되돌리지 못한다.
+  assert.ok(mergeSnapshotFile(a.sync, { path: fromC }).ok);
+  assert.ok(mergeSnapshotFile(b.sync, { path: fromC }).ok);
+  assert.deepEqual(notes(a), expected);
+  assert.deepEqual(notes(b), expected);
+  for (const m of [a, b, c]) m.raw.close();
+});
+
+// 지우면 생성 칸이 있는 보내는 표의 앱은 폴더 snapshot을 뜨지 못해(SELECT *가 생성 칸까지 넣으려 한다) 다른 기계로 data가 가지 않는다.
+test("생성 칸이 있는 보내는 표도 폴더 snapshot에 담기고 받는 쪽에서 생성 칸이 다시 계산된다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-generated-"));
+  const schema =
+    "create table item (id text primary key, n integer, twice integer generated always as (n * 2) virtual, stored integer generated always as (n + 1) stored)";
+  const plan = syncPlanOf({ sync: { item: "computers" } });
+  const a = machineDb(join(dir, "a.sqlite"), schema, plan);
+  const written = await syncedWrite(a.sync, () =>
+    Promise.resolve(a.raw.exec("insert into item (id, n) values ('x', 4)")),
+  );
+  assert.ok(written.ok);
+  const path = join(dir, "a.snap");
+  const taken = writeFolderSnapshot(a.sync, path);
+  assert.ok(taken.ok, JSON.stringify(taken));
+  const b = machineDb(join(dir, "b.sqlite"), schema, plan);
+  assert.ok(mergeSnapshotFile(b.sync, { path }).ok);
+  assert.deepEqual(rowsOf(b.raw, "select * from item"), [
+    { id: "x", n: 4, twice: 8, stored: 5 },
+  ]);
+  a.raw.close();
+  b.raw.close();
 });
 
 // 지우면 main.ts의 sync store 시작 경로(예: IdSource node prefix 규칙이나 ready 통보의 시작 changeset·HLC)가 깨져도 check가 놓친다.

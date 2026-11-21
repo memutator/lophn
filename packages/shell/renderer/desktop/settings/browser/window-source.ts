@@ -11,9 +11,14 @@ import type { z } from "zod";
 
 import type { loginsList } from "../../../../../protocol/secrets/logins.ts";
 import type { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
+import {
+  BROWSER_PROFILES_SETTING,
+  browserProfilesSchema,
+} from "../../../../../protocol/shell/browser-profiles.ts";
 import { chooseSetting } from "../declared.ts";
 import { DEVICES_KEY, LINK_DEFAULT, LINK_ROWS } from "./model.ts";
 import type {
+  BrowserProfile,
   BrowserSettingsSource,
   Device,
   LinkValues,
@@ -35,6 +40,16 @@ export function linkValuesOf(read: ReadonlyMap<string, unknown>): LinkValues {
 /** key마다의 지금 값에서 기기 목록. core가 설정 schema로 검사한 값이다. */
 export function devicesOf(read: ReadonlyMap<string, unknown>): Device[] {
   return (read.get(DEVICES_KEY) ?? []) as Device[];
+}
+
+/** key마다의 지금 값에서 사람이 만든 browser profile 목록. 설정 schema가 core에서 이미 검사한 값이라 틀리면 빈 목록이다. */
+export function profilesOf(
+  read: ReadonlyMap<string, unknown>,
+): readonly BrowserProfile[] {
+  const parsed = browserProfilesSchema.safeParse(
+    read.get(BROWSER_PROFILES_SETTING) ?? [],
+  );
+  return parsed.success ? parsed.data : [];
 }
 
 /** `logins/list`는 TOTP 유무만 알려 준다. password는 `secrets/status`로 본다. */
@@ -71,8 +86,8 @@ export function windowBrowserSettings(
     }
   }
   return {
-    // 기본 profile의 data만 지운다.
-    clearData: () => call((api) => api.clearData(null).then(() => null)),
+    clearData: (profile) =>
+      call((api) => api.clearData(profile).then(() => null)),
     bookmarks: () => call((api) => api.bookmarks.list()),
     updateBookmark: (input) =>
       call((api) => api.bookmarks.update(input).then(() => null)),
@@ -83,6 +98,7 @@ export function windowBrowserSettings(
       return chooseSetting(core, row.settingKey, value);
     },
     saveDevices: (list) => chooseSetting(core, DEVICES_KEY, list),
+    saveProfiles: (list) => chooseSetting(core, BROWSER_PROFILES_SETTING, list),
     saveLogin: async (input) => {
       const saved = await coreCall(core, "memory", "logins", "save", input);
       return saved.ok ? { ok: true, value: null } : saved;

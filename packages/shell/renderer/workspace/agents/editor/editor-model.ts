@@ -36,6 +36,7 @@ export type FieldName =
   | "mcp"
   | "extensions"
   | "skip"
+  | "browser_profile"
   | "card";
 
 // 거절된 항목의 점 경로 첫 구간이 어느 칸에 속하는지. 칸에 없는 경로(frontmatter 등)는 맨 위 머리에 보인다.
@@ -56,6 +57,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   mcp_servers: "mcp",
   extensions: "extensions",
   skip: "skip",
+  browser_profile: "browser_profile",
 };
 
 export const fieldOf = (issue: AgentDefinitionIssue): FieldName | null =>
@@ -71,6 +73,7 @@ const TAB_OF_FIELD: Readonly<Record<FieldName, EditorTab>> = {
   modality: "general",
   card: "general",
   skip: "general",
+  browser_profile: "general",
   runtime: "runtime",
   model: "runtime",
   instructions: "instructions",

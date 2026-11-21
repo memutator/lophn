@@ -1,7 +1,13 @@
-// General 탭: profile · Name · Handle · Workspace · Description · 받고 내는 것 · Card · Skip permissions · 지우기.
+// General 탭: profile · Name · Handle · Workspace · Description · Browser profile · 받고 내는 것 · Card · Skip permissions · 지우기.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 import { useState } from "react";
-import { Checkbox, Field, Input, SegmentedControl } from "@lophn/ui/input";
+import {
+  Checkbox,
+  Field,
+  Input,
+  SegmentedControl,
+  Select,
+} from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
@@ -9,6 +15,7 @@ import { t } from "@lophn/i18n";
 import type { AgentWorkspace } from "../../../../../protocol/lophn-agent/agent-values.ts";
 import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useBrowserProfiles } from "../../../browser/profiles.tsx";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { codingFaceOf } from "../coding-face.ts";
 import { CardFacts, scopeLabel } from "../agent-card.tsx";
@@ -22,6 +29,9 @@ import { Group, Issues } from "./form-kit.tsx";
 import { ModalityToggles } from "./modality-toggles.tsx";
 import { ProfileField } from "./parts.tsx";
 import styles from "./agent-editor.module.css";
+
+// Select는 빈 값을 못 쓴다. 기본 profile(정의에 칸이 없다)의 값이다.
+const DEFAULT_PROFILE_VALUE = "default";
 
 // 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
 function DeleteAgent({
@@ -104,6 +114,11 @@ export function GeneralTab(props: GeneralTabProps) {
       ? profile
       : { kind: "image" as const, src: props.imageSrc(profile.image) });
   const name = definition.name ?? detail.effective.name.value;
+  // 정의의 profile이 지금 목록에 없으면(지웠다) 기본으로 보이고 그렇다고 알린다. 정의 file은 사람이 고르기 전까지 그대로다.
+  const profiles = useBrowserProfiles();
+  const picked = profiles.find((one) => one.id === definition.browser_profile);
+  const deletedProfile =
+    definition.browser_profile !== undefined && picked === undefined;
 
   return (
     <div className={styles.form}>
@@ -219,6 +234,36 @@ export function GeneralTab(props: GeneralTabProps) {
           <Issues issues={issues("description")} />
         </div>
       )}
+
+      <div data-field="browser_profile">
+        <Field
+          label={t("agents.label.browser-profile")}
+          help={t("agents.notice.browser-profile-help")}
+        >
+          <Select
+            options={[
+              {
+                value: DEFAULT_PROFILE_VALUE,
+                label: t("agents.label.browser-profile-default"),
+              },
+              ...profiles.map((one) => ({ value: one.id, label: one.name })),
+            ]}
+            value={picked?.id ?? DEFAULT_PROFILE_VALUE}
+            onValueChange={(value) =>
+              set(
+                "browser_profile",
+                value === DEFAULT_PROFILE_VALUE ? undefined : value,
+              )
+            }
+          />
+        </Field>
+        {deletedProfile ? (
+          <p className={styles.note} data-profile-deleted="">
+            {t("agents.notice.browser-profile-deleted")}
+          </p>
+        ) : null}
+        <Issues issues={issues("browser_profile")} />
+      </div>
 
       <Group name="modality" heading={t("agents.heading.modality")}>
         <ModalityToggles

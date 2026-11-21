@@ -1,9 +1,10 @@
 // Browser 항목이 읽고 쓰는 통로. shell IPC(`window.lophnBrowser`)는 window-source.ts만 안다. link 열 곳·기기·login은
 // 화면이 core를 useCoreRead로 읽는다.
+import type { BrowserProfile } from "../../../../../protocol/shell/browser-profiles.ts";
 import type { BookmarkList } from "../../../../ipc/browser.ts";
 import type { SourceResult } from "../source.ts";
 
-export type { BookmarkList, SourceResult };
+export type { BookmarkList, BrowserProfile, SourceResult };
 
 export type LinkId = "web_links" | "local_links";
 export type LinkWhere = "browser_tab" | "system_browser";
@@ -22,9 +23,10 @@ export interface Device {
   readonly device?: string;
 }
 
-/** 사람이 고치는 login 한 줄. password·TOTP 유무만 알고 값은 모른다. */
+/** 사람이 고치는 login 한 줄. password·TOTP 유무만 알고 값은 모른다. profile은 login이 속한 browser profile이고 null이 기본이다. */
 export interface LoginRow {
   readonly id: string;
+  readonly profile: string | null;
   readonly label: string;
   readonly origin: string;
   readonly username: string;
@@ -33,11 +35,11 @@ export interface LoginRow {
   readonly totp: boolean;
 }
 
-export type LoginForm = Omit<LoginRow, "id" | "password" | "totp">;
+export type LoginForm = Omit<LoginRow, "id" | "profile" | "password" | "totp">;
 
 export interface BrowserSettingsSource {
-  /** browser 탭의 cookie, site data, cache를 지우고 열린 탭을 다시 load한다. */
-  clearData(): Promise<SourceResult<null>>;
+  /** browser profile 하나(null은 기본)의 cookie, site data, cache를 지우고 그 profile의 열린 탭을 다시 load한다. */
+  clearData(profile: string | null): Promise<SourceResult<null>>;
   /** bookmark 목록. 파일이 깨져 있으면 오류가 아니라 `corrupt` 상태다. 실패한 code는 BookmarkReason이다. */
   bookmarks(): Promise<SourceResult<BookmarkList>>;
   updateBookmark(input: {
@@ -50,8 +52,12 @@ export interface BrowserSettingsSource {
   chooseLink(id: LinkId, value: LinkWhere): Promise<SourceResult<null>>;
   /** 등록한 기기들(core 선언 설정)의 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
   saveDevices(list: readonly Device[]): Promise<SourceResult<null>>;
-  /** login을 저장한다. id가 없으면 새로 만든다. */
-  saveLogin(input: LoginForm & { id?: string }): Promise<SourceResult<null>>;
+  /** 사람이 만든 browser profile 목록(core 설정)을 통째로 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
+  saveProfiles(list: readonly BrowserProfile[]): Promise<SourceResult<null>>;
+  /** login을 저장한다. id가 없으면 새로 만들고 그때만 profile(null은 기본)이 쓰인다. 있는 login은 profile을 옮기지 않는다. */
+  saveLogin(
+    input: LoginForm & { id?: string; profile?: string | null },
+  ): Promise<SourceResult<null>>;
   deleteLogin(id: string): Promise<SourceResult<null>>;
   /** 보호 입력 창을 열고 닫힐 때까지 기다린다. `stored`면 값이 올라가 있다. 값은 이 통로를 지나지 않는다. */
   enterLoginSecret(

@@ -1,12 +1,14 @@
 // 명함의 줄들. 목록 카드와 editor가 같이 쓴다. 명함은 core가 계산해 준 값을 그대로 보인다(목적은 두 화면이 따로 보인다).
 import { t } from "@lophn/i18n";
 import type { ReactElement } from "react";
-import type { AgentCard } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   type AgentWorkspace,
   LOPHN_AGENT_HANDLE,
   type Modality,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
+import { ProfileMark } from "../../browser/browser-chrome.tsx";
+import { useBrowserProfiles } from "../../browser/profiles.tsx";
+import type { AgentCardView } from "./source.ts";
 import styles from "./agent-card.module.css";
 
 export const modalityLabel = (modality: Modality): string =>
@@ -16,7 +18,7 @@ export const modalityLabel = (modality: Modality): string =>
       ? t("agents.label.modality-image")
       : t("agents.label.modality-file");
 
-const replyLabel = (reply: AgentCard["replies"][number]): string =>
+const replyLabel = (reply: AgentCardView["replies"][number]): string =>
   reply === "none"
     ? t("agents.label.reply-none")
     : reply === "result"
@@ -48,9 +50,13 @@ export function CardFacts({
   card,
   workspaceName,
 }: {
-  card: AgentCard;
+  card: AgentCardView;
   workspaceName: string;
 }): ReactElement {
+  // 기본이 아닌 profile만 보인다. 지워서 목록에 없는 profile은 기본으로 떨어지므로 보이지 않는다.
+  const profile = useBrowserProfiles().find(
+    (one) => one.id === card.browserProfile,
+  );
   return (
     <ul className={styles.facts} data-agent-card-facts="">
       <li data-card-scope="">
@@ -81,6 +87,12 @@ export function CardFacts({
                 input: card.model.price.input ?? "-",
                 output: card.model.price.output ?? "-",
               })}
+        </li>
+      )}
+      {profile === undefined ? null : (
+        <li className={styles.profile} data-card-profile="">
+          <ProfileMark profile={profile} />
+          {t("browser.label.profile", { name: profile.name })}
         </li>
       )}
       <li data-card-modality="">

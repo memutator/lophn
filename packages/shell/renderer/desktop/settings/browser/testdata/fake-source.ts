@@ -1,6 +1,11 @@
-// Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다. link 열 곳과 기기는 가짜 core의 설정이고
-// login은 가짜 core의 `logins/list` 답이다.
+// Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다. link 열 곳과 기기, browser profile은 가짜 core의
+// 설정이고 login은 가짜 core의 `logins/list` 답이다.
 import type { Bookmark } from "../../../../../ipc/browser.ts";
+import { agentList } from "../../../../../../protocol/lophn-agent/agent-definitions.ts";
+import {
+  BROWSER_PROFILES_MAX,
+  BROWSER_PROFILES_SETTING,
+} from "../../../../../../protocol/shell/browser-profiles.ts";
 import {
   loginSecretName,
   loginsList,
@@ -9,6 +14,7 @@ import { fakeAnswer } from "../../../connection/events/fake-source.ts";
 import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
 import { DEVICES_KEY, LINK_ROWS } from "../model.ts";
 import type {
+  BrowserProfile,
   BrowserSettingsSource,
   Device,
   LinkValues,
@@ -33,6 +39,10 @@ interface FakeBrowserSettingsOptions {
   devices?: Device[];
   /** 처음 login 목록. 없으면 비어 있다. */
   logins?: LoginRow[];
+  /** 처음 browser profile 목록(기본 profile은 들지 않는다). 없으면 비어 있다. */
+  profiles?: BrowserProfile[];
+  /** profile을 쓰는 agent. 있으면 `agents/list`가 이 목록으로 답한다(없으면 다른 fake의 답이 그대로다). */
+  agents?: { id: string; name: string; profile: string | null }[];
   /** 보호 입력 창을 닫는 결과. 없으면 값을 넣는다. */
   secretResult?: "stored" | "cancelled";
   /** 값을 둘 가짜 core. 없으면 새로 만든다. */
@@ -61,6 +71,7 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
   };
   for (const row of LINK_ROWS) core.set(row.settingKey, links[row.id]);
   core.set(DEVICES_KEY, options.devices ?? []);
+  core.set(BROWSER_PROFILES_SETTING, options.profiles ?? []);
   let logins: readonly LoginRow[] = options.logins ?? [];
   const passwords = () => {
     for (const login of logins) {
@@ -70,19 +81,30 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
   passwords();
   core.answers.push(
     fakeAnswer(loginsList, () =>
-      logins.map(({ password: _password, ...login }) => ({
-        ...login,
-        profile: null,
-      })),
+      logins.map(({ password: _password, ...login }) => login),
     ),
   );
+  if (options.agents !== undefined) {
+    // 같은 route의 다른 fake 답보다 앞에 둬야 이긴다.
+    core.answers.unshift(
+      fakeAnswer(agentList, {
+        as_of_seq: "0",
+        next_cursor: null,
+        agents: options.agents.map((agent) => ({
+          agent: agent.id,
+          name: agent.name,
+          browser_profile: agent.profile,
+        })),
+      } as never),
+    );
+  }
   const listeners = new Set<() => void>();
   const changed = () => listeners.forEach((listener) => listener());
   const refused = (code: string): Promise<SourceResult<null>> =>
     Promise.resolve({ ok: false, code });
   const source: BrowserSettingsSource = {
-    clearData() {
-      calls.push(["clearData"]);
+    clearData(profile) {
+      calls.push(["clearData", profile]);
       return Promise.resolve(
         options.clearCode
           ? { ok: false, code: options.clearCode }
@@ -137,15 +159,29 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
     },
+    saveProfiles(next) {
+      calls.push(["saveProfiles", next]);
+      // core의 선언이 거절하는 것 가운데 이름 겹침(대소문자 무시)과 개수 상한만 흉내 낸다.
+      if (
+        next.length > BROWSER_PROFILES_MAX ||
+        new Set(next.map((p) => p.name.toLowerCase())).size !== next.length
+      ) {
+        return refused("invalid_value");
+      }
+      core.set(BROWSER_PROFILES_SETTING, next);
+      core.changed("settings");
+      return Promise.resolve({ ok: true, value: null });
+    },
     saveLogin(input) {
       calls.push(["saveLogin", input]);
-      const { id, ...form } = input;
+      const { id, profile, ...form } = input;
       logins =
         id === undefined
           ? [
               ...logins,
               {
                 ...form,
+                profile: profile ?? null,
                 id: `lgn_fake${logins.length}`,
                 password: false,
                 totp: false,

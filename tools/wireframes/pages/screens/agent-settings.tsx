@@ -1,4 +1,13 @@
 import type { Area } from "../types.ts";
+import { BrowserProfilesProvider } from "../../../../packages/shell/renderer/browser/profiles.tsx";
+import {
+  EVAL_ANALYST_ID,
+  PROFILE_SHOP,
+  SAMPLE_BROWSER_PROFILES,
+} from "../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
+import { find } from "../../mock/drive.ts";
+import { AgentSettingsEditor, agentTab } from "./agents-tab.tsx";
+import { ProjectApp } from "./project-app.tsx";
 import {
   AgentCreatePage,
   AgentDeleteConfirmPage,
@@ -11,7 +20,6 @@ import {
   AgentSaveConflictPage,
   AgentSaveIssuesPage,
   AgentsBrokenPage,
-  AgentEditorPage,
   AgentGrantsAppPage,
   AgentGrantsOtherComputerPage,
   AgentGrantsPage,
@@ -31,6 +39,42 @@ import {
   LophnEditorPage,
   ProjectAgentsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
+
+// Eval analyst의 설정을 General 탭의 Browser profile 칸이 보이게 연다. 목록은 Settings에서 만든 profile들이다.
+function BrowserProfileEditor(props: {
+  profiles: typeof SAMPLE_BROWSER_PROFILES;
+}) {
+  const tab = agentTab(EVAL_ANALYST_ID);
+  return (
+    <BrowserProfilesProvider profiles={props.profiles}>
+      <ProjectApp
+        sidebar={{ foldersClosed: true }}
+        panes={[
+          {
+            tabs: [
+              {
+                ...tab,
+                body: (
+                  <AgentSettingsEditor
+                    id={EVAL_ANALYST_ID}
+                    onDone={() => {}}
+                    steps={[
+                      async () =>
+                        (
+                          await find("[data-field=browser_profile]")
+                        ).scrollIntoView({ block: "center" }),
+                    ]}
+                  />
+                ),
+              },
+            ],
+            selected: tab.key,
+          },
+        ]}
+      />
+    </BrowserProfilesProvider>
+  );
+}
 
 export const agentSettingsArea: Area = {
   id: "agent-settings",
@@ -77,8 +121,21 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-agent",
       title: "Agent settings · agent",
       description:
-        "사람이 만든 agent의 설정이고 General 탭이 열려 있다. 탭은 General · Runtime · Instructions · Skills · Memory · Tools · Grants이고, 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다(스크롤해도 머리가 남는다). General에는 프로필, 이름, handle, 범위, 설명, 받는 것(Takes)과 내는 것(Gives) 토글(text·image·file 아이콘 단추가 줄 오른쪽 고정 열에 있다), 명함(runtime, model과 가격, 받고 내는 것, 답 방식), 새 session을 Skip permissions로 시작하는 기본값 체크(사람만 쓰는 칸이고 꺼져 있다), Delete가 있다. 저장하지 못한 항목이 숨은 탭에 있으면 그 탭 이름 옆에 점이 뜬다.",
-      render: () => <AgentEditorPage />,
+        "사람이 만든 agent의 설정이고 General 탭이 열려 있다. 탭은 General · Runtime · Instructions · Skills · Memory · Tools · Grants이고, 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다(스크롤해도 머리가 남는다). General에는 프로필, 이름, handle, 범위, 설명, Browser profile 고르기(Default와 Settings에서 만든 profile, 이 agent는 Work), 받는 것(Takes)과 내는 것(Gives) 토글(text·image·file 아이콘 단추가 줄 오른쪽 고정 열에 있다), 명함(runtime, model과 가격, 받고 내는 것, 답 방식, 기본이 아닌 profile의 색 점과 이름), 새 session을 Skip permissions로 시작하는 기본값 체크(사람만 쓰는 칸이고 꺼져 있다), Delete가 있다. 저장하지 못한 항목이 숨은 탭에 있으면 그 탭 이름 옆에 점이 뜬다.",
+      render: () => <BrowserProfileEditor profiles={SAMPLE_BROWSER_PROFILES} />,
+    },
+    {
+      id: "agent-settings-browser-profile-deleted",
+      title: "Agent settings · deleted browser profile",
+      description:
+        '정의가 가리키던 profile(Work)을 Settings에서 지운 뒤의 General 탭이다. Browser profile 칸은 Default로 보이고 그 아래에 "Deleted profile — uses Default"가 붙는다. 정의 file은 사람이 다른 profile을 고르거나 Default를 고를 때까지 그대로다.',
+      render: () => (
+        <BrowserProfileEditor
+          profiles={SAMPLE_BROWSER_PROFILES.filter(
+            (one) => one.id === PROFILE_SHOP,
+          )}
+        />
+      ),
     },
     {
       id: "agent-settings-model-picker",

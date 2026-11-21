@@ -156,6 +156,7 @@ export const SettingsBrowserDeviceAdd = () => (
 const LOGINS = [
   {
     id: "lgn_fake0",
+    profile: null,
     label: "GitHub",
     origin: "https://github.com",
     username: "dev@example.com",
@@ -165,6 +166,7 @@ const LOGINS = [
   },
   {
     id: "lgn_fake1",
+    profile: null,
     label: "Staging admin",
     origin: "http://localhost:3000",
     username: "admin",

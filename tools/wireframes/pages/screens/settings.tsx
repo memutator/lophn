@@ -1,6 +1,16 @@
 import type { Area } from "../types.ts";
 import type { ReactNode } from "react";
 import { openSettings } from "../../../../packages/shell/renderer/desktop/router.ts";
+import {
+  BUDGET_REVIEWER_ID,
+  EVAL_ANALYST_ID,
+  PROFILE_SHOP,
+  PROFILE_WORK,
+  QUEUE_WATCHER_ID,
+  SAMPLE_BROWSER_PROFILES,
+} from "../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
+import { click, find } from "../../mock/drive.ts";
+import { SettingsFrame } from "./settings-frame.tsx";
 import { SettingsMachineScene } from "./shell/settings-machine-scene.tsx";
 import {
   SettingsAgentsInstructionsPage,
@@ -29,7 +39,6 @@ import {
   SettingsBrowserDeviceAdd,
   SettingsBrowserDevices,
   SettingsBrowserLoginAdd,
-  SettingsBrowserLogins,
   SettingsBrowserLinks,
   SettingsBrowserLinksSystem,
   SettingsCoding,
@@ -63,6 +72,64 @@ import {
   SettingsShellRulesAdd,
 } from "./settings-pages.tsx";
 import { MockDesktop, type SettingsTab } from "../../mock/mock-desktop.tsx";
+
+// 아래 둘은 SettingsFrame의 browser 옵션 type이 모르는 profiles·agents를 fake에 넘긴다(옵션은 fake 통로가 그대로 받는다).
+const PROFILE_AGENTS = [
+  { id: EVAL_ANALYST_ID, name: "Eval analyst", profile: PROFILE_WORK },
+  { id: BUDGET_REVIEWER_ID, name: "Budget reviewer", profile: PROFILE_WORK },
+  { id: QUEUE_WATCHER_ID, name: "Queue watcher", profile: null },
+];
+const PROFILE_LOGINS = [
+  {
+    id: "lgn_fake0",
+    profile: null,
+    label: "GitHub",
+    origin: "https://github.com",
+    username: "dev@example.com",
+    note: "",
+    password: true,
+    totp: true,
+  },
+  {
+    id: "lgn_fake1",
+    profile: null,
+    label: "Staging admin",
+    origin: "http://localhost:3000",
+    username: "admin",
+    note: "",
+    password: false,
+    totp: false,
+  },
+  {
+    id: "lgn_fake2",
+    profile: PROFILE_WORK,
+    label: "Company wiki",
+    origin: "https://wiki.example.com",
+    username: "me@example.com",
+    note: "",
+    password: true,
+    totp: false,
+  },
+  {
+    id: "lgn_fake3",
+    profile: PROFILE_WORK,
+    label: "Time tracking",
+    origin: "https://time.example.com",
+    username: "me@example.com",
+    note: "",
+    password: true,
+    totp: true,
+  },
+];
+const WITH_PROFILES = {
+  profiles: [...SAMPLE_BROWSER_PROFILES],
+  agents: PROFILE_AGENTS,
+  logins: PROFILE_LOGINS,
+};
+
+// 한 구역이 창 위쪽에 오게 올린다. Browser 항목이 길어서 아래 구역은 열자마자 잘린다.
+const scrollToSection = (selector: string) => async () =>
+  (await find(selector)).closest("section")!.scrollIntoView({ block: "start" });
 
 function settings(tab: SettingsTab): ReactNode {
   return <MockDesktop route={openSettings()} settingsTab={tab} />;
@@ -239,8 +306,37 @@ export const settingsArea: Area = {
       id: "settings-browser",
       title: "Settings · Browser",
       description:
-        "browser 탭의 Bookmarks 목록과 Browsing data 구역이다. [Clear browsing data]는 모든 browser 탭이 같이 쓰는 로그인과 site data, cache를 지운다.",
+        "browser 탭의 Bookmarks 목록, Profiles 구역(기본 profile 줄만 있고 [Add profile]로 만든다), Browsing data 구역이다. [Clear browsing data]는 기본 profile의 로그인과 site data, cache를 지운다.",
       render: () => <SettingsBrowser />,
+    },
+    {
+      id: "settings-browser-profiles",
+      title: "Settings · Browser · profiles",
+      description:
+        "Profiles 구역이다. 맨 위는 지울 수 없는 기본 profile이고 아래에 사람이 만든 profile(Work, Shopping)이 색 점과 이름, 그 profile을 쓰는 agent 이름과 함께 선다. 줄 오른쪽 끝 고정 열에 [Rename], [Color], [Clear data], [Delete]가 있고 아래 [Add profile]로 이름과 색을 골라 더한다.",
+      render: () => (
+        <SettingsFrame
+          pane="browser"
+          browser={WITH_PROFILES}
+          steps={[scrollToSection("[data-profiles]")]}
+        />
+      ),
+    },
+    {
+      id: "settings-browser-profile-delete",
+      title: "Settings · Browser · delete a profile",
+      description:
+        "Work의 [Delete]를 눌러 확인 dialog가 열렸다. 그 profile의 저장 login 수와 cookie·site data가 함께 지워진다는 것, 그 profile을 쓰던 agent는 기본 profile로 떨어진다는 것을 말한다. 확인하면 login, partition data, 목록 순서로 지우고 중간에 실패하면 profile이 남는다.",
+      render: () => (
+        <SettingsFrame
+          pane="browser"
+          browser={WITH_PROFILES}
+          steps={[
+            scrollToSection("[data-profiles]"),
+            () => click("[data-profile-delete]"),
+          ]}
+        />
+      ),
     },
     {
       id: "settings-remote",
@@ -435,8 +531,14 @@ export const settingsArea: Area = {
       id: "settings-browser-logins",
       title: "Settings · Browser · logins",
       description:
-        "Logins 구역이다. site login(label, origin, username)이 줄마다 서고 password·TOTP가 있는지만 보인다. 값은 [Set password]·[Set TOTP]가 여는 보호 입력 창으로만 넣는다.",
-      render: () => <SettingsBrowserLogins />,
+        "Logins 구역이다. login은 browser profile마다 묶여(기본이 먼저) 묶음 이름 아래 줄마다 서고 password·TOTP가 있는지만 보인다. 값은 [Set password]·[Set TOTP]가 여는 보호 입력 창으로만 넣는다. 묶음마다 [Add login]이 있고 login은 다른 profile로 옮기지 못한다.",
+      render: () => (
+        <SettingsFrame
+          pane="browser"
+          browser={WITH_PROFILES}
+          steps={[scrollToSection("[data-login-group]")]}
+        />
+      ),
     },
     {
       id: "settings-browser-login-add",

@@ -178,6 +178,8 @@ export const agents = {
   "agents.label.workspace-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
   "agents.label.protected-secret": "Client secret",
+  "agents.label.browser-profile": "Browser profile",
+  "agents.label.browser-profile-default": "Default",
   "agents.label.skip-start": "Start new sessions with Skip permissions",
   "agents.label.tab-general": "General",
   "agents.label.tab-runtime": "Runtime",
@@ -226,6 +228,10 @@ export const agents = {
     "Built-in coding agent: its handle, runtime and scope can't be changed, and it can't be deleted. You can rename how it is shown. It runs the CLI with your own settings.",
   "agents.notice.tools-help":
     "A session only gets a picked tool its workspace kind (home, project, app) and its MCP servers allow. A custom agent always has the lophn tool with every lophn command of its workspace and the public commands of its apps.",
+  "agents.notice.browser-profile-deleted":
+    "Deleted profile \u2014 uses Default",
+  "agents.notice.browser-profile-help":
+    "Browser tabs this agent opens use this profile's cookies and saved logins. Add and delete profiles in Settings \u203a Browser.",
   "agents.notice.skip-help":
     "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-custom-pick":

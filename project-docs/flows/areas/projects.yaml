@@ -2088,7 +2088,7 @@ flows:
     crosses_process: false
 
   - id: browser-clear-data
-    title: "browser 탭의 쿠키와 저장소를 지운다"
+    title: "browser profile 하나의 쿠키와 저장소를 지운다"
     actor: person
     entries: [ui:browser-clear-data]
     uses: [ipc:shell:browser-clear-data]
@@ -2096,12 +2096,14 @@ flows:
     code:
       - packages/shell/main/browser/browser-ipc.ts
       - packages/shell/main/browser/session.ts
+      - packages/shell/renderer/desktop/settings/browser/browser-panel.tsx
+      - packages/shell/renderer/desktop/settings/browser/profile-rows.tsx
     docs: [architecture/browser-tab.md]
     steps:
-      - "Settings › Browser의 Clear browsing data가 `{profile: null}`(기본 profile)로 IPC를 부른다(profile id면 그 profile)"
+      - "Settings › Browser의 Browsing data 구역 [Clear browsing data]는 기본 profile을, Profiles 구역 줄의 [Clear data]는 그 profile을 지운다. 둘 다 확인 dialog(로그아웃된다는 문장)를 거쳐 IPC를 `{profile: null}`이나 `{profile: <bpf id>}`로 부른다"
       - "main이 그 profile의 partition만 clearStorageData()로 지우고 cache를 비운다(기본 profile은 persist:lophn-browser)"
       - "그 profile의 열린 page만 다시 load한다"
-      - "앱 저장소 partition은 건드리지 않는다"
+      - "앱 저장소 partition은 건드리지 않는다. profile의 저장 login은 이 flow가 지우지 않는다(profile을 지울 때 browser-profile-delete가 지운다)"
     outcomes:
       - id: cleared
         observe: ["disk:persist:lophn-browser", "response", "screen:browser-tab"]
@@ -2120,7 +2122,59 @@ flows:
     crosses_process: false
     risk: [data-loss]
     unclear:
-      - "지우면 browser 탭의 로그인 쿠키도 사라진다. 사람에게 알리는 문구는 이 flow의 밖이다"
+      - "지우면 그 profile의 browser 탭 로그인 쿠키도 사라진다. 사람에게 알리는 문구는 확인 dialog가 말한다"
+
+  - id: browser-profile-save
+    title: "Settings에서 browser profile을 만들거나 이름과 색을 바꾼다"
+    actor: person
+    entries: [ui:browser-profile-save]
+    uses: [route:settings/update]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/settings/browser/profile-rows.tsx
+      - packages/shell/renderer/desktop/settings/browser/window-source.ts
+    docs: [architecture/browser-tab.md]
+    steps:
+      - "[Add profile]는 이름과 색(agent 얼굴과 같은 색 목록)을 받아 새 id(`bpf_…`)로 목록 끝에 더한다. [Rename]·[Color]는 그 profile의 이름이나 색만 바꾼다"
+      - "화면이 쥔 목록을 통째로 `shell.browser_profiles`에 settings/update로 쓴다. 이름은 대소문자를 가리지 않고 겹치지 못하고 최대 16개다"
+      - "쓰기가 끝나야 줄이 바뀌고 입력 칸이 닫힌다(저장을 받은 뒤에야 profile이 보인다). 거절되면 칸이 열린 채 오류 한 줄이다"
+    outcomes:
+      - id: saved
+        observe: ["response", "event:StateChanged", "screen:settings-browser-profiles"]
+      - id: rejected
+        code: invalid_input
+        when: "이름이 비었거나 40자를 넘거나 다른 profile과 겹치거나 16개를 넘는다(settings/update의 거절)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "core가 닿지 않아 쓰지 못했다"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: browser-profile-delete
+    title: "Settings에서 browser profile을 지운다(그 profile의 login과 data도 지운다)"
+    actor: person
+    entries: [ui:browser-profile-delete]
+    uses: [route:logins/delete, ipc:shell:browser-clear-data, route:settings/update]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/settings/browser/profile-rows.tsx
+      - packages/shell/renderer/desktop/settings/browser/window-source.ts
+    docs: [architecture/browser-tab.md]
+    steps:
+      - "[Delete]는 확인 dialog를 보인다: 지울 저장 login 수(password·TOTP 포함)와 cookie·site data, 이 profile을 쓰던 agent는 기본 profile로 떨어진다는 문장. 로그인 목록을 읽지 못했으면 단추가 꺼져 있다"
+      - "확인하면 ① 그 profile의 login을 모두 logins/delete로 지운다 ② 그 profile의 partition data를 clear-data IPC로 지운다 ③ 목록에서 빼 settings/update로 쓴다"
+      - "어느 단계가 실패하면 거기서 멈추고 오류 한 줄을 보인다. 목록은 ③에서만 바뀌므로 profile이 남아 있어 다시 할 수 있다"
+      - "그 profile을 가리키던 agent 정의는 고치지 않는다. 열 때 기본 profile로 떨어지고 편집기가 Deleted profile로 보인다"
+    outcomes:
+      - id: deleted
+        observe: ["disk:<root>/logins.json", "disk:persist:lophn-browser-<bpf id>", "response", "event:StateChanged", "screen:settings-browser-profile-delete", "screen:agent-settings-browser-profile-deleted"]
+      - id: stopped
+        code: unavailable
+        when: "login 지우기, partition data 지우기, 목록 쓰기 가운데 하나가 실패했다. 앞 단계는 이미 끝났을 수 있고 profile은 목록에 남는다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss]
 
   - id: browser-bookmarks-read
     title: "browser bookmark 목록을 읽는다"

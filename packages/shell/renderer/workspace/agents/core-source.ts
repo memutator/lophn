@@ -66,6 +66,7 @@ import type {
 } from "./views.ts";
 
 import type {
+  AgentCardView,
   AgentDetail,
   AgentDraft,
   AgentListRow,
@@ -153,6 +154,7 @@ function toRow(row: AgentRow): AgentListRow {
           },
     issues: row.issues,
     counts: row.counts,
+    browserProfile: row.browser_profile,
   };
 }
 
@@ -284,12 +286,13 @@ export function coreAgentsSource(
   const cardOf = async (
     handle: string,
     workspace: string | null,
-  ): Promise<AgentCard | undefined> => {
+    browserProfile: string | null,
+  ): Promise<AgentCardView | undefined> => {
     const read = await link.read<{ card: AgentCard }>("agents", "card", {
       handle,
       ...scopeInput(workspace),
     });
-    return read.ok ? read.value.card : undefined;
+    return read.ok ? { ...read.value.card, browserProfile } : undefined;
   };
 
   // 전역 agent와 화면을 연 자리 범위 agent, 그 자리의 lophn이다. home은 자리 id가 없어 core가 모든 lophn을 내므로
@@ -436,7 +439,11 @@ export function coreAgentsSource(
     const memory = isLophn(agent)
       ? null
       : await readMemoryFile({ kind: "agent", agent });
-    const card = await cardOf(handleOf(agent, value.definition), workspace);
+    const card = await cardOf(
+      handleOf(agent, value.definition),
+      workspace,
+      saved.browser_profile ?? null,
+    );
     if (value.effective.profile.value.kind === "image") {
       await loadImage(agent, value.effective.profile.value.image);
     }
@@ -541,6 +548,7 @@ export function coreAgentsSource(
             const card = await cardOf(
               row.handle,
               row.workspace?.id ?? workspace,
+              row.browserProfile,
             );
             return card === undefined ? row : { ...row, card };
           }),

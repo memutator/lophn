@@ -1,6 +1,7 @@
 // fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(lophn과 사람이 만든 agent 셋)와 층마다 정한
 // model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
 
+import type { BrowserProfile } from "../../../../protocol/shell/browser-profiles.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type {
   CatalogEntry,
@@ -32,6 +33,14 @@ export const BUDGET_REVIEWER_ID = id("agt", "br1");
 export const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
 export const QUEUE_WATCHER_ID = id("agt", "qw1");
 export const CODEX_RUNNER_ID = id("agt", "cx1");
+/** 화면 확인용 browser profile 둘. Settings의 fake와 agent 편집기의 fake가 같은 id를 쓴다. */
+export const PROFILE_WORK = id("bpf", "wk1");
+export const PROFILE_SHOP = id("bpf", "sh1");
+export const SAMPLE_BROWSER_PROFILES: readonly BrowserProfile[] = [
+  { id: PROFILE_WORK, name: "Work", color: "blue" },
+  { id: PROFILE_SHOP, name: "Shopping", color: "coral" },
+];
+
 /** 정의 file이 틀린 agent. 목록에 개수와 명함이 없다. fake source의 brokenAgent 설정이 켠다. */
 export const BROKEN_AGENT_ID = id("agt", "bk1");
 
@@ -186,6 +195,7 @@ When a question is about one project, read that project's LOPHN.md first.`,
     definition: {
       name: "Eval analyst",
       profile: { kind: "image", image: "avatar.png" },
+      browser_profile: PROFILE_WORK,
       model: {
         provider: ANTHROPIC,
         model_name: "Sonnet 5.5",

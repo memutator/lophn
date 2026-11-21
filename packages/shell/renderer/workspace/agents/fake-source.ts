@@ -3,10 +3,7 @@
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
-import type {
-  AgentCard,
-  AgentDefinitionIssue,
-} from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import {
   isLophn,
@@ -56,6 +53,7 @@ import {
 } from "./fake-data.ts";
 import type {
   AgentDetail,
+  AgentCardView,
   AgentDraft,
   AgentListRow,
   AgentsOverview,
@@ -528,7 +526,7 @@ export function createFakeAgentsSource(
     isLophn(key) ? workspaceOfLophn(key) : (item.definition.workspace ?? null);
 
   // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 세고, model은 정의나 전역 값이다(가격은 anthropic 것만 안다).
-  const cardOf = (key: string, item: Stored): AgentCard => {
+  const cardOf = (key: string, item: Stored): AgentCardView => {
     const definition = item.definition;
     const custom = definition.runtime === "custom";
     const chosen = definition.model ?? GLOBAL_MODEL;
@@ -536,6 +534,7 @@ export function createFakeAgentsSource(
     return {
       handle: isLophn(key) ? "lophn" : (definition.handle ?? item.name),
       name: item.name,
+      browserProfile: definition.browser_profile ?? null,
       workspace: scopeOf(key, item),
       ...(definition.description === undefined
         ? {}
@@ -598,6 +597,7 @@ export function createFakeAgentsSource(
         model: null,
         issues: BROKEN_ISSUES,
         counts: { skills: null, mcp: null },
+        browserProfile: null,
       };
     }
     const definition = item.definition;
@@ -638,6 +638,7 @@ export function createFakeAgentsSource(
         skills,
         mcp,
       },
+      browserProfile: definition.browser_profile ?? null,
       card: cardOf(key, item),
     };
   };

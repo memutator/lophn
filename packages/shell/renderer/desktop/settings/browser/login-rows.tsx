@@ -1,6 +1,7 @@
-// Settings › Browser의 Logins 구역. site login(label, origin, username, note)을 더하고 고치고 지우고,
-// password와 TOTP seed는 보호 입력 창으로 넣는다. 값은 이 화면에 없고 있는지만 안다.
-import { Fragment, useState } from "react";
+// Settings › Browser의 Logins 구역. site login(label, origin, username, note)을 browser profile마다 묶어 보이고(기본이 먼저)
+// 더하고 고치고 지우고, password와 TOTP seed는 보호 입력 창으로 넣는다. 값은 이 화면에 없고 있는지만 안다.
+// login은 만든 profile에 속하고 다른 profile로 옮기지 못한다.
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
 import { Field, Input } from "@lophn/ui/input";
@@ -9,14 +10,25 @@ import { actionIcons } from "../../../icons/mod.ts";
 
 import { loginsList } from "../../../../../protocol/secrets/logins.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { BROWSER_PROFILES_SETTING } from "../../../../../protocol/shell/browser-profiles.ts";
 import {
+  type Loaded,
   readRoute,
   readsOf,
+  useCoreRead,
   useFollowedRead,
 } from "../../connection/core-read.ts";
+import { ProfileMark } from "../../../browser/browser-chrome.tsx";
+import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
-import type { BrowserSettingsSource, LoginForm, LoginRow } from "./source.ts";
-import { loginRowsOf } from "./window-source.ts";
+import type {
+  BrowserProfile,
+  BrowserSettingsSource,
+  LoginForm,
+  LoginRow,
+} from "./source.ts";
+import { loginRowsOf, profilesOf } from "./window-source.ts";
 
 const EMPTY: LoginForm = { label: "", origin: "", username: "", note: "" };
 
@@ -28,8 +40,9 @@ function originOf(input: string): string | null {
   return origin === "null" ? null : origin;
 }
 
-export function LoginRows({ source }: { source: BrowserSettingsSource }) {
-  const loaded = useFollowedRead<readonly LoginRow[]>(
+/** 저장 login 전체(모든 profile). Profiles 구역도 지울 login을 세려고 쓴다. */
+export function useLoginRows(): Loaded<readonly LoginRow[]> {
+  return useFollowedRead<readonly LoginRow[]>(
     async (core) => {
       const [logins, secrets] = await Promise.all([
         readRoute(core, loginsList, {}),
@@ -42,14 +55,36 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
     [...readsOf(loginsList, {}), ...readsOf(secretStatus, {})],
     "",
   ).loaded;
-  // 고치는 줄의 id. 새로 더하는 줄은 "new"다.
+}
+
+// 묶음 하나. profile이 null이면 기본 profile이다.
+interface Group {
+  readonly profile: BrowserProfile | null;
+  readonly logins: readonly LoginRow[];
+}
+
+export function LoginRows({ source }: { source: BrowserSettingsSource }) {
+  const loaded = useLoginRows();
+  const profileRead = useCoreRead(settingsList, {
+    keys: [BROWSER_PROFILES_SETTING],
+  }).loaded;
+  const profiles = useMemo(
+    () =>
+      profileRead.state === "ready"
+        ? profilesOf(effectiveOf(profileRead.value))
+        : null,
+    [profileRead],
+  );
+  // 고치는 줄의 id. 새로 더하는 줄은 "new:<profile id>"이고 기본 profile이면 "new:"다.
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<LoginForm>(EMPTY);
   const [error, setError] = useState<"invalid" | "failed" | null>(null);
   const [deleting, setDeleting] = useState<LoginRow | null>(null);
   const [failed, setFailed] = useState(false);
 
-  if (loaded.state === "loading") return null;
+  if (loaded.state === "loading" || profileRead.state === "loading") {
+    return null;
+  }
   if (loaded.state === "failed") {
     return (
       <p className={styles.notice} data-logins="failed">
@@ -57,7 +92,19 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
       </p>
     );
   }
-  const list: readonly LoginRow[] = loaded.value;
+  if (profiles === null) {
+    return (
+      <p className={styles.notice} data-logins="failed">
+        {t("settings.error.profiles-load-failed")}
+      </p>
+    );
+  }
+  const groups: readonly Group[] = [null, ...profiles].map((profile) => ({
+    profile,
+    logins: loaded.value.filter(
+      (login) => login.profile === (profile?.id ?? null),
+    ),
+  }));
 
   function open(id: string, next: LoginForm): void {
     setForm(next);
@@ -68,8 +115,9 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
   async function submit(): Promise<void> {
     const origin = originOf(form.origin);
     if (origin === null || form.label.trim() === "") return setError("invalid");
+    const adding = editing!.startsWith("new:");
     const saved = await source.saveLogin({
-      ...(editing === "new" ? {} : { id: editing! }),
+      ...(adding ? { profile: editing!.slice(4) || null } : { id: editing! }),
       label: form.label.trim(),
       origin,
       username: form.username,
@@ -160,90 +208,118 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
           {t("settings.error.login-failed")}
         </p>
       ) : null}
-      {list.length === 0 && editing === null ? (
-        <p className={styles.notice} data-logins="empty">
-          {t("settings.notice.logins-empty")}
-        </p>
-      ) : (
-        <ul className={styles.lines} data-logins="ok">
-          {list.map((login) =>
-            editing === login.id ? (
-              <Fragment key={login.id}>{editor}</Fragment>
-            ) : (
-              <li key={login.id} className={styles.line} data-login={login.id}>
-                <div className={styles.lineMain}>
-                  <span className={styles.productName}>{login.label}</span>
-                  <span
-                    className={`${styles.lineHelp} ${styles.mono}`}
-                    style={{ overflowWrap: "anywhere" }}
-                  >
-                    {login.origin}
-                  </span>
-                  {login.username === "" ? null : (
-                    <span className={styles.lineHelp}>{login.username}</span>
-                  )}
-                  <span className={styles.lineHelp} data-login-state="">
-                    {t("settings.text.login-state", {
-                      password: login.password ? "yes" : "no",
-                      totp: login.totp ? "yes" : "no",
-                    })}
-                  </span>
-                </div>
-                <div className={styles.lineControl}>
-                  <div className={styles.actions}>
-                    <Button
-                      data-login-password=""
-                      onClick={() => void enter(login, "password")}
-                    >
-                      {t("settings.button.login-set-password")}
-                    </Button>
-                    <Button
-                      data-login-totp=""
-                      onClick={() => void enter(login, "totp")}
-                    >
-                      {t("settings.button.login-set-totp")}
-                    </Button>
-                    <Button
-                      icon={actionIcons.edit}
-                      data-login-edit=""
-                      onClick={() =>
-                        open(login.id, {
-                          label: login.label,
-                          origin: login.origin,
-                          username: login.username,
-                          note: login.note,
-                        })
-                      }
-                    >
-                      {t("settings.button.login-edit")}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      icon={actionIcons.delete}
-                      data-login-delete=""
-                      onClick={() => setDeleting(login)}
-                    >
-                      {t("settings.button.login-delete")}
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            ),
-          )}
-          {editing === "new" ? editor : null}
-        </ul>
-      )}
-      {editing === null ? (
-        <div className={styles.actions}>
-          <Button
-            icon={actionIcons.add}
-            data-login-add=""
-            onClick={() => open("new", EMPTY)}
+      {groups.map(({ profile, logins }) => {
+        const adding = `new:${profile?.id ?? ""}`;
+        return (
+          <div
+            key={profile?.id ?? "default"}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-3)",
+              marginTop: "var(--space-5)",
+            }}
+            data-login-group={profile?.id ?? "default"}
           >
-            {t("settings.button.login-add")}
-          </Button>
-        </div>
-      ) : null}
+            <span className={styles.productName}>
+              {profile === null ? null : <ProfileMark profile={profile} />}
+              {profile?.name ?? t("settings.label.profile-default")}
+            </span>
+            {logins.length === 0 && editing !== adding ? (
+              <p className={styles.notice} data-logins="empty">
+                {t("settings.notice.logins-empty")}
+              </p>
+            ) : (
+              <ul className={styles.lines} data-logins="ok">
+                {logins.map((login) =>
+                  editing === login.id ? (
+                    <Fragment key={login.id}>{editor}</Fragment>
+                  ) : (
+                    <li
+                      key={login.id}
+                      className={styles.line}
+                      data-login={login.id}
+                    >
+                      <div className={styles.lineMain}>
+                        <span className={styles.productName}>
+                          {login.label}
+                        </span>
+                        <span
+                          className={`${styles.lineHelp} ${styles.mono}`}
+                          style={{ overflowWrap: "anywhere" }}
+                        >
+                          {login.origin}
+                        </span>
+                        {login.username === "" ? null : (
+                          <span className={styles.lineHelp}>
+                            {login.username}
+                          </span>
+                        )}
+                        <span className={styles.lineHelp} data-login-state="">
+                          {t("settings.text.login-state", {
+                            password: login.password ? "yes" : "no",
+                            totp: login.totp ? "yes" : "no",
+                          })}
+                        </span>
+                      </div>
+                      <div className={styles.lineControl}>
+                        <div className={styles.actions}>
+                          <Button
+                            data-login-password=""
+                            onClick={() => void enter(login, "password")}
+                          >
+                            {t("settings.button.login-set-password")}
+                          </Button>
+                          <Button
+                            data-login-totp=""
+                            onClick={() => void enter(login, "totp")}
+                          >
+                            {t("settings.button.login-set-totp")}
+                          </Button>
+                          <Button
+                            icon={actionIcons.edit}
+                            data-login-edit=""
+                            onClick={() =>
+                              open(login.id, {
+                                label: login.label,
+                                origin: login.origin,
+                                username: login.username,
+                                note: login.note,
+                              })
+                            }
+                          >
+                            {t("settings.button.login-edit")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            icon={actionIcons.delete}
+                            data-login-delete=""
+                            onClick={() => setDeleting(login)}
+                          >
+                            {t("settings.button.login-delete")}
+                          </Button>
+                        </div>
+                      </div>
+                    </li>
+                  ),
+                )}
+                {editing === adding ? editor : null}
+              </ul>
+            )}
+            {editing === null ? (
+              <div className={styles.actions}>
+                <Button
+                  icon={actionIcons.add}
+                  data-login-add=""
+                  onClick={() => open(adding, EMPTY)}
+                >
+                  {t("settings.button.login-add")}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
       <Dialog
         open={deleting !== null}
         onOpenChange={(next) => (next ? undefined : setDeleting(null))}

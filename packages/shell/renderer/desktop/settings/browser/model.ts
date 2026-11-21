@@ -1,7 +1,7 @@
 // Settings › Browser › Links의 줄 목록. 값은 core 선언 설정이고 main의 bridge가 요청마다 읽는다.
 import type { MessageKey } from "@lophn/i18n";
 
-import type { LinkId, LinkWhere } from "./source.ts";
+import type { BrowserProfile, LinkId, LinkWhere } from "./source.ts";
 
 interface LinkRow {
   readonly id: LinkId;
@@ -42,3 +42,17 @@ export const LINK_DEFAULT: LinkWhere = "browser_tab";
 
 /** 설정 선언의 key. */
 export const DEVICES_KEY = "shell.devices";
+
+/** profile 색 이름의 글. agent 얼굴 색 고르기와 같은 말이다. */
+export const PROFILE_COLOR_LABEL: Readonly<
+  Record<BrowserProfile["color"], MessageKey>
+> = {
+  coral: "agents.label.character-coral",
+  periwinkle: "agents.label.character-periwinkle",
+  yellow: "agents.label.character-yellow",
+  sage: "agents.label.character-sage",
+  lavender: "agents.label.character-lavender",
+  peach: "agents.label.character-peach",
+  blue: "agents.label.character-blue",
+  teal: "agents.label.character-teal",
+};

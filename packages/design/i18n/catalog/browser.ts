@@ -52,6 +52,14 @@ export const browser = {
   "settings.button.login-save": "Save",
   "settings.button.login-set-password": "Set password",
   "settings.button.login-set-totp": "Set TOTP",
+  "settings.button.profile-add": "Add profile",
+  "settings.button.profile-clear": "Clear data",
+  "settings.button.profile-clear-confirm": "Clear",
+  "settings.button.profile-color": "Color",
+  "settings.button.profile-delete": "Delete",
+  "settings.button.profile-delete-confirm": "Delete",
+  "settings.button.profile-rename": "Rename",
+  "settings.button.profile-save": "Save",
   "settings.button.browser-clear-confirm": "Clear",
   "settings.error.bookmark-duplicate":
     "Another bookmark already has this address.",
@@ -71,11 +79,18 @@ export const browser = {
   "settings.error.login-invalid":
     "Enter a label and a site address such as https://example.com.",
   "settings.error.logins-load-failed": "Could not load logins.",
+  "settings.error.profile-delete-failed":
+    "Could not delete {name}. It is still there, so you can try again.",
+  "settings.error.profile-failed": "Could not change the profile.",
+  "settings.error.profile-invalid":
+    "Enter a name nobody else uses (1 to 40 characters).",
+  "settings.error.profiles-load-failed": "Could not load profiles.",
   "settings.heading.bookmarks": "Bookmarks",
   "settings.heading.browser-data": "Browsing data",
   "settings.heading.devices": "Devices",
   "settings.heading.links": "Links",
   "settings.heading.logins": "Logins",
+  "settings.heading.profiles": "Profiles",
   "settings.label.bookmark-title": "Title",
   "settings.label.bookmark-url": "URL",
   "settings.label.device-android": "Android",
@@ -91,13 +106,16 @@ export const browser = {
   "settings.label.login-note": "Note",
   "settings.label.login-origin": "Site",
   "settings.label.login-username": "Username",
+  "settings.label.profile-color": "Color",
+  "settings.label.profile-default": "Default",
+  "settings.label.profile-name": "Name",
   "settings.label.local-links": "Local links",
   "settings.label.tab-browser": "Browser",
   "settings.label.web-links": "Web links",
   "settings.note.browser-clear":
-    "Signs you out of sites and removes cookies, site data, and cached files for the Browser tab.",
+    "Signs you out of sites and removes cookies, site data, and cached files of the Default profile. Other profiles are cleared on their own rows above.",
   "settings.note.browser-clear-confirm":
-    "This signs you out of every site in Browser tabs and reloads the open ones.",
+    "This signs you out of every site in the Default profile and reloads its open Browser tabs.",
   "settings.note.devices":
     "Devices a preview tab can show an app in, with the size, pixel ratio, touch and user agent of a phone. Pick one in the tab, or give its name to tab open --device.",
   "settings.note.local-links":
@@ -106,6 +124,16 @@ export const browser = {
     "Delete {label}? Its saved password and TOTP key are deleted too.",
   "settings.note.login-origin":
     "Values are only entered on this exact site (scheme, host and port). Example: https://example.com",
+  "settings.note.profile-clear-confirm":
+    "This signs you out of every site in this profile and reloads its open Browser tabs.",
+  "settings.note.profile-default":
+    "Tabs you open and agents without a profile use this one. It can't be deleted.",
+  "settings.note.profile-delete-agents":
+    "Agents that use it open their tabs in the Default profile from now on.",
+  "settings.note.profile-delete-confirm":
+    "This deletes the profile with its cookies, site data and {logins, plural, one {# saved login} other {# saved logins}} (and their passwords and TOTP keys).",
+  "settings.note.profiles":
+    "Each profile keeps its own cookies and saved logins. An agent opens its Browser tabs in the profile set in its settings; everything else uses Default.",
   "settings.note.logins":
     "Site logins an agent can use in a Browser tab. Passwords and TOTP keys are entered in a protected window and never shown.",
   "settings.note.web-links":
@@ -114,9 +142,13 @@ export const browser = {
     "No bookmarks yet. Click the star in a Browser tab's address bar to add one.",
   "settings.notice.devices-empty": "No devices yet.",
   "settings.notice.logins-empty": "No logins yet.",
+  "settings.notice.profile-no-agents": "No agent uses it.",
   "settings.notice.browser-cleared": "Browsing data cleared.",
   "settings.text.login-state":
     "Password: {password, select, yes {set} other {not set}} · TOTP: {totp, select, yes {set} other {not set}}",
+  "settings.text.profile-agents": "Used by {agents}",
   "settings.title.browser-clear": "Clear browsing data?",
   "settings.title.login-delete": "Delete login?",
+  "settings.title.profile-clear": "Clear data of {name}?",
+  "settings.title.profile-delete": "Delete {name}?",
 } as const;

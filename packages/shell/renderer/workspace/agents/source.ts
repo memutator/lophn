@@ -36,6 +36,11 @@ import type {
 
 export type { ReadResult };
 
+/** core의 명함에 browser profile을 붙인 것. 그 줄은 사람만 보고 core의 명함(다른 agent도 읽는다)에는 없다. null은 기본 profile이다. */
+export type AgentCardView = AgentCard & {
+  readonly browserProfile: string | null;
+};
+
 /**
  * 목록의 줄. `assignment`는 agent id(그 workspace의 lophn이거나 `agt_…`)다. lophn이 첫 줄이다.
  */
@@ -58,8 +63,10 @@ export interface AgentListRow {
   } | null;
   readonly issues: readonly AgentDefinitionIssue[];
   readonly counts: AgentCounts;
+  /** 정의에 적힌 browser profile id. 지운 profile이어도 그대로 온다. null은 기본 profile이다. */
+  readonly browserProfile: string | null;
   /** core가 계산한 명함. 틀린 정의 file이면 없다. */
-  readonly card?: AgentCard;
+  readonly card?: AgentCardView;
 }
 
 /** Agents 탭 본문 한 번에 필요한 값. */
@@ -112,6 +119,8 @@ export interface AgentDraft {
   readonly mcp_servers?: readonly McpServer[];
   /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
   readonly skip?: boolean;
+  /** 이 agent가 여는 browser 탭의 profile(`shell.browser_profiles`의 id). 없으면 기본이다. 사람만 쓴다. */
+  readonly browser_profile?: string;
   readonly body: string;
 }
 
@@ -147,7 +156,7 @@ export interface AgentDetail {
   /** 파일이 틀렸다면 읽기가 알린 항목별 이유다. */
   readonly issues: readonly AgentDefinitionIssue[];
   /** 저장된 정의로 계산한 명함. 새 agent와 틀린 file은 없다. */
-  readonly card?: AgentCard;
+  readonly card?: AgentCardView;
   /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, workspace). 이 agent가 끈 것은 정의의 skills_off가 말한다. */
   readonly skills: readonly SkillRow[];
   /** 전역과 workspace 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */

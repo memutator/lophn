@@ -3,6 +3,7 @@
 import type { z } from "zod";
 
 import type { Route } from "../../../protocol/base/route.ts";
+import { codingSessionsForget } from "../../../protocol/coding-agent/relay.ts";
 import {
   type TerminalAgentSession,
   type TerminalFailure,
@@ -67,6 +68,12 @@ export interface TerminalCore {
   list(): Promise<TerminalRuntime[] | null>;
   savedSessions(project: string): Promise<TerminalAgentSession[] | null>;
   renameSaved(input: RenameSaved): Promise<TerminalAgentSession[] | null>;
+  /** 사람이 Recent에서 지운 coding session의 팀원 session을 보관한다(더는 부를 수 없다). 터미널과 CLI의 대화는 그대로다. */
+  forgetSaved(input: {
+    project: string;
+    harness: string;
+    cli_session: string;
+  }): Promise<void>;
   /** `TerminalOutputAppended`·`TerminalRuntimeChanged`와 연결의 ready·끊김. 해지를 돌려준다. */
   subscribe(listener: (message: EventMessage) => void): () => void;
 }
@@ -156,6 +163,9 @@ export function createTerminalCore(
         input,
       );
       return reply.ok ? reply.value.sessions : null;
+    },
+    async forgetSaved(input) {
+      await call<{ archived: number }>(codingSessionsForget as Route, input);
     },
     subscribe: (listener) =>
       events.subscribe(

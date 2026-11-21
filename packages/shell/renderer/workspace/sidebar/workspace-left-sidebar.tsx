@@ -945,9 +945,23 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(props.onAgents === undefined ? {} : { onAgents: props.onAgents })}
         onWorkspace={props.onWorkspaceRow}
         onSession={open}
-        onRemoveRecent={(_workspace, item) =>
-          recentHidden.hide(item.ref, item.at)
-        }
+        onRemoveRecent={(workspace, item) => {
+          recentHidden.hide(item.ref, item.at);
+          // 터미널 coding session을 지우면 그 GUI 탭이 맡던 팀원 session도 보관해 더는 불리지 않게 한다.
+          if (item.kind !== "terminal" || workspace.ref.kind !== "project") {
+            return;
+          }
+          const saved = props.terminals.find(
+            (row) => row.key === item.ref && row.saved !== null,
+          );
+          const terminal = dataOf(workspace.ref.machine ?? null).terminal;
+          if (saved?.saved == null || terminal?.core == null) return;
+          void terminal.core.forgetSaved({
+            project: workspace.ref.id,
+            harness: saved.harness,
+            cli_session: saved.saved.externalSession,
+          });
+        }}
         onRenameSession={renameSession}
         onStopSession={stopSession}
         machineNames={lists.names}

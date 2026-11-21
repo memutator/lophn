@@ -22,6 +22,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 터미널 탭의 열기·닫기·크기·출력 lease·탭 이름과 저장한 coding agent session의 이름(`terminals/*`). 사람의 입력(`terminals/input`)과
 //   다시 시작(`restart`)은 그 창의 focus를 본 shell main이 capability를 실어 부르므로 넣지 않는다.
 // - 터미널 탭의 GUI·TUI 바꾸기(`coding_sessions/switch`)
+// - Recent에서 지운 coding session의 팀원 session 보관(`coding_sessions/forget`)
 // - Settings › Coding agents의 다시 감지·hook 놓기·지우기와 hook 설치 물음의 답(`coding_agents/*`)
 // - key 없이 이 기계의 주소로 provider 잇기, 구독 로그인 시작과 상태 읽기(`providers/connect-local`·`sign-in`·`sign-in-state`. Settings › Providers와
 //   agent의 sign_in card). key로 잇기(`providers/connect-key`)는 upload라 main의 secret 입력 창만 부른다.
@@ -89,6 +90,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:terminals/watch",
   "memory:terminals/name",
   "memory:terminals/rename_saved",
+  "memory:coding_sessions/forget",
   "memory:coding_sessions/switch",
   "memory:coding_agents/refresh",
   "memory:coding_agents/install_hooks",

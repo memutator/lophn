@@ -249,6 +249,7 @@ export function fakeTerminalCore(
     list: async () => [runtime()],
     savedSessions: async () => [],
     renameSaved: async () => [],
+    forgetSaved: async () => {},
     subscribe: (listener) =>
       events.subscribe(
         { types: ["TerminalOutputAppended", "TerminalRuntimeChanged"] },

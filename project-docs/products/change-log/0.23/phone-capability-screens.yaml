@@ -1,5 +1,5 @@
 id: phone-capability-screens
-version: 0.23.115
+version: 0.23.120
 title: 앱의 폰 화면이 폰 기능(연결 상태, 진동, 클립보드, 스캔, 링크, 공유)을 폰 host에 직접 묻고, 폰이 앱의 허락을 요청마다 본다
 modules: [packages/protocol, packages/core/apps, packages/core/agent-workspaces, packages/sdk, packages/shell/renderer, packages/shell/preload, packages/design, packages/mobile]
 change: |

@@ -16,6 +16,7 @@ import {
   type ContentBlock,
   textBlocks,
 } from "../../protocol/lophn-agent/content-block.ts";
+import { callSendRemote } from "../../protocol/lophn-agent/mail.ts";
 import {
   MESSAGE_IMAGE_CALL_MAX_BYTES,
   messageImagePrepare,
@@ -92,24 +93,39 @@ const send = defineCommand({
     'Supply both with fallback:"new" to open a replacement when the session is closed. Closed sessions stay closed. ' +
     "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
     "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file. " +
-    "To hand work to a coding agent the person will continue in a terminal, open its TUI with `lophn tab open --coding <harness> --handoff <text>` instead.",
+    "To hand work to a coding agent the person will continue in a terminal, open its TUI with `lophn tab open --coding <harness> --handoff <text>` instead. " +
+    "--on <computer> sends it to an agent on another computer of the person (machine computers): to.session is a session listed by session list --on, to.workspace a project name or pri_ id, an app slug or home there. Only text goes; no image, file or refs.",
   input: agentCallSend.input.omit({ dedup: true, body: true }).extend({
     ...bodyFields,
     refs: z.array(callRefSchema).default([]),
+    on: z.string().min(1).optional(),
   }),
   effect: "read",
-  routes: [agentCallSend, messageImagePrepare],
+  routes: [agentCallSend, callSendRemote, messageImagePrepare],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const body = await bodyOf(input, ctx);
-    if (!body.ok) return body;
-    const { image: _image, ...rest } = input;
+    const { image: _image, on, ...rest } = input;
     // 같은 tool call을 다시 보내도 같은 dedup이라 call과 session이 하나만 생긴다.
-    const sent = await ctx.core.command(
-      agentCallSend,
-      { ...rest, body: body.value, dedup: ctx.key },
-      { key: ctx.key },
-    );
+    let sent;
+    if (on !== undefined) {
+      if (input.image.length > 0 || input.refs.length > 0) {
+        return fail("invalid_input", "only text goes to another computer");
+      }
+      sent = await ctx.core.read(callSendRemote, {
+        to: { ...rest.to, machine: on },
+        reply: rest.reply,
+        body: textBlocks(rest.body),
+        dedup: ctx.key,
+      });
+    } else {
+      const body = await bodyOf(input, ctx);
+      if (!body.ok) return body;
+      sent = await ctx.core.command(
+        agentCallSend,
+        { ...rest, body: body.value, dedup: ctx.key },
+        { key: ctx.key },
+      );
+    }
     if (!sent.ok) return sent;
     const { call, state, fail_reason } = sent.value;
     return ok({

@@ -489,7 +489,7 @@ flows:
     crosses_process: false
 
   - id: machine-computers-read
-    title: "앱이 사람의 컴퓨터 명단과 자기가 도는 컴퓨터를 읽는다"
+    title: "앱과 agent가 사람의 컴퓨터 명단과 자기가 도는 컴퓨터를 읽는다"
     actor: app
     entries: [route:machine/computers]
     boundary: [core-api, machine, app-runtime]
@@ -499,6 +499,7 @@ flows:
       - "앱 화면은 shell main이 view의 기계(`view.machine`)의 core로 사람 자격(다른 기계의 view는 그 기계가 보는 기기 자격)으로 부른다(app-machines-list). 그래서 current는 화면의 backend가 도는 컴퓨터다"
       - "이 컴퓨터는 machine 신원과 always-on 표시(keep_running)에서, 명단의 다른 컴퓨터(폰 제외)는 link 상태(connected는 online)와 폴더로 받은 기계 기록의 always_on에서 합친다. 새로 저장하는 상태는 없다. 기록이 아직 없는 컴퓨터는 always_on이 null이다. remote가 꺼져 있으면 다른 컴퓨터가 없다"
       - "허락(grant)도 선언 permission도 없다. 이 컴퓨터가 처음이고 current는 하나다"
+      - "agent는 `lophn machine computers`로 읽고 그 이름이나 id를 `--on`에 쓴다"
     outcomes:
       - id: ok
         observe: ["response"]
@@ -509,7 +510,7 @@ flows:
       - id: forbidden
         code: forbidden
         observe: ["response"]
-        when: "호출한 자격이 route의 actors(user, app)가 아니다(core dispatch가 먼저 막는다)"
+        when: "호출한 자격이 route의 actors(user, app, agent)가 아니다(core dispatch가 먼저 막는다)"
     crosses_process: false
     docs: [architecture/app-call.md]
 
@@ -2872,6 +2873,81 @@ flows:
         when: "그 agent의 할당을 읽지 못했다"
         observe: ["response"]
     crosses_process: false
+
+  - id: machines-lists
+    title: "agent가 다른 컴퓨터에서 부를 수 있는 session과 agent 명함을 읽는다"
+    actor: agent
+    entries: [route:machines/sessions, route:machines/agents]
+    uses: [system:machine-links, route:a2a/sessions, route:a2a/agents]
+    boundary: [core-api, remote, router]
+    code: [packages/core/remote/a2a-lists.ts, packages/core/main/daemon/wiring/a2a-lists.ts, packages/protocol/machine/a2a.ts, packages/core/router/remote-reach.ts]
+    docs: [architecture/remote.md, architecture/agent-call.md]
+    steps:
+      - "agent가 `lophn session list --on <컴퓨터>`, `agent list --on`, `agent card --on`으로 부른다. 누구를 부를지는 고르지 않는다"
+      - "부른 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach): 그 session의 workspace가 private이거나 다른 컴퓨터의 mail이 연 session이면 forbidden이다. 이 검사가 컴퓨터 이름 풀기보다 앞이다"
+      - "machine(이름, `mch_`, `dev_`)으로 명단의 컴퓨터를 고른다. 이 컴퓨터면 invalid_input이다. machines/agents의 workspace는 이 기계의 이름 꼴을 기계를 건너는 꼴로 바꾼다(remoteWorkspaceOf): 없으면 부른 session의 workspace, project는 그 identity(`pri_`는 그대로), 앱은 id, home"
+      - "그 컴퓨터에 요청한 쪽 {kind: agent, agent, session, name}으로 a2a/sessions나 a2a/agents를 부르고 5초까지 기다린다"
+      - "답을 output schema로 다시 검사하고, 그 컴퓨터의 글은 제어 문자를 빼고 길이(이름 64, 제목 256, 설명·notes 1 KB)와 개수(200)를 줄인다. 명함의 callable은 싣지 않는다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+        when: "machines/agents는 found가 false일 수 있다(그 컴퓨터에 그 workspace가 없거나 private)"
+      - id: forbidden
+        code: forbidden
+        when: "agent session 자격이 아니다, 부른 session의 workspace가 private이다, 다른 컴퓨터의 mail이 연 session이다, 또는 그 컴퓨터가 forbidden으로 답했다"
+        observe: ["response"]
+      - id: not_found
+        code: not_found
+        when: "부른 session이 없다, 명단에 그 컴퓨터가 없다, 또는 workspace의 project 이름이 이 기계에 없다"
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        when: "이 컴퓨터를 골랐다, 같은 이름의 컴퓨터가 둘이다, workspace의 project에 기계를 건너는 id가 없다(lophn project share), 앱 이름이 여러 앱에 걸린다"
+        observe: ["response"]
+      - id: not-reachable
+        code: unavailable
+        when: "그 컴퓨터가 5초 안에 답하지 않았다, link가 없다(꺼짐), 또는 그 컴퓨터가 unavailable로 답했다"
+        observe: ["response"]
+      - id: older-lophn
+        code: unavailable
+        when: "그 컴퓨터가 not_found로 답했다(그 route를 모르는 옛 판). 그 컴퓨터의 lophn을 올리라고 알린다"
+        observe: ["response"]
+      - id: unreadable
+        code: unavailable
+        when: "그 컴퓨터의 답이 output schema에 맞지 않는다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: a2a-lists-receive
+    title: "다른 컴퓨터가 이 기계에서 부를 수 있는 session과 agent 명함을 읽는다"
+    actor: system
+    entries: [route:a2a/sessions, route:a2a/agents]
+    uses: [route:agents/cards]
+    boundary: [core-api, remote, agents]
+    code: [packages/core/remote/a2a-lists.ts, packages/core/main/daemon/wiring/a2a-lists.ts, packages/protocol/machine/a2a.ts, packages/protocol/remote/allowlist.ts]
+    docs: [architecture/remote.md, architecture/agent-call.md]
+    steps:
+      - "다른 컴퓨터의 core가 기기 자격(principal device:<id>)으로 부른다. 기기 route 목록과 agent 요청한 쪽 목록에 있다. 명단의 다른 컴퓨터만 받는다: 폰, 명단 밖 기기, 기기가 아닌 자격은 forbidden이다"
+      - "a2a/sessions: main thread 연결로 열린 session을 Router의 session 목록과 같은 규칙(받는지, 상태)으로 읽고, 부른 컴퓨터의 mail이 연 session만 남긴다(그 컴퓨터가 부를 수 있는 것은 그것뿐이다). 받지 않는 session과 이 기계에서 private인 workspace의 session은 뺀다. workspace는 기계를 건너는 꼴(home, project의 identity와 이름, 앱 id와 slug)이다"
+      - "a2a/agents: `pri_`는 이 기계의 project로 풀고 앱 id와 home은 그대로다. 없거나 보관했거나 private이면 셋을 가르지 않고 {found: false, cards: []}다. 아니면 reader의 agents/cards를 machine 자격(machine:a2a-lists)으로 읽고 callable을 뺀다"
+      - "둘 다 not_found를 내지 않는다(보내는 쪽이 not_found를 옛 판으로 읽는다)"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: workspace-unknown
+        when: "a2a/agents의 workspace가 이 기계에 없거나 보관했거나 private이다. 명함을 읽지 않고 found false로 답한다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "부른 쪽이 명단의 다른 컴퓨터가 아니다(폰, 명단 밖 기기, 기기 아닌 자격)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "agents/cards를 읽지 못했다(agent 정의 folder를 읽지 못함)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
 
   - id: carry-link-pull
     title: "link로 붙은 컴퓨터가 든 manifest와 file 가운데 이 컴퓨터에 없는 것을 받아 computers 폴더의 받는 자리에 넘긴다"

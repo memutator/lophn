@@ -45,6 +45,7 @@ export const machineRename = defineMemory({
 // `current`는 이 요청에 답하는 core의 컴퓨터다(앱 화면이 다른 컴퓨터에서 그려지면 그 화면의 backend가 도는 컴퓨터의 core가 답한다).
 // `id`는 `connectCommands`의 `on`에 그대로 쓴다. `status`의 이름은 화면 component의 MachineOption과 같다(`connected`는 `online`).
 // `always_on`은 그 컴퓨터의 "늘 켜 둠" 표시다. 그 컴퓨터의 기록이 아직 오지 않았으면 null이다. 사람 허락 없이 읽는다.
+// agent는 `--on <컴퓨터>`로 부를 컴퓨터를 이것으로 읽는다.
 export const computerSchema = z.strictObject({
   id: machineIdSchema,
   name: machineNameSchema,
@@ -60,7 +61,7 @@ export const machineComputers = defineMemory({
   name: "machine.computers",
   input: z.strictObject({}),
   output: z.strictObject({ computers: z.array(computerSchema) }),
-  actors: ["user", "app"],
+  actors: ["user", "app", "agent"],
   errors: ["invalid_input", "forbidden"],
 });
 

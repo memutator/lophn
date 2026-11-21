@@ -31,6 +31,7 @@ import {
   visibleIn,
   workspaceOfAgent,
 } from "./inspect.ts";
+import { isPrivate } from "../../../protocol/lophn-agent/call-policy.ts";
 import { callPolicyAt } from "../../config/setting-declarations.ts";
 import { loadSession, workspaceOf } from "../session/model.ts";
 import { type CardCaller, cardByHandle, cardsIn } from "./card.ts";
@@ -191,11 +192,30 @@ export function createAgentReads(deps: AgentDeps): {
       route: agentCards,
       handle(
         snapshot: ReadSnapshot,
-        _ctx,
+        ctx,
         input: Input<typeof agentCards>,
       ): Result<Output<typeof agentCards>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
+        // agent는 자기 workspace와, 이 기계의 call 정책에서 private이 아닌 workspace의 명함만 읽는다.
+        const session = callerSession(snapshot, ctx);
+        const own =
+          session === undefined
+            ? undefined
+            : (workspaceOf(session)?.id ?? null);
+        if (
+          ctx.actor.startsWith("agent:") &&
+          own !== (input.workspace?.id ?? null) &&
+          isPrivate(callPolicyAt(context.value.store.root), input.workspace)
+        ) {
+          return err({
+            code: "forbidden",
+            message: "that workspace is private on this computer",
+          });
+        }
+        if (hiddenFrom(context.value, ctx, input.workspace)) {
+          return notFound("workspace");
+        }
         const cards = cardsIn(context.value, input.workspace);
         if (!cards.ok) return cards;
         return ok({

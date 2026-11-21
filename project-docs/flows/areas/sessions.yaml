@@ -2381,7 +2381,8 @@ flows:
   - id: app-agents-list
     title: "앱이 자기 workspace에서 부를 수 있는 agent들의 명함을 읽는다"
     actor: app
-    entries: [route:app_agents/list, route:agents/cards]
+    entries: [route:app_agents/list]
+    uses: [route:agents/cards]
     boundary: [agents, core-api]
     code: [packages/core/main/daemon/wiring/app-calls.ts, packages/core/lophn-agent/agents/card.ts, packages/core/lophn-agent/agents/reads.ts]
     steps:

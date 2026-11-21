@@ -1,4 +1,5 @@
-// `lophn machine environment|forget`: 사람의 여러 기계가 폴더로 앱을 주고받는 환경을 읽고, 사람이 기계 하나를 목록에서 지운다.
+// `lophn machine environment|forget|computers`: 사람의 여러 기계가 폴더로 앱을 주고받는 환경을 읽고, 사람이 기계 하나를 목록에서 지우고,
+// agent가 `--on`으로 부를 수 있는 사람의 컴퓨터를 읽는다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -6,6 +7,8 @@ import {
   machineEnvironment,
   machineForget,
 } from "../../protocol/folder/mod.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
+import { machineComputers } from "../../protocol/machine/mod.ts";
 import { defineCommand } from "./types.ts";
 
 const environment = defineCommand({
@@ -59,4 +62,25 @@ const forget = defineCommand({
   },
 });
 
-export const MACHINE_COMMANDS = [environment, forget];
+const computers = defineCommand({
+  name: "machine.computers",
+  summary: "List the person's computers you can reach with --on",
+  description:
+    "List the person's computers: id, name, status (online, offline, connecting, update), current (this computer) and always_on. Use a name or id with --on on call send, session list, agent list and agent card. A call sent to an offline computer goes when that computer comes back.",
+  input: z.strictObject({}),
+  effect: "read",
+  routes: [machineComputers],
+  workspaces: WORKSPACE_KINDS,
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(machineComputers, input);
+    if (!read.ok) return read;
+    const { computers } = read.value;
+    return ok({
+      summary: `${computers.length} ${computers.length === 1 ? "computer" : "computers"}`,
+      content: { computers },
+      arrayKeys: ["computers"],
+    });
+  },
+});
+
+export const MACHINE_COMMANDS = [environment, forget, computers];

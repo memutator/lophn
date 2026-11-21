@@ -51,13 +51,22 @@ function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
   return async (input, ctx) => {
     const { args } = input as { args: string[] };
     const commands = commandsForWorkspace(ctx.kind);
-    // `--on`은 다른 기계의 앱 command에만 붙는다(내장 명령, 다른 기계의 터미널·file·job은 범위 밖이다).
+    // `--on`은 다른 기계의 앱 command와, 자기 칸으로 `on`을 받는 내장 명령(call send, session list, agent list, agent card)에만
+    // 붙는다. 그 내장 명령은 loop가 앞에서 풀었으므로 여기 온 내장 명령의 `--on`은 틀린 것이다(다른 기계의 터미널·file·job은 범위 밖이다).
     const split = splitOn(args);
     if (!split.ok) return split;
     const { on, argv } = split.value;
     if (on !== null && (argv.length === 0 || isBuiltinWord(argv[0]))) {
+      // 그 명령이 `--on`을 받으면 명령줄의 다른 곳이 틀렸다(빠진 칸 같은). 그 오류를 그대로 알린다.
+      const parsed = parseCommandLine(args, commands);
+      if (
+        !parsed.ok &&
+        !parsed.error.message.startsWith("unknown flag: --on")
+      ) {
+        return parsed;
+      }
       return invalid(
-        "--on goes with an app command: lophn <app> <command> --on <computer>",
+        "--on goes with an app command, or with call send, session list, agent list or agent card",
       );
     }
     // 앱 목록은 앱 command와 맨 위 도움말에만 읽는다: 다른 컴퓨터를 읽을 수 있어서 내장 명령(`job list`, 그룹 도움말)은 읽지 않는다.

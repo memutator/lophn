@@ -197,15 +197,16 @@ export const agentCard = defineRead({
   errors: [...readErrors],
 });
 
-// 앱이 자기 workspace에서 부를 수 있는 agent들의 명함이다. 한 번에 읽는다(앱 화면의 agent 목록). core 안 machine만 쓴다.
+// 한 workspace(null은 home)에서 부를 수 있는 agent들의 명함이다. 한 번에 읽는다: 앱 화면의 agent 목록, agent의 `agent list`,
+// 다른 컴퓨터가 읽는 명함(`a2a/agents`). agent는 이 기계에서 private인 다른 workspace를 읽지 못한다.
 export const agentCards = defineRead({
   resource: "agents",
   method: "cards",
   name: "ListAgentCards",
-  input: z.strictObject({ workspace: workspaceSchema }),
+  input: z.strictObject({ workspace: workspaceSchema.nullable() }),
   output: withReadCommon(z.object({ cards: z.array(agentCardSchema) })),
   reads: ["agents", "models"],
-  actors: ["machine"],
+  actors: ["machine", "agent"],
   errors: [...readErrors],
 });
 

@@ -283,6 +283,11 @@ const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
   "packages/protocol/base/route.ts\0../events/changes.ts",
   "packages/protocol/apps/annotation.ts\0../lophn-agent/workspaces.ts",
   "packages/protocol/coding-agent/terminals.ts\0../lophn-agent/host-queue.ts",
+  // machine/a2a.ts(다른 컴퓨터의 session·명함 목록)는 lophn-agent의 명함·주소 schema를 쓴다. machine의 다른 file은 a2a.ts를
+  // import하지 않아 lophn-agent → apps → machine 길이 a2a.ts에 닿지 않는다(실행 순환이 아니다).
+  "packages/protocol/machine/a2a.ts\0../lophn-agent/agent-definitions.ts",
+  "packages/protocol/machine/a2a.ts\0../lophn-agent/calls.ts",
+  "packages/protocol/machine/a2a.ts\0../lophn-agent/workspaces.ts",
 ]);
 
 // 폰 kit `@lophn/ui-native`(packages/design/native)는 root workspace의 member가 아니다(packages/mobile의 Metro alias와 설치 사본으로 풀린다).

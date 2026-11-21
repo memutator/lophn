@@ -6,7 +6,7 @@ import type { SharedSkill } from "../harnesses/skill-copies.ts";
 
 const SKILL_MD = `---
 name: lophn-agent
-description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL or LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (the second is a coding agent chat tab that is a lophn team member). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\` and \`lophn agent card\`, and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
+description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL or LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (the second is a coding agent chat tab that is a lophn team member). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\`, \`lophn agent list\` and \`lophn agent card\` (also on the person's other computers with \`--on\`), and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
 ---
 
 # Working with other lophn agents
@@ -68,10 +68,27 @@ lophn team end ses_xxx
 
 \`\`\`
 lophn session list
+lophn agent list
 lophn agent card reviewer
 \`\`\`
 
-\`session list\` shows the open sessions you can send to (ID, agent handle and name, title, workspace, state, last activity; state is waiting while a person has to approve or answer). \`agent card <handle>\` shows what an agent does and which replies it supports; read it before you call that agent.
+\`session list\` shows the open sessions you can send to (ID, agent handle and name, title, workspace, state, last activity; state is waiting while a person has to approve or answer). \`agent list\` shows the agents defined for your workspace (\`--workspace\` for another one). \`agent card <handle>\` shows what an agent does and which replies it supports; read it before you call that agent.
+
+## Other computers
+
+\`\`\`
+lophn machine computers
+lophn agent list --on <computer> [--workspace '{"project":"my-project"}']
+lophn agent card reviewer --on <computer>
+lophn session list --on <computer>
+lophn call send --on <computer> --to '{"agent":"reviewer","workspace":{"project":"my-project"}}' --reply result --body "..."
+\`\`\`
+
+- \`machine computers\` lists the person's computers. \`--on <computer>\` takes a name or id from it. Each computer has its own agents, projects and sessions.
+- The workspace there is a project name (or its \`pri_\` id when the project is on several computers), an app slug, or \`{"home":true}\`. Without one, \`agent list\` and \`agent card\` look in the workspace you run in, and \`call send\` opens the agent at home as on this computer. \`session list --on\` shows the sessions calls from this computer opened there; send to one with \`--to '{"session":"ses_xxx"}'\`.
+- Only text goes. Files, images and changes you have not committed stay on this computer; if the other side needs code, move it first (for example with git) as your instructions say.
+- A call to a computer that is off goes when it comes back. A session opened by a call from another computer cannot send to a third computer.
+- Which computer and agent to call is for your instructions and the person to decide; lophn does not pick one.
 
 ## Open and drive a browser tab
 

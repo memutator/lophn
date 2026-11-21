@@ -12,6 +12,7 @@ import {
   shareRequestList,
 } from "../approvals/share-request.ts";
 import { turnRequestDecide } from "../approvals/turn-request.ts";
+import { a2aAgents, a2aSessions } from "../machine/a2a.ts";
 import { machineComputers } from "../machine/mod.ts";
 import { presenceReport, unseenDismiss, unseenList } from "../attention/mod.ts";
 import {
@@ -384,6 +385,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   appRemoteCall,
   // 다른 컴퓨터의 agent가 보낸 mail의 입구. 명단의 컴퓨터만 받는다(handler가 본다. 폰은 forbidden)
   a2aMail,
+  // 다른 컴퓨터의 agent가 부를 수 있는 session과 명함. 명단의 다른 컴퓨터만 읽는다(폰은 forbidden)
+  a2aSessions,
+  a2aAgents,
   // 앱 workspace: 실행 기록과 판
   runList,
   runRead,
@@ -533,13 +537,16 @@ export const REMOTE_PERSON_ROUTES = [
 ] as const;
 
 // 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):
-// 앱 목록과 그 command 목록(`machines/app_tools`가 읽는다)과 앱 command 입구, mail 입구. 사람의 route와 확인이 필요한 command는 이 밖이다.
+// 앱 목록과 그 command 목록(`machines/app_tools`가 읽는다)과 앱 command 입구, mail 입구, 부를 수 있는 session과 명함(`machines/sessions|agents`가
+// 읽는다). 사람의 route와 확인이 필요한 command는 이 밖이다.
 export const REMOTE_AGENT_ROUTES = [
   appList,
   appGet,
   appTools,
   appRemoteCall,
   a2aMail,
+  a2aSessions,
+  a2aAgents,
 ] as const;
 
 // 컴퓨터가 요청한 쪽(`by`) 없이 보내는 frame은 그 컴퓨터의 core가 스스로 하는 일이다(사람이나 agent가 시킨 것이 아니다). 받는 기계는 이 목록

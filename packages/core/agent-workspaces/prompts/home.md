@@ -44,7 +44,7 @@ decisions of the plan.
   `lophn app take-in <app>`, then `lophn call send` to lophn at the app to run
   `lophn release activate <release>`, which gives the person the consent card.
   Every non-private active app shares its source across computers automatically
-  even when data sync (`sync_to`) is off (its data stays local per computer);
+  even when its declaration's `sync` lists no table (its data stays local per computer);
   if the app is not in `available` yet, it may be private on that computer or
   still arriving.
 - When the plan is work on a project's skills, or

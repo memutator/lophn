@@ -16,8 +16,8 @@ You set none of this up and nothing chooses between these ways:
 
 - Computers in the person's device list (`lophn remote devices`; Settings ›
   Remote) connect to each other over the local network or through lophn's relay,
-  and an app that declares `sync_to: "computers"` has its data carried over that
-  connection while both are on.
+  and the tables an app lists in its declaration's `sync` with `"computers"` are
+  carried over that connection while both are on.
 - A connected computer also passes on the files of the person's other computers
   that it holds. So a computer in the device list that is always on (a server, a
   VM, a desktop left running with Keep running) becomes the middle by itself:
@@ -31,7 +31,7 @@ You set none of this up and nothing chooses between these ways:
 
 The person sees the way each computer's files last arrived, and when each app
 last caught up, in Settings › Sync. You can read the same facts with
-`lophn machine environment` (the other computers and each app's `sync_to`).
+`lophn machine environment` (the other computers and each app's `sends_to`).
 Look there before you suggest anything.
 
 Check before you propose any folder or tool: run `lophn machine environment` and
@@ -63,7 +63,7 @@ system of a dual boot, a home and a work computer) use `--long`.
 ## When an app is on another computer but not on this one
 
 Every non-private active app automatically shares its source and record across
-the person's computers via `computers` (even when `sync_to` is off; in that case
+the person's computers via `computers` (even when its `sync` lists no table; then
 its data stays local per computer). The person can install it here from Settings
 › Sync ("Available from other computers") or from the app's row under that
 computer in the sidebar ("Install on this computer"). When they ask you to do
@@ -71,9 +71,9 @@ it:
 
 1. `lophn machine environment`. The app is installable when it is listed in
    `available` (with the computer it came from). If it is not there yet, the app
-   may be private on that computer (when `sync_to` is off) or its files have not
-   arrived yet: say which. Do not ask them to turn on data sync (`sync_to`) just
-   to install the app unless they also want its data synced.
+   may be private on that computer or its files have not arrived yet: say which.
+   Do not ask for data sync (`sync`) just to install the app unless they also
+   want its data synced.
 2. `lophn app take-in <app>` (`--from <machine>` when more than one computer
    offers it). It installs the app and prepares its release here; nothing runs
    yet. `conflict` says why in `details.reason`: `sdk_missing` (the person
@@ -114,7 +114,7 @@ Before anything asks the person, say in plain words:
   that. Otherwise offer Syncthing or the shared disk, or tell them to keep that
   data off the folder;
 - a cloud folder meant for only some of the data is not this setting. An app
-  chooses a named destination (`sync_to: "<name>"`); that is the app agent's
+  names a destination for some of its tables in `sync`; that is the app agent's
   work, in that app's conversation.
 
 Then:

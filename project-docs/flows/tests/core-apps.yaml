@@ -178,7 +178,7 @@ files:
 
   - path: packages/core/apps/releases/prepare/checks_test.ts
     covers: [release-prepare:failed-migration]
-    note: "checkMigration: migration 단계 실패, PRIMARY KEY 없는 표, 빈 DB에서 닿지 못함, active release schema가 길 위에 없음, runs_on에 phone이 있거나 sync_to가 있는 앱의 정수 PK·AUTOINCREMENT·trigger를 떨어뜨리고 둘 다 없는 앱은 같은 SQL을 통과시킴, sync_to만 있는 앱의 SDK 하한은 cap-store 2.0.0 하나(release-prepare failed-migration의 조건). release-prepare:failed-migration 판정을 단정"
+    note: "checkMigration: migration 단계 실패, PRIMARY KEY 없는 표, 빈 DB에서 닿지 못함, active release schema가 길 위에 없음, runs_on에 phone이 있거나 sync가 그 표를 보내는 앱의 정수 PK·AUTOINCREMENT·trigger를 떨어뜨리고 그 표를 보내지 않는 앱은 같은 SQL을 통과시킴, sync가 적은 표가 없으면 떨어뜨림, sync만 있는 앱의 SDK 하한은 cap-store 2.0.0 하나(release-prepare failed-migration의 조건). release-prepare:failed-migration 판정을 단정"
 
   - path: packages/core/apps/releases/public-tools_test.ts
     covers: []
@@ -214,7 +214,7 @@ files:
 
   - path: packages/core/apps/runtime/entrypoint/sync_test.ts
     covers: []
-    note: "sync 앱(runs_on에 phone이나 sync_to)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 묶음에서 제약에 걸린 변경 하나는 건너뛰고 다음은 적용, 묶음을 적용하다 연결이 끊기면 data와 clock이 묶음 앞과 같음, sync_to만 있는 computer 앱도 sync 앱(write가 clock을 실음)이고 runsOnPhone은 아님, 칸을 지운 migration 뒤 column clock을 칸 이름으로 옮겨 두 사본이 같아짐, 칸을 사이에 더한 migration 뒤에도 옛 release에서 한 칸 고침의 clock이 이름으로 옮겨져 먼저 올라간 기계에 늦게 올라온 기계의 snapshot을 합치면 그 고침이 남음, 다른 기계의 sync DB(machine 표지가 다름)는 node가 새것이 되고 표지가 없는 DB는 지금 id를 적으며 node를 지키고 둘 다 data와 clock 표는 그대로. 이 동작을 부르는 route(app_sync/*)는 apps/sync/sync_test.ts가 본다"
+    note: "sync 앱(runs_on에 phone이 있거나 sync가 표를 보냄)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 묶음에서 제약에 걸린 변경 하나는 건너뛰고 다음은 적용, 묶음을 적용하다 연결이 끊기면 data와 clock이 묶음 앞과 같음, sync만 있는 computer 앱도 sync 앱이고 write가 보내는 표에만 clock을 달며 폴더 snapshot은 그 표와 clock만 담고 옛 release의 sync_to는 모든 표(clock, DB 통째 snapshot), filterChangeset을 거친 changeset이 SQLite와 칸 단위 적용 모두에서 그대로 적용됨, 보내지 않는 표가 없는 snapshot을 합쳐도(없는 row 지우기를 걸어도) 이 기계에만 있는 표의 row가 남음, sync에서 빠진 표의 row·칸 clock과 kept는 앱 process가 뜰 때 지워짐, 칸을 지운 migration 뒤 column clock을 칸 이름으로 옮겨 두 사본이 같아짐, 칸을 사이에 더한 migration 뒤에도 옛 release에서 한 칸 고침의 clock이 이름으로 옮겨져 먼저 올라간 기계에 늦게 올라온 기계의 snapshot을 합치면 그 고침이 남음, 다른 기계의 sync DB(machine 표지가 다름)는 node가 새것이 되고 표지가 없는 DB는 지금 id를 적으며 node를 지키고 둘 다 data와 clock 표는 그대로. 이 동작을 부르는 route(app_sync/*)는 apps/sync/sync_test.ts가 본다"
 
   - path: packages/core/apps/runtime/observations/log-file_test.ts
     covers: [app-log-write:written, app-log-write:rotated]

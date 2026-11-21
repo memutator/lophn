@@ -1,6 +1,6 @@
 # sync-tables: 앱 data를 table마다 다른 길로 보낸다
 
-상태: 계획 전(2026-11-21). 조사 끝, 구현 안 함. 길은 "한 줄"이다(같은 file을 차례로 고치고 앞에서 정한 것을 뒤가 쓴다). branch `feat/sync-tables`.
+상태: 1단계 끝(2026-11-22, branch `feat/sync-tables`, change-log `0.23/sync-tables.yaml`). 2단계(한 앱의 destination 여럿)는 남았다. 길은 "한 줄"이다(같은 file을 차례로 고치고 앞에서 정한 것을 뒤가 쓴다).
 배경 문서: `project-docs/architecture/folder-sync.md`, `project-docs/architecture/app-sync.md`, `project-docs/products/roadmap/multi-machine.md`, change-log `0.23/app-folder-sync.yaml`·`0.23/carry-paths.yaml`·`0.23/app-source-share-without-sync.yaml`.
 
 ## 사람의 말 (원문)
@@ -45,7 +45,15 @@ sync: {
 
 ## 단계
 
-### 1단계: 로컬 전용 table 빼기 (destination은 앱에 하나)
+### 1단계: 로컬 전용 table 빼기 (destination은 앱에 하나) — 끝
+
+한 대로: 아래 표 그대로다. 다른 점과 더한 것:
+
+- 폰 앱이 일부 표만 적으면 log 줄은 모든 표를 담고(폰 길) 폴더로 내보낼 때 보내는 표만 남긴다. 그래서 거르는 자리는 log에 넣기 전(폰 앱이 아니면 clock을 다는 표 = 보내는 표)과 내보내기 둘이다. horizon 밖 held로 바꾸기도 보내는 표가 없는 줄은 건너뛴다.
+- 옛 release의 `sync_to`를 읽으려고 `validateDeclaration`이 봉인한 선언을 다시 읽는 자리(`sealed`)에서만 그 칸을 받는다. 폴더 앱 기록 `app.json`의 `sync_to` 칸은 이름 그대로 둔다(옛 lophn이 칸 없는 기록을 읽지 못한다). `machine/environment`는 `sends_to`, `carry/status`는 `destination`으로 바꿨다.
+- `@lophn/declaration`은 major(5.0.0)로 올렸다(칸 제거).
+- 확인한 것: node:sqlite(Node 24.20)에서 WAL 앱 DB 연결에 ATTACH해 `INSERT … SELECT`로 복사가 되고 붙인 DB의 쓰기는 main session에 들지 않는다. 새 연결의 foreign_keys 기본값은 켜짐이다(cap-store도 켠다). 복사 중에는 끈다.
+
 
 선언은 최종 모양으로 받되, 표의 값이 모두 같은 destination이어야 한다. Mahas가 막힌 곳이 여기서 풀린다.
 
@@ -102,7 +110,7 @@ apply는 SQL을 그대로 돌린다. 그래서 받은 변경을 넣을 때도, s
 ## 위험과 test
 
 - 컴퓨터마다 자기 원본을 같은 rollup PK로 모으면 칸 단위 last-write-wins로 서로 덮는다. 지침이 "컴퓨터마다 생기는 줄의 PK에 machine id를 넣는다"를 요구해야 한다. id는 `app-roster-sdk`의 명단 API가 준다.
-- `ATTACH` 복사와 node:sqlite의 FK 기본값은 확인하지 않았다. 1단계 처음에 본다.
+- `ATTACH` 복사와 node:sqlite의 FK 기본값은 1단계에서 확인했다(위 1단계).
 - `skipped` 줄이 로컬 전용 invocation마다 하나씩 쌓인다(작은 줄).
 - test는 data를 잃는 규칙 셋만 쓴다: `filterChangeset`을 거친 changeset이 그대로 적용된다, 로컬 table이 없는 snapshot을 합쳐도 로컬 줄이 남는다, table이 표에서 빠지면 그 clock이 지워진다. 2단계는 held가 destination마다 갈리는 것 하나. 폴더 export·import·apps test는 고쳐 살리지 않고 다시 쓴다.
 

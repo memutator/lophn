@@ -301,7 +301,8 @@ First read the bundled `phone-check.md` to check those on the person's
 phone (`lophn tab open --phone`); `phone-features.md` for home screen widgets
 and phone features (`phone.use`); `phone-apps.md` when the app's backend and
 data also run on the phone (`runs_on`); `folder-sync.md` when its data must
-reach the person's other computers (`sync_to`, `"computers"` first; changes
+reach the person's other computers (`sync`, only the tables that must leave,
+`"computers"` first; changes
 from there arrive as `data.changed`). Use
 `skill.read({ name: "design-app", path: "<file>" })`.
 

@@ -1,0 +1,47 @@
+id: sync-tables
+version: 0.23.119
+title: "앱 선언이 표마다 data의 destination을 적고, 적지 않은 표는 그 컴퓨터를 떠나지 않는다(roadmap sync-tables 1단계)"
+modules: [packages/base, packages/protocol, packages/protocol/apps/sync, packages/sdk, packages/cli, packages/core/apps, packages/core/apps/sync, packages/core/apps/update-state, packages/core/folder, packages/core/agent-workspaces, packages/core/main, packages/shell/renderer]
+checked: [boundary-catalog]
+change: |
+  전: 선언의 `sync_to`(앱에 destination 이름 하나)를 켜면 앱 DB의 모든 표가 그 destination으로 갔다. snapshot은 DB 통째(`VACUUM INTO`)이고 1 GiB 한도가 그 file을 쟀다. 정수 PK·AUTOINCREMENT·UNIQUE·CHECK·trigger 금지가 모든 표에 걸렸다.
+  후:
+  - 선언: `sync_to`를 지우고 `sync`(표 이름 → destination 이름)를 둔다. 지금은 값이 모두 같은 destination이어야 한다. 표 이름은 `lophn_`·`sqlite_`로 시작하지 못하고, 비면 칸이 없다. `across_machines` event는 `sync`가 표를 적어야 쓴다. 새 release 준비(선언 검사, release 등록)는 `sync_to`를 `invalid_input`으로 거절한다("sync_to was replaced by sync: …"). 봉인한 선언을 다시 읽는 자리(activation의 bundle 사본, 폰 화면 목록)만 `sync_to`를 받는다(`validateDeclaration`의 `sealed`).
+  - 읽는 곳 하나: `syncPlanOf(declaration)`(protocol)가 sync 앱인가, 보내는 표, clock을 다는 표(폰 앱은 모든 표, 그 밖에는 보내는 표)를 정한다. 옛 release의 `sync_to`는 "모든 표를 그 destination으로"다. 앱 runtime, sync log, release 준비 검사, folder wiring, 폰 route 판정이 이것을 쓴다.
+  - changeset: `filterChangeset`(base, 표 구간을 bytes 그대로 거른다). 이 기계의 write·rewind는 sync log에 넣기 전에 clock을 다는 표의 구간만 남기고, 남는 것이 없는 write는 `skipped` 줄이다. 폴더 내보내기는 줄마다 보내는 표만 남기고 빈 줄은 건너뛴다(폰 앱의 줄은 모든 표를 담는다).
+  - clock: `stampLocal`(rewind·held 다시 찍기 포함)과 `remapColumnClocks`는 clock을 다는 표만 본다. 선언에서 빠진 표의 row·칸 clock과 kept는 앱 process가 뜰 때 지운다.
+  - snapshot: 앱 process control `apps.snapshot`에 `for: phone | folder`. `folder`는 새 DB file을 앱 연결에 ATTACH해 보내는 표(CREATE TABLE 그대로)와 그 clock·kept 줄, `lophn_sync_state`를 한 transaction으로 복사한다. 1 GiB는 이 file을 잰다. 옛 release와 폰은 그대로 `VACUUM INTO`.
+  - 합치기: `mergeSnapshot`의 `tables`. 받는 쪽 선언의 보내는 표만 모양을 대조하고 합치며 없는 row 지우기도 그 표만이다.
+  - schema 검사: 정수 PK·AUTOINCREMENT·UNIQUE·CHECK와 trigger는 맞추는 표(폰 앱은 모든 표)에 건 것만 거절한다. `sync`가 적은 표가 없거나 PK가 없으면, 보내는 표가 보내지 않는 표를 FK로 가리키면, 보내지 않는 표가 보내는 표를 CASCADE·SET NULL·SET DEFAULT로 가리키면 거절한다.
+  - 읽기 계약: `machine/environment`의 앱 칸 `sync_to` → `sends_to`, `carry/status`의 앱 칸 `sync_to` → `destination`. 폴더의 앱 기록 `app.json`의 `sync_to` 칸은 이름 그대로 둔다(옛 lophn이 그 칸 없는 기록을 읽지 못한다). 폰 길과 폰 사본은 그대로다.
+  - SDK: `@lophn/declaration` 5.0.0(major, `sync`가 `sync_to`를 대신), `@lophn/app-ui` 2.24.1과 `@lophn/app-ui-native` 1.9.4(pin만). `migrate-sdk` 메모 `declaration-5.0.0.md`(Instruction diff), `app-ui-2.24.1.md`, `app-ui-native-1.9.4.md`. 지원 하한은 그대로다. `design-app`의 `folder-sync.md`를 표마다 고르는 지침으로 다시 썼다(컴퓨터마다 생기는 줄의 PK에 machine id).
+  - ledger schema step과 data step은 없다(앱 DB의 clock 지우기는 앱 process가 한다).
+why: |
+  Mahas는 시간별 집계만 컴퓨터끼리 맞추면 되는데 272MB 원본 표와 컴퓨터마다 다른 file 읽기 위치 표까지 따라가 앱 agent가 막혔다. 사람은 앱이 아니라 앱 안의 data마다 길을 정하길 원했다(roadmap `sync-tables`).
+decisions:
+  - text: "정책의 단위는 앱이 아니라 앱 안의 data다. `app-folder-sync`의 \"선언 칸은 `sync_to` 하나\"를 바꾼다."
+    by: person
+  - text: "data를 맞추는 것과 다른 컴퓨터의 앱을 쓰는 것(remote use)은 다른 일이다. 이 일은 앞의 것만 다룬다."
+    by: person
+  - text: "단위는 표이고 적지 않은 표는 로컬 전용이다. DB file을 나누지 않는다. 버린 길: 표마다 DB file(rewind와 한 invocation의 원자성이 file을 건넌다)."
+    by: agent
+  - text: "폰에서 도는 앱의 폰 길은 모든 표를 그대로 다루고 폴더로 나갈 때만 거른다. 그래서 폰 앱은 모든 표에 clock을 달고 log 줄도 모든 표를 담는다."
+    by: agent
+  - text: "이 기계의 write는 sync log에 넣기 전에 clock을 다는 표만 남기고, 남는 것이 없으면 `skipped` 줄을 둔다. 버린 길: 내보낼 때만 거르기(로컬 전용 변경이 horizon 밖에서 held가 되어 snapshot을 막는다), 줄을 두지 않기(core 기동의 메우기가 매번 re-snapshot으로 본다)."
+    by: agent
+  - text: "폴더 snapshot은 ATTACH한 새 file에 보내는 표를 앱이 쓴 CREATE TABLE 그대로 복사한다(칸 affinity가 같아 합치기가 DB 통째일 때와 같다). 확인한 것(Node 24.20 node:sqlite): WAL 앱 DB 연결에 ATTACH와 `INSERT … SELECT`가 되고(2만 줄 5 ms), 붙인 DB의 쓰기는 main에 건 session에 들지 않는다. 새 `DatabaseSync` 연결은 foreign_keys가 기본으로 켜져 있고(`enableForeignKeyConstraints` 기본 true, readOnly도) cap-store도 켜므로 복사하는 동안 끈다. ATTACH는 transaction 밖에서만 된다."
+    by: agent
+  - text: "선언에서 빠진 표의 clock은 앱 process가 뜰 때 지운다. 지운 표의 row는 sync를 켜기 전 data처럼 clock 0이다. 버린 길: 남기기(다시 보낼 때 옛 흔적이 다시 넣은 row를 지우거나 옛 값이 고침을 덮는다)."
+    by: agent
+  - text: "켜 둔 옛 release의 `sync_to`는 \"모든 표를 그 destination으로\"로 읽어 그대로 돌고, 새 release 준비는 거절한다. 다른 기계가 그 옛 release를 아직 들이지 않았으면 그 기계의 take-in·따라가기도 거절된다(앱 agent가 `sync`로 새 release를 내야 한다)."
+    by: agent
+  - text: "`@lophn/declaration`은 major 5.0.0이다(선언 칸 제거는 SDK 판 정책의 major). 지원 하한은 그대로(옛 판 봉인 release가 뜬다). 폴더 앱 기록의 `sync_to` 칸 이름은 바꾸지 않는다(폴더 꼴 판 범위 안의 옛 lophn이 칸 없는 기록을 거절한다)."
+    by: agent
+  - text: "폰 앱이 `sync`에 일부 표만 적어도 폰 앱의 schema 규칙은 모든 표에 건다(폰 사본이 DB 통째다)."
+    by: agent
+follow_up: |
+  roadmap `sync-tables` 2단계(한 앱의 destination 여럿: sync log의 destination, ledger key, export·import를 (앱, destination)마다).
+checklist:
+  - "해야: lophn을 다시 build하고 설치한다"
+  - "`sync_to`로 폴더 sync를 켠 앱은 지금 release로 그대로 맞춘다(모든 표). 다음 release부터 그 앱의 agent가 `lophn.ts`의 `sync_to`를 `sync: { <표>: \"computers\", … }`로 바꿔야 준비가 된다(migrate-sdk `declaration-5.0.0`)"
+  - "앱 agent가 `sync`로 표를 줄인 release를 활성화한 뒤 `lophn machine environment`의 그 앱 `sends_to`와 export 오류가 없는지 본다"

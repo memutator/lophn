@@ -23,7 +23,7 @@ Package를 쓴다.
 ## SDK 확인
 
 - 내장 SDK의 사용법은 설치 사본의 `guide.md`(예:
-  `.lophn/sdk/declaration/4.13.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
+  `.lophn/sdk/declaration/5.0.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
   필요하면 `lophn.ts`의 의존 선언과 `package.json`의 의존을 같은 정확한
   version으로 함께 고친 뒤 `npm install`을 돌린다(release 준비가 둘을 대조한다).
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
@@ -74,8 +74,9 @@ Package를 쓴다.
   폰에서도 돌릴 앱만 `["computer", "phone"]`, 폰에서만 돌 앱만 `["phone"]`을 쓴다(폰 화면이 있다는 이유로 쓰지 않는다).
   폰에서 도는 앱은 `design-app` skill의 "Apps that run on the phone"(bundled file `phone-apps.md`, `skill.read`)를 먼저 읽고 따른다:
   text id(`newId()`), `node:` import·trigger·정수 PK 금지, 컴퓨터 전용 일은 `external` operation.
-  `sync_to`는 앱의 data를 사람의 다른 컴퓨터로 보낼 destination 이름이다. 없으면 data는 이 기계에만 있다. 먼저 `"computers"`를
-  고른다(옮기는 길은 lophn이 고른다). 다른 기계와 폰에서 온 변경은 `lophn`의 event `data.changed`로 안다.
+  `sync`는 앱 DB의 어느 표를 사람의 다른 컴퓨터로 보낼지다(표 이름 → destination 이름). 적지 않은 표는 이 기계에만 있다.
+  보낼 표만 적고, destination은 먼저 `"computers"`를 고른다(옮기는 길은 lophn이 고른다). 다른 기계와 폰에서 온 변경은
+  `lophn`의 event `data.changed`로 안다.
   쓰기 전에 `design-app` skill의 bundled file `folder-sync.md`를 읽고 따른다(정책 고르기, 사람에게 설명, 폴더를 옮기는 도구).
   `sidebar`와 `tray`는 선언하면 바로 나오고 사람이 Settings에서 끈다.
   tray popup은 기본 360×480px이다. 크기는 그 화면에 `tray: { width, height }`(px)로 적고, 각 쪽은 숫자(고정)나

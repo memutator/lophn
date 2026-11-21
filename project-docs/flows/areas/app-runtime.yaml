@@ -1267,7 +1267,7 @@ flows:
     boundary: [app-runtime, app-data]
     code: [packages/core/apps/sync/service.ts, packages/core/apps/sync/log.ts, packages/core/apps/calls/service.ts, packages/core/apps/runtime/entrypoint/control-server.ts, packages/core/apps/runtime/entrypoint/sync.ts]
     steps:
-      - "짝지은 기기 자격(principal device:<id>)만 부른다. 앱의 활성 release가 없으면 not_found, 입력 release와 다르면 conflict(details.active_release), 선언이 runs_on에 phone이 없으면(sync_to만 있는 앱도) invalid_input이다."
+      - "짝지은 기기 자격(principal device:<id>)만 부른다. 앱의 활성 release가 없으면 not_found, 입력 release와 다르면 conflict(details.active_release), 선언이 runs_on에 phone이 없으면(sync만 있는 앱도) invalid_input이다."
       - "변경마다 차례로: 접수가 닫혀 있으면(rewind·activation) 기다리고, 앱의 write 줄을 잡은 뒤 release를 다시 보고, 같은 기기의 같은 변경 id가 sync log에 있으면 duplicate와 그 seq를 준다."
       - "아니면 invocation을 연다(caller person, view_session은 변경 id, device, effect write, operation은 폰이 준 이름, started_at은 폰의 값)."
       - "앱 process가 apps.sync_apply로 칸 단위 last-write-wins로 적용한다. invocation은 effective changeset(실제로 바뀐 것)으로 닫히고, sync log 줄은 폰이 보낸 원래 changeset과 hlc를 가리킨다(origin device). 줄마다 AppSyncChanged를 낸다."
@@ -2571,7 +2571,7 @@ flows:
     crosses_process: true
 
   - id: folder-export-run
-    title: "sync_to가 있는 앱의 data, 앱 기록, release, source와 기계 기록을 destination의 자기 하위 폴더에 쓴다"
+    title: "선언의 sync가 보내는 표의 data, 앱 기록, release, source와 기계 기록을 destination의 자기 하위 폴더에 쓴다"
     actor: system
     entries: [system:folder-export]
     boundary: [folder, app-sync]
@@ -2579,6 +2579,7 @@ flows:
     steps:
       - "계기: 앱마다 AppSyncChanged 뒤 5초 debounce, 5분 timer, folder.destinations 설정이 바뀜, core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(scan이 실패하면 다음 scan 뒤로 미룬다). (앱, destination)마다 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 기계 기록은 시작 listener가 제품 판을 알려 준 뒤부터 쓴다"
       - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱 기록·release·source를 쓴다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다"
+      - "changes file에는 줄의 changeset에서 선언의 sync가 보내는 표의 구간만 담고(폰 앱의 줄에는 폰만 받는 표도 있다) 남는 것이 없는 줄은 건너뛴다. snapshot은 앱 process가 apps.snapshot(for folder)으로 새 DB file에 보내는 표와 그 clock 줄, sync 상태만 복사한 것이고 1 GiB 한도는 그 file을 잰다. 옛 release(sync_to)는 모든 표이고 VACUUM INTO로 DB 통째다"
       - "다른 기계에서 온 일(snapshot 합치기, 결과 모르는 받은 변경)의 '다시 snapshot' 줄(origin machine)은 건너뛴다: 그 data는 출처가 이미 냈다. 그래서 서로의 snapshot을 합친 두 기계도 뒤의 write는 changes file로 나간다"
       - "horizon 밖이면 아직 내보내지 않은 자기 change 줄 가운데 clock이 horizon 이하인 것을 그 자리에서 held로 바꾼다(snapshot 앞에는 그 seq까지 먼저). held인 자기 변경이 풀리지 않았으면 snapshot을 쓰지 않는다: 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없으면 away_too_long으로 멈춘다"
       - "앱이 다른 기계의 horizon 밖(away_since)이면 core 알림 app_sync_away 하나(앱마다 key 하나)를 쓴다. held 수가 늘면 다시 쓴다. 이번 run이 held로 둔 변경이 있으면 그 run에서 따라잡아 떨어져 있음이 이미 끝났어도 쓴다. 새 held 없이 떨어져 있음이 끝나거나(run 앞뒤의 away_since) 사람이 held를 풀어 줄면 같은 줄을 '따라잡았다'와 남은 held 수로 바꾼다. 마지막으로 알린 held 수는 folder_streams.away_notified(ledger)에 두어 core를 다시 켜도 같은 수로 다시 쓰지 않는다"
@@ -2780,7 +2781,7 @@ flows:
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/apps/update-state/, packages/protocol/apps/update-state.ts, packages/shell/renderer/app-frame/app-detail/machines-section.tsx]
     steps:
       - "앱 workspace의 agent 자격은 자기 앱만 본다(다른 앱은 not_found)"
-      - "이 기계에서 sync_to가 있고 활성 release가 있는 앱만 답한다. 메모리 값(follow 상태, held, 기계별 꼴 판 범위)과 기록 사본, 이 기계의 release 행을 읽기만 한다"
+      - "이 기계에서 선언의 sync가 표를 보내고 활성 release가 있는 앱만 답한다. 메모리 값(follow 상태, held, 기계별 꼴 판 범위)과 기록 사본, 이 기계의 release 행을 읽기만 한다"
       - "machines: 이 기계(첫 줄)와 그 앱 기록이 있는 기계의 활성 release(이 기계에 있으면 r<n> 번호), 그리고 꼴 판이 범위 밖이라 앱 기록을 읽지 않은 기계(release null)와 각 기계의 lophn 판·exchange. 범위 밖 기계는 범위 밖이 되기 전에 읽은 그 기계의 앱 기록 사본이 있는 앱에만 선다(사본이 하나도 없으면 모든 앱에 선다)"
       - "held: 출처와 release마다 변경 수·bytes·한도. 이 기계의 따라가기가 갈라졌고 그 release의 held면 diverged(합친 release가 나와야 온다), 이 기계가 지금 release보다 먼저 들인 release(번호가 낮다)이거나 data schema가 지금보다 낮으면 older_release, 아니면 newer_release(사람이 돌아가 내려놓은 release도 newer_release다). 지금 release의 held(적용 중)는 뺀다"
       - "follow 상태·held·기계 범위가 바뀌거나 scan이 새 기록을 읽으면 folder wiring이 StateChanged(app_runtime)를 내고, 활성 release가 바뀌면 releases 변경으로 화면이 다시 읽는다"
@@ -2790,7 +2791,7 @@ flows:
         observe: [response, "screen:app-machines-waiting"]
       - id: not_found
         code: not_found
-        when: "이 기계에서 폴더로 맞추지 않는 앱이다(sync_to 없음, 활성 release 없음, 보관, 없는 앱), 또는 앱 workspace agent가 다른 앱을 적었다"
+        when: "이 기계에서 폴더로 맞추지 않는 앱이다(sync가 보내는 표 없음, 활성 release 없음, 보관, 없는 앱), 또는 앱 workspace agent가 다른 앱을 적었다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
@@ -2947,8 +2948,8 @@ flows:
     code: [packages/core/apps/events/publish.ts, packages/core/folder/export/events.ts, packages/core/main/daemon/wiring/folder.ts]
     docs: [architecture/event.md, architecture/folder-sync.md]
     steps:
-      - "발행은 이 컴퓨터의 구독자에게 먼저 간다(app-event-publish). 선언에 across_machines가 있고(sync_to가 있는 앱만 선언할 수 있다) 그 앱 workspace가 이 컴퓨터의 call 정책에서 private이 아닐 때만 event file을 쓴다"
-      - "machines/<이 컴퓨터>/apps/<app>/events/<ULID>.json(format 2, machine, app, id, code_commit, name, payload, at, 64 KiB까지)을 그 앱의 sync_to 폴더에 쓰고 folder_written에 적는다. 앱 목록이 싣고 manifest가 서명하면 다른 컴퓨터로 간다"
+      - "발행은 이 컴퓨터의 구독자에게 먼저 간다(app-event-publish). 선언에 across_machines가 있고(sync가 표를 보내는 앱만 선언할 수 있다) 그 앱 workspace가 이 컴퓨터의 call 정책에서 private이 아닐 때만 event file을 쓴다"
+      - "machines/<이 컴퓨터>/apps/<app>/events/<ULID>.json(format 2, machine, app, id, code_commit, name, payload, at, 64 KiB까지)을 그 앱 data의 destination 폴더에 쓰고 folder_written에 적는다. 앱 목록이 싣고 manifest가 서명하면 다른 컴퓨터로 간다"
       - "쓰지 못해도(너무 큼, 폴더를 쓸 수 없음) 이 컴퓨터의 발행은 이미 끝났다. log 한 줄만 남는다"
     outcomes:
       - id: written
@@ -2967,7 +2968,7 @@ flows:
     code: [packages/core/folder/import/events.ts, packages/core/apps/events/publish.ts, packages/core/main/daemon/wiring/folder.ts]
     docs: [architecture/event.md, architecture/folder-sync.md]
     steps:
-      - "계기: 읽기 scan 끝. 이 컴퓨터에 든 sync 앱마다 그 sync_to 폴더의 다른 기계 apps/<app>/events/를 읽는다. 난 기계, 앱, id는 path에서 얻고 내용의 값이 path와 다르거나 모양이 틀리면 거절한다. at이 7일보다 옛 것이나 5분 넘게 앞선 것, code_commit이 이 컴퓨터 활성 release와 다른 것은 내지 않는다(다른 release의 것은 센 것으로 적지 않아 이 컴퓨터가 그 release가 되고 나이 안이면 그때 난다)"
+      - "계기: 읽기 scan 끝. 이 컴퓨터에 든 sync 앱마다 그 destination 폴더의 다른 기계 apps/<app>/events/를 읽는다. 난 기계, 앱, id는 path에서 얻고 내용의 값이 path와 다르거나 모양이 틀리면 거절한다. at이 7일보다 옛 것이나 5분 넘게 앞선 것, code_commit이 이 컴퓨터 활성 release와 다른 것은 내지 않는다(다른 release의 것은 센 것으로 적지 않아 이 컴퓨터가 그 release가 되고 나이 안이면 그때 난다)"
       - "folder_events_seen에 없는 것만 한 transaction에서 그 표에 적은 뒤 내는 쪽(apps)에 넘긴다. 같은 file이 연결, 폰, 같이 보는 폴더로 여러 번 와도 한 번이다. 그 행은 14일 뒤에 지운다"
       - "내는 쪽이 앱이 이 컴퓨터에 있고 보관하지 않았는지, 그 workspace가 이 컴퓨터에서 private이 아닌지, 활성 release 선언이 그 event를 across_machines로 두고 payload가 schema에 맞는지 다시 본다. 맞으면 그 앱의 구독자에게 난 기계를 싣고 낸다(chain은 그 앱 하나)"
     outcomes:

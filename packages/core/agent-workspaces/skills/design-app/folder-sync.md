@@ -1,11 +1,13 @@
 # Apps whose data reaches the person's other computers
 
-Read this before you set `sync_to` in `lophn.ts`, before you build a screen that
+Read this before you set `sync` in `lophn.ts`, before you build a screen that
 shows another computer's data, before you set up a sync folder
 or the tool that moves it, and when `lophn machine environment` shows an error.
-`sync_to` names a destination: a folder on each computer. lophn writes the app's
-changes and source into that folder and reads what the other computers
-wrote there. There are two kinds:
+`sync` lists the tables of the app's store that leave this computer, each with a
+destination: a folder on each computer. lophn writes the changes of those tables
+and the app's source into that folder and reads what the other computers wrote
+there. A table that `sync` does not list never leaves this computer. There are two
+kinds of destination:
 
 - `computers` ("my computers"): the computers in the person's device list. lophn
   keeps this folder itself and picks how its files travel: a direct link between
@@ -22,7 +24,7 @@ put one into lophn.
 
 ## Two needs that look alike
 
-Decide which one the person has before you touch `sync_to`:
+Decide which one the person has before you touch `sync`:
 
 - **See or use what is on another computer right now.** Examples: how many
   resources the agents on my server use, each computer's own logs or harness
@@ -34,27 +36,19 @@ Decide which one the person has before you touch `sync_to`:
   (`@lophn/ui`) to pick one. It needs that computer to be on. Use the roster API:
   never read lophn's data folder or guess "this computer" from the hostname.
 - **Have the same data on every computer, also while the other one is off.** This
-  is `sync_to`.
+  is `sync`, for the tables that hold that data.
 
-Data that describes one computer (raw logs, file offsets, process state) is not
-synced. When the screen needs another computer's numbers while it is off, sync or
-cache only the small summary.
+Data that describes one computer (raw logs, file offsets, process state) stays in
+tables you do not list. When the screen needs another computer's numbers while it
+is off, keep a small summary table and list only that one.
 
-The limits of `sync_to` come before the choice. Today it moves the whole app
-database, not a table: the store must stay well under 1 GiB, with no triggers,
-text primary keys (no `AUTOINCREMENT`), and no `UNIQUE` or `CHECK` outside the key
-(the full list is in "What syncing asks of the app"). An app with a large
-per-computer table must not turn `sync_to` on to share a small summary: read the
-other computers' summaries with `connectCommands(…, { on })`, and cache the small
-result locally if the screen must show it while that computer is off.
+## Pick the tables and the destination
 
-## Pick `sync_to`
-
-The default is no `sync_to`: the data stays on this computer (and on the phone, for
+The default is no `sync`: every table stays on this computer (and on the phone, for
 a `runs_on` phone app). Choose the default unless the person uses this app on
-another computer too, or the data must exist on another machine. The default does
-not stop the app from reaching the other computers: see "Bring an app to another
-machine".
+another computer too, or some of its data must exist on another machine. The
+default does not stop the app from reaching the other computers: see "Bring an app
+to another machine".
 
 1. Run `lophn machine environment`. Note `this_machine`, the other `machines`, the
    `destinations` this computer has (name, path, state) and the `available` apps.
@@ -62,35 +56,63 @@ machine".
    which computers they have, which cloud they use, which sync tool already runs
    (Syncthing, Drive, Dropbox, a NAS). Ask one short question only if you find
    nothing.
-3. Decide per app, not once for the person:
+3. Decide per table, not once for the app:
+   - List a table when the person needs its rows on the other computers: what they
+     write by hand (notes, plans, settings of the app they expect everywhere) and
+     small summaries the other computers show.
+   - Leave a table out when it describes this computer or can be rebuilt here: raw
+     records read from local files, file read positions, caches, large imports.
+     Leaving out a large raw table is what keeps the synced data small.
    - Do not send sensitive data (health, money, private notes) out unless the
-     person asks: leave `sync_to` out, or use a destination that stays on the
+     person asks: leave its table out, or use a destination that stays on the
      person's own machines.
-   - Every table of the app's store goes to the destination. State that belongs to
-     one machine (window layout, a local path, the last opened file) does not go in
-     the store: keep it in `localStorage`.
+   - State that belongs to one machine (window layout, a local path, the last
+     opened file) does not go in the store at all: keep it in `localStorage`.
    - Secrets never go in the store. Use `@lophn/cap-secret`; the person enters
      them again on each computer.
-4. Pick `sync_to: "computers"` first. Use a named destination only when the
-   person set one up for this kind of data (it shows in `destinations`) or asks
-   for one. A new name is short and means something to the person (`personal`,
-   `work`), and it is the same name on every computer: the path behind it may
-   differ per computer.
+4. Pick `"computers"` first as the destination. Use a named destination only when
+   the person set one up for this kind of data (it shows in `destinations`) or
+   asks for one. A new name is short and means something to the person
+   (`personal`, `work`), and it is the same name on every computer: the path
+   behind it may differ per computer. For now every listed table goes to the same
+   destination.
 
-Write the choice and the reason in DESIGN.md (Model): which data goes where, which
-tool moves it, whether it is encrypted.
+```ts
+// lophn.ts
+sync: {
+  usage_hour: "computers",
+  plan: "computers",
+},
+```
+
+When a migration adds a table, add it to `sync` only if it must leave this
+computer. Removing a table from `sync` keeps its rows here; the rows the other
+computers already received stay there.
+
+Write the choice and the reason in DESIGN.md (Model): which tables go where, which
+stay on each computer, which tool moves them, whether it is encrypted.
 
 ## What syncing asks of the app
 
-An app with `sync_to` is a sync app on the computer: every computer that has the
-app writes rows and the copies are merged per column. Follow the "Data" section of
-`phone-apps.md`; release preparation refuses an app that breaks the first two
-rules:
+An app whose `sync` lists a table is a sync app on the computer: every computer
+that has the app writes rows to the listed tables and the copies are merged per
+column. The rules below apply to the listed tables only (for a `runs_on` phone app,
+to every table, because the phone keeps the whole store). Follow the "Data"
+section of `phone-apps.md`; release preparation refuses an app that breaks the
+first three rules:
 
 - Text ids made with `newId("ord")` from `@lophn/cap-store`. No `INTEGER` primary
-  key, no `AUTOINCREMENT`, no trigger, no `UNIQUE` or `CHECK` outside the primary
-  key. Two computers that hand out the same number lose a row.
-- `@lophn/cap-store` 2.0.0 or later in `sdk_dependencies`.
+  key, no `AUTOINCREMENT`, no `UNIQUE` or `CHECK` outside the primary key. Two
+  computers that hand out the same number lose a row.
+- No trigger on a listed table: a change from another computer applies to it and
+  fires the trigger again. A trigger on a table you did not list may write to a
+  listed table (it runs once, on the computer that wrote, and what it wrote is
+  sent). A listed table must not reference a table you did not list (the other
+  computers have no such parent row). A table you did not list may reference a
+  listed one, without `ON DELETE` or `ON UPDATE` `CASCADE`, `SET NULL` or
+  `SET DEFAULT` (changes from another computer do not run them).
+- Every table listed in `sync` exists in the store and has a primary key, and
+  `@lophn/cap-store` 2.0.0 or later is in `sdk_dependencies`.
 - Never rename or drop a table or a column, and never change primary key values in
   a migration.
 
@@ -99,11 +121,17 @@ Know and design for these:
 - When two computers change the same column of the same row, the later write wins
   and nobody is told. Use separate columns for separate fields, or a new row
   instead of editing a shared one.
+- Rows that each computer makes from its own source (an hourly rollup of this
+  computer's records) must carry the computer's id in the primary key, for example
+  `(machine, hour)`. Read the id from `machines()` (`@lophn/cap-tool`, the entry
+  with `current: true`). Without it, two computers write the same key and each
+  overwrites the other's numbers column by column.
 - Changes apply only between computers that run the same release of the app. A
   change from another release waits on this computer, not lost, until this
   computer runs that release. The other computers that have the app follow a new
   release by themselves (see "Bring an app to another machine").
-- Keep the app's data well under 1 GiB: a larger store cannot go to the folder.
+- Keep the listed tables well under 1 GiB: a larger copy of them cannot go to the
+  folder. Tables you did not list do not count.
 
 ## Know when data changed
 
@@ -122,7 +150,7 @@ useEvent("lophn", "data.changed", () => void reload());
 ```
 
 An event the app publishes stays on this computer unless its declaration says
-`across_machines: true` (allowed only with `sync_to`). Such an event travels with
+`across_machines: true` (allowed only when `sync` lists a table). Such an event travels with
 the app's data and fires once on every other computer that runs the same release,
 with the same payload, to the same subscribers and screens. It can arrive late;
 one older than 7 days does not fire. When the person made the app's workspace
@@ -258,10 +286,10 @@ zero. If not, read "Read the state".
 ## Bring an app to another machine
 
 An active app that is not in a `private` workspace reaches the person's other
-computers without `sync_to`: its source and releases travel through `computers`,
+computers without `sync`: its source and releases travel through `computers`,
 and `lophn machine environment` there lists it in `available`. Only its data and
-`across_machines` events need `sync_to`; without it each computer keeps its own
-data. Do not set `sync_to` just to install the app elsewhere.
+`across_machines` events need `sync`; without it each computer keeps its own
+data. Do not set `sync` just to install the app elsewhere.
 
 On the other computer:
 
@@ -296,10 +324,11 @@ build diverging releases.
 
 ## Tell the person
 
-Say it in their words, once, when you set `sync_to` or set up a destination:
+Say it in their words, once, when you set `sync` or set up a destination:
 
-- what goes where: which app's data, to which folder, moved by which tool, to which
-  computers or cloud, and whether it is encrypted;
+- what goes where: which of the app's data, to which folder, moved by which tool,
+  to which computers or cloud, and whether it is encrypted; and what stays on this
+  computer only;
 - it is not live: changes arrive as fast as the files travel (with `computers`,
   soon while the computers are connected, otherwise when the phone or the shared
   folder carries them; with a named folder, as fast as the tool moves it);
@@ -342,7 +371,10 @@ in their own terminal. If that computer writes to the folder again, it comes bac
 ## Read the state
 
 `lophn machine environment` is what lophn last read and wrote, not live. Each
-`export` and `imports[]` entry has an `error` with a `code`:
+`apps[]` entry has `sends_to`, the destination its `sync` names (null when no table
+leaves this computer), and `destination`: `set`, or `not_set_here` when this
+computer has no destination of that name. Each `export` and `imports[]` entry has
+an `error` with a `code`:
 
 - `destination_missing`: the folder is gone, moved or not mounted, or the tool
   removed it. Check the path; if the person moved it, change the destination (with
@@ -361,8 +393,8 @@ in their own terminal. If that computer writes to the folder again, it comes bac
 - `newer_format`: the other computer's lophn is newer. Update lophn on this one.
 - `imports[].held` above zero: files from another release of the app wait here.
   Run the same release on every computer.
-- `too_large`: the app's data is over 1 GiB, or its source is too large. Keep large
-  files out of the store.
+- `too_large`: the listed tables are over 1 GiB, or the source is too large. Keep
+  large files out of the store, and large per-computer tables out of `sync`.
 - `app_not_running` or `apply_failed`: the app could not take the changes. lophn
   retries, waiting up to an hour between tries. Check that the app's release is active
   here and read its log.
@@ -372,7 +404,7 @@ in their own terminal. If that computer writes to the folder again, it comes bac
 
 ### Releases between computers
 
-For an app with `sync_to`, each `apps[]` entry also shows how the computers stand
+For an app whose `sync` lists a table, each `apps[]` entry also shows how the computers stand
 on its releases (an app without it has `follow: null` and empty `held` and
 `machines`). While anything waits, the app keeps running on this computer's data.
 

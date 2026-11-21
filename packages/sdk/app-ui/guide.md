@@ -155,7 +155,7 @@ import {
 | -------------------- | ------- |
 | `react`              | 19.3.0  |
 | `lucide-react`       | 1.51.0  |
-| `@lophn/declaration` | 4.9.0   |
+| `@lophn/declaration` | 5.0.0   |
 | `@lophn/ui`          | 1.2.0   |
 | `@lophn/i18n`        | 1.0.0   |
 

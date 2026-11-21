@@ -23,7 +23,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 ## 선언의 칸
 
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
-`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`, `runs_on`, `sync_to`만 있다. 알 수 없는 칸은 거절한다.
+`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`, `runs_on`, `sync`만 있다. 알 수 없는 칸은 거절한다.
 
 - `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?, tray?}`다. `places`는
   화면을 열 수 있는 자리이고 비지 않고 겹치지 않는다.
@@ -96,7 +96,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
     그래서 event만으로 상태를 만들지 말고, 발행 앱은 지금 값을 읽는 read command를 따로 내놓는다. 구독 앱은 켜질 때 그 command를
     한 번 읽는다.
   - `across_machines: true`면 그 event가 앱의 data와 같은 길로 사람의 다른 기계에도 가서, 그 앱이 같은 release로 있는 기계마다
-    한 번 난다(발행 앱, 구독 handler, 화면, payload는 그 기계에서 낸 것과 같다). `sync_to`가 없는 선언에 쓰면 선언 오류다(event는
+    한 번 난다(발행 앱, 구독 handler, 화면, payload는 그 기계에서 낸 것과 같다). `sync`가 표를 하나도 보내지 않는 선언에 쓰면 선언 오류다(event는
     data와 같이 간다). 칸이 없거나 false면 이 기계에서만 나고, 칸이 없는 옛 선언의 hash는 그대로다. data처럼 늦게 닿을 수 있고
     7일보다 옛 event는 내지 않는다. 사람이 이 앱 workspace를 private으로 둔 기계에서는 그 기계가 낸 event가 다른 기계로 가지
     않고, 다른 기계에서 온 event도 그 기계에서 나지 않는다. 다른 기계에서 온 data의 변경은 이 칸 없이 `data.changed`로 안다.
@@ -130,17 +130,27 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   폰에서 도는 backend는 text id(`newId()`)를 쓰고, `node:` import·trigger·정수 PK·PK 밖의 UNIQUE와 CHECK를 쓰지 못하며
   (release 준비가 거절한다), 컴퓨터 전용 일(network, secret, 알림, event 발행, agent)은 `external` operation에 둔다.
   `external`은 컴퓨터에 닿지 않으면 `unavailable`이다. 규칙 전부는 `design-app` skill의 bundled file `phone-apps.md`("Apps that run on the phone")다.
-- `sync_to` — 이 앱의 data를 어느 destination으로 내보내는가. destination 이름 하나다. 소문자로 시작하고 소문자·숫자·`-`로
-  32자까지다. 칸이 없으면 data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다.
+- `sync` — 앱 DB의 어느 표를 어느 destination으로 보내는가. 표 이름 → destination 이름의 object다(`{ usage_hour: "computers",
+  plan: "computers" }`). 적은 표의 data만 그 destination으로 가고, 적지 않은 표는 이 컴퓨터를 떠나지 않는다. 칸이 없거나 비면
+  data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다. migration이 표를 더하면 보낼 것만 여기에 더한다.
+  - destination 이름은 소문자로 시작하고 소문자·숫자·`-`로 32자까지다. 지금은 모든 표가 같은 destination이어야 한다(다르면 선언
+    오류다). 표 이름은 `lophn_`과 `sqlite_`로 시작하지 못한다. 적은 표가 앱 DB에 있는지와 PRIMARY KEY가 있는지는 release 준비가
+    target schema의 DB에서 본다.
   - 사람의 다른 컴퓨터로 보낼 앱은 먼저 `"computers"`(내 컴퓨터들)를 고른다. 사람의 기기 명단에 있는 컴퓨터들이고, 옮기는
     길은 lophn이 고른다(컴퓨터끼리의 연결, 폰, 사람이 Settings에서 더한 같이 보는 폴더). 바깥 도구를 붙일 필요가 없다.
   - 그 밖의 이름(`"personal"`)은 사람이 따로 정한 이름 붙인 폴더다. 이름이 가리키는 폴더 경로는 사람이 기계마다 따로 정하는
     설정이라 같은 선언이 어느 기계에서나 맞고, 이 기계에 그 이름의 destination이 없으면 이 기계는 그 앱의 data를 내보내지도
     읽지도 않는다. 바깥 도구가 그 폴더를 다른 기계로 옮긴다.
   - `["phone"]`인 앱은 쓰지 못한다(폰의 data는 컴퓨터를 거쳐서만 나가는데 그 앱은 컴퓨터 사본이 없다). 다른 기계와 폰에서 온
-    변경은 `lophn`의 `data.changed`로 안다(`subscriptions`).
-  `sync_to`가 있는 앱은 컴퓨터에서 sync 앱이라 `runs_on`에 phone이 있는 앱과 같은 schema 규칙(text id, 정수 PK·
-  AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK 없음)을 release 준비가 보고, `@lophn/cap-store` 2.0.0 이상을 고정해야 한다.
+    변경은 `lophn`의 `data.changed`로 안다(`subscriptions`). `runs_on`에 phone이 있는 앱의 폰 사본은 `sync`와 상관없이 모든
+    표를 갖는다.
+  `sync`가 표를 보내는 앱은 컴퓨터에서 sync 앱이라 보내는 표에 `runs_on`에 phone이 있는 앱과 같은 schema 규칙(text id, 정수
+  PK·AUTOINCREMENT·PK 밖의 UNIQUE와 CHECK 없음, 그 표에 건 trigger 없음)을 release 준비가 보고, `@lophn/cap-store` 2.0.0
+  이상을 고정해야 한다. 보내지 않는 표에는 이 규칙이 없다. 보내지 않는 표에 건 trigger는 보내는 표에 써도 된다. 보내는 표는
+  보내지 않는 표를 foreign key로 가리키지 못하고, 보내지 않는 표가 보내는 표를 가리킬 때는 `ON DELETE`·`ON UPDATE`의 `CASCADE`·
+  `SET NULL`·`SET DEFAULT`를 쓰지 못한다(다른 컴퓨터에서 온 변경은 그 동작을 돌리지 않는다). 컴퓨터마다 생기는 줄(그 컴퓨터의
+  원본에서 모은 집계)을 보내면 PRIMARY KEY에 그 컴퓨터의 id를 넣는다: 같은 key를 두 컴퓨터가 쓰면 칸마다 나중 것이 이겨
+  서로의 값을 덮는다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
@@ -207,7 +217,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.13.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "5.0.0" }],
 });
 
 const result = validateDeclaration(declaration);

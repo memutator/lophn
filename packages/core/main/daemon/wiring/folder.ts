@@ -6,6 +6,8 @@
 //   file은 받는 자리(`folderReplica`)가 route·link·거울에서 받아 그 폴더에 두고, 읽기는 그 폴더를 다른 destination처럼 읽는다.
 // - mail: outbox에 줄이 생기면(`MAIL_QUEUED_TOPIC`) 옮기기가 outbox를 자기 mail 폴더에 싣는다. 읽기 scan이 다른 기계의 mail을
 //   mail 입구에 넘기고, 그 기계가 받았다고 알린 이 기계의 mail을 받은 것으로 적는다.
+// - handoff note: handoff wiring이 자기 notes 폴더에 file을 쓰고 `folderCarry.kick`으로 옮기기를 깨운다. 옮기기는 7일보다 옛 note와
+//   지금 private인 project의 note를 지우고 manifest의 `notes` 칸에 싣는다.
 // (앱, destination)·(앱, 출처)마다 한 번에 하나만 돈다. 결과가 `more`면 바로 이어 돌고, 실패한 일은 1분부터 두 배씩 1시간까지
 // 물러난다(읽기의 data stream은 import가 stream마다 따로 물러난다). 이 일들은 idle-exit를 막지 않는다.
 import { type FSWatcher, readdirSync, watch } from "node:fs";
@@ -117,6 +119,7 @@ import {
   writeEventFile,
 } from "../../../folder/export/events.ts";
 import { publishManifest } from "../../../folder/export/manifest.ts";
+import { pruneHandoffNotes } from "../../../projects/handoff/write.ts";
 import { writeRosterFile } from "../../../folder/export/roster.ts";
 import { carryRoutes } from "../../../folder/carry-routes.ts";
 import { carryStatusHandler } from "../../../folder/carry-status.ts";
@@ -324,6 +327,7 @@ export const folderWiring: WiringFactory = () => {
         filesChanged: () => scheduleScan(),
       });
       ctx.provide("folderReplica", replica);
+      ctx.provide("folderCarry", { kick: () => scheduleCarry() });
       // 명단 view에 그 기계의 하나뿐인 컴퓨터 항목이 있다.
       const known = (machine: Id<"mch">) =>
         (ctx.peek.computerSigningKey?.(machine) ?? null) !== null;
@@ -888,6 +892,15 @@ export const folderWiring: WiringFactory = () => {
           log: (message) => log("mail_file_not_written", message),
         });
         if (!mail.ok) log("mail_files_not_written", mail.error.message);
+        const notes = await pruneHandoffNotes({
+          me: me(),
+          root: computersRoot,
+          sql,
+          policy: ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+          nowMs: ctx.clock.nowMs(),
+          random: ctx.random,
+        });
+        if (!notes.ok) log("notes_not_pruned", notes.error.message);
         const published = await publishManifest({
           me: me(),
           root: computersRoot,

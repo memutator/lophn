@@ -1307,3 +1307,72 @@ flows:
     docs: [architecture/agent-definition.md]
     unclear:
       - data step 실행기(기동 거절, 적용 기록)는 core-platform area의 것이다. 여기서는 step 내용만 적었다
+
+  - id: handoff-write
+    title: agent가 자기 session의 handoff note를 남긴다
+    actor: agent
+    entries: [route:handoff/write, cli:handoff.write]
+    boundary: [projects, remote, core-api]
+    code: [packages/core/projects/handoff/write.ts, packages/core/main/daemon/wiring/handoff.ts, packages/cli/commands/handoff.ts, packages/protocol/lophn-agent/handoff.ts]
+    steps:
+      - "agent가 `lophn handoff write --body <글>`로 부른다(project workspace의 명령). 언제 쓸지는 지침과 사람이 정하고 program은 쓰라고 하거나 스스로 쓰지 않는다"
+      - 자격에 session이 없으면 forbidden이다. session은 입력으로 받지 않으므로 다른 session의 note를 쓰지 못한다
+      - session이 없으면 not_found, workspace가 project가 아니면 invalid_input, 그 project가 이 기계의 call 정책에서 private이면 forbidden이고 file을 쓰지 않는다
+      - project에 기계를 건너는 id가 없으면 invalid_input이다
+      - 글은 redaction을 거친 뒤 32 KiB 안이어야 하고, 사실(이 기계, project의 pri_, 첫 등록 폴더의 git branch와 commit을 읽기만 해서, 시각, agent 이름)을 붙인 file이 64 KiB 안이어야 한다
+      - "`computers` 폴더의 `machines/<자기>/notes/<ses>.json`에 temp와 rename으로 쓴다(session마다 하나, 다시 쓰면 바꾼다). 쓴 뒤 나르기를 깨운다: manifest의 notes 칸에 실려 link·폰·같이 보는 폴더로 간다. 나르기는 7일보다 옛 note와 지금 private이거나 없는 project의 note를 지운다"
+    outcomes:
+      - id: written
+        observe: [response, "disk:computers/machines/<mch>/notes/<ses>.json"]
+      - id: refused
+        code: forbidden
+        when: 자격에 session이 없다, session의 project가 private이다. file이 생기지 않는다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: session이나 그 project가 이 기계에 없다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: session이 project workspace가 아니다, project에 기계를 건너는 id가 없다, 글이 32 KiB를 넘거나 file이 64 KiB를 넘는다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 알려진 secret 목록이 아직 준비되지 않아 redaction을 끝내지 못했다, `computers` 폴더에 쓰지 못했다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/folder-sync.md, architecture/project-identity.md]
+    unclear: []
+
+  - id: handoff-list
+    title: 사람이 다른 컴퓨터에서 온 handoff note를 읽는다
+    actor: person
+    entries: [route:handoff/list]
+    boundary: [projects, remote, core-api]
+    code: [packages/core/projects/handoff/list.ts, packages/core/main/daemon/wiring/handoff.ts, packages/protocol/lophn-agent/handoff.ts]
+    steps:
+      - 이 기계의 사람만 부른다(route actor user, 기기 allowlist 밖이라 폰과 다른 컴퓨터는 부르지 못한다)
+      - "`computers` 폴더에서 이 기계가 아닌 기계의 `notes/`를 읽는다. 명단의 컴퓨터가 아니면 건너뛰고, 받는 자리가 그 컴퓨터의 지금 key로 검증한 manifest가 그 크기·sha256으로 싣는 file만 읽는다. 사람의 폴더와 이름 붙인 폴더는 읽지 않는다"
+      - file은 64 KiB 안에서 note schema로 읽고, 기계와 session이 path와 같고 글이 32 KiB 안이어야 한다. 틀린 file은 file마다 core가 뜬 동안 한 번 log 한 줄(본문 없음)을 남기고 나머지를 계속 읽는다
+      - 쓴 때가 7일보다 옛것이거나 5분 넘게 앞선 것, 그 pri_의 project가 이 기계에 없거나 보관했거나 이 기계에서 private인 것은 내지 않는다. input project가 있으면 그 project만이다
+      - 글 칸마다 제어 문자를 빼고(글의 줄바꿈과 탭은 둔다) 한 줄 칸(컴퓨터 이름, agent 이름 64자, branch, commit 256자)을 한 줄로 줄인다. 새것부터 돌려준다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: skipped
+        when: 서명한 목록이 싣지만 note가 아닌 file이나 다른 기계·session을 사칭한 file, 글이 32 KiB를 넘는 file이다. 목록에서 빠지고 나머지는 그대로 나온다
+        observe: [response, log:core]
+      - id: forbidden
+        code: forbidden
+        when: 사람 자격이 아니다(agent·앱 자격). 폰과 다른 컴퓨터는 기기 allowlist에 없어 닿지 않는다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: project가 prj_ id가 아니거나 모르는 칸이 있다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/folder-sync.md, architecture/project-identity.md]
+    declared_only: [unavailable]
+    unclear: []

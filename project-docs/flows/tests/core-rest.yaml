@@ -622,6 +622,15 @@ files:
       - project-identity-auto-match:kept-apart
     note: "다른 기계의 목록은 `computers` 폴더에서 서명 key를 믿는 기계의 자기 기록에서만 읽고(이름 붙인 폴더의 큰 revision은 읽지 않는다), 기계 기록이 상한을 넘으면 project 줄을 꼭 필요한 만큼 덜어 낸다"
 
+  - path: packages/core/projects/handoff/handoff_test.ts
+    covers:
+      - handoff-write:written
+      - handoff-write:refused
+      - handoff-write:invalid-input
+      - handoff-list:ok
+      - handoff-list:skipped
+    note: "세 컴퓨터의 computers 폴더, 실제 받는 자리와 Ed25519 명단, 실제 project 표. 자격에 session이 없거나 private인 project의 session은 note를 쓰지 못하고 file이 생기지 않으며, 부른 session의 file 하나에만 쓰고 secret 모양 글은 file에 가지 않는다. 쓴 뒤 private이 된 project의 note는 나르기가 지운다. 받는 기계에서 private인 project의 note는 목록에 없다. 받는 자리를 거치지 않고 놓인 file, 명단에 없는·빠진 컴퓨터의 note, 이 기계 자신의 note, 다른 기계나 session을 사칭한 note, 7일보다 옛 note, 글이 32 KiB를 넘는 note는 내지 않고, 틀린 file은 file마다 한 번 본문 없이 적으며 나머지를 막지 않는다. 제어 문자는 빠지고 한 줄 칸은 한 줄이다"
+
   - path: packages/core/projects/files/files_test.ts
     covers:
       - project-files-list:outside

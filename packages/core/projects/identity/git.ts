@@ -9,6 +9,8 @@ export type GitReader = {
   topLevel(dir: string): Promise<string | null>;
   // fetch remote만.
   remotes(dir: string): Promise<{ name: string; url: string }[]>;
+  // 지금 branch와 HEAD commit. git이 아니거나 읽지 못하면 둘 다 null이고, HEAD가 branch에 있지 않으면 branch만 null이다.
+  head(dir: string): Promise<{ branch: string | null; commit: string | null }>;
 };
 
 const GIT_TIMEOUT_MS = 10_000;
@@ -73,6 +75,23 @@ export function createGitReader(deps: { logger: Logger }): GitReader {
         const found = /^(\S+)\s+(.+?)\s+\(fetch\)$/.exec(line);
         return found === null ? [] : [{ name: found[1]!, url: found[2]! }];
       });
+    },
+    async head(dir) {
+      const read = async (...args: string[]) => {
+        try {
+          const ran = await git(dir, "rev-parse", ...args);
+          return ran === null || ran.code !== 0
+            ? null
+            : ran.stdout.trim() || null;
+        } catch {
+          // 시간이 다 됐다.
+          return null;
+        }
+      };
+      const commit = await read("HEAD");
+      if (commit === null) return { branch: null, commit: null };
+      const branch = await read("--abbrev-ref", "HEAD");
+      return { branch: branch === "HEAD" ? null : branch, commit };
     },
   };
 }

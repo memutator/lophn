@@ -1,6 +1,6 @@
 // harness agent(headless와 GUI 탭 팀원)가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다. extension `harness`가
 // 켜져 있으면 `lophn harness sync-skills`가 harness의 skill 폴더에 앱 공유 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
-// 명령 사용법은 `packages/cli/commands/{call,session,agent,team}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
+// 명령 사용법은 `packages/cli/commands/{call,session,agent,team,handoff}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
 // `packages/core/lophn-agent/run-loop/input-text.ts`가 만든다.
 import type { SharedSkill } from "../harnesses/skill-copies.ts";
 
@@ -89,6 +89,17 @@ lophn call send --on <computer> --to '{"agent":"reviewer","workspace":{"project"
 - Only text goes. Files, images and changes you have not committed stay on this computer; if the other side needs code, move it first (for example with git) as your instructions say.
 - A call to a computer that is off goes when it comes back. A session opened by a call from another computer cannot send to a third computer.
 - Which computer and agent to call is for your instructions and the person to decide; lophn does not pick one.
+
+## Handoff note
+
+\`\`\`
+lophn handoff write --body "where the work stands, what comes next, where to get the code"
+\`\`\`
+
+- A handoff note lets the person continue this session's work on another of their computers. lophn adds this computer, the project's cross-computer id, the git branch and commit and the time, and carries the note there. Writing again replaces this session's note. It works in a project only, and not in a workspace the person made private.
+- When to write one is for your instructions and the person to decide; lophn never asks you to.
+- If the other computer is on, hand the work over with \`lophn call send --on <computer> --reply none\` instead.
+- The transcript, files and changes you have not committed do not go with the note. Say in it where to get the code: the branch, and whether you pushed it.
 
 ## Open and drive a browser tab
 

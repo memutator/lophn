@@ -1,5 +1,6 @@
 // `computers` 폴더의 자기 하위 폴더에 서명한 file 목록을 쓴다: 앱마다 `apps/<app>/files.json`, 그 위에 `manifest.json`.
-// `@me/*` package file(`packages/<part>@<version>.json`)과 mail 폴더의 file(`mail/`)은 manifest가 직접 싣는다.
+// `@me/*` package file(`packages/<part>@<version>.json`), mail 폴더의 file(`mail/`)과 handoff note(`notes/`)는 manifest가 직접
+// 싣는다.
 // 목록은 내보내기가 쓴 file의 기록(`folder_written`)과 자기 기록 file(`record.json`, `roster.json`)로 만들고 폴더를 훑지
 // 않는다: 쓰는 중에 훑은 목록은 서명된 채 빠진 file이 있어 받는 쪽이 멀쩡한 사본을 지운다. 목록이 같으면 다시 쓰지 않는다.
 import { readdir } from "node:fs/promises";
@@ -27,6 +28,8 @@ import {
   type ManifestBody,
   manifestPath,
   nextManifestRevision,
+  NOTE_FILE_MAX_BYTES,
+  notesDir,
   parseCarryPath,
   ROSTER_FILE_MAX_BYTES,
   rosterFilePath,
@@ -120,6 +123,29 @@ async function entryOf(
   return { path, size: bytes.byteLength, sha256: await sha256Hex(bytes) };
 }
 
+// 자기 하위 폴더 하나의 옮기는 file(이름 순). temp와 OS file, 한도를 넘는 file은 뺀다.
+async function dirEntries(
+  root: string,
+  dir: string,
+  maxOf: (path: string) => number,
+): Promise<CarryFileEntry[]> {
+  const reader = createFolderReader(root);
+  let names: string[] = [];
+  try {
+    names = await readdir(join(root, ...dir.split("/")));
+  } catch {
+    // 아직 없다.
+  }
+  const out: CarryFileEntry[] = [];
+  for (const name of names.sort()) {
+    const path = `${dir}/${name}`;
+    if (parseCarryPath(path) === null) continue;
+    const read = await reader.read(path, maxOf(path));
+    if (read.ok) out.push(await entryOf(path, read.value));
+  }
+  return out;
+}
+
 /**
  * 앱 목록과 manifest를 지금 기록에 맞춘다. manifest를 새로 썼으면 true. 서명 key가 없으면 쓰지 않는다. 앱 목록이 한도를
  * 넘으면 지난 목록을 두고 그 앱 stream에 `too_large`를 남긴다(받는 쪽은 지난 목록으로 계속 받는다).
@@ -156,24 +182,16 @@ export async function publishManifest(
   }
   packageEntries.sort((a, b) => (a.path < b.path ? -1 : 1));
 
-  // mail file과 받은 id 목록도 temp와 rename으로만 놓인다(`export/mail.ts`). layout이 이 폴더를 나열하지 않아 바로 읽는다.
-  const mailEntries: CarryFileEntry[] = [];
-  let mailNames: string[] = [];
-  try {
-    mailNames = await readdir(join(deps.root, ...mailDir(me).split("/")));
-  } catch {
-    // 아직 없다.
-  }
-  for (const name of mailNames.sort()) {
-    const path = `${mailDir(me)}/${name}`;
-    // temp와 OS file은 뺀다.
-    if (parseCarryPath(path) === null) continue;
-    const read = await reader.read(
-      path,
-      path === mailAcksPath(me) ? MAIL_ACKS_MAX_BYTES : MAIL_FILE_MAX_BYTES,
-    );
-    if (read.ok) mailEntries.push(await entryOf(path, read.value));
-  }
+  // mail file과 받은 id 목록(`export/mail.ts`), handoff note(`projects/handoff`)도 temp와 rename으로만 놓인다. layout이 이
+  // 폴더들을 나열하지 않아 바로 읽는다.
+  const mailEntries = await dirEntries(deps.root, mailDir(me), (path) =>
+    path === mailAcksPath(me) ? MAIL_ACKS_MAX_BYTES : MAIL_FILE_MAX_BYTES,
+  );
+  const noteEntries = await dirEntries(
+    deps.root,
+    notesDir(me),
+    () => NOTE_FILE_MAX_BYTES,
+  );
 
   const rows = sql
     .all(
@@ -256,6 +274,7 @@ export async function publishManifest(
     canonicalize(before.files) === canonicalize(top) &&
     canonicalize(before.packages ?? []) === canonicalize(packageEntries) &&
     canonicalize(before.mail ?? []) === canonicalize(mailEntries) &&
+    canonicalize(before.notes ?? []) === canonicalize(noteEntries) &&
     mark <= before.revision
   ) {
     return ok(false);
@@ -272,6 +291,7 @@ export async function publishManifest(
     files: top,
     ...(packageEntries.length > 0 ? { packages: packageEntries } : {}),
     ...(mailEntries.length > 0 ? { mail: mailEntries } : {}),
+    ...(noteEntries.length > 0 ? { notes: noteEntries } : {}),
   });
   if (text === null) return ok(false);
   const bytes = encoder.encode(text);

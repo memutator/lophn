@@ -27,6 +27,7 @@ import {
   machineSigningKey,
   mailAcksPath,
   mailFilePath,
+  noteFilePath,
   type ManifestBody,
   manifestPath,
   newerManifest,
@@ -414,7 +415,7 @@ test("manifest의 선택 칸 packages가 @me/* package file을 서명 사슬에 
   );
 });
 
-// 이 칸을 모르는 판(mail-carry 앞)의 `verifyManifest`: schema가 모르는 칸을 버리고, 서명은 받은 body 그대로의 canonical 글로 본다.
+// 이 칸들을 모르는 판(mail-carry 앞)의 `verifyManifest`: schema가 모르는 칸을 버리고, 서명은 받은 body 그대로의 canonical 글로 본다.
 function verifiesAsOldVersion(signedText: string, signingKey: string): boolean {
   const envelope = JSON.parse(signedText) as {
     body: unknown;
@@ -435,7 +436,9 @@ function verifiesAsOldVersion(signedText: string, signingKey: string): boolean {
       packages: z.array(entry).optional(),
     })
     .safeParse(envelope.body);
-  if (!oldBody.success || "mail" in oldBody.data) return false;
+  if (!oldBody.success || "mail" in oldBody.data || "notes" in oldBody.data) {
+    return false;
+  }
   const signature = Uint8Array.from(
     atob(envelope.signature.replaceAll("-", "+").replaceAll("_", "/")),
     (char) => char.charCodeAt(0),
@@ -447,13 +450,15 @@ function verifiesAsOldVersion(signedText: string, signingKey: string): boolean {
   );
 }
 
-// 옛 판이 서명을 검증하지 못하면 mail을 실은 기계의 모든 file을 받지 않는다.
-test("mail 칸이 있는 manifest를 그 칸을 모르는 schema로 읽어도 서명이 검증된다", () => {
+// 옛 판이 서명을 검증하지 못하면 mail이나 note를 실은 기계의 모든 file을 받지 않는다.
+test("mail·notes 칸이 있는 manifest를 그 칸을 모르는 schema로 읽어도 서명이 검증된다", () => {
   const mail = mailFilePath(b.machine, "mal_01hzzzzzzzzzzzzzzzzzzzzzzz");
   const acks = mailAcksPath(b.machine);
+  const note = noteFilePath(b.machine, "ses_01hzzzzzzzzzzzzzzzzzzzzzzz");
   const body: ManifestBody = {
     ...bodyOf(b.machine),
     mail: [listed(acks, text("{}\n")), listed(mail, text("{}\n"))],
+    notes: [listed(note, text("{}\n"))],
   };
   const signedText = signManifest(body, b.signing.secretKey);
   assert.deepEqual(verifyManifest(signedText, signingKeyOf)?.body, body);
@@ -462,13 +467,21 @@ test("mail 칸이 있는 manifest를 그 칸을 모르는 schema로 읽어도 �
     true,
   );
   assert.equal(expectedFiles(body, () => null).has(mail), true);
-  // mail path는 files에 넣지 못하고(옛 판이 모르는 path다), 다른 기계의 것은 싣지 못한다.
+  assert.equal(expectedFiles(body, () => null).has(note), true);
+  // mail과 note path는 files에 넣지 못하고(옛 판이 모르는 path다), 서로의 칸에도, 다른 기계의 것도 싣지 못한다.
   for (const wrong of [
     {
       ...bodyOf(b.machine),
       files: [...bodyOf(b.machine).files, listed(mail, text("{}\n"))],
     },
+    {
+      ...bodyOf(b.machine),
+      files: [...bodyOf(b.machine).files, listed(note, text("{}\n"))],
+    },
+    { ...bodyOf(b.machine), mail: [listed(note, text("{}\n"))] },
+    { ...bodyOf(b.machine), notes: [listed(mail, text("{}\n"))] },
     { ...bodyOf(a.machine), mail: [listed(mail, text("{}\n"))] },
+    { ...bodyOf(a.machine), notes: [listed(note, text("{}\n"))] },
   ]) {
     assert.throws(() => signManifest(wrong, b.signing.secretKey));
   }

@@ -93,6 +93,7 @@ function setup(
       ),
     remotes: () =>
       Promise.resolve([{ name: "origin", url: "git@github.com:me/notes.git" }]),
+    head: () => Promise.resolve({ branch: null, commit: null }),
   };
   const writer = {
     command: (ctx, envelope) => {

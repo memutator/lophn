@@ -371,6 +371,8 @@ type Late = {
   computerRemoved: (machine: string) => boolean;
   // folder가 낸다. link·폰·거울이 가져온 file을 받는 `computers` 폴더의 자리.
   folderReplica: FolderReplica;
+  // folder가 낸다. `computers` 폴더의 자기 하위 폴더에 file을 둔 다른 wiring(handoff note)이 나르기(manifest 쓰기와 거울)를 깨운다.
+  folderCarry: { kick(): void };
   // folder가 낸다. 다른 기계에도 알릴 앱 event를 event file로 쓴다.
   crossEvents: CrossEvents;
   // folder가 낸다. 다른 기계의 `across_machines` event를 이 기계가 냈다고 적는다(늦은 길과 연결이 한 표로 한 번만 낸다). 새 줄이면 true.
@@ -475,6 +477,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   computerGranted: true,
   computerRemoved: true,
   folderReplica: true,
+  folderCarry: true,
   crossEvents: true,
   crossSeen: true,
   eventArrived: true,

@@ -66,6 +66,8 @@ export const MAIL_FILE_MAX_BYTES = 128 * KIB;
 // 받은 mail의 id 목록 file(`machines/<mch>/mail/acks.json`)이 싣는 id 수와 그 크기의 한도.
 export const MAIL_ACKS_MAX = 8000;
 export const MAIL_ACKS_MAX_BYTES = 512 * KIB;
+// session 하나의 handoff note file(`machines/<mch>/notes/<ses id>.json`).
+export const NOTE_FILE_MAX_BYTES = 64 * KIB;
 export const CARRY_CHUNK_MAX_BYTES = 8 * MIB;
 export const CARRY_WANTS_MAX = 1000;
 
@@ -76,6 +78,7 @@ const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const EVENT_FILE_NAME = /^([0-7][0-9a-hjkmnp-tv-z]{25})\.json$/;
 const MAIL_FILE_NAME = /^(mal_[0-7][0-9a-hjkmnp-tv-z]{25})\.json$/;
 const MAIL_ACKS_NAME = "acks.json";
+const NOTE_FILE_NAME = /^(ses_[0-7][0-9a-hjkmnp-tv-z]{25})\.json$/;
 
 export const manifestPath = (machine: Id<"mch">) =>
   `${machineDir(machine)}/manifest.json`;
@@ -116,6 +119,29 @@ function mailPathMachine(path: string): string | null {
     : null;
 }
 
+// 그 기계의 session이 남긴 handoff note를 두는 폴더. session마다 file 하나다.
+export const notesDir = (machine: Id<"mch">) => `${machineDir(machine)}/notes`;
+export const noteFilePath = (machine: Id<"mch">, session: Id<"ses">) =>
+  `${notesDir(machine)}/${session}.json`;
+
+/** notes 폴더 안 이름이 note file이면 그 session id. */
+export function noteFileSession(name: string): Id<"ses"> | null {
+  const match = NOTE_FILE_NAME.exec(name);
+  return match === null ? null : (match[1] as Id<"ses">);
+}
+
+/** `machines/<mch>/notes/` 아래의 note file이면 그 기계. */
+function notePathMachine(path: string): string | null {
+  const parts = path.split("/");
+  return parts.length === 4 &&
+    parts[0] === MACHINES_DIR &&
+    isMachineDirName(parts[1]!) &&
+    parts[2] === "notes" &&
+    NOTE_FILE_NAME.test(parts[3]!)
+    ? parts[1]
+    : null;
+}
+
 /** `machines/<mch>/manifest.json`이면 그 기계. */
 export function manifestPathMachine(path: string): Id<"mch"> | null {
   const parts = path.split("/");
@@ -130,7 +156,7 @@ export function manifestPathMachine(path: string): Id<"mch"> | null {
 /**
  * 기계 사이로 옮기는 file의 path(destination 기준)와 그 file의 크기·sha256을 싣는 목록 file. 덮는 사슬은 셋이다.
  * - manifest가 싣는다(`coveredBy` null): `record.json`, `roster.json`, `apps/<app>/files.json`,
- *   `packages/<part>@<version>.json`, `mail/<mal id>.json`, `mail/acks.json`.
+ *   `packages/<part>@<version>.json`, `mail/<mal id>.json`, `mail/acks.json`, `notes/<ses id>.json`.
  * - 앱 목록 `apps/<app>/files.json`이 싣는다: `app.json`, `data/<n>.*`, `source/<n>.json`, `events/<id>.json`.
  * - `source/<n>.json`이 `source/<n>.bundle`을 싣는다.
  * 그 밖의 path(`manifest.json` 포함)는 null이다.
@@ -155,6 +181,9 @@ export function parseCarryPath(
   }
   if (parts[2] === "mail") {
     return parts.length === 4 && isMailName(parts[3]!) ? top : null;
+  }
+  if (parts[2] === "notes") {
+    return parts.length === 4 && NOTE_FILE_NAME.test(parts[3]!) ? top : null;
   }
   if (parts[2] !== "apps" || !isAppDirName(parts[3]!) || parts.length < 5) {
     return null;
@@ -196,8 +225,8 @@ const distinctPaths = (files: readonly CarryFileEntry[]) =>
   new Set(files.map((file) => file.path)).size === files.length;
 
 // `files`는 기존 최상위 file(`record.json`, `roster.json`, 앱마다 `files.json`)만 싣고, `@me/*` package file은 선택 칸
-// `packages`로, mail 폴더의 file은 선택 칸 `mail`로 싣는다: 옛 판은 모르는 칸을 버리고 원본 canonical body로 서명을 검증해
-// 호환이 유지된다.
+// `packages`로, mail 폴더의 file은 선택 칸 `mail`로, handoff note는 선택 칸 `notes`로 싣는다: 옛 판은 모르는 칸을 버리고 원본
+// canonical body로 서명을 검증해 호환이 유지된다.
 export const manifestBodySchema = z
   .object({
     format: z.literal(1),
@@ -207,6 +236,7 @@ export const manifestBodySchema = z
     files: z.array(fileEntrySchema),
     packages: z.array(fileEntrySchema).optional(),
     mail: z.array(fileEntrySchema).optional(),
+    notes: z.array(fileEntrySchema).optional(),
   })
   .refine(
     (body) =>
@@ -218,7 +248,8 @@ export const manifestBodySchema = z
           parsed.machine === body.machine &&
           parsed.coveredBy === null &&
           parsePackagePath(file.path) === null &&
-          mailPathMachine(file.path) === null
+          mailPathMachine(file.path) === null &&
+          notePathMachine(file.path) === null
         );
       }) &&
       (body.packages === undefined ||
@@ -230,14 +261,24 @@ export const manifestBodySchema = z
         (distinctPaths(body.mail) &&
           body.mail.every(
             (file) => mailPathMachine(file.path) === body.machine,
+          ))) &&
+      (body.notes === undefined ||
+        (distinctPaths(body.notes) &&
+          body.notes.every(
+            (file) => notePathMachine(file.path) === body.machine,
           ))),
     { message: "manifest files must be distinct top paths of its machine" },
   );
 export type ManifestBody = z.infer<typeof manifestBodySchema>;
 
-/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`·`mail`). */
+/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`·`mail`·`notes`). */
 export function manifestEntries(body: ManifestBody): CarryFileEntry[] {
-  return [...body.files, ...(body.packages ?? []), ...(body.mail ?? [])];
+  return [
+    ...body.files,
+    ...(body.packages ?? []),
+    ...(body.mail ?? []),
+    ...(body.notes ?? []),
+  ];
 }
 
 // `machines/<mch>/apps/<app>/files.json`: 그 앱의 file 목록. 서명하지 않는다(manifest가 크기·sha256을 싣는다).

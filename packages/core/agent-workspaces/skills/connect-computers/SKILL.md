@@ -35,14 +35,22 @@ last caught up, in Settings › Sync. You can read the same facts with
 Look there before you suggest anything.
 
 Check before you propose any folder or tool: run `lophn machine environment` and
-look at `machines[].always_on`.
+look at `machines[].always_on` of each computer. It is an object
+(`keep_running`, `starts_at_login`, `keep_awake`) or `null`; `null` means lophn
+has not read that computer's record yet, which is not a "no".
 
-- A computer in the list is `always_on: true`: say that nothing needs to be set
-  up, and stop. Do not suggest a folder, a cloud, rclone, cron or Syncthing.
-- None is, but the person has a computer that could stay on (a server, a VM):
-  tell them to turn on Keep running in that computer's Settings › Remote ("Keep
-  lophn running on this computer"). Once that computer shows `always_on: true`
-  here, nothing else is needed.
+- A computer in the list has `always_on.keep_running` true: say that nothing
+  needs to be set up, and stop. Do not suggest a folder, a cloud, rclone, cron or
+  Syncthing.
+- None has, but the person has a computer that could stay on (a server, a VM),
+  or its `always_on` is `null` (ask the person whether it is on and connected):
+  tell them to turn on "Keep lophn running on this computer" (Settings › Remote ›
+  Keep running). They can do it on that computer, or from this one: Settings ›
+  "Settings of" › that computer › Remote, which works when that computer allows
+  terminal input from this computer (its "Allow terminals and public app
+  commands" switch in My devices; otherwise the picker shows a notice instead).
+  Once `always_on.keep_running` is true for that computer here, nothing else is
+  needed.
 - Only when there is no always-on computer and no phone that meets both
   computers does the shared folder below apply.
 
@@ -83,9 +91,10 @@ it:
 
 When no computer is always on, no phone carries, and the computers are never on
 at the same time (the two systems of a dual boot with no other computer are the
-clear case), the person can name one folder that every computer sees. Each computer puts the files it carries there and takes in
-the others' after checking their signatures, so the folder itself is not trusted.
-It is the setting `folder.shared`, per computer: the path may differ on each.
+clear case), the person can name one folder that every computer sees. Each
+computer puts the files it carries there and takes in the others' after checking
+their signatures, so the folder itself is not trusted. It is the setting
+`folder.shared`, per computer: the path may differ on each.
 
 Good folders:
 

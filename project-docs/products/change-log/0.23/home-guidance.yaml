@@ -3,12 +3,10 @@ version: 0.23.105
 title: Home agent는 늘 켜 둔 컴퓨터가 있으면 아무것도 세우지 않고, help는 --on이 듣는 명령에만 --on을 보인다
 modules: [packages/core/agent-workspaces, packages/cli, packages/core/lophn-agent]
 change: |
-  `connect-computers` skill(Home agent의 지침): 컴퓨터를 연결한 컴퓨터가 다른 컴퓨터의 file도 들고 있어 늘 켜 둔 컴퓨터가 저절로 가운데가 된다는 것을 "lophn이 스스로 하는 것"에 더했다. 폴더나 도구를 말하기 전에 `lophn machine environment`의 `machines[].always_on`을 본다: 있으면 세울 것이 없다고 말하고 멈춘다, 없는데 켜 둘 수 있는 컴퓨터(서버, VM)가 있으면 그 컴퓨터의 Settings › Remote에서 Keep running을 켜게 한다, 켜 둔 컴퓨터도 폰도 없을 때만 같이 보는 폴더(`folder.shared`)를 쓴다. 같이 보는 폴더에서는 `computers`로 보내는 모든 data가 plain file로 그 폴더에 복사되어 cloud 폴더면 cloud에 놓인다는 것과, 일부 data만 cloud에 두려면 앱이 고르는 이름 붙인 destination(`sync_to: "<name>"`)이라는 것을 사람에게 말한다. 폴더를 옮기는 도구로 rclone을 쓸 때의 규칙(`rclone bisync` 금지, 자기 `machines/<id>/`만 `sync`로 올리고 남의 것은 `copy --exclude`로 내려받기, `record.json`이 있을 때만 올리기)을 같은 자리에 적었다.
+  `connect-computers` skill(Home agent의 지침): 컴퓨터를 연결한 컴퓨터가 다른 컴퓨터의 file도 들고 있어 늘 켜 둔 컴퓨터가 저절로 가운데가 된다는 것을 "lophn이 스스로 하는 것"에 더했다. 폴더나 도구를 말하기 전에 `lophn machine environment`의 `machines[].always_on`(객체 `{keep_running, starts_at_login, keep_awake}` 또는 null. null은 그 컴퓨터의 기록을 아직 못 읽은 것이라 "아니오"가 아니다)의 `keep_running`을 본다: 켜 둔 컴퓨터가 있으면 세울 것이 없다고 말하고 멈춘다, 없는데 켜 둘 수 있는 컴퓨터(서버, VM)가 있으면 그 컴퓨터에서 Settings › Remote › Keep running을 켜게 하거나, 그 컴퓨터가 이 컴퓨터의 터미널 입력을 허락했으면 이 컴퓨터의 Settings › "Settings of" › 그 컴퓨터 › Remote에서 켜게 한다, 켜 둔 컴퓨터도 폰도 없을 때만 같이 보는 폴더(`folder.shared`)를 쓴다. 같이 보는 폴더에서는 `computers`로 보내는 모든 data가 plain file로 그 폴더에 복사되어 cloud 폴더면 cloud에 놓인다는 것과, 일부 data만 cloud에 두려면 앱이 고르는 이름 붙인 destination(`sync_to: "<name>"`)이라는 것을 사람에게 말한다. 폴더를 옮기는 도구로 rclone을 쓸 때의 규칙(`rclone bisync` 금지, 자기 `machines/<id>/`만 `sync`로 올리고 남의 것은 `copy --exclude`로 내려받기, `record.json`이 있을 때만 올리기)을 같은 자리에 적었다.
   `--help`의 Common flags는 `--on <machine>`을 `--on`이 듣는 명령에만 보인다. 사람의 터미널은 core를 부르는 명령에만(`hook`·`harness` 같은 binary 명령에는 안 보인다), agent의 `lophn` tool은 앱 command에만(내장 명령에는 안 보인다) 보인다. `helpText`가 세 번째 인자로 "이 명령은 `--on`이 듣나"를 받는다.
 why: |
   Home agent가 dual boot와 항상 켜진 VM을 가진 사람에게 Google Drive, rclone, crontab을 64번의 tool call로 세웠다. lophn의 carry가 이미 늘 켜 둔 컴퓨터를 가운데로 쓰므로 필요 없는 일이었고, `rclone bisync`는 폴더 배치가 금지한다. 또 agent들이 모든 help에 `--on <machine>`이 보여 `lophn call send --on …`, `lophn app status <app> --on …`을 부르고 "--on goes with an app command" 오류를 받았다.
 decisions:
-  - text: "다른 컴퓨터의 Keep running을 이 컴퓨터에서 켜는 길은 이 branch에 없다(`always_on/*`는 기기 route 목록 밖). skill은 \"그 컴퓨터의 Settings › Remote\"라고만 쓴다. 버린 길: 없는 화면을 말하기."
-    by: agent
   - text: "help는 \"이 명령에서 `--on`이 되는가\"를 부르는 쪽이 정한다(터미널은 core 명령인지, agent tool은 앱 command인지). 버린 길: 명령 표(`CommandDoc`)에 칸을 더하기(지금 판정은 부르는 쪽의 사실이라 표에 두면 둘이 어긋날 수 있다)."
     by: agent

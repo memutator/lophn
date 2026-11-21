@@ -1,0 +1,64 @@
+id: tab-scope
+version: 0.23.112
+title: 탭마다 주인을 두고 사람이 browser 탭을 session에 넘기며, browser profile로 cookie와 저장 login을 나눠 agent에 단다
+modules: [packages/protocol, packages/cli, packages/core/config, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/secrets, packages/design, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
+checked: [tool-check, agent-policy, context-component-registry, architecture-layers, architecture-testing, architecture-activation, architecture-app-call, architecture-package, architecture-app-notice, architecture-workspace-session, architecture-run, architecture-workflow, architecture-coding-agent, architecture-extension, architecture-terminal-agent, architecture-agent-chat, architecture-acp, architecture-artifact, architecture-ui-kit, architecture-appearance, architecture-remote, architecture-phone-screen, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-package, tool-models-snapshot, skill-ui-design]
+change: |
+  탭의 주인. 전: 탭 값에 누가 열었는지가 없었고 core의 메모리 탭 표만 주인(연 session 또는 "person")을 들어 close·show·browser 호출을 막는 데 썼다. agent의 탭 명령은 open·close·show 셋이었다. 후: 탭 공통 칸 `owner`(주인 session, 없으면 사람)와 `handed_tab`(사람이 넘긴 browser 탭의 core 탭 id)이 생겼다. core는 host 요청 `tab_open`에 `owner`를 싣고 창이 탭 값에 적는다(하나만 두는 preview·artifact 탭은 주인이 바뀌면 같은 id로 다시 보낸다). 탭 줄과 칸 머리에 주인 avatar, float bar·detached 창 제목·전역 float bar에 avatar와 이름, 주인마다 묶인 float chip(누르면 그 주인의 float 목록), take control 줄의 "<이름> is controlling this tab"(모르면 "An agent …")이 선다. session snapshot과 `SessionStarted`에 `spawned_by`가 더해져 왼쪽 sidebar가 desk 묶음 안에서 팀 tree를 들여 그리고, lophn session 줄을 펴면(Show tabs) 그 session이 주인인 탭이 자리와 상관없이 나와 누르면 그 탭으로 간다.
+  탭 목록. route `tabs/list`(agent·user)와 CLI `lophn tab list`: 자기 탭과 `spawned_by`로 닿는 자기 밑 session의 탭을 id, 주인, kind, 이름, url, path, loading, handed로 낸다. 이름·url은 redaction을 거치고 CLI 글은 `<lophn-untrusted source="tab.list">`로 감싼다. 사람 token은 사람 token의 탭만 본다.
+  넘기기. 사람이 이 컴퓨터 workspace의 browser 탭을 열린 lophn session에 넘긴다(탭 menu "Hand to", sidebar session 줄이나 주인 chip에 끌어 놓기). route `tabs/hand {tab?, session, workspace, profile?, url}`(사람만, renderer 통로 allowlist에 더함): 없거나 열려 있지 않은 session은 `not_found`, agent가 연 탭은 `conflict`. 넘겨도 탭의 자리·key·page·profile은 그대로이고 page는 agent page처럼 workspace를 떠나도 살며 창마다 12개 상한에 센다. 넘겨받은 탭은 `tabs/close`가 `forbidden`이다. Take back(탭 menu, take control 줄)은 `owner`·`handed_tab`을 지우고 `closed`로 core 표에서 뺀다. 다른 session에 다시 넘기면 새 core 탭 id를 쓴다. 창은 layout을 읽었을 때, core에 다시 붙었을 때, session이 끝났을 때 넘긴 탭을 `tabs/hand {tab}`으로 다시 알린다.
+  browser profile. 전: 모든 browser 탭이 partition `persist:lophn-browser` 하나를 썼고 저장 login은 전역 하나였다. 후: 설정 `shell.browser_profiles`(`[{id: bpf_…, name, color}]`, 16개까지, locked)가 profile 목록이다. 기본 profile은 목록에 없고 `persist:lophn-browser`를 그대로 쓰며 profile마다 `persist:lophn-browser-<id>`다. main은 알려진 profile의 partition만 붙이고 partition마다 session 정책을 깐다. 탭 값 browser kind에 `profile?`, agent 정의에 사람만 쓰는 칸 `browser_profile?`(agent 자격이 넣거나 바꾸면 `forbidden`, 목록 행 `agents/list`에 `browser_profile`). `tab open --url`은 core가 그 agent 정의의 profile로 연다(host target browser에 `profile?`). 사람은 + menu Browser에서 고르고 popup과 탭에서 연 탭은 연 탭을 따른다. 탭 머리에 기본이 아닌 profile이 보인다. page host도 profile마다 partition이다. IPC `shell:browser-clear-data`는 `{profile}` 하나를 지운다.
+  저장 login. `logins.json` 항목에 선택 칸 `profile`(없으면 기본 profile, data step 없음). `logins/list {origin?, tab?}`는 agent에게 그 탭이나 자기 정의의 profile login만 내고 행에 `profile`이 있다. `logins/save`의 `profile?`은 새 login에만 쓴다. `logins/release`에 `profile`이 더해져 login의 profile과 다르면 `forbidden`. `fill-login`은 다른 profile의 login을 없는 login(`not_found`)으로 본다. browser 탭이 아닌 탭(preview, artifact, phone)의 login은 기본 profile의 것이고 profile을 단 agent에게는 목록이 비며 그 탭의 save 요청은 `forbidden`이다. agent 정의나 ledger를 읽지 못하면 `tab open --url`과 login 목록은 `unavailable`이다. login 요청 card의 login view에 `profile`. CLI `lophn login list --tab`.
+  화면. Settings › Browser › Profiles(만들기, Rename, Color, Clear data, Delete, 쓰는 agent), Logins는 profile마다 묶음, 옛 Clear browsing data는 기본 profile. Delete는 그 profile의 login → partition data → 목록 순서로 지운다. agent 편집기 General에 Browser profile(지운 profile이면 "Deleted profile — uses Default"), agent 카드에 기본이 아닌 profile.
+  저장 모양. layout `schema_version` 11 → 12, 전역 float 3 → 4. data step `shell.layout-owners`(shell-agent-tabs wiring의 `dataSteps` 끝)가 판만 올린다. 다른 판과 손상된 파일은 그대로다.
+why: |
+  탭에 누가 열었는지가 남지 않아 화면에서 어느 agent의 탭인지, 누가 누구에게 일을 맡겼는지 보이지 않았고, agent는 자기 탭 목록도 사람이 쓰던 탭을 받을 길도 없었다. 사람과 모든 agent가 cookie와 로그인을 하나로 같이 써서 업무와 개인 계정을 가를 수 없고 page 글에 속은 agent가 사람의 모든 로그인에 닿았다.
+decisions:
+  - text: '탭이 agent의 시야와 책임을 보여야 한다. 그래서 탭마다 주인을 두고 화면, sidebar, agent의 탭 목록이 그것을 쓴다.'
+    by: person
+  - text: '사람이 쓰던 browser 탭을 agent에게 넘길 수 있어야 한다. `browser-tab.md` 지키는 것 34("사람이 손으로 연 탭은 다룰 수 없다")를 넘긴 탭에 한해 고쳤다.'
+    by: person
+  - text: 'browser profile을 나누고 agent마다 단다. "agent 탭은 사람 탭과 같은 partition"(2026-11-09)을 고친다.'
+    by: person
+  - text: '어느 agent에 어느 profile을 다는지는 기계마다 따로다(agent 정의를 기계 사이에 맞추지 않는다).'
+    by: person
+  - text: '주인은 탭의 속성이고 자리와 상관없다. 버린 길: split group이나 desk를 주인 단위로(group은 float·전역 float·detached를 못 담고, desk는 전역 float을 못 담으며 그 desk에서 사람이 연 로그인된 탭이 저절로 팀에 보인다).'
+    by: agent
+  - text: '주인은 탭 값과 core 메모리 표 두 곳에 있고 뜻은 하나다. core 표는 메모리 그대로 두고 넘긴 탭은 창이 다시 알린다. 버린 길: 표를 ledger로 옮기기(agent browser 탭의 수명 규칙까지 다시 정해야 한다). 사람이 연 탭은 주인 칸이 없다.'
+    by: agent
+  - text: '넘기는 것은 browser 탭이고 넘기면 주인이 바뀐다. 넘긴 탭은 agent가 닫지 못하고 다른 site로 가는 것은 막지 않는다. 버린 길: 터미널·문서 넘기기, 읽기만 넘기기(요구가 생기면 한다).'
+    by: agent
+  - text: 'agent는 사람의 탭 목록을 보지 못하고 말로 청한다. 탭이 있는지 새지 않게 하는 지금 규칙 그대로다.'
+    by: agent
+  - text: '되찾기는 새 route 없이 닫힘 알림(`closed`)으로 한다. 다른 session에 다시 넘길 때는 새 core 탭 id를 써 앞 session의 take control 상태와 호출이 이어지지 않게 한다. 버린 길: 같은 id로 주인만 바꾸기(처음 brief의 모양).'
+    by: agent
+  - text: '"Hand to"의 상대는 이 컴퓨터의 열린 lophn session뿐이다. coordinator가 자기 탭을 자식에게 넘기는 길은 이번에 만들지 않았다.'
+    by: agent
+  - text: '팀 tree는 sidebar의 desk 묶음 안에서만 들여쓴다. 버린 길: 묶음을 건너 옮기기(desk 묶음의 뜻이 흐려진다).'
+    by: agent
+  - text: 'layout 판을 12, 전역 float 판을 4로 올린다. 새 칸은 선택이지만 옛 빌드가 새 칸이 든 탭을 strict schema로 거절하므로 판을 올려 옛 빌드가 덮지 않게 한다.'
+    by: agent
+  - text: '기본 profile은 `persist:lophn-browser` 그대로이고 목록은 locked 설정 `shell.browser_profiles`에 둔다. 버린 길: partition 이름 옮기기(사람이 다시 로그인한다), 새 route와 저장 file.'
+    by: agent
+  - text: '정의에 profile을 적지 않은 agent는 기본 profile(사람의 것)을 쓴다. profile을 다는 자리는 agent 정의이고 사람만 쓰는 칸이다. 지운 profile을 가리키는 정의는 막지 않고 기본으로 떨어지며 편집기가 표시한다.'
+    by: agent
+  - text: '저장 login은 profile에 속하고 `profile` 칸이 없으면 기본 profile이다. 버린 길: 기존 login을 옮기는 data step(roadmap은 data step을 말했지만 `profile: null`만 채우는 step은 사람의 `logins.json`을 다시 쓰는 위험만 더한다).'
+    by: agent
+  - text: 'browser 탭이 아닌 탭(preview, artifact, phone)의 login은 기본 profile의 것이고 자기 profile이 기본인 쪽만 다룬다. 버린 길: 부른 agent의 profile로 풀기(profile을 단 agent가 자기 artifact 탭으로 사람의 login 목록을 읽는다).'
+    by: agent
+  - text: 'profile을 읽지 못하면 기본으로 떨어지지 않고 `unavailable`이다. 기본은 정의에 칸이 없을 때와 적힌 profile이 지워졌을 때뿐이다.'
+    by: agent
+  - text: 'profile을 지우면 그 profile의 login과 partition data도 지운다. 남기면 어느 화면에도 보이지 않는 login과 secret이 남는다. 확인 dialog가 지울 login 수를 말한다.'
+    by: agent
+  - text: '사람이 새 탭의 profile을 고르는 자리는 + menu의 Browser 하나다. 빠른 실행, 단축키, 터미널 link는 기본 profile이다.'
+    by: agent
+follow_up: |
+  - browser profile 정의와 저장 login을 기계 사이에 맞추기(roadmap `browser-profile.md`)와 coordinator가 자기 탭을 자식에게 넘기기(roadmap `tab-owner.md`)가 남았다.
+  - agent driver가 보내는 키가 창 단축키가 되지 않게 하는 규칙과, 넘긴 탭에서 page가 `window.close()`를 부를 때의 동작은 실제 창 확인에서 고칠 것이 나와 고치는 중이다. 고친 뒤 `workspace-layout.md`("agent가 연 탭"의 넘기기)와 `keybindings.md`에 적는다.
+checklist:
+  - "해야: 앱을 다시 build한다"
+  - 탭 줄의 browser 탭을 왼쪽 sidebar의 session 줄에 끌어 놓아 넘기고, 탭 머리에 그 agent의 avatar가 서는지, 탭 menu의 Take back으로 되찾는지 본다
+  - Settings › Browser › Profiles에서 profile을 만들고 이름·색을 바꾸고 지워 본다(지울 때 dialog가 login 수를 말하는지)
+  - agent 편집기 General의 Browser profile 칸에서 profile을 고르고, 그 agent가 연 browser 탭 머리에 profile 색 점이 서는지 본다
+  - team spawn으로 자식 session을 연 뒤 sidebar에서 자식 줄이 부모 줄 아래로 들어가고, session 줄을 펴면 그 session의 탭이 나오는지 본다
+  - 전에 저장한 site login이 Settings › Browser › Logins의 Default 묶음에 그대로 있고 기존 로그인한 site가 로그인된 채인지 본다

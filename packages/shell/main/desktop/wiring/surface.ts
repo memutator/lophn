@@ -144,6 +144,7 @@ export function register(
     lookup,
     control,
     nowMs: () => Date.now(),
+    keys: ctx.driverKeys,
   });
 
   // 최소화되거나 숨겨진 창의 page는 그리지 않는다. 되살아나면 screencast를 다시 켠다(frame이 와야 그린다고 본다).

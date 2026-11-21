@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createTabControl } from "./control.ts";
-import { type BrowserCallPayload, createBrowserDriver } from "./driver.ts";
-import { forwardsShortcut } from "./keys.ts";
+import {
+  type BrowserCallPayload,
+  createBrowserDriver,
+  createDriverKeys,
+  type DriverKeys,
+} from "./driver.ts";
 import type { Page, PageEvents, PageLookup } from "./page.ts";
 import type { AxNode } from "./snapshot.ts";
 
@@ -101,7 +105,10 @@ function fakePage() {
 
 const PASSWORD = "hunter2";
 
-function setup(mode: "live" | "preview" = "preview") {
+function setup(
+  mode: "live" | "preview" = "preview",
+  keys: DriverKeys = createDriverKeys(),
+) {
   const fake = fakePage();
   const control = createTabControl(() => {});
   const released: {
@@ -124,6 +131,7 @@ function setup(mode: "live" | "preview" = "preview") {
     lookup,
     control,
     nowMs: () => Date.now(),
+    keys,
   });
   const run = (
     action: BrowserCallPayload["action"],
@@ -355,12 +363,13 @@ test("fill_login은 page의 browser profile을 실어 값을 청한다", async (
 });
 
 test("driver가 보내는 key는 그 page에서 창 단축키로 넘어가지 않고, 끝나면 사람의 키는 다시 넘어간다", async () => {
-  const { fake, run } = setup("preview");
+  const keys = createDriverKeys();
+  const { fake, run } = setup("preview", keys);
   const original = fake.page.send;
   const during: boolean[] = [];
   (fake.page as { send: Page["send"] }).send = ((method, params) => {
     if (method === "Input.dispatchKeyEvent") {
-      during.push(forwardsShortcut(fake.page.id));
+      during.push(keys.marked(fake.page.id));
     }
     return original(method, params);
   }) as Page["send"];
@@ -369,6 +378,6 @@ test("driver가 보내는 key는 그 page에서 창 단축키로 넘어가지 �
     act: { type: "press", key: "Control+w" },
   });
   assert.ok("content" in out, JSON.stringify(out));
-  assert.deepEqual(during, [false, false]);
-  assert.equal(forwardsShortcut(fake.page.id), true);
+  assert.deepEqual(during, [true, true]);
+  assert.equal(keys.marked(fake.page.id), false);
 });

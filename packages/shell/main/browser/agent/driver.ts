@@ -8,13 +8,7 @@ import type {
 } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { TabControl } from "./control.ts";
-import {
-  type CdpSend,
-  pressKey,
-  sendingKeys,
-  typeChar,
-  typeText,
-} from "./keys.ts";
+import { type CdpSend, pressKey, typeChar, typeText } from "./keys.ts";
 import { type Page, type PageLookup, pageOf } from "./page.ts";
 import { type AxNode, createRefs, type Refs } from "./snapshot.ts";
 
@@ -40,6 +34,37 @@ export type LoginRelease =
   | { ok: true; value: { value: string } }
   | { ok: false; error: { code: string; message: string } };
 
+/**
+ * driver가 지금 key event를 보내는 page 표시(webContents id). wiring이 하나 만들어 driver와 창 단축키 전달(desktop.ts)에 같이 준다.
+ * CDP `Input.dispatchKeyEvent`도 guest의 before-input-event를 거쳐, agent가 누른 Control+w가 창의 `tab.close`가 되어 사람의 탭을
+ * 닫았다. 표시된 page의 키는 창 단축키로 넘기지도 삼키지도 않아 page에만 간다. Chromium은 key가 before-input-event를 지난 뒤에 그
+ * 명령에 답하므로 보내는 동안만 표시하면 된다(실제 Electron에서 확인하지 않았다).
+ */
+export interface DriverKeys {
+  /** page에 key event를 보내는 동안 그 page를 표시한다. */
+  sending<T>(page: number, run: () => Promise<T>): Promise<T>;
+  /** driver가 지금 이 webContents에 key를 보내는 중이다. 사람이 그 탭에 친 키는 표시되지 않는다. */
+  marked(contents: number): boolean;
+}
+
+export function createDriverKeys(): DriverKeys {
+  // webContents id → 보내는 중인 수.
+  const sending = new Map<number, number>();
+  return {
+    async sending(page, run) {
+      sending.set(page, (sending.get(page) ?? 0) + 1);
+      try {
+        return await run();
+      } finally {
+        const left = (sending.get(page) ?? 1) - 1;
+        if (left === 0) sending.delete(page);
+        else sending.set(page, left);
+      }
+    },
+    marked: (contents) => sending.has(contents),
+  };
+}
+
 export interface BrowserDriverDeps {
   /** frame의 origin(CDP가 잰 값)과 page의 browser profile로 login 값을 받는다. capability는 부르는 쪽이 들고 driver는 모른다. */
   releaseLogin(request: {
@@ -53,6 +78,8 @@ export interface BrowserDriverDeps {
   lookup: PageLookup;
   control: TabControl;
   nowMs(): number;
+  /** key를 보내는 동안 page를 표시하는 곳. 창 단축키가 없는 곳(창 없는 page host)은 주지 않는다. */
+  keys?: DriverKeys;
 }
 
 type ErrorCode = Extract<HostToolOutput, { error: unknown }>["error"]["code"];
@@ -367,7 +394,9 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     (session: Session): CdpSend =>
     (method, params) =>
       method === "Input.dispatchKeyEvent"
-        ? sendingKeys(session.page.id, () => send(session, method, params))
+        ? (deps.keys?.sending(session.page.id, () =>
+            send(session, method, params),
+          ) ?? send(session, method, params))
         : send(session, method, params);
 
   async function key(session: Session, spec: string): Promise<void> {

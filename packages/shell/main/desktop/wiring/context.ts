@@ -28,6 +28,10 @@ import {
   createWindowStateStore,
   type WindowState,
 } from "../../workspace/window-state.ts";
+import {
+  createDriverKeys,
+  type DriverKeys,
+} from "../../browser/agent/driver.ts";
 import { connectCore } from "./core.ts";
 import type { Machines } from "./machines.ts";
 import {
@@ -134,6 +138,8 @@ export type ShellContext = {
   ipc: Ipc;
   relay: CoreRelay;
   windowHooks: WindowHooks;
+  /** agent의 browser driver가 key를 보내는 page 표시. driver(surface)가 쓰고 창 단축키 전달(desktop)이 읽는다. */
+  driverKeys: DriverKeys;
   appConnector: ReturnType<typeof createAppConnector>;
   /** 창마다 편집기 guard가 저장 중 수를 기억한다. 편집기가 채우고 종료 흐름이 읽는다. */
   closeGuards: CloseGuards;
@@ -268,6 +274,7 @@ export function createShellContext(): ShellContext {
     },
     relay,
     windowHooks: { created: [], closed: [] },
+    driverKeys: createDriverKeys(),
     appConnector: createAppConnector(coreInternal),
     closeGuards: new CloseGuards(),
     quit: { requested: false, active: () => false },

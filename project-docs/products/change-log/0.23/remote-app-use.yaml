@@ -4,6 +4,7 @@ title: 다른 컴퓨터의 앱은 그 컴퓨터의 것으로 열고, 다른 컴�
 modules: [packages/protocol, packages/shell/renderer, packages/design]
 change: |
   - 탭의 기계가 다른 컴퓨터인 앱 화면·앱 panel은 이 컴퓨터에 같은 앱이 있어도 그 컴퓨터의 앱을 연다(화면은 같고 그 컴퓨터가 준 data로 그린다). 그 컴퓨터가 꺼져 있으면 탭 범위의 꺼짐 안내 한 줄이다. 전에는 같은 앱 id가 이 컴퓨터에 있으면 늘 이 컴퓨터의 것이 열렸다(`useAppHere`, `AppOnMachine`, `TabKindDef.hereApp`을 지웠다).
+  - 다른 컴퓨터의 앱 panel 탭의 [Open app space]는 탭의 기계의 앱 공간을 연다(`onOpenApp`이 기계를 싣는다). 전에는 늘 이 컴퓨터의 앱 공간이었다.
   - Home의 Workspaces 목록은 다른 컴퓨터의 앱을 이 컴퓨터에 같은 앱이 있어도 숨기지 않고 컴퓨터마다 한 줄(기계 꼬리표)로 보인다.
   - `always_on/status`·`always_on/set`을 `REMOTE_PERSON_ROUTES`에 더했다. 터미널 입력을 허락받은 기기의 화면(`screen` 또는 `by` 없는 폰)만 부르고 터미널·agent·앱 요청은 `forbidden`이다.
   - Settings of <다른 컴퓨터>에 Remote 항목이 서고(`MACHINE_PANES`) 그 컴퓨터의 Keep running만 그린다(스위치 이름에 그 컴퓨터 이름). 기기·pairing·터미널 입력 허락은 이 컴퓨터의 Remote에만 있다.

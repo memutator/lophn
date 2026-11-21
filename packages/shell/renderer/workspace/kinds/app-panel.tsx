@@ -110,7 +110,12 @@ export const appPanelKind: TabKindDef = {
   hasAppView: (tab) => tab.app !== undefined && tab.screen !== undefined,
   // 앱 패널은 고르지 않아도 칸에 남아 view를 숨긴 채 둔다. 닫으면 빠져 view가 폐기된다.
   keep(tab, shown, host) {
-    const onOpenApp = host.props.onOpenApp;
+    // 앱 공간은 탭의 기계의 것이다.
+    const machine = tab.machine ?? host.machine ?? undefined;
+    const onOpenApp =
+      host.props.onOpenApp === undefined
+        ? undefined
+        : (app: string) => host.props.onOpenApp?.(app, machine);
     if (tab.app === undefined || tab.screen === undefined) {
       return (
         <AppPanelPicker

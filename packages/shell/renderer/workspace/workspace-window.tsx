@@ -299,8 +299,8 @@ export interface WorkspaceWindowProps {
   windowTerminal?: TerminalDeps;
   /** detached 창 통로. 없으면 Detach 항목과 단추를 두지 않는다. */
   detached?: LophnDetachedApi;
-  /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
-  onOpenApp?: (app: string) => void;
+  /** 앱 공간으로 연다. `machine`은 다른 기계의 앱일 때 그 기계다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
+  onOpenApp?: (app: string, machine?: string) => void;
   /** 왼쪽 sidebar의 앱 목록과 Create app의 통로. 없으면 앱 줄과 Create app이 없다. */
   apps?: AppsSource;
   /** 왼쪽 sidebar에서 다른 workspace(다른 기계의 Home, project, 앱)로 간다. 이 컴퓨터의 Home은 onHome이다. */

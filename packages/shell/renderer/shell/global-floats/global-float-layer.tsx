@@ -69,7 +69,7 @@ export interface GlobalFloatEnv {
   agentViewSource?: AgentTabSourceFactory;
   apps?: AppsSource;
   /** 앱 panel을 선언하지 않은 화면을 앱 공간으로 안내하는 길. */
-  onOpenApp?: (app: string) => void;
+  onOpenApp?: (app: string, machine?: string) => void;
   onSettings: (pane?: SettingsPane) => void;
 }
 

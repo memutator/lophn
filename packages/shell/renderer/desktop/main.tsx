@@ -250,7 +250,8 @@ export function Desktop({
     session: string,
     machine?: string,
   ) => setRoute(openWorkspaceSession(workspace, session, machine));
-  const appSpace = (app: string) => setRoute(openApp(app));
+  const appSpace = (app: string, machine?: string) =>
+    setRoute(openApp(app, undefined, machine));
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: DesktopTarget) => {
     if (target.kind === "home") home();

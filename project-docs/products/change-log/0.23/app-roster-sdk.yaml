@@ -1,5 +1,5 @@
 id: app-roster-sdk
-version: 0.23.105
+version: 0.23.109
 title: 앱이 컴퓨터 명단을 읽고(useMachines, machines), fs 권한 경로를 home 기준 ~/…로 적고, design-app 지침이 원격 사용과 sync를 가른다
 modules: [packages/protocol, packages/core/folder, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/sdk, packages/shell/main, packages/shell/preload, packages/shell/ipc]
 change: |

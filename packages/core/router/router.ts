@@ -847,13 +847,11 @@ export function createRouter(deps: RouterDeps): Router {
     if (isFinished(record.state)) return ok(record);
     const moved = finish(tx, record, "cancelled", null);
     if (!moved.ok) return moved;
-    // 다른 컴퓨터로 보낸 call은 받는 session이 이 기계에 없다. 아직 닿지 않았으면 낼 call mail만 지운다(상대는 본 적이 없다).
+    // 다른 컴퓨터로 보낸 call은 받는 session이 이 기계에 없다. 남은 call mail을 지우고 cancel mail을 낸다: drain이 call mail을 이미 읽어
+    // 보냈을 수 있다. 받는 쪽은 모르는 call의 cancel을 무시하고, 기계마다 seq 순이라 cancel은 call 뒤에 닿는다.
     if (record.to.kind === "remote") {
-      const pending = outbox.callMailOf(tx, calId(record.call));
-      if (record.delivery === "pending" && pending !== null) {
-        const removed = outbox.remove(tx, pending.id);
-        return removed.ok ? moved : removed;
-      }
+      const dropped = dropCallMail(tx, record.call);
+      if (!dropped.ok) return dropped;
       const queued = queue(tx, {
         kind: "cancel",
         call: calId(record.call),
@@ -936,6 +934,20 @@ export function createRouter(deps: RouterDeps): Router {
     const sender = directory.find(sesId(input.session));
     if (sender === null) {
       return err({ code: "not_found", message: "sender session not found" });
+    }
+    // main thread의 보내는 입구(remoteReach)가 먼저 답하지만, 쓰는 tx에서 한 번 더 본다.
+    if (isPrivate(callPolicy(), sender.agent.workspace)) {
+      return err({
+        code: "forbidden",
+        message: "a private workspace does not reach another computer",
+      });
+    }
+    if (sender.opened_by_machine !== null) {
+      return err({
+        code: "forbidden",
+        message:
+          "a session opened by mail from another computer does not send to another computer",
+      });
     }
     const call = tx.newId("cal") as Id<"cal">;
     const agent = sender.agent.agent;
@@ -1107,7 +1119,7 @@ export function createRouter(deps: RouterDeps): Router {
     return ok({ delivery: "running", reason: null, session });
   }
 
-  // 그 call의 아직 내지 못한 call mail을 지운다(받는 기계가 이미 받았다).
+  // 그 call의 아직 내지 못한 call mail을 지운다.
   function dropCallMail(tx: Tx, call: string): Result<void> {
     const pending = outbox.callMailOf(tx, call);
     return pending === null ? ok(undefined) : outbox.remove(tx, pending.id);
@@ -1207,7 +1219,13 @@ export function createRouter(deps: RouterDeps): Router {
       arrived_at: tx.now(),
     });
     if (!fresh) return ok(appliedBefore(tx, mail, origin.machine));
-    if (mail.kind === "call") return applyCall(tx, mail, origin, input);
+    if (mail.kind === "call") {
+      // 이미 있는 call id는 쓰지 않는다(insert가 터지면 그 기계의 drain이 같은 mail을 끝없이 다시 낸다).
+      if (store.read(tx, calId(mail.call)) !== null) {
+        return ok({ delivery: "failed", reason: "not_found", session: null });
+      }
+      return applyCall(tx, mail, origin, input);
+    }
     const record = store.read(tx, calId(mail.call));
     if (record === null) return ok(NOT_APPLIED);
     switch (mail.kind) {
@@ -1219,8 +1237,7 @@ export function createRouter(deps: RouterDeps): Router {
         if (
           isFinished(record.state) ||
           record.from.kind !== "remote" ||
-          record.from.machine !== origin.machine ||
-          record.from.session !== mail.from.session
+          record.from.machine !== origin.machine
         ) {
           return ok(NOT_APPLIED);
         }

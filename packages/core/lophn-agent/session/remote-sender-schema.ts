@@ -84,6 +84,11 @@ end;`,
   {
     id: "lophn-agent.remote-sender.sessions",
     sql: `
-alter table sessions add column opened_by_machine text;`,
+alter table sessions add column opened_by_machine text;
+create trigger sessions_opened_by_machine_immutable
+before update of opened_by_machine on sessions
+begin
+  select raise(abort, 'session opener is immutable');
+end;`,
   },
 ];

@@ -9,11 +9,15 @@ import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
 } from "../../protocol/lophn-agent/call-policy.ts";
-import type { RemoteAddress } from "../../protocol/lophn-agent/calls.ts";
+import type {
+  CallReply,
+  RemoteAddress,
+} from "../../protocol/lophn-agent/calls.ts";
 import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
-import type { Mail } from "../../protocol/lophn-agent/mail.ts";
+import { type Mail, mailSchema } from "../../protocol/lophn-agent/mail.ts";
 import {
   isLophn,
+  type Workspace,
   workspaceOfLophn,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { SchemaStep, Sql, Tx } from "../../protocol/server/mod.ts";
@@ -41,6 +45,8 @@ const C = "mch_0ccccccccccccccccccccccccc";
 const PROJECT = "prj_00000000000000000000000001";
 const IDENTITY = "pri_00000000000000000000000001";
 const REVIEWER = "agt_00000000000000000000000001";
+// 정의가 skip인 agent.
+const SKIPPER = "agt_00000000000000000000000002";
 
 function allSteps(): SchemaStep[] {
   const wirings = WIRINGS.map((make) => make());
@@ -69,13 +75,13 @@ after(async () => {
 
 const agents: AgentDirectory = {
   agent: (id) =>
-    id === REVIEWER
+    id === REVIEWER || id === SKIPPER
       ? {
           id,
-          handle: "reviewer",
+          handle: id === REVIEWER ? "reviewer" : "skipper",
           name: "Reviewer",
           workspace: null,
-          skip: false,
+          skip: id === SKIPPER,
           runtime: "lophn",
           apps: [],
           deny: [],
@@ -94,7 +100,7 @@ const agents: AgentDirectory = {
             remoteApps: [],
           }
         : null,
-  agents: () => [agents.agent(REVIEWER)!],
+  agents: () => [agents.agent(REVIEWER)!, agents.agent(SKIPPER)!],
   cardOf: () => null,
 };
 
@@ -167,7 +173,7 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
       )
       .get(id);
   // 사람이나 이 기계의 agent가 여는 session.
-  const openSession = (agent: string) => {
+  const openSession = (agent: string, workspace: Workspace | null = null) => {
     const opened = createSessionDirectory({
       projects,
       apps,
@@ -175,7 +181,7 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
       names: createWorkspaceNameRules({ projects, apps, agents }),
       publish: () => {},
       sql: () => sql,
-    }).open(tx, { agent, workspace: null }, { kind: "human" }, null);
+    }).open(tx, { agent, workspace }, { kind: "human" }, null);
     assert.ok(opened.ok);
     return opened.value.session;
   };
@@ -190,6 +196,7 @@ function send(
   peer: string,
   address: RemoteAddress,
   dedup: string,
+  reply: CallReply = "result",
 ) {
   const sent = from.router.sendRemote(from.tx, {
     session,
@@ -197,7 +204,7 @@ function send(
     self: from.self,
     peer: { machine: peer, computer: "peer" },
     address,
-    reply: "result",
+    reply,
     body: textBlocks("review the branch"),
     unattended: false,
   });
@@ -206,13 +213,13 @@ function send(
 }
 
 // from의 outbox에서 to로 가는 mail을 모두 to에 적용하고 from에 ack를 적는다.
-function carry(from: Machine, to: Machine, computer = "from") {
+function carry(from: Machine, to: Machine, skipAllowed = false) {
   const mails = pendingMails(from.sql, to.self as never);
   for (const mail of mails) {
     const applied = to.router.applyMail(to.tx, {
       mail,
-      origin: { machine: from.self, computer },
-      skipAllowed: false,
+      origin: { machine: from.self, computer: "from" },
+      skipAllowed,
       via: "link",
     });
     assert.ok(applied.ok, JSON.stringify(applied));
@@ -356,6 +363,217 @@ test("다른 컴퓨터의 call mail은 사람이 연 session을 주소로 써도
   carry(c, b);
   assert.equal(b.delivered.length, 2);
   assert.equal(c.call(third)?.["fail_reason"], "not_found");
+});
+
+// 셋째 기계가 다른 두 기계 사이의 call에 쓴 mail. id 모양은 schema가 검사한다.
+function forged(
+  kind: "reply" | "cancel" | "state",
+  call: string,
+  from: string,
+  to: string,
+  id: string,
+): Mail {
+  const common = {
+    id: `mal_0${id.padStart(25, "0")}`,
+    call,
+    from: { machine: from, agent: "lophn_home", session: null, name: "x" },
+    to_machine: to,
+    seq: 1,
+    sent_at: "2026-11-21T00:00:00.000Z",
+    expires_at: "2026-11-28T00:00:00.000Z",
+  };
+  return kind === "reply"
+    ? {
+        kind,
+        ...common,
+        body: textBlocks("not yours"),
+        outcome: { state: "done", reason: null },
+        unattended: false,
+      }
+    : kind === "cancel"
+      ? { kind, ...common }
+      : { kind, ...common, delivery: "held", session: null };
+}
+
+function applyFrom(to: Machine, mail: Mail, origin: string) {
+  return to.router.applyMail(to.tx, {
+    mail,
+    origin: { machine: origin, computer: "c" },
+    skipAllowed: false,
+    via: "link",
+  });
+}
+
+test("셋째 기계의 reply·cancel·state는 다른 두 기계 사이의 call을 바꾸지 못하고, 보낸 기계나 받는 기계가 틀린 mail은 forbidden이다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const call = send(
+    a,
+    sender,
+    B,
+    { agent: "reviewer", workspace: { home: true } },
+    "t1",
+    "conversation",
+  );
+  carry(a, b);
+  const before = { a: { ...a.call(call) }, b: { ...b.call(call) } };
+  let n = 0;
+  for (const kind of ["reply", "cancel", "state"] as const) {
+    assert.ok(applyFrom(b, forged(kind, call, C, B, String(++n)), C).ok);
+    assert.ok(applyFrom(a, forged(kind, call, C, A, String(++n)), C).ok);
+  }
+  assert.deepStrictEqual({ ...a.call(call) }, before.a);
+  assert.deepStrictEqual({ ...b.call(call) }, before.b);
+  assert.equal(b.delivered.length, 1);
+  assert.equal(a.delivered.length, 0);
+
+  const claimed = applyFrom(b, forged("cancel", call, C, B, "90"), A);
+  assert.ok(!claimed.ok && claimed.error.code === "forbidden");
+  const elsewhere = applyFrom(b, forged("cancel", call, A, C, "91"), A);
+  assert.ok(!elsewhere.ok && elsewhere.error.code === "forbidden");
+});
+
+test("mail이 연 session과 private workspace의 session은 다른 컴퓨터로 보내지 못하고 outbox 줄도 call 행도 쓰지 않는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B, {
+    ...DEFAULT_CALL_POLICY,
+    private: [{ kind: "project", id: PROJECT }],
+  });
+  send(
+    a,
+    a.openSession("lophn_home"),
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t1",
+  );
+  carry(a, b);
+  const opened = b.delivered[0]!.session;
+  const secret = b.openSession(REVIEWER, { kind: "project", id: PROJECT });
+  const rows = b.count("agent_calls");
+  for (const session of [opened, secret]) {
+    const sent = b.router.sendRemote(b.tx, {
+      session,
+      dedup: session,
+      self: B,
+      peer: { machine: A, computer: "a" },
+      address: { agent: "reviewer", workspace: { home: true } },
+      reply: "none",
+      body: textBlocks("pass it on"),
+      unattended: false,
+    });
+    assert.ok(!sent.ok && sent.error.code === "forbidden");
+  }
+  assert.equal(b.count("mail_outbox"), 0);
+  assert.equal(b.count("agent_calls"), rows);
+});
+
+test("mail이 연 session은 허락이 없으면 묻는 session이고 허락이 있으면 agent의 skip을 따른다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const to = { agent: "skipper", workspace: { home: true as const } };
+  send(a, sender, B, to, "t1");
+  carry(a, b, false);
+  send(a, sender, B, to, "t2");
+  carry(a, b, true);
+  assert.deepStrictEqual(
+    b.db
+      .prepare("select skip from sessions order by created_seq")
+      .all()
+      .map((row) => row["skip"]),
+    [0, 1],
+  );
+});
+
+test("mail 본문은 글 block만, byte 상한과 block 수 상한 안에서 받는다", async () => {
+  const a = await machine(A);
+  send(
+    a,
+    a.openSession("lophn_home"),
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t1",
+  );
+  const [mail] = pendingMails(a.sql, B as never);
+  assert.ok(mail?.kind === "call");
+  const withBody = (body: unknown) =>
+    mailSchema.safeParse({ ...mail, body }).success;
+  assert.ok(withBody(textBlocks("ok")));
+  assert.ok(
+    !withBody([{ type: "image", mimeType: "image/png", blob: "a".repeat(64) }]),
+  );
+  assert.ok(!withBody(textBlocks("a".repeat(64 * 1024 + 1))));
+  assert.ok(!withBody(Array.from({ length: 65 }, () => textBlocks("a")[0])));
+});
+
+test("drain이 call mail을 읽은 뒤 취소해도 cancel mail이 가서 받는 기계가 call을 끝낸다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const call = send(
+    a,
+    sender,
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t1",
+  );
+  const [read] = pendingMails(a.sql, B as never);
+  assert.ok(read !== undefined);
+  const cancelled = a.router.cancel(a.tx, { kind: "human" }, { call });
+  assert.ok(cancelled.ok && cancelled.value.state === "cancelled");
+  assert.deepStrictEqual(
+    pendingMails(a.sql, B as never).map((mail) => mail.kind),
+    ["cancel"],
+  );
+  assert.ok(applyFrom(b, read, A).ok);
+  carry(a, b);
+  assert.equal(b.call(call)?.["state"], "cancelled");
+});
+
+test("이미 있는 call id로 온 call mail은 session을 열지 않고 failed(not_found)로 답한다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const c = await machine(C);
+  const call = send(
+    a,
+    a.openSession("lophn_home"),
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t1",
+  );
+  carry(a, b);
+  send(
+    c,
+    c.openSession("lophn_home"),
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t2",
+  );
+  const [mail] = pendingMails(c.sql, B as never);
+  assert.ok(mail !== undefined);
+  const reused = applyFrom(b, { ...mail, call }, C);
+  assert.deepStrictEqual(reused.ok && reused.value, {
+    delivery: "failed",
+    reason: "not_found",
+    session: null,
+  });
+  assert.equal(b.count("sessions"), 1);
 });
 
 // 사람의 ledger에는 agent_calls와 messages에 지난 call과 대화가 있다. 다시 짠 표에 옛 행이 칸마다 그대로 옮겨지고, 새 칸은 null이며,

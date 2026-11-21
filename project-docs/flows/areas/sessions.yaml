@@ -1466,7 +1466,7 @@ flows:
       - "core 안 machine이 아니면 forbidden이다. 보낸 session의 검사(private, mail이 연 session, 명단, 주소 풀기)는 부르는 main thread가 마쳤다."
       - "router나 environment가 아직 없으면 unavailable이다. 본문은 글만이고 64 KiB를 넘으면 schema가 invalid_input으로 거른다."
       - "같은 보낸 session과 dedup의 call이 있으면 그 상태를 돌려준다."
-      - "보낸 session이 없으면 not_found다."
+      - "보낸 session이 없으면 not_found다. 보낸 session이 다른 컴퓨터의 mail이 연 session이거나 그 workspace가 private이면 쓰기 전에 forbidden이다(main thread의 검사를 쓰는 tx에서 한 번 더 본다)."
       - "call mail을 그 기계의 outbox에 넣고(seq는 기계마다), 같은 tx에 보낸 기계의 행(to remote, 받는 session 없음, delivery pending)을 쓴다. commit 뒤 router.mail-queued로 drain을 깨운다."
     outcomes:
       - id: queued
@@ -1478,6 +1478,10 @@ flows:
       - id: sender-missing
         code: not_found
         when: "보낸 session이 없다"
+        observe: [response]
+      - id: sender-refused
+        code: forbidden
+        when: "보낸 session이 다른 컴퓨터의 mail이 연 session이거나 private workspace에 있다. outbox 줄도 call 행도 없다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1510,17 +1514,18 @@ flows:
     steps:
       - "core 안 machine이 아니면 forbidden이다. mail을 쓴 기계가 보낸 기계(origin)가 아니거나 받는 기계가 이 기계가 아니면 forbidden이다."
       - "같은 기계의 같은 mail id를 이미 받았으면 아무것도 하지 않고 지난 결과(받은 call 행의 상태와 session)를 돌려준다."
+      - "call mail의 call id로 된 행이 이미 있으면 길을 타지 않고 failed(not_found)로 답한다(session도 행도 만들지 않는다)."
       - "call mail: 주소를 푼다. project 정체(pri_)는 이 기계의 project로, 앱은 앱 id로, home은 home으로 푼다. session을 가리키는 주소는 그 기계의 mail이 연 session일 때만 그 session이다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다). 받는 workspace가 이 기계의 call 정책에서 private이면 없는 것과 같다."
       - "풀리면 같은 call id로 받는 session에 넣는다(보낸 쪽 remote, 명함 검사 없음, 탭 열기 없음). 새 session은 그 기계가 연 것으로 표시되고 받는 기계의 허락이 없으면 agent 정의가 skip이어도 묻는 session이다. 폴더 길이면 state mail(running)을 낸다."
       - "풀리지 않거나 닫혔으면 실패 행(풀린 받는 곳이 있으면)과 실패 reply mail을 그 기계의 outbox에 넣는다."
-      - "reply mail: 이 기계가 그 기계로 보낸 끝나지 않은 call이면 보낸 session에 답이나 실패를 넣고 outcome이 있으면 행을 닫고 남은 call mail을 지운다. 이 기계가 그 기계에서 받은 conversation call이면 받는 session에 넣는다. cancel mail은 그 기계·session이 보낸 받은 call을 취소하고 받는 session에 알린다. state mail은 보낸 call의 delivery와 그 기계의 session을 적는다."
+      - "reply mail: 이 기계가 그 기계로 보낸 끝나지 않은 call이면 보낸 session에 답이나 실패를 넣고 outcome이 있으면 행을 닫고 남은 call mail을 지운다. 이 기계가 그 기계에서 받은 conversation call이면 받는 session에 넣는다. cancel mail은 그 기계에서 받은 call을 취소하고 받는 session에 알린다(모르는 call이면 무시한다). state mail은 보낸 call의 delivery와 그 기계의 session을 적는다."
     outcomes:
       - id: running
         observe: [ledger:agent_calls, ledger:mail_seen, ledger:sessions, event:MessageReceived, response]
         when: "call mail이 받는 session에 들어갔다(delivery running)"
       - id: failed
         observe: [ledger:agent_calls, ledger:mail_seen, ledger:mail_outbox, response]
-        when: "call mail의 주소가 풀리지 않거나(없음, private, 남이 연 session) 닫혔다. delivery failed와 이유를 돌려주고 실패 mail을 낸다"
+        when: "call mail의 주소가 풀리지 않거나(없음, private, 남이 연 session) 닫혔다. delivery failed와 이유를 돌려주고 실패 mail을 낸다. call id가 이미 있으면 실패 mail 없이 not_found로 답한다"
       - id: repeated
         observe: [response]
         when: "같은 mail id를 이미 적용했다. 지난 결과를 돌려준다"

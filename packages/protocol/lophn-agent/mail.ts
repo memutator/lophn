@@ -29,6 +29,8 @@ export const MAIL_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAIL_LATE_MS = 10 * 60 * 1000;
 // 한 mail 본문 글의 UTF-8 byte 합.
 export const MAIL_TEXT_MAX_BYTES = 64 * 1024;
+// 한 mail 본문의 block 수.
+const MAIL_BLOCKS_MAX = 64;
 
 // mail을 쓴 쪽이다. 받는 기계는 machine만 믿고(link의 기기나 폴더의 기계 폴더와 같아야 한다) 나머지는 표시다.
 // name은 `requesterName`으로 만든다.
@@ -43,7 +45,7 @@ export type MailAuthor = z.infer<typeof mailAuthorSchema>;
 const encoder = new TextEncoder();
 
 // 본문은 글만이다(image blob은 기계를 건너지 않는다).
-export const mailBodySchema = contentBlocksSchema.refine(
+export const mailBodySchema = contentBlocksSchema.max(MAIL_BLOCKS_MAX).refine(
   (blocks) => {
     let bytes = 0;
     for (const block of blocks) {

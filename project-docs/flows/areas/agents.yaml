@@ -410,7 +410,7 @@ flows:
       - 화면이 call을 취소한다. agent가 lophn call cancel로 같은 route를 부르면 자기가 보낸 call만 된다
       - 끝나지 않은 call을 cancelled로 바꾼다
       - 받은 session(lophn이든 harness든)이 있으면 call_cancelled 알림을 queue에 넣는다(다음 turn 입력)
-      - 다른 컴퓨터로 보낸 call이면 아직 닿지 않았을 때(pending) 낼 call mail만 지우고, 아니면 cancel mail을 그 기계로 낸다
+      - 다른 컴퓨터로 보낸 call이면 남은 call mail을 지우고 cancel mail을 그 기계로 낸다(drain이 call mail을 이미 냈을 수 있다. 받는 쪽은 모르는 call의 cancel을 무시한다)
       - 다른 컴퓨터에서 받은 call을 이 기계의 사람이 취소하면 받는 session에 알리고 보낸 기계에 cancelled reply mail을 낸다(보낸 session에는 입력이 없다)
     outcomes:
       - id: cancelled
@@ -443,6 +443,44 @@ flows:
     crosses_process: false
     refs: [T18]
     docs: [architecture/agent-call.md]
+
+  - id: call-send-remote
+    title: agent가 다른 컴퓨터의 agent에게 call을 보낸다
+    actor: agent
+    entries: [route:calls/send_remote]
+    boundary: [router, core-api]
+    code: [packages/protocol/lophn-agent/mail.ts]
+    steps:
+      - 계약만 있다. route는 아직 등록되지 않았고 handler(보내는 쪽 검사, 기계·project 풀기, redaction, calls/mail-send 부르기)는 다음 일이 짠다
+    outcomes:
+      - id: not-registered
+        observe: [response]
+        when: route가 등록되기 전이다. core는 모르는 route로 거절한다
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-call.md]
+    declared_only: [invalid_input, forbidden, not_found, unavailable, unauthorized]
+    unclear:
+      - handler가 생기면 outcome을 쓴다
+
+  - id: a2a-mail-receive
+    title: 다른 컴퓨터의 core가 mail 하나를 이 기계에 넘긴다
+    actor: system
+    entries: [route:a2a/mail]
+    boundary: [router, core-api]
+    code: [packages/protocol/lophn-agent/mail.ts]
+    steps:
+      - 계약만 있다. route는 아직 등록되지 않았고 handler(명단, 허락에서 skip, calls/mail-apply·mail-refuse 부르기)는 다음 일이 짠다. not_found는 내지 않는다(보낸 쪽이 옛 판으로 읽는다)
+    outcomes:
+      - id: not-registered
+        observe: [response]
+        when: route가 등록되기 전이다. core는 모르는 route로 거절한다
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-call.md, architecture/remote.md]
+    declared_only: [invalid_input, forbidden, unavailable]
+    unclear:
+      - handler가 생기면 outcome을 쓴다
 
   - id: call-state-read
     title: 사람이 call 하나의 현재 상태를 읽는다

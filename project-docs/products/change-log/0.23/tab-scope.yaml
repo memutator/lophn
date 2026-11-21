@@ -10,6 +10,8 @@ change: |
   browser profile. 전: 모든 browser 탭이 partition `persist:lophn-browser` 하나를 썼고 저장 login은 전역 하나였다. 후: 설정 `shell.browser_profiles`(`[{id: bpf_…, name, color}]`, 16개까지, locked)가 profile 목록이다. 기본 profile은 목록에 없고 `persist:lophn-browser`를 그대로 쓰며 profile마다 `persist:lophn-browser-<id>`다. main은 알려진 profile의 partition만 붙이고 partition마다 session 정책을 깐다. 탭 값 browser kind에 `profile?`, agent 정의에 사람만 쓰는 칸 `browser_profile?`(agent 자격이 넣거나 바꾸면 `forbidden`, 목록 행 `agents/list`에 `browser_profile`). `tab open --url`은 core가 그 agent 정의의 profile로 연다(host target browser에 `profile?`). 사람은 + menu Browser에서 고르고 popup과 탭에서 연 탭은 연 탭을 따른다. 탭 머리에 기본이 아닌 profile이 보인다. page host도 profile마다 partition이다. IPC `shell:browser-clear-data`는 `{profile}` 하나를 지운다.
   저장 login. `logins.json` 항목에 선택 칸 `profile`(없으면 기본 profile, data step 없음). `logins/list {origin?, tab?}`는 agent에게 그 탭이나 자기 정의의 profile login만 내고 행에 `profile`이 있다. `logins/save`의 `profile?`은 새 login에만 쓴다. `logins/release`에 `profile`이 더해져 login의 profile과 다르면 `forbidden`. `fill-login`은 다른 profile의 login을 없는 login(`not_found`)으로 본다. browser 탭이 아닌 탭(preview, artifact, phone)의 login은 기본 profile의 것이고 profile을 단 agent에게는 목록이 비며 그 탭의 save 요청은 `forbidden`이다. agent 정의나 ledger를 읽지 못하면 `tab open --url`과 login 목록은 `unavailable`이다. login 요청 card의 login view에 `profile`. CLI `lophn login list --tab`.
   화면. Settings › Browser › Profiles(만들기, Rename, Color, Clear data, Delete, 쓰는 agent), Logins는 profile마다 묶음, 옛 Clear browsing data는 기본 profile. Delete는 그 profile의 login → partition data → 목록 순서로 지운다. agent 편집기 General에 Browser profile(지운 profile이면 "Deleted profile — uses Default"), agent 카드에 기본이 아닌 profile.
+  넘긴 탭의 닫힘. 넘긴 탭에서 page가 `window.close()`를 부르면(page script, agent의 `evaluate`) 탭을 지우지 않고 같은 자리에서 마지막 주소로 page를 새로 연다(주인, core 탭 id, take control 상태는 그대로). 사람의 탭은 전처럼 닫힌다. 넘겨받은 탭의 `tab close` 거절 문장이 lophn agent의 tool 결과에 그대로 간다. 넘기거나 다시 알린 뒤 창이 그 탭의 url과 제목을 한 번 알려 `tab list`에 제목이 선다.
+  그 밖. take control 줄이 좁은 칸에서 주소 칸(최소 128px)과 [Take control]·[Take back]을 칸 안에 두고 문장을 먼저 줄인다(칸 640px 이하에서 즐겨찾기 쪽 단추, 480px 이하에서 뒤로·앞으로·새로고침을 agent 줄이 선 동안 숨긴다). `team spawn`으로 연 session의 자동 제목이 program의 머리말이 아니라 맡긴 글에서 나온다.
   저장 모양. layout `schema_version` 11 → 12, 전역 float 3 → 4. data step `shell.layout-owners`(shell-agent-tabs wiring의 `dataSteps` 끝)가 판만 올린다. 다른 판과 손상된 파일은 그대로다.
 why: |
   탭에 누가 열었는지가 남지 않아 화면에서 어느 agent의 탭인지, 누가 누구에게 일을 맡겼는지 보이지 않았고, agent는 자기 탭 목록도 사람이 쓰던 탭을 받을 길도 없었다. 사람과 모든 agent가 cookie와 로그인을 하나로 같이 써서 업무와 개인 계정을 가를 수 없고 page 글에 속은 agent가 사람의 모든 로그인에 닿았다.
@@ -54,7 +56,7 @@ decisions:
     by: agent
 follow_up: |
   - browser profile 정의와 저장 login을 기계 사이에 맞추기(roadmap `browser-profile.md`)와 coordinator가 자기 탭을 자식에게 넘기기(roadmap `tab-owner.md`)가 남았다.
-  - agent driver가 보내는 키가 창 단축키가 되지 않게 하는 규칙과, 넘긴 탭에서 page가 `window.close()`를 부를 때의 동작은 실제 창 확인에서 고칠 것이 나와 고치는 중이다. 고친 뒤 `workspace-layout.md`("agent가 연 탭"의 넘기기)와 `keybindings.md`에 적는다.
+  - agent의 driver가 보내는 키는 그 page의 guest가 키보드 focus를 가진 때만 page에만 간다. focus가 없으면 창에서 focus된 곳으로 간다(이 계획 전부터 있던 길이다. 이슈 `agent-keys-land-on-person-focus`, 고치는 중).
 checklist:
   - "해야: 앱을 다시 build한다"
   - 탭 줄의 browser 탭을 왼쪽 sidebar의 session 줄에 끌어 놓아 넘기고, 탭 머리에 그 agent의 avatar가 서는지, 탭 menu의 Take back으로 되찾는지 본다

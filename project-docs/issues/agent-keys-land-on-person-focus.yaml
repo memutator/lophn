@@ -1,0 +1,24 @@
+id: agent-keys-land-on-person-focus
+title: agent가 browser 탭에 보낸 키가 그 page에 키보드 focus가 없으면 창에서 focus된 곳으로 간다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/shell/main, packages/shell/renderer]
+now: |
+  agent의 `lophn browser act … press|type`은 shell main의 driver(`packages/shell/main/browser/agent/driver.ts`, `keys.ts`)가 그 탭의 `<webview>` guest에 CDP `Input.dispatchKeyEvent`로 보낸다. 그 guest가 창에서 키보드 focus를 갖고 있지 않으면 key는 그 page가 아니라 창에서 지금 focus된 요소로 간다.
+
+  headless Electron에서 본 것(shell page에 keydown을 찍었다):
+  - 사람이 넘긴 탭이 고른 탭이고 shell에 focus: agent의 `press --key Control+w`가 그 탭을 닫았다. shell page가 `keydown Control+w`를 받았고 page의 key 기록은 비었다.
+  - 사람이 다른 탭을 보고 있고 넘긴 탭은 숨음: 사람이 보던 탭이 닫혔다. `--ref <input>`으로 page 안 요소에 focus를 줘도 같았다.
+  - agent가 연 탭(float)에 보낸 Control+w도 사람이 고른 탭을 닫았다(shell의 단추에 focus가 있었다).
+  - Control+Tab은 사람의 고른 탭을 바꿨다.
+  - guest가 이미 키보드 focus를 가진 때(agent가 `type --ref`로 page를 누른 바로 뒤)에만 key가 page에 갔다.
+
+  driver는 key 앞에 대상을 마우스로 눌러 focus를 얻는다(`grab`). `press`를 `--ref` 없이 부르면 누를 곳이 없어 focus를 얻지 못하고, 숨은 탭은 눌러도 guest가 창의 focus를 얻지 못한다. 반대로 그 누름이 focus를 얻으면 사람이 치던 곳의 키보드 focus가 agent의 page로 옮겨 간다(따로 재현하지는 않았다).
+
+  driver가 key를 보내는 동안 그 page를 표시해 main이 창 단축키로 넘기지 않게 하는 장치(`DriverKeys`)는 key가 guest를 거칠 때만 듣는다.
+impact: |
+  agent가 누른 키가 사람의 키처럼 창에 듣는다: 사람이 보던 탭이 닫히거나 바뀌고, focus된 shell 단추가 Enter·Space로 눌릴 수 있다. agent 쪽에서는 `press`가 page에 닿지 않아 form 제출이나 단축키가 조용히 실패한다. 사람이 탭을 agent에게 넘기고 같은 창에서 일을 계속할 때 가장 자주 만난다.
+fix: |
+  - (중간, 추천) guest의 focus와 상관없이 그 page에만 key를 넣는 길을 실제 Electron에서 재서 고른다(guest `webContents.sendInputEvent`, CDP focus emulation 등). `grab`의 마우스 누름을 창 focus를 옮기지 않는 것으로 바꾼다. key를 page에 넣지 못하면 다른 곳에 넣지 말고 고정 문장으로 실패한다. driver가 보낸 key는 어떤 경우에도 shell이 처리하지 않게 막는다.
+  - (작음) 넣지 못하는 경우만 막는다: guest에 focus가 없으면 key를 보내지 않고 실패로 답한다. 잃는 것: 사람이 다른 곳을 보는 동안 agent의 `press`가 늘 실패한다.

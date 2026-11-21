@@ -35,7 +35,7 @@ export function Relay({
           key={step.name}
           className={styles.item}
           data-relay-step={step.name}
-          data-shown={step.shown}
+          data-shown={step.heldThere === true ? "human" : step.shown}
           data-blocked={step.blocked === true ? "" : undefined}
         >
           {index === 0 ? null : (

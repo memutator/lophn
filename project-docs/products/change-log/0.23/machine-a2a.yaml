@@ -75,7 +75,6 @@ decisions:
     by: agent
 follow_up: |
   - 다른 컴퓨터가 가져간 step의 turn이 실패·멈춤·재시작으로 끝나면 시작한 컴퓨터에 줄이 남지 않는다(이슈 `workflow-remote-step-turn-end-no-line`). run 화면은 그 컴퓨터와 "도는 중"까지만 안다.
-  - handoff note와 다른 컴퓨터의 workflow step을 실제 두 컴퓨터로 확인하는 일이 남았다.
   - `team spawn`이 기계를 건너는 것(roadmap 단계 4).
 checklist:
   - "해야: 앱을 다시 build한다"

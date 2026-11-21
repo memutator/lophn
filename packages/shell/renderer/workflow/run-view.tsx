@@ -441,7 +441,7 @@ export function RunView({
               key={row.step.name}
               className={styles.step}
               data-step={row.step.name}
-              data-shown={row.shown}
+              data-shown={step.heldThere === true ? "human" : row.shown}
             >
               <span className={styles.stepMark}>
                 <WhoMark who={step.who} faceOf={faceOf} />

@@ -141,6 +141,8 @@ export interface RelayStep {
   readonly blocked?: boolean;
   /** 다른 컴퓨터로 넘겼는데 아직 거기서 돌지 않는다(닿지 않았거나 그 컴퓨터에서 사람을 기다린다). 그 컴퓨터 이름이다. */
   readonly waitingOn?: string;
+  /** 늦게 닿아 그 컴퓨터에서 사람의 결정을 기다린다. 사람 차례의 색으로 보인다. */
+  readonly heldThere?: boolean;
 }
 
 const relayStep = (
@@ -174,6 +176,7 @@ export const relayOfRun = (detail: WorkflowInstanceDetailView): RelayStep[] =>
       remote.delivery === "running"
         ? {}
         : { waitingOn: remote.computer }),
+      ...(remote?.delivery === "held" ? { heldThere: true } : {}),
     };
   });
 

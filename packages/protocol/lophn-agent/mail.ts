@@ -120,7 +120,7 @@ export const a2aMail = defineMemory({
   input: z.strictObject({ mail: mailSchema }),
   output: mailAppliedSchema,
   actors: ["user"],
-  errors: ["invalid_input", "forbidden", "unavailable"],
+  errors: ["invalid_input", "forbidden", "conflict", "unavailable", "internal"],
 });
 
 const machineRef = { machine: z.string().min(1) };

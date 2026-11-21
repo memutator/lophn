@@ -617,6 +617,7 @@ flows:
       - "link를 떠난 뒤 답을 잃었으면(unavailable, sent) unknown으로 적고 그 기계를 멈춘다. 줄은 남아 다음 때 같은 mail id로 다시 가고 받는 쪽은 id로 한 번만 돌린다"
       - "not_found(route를 모르는 옛 판)나 invalid_input(그 판이 mail의 꼴을 읽지 못함)이면 refused로 적어 call을 old_version으로 닫고 다음 mail로 간다. 두면 그 기계의 줄이 영영 막힌다"
       - "그 밖(link를 떠나지 않은 unavailable, forbidden, internal 등)은 그 기계를 멈추고 다음 때 다시 한다. mail-sent를 적지 못해도 멈춘다"
+      - "줄 맨 앞 mail에 timer가 시작한 차례마다 그 기계가 internal로 답한 횟수를 메모리에 센다(맨 앞 mail이 바뀌거나 core가 다시 켜지면 0). 다섯 번이면 그 mail을 버린다: call mail은 acked {failed, expired}로 적어 call을 닫고 보낸 session에 알리며, reply·cancel·state mail은 줄에서 지운다(그 기계의 call은 만료까지 열려 있다). 그리고 다음 mail로 간다. 줄이 생기거나 link가 바뀐 깨움은 세지 않는다"
     outcomes:
       - id: acked
         observe: [ledger:mail_outbox, ledger:agent_calls]
@@ -627,6 +628,9 @@ flows:
       - id: old-version
         observe: [ledger:mail_outbox, ledger:agent_calls, event:MessageReceived]
         when: "그 기계가 mail route를 모르거나 mail의 꼴을 읽지 못했다. call이 old_version으로 닫히고 보낸 session에 실패 알림이 들어간다"
+      - id: given-up
+        observe: [ledger:mail_outbox, ledger:agent_calls, event:MessageReceived, "log:mail mail_given_up"]
+        when: "그 기계가 줄 맨 앞 mail에 timer가 시작한 차례 다섯 번 internal로 답했다. call은 expired로 닫히고 다음 mail이 간다"
       - id: stopped
         observe: ["log:mail mail_send_stopped"]
         when: "link가 끊겼거나 그 기계가 다른 오류로 답했다. 줄은 그대로다"

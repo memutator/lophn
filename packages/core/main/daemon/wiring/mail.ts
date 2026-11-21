@@ -52,14 +52,10 @@ const MAIL_CONTEXT: AuthenticatedContext = {
   credential_ref: MAIL_PRINCIPAL,
 };
 
-// 닿지 않은 mail을 다시 내보는 간격. link가 붙거나 outbox에 줄이 생기면 기다리지 않는다.
-const DRAIN_EVERY_MS = 60_000;
-
 export const mailWiring: WiringFactory = () => {
   let connection: LedgerConnection | undefined;
   let drain: MailDrain | undefined;
   let unsubscribe: (() => void) | undefined;
-  let timer: ReturnType<typeof setInterval> | undefined;
   return {
     name: "mail",
     records: () => [MAIL_CONTEXT],
@@ -114,6 +110,11 @@ export const mailWiring: WiringFactory = () => {
         },
         call: (device, call, by) => ctx.machineLinks.call(device, call, by),
         record: (mail, result) => command(callsMailSent, { mail, result }),
+        every(ms, fn) {
+          const timer = setInterval(() => void fn(), ms);
+          timer.unref();
+          return () => clearInterval(timer);
+        },
         warn: (event, fields) =>
           ctx.telemetry.logger.warn({ component: "mail", event, fields }),
       });
@@ -154,15 +155,11 @@ export const mailWiring: WiringFactory = () => {
         },
         close: () => undefined,
       });
-      timer = setInterval(() => void draining.wakeAll(), DRAIN_EVERY_MS);
-      timer.unref();
-      void draining.wakeAll();
+      draining.start();
     },
     closeIntake() {
       unsubscribe?.();
       unsubscribe = undefined;
-      if (timer !== undefined) clearInterval(timer);
-      timer = undefined;
       drain?.stop();
     },
     closeWork() {

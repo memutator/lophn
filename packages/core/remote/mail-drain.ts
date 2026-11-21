@@ -1,5 +1,5 @@
-// outbox의 mail을 link로 내보낸다. 상대 기계마다 한 번에 하나이고 seq 순이다. 깨우는 때는 wiring이 정한다(outbox에 줄이 생김, link
-// 상태가 바뀜, timer, 기동 뒤 한 번). 받은 답을 `calls/mail-sent`로 적는다.
+// outbox의 mail을 link로 내보낸다. 상대 기계마다 한 번에 하나이고 seq 순이다. 깨우는 때: outbox에 줄이 생김, link 상태가 바뀜(wiring이
+// 부른다), 주기 timer, 시작할 때 한 번. 받은 답을 `calls/mail-sent`로 적는다.
 import type { LophnError, Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
@@ -23,13 +23,29 @@ export type MailDrainDeps = {
     by: Requester,
   ): Promise<Result<unknown>>;
   record(mail: Id<"mal">, result: MailSendResult): Promise<Result<unknown>>;
+  // 주기 timer. 멈추는 함수를 돌려준다.
+  every(ms: number, fn: () => Promise<void>): () => void;
   warn(event: string, fields: Record<string, unknown>): void;
+};
+
+// 닿지 않은 mail을 다시 내보는 간격.
+export const DRAIN_EVERY_MS = 60_000;
+// 받는 기계가 줄 맨 앞 mail에 timer가 시작한 차례마다 internal로 답한 횟수가 이만큼이면 그 mail을 버린다.
+export const INTERNAL_GIVE_UP = 5;
+
+// 버린 mail의 결과. call mail은 expired로 닫힌다(옛 판도 아는 이유다). reply·cancel·state는 줄에서 지워질 뿐이라 그 기계의 call은 만료까지
+// 열려 있다.
+const GIVE_UP: MailSendResult = {
+  kind: "acked",
+  applied: { delivery: "failed", reason: "expired", session: null },
 };
 
 export type MailDrain = {
   // 그 기계의 줄을 돈다. 도는 중이면 끝난 뒤 한 번 더 돈다. 돌기가 끝나면 풀린다.
   wake(peer: Id<"mch">): Promise<void>;
   wakeAll(): Promise<void>;
+  // 주기 timer를 걸고 한 번 돈다.
+  start(): void;
   stop(): void;
 };
 
@@ -70,14 +86,19 @@ function requesterOf(mail: Mail): Requester {
 
 export function createMailDrain(deps: MailDrainDeps): MailDrain {
   const running = new Map<string, Promise<void>>();
-  const again = new Set<string>();
+  // 끝난 뒤 한 번 더 돌 기계와 그 차례가 timer가 시작한 것인지.
+  const again = new Map<string, boolean>();
+  // 기계마다 줄 맨 앞 mail과, timer가 시작한 차례에 받는 기계가 internal로 답한 횟수. 메모리에만 있다.
+  const internal = new Map<string, { mail: string; count: number }>();
   let stopped = false;
+  let cancelTimer: (() => void) | undefined;
 
-  async function drain(peer: Id<"mch">): Promise<void> {
+  async function drain(peer: Id<"mch">, byTimer: boolean): Promise<void> {
     const device = deps.connected(peer);
     if (device === null) return;
     for (const mail of deps.pending(peer)) {
       if (stopped) return;
+      if (internal.get(peer)?.mail !== mail.id) internal.delete(peer);
       const sent = await deps.call(
         device,
         {
@@ -87,7 +108,20 @@ export function createMailDrain(deps: MailDrainDeps): MailDrain {
         },
         requesterOf(mail),
       );
-      const result = sendResultOf(sent);
+      let result = sendResultOf(sent);
+      if (result === null && !sent.ok && sent.error.code === "internal") {
+        // 받는 기계에서 늘 실패하는 mail 하나가 그 기계로 가는 줄을 영영 막지 않게 한다. 짧은 고장 동안 몰려 오는 깨움(줄이 생김, link
+        // 바뀜)은 세지 않는다.
+        if (byTimer) {
+          const count = (internal.get(peer)?.count ?? 0) + 1;
+          internal.set(peer, { mail: mail.id, count });
+          if (count >= INTERNAL_GIVE_UP) {
+            internal.delete(peer);
+            deps.warn("mail_given_up", { peer, mail: mail.id });
+            result = GIVE_UP;
+          }
+        }
+      }
       if (result === null) {
         if (!sent.ok) {
           deps.warn("mail_send_stopped", { peer, code: sent.error.code });
@@ -107,19 +141,23 @@ export function createMailDrain(deps: MailDrainDeps): MailDrain {
     }
   }
 
-  function wake(peer: Id<"mch">): Promise<void> {
+  function wake(peer: Id<"mch">, byTimer = false): Promise<void> {
     if (stopped) return Promise.resolve();
     const current = running.get(peer);
     if (current !== undefined) {
-      again.add(peer);
+      again.set(peer, (again.get(peer) ?? false) || byTimer);
       return current;
     }
     const done = (async () => {
       try {
-        do {
+        let timed = byTimer;
+        for (;;) {
+          await drain(peer, timed);
+          const next = again.get(peer);
           again.delete(peer);
-          await drain(peer);
-        } while (again.has(peer) && !stopped);
+          if (next === undefined || stopped) break;
+          timed = next;
+        }
       } catch (thrown) {
         deps.warn("mail_drain_threw", {
           peer,
@@ -133,14 +171,23 @@ export function createMailDrain(deps: MailDrainDeps): MailDrain {
     return done;
   }
 
+  async function wakeAll(byTimer = false): Promise<void> {
+    if (stopped) return;
+    await Promise.all(deps.peers().map((peer) => wake(peer, byTimer)));
+  }
+
   return {
-    wake,
-    async wakeAll() {
-      if (stopped) return;
-      await Promise.all(deps.peers().map((peer) => wake(peer)));
+    wake: (peer) => wake(peer),
+    wakeAll: () => wakeAll(),
+    start() {
+      if (stopped || cancelTimer !== undefined) return;
+      cancelTimer = deps.every(DRAIN_EVERY_MS, () => wakeAll(true));
+      void wakeAll();
     },
     stop() {
       stopped = true;
+      cancelTimer?.();
+      cancelTimer = undefined;
     },
   };
 }

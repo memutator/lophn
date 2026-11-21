@@ -670,10 +670,12 @@ files:
       - a2a-mail-receive:running
       - call-send-remote:queued
       - call-send-remote:sender-refused
+      - call-send-remote:invalid-input
       - mail-drain:old-version
       - mail-drain:unknown
       - mail-drain:acked
-    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 입구 handler에서 기기 연결의 call 처리, 본문 준비, writer 명령, Router까지 잇는다. 폰·명단 밖 기기·터미널이 시킨 것·다른 컴퓨터가 실어 온 mail·이 기계로 쓰지 않은 mail은 Router에 닿지 않고, 허락 없는 컴퓨터의 mail은 skip이어도 묻는 session이다. private workspace와 mail이 연 session은 컴퓨터 이름을 풀기 전에 forbidden이다. 옛 판의 not_found는 줄을 막지 않고 old_version으로 닫으며 그 실패 알림이 보낸 session에 기록된다. 답을 잃은 mail은 같은 id로 다시 가 한 번만 돈다"
+      - mail-drain:given-up
+    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 입구 handler에서 기기 연결의 call 처리, 본문 준비, writer 명령, Router까지 잇는다. 폰·명단 밖 기기·터미널이 시킨 것·다른 컴퓨터가 실어 온 mail·이 기계로 쓰지 않은 mail은 Router에 닿지 않고, 허락 없는 컴퓨터의 mail은 skip이어도 묻는 session이다. private workspace와 mail이 연 session은 컴퓨터 이름을 풀기 전에 forbidden이다. 옛 판의 not_found는 줄을 막지 않고 old_version으로 닫으며 그 실패 알림이 보낸 session에 기록된다. 답을 잃은 mail은 같은 id로 다시 가 한 번만 돈다. 보내는 쪽과 받는 쪽 모두 redaction을 거쳐 outbox와 받는 session 기록의 글에 secret이 없다. 이 컴퓨터(같은 기계 id의 옛 명단 항목 포함)로는 보내지 못하고, 폴더 길은 이 컴퓨터를 origin으로 받지 않는다. 답을 잃으면 그 기계의 줄이 거기서 멈추고 한 기계의 보내기는 겹치지 않는다. timer가 시작한 차례의 internal 다섯 번이면 그 call을 expired로 닫고 다음 mail이 간다"
 
   - path: packages/core/router/router_test.ts
     covers:

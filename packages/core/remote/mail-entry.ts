@@ -74,7 +74,8 @@ export function sendRemoteHandler(deps: MailEntryDeps): MemoryHandler {
     if (!reach.ok) return reach;
     const resolved = deps.resolve(input.to.machine);
     if (!resolved.ok) return resolved;
-    if (resolved.value.self) {
+    // 명단에 이 기계의 항목이 둘이면 self가 아닌 쪽도 이 기계다. 그 mail은 영영 닿지 않는다.
+    if (resolved.value.self || resolved.value.machine === deps.self()) {
       return err({
         code: "invalid_input",
         message: "that is this computer; send the call without --on",
@@ -169,7 +170,9 @@ export function mailHandler(deps: MailEntryDeps): MemoryHandler {
 export function createMailInbox(deps: MailEntryDeps): MailInbox {
   return {
     async apply({ mail, origin, via }) {
-      const computer = deps.computers().find((each) => each.machine === origin);
+      const computer = deps
+        .computers()
+        .find((each) => each.machine === origin && !each.self);
       if (computer === undefined) {
         return forbidden("mail comes only from a computer in the roster");
       }

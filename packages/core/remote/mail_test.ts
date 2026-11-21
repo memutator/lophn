@@ -96,6 +96,10 @@ const C = "mch_0ccccccccccccccccccccccccc" as Id<"mch">;
 const A_DEV = "dev_0aaaaaaaaaaaaaaaaaaaaaaaaa" as Id<"dev">;
 const B_DEV = "dev_0bbbbbbbbbbbbbbbbbbbbbbbbb" as Id<"dev">;
 const C_DEV = "dev_0ccccccccccccccccccccccccc" as Id<"dev">;
+// A의 옛 항목: 같은 기계 id의 다른 기기.
+const A_OLD_DEV = "dev_0aaaaaaaaaaaaaaaaaaaaaaaab" as Id<"dev">;
+// 제품 redaction이 pattern으로 거르는 값.
+const SECRET = "sk-abcdefghijklmnopqrstuvwxyz012345";
 const PHONE = "dev_0ppppppppppppppppppppppppp" as Id<"dev">;
 const STRANGER = "dev_0sssssssssssssssssssssssss" as Id<"dev">;
 const PROJECT = "prj_00000000000000000000000001";
@@ -105,9 +109,16 @@ const REVIEWER = "agt_00000000000000000000000001";
 const SKIPPER = "agt_00000000000000000000000002";
 const MAIL_PRINCIPAL = "machine:mail";
 
-// 명단: 세 컴퓨터와 폰 하나. 모르는 기기는 명단에 없다.
+// 명단: 세 컴퓨터와 A의 옛 항목, 폰 하나. 모르는 기기는 명단에 없다. 기계마다 앞 항목이 그 기계 자신이다.
 const ROSTER: (MachineCandidate & { kind: "computer" })[] = [
   { machine: A, device: A_DEV, name: "laptop", self: false, kind: "computer" },
+  {
+    machine: A,
+    device: A_OLD_DEV,
+    name: "laptop-old",
+    self: false,
+    kind: "computer",
+  },
   { machine: B, device: B_DEV, name: "studio", self: false, kind: "computer" },
   { machine: C, device: C_DEV, name: "tower", self: false, kind: "computer" },
 ];
@@ -255,12 +266,15 @@ async function machine(self: Id<"mch">) {
     announce: () => {},
   } as unknown as RouterDeps);
 
+  // 받는 session 기록에 쓰려고 준비한 글.
+  const preparedTexts: string[] = [];
   const relay: BodyPrepare = {
     live: (k) => prepared.has(preparedKey(k)),
     async prepare(call) {
       const bytes = Buffer.from(await new Response(call.bytes).arrayBuffer());
       const hash = createHash("sha256").update(bytes).digest("hex");
       prepared.add(preparedKey({ ...call, hash }));
+      preparedTexts.push(bytes.toString("utf8"));
       return ok({
         preparation: hash,
         principal: call.principal,
@@ -318,17 +332,18 @@ async function machine(self: Id<"mch">) {
       by: Requester,
     ) => Promise<Result<unknown>>;
   } = { call: async () => err({ code: "unavailable", message: "no link" }) };
+  const own = ROSTER.find((each) => each.machine === self)!.device;
   const computers = () =>
     ROSTER.map(({ machine, device, name }) => ({
       machine,
       device,
       name,
-      self: machine === self,
+      self: device === own,
     }));
   const links: RemoteMachines = {
     computers,
     list: () =>
-      ROSTER.filter((each) => each.machine !== self).map((each) => ({
+      ROSTER.filter((each) => each.device !== own).map((each) => ({
         machine: each.machine as Id<"mch">,
         name: each.name,
         status: status.get(each.machine)!,
@@ -354,6 +369,8 @@ async function machine(self: Id<"mch">) {
     granted: (machine) => grants.has(machine),
     requesterOf,
   };
+  // drain의 주기 timer. test가 손으로 돌린다.
+  let timer: (() => Promise<void>) | undefined;
   const drain = createMailDrain({
     peers: () => outboxPeers(sql),
     pending: (peer) => pendingMails(sql, peer),
@@ -365,6 +382,12 @@ async function machine(self: Id<"mch">) {
         : null,
     call: links.call,
     record: (mail, result) => command(callsMailSent, { mail, result }),
+    every(_ms, fn) {
+      timer = fn;
+      return () => {
+        timer = undefined;
+      };
+    },
     warn: () => {},
   });
 
@@ -437,7 +460,12 @@ async function machine(self: Id<"mch">) {
     return opened.value.session;
   };
   // 그 session의 agent가 부르는 `calls/send_remote`.
-  const sendRemote = async (session: string, to: object, dedup: string) =>
+  const sendRemote = async (
+    session: string,
+    to: object,
+    dedup: string,
+    text = "review the branch",
+  ) =>
     await sendRemoteHandler(entry)(
       {
         principal: `agent:${session}`,
@@ -446,7 +474,7 @@ async function machine(self: Id<"mch">) {
         conditions: { session: session as Id<"ses"> },
         credential_ref: "agent",
       } as AuthenticatedContext,
-      { to, reply: "result", body: textBlocks("review the branch"), dedup },
+      { to, reply: "result", body: textBlocks(text), dedup },
     );
   return {
     self,
@@ -458,6 +486,8 @@ async function machine(self: Id<"mch">) {
     grants,
     entry,
     drain,
+    tick: () => timer!(),
+    preparedTexts,
     remote,
     count,
     callRow,
@@ -498,8 +528,15 @@ test("명단의 컴퓨터가 아닌 기기(폰, 모르는 기기, from.machine�
     sender,
     { ...HOME_REVIEWER, machine: "studio" },
     "t1",
+    `use ${SECRET}`,
   );
   assert.equal(code(sent), "ok");
+  // 보내는 쪽 redaction: outbox에 secret이 남지 않는다.
+  assert.ok(
+    !a.sql
+      .all("select mail from mail_outbox", [])
+      .some((row) => String(row["mail"]).includes(SECRET)),
+  );
   const [mail] = pendingMails(a.sql, B);
   assert.ok(mail !== undefined);
   const receive = b.remote();
@@ -540,6 +577,16 @@ test("명단의 컴퓨터가 아닌 기기(폰, 모르는 기기, from.machine�
         }),
     ],
     ["folder of C", () => b.inbox.apply({ mail, origin: C, via: "folder" })],
+    // 폴더 길: 이 기계가 이 기계에게 쓴 것처럼 꾸민 mail.
+    [
+      "folder of this computer",
+      () =>
+        b.inbox.apply({
+          mail: { ...mail, from: { ...mail.from, machine: B }, to_machine: B },
+          origin: B,
+          via: "folder",
+        }),
+    ],
   ];
   for (const [who, run] of rows) {
     assert.equal(code(await run()), "forbidden", who);
@@ -553,12 +600,18 @@ test("명단의 컴퓨터가 아닌 기기(폰, 모르는 기기, from.machine�
   ]) {
     assert.equal(b.count(table), 0, table);
   }
-  // 그 컴퓨터의 link로 온 그 컴퓨터의 mail은 닿는다.
-  const applied = await receive(A_DEV, { mail }, AGENT_BY);
+  // 그 컴퓨터의 link로 온 그 컴퓨터의 mail은 닿는다. 받는 쪽도 redaction을 거쳐 받는 session 기록의 글에 secret이 없다.
+  const applied = await receive(
+    A_DEV,
+    { mail: { ...mail, body: textBlocks(`use ${SECRET}`) } },
+    AGENT_BY,
+  );
   assert.ok(applied.ok, JSON.stringify(applied));
   assert.equal((applied.value as { delivery: string }).delivery, "running");
   assert.equal(b.count("sessions"), 1);
   assert.equal(b.count("messages"), 1);
+  assert.ok(b.preparedTexts.length > 0);
+  assert.ok(!b.preparedTexts.some((text) => text.includes(SECRET)));
 });
 
 test("터미널 입력 허락이 없는 컴퓨터가 보낸 mail로 열린 session은 skip인 agent여도 묻는 session이고, 허락이 있는 컴퓨터면 agent의 skip을 따른다", async () => {
@@ -607,6 +660,17 @@ test("private workspace의 session과 받은 mail로 열린 session은 send_remo
 
   a.policy.value = DEFAULT_CALL_POLICY;
   const sender = a.openSession("lophn_home");
+  // 이 컴퓨터와, 같은 기계 id의 옛 명단 항목은 다른 컴퓨터가 아니다.
+  for (const name of ["laptop", "laptop-old"]) {
+    assert.equal(
+      code(
+        await a.sendRemote(sender, { ...HOME_REVIEWER, machine: name }, name),
+      ),
+      "invalid_input",
+      name,
+    );
+  }
+  assert.equal(a.count("mail_outbox"), 0);
   const sent = await a.sendRemote(
     sender,
     { ...HOME_REVIEWER, machine: "studio" },
@@ -664,19 +728,24 @@ test("drain에서 상대가 not_found로 답하면 call이 old_version으로 닫
       calls.map(() => ({ session: sender, fail_reason: "old_version" })),
     );
   }
-  // 답을 잃음: 그 기계가 적용했는데 답이 오지 않았다. 다음 drain에 같은 id로 다시 가고 받는 쪽은 한 번만 돌린다.
+  // 답을 잃음: 그 기계가 적용했는데 답이 오지 않았다. 그 기계의 줄은 거기서 멈추고, 다음 drain에 같은 id로 다시 가며 받는 쪽은 한 번만
+  // 돌린다. 한 기계에 두 깨움이 겹쳐도 보내기는 하나씩이다.
   {
     const a = await machine(A);
     const b = await machine(B);
     const { receive, sent } = connect(a, b);
     const sender = a.openSession("lophn_home");
-    const done = await a.sendRemote(
-      sender,
-      { ...HOME_REVIEWER, machine: "studio" },
-      "t1",
-    );
-    assert.ok(done.ok);
-    const call = (done.value as { call: string }).call;
+    const calls: string[] = [];
+    for (const dedup of ["t1", "t2"]) {
+      const done = await a.sendRemote(
+        sender,
+        { ...HOME_REVIEWER, machine: "studio" },
+        dedup,
+      );
+      assert.ok(done.ok);
+      calls.push((done.value as { call: string }).call);
+    }
+    const [first, second] = pendingMails(a.sql, B).map((mail) => mail.id);
     a.link.call = async (_device, body, by) => {
       sent.push((body.body as { mail: Mail }).mail.id);
       await receive(A_DEV, body.body, by);
@@ -687,21 +756,76 @@ test("drain에서 상대가 not_found로 답하면 call이 old_version으로 닫
       });
     };
     await a.drain.wake(B);
-    assert.equal(a.callRow(call)?.["delivery"], "unknown");
-    assert.equal(a.count("mail_outbox"), 1);
+    assert.deepStrictEqual(sent, [first]);
+    assert.equal(a.callRow(calls[0]!)?.["delivery"], "unknown");
+    assert.equal(a.callRow(calls[1]!)?.["delivery"], "pending");
+    assert.equal(a.count("mail_outbox"), 2);
 
+    let flying = 0;
+    let most = 0;
     a.link.call = async (_device, body, by) => {
       sent.push((body.body as { mail: Mail }).mail.id);
-      return await receive(A_DEV, body.body, by);
+      most = Math.max(most, ++flying);
+      try {
+        return await receive(A_DEV, body.body, by);
+      } finally {
+        flying--;
+      }
     };
-    await a.drain.wake(B);
-    assert.equal(a.callRow(call)?.["state"], "accepted");
-    assert.equal(a.callRow(call)?.["delivery"], "running");
+    await Promise.all([a.drain.wake(B), a.drain.wake(B)]);
+    assert.equal(most, 1);
+    assert.deepStrictEqual(sent, [first, first, second]);
+    for (const call of calls) {
+      assert.equal(a.callRow(call)?.["state"], "accepted");
+      assert.equal(a.callRow(call)?.["delivery"], "running");
+    }
     assert.equal(a.count("mail_outbox"), 0);
-    assert.equal(sent.length, 2);
-    assert.equal(sent[0], sent[1]);
-    assert.equal(b.count("sessions"), 1);
-    assert.equal(b.count("agent_calls"), 1);
-    assert.equal(b.count("messages"), 1);
+    assert.equal(b.count("sessions"), 2);
+    assert.equal(b.count("agent_calls"), 2);
+    assert.equal(b.count("messages"), 2);
   }
+});
+test("받는 기계가 줄 맨 앞 mail에 timer가 시작한 차례마다 internal로 답하면 다섯 번째에 그 call을 expired로 닫고 다음 mail이 가며, 네 번이나 timer가 아닌 깨움은 세지 않는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { receive } = connect(a, b);
+  const sender = a.openSession("lophn_home");
+  const calls: string[] = [];
+  for (const dedup of ["t1", "t2"]) {
+    const done = await a.sendRemote(
+      sender,
+      { ...HOME_REVIEWER, machine: "studio" },
+      dedup,
+    );
+    assert.ok(done.ok);
+    calls.push((done.value as { call: string }).call);
+  }
+  const [poison] = pendingMails(a.sql, B);
+  assert.ok(poison !== undefined);
+  a.link.call = async (_device, body, by) =>
+    (body.body as { mail: Mail }).mail.id === poison.id
+      ? err({ code: "internal", message: "the apply threw" })
+      : await receive(A_DEV, body.body, by);
+  a.drain.start();
+  // 줄이 생기거나 link가 바뀐 깨움은 몰려 와도 세지 않는다.
+  for (let i = 0; i < 6; i++) await a.drain.wake(B);
+  for (let i = 0; i < 4; i++) await a.tick();
+  assert.equal(a.callRow(calls[0]!)?.["state"], "accepted");
+  assert.equal(a.callRow(calls[1]!)?.["delivery"], "pending");
+  assert.equal(a.count("mail_outbox"), 2);
+
+  await a.tick();
+  assert.equal(a.callRow(calls[0]!)?.["state"], "failed");
+  assert.equal(a.callRow(calls[0]!)?.["fail_reason"], "expired");
+  assert.equal(a.callRow(calls[1]!)?.["delivery"], "running");
+  assert.equal(a.count("mail_outbox"), 0);
+  assert.equal(b.count("sessions"), 1);
+  // 보낸 session에 실패 알림이 기록된다.
+  assert.deepStrictEqual(
+    a.db
+      .prepare("select fail_reason from messages")
+      .all()
+      .map((row) => row["fail_reason"]),
+    ["expired"],
+  );
 });

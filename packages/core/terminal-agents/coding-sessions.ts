@@ -24,10 +24,7 @@ import {
   publishStateChanged,
   type StateChange,
 } from "../../protocol/events/changes.ts";
-import {
-  GUI_HANDOFF,
-  isGuiHarness,
-} from "../../protocol/extensions/acp-session.ts";
+import { GUI_HANDOFF, isGuiHarness } from "../../protocol/acp/gui-session.ts";
 import type { TerminalSessionReport } from "../../protocol/lophn-agent/session-lifecycle.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import { attachBatched, type TabGui } from "./gui.ts";

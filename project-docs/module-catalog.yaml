@@ -93,7 +93,7 @@ modules:
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent
-    notes: runtime이 harness인 agent의 session은 run-loop가 돌리지 않는다. session/harness.ts(입력 transport, 외부 session id)와 wiring/harness.ts(queue, host route)가 core 쪽이고 실행은 core의 extension harness host(`packages/core/extensions/bundled/harness/host.ts`)가 한다(boundary harness-host-core).
+    notes: runtime이 harness인 agent의 session은 run-loop가 돌리지 않는다. session/harness.ts(입력 transport, 외부 session id)와 wiring/harness.ts(queue, host route)가 core 쪽이고 실행은 core의 harness host(`packages/core/harness/host.ts`)가 한다(boundary harness-host-core).
 
   - path: packages/core/main
     boundary: core
@@ -115,9 +115,13 @@ modules:
     boundary: core
     notes: 사람의 터미널. PTY host(host/, core가 자식으로 띄운다), 그 감독, 터미널 service(열기 순서, 출력 lease, route handler), 사람의 login env와 `lophn` 경로. 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `Terminals`·`PersonEnv`로 닿고 core/main의 wiring/terminals.ts가 끼운다.
 
-  - path: packages/core/extensions
-    boundary: extension-host
-    notes: core 안 extension host(registry, CLI를 띄우는 spawner, ACP handle, tool 호출). base, protocol과 core/terminals(사람의 env와 session 표지 이름)만 쓴다. 다른 쪽은 ports.ts의 `ExtensionHost`로 닿고 core/main의 wiring/extensions.ts가 끼운다. bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
+  - path: packages/core/harness
+    boundary: harness-host-core
+    notes: core 안 headless harness 실행기(Claude Code, Codex, OpenCode). harness queue의 입력을 가져가 CLI를 띄우고 출력을 session 기록으로 옮긴다. core/main의 wiring/harness-runners.ts가 띄운다.
+
+  - path: packages/core/harness-gui
+    boundary: harness-host-core
+    notes: core 안 터미널 `<harness> gui` 채팅 어댑터(Claude Code, Codex, OpenCode, omp, Antigravity). core/main의 wiring/harness-runners.ts가 띄운다.
 
   - path: packages/core/projects
     boundary: projects

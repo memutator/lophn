@@ -7,11 +7,11 @@ import {
   isLophn,
   MCP_TOOL_PREFIX,
   NEW_AGENT_HANDLE,
-  parseExtensionToolName,
   WORKSPACE_KINDS,
   workspaceToolNames,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { serializeAgentFile } from "./definition-file.ts";
+import { parseLocalToolName } from "../tools/local-tools.ts";
 import {
   type AgentContext,
   issuesOfError,
@@ -68,11 +68,11 @@ const BUILTIN_TOOLS = new Set(
   ),
 );
 
-// custom이 고른 이름이 내장 tool, MCP tool, extension tool(`ext__<id>__<tool>`) 중 하나인가. lophn 명령과 앱 command는 custom이
+// custom이 고른 이름이 내장 tool, MCP tool, 로컬 tool(`local__<name>`) 중 하나인가. lophn 명령과 앱 command는 custom이
 // 늘 받는 `lophn` tool로 부르므로 여기 이름으로 적지 않는다. workspace 종류, 설정한 server는 나중에 바뀌므로 보지 않는다.
 function knownToolName(name: string): boolean {
   if (BUILTIN_TOOLS.has(name)) return true;
-  if (parseExtensionToolName(name) !== null) return true;
+  if (parseLocalToolName(name) !== null) return true;
   if (name.startsWith(MCP_TOOL_PREFIX)) {
     return name.slice(MCP_TOOL_PREFIX.length).includes("__");
   }

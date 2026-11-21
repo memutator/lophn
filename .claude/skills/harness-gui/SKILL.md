@@ -17,10 +17,10 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp, Antigr
 
 | 고칠 것 | 곳 |
 |---|---|
-| 계약 | `packages/protocol/acp/`, `packages/protocol/extensions/acp-session.ts` |
-| CLI 하나의 동작 | `packages/core/extensions/bundled/harness-gui/`의 `<harness>.ts`, 그 test, `fixtures/<harness>/` |
+| 계약 | `packages/protocol/acp/`, `packages/protocol/acp/gui-session.ts` |
+| CLI 하나의 동작 | `packages/core/harness-gui/`의 `<harness>.ts`, 그 test, `fixtures/<harness>/` |
 | 탭(handle, toggle, view, 되살리기) | `packages/core/terminal-agents/gui.ts`, `packages/protocol/coding-agent/relay.ts`, `packages/shell/renderer/terminal/terminal-gui.tsx` |
-| 화면으로 내기(handle의 snapshot·갱신을 `acp/*`·`AcpUpdated`로, desktop 탭과 폰의 입력·switch·열기 받기) | `packages/core/terminal-agents/`(`gui.ts` handle, `coding-sessions.ts`, `open.ts`), extension host는 `packages/core/extensions/` |
+| 화면으로 내기(handle의 snapshot·갱신을 `acp/*`·`AcpUpdated`로, desktop 탭과 폰의 입력·switch·열기 받기) | `packages/core/terminal-agents/`(`gui.ts` handle, `coding-sessions.ts`, `open.ts`, `acp.ts`, `spawner.ts`) |
 | 화면이 GUI에 묻는 읽기 | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 화면 | `packages/shell/renderer/conversation/` (lophn agent와 같이 쓴다) |
 | 터미널 함수 | `packages/core/terminals/host/shell-integration.ts` |

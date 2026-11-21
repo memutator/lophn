@@ -4,7 +4,7 @@ title: "멀티 기기 remote·터미널·Antigravity·폰 앱 안정성 및 보�
 modules:
   - packages/core/apps
   - packages/core/attention
-  - packages/core/extensions
+  - packages/core/harness-gui
   - packages/core/folder
   - packages/core/jobs
   - packages/core/lophn-agent

@@ -11,7 +11,7 @@ import { codingSessionsSwitch } from "../../../../protocol/coding-agent/relay.ts
 import type { TerminalRuntime } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import type { AcpListener } from "../../../extensions/acp.ts";
+import type { AcpListener } from "../../../terminal-agents/acp.ts";
 import { dispatchHttp } from "../../../server/dispatch.ts";
 import { createCodingSessions } from "../../../terminal-agents/coding-sessions.ts";
 import type { TabGui } from "../../../terminal-agents/gui.ts";

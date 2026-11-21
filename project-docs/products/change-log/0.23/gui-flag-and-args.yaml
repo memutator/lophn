@@ -1,7 +1,7 @@
 id: gui-flag-and-args
 version: 0.23.112
 title: harness GUI 실행을 --gui flag로 일원화하고 함께 준 CLI flag를 GUI와 TUI 전환에 적용한다
-modules: [packages/protocol, packages/coding-agent, packages/cli, packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/main]
+modules: [packages/protocol, packages/coding-agent, packages/cli, packages/core/terminals, packages/core/terminal-agents, packages/core/harness-gui, packages/core/main]
 change: |
   전: 터미널 함수가 첫 인자가 `gui`일 때만 GUI로 분기해 `agy --dangerously-skip-permissions gui`처럼 앞에 flag가 오면 `gui`가 프롬프트로 전달됐고, `gui` 뒤에 다른 flag를 붙이면 usage 오류로 거절됐다. TUI→GUI 전환에서도 `antigravity`의 `--dangerously-skip-permissions`만 예외로 전달됐다.
   후: `claude`·`codex`·`opencode`·`omp`·`agy` 터미널 함수가 `--` 앞 어느 위치의 `--gui` flag든 인식해 `--gui`를 뺀 나머지 인자를 `lophn hook <harness> lophn-gui -- <args...>`로 넘긴다. `lophn hook`이 resume 인자와 CLI flag(`args`)를 분리해 전달하고, 다섯 GUI adapter(`claude`, `codex`, `opencode`, `omp`, `antigravity`)가 그 flag들을 GUI 실행과 TUI 복귀(`tuiCommand`, `carry`)에 적용한다. data step `settings.coding-gui-flag`가 `settings.json`의 옛 `<cmd> gui` 설정을 `<cmd> --gui`로 옮긴다.

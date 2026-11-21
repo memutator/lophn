@@ -337,7 +337,7 @@ components:
     path: project-docs/architecture/coding-agent.md
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]
-      paths: [packages/core/lophn-agent/session/harness.ts, packages/core/main/daemon/wiring/harness.ts, packages/protocol/lophn-agent/harness-host.ts, packages/protocol/coding-agent/headless/, packages/core/extensions/bundled/harness/]
+      paths: [packages/core/lophn-agent/session/harness.ts, packages/core/main/daemon/wiring/harness.ts, packages/protocol/lophn-agent/harness-host.ts, packages/protocol/coding-agent/headless/, packages/core/harness/]
 
   - id: architecture-extension
     kind: doc
@@ -345,7 +345,7 @@ components:
     description: "본체와 따로 켜는 기능 묶음의 설계: manifest 선언, shell main 안에서 `ctx`로만 닿는 경계, 설정으로 켜고 끄고 지우기. 계약은 extension-api."
     path: project-docs/architecture/extension.md
     change_reasons:
-      paths: [packages/protocol/extensions/, packages/core/extensions/, packages/core/main/daemon/wiring/extensions.ts, packages/shell/main/build.ts, packages/shell/renderer/desktop/settings/extension-packages/, packages/core/config/shell-settings.ts]
+      paths: [packages/core/lophn-agent/tools/local-tools.ts, packages/core/lophn-agent/tools/local-tool-runner.ts]
       note: shell 전체가 아니라 이 경로가 바뀔 때만 본다(extension-host는 module이 따로 없어 boundary로 걸면 shell 변경마다 걸린다).
 
   - id: architecture-harness-gui
@@ -354,7 +354,7 @@ components:
     description: "터미널 탭을 CLI(Claude Code, Codex, OpenCode, omp)의 채팅 화면으로 바꾸고 TUI와 toggle하는 설계: adapter가 CLI 이벤트와 ACP를 옮기는 길, 탭 handle, 지키는 것."
     path: project-docs/architecture/harness-gui.md
     change_reasons:
-      paths: [packages/protocol/extensions/acp-session.ts, packages/core/extensions/bundled/harness-gui/, packages/core/terminal-agents/gui.ts, packages/protocol/coding-agent/relay.ts, packages/shell/renderer/terminal/terminal-gui.tsx, packages/shell/renderer/conversation/agent-tab-gui-source.ts]
+      paths: [packages/protocol/acp/gui-session.ts, packages/core/harness-gui/, packages/core/terminal-agents/gui.ts, packages/protocol/coding-agent/relay.ts, packages/shell/renderer/terminal/terminal-gui.tsx, packages/shell/renderer/conversation/agent-tab-gui-source.ts]
 
   - id: architecture-terminal-agent
     kind: doc
@@ -593,7 +593,7 @@ components:
     description: harness GUI를 고치거나 기능을 더하는 순서(조사, CLI 넷, ACP로, 녹화 규칙), 확인하는 법(gallery, 사람이 하는 실제 앱 확인, 탭 상태), 자주 틀린 곳.
     path: .claude/skills/harness-gui/
     change_reasons:
-      paths: [packages/core/extensions/bundled/harness-gui/adapter.ts, packages/core/terminal-agents/gui.ts, packages/protocol/coding-agent/relay.ts, packages/shell/renderer/conversation/agent-tab-gui-source.ts, tools/wireframes/pages/screens/harness-gui.tsx]
+      paths: [packages/core/harness-gui/adapter.ts, packages/core/terminal-agents/gui.ts, packages/protocol/coding-agent/relay.ts, packages/shell/renderer/conversation/agent-tab-gui-source.ts, tools/wireframes/pages/screens/harness-gui.tsx]
       note: 녹화에 쓰는 싼 model, 사람이 확인하는 방식이 바뀔 때.
 
   - id: plan

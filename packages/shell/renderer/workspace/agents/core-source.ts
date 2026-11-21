@@ -23,9 +23,7 @@ import {
   saveUserModelInfo,
   workspaceModelChange,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import type { ProviderRecord } from "../../../../protocol/lophn-agent/provider-values.ts";
-import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -66,28 +64,6 @@ import type {
   MemoryTarget,
   WorkspaceInstructionsView,
 } from "./views.ts";
-
-// 켜진 shell extension의 tool 목록이다. 읽지 못하면 비어 있다.
-async function extensionsOf(link: Link): Promise<PublishedExtension[]> {
-  const result = await link.memory<{ extensions: PublishedExtension[] }>(
-    "extension_tools",
-    "catalog",
-    {},
-  );
-  return result.ok ? result.value.extensions : [];
-}
-
-// 설정 `extensions.harness.enabled`. 읽지 못하면 꺼진 것으로 본다.
-async function harnessEnabledOf(link: Link): Promise<boolean> {
-  const result = await link.memory<{
-    settings: { key: string; default?: unknown; chosen?: unknown }[];
-  }>("settings", "list", { keys: [HARNESS_SETTING_KEY] });
-  if (!result.ok) return false;
-  const entry = result.value.settings.find(
-    (one) => one.key === HARNESS_SETTING_KEY,
-  );
-  return (entry?.chosen ?? entry?.default) === true;
-}
 
 import type {
   AgentDetail,
@@ -488,8 +464,6 @@ export function coreAgentsSource(
         ),
         instructions: text,
         memory,
-        harnessEnabled: await harnessEnabledOf(link),
-        extensions: await extensionsOf(link),
       },
     };
   };
@@ -703,8 +677,6 @@ export function coreAgentsSource(
         skills: skills.value,
         mcpServers: servers.value,
         agentMcpLogins: {},
-        harnessEnabled: await harnessEnabledOf(link),
-        extensions: await extensionsOf(link),
         instructions: text,
         memory: null,
       };

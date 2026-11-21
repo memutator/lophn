@@ -607,7 +607,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           <ToolsTab
             {...form}
             facts={facts}
-            extensions={detail.extensions}
             onSignIn={signIn}
             onCancelSignIn={cancelSignIn}
             onSetSecret={setSecret}

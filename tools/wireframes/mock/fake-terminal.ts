@@ -11,7 +11,7 @@ import type { BusEvent } from "../../../packages/protocol/events/mod.ts";
 import {
   type GuiHarness,
   isGuiHarness,
-} from "../../../packages/protocol/extensions/mod.ts";
+} from "../../../packages/protocol/acp/mod.ts";
 import type {
   TerminalApi,
   TerminalCall,

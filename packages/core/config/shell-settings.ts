@@ -31,7 +31,6 @@ import {
   type SettingIssue,
   type SettingsView,
 } from "../../protocol/config/mod.ts";
-import { extensionSettingKey } from "../../protocol/extensions/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import {
   remoteAddressesSchema,
@@ -535,22 +534,6 @@ export const trayOrderSetting = declareSetting({
     "The order of app tray items. Screens listed here come first in this order; the rest follow in declaration order.",
 });
 
-// extension은 id마다 켜는 설정이 하나씩 정적으로 선언된다(core는 manifest를 읽지 못한다). 새 extension은 여기에 한 줄을 더하고
-// shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. extension은 agent에게 tool을 더하므로 사람만 켠다.
-const extensionEnabled = (id: string, what: string) =>
-  declareSetting({
-    key: extensionSettingKey(id),
-    type: z.boolean(),
-    default: false,
-    description: `Turns on the ${id} extension: ${what}`,
-    locked: true,
-  });
-// harness agent(core의 harness session, queue, host route)도 이 설정 하나로 켠다.
-export const harnessExtensionSetting = extensionEnabled(
-  "harness",
-  "coding agent CLIs (Claude Code, Codex, OpenCode) run as lophn agent sessions.",
-);
-
 export const shellSettings = [
   modeSetting,
   lightThemeSetting,
@@ -584,7 +567,6 @@ export const shellSettings = [
   sidebarPanelsOffSetting,
   trayOffSetting,
   trayOrderSetting,
-  harnessExtensionSetting,
 ] as const;
 
 // 항목마다 file 하나인 설정 묶음.

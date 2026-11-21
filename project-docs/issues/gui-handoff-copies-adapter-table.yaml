@@ -3,7 +3,7 @@ title: shell main의 GUI_HANDOFF가 harness-gui adapter 표를 손으로 베낀 
 kind: defect
 status: fixed
 topic: harness-gui
-modules: [packages/protocol, packages/core/extensions, packages/core/terminal-agents]
+modules: [packages/protocol, packages/core/harness-gui, packages/core/terminal-agents]
 now: |
   `packages/shell/main/terminal/gui.ts`의 `GUI_HANDOFF`(claude·omp·antigravity는 `restart`, codex·opencode는 `shared`)는 extension harness-gui의 adapter가 선언하는 `handoff`와 같아야 한다고 주석이 말하는 손으로 베낀 표다. 꺼질 수 있는 extension의 code를 shell main이 import하지 못해서다. `desktop/wiring/agent.ts`가 handle이 없는 터미널(foreground TUI)의 `coding_report.handoff`에 이 표를 쓴다. handle이 있으면 `handle.handoff`(adapter 값)가 진실이다. `Record<GuiHarness, …>`라 GUI harness를 더하면 컴파일이 막지만 값이 어긋나는 것은 막는 것이 없다. 지금 폰과 core는 이 값이 null인지만 보고(`coding-relay`의 `blockedOf`) restart와 shared의 차이를 어디서도 보이지 않는다.
 impact: |

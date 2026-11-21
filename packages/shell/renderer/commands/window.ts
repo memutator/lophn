@@ -1,12 +1,16 @@
 // 창 하나의 command registry와 keybinding service를 만들고 작업대 단축키 표를 묶는다. entry가 창마다
 // 하나 만들고 Desktop이 document에 건다. React 밖에서도 같은 값을 쓴다.
 import {
+  HARNESS_KEYBINDINGS,
   KEYBINDINGS,
   type Binding,
   type Chord,
   type KeyOverrides,
   type KeyPlatform,
+  type Stroke,
   parseBindingId,
+  parseChord,
+  sameStroke,
   shellOwns,
   tableBinding,
 } from "../../../protocol/shell/keybindings.ts";
@@ -231,6 +235,32 @@ export function createWindowCommands(deps: {
   keybindings.defineContext("slashMenu", {
     owns: plainKey([...PLAIN_KEYS_HERE, "Enter"]),
   });
+  // harness GUI context마다 자기 Ctrl+글자 key의 머리를 가진다. GUI 안에서 CLI key가 lophn의 탭·창 key보다 먼저 듣는다.
+  const isCtrlLetter = (stroke: Stroke) =>
+    stroke.ctrl && !stroke.alt && !stroke.meta && stroke.letter !== null;
+  const harnessContexts = new Set(
+    HARNESS_KEYBINDINGS.map((item) => item.context),
+  );
+  for (const name of harnessContexts) {
+    const heads = HARNESS_KEYBINDINGS.filter((item) => item.context === name)
+      .flatMap((item) =>
+        (deps.platform === "mac" ? item.mac : item.other).map(
+          (chord) => parseChord(chord).strokes[0],
+        ),
+      )
+      .filter(
+        (stroke): stroke is Stroke =>
+          stroke !== undefined && isCtrlLetter(stroke),
+      );
+    keybindings.defineContext(name, {
+      owns: (chord) => {
+        const stroke = chord.strokes[0];
+        return (
+          stroke !== undefined && heads.some((head) => sameStroke(head, stroke))
+        );
+      },
+    });
+  }
 
   let current: KeyOverrides = {};
   let contributed: readonly {
@@ -287,6 +317,17 @@ export function createWindowCommands(deps: {
       when: () => focus.has(command),
     });
   }
+
+  for (const entry of HARNESS_KEYBINDINGS) {
+    const binding = keybindings.register({
+      command: entry.command,
+      context: entry.context,
+      other: entry.other,
+      mac: entry.mac,
+    });
+    bound = [...bound, { entry, binding }];
+  }
+  keymapSnapshot = bound.map((one) => one.entry);
 
   refresh();
   return {

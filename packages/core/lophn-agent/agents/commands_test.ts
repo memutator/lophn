@@ -133,7 +133,6 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
           removed: [],
         },
       ],
-      extensions: ["web"],
       permissions: { deny: ["lophn(notes read)"] },
     };
     for (const field of Object.keys(humanOnly)) {
@@ -272,13 +271,7 @@ test("custom이 고른 tool 이름이 아무것도 아니면 저장을 거절하
       { field: "tools.4", code: "unknown" },
       { field: "tools.5", code: "unknown" },
     ]);
-    assert.ok(
-      create(OTHER, [
-        "file.read",
-        "mcp__github__create_issue",
-        "ext__web__go_to",
-      ]).ok,
-    );
+    assert.ok(create(OTHER, ["file.read", "mcp__github__create_issue"]).ok);
   } finally {
     await rm(root, { recursive: true });
   }

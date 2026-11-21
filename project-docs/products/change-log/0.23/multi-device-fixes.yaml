@@ -1,7 +1,7 @@
 id: multi-device-fixes
 version: 0.23.88
 title: 올라간 multi-device 일들의 review에서 확인한 구멍을 닫는다(터미널 입력 자격, 명단의 믿음 규칙, 기기 허락의 가장자리, git을 읽지 못한 project의 id)
-modules: [packages/protocol, packages/core/remote, packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/projects, packages/core/secrets, packages/core/config, packages/core/lophn-agent, packages/core/apps, packages/core/storage, packages/core/main, packages/remote-client, packages/cli, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tools]
+modules: [packages/protocol, packages/core/remote, packages/core/terminals, packages/core/terminal-agents, packages/core/harness-gui, packages/core/projects, packages/core/secrets, packages/core/config, packages/core/lophn-agent, packages/core/apps, packages/core/storage, packages/core/main, packages/remote-client, packages/cli, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tools]
 change: |
   review(`reports/multi-device/review-*.md`)가 code에서 확인한 것을 고쳤다.
   - "터미널: `terminals/open`의 `command`·`resume`은 `terminals/input`과 같은 자격을 본다. 터미널 입력 허락이 없는 기기는 빈 터미널만 연다(전에는 허락 없이 한 줄을 돌릴 수 있었다). 허락받은 기기는 그 기계의 어느 터미널에나 친다. 터미널의 질의 응답은 그 창이 그 터미널을 보이고 있을 때만 core로 간다(새 IPC `shell:terminal-shown`, 창마다 보이는 화면 수를 센다). extension이 띄우는 CLI는 core의 내부 env(`LOPHN_*`, `ELECTRON_*`, `NODE_CHANNEL_FD`)를 물려받지 않는다. 모르는 `resume.harness`(`toString` 같은 이름 포함)는 internal 오류 대신 거절된다. mac packaging이 node-pty의 `spawn-helper`에 실행 권한(0755)을 준다. core의 run 폴더 정리가 옛 판 shell이 남긴 죽은 `shell-<pid>` 폴더도 지운다. Agent SDK 의존이 shell main에서 core로 옮겨졌다."

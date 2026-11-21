@@ -1,7 +1,7 @@
 id: core-terminals
 version: 0.23.84
 title: 터미널, coding agent, extension host를 core가 갖고 desktop과 폰은 같은 route로 붙는다
-modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/main, packages/core/host-queue, packages/core/server, packages/core/terminal-view, packages/core/lophn-agent, packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/mobile, packages/design, tools]
+modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/harness-gui, packages/core/main, packages/core/host-queue, packages/core/server, packages/core/terminal-view, packages/core/lophn-agent, packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/mobile, packages/design, tools]
 change: |
   - PTY host가 Electron 앱(shell main)의 자식에서 core의 자식으로 옮겨 갔다. core가 터미널을 열고 닫고 크기를 정하며, 새 route `terminals/*`(list, open, close, restart, input, resize, snapshot, watch, name, saved_sessions, rename_saved)와 event `TerminalOutputAppended`(보는 쪽이 `terminals/watch` lease를 잡은 동안만, seq로 겹침과 빠짐을 맞춘다)·`TerminalRuntimeChanged`를 낸다. 창이 없어도 터미널이 열린다. 입력은 기기면 그 기기의 터미널 입력 허락, 아니면 shell main이 focus를 본 뒤 싣는 `shell_capability`가 있어야 하고 agent 자격은 치지 못한다.
   - 사람의 login shell env(PATH)와 `lophn` 경로를 core가 읽어 터미널과 CLI에 준다. 저장소 layout의 core는 물려받은 `LOPHN_CLI`를 보지 않고 저장소의 dev launcher만 쓴다.

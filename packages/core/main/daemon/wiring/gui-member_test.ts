@@ -10,18 +10,15 @@ import { ok } from "../../../../base/mod.ts";
 import { manualClock } from "../../../../base/clock.ts";
 import { createIdSource } from "../../../../base/id.ts";
 import { seededRandom } from "../../../../base/random.ts";
-import type {
-  AcpTerminal,
-  ExtensionProcess,
-} from "../../../../protocol/extensions/mod.ts";
+import type { AcpTerminal, CliProcess } from "../../../../protocol/acp/mod.ts";
 import type { AgentCallRow } from "../../../../protocol/lophn-agent/calls.ts";
 import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
-import { type AcpHandle, createAcp } from "../../../extensions/acp.ts";
-import { createAntigravityAdapter } from "../../../extensions/bundled/harness-gui/antigravity.ts";
-import { receivedSends } from "../../../extensions/bundled/harness-gui/received.ts";
+import { type AcpHandle, createAcp } from "../../../terminal-agents/acp.ts";
+import { createAntigravityAdapter } from "../../../harness-gui/antigravity.ts";
+import { receivedSends } from "../../../harness-gui/received.ts";
 import { inputParts } from "../../../lophn-agent/run-loop/input-text.ts";
 import type {
   CallStore,
@@ -130,7 +127,7 @@ function recordedAgy() {
   const rec: Entry[] = readFileSync(
     fileURLToPath(
       new URL(
-        "../../../extensions/bundled/harness-gui/fixtures/antigravity/text.jsonl",
+        "../../../harness-gui/fixtures/antigravity/text.jsonl",
         import.meta.url,
       ),
     ),
@@ -163,7 +160,7 @@ function recordedAgy() {
       if (id !== undefined) emit({ ...e.data, id });
     } else emit(e.data);
   };
-  const proc: ExtensionProcess = {
+  const proc: CliProcess = {
     pid: 1,
     write(text) {
       const body = JSON.parse(text) as Frame;

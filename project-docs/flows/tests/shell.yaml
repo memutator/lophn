@@ -277,9 +277,6 @@ files:
 
   - path: packages/shell/renderer/commands/commands_test.ts
     covers:
-      - extension-command-run:ok
-      - extension-command-run:not-found
-      - extension-command-run:internal
       - key-press:command-run
       - key-press:passed-on
     note: "command registry의 실행 판정. 주인이 없으면 not_found, handler가 던지면 internal, 있으면 실행. 같은 registry가 extension command(ext.<id>.<name>)의 호출을 맡으므로 그 outcome의 판정으로 본다. key 판정(chord, context, 두 타, 반복, focus 표)은 key-press:command-run·passed-on"

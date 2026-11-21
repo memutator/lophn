@@ -24,8 +24,7 @@ import { shellAgentTabsWiring } from "./wiring/shell-agent-tabs.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { customReplyWiring } from "./wiring/custom-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
-import { extensionToolsWiring } from "./wiring/extension-tools.ts";
-import { extensionsWiring } from "./wiring/extensions.ts";
+import { harnessRunnersWiring } from "./wiring/harness-runners.ts";
 import { hostQueueWiring } from "./wiring/host-queue.ts";
 import { inputRequestWiring } from "./wiring/input-request.ts";
 import {
@@ -215,11 +214,10 @@ export const WIRINGS: readonly WiringFactory[] = [
   terminalsWiring,
   // approvals·secrets와 host queue 뒤다: 대기열과 알려진 값, 탭 표를 쓴다.
   inputRequestWiring,
-  // approvals와 host queue 뒤다: 호출 때 Gate와 queue를 쓴다.
-  extensionsWiring,
-  // 터미널과 extension host 뒤다: 터미널마다 hook env를 꽂고 harness-gui가 연 handle을 쥔다.
+  // approvals와 host queue 뒤다: harness host와 harness-gui를 바로 띄운다.
+  harnessRunnersWiring,
+  // 터미널과 harness-runners 뒤다: 터미널마다 hook env를 꽂고 harness-gui가 연 handle을 쥔다.
   terminalAgentsWiring,
-  extensionToolsWiring,
   workflowsWiring,
   flowsWiring,
   jobsWiring,

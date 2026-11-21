@@ -623,26 +623,6 @@ journeys:
 
   # ---- shell extension tool ----
 
-  - id: extension-tool-assigned-call
-    title: "정의에 할당한 extension tool을 부른다"
-    actor: agent
-    goal: "agent가 extensions로 할당받은 extension tool을 부르면 묻지 않고 extension host의 handler가 실행해 결과를 돌려준다"
-    refs: [H3]
-    steps:
-      - {do: "agent가 ext 이름으로 extension tool을 부른다", flow: extension-tool-judge:handed-to-host}
-      - {do: "extension host의 handler가 결과를 돌려준다", flow: extension-tool-call:ran}
-
-  - id: extension-tool-not-assigned
-    title: "할당하지 않은 extension tool은 forbidden으로 막힌다"
-    actor: agent
-    goal: "정의의 extensions에 없는 extension의 tool을 agent가 부르면 forbidden으로 막힌다"
-    refs: [H3]
-    steps:
-      - {do: "agent가 할당 밖 extension tool을 부른다", flow: extension-tool-judge:not-assigned}
-      - {do: "agent가 forbidden 결과를 받는다", flow: extension-tool-call:not-assigned}
-
-  # ---- 되돌리기 (session rewind, file revert) ----
-
   - id: session-rewind-revert-file
     title: "agent가 쓴 파일을 사람이 고른 시점으로 되돌린다"
     actor: person

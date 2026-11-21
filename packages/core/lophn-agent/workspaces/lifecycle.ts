@@ -13,7 +13,6 @@ import {
   nextSessionSeq,
   workspaceOf,
 } from "../session/model.ts";
-import { harnessEnabledIn } from "../session/harness.ts";
 import type { EndDeps, OpenDeps, WorkspaceDeps } from "./ports.ts";
 import type { TeamLimits } from "../../../protocol/lophn-agent/team.ts";
 
@@ -117,13 +116,10 @@ export function startSession(
   if ((scope !== null || isLophn(input.agent)) && !inScope) {
     return fail("not_found", "agent not found");
   }
-  // harness runtime의 session은 열 때 그 harness로 정해 바뀌지 않는다. 설정이 꺼져 있으면 열지 않는다.
+  // harness runtime의 session은 열 때 그 harness로 정해 바뀌지 않는다.
   const harness = isHarnessRuntime(definition.runtime)
     ? definition.runtime
     : null;
-  if (harness !== null && input.gui !== "tab" && !harnessEnabledIn(tx.sql)) {
-    return err({ code: "unavailable", message: "harness is turned off" });
-  }
   const workspace = input.workspace;
   if (workspace !== null) {
     const usable = workspaceUsable(deps, workspace);

@@ -16,7 +16,7 @@ import {
 import type { Login } from "../../../../protocol/secrets/mod.ts";
 import { appTools } from "../../../../protocol/apps/declaration/read.ts";
 import { devicesList } from "../../../../protocol/remote/routes.ts";
-import type { ExtensionToolContent } from "../../../../protocol/extensions/manifest.ts";
+import type { HostToolContent } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
@@ -540,7 +540,7 @@ export function createTabHandlers(deps: TabDeps) {
   // 떨어짐으로 보지 않고 30초 기한에 맡긴다.
   const settled = async (
     id: Id<"hrq">,
-    result: Promise<Result<ExtensionToolContent[]>>,
+    result: Promise<Result<HostToolContent[]>>,
     starting = false,
   ) => {
     const abandon = () => queue.abandon(id);
@@ -563,7 +563,7 @@ export function createTabHandlers(deps: TabDeps) {
         input: never,
         view: "browser" | "preview" | "artifact",
       ) => Result<BrowserAction> | Promise<Result<BrowserAction>>,
-      shape: (content: ExtensionToolContent[], input: never) => Result<unknown>,
+      shape: (content: HostToolContent[], input: never) => Result<unknown>,
       route: { input: { parse(body: unknown): { tab: string } } },
       // phone 탭이면 shell queue 대신 이것이 폰 link로 답한다.
       onPhone: (
@@ -600,7 +600,7 @@ export function createTabHandlers(deps: TabDeps) {
       const result = await settled(sent.id, sent.result);
       if (!result.ok) return result;
       // page와 agent가 쓴 글이 caller에 가기 전에 알려진 secret을 지운다. 못 끝내면 내보내지 않는다.
-      const safe: ExtensionToolContent[] = [];
+      const safe: HostToolContent[] = [];
       for (const block of result.value) {
         if (block.type !== "text") {
           safe.push(block);
@@ -618,14 +618,14 @@ export function createTabHandlers(deps: TabDeps) {
       return shape(safe, input as never);
     };
 
-  const textOf = (content: ExtensionToolContent[]): Result<string> => {
+  const textOf = (content: HostToolContent[]): Result<string> => {
     const first = content[0];
     return first?.type === "text"
       ? ok(first.text)
       : err({ code: "internal", message: "the browser result has no text" });
   };
   // shell이 JSON 글로 답하는 결과(url·title, evaluate)를 편다.
-  const jsonOf = (content: ExtensionToolContent[]): Result<unknown> => {
+  const jsonOf = (content: HostToolContent[]): Result<unknown> => {
     const text = textOf(content);
     if (!text.ok) return text;
     try {

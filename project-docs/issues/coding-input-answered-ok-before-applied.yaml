@@ -3,11 +3,11 @@ title: coding session의 입력은 adapter가 받기 전에 성공으로 답해�
 kind: bug
 status: open
 topic: harness-gui
-modules: [packages/core/terminal-agents, packages/core/extensions, packages/protocol]
+modules: [packages/core/terminal-agents, packages/core/harness-gui, packages/protocol]
 now: |
   기기가 보낸 coding session의 입력은 core가 그 터미널의 GUI handle(adapter)에 넘기고 바로 성공으로 답한다(`packages/core/terminal-agents/coding-sessions.ts`의 `send`, `packages/core/terminal-agents/gui.ts`의 `input`). adapter가 그 입력을 어떻게 했는지는 돌아오지 않는다. 그래서 세 가지가 생긴다.
   - 같은 승인이나 질문에 두 기기가 답하면, 늦은 쪽의 답은 adapter에서 대상이 이미 없어 버려지는데(`claude.ts`의 `closeApproval`, `closeQuestion`) 그 기기는 성공을 받는다.
-  - `stop`이 turn id를 보지 않아(`packages/core/extensions/bundled/harness-gui/claude.ts`) 늦게 도착한 멈추기가 그 뒤에 시작한 turn을 끊는다.
+  - `stop`이 turn id를 보지 않아(`packages/core/harness-gui/bundled/harness-gui/claude.ts`) 늦게 도착한 멈추기가 그 뒤에 시작한 turn을 끊는다.
   - `retry`에는 key가 없고(`packages/protocol/acp/input.ts`), core의 중복 막기는 key가 있는 입력만 본다. key 없이 다시 보낸 입력은 adapter가 message id로 거르지 않아 두 번 간다.
   lophn agent session은 같은 경우를 command의 `conflict`·`not_found`와 turn id, `retryIds`로 막는다.
 impact: |

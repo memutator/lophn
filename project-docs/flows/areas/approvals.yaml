@@ -251,52 +251,6 @@ flows:
     refs: ["T4", "W4"]
     docs: [architecture/approval.md]
 
-  - id: extension-tool-judge
-    title: extension tool 호출을 agent 정의의 extensions와 켜진 catalog로 판정한다
-    actor: agent
-    uses: [route:extension_tools/call]
-    boundary: [approvals, agent-tools]
-    code: [packages/core/main/daemon/wiring/extension-tools.ts, packages/core/approvals/gate/judge.ts, packages/core/approvals/approvals.ts, packages/core/main/daemon/wiring/harness-credential.ts]
-    steps:
-      - "extension tool은 tool 정의에 gate가 없고, `extension_tools/call` 입구가 판정한다. lophn runtime과 harness CLI가 같은 길을 거친다. session과 turn에 묶인 agent 자격이 아니면 forbidden이다."
-      - "이름으로 extension과 tool을 가른다. extension 이름 형식이 아니면 not_found다. 그 session을 읽어 agent와 workspace를 얻는데 읽기가 실패하면 그 오류가 그대로 간다."
-      - "`judge`가 agent 정의를 읽어(실패하면 그 오류가 그대로 간다) `extensions`에 없으면 not_assigned, 켜진 extension의 catalog에 tool이 없으면(꺼짐, 목록에서 빠짐) removed, 아니면 run이다."
-      - "묻지 않는다. 할당이 허락이라 결과를 `<lophn-untrusted>`로 감싸지 않는다."
-      - "run이면 이 호출만 쓰는 agent 자격을 내고(실패하면 그 오류가 간다) core 안 extension host의 handler를 불러 결과를 기다린다. 끝나면 그 자격을 거둔다."
-    outcomes:
-      - id: not-agent-session
-        code: forbidden
-        when: "agent 자격이 아니거나 session·turn 조건이 없음"
-        observe: ["response"]
-      - id: not-extension-tool
-        code: not_found
-        when: "extension tool 이름 형식이 아님"
-        observe: ["response"]
-      - id: lookup-failed
-        when: "session이나 agent 정의를 읽지 못함. 읽기의 오류 code가 그대로 간다"
-        observe: ["response"]
-      - id: not-assigned
-        code: forbidden
-        when: "agent 정의의 extensions에 없는 extension"
-        observe: ["response"]
-      - id: removed
-        code: forbidden
-        when: "extension이 꺼졌거나 catalog에서 tool이 빠짐"
-        observe: ["response"]
-      - id: credential-failed
-        when: "이 호출만 쓰는 agent 자격을 내거나 ledger에 기록하지 못함. 오류 code가 그대로 간다"
-        observe: ["response"]
-      - id: handed-to-host
-        when: "판정이 run이고 extension host의 handler가 결과(content)를 돌려줌"
-        observe: ["response"]
-      - id: host-failed
-        when: "handler가 돌고 있지 않음(not_found), handler가 오류를 돌려줌(그 code), 또는 던지거나 모양이 틀린 결과를 돌려줌(internal)"
-        observe: ["response"]
-    crosses_process: true
-    risk: [permission]
-    refs: ["H3"]
-    docs: [architecture/approval.md, architecture/agent-definition.md]
-
   - id: app-call-assignment-judge
     title: agent나 flow가 앱 command를 부를 때 그 호출자의 할당으로 막는다
     actor: agent

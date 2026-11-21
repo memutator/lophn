@@ -9,7 +9,7 @@ import type {
   AcpCliSession,
   AcpRewindPreview,
   GuiHarness,
-} from "../../../protocol/extensions/mod.ts";
+} from "../../../protocol/acp/mod.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendors.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";

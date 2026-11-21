@@ -19,7 +19,7 @@ import {
   codingSessionsSwitchPlan,
   type SwitchStops,
 } from "../../../protocol/coding-agent/relay.ts";
-import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
+import { isGuiHarness } from "../../../protocol/acp/mod.ts";
 import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import { guiAgentTabSource } from "../../../shell/renderer/conversation/agent-tab-gui-source.ts";

@@ -3,7 +3,7 @@
 // harness agent session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
-import { isGuiHarness } from "../../protocol/extensions/mod.ts";
+import { isGuiHarness } from "../../protocol/acp/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 
 // 다시 보낸 open을 알아보는 key 수(전체).

@@ -12,7 +12,6 @@ import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { callReply } from "../../../../protocol/lophn-agent/calls.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { harnessOperations } from "../../../agent-workspaces/credentials.ts";
-import { harnessExtensionSetting } from "../../../config/mod.ts";
 import { HARNESS_QUEUE_PUT_TOPIC } from "../../../lophn-agent/session/mod.ts";
 import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
 import { installWorkspaceEnvironment } from "../../../lophn-agent/workspaces/environment.ts";
@@ -101,8 +100,7 @@ async function setup() {
     },
     writer: { command },
     settings: {
-      get: (setting: { default?: unknown }) =>
-        setting === harnessExtensionSetting ? true : setting.default,
+      get: (setting: { default?: unknown }) => setting.default,
     },
     provide: (name: string, value: unknown) => provided.set(name, value),
     bus: { publish: (_event: BusEvent) => {}, subscribe: () => () => {} },

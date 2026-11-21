@@ -54,9 +54,8 @@ test("a built-in coding agent is listed and resolved only when harness is on and
       card: directory.cardOf("claude", null)?.runtime,
     };
   };
-  const on = { "extensions.harness.enabled": true };
   await inRoot(
-    { ...on, "shell.coding_agents": { favorites: ["claude"], commands: {} } },
+    { "shell.coding_agents": { favorites: ["claude"], commands: {} } },
     (deps) =>
       assert.deepEqual(handles(deps), {
         listed: ["lophn", "claude"],
@@ -65,20 +64,13 @@ test("a built-in coding agent is listed and resolved only when harness is on and
       }),
   );
   await inRoot(
-    { ...on, "shell.coding_agents": { favorites: ["codex"], commands: {} } },
+    { "shell.coding_agents": { favorites: ["codex"], commands: {} } },
     (deps) =>
       assert.deepEqual(handles(deps), {
         listed: ["lophn", "codex"],
         byId: "claude-code",
         card: undefined,
       }),
-  );
-  await inRoot({ "extensions.harness.enabled": false }, (deps) =>
-    assert.deepEqual(handles(deps), {
-      listed: ["lophn"],
-      byId: "claude-code",
-      card: undefined,
-    }),
   );
 });
 

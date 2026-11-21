@@ -539,13 +539,6 @@ test("a coding agent called into a project opens as a GUI tab member only when c
         ],
       );
 
-    const off = call({ kind: "project", id: PROJECT });
-    assert.ok(!off.ok && off.error.code === "unavailable");
-
-    writeFileSync(
-      join(root, "settings.json"),
-      JSON.stringify({ "extensions.harness.enabled": true }),
-    );
     const member = call({ kind: "project", id: PROJECT });
     assert.ok(member.ok);
     assert.equal(mark(member.value.session), 1);

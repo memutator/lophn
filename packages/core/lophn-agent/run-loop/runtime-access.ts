@@ -54,10 +54,6 @@ import {
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
-import {
-  extensionToolsCall,
-  extensionToolsCatalog,
-} from "../../../protocol/lophn-agent/extension-tools.ts";
 import { messageImagePath } from "../../../protocol/lophn-agent/message-images.ts";
 import { machinesAppTools } from "../../../protocol/remote/mod.ts";
 
@@ -128,8 +124,6 @@ export const RUNTIME_MACHINE_ROUTES = [
   assignmentGet,
   // 할당한 다른 기계의 앱의 command 목록. 이 route가 없으면 turn이 `configuration_unavailable`로 끝난다.
   machinesAppTools,
-  // 켜진 shell extension의 tool 목록. turn을 준비할 때 읽는다.
-  extensionToolsCatalog,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
 ] as const;
@@ -150,8 +144,6 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
 const HUMAN_WAIT_ROUTES: readonly string[] = [toolGateCheck.name, askWait.name];
 // image.read가 사람이 붙인 이미지(`attachment:<id>`)를 파일 경로로 푼다. session은 core가 credential로 가른다.
 const MESSAGE_IMAGE_ROUTES: readonly string[] = [messageImagePath.name];
-// extension tool은 `extension_tools/call` 한 곳으로 부른다. Gate 판정과 host queue는 그 route가 한다.
-const EXTENSION_TOOL_ROUTES: readonly string[] = [extensionToolsCall.name];
 
 // 어느 workspace 종류든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent 할당과 tool 목록이
 // 정하고, 외부 MCP tool과 사람 결정 기다림은 turn의 agent 자격이 부른다. workspace 종류 몫은 workspace 층이 더한다.
@@ -160,5 +152,4 @@ export const AGENT_BASE_OPERATIONS: readonly string[] = [
   ...EXTERNAL_TOOL_OPERATIONS,
   ...HUMAN_WAIT_ROUTES,
   ...MESSAGE_IMAGE_ROUTES,
-  ...EXTENSION_TOOL_ROUTES,
 ];

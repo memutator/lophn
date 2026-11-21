@@ -14,7 +14,7 @@ import { test } from "node:test";
 import { manualClock } from "../../base/clock.ts";
 import { terminalHookLineSchema } from "../../protocol/coding-agent/terminal-hook.ts";
 import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
-import type { AcpTabRequest } from "../../protocol/extensions/mod.ts";
+import type { AcpTabRequest } from "../../protocol/acp/mod.ts";
 import {
   type AcpState,
   type AcpToolItem,
@@ -24,7 +24,7 @@ import {
 import type { Terminals } from "../terminals/ports.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
 import { createHookIngress } from "./ingress.ts";
-import { cliEnv } from "../extensions/spawner.ts";
+import { cliEnv } from "./spawner.ts";
 import {
   attachBatched,
   createTabGui,

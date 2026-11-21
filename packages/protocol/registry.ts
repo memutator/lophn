@@ -28,7 +28,6 @@ import { MACHINE_ROUTES } from "./machine/mod.ts";
 import { ALWAYS_ON_ROUTES } from "./always-on/mod.ts";
 import { FOLDER_ROUTES } from "./folder/mod.ts";
 import { CARRY_ROUTES, carryStatus } from "./remote/carry.ts";
-import { EXTENSION_ROUTES } from "./extensions/routes.ts";
 import { PAGE_VIEW_ROUTES } from "./lophn-agent/page-view.ts";
 
 // 지금 있는 route. 다른 파일의 route 배열(BLOB_ROUTES 등)도 여기로 모은다.
@@ -62,7 +61,6 @@ export const ROUTES = [
   ...FOLDER_ROUTES,
   ...CARRY_ROUTES,
   carryStatus,
-  ...EXTENSION_ROUTES,
 ] as const;
 
 // 지금 있는 event. platform 소유 event는 settings에서 시작한다.

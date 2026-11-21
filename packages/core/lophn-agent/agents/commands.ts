@@ -116,7 +116,6 @@ export function createAgentCommands(deps: AgentDeps): {
             input.definition.skip !== undefined ||
             input.definition.apps !== undefined ||
             input.definition.remote_apps !== undefined ||
-            input.definition.extensions !== undefined ||
             input.definition.permissions !== undefined)
         ) {
           return err({
@@ -182,7 +181,6 @@ export function createAgentCommands(deps: AgentDeps): {
               input.definition.remote_apps,
               loaded.definition?.remote_apps,
             ) ||
-            !same(input.definition.extensions, loaded.definition?.extensions) ||
             !same(input.definition.permissions, loaded.definition?.permissions))
         ) {
           return err({

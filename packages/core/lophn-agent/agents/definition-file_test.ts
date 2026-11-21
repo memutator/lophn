@@ -62,13 +62,11 @@ test("modality는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도
   assert.strictEqual(old.value.modality, undefined);
 });
 
-// serializer는 whitelist라 `extensions`를 빠뜨리면 사람이 할당한 extension이 저장 때 조용히 사라진다.
-test("extensions와 remote_apps는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도 읽힌다", () => {
+test("remote_apps는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도 읽힌다", () => {
   const target = { agent: AGENT } as const;
   const definition = {
     handle: "browser-user",
     name: "browser-user",
-    extensions: ["browser-use", "web"],
     // 다른 기계의 앱 할당도 같은 whitelist를 지난다.
     remote_apps: [
       {
@@ -91,7 +89,6 @@ test("extensions와 remote_apps는 저장하고 다시 읽어도 남고, 칸 없
     target,
   );
   assert.ok(old.ok);
-  assert.strictEqual(old.value.extensions, undefined);
 });
 
 // serializer는 whitelist라 새 칸을 빠뜨리면 저장 때 조용히 사라진다. 내장 lophn은 custom이 될 수 없다.

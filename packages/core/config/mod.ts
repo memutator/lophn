@@ -12,7 +12,6 @@ export {
 export { settingsListHandler, settingsUpdateHandler } from "./routes.ts";
 export {
   codingAgentsSetting,
-  harnessExtensionSetting,
   shellSettingFolders,
   shellSettings,
 } from "./shell-settings.ts";

@@ -25,7 +25,7 @@ test("tools에서 lophn 명령·앱 command 이름만 빠지고 나머지와 본
     const path = join(root, "agents", `${agent}.md`);
     await writeFile(
       path,
-      "---\nhandle: coach\nname: Coach\nruntime: custom\ntools:\n  - file.read\n  - call.reply\n  - tab.open\n  - river-billing.invoice\n  - mcp__gh__issue\n  - ext__web__go_to\nskills:\n  - triage\n---\ntools:\n  - call.reply\n",
+      "---\nhandle: coach\nname: Coach\nruntime: custom\ntools:\n  - file.read\n  - call.reply\n  - tab.open\n  - river-billing.invoice\n  - mcp__gh__issue\n  - local__web_go_to\nskills:\n  - triage\n---\ntools:\n  - call.reply\n",
     );
     const onlyCommands = join(
       root,
@@ -52,7 +52,7 @@ test("tools에서 lophn 명령·앱 command 이름만 빠지고 나머지와 본
     assert.deepStrictEqual(read.value.tools, [
       "file.read",
       "mcp__gh__issue",
-      "ext__web__go_to",
+      "local__web_go_to",
     ]);
     assert.deepStrictEqual(read.value.skills, ["triage"]);
     const nav = await readFile(onlyCommands, "utf8");

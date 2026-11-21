@@ -4,7 +4,7 @@ title: remote workspace에서 로컬 chrome·앱 아이콘 유지, 캐시 최적
 modules:
   - packages/protocol
   - packages/core/projects
-  - packages/core/extensions
+  - packages/core/harness-gui
   - packages/core/terminal-agents
   - packages/core/config
   - packages/core/main

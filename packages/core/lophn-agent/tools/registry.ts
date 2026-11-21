@@ -12,7 +12,7 @@ import { inputJsonSchema } from "./wire.ts";
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과를 쓴다.
 // 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
 
-type ToolOrigin = "builtin" | "app" | "external" | "extension";
+type ToolOrigin = "builtin" | "app" | "external" | "local";
 
 export type ToolCallHandler = (
   input: unknown,

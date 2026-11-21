@@ -13,7 +13,7 @@ import type {
   Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Bus } from "../events/ports.ts";
-import { type ExtensionGrant, judge } from "./gate/mod.ts";
+import { judge } from "./gate/mod.ts";
 import type { AlwaysEffect, Approvals, AskReplies } from "./ports.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
@@ -45,9 +45,6 @@ export type ApprovalsService = Approvals & {
 export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
   const turns = createTurnRequests(deps);
   const effects = new Map<string, AlwaysEffect>();
-  let extensions:
-    | ((agent: AgentId) => Promise<Result<ExtensionGrant>>)
-    | undefined;
 
   return {
     async judge(call, who) {
@@ -57,12 +54,6 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
         if (!loaded.ok) return loaded;
         assignment = loaded.value;
       }
-      let grant: ExtensionGrant | null = null;
-      if (call.kind === "extension_tool" && extensions !== undefined) {
-        const loaded = await extensions(who.agent);
-        if (!loaded.ok) return loaded;
-        grant = loaded.value;
-      }
       return ok(
         judge(
           call,
@@ -70,12 +61,8 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
           deps.shellRules(who.workspace),
           who.mode,
           who.toParent,
-          grant,
         ),
       );
-    },
-    useExtensions(read) {
-      extensions = read;
     },
     openTurnRequest: turns.open,
     waitTurnDecision: turns.wait,

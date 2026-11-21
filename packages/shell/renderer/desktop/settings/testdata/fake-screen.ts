@@ -9,7 +9,6 @@ import type { Device, LinkValues, LoginRow } from "../browser/source.ts";
 import { fakeBrowserSettings } from "../browser/testdata/fake-source.ts";
 import { fakeConnections } from "../connections/testdata/fake-source.ts";
 import { fakeDiagnostics } from "../diagnostics/testdata/fake-source.ts";
-import { fakeExtensions } from "../extension-packages/testdata/fake-extensions.ts";
 import type { StoredKeybindings } from "../keyboard/source.ts";
 import { fakeKeyboard } from "../keyboard/testdata/fake-source.ts";
 import { fakeProviders } from "../providers/testdata/fake-providers.ts";
@@ -41,8 +40,6 @@ export interface FakeSettingsScreenOptions {
     readonly logins?: LoginRow[];
   };
   readonly keyboard?: StoredKeybindings;
-  /** Extensions 항목에 가짜 `extensions/*` 답과 `extensions.<id>.enabled` 선언을 끼운다. */
-  readonly extensions?: boolean;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
   readonly customList?: "found" | "empty";
 }
@@ -58,7 +55,6 @@ export function fakeSettingsScreen(
   options: FakeSettingsScreenOptions = {},
 ): FakeSettingsScreen {
   const core = fakeCore();
-  const extensions = options.extensions ? fakeExtensions(core) : [];
   const settings = fakeSettings({
     core,
     declared: [
@@ -71,7 +67,6 @@ export function fakeSettingsScreen(
             }),
           ]
         : []),
-      ...extensions,
     ],
   }).source;
   // custom provider는 같은 id를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.

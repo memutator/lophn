@@ -40,6 +40,10 @@ export type WorkspaceFiles = {
   skillsFolder(
     workspace: { kind: "project" | "app"; id: string } | null,
   ): string | null;
+  // workspace의 `tools/` 폴더. null은 Home이다. data root를 모르면 null.
+  toolsFolder?(
+    workspace: { kind: "project" | "app"; id: string } | null,
+  ): string | null;
   // project·앱 workspace의 `artifacts/` 폴더. data root를 모르면 null.
   artifactsFolder(workspace: {
     kind: "project" | "app";
@@ -339,6 +343,20 @@ async function readWorkspaceData(
     }
   }
 
+  // Home·project·앱 workspace의 turn 시작에 tools 폴더를 만든다(skills와 같다).
+  let toolsFolder: string | null = null;
+  {
+    const folder = files.toolsFolder?.(workspace) ?? null;
+    if (folder !== null) {
+      try {
+        await files.ensureDir(folder);
+        toolsFolder = folder;
+      } catch {
+        /* 폴더가 없으면 범위에서 빠진다 */
+      }
+    }
+  }
+
   // project·앱 workspace의 turn 시작에 artifacts 폴더를 만든다(workflows와 같다).
   let artifacts: WorkspaceData["artifacts"] = null;
   if (workspace !== null) {
@@ -366,6 +384,7 @@ async function readWorkspaceData(
     calledFromWorkspace: agent.called_from !== null,
     workflowsFolder,
     skillsFolder,
+    toolsFolder,
     artifactsFolder: artifacts?.folder ?? null,
   });
   return ok({

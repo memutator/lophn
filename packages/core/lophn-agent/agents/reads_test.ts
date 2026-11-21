@@ -136,6 +136,6 @@ test("an app lophn's MCP server and token are not seen by the project lophn", ()
   assert.ok(listed.ok);
   assert.deepEqual(
     listed.value.agents.map((row) => row.agent),
-    [projectLophn],
+    [projectLophn, "coding_claude", "coding_codex", "coding_opencode"],
   );
 });

@@ -32,7 +32,6 @@ import type {
   AuthenticatedContext,
   Output,
 } from "../../../../protocol/server/mod.ts";
-import { harnessExtensionSetting } from "../../../config/mod.ts";
 import { createHold } from "../../../host-queue/mod.ts";
 import {
   createSessionDirectory,
@@ -148,19 +147,11 @@ export const harnessWiring: WiringFactory = () => {
           prepared: [],
         });
 
-      // 사람 권한의 core 안 자격(extensions wiring)으로 harness extension만 부른다. 새 turn을 여는 route(`needsOn`)는 꺼져 있으면 일하지 않는다.
-      // 나머지는 꺼져 있어도 일한다: 꺼질 때 돌던 turn이 끝날 수 있어야 한다.
-      const gate = (
-        who: AuthenticatedContext,
-        needsOn = false,
-      ): Result<void> => {
-        if (who.actor !== "user") {
-          return err({ code: "forbidden", message: "only the harness host" });
-        }
-        return !needsOn || ctx.settings.get(harnessExtensionSetting) === true
+      // 사람 권한의 core 안 자격(harness-runners wiring)으로 harness host만 부른다.
+      const gate = (who: AuthenticatedContext): Result<void> =>
+        who.actor === "user"
           ? ok(undefined)
-          : err({ code: "unavailable", message: "harness is turned off" });
-      };
+          : err({ code: "forbidden", message: "only the harness host" });
       // 이 session이 열려 있고 입력을 받고 runtime이 harness여야 한다. 아니면 어떤 route도 고치지 못한다.
       const harnessSession = (session: string) => {
         const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
@@ -321,7 +312,7 @@ export const harnessWiring: WiringFactory = () => {
 
       // headless host는 GUI 탭의 팀원 queue를 가져가지 않는다(그 탭이 돌린다).
       const take: MemoryHandler = async (who) => {
-        const allowed = gate(who, true);
+        const allowed = gate(who);
         if (!allowed.ok) return allowed;
         for (const session of queue.waiting()) {
           if (queue.isRunning(session) || hold.held(session)) continue;
@@ -363,7 +354,7 @@ export const harnessWiring: WiringFactory = () => {
       };
 
       const startTurnHandler: MemoryHandler = async (who, body) => {
-        const allowed = gate(who, true);
+        const allowed = gate(who);
         if (!allowed.ok) return allowed;
         const input = harnessStartTurn.input.parse(body);
         const session = input.session as Id<"ses">;
@@ -610,8 +601,7 @@ export const harnessWiring: WiringFactory = () => {
           }
           return ok(rows.value.length);
         },
-        // core가 CLI를 스스로 띄우는 것은 사람이 coding agent를 lophn이 돌리게 켰을 때뿐이다(사람이 연 탭은 상관없다).
-        canOpen: () => ctx.settings.get(harnessExtensionSetting) === true,
+        canOpen: () => true,
         // 탭을 열지 못한 팀원의 queue를 비우고 그 안의 call을 보낸 쪽에 실패로 돌려준다.
         async failQueued(session) {
           const id = session as Id<"ses">;

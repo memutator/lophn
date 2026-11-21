@@ -1,7 +1,7 @@
 id: gui-member
 version: 0.23.118
 title: "project의 coding agent GUI 탭이 lophn 팀원이 되어 call을 받고 자기 이름으로 부른다"
-modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/terminal-agents, packages/core/extensions, packages/core/lophn-agent, packages/core/router, packages/core/events, packages/core/main]
+modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/terminal-agents, packages/core/harness-gui, packages/core/lophn-agent, packages/core/router, packages/core/events, packages/core/main]
 checked: []
 change: |
   전: 터미널 GUI 탭(`claude --gui` 등)은 lophn session이 아니어서 다른 agent가 부를 수 없고 그 탭의 CLI는 사람 token으로만 `lophn`을 불렀다. 다른 harness를 팀원으로 쓰는 길은 headless 셋(`claude -p`, `codex exec`, `opencode run`)뿐이었다.

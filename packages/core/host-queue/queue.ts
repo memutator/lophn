@@ -6,13 +6,13 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { ExtensionToolContent } from "../../protocol/extensions/manifest.ts";
 import { PHONE_TAB_TEXT } from "../../protocol/phone/drive.ts";
 import {
   BROWSER_CALL_MS,
   type BrowserTabState,
   type HostRequest,
   type HostTabTarget,
+  type HostToolContent,
   type HostToolOutput,
   type HostWorkspace,
   LINK_REQUEST_KINDS,
@@ -71,7 +71,7 @@ type BrowserCallPayload = Extract<
   HostRequest,
   { kind: "browser_call" }
 >["payload"];
-type CallResult = Result<ExtensionToolContent[]>;
+type CallResult = Result<HostToolContent[]>;
 
 // 다른 wiring(browser·tab route, 터미널 탭 열기, 멀리서 page 보기)이 쓰는 port다.
 export type HostQueue = {

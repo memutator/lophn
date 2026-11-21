@@ -5,7 +5,7 @@ flows:
     title: queue의 입력 하나를 골라 turn을 시작하거나 시작하지 못한 것을 닫는다
     actor: system
     entries: [system:turn-pump]
-    uses: [turn-start:running, turn-finish:failed, extension-tool-catalog:listed]
+    uses: [turn-start:running, turn-finish:failed]
     boundary: [run-loop, child-supervision-protocol]
     code: [packages/core/main/agent-runtime/product-driver.ts, packages/core/lophn-agent/run-loop/driver.ts, packages/core/lophn-agent/run-loop/work.ts, packages/core/lophn-agent/run-loop/prepare.ts]
     steps:
@@ -1225,79 +1225,6 @@ flows:
       - "read와 list는 자격(ctx)을 보지 않는다. agent 자격이 다른 session의 tool 호출을 읽을 수 있는지 확인이 필요하다"
 
   # ---- extension tool ----
-  - id: extension-tool-catalog
-    title: 켜진 extension의 tool 목록을 읽는다
-    actor: system
-    entries: [route:extension_tools/catalog]
-    boundary: [extension-api, core-api]
-    code: [packages/core/main/daemon/wiring/extension-tools.ts]
-    steps:
-      - "turn을 준비하는 runtime(machine)이나 사람(user) 자격이 아니면 forbidden이다"
-      - "설정 extensions.<id>.enabled가 켜진 extension만 낸다"
-    outcomes:
-      - id: listed
-        observe: [response]
-        when: 켜진 extension 목록을 돌려줬다
-      - id: not-allowed
-        code: forbidden
-        observe: [response]
-        when: 사람(user), runtime(machine)이 아닌 자격이다
-    crosses_process: false
-    risk: []
-    refs: [H3]
-    docs: [architecture/extension.md]
-    unclear: []
-
-  - id: extension-tool-call
-    title: agent가 extension tool을 부르면 할당을 판정하고 core 안 extension host의 handler를 부른다
-    actor: agent
-    entries: [route:extension_tools/call]
-    boundary: [extension-api, extension-host, approvals]
-    code: [packages/core/main/daemon/wiring/extension-tools.ts, packages/core/lophn-agent/tools/extension-tools.ts, packages/core/extensions/registry.ts]
-    steps:
-      - "agent session과 turn 조건이 없으면 forbidden이다. 이름이 ext__<extension>__<tool> 꼴이 아니면 not_found다"
-      - "session과 agent 정의의 extensions를 읽는다(읽기 오류는 그대로 간다). Gate extension_tool을 판정한다: 할당이 없으면 not-assigned, 켜진 catalog에 tool이 없으면 removed다"
-      - "이 호출만 쓰는 harness credential을 빌려(ledger 기록) extension host의 그 tool handler를 부른다. 그 extension이 돌지 않아 handler가 없으면 not_found, handler가 던지면 internal, 오류를 돌려주면 그 code가 그대로 간다. 결과 모양이 틀리면 internal이다"
-      - "결과 content는 감싸지 않고 돌려준다. 이 호출 자격은 자기 session·turn의 lophn 명령 route에만 닿고(사람 전용 route와 다른 session은 막힌다), 끝나면 release해 더는 쓰이지 않는다"
-    outcomes:
-      - id: ran
-        observe: [response]
-        when: extension host의 handler가 결과를 돌려줬다
-      - id: not-assigned
-        code: forbidden
-        observe: [response]
-        when: 정의의 extensions에 그 extension이 없다
-      - id: removed
-        code: forbidden
-        observe: [response]
-        when: 켜진 catalog에 그 tool이 없다(뺐거나 껐다)
-      - id: not-extension-tool
-        code: not_found
-        observe: [response]
-        when: 이름이 ext__ 꼴이 아니다
-      - id: not-agent
-        code: forbidden
-        observe: [response]
-        when: agent session과 turn 자격이 없다
-      - id: not-running
-        code: not_found
-        observe: [response]
-        when: 판정 뒤 그 extension의 handler가 돌고 있지 않다
-      - id: read-failed
-        observe: [response]
-        when: session이나 agent 정의를 읽지 못했다. 그 오류가 그대로 간다
-      - id: credential-failed
-        observe: [response]
-        when: 이 호출용 agent 자격을 발급하지 못했거나 ledger에 기록하지 못했다. 그 오류가 그대로 간다
-      - id: handler-failed
-        observe: [response]
-        when: "handler가 오류를 돌려줬거나(그 code가 그대로 간다) 던졌거나(internal) 모양이 틀린 결과를 돌려줬다(internal)"
-    crosses_process: false
-    risk: [permission]
-    refs: [H3]
-    docs: [architecture/extension.md, architecture/approval.md]
-
-  # ---- OAuth 발급자 호출 대기열 ----
   - id: issuer-request-relay
     title: core의 OAuth 발급자 호출을 agent runtime이 대신 보내고 답을 돌려준다
     actor: system

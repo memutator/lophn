@@ -15,10 +15,7 @@ import {
   useConnection,
 } from "./connection/connection.tsx";
 import { useStateChanged } from "./connection/core-read.ts";
-import {
-  useOptionalEventClient,
-  useSessions,
-} from "./connection/events/hooks.tsx";
+import { useSessions } from "./connection/events/hooks.tsx";
 import { HookPromptHost } from "./hook-prompt/hook-prompt-host.tsx";
 import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
@@ -69,12 +66,10 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { AppKeyContributions } from "../commands/app-keys.ts";
 import { CommandsProvider } from "../commands/react.tsx";
-import { mountExtensionKeys } from "../commands/extension-keys.ts";
 import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
 import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
 import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
 import { createWindowCommands } from "../commands/window.ts";
-import { coreExtensions } from "./settings/extension-packages/core-source.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
 import { workspaceKey, type WorkspaceRef } from "../shell/desk-model.ts";
 import { MachineListsProvider } from "../shell/use-left-sidebar.ts";
@@ -200,17 +195,6 @@ export function Desktop({
     const listening = commands.keybindings.listen(document);
     return () => listening.dispose();
   }, [commands]);
-  // 켜진 extension의 command와 key. 설정이 바뀌면 다시 맞춘다(event가 없는 창은 아무것도 올리지 않는다).
-  const events = useOptionalEventClient();
-  useEffect(() => {
-    if (events === null) return;
-    return mountExtensionKeys({
-      commands,
-      extensions: coreExtensions(events.core),
-      events,
-      log: (message, error) => console.error(message, error),
-    });
-  }, [commands, events]);
   const [route, setRoute] = useState<Route>(initial);
   // 지금 workspace의 기계 묶음. 다른 기계의 workspace(이 컴퓨터에 없는 project, Home · <이름>)는 그 기계의 통로로 그린다.
   const at = useMachineData(route.machine);

@@ -21,13 +21,13 @@ import {
   type AcpTerminal,
   type GuiHarness,
   isGuiHarness,
-} from "../../protocol/extensions/acp-session.ts";
+} from "../../protocol/acp/gui-session.ts";
 import { AGENT_CREDENTIAL_FILE_ENV } from "../../protocol/coding-agent/headless/env.ts";
 import {
   SESSION_ENV_NAME,
   terminalSessionId,
 } from "../../protocol/lophn-agent/session-tag.ts";
-import type { AcpHandle } from "../extensions/acp.ts";
+import type { AcpHandle } from "./acp.ts";
 import type { RoutedHook } from "./ingress.ts";
 
 // 한 handle의 update를 모아 한 번에 내는 간격. resume 재생처럼 한꺼번에 오는 update가 한 번에 그려지고, 글 delta도 프레임 하나에

@@ -2,15 +2,13 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
-import { extensionSettingKey } from "../extensions/manifest.ts";
 import { HARNESS_RUNTIMES } from "./agent-values.ts";
 import { callFromOutputSchema, callReplySchema } from "./calls.ts";
 import { workspaceOutputSchema } from "./workspaces.ts";
 import { turnOutcomeSchema } from "./turn-values.ts";
 
-// core 안 extension host에서 도는 harness extension이 core를 부르는 길이다. host는 사람 권한의 core 안 자격(actor user)으로 부르고, memory route라서
-// renderer의 호출 통로(allowlist)에는 없다. Take와 StartTurn은 설정 `extensions.harness.enabled`가 꺼져 있으면 `unavailable`이다.
-// 나머지(Record, FinishTurn, SetExternalId)는 꺼져 있어도 일해서, 꺼질 때 돌던 turn이 끝날 수 있다.
+// core 안 harness host가 core를 부르는 길이다. host는 사람 권한의 core 안 자격(actor user)으로 부르고, memory route라서
+// renderer의 호출 통로(allowlist)에는 없다.
 // 모든 route는 runtime이 harness인 session이 아니면 `forbidden`이다.
 //
 // core가 resume으로 연 터미널의 session(`tabs/open`의 tui, `coding_sessions/open`의 resume)은 그 CLI session에 process 둘이 쓰지
@@ -20,8 +18,6 @@ import { turnOutcomeSchema } from "./turn-values.ts";
 // 한 turn의 순서: Take(다음 입력을 본다) → StartTurn(입력을 꺼내 turn을 시작) → Record(메시지, 여러 번)
 // → FinishTurn. TurnEnded는 turn마다 한 번이다. 재시작하면 끝나지 않은 turn은 interrupted(restarted)로 끝나
 // FinishTurn은 `conflict`다.
-
-export const HARNESS_SETTING_KEY = extensionSettingKey("harness");
 
 const harnessRuntimeSchema = z.enum(HARNESS_RUNTIMES);
 const errors = [

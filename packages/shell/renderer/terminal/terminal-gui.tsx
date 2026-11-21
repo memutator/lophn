@@ -36,10 +36,7 @@ import {
 } from "../../../protocol/coding-agent/relay.ts";
 import type { BusEvent } from "../../../protocol/events/mod.ts";
 import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
-import {
-  type GuiHarness,
-  isGuiHarness,
-} from "../../../protocol/extensions/mod.ts";
+import { type GuiHarness, isGuiHarness } from "../../../protocol/acp/mod.ts";
 import { useReportVisible } from "../conversation/report-visible.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import { guiAgentTabSource } from "../conversation/agent-tab-gui-source.ts";

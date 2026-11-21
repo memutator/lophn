@@ -6,16 +6,16 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
 
 | 무엇 | 곳 |
 |---|---|
-| 계약(handle, `AcpTerminal`, `onTab`) | `packages/protocol/extensions/acp-session.ts` |
-| adapter 계약(`HarnessGuiAdapter`, `HarnessGuiRun`) | `packages/core/extensions/bundled/harness-gui/adapter.ts` |
-| extension 본체(탭 요청, env, toggle, session id 따라가기) | 같은 폴더 `index.ts` |
+| 계약(handle, `AcpTerminal`, `onTab`) | `packages/protocol/acp/gui-session.ts` |
+| adapter 계약(`HarnessGuiAdapter`, `HarnessGuiRun`) | `packages/core/harness-gui/adapter.ts` |
+| 본체(탭 요청, env, toggle, session id 따라가기) | 같은 폴더 `index.ts` |
 | adapter(harness마다 하나) | 같은 폴더 `claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts`, `antigravity.ts` |
 | 받은 메시지 분류 | 같은 폴더 `received.ts`(`classifyReceived`) |
 | 탭 쪽 core(handle 쥐기, 20ms 묶음, toggle, 이미지 tmp file) | `packages/core/terminal-agents/gui.ts` |
 | 화면으로 내기(목록, `acp/snapshot`·`AcpUpdated`, 입력, 본문, 그림, switch) | `packages/core/terminal-agents/coding-sessions.ts`, `acp/*` 갈래는 `packages/core/main/daemon/wiring/acp.ts` |
 | 폰의 열기(`coding_sessions/open`) | `packages/core/terminal-agents/open.ts` |
 | route 계약(`coding_sessions/*`) | `packages/protocol/coding-agent/relay.ts` |
-| extension host(registry, spawner, ACP handle) | `packages/core/extensions/`(`host.ts`, `spawner.ts`, `acp.ts`) |
+| spawner, ACP handle | `packages/core/terminal-agents/`(`spawner.ts`, `acp.ts`) |
 | 탭 화면 | `packages/shell/renderer/terminal/terminal-gui.tsx`(`GuiSwitch`), `packages/shell/renderer/terminal/model.ts`(`terminalName`), session key는 `packages/protocol/lophn-agent/session-tag.ts`(`guiSessionId`) |
 | 채팅 화면의 GUI source | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 채팅 화면 key handler | `packages/shell/renderer/conversation/agent-view.tsx`(routes) |
@@ -51,7 +51,7 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 
 ## 구현 세부(설계 문서의 "지키는 것"이 이루어지는 방식)
 
-- handle(`createAcp`, `packages/core/extensions/acp.ts`)은 publish된 갱신을 `reduceAcp`로 접은 `AcpState` 하나만 쥔다. core(`terminal-agents/gui.ts`의 `attachBatched`)는 snapshot을 먼저 받고 갱신은 handle마다 20ms(`UPDATE_BATCH_MS`) 모은다. `coding-sessions.ts`가 그 묶음을 redactor에 거쳐 하나씩 `AcpUpdated`로 내고, handle이 열리고 닫히면 `StateChanged{coding_sessions, id}`를 낸다.
+- handle(`createAcp`, `packages/core/terminal-agents/acp.ts`)은 publish된 갱신을 `reduceAcp`로 접은 `AcpState` 하나만 쥔다. core(`terminal-agents/gui.ts`의 `attachBatched`)는 snapshot을 먼저 받고 갱신은 handle마다 20ms(`UPDATE_BATCH_MS`) 모은다. `coding-sessions.ts`가 그 묶음을 redactor에 거쳐 하나씩 `AcpUpdated`로 내고, handle이 열리고 닫히면 `StateChanged{coding_sessions, id}`를 낸다.
 - core는 PTY에 글을 `typeInto`(`packages/core/terminals/service.ts`)로 쳐 넣는다. PTY host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만. foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 250ms마다 보는 foreground 변화로 안다(`packages/core/terminals/host/foreground.ts`, win32는 null).
 - login env는 core가 한 번 `${SHELL:-/bin/sh} -ilc`로 읽는다(`packages/core/terminals/person-env.ts`. Linux `env -0`, macOS는 BSD `env`라 줄 단위로 읽는다. tmux·updater guard, 5초). extension spawner가 GUI를 열기 전에 그 읽기를 기다린다. 합치는 순서는 login env < 탭 hook env < adapter가 넘긴 key다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
 - 탭 화면(`terminal-gui.tsx`)은 `acp/snapshot`으로 읽은 상태에서 시작해 `AcpUpdated`를 `reduceAcp`로 접고, 묶음 하나를 한 task 안에서 알려 화면이 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) source의 `changed`로 화면이 다시 읽고, `reread`가 서면 feed의 지금 상태를 다시 읽는다. view(`gui`|`tui`)는 core가 들고 탭은 `coding_sessions/list`에서 읽는다(창 다시 load와 앱을 다시 켠 뒤도 같다).

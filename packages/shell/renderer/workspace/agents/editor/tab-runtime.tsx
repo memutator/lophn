@@ -27,13 +27,12 @@ export function RuntimeTab(props: RuntimeTabProps) {
   const issues = (name: Parameters<typeof issuesOf>[1]) =>
     issuesOf(props.issues, name);
 
-  // harness 값은 설정 `extensions.harness.enabled`가 켜졌을 때만 고르게 한다. 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
-  const harnessOptions = (["claude-code", "codex", "opencode"] as const)
-    .filter((one) => detail.harnessEnabled || one === runtime)
-    .map((one) => ({
+  const harnessOptions = (["claude-code", "codex", "opencode"] as const).map(
+    (one) => ({
       value: one,
       label: t(`agents.label.runtime-${one}`),
-    }));
+    }),
+  );
   const runtimeOptions = [
     { value: "lophn", label: t("agents.label.runtime-lophn") },
     { value: "custom", label: t("agents.label.runtime-custom") },

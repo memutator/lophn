@@ -13,7 +13,6 @@ import type {
   Modality,
   Profile,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
-import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type {
   CatalogEntry,
@@ -111,8 +110,6 @@ export interface AgentDraft {
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
-  /** 할당한 shell extension의 id. 사람만 쓴다. */
-  readonly extensions?: readonly string[];
   /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
   readonly skip?: boolean;
   readonly body: string;
@@ -166,10 +163,6 @@ export interface AgentDetail {
    * 이 agent의 memory. lophn은 따로 agent memory가 없어(workspace memory를 쓴다) null이고, 저장 전의 새 agent도 null이다.
    */
   readonly memory: InstructionsFile | null;
-  /** 설정 `extensions.harness.enabled`. 꺼져 있으면 runtime 고르기가 harness 값을 내지 않는다. */
-  readonly harnessEnabled: boolean;
-  /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). 읽지 못하면 빈 목록이다. */
-  readonly extensions: readonly PublishedExtension[];
 }
 
 /** provider가 이 model에 적용하는 한도(core의 providerModelLimits). context는 Codex처럼 provider가 정한 운영 window다. */

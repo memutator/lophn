@@ -12,7 +12,7 @@
 import type { Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type { AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
-import type { GuiHarness } from "../../protocol/extensions/acp-session.ts";
+import type { GuiHarness } from "../../protocol/acp/gui-session.ts";
 import type { HarnessRuntime } from "../../protocol/lophn-agent/agent-values.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { CredentialFiles } from "./credential-file.ts";

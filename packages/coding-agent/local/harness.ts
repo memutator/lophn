@@ -8,7 +8,6 @@ import {
   sharedAppsSettingSchema,
 } from "../../protocol/approvals/mod.ts";
 import { settingsList } from "../../protocol/config/mod.ts";
-import { HARNESS_SETTING_KEY } from "../../protocol/lophn-agent/harness-host.ts";
 import {
   harnessInstallInputSchema,
   harnessStatusInputSchema,
@@ -95,12 +94,9 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
       if (!connected.ok) return connected;
       const core = connected.value;
       const setting = await core.read(settingsList, {
-        keys: [SHARED_APPS_SETTING_KEY, HARNESS_SETTING_KEY],
+        keys: [SHARED_APPS_SETTING_KEY],
       });
       if (!setting.ok) return setting;
-      const harness = setting.value.settings.find(
-        (one) => one.key === HARNESS_SETTING_KEY,
-      );
       const entry = setting.value.settings.find(
         (one) => one.key === SHARED_APPS_SETTING_KEY,
       );
@@ -117,7 +113,7 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
       return await runHarnessSyncSkills(
         {
           skills: read.value.skills,
-          harness_enabled: (harness?.chosen ?? harness?.default) === true,
+          harness_enabled: true,
         },
         ctx.home,
         ctx.now(),

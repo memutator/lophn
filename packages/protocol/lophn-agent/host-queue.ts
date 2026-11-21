@@ -2,8 +2,17 @@ import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
-import { extensionToolContentSchema } from "../extensions/manifest.ts";
 import { artifactNameSchema } from "../projects/values.ts";
+
+export const hostToolContentSchema = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("text"), text: z.string() }),
+  z.strictObject({
+    type: z.literal("image"),
+    mimeType: z.string().min(1),
+    data: z.string(),
+  }),
+]);
+export type HostToolContent = z.infer<typeof hostToolContentSchema>;
 import { loginIdSchema } from "../secrets/logins.ts";
 import { pageInputSchema } from "./page-view.ts";
 import { workspaceSchema } from "./workspaces.ts";
@@ -306,7 +315,7 @@ export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
 // browser 호출과 browser 탭 열기의 결과다. 결과를 기다리는 요청(`browser_call`, browser 탭의 `tab_open`, 연결 요청)의 `response`에만 싣는다.
 export const hostToolOutputSchema = z.union([
-  z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
+  z.strictObject({ content: z.array(hostToolContentSchema).max(64) }),
   z.strictObject({
     error: z.strictObject({
       code: z.enum(ERROR_CODES),

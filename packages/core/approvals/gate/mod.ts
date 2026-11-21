@@ -1,2 +1,2 @@
-export { type ExtensionGrant, judge } from "./judge.ts";
+export { judge } from "./judge.ts";
 export { alwaysPatterns } from "./shell-match.ts";

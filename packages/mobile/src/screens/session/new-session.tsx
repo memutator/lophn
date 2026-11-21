@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import type { AcpCommand, AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import type { GuiHarness } from "../../../../protocol/extensions/mod.ts";
+import type { GuiHarness } from "../../../../protocol/acp/mod.ts";
 import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { TERMINAL_SESSION_PREFIX } from "../../../../protocol/lophn-agent/session-tag.ts";

@@ -2,10 +2,7 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 import { terminalProjectSchema } from "./terminals.ts";
-import type {
-  AcpCliSession,
-  AcpRewindPreview,
-} from "../extensions/acp-session.ts";
+import type { AcpCliSession, AcpRewindPreview } from "./gui-harness.ts";
 
 // coding session: 사람 터미널에서 도는 coding agent CLI 하나다. core가 터미널과 tracker, GUI handle과 그 ACP 상태를 원본으로
 // 메모리에 둔다. ledger에는 행이 없다. session id는 desktop GUI 화면과 같은 `ses_<터미널 ULID>`(`guiSessionId`)이고 대화는 기존

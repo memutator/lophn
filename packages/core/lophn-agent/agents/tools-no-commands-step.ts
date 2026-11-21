@@ -3,11 +3,11 @@ import { parse, stringify } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   MCP_TOOL_PREFIX,
-  parseExtensionToolName,
   WORKSPACE_KINDS,
   workspaceToolNames,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { DataStep } from "../../storage/migration/mod.ts";
+import { parseLocalToolName } from "../tools/local-tools.ts";
 
 // custom은 `lophn` tool을 늘 받아 lophn 명령과 앱 command를 정의 `tools`에 이름으로 적지 않는다. 옛 정의의 명령 이름(`call.reply`,
 // `tab.open`, `<slug>.<command>`)은 저장 검사가 거절하므로 file에서 뺀다. 내장 tool, MCP tool, extension tool 이름과 다른 칸은 그대로다.
@@ -31,7 +31,7 @@ function kept(name: unknown): boolean {
   if (typeof name !== "string") return true;
   return (
     BUILTIN.has(name) ||
-    parseExtensionToolName(name) !== null ||
+    parseLocalToolName(name) !== null ||
     (name.startsWith(MCP_TOOL_PREFIX) &&
       name.slice(MCP_TOOL_PREFIX.length).includes("__"))
   );

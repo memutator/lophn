@@ -6,7 +6,7 @@ import type { SharedSkill } from "../harnesses/skill-copies.ts";
 
 const SKILL_MD = `---
 name: lophn-agent
-description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL or LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (the second is a coding agent chat tab that is a lophn team member). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\` and \`lophn agent card\`, call a shell extension tool with \`lophn ext call\`, and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
+description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL or LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (the second is a coding agent chat tab that is a lophn team member). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\` and \`lophn agent card\`, and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
 ---
 
 # Working with other lophn agents
@@ -72,16 +72,6 @@ lophn agent card reviewer
 \`\`\`
 
 \`session list\` shows the open sessions you can send to (ID, agent handle and name, title, workspace, state, last activity; state is waiting while a person has to approve or answer). \`agent card <handle>\` shows what an agent does and which replies it supports; read it before you call that agent.
-
-## Call a shell extension tool
-
-\`\`\`
-lophn ext call ext__<extension id>__<tool> --input '{"field":"value"}'
-\`\`\`
-
-- Only the shell extensions the person assigned to you work, and only while they are turned on. The name is \`ext__<extension id>__<tool>\`.
-- \`--input\` is the tool's own input object. A text result prints as it is; an image result prints as \`[image]\` (it is not saved).
-- \`forbidden\` means the extension is not assigned to you or the tool is gone. \`unavailable\` means the shell is not running.
 
 ## Open and drive a browser tab
 

@@ -31,6 +31,7 @@ import { listArtifactEntries } from "../../agent-workspaces/workspace/artifact-l
 import {
   workspaceDataFolder,
   workspaceDataSkillsFolder,
+  workspaceDataToolsFolder,
 } from "../../agent-workspaces/workspace/data-folder.ts";
 import {
   type WorkspaceFiles,
@@ -70,6 +71,7 @@ import {
 } from "../../lophn-agent/session/compactor.ts";
 import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
 import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
+import { loadLocalTools } from "../../lophn-agent/tools/local-tools.ts";
 import { fileResultSpill } from "../../lophn-agent/tools/spill.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { agentTools } from "../agent-tools.ts";
@@ -128,6 +130,8 @@ function workspaceFiles(): WorkspaceFiles {
       root === null
         ? null
         : workspaceDataSkillsFolder(root, workspace as never),
+    toolsFolder: (workspace) =>
+      root === null ? null : workspaceDataToolsFolder(root, workspace as never),
     dataFolder: (workspace) =>
       root === null ? null : workspaceDataFolder(root, workspace as never),
     artifactsFolder: (workspace) =>
@@ -283,6 +287,27 @@ export function productDriver(
           kind,
           apps,
         ),
+      localTools: async (workspace) => {
+        const home = process.env.LOPHN_HOME;
+        const root =
+          home !== undefined && isAbsolute(home)
+            ? home.replace(/[\\/]+$/, "")
+            : null;
+        const source =
+          workspace === null
+            ? null
+            : await SKILL_WORKSPACES.sourceFolder(calls.machine, workspace);
+        return await loadLocalTools(
+          [
+            root === null ? null : `${root}/tools`,
+            source === null ? null : `${source}/.lophn/tools`,
+            root === null
+              ? null
+              : workspaceDataToolsFolder(root, workspace as never),
+          ],
+          source,
+        );
+      },
     });
     return { preparer, compactor, listMcpTools: mcpKit.listTools };
   };

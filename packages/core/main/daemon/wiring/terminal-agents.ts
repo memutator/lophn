@@ -59,12 +59,11 @@ import {
   terminalsSavedSessions,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
-import { isGuiHarness } from "../../../../protocol/extensions/acp-session.ts";
+import { isGuiHarness } from "../../../../protocol/acp/gui-session.ts";
 import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
 import { teamRead } from "../../../../protocol/lophn-agent/team.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
-import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import {
@@ -302,7 +301,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
         },
         publish: (event) => ctx.bus.publish(event),
         attention: () => ctx.attention,
-        handlers: () => ctx.extensionHost.tabHandlers(),
+        handlers: () => ctx.harnessGuiTabs(),
         redact,
         platform: process.platform,
         store: createAgentSessionStore({
@@ -618,9 +617,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
               changes.some(
                 (change) =>
                   change.name === "settings" &&
-                  (change.id === null ||
-                    change.id === SHARED_APPS_SETTING_KEY ||
-                    change.id === HARNESS_SETTING_KEY),
+                  (change.id === null || change.id === SHARED_APPS_SETTING_KEY),
               )
             ) {
               skillSync.request();
@@ -631,7 +628,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
       );
 
       const opener = createCodingOpen({
-        guiOn: () => ctx.extensionHost.tabHandlers() !== null,
+        guiOn: () => ctx.harnessGuiTabs() !== null,
         async open(project, command) {
           const opened = await ctx.terminals.open({
             project: project as TerminalProject,

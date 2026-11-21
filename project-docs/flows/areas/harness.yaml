@@ -9,7 +9,7 @@ flows:
     code:
       - packages/protocol/lophn-agent/harness-host.ts
       - packages/core/main/daemon/wiring/harness.ts
-      - packages/core/extensions/bundled/harness/host.ts
+      - packages/core/harness/host.ts
     steps:
       - "core의 extension harness host(in-process 자격 `machine:extensions`, actor user)가 1초마다 부른다. 설정 extensions.harness.enabled가 꺼져 있으면 unavailable"
       - "대기 중인 session을 앞에서부터 보고, 도는 turn이나 TUI hold가 있는 session, GUI 탭의 팀원 session(harness_gui)은 건너뛴다"
@@ -1458,7 +1458,7 @@ flows:
       - route:apps/get
     boundary: [shell-extension, harness-host-interface]
     code:
-      - packages/core/extensions/bundled/harness/host.ts
+      - packages/core/harness/host.ts
       - packages/protocol/coding-agent/headless/
       - packages/protocol/coding-agent/harness-adapter.ts
     steps:
@@ -1642,11 +1642,11 @@ flows:
     boundary: [shell-extension, shell]
     code:
       - packages/core/terminal-agents/gui.ts
-      - packages/core/extensions/bundled/harness-gui/index.ts
-      - packages/core/extensions/bundled/harness-gui/adapter.ts
+      - packages/core/harness-gui/index.ts
+      - packages/core/harness-gui/adapter.ts
       - packages/shell/renderer/terminal/terminal-gui.tsx
       - packages/core/terminal-agents/gui.ts
-      - packages/core/extensions/bundled/harness-gui/index.ts
+      - packages/core/harness-gui/index.ts
     steps:
       - "사람이 터미널에서 claude --gui, codex --gui, opencode --gui, omp --gui, agy --gui(추가 CLI flag·resume 인자 포함)를 친다. 셸 함수가 --gui를 뺀 나머지 인자를 lophn hook으로 보내고 hook이 resume과 args로 파싱해 보낸다"
       - "core가 key로 터미널을 찾는다. harness가 GUI를 지원하고 터미널이 살아 있을 때만 extension의 onTab.gui를 부른다. 아니면 무시한다"
@@ -1838,7 +1838,7 @@ flows:
       - packages/shell/renderer/terminal/terminal-gui.tsx
       - packages/protocol/coding-agent/relay.ts
       - packages/core/terminal-agents/gui.ts
-      - packages/core/extensions/bundled/harness-gui/index.ts
+      - packages/core/harness-gui/index.ts
     steps:
       - "탭의 단추와 ⋯ 메뉴의 Open as chat·Open in terminal은 그 터미널의 coding session(`coding_sessions/list`)이 있을 때 선다. 바꿀 수 없으면(switch.blocked) 단추가 disabled이고 이유가 tooltip이다"
       - "handoff가 shared(Codex, OpenCode)면 묻지 않는다. restart(Claude, omp, Antigravity)면 `coding_sessions/switch_plan`으로 멈출 일(도는 turn, task, 줄 선 메시지)을 읽어 modal(harness-gui-restart-modal)로 확인받는다"
@@ -1874,7 +1874,7 @@ flows:
       - packages/shell/renderer/conversation/agent-tab-gui-source.ts
       - packages/shell/renderer/terminal/terminal-gui.tsx
       - packages/core/terminal-agents/gui.ts
-      - packages/core/extensions/bundled/harness-gui/adapter.ts
+      - packages/core/harness-gui/adapter.ts
     steps:
       - "GUI 화면에서 사람이 보낸 입력(ACP input)을 renderer가 그 coding session으로 `acp/send`에 준다"
       - "core가 그 session의 handle을 찾아 input으로 넘긴다. 없으면 거절이다. adapter가 입력을 CLI 호출로 옮기고 ACP update를 AcpUpdated로 돌려 화면이 그린다"
@@ -1954,7 +1954,7 @@ flows:
       - packages/core/terminal-agents/coding-sessions.ts
       - packages/core/terminal-agents/gui.ts
       - packages/core/main/daemon/wiring/terminal-agents.ts
-      - packages/core/extensions/bundled/harness-gui/index.ts
+      - packages/core/harness-gui/index.ts
     steps:
       - "입력에 confirmed: true가 없으면 schema에서 invalid_input이고 view를 바꾸지 않는다. 사람 자격만 부른다"
       - "같은 key는 한 번만 바꾼다(바꾸는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 부를 수 있다)"
@@ -3647,7 +3647,7 @@ flows:
     boundary: [shell-extension, shell]
     code:
       - packages/core/terminal-agents/gui.ts
-      - packages/core/extensions/bundled/harness-gui/claude.ts
+      - packages/core/harness-gui/claude.ts
     steps:
       - "화면이 그 coding session으로 `coding_sessions/cli_sessions`를 읽는다. core가 그 탭의 run을 찾아 adapter의 sessions()를 부른다"
       - "claude는 SDK로 이 폴더의 session을 최대 30개 받아 최근 순으로 정렬한다(다른 worktree는 뺀다). 제목은 custom title 또는 summary다"
@@ -3738,8 +3738,8 @@ flows:
     boundary: [shell-extension, shell]
     code:
       - packages/core/terminal-agents/gui.ts
-      - packages/core/extensions/bundled/harness-gui/index.ts
-      - packages/core/extensions/bundled/harness-gui/claude.ts
+      - packages/core/harness-gui/index.ts
+      - packages/core/harness-gui/claude.ts
     steps:
       - "rewind 전에 화면이 사람 메시지 id로 `coding_sessions/rewind_preview`를 읽는다. lophn의 rewind preview route가 아니라 adapter의 dry-run이다"
       - "core가 handle의 run에 rewindPreview를 부른다. run이 없거나 adapter가 구현하지 않으면 null이다"
@@ -3765,11 +3765,11 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/antigravity.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/antigravity.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "CLI가 도구 실행의 허락을 물으면 adapter가 approval_opened로 카드를 낸다. 선택지는 어댑터마다 다르다(아래 when)"
       - "창이 답하기 전까지 CLI에 답을 보내지 않는다. 도구는 기다린다"
@@ -3814,11 +3814,11 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/antigravity.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/antigravity.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "CLI가 질문을 물으면 adapter가 question_asked를 낸다(claude AskUserQuestion, codex requestUserInput 최대 4문항, omp의 ask·select·confirm·input, opencode question form)"
       - "omp는 ask 대화가 도구 시작보다 먼저 와도 그 도구 줄에 붙인다"
@@ -3842,11 +3842,11 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/antigravity.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/antigravity.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "창이 set_mode(mode id)를 보낸다. adapter가 자기 mode 표에서 찾는다. 모르는 id는 무시한다"
       - "claude는 같은 query에서 SDK setPermissionMode를 바꾸고 mode 변화를 보인다. process는 다시 띄우지 않는다"
@@ -3880,7 +3880,7 @@ flows:
     uses: [harness-gui-open:opened, harness-gui-toggle:to-gui]
     boundary: [shell-extension]
     code:
-      - packages/core/extensions/bundled/harness-gui/codex.ts
+      - packages/core/harness-gui/codex.ts
     when: "codex adapter만 있다. claude, omp, opencode에는 이 규칙이 없다"
     steps:
       - "codex adapter가 thread/start, thread/resume(열기와 session 바꾸기), thread/fork, /new 때 config/read로 사람의 approval 설정을 읽는다"
@@ -3903,8 +3903,8 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "background_tool 입력을 adapter가 받는다. 창은 tool id를 싣지 않고 adapter가 도는 도구를 고른다"
       - "claude는 도는 Bash, PowerShell, Agent, Task를 SDK backgroundTasks로 넘긴다. 지금 보내기와 background_tool은 3초를 기다리지 않는다. 보내기를 steer로 할 때는 3초 넘게 돈 Bash만 최대 2번, 15초 안에 넘긴다. 실패는 버린다"
@@ -3932,10 +3932,10 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "stop_child, stop_task, steer_child 입력을 adapter가 받는다"
       - "claude는 stop_child를 그 child의 task id로 SDK stopTask로 옮긴다. stop_task도 stopTask다. steer_child는 아무 일도 하지 않는다(capability steer_child false)"
@@ -3964,10 +3964,10 @@ flows:
     entries: [system:harness-gui-subagent]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "claude는 Agent나 Task 호출이 child lane을 만든다. task_started에 줄을 세우고 prompt를 자식의 첫 사용자 글로 넣는다. subagent 안에서 띄운 task는 root에 알림을 내지 않는다"
       - "codex는 spawn item의 receiverThreadIds로 lane을 열고, 그보다 먼저 온 자식 thread 이벤트는 임시로 쌓아 lane이 열릴 때 넣는다(thread마다 50, 전체 200)"
@@ -3992,10 +3992,10 @@ flows:
     entries: [system:harness-gui-plan]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "claude는 TodoWrite와 TaskCreate, TaskUpdate의 결과로 목록을 만든다. 빈 항목도 지우지 않고, 알 수 없는 상태는 pending이다"
       - "codex는 turn/plan/updated를 그대로 옮긴다. 빈 목록도 그대로 낸다. switchThread 때도 빈 목록을 낸다"
@@ -4017,7 +4017,7 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/omp.ts
+      - packages/core/harness-gui/omp.ts
     when: "omp adapter만 있다. claude, codex, opencode에는 role 기능이 없어 use_role을 처리하지 않는다"
     steps:
       - "omp adapter는 전역 config와 프로젝트 config의 modelRoles를 읽는다. 프로젝트 설정이 전역을 이긴다. file이 없거나 읽지 못하면 role이 없다"
@@ -4048,7 +4048,7 @@ flows:
     entries: [system:harness-gui-usage]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
+      - packages/core/harness-gui/claude.ts
     steps:
       - "claude CLI가 rate limit 상태를 알리면 adapter가 단계를 정한다. 거부됨이면 rejected, 경고이면서 사용률이 70% 이상이거나 모르면 warning, 아니면 none이다"
       - "같은 창에서 같은 단계는 한 번만 알린다. 단계가 바뀌면 다시 알린다"
@@ -4069,11 +4069,11 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/antigravity.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/antigravity.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "run_command나 '/이름 인자' 글을 adapter가 받는다. 이름이 adapter의 명령 표에 있으면 그 처리를 하고, 없으면 CLI에 prompt로 보낸다"
       - "출력이 있으면 command_output 줄로 그린다. 출력은 색 code를 뗀다(claude, omp). 빈 출력은 그리지 않는다"
@@ -4103,7 +4103,7 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/opencode.ts
     when: "opencode adapter만 있다. claude, codex, omp에는 undo와 redo 입력이 없다"
     steps:
       - "undo는 화면의 마지막 사람 메시지를 찾아 POST revert/stage로 되돌린다. files를 true로 보내 server가 file도 되돌리게 한다. 실행 중이면 먼저 interrupt하고 기다린다. 대기 중인 메시지는 inbox에서 지운다"
@@ -4140,10 +4140,10 @@ flows:
     uses: [route:acp/send]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/opencode.ts
     steps:
       - "send 입력의 글이 !로 시작하면(또는 run_shell 입력이면) adapter가 그 뒤 글을 명령으로 돈다. 모델에는 가지 않는다"
       - "claude는 /bin/sh -c를 바로 띄운다(도는 turn이 있어도). 결과를 transcript에 붙이는 일만 turn이 끝난 뒤로 미룬다. 명령은 앞 명령이 끝난 cwd에서 돈다"
@@ -4175,12 +4175,12 @@ flows:
     entries: [system:harness-gui-user-message]
     boundary: [shell-extension, acp]
     code:
-      - packages/core/extensions/bundled/harness-gui/index.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
-      - packages/core/extensions/bundled/harness-gui/omp.ts
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/received.ts
+      - packages/core/harness-gui/index.ts
+      - packages/core/harness-gui/codex.ts
+      - packages/core/harness-gui/omp.ts
+      - packages/core/harness-gui/opencode.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/received.ts
     steps:
       - "CLI가 사용자 글 항목을 알린다. adapter는 lophn 호출과 답, task 알림 글을 received(사람 아님)로 가른다"
       - "우리 창이 보낸 글의 echo는 이미 그렸으므로 다시 그리지 않는다(codex는 clientId로, omp는 대기 중인 echo 글과 맞춰 본다)"
@@ -4210,7 +4210,7 @@ flows:
     uses: [harness-gui-open:opened]
     boundary: [shell-extension]
     code:
-      - packages/core/extensions/bundled/harness-gui/opencode.ts
+      - packages/core/harness-gui/opencode.ts
     when: "opencode adapter만 있다. 탭 전용 server를 띄울 때다"
     steps:
       - "opencode adapter가 탭 전용 server를 띄울 때 비밀번호를 id 생성기로 만든다"
@@ -4238,8 +4238,8 @@ flows:
     code:
       - packages/core/terminal-agents/gui.ts
       - packages/core/main/daemon/wiring/terminal-agents.ts
-      - packages/core/extensions/bundled/harness-gui/claude.ts
-      - packages/core/extensions/bundled/harness-gui/codex.ts
+      - packages/core/harness-gui/claude.ts
+      - packages/core/harness-gui/codex.ts
     steps:
       - "extension이 adapter.start로 CLI를 띄울 때 env를 만든다. login shell env < 탭의 hook env < adapter가 바꾸는 칸 순서다"
       - "LOPHN_HOME을 data root로 늘 넣는다. project 터미널의 탭(lophn 팀원)이면 turn 자격 file 경로 LOPHN_AGENT_CREDENTIAL_FILE도 넣는다(secret이 아니다)"

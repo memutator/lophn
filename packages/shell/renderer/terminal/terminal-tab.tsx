@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
-import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
+import { isGuiHarness } from "../../../protocol/acp/mod.ts";
 import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
 import { STAY } from "../app-frame/annotate/use-view-toast.ts";
 import { useReportVisible } from "../conversation/report-visible.ts";

@@ -61,31 +61,6 @@ function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
     .then(() => {});
 }
 
-// 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. core의 extension host가 manifest의 `entry`로
-// require한다.
-const bundledExtensions = join(root, "packages/core/extensions/bundled");
-const extensionEntries = [
-  join(bundledExtensions, "harness/index.ts"),
-  join(bundledExtensions, "harness-gui/index.ts"),
-];
-
-function buildExtensions(): Promise<void> {
-  return Promise.all(
-    extensionEntries.map((entry) =>
-      esbuild.build({
-        ...shared,
-        entryPoints: [entry],
-        outdir: join(dirname(entry), "dist"),
-        // Agent SDK는 모듈 맨 위에서 import.meta.url로 createRequire를 부른다. CJS 묶음에는 이 값이 없어 로드가 깨진다.
-        define: { "import.meta.url": "__importMetaUrl" },
-        banner: {
-          js: 'const __importMetaUrl = require("node:url").pathToFileURL(__filename).href;',
-        },
-      }),
-    ),
-  ).then(() => {});
-}
-
 // node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없다. Linux에서만 source로 compile한다. shell main은 node-pty를
 // 쓰지 않고, 개발 실행의 core가 띄우는 PTY host가 저장소의 이 build를 load한다(설치본은 tools/package/가 platform/에 따로 build한다).
 function rebuildNodePty(): number {
@@ -110,6 +85,5 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
   // postinstall과 `npm run rebuild`는 rebuild만 한다.
   if (process.argv[2] !== "rebuild") {
     await build(join(here, "dist"));
-    await buildExtensions();
   }
 }

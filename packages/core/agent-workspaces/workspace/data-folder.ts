@@ -59,6 +59,15 @@ export function workspaceDataSkillsFolder(
   return `${workspaceDataFolder(root, workspace)}/${WORKSPACE_DATA_SKILLS}`;
 }
 
+// workspace 그릇 자리의 로컬 tool 폴더. 이 자리의 `.ts`/`.js`/`.mjs` 파일이 workspace-data 층 tool이다.
+export const WORKSPACE_DATA_TOOLS = "tools";
+export function workspaceDataToolsFolder(
+  root: string,
+  workspace: Workspace | null,
+): string {
+  return `${workspaceDataFolder(root, workspace)}/${WORKSPACE_DATA_TOOLS}`;
+}
+
 // projects 폴더 안에서 project 폴더만 가려낸다.
 export function projectIdOfFolder(name: string): string | null {
   return /^prj_[0-9a-z]+$/.test(name) ? name : null;

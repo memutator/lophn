@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { EXTENSION_ID } from "../extensions/manifest.ts";
 import { slugSchema } from "../projects/values.ts";
 import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
@@ -111,13 +110,6 @@ const remoteAppsSchema = z
       unique(entries.map((entry) => `${entry.machine}/${entry.app}`)),
     { message: "duplicate remote app" },
   );
-// 할당한 shell extension의 id. 그 extension이 manifest로 선언한 tool 전부가 이 agent의 `tools[]`에 든다(custom은 `tools`가 고른 것만).
-// 사람만 쓰는 칸이다. 꺼졌거나 없는 extension의 id를 적어도 저장은 되고, 그 tool은 목록에 서지 않는다.
-const extensionsSchema = z
-  .array(z.string().regex(EXTENSION_ID).max(64))
-  .refine(unique, {
-    message: "duplicate extension",
-  });
 // agent 층 권한 규칙. 지금은 할당한 앱에서 뺀 command(`lophn(<앱 slug> <command>)`)만 쓴다.
 const permissionsSchema = z.strictObject({
   deny: z
@@ -167,13 +159,9 @@ export function isHarnessRuntime(
   return (HARNESS_RUNTIMES as readonly string[]).includes(runtime ?? "");
 }
 
-// 편집기가 runtime 고르기에 내는 값. harness 값은 설정 `extensions.harness.enabled`가 켜졌을 때만 낸다.
-export function selectableRuntimes(
-  harnessEnabled: boolean,
-): readonly AgentRuntime[] {
-  return harnessEnabled
-    ? ["lophn", "custom", "claude-code", "codex", "opencode"]
-    : ["lophn", "custom"];
+// 편집기가 runtime 고르기에 내는 값.
+export function selectableRuntimes(): readonly AgentRuntime[] {
+  return ["lophn", "custom", "claude-code", "codex", "opencode"];
 }
 
 // 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.
@@ -219,7 +207,6 @@ const frontmatterFields = {
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
   remote_apps: remoteAppsSchema.optional(),
-  extensions: extensionsSchema.optional(),
   permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
 };
@@ -239,7 +226,6 @@ const frontmatterOutputFields = {
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
   remote_apps: remoteAppsSchema.optional(),
-  extensions: extensionsSchema.optional(),
   permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
 };

@@ -11,7 +11,6 @@ import {
 import type { Tracer } from "../../../base/telemetry/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
-import { extensionToolsCatalog } from "../../../protocol/lophn-agent/extension-tools.ts";
 import {
   type AgentId,
   type AgentWorkspace,
@@ -65,7 +64,6 @@ import {
 } from "../tools/app-tool/command.ts";
 import type { AppToolkit, RemoteMemo } from "../tools/app-toolkit.ts";
 import { dispatchTarget } from "../tools/dispatch.ts";
-import { buildExtensionTools } from "../tools/extension-tools.ts";
 import { commandTools } from "../tools/lophn/command-tool.ts";
 import { mayBeAppCall, resolveAppCall } from "../tools/lophn/resolve.ts";
 import {
@@ -226,6 +224,10 @@ type PreparerDeps = {
     kind: WorkspaceKind,
     apps: readonly string[],
   ): Promise<readonly SkillEntry[]>;
+  // 파일 기반 로컬 tool이다: 전역(`<LOPHN_HOME>/tools/`), workspace repo(`<folder>/.lophn/tools/`), workspace data(`<data>/.../tools/`).
+  localTools?(
+    workspace: AgentWorkspace | null,
+  ): Promise<readonly ToolDefinition[]>;
   timezone?(): string | null;
   redact?: RedactText;
   // 도는 turn이 자기 session을 Compact한다(turn 안 Compact). 없으면 turn은 Compact하지 않고 오래된 tool 결과만 줄인다.
@@ -512,7 +514,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     mcp: LoadedMcp,
     turn: string,
     apps: readonly string[],
-    extensions: readonly string[],
   ) {
     // 외부 MCP tool 등록이다. 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다.
@@ -533,12 +534,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
     }
 
-    // shell extension tool이다. 정의 `extensions`로 할당한 extension의 tool 전부이고, custom은 그 가운데 `tools`가 고른 것만이다.
-    // catalog는 켜진 extension만이고 shell이 아직 올리지 않았으면 비어 있다(그 session은 tool 없이 시작하고 올린 뒤 notice로 받는다).
-    const published = await readOf(machine, extensionToolsCatalog, {});
-    const extensionTools = buildExtensionTools(
-      published.ok ? published.value.extensions : [],
-      extensions,
+    // 파일 기반 로컬 tool이다. custom은 `tools`에 고른 이름만 싣고, lophn은 발견된 전부를 싣는다.
+    const localTools = (
+      (await deps.localTools?.(session.workspace)) ?? []
     ).filter(
       (tool) => agent.runtime !== "custom" || agent.picks.includes(tool.name),
     );
@@ -548,7 +546,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     const kind = workspaceKindOf(session.workspace);
 
-    // workspace 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
+    // workspace 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP·로컬 tool을 더한다. 앱 command는 목록에 없다:
     // `lophn <앱 slug> <command>`를 부를 때 푼다.
     const current = visibleTools({
       kind,
@@ -556,7 +554,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       names: deps.workspaceTools(kind),
       definitions: deps.toolkit.definitions,
       inputMedia: model.value.inputMedia,
-      external: [...external.map((tool) => tool.definition), ...extensionTools],
+      external: [...external.map((tool) => tool.definition), ...localTools],
     });
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
@@ -988,9 +986,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 정의를 못 읽으면 할당이 없는 것이다. 정의 오류는 아래 resolveTurnAgent가 turn을 시작하지 않는 쪽으로 알린다.
     const defined = await readOf(machine, agentRead, { agent: session.agent });
     const apps = defined.ok ? (defined.value.definition?.apps ?? []) : [];
-    const extensions = defined.ok
-      ? (defined.value.definition?.extensions ?? [])
-      : [];
     const skills = (await deps.skills?.(session.workspace, kind, apps)) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
@@ -1066,7 +1061,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       mcp ?? (await loadMcp(start.session, { workspace: agent.workspace })),
       turn,
       apps,
-      extensions,
     );
     if (!found.ok) {
       // model을 쓸 수 없으면 그 turn만 시작하지 않는다. 다른 일은 그대로다.

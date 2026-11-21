@@ -18,20 +18,12 @@ const BUILTIN: readonly string[] = [
 
 interface ToolPicksProps {
   readonly value: readonly string[];
-  /** 할당한 shell extension의 tool 이름(`ext__<id>__<tool>`). */
-  readonly extensionTools?: readonly string[];
   readonly onChange: (tools: string[]) => void;
 }
 
-export function ToolPicks({
-  value,
-  extensionTools = [],
-  onChange,
-}: ToolPicksProps) {
+export function ToolPicks({ value, onChange }: ToolPicksProps) {
   const [draft, setDraft] = useState("");
-  const others = value.filter(
-    (name) => !BUILTIN.includes(name) && !extensionTools.includes(name),
-  );
+  const others = value.filter((name) => !BUILTIN.includes(name));
   const toggle = (name: string, on: boolean) =>
     onChange(on ? [...value, name] : value.filter((one) => one !== name));
   const add = () => {
@@ -42,15 +34,6 @@ export function ToolPicks({
   return (
     <>
       {BUILTIN.map((name) => (
-        <Checkbox
-          key={name}
-          size="sm"
-          label={name}
-          checked={value.includes(name)}
-          onCheckedChange={(on) => toggle(name, on)}
-        />
-      ))}
-      {extensionTools.map((name) => (
         <Checkbox
           key={name}
           size="sm"

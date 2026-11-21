@@ -29,7 +29,6 @@ import {
   INPUT_REQUEST_ROUTES,
   inputRequestAnswerSecret,
 } from "./input-request.ts";
-import { EXTENSION_TOOL_ROUTES } from "./extension-tools.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
@@ -83,8 +82,6 @@ export const ROUTES = [
   // 사람에게 login 저장·한 번 넣기를 요청하는 agent 입구와, card·보호 창이 부르는 route.
   ...INPUT_REQUEST_ROUTES,
   inputRequestAnswerSecret,
-  // extension의 tool: extension host가 읽은 목록과 agent의 호출 입구.
-  ...EXTENSION_TOOL_ROUTES,
   ...MESSAGE_IMAGE_ROUTES,
   ...RECEIVED_MESSAGE_ROUTES,
   messageSearch,

@@ -264,10 +264,6 @@ files:
     covers: []
     note: fake server가 내는 SSE 모양이 fixture와 같은지 보는 support 검사
 
-  - path: tools/check-deps_test.ts
-    covers: []
-    note: check 도구가 extension의 금지 import를 막는지 보는 검사 도구
-
   - path: tools/lucide-names_test.ts
     covers: []
     note: 앱 icon 선언 `lucide:<이름>`을 거르는 이름 목록이 shell의 lucide-react 이름과 같은지 보는 도구 test

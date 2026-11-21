@@ -19,7 +19,7 @@ import { publishStateChanged } from "../../protocol/events/changes.ts";
 import type {
   AcpTabHandlers,
   GuiHarness,
-} from "../../protocol/extensions/acp-session.ts";
+} from "../../protocol/acp/gui-session.ts";
 import { terminalSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { Terminals } from "../terminals/ports.ts";
 import { createCodingSessions } from "./coding-sessions.ts";

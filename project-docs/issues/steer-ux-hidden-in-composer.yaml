@@ -3,7 +3,7 @@ title: turn이 도는 동안 composer에서 바로 steer로 보낼 단추가 없
 kind: bug
 status: open
 topic: agent-chat
-modules: [packages/shell/renderer, packages/protocol, packages/core/extensions]
+modules: [packages/shell/renderer, packages/protocol, packages/core/harness-gui]
 now: |
   lophn agent와 다섯 harness GUI 모두 `steer`를 지원하지만, turn이 도는 동안 `packages/shell/renderer/conversation/composer/agent-composer.tsx`의 보내기와 Enter는 늘 `next_turn`(줄 서기)으로만 가고 접힌 Queue 막대를 열어 `[Send now]`를 한 번 더 눌러야 steer가 된다. 글을 치기 시작하면 멈춤 단추가 사라지고, `agent.send-now`(`packages/protocol/shell/keybindings.ts`)는 기본값이 비어 있으며(`claude`만 `Ctrl+Enter`), 줄에 이미 메시지가 있으면 지금 치던 글 대신 첫 줄을 보낸다.
 impact: |

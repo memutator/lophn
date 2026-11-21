@@ -38,18 +38,9 @@ export const askedCallSchema = z.discriminatedUnion("kind", askedCallOptions);
 
 // Gate가 판정하는 호출 하나. kind로 가른다.
 // Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
-//   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode, extensions: ExtensionGrant | null): Judgment
+//   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
 // mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
-// shell extension의 tool. 할당(정의 `extensions`)이 곧 허락이라 묻지 않는다: run이나 deny뿐이다.
-// 묻지 않으므로 승인 카드와 `acpApprovalSubjectSchema`에는 들지 않는다(ACP 승인 type이 넓어지지 않게).
-export const gateCallSchema = z.discriminatedUnion("kind", [
-  ...askedCallOptions,
-  z.strictObject({
-    kind: z.literal("extension_tool"),
-    extension: z.string().min(1),
-    tool: z.string().min(1),
-  }),
-]);
+export const gateCallSchema = z.discriminatedUnion("kind", askedCallOptions);
 export type GateCall = z.infer<typeof gateCallSchema>;
 export type AskedCall = z.infer<typeof askedCallSchema>;
 

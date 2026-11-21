@@ -203,20 +203,6 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
   }
 }
 
-// 본체 안 extension은 manifest와 따로 빌드한 entry(dist/)만 간다. registry가 거기서 찾는다.
-async function stageExtensions(bundle: string) {
-  const bundled = join(repo, "packages", "core", "extensions", "bundled");
-  for (const entry of await readdir(bundled, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const from = join(bundled, entry.name);
-    if (!(await exists(join(from, "manifest.json")))) continue;
-    const to = join(bundle, "extensions", entry.name);
-    await mkdir(to, { recursive: true });
-    await copyFile(join(from, "manifest.json"), join(to, "manifest.json"));
-    await cp(join(from, "dist"), join(to, "dist"), { recursive: true });
-  }
-}
-
 async function stageContent(bundle: string) {
   const dist = join(repo, "packages", "shell", "renderer", "dist");
   await cp(dist, join(bundle, "desktop"), { recursive: true });
@@ -312,7 +298,6 @@ async function main(): Promise<void> {
   const unpacked = target.unpacked(builderOut);
   const bundle = target.bundle(unpacked);
   await stagePlatform(bundle, target.COPY_MEMBERS);
-  await stageExtensions(bundle);
   await stageContent(bundle);
   const ctx = { repo, shellMain, out, version, run, write, builder };
   await target.stage(ctx, bundle);

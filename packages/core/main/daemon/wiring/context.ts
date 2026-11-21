@@ -73,7 +73,7 @@ import type {
 } from "../../../terminal-agents/mod.ts";
 import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
-import type { ExtensionHost } from "../../../extensions/ports.ts";
+import type { AcpTabHandlers } from "../../../../protocol/acp/mod.ts";
 import type { PhoneLink } from "../../../remote/mod.ts";
 import type { SecretStore } from "../../../secrets/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
@@ -311,8 +311,8 @@ type Late = {
   terminals: Terminals;
   // terminals wiring이 낸다. 사람의 login shell env와 `lophn` 경로다. 터미널과 extension host가 띄우는 CLI가 쓴다.
   personEnv: PersonEnv;
-  // extensions wiring이 낸다. core 안 extension host다. extension tool 호출과 coding agent의 GUI 전환이 쓴다.
-  extensionHost: ExtensionHost;
+  // harness-runners wiring이 낸다. 터미널 coding agent의 GUI 전환 handler다.
+  harnessGuiTabs: () => AcpTabHandlers | null;
   // 폰이 터미널에 글을 칠 수 있는 principal인지 정한다. 기기마다의 허락을 아는 쪽이 채우고, 채워지지 않았으면 입력은 늘 forbidden이다.
   // `ctx.peek`로만 읽는다.
   terminalInputGrant: (principal: string) => boolean;
@@ -448,7 +448,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   terminalView: true,
   terminals: true,
   personEnv: true,
-  extensionHost: true,
+  harnessGuiTabs: true,
   terminalInputGrant: true,
   deviceKind: true,
   phoneLink: true,

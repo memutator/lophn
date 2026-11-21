@@ -7,41 +7,18 @@ import {
 import type {
   CommandDefinition,
   Input,
-  Sql,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import {
-  createFileSettingsReader,
-  harnessExtensionSetting,
-} from "../../config/mod.ts";
 import type { InputTransport, RoutedInput } from "../../router/ports.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
-import { dataRootOf } from "../agents/store.ts";
 import { reject, requireMachine, sessionNotFound } from "./guards.ts";
 import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 
-// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 extension host의 `harness` extension(headless)이나
+// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 core 안의 harness host(headless)나
 // 터미널 GUI 탭(팀원 session, `harness_gui`)이 하고 core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
-
-// 켜기는 extension `harness`의 설정이다. 꺼져 있으면(기본) harness session은 새 입력을 받지 않는다.
-// writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더다. 읽지 못하면 꺼진 것이다.
-export function harnessEnabledIn(sql: Pick<Sql, "get" | "all">): boolean {
-  const root = dataRootOf(sql, undefined);
-  return (
-    root.ok &&
-    createFileSettingsReader(root.value).get(harnessExtensionSetting) === true
-  );
-}
 
 // harness session의 queue는 run-loop의 것과 따로다(host가 가져간다). commit 뒤 main thread가 넣는다.
 export const HARNESS_QUEUE_PUT_TOPIC = "harness_queue.put";
-
-// 새 일을 여는 입력은 설정이 꺼져 있으면 받지 않는다. 이미 가진 call이 닫히도록 답과 알림은 받아 둔다.
-const GATED: ReadonlySet<RoutedInput["kind"]> = new Set([
-  "message",
-  "call",
-  "step",
-]);
 
 export function createHarnessInputTransport(deps: {
   // `message`가 null인 입력(call·reply·reaction·notice·step)을 받는 session 기록에 쓴다.
@@ -66,14 +43,6 @@ export function createHarnessInputTransport(deps: {
     deliver(tx, target, input) {
       if (target.transport !== "harness") {
         return err({ code: "invalid_input", message: "not a harness session" });
-      }
-      // GUI 탭의 팀원은 headless 설정과 상관없다(그 탭이 turn을 돌린다).
-      if (
-        GATED.has(input.kind) &&
-        loadSession(tx, target.session)?.harness_gui !== true &&
-        !harnessEnabledIn(tx.sql)
-      ) {
-        return err({ code: "unavailable", message: "harness is turned off" });
       }
       return put(tx, target.session, input);
     },

@@ -16,6 +16,8 @@ export type WorkspaceFacts = {
   workflowsFolder: string | null;
   // workspace의 `skills/` 절대 경로. Home·project·앱 workspace의 session이 쓴다(아래 workspaceScope)
   skillsFolder: string | null;
+  // workspace의 `tools/` 절대 경로. Home·project·앱 workspace의 session이 쓴다(아래 workspaceScope)
+  toolsFolder?: string | null;
   // workspace의 `artifacts/` 절대 경로. project·앱 workspace의 session이 쓴다(아래 workspaceScope)
   artifactsFolder: string | null;
 };
@@ -34,14 +36,17 @@ export type FolderScope = {
 export function workspaceScope(facts: WorkspaceFacts): FolderScope {
   const { workspace } = facts;
   if (workspace === null) {
-    // home은 project 폴더를 읽기만 하고 자기 `skills/`만 쓴다.
-    const skills = facts.skillsFolder === null ? [] : [facts.skillsFolder];
+    // home은 project 폴더를 읽기만 하고 자기 `skills/`와 `tools/`만 쓴다.
+    const writable = [
+      ...(facts.skillsFolder === null ? [] : [facts.skillsFolder]),
+      ...(facts.toolsFolder ? [facts.toolsFolder] : []),
+    ];
     return {
       read: [
         ...(facts.calledFromWorkspace ? [] : facts.allProjectFolders),
-        ...skills,
+        ...writable,
       ],
-      write: skills,
+      write: writable,
     };
   }
   // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 data 폴더들보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
@@ -64,8 +69,9 @@ export function workspaceScope(facts: WorkspaceFacts): FolderScope {
   // workflows/는 그 project workspace의 session이 쓴다.
   if (workspace.kind === "project" && facts.workflowsFolder !== null)
     folders.push(facts.workflowsFolder);
-  // skills/도 project·앱 workspace의 session이 쓴다(home은 위에서 따로). rewind 기록의 root가 되고 path는 `<skill 이름>/…`이다.
+  // skills/·tools/도 project·앱 workspace의 session이 쓴다(home은 위에서 따로).
   if (facts.skillsFolder !== null) folders.push(facts.skillsFolder);
+  if (facts.toolsFolder) folders.push(facts.toolsFolder);
   // artifacts/는 project·앱 workspace의 session이 쓴다. 폴더 자체가 허용 폴더라 rewind 기록의 root가 되고 path는 `<name>/…`이다.
   if (facts.artifactsFolder !== null) folders.push(facts.artifactsFolder);
   return withBase(folders);

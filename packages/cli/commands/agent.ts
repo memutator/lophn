@@ -57,7 +57,6 @@ const create = defineCommand({
       mcp_servers: true,
       skip: true,
       apps: true,
-      extensions: true,
       permissions: true,
     })
     .extend({ name: agentNameSchema.optional() })
@@ -94,7 +93,6 @@ const update = defineCommand({
       mcp_servers: true,
       skip: true,
       apps: true,
-      extensions: true,
       permissions: true,
     })
     .partial()

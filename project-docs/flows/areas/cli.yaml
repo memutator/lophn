@@ -488,7 +488,6 @@ links:
   - {entry: "cli:call.send", flow: call-send}
   - {entry: "cli:call.reply", flow: call-reply}
   - {entry: "cli:call.cancel", flow: call-cancel}
-  - {entry: "cli:ext.call", flow: extension-tool-call}
   - {entry: "cli:job.create", flow: job-create}
   - {entry: "cli:job.update", flow: job-update}
   - {entry: "cli:job.delete", flow: job-delete}

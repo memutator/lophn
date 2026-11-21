@@ -7,7 +7,7 @@ import { t } from "@lophn/i18n";
 import { Icon, Label, Row } from "@lophn/ui-native";
 import { Check, SquareTerminal } from "lucide-react-native";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { GUI_HARNESSES, type GuiHarness } from "../../../../protocol/extensions/mod.ts";
+import { GUI_HARNESSES, type GuiHarness } from "../../../../protocol/acp/mod.ts";
 import { useCodingSessions, useCurrentComputer } from "../../data/mod.ts";
 import { Face } from "../../parts/mod.ts";
 import { harnessProfile, ReadFailed } from "./parts.tsx";

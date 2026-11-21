@@ -7,7 +7,6 @@ import type {
   AgentCard,
   AgentDefinitionIssue,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import {
   isLophn,
@@ -164,34 +163,6 @@ interface Stored {
   readonly definition: AgentDraft;
   readonly hash: string;
 }
-
-// 설치되고 켜진 shell extension 둘. 둘째는 tool이 여럿이다.
-const EXTENSIONS: readonly PublishedExtension[] = [
-  {
-    id: "echo-tool",
-    name: "Echo tool",
-    description: "Returns what it is given.",
-    tools: [
-      {
-        name: "echo",
-        description: "Return the input as text.",
-        inputSchema: { type: "object" },
-        effect: "read",
-      },
-    ],
-  },
-  {
-    id: "notes-sync",
-    name: "Notes sync",
-    description: "Reads and writes your notes.",
-    tools: ["read_note", "write_note"].map((name) => ({
-      name,
-      description: name,
-      inputSchema: { type: "object" },
-      effect: name === "read_note" ? ("read" as const) : ("write" as const),
-    })),
-  },
-];
 
 const DEFAULT_PROFILE = {
   kind: "character",
@@ -709,8 +680,6 @@ export function createFakeAgentsSource(
             : [],
         ),
       ),
-      harnessEnabled: true,
-      extensions: EXTENSIONS,
       instructions: workspace === null ? null : instructionsOf(workspace),
       memory: isLophn(key) ? null : agentMemoryOf(key),
     };
@@ -933,8 +902,6 @@ export function createFakeAgentsSource(
           skills: skillsFor(workspace),
           mcpServers: mcpFor(workspace),
           agentMcpLogins: {},
-          harnessEnabled: true,
-          extensions: EXTENSIONS,
           instructions: workspace === null ? null : instructionsOf(workspace),
           memory: null,
         } satisfies AgentDetail),

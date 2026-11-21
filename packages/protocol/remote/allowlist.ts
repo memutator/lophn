@@ -143,7 +143,6 @@ import {
 } from "../lophn-agent/app-calls.ts";
 import { askAnswer, askRead } from "../lophn-agent/ask-tool.ts";
 import { agentCallRead, callCancel } from "../lophn-agent/calls.ts";
-import { extensionToolsCatalog } from "../lophn-agent/extension-tools.ts";
 import {
   inputRequestAnswerSecret,
   inputRequestCancel,
@@ -502,7 +501,6 @@ export const REMOTE_PERSON_ROUTES = [
   appsOAuthCallback,
   appsOAuthCancel,
   appsOAuthSignOut,
-  extensionToolsCatalog,
   // agent
   agentCreate,
   agentChange,

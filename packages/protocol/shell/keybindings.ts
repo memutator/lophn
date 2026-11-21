@@ -609,6 +609,296 @@ export const KEYBINDINGS: readonly Binding[] = [
   },
 ];
 
+/** harness GUI 채팅 화면(`agentView:<harness>`)의 기본 단축키. 창 초기화 때 `commands.bind`로 묶고 Ctrl+글자 머리를 context가 가진다. */
+export const HARNESS_KEYBINDINGS: readonly {
+  readonly command: Command;
+  readonly context: string;
+  readonly other: readonly string[];
+  readonly mac: readonly string[];
+}[] = [
+  // claude
+  {
+    command: "agent.cycle-mode",
+    context: "agentView:claude",
+    other: ["Shift+Tab"],
+    mac: ["Shift+Tab"],
+  },
+  {
+    command: "agent.send-now",
+    context: "agentView:claude",
+    other: ["Ctrl+Enter"],
+    mac: ["Ctrl+Enter"],
+  },
+  {
+    command: "agent.queue",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyX Enter"],
+    mac: ["Ctrl+KeyX Enter"],
+  },
+  {
+    command: "agent.rewind",
+    context: "agentView:claude",
+    other: ["Escape Escape"],
+    mac: ["Escape Escape"],
+  },
+  {
+    command: "agent.history-previous",
+    context: "agentView:claude",
+    other: ["ArrowUp"],
+    mac: ["ArrowUp"],
+  },
+  {
+    command: "agent.history-next",
+    context: "agentView:claude",
+    other: ["ArrowDown"],
+    mac: ["ArrowDown"],
+  },
+  {
+    command: "agent.history-search",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyR"],
+    mac: ["Ctrl+KeyR"],
+  },
+  {
+    command: "agent.background",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyB"],
+    mac: ["Ctrl+KeyB"],
+  },
+  {
+    command: "agent.toggle-details",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyO"],
+    mac: ["Ctrl+KeyO"],
+  },
+  {
+    command: "agent.interrupt",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.clear-input",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.newline",
+    context: "agentView:claude",
+    other: ["Ctrl+KeyJ"],
+    mac: ["Ctrl+KeyJ"],
+  },
+  // codex
+  {
+    command: "agent.cycle-mode",
+    context: "agentView:codex",
+    other: ["Shift+Tab"],
+    mac: ["Shift+Tab"],
+  },
+  {
+    command: "agent.queue",
+    context: "agentView:codex",
+    other: ["Tab"],
+    mac: ["Tab"],
+  },
+  {
+    command: "agent.rewind",
+    context: "agentView:codex",
+    other: ["Escape Escape"],
+    mac: ["Escape Escape"],
+  },
+  {
+    command: "agent.history-previous",
+    context: "agentView:codex",
+    other: ["ArrowUp"],
+    mac: ["ArrowUp"],
+  },
+  {
+    command: "agent.history-next",
+    context: "agentView:codex",
+    other: ["ArrowDown"],
+    mac: ["ArrowDown"],
+  },
+  {
+    command: "agent.history-search",
+    context: "agentView:codex",
+    other: ["Ctrl+KeyR"],
+    mac: ["Ctrl+KeyR"],
+  },
+  {
+    command: "agent.toggle-details",
+    context: "agentView:codex",
+    other: ["Ctrl+KeyT"],
+    mac: ["Ctrl+KeyT"],
+  },
+  {
+    command: "agent.interrupt",
+    context: "agentView:codex",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.clear-input",
+    context: "agentView:codex",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.newline",
+    context: "agentView:codex",
+    other: ["Ctrl+KeyJ"],
+    mac: ["Ctrl+KeyJ"],
+  },
+  // opencode
+  {
+    command: "agent.cycle-mode",
+    context: "agentView:opencode",
+    other: ["Shift+Tab"],
+    mac: ["Shift+Tab"],
+  },
+  {
+    command: "agent.queue",
+    context: "agentView:opencode",
+    other: ["Ctrl+KeyX Enter"],
+    mac: ["Ctrl+KeyX Enter"],
+  },
+  {
+    command: "agent.rewind",
+    context: "agentView:opencode",
+    other: ["Ctrl+KeyX KeyU"],
+    mac: ["Ctrl+KeyX KeyU"],
+  },
+  {
+    command: "agent.background",
+    context: "agentView:opencode",
+    other: ["Ctrl+KeyB"],
+    mac: ["Ctrl+KeyB"],
+  },
+  {
+    command: "agent.history-previous",
+    context: "agentView:opencode",
+    other: ["ArrowUp"],
+    mac: ["ArrowUp"],
+  },
+  {
+    command: "agent.history-next",
+    context: "agentView:opencode",
+    other: ["ArrowDown"],
+    mac: ["ArrowDown"],
+  },
+  {
+    command: "agent.interrupt",
+    context: "agentView:opencode",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.clear-input",
+    context: "agentView:opencode",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.newline",
+    context: "agentView:opencode",
+    other: ["Ctrl+KeyJ"],
+    mac: ["Ctrl+KeyJ"],
+  },
+  // omp
+  {
+    command: "agent.cycle-mode",
+    context: "agentView:omp",
+    other: ["Shift+Tab"],
+    mac: ["Shift+Tab"],
+  },
+  {
+    command: "agent.queue",
+    context: "agentView:omp",
+    other: ["Ctrl+KeyQ"],
+    mac: ["Ctrl+KeyQ"],
+  },
+  {
+    command: "agent.rewind",
+    context: "agentView:omp",
+    other: ["Escape Escape"],
+    mac: ["Escape Escape"],
+  },
+  {
+    command: "agent.history-search",
+    context: "agentView:omp",
+    other: ["Ctrl+KeyR"],
+    mac: ["Ctrl+KeyR"],
+  },
+  {
+    command: "agent.toggle-details",
+    context: "agentView:omp",
+    other: ["Ctrl+KeyO"],
+    mac: ["Ctrl+KeyO"],
+  },
+  {
+    command: "agent.interrupt",
+    context: "agentView:omp",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.clear-input",
+    context: "agentView:omp",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.newline",
+    context: "agentView:omp",
+    other: ["Ctrl+KeyJ"],
+    mac: ["Ctrl+KeyJ"],
+  },
+  // antigravity
+  {
+    command: "agent.cycle-mode",
+    context: "agentView:antigravity",
+    other: ["Shift+Tab"],
+    mac: ["Shift+Tab"],
+  },
+  {
+    command: "agent.history-previous",
+    context: "agentView:antigravity",
+    other: ["ArrowUp"],
+    mac: ["ArrowUp"],
+  },
+  {
+    command: "agent.history-next",
+    context: "agentView:antigravity",
+    other: ["ArrowDown"],
+    mac: ["ArrowDown"],
+  },
+  {
+    command: "agent.toggle-details",
+    context: "agentView:antigravity",
+    other: ["Ctrl+KeyO"],
+    mac: ["Ctrl+KeyO"],
+  },
+  {
+    command: "agent.interrupt",
+    context: "agentView:antigravity",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.clear-input",
+    context: "agentView:antigravity",
+    other: ["Ctrl+KeyC"],
+    mac: ["Ctrl+KeyC"],
+  },
+  {
+    command: "agent.newline",
+    context: "agentView:antigravity",
+    other: ["Ctrl+KeyJ"],
+    mac: ["Ctrl+KeyJ"],
+  },
+];
+
 /** 한 번 누름. modifier(Ctrl·Cmd·Alt·Shift)와 KeyboardEvent.code 하나다. */
 export interface Stroke {
   readonly text: string;

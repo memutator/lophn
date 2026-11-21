@@ -147,8 +147,15 @@ const mcpServersSchema = z
   );
 
 // runtime: 없으면 lophn이다. custom은 정의 본문과 `tools`, `skills`가 고른 것만 싣는다. harness 값은 third-party harness의
-// CLI를 extension host의 `harness` extension이 돌리는 agent다(run-loop는 돌리지 않는다).
-export const HARNESS_RUNTIMES = ["claude-code", "codex", "opencode"] as const;
+// CLI가 도는 agent다(run-loop는 돌리지 않는다). 앞 셋은 extension host의 `harness` extension이 headless로도 돌리고, 다섯 모두
+// 터미널 GUI 탭(harness-gui)이 팀원 session으로 돌린다. omp·antigravity는 headless 명령이 없다.
+export const HARNESS_RUNTIMES = [
+  "claude-code",
+  "codex",
+  "opencode",
+  "omp",
+  "antigravity",
+] as const;
 export type HarnessRuntime = (typeof HARNESS_RUNTIMES)[number];
 export const AGENT_RUNTIMES = ["lophn", "custom", ...HARNESS_RUNTIMES] as const;
 export const agentRuntimeSchema = z.enum(AGENT_RUNTIMES);
@@ -164,7 +171,9 @@ export function isHarnessRuntime(
 export function selectableRuntimes(
   harnessEnabled: boolean,
 ): readonly AgentRuntime[] {
-  return harnessEnabled ? AGENT_RUNTIMES : ["lophn", "custom"];
+  return harnessEnabled
+    ? ["lophn", "custom", "claude-code", "codex", "opencode"]
+    : ["lophn", "custom"];
 }
 
 // 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.

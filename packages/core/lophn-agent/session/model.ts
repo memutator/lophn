@@ -277,6 +277,8 @@ export type AgentSessionRow = {
   // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
   harness: HarnessRuntime | null;
   harness_session: string | null;
+  // 터미널 GUI 탭의 팀원 session이다. turn은 그 탭이 돌리고 headless host가 가져가지 않는다. 열 때 정해 바뀌지 않는다.
+  harness_gui: boolean;
   // 다른 workspace의 session이 불러 열렸으면 그 workspace. 열 때 정해 바뀌지 않는다.
   called_from_kind: "project" | "app" | null;
   called_from_id: string | null;
@@ -293,7 +295,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
   workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -315,6 +317,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     skip: Number(row["skip"]) === 1,
     harness: text(row["harness"]) as HarnessRuntime | null,
     harness_session: text(row["harness_session"]),
+    harness_gui: Number(row["harness_gui"]) === 1,
     called_from_kind: text(
       row["called_from_kind"],
     ) as AgentSessionRow["called_from_kind"],

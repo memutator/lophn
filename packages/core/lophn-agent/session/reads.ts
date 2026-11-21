@@ -92,7 +92,12 @@ export function createConversationReads(): {
         if (scope === undefined) return empty;
         // 목록은 agent별이다. 제목 검색은 화면이 이 결과의 제목만 거른다.
         const which = sessionClause(input.agent, input.workspace);
-        const clauses = ["created_seq > ?", `(${which.sql})`];
+        // GUI 탭의 팀원 session은 그 탭이 자리다. 목록에 한 번 더 세우지 않는다.
+        const clauses = [
+          "created_seq > ?",
+          `(${which.sql})`,
+          "harness_gui = 0",
+        ];
         const params: (string | bigint | null)[] = [
           after.value ?? 0n,
           ...which.params,

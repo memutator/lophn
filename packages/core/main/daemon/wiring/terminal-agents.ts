@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { err, ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   acpImageRead,
   acpImageUpload,
@@ -58,6 +58,8 @@ import {
   terminalsSavedSessions,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
+import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
+import type { Output } from "../../../../protocol/server/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
@@ -327,6 +329,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
                   remove: (path) => rmSync(path, { force: true }),
                 },
               }),
+        members: () => ctx.peek.harnessMembers ?? null,
         ids: { request: () => randomUUID() },
         hookEnv: (ref) => ingress?.envOf(ref) ?? {},
         identified: (harness, ref) => installer.ensureOnce(harness, ref),
@@ -750,7 +753,35 @@ export const terminalAgentsWiring: WiringFactory = () => {
             },
           ],
         ],
-        reads: (reads) =>
+        reads: (reads) => {
+          // 부를 수 있는 session 목록의 GUI 탭 팀원은 그 탭의 모습(상태, 제목)으로 낸다. ledger에는 탭의 승인 기다림이 없다.
+          // 묶인 탭이 없는 팀원(탭을 닫았거나 core가 다시 켜졌다)은 지금 call을 받을 길이 없어 뺀다.
+          const sendable = reads.get(key(agentCallSendable));
+          if (sendable !== undefined) {
+            reads.set(key(agentCallSendable), async (who, input) => {
+              const listed = (await sendable(who, input)) as Result<
+                Output<typeof agentCallSendable>
+              >;
+              if (!listed.ok) return listed;
+              const members = ctx.peek.harnessMembers;
+              return ok({
+                ...listed.value,
+                sessions: listed.value.sessions.flatMap((one) => {
+                  if (members?.isMember(one.session) !== true) return [one];
+                  const live = agents.members.live(one.session);
+                  return live === null
+                    ? []
+                    : [
+                        {
+                          ...one,
+                          state: live.state,
+                          title: live.title ?? one.title,
+                        },
+                      ];
+                }),
+              });
+            });
+          }
           reads
             .set(key(terminalsSavedSessions), async (_who, input) =>
               ok(
@@ -791,7 +822,8 @@ export const terminalAgentsWiring: WiringFactory = () => {
                   part: "input" | "output";
                 },
               ),
-            ),
+            );
+        },
       });
     },
     async afterReady() {

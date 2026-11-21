@@ -12,7 +12,7 @@ flows:
       - packages/core/extensions/bundled/harness/host.ts
     steps:
       - "core의 extension harness host(in-process 자격 `machine:extensions`, actor user)가 1초마다 부른다. 설정 extensions.harness.enabled가 꺼져 있으면 unavailable"
-      - "대기 중인 session을 앞에서부터 보고, 도는 turn이나 TUI hold가 있는 session은 건너뛴다"
+      - "대기 중인 session을 앞에서부터 보고, 도는 turn이나 TUI hold가 있는 session, GUI 탭의 팀원 session(harness_gui)은 건너뛴다"
       - "session이 없거나 harness가 아니면 그 session의 queue를 비우고 다음으로 간다"
       - "입력 본문을 session 기록에서 읽어 prompt를 만든다. 본문이 없어졌으면 queue에서 뺀다"
       - "session에 harness session id가 없고 harness가 같은 원본의 지금 마지막 메시지에서 fork되었으면 원본의 harness session id를 fork_external_session_id로 싣는다"
@@ -47,7 +47,7 @@ flows:
     steps:
       - "harness host가 take로 받은 input_message를 넘긴다. 설정이 꺼져 있으면 unavailable"
       - "session이 없으면 not_found, harness session이 아니면 forbidden으로 끝낸다"
-      - "queue 머리가 그 입력이고 session이 입력을 받으며 돌거나 hold되지 않았는지 본다. 아니면 conflict"
+      - "queue 머리가 그 입력이고 session이 입력을 받으며 돌거나 hold되지 않았고 GUI 탭의 팀원 session이 아닌지 본다. 아니면 conflict"
       - "턴 한도 설정을 읽고 잘못되었으면 invalid_input. 그다음 turn 자격(credential)을 발급한다"
       - "StartTurn을 machine 자격으로 쓰고(ledger turns), queue에서 그 입력을 꺼내 running으로 표시한다"
       - "StartTurn이 입력 메시지 없음으로 실패하면 queue에서도 빼고 not_found를 돌려준다. 실패한 자격은 바로 끝낸다"
@@ -57,7 +57,7 @@ flows:
         observe: [ledger:turns, event:TurnStarted, response]
       - id: conflict
         code: conflict
-        when: "입력이 queue 머리가 아니거나, session이 입력을 받지 않거나, turn이 돌거나, TUI hold 중이다. 또는 StartTurn이 같은 입력으로 이미 turn을 열었거나 session에 도는 turn이 기록에 있다"
+        when: "입력이 queue 머리가 아니거나, session이 입력을 받지 않거나, turn이 돌거나, TUI hold 중이거나, GUI 탭의 팀원 session이다. 또는 StartTurn이 같은 입력으로 이미 turn을 열었거나 session에 도는 turn이 기록에 있다"
         observe: [response]
       - id: not_found
         code: not_found
@@ -228,6 +228,85 @@ flows:
       - "route가 conflict를 선언하지만 handler는 내지 않는다. session이 없으면 not_found, harness가 아니면 forbidden, 같은 값이면 unchanged다. 선언을 고칠 곳이다."
     refs: [P6]
     docs: [architecture/coding-agent.md]
+
+  - id: harness-member-open
+    title: 터미널 GUI 탭의 팀원 session을 같은 core 안에서 연다
+    actor: system
+    entries: [route:harness/open_member]
+    pre: [gui-member-call:bound]
+    boundary: [harness-host-core]
+    code:
+      - packages/protocol/lophn-agent/harness-host.ts
+      - packages/core/lophn-agent/session/commands.ts
+      - packages/core/lophn-agent/workspaces/lifecycle.ts
+      - packages/core/main/daemon/wiring/harness.ts
+    steps:
+      - "사람과 agent는 부를 수 없다(machine 전용). core 안 GUI 연결(gui-member-call)이 탭의 CLI session id를 알면 부른다"
+      - "같은 id의 session이 있으면 conflict"
+      - "그 harness의 내장 coding agent(coding_<harness>)로 그 탭의 project에 session을 연다. headless 설정과 상관없이 열고 harness_gui를 단다"
+      - "CLI session id를 harness_session에 둔다"
+    outcomes:
+      - id: opened
+        observe: [ledger:sessions, event:SessionStarted, response]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아니다(requireMachine)"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "같은 id의 session이 이미 있거나, project가 없거나 보관됐다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 harness의 내장 coding agent 정의를 읽지 못했다"
+        observe: [response]
+    declared_only: [invalid_input]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/harness-gui.md]
+
+  - id: gui-member-call
+    title: project 터미널의 GUI 탭이 lophn 팀원 session으로 call을 받고 마지막 글로 답한다
+    actor: system
+    entries: [system:gui-member-call]
+    uses: [route:harness/open_member, route:harness/bind_session, route:turns/start, route:messages/record, route:turns/finish, system:custom-call-reply]
+    boundary: [harness-host-core, router]
+    code:
+      - packages/core/terminal-agents/member.ts
+      - packages/core/terminal-agents/credential-file.ts
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
+    steps:
+      - "project 터미널의 GUI handle이 CLI session id를 알리면 같은 project·harness·CLI session의 열린 팀원 session을 잇거나(resume한 새 탭) harness-member-open으로 연다. id가 바뀌면 bind_session으로 적는다. 묶음은 core 메모리이고 터미널이 끝나면 푼다"
+      - "팀원 session으로 온 call·reply·알림은 harness queue에 선다. 탭의 turn이 쉬고 줄 선 메시지가 없을 때만 하나를 꺼내 StartTurn을 쓰고 그 turn의 자격을 credential file에 쓴 뒤 ACP send로 넣는다. restart 탭이 TUI를 보이는 동안은 handle이 없어 기다린다"
+      - "사람이 탭에서 친 turn은 ledger turn 없이 그 turn의 자격만 내 credential file에 쓴다. 사람이 친 글은 ledger에 옮기지 않는다"
+      - "turn이 끝나면 credential file을 지우고 자격을 끝낸다. 넣은 입력이 call이고 completed면 그 turn의 마지막 agent 글을 messages/record로 남기고 turns/finish로 닫는다. 답은 custom-call-reply가 보낸다"
+      - "팀원 session은 화면의 session 목록·snapshot·event와 앱의 session 목록에 서지 않는다(탭이 자리다). agent의 session list에는 묶인 탭이 있을 때만 탭의 상태와 제목으로 선다"
+    outcomes:
+      - id: bound
+        observe: [ledger:sessions]
+        when: "탭이 팀원 session에 묶였다(새로 열었거나 이었다)"
+      - id: delivered
+        observe: [ledger:turns, event:AcpUpdated]
+        when: "queue의 입력 하나가 탭의 새 turn이 되었다. 탭은 받은 메시지로 그린다"
+      - id: replied
+        observe: [ledger:agent_calls, event:MessageReceived]
+        when: "call을 받은 turn이 completed로 끝나 그 마지막 글이 답으로 갔고 call이 done이다"
+      - id: turn-credential
+        observe: ["disk:<per-run>/credentials/<terminal>"]
+        when: "묶인 탭의 turn마다(사람이 친 turn도) 그 turn의 자격이 credential file에 있고, turn이 끝나면 file이 지워지고 자격이 끝난다. 다음 turn은 다른 자격이다"
+      - id: headless-skips
+        observe: [response]
+        when: "팀원 session의 queue는 headless host의 take·start_turn이 가져가지 않는다(그 탭만 가져간다). 표시는 열 때 정해 바뀌지 않는다"
+      - id: waits
+        observe: [ledger:agent_calls]
+        when: "탭의 turn이 돌거나 줄이 있거나, restart 탭이 TUI를 보이거나, 탭이 닫혔다. 입력은 queue에 남는다"
+      - id: no-answer
+        observe: [ledger:turns, ledger:agent_calls]
+        when: "turn이 멈춤·실패로 끝났거나 handle이 닫혔다. ledger turn은 failed로 닫히고 call은 accepted로 남는다"
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/harness-gui.md, architecture/agent-call.md]
 
   # ---- host queue: core 메모리의 host 요청과 agent가 연 탭 ----
   - id: host-link

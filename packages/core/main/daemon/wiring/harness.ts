@@ -20,8 +20,10 @@ import {
   harnessStartTurn,
   harnessTake,
   messageBody,
+  openHarnessMember,
   recordMessage,
   startTurn,
+  type TurnOutcome,
   turnRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -47,10 +49,19 @@ import {
   forkedHarnessSession,
   HARNESS_QUEUE_PUT_TOPIC,
   harnessOf,
+  harnessTaker,
 } from "../../../lophn-agent/session/mod.ts";
-import { loadSession } from "../../../lophn-agent/session/model.ts";
+import {
+  type AgentSessionRow,
+  loadSession,
+  workspaceOf,
+} from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
+import type {
+  HarnessMembers,
+  MemberTurnEnd,
+} from "../../../terminal-agents/member.ts";
 import {
   openConnection,
   withAfterCommit,
@@ -74,6 +85,7 @@ const HARNESS_CONTEXT: AuthenticatedContext = {
       finishTurn.name,
       recordMessage.name,
       bindHarnessSession.name,
+      openHarnessMember.name,
       turnRead.name,
       messageBody.name,
     ],
@@ -85,6 +97,18 @@ const HARNESS_CONTEXT: AuthenticatedContext = {
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
+
+// GUI 탭 turn의 끝을 ledger turn의 끝으로 옮긴다. 멈춤도 실패도 답은 없다(사람이 멈춘 turn을 core의 멈춤처럼 interrupted로
+// 닫는 길은 StopTurn이라 여기서는 실패로 닫는다).
+function outcomeOf(end: MemberTurnEnd): TurnOutcome {
+  return end === "completed"
+    ? { kind: "completed", reason: "answer_completed" }
+    : end === "failed"
+      ? { kind: "failed", reason: "model_error" }
+      : end === "stopped"
+        ? { kind: "failed", reason: "no_answer" }
+        : { kind: "failed", reason: "target_unavailable" };
+}
 
 export const harnessWiring: WiringFactory = () => {
   // harness session의 queue다. run-loop의 queue와 따로여서 run-loop가 harness 입력을 가져가지 않는다.
@@ -173,6 +197,13 @@ export const harnessWiring: WiringFactory = () => {
                 });
           }
           const row = found.value.row;
+          // GUI 탭의 팀원은 그 탭이 CLI를 쥐고 있다. TUI를 따로 열면 한 CLI session을 process 둘이 쓴다.
+          if (harnessTaker(row) !== "headless") {
+            return err({
+              code: "invalid_input",
+              message: "a tui opens harness agent sessions only",
+            });
+          }
           if (row.workspace_kind !== "project") {
             return err({
               code: "invalid_input",
@@ -205,6 +236,87 @@ export const harnessWiring: WiringFactory = () => {
         },
       });
 
+      // queue 맨 앞 입력을 harness에 넘길 글로 싼다. 본문은 session 기록이 정본이다(빼거나 고친 사람 메시지가 queue에 남지 않게 한다).
+      // 본문이 없어졌으면 그 입력을 queue에서 뺀다.
+      const headOf = async (session: Id<"ses">, row: { harness: string }) => {
+        const head = queue.next(session)!;
+        const body = await read<Output<typeof messageBody>>(messageBody, {
+          message: head.message,
+        });
+        if (!body.ok) {
+          if (body.error.code === "not_found") {
+            queue.remove(session, head.message as string);
+          }
+          return null;
+        }
+        const prompt = inputParts(
+          { ...head, body: blocksOfContent(body.value.content) },
+          row.harness as AgentRuntime,
+        )
+          .map((part) =>
+            part.kind === "text"
+              ? part.text
+              : `[image: ${part.media_type} not passed to the harness]`,
+          )
+          .join("\n");
+        return { head, prompt };
+      };
+
+      // 입력 하나로 turn을 연다. 그 turn의 자격을 내고 StartTurn이 기록한 그 입력만 queue에서 꺼낸다.
+      const beginTurn = async (
+        session: Id<"ses">,
+        inputMessage: string,
+        row: AgentSessionRow,
+      ): Promise<Result<{ turn: string; credential: string }>> => {
+        const head = queue.next(session);
+        if (
+          head === undefined ||
+          head.message !== inputMessage ||
+          queue.isRunning(session)
+        ) {
+          return err({
+            code: "conflict",
+            message: "that input is not the next one of an idle session",
+          });
+        }
+        const limits = turnLimitsOf(ctx.settings);
+        if (!limits.ok) return limits;
+        const turn = ids.newId("trn");
+        const credential = await turnCredentials.issue({
+          session,
+          turn,
+          workspace: workspaceOf(row),
+        });
+        if (!credential.ok) return credential;
+        const started = await command(startTurn.name, {
+          id: turn,
+          session,
+          input_message: inputMessage,
+          basis: await sha256Hex(
+            canonicalize({
+              harness: row.harness,
+              session,
+              input_message: inputMessage,
+            }),
+          ),
+          limits: limits.value,
+          mode: head.unattended ? "unattended" : "attended",
+        });
+        if (!started.ok) {
+          turnCredentials.end(turn);
+          // 입력의 메시지가 없어졌으면 queue에 남겨 Take가 같은 입력을 되풀이하게 두지 않는다.
+          if (started.error.code === "not_found") {
+            queue.remove(session, inputMessage);
+          }
+          return started;
+        }
+        // 기다리는 사이 머리가 바뀌었어도 남의 입력을 집지 않는다.
+        queue.take(session, inputMessage as Id<"msg">);
+        queue.setRunning(session, true);
+        return ok({ turn, credential: credential.value });
+      };
+
+      // headless host는 GUI 탭의 팀원 queue를 가져가지 않는다(그 탭이 돌린다).
       const take: MemoryHandler = async (who) => {
         const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
@@ -218,28 +330,11 @@ export const harnessWiring: WiringFactory = () => {
             }
             continue;
           }
-          const head = queue.next(session)!;
-          // 본문은 session 기록이 정본이다(빼거나 고친 사람 메시지가 queue에 남지 않게 한다).
-          const body = await read<Output<typeof messageBody>>(messageBody, {
-            message: head.message,
-          });
-          if (!body.ok) {
-            if (body.error.code === "not_found") {
-              queue.remove(session, head.message as string);
-            }
-            continue;
-          }
           const row = found.value.row;
-          const prompt = inputParts(
-            { ...head, body: blocksOfContent(body.value.content) },
-            row.harness as AgentRuntime,
-          )
-            .map((part) =>
-              part.kind === "text"
-                ? part.text
-                : `[image: ${part.media_type} not passed to the harness]`,
-            )
-            .join("\n");
+          if (harnessTaker(row) !== "headless") continue;
+          const taken = await headOf(session, row);
+          if (taken === null) continue;
+          const { head, prompt } = taken;
           return ok({
             input: {
               session,
@@ -268,63 +363,20 @@ export const harnessWiring: WiringFactory = () => {
         const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
         const input = harnessStartTurn.input.parse(body);
-        const found = harnessSession(input.session);
+        const session = input.session as Id<"ses">;
+        const found = harnessSession(session);
         if (!found.ok) return found;
-        const head = queue.next(input.session as Id<"ses">);
         if (
           !found.value.accepting ||
-          head === undefined ||
-          head.message !== input.input_message ||
-          queue.isRunning(input.session as Id<"ses">) ||
-          hold.held(input.session as Id<"ses">)
+          harnessTaker(found.value.row) !== "headless" ||
+          hold.held(session)
         ) {
           return err({
             code: "conflict",
             message: "that input is not the next one of an idle session",
           });
         }
-        const limits = turnLimitsOf(ctx.settings);
-        if (!limits.ok) return limits;
-        const turn = ids.newId("trn");
-        const credential = await turnCredentials.issue({
-          session: input.session,
-          turn,
-          workspace:
-            found.value.row.workspace_kind === null ||
-            found.value.row.workspace_id === null
-              ? null
-              : {
-                  kind: found.value.row.workspace_kind,
-                  id: found.value.row.workspace_id,
-                },
-        });
-        if (!credential.ok) return credential;
-        const started = await command(startTurn.name, {
-          id: turn,
-          session: input.session,
-          input_message: input.input_message,
-          basis: await sha256Hex(
-            canonicalize({
-              harness: found.value.row.harness,
-              session: input.session,
-              input_message: input.input_message,
-            }),
-          ),
-          limits: limits.value,
-          mode: head.unattended ? "unattended" : "attended",
-        });
-        if (!started.ok) {
-          turnCredentials.end(turn);
-          // 입력의 메시지가 없어졌으면 queue에 남겨 Take가 같은 입력을 되풀이하게 두지 않는다.
-          if (started.error.code === "not_found") {
-            queue.remove(input.session as Id<"ses">, input.input_message);
-          }
-          return started;
-        }
-        // StartTurn이 기록한 그 입력만 꺼낸다. 기다리는 사이 머리가 바뀌었어도 남의 입력을 집지 않는다.
-        queue.take(input.session as Id<"ses">, input.input_message);
-        queue.setRunning(input.session as Id<"ses">, true);
-        return ok({ turn, credential: credential.value });
+        return await beginTurn(session, input.input_message, found.value.row);
       };
 
       const recordHandler: MemoryHandler = async (who, body) => {
@@ -355,29 +407,37 @@ export const harnessWiring: WiringFactory = () => {
         return ok({ message });
       };
 
-      const finishHandler: MemoryHandler = async (who, body) => {
-        const allowed = gate(who);
-        if (!allowed.ok) return allowed;
-        const input = harnessFinishTurn.input.parse(body);
+      // 모델이 쓴 본문이 없으므로 알린 사실만 결과로 정리한다(StopTurn과 같다).
+      const finishOf = async (
+        turnId: string,
+        outcome: TurnOutcome,
+      ): Promise<Result<void>> => {
         const turn = await read<Output<typeof turnRead>>(turnRead, {
-          turn: input.turn,
+          turn: turnId,
         });
         if (!turn.ok) return turn;
         const found = harnessSession(turn.value.turn.session);
         if (!found.ok) return found;
-        // 모델이 쓴 본문이 없으므로 host가 알린 사실만 결과로 정리한다(StopTurn과 같다).
         const result = await sha256Hex(
           canonicalize({
-            turn: input.turn,
+            turn: turnId,
             session: turn.value.turn.session,
-            outcome: input.outcome,
+            outcome,
           }),
         );
         const done = await command(
           finishTurn.name,
-          { turn: input.turn, outcome: input.outcome, result },
+          { turn: turnId, outcome, result },
           { state_seq: turn.value.turn.state_seq },
         );
+        return done.ok ? ok(undefined) : done;
+      };
+
+      const finishHandler: MemoryHandler = async (who, body) => {
+        const allowed = gate(who);
+        if (!allowed.ok) return allowed;
+        const input = harnessFinishTurn.input.parse(body);
+        const done = await finishOf(input.turn, input.outcome);
         return done.ok ? ok({ turn: input.turn }) : done;
       };
 
@@ -391,12 +451,141 @@ export const harnessWiring: WiringFactory = () => {
         return done.ok ? ok({}) : done;
       };
 
+      // GUI 탭의 팀원 session은 core 안 GUI 연결(terminal-agents의 `member.ts`)이 queue를 가져간다. 그 탭이 turn을 돌리므로 headless
+      // 설정과 상관없고, 사람이 친 turn은 ledger turn 없이 자격만 낸다.
+      const queued = new Set<(session: string) => void>();
+      // 화면에 내지 않을 session인지(`hidingSessions`). session의 표시는 바뀌지 않으므로 한 번 읽어 둔다.
+      const memberOf = new Map<string, boolean>();
+      const members: HarnessMembers = {
+        async ensure(input) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            lookup.sql
+              .all(
+                `select id from sessions where harness_gui = 1 and lifecycle = 'open'
+                   and harness = ? and project = ? and harness_session = ?
+                 order by created_seq desc`,
+                [input.harness, input.project, input.cli_session],
+              )
+              .map((row) => String(row["id"])),
+          );
+          if (!found.ok) return found;
+          const reuse = found.value.find((id) => !input.taken.has(id));
+          if (reuse !== undefined) {
+            memberOf.set(reuse, true);
+            return ok(reuse);
+          }
+          const id = ids.newId("ses");
+          // SessionStarted가 화면으로 가기 전에 표시한다.
+          memberOf.set(id, true);
+          const opened = await command(openHarnessMember.name, {
+            id,
+            harness: input.harness,
+            project: input.project,
+            external_session_id: input.cli_session,
+          });
+          if (!opened.ok) memberOf.delete(id);
+          return opened.ok ? ok(id) : opened;
+        },
+        async bind(session, cliSession) {
+          const done = await command(bindHarnessSession.name, {
+            session,
+            external_session_id: cliSession,
+          });
+          return done.ok ? ok(undefined) : done;
+        },
+        async next(session) {
+          const id = session as Id<"ses">;
+          if (queue.isRunning(id) || queue.next(id) === undefined) return null;
+          const found = harnessSession(id);
+          if (!found.ok || !found.value.accepting) return null;
+          const row = found.value.row;
+          if (harnessTaker(row) !== "gui") return null;
+          const taken = await headOf(id, row);
+          return taken === null
+            ? null
+            : {
+                message: taken.head.message as string,
+                kind: taken.head.kind,
+                prompt: taken.prompt,
+              };
+        },
+        async start(session, message) {
+          const id = session as Id<"ses">;
+          const found = harnessSession(id);
+          if (!found.ok) return found;
+          if (
+            !found.value.accepting ||
+            harnessTaker(found.value.row) !== "gui"
+          ) {
+            return err({
+              code: "conflict",
+              message: "not an open member session",
+            });
+          }
+          const begun = await beginTurn(id, message, found.value.row);
+          return begun.ok
+            ? ok({ turn: begun.value.turn, token: begun.value.credential })
+            : begun;
+        },
+        async credential(session) {
+          const found = harnessSession(session);
+          if (!found.ok) return found;
+          if (harnessTaker(found.value.row) !== "gui") {
+            return err({ code: "forbidden", message: "not a member session" });
+          }
+          const turn = ids.newId("trn");
+          const token = await turnCredentials.issue({
+            session,
+            turn,
+            workspace: workspaceOf(found.value.row),
+          });
+          return token.ok ? ok({ turn, token: token.value }) : token;
+        },
+        async record(session, turn, text) {
+          const done = await command(recordMessage.name, {
+            id: ids.newId("msg"),
+            session,
+            turn,
+            content: { schema_version: 1, parts: [{ kind: "text", text }] },
+          });
+          return done.ok ? ok(undefined) : done;
+        },
+        finish: (turn, end) => finishOf(turn, outcomeOf(end)),
+        end: (turn) => turnCredentials.end(turn),
+        onQueued(listener) {
+          queued.add(listener);
+          return () => void queued.delete(listener);
+        },
+      };
+      ctx.provide("harnessMembers", {
+        ...members,
+        isMember(session: string) {
+          const known = memberOf.get(session);
+          if (known !== undefined) return known;
+          const row = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            loadSession(lookup, session),
+          );
+          // 아직 commit되지 않은 session은 모른다. 다음 event에서 다시 본다.
+          if (!row.ok || row.value === undefined) return false;
+          memberOf.set(session, row.value.harness_gui);
+          return row.value.harness_gui;
+        },
+      });
+
       // 입력을 queue에 넣는 일은 commit 뒤 main thread가 한다(`createQueueApplier`를 harness queue로 쓴다).
       // 같은 afterCommit 묶음의 다른 일(Bus event 등)은 run-loop 쪽 applier가 이미 했으므로 여기서는 거른다.
-      const apply = createQueueApplier({
+      const applyQueue = createQueueApplier({
         queue,
         publish: (event) => ctx.bus.publish(event),
       });
+      const apply: typeof applyQueue = (actions) => {
+        applyQueue(actions);
+        for (const action of actions) {
+          if (action.topic !== QUEUE_PUT_TOPIC) continue;
+          const session = (action.data as { session: string }).session;
+          for (const listener of queued) listener(session);
+        }
+      };
       return ok({
         memory: [
           [key(harnessTake), take],

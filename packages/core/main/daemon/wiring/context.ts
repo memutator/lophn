@@ -66,6 +66,7 @@ import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { AppViews } from "../../../apps/views/mod.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
+import type { HarnessMembers } from "../../../terminal-agents/member.ts";
 import type {
   HarnessSettings,
   TerminalAgents,
@@ -324,6 +325,9 @@ type Late = {
   };
   // harness wiring이 낸다. host-queue wiring이 `tabs/open`의 tui에서 부른다(판정과 hold).
   harnessHold: HarnessHold;
+  // harness wiring이 낸다. 터미널 GUI 탭의 팀원 session을 열고 그 queue와 turn을 다룬다(terminal-agents가 쓴다). `isMember`는 화면에
+  // 내는 Bus가 팀원 session의 event를 거르는 데 쓴다.
+  harnessMembers: HarnessMembers & { isMember(session: string): boolean };
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
   questionWaits: ReturnType<typeof createQuestionWaits>;
   // session-snapshots가 낸다. agent runtime이 보낸 쓰는 중인 model 글과 도는 turn의 active를 받아 snapshot의
@@ -449,6 +453,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   deviceKind: true,
   phoneLink: true,
   harnessHold: true,
+  harnessMembers: true,
   questionWaits: true,
   liveTurns: true,
   writer: true,

@@ -100,6 +100,7 @@ import {
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
 import { receivedAppEvent } from "../../../apps/events/mod.ts";
+import { hidingSessions } from "../../../events/mod.ts";
 import { EVENT_PUBLICATIONS_MACHINE_STEPS } from "../../../apps/events/schema.ts";
 import { invocationsRemoteCallerSchemaSteps } from "../../../apps/invocations/mod.ts";
 import {
@@ -111,6 +112,7 @@ import {
 } from "../../../folder/schema.ts";
 import { OUTBOUND_CALLS_SCHEMA_STEPS } from "../../../apps/calls/outbound-schema.ts";
 import { providerMultiCredentialsSchemaSteps } from "../../../lophn-agent/providers/mod.ts";
+import { guiMemberSchemaSteps } from "../../../lophn-agent/session/mod.ts";
 import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
 import { readMachineId } from "../../../machine/mod.ts";
 import {
@@ -783,7 +785,11 @@ export function remoteWiring(
       }),
       random: ctx.random,
       timers: systemTimers,
-      bus: ctx.bus,
+      // 폰과 다른 컴퓨터가 구독하는 Bus다. GUI 탭의 팀원 session은 그 탭이 자리라 그 event를 내지 않는다.
+      bus: hidingSessions(
+        ctx.bus,
+        (session) => ctx.peek.harnessMembers?.isMember(session) ?? false,
+      ),
       roster: {
         find: (each) => roster.find(each),
         join: (each, statements) => roster.join(each, statements),
@@ -907,6 +913,7 @@ export function remoteWiring(
       ...OUTBOUND_CALLS_SCHEMA_STEPS,
       ...providerMultiCredentialsSchemaSteps,
       ...PROJECTS_SEPARATED_STEPS,
+      ...guiMemberSchemaSteps,
     ],
     dataSteps: [
       hostKeyMachineStep,

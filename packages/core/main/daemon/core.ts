@@ -63,6 +63,7 @@ import {
   type StoppedConditions,
   type WiringFactory,
 } from "./wiring/context.ts";
+import { hidingSessions } from "../../events/mod.ts";
 
 // 시작 순서: lock → schema step → 기계 신분 → writer·reader → API → I/O worker 감독 → worker들. 단계마다 wiring의
 // hook을 WIRINGS 순서로 부른다(hook 순서는 wiring/context.ts에 적혀 있다).
@@ -508,7 +509,11 @@ async function open(
       writer: ctx.writer,
       reads: runtime.reads,
       memory,
-      bus: ctx.bus,
+      // 화면이 구독하는 Bus다. GUI 탭의 팀원 session은 그 탭이 자리라 그 session의 event를 화면에 내지 않는다.
+      bus: hidingSessions(
+        ctx.bus,
+        (session) => ctx.peek.harnessMembers?.isMember(session) ?? false,
+      ),
       gateway: ctx.gateway,
       shellCapabilities: capabilities,
       hostLink: ctx.hostLink,

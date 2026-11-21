@@ -8,6 +8,7 @@ export {
   takeSteering,
 } from "./model.ts";
 export { createConversationCommands } from "./commands.ts";
+export { guiMemberSchemaSteps } from "./gui-member-schema.ts";
 export {
   createHarnessCommands,
   createHarnessInputTransport,
@@ -15,6 +16,7 @@ export {
   forkedHarnessSession,
   harnessEnabledIn,
   harnessOf,
+  harnessTaker,
 } from "./harness.ts";
 export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
 export { editQueuedCommand } from "./queued-edit.ts";

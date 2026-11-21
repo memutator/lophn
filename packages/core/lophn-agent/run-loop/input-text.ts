@@ -225,6 +225,8 @@ const RESULT_NOTE: Record<AgentRuntime, string> = {
   "claude-code": LAST_MESSAGE_RESULT_NOTE,
   codex: LAST_MESSAGE_RESULT_NOTE,
   opencode: LAST_MESSAGE_RESULT_NOTE,
+  omp: LAST_MESSAGE_RESULT_NOTE,
+  antigravity: LAST_MESSAGE_RESULT_NOTE,
 };
 
 // 받은 call은 답 방식이 항상 있다. null이면 call이 아닌 기록(session이 자기 답으로 남긴 메시지)이라 속성을 뺀다.

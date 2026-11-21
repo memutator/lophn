@@ -20,8 +20,8 @@ import { dataRootOf } from "../agents/store.ts";
 import { reject, requireMachine, sessionNotFound } from "./guards.ts";
 import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 
-// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 extension host의 `harness` extension이 하고
-// core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
+// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 extension host의 `harness` extension(headless)이나
+// 터미널 GUI 탭(팀원 session, `harness_gui`)이 하고 core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
 
 // 켜기는 extension `harness`의 설정이다. 꺼져 있으면(기본) harness session은 새 입력을 받지 않는다.
 // writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더다. 읽지 못하면 꺼진 것이다.
@@ -67,7 +67,12 @@ export function createHarnessInputTransport(deps: {
       if (target.transport !== "harness") {
         return err({ code: "invalid_input", message: "not a harness session" });
       }
-      if (GATED.has(input.kind) && !harnessEnabledIn(tx.sql)) {
+      // GUI 탭의 팀원은 headless 설정과 상관없다(그 탭이 turn을 돌린다).
+      if (
+        GATED.has(input.kind) &&
+        loadSession(tx, target.session)?.harness_gui !== true &&
+        !harnessEnabledIn(tx.sql)
+      ) {
         return err({ code: "unavailable", message: "harness is turned off" });
       }
       return put(tx, target.session, input);
@@ -122,6 +127,15 @@ export function forkedHarnessSession(
     String(last["seq"]) === row.forked_from_through_seq
     ? source.harness_session
     : null;
+}
+
+// harness session의 queue를 누가 가져가는가. 팀원 session(`harness_gui`)은 그 GUI 탭만, 나머지는 headless host만이다. 한 CLI session을
+// process 둘이 쓰지 않게 하는 판정이라 take, turn 시작, 팀원 연결이 모두 이것을 본다. harness session이 아니면 null이다.
+export function harnessTaker(
+  row: Pick<AgentSessionRow, "harness" | "harness_gui">,
+): "headless" | "gui" | null {
+  if (row.harness === null) return null;
+  return row.harness_gui ? "gui" : "headless";
 }
 
 // host route는 runtime이 harness인 session만 고친다. 그 판정 하나다.

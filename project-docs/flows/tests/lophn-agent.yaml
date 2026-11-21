@@ -221,8 +221,8 @@ files:
     note: "Compact 요청 guard는 사람과 machine만 통과시킨다(순수 함수). agent·app 거절은 session-compact-request:forbidden"
 
   - path: packages/core/lophn-agent/session/harness_test.ts
-    covers: [harness-bind-session:bound, harness-bind-session:forbidden]
-    note: "harness session id는 harness runtime의 session에만 붙고, 일반 session이나 사람 자격은 forbidden이며, 열 때 정한 harness는 바뀌지 않는다"
+    covers: [harness-bind-session:bound, harness-bind-session:forbidden, gui-member-call:headless-skips]
+    note: "harness session id는 harness runtime의 session에만 붙고, 일반 session이나 사람 자격은 forbidden이며, 열 때 정한 harness는 바뀌지 않는다. GUI 탭 팀원 session의 queue는 그 탭만 가져가고 표시는 바뀌지 않는다"
 
   - path: packages/core/lophn-agent/session/history_test.ts
     covers: [turn-body-read:ok]

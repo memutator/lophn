@@ -98,6 +98,8 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             ? openSessions(lookup)
             : sessions.flatMap((id) => loadSession(lookup, id) ?? []);
         for (const row of lophn) {
+          // GUI 탭의 팀원 session은 그 탭이 화면의 자리다(`hidingSessions`).
+          if (row.harness_gui) continue;
           const turn_requests = requests(row.id);
           const questions = ctx.questionWaits.list(row.id);
           snapshots.push({

@@ -159,6 +159,26 @@ export const bindHarnessSession = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 
+// 터미널 GUI 탭(harness-gui)의 팀원 session을 연다. core 안 GUI 연결이 machine 자격으로 부른다. agent는 그 harness의 내장 coding agent이고
+// workspace는 그 탭의 project다. headless 설정과 상관없이 열고, 이 session의 turn은 headless host가 가져가지 않는다.
+export const openHarnessMember = defineCommand({
+  resource: "harness",
+  method: "open_member",
+  name: "OpenHarnessMember",
+  changes: [],
+  input: z.strictObject({
+    id: idSchema("ses"),
+    harness: harnessRuntimeSchema,
+    project: idSchema("prj"),
+    // 그 탭 CLI 자신의 session id. 아직 모르면 null이다.
+    external_session_id: z.string().min(1).max(256).nullable(),
+  }),
+  output: z.strictObject({ id: idSchema("ses"), state_seq: seqSchema }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "conflict"],
+});
+
 export const HARNESS_HOST_MEMORY_ROUTES = [
   harnessTake,
   harnessStartTurn,
@@ -170,4 +190,5 @@ export const HARNESS_HOST_MEMORY_ROUTES = [
 export const HARNESS_HOST_ROUTES = [
   ...HARNESS_HOST_MEMORY_ROUTES,
   bindHarnessSession,
+  openHarnessMember,
 ] as const;

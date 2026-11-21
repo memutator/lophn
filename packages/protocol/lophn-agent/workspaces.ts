@@ -31,12 +31,15 @@ const lophnWorkspaceIdSchema = z
   );
 
 // 즐겨찾기 coding agent는 정의 file 없이 부르는 전역 내장 agent다: id `coding_<harness id>`, handle은 harness id, name은 adapter label.
-// headless runtime이 있는 harness(`HARNESS_ADAPTER_OF_RUNTIME`의 역)만 된다.
+// harness runtime이 있는 harness(`HARNESS_ADAPTER_OF_RUNTIME`의 역)만 된다. GUI 탭의 팀원 session도 이 agent다. agent 목록에는 headless
+// 명령이 있는 harness만 선다(`headless`).
 export type CodingBuiltin = {
   id: `coding_${string}`;
   harness: HarnessId;
   runtime: keyof typeof HARNESS_ADAPTER_OF_RUNTIME;
   label: string;
+  // headless 명령이 있다. 없으면 GUI 탭의 팀원 session으로만 돈다.
+  headless: boolean;
 };
 export const CODING_BUILTINS: readonly CodingBuiltin[] = (
   Object.entries(HARNESS_ADAPTER_OF_RUNTIME) as [
@@ -48,6 +51,7 @@ export const CODING_BUILTINS: readonly CodingBuiltin[] = (
   harness,
   runtime,
   label: HARNESS_ADAPTERS[harness].label,
+  headless: HARNESS_ADAPTERS[harness].headless !== undefined,
 }));
 
 export function codingBuiltinOf(id: string): CodingBuiltin | null {

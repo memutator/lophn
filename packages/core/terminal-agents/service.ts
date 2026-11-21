@@ -21,6 +21,7 @@ import { terminalSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { Terminals } from "../terminals/ports.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
 import type { CredentialFiles } from "./credential-file.ts";
+import { createGuiMembers, type HarnessMembers } from "./member.ts";
 import { createTabGui, type TabGuiDeps } from "./gui.ts";
 import { createTerminalHolds } from "./hold.ts";
 import type { RoutedHook } from "./ingress.ts";
@@ -55,6 +56,8 @@ export type TerminalAgentsDeps = {
   images: TabGuiDeps["images"];
   // GUI 탭의 turn 자격 file. per-run 폴더가 없으면 null이고 그 탭의 CLI는 lophn agent로 부르지 못한다.
   credentials?: CredentialFiles | null;
+  // GUI 탭의 팀원 session(harness wiring). 아직 없으면 null이고 탭은 팀원이 되지 않는다.
+  members?(): HarnessMembers | null;
   ids: { request(): string };
   // 그 터미널에 준 hook env. GUI가 띄운 CLI도 같은 탭으로 hook을 보내게 한다.
   hookEnv(terminalRef: string): Record<string, string>;
@@ -226,6 +229,16 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       tracker.expectResume(ref, harness, session),
   });
 
+  const members = createGuiMembers({
+    members: () => deps.members?.() ?? null,
+    files: deps.credentials ?? null,
+    projectOf: (ref) => {
+      const where = project(ref);
+      return where?.startsWith("prj_") === true ? where : null;
+    },
+    log: deps.log,
+  });
+
   const coding = createCodingSessions({
     clock: deps.clock,
     terminals,
@@ -258,6 +271,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         }
       },
     })),
+    gui.onHandle((handle) => members.opened(handle)),
     gui.onHandle((handle) => {
       let lastNoted = "";
       const noteFromState = () => {
@@ -333,6 +347,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       gui.terminalChanged(runtime);
       if (runtime.state === "exited" || runtime.state === "unknown") {
         titleScanners.delete(runtime.terminal_ref);
+        members.terminalEnded(runtime.terminal_ref);
         tracker.gone(runtime.terminal_ref);
         holds.release(runtime.terminal_ref);
       }
@@ -343,6 +358,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
   return {
     coding,
     holds,
+    members,
 
     // 터미널 hook socket의 줄 하나(`lophn-gui` 밖).
     hook(hook: RoutedHook): void {
@@ -423,6 +439,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
 
     stop(): void {
       for (const off of offs) off();
+      members.stop();
       coding.stop();
       gui.stop();
     },

@@ -45,3 +45,22 @@ export function createBus(log: (message: string) => void = () => {}): Bus {
     },
   };
 }
+
+// 화면(desktop, 폰)이 구독하는 Bus. `hidden` session의 event는 보내지 않는다. 터미널 GUI 탭의 팀원 session은 그 탭이 화면에서의 자리라
+// ledger session으로 한 번 더 보이지 않게 한다. publish는 그대로 넘긴다.
+export function hidingSessions(
+  bus: Bus,
+  hidden: (session: string) => boolean,
+): Bus {
+  return {
+    publish: (event) => bus.publish(event),
+    subscribe: (conditions, sink) =>
+      bus.subscribe(conditions, {
+        send(event) {
+          if ("session" in event && hidden(event.session)) return;
+          sink.send(event);
+        },
+        close: (reason) => sink.close(reason),
+      }),
+  };
+}

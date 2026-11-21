@@ -94,6 +94,8 @@ export function startSession(
     spawnedBy?: Id<"ses"> | null;
     // 앱이 열었으면 그 앱. 앱은 자기가 연 session만 끝낼 수 있다.
     openedByApp?: string | null;
+    // 터미널 GUI 탭의 팀원 session이다. headless 설정과 상관없이 연다.
+    gui?: boolean;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(workspace-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -118,7 +120,7 @@ export function startSession(
   const harness = isHarnessRuntime(definition.runtime)
     ? definition.runtime
     : null;
-  if (harness !== null && !harnessEnabledIn(tx.sql)) {
+  if (harness !== null && input.gui !== true && !harnessEnabledIn(tx.sql)) {
     return err({ code: "unavailable", message: "harness is turned off" });
   }
   const workspace = input.workspace;
@@ -133,8 +135,8 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, harness, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -148,6 +150,7 @@ export function startSession(
       inherit?.model_selection ?? null,
       definition.skip ? 1 : 0,
       harness,
+      input.gui === true && harness !== null ? 1 : 0,
       input.calledFrom?.kind ?? null,
       input.calledFrom?.id ?? null,
       input.spawnedBy ?? null,

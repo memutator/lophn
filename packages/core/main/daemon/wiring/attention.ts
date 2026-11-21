@@ -40,7 +40,8 @@ export const attentionWiring: WiringFactory = () => {
       // session 한 줄. 지워진 session은 null이다.
       const lookup: SessionLookup = async (session) => {
         const row = loadSession({ sql }, session);
-        if (row === undefined) return null;
+        // GUI 탭의 팀원 session은 그 터미널 탭이 알림의 자리다.
+        if (row === undefined || row.harness_gui) return null;
         const runtime = row.harness as string | null;
         return {
           title: row.title,

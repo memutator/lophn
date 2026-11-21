@@ -56,6 +56,8 @@ const NEW_STEPS = new Set([
   "runs.workspace",
   "router.agent-calls.workspace",
   "workflows.workspace",
+  // 표를 다시 짜는 뒤 step이라 workspace 이름의 열을 쓴다.
+  "lophn-agent.sessions.gui-member",
 ]);
 
 const ALL_STEPS: readonly SchemaStep[] = [

@@ -438,7 +438,7 @@ flows:
       - packages/core/lophn-agent/session/guards.ts
     steps:
       - "session 하나는 보이는 범위(agent는 자기 session만)에서 찾는다. 없거나 보이지 않으면 not_found다."
-      - "목록은 agent와 workspace로 거르고 archived 기본값은 exclude다. agent는 자기 session만 보고, 50개씩 cursor로 나눈다."
+      - "목록은 agent와 workspace로 거르고 archived 기본값은 exclude다. agent는 자기 session만 보고, 50개씩 cursor로 나눈다. GUI 탭의 팀원 session(harness_gui)은 그 탭이 자리라 목록에 없다."
       - "archive된 session도 원문 그대로 읽힌다."
     outcomes:
       - id: ok
@@ -1798,7 +1798,7 @@ flows:
     code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/protocol/lophn-agent/session-lifecycle.ts]
     steps:
       - "앱 자격이면 앱은 자격이 정한다(입력의 app이 다르면 forbidden). 사람 자격이면(shell main이 앱 화면을 대신한다) 입력의 app을 쓰고 없으면 invalid_input이다. 기기(principal device:<id>, 다른 컴퓨터의 shell)는 자기가 연 앱 화면의 view를 줘야 하고 앱은 core view 표의 (기기, view)에서 정한다(app-principal). 이 열 route 모두 같다"
-      - "열린 lophn·harness session(ledger)과 shell main이 알린 터미널 coding agent(메모리)를 한 모양으로 합친다. 상태는 session 상태 한 곳이 정한다"
+      - "열린 lophn·harness session(ledger)과 shell main이 알린 터미널 coding agent(메모리)를 한 모양으로 합친다. GUI 탭의 팀원 session은 그 터미널 session으로만 선다. 상태는 session 상태 한 곳이 정한다"
       - "그 앱 workspace에서 call로 닿을 수 있는 workspace의 session만 남기고(call 정책의 workspace 규칙, 같은 workspace, private) workspace·state·harness·kind로 거른다"
     outcomes:
       - id: listed

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
-import { createHarnessCommands, harnessOf } from "./harness.ts";
+import { createHarnessCommands, harnessOf, harnessTaker } from "./harness.ts";
 import { loadSession } from "./model.ts";
 import { conversationTestSteps } from "./test-steps.ts";
 
@@ -51,6 +51,43 @@ test("harness host binding cannot change a session whose runtime is not a harnes
       /immutable/,
     );
     assert.ok(!harnessOf(loadSession({ sql }, "ses_plain")).ok);
+  } finally {
+    db.close();
+  }
+});
+
+// GUI 탭의 팀원 session은 그 탭만 queue를 가져가고 headless host는 가져가지 않는다. 깨지면 한 CLI session에 GUI의 CLI와 `claude -p`가
+// 같이 써서 대화 기록이 섞인다. 표시는 열 때 정해 바뀌지 않는다.
+test("only the GUI tab takes a member session's queue and the mark never changes", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of [...conversationTestSteps]) db.exec(step.sql);
+    db.exec(`
+      insert into sessions (id, agent, harness, harness_gui, lifecycle, created_seq, state_seq)
+        values ('ses_plain', 'lophn', null, 0, 'open', 1, 1),
+               ('ses_headless', 'coding_claude', 'claude-code', 0, 'open', 2, 2),
+               ('ses_member', 'coding_omp', 'omp', 1, 'open', 3, 3);
+    `);
+    const sql: Sql = {
+      run: (query, params) => db.prepare(query).run(...params),
+      get: (query, params) => db.prepare(query).get(...params) as never,
+      all: (query, params) => db.prepare(query).all(...params) as never,
+    };
+    const taker = (id: string) => harnessTaker(loadSession({ sql }, id)!);
+    assert.equal(taker("ses_plain"), null);
+    assert.equal(taker("ses_headless"), "headless");
+    assert.equal(taker("ses_member"), "gui");
+    for (const flip of [
+      "update sessions set harness_gui = 0 where id = 'ses_member'",
+      "update sessions set harness_gui = 1 where id = 'ses_headless'",
+    ]) {
+      assert.throws(() => db.exec(flip), /immutable/);
+    }
+    // harness 없는 session은 팀원이 될 수 없다.
+    assert.throws(() =>
+      db.exec(`insert into sessions (id, agent, harness, harness_gui, lifecycle, created_seq, state_seq)
+        values ('ses_bad', 'lophn', null, 1, 'open', 4, 4)`),
+    );
   } finally {
     db.close();
   }

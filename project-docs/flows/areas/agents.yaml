@@ -460,11 +460,12 @@ flows:
     actor: agent
     entries: [route:calls/sendable]
     boundary: [router, agent-sessions, core-api]
-    code: [packages/core/router/reads.ts]
+    code: [packages/core/router/reads.ts, packages/core/main/daemon/wiring/terminal-agents.ts]
     steps:
       - agent가 session 목록을 tool로 읽는다. 목록은 prompt에 넣지 않는다
       - 팀 member에게는 부모, 형제, 자기 자손만 보인다
       - 자기 자신과 닫힌 session은 빼고, 상태는 running, waiting, idle, unknown으로 준다
+      - GUI 탭의 팀원 session은 core(terminal-agents wiring)가 그 탭의 ACP 상태(승인을 기다리면 waiting)와 제목으로 바꿔 내고, 묶인 탭이 없으면 뺀다
     outcomes:
       - id: ok
         observe: [response]

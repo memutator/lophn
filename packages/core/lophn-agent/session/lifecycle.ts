@@ -118,7 +118,7 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
 
   function rowInfo(session: string, openOnly: boolean): SessionInfo | null {
     const raw = deps.sql.get(
-      `select ${SESSION_COLUMNS}, ${LAST_ACTIVE} from sessions where id = ?${
+      `select ${SESSION_COLUMNS}, ${LAST_ACTIVE} from sessions where id = ? and harness_gui = 0${
         openOnly ? " and lifecycle = 'open'" : ""
       }`,
       [session],
@@ -165,7 +165,8 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
   function allOpen(): SessionInfo[] {
     const rows = deps.sql
       .all(
-        `select ${SESSION_COLUMNS}, ${LAST_ACTIVE} from sessions where lifecycle = 'open' order by created_seq`,
+        // GUI 탭의 팀원 session(`harness_gui`)은 그 터미널 session으로 이미 있다. 한 session 읽기(`rowInfo`)도 같다.
+        `select ${SESSION_COLUMNS}, ${LAST_ACTIVE} from sessions where lifecycle = 'open' and harness_gui = 0 order by created_seq`,
         [],
       )
       .map(infoOfRow);

@@ -18,6 +18,8 @@ import {
   type requestSessionCompact,
   type sendMessage,
   type bindHarnessSession,
+  CODING_BUILTINS,
+  openHarnessMember,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { teamEnd } from "../../../protocol/lophn-agent/team.ts";
 import type {
@@ -88,6 +90,7 @@ function openedOf(row: SessionRow) {
 export function createConversationCommands(deps: ConversationDeps): {
   open: CommandDefinition<typeof workspaceSessionOpen>;
   appOpen: CommandDefinition<typeof workspaceSessionAppOpen>;
+  memberOpen: CommandDefinition<typeof openHarnessMember>;
   rename: CommandDefinition<typeof renameSession>;
   aiTitle: CommandDefinition<typeof setSessionAiTitle>;
   archive: CommandDefinition<typeof archiveSession>;
@@ -168,6 +171,39 @@ export function createConversationCommands(deps: ConversationDeps): {
           openedByApp: input.app,
         });
         return started.ok ? ok(openedOf(started.value)) : started;
+      },
+    },
+    // GUI 탭의 팀원 session. 그 harness의 내장 coding agent로 그 탭의 project에 연다.
+    memberOpen: {
+      route: openHarnessMember,
+      handle(tx, ctx: RequestContext, input: Input<typeof openHarnessMember>) {
+        const machine = requireMachine(ctx);
+        if (!machine.ok) return machine;
+        if (loadSession(tx, input.id) !== undefined) {
+          return reject("conflict", "session id already used");
+        }
+        const agent = CODING_BUILTINS.find(
+          (builtin) => builtin.runtime === input.harness,
+        );
+        if (agent === undefined) {
+          return reject("invalid_input", "not a harness runtime");
+        }
+        const started = startSession(tx, deps.open(tx), {
+          id: input.id,
+          agent: agent.id,
+          workspace: { kind: "project", id: input.project },
+          gui: true,
+        });
+        if (!started.ok) return started;
+        if (input.external_session_id === null) {
+          return ok({ id: input.id, state_seq: started.value.state_seq });
+        }
+        const seq = nextSessionSeq(tx);
+        tx.sql.run(
+          "update sessions set harness_session = ?, state_seq = ? where id = ?",
+          [input.external_session_id, seq, input.id],
+        );
+        return ok({ id: input.id, state_seq: String(seq) });
       },
     },
     rename: {

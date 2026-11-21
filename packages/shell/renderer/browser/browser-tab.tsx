@@ -49,6 +49,8 @@ interface BrowserTabProps {
   url: string;
   /** 탭의 browser profile(bpf id). 없으면 기본 profile이다. 정해지면 바뀌지 않는다. */
   profile?: string;
+  /** 탭의 주인 session. agent가 다루는 동안 머리가 그 agent의 이름을 말한다. 없으면 사람이 연 탭이다. */
+  owner: string | undefined;
   /** false면 page를 남긴 채 숨긴다(다른 탭·다른 공간·접힌 패널). */
   shown: boolean;
   /** floated 탭의 층(floats index + 1). detached 창의 탭은 1, pane 탭은 0이다. */
@@ -536,6 +538,7 @@ function OpenTab(
         keepAlive={props.keepAlive}
         onKeepAlive={props.onKeepAlive}
         agent={agent}
+        owner={props.owner}
       />
       {notice === null ? null : (
         <div className={styles.notice}>

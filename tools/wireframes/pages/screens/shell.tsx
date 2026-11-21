@@ -6,6 +6,7 @@ import {
 } from "./shell/project-identity-scene.tsx";
 import { ProjectLinkScene } from "./shell/project-link-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
+import { RESEARCHER } from "../../mock/tab-owners.ts";
 import {
   MachinePageScene,
   PagesMenuScene,
@@ -34,15 +35,15 @@ export const shellArea: Area = {
       id: "shell-project",
       title: "Shell · Project",
       description:
-        "project workspace의 Main desk. title bar에 sidebar 접기, desk 단추, 곡선으로 card와 이어지는 tab 줄, panel icon tab, 창 단추가 있다. 가운데는 둥근 card 하나이고 맨 아래에 작업 표시줄(float chip)이 있다.",
-      render: () => <ShellScene variant="project" />,
+        "project workspace의 Main desk. title bar에 sidebar 접기, desk 단추, 곡선으로 card와 이어지는 tab 줄, panel icon tab, 창 단추가 있다. 가운데는 둥근 card 하나이고 맨 아래에 작업 표시줄(float chip)이 있다. agent가 연 탭(Fix gaze interpolation, Sprint board)은 kind 아이콘 옆에 주인 avatar가 붙고 tooltip이 주인 이름을 말한다. 기본이 아닌 browser profile(Work)로 연 탭(Sprint board)은 그 옆에 profile 색 점이 붙는다. agent가 연 접힌 float은 작업 표시줄에서 주인마다 chip 하나(avatar, 이름, 개수)로 묶인다.",
+      render: () => <ShellScene variant="project" owners />,
     },
     {
       id: "shell-split",
       title: "Shell · Split",
       description:
-        "두 tab을 한 칸으로 붙인 group(좌우, Split right). tab 줄에서는 한 칸에 반쪽 둘과 사이의 방향 아이콘이고 card는 좌우로 나뉘어 반쪽마다 머리 줄을 가진다. 누른 쪽이 강조되고 가운데 선을 끌어 몫을 바꾼다(놓을 때 저장, 더블클릭하면 반반).",
-      render: () => <ShellScene variant="split" />,
+        "두 tab을 한 칸으로 붙인 group(좌우, Split right). tab 줄에서는 한 칸에 반쪽 둘과 사이의 방향 아이콘이고 card는 좌우로 나뉘어 반쪽마다 머리 줄을 가진다. 누른 쪽이 강조되고 가운데 선을 끌어 몫을 바꾼다(놓을 때 저장, 더블클릭하면 반반). agent가 연 칸(Fix gaze interpolation)은 칸 머리 맨 앞에 주인 avatar가 선다.",
+      render: () => <ShellScene variant="split" owners />,
     },
     {
       id: "shell-pane-stack",
@@ -188,22 +189,36 @@ export const shellArea: Area = {
       id: "shell-floats",
       title: "Shell · Floats",
       description:
-        "접힌 칸 둘을 펴서 card 위에 띄운 상태. 편 칸은 작업 표시줄 chip에서 눌린 모양이다. float의 단추로 접고, tab으로 dock하고, 닫는다.",
-      render: () => <ShellScene variant="floats" />,
+        "접힌 칸 둘을 펴서 card 위에 띄운 상태. 편 칸은 작업 표시줄 chip에서 눌린 모양이다. float의 단추로 접고, tab으로 dock하고, 닫는다. agent가 연 float은 bar의 제목 앞에 주인 avatar와 이름이 서고, chip은 주인마다 하나로 묶여 그 주인의 float이 하나라도 펴져 있으면 눌린 모양이다.",
+      render: () => <ShellScene variant="floats" owners />,
     },
     {
       id: "shell-global-float",
       title: "Shell · Global float",
       description:
-        "workspace를 바꿔도 남는 전역 float. 앱 panel 화면을 desk float에서 float bar의 지구본 단추(Show in all workspaces)로 옮기면 title bar 아래 창 몸통 전체를 덮는 층에 떠서 어느 desk float보다 위에 놓인다(Mahas). 접힌 것은 작업 표시줄 chip 칸에서 desk float의 chip보다 앞에 놓이고 아이콘에 작은 지구본이 붙는다(Masup). chip을 누르면 펴고 접는다. 전역 float의 bar 단추는 Move to this desk(이 desk의 float으로 옮긴다), 고정, 접기, 닫기이고 dock은 없다. 고정 안 한 전역 float은 바깥을 누르면 접힌다.",
-      render: () => <ShellScene variant="floats" globalFloats />,
+        "workspace를 바꿔도 남는 전역 float. 앱 panel 화면을 desk float에서 float bar의 지구본 단추(Show in all workspaces)로 옮기면 title bar 아래 창 몸통 전체를 덮는 층에 떠서 어느 desk float보다 위에 놓인다(Mahas). 접힌 것은 작업 표시줄 chip 칸에서 desk float의 chip보다 앞에 놓이고 아이콘에 작은 지구본이 붙는다(Masup). chip을 누르면 펴고 접는다. 전역 float의 bar 단추는 Move to this desk(이 desk의 float으로 옮긴다), 고정, 접기, 닫기이고 dock은 없다. 고정 안 한 전역 float은 바깥을 누르면 접힌다. 전역 float도 주인을 지녀 bar 제목 앞에 주인(Researcher)이 서고, 같은 주인의 접힌 전역 float(Issues)과 desk float은 한 chip에 묶인다.",
+      render: () => <ShellScene variant="floats" globalFloats owners />,
     },
     {
       id: "shell-taskbar",
       title: "Shell · Taskbar",
       description:
-        "창 맨 아래 작업 표시줄(설정 Appearance › Taskbar, 기본 켬, 높이는 title bar와 같다). 왼쪽 끝은 빠른 실행 단추(Terminal · Browser · App · Search, 고정 앱 panel)이고 열린 왼쪽 sidebar와 같은 폭이라 그 오른쪽, 곧 tab 줄 아래에서 float chip이 시작한다(sidebar를 접으면 빠른 실행이 왼쪽 끝에 서고 chip이 바로 뒤따른다). chip은 전역 float(지구본 표시)이 먼저, 그 뒤가 지금 desk의 float이고 아이콘과 이름이며 편 것은 눌린 모양이고 누르면 펴고 접는다. 오른쪽은 tray 자리(Shell · Tray)이고 맨 오른쪽 끝에 Settings 톱니가 있다. 왼쪽 sidebar 맨 아래에는 빠른 실행과 Settings가 없다. desk float은 작업 표시줄 위에서 끝나 작업 표시줄을 덮지 않고, 꺼 두면 빠른 실행과 Settings는 sidebar 맨 아래로, chip은 tab 줄 끝으로 돌아간다.",
-      render: () => <ShellScene variant="taskbar" globalFloats="chip" />,
+        "창 맨 아래 작업 표시줄(설정 Appearance › Taskbar, 기본 켬, 높이는 title bar와 같다). 왼쪽 끝은 빠른 실행 단추(Terminal · Browser · App · Search, 고정 앱 panel)이고 열린 왼쪽 sidebar와 같은 폭이라 그 오른쪽, 곧 tab 줄 아래에서 float chip이 시작한다(sidebar를 접으면 빠른 실행이 왼쪽 끝에 서고 chip이 바로 뒤따른다). chip은 전역 float(지구본 표시)이 먼저, 그 뒤가 지금 desk의 float이고 아이콘과 이름이며 편 것은 눌린 모양이고 누르면 펴고 접는다. 오른쪽은 tray 자리(Shell · Tray)이고 맨 오른쪽 끝에 Settings 톱니가 있다. 왼쪽 sidebar 맨 아래에는 빠른 실행과 Settings가 없다. desk float은 작업 표시줄 위에서 끝나 작업 표시줄을 덮지 않고, 꺼 두면 빠른 실행과 Settings는 sidebar 맨 아래로, chip은 tab 줄 끝으로 돌아간다. agent가 연 float은 전역·desk를 가리지 않고 주인마다 chip 하나(avatar, 이름, 개수)이고 사람의 float은 하나씩 선다. 4개를 넘는 chip은 +N에 들어가며 주인 chip도 하나로 센다.",
+      render: () => <ShellScene variant="taskbar" globalFloats="chip" owners />,
+    },
+    {
+      id: "shell-owner-chip",
+      title: "Shell · Owner chip",
+      description:
+        "작업 표시줄의 주인 chip(Researcher)을 누른 상태. 그 주인이 연 float 목록이 위에 주인 이름을 달고 펴지고, 전역 float(Issues)은 아이콘에 지구본이 붙는다. 하나를 고르면 그 float을 편다(이미 펴져 있으면 그대로).",
+      render: () => (
+        <ShellScene
+          variant="taskbar"
+          globalFloats="chip"
+          owners
+          open={`[data-owner-chip="${RESEARCHER}"]`}
+        />
+      ),
     },
     {
       id: "shell-sidebar-app-panel",

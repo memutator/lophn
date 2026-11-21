@@ -1,7 +1,7 @@
 // browser 탭 화면. 실제 Workspace가 browser 탭을 가진 layout을 읽어 그린다. page는 `<webview>`인데 gallery에는
 // 없어서 webview 그릇이 빈 page 자리를 그린다. page 상태(주소, 제목, favicon, 뒤로 가기)와 bookmark는
 // fake browser 통로로 정하고, 열린 menu·popover·DevTools는 mount 뒤에 사람이 하듯이 눌러 만든다.
-import { useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { t } from "@lophn/i18n";
 import { Palette } from "@lophn/ui/overlay";
 
@@ -11,6 +11,8 @@ import type {
   SurfaceControl,
 } from "../../../../../packages/shell/ipc/surface.ts";
 import { fakeBrowserApi } from "../../../../../packages/shell/renderer/browser/testdata/fake-browser-api.ts";
+import { BrowserProfilesProvider } from "../../../../../packages/shell/renderer/browser/profiles.tsx";
+import { OwnerProvider } from "../../../../../packages/shell/renderer/parts/agent-session/owner.tsx";
 import { groupLabel } from "../../../../../packages/shell/renderer/desktop/palette/labels.ts";
 import {
   type PaletteEntry,
@@ -31,6 +33,22 @@ import {
   useDrive,
   wait,
 } from "../../../mock/drive.ts";
+import {
+  mockOwners,
+  RESEARCHER,
+  WORK_PROFILE,
+} from "../../../mock/tab-owners.ts";
+
+// gallery의 탭 주인 표와 browser profile 목록. 앱에서는 session·agent 목록과 설정이 준다.
+function Owned({ children }: { children: ReactNode }) {
+  return (
+    <OwnerProvider lookup={mockOwners}>
+      <BrowserProfilesProvider profiles={[WORK_PROFILE]}>
+        {children}
+      </BrowserProfilesProvider>
+    </OwnerProvider>
+  );
+}
 
 // site favicon 대신 쓰는 작은 그림. 하나는 favicon이 없는 bookmark(Globe)로 둔다.
 const svg = (fill: string) =>
@@ -296,20 +314,23 @@ export function BrowserDevtoolsMenu() {
   );
 }
 
-/** 새 탭(+) menu의 Browser. */
+/** 새 탭(+) menu의 Browser. profile이 있어 목록 맨 위가 기본 profile과 Work이고 고른 profile로 새 탭을 연다. */
 export function NewTabMenuBrowser() {
   const fake = useFake();
   useDrive(async () => {
     await find("[data-new-tab]");
     await wait(60);
     await press("[data-new-tab]");
+    await click('[role="menuitem"]', "Browser");
   });
   return (
-    <MockDesktop
-      route={openProject(PROJECT_GROCERY)}
-      panes={[{ tabs: [NOTES], selected: NOTES.key }]}
-      browser={fake.api}
-    />
+    <Owned>
+      <MockDesktop
+        route={openProject(PROJECT_GROCERY)}
+        panes={[{ tabs: [NOTES], selected: NOTES.key }]}
+        browser={fake.api}
+      />
+    </Owned>
   );
 }
 
@@ -400,11 +421,14 @@ export function BrowserPaletteBookmark() {
 
 // agent가 `lophn tab open --url`로 연 탭이다. key가 `host:<tab id>`라서 탭이 main에 view를 알리고 take control 상태를 받는다.
 const HOST_TAB = "tab_01hzzzzzzzzzzzzzzzzzzzzzzz";
+// 주인은 Researcher이고 Work profile로 열었다. 탭 줄에서 주인 avatar와 profile 점이 아이콘 옆에 붙는다.
 const AGENT = {
   key: `host:${HOST_TAB}`,
   kind: "browser",
   title: "deno.com",
   url: "https://deno.com/",
+  owner: RESEARCHER,
+  profile: WORK_PROFILE.id,
 } as const;
 const AGENT_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, AGENT], selected: AGENT.key },
@@ -463,15 +487,17 @@ function AgentTab({ held }: { held: boolean }) {
     if (held) await click("[data-agent-control] button", "Take control");
   });
   return (
-    <MockDesktop
-      route={openProject(PROJECT_GROCERY)}
-      panes={AGENT_PANES}
-      browser={fake.api}
-    />
+    <Owned>
+      <MockDesktop
+        route={openProject(PROJECT_GROCERY)}
+        panes={AGENT_PANES}
+        browser={fake.api}
+      />
+    </Owned>
   );
 }
 
-/** agent가 연 탭. 머리에 "Agent is controlling this tab"과 [Take control]이 선다. */
+/** agent가 연 탭. 머리에 "Researcher is controlling this tab"과 [Take control]이 선다. */
 export const BrowserAgentControl = () => <AgentTab held={false} />;
 
 /** [Take control]을 눌러 사람이 가져왔다. "You have control"과 [Hand back]이 서고, 그동안 agent의 쓰기는 conflict다. */

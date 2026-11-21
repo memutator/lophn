@@ -79,6 +79,10 @@ export const shell = {
   "shell.label.global-float": "{title} (all workspaces)",
   "shell.label.minimized": "Minimized tabs",
   "shell.label.new-desk-name": "Desk {number}",
+  "shell.label.owner-chip":
+    "{name}: {count, plural, one {# tab} other {# tabs}}",
+  "shell.label.owner-tab": "Opened by {name}",
+  "shell.label.owner-unknown": "Agent",
   "shell.label.pane-position": "{at}/{count}",
   "shell.label.split-resize": "Resize split",
   "shell.label.taskbar": "Taskbar",

@@ -58,6 +58,8 @@ export interface SessionTabOpen {
     readonly minimized?: boolean;
   };
   readonly float?: boolean;
+  /** agent가 연 탭의 주인 session. 없으면 사람의 탭이다. */
+  readonly owner?: string;
 }
 
 interface OpenAgentInput extends SessionTabOpen {
@@ -145,6 +147,7 @@ export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
     kind: "agent",
     title: input.name,
     ...(input.machine === undefined ? {} : { machine: input.machine }),
+    ...(input.owner === undefined ? {} : { owner: input.owner }),
     fields: {
       agent: input.agent,
       workspace: input.workspace ?? fieldOf(host.workspace),

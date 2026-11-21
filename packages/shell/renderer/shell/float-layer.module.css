@@ -32,3 +32,12 @@
   min-width: var(--space-0);
   overflow: hidden;
 }
+
+/* 주인 있는 탭의 제목 앞: 주인 avatar와 이름, 그 뒤 kind 아이콘. */
+.lead {
+  display: inline-flex;
+  gap: var(--control-gap);
+  align-items: center;
+  max-width: calc(var(--space-12) * 2);
+  font-size: var(--type-small-size);
+}

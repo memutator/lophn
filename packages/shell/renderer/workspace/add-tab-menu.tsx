@@ -1,4 +1,5 @@
-// 탭 줄의 새 탭 menu. Agent·Browser·App panel은 퀵 실행과 같은 목록을 옆에 연다.
+// 탭 줄의 새 탭 menu. Agent·Browser·App panel은 퀵 실행과 같은 목록을 옆에 연다. browser profile이 있으면 Browser 목록 맨 위가
+// 기본 profile과 profile들이고 고른 profile로 연다(빠른 실행과 단축키는 기본 profile로 연다).
 import type { ReactNode } from "react";
 import type { AgentChoice } from "../parts/agent-session/agent-session.tsx";
 import { agentSections, sectionMenuItems } from "../shell/agent-sections.tsx";
@@ -14,11 +15,14 @@ import {
 import { t } from "@lophn/i18n";
 import { useKeyLabel } from "../commands/react.tsx";
 import { useMachinesView } from "../desktop/machines/context.tsx";
+import { ProfileMark } from "../browser/browser-chrome.tsx";
+import { useBrowserProfiles } from "../browser/profiles.tsx";
 
 interface NewTabMenuProps {
   onDocument?: () => void;
   onTerminal?: () => void;
-  onBrowser?: () => void;
+  /** 새 browser 탭. profile이 없으면 기본 profile이다. */
+  onBrowser?: (profile?: string) => void;
   browserItems?: readonly QuickHoverItem[];
   choices?: readonly AgentChoice[];
   onChoice?: (choice: AgentChoice) => void;
@@ -31,6 +35,8 @@ interface NewTabMenuProps {
   onPages?: (machine: string) => void;
 }
 
+const PROFILE_ITEM = "browser-profile:";
+
 const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
   <MenuIcon icon={icon} />
 );
@@ -38,6 +44,7 @@ const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
 export function NewTabMenu(props: NewTabMenuProps) {
   const keyLabel = useKeyLabel();
   const machines = useMachinesView()?.machines ?? [];
+  const profiles = useBrowserProfiles();
   const keyed = (id: string): { shortcut?: string } => {
     const key = keyLabel(id);
     return key === null ? {} : { shortcut: key };
@@ -80,9 +87,23 @@ export function NewTabMenu(props: NewTabMenuProps) {
       items: [
         {
           id: "browser",
-          label: t("browser.label.menu-browser"),
+          ...(profiles.length === 0
+            ? { label: t("browser.label.menu-browser") }
+            : {
+                label: t("browser.label.profile-default"),
+                leading: lead(browserIcons.globe),
+              }),
           ...keyed("new.browser"),
         },
+        ...profiles.map((profile) => ({
+          id: `${PROFILE_ITEM}${profile.id}`,
+          label: profile.name,
+          leading: (
+            <MenuIcon>
+              <ProfileMark profile={profile} />
+            </MenuIcon>
+          ),
+        })),
         ...rows("bookmark", props.browserItems ?? []).map((item, index) =>
           index === 0 ? { ...item, separatorBefore: true } : item,
         ),
@@ -161,6 +182,8 @@ export function NewTabMenu(props: NewTabMenuProps) {
         else if (id === "search") props.onSearch?.();
         else if (id === "app-screen") props.onAppScreen?.();
         else if (id === "app-panel") props.onAppPanel?.();
+        else if (id.startsWith(PROFILE_ITEM))
+          props.onBrowser?.(id.slice(PROFILE_ITEM.length));
         else if (id.startsWith("pages:"))
           props.onPages?.(id.slice("pages:".length));
         else actions.get(id)?.();

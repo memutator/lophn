@@ -2,12 +2,16 @@
 // 탭에서 연 탭과 popup은 연 탭의 profile을 그대로 따른다.
 import { t } from "@lophn/i18n";
 
-import { browserProfileIdSchema } from "../../../../protocol/shell/browser-profiles.ts";
+import {
+  type BrowserProfile,
+  browserProfileIdSchema,
+} from "../../../../protocol/shell/browser-profiles.ts";
 import type { BrowserViewState } from "../../../ipc/browser.ts";
 import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";
 import { browserIcons } from "../../icons/mod.ts";
 import { readDevtools, setDevtools } from "./browser-devtools.tsx";
+import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -42,8 +46,20 @@ function profileField(profile: string | undefined): { profile?: string } {
   return profile === undefined ? {} : { profile };
 }
 
+/** 탭 머리에 보일 profile. browser 탭이 아니거나 기본 profile이거나 목록에 없는 profile이면 undefined다. */
+export function shownProfile(
+  tab: TabItem,
+  known: readonly BrowserProfile[],
+): BrowserProfile | undefined {
+  if (tab.kind !== "browser") return undefined;
+  const profile = profileOf(tab.fields?.profile);
+  return profile === undefined
+    ? undefined
+    : known.find((one) => one.id === profile);
+}
+
 /**
- * 새 browser 탭. 빈 url이면 빈 주소 칸으로 열린다. agent가 연 탭은 `open`으로 key와 자리를 주고, 고르지 않고
+ * 새 browser 탭. 빈 url이면 빈 주소 칸으로 열린다. agent가 연 탭은 `open`으로 key와 자리와 주인을 주고, 고르지 않고
  * 열며 float이면 떠 있는 패널로 연다. `profile`이 없으면 기본 profile이다.
  */
 export function openBrowserTab(
@@ -54,12 +70,14 @@ export function openBrowserTab(
     readonly options?: Parameters<TabHost["openTab"]>[1];
     readonly float?: boolean;
     readonly profile?: string;
+    readonly owner?: string;
   },
 ): void {
   const tab = {
     key: open?.key ?? newKey(),
     kind: "browser",
     title: nameOf("", url ?? ""),
+    ...(open?.owner === undefined ? {} : { owner: open.owner }),
     fields: { url: url ?? "", ...profileField(open?.profile) },
   };
   if (open?.float === true) host.openFloat(tab, undefined, open.options);
@@ -169,6 +187,7 @@ export const browserKind: TabKindDef = {
       <BrowserTab
         url={typeof url === "string" ? url : ""}
         {...profileField(profile)}
+        owner={tab.owner}
         adopt={typeof adopt === "string" ? adopt : undefined}
         favicon={typeof favicon === "string" ? favicon : undefined}
         native={tab.fields?.native === true}

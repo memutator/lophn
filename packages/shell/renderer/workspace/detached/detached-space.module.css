@@ -20,6 +20,12 @@
   white-space: nowrap;
 }
 
+/* 제목 앞 주인 avatar와 이름(OwnerMark). 이름은 제목과 같은 글꼴이다. */
+.window header [data-owner] {
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+}
+
 /* TopBar 아래 높이를 모두 쓴다. position: relative는 <webview> 그릇의 기준이다. */
 .body {
   position: relative;

@@ -31,6 +31,7 @@ import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { useBrowserApi } from "../browser/browser-api.tsx";
+import { useBrowserProfiles } from "../browser/profiles.tsx";
 import {
   WebviewHostProvider,
   WebviewLayer,
@@ -183,7 +184,7 @@ import { openInbox } from "./kinds/inbox.tsx";
 import { openJobs } from "./kinds/jobs.tsx";
 import { openPages } from "./kinds/page-view.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
-import { openBrowserTab } from "./kinds/browser.tsx";
+import { openBrowserTab, shownProfile } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { isThisComputerOnly } from "./kinds/kind.ts";
@@ -228,6 +229,7 @@ import {
   type AgentChoice,
 } from "../parts/agent-session/agent-session.tsx";
 import { codingFace } from "../parts/agent-session/coding.ts";
+import { OwnerProvider, ownerLookup } from "../parts/agent-session/owner.tsx";
 import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { workspaceIcons } from "../icons/mod.ts";
@@ -450,6 +452,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const isApp = appId !== null;
   const workspaceId = workspaceKey(workspace);
   const browserApi = useBrowserApi();
+  const browserProfiles = useBrowserProfiles();
   const surface = surfaceApi();
   // 이 workspace의 기계(범위). 갈래는 기계가 아니라 그 기계 묶음의 능력으로 본다: 이 컴퓨터의 shell host나 기기가 부를 수 없는
   // 관리 route가 필요한 것(설정, Agents, tray)은 `here`, 앱 화면은 `appViews`가 있어야 선다.
@@ -1644,6 +1647,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       return machine === null ? undefined : t("machines.button.this-computer");
     return machineLists.names.get(on);
   };
+  // 탭 머리의 주인 avatar와 기본이 아닌 browser profile.
+  const marksOf = (tab: TabItem) => {
+    const profile = shownProfile(tab, browserProfiles);
+    return {
+      ...(tab.owner === undefined ? {} : { owner: tab.owner }),
+      ...(profile === undefined ? {} : { profile }),
+    };
+  };
   const stripTab = (tab: TabItem): StripTab => ({
     key: tab.key,
     title: titleOfTab(tab),
@@ -1653,6 +1664,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     unsaved: isUnsaved(tab.key),
     renamable: renamable(tab),
     ...(stripMachine(tab) === undefined ? {} : { machine: stripMachine(tab) }),
+    ...marksOf(tab),
   });
 
   // 사람이 닫은 탭. 창 전체에서 최근 몇 개를 기억해 Ctrl/Cmd+Shift+T가 되살린다. 이름 바꾸기·
@@ -2644,6 +2656,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       crumbs: crumbsOf(tab),
       ...(browse === undefined ? {} : { browse }),
       ...(dot === null ? {} : { status: dotLabel(dot) }),
+      ...marksOf(tab),
       menu: menuStateOf(tab),
       body: (
         <div key={tab.key} className={styles.tabBody} data-tab-body={tab.key}>
@@ -3100,6 +3113,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     title: t("shell.label.global-float", { title: item.title }),
     label: item.title,
     icon: iconOfGlobalFloat(item),
+    ...(item.tab.owner === undefined ? {} : { owner: item.tab.owner }),
   }));
   const pressedChips = [
     ...globalFloats.floats.map((item) => ({
@@ -3213,7 +3227,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                       {...(browserApi === null
                         ? {}
                         : {
-                            onBrowser: () => openBrowserTab(host),
+                            onBrowser: (profile) =>
+                              openBrowserTab(
+                                host,
+                                undefined,
+                                profile === undefined ? undefined : { profile },
+                              ),
                             browserItems: quickBrowserItems,
                           })}
                       {...(agentView === null
@@ -3445,6 +3464,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                         title: item.tab.title,
                         icon: iconOfTab(item.tab),
                         dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
+                        ...(item.tab.owner === undefined
+                          ? {}
+                          : { owner: item.tab.owner }),
                         rect: item.rect,
                         pinned: item.pinned,
                         ...(globalFloats.enabled && canGoGlobal(item.tab)
@@ -3529,9 +3551,17 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         formerIdentities={loaded.project?.formerIdentities ?? []}
         folders={(loaded.project?.folders ?? []).map((folder) => folder.path)}
       >
-        {workspaceViews === null
-          ? content
-          : createPortal(content, workspaceViews.context)}
+        <OwnerProvider
+          lookup={ownerLookup(
+            sessionStates,
+            sidebarAgents.agents,
+            sidebarAgents.lophnNames,
+          )}
+        >
+          {workspaceViews === null
+            ? content
+            : createPortal(content, workspaceViews.context)}
+        </OwnerProvider>
       </AppWorkspaceProvider>
     </InboxNamesProvider>
   );

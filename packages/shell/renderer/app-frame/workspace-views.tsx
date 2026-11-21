@@ -37,6 +37,8 @@ export interface HostPlacement {
   profile: string | null;
   relation: TabRelation | null;
   source: string | null;
+  /** 탭의 주인 session. null은 사람의 탭이다. */
+  owner: string | null;
 }
 
 /** mount되지 않은 workspace에서 일어난 일. 그 workspace가 mount되면 layout에 맞춘다. */
@@ -334,13 +336,14 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
       const workspace = workspaceKey(request.workspace);
       if (views.mounted(workspace)) return;
       if (request.kind === "tab_open" && "browser" in request.payload.target) {
-        const { tab, target, relation, source } = request.payload;
+        const { tab, target, relation, source, owner } = request.payload;
         views.hostPage(workspace, {
           tab,
           url: target.browser.url,
           profile: target.browser.profile ?? null,
           relation,
           source,
+          owner: owner ?? null,
         });
       } else if (request.kind === "tab_close") {
         views.hostGone(

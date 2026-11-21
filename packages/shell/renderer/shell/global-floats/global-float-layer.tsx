@@ -26,6 +26,12 @@ import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { SettingsPane } from "../../desktop/settings/model.ts";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
+import {
+  OwnerProvider,
+  ownerLookup,
+} from "../../parts/agent-session/owner.tsx";
+import { useSessions } from "../../desktop/connection/events/hooks.tsx";
+import { useSidebarAgents } from "../../workspace/agents/sidebar-agents.ts";
 import type { TabHost } from "../../workspace/kinds/host.ts";
 import { isThisComputerOnly } from "../../workspace/kinds/kind.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
@@ -269,6 +275,9 @@ type FloatArea = { readonly width: number; readonly height: number };
 export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
   const floats = useGlobalFloats();
   const host = useGlobalFloatsHost();
+  // float bar의 주인 이름과 얼굴. 층은 workspace 창 밖이라 이 창의 Home agent 목록과 lophn 이름으로 찾는다.
+  const { sessions } = useSessions();
+  const owners = useSidebarAgents(env.source.agentsSource, null);
   const ref = useRef<HTMLDivElement>(null);
   const size = useObservedSize(ref);
   // 터미널 탭의 아이콘과 점이 agent 상태를 따라 바뀐다. float의 터미널은 어느 기계의 것이든 그 기계의 store가 안다.
@@ -329,42 +338,49 @@ export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
   };
   return (
     <div className={styles.layer} data-global-floats="">
-      <ViewKeepsProvider value={host.keeps}>
-        <WebviewHostProvider value={host.webviews}>
-          <WebviewLayer host={host.webviews} />
-          <FloatLayer
-            layerRef={ref}
-            area={area}
-            floats={floats.floats
-              .filter((item) => !item.minimized)
-              .map((item) => ({
-                key: item.key,
-                title: item.title,
-                icon: chrome(item).icon,
-                dot: chrome(item).dot,
-                rect: item.rect,
-                pinned: item.pinned,
-                ...(floats.canMoveToDesk(item) ? { global: true } : {}),
-                ...(item.tab.kind === "app_panel" ? { appHead: true } : {}),
-                body: (
-                  <GlobalFloatBody
-                    key={item.key}
-                    float={item}
-                    env={env}
-                    area={area ?? { width: 0, height: 0 }}
-                  />
-                ),
-              }))}
-            onRaise={floats.expand}
-            onRect={floats.setRect}
-            onMinimize={floats.minimize}
-            onGlobal={floats.moveToDesk}
-            onClose={floats.close}
-            onPin={floats.pin}
-            onOutside={floats.minimizeLoose}
-          />
-        </WebviewHostProvider>
-      </ViewKeepsProvider>
+      <OwnerProvider
+        lookup={ownerLookup(sessions, owners.agents, owners.lophnNames)}
+      >
+        <ViewKeepsProvider value={host.keeps}>
+          <WebviewHostProvider value={host.webviews}>
+            <WebviewLayer host={host.webviews} />
+            <FloatLayer
+              layerRef={ref}
+              area={area}
+              floats={floats.floats
+                .filter((item) => !item.minimized)
+                .map((item) => ({
+                  key: item.key,
+                  title: item.title,
+                  icon: chrome(item).icon,
+                  dot: chrome(item).dot,
+                  ...(item.tab.owner === undefined
+                    ? {}
+                    : { owner: item.tab.owner }),
+                  rect: item.rect,
+                  pinned: item.pinned,
+                  ...(floats.canMoveToDesk(item) ? { global: true } : {}),
+                  ...(item.tab.kind === "app_panel" ? { appHead: true } : {}),
+                  body: (
+                    <GlobalFloatBody
+                      key={item.key}
+                      float={item}
+                      env={env}
+                      area={area ?? { width: 0, height: 0 }}
+                    />
+                  ),
+                }))}
+              onRaise={floats.expand}
+              onRect={floats.setRect}
+              onMinimize={floats.minimize}
+              onGlobal={floats.moveToDesk}
+              onClose={floats.close}
+              onPin={floats.pin}
+              onOutside={floats.minimizeLoose}
+            />
+          </WebviewHostProvider>
+        </ViewKeepsProvider>
+      </OwnerProvider>
     </div>
   );
 }

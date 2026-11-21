@@ -32,6 +32,15 @@
   gap: var(--space-2);
 }
 
+/* 기본이 아닌 profile의 색 점(탭 줄, 칸 머리). 색은 profile이 정해 inline으로 온다. */
+.profileMark {
+  display: inline-block;
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+}
+
 .agentText {
   color: var(--color-text-muted);
   font-family: var(--font-sans);

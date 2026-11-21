@@ -11,11 +11,13 @@ import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
+import type { BrowserProfile } from "../../../protocol/shell/browser-profiles.ts";
 import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";
 import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import type { AgentControl } from "../workspace/use-surface-requests.ts";
 import { browserIcons } from "../icons/mod.ts";
 import { useCardHead } from "../parts/card-head/card-head.tsx";
+import { useOwner } from "../parts/agent-session/owner.tsx";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
 import { BookmarkStar } from "./bookmark-star.tsx";
 import { useInDetachedWindow } from "./detached-window.ts";
@@ -54,6 +56,8 @@ interface BrowserChromeProps {
   onKeepAlive(on: boolean): void;
   /** agent가 이 탭을 다루는 중이면 "agent 조작 중"과 [가져오기]를 머리에 둔다. */
   agent: AgentControl | null;
+  /** 탭의 주인 session. 조작 중 문장이 그 agent의 이름을 말한다. */
+  owner: string | undefined;
 }
 
 type DevtoolsAction = DevtoolsPlace | "open" | "close";
@@ -88,20 +92,52 @@ const DEVTOOLS_ITEMS = [
   },
 ] as const;
 
-/** browser 탭 머리와 preview 탭 안내 줄이 같이 쓴다. 가져오면 "내가 조작 중"과 [돌려주기]로 바뀐다. */
-export function AgentControlBar(props: { control: AgentControl }) {
+// profile 색. character 색(parts/avatar/character.tsx)과 같은 값이다: profile은 agent 얼굴과 같은 색 이름을 쓴다.
+const PROFILE_COLORS: Record<BrowserProfile["color"], string> = {
+  coral: "#ff806b",
+  periwinkle: "#7b91f5",
+  yellow: "#ffd465",
+  sage: "#84bc9b",
+  lavender: "#af8cdb",
+  peach: "#ffb693",
+  blue: "#649df0",
+  teal: "#6ba5a4",
+};
+
+/** 기본이 아닌 browser profile의 색 점. 탭 줄과 칸 머리에서 kind 아이콘 옆에 선다. */
+export function ProfileMark(props: { profile: BrowserProfile }) {
+  return (
+    <span
+      className={styles.profileMark}
+      style={{ background: PROFILE_COLORS[props.profile.color] }}
+      role="img"
+      aria-label={t("browser.label.profile", { name: props.profile.name })}
+      data-profile={props.profile.id}
+    />
+  );
+}
+
+/**
+ * browser 탭 머리와 preview 탭 안내 줄이 같이 쓴다. 가져오면 "내가 조작 중"과 [돌려주기]로 바뀐다. 조작 중 문장은 탭 주인의 이름을
+ * 말하고, 주인이 없으면(옛 탭) "An agent"다.
+ */
+export function AgentControlBar(props: {
+  control: AgentControl;
+  owner?: string | undefined;
+}) {
   const { control } = props;
+  const who = useOwner(props.owner);
   return (
     <div
       className={styles.agentControl}
       data-agent-control={control.held ? "held" : "agent"}
     >
       <span className={styles.agentText}>
-        {t(
-          control.held
-            ? "browser.text.agent-held"
-            : "browser.text.agent-controlling",
-        )}
+        {control.held
+          ? t("browser.text.agent-held")
+          : who === null
+            ? t("browser.text.agent-controlling")
+            : t("browser.text.agent-controlling-named", { name: who.name })}
       </span>
       <Button
         size="sm"
@@ -289,7 +325,9 @@ export function BrowserChrome(props: BrowserChromeProps) {
   );
   const actions = (
     <>
-      {props.agent === null ? null : <AgentControlBar control={props.agent} />}
+      {props.agent === null ? null : (
+        <AgentControlBar control={props.agent} owner={props.owner} />
+      )}
       <PageActions chrome={props} />
     </>
   );
@@ -333,6 +371,7 @@ export function BrowserChrome(props: BrowserChromeProps) {
       props.keepAlive,
       props.agent?.agent,
       props.agent?.held,
+      props.owner,
       props.focusAddress,
       props.native,
       detached,

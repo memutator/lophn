@@ -226,3 +226,12 @@
   outline: var(--border-focus-width) solid var(--color-focus);
   outline-offset: calc(-1 * var(--border-focus-width));
 }
+
+/* group 칸 머리 맨 앞의 주인 avatar와 profile 점. */
+.marks {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  padding-inline: var(--space-2);
+}

@@ -21,6 +21,7 @@ import {
 import { ViewLayerProvider } from "../app-frame/webview-host.tsx";
 import { actionIcons, browserIcons, shellIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
+import { OwnerMark } from "../parts/agent-session/owner.tsx";
 import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { startPointerDrag } from "../workspace/drag.ts";
 import {
@@ -38,6 +39,8 @@ export interface FloatEntry {
   readonly title: string;
   readonly icon: ReactNode;
   readonly dot?: SessionDot | null;
+  /** 탭의 주인 session. 제목 앞에 주인 avatar와 이름이 선다. 없으면 사람의 탭이다. */
+  readonly owner?: string;
   /** layer(stage) 왼쪽 위 기준 CSS px. */
   readonly rect: FloatRect;
   /** 고정(always on top). */
@@ -197,7 +200,17 @@ function FloatEntryView({
     >
       <FloatPanel
         title={float.title}
-        icon={float.icon}
+        // FloatPanel의 제목은 글이라 주인은 아이콘 자리 앞에 둔다.
+        icon={
+          float.owner === undefined ? (
+            float.icon
+          ) : (
+            <span className={styles.lead}>
+              <OwnerMark owner={float.owner} named />
+              {float.icon}
+            </span>
+          )
+        }
         badge={
           <>
             {float.dot ? <TabStateDot dot={float.dot} /> : null}

@@ -148,6 +148,8 @@ interface AppPreviewTabProps {
   deviceAt: number;
   /** agent가 `--screen`으로 고른 화면 key. null이면 앱의 첫 `tab` 화면이다. */
   screen: string | null;
+  /** 탭의 주인 session. agent가 다루는 동안 안내 줄이 그 agent의 이름을 말한다. */
+  owner: string | undefined;
 }
 
 /** 등록한 기기 목록. 탭이 보일 때마다 다시 읽어 Settings에서 고친 것이 따라온다. */
@@ -433,7 +435,9 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
             setChosen(name);
           }}
         />
-        {agent === null ? null : <AgentControlBar control={agent} />}
+        {agent === null ? null : (
+          <AgentControlBar control={agent} owner={props.owner} />
+        )}
         <Button
           size="sm"
           variant="ghost"

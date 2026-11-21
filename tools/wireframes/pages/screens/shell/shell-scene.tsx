@@ -1,6 +1,7 @@
 // shell 틀을 fake desk 상태로 그린다. 진짜 연결은 project 화면 task가 하고, 여기는 틀이 callback에 맞게 움직이는지 보이려고
 // 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다.
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Icon } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
 import { matchKey } from "../../../../../packages/protocol/shell/keybindings.ts";
 import { MachinesProvider } from "../../../../../packages/shell/renderer/desktop/machines/context.tsx";
@@ -9,7 +10,11 @@ import {
   fakeMachines,
   sampleMachines,
 } from "../../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
-import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
+import {
+  browserIcons,
+  shellIcons,
+} from "../../../../../packages/shell/renderer/icons/mod.ts";
+import { OwnerProvider } from "../../../../../packages/shell/renderer/parts/agent-session/owner.tsx";
 import {
   ContentCard,
   type TabAction,
@@ -82,6 +87,13 @@ import {
   type Variant,
 } from "../../../mock/shell-data.tsx";
 import { MockRightSidebar } from "../../../mock/shell-sidebars.tsx";
+import {
+  mockOwners,
+  OWNED_FLOATS,
+  OWNED_GLOBAL,
+  OWNED_TAB,
+  TAB_MARKS,
+} from "../../../mock/tab-owners.ts";
 import { PageLeftSidebar, pageQuick } from "../project-window.tsx";
 import {
   click,
@@ -114,8 +126,14 @@ export function ShellScene({
   recentOpen = false,
   globalFloats = false,
   taskbar = true,
+  owners = false,
 }: {
   variant: Variant;
+  /**
+   * 탭 주인(mock/tab-owners.ts). 몇 탭과 float이 agent의 것이고 Main desk와 전역 float에 agent가 연 접힌 float이 더 있다. 탭 줄과
+   * 칸 머리에 주인 avatar(browser 탭은 profile 점)가, float bar에 주인이 서고, chip은 주인마다 하나로 묶인다.
+   */
+  owners?: boolean;
   /** 모든 workspace에 사는 전역 float을 desk float 위에 띄운다. float chip 묶음에는 전역 표시가 붙은 chip이 먼저 놓인다. "chip"이면 접힌 것 하나만 둔다. */
   globalFloats?: boolean | "chip";
   /** 설정 `shell.taskbar`. 켜면 float chip이 맨 아래 작업 표시줄에 있고, 끄면 tab 줄 끝에 있다. 기본은 켬이다. */
@@ -154,13 +172,35 @@ export function ShellScene({
       source: fakeMachines({ machines: machineList }).source,
     };
   });
-  const [desks, setDesks] = useState(() => mockDesks(variant));
+  const [desks, setDesks] = useState(() =>
+    owners
+      ? mockDesks(variant).map((d) =>
+          d.key === "_default"
+            ? {
+                ...d,
+                model: OWNED_FLOATS.reduce(
+                  (model, tab) =>
+                    openFloatTab(model, tab, FLOAT_RECTS[2]!, true),
+                  openTab(d.model, OWNED_TAB, { select: false, after: "c1" }),
+                ),
+              }
+            : d,
+        )
+      : mockDesks(variant),
+  );
   const floatRef = useRef<HTMLDivElement>(null);
   const floatArea = useObservedSize(floatRef);
   // 전역 float도 desk model의 floats 규칙을 그대로 쓴다(앱의 shell/global-floats/store.ts와 같다).
   const [globals, setGlobals] = useState<Desk>(() =>
     globalFloats
-      ? mockGlobalFloats(globalFloats === "chip")
+      ? owners
+        ? openFloatTab(
+            mockGlobalFloats(globalFloats === "chip"),
+            OWNED_GLOBAL,
+            FLOAT_RECTS[0]!,
+            true,
+          )
+        : mockGlobalFloats(globalFloats === "chip")
       : emptyDesk("global", "Global"),
   );
   const globalRef = useRef<HTMLDivElement>(null);
@@ -210,6 +250,21 @@ export function ShellScene({
         d.key === mock.key ? { ...d, model: change(d.model) } : d,
       ),
     );
+
+  // 주인 표(mock/tab-owners.ts)를 켰을 때만 탭에 주인과 profile을 단다.
+  const marks = (key: string) => (owners ? (TAB_MARKS[key] ?? {}) : {});
+  // profile이 있는 탭은 browser 탭이라 지구본 아이콘이다(shell 틀 mock에는 browser kind가 없다).
+  const iconOf = (tab: MockTab): ReactNode =>
+    marks(tab.key).profile === undefined ? (
+      tabIcon(tab)
+    ) : (
+      <Icon icon={browserIcons.globe} pixels={14} />
+    );
+  const strip = (tab: MockTab) => ({
+    ...stripTab(tab),
+    icon: iconOf(tab),
+    ...marks(tab.key),
+  });
 
   // 실제 앱의 pane.focus-* command와 같은 표(protocol의 shell/keybindings.ts)와 같은 함수(neighborLeaf)를 쓴다.
   useEffect(() => {
@@ -366,10 +421,13 @@ export function ShellScene({
               ? tab.key === desk.selected
               : leavesOf(group.layout).includes(tab.key),
           )
-          .map((tab) => cardPane(mockOf(tab), menuState(tab)));
+          .map((tab) => ({
+            ...cardPane(mockOf(tab), menuState(tab)),
+            ...marks(tab.key),
+          }));
   const chosen = PANELS.find((p) => p.key === panel) ?? PANELS[0]!;
-  const deskChips = desk.floats.map((f) => stripTab(mockOf(f.tab)));
-  const globalChips = globals.floats.map((f) => stripTab(mockOf(f.tab)));
+  const deskChips = desk.floats.map((f) => strip(mockOf(f.tab)));
+  const globalChips = globals.floats.map((f) => strip(mockOf(f.tab)));
   const pressedChips = [...globals.floats, ...desk.floats]
     .filter((f) => !f.minimized)
     .map((f) => f.tab.key);
@@ -417,11 +475,11 @@ export function ShellScene({
               tabs: entry.tabs.map((tab) => {
                 const stack = paneStackOf(desk, tab.key);
                 return stack.length < 2
-                  ? stripTab(mockOf(tab))
+                  ? strip(mockOf(tab))
                   : {
-                      ...stripTab(mockOf(tab)),
+                      ...strip(mockOf(tab)),
                       stack: stack.map((key) =>
-                        stripTab(
+                        strip(
                           mockOf(desk.tabs.find((each) => each.key === key)!),
                         ),
                       ),
@@ -509,8 +567,9 @@ export function ShellScene({
                   {
                     key: tab.key,
                     title: tab.title,
-                    icon: tabIcon(tab),
+                    icon: iconOf(tab),
                     dot: tab.dot,
+                    ...marks(tab.key),
                     rect: item.rect,
                     pinned: item.pinned,
                     body: floatBody(tab),
@@ -553,8 +612,9 @@ export function ShellScene({
                       {
                         key: tab.key,
                         title: tab.title,
-                        icon: tabIcon(tab),
+                        icon: iconOf(tab),
                         dot: tab.dot,
+                        ...marks(tab.key),
                         rect: item.rect,
                         pinned: item.pinned,
                         global: true,
@@ -634,9 +694,14 @@ export function ShellScene({
       </ShellFrame>
     </TabDragProvider>
   );
-  return machines === null ? (
-    frame
+  const owned = owners ? (
+    <OwnerProvider lookup={mockOwners}>{frame}</OwnerProvider>
   ) : (
-    <MachinesProvider source={machines.source}>{frame}</MachinesProvider>
+    frame
+  );
+  return machines === null ? (
+    owned
+  ) : (
+    <MachinesProvider source={machines.source}>{owned}</MachinesProvider>
   );
 }

@@ -13,8 +13,11 @@ import { t } from "@lophn/i18n";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 
+import type { BrowserProfile } from "../../../protocol/shell/browser-profiles.ts";
+import { ProfileMark } from "../browser/browser-chrome.tsx";
 import { shellIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
+import { OwnerMark, useOwner } from "../parts/agent-session/owner.tsx";
 import {
   dotLabel,
   TabStateDot,
@@ -38,6 +41,10 @@ export interface StripTab {
   readonly renamable?: boolean;
   /** 이 컴퓨터가 아닌 기계의 tab이면 그 기계의 이름. 이름 옆에 기계 꼬리표가 붙는다. */
   readonly machine?: string;
+  /** 탭의 주인 session. 아이콘 옆에 주인 avatar가 붙는다. 없으면 사람의 탭이다. */
+  readonly owner?: string;
+  /** 기본이 아닌 browser profile. 아이콘 옆에 profile 색 점이 붙는다. */
+  readonly profile?: BrowserProfile;
   /**
    * group의 칸이 돌려 보는 tab들(온 순서, 이 tab 포함). 둘 이상이면 칸의 tab이 모두 차례로 보인다. 고른 group은
    * 이름까지, 고르지 않은 group은 숨은 tab을 아이콘으로 보인다.
@@ -277,7 +284,13 @@ export function TabStrip({
                   return (
                     <Tooltip
                       key={item.key}
-                      content={tip}
+                      content={
+                        <TabTip
+                          text={tip}
+                          owner={item.owner}
+                          profile={item.profile}
+                        />
+                      }
                       open={editing ? false : undefined}
                     >
                       <span
@@ -318,6 +331,10 @@ export function TabStrip({
                         }}
                       >
                         <span className={styles.icon}>{item.icon}</span>
+                        <OwnerMark owner={item.owner} />
+                        {item.profile === undefined ? null : (
+                          <ProfileMark profile={item.profile} />
+                        )}
                         {editing ? (
                           <RenameInput
                             title={item.title}
@@ -398,6 +415,36 @@ export function TabStrip({
         onToggleDesk={onToggleFloat}
       />
     </div>
+  );
+}
+
+// tab tooltip. 주인과 profile이 있으면 이름 아래 줄에 적는다(avatar와 색 점만으로는 누구인지 모른다).
+function TabTip({
+  text,
+  owner,
+  profile,
+}: {
+  text: string;
+  owner: string | undefined;
+  profile: BrowserProfile | undefined;
+}) {
+  const who = useOwner(owner);
+  return (
+    <>
+      {text}
+      {who === null ? null : (
+        <>
+          <br />
+          {t("shell.label.owner-tab", { name: who.name })}
+        </>
+      )}
+      {profile === undefined ? null : (
+        <>
+          <br />
+          {t("browser.label.profile", { name: profile.name })}
+        </>
+      )}
+    </>
   );
 }
 

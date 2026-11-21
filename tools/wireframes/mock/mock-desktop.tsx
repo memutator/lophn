@@ -84,6 +84,10 @@ interface TabSpec {
   readonly agent?: string;
   /** agent 탭의 workspace. 없으면 Home이다. */
   readonly workspace?: { readonly kind: "app"; readonly id: string };
+  /** 탭의 주인 session(탭 공통 칸 `owner`). 없으면 사람의 탭이다. */
+  readonly owner?: string;
+  /** browser 탭의 profile(bpf id). 없으면 기본 profile이다. */
+  readonly profile?: string;
 }
 
 export interface PaneSpec {
@@ -198,8 +202,17 @@ function fakeDetached(taken?: DetachedTaken): LophnDetachedApi {
   };
 }
 
-// 저장된 layout의 탭 모양으로 바꾼다. 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
+// 저장된 layout의 탭 모양으로 바꾼다. 주인과 browser profile은 kind와 상관없이 단다.
 function storedTab(tab: TabSpec) {
+  return {
+    ...storedKind(tab),
+    ...(tab.owner === undefined ? {} : { owner: tab.owner }),
+    ...(tab.profile === undefined ? {} : { profile: tab.profile }),
+  };
+}
+
+// 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
+function storedKind(tab: TabSpec) {
   if (tab.kind === "agent") {
     return {
       kind: tab.kind,
@@ -344,7 +357,7 @@ export function MockDesktop(props: MockDesktopProps) {
     };
     const terminal = fakeTerminalDeps();
     if (openTerminal !== undefined) terminal.store.request(openTerminal);
-    const { title, key, kind, folder } = detachedTab ?? {};
+    const { title, key, kind, folder, owner } = detachedTab ?? {};
     const detached = fakeDetached(
       detachedTab === undefined
         ? undefined
@@ -355,6 +368,7 @@ export function MockDesktop(props: MockDesktopProps) {
               kind: kind!,
               title,
               folder,
+              owner,
             } as DetachedTaken["tab"],
             transfer: null,
           },

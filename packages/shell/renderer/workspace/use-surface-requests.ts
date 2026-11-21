@@ -23,13 +23,14 @@ import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 
 const HOST_KEY = "host:";
 
-// agent가 연 탭의 자리. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다(session 탭은 Main desk 끝).
+// agent가 연 탭의 자리와 주인. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다(session 탭은 Main desk 끝).
 function placementOf(
   host: () => TabHost,
   key: string,
   relation: TabRelation | null,
   source: string | null,
   target: AgentOpen["target"],
+  owner: string | undefined,
 ): SessionTabOpen {
   const sourceTab =
     source === null
@@ -40,6 +41,7 @@ function placementOf(
   const at = openAt(host().desk, sourceTab?.key, "show", { relation, target });
   return {
     key,
+    ...ownerField(owner),
     float: at.kind === "float",
     options: {
       select: false,
@@ -56,6 +58,10 @@ function placementOf(
         : { minimized: at.minimized === true }),
     },
   };
+}
+
+function ownerField(owner: string | undefined): { owner?: string } {
+  return owner === undefined ? {} : { owner };
 }
 
 export function surfaceApi(): LophnSurfaceApi | null {
@@ -165,31 +171,32 @@ export function useSurfaceRequests(args: Args): void {
         done();
         return;
       }
-      const { target, relation, source } = request.payload;
+      const { target, relation, source, owner } = request.payload;
       const open = placementOf(
         host,
         key,
         relation,
         source,
         Object.keys(target)[0] as AgentOpen["target"],
+        owner,
       );
       if ("preview" in target) {
-        // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 기기와 화면만 바꾼다. at이 달라야 같은 기기를 다시 줘도 탭이 알아챈다
-        // (사람이 탭에서 기기를 바꿨을 수 있다). 화면은 사람이 바꾸지 않아 값만 고친다.
+        // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 주인과 기기와 화면만 바꾼다(core는 같은 앱의 preview를 다시 연 caller를
+        // 새 주인으로 한다). at이 달라야 같은 기기를 다시 줘도 탭이 알아챈다(사람이 탭에서 기기를 바꿨을 수 있다). 화면은 사람이
+        // 바꾸지 않아 값만 고친다.
         const existing = host()
           .windowTabs()
           .find((tab) => tab.key === key);
         if (existing !== undefined) {
           const { device, screen } = target.preview;
-          if (device !== null || screen !== null) {
-            host().patchTab(key, (current) => ({
-              fields: {
-                ...current.fields,
-                ...(device === null ? {} : { device, device_at: Date.now() }),
-                ...(screen === null ? {} : { screen }),
-              },
-            }));
-          }
+          host().patchTab(key, (current) => ({
+            owner,
+            fields: {
+              ...current.fields,
+              ...(device === null ? {} : { device, device_at: Date.now() }),
+              ...(screen === null ? {} : { screen }),
+            },
+          }));
           done();
           return;
         }
@@ -202,12 +209,15 @@ export function useSurfaceRequests(args: Args): void {
               tab.app === target.preview.app &&
               !tab.key.startsWith(HOST_KEY),
           );
-        const tab = appPreviewTab(
-          target.preview.app,
-          key,
-          target.preview.device,
-          target.preview.screen,
-        );
+        const tab = {
+          ...appPreviewTab(
+            target.preview.app,
+            key,
+            target.preview.device,
+            target.preview.screen,
+          ),
+          ...ownerField(owner),
+        };
         if (person !== undefined) {
           host().openTab(tab, { select: false, after: person.key });
         } else if (open.float === true) {
@@ -218,16 +228,19 @@ export function useSurfaceRequests(args: Args): void {
         return;
       }
       if ("artifact" in target) {
+        // 이미 이 창에 열려 있으면 주인만 바꾼다(core는 같은 artifact를 다시 연 caller를 새 주인으로 한다).
         if (
           host()
             .windowTabs()
             .some((tab) => tab.key === key)
         ) {
+          host().patchTab(key, { owner });
           done();
           return;
         }
-        const tab = artifactTab(host(), target.artifact.name, key);
-        if (tab === null) return;
+        const made = artifactTab(host(), target.artifact.name, key);
+        if (made === null) return;
+        const tab = { ...made, ...ownerField(owner) };
         // 같은 artifact 탭(사람이 연 것, core가 다시 떠 표에서 빠진 옛 host 탭)이 있으면 그 자리에 이 탭을 열고 그것을 닫는다.
         // 같은 창의 같은 source는 view 하나라 두 탭이 한 page를 나눠 갖지 않게 한다.
         const previous = host()
@@ -262,9 +275,14 @@ export function useSurfaceRequests(args: Args): void {
             (tab) =>
               tab.kind === "terminal" && terminal.store.refOf(tab.key) === ref,
           );
-        if (have || openTerminal(host(), { open, terminal: ref }) !== null) {
+        if (have) {
           done();
+          return;
         }
+        const opened = openTerminal(host(), { open, terminal: ref });
+        if (opened === null) return;
+        if (owner !== undefined) host().patchTab(opened, { owner });
+        done();
         return;
       }
       // core가 연 session의 agent 정의로 고른 profile이다. 없으면 기본 profile이다.
@@ -306,6 +324,7 @@ export function useSurfaceRequests(args: Args): void {
           item.relation,
           item.source,
           "browser",
+          item.owner ?? undefined,
         ),
         ...(item.profile === null ? {} : { profile: item.profile }),
       });

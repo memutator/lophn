@@ -13,11 +13,14 @@ import {
 } from "react";
 import { t } from "@lophn/i18n";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Menu, Popover } from "@lophn/ui/overlay";
+import { Menu, Popover, Tooltip } from "@lophn/ui/overlay";
 
+import type { BrowserProfile } from "../../../protocol/shell/browser-profiles.ts";
+import { ProfileMark } from "../browser/browser-chrome.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { shellIcons } from "../icons/mod.ts";
 import { PATH_DRAG_TYPE } from "../path-drag.ts";
+import { OwnerMark, useOwner } from "../parts/agent-session/owner.tsx";
 import {
   CardHeadContext,
   type CardHeadSetter,
@@ -65,6 +68,10 @@ export interface CardPane {
   readonly status?: string;
   /** ⋯ 메뉴가 이 tab에 보이는 항목. 주지 않으면 기본 항목이다. */
   readonly menu?: TabMenuState;
+  /** tab의 주인 session. group 칸이면 머리 줄 앞에 주인 avatar가 선다(한 tab이면 tab 줄이 보인다). */
+  readonly owner?: string;
+  /** 기본이 아닌 browser profile. 주인과 같은 자리에 색 점으로 선다. */
+  readonly profile?: BrowserProfile;
   readonly body: ReactNode;
 }
 
@@ -220,6 +227,7 @@ export function ContentCard({
               >
                 <CardHead
                   pane={pane}
+                  grouped={grouped}
                   spec={heads[pane.key]}
                   onAction={(action) => onAction(action, pane.key)}
                   cycle={
@@ -317,12 +325,14 @@ function HeadScope({
 
 function CardHead({
   pane,
+  grouped,
   spec,
   onAction,
   cycle,
   onDragStart,
 }: {
   pane: CardPane;
+  grouped: boolean;
   spec: CardHeadSpec | undefined;
   onAction: (action: TabAction) => void;
   /** 칸이 돌려 보는 tab 중 몇째(1부터)인지와 넘기기. 하나뿐이면 없다. */
@@ -349,6 +359,7 @@ function CardHead({
         onDragStart?.(event);
       }}
     >
+      {grouped ? <PaneMarks owner={pane.owner} profile={pane.profile} /> : null}
       {nav === undefined ? null : (
         <>
           <IconButton
@@ -447,6 +458,36 @@ function CardHead({
         }
       />
     </div>
+  );
+}
+
+// group 칸 머리의 주인 avatar와 profile 점. tooltip이 이름을 말한다.
+function PaneMarks({
+  owner,
+  profile,
+}: {
+  owner: string | undefined;
+  profile: BrowserProfile | undefined;
+}) {
+  const who = useOwner(owner);
+  if (who === null && profile === undefined) return null;
+  return (
+    <Tooltip
+      content={
+        <>
+          {who === null ? null : t("shell.label.owner-tab", { name: who.name })}
+          {who !== null && profile !== undefined ? <br /> : null}
+          {profile === undefined
+            ? null
+            : t("browser.label.profile", { name: profile.name })}
+        </>
+      }
+    >
+      <span className={styles.marks}>
+        <OwnerMark owner={owner} />
+        {profile === undefined ? null : <ProfileMark profile={profile} />}
+      </span>
+    </Tooltip>
   );
 }
 

@@ -44,6 +44,29 @@
   left: calc(var(--space-3) + var(--space-6) - var(--space-4));
 }
 
+/* 주인 chip의 개수. avatar(와 이름) 뒤에 붙는다. */
+.count {
+  min-width: var(--space-4);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.chip[data-owner-chip]:not([data-named]) {
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+}
+
+/* 주인 chip 목록의 아이콘 칸. 전역 float이면 chip처럼 지구본이 붙는다. */
+.lead {
+  position: relative;
+  display: inline-flex;
+}
+
+.lead .globalMark {
+  right: calc(-1 * var(--space-1));
+  bottom: calc(-1 * var(--space-1));
+}
+
 .chip:hover {
   background: var(--color-surface-muted);
 }

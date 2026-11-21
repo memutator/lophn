@@ -1,5 +1,5 @@
 // 다른 컴퓨터가 내놓은 앱을 이 컴퓨터에 들이는 길. sidebar 줄의 menu와 Settings › Sync가 같이 쓴다.
-// 들일 수 있는 앱은 `machine/environment`의 `available`이 말하고, 그 목록에 없으면 그 앱의 `sync_to`가 꺼져 있는 것이다.
+// 들일 수 있는 앱은 `machine/environment`의 `available`이 말하고, 그 목록에 없으면 그 앱이 private workspace에 있거나 아직 오지 않은 것이다.
 import type { Id } from "../../../protocol/base/ids.ts";
 import { appTakeIn } from "../../../protocol/folder/take-in.ts";
 import type { MachineEnvironment } from "../../../protocol/folder/mod.ts";

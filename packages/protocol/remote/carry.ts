@@ -41,7 +41,7 @@ const KIB = 1024;
 const MIB = 1024 * KIB;
 const DAY = 24 * 60 * 60 * 1000;
 
-// 앱 선언 `sync_to: "computers"`가 고르는 갈 곳 "내 컴퓨터들". 그 폴더는 data root 안 `computers/`이고 배치와 file 꼴은
+// 앱 선언의 `sync`가 table의 값으로 고르는 갈 곳 `"computers"`("내 컴퓨터들"). 그 폴더는 data root 안 `computers/`이고 배치와 file 꼴은
 // 이름 붙인 폴더와 같다. 사람은 `folder.destinations`에 이 이름을 쓰지 못한다.
 export const COMPUTERS_DESTINATION = "computers";
 export const COMPUTERS_DIR = "computers";
@@ -623,7 +623,8 @@ export const carryStatus = defineRead({
       z.object({
         app: appIdSchema,
         name: z.string(),
-        sync_to: z.string(),
+        // 선언의 `sync`가 그 앱의 table을 보내는 destination.
+        destination: z.string(),
         read_at: atSchema.nullable(),
       }),
     ),

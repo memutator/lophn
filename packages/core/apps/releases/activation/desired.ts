@@ -158,7 +158,8 @@ export async function readBundleCopy(
   } catch {
     return unavailable("bundle declaration is invalid");
   }
-  const declaration = validateDeclaration(raw, { app });
+  // 봉인한 사본이라 옛 release에만 있는 칸도 받는다(`syncPlanOf`).
+  const declaration = validateDeclaration(raw, { app, sealed: true });
   if (!declaration.ok) {
     return unavailable(
       `bundle declaration is invalid: ${declaration.error.message}`,

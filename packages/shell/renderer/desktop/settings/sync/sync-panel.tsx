@@ -506,9 +506,9 @@ export function SyncPanel({
                   <span className={styles.lineHelp}>
                     {t("settings-sync.note.syncs-to", {
                       folder:
-                        app.syncTo === "computers"
+                        app.destination === "computers"
                           ? t("settings-sync.label.destination-computers")
-                          : app.syncTo,
+                          : app.destination,
                     })}
                     {" · "}
                     {app.readAt === null

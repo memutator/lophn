@@ -29,7 +29,11 @@ import { installCrashExit } from "./crash.ts";
 import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
 import { parseAppStart } from "./start-input.ts";
 import { publishReady, startRuntime } from "./startup.ts";
-import { openSyncStore, syncsData } from "./sync.ts";
+import {
+  syncPlanOf,
+  syncsData,
+} from "../../../../protocol/apps/declaration/sync-plan.ts";
+import { openSyncStore } from "./sync.ts";
 import type { NodeDatabase } from "../../../../protocol/apps/sync/node-db.ts";
 
 const CRASH_REPORT_WAIT_MS = 2_000;
@@ -116,10 +120,11 @@ export async function initializeAppRuntime(deps: InitializeAppRuntimeDeps) {
   let startHlc: bigint | null = null;
   // sync 앱은 앱 code가 cap-store를 실은 뒤 그 연결에 sync 표를 건다. DB를 쓰지 않는 앱(migration이 없거나
   // cap-store를 싣지 않음)은 sync 일을 하지 않는다.
+  const plan = syncPlanOf(deps.declaration);
   if (
     started.state.identity.mode === "live" &&
     deps.dataSchema > 0 &&
-    syncsData(deps.declaration)
+    syncsData(plan)
   ) {
     const database = started.state.store.database();
     if (database !== null) {
@@ -130,6 +135,7 @@ export async function initializeAppRuntime(deps: InitializeAppRuntimeDeps) {
         record: started.state.store,
         nowMs: () => clock.nowMs(),
         startChangeset,
+        plan,
       });
       started.state.sync = sync;
       startHlc = sync.startHlc;

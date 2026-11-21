@@ -25,7 +25,7 @@ export type AppSyncDeps = {
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
   /** 활성 release의 code_commit. 있으면 push `conflict` details에 실어 폰이 여러 컴퓨터의 같은 commit release를 알아본다. */
   codeCommit?(release: Id<"rel">): string | null;
-  // 그 release의 선언이 `runs_on`에 phone을 가졌는가. `sync_to`만 있는 앱은 폰에 오지 않는다.
+  // 그 release의 선언이 `runs_on`에 phone을 가졌는가. `sync`만 있는 앱은 폰에 오지 않는다.
   runsOnPhone(app: string, release: string): boolean;
 };
 

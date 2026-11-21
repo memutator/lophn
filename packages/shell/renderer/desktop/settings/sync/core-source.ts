@@ -16,7 +16,7 @@ import type { SaveOutcome, SyncFolder, SyncSettingsSource } from "./source.ts";
 const DESTINATIONS_KEY = "folder.destinations";
 const SHARED_KEY = "folder.shared";
 const REMOTE_KEY = "remote.enabled";
-// 사람이 쓰지 못하는 이름. 앱의 `sync_to: "computers"`가 쓰는 폴더라 목록에서 뺀다.
+// 사람이 쓰지 못하는 이름. 앱 선언의 `sync`가 고르는 `"computers"` 폴더라 목록에서 뺀다.
 const COMPUTERS = "computers";
 
 type Named = Record<string, { path: string }>;
@@ -142,7 +142,7 @@ export function coreSyncSource(
           apps: read.value.apps.map((row) => ({
             app: row.app,
             name: row.name,
-            syncTo: row.sync_to,
+            destination: row.destination,
             readAt: row.read_at,
           })),
           duplicateMachines: roster.ok

@@ -183,7 +183,7 @@ export type EventDeclaration = {
   name: string;
   description: string;
   payloadSchema: InputSchema;
-  // true면 그 앱의 data와 같은 길로 사람의 다른 기계에 가서 거기서도 한 번 난다(그래서 `sync_to`가 있어야 한다).
+  // true면 그 앱의 data와 같은 길로 사람의 다른 기계에 가서 거기서도 한 번 난다(그래서 `sync`가 비지 않아야 한다).
   // 없으면 이 기계에서만 난다. false는 칸을 두지 않아 칸이 없는 옛 선언의 hash가 그대로다.
   across_machines?: boolean;
 };
@@ -249,8 +249,11 @@ export type AppDeclaration = {
   // 없어도 된다. 없으면 ["computer"]와 같고, 칸이 없는 옛 선언의 hash는 그대로다. 앱 하나의 backend가 어디서 도는지는
   // 이 칸 하나다. 폰 화면이 있다고 sync 앱이 되지 않는다(폰 화면이 있는 remote 앱이 말없이 바뀌면 안 된다).
   runs_on?: RunsOn;
-  // 없어도 된다. 없으면 이 앱의 data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다. 값은 destination 이름뿐이다:
-  // 폴더 경로는 기계마다 달라서 선언에 두면 다른 기계에서 맞지 않는다. 경로는 기계마다의 설정이 이름에 묶는다.
+  // 없어도 된다. table 이름 → destination 이름. 적은 table의 data만 그 destination으로 가고 적지 않은 table은 이 기계를
+  // 떠나지 않는다. 값은 destination 이름뿐이다: 폴더 경로는 기계마다 달라서 선언에 두면 다른 기계에서 맞지 않는다. 경로는
+  // 기계마다의 설정이 이름에 묶는다. 지금은 모든 값이 같은 destination이어야 한다. 비면 칸을 두지 않는다.
+  sync?: Record<string, string>;
+  // 옛 release의 봉인한 선언에만 있다(모든 table을 그 destination으로). 새 release 준비는 거절하고 `syncPlanOf`만 읽는다.
   sync_to?: string;
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
@@ -262,7 +265,12 @@ export type AppDeclaration = {
 };
 
 // slug를 주면 command의 wire 이름(`<slug>_<command>`)도 본다. 안 주면 모양만 본다.
-export type DeclarationOptions = { app?: string; slug?: string };
+// sealed는 이미 봉인한 release의 선언을 다시 읽는 자리다: 옛 칸 `sync_to`를 받는다. 새 release 준비는 주지 않는다.
+export type DeclarationOptions = {
+  app?: string;
+  slug?: string;
+  sealed?: boolean;
+};
 
 export const DECLARATION_KEYS = [
   "app_connections",
@@ -279,15 +287,16 @@ export const DECLARATION_KEYS = [
   "sdk_dependencies",
   "skills",
   "subscriptions",
+  "sync",
   "sync_to",
   "widgets",
 ] as const;
 
 // destination 이름 꼴. protocol/folder의 destination 이름(folder-contract)과 같은 값이다. 그 폴더는 이 file들을
 // import하지 않아서 값을 두 곳에 두고 서로 가리킨다.
-export const SYNC_TO_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+export const DESTINATION_NAME_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
 
-// icon, skills, keys, events, subscriptions, widgets, runs_on, sync_to는 칸이 없어도 된다.
+// icon, skills, keys, events, subscriptions, widgets, runs_on, sync는 칸이 없어도 된다. 옛 칸 sync_to도 그렇다.
 const OPTIONAL_KEYS: readonly string[] = [
   "icon",
   "skills",
@@ -296,6 +305,7 @@ const OPTIONAL_KEYS: readonly string[] = [
   "subscriptions",
   "widgets",
   "runs_on",
+  "sync",
   "sync_to",
 ];
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(

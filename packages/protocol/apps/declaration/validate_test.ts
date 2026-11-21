@@ -193,7 +193,7 @@ test("icon 선언은 bundle 안 svg·png·webp 경로나 lucide:<kebab-case 이�
 
 // event와 구독은 선택 칸이다. 비면 정규형에 칸이 없어 옛 선언의 hash가 그대로이고(event의 across_machines false도 같다),
 // 구독 handler 이름(`on.<source>.<event>`)은 operation·command와 한 이름 공간이다.
-test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object schema여야 하며 구독 handler 이름은 다른 handler와 겹치지 못하고 across_machines는 sync_to가 있어야 한다", () => {
+test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object schema여야 하며 구독 handler 이름은 다른 handler와 겹치지 못하고 across_machines는 sync가 표를 보내야 한다", () => {
   const event = {
     name: "usage.limit",
     description: "A limit was reached.",
@@ -217,8 +217,12 @@ test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object s
     ["duplicate event", { events: [event, { ...event }] }],
     ["event without description", { events: [{ ...event, description: " " }] }],
     [
-      "across_machines without sync_to",
+      "across_machines without sync",
       { events: [{ ...event, across_machines: true }] },
+    ],
+    [
+      "across_machines with an empty sync",
+      { events: [{ ...event, across_machines: true }], sync: {} },
     ],
     ["bad source", { subscriptions: [{ ...subscription, source: "Mas up" }] }],
     [
@@ -362,8 +366,9 @@ test("phone.use의 scope가 {capability} 하나가 아니거나 모르는 capabi
   assert.deepStrictEqual(empty.value, plain.value);
 });
 
-// runs_on은 앱 backend가 어디서 도는지를 정하는 유일한 칸이다. 칸이 없는 옛 선언(sync_to 포함)의 hash는 그대로다.
-test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['phone']에 돌릴 곳 없는 것이 있고, sync_to가 이름 꼴이 아니거나 ['phone']과 같이 있으면 거절한다", () => {
+// runs_on은 앱 backend가 어디서 도는지를 정하는 유일한 칸이다. 칸이 없는 옛 선언의 hash는 그대로다. 옛 release의 봉인한
+// 선언에 남은 sync_to는 다시 읽을 때(sealed)만 받는다: 거절하면 켜 둔 옛 release가 뜨지 않는다.
+test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['phone']에 돌릴 곳 없는 것이 있고, sync가 표 → destination 이름 꼴이 아니거나 destination이 둘 이상이거나 ['phone']과 같이 있으면 거절하고, sync_to는 봉인한 선언에서만 받는다", () => {
   const phoneScreen = {
     key: "home",
     label: "Home",
@@ -380,14 +385,21 @@ test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['p
     ["other order", { runs_on: ["phone", "computer"] }],
     ["unknown", { runs_on: ["cloud"] }],
     ["not an array", { runs_on: "phone" }],
-    ["sync_to not a name", { sync_to: "Personal" }],
-    ["sync_to with a path", { sync_to: "/home/me/sync" }],
-    ["sync_to too long", { sync_to: `a${"b".repeat(32)}` }],
-    ["sync_to not a string", { sync_to: 1 }],
+    ["sync not an object", { sync: "personal" }],
+    ["sync value not a name", { sync: { notes: "Personal" } }],
+    ["sync value with a path", { sync: { notes: "/home/me/sync" } }],
+    ["sync value too long", { sync: { notes: `a${"b".repeat(32)}` } }],
+    ["sync value not a string", { sync: { notes: 1 } }],
+    ["sync of a lophn table", { sync: { lophn_sync_row: "personal" } }],
     [
-      "sync_to on a phone-only app",
-      { sync_to: "personal", runs_on: phoneOnly },
+      "sync to two destinations",
+      { sync: { notes: "computers", archive: "personal" } },
     ],
+    [
+      "sync on a phone-only app",
+      { sync: { notes: "personal" }, runs_on: phoneOnly },
+    ],
+    ["sync_to in a new declaration", { sync_to: "personal" }],
     [
       "phone without a phone screen",
       { runs_on: phoneOnly, screens: [tabScreen] },
@@ -437,16 +449,34 @@ test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['p
   }
   const plain = validateDeclaration(base);
   assert.ok(plain.ok && !("runs_on" in plain.value));
-  assert.ok(plain.ok && !("sync_to" in plain.value));
+  assert.ok(plain.ok && !("sync" in plain.value));
+  const empty = validateDeclaration({ ...base, sync: {} });
+  assert.ok(empty.ok);
+  assert.deepStrictEqual(empty.value, plain.value);
   for (const runsOn of [undefined, ["computer"], ["computer", "phone"]]) {
     const synced = validateDeclaration({
       ...base,
       ...(runsOn === undefined ? {} : { runs_on: runsOn }),
-      sync_to: "personal",
+      sync: { notes: "personal", tags: "personal" },
     });
     assert.ok(synced.ok, JSON.stringify(runsOn));
-    assert.equal(synced.value.sync_to, "personal");
+    assert.deepStrictEqual(synced.value.sync, {
+      notes: "personal",
+      tags: "personal",
+    });
   }
+  const sealed = validateDeclaration(
+    { ...base, sync_to: "personal" },
+    { sealed: true },
+  );
+  assert.ok(sealed.ok);
+  assert.equal(sealed.value.sync_to, "personal");
+  assert.ok(
+    !validateDeclaration(
+      { ...base, sync_to: "personal", sync: { notes: "personal" } },
+      { sealed: true },
+    ).ok,
+  );
 });
 
 // fs 경로는 절대 경로이거나 home 기준 `~`·`~/…`다. `~`는 펴지 않고 적힌 대로 저장한다(grant와 동의 글이 그 글자열로 키가 된다).

@@ -171,7 +171,7 @@ import { createSyncLog, type SyncLog } from "../../../apps/sync/log.ts";
 import {
   appSyncRoutes,
   phoneAppOf,
-  syncAppOf,
+  syncPlanFor,
 } from "../../../apps/sync/routes.ts";
 import { createAppSync } from "../../../apps/sync/service.ts";
 import {
@@ -369,8 +369,9 @@ export const appsWiring: WiringFactory = () => {
       );
       ctx.provide("callerDirectory", callers);
       const states = appStatesOf(link.sql);
-      // sync 앱(runs_on에 phone이나 sync_to)의 sync log. 컴퓨터의 write·rewind·폰과 다른 기계의 변경이 순서대로 남고 폰이 pull한다.
-      const isSync = syncAppOf(link.sql);
+      // sync 앱(runs_on에 phone이 있거나 sync가 table을 보냄)의 sync log. 컴퓨터의 write·rewind·폰과 다른 기계의 변경이
+      // 순서대로 남고 폰이 pull한다.
+      const plan = syncPlanFor(link.sql);
       const runsOnPhone = phoneAppOf(link.sql);
       const sync = createSyncLog({
         sql: link.sql,
@@ -378,7 +379,7 @@ export const appsWiring: WiringFactory = () => {
         blobs,
         ledger,
         activeRelease: states.activeRelease,
-        isSync,
+        plan,
         now: () => ctx.clock.now(),
         changed: (app, release, seq) =>
           ctx.peek.bus?.publish({

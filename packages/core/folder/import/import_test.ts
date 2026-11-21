@@ -120,7 +120,7 @@ async function make(base: string) {
     apps: () => [
       {
         app: APP,
-        sync_to: "personal",
+        destination: "personal",
         release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
       },
     ],

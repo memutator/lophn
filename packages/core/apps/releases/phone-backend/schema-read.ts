@@ -1,9 +1,10 @@
-// 폰 schema 규칙(`phoneSchemaProblems`)에 줄 표·index·trigger를 실제 DB에서 읽는다. release 준비가 빈 DB를 target
-// schema까지 올린 scratch DB에서 부른다(`checkMigration`과 같은 길).
+// sync schema 규칙(`phoneSchemaProblems`)에 줄 표·index·foreign key·trigger를 실제 DB에서 읽는다. release 준비가 빈 DB를
+// target schema까지 올린 scratch DB에서 부른다(`checkMigration`과 같은 길).
 import {
   type PhoneSchemaTable,
   phoneSchemaProblems,
 } from "../../../../protocol/apps/activation/phone-schema.ts";
+import type { TableFilter } from "../../../../protocol/apps/declaration/sync-plan.ts";
 import { APP_SCHEMA_TABLE } from "../../data/worker/schema.ts";
 
 type ReadableDb = {
@@ -12,7 +13,12 @@ type ReadableDb = {
 
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-export function phoneSchemaProblemsOfDatabase(db: ReadableDb): string[] {
+// `synced`는 다른 사본과 맞추는 표(null이면 모든 표), `listed`는 선언의 `sync`가 적은 표다.
+export function phoneSchemaProblemsOfDatabase(
+  db: ReadableDb,
+  synced: TableFilter = null,
+  listed: readonly string[] = [],
+): string[] {
   const tables: PhoneSchemaTable[] = db
     .prepare(
       `select name, sql from sqlite_master
@@ -41,13 +47,24 @@ export function phoneSchemaProblemsOfDatabase(db: ReadableDb): string[] {
             unique: Number(index["unique"]) === 1,
             origin: String(index["origin"]),
           })),
+        foreignKeys: db
+          .prepare(`pragma foreign_key_list(${quoted(name)})`)
+          .all()
+          .map((foreign) => ({
+            table: String(foreign["table"]),
+            on_delete: String(foreign["on_delete"]),
+            on_update: String(foreign["on_update"]),
+          })),
       };
     });
   const triggers = db
     .prepare(
-      "select name from sqlite_master where type = 'trigger' order by name",
+      "select name, tbl_name from sqlite_master where type = 'trigger' order by name",
     )
     .all()
-    .map((row) => String(row["name"]));
-  return phoneSchemaProblems(tables, triggers);
+    .map((row) => ({
+      name: String(row["name"]),
+      table: String(row["tbl_name"]),
+    }));
+  return phoneSchemaProblems(tables, triggers, synced, listed);
 }

@@ -24,6 +24,7 @@ import {
   cleanupTombstones,
   mergeSnapshotFile,
   type SyncStore,
+  writeFolderSnapshot,
   writeSnapshot,
 } from "./sync.ts";
 import { BASE64, exact, record } from "./wire-check.ts";
@@ -172,7 +173,8 @@ export function handleSyncApply(
   });
 }
 
-// 폰이 처음 받을 DB 사본을 core가 준 path에 쓴다(`apps.snapshot`). core가 write 줄을 쥔 채 부른다.
+// 폰이 받을 DB 사본이나 폴더로 갈 사본(보내는 표만)을 core가 준 path에 쓴다(`apps.snapshot`). core가 write 줄을 쥔 채
+// 부른다.
 export function handleSnapshot(
   state: RuntimeState,
   raw: Uint8Array,
@@ -182,13 +184,18 @@ export function handleSnapshot(
     raw,
     (value) => {
       const source = record(value);
-      if (!source || exact(source, ["path"])) return;
-      return typeof source.path === "string" && source.path !== ""
-        ? source.path
+      if (!source || exact(source, ["path", "for"])) return;
+      return typeof source.path === "string" &&
+        source.path !== "" &&
+        (source.for === "phone" || source.for === "folder")
+        ? { path: source.path, for: source.for }
         : undefined;
     },
-    (sync, path) => {
-      const written = writeSnapshot(sync.db, path);
+    (sync, request) => {
+      const written =
+        request.for === "phone"
+          ? writeSnapshot(sync.db, request.path)
+          : writeFolderSnapshot(sync, request.path);
       if (!written.ok) return failWith(written.error);
       return { status: 200, body: { status: "written", ...written.value } };
     },

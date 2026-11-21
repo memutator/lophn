@@ -105,16 +105,24 @@ export type MergeStats = ApplyStats & { deleted: number; heldRows: HeldRow[] };
  *
  * `absentDeletes`(horizon 밖에서 돌아온 기계): 받는 쪽 row 가운데 source에 없고 모든 clock이 `below` 이하이고
  * `keep`이 false인 것을 지운다. 그 사이 다른 곳에서 지워지고 흔적이 정리된 row다. 흔적은 `below`로 둔다.
+ *
+ * `tables`가 있으면 그 표만 대조하고 합치고 지운다(받는 쪽 선언이 보내는 표). 보내지 않는 표는 source에 없고, 그
+ * 표의 받는 쪽 row는 이 기계에만 있는 data라 건드리면 잃는다. 없으면 두 DB의 모든 앱 표다(모든 표를 보내던 옛 release).
  */
 export function mergeSnapshot(
   db: SyncDb,
   source: SyncDb,
   clock: Clock,
-  opts: { absentDeletes?: AbsentDeletes } = {},
+  opts: {
+    absentDeletes?: AbsentDeletes;
+    tables?: (table: string) => boolean;
+  } = {},
 ): Result<MergeStats> {
   requireForeignKeysOff(db);
   const shapes = new Map<string, TableShape>();
-  for (const name of new Set([...userTables(db), ...userTables(source)])) {
+  const names = new Set([...userTables(db), ...userTables(source)]);
+  const merged = opts.tables;
+  for (const name of merged === undefined ? names : [...names].filter(merged)) {
     const mine = tableShape(db, name);
     const theirs = tableShape(source, name);
     if (mine === null || theirs === null || !sameTableShape(mine, theirs)) {

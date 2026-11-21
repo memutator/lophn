@@ -35,7 +35,7 @@ export {
   PHONE_CAPABILITIES,
   RESERVED_APP_SLUGS,
   subscriptionHandlerName,
-  SYNC_TO_PATTERN,
+  DESTINATION_NAME_PATTERN,
 } from "./types.ts";
 export { handlerNames, requiredHandlerNames } from "./tools.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";

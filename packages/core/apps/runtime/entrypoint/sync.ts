@@ -1,8 +1,11 @@
-// sync 앱(선언 `runs_on`에 phone이 있거나 `sync_to`가 있음)의 컴퓨터 쪽 일. 앱과 같은 cap-store 연결에서 돈다:
+// sync 앱(선언 `runs_on`에 phone이 있거나 `sync`가 table을 보냄, `syncPlanOf`)의 컴퓨터 쪽 일. 앱과 같은 cap-store 연결에서
+// 돈다:
 // - 컴퓨터의 write는 data, changeset, clock 찍기를 한 transaction으로 commit한다(handler가 던져도 바뀐 것과 clock을 같이).
+//   clock은 clock을 다는 표(폰 앱은 모두, 그 밖에는 보내는 표)만 찍는다.
 // - 폰이나 다른 기계에서 온 변경 묶음을 한 transaction에서 변경마다 칸 단위 last-write-wins로 적용하고 실제로 바뀐 것
 //   (effective)을 session으로 뜬다.
-// - 폰이 처음 받을 snapshot을 `VACUUM INTO`로 뜨고, 다른 기계의 snapshot을 row·칸 clock으로 합친다.
+// - 폰이 처음 받을 snapshot을 `VACUUM INTO`로 뜨고, 폴더로 갈 snapshot은 보내는 표만 새 file에 복사한다. 다른 기계의
+//   snapshot은 보내는 표만 row·칸 clock으로 합친다.
 // - rewind 적용과 held 변경 다시 적용도 한 transaction 안에서 effective를 뜨고 새 clock을 찍는다.
 // - core가 정한 clock보다 옛 흔적을 지운다.
 // 모두 runtime의 `exclusive` 문 안에서 부른다. 같은 연결의 session이 겹치면 한 changeset에 섞이기 때문이다.
@@ -12,7 +15,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/result.ts";
-import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
+import {
+  clockedTables,
+  sentTables,
+  type SyncPlan,
+  type TableFilter,
+} from "../../../../protocol/apps/declaration/sync-plan.ts";
 import {
   applyRemote,
   type ApplyStats,
@@ -27,6 +35,7 @@ import {
   openClock,
   stampLocal,
   setState,
+  SYNC_TABLES_SQL,
   type SyncDb,
 } from "../../../../protocol/apps/sync/mod.ts";
 import { MERGE_HELD_MAX_BYTES } from "./limits.ts";
@@ -45,19 +54,6 @@ import {
   tableShape,
 } from "../../../../protocol/apps/sync/sql.ts";
 
-/** 선언의 `runs_on`에 `"phone"`이 있으면 폰에도 도는 앱이다. 없으면 `["computer"]`와 같다. */
-export function runsOnPhone(declaration: AppDeclaration): boolean {
-  return declaration.runs_on?.includes("phone") ?? false;
-}
-
-/**
- * data를 다른 replica와 맞추는 앱인가: 폰에도 돌거나 폴더로 다른 기계에 보낸다(`sync_to`). 컴퓨터에서 sync 앱이다(clock
- * 표, sync log).
- */
-export function syncsData(declaration: AppDeclaration): boolean {
-  return runsOnPhone(declaration) || declaration.sync_to !== undefined;
-}
-
 // session 구간. runtime에서는 cap-store hook을 부르는 StoreAccess다. 바뀐 것이 없으면 null이다.
 export type Recorder = { begin(): void; end(): Uint8Array | null };
 
@@ -66,6 +62,8 @@ export type SyncStore = {
   clock: Clock;
   record: Recorder;
   nowMs: () => number;
+  // 이 release의 선언이 정한 길. 어느 표에 clock을 찍고 어느 표를 폴더로 보내는지 정한다.
+  plan: SyncPlan;
 };
 
 // 표마다 마지막으로 본 칸 이름 목록. column clock이 칸 번호로 적혀서, 목록이 바뀐 표를 알아야 한다.
@@ -99,7 +97,12 @@ function errorMessage(error: unknown): string {
 // 이 replica의 새 clock 하나로 changeset을 찍는다. 부르는 쪽 transaction 안에서.
 function stamp(sync: SyncStore, changeset: Uint8Array): bigint {
   const hlc = sync.clock.next(sync.nowMs());
-  const stamped = stampLocal(sync.db, changeset, hlc);
+  const stamped = stampLocal(
+    sync.db,
+    changeset,
+    hlc,
+    clockedTables(sync.plan) ?? undefined,
+  );
   if (!stamped.ok) throw new Error(stamped.error.message);
   return hlc;
 }
@@ -109,8 +112,11 @@ function stamp(sync: SyncStore, changeset: Uint8Array): bigint {
 // 없어진 표의 clock만 지운다: 그 row는 다음 고침까지 row clock으로 견준다. 지우지 않고 옮겨야 늦게 올라온 기계가
 // 옛 release에서 한 칸 고침이 그 기계의 다음 snapshot을 합칠 때 이긴다. 폰은 release가 바뀔 때 이 DB의 snapshot을
 // 받으니 같은 clock이 된다. live는 schema를 바꾸지 않으니 activation이 migration을 돌린 뒤 새 release의 첫 시작이
-// 이것을 한다.
-export function remapColumnClocks(db: SyncDb): void {
+// 이것을 한다. `clocked`가 있으면 clock을 다는 표만 본다(그 밖의 표는 기록에서 빠져 칸 clock이 지워진다).
+export function remapColumnClocks(
+  db: SyncDb,
+  clocked: TableFilter = null,
+): void {
   db.exec(COLUMNS_SQL);
   const recorded = new Map(
     db
@@ -121,7 +127,8 @@ export function remapColumnClocks(db: SyncDb): void {
     .all(
       "select name from sqlite_master where type = 'table' and name not glob 'sqlite_*' and name not glob 'lophn_*'",
     )
-    .map((row) => String(row["name"]));
+    .map((row) => String(row["name"]))
+    .filter((table) => clocked === null || clocked(table));
   for (const table of tables) {
     const names = db
       .all(`pragma table_info(${ident(table)})`)
@@ -176,6 +183,24 @@ function moveColumnClocks(
   ]);
 }
 
+// clock을 다는 표에서 빠진 표(선언의 sync에서 지운 표)의 row·칸 clock과 kept를 지운다. 그 표는 이제 이 기계를 떠나지 않아
+// clock이 더 찍히지 않는다. 남겨 두면 그 표를 다시 보낼 때 그 사이 로컬에서 고친 row가 옛 clock을 달고 나가, 옛 흔적이
+// 다시 넣은 row를 지우거나 다른 기계의 옛 값이 그 고침을 덮는다. 지운 표의 row는 sync를 켜기 전에 쓴 data처럼 clock이 없다.
+export function dropUnclockedClocks(db: SyncDb, clocked: TableFilter): void {
+  if (clocked === null) return;
+  for (const hidden of [
+    "lophn_sync_row",
+    "lophn_sync_col",
+    "lophn_sync_kept",
+  ]) {
+    for (const row of db.all(`select distinct tbl from ${hidden}`)) {
+      const table = String(row["tbl"]);
+      if (!clocked(table))
+        db.run(`delete from ${hidden} where tbl = ?`, [table]);
+    }
+  }
+}
+
 // DB에 node를 처음 적은 기계의 id다. 컴퓨터만 쓴다(폰은 이 key를 모른다). 다른 기계에서 온 DB(복제된 data root)면 node를 새것으로
 // 바꾼다: 두 기계가 같은 node로 clock을 찍으면 서로의 변경을 같은 replica의 것으로 본다. 표지가 없는 DB는 이 판 전에 이 기계에서
 // 만든 것이라 지금 id를 적고 node를 지킨다(앱 DB는 앱 process가 열 때만 고칠 수 있어 data step으로 옮기지 않는다).
@@ -193,9 +218,10 @@ function claimNode(db: SyncDb, machine: string, node: string): void {
 }
 
 /**
- * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적히고 다른 기계의 DB면 바뀐다), 칸이 바뀐 표의 column clock을
- * 칸 이름으로 옮기고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을 찍는다. 시작 code는 transaction으로 감싸지 않아 그
- * 변경과 clock은 따로 commit된다. `startHlc`는 그 찍은 clock이다: ready 통보에 실어 core가 sync log에 남긴다.
+ * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적히고 다른 기계의 DB면 바뀐다), clock을 달지 않게
+ * 된 표의 clock을 지우고, 칸이 바뀐 표의 column clock을 칸 이름으로 옮기고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을
+ * 찍는다. 시작 code는 transaction으로 감싸지 않아 그 변경과 clock은 따로 commit된다. `startHlc`는 그 찍은 clock이다: ready
+ * 통보에 실어 core가 sync log에 남긴다.
  */
 export function openSyncStore(input: {
   database: NodeDatabase;
@@ -204,6 +230,7 @@ export function openSyncStore(input: {
   record: Recorder;
   nowMs: () => number;
   startChangeset: Uint8Array | null;
+  plan: SyncPlan;
 }): SyncStore & { startHlc: bigint | null } {
   const db = nodeSyncDb(input.database);
   const sync: SyncStore = {
@@ -211,11 +238,14 @@ export function openSyncStore(input: {
     clock: openClock(db),
     record: input.record,
     nowMs: input.nowMs,
+    plan: input.plan,
   };
+  const clocked = clockedTables(input.plan);
   const startHlc = inTransaction(db, () => {
     ensureSyncTables(db, input.node);
     claimNode(db, input.machine, input.node);
-    remapColumnClocks(db);
+    dropUnclockedClocks(db, clocked);
+    remapColumnClocks(db, clocked);
     return input.startChangeset === null
       ? null
       : stamp(sync, input.startChangeset);
@@ -468,6 +498,81 @@ export function writeSnapshot(
   });
 }
 
+// 폴더 snapshot을 뜨는 동안 붙이는 schema 이름. 앱 표 이름과 겹치지 않게 lophn_으로 시작한다.
+const SNAPSHOT_SCHEMA = "lophn_snapshot";
+
+/**
+ * 폴더로 갈 snapshot을 core가 준 절대 path에 쓴다. 옛 release(모든 표를 보내는 선언)는 `VACUUM INTO`로 DB 통째다. 그 밖에는
+ * 새 DB file을 앱 연결에 ATTACH해 보내는 표(앱이 쓴 CREATE TABLE 그대로)와 그 표의 clock·kept 줄, sync 상태를 한
+ * transaction으로 복사한다. 보내지 않는 표는 이 기계를 떠나지 않는다. 1 GiB 한도는 이 file이 잰다.
+ */
+export function writeFolderSnapshot(
+  sync: SyncStore,
+  path: string,
+): Result<{ size: number; sha256: string }> {
+  const sent = sentTables(sync.plan);
+  if (sent === null) return writeSnapshot(sync.db, path);
+  if (!isAbsolute(path)) {
+    return err({
+      code: "invalid_input",
+      message: "snapshot path is not absolute",
+    });
+  }
+  if (existsSync(path)) {
+    return err({ code: "conflict", message: "snapshot file already exists" });
+  }
+  const db = sync.db;
+  const tables = db
+    .all("select name, sql from sqlite_master where type = 'table'")
+    .map((row) => ({ name: String(row["name"]), sql: String(row["sql"]) }))
+    .filter((table) => !hiddenTable(table.name) && sent(table.name));
+  const into = (sql: string) =>
+    sql.replace(/^CREATE TABLE /i, `CREATE TABLE ${SNAPSHOT_SCHEMA}.`);
+  const names = tables.map((table) => table.name);
+  const marks = names.map(() => "?").join(", ");
+  // ATTACH는 transaction 밖에서만 된다. 복사하는 동안 foreign_keys를 끈다: 표를 아무 순서로나 채운다.
+  db.run(`attach database ? as ${SNAPSHOT_SCHEMA}`, [path]);
+  try {
+    foreignKeysOff(db, () =>
+      inTransaction(db, () => {
+        for (const table of tables) {
+          db.exec(into(table.sql));
+          db.exec(
+            `insert into ${SNAPSHOT_SCHEMA}.${ident(table.name)} select * from main.${ident(table.name)}`,
+          );
+        }
+        db.exec(
+          SYNC_TABLES_SQL.replaceAll(
+            "create table if not exists lophn_",
+            `create table if not exists ${SNAPSHOT_SCHEMA}.lophn_`,
+          ),
+        );
+        for (const hidden of [
+          "lophn_sync_row",
+          "lophn_sync_col",
+          "lophn_sync_kept",
+        ]) {
+          if (names.length === 0) break;
+          db.run(
+            `insert into ${SNAPSHOT_SCHEMA}.${hidden} select * from main.${hidden} where tbl in (${marks})`,
+            names,
+          );
+        }
+        db.exec(
+          `insert into ${SNAPSHOT_SCHEMA}.lophn_sync_state select * from main.lophn_sync_state`,
+        );
+      }),
+    );
+  } finally {
+    db.exec(`detach database ${SNAPSHOT_SCHEMA}`);
+  }
+  const bytes = readFileSync(path);
+  return ok({
+    size: bytes.byteLength,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+  });
+}
+
 export type SnapshotMerged = {
   effective: Uint8Array | null;
   deleted: number;
@@ -476,7 +581,8 @@ export type SnapshotMerged = {
 
 /**
  * 다른 기계의 snapshot file(core가 풀어 둔 SQLite)을 읽기 전용으로 열어 한 transaction에서 row·칸 clock으로 합치고 실제로
- * 바뀐 것을 session으로 뜬다. 모양이 다른 표가 있으면 아무것도 쓰지 않고 conflict다. 정리된 흔적과 부딪을 수 있는 source
+ * 바뀐 것을 session으로 뜬다. 보내는 표만 합친다: 보내지 않는 표는 snapshot에 없고 그 표의 이 기계 row는 이 기계에만 있다.
+ * 보내는 표 가운데 모양이 다른 것이 있으면 아무것도 쓰지 않고 conflict다. 정리된 흔적과 부딪을 수 있는 source
  * row는 적용하지 않고 `held`로 돌려준다. 그 합이 응답에 담기지 않을 만큼 크면 합치지 않는다(held를 잃는다).
  * `absentDeletes`의 keep pk는 `lophn_sync_row.pk` bytes다.
  */
@@ -510,19 +616,18 @@ export function mergeSnapshotFile(
         let effective: Uint8Array | null;
         sync.record.begin();
         try {
-          merged = mergeSnapshot(
-            db,
-            nodeSyncDb(source),
-            sync.clock,
-            absent === undefined
+          const tables = sentTables(sync.plan);
+          merged = mergeSnapshot(db, nodeSyncDb(source), sync.clock, {
+            ...(tables === null ? {} : { tables }),
+            ...(absent === undefined
               ? {}
               : {
                   absentDeletes: {
                     below: absent.below,
                     keep: (table, pk) => keep.has(keyOf(table, pk)),
                   },
-                },
-          );
+                }),
+          });
         } finally {
           effective = sync.record.end();
         }

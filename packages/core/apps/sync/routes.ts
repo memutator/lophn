@@ -14,36 +14,35 @@ import {
   type ReadHandler,
 } from "../../server/mod.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
-import type { AppDeclaration } from "../../../protocol/apps/declaration/mod.ts";
-import { runsOnPhone, syncsData } from "../runtime/entrypoint/sync.ts";
+import {
+  type SyncPlan,
+  syncPlanOf,
+  syncsData,
+} from "../../../protocol/apps/declaration/sync-plan.ts";
 import type { AppSync } from "./service.ts";
 import type { Snapshots } from "./snapshots.ts";
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
-function declared(
+/** 그 release가 컴퓨터에서 sync 앱이면 선언이 정한 길(`syncPlanOf`), 아니면 null. sync log가 본다. */
+export function syncPlanFor(
   sql: Pick<Sql, "get" | "all">,
-  rule: (declaration: AppDeclaration) => boolean,
-): (app: string, release: string) => boolean {
+): (app: string, release: string) => SyncPlan | null {
   return (app, release) => {
     const found = loadActiveDeclaration(sql, app, release);
-    return found.ok && found.value !== null && rule(found.value.declaration);
+    if (!found.ok || found.value === null) return null;
+    const plan = syncPlanOf(found.value.declaration);
+    return syncsData(plan) ? plan : null;
   };
-}
-
-/** 그 release가 컴퓨터에서 sync 앱인가(`runs_on`에 phone이 있거나 `sync_to`가 있다). sync log가 본다. */
-export function syncAppOf(
-  sql: Pick<Sql, "get" | "all">,
-): (app: string, release: string) => boolean {
-  return declared(sql, syncsData);
 }
 
 /** 그 release의 선언이 `runs_on`에 phone을 가졌는가. 폰 route가 본다. */
 export function phoneAppOf(
   sql: Pick<Sql, "get" | "all">,
 ): (app: string, release: string) => boolean {
-  return declared(sql, runsOnPhone);
+  const planOf = syncPlanFor(sql);
+  return (app, release) => planOf(app, release)?.phone ?? false;
 }
 
 export function appSyncRoutes(

@@ -11,6 +11,7 @@ import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
 import { applyMigrations } from "../../storage/migration/migrations.ts";
 import { createSyncLog } from "./log.ts";
 import { SYNC_LOG_MACHINE_STEPS, SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
+import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
 
 const clock = manualClock(Date.parse("2026-11-16T00:00:00.000Z"));
 const hash = (n: number) => String(n).repeat(64);
@@ -142,7 +143,7 @@ test("apps.sync-log.machine으로 표를 다시 만들어도 모든 행과 seq�
     },
     ledger: { list: () => ok([]) },
     activeRelease: () => ok(null),
-    isSync: () => true,
+    plan: () => syncPlanOf({ runs_on: ["computer", "phone"] }),
     now: () => clock.now(),
     changed: () => {},
   });

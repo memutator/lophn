@@ -1034,7 +1034,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
     [SUPERVISOR_OPS.snapshot]: async (payload) => {
       const input = parse(snapshotInputSchema, payload);
-      const written = await relay.snapshot(input.app, { path: input.path });
+      const written = await relay.snapshot(input.app, {
+        path: input.path,
+        for: input.for,
+      });
       if (!written.ok) {
         throw new OpError(
           written.error.code,

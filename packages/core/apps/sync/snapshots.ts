@@ -95,7 +95,7 @@ export function createSnapshots(deps: SnapshotsDeps) {
         if (!active.ok) return active;
         if (!deps.runsOnPhone(app, active.value)) return notFound();
         const seq = deps.log.head(app);
-        const written = await deps.link.snapshot(app, { path });
+        const written = await deps.link.snapshot(app, { path, for: "phone" });
         if (!written.ok) return written;
         if (written.value.status === "not_sync") return notFound();
         return ok({ release: active.value, seq, ...written.value });

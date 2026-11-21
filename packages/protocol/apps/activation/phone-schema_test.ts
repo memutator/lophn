@@ -7,7 +7,7 @@ const table = (
   columns: PhoneSchemaTable["columns"],
   sql = `CREATE TABLE ${name} (...)`,
   indexes: PhoneSchemaTable["indexes"] = [],
-): PhoneSchemaTable => ({ name, columns, sql, indexes });
+): PhoneSchemaTable => ({ name, columns, sql, indexes, foreignKeys: [] });
 
 test("폰 schema 검사는 column 하나짜리 INTEGER PK, AUTOINCREMENT, trigger를 거절하고 text PK와 여러 column PK는 통과시킨다", () => {
   assert.deepEqual(
@@ -63,7 +63,10 @@ test("폰 schema 검사는 column 하나짜리 INTEGER PK, AUTOINCREMENT, trigge
     [],
   );
   assert.match(check.join(" "), /Table stock has a CHECK constraint/);
-  const trigger = phoneSchemaProblems([], ["item_after_insert"]);
+  const trigger = phoneSchemaProblems(
+    [],
+    [{ name: "item_after_insert", table: "item" }],
+  );
   assert.match(
     trigger.join(" "),
     /Triggers are not allowed.*item_after_insert/,

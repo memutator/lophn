@@ -1,4 +1,4 @@
-// 두 번째 기계가 앱을 받는 길. 컴퓨터는 `sync_to`가 있는 앱의 앱 기록과 source git bundle을 자기 하위 폴더에
+// 두 번째 기계가 앱을 받는 길. 컴퓨터는 data를 보내는 앱의 앱 기록과 source git bundle을 자기 하위 폴더에
 // 쓰고, 다른 기계의 source bundle을 `refs/remotes/<mch>/*`로 받고, 폴더의 앱을 같은 id로 들여 local에서 release를 준비한다(take-in).
 // 계기(언제 부르나)와 route 등록은 조립(`folder-surface`)이 한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -54,8 +54,8 @@ export function createFolderApps(deps: FolderAppsDeps): FolderApps {
     async runApp(id) {
       const app = deps.apps().find((each) => each.app === id);
       if (app === undefined) return ok(undefined);
-      // `sync_to`가 없는 앱도 source·`@me/*` package·`app.json`은 `computers`로 내보내 다른 컴퓨터에서 바로 들이게 한다.
-      const destinationName = app.sync_to ?? COMPUTERS_DESTINATION;
+      // data를 보내지 않는 앱도 source·`@me/*` package·`app.json`은 `computers`로 내보내 다른 컴퓨터에서 바로 들이게 한다.
+      const destinationName = app.destination ?? COMPUTERS_DESTINATION;
       const destination = deps.destinations.resolve(destinationName);
       // 이 기계에 그 이름이 없으면 이 기계에서 내보내지 않는다.
       if (destination === null) return ok(undefined);

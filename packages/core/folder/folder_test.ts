@@ -633,7 +633,7 @@ async function carrySetup(base: string) {
         apps: () => [
           {
             app: APP,
-            sync_to: "computers",
+            destination: "computers",
             release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
           },
         ],
@@ -823,7 +823,8 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         slug: "notes",
         name: "Notes",
         description: "",
-        sync_to: "personal",
+        destination: "personal",
+        sent: null,
         release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
       };
       const exporter = createFolderExport({
@@ -880,7 +881,9 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         machine: () => ME,
         self: () => ({ name: "Desk", lophn_version: "0.23.0" }),
         destinations,
-        apps: () => [{ app: APP, sync_to: "personal", release: app.release }],
+        apps: () => [
+          { app: APP, destination: "personal", release: app.release },
+        ],
         apply: {
           async applyChanges(input) {
             applied.push(...input.changes.map((change) => change.id));
@@ -1002,7 +1005,7 @@ test("다른 기계의 같은 event file이 여러 길로 와도 이 기계에�
     const read = async () => {
       const done = await readArrivedEvents({
         me: ME,
-        apps: [{ app: APP, sync_to: "computers", code_commit: ACTIVE }],
+        apps: [{ app: APP, destination: "computers", code_commit: ACTIVE }],
         destinations: env.onlyComputers as never,
         transaction: env.transaction,
         clock: env.clock,

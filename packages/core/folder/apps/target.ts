@@ -8,7 +8,7 @@ import type { FolderLocalApp } from "./deps.ts";
 export type Target = {
   me: Id<"mch">;
   app: FolderLocalApp;
-  /** destination 이름(`sync_to`). */
+  /** destination 이름. */
   destination: string;
   writer: FolderWriter;
   reader: FolderReader;

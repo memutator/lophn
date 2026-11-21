@@ -70,8 +70,9 @@ class Reader {
   }
 }
 
-// 표 하나의 구간. 값은 아직 풀지 않은 바이트 범위다.
+// 표 하나의 구간. 값은 아직 풀지 않은 바이트 범위다. bytes는 header부터 그 표의 마지막 change까지 그대로다.
 type RawSection = {
+  bytes: Uint8Array;
   header: Uint8Array;
   name: Uint8Array;
   primary: boolean[];
@@ -102,6 +103,7 @@ function sections(bytes: Uint8Array): RawSection[] {
     const nameStart = reader.pos;
     while (reader.byte() !== 0);
     const section: RawSection = {
+      bytes: bytes.subarray(headerStart, headerStart),
       header: bytes.subarray(headerStart, reader.pos),
       name: bytes.subarray(nameStart, reader.pos - 1),
       primary,
@@ -142,6 +144,7 @@ function sections(bytes: Uint8Array): RawSection[] {
         throw new Malformed("unknown operation in changeset");
       }
     }
+    section.bytes = bytes.subarray(headerStart, reader.pos);
   }
   return out;
 }
@@ -191,6 +194,30 @@ function invert(bytes: Uint8Array): Uint8Array {
 function invertChangeset(bytes: Uint8Array): Result<Uint8Array> {
   try {
     return ok(invert(bytes));
+  } catch (thrown) {
+    if (thrown instanceof Malformed) {
+      return err({ code: "invalid_input", message: thrown.message });
+    }
+    throw thrown;
+  }
+}
+
+/**
+ * `keep`이 true인 표의 구간만 남긴 changeset. 구간은 bytes 그대로라 남은 표의 변경은 원래 changeset과 같이 적용된다.
+ * 남은 것이 없으면 빈 bytes다. 깨진 bytes는 invalid_input이다.
+ */
+export function filterChangeset(
+  bytes: Uint8Array,
+  keep: (table: string) => boolean,
+): Result<Uint8Array> {
+  try {
+    return ok(
+      concat(
+        sections(bytes)
+          .filter((section) => keep(utf8Decode(section.name)))
+          .map((section) => section.bytes),
+      ),
+    );
   } catch (thrown) {
     if (thrown instanceof Malformed) {
       return err({ code: "invalid_input", message: thrown.message });

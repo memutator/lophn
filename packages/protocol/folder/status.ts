@@ -74,7 +74,8 @@ export const machineEnvironmentSchema = z.object({
     z.object({
       app: idSchema("app"),
       name: z.string(),
-      sync_to: z.string().nullable(),
+      // 선언의 `sync`가 table을 보내는 destination 이름. 보내지 않는 앱은 null.
+      sends_to: z.string().nullable(),
       destination: z.enum(["set", "not_set_here"]).nullable(),
       release: commitSchema.nullable(),
       export: z

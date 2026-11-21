@@ -51,6 +51,7 @@ import {
   type SyncDb,
 } from "../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
+import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
 import {
   changesOf,
   dataEntryPath,
@@ -1277,6 +1278,8 @@ function receiver(schema: string, node = "receiver") {
     record: store,
     nowMs: () => clock.nowMs(),
     startChangeset: null,
+    // 모든 표를 보내는 앱(옛 release의 선언과 같다).
+    plan: syncPlanOf({ sync_to: "personal" }),
   });
   state.sync = sync;
 
@@ -1848,7 +1851,8 @@ function folderOf(
         slug: "notes",
         name: "Notes",
         description: "",
-        sync_to: "personal",
+        destination: "personal",
+        sent: null,
         release: { id: REL, code_commit: "c".repeat(40), data_schema: 1 },
       },
     ],

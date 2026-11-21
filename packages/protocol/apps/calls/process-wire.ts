@@ -46,7 +46,7 @@ export type ProcessCallRequest = z.infer<typeof processCallRequestSchema>;
 
 // 실패한 write도 DB가 일부 바뀌었을 수 있으므로 changeset을 싣는다. 응답 한도(operation은
 // `CALL_RESULT_MAX_BYTES`, command는 control frame 하나)에 안 들어가면 빼고 `changeset_dropped`로 알린다. changeset이 null이고 이 칸이 있으면 DB를 바꿨을 수 있다는 뜻이다.
-// `hlc`는 sync 앱(`runs_on`에 phone이나 `sync_to`가 있음)의 write·external이 changeset을 냈을 때 그 변경과 같이 commit된 clock이다.
+// `hlc`는 sync 앱(`runs_on`에 phone이 있거나 `sync`가 table을 보냄)의 write·external이 changeset을 냈을 때 그 변경과 같이 commit된 clock이다.
 export const processCallResponseSchema = z.discriminatedUnion("status", [
   z.strictObject({
     status: z.literal("ok"),
@@ -206,9 +206,11 @@ export type ProcessSyncReapplyResponse = z.infer<
   typeof processSyncReapplyResponseSchema
 >;
 
-// core가 고른 절대 path에 앱 DB의 사본(`VACUUM INTO`)을 쓴다. 이미 file이 있으면 실패한다.
+// core가 고른 절대 path에 앱 DB의 사본을 쓴다. 이미 file이 있으면 실패한다. `phone`은 폰이 받을 DB 통째(`VACUUM INTO`),
+// `folder`는 다른 기계로 갈 사본이라 선언이 보내는 표만 담는다.
 export const processSnapshotRequestSchema = z.strictObject({
   path: z.string().min(1),
+  for: z.enum(["phone", "folder"]),
 });
 export type ProcessSnapshotRequest = z.infer<
   typeof processSnapshotRequestSchema

@@ -37,7 +37,8 @@ import {
   TOOL_NAME,
   validateLayers,
   validateRunsOn,
-  validateSyncTo,
+  validateSealedSyncTo,
+  validateSync,
 } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
@@ -376,7 +377,7 @@ export function validateDeclaration(
   if (options !== undefined && !isObject(options)) {
     return invalid("declaration options must be an object");
   }
-  if (options && exactKeys(options, ["app", "slug"], [])) {
+  if (options && exactKeys(options, ["app", "slug", "sealed"], [])) {
     return invalid("declaration options have an unknown field");
   }
   const owner = options?.app;
@@ -389,6 +390,9 @@ export function validateDeclaration(
   const slug = options?.slug;
   if (slug !== undefined && typeof slug !== "string") {
     return invalid("slug must be a string");
+  }
+  if (options?.sealed !== undefined && typeof options.sealed !== "boolean") {
+    return invalid("sealed must be a boolean");
   }
   const unexpected = exactKeys(
     value,
@@ -447,14 +451,26 @@ export function validateDeclaration(
     widgets: widgets.value,
   });
   if (!runsOn.ok) return runsOn;
-  const syncTo = validateSyncTo(value.sync_to, runsOn.value);
+  // 옛 칸은 봉인한 선언을 다시 읽을 때만 받는다. 새 release는 table마다 적는다.
+  if (Object.hasOwn(value, "sync_to") && options?.sealed !== true) {
+    return invalid(
+      'sync_to was replaced by sync: list each table that leaves this computer with its destination, e.g. sync: { notes: "computers" }',
+    );
+  }
+  if (Object.hasOwn(value, "sync_to") && Object.hasOwn(value, "sync")) {
+    return invalid("declaration has both sync and sync_to");
+  }
+  const sync = validateSync(value.sync, runsOn.value);
+  if (!sync.ok) return sync;
+  const syncTo = validateSealedSyncTo(value.sync_to);
   if (!syncTo.ok) return syncTo;
   if (
+    sync.value === undefined &&
     syncTo.value === undefined &&
     events.value.some((event) => event.across_machines === true)
   ) {
     return invalid(
-      "an event that goes to other machines needs sync_to: it travels with the app's data",
+      "an event that goes to other machines needs sync to list a table: it travels with the app's data",
     );
   }
 
@@ -526,6 +542,7 @@ export function validateDeclaration(
       : {}),
     ...(widgets.value.length > 0 ? { widgets: widgets.value } : {}),
     ...(runsOn.value === undefined ? {} : { runs_on: runsOn.value }),
+    ...(sync.value === undefined ? {} : { sync: sync.value }),
     ...(syncTo.value === undefined ? {} : { sync_to: syncTo.value }),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),

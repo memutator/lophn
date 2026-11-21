@@ -1,4 +1,4 @@
-// 기계를 건너는 event file `machines/<자기 id>/apps/<app>/events/<id>.json`. 그 앱의 `sync_to` 폴더에 쓰고 `folder_written`에
+// 기계를 건너는 event file `machines/<자기 id>/apps/<app>/events/<id>.json`. 그 앱 data의 destination 폴더에 쓰고 `folder_written`에
 // 적어(stream `event`) 앱 목록이 싣는다. `CROSS_EVENT_MAX_AGE_MS`가 지난 자기 file은 지운다(읽는 쪽도 내지 않는다).
 import {
   type Clock,

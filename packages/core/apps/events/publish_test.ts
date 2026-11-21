@@ -60,7 +60,7 @@ function release(app: string, declaration: object) {
 }
 
 const publisherDeclaration = {
-  sync_to: "computers",
+  sync: { usage: "computers" },
   events: [
     {
       name: "usage.limit",
@@ -508,7 +508,7 @@ test("같은 event가 연결과 늦은 길로 둘 다 와도 구독자는 한 �
   const readFiles = async (s: ReturnType<typeof setup>, home: string) => {
     const done = await readArrivedEvents({
       me: ME,
-      apps: [{ app: PUBLISHER, sync_to: "computers", code_commit: COMMIT }],
+      apps: [{ app: PUBLISHER, destination: "computers", code_commit: COMMIT }],
       destinations: {
         resolve: () => ({ path: home, state: "ok" }),
         list: () => [],

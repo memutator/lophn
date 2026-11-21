@@ -14,17 +14,20 @@ import {
 
 /**
  * 이 replica가 한 변경의 clock을 쓴다. 부르는 쪽이 그 write와 같은 transaction에서 부른다(컴퓨터 runtime).
- * hlc는 이 replica의 Clock이 낸 값이라 이미 본 어떤 clock보다 커서 비교 없이 쓴다.
+ * hlc는 이 replica의 Clock이 낸 값이라 이미 본 어떤 clock보다 커서 비교 없이 쓴다. `clocked`가 있으면 그 표만 찍는다
+ * (다른 기계로 보내지 않는 표의 clock은 아무도 읽지 않는다). 없으면 모든 표다(폰).
  */
 export function stampLocal(
   db: SyncDb,
   changeset: Uint8Array,
   hlc: bigint,
+  clocked?: (table: string) => boolean,
 ): Result<void> {
   const changes = readChangeset(changeset);
   if (!changes.ok) return changes;
   for (const change of changes.value) {
     if (hiddenTable(change.table)) continue;
+    if (clocked !== undefined && !clocked(change.table)) continue;
     const record = change.op === "insert" ? change.new! : change.old!;
     const pk = encodePk(record, change.primaryKey);
     if (change.op === "update") {

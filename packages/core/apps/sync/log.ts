@@ -4,7 +4,13 @@
 // bytes를 담지 못하는 변경(너무 큼, blob 준비 실패, 결과 모름)은 '다시 snapshot' 줄로 남긴다: 그 변경을 보내지 못하면
 // 폰이 조용히 갈라지므로, 그 줄에 닿은 폰은 새 snapshot을 받는다. 다른 기계에서 온 일(받은 변경, snapshot 합치기)의
 // '다시 snapshot' 줄은 origin `machine`이다: 폰에는 필요하지만 폴더로는 다시 내보내지 않는다(그 기계가 이미 낸 것이다).
-import { err, ok, type Result } from "../../../base/mod.ts";
+// 이 기계의 write와 rewind는 clock을 다는 표(폰 앱은 모두, 그 밖에는 선언이 보내는 표)의 구간만 줄에 담는다. 담을 것이
+// 없는 write는 `skipped` 줄이다: 줄이 없으면 core가 뜰 때의 메우기가 그 invocation을 매번 '다시 snapshot'으로 본다.
+import { err, filterChangeset, ok, type Result } from "../../../base/mod.ts";
+import {
+  clockedTables,
+  type SyncPlan,
+} from "../../../protocol/apps/declaration/sync-plan.ts";
 import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Sql, SqlParam, Tx } from "../../../protocol/server/mod.ts";
@@ -150,8 +156,8 @@ export type SyncLogDeps = {
   blobs: ChangesetBlobs;
   ledger: Pick<InvocationLedger, "list">;
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
-  // 그 release가 sync 앱인가(`runs_on`에 phone이 있거나 `sync_to`가 있다).
-  isSync(app: string, release: string): boolean;
+  // 그 release가 sync 앱이면 선언이 정한 길(`syncPlanOf`), 아니면 null.
+  plan(app: string, release: string): SyncPlan | null;
   now(): string;
   // 줄을 쓴 transaction이 commit된 뒤. `AppSyncChanged`를 낸다.
   changed(app: string, release: string, seq: number): void;
@@ -234,6 +240,18 @@ function insertRow(tx: Tx, row: Append, blob: PreparedBlob | null): number {
     ],
   );
   return Number(inserted.lastInsertRowid);
+}
+
+// 이 기계의 write·rewind changeset에서 clock을 다는 표의 구간만 남긴다. 거르지 않는 길이면 그대로다. 깨진 bytes는 그대로
+// 두어 그 줄이 지금처럼 다뤄진다.
+function clockedPart(
+  plan: SyncPlan | null,
+  bytes: Uint8Array | null,
+): Uint8Array | null {
+  const clocked = plan === null ? null : clockedTables(plan);
+  if (clocked === null || bytes === null) return bytes;
+  const kept = filterChangeset(bytes, clocked);
+  return kept.ok ? kept.value : bytes;
 }
 
 export function createSyncLog(deps: SyncLogDeps): SyncLog {
@@ -327,19 +345,21 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
 
     async written(inv, hlc, bytes) {
       if (hlc === undefined) return;
+      const kept = clockedPart(deps.plan(inv.app, inv.release), bytes);
       await append({
         app: inv.app,
         release: inv.release,
-        kind: "change",
+        kind: kept !== null && kept.length === 0 ? "skipped" : "change",
         origin: "computer",
         hlc,
         invocation: inv.id,
-        bytes,
+        bytes: kept,
       });
     },
 
     async unknown(inv) {
-      if (inv.effect === "read" || !deps.isSync(inv.app, inv.release)) return;
+      if (inv.effect === "read" || deps.plan(inv.app, inv.release) === null)
+        return;
       await marker(inv);
     },
 
@@ -389,6 +409,9 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
     },
 
     async rewound(app, release, effective, hlc) {
+      const kept = clockedPart(deps.plan(app, release), effective);
+      // 되돌린 것이 모두 이 기계에만 있는 표다. 폰도 폴더도 받을 것이 없다.
+      if (kept !== null && kept.length === 0) return;
       await append({
         app,
         release,
@@ -396,7 +419,7 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
         origin: "rewind",
         hlc,
         invocation: null,
-        bytes: effective,
+        bytes: kept,
       });
     },
 
@@ -518,7 +541,7 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
       const active = deps.activeRelease(app);
       if (!active.ok) return active;
       const release = active.value;
-      if (release === null || !deps.isSync(app, release)) return ok(0);
+      if (release === null || deps.plan(app, release) === null) return ok(0);
       const listed = deps.ledger.list({ app, release, mode: "live" });
       if (!listed.ok) return listed;
       const logged = new Set(

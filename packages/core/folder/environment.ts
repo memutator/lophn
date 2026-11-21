@@ -105,7 +105,8 @@ export function cleanupBefore(input: {
 export type EnvironmentApp = {
   app: Id<"app">;
   name: string;
-  sync_to: string | null;
+  // 선언의 `sync`가 table을 보내는 destination. 보내지 않으면 null.
+  destination: string | null;
   code_commit: string | null;
 };
 
@@ -181,11 +182,11 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
       return {
         app: app.app,
         name: app.name,
-        sync_to: app.sync_to,
+        sends_to: app.destination,
         destination:
-          app.sync_to === null
+          app.destination === null
             ? null
-            : deps.destinations.resolve(app.sync_to) === null
+            : deps.destinations.resolve(app.destination) === null
               ? ("not_set_here" as const)
               : ("set" as const),
         release: app.code_commit,

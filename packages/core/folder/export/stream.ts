@@ -7,6 +7,7 @@ import { createReadStream } from "node:fs";
 import { mkdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  filterChangeset,
   ok,
   type RandomSource,
   type Result,
@@ -124,13 +125,13 @@ export function createStreams(deps: FolderExportDeps) {
     };
     const app = deps.apps().find((each) => each.app === appId);
     if (app === undefined || app.release === null) return ok(outcome);
-    const destination = deps.destinations.resolve(app.sync_to);
+    const destination = deps.destinations.resolve(app.destination);
     if (destination === null) return ok(outcome);
     const me = deps.machine().id;
     const key: StreamKey = {
       machine: me,
       app: app.app,
-      destination: app.sync_to,
+      destination: app.destination,
       stream: "data",
     };
     const sticky = readStream(deps.sql, key)?.error;
@@ -141,13 +142,13 @@ export function createStreams(deps: FolderExportDeps) {
     if (destination.state === "missing") {
       return run.fail(
         "destination_missing",
-        `The sync folder "${app.sync_to}" is missing at ${destination.path}`,
+        `The sync folder "${app.destination}" is missing at ${destination.path}`,
       );
     }
     if (destination.state === "not_writable") {
       return run.fail(
         "not_writable",
-        `The sync folder "${app.sync_to}" at ${destination.path} is not writable`,
+        `The sync folder "${app.destination}" at ${destination.path} is not writable`,
       );
     }
     const done = await run.go(destination.path);
@@ -298,8 +299,23 @@ class Run {
     );
   }
 
-  // cursor 뒤의 모든 줄에 hold 규칙을 건다. snapshot은 그 seq까지의 줄을 건너뛰므로 snapshot 앞에 한다.
-  private holdPast(): Result<void> {
+  // 줄의 changeset에서 destination으로 가는 표의 구간. 폰 앱의 줄은 폰만 받는 표도 담는다. bytes가 없는 줄은 null이다.
+  private async sentPart(
+    row: FolderLogRow,
+  ): Promise<Result<Uint8Array | null>> {
+    if (row.changeset === null) return ok(null);
+    const bytes = await this.deps.log.readChangeset(
+      row.changeset.hash,
+      row.changeset.size,
+    );
+    if (!bytes.ok) return bytes;
+    const sent = this.app.sent;
+    return sent === null ? bytes : filterChangeset(bytes.value, sent);
+  }
+
+  // cursor 뒤의 모든 줄에 hold 규칙을 건다. snapshot은 그 seq까지의 줄을 건너뛰므로 snapshot 앞에 한다. 보내는 표가 없는
+  // 줄은 폴더로 가지 않으니 붙들지 않는다.
+  private async holdPast(): Promise<Result<void>> {
     const { deps, app } = this;
     if (this.holdUpTo === null) return ok(undefined);
     let after = this.cursor;
@@ -308,6 +324,9 @@ class Run {
       if (rows.length === 0) return ok(undefined);
       for (const row of rows) {
         if (!this.covered(row)) continue;
+        const sent = await this.sentPart(row);
+        if (!sent.ok) return sent;
+        if (sent.value !== null && sent.value.length === 0) continue;
         const held = deps.log.hold(row.seq);
         if (!held.ok) return held;
         this.outcome.held += 1;
@@ -500,7 +519,7 @@ class Run {
       this.outcome.more = true;
       return ok(false);
     }
-    const passed = this.holdPast();
+    const passed = await this.holdPast();
     if (!passed.ok) return passed;
     const inData = deps.log.heldInData(app.app);
     if (inData > 0)
@@ -647,6 +666,13 @@ class Run {
           resnapshot = true;
           break;
         }
+        const bytes = await this.sentPart(row);
+        if (!bytes.ok) return bytes;
+        // 이 기계에만 있는 표만 바꾼 줄(폰 앱의 줄)이다. 폴더로 갈 것이 없다.
+        if (bytes.value === null || bytes.value.length === 0) {
+          this.cursor = row.seq;
+          continue;
+        }
         if (this.covered(row)) {
           const held = deps.log.hold(row.seq);
           if (!held.ok) return held;
@@ -654,11 +680,6 @@ class Run {
           this.outcome.held += 1;
           continue;
         }
-        const bytes = await deps.log.readChangeset(
-          row.changeset.hash,
-          row.changeset.size,
-        );
-        if (!bytes.ok) return bytes;
         const origin = row.origin as ExportOrigin;
         const batch = this.batch;
         if (

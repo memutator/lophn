@@ -88,7 +88,8 @@ async function readPreviewDeclaration(
   try {
     const declaration = validateDeclaration(
       JSON.parse(new TextDecoder().decode(served.value.bytes)),
-      { app },
+      // 봉인한 사본이라 옛 release에만 있는 칸도 받는다(`syncPlanOf`).
+      { app, sealed: true },
     );
     return declaration.ok ? declaration.value : null;
   } catch {

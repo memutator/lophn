@@ -92,19 +92,19 @@ export function sampleApps(now = Date.now()): SyncAppRow[] {
     {
       app: "app_orders",
       name: "Orders",
-      syncTo: "computers",
+      destination: "computers",
       readAt: new Date(now - 4 * MINUTE).toISOString(),
     },
     {
       app: "app_notes",
       name: "Notes",
-      syncTo: "notes-backup",
+      destination: "notes-backup",
       readAt: new Date(now - 5 * HOUR).toISOString(),
     },
     {
       app: "app_budget",
       name: "Budget",
-      syncTo: "computers",
+      destination: "computers",
       readAt: null,
     },
   ];

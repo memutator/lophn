@@ -133,7 +133,6 @@ const appDeclarationOutputSchema = withReadCommon(
     subscriptions: z.array(appSubscriptionSchema).optional(),
     widgets: z.array(appWidgetSchema).optional(),
     runs_on: z.array(z.enum(["computer", "phone"])).optional(),
-    sync_to: z.string().optional(),
     facts: appFactsSchema,
     evidence: appDeclarationEvidenceSchema,
   }),

@@ -1,4 +1,4 @@
-// 컴퓨터가 자기 몫을 destination에 쓴다: `sync_to`가 있는 앱마다 sync log를 data stream(`<n>.changes`, `<n>.snapshot`)으로,
+// 컴퓨터가 자기 몫을 destination에 쓴다: 선언의 `sync`가 table을 보내는 앱마다 sync log를 data stream(`<n>.changes`, `<n>.snapshot`)으로,
 // destination마다 기계 기록 `record.json`을. 쓰는 곳은 `machines/<자기 id>/` 아래뿐이다. 계기(debounce, timer)와 조립은
 // folder wiring이 하고, 여기는 한 번 돌기와 상태만 낸다.
 import {
@@ -8,6 +8,7 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { TableFilter } from "../../../protocol/apps/declaration/sync-plan.ts";
 import type {
   FolderError,
   SharedProject,
@@ -24,7 +25,10 @@ export type ExportApp = {
   slug: string;
   name: string;
   description: string;
-  sync_to: string;
+  // 선언의 `sync`가 고른 destination 이름.
+  destination: string;
+  // destination으로 가는 표. null이면 모든 표(옛 release의 선언). 폰 앱의 log 줄에는 폰만 받는 표도 있어 거른다.
+  sent: TableFilter;
   release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };
 
@@ -55,14 +59,14 @@ export type ExportFacts = {
 export type FolderExportDeps = {
   machine(): { id: Id<"mch">; name: string };
   destinations: DestinationsView;
-  /** 활성 선언에 `sync_to`가 있는 앱. */
+  /** 활성 선언의 `sync`가 table을 보내는 앱. */
   apps(): ExportApp[];
   log: ExportLog;
   releaseKey(
     release: string,
   ): { code_commit: string; data_schema: number } | null;
   operationOf(invocation: string): { name: string; started_at: string } | null;
-  /** 그 앱의 write 줄을 잡은 채 log head를 읽고 앱 DB 사본을 `path`에 뜬다. 사본은 정확히 그 seq까지를 담는다. */
+  /** 그 앱의 write 줄을 잡은 채 log head를 읽고 앱 DB의 보내는 표 사본을 `path`에 뜬다. 사본은 정확히 그 seq까지를 담는다. */
   snapshotAt(
     app: Id<"app">,
     path: string,
@@ -110,7 +114,7 @@ export function createFolderExport(deps: FolderExportDeps) {
       : {
           machine: deps.machine().id,
           app,
-          destination: found.sync_to,
+          destination: found.destination,
           stream: "data" as const,
         };
   };
@@ -130,7 +134,7 @@ export function createFolderExport(deps: FolderExportDeps) {
         : { settled: row.settled, away_since: row.away_since };
     },
 
-    /** 이 기계에서 그 앱을 내보내지 않으면(`sync_to`가 없거나 앱이 없다) null. */
+    /** 이 기계에서 그 앱을 내보내지 않으면(보내는 table이 없거나 앱이 없다) null. */
     status(app: Id<"app">): ExportStatus | null {
       const key = dataKey(app);
       if (key === null) return null;

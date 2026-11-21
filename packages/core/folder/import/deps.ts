@@ -21,7 +21,8 @@ import type { FolderApply } from "../ports.ts";
 
 export type ImportApp = {
   app: Id<"app">;
-  sync_to: string | null;
+  // 선언의 `sync`가 table을 보내는 destination. 없으면 그 앱의 data를 읽지 않는다.
+  destination: string | null;
   /** 이 기계의 활성 release. 없으면 그 앱은 읽지 않는다. */
   release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };

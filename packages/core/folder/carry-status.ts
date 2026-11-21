@@ -8,8 +8,8 @@ import type { FolderReplica } from "./ports.ts";
 
 export function carryStatusHandler(deps: {
   replica: Pick<FolderReplica, "manifests">;
-  /** `sync_to`가 있는 앱. */
-  apps(): { app: Id<"app">; name: string; sync_to: string }[];
+  /** data를 보내는 앱과 그 destination. */
+  apps(): { app: Id<"app">; name: string; destination: string }[];
   /** 쓸 수 있는 같이 보는 폴더의 path. 없거나 겹치면 null. */
   shared(): string | null;
   importStatus(app: Id<"app">): { imported_at: string | null }[];
@@ -26,10 +26,10 @@ export function carryStatusHandler(deps: {
         received_at: row.received_at,
         via: row.via,
       })),
-      apps: deps.apps().map(({ app, name, sync_to }) => ({
+      apps: deps.apps().map(({ app, name, destination }) => ({
         app,
         name,
-        sync_to,
+        destination,
         // 시각은 ISO(UTC) 글이라 글자 순서가 시간 순서다.
         read_at:
           deps

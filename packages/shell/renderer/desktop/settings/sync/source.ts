@@ -26,11 +26,11 @@ export interface SyncReceived {
   readonly via: "link" | "phone" | "folder" | null;
 }
 
-/** 앱의 `sync_to`와 다른 기계의 변경을 마지막으로 읽은 때(ISO). 읽은 적이 없으면 null이다. */
+/** 앱 data의 destination과 다른 기계의 변경을 마지막으로 읽은 때(ISO). 읽은 적이 없으면 null이다. */
 export interface SyncAppRow {
   readonly app: string;
   readonly name: string;
-  readonly syncTo: string;
+  readonly destination: string;
   readonly readAt: string | null;
 }
 

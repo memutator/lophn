@@ -33,7 +33,7 @@ export const SUPERVISOR_OPS = {
   // control socket으로 중계만 한다.
   call: "apps.call",
   apply: "apps.apply",
-  // sync 앱(`runs_on`에 phone이나 `sync_to`가 있음)의 DB: 폰이나 다른 기계에서 온 변경 묶음 적용, 폰이 받을
+  // sync 앱(`runs_on`에 phone이 있거나 `sync`가 table을 보냄)의 DB: 폰이나 다른 기계에서 온 변경 묶음 적용, 폰이나 폴더가 받을
   // snapshot 뜨기, 다른 기계의 snapshot 합치기, 흔적 정리, held 변경 다시 적용. 중계만 한다.
   syncApply: "apps.sync_apply",
   snapshot: "apps.snapshot",

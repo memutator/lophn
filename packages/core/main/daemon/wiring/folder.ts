@@ -62,6 +62,11 @@ import {
   loadRelease,
 } from "../../../apps/releases/store.ts";
 import {
+  sentTables,
+  syncPlanOf,
+  type TableFilter,
+} from "../../../../protocol/apps/declaration/sync-plan.ts";
+import {
   heldInData,
   type SyncLog,
   type SyncLogRow,
@@ -165,7 +170,9 @@ type LocalApp = {
   name: string;
   description: string;
   source_path: string | null;
-  sync_to: string | null;
+  // 선언의 `sync`가 table을 보내는 destination(없으면 null)과 그리 가는 표(null이면 모든 표, 옛 release).
+  destination: string | null;
+  sent: TableFilter;
   release: {
     id: Id<"rel">;
     code_commit: string;
@@ -174,7 +181,7 @@ type LocalApp = {
   } | null;
 };
 
-type SyncApp = LocalApp & { sync_to: string };
+type SyncApp = LocalApp & { destination: string };
 
 // 한 번 돈 결과. ok가 아니면 물러난다.
 type RunOutcome = { ok: boolean; more: boolean };
@@ -289,18 +296,20 @@ export const folderWiring: WiringFactory = () => {
           Promise.resolve(ok(undefined)),
         log: (message) => log("roster_file_skipped", message),
       });
-      // 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱의 `sync_to` 폴더에 event file로 쓴다. 폴더로 맞추지 않는 앱은 둘 곳이
+      // 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱 data의 destination 폴더에 event file로 쓴다. 폴더로 맞추지 않는 앱은 둘 곳이
       // 없다.
       ctx.provide("crossEvents", {
         async write(app, release, event) {
           const found = syncApp(app);
           const destination =
-            found === undefined ? null : destinations.resolve(found.sync_to);
+            found === undefined
+              ? null
+              : destinations.resolve(found.destination);
           if (found === undefined || destination === null) return ok(undefined);
           if (destination.state !== "ok") {
             return err({
               code: "unavailable",
-              message: `the sync folder "${found.sync_to}" is ${destination.state}`,
+              message: `the sync folder "${found.destination}" is ${destination.state}`,
             });
           }
           const stored = loadRelease(sql, release);
@@ -310,7 +319,7 @@ export const folderWiring: WiringFactory = () => {
           }
           const written = await writeEventFile({
             me: me(),
-            destination: { name: found.sync_to, path: destination.path },
+            destination: { name: found.destination, path: destination.path },
             app,
             code_commit: stored.value.code_commit,
             event,
@@ -338,7 +347,7 @@ export const folderWiring: WiringFactory = () => {
         ),
       );
 
-      // 활성 release가 있는 보관하지 않은 앱. sync_to는 그 release 선언의 것이다.
+      // 활성 release가 있는 보관하지 않은 앱. data가 가는 길은 그 release 선언의 것이다(`syncPlanOf`).
       function localApps(): LocalApp[] {
         const listed = loadApps(sql, "active");
         if (!listed.ok) return [];
@@ -346,6 +355,7 @@ export const folderWiring: WiringFactory = () => {
           const stored = loadActiveDeclaration(sql, app.id);
           if (!stored.ok || stored.value === null) return [];
           const { release, declaration } = stored.value;
+          const plan = syncPlanOf(declaration);
           return [
             {
               app: app.id as Id<"app">,
@@ -353,7 +363,8 @@ export const folderWiring: WiringFactory = () => {
               name: app.name,
               description: app.description,
               source_path: app.source_path ?? null,
-              sync_to: declaration.sync_to ?? null,
+              destination: plan.destination,
+              sent: sentTables(plan),
               release: {
                 id: release.id as Id<"rel">,
                 code_commit: release.code_commit,
@@ -365,17 +376,17 @@ export const folderWiring: WiringFactory = () => {
         });
       }
       const syncApps = (): SyncApp[] =>
-        localApps().filter((app): app is SyncApp => app.sync_to !== null);
+        localApps().filter((app): app is SyncApp => app.destination !== null);
       const syncApp = (app: Id<"app">) =>
         syncApps().find((each) => each.app === app);
-      // source·앱 기록·`@me/*` package를 내보내고 따라가는 앱: `sync_to`가 있는 앱 전부와, `sync_to`가 없더라도
+      // source·앱 기록·`@me/*` package를 내보내고 따라가는 앱: data를 보내는 앱 전부와, 보내지 않더라도
       // `private`이 아닌 활성 앱(`computers`로 source만 내보내 다른 컴퓨터에서 바로 들이게 한다).
       const shareApps = (): LocalApp[] => {
         const policy =
           ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
         return localApps().filter(
           (app) =>
-            app.sync_to !== null ||
+            app.destination !== null ||
             !isPrivate(policy, { kind: "app", id: app.app }),
         );
       };
@@ -383,7 +394,7 @@ export const folderWiring: WiringFactory = () => {
       const dataKey = (app: SyncApp) => ({
         machine: me(),
         app: app.app,
-        destination: app.sync_to,
+        destination: app.destination,
         stream: "data" as const,
       });
       // 흔적 정리가 올린 horizon. 앱 기록에 실린다.
@@ -392,7 +403,7 @@ export const folderWiring: WiringFactory = () => {
         if (app === undefined) return null;
         const row = sql.get(
           `SELECT horizon FROM folder_streams WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
-          [me(), id, app.sync_to],
+          [me(), id, app.destination],
         );
         return (row?.horizon as string | null | undefined) ?? null;
       }
@@ -464,7 +475,7 @@ export const folderWiring: WiringFactory = () => {
         apps: () =>
           syncApps().map((app) => ({
             app: app.app,
-            sync_to: app.sync_to,
+            destination: app.destination,
             release: app.release,
           })),
         apply: ports.apply,
@@ -510,7 +521,10 @@ export const folderWiring: WiringFactory = () => {
         async snapshotAt(app, path) {
           const taken = await ports.exclusive(app, async () => {
             const seq = ports.log.head(app);
-            const written = await ctx.appsControl.link.snapshot(app, { path });
+            const written = await ctx.appsControl.link.snapshot(app, {
+              path,
+              for: "folder",
+            });
             if (!written.ok) return written;
             if (written.value.status === "not_sync") {
               return err({
@@ -837,7 +851,7 @@ export const folderWiring: WiringFactory = () => {
               : [
                   {
                     app: app.app,
-                    sync_to: app.sync_to,
+                    destination: app.destination,
                     code_commit: app.release.code_commit,
                   },
                 ],
@@ -976,7 +990,7 @@ export const folderWiring: WiringFactory = () => {
           ensureStream(tx.sql, dataKey(app));
           tx.sql.run(
             `UPDATE folder_streams SET horizon = ? WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
-            [horizon, me(), app.app, app.sync_to],
+            [horizon, me(), app.app, app.destination],
           );
           return ok(undefined);
         });
@@ -1047,7 +1061,7 @@ export const folderWiring: WiringFactory = () => {
       function exportAll() {
         kick("records", () => publishRecords());
         for (const app of shareApps()) {
-          if (app.sync_to !== null) {
+          if (app.destination !== null) {
             kick(`export:${app.app}`, () => exportApp(app.app));
           } else {
             kick(`app:${app.app}`, () => writeAppRecord(app.app));
@@ -1176,7 +1190,7 @@ export const folderWiring: WiringFactory = () => {
               localApps().map((app) => ({
                 app: app.app,
                 name: app.name,
-                sync_to: app.sync_to,
+                destination: app.destination,
                 code_commit: app.release?.code_commit ?? null,
               })),
             exportStatus: (app) => exporter.status(app),

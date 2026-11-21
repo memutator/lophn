@@ -11,7 +11,7 @@ import { buildUpdateState } from "./read.ts";
 
 export type UpdateStateDeps = {
   machine(): Id<"mch">;
-  /** 이 기계에서 폴더로 맞추는 앱(sync_to가 있다)과 그 활성 release. */
+  /** 이 기계에서 폴더로 맞추는 앱(선언의 sync가 table을 보낸다)과 그 활성 release. */
   syncApps(): readonly {
     app: Id<"app">;
     release: {

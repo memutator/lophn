@@ -26,6 +26,12 @@ import {
   type SyncDb,
 } from "../../../../protocol/apps/sync/mod.ts";
 import { readChangeset } from "../../../../protocol/apps/sync/changeset.ts";
+import { filterChangeset } from "../../../../base/mod.ts";
+import {
+  type SyncPlan,
+  syncPlanOf,
+  syncsData,
+} from "../../../../protocol/apps/declaration/sync-plan.ts";
 import { nodeSyncDb } from "../../../../protocol/apps/sync/node-db.ts";
 import { createStoreAccess } from "./cap-host.ts";
 import { handleCall } from "./invoke.ts";
@@ -36,10 +42,9 @@ import {
   applyRemoteChanges,
   mergeSnapshotFile,
   openSyncStore,
-  runsOnPhone,
   type SyncStore,
   syncedWrite,
-  syncsData,
+  writeFolderSnapshot,
   writeSnapshot,
 } from "./sync.ts";
 import { ensureAppToolPort } from "./tool-port.ts";
@@ -48,15 +53,21 @@ const ULID = "01j00000000000000000000000";
 const APP = `app_${ULID}`;
 const REL = `rel_${ULID}`;
 const MACHINE = `mch_${ULID}`;
+// 폰에서도 도는 앱: 모든 표에 clock을 단다.
+const PHONE_APP = syncPlanOf({ runs_on: ["computer", "phone"] });
 
 // 컴퓨터 app process의 앱 DB: cap-store가 연 연결 하나와 그 위의 sync store.
-function computer(schema: string, now: { ms: number }) {
+function computer(
+  schema: string,
+  now: { ms: number },
+  plan: SyncPlan = PHONE_APP,
+) {
   const dir = mkdtempSync(join(tmpdir(), "lophn-sync-"));
   const file = join(dir, "app.sqlite");
   const raw = openConnection(file);
   raw.exec(schema);
   const store = createStoreAccess();
-  const open = () =>
+  const open = (next: SyncPlan = plan) =>
     openSyncStore({
       database: store.database() as DatabaseSync,
       node: "computer",
@@ -64,6 +75,7 @@ function computer(schema: string, now: { ms: number }) {
       record: store,
       nowMs: () => now.ms,
       startChangeset: null,
+      plan: next,
     });
   return { dir, file, raw, store, sync: open(), reopen: open };
 }
@@ -345,6 +357,8 @@ test("옛 release에서 한 칸 고침은 칸 하나를 더한 migration 뒤에�
       record: silent,
       nowMs: () => now.ms,
       startChangeset: null,
+      // 기계 사이 snapshot은 보내는 표만 합친다.
+      plan: syncPlanOf({ sync: { item: "computers" } }),
     });
   const local = (sync: SyncStore, at: number, sql: string) => {
     sync.db.exec("begin immediate");
@@ -424,6 +438,7 @@ test("sync DB의 machine이 다르면 node가 새것이 되고, machine이 없�
       record: store,
       nowMs: () => now.ms,
       startChangeset: null,
+      plan: PHONE_APP,
     });
 
   // 같은 기계가 다시 열면 그대로다.
@@ -490,22 +505,61 @@ test("변경 묶음을 적용하는 도중 앱 process가 죽으면 DB는 data�
   assert.equal(dump(), before);
 });
 
-// 지우면 sync_to만 있는 앱의 컴퓨터 write가 clock 없이 남아 폴더로 나가지 못하거나, 폰 route가 폰에 없는 앱을 받는다.
-test("runs_on이 computer뿐이고 sync_to가 있는 앱도 컴퓨터에서 sync 앱이라 write가 clock을 싣고, 폰 route의 검사는 그 앱을 받지 않는다", async () => {
+// 앱 process 없이 연 컴퓨터 sync DB 하나. 앱의 write는 연결 전체에 건 session으로 뜬다.
+function machineDb(
+  path: string,
+  schema: string,
+  plan: SyncPlan,
+  now = { ms: 1000 },
+) {
+  const raw = new DatabaseSync(path);
+  raw.exec(schema);
+  let session: ReturnType<DatabaseSync["createSession"]> | null = null;
+  const sync = openSyncStore({
+    database: raw,
+    node: path,
+    machine: MACHINE,
+    record: {
+      begin() {
+        session = raw.createSession();
+      },
+      end() {
+        const changeset = session!.changeset();
+        session!.close();
+        session = null;
+        return changeset.length > 0 ? changeset : null;
+      },
+    },
+    nowMs: () => now.ms,
+    startChangeset: null,
+    plan,
+  });
+  return { raw, sync };
+}
+
+const rowsOf = (db: DatabaseSync, sql: string) =>
+  db
+    .prepare(sql)
+    .all()
+    .map((row) => ({ ...row }));
+
+// 지우면 sync에 적은 표만 내보내는 앱의 write가 clock 없이 남아 폴더로 나가지 못하거나, 옛 release(`sync_to`)의 앱이 말없이
+// clock을 찍지 않아 다시 맞출 때 그 사이 고친 것이 다른 기계의 옛 값에 덮이거나, 폴더 snapshot에 보내지 않는 표가 실려 나간다.
+test("sync가 표를 적은 앱은 컴퓨터에서 sync 앱이라 write가 그 표에만 clock을 달고 폴더 snapshot은 그 표만 담으며, 옛 release의 sync_to는 모든 표를 그렇게 한다", async () => {
+  const schema =
+    "create table item (id text primary key, title text); create table cache (id text primary key, body text)";
   const declaration = {
     runs_on: ["computer"],
-    sync_to: "personal",
+    sync: { item: "personal" },
     operations: [{ name: "add", effect: "write" }],
     commands: [],
   } as never;
-  assert.equal(syncsData(declaration), true);
-  assert.equal(runsOnPhone(declaration), false);
-  assert.equal(syncsData({ runs_on: ["computer"] } as never), false);
+  const plan = syncPlanOf(declaration);
+  assert.equal(syncsData(plan), true);
+  assert.equal(plan.phone, false);
+  assert.equal(syncsData(syncPlanOf({ runs_on: ["computer"] })), false);
 
-  const { file, raw, store, sync } = computer(
-    "create table item (id text primary key, title text)",
-    { ms: 1000 },
-  );
+  const { dir, file, raw, store, sync } = computer(schema, { ms: 1000 }, plan);
   const state = createRuntimeState({
     identity: {
       app: APP,
@@ -526,6 +580,7 @@ test("runs_on이 computer뿐이고 sync_to가 있는 앱도 컴퓨터에서 sync
     name: "add",
     handle: () => {
       raw.exec("insert into item values ('a', 'milk')");
+      raw.exec("insert into cache values ('c', 'local only')");
       return null;
     },
   });
@@ -553,6 +608,216 @@ test("runs_on이 computer뿐이고 sync_to가 있는 앱도 컴퓨터에서 sync
   };
   assert.equal(body.status, "ok");
   assert.ok(body.changeset !== null && body.hlc !== undefined);
+  assert.deepEqual(rowsOf(raw, "select distinct tbl from lophn_sync_row"), [
+    { tbl: "item" },
+  ]);
+  const snapshotPath = join(dir, "folder.sqlite");
+  assert.ok(writeFolderSnapshot(sync, snapshotPath).ok);
+  const snapshot = readOnly(snapshotPath);
+  assert.deepEqual(
+    rowsOf(
+      snapshot,
+      "select name from sqlite_master where type = 'table' and name not glob 'lophn_*' order by name",
+    ),
+    [{ name: "item" }],
+  );
+  assert.deepEqual(rowsOf(snapshot, "select * from item"), [
+    { id: "a", title: "milk" },
+  ]);
+  assert.deepEqual(
+    rowsOf(snapshot, "select distinct tbl from lophn_sync_row"),
+    [{ tbl: "item" }],
+  );
+  snapshot.close();
+  closeConnection(file);
+
+  // 옛 release: 봉인한 선언의 sync_to는 모든 표를 그 destination으로 보낸다(지금까지와 같다).
+  const legacy = syncPlanOf({ sync_to: "personal" });
+  assert.deepEqual(
+    { destination: legacy.destination, tables: legacy.tables },
+    { destination: "personal", tables: null },
+  );
+  const old = machineDb(join(dir, "legacy.sqlite"), schema, legacy);
+  const written = await syncedWrite(old.sync, () =>
+    Promise.resolve(
+      old.raw.exec(
+        "insert into item values ('a', 'milk'); insert into cache values ('c', 'x')",
+      ),
+    ),
+  );
+  assert.ok(written.ok && written.value.hlc !== null);
+  assert.deepEqual(
+    rowsOf(old.raw, "select distinct tbl from lophn_sync_row order by tbl"),
+    [{ tbl: "cache" }, { tbl: "item" }],
+  );
+  const full = join(dir, "legacy-folder.sqlite");
+  assert.ok(writeFolderSnapshot(old.sync, full).ok);
+  const fullDb = readOnly(full);
+  assert.deepEqual(rowsOf(fullDb, "select * from cache"), [
+    { id: "c", body: "x" },
+  ]);
+  fullDb.close();
+  old.raw.close();
+});
+
+// 지우면 폴더로 가는 changeset에 보내지 않는 표를 빼는 일이 bytes를 깨뜨려, 받는 기계가 그 변경을 적용하지 못하거나 다른 값을
+// 적용한다.
+test("filterChangeset을 거친 changeset은 남긴 표의 변경을 그대로 담아 SQLite와 칸 단위 적용 모두에서 그대로 적용된다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-filter-"));
+  const schema =
+    "create table item (id text primary key, title text, n integer); create table cache (id text primary key, body blob)";
+  const plan = syncPlanOf({ sync: { item: "computers" } });
+  const a = machineDb(join(dir, "a.sqlite"), schema, plan);
+  a.raw.exec(
+    "insert into item values ('old', 'x', 1); insert into cache values ('k0', x'00')",
+  );
+  const written = await syncedWrite(a.sync, () =>
+    Promise.resolve(
+      a.raw.exec(
+        [
+          "insert into cache values ('k1', x'0102')",
+          "insert into item values ('a', 'milk', 2)",
+          "update item set title = 'y' where id = 'old'",
+          "delete from cache where id = 'k0'",
+          "insert into item values ('b', 'bread', null)",
+        ].join(";"),
+      ),
+    ),
+  );
+  assert.ok(written.ok && written.value.changeset !== null);
+  const whole = written.value.changeset;
+  const filtered = filterChangeset(whole, (table) => table === "item");
+  assert.ok(filtered.ok);
+  const original = readChangeset(whole);
+  const kept = readChangeset(filtered.value);
+  assert.ok(original.ok && kept.ok);
+  assert.deepEqual(
+    kept.value,
+    original.value.filter((change) => change.table === "item"),
+  );
+  assert.ok(kept.value.length === 3);
+
+  // SQLite가 bytes 그대로 받는다.
+  const copy = new DatabaseSync(":memory:");
+  copy.exec(schema);
+  copy.exec("insert into item values ('old', 'x', 1)");
+  assert.equal(copy.applyChangeset(filtered.value), true);
+  assert.deepEqual(rowsOf(copy, "select * from item order by id"), [
+    { id: "a", title: "milk", n: 2 },
+    { id: "b", title: "bread", n: null },
+    { id: "old", title: "y", n: 1 },
+  ]);
+  assert.deepEqual(rowsOf(copy, "select * from cache"), []);
+
+  // 다른 기계의 칸 단위 적용도 그대로다.
+  const b = machineDb(join(dir, "b.sqlite"), schema, plan);
+  b.raw.exec("insert into item values ('old', 'x', 1)");
+  const applied = applyRemoteChanges(b.sync, [
+    { hlc: written.value.hlc!, changeset: filtered.value },
+  ]);
+  assert.ok(applied.ok && applied.value[0]!.status === "applied");
+  assert.deepEqual(
+    rowsOf(b.raw, "select * from item order by id"),
+    rowsOf(copy, "select * from item order by id"),
+  );
+  assert.deepEqual(rowsOf(b.raw, "select * from cache"), []);
+  a.raw.close();
+  b.raw.close();
+});
+
+// 지우면 보내지 않는 표가 없는 다른 기계의 snapshot을 합칠 때 그 표의 이 기계 row를 "없으니 지워진 것"으로 지우거나, 모양이
+// 다르다며 합치기가 영영 멈춘다.
+test("보내지 않는 표가 없는 snapshot을 합쳐도 이 기계에만 있는 표의 row는 그대로 남는다(없는 row 지우기를 걸어도)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-local-"));
+  const schema =
+    "create table item (id text primary key, title text); create table cache (id text primary key, body text)";
+  const plan = syncPlanOf({ sync: { item: "computers" } });
+  const a = machineDb(join(dir, "a.sqlite"), schema, plan);
+  const fromA = await syncedWrite(a.sync, () =>
+    Promise.resolve(
+      a.raw.exec(
+        "insert into item values ('a', 'milk'); insert into cache values ('ca', 'A only')",
+      ),
+    ),
+  );
+  assert.ok(fromA.ok);
+  const path = join(dir, "a-folder.sqlite");
+  assert.ok(writeFolderSnapshot(a.sync, path).ok);
+
+  const b = machineDb(join(dir, "b.sqlite"), schema, plan, { ms: 5000 });
+  const mine = await syncedWrite(b.sync, () =>
+    Promise.resolve(
+      b.raw.exec(
+        "insert into cache values ('cb', 'B only'); insert into item values ('b', 'bread')",
+      ),
+    ),
+  );
+  assert.ok(mine.ok);
+  const merged = mergeSnapshotFile(b.sync, {
+    path,
+    absentDeletes: { below: BigInt(2) ** BigInt(62), keep: [] },
+  });
+  assert.ok(merged.ok, JSON.stringify(merged));
+  assert.deepEqual(rowsOf(b.raw, "select * from cache"), [
+    { id: "cb", body: "B only" },
+  ]);
+  // 보내는 표는 합쳐진다(없는 row 지우기는 그 표에만 걸린다).
+  assert.deepEqual(rowsOf(b.raw, "select * from item order by id"), [
+    { id: "a", title: "milk" },
+  ]);
+  a.raw.close();
+  b.raw.close();
+});
+
+// 지우면 sync에서 뺀 표의 옛 clock이 남아, 그 표를 다시 보낼 때 그 사이 이 기계에서 다시 넣은 row를 옛 흔적이 지우거나 다른
+// 기계의 옛 값이 이 기계의 고침을 덮는다.
+test("선언의 sync에서 빠진 표의 row·칸 clock과 kept는 앱 process가 뜰 때 지워지고 남은 표의 clock은 그대로다", async () => {
+  const now = { ms: 1000 };
+  const two = syncPlanOf({ sync: { item: "computers", note: "computers" } });
+  const { file, raw, sync, reopen } = computer(
+    "create table item (id text primary key, title text); create table note (id text primary key, body text, tag text)",
+    now,
+    two,
+  );
+  await write(
+    sync,
+    raw,
+    "insert into item values ('a', 'milk'); insert into note values ('n1', 'x', 't'); insert into note values ('n2', 'y', 't')",
+  );
+  now.ms = 2000;
+  await write(sync, raw, "update note set body = 'x2' where id = 'n1'");
+  await write(sync, raw, "delete from note where id = 'n2'");
+  sync.db.run(
+    "insert into lophn_sync_kept (tbl, pk, col, hlc, value) values ('note', x'00', 'body', 1, 'kept')",
+  );
+  const count = (table: string) =>
+    rowsOf(
+      raw,
+      `select tbl, count(*) as n from ${table} group by tbl order by tbl`,
+    );
+  assert.deepEqual(count("lophn_sync_row"), [
+    { tbl: "item", n: 1 },
+    { tbl: "note", n: 2 },
+  ]);
+  assert.deepEqual(count("lophn_sync_col"), [{ tbl: "note", n: 1 }]);
+  const itemClock = rowsOf(
+    raw,
+    "select * from lophn_sync_row where tbl = 'item'",
+  );
+
+  reopen(syncPlanOf({ sync: { item: "computers" } }));
+  assert.deepEqual(count("lophn_sync_row"), [{ tbl: "item", n: 1 }]);
+  assert.deepEqual(count("lophn_sync_col"), []);
+  assert.deepEqual(count("lophn_sync_kept"), []);
+  assert.deepEqual(count("lophn_sync_columns"), [{ tbl: "item", n: 1 }]);
+  assert.deepEqual(
+    rowsOf(raw, "select * from lophn_sync_row where tbl = 'item'"),
+    itemClock,
+  );
+  // data는 그대로다.
+  assert.deepEqual(rowsOf(raw, "select * from note"), [
+    { id: "n1", body: "x2", tag: "t" },
+  ]);
   closeConnection(file);
 });
 

@@ -1,4 +1,4 @@
-// 다른 기계의 하위 폴더를 읽는다: 기계·앱 기록의 사본(scan)과, `sync_to`가 있는 앱마다 출처 기계의 data stream
+// 다른 기계의 하위 폴더를 읽는다: 기계·앱 기록의 사본(scan)과, data를 보내는 앱마다 출처 기계의 data stream
 // 따라잡기(runApp). runApp은 출처마다 먼저 지금 release의 held를 적용한다(drain.ts): 활성 release가 바뀌면 folder wiring이
 // scan과 runApp을 다시 돌리므로 따로 계기를 두지 않는다. 계기(감시, timer)와 조립은 folder-surface가 한다.
 import { mkdir, rm } from "node:fs/promises";
@@ -172,12 +172,12 @@ export function createFolderImport(deps: FolderImportDeps): FolderImport {
     const entry = deps.apps().find((each) => each.app === app);
     if (
       entry === undefined ||
-      entry.sync_to === null ||
+      entry.destination === null ||
       entry.release === null
     ) {
       return ok({ busy: false, streams: [] });
     }
-    const destination = deps.destinations.resolve(entry.sync_to);
+    const destination = deps.destinations.resolve(entry.destination);
     if (destination === null || destination.state === "missing") {
       return ok({ busy: false, streams: [] });
     }

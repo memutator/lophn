@@ -1,4 +1,4 @@
-// destination: 기계마다의 이름 → 그 기계의 절대 경로. 앱은 선언 `sync_to`로 이름만 고른다.
+// destination: 기계마다의 이름 → 그 기계의 절대 경로. 앱은 선언의 `sync`에 table마다 이름만 적는다.
 // 설정은 기계를 넘지 않는다. 사람의 data가 data root를 떠나기 시작하는 일이라 agent의 바꾸기는 사람의 승인이다.
 // data root와 겹치는 경로는 쓰이지 않는다: 바꿀 때 check가 거절하고, 사람이 settings.json을 손으로 고쳐 check를 지나친
 // 값은 `createDestinations`가 없는 것으로 본다.
@@ -128,7 +128,7 @@ export function destinationsSetting(
     type: destinationsType,
     default: {},
     description:
-      "Sync folders on this computer: a name mapped to an absolute folder path. An app picks one by name with `sync_to`, and lophn writes and reads that app's data there; an outside tool moves the folder between machines. When you change it, the person is asked to allow that exact change.",
+      "Sync folders on this computer: a name mapped to an absolute folder path. An app's declaration names one in `sync` for each table it sends, and lophn writes and reads those tables there; an outside tool moves the folder between machines. When you change it, the person is asked to allow that exact change.",
     approval: "person",
     describe: describeDestinations,
     check: (value, view): SettingIssue[] => {

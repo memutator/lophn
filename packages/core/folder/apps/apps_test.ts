@@ -416,7 +416,7 @@ async function world(): Promise<World> {
     slug: "notes",
     name: "Notes",
     description: "Keeps notes.",
-    sync_to: DESTINATION,
+    destination: DESTINATION,
     source_path: repoA,
     release: {
       id: "rel_01hzzzzzzzzzzzzzzzzzzzzz01" as Id<"rel">,
@@ -776,7 +776,7 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
       slug: "notes",
       name: "Notes",
       description: "Keeps notes.",
-      sync_to: DESTINATION,
+      destination: DESTINATION,
       source_path: repoB,
       release: {
         id: "rel_01hzzzzzzzzzzzzzzzzzzzzz02" as Id<"rel">,
@@ -1083,7 +1083,7 @@ test("computers carry(서명된 manifest·replica)로 @me/* package를 옮기고
     const commit = git(w.repoA, "rev-parse", "HEAD");
     const localComp: FolderLocalApp = {
       ...w.local,
-      sync_to: COMPUTERS_DESTINATION,
+      destination: COMPUTERS_DESTINATION,
       release: { ...w.local.release!, code_commit: commit },
     };
     const compDest = (path: string): DestinationsView => ({
@@ -1272,7 +1272,7 @@ test("computers carry(서명된 manifest·replica)로 @me/* package를 옮기고
   });
 });
 
-test("sync_to가 null인 앱도 computers destination으로 source와 app.json을 내보내 다른 기계가 take-in할 수 있다", async () => {
+test("data를 보내지 않는 앱도 computers destination으로 source와 app.json을 내보내 다른 기계가 take-in할 수 있다", async () => {
   await withWorld(async (w) => {
     const comp = join(w.rootA, "computers-nosync");
     mkdirSync(comp, { recursive: true });
@@ -1281,7 +1281,7 @@ test("sync_to가 null인 앱도 computers destination으로 source와 app.json�
       resolve: (name) =>
         name === COMPUTERS_DESTINATION ? { path: comp, state: "ok" } : null,
     };
-    const localNoSync = { ...w.local, sync_to: null };
+    const localNoSync = { ...w.local, destination: null };
     const folderANoSync = createFolderApps({
       machine: () => A,
       destinations: compDest,

@@ -51,6 +51,9 @@ import { createRuntimeState } from "../runtime/entrypoint/state.ts";
 import { openSyncStore, syncedWrite } from "../runtime/entrypoint/sync.ts";
 import { ensureAppToolPort } from "../runtime/entrypoint/tool-port.ts";
 import { createSyncLog } from "./log.ts";
+import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
+
+const PHONE_APP = syncPlanOf({ runs_on: ["computer", "phone"] });
 import { SYNC_LOG_MACHINE_STEPS, SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
 import { createAppSync } from "./service.ts";
 import { createSnapshots } from "./snapshots.ts";
@@ -115,6 +118,7 @@ function computer() {
     record: store,
     nowMs: () => clock.nowMs(),
     startChangeset: null,
+    plan: PHONE_APP,
   });
 
   const ledgerDb = new DatabaseSync(":memory:");
@@ -213,7 +217,7 @@ function computer() {
     async snapshot(_app, request) {
       hold.reached?.();
       await hold.gate;
-      return reply(await handleSnapshot(state, encode({ path: request.path })));
+      return reply(await handleSnapshot(state, encode(request)));
     },
     snapshotMerge: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
@@ -224,14 +228,13 @@ function computer() {
   };
 
   const activeRelease = () => ok(REL);
-  const isSync = () => true;
   const log = createSyncLog({
     sql,
     transaction,
     blobs,
     ledger,
     activeRelease,
-    isSync,
+    plan: () => PHONE_APP,
     now: () => clock.now(),
     changed: () => {},
   });
@@ -260,7 +263,7 @@ function computer() {
     log,
     phone: calls.phone,
     activeRelease,
-    runsOnPhone: isSync,
+    runsOnPhone: () => true,
   });
   const snapshots = createSnapshots({
     dataRoot: dir,
@@ -268,7 +271,7 @@ function computer() {
     exclusive: calls.phone.exclusive,
     link,
     activeRelease,
-    runsOnPhone: isSync,
+    runsOnPhone: () => true,
     clock,
     ids,
     later: () => {},

@@ -18,6 +18,13 @@ import {
   scriptFromBundle,
 } from "../../data/worker/migrate.ts";
 import { phoneSchemaProblemsOfDatabase } from "../phone-backend/schema-read.ts";
+import type { AppDeclaration } from "../../../../protocol/apps/declaration/types.ts";
+import {
+  sentTables,
+  type SyncPlan,
+  syncPlanOf,
+  syncsData,
+} from "../../../../protocol/apps/declaration/sync-plan.ts";
 
 // 실패는 오류 code가 아니라 결과다. reason은 agent가 읽고 고칠 글이다.
 export type CheckOutcome = { ok: true } | { ok: false; reason: string };
@@ -63,13 +70,20 @@ async function migrateOnce(
   return null;
 }
 
-// data가 기계 사이를 오가는 앱의 선언(평가한 JSON)이 어느 쪽인가. `runs_on`에 phone이면 폰과, `sync_to`가 있으면 폴더로 다른 컴퓨터와 맞춘다.
-function syncKinds(declaration: unknown): { phone: boolean; folder: boolean } {
-  const given = declaration as { runs_on?: unknown; sync_to?: unknown } | null;
-  return {
-    phone: Array.isArray(given?.runs_on) && given.runs_on.includes("phone"),
-    folder: typeof given?.sync_to === "string",
-  };
+// data가 기계 사이를 오가는 앱의 선언(평가한 JSON, 아직 검증기를 지나지 않았을 수 있다)이 정한 길. `runs_on`에 phone이면
+// 폰과, `sync`가 table을 적으면 그 table을 폴더로 다른 컴퓨터와 맞춘다. 모양이 틀린 칸은 없는 것으로 본다(검증기가 거절한다).
+function planOf(declaration: unknown): SyncPlan {
+  const given = (declaration ?? {}) as Record<string, unknown>;
+  const sync = given["sync"];
+  return syncPlanOf({
+    runs_on: Array.isArray(given["runs_on"])
+      ? (given["runs_on"] as AppDeclaration["runs_on"])
+      : undefined,
+    sync:
+      sync !== null && typeof sync === "object" && !Array.isArray(sync)
+        ? (sync as Record<string, string>)
+        : undefined,
+  });
 }
 
 // 폰에서도 도는 앱이 걸어야 하는 SDK의 하한이다. 그 밑 판에는 폰 entry(`lophn-phone`)가 없다.
@@ -77,14 +91,14 @@ const PHONE_SDK_FLOOR = {
   "@lophn/cap-store": "2.0.0",
   "@lophn/cap-tool": "2.2.0",
 } as const;
-// `sync_to`만 있는 앱은 컴퓨터에서 도는 sync 앱이라 변경을 뜨는 cap-store만 있으면 된다.
+// table을 폴더로만 보내는 앱은 컴퓨터에서 도는 sync 앱이라 변경을 뜨는 cap-store만 있으면 된다.
 const FOLDER_SDK_FLOOR = { "@lophn/cap-store": "2.0.0" } as const;
 
-// 선언이 SDK 하한을 걸었는지 본다. `runs_on`에 phone이 있거나 `sync_to`가 있는 앱만 본다. 문제가 없으면 null이다.
+// 선언이 SDK 하한을 걸었는지 본다. `runs_on`에 phone이 있거나 `sync`가 table을 보내는 앱만 본다. 문제가 없으면 null이다.
 export function syncSdkFloorProblem(declaration: unknown): string | null {
-  const kinds = syncKinds(declaration);
-  if (!kinds.phone && !kinds.folder) return null;
-  const floors = kinds.phone ? PHONE_SDK_FLOOR : FOLDER_SDK_FLOOR;
+  const plan = planOf(declaration);
+  if (!syncsData(plan)) return null;
+  const floors = plan.phone ? PHONE_SDK_FLOOR : FOLDER_SDK_FLOOR;
   const pinned = (declaration as { sdk_dependencies?: unknown } | null)
     ?.sdk_dependencies;
   const dependencies = Array.isArray(pinned) ? pinned : [];
@@ -96,9 +110,9 @@ export function syncSdkFloorProblem(declaration: unknown): string | null {
       typeof found?.version !== "string" ||
       compareVersions(found.version, floor) < 0
     ) {
-      return kinds.phone
+      return plan.phone
         ? "an app that runs on the phone needs @lophn/cap-store 2.0.0 and @lophn/cap-tool 2.2.0 or later"
-        : "an app with sync_to needs @lophn/cap-store 2.0.0 or later";
+        : "an app whose sync sends tables needs @lophn/cap-store 2.0.0 or later";
     }
   }
   return null;
@@ -115,11 +129,10 @@ async function freshDatabase(
   return { path };
 }
 
-async function syncsData(bundleRoot: string): Promise<boolean> {
-  const kinds = syncKinds(
+async function bundlePlan(bundleRoot: string): Promise<SyncPlan> {
+  return planOf(
     JSON.parse(await readFile(`${bundleRoot}/declaration.json`, "utf8")),
   );
-  return kinds.phone || kinds.folder;
 }
 
 // 빈 DB에서 dataSchema까지, previousSchema가 있으면 그 schema의 DB에서 dataSchema까지 올라가는지 본다.
@@ -162,15 +175,21 @@ export async function checkMigration(input: {
     scripts,
   );
   if (emptyFailed !== null) return { ok: false, reason: emptyFailed };
-  // data가 기계 사이를 오가는 앱(runs_on phone이나 sync_to)의 schema는 빈 DB에서 target까지 올린 이 DB에서 본다.
-  if (await syncsData(input.bundleRoot)) {
+  // data가 기계 사이를 오가는 앱(runs_on phone이나 sync)의 schema는 빈 DB에서 target까지 올린 이 DB에서 본다. 규칙은 맞추는
+  // 표에만 건다: 폰 앱은 폰 길이 모든 표를 맞추고, 그 밖에는 `sync`가 보내는 표다.
+  const plan = await bundlePlan(input.bundleRoot);
+  if (syncsData(plan)) {
     const db = new DatabaseSync(empty.path, { readOnly: true });
     try {
-      const problems = phoneSchemaProblemsOfDatabase(db);
+      const problems = phoneSchemaProblemsOfDatabase(
+        db,
+        plan.phone ? null : sentTables(plan),
+        [...(plan.tables ?? [])],
+      );
       if (problems.length > 0) {
         return {
           ok: false,
-          reason: `An app whose data syncs (runs_on phone or sync_to) must follow these schema rules. ${problems.join(" ")}`,
+          reason: `An app whose data syncs (runs_on phone or sync) must follow these schema rules on the tables that sync. ${problems.join(" ")}`,
         };
       }
     } finally {

@@ -1028,3 +1028,64 @@ test("폴더 길로 늦게 온 call은 state held mail 하나를 내고 Start no
   assert.equal(b.count("messages"), bMessages);
   assert.equal(b.count("mail_outbox"), 0);
 });
+
+test("같은 기계의 cancel이 먼저 닿은 늦은 call은 대기에 서지 않고 돌지 않으며 closed로 답하고, 행이 없는 call의 cancel은 대기 줄을 닫고 기록되어 뒤에 온 같은 call도 돌지 않는다", async () => {
+  clock.ms = START;
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+
+  // 폴더 길은 순서가 바뀐다: cancel이 call보다 먼저 닿고, call은 늦게 닿는다.
+  const first = await a.send(sender, B);
+  const [firstMail] = pendingMails(a.sql, B);
+  await a.command(callsMailSent, {
+    mail: firstMail!.id,
+    result: { kind: "unknown" },
+  });
+  assert.ok((await a.command(callCancel, { call: first }, PERSON)).ok);
+  const [cancelMail] = pendingMails(a.sql, B);
+  assert.equal(cancelMail?.kind, "cancel");
+  assert.ok(
+    (await b.inbox.apply({ mail: cancelMail!, origin: A, via: "folder" })).ok,
+  );
+  later(MAIL_LATE_MS + 1);
+  assert.deepStrictEqual(
+    await b.inbox.apply({ mail: firstMail!, origin: A, via: "folder" }),
+    {
+      ok: true,
+      value: { delivery: "failed", reason: "closed", session: null },
+    },
+  );
+  assert.deepStrictEqual(await b.holds(), []);
+  assert.equal(b.count("mail_seen", "mail is not null"), 0);
+  assert.equal(b.count("sessions"), 0);
+
+  // 대기 줄에 선 뒤 온 cancel: 이 기계에 행이 없어도 줄을 닫고, cancel이 기록되어 같은 call을 다시 실어 와도 돌지 않는다.
+  const second = await a.send(sender, B);
+  later(MAIL_LATE_MS + 1);
+  const [secondMail] = pendingMails(a.sql, B).filter(
+    (mail) => mail.kind === "call",
+  );
+  await carry(a, b);
+  assert.equal(a.callRow(second)?.["delivery"], "held");
+  assert.ok((await a.command(callCancel, { call: second }, PERSON)).ok);
+  await carry(a, b);
+  assert.deepStrictEqual(await b.holds(), []);
+  assert.equal(
+    b.count("mail_seen", `call = '${second}' and state = 'cancelled'`),
+    1,
+  );
+  assert.deepStrictEqual(
+    await b.inbox.apply({
+      mail: { ...secondMail!, id: "mal_0yyyyyyyyyyyyyyyyyyyyyyyyy" },
+      origin: A,
+      via: "link",
+    }),
+    {
+      ok: true,
+      value: { delivery: "failed", reason: "closed", session: null },
+    },
+  );
+  assert.deepStrictEqual(await b.holds(), []);
+  assert.equal(b.count("sessions"), 0);
+});

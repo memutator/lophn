@@ -119,12 +119,13 @@ export interface CoreConnection {
   >;
   /**
    * `logins/release`를 부른다. shell capability는 이것과 `terminalCall`·`machineCall`만 입력에 싣고 값은 호출한 쪽(browser driver)에만 돌아간다.
-   * origin은 부르는 쪽이 ref 요소가 든 frame에서 잰 값이다.
+   * origin은 부르는 쪽이 ref 요소가 든 frame에서 잰 값이고 profile은 그 page의 browser profile(null은 기본)이다.
    */
   releaseLogin(request: {
     id: string;
     field: "password" | "totp";
     origin: string;
+    profile: string | null;
   }): Promise<
     | { ok: true; value: { value: string } }
     | { ok: false; error: { code: string; message: string } }

@@ -82,6 +82,7 @@ import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
 import { createLoginStore } from "../../../secrets/mod.ts";
+import { agentBrowserProfile } from "./browser-profile.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 // core 메모리의 host queue를 shell main(`/host-link` 연결)과 agent·사람(tabs/*, browser/*)에 연다. 흐름은
@@ -161,6 +162,8 @@ type TabDeps = {
   launchShell?: (failed: () => void) => void;
   // fill_login이 가리키는 login의 metadata(값은 없다). 없으면 undefined, 못 읽으면 오류.
   login(id: string): Promise<Result<Login | undefined>>;
+  // session의 agent 정의가 고른 browser profile(`wiring/browser-profile.ts`). 없거나 지운 profile이면 null(기본)이다.
+  browserProfile(session: Id<"ses">): Id<"bpf"> | null;
   // browser 결과가 caller에 가기 전에 거치는 redaction. 알려진 값을 아직 다 모르면 null이다.
   redact(text: string): string | null;
   // 그 앱의 기기가 연 preview view(`apps/views`). phone 탭이 다룰 화면을 고른다.
@@ -483,7 +486,13 @@ export function createTabHandlers(deps: TabDeps) {
         return err({ code: "unavailable", message: SHELL_START_FAILED });
       }
     }
-    const sent = queue.openAndWait(opening);
+    // agent가 여는 browser 탭은 그 agent 정의의 profile을 쓴다. 사람 token은 기본 profile이다.
+    const profile = person
+      ? null
+      : deps.browserProfile(caller.value as Id<"ses">);
+    const sent = queue.openAndWait(
+      profile === null ? opening : { ...opening, profile },
+    );
     const opened = await settled(sent.id, sent.result, starting);
     if (!opened.ok) {
       queue.close(sent.tab, caller.value);
@@ -615,6 +624,7 @@ export function createTabHandlers(deps: TabDeps) {
       build: (
         input: never,
         view: "browser" | "preview" | "artifact",
+        caller: TabOwner,
       ) => Result<BrowserAction> | Promise<Result<BrowserAction>>,
       shape: (content: HostToolContent[], input: never) => Result<unknown>,
       route: { input: { parse(body: unknown): { tab: string } } },
@@ -640,7 +650,11 @@ export function createTabHandlers(deps: TabDeps) {
           input as never,
         );
       }
-      const action = await build(input as never, found.value.view);
+      const action = await build(
+        input as never,
+        found.value.view,
+        caller.value,
+      );
       if (!action.ok) return action;
       if (!queue.attached()) {
         return err({ code: "unavailable", message: SHELL_LOST });
@@ -702,8 +716,8 @@ export function createTabHandlers(deps: TabDeps) {
     (driver, tab, by) => driver.snapshot(tab, by),
   );
   const act = call(
-    async (input: Record<string, unknown>) => {
-      const { tab: _tab, ...fields } = input;
+    async (input: Record<string, unknown>, _view, caller) => {
+      const { tab, ...fields } = input;
       const parsed = browserActSchema.safeParse(fields);
       if (!parsed.success) {
         return invalid(`invalid act: ${parsed.error.issues[0]?.message ?? ""}`);
@@ -712,7 +726,10 @@ export function createTabHandlers(deps: TabDeps) {
       if (act.type !== "fill_login") return ok({ kind: "act", act });
       const login = await deps.login(act.login);
       if (!login.ok) return login;
-      if (login.value === undefined) {
+      // 다른 profile의 login은 이 탭에서 없는 login이다(list에도 나오지 않는다).
+      const profile = queue.tabProfile(tab as Id<"tab">, caller);
+      if (!profile.ok) return profile;
+      if (login.value === undefined || login.value.profile !== profile.value) {
         return err({ code: "not_found", message: "no login with that id" });
       }
       // username은 비밀이 아니라 metadata의 글을 지금 `fill`과 같이 친다. 값(password·TOTP)은 shell main이 받는다.
@@ -955,6 +972,7 @@ export const hostQueueWiring: WiringFactory = () => {
           const logins = await loginStore.list();
           return logins.ok ? ok(logins.value.find((l) => l.id === id)) : logins;
         },
+        browserProfile: (session) => agentBrowserProfile(ctx, session),
         redact,
         // view 표와 폰 link는 다른 wiring이 낸다. 부를 때 읽는다.
         previewViews: (app) => ctx.appViews.previewViews(app),

@@ -282,6 +282,9 @@ function orderedFrontmatter(value: Plain): Plain {
     | string[]
     | undefined;
   if (deny !== undefined && deny.length > 0) out.permissions = { deny };
+  if (value.browser_profile !== undefined) {
+    out.browser_profile = value.browser_profile;
+  }
   if (value.skip !== undefined) out.skip = value.skip;
   return out;
 }

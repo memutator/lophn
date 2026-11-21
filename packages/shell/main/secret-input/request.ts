@@ -88,6 +88,7 @@ async function saveLogin(
       label: login.label,
       origin: request.origin,
       username: login.username,
+      profile: request.profile,
     })
     .catch(() => null);
   if (saved === null || !saved.ok) {

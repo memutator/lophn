@@ -45,7 +45,7 @@ flows:
         observe: [disk:agents/<id>.md, disk:agents/<id>/avatar.<ext>]
       - id: human-only-field
         code: forbidden
-        when: agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions 가운데 하나를 냈다
+        when: agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions, browser_profile 가운데 하나를 냈다
         observe: [response]
       - id: agent-exists
         code: conflict
@@ -97,7 +97,7 @@ flows:
         observe: [response, "screen:agent-settings-save-conflict"]
       - id: human-only-field
         code: forbidden
-        when: agent 자격이 사람만 정하는 칸을 바꿨다
+        when: agent 자격이 사람만 정하는 칸(mcp_servers, skip, apps, remote_apps, extensions, permissions, browser_profile)을 지금 file의 값과 다르게 냈다
         observe: [response]
       - id: lophn-profile
         code: forbidden

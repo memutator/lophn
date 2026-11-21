@@ -695,9 +695,12 @@ files:
     covers:
       - login-release:released
       - login-release:forbidden
+      - login-release:other-profile
       - login-list:ok
+      - login-list:not_found
+      - login-save:saved
       - login-delete:deleted
-    note: origin이 다르거나 shell capability가 아니면 값을 내주지 않고, list는 값을 싣지 않으며, 지우면 두 secret 이름도 지워진다
+    note: origin이나 browser profile이 다르거나 shell capability가 아니면 값을 내주지 않고, list는 값을 싣지 않고 그 탭이나 agent 정의의 profile에 든 login만 내며, profile 칸이 없는 옛 login은 기본 profile이고, 지우면 두 secret 이름도 지워진다
 
   - path: packages/core/secrets/file-store_test.ts
     covers:

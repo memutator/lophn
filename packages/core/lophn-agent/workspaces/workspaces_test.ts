@@ -97,6 +97,7 @@ const deps: OpenDeps = {
             apps: [],
             deny: [],
             remoteApps: [],
+            browserProfile: null,
           }
         : id === REVIEWER
           ? {
@@ -109,6 +110,7 @@ const deps: OpenDeps = {
               apps: [],
               deny: [],
               remoteApps: [],
+              browserProfile: null,
             }
           : isLophn(id)
             ? {
@@ -121,6 +123,7 @@ const deps: OpenDeps = {
                 apps: [],
                 deny: [],
                 remoteApps: [],
+                browserProfile: null,
               }
             : null,
     agents: () => [],

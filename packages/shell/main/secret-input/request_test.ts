@@ -19,6 +19,7 @@ const request: OpenRequest = {
   label: "2FA code",
   origin: "https://example.com",
   title: "Sign in",
+  profile: null,
 };
 
 function fakeCore() {

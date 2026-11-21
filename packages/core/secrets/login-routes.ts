@@ -1,5 +1,14 @@
 // logins/list·save·delete·release handler. 값은 release 응답에만 있고 오류·log·다른 결과에는 없다.
-import { err, ok, type Clock, type IdSource } from "../../base/mod.ts";
+// login은 browser profile 하나에 속한다(null은 기본 profile). agent는 자기 탭이나 자기 정의의 profile에 든 login만 보고,
+// 값은 page의 profile이 login의 profile과 같을 때만 나간다.
+import {
+  err,
+  ok,
+  type Clock,
+  type IdSource,
+  type Result,
+} from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   LOGIN_ID_PREFIX,
   loginsDelete,
@@ -24,10 +33,38 @@ type Deps = {
   secrets: Pick<SecretStore, "names" | "get" | "delete">;
 };
 
-export function loginsListHandler(deps: Deps) {
-  const handler: MemoryHandler = async (_ctx, rawInput) => {
+// 탭 주인은 session id이거나 사람 token의 "person"이다(host-queue의 TabOwner).
+export type ProfileDeps = {
+  // 부른 쪽 자기 탭의 profile. 없는 탭·남의 탭은 not_found다.
+  tabProfile(tab: string, caller: string): Result<string | null>;
+  // session의 agent 정의가 고른 profile. 없거나 지운 profile이면 null(기본)이다.
+  agentBrowserProfile(session: string): string | null;
+};
+
+// 볼 login의 profile이다. undefined는 전부(사람이 탭 없이 부를 때)다.
+function listedProfile(
+  who: AuthenticatedContext,
+  tab: string | undefined,
+  deps: ProfileDeps,
+): Result<string | null | undefined> {
+  if (who.actor === "user") {
+    return tab === undefined ? ok(undefined) : deps.tabProfile(tab, "person");
+  }
+  const session = who.conditions.session;
+  if (!who.actor.startsWith("agent:") || session === undefined) {
+    return err({ code: "forbidden", message: "only an agent session" });
+  }
+  return tab === undefined
+    ? ok(deps.agentBrowserProfile(session))
+    : deps.tabProfile(tab, session);
+}
+
+export function loginsListHandler(deps: Deps & ProfileDeps) {
+  const handler: MemoryHandler = async (who, rawInput) => {
     const input = loginsList.input.safeParse(rawInput);
     if (!input.success) return INVALID("login 조회 입력이 올바르지 않다");
+    const profile = listedProfile(who, input.data.tab, deps);
+    if (!profile.ok) return profile;
     const logins = await deps.logins.list();
     if (!logins.ok) return logins;
     const names = deps.secrets.names();
@@ -37,7 +74,9 @@ export function loginsListHandler(deps: Deps) {
       logins.value
         .filter(
           (l) =>
-            input.data.origin === undefined || l.origin === input.data.origin,
+            (input.data.origin === undefined ||
+              l.origin === input.data.origin) &&
+            (profile.value === undefined || l.profile === profile.value),
         )
         .map((l) => ({
           ...l,
@@ -52,16 +91,22 @@ export function loginsSaveHandler(deps: { logins: LoginStore; ids: IdSource }) {
   const handler: MemoryHandler = async (_ctx, rawInput) => {
     const input = loginsSave.input.safeParse(rawInput);
     if (!input.success) return INVALID("login 입력이 올바르지 않다");
-    const { id: given, note, ...fields } = input.data;
+    const { id: given, note, profile, ...fields } = input.data;
     const id = given ?? deps.ids.newId(LOGIN_ID_PREFIX);
     return await deps.logins.update((logins) => {
       const entry = { id, ...fields, note: note ?? "" };
       if (given === undefined) {
-        return ok({ logins: [...logins, entry], value: { id } });
+        return ok({
+          logins: [...logins, { ...entry, profile: profile ?? null }],
+          value: { id },
+        });
       }
       if (!logins.some((l) => l.id === id)) return NOT_FOUND;
+      // 고칠 때 profile은 그 login의 것을 그대로 둔다.
       return ok({
-        logins: logins.map((l) => (l.id === id ? entry : l)),
+        logins: logins.map((l) =>
+          l.id === id ? { ...entry, profile: l.profile } : l,
+        ),
         value: { id },
       });
     });
@@ -100,7 +145,7 @@ export function loginsReleaseHandler(
   const handler: MemoryHandler = async (_ctx, rawInput) => {
     const input = loginsRelease.input.safeParse(rawInput);
     if (!input.success) return INVALID("login release 입력이 올바르지 않다");
-    const { id, field, origin, shell_capability } = input.data;
+    const { id, field, origin, profile, shell_capability } = input.data;
     if (!deps.capabilities.has(shell_capability)) {
       return err({ code: "forbidden", message: "shell capability가 아니다" });
     }
@@ -113,6 +158,13 @@ export function loginsReleaseHandler(
       return err({
         code: "forbidden",
         message: "저장된 origin과 다른 곳이다",
+      });
+    }
+    // 다른 profile의 탭에는 그 profile의 cookie로 들어간 site가 있다. login은 자기 profile의 탭에만 쳐진다.
+    if (login.profile !== profile) {
+      return err({
+        code: "forbidden",
+        message: "저장된 login과 다른 browser profile의 탭이다",
       });
     }
     const value = deps.secrets.get(loginSecretName(id, field));

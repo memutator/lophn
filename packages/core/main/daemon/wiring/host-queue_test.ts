@@ -68,6 +68,7 @@ const LOGIN_ENTRY = {
   origin: "https://example.com",
   username: "alice@example.com",
   note: "",
+  profile: null,
 };
 const KNOWN = "hunter2";
 
@@ -137,6 +138,7 @@ function setup(
     ...(launchShell === undefined ? {} : { launchShell }),
     login: (login) =>
       Promise.resolve(ok(login === LOGIN ? LOGIN_ENTRY : undefined)),
+    browserProfile: () => null,
     redact: (text) => text.replaceAll(KNOWN, "[REDACTED]"),
     previewViews: (app) => phone.previewViews(app),
     phoneCall: (call) => {

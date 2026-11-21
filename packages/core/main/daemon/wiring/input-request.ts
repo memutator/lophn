@@ -224,6 +224,12 @@ export const inputRequestWiring: WiringFactory = () => {
           input.ref,
         );
         if (!origin.ok) return origin;
+        // save는 이 탭의 profile에 login을 둔다.
+        const profile = queue.tabProfile(
+          input.tab as Id<"tab">,
+          session as Id<"ses">,
+        );
+        if (!profile.ok) return profile;
         return await waits.askRequest(
           { session, turn },
           {
@@ -235,6 +241,7 @@ export const inputRequestWiring: WiringFactory = () => {
             label: input.label ?? new URL(origin.value.origin).host,
             origin: origin.value.origin,
             title: origin.value.title,
+            profile: profile.value,
           },
         );
       };

@@ -86,6 +86,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
             model_name: model.value.model_name,
             source: model.source,
           },
+    browser_profile: definition?.browser_profile ?? null,
     issues: loaded.issues,
     counts: broken
       ? { skills: null, mcp: null }

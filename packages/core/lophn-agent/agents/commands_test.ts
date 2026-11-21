@@ -338,3 +338,61 @@ test("agent가 만든 agent는 부른 session의 workspace에 범위가 잡히�
     await rm(root, { recursive: true });
   }
 });
+
+// browser profile은 agent가 쓰는 cookie와 저장 login을 정한다. 깨지면 agent가 스스로 다른 profile의 로그인으로 옮겨 간다.
+test("agent 자격은 정의의 browser_profile을 넣거나 바꾸지 못하고(forbidden) 사람은 된다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
+  try {
+    const files = createNodeAgentFiles();
+    const commands = createAgentCommands({
+      files,
+      lookups: () => lookups,
+      dataRoot: root,
+    });
+    const WORK = `bpf_${"1".repeat(26)}`;
+    const SHOP = `bpf_${"2".repeat(26)}`;
+    const base = { handle: "shopper", name: "Shopper" };
+    const refusedCreate = commands.create.handle(
+      tx,
+      agent,
+      { id: OTHER, definition: { ...base, body: "x", browser_profile: WORK } },
+      {} as never,
+    );
+    assert.ok(!refusedCreate.ok);
+    assert.equal(refusedCreate.error.code, "forbidden");
+    const made = commands.create.handle(
+      tx,
+      user,
+      { id: AGENT, definition: { ...base, body: "v1", browser_profile: WORK } },
+      {} as never,
+    );
+    assert.ok(made.ok);
+    let hash = made.value.hash;
+    const change = (ctx: RequestContext, definition: object) =>
+      commands.change.handle(
+        tx,
+        ctx,
+        { agent: AGENT, definition: { ...base, ...definition } } as never,
+        { hash },
+      );
+    // 그대로 두면 agent도 다른 칸을 고친다.
+    const kept = change(agent, { body: "v2", browser_profile: WORK });
+    assert.ok(kept.ok);
+    hash = kept.value.hash;
+    for (const definition of [
+      { body: "v3", browser_profile: SHOP },
+      { body: "v3" },
+    ]) {
+      const refused = change(agent, definition);
+      assert.ok(!refused.ok);
+      assert.equal(refused.error.code, "forbidden");
+    }
+    const moved = change(user, { body: "v3", browser_profile: SHOP });
+    assert.ok(moved.ok);
+    const stored = createAgentStore(files, root).read(agentSlotOf(root, AGENT));
+    assert.ok(stored.ok && stored.value !== null);
+    assert.ok(stored.value.text.includes(`browser_profile: ${SHOP}`));
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});

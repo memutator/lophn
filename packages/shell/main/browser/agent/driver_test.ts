@@ -103,7 +103,12 @@ const PASSWORD = "hunter2";
 function setup(mode: "live" | "preview" = "preview") {
   const fake = fakePage();
   const control = createTabControl(() => {});
-  const released: { id: string; field: string; origin: string }[] = [];
+  const released: {
+    id: string;
+    field: string;
+    origin: string;
+    profile: string | null;
+  }[] = [];
   const lookup: PageLookup = {
     guest: () => fake.page,
     app: () => ({ mode, page: fake.page }),
@@ -252,6 +257,7 @@ test("fill_login은 ref가 든 frame의 origin으로 값을 받아 치고 결과
       id: "lgn_00000000000000000000000000",
       field: "password",
       origin: "https://evil.test",
+      profile: null,
     },
   ]);
   assert.equal(fake.state.typed.join(""), PASSWORD);

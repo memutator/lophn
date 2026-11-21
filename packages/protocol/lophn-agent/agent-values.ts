@@ -189,7 +189,11 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
 });
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `skip`)의
+// agent가 `tab open --url`로 여는 탭의 browser profile(설정 `shell.browser_profiles`의 id). 없거나 지운 profile이면 기본 profile이다.
+// 사람만 쓰는 칸이다. protocol/shell을 import하지 못해 id 꼴만 쓴다.
+const browserProfileSchema = idSchema("bpf");
+
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,
@@ -208,6 +212,7 @@ const frontmatterFields = {
   apps: appsSchema.optional(),
   remote_apps: remoteAppsSchema.optional(),
   permissions: permissionsSchema.optional(),
+  browser_profile: browserProfileSchema.optional(),
   skip: z.boolean().optional(),
 };
 const frontmatterOutputFields = {
@@ -227,6 +232,7 @@ const frontmatterOutputFields = {
   apps: appsSchema.optional(),
   remote_apps: remoteAppsSchema.optional(),
   permissions: permissionsSchema.optional(),
+  browser_profile: browserProfileSchema.optional(),
   skip: z.boolean().optional(),
 };
 

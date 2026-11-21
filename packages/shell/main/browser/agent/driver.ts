@@ -35,11 +35,12 @@ export type LoginRelease =
   | { ok: false; error: { code: string; message: string } };
 
 export interface BrowserDriverDeps {
-  /** frame의 origin(CDP가 잰 값)으로 login 값을 받는다. capability는 부르는 쪽이 들고 driver는 모른다. */
+  /** frame의 origin(CDP가 잰 값)과 page의 browser profile로 login 값을 받는다. capability는 부르는 쪽이 들고 driver는 모른다. */
   releaseLogin(request: {
     id: string;
     field: "password" | "totp";
     origin: string;
+    profile: string | null;
   }): Promise<LoginRelease>;
   /** renderer가 그 탭의 view로 알린 session. 창이 모르면 undefined다. */
   viewSession(tab: string): string | undefined;
@@ -541,7 +542,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     }
   }
 
-  // login 값은 core가 저장된 origin과 글자 그대로 같을 때만 준다.
+  // login 값은 core가 저장된 origin과 글자 그대로 같고 page의 profile이 login의 profile일 때만 준다.
   async function fillLogin(
     session: Session,
     act: Extract<BrowserAct, { type: "fill_login" }>,
@@ -555,6 +556,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         id: act.login,
         field,
         origin,
+        profile: session.page.profile,
       });
       if (!released.ok) {
         throw fail(

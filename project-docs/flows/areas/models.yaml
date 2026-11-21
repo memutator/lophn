@@ -1649,9 +1649,10 @@ flows:
     actor: agent
     entries: [route:logins/list]
     boundary: [secrets]
-    code: [packages/core/secrets/login-routes.ts, packages/core/secrets/logins.ts]
+    code: [packages/core/secrets/login-routes.ts, packages/core/secrets/logins.ts, packages/core/main/daemon/wiring/secrets.ts, packages/core/main/daemon/wiring/browser-profile.ts]
     steps:
-      - "logins.json의 항목을 읽고, 입력에 origin이 있으면 저장된 origin과 글자가 같은 것만 남긴다"
+      - "볼 browser profile을 정한다. agent는 입력에 tab이 있으면 자기 탭(host queue 탭 표)의 profile, 없으면 session의 agent 정의 `browser_profile`(설정 `shell.browser_profiles`에 없으면 기본)이다. 사람은 tab이 있으면 사람 token 탭의 profile, 없으면 전부다"
+      - "logins.json의 항목을 읽는다. `profile` 칸이 없는 항목은 기본 profile(null)이다. 그 profile의 항목만 남기고, 입력에 origin이 있으면 저장된 origin과 글자가 같은 것만 남긴다"
       - "항목마다 secrets.json에 login.<id>.totp 이름이 있는지만 totp(boolean)로 싣는다. password와 seed 값은 읽지 않는다"
     outcomes:
       - id: ok
@@ -1659,6 +1660,10 @@ flows:
       - id: invalid_input
         code: invalid_input
         when: "origin이 URL.origin 모양이 아니다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "tab이 없거나 부른 쪽의 탭이 아니다(agent의 남의 탭, 사람 token이 열지 않은 탭)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1680,7 +1685,8 @@ flows:
     boundary: [secrets]
     code: [packages/core/secrets/login-routes.ts, packages/core/secrets/logins.ts]
     steps:
-      - "id가 없으면 새 lgn_ id를 만들어 목록 끝에 더한다. id가 있으면 그 항목을 통째로 바꾼다"
+      - "id가 없으면 새 lgn_ id를 만들어 목록 끝에 입력 profile(없으면 기본)로 더한다. id가 있으면 그 항목을 통째로 바꾸되 profile은 그 login의 것을 그대로 둔다"
+      - "기본 profile의 항목은 `profile` 칸 없이 쓴다(그래서 옛 logins.json이 옮기지 않고 그대로 읽힌다)"
       - "임시 파일에 0600으로 쓰고 rename한다. 값(password, TOTP seed)은 secrets/put의 보호 입력 창이 따로 넣는다"
     outcomes:
       - id: saved
@@ -1749,6 +1755,7 @@ flows:
     steps:
       - "입력의 shell_capability가 control connect {client: shell}이 발급해 아직 살아 있는 것인지 본다. HTTP user token, agent·worker credential, CLI는 이 값을 모른다"
       - "login을 찾아 입력 origin(shell main이 ref 요소가 든 frame에서 잰 값)이 저장된 origin과 글자 그대로 같은지 본다. 와일드카드·상위 도메인은 없다"
+      - "입력 profile(그 page의 browser profile)이 login의 profile과 같은지 본다"
       - "password면 login.<id>.password 값을, totp면 login.<id>.totp seed로 지금 시각(Clock)의 RFC 6238 6자리 code를 응답에 싣는다. 값은 log·ledger·오류에 없다"
     outcomes:
       - id: released
@@ -1760,6 +1767,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "shell capability가 아니거나 origin이 저장된 것과 다르다. 사람이 아닌 actor(agent 등)는 dispatch에서 막힌다"
+        observe: [response]
+      - id: other-profile
+        code: forbidden
+        when: "page의 browser profile이 login의 profile과 다르다"
         observe: [response]
       - id: not_found
         code: not_found

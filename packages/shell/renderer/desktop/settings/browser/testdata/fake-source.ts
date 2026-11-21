@@ -70,7 +70,10 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
   passwords();
   core.answers.push(
     fakeAnswer(loginsList, () =>
-      logins.map(({ password: _password, ...login }) => login),
+      logins.map(({ password: _password, ...login }) => ({
+        ...login,
+        profile: null,
+      })),
     ),
   );
   const listeners = new Set<() => void>();

@@ -1,11 +1,13 @@
 // `<data root>/logins.json`(0600): login metadata 목록. 값은 없다(값은 secrets.json의 `login.<id>.*`).
 // 파일이 없으면 빈 목록이다. 쓰기는 임시 파일에 0600으로 쓰고 rename한다.
+// 항목의 `profile`이 없으면 기본 profile이다: 읽을 때 null로 내고, 기본 profile의 login은 칸 없이 쓴다.
 import { chmod, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   type Login,
   LOGINS_FILE_NAME,
   loginsFileSchema,
+  type StoredLogin,
 } from "../../protocol/secrets/mod.ts";
 
 type Change<T> = (logins: Login[]) => Result<{ logins: Login[]; value: T }>;
@@ -39,7 +41,12 @@ export function createLoginStore(options: { root: string }): LoginStore {
     }
     const parsed = loginsFileSchema.safeParse(json);
     return parsed.success
-      ? ok(parsed.data)
+      ? ok(
+          parsed.data.map((login) => ({
+            ...login,
+            profile: login.profile ?? null,
+          })),
+        )
       : unavailable("logins 파일 모양이 맞지 않는다");
   }
 
@@ -53,7 +60,11 @@ export function createLoginStore(options: { root: string }): LoginStore {
         if (!changed.ok) return changed;
         const temp = `${path}.tmp`;
         try {
-          await writeFile(temp, JSON.stringify(changed.value.logins), {
+          const stored: StoredLogin[] = changed.value.logins.map(
+            ({ profile, ...login }) =>
+              profile === null ? login : { ...login, profile },
+          );
+          await writeFile(temp, JSON.stringify(stored), {
             mode: 0o600,
           });
           await chmod(temp, 0o600);

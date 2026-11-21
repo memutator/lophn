@@ -2,7 +2,7 @@ group: lophn-agent
 files:
   - path: packages/core/lophn-agent/agents/commands_test.ts
     covers: [agent-create:created, agent-create:invalid-definition, agent-create:human-only-field, agent-change:hash-changed, agent-change:handle-changed, agent-change:human-only-field, agent-change:lophn-profile, agent-delete:lophn-cannot-delete]
-    note: "lophn 고정 칸, handle 중복과 변경 거절, 옛 hash 충돌, custom tool 이름 검사, agent가 만든 agent의 범위"
+    note: "lophn 고정 칸, handle 중복과 변경 거절, 옛 hash 충돌, custom tool 이름 검사, agent가 만든 agent의 범위, agent 자격의 browser_profile 넣기·바꾸기 거절"
 
   - path: packages/core/lophn-agent/agents/definition-file_test.ts
     covers: []

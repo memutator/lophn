@@ -37,6 +37,10 @@ import {
   remoteDeviceSchema,
 } from "../../protocol/remote/frames.ts";
 import {
+  BROWSER_PROFILES_SETTING,
+  browserProfilesSchema,
+} from "../../protocol/shell/browser-profiles.ts";
+import {
   bindingId,
   isChordText,
   KEYBINDINGS,
@@ -401,6 +405,17 @@ export const devicesSetting = declareSetting({
     "Devices for app previews: each has a name, a viewport size in CSS px, a pixel ratio and an OS. `lophn tab open --preview <app> --device <name>` and the preview tab use them. Names are unique. Entries added by phone pairing also carry `device`, the paired device id; renaming or removing that device changes only its entry.",
 });
 
+// browser profile 목록(기본 profile은 없다). agent 정의의 `browser_profile`이 id로 가리키고 탭의 cookie와 저장 login이 profile마다 따로다.
+// 어느 profile의 로그인을 agent가 쓰는지가 걸려 사람만 바꾼다.
+export const browserProfilesSetting = declareSetting({
+  key: BROWSER_PROFILES_SETTING,
+  type: browserProfilesSchema,
+  default: [],
+  description:
+    "Browser profiles besides the default one: each has an id, a name and a color, and keeps its own cookies and saved site logins. An agent definition's `browser_profile` picks one for the tabs that agent opens; only the person changes this list.",
+  locked: true,
+});
+
 // 폰이 붙는 remote listener. 켜면 core가 모든 interface의 이 port에서 듣고, 켜 있는 동안 idle-exit로 끝나지 않는다.
 // 집 밖 network에 port를 여는 일이라 사람만 바꾼다.
 export const remoteEnabledSetting = declareSetting({
@@ -559,6 +574,7 @@ export const shellSettings = [
   codingAgentsSetting,
   taskbarSetting,
   devicesSetting,
+  browserProfilesSetting,
   remoteEnabledSetting,
   remotePortSetting,
   remoteAddressesSetting,

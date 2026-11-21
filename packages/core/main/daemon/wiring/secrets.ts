@@ -1,4 +1,6 @@
 import { createIdSource, err, ok } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { TabOwner } from "../../../host-queue/mod.ts";
 import {
   loginsDelete,
   loginsList,
@@ -30,6 +32,7 @@ import {
 } from "../../../secrets/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readAgentMcp } from "./agent-mcp.ts";
+import { agentBrowserProfile } from "./browser-profile.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 const key = (route: { resource: string; method: string }) =>
@@ -151,7 +154,21 @@ export const secretsWiring: WiringFactory = () => {
       const logins = createLoginStore({ root: ctx.root.path });
       return ok({
         memory: [
-          [key(loginsList), loginsListHandler({ logins, secrets })],
+          [
+            key(loginsList),
+            loginsListHandler({
+              logins,
+              secrets,
+              // 탭 표는 host-queue wiring이 늦게 낸다. 부를 때 읽고, 아직 없으면 그 탭은 없다.
+              tabProfile: (tab, caller) =>
+                ctx.peek.hostQueue?.tabProfile(
+                  tab as Id<"tab">,
+                  caller as TabOwner,
+                ) ?? err({ code: "not_found", message: "no such tab" }),
+              agentBrowserProfile: (session) =>
+                agentBrowserProfile(ctx, session),
+            }),
+          ],
           [
             key(loginsSave),
             loginsSaveHandler({

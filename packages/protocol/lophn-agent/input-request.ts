@@ -99,6 +99,8 @@ const loginViewSchema = z.strictObject({
   origin: loginOriginSchema,
   // 요청 때 탭 page의 제목이다. page가 정한 글이라 origin과 달리 믿지 않는다. card가 작게 보인다.
   title: z.string().max(200),
+  // 요청한 탭의 browser profile이다(null은 기본). save가 이 profile에 login을 둔다.
+  profile: idSchema("bpf").nullable(),
 });
 
 const secretViewSchema = z.strictObject({

@@ -28,6 +28,16 @@ journeys:
       - {do: "이름, 지침, model을 채워 저장한다", screen: agent-settings-create, flow: agent-create:created}
       - {do: "저장된 agent 설정을 다시 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
 
+  - id: agent-duplicate-by-person
+    title: "사람이 agent를 복제해 얇은 변형을 만든다"
+    actor: person
+    goal: "사람이 Agents 탭 카드의 Duplicate로 저장된 정의를 본뜬 새 agent를 열고, model 같은 칸만 바꿔 만든다"
+    refs: [H11, P2]
+    steps:
+      - {do: "카드의 네 묶음 요약(Runs on, Sees, Works how)으로 본뜰 agent를 고르고 카드 머리 ⋯ menu를 연다", screen: agents-tab-card-menu, flow: agent-definition-read:ok}
+      - {do: "Duplicate를 누르면 같은 탭에 \"<name> copy\"와 겹치지 않는 handle을 든 새 agent가 Overview로 열린다. 올린 이미지는 옮기지 않는다", screen: agents-tab-duplicated, flow: agent-definition-read:ok}
+      - {do: "Runs on에서 model을 바꾸고 Create agent를 누른다", screen: agent-settings-runtime-tab, flow: agent-create:created}
+
   - id: agent-create-human-only-refused
     title: "agent가 사람만 정하는 칸을 넣어 정의를 만들려다 막힌다"
     actor: agent
@@ -221,10 +231,10 @@ journeys:
   - id: app-assign-to-agent
     title: "사람이 agent에게 앱을 붙이고 뺄 tool을 고른다"
     actor: person
-    goal: "사람이 Grants 탭에서 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 정해 저장한다"
+    goal: "사람이 agent editor의 Sees 탭 앱 할당에서 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 정해 저장한다"
     refs: [H3, P4, C25]
     steps:
-      - {do: "Grants 탭을 연다", screen: new-agent-grants, flow: assignment-read:ok}
+      - {do: "Sees 탭의 앱 할당을 연다", screen: new-agent-grants, flow: assignment-read:ok}
       - {do: "앱을 펼쳐 뺄 tool의 Allowed를 끄고 저장한다", screen: new-agent-grants-app, flow: assignment-set:saved}
 
   - id: app-assign-stale-retry

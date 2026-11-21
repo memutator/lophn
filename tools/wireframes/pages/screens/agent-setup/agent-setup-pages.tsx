@@ -15,7 +15,11 @@ import type {
 } from "../../../../../packages/shell/renderer/desktop/machines/data.ts";
 import { MachineHubProvider } from "../../../../../packages/shell/renderer/desktop/machines/scope.tsx";
 import { fakeMachines } from "../../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
-import { COMPUTER_APPS } from "../../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
+import { BrowserProfilesProvider } from "../../../../../packages/shell/renderer/browser/profiles.tsx";
+import {
+  COMPUTER_APPS,
+  SAMPLE_BROWSER_PROFILES,
+} from "../../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {
   ANTHROPIC,
@@ -48,13 +52,15 @@ import { click, find, press, type Step, type } from "../../../mock/drive.ts";
 
 const SIDEBAR = { foldersClosed: true } as const;
 
-// 탭 하나만 열린 project 창.
+// 탭 하나만 열린 project 창. Settings에서 만든 browser profile 둘이 있다(카드와 Overview가 기본이 아닌 profile을 보인다).
 function alone(tab: TabSpec) {
   return (
-    <ProjectApp
-      sidebar={SIDEBAR}
-      panes={[{ tabs: [tab], selected: tab.key }]}
-    />
+    <BrowserProfilesProvider profiles={SAMPLE_BROWSER_PROFILES}>
+      <ProjectApp
+        sidebar={SIDEBAR}
+        panes={[{ tabs: [tab], selected: tab.key }]}
+      />
+    </BrowserProfilesProvider>
   );
 }
 
@@ -84,7 +90,16 @@ const tab =
   (label: MessageKey): Step =>
   () =>
     press("[role=tab]", t(label));
-const GRANTS_TAB = tab("agents.label.tab-grants");
+const WHO_TAB = tab("agents.label.tab-who");
+const RUNS_TAB = tab("agents.label.tab-runs");
+const SEES_TAB = tab("agents.label.tab-sees");
+const WORKS_TAB = tab("agents.label.tab-works");
+// 앱 할당은 Sees 탭 맨 아래에 있다.
+const GRANTS: readonly Step[] = [
+  SEES_TAB,
+  async () =>
+    (await find("[data-field=apps]")).scrollIntoView({ block: "start" }),
+];
 
 /** project의 Agents 탭. 탭 줄의 + menu에서 연다. */
 export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC);
@@ -104,6 +119,15 @@ const agentsAt = (
 
 /** Home의 Agents 탭. 목록은 모든 agent(전역과 project·앱 범위)이고 카드마다 범위가 보인다. Home lophn 카드의 범위는 Home이고, Home의 지침(LOPHN.md)·memory·model·skill·MCP 층이 있다. */
 export const HomeAgentsPage = () => agentsAt("home", "Home · Agents");
+
+/** Home의 Agents 탭을 Your coding agents 묶음까지 내렸다. 내장 coding agent(Claude Code)도 같은 카드 모양이다. */
+export const HomeAgentsCodingPage = () =>
+  agentsAt("home", "Home · Agents", undefined, [
+    async () =>
+      (await find("[data-section=coding-agents]")).scrollIntoView({
+        block: "start",
+      }),
+  ]);
 
 /** Home 목록에서 project 범위 agent를 열었다. editor는 그 agent의 workspace(phroner)로 열린다. */
 export const HomeAgentsOpenScopedPage = () => {
@@ -144,28 +168,39 @@ const scrollTo =
   async () =>
     (await find(selector)).scrollIntoView({ block });
 
-/** custom agent의 설정. runtime이 custom이라 Tools 칸에서 tool을 체크로 고르고 skill도 고른 것만 받는다. skill 하나를 더 골랐다. */
+/** custom agent의 Works how. 전역·workspace 지침 대신 그렇다는 한 줄이 서고, skill은 고른 것만 받는다(하나를 더 골랐다). */
 export const AgentEditorCustomPage = () =>
   editor(QUEUE_WATCHER_ID, [
-    tab("agents.label.tab-skills"),
+    WORKS_TAB,
     () => click(`[data-skill="plain-writing"] [role=switch]`),
   ]);
 
-/** custom agent의 Tools 탭. 내장 tool을 체크로 고르고 lophn 명령·앱 command·MCP tool은 이름을 적어 더한다. 아래에 MCP servers와 Shell extensions가 이어진다. */
+/** custom agent의 Overview. Tools 줄이 고른 tool이고 Memory는 agent.memory를 고르지 않아 Off다. */
+export const AgentCustomOverviewPage = () => editor(QUEUE_WATCHER_ID);
+
+/** custom agent의 Sees 탭을 Tools 칸까지 내렸다. 내장 tool을 체크로 고르고 MCP tool은 이름을 적어 더한다. */
 export const AgentToolsTabPage = () =>
-  editor(QUEUE_WATCHER_ID, [tab("agents.label.tab-tools")]);
+  editor(QUEUE_WATCHER_ID, [SEES_TAB, scrollTo("[data-field=tools]")]);
 
-/** Runtime 탭. runtime을 고르고 model은 대화와 같은 picker로 고른다(위 층이 정한 값이면 따르기 줄이 맨 위다). */
-export const AgentRuntimeTabPage = () =>
-  editor(EVAL_ANALYST_ID, [tab("agents.label.tab-runtime")]);
+/** Runs on 탭. runtime을 고르고 model은 대화와 같은 picker로 고르며(위 층이 정한 값이면 따르기 줄이 맨 위다) 받고 내는 것이 아래다. */
+export const AgentRuntimeTabPage = () => editor(EVAL_ANALYST_ID, [RUNS_TAB]);
 
-/** Instructions 탭. workspace 지침(이 자리에서 고친다)과 이 agent의 지침을 같이 보인다. */
+/** Works how 탭. workspace 지침(이 자리에서 고친다)과 이 agent의 지침, skill, memory가 위에서 아래로 있다. */
 export const AgentInstructionsTabPage = () =>
-  editor(EVAL_ANALYST_ID, [tab("agents.label.tab-instructions")]);
+  editor(EVAL_ANALYST_ID, [WORKS_TAB]);
 
-/** Memory 탭. 이 agent의 memory(8 KiB 대비 크기와 [Edit]). */
+/** Works how 탭을 Memory 칸까지 내렸다. 이 agent의 memory(8 KiB 대비 크기와 [Edit]). */
 export const AgentMemoryTabPage = () =>
-  editor(EVAL_ANALYST_ID, [tab("agents.label.tab-memory")]);
+  editor(EVAL_ANALYST_ID, [WORKS_TAB, scrollTo("[data-field=memory]", "end")]);
+
+/** Who 탭. profile, 이름, handle, 역할 한 줄, 명함, Delete. */
+export const AgentWhoTabPage = () => editor(EVAL_ANALYST_ID, [WHO_TAB]);
+
+/** Sees 탭 위쪽: 범위, Browser profile, MCP servers. */
+export const AgentSeesTabPage = () => editor(EVAL_ANALYST_ID, [SEES_TAB]);
+
+/** harness agent의 Works how. 지침은 고치고 skill과 memory 자리에는 Codex가 자기 것을 쓴다는 한 줄이 선다. */
+export const AgentHarnessWorksPage = () => editor(CODEX_RUNNER_ID, [WORKS_TAB]);
 
 /** Agents 탭에서 agent를 열고 이름을 고친 상태. 위쪽 ← →가 목록으로 돌아가는 길이고, 저장하지 않은 편집은 탭 줄에 표시가 뜬다. */
 export const AgentsOpenedEditedPage = () =>
@@ -176,16 +211,30 @@ export const AgentsOpenedEditedPage = () =>
         t("project-workspace.button.open-agent"),
         1,
       ),
+    WHO_TAB,
     () => type("[data-field=name] input", "Eval analyst (draft)"),
   ]);
 
-/** harness runtime(Codex) agent의 설정. 지침은 있고 model·tool·skill·MCP 칸이 없다. */
-export const AgentEditorHarnessPage = () =>
-  editor(CODEX_RUNNER_ID, [tab("agents.label.tab-runtime")]);
+/** 카드 머리의 ⋯ menu를 연 상태. Duplicate가 있다. */
+export const AgentsCardMenuPage = () =>
+  agentsAt("project", "phroner · Agents", undefined, [
+    () => press(`[data-assignment="${EVAL_ANALYST_ID}"] [data-card-menu]`),
+  ]);
+
+/** 카드 menu의 Duplicate를 누른 결과. 같은 탭에 복제 값이 든 새 agent가 열리고 Create agent를 눌러야 만들어진다. 올린 이미지는 옮기지 못해 character로 시작한다. */
+export const AgentsDuplicatedPage = () =>
+  agentsAt("project", "phroner · Agents", undefined, [
+    () => press(`[data-assignment="${EVAL_ANALYST_ID}"] [data-card-menu]`),
+    () => click("[data-menu-item=duplicate]"),
+  ]);
+
+/** harness runtime(Codex) agent의 Overview. model·MCP·tool·skill·memory 줄이 Uses its own이다. */
+export const AgentEditorHarnessPage = () => editor(CODEX_RUNNER_ID);
 
 /** Delete agent를 눌러 확인 창이 뜬 상태. 확인을 한 번 받은 뒤에만 지운다. */
 export const AgentDeleteConfirmPage = () =>
   editor(EVAL_ANALYST_ID, [
+    WHO_TAB,
     () => press("button", t("project-workspace.button.agent-editor-delete")),
   ]);
 
@@ -194,6 +243,7 @@ export const AgentDeleteFailedPage = () =>
   editor(
     EVAL_ANALYST_ID,
     [
+      WHO_TAB,
       () => press("button", t("project-workspace.button.agent-editor-delete")),
       () =>
         click(
@@ -210,7 +260,7 @@ export const AgentSaveIssuesPage = () =>
     EVAL_ANALYST_ID,
     [
       () => click("button", /^Save$/),
-      tab("agents.label.tab-tools"),
+      SEES_TAB,
       scrollTo("[data-field=mcp]", "end"),
     ],
     {
@@ -240,11 +290,11 @@ const pickImage: Step = async () => {
 
 /** 사람이 만든 agent의 profile 이미지를 올려 character 대신 그 이미지가 profile로 보이는 상태(저장 전). */
 export const AgentImageUploadedPage = () =>
-  editor(QUEUE_WATCHER_ID, [pickImage]);
+  editor(QUEUE_WATCHER_ID, [WHO_TAB, pickImage]);
 
 /** 이미지 올리기가 거절되어 toast가 뜬 상태. profile은 그대로다. */
 export const AgentImageUploadFailedPage = () =>
-  editor(QUEUE_WATCHER_ID, [pickImage], { uploadFails: true });
+  editor(QUEUE_WATCHER_ID, [WHO_TAB, pickImage], { uploadFails: true });
 
 /** 정의 file이 틀린 agent가 있는 Agents 탭. 그 줄은 개수 대신 "can't be counted"를 보이고 명함이 없다. */
 export const AgentsBrokenPage = () =>
@@ -263,7 +313,6 @@ export const AgentEditorBrokenPage = () =>
       <AgentSettingsEditor
         id={BROKEN_AGENT_ID}
         onDone={() => {}}
-        steps={[scrollTo("[data-field=skip]", "end")]}
         source={{ brokenAgent: true }}
       />
     ),
@@ -274,7 +323,7 @@ export const AgentModelPickerPage = () =>
   editor(
     EVAL_ANALYST_ID,
     [
-      tab("agents.label.tab-runtime"),
+      RUNS_TAB,
       // 목록이 창 아래로 잘리지 않게 Model 칸을 위로 올린 뒤 연다.
       async () =>
         (await find("[data-model-field]")).scrollIntoView({ block: "start" }),
@@ -295,9 +344,9 @@ export const AgentCreatePage = () => editor("new");
 /** project의 lophn 설정. profile과 handle이 잠기고 Delete가 없다. */
 export const LophnEditorPage = () => editor(PROJECT_LOPHN_ID);
 
-/** 앱 자리에서 연 agent의 설정. 앱 source의 AGENTS.md가 workspace 지침으로 보인다. */
+/** 앱 자리에서 연 agent의 Works how. 앱 source의 AGENTS.md가 workspace 지침으로 보인다. */
 export const AppWorkspaceEditorPage = () =>
-  editor(BUDGET_REVIEWER_ID, [], undefined, "app");
+  editor(BUDGET_REVIEWER_ID, [WORKS_TAB], undefined, "app");
 
 /** Home lophn의 설정. 범위가 Home으로 보이고 workspace memory는 Agents 탭에서 고친다. */
 export const HomeLophnEditorPage = () =>
@@ -306,7 +355,7 @@ export const HomeLophnEditorPage = () =>
 /** agent 층에서 MCP server를 더하는 form을 열고 web 주소와 OAuth 2.1 로그인을 고른 상태. */
 export const AgentServerFormPage = () =>
   editor(EVAL_ANALYST_ID, [
-    tab("agents.label.tab-tools"),
+    SEES_TAB,
     () => press("[data-field=mcp] button", t("settings.button.add-server")),
     () => press("[data-server-field=transport] [role=combobox]"),
     () => click("[role=option]", t("settings.label.over-web")),
@@ -317,13 +366,13 @@ export const AgentServerFormPage = () =>
     () => type("[data-server-field=scopes]", "read write"),
   ]);
 
-/** Grants 탭. 붙인 앱과 앱마다 뺀 tool. MCP server는 설정한 층이 할당이라 한 줄 안내만 있다. */
-export const AgentGrantsPage = () => editor(EVAL_ANALYST_ID, [GRANTS_TAB]);
+/** Sees 탭의 앱 할당. 붙인 앱과 앱마다 뺀 tool. MCP server는 설정한 층이 할당이라 한 줄 안내만 있다. */
+export const AgentGrantsPage = () => editor(EVAL_ANALYST_ID, GRANTS);
 
-/** Grants 탭에서 앱 하나를 펼친 상태. */
+/** 앱 할당에서 앱 하나를 펼친 상태. */
 export const AgentGrantsAppPage = () =>
   editor(EVAL_ANALYST_ID, [
-    GRANTS_TAB,
+    ...GRANTS,
     () => press(`[data-grant-card="Budget tracker"] button[aria-expanded]`),
   ]);
 
@@ -389,11 +438,12 @@ export const AgentGrantsOtherComputerPage = () => {
             workspace="project"
             onDone={() => {}}
             steps={[
-              GRANTS_TAB,
+              ...GRANTS,
               () =>
                 press(
                   `[data-grant-card="Weekly report"] button[aria-expanded]`,
                 ),
+              scrollTo("[data-grants-computers]"),
             ]}
           />
         </MachinesProvider>

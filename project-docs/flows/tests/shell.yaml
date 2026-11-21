@@ -454,6 +454,10 @@ files:
       - agent-create:created
     note: "새 agent는 저장 전에 받은 id로 만들어지고, mcp credential 이름의 주인이 그 id와 같다"
 
+  - path: packages/shell/renderer/workspace/agents/editor/duplicate_test.ts
+    covers: []
+    note: "복제 정의를 짓는 순수 함수. handle이 쓰인 handle과 겹치지 않고 40자 안이며, 이미지 avatar를 빼고 agent 층 MCP server의 secret 이름을 새 id로 바꾼다. agent-create의 화면 쪽 규칙이지만 flow outcome에 없다"
+
   - path: packages/shell/renderer/workspace/agents/editor/grants-model_test.ts
     covers: []
     note: "agent에 붙일 앱 tool 목록 순수 함수. 앱의 비공개 tool은 그 agent가 일하는 앱 것만 붙는다. assignment-set의 화면 쪽 규칙이지만 flow outcome에 없다"

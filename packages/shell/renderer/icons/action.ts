@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  CopyPlus,
   Download,
   History,
   type LucideIcon,
@@ -50,6 +51,8 @@ export const actionIcons = {
   moveUp: ArrowUp,
   moveDown: ArrowDown,
   copy: Copy,
+  // 정의 같은 것을 본떠 새 것을 만든다.
+  duplicate: CopyPlus,
   send: Send,
   run: Play,
   stop: Square,

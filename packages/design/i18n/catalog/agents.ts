@@ -34,8 +34,6 @@ export const agents = {
     "Agent definitions are stored in lophn, in one place for every project, not in your project folder.",
   "agents.heading.model-for-workspace":
     "Model for {kind, select, home {Home} app {this app} other {this project}}",
-  "agents.label.card-model":
-    "Model: {layer, select, agent {{model}} project {workspace default ({model})} other {global default ({model})}}",
   "agents.notice.model-for-workspace":
     "One model for every agent in {kind, select, home {Home} app {this app} other {this project}}. An agent can pick its own in its settings.",
   "agents.notice.skills-workspace":
@@ -89,13 +87,15 @@ export const agents = {
   "agents.heading.runtime": "Runtime",
   "agents.heading.tools": "Tools",
   "agents.label.agent-instructions": "Instructions for this agent",
-  "agents.label.description": "Description",
+  "agents.label.description": "Role",
   "agents.label.runtime": "Runtime",
   "agents.label.runtime-lophn": "lophn",
   "agents.label.runtime-custom": "Custom",
   "agents.label.runtime-claude-code": "Claude Code",
   "agents.label.runtime-codex": "Codex",
   "agents.label.runtime-opencode": "OpenCode",
+  "agents.label.runtime-omp": "Oh My Pi",
+  "agents.label.runtime-antigravity": "Antigravity",
   "agents.label.tools-add": "Add an MCP tool by name",
   "agents.label.tools-add-placeholder": "mcp__server__tool",
   "agents.label.auth-api-key": "API key in a header",
@@ -181,29 +181,101 @@ export const agents = {
   "agents.label.browser-profile": "Browser profile",
   "agents.label.browser-profile-default": "Default",
   "agents.label.skip-start": "Start new sessions with Skip permissions",
-  "agents.label.tab-general": "General",
-  "agents.label.tab-runtime": "Runtime",
-  "agents.label.tab-instructions": "Instructions",
-  "agents.label.tab-skills": "Skills",
-  "agents.label.tab-memory": "Memory",
-  "agents.label.tab-tools": "Tools",
-  "agents.label.tab-grants": "Grants",
+  "agents.label.tab-overview": "Overview",
+  "agents.label.tab-who": "Who",
+  "agents.label.tab-runs": "Runs on",
+  "agents.label.tab-sees": "Sees",
+  "agents.label.tab-works": "Works how",
+  "agents.button.edit-group": "Edit",
+  "agents.label.edit-group-named": "Edit {group}",
+  "agents.button.duplicate": "Duplicate",
+  "agents.button.more-named": "More for {name}",
+  "agents.label.copy-name": "{name} copy",
+  "agents.notice.copy-draft":
+    "A copy of {name}. It isn't created until you press Create agent.",
+  "agents.notice.copy-image":
+    "The uploaded image can't be copied, so the copy starts with a character. Upload the image again once it is created.",
+  "agents.notice.copy-apps":
+    "The copy gets the same {count, plural, one {# assigned app} other {# assigned apps}}. You can change them once it is created.",
+  "agents.label.no-role": "No role line yet",
+  "agents.label.own-model": "its own model",
+  "agents.label.glance-apps": "{count, plural, one {# app} other {# apps}}",
+  "agents.label.glance-remote-apps":
+    "{count, plural, one {# app} other {# apps}} on other computers",
+  "agents.label.glance-mcp": "{count, number} MCP",
+  "agents.label.lophn-role": "Built into {workspace}",
+  "agents.label.glance-tools":
+    "{count, plural, one {# tool picked} other {# tools picked}}",
+  "agents.label.glance-skip": "Skips permissions",
+  "agents.label.glance-own-tools": "its own tools and MCP",
+  "agents.label.glance-instructions":
+    "{has, select, true {Instructions} other {No instructions}}",
+  "agents.label.glance-skills":
+    "{count, plural, one {# skill} other {# skills}}",
+  "agents.label.glance-memory":
+    "{state, select, workspace {Workspace memory} on {Memory} other {Memory off}}",
+  "agents.label.glance-own-skills": "its own skills and memory",
+  "agents.label.field-runtime": "Runtime",
+  "agents.label.field-model": "Model",
+  "agents.label.field-modality": "Takes and gives",
+  "agents.label.field-workspace": "Workspace",
+  "agents.label.field-browser-profile": "Browser profile",
+  "agents.label.field-apps": "Apps",
+  "agents.label.field-remote-apps": "Other computers",
+  "agents.label.field-mcp": "MCP servers",
+  "agents.label.field-tools": "Tools",
+  "agents.label.field-skip": "Skip permissions",
+  "agents.label.field-instructions": "Instructions",
+  "agents.label.field-skills": "Skills",
+  "agents.label.field-memory": "Memory",
+  "agents.label.value-none": "None",
+  "agents.label.value-on": "On",
+  "agents.label.value-off": "Off",
+  "agents.label.value-own": "{runtime} uses its own",
+  "agents.label.value-unread": "Couldn't read",
+  "agents.label.value-after-create": "Once the agent is created",
+  "agents.label.value-copied-apps":
+    "{count, plural, one {# app} other {# apps}} copied",
+  "agents.label.value-default-profile": "Default",
+  "agents.label.value-empty-memory": "Empty",
+  "agents.label.value-workspace-memory": "Workspace memory of {workspace}",
+  "agents.label.model-layer":
+    "{layer, select, project {\u2014 workspace default} other {\u2014 global default}}",
+  "agents.label.model-price": "${input} in / ${output} out per 1M tokens",
+  "agents.label.skills-on": "{count, plural, one {# on} other {# on}}: {names}",
+  "agents.notice.own-model":
+    "{runtime} runs with its own model and effort, set in {runtime} itself.",
+  "agents.notice.own-tools":
+    "{runtime} uses its own tools and MCP servers. Tool and MCP settings here have no effect on it.",
+  "agents.notice.own-skills":
+    "{runtime} uses its own skills. Skill settings here have no effect on it.",
+  "agents.notice.own-memory":
+    "{runtime} keeps its own memory. lophn memory has no effect on it.",
+  "agents.notice.custom-instructions":
+    "Custom doesn't read your global or workspace instructions. It gets only the instructions below.",
+  "agents.notice.custom-memory":
+    "{picked, select, true {Custom reads only this agent's memory, not the global or workspace memory.} other {Custom reads only this agent's memory, not the global or workspace memory. It can write here only if you pick the agent.memory tool under Sees.}}",
+  "agents.notice.memory-lophn":
+    "lophn uses the workspace memory of {workspace}. Edit it on the Agents tab of that workspace.",
+  "agents.notice.instructions-help-custom":
+    "The whole system prompt of this agent, with the lophn tool line added at the end.",
   "agents.label.tab-has-issues": "Needs attention",
   "agents.label.nav-back": "Back",
   "agents.label.nav-forward": "Forward",
   "agents.notice.credential-later":
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
   "agents.notice.grants-after-create":
-    "You can assign apps in the Grants tab once the agent exists.",
+    "You can assign apps here once the agent exists.",
   "agents.notice.instructions-app-none":
     "This app has no source folder yet, so it has no AGENTS.md. Only the instructions below apply here.",
-  "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
+  "agents.notice.grants-apply-now":
+    "Changes to apps apply right away, without Save.",
   "agents.notice.grants-lead":
     "What {name} can use besides its own tools. Anything you don't assign here, {name} can't use.",
   "agents.notice.grants-computers":
     "Apps that run on your other computers. Only the commands an app offers to other computers can be assigned, and they run on that computer.",
   "agents.notice.grants-mcp-layers":
-    "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's Definition.",
+    "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's MCP servers above.",
   "agents.notice.instructions-help":
     "Read after the workspace instructions. Your global instructions come before both.",
   "agents.notice.instructions-help-lophn":
@@ -221,9 +293,10 @@ export const agents = {
     "Typed in a protected prompt after you add the server. It isn't typed here and isn't shown again.",
   "agents.notice.server-name-help":
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
-  "agents.notice.description-help": "One line about what this agent is for.",
+  "agents.notice.description-help":
+    "One line about what this agent is for. Other agents read it on its card.",
   "agents.notice.runtime-help":
-    "lophn adds the lophn rules, skills and built-in tools. Custom sends only the instructions above, the lophn tool and the tools and skills you pick.",
+    "lophn adds the lophn rules, skills and built-in tools. Custom sends only this agent's instructions, the lophn tool and the tools and skills you pick. Claude Code, Codex and OpenCode run their own CLI with their own model, tools, skills and memory.",
   "agents.notice.fixed-coding":
     "Built-in coding agent: its handle, runtime and scope can't be changed, and it can't be deleted. You can rename how it is shown. It runs the CLI with your own settings.",
   "agents.notice.tools-help":
@@ -278,10 +351,8 @@ export const agents = {
     "This is the AGENTS.md in the app's source folder. Coding agents and lophn agents read it.",
   "agents.notice.instructions-file-app-none":
     "This app has no source folder yet, so there is no AGENTS.md to edit.",
-  "project-workspace.label.agent-counts":
-    "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
   "project-workspace.label.agent-counts-unknown":
-    "Can't count until its file is fixed",
+    "Can't read this agent until its file is fixed",
   "project-workspace.label.agent-editor-image-file": "Image file",
   "project-workspace.label.agent-editor-instructions": "Instructions",
   "project-workspace.label.agent-editor-model-unset":

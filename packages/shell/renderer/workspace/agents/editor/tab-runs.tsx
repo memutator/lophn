@@ -1,4 +1,5 @@
-// Runtime 탭: runtime(lophn·custom·harness)과 model. harness는 자기 model을 써서 model 칸이 없다.
+// Runs on 탭(무엇으로 도나): runtime(lophn·custom·harness), model, 받고 내는 것. harness는 자기 model과 effort로 돌아서
+// model 칸 대신 그렇다는 한 줄이 선다.
 import { SegmentedControl } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
@@ -11,17 +12,19 @@ import {
   withField,
 } from "./editor-model.ts";
 import { Group, Issues } from "./form-kit.tsx";
+import { ModalityToggles } from "./modality-toggles.tsx";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
+import { runtimeLabel } from "../agent-glance.tsx";
 import styles from "./agent-editor.module.css";
 
-interface RuntimeTabProps extends FormProps {
+interface RunsTabProps extends FormProps {
   readonly facts: AgentFacts;
   readonly models: ModelsView | null;
   /** Model 칸이 목록을 다시 읽는 통로. */
   readonly source: ModelFieldSource;
 }
 
-export function RuntimeTab(props: RuntimeTabProps) {
+export function RunsTab(props: RunsTabProps) {
   const { detail, definition, facts, models, onChange } = props;
   const { lophn, coding, runtime, harness } = facts;
   const issues = (name: Parameters<typeof issuesOf>[1]) =>
@@ -86,7 +89,16 @@ export function RuntimeTab(props: RuntimeTabProps) {
         </Group>
       )}
 
-      {harness ? null : (
+      {harness ? (
+        <Group
+          name="model"
+          heading={t("project-workspace.heading.agent-editor-model")}
+        >
+          <p className={styles.note} data-own="model">
+            {t("agents.notice.own-model", { runtime: runtimeLabel(runtime) })}
+          </p>
+        </Group>
+      ) : (
         <div className={styles.group} data-field="model">
           <ModelField
             models={models}
@@ -111,6 +123,17 @@ export function RuntimeTab(props: RuntimeTabProps) {
           </p>
         </div>
       )}
+
+      <Group name="modality" heading={t("agents.heading.modality")}>
+        <ModalityToggles
+          definition={definition}
+          onChange={(modality) =>
+            onChange(withField(definition, "modality", modality))
+          }
+        />
+        <p className={styles.note}>{t("agents.notice.modality-help")}</p>
+        <Issues issues={issues("modality")} />
+      </Group>
     </div>
   );
 }

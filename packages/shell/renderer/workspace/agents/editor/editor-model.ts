@@ -11,14 +11,15 @@ import {
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { AgentDetail, AgentDraft } from "../source.ts";
 
-export type EditorTab =
-  | "general"
-  | "runtime"
-  | "instructions"
-  | "skills"
-  | "memory"
-  | "tools"
-  | "grants";
+/**
+ * editor의 탭. 첫 탭(overview)은 정의를 네 묶음으로 한 장에 보이고, 나머지 넷이 그 묶음의 칸을 고친다:
+ * who(누구), runs(무엇으로 도나), sees(무엇을 보나), works(어떻게 일하나).
+ */
+export type EditorTab = "overview" | "who" | "runs" | "sees" | "works";
+
+/** 고치는 탭 넷. overview의 절도 이 순서다. */
+export const GROUPS = ["who", "runs", "sees", "works"] as const;
+export type Group = (typeof GROUPS)[number];
 
 export type FieldName =
   | "profile"
@@ -64,29 +65,29 @@ export const fieldOf = (issue: AgentDefinitionIssue): FieldName | null =>
   FIELD_OF[issue.field.split(".")[0]] ?? null;
 
 /** 칸이 어느 탭에 있는가. issue가 숨은 탭에 있으면 그 탭에 표시를 단다. */
-const TAB_OF_FIELD: Readonly<Record<FieldName, EditorTab>> = {
-  profile: "general",
-  handle: "general",
-  workspace: "general",
-  name: "general",
-  description: "general",
-  modality: "general",
-  card: "general",
-  skip: "general",
-  browser_profile: "general",
-  runtime: "runtime",
-  model: "runtime",
-  instructions: "instructions",
-  skills: "skills",
-  memory: "memory",
-  tools: "tools",
-  mcp: "tools",
-  extensions: "tools",
+const TAB_OF_FIELD: Readonly<Record<FieldName, Group>> = {
+  profile: "who",
+  handle: "who",
+  name: "who",
+  description: "who",
+  card: "who",
+  runtime: "runs",
+  model: "runs",
+  modality: "runs",
+  workspace: "sees",
+  browser_profile: "sees",
+  tools: "sees",
+  mcp: "sees",
+  extensions: "sees",
+  skip: "sees",
+  instructions: "works",
+  skills: "works",
+  memory: "works",
 };
 
-export const tabOfIssue = (issue: AgentDefinitionIssue): EditorTab => {
+export const tabOfIssue = (issue: AgentDefinitionIssue): Group => {
   const field = fieldOf(issue);
-  return field === null ? "general" : TAB_OF_FIELD[field];
+  return field === null ? "who" : TAB_OF_FIELD[field];
 };
 
 /** 어느 칸에도 속하지 않은 항목(frontmatter 등). 어느 탭에서나 보이도록 머리에 둔다. */
@@ -105,6 +106,8 @@ export interface Ready {
   readonly base: AgentDraft;
   readonly definition: AgentDraft;
   readonly issues: readonly AgentDefinitionIssue[];
+  /** 복제로 연 새 agent면 원래 agent. 올린 이미지는 옮기지 못해 imageDropped가 참이다. */
+  readonly copyOf?: { readonly name: string; readonly imageDropped: boolean };
 }
 
 // 키 순서와 상관없이 같은 값이면 같은 글이다(칸을 지웠다 다시 넣으면 순서가 바뀐다).
@@ -121,13 +124,12 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? "undefined";
 }
 
-// 할당(apps·permissions)은 Grants 탭이 바로 저장해 파일에 맞춘다. 이 칸의 차이는 편집이 아니다.
+/** 할당 칸. Sees의 앱 할당이 바로 저장해 파일에 맞춘다. 이 칸의 차이는 편집이 아니다. */
+export const GRANT_FIELDS = ["apps", "remote_apps", "permissions"] as const;
+
 const withoutGrants = (definition: AgentDraft): string => {
-  const {
-    apps: _apps,
-    permissions: _permissions,
-    ...rest
-  } = definition as AgentDraft & { apps?: unknown; permissions?: unknown };
+  const rest: Record<string, unknown> = { ...definition };
+  for (const field of GRANT_FIELDS) delete rest[field];
   return canonical(rest);
 };
 
@@ -160,19 +162,6 @@ export function factsOf(
     custom: runtime === "custom",
     harness: isHarnessRuntime(runtime),
   };
-}
-
-/** 지금 이 agent에 있는 탭. Grants는 저장 전 agent에는 닫혀 있다(탭은 disabled로 둔다). */
-export function visibleTabs(facts: AgentFacts): readonly EditorTab[] {
-  return [
-    "general",
-    "runtime",
-    "instructions",
-    ...(facts.harness ? [] : (["skills"] as const)),
-    ...(facts.lophn || facts.harness ? [] : (["memory"] as const)),
-    ...(facts.harness ? [] : (["tools"] as const)),
-    "grants",
-  ];
 }
 
 // 비어 가는 칸은 정의에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.

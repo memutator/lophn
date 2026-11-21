@@ -30,7 +30,7 @@ agent는 lophn과 사람이 만든 agent 둘이다. 사람이 만든 agent는 wo
 - P7. 사람은 왼쪽 sidebar의 New session(▾로 agent 고르기. Home, project, 앱 workspace 어디서나), toast로 agent를 부른다. 고르면 그 workspace의 session이 열린다.
 - P8. Home, project, 앱은 같은 층을 갖는다: 지침, 외부 MCP server와 `mcp_off`, `skills_off`, model. session은 자기 workspace의 지침을 같이 읽는다. project는 `LOPHN.md`, Home은 `<data>/home/LOPHN.md`, 앱은 앱 source의 `AGENTS.md`다(source를 잇지 않은 앱은 없다). 사람은 각 workspace의 Agents 탭에서 이 층을 고친다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, project workspace session의 file 범위 밖이라 사람이 editor로 고친다.
-- P12. 경계는 그릇(project, app)이다. session은 그 workspace 그릇의 지침, skill, 앱 command를 받는다. 앱의 비공개 command는 그 앱 workspace의 session만 보고, 다른 곳은 할당받은 공개 command로만 쓴다. 다른 컴퓨터의 앱도 사람이 그 agent에 그 컴퓨터를 달아 할당한 공개 command로만 쓰고(Agents › Grants › Other computers), private인 workspace의 agent와 앱은 다른 컴퓨터를 부르지 못하고 그 앱도 다른 컴퓨터에서 불리지 않는다(`architecture/approval.md`).
+- P12. 경계는 그릇(project, app)이다. session은 그 workspace 그릇의 지침, skill, 앱 command를 받는다. 앱의 비공개 command는 그 앱 workspace의 session만 보고, 다른 곳은 할당받은 공개 command로만 쓴다. 다른 컴퓨터의 앱도 사람이 그 agent에 그 컴퓨터를 달아 할당한 공개 command로만 쓰고(Agents › agent 편집기 Sees의 앱 할당 › Other computers), private인 workspace의 agent와 앱은 다른 컴퓨터를 부르지 못하고 그 앱도 다른 컴퓨터에서 불리지 않는다(`architecture/approval.md`).
 - P13. Home memory(`<data>/home/memory.md`)는 global memory다. Home lophn만 쓰고 모든 workspace의 모든 agent가 읽기만 한다. project·앱 workspace memory는 그 workspace 그릇 자리의 `memory.md`이고 그 workspace의 lophn만 쓰며 그 workspace의 모든 agent가 받는다. 사람이 만든 agent는 자기 agent memory를 따로 갖고 자기만 쓰고 받는다. 둘 다 `agent.memory` tool로만 쓰고 8 KiB까지이며 session 첫 turn에 고정되어 다음 session부터 바뀐 글을 본다. 담는 것은 사람이 정한 것, 계산할 수 없는 의도, 어디에 물으면 되는지 pointer다(`architecture/agent-definition.md`).
 
 ## 2. workspace마다 언제 무엇을 하나

@@ -68,6 +68,7 @@ import type {
 import type {
   AgentCardView,
   AgentDetail,
+  AgentGlance,
   AgentDraft,
   AgentListRow,
   AgentsOverview,
@@ -475,6 +476,34 @@ export function coreAgentsSource(
     };
   };
 
+  // 카드 앞면의 요약은 정의 file에서 센다(effort, 지침 유무, 할당 앱 수). 틀린 정의 file이나 읽지 못한 agent는 없다.
+  const glanceOf = async (
+    agent: string,
+    workspace: string,
+    global: ModelChoice | null,
+  ): Promise<AgentGlance | undefined> => {
+    const read = await link.read<{
+      definition:
+        | (AgentDraft & {
+            apps?: readonly string[];
+            remote_apps?: readonly unknown[];
+          })
+        | null;
+      effective: { model: { value: ModelChoice } | null };
+      issues: readonly unknown[];
+    }>("agents", "read", { agent, ...scopeInput(workspace) });
+    if (!read.ok || read.value.issues.length > 0) return undefined;
+    const definition = read.value.definition ?? { body: "" };
+    return {
+      model: read.value.effective.model?.value ?? global,
+      instructions: definition.body.trim() !== "",
+      apps: definition.apps?.length ?? 0,
+      remoteApps: definition.remote_apps?.length ?? 0,
+      tools: definition.tools ?? [],
+      skip: definition.skip === true,
+    };
+  };
+
   // workspace 지침. project와 Home은 LOPHN.md, 앱은 source 폴더의 AGENTS.md다. 읽지 못하면 빈 글이다.
   // source를 잇지 않은 앱은 파일이 놓일 곳이 없어 빈 글이고 고치지 못한다.
   const instructionsOf = async (
@@ -550,7 +579,16 @@ export function coreAgentsSource(
               row.workspace?.id ?? workspace,
               row.browserProfile,
             );
-            return card === undefined ? row : { ...row, card };
+            const glance = await glanceOf(
+              row.assignment,
+              row.workspace?.id ?? workspace,
+              global.ok ? global.value : null,
+            );
+            return {
+              ...row,
+              ...(card === undefined ? {} : { card }),
+              ...(glance === undefined ? {} : { glance }),
+            };
           }),
         ),
         instructions: await instructionsOf(workspace),

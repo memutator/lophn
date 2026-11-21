@@ -166,11 +166,18 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
           },
     );
   };
-  const newAgent = () => {
+  // from이 있으면 그 agent를 본뜬 새 agent(복제)다. 만들기 전까지는 저장된 것이 없다.
+  const newAgent = (from?: string) => {
     const news = latest.current.places.flatMap((one) =>
       one.kind === "new" ? [one.n] : [],
     );
-    go(open(latest.current, { kind: "new", n: Math.max(0, ...news) + 1 }));
+    go(
+      open(latest.current, {
+        kind: "new",
+        n: Math.max(0, ...news) + 1,
+        ...(from === undefined ? {} : { from }),
+      }),
+    );
   };
   // [Cancel]은 이 편집을 버리겠다는 뜻이라 묻지 않는다.
   const toList = () => go(open(latest.current, LIST));
@@ -185,7 +192,10 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
   const body = (): ReactElement => {
     // Home 목록에서 연 범위 agent는 그 agent의 workspace로 연다(탭에는 agent id만 남아 목록에서 찾는다).
     const home = workspace === "home";
-    if (home && agent !== null && overview.state === "loading") {
+    // 복제는 원래 agent의 workspace에서 읽고 만든다(Home 목록의 범위 agent).
+    const from = place.kind === "new" ? place.from : undefined;
+    const opened = agent ?? from;
+    if (home && opened !== undefined && overview.state === "loading") {
       return (
         <div className={styles.fill} data-agents-page="loading">
           {showLoading ? <Skeleton shape="line" lines={6} /> : null}
@@ -193,9 +203,10 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
       );
     }
     if (place.kind !== "list") {
+      const rows = overview.state === "ready" ? overview.value.agents : [];
       const own =
-        home && agent !== null && overview.state === "ready"
-          ? overview.value.agents.find((row) => row.assignment === agent)
+        home && opened !== undefined
+          ? rows.find((row) => row.assignment === opened)
           : undefined;
       const draft = tabs.get(tabKey)?.draft;
       const restore: Ready | null =
@@ -209,6 +220,8 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
           workspace={own?.workspace?.id ?? workspace}
           workspaceName={own?.workspaceName ?? props.workspaceName}
           agent={agent}
+          copyOf={from ?? null}
+          takenHandles={rows.map((row) => row.handle)}
           restore={restore}
           onState={({ ready, dirty, face }) =>
             tabs.set(tabKey, {
@@ -220,6 +233,9 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
           onDone={toList}
           onGone={gone}
           onSaved={saved}
+          onDuplicate={
+            agent === null ? undefined : () => guarded(() => newAgent(agent))
+          }
         />
       );
     }
@@ -269,7 +285,8 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
             source.imageSrc(workspace, assignment, image)
           }
           onOpenAgent={openAgent}
-          onNewAgent={newAgent}
+          onNewAgent={() => newAgent()}
+          onDuplicateAgent={(assignment) => newAgent(assignment)}
           instructions={{
             read: () => source.readInstructions(workspace),
             write: (text, hash) =>

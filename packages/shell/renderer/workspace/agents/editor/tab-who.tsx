@@ -1,37 +1,25 @@
-// General 탭: profile · Name · Handle · Workspace · Description · Browser profile · 받고 내는 것 · Card · Skip permissions · 지우기.
+// Who 탭(누구): profile · Name · Handle · Role(description) · 명함 · 지우기.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 import { useState } from "react";
-import {
-  Checkbox,
-  Field,
-  Input,
-  SegmentedControl,
-  Select,
-} from "@lophn/ui/input";
+import { Field, Input } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
-import type { AgentWorkspace } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
-import { useBrowserProfiles } from "../../../browser/profiles.tsx";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { codingFaceOf } from "../coding-face.ts";
-import { CardFacts, scopeLabel } from "../agent-card.tsx";
+import { CardFacts } from "../agent-card.tsx";
 import {
   type AgentFacts,
   type FormProps,
   issuesOf,
+  type Ready,
   withField,
 } from "./editor-model.ts";
 import { Group, Issues } from "./form-kit.tsx";
-import { ModalityToggles } from "./modality-toggles.tsx";
 import { ProfileField } from "./parts.tsx";
 import styles from "./agent-editor.module.css";
-
-// Select는 빈 값을 못 쓴다. 기본 profile(정의에 칸이 없다)의 값이다.
-const DEFAULT_PROFILE_VALUE = "default";
 
 // 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
 function DeleteAgent({
@@ -77,33 +65,21 @@ function DeleteAgent({
   );
 }
 
-interface GeneralTabProps extends FormProps {
+interface WhoTabProps extends FormProps {
   readonly facts: AgentFacts;
+  readonly copyOf: Ready["copyOf"];
   readonly imageSrc: (image: string) => string;
   readonly onUpload: (file: File) => void;
   readonly onDelete: () => void;
 }
 
-export function GeneralTab(props: GeneralTabProps) {
+export function WhoTab(props: WhoTabProps) {
   const { detail, definition, facts, onChange } = props;
   const { fresh, lophn, coding } = facts;
   const issues = (name: Parameters<typeof issuesOf>[1]) =>
     issuesOf(props.issues, name);
   const set = (key: Parameters<typeof withField>[1], value: unknown) =>
     onChange(withField(definition, key, value));
-  // lophn의 정의 file에는 workspace 칸이 없다(id가 말한다).
-  const scope =
-    detail.assignment !== null && lophn
-      ? workspaceOfLophn(detail.assignment)
-      : definition.workspace;
-  // 새 agent가 고를 수 있는 범위: 화면을 연 workspace. home이나 Settings는 없고 전역뿐이다.
-  const here =
-    detail.workspace.kind === "none" || detail.workspace.kind === "home"
-      ? null
-      : ({
-          kind: detail.workspace.kind,
-          id: detail.workspace.id,
-        } as AgentWorkspace);
   const profile = definition.profile ?? detail.effective.profile.value;
   // 내장 coding agent의 얼굴은 그 제품 아이콘이고 고르지 않는다.
   const shownProfile =
@@ -114,11 +90,6 @@ export function GeneralTab(props: GeneralTabProps) {
       ? profile
       : { kind: "image" as const, src: props.imageSrc(profile.image) });
   const name = definition.name ?? detail.effective.name.value;
-  // 정의의 profile이 지금 목록에 없으면(지웠다) 기본으로 보이고 그렇다고 알린다. 정의 file은 사람이 고르기 전까지 그대로다.
-  const profiles = useBrowserProfiles();
-  const picked = profiles.find((one) => one.id === definition.browser_profile);
-  const deletedProfile =
-    definition.browser_profile !== undefined && picked === undefined;
 
   return (
     <div className={styles.form}>
@@ -138,6 +109,11 @@ export function GeneralTab(props: GeneralTabProps) {
             onChange={(next) => set("profile", next)}
             onUpload={props.onUpload}
           />
+          {props.copyOf?.imageDropped ? (
+            <p className={styles.note} data-copy-image="">
+              {t("agents.notice.copy-image")}
+            </p>
+          ) : null}
           <Issues issues={issues("profile")} />
         </>
       )}
@@ -181,37 +157,6 @@ export function GeneralTab(props: GeneralTabProps) {
         </div>
       )}
 
-      <div data-field="workspace">
-        <Field
-          label={t("agents.label.workspace")}
-          help={t("agents.notice.workspace-help")}
-        >
-          {fresh && here !== null ? (
-            <SegmentedControl
-              size="sm"
-              label={t("agents.label.workspace")}
-              value={definition.workspace === undefined ? "global" : "here"}
-              options={[
-                {
-                  value: "here",
-                  label: scopeLabel(here, props.workspaceName),
-                },
-                { value: "global", label: scopeLabel(null, "") },
-              ]}
-              onValueChange={(picked) =>
-                set("workspace", picked === "here" ? here : undefined)
-              }
-            />
-          ) : (
-            <Input
-              value={scopeLabel(scope, props.workspaceName, lophn)}
-              readOnly
-            />
-          )}
-        </Field>
-        <Issues issues={issues("workspace")} />
-      </div>
-
       {lophn ? null : (
         <div data-field="description">
           <Field
@@ -235,45 +180,6 @@ export function GeneralTab(props: GeneralTabProps) {
         </div>
       )}
 
-      <div data-field="browser_profile">
-        <Field
-          label={t("agents.label.browser-profile")}
-          help={t("agents.notice.browser-profile-help")}
-        >
-          <Select
-            options={[
-              {
-                value: DEFAULT_PROFILE_VALUE,
-                label: t("agents.label.browser-profile-default"),
-              },
-              ...profiles.map((one) => ({ value: one.id, label: one.name })),
-            ]}
-            value={picked?.id ?? DEFAULT_PROFILE_VALUE}
-            onValueChange={(value) =>
-              set(
-                "browser_profile",
-                value === DEFAULT_PROFILE_VALUE ? undefined : value,
-              )
-            }
-          />
-        </Field>
-        {deletedProfile ? (
-          <p className={styles.note} data-profile-deleted="">
-            {t("agents.notice.browser-profile-deleted")}
-          </p>
-        ) : null}
-        <Issues issues={issues("browser_profile")} />
-      </div>
-
-      <Group name="modality" heading={t("agents.heading.modality")}>
-        <ModalityToggles
-          definition={definition}
-          onChange={(modality) => set("modality", modality)}
-        />
-        <p className={styles.note}>{t("agents.notice.modality-help")}</p>
-        <Issues issues={issues("modality")} />
-      </Group>
-
       {detail.card === undefined ? null : (
         <Group name="card" heading={t("agents.heading.card")}>
           <CardFacts card={detail.card} workspaceName={props.workspaceName} />
@@ -281,21 +187,7 @@ export function GeneralTab(props: GeneralTabProps) {
         </Group>
       )}
 
-      <Group name="skip" heading={t("agents.heading.skip")}>
-        <Checkbox
-          size="sm"
-          label={t("agents.label.skip-start")}
-          checked={definition.skip === true}
-          onCheckedChange={(on) => set("skip", on ? true : undefined)}
-        />
-        <p className={styles.note}>{t("agents.notice.skip-help")}</p>
-        <Issues issues={issues("skip")} />
-      </Group>
-
-      <p className={styles.note}>
-        {fresh ? `${t("agents.notice.grants-after-create")} ` : ""}
-        {t("agents.notice.stored-in-lophn")}
-      </p>
+      <p className={styles.note}>{t("agents.notice.stored-in-lophn")}</p>
       {!fresh && !lophn && !coding ? (
         <DeleteAgent name={name} onDelete={props.onDelete} />
       ) : null}

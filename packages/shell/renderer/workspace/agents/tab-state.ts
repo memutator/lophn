@@ -4,11 +4,11 @@
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { Ready } from "./editor/editor-model.ts";
 
-/** 탭 안에서 보는 자리. new는 첫 저장 전의 새 agent다(n은 구분하는 번호). */
+/** 탭 안에서 보는 자리. new는 첫 저장 전의 새 agent다(n은 구분하는 번호, from은 복제한 원래 agent). */
 export type Place =
   | { readonly kind: "list" }
   | { readonly kind: "agent"; readonly agent: string }
-  | { readonly kind: "new"; readonly n: number };
+  | { readonly kind: "new"; readonly n: number; readonly from?: string };
 
 export const LIST: Place = { kind: "list" };
 

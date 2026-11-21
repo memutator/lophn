@@ -1,4 +1,4 @@
-/* agent 설정 화면(General·Runtime·Instructions·Skills·Memory·Tools·Grants 탭)과 skill·MCP 줄 같은 조각. 같은 token만 쓰고, 토글과 행동 단추는 줄 오른쪽 끝 고정 열에 둔다. */
+/* agent 설정 화면(Overview·Who·Runs on·Sees·Works how 탭)과 skill·MCP 줄 같은 조각. 같은 token만 쓰고, 토글과 행동 단추는 줄 오른쪽 끝 고정 열에 둔다. */
 
 /* 폭은 Agents 탭 목록과 같은 기둥이다. 목록에서 [Open]을 눌러도 본문 폭이 바뀌지 않는다. */
 .page {
@@ -101,6 +101,12 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.titleText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -127,8 +133,105 @@
   line-height: var(--type-caption-line);
 }
 
-.stored {
-  margin-top: var(--space-6);
+/* Overview: 네 묶음의 절이 위아래로 쌓인다. 절 머리는 제목 | 오른쪽 끝 [Edit]이고 아래는 이름 열 | 값 줄들이다. */
+.overview {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-8);
+}
+
+.copyNote {
+  padding-bottom: var(--space-4);
+}
+
+.overviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.overviewSection:first-of-type {
+  padding-top: var(--space-0);
+}
+
+.overviewHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.overviewTitle {
+  margin: var(--space-0);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 절마다 이름 열의 폭이 같아 네 절의 값이 같은 세로선에서 시작한다. */
+.overview .overviewRows {
+  grid-template-columns: calc(var(--space-12) * 2) minmax(var(--space-0), 1fr);
+  row-gap: var(--space-3);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.overviewWho {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: var(--space-0);
+}
+
+.overviewWhoText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+  color: var(--color-text-secondary);
+}
+
+.overviewName {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.handle {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  font-weight: var(--font-weight-regular);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* 한 줄로 자르는 값(지침 첫 줄, skill 이름들). 넘치면 말줄임이다. */
+.clip {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sees의 앱 할당. 바로 저장되는 칸이라 위의 [Save] 칸들과 선으로 가른다. */
+.apps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
 .rightEnd {

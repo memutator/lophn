@@ -67,6 +67,26 @@ export interface AgentListRow {
   readonly browserProfile: string | null;
   /** core가 계산한 명함. 틀린 정의 file이면 없다. */
   readonly card?: AgentCardView;
+  /** 카드 앞면이 네 묶음을 한눈에 보이는 데 쓰는 정의의 요약. 틀린 정의 file이면 없다. */
+  readonly glance?: AgentGlance;
+}
+
+/**
+ * 카드 앞면의 요약. 목록 행과 명함에 없는 것(effort, 지침 유무, 할당 앱 수, 고른 tool, skip)을 정의에서 센다.
+ * 화면이 다시 계산하는 것은 이 셈뿐이고 model 층·skill·MCP 수는 core가 준 값을 쓴다.
+ */
+export interface AgentGlance {
+  /** 정의 → workspace → 전역 순으로 정해진 model(option 값 포함). 어느 층에도 없으면 null이다. */
+  readonly model: ModelChoice | null;
+  /** 정의 본문(이 agent의 지침)이 비어 있지 않은가. */
+  readonly instructions: boolean;
+  /** 이 컴퓨터의 할당 앱 수. */
+  readonly apps: number;
+  /** 다른 컴퓨터의 할당 앱 수. */
+  readonly remoteApps: number;
+  /** custom이 고른 tool 이름. */
+  readonly tools: readonly string[];
+  readonly skip: boolean;
 }
 
 /** Agents 탭 본문 한 번에 필요한 값. */

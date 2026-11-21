@@ -640,7 +640,39 @@ export function createFakeAgentsSource(
       },
       browserProfile: definition.browser_profile ?? null,
       card: cardOf(key, item),
+      glance: {
+        model,
+        instructions: definition.body.trim() !== "",
+        apps: (grants.get(key) ?? []).filter((one) => one.machine === undefined)
+          .length,
+        remoteApps: (grants.get(key) ?? []).filter(
+          (one) => one.machine !== undefined,
+        ).length,
+        tools: definition.tools ?? [],
+        skip: definition.skip === true,
+      },
     };
+  };
+
+  // core의 정의 file처럼 할당을 정의의 apps·remote_apps 칸으로도 보인다(복제가 이 칸을 그대로 옮긴다).
+  const withGrantsOf = (key: string, definition: AgentDraft): AgentDraft => {
+    const entries = grants.get(key) ?? [];
+    const local = entries.filter((one) => one.machine === undefined);
+    const remote = entries.filter((one) => one.machine !== undefined);
+    return {
+      ...definition,
+      ...(local.length === 0 ? {} : { apps: local.map((one) => one.app) }),
+      ...(remote.length === 0
+        ? {}
+        : {
+            remote_apps: remote.map((one) => ({
+              machine: one.machine,
+              app: one.app,
+              name: one.name,
+              removed: one.removed_tools,
+            })),
+          }),
+    } as AgentDraft;
   };
 
   const detailOf = (key: string, workspace: string | null): AgentDetail => {
@@ -650,7 +682,7 @@ export function createFakeAgentsSource(
       assignment: key,
       draftId: null,
       workspace: workspaceView(workspace),
-      definition: item.definition,
+      definition: withGrantsOf(key, item.definition),
       hash: item.hash,
       effective: {
         name: { value: item.name, source: "agent" },
@@ -951,6 +983,27 @@ export function createFakeAgentsSource(
         definition: input.definition,
         hash,
       });
+      // 복제는 할당 칸을 들고 만든다. core처럼 만든 agent의 할당이 된다.
+      if (input.assignment === null) {
+        const copied = input.definition as AgentDraft & {
+          apps?: readonly `app_${string}`[];
+          remote_apps?: readonly {
+            machine: `mch_${string}`;
+            app: `app_${string}`;
+            name: string;
+            removed: readonly string[];
+          }[];
+        };
+        grants.set(key, [
+          ...(copied.apps ?? []).map((app) => ({ app, removed_tools: [] })),
+          ...(copied.remote_apps ?? []).map((one) => ({
+            app: one.app,
+            machine: one.machine,
+            name: one.name,
+            removed_tools: [...one.removed],
+          })),
+        ]);
+      }
       notify();
       return Promise.resolve({ ok: true, value: { assignment: key, hash } });
     },

@@ -1,7 +1,7 @@
-// agent 하나의 설정 화면. 저장된 agent와 새 agent가 같은 화면을 쓴다.
-// General · Runtime · Instructions · Skills · Memory · Tools 탭이 정의를 고치고(탭마다 파일 하나: tab-*.tsx) Grants 탭에서
-// 맡길 것을 붙인다. 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다. source에서 agent를 읽어 form 값을 쥐고, 저장·삭제·이미지
-// 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
+// agent 하나의 설정 화면. 저장된 agent와 새 agent(복제 포함)가 같은 화면을 쓴다.
+// 첫 탭 Overview가 정의를 네 묶음(Who · Runs on · Sees · Works how)으로 한 장에 보이고, 묶음마다 탭 하나가 그 칸을 고친다
+// (탭마다 파일 하나: tab-*.tsx). 앱 할당은 Sees 탭에 있고 바로 저장된다. 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다.
+// source에서 agent를 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 
 import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
@@ -20,23 +20,26 @@ import { useAgentModels } from "../use-agent-models.ts";
 import type { Face } from "../tab-state.ts";
 import type { AgentDraft, AgentsSource, GrantsView } from "../source.ts";
 import type { McpLogin, McpRow, McpSecret, McpStatus } from "../views.ts";
+import { isLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import { copyDefinition, copyHandle } from "./duplicate.ts";
 import {
   type EditorTab,
   factsOf,
+  GRANT_FIELDS,
+  GROUPS,
   isDirty,
   looseIssues,
   type Ready,
   tabOfIssue,
-  visibleTabs,
 } from "./editor-model.ts";
 import { Issues } from "./form-kit.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
-import { GeneralTab } from "./tab-general.tsx";
-import { InstructionsTab } from "./tab-instructions.tsx";
-import { MemoryTab } from "./tab-memory.tsx";
-import { RuntimeTab } from "./tab-runtime.tsx";
-import { SkillsTab } from "./tab-skills.tsx";
-import { ToolsTab } from "./tab-tools.tsx";
+import { type AppNames, OverviewTab } from "./tab-overview.tsx";
+import { RunsTab } from "./tab-runs.tsx";
+import { SeesTab } from "./tab-sees.tsx";
+import { WhoTab } from "./tab-who.tsx";
+import { WorksTab } from "./tab-works.tsx";
 import styles from "./agent-editor.module.css";
 
 /** editor가 source에서 쓰는 것. */
@@ -73,6 +76,12 @@ interface AgentEditorProps {
   readonly workspaceName: string;
   /** 열 agent를 가리키는 값. 새 agent는 null이다. */
   readonly agent: string | null;
+  /** 새 agent를 이 agent의 복제로 연다(agent가 null일 때만). */
+  readonly copyOf?: string | null;
+  /** 복제 handle이 피할 handle(화면을 연 자리의 목록). 겹치면 저장이 그 칸에 거절을 단다. */
+  readonly takenHandles?: readonly string[];
+  /** 머리의 [Duplicate]. 저장된 agent에만 있다. */
+  readonly onDuplicate?: () => void;
   /** [Cancel]로 editor를 떠난다. */
   readonly onDone: () => void;
   /** 지웠거나 열어 둔 agent가 이미 없어서 editor를 떠난다. 없으면 onDone이다. */
@@ -105,14 +114,14 @@ interface Notice {
 }
 
 const TAB_LABEL: Readonly<Record<EditorTab, MessageKey>> = {
-  general: "agents.label.tab-general",
-  runtime: "agents.label.tab-runtime",
-  instructions: "agents.label.tab-instructions",
-  skills: "agents.label.tab-skills",
-  memory: "agents.label.tab-memory",
-  tools: "agents.label.tab-tools",
-  grants: "agents.label.tab-grants",
+  overview: "agents.label.tab-overview",
+  who: "agents.label.tab-who",
+  runs: "agents.label.tab-runs",
+  sees: "agents.label.tab-sees",
+  works: "agents.label.tab-works",
 };
+
+const TABS: readonly EditorTab[] = ["overview", ...GROUPS];
 
 function EditorLoading(): ReactElement {
   const shown = useDelayedLoading(true);
@@ -129,10 +138,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     props.restore ?? { kind: "loading" },
   );
   const models = useAgentModels(source);
-  const [tab, setTab] = useState<EditorTab>("general");
+  const [tab, setTab] = useState<EditorTab>("overview");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [grantsAttempt, setGrantsAttempt] = useState(0);
   // 저장은 한 줄로 이어 보낸다. 앞 저장이 끝나기 전에 다음 변화를 보내면 옛 revision이라 conflict가 난다.
   const saving = useRef<Promise<void>>(Promise.resolve());
   const revision = useRef(0);
@@ -148,6 +158,17 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     }
     let live = true;
     setState({ kind: "loading" });
+    const copyOf = agent === null ? (props.copyOf ?? null) : null;
+    if (copyOf !== null) {
+      void openCopy(copyOf).then((ready) => {
+        if (!live) return;
+        if (ready === null) setState({ kind: "failed" });
+        else setState(ready);
+      });
+      return () => {
+        live = false;
+      };
+    }
     const opened =
       agent === null
         ? source.newAgent(workspace)
@@ -175,9 +196,47 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     // props.onDone은 부르는 쪽이 만드는 함수라 바뀔 때마다 다시 읽지 않는다.
   }, [source, workspace, agent, attempt]);
 
-  // Grants 탭은 열 때 읽는다. 새 agent는 저장하기 전에는 붙일 수 없다.
+  // 복제: 새 agent의 빈 값(미리 받은 id, 그 자리의 층)에 원래 agent의 저장된 정의를 옮긴다. 저장 전이라 base도 같은 값이다.
+  async function openCopy(from: string): Promise<Ready | null> {
+    const [fresh, original] = await Promise.all([
+      source.newAgent(workspace),
+      source.readAgent(workspace, from),
+    ]);
+    if (!fresh.ok || !original.ok) return null;
+    const read = original.value;
+    const name = read.definition.name ?? read.effective.name.value;
+    const handle =
+      read.card?.handle ??
+      read.definition.handle ??
+      (isLophn(from) ? "lophn" : name);
+    const copied = copyDefinition(
+      {
+        definition: read.definition,
+        id: from,
+        scope: isLophn(from)
+          ? workspaceOfLophn(from)
+          : (read.definition.workspace ?? null),
+        runtime: read.card?.runtime,
+      },
+      {
+        name: t("agents.label.copy-name", { name }),
+        handle: copyHandle(handle, props.takenHandles ?? []),
+        id: fresh.value.draftId ?? "",
+      },
+    );
+    return {
+      kind: "ready",
+      detail: fresh.value,
+      base: copied.definition,
+      definition: copied.definition,
+      issues: [],
+      copyOf: { name, imageDropped: copied.imageDropped },
+    };
+  }
+
+  // 할당은 Overview와 Sees가 보인다. 저장된 agent를 열 때 읽는다(새 agent는 만들기 전에는 붙일 수 없다).
   useEffect(() => {
-    if (tab !== "grants" || agent === null) return;
+    if (agent === null) return;
     let live = true;
     setGrants({ kind: "loading" });
     void source.grants(workspace, agent).then((result) => {
@@ -193,7 +252,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     return () => {
       live = false;
     };
-  }, [source, workspace, agent, tab]);
+  }, [source, workspace, agent, attempt, grantsAttempt]);
 
   const ready = state.kind === "ready" ? state : null;
   const dirty = ready !== null && isDirty(ready);
@@ -300,7 +359,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
 
   const { detail, definition } = state;
   const facts = factsOf(detail, definition);
-  const { fresh, lophn, coding } = facts;
+  const { fresh, lophn } = facts;
   const edit = (next: AgentDraft) =>
     setState((current) =>
       current.kind === "ready" ? { ...current, definition: next } : current,
@@ -413,28 +472,19 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       });
   };
 
-  // 할당은 정의 파일의 apps·permissions라 Grants 저장이 파일 hash를 바꾼다. 들고 있는 hash와 두 칸을 파일에 맞춰,
+  // 할당은 정의 파일의 apps·remote_apps·permissions라 할당 저장이 파일 hash를 바꾼다. 들고 있는 hash와 그 칸들을 파일에 맞춰,
   // 이어지는 정의 저장이 conflict가 되거나 방금 바꾼 할당을 옛 값으로 덮지 않게 한다. 편집 중인 다른 칸은 그대로 둔다.
   const syncGrantsFile = async (assignment: string) => {
     const read = await source.readAgent(workspace, assignment);
     if (!read.ok) return;
-    const stored = read.value.definition as {
-      apps?: unknown;
-      permissions?: unknown;
-    };
+    const stored = read.value.definition as unknown as Record<string, unknown>;
     const merge = (draft: AgentDraft) => {
-      const {
-        apps: _apps,
-        permissions: _permissions,
-        ...rest
-      } = draft as AgentDraft & { apps?: unknown; permissions?: unknown };
-      return {
-        ...rest,
-        ...(stored.apps === undefined ? {} : { apps: stored.apps }),
-        ...(stored.permissions === undefined
-          ? {}
-          : { permissions: stored.permissions }),
-      } as AgentDraft;
+      const next: Record<string, unknown> = { ...draft };
+      for (const field of GRANT_FIELDS) {
+        if (stored[field] === undefined) delete next[field];
+        else next[field] = stored[field];
+      }
+      return next as unknown as AgentDraft;
     };
     setState((current) => {
       if (current.kind !== "ready") return current;
@@ -489,14 +539,58 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     workspaceName: props.workspaceName,
     onChange: edit,
   };
-  const tabs = visibleTabs(facts);
-  // 고른 탭이 runtime을 바꿔 사라졌으면 General로 돌아온다.
-  const shown: EditorTab = tabs.includes(tab) ? tab : "general";
-  const marked = new Set(state.issues.map(tabOfIssue));
+  const marked = new Set<EditorTab>(state.issues.map(tabOfIssue));
   const imageSrc = (image: string) =>
     detail.assignment === null
       ? ""
       : source.imageSrc(workspace, detail.assignment, image);
+  // Overview의 Apps 줄: 이 컴퓨터의 앱은 목록의 이름, 다른 컴퓨터의 앱은 저장된 이름이다.
+  const appNames: AppNames =
+    detail.assignment === null || grants.kind === "loading"
+      ? { state: detail.assignment === null ? "none" : "loading" }
+      : grants.kind === "failed"
+        ? { state: "failed" }
+        : {
+            state: "ready",
+            local: grants.view.entries.flatMap((entry) =>
+              entry.machine === undefined
+                ? (grants.view.catalog.apps
+                    .filter((app) => app.app === entry.app)
+                    .map((app) => app.name) ?? [])
+                : [],
+            ),
+            remote: grants.view.entries.flatMap((entry) =>
+              entry.machine === undefined ? [] : [entry.name ?? entry.app],
+            ),
+          };
+  const copiedApps =
+    ((definition as { apps?: readonly unknown[] }).apps?.length ?? 0) +
+    ((definition as { remote_apps?: readonly unknown[] }).remote_apps?.length ??
+      0);
+  const apps = fresh ? (
+    <p className={styles.note}>
+      {copiedApps === 0
+        ? t("agents.notice.grants-after-create")
+        : t("agents.notice.copy-apps", { count: copiedApps })}
+    </p>
+  ) : grants.kind === "loading" ? (
+    <EditorLoading />
+  ) : grants.kind === "failed" ? (
+    <ErrorState
+      target={t("agents.label.grants-target")}
+      onRetry={() => setGrantsAttempt((count) => count + 1)}
+    />
+  ) : (
+    <>
+      <GrantsPanel
+        agentName={name}
+        entries={grants.view.entries}
+        catalog={grants.view.catalog}
+        onChange={changeGrants}
+      />
+      <p className={styles.note}>{t("agents.notice.grants-apply-now")}</p>
+    </>
+  );
 
   return (
     <div className={styles.page} data-agent-editor="ready">
@@ -510,14 +604,18 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           />
         </div>
       )}
-      <Tabs value={shown} onValueChange={(value) => setTab(value as EditorTab)}>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as EditorTab)}>
         <div className={styles.head}>
           <div className={styles.headRow}>
             <h1 className={styles.title}>
               {shownProfile === null ? null : (
                 <Avatar profile={shownProfile} size="md" />
               )}
-              {fresh ? t("project-workspace.heading.agents-new-agent") : name}
+              <span className={styles.titleText}>
+                {fresh && name.trim() === ""
+                  ? t("project-workspace.heading.agents-new-agent")
+                  : name}
+              </span>
               {lophn ? (
                 <span className={styles.chip}>
                   {t("agents.label.built-in")}
@@ -525,6 +623,15 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
               ) : null}
             </h1>
             <div className={styles.formActions}>
+              {fresh || props.onDuplicate === undefined ? null : (
+                <Button
+                  icon={actionIcons.duplicate}
+                  onClick={props.onDuplicate}
+                  data-action="duplicate"
+                >
+                  {t("agents.button.duplicate")}
+                </Button>
+              )}
               <Button onClick={props.onDone}>
                 {t("common.button.cancel")}
               </Button>
@@ -541,15 +648,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           </div>
           <Issues issues={looseIssues(state.issues)} />
           <TabList>
-            {tabs.map((one) => (
-              <Tab
-                key={one}
-                size="sm"
-                value={one}
-                disabled={one === "grants" && fresh}
-              >
+            {TABS.map((one) => (
+              <Tab key={one} size="sm" value={one}>
                 {t(TAB_LABEL[one])}
-                {marked.has(one) && one !== shown ? (
+                {marked.has(one) && one !== tab ? (
                   <span
                     className={styles.tabMark}
                     role="img"
@@ -560,34 +662,51 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             ))}
           </TabList>
         </div>
-        <TabPanel value="general">
-          <GeneralTab
+        <TabPanel value="overview">
+          <OverviewTab
             {...form}
             facts={facts}
+            face={shownProfile}
+            name={name}
+            models={models}
+            apps={appNames}
+            copyOf={state.copyOf}
+            onEdit={setTab}
+          />
+        </TabPanel>
+        <TabPanel value="who">
+          <WhoTab
+            {...form}
+            facts={facts}
+            copyOf={state.copyOf}
             imageSrc={imageSrc}
             onUpload={upload}
             onDelete={remove}
           />
         </TabPanel>
-        <TabPanel value="runtime">
-          <RuntimeTab {...form} facts={facts} models={models} source={source} />
+        <TabPanel value="runs">
+          <RunsTab {...form} facts={facts} models={models} source={source} />
         </TabPanel>
-        <TabPanel value="instructions">
-          <InstructionsTab
+        <TabPanel value="sees">
+          <SeesTab
             {...form}
+            facts={facts}
+            apps={apps}
+            onSignIn={signIn}
+            onCancelSignIn={cancelSignIn}
+            onSetSecret={setSecret}
+            signingIn={signingIn}
+          />
+        </TabPanel>
+        <TabPanel value="works">
+          <WorksTab
+            {...form}
+            facts={facts}
             workspaceInstructions={{
               read: () => source.readInstructions(workspace ?? ""),
               write: (text, hash) =>
                 source.writeInstructions(workspace ?? "", text, hash),
             }}
-          />
-        </TabPanel>
-        <TabPanel value="skills">
-          <SkillsTab {...form} facts={facts} />
-        </TabPanel>
-        <TabPanel value="memory">
-          <MemoryTab
-            {...form}
             memoryPort={{
               read: () =>
                 source.readMemory({
@@ -602,38 +721,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
                 ),
             }}
           />
-        </TabPanel>
-        <TabPanel value="tools">
-          <ToolsTab
-            {...form}
-            facts={facts}
-            onSignIn={signIn}
-            onCancelSignIn={cancelSignIn}
-            onSetSecret={setSecret}
-            signingIn={signingIn}
-          />
-        </TabPanel>
-        <TabPanel value="grants">
-          {grants.kind === "loading" ? <EditorLoading /> : null}
-          {grants.kind === "failed" ? (
-            <ErrorState
-              target={t("agents.label.grants-target")}
-              onRetry={() => setTab("general")}
-            />
-          ) : null}
-          {grants.kind === "ready" ? (
-            <>
-              <GrantsPanel
-                agentName={name}
-                entries={grants.view.entries}
-                catalog={grants.view.catalog}
-                onChange={changeGrants}
-              />
-              <p className={`${styles.note} ${styles.stored}`}>
-                {t("agents.notice.grants-apply-now")}
-              </p>
-            </>
-          ) : null}
         </TabPanel>
       </Tabs>
     </div>

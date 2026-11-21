@@ -1,0 +1,44 @@
+id: agent-profile-screens
+version: 0.23.121
+title: agent 정의를 네 묶음(Who, Runs on, Sees, Works how)의 한 장 profile로 보이고 복제를 더한다
+modules: [packages/shell/renderer, packages/design, tools]
+change: |
+  - Agents 탭 카드 앞면: 머리가 Who(avatar, 이름, 역할 한 줄. 없으면 "No role line yet", lophn은 "Built into <workspace>")이고 오른쪽 끝에 ⋯ menu(Duplicate)가 있다. 아래 세 줄이 Runs on(runtime, harness는 vendor 아이콘, model · effort. harness는 "its own model"), Sees(범위 agent의 범위, 기본이 아닌 browser profile, 할당 앱 수, 다른 컴퓨터 앱 수, MCP 수, custom이 고른 tool 수, skip), Works how(지침 유무, skill 수, memory 상태. harness는 "its own skills and memory")다. 옛 명함 줄(받고 내는 것, 답 방식, lophn과의 차이)은 카드에서 빠지고 편집기 Who의 명함에 남는다. 내장 coding agent 카드도 같은 모양이다.
+  - 카드의 effort, 지침 유무, 할당 앱 수, 고른 tool, skip은 목록 행과 명함에 없어서 renderer가 목록을 읽을 때 agent마다 `agents/read`를 한 번 더 읽어 센다(`AgentListRow.glance`). core·protocol은 바뀌지 않았다.
+  - 편집기 탭: General · Runtime · Instructions · Skills · Memory · Tools · Grants 일곱이 Overview · Who · Runs on · Sees · Works how 다섯이 되었다. Overview는 네 묶음의 절이고 절마다 [Edit]이 그 탭을 연다. Who = profile, name, handle, Role(description), 명함, Delete. Runs on = runtime, model, 받고 내는 것. Sees = 범위, browser profile, MCP servers, custom의 tool, Skip permissions, 앱 할당(이 컴퓨터와 다른 컴퓨터, 바로 저장). Works how = 지침, skill, memory. 칸·저장·검사·conflict·항목별 거절의 동작은 같다. 거절 표시는 묶음 탭에 뜬다.
+  - runtime이 쓰지 않는 칸을 숨기던 것(harness의 Skills·Memory·Tools 탭과 Model 칸, lophn의 Memory 탭)을 그 자리의 한 줄로 바꿨다: harness는 "<runtime> uses its own …", custom은 workspace 지침 자리에 전역·workspace 지침을 읽지 않는다는 줄과 memory 아래 이 agent의 memory만 읽고 `agent.memory`를 골라야 쓴다는 줄, lophn은 workspace memory를 쓴다는 줄이다.
+  - 할당은 편집기를 열 때 읽는다(전에는 Grants 탭을 열 때). Overview가 할당 앱 이름을 보인다.
+  - 할당을 저장한 뒤 편집기가 파일에 맞추는 칸에 `remote_apps`를 더했다(전에는 `apps`·`permissions`뿐이라 다른 컴퓨터 앱 할당 뒤 정의를 저장하면 옛 `remote_apps`가 다시 쓰일 수 있었다).
+  - 복제: 카드 ⋯ menu와 저장된 agent 편집기 머리의 [Duplicate]가 같은 탭에 새 agent 편집기를 연다. 값은 원래 agent의 저장된 정의 그대로(사람만 쓰는 칸 포함)이고 name은 "<name> copy", handle은 `<handle>-copy`(겹치면 `-copy-2` …)다. 올린 이미지 avatar는 옮기지 않고 기본 character로 둔다(Who에 그 안내). agent 층 MCP server의 secret 이름은 새 id로 바꾼다. [Create agent]가 `agents/create`로 만든다.
+  - 문구: Description 칸 이름이 Role이 되었다. runtime 이름에 Oh My Pi, Antigravity를 더했다(카드·Overview 표시용, 고르기 목록은 그대로).
+  - wireframe: Agent settings 영역 page를 새 모양에 맞추고 agents-tab-home-coding, agents-tab-card-menu, agents-tab-duplicated, agent-settings-who, agent-settings-sees, agent-settings-custom-overview, agent-settings-harness-works를 더했다. agent-settings-agent는 Overview, agent-settings-harness는 harness Overview를 그린다.
+why: |
+  사람이 말하는 agent profile은 정의 전체인데, 화면은 일곱 탭에 칸이 흩어져 "이 agent가 무엇인가"를 한 번에 읽을 수 없었다. runtime마다 조용히 안 먹는 칸은 탭이 사라져서 왜 없는지 알 수 없었다. preset을 따로 두지 않고 지침이 빈 얇은 agent와 복제로 만들기로 했는데(roadmap agent-profile) 복제가 없었다.
+decisions:
+  - text: >-
+      정의는 한 장 profile로 간다: 누구, 무엇으로 도나, 무엇을 보나, 어떻게 일하나. 카드 앞면과 편집기 첫 화면이 이 넷을 한 장에 보이고 일곱 탭은 이 넷 아래로 다시 묶는다. preset은 따로 두지 않고 복제를 더한다.
+    by: agent
+  - text: >-
+      편집기는 Overview 탭 하나와 묶음 탭 넷이다. Overview는 값만 보이고 절마다 [Edit]이 그 탭을 연다. 버린 길: 네 묶음을 한 page의 절로 모두 펼치기(MCP 목록, 앱 할당, 지침 글칸이 길어 한 화면에 "무엇인가"가 읽히지 않는다), Overview 없이 탭 넷(첫 화면이 한 묶음만 보인다), 절을 눌러 들어가는 별도 화면(탭과 같은 일을 하며 저장 머리·거절 표시를 따로 지켜야 한다).
+    by: agent
+  - text: >-
+      modality(받고 내는 것)는 Runs on에 둔다. model이 받는 media와 짝이라서다(명함 notes가 둘의 어긋남을 말한다). 명함은 Who에 둔다(다른 agent가 이 agent를 고를 때 읽는 신원이다). Skip permissions는 Sees에 둔다(권한).
+    by: agent
+  - text: >-
+      앱 할당은 바로 저장되는 칸이라 Sees 맨 아래에 두고 선으로 [Save] 칸들과 가른다. 버린 길: 할당만 따로 탭(묶음이 다섯이 되고 "무엇을 보나"가 둘로 갈린다).
+    by: agent
+  - text: >-
+      복제는 곧바로 만들지 않고 값이 찬 새 agent 편집기를 연다. 사람이 이름과 model을 바꾼 뒤 [Create agent]로 만든다. 버린 길: 누르면 바로 만들기(쓰지 않을 사본이 남고 handle 겹침을 몰래 고쳐야 한다). 겹치지 않는 handle은 그 탭 목록의 handle로 짓고 남은 겹침(다른 workspace의 범위 agent)은 저장이 handle 칸에 거절을 단다.
+    by: agent
+  - text: >-
+      카드의 effort·지침 유무·할당 수는 renderer가 정의를 읽어 센다. 버린 길: 목록 행에 칸 더하기(core·protocol 변경이라 이 일의 범위 밖이다). 목록이 길면 읽기가 agent 수만큼 는다.
+    by: agent
+follow_up: |
+  - `profile` 칸을 `avatar`로 바꾸는 일과 harness runtime에 model·effort를 넘기는 일은 roadmap agent-profile의 다음 단계다. 넘기게 되면 harness의 Model 자리 "uses its own" 줄을 고른 값으로 바꾼다.
+  - 목록 행(`agents/list`)이 effort·지침 유무·할당 수를 내면 renderer의 agent별 `agents/read`를 지운다.
+checklist:
+  - Agents 탭 카드마다 Runs on · Sees · Works how 세 줄이 보이고, harness agent는 its own model·tools·skills and memory로 보이는지 본다
+  - agent를 열면 Overview가 첫 화면이고 절의 Edit이 그 탭(Who, Runs on, Sees, Works how)을 여는지 본다
+  - Sees 맨 아래에서 앱을 할당하고 다른 칸을 고쳐 Save한 뒤 다시 열어 할당이 남아 있는지 본다(다른 컴퓨터 앱 포함)
+  - 카드 ⋯ menu의 Duplicate로 사본을 열고 model을 바꿔 Create agent로 만든 뒤 목록에 "<name> copy"가 생기는지 본다
+  - 이미지 avatar를 가진 agent를 복제하면 사본이 기본 character로 시작하는지 본다

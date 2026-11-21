@@ -134,6 +134,7 @@ export function AgentSettingsEditor({
           workspaceName={AT[workspace].name}
           agent={id === "new" ? null : id}
           onDone={onDone}
+          onDuplicate={noop}
         />
       </div>
     </FakeAgentEvents>

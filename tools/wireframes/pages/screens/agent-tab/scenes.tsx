@@ -45,6 +45,7 @@ export const RequestErrorScene = () => <Scene sub="request-error" />;
 export const SenderChipsScene = () => <Scene sub="sender-chips" />;
 /** 보낸 session의 call 블록: handoff, 답을 기다리는 call, 취소한 call. */
 export const CallOpenScene = () => <Scene sub="call-open" />;
+export const CallRemoteScene = () => <Scene sub="call-remote" />;
 /** call이 끝난 모습 둘. 답과 실패는 블록이 아니라 그 call에 이어지는 새 메시지로 보인다. */
 export const CallRepliesScene = () => <Scene sub="call-replies" />;
 /** 도는 편집과 call. 종류가 시작 때부터 있어 일반 tool 줄이 아닌 편집 카드("Editing")와 call 블록으로 보인다. */

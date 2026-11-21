@@ -5,6 +5,7 @@ import {
   AgentApprovalScopes,
   AgentApprovalStates,
   AgentCallOpen,
+  AgentCallRemote,
   AgentHarness,
   AgentHarnessMode,
   AgentMachineChip,
@@ -98,6 +99,13 @@ export const agentArea: Area = {
       description:
         "다른 agent에게 맡긴 일의 블록이다. 머리 줄이 답 방식에 맞는 말(Handoff to, Asked, Working with)과 받는 곳을 보이고, 그 아래 맡긴 글 한 줄이다. 오른쪽 끝 [Open conversation ↗]이 받은 session을 연다. 끝나지 않은 일에는 그 앞에 [Cancel]이 있다. 펼치는 상태 칸은 없다.",
       render: () => <AgentCallOpen />,
+    },
+    {
+      id: "new-agent-call-remote",
+      title: "Agent · call to another computer",
+      description:
+        '다른 컴퓨터의 agent에게 보낸 call의 card다. 머리가 "Asked <agent> on <컴퓨터>"로 어느 컴퓨터인지 말하고, 아래 한 줄이 배달 상태를 말로 보인다: 아직 닿지 않음, 그 컴퓨터의 Inbox에서 사람을 기다림, 그 컴퓨터에서 도는 중([Open conversation]이 그 컴퓨터의 대화를 연다), 닿았는지 모름. 상대의 lophn이 옛 판이면 실패 이유로 보인다. 끝나지 않은 call에는 [Cancel]이 있다.',
+      render: () => <AgentCallRemote />,
     },
     {
       id: "new-agent-call-replies",

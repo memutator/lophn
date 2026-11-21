@@ -22,6 +22,7 @@ import {
   ApprovalScopesScene,
   ApprovalStatesScene,
   CallOpenScene,
+  CallRemoteScene,
   CallRepliesScene,
   CommandsRankedScene,
   ContextFullScene,
@@ -196,6 +197,7 @@ export const AgentRequestError = RequestErrorScene;
 export const AgentSenderChips = SenderChipsScene;
 /** 보낸 session의 call 블록(끝나지 않음). */
 export const AgentCallOpen = CallOpenScene;
+export const AgentCallRemote = CallRemoteScene;
 /** call이 끝난 뒤의 답·실패 메시지와 취소한 줄. */
 export const AgentCallReplies = CallRepliesScene;
 /** agent header의 session switcher. */

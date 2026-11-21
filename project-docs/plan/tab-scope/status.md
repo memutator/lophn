@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py tab-scope build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `browser-profile-partitions` | browser-profile | 1 | 없음 | running | browser-profile/browser-profile-partitions |  |  |
+| `browser-profile-partitions` | browser-profile | 1 | 없음 | merged | browser-profile/browser-profile-partitions | ca1ecc010 |  |
 | `tab-owner-core` | tab-owner | 1 | 없음 | running | tab-owner/tab-owner-core |  |  |
 | `tab-owner-layout` | tab-owner | 1 | 없음 | merged | tab-owner/tab-owner-layout | e15f21b51 |  |
 | `browser-profile-core` | browser-profile | 2 | tab-owner-core, browser-profile-partitions | todo |  |  |  |

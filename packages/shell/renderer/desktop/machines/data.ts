@@ -53,6 +53,7 @@ import { coreSettingsSource } from "../settings/core-source.ts";
 import { coreCodingConnectionsSource } from "../settings/connections/core-source.ts";
 import { coreDiagnosticsSource } from "../settings/diagnostics/core-source.ts";
 import { coreProviderSettingsSource } from "../settings/providers/core-source.ts";
+import { coreRemoteSource } from "../settings/remote/core-source.ts";
 import type { QuickPrefsSource } from "../settings/quick-launch/source.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import { coreShellRulesSource } from "../settings/shell-rules/core-source.ts";
@@ -234,6 +235,8 @@ function otherMachineData(
       coding: coreCodingConnectionsSource(core),
       diagnostics: coreDiagnosticsSource(core),
       shellRules: coreShellRulesSource(core),
+      // 다른 기계의 Remote 항목은 그 기계의 Keep running만 그린다(RemotePanel).
+      remote: coreRemoteSource(core),
     },
     quickPrefs,
     appDetail: readOnlyAppDetailSource,

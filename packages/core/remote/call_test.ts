@@ -11,6 +11,7 @@ import {
   appsOAuthBegin,
   appsOAuthCallback,
 } from "../../protocol/apps/oauth.ts";
+import { alwaysOnSet } from "../../protocol/always-on/mod.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import { settingsUpdate } from "../../protocol/config/file.ts";
 import { agentCreate } from "../../protocol/lophn-agent/agent-definitions.ts";
@@ -112,6 +113,7 @@ const routes: Route[] = [
   projectFilesCreate,
   projectFilesRename,
   projectFilesRemove,
+  alwaysOnSet,
 ];
 
 // 허락이 있어도 열지 않는 route다. 두 기기 목록 어디에도 없어야 한다. 목록 file에서 뽑지 않고 이름으로 적는다:
@@ -229,6 +231,8 @@ function setup(
     settings?: () => ReturnType<MemoryHandler>;
     // call이 보는 자격의 target을 비운다. registry가 agent 자격을 session·turn에 묶지 않게 바뀌어도 actor 검사가 막는지 본다.
     looseTargets?: boolean;
+    // 기기를 컴퓨터로 둔다(`by`를 싣고 부른다). 기본은 폰이다.
+    computer?: boolean;
   } = {},
 ) {
   const clock = manualClock(1_700_000_000_000);
@@ -305,6 +309,7 @@ function setup(
       [pathOf(projectFilesCreate), reach(pathOf(projectFilesCreate))],
       [pathOf(projectFilesRename), reach(pathOf(projectFilesRename))],
       [pathOf(projectFilesRemove), reach(pathOf(projectFilesRemove))],
+      [pathOf(alwaysOnSet), reach(pathOf(alwaysOnSet))],
       ...NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
     ]),
     reads: new Map(
@@ -355,7 +360,7 @@ function setup(
     },
     admission: createAdmission(),
     granted: (principal) => principal !== devicePrincipal(PLAIN),
-    kind: () => "phone",
+    kind: () => (options.computer ? "computer" : "phone"),
     privateApp: () => false,
     async confirm(request) {
       const made = confirmations.issue(request);
@@ -450,6 +455,47 @@ test("터미널 입력 허락이 없는 기기는 secret, provider, 설정 쓰�
     }))!,
   });
   assert.equal(!again.ok && again.error.code, "forbidden");
+});
+
+// 다른 컴퓨터의 늘 켜 두기는 그 기계의 터미널에 칠 수 있는 기기의 화면만 켠다. 터미널·agent·앱이 시킨 것은 닿지 못한다.
+test("always_on/set은 터미널 입력을 허락받은 기기의 screen만 부른다", async () => {
+  const body = { keep_running: true };
+  const call = { resource: "always_on", method: "set", body };
+  const code = (done: { ok: boolean; error?: { code: string } }) =>
+    done.ok ? "ok" : done.error?.code;
+
+  const phone = setup();
+  assert.equal(
+    code(await phone.call(await phone.device(PLAIN), call)),
+    "forbidden",
+  );
+  assert.equal(code(await phone.call(await phone.device(GRANTED), call)), "ok");
+
+  const computer = setup({ computer: true });
+  const plain = await computer.device(PLAIN);
+  const granted = await computer.device(GRANTED);
+  const by = [
+    { kind: "terminal" },
+    { kind: "agent", agent: "lophn_home", session: null, name: "Ada" },
+    { kind: "app", app: APP },
+  ] as const;
+  for (const who of by) {
+    assert.equal(
+      code(await computer.call(granted, { ...call, by: who })),
+      "forbidden",
+      who.kind,
+    );
+  }
+  assert.equal(
+    code(await computer.call(plain, { ...call, by: { kind: "screen" } })),
+    "forbidden",
+  );
+  assert.deepEqual(computer.reached, []);
+  assert.equal(
+    code(await computer.call(granted, { ...call, by: { kind: "screen" } })),
+    "ok",
+  );
+  assert.deepEqual(computer.reached, ["always_on/set"]);
 });
 
 test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요한 명령을 통과하지 못한다", async () => {

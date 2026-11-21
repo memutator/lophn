@@ -44,11 +44,6 @@ export interface TabKindDef {
    * 탭의 기계가 이 컴퓨터가 아니면 본문 대신 OnlyHere("This opens only on <이름>")다. 다른 기계에서 열리게 한 kind는 이 표를 뺀다.
    */
   readonly thisComputerOnly?: true | ((tab: TabItem) => boolean);
-  /**
-   * 이 컴퓨터에 이 앱이 있으면 탭의 기계와 상관없이(그 기계가 꺼져 있어도) 이 컴퓨터에서 연다(같은 앱은 한 줄). 그 앱 id다.
-   * 탭 범위(TabScope)가 그 기계의 상태 안내보다 먼저 묻는다.
-   */
-  hereApp?(tab: TabItem): string | undefined;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */
   readonly noReopen?: true;
   /** true면 이 kind의 탭은 Detach하지 않는다(탭 menu 항목과 패널 단추를 그리지 않는다). 다른 탭에 묶인 보조 패널(browser DevTools)이 쓴다. */

@@ -132,11 +132,13 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
 ];
 
 /**
- * 다른 기계의 범위에서 여는 항목: 그 기계의 core만 읽고 쓰고 그 기계에서 효과가 나는 것. 나머지(Appearance, Browser, Remote, Sync,
- * Keyboard, Quick launch, Coding agents, Extension packages)는 이 컴퓨터의 shell main이나 OS에 붙어 있어 그 범위에서는 한 줄이다.
+ * 다른 기계의 범위에서 여는 항목: 그 기계의 core만 읽고 쓰고 그 기계에서 효과가 나는 것. 나머지(Appearance, Browser, Sync,
+ * Keyboard, Quick launch, Extension packages)는 이 컴퓨터의 shell main이나 OS에 붙어 있어 그 범위에서는 한 줄이다. Remote는
+ * 그 기계의 Keep running만 열린다(기기·pairing·터미널 입력 허락은 이 컴퓨터의 것이다).
  */
 export const MACHINE_PANES: ReadonlySet<SettingsPane> = new Set([
   "general",
+  "remote",
   "providers",
   "agents",
   "tools",

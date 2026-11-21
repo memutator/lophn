@@ -149,11 +149,7 @@ function GlobalFloatBody(props: {
   const scope = useScopeMachine();
   const { tab, workspace } = props.float;
   return (
-    <TabScope
-      tab={tab}
-      workspaceMachine={workspace.machine ?? scope}
-      hereApp={tabKindOf(tab.kind)?.hereApp?.(tab)}
-    >
+    <TabScope tab={tab} workspaceMachine={workspace.machine ?? scope}>
       <GlobalFloatContent {...props} />
     </TabScope>
   );

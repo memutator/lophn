@@ -328,7 +328,9 @@ export const workspaceSettings = {
   "settings.label.dark-theme": "Dark theme",
   "settings.label.computer-name": "Name",
   "settings.label.keep-awake": "Keep this computer awake",
+  "settings.label.keep-awake-on": "Keep {name} awake",
   "settings.label.keep-running": "Keep lophn running on this computer",
+  "settings.label.keep-running-on": "Keep lophn running on {name}",
   "settings.label.device-linux": "Linux",
   "settings.label.device-kind-computer": "Computer",
   "settings.label.device-kind-phone": "Phone",
@@ -377,9 +379,9 @@ export const workspaceSettings = {
   "settings.note.computer-name-next-connect":
     "Your other devices see the new name.",
   "settings.note.keep-awake":
-    "Stops this computer from going to sleep on its own while lophn runs. Closing the lid or choosing Sleep still puts it to sleep.",
+    "Stops the computer from going to sleep on its own while lophn runs. Closing the lid or choosing Sleep still puts it to sleep.",
   "settings.note.keep-running":
-    "lophn starts when you log in and keeps running after you close its window, so scheduled jobs run and your phone can reach this computer. Stop lophn stops it until you log in again or open lophn.",
+    "lophn starts when you log in and keeps running after you close its window, so scheduled jobs run and your phone can reach it. Stop lophn stops it until you log in again or open lophn.",
   "settings.note.login-off-launchd":
     "Change it in System Settings › General › Login Items.",
   "settings.note.login-off-systemd": "Change it with systemctl --user.",

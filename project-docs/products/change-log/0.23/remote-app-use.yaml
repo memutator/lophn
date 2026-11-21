@@ -1,0 +1,21 @@
+id: remote-app-use
+version: 0.23.105
+title: 다른 컴퓨터의 앱은 그 컴퓨터의 것으로 열고, 다른 컴퓨터의 늘 켜 두기를 여기서 켠다
+modules: [packages/protocol, packages/shell/renderer, packages/design]
+change: |
+  - 탭의 기계가 다른 컴퓨터인 앱 화면·앱 panel은 이 컴퓨터에 같은 앱이 있어도 그 컴퓨터의 앱을 연다(화면은 같고 그 컴퓨터가 준 data로 그린다). 그 컴퓨터가 꺼져 있으면 탭 범위의 꺼짐 안내 한 줄이다. 전에는 같은 앱 id가 이 컴퓨터에 있으면 늘 이 컴퓨터의 것이 열렸다(`useAppHere`, `AppOnMachine`, `TabKindDef.hereApp`을 지웠다).
+  - Home의 Workspaces 목록은 다른 컴퓨터의 앱을 이 컴퓨터에 같은 앱이 있어도 숨기지 않고 컴퓨터마다 한 줄(기계 꼬리표)로 보인다.
+  - `always_on/status`·`always_on/set`을 `REMOTE_PERSON_ROUTES`에 더했다. 터미널 입력을 허락받은 기기의 화면(`screen` 또는 `by` 없는 폰)만 부르고 터미널·agent·앱 요청은 `forbidden`이다.
+  - Settings of <다른 컴퓨터>에 Remote 항목이 서고(`MACHINE_PANES`) 그 컴퓨터의 Keep running만 그린다(스위치 이름에 그 컴퓨터 이름). 기기·pairing·터미널 입력 허락은 이 컴퓨터의 Remote에만 있다.
+why: |
+  여러 컴퓨터를 이은 사람이 한 창에서 모든 컴퓨터의 앱 화면을 보는 것이 제품의 약속인데, 두 컴퓨터에 같은 앱이 있으면 다른 컴퓨터의 것을 열 길이 없었다(Agent Monitor를 VM에서 열어도 이 컴퓨터 것이 열림). 화면 없는 VM은 늘 켜 두기를 켜러 갈 곳도 없었다.
+decisions:
+  - text: 다른 컴퓨터의 앱을 열면 이 컴퓨터에 같은 앱이 있어도 그 컴퓨터의 것이 열린다. 버린 길 - 이 컴퓨터에 있으면 이 컴퓨터의 것을 열기(one-screen).
+    by: person
+  - text: 다른 컴퓨터의 늘 켜 두기(`always_on/status|set`)를 터미널 입력을 허락받은 기기의 사람 route로 연다. 이유 - 그 기기는 이미 그 컴퓨터의 터미널에 무엇이든 칠 수 있고, 화면 없는 VM은 가서 켤 곳이 없다.
+    by: agent
+  - text: 다른 컴퓨터의 Keep running은 새 항목을 만들지 않고 기존 Remote 항목을 `MACHINE_PANES`에 넣어 그 컴퓨터에서는 Keep running만 그린다. 버린 길 - Keep running을 따로 항목으로 떼기(이 컴퓨터의 Remote 화면과 wireframe을 다 옮겨야 한다).
+    by: agent
+checklist:
+  - 같은 앱이 두 컴퓨터에 있을 때 한 창에서 두 컴퓨터의 앱을 각각 열어 각 컴퓨터의 data가 보이는지 본다
+  - Settings of 다른 컴퓨터 › Remote에서 그 컴퓨터의 Keep running을 켜 본다(그 컴퓨터가 이 컴퓨터에 터미널 입력을 허락했을 때)

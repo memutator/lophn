@@ -309,7 +309,7 @@ function DetachedTab({
   const dot = def?.dotOf?.(tab, host) ?? null;
   const body =
     def === undefined ? null : (
-      <TabScope tab={tab} workspaceMachine={scope} hereApp={def.hereApp?.(tab)}>
+      <TabScope tab={tab} workspaceMachine={scope}>
         {tabMachine !== null && isThisComputerOnly(def, tab) ? (
           <OnlyHere machine={machineItemOf(machinesView, tabMachine)} />
         ) : (

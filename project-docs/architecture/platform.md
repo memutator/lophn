@@ -66,7 +66,7 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 
 ### 늘 켜 둠(Keep running)
 
-core 수명의 한 갈래다. 사람이 Settings › Remote의 "Keep running" 묶음("This computer" 아래, 폰 연결이 꺼져 있어도 보인다)에서 "Keep lophn running on this computer"를 켜면 그 기계의 core가 로그인 때 OS의 per-user 시작 항목으로 뜨고 창을 닫아도 idle-exit하지 않는다. 따로 켜는 "Keep this computer awake"는 그동안 기계가 저절로 잠들지 않게 한다.
+core 수명의 한 갈래다. 사람이 Settings › Remote의 "Keep running" 묶음("This computer" 아래, 폰 연결이 꺼져 있어도 보인다)에서 "Keep lophn running on this computer"를 켜면(다른 컴퓨터의 Settings에서도 그 컴퓨터의 Remote 항목이 같은 스위치를 그 컴퓨터의 core로 보낸다. 터미널 입력을 허락받은 기기만 부른다) 그 기계의 core가 로그인 때 OS의 per-user 시작 항목으로 뜨고 창을 닫아도 idle-exit하지 않는다. 따로 켜는 "Keep this computer awake"는 그동안 기계가 저절로 잠들지 않게 한다.
 
 ```
  Settings › Remote · (뒤의 CLI·agent 도구)
@@ -231,7 +231,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - **CLI.** 사람 명령은 core를 띄워서라도 붙는다. 주소는 `LOPHN_DAEMON_URL` 또는 identify다. agent 자격(`LOPHN_AGENT_CREDENTIAL`)이 있으면 그것만 쓰고 user 자격으로 바꾸지 않는다. `lophn core stop`은 core를 띄우지 않는다.
 - **launch intent.** `--core`(core만 띄우고 Electron은 끝난다. Windows 로그인 시작 `Run` 값만 쓴다). `--quit`은 Quit와 같다. `--agent-window`는 core가 browser를 쓰려고 앱을 띄울 때 쓴다(focus 없는 창 하나). `--page-host`는 display가 없는 Linux에서 core가 앱 대신 띄우는 창 없는 page host다(`--ozone-platform=headless --disable-gpu`와 같이).
 - **환경 이름.** `LOPHN_GIT_BASH`(Windows Git Bash 경로), `LOPHN_CLI`(개발 실행의 CLI launcher), `LOPHN_DAEMON_URL`, `LOPHN_LAUNCH_SHELL`(`1`이면 그 core가 browser가 필요할 때 앱을 띄울 수 있다. shell과 CLI의 core 시작과 로그인 시작 등록 글이 준다), `LOPHN_SERVICE`(`1`이면 OS service가 그 core를 띄웠다. Linux·macOS 로그인 시작 등록 글이 준다. ready 전 실패의 끝 code와 Linux 화면 env 가져오기가 본다).
-- **늘 켜 둠.** route `always_on/status`·`always_on/set`(memory, 사람만, 오류 `invalid_input`·`forbidden`·`unavailable`). 표시 file `<data root>/always-on.json`(`{machine, keep_running, keep_awake, service_env: {PATH, TMPDIR?}, updated_at}`, 0600). core 안의 다른 module은 wiring context의 `alwaysOn`(마지막으로 안 status)으로만 읽는다. OS 항목 이름 `lophn-core-<key>.service`(systemd user), `dev.lophn.core.<key>`(launchd label), HKCU `Run` 값 `lophn-core-<key>`. Windows 제거는 `lophn-core-` 접두사로 값을 찾는다.
+- **늘 켜 둠.** route `always_on/status`·`always_on/set`(memory, 사람만, 오류 `invalid_input`·`forbidden`·`unavailable`). 다른 컴퓨터에는 터미널 입력을 허락받은 기기의 `REMOTE_PERSON_ROUTES`로 열린다. 표시 file `<data root>/always-on.json`(`{machine, keep_running, keep_awake, service_env: {PATH, TMPDIR?}, updated_at}`, 0600). core 안의 다른 module은 wiring context의 `alwaysOn`(마지막으로 안 status)으로만 읽는다. OS 항목 이름 `lophn-core-<key>.service`(systemd user), `dev.lophn.core.<key>`(launchd label), HKCU `Run` 값 `lophn-core-<key>`. Windows 제거는 `lophn-core-` 접두사로 값을 찾는다.
 - **install 계약.** 설치 root 아래 `platform/`, `extensions/`, `desktop/`, `skills/`, 그리고 `bin/`의 CLI launcher.
 - **기계 기록** `<data root>/machine.json`(`machine.md`). 앱 process 시작 줄에 기계 id `machine`이 실린다.
 - **data step** `apps.sealed-marker`: 옛 data root의 봉인 사본에 표지를 쓴다. 두 번 돌아도 같고 새 data root는 처음부터 적용한 것으로 친다.

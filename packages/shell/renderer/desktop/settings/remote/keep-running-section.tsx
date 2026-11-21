@@ -33,8 +33,11 @@ const OFF_WHERE = {
 
 export function KeepRunningSection({
   source,
+  name,
 }: {
   source: RemoteSettingsSource;
+  /** 다른 컴퓨터의 것을 바꿀 때 그 이름. 없으면 이 컴퓨터다. */
+  name?: string;
 }) {
   const [view, setView] = useState<AlwaysOnView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -152,7 +155,9 @@ export function KeepRunningSection({
         <li className={styles.line} data-keep-running-row="keep-running">
           <div className={styles.lineMain}>
             <span className={styles.lineName}>
-              {t("settings.label.keep-running")}
+              {name === undefined
+                ? t("settings.label.keep-running")
+                : t("settings.label.keep-running-on", { name })}
             </span>
             <span className={styles.lineHelp}>
               {t("settings.note.keep-running")}
@@ -171,7 +176,9 @@ export function KeepRunningSection({
         <li className={styles.line} data-keep-running-row="keep-awake">
           <div className={styles.lineMain}>
             <span className={styles.lineName}>
-              {t("settings.label.keep-awake")}
+              {name === undefined
+                ? t("settings.label.keep-awake")
+                : t("settings.label.keep-awake-on", { name })}
             </span>
             <span className={styles.lineHelp}>
               {t("settings.note.keep-awake")}

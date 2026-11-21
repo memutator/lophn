@@ -1027,9 +1027,9 @@ flows:
     entries: []
     uses: [ipc:shell:view-open-app, ipc:shell:view-state, route:app_views/open, route:app_views/close]
     boundary: [shell, app-runtime]
-    code: [packages/shell/main/app-frame/view-ipc.ts, packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/app-frame/session-policy.ts, packages/shell/main/app-frame/app-protocol.ts, packages/shell/main/app-frame/electron-app-frame.ts, packages/shell/main/app-frame/network-policy.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/shell/renderer/app-frame/webview-host.tsx, packages/shell/renderer/app-frame/machine-deps.ts, packages/shell/renderer/app-frame/app-machine.tsx]
+    code: [packages/shell/main/app-frame/view-ipc.ts, packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/app-frame/session-policy.ts, packages/shell/main/app-frame/app-protocol.ts, packages/shell/main/app-frame/electron-app-frame.ts, packages/shell/main/app-frame/network-policy.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/shell/renderer/app-frame/webview-host.tsx, packages/shell/renderer/app-frame/machine-deps.ts]
     steps:
-      - "renderer가 shell:view-open-app을 보낸다. 탭의 기계 범위가 다른 기계면 그 기계를 실어 보낸다(machine-deps). 이 컴퓨터에 같은 앱이 있으면 탭의 기계가 달라도 이 컴퓨터의 것을 연다(app-machine). view-ipc가 sender가 살아 있는 desktop 창 본문인지, 입력이 schema에 맞는지 본다(sender를 먼저 본다)"
+      - "renderer가 shell:view-open-app을 보낸다. 탭의 기계 범위가 다른 기계면 그 기계를 실어 보낸다(machine-deps). 이 컴퓨터에 같은 앱이 있어도 탭의 기계의 것을 연다. view-ipc가 sender가 살아 있는 desktop 창 본문인지, 입력이 schema에 맞는지 본다(sender를 먼저 본다)"
       - "registry가 요청 모양을 한 번 보고 창이 열려 있는지 본다. 기계가 있으면 live만 받고, 이 컴퓨터의 id를 아직 모르면 unavailable이고, 이 컴퓨터의 id면 이 컴퓨터의 것으로 연다"
       - "view id를 정해 그 기계의 core app_views/open으로 묶는다(view-table-open). 다른 기계는 machines/call로 가고 그 기계가 이 컴퓨터를 기기(device:<이 컴퓨터>)로 보고 기기 route 목록으로 거른다. 화면·자리·params 검사와 release·process는 core가 정하고, 정규화한 params만 화면 주소로 간다. core의 invalid_input·forbidden·conflict는 그대로 돌려주고 나머지(not_found 포함)는 unavailable이다"
       - "registry가 그 기계의 grant host(app_grants/list, apps/tools)를 읽는다. 그 기계가 grant 읽기를 거절하면 forbidden, 그 밖에 읽지 못했거나 그 사이 창이 닫혔으면 unavailable이고 방금 연 core view를 닫는다"

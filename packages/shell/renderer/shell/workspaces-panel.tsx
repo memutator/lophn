@@ -155,25 +155,13 @@ export function WorkspacesPanel({
         : [],
     ),
   );
-  // 이 컴퓨터에 없는 것만 둔다: 같은 project(`also`에 이 컴퓨터)와 같은 id의 앱은 이 컴퓨터의 줄이 이미 있다. 기계가 여럿이면
-  // 처음 나온 기계의 줄 하나다.
+  // 다른 기계의 줄. 앱은 이 컴퓨터에 같은 앱이 있어도 기계마다 한 줄이다(그 기계의 것이 열린다). project는 이 컴퓨터에 같은
+  // project가 있으면 이 컴퓨터의 줄이 이미 있고, 기계가 여럿이면 처음 나온 기계의 줄 하나다.
   const away = (kind: "project" | "app") => {
-    const rows = elsewhere?.rows ?? [];
-    const hereApps = new Set(
-      rows.flatMap((row) =>
-        row.ref.kind === "app" && row.ref.machine === undefined
-          ? [row.ref.id]
-          : [],
-      ),
-    );
     const seen = new Set<string>();
-    return rows.filter((row) => {
+    return (elsewhere?.rows ?? []).filter((row) => {
       if (row.ref.kind !== kind || row.ref.machine === undefined) return false;
-      if (row.ref.kind === "app") {
-        if (hereApps.has(row.ref.id) || seen.has(row.ref.id)) return false;
-        seen.add(row.ref.id);
-        return true;
-      }
+      if (row.ref.kind === "app") return true;
       if (row.also.some((copy) => copy.machine === null)) return false;
       const same = row.listed?.identity ?? null;
       if (same !== null && seen.has(same)) return false;
@@ -186,7 +174,7 @@ export function WorkspacesPanel({
     if (ref.kind === "home" || ref.machine === undefined) return null;
     return (
       <PanelRow
-        key={`${ref.kind}:${ref.id}`}
+        key={`${ref.kind}:${ref.id}:${ref.machine}`}
         data-away={ref.kind}
         data-away-id={ref.id}
         data-offline={row.offline ? "" : undefined}

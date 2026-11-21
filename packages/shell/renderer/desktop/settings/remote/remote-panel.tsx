@@ -6,6 +6,7 @@ import { Switch } from "@lophn/ui/input";
 import { useCallback, useEffect, useState } from "react";
 
 import { useStateChanged } from "../../connection/core-read.ts";
+import { useScopeMachineItem } from "../../machines/context.tsx";
 import styles from "../settings.module.css";
 import { AddDevice } from "./add-device.tsx";
 import { AddressesSection } from "./addresses-section.tsx";
@@ -23,7 +24,24 @@ type Loaded<T> = T | "failed" | null;
 // relay 상태는 event가 없는 memory route라 켜 있는 동안 이 간격으로 다시 읽는다.
 const RELAY_POLL_MS = 5000;
 
+// 다른 기계의 범위에서는 그 기계의 Keep running만 있다. 기기, pairing, 터미널 입력 허락은 이 컴퓨터의 것이다.
 export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
+  const machine = useScopeMachineItem();
+  if (machine === null) return <ThisComputerRemote source={source} />;
+  return (
+    <div data-remote-settings="">
+      <h1 className={styles.paneTitle}>{t("settings.label.tab-remote")}</h1>
+      <KeepRunningSection
+        source={source}
+        name={
+          machine.name === "" ? t("machines.label.unknown-name") : machine.name
+        }
+      />
+    </div>
+  );
+}
+
+function ThisComputerRemote({ source }: { source: RemoteSettingsSource }) {
   const [enabled, setEnabled] = useState<Loaded<boolean>>(null);
   const [listed, setListed] = useState<Loaded<RemoteDevices>>(null);
   const devices =

@@ -24,6 +24,7 @@ import {
   releasesListRecords,
 } from "../apps/activation/activation.ts";
 import { annotationSend } from "../apps/annotation.ts";
+import { alwaysOnSet, alwaysOnStatus } from "../always-on/mod.ts";
 import {
   appSyncPull,
   appSyncPush,
@@ -429,7 +430,7 @@ export const REMOTE_ALLOWED_ROUTES = [
 ] as const;
 
 // 터미널 입력을 허락받은 기기에만 여는 사람의 route다. 허락이 있어도 넣지 않는 것: 기기·pairing·명단 관리(`devices/*`, `roster/*`),
-// 터미널 입력 허락 바꾸기, `always_on/*`, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
+// 터미널 입력 허락 바꾸기, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
 // `terminal_sessions/*`, `apps/call_tool`, grant 바꾸기(`app_grants/*`의 쓰기), 할당 쓰기, `agent-mcp-auth/complete`(기다리는 호출이라 기기는
 // callback을 건네는 `callback`으로 끝낸다), 앱 OAuth의 client 값 넣기(`apps/oauth_client_set`).
 // 그 기계의 loopback으로 돌아오는 로그인(provider·MCP·앱 OAuth)은 열되 browser를 이 기계에 두지 않는다(callback handoff): 기기가 시작하면
@@ -517,6 +518,9 @@ export const REMOTE_PERSON_ROUTES = [
   projectFilesCreate,
   projectFilesRename,
   projectFilesRemove,
+  // 늘 켜 두기(다른 컴퓨터의 Settings › Remote › Keep running). 화면 없는 기계는 가서 켤 곳이 없다
+  alwaysOnStatus,
+  alwaysOnSet,
 ] as const;
 
 // 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):

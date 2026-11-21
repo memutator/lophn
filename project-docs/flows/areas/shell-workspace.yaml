@@ -1527,7 +1527,7 @@ flows:
       - packages/shell/renderer/shell/global-floats/global-float-layer.tsx
       - packages/shell/renderer/shell/layout-source.ts
     steps:
-      - "탭 범위(TabScope)가 탭의 기계의 상태를 기계 목록에서 읽는다. 이 컴퓨터에 그 앱이 있는 앱 탭(hereApp)은 기계와 상관없이 이 컴퓨터의 범위로 그린다"
+      - "탭 범위(TabScope)가 탭의 기계의 상태를 기계 목록에서 읽는다. 앱 탭도 같다(이 컴퓨터에 같은 앱이 있어도 탭의 기계의 범위로 그리고, 그 기계가 꺼져 있으면 꺼짐 안내다)"
       - "connected면 그 기계의 범위(통로, event, 앱 view)에서 본문을 그린다. 터미널 탭은 저장한 `terminal_ref`로 그 기계의 터미널에 다시 붙는다"
       - "connected가 아니면 본문 대신 기계 이름, 상태, 마지막으로 본 때 한 줄을 그린다. 탭과 그 저장 값(layout 파일, 전역 float 파일)은 그대로다. 붙으면 본문을 새로 mount해 이어진다"
       - "기계 목록(ready)에 없는 기계의 탭은 removed 한 줄이다. 탭은 사람이 닫는다"
@@ -2612,7 +2612,7 @@ flows:
       - packages/shell/renderer/desktop/settings/machine-picker.tsx
       - packages/shell/renderer/desktop/settings/model.ts
     steps:
-      - "고르기가 이 컴퓨터와 명단의 기계(빠진 것 빼고)를 든다. 기계를 고르면 항목 목록은 그 기계의 core에 걸린 것(General, Providers, Agents, Tools and skills, Shell rules, Diagnostics)만 남고 나머지는 \"이 컴퓨터의 설정\" 한 줄이다. 지금 항목이 남지 않는 것이면 기본 항목으로 간다"
+      - "고르기가 이 컴퓨터와 명단의 기계(빠진 것 빼고)를 든다. 기계를 고르면 항목 목록은 그 기계의 core에 걸린 것(General, Remote, Providers, Agents, Tools and skills, Coding agents, Shell rules, Diagnostics)만 남고. 다른 기계의 Remote는 그 기계의 Keep running만 그린다 나머지는 \"이 컴퓨터의 설정\" 한 줄이다. 지금 항목이 남지 않는 것이면 기본 항목으로 간다"
       - "고른 기계가 연결되어 있지 않으면(꺼짐, 연결 중, 명단에서 빠짐) 본문 자리에 그 사정 한 줄만 선다"
       - "연결되어 있으면 그 기계의 범위 안에서 항목을 그린다. 읽기와 쓰기와 허락 묻기가 모두 그 기계의 core로 간다. 항목을 열 때마다 그 기계의 허락(이 컴퓨터가 받은 터미널 입력 허락)을 묻고, 허락이 없으면 그 컴퓨터의 Settings › Remote › My devices에서 켜라는 한 줄이다"
       - "고르기 값은 화면 상태이고 저장하지 않는다. Settings를 닫으면 이 컴퓨터로 돌아간다"

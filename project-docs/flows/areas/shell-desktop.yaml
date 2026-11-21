@@ -330,7 +330,7 @@ flows:
       - "다른 기계의 tab은 탭 줄의 이름 옆에 기계 꼬리표(MachineTag) 칩을 달고, 터미널 card 머리와 앱 card 머리도 같은 칩이다. 이 컴퓨터의 것에는 달지 않는다. 팔레트(전역·Settings)의 project 행은 기계마다 한 행이고 다른 기계의 것은 그 기계의 이름과 함께 보이며 고르면 목록의 줄과 같이 그 기계의 workspace를 연다"
       - "다른 기계의 workspace 줄을 누르면 route가 그 기계(machine)를 싣고 창이 그 기계의 범위와 통로로 그 workspace를 연다. 이 컴퓨터의 project 줄 안의 다른 기계 session을 누르면 그 기계(TabItem.machine)와 그 기계 안의 workspace를 단 Agent 탭을 그 기계의 agent 통로로 연다. 다른 줄이면 그 줄의 workspace로 가서 연다(route의 sessionMachine)"
       - "다른 기계의 project 줄에 같은 project가 이 컴퓨터에 없으면 오른쪽 클릭 menu가 git이면 [Clone to this computer](shell:machines-clone-here. 진행과 결과가 줄 아래 한 줄로 서고 누르면 걷힌다), git이 아니면 [Link to a project on this computer…]가 잇기 dialog를 연다(project-identity-link). 꺼진 기계의 줄은 흐리고 열리지 않는다"
-      - "Home의 Workspaces panel은 다른 기계에도 있는 project에 그 기계 이름을 달고, 이 컴퓨터에 없는 project·앱을 기계 꼬리표 줄로 구역 끝에 보인다. 누르면 그 기계의 workspace를 연다"
+      - "Home의 Workspaces panel은 다른 기계에도 있는 project에 그 기계 이름을 달고, 이 컴퓨터에 없는 project와 다른 기계의 앱(이 컴퓨터에 같은 앱이 있어도 기계마다 한 줄)을 기계 꼬리표 줄로 구역 끝에 보인다. 누르면 그 기계의 workspace를 연다"
     uses: [ipc:shell:machines-clone-here, route:projects/link_identity, route:projects/list, route:apps/list, route:coding_sessions/list]
     outcomes:
       - id: by-machine

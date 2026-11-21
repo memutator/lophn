@@ -1,9 +1,8 @@
 // app_screen 탭 kind. 앱 workspace의 앱 화면(현재 release의 entry screen)이다. 앱 workspace마다 하나이고 key는 앱 id로 정해진다.
-// 탭의 기계의 앱을 열고(그 기계의 core가 화면을 준다), 이 컴퓨터에 그 앱이 있으면 이 컴퓨터의 것을 연다(`AppOnMachine`).
+// 탭의 기계의 앱을 연다(그 기계의 core가 화면을 준다). 이 컴퓨터에 같은 앱이 있어도 탭의 기계의 것이다.
 import { workspaceIcons } from "../../icons/mod.ts";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
-import { AppOnMachine } from "../../app-frame/app-machine.tsx";
 import { AppViewsProvider } from "../../app-frame/app-views.tsx";
 import { AppScreenTab } from "../app-screen-tab.tsx";
 import { openAppPreview } from "./app-preview.tsx";
@@ -28,7 +27,6 @@ export function openAppScreen(host: TabHost): void {
 
 export const appScreenKind: TabKindDef = {
   kind: "app_screen",
-  hereApp: (tab) => tab.app,
   labelKey: "app-space.label.kind-app-screen",
   icon: workspaceIcons.appPanel,
   iconOf: (tab, host) => (
@@ -55,18 +53,14 @@ export const appScreenKind: TabKindDef = {
     const app = tab.app;
     if (app === undefined) return null;
     return (
-      <AppOnMachine app={app} machine={tab.machine ?? host.machine}>
-        {(machine) => (
-          <AppScreenTab
-            app={app}
-            source={host.machineData(machine).apps}
-            shown={shown}
-            keepKey={tab.key}
-            agentView={host.agentView}
-            onOpenPreview={() => openAppPreview(host, app)}
-          />
-        )}
-      </AppOnMachine>
+      <AppScreenTab
+        app={app}
+        source={host.machineData(tab.machine ?? host.machine).apps}
+        shown={shown}
+        keepKey={tab.key}
+        agentView={host.agentView}
+        onOpenPreview={() => openAppPreview(host, app)}
+      />
     );
   },
 };

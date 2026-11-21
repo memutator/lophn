@@ -18,6 +18,8 @@ export const leftSidebar = {
   "left-sidebar.button.register-project": "Register project",
   "left-sidebar.button.remove-recent": "Remove from Recent",
   "left-sidebar.button.rename-session": "Rename",
+  "left-sidebar.button.session-tabs-hide": "Hide tabs",
+  "left-sidebar.button.session-tabs-show": "Show tabs",
   "left-sidebar.button.settings": "Settings",
   "left-sidebar.button.stop-session": "Stop",
   "left-sidebar.label.age":

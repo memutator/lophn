@@ -2098,9 +2098,9 @@ flows:
       - packages/shell/main/browser/session.ts
     docs: [architecture/browser-tab.md]
     steps:
-      - "Settings › Browser의 Clear browsing data가 IPC로 main을 부른다"
-      - "main이 persist:lophn-browser의 storage를 인자 없이 clearStorageData()로 지우고 cache를 비운다"
-      - "열린 browser page를 다시 load한다"
+      - "Settings › Browser의 Clear browsing data가 `{profile: null}`(기본 profile)로 IPC를 부른다(profile id면 그 profile)"
+      - "main이 그 profile의 partition만 clearStorageData()로 지우고 cache를 비운다(기본 profile은 persist:lophn-browser)"
+      - "그 profile의 열린 page만 다시 load한다"
       - "앱 저장소 partition은 건드리지 않는다"
     outcomes:
       - id: cleared
@@ -2108,6 +2108,10 @@ flows:
       - id: unavailable
         code: unavailable
         when: "지우기가 실패했다"
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        when: "profile이 browser profile id 꼴이 아니다"
         observe: ["response"]
       - id: forbidden
         code: forbidden
@@ -2285,7 +2289,7 @@ flows:
     docs: [architecture/browser-tab.md]
     steps:
       - "will-attach-webview는 붙이는 문서가 lophn-shell://desktop인지 본다. 아니면 거절한다"
-      - "src가 등록된 app·artifact guest와 같으면 그 target을 쓰고, 아니고 partition이 browser이면 browser target으로 본다"
+      - "src가 등록된 app·artifact guest와 같으면 그 target을 쓰고, 아니고 partition이 알려진 browser profile의 partition 가운데 하나이면 browser target으로 본다"
       - "renderer가 넣은 preload·webpreferences·nodeintegration 같은 값은 지우고 hardened 값으로 덮은 뒤 partition과 preload를 다시 넣는다"
       - "browser의 첫 src는 decideNavigation을 지나야 하고, 못 지나면 about:blank로 바꾼다"
       - "did-attach-webview에서 받아 둔 붙이기를 FIFO로 guest 항목(wv-<id>)에 묶는다"

@@ -36,7 +36,7 @@ decisions:
     by: agent
   - text: private인 workspace는 mail을 보내지도 받지도 않고 handoff note도 남기지 않는다(사람이 2026-11-17에 정한 원칙을 이 일에 적용했다).
     by: agent
-  - text: workflow 참가자에 컴퓨터를 적을 수 있고 그 step은 그 컴퓨터의 agent에게 mail로 간다(run 화면의 표시는 남은 일).
+  - text: workflow 참가자에 컴퓨터를 적을 수 있고 그 step은 그 컴퓨터의 agent에게 mail로 간다. run 화면은 그 컴퓨터와 배달 상태를 보인다.
     by: person
   - text: 터미널 입력 허락은 mail을 받을지가 아니라 mail이 연 session이 skip을 따를지에만 쓴다. [Start now]는 정하는 때의 허락으로 본다. 버린 길은 허락 없이 skip을 따르기(꺼 둔 허락이 mail로 뚫린다)다.
     by: agent
@@ -73,7 +73,7 @@ decisions:
   - text: 이어 열거나 뺀 note는 이 컴퓨터의 창에서만 숨기고(key에 쓴 때) 다시 쓴 note는 다시 보인다. 버린 길은 core에 숨김 표 두기다.
     by: agent
 follow_up: |
-  - workflow run 화면이 다른 컴퓨터로 넘긴 step의 컴퓨터와 배달 상태를 아직 보이지 않는다(`remote_steps`는 읽기에 있다). roadmap `a2a-multi-device.md`, 이슈 `workflow-remote-step-turn-end-no-line`.
+  - 다른 컴퓨터가 가져간 step의 turn이 실패·멈춤·재시작으로 끝나면 시작한 컴퓨터에 줄이 남지 않는다(이슈 `workflow-remote-step-turn-end-no-line`). run 화면은 그 컴퓨터와 "도는 중"까지만 안다.
   - handoff note와 다른 컴퓨터의 workflow step을 실제 두 컴퓨터로 확인하는 일이 남았다.
   - `team spawn`이 기계를 건너는 것(roadmap 단계 4).
 checklist:

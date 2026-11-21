@@ -9,6 +9,7 @@ import type {
   WorkflowInstanceSummaryView,
   WorkflowInstanceView,
   WorkflowLineView,
+  WorkflowRemoteStepView,
 } from "../workspace/source.ts";
 import {
   participantText,
@@ -119,7 +120,10 @@ export function whoName(who: Who, faceOf: FaceOf | undefined): string {
       return who.key;
     case "agent": {
       const face = faceOf?.(who.handle);
-      return face === undefined || who.participant.workspace !== undefined
+      // 다른 workspace나 다른 컴퓨터의 agent는 이 창이 아는 얼굴이 아니라 선언에 적힌 글로 부른다.
+      return face === undefined ||
+        who.participant.workspace !== undefined ||
+        who.participant.on !== undefined
         ? participantText(who.participant)
         : face.name;
     }
@@ -135,6 +139,8 @@ export interface RelayStep {
   readonly shown?: StepShown;
   /** 이 step으로 넘기지 못했거나 넘긴 것이 끊겼을 수 있다(run 화면만). */
   readonly blocked?: boolean;
+  /** 다른 컴퓨터로 넘겼는데 아직 거기서 돌지 않는다(닿지 않았거나 그 컴퓨터에서 사람을 기다린다). 그 컴퓨터 이름이다. */
+  readonly waitingOn?: string;
 }
 
 const relayStep = (
@@ -157,10 +163,19 @@ export const relayOfEntry = (entry: WorkflowEntryView): RelayStep[] =>
   (entry.steps ?? []).map((step) => relayStep(entry.participants, step));
 
 export const relayOfRun = (detail: WorkflowInstanceDetailView): RelayStep[] =>
-  stepRows(detail).map((row) => ({
-    ...relayStep(detail.instance.participants, row.step, row.shown),
-    ...(row.notice === null ? {} : { blocked: true }),
-  }));
+  stepRows(detail).map((row) => {
+    const remote =
+      row.shown === "current" ? remoteOfStep(detail, row.step.name) : null;
+    return {
+      ...relayStep(detail.instance.participants, row.step, row.shown),
+      ...(row.notice === null ? {} : { blocked: true }),
+      ...(remote === null ||
+      remote.delivery === null ||
+      remote.delivery === "running"
+        ? {}
+        : { waitingOn: remote.computer }),
+    };
+  });
 
 export interface RunGroups {
   /** 사람 차례인 run. */
@@ -198,20 +213,46 @@ const lastOf = <K extends WorkflowLineView["kind"]>(
 ): Line<K> | undefined =>
   lines.findLast((line): line is Line<K> => line.kind === kind);
 
+/** 그 step을 다른 컴퓨터로 넘겼으면 그 컴퓨터와 지금 전달 상태. 이 컴퓨터로 넘긴 step은 null이다. */
+export function remoteOfStep(
+  detail: WorkflowInstanceDetailView,
+  step: string,
+): { computer: string; delivery: RemoteDelivery } | null {
+  const handed = detail.lines.findLast(
+    (line): line is Line<"handed"> =>
+      line.kind === "handed" && line.step === step,
+  );
+  const remote = handed?.remote ?? null;
+  if (remote === null) return null;
+  const call = detail.remote_steps.find((item) => item.call === remote.call);
+  return { computer: remote.computer, delivery: call?.delivery ?? null };
+}
+
+/** 다른 컴퓨터로 넘긴 step의 전달 상태. 끝난 call은 null이다. */
+export type RemoteDelivery = WorkflowRemoteStepView["delivery"];
+
 /** run이 지금 어디에 있는가. run 화면 머리의 한 장이 이것을 그린다. */
 export type Now =
-  /** 사람 차례. session은 같이 이야기할 agent의 대화다. */
+  /** 사람 차례. session은 같이 이야기할 agent의 대화다(그 agent가 다른 컴퓨터에 있으면 여기에는 없다). */
   | {
       readonly kind: "human";
       readonly step: string;
       readonly who: Who;
-      readonly session: string;
+      readonly session: string | null;
     }
   | {
       readonly kind: "working";
       readonly step: string;
       readonly who: Who;
       readonly session: string | null;
+    }
+  /** 다른 컴퓨터의 agent가 맡았다. 받은 session은 그 컴퓨터에 있어 여기서 열지 못한다. */
+  | {
+      readonly kind: "remote";
+      readonly step: string;
+      readonly who: Who;
+      readonly computer: string;
+      readonly delivery: RemoteDelivery;
     }
   /** flow의 program이 도는 중이다. */
   | { readonly kind: "program"; readonly step: string }
@@ -284,6 +325,10 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
   const step = instance.steps.find((item) => item.name === current.step);
   const who = whoOf(instance.participants, step?.by ?? FLOW_STEP_BY);
   if (who.kind === "program") return { kind: "program", step: current.step };
+  const remote = remoteOfStep(detail, current.step);
+  if (remote !== null) {
+    return { kind: "remote", step: current.step, who, ...remote };
+  }
   return {
     kind: "working",
     step: current.step,

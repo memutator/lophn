@@ -11,6 +11,8 @@ import {
   HumanTurn,
   Invalid,
   NotHanded,
+  RemoteFailed,
+  RemoteHeld,
   Restarted,
   Running,
   Start,
@@ -87,6 +89,20 @@ export const workflowArea: Area = {
       description:
         "lophn이 다시 켜져 넘긴 step이 끊겼을 수 있는 run이다. 한 장에 다시 넘겨야 할 수 있다는 글과 그 step을 받은 session의 [Open session]이 있다. 상태는 바꾸지 않는다.",
       render: () => <Restarted />,
+    },
+    {
+      id: "workflow-tab-remote-held",
+      title: "Run · step waits on another computer",
+      description:
+        "다른 컴퓨터의 agent가 맡은 step이 그 컴퓨터에 늦게 닿아 사람의 결정을 기다리는 run이다. 한 장이 어느 컴퓨터에서 무엇을 하면 되는지 말하고(사람 차례의 색), step 줄의 맡은 쪽에 컴퓨터 이름이 붙는다. 받은 session은 그 컴퓨터에 있어 [Open session]이 없다.",
+      render: () => <RemoteHeld />,
+    },
+    {
+      id: "workflow-tab-remote-failed",
+      title: "Run · step didn't run on another computer",
+      description:
+        "다른 컴퓨터로 넘긴 step이 거기서 돌지 못한 run이다. 한 장과 그 step에 core가 적은 이유 글(건너뜀, 만료, 취소, report 없이 닫힘)이 그대로 보인다.",
+      render: () => <RemoteFailed />,
     },
     {
       id: "workflow-tab-invalid",

@@ -43,6 +43,8 @@ const NOT_HANDED_KEY: Record<string, MessageKey> = {
   unknown_participant: "workflow.note.not-handed-unknown-participant",
   no_with: "workflow.note.not-handed-no-with",
   unresolved: "workflow.note.not-handed-unresolved",
+  unknown_computer: "workflow.note.not-handed-unknown-computer",
+  remote_failed: "workflow.note.not-handed-remote-failed",
 };
 
 export const notHandedKey = (reason: string): MessageKey =>
@@ -55,6 +57,8 @@ type Participant =
         | { readonly project: string }
         | { readonly app: string }
         | { readonly home: true };
+      /** 그 agent가 도는 다른 컴퓨터. 없으면 이 컴퓨터다. */
+      readonly on?: string;
     }
   | { readonly kind: "human" };
 
@@ -63,12 +67,17 @@ export function participantText(participant: Participant): string {
   if ("kind" in participant) {
     return t("workflow.label.participant-human");
   }
-  const { agent, workspace } = participant;
-  if (workspace === undefined || "home" in workspace) return agent;
-  return t("workflow.label.participant-placed", {
-    agent,
-    workspace: "project" in workspace ? workspace.project : workspace.app,
-  });
+  const { agent, workspace, on } = participant;
+  const placed =
+    workspace === undefined || "home" in workspace
+      ? agent
+      : t("workflow.label.participant-placed", {
+          agent,
+          workspace: "project" in workspace ? workspace.project : workspace.app,
+        });
+  return on === undefined
+    ? placed
+    : t("workflow.label.participant-on", { who: placed, computer: on });
 }
 
 type Line = { readonly kind: string; readonly step?: string | null };

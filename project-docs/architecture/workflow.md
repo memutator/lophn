@@ -180,6 +180,7 @@ artifact
 - "지금" 한 장은 run이 어디에 있는지 한 문장과 사람이 다음에 할 일의 단추다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)이다. agent가 일하는 중이면 그 agent와 [Open session]이고, 그 session이 사람의 답을 기다리면 사람 차례와 같은 무게로 보인다. 넘기지 못했거나(`not_handed`) lophn이 다시 켜져 끊겼으면(`lophn_restarted`) 이유와 말을 걸 session이다. 끝났으면 마지막 report 글이고, flow는 `program_exited`의 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 같이 보인다. 멈췄으면 멈춘 때다.
 - step 목록은 step마다 맡은 쪽, 상태, 마지막 report 글이다. 그 step의 줄은 접힌 Activity 안에 있다. step을 받은 session이 있으면 [Open session]이 그 대화를 workflow 탭 옆에 연다. 단추는 이 창이 열 수 있는 session(이 workspace의 agent의 session)에만 있다. 다른 workspace의 참가자가 받은 session에는 "지금" 한 장에도 step 목록에도 단추가 없다. `not_handed`와 `lophn_restarted`는 그 step에 이유 한 줄이고 step 줄의 그 칸이 "Not sent"가 된다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. step 없는 `edit`과 `lophn_restarted`는 "지금" 한 장 아래 한 줄이다. step을 옮기는 단추는 없다.
 - 참가자의 얼굴과 이름은 탭이 그 project의 agent 목록에서 찾는다. 다른 workspace의 agent와 목록에 없는 이름은 선언에 적힌 글 그대로다.
+- 다른 컴퓨터의 참가자(`on`)는 이름 뒤에 그 컴퓨터가 붙는다("Eval analyst on Home server"). 그 step을 넘긴 뒤 아직 거기서 돌지 않으면(닿지 않음, 답 없음, 늦게 닿아 그 컴퓨터에서 사람을 기다림) step 줄의 칸과 step 목록의 상태가 "Waiting on <컴퓨터>"이고, "지금" 한 장이 배달 상태마다 한 문장을 쓴다: 그 컴퓨터가 켜지면 간다, 보냈고 답이 아직 없다, 늦게 닿아 그 컴퓨터의 Inbox에서 시작해야 한다(이것만 사람 차례의 색이다), 그 agent가 일하는 중이다. 받은 session은 그 컴퓨터에 있어 [Open session]이 없다. 거기서 돌지 못한 step(`remote_failed`)은 core가 경우마다 적은 글을 그대로 보이고, 그 step의 상태는 step 줄의 칸과 같이 "Not sent"다. 다른 컴퓨터의 참가자가 낸 report는 "<이름> on <컴퓨터>"가 낸 것으로 보인다.
 - 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. run 목록과 고른 run은 처음, `workflow_instances` 변경이 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
 - project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 사람 차례인 run 수와 도는 run 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. 목록 아래 [Ask lophn for a workflow]는 그 workspace에서 lophn과 새 대화를 연다(workflow는 agent가 만든다). panel은 열려 있는 동안 열릴 때와 `workflow_instances` 변경 때 읽는다.
 
@@ -233,8 +234,7 @@ flow
 
 ## 열린 것
 
-- run 화면은 다른 컴퓨터로 넘긴 step의 컴퓨터와 배달 상태(위 결정의 사람 요구)를 아직 보이지 않는다. `remote_steps`가 읽기에 있다. roadmap `a2a-multi-device.md`.
-- 다른 컴퓨터가 가져간 step의 turn이 실패하거나 멈추거나 재시작으로 끊기면 시작한 컴퓨터에 줄이 남지 않는다. 사람은 그 step의 배달 상태(`remote_steps`의 running)와 그 컴퓨터의 session으로만 안다. 그 turn에서 step을 닫으면 뒤의 report가 거절되고, 이 컴퓨터의 step도 실패한 turn으로 닫지 않는다. 이슈 `workflow-remote-step-turn-end-no-line`.
+- 다른 컴퓨터가 가져간 step의 turn이 실패하거나 멈추거나 재시작으로 끊기면 시작한 컴퓨터에 줄이 남지 않는다. 사람은 run 화면이 보이는 그 컴퓨터 이름과 배달 상태(도는 중)로만 알고, 그 컴퓨터의 session을 열어 봐야 turn이 끊긴 것을 안다. 그 turn에서 step을 닫으면 뒤의 report가 거절되고, 이 컴퓨터의 step도 실패한 turn으로 닫지 않는다. 이슈 `workflow-remote-step-turn-end-no-line`.
 
 - flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory는 V8 heap 512 MiB에서 막힌다. CPU를 막으려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`.
 - `workflow.yaml`에 남은 옛 `{kind: harness}` 참가자는 옮기지 않는다. `invalid_declaration`이고 손으로 고친다(agent 이름을 알 수 없다).

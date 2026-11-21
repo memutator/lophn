@@ -57,6 +57,7 @@ export const workflow = {
   "workflow.label.participant-job": "Job {title}",
   "workflow.label.participant-job-untitled": "Job",
   "workflow.label.participant-lophn": "lophn",
+  "workflow.label.participant-on": "{who} on {computer}",
   "workflow.label.participant-placed": "{agent} \u00b7 {workspace}",
   "workflow.label.participant-program": "Program",
   "workflow.label.participant-unknown": "An agent",
@@ -73,6 +74,7 @@ export const workflow = {
   "workflow.label.state-stopped": "Stopped",
   "workflow.label.step-blocked": "Not sent",
   "workflow.label.step-current": "In progress",
+  "workflow.label.step-remote-waiting": "Waiting on {computer}",
   "workflow.label.step-reported": "Reported",
   "workflow.label.step-stopped": "Stopped here",
   "workflow.label.step-waiting": "Not started",
@@ -89,6 +91,10 @@ export const workflow = {
   "workflow.note.input-help-flow": "The flow gets this text as its input.",
   "workflow.note.not-handed-no-with":
     "Couldn't send it on: this step is yours but has nobody to talk it through with.",
+  "workflow.note.not-handed-remote-failed":
+    "Couldn't run it on the other computer.",
+  "workflow.note.not-handed-unknown-computer":
+    "Couldn't send it on: the computer named for this step isn't one of your computers.",
   "workflow.note.not-handed-unknown-participant":
     "Couldn't send it on: this step names someone who isn't part of the workflow.",
   "workflow.note.not-handed-unknown-step":
@@ -98,6 +104,13 @@ export const workflow = {
   "workflow.note.now-asking": "{who} needs an answer from you on {step}.",
   "workflow.note.now-ended": "Ended {when}.",
   "workflow.note.now-program": "The program is on {step}.",
+  "workflow.note.now-remote-held":
+    "{step} reached {computer} late and waits there for you. Start it from the Inbox on {computer}.",
+  "workflow.note.now-remote-pending":
+    "{step} is waiting to reach {computer}. It goes out when that computer is on.",
+  "workflow.note.now-remote-running": "{who} is working on {step}.",
+  "workflow.note.now-remote-unknown":
+    "{step} was sent to {computer}. No answer from it yet.",
   "workflow.note.now-stopped": "You stopped this run {when}.",
   "workflow.note.now-waiting": "Nobody has picked up a step yet.",
   "workflow.note.now-working": "{who} is working on {step}.",

@@ -26,6 +26,7 @@ import type {
   WorkflowInstanceSummaryView,
   WorkflowInstanceView,
   WorkflowLineView,
+  WorkflowRemoteStepView,
   WorkflowStartedBy,
   WorkspaceSource,
 } from "./source.ts";
@@ -72,6 +73,7 @@ interface WorkflowReadValue {
   };
   last_reports: Record<string, WorkflowLineView>;
   lines: WorkflowLineView[];
+  remote_steps: WorkflowRemoteStepView[];
   next_cursor: string | null;
 }
 
@@ -450,6 +452,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           },
           last_reports: last!.last_reports,
           lines,
+          remote_steps: last!.remote_steps,
         },
       };
     },

@@ -69,6 +69,8 @@ export interface WorkflowEntryView {
           readonly workspace?:
             | { readonly project: string }
             | { readonly app: string };
+          /** 그 agent가 도는 다른 컴퓨터(명단의 이름이나 id). 없으면 이 컴퓨터다. */
+          readonly on?: string;
         }
       | { readonly kind: "human" }
     >
@@ -102,7 +104,14 @@ export type WorkflowLineBy =
   | { readonly kind: "agent"; readonly session: string }
   | { readonly kind: "lophn" }
   | { readonly kind: "job"; readonly job: string }
-  | { readonly kind: "program" };
+  | { readonly kind: "program" }
+  /** 다른 컴퓨터의 참가자가 낸 report. computer는 받은 때 이 컴퓨터 명단의 이름이다. */
+  | {
+      readonly kind: "remote";
+      readonly machine: string;
+      readonly computer: string;
+      readonly name: string;
+    };
 
 /** instance를 시작한 쪽. job이면 제목을 붙여 온다(지워진 job은 null). */
 export type WorkflowStartedBy =
@@ -143,10 +152,16 @@ export type WorkflowLineView = {
       readonly kind: "handed";
       readonly step: string;
       readonly participant: string;
-      readonly receiver: string;
+      /** 다른 컴퓨터로 넘긴 step은 이 컴퓨터에 받은 session이 없다(null이고 `remote`가 있다). */
+      readonly receiver: string | null;
       readonly human_turn: boolean;
       readonly cause: "start" | "report" | "edit";
       readonly session: "new" | "same" | null;
+      readonly remote?: {
+        readonly machine: string;
+        readonly computer: string;
+        readonly call: string;
+      } | null;
     }
   | {
       readonly kind: "not_handed";
@@ -185,6 +200,8 @@ export interface WorkflowInstanceView {
           readonly workspace?:
             | { readonly project: string }
             | { readonly app: string };
+          /** 그 agent가 도는 다른 컴퓨터(명단의 이름이나 id). 없으면 이 컴퓨터다. */
+          readonly on?: string;
         }
       | { readonly kind: "human" }
     >
@@ -220,11 +237,22 @@ export interface WorkflowInstanceSummaryView {
   readonly last_line: WorkflowLineView | null;
 }
 
+/** 다른 컴퓨터로 넘긴 step call의 지금 상태. `delivery`는 끝나지 않은 동안만 있다. */
+export interface WorkflowRemoteStepView {
+  readonly call: string;
+  readonly step: string;
+  readonly machine: string;
+  readonly computer: string;
+  readonly state: "accepted" | "done" | "failed" | "cancelled";
+  readonly delivery: "pending" | "unknown" | "held" | "running" | null;
+}
+
 /** `workflow_instances/read` 결과. 줄은 끝까지 이어 붙인 것이다. */
 export interface WorkflowInstanceDetailView {
   readonly instance: WorkflowInstanceView;
   readonly last_reports: Readonly<Record<string, WorkflowLineView>>;
   readonly lines: readonly WorkflowLineView[];
+  readonly remote_steps: readonly WorkflowRemoteStepView[];
 }
 
 export type ReadResult<T> =

@@ -21,7 +21,8 @@ import { click, type, useDrive } from "../../../mock/drive.ts";
 const noop = () => {};
 
 // FAKE_WORKFLOW_INSTANCES의 순서: running, humanTurn, notHanded, restarted, ended, stopped,
-// 그 뒤에 nightly-flow의 도는 것, program_exited로 닫힌 것, 켜질 때 닫힌 것.
+// 그 뒤에 nightly-flow의 도는 것, program_exited로 닫힌 것, 켜질 때 닫힌 것,
+// 그 뒤에 다른 컴퓨터로 넘긴 step이 거기서 사람을 기다리는 것과 거기서 돌지 못한 것.
 const [
   RUNNING,
   HUMAN_TURN,
@@ -32,6 +33,8 @@ const [
   FLOW_RUNNING,
   FLOW_EXITED,
   FLOW_RESTARTED,
+  REMOTE_HELD,
+  REMOTE_FAILED,
 ] = FAKE_WORKFLOW_INSTANCES.map((detail) => detail.instance.id);
 
 const PROJECT = FAKE_WORKFLOWS[0].project;
@@ -132,6 +135,12 @@ export const NotHanded = () => (
 );
 export const Restarted = () => (
   <WorkflowWindow name="eval-loop" instance={RESTARTED} />
+);
+export const RemoteHeld = () => (
+  <WorkflowWindow name="eval-loop" instance={REMOTE_HELD} />
+);
+export const RemoteFailed = () => (
+  <WorkflowWindow name="eval-loop" instance={REMOTE_FAILED} />
 );
 export const Invalid = () => <WorkflowWindow name="broken-draft" />;
 

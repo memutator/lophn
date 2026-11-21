@@ -167,6 +167,8 @@ const IDS = {
   flowRunning: "wfi_01h455vb4pex5v6nkc6gd5fd07",
   flowExited: "wfi_01h455vb4pex5v6nkc6gd5fd08",
   flowRestarted: "wfi_01h455vb4pex5v6nkc6gd5fd09",
+  remoteHeld: "wfi_01h455vb4pex5v6nkc6gd5fd10",
+  remoteFailed: "wfi_01h455vb4pex5v6nkc6gd5fd11",
 } as const;
 
 const EVAL_STEPS = [
@@ -217,6 +219,7 @@ function instanceOf(
   startedMinutesAgo: number,
   finishedMinutesAgo: number | null,
   startedBy: WorkflowStartedBy = { kind: "user" },
+  participants: WorkflowInstanceView["participants"] = PARTICIPANTS,
 ): WorkflowInstanceView {
   return {
     id,
@@ -224,7 +227,7 @@ function instanceOf(
     workflow: "eval-loop",
     input,
     state,
-    participants: PARTICIPANTS,
+    participants,
     steps: EVAL_STEPS.map((step) => ({ ...step, next: [...step.next] })),
     current,
     started_by: startedBy,
@@ -361,6 +364,7 @@ const running: WorkflowInstanceDetailView = {
       session: "new",
     },
   ],
+  remote_steps: [],
 };
 
 // ---- 사람 차례: review ----
@@ -425,6 +429,7 @@ const humanTurn: WorkflowInstanceDetailView = {
       session: "new",
     },
   ],
+  remote_steps: [],
 };
 
 // ---- ended ----
@@ -544,6 +549,7 @@ const ended: WorkflowInstanceDetailView = {
       kind: "ended",
     },
   ],
+  remote_steps: [],
 };
 
 // ---- stopped: execute 도중에 사람이 멈춤 ----
@@ -591,6 +597,7 @@ const stopped: WorkflowInstanceDetailView = {
       kind: "stopped",
     },
   ],
+  remote_steps: [],
 };
 
 // ---- not_handed: lophn이 review 담당을 고쳤는데 참가자가 없다 ----
@@ -653,6 +660,7 @@ const notHanded: WorkflowInstanceDetailView = {
         "Step review is a human step but has no with. Add a participant that can talk with the user.",
     },
   ],
+  remote_steps: [],
 };
 
 // ---- lophn_restarted: execute 메시지를 turn이 가져가기 전에 lophn이 꺼졌다 켜짐 ----
@@ -703,6 +711,7 @@ const restarted: WorkflowInstanceDetailView = {
       receiver: ANALYST_SESSION,
     },
   ],
+  remote_steps: [],
 };
 
 // ---- flow: nightly-flow의 instance. participants가 없고 step은 program이 맡는다 ----
@@ -792,6 +801,7 @@ const flowRunning: WorkflowInstanceDetailView = {
     flowRunningFetch,
     flowRunningSummarize,
   ],
+  remote_steps: [],
 };
 
 // program_exited: job이 시작한 flow의 program이 code 1로 끝났다.
@@ -857,6 +867,7 @@ const flowExited: WorkflowInstanceDetailView = {
       kind: "ended",
     },
   ],
+  remote_steps: [],
 };
 
 // lophn_restarted: flow가 도는 중에 lophn이 꺼졌다 켜져 flow가 닫혔다(다시 시작하지 않는다).
@@ -898,9 +909,130 @@ const flowRestarted: WorkflowInstanceDetailView = {
       kind: "ended",
     },
   ],
+  remote_steps: [],
 };
 
-/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋이 붙는다. 새것이 앞이다. */
+// ---- 다른 컴퓨터의 참가자: execute를 Home server의 analyst가 맡는다 ----
+const REMOTE_PARTICIPANTS = {
+  ...PARTICIPANTS,
+  analyst: { agent: "Eval analyst", on: "Home server" },
+} as const;
+const HOME_SERVER = "mch_01h455vb4pex5v6nkc6gd5fm01";
+const remoteHand = (
+  instance: string,
+  seq: number,
+  minutes: number,
+  call: string,
+): WorkflowLineView => ({
+  instance,
+  seq: String(seq),
+  at: minutesAgo(minutes),
+  by: lophn,
+  kind: "handed",
+  step: "execute",
+  participant: "analyst",
+  receiver: null,
+  human_turn: false,
+  cause: "report",
+  session: "new",
+  remote: { machine: HOME_SERVER, computer: "Home server", call },
+});
+
+// 늦게 닿아 Home server에서 사람의 [Start now]를 기다린다.
+const remoteHeldInput =
+  "Run the long ftb quests sweep on the home server overnight";
+const remoteHeldPlan = reportOf(
+  IDS.remoteHeld,
+  3,
+  34,
+  LOPHN_SESSION,
+  "plan",
+  "The sweep needs the GPU box. Plan: eval/experiments/exp-014-sweep.md.",
+  "execute",
+);
+const REMOTE_HELD_CALL = "cal_01h455vb4pex5v6nkc6gd5fc01";
+const remoteHeld: WorkflowInstanceDetailView = {
+  instance: instanceOf(
+    IDS.remoteHeld,
+    remoteHeldInput,
+    "running",
+    { step: "execute", human_turn: false },
+    36,
+    null,
+    { kind: "user" },
+    REMOTE_PARTICIPANTS,
+  ),
+  last_reports: { plan: remoteHeldPlan },
+  lines: [
+    ...startLines(IDS.remoteHeld, remoteHeldInput, 36),
+    remoteHeldPlan,
+    remoteHand(IDS.remoteHeld, 4, 34, REMOTE_HELD_CALL),
+  ],
+  remote_steps: [
+    {
+      call: REMOTE_HELD_CALL,
+      step: "execute",
+      machine: HOME_SERVER,
+      computer: "Home server",
+      state: "accepted",
+      delivery: "held",
+    },
+  ],
+};
+
+// Home server에서 사람이 건너뛰어 step이 돌지 못했다.
+const remoteFailedInput = "Re-run exp-012 on the home server with the new tool";
+const remoteFailedPlan = reportOf(
+  IDS.remoteFailed,
+  3,
+  130,
+  LOPHN_SESSION,
+  "plan",
+  "Same plan as exp-012 with the quest line argument. Plan: eval/experiments/exp-012b.md.",
+  "execute",
+);
+const REMOTE_FAILED_CALL = "cal_01h455vb4pex5v6nkc6gd5fc02";
+const remoteFailed: WorkflowInstanceDetailView = {
+  instance: instanceOf(
+    IDS.remoteFailed,
+    remoteFailedInput,
+    "running",
+    { step: "execute", human_turn: false },
+    132,
+    null,
+    { kind: "user" },
+    REMOTE_PARTICIPANTS,
+  ),
+  last_reports: { plan: remoteFailedPlan },
+  lines: [
+    ...startLines(IDS.remoteFailed, remoteFailedInput, 132),
+    remoteFailedPlan,
+    remoteHand(IDS.remoteFailed, 4, 130, REMOTE_FAILED_CALL),
+    {
+      instance: IDS.remoteFailed,
+      seq: "5",
+      at: minutesAgo(95),
+      by: lophn,
+      kind: "not_handed",
+      step: "execute",
+      reason: "remote_failed",
+      message:
+        "The person on Home server chose not to run this step when it arrived late.",
+    },
+  ],
+  remote_steps: [
+    {
+      call: REMOTE_FAILED_CALL,
+      step: "execute",
+      machine: HOME_SERVER,
+      computer: "Home server",
+      state: "failed",
+      delivery: null,
+    },
+  ],
+};
+
+/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 둘이 붙는다. */
 export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   running,
   humanTurn,
@@ -911,6 +1043,8 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   flowRunning,
   flowExited,
   flowRestarted,
+  remoteHeld,
+  remoteFailed,
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [
@@ -1216,6 +1350,7 @@ export function fakeWorkspaceSource(
               text,
             },
           ],
+          remote_steps: [],
         },
         ...instances,
       ];

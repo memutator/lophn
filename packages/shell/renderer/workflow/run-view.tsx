@@ -56,6 +56,12 @@ function lineBy(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
     const by = detail.instance.started_by;
     return jobWho(by.kind === "job" ? by.title : null);
   }
+  if (line.by.kind === "remote") {
+    return t("workflow.label.participant-on", {
+      who: line.by.name,
+      computer: line.by.computer,
+    });
+  }
   const session = line.by.session;
   const handed = detail.lines.find(
     (item) => item.kind === "handed" && item.receiver === session,
@@ -99,7 +105,10 @@ function textOf(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
         session: line.session ?? "none",
       });
     case "not_handed":
-      return t(notHandedKey(line.reason));
+      // 다른 컴퓨터에서 돌지 못한 이유는 core가 경우마다 읽을 글로 적는다(건너뜀, 만료, 취소, report 없이 닫힘).
+      return line.reason === "remote_failed"
+        ? line.message
+        : t(notHandedKey(line.reason));
     case "ended":
       return t("workflow.label.state-ended");
     case "stopped":
@@ -120,6 +129,7 @@ function textOf(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
 const NOW_TONE = {
   human: "warning",
   working: "good",
+  remote: "good",
   program: "good",
   blocked: "serious",
   ended: "neutral",
@@ -130,12 +140,37 @@ const NOW_TONE = {
 const NOW_ICON = {
   human: commonIcons.stateYourTurn,
   working: commonIcons.stateRunning,
+  remote: commonIcons.stateRunning,
   program: commonIcons.stateRunning,
   blocked: editorIcons.problem,
   ended: commonIcons.stateEnded,
   stopped: commonIcons.stateStopped,
   waiting: commonIcons.stateNotReached,
 } as const satisfies Record<Now["kind"], unknown>;
+
+// 다른 컴퓨터로 넘긴 step의 전달 상태마다 한 장의 글, 색, 아이콘. 늦게 닿아 그 컴퓨터에서 사람을 기다리는 것만 사람 차례의 무게다.
+const REMOTE_NOW = {
+  pending: {
+    key: "workflow.note.now-remote-pending",
+    tone: "neutral",
+    icon: commonIcons.stateNotReached,
+  },
+  unknown: {
+    key: "workflow.note.now-remote-unknown",
+    tone: "neutral",
+    icon: commonIcons.stateNotReached,
+  },
+  held: {
+    key: "workflow.note.now-remote-held",
+    tone: "warning",
+    icon: commonIcons.stateYourTurn,
+  },
+  running: {
+    key: "workflow.note.now-remote-running",
+    tone: "good",
+    icon: commonIcons.stateRunning,
+  },
+} as const;
 
 /** 지금 어디에 있는지 한 장. 사람이 다음에 할 일이 있으면 그 단추가 오른쪽 끝에 온다. */
 function NowCard({
@@ -157,7 +192,10 @@ function NowCard({
     now.kind === "working" &&
     now.session !== null &&
     dotOf?.(now.session) === "waiting";
-  const tone = asking ? "warning" : NOW_TONE[now.kind];
+  // 끝난 call의 전달 상태는 없다. 그때는 도는 것으로 읽는다(다음 줄이 곧 온다).
+  const remote =
+    now.kind === "remote" ? REMOTE_NOW[now.delivery ?? "running"] : null;
+  const tone = asking ? "warning" : (remote?.tone ?? NOW_TONE[now.kind]);
   const open =
     (now.kind === "human" ||
       now.kind === "working" ||
@@ -177,6 +215,12 @@ function NowCard({
           asking ? "workflow.note.now-asking" : "workflow.note.now-working",
           { step: now.step, who: whoName(now.who, faceOf) },
         );
+      case "remote":
+        return t(remote!.key, {
+          step: now.step,
+          who: whoName(now.who, faceOf),
+          computer: now.computer,
+        });
       case "program":
         return t("workflow.note.now-program", { step: now.step });
       case "blocked":
@@ -193,12 +237,16 @@ function NowCard({
     <section
       className={styles.now}
       data-now={now.kind}
+      data-delivery={now.kind === "remote" ? (now.delivery ?? "") : undefined}
       data-tone={tone}
       aria-label={t("workflow.label.now")}
     >
       <div className={styles.nowLine}>
         <span className={styles.nowIcon}>
-          <Icon icon={NOW_ICON[now.kind]} pixels={iconPixels("base")} />
+          <Icon
+            icon={remote?.icon ?? NOW_ICON[now.kind]}
+            pixels={iconPixels("base")}
+          />
         </span>
         <div className={styles.nowText}>
           <p className={styles.nowMain}>{text}</p>
@@ -407,7 +455,14 @@ export function RunView({
                     </span>
                   )}
                   <span className={styles.stepStatus}>
-                    {t(STEP_KEY[row.shown])}
+                    {/* step 줄의 칸과 같은 말을 쓴다: 넘기지 못한 step은 도는 중이 아니다. */}
+                    {row.notice?.kind === "not_handed"
+                      ? t("workflow.label.step-blocked")
+                      : step.waitingOn !== undefined
+                        ? t("workflow.label.step-remote-waiting", {
+                            computer: step.waitingOn,
+                          })
+                        : t(STEP_KEY[row.shown])}
                   </span>
                 </div>
                 {row.report === undefined ? null : (

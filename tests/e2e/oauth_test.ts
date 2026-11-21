@@ -95,8 +95,9 @@ async function secretsOf(run: Run): Promise<Record<string, string>> {
   }
 }
 
-function suffixOf(id: string): string {
-  return id.slice("pvd_".length);
+// provider의 기본 credential id(`pvd_<ULID>` → `crd_<ULID>`). secret 이름은 `provider.<crd id>`다.
+function credentialOf(id: string): string {
+  return `crd_${id.slice("pvd_".length)}`;
 }
 
 test("device code 로그인을 core가 발급자 간격대로 기다려 잇고 secret 셋을 저장한다", async () => {
@@ -139,14 +140,14 @@ test("device code 로그인을 core가 발급자 간격대로 기다려 잇고 s
     assert.deepStrictEqual(record.credential.state, "available");
     assert.deepStrictEqual(
       record.credential.secret_ref?.name,
-      `provider.${suffixOf(provider)}`,
+      `provider.${credentialOf(provider)}`,
     );
     assert.ok(record.credential.expires_at !== null);
 
     // 4. disk: secret 셋
     await core.stop();
     const secrets = await secretsOf(run);
-    const name = `provider.${suffixOf(provider)}`;
+    const name = `provider.${credentialOf(provider)}`;
     assert.deepStrictEqual(secrets[name], access);
     assert.deepStrictEqual(secrets[`${name}.refresh`], refresh);
     assert.ok(secrets[`${name}.meta`] !== undefined);
@@ -208,7 +209,7 @@ test("PKCE 로그인이 고정 loopback callback으로 끝나고 code와 token�
     // 3. disk: secrets.json에는 있고 나머지(core.log 포함)에는 없다.
     await core.stop();
     const secrets = await secretsOf(run);
-    const name = `provider.${suffixOf(provider)}`;
+    const name = `provider.${credentialOf(provider)}`;
     assert.deepStrictEqual(secrets[name], access);
     assert.deepStrictEqual(secrets[`${name}.refresh`], refresh);
     assert.ok(secrets[`${name}.meta`] !== undefined);
@@ -343,7 +344,7 @@ test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 �
     // 3. disk: 회전한 refresh와 새 access
     await core.stop();
     const secrets = await secretsOf(run);
-    const name = `provider.${suffixOf(provider)}`;
+    const name = `provider.${credentialOf(provider)}`;
     assert.deepStrictEqual(secrets[`${name}.refresh`], newRefresh);
     assert.deepStrictEqual(secrets[name], newAccess);
   });

@@ -262,7 +262,7 @@ test("E2E key를 바꾸면 다음 turn은 새 key를 쓰고 옛 key는 어디에
       await say(core, session, "hello");
       await waitTurnEnd(core, session);
       const put = await core.upload(
-        `provider.${provider.slice("pvd_".length)}`,
+        `provider.crd_${provider.slice("pvd_".length)}`,
         new TextEncoder().encode(second),
       );
       assert.ok(put.ok);
@@ -293,7 +293,7 @@ test("E2E key를 지우면 다음 turn은 요청을 보내지 않고 실패한�
       await say(core, session, "hello");
       await waitTurnEnd(core, session);
       await core.call(secretDelete, {
-        name: `provider.${provider.slice("pvd_".length)}`,
+        name: `provider.crd_${provider.slice("pvd_".length)}`,
       });
       await say(core, session, "again");
       const turn = await waitTurnEnd(core, session, 1);

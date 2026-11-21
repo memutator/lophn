@@ -525,9 +525,11 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
         // fake
         const names = toolNamesOf(f);
         assert.ok(names.includes("file_read"));
-        for (const gone of ["file_write", "file_edit", "shell_run"]) {
+        for (const gone of ["file_write", "file_edit"]) {
           assert.ok(!names.includes(gone), `lophn에 ${gone}이 보인다`);
         }
+        // Home의 lophn도 shell.run은 받는다(시작 폴더는 사람의 OS home).
+        assert.ok(names.includes("shell_run"));
         assert.ok(toolResultOf(f, "t-read").includes("alpha"));
         // 없는 tool의 call은 tool_result로만 not_found를 돌려받고 ledger에는 행이 없다(tool 정의가 없어 진입하지 않는다).
         assert.ok(toolResultOf(f, "t-write").includes("not_found"));

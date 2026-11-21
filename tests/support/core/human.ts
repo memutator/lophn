@@ -60,7 +60,7 @@ export async function connectFakeProvider(
 ): Promise<{ provider: string }> {
   const provider = core.ids.newId("pvd");
   const key = options.key;
-  const secret = `provider.${provider.slice("pvd_".length)}`;
+  const secret = `provider.crd_${provider.slice("pvd_".length)}`;
   if (key !== undefined) {
     const put = await core.upload(secret, new TextEncoder().encode(key));
     if (!put.ok) throw new Error(`secrets/put: ${put.error.code}`);

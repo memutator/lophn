@@ -50,12 +50,15 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
 // browser·tab 호출의 unavailable·conflict 문장은 lophn이 쓴 고정 문장(원인과 다음 할 일)이라 그대로 싣는다.
 // model이 이유를 못 받으면 우회로 바깥 browser를 띄운다. 이 tool들의 문장에는 page나 Chromium의 글이 들어가지 않는다.
 // browser 호출의 not_found도 싣는다: 없는 탭과 남의 탭이 같은 고정 문장이라 존재가 새지 않고, 탭이 닫혔으면 다시 열라고 알려야 한다.
+// `tab close`의 forbidden도 싣는다: 넘겨받은 탭은 닫지 못한다는 고정 문장(사람에게 알리라는 다음 할 일)이고, 남의 탭이라는 문장도
+// 고정 문장이다(존재는 code로 이미 갈린다). 이유를 못 받은 agent는 되풀이해 닫으려 한다.
 // 그 밖의 code(forbidden 등)는 대상 이름·존재를 가리려 공통 문장으로 둔다.
 function carriesReason(name: string, code: string): boolean {
   return (
     ((name.startsWith("browser.") || name.startsWith("tab.")) &&
       (code === "unavailable" || code === "conflict")) ||
-    (name.startsWith("browser.") && code === "not_found")
+    (name.startsWith("browser.") && code === "not_found") ||
+    (name === "tab.close" && code === "forbidden")
   );
 }
 

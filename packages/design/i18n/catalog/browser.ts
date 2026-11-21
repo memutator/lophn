@@ -127,7 +127,7 @@ export const browser = {
   "settings.note.profile-clear-confirm":
     "This signs you out of every site in this profile and reloads its open Browser tabs.",
   "settings.note.profile-default":
-    "Tabs you open and agents without a profile use this one. It can't be deleted.",
+    "Used when no other profile is chosen; it can't be deleted.",
   "settings.note.profile-delete-agents":
     "Agents that use it open their tabs in the Default profile from now on.",
   "settings.note.profile-delete-confirm":

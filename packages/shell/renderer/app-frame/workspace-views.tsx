@@ -90,6 +90,11 @@ export interface WorkspaceViews {
   touch(tab: string): void;
   /** workspace 상관없이 이 창의 어느 pool에든 있는 page가 agent가 다루는 page면 그 core 탭 id. */
   tabOf(session: string): string | undefined;
+  /**
+   * mount되지 않은 workspace에 숨은 넘긴 탭의 page가 window.close()로 부서졌다. 탭은 사람의 것이라 같은 자리에서 page를 새로 열고
+   * 새 guest를 다시 bind한다. mount된 workspace의 탭은 BrowserTab이 한다.
+   */
+  renewHanded(session: string): void;
   /** mount되지 않은 workspace에 agent가 연 browser page를 만들어 두고 자리는 mount될 때로 미룬다. */
   hostPage(workspace: WorkspaceRef, placement: HostPlacement): void;
   /**
@@ -263,6 +268,22 @@ export function createWorkspaceViews(
         if (key !== undefined) pool.webviews.touch(key);
       }
     },
+    renewHanded(session) {
+      for (const pool of pools.values()) {
+        if (pool.mounted) continue;
+        const key = pool.webviews.keyOf(session);
+        const tab = key === undefined ? null : pool.webviews.hostTab(key);
+        if (key === undefined || tab === null || hostTabOf({ key }) !== null) {
+          continue;
+        }
+        pool.webviews.renew(key);
+        pool.offBind.get(key)?.();
+        pool.offBind.set(
+          key,
+          pool.webviews.onSession(key, (fresh) => hooks.bound(tab, fresh)),
+        );
+      }
+    },
     tabOf(session) {
       for (const pool of pools.values()) {
         const key = pool.webviews.keyOf(session);
@@ -413,6 +434,8 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
       browser?.subscribeEvents((event) => {
         if (event.kind === "download") {
           views.downloading(event.view_session, event.active);
+        } else if (event.kind === "close") {
+          views.renewHanded(event.view_session);
         }
       }),
     [browser, views],

@@ -211,6 +211,7 @@ import {
   type HandTarget,
   handTab,
   handTargets,
+  reportState,
   takeBack,
 } from "./hand.ts";
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
@@ -1526,22 +1527,35 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     return client.subscribe({ types: ["SessionEnded"] }, (message) => {
       if (message.kind === "disconnected") return;
       const globals = globalFloatsRef.current;
-      void announceHanded(client.core, [
-        ...(machine === null
-          ? allTabs(latestLayout.current).map((tab) => ({
-              tab,
-              workspace,
-              patch: patchTabRef.current,
-            }))
-          : []),
-        ...globals.floats
-          .filter((item) => item.workspace.machine === undefined)
-          .map((item) => ({
-            tab: item.tab,
-            workspace: item.workspace,
-            patch: globals.patch,
-          })),
-      ]);
+      void announceHanded(
+        client.core,
+        [
+          ...(machine === null
+            ? allTabs(latestLayout.current).map((tab) => ({
+                tab,
+                workspace,
+                patch: patchTabRef.current,
+              }))
+            : []),
+          ...globals.floats
+            .filter((item) => item.workspace.machine === undefined)
+            .map((item) => ({
+              tab: item.tab,
+              workspace: item.workspace,
+              patch: globals.patch,
+            })),
+        ],
+        undefined,
+        // 다시 알리는 사이 page가 load되어 title이 바뀌었을 수 있다(그때 온 상태 알림은 core가 아직 모르는 탭이라 버려졌다). 지금 탭 값으로 알린다.
+        (id, tab) =>
+          reportState(
+            id,
+            [
+              ...allTabs(latestLayout.current),
+              ...globalFloatsRef.current.floats.map((item) => item.tab),
+            ].find((item) => item.key === tab.key) ?? tab,
+          ),
+      );
     });
   }, [layoutReady]);
 

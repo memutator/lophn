@@ -1708,12 +1708,15 @@ flows:
       - packages/shell/main/desktop/core/allowlist.ts
       - packages/shell/main/browser/agent/keys.ts
       - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/renderer/browser/browser-tab.tsx
+      - packages/shell/renderer/app-frame/webview-host.tsx
+      - packages/shell/renderer/app-frame/workspace-views.tsx
     steps:
       - "넘길 수 있는 탭은 browser 탭이고 transient·native popup이 아니며 사람이 연 탭이다(이미 넘긴 탭은 다른 session에 다시 넘긴다). `tab open`으로 연 탭(key `host:`, agent나 사람 token이 연 것)은 이미 core 표의 탭이라 넘기지 않는다. 이 컴퓨터의 workspace 창만 넘긴다"
       - "Hand to 하위 menu는 이 컴퓨터의 열린 lophn session(끝났거나 보관한 것과 지금 주인은 뺀다)을 지금 workspace의 것부터 이름(session 제목, 없으면 agent 이름)과 주인 얼굴로 보인다. 없으면 없다는 한 줄이다. 끌기는 같은 목록의 session 줄과 주인 chip만 놓을 자리로 표시하고 받는다(다른 기계의 줄, 끝난 줄은 아니다)"
       - "창이 memory route tabs/hand를 늘 새 id로 부른다(session, workspace, 탭의 profile, 지금 url). 받으면, 이미 넘긴 탭이면 앞 id를 surface-report closed로 알려 앞 session의 손(take control 상태, 돌고 있던 호출)을 끊고, 탭 값에 owner(그 session)와 handedTab(새 core 탭 id)을 적고 layout을 저장한다. 탭의 자리·key·page·profile은 그대로다"
-      - "handedTab이 생긴 탭은 hostTabOf()가 그 id를 내어 본문이 view session을 bind로 알리고(agent가 그 page를 찾는다) 고르지 않아도 숨은 mount로 page가 붙는다. 그 page는 agent가 연 page처럼 workspace를 떠나도 살고 agent page 상한 12에 센다. 상태(url·title·loading)도 창 단위로 알린다"
-      - "page의 window.close()는 넘긴 탭을 닫지 않는다(사람의 탭이라 agent가 닫지 못한다). 사람은 탭의 X와 단축키로 닫는다"
+      - "handedTab이 생긴 탭은 hostTabOf()가 그 id를 내어 본문이 view session을 bind로 알리고(agent가 그 page를 찾는다) 고르지 않아도 숨은 mount로 page가 붙는다. 그 page는 agent가 연 page처럼 workspace를 떠나도 살고 agent page 상한 12에 센다. 상태(url·title·loading)도 창 단위로 알린다. 넘기거나 다시 알린 직후에는 탭 값의 url과 title을 한 번 알린다(이미 load된 page라 다음 이동 전에는 상태 알림이 없어 `tab list`의 title이 비었다)"
+      - "page의 window.close()(page script나 agent의 evaluate)는 넘긴 탭을 닫지 않는다. Electron이 close 뒤 그 guest의 webContents를 부숴 page가 반쯤 죽은 채 남으므로 창이 그 `<webview>`를 빼고 같은 탭 자리에서 마지막 주소로 page를 새로 연다(탭 key·주인·core 탭 id·take control 상태는 그대로, 새 view session으로 다시 bind한다). mount되지 않은 workspace의 page는 창 단위 receiver가 같은 일을 한다. 사람의 탭(넘기지 않은 것)은 지금처럼 window.close()로 닫히고 사람은 탭의 X와 단축키로 닫는다"
       - "agent의 driver가 page에 보내는 key(Input.dispatchKeyEvent)는 보내는 동안 그 page를 표시해 main이 창 단축키로 넘기지도 삼키지도 않는다. 사람이 그 탭에 친 키는 그대로 단축키다"
       - "core가 거절하거나(not_found: session이 끝남, conflict) 부르지 못하면 탭은 그대로이고 toast로 알린다"
     uses: [route:tabs/hand, ipc:shell:surface-report, ipc:shell:workspace-layout-save]
@@ -1729,6 +1732,9 @@ flows:
       - id: drop-refused
         when: "Hand to 목록에 없는 session(다른 기계, 끝남, 지금 주인)에 끌어 놓았다. 놓을 자리로 표시되지 않고 아무 일도 없다"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: page-close-renewed
+        when: "넘긴 탭의 page가 window.close()를 불렀다. 탭은 남고 page가 같은 주소로 새로 열려 agent 호출과 사람의 Reload·주소 칸이 그대로 된다"
+        observe: ["process:새 guest가 bind된다", "screen:browser-handed-control"]
       - id: agent-keys-page-only
         when: "agent가 그 탭(이나 어느 agent 탭)에 Control+w 같은 단축키 조합을 눌렀다. key는 page에만 가고 창의 탭은 닫히지 않는다"
         observe: ["process:창 단축키가 오지 않는다"]
@@ -1736,7 +1742,6 @@ flows:
     risk: [permission]
     docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
     unclear:
-      - "page의 window.close()를 renderer가 무시해도 Electron이 그 guest를 부수는지는 merge 뒤 실제 창에서 확인한다. 부순다면 탭은 남고 page만 없어진다"
       - "driver key 표시는 Chromium이 key가 before-input-event를 지난 뒤에 Input.dispatchKeyEvent에 답한다는 데 기댄다. 실제 Electron에서 확인하지 않았다"
 
   - id: tab-take-back

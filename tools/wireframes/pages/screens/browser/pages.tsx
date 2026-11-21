@@ -433,6 +433,19 @@ const AGENT = {
 const AGENT_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, AGENT], selected: AGENT.key },
 ];
+// 사람이 쓰던 탭을 Researcher에게 넘겼다. 사람의 key 그대로이고 core 탭 id를 든다. 문서와 좌우로 나눈 칸의 오른쪽이다.
+const HANDED = {
+  key: "browser-billing",
+  kind: "browser",
+  title: "Billing",
+  url: "https://dashboard.stripe.com/billing",
+  owner: RESEARCHER,
+  handedTab: HOST_TAB,
+} as const;
+const HANDED_PANES: readonly PaneSpec[] = [
+  { tabs: [NOTES], selected: NOTES.key },
+  { tabs: [HANDED], selected: HANDED.key },
+];
 
 // shell main을 흉내 낸 surface 통로. view를 알리면 agent가 다루는 중이라고 답하고, 가져오기와 돌려주기를 받아 되돌린다.
 function useFakeSurface(): void {
@@ -474,15 +487,23 @@ function useFakeSurface(): void {
   );
 }
 
-function AgentTab({ held }: { held: boolean }) {
+function AgentTab({
+  held,
+  handed = false,
+}: {
+  held: boolean;
+  handed?: boolean;
+}) {
   const fake = useFake();
   useFakeSurface();
   useDrive(async () => {
     await showPage(
       fake,
-      AGENT.key,
-      ["https://deno.com/"],
-      "Deno, the next-generation JavaScript runtime",
+      handed ? HANDED.key : AGENT.key,
+      [handed ? HANDED.url : "https://deno.com/"],
+      handed
+        ? "Billing · Stripe"
+        : "Deno, the next-generation JavaScript runtime",
     );
     if (held) await click("[data-agent-control] button", "Take control");
   });
@@ -490,7 +511,7 @@ function AgentTab({ held }: { held: boolean }) {
     <Owned>
       <MockDesktop
         route={openProject(PROJECT_GROCERY)}
-        panes={AGENT_PANES}
+        panes={handed ? HANDED_PANES : AGENT_PANES}
         browser={fake.api}
       />
     </Owned>
@@ -502,3 +523,6 @@ export const BrowserAgentControl = () => <AgentTab held={false} />;
 
 /** [Take control]을 눌러 사람이 가져왔다. "You have control"과 [Hand back]이 서고, 그동안 agent의 쓰기는 conflict다. */
 export const BrowserAgentHeld = () => <AgentTab held />;
+
+/** 사람이 넘긴 탭을 agent가 다루는 중. 나눈 칸의 반쪽이라 좁고, 문장이 먼저 줄고 [Take control]·[Take back]은 다 보인다. */
+export const BrowserHandedControl = () => <AgentTab held={false} handed />;

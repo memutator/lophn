@@ -113,6 +113,8 @@ interface Entry {
   hostTab: string | null;
   /** 마지막으로 보인 때(host의 tick 값). 살려 둔 것이 넘칠 때 오래 안 본 것부터 놓는 기준이다. */
   shownAt: number;
+  /** browser page의 마지막 주소. window.close()로 guest가 부서진 뒤에는 element에서 읽을 수 없어 `renew`가 이 값으로 연다. */
+  lastUrl: string;
 }
 
 export interface WebviewHost {
@@ -148,6 +150,11 @@ export interface WebviewHost {
   /** 그릇의 화면이 첫 load(실패 포함)를 마쳤을 때 알린다. 이미 마친 화면이 있으면 바로 부른다. */
   onLoaded(listener: () => void): () => void;
   release(key: string): void;
+  /**
+   * browser page를 같은 key 자리에서 마지막 주소로 새로 연다(partition은 그대로). 넘긴 탭의 page가 window.close()로 부서졌을 때 쓴다.
+   * 새 guest가 붙으면 `onSession` listener가 새 session을 받는다.
+   */
+  renew(key: string): void;
   /** 사람이 browser 탭에 켠 Keep alive를 알린다. */
   setUserKeep(key: string, on: boolean): void;
   /** browser 탭의 page가 download를 받기 시작했거나 끝났다. */
@@ -383,6 +390,17 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       entry.session = session;
       for (const listener of entry.listeners) listener(session);
     });
+    const moved = (event: Event) => {
+      const { url, isMainFrame } = event as unknown as {
+        url: string;
+        isMainFrame?: boolean;
+      };
+      if (entry.element === element && isMainFrame !== false) {
+        entry.lastUrl = url;
+      }
+    };
+    element.addEventListener("did-navigate", moved);
+    element.addEventListener("did-navigate-in-page", moved);
   }
 
   function postTabHead(element: HTMLElement, event: TabHeadEvent): void {
@@ -505,6 +523,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       hostTab:
         kind === "browser" ? (handed.get(key) ?? hostTabOf({ key })) : null,
       shownAt: 0,
+      lastUrl: src,
     };
     // 새 page는 가장 최근에 쓴 것으로 센다(상한을 넘으면 오래된 것부터 놓는다).
     if (entry.hostTab !== null) entry.shownAt = now();
@@ -650,6 +669,27 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       if (entry === undefined) return;
       entries.delete(key);
       entry.element.remove();
+    },
+    renew(key) {
+      const entry = entries.get(key);
+      if (entry === undefined || entry.kind !== "browser") return;
+      const next = createElement(key, "browser");
+      next.setAttribute(
+        "partition",
+        entry.element.getAttribute("partition") ?? browserPartition(null),
+      );
+      next.setAttribute("allowpopups", "");
+      next.setAttribute(
+        "src",
+        entry.lastUrl === "" ? "about:blank" : entry.lastUrl,
+      );
+      bind(entry, next);
+      // 부서진 guest의 element를 빼야 Chromium에 남은 page도 끝난다.
+      entry.element.remove();
+      entry.element = next;
+      entry.session = null;
+      container?.append(next);
+      apply(entry);
     },
     setUserKeep(key, on) {
       const entry = entries.get(key);

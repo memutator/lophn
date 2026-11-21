@@ -83,8 +83,14 @@ interface BrowserTabProps {
   onOpenTab(url: string): void;
   /** native popup 탭이 pane으로 왔다. 부른 쪽이 native 표시를 지운다. */
   onDocked(): void;
-  /** 이 탭의 page가 window.close()를 불렀다. */
+  /** 이 탭의 page가 window.close()를 불렀다. 넘긴 탭(`handed`)이면 부르지 않는다. */
   onCloseRequested(): void;
+  /**
+   * 사람이 session에 넘긴 탭이다. page의 window.close()(page의 script나 그 page를 다루는 agent의 evaluate)가 탭을 닫지 못한다. Electron은
+   * close 뒤 그 guest의 webContents를 부숴 page가 반쯤 죽은 채 남으므로(main이 찾지 못해 agent 호출과 사람의 Reload가 듣지 않는다)
+   * 같은 탭 자리에서 마지막 주소로 page를 새로 연다. 탭 key·주인·core 탭 id는 그대로이고 새 view session으로 다시 bind한다.
+   */
+  handed?: boolean;
   /** 새 탭 화면의 bookmark를 새 탭에서 연다. */
   onOpenInNewTab(url: string): void;
   /** 이 page의 DevTools 자리. null이면 닫혀 있다. */
@@ -380,7 +386,9 @@ function OpenTab(
       } else if (event.kind === "open-tab" && event.opener === viewSession) {
         callbacks.current.onOpenTab(event.url);
       } else if (event.kind === "close" && event.view_session === viewSession) {
-        callbacks.current.onCloseRequested();
+        if (callbacks.current.handed === true && !native) {
+          webviews.renew(callbacks.current.keepKey);
+        } else callbacks.current.onCloseRequested();
       } else if (
         event.kind === "bookmark-key" &&
         event.view_session === viewSession
@@ -392,7 +400,7 @@ function OpenTab(
       offState();
       offEvents();
     };
-  }, [browser, viewSession]);
+  }, [browser, viewSession, webviews, native]);
 
   // native view만 main이 붙인다. 주소가 비거나 깨진 page는 안내가 그 자리를 채우므로 숨긴다.
   useViewBounds({

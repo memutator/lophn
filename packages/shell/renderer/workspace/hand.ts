@@ -19,11 +19,31 @@ type Patch = (key: string, patch: Partial<TabItem>) => void;
 /** core 탭 id가 닫혔다고(core 표에서 빼라고) 알린다. */
 type Report = (tab: string) => void;
 
+/** core 표에 오른 넘긴 탭의 지금 상태(url, title)를 알린다. */
+type StateReport = (tab: string, item: TabItem) => void;
+
+const surfaceOf = () =>
+  (globalThis as { lophnSurface?: LophnSurfaceApi }).lophnSurface;
+
 /** 창의 surface 통로로 `closed`를 알린다. 통로가 없으면(gallery, 테스트) 아무것도 하지 않는다. */
 export function reportClosed(tab: string): void {
-  const surface = (globalThis as { lophnSurface?: LophnSurfaceApi })
-    .lophnSurface;
-  void surface?.report({ tab, state: "closed" });
+  void surfaceOf()?.report({ tab, state: "closed" });
+}
+
+/**
+ * 넘긴 탭의 지금 url과 title을 알린다. 넘긴 page는 이미 load가 끝나 있어 다음 이동 전에는 상태 알림이 오지 않으므로, core가 받은
+ * 뒤 탭 값으로 한 번 알린다(안 그러면 `tab list`의 title이 비었다). 통로가 없으면 아무것도 하지 않는다.
+ */
+export function reportState(tab: string, item: TabItem): void {
+  const url = item.fields?.url;
+  void surfaceOf()?.report({
+    tab,
+    state: {
+      url: typeof url === "string" ? url : "",
+      title: item.title,
+      loading: false,
+    },
+  });
 }
 
 /**
@@ -122,6 +142,7 @@ export async function handTab(
   workspace: WorkspaceRef,
   patch: Patch,
   report: Report = reportClosed,
+  state: StateReport = reportState,
 ): Promise<boolean> {
   if (!canHand(tab)) return false;
   const reply = await core
@@ -136,6 +157,7 @@ export async function handTab(
   if (reply?.ok !== true || typeof handed !== "string") return false;
   if (tab.handedTab !== undefined) report(tab.handedTab);
   patch(tab.key, { owner: session, handedTab: handed });
+  state(handed, tab);
   return true;
 }
 
@@ -161,6 +183,7 @@ export async function announceHanded(
     readonly patch: Patch;
   }[],
   report: Report = reportClosed,
+  state: StateReport = reportState,
 ): Promise<void> {
   await Promise.all(
     tabs.map(async ({ tab, workspace, patch }) => {
@@ -180,10 +203,8 @@ export async function announceHanded(
         })
         .catch(() => null);
       const code = reply?.error?.code;
-      if (
-        reply?.ok === false &&
-        (code === "not_found" || code === "conflict")
-      ) {
+      if (reply?.ok === true) state(tab.handedTab, tab);
+      else if (code === "not_found" || code === "conflict") {
         takeBack(tab, patch, report);
       }
     }),

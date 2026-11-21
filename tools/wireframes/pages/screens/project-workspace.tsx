@@ -53,6 +53,7 @@ import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
   BrowserAgentControl,
   BrowserAgentHeld,
+  BrowserHandedControl,
   BrowserBlank,
   BrowserBookmarkMenu,
   BrowserBridgeOnePane,
@@ -566,6 +567,13 @@ export const projectWorkspaceArea: Area = {
       description:
         '[Take control]을 눌러 사람이 가져왔다. "You have control"과 [Hand back]이 서고 그동안 agent의 쓰기는 conflict다.',
       render: () => <BrowserAgentHeld />,
+    },
+    {
+      id: "browser-handed-control",
+      title: "Browser · handed tab, narrow pane",
+      description:
+        '사람이 넘긴 탭(Billing)을 agent가 다루는 중이고 문서와 좌우로 나눈 칸의 오른쪽이다. 칸이 좁으면 "Researcher is controlling this tab"이 먼저 말줄임으로 줄고(전체 글은 tooltip) 주소 칸은 쓸 만한 폭을 지키며 [Take control]·[Take back]은 칸 오른쪽 끝에 다 보인다.',
+      render: () => <BrowserHandedControl />,
     },
     {
       id: "browser-devtools-menu",

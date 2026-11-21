@@ -10,6 +10,7 @@ import {
   serializeMessageContent,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { callFromRef } from "../../../protocol/lophn-agent/calls.ts";
+import { TEAM_MEMBER_PREAMBLE } from "../../../protocol/lophn-agent/team.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import { createCheckpoint } from "../session/rewind/mod.ts";
@@ -87,9 +88,17 @@ export function createReceivedRecorder(deps: { principal(): string }) {
       );
       if (!images.ok) return images;
       // call로 시작한 session은 사람의 첫 말이 없어 자동 제목이 붙지 않았고, 탭과 sidebar에 agent 이름으로만 보였다.
-      // 제목이 없는 session이 받는 call의 맡긴 글로 제목을 정한다(사람의 첫 말과 같은 규칙).
+      // 제목이 없는 session이 받는 call의 맡긴 글로 제목을 정한다(사람의 첫 말과 같은 규칙). `team spawn`이 앞에 붙인 고정 글은
+      // 빼고 연 session이 쓴 글로 정한다(안 그러면 모든 팀원의 제목이 그 고정 글이다).
       if (input.kind === "call" && row.title === null) {
-        const title = autoSessionTitle(blocksSummary(input.body));
+        const title = autoSessionTitle(
+          blocksSummary(
+            input.body.filter(
+              (block) =>
+                !(block.type === "text" && block.text === TEAM_MEMBER_PREAMBLE),
+            ),
+          ),
+        );
         if (title !== null) {
           tx.sql.run("update sessions set title = ? where id = ?", [
             title,

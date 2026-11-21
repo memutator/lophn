@@ -7,7 +7,7 @@
 import { type MouseEventHandler, useId, useRef, useState } from "react";
 import { FieldContext, Input } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
@@ -120,18 +120,20 @@ export function AgentControlBar(props: {
 }) {
   const { control } = props;
   const who = useOwner(props.owner);
+  const text = control.held
+    ? t("browser.text.agent-held")
+    : who === null
+      ? t("browser.text.agent-controlling")
+      : t("browser.text.agent-controlling-named", { name: who.name });
+  // 좁은 칸에서는 문장이 먼저 말줄임으로 줄고 단추는 다 보인다. 줄어든 문장은 tooltip이 다 보인다.
   return (
     <div
       className={styles.agentControl}
       data-agent-control={control.held ? "held" : "agent"}
     >
-      <span className={styles.agentText}>
-        {control.held
-          ? t("browser.text.agent-held")
-          : who === null
-            ? t("browser.text.agent-controlling")
-            : t("browser.text.agent-controlling-named", { name: who.name })}
-      </span>
+      <Tooltip content={text}>
+        <span className={styles.agentText}>{text}</span>
+      </Tooltip>
       <Button
         size="sm"
         variant="ghost"

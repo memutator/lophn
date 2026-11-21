@@ -361,7 +361,7 @@ function CardHead({
     >
       {grouped ? <PaneMarks owner={pane.owner} profile={pane.profile} /> : null}
       {nav === undefined ? null : (
-        <>
+        <span className={styles.nav}>
           <IconButton
             icon={shellIcons.back}
             label={t("shell.button.back")}
@@ -385,7 +385,7 @@ function CardHead({
               onClick={nav.onReload}
             />
           )}
-        </>
+        </span>
       )}
       {spec?.center === undefined ? (
         <>

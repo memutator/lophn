@@ -88,6 +88,8 @@ interface TabSpec {
   readonly owner?: string;
   /** browser 탭의 profile(bpf id). 없으면 기본 profile이다. */
   readonly profile?: string;
+  /** 사람이 session에 넘긴 browser 탭의 core 탭 id(탭 공통 칸 `handed_tab`). */
+  readonly handedTab?: string;
 }
 
 export interface PaneSpec {
@@ -208,6 +210,7 @@ function storedTab(tab: TabSpec) {
     ...storedKind(tab),
     ...(tab.owner === undefined ? {} : { owner: tab.owner }),
     ...(tab.profile === undefined ? {} : { profile: tab.profile }),
+    ...(tab.handedTab === undefined ? {} : { handed_tab: tab.handedTab }),
   };
 }
 

@@ -24,12 +24,38 @@
   min-width: var(--space-0);
 }
 
-/* agent가 이 탭을 다루는 동안 머리에 서는 한 줄. 별·bookmark 앞에 놓는다. */
+/* 좁은 칸에서도 주소 칸은 쓸 만한 폭을 지킨다. 그 부모(card 머리 줄의 가운데 칸)도 그 아래로 줄지 않고, 그 폭에서 시작해 남는
+   자리만 받는다(agent 조작 문장이 먼저 다 보인 뒤 주소 칸이 넓어진다). */
+.address[data-browser-address],
+[class]:has(> .address) {
+  flex-basis: calc(var(--space-12) * 2);
+  min-width: calc(var(--space-12) * 2);
+}
+
+/* agent가 이 탭을 다루는 동안 머리에 서는 문장과 단추. 별·bookmark 앞에 놓는다. 자기 상자를 만들지 않고 머리 줄의 항목이 되어,
+   자리가 모자라면 문장이 머리 줄에서 가장 먼저 말줄임으로 줄고 단추는 줄지 않는다. */
 .agentControl {
-  display: flex;
+  display: contents;
+}
+
+.agentControl > button {
   flex: none;
-  align-items: center;
-  gap: var(--space-2);
+}
+
+/* 좁은 칸에서 agent 조작 줄이 서면 별·bookmark·Open in browser를 덜어 단추 둘이 칸 안에 다 보이게 한다(별은 단축키로도 된다). */
+@container (max-width: 640px) {
+  [data-agent-control] ~ .actions {
+    display: none;
+  }
+}
+
+/* 가장 좁은 칸(공용 layout의 패널 최소 폭)에서는 주소 칸의 최소 폭도 줄여 단추 둘이 칸 안에 든다. */
+@container (max-width: 320px) {
+  .address[data-browser-address],
+  [class]:has(> .address) {
+    flex-basis: var(--space-11);
+    min-width: var(--space-11);
+  }
 }
 
 /* 기본이 아닌 profile의 색 점(탭 줄, 칸 머리). 색은 profile이 정해 inline으로 온다. */
@@ -42,11 +68,15 @@
 }
 
 .agentText {
+  flex: 0 100 auto;
+  min-width: var(--space-0);
+  overflow: hidden;
   color: var(--color-text-muted);
   font-family: var(--font-sans);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .address > * {

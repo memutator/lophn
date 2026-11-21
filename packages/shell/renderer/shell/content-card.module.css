@@ -12,13 +12,27 @@
   flex: 1;
 }
 
+/* 탭 본문이 칸 폭에 맞춰 머리 줄의 단추를 덜어 낼 수 있게 container다(browser 탭의 agent 조작 줄). */
 .head {
+  container-type: inline-size;
   display: flex;
   flex: none;
   gap: var(--space-1);
   align-items: center;
   height: var(--space-10);
   padding-inline: var(--space-3);
+}
+
+/* ← → 새로 고침. 자기 상자를 만들지 않아 머리 줄의 gap을 그대로 받는다. */
+.nav {
+  display: contents;
+}
+
+/* 아주 좁은 칸에 agent 조작 줄(browser-tab.module.css)이 서면 ← → 새로 고침을 덜어 그 단추 둘과 주소 칸이 칸 안에 들게 한다. */
+@container (max-width: 480px) {
+  .head:has([data-agent-control]) .nav {
+    display: none;
+  }
 }
 
 .head[data-draggable] {

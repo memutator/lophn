@@ -63,7 +63,9 @@ test("browser 호출이 unavailable·conflict·not_found로 실패하면 model�
       failing("browser.act", "conflict"),
       failing("tab.open", "unavailable"),
       failing("browser.read", "not_found"),
+      failing("tab.close", "forbidden"),
       failing("file.read", "unavailable"),
+      failing("file.write", "forbidden"),
     ],
   } as unknown as ToolContext;
   const summary = async (wireName: string) =>
@@ -73,5 +75,8 @@ test("browser 호출이 unavailable·conflict·not_found로 실패하면 model�
   assert.ok((await summary("browser_act")).endsWith(reason));
   assert.ok((await summary("tab_open")).endsWith(reason));
   assert.ok((await summary("browser_read")).endsWith(reason));
+  // 넘겨받은 탭을 닫으려 할 때의 거절 문장(core queue의 고정 문장)이다.
+  assert.ok((await summary("tab_close")).endsWith(reason));
   assert.equal(await summary("file_read"), "tool is unavailable");
+  assert.equal(await summary("file_write"), "tool target is not available");
 });

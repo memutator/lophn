@@ -94,7 +94,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 
 ### 꺼졌다 켜질 때
 
-18. 입력함은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 `failed(lophn_restarted)`로 닫는다. 팀의 ask call은 가져갔어도 닫는다(아래 "팀").
+18. 입력함은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 `failed(lophn_restarted)`로 닫는다. 팀의 ask call은 가져갔어도 닫는다(아래 "팀"). 가져간 result call도 그 turn이 답 없이 끝나면 닫는다: turn이 재시작으로 끊기면 `failed(lophn_restarted)`, 실패하거나 멈추면 `failed(receiver_ended)`이고 보낸 쪽은 늦은 실패로 안다(다른 컴퓨터에서 온 call이면 실패 mail로 간다). 이유: 가져간 call을 accepted로 두면 부른 쪽이 받은 session이 보관될 때까지 기다린다. 정상으로 끝난 turn, 이미 답했거나 취소된 call, conversation call은 그대로다. (agent, 2026-11-21. 전에는 accepted로 남겼다)
     - 같은 tx에서 돌던 turn도 interrupted로 닫고, agent runtime이 turn을 읽기 전에 끝낸다. durable queue를 만들지 않는 대신 조용히 사라지는 call이 없게 하는 장치다. 입력함이 메모리인 한 켤 때 정산은 필요하다.
 19. none은 받는 turn이 입력을 가져갈 때 done이 된다. 배달할 때 done으로 두면 켤 때 입력함과 함께 잃은 handoff를 위 장치가 가리지 못한다. 가져간 뒤에도 accepted로 두면 받은 session을 archive할 때 이미 넘어간 일에 `receiver_ended`가 가고 화면의 [Cancel]이 남는다.
 
@@ -127,7 +127,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 26. lophn runtime의 result 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다.
 27. custom runtime(`architecture/agent-definition.md`)은 result call을 받은 turn이 끝날 때 마지막 응답 글이 답이다. 받은 call 글도 "마지막 응답이 답이다. `lophn call reply`로 먼저 답했으면 그것이 답이다"로 알린다(harness와 같은 글).
     - core wiring이 turn 끝을 구독해, outcome이 completed이고, turn 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn이 고정한 agent가 custom이고, 그 turn의 마지막 agent 메시지 글이 비지 않았을 때만 보낸다. 답은 redaction과 본문 준비를 거쳐 machine 명령으로 reply를 부르고, agent의 reply와 같은 규칙이다. unattended 표시는 그 turn의 mode를 따른다.
-    - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. call은 lophn에서 답하지 않은 때처럼 accepted로 남고 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 custom이 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다(자동 답은 답하지 않은 때만 가는 안전망이다).
+    - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. 멈추거나 실패한 turn이 가져간 result call은 지키는 것 18대로 `receiver_ended`로 닫힌다. 빈 글로 끝난 turn의 call은 lophn에서 답하지 않은 때처럼 accepted로 남고 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 custom이 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다(자동 답은 답하지 않은 때만 가는 안전망이다).
     - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고 본문 blob은 tx 안에서 만들 수 없다. 마지막 응답 읽기는 run의 결과와 같은 규칙이고 글만 싣는다(`architecture/run.md`).
 28. harness runtime session은 run-loop 입력함이 아니라 harness queue가 받는다(`architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 custom과 같다.
     - GUI 탭 팀원(`architecture/harness-gui.md` "팀원")은 그 설정과 상관없이 받는다. project의 GUI 탭이 그 팀원이다. project에서 부른 내장 coding agent(call, `team spawn`)도 팀원으로 열리지만 core가 탭을 스스로 열어야 하므로 설정이 켜졌을 때만이고, 꺼져 있으면 지금처럼 `unavailable`이다(열린 탭이 없을 때만 그렇다: 사람이 연 탭의 팀원은 session으로 부른다). 그 queue는 그 탭이 쉴 때 하나씩 그 탭의 새 turn으로 들어가고, result call의 답은 그 입력을 가져간 turn의 마지막 agent 글이다(`lophn call reply`로 먼저 답했으면 그것).

@@ -10,6 +10,6 @@ lead만 고친다. `tools/status.py machine-a2a build`가 `tasks/*.md`에서 id,
 | `mail-screen` | mail | 1 | mail-router | merged | mail/mail-screen | 2ff28f1f0 |  |
 | `mail-carry` | mail | 2 | 없음 | merged | mail/mail-carry | fdef44a5b |  |
 | `mail-hold` | mail | 2 | 없음 | merged | mail/mail-hold | 6287efcea |  |
-| `mail-hold-card` | mail | 2 | mail-hold | running | mail/mail-hold-card |  |  |
+| `mail-hold-card` | mail | 2 | mail-hold | merged | mail/mail-hold-card | 695c97718 |  |
 | `handoff-note` | handoff | 3 | 없음 | running | handoff/handoff-note |  |  |
 | `handoff-screen` | handoff | 3 | handoff-note | todo |  |  |  |

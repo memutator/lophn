@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py machine-a2a build`가 `tasks/*.md`에서 id,
 |---|---|---|---|---|---|---|---|
 | `mail-link` | mail | 1 | mail-router | todo |  |  |  |
 | `mail-lists` | mail | 1 | mail-router | todo |  |  |  |
-| `mail-router` | mail | 1 | 없음 | running | mail/mail-router |  |  |
+| `mail-router` | mail | 1 | 없음 | merged | mail/mail-router | db3b2dc69 |  |
 | `mail-screen` | mail | 1 | mail-router | todo |  |  |  |
 | `mail-carry` | mail | 2 | 없음 | todo |  |  |  |
 | `mail-hold` | mail | 2 | 없음 | todo |  |  |  |

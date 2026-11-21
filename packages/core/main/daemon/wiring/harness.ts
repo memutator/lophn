@@ -562,6 +562,37 @@ export const harnessWiring: WiringFactory = () => {
           });
           return done.ok ? ok(undefined) : done;
         },
+        describe(session) {
+          const found = harnessSession(session);
+          if (!found.ok || !found.value.accepting) return null;
+          const row = found.value.row;
+          if (
+            harnessTaker(row) !== "gui" ||
+            row.workspace_kind !== "project" ||
+            row.workspace_id === null
+          ) {
+            return null;
+          }
+          return {
+            project: row.workspace_id,
+            harness: row.harness,
+            cli_session: row.harness_session,
+          };
+        },
+        // 탭을 열지 못한 팀원의 queue를 비우고 그 안의 call을 보낸 쪽에 실패로 돌려준다.
+        async failQueued(session) {
+          const id = session as Id<"ses">;
+          for (let head = queue.next(id); head; head = queue.next(id)) {
+            queue.take(id, head.message as Id<"msg">);
+            if (head.kind !== "call" || head.call === null) continue;
+            const done = await command(failHarnessMemberCall.name, {
+              session,
+              call: head.call,
+            });
+            if (!done.ok) return done;
+          }
+          return ok(undefined);
+        },
         end: (turn) => turnCredentials.end(turn),
         onQueued(listener) {
           queued.add(listener);

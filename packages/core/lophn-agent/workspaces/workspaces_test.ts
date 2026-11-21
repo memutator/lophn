@@ -480,3 +480,47 @@ test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자�
   assert.deepStrictEqual(done.value.ended, [aChild, a]);
   assert.deepStrictEqual(open(), 2);
 });
+
+// project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원이 된다(headless host가 가져가지 않고 core가 탭을 연다).
+test("a coding agent called into a project opens as a GUI tab member", () => {
+  const { sql, tx } = store();
+  const coding = {
+    ...deps,
+    agents: {
+      ...deps.agents,
+      agent: (id: string) =>
+        id === "coding_claude"
+          ? {
+              id: "coding_claude" as never,
+              handle: "claude",
+              workspace: null,
+              name: "Claude Code",
+              skip: false,
+              runtime: "claude-code" as const,
+              apps: [],
+              deny: [],
+              remoteApps: [],
+            }
+          : deps.agents.agent(id as never),
+    },
+  };
+  const directory = createSessionDirectory({ ...coding, sql: () => sql });
+  const called = directory.open(
+    tx,
+    {
+      agent: "coding_claude",
+      workspace: { kind: "project", id: PROJECT },
+    } as never,
+    { kind: "agent", session: "ses_from" as never },
+    null,
+  );
+  assert.ok(called.ok);
+  const member = sql.get(
+    "select harness, harness_gui from sessions where id = ?",
+    [called.value.session],
+  );
+  assert.deepStrictEqual(
+    [member?.["harness"], Number(member?.["harness_gui"])],
+    ["claude-code", 1],
+  );
+});

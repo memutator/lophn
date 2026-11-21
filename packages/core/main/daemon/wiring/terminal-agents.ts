@@ -59,6 +59,7 @@ import {
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
+import { teamRead } from "../../../../protocol/lophn-agent/team.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
@@ -77,6 +78,7 @@ import {
   type CliRun,
   createAgentSessionStore,
   createBridge,
+  type CodingOpen,
   createCodingOpen,
   createCredentialFiles,
   createFileHookOptOut,
@@ -227,6 +229,8 @@ export const terminalAgentsWiring: WiringFactory = () => {
   const servers: Promise<{ stop(): Promise<void> } | null>[] = [];
   const offs: (() => void)[] = [];
   let beatTimer: ReturnType<typeof setInterval> | undefined;
+  // build가 opener를 만든 뒤 놓는다. GUI 탭 팀원의 탭을 core가 열 때 쓴다.
+  let openMember: CodingOpen["member"] | undefined;
   return {
     name: "terminal-agents",
     dataSteps: [
@@ -332,6 +336,11 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 },
               }),
         members: () => ctx.peek.harnessMembers ?? null,
+        openMemberTab: (input) =>
+          openMember?.(input) ??
+          Promise.resolve(
+            err({ code: "unavailable", message: "core is still starting" }),
+          ),
         memberDeny: (harness) => {
           const deny = ledgerSnapshot(
             ctx.ledgerPath,
@@ -668,6 +677,9 @@ export const terminalAgentsWiring: WiringFactory = () => {
         codingCommand: (harness) =>
           ctx.settings.get(codingAgentsSetting)?.commands?.[harness],
       });
+      openMember = (input) => opener.member(input);
+      // harness wiring(팀원 queue)은 이 wiring보다 먼저 섰다. 탭이 없는 팀원에게 온 입력도 들어야 탭을 연다.
+      agents.members.listen();
 
       return ok({
         memory: [
@@ -766,8 +778,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
           ],
         ],
         reads: (reads) => {
-          // 부를 수 있는 session 목록의 GUI 탭 팀원은 그 탭의 모습(상태, 제목)으로 낸다. ledger에는 탭의 승인 기다림이 없다.
-          // 묶인 탭이 없는 팀원(탭을 닫았거나 core가 다시 켜졌다)은 지금 call을 받을 길이 없어 뺀다.
+          // agent가 읽는 session 상태(부를 수 있는 목록, 팀)에서 GUI 탭 팀원은 그 탭의 모습(상태, 제목)으로 낸다. ledger에는 탭의 승인
+          // 기다림이 없다. 묶인 탭이 없는 팀원은 쉬는 것이다(call이 오면 core가 탭을 연다).
+          const memberLook = (session: string) => {
+            if (ctx.peek.harnessMembers?.isMember(session) !== true) {
+              return null;
+            }
+            return (
+              agents.members.live(session) ?? {
+                state: "idle" as const,
+                title: null,
+              }
+            );
+          };
           const sendable = reads.get(key(agentCallSendable));
           if (sendable !== undefined) {
             reads.set(key(agentCallSendable), async (who, input) => {
@@ -775,22 +798,39 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 Output<typeof agentCallSendable>
               >;
               if (!listed.ok) return listed;
-              const members = ctx.peek.harnessMembers;
               return ok({
                 ...listed.value,
-                sessions: listed.value.sessions.flatMap((one) => {
-                  if (members?.isMember(one.session) !== true) return [one];
-                  const live = agents.members.live(one.session);
-                  return live === null
-                    ? []
-                    : [
-                        {
-                          ...one,
-                          state: live.state,
-                          title: live.title ?? one.title,
-                        },
-                      ];
+                sessions: listed.value.sessions.map((one) => {
+                  const look = memberLook(one.session);
+                  return look === null
+                    ? one
+                    : {
+                        ...one,
+                        state: look.state,
+                        title: look.title ?? one.title,
+                      };
                 }),
+              });
+            });
+          }
+          const team = reads.get(key(teamRead));
+          if (team !== undefined) {
+            reads.set(key(teamRead), async (who, input) => {
+              const read = (await team(who, input)) as Result<
+                Output<typeof teamRead>
+              >;
+              if (!read.ok) return read;
+              type One = NonNullable<Output<typeof teamRead>["parent"]>;
+              const patch = (one: One): One => {
+                const look = memberLook(one.session);
+                return look === null ? one : { ...one, state: look.state };
+              };
+              return ok({
+                ...read.value,
+                parent:
+                  read.value.parent === null ? null : patch(read.value.parent),
+                siblings: read.value.siblings.map(patch),
+                children: read.value.children.map(patch),
               });
             });
           }

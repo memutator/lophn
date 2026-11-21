@@ -21,7 +21,7 @@ export {
 } from "./hook-install.ts";
 export { listenHooks } from "./hook-socket.ts";
 export { createHookIngress } from "./ingress.ts";
-export { createCodingOpen } from "./open.ts";
+export { type CodingOpen, createCodingOpen } from "./open.ts";
 export {
   createCredentialFiles,
   type CredentialFiles,

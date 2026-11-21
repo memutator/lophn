@@ -35,6 +35,19 @@ export type CodingOpenDeps = {
   codingCommand?(harness: string): string | undefined;
 };
 
+// 터미널에 치는 줄. 사람이 Settings › Coding agents에 저장한 명령(flag 포함)이 있으면 그것에 `--gui`를 더하고, 이을 CLI session이
+// 있으면 `--resume <id>`를 붙인다.
+export function guiCommand(
+  binary: string,
+  custom: string | undefined,
+  cliSession: string | null,
+): string {
+  const saved = custom?.trim() ?? "";
+  const base = saved !== "" && !/[\r\n]/.test(saved) ? saved : binary;
+  const hasGui = base.split(/\s+/).includes("--gui");
+  return `${base}${hasGui ? "" : " --gui"}${cliSession === null ? "" : ` --resume ${cliSession}`}`;
+}
+
 export function createCodingOpen(deps: CodingOpenDeps) {
   const opens = new Map<string, Promise<Result<{ session: string }>>>();
 
@@ -110,11 +123,11 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       if (!found.ok) return found;
       resume = found.value;
     }
-    const binary = HARNESS_ADAPTERS[input.harness].commands[0];
-    const custom = deps.codingCommand?.(input.harness)?.trim() ?? "";
-    const base = custom !== "" && !/[\r\n]/.test(custom) ? custom : binary;
-    const hasGui = base.split(/\s+/).includes("--gui");
-    const command = `${base}${hasGui ? "" : " --gui"}${resume === undefined ? "" : ` --resume ${resume.cli_session}`}`;
+    const command = guiCommand(
+      HARNESS_ADAPTERS[input.harness].commands[0]!,
+      deps.codingCommand?.(input.harness),
+      resume?.cli_session ?? null,
+    );
     const opened = await deps.open(input.project, command);
     if (!opened.ok) return opened;
     if (resume !== undefined) deps.held(opened.value, resume.session);
@@ -122,6 +135,51 @@ export function createCodingOpen(deps: CodingOpenDeps) {
   }
 
   return {
+    // GUI 탭 팀원에게 입력이 왔는데 묶인 탭이 없다. 그 project에 그 CLI session을 이어(없으면 새로) GUI로 연다. 그 CLI session이 이미
+    // 터미널에 열려 있으면 둘째 process를 띄우지 않는다. 연 터미널 참조다.
+    async member(input: {
+      project: string;
+      harness: string;
+      cli_session: string | null;
+    }): Promise<Result<string>> {
+      if (!isGuiHarness(input.harness)) {
+        return err({ code: "invalid_input", message: "not a GUI harness" });
+      }
+      if (!deps.guiOn()) {
+        return err({
+          code: "unavailable",
+          message: "Chat view is not ready on this computer yet.",
+        });
+      }
+      const cli = input.cli_session;
+      if (cli !== null && !CLI_SESSION.test(cli)) {
+        return err({
+          code: "invalid_input",
+          message: "The saved CLI session id cannot be typed in a terminal.",
+        });
+      }
+      if (
+        cli !== null &&
+        deps
+          .listed()
+          .some(
+            (one) => one.harness === input.harness && one.cli_session === cli,
+          )
+      ) {
+        return err({
+          code: "conflict",
+          message: "This session is already open on the computer.",
+        });
+      }
+      return await deps.open(
+        input.project,
+        guiCommand(
+          HARNESS_ADAPTERS[input.harness].commands[0]!,
+          deps.codingCommand?.(input.harness),
+          cli,
+        ),
+      );
+    },
     // 같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 열 수 있다).
     open(input: {
       project: string;

@@ -54,6 +54,14 @@ export type HarnessMembers = {
   finish(turn: string, end: MemberTurnEnd): Promise<Result<void>>;
   /** 받은 call 하나를 failed(receiver_ended)로 닫아 보낸 쪽에 돌려준다. 이미 닫혔으면 아무것도 하지 않는다. */
   failCall(session: string, call: string): Promise<Result<void>>;
+  /** 열린 팀원 session의 project, harness, CLI session id(아직 없으면 null). 팀원이 아니거나 닫혔으면 null. */
+  describe(session: string): {
+    project: string;
+    harness: HarnessRuntime;
+    cli_session: string | null;
+  } | null;
+  /** 그 팀원 queue를 비우고 그 안의 call을 실패로 돌려준다(탭을 열지 못했다). */
+  failQueued(session: string): Promise<Result<void>>;
   /** 그 turn의 자격을 끝낸다. */
   end(turn: string): void;
   /** 팀원 queue에 입력이 들어왔다. */
@@ -67,6 +75,13 @@ export const RUNTIME_OF_GUI: Readonly<Record<GuiHarness, HarnessRuntime>> = {
   omp: "omp",
   antigravity: "antigravity",
 };
+
+const GUI_OF_RUNTIME = Object.fromEntries(
+  Object.entries(RUNTIME_OF_GUI).map(([gui, runtime]) => [runtime, gui]),
+) as Readonly<Record<HarnessRuntime, GuiHarness>>;
+
+// core가 연 탭의 CLI가 GUI로 서기를 기다리는 한도. 넘으면 그 팀원을 열지 못한 것으로 보고 기다리던 call을 실패로 돌려준다.
+export const OPEN_WAIT_MS = 60_000;
 
 // 넣은 입력이 탭의 turn을 열기를 기다리는 한도. 넘으면 그 입력은 탭에 닿지 않은 것으로 보고 닫는다. 사람의 turn이 도는 동안은 다시 잰다.
 export const INJECT_WAIT_MS = 30_000;
@@ -109,9 +124,22 @@ export function createGuiMembers(deps: {
   /** 팀원이 되는 탭이면 그 project id(`prj_…`), 아니면 null. */
   projectOf(terminalRef: string): string | null;
   after(ms: number, run: () => void): () => void;
+  /**
+   * 그 project에 새 터미널을 열고 `<cli> --gui`(`cli_session`이 있으면 `--resume <id>`)를 친다. 연 터미널 참조다. 탭이 없는 팀원에게 입력이
+   * 오면 부른다.
+   */
+  openTerminal(input: {
+    project: string;
+    harness: GuiHarness;
+    cli_session: string | null;
+  }): Promise<Result<string>>;
   log(message: string): void;
 }) {
   const byTerminal = new Map<string, Member>();
+  // core가 그 팀원을 위해 연 터미널 → 팀원 session. 그 터미널의 handle이 열리면 묶는다.
+  const pending = new Map<string, string>();
+  // 터미널을 여는 중이거나 연 터미널의 GUI를 기다리는 팀원 → 기다림을 끄는 함수.
+  const opening = new Map<string, () => void>();
   let offQueued: (() => void) | null = null;
   // 묶기(ensure·bind)는 모든 탭이 한 줄로 한다. 두 탭이 같은 CLI session을 같은 때 보아도 한 팀원을 둘이 잇지 않는다.
   let chain: Promise<void> = Promise.resolve();
@@ -126,7 +154,41 @@ export function createGuiMembers(deps: {
     offQueued = members.onQueued((session) => {
       const member = bySession(session);
       if (member !== undefined) void deliver(member);
+      else void openFor(session);
     });
+  }
+
+  // 탭이 없는 팀원에게 입력이 왔다. 그 project에 터미널을 열어 CLI session을 이어(없으면 새로) GUI로 띄운다. 그 탭이 서면 묶고 넣는다.
+  // 열지 못하거나 한도 안에 GUI가 서지 않으면 기다리던 call을 실패로 돌려준다.
+  async function openFor(session: string) {
+    const members = deps.members();
+    if (members === null || opening.has(session)) return;
+    const info = members.describe(session);
+    if (info === null) return;
+    opening.set(session, () => {});
+    const opened = await deps.openTerminal({
+      project: info.project,
+      harness: GUI_OF_RUNTIME[info.harness],
+      cli_session: info.cli_session,
+    });
+    if (!opened.ok) {
+      opening.delete(session);
+      deps.log(`gui member: tab not opened: ${opened.error.message}`);
+      await members.failQueued(session);
+      return;
+    }
+    const terminal = opened.value;
+    pending.set(terminal, session);
+    opening.set(
+      session,
+      deps.after(OPEN_WAIT_MS, () => {
+        if (pending.get(terminal) !== session) return;
+        pending.delete(terminal);
+        opening.delete(session);
+        deps.log("gui member: the opened tab did not start its chat view");
+        void members.failQueued(session);
+      }),
+    );
   }
 
   // 가장 늦은 사람·받은 메시지가 아직 turn에 들지 않았으면 그 turn이 곧 열린다(adapter가 글을 먼저 올리고 turn을 뒤에 여는 경우).
@@ -391,6 +453,9 @@ export function createGuiMembers(deps: {
   }
 
   return {
+    /** 팀원 queue를 듣기 시작한다. 탭이 하나도 없어도 팀원에게 온 입력으로 탭을 열어야 해서 core가 harness wiring 뒤에 부른다. */
+    listen: listenQueue,
+
     /** GUI handle이 열렸다(restart toggle마다 새 handle이다). 팀원이 되는 탭이면 묶는다. */
     opened(handle: TabHandle): void {
       const project = deps.projectOf(handle.terminal);
@@ -398,11 +463,18 @@ export function createGuiMembers(deps: {
       listenQueue();
       let member = byTerminal.get(handle.terminal);
       if (member === undefined) {
+        // core가 이 팀원을 위해 연 터미널이면 그 팀원이다(CLI session id를 알면 그 session에 적는다).
+        const wanted = pending.get(handle.terminal) ?? null;
+        if (wanted !== null) {
+          pending.delete(handle.terminal);
+          opening.get(wanted)?.();
+          opening.delete(wanted);
+        }
         member = {
           terminal: handle.terminal,
           harness: handle.harness,
           project,
-          session: null,
+          session: wanted,
           cli: null,
           handle: null,
           detach: null,
@@ -435,6 +507,12 @@ export function createGuiMembers(deps: {
 
     /** 터미널이 끝났다. 묶음을 푼다(session은 열린 채 남는다). */
     terminalEnded(terminalRef: string): void {
+      const wanted = pending.get(terminalRef);
+      if (wanted !== undefined) {
+        pending.delete(terminalRef);
+        opening.get(wanted)?.();
+        opening.delete(wanted);
+      }
       const member = byTerminal.get(terminalRef);
       if (member === undefined) return;
       member.detach?.();
@@ -468,6 +546,9 @@ export function createGuiMembers(deps: {
     stop(): void {
       offQueued?.();
       offQueued = null;
+      for (const cancel of opening.values()) cancel();
+      opening.clear();
+      pending.clear();
       for (const [ref, member] of [...byTerminal]) {
         member.detach?.();
         member.injected?.cancel?.();

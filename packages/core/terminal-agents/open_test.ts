@@ -137,3 +137,41 @@ test("coding_sessions/open applies saved coding agent flags without duplicating 
     },
   ]);
 });
+
+// 탭이 없는 GUI 탭 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 그 CLI session을 잇거나(있으면) 새로 연다. 같은 CLI session이
+// 이미 열려 있으면 둘째 process를 띄우지 않는다.
+test("a member's tab opens in its project resuming its CLI session, fresh when it has none, and never twice", async () => {
+  const kit = setup([], true, { codex: "codex --full-auto" });
+  assert.ok(
+    (
+      await kit.opener.member({
+        project: PROJECT,
+        harness: "claude",
+        cli_session: "cli-1",
+      })
+    ).ok,
+  );
+  assert.ok(
+    (
+      await kit.opener.member({
+        project: PROJECT,
+        harness: "codex",
+        cli_session: null,
+      })
+    ).ok,
+  );
+  assert.deepEqual(kit.calls, [
+    { project: PROJECT, command: "claude --gui --resume cli-1" },
+    { project: PROJECT, command: "codex --full-auto --gui" },
+  ]);
+  assert.deepEqual(kit.holds, []);
+
+  const busy = setup([{ harness: "claude", cli_session: "cli-1" }]);
+  const twice = await busy.opener.member({
+    project: PROJECT,
+    harness: "claude",
+    cli_session: "cli-1",
+  });
+  assert.ok(!twice.ok && twice.error.code === "conflict");
+  assert.deepEqual(busy.calls, []);
+});

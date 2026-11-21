@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { cryptoRandom, manualClock, ok } from "../../base/mod.ts";
+import { cryptoRandom, err, manualClock, ok } from "../../base/mod.ts";
 import type { AcpInput, AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import { callReply } from "../../protocol/lophn-agent/calls.ts";
@@ -74,8 +74,29 @@ function setup() {
   const failed: string[] = [];
   const listeners = new Set<(session: string) => void>();
   let lateCredential: (() => void) | null = null;
+  // 열린 팀원 session의 ledger 모습과, 탭을 열지 못해 비운 queue.
+  const rows = new Map<
+    string,
+    { project: string; harness: "claude-code"; cli_session: string | null }
+  >([
+    [
+      SESSION,
+      { project: PROJECT, harness: "claude-code", cli_session: "cli-1" },
+    ],
+  ]);
+  const emptied: string[] = [];
+  let ensured = 0;
   const members: HarnessMembers = {
-    ensure: async () => ok(SESSION),
+    ensure: async () => {
+      ensured += 1;
+      return ok(SESSION);
+    },
+    describe: (session) => rows.get(session) ?? null,
+    failQueued: async (session) => {
+      emptied.push(session);
+      queue.splice(0);
+      return ok(undefined);
+    },
     bind: async () => ok(undefined),
     next: async () => queue[0] ?? null,
     start: async (_session, message) => {
@@ -126,8 +147,21 @@ function setup() {
         if (at >= 0) timers.splice(at, 1);
       };
     },
+    openTerminal: async (input) => {
+      opens.push(input);
+      return opensFail
+        ? err({ code: "conflict", message: "busy" })
+        : ok(TERMINAL);
+    },
     log: () => {},
   });
+  gui.listen();
+  const opens: {
+    project: string;
+    harness: string;
+    cli_session: string | null;
+  }[] = [];
+  let opensFail = false;
 
   // 탭의 handle. adapter가 낼 갱신을 test가 직접 낸다.
   let state: AcpState = EMPTY_ACP_STATE;
@@ -236,6 +270,13 @@ function setup() {
     failed,
     timers,
     tokens,
+    rows,
+    opens,
+    emptied,
+    ensured: () => ensured,
+    failOpens: () => {
+      opensFail = true;
+    },
     holdCredential: () => {
       lateCredential = () => {};
       return () => lateCredential?.();
@@ -365,6 +406,77 @@ test("a call whose send never opens a turn is closed within the bound, with no f
     assert.equal(kit.fileToken(), null);
     assert.equal(await kit.live(kit.tokens[0]!), false);
     assert.deepEqual([...kit.finished.values()], ["closed"]);
+    assert.deepEqual(kit.failed, [CALL]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+test("a call for a member with no tab opens a tab in its project, resuming its CLI session or starting fresh, and is delivered there", async () => {
+  for (const cli of ["cli-1", null]) {
+    const kit = setup();
+    try {
+      kit.rows.set(SESSION, {
+        project: PROJECT,
+        harness: "claude-code",
+        cli_session: cli,
+      });
+      await kit.queueCall(1);
+      assert.deepEqual(kit.opens, [
+        { project: PROJECT, harness: "claude", cli_session: cli },
+      ]);
+      // core가 연 터미널의 GUI가 서면 그 팀원으로 묶이고(새로 찾지 않는다) 기다리던 call이 들어간다.
+      kit.gui.opened(kit.handle);
+      await kit.publish({
+        type: "session_changed",
+        session: { cli_session: "cli-new", capabilities: {} },
+      } as unknown as AcpUpdate);
+      assert.equal(kit.ensured(), 0);
+      assert.equal(kit.sent.length, 1);
+      assert.equal(kit.timers.length, 1, "only the injection wait remains");
+    } finally {
+      kit.cleanup();
+    }
+  }
+});
+
+test("a call for a member whose tab cannot be opened, or whose opened tab never shows its chat view, fails back", async () => {
+  const kit = setup();
+  try {
+    kit.failOpens();
+    await kit.queueCall(1);
+    assert.deepEqual(kit.emptied, [SESSION]);
+  } finally {
+    kit.cleanup();
+  }
+  const late = setup();
+  try {
+    await late.queueCall(1);
+    assert.equal(late.opens.length, 1);
+    late.timers[0]!();
+    await settle();
+    assert.deepEqual(late.emptied, [SESSION]);
+  } finally {
+    late.cleanup();
+  }
+});
+
+test("a call turn cut by toggling a restart tab to the TUI fails back, and a call not yet taken waits for the GUI", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.queueCall(1);
+    await kit.publish({ type: "turn_started", turn: "acp_c", at });
+    await kit.publish(kit.message(id("msg", 1), "acp_c", "user", "call"));
+    kit.handle.close();
+    await settle();
+    assert.deepEqual([...kit.finished.values()], ["closed"]);
+    assert.deepEqual(kit.failed, [CALL]);
+
+    // 탭이 TUI를 보이는 동안(handle 없음) 온 call은 그대로 기다리고 새 탭을 열지 않는다.
+    await kit.queueCall(2);
+    assert.equal(kit.sent.length, 1);
+    assert.equal(kit.opens.length, 0);
     assert.deepEqual(kit.failed, [CALL]);
   } finally {
     kit.cleanup();

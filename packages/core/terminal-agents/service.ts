@@ -61,6 +61,12 @@ export type TerminalAgentsDeps = {
   credentials?: CredentialFiles | null;
   // GUI 탭의 팀원 session(harness wiring). 아직 없으면 null이고 탭은 팀원이 되지 않는다.
   members?(): HarnessMembers | null;
+  // 묶인 탭이 없는 팀원에게 입력이 왔다. 그 project에 터미널을 열어 GUI로 띄운다(wiring의 `CodingOpen.member`). 연 터미널 참조다.
+  openMemberTab?(input: {
+    project: string;
+    harness: GuiHarness;
+    cli_session: string | null;
+  }): Promise<Result<string>>;
   // 그 GUI harness의 내장 coding agent 정의가 가진 deny 규칙. 팀원 탭의 CLI를 띄울 때 넣는다.
   memberDeny?(harness: GuiHarness): readonly string[];
   ids: { request(): string };
@@ -241,6 +247,11 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     members: () => deps.members?.() ?? null,
     files: deps.credentials ?? null,
     after: deps.after,
+    openTerminal: (input) =>
+      deps.openMemberTab?.(input) ??
+      Promise.resolve(
+        err({ code: "unavailable", message: "tabs cannot be opened yet" }),
+      ),
     projectOf: (ref) => {
       const where = project(ref);
       return where?.startsWith("prj_") === true ? where : null;

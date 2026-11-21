@@ -316,9 +316,10 @@ flows:
     steps:
       - "project 터미널의 GUI handle이 CLI session id를 알리면 같은 project·harness·CLI session의 열린 팀원 session을 잇거나(resume한 새 탭) harness-member-open으로 연다. id가 바뀌면 bind_session으로 적는다. 묶음은 core 메모리이고 터미널이 끝나면 푼다"
       - "팀원 session으로 온 call·reply·알림은 harness queue에 선다. 탭의 turn이 쉬고 줄 선 메시지도 turn을 기다리는 사람·받은 메시지도 없을 때만 하나를 꺼내 StartTurn을 쓰고 ACP send로 넣는다. ledger turn은 그 입력의 message id를 가져간 ACP turn에만 묶고 그때 그 turn의 자격을 credential file에 쓴다. 30초(사람 turn이 도는 동안은 다시 잰다) 안에 turn이 열리지 않으면 닫는다. restart 탭이 TUI를 보이는 동안은 handle이 없어 기다린다"
+      - "묶인 탭이 없는 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 `<cli> --gui --resume <CLI session>`(없으면 `--resume` 없이 새로)을 치고 그 터미널의 GUI가 서면 그 팀원으로 묶는다. project에서 부른 내장 coding agent(call, team spawn)는 이렇게 새 팀원으로 열린다. 열지 못하거나 60초 안에 GUI가 서지 않으면 기다리던 call을 실패로 돌려준다. 묶인 탭이 TUI를 보이는 동안은 새로 열지 않고 기다린다"
       - "사람이 탭에서 친 turn은 ledger turn 없이 그 turn의 자격만 내 credential file에 쓴다. 사람이 친 글은 ledger에 옮기지 않는다"
       - "turn이 끝나면 credential file을 지우고 자격을 끝낸다. 넣은 입력이 call이고 completed면 그 turn의 마지막 agent 글을 messages/record로 남기고 turns/finish로 닫는다. 답은 custom-call-reply가 보낸다"
-      - "팀원 session은 화면의 session 목록·snapshot·event와 앱의 session 목록에 서지 않는다(탭이 자리다). agent의 session list에는 묶인 탭이 있을 때만 탭의 상태와 제목으로 선다"
+      - "팀원 session은 화면의 session 목록·snapshot·event와 앱의 session 목록에 서지 않고 Agent 탭으로도 열리지 않는다(터미널 탭이 자리다). agent의 session list와 team read에는 탭의 상태와 제목으로 서고, 묶인 탭이 없으면 idle이다"
     outcomes:
       - id: bound
         observe: [ledger:sessions]
@@ -335,9 +336,12 @@ flows:
       - id: headless-skips
         observe: [response]
         when: "팀원 session의 queue는 headless host의 take·start_turn이 가져가지 않는다(그 탭만 가져간다). 표시는 열 때 정해 바뀌지 않는다"
+      - id: tab-opened
+        observe: [request:shell-host, process:cli-gui]
+        when: "묶인 탭이 없는 팀원에게 입력이 와 core가 그 project에 터미널을 열고 GUI로 띄웠다"
       - id: fails-back
         observe: [ledger:agent_calls, event:MessageReceived]
-        when: "result call을 가져간 turn이 답 글 없이 끝났다(멈춤, 실패, 탭·handle 닫힘, 한도 안에 turn이 열리지 않음, 빈 글). ledger turn은 failed로 닫고 harness/fail_call이 call을 receiver_ended로 닫아 보낸 쪽에 알린다"
+        when: "result call을 가져간 turn이 답 글 없이 끝났다(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환, 한도 안에 turn이 열리지 않음, 빈 글), 또는 탭을 열지 못했다. ledger turn은 failed로 닫고 harness/fail_call이 call을 receiver_ended로 닫아 보낸 쪽에 알린다"
       - id: waits
         observe: [ledger:agent_calls]
         when: "탭의 turn이 돌거나 줄이 있거나, restart 탭이 TUI를 보이거나, 탭이 닫혔다. 입력은 queue에 남는다"
@@ -3515,7 +3519,7 @@ flows:
       - packages/core/router/commands.ts
     steps:
       - "team spawn의 commit이 router.team-spawned를, call이 새 session을 연 commit이 router.call-session-opened를 낸 뒤 core main thread가 받는다(commit 뒤에만). team spawn은 앞의 것 하나만 내 탭이 둘 열리지 않는다. 열린 session으로 보낸 call과 앱이 보낸 call은 내지 않는다"
-      - "연 session과 새 session의 행을 다시 읽는다. 없으면 아무 일도 하지 않는다"
+      - "연 session과 새 session의 행을 다시 읽는다. 없거나 새 session이 GUI 탭 팀원이면(그 터미널 탭은 gui-member-call이 연다) 아무 일도 하지 않는다"
       - "둘의 workspace 종류와 id가 같으면 host queue에 tab_open(relation은 team spawn의 --as인 peer나 stage이고 없으면 peer, 그냥 call은 stage, source는 연 session)을 넣는다. 탭은 shell host poll이 연다(host-queue-poll)"
       - "다른 workspace의 새 session은 source와 relation 없이 그 session의 workspace에 tab_open을 넣는다. renderer가 Main desk 끝에 붙인다"
     outcomes:
@@ -3525,7 +3529,7 @@ flows:
         when: "연 session과 새 session의 workspace가 다르다. source 없이 새 session의 workspace에 연다"
         observe: [request:shell-host]
       - id: missing-row
-        when: "연 session이나 새 session 행을 읽지 못했다. 아무 일도 하지 않는다"
+        when: "연 session이나 새 session 행을 읽지 못했거나 새 session이 GUI 탭 팀원이다. 아무 일도 하지 않는다"
         observe: []
     crosses_process: false
     docs: [architecture/coding-agent.md]

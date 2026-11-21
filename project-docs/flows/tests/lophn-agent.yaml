@@ -329,5 +329,5 @@ files:
     note: "model_calls를 protocol 값 목록 검사 없이 다시 짜도 call 기록·retry·보완 연결이 남고 Google wire call을 적을 수 있다"
 
   - path: packages/core/lophn-agent/workspaces/workspaces_test.ts
-    covers: [session-archive:ok, session-open:ok, session-open:conflict, session-open:not_found, session-fork:ok, call-send:failed-not-found, team-spawn:spawned, team-spawn:team-full, team-spawn:team-too-deep, team-end:ended, team-end:not-descendant]
+    covers: [session-archive:ok, session-open:ok, session-open:conflict, session-open:not_found, session-fork:ok, call-send:failed-not-found, team-spawn:spawned, team-spawn:team-full, team-spawn:team-too-deep, team-end:ended, team-end:not-descendant, gui-member-call:bound]
     note: "보관한 workspace의 session은 입력을 받지 않고, agent가 보관된 앱 workspace를 열면 not_found이며 사람은 conflict다. fork는 이력만 복사하고, 열린 session의 agent와 workspace는 바뀌지 않는다. team의 깊이와 폭 상한, 자손만 끝내는 규칙"

@@ -273,6 +273,8 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     finish: async (turn, end) =>
       autoReply({ turn, outcome: { kind: end } }) as never,
     failCall: async () => ok(undefined),
+    describe: () => null,
+    failQueued: async () => ok(undefined),
     end: () => {},
     onQueued: (listener) => {
       queued.add(listener);
@@ -284,6 +286,7 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     files: null,
     projectOf: () => `prj_${"0".repeat(25)}2`,
     after: () => () => {},
+    openTerminal: async () => assert.fail("the tab is open"),
     log: (message) => assert.fail(message),
   });
 

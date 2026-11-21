@@ -465,7 +465,7 @@ flows:
       - agent가 session 목록을 tool로 읽는다. 목록은 prompt에 넣지 않는다
       - 팀 member에게는 부모, 형제, 자기 자손만 보인다
       - 자기 자신과 닫힌 session은 빼고, 상태는 running, waiting, idle, unknown으로 준다
-      - GUI 탭의 팀원 session은 core(terminal-agents wiring)가 그 탭의 ACP 상태(승인을 기다리면 waiting)와 제목으로 바꿔 내고, 묶인 탭이 없으면 뺀다
+      - GUI 탭의 팀원 session은 core(terminal-agents wiring)가 그 탭의 ACP 상태(승인을 기다리면 waiting)와 제목으로 바꿔 내고, 묶인 탭이 없으면 idle이다(call이 오면 core가 탭을 연다)
     outcomes:
       - id: ok
         observe: [response]
@@ -586,11 +586,12 @@ flows:
     actor: agent
     entries: [route:team/read]
     boundary: [router, agent-sessions, core-api]
-    code: [packages/core/router/reads.ts]
+    code: [packages/core/router/reads.ts, packages/core/main/daemon/wiring/terminal-agents.ts]
     steps:
       - agent가 lophn team read로 팀을 읽는다
       - 부모, 형제(같은 부모), 자식(열린 것)의 handle, 이름, 설명, runtime, 상태를 주고, 내가 그 팀원에게 보내 답을 받지 못한 call(open_calls)을 싣는다
       - 팀 밖 session은 빈 목록이다
+      - GUI 탭 팀원의 상태는 core(terminal-agents wiring)가 그 탭의 ACP 상태로 바꿔 낸다
     outcomes:
       - id: ok
         observe: [response]

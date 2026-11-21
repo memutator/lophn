@@ -264,6 +264,8 @@ export const routerWiring: WiringFactory = () => {
           session: loadSession(lookup, data.session),
         }));
         if (!rows.ok || !rows.value.opener || !rows.value.session) return;
+        // GUI 탭 팀원은 Agent 탭이 아니라 그 coding agent의 터미널 탭이 자리다. 그 탭은 입력이 들어올 때 GUI 연결이 연다.
+        if (rows.value.session.harness_gui) return;
         const from = workspaceOf(rows.value.opener);
         const there = workspaceOf(rows.value.session);
         const same = from?.kind === there?.kind && from?.id === there?.id;

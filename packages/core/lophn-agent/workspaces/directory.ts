@@ -1,6 +1,9 @@
 import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Workspace } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  isCodingBuiltin,
+  type Workspace,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
 import {
@@ -96,6 +99,9 @@ export function createSessionDirectory(
         spawnedBy,
         // 앱이 불러 열린 session은 그 앱이 끝낼 수 있다.
         openedByApp: opener.kind === "app" ? opener.app : null,
+        // project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원으로 연다(core가 탭을 연다). 다른 곳은 headless다.
+        gui:
+          isCodingBuiltin(agent.agent) && agent.workspace?.kind === "project",
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

@@ -83,7 +83,7 @@ lophn changed the instruction text it gives app agents in this version: the SDK 
 +  that is always on carries the files of the others, so two computers that are
 +  never on together still meet through it.
  - A named destination (`personal`, `work`): a folder the person set up themselves
-@@ -19,2 +22,29 @@ put one into lophn.
+@@ -19,2 +22,30 @@ put one into lophn.
  
 +## Two needs that look alike
 +
@@ -109,18 +109,19 @@ lophn changed the instruction text it gives app agents in this version: the SDK 
 +database, not a table: the store must stay well under 1 GiB, with no triggers,
 +text primary keys (no `AUTOINCREMENT`), and no `UNIQUE` or `CHECK` outside the key
 +(the full list is in "What syncing asks of the app"). An app with a large
-+per-computer table must not turn `sync_to` on to share a small summary: keep the
-+large table out of the synced store or call the other computer instead.
++per-computer table must not turn `sync_to` on to share a small summary: read the
++other computers' summaries with `connectCommands(…, { on })`, and cache the small
++result locally if the screen must show it while that computer is off.
 +
  ## Pick `sync_to`
-@@ -23,3 +53,5 @@ The default is no `sync_to`: the data stays on this computer (and on the phone,
+@@ -23,3 +54,5 @@ The default is no `sync_to`: the data stays on this computer (and on the phone,
  a `runs_on` phone app). Choose the default unless the person uses this app on
 -another computer too, or the data must exist on another machine.
 +another computer too, or the data must exist on another machine. The default does
 +not stop the app from reaching the other computers: see "Bring an app to another
 +machine".
  
-@@ -226,6 +258,13 @@ zero. If not, read "Read the state".
+@@ -226,6 +259,13 @@ zero. If not, read "Read the state".
  
 -On the other computer, after its destination of the same name is set and the tool
 -has run there:
@@ -137,7 +138,7 @@ lophn changed the instruction text it gives app agents in this version: the SDK 
 +   destination, its destination of the same name must be set and the tool must
 +   have run there first; `computers` needs neither.
  2. In lophn's home conversation: `lophn app take-in <app>`. The app gets the same
-@@ -242,3 +281,4 @@ If take-in answers `conflict` with `sdk_missing`, or the environment shows
+@@ -242,3 +282,4 @@ If take-in answers `conflict` with `sdk_missing`, or the environment shows
  `source_incomplete` means the source bundles for that commit have not fully
 -arrived; wait for the tool and try again.
 +arrived; wait for the tool (for `computers`, for the link or the carrying computer)

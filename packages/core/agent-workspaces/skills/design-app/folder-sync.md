@@ -44,8 +44,9 @@ The limits of `sync_to` come before the choice. Today it moves the whole app
 database, not a table: the store must stay well under 1 GiB, with no triggers,
 text primary keys (no `AUTOINCREMENT`), and no `UNIQUE` or `CHECK` outside the key
 (the full list is in "What syncing asks of the app"). An app with a large
-per-computer table must not turn `sync_to` on to share a small summary: keep the
-large table out of the synced store or call the other computer instead.
+per-computer table must not turn `sync_to` on to share a small summary: read the
+other computers' summaries with `connectCommands(…, { on })`, and cache the small
+result locally if the screen must show it while that computer is off.
 
 ## Pick `sync_to`
 

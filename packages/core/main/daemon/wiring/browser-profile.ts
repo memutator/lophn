@@ -7,6 +7,16 @@ import { loadSession } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
+// 정의가 고른 profile이 지금 목록에 있으면 그 id, 없으면(지운 profile, 칸 없음) 기본 profile(null)이다.
+export function liveBrowserProfile(
+  chosen: string | null,
+  profiles: readonly { id: string }[],
+): Id<"bpf"> | null {
+  return chosen !== null && profiles.some((profile) => profile.id === chosen)
+    ? (chosen as Id<"bpf">)
+    : null;
+}
+
 export function agentBrowserProfile(
   ctx: { ledgerPath: string; settings: SettingsReader },
   session: string,
@@ -17,9 +27,10 @@ export function agentBrowserProfile(
       ? null
       : (agentDirectory(lookup.sql).agent(row.agent)?.browserProfile ?? null);
   });
-  if (!chosen.ok || chosen.value === null) return null;
-  const known = (ctx.settings.get(browserProfilesSetting) ?? []).some(
-    (profile) => profile.id === chosen.value,
-  );
-  return known ? (chosen.value as Id<"bpf">) : null;
+  return chosen.ok
+    ? liveBrowserProfile(
+        chosen.value,
+        ctx.settings.get(browserProfilesSetting) ?? [],
+      )
+    : null;
 }

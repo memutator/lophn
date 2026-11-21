@@ -34,6 +34,7 @@ import {
 } from "../../../../protocol/lophn-agent/page-view.ts";
 import { dispatchHttp } from "../../../server/dispatch.ts";
 import type { MemoryHandler, ReadHandler } from "../../../server/mod.ts";
+import { liveBrowserProfile } from "./browser-profile.ts";
 import { createTabHandlers, hostQueueWiring } from "./host-queue.ts";
 
 // preview 탭은 그 앱 workspace의 session과 사람만 열고, 주인만 닫는다. 깨지면 다른 앱·project의 agent가 남의 앱 화면을
@@ -71,6 +72,15 @@ const LOGIN_ENTRY = {
   profile: null,
 };
 const KNOWN = "hunter2";
+// browser profile: 설정에는 WORK만 있다. session 5의 agent 정의는 WORK, session 6의 정의는 지운 profile GONE을 가리킨다.
+const WORK = `bpf_${"1".repeat(26)}`;
+const GONE = `bpf_${"2".repeat(26)}`;
+const DEFINED: Record<string, string> = {
+  [id("ses", 5)]: WORK,
+  [id("ses", 6)]: GONE,
+};
+const WORK_LOGIN = `lgn_${"2".repeat(26)}`;
+const WORK_LOGIN_ENTRY = { ...LOGIN_ENTRY, id: WORK_LOGIN, profile: WORK };
 
 // 폰 쪽 가짜. previewViews는 view 표, calls는 폰 link에 간 요청, answer는 폰의 답이다.
 type FakePhone = {
@@ -137,8 +147,17 @@ function setup(
     holdTui: () => {},
     ...(launchShell === undefined ? {} : { launchShell }),
     login: (login) =>
-      Promise.resolve(ok(login === LOGIN ? LOGIN_ENTRY : undefined)),
-    browserProfile: () => null,
+      Promise.resolve(
+        ok(
+          login === LOGIN
+            ? LOGIN_ENTRY
+            : login === WORK_LOGIN
+              ? WORK_LOGIN_ENTRY
+              : undefined,
+        ),
+      ),
+    browserProfile: (session) =>
+      liveBrowserProfile(DEFINED[session] ?? null, [{ id: WORK }]),
     redact: (text) => text.replaceAll(KNOWN, "[REDACTED]"),
     previewViews: (app) => phone.previewViews(app),
     phoneCall: (call) => {
@@ -925,4 +944,114 @@ test("tabs/list는 자기 탭과 자기 밑 session의 탭만 내고, 사람 tok
   const [item] = await seen(agent(6));
   assert.equal(item!.url, "https://example.com/c?token=[REDACTED]");
   assert.equal(item!.title, "inbox [REDACTED]");
+});
+
+// 깨지면 agent가 다른 profile(다른 cookie로 들어간 site)의 탭에 그 login을 치거나, 그 login이 있다는 것을 안다.
+test("fill_login은 탭과 다른 profile의 login을 없는 login과 같은 not_found로 답하고 shell에 아무것도 보내지 않는다", async () => {
+  const { queue, act } = setup(true);
+  const host = connect(queue);
+  const place = (profile?: Id<"bpf">) =>
+    queue.openTab({
+      owner: id("ses", 1) as Id<"ses">,
+      workspace: { kind: "home" },
+      target: { browser: { url: "https://example.com" } },
+      relation: null,
+      source: null,
+      ...(profile === undefined ? {} : { profile }),
+    });
+  const workTab = place(WORK as Id<"bpf">);
+  const plainTab = place();
+  while (host.next() !== null);
+  const fill = (tab: string, login: string) =>
+    act(agent(1), {
+      tab,
+      type: "fill_login",
+      ref: "e2",
+      login,
+      field: "password",
+    });
+  const missing = await fill(workTab, `lgn_${"7".repeat(26)}`);
+  assert.equal(code(missing), "not_found");
+  for (const [tab, login] of [
+    [workTab, LOGIN],
+    [plainTab, WORK_LOGIN],
+  ] as const) {
+    const reply = fill(tab, login);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    // 거절은 shell에 가기 전에 끝난다. 새어 나갔으면 답을 주고(기다리는 호출이 남지 않게) 실패한다.
+    const leaked = host.next();
+    if (leaked !== null) {
+      queue.done(leaked.id as Id<"hrq">, "done", {
+        content: [{ type: "text", text: "{}" }],
+      });
+    }
+    assert.equal(leaked, null);
+    const refused = await reply;
+    assert.equal(code(refused), "not_found");
+    assert.equal(message(refused), message(missing));
+  }
+  for (const [tab, login] of [
+    [workTab, WORK_LOGIN],
+    [plainTab, LOGIN],
+  ] as const) {
+    const reply = fill(tab, login);
+    const request = await host.arrive();
+    assert.equal(request.kind, "browser_call");
+    queue.done(request.id as Id<"hrq">, "done", {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ url: "https://example.com/", title: "t" }),
+        },
+      ],
+    });
+    assert.equal(code(await reply), "ok");
+  }
+});
+
+// 깨지면 agent의 탭이 사람이 정한 profile이 아닌 cookie로 열리거나, agent가 입력으로 다른 profile을 골라 그 로그인을 쓴다.
+test("agent가 여는 browser 탭은 정의의 profile이 설정에 있을 때만 그 profile로 열리고, 지운 profile과 사람 token은 기본이며 입력으로 고르지 못한다", async () => {
+  const { queue, open } = setup(true);
+  const host = connect(queue);
+  const opened = async (who: AuthenticatedContext) => {
+    const opening = open(who, browser);
+    const request = await host.arrive();
+    assert.equal(request.kind, "tab_open");
+    queue.done(request.id as Id<"hrq">, "done", {
+      content: [{ type: "text", text: "bound" }],
+    });
+    const reply = await opening;
+    assert.ok(reply.ok);
+    const { tab, target } = (
+      request as {
+        payload: { tab: string; target: { browser: { profile?: string } } };
+      }
+    ).payload;
+    assert.equal(tab, (reply.value as { tab: string }).tab);
+    return { tab, sent: target.browser.profile };
+  };
+  const work = await opened(agent(5));
+  assert.equal(work.sent, WORK);
+  const owner = id("ses", 5) as Id<"ses">;
+  assert.deepEqual(queue.tabProfile(work.tab as Id<"tab">, owner), ok(WORK));
+  for (const [who, owner] of [
+    [agent(6), id("ses", 6)],
+    [agent(1), id("ses", 1)],
+    [person, "person"],
+  ] as const) {
+    const plain = await opened(who);
+    assert.equal(plain.sent, undefined);
+    assert.deepEqual(
+      queue.tabProfile(plain.tab as Id<"tab">, owner as never),
+      ok(null),
+    );
+  }
+  // 입력에는 profile 칸이 없다. 실어 보내면 열지 않고 shell에도 가지 않는다.
+  for (const body of [
+    { target: { browser: { url: "https://example.com", profile: WORK } } },
+    { ...browser, profile: WORK },
+  ]) {
+    await assert.rejects(async () => open(agent(6), body));
+    assert.equal(host.next(), null);
+  }
 });

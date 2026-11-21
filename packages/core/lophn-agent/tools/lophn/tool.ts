@@ -82,7 +82,12 @@ function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
     if (parsed.value.kind === "run") {
       return invalid("the call did not resolve to a command");
     }
-    const text = helpText(docs, parsed.value.topic);
+    // `--on`은 앱 command에만 듣는다. 내장 명령은 `commands`의 것이다.
+    const text = helpText(
+      docs,
+      parsed.value.topic,
+      (item) => !(commands as readonly CommandDoc[]).includes(item),
+    );
     if (text === undefined) {
       return err(unknownCommandError(parsed.value.topic, docs));
     }

@@ -15,8 +15,13 @@ const COMMON_FLAGS = [
   "  --input <json>            JSON object merged into the fields above",
   "  --input-file <path>       like --input, from a file",
   "  --idempotency-key <key>   retry key for write commands",
-  "  --on <machine>            run on another computer (its name, or its device id when several share a name)",
 ];
+
+const ON_FLAG =
+  "  --on <machine>            run on another computer (its name, or its device id when several share a name)";
+
+// `--on`이 듣는 명령인지는 부르는 쪽이 안다(터미널은 core 명령, agent tool은 앱 command). 듣지 않는 명령에는 flag를 보이지 않는다.
+export type TakesOn = (command: CommandDoc) => boolean;
 
 function typeText(field: Field): string {
   const base = field.values?.join("|") ?? field.kind;
@@ -28,7 +33,7 @@ function fieldLine(label: string, field: Field): string {
   return `  ${label} (${field.required ? "required" : "optional"}, ${typeText(field)})${note}`;
 }
 
-function commandHelp(command: CommandDoc): string {
+function commandHelp(command: CommandDoc, takesOn: TakesOn): string {
   const slots = command.positional ?? [];
   const fields = fieldsOf(command.input);
   const lines = [
@@ -56,7 +61,12 @@ function commandHelp(command: CommandDoc): string {
       ),
   ];
   lines.push("", "Fields:", ...(listed.length === 0 ? ["  none"] : listed));
-  lines.push("", "Common flags:", ...COMMON_FLAGS);
+  lines.push(
+    "",
+    "Common flags:",
+    ...COMMON_FLAGS,
+    ...(takesOn(command) ? [ON_FLAG] : []),
+  );
   return lines.join("\n");
 }
 
@@ -76,6 +86,7 @@ function groupsOf(commands: readonly CommandDoc[]): Map<string, CommandDoc[]> {
 export function helpText(
   commands: readonly CommandDoc[],
   topic: readonly string[],
+  takesOn: TakesOn,
 ): string | undefined {
   if (topic.length === 0) {
     const rows = [...groupsOf(commands)].map(([group, members]) => {
@@ -98,7 +109,7 @@ export function helpText(
   const command = commands.find(
     (item) => wordsOf(item.name).join(" ") === topic.join(" "),
   );
-  if (command !== undefined) return commandHelp(command);
+  if (command !== undefined) return commandHelp(command, takesOn);
   const members = groupsOf(commands).get(topic[0]);
   if (members === undefined || topic.length > 1) return undefined;
   return [

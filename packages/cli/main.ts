@@ -261,7 +261,8 @@ export async function cliMain(
   }
   const line = parsed.value;
   if (line.kind === "help") {
-    const text = helpText(commands, line.topic);
+    // `--on`은 core를 부르는 명령에만 듣는다(아래 `coreCommandsOnly`).
+    const text = helpText(commands, line.topic, (item) => "routes" in item);
     if (text === undefined) {
       const error = unknownCommandError(line.topic, commands);
       await output().failure(error);

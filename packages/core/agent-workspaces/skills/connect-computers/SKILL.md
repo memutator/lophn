@@ -1,6 +1,6 @@
 ---
 name: connect-computers
-description: Help the person keep their apps' data and files in step across their computers (home and work, a dual boot, a laptop and a desktop) or reach a computer directly from outside their network. Explains what lophn does by itself, installs on this computer an app that another computer shares, and sets up the folder all computers see and Tailscale when they need more.
+description: Help the person keep their apps' data and files in step across their computers (home and work, a dual boot, a laptop and a desktop) or reach a computer directly from outside their network. Explains what lophn does by itself (an always-on computer in the device list becomes the middle with no setup), installs on this computer an app that another computer shares, and sets up the folder all computers see and Tailscale only when they need more.
 ---
 
 # Connect computers
@@ -18,6 +18,12 @@ You set none of this up and nothing chooses between these ways:
   Remote) connect to each other over the local network or through lophn's relay,
   and an app that declares `sync_to: "computers"` has its data carried over that
   connection while both are on.
+- A connected computer also passes on the files of the person's other computers
+  that it holds. So a computer in the device list that is always on (a server, a
+  VM, a desktop left running with Keep running) becomes the middle by itself:
+  every other computer syncs with it whenever it connects, and two computers
+  that are never on together (the two systems of a dual boot) still stay in step
+  through it. No setup, no folder, no tool.
 - A phone paired with two computers carries the files from one to the other when
   it connects to each. The computers need not be on at the same time.
 - Releases of an app that arrive this way are taken in and wait for the
@@ -27,6 +33,18 @@ The person sees the way each computer's files last arrived, and when each app
 last caught up, in Settings › Sync. You can read the same facts with
 `lophn machine environment` (the other computers and each app's `sync_to`).
 Look there before you suggest anything.
+
+Check before you propose any folder or tool: run `lophn machine environment` and
+look at `machines[].always_on`.
+
+- A computer in the list is `always_on: true`: say that nothing needs to be set
+  up, and stop. Do not suggest a folder, a cloud, rclone, cron or Syncthing.
+- None is, but the person has a computer that could stay on (a server, a VM):
+  tell them to turn on Keep running in that computer's Settings › Remote ("Keep
+  lophn running on this computer"). Once that computer shows `always_on: true`
+  here, nothing else is needed.
+- Only when there is no always-on computer and no phone that meets both
+  computers does the shared folder below apply.
 
 If the computers are not in one device list yet, that is the first step, and
 Remote must be on (`lophn remote on`). The person makes an invite on one
@@ -61,11 +79,11 @@ it:
    the consent card there (first activation, new permissions) and allows it;
    you cannot allow it for them. Tell them in one line where the card is.
 
-## When the computers are rarely on together: a folder all of them see
+## When nothing is always on and no phone carries: a folder all of them see
 
-When no phone carries and the computers are never on at the same time (the two
-systems of a dual boot are the clear case), the person can name one folder that
-every computer sees. Each computer puts the files it carries there and takes in
+When no computer is always on, no phone carries, and the computers are never on
+at the same time (the two systems of a dual boot with no other computer are the
+clear case), the person can name one folder that every computer sees. Each computer puts the files it carries there and takes in
 the others' after checking their signatures, so the folder itself is not trusted.
 It is the setting `folder.shared`, per computer: the path may differ on each.
 
@@ -79,13 +97,16 @@ Good folders:
 
 Before anything asks the person, say in plain words:
 
-- that lophn will copy the data of their apps that sync to their computers into
-  this folder, as plain files: whoever or whatever can read the folder can read
-  them;
+- that lophn will copy everything the apps send to `computers` into this folder,
+  as plain files: whoever or whatever can read the folder can read them, and with
+  a cloud folder it sits in the cloud;
 - for Google Drive, Dropbox or OneDrive: the files are uploaded unencrypted and
   the service can read them (name the service). Do it only if the person accepts
   that. Otherwise offer Syncthing or the shared disk, or tell them to keep that
-  data off the folder.
+  data off the folder;
+- a cloud folder meant for only some of the data is not this setting. An app
+  chooses a named destination (`sync_to: "<name>"`); that is the app agent's
+  work, in that app's conversation.
 
 Then:
 
@@ -106,6 +127,22 @@ Then:
    also do either in Settings › Sync, which needs no approval.
 4. Repeat on the other computers, each with its own path. Files arrive as fast as
    the tool moves the folder, not live.
+5. If a tool you set up moves the folder with rclone (cloud storage), follow
+   these rules; they are the same as for any destination folder. Never use
+   `rclone bisync`. Upload only this computer's own part with `rclone sync`,
+   download the others' with `rclone copy` and leave this computer's part out
+   (`<this machine id>` is `this_machine.id` in `lophn machine environment`):
+
+   ```
+   rclone sync "<path>/machines/<this machine id>" "<remote>:machines/<this machine id>" --exclude "*.tmp-*"
+   rclone copy "<remote>:machines" "<path>/machines" --exclude "/<this machine id>/**" --exclude "*.tmp-*"
+   ```
+
+   Run the upload only when `<path>/machines/<this machine id>/record.json`
+   exists, so a missing or unmounted folder never empties the cloud copy. Run
+   both from one small script on the OS's scheduler every few minutes, never two
+   runs at once. `<remote>` should be an rclone `crypt` remote when the person
+   wants the cloud not to read the files.
 
 `lophn settings set` for these approval settings works only in the home
 conversation. Anywhere else, or when nothing can ask the person, tell them where
@@ -152,3 +189,5 @@ to the relay and the other ways above.
 - Do not move lophn's data folder onto shared storage or copy it.
 - Do not set up a cloud for the person's data without the plain-words warning
   above.
+- Do not set up a folder or a tool while a computer in the device list is always
+  on: lophn already uses it as the middle.

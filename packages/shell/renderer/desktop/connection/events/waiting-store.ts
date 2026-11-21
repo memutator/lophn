@@ -1,10 +1,11 @@
-// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job 등록 승인, job의 놓친 차례)을 session을 가리지 않고 한 목록에 든다.
+// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job 등록 승인, job의 놓친 차례, 늦게 온 mail)을 session을 가리지 않고 한 목록에 든다.
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { JobHold, JobRecord } from "../../../../../protocol/jobs/jobs.ts";
+import type { MailHold } from "../../../../../protocol/lophn-agent/mail.ts";
 import type {
   BusEvent,
   EventCondition,
@@ -23,6 +24,7 @@ import {
   readOpenNotices,
   readJobHolds,
   readJobPending,
+  readMailHolds,
   readSessionSnapshots,
   readShareRequests,
 } from "./snapshots.ts";
@@ -62,6 +64,10 @@ export type WaitingEntry =
     })
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
   | (Common & { readonly kind: "job_hold"; readonly hold: JobHold })
+  // 늦게 닿은 다른 컴퓨터의 call mail을 사람이 정한다. id는 `<origin>:<mail>`(보낸 기계 id와 mail id). session과 agent는 받을 곳이 session일 수도
+  // agent 이름일 수도 있어 싣지 않고(주소는 hold에 있다), workspace는 주소가 앱일 때만 이 기계의 꼴로 풀린다
+  // (project는 기계 사이 이름(`pri_`)이라 이 store가 풀지 못한다).
+  | (Common & { readonly kind: "mail_hold"; readonly hold: MailHold })
   // agent가 만든 job의 등록 승인. id는 job이다.
   | (Common & { readonly kind: "job_approval"; readonly job: JobRecord })
   // 앱 workspace의 agent가 청한 앱 공유. id는 앱이다(앱마다 열린 요청은 하나).
@@ -112,7 +118,7 @@ const WAITING_CONDITION: EventCondition = {
     "NoticePosted",
     "NoticeClosed",
     "NoticeRead",
-    // session이 없는 event라 session 조건과 섞지 않고 types에만 건다. job의 hold와 승인 대기는 `jobs` 변경에 다시 읽는다.
+    // session이 없는 event라 session 조건과 섞지 않고 types에만 건다. job의 hold와 승인 대기는 `jobs` 변경에, mail의 hold는 `mail_holds` 변경에 다시 읽는다.
     "StateChanged",
   ],
 };
@@ -284,6 +290,22 @@ export function createWaitingStore(
     };
   }
 
+  function mailHold(hold: MailHold): WaitingEntry {
+    const to = hold.address;
+    return {
+      id: `${hold.origin}:${hold.mail}`,
+      kind: "mail_hold",
+      session: null,
+      agent: null,
+      workspace:
+        "workspace" in to && "app" in to.workspace
+          ? { kind: "app", id: to.workspace.app }
+          : null,
+      receivedAt: hold.arrived_at,
+      hold,
+    };
+  }
+
   function jobApproval(job: JobRecord): WaitingEntry {
     return {
       id: job.id,
@@ -361,9 +383,14 @@ export function createWaitingStore(
         publish();
         return;
       case "StateChanged":
-        // 어느 줄이 바뀌었는지 event에 없다. hold와 승인 대기를 다시 읽어 맞추고, 그 읽기가 publish한다.
+        // 어느 줄이 바뀌었는지 event에 없다. hold와 승인 대기(mail은 hold)를 다시 읽어 맞추고, 그 읽기가 publish한다.
         if (event.payload.changes.some((change) => change.name === "jobs")) {
           void refreshJobs();
+        }
+        if (
+          event.payload.changes.some((change) => change.name === "mail_holds")
+        ) {
+          void refreshMail();
         }
         return;
       default:
@@ -406,15 +433,17 @@ export function createWaitingStore(
   }
 
   async function readAll() {
-    const [snapshots, consents, shares, appNotices, jobs] = await Promise.all([
-      readSessionSnapshots(client.core),
-      readActivationConsents(client.core),
-      readShareRequests(client.core),
-      readOpenNotices(client.core),
-      readJobs(),
-    ]);
+    const [snapshots, consents, shares, appNotices, jobs, mail] =
+      await Promise.all([
+        readSessionSnapshots(client.core),
+        readActivationConsents(client.core),
+        readShareRequests(client.core),
+        readOpenNotices(client.core),
+        readJobs(),
+        readMailHolds(client.core),
+      ]);
     // snapshot과 동의와 공유 요청은 모두 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
-    // job은 따로 본다. 못 읽으면(null) 지금의 job 항목을 둔 채 나머지만 맞춘다.
+    // job과 mail은 따로 본다. 못 읽으면(null) 지금의 그 항목을 둔 채 나머지만 맞춘다.
     if (
       snapshots === null ||
       consents === null ||
@@ -423,7 +452,7 @@ export function createWaitingStore(
     ) {
       return null;
     }
-    return { snapshots, consents, shares, notices: appNotices, jobs };
+    return { snapshots, consents, shares, notices: appNotices, jobs, mail };
   }
 
   async function refreshConsents() {
@@ -460,22 +489,38 @@ export function createWaitingStore(
     publish();
   }
 
+  async function refreshMail() {
+    const holds = await readMailHolds(client.core);
+    if (holds === null) return;
+    const next = holds.map(mailHold);
+    const open = new Set(next.map((one) => one.id));
+    for (const [id, entry] of entries) {
+      if (entry.kind === "mail_hold" && !open.has(id)) entries.delete(id);
+    }
+    for (const one of next) put(one);
+    publish();
+  }
+
   function replace(read: {
     snapshots: SessionSnapshot[];
     consents: ActivationConsent[];
     shares: ShareRequest[];
     notices: Notice[];
     jobs: JobReads | null;
+    mail: MailHold[] | null;
   }) {
     notices = new Map(read.notices.map((one) => [one.id, one]));
-    // job을 못 읽었으면 지금의 job 항목도 그대로 둔다.
+    // job이나 mail을 못 읽었으면 지금의 그 항목은 그대로 둔다.
     const kept = [...entries.values()].filter(
-      (entry) => read.jobs === null && JOB_KINDS.includes(entry.kind),
+      (entry) =>
+        (read.jobs === null && JOB_KINDS.includes(entry.kind)) ||
+        (read.mail === null && entry.kind === "mail_hold"),
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
     for (const one of read.shares) next.push(share(one));
     if (read.jobs !== null) next.push(...jobEntries(read.jobs));
+    if (read.mail !== null) next.push(...read.mail.map(mailHold));
     next.sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : 1));
     entries = new Map();
     for (const entry of next) put(entry);

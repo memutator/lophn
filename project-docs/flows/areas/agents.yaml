@@ -584,9 +584,10 @@ flows:
       - 사람 자격(user)만 받는다. 기기는 모두 읽는다(폰도). 다른 컴퓨터의 agent·앱 요청은 기기 연결의 call 처리가 막는다
       - main thread 연결로 대기 줄을 오래 기다린 것부터 읽는다. 만료가 지난 줄과 보낸 컴퓨터가 지금 명단에 없는 줄은 빼고 준다
       - 줄마다 보낸 기계, 이 기계 명단의 그 컴퓨터 이름, 쓴 agent, 주소, 답 방식, 본문 글의 앞 500자, 보낸·닿은·만료 시각을 준다
+      - 화면(desktop 대기 목록, 폰 Inbox)은 ready 뒤와 StateChanged(mail_holds)마다 읽어 "Mail from other computers" 묶음의 card로 세운다. 이 route를 모르는 옛 판의 컴퓨터(not_found)는 빈 목록으로 읽고, 다른 실패는 지금 card를 그대로 둔다(job 읽기와 따로다)
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, "screen:waiting-mail-holds"]
       - id: forbidden
         code: forbidden
         when: 사람 자격이 아니다(agent·앱 자격), 다른 컴퓨터의 agent·앱 요청이다
@@ -614,6 +615,7 @@ flows:
       - Start now면 줄의 본문(받을 때 redaction을 거쳤다)을 이 자격으로 blob으로 준비한다
       - core 안 machine 자격으로 calls/mail-decide를 부른다. skip을 따를지는 누른 기기가 아니라 mail을 보낸 컴퓨터에 이 컴퓨터가 정하는 때 준 터미널 입력 허락으로 본다
       - 명령이 만료된 줄을 닫았으면 conflict로 답한다. 낸 state·실패 mail은 commit 뒤 drain이 보낸 기계로 낸다
+      - 화면의 card는 [Skip]과 [Start now]로 이 route를 그 줄의 컴퓨터로 부른다. conflict와 not_found는 오류가 아니라 "이미 정했거나 만료됐다"는 글이고 단추가 막힌다. 줄은 StateChanged(mail_holds) 뒤 목록을 다시 읽을 때 빠진다
     outcomes:
       - id: started
         observe: [ledger:mail_seen, ledger:sessions, ledger:agent_calls, ledger:mail_outbox, event:MessageReceived, event:StateChanged, response]
@@ -628,11 +630,11 @@ flows:
       - id: not-found
         code: not_found
         when: 그 기계의 그 mail이 대기 목록에 선 적이 없다, 보낸 컴퓨터가 명단에서 빠졌다(줄을 닫는다)
-        observe: [ledger:mail_seen, response]
+        observe: [ledger:mail_seen, response, "screen:waiting-mail-hold-expired"]
       - id: conflict
         code: conflict
         when: 이미 정했거나(시작, 건너뜀), 보낸 쪽이 그 사이 취소했거나, 만료로 닫혔다. 정하는 때 만료가 지났으면 그 줄을 expired로 닫고 실패 mail(expired)을 낸 뒤 conflict다
-        observe: [ledger:mail_seen, ledger:mail_outbox, response]
+        observe: [ledger:mail_seen, ledger:mail_outbox, response, "screen:waiting-mail-hold-expired"]
       - id: invalid-input
         code: invalid_input
         when: 입력이 schema에 맞지 않는다, 기기 연결에서 by가 틀렸다

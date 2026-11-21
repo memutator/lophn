@@ -7,6 +7,7 @@ import type { ActivationConsent } from "../../../../../protocol/apps/activation/
 import type { PhoneCapability } from "../../../../../protocol/apps/phone-request.ts";
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
 import type { JobAction } from "../../../../../protocol/jobs/values.ts";
+import type { MailHold } from "../../../../../protocol/lophn-agent/mail.ts";
 import {
   type AgentId,
   isLophn,
@@ -55,6 +56,8 @@ export interface CardView {
   /** 누가·어느 session·어느 앱 또는 project. */
   readonly meta: string;
   readonly age: string;
+  /** mail hold의 "Sent … · arrived … · expires …" 한 줄. 다른 항목은 빈 글이다. */
+  readonly times: string;
   /** 요청한 agent의 이름. 거절 이유가 간다. agent가 없으면 null이다. */
   readonly requester: string | null;
   /** 펼쳤을 때 보이는 줄. 없으면 펼침 토글도 없다. */
@@ -107,6 +110,7 @@ function metaOf(entry: WaitingEntry, names: InboxNames): string {
     entry.session === null
       ? ""
       : t("waiting.label.session", { id: shortId(entry.session) });
+  if (entry.kind === "mail_hold") return mailTo(entry.hold, names);
   // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다. 앱은 id 대신 이름이다.
   if (entry.kind === "activation") return entry.request.app_name;
   // 공유 요청은 그 앱 workspace의 agent가 청했다. session의 agent 이름은 요청에 없어 앱 이름을 보인다.
@@ -346,6 +350,40 @@ export function jobHoldNote(hold: JobHold, now = new Date()): string {
   });
 }
 
+/** 받을 곳 한 줄. project는 기계 사이 이름(`pri_`)이라 이 기계의 이름을 알 수 없어 짧은 id로 보인다. */
+function mailTo(hold: MailHold, names: InboxNames): string {
+  const to = hold.address;
+  if (!("workspace" in to)) {
+    return t("waiting.notice.mail-to-session", { id: shortId(to.session) });
+  }
+  const workspace =
+    "home" in to.workspace
+      ? t("left-sidebar.label.home")
+      : "app" in to.workspace
+        ? appText(to.workspace.app, names)
+        : t("waiting.label.workspace-project", {
+            id: shortId(to.workspace.project),
+          });
+  return t("waiting.notice.mail-to", { agent: to.agent, workspace });
+}
+
+const PREVIEW_CHARS = 240;
+
+/** 맡긴 글의 앞부분. 줄바꿈은 공백 하나로 접고, 길면 끝에 `…`이다(core가 이미 500자로 잘라 보낸다). */
+function mailPreview(text: string): string {
+  const one = text.replace(/\s+/g, " ").trim();
+  return one.length > PREVIEW_CHARS ? `${one.slice(0, PREVIEW_CHARS)}…` : one;
+}
+
+function mailTimes(hold: MailHold, now: Date): string {
+  const relative = (at: string) => formatRelativeTime(new Date(at), now);
+  return t("waiting.notice.mail-times", {
+    sent: relative(hold.sent_at),
+    arrived: relative(hold.arrived_at),
+    expires: relative(hold.expires_at),
+  });
+}
+
 const NO_LINES: readonly Line[] = [];
 
 export function cardOf(
@@ -358,6 +396,7 @@ export function cardOf(
     machine: entry.machineName,
     meta: metaOf(entry, names),
     age: formatRelativeTime(new Date(entry.receivedAt), now),
+    times: "",
     requester: requesterOf(entry),
     facts: [] as Fact[],
     factsPinned: false,
@@ -381,6 +420,16 @@ export function cardOf(
         ...base,
         title: entry.hold.job.title,
         description: jobActionText(entry.hold.job.action, names),
+      };
+    case "mail_hold":
+      return {
+        ...base,
+        title: t("waiting.title.mail-hold", {
+          name: entry.hold.from.name,
+          computer: entry.hold.computer,
+        }),
+        description: mailPreview(entry.hold.text),
+        times: mailTimes(entry.hold, now),
       };
     case "job_approval":
       return {

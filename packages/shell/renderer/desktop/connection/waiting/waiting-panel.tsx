@@ -15,6 +15,7 @@ import {
 import { ActivationCard } from "./cards/activation-card.tsx";
 import { JobApprovalCard } from "./cards/job-approval-card.tsx";
 import { JobHoldCard } from "./cards/job-hold-card.tsx";
+import { MailHoldCard } from "./cards/mail-hold-card.tsx";
 import type { OnDecide } from "./cards/decision.tsx";
 import {
   type DecideCardProps,
@@ -41,6 +42,7 @@ const GROUPS = [
   { title: "waiting.label.group-activation", kinds: ["activation"] },
   { title: "waiting.label.group-share", kinds: ["share"] },
   { title: "waiting.label.group-job", kinds: ["job_approval", "job_hold"] },
+  { title: "waiting.label.group-mail", kinds: ["mail_hold"] },
 ] as const;
 
 const SETTLED_MARK = {
@@ -267,6 +269,10 @@ export function WaitingPanel({
       case "job_hold":
         return (
           <JobHoldCard key={entry.key} entry={entry} view={view} core={core} />
+        );
+      case "mail_hold":
+        return (
+          <MailHoldCard key={entry.key} entry={entry} view={view} core={core} />
         );
       case "job_approval":
         return (

@@ -39,6 +39,11 @@ import {
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
 import {
+  mailDecideHold,
+  type MailHold,
+  mailHolds,
+} from "../../../../../protocol/lophn-agent/mail.ts";
+import {
   type AgentId,
   lophnIdOf,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
@@ -317,6 +322,68 @@ export const JOB_HOLD_BLOCKED = () => ({
   blocked: true as const,
 });
 
+function mailHold(
+  n: number,
+  more: Pick<MailHold, "computer" | "from" | "address" | "text"> & {
+    sentMinutesAgo: number;
+    arrivedMinutesAgo: number;
+    expiresInMinutes: number;
+  },
+): MailHold {
+  return {
+    origin: id("mch", n),
+    mail: id("mal", n),
+    computer: more.computer,
+    from: more.from,
+    address: more.address,
+    reply: "result",
+    text: more.text,
+    sent_at: ago(more.sentMinutesAgo),
+    arrived_at: ago(more.arrivedMinutesAgo),
+    expires_at: ago(-more.expiresInMinutes),
+  };
+}
+
+/** Windows 기계를 켜자 닿은 맡김: 몇 시간 전에 다른 컴퓨터의 agent가 build와 test를 맡겼다. */
+export const MAIL_HOLD_WINDOWS = (): MailHold =>
+  mailHold(41, {
+    computer: "MacBook Pro",
+    from: {
+      machine: id("mch", 41),
+      agent: "release-manager",
+      session: id("ses", 41),
+      name: "Release manager",
+    },
+    address: { agent: "windows-builder", workspace: { project: id("pri", 1) } },
+    text: "Build the Windows installer from main and run the full test suite. If a test fails, send me the failing test names and the first error of each.",
+    sentMinutesAgo: 14 * 60,
+    arrivedMinutesAgo: 6,
+    expiresInMinutes: 6 * 24 * 60 + 10 * 60,
+  });
+
+/** 만료가 가까운 맡김: 거의 이레 전에 보냈다. home의 lophn이 받는다. */
+export const MAIL_HOLD_EXPIRING = (): MailHold =>
+  mailHold(42, {
+    computer: "Home desktop",
+    from: {
+      machine: id("mch", 42),
+      agent: "bookkeeper",
+      session: null,
+      name: "Bookkeeper",
+    },
+    address: { agent: "lophn", workspace: { home: true } },
+    text: "Export last month's invoices as CSV and put the file in the shared folder.",
+    sentMinutesAgo: 6 * 24 * 60 + 20 * 60,
+    arrivedMinutesAgo: 95,
+    expiresInMinutes: 4 * 60,
+  });
+
+/** 정하려는 순간 만료된 맡김: [Start now]와 [Skip]이 conflict로 막힌다. */
+export const MAIL_HOLD_EXPIRED = () => ({
+  ...MAIL_HOLD_EXPIRING(),
+  expired: true as const,
+});
+
 const QUESTION_GROUP = id("qgr", 1);
 const QUESTION_TURN = id("trn", 31);
 const QUESTION_CALL = id("tcl", 31);
@@ -432,6 +499,8 @@ type Item =
   | ReturnType<typeof turnRequest>
   | ActivationConsent
   | JobHold
+  | MailHold
+  | ReturnType<typeof MAIL_HOLD_EXPIRED>
   | ReturnType<typeof JOB_HOLD_BLOCKED>
   | ReturnType<typeof JOB_APPROVAL_TOOL>
   | ShareRequest
@@ -444,6 +513,7 @@ export const allItems = (): readonly Item[] => [
   ACTIVATION(),
   JOB_APPROVAL_TOOL(),
   JOB_HOLD_AGENT(),
+  MAIL_HOLD_WINDOWS(),
   EPHEMERAL_NOTICE(),
   ...HISTORY_NOTICES(),
 ];
@@ -496,6 +566,8 @@ export function createFakeWaiting(
   const used: FakeSession[] = [];
   let consents: ActivationConsent[] = [];
   let holds: JobHold[] = [];
+  let mail: MailHold[] = [];
+  const expired = new Set<string>();
   let pending: JobRecord[] = [];
   let shares: ShareRequest[] = [];
   const blocked = new Set<string>();
@@ -547,6 +619,13 @@ export function createFakeWaiting(
       shares.push(item);
     } else if ("approval" in item) {
       pending.push(item.approval);
+    } else if ("origin" in item) {
+      // strict schema라 목록에는 표시 칸 없이 나간다.
+      const { expired: late, ...hold } = item as MailHold & {
+        expired?: true;
+      };
+      mail.push(hold);
+      if (late) expired.add(hold.mail);
     } else if ("job_run" in item) {
       holds.push(item);
       if ("blocked" in item) blocked.add(item.job_run.id);
@@ -794,6 +873,28 @@ export function createFakeWaiting(
           payload: { changes: [{ name: "jobs", id: hold.job.id }] },
         });
         return ok({ job_run: hold.job_run });
+      }
+      if (key === `memory:${mailHolds.resource}/${mailHolds.method}`) {
+        return ok({ holds: mail });
+      }
+      if (
+        key === `memory:${mailDecideHold.resource}/${mailDecideHold.method}`
+      ) {
+        const hold = mail.find((h) => h.mail === body.mail);
+        if (!hold) return fail("not_found");
+        if (expired.has(hold.mail)) return fail("conflict");
+        mail = mail.filter((h) => h !== hold);
+        emitEvent(base, {
+          type: "StateChanged",
+          subject: null,
+          at: at(),
+          payload: { changes: [{ name: "mail_holds", id: hold.mail }] },
+        });
+        return ok({
+          delivery: body.decision === "run_now" ? "running" : null,
+          reason: null,
+          session: null,
+        });
       }
       if (key === `memory:${askRead.resource}/${askRead.method}`) {
         return questionSession === null

@@ -23,6 +23,11 @@ import {
   jobPending,
 } from "../../../../../protocol/jobs/jobs.ts";
 
+import {
+  type MailHold,
+  mailHolds,
+} from "../../../../../protocol/lophn-agent/mail.ts";
+
 export async function readSessionSnapshots(
   core: CoreSource,
   sessions?: string[],
@@ -118,4 +123,25 @@ export async function readOpenNotices(
   if (!reply?.ok) return null;
   const parsed = noticesOpen.output.safeParse(reply.value);
   return parsed.success ? parsed.data.notices : null;
+}
+
+/**
+ * 늦게 닿은 mail의 대기 목록. 그 기계의 lophn이 이 route를 모르는 옛 판이면(not_found) 빈 목록이다.
+ * job 읽기와 묶지 않는다: 이쪽이 실패해도 job 항목은 맞춘다.
+ */
+export async function readMailHolds(
+  core: CoreSource,
+): Promise<MailHold[] | null> {
+  const reply = await core
+    .call({
+      kind: "memory",
+      resource: mailHolds.resource,
+      method: mailHolds.method,
+      body: {},
+    })
+    .catch(() => null);
+  if (reply?.ok === false && reply.error?.code === "not_found") return [];
+  if (!reply?.ok) return null;
+  const parsed = mailHolds.output.safeParse(reply.value);
+  return parsed.success ? parsed.data.holds : null;
 }

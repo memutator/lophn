@@ -104,6 +104,7 @@ export const data = {
   "waiting.label.group-permission": "Permission requests",
   "waiting.label.group-question": "Questions",
   "waiting.label.group-job": "Jobs",
+  "waiting.label.group-mail": "Mail from other computers",
   "waiting.label.group-share": "App sharing",
   "waiting.label.share-coding": "coding agents in terminals",
   "waiting.label.filter-all-apps": "All apps",
@@ -188,6 +189,12 @@ export const data = {
   "waiting.notice.job-missed":
     "{count, plural, one {Missed once} other {Missed # times}}. The last turn was due {due}.",
   "waiting.notice.job-tool": "Uses {tool} in {app}.",
+  "waiting.notice.mail-conflict":
+    "This mail was already decided or has expired.",
+  "waiting.notice.mail-times":
+    "Sent {sent} · arrived {arrived} · expires {expires}",
+  "waiting.notice.mail-to": "To {agent} in {workspace}",
+  "waiting.notice.mail-to-session": "To session {id}",
   "waiting.notice.job-workflow": "Starts workflow {workflow}.",
   "waiting.notice.mcp-tool": "Uses {target}, a tool on an outside server.",
   "waiting.notice.shell": "Runs the command shown below.",
@@ -214,6 +221,7 @@ export const data = {
   "waiting.toast-restart-halted.body":
     "{app} kept crashing, so lophn stopped restarting it.",
   "waiting.toast-restart-halted.title": "App restart halted",
+  "waiting.title.mail-hold": "{name} on {computer}",
   "waiting.title.share": "Share {app} with other agents",
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.tool": "Use {tool} in {app}",

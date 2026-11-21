@@ -12,6 +12,7 @@ import {
   jobApprove,
   jobDecideHold,
 } from "../../../../../protocol/jobs/jobs.ts";
+import { mailDecideHold } from "../../../../../protocol/lophn-agent/mail.ts";
 import {
   type AskAnswer,
   askAnswer,
@@ -168,6 +169,36 @@ export async function decideJobHold(
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return jobDecideHold.output.safeParse(reply.value).success
+    ? { ok: true }
+    : UNAVAILABLE;
+}
+
+/**
+ * 늦게 닿은 다른 컴퓨터의 mail을 정한다. 항목은 `mail_holds` 변경 뒤 다시 읽을 때 빠진다. 이미 정했거나 만료됐으면 conflict,
+ * 없으면 not_found다(둘 다 "이미 처리됨"이다).
+ */
+export async function decideMailHold(
+  core: CoreSource,
+  entry: WaitingEntry & { kind: "mail_hold" },
+  choice: "run_now" | "skip",
+): Promise<
+  { readonly ok: true } | { readonly ok: false; readonly code: string }
+> {
+  const reply = await core
+    .call({
+      kind: "memory",
+      resource: mailDecideHold.resource,
+      method: mailDecideHold.method,
+      body: {
+        origin: entry.hold.origin,
+        mail: entry.hold.mail,
+        decision: choice,
+      },
+    })
+    .catch(() => null);
+  if (!reply) return UNAVAILABLE;
+  if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
+  return mailDecideHold.output.safeParse(reply.value).success
     ? { ok: true }
     : UNAVAILABLE;
 }

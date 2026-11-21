@@ -10,6 +10,8 @@ import {
   WaitingFirstActivation,
   WaitingJobApproval,
   WaitingJobHoldConflict,
+  WaitingMailHoldExpired,
+  WaitingMailHolds,
   WaitingJobHoldKinds,
   WaitingJobHolds,
   WaitingList,
@@ -108,6 +110,20 @@ export const questionsArea: Area = {
       description:
         "앞 차례가 아직 돌아 [Start now]를 누르면 막힌 상태다(Weekly review). card는 남고 사유 글이 단추 위에 보이며 [Skip]은 쓸 수 있다.",
       render: () => <WaitingJobHoldConflict />,
+    },
+    {
+      id: "waiting-mail-holds",
+      title: "Waiting · late mail",
+      description:
+        '다른 컴퓨터의 agent가 이 컴퓨터가 꺼진 사이 맡긴 일이 "Mail from other computers" 묶음의 card로 선다. 보낸 agent와 컴퓨터 이름, 이 컴퓨터의 어느 agent와 workspace가 받는지, 보낸·닿은·만료 시각, 글의 앞부분이 보이고 단추는 오른쪽 끝에 [Skip], [Start now]다. 둘째 card는 만료가 가깝다.',
+      render: () => <WaitingMailHolds />,
+    },
+    {
+      id: "waiting-mail-hold-expired",
+      title: "Waiting · late mail expired",
+      description:
+        '정하려는 사이 이미 만료된 mail이다. [Start now]를 누르면 card가 남고 "이미 정했거나 만료됐다"는 글이 단추 위에 서며 단추는 막힌다. 오류로 보이지 않는다.',
+      render: () => <WaitingMailHoldExpired />,
     },
     {
       id: "new-waiting-toasts",

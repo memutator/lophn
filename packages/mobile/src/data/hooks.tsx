@@ -63,6 +63,7 @@ import {
   answerQuestion,
   decideJobApproval,
   decideJobHold,
+  decideMailHold,
   decideShare,
   decideWaiting,
   dismissNotice,
@@ -459,6 +460,11 @@ export interface Inbox extends WaitingState {
     entry: WaitingEntry & { kind: "job_hold" },
     choice: "run_now" | "skip",
   ): Promise<Done>;
+  /** Mail that came late from another computer: run it now or skip it. */
+  mailHold(
+    entry: WaitingEntry & { kind: "mail_hold" },
+    choice: "run_now" | "skip",
+  ): Promise<Done>;
   jobApproval(
     entry: WaitingEntry & { kind: "job_approval" },
     choice: "approve" | "reject",
@@ -483,6 +489,7 @@ export function useInbox(): Inbox {
       questions: (entry) => readQuestions(core, entry),
       answer: (entry, answers) => answerQuestion(core, entry, answers),
       jobHold: (entry, choice) => decideJobHold(core, entry, choice),
+      mailHold: (entry, choice) => decideMailHold(core, entry, choice),
       jobApproval: (entry, choice) => decideJobApproval(core, entry, choice),
       share: (entry, choice) => decideShare(core, entry, choice),
       dismiss: (notice) => dismissNotice(core, notice),

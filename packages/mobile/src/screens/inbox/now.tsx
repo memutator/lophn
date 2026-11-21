@@ -36,6 +36,7 @@ const GROUPS = [
   { title: "waiting.label.group-activation", kinds: ["activation"] },
   { title: "waiting.label.group-share", kinds: ["share"] },
   { title: "waiting.label.group-job", kinds: ["job_approval", "job_hold"] },
+  { title: "waiting.label.group-mail", kinds: ["mail_hold"] },
 ] as const;
 
 type Names = ReturnType<typeof useNames>;
@@ -98,6 +99,8 @@ function EntryItem({ entry, ...shared }: { entry: WaitingEntry } & Shared) {
       return <ShareItem entry={entry} {...shared} />;
     case "job_hold":
       return <JobHoldItem entry={entry} {...shared} />;
+    case "mail_hold":
+      return <MailHoldItem entry={entry} {...shared} />;
     case "job_approval":
       return <JobApprovalItem entry={entry} {...shared} />;
   }
@@ -399,6 +402,44 @@ function JobHoldItem({
       age={ago(entry.receivedAt, Date.now())}
       text={jobHoldNote(entry.hold)}
       meta={view.description}
+      error={answering.error}
+    >
+      <Buttons>
+        <Button size="sm" disabled={disabled} onPress={() => answer("skip")}>
+          {t("waiting.button.skip")}
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          icon={Play}
+          disabled={disabled}
+          onPress={() => answer("run_now")}
+        >
+          {t("waiting.button.start-now")}
+        </Button>
+      </Buttons>
+    </Item>
+  );
+}
+
+function MailHoldItem({
+  entry,
+  inbox,
+  names,
+  locked,
+}: { entry: Kind<"mail_hold"> } & Shared) {
+  const view = cardOf(entry, names);
+  const answering = useAnswering();
+  const answer = (choice: "run_now" | "skip") =>
+    answering.send(() => inbox.mailHold(entry, choice));
+  const disabled = locked || answering.busy;
+  return (
+    <Item
+      face={<Asker agent={null} />}
+      title={view.title}
+      age={ago(entry.receivedAt, Date.now())}
+      text={view.description}
+      meta={`${view.meta}\n${view.times}`}
       error={answering.error}
     >
       <Buttons>

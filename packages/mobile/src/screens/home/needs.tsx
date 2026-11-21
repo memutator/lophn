@@ -32,6 +32,7 @@ const GROUP: Record<WaitingEntry["kind"], number> = {
   share: 3,
   job_approval: 4,
   job_hold: 4,
+  mail_hold: 5,
 };
 
 /** One thing waiting, with the computer it waits on. */

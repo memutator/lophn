@@ -16,6 +16,9 @@ import {
   JOB_APPROVAL_TOOL,
   JOB_HOLD_TOOL,
   JOB_HOLD_WORKFLOW,
+  MAIL_HOLD_EXPIRED,
+  MAIL_HOLD_EXPIRING,
+  MAIL_HOLD_WINDOWS,
   SETTLED,
   SHARE_REQUEST,
   SHELL_COMMAND,
@@ -244,6 +247,31 @@ export const WaitingJobHoldConflict = () => {
       initial={{ open: true }}
       steps={[
         () => click(`[data-job-hold="${blocked.job_run.id}"] [data-start-now]`),
+      ]}
+    />
+  );
+};
+
+/** 늦게 온 mail: 다른 컴퓨터의 agent가 이 컴퓨터가 꺼진 사이 맡긴 일이 "Mail from other computers" 묶음으로 선다. 누가(agent와 컴퓨터 이름), 이 컴퓨터의 어느 agent와 workspace에게, 언제 보내 언제 닿았고 언제 만료되는지, 글의 앞부분이 보이고 단추는 오른쪽 끝에 [Skip], [Start now]이다. 만료가 가까운 것이 둘째 줄이다. */
+export const WaitingMailHolds = () => (
+  <Over
+    items={[SHELL_COMMAND(), MAIL_HOLD_WINDOWS(), MAIL_HOLD_EXPIRING()]}
+    initial={{ open: true }}
+  />
+);
+
+/** 정하려는 순간 이미 만료된 mail: [Start now]를 누르면 card가 남고 "이미 정했거나 만료됐다"는 글이 단추 위에 보이며 단추는 막힌다. 오류로 보이지 않는다. */
+export const WaitingMailHoldExpired = () => {
+  const expired = MAIL_HOLD_EXPIRED();
+  return (
+    <Over
+      items={[MAIL_HOLD_WINDOWS(), expired]}
+      initial={{ open: true }}
+      steps={[
+        () =>
+          click(
+            `[data-mail-hold="${expired.origin}:${expired.mail}"] [data-start-now]`,
+          ),
       ]}
     />
   );

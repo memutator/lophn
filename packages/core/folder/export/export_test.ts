@@ -505,6 +505,7 @@ async function realExport(
   base: string,
   plan: SyncPlan,
   sentOf: (release: string) => TableFilter,
+  horizons: { machine: Id<"mch">; horizon: string }[] = [],
 ) {
   const ledger = join(base, "ledger.sqlite");
   const clock = manualClock(Date.parse("2026-11-16T00:00:00.000Z"));
@@ -616,7 +617,7 @@ async function realExport(
       lophn: { version: "0.23.0", protocol: { version: 2, min_version: 2 } },
     }),
     readsCaughtUp: () => true,
-    peerHorizons: () => [],
+    peerHorizons: () => horizons,
     sql,
     transaction,
     clock,
@@ -636,7 +637,13 @@ async function realExport(
     return bytes;
   };
   const inv = (id: string, release: string = REL) =>
-    ({ id, app: APP, release, effect: "write" }) as unknown as AppInvocation;
+    ({
+      id,
+      app: APP,
+      release,
+      effect: "write",
+      caller: null,
+    }) as unknown as AppInvocation;
   return {
     log,
     changeset,
@@ -783,6 +790,34 @@ test("내보내기는 log 줄마다 그 줄의 release가 보내는 표로 거�
     // release마다 file이 나뉜다.
     assert.deepEqual(await e.exported(2), [["1", ["item"]]]);
     assert.deepEqual(await e.exported(3), [["2", ["item", "cache"]]]);
+  } finally {
+    e.close();
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// 지우면 폰 앱이 다른 기계의 horizon 밖에 있을 때 이 기계에만 있는 표만 바꾼 줄이 held가 되어, 폴더로 갈 것도 없는데 사람에게
+// 보이고 snapshot을 막는다(away_too_long).
+test("horizon 밖에서도 보내는 표가 없는 줄은 held로 붙들지 않고 snapshot이 나간다", async () => {
+  const base = await mkdtemp(join(tmpdir(), "lophn-folder-sent-held-"));
+  const plan = syncPlanOf({
+    runs_on: ["computer", "phone"],
+    sync: { item: "personal" },
+  });
+  const horizons: { machine: Id<"mch">; horizon: string }[] = [];
+  const e = await realExport(base, plan, () => sentTables(plan), horizons);
+  try {
+    await e.run();
+    // 결과를 모르는 write: '다시 snapshot' 줄. 그 뒤에 이 기계에만 있는 표만 바꾼 write.
+    await e.log.unknown(e.inv("inv_1"));
+    await e.log.written(
+      e.inv("inv_2"),
+      "100",
+      e.changeset("insert into cache values ('c', 'local')"),
+    );
+    horizons.push({ machine: PEER_A, horizon: "1000" });
+    await e.run();
+    assert.deepEqual(e.log.heldList(APP), []);
   } finally {
     e.close();
     await rm(base, { recursive: true, force: true });

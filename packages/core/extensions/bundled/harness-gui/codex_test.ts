@@ -39,6 +39,7 @@ async function boot(
     config?: Record<string, unknown>;
     resume?: string;
     unsaved?: boolean;
+    member?: { deny: readonly string[] };
   } = {},
 ) {
   const written: Wire[] = [];
@@ -79,6 +80,7 @@ async function boot(
     terminal: null,
     cwd: "/work/startup",
     ...(options.resume === undefined ? {} : { resume: options.resume }),
+    ...(options.member === undefined ? {} : { member: options.member }),
     session,
     spawn: () => proc,
     clock,
@@ -736,4 +738,68 @@ test("app-server가 initialize에 답하지 않으면 30초 뒤 start가 unavail
   } finally {
     mock.timers.reset();
   }
+});
+
+// 팀원 탭의 `!`는 사람이 친 명령이라 turn 자격 file 없이 돈다. 줄에는 사람이 친 명령만 보이고, 떼는 것은 사람 shell 줄의 맨 앞뿐이다.
+test("a member tab's `!` runs without the turn credential file, and only a person shell line's leading unset is hidden", async () => {
+  const { t } = await boot({ member: { deny: [] } });
+  const thread = t.state.session?.cli_session;
+  const item = (id: string, source: string, command: string) =>
+    ({
+      method: "item/started",
+      params: {
+        threadId: thread,
+        turnId: "turn-x",
+        item: {
+          type: "commandExecution",
+          id,
+          command,
+          cwd: "/work/startup",
+          source,
+          status: "inProgress",
+          commandActions: [],
+          aggregatedOutput: null,
+          exitCode: null,
+        },
+      },
+    }) as Wire;
+  // 다시 그리는 사람 shell(우리가 보낸 글이 없다)과 agent 자신의 명령.
+  await t.push(
+    item(
+      "u1",
+      "userShell",
+      "/bin/bash -lc 'unset LOPHN_AGENT_CREDENTIAL_FILE; ls'",
+    ),
+  );
+  await t.push(
+    item("a1", "agent", "unset LOPHN_AGENT_CREDENTIAL_FILE; echo hi"),
+  );
+  await t.push(
+    item("u2", "userShell", "echo x; unset LOPHN_AGENT_CREDENTIAL_FILE; ls"),
+  );
+  const titles = tools(t.state).map((one) => one.title);
+  assert.deepEqual(titles, [
+    "/bin/bash -lc 'ls'",
+    "shell unset LOPHN_AGENT_CREDENTIAL_FILE; echo hi",
+    "echo x; unset LOPHN_AGENT_CREDENTIAL_FILE; ls",
+  ]);
+  await t.input({
+    type: "send",
+    id: "msg_s1",
+    key: "msg_s1",
+    content: [
+      { type: "text", text: "!lophn tab open --url https://example.com" },
+    ],
+    delivery: "next_turn",
+  });
+  assert.deepEqual(
+    requested(t.written, "thread/shellCommand").map((one) => one.params),
+    [
+      {
+        threadId: thread,
+        command:
+          "unset LOPHN_AGENT_CREDENTIAL_FILE; lophn tab open --url https://example.com",
+      },
+    ],
+  );
 });

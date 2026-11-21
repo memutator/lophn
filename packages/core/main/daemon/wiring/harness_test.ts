@@ -15,6 +15,8 @@ import { harnessOperations } from "../../../agent-workspaces/credentials.ts";
 import { harnessExtensionSetting } from "../../../config/mod.ts";
 import { HARNESS_QUEUE_PUT_TOPIC } from "../../../lophn-agent/session/mod.ts";
 import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
+import { installWorkspaceEnvironment } from "../../../lophn-agent/workspaces/environment.ts";
+import { UNWIRED_WORKSPACE_DEPS } from "../../../lophn-agent/workspaces/unwired.ts";
 import { CredentialRegistry } from "../../../server/identity/registry.ts";
 import type { HarnessMembers } from "../../../terminal-agents/member.ts";
 import { harnessWiring } from "./harness.ts";
@@ -24,6 +26,7 @@ const id = (prefix: string, n: number) =>
 const HEADLESS = id("ses", 1);
 const MEMBER = id("ses", 2);
 const PROJECT_MEMBER = id("ses", 3);
+const PROJECT_HEADLESS = id("ses", 4);
 const PROJECT = id("prj", 1);
 const PERSON = {
   principal: "user",
@@ -42,7 +45,8 @@ async function setup() {
     insert into sessions (id, agent, harness, harness_gui, harness_session, project, workspace_kind, workspace_id, lifecycle, created_seq, state_seq)
       values ('${HEADLESS}', 'coding_claude', 'claude-code', 0, null, null, null, null, 'open', 1, 1),
              ('${MEMBER}', 'coding_omp', 'omp', 1, 'cli-m', null, null, null, 'open', 2, 2),
-             ('${PROJECT_MEMBER}', 'coding_claude', 'claude-code', 1, 'cli-p', '${PROJECT}', 'project', '${PROJECT}', 'open', 3, 3);
+             ('${PROJECT_MEMBER}', 'coding_claude', 'claude-code', 1, 'cli-p', '${PROJECT}', 'project', '${PROJECT}', 'open', 3, 3),
+             ('${PROJECT_HEADLESS}', 'coding_claude', 'claude-code', 0, 'cli-h', '${PROJECT}', 'project', '${PROJECT}', 'open', 4, 4);
   `);
   db.close();
 
@@ -64,8 +68,15 @@ async function setup() {
   });
   const commands: string[] = [];
   const provided = new Map<string, unknown>();
-  const command = async (_who: unknown, envelope: { command: string }) => {
+  const archived: string[] = [];
+  const command = async (
+    _who: unknown,
+    envelope: { command: string; input: { session?: string } },
+  ) => {
     commands.push(envelope.command);
+    if (envelope.command === "ArchiveSession") {
+      archived.push(String(envelope.input.session));
+    }
     return ok({ replayed: false, after_commit: [] });
   };
   const ctx = {
@@ -141,6 +152,7 @@ async function setup() {
     members,
     registry,
     commands,
+    archived,
     put,
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
@@ -212,6 +224,50 @@ test("a member turn's credential is scoped to that session and its project, and 
     );
     const headless = await kit.members.credential(HEADLESS);
     assert.ok(!headless.ok && headless.error.code === "forbidden");
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// core가 탭을 열 팀원은 GUI 탭 팀원뿐이고(headless session으로 탭을 열지 않는다), 사람이 coding session을 지우면 그 팀원만 보관한다.
+test("only a GUI member is described for opening a tab, and forgetting a coding session archives only its member, for a person only", async () => {
+  const kit = await setup();
+  try {
+    // project가 있다고 읽히게 한다(core에서는 wiring이 놓는다).
+    installWorkspaceEnvironment({
+      deps: () => ({
+        ...UNWIRED_WORKSPACE_DEPS,
+        projects: {
+          project: (id) => ({ id, archived: false }) as never,
+          projectByName: () => null,
+        },
+      }),
+    });
+    assert.equal(kit.members.describe(PROJECT_HEADLESS), null);
+    assert.equal(kit.members.describe(MEMBER), null, "no project to open in");
+    assert.deepEqual(kit.members.describe(PROJECT_MEMBER), {
+      project: PROJECT,
+      harness: "claude-code",
+      cli_session: "cli-p",
+      team: false,
+    });
+    const agent = {
+      ...PERSON,
+      actor: "agent:ses_1",
+    } as unknown as AuthenticatedContext;
+    const refused = await kit.members.forget(agent, {
+      project: PROJECT,
+      harness: "claude-code",
+      cli_session: "cli-p",
+    });
+    assert.ok(!refused.ok && refused.error.code === "forbidden");
+    const forgot = await kit.members.forget(PERSON, {
+      project: PROJECT,
+      harness: "claude-code",
+      cli_session: "cli-p",
+    });
+    assert.deepEqual(forgot, ok(1));
+    assert.deepEqual(kit.archived, [PROJECT_MEMBER]);
   } finally {
     kit.cleanup();
   }

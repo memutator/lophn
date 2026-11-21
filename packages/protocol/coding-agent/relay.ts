@@ -176,6 +176,23 @@ export const codingSessionsRewindPreview = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
+// 사람이 사이드바 Recent에서 터미널 coding session 줄을 지웠다. 그 project·harness·CLI session의 lophn 팀원 session(GUI 탭이 팀원이었다)을
+// 보관해 더는 부를 수 없게 한다. 팀원이 없으면 `archived: 0`이다. 터미널과 그 CLI의 대화는 그대로다.
+export const codingSessionsForget = defineMemory({
+  resource: "coding_sessions",
+  method: "forget",
+  name: "CodingSessionsForget",
+  changes: ["sessions"],
+  input: z.strictObject({
+    project: idSchema("prj"),
+    harness: z.string().min(1).max(64),
+    cli_session: z.string().min(1).max(256),
+  }),
+  output: z.strictObject({ archived: z.number().int().nonnegative() }),
+  actors: ["user"],
+  errors,
+});
+
 export const CODING_RELAY_ROUTES = [
   codingSessionsList,
   codingSessionsSwitchPlan,
@@ -183,4 +200,5 @@ export const CODING_RELAY_ROUTES = [
   codingSessionsOpen,
   codingSessionsCliSessions,
   codingSessionsRewindPreview,
+  codingSessionsForget,
 ] as const;

@@ -39,6 +39,7 @@ import {
 import type { HarnessId } from "../../../../protocol/coding-agent/harnesses.ts";
 import {
   codingSessionsCliSessions,
+  codingSessionsForget,
   codingSessionsList,
   codingSessionsOpen,
   codingSessionsRewindPreview,
@@ -58,6 +59,7 @@ import {
   terminalsSavedSessions,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
+import { isGuiHarness } from "../../../../protocol/extensions/acp-session.ts";
 import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
 import { teamRead } from "../../../../protocol/lophn-agent/team.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -71,6 +73,7 @@ import {
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
+import { RUNTIME_OF_GUI } from "../../../terminal-agents/member.ts";
 import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
 import { bytesFileStream } from "../../../server/mod.ts";
 import {
@@ -718,6 +721,25 @@ export const terminalAgentsWiring: WiringFactory = () => {
               coding.switch(
                 input as { session: string; to: "gui" | "tui"; key: string },
               ),
+          ],
+          [
+            key(codingSessionsForget),
+            async (who, input) => {
+              const body = codingSessionsForget.input.parse(input);
+              const members = ctx.peek.harnessMembers;
+              if (!isGuiHarness(body.harness) || members === undefined) {
+                return err({
+                  code: "invalid_input",
+                  message: "not a chat coding agent",
+                });
+              }
+              const archived = await members.forget(who, {
+                project: body.project,
+                harness: RUNTIME_OF_GUI[body.harness],
+                cli_session: body.cli_session,
+              });
+              return archived.ok ? ok({ archived: archived.value }) : archived;
+            },
           ],
           [
             key(codingSessionsOpen),

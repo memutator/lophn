@@ -738,11 +738,11 @@ files:
     note: "core 쪽 GUI handle. lophn-gui 요청은 그 key의 터미널에만 handle을 연다(모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시). GUI 전환은 창 없이 GUI로 남고, TUI를 끄지 못하면 handle을 닫아 failed이며 PTY에 아무것도 치지 않는다. 내는 snapshot·갱신에는 tool 본문이 없고 본문 read는 그 tool의 것만 준다. 그림은 그 터미널의 임시 폴더 바로 아래에만 쓰이고 읽힌다"
 
   - path: packages/core/terminal-agents/member_test.ts
-    covers: [gui-member-call:turn-credential, gui-member-call:delivered, gui-member-call:replied, gui-member-call:fails-back, gui-member-call:waits, gui-member-call:tab-opened]
+    covers: [gui-member-call:turn-credential, gui-member-call:delivered, gui-member-call:replied, gui-member-call:fails-back, gui-member-call:waits, gui-member-call:tab-opened, gui-member-call:tab-closed]
     note: "GUI 탭 팀원의 turn 자격은 그 turn 동안만 0700 폴더의 0600 file에 있고 turn이 끝나거나 터미널이 끝나면 file이 지워지고 자격이 거절된다(늦게 온 자격도). 다음 turn은 다른 자격이다. 사람 글이 turn을 기다리는 동안 call은 넣지 않고, call의 답은 그 입력을 가져간 turn의 마지막 글뿐이다. 멈추거나 실패하거나 turn이 열리지 않은 call은 보낸 쪽에 실패로 돌아간다"
 
   - path: packages/core/main/daemon/wiring/harness_test.ts
-    covers: [harness-take:input, harness-turn-start:conflict, gui-member-call:headless-skips, gui-member-call:bound, gui-member-call:turn-credential]
+    covers: [harness-take:input, harness-turn-start:conflict, gui-member-call:headless-skips, gui-member-call:bound, gui-member-call:turn-credential, coding-session-forget:archived, coding-session-forget:forbidden]
     note: "harness wiring을 임시 ledger로 세운다. headless take·start_turn은 팀원 입력을 가져가지 않고, GUI 연결은 headless session의 queue를 보지도 꺼내지도 못하며, 다른 탭이 쥔 팀원을 잇지 않는다. 팀원 turn 자격은 그 session과 그 project 조건에 묶인다"
 
   - path: packages/core/terminal-agents/session-store_test.ts

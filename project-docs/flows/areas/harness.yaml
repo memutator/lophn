@@ -302,6 +302,35 @@ flows:
     refs: [P6]
     docs: [architecture/agent-call.md]
 
+  - id: coding-session-forget
+    title: 사람이 사이드바 Recent에서 터미널 coding session을 지우면 그 GUI 탭 팀원을 보관한다
+    actor: person
+    entries: [route:coding_sessions/forget]
+    uses: [route:sessions/archive]
+    boundary: [harness-host-core, agent-sessions]
+    code:
+      - packages/protocol/coding-agent/relay.ts
+      - packages/core/main/daemon/wiring/terminal-agents.ts
+      - packages/core/main/daemon/wiring/harness.ts
+    steps:
+      - "사람 자격만 부른다. harness가 GUI harness가 아니면 invalid_input"
+      - "그 project·harness·CLI session의 열린 팀원 session을 찾아 사람 자격으로 ArchiveSession(stop_turn)을 부른다. 받은 열린 call은 archive가 receiver_ended로 닫는다"
+      - "보관한 수를 돌려준다. 팀원이 없으면 0이다. 터미널과 그 CLI의 대화는 그대로다"
+    outcomes:
+      - id: archived
+        observe: [ledger:sessions, response]
+      - id: invalid-input
+        code: invalid_input
+        when: "harness가 GUI harness가 아니다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격이 아니다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/harness-gui.md]
+
   - id: gui-member-call
     title: project 터미널의 GUI 탭이 lophn 팀원 session으로 call을 받고 마지막 글로 답한다
     actor: system
@@ -315,8 +344,8 @@ flows:
       - packages/core/main/daemon/wiring/terminal-agents.ts
     steps:
       - "project 터미널의 GUI handle이 CLI session id를 알리면 같은 project·harness·CLI session의 열린 팀원 session을 잇거나(resume한 새 탭) harness-member-open으로 연다. id가 바뀌면 bind_session으로 적는다. 묶음은 core 메모리이고 터미널이 끝나면 푼다"
-      - "팀원 session으로 온 call·reply·알림은 harness queue에 선다. 탭의 turn이 쉬고 줄 선 메시지도 turn을 기다리는 사람·받은 메시지도 없을 때만 하나를 꺼내 StartTurn을 쓰고 ACP send로 넣는다. ledger turn은 그 입력의 message id를 가져간 ACP turn에만 묶고 그때 그 turn의 자격을 credential file에 쓴다. 30초(사람 turn이 도는 동안은 다시 잰다) 안에 turn이 열리지 않으면 닫는다. restart 탭이 TUI를 보이는 동안은 handle이 없어 기다린다"
-      - "묶인 탭이 없는 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 `<cli> --gui --resume <CLI session>`(없으면 `--resume` 없이 새로)을 치고 그 터미널의 GUI가 서면 그 팀원으로 묶는다. project에서 부른 내장 coding agent(call, team spawn)는 이렇게 새 팀원으로 열린다. 열지 못하거나 60초 안에 GUI가 서지 않으면 기다리던 call을 실패로 돌려준다. 묶인 탭이 TUI를 보이는 동안은 새로 열지 않고 기다린다"
+      - "팀원 session으로 온 call·reply·알림은 harness queue에 선다. 탭의 turn이 쉬고 줄 선 메시지도 turn을 기다리는 사람·받은 메시지도 없을 때만 하나를 꺼내 StartTurn을 쓰고 ACP send로 넣는다. ledger turn을 연 뒤에도 쉬는지 다시 본다. ledger turn은 그 입력이 첫 사람·받은 메시지인 ACP turn에만 묶고 그때 그 turn의 자격을 credential file에 쓴다(그 turn 중 사람의 steer는 그대로 call의 turn이다). 사람 메시지가 연 turn이 그 입력을 가져갔으면(줄에서 묶였다) 그 turn의 글은 답이 아니고 ledger에 아무것도 남기지 않는다. 30초(사람 turn이 도는 동안은 다시 잰다) 안에 turn이 열리지 않으면 adapter 줄에서 빼고 닫는다. restart 탭이 TUI를 보이는 동안은 handle이 없어 기다린다"
+      - "묶인 탭이 없는 팀원에게 입력이 오면(탭이 닫혔는데 queue에 남은 것 포함) 사람이 coding agent를 lophn이 돌리게 켰을 때만(extensions.harness.enabled) core가 그 project에 터미널을 열어 `<cli> --gui --resume <CLI session>`(없으면 `--resume` 없이 새로)을 치고 그 터미널의 GUI가 서면 그 팀원으로 묶는다. project에서 부른 내장 coding agent(call, team spawn)도 그 설정이 켜졌을 때만 새 팀원으로 열린다(꺼져 있으면 unavailable). core가 연 터미널은 project마다 8개까지이고, 그 call을 받은 turn이 끝나고 queue가 비면 닫는다(team spawn 팀원과 사람이 쓴 탭은 둔다). 설정이 꺼졌거나 상한에 찼거나 열지 못하거나 60초 안에 GUI가 서지 않거나 GUI 전에 터미널이 끝나면 기다리던 call을 실패로 돌려준다. 늦은 터미널은 끝날 때까지 그 팀원의 것이라 둘째 탭을 열지 않는다. 묶인 탭이 TUI를 보이는 동안은 새로 열지 않고 기다린다"
       - "사람이 탭에서 친 turn은 ledger turn 없이 그 turn의 자격만 내 credential file에 쓴다. 사람이 친 글은 ledger에 옮기지 않는다"
       - "turn이 끝나면 credential file을 지우고 자격을 끝낸다. 넣은 입력이 call이고 completed면 그 turn의 마지막 agent 글을 messages/record로 남기고 turns/finish로 닫는다. 답은 custom-call-reply가 보낸다"
       - "팀원 session은 화면의 session 목록·snapshot·event와 앱의 session 목록에 서지 않고 Agent 탭으로도 열리지 않는다(터미널 탭이 자리다). agent의 session list와 team read에는 탭의 상태와 제목으로 서고, 묶인 탭이 없으면 idle이다"
@@ -338,10 +367,13 @@ flows:
         when: "팀원 session의 queue는 headless host의 take·start_turn이 가져가지 않는다(그 탭만 가져간다). 표시는 열 때 정해 바뀌지 않는다"
       - id: tab-opened
         observe: [request:shell-host, process:cli-gui]
-        when: "묶인 탭이 없는 팀원에게 입력이 와 core가 그 project에 터미널을 열고 GUI로 띄웠다"
+        when: "묶인 탭이 없는 팀원에게 입력이 와 core가 그 project에 터미널을 열고 GUI로 띄웠다(설정이 켜졌고 상한 안이다)"
+      - id: tab-closed
+        observe: [process:cli-gui]
+        when: "core가 연 탭이 받은 call의 turn을 끝냈고 queue가 비었다. team spawn 팀원이 아니고 사람이 그 탭을 쓰지 않았으면 core가 터미널을 닫는다. session은 남는다"
       - id: fails-back
         observe: [ledger:agent_calls, event:MessageReceived]
-        when: "result call을 가져간 turn이 답 글 없이 끝났다(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환, 한도 안에 turn이 열리지 않음, 빈 글), 또는 탭을 열지 못했다. ledger turn은 failed로 닫고 harness/fail_call이 call을 receiver_ended로 닫아 보낸 쪽에 알린다"
+        when: "result call을 가져간 turn이 답 글 없이 끝났거나 사람 메시지가 연 turn이 가져갔다(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환, 한도 안에 turn이 열리지 않음, 빈 글), 또는 탭을 열 수 없었다(설정 꺼짐, project 상한, 열기 실패, GUI가 서지 않음). ledger turn은 failed로 닫고 harness/fail_call이 call을 receiver_ended로 닫아 보낸 쪽에 알린다"
       - id: waits
         observe: [ledger:agent_calls]
         when: "탭의 turn이 돌거나 줄이 있거나, restart 탭이 TUI를 보이거나, 탭이 닫혔다. 입력은 queue에 남는다"

@@ -252,6 +252,14 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       Promise.resolve(
         err({ code: "unavailable", message: "tabs cannot be opened yet" }),
       ),
+    closeTerminal(ref) {
+      const runtime = alive(ref);
+      if (runtime === undefined) return;
+      void terminals.close(ref, runtime.generation).then((done) => {
+        if (!done.ok)
+          deps.log(`gui member: tab not closed: ${done.error.message}`);
+      });
+    },
     projectOf: (ref) => {
       const where = project(ref);
       return where?.startsWith("prj_") === true ? where : null;
@@ -362,7 +370,10 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         return;
       tracker.foreground(change.terminal_ref, change.argv);
     }),
-    terminals.onHumanInput((ref, text) => tracker.humanInput(ref, text)),
+    terminals.onHumanInput((ref, text) => {
+      members.humanInput(ref);
+      tracker.humanInput(ref, text);
+    }),
     terminals.onRuntime((runtime) => {
       gui.terminalChanged(runtime);
       if (runtime.state === "exited" || runtime.state === "unknown") {

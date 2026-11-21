@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../base/mod.ts";
@@ -481,46 +484,78 @@ test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자�
   assert.deepStrictEqual(open(), 2);
 });
 
-// project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원이 된다(headless host가 가져가지 않고 core가 탭을 연다).
-test("a coding agent called into a project opens as a GUI tab member", () => {
-  const { sql, tx } = store();
-  const coding = {
-    ...deps,
-    agents: {
-      ...deps.agents,
-      agent: (id: string) =>
-        id === "coding_claude"
-          ? {
-              id: "coding_claude" as never,
-              handle: "claude",
-              workspace: null,
-              name: "Claude Code",
-              skip: false,
-              runtime: "claude-code" as const,
-              apps: [],
-              deny: [],
-              remoteApps: [],
-            }
-          : deps.agents.agent(id as never),
-    },
-  };
-  const directory = createSessionDirectory({ ...coding, sql: () => sql });
-  const called = directory.open(
-    tx,
-    {
-      agent: "coding_claude",
-      workspace: { kind: "project", id: PROJECT },
-    } as never,
-    { kind: "agent", session: "ses_from" as never },
-    null,
-  );
-  assert.ok(called.ok);
-  const member = sql.get(
-    "select harness, harness_gui from sessions where id = ?",
-    [called.value.session],
-  );
-  assert.deepStrictEqual(
-    [member?.["harness"], Number(member?.["harness_gui"])],
-    ["claude-code", 1],
-  );
+// project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원이 된다(core가 탭을 연다). 탭을 core가 스스로 열어야 하므로 사람이 coding
+// agent를 lophn이 돌리게 켰을 때만 열린다. Home과 앱에서 부른 것은 headless 그대로다.
+test("a coding agent called into a project opens as a GUI tab member only when coding agents may run on their own; Home and apps stay headless", () => {
+  const root = mkdtempSync(join(tmpdir(), "lophn-coding-member-"));
+  try {
+    const db = new DatabaseSync(join(root, "lophn.db"));
+    for (const step of [...conversationTestSteps]) db.exec(step.sql);
+    const sql: Sql = {
+      run: (query, params) => db.prepare(query).run(...params),
+      get: (query, params) => db.prepare(query).get(...params) as never,
+      all: (query, params) => db.prepare(query).all(...params) as never,
+    };
+    let counter = 0;
+    const tx = {
+      sql,
+      now: () => "2026-10-16T00:00:00.000Z",
+      newId: (prefix: string) =>
+        `${prefix}_${String(++counter).padStart(26, "0")}`,
+      registerBlobRef: () => ok(undefined),
+    } as unknown as Tx;
+    const coding = {
+      ...deps,
+      agents: {
+        ...deps.agents,
+        agent: (id: string) =>
+          id === "coding_claude"
+            ? {
+                id: "coding_claude" as never,
+                handle: "claude",
+                workspace: null,
+                name: "Claude Code",
+                skip: false,
+                runtime: "claude-code" as const,
+                apps: [],
+                deny: [],
+                remoteApps: [],
+              }
+            : deps.agents.agent(id as never),
+      },
+    };
+    const directory = createSessionDirectory({ ...coding, sql: () => sql });
+    const call = (workspace: Workspace | null) =>
+      directory.open(
+        tx,
+        { agent: "coding_claude", workspace } as never,
+        { kind: "agent", session: "ses_from" as never },
+        null,
+      );
+    const mark = (session: string) =>
+      Number(
+        sql.get("select harness_gui from sessions where id = ?", [session])?.[
+          "harness_gui"
+        ],
+      );
+
+    const off = call({ kind: "project", id: PROJECT });
+    assert.ok(!off.ok && off.error.code === "unavailable");
+
+    writeFileSync(
+      join(root, "settings.json"),
+      JSON.stringify({ "extensions.harness.enabled": true }),
+    );
+    const member = call({ kind: "project", id: PROJECT });
+    assert.ok(member.ok);
+    assert.equal(mark(member.value.session), 1);
+    for (const workspace of [null, { kind: "app" as const, id: APP }]) {
+      const headless = call(workspace);
+      assert.ok(headless.ok);
+      assert.equal(mark(headless.value.session), 0);
+    }
+    db.close();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

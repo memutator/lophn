@@ -62,6 +62,7 @@ function fakeProcess(
   command = "",
   args: readonly string[] = [],
   cwd: string | undefined = undefined,
+  env: Readonly<Record<string, string>> | undefined = undefined,
 ) {
   const exits: Array<(code: number | null) => void> = [];
   const outs: Array<(text: string) => void> = [];
@@ -81,6 +82,7 @@ function fakeProcess(
     command,
     args,
     cwd,
+    env,
     killed: false,
     stdout: (text: string) => outs.forEach((listener) => listener(text)),
     exit: (code = 0) => exits.forEach((listener) => listener(code)),
@@ -108,6 +110,8 @@ async function setup(
     hang?: boolean;
     /** 두 번째부터의 query는 메시지 없이 끝나거나(`true`) query()가 바로 던진다(`"throw"`). 새 CLI가 뜨지 못함. */
     emptyReopen?: boolean | "throw";
+    /** lophn 팀원 탭이다. */
+    member?: { deny: readonly string[] };
     /** getSessionInfo가 돌려줄 metadata. */
     sessionInfo?: () => {
       customTitle?: string;
@@ -128,9 +132,14 @@ async function setup(
   const spawn = (
     command: string,
     args: readonly string[],
-    spawnOptions?: { cwd?: string },
+    spawnOptions?: { cwd?: string; env?: Readonly<Record<string, string>> },
   ) => {
-    const made = fakeProcess(command, args, spawnOptions?.cwd);
+    const made = fakeProcess(
+      command,
+      args,
+      spawnOptions?.cwd,
+      spawnOptions?.env,
+    );
     processes.push(made);
     return made.proc;
   };
@@ -241,6 +250,7 @@ async function setup(
     terminal: options.terminal ?? null,
     cwd: "/work/test",
     ...(options.resume === undefined ? {} : { resume: options.resume }),
+    ...(options.member === undefined ? {} : { member: options.member }),
     session,
     spawn,
     clock,
@@ -1445,4 +1455,27 @@ test("세션 제목은 SDK summary(lastPrompt)보다 firstPrompt를 먼저 쓰�
   await t.feed({ type: "result", subtype: "success", is_error: false });
   await flush();
   assert.equal(t.state.session?.title, "AI Generated Title");
+});
+
+// 팀원 탭의 `!`는 사람이 친 명령이다. turn 자격 file 경로를 비운 env로 띄워 `!lophn …`이 사람 자격으로 돈다. 팀원 탭은 `lophn`을 부를
+// Bash를 허락하고 정의의 deny를 막는다.
+test("a member tab's `!` runs with the turn credential file cleared, and the CLI may run lophn but not the denied commands", async () => {
+  const member = await setup({
+    member: { deny: ["lophn(myapp deploy)"] },
+  });
+  await member.input(member.send("1", "!lophn tab open --url https://x"));
+  const shell = member.processes.find((one) => one.command === "/bin/sh");
+  assert.deepEqual(shell?.env, { LOPHN_AGENT_CREDENTIAL_FILE: "" });
+  const options = member.queries[0]?.options;
+  assert.ok(options?.allowedTools?.includes("Bash(lophn *)"));
+  assert.deepEqual(options?.disallowedTools, [
+    "Bash(lophn myapp deploy)",
+    "Bash(lophn myapp deploy *)",
+  ]);
+
+  const person = await setup();
+  await person.input(person.send("1", "!ls"));
+  const plain = person.processes.find((one) => one.command === "/bin/sh");
+  assert.equal(plain?.env, undefined);
+  assert.equal(person.queries[0]?.options.allowedTools, undefined);
 });

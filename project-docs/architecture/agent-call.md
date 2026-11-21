@@ -129,9 +129,9 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. call은 lophn에서 답하지 않은 때처럼 accepted로 남고 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 custom이 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다(자동 답은 답하지 않은 때만 가는 안전망이다).
     - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고 본문 blob은 tx 안에서 만들 수 없다. 마지막 응답 읽기는 run의 결과와 같은 규칙이고 글만 싣는다(`architecture/run.md`).
 28. harness runtime session은 run-loop 입력함이 아니라 harness queue가 받는다(`architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 custom과 같다.
-    - GUI 탭 팀원(`architecture/harness-gui.md` "팀원")은 그 설정과 상관없이 받는다. project의 GUI 탭이 그 팀원이고, project에서 부른 내장 coding agent(call, `team spawn`)도 팀원으로 열린다. 그 queue는 그 탭이 쉴 때 하나씩 그 탭의 새 turn으로 들어가고, result call의 답은 그 입력을 가져간 turn의 마지막 agent 글이다(`lophn call reply`로 먼저 답했으면 그것).
-    - 묶인 탭이 없는 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 그 CLI session을 resume하거나 새로 띄우고 거기 넣는다(사람 없이 도는 turn). 그 turn이 harness 자신의 승인 card에 닿으면 사람이 탭에서 답할 때까지 기다린다.
-    - 팀원 session은 archive되지 않고 열린 채라 13의 `receiver_ended`가 저절로 오지 않는다. 그래서 result call을 가져간 turn이 답 글 없이 끝나거나(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환), 30초 안에 turn이 열리지 않거나, 탭을 열지 못하면 core가 그 call 하나를 `receiver_ended`로 닫는다. 아직 가져가지 않은 call은 탭이 TUI를 보이는 동안 기다린다.
+    - GUI 탭 팀원(`architecture/harness-gui.md` "팀원")은 그 설정과 상관없이 받는다. project의 GUI 탭이 그 팀원이다. project에서 부른 내장 coding agent(call, `team spawn`)도 팀원으로 열리지만 core가 탭을 스스로 열어야 하므로 설정이 켜졌을 때만이고, 꺼져 있으면 지금처럼 `unavailable`이다(열린 탭이 없을 때만 그렇다: 사람이 연 탭의 팀원은 session으로 부른다). 그 queue는 그 탭이 쉴 때 하나씩 그 탭의 새 turn으로 들어가고, result call의 답은 그 입력을 가져간 turn의 마지막 agent 글이다(`lophn call reply`로 먼저 답했으면 그것).
+    - 묶인 탭이 없는 팀원에게 입력이 오면 설정이 켜졌을 때만 core가 그 project에 터미널을 열어 그 CLI session을 resume하거나 새로 띄우고 거기 넣는다(사람 없이 도는 turn, project마다 8개까지, 할 일이 끝나면 닫는다). 그 turn이 harness 자신의 승인 card에 닿으면 사람이 탭에서 답할 때까지 기다린다.
+    - 팀원 session은 archive되지 않고 열린 채라 13의 `receiver_ended`가 저절로 오지 않는다. 그래서 result call을 가져간 turn이 답 글 없이 끝나거나(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환), 사람 메시지가 연 turn이 그 call을 가져갔거나, 30초 안에 turn이 열리지 않거나, 탭을 열 수 없으면(설정 꺼짐, 상한, 실패) core가 그 call 하나를 `receiver_ended`로 닫는다. 사람이 그 coding session을 Recent에서 지우면 팀원 session이 보관되어 받은 열린 call도 같이 닫힌다. 아직 가져가지 않은 call은 탭이 TUI를 보이는 동안 기다린다.
 
 ### 팀
 

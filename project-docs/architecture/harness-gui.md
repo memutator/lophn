@@ -71,10 +71,12 @@ call·reply·알림 ─ Router(transport harness) ─ harness queue ─ 탭이 �
 ```
 - **session.** ledger session 행 하나다. agent는 그 harness의 내장 coding agent(`coding_<harness>`), workspace는 그 탭의 project, `harness`는 그 CLI(다섯 모두), `harness_gui`가 켜져 있다. 묶음(session↔터미널)은 core 메모리이고 터미널이 끝나면 풀린다. session은 열린 채 남는다. CLI session id가 바뀌면(fork, `/new`) 같은 session에 새 id를 적고, 새 터미널에서 같은 CLI session을 resume하면 그 session을 잇는다.
 - **queue.** 팀원 session의 harness queue는 그 GUI 탭만 가져간다. headless host(`harness/take`·`start_turn`)는 건너뛰고 `tabs/open --tui`는 거절한다. headless 설정(`extensions.harness.enabled`)과 상관없이 받는다.
-- **turn 자격.** 탭의 CLI env에는 secret이 아닌 `LOPHN_AGENT_CREDENTIAL_FILE` 경로가 있다(per-run 폴더 안 0700 `credentials/`의 터미널마다 file). core가 그 탭의 turn마다(사람이 친 turn도) 그 turn의 자격을 0600으로 쓰고 turn이 끝나면 지우고 자격을 끝낸다. 넣은 입력의 turn은 ledger turn의 자격이고, 사람이 친 turn은 ledger turn 없이 자격만 낸다. CLI는 file이 비었으면 사람 자격으로 바꾸지 않고 `unauthorized`다. 사람이 GUI에서 `!`로 친 명령은 그 file 없이 돌아 사람 자격이다.
+- **turn 자격.** 탭의 CLI env에는 secret이 아닌 `LOPHN_AGENT_CREDENTIAL_FILE` 경로가 있다(per-run 폴더 안 0700 `credentials/`의 터미널마다 file). core가 그 탭의 turn마다(사람이 친 turn도) 그 turn의 자격을 0600으로 쓰고 turn이 끝나면 지우고 자격을 끝낸다. 넣은 입력의 turn은 ledger turn의 자격이고, 사람이 친 turn은 ledger turn 없이 자격만 낸다. CLI는 file이 비었으면 사람 자격으로 바꾸지 않고 `unauthorized`다. 사람이 GUI에서 `!`로 친 명령은 그 file 없이 돌아 사람 자격이다(adapter가 띄우면 비운 env, CLI·server가 띄우면 맨 앞 `unset …; `. fish는 `unset`을 몰라 그 shell의 `!`는 실패한다). turn 자격은 누가 했는지를 남기는 것이지 가두는 것이 아니다: coding agent는 사람의 shell을 가져 변수를 지우면 사람 자격을 얻는다(headless와 같다).
 - **받은 메시지로 그림.** core가 넣은 send(글이 lophn tag)는 adapter가 사람 메시지로 내도 extension 입구(`receivedSends`)가 받은 메시지로 바꾸고 CLI message id(rewind 시점)를 붙이지 않는다.
 - **띄우는 옵션.** 팀원 탭이면 adapter가 headless host와 같은 길을 연다: Claude는 `Bash(lophn *)` 허락과 `coding_<harness>` 정의의 deny, Codex는 app-server에 sandbox network 허락.
-- **열기.** 묶인 탭이 없는 팀원(탭을 닫았거나 core가 다시 켜졌거나, project에서 부른 내장 coding agent의 새 session)에게 입력이 오면 core가 그 project에 터미널을 열어(`coding_sessions/open`과 같은 opener) CLI session을 resume하거나 새로 띄운다. 열지 못하거나 60초 안에 GUI가 서지 않으면 기다리던 call을 실패로 돌려준다. 묶인 탭이 restart harness의 TUI를 보이는 동안은 새로 열지 않고 기다린다.
+- **열기.** 묶인 탭이 없는 팀원(탭을 닫았거나 core가 다시 켜졌거나, project에서 부른 내장 coding agent의 새 session)에게 입력이 오면 core가 그 project에 터미널을 열어(`coding_sessions/open`과 같은 opener) CLI session을 resume하거나 새로 띄운다. core가 CLI를 스스로 띄우는 것은 사람이 coding agent를 lophn이 돌리게 켰을 때(`extensions.harness.enabled`)뿐이다. 꺼져 있으면 열지 않고 call을 실패로 돌려주고, 내장 coding agent의 새 session도 열지 않는다(`unavailable`). 사람이 연 탭은 설정과 상관없이 팀원이다. 열지 못하거나 60초 안에 GUI가 서지 않거나 GUI 전에 터미널이 끝나면 기다리던 call을 실패로 돌려준다. 늦게 서는 터미널은 끝날 때까지 그 팀원의 것이라 둘째 탭을 열지 않는다. 묶인 탭이 restart harness의 TUI를 보이는 동안은 새로 열지 않고 기다린다.
+- **닫기.** core가 연 터미널은 project마다 8개까지다(사람이 연 탭은 세지 않는다). 아홉째가 필요한 call은 실패로 돌려준다. core가 call을 받으려고 연 탭은 그 turn이 끝나고 queue가 비면 닫는다. `team spawn`으로 열린 팀원(팀 상한이 따로 있다)과 사람이 그 탭에서 turn을 돌렸거나 터미널에 친 탭은 두고, 사람이 연 탭은 닫지 않는다. session은 남아 다음 call에 다시 열린다.
+- **끝내기.** 사람이 사이드바 Recent에서 그 터미널 coding session 줄을 지우면(`coding_sessions/forget`) 그 팀원 session을 보관한다.
 - **보이기.** 팀원 session은 그 터미널 탭이 자리다. 화면의 session 목록·snapshot·event, 앱의 session 목록, attention, Agent 탭 열기에는 나오지 않는다. agent가 읽는 `session list`·`team read`에는 그 탭의 상태(사람의 승인을 기다리면 waiting)와 제목으로 서고, 묶인 탭이 없으면 idle이다.
 
 **adapter 다섯의 모양.**
@@ -172,9 +174,10 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 30. **handle은 화면 연결과 상관없이 산다.** desktop이나 폰이 떨어져도 handle과 CLI는 돌고, 다시 붙은 화면은 `coding_sessions/list`와 `acp/snapshot`을 다시 읽는다.
 31. **폰이 TUI session을 GUI로 바꾸는 것은 사람이 확인한 뒤에만이다.** 도는 turn이 끊기는 되돌릴 수 없는 일이라 route가 `confirmed: true`를 요구하고 폰이 부르는 길도 같다.
 32. **팀원의 입력은 하나씩, 탭이 쉴 때만 넣는다.** 도는 turn에 끼우지 않는다(입력 하나가 turn 하나). Claude가 줄 선 메시지 여럿을 한 turn에 묶지 않게 하고 turn과 call의 짝이 정확하다.
-33. **call의 답은 그 call을 가져간 turn의 마지막 agent 글뿐이다.** ledger turn은 넣은 입력의 message id를 가져간 ACP turn에만 묶는다. 넣은 뒤 먼저 열린 사람 turn의 글이 남의 call에 답으로 가지 않는다. 사람이 친 글이 아직 turn에 들지 않았으면 넣지 않는다.
+33. **call의 답은 그 call이 연 turn의 마지막 agent 글뿐이다.** ledger turn은 넣은 입력이 첫 사람·받은 메시지인 ACP turn에만 묶는다(그 turn 중 사람의 steer는 그대로 call의 turn이다). 사람 메시지가 연 turn이 그 입력을 가져갔으면(adapter가 줄을 묶었다) 그 turn의 글은 답이 아니고 ledger에 남기지 않으며 call은 실패로 돌아간다(그 turn에서 harness가 `lophn call reply`로 답했으면 그것). 사람이 친 글이 아직 turn에 들지 않았으면 넣지 않고, ledger turn을 연 사이 사람 turn이 열렸으면 다시 쉴 때 넣는다.
 34. **turn 자격은 그 turn에만 산다.** file은 turn이 끝나면 지워지고 자격도 끝난다. 늦게 온 자격, 터미널 끝, handle 닫힘도 file과 살아 있는 자격을 남기지 않는다. 자격은 그 session과 그 project 조건에 묶인다. CLI는 file이 비면 사람 자격으로 바꾸지 않는다.
-35. **call은 영영 기다리지 않는다.** 가져간 turn이 답 없이 끝나거나, 30초(사람 turn이 도는 동안은 다시 잰다) 안에 turn이 열리지 않거나, 탭을 열지 못하면 보낸 쪽에 `receiver_ended`로 돌아간다. 아직 가져가지 않은 call은 restart 탭이 TUI를 보이는 동안 기다린다.
+35. **call은 영영 기다리지 않는다.** 가져간 turn이 답 없이 끝나거나, 30초(사람 turn이 도는 동안은 다시 잰다) 안에 turn이 열리지 않거나(adapter 줄에 남았으면 뺀다), 탭을 열 수 없으면 보낸 쪽에 `receiver_ended`로 돌아간다. 탭이 닫혀도 queue에 남은 call은 다시 연 탭으로 간다. 아직 가져가지 않은 call은 restart 탭이 TUI를 보이는 동안 기다린다.
+37. **core가 연 탭은 한정된다.** 설정이 켜졌을 때만 열고, project마다 8개까지이며, 할 일이 끝나면 닫는다(위 "닫기").
 36. **팀원 session은 한 번만 보인다.** 그 터미널 탭이 자리다(위 "보이기").
 
 ## 경계와 계약
@@ -184,7 +187,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 - **화면의 route**: desktop 탭과 폰이 같이 쓴다. `coding_sessions/list|switch_plan|switch|open`, desktop만 `coding_sessions/cli_sessions|rewind_preview`, 기존 `acp/snapshot|send`, coding session의 `acp/tool_body|image_upload|image_read`, event `AcpUpdated`와 `StateChanged{coding_sessions}`. harness GUI만의 IPC channel은 없다(GUI 탭의 focus는 터미널 focus 표 `shell:terminal-focus`를 쓴다).
 - **터미널 hook**: 터미널 함수가 `lophn hook <harness> lophn-gui`로 `{resume}`을 보낸다. core의 hook ingress가 key로 터미널을 찾아 GUI로 넘긴다.
 - **ACP**: 채팅 화면은 ACP만 본다. 대화 밖 session 기능(model·mode, 명령, rewind, fork, compact, rename, `!`, resume, 사용량, 제목, toggle)도 ACP의 입력과 갱신이다. 입력 `send`, `set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `set_toggle`, `use_role`, `run_shell`, `stop_shell`, `open_session`, `stop_child`, `steer_child`, `stop_task`, `background_tool`, 갱신 `session_changed`, `session_reset`, `command_output`, `child_update`, `tasks_changed`, `plan_changed`, `hidden_added`·`hidden_restored`, `tool_detail_changed`, `origin_set`, `message_queued`·`message_taken`.
-- **팀원**: env `LOPHN_AGENT_CREDENTIAL_FILE`. 탭 요청 `AcpTabRequest.member {deny}`와 adapter의 `member`. machine command `harness/open_member`(`OpenHarnessMember`), `harness/fail_call`(`FailHarnessMemberCall`). core 안 port `HarnessMembers`(harness wiring이 낸다). session 행 `harness_gui`(ledger step `lophn-agent.sessions.gui-member`, `harness`에 omp·antigravity를 더하며 표를 다시 짰다).
+- **팀원**: env `LOPHN_AGENT_CREDENTIAL_FILE`. 화면 route `coding_sessions/forget`(사람만, 그 팀원 보관). 탭 요청 `AcpTabRequest.member {deny}`와 adapter의 `member`. machine command `harness/open_member`(`OpenHarnessMember`), `harness/fail_call`(`FailHarnessMemberCall`). core 안 port `HarnessMembers`(harness wiring이 낸다). session 행 `harness_gui`(ledger step `lophn-agent.sessions.gui-member`, `harness`에 omp·antigravity를 더하며 표를 다시 짰다).
 - **저장 모양**: GUI session은 CLI 자신의 file이 가진다. lophn은 view와 handle을 저장하지 않는다. 사람이 만든 thread bookmark는 shell data file(`<data root>/shell/thread-bookmarks.json`) 하나다(harness 대화가 ledger에 없으므로). 이미지(사람이 붙인 것, 폰이 보낸 것, 다시 연 대화에서 다시 쓴 것)는 `<os tmp>/lophn-gui/<터미널 ref>/`의 0700 폴더 아래 0600 file이다.
 
 ## 결정
@@ -232,12 +235,16 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 - **답 못 한 call은 `receiver_ended`로 돌려준다.** 실패 이유 enum을 늘리려면 `agent_calls` 표를 다시 짜야 한다. (agent)
 - **팀원은 화면에서 터미널 탭으로만 보인다.** 화면을 구독하는 Bus가 팀원 session의 event를 거른다(`hidingSessions`). 버린 안: 화면 쪽에서 표시로 거르기(session store가 event로 줄을 세워 표시 없는 event가 새 줄을 만든다). (agent)
 - **project에서 부른 내장 coding agent는 GUI 탭 팀원으로 연다.** 사람이 지켜보고 끼어들 수 있다. Home·앱 workspace와 사람이 Agent 탭으로 연 session은 headless 그대로다. (agent)
+- **core가 coding agent CLI를 스스로 띄우는 것은 사람이 그것을 켰을 때뿐이다(lead, 2026-11-21).** 사람이 연 GUI 탭이 팀원인 것은 사람의 결정이지만, 사람이 없는 곳에 CLI를 띄우는 것은 headless와 같은 허락(`extensions.harness.enabled`)을 받는다.
+- **core가 연 탭은 project마다 8개까지이고 할 일이 끝나면 닫는다(lead, 2026-11-21).** 팀(team spawn)은 자기 상한이 있고 사람이 쓴 탭은 사람의 것이라 닫지 않는다.
+- **turn 자격은 누가 했는지를 남기는 것이지 가두는 것이 아니다(lead, 2026-11-21).** coding agent는 사람의 shell이라 변수를 지우면 사람 자격으로 control connect를 한다. headless도 같고 막지 않는다.
+- **call의 turn 중 사람의 steer는 그 turn을 사람의 것으로 바꾸지 않는다(lead, 2026-11-21).** 마지막 agent 글이 그대로 답이다.
 
 ## 열린 것
 
 열린 이슈는 topic이 `harness-gui`인 이슈다.
 
-- 팀원 session을 끝내는(archive) 길이 없다. 사람이 그 coding session을 목록에서 지우는 core 길이 없어서다(사이드바 Recent의 x는 renderer의 숨김뿐이다). 행은 GUI로 연 대화(CLI session)마다 하나이고 resume은 같은 행을 이어 늘지 않는다.
+- 사이드바 Recent의 x가 아직 `coding_sessions/forget`을 부르지 않는다(route만 있다). 그 전까지 팀원 행은 GUI로 연 대화(CLI session)마다 하나 남고 resume은 같은 행을 이어 늘지 않는다.
 - 사람이 없는 turn이 harness 자신의 승인 card에 닿으면 사람이 올 때까지 기다린다(자동 허락·거절 없음).
 - 팀원 길은 실제 CLI로 돌려 보지 않았다(test는 녹화 재생과 가짜 handle).
 

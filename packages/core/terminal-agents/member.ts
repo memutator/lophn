@@ -10,6 +10,7 @@
 //   (custom-reply wiring)이 보낸다. agent가 먼저 `lophn call reply`로 답했으면 call이 이미 닫혀 보내지 않는다. 답 글 없이 끝나면
 //   (멈춤, 실패, 탭·handle 닫힘, 한도 안에 turn이 열리지 않음) result call을 보낸 쪽에 실패(receiver_ended)로 돌려준다.
 import type { Result } from "../../base/mod.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type { AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
 import type { GuiHarness } from "../../protocol/extensions/acp-session.ts";
 import type { HarnessRuntime } from "../../protocol/lophn-agent/agent-values.ts";
@@ -54,12 +55,22 @@ export type HarnessMembers = {
   finish(turn: string, end: MemberTurnEnd): Promise<Result<void>>;
   /** 받은 call 하나를 failed(receiver_ended)로 닫아 보낸 쪽에 돌려준다. 이미 닫혔으면 아무것도 하지 않는다. */
   failCall(session: string, call: string): Promise<Result<void>>;
-  /** 열린 팀원 session의 project, harness, CLI session id(아직 없으면 null). 팀원이 아니거나 닫혔으면 null. */
+  /**
+   * 열린 팀원 session의 project, harness, CLI session id(아직 없으면 null), `team spawn`으로 열렸는지. 팀원이 아니거나 닫혔으면 null.
+   */
   describe(session: string): {
     project: string;
     harness: HarnessRuntime;
     cli_session: string | null;
+    team: boolean;
   } | null;
+  /** core가 coding agent CLI를 스스로 띄워도 되는가(사람이 켠 설정 `extensions.harness.enabled`). */
+  canOpen(): boolean;
+  /** 사람이 그 coding session을 목록에서 지웠다. 그 CLI session의 열린 팀원 session을 사람 자격으로 보관한다. 보관한 수다. */
+  forget(
+    who: AuthenticatedContext,
+    input: { project: string; harness: HarnessRuntime; cli_session: string },
+  ): Promise<Result<number>>;
   /** 그 팀원 queue를 비우고 그 안의 call을 실패로 돌려준다(탭을 열지 못했다). */
   failQueued(session: string): Promise<Result<void>>;
   /** 그 turn의 자격을 끝낸다. */
@@ -86,6 +97,9 @@ export const OPEN_WAIT_MS = 60_000;
 // 넣은 입력이 탭의 turn을 열기를 기다리는 한도. 넘으면 그 입력은 탭에 닿지 않은 것으로 보고 닫는다. 사람의 turn이 도는 동안은 다시 잰다.
 export const INJECT_WAIT_MS = 30_000;
 
+// project마다 core가 스스로 연 팀원 터미널의 상한. 사람이 연 탭은 세지 않는다.
+export const OPENED_PER_PROJECT = 8;
+
 type Turn = {
   // 넣은 입력의 ledger turn과 입력. 사람이 친 turn은 null이다.
   ledger: string | null;
@@ -94,6 +108,8 @@ type Turn = {
   credential: { turn: string; token: string } | null;
   // 이 입력을 가져간 ACP turn. 아직 모르면 null.
   acp: string | null;
+  // 사람 메시지가 연 turn이 이 입력을 가져갔다. 그 turn의 글은 답이 아니다.
+  foreign: boolean;
   // 넣은 입력이 turn을 열기를 기다리는 timer를 끈다.
   cancel: (() => void) | null;
 };
@@ -106,7 +122,9 @@ type Member = {
   cli: string | null;
   handle: TabHandle | null;
   detach: (() => void) | null;
-  // 넣은 입력의 turn과 사람이 친 turn. 탭의 turn은 하나씩 돌지만 넣은 입력이 사람 turn 뒤에 줄 설 수 있어 둘을 따로 든다.
+  // ledger turn을 열었지만 탭이 쉬기를 기다려 아직 넣지 못한 입력.
+  ready: Turn | null;
+  // 넣은 입력의 turn과 사람이 친 turn. 넣은 입력은 사람 turn 뒤에 줄 설 수 있어 둘을 따로 든다.
   injected: Turn | null;
   typed: Turn | null;
   // credential file에 지금 든 자격의 turn.
@@ -114,7 +132,15 @@ type Member = {
   delivering: boolean;
   // 끝난 ledger turn을 닫는 중이다. 닫기 전에 다음 입력의 turn을 열지 않는다.
   finishing: number;
+  // core가 call을 받으려고 연 터미널이다. 할 일이 끝나면 닫는다(팀원이거나 사람이 손댄 탭은 둔다).
+  opened: boolean;
+  team: boolean;
+  // 사람이 이 탭에서 turn을 열었거나 터미널에 글을 쳤다.
+  touched: boolean;
 };
+
+// core가 연 터미널의 GUI를 기다리는 것. 한도가 지나도 터미널이 끝날 때까지 들고 있어 같은 팀원에 둘째 탭을 열지 않는다.
+type Pending = { session: string; timedOut: boolean; cancel: () => void };
 
 export type GuiMembers = ReturnType<typeof createGuiMembers>;
 
@@ -133,19 +159,25 @@ export function createGuiMembers(deps: {
     harness: GuiHarness;
     cli_session: string | null;
   }): Promise<Result<string>>;
+  /** core가 연 터미널을 닫는다. */
+  closeTerminal(terminalRef: string): void;
   log(message: string): void;
 }) {
   const byTerminal = new Map<string, Member>();
-  // core가 그 팀원을 위해 연 터미널 → 팀원 session. 그 터미널의 handle이 열리면 묶는다.
-  const pending = new Map<string, string>();
-  // 터미널을 여는 중이거나 연 터미널의 GUI를 기다리는 팀원 → 기다림을 끄는 함수.
-  const opening = new Map<string, () => void>();
+  // core가 그 팀원을 위해 연 터미널 → 기다림. 그 터미널의 handle이 열리면 묶는다.
+  const pending = new Map<string, Pending>();
+  // 터미널을 여는 중인 팀원.
+  const opening = new Set<string>();
+  // core가 연 터미널 → project. 끝날 때까지 project마다 상한에 센다.
+  const coreOpened = new Map<string, string>();
   let offQueued: (() => void) | null = null;
   // 묶기(ensure·bind)는 모든 탭이 한 줄로 한다. 두 탭이 같은 CLI session을 같은 때 보아도 한 팀원을 둘이 잇지 않는다.
   let chain: Promise<void> = Promise.resolve();
 
   const bySession = (session: string) =>
     [...byTerminal.values()].find((one) => one.session === session);
+  const pendingOf = (session: string) =>
+    [...pending.values()].find((one) => one.session === session);
 
   function listenQueue() {
     if (offQueued !== null) return;
@@ -158,37 +190,53 @@ export function createGuiMembers(deps: {
     });
   }
 
-  // 탭이 없는 팀원에게 입력이 왔다. 그 project에 터미널을 열어 CLI session을 이어(없으면 새로) GUI로 띄운다. 그 탭이 서면 묶고 넣는다.
-  // 열지 못하거나 한도 안에 GUI가 서지 않으면 기다리던 call을 실패로 돌려준다.
+  // 탭이 없는 팀원에게 입력이 왔다. 사람이 coding agent를 스스로 띄우게 허락했으면 그 project에 터미널을 열어 CLI session을 이어(없으면
+  // 새로) GUI로 띄우고, 그 탭이 서면 묶고 넣는다. 허락이 없거나, project의 상한에 찼거나, 열지 못하거나, 한도 안에 GUI가 서지 않으면
+  // 기다리던 call을 실패로 돌려준다.
   async function openFor(session: string) {
     const members = deps.members();
     if (members === null || opening.has(session)) return;
+    const waiting = pendingOf(session);
+    if (waiting !== undefined) {
+      if (waiting.timedOut) await members.failQueued(session);
+      return;
+    }
     const info = members.describe(session);
     if (info === null) return;
-    opening.set(session, () => {});
+    const busy = [...coreOpened.values()].filter(
+      (project) => project === info.project,
+    ).length;
+    if (!members.canOpen() || busy >= OPENED_PER_PROJECT) {
+      deps.log(
+        members.canOpen()
+          ? "gui member: too many tabs opened in this project"
+          : "gui member: coding agents may not start on their own",
+      );
+      await members.failQueued(session);
+      return;
+    }
+    opening.add(session);
     const opened = await deps.openTerminal({
       project: info.project,
       harness: GUI_OF_RUNTIME[info.harness],
       cli_session: info.cli_session,
     });
+    opening.delete(session);
     if (!opened.ok) {
-      opening.delete(session);
       deps.log(`gui member: tab not opened: ${opened.error.message}`);
       await members.failQueued(session);
       return;
     }
     const terminal = opened.value;
-    pending.set(terminal, session);
-    opening.set(
-      session,
-      deps.after(OPEN_WAIT_MS, () => {
-        if (pending.get(terminal) !== session) return;
-        pending.delete(terminal);
-        opening.delete(session);
-        deps.log("gui member: the opened tab did not start its chat view");
-        void members.failQueued(session);
-      }),
-    );
+    coreOpened.set(terminal, info.project);
+    const wait: Pending = { session, timedOut: false, cancel: () => {} };
+    wait.cancel = deps.after(OPEN_WAIT_MS, () => {
+      if (pending.get(terminal) !== wait) return;
+      wait.timedOut = true;
+      deps.log("gui member: the opened tab did not start its chat view");
+      void members.failQueued(session);
+    });
+    pending.set(terminal, wait);
   }
 
   // 가장 늦은 사람·받은 메시지가 아직 turn에 들지 않았으면 그 turn이 곧 열린다(adapter가 글을 먼저 올리고 turn을 뒤에 여는 경우).
@@ -237,11 +285,13 @@ export function createGuiMembers(deps: {
         return;
       }
       if (member.session === null) {
-        const taken = new Set(
-          [...byTerminal.values()].flatMap((one) =>
+        // 다른 탭이 쥐었거나 core가 열어 GUI를 기다리는 팀원은 잇지 않는다.
+        const taken = new Set([
+          ...[...byTerminal.values()].flatMap((one) =>
             one.session === null ? [] : [one.session],
           ),
-        );
+          ...[...pending.values()].map((one) => one.session),
+        ]);
         const ensured = await members.ensure({
           harness: RUNTIME_OF_GUI[member.harness],
           project: member.project,
@@ -263,8 +313,8 @@ export function createGuiMembers(deps: {
     });
   }
 
-  // 입력은 하나씩이다. 탭이 쉴 때 하나를 꺼내 ledger turn을 열고 ACP `send`로 넣는다. 그 사이 사람이 turn을 열었으면 adapter가 그 뒤에
-  // 줄 세운다. ledger turn은 그 입력의 id를 가져간 ACP turn에만 묶는다(`bindInjected`).
+  // 입력은 하나씩이다. 탭이 쉴 때 하나를 꺼내 ledger turn을 열고, 그 뒤에도 쉬면 ACP `send`로 넣는다. 그 사이 사람이 turn을 열었으면
+  // 그 turn이 끝나고 다시 쉴 때 넣는다. ledger turn은 그 입력이 연 ACP turn에만 묶는다(`bindInjected`).
   async function deliver(member: Member): Promise<void> {
     const members = deps.members();
     if (members === null || member.delivering || member.session === null) {
@@ -273,33 +323,35 @@ export function createGuiMembers(deps: {
     if (!idle(member)) return;
     member.delivering = true;
     try {
-      const input = await members.next(member.session);
-      if (input === null || !idle(member)) return;
-      const started = await members.start(member.session, input.message);
-      if (!started.ok) {
-        deps.log(`gui member: turn not started: ${started.error.message}`);
-        return;
+      if (member.ready === null) {
+        const input = await members.next(member.session);
+        if (input === null || !idle(member)) return;
+        const started = await members.start(member.session, input.message);
+        if (!started.ok) {
+          deps.log(`gui member: turn not started: ${started.error.message}`);
+          return;
+        }
+        member.ready = {
+          ledger: started.value.turn,
+          input,
+          credential: started.value,
+          acp: null,
+          foreign: false,
+          cancel: null,
+        };
       }
-      const turn: Turn = {
-        ledger: started.value.turn,
-        input,
-        credential: started.value,
-        acp: null,
-        cancel: null,
-      };
-      member.injected = turn;
       const handle = member.handle;
-      if (handle === null) {
-        void endInjected(member, turn, "closed", null);
-        return;
-      }
+      const turn = member.ready;
+      if (handle === null || turn.input === null || !idle(member)) return;
+      member.ready = null;
+      member.injected = turn;
       waitForTurn(member, turn);
       handle.input({
         type: "send",
         session: guiSessionId(member.terminal),
-        id: input.message,
-        key: `lophn:${input.message}`,
-        content: [{ type: "text", text: input.prompt }],
+        id: turn.input.message,
+        key: `lophn:${turn.input.message}`,
+        content: [{ type: "text", text: turn.input.prompt }],
         delivery: "next_turn",
       });
       bindInjected(member, handle.state());
@@ -312,18 +364,33 @@ export function createGuiMembers(deps: {
     turn.cancel = deps.after(INJECT_WAIT_MS, () => {
       turn.cancel = null;
       if (member.injected !== turn || turn.acp !== null) return;
-      const phase = member.handle?.state().turn?.phase;
+      const state = member.handle?.state();
+      const phase = state?.turn?.phase;
       // 사람의 turn이 돌면 그 뒤에 줄 섰을 수 있다.
       if (phase === "working" || phase === "waiting") {
         waitForTurn(member, turn);
         return;
       }
+      // adapter의 줄에 남아 있으면 빼서 나중에 사람 turn으로 돌지 않게 한다.
+      const id = turn.input?.message;
+      if (
+        id !== undefined &&
+        member.handle !== null &&
+        state?.queued.some((one) => one.id === id) === true
+      ) {
+        member.handle.input({
+          type: "remove_queued",
+          session: guiSessionId(member.terminal),
+          message: id,
+        });
+      }
       void endInjected(member, turn, "closed", null);
     });
   }
 
-  // 넣은 입력의 message가 turn에 들었으면(바로 열렸거나 줄에서 가져갔다) 그 turn이 이 입력의 turn이다. 같은 turn을 사람 turn으로 먼저
-  // 보았으면 그 자격은 거둔다.
+  // 넣은 입력의 message가 turn에 들었으면 그 turn이 이 입력을 가져갔다. 그 turn의 첫 사람·받은 메시지가 이 입력이면 이 입력의 turn이고
+  // (같은 turn을 사람 turn으로 먼저 보았으면 그 자격은 거둔다), 사람 메시지가 연 turn이 가져갔으면(줄에 섞여 묶였다) 그 turn의 글은
+  // 답이 아니다.
   function bindInjected(member: Member, state: AcpState) {
     const turn = member.injected;
     if (turn === null || turn.acp !== null || turn.input === null) return;
@@ -332,11 +399,20 @@ export function createGuiMembers(deps: {
       (one) => one.kind === "message" && one.id === id,
     );
     if (item?.kind !== "message" || item.turn === null) return;
-    turn.acp = item.turn;
+    const acp = item.turn;
+    turn.acp = acp;
     turn.cancel?.();
     turn.cancel = null;
+    const first = state.items.find(
+      (one) =>
+        one.kind === "message" && one.actor !== "agent" && one.turn === acp,
+    );
+    if (first !== undefined && first.id !== id) {
+      turn.foreign = true;
+      return;
+    }
     const typed = member.typed;
-    if (typed !== null && typed.acp === turn.acp) {
+    if (typed !== null && typed.acp === acp) {
       member.typed = null;
       clearFile(member, typed);
       if (typed.credential !== null) {
@@ -365,12 +441,14 @@ export function createGuiMembers(deps: {
 
   function endTyped(member: Member, turn: Turn) {
     if (member.typed === turn) member.typed = null;
+    member.touched = true;
     clearFile(member, turn);
     if (turn.credential !== null) deps.members()?.end(turn.credential.turn);
   }
 
   // 넣은 입력의 turn이 끝났다. result call을 받은 turn이 completed로 끝나면 그 turn의 마지막 agent 글을 남긴다(core의 자동 답이 보낸다).
-  // 답 글 없이 끝났으면(멈춤, 실패, 탭이나 handle이 닫힘, turn이 열리지 않음, 빈 글) call을 보낸 쪽에 실패로 돌려준다.
+  // 답 글 없이 끝났거나(멈춤, 실패, 탭이나 handle이 닫힘, turn이 열리지 않음, 빈 글) 사람 메시지가 연 turn이 가져갔으면 그 turn에서는
+  // 아무것도 남기지 않고 call을 보낸 쪽에 실패로 돌려준다(그 turn에서 harness가 `lophn call reply`로 답했으면 call이 이미 닫혀 그대로다).
   async function endInjected(
     member: Member,
     turn: Turn,
@@ -378,6 +456,7 @@ export function createGuiMembers(deps: {
     state: AcpState | null,
   ) {
     if (member.injected === turn) member.injected = null;
+    if (member.ready === turn) member.ready = null;
     turn.cancel?.();
     turn.cancel = null;
     clearFile(member, turn);
@@ -385,20 +464,27 @@ export function createGuiMembers(deps: {
     if (members === null || turn.ledger === null || member.session === null) {
       return;
     }
+    const session = member.session;
     if (turn.credential !== null) members.end(turn.credential.turn);
     const input = turn.input;
     const text =
-      end === "completed" && state !== null && turn.acp !== null
+      end === "completed" &&
+      state !== null &&
+      turn.acp !== null &&
+      !turn.foreign
         ? lastAgentText(state, turn.acp)
         : null;
     member.finishing += 1;
     if (text !== null && input?.kind === "call") {
-      const recorded = await members.record(member.session, turn.ledger, text);
+      const recorded = await members.record(session, turn.ledger, text);
       if (!recorded.ok) {
         deps.log(`gui member: answer not kept: ${recorded.error.message}`);
       }
     }
-    const finished = await members.finish(turn.ledger, end);
+    const finished = await members.finish(
+      turn.ledger,
+      turn.foreign ? "stopped" : end,
+    );
     if (!finished.ok) {
       deps.log(`gui member: turn not finished: ${finished.error.message}`);
     }
@@ -408,13 +494,35 @@ export function createGuiMembers(deps: {
       input.reply === "result" &&
       input.call !== null
     ) {
-      const failed = await members.failCall(member.session, input.call);
+      const failed = await members.failCall(session, input.call);
       if (!failed.ok) {
         deps.log(`gui member: call not failed: ${failed.error.message}`);
       }
     }
     member.finishing -= 1;
+    await closeIfDone(member);
     void deliver(member);
+  }
+
+  // core가 call을 받으려고 연 탭은 할 일이 끝나면 닫는다. 팀원(`team spawn`)과 사람이 손댄 탭은 둔다. session은 남아 다시 열린다.
+  async function closeIfDone(member: Member) {
+    const members = deps.members();
+    if (
+      members === null ||
+      member.session === null ||
+      !member.opened ||
+      member.team ||
+      member.touched ||
+      member.ready !== null ||
+      member.injected !== null ||
+      member.typed !== null ||
+      member.finishing > 0 ||
+      byTerminal.get(member.terminal) !== member
+    ) {
+      return;
+    }
+    if ((await members.next(member.session)) !== null) return;
+    deps.closeTerminal(member.terminal);
   }
 
   function update(member: Member, handle: TabHandle, change: AcpUpdate) {
@@ -429,6 +537,7 @@ export function createGuiMembers(deps: {
           input: null,
           credential: null,
           acp: change.turn,
+          foreign: false,
           cancel: null,
         };
         member.typed = typed;
@@ -436,19 +545,20 @@ export function createGuiMembers(deps: {
       }
       return;
     } else if (change.type === "turn_ended") {
-      if (member.injected?.acp === change.turn) {
-        void endInjected(member, member.injected, change.outcome, state);
+      const injected = member.injected;
+      if (member.typed?.acp === change.turn) endTyped(member, member.typed);
+      if (injected?.acp === change.turn) {
+        void endInjected(member, injected, change.outcome, state);
         return;
       }
-      if (member.typed?.acp === change.turn) endTyped(member, member.typed);
     }
     void deliver(member);
   }
 
   function closeTurns(member: Member) {
     if (member.typed !== null) endTyped(member, member.typed);
-    if (member.injected !== null) {
-      void endInjected(member, member.injected, "closed", null);
+    for (const turn of [member.injected, member.ready]) {
+      if (turn !== null) void endInjected(member, turn, "closed", null);
     }
   }
 
@@ -463,13 +573,17 @@ export function createGuiMembers(deps: {
       listenQueue();
       let member = byTerminal.get(handle.terminal);
       if (member === undefined) {
-        // core가 이 팀원을 위해 연 터미널이면 그 팀원이다(CLI session id를 알면 그 session에 적는다).
-        const wanted = pending.get(handle.terminal) ?? null;
-        if (wanted !== null) {
+        // core가 이 팀원을 위해 연 터미널이면 그 팀원이다(CLI session id를 알면 그 session에 적는다). 그 팀원을 이미 다른 탭이 쥐었으면
+        // 사람이 연 탭처럼 CLI session id로 찾는다.
+        const wait = pending.get(handle.terminal);
+        if (wait !== undefined) {
           pending.delete(handle.terminal);
-          opening.get(wanted)?.();
-          opening.delete(wanted);
+          wait.cancel();
         }
+        const wanted =
+          wait !== undefined && bySession(wait.session) === undefined
+            ? wait.session
+            : null;
         member = {
           terminal: handle.terminal,
           harness: handle.harness,
@@ -478,11 +592,16 @@ export function createGuiMembers(deps: {
           cli: null,
           handle: null,
           detach: null,
+          ready: null,
           injected: null,
           typed: null,
           file: null,
           delivering: false,
           finishing: 0,
+          opened: coreOpened.has(handle.terminal),
+          team:
+            wanted !== null && deps.members()?.describe(wanted)?.team === true,
+          touched: false,
         };
         byTerminal.set(handle.terminal, member);
       }
@@ -505,13 +624,23 @@ export function createGuiMembers(deps: {
       });
     },
 
-    /** 터미널이 끝났다. 묶음을 푼다(session은 열린 채 남는다). */
+    /** 사람이 그 터미널에 글을 쳤다. core가 연 탭이어도 닫지 않는다. */
+    humanInput(terminalRef: string): void {
+      const member = byTerminal.get(terminalRef);
+      if (member !== undefined) member.touched = true;
+    },
+
+    /**
+     * 터미널이 끝났다. 묶음을 푼다(session은 열린 채 남는다). 그 팀원 queue에 입력이 남았으면 다시 열고, core가 연 터미널이 GUI를 띄우기
+     * 전에 끝났으면 기다리던 call을 실패로 돌려준다.
+     */
     terminalEnded(terminalRef: string): void {
-      const wanted = pending.get(terminalRef);
-      if (wanted !== undefined) {
+      coreOpened.delete(terminalRef);
+      const wait = pending.get(terminalRef);
+      if (wait !== undefined) {
         pending.delete(terminalRef);
-        opening.get(wanted)?.();
-        opening.delete(wanted);
+        wait.cancel();
+        if (!wait.timedOut) void deps.members()?.failQueued(wait.session);
       }
       const member = byTerminal.get(terminalRef);
       if (member === undefined) return;
@@ -520,6 +649,14 @@ export function createGuiMembers(deps: {
       closeTurns(member);
       byTerminal.delete(terminalRef);
       deps.files?.remove(terminalRef);
+      const session = member.session;
+      const members = deps.members();
+      if (session === null || members === null) return;
+      void members.next(session).then((left) => {
+        if (left !== null && bySession(session) === undefined) {
+          void openFor(session);
+        }
+      });
     },
 
     /** 묶인 팀원의 지금 모습. 묶인 탭이 없으면 null이다. 상태는 탭의 ACP 상태에서 읽는다(사람의 승인을 기다리면 waiting). */
@@ -546,9 +683,10 @@ export function createGuiMembers(deps: {
     stop(): void {
       offQueued?.();
       offQueued = null;
-      for (const cancel of opening.values()) cancel();
-      opening.clear();
+      for (const wait of pending.values()) wait.cancel();
       pending.clear();
+      opening.clear();
+      coreOpened.clear();
       for (const [ref, member] of [...byTerminal]) {
         member.detach?.();
         member.injected?.cancel?.();

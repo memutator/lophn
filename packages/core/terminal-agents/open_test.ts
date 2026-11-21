@@ -175,3 +175,17 @@ test("a member's tab opens in its project resuming its CLI session, fresh when i
   assert.ok(!twice.ok && twice.error.code === "conflict");
   assert.deepEqual(busy.calls, []);
 });
+
+// core가 터미널에 치는 줄에는 shell이 다르게 읽을 글자가 들어가지 않는다(ledger의 CLI session id도 받은 글이다).
+test("a member's CLI session id that is not plain id characters is never typed into a terminal", async () => {
+  const kit = setup([]);
+  for (const cli of ["cli-1; rm -rf ~", "$(id)", "a b", "x".repeat(201)]) {
+    const opened = await kit.opener.member({
+      project: PROJECT,
+      harness: "claude",
+      cli_session: cli,
+    });
+    assert.ok(!opened.ok && opened.error.code === "invalid_input", cli);
+  }
+  assert.deepEqual(kit.calls, []);
+});

@@ -196,7 +196,7 @@ export function createConversationCommands(deps: ConversationDeps): {
           id: input.id,
           agent: agent.id,
           workspace: { kind: "project", id: input.project },
-          gui: true,
+          gui: "tab",
         });
         if (!started.ok) return started;
         if (input.external_session_id === null) {

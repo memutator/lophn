@@ -100,8 +100,10 @@ export function createSessionDirectory(
         // 앱이 불러 열린 session은 그 앱이 끝낼 수 있다.
         openedByApp: opener.kind === "app" ? opener.app : null,
         // project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원으로 연다(core가 탭을 연다). 다른 곳은 headless다.
-        gui:
-          isCodingBuiltin(agent.agent) && agent.workspace?.kind === "project",
+        // 탭은 core가 열어야 하므로 사람이 coding agent를 lophn이 돌리게 켰을 때만 열린다(꺼져 있으면 unavailable).
+        ...(isCodingBuiltin(agent.agent) && agent.workspace?.kind === "project"
+          ? { gui: "called" as const }
+          : {}),
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

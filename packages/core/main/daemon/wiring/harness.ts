@@ -10,6 +10,7 @@ import type { Id } from "../../../../protocol/base/ids.ts";
 import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import {
   type AgentRuntime,
+  archiveSession,
   bindHarnessSession,
   blocksOfContent,
   type ContentBlock,
@@ -577,8 +578,40 @@ export const harnessWiring: WiringFactory = () => {
             project: row.workspace_id,
             harness: row.harness,
             cli_session: row.harness_session,
+            team: row.spawned_by !== null,
           };
         },
+        async forget(who, input) {
+          if (who.actor !== "user") {
+            return err({ code: "forbidden", message: "only a person forgets" });
+          }
+          const rows = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            lookup.sql
+              .all(
+                `select id, state_seq from sessions where harness_gui = 1 and lifecycle = 'open'
+                   and project = ? and harness = ? and harness_session = ?`,
+                [input.project, input.harness, input.cli_session],
+              )
+              .map((row) => ({
+                id: String(row["id"]),
+                state_seq: String(row["state_seq"]),
+              })),
+          );
+          if (!rows.ok) return rows;
+          for (const row of rows.value) {
+            const done = await ctx.writer.command(who, {
+              command: archiveSession.name,
+              input: { session: row.id, stop_turn: true },
+              idempotency_key: ids.newId("idk"),
+              compare: { state_seq: row.state_seq },
+              prepared: [],
+            });
+            if (!done.ok) return done;
+          }
+          return ok(rows.value.length);
+        },
+        // core가 CLI를 스스로 띄우는 것은 사람이 coding agent를 lophn이 돌리게 켰을 때뿐이다(사람이 연 탭은 상관없다).
+        canOpen: () => ctx.settings.get(harnessExtensionSetting) === true,
         // 탭을 열지 못한 팀원의 queue를 비우고 그 안의 call을 보낸 쪽에 실패로 돌려준다.
         async failQueued(session) {
           const id = session as Id<"ses">;

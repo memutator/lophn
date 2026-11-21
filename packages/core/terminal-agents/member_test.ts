@@ -67,40 +67,65 @@ function setup() {
     tokens.push(issued.value.token);
     return { turn, token: issued.value.token };
   };
-  // ledger 쪽. queue, 남긴 답 글, 닫은 turn, 실패로 돌려준 call.
-  const queue: MemberInput[] = [];
+  // ledger 쪽. 팀원마다의 queue, 남긴 답 글, 닫은 turn, 실패로 돌려준 call.
+  const queues = new Map<string, MemberInput[]>();
+  const queueOf = (session: string) => {
+    let list = queues.get(session);
+    if (list === undefined) {
+      list = [];
+      queues.set(session, list);
+    }
+    return list;
+  };
   const answers = new Map<string, string>();
   const finished = new Map<string, MemberTurnEnd>();
   const failed: string[] = [];
   const listeners = new Set<(session: string) => void>();
   let lateCredential: (() => void) | null = null;
+  let startHold: Promise<void> | null = null;
   // 열린 팀원 session의 ledger 모습과, 탭을 열지 못해 비운 queue.
   const rows = new Map<
     string,
-    { project: string; harness: "claude-code"; cli_session: string | null }
+    {
+      project: string;
+      harness: "claude-code";
+      cli_session: string | null;
+      team: boolean;
+    }
   >([
     [
       SESSION,
-      { project: PROJECT, harness: "claude-code", cli_session: "cli-1" },
+      {
+        project: PROJECT,
+        harness: "claude-code",
+        cli_session: "cli-1",
+        team: false,
+      },
     ],
   ]);
   const emptied: string[] = [];
+  const takenSeen: string[][] = [];
   let ensured = 0;
+  let gate = true;
   const members: HarnessMembers = {
-    ensure: async () => {
+    ensure: async (input) => {
       ensured += 1;
+      takenSeen.push([...input.taken]);
       return ok(SESSION);
     },
     describe: (session) => rows.get(session) ?? null,
+    canOpen: () => gate,
+    forget: async () => ok(0),
     failQueued: async (session) => {
       emptied.push(session);
-      queue.splice(0);
+      queueOf(session).splice(0);
       return ok(undefined);
     },
     bind: async () => ok(undefined),
-    next: async () => queue[0] ?? null,
-    start: async (_session, message) => {
-      assert.equal(queue.shift()?.message, message);
+    next: async (session) => queueOf(session)[0] ?? null,
+    start: async (session, message) => {
+      if (startHold !== null) await startHold;
+      assert.equal(queueOf(session).shift()?.message, message);
       return ok(issue());
     },
     credential: () =>
@@ -136,6 +161,13 @@ function setup() {
       remove: (path) => rmSync(path, { force: true }),
     },
   });
+  const opens: {
+    project: string;
+    harness: string;
+    cli_session: string | null;
+  }[] = [];
+  const closed: string[] = [];
+  let opensFail = false;
   const gui = createGuiMembers({
     members: () => members,
     files,
@@ -151,46 +183,52 @@ function setup() {
       opens.push(input);
       return opensFail
         ? err({ code: "conflict", message: "busy" })
-        : ok(TERMINAL);
+        : ok(opens.length === 1 ? TERMINAL : id("trm", opens.length));
     },
+    closeTerminal: (ref) => void closed.push(ref),
     log: () => {},
   });
   gui.listen();
-  const opens: {
-    project: string;
-    harness: string;
-    cli_session: string | null;
-  }[] = [];
-  let opensFail = false;
 
   // 탭의 handle. adapter가 낼 갱신을 test가 직접 낸다.
-  let state: AcpState = EMPTY_ACP_STATE;
   let seq = 0;
-  const sent: AcpInput[] = [];
-  const attached = new Set<Parameters<TabHandle["attach"]>[0]>();
-  const handle = {
-    id: "win_1",
-    terminal: TERMINAL,
-    harness: "claude",
-    handoff: "restart",
-    cwd: "/work",
-    state: () => state,
-    attach(listener) {
-      listener.snapshot(state);
-      attached.add(listener);
-      return () => void attached.delete(listener);
-    },
-    input: (input: AcpInput) => void sent.push(input),
-    close() {
-      for (const listener of [...attached]) listener.closed();
-      attached.clear();
-    },
-  } satisfies TabHandle;
-  const publish = async (update: AcpUpdate) => {
-    state = reduceAcp(state, update);
-    for (const listener of attached) listener.update(update);
-    await settle();
+  const tab = (terminal: string) => {
+    let state: AcpState = EMPTY_ACP_STATE;
+    const sent: AcpInput[] = [];
+    const attached = new Set<Parameters<TabHandle["attach"]>[0]>();
+    const handle = {
+      id: `win_${terminal}`,
+      terminal,
+      harness: "claude",
+      handoff: "restart",
+      cwd: "/work",
+      state: () => state,
+      attach(listener) {
+        listener.snapshot(state);
+        attached.add(listener);
+        return () => void attached.delete(listener);
+      },
+      input: (input: AcpInput) => void sent.push(input),
+      close() {
+        for (const listener of [...attached]) listener.closed();
+        attached.clear();
+      },
+    } satisfies TabHandle;
+    const publish = async (update: AcpUpdate) => {
+      state = reduceAcp(state, update);
+      for (const listener of attached) listener.update(update);
+      await settle();
+    };
+    const open = async (cli = "cli-1") => {
+      gui.opened(handle);
+      await publish({
+        type: "session_changed",
+        session: { cli_session: cli, capabilities: {} },
+      } as unknown as AcpUpdate);
+    };
+    return { handle, publish, sent, open };
   };
+  const main = tab(TERMINAL);
   const message = (
     messageId: string,
     turn: string | null,
@@ -229,23 +267,16 @@ function setup() {
     messages: [],
     seq: ++seq,
   });
-  const queueCall = async (n: number) => {
-    queue.push({
+  const queueCall = async (n: number, session = SESSION) => {
+    queueOf(session).push({
       message: id("msg", n),
       kind: "call",
-      call: CALL,
+      call: id("cal", n),
       reply: "result",
-      prompt: `<lophn-call from="lead" call="${CALL}" reply="result">\nask\n</lophn-call>`,
+      prompt: `<lophn-call from="lead" call="${id("cal", n)}" reply="result">\nask\n</lophn-call>`,
     });
-    for (const listener of listeners) listener(SESSION);
+    for (const listener of listeners) listener(session);
     await settle();
-  };
-  const open = async () => {
-    gui.opened(handle);
-    await publish({
-      type: "session_changed",
-      session: { cli_session: "cli-1", capabilities: {} },
-    } as unknown as AcpUpdate);
   };
   const fileToken = () => {
     const path = files.pathOf(TERMINAL);
@@ -255,13 +286,14 @@ function setup() {
   return {
     root,
     gui,
-    handle,
-    publish,
+    tab,
+    handle: main.handle,
+    publish: main.publish,
+    sent: main.sent,
+    open: () => main.open(),
     message,
     ended,
     queueCall,
-    open,
-    sent,
     files,
     fileToken,
     live,
@@ -272,10 +304,25 @@ function setup() {
     tokens,
     rows,
     opens,
+    closed,
     emptied,
+    takenSeen,
     ensured: () => ensured,
+    gateOff: () => {
+      gate = false;
+    },
     failOpens: () => {
       opensFail = true;
+    },
+    holdStart: () => {
+      let release = () => {};
+      startHold = new Promise((resolve) => {
+        release = () => {
+          startHold = null;
+          resolve();
+        };
+      });
+      return release;
     },
     holdCredential: () => {
       lateCredential = () => {};
@@ -420,6 +467,7 @@ test("a call for a member with no tab opens a tab in its project, resuming its C
         project: PROJECT,
         harness: "claude-code",
         cli_session: cli,
+        team: false,
       });
       await kit.queueCall(1);
       assert.deepEqual(kit.opens, [
@@ -478,6 +526,241 @@ test("a call turn cut by toggling a restart tab to the TUI fails back, and a cal
     assert.equal(kit.sent.length, 1);
     assert.equal(kit.opens.length, 0);
     assert.deepEqual(kit.failed, [CALL]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+const turnStarted = (turn: string): AcpUpdate => ({
+  type: "turn_started",
+  turn,
+  at,
+});
+
+// 결정 A: core가 coding agent CLI를 스스로 띄우는 것은 사람이 켠 설정이 있을 때뿐이다.
+test("with coding agents not allowed to start on their own, a call for a member with no tab opens nothing and fails back", async () => {
+  const kit = setup();
+  try {
+    kit.gateOff();
+    await kit.queueCall(1);
+    assert.deepEqual(kit.opens, []);
+    assert.deepEqual(kit.emptied, [SESSION]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// 결정 B: core가 연 탭은 project마다 8개까지다. 아홉째는 열지 않고 실패로 돌려준다.
+test("a project holds at most eight tabs core opened, and the ninth call fails back", async () => {
+  const kit = setup();
+  try {
+    for (let n = 1; n <= 9; n += 1) {
+      kit.rows.set(id("ses", 100 + n), {
+        project: PROJECT,
+        harness: "claude-code",
+        cli_session: null,
+        team: false,
+      });
+      await kit.queueCall(n, id("ses", 100 + n));
+    }
+    assert.equal(kit.opens.length, 8);
+    assert.deepEqual(kit.emptied, [id("ses", 109)]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+test("only one tab opens for a member even when two calls arrive at once", async () => {
+  const kit = setup();
+  try {
+    await Promise.all([kit.queueCall(1), kit.queueCall(2)]);
+    assert.equal(kit.opens.length, 1);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// 결정 B: core가 call을 받으려고 연 탭은 할 일이 끝나면 닫는다. 팀원과 사람이 손댄 탭은 두고, 사람이 연 탭은 닫지 않는다.
+test("a tab core opened for a call closes when its work is done, unless it is a team member or the person used it", async () => {
+  for (const variant of ["plain", "team", "touched", "person"] as const) {
+    const kit = setup();
+    try {
+      kit.rows.set(SESSION, {
+        project: PROJECT,
+        harness: "claude-code",
+        cli_session: "cli-1",
+        team: variant === "team",
+      });
+      if (variant === "person") await kit.open();
+      if (variant === "touched") {
+        await kit.queueCall(9);
+        // core가 연 탭이 서기 전에 사람이 그 탭에서 turn을 하나 돌렸다.
+        await kit.open();
+        await kit.publish(turnStarted("acp_person"));
+        await kit.publish(kit.message("msg_p", "acp_person", "user", "hi"));
+        await kit.publish(kit.ended("acp_person"));
+        // 그 사이 들어간 call 9를 끝낸다.
+        await kit.publish(turnStarted("acp_9"));
+        await kit.publish(kit.message(id("msg", 9), "acp_9", "user", "call"));
+        await kit.publish(kit.message("msg_a9", "acp_9", "agent", "ok"));
+        await kit.publish(kit.ended("acp_9"));
+      }
+      await kit.queueCall(1);
+      if (variant === "plain" || variant === "team") await kit.open();
+      await kit.publish(turnStarted("acp_c"));
+      await kit.publish(kit.message(id("msg", 1), "acp_c", "user", "call"));
+      await kit.publish(kit.message("msg_a", "acp_c", "agent", "done"));
+      await kit.publish(kit.ended("acp_c"));
+      assert.deepEqual(
+        kit.closed,
+        variant === "plain" ? [TERMINAL] : [],
+        variant,
+      );
+    } finally {
+      kit.cleanup();
+    }
+  }
+});
+
+// 결정 D: call의 turn 중에 사람이 넣은 steer는 그 turn을 사람의 것으로 바꾸지 않는다.
+test("a person's steer during a call's turn keeps the turn as the call's, and its last text is the answer", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.queueCall(1);
+    await kit.publish(turnStarted("acp_c"));
+    await kit.publish(kit.message(id("msg", 1), "acp_c", "user", "call"));
+    await kit.publish(kit.message("msg_steer", "acp_c", "user", "be brief"));
+    await kit.publish(kit.message("msg_a", "acp_c", "agent", "brief answer"));
+    await kit.publish(kit.ended("acp_c"));
+    assert.deepEqual([...kit.answers.values()], ["brief answer"]);
+    assert.deepEqual(kit.failed, []);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// 결함 1: 탭이 닫혀도 queue에 남은 call은 다시 연 탭으로 가고, core가 연 탭이 GUI 전에 닫히면 기다리던 call은 실패로 돌아간다.
+test("a tab closed with a call still queued reopens for it, and a tab closed before its chat view fails the waiting call back", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.queueCall(1);
+    await kit.queueCall(2);
+    kit.gui.terminalEnded(TERMINAL);
+    await settle();
+    assert.deepEqual(kit.failed, [id("cal", 1)]);
+    assert.equal(kit.opens.length, 1, "the member's tab opens again");
+    kit.gui.terminalEnded(TERMINAL);
+    await settle();
+    assert.deepEqual(kit.emptied, [SESSION]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// 결함 2: GUI가 늦게 서도 같은 팀원에 둘째 탭을 열지 않고, 다른 탭이 그 팀원을 잇지 않는다.
+test("a slow opened tab is kept until it ends: no second tab opens for its member and no other tab takes that member", async () => {
+  const kit = setup();
+  try {
+    await kit.queueCall(1);
+    kit.timers[0]!();
+    await settle();
+    assert.deepEqual(kit.emptied, [SESSION]);
+    await kit.queueCall(2);
+    assert.equal(kit.opens.length, 1);
+    assert.deepEqual(kit.emptied, [SESSION, SESSION]);
+    // 사람이 다른 탭에서 같은 CLI session을 열어도 그 팀원은 기다리는 탭의 것이다.
+    const other = kit.tab(id("trm", 50));
+    await other.open();
+    assert.ok(kit.takenSeen.at(-1)?.includes(SESSION));
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// 결함 3: call은 그 입력이 연 turn에서만 답한다.
+test("a call taken into a turn a person message started is never answered from that turn and fails back", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.queueCall(1);
+    await kit.publish(turnStarted("acp_x"));
+    await kit.publish(kit.message("msg_person", "acp_x", "user", "2+2?"));
+    await kit.publish(kit.message(id("msg", 1), "acp_x", "user", "call"));
+    await kit.publish(kit.message("msg_a", "acp_x", "agent", "4"));
+    await kit.publish(kit.ended("acp_x"));
+    assert.equal(kit.answers.size, 0);
+    assert.deepEqual([...kit.finished.values()], ["stopped"]);
+    assert.deepEqual(kit.failed, [CALL]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+test("a person turn that starts while the call's ledger turn opens delays the call until the tab is idle again", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    const release = kit.holdStart();
+    await kit.queueCall(1);
+    await kit.publish(turnStarted("acp_p"));
+    await kit.publish(kit.message("msg_person", "acp_p", "user", "hi"));
+    release();
+    await settle();
+    assert.equal(kit.sent.length, 0, "not sent into the person's turn");
+    await kit.publish(kit.ended("acp_p"));
+    assert.equal(kit.sent.length, 1);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// 결함 4: 한도가 지나 실패로 돌려준 call이 adapter의 줄에 남아 나중에 사람 turn으로 돌지 않는다.
+test("a call that times out while still queued in the adapter is removed from that queue", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.queueCall(1);
+    await kit.publish({
+      type: "message_queued",
+      queued: { id: id("msg", 1), at, content: [] },
+    } as unknown as AcpUpdate);
+    kit.timers.at(-1)!();
+    await settle();
+    assert.deepEqual(
+      kit.sent.map((input) => input.type),
+      ["send", "remove_queued"],
+    );
+    assert.deepEqual(kit.failed, [CALL]);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+test("a turn first seen as the person's and then found to be the call's ends the person credential", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.queueCall(1);
+    await kit.publish(turnStarted("acp_c"));
+    const personToken = kit.tokens.at(-1)!;
+    await kit.publish(kit.message(id("msg", 1), "acp_c", "user", "call"));
+    assert.equal(await kit.live(personToken), false);
+    assert.notEqual(kit.fileToken(), personToken);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+test("stopping the member binding removes every credential file", async () => {
+  const kit = setup();
+  try {
+    await kit.open();
+    await kit.publish(turnStarted("acp_1"));
+    assert.ok(kit.fileToken() !== null);
+    kit.gui.stop();
+    assert.equal(kit.fileToken(), null);
   } finally {
     kit.cleanup();
   }

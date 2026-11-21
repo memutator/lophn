@@ -274,6 +274,8 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
       autoReply({ turn, outcome: { kind: end } }) as never,
     failCall: async () => ok(undefined),
     describe: () => null,
+    canOpen: () => true,
+    forget: async () => ok(0),
     failQueued: async () => ok(undefined),
     end: () => {},
     onQueued: (listener) => {
@@ -287,6 +289,7 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     projectOf: () => `prj_${"0".repeat(25)}2`,
     after: () => () => {},
     openTerminal: async () => assert.fail("the tab is open"),
+    closeTerminal: () => assert.fail("a tab the person opened stays"),
     log: (message) => assert.fail(message),
   });
 
@@ -355,4 +358,31 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     .join("");
   assert.ok(answer !== undefined && answer.trim() !== "");
   assert.equal(rows.get(call)?.state, "done");
+});
+
+// 팀원이 답하지 못한 call 하나를 닫는 길은 그 session이 받은 열린 call에만 닿는다. 깨지면 남의 call이나 이미 끝난 call이 실패로 바뀐다.
+test("failing a member's call closes only an open call that member received, and tells the sender once", async () => {
+  const { tx, router: r, rows, toLead } = router();
+  const sent = r.route(tx, {
+    from: { kind: "agent", session: LEAD },
+    to: { session: MEMBER },
+    reply: "result",
+    body: textBlocks("Say hello."),
+    refs: [],
+    reply_to: null,
+    kind: "call",
+    delivery: "next_turn",
+    dedup: "tool-2",
+  } as never);
+  assert.ok(sent.ok && sent.value.call !== null);
+  const call = sent.value.call;
+  assert.deepEqual(r.failReceived(tx, LEAD, call), ok(false));
+  assert.equal(rows.get(call)?.state, "accepted");
+  assert.deepEqual(r.failReceived(tx, MEMBER, call), ok(true));
+  assert.equal(rows.get(call)?.state, "failed");
+  assert.equal(rows.get(call)?.fail_reason, "receiver_ended");
+  const told = toLead.filter((input) => input.call === call);
+  assert.equal(told.length, 1);
+  assert.deepEqual(r.failReceived(tx, MEMBER, call), ok(false));
+  assert.equal(toLead.filter((input) => input.call === call).length, 1);
 });

@@ -1256,15 +1256,14 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             const actions = (item.commandActions ?? []).map(
               (one) => one.command,
             );
-            const shown = withoutPersonShell(
-              actions.length > 0 ? actions.join(" && ") : (item.command ?? ""),
-            );
+            const shown =
+              actions.length > 0 ? actions.join(" && ") : (item.command ?? "");
             tool = "shell";
             category = commandCategory(item);
             if (item.source === "userShell") {
               by = "user";
               category = "command";
-              const typed = call.typed ?? shown;
+              const typed = call.typed ?? withoutPersonShell(shown);
               title = oneLine(typed.split("\n")[0] ?? "", 120);
               body = bodyOf(typed, item.aggregatedOutput ?? null);
               break;

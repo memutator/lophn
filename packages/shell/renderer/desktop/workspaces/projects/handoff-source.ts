@@ -46,12 +46,19 @@ export function useHandoffs(): Handoffs | null {
   return useContext(HandoffContext);
 }
 
-// route가 없거나(옛 core) 이 창이 못 부르면 note가 없는 것이다.
-async function readNotes(core: CoreSource): Read<readonly HandoffNote[]> {
+interface NotesRead {
+  readonly notes: readonly HandoffNote[];
+  /** route가 답한 목록이다. 오류 답(아래)에서 만든 빈 목록이면 false라 숨김 key를 버리지 않는다. */
+  readonly answered: boolean;
+}
+
+// route가 없거나(옛 core) 이 창이 못 부르면 보일 note가 없는 것이다.
+async function readNotes(core: CoreSource): Read<NotesRead> {
   const read = await readRoute(core, handoffList, {});
-  if (read.ok) return { ok: true, value: read.value.notes };
+  if (read.ok)
+    return { ok: true, value: { notes: read.value.notes, answered: true } };
   return read.code === "not_found" || read.code === "forbidden"
-    ? { ok: true, value: NO_NOTES }
+    ? { ok: true, value: { notes: NO_NOTES, answered: false } }
     : read;
 }
 
@@ -101,9 +108,10 @@ export function useHandoffNotes(events: EventClient): {
       ["carry_files"],
       (loaded) => {
         if (loaded.state !== "ready") return;
-        setRead(loaded.value);
+        setRead(loaded.value.notes);
+        if (!loaded.value.answered) return;
         setHidden((now) => {
-          const present = new Set(loaded.value.map(noteKey));
+          const present = new Set(loaded.value.notes.map(noteKey));
           const kept = new Set([...now].filter((key) => present.has(key)));
           if (kept.size === now.size) return now;
           saveHidden(kept);

@@ -87,10 +87,20 @@ export type AgentEventSink = {
   output(batch: Omit<ModelOutputMessage, "type">): void;
 };
 
-// turn이 call 입력을 가져갔다는 신호다. wiring이 Router의 `markConsumed`에 끼운다. StartTurn이 시작을 확정하는
-// 같은 transaction에서 부른다.
+// turn이 call 입력을 가져갔거나 답 없이 끝냈다는 신호다. wiring이 Router에 끼운다. turn을 시작하거나 끝내는 같은 transaction에서 부른다.
 export type CallSignals = {
   consumed(tx: Tx, call: Id<"cal">): Result<void>;
+  // 가져간 turn이 끝나지 못했다(실패, 멈춤, 재시작). Router가 아직 답하지 않은 result call을 보낸 쪽에 실패로 돌려준다.
+  // notify는 보낸 session에 줄 실패 글의 blob이 준비됐는지다.
+  abandoned(
+    tx: Tx,
+    input: {
+      call: Id<"cal">;
+      session: Id<"ses">;
+      reason: "receiver_ended" | "lophn_restarted";
+      notify: boolean;
+    },
+  ): Result<void>;
 };
 
 // model call 직전마다 읽는 이번 turn의 prompt 재료다. 지침·workspace 정보·tool 목록은 turn을 시작할 때 읽은 값을

@@ -78,7 +78,7 @@ const list = defineCommand({
   description:
     "List the agents you can call: handle, name, description, runtime, modality, replies. Without --workspace it is the agents of the workspace you run in. " +
     'On this computer --workspace is {"project":"prj_..."}, {"app":"app_..."} or {"home":true}. ' +
-    '--on <computer> lists the agents on another computer of the person (machine computers); there --workspace is {"project":"<name or pri_ id>"}, {"app":"<slug>"} or {"home":true}.',
+    '--on <computer> lists the agents on another computer of the person (machine computers); there --workspace is {"project":"<pri_ id>"}, {"app":"<slug>"} or {"home":true}. A project name works only when that project is also on this computer; otherwise use its cross-computer id (pri_…) from lophn project identity on that computer or from agent list --on.',
   input: z.strictObject({ workspace: workspaceField, on: onField }),
   effect: "read",
   routes: [agentCards, machinesAgents],

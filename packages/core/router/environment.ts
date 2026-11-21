@@ -17,7 +17,8 @@ export type RouterEnvironment = {
   // mode에서 찍는다. skip은 call을 따라 가지 않는다.
   unattendedTurn(view: SqlView, turn: string): boolean;
   // 켤 때 잃어버린 call을 닫는 같은 tx에서 도는 turn도 닫는다(run-loop의 몫이라 wiring이 끼운다).
-  interruptRunningTurns?(tx: Tx): Result<number>;
+  // notify는 그 turn들이 가져간 call의 보낸 session에 줄 실패 글이 준비됐는지다.
+  interruptRunningTurns?(tx: Tx, notify: boolean): Result<number>;
   // call이 닿을 session 목록에 더하는 정보. 없으면 상태는 unknown이다.
   describe?: RouterDescribe;
 };
@@ -94,3 +95,23 @@ export function failReceivedCalls(tx: Tx, session: string): Result<void> {
   const router = routerFor(tx);
   return router.ok ? router.value.failReceivedBy(tx, session) : router;
 }
+
+// 받는 session의 turn이 call 입력을 가져갔거나 답 없이 끝냈다는 신호를 받는 쪽이다. run-loop가 turn을 시작하고 끝내는 tx에서 부른다.
+export const callSignals = {
+  consumed(tx: Tx, call: Id<"cal">): Result<void> {
+    const router = routerFor(tx);
+    return router.ok ? router.value.markConsumed(tx, call) : router;
+  },
+  abandoned(
+    tx: Tx,
+    input: {
+      call: Id<"cal">;
+      session: Id<"ses">;
+      reason: "receiver_ended" | "lophn_restarted";
+      notify: boolean;
+    },
+  ): Result<void> {
+    const router = routerFor(tx);
+    return router.ok ? router.value.abandoned(tx, input) : router;
+  },
+};

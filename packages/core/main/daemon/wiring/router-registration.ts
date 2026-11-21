@@ -21,6 +21,7 @@ import { createHarnessInputTransport } from "../../../lophn-agent/session/mod.ts
 import { sessionStateOf } from "../../../lophn-agent/session/state.ts";
 import { transportBySession } from "../../../router/router.ts";
 import {
+  callSignals,
   createCallStore,
   createMailOutbox,
   createMailSeen,
@@ -89,8 +90,11 @@ const environment: RouterEnvironment = {
   unattendedTurn: (view, turn) =>
     view.sql.get("select mode from turns where id = ?", [turn])?.["mode"] ===
     "unattended",
-  interruptRunningTurns: (tx) =>
-    interruptRunningTurns(tx, publishAfterCommit, "restarted"),
+  interruptRunningTurns: (tx, notify) =>
+    interruptRunningTurns(tx, publishAfterCommit, "restarted", undefined, {
+      signals: callSignals,
+      notify,
+    }),
   describe: (view, target) => ({
     state: sessionStateOf(view.sql, target.session).state,
   }),

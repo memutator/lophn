@@ -544,7 +544,8 @@ const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
     if (!failed.ok) return failed;
     const environment = routerEnvironment();
     if (!environment.ok) return environment;
-    const interrupted = environment.value.interruptRunningTurns?.(tx) ?? ok(0);
+    const interrupted =
+      environment.value.interruptRunningTurns?.(tx, input.notify) ?? ok(0);
     if (!interrupted.ok) return interrupted;
     return ok({ failed: failed.value, interrupted: interrupted.value });
   },

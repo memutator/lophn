@@ -103,6 +103,14 @@ export function createMailSeen(): MailSeen {
       );
       return row === undefined ? null : seenOf(row);
     },
+    cancelSeen(tx, origin, call) {
+      return (
+        tx.sql.get(
+          "select 1 from mail_seen where origin = ? and call = ? and kind = 'cancel'",
+          [origin, call],
+        ) !== undefined
+      );
+    },
   };
 }
 

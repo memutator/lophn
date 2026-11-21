@@ -13,6 +13,7 @@ export {
 } from "./registration.ts";
 export {
   failReceivedCall,
+  callSignals,
   failReceivedCalls,
   installRouterEnvironment,
   messageApp,
@@ -48,7 +49,6 @@ export {
 } from "./mail-store.ts";
 export { remoteReach, remoteWorkspaceOf } from "./remote-reach.ts";
 export {
-  callSignals,
   callsOfSession,
   deleteAppCallsReceivedBy,
   deleteCallsSentByApp,

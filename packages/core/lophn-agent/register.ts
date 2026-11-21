@@ -865,7 +865,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       turnCommands.checkpoint,
       turnCommands.finish,
       turnCommands.stop,
-      interruptTurnsCommand(publishAfterCommit),
+      interruptTurnsCommand(publishAfterCommit, callSignals),
       conversationCommands.open,
       conversationCommands.appOpen,
       conversationCommands.memberOpen,

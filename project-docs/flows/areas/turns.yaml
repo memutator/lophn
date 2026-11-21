@@ -283,13 +283,14 @@ flows:
       - "turn이 없으면 not_found, 이미 finished면 conflict다(늦은 결과는 결과를 덮지 못한다). state_seq가 다르면 conflict다"
       - "outcome이 interrupted면 invalid_input이다. 멈춤은 StopTurn이나 InterruptTurns로만 닫는다"
       - "turn 행을 finished로 바꾸고 TurnEnded를 commit 뒤 낸다(failed면 reason을 싣는다). 결과 blob을 영구 참조로 등록하고, 거절되면 tx 전체를 rollback한다"
+      - "failed면 그 turn이 가져간 call 입력이 아직 답하지 않은 result call일 때 Router가 receiver_ended로 닫아 보낸 쪽에 돌려준다(이 컴퓨터의 보낸 session에는 실패 알림, 다른 컴퓨터는 실패 reply mail). 알림 글은 main thread가 앞서 준비한다"
     outcomes:
       - id: completed
         observe: [ledger:turns, event:TurnEnded]
         when: outcome completed(answer_completed)로 끝났다
       - id: failed
-        observe: [ledger:turns, event:TurnEnded]
-        when: outcome failed(reason)로 끝났다. reason은 turn-loop의 갈래와 같다
+        observe: [ledger:turns, ledger:agent_calls, ledger:mail_outbox, event:TurnEnded, event:MessageReceived]
+        when: outcome failed(reason)로 끝났다. reason은 turn-loop의 갈래와 같다. 가져간 result call은 receiver_ended로 보낸 쪽에 돌아간다
       - id: not-machine
         code: forbidden
         observe: [response]
@@ -336,10 +337,11 @@ flows:
       - "사람이나 machine 자격이 아니면 forbidden이다. turn이 없으면 not_found다. 이미 끝난 turn이면 기존 결과를 replayed로 돌려주고 turn을 바꾸지 않는다"
       - "state_seq가 다르면 conflict다. 그 밖이면 writer 앞 처리기 withLiveTurns가 StopTurn 전에 사람이 본 글(writing)을 RecordMessage로 저장하고 MessageRecorded를 낸다. 저장이 실패해도 멈춤은 간다"
       - "active 시간을 CheckpointTurn으로 마감한 뒤 StopTurn이 turn을 interrupted(user_stopped)로 닫고 TurnEnded를 낸다"
+      - "그 turn이 가져간 call 입력이 아직 답하지 않은 result call이면 Router가 receiver_ended로 닫아 보낸 쪽에 돌려준다(이 컴퓨터는 실패 알림, 다른 컴퓨터는 실패 reply mail)"
       - "commit 뒤 TurnEnded를 받은 lophn-agent-runtime이 child에 turn_stop을 보내 진행 중인 model 요청과 tool을 끊는다"
     outcomes:
       - id: stopped
-        observe: [ledger:turns, ledger:messages, event:MessageRecorded, event:TurnEnded, process:agent-runtime]
+        observe: [ledger:turns, ledger:messages, ledger:agent_calls, event:MessageRecorded, event:TurnEnded, process:agent-runtime]
         when: "도는 turn을 user_stopped로 닫았다. 쓰는 중 글이 없으면 MessageRecorded는 나지 않는다. 글 저장이나 active 마감이 실패해도 멈춤은 간다(글만 빠진다)"
       - id: replayed
         observe: [response]
@@ -372,11 +374,11 @@ flows:
     steps:
       - "agent runtime child가 종료되면(onEnd) core가 machine 자격으로 InterruptTurns를 부른다. machine이 아니면 forbidden이다(requireMachine)"
       - "writer 앞 처리기가 core 메모리에서 센 active를 turn마다 CheckpointTurn으로 마감한다. 실패해도 다음 단계로 간다"
-      - "같은 tx에서 running인 turn 전부를 interrupted(restarted)로 닫고 TurnEnded를 낸다. 그 turn의 requested·started tool call은 결과를 모르므로 uncertain으로 닫고 turn 결과의 unknown_effects에 싣는다. 도는 turn이 없으면 0으로 끝난다"
+      - "같은 tx에서 running인 turn 전부를 interrupted(restarted)로 닫고 TurnEnded를 낸다. 그 turn의 requested·started tool call은 결과를 모르므로 uncertain으로 닫고 turn 결과의 unknown_effects에 싣는다. 그 turn이 가져간 아직 답하지 않은 result call은 lophn_restarted로 보낸 쪽에 돌아간다. 도는 turn이 없으면 0으로 끝난다"
       - "InterruptTurns가 실패했어도 queue의 도는 표시는 푼다(finally). 새 입력이 running 행과 겹치지 않게 하려는 순서다"
     outcomes:
       - id: interrupted
-        observe: [ledger:turns, ledger:tool_calls, event:TurnEnded]
+        observe: [ledger:turns, ledger:tool_calls, ledger:agent_calls, event:TurnEnded]
         when: child가 돌리던 turn이 하나 이상 있었다. 끝나지 않은 tool call은 uncertain으로 닫힌다
       - id: nothing-running
         observe: [response]

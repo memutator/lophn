@@ -4,8 +4,9 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { interruptTurns } from "../../../protocol/lophn-agent/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
-import { finishRow } from "./commands.ts";
+import { abandonTurnCall, finishRow } from "./commands.ts";
 import { loadTurn, TURN_COLUMNS, turnRowOf } from "./model.ts";
+import type { CallSignals } from "./ports.ts";
 import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 
 // 돌던 turn을 core가 interrupted로 닫는다. 다시 잇지 않는다(복구는 없다).
@@ -28,6 +29,8 @@ export function interruptRunningTurns(
   publish: PublishAgentEvent | undefined,
   reason: InterruptReason,
   session?: Id<"ses">,
+  // 재시작으로 닫는 turn이 가져간 call을 보낸 쪽에 돌려준다. session을 끝낼 때는 Router가 그 session의 call을 따로 닫는다.
+  calls?: { signals: CallSignals; notify: boolean },
 ): Result<number> {
   const rows = (
     session === undefined
@@ -70,6 +73,14 @@ export function interruptRunningTurns(
       null,
     );
     if (!done.ok) return done;
+    const abandoned = abandonTurnCall(
+      tx,
+      calls?.signals,
+      current,
+      outcome,
+      calls?.notify ?? false,
+    );
+    if (!abandoned.ok) return abandoned;
     tx.sql.run(
       `update tool_calls set state = 'finished', outcome = ?, result = ?, finished_at = ?, state_seq = state_seq + 1
        where turn = ? and state in ('requested', 'started')`,
@@ -83,6 +94,8 @@ export function interruptRunningTurns(
 // agent runtime child가 사라졌을 때 core가 부른다. queue의 running 표시는 부른 쪽이 푼다.
 export function interruptTurnsCommand(
   publish: PublishAgentEvent | undefined,
+  // 닫는 turn이 가져간 call을 보낸 쪽에 돌려준다. 알림 글은 main thread가 이 command 앞에 준비한다.
+  calls?: CallSignals,
 ): CommandDefinition<typeof interruptTurns> {
   return {
     route: interruptTurns,
@@ -93,7 +106,13 @@ export function interruptTurnsCommand(
           message: "only core interrupts turns",
         });
       }
-      const done = interruptRunningTurns(tx, publish, "restarted");
+      const done = interruptRunningTurns(
+        tx,
+        publish,
+        "restarted",
+        undefined,
+        calls === undefined ? undefined : { signals: calls, notify: true },
+      );
       return done.ok ? ok({ interrupted: done.value }) : done;
     },
   };

@@ -79,6 +79,13 @@ function projectCrossing(
   project: string,
 ): Result<RemoteWorkspace> {
   const identity = directory.identityOfProject(project);
+  // 이름은 이 컴퓨터에서 푼다. 다른 컴퓨터에만 있는 project는 기계를 건너는 id로만 닿는다.
+  if (!identity.ok && identity.error.code === "not_found") {
+    return err({
+      code: "not_found",
+      message: `no project ${project} on this computer; name a project that is only on the other computer by its cross-computer id (pri_…) from lophn project identity there or agent list --on`,
+    });
+  }
   if (!identity.ok) return identity;
   if (identity.value === null) {
     return err({

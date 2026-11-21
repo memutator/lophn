@@ -163,8 +163,9 @@ export function createCallStore(): CallStore {
         return err({ code: "conflict", message: "the call already ended" });
       }
       const at = tx.now();
+      // 끝난 행은 배달 중인 상태를 남기지 않는다(다른 컴퓨터로 보낸 행의 delivery).
       tx.sql.run(
-        `update agent_calls set state = ?, fail_reason = ?, state_at = ?, result = ?
+        `update agent_calls set state = ?, fail_reason = ?, state_at = ?, result = ?, delivery = null
          where call = ?`,
         [to, reason, at, result ?? null, call],
       );
@@ -174,6 +175,7 @@ export function createCallStore(): CallStore {
         fail_reason: reason,
         state_changed_at: at,
         result: result ?? null,
+        delivery: null,
       });
     },
     // 답 없는 call은 받는 turn이 입력을 가져갈 때 끝난다. 배달할 때 끝내면 켤 때 queue와 함께 잃은 것을 가리지 못하고,
@@ -264,9 +266,3 @@ export function openCallsSentBy(
     ),
   );
 }
-
-// 받는 session의 turn이 call 입력을 가져갔다는 신호를 받는 쪽이다. run-loop가 turn을 시작하는 tx에서 부른다.
-export const callSignals = {
-  consumed: (tx: Tx, call: Id<"cal">) =>
-    createCallStore().markConsumed(tx, call),
-};

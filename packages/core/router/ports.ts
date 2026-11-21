@@ -205,4 +205,6 @@ export interface MailSeen {
   // 처음 본 mail이면 적고 true, 이미 본 것이면 false.
   mark(tx: Tx, row: MailSeenRow): boolean;
   read(tx: Tx, origin: string, id: string): MailSeenRow | null;
+  // 그 기계가 그 call의 cancel mail을 보냈는지. 폴더 길은 cancel이 call보다 먼저 닿을 수 있다.
+  cancelSeen(tx: Tx, origin: string, call: string): boolean;
 }

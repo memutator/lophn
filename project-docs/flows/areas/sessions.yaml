@@ -1430,7 +1430,7 @@ flows:
       - "core 안 machine이 아니면 forbidden이다(requireMachine)."
       - "router나 environment가 아직 없으면 unavailable이다."
       - "잃어버린 call(받았으나 turn이 가져가지 않은 call, 기다리던 ask call)을 lophn_restarted로 닫는다. notify가 true면 살아 있는 보낸 session에 알림을 넣는다."
-      - "도는 turn을 interrupted(restarted)로 닫는다. queue와 앱 줄은 메모리라 이 tx 밖이다."
+      - "도는 turn을 interrupted(restarted)로 닫는다. 그 turn이 가져가고 아직 답하지 않은 result call도 lophn_restarted로 닫는다(다른 컴퓨터에서 받은 call이면 실패 reply mail). queue와 앱 줄은 메모리라 이 tx 밖이다."
       - "닫은 failed·interrupted 수를 돌려준다. 알림 글 준비, 실패 log, 기동을 잇는 일은 wiring이 맡는다(agents call-restart-recovery)."
     outcomes:
       - id: ok
@@ -1514,7 +1514,7 @@ flows:
     steps:
       - "core 안 machine이 아니면 forbidden이다. mail을 쓴 기계가 보낸 기계(origin)가 아니거나 받는 기계가 이 기계가 아니면 forbidden이다."
       - "같은 기계의 같은 mail id를 이미 받았으면 아무것도 하지 않고 지난 결과(받은 call 행의 상태와 session)를 돌려준다."
-      - "call mail의 call id로 된 행이 이미 있으면 길을 타지 않고 failed(not_found)로 답한다(session도 행도 만들지 않는다)."
+      - "call mail의 call id로 된 행이 이미 있으면 길을 타지 않고 failed(not_found)로 답한다(session도 행도 만들지 않는다). 같은 기계의 cancel mail이 먼저 닿았던 call이면(폴더 길은 순서가 바뀔 수 있다) 돌리지 않고 failed(closed)로 답하고 실패 reply mail만 낸다. 다른 기계의 cancel은 막지 못한다."
       - "call mail: 주소를 푼다. project 정체(pri_)는 이 기계의 project로, 앱은 앱 id로, home은 home으로 푼다. session을 가리키는 주소는 그 기계의 mail이 연 session일 때만 그 session이다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다). 받는 workspace가 이 기계의 call 정책에서 private이면 없는 것과 같다."
       - "풀리면 같은 call id로 받는 session에 넣는다(보낸 쪽 remote, 명함 검사 없음, 탭 열기 없음). 새 session은 그 기계가 연 것으로 표시되고 받는 기계의 허락이 없으면 agent 정의가 skip이어도 묻는 session이다. 폴더 길이면 state mail(running)을 낸다."
       - "풀리지 않거나 닫혔으면 실패 행(풀린 받는 곳이 있으면)과 실패 reply mail을 그 기계의 outbox에 넣는다."

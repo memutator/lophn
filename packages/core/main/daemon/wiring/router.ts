@@ -30,10 +30,13 @@ import {
   contentBlocksSchema,
   contentOfBlocks,
   deleteSession,
+  finishTurn,
+  interruptTurns,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
   messageBody,
   serializeMessageContent,
+  stopTurn,
   textBlocks,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
@@ -215,6 +218,17 @@ export function createCallBodyPreparer(deps: {
     ) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
       bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
+    } else if (
+      name === stopTurn.name ||
+      (name === finishTurn.name &&
+        (input as { outcome?: { kind?: unknown } } | null)?.outcome?.kind ===
+          "failed")
+    ) {
+      // 가져간 result call을 답 없이 끝낸 turn이면 그 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
+      bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
+    } else if (name === interruptTurns.name) {
+      // agent runtime이 사라져 닫는 turn이 가져간 call의 알림이다.
+      bodies.push(textBlocks(FAILURE_TEXTS.lophn_restarted));
     } else if (name === callsMailApply.name) {
       // 다른 컴퓨터의 mail이 이 기계의 session에 넣는 글: call·reply의 본문(보낸 기계가 했어도 redaction을 한 번 더 거친다), 실패 알림,
       // 취소 알림.

@@ -85,7 +85,7 @@ lophn call send --on <computer> --to '{"agent":"reviewer","workspace":{"project"
 \`\`\`
 
 - \`machine computers\` lists the person's computers. \`--on <computer>\` takes a name or id from it. Each computer has its own agents, projects and sessions.
-- The workspace there is a project name (or its \`pri_\` id when the project is on several computers), an app slug, or \`{"home":true}\`. Without one, \`agent list\` and \`agent card\` look in the workspace you run in, and \`call send\` opens the agent at home as on this computer. \`session list --on\` shows the sessions calls from this computer opened there; send to one with \`--to '{"session":"ses_xxx"}'\`.
+- The workspace there is a project by its cross-computer \`pri_\` id (from \`lophn project identity\` on that computer or from \`agent list --on\`), an app slug, or \`{"home":true}\`. A project name works only when the same project is also on this computer. Without one, \`agent list\` and \`agent card\` look in the workspace you run in, and \`call send\` opens the agent at home as on this computer. \`session list --on\` shows the sessions calls from this computer opened there; send to one with \`--to '{"session":"ses_xxx"}'\`.
 - Only text goes. Files, images and changes you have not committed stay on this computer; if the other side needs code, move it first (for example with git) as your instructions say.
 - A call to a computer that is off goes when it comes back. A session opened by a call from another computer cannot send to a third computer.
 - Which computer and agent to call is for your instructions and the person to decide; lophn does not pick one.

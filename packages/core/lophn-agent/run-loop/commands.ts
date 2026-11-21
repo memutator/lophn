@@ -109,6 +109,31 @@ function sha256(value: unknown): string {
   return createHash("sha256").update(canonicalize(value), "utf8").digest("hex");
 }
 
+// turn이 끝나지 못했으면(실패, 멈춤, 재시작) 그 turn이 가져간 call을 Router에 알린다. 답 없이 끝난 result call이 보낸 쪽에서
+// 끝없이 기다리지 않게 한다. 정상으로 끝난 turn의 call은 그대로다(다음 turn에서 답할 수 있다).
+export function abandonTurnCall(
+  tx: Tx,
+  calls: CallSignals | undefined,
+  turn: Pick<TurnRow, "session" | "input_message">,
+  outcome: { kind: string; reason: string },
+  notify: boolean,
+): Result<void> {
+  if (calls === undefined || outcome.kind === "completed") return ok(undefined);
+  // 답(reply)도 call id를 싣는다. call 입력만 reply 칸이 있다.
+  const message = tx.sql.get(
+    "select call from messages where id = ? and call is not null and reply is not null",
+    [turn.input_message],
+  );
+  if (message === undefined) return ok(undefined);
+  return calls.abandoned(tx, {
+    call: String(message["call"]) as Id<"cal">,
+    session: turn.session as Id<"ses">,
+    reason:
+      outcome.reason === "restarted" ? "lophn_restarted" : "receiver_ended",
+    notify,
+  });
+}
+
 // 끝내는 쓰기 하나. 정상 종료·멈춤이 같은 길로 끝난다.
 export function finishRow(
   tx: Tx,
@@ -383,6 +408,8 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
         }
         const done = finishRow(tx, row, outcome, input.result, null, null);
         if (!done.ok) return done;
+        const abandoned = abandonTurnCall(tx, deps.calls, row, outcome, true);
+        if (!abandoned.ok) return abandoned;
         publishTurnEnded(tx, deps.publish, row, outcome);
         if (input.result_size !== undefined) {
           const registered = registerPreparedBlob(tx, ctx, {
@@ -446,6 +473,8 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
           input.request_key,
         );
         if (!done.ok) return done;
+        const abandoned = abandonTurnCall(tx, deps.calls, row, outcome, true);
+        if (!abandoned.ok) return abandoned;
         publishTurnEnded(tx, deps.publish, row, outcome as never);
         return ok({
           id: row.id,

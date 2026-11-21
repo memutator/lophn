@@ -32,6 +32,9 @@ import {
   createMailSeen,
   pendingMails,
 } from "./mail-store.ts";
+import type { Id } from "../../protocol/base/ids.ts";
+import type { CallSignals } from "../lophn-agent/run-loop/ports.ts";
+import { interruptRunningTurns } from "../lophn-agent/run-loop/interrupt.ts";
 import type { RoutedInput } from "./ports.ts";
 import { createRouter } from "./router.ts";
 import { createCallStore } from "./store.ts";
@@ -535,9 +538,180 @@ test("drain이 call mail을 읽은 뒤 취소해도 cancel mail이 가서 받는
     pendingMails(a.sql, B as never).map((mail) => mail.kind),
     ["cancel"],
   );
+  // 끝난 행은 배달 중인 상태를 남기지 않는다.
+  assert.equal(a.call(call)?.["delivery"], null);
   assert.ok(applyFrom(b, read, A).ok);
   carry(a, b);
   assert.equal(b.call(call)?.["state"], "cancelled");
+});
+
+test("폴더 길로 cancel이 call보다 먼저 닿으면 그 call은 돌지 않고, 셋째 기계의 cancel은 call을 막지 못한다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const to = { agent: "reviewer", workspace: { home: true as const } };
+  const call = send(a, sender, B, to, "t1");
+  const [first] = pendingMails(a.sql, B as never);
+  assert.ok(first !== undefined);
+  assert.ok(a.router.cancel(a.tx, { kind: "human" }, { call }).ok);
+  const [cancel] = pendingMails(a.sql, B as never);
+  assert.ok(cancel?.kind === "cancel");
+  assert.ok(applyFrom(b, cancel, A).ok);
+  const late = applyFrom(b, first, A);
+  assert.deepStrictEqual(late.ok && late.value, {
+    delivery: "failed",
+    reason: "closed",
+    session: null,
+  });
+  assert.equal(b.count("sessions"), 0);
+  assert.equal(b.delivered.length, 0);
+
+  const next = send(a, sender, B, to, "t2");
+  const [mail] = pendingMails(a.sql, B as never).filter(
+    (one) => one.call === next,
+  );
+  assert.ok(mail !== undefined);
+  assert.ok(applyFrom(b, forged("cancel", next, C, B, "1"), C).ok);
+  const ran = applyFrom(b, mail, A);
+  assert.ok(ran.ok && ran.value.delivery === "running");
+  assert.equal(b.delivered.length, 1);
+});
+
+// 받는 turn이 call을 가져간 뒤 끝나지 못한 것을 흉내 낸다: 받은 message와 도는 turn을 쓰고, 재시작처럼 turn을 interrupted로 닫는다.
+function interruptAfterTake(m: Machine, session: string, call: string) {
+  const n = m.count("messages") + 1;
+  const message = `msg_0${String(n).padStart(25, "0")}`;
+  m.db
+    .prepare(
+      `insert into messages (id, session, from_kind, from_ref, call, reply, body, created_seq, created_at, state_seq)
+       values (?, ?, 'agent', 'x', ?, 'result', ?, ?, 't', ?)`,
+    )
+    .run(message, session, call, "a".repeat(64), 1000 + n, 1000 + n);
+  m.db
+    .prepare(
+      `insert into turns (id, session, input_message, state, basis, started_at, limits, mode, state_seq)
+       values (?, ?, ?, 'running', 'b', 't', '{}', 'attended', 1)`,
+    )
+    .run(`trn_0${String(n).padStart(25, "0")}`, session, message);
+  const signals = {
+    consumed: (tx: Tx, id: Id<"cal">) => m.router.markConsumed(tx, id),
+    abandoned: (tx: Tx, input: Parameters<CallSignals["abandoned"]>[1]) =>
+      m.router.abandoned(tx, input),
+  };
+  assert.ok(signals.consumed(m.tx, call as Id<"cal">).ok);
+  const done = interruptRunningTurns(m.tx, undefined, "restarted", undefined, {
+    signals,
+    notify: true,
+  });
+  assert.ok(done.ok);
+}
+
+test("다른 컴퓨터에서 받은 result call을 가져간 turn이 재시작으로 끝나면 실패 mail이 가고 보낸 기계의 행이 failed로 닫혀 보낸 session이 알림을 받는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const call = send(
+    a,
+    sender,
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t1",
+  );
+  carry(a, b);
+  interruptAfterTake(b, b.delivered[0]!.session, call);
+  assert.equal(b.call(call)?.["fail_reason"], "lophn_restarted");
+  const [failure] = carry(b, a);
+  assert.deepStrictEqual(failure?.kind === "reply" && failure.outcome, {
+    state: "failed",
+    reason: "lophn_restarted",
+  });
+  assert.deepStrictEqual(
+    { ...a.call(call) },
+    {
+      state: "failed",
+      fail_reason: "lophn_restarted",
+      delivery: null,
+      receiver_session: null,
+    },
+  );
+  assert.equal(a.delivered.at(-1)?.session, sender);
+  assert.equal(a.delivered.at(-1)?.input.outcome?.reason, "lophn_restarted");
+});
+
+test("한 컴퓨터 안의 result call도 가져간 turn이 재시작으로 끝나면 보낸 session에 lophn_restarted로 돌아가고, 답한 call은 그대로다", async () => {
+  const a = await machine(A);
+  const sender = a.openSession("lophn_home");
+  const receiver = a.openSession(REVIEWER);
+  const local = (dedup: string) => {
+    const routed = a.router.route(a.tx, {
+      from: { kind: "agent", session: sender as Id<"ses"> },
+      to: { session: receiver },
+      reply: "result",
+      body: textBlocks("review"),
+      refs: [],
+      reply_to: null,
+      dedup,
+      kind: "call",
+      delivery: "next_turn",
+      unattended: false,
+    });
+    assert.ok(routed.ok && routed.value.call !== null);
+    return routed.value.call;
+  };
+  const open = local("t1");
+  interruptAfterTake(a, receiver, open);
+  assert.equal(a.call(open)?.["fail_reason"], "lophn_restarted");
+  assert.equal(a.delivered.at(-1)?.session, sender);
+  assert.equal(a.delivered.at(-1)?.input.outcome?.reason, "lophn_restarted");
+
+  const answered = local("t2");
+  assert.ok(
+    a.router.reply(
+      a.tx,
+      { session: receiver },
+      { call: answered, body: textBlocks("done"), refs: [] },
+    ).ok,
+  );
+  const seen = a.delivered.length;
+  interruptAfterTake(a, receiver, answered);
+  assert.equal(a.call(answered)?.["state"], "done");
+  assert.equal(a.delivered.length, seen);
+});
+
+test("받은 기계에서 답한 result call은 그 turn이 재시작으로 끝나도 실패 mail을 내지 않는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const sender = a.openSession("lophn_home");
+  const call = send(
+    a,
+    sender,
+    B,
+    {
+      agent: "reviewer",
+      workspace: { home: true },
+    },
+    "t1",
+  );
+  carry(a, b);
+  const receiver = b.delivered[0]!.session;
+  assert.ok(
+    b.router.reply(
+      b.tx,
+      { session: receiver },
+      { call, body: textBlocks("done"), refs: [] },
+    ).ok,
+  );
+  interruptAfterTake(b, receiver, call);
+  const mails = carry(b, a);
+  assert.deepStrictEqual(
+    mails.map((mail) => mail.kind === "reply" && mail.outcome?.state),
+    ["done"],
+  );
+  assert.equal(a.call(call)?.["state"], "done");
+  assert.equal(a.call(call)?.["delivery"], null);
 });
 
 test("이미 있는 call id로 온 call mail은 session을 열지 않고 failed(not_found)로 답한다", async () => {

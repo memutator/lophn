@@ -135,6 +135,16 @@ export interface Router {
   failLostOnStart(tx: Tx, notify: boolean): Result<number>;
   // 받는 session의 turn이 이 call의 입력을 가져갔다(turn을 시작할 때 부른다).
   markConsumed(tx: Tx, call: string): Result<void>;
+  // 받는 session의 turn이 call을 가져간 뒤 끝나지 못했다(실패, 멈춤, 재시작). 아직 답하지 않은 result call을 보낸 쪽에 실패로 돌려준다.
+  abandoned(
+    tx: Tx,
+    input: {
+      call: string;
+      session: string;
+      reason: CallFailReason;
+      notify: boolean;
+    },
+  ): Result<void>;
   // 다른 컴퓨터의 agent에게 call mail을 낸다. 행이 있고 queue가 없다(앱이 보낸 call처럼). 검사는 main thread가 마쳤다.
   sendRemote(tx: Tx, input: SendRemoteInput): Result<SentRemote>;
   // 다른 컴퓨터에서 온 mail 하나를 적용한다. 같은 mail id는 한 번만 돈다.
@@ -1224,6 +1234,18 @@ export function createRouter(deps: RouterDeps): Router {
       if (store.read(tx, calId(mail.call)) !== null) {
         return ok({ delivery: "failed", reason: "not_found", session: null });
       }
+      // 보낸 기계가 이미 취소한 call이다(cancel mail이 먼저 닿았다). 돌리지 않고 닫힌 call로 답한다.
+      if (seen.cancelSeen(tx, origin.machine, mail.call)) {
+        const queued = queueFailure(
+          tx,
+          mail.call,
+          origin.machine,
+          "closed",
+          mail.unattended,
+        );
+        if (!queued.ok) return queued;
+        return ok({ delivery: "failed", reason: "closed", session: null });
+      }
       return applyCall(tx, mail, origin, input);
     }
     const record = store.read(tx, calId(mail.call));
@@ -1433,6 +1455,22 @@ export function createRouter(deps: RouterDeps): Router {
       changedIfRemote(tx, before);
       const closed = queueClosed(tx, before, "done");
       return closed === null || closed.ok ? ok(undefined) : closed;
+    },
+    abandoned(tx, input) {
+      const record = store.read(tx, calId(input.call));
+      // 답한 call(done), 취소·실패한 call은 그대로다. conversation은 답이 여럿이라 끝나지 않은 turn이 끝을 뜻하지 않는다.
+      // ask call은 켤 때 정산과 짝의 규칙이 따로 닫는다.
+      if (
+        record === null ||
+        isFinished(record.state) ||
+        record.receiver_session !== input.session ||
+        record.reply !== "result" ||
+        record.ask !== null
+      ) {
+        return ok(undefined);
+      }
+      const done = failAll(tx, [record], input.reason, input.notify);
+      return done.ok ? ok(undefined) : done;
     },
     sendRemote,
     applyMail,

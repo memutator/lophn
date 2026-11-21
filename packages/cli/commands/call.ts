@@ -94,7 +94,7 @@ const send = defineCommand({
     "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
     "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file. " +
     "To hand work to a coding agent the person will continue in a terminal, open its TUI with `lophn tab open --coding <harness> --handoff <text>` instead. " +
-    "--on <computer> sends it to an agent on another computer of the person (machine computers): to.session is a session listed by session list --on, to.workspace a project name or pri_ id, an app slug or home there. Only text goes; no image, file or refs.",
+    "--on <computer> sends it to an agent on another computer of the person (machine computers): to.session is a session listed by session list --on, to.workspace a project by its cross-computer id (pri_…, from lophn project identity on that computer or agent list --on; a project name works only when the project is also on this computer), an app slug or home there. Only text goes; no image, file or refs.",
   input: agentCallSend.input.omit({ dedup: true, body: true }).extend({
     ...bodyFields,
     refs: z.array(callRefSchema).default([]),

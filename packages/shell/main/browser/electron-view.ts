@@ -63,7 +63,11 @@ function hookBrowserContents(
     });
     if (decision.allow) return;
     event.preventDefault();
-    if (event.isMainFrame && decision.external && hooks.activation.fresh(id)) {
+    if (
+      event.isMainFrame &&
+      decision.external &&
+      hooks.activation.freshPerson(id)
+    ) {
       hooks.openExternal(event.url);
     }
   };

@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createTabControl } from "./control.ts";
+import { type BrowserCallPayload, createBrowserDriver } from "./driver.ts";
 import {
-  type BrowserCallPayload,
-  createBrowserDriver,
   createDriverInput,
   type DriverInput,
-} from "./driver.ts";
+  type DriverInputEvent,
+  INPUT_TAIL_MS,
+} from "./input.ts";
 import type { Page, PageEvents, PageLookup } from "./page.ts";
 import type { AxNode } from "./snapshot.ts";
 
@@ -46,6 +47,10 @@ function fakePage() {
     onKey: (_char: string) => {},
     /** page가 key를 받는다. false면 sendKey가 false다. */
     takes: true,
+    /** 그 칸에 쳐진 글(전체를 고른 뒤 Backspace면 비운다). */
+    field: "",
+    /** 칸이 page의 keyboard focus다. */
+    focused: () => true,
   };
   let events: PageEvents | undefined;
   const page: Page = {
@@ -88,6 +93,15 @@ function fakePage() {
       if (method === "Runtime.evaluate") {
         return Promise.resolve({ result: { value: 1 } });
       }
+      if (method === "Runtime.callFunctionOn") {
+        const declaration = String(params?.functionDeclaration);
+        if (declaration.includes("hasFocus")) {
+          return Promise.resolve({ result: { value: state.focused() } });
+        }
+        if (declaration.includes("value.length")) {
+          return Promise.resolve({ result: { value: state.field.length } });
+        }
+      }
       if (method === "Page.captureScreenshot") {
         return Promise.resolve({ data: "AA==" });
       }
@@ -95,8 +109,12 @@ function fakePage() {
     }) as Page["send"],
     sendKey: (event) => {
       if (!state.takes) return false;
+      if (event.type === "keyDown" && event.keyCode === "Backspace") {
+        state.field = "";
+      }
       if (event.type === "char") {
         state.typed.push(event.keyCode);
+        state.field += event.keyCode;
         state.onKey(event.keyCode);
       }
       return true;
@@ -369,20 +387,25 @@ test("fill_login은 page의 browser profile을 실어 값을 청한다", async (
 });
 
 // CDP key event는 page가 아니라 창에서 focus가 있는 곳(shell 입력칸, 사람의 다른 page)에 가서 사람의 탭을 닫았다. 두 번째로 고친 길이다.
-test("agent의 key는 표시한 그 page에만 가고 CDP key 길을 쓰지 않으며, page가 받지 않으면 멈추고 unavailable이다", async () => {
-  const marks: [number, boolean][] = [];
-  const input = createDriverInput((page, on) => marks.push([page, on]));
+// 표시가 key보다 먼저 꺼지면 page가 받지 않은 키가 창 menu 단축키가 되고 옮겨진 focus를 창이 되돌리지 못한다.
+test("agent의 key는 표시한 그 page에만 가고, page를 다녀온 뒤 잠시까지 표시하며, page가 받지 않으면 멈추고 unavailable이다", async () => {
+  const log: string[] = [];
+  const input = createDriverInput((_page, event) => void log.push(event));
   const { fake, run } = setup("preview", input);
   const original = fake.page.send;
-  const cdp: string[] = [];
   (fake.page as { send: Page["send"] }).send = ((method, params) => {
-    cdp.push(method);
+    log.push(method);
     return original(method, params);
   }) as Page["send"];
-  const during: boolean[] = [];
   const sendKey = fake.page.sendKey;
+  let lastKeyAt = 0;
   (fake.page as { sendKey: Page["sendKey"] }).sendKey = (event) => {
-    during.push(input.marked(fake.page.id));
+    log.push(
+      input.marked(fake.page.id) && input.driverKey(fake.page.id)
+        ? "key"
+        : "key outside the mark",
+    );
+    lastKeyAt = Date.now();
     return sendKey(event);
   };
   fake.state.nodes = tree([2, "Name"]);
@@ -392,24 +415,25 @@ test("agent의 key는 표시한 그 page에만 가고 CDP key 길을 쓰지 않�
     { type: "type", ref: "e2", text: "hi" },
     { type: "fill", ref: "e2", text: "yo" },
   ] as const) {
+    log.length = 0;
     const out = await run({ kind: "act", act });
     assert.ok("content" in out, JSON.stringify(out));
+    const keys = log.flatMap((line, at) =>
+      line.startsWith("key") ? [at] : [],
+    );
+    assert.ok(keys.length > 0 && keys.every((at) => log[at] === "key"));
+    const end = log.indexOf("end");
+    assert.ok(log.indexOf("start") < (keys[0] ?? -1));
+    assert.ok(
+      log.slice((keys.at(-1) ?? 0) + 1, end).includes("Runtime.evaluate"),
+    );
+    assert.ok(
+      !log.some((line) => /^Input\.(dispatchKey|insertText|ime)/.test(line)),
+    );
   }
+  assert.ok(Date.now() - lastKeyAt >= INPUT_TAIL_MS - 5);
   assert.equal(fake.state.typed.join(""), "hiyo");
-  assert.ok(during.length > 0 && during.every(Boolean));
   assert.equal(input.marked(fake.page.id), false);
-  assert.deepEqual(
-    cdp.filter((method) => /^Input\.(dispatchKey|insertText|ime)/.test(method)),
-    [],
-  );
-  assert.deepEqual(marks, [
-    [fake.page.id, true],
-    [fake.page.id, false],
-    [fake.page.id, true],
-    [fake.page.id, false],
-    [fake.page.id, true],
-    [fake.page.id, false],
-  ]);
 
   fake.state.takes = false;
   fake.state.typed = [];
@@ -419,4 +443,58 @@ test("agent의 key는 표시한 그 page에만 가고 CDP key 길을 쓰지 않�
   });
   assert.ok("error" in lost && lost.error.code === "unavailable");
   assert.equal(fake.state.typed.length, 0);
+});
+
+// 사람의 키를 agent의 page에 넣지도, agent의 키를 창 단축키로 넘기지도 않는 판정이다.
+test("표시된 page에 sendKey 밖에서 온 키는 사람이 그 page에 있지 않았을 때만 버린다", () => {
+  const events: [number, DriverInputEvent][] = [];
+  const input = createDriverInput(
+    (page, event) => void events.push([page, event]),
+  );
+  const page = fakePage().page;
+  const keyOn = (event: Parameters<Page["sendKey"]>[0]) =>
+    input.sendKey(
+      {
+        ...page,
+        sendKey: () => input.driverKey(page.id) && !input.strayKey(page.id),
+      },
+      event,
+    );
+  assert.equal(input.strayKey(page.id), false);
+  let release = () => {};
+  void input.sending(
+    page.id,
+    () => new Promise<void>((resolve) => void (release = resolve)),
+  );
+  assert.equal(input.strayKey(page.id), true);
+  assert.equal(keyOn({ type: "keyDown", keyCode: "a", modifiers: [] }), true);
+  assert.equal(keyOn({ type: "keyDown", keyCode: "Tab", modifiers: [] }), true);
+  assert.deepEqual(events, [
+    [page.id, "start"],
+    [page.id, "tab"],
+  ]);
+  input.personIn(page.id);
+  assert.equal(input.strayKey(page.id), false);
+  release();
+});
+
+// 깨지면 비밀번호의 남은 글자가 page script가 focus를 옮긴 다른 칸(다른 origin의 frame일 수 있다)에 쳐진다.
+test("fill_login은 칸이 keyboard focus를 잃으면 멈추고, 다 친 뒤 칸의 글이 값보다 짧으면 실패다", async () => {
+  const { fake, run } = setup();
+  framed(fake);
+  await run({ kind: "snapshot" });
+  fake.state.focused = () => fake.state.typed.length < 3;
+  const moved = await run(fillLogin);
+  assert.ok("error" in moved && moved.error.code === "conflict");
+  assert.equal(fake.state.typed.length, 3);
+  assert.ok(!JSON.stringify(moved).includes(PASSWORD));
+
+  fake.state.focused = () => true;
+  fake.state.typed = [];
+  fake.state.onKey = () => {
+    if (fake.state.typed.length === 2) fake.state.field = "x";
+  };
+  const cut = await run(fillLogin);
+  assert.ok("error" in cut && cut.error.code === "conflict");
+  assert.ok(!JSON.stringify(cut).includes(PASSWORD));
 });

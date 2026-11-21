@@ -3,9 +3,12 @@
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
+  DRIVER_FOCUS_CHANNEL,
   DRIVER_INPUT_CHANNEL,
   type IntentApi,
   isDesktopIntent,
+  isDriverInputAnswer,
+  isDriverInputMessage,
   isWindowShortcut,
   type ShortcutApi,
   WINDOW_SHORTCUT_CHANNEL,
@@ -20,6 +23,7 @@ interface ShortcutTransport {
     channel: string,
     callback: (event: unknown, payload: unknown) => void,
   ): void;
+  send(channel: string, payload: unknown): void;
 }
 
 export function createShortcutApi(transport: ShortcutTransport): ShortcutApi {
@@ -33,10 +37,18 @@ export function createShortcutApi(transport: ShortcutTransport): ShortcutApi {
     },
     subscribeDriverInput(listener) {
       const callback = (_event: unknown, payload: unknown) => {
-        if (typeof payload === "boolean") listener(payload);
+        if (isDriverInputMessage(payload)) listener(payload);
       };
       transport.on(DRIVER_INPUT_CHANNEL, callback);
       return () => transport.removeListener(DRIVER_INPUT_CHANNEL, callback);
+    },
+    answerDriverInput(answer) {
+      if (isDriverInputAnswer(answer)) {
+        transport.send(DRIVER_FOCUS_CHANNEL, {
+          page: answer.page,
+          person: answer.person,
+        });
+      }
     },
   } satisfies ShortcutApi);
 }

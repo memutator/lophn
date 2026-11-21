@@ -59,7 +59,9 @@ export type BrowserWiring = Registered & {
 export function register(ctx: ShellContext): BrowserWiring {
   const { headless, overlays, ipc, log, windowRef, windowOfRef } = ctx;
 
-  const activation = createActivation({ nowMs: () => Date.now() });
+  const activation = createActivation({ nowMs: () => Date.now() }, (id) =>
+    ctx.driverInput.marked(id),
+  );
   // userData(desktop.ts)를 잡은 뒤, partition마다 그 첫 view나 Clear browsing data가 올 때 한 번만 설치한다.
   // 그 전에 partition을 만들면 저장이 데이터 root 밖에 생긴다.
   const sessions = new Map<string, ReturnType<typeof installBrowserSession>>();

@@ -52,6 +52,8 @@ export interface BrowserHooks {
   activation: {
     mark(contentsId: number): void;
     fresh(contentsId: number): boolean;
+    /** 이 컴퓨터의 사람의 입력만 센다. OS 앱으로 넘길 때 본다. */
+    freshPerson(contentsId: number): boolean;
     forget(contentsId: number): void;
   };
   /** OS 기본 앱으로 넘긴다(mailto, tel). */
@@ -428,7 +430,10 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       if (address === null) return failure("invalid_input", "address is empty");
       const decision = decideNavigation({ url: address, isMainFrame: true });
       if (!decision.allow) {
-        if (decision.external && deps.activation.fresh(entry.contents.id)) {
+        if (
+          decision.external &&
+          deps.activation.freshPerson(entry.contents.id)
+        ) {
           deps.openExternal(address);
           return { ok: true, value: state(entry) };
         }

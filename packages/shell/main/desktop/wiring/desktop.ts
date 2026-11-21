@@ -3,6 +3,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  type IpcMainEvent,
   globalShortcut,
   Menu,
   nativeImage,
@@ -28,7 +29,10 @@ import {
   parseKeyOverrides,
   resolveBindings,
 } from "../../../../protocol/shell/keybindings.ts";
-import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
+import {
+  DRIVER_FOCUS_CHANNEL,
+  WINDOW_SHORTCUT_CHANNEL,
+} from "../../../ipc/shortcuts.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import { guestViewSession } from "../../browser/webview-guest.ts";
 import { isViewScheme } from "../security.ts";
@@ -353,13 +357,31 @@ export function register(
     if (contents.getType() !== "webview") return undefined;
     return isViewScheme(contents.getURL()) ? undefined : "browser";
   };
+  ipc.on(DRIVER_FOCUS_CHANNEL, (event: IpcMainEvent, payload: unknown) =>
+    ctx.driverInput.answer(event.sender, payload),
+  );
   app.on("web-contents-created", (_event, contents) => {
+    // lophn이 page에 input을 넣는 동안: 사람이 다른 page를 누른 것을 창에 알리고, focus가 잠깐 그 page로 간 사이 사람이 친 키는
+    // 버린다(input.ts). listenShortcuts보다 먼저 건다.
+    if (contents.getType() === "webview") {
+      contents.on("input-event", (_input, input) => {
+        if (input.type === "mouseDown") ctx.driverInput.pressed(contents);
+      });
+      contents.on("before-input-event", (event) => {
+        if (ctx.driverInput.strayKey(contents.id)) event.preventDefault();
+      });
+    }
     listenShortcuts(
       contents,
       process.platform,
       (shortcut, send) => {
-        // lophn이 이 page에 보내는 key는 page에만 간다. 넘기지도 삼키지도 않는다(agent가 누른 Control+w가 창의 탭을 닫았다).
-        if (ctx.driverInput.marked(contents.id)) return false;
+        // lophn이 이 page에 넣는 key는 page에만 간다. 넘기지도 삼키지도 않는다(agent가 누른 Control+w가 창의 탭을 닫았다).
+        // 위에서 버린 사람의 키도 단축키가 되지 않는다.
+        if (
+          ctx.driverInput.driverKey(contents.id) ||
+          ctx.driverInput.strayKey(contents.id)
+        )
+          return false;
         // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
         const host =
           contents.getType() === "webview" ? contents.hostWebContents : null;

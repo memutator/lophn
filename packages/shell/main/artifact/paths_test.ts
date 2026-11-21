@@ -249,6 +249,7 @@ test("다른 컴퓨터의 artifact도 같은 봉한 scheme·CSP·상한·path �
     activation: {
       mark: () => {},
       fresh: () => false,
+      freshPerson: () => false,
       forget: () => {},
     },
     resolve: (source) => {

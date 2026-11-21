@@ -66,3 +66,15 @@ test("popup url that fails the navigation check is denied even with input", () =
     reason: "credentials",
   });
 });
+
+// 깨지면 agent의 click이 사람의 컴퓨터에서 mailto 같은 OS 앱을 연다.
+test("lophn이 넣은 input은 popup에는 활동이지만 OS 앱으로 넘기기에는 사람의 입력이 아니다", () => {
+  let driven = true;
+  const activation = createActivation({ nowMs: () => 100_000 }, () => driven);
+  activation.mark(1);
+  assert.equal(activation.fresh(1), true);
+  assert.equal(activation.freshPerson(1), false);
+  driven = false;
+  activation.mark(1);
+  assert.equal(activation.freshPerson(1), true);
+});

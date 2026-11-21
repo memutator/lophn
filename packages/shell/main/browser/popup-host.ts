@@ -34,7 +34,11 @@ export function windowOpenHandler(
     });
     if (decision.action === "deny") {
       if (decision.reason === "no-activation") hooks.popup.blocked();
-      else if (decision.external && activated) hooks.openExternal(details.url);
+      else if (
+        decision.external &&
+        hooks.activation.freshPerson(input.openerId)
+      )
+        hooks.openExternal(details.url);
       return { action: "deny" };
     }
     if (decision.placement.kind === "docked") {

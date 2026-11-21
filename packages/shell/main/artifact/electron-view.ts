@@ -50,7 +50,7 @@ export function electronArtifactViews(
         if (
           decision.external &&
           event.isMainFrame &&
-          hooks.activation.fresh(id)
+          hooks.activation.freshPerson(id)
         ) {
           hooks.openLink(event.url);
         }
@@ -66,7 +66,7 @@ export function electronArtifactViews(
         if (
           !decision.allow &&
           decision.external &&
-          hooks.activation.fresh(id)
+          hooks.activation.freshPerson(id)
         ) {
           hooks.openLink(details.url);
         }

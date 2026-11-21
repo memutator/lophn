@@ -41,6 +41,8 @@ export interface ArtifactHooks {
   activation: {
     mark(contentsId: number): void;
     fresh(contentsId: number): boolean;
+    /** 이 컴퓨터의 사람의 입력만 센다. OS 앱으로 넘길 때 본다. */
+    freshPerson(contentsId: number): boolean;
     forget(contentsId: number): void;
   };
   /** title·loading이 바뀌었다. */

@@ -2374,7 +2374,7 @@ flows:
       - "will-frame-navigate와 will-redirect에서 main frame과 subframe의 목적지를 본다(will-navigate는 쓰지 않는다)"
       - "main frame의 http·https는 userinfo가 없을 때만 간다"
       - "subframe은 http·https와 data·blob·about을 받고 그 밖은 막는다"
-      - "main frame의 mailto·tel은 막고, 사용자 입력이 fresh면 OS로 넘긴다"
+      - "main frame의 mailto·tel은 막고, 이 컴퓨터 사람의 입력이 fresh면 OS로 넘긴다. lophn(agent, 멀리서 보기)이 그 page에 넣은 input은 popup·download에는 활동이지만 OS로 넘기기에는 세지 않는다"
     outcomes:
       - id: allowed
         observe: ["request:outside-server"]
@@ -2383,7 +2383,7 @@ flows:
         when: "decideNavigation이 막았다: 허락되지 않은 scheme, main frame의 userinfo가 있는 http·https, 입력 없는 mailto·tel, 주소를 읽을 수 없음"
       - id: os-handoff
         observe: ["process:os-opener"]
-        when: "main frame의 mailto·tel이고 사용자 입력이 fresh이다"
+        when: "main frame의 mailto·tel이고 이 컴퓨터 사람의 입력이 fresh이다(lophn이 넣은 input은 세지 않는다)"
     crosses_process: false
     risk: [sandbox]
 
@@ -2419,7 +2419,7 @@ flows:
         when: "목적지가 scheme·credentials·읽을 수 없는 모양으로 막혔다(입력이 있어도 OS로 넘기지 않는다)"
       - id: os-handoff
         observe: ["process:os-opener"]
-        when: "막힌 목적지가 mailto·tel이고 사용자 입력이 5000ms 안이다"
+        when: "막힌 목적지가 mailto·tel이고 이 컴퓨터 사람의 입력이 5000ms 안이다(lophn이 넣은 input은 popup에는 세지만 여기에는 세지 않는다)"
       - id: adopt-wrong-window
         code: invalid_input
         when: "popup을 연 창이 아닌 창이 adopt를 불렀다, 또는 adopt 입력이 schema와 다르다"

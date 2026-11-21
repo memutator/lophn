@@ -119,7 +119,7 @@ OS마다 따로 저장하고(macOS의 Cmd 조합을 Linux에 옮기면 뜻이 �
 - boundary: `shell`(키 표·판정·창·main·preload), `config`(저장 설정). 이 설계에 따로 붙은 boundary-catalog 항목은 없다.
 - OS 전역: 전역 팔레트 키 `CommandOrControl+Shift+K` 하나. 못 걸면 다른 키로 대신하지 않고 tray에 사용 불가를 알린다. headless에서는 걸지 않는다.
 - IPC `shell:shortcut`(main → renderer): payload는 binding id 글자 하나다. `desk.nth:3`처럼 arg를 실을 수 있어서 command 이름 목록을 따로 두지 않는다.
-- lophn(agent의 browser 호출, 멀리서 보기)이 page에 넣는 키는 그 page에만 간다. main은 넣는 동안 그 page의 키를 창 단축키·menu 단축키로 보지 않고, IPC `shell:driver-input`(main → renderer, boolean)으로 창에 알려 창이 사람의 focus를 지킨다(`browser-tab.md` 37).
+- lophn(agent의 browser 호출, 멀리서 보기)이 page에 넣는 키는 그 page에만 간다. lophn이 넣은 키는 창 단축키·menu 단축키가 되지 않는다. 넣는 동안 그 page에 온 사람의 키는 사람이 그 page에 있지 않았으면 버린다(창 focus가 잠깐 그 page에 간 사이의 키). 창과는 IPC `shell:driver-input`(main → renderer, `{page, event: start|end|tab|person}`)과 `shell:driver-focus`(renderer → main, start의 답 `{page, person}`)로 주고받아 창이 사람의 focus를 지킨다(`browser-tab.md` 37).
 - main이 먼저 받는 키도 설정을 따른다. main은 core 설정의 사본에서 `shell.keybindings`의 이 OS 것을 읽어 같은 검사로 걸러 자기 표를 바꾼다. 설정이 바뀌면(Settings 화면, `lophn settings set`, agent) 다시 읽는다(`settings.md`). 창에서 main으로 키를 알리는 IPC는 없다.
 - 선언 설정 `shell.keybindings`: `{ mac?: {binding id → chord[]}, other?: {binding id → chord[]} }`. id 글자 ≤160, chord 글자 ≤64, id당 chord ≤4, 항목 ≤256(표 약 90줄에 앱 단축키가 더해지는 수). `core`가 저장하고, 바꿀 때 binding id와 chord 글자를 shell과 같은 규칙으로 검사해 모르는 id와 읽을 수 없는 chord를 거절한다. shell은 읽을 때 같은 규칙으로 틀린 줄만 버린다(손으로 고친 file). extension·앱 command도 같은 저장·같은 Settings 줄을 쓴다.
 - chord 글: 수정키(`Ctrl`·`Cmd`·`Alt`·`Shift`) `+` 물리 키 이름(`KeyX`, `Digit1`, `F5`, `Backquote`, `ArrowLeft`, `PageUp`, `Escape` …), 두 타는 공백 하나로 이은 것.

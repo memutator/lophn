@@ -1,6 +1,6 @@
 // 영역 file(`wiring/*.ts`)이 함께 쓰는 값. 영역끼리는 서로 import하지 않고 이 context와
 // `register`가 돌려주는 값으로만 주고받는다.
-import { app, type BrowserWindow, ipcMain, webContents } from "electron";
+import { app, type BrowserWindow, ipcMain } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -29,10 +29,9 @@ import {
   type WindowState,
 } from "../../workspace/window-state.ts";
 import {
-  createDriverInput,
-  type DriverInput,
-} from "../../browser/agent/driver.ts";
-import { DRIVER_INPUT_CHANNEL } from "../../../ipc/shortcuts.ts";
+  type ElectronDriverInput,
+  electronDriverInput,
+} from "./driver-input.ts";
 import { connectCore } from "./core.ts";
 import type { Machines } from "./machines.ts";
 import {
@@ -140,7 +139,7 @@ export type ShellContext = {
   relay: CoreRelay;
   windowHooks: WindowHooks;
   /** lophn이 input을 보내는 page 표시. driver·멀리서 보기(surface)가 쓰고 창 단축키 전달(desktop)이 읽는다. */
-  driverInput: DriverInput;
+  driverInput: ElectronDriverInput;
   appConnector: ReturnType<typeof createAppConnector>;
   /** 창마다 편집기 guard가 저장 중 수를 기억한다. 편집기가 채우고 종료 흐름이 읽는다. */
   closeGuards: CloseGuards;
@@ -275,14 +274,7 @@ export function createShellContext(): ShellContext {
     },
     relay,
     windowHooks: { created: [], closed: [] },
-    driverInput: createDriverInput((page, on) => {
-      const contents = webContents.fromId(page);
-      if (contents === undefined || contents.isDestroyed()) return;
-      // page가 받지 않은 key는 page가 답한 뒤 창 menu로 올라간다(Control+w가 menu의 Close Window). 표시하는 동안은 menu 단축키가 아니다.
-      contents.setIgnoreMenuShortcuts(on);
-      const host = contents.hostWebContents;
-      if (host && !host.isDestroyed()) host.send(DRIVER_INPUT_CHANNEL, on);
-    }),
+    driverInput: electronDriverInput(),
     appConnector: createAppConnector(coreInternal),
     closeGuards: new CloseGuards(),
     quit: { requested: false, active: () => false },

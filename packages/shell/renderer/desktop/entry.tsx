@@ -106,9 +106,10 @@ const bridges = globalThis as {
 // 창의 다른 focus listener보다 먼저 건다(person-focus.ts).
 const shortcuts = bridges.lophnShortcuts;
 if (shortcuts !== undefined) {
-  keepPersonFocus(window, (listener) =>
-    shortcuts.subscribeDriverInput(listener),
-  );
+  keepPersonFocus(window, {
+    subscribe: (listener) => void shortcuts.subscribeDriverInput(listener),
+    answer: (page, person) => shortcuts.answerDriverInput({ page, person }),
+  });
 }
 // shell preload의 앱 view 통로. desktop 창 preload에만 있다.
 const views: LophnShellViewsApi | undefined =

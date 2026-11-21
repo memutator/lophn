@@ -136,7 +136,9 @@ export function register(
 
   const views = createArtifactViews({
     host,
-    activation: createActivation({ nowMs: () => Date.now() }),
+    activation: createActivation({ nowMs: () => Date.now() }, (id) =>
+      ctx.driverInput.marked(id),
+    ),
     resolve: (source) =>
       source.kind === "artifact" && isRemoteMachine(source.machine)
         ? remoteArtifacts.resolve({ ...source, machine: source.machine })

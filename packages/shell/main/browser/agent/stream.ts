@@ -14,7 +14,7 @@ import {
 } from "../../../../protocol/lophn-agent/page-view.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { ControlState, TabControl } from "./control.ts";
-import type { DriverInput } from "./driver.ts";
+import { type DriverInput, sendKeys, withInput } from "./input.ts";
 import { type KeyEvent, pressEvents, typeEvents } from "./keys.ts";
 import type { Page } from "./page.ts";
 
@@ -238,14 +238,18 @@ export function createPageStream(deps: PageStreamDeps) {
   }
 
   async function mouse(page: Page, params: Record<string, unknown>) {
-    await page.send("Input.dispatchMouseEvent", params);
+    const press = () => page.send("Input.dispatchMouseEvent", params);
+    await (deps.input?.mouse(page.id, press) ?? press());
   }
 
   // page가 받지 않은 key 뒤로는 보내지 않는다.
   const keys = (page: Page, strokes: KeyEvent[][]): HostToolOutput =>
-    strokes.every((stroke) => stroke.every((event) => page.sendKey(event)))
+    sendKeys(page, deps.input, strokes)
       ? OK
       : failure("unavailable", "The page did not take the input.");
+
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => void deps.schedule(resolve, ms));
 
   async function put(page: Page, input: PageInput): Promise<HostToolOutput> {
     switch (input.type) {
@@ -376,10 +380,17 @@ export function createPageStream(deps: PageStreamDeps) {
       if (stream === undefined) return NOT_STREAMING;
       if (stream.page.isDestroyed()) return NOT_FOUND;
       const { page } = stream;
+      const { input } = payload;
+      // 키와 누르기는 driver처럼 page가 답하고 잠시 뒤까지 표시한다(창 focus 되돌리기, menu 단축키 끄기). move·up·scroll은
+      // focus도 menu도 건드리지 않고 끌기 중에 초당 30번 오므로 기다리지 않는다.
+      const settles =
+        input.type === "key" ||
+        input.type === "text" ||
+        (input.type === "pointer" && input.phase === "down");
       try {
-        return await (deps.input?.sending(page.id, () =>
-          put(page, payload.input),
-        ) ?? put(page, payload.input));
+        return settles
+          ? await withInput(deps.input, page, () => put(page, input), wait)
+          : await put(page, input);
       } catch {
         return failure("unavailable", "The page did not take the input.");
       }

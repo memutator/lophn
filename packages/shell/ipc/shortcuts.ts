@@ -19,15 +19,54 @@ export function isWindowShortcut(value: unknown): value is WindowShortcut {
 
 export interface ShortcutApi {
   subscribe(listener: (shortcut: WindowShortcut) => void): () => void;
-  /** lophn이 이 창의 page에 input을 보내기 시작했다(true)·끝냈다(false). page마다 한 번씩 온다. */
-  subscribeDriverInput(listener: (on: boolean) => void): () => void;
+  /** lophn이 이 창의 page에 넣는 input의 알림(DriverInputMessage). */
+  subscribeDriverInput(
+    listener: (message: DriverInputMessage) => void,
+  ): () => void;
+  /** start에 답한다(표시를 받았고, 사람의 keyboard focus가 그 page에 있었는가). */
+  answerDriverInput(answer: DriverInputAnswer): void;
 }
 
 /**
- * main이 shell renderer로 보내는 channel. payload는 boolean 하나다. agent·멀리서 보기의 input이 창의 page에 들어가는 동안
- * 창이 사람의 keyboard focus를 제자리에 두게 한다(driver.ts `DriverInput`).
+ * main이 shell renderer로 보내는 channel. agent·멀리서 보기의 input이 창의 page(webContents id)에 들어가는 동안 창이 사람의
+ * keyboard focus를 제자리에 두게 한다(browser/agent/input.ts). start·end는 page마다 짝이고, tab은 그 page에 Tab이 들어가 focus가
+ * page 밖으로 나갈 수 있다는 것, person은 사람이 그 page(표시되지 않은 page일 수 있다)를 눌렀다는 것이다.
  */
 export const DRIVER_INPUT_CHANNEL = "shell:driver-input";
+
+const DRIVER_INPUT_EVENTS = ["start", "end", "tab", "person"] as const;
+
+export interface DriverInputMessage {
+  page: number;
+  event: (typeof DRIVER_INPUT_EVENTS)[number];
+}
+
+export function isDriverInputMessage(
+  value: unknown,
+): value is DriverInputMessage {
+  if (typeof value !== "object" || value === null) return false;
+  const { page, event } = value as Record<string, unknown>;
+  return (
+    Number.isInteger(page) &&
+    (DRIVER_INPUT_EVENTS as readonly unknown[]).includes(event)
+  );
+}
+
+/** renderer가 main으로 보내는 start의 답. person은 사람의 keyboard focus가 그 page에 있었다는 것이다. */
+export const DRIVER_FOCUS_CHANNEL = "shell:driver-focus";
+
+export interface DriverInputAnswer {
+  page: number;
+  person: boolean;
+}
+
+export function isDriverInputAnswer(
+  value: unknown,
+): value is DriverInputAnswer {
+  if (typeof value !== "object" || value === null) return false;
+  const { page, person } = value as Record<string, unknown>;
+  return Number.isInteger(page) && typeof person === "boolean";
+}
 
 /** OS 전역 단축키 하나. main만 등록하고 renderer는 키 이름을 그릴 때만 본다. */
 export const GLOBAL_PALETTE_ACCELERATOR = "CommandOrControl+Shift+K";

@@ -82,6 +82,7 @@ export function pressEvents(spec: string): KeyEvent[] | undefined {
 export function typeEvents(text: string): KeyEvent[][] {
   return [...text].map((char) => {
     if (char === "\n" || char === "\r") return stroke("Enter", [], "\r");
+    if (char === "\t") return stroke("Tab", [], undefined);
     return stroke(char, /^[A-Z]$/.test(char) ? ["shift"] : [], char);
   });
 }

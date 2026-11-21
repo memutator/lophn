@@ -115,12 +115,13 @@ session은 일하는 동안 handoff note를 남긴다. 어디까지 했고 다�
 8. 한 mail이 link와 folder-sync의 길로 같이 가도 받는 쪽이 한 번만 적용한다. (agent: `across_machines` event와 같은 규칙)
 9. transcript, file, commit하지 않은 변경, 자격은 가지 않는다. (사람, 2026-11-17의 적용. T3 Code·Paseo·Orca도 같다)
 10. 받은 mail로 열린 session은 다른 기계로 mail을 보내지 못한다. (agent: 앱 command의 지금 규칙. 기계 사이 고리를 막는다)
-11. 결과를 모르는 mail은 "모름"으로 남기고 자동으로 다시 보내지 않는다. (agent: 조사한 제품이 모인 곳)
+11. 결과를 모르는 mail은 "모름"으로 남기고, 같은 mail(같은 id)만 다시 보낸다. 받는 쪽이 mail id마다 한 번만 적용하므로 일이 두 번 돌지 않는다. 새 mail로 일을 다시 시키지는 않는다. (agent: 조사한 제품이 모인 곳. 2026-11-21 계획 `machine-a2a`에서 "다시 보내지 않는다"를 이 뜻으로 고쳤다)
 12. mail은 만료를 싣는다. 기본은 7일이다. (agent: `across_machines` file의 수명과 같다. 사람에게 물었고 답이 없어 추천대로 둔다)
 13. private인 workspace는 mail을 보내지도 받지도 않고 handoff note도 남기지 않는다. (사람, 2026-11-17 "private은 기계 사이에도 선다"의 적용)
 14. handoff note의 글은 agent가 쓰고 언제 쓸지는 지침이 정한다. program은 사실(기계, project 정체, branch와 commit, 시각)만 붙인다. (agent: `PRODUCT.md` §3)
 15. `team spawn`이 기계를 건너는 것은 call 다음 단계다. (agent: 사람에게 물었고 답이 없어 추천대로 둔다)
 16. 다른 기계에서 온 mail로 열린 session은, 받는 컴퓨터가 보낸 컴퓨터에 터미널 입력 허락을 켰을 때만 그 agent의 skip 기본값을 따른다. 아니면 묻는 session으로 연다. (agent: 2026-11-19에 사람이 정한 "허락은 받는 컴퓨터가 켠 것만 선다"를 지킨다. skip인 agent가 mail만으로 shell을 돌리면 꺼 둔 허락이 꺼져 있지 않게 된다. 규칙은 하나다: 명단이면 말을 걸 수 있고, 허락이 있어야 묻지 않고 실행된다)
+17. workflow 선언의 참가자에 컴퓨터를 적을 수 있다. 그 step은 그 컴퓨터의 agent에게 mail로 넘어가고, 컴퓨터가 꺼져 있으면 기다렸다가 켜질 때 대기 목록 card로 선다(2번 그대로). run 화면은 그 step이 어느 컴퓨터에서 도는지와 배달 상태(아직 닿지 않음, 대기, 도는 중)를 보인다. (사람, 2026-11-21. 적지 않으면 지금처럼 step을 맡은 agent가 지침에 따라 `--on`으로 부른다)
 
 ## 정할 것
 
@@ -134,8 +135,9 @@ session은 일하는 동안 handoff note를 남긴다. 어디까지 했고 다�
 | 2 | 늦게 가는 길: outbox를 folder-sync의 길에 싣기, 만료, 늦게 온 mail의 대기 목록 card |
 | 3 | handoff note: 남기기, 흐르기, 다른 기계에서 이어 열기 |
 | 4 | `team spawn`이 기계를 건넌다 |
+| 5 | workflow의 step을 다른 컴퓨터의 참가자에게 넘긴다: 선언의 참가자에 컴퓨터, mail로 넘기기와 report 받기, run 화면의 컴퓨터와 배달 상태 |
 
-1 → 2 → 3은 앞의 것 위에 선다. 4는 한 기계 안의 call 전달을 mail 하나로 맞춘 뒤에 한다.
+1 → 2 → 3은 앞의 것 위에 선다. 4는 한 기계 안의 call 전달을 mail 하나로 맞춘 뒤에 한다. 5는 1과 2 위에 서고 4를 기다리지 않는다.
 
 ## 하지 않는 것
 

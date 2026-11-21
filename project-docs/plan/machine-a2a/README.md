@@ -46,4 +46,5 @@ roadmap의 "정한 것" 1~16을 그대로 따른다. 아래는 lead가 구현을
 - 권한 경계를 바꾸는 계획이다. task마다 구현하지 않은 worker의 review를 받는다(공격 입력을 만들고 규칙마다 mutation으로 test가 깨지는지 본다).
 - wave마다 개발 core 둘을 짝지어 실제 앱에서 확인한다(mail이 가고 답이 오는 것, 꺼진 상대, 늦게 온 mail의 card).
 - merge마다 보고의 "등록할 것"(protocol `mod.ts`, core 조립 목록, schema step lock)을 고친다.
+- `mail-link`와 `mail-hold`가 merge되면 task `workflow-remote-step`(roadmap 정한 것 17, 5단계)의 brief를 쓰고 wave 3에 더한다. workflow engine을 읽어야 계약이 선다(instance는 시작한 컴퓨터에 있고 다른 컴퓨터의 참가자는 그 기계에서 `workflow report`를 부르지 못한다. report를 mail의 답으로 받는 길을 brief에서 정한다). 화면(run 화면의 컴퓨터와 배달 상태)은 branch `ui/workflow-ux`의 새 run 화면 위에 선다.
 - 끝나면: `architecture/agent-call.md`(기계를 건너는 call), `architecture/remote.md`(기기 route 목록), `architecture/approval.md`, `architecture/machine.md`(비목표의 낡은 줄), flows, change-log.

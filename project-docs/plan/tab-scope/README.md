@@ -46,6 +46,7 @@ data step은 `shell.layout-owners` 하나이고 `tab-owner-layout`이 자기 wir
 
 - core는 도는데 shell main의 host link만 끊겼다 붙으면(창의 core 연결은 그대로) 넘긴 탭이 core 표에서 빠진 채 남는다. 그 탭을 다시 넘기거나 창을 다시 열면 맞는다. 드물어서 장치를 두지 않는다.
 - mount하지 않은 workspace의 넘긴 탭은 그 workspace를 열 때 core 표에 다시 오른다.
+- core는 다시 알리는 `tabs/hand {tab}`을 창이 보낸 대로 믿는다(표가 빈 뒤에는 어느 id든 넘긴 탭이 된다). 창이 `handedTab`이 있는 탭만 다시 알리는 것이 그 검사다(`tab-owner-hand`). 사람 자격의 route라 다른 사람 route와 같은 신뢰다.
 - coordinator가 자기 탭을 자식에게 넘기는 길(roadmap "넘기기")은 이 계획에 없다. 다음에 한다.
 - "Hand to"의 상대는 lophn session뿐이다. coding agent GUI 탭이 팀 member가 되면(`a2a-access.md`) 그때 상대에 든다.
 

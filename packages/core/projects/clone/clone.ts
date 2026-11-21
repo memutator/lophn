@@ -159,10 +159,21 @@ async function parentFolder(
   return ok(input.parent);
 }
 
+// identity는 사람만 준다(창의 [Clone to this computer]가 그 컴퓨터의 project 목록에서 url과 id를 함께 읽는다). agent가 주면
+// 다른 저장소를 그 project로 등록해 틀린 짝이 다른 컴퓨터로 퍼질 수 있다. agent의 clone은 새 id로 등록하고 자동 match가
+// remote key로 잇는다.
 export async function cloneProject(
   input: CloneInput,
   deps: CloneDeps,
+  caller: "person" | "agent",
 ): Promise<Result<CloneOutput>> {
+  if (input.identity !== undefined && caller !== "person") {
+    return err({
+      code: "forbidden",
+      message:
+        "only the person brings a project's identity to a clone; clone without it and lophn matches the project by its repository",
+    });
+  }
   if (hasCredentials(input.url)) {
     return fail(
       "invalid_input",

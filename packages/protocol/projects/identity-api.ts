@@ -22,6 +22,8 @@ export const projectIdentityStatusSchema = z.object({
   found: z.boolean(),
   remote: remoteSchema,
   separated: z.boolean(),
+  // private workspace다. 다른 컴퓨터로 목록을 내보내지 않고 자동으로 맞추지 않는다.
+  private: z.boolean(),
   // 같은 remote key를 가진 이 기계의 다른 active project(나누지 않은 것). 있으면 둘 다 다른 컴퓨터와 자동으로 맞춰지지 않는다.
   same_repository: projectIdSchema.nullable(),
 });

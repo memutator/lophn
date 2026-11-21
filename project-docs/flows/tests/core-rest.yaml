@@ -574,7 +574,7 @@ files:
     note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 git 여부와 remote만 적고 identity를 바꾸지 않으며 다른 자격을 거절한다. 잇기와 나누기는 사람만 하고 옛 id가 project.list에 남는다"
 
   - path: packages/core/projects/clone/clone_test.ts
-    covers: [project-clone:cloned, project-clone:target-exists, project-clone:identity-in-use, project-clone:auth, project-clone:invalid-input]
+    covers: [project-clone:cloned, project-clone:target-exists, project-clone:identity-in-use, project-clone:auth, project-clone:invalid-input, project-clone:forbidden]
     note: 있는 대상 폴더 안에 쓰지 않고, 실패한 clone은 부모 폴더에 남지 않으며, 들고 온 id로 등록하고 그 id를 옛 identity로 가진 project가 있으면 git을 띄우지 않고 거절하며, 자격이 박힌 URL은 git 전에 거절된다(가짜 git)
   - path: packages/core/projects/identity/identity_test.ts
     covers:
@@ -589,6 +589,16 @@ files:
       - project-identity-auto-match:converged
       - project-identity-auto-match:kept-apart
     note: "같은 저장소의 project는 셋 이상이 어느 순서로 만나도(가운데 컴퓨터를 거쳐서도) 가장 작은 id에 서고, 한쪽에 둘이거나 나눈 것은 맞추지 않으며 더 오래된 id를 든 셋째 컴퓨터나 늦은 시계가 나눈 것을 풀지 않고, 나눈 id를 clone한 project는 나눈 것이 된다. 자기 옛 id와 다른 project가 가진 id로 가지 않고 명단 밖 기계의 기록은 쓰지 않는다"
+
+  - path: packages/core/projects/identity/matcher_test.ts
+    covers:
+      - project-identity-auto-match:converged
+    note: "명단 컴퓨터의 바뀐 기록은 match 한 번과 기록 다시 쓰기를 부르고 같은 기록이 다시 알려지면 ledger를 읽지 않으며, 거절된 match는 아무것도 다시 부르지 않고, 기록이 이미 있는 컴퓨터가 명단에 들어오면 맞춘다"
+
+  - path: packages/core/folder/projects_test.ts
+    covers:
+      - project-identity-auto-match:kept-apart
+    note: "다른 기계의 목록은 `computers` 폴더에서 서명 key를 믿는 기계의 자기 기록에서만 읽고(이름 붙인 폴더의 큰 revision은 읽지 않는다), 기계 기록이 상한을 넘으면 project 줄을 꼭 필요한 만큼 덜어 낸다"
 
   - path: packages/core/projects/files/files_test.ts
     covers:

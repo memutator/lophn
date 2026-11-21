@@ -74,6 +74,7 @@ test("대상 폴더가 있으면 그 안에 아무것도 쓰지 않고 conflict�
   const exists = await cloneProject(
     { url: "https://github.com/a/demo.git" },
     here.make(parent),
+    "person",
   );
   assert.ok(!exists.ok);
   assert.equal(exists.error.code, "conflict");
@@ -95,6 +96,7 @@ test("대상 폴더가 있으면 그 안에 아무것도 쓰지 않고 conflict�
   const failed = await cloneProject(
     { url: "https://github.com/a/other.git" },
     failing.make(parent),
+    "person",
   );
   assert.ok(!failed.ok);
   assert.equal(failed.error.details?.["reason"], "git_auth");
@@ -103,7 +105,7 @@ test("대상 폴더가 있으면 그 안에 아무것도 쓰지 않고 conflict�
   assert.equal(failing.registered.length, 0);
 });
 
-test("들고 온 id로 등록하고, 그 id를 이 기계의 다른 project가 옛 identity로 가지면 git을 띄우지 않고 거절하며, 자격이 박힌 URL은 git을 띄우기 전에 거절된다", async () => {
+test("사람이 준 id로 등록하고 agent는 id를 주지 못하며, 그 id를 이 기계의 다른 project가 옛 identity로 가지면 git을 띄우지 않고 거절하며, 자격이 박힌 URL은 git을 띄우기 전에 거절된다", async () => {
   const parent = await parentWith();
   const done = setup(async (staging) => {
     await mkdir(staging);
@@ -112,9 +114,23 @@ test("들고 온 id로 등록하고, 그 id를 이 기계의 다른 project가 �
   const cloned = await cloneProject(
     { url: "git@github.com:a/demo.git", identity: WANTED },
     done.make(parent),
+    "person",
   );
   assert.ok(cloned.ok);
   assert.equal((done.registered[0] as { identity?: string }).identity, WANTED);
+
+  // agent는 id를 들고 오지 못한다: 다른 저장소를 그 project로 등록할 수 있다.
+  const byAgent = setup(() => {
+    throw new Error("git must not run");
+  });
+  const agent = await cloneProject(
+    { url: "git@github.com:a/other.git", identity: WANTED },
+    byAgent.make(parent),
+    "agent",
+  );
+  assert.ok(!agent.ok);
+  assert.equal(agent.error.code, "forbidden");
+  assert.equal(byAgent.calls.length + byAgent.registered.length, 0);
 
   const held = setup(() => {
     throw new Error("git must not run");
@@ -122,6 +138,7 @@ test("들고 온 id로 등록하고, 그 id를 이 기계의 다른 project가 �
   const refused = await cloneProject(
     { url: "git@github.com:a/again.git", identity: WANTED },
     held.make(parent),
+    "person",
   );
   assert.ok(!refused.ok);
   assert.equal(refused.error.details?.["reason"], "identity_in_use");
@@ -133,7 +150,7 @@ test("들고 온 id로 등록하고, 그 id를 이 기계의 다른 project가 �
     "https://token@github.com/a/demo.git",
     "user:pass@github.com:a/demo.git",
   ]) {
-    const bad = await cloneProject({ url }, done.make(parent));
+    const bad = await cloneProject({ url }, done.make(parent), "person");
     assert.ok(!bad.ok);
     assert.equal(bad.error.code, "invalid_input");
   }

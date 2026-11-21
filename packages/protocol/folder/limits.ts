@@ -17,8 +17,9 @@ export const SNAPSHOT_PAYLOAD_MAX_BYTES = GIB;
 export const HEADER_MAX_BYTES = MIB;
 // `record.json`, `app.json`, `source/<n>.json`.
 export const RECORD_MAX_BYTES = 256 * KIB;
-// 기계 기록이 싣는 git project 목록(`projects`). 두 상한을 곱해도 기록 상한 안에 든다. 넘는 project는 다른 컴퓨터와 자동으로
-// 맞춰지지 않는다.
+// 기계 기록이 싣는 git project 목록(`projects`). key 상한은 글자 수라 글자가 여러 byte인 key(하위 폴더 이름)가 많으면
+// 기록 상한을 넘을 수 있다. 쓰는 쪽이 기록이 상한 안에 들 때까지 목록의 뒤 줄을 덜어 낸다. 덜어 내거나 상한을 넘는 project는
+// 다른 컴퓨터와 자동으로 맞춰지지 않는다.
 export const SHARED_PROJECTS_MAX = 512;
 export const SHARED_PROJECT_KEY_MAX = 256;
 export const SOURCE_BUNDLE_MAX_BYTES = 64 * MIB;

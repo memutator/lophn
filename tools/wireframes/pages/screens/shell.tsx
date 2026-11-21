@@ -276,7 +276,7 @@ export const shellArea: Area = {
       id: "shell-project-identity",
       title: "Shell · Project identity",
       description:
-        "project가 내 다른 컴퓨터의 같은 저장소와 맞춰지는 표시. lophn은 저장소에 아무것도 쓰지 않는다. 위 넷은 등록 dialog의 저장소 줄: 같은 저장소의 project가 없으면 줄이 없고, 이 컴퓨터에 같은 저장소의 project가 있으면 둘 다 맞춰지지 않는다는 한 줄, 폴더를 잃은 project와 같은 저장소면 [Relink … here], git이 아니면 한 줄 안내. 아래는 project 상세의 'Other computers' 줄: 저장소로 맞춰짐(⋯ menu의 Separate project), [Separate project]의 확인 dialog, 사람이 나눔, 같은 저장소가 이 컴퓨터에 둘([Separate project]), remote 없음, git이 아님. iframe 하나가 상태 하나이고 `?state=`로 한 상태만 창 크기로 본다.",
+        "project가 내 다른 컴퓨터의 같은 저장소와 맞춰지는 표시. lophn은 저장소에 아무것도 쓰지 않는다. 위 넷은 등록 dialog의 저장소 줄: 같은 저장소의 project가 없으면 줄이 없고, 이 컴퓨터에 같은 저장소의 project가 있으면 둘 다 맞춰지지 않는다는 한 줄, 폴더를 잃은 project와 같은 저장소면 [Relink … here], git이 아니면 한 줄 안내. 아래는 project 상세의 'Other computers' 줄: 저장소로 맞춰짐(⋯ menu의 Separate project), [Separate project]의 확인 dialog, 사람이 나눔, private workspace라 맞추지 않음, 같은 저장소가 이 컴퓨터에 둘([Separate project]), remote 없음, git이 아님. iframe 하나가 상태 하나이고 `?state=`로 한 상태만 창 크기로 본다.",
       height: PROJECT_IDENTITY_BOARD_HEIGHT,
       render: () => <ProjectIdentityScene />,
     },

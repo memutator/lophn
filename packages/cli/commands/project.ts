@@ -8,7 +8,6 @@ import {
 } from "../../protocol/projects/mod.ts";
 import {
   absolutePathSchema,
-  projectIdentitySchema,
   projectIdSchema,
 } from "../../protocol/projects/values.ts";
 import { defineCommand } from "./types.ts";
@@ -48,13 +47,12 @@ const clone = defineCommand({
   name: "project.clone",
   summary: "Clone a project from a git URL onto this computer",
   description:
-    "Clone a repository into the folder where this computer keeps projects and register it as a project. Call it when the person wants to use a project that is not on this computer. Give the repository URL without any credential (never put a token in the URL): this computer's own git sign-in is used and lophn never asks for a password. If it fails with projects_folder_unset, ask the person once which folder to keep projects in on this computer and pass it as --parent; lophn remembers it. If it fails with git_auth, show the person details.command, ask them to run it in a terminal, and wait. Pass --identity (the pri_ ID of the project on the other computer) so the cloned project is the same project as that one at once, and so the clone is skipped when it is already here.",
+    "Clone a repository into the folder where this computer keeps projects and register it as a project. Call it when the person wants to use a project that is not on this computer. Give the repository URL without any credential (never put a token in the URL): this computer's own git sign-in is used and lophn never asks for a password. If it fails with projects_folder_unset, ask the person once which folder to keep projects in on this computer and pass it as --parent; lophn remembers it. If it fails with git_auth, show the person details.command, ask them to run it in a terminal, and wait. lophn gives the clone its own ID and then matches it with the same repository on the person's other computers by itself.",
   input: z.strictObject({
     url: z.string().min(1).max(2048),
     parent: absolutePathSchema.optional(),
     name: z.string().min(1).max(255).optional(),
     title: z.string().min(1).optional(),
-    identity: projectIdentitySchema.optional(),
   }),
   positional: ["url"],
   effect: "external",

@@ -5,7 +5,9 @@
 // - id는 더 작은 쪽(ULID라 먼저 만든 것)으로만 바뀐다. 그래서 몇 대가 어느 순서로 만나도 같은 저장소의 묶음은 그 묶음의 가장 작은
 //   id에서 멈추고 오가지 않는다.
 // - 한쪽에 같은 remote key의 project가 둘 이상이면(나눈 것은 빼고) 그 key는 그쪽과 맞추지 않는다. 어느 쪽인지 모른다.
-// - 사람이 나눈 project는 어느 쪽에서도 맞추지 않는다. 나눈 project의 id를 가진 project(그것을 clone했다)도 나눈 것이 된다.
+// - 사람이 나눈 project는 어느 쪽에서도 맞추지 않는다. 같은 저장소의 나눈 project의 id를 가진 project(그것을 clone했다)도
+//   나눈 것이 된다.
+// - private workspace인 project는 목록에 싣지 않고 맞추지 않는다(private은 기계를 건너서도 지킨다).
 // - project를 자기 옛 id로 돌려보내지 않고, 이 기계의 다른 project가 지금이나 옛 identity로 가진 id로 바꾸지 않는다.
 import {
   SHARED_PROJECT_KEY_MAX,
@@ -31,13 +33,16 @@ const keyOf = (project: MatchProject): string | null =>
     ? project.remote.key
     : null;
 
-// 이 기계가 기계 기록에 싣는 목록. 나눈 것도 싣는다: 받은 쪽이 그 id를 clone한 project를 나눈 것으로 안다.
+// 이 기계가 기계 기록에 싣는 목록. 나눈 것도 싣는다: 받은 쪽이 그 id를 clone한 project를 나눈 것으로 안다. private인
+// project는 싣지 않는다. 기록의 byte 상한은 기록을 쓰는 쪽이 맞춘다(folder export).
 export function sharedProjects(
   projects: readonly MatchProject[],
+  isPrivate: (project: string) => boolean,
 ): SharedProject[] {
   return projects
     .flatMap((project) => {
       const key = keyOf(project);
+      if (isPrivate(project.id)) return [];
       return key === null
         ? []
         : [
@@ -61,24 +66,33 @@ export function matchActions(
     projects: readonly SharedProject[];
   }[],
   roster: ReadonlySet<string>,
+  isPrivate: (project: string) => boolean,
 ): MatchAction[] {
   const peers = records
     .filter((record) => roster.has(record.machine))
     .map((record) => record.projects);
   const candidates = local.filter(
-    (project) => keyOf(project) !== null && !project.separated,
+    (project) =>
+      keyOf(project) !== null && !project.separated && !isPrivate(project.id),
   );
   const localCount = new Map<string, number>();
   for (const project of candidates) {
     const key = keyOf(project)!;
     localCount.set(key, (localCount.get(key) ?? 0) + 1);
   }
-  const separatedIds = new Set(
-    peers.flat().flatMap((entry) => (entry.separated ? [entry.identity] : [])),
-  );
   const actions: MatchAction[] = [];
   for (const project of candidates) {
-    if (separatedIds.has(project.identity)) {
+    const key = keyOf(project)!;
+    // 같은 저장소의 줄만 센다: 다른 key의 줄이 이 project의 id를 내세워 나누지 못하게.
+    const separatedThere = peers.some((peer) =>
+      peer.some(
+        (entry) =>
+          entry.separated &&
+          entry.identity === project.identity &&
+          entry.remote_key === key,
+      ),
+    );
+    if (separatedThere) {
       actions.push({
         project: project.id,
         from: project.identity,
@@ -86,7 +100,6 @@ export function matchActions(
       });
       continue;
     }
-    const key = keyOf(project)!;
     if (localCount.get(key) !== 1) continue;
     const held = (identity: string) =>
       project.former_identities.includes(identity) ||

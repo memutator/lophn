@@ -47,6 +47,7 @@ interface IdentityValue {
   remote: { key: string } | null;
   found: boolean;
   separated: boolean;
+  private: boolean;
   same_repository: string | null;
 }
 
@@ -176,6 +177,7 @@ async function identityStatus(
       remote: value.remote !== null,
       found: value.found,
       separated: value.separated,
+      private: value.private,
       sameRepository,
     },
   };

@@ -432,7 +432,7 @@ flows:
       - "ledger에서 project를 읽는다. 없으면 not_found다"
       - "첫 폴더가 있으면 읽는다: 폴더가 없으면 found false, git work tree가 아니라는 답이면 폴더와 그 위 폴더에 .git(폴더든 file이든)이 있는지 본다. 있으면 git을 읽지 못한 것이라 unavailable이고 아무것도 적지 않는다. 없을 때만 repo none이다. git이면 fetch remote로 remote key(하위 폴더는 #<subpath>)를 낸다. git은 읽기만 한다(GIT_OPTIONAL_LOCKS=0)"
       - "읽은 값을 project.record_identity로 적고(project-identity-record) 그 record로 상태를 만든다. 폴더가 없는 project는 repo none으로 적는다(found는 false로 돌려준다)"
-      - "같은 remote key를 가진 이 기계의 다른 active git project가 있으면 same_repository에 둔다"
+      - "같은 remote key를 가진 이 기계의 다른 active이고 나누지 않은 git project가 있으면 same_repository에 둔다. private workspace면 private이 참이다"
     outcomes:
       - id: ok
         observe: ["ledger:projects", "response", "event:StateChanged"]
@@ -622,22 +622,24 @@ flows:
     boundary: [projects, folder]
     code:
       - packages/core/projects/identity/match.ts
+      - packages/core/projects/identity/matcher.ts
+      - packages/core/folder/import/peer-projects.ts
       - packages/core/main/daemon/wiring/projects.ts
       - packages/core/main/daemon/wiring/folder.ts
       - packages/core/folder/export/record.ts
       - packages/protocol/folder/records.ts
     steps:
-      - "이 기계의 active git project 가운데 remote key가 있는 것(512개, key 256자까지)을 {identity, remote_key, separated}로 기계 기록 record.json의 projects 칸에 싣는다. 이름, 경로, url은 싣지 않는다. computers 폴더의 기록은 link, 폰, 같이 보는 폴더로 다른 컴퓨터에 간다"
-      - "project 목록이 바뀌면(등록, 고치기, relink, 보관, 보관 풀기, 다시 읽기, 나누기, 잇기, match) 기록을 다시 쓰게 하고 match를 다시 돌린다. 기동 때 다시 읽기가 끝난 뒤와 폴더 scan이 다른 기계의 바뀐 기록을 들인 뒤에도 돈다. 한 번에 하나만 돌고 도는 사이 다시 부르면 끝난 뒤 한 번 더 돈다"
-      - "명단의 다른 컴퓨터(이 컴퓨터는 빼고)의 기록만 쓴다. 명단이 없으면 아무것도 하지 않는다"
-      - "다른 컴퓨터가 나눈 project의 id를 가진 project는 나눈 것으로 적는다. 이 기계에 같은 key의 나누지 않은 active project가 하나뿐이고, 기록마다 같은 key의 나누지 않은 줄이 하나뿐이면 그 id가 후보다. 자기 옛 id와 이 기계의 다른 project가 가진 id를 뺀 후보 가운데 가장 작은 것이 지금보다 작으면 project.match_identity로 그 id로 바꾼다"
+      - "이 기계의 active git project 가운데 remote key가 있고 private workspace가 아닌 것(512개, key 256자까지)을 {identity, remote_key, separated}로 기계 기록 record.json의 projects 칸에 싣는다. 기록이 256 KiB를 넘으면 뒤 줄부터 덜어 낸다. 이름, 경로, url은 싣지 않는다. computers 폴더의 기록은 link, 폰, 같이 보는 폴더로 다른 컴퓨터에 간다"
+      - "project 목록이 바뀌면(등록, 고치기, relink, 보관, 보관 풀기, 다시 읽기, 나누기, 잇기, match) 기록을 다시 쓰게 하고 match를 다시 돌린다. private 설정이 바뀌면 기록을 다시 쓰고 다시 돈다. 기동 때 다시 읽기가 끝난 뒤, 폴더 scan이 다른 기계의 바뀐 기록을 들인 뒤, 명단이 바뀐 뒤(StateChanged remote_devices)에도 돌되, 명단의 컴퓨터와 그 목록이 지난번과 같으면 ledger를 읽지 않는다. 한 번에 하나만 돌고 도는 사이 다시 부르면 끝난 뒤 한 번 더 돈다. id를 바꿨으면 기록을 다시 쓰게 하고 한 번 더 돈다"
+      - "명단의 다른 컴퓨터(이 컴퓨터는 빼고)의 기록만 쓰고, `computers/machines/<기계>/record.json`(받는 자리가 서명한 목록에 맞을 때만 쓴 사본)에서 그 기계의 서명 key를 지금 믿을 때만 읽는다. 이름 붙인 폴더의 기록은 쓰지 않는다. 명단이 없으면 아무것도 하지 않는다"
+      - "private workspace인 project는 보지 않는다. 다른 컴퓨터가 같은 remote key로 나눈 project의 id를 가진 project는 나눈 것으로 적는다. 이 기계에 같은 key의 나누지 않은 active project가 하나뿐이고, 기록마다 같은 key의 나누지 않은 줄이 하나뿐이면 그 id가 후보다. 자기 옛 id와 이 기계의 다른 project가 가진 id를 뺀 후보 가운데 가장 작은 것이 지금보다 작으면 project.match_identity로 그 id로 바꾼다"
       - "conflict는 계산한 뒤 바뀐 것이라 조용히 넘어가고 그 밖의 실패는 log 한 줄을 남긴다. 사람의 저장소에 쓰지 않는다"
     outcomes:
       - id: converged
         when: "같은 저장소의 project가 내 컴퓨터들 사이에서 가장 작은 id 하나로 모였다"
         observe: ["ledger:projects", "disk:<data root>/computers/machines/<this machine>/record.json"]
       - id: kept-apart
-        when: "한쪽에 같은 저장소가 둘이거나 사람이 나눠 맞추지 않았다"
+        when: "한쪽에 같은 저장소가 둘이거나, 사람이 나눴거나, private workspace라 맞추지 않았다"
         observe: ["ledger:projects"]
       - id: failed
         when: "ledger를 읽지 못했거나 match_identity가 conflict 밖의 이유로 실패했다"
@@ -2540,7 +2542,7 @@ flows:
       - packages/protocol/projects/clone-api.ts
     steps:
       - "user·agent만 부른다(agent는 lophn project clone, 사람은 desktop 목록 menu의 [Clone to this computer]가 shell:machines-clone-here로). URL에 자격(https의 userinfo, user:pass@)이 있으면 git을 띄우기 전에 invalid_input으로 거절한다(remote 설정에 token이 남는다)"
-      - "identity를 주었고 그 id를 가진 project의 첫 폴더가 이 기계에 있으면 받지 않고 그 project를 cloned false로 돌려준다. 그 id를 이 기계의 project가 지금 갖지만 폴더를 잃었거나 옛 identity로 가지면(사람이 나눴다) git을 띄우지 않고 conflict(identity_in_use, details.project)다"
+      - "identity는 사람(user)만 준다(창의 [Clone to this computer]). agent가 주면 git을 띄우지 않고 forbidden이다. agent의 clone은 새 id로 등록되고 자동 match가 remote key로 잇는다. identity를 주었고 그 id를 가진 project의 첫 폴더가 이 기계에 있으면 받지 않고 그 project를 cloned false로 돌려준다. 그 id를 이 기계의 project가 지금 갖지만 폴더를 잃었거나 옛 identity로 가지면(사람이 나눴다) git을 띄우지 않고 conflict(identity_in_use, details.project)다"
       - "부모 폴더는 parent, 없으면 설정 projects.folder(사람이 처음 한 번 정한다. 값에 기계 id를 붙이지 않는다)다. 없거나 폴더가 아니면 parent를 안 준 경우 projects_folder_unset, 준 경우는 그냥 invalid_input이다. 설정이 비었거나 그 폴더가 없어졌을 때 parent가 폴더이면 설정에 기억한다"
       - "폴더 이름은 name이나 URL 마지막 조각에서 .git을 뗀 것이다. /, \\, .., 빈 글은 invalid_input이다. <부모>/<이름>이 이미 있으면 아무것도 쓰지 않고 conflict(target_exists)다"
       - "<부모>/.lophn-clone-<random>에 git clone한다. 이 기계의 git 설정(credential helper, ssh)을 그대로 쓰되 GIT_TERMINAL_PROMPT=0 같은 env로 묻는 창 없이 바로 실패하게 한다. 10분이 넘으면 멈춘다. 실패하면 임시 폴더를 지우고 stderr로 가른다: 자격이면 git_auth와 사람이 풀 명령(gh auth login, ssh -T git@host, 그 밖은 git clone <url>), git이 없으면 git_not_found, 시간 초과면 timeout, 그 밖은 git_failed와 stderr 끝 줄"
@@ -2590,7 +2592,7 @@ flows:
         observe: ["disk:project-folder", "response"]
       - id: forbidden
         code: forbidden
-        when: "actor가 user·agent가 아니다(route 검사)"
+        when: "actor가 user·agent가 아니다(route 검사), 또는 agent가 identity를 주었다"
         observe: ["response"]
     crosses_process: false
     risk: [data-loss, sandbox]

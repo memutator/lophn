@@ -97,7 +97,7 @@
 3. 저장소 file 길을 모두 지운다: 읽기, 쓰기, 상태 일곱, `lophn project share`, 등록 dialog의 줄, [Set up]·[Restore]·[Resolve]. lophn은 사람의 저장소에 아무것도 쓰지 않는다. 이미 commit된 file은 읽지도 쓰지도 지우지도 않는다. (lead)
 4. 자동 match: 명단의 컴퓨터끼리 같은 remote key의 project가 양쪽에 정확히 하나씩이면 같은 project이고, 작은 id(ULID라 먼저 만든 것)로 모인다. git이 아닌 project는 [Link…] 그대로다. (lead)
 5. [Separate project]는 사람만 하고 붙어 있어야 한다. 자동 match는 project를 자기 `former_identities`의 id로 돌려보내지 않는다. (lead) 이 규칙만으로는 붙어 있지 않아 나눈 표시를 더했다(아래 "정한 대로 되지 않은 것", 정한 것 17).
-6. [Clone to this computer]는 id를 들고 가 받은 project가 바로 같은 project다. (lead)
+6. [Clone to this computer]는 id를 들고 가 받은 project가 바로 같은 project다. (lead) clone에 id를 주는 것은 사람만 한다: agent의 `lophn project clone <url>`은 새 id로 등록하고 자동 match가 remote key로 잇는다. agent가 다른 저장소에 id를 붙이면 틀린 짝이 퍼진다. (lead, review)
 7. 같은 때 켜지지 않는 컴퓨터도 모인다: 목록은 컴퓨터 link와 `computers` 폴더(기계 기록) 두 길로 간다. (lead)
 8. match는 창이 아니라 core가 한다. (lead)
 9. 기존 data: file에서 온 ledger id는 그대로 원본이 되고, id가 없는 git project는 data step이 준다(`projects.born-identity`처럼). 모든 id 바뀜은 `former_identities`에 더하는 store 함수 하나(`storeIdentity`)를 지난다. (lead)
@@ -117,6 +117,10 @@
 23. 등록 dialog의 "already registered"와 "another copy"는 같은 저장소 note 하나가 된다(identity가 아니라 remote key로 안다). `project.match`의 출력은 `{found, repo, remote, same_repository}`로 줄고 `matchProjects`의 `suggested`는 지운다. (agent)
 24. 창의 `ListedProject.identity`(다른 컴퓨터가 보낸 값) type은 그대로 둔다. 이유: 바꾸면 계획 `tab-scope`가 고치는 sidebar file을 건드린다. 묶는 규칙은 그대로다. (agent)
 25. 위험 test는 git을 띄우지 않는다. match는 순수 함수와 command를 주입한 기록으로 보고, 실제 두 컴퓨터는 개발 core로 손으로 본다. (agent)
+
+26. 다른 컴퓨터의 목록은 `computers` 폴더의 사본(서명을 본 file)에서만 읽는다. 이름 붙인 폴더의 기록은 서명이 없고 `folder_records`는 destination을 건너 가장 큰 revision을 두어, 거기서 읽으면 위조한 기록이 id를 옮길 수 있다. (lead, review)
+27. private workspace인 project는 목록에 싣지 않고 맞추지 않는다. 상세 줄이 한 줄로 알린다. (사람, 2026-11-17 "private holds across computers too", lead)
+28. 나눈 줄은 같은 remote key일 때만 센다. 목록이 기록 상한을 넘으면 뒤 줄부터 덜어 낸다. 명단이 바뀌면 다시 맞추고, 다른 컴퓨터의 목록이 그대로면 ledger를 다시 읽지 않는다. 맞춰진 project의 remote가 바뀌어 다른 묶음으로 가는 것은 그대로 둔다. (agent, review)
 
 ## 정한 대로 되지 않은 것
 

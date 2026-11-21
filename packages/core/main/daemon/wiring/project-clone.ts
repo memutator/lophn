@@ -1,4 +1,5 @@
 import { createIdSource, ok } from "../../../../base/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   PROJECT_CLONE_ROUTES,
   projectApi,
@@ -35,46 +36,51 @@ export const projectCloneWiring: WiringFactory = () => ({
       memory: [
         [
           `${projectClone.resource}/${projectClone.method}`,
-          (_who, body) =>
-            cloneProject(body as CloneInput, {
-              git: gitCloneRunner,
-              fs: nodeCloneFs,
-              ids,
-              random: ctx.random,
-              logger,
-              // writer는 모든 층이 쌓인 뒤에 채워지므로 부를 때 읽는다.
-              writer: {
-                command: (auth, envelope) => ctx.writer.command(auth, envelope),
-              },
-              snapshot<T>(read: (sql: Pick<Sql, "get" | "all">) => T): T {
-                const opened = openConnection(ctx.ledgerPath);
-                if (!opened.ok) throw new Error(opened.error.message);
-                try {
-                  return read(opened.value.sql);
-                } finally {
-                  opened.value.close();
-                }
-              },
-              settings: {
-                folder: () => ctx.settings.get(projectsFolderSetting) ?? "",
-                async remember(path) {
-                  const written = ctx.settingsUpdate([
-                    {
-                      key: projectsFolderSetting.key,
-                      action: "set",
-                      value: path,
-                    },
-                  ]);
-                  if (!written.ok || written.value.rejected.length > 0) {
-                    logger.error({
-                      component: "projects-clone",
-                      event: "folder_not_remembered",
-                      message: "the projects folder could not be saved",
-                    });
+          (who, body) =>
+            cloneProject(
+              body as CloneInput,
+              {
+                git: gitCloneRunner,
+                fs: nodeCloneFs,
+                ids,
+                random: ctx.random,
+                logger,
+                // writer는 모든 층이 쌓인 뒤에 채워지므로 부를 때 읽는다.
+                writer: {
+                  command: (auth, envelope) =>
+                    ctx.writer.command(auth, envelope),
+                },
+                snapshot<T>(read: (sql: Pick<Sql, "get" | "all">) => T): T {
+                  const opened = openConnection(ctx.ledgerPath);
+                  if (!opened.ok) throw new Error(opened.error.message);
+                  try {
+                    return read(opened.value.sql);
+                  } finally {
+                    opened.value.close();
                   }
                 },
+                settings: {
+                  folder: () => ctx.settings.get(projectsFolderSetting) ?? "",
+                  async remember(path) {
+                    const written = ctx.settingsUpdate([
+                      {
+                        key: projectsFolderSetting.key,
+                        action: "set",
+                        value: path,
+                      },
+                    ]);
+                    if (!written.ok || written.value.rejected.length > 0) {
+                      logger.error({
+                        component: "projects-clone",
+                        event: "folder_not_remembered",
+                        message: "the projects folder could not be saved",
+                      });
+                    }
+                  },
+                },
               },
-            }),
+              parseActor(who.actor)?.kind === "user" ? "person" : "agent",
+            ),
         ],
       ],
     });

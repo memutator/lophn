@@ -522,10 +522,34 @@ test("match_identity는 계산한 뒤 바뀐 project(지금 id가 from이 아님
       reason(match(SECOND, { identity: SMALL }, separated.value.identity)),
       "conflict:not_matched",
     );
+    // 지금보다 작은 id라도 다른 project가 지금이나 옛 identity로 가졌거나 자기 옛 id면 받지 않는다.
+    const HELD = "pri_00000000000000000000000002";
+    const HELD_BEFORE = "pri_00000000000000000000000003";
+    const MINE_BEFORE = "pri_00000000000000000000000004";
+    const { sql } = tx;
+    sql.run(
+      "UPDATE projects SET identity = ?, former_identities = ? WHERE id = ?",
+      [HELD, JSON.stringify([HELD_BEFORE]), THIRD],
+    );
+    sql.run("UPDATE projects SET former_identities = ? WHERE id = ?", [
+      JSON.stringify([MINE_BEFORE]),
+      PROJECT,
+    ]);
+    for (const taken of [HELD, HELD_BEFORE, MINE_BEFORE]) {
+      assert.equal(
+        reason(match(PROJECT, { identity: taken })),
+        "conflict:not_allowed",
+        taken,
+      );
+    }
+    born.set(THIRD, HELD);
     const moved = match(PROJECT, { identity: SMALL });
     assert.ok(moved.ok);
     assert.equal(moved.value.identity, SMALL);
-    assert.deepEqual(moved.value.former_identities, [born.get(PROJECT)]);
+    assert.deepEqual(moved.value.former_identities, [
+      MINE_BEFORE,
+      born.get(PROJECT),
+    ]);
     assert.equal(moved.value.revision, "1");
     // 옛 id로 돌아가지 않는다.
     assert.equal(

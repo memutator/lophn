@@ -16,3 +16,4 @@ export {
   type MatchProject,
   sharedProjects,
 } from "./match.ts";
+export { createMatcher, type Matcher, type MatcherDeps } from "./matcher.ts";

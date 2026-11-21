@@ -23,6 +23,12 @@ import {
   projectIdentityApi,
 } from "../../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
+import type { Id } from "../../../../protocol/base/mod.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { artifactHandlers } from "../../../projects/artifacts/mod.ts";
 import { addProject, type ProjectAddInput } from "../../../projects/add.ts";
@@ -32,7 +38,7 @@ import {
   createGitReader,
   createIdentityService,
   type IdentityService,
-  matchActions,
+  createMatcher,
   nodeFolderProbe,
   sharedProjects,
 } from "../../../projects/identity/mod.ts";
@@ -82,7 +88,6 @@ const LIST_CHANGES = new Set<string>([
   projectIdentityApi.recordIdentity.name,
   projectIdentityApi.renewIdentity.name,
   projectIdentityApi.linkIdentity.name,
-  projectIdentityApi.matchIdentity.name,
 ]);
 
 const STARTUP_PARALLEL = 4;
@@ -137,8 +142,10 @@ export const projectsWiring: WiringFactory = () => {
   let startup: Promise<void> = Promise.resolve();
   let reconcileActive = (): Promise<void> => Promise.resolve();
   let listChanged = (): void => {};
+  let peersChanged = (): void => {};
   // 도는 자동 match. 종료가 끝을 기다린다.
-  let matchRun: Promise<void> = Promise.resolve();
+  let matchIdle = (): Promise<void> => Promise.resolve();
+  let unsubscribe: (() => void) | undefined;
   let stopping = false;
   return {
     name: "projects",
@@ -168,6 +175,12 @@ export const projectsWiring: WiringFactory = () => {
     build(ctx) {
       const logger = ctx.telemetry.logger;
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+      // private workspace인 project는 다른 컴퓨터로 내보내지도 맞추지도 않는다(call과 mail의 private과 같은 설정).
+      const isPrivateProject = (project: string) =>
+        isPrivate(ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY, {
+          kind: "project",
+          id: project as Id<"prj">,
+        });
       const identity: IdentityService = createIdentityService({
         git: createGitReader({ logger }),
         fs: nodeFolderProbe,
@@ -175,6 +188,7 @@ export const projectsWiring: WiringFactory = () => {
         writer: () => ctx.writer,
         snapshot: (read) => snapshot(ctx.ledgerPath, (sql) => read(sql)),
         folders: { exists: (path) => existsSync(path) },
+        isPrivate: isPrivateProject,
         logger,
       });
       const home = realHome();
@@ -199,78 +213,44 @@ export const projectsWiring: WiringFactory = () => {
         }
         return projects.ok ? projects.value : null;
       };
-      // 명단의 다른 컴퓨터가 기계 기록에 실은 목록으로 같은 저장소를 맞춘다. 한 번에 하나만 돌고, 도는 사이 다시 부르면 끝난 뒤
-      // 한 번 더 돈다. 명단이 없으면(remote가 꺼졌다) 맞추지 않는다.
-      let matching = false;
-      let matchAgain = false;
-      const matchOnce = async () => {
-        const links = ctx.peek.machineLinks;
-        const records = ctx.peek.machineRecords;
-        if (links === undefined || records === undefined) return;
-        const roster = new Set<string>(
-          links
-            .computers()
-            .filter((computer) => !computer.self)
-            .map((computer) => computer.machine),
-        );
-        if (roster.size === 0) return;
-        const projects = readProjects();
-        if (projects === null) return;
-        for (const action of matchActions(
-          projects,
-          records.projects(),
-          roster,
-        )) {
-          if (stopping) return;
-          const done = await ctx.writer.command(PROJECT_IDENTITY_CONTEXT, {
+      // 명단의 다른 컴퓨터가 `computers` 폴더로 보낸 기록의 목록으로 같은 저장소를 맞춘다. 명단이 없으면(remote가 꺼졌다)
+      // 맞추지 않는다.
+      const matcher = createMatcher({
+        local: readProjects,
+        peers: () => ctx.peek.machineRecords?.projects() ?? [],
+        roster: () =>
+          new Set<string>(
+            (ctx.peek.machineLinks?.computers() ?? [])
+              .filter((computer) => !computer.self)
+              .map((computer) => computer.machine),
+          ),
+        isPrivate: isPrivateProject,
+        write: async (action) =>
+          ctx.writer.command(PROJECT_IDENTITY_CONTEXT, {
             command: projectIdentityApi.matchIdentity.name,
             input: action,
             idempotency_key: ids.newId("idk"),
             compare: {},
             prepared: [],
-          });
-          // conflict는 계산한 뒤 project가 바뀐 것이다. 다음 계기가 다시 본다.
-          if (!done.ok && done.error.code !== "conflict") {
-            logger.warn({
-              component: "projects-identity",
-              event: "match_failed",
-              message: `project ${action.project}: ${done.error.message}`,
-            });
-          }
-        }
-      };
-      const runMatching = (): Promise<void> => {
-        if (matching) {
-          matchAgain = true;
-          return matchRun;
-        }
-        matching = true;
-        matchRun = loopMatching();
-        return matchRun;
-      };
-      const loopMatching = async () => {
-        try {
-          do {
-            matchAgain = false;
-            await matchOnce();
-          } while (matchAgain && !stopping);
-        } catch (thrown) {
+          }),
+        publish: () => ctx.peek.machineRecords?.publish(),
+        warn: (message) =>
           logger.warn({
             component: "projects-identity",
-            event: "match_threw",
-            message: thrown instanceof Error ? thrown.message : String(thrown),
-          });
-        } finally {
-          matching = false;
-        }
-      };
+            event: "match_failed",
+            message,
+          }),
+        stopping: () => stopping,
+      });
+      matchIdle = () => matcher.idle();
       listChanged = () => {
         ctx.peek.machineRecords?.publish();
-        void runMatching();
+        void matcher.localChanged();
       };
+      peersChanged = () => void matcher.peersChanged();
       ctx.provide("projectMatching", {
-        shared: () => sharedProjects(readProjects() ?? []),
-        peersChanged: () => void runMatching(),
+        shared: () => sharedProjects(readProjects() ?? [], isPrivateProject),
+        peersChanged,
       });
       // 바뀐 remote를 따라가려고 기동 때 active project를 몇 개씩 다시 읽는다.
       reconcileActive = async () => {
@@ -372,7 +352,28 @@ export const projectsWiring: WiringFactory = () => {
       });
     },
     // 기동을 막지 않는다(afterReady를 기다리면 control의 ready가 늦는다). 종료가 끝을 기다린다.
-    afterReady() {
+    afterReady(ctx) {
+      // 명단이 바뀌면(컴퓨터가 들어왔는데 그 기록은 이미 있다) 다시 맞추고, private 설정이 바뀌면 기록을 다시 쓴다.
+      unsubscribe = ctx.bus.subscribe([{ types: ["StateChanged"] }], {
+        send(event) {
+          const changes = (
+            event.payload as { changes: { name: string; id: string | null }[] }
+          ).changes;
+          if (changes.some((change) => change.name === "remote_devices")) {
+            peersChanged();
+          }
+          if (
+            changes.some(
+              (change) =>
+                change.name === "settings" &&
+                (change.id === null || change.id === callPolicySetting.key),
+            )
+          ) {
+            listChanged();
+          }
+        },
+        close: () => undefined,
+      });
       startup = reconcileActive().then(() => {
         if (!stopping) listChanged();
       });
@@ -380,8 +381,9 @@ export const projectsWiring: WiringFactory = () => {
     },
     async closeWork() {
       stopping = true;
+      unsubscribe?.();
       await startup;
-      await matchRun;
+      await matchIdle();
     },
   };
 };

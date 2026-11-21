@@ -95,6 +95,7 @@ import {
   readStream,
   updateStream,
 } from "../../../folder/export/status.ts";
+import { peerProjects } from "../../../folder/import/peer-projects.ts";
 import { createFolderImport } from "../../../folder/import/mod.ts";
 import { IMPORT_TMP_DIR } from "../../../folder/import/held.ts";
 import {
@@ -543,18 +544,16 @@ export const folderWiring: WiringFactory = () => {
         random: ctx.random,
         dataRoot,
       });
-      // 기계 기록의 git project 목록(architecture `project-identity`). projects가 목록이 바뀌면 기록을 다시 쓰게 하고, 받은
-      // 다른 기계의 목록으로 같은 저장소를 맞춘다.
+      // 기계 기록의 git project 목록(architecture `project-identity`). projects가 목록이 바뀌면 기록을 다시 쓰게 하고, 다른
+      // 기계의 목록은 서명을 본 `computers` 폴더의 사본에서만 읽는다(peer-projects.ts).
       ctx.provide("machineRecords", {
         publish: () => kick("records", () => publishRecords()),
-        // 이 칸 전에 받아 둔 기록 사본에는 목록이 없다. 그 기계가 다음 기록을 쓰면 온다.
         projects: () =>
-          importer.records().machines.map((row) => ({
-            machine: row.machine,
-            projects: Array.isArray(row.record.projects)
-              ? row.record.projects
-              : [],
-          })),
+          peerProjects(
+            computersRoot,
+            me(),
+            (machine) => ctx.peek.computerSigningKey?.(machine) != null,
+          ),
       });
       const apps = createFolderApps({
         machine: me,

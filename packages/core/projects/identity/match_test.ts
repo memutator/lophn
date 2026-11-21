@@ -10,6 +10,7 @@ import {
 } from "./match.ts";
 
 const KEY = "github.com/me/notes";
+const none = () => false;
 const pri = (n: number) => `pri_0000000000000000000000000${n}`;
 
 function project(
@@ -54,8 +55,9 @@ function meet(to: Computer, from: Computer, roster = [from.name]) {
     to,
     matchActions(
       to.projects,
-      [{ machine: from.name, projects: sharedProjects(from.projects) }],
+      [{ machine: from.name, projects: sharedProjects(from.projects, none) }],
       new Set(roster),
+      none,
     ),
   );
 }
@@ -173,6 +175,7 @@ test("자기 옛 id와 이 컴퓨터의 다른 project가 가진 id로는 가지
       [project(pri(5), { former_identities: [pri(1)] })],
       record,
       roster,
+      none,
     ),
     [],
   );
@@ -182,15 +185,89 @@ test("자기 옛 id와 이 컴퓨터의 다른 project가 가진 id로는 가지
       [project(pri(5)), project(pri(1), { id: "prj_old", status: "archived" })],
       record,
       roster,
+      none,
     ),
     [],
   );
-  assert.deepEqual(matchActions([project(pri(5))], record, new Set()), []);
-  assert.deepEqual(matchActions([project(pri(5))], record, roster), [
+  assert.deepEqual(
+    matchActions([project(pri(5))], record, new Set(), none),
+    [],
+  );
+  assert.deepEqual(matchActions([project(pri(5))], record, roster, none), [
     {
       project: "prj_for_pri_00000000000000000000000005",
       from: pri(5),
       identity: pri(1),
     },
   ]);
+});
+
+test("한 기록에 같은 저장소 줄이 둘이면 더 작은 id라도 그 기록으로 맞추지 않는다", () => {
+  const peer: SharedProject[] = [
+    { identity: pri(1), remote_key: KEY, separated: false },
+    { identity: pri(2), remote_key: KEY, separated: false },
+  ];
+  assert.deepEqual(
+    matchActions(
+      [project(pri(5))],
+      [{ machine: "peer", projects: peer }],
+      new Set(["peer"]),
+      none,
+    ),
+    [],
+  );
+});
+
+test("다른 저장소 key의 나눈 줄은 이 project를 나누지 못하고, private workspace인 project는 맞추지도 나누지도 않는다", () => {
+  const roster = new Set(["peer"]);
+  const unrelated: SharedProject[] = [
+    { identity: pri(5), remote_key: "example.com/other", separated: true },
+  ];
+  assert.deepEqual(
+    matchActions(
+      [project(pri(5))],
+      [{ machine: "peer", projects: unrelated }],
+      roster,
+      none,
+    ),
+    [],
+  );
+  const peer: SharedProject[] = [
+    { identity: pri(1), remote_key: KEY, separated: false },
+    { identity: pri(6), remote_key: KEY, separated: true },
+  ];
+  const mine = [project(pri(5)), project(pri(6), { id: "prj_copy" })];
+  const privateOnes = new Set(mine.map((one) => one.id));
+  assert.deepEqual(
+    matchActions(mine, [{ machine: "peer", projects: peer }], roster, (id) =>
+      privateOnes.has(id),
+    ),
+    [],
+  );
+});
+
+test("공유 목록은 active git project만 싣고(보관, git 아님, remote 없음, private은 뺀다) key 상한을 넘는 것을 빼며 512개까지다", () => {
+  const listed = sharedProjects(
+    [
+      project(pri(1)),
+      project(pri(2), { id: "prj_archived", status: "archived" }),
+      project(pri(3), { id: "prj_plain", repo: "none", remote: null }),
+      project(pri(4), { id: "prj_noremote", remote: null }),
+      project(pri(5), { id: "prj_private" }),
+      project(pri(6), { id: "prj_long", remote: { key: "k".repeat(257) } }),
+      project(pri(7), { id: "prj_separated", separated: true }),
+    ],
+    (id) => id === "prj_private",
+  );
+  assert.deepEqual(listed, [
+    { identity: pri(1), remote_key: KEY, separated: false },
+    { identity: pri(7), remote_key: KEY, separated: true },
+  ]);
+  const many = Array.from({ length: 600 }, (_, n) =>
+    project(`pri_${String(n).padStart(26, "0")}`, {
+      id: `prj_${n}`,
+      remote: { key: `github.com/me/r${n}` },
+    }),
+  );
+  assert.equal(sharedProjects(many, none).length, 512);
 });

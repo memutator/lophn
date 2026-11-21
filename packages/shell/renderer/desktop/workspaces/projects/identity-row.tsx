@@ -10,6 +10,7 @@ import styles from "./identity-row.module.css";
 /** 글의 key 끝(`projects.state.identity-<state>`). */
 type LineState =
   | "not-git"
+  | "private"
   | "no-remote"
   | "separated"
   | "same-repository"
@@ -28,6 +29,7 @@ interface Line {
 function lineOf(status: IdentityStatus): Line | null {
   if (!status.found || status.repo === null) return null;
   if (status.repo === "none") return { state: "not-git" };
+  if (status.private) return { state: "private" };
   if (!status.remote) return { state: "no-remote" };
   if (status.separated) return { state: "separated" };
   if (status.sameRepository !== null) {

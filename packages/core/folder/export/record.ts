@@ -15,6 +15,28 @@ import { createFolderReader, createFolderWriter } from "../fs.ts";
 import type { FolderExportDeps } from "./mod.ts";
 import { readStream, type StreamKey, updateStream } from "./status.ts";
 
+// git project 목록 때문에 기록이 상한을 넘으면 목록의 뒤 줄부터 덜어 낸다. 넘는 기록은 모든 받는 쪽이 거절해 이 기계의 기록
+// 전체(주소, 판)를 잃는다. 덜어 낸 project는 다른 컴퓨터와 자동으로 맞춰지지 않는다.
+export function fitRecord(
+  record: MachineRecord,
+  max: number = RECORD_MAX_BYTES,
+): MachineRecord {
+  const size = (count: number) =>
+    encodeRecord(machineRecordSchema, {
+      ...record,
+      projects: record.projects.slice(0, count),
+    }).byteLength;
+  if (size(record.projects.length) <= max) return record;
+  let low = 0;
+  let high = record.projects.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (size(middle) <= max) low = middle;
+    else high = middle - 1;
+  }
+  return { ...record, projects: record.projects.slice(0, low) };
+}
+
 const sameContent = (a: MachineRecord, b: MachineRecord) =>
   canonicalize({ ...a, revision: 0, updated_at: "" }) ===
   canonicalize({ ...b, revision: 0, updated_at: "" });
@@ -26,24 +48,26 @@ export async function publishRecords(
   const facts = deps.facts();
   const now = deps.clock.now();
   const content = (revision: number): MachineRecord =>
-    machineRecordSchema.parse({
-      format: FOLDER_FORMAT.version,
-      machine: me.id,
-      revision,
-      updated_at: now,
-      name: me.name,
-      always_on: facts.alwaysOn,
-      addresses: facts.addresses,
-      lophn: {
-        version: facts.lophn.version,
-        protocol: facts.lophn.protocol,
-        folder: {
-          version: FOLDER_FORMAT.version,
-          min_version: FOLDER_FORMAT.min_version,
+    fitRecord(
+      machineRecordSchema.parse({
+        format: FOLDER_FORMAT.version,
+        machine: me.id,
+        revision,
+        updated_at: now,
+        name: me.name,
+        always_on: facts.alwaysOn,
+        addresses: facts.addresses,
+        lophn: {
+          version: facts.lophn.version,
+          protocol: facts.lophn.protocol,
+          folder: {
+            version: FOLDER_FORMAT.version,
+            min_version: FOLDER_FORMAT.min_version,
+          },
         },
-      },
-      projects: facts.projects,
-    });
+        projects: facts.projects,
+      }),
+    );
   const rel = recordPath(me.id);
   let failed: Result<void> = ok(undefined);
   for (const destination of deps.destinations.list()) {

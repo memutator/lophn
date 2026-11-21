@@ -106,6 +106,7 @@ function setup(answers: "git" | "fails" = "git") {
   const service = createIdentityService({
     git,
     fs: nodeFolderProbe,
+    isPrivate: () => false,
     ids,
     writer: () => writer,
     snapshot: (read) => read(sql),

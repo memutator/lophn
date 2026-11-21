@@ -134,6 +134,11 @@ const SCENES = {
       () => click('[data-menu-item="separate"]'),
     ],
   },
+  "row-private": {
+    title: "Detail · Private workspace",
+    options: { identity: { private: true } },
+    steps: DETAILS,
+  },
   "row-no-remote": {
     title: "Detail · No git remote",
     options: { identity: { remote: false } },

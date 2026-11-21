@@ -38,6 +38,8 @@ export type IdentityServiceDeps = {
   // ledger를 짧게 읽는다.
   snapshot<T>(read: (sql: ReadSql) => Result<T>): Result<T>;
   folders: Pick<FolderResolver, "exists">;
+  // private workspace인 project. 다른 컴퓨터와 맞추지 않는다.
+  isPrivate(project: string): boolean;
   logger: Logger;
 };
 
@@ -120,6 +122,7 @@ export function createIdentityService(deps: IdentityServiceDeps) {
       found: found?.found ?? false,
       remote: record.remote,
       separated: record.separated,
+      private: deps.isPrivate(project),
       same_repository: record.separated
         ? null
         : (sameRepository(projects.value, record)?.id ?? null),

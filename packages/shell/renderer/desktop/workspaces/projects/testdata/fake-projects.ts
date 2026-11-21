@@ -72,6 +72,7 @@ export interface FakeProjectsOptions {
     repo?: "git" | "none";
     remote?: boolean;
     separated?: boolean;
+    private?: boolean;
     sameRepository?: IdentityStatus["sameRepository"];
   };
   /** 등록 dialog가 고른 폴더를 읽은 값. 없으면 같은 저장소가 없는 git 폴더다. null이면 읽지 못한다. */
@@ -92,6 +93,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
     repo: options.identity?.repo ?? "git",
     remote: options.identity?.remote ?? true,
     separated: options.identity?.separated ?? false,
+    private: options.identity?.private ?? false,
     sameRepository: options.identity?.sameRepository ?? null,
     identity: null as string | null,
   };
@@ -102,6 +104,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
     remote: status.remote,
     found: project.folders[0]?.found ?? false,
     separated: status.separated,
+    private: status.private,
     sameRepository: status.sameRepository,
   });
 

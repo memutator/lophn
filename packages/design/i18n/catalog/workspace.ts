@@ -161,6 +161,8 @@ export const workspace = {
     "No git remote, so lophn can't find it on your other computers",
   "projects.state.identity-not-git":
     "Not in git, so this project stays on this computer.",
+  "projects.state.identity-private":
+    "Private, so lophn doesn't match it with your other computers",
   "projects.state.identity-same-repository":
     "{title} on this computer uses the same repository, so lophn matches neither",
   "projects.state.identity-separated":

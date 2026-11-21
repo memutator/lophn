@@ -1,5 +1,5 @@
 id: coding-open-detected
-version: 0.23.105
+version: 0.23.106
 title: agent의 coding agent TUI handoff는 즐겨찾기이면서 이 컴퓨터에서 감지된 것만 연다
 modules: [packages/core/main, packages/core/terminal-agents, packages/core/agent-workspaces, packages/coding-agent, packages/cli]
 change: |

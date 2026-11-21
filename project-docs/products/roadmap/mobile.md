@@ -249,7 +249,7 @@ client가 둘일 때 부딪치는 곳:
 - **bridge.** 폰은 `lophnApp`의 member 가운데 `place`, `callOperation`, `events`만 준다. `commands`, `setTabHead`, `setKeepAlive`, `agent`, `sessions`, `agents`, `projects`, `openExternal`은 없다.
 - **위젯.** 앱이 SDK로 위젯 내용(정해진 component)을 data로 내고 native가 그린다. 지금 tray 값(`app_tray.set`, `StateChanged`의 `tray`)과 같은 꼴이다.
 - **홈 화면 아이콘.** Android는 pinned shortcut, iOS는 단축어다.
-- **폰 기능.** 앱 backend와 agent가 폰의 기능(위치, 카메라)을 core를 거쳐 부른다. grant를 거친다. 폰이 닿지 않으면 `unavailable`이다. 쓰는 예가 생길 때 기능 하나씩 연다.
+- **폰 기능.** 앱 backend와 agent가 폰의 기능(위치, 카메라)을 core를 거쳐 부른다. grant를 거친다. 폰이 닿지 않으면 `unavailable`이다. 쓰는 예가 생길 때 기능 하나씩 연다. (2026-11-21: 하나씩 여는 방침을 바꿨다. 화면이 폰에 직접 묻는 길과 기능을 넓게 여는 일은 `phone-capability.md`.)
 
 ### 폰에서 혼자 도는 앱 (사람, 2026-11-14)
 

@@ -28,7 +28,11 @@ import {
   sameCoreAddress,
 } from "./client/daemon.ts";
 import { cliDial, spawnDetachedCore } from "./client/node.ts";
-import { agentCredential, inAgentShell } from "./client/token.ts";
+import {
+  agentCredential,
+  inAgentShell,
+  type ReadCredentialFile,
+} from "./client/token.ts";
 
 export type CliConnection = {
   core: CommandCore;
@@ -49,6 +53,7 @@ type CliIo = {
   // 시험·다른 입구가 끼우는 IO. 없으면 node adapter를 쓴다.
   dial?: ControlDial;
   spawnDetached?: SpawnDetached;
+  readCredential?: ReadCredentialFile;
 };
 
 const TIMER: EnsureTimer = {
@@ -227,9 +232,17 @@ export async function openConnection(
   }
   const io = ioOf(request);
   if (!io.ok) return io;
-  const agent = agentCredential(request.env);
+  const agent = agentCredential(request.env, request.readCredential);
   if (agent !== undefined) {
-    return joinAsAgent(request, io.value, agent, explicit.value);
+    // turn 밖의 GUI 탭 CLI다. 사람 자격으로 바꾸지 않는다.
+    if (agent.token === null) {
+      return err({
+        code: "unauthorized",
+        message:
+          "lophn commands run as this session's agent only during a lophn turn, and no turn is open now.",
+      });
+    }
+    return joinAsAgent(request, io.value, agent.token, explicit.value);
   }
   if (explicit.value !== undefined) {
     return joinAtAddress(request, io.value, explicit.value);
@@ -243,8 +256,12 @@ export async function stopCore(request: {
   dataRoot: string | undefined;
   platform: OsPlatform;
   dial?: ControlDial;
+  readCredential?: ReadCredentialFile;
 }): Promise<Result<null, LophnError>> {
-  if (agentCredential(request.env) !== undefined || inAgentShell(request.env)) {
+  if (
+    agentCredential(request.env, request.readCredential) !== undefined ||
+    inAgentShell(request.env)
+  ) {
     return err({
       code: "forbidden",
       message: "agent 자격으로는 core를 멈출 수 없다",

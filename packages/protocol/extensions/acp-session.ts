@@ -43,7 +43,8 @@ export type AcpSessionHandle = {
 };
 
 /**
- * terminal 탭 하나의 PTY. harness-gui가 TUI와 GUI를 오갈 때 쓴다. `id`는 terminal_ref이고 `env`는 그 탭의 hook env다.
+ * terminal 탭 하나의 PTY. harness-gui가 TUI와 GUI를 오갈 때 쓴다. `id`는 terminal_ref이고 `env`는 그 탭의 hook env와 session 표지,
+ * 팀원인 탭이면 turn 자격 file 경로(`LOPHN_AGENT_CREDENTIAL_FILE`)다.
  * `state()`의 `shell`은 PTY foreground에 harness가 없다(shell prompt)는 뜻이고, 나머지는 foreground harness의
  * terminal-agent tracker 상태다.
  */

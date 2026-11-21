@@ -74,6 +74,7 @@ import {
   createAgentSessionStore,
   createBridge,
   createCodingOpen,
+  createCredentialFiles,
   createFileHookOptOut,
   createHarnessSettings,
   createHookIngress,
@@ -313,6 +314,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
               () => null,
             ),
         },
+        credentials:
+          run === null
+            ? null
+            : createCredentialFiles({
+                root: join(run.dir, "credentials"),
+                fs: {
+                  mkdir: (path, mode) =>
+                    void mkdirSync(path, { recursive: true, mode }),
+                  write: (path, text, mode) =>
+                    writeFileSync(path, text, { mode }),
+                  remove: (path) => rmSync(path, { force: true }),
+                },
+              }),
         ids: { request: () => randomUUID() },
         hookEnv: (ref) => ingress?.envOf(ref) ?? {},
         identified: (harness, ref) => installer.ensureOnce(harness, ref),

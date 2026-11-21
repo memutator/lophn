@@ -20,6 +20,7 @@ import type { AcpTabHandlers } from "../../protocol/extensions/acp-session.ts";
 import { terminalSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { Terminals } from "../terminals/ports.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
+import type { CredentialFiles } from "./credential-file.ts";
 import { createTabGui, type TabGuiDeps } from "./gui.ts";
 import { createTerminalHolds } from "./hold.ts";
 import type { RoutedHook } from "./ingress.ts";
@@ -52,6 +53,8 @@ export type TerminalAgentsDeps = {
   platform: string;
   store: AgentSessionStore;
   images: TabGuiDeps["images"];
+  // GUI 탭의 turn 자격 file. per-run 폴더가 없으면 null이고 그 탭의 CLI는 lophn agent로 부르지 못한다.
+  credentials?: CredentialFiles | null;
   ids: { request(): string };
   // 그 터미널에 준 hook env. GUI가 띄운 CLI도 같은 탭으로 hook을 보내게 한다.
   hookEnv(terminalRef: string): Record<string, string>;
@@ -212,6 +215,11 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         tracker.onForegroundExit(ref, listener),
     },
     images: deps.images,
+    // project 터미널의 GUI 탭이 팀원이다(Home과 앱 workspace는 아니다).
+    credentialFile: (ref) =>
+      deps.credentials != null && project(ref)?.startsWith("prj_") === true
+        ? deps.credentials.pathOf(ref)
+        : null,
     log: deps.log,
     changed: () => coding.changed(),
     resumingTui: (ref, harness, session) =>

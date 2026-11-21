@@ -22,6 +22,10 @@ export {
 export { listenHooks } from "./hook-socket.ts";
 export { createHookIngress } from "./ingress.ts";
 export { createCodingOpen } from "./open.ts";
+export {
+  createCredentialFiles,
+  type CredentialFiles,
+} from "./credential-file.ts";
 export { createAgentSessionStore } from "./session-store.ts";
 export { moveSavedSessions } from "./sessions-move.ts";
 export { createTerminalAgents, type TerminalAgents } from "./service.ts";

@@ -34,8 +34,8 @@ files:
     note: 첫 test는 error 한 줄을 쓰고 level 아래는 거르며 secret을 가린다. 둘째 test는 traceparent 파서 helper
 
   - path: packages/cli/connection/core_test.ts
-    covers: [cli-core-connect:agent-shell, core-stop:forbidden]
-    note: "자격 없는 lophn agent shell 안의 CLI는 control socket에 닿지도 core를 띄우지도 멈추지도 않고 forbidden이다"
+    covers: [cli-core-connect:agent-shell, cli-core-connect:agent-outside-turn, core-stop:forbidden]
+    note: "자격 없는 lophn agent shell 안의 CLI와 turn 밖의 GUI 탭 CLI는 control socket에 닿지도 core를 띄우지도 멈추지도 않는다. turn 자격 file이 차 있으면 사람 자격(connect)을 받지 않는다"
 
   - path: packages/cli/commands/agent_test.ts
     covers: [cli-argv:invalid-input]

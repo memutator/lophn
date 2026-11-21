@@ -22,6 +22,7 @@ import {
   type GuiHarness,
   isGuiHarness,
 } from "../../protocol/extensions/acp-session.ts";
+import { AGENT_CREDENTIAL_FILE_ENV } from "../../protocol/coding-agent/headless/env.ts";
 import {
   SESSION_ENV_NAME,
   terminalSessionId,
@@ -76,6 +77,10 @@ export type TabGuiDeps = {
     write(path: string, data: Uint8Array): Promise<void>;
     read(path: string): Promise<Uint8Array | null>;
   };
+  /**
+   * 그 탭의 CLI가 `lophn`을 부를 turn 자격 file. 팀원이 되는 탭(project 터미널)만 있고 아니면 null이다. CLI의 env에 경로만 넣는다.
+   */
+  credentialFile?(terminalRef: string): string | null;
   log(message: string): void;
   /** handle이 열리거나 닫히거나, view나 그 session의 상태(title, turn phase)가 바뀌었다. coding session 목록을 다시 만든다. */
   changed?(): void;
@@ -241,6 +246,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     harness: GuiHarness,
     cwd: string,
   ): AcpTerminal {
+    const credential = deps.credentialFile?.(terminalRef) ?? null;
     return {
       id: terminalRef,
       cwd,
@@ -249,6 +255,9 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       env: {
         ...deps.terminals.hookEnv(terminalRef),
         [SESSION_ENV_NAME]: terminalSessionId(terminalRef),
+        ...(credential === null
+          ? {}
+          : { [AGENT_CREDENTIAL_FILE_ENV]: credential }),
       },
       state: () => deps.terminals.tui(terminalRef)?.state ?? "shell",
       sessionId: () => deps.terminals.tui(terminalRef)?.session ?? null,

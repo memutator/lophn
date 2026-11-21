@@ -199,11 +199,15 @@ export const agentCard = defineRead({
 
 // 한 workspace(null은 home)에서 부를 수 있는 agent들의 명함이다. 한 번에 읽는다: 앱 화면의 agent 목록, agent의 `agent list`,
 // 다른 컴퓨터가 읽는 명함(`a2a/agents`). agent는 이 기계에서 private인 다른 workspace를 읽지 못한다.
+// `without_apps`(slug)의 앱은 명함의 차이에 싣지 않는다: 다른 컴퓨터에 내주는 명함이 이 기계에서 private인 앱을 알리지 않게 한다.
 export const agentCards = defineRead({
   resource: "agents",
   method: "cards",
   name: "ListAgentCards",
-  input: z.strictObject({ workspace: workspaceSchema.nullable() }),
+  input: z.strictObject({
+    workspace: workspaceSchema.nullable(),
+    without_apps: z.array(z.string()).optional(),
+  }),
   output: withReadCommon(z.object({ cards: z.array(agentCardSchema) })),
   reads: ["agents", "models"],
   actors: ["machine", "agent"],

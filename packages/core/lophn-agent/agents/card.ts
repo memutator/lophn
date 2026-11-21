@@ -33,17 +33,26 @@ function agentAt(loaded: Loaded, workspace: Workspace | null) {
 }
 
 // 명함의 차이는 그 agent의 정의로 계산한다(lophn이면 그 workspace의 lophn 정의). prompt 원문은 싣지 않는다.
+// `withoutApps`(slug)의 앱은 없는 것처럼 계산한다: 그 앱의 command와 skill, 그 앱 skill의 끄기가 차이에 남지 않는다.
 function cardOf(
   context: AgentContext,
   loaded: Loaded,
   caller: CardCaller | null,
+  withoutApps: readonly string[] = [],
 ): AgentCard {
   const definition = loaded.definition;
   const runtime = definition?.runtime ?? "lophn";
   const input = definition?.modality?.input ?? [...MODALITIES];
   const output = definition?.modality?.output ?? [...MODALITIES];
-  const apps = definition?.apps ?? [];
-  const off = definition?.skills_off ?? [];
+  const apps = (definition?.apps ?? []).filter(
+    (slug) => !withoutApps.includes(slug),
+  );
+  const hiddenSkills = new Set(
+    context.lookups.shared(withoutApps).map((skill) => skill.name),
+  );
+  const off = (definition?.skills_off ?? []).filter(
+    (name) => !hiddenSkills.has(name),
+  );
 
   const diff =
     runtime === "custom"
@@ -125,6 +134,7 @@ function cardOf(
 export function cardsIn(
   context: AgentContext,
   workspace: Workspace | null,
+  withoutApps: readonly string[] = [],
 ): Result<AgentCard[]> {
   const listed = listAgents(context);
   if (!listed.ok) return listed;
@@ -133,7 +143,7 @@ export function cardsIn(
       .filter(
         (entry) => visibleIn(entry, workspace) && entry.issues.length === 0,
       )
-      .map((entry) => cardOf(context, entry, null)),
+      .map((entry) => cardOf(context, entry, null, withoutApps)),
   );
 }
 

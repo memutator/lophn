@@ -608,6 +608,23 @@ test("agent 자격의 call send --on은 calls/send_remote로 가고, 다른 명�
     [["/calls/send_remote", { agent: "reviewer", machine: "laptop" }]],
   );
 
+  // `--on`을 명령 낱말 앞에 써도 같다.
+  const listed = machineFetch({
+    "undefined/undefined": {
+      machine: { machine: "mch_0aaaaaaaaaaaaaaaaaaaaaaaaa", name: "laptop" },
+      sessions: [],
+    },
+  });
+  const before = await runOn(
+    ["--on", "laptop", "session", "list"],
+    listed.fetch,
+    agent,
+  );
+  assert.deepStrictEqual(before.code, 0, before.printed);
+  assert.deepStrictEqual(listed.sent, [
+    { path: "/machines/sessions", body: { machine: "laptop" } },
+  ]);
+
   const refused = machineFetch({});
   const tab = await runOn(
     ["tab", "open", "--url", "https://example.com", "--on", "laptop"],

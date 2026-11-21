@@ -233,3 +233,54 @@ test("agent는 자기 workspace가 아닌 private workspace의 명함 목록을 
     rmSync(root, { recursive: true });
   }
 });
+
+// 권한 경계다. 다른 컴퓨터에 내주는 명함(`a2a/agents`가 without_apps로 읽는다)에는 이 기계에서 private인 앱의 slug, command,
+// skill, 그 skill의 끄기가 남지 않는다.
+test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", () => {
+  const lookups: AgentLookups = {
+    workspaces: () => [],
+    workspaceExists: () => true,
+    workspaceArchived: () => false,
+    skills: () => [],
+    shared: (apps) =>
+      apps.map((slug) => ({ name: `${slug}-skill`, can_disable: true })),
+    mcp: () => [],
+    sharedCommands: (apps) => apps.map((slug) => ({ slug, name: "add" })),
+    modelInfo: () => null,
+    modelDefault: () => null,
+    workspaceModel: () => null,
+  };
+  const reads = createAgentReads({
+    files: {
+      read: (path) =>
+        path === `/data/agents/${AGENT}.md`
+          ? "---\nhandle: reviewer\nname: reviewer\napps:\n  - diary\n  - notes\nskills_off:\n  - diary-skill\n---\nbody\n"
+          : null,
+      writeAtomic: () => {},
+      remove: () => {},
+      list: () => [`${AGENT}.md`],
+      ensureFolder: () => {},
+    },
+    lookups: () => lookups,
+    dataRoot: "/data",
+  });
+  const machine = {
+    actor: "machine",
+    conditions: {},
+  } as unknown as RequestContext;
+  const snapshot = { sql: {}, as_of_seq: "1" } as unknown as ReadSnapshot;
+  const cardOf = (without_apps?: string[]) => {
+    const read = reads.cards.handle(snapshot, machine, {
+      workspace: null,
+      ...(without_apps === undefined ? {} : { without_apps }),
+    });
+    assert.ok(read.ok);
+    const card = read.value.cards.find((one) => one.handle === "reviewer");
+    assert.ok(card);
+    return JSON.stringify(card);
+  };
+  assert.match(cardOf(), /diary/);
+  const remote = cardOf(["diary"]);
+  assert.doesNotMatch(remote, /diary/);
+  assert.match(remote, /command: notes add/);
+});

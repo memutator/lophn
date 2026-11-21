@@ -12,7 +12,7 @@ import {
   shareRequestList,
 } from "../approvals/share-request.ts";
 import { turnRequestDecide } from "../approvals/turn-request.ts";
-import { a2aAgents, a2aSessions } from "../machine/a2a.ts";
+import { a2aAgents, a2aSessions } from "../lophn-agent/a2a.ts";
 import { machineComputers } from "../machine/mod.ts";
 import { presenceReport, unseenDismiss, unseenList } from "../attention/mod.ts";
 import {

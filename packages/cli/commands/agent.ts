@@ -25,7 +25,7 @@ import {
   type Workspace,
   workspaceNameSchema,
 } from "../../protocol/lophn-agent/workspaces.ts";
-import { machinesAgents } from "../../protocol/machine/a2a.ts";
+import { machinesAgents } from "../../protocol/lophn-agent/a2a.ts";
 import { agentModels } from "./agent-models.ts";
 import { type CommandContext, defineCommand } from "./types.ts";
 
@@ -144,7 +144,7 @@ const card = defineCommand({
       if (found === undefined) {
         return err({
           code: "not_found",
-          message: `unknown agent handle "${input.handle}" on ${read.value.machine.name}; agents you can call there: ${read.value.cards.map((one) => one.handle).join(", ")}`,
+          message: `unknown agent handle "${input.handle}" on ${read.value.machine.name}; run agent list --on ${input.on} to see the agents there`,
         });
       }
       return ok({

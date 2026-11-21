@@ -1,8 +1,9 @@
 // agent가 다른 컴퓨터에서 부를 수 있는 것을 읽는 길이다. 보내는 쪽(`machines/sessions`, `machines/agents`)은 agent session 대신 그 컴퓨터의
 // `a2a/*`를 부르고, 받는 쪽(`a2a/sessions`, `a2a/agents`)은 명단의 컴퓨터에게만 답한다. 받는 쪽은 이 기계에서 private인 workspace의
 // session과 명함을 내주지 않고 그런 workspace가 있는지도 알리지 않는다. 누구를 부를지는 고르지 않는다(지침의 일이다).
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
+import { atSchema } from "../../protocol/base/values.ts";
 import type { AgentCard } from "../../protocol/lophn-agent/agent-definitions.ts";
 import {
   type CallPolicy,
@@ -24,7 +25,7 @@ import {
   machinesSessions,
   type RemoteSession,
   type RemoteWorkspaceOutput,
-} from "../../protocol/machine/a2a.ts";
+} from "../../protocol/lophn-agent/a2a.ts";
 import {
   type MachineCandidate,
   type Requester,
@@ -69,7 +70,11 @@ export type A2aListsDeps = {
   ): { identity: string | null; name: string; archived: boolean } | null;
   projectByIdentity(identity: string): string | null;
   app(id: string): { name: string; archived: boolean } | null;
-  cards(workspace: Workspace | null): Promise<Result<AgentCard[]>>;
+  // 명함은 `withoutApps`(slug)의 앱을 싣지 않고 만든다.
+  cards(
+    workspace: Workspace | null,
+    withoutApps: readonly string[],
+  ): Promise<Result<AgentCard[]>>;
   // 보내는 쪽: 부른 session이 다른 컴퓨터에 닿아도 되는가(`remoteReach`)와 그 agent의 이름.
   sender(
     session: Id<"ses">,
@@ -86,13 +91,25 @@ export type A2aListsDeps = {
 const forbidden = (message: string): Result<never> =>
   err({ code: "forbidden", message });
 
-// 다른 컴퓨터가 낸 글은 이 컴퓨터 밖의 것이다. model에 닿기 전에 제어 문자를 빼고 길이와 개수를 줄인다(`machines/app_tools`와 같다).
+// 다른 컴퓨터가 낸 글은 이 컴퓨터 밖의 것이다. model에 닿기 전에 모든 글 칸의 제어 문자를 빼고 길이와 개수를 줄인다
+// (`machines/app_tools`와 같다). id와 enum 칸은 output schema가 이미 검사했다.
 const MAX_ITEMS = 200;
+const MAX_DIFF = 50;
+const MAX_NOTES = 20;
 const MAX_TITLE = 256;
 const MAX_TEXT = 1024;
 // 줄바꿈과 탭은 설명에 쓸 수 있다. 그 밖의 제어 문자는 뺀다.
 const CONTROLS = /[^\P{Cc}\n\t]/gu;
 const LINE_BREAKS = /[\n\t]/g;
+const ERROR_CODES = new Set<string>([
+  "invalid_input",
+  "not_found",
+  "forbidden",
+  "unauthorized",
+  "conflict",
+  "unavailable",
+  "internal",
+]);
 
 function text(value: string, max: number): string {
   return value.replace(CONTROLS, "").trim().slice(0, max);
@@ -107,34 +124,48 @@ function label(value: string): string {
 function checkedSession(session: RemoteSession): RemoteSession {
   const workspace: RemoteWorkspaceOutput =
     session.workspace.kind === "home"
-      ? session.workspace
+      ? { kind: "home" }
       : { ...session.workspace, name: label(session.workspace.name) };
   return {
-    ...session,
+    session: session.session,
     handle: label(session.handle),
     name: label(session.name),
     title: session.title === null ? null : line(session.title, MAX_TITLE),
     workspace,
+    state: session.state,
+    last_active_at:
+      session.last_active_at !== null &&
+      atSchema.safeParse(session.last_active_at).success
+        ? session.last_active_at
+        : null,
   };
 }
 
 function checkedCard(card: AgentCard): AgentCard {
-  const { callable: _callable, ...rest } = card;
+  const { callable: _callable, model, description, ...rest } = card;
   return {
     ...rest,
+    handle: label(card.handle),
     name: label(card.name),
-    ...(card.description === undefined
+    ...(description === undefined
       ? {}
-      : { description: text(card.description, MAX_TEXT) }),
+      : { description: text(description, MAX_TEXT) }),
+    ...(model === undefined
+      ? {}
+      : {
+          model: {
+            provider: line(model.provider, MAX_TITLE),
+            model_name: line(model.model_name, MAX_TITLE),
+            price: model.price,
+          },
+        }),
     diff: {
-      plus: card.diff.plus
-        .slice(0, MAX_ITEMS)
-        .map((one) => line(one, MAX_TEXT)),
+      plus: card.diff.plus.slice(0, MAX_DIFF).map((one) => line(one, MAX_TEXT)),
       minus: card.diff.minus
-        .slice(0, MAX_ITEMS)
+        .slice(0, MAX_DIFF)
         .map((one) => line(one, MAX_TEXT)),
     },
-    notes: card.notes.slice(0, MAX_ITEMS).map((one) => text(one, MAX_TEXT)),
+    notes: card.notes.slice(0, MAX_NOTES).map((one) => text(one, MAX_TEXT)),
   };
 }
 
@@ -230,7 +261,12 @@ export function createA2aLists(deps: A2aListsDeps) {
     if (!from.ok) return from;
     const found = local(input.workspace);
     if (found === null) return ok({ found: false, cards: [] });
-    const cards = await deps.cards(found.workspace);
+    // 이 기계에서 private인 앱은 명함의 차이(할당한 앱의 command·skill)에도 이름을 남기지 않는다.
+    const hidden = deps.policy().private.flatMap((one) => {
+      const app = one.kind === "app" ? deps.app(one.id) : null;
+      return app === null ? [] : [app.name];
+    });
+    const cards = await deps.cards(found.workspace, hidden);
     if (!cards.ok) return cards;
     return ok({
       found: true,
@@ -302,7 +338,14 @@ export function createA2aLists(deps: A2aListsDeps) {
           message: `${computer.name} is not reachable now`,
         });
       }
-      return answer;
+      // 그 밖의 오류도 그 컴퓨터의 글이다. 정해진 꼴로 다시 쓰고 details는 싣지 않는다.
+      const code = String(answer.error.code);
+      return err({
+        code: ERROR_CODES.has(code)
+          ? (code as LophnError["code"])
+          : "unavailable",
+        message: `${computer.name} refused: ${line(String(answer.error.message), MAX_TITLE)}`,
+      });
     }
     const parsed = route.output.safeParse(answer.value);
     return parsed.success

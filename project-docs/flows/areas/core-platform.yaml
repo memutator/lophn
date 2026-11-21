@@ -2880,21 +2880,21 @@ flows:
     entries: [route:machines/sessions, route:machines/agents]
     uses: [system:machine-links, route:a2a/sessions, route:a2a/agents]
     boundary: [core-api, remote, router]
-    code: [packages/core/remote/a2a-lists.ts, packages/core/main/daemon/wiring/a2a-lists.ts, packages/protocol/machine/a2a.ts, packages/core/router/remote-reach.ts]
+    code: [packages/core/remote/a2a-lists.ts, packages/core/main/daemon/wiring/a2a-lists.ts, packages/protocol/lophn-agent/a2a.ts, packages/core/router/remote-reach.ts]
     docs: [architecture/remote.md, architecture/agent-call.md]
     steps:
       - "agent가 `lophn session list --on <컴퓨터>`, `agent list --on`, `agent card --on`으로 부른다. 누구를 부를지는 고르지 않는다"
       - "부른 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach): 그 session의 workspace가 private이거나 다른 컴퓨터의 mail이 연 session이면 forbidden이다. 이 검사가 컴퓨터 이름 풀기보다 앞이다"
       - "machine(이름, `mch_`, `dev_`)으로 명단의 컴퓨터를 고른다. 이 컴퓨터면 invalid_input이다. machines/agents의 workspace는 이 기계의 이름 꼴을 기계를 건너는 꼴로 바꾼다(remoteWorkspaceOf): 없으면 부른 session의 workspace, project는 그 identity(`pri_`는 그대로), 앱은 id, home"
       - "그 컴퓨터에 요청한 쪽 {kind: agent, agent, session, name}으로 a2a/sessions나 a2a/agents를 부르고 5초까지 기다린다"
-      - "답을 output schema로 다시 검사하고, 그 컴퓨터의 글은 제어 문자를 빼고 길이(이름 64, 제목 256, 설명·notes 1 KB)와 개수(200)를 줄인다. 명함의 callable은 싣지 않는다"
+      - "답을 output schema로 다시 검사하고, 그 컴퓨터의 모든 글 칸은 제어 문자를 빼고 길이(handle·이름 64, 제목·model 이름 256, 설명·diff·notes 1 KB)와 개수(줄 200, 명함마다 diff 50·notes 20)를 줄인다. last_active_at은 시각 꼴일 때만 싣는다. 명함의 callable은 싣지 않는다. not_found·unavailable 밖의 그 컴퓨터 오류는 `<컴퓨터> refused: <줄인 글>`로 다시 쓰고 details를 싣지 않는다"
     outcomes:
       - id: ok
         observe: ["response"]
         when: "machines/agents는 found가 false일 수 있다(그 컴퓨터에 그 workspace가 없거나 private)"
       - id: forbidden
         code: forbidden
-        when: "agent session 자격이 아니다, 부른 session의 workspace가 private이다, 다른 컴퓨터의 mail이 연 session이다, 또는 그 컴퓨터가 forbidden으로 답했다"
+        when: "agent session 자격이 아니다, 부른 session의 workspace가 private이다, 다른 컴퓨터의 mail이 연 session이다. 그 컴퓨터를 부르지 않는다"
         observe: ["response"]
       - id: not_found
         code: not_found
@@ -2916,6 +2916,9 @@ flows:
         code: unavailable
         when: "그 컴퓨터의 답이 output schema에 맞지 않는다"
         observe: ["response"]
+      - id: other-refused
+        when: "그 컴퓨터가 not_found·unavailable 밖의 오류로 답했다. code는 그대로(일곱 밖이면 unavailable), message는 `<컴퓨터> refused: <줄인 글>`, details 없음"
+        observe: ["response"]
     crosses_process: false
     risk: [permission]
 
@@ -2925,12 +2928,12 @@ flows:
     entries: [route:a2a/sessions, route:a2a/agents]
     uses: [route:agents/cards]
     boundary: [core-api, remote, agents]
-    code: [packages/core/remote/a2a-lists.ts, packages/core/main/daemon/wiring/a2a-lists.ts, packages/protocol/machine/a2a.ts, packages/protocol/remote/allowlist.ts]
+    code: [packages/core/remote/a2a-lists.ts, packages/core/main/daemon/wiring/a2a-lists.ts, packages/protocol/lophn-agent/a2a.ts, packages/protocol/remote/allowlist.ts]
     docs: [architecture/remote.md, architecture/agent-call.md]
     steps:
       - "다른 컴퓨터의 core가 기기 자격(principal device:<id>)으로 부른다. 기기 route 목록과 agent 요청한 쪽 목록에 있다. 명단의 다른 컴퓨터만 받는다: 폰, 명단 밖 기기, 기기가 아닌 자격은 forbidden이다"
       - "a2a/sessions: main thread 연결로 열린 session을 Router의 session 목록과 같은 규칙(받는지, 상태)으로 읽고, 부른 컴퓨터의 mail이 연 session만 남긴다(그 컴퓨터가 부를 수 있는 것은 그것뿐이다). 받지 않는 session과 이 기계에서 private인 workspace의 session은 뺀다. workspace는 기계를 건너는 꼴(home, project의 identity와 이름, 앱 id와 slug)이다"
-      - "a2a/agents: `pri_`는 이 기계의 project로 풀고 앱 id와 home은 그대로다. 없거나 보관했거나 private이면 셋을 가르지 않고 {found: false, cards: []}다. 아니면 reader의 agents/cards를 machine 자격(machine:a2a-lists)으로 읽고 callable을 뺀다"
+      - "a2a/agents: `pri_`는 이 기계의 project로 풀고 앱 id와 home은 그대로다. 없거나 보관했거나 private이면 셋을 가르지 않고 {found: false, cards: []}다. 아니면 reader의 agents/cards를 machine 자격(machine:a2a-lists)으로 읽고 callable을 뺀다. 이 기계에서 private인 앱은 without_apps로 넘겨 명함의 차이(할당한 앱의 command·skill과 그 skill의 끄기)에 남지 않게 한다"
       - "둘 다 not_found를 내지 않는다(보내는 쪽이 not_found를 옛 판으로 읽는다)"
     outcomes:
       - id: ok

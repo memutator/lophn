@@ -172,7 +172,7 @@ flows:
       - 사람의 agent 편집 화면(workspace/agents)이나 agent(CLI `agent.card`)가 handle(과 필요하면 workspace)로 명함을 읽는다. agent는 workspace를 빼면 자기 session의 workspace다
       - core가 그 workspace에서 보이는 agent를 handle로 찾는다(lophn은 workspace마다 하나, 즐겨찾기 내장 coding agent 포함)
       - 명함에는 쓰는 model(provider 이름, model 이름, 가격. harness runtime은 없다), 답 방식(replies), 기본 lophn과의 차이, 입력 modality와 자기 session에서 부를 수 있는지(callable)를 싣는다. prompt 원문은 싣지 않는다
-      - "CLI `agent card <handle> --on <컴퓨터>`는 이 route가 아니라 machines/agents로 그 컴퓨터의 한 workspace(`--workspace`, 없으면 자기 workspace)의 명함을 읽어 handle로 고른다(machines-lists). 그 workspace가 그 컴퓨터에 없거나 열리지 않았거나 그 handle이 없으면 not_found다. `--on` 없이 `--workspace`를 주면 invalid_input이다"
+      - "CLI `agent card <handle> --on <컴퓨터>`는 이 route가 아니라 machines/agents로 그 컴퓨터의 한 workspace(`--workspace`, 없으면 자기 workspace)의 명함을 읽어 handle로 고른다(machines-lists). 그 workspace가 그 컴퓨터에 없거나 열리지 않았거나 그 handle이 없으면 not_found다(그 컴퓨터의 handle을 글에 잇지 않고 agent list --on을 가리킨다). `--on` 없이 `--workspace`를 주면 invalid_input이다"
     outcomes:
       - id: ok
         observe: [response]
@@ -200,7 +200,7 @@ flows:
     code: [packages/core/lophn-agent/agents/card.ts, packages/core/lophn-agent/agents/reads.ts]
     steps:
       - "agent가 `lophn agent list`로 읽는다(workspace가 없으면 자기 workspace. 이 컴퓨터의 workspace는 id나 {home: true}로 적는다). core 안 machine 자격(앱 화면의 app_agents/list, 다른 컴퓨터에 내주는 a2a/agents)도 같은 route를 읽는다"
-      - "workspace가 null이면 home이다. 그 workspace에서 보이는 agent(전역, 그 workspace의 범위 agent, 그 workspace의 lophn)의 명함을 싣고 틀린 정의 file은 뺀다. callable은 싣지 않는다"
+      - "workspace가 null이면 home이다. 그 workspace에서 보이는 agent(전역, 그 workspace의 범위 agent, 그 workspace의 lophn)의 명함을 싣고 틀린 정의 file은 뺀다. callable은 싣지 않는다. without_apps(slug)의 앱은 할당되지 않은 것처럼 차이를 계산한다"
       - "agent 자격은 자기 workspace가 아닌 workspace가 이 기계의 call 정책에서 private이면 읽지 못하고, 보관한 앱 workspace는 없는 것이다"
       - "CLI `agent list --on <컴퓨터>`는 이 route가 아니라 machines/agents로 그 컴퓨터의 명함을 읽는다(machines-lists). 그 workspace가 없거나 열리지 않았으면 not_found다"
     outcomes:

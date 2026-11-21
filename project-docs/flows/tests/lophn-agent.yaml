@@ -22,7 +22,7 @@ files:
 
   - path: packages/core/lophn-agent/agents/reads_test.ts
     covers: [agent-definition-read:ok, agent-cards-list:ok, agent-cards-list:private-workspace, agent-cards-list:workspace-hidden]
-    note: "정의 읽기의 model 출처 순서(agent, project, global)와 workspace마다 따로 있는 lophn의 MCP 서버 분리. agent의 명함 목록(agents/cards)은 자기 workspace가 아닌 private workspace면 forbidden이고 자기 workspace(private이어도), private 아닌 workspace, home은 읽으며 보관한 앱 workspace는 not_found다. machine 자격은 막지 않는다"
+    note: "정의 읽기의 model 출처 순서(agent, project, global)와 workspace마다 따로 있는 lophn의 MCP 서버 분리. agent의 명함 목록(agents/cards)은 자기 workspace가 아닌 private workspace면 forbidden이고 자기 workspace(private이어도), private 아닌 workspace, home은 읽으며 보관한 앱 workspace는 not_found다. machine 자격은 막지 않는다. without_apps로 읽은 명함에는 그 앱의 slug·command·skill·skill 끄기가 없다"
 
   - path: packages/core/lophn-agent/agents/coding-builtin_test.ts
     covers: [agent-definition-read:ok, agent-change:handle-changed, agent-delete:lophn-cannot-delete, agent-create:invalid-definition]

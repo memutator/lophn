@@ -200,7 +200,7 @@ flows:
         when: "같은 이름의 컴퓨터가 여럿이거나 이 컴퓨터를 골랐다. 여럿이면 details.candidates의 기기 id로 다시 부른다(machines/call의 답 그대로)"
       - id: on-agent-field
         observe: [response]
-        when: "agent 자격으로 `on` 칸을 가진 명령에 `--on`을 썼다. machines/call이 아니라 그 명령의 route로 갔다"
+        when: "agent 자격으로 `on` 칸을 가진 명령에 `--on`을 썼다(명령 낱말 앞이든 뒤든). machines/call이 아니라 그 명령의 route로 갔다"
       - id: on-agent-refused
         code: forbidden
         observe: [response]

@@ -1,13 +1,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
-import { agentCardSchema } from "../lophn-agent/agent-definitions.ts";
-import {
-  remoteWorkspaceSchema,
-  SENDABLE_SESSION_STATES,
-} from "../lophn-agent/calls.ts";
-import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
-import { machineIdSchema } from "./mod.ts";
+import { machineIdSchema } from "../machine/mod.ts";
+import { agentCardSchema } from "./agent-definitions.ts";
+import { remoteWorkspaceSchema, SENDABLE_SESSION_STATES } from "./calls.ts";
+import { workspaceNameSchema } from "./workspaces.ts";
 
 // agent가 다른 컴퓨터에서 부를 수 있는 것(열린 session, agent 명함)을 읽는 길이다. 보내는 컴퓨터의 core가 agent 대신 받는 컴퓨터의
 // `a2a/*`를 기기 자격으로 부른다. 받는 컴퓨터는 이 기계에서 private인 workspace의 것을 내주지 않는다. 누구를 부를지는 지침이 정한다.

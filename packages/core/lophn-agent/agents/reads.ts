@@ -216,7 +216,11 @@ export function createAgentReads(deps: AgentDeps): {
         if (hiddenFrom(context.value, ctx, input.workspace)) {
           return notFound("workspace");
         }
-        const cards = cardsIn(context.value, input.workspace);
+        const cards = cardsIn(
+          context.value,
+          input.workspace,
+          input.without_apps ?? [],
+        );
         if (!cards.ok) return cards;
         return ok({
           cards: cards.value,

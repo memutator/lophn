@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { agentCallSendable } from "../../protocol/lophn-agent/calls.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
-import { machinesSessions } from "../../protocol/machine/a2a.ts";
+import { machinesSessions } from "../../protocol/lophn-agent/a2a.ts";
 import { defineCommand } from "./types.ts";
 
 const list = defineCommand({

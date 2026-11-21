@@ -14,7 +14,7 @@ import {
   a2aSessions,
   machinesAgents,
   machinesSessions,
-} from "../../../../protocol/machine/a2a.ts";
+} from "../../../../protocol/lophn-agent/a2a.ts";
 import type {
   AuthenticatedContext,
   Sql,
@@ -110,11 +110,11 @@ export const a2aListsWiring: WiringFactory = () => {
         resolve: (ref) => ctx.machineLinks.resolve(ref),
         call: (device, call, by) => ctx.machineLinks.call(device, call, by),
         ...a2aListsReads(sql),
-        async cards(workspace) {
+        async cards(workspace, withoutApps) {
           const read = await ctx.runtime.readers.read(
             agentCards,
             A2A_LISTS_CONTEXT,
-            { workspace },
+            { workspace, without_apps: [...withoutApps] },
           );
           return read.ok
             ? ok((read.value as { cards: AgentCard[] }).cards)

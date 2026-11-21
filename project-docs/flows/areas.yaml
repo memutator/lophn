@@ -317,6 +317,7 @@ areas:
       - packages/protocol/supervision/
       - packages/protocol/remote/
       - packages/protocol/machine/
+      - packages/protocol/lophn-agent/a2a.ts
       - packages/protocol/always-on/
       - packages/core/server/
       - packages/core/remote/

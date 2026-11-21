@@ -209,7 +209,8 @@ export async function cliMain(
         message: `an agent uses --on only with ${ON_COMMANDS.map((item) => wordsOf(item.name).join(" ")).join(", ")}`,
       });
     }
-    argv = [...rawArgv];
+    // 명령 낱말 앞에 쓴 `--on`도 칸이 되게 끝에 다시 붙인다.
+    argv = [...argv, "--on", on];
     on = null;
   }
   if (argv[0] === "version") {

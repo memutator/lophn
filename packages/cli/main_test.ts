@@ -579,3 +579,55 @@ test("--on으로 다른 기계의 앱 command를 부르면 그 기계의 선언�
     input: { text: "hi" },
   });
 });
+
+// harness agent는 agent 자격이라 machines/call(사람 자격만)을 쓰지 못한다. `on` 칸을 가진 명령은 `--on`을 그 칸으로 보내고,
+// 그 밖의 명령에 붙은 `--on`은 core에 붙기 전에 거절한다. 사람의 `--on`은 그대로 machines/call이다.
+test("agent 자격의 call send --on은 calls/send_remote로 가고, 다른 명령의 --on은 forbidden이며, 사람의 --on은 machines/call이다", async () => {
+  const CALL = "cal_00000000000000000000000001";
+  const send = [
+    "call",
+    "send",
+    "--to",
+    '{"agent":"reviewer"}',
+    "--reply",
+    "result",
+    "--body",
+    "look",
+    "--on",
+    "laptop",
+  ];
+  const sent = { call: CALL, state: "accepted", fail_reason: null };
+  const agent = { LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN };
+
+  // machines/call을 거치지 않은 요청은 body에 resource·method가 없어 그 key로 답한다.
+  const direct = machineFetch({ "undefined/undefined": sent });
+  const ran = await runOn(send, direct.fetch, agent);
+  assert.deepStrictEqual(ran.code, 0, ran.printed);
+  assert.deepStrictEqual(
+    direct.sent.map((call) => [call.path, call.body.to]),
+    [["/calls/send_remote", { agent: "reviewer", machine: "laptop" }]],
+  );
+
+  const refused = machineFetch({});
+  const tab = await runOn(
+    ["tab", "open", "--url", "https://example.com", "--on", "laptop"],
+    refused.fetch,
+    agent,
+  );
+  assert.deepStrictEqual(tab.code, 3, tab.printed);
+  assert.match(tab.printed, /call send/);
+  assert.deepStrictEqual(refused.sent, []);
+
+  const person = machineFetch({ "calls/send": sent });
+  const human = await runOn(send, person.fetch);
+  assert.deepStrictEqual(human.code, 0, human.printed);
+  assert.deepStrictEqual(
+    person.sent.map((call) => [
+      call.path,
+      call.body.machine,
+      call.body.resource,
+      call.body.method,
+    ]),
+    [["/machines/call", "laptop", "calls", "send"]],
+  );
+});

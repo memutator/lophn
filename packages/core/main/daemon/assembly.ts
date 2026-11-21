@@ -91,6 +91,7 @@ import { sdkInstallWiring } from "./wiring/sdk-install.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
 import { serverWiring } from "./wiring/server.ts";
 import { appCallsWiring } from "./wiring/app-calls.ts";
+import { a2aListsWiring } from "./wiring/a2a-lists.ts";
 import { folderWiring } from "./wiring/folder.ts";
 import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
 import { terminalViewWiring } from "./wiring/terminal-view.ts";
@@ -243,6 +244,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   domainsRetireWiring,
   // router 뒤다: mail 명령의 본문 준비는 router의 쓰기 앞 처리기가 한다. 명단과 link(remote)는 부를 때 읽는다.
   mailWiring,
+  a2aListsWiring,
   // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step(host key의 machine 표지)은 앞 step과 상관없다.
   remoteWiring,
 ];

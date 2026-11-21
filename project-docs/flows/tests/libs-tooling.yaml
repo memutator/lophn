@@ -74,6 +74,8 @@ files:
       - cli-argv:on-app-command
       - cli-argv:on-binary-command
       - cli-argv:on-empty
+      - cli-argv:on-agent-field
+      - cli-argv:on-agent-refused
       - cli-core-connect:attached
       - cli-core-connect:joined-agent
       - cli-core-connect:joined-address

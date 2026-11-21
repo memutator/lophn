@@ -42,6 +42,7 @@ import { COMMANDS } from "./commands/mod.ts";
 import { ROSTER_CHANGING_COMMANDS } from "./commands/remote.ts";
 import { parseWorkspaceText } from "./commands/tab.ts";
 import type { Command, CommandCore, CommandResult } from "./commands/types.ts";
+import { agentCredential } from "./connection/client/token.ts";
 import { openConnection, stopCore } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
@@ -138,6 +139,12 @@ function saveImage(
   return ok({ ...result, content: { ...rest, image_path: path }, text: path });
 }
 
+// `on` 칸을 가진 명령(다른 컴퓨터의 agent에게 보내기와 그 컴퓨터의 목록·명함 읽기). agent 자격의 `--on`은 이 명령에만 붙는다.
+const ON_COMMANDS: readonly Command[] = COMMANDS.filter((command) => {
+  const shape = (command.input as { shape?: Record<string, unknown> }).shape;
+  return shape !== undefined && "on" in shape;
+});
+
 function coreCommandsOnly(): LophnError {
   return {
     code: "invalid_input",
@@ -183,12 +190,27 @@ export async function cliMain(
   // `--on <기계>`는 어떤 parse보다 먼저 뗀다. 기계로 가는 길은 이 값뿐이고 capability는 env에서도 읽지 않는다.
   const split = splitOn(rawArgv);
   if (!split.ok) return await fail(split.error);
-  const { on, argv } = split.value;
+  let { on, argv } = split.value;
   if (on === "") {
     return await fail({
       code: "invalid_input",
       message: "--on needs a computer name or id",
     });
+  }
+  // agent 자격(harness가 띄운 shell)은 machines/call(사람 자격만)을 쓰지 못한다. `on` 칸을 가진 명령이면 `--on`을 그 칸으로 두고
+  // 그 명령의 route로 보낸다(agent의 lophn tool과 같은 길). 그 밖의 명령에 붙은 `--on`은 거절한다.
+  if (on !== null && agentCredential(env) !== undefined) {
+    const command = COMMANDS.filter((item) =>
+      wordsOf(item.name).every((word, at) => argv[at] === word),
+    ).sort((a, b) => wordsOf(b.name).length - wordsOf(a.name).length)[0];
+    if (command === undefined || !ON_COMMANDS.includes(command)) {
+      return await fail({
+        code: "forbidden",
+        message: `an agent uses --on only with ${ON_COMMANDS.map((item) => wordsOf(item.name).join(" ")).join(", ")}`,
+      });
+    }
+    argv = [...rawArgv];
+    on = null;
   }
   if (argv[0] === "version") {
     if (on !== null) return await fail(coreCommandsOnly());

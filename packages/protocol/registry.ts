@@ -25,6 +25,7 @@ import { SECRET_FILE_ROUTES } from "./secrets/secret-file.ts";
 import { LOGIN_ROUTES } from "./secrets/logins.ts";
 import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
 import { MACHINE_ROUTES } from "./machine/mod.ts";
+import { A2A_LIST_ROUTES } from "./machine/a2a.ts";
 import { ALWAYS_ON_ROUTES } from "./always-on/mod.ts";
 import { FOLDER_ROUTES } from "./folder/mod.ts";
 import { CARRY_ROUTES, carryStatus } from "./remote/carry.ts";
@@ -57,6 +58,7 @@ export const ROUTES = [
   ...LOGIN_ROUTES,
   ...DIAGNOSTIC_STATUS_ROUTES,
   ...MACHINE_ROUTES,
+  ...A2A_LIST_ROUTES,
   ...ALWAYS_ON_ROUTES,
   ...FOLDER_ROUTES,
   ...CARRY_ROUTES,

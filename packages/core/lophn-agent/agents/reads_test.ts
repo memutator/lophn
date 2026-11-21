@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
+import { CALL_POLICY_SETTING_KEY } from "../../../protocol/lophn-agent/call-policy.ts";
 import {
   lophnIdOf,
   type ModelChoice,
@@ -138,4 +142,94 @@ test("an app lophn's MCP server and token are not seen by the project lophn", ()
     listed.value.agents.map((row) => row.agent),
     [projectLophn, "coding_claude", "coding_codex", "coding_opencode"],
   );
+});
+
+// 권한 경계다. agent는 `agent list`로 다른 workspace의 명함을 읽을 수 있지만, 이 기계에서 private인 다른 workspace는 읽지 못한다.
+// 자기 workspace는 private이어도 읽고, 보관한 앱 workspace는 없는 것이다.
+test("agent는 자기 workspace가 아닌 private workspace의 명함 목록을 읽지 못한다", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-cards-"));
+  const hidden = {
+    kind: "project",
+    id: "prj_00000000000000000000000002",
+  } as const;
+  const other = {
+    kind: "project",
+    id: "prj_00000000000000000000000003",
+  } as const;
+  const archived = {
+    kind: "app",
+    id: "app_00000000000000000000000001",
+  } as const;
+  writeFileSync(
+    join(root, "settings.json"),
+    JSON.stringify({
+      [CALL_POLICY_SETTING_KEY]: {
+        private: [{ kind: "project", id: PROJECT }, hidden],
+        workspaces: [],
+        agents: [],
+      },
+    }),
+  );
+  const lookups: AgentLookups = {
+    workspaces: () => [],
+    workspaceExists: () => true,
+    workspaceArchived: (workspace) => workspace.kind === "app",
+    skills: () => [],
+    shared: () => [],
+    mcp: () => [],
+    sharedCommands: () => [],
+    modelInfo: () => null,
+    modelDefault: () => null,
+    workspaceModel: () => null,
+  };
+  const reads = createAgentReads({
+    files: {
+      read: () => null,
+      writeAtomic: () => {},
+      remove: () => {},
+      list: () => [],
+      ensureFolder: () => {},
+    },
+    lookups: () => lookups,
+    dataRoot: root,
+  });
+  // 부르는 agent의 session은 private project(PROJECT)에 있다.
+  const snapshot = {
+    sql: {
+      get: () => ({
+        id: "ses_me",
+        agent: lophnIdOf({ kind: "project", id: PROJECT }),
+        project: PROJECT,
+        workspace_kind: "project",
+        workspace_id: PROJECT,
+        lifecycle: "open",
+      }),
+      all: () => [],
+    },
+    as_of_seq: "1",
+  } as unknown as ReadSnapshot;
+  const agent = {
+    actor: "agent:ses_me",
+    conditions: { session: "ses_me" },
+  } as unknown as RequestContext;
+  const code = (workspace: unknown) => {
+    const read = reads.cards.handle(snapshot, agent, { workspace } as never);
+    return read.ok ? "ok" : read.error.code;
+  };
+  try {
+    assert.equal(code(hidden), "forbidden");
+    assert.equal(code({ kind: "project", id: PROJECT }), "ok");
+    assert.equal(code(other), "ok");
+    assert.equal(code(null), "ok");
+    assert.equal(code(archived), "not_found");
+    // core 안 machine 자격(다른 컴퓨터에 내주는 길은 자기가 private을 거른다)은 막지 않는다.
+    const machine = reads.cards.handle(
+      snapshot,
+      { actor: "machine", conditions: {} } as unknown as RequestContext,
+      { workspace: hidden },
+    );
+    assert.ok(machine.ok);
+  } finally {
+    rmSync(root, { recursive: true });
+  }
 });

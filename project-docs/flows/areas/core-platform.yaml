@@ -641,6 +641,42 @@ flows:
     crosses_process: true
     risk: [permission]
 
+  - id: mail-folder
+    title: "outbox의 mail을 computers 폴더에 실어 늦게 가는 길로 보내고, 다른 컴퓨터가 그 길로 보낸 mail을 받아 적용한다"
+    actor: system
+    entries: [system:mail-folder]
+    uses: [system:carry-link, system:carry-phone, route:calls/mail-sent]
+    pre: [core-boot:ready]
+    boundary: [folder, router]
+    code:
+      - packages/core/folder/export/mail.ts
+      - packages/core/folder/export/manifest.ts
+      - packages/core/folder/import/mail.ts
+      - packages/core/main/daemon/wiring/folder.ts
+      - packages/protocol/remote/carry.ts
+    docs: [architecture/folder-sync.md, architecture/agent-call.md]
+    steps:
+      - "내보내기(folder wiring의 옮기기): 계기는 outbox에 줄을 더한 tx의 commit 뒤(router.mail-queued), mail을 적용했거나 받았다는 알림을 적은 scan 뒤, 그 밖의 옮기기 계기(5분 timer 포함). computers 폴더의 machines/<자기>/mail/에 outbox의 mail마다 <mal id>.json을 쓰고(temp와 rename, 다시 쓰지 않는다. 128 KiB를 넘는 mail은 link로만 간다) outbox에 없는 file은 지운다"
+      - "폴더 길로 받아 이 기계가 본(mail_seen) 다른 컴퓨터의 mail id를 machines/<자기>/mail/acks.json에 적고 없으면 지운다. manifest는 이 폴더의 file을 선택 칸 mail에 싣는다(그 칸을 모르는 판은 칸을 버리고 서명을 검증한다). link·폰·같이 보는 폴더가 이 manifest와 file을 나른다"
+      - "받기(읽기 scan): mail 입구가 있으면 computers 폴더의 다른 기계 하위 폴더 mail/에서, 받는 자리가 지금 명단의 그 컴퓨터 key로 검증해 든 manifest가 그 크기·sha256으로 싣는 file만 128 KiB 안에서 mail schema로 읽는다. 이 기계 자신의 하위 폴더와 사람의 폴더는 읽지 않는다"
+      - "to_machine이 이 기계이고 from.machine이 그 폴더의 기계인 mail 가운데 mail_seen에 없는 것을 기계마다 seq 순으로 mail 입구(via folder)에 넘긴다. 입구가 오류를 내면 그 기계의 나머지는 다음 scan에 넘긴다. 같은 mail이 link로 먼저 왔거나 다시 읽혀도 Router가 (origin, id)로 한 번만 돌린다"
+      - "다른 기계의 acks.json(같은 검증)에 있는 id 가운데 그 기계로 가는 이 기계 outbox의 줄을 calls/mail-sent acked(적용 결과 없음)로 적어 지운다. 받은 call의 상태는 받은 기계가 state mail로 따로 알린다. 다음 옮기기가 그 file을 지우고, 받은 기계의 사본과 acks.json에서도 빠진다"
+    outcomes:
+      - id: carried
+        when: "outbox의 mail이 file과 manifest의 mail 칸에 실렸다. 줄이 지워진 mail은 file과 칸에서 빠졌다"
+        observe: ["disk:computers/machines/<mch>/mail/"]
+      - id: applied
+        when: "다른 컴퓨터가 이 기계에 쓴 믿는 mail file을 mail 입구에 넘겼다"
+        observe: [ledger:mail_seen, ledger:agent_calls]
+      - id: skipped
+        when: "받는 자리가 싣지 않은 file, 명단에 없거나 key가 바뀐 컴퓨터의 file, 그 폴더의 기계가 쓰지 않은 mail, 다른 컴퓨터로 가는 mail, 이미 본 mail, 이 기계 자신의 mail. 읽지 못한 file과 사칭한 mail은 log 한 줄(mail_file_skipped, 본문 없음)이고 나머지를 막지 않는다"
+        observe: ["log:folder mail_file_skipped"]
+      - id: acked
+        when: "다른 컴퓨터가 폴더 길로 받았다고 알린 이 기계의 줄을 지웠다"
+        observe: [ledger:mail_outbox]
+    crosses_process: false
+    risk: [permission, data-loss]
+
   - id: ledger-migrate
     title: "ledger schema step을 설치본과 대조해 적용하거나 시작을 거절한다"
     actor: system
@@ -2965,6 +3001,7 @@ flows:
       - "상대의 carry/manifests에서 이 컴퓨터가 든 revision보다 새 기계의 manifest 글을 carry/file(8 MiB 조각)로 받아 받는 자리에 넘긴다. 받는 자리가 믿지 않은 글은 같은 sha256이면 명단이 바뀔 때까지 다시 받지 않는다"
       - "받는 자리의 wants(믿는 목록 사슬이 싣는데 없는 file)를 cursor로 빈 page까지 넘기며 file마다 상대의 조각을 받는 자리의 한 번의 받기로 흘린다. 상대가 다른 컴퓨터의 file을 들고 있으면 그것도 받는다. 상대가 들고 있지 않은 file은 건너뛴다. 새로 받은 목록 file이 더 바라게 할 수 있어 받은 것이 있으면 한 번 더 돈다"
       - "서명, revision 표시, 사슬, 크기·sha256 검사는 받는 자리가 한다. 이 flow는 검증하거나 쓰지 않는다"
+      - "manifest가 직접 싣는 file에는 mail 폴더의 file(mail/<mal id>.json, mail/acks.json, mail-folder)도 있다"
     outcomes:
       - id: received
         when: "받는 자리가 manifest나 file을 받아 들였다"

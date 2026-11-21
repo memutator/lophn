@@ -61,6 +61,11 @@ export const EVENT_FILE_MAX_BYTES = 64 * KIB;
 export const CROSS_EVENT_MAX_AGE_MS = 7 * DAY;
 // 이미 낸 event의 기록(`folder_events_seen`)을 두는 때. 나이 한도의 두 배라 기록이 지워진 뒤 같은 event가 아직 한도 안일 수 없다.
 export const CROSS_EVENT_SEEN_KEEP_MS = 2 * CROSS_EVENT_MAX_AGE_MS;
+// 기계 사이 mail 하나의 file(`machines/<mch>/mail/<mal id>.json`).
+export const MAIL_FILE_MAX_BYTES = 128 * KIB;
+// 받은 mail의 id 목록 file(`machines/<mch>/mail/acks.json`)이 싣는 id 수와 그 크기의 한도.
+export const MAIL_ACKS_MAX = 8000;
+export const MAIL_ACKS_MAX_BYTES = 512 * KIB;
 export const CARRY_CHUNK_MAX_BYTES = 8 * MIB;
 export const CARRY_WANTS_MAX = 1000;
 
@@ -69,6 +74,8 @@ const appIdSchema = idSchema("app");
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const EVENT_FILE_NAME = /^([0-7][0-9a-hjkmnp-tv-z]{25})\.json$/;
+const MAIL_FILE_NAME = /^(mal_[0-7][0-9a-hjkmnp-tv-z]{25})\.json$/;
+const MAIL_ACKS_NAME = "acks.json";
 
 export const manifestPath = (machine: Id<"mch">) =>
   `${machineDir(machine)}/manifest.json`;
@@ -80,6 +87,34 @@ export const eventsDir = (machine: Id<"mch">, app: Id<"app">) =>
   `${appDir(machine, app)}/events`;
 export const eventFilePath = (machine: Id<"mch">, app: Id<"app">, id: string) =>
   `${eventsDir(machine, app)}/${id}.json`;
+
+// 그 기계의 outbox에 남은 mail(받는 기계가 아직 받았다고 알리지 않은 것)과 그 기계가 받은 mail의 id 목록을 두는 폴더.
+export const mailDir = (machine: Id<"mch">) => `${machineDir(machine)}/mail`;
+export const mailFilePath = (machine: Id<"mch">, id: Id<"mal">) =>
+  `${mailDir(machine)}/${id}.json`;
+export const mailAcksPath = (machine: Id<"mch">) =>
+  `${mailDir(machine)}/${MAIL_ACKS_NAME}`;
+
+/** mail 폴더 안 이름이 mail file이면 그 mail id. */
+export function mailFileId(name: string): Id<"mal"> | null {
+  const match = MAIL_FILE_NAME.exec(name);
+  return match === null ? null : (match[1] as Id<"mal">);
+}
+
+const isMailName = (name: string) =>
+  name === MAIL_ACKS_NAME || MAIL_FILE_NAME.test(name);
+
+/** `machines/<mch>/mail/` 아래의 mail file이나 받은 id 목록이면 그 기계. */
+function mailPathMachine(path: string): string | null {
+  const parts = path.split("/");
+  return parts.length === 4 &&
+    parts[0] === MACHINES_DIR &&
+    isMachineDirName(parts[1]!) &&
+    parts[2] === "mail" &&
+    isMailName(parts[3]!)
+    ? parts[1]
+    : null;
+}
 
 /** `machines/<mch>/manifest.json`이면 그 기계. */
 export function manifestPathMachine(path: string): Id<"mch"> | null {
@@ -95,7 +130,7 @@ export function manifestPathMachine(path: string): Id<"mch"> | null {
 /**
  * 기계 사이로 옮기는 file의 path(destination 기준)와 그 file의 크기·sha256을 싣는 목록 file. 덮는 사슬은 셋이다.
  * - manifest가 싣는다(`coveredBy` null): `record.json`, `roster.json`, `apps/<app>/files.json`,
- *   `packages/<part>@<version>.json`.
+ *   `packages/<part>@<version>.json`, `mail/<mal id>.json`, `mail/acks.json`.
  * - 앱 목록 `apps/<app>/files.json`이 싣는다: `app.json`, `data/<n>.*`, `source/<n>.json`, `events/<id>.json`.
  * - `source/<n>.json`이 `source/<n>.bundle`을 싣는다.
  * 그 밖의 path(`manifest.json` 포함)는 null이다.
@@ -117,6 +152,9 @@ export function parseCarryPath(
     return parts.length === 4 && parsePackageEntry(parts[3]!) !== null
       ? top
       : null;
+  }
+  if (parts[2] === "mail") {
+    return parts.length === 4 && isMailName(parts[3]!) ? top : null;
   }
   if (parts[2] !== "apps" || !isAppDirName(parts[3]!) || parts.length < 5) {
     return null;
@@ -158,7 +196,8 @@ const distinctPaths = (files: readonly CarryFileEntry[]) =>
   new Set(files.map((file) => file.path)).size === files.length;
 
 // `files`는 기존 최상위 file(`record.json`, `roster.json`, 앱마다 `files.json`)만 싣고, `@me/*` package file은 선택 칸
-// `packages`로 싣는다: 옛 판(2)은 모르는 칸을 버리고 원본 canonical body로 서명을 검증해 호환이 유지된다.
+// `packages`로, mail 폴더의 file은 선택 칸 `mail`로 싣는다: 옛 판은 모르는 칸을 버리고 원본 canonical body로 서명을 검증해
+// 호환이 유지된다.
 export const manifestBodySchema = z
   .object({
     format: z.literal(1),
@@ -167,6 +206,7 @@ export const manifestBodySchema = z
     written_at: atSchema,
     files: z.array(fileEntrySchema),
     packages: z.array(fileEntrySchema).optional(),
+    mail: z.array(fileEntrySchema).optional(),
   })
   .refine(
     (body) =>
@@ -177,23 +217,27 @@ export const manifestBodySchema = z
           parsed !== null &&
           parsed.machine === body.machine &&
           parsed.coveredBy === null &&
-          parsePackagePath(file.path) === null
+          parsePackagePath(file.path) === null &&
+          mailPathMachine(file.path) === null
         );
       }) &&
       (body.packages === undefined ||
         (distinctPaths(body.packages) &&
           body.packages.every(
             (file) => parsePackagePath(file.path)?.machine === body.machine,
+          ))) &&
+      (body.mail === undefined ||
+        (distinctPaths(body.mail) &&
+          body.mail.every(
+            (file) => mailPathMachine(file.path) === body.machine,
           ))),
     { message: "manifest files must be distinct top paths of its machine" },
   );
 export type ManifestBody = z.infer<typeof manifestBodySchema>;
 
-/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`). */
+/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`·`mail`). */
 export function manifestEntries(body: ManifestBody): CarryFileEntry[] {
-  return body.packages === undefined
-    ? body.files
-    : [...body.files, ...body.packages];
+  return [...body.files, ...(body.packages ?? []), ...(body.mail ?? [])];
 }
 
 // `machines/<mch>/apps/<app>/files.json`: 그 앱의 file 목록. 서명하지 않는다(manifest가 크기·sha256을 싣는다).
@@ -489,6 +533,15 @@ export function readEventFile(
     ? file.value
     : null;
 }
+
+// `machines/<mch>/mail/acks.json`: 그 기계가 폴더 길로 받아 적용한(다시 적용하지 않는) mail의 id. 그 mail을 낸 기계는 자기
+// outbox에서 이 기계로 가는 줄 가운데 여기 있는 것을 받았다고 적고 지운다. 낸 기계의 file이 사라지면 여기서도 빠진다.
+export const mailAcksSchema = z.object({
+  format: z.literal(1),
+  machine: machineIdSchema,
+  mails: z.array(idSchema("mal")).max(MAIL_ACKS_MAX),
+});
+export type MailAcks = z.infer<typeof mailAcksSchema>;
 
 // 받은 file이 어느 길로 왔나.
 export const carryViaSchema = z.enum(["link", "phone", "folder"]);

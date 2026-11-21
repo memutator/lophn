@@ -203,7 +203,7 @@ files:
 
   - path: packages/protocol/remote/carry_test.ts
     covers: [carry-put:rejected, carry-removed-computer:deleted, carry-event-arrive:refused]
-    note: "기계 사이로 옮기는 file의 manifest(진짜 Ed25519 key와 명단 view). 명단에 없는 컴퓨터, 빠진 컴퓨터, 같은 기계 이름의 컴퓨터가 둘인 기계, 서명 뒤 고친 목록, 다른 기계 이름을 단 manifest는 믿지 않고, 표시보다 크지 않은 revision은 받지 않으며, 하위 폴더는 정해진 빼기만 지운다. 앱 목록과 source/<n>.json의 사슬이 맞지 않으면 그 아래 path는 기대값이 없다. 폴더의 명단 file은 주소를 버리고, event file(format 2, code_commit)은 path와 다른 기계·앱·id와 범위 밖의 때를 거절한다."
+    note: "기계 사이로 옮기는 file의 manifest(진짜 Ed25519 key와 명단 view). 명단에 없는 컴퓨터, 빠진 컴퓨터, 같은 기계 이름의 컴퓨터가 둘인 기계, 서명 뒤 고친 목록, 다른 기계 이름을 단 manifest는 믿지 않고, 표시보다 크지 않은 revision은 받지 않으며, 하위 폴더는 정해진 빼기만 지운다. 앱 목록과 source/<n>.json의 사슬이 맞지 않으면 그 아래 path는 기대값이 없다. 폴더의 명단 file은 주소를 버리고, event file(format 2, code_commit)은 path와 다른 기계·앱·id와 범위 밖의 때를 거절한다. manifest의 선택 칸 mail은 그 칸을 모르는 판도 서명을 검증하고, mail path는 files에 오지 못하며 다른 기계의 것을 싣지 못한다."
 
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]

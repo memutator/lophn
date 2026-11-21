@@ -132,6 +132,14 @@ files:
       - folder-release-follow:waiting-consent
     note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다"
 
+  - path: packages/core/folder/mail_test.ts
+    covers:
+      - mail-folder:carried
+      - mail-folder:applied
+      - mail-folder:skipped
+      - mail-folder:acked
+    note: "두 컴퓨터의 computers 폴더, 실제 받는 자리와 Ed25519 명단, 가짜 mail 입구. 받는 자리를 거치지 않고 놓인 file, 명단에 없는 컴퓨터, 명단에서 빠진 컴퓨터, 사칭한 from.machine, 다른 컴퓨터로 가는 mail, 이 기계 자신의 mail은 넘기지 않고, 다시 읽어도 한 번이며 seq 순이고 입구 오류는 뒤를 다음으로 미룬다. 받았다는 알림은 검증한 사본에서만 읽고 알려 온 줄만 지우며, 지운 줄의 file과 manifest 칸이 양쪽에서 빠진다"
+
   - path: packages/core/folder/computers_test.ts
     covers:
       - machine-computers-read:ok

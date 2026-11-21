@@ -14,7 +14,8 @@ import {
 } from "../../../remote-client/mod.ts";
 import { drive } from "../apps/drive/mod.ts";
 import { answerRequest, phoneCapabilities } from "../link/answer.ts";
-import { expoLocationPort } from "../link/native.ts";
+import { noScanner } from "../link/capabilities.ts";
+import { phonePorts } from "../link/native.ts";
 import { join, phoneScreen } from "../pairing/pair.ts";
 import {
   deviceKey,
@@ -61,7 +62,12 @@ export function createPhoneComputers(): Computers<ComputerData> {
         const timer = setTimeout(fn, ms);
         return () => clearTimeout(timer);
       };
-      const ctx = { location: expoLocationPort, drive: drive.port(computer.key) };
+      // A backend never asks for the scanner (screen only), so the link has none.
+      const ctx = {
+        ...phonePorts,
+        scanner: noScanner,
+        drive: drive.port(computer.key),
+      };
       return linkOf(
         createConnection({
           endpoint: { ...computer, addresses: withDev(computer.addresses) },

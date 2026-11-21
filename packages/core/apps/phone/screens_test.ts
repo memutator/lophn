@@ -5,9 +5,14 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ok, err } from "../../../base/mod.ts";
+import {
+  PERMISSIONS_PHONE_KIND_STEPS,
+  permissionsSchemaSteps,
+} from "../permissions/schema.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { createScreenFileDeps } from "../screens/mod.ts";
+import { appPhoneScreens } from "../../../protocol/apps/phone.ts";
 import { readPhoneScreens } from "./screens.ts";
 
 const id = (prefix: string, letter: string) =>
@@ -38,7 +43,12 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
   const tmp = await mkdtemp(join(tmpdir(), "lophn-phone-screens-"));
   try {
     const db = new DatabaseSync(":memory:");
-    for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
+    for (const step of [
+      ...appsSchemaSteps,
+      ...releasesSchemaSteps,
+      ...permissionsSchemaSteps,
+      ...PERMISSIONS_PHONE_KIND_STEPS,
+    ]) {
       db.exec(step.sql);
     }
     const sql = {
@@ -69,7 +79,7 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
       db.prepare(
         `INSERT INTO releases (id, app, number, code_commit, bundle_hash, declaration_hash,
            data_schema, data_changes, created_by, created_at, status, activated_at, declaration, facts)
-         VALUES (?, ?, 1, ?, ?, ?, 0, '[]', 'user', '2026-01-01T00:00:00.000Z', ?, ?, ?, '{}')`,
+         VALUES (?, ?, 1, ?, ?, ?, 0, '[]', 'user', '2026-01-01T00:00:00.000Z', ?, ?, ?, '{"release":"r","permissions":[],"app_connections":[],"tools":[]}')`,
       ).run(
         id("rel", String(n)),
         app,
@@ -185,13 +195,115 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
   }
 });
 
+// 폰이 화면 길의 허락으로 쓰는 목록이라 선언하지 않은 기능이나 거둔 grant가 들어 있으면 폰이 거절해야 할 요청을 통과시킨다.
+test("phone_screens의 phone_capabilities는 선언했고 active grant가 있는 기능뿐이고 거둔 grant는 빠진다", async () => {
+  const tmp = await mkdtemp(join(tmpdir(), "lophn-phone-caps-"));
+  try {
+    const db = new DatabaseSync(":memory:");
+    for (const step of [
+      ...appsSchemaSteps,
+      ...releasesSchemaSteps,
+      ...permissionsSchemaSteps,
+      ...PERMISSIONS_PHONE_KIND_STEPS,
+    ]) {
+      db.exec(step.sql);
+    }
+    const sql = {
+      get: (text: string, params: never[]) =>
+        db.prepare(text).get(...params) as never,
+      all: (text: string, params: never[]) =>
+        db.prepare(text).all(...params) as never,
+    };
+    const app = id("app", "a");
+    const declared = ["location.get", "network.get", "haptics.play"];
+    db.prepare(
+      `INSERT INTO apps (id, slug, name, description, run_enabled, revision, status)
+       VALUES (?, 'app1', 'App', 'does things', 1, '1', 'active')`,
+    ).run(app);
+    db.prepare(
+      `INSERT INTO releases (id, app, number, code_commit, bundle_hash, declaration_hash,
+         data_schema, data_changes, created_by, created_at, status, activated_at, declaration, facts)
+       VALUES (?, ?, 1, ?, ?, ?, 0, '[]', 'user', '2026-01-01T00:00:00.000Z', 'active', '2026-01-01T00:00:00.000Z', ?, ?)`,
+    ).run(
+      id("rel", "1"),
+      app,
+      "c".repeat(40),
+      "b".repeat(64),
+      "d".repeat(64),
+      JSON.stringify({
+        screens: [
+          { key: "main", label: "main", path: "/main", places: ["phone"] },
+        ],
+      }),
+      JSON.stringify({
+        release: id("rel", "1"),
+        permissions: declared.map((capability) => ({
+          kind: "phone.use",
+          scope: { capability },
+          reason: "r",
+        })),
+        app_connections: [],
+        tools: [],
+      }),
+    );
+    const grant = (n: number, capability: string) =>
+      db
+        .prepare(
+          `INSERT INTO grants (id, app, kind, scope, status, created_at, revoked_at)
+           VALUES (?, ?, 'phone.use', ?, 'active', '2026-01-01T00:00:00.000Z', NULL)`,
+        )
+        .run(
+          id("grt", String(n)),
+          app,
+          JSON.stringify({ capability, kind: "phone.use" }),
+        );
+    // clipboard.read는 grant가 있어도 선언하지 않았다. haptics.play는 선언만 했다.
+    grant(1, "location.get");
+    grant(2, "network.get");
+    grant(3, "clipboard.read");
+    await mkdir(join(tmp, "bundles", app, "screens/main"), { recursive: true });
+    await writeFile(
+      join(tmp, "bundles", app, "screens/main/phone.json"),
+      MANIFEST,
+    );
+    const deps = {
+      ...createScreenFileDeps({ dir: () => ok(join(tmp, "bundles", app)) }),
+      running: () => Promise.resolve(false),
+      warn: () => {},
+      preview: () => Promise.resolve(null),
+    };
+    const read = async () => {
+      const got = await readPhoneScreens(deps, sql);
+      assert.ok(got.ok);
+      return got.value.screens.map((s) => s.phone_capabilities);
+    };
+    // A revoke reaches the phone only because a grant change makes it read this route again.
+    assert.ok(
+      (appPhoneScreens.reads as readonly unknown[]).includes("app_grants"),
+    );
+    assert.deepStrictEqual(await read(), [["location.get", "network.get"]]);
+    db.prepare(
+      `UPDATE grants SET status = 'revoked', revoked_at = '2026-01-02T00:00:00.000Z'
+       WHERE id = ?`,
+    ).run(id("grt", "2"));
+    assert.deepStrictEqual(await read(), [["location.get"]]);
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
+});
+
 // previews는 지금 ready인 preview(deps.preview가 null이 아닌 것)의 phone 화면뿐이다. 보관한 앱, ready 아닌 preview, preview
 // bundle 밖에서 읽히는 manifest는 폰에 가지 않는다. release 없는 preview(active release 없는 앱)도 싣는다.
 test("phone_screens previews는 ready인 preview만, bundle 폴더 안의 화면만 싣는다", async () => {
   const tmp = await mkdtemp(join(tmpdir(), "lophn-phone-previews-"));
   try {
     const db = new DatabaseSync(":memory:");
-    for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
+    for (const step of [
+      ...appsSchemaSteps,
+      ...releasesSchemaSteps,
+      ...permissionsSchemaSteps,
+      ...PERMISSIONS_PHONE_KIND_STEPS,
+    ]) {
       db.exec(step.sql);
     }
     const sql = {
@@ -225,7 +337,7 @@ test("phone_screens previews는 ready인 preview만, bundle 폴더 안의 화면
       path: `/${key}`,
       places,
     });
-    const declaration = (screens: unknown[]) =>
+    const declaration = (screens: unknown[], app?: string) =>
       JSON.stringify({
         name: "App",
         description: "does things",
@@ -233,7 +345,17 @@ test("phone_screens previews는 ready인 preview만, bundle 폴더 안의 화면
         screens,
         operations: [],
         commands: [],
-        permissions: [],
+        // a preview has no grants: what it declares is what it may use
+        permissions:
+          app === apps.fresh
+            ? [
+                {
+                  kind: "phone.use",
+                  scope: { capability: "network.get" },
+                  reason: "r",
+                },
+              ]
+            : [],
         app_connections: [],
         sdk_dependencies: [],
       });
@@ -247,7 +369,10 @@ test("phone_screens previews는 ready인 preview만, bundle 폴더 안의 화면
     ) => {
       const root = join(tmp, "previews", app);
       await mkdir(join(root, "screens"), { recursive: true });
-      await writeFile(join(root, "declaration.json"), declaration(screens));
+      await writeFile(
+        join(root, "declaration.json"),
+        declaration(screens, app),
+      );
       for (const key of withManifest) {
         await mkdir(join(root, "screens", key));
         await writeFile(join(root, "screens", key, "phone.json"), MANIFEST);
@@ -312,6 +437,9 @@ test("phone_screens previews는 ready인 preview만, bundle 폴더 안의 화면
       ]),
       [[apps.fresh, null, ["main"]]],
     );
+    assert.deepStrictEqual(read.value.previews[0].phone_capabilities, [
+      "network.get",
+    ]);
     assert.deepStrictEqual(read.value.previews[0].icon, "lucide:star");
     assert.deepStrictEqual(read.value.previews[0].bundle_hash, "f".repeat(64));
   } finally {

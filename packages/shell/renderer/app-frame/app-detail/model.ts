@@ -127,13 +127,6 @@ export function resourceDetail(kind: ResourceKind, grantedAt: string): string {
   }
 }
 
-/** 폰 기능 grant의 이름. 동의 카드의 줄과 같은 문장이다. 모르는 capability는 이름 그대로다. */
-export function phoneCapabilityText(capability: string): string {
-  return capability === "location.get"
-    ? t("waiting.label.declared-phone-location")
-    : capability;
-}
-
 const FAILED_NOTE: Record<OAuthReason, () => string> = {
   callback_timeout: () => t("app-detail.note.oauth-failed-callback-timeout"),
   state_mismatch: () => t("app-detail.note.oauth-failed-state-mismatch"),

@@ -3,7 +3,11 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { PhoneCapability } from "../../../protocol/apps/phone-request.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { PHONE_KINDS } from "../../../protocol/phone/mod.ts";
+import {
+  type BackendCapability,
+  capabilityFrom,
+  PHONE_KINDS,
+} from "../../../protocol/phone/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 
 export type PhoneRequestDeps = {
@@ -38,10 +42,14 @@ export function phoneRequestHandler(deps: PhoneRequestDeps): MemoryHandler {
       capability: PhoneCapability;
       input: unknown;
     };
-    const kind = PHONE_KINDS[capability];
-    if (kind === undefined) {
-      return err({ code: "invalid_input", message: "unknown capability" });
+    // 화면만 쓰는 기능은 폰에 묻지 않는다(화면은 폰 host에 직접 묻는다).
+    if (!capabilityFrom(capability, "backend")) {
+      return err({
+        code: "invalid_input",
+        message: `${capability} is only for phone screens`,
+      });
     }
+    const kind = PHONE_KINDS[capability as BackendCapability];
     const parsed = kind.input.safeParse(input);
     if (!parsed.success) {
       return err({

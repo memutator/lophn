@@ -26,6 +26,8 @@ export type PreviewScreen = Read["previews"][number]["screens"][number];
 export interface PhonePreview {
   readonly bundle_hash: string;
   readonly process_nonce: string;
+  /** The phone capabilities the previewed declaration declares (a preview has no grants). */
+  readonly phone_capabilities: readonly string[];
   readonly screens: readonly [PreviewScreen, ...PreviewScreen[]];
 }
 
@@ -52,6 +54,8 @@ function previewOf(previews: Read["previews"], app: string): PhonePreview | null
   return {
     bundle_hash: found.bundle_hash,
     process_nonce: found.process_nonce,
+    // A computer older than this phone does not say them: none.
+    phone_capabilities: found.phone_capabilities ?? [],
     screens: screens as [PreviewScreen, ...PreviewScreen[]],
   };
 }
@@ -106,8 +110,21 @@ export function usePhoneApps(): PhoneApps {
   const { loaded, reload } = useFollowedRead(
     async (core) => {
       const read = await readRoute(core, appPhoneScreens, {});
+      // A computer older than this phone does not say the phone capabilities: none.
       return read.ok
-        ? { ok: true, value: { computer: current, read: read.value } }
+        ? {
+            ok: true,
+            value: {
+              computer: current,
+              read: {
+                ...read.value,
+                screens: read.value.screens.map((screen) => ({
+                  ...screen,
+                  phone_capabilities: screen.phone_capabilities ?? [],
+                })),
+              },
+            },
+          }
         : read;
     },
     readsOf(appPhoneScreens, {}),

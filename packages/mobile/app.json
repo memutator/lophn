@@ -23,7 +23,7 @@
         {
           "android": {
             "usesCleartextTraffic": true,
-            "extraProguardRules": "# react-native-sandbox (the guest runtime) calls Kotlin methods from JNI; R8 must not strip or rename them.\n-keep class io.callstack.rnsandbox.** { *; }"
+            "extraProguardRules": "# react-native-sandbox (the guest runtime) calls Kotlin methods from JNI; R8 must not strip or rename them.\n-keep class io.callstack.rnsandbox.** { *; }\n# expo-modules-core builds an error code from the exception class's simple name (LocationSettingsUnsatisfiedException -> ERR_LOCATION_SETTINGS_UNSATISFIED), and\n# src/link/location.ts matches that code. R8 renames and merges these small classes, which changes the code in a release build.\n-keep class expo.modules.location.**Exception"
           }
         }
       ],

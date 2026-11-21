@@ -18,7 +18,12 @@ function view(
     machine,
     generation: 1,
     target: { app, mode: "live", release: null, screen: "main", place: "tab" },
-    binding: { release: null, bundleHash: "a".repeat(64), processNonce: "n" },
+    binding: {
+      release: null,
+      bundleHash: "a".repeat(64),
+      processNonce: "n",
+      phoneCapabilities: [],
+    },
   };
 }
 

@@ -29,6 +29,7 @@ interface OpenOutput {
   release: string | null;
   bundle_hash: string;
   process_nonce: string;
+  phone_capabilities: string[];
   params: NonNullable<Bound["target"]["params"]> | null;
 }
 
@@ -74,6 +75,7 @@ export async function bindView(
         release: opened.release,
         bundleHash: opened.bundle_hash,
         processNonce: opened.process_nonce,
+        phoneCapabilities: opened.phone_capabilities,
       },
       hosts: hosts.value,
       partition: appPartition(

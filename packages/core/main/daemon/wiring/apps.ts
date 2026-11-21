@@ -94,6 +94,7 @@ import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/cons
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import { startPhoneChangedWatch } from "../../../apps/phone/changed.ts";
+import { usablePhoneCapabilities } from "../../../apps/phone/capabilities.ts";
 import { releaseFacts } from "../../../apps/releases/mod.ts";
 import {
   loadActiveDeclaration,
@@ -498,6 +499,20 @@ export const appsWiring: WiringFactory = () => {
             screens: loaded.value.declaration.screens,
             subscriptions: loaded.value.declaration.subscriptions ?? [],
           });
+        },
+        async phoneCapabilities(app, target) {
+          if (target.mode === "preview") {
+            const declared = await appsControl.previews.declared(
+              app,
+              target.process_nonce,
+            );
+            if (!declared.ok) return declared;
+            return ok([...(declared.value?.phone_capabilities ?? [])]);
+          }
+          const loaded = loadActiveDeclaration(link.sql, app, target.release);
+          if (!loaded.ok) return loaded;
+          if (loaded.value === null) return ok([]);
+          return usablePhoneCapabilities(link.sql, app, loaded.value.facts);
         },
         lookup: appToolLookupOf(link.sql, appsControl.previews),
         path,

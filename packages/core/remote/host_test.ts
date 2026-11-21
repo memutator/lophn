@@ -362,6 +362,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
         screens: [{ key: "main", places: ["phone"] }],
         subscriptions: [{ source: "ops", event: "limit" }],
       }),
+    phoneCapabilities: () => Promise.resolve(ok([])),
     lookup: {
       find: (_app, release, _kind, name) =>
         ok(

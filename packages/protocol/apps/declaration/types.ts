@@ -106,9 +106,18 @@ export type OAuthDeclaration = {
   params?: Record<string, string>;
 };
 
-// 폰이 앱에 여는 기능의 이름이다. 값은 protocol/apps/phone-request.ts의 phoneCapabilitySchema와 같다.
-// 이 file은 zod 정본을 import하지 못해 literal로 옮겨 적었고, 둘이 갈라지면 선언은 통과해도 폰 요청이 거절된다.
-export const PHONE_CAPABILITIES = ["location.get"] as const;
+// 폰이 앱에 여는 기능의 이름이다. 이름은 이 file이 정본이다(`@lophn/declaration`에 묶여 나가 다른 protocol file을 import하지
+// 못한다). 입력·출력 schema, deadline, 부를 수 있는 쪽은 `phone/capabilities.ts`의 표가 같은 이름을 key로 가진다.
+export const PHONE_CAPABILITIES = [
+  "location.get",
+  "network.get",
+  "haptics.play",
+  "clipboard.read",
+  "clipboard.write",
+  "code.scan",
+  "link.open",
+  "share.text",
+] as const;
 
 // core가 authorize URL을 만들 때도 같은 목록으로 params의 덮어쓰기를 막는다.
 export const OAUTH_RESERVED_PARAMS = [

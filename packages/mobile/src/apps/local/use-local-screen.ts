@@ -36,6 +36,8 @@ export type LocalScreenState =
       readonly call: GuestCall;
       readonly subscribe: (listener: (event: AppEvent) => void) => () => void;
       readonly onState: (state: GuestState) => void;
+      /** From the install record: a revoke reaches it the next time the phone reads its computer's list. */
+      readonly phone: { readonly granted: readonly string[]; readonly standIn: boolean };
       readonly backendFile: string;
       readonly local: PhoneLocal;
       readonly appDb: GuestAppDbProp;
@@ -159,6 +161,7 @@ export function useLocalScreen({
         return () => listeners.delete(listener);
       },
       onState: (next) => setGuest({ key: guestKey, state: next }),
+      phone: { granted: screen.phone_capabilities, standIn: false },
       backendFile: absolute(files.backend),
       local: {
         app: appId,

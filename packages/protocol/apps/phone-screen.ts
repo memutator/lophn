@@ -3,6 +3,7 @@ import { compareVersions, err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 import { sha256Schema } from "../base/values.ts";
+import type { LophnAppPhone } from "../shell/app-bridge-types.ts";
 
 // 앱의 폰 화면(React Native)이 core, 폰 앱의 host, 폰의 guest runtime 사이에서 지키는 모양이다. 이 file이 고정하는 것:
 // 화면이 import할 수 있는 host module 목록, 화면 bundle의 manifest(`screens/<key>/phone.json`)와 폰의 호환 검사,
@@ -26,8 +27,9 @@ export const PHONE_HOST_MODULES = [
 
 // base bundle의 약속(전역 이름, 메시지)이 바뀔 때 올린다. 2: 폰에서 도는 앱의 backend를 base 뒤에 싣는다(`init`의
 // `local`, `local_change`). 3: `init.local`이 앱 id, release, 변경 하나의 상한을 싣고 backend의 호출 문맥이 앱 id와
-// release를 본다. 옛 판으로 지은 화면은 새 폰에서 그대로 돈다(`phoneCanRun`은 화면의 base가 폰보다 클 때만 막는다).
-export const PHONE_BASE_FORMAT = 3;
+// release를 본다. 4: 폰 기능 길(guest의 `phone` 메시지, `init.phone`, `lophnApp.phone`). 옛 판으로 지은 화면은 새 폰에서
+// 그대로 돈다(`phoneCanRun`은 화면의 base가 폰보다 클 때만 막는다).
+export const PHONE_BASE_FORMAT = 4;
 
 // guest의 base bundle이 내는 전역 이름이다. 화면 bundle의 진입은 `__lophnMount(Screen)`을 부르고 평가 전체를
 // `try{…}catch(e){__lophnFatal(e)}`로 감싼다(평가 중 예외는 host process를 죽인다).
@@ -127,6 +129,14 @@ export const phoneGuestMessageSchema = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("fatal"), message: z.string().max(2000) }),
   // guest 안의 local 호출이 앱 data의 변경을 commit했다. 변경은 그 transaction에서 outbox에 남았으므로 싣지 않는다.
   z.strictObject({ type: z.literal("local_change") }),
+  // 폰 기능 하나를 host에 직접 묻는다(`phone/capabilities.ts`의 `from`에 screen이 든 기능). id는 `call`과 같은 guest의 counter에서
+  // 오고 host는 같은 `reply`로 답한다. 어느 앱의 어떤 grant인지는 host가 안다: 메시지에는 기능 이름과 입력뿐이다.
+  z.strictObject({
+    type: z.literal("phone"),
+    id: z.number().int(),
+    capability: z.string(),
+    input: callInputSchema,
+  }),
 ]);
 export type PhoneGuestMessage = z.infer<typeof phoneGuestMessageSchema>;
 
@@ -170,6 +180,24 @@ export const phoneLocalSchema = z.strictObject({
 });
 export type PhoneLocal = z.infer<typeof phoneLocalSchema>;
 
+// `init`이 싣는 폰 기능의 지금 상태다. `capabilities`는 이 앱이 이 폰에서 지금 쓸 수 있는 기능(허락 ∩ 이 build가 가진
+// handler. stand-in이면 이 build가 아는 기능 전부)이고, `stand_in`이면 모든 요청이 폰에 닿지 않고 표의 stand-in 값을 받는다.
+const phoneInitSchema = z.strictObject({
+  capabilities: z.array(z.string()),
+  stand_in: z.boolean(),
+});
+
+// `reply`의 오류. `reason`은 폰이 낸 이유(`os_permission_denied`, `unsupported`, `timeout` 등, `phone/kinds.ts`)이고,
+// 허락이 없어 거절하면 broker의 거절과 같은 `permission`·`scope`를 싣는다.
+const replyErrorSchema = z.strictObject({
+  code: z.string(),
+  message: z.string(),
+  reason: z.string().optional(),
+  permission: z.literal("phone.use").optional(),
+  scope: z.strictObject({ capability: z.string() }).optional(),
+});
+export type PhoneReplyError = z.infer<typeof replyErrorSchema>;
+
 // host -> guest
 export const phoneHostMessageSchema = z.discriminatedUnion("type", [
   // guest의 root는 이것을 받을 때까지 화면을 그리지 않는다(`lophnApp.place`가 첫 render 전에 서 있어야 한다).
@@ -180,6 +208,7 @@ export const phoneHostMessageSchema = z.discriminatedUnion("type", [
     locale: z.string(),
     // 폰에서 도는 앱이면 값, 아니면 null(모든 호출이 host로 간다).
     local: phoneLocalSchema.nullable(),
+    phone: phoneInitSchema,
   }),
   // `app_views/call`의 outcome 그대로다. 앱 오류 code는 일곱 code가 아니라 그대로 간다.
   z.strictObject({
@@ -187,10 +216,7 @@ export const phoneHostMessageSchema = z.discriminatedUnion("type", [
     id: z.number().int(),
     outcome: z.union([
       z.strictObject({ ok: z.literal(true), value: jsonValueSchema }),
-      z.strictObject({
-        ok: z.literal(false),
-        error: z.strictObject({ code: z.string(), message: z.string() }),
-      }),
+      z.strictObject({ ok: z.literal(false), error: replyErrorSchema }),
     ]),
   }),
   // 앱 event 하나. guest가 구독했는지는 guest가 거른다.
@@ -212,6 +238,8 @@ export type PhoneHostMessage = z.infer<typeof phoneHostMessageSchema>;
 export type PhoneLophnApp = {
   place: PhonePlace;
   callOperation(operation: string, input: unknown): Promise<unknown>;
+  // 폰 기능. `capabilities`는 `init.phone`의 값이다(`init` 전에는 비어 있다).
+  phone: LophnAppPhone;
   events: {
     subscribe(
       source: string,

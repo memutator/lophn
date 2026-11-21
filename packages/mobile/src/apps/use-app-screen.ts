@@ -34,6 +34,8 @@ export type AppScreenState =
       readonly call: GuestCall;
       readonly subscribe: (listener: (event: AppEvent) => void) => () => void;
       readonly onState: (state: GuestState) => void;
+      /** What the screen may ask of the phone: this app's grants from the computer's list. */
+      readonly phone: { readonly granted: readonly string[]; readonly standIn: boolean };
     };
 
 // The guest's base bundle is copied out of the APK once per app start, before the first screen runs. Every screen waits
@@ -192,6 +194,7 @@ export function useAppScreen({
       file: bundle.got.file,
       call: link.call,
       subscribe: link.subscribe,
+      phone: { granted: screen.phone_capabilities, standIn: false },
       onState: (next) => {
         setGuest({ key: guestKey, state: next });
         if (typeof next === "object") {

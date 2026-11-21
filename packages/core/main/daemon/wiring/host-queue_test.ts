@@ -626,6 +626,7 @@ test("요청은 그 앱의 preview view를 연 기기에만 가고, live view나
         screens: [{ key: "home", places: ["phone", "tab"] }],
         subscriptions: [],
       }),
+    phoneCapabilities: () => Promise.resolve(ok([])),
     lookup: {} as never,
     path: {} as never,
     publish: () => {},

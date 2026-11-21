@@ -2,11 +2,13 @@
 // are read as they come. `lophnApp` is the same shape as the desktop's (PhoneLophnApp) so @lophn/app-ui-native's hooks
 // run unchanged. For an app that runs on the phone (`init.local`), read and write operations go to the local runner
 // (src/apps/guest/local-call.ts) instead of the host.
+import type { JsonValue } from "../../protocol/base/json-values.ts";
 import {
   PHONE_CALL_INPUT_MAX_BYTES,
   type PhoneGuestMessage,
   type PhoneHostMessage,
   type PhoneLophnApp,
+  type PhoneReplyError,
 } from "../../protocol/apps/phone-screen.ts";
 
 type Init = Extract<PhoneHostMessage, { type: "init" }>;
@@ -31,6 +33,31 @@ export interface Bridge {
   runLocal(run: LocalRun): void;
 }
 
+// A rejected call or phone request: `Error("<code>: <message>")` that also carries what the host said (`code`, `reason`,
+// `permission`, `scope`), which `@lophn/cap-phone` turns into its own error.
+const rejection = (error: PhoneReplyError) =>
+  Object.assign(new Error(`${error.code}: ${error.message}`), {
+    code: error.code,
+    ...(error.reason === undefined ? {} : { reason: error.reason }),
+    ...(error.permission === undefined ? {} : { permission: error.permission }),
+    ...(error.scope === undefined ? {} : { scope: error.scope }),
+  });
+
+// Both `callOperation` and `phone.request` send JSON the host takes (64 KiB at most).
+function jsonInput(input: unknown): { json: JsonValue } | { error: Error } {
+  const value = input === undefined ? null : input;
+  let text: string;
+  try {
+    text = JSON.stringify(value);
+  } catch {
+    return { error: new Error("invalid_input: the input is not JSON") };
+  }
+  if (new TextEncoder().encode(text).byteLength > PHONE_CALL_INPUT_MAX_BYTES) {
+    return { error: new Error("invalid_input: call input is over 64 KiB") };
+  }
+  return { json: JSON.parse(text) as JsonValue };
+}
+
 const describe = (error: unknown) =>
   (error instanceof Error ? (error.stack ?? `${error.name}: ${error.message}`) : String(error)).slice(0, 2000);
 
@@ -50,7 +77,11 @@ export function installBridge(): Bridge {
   const update = (init: Init) => {
     last = init;
     started(init);
-    if (sandbox.lophnApp) sandbox.lophnApp.place = init.place;
+    if (sandbox.lophnApp) {
+      sandbox.lophnApp.place = init.place;
+      sandbox.lophnApp.phone.capabilities = init.phone.capabilities;
+      sandbox.lophnApp.phone.standIn = init.phone.stand_in;
+    }
     for (const watcher of watchers) watcher(init);
   };
 
@@ -67,7 +98,7 @@ export function installBridge(): Bridge {
         pending.delete(message.id);
         if (!call) return;
         if (message.outcome.ok) call.resolve(message.outcome.value);
-        else call.reject(new Error(`${message.outcome.error.code}: ${message.outcome.error.message}`));
+        else call.reject(rejection(message.outcome.error));
         return;
       }
       case "event":
@@ -81,17 +112,9 @@ export function installBridge(): Bridge {
   sandbox.lophnApp = {
     place: { place: "phone", params: {}, workspace: null },
     callOperation(operation, input) {
-      const value = input === undefined ? null : input;
-      let text: string;
-      try {
-        text = JSON.stringify(value);
-      } catch {
-        return Promise.reject(new Error("invalid_input: the input is not JSON"));
-      }
-      if (new TextEncoder().encode(text).byteLength > PHONE_CALL_INPUT_MAX_BYTES) {
-        return Promise.reject(new Error("invalid_input: call input is over 64 KiB"));
-      }
-      const json = JSON.parse(text);
+      const checked = jsonInput(input);
+      if ("error" in checked) return Promise.reject(checked.error);
+      const json = checked.json;
       return first.then((init) => {
         const effect = init.local?.operations[operation];
         if (effect === "read" || effect === "write") {
@@ -104,6 +127,23 @@ export function installBridge(): Bridge {
           send({ type: "call", id, operation, input: json });
         });
       });
+    },
+    phone: {
+      capabilities: [],
+      standIn: false,
+      request(capability, input) {
+        const checked = jsonInput(input);
+        if ("error" in checked) return Promise.reject(checked.error);
+        const json = checked.json;
+        return first.then(
+          () =>
+            new Promise((resolve, reject) => {
+              const id = nextId++;
+              pending.set(id, { resolve, reject });
+              send({ type: "phone", id, capability, input: json });
+            }),
+        );
+      },
     },
     events: {
       subscribe(source, event, listener) {

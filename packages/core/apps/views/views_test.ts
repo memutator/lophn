@@ -110,6 +110,7 @@ function fakeWorld() {
         bundle_hash: found.bundle_hash,
         screens: [
           { key: "main", places: ["tab", "card"] },
+          { key: "mobile", places: ["phone"] },
           {
             key: "detail",
             places: ["panel"],
@@ -124,6 +125,15 @@ function fakeWorld() {
         subscriptions: found.subscriptions,
       });
     },
+    // live는 선언 ∩ grant, preview는 선언 전부라는 계산은 core 쪽 한 함수가 한다. 여기서는 view가 어느 목록을 받는지만 본다.
+    phoneCapabilities: (_app, target) =>
+      Promise.resolve(
+        ok(
+          target.mode === "live"
+            ? ["network.get"]
+            : ["network.get", "code.scan"],
+        ),
+      ),
     lookup: {
       find(app, release, kind, name) {
         const found = release === null ? undefined : releases.get(release);
@@ -435,6 +445,7 @@ test("params가 그 화면 선언의 schema에 맞지 않거나 자리가 선언
       bundle_hash: HASH_1,
       process_nonce: `live-${REL_1}`,
       params: { status: "open" },
+      phone_capabilities: [],
     }),
   );
 });
@@ -463,6 +474,7 @@ test("card가 아닌 live view의 다시 열기는 다른 release나 null이어�
     bundle_hash: HASH_2,
     process_nonce: `live-${REL_2}`,
     params: null,
+    phone_capabilities: [],
   });
   for (const release of [REL_1, null]) {
     assert.deepStrictEqual(
@@ -613,4 +625,32 @@ test("app_views/log_error는 caller가 연 live view의 앱 log에만 쓰고, �
       },
     },
   ]);
+});
+
+// desktop의 폰 화면 preview가 stand-in으로 답할 기능은 열기의 답이 정한다. 선언하지 않은 기능이 preview에서 통과하면 앱이 live에서야 forbidden이 된다.
+test("phone 자리의 view만 폰 기능 목록을 받고 live와 preview가 각자의 목록을 받는다", async () => {
+  const views = createAppViews(fakeWorld().ports);
+  const listed = async (input: AppViewsOpenInput) => {
+    const opened = await views.open("user", input);
+    assert.ok(opened.ok);
+    return opened.value.phone_capabilities;
+  };
+  assert.deepStrictEqual(
+    await listed(
+      liveOpen("view-phone-live", { screen: "mobile", place: "phone" }),
+    ),
+    ["network.get"],
+  );
+  assert.deepStrictEqual(
+    await listed({
+      view: "view-phone-prev",
+      mode: "preview",
+      app: APP,
+      release: null,
+      screen: "mobile",
+      place: "phone",
+    }),
+    ["network.get", "code.scan"],
+  );
+  assert.deepStrictEqual(await listed(liveOpen("view-tab-live")), []);
 });

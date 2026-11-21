@@ -1,15 +1,14 @@
 import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
-import type { PhoneKind } from "../phone/mod.ts";
 import { processNonceSchema, runtimeModeSchema } from "./channel-values.ts";
+import { PHONE_CAPABILITIES } from "./declaration/types.ts";
 
 // 앱 backend가 폰에 묻는 route. 앱은 입력에 없다(앱 자식 credential이 고정한 앱이다). 권한(`phone.use` grant, 범위 `{capability}`)은
 // broker가 요청마다 판정하고, 이 route는 그 뒤에서 폰에 묻는다. 대상은 그 사람의 기준 폰(`devices.is_primary`)이다.
-// capability는 `PHONE_KINDS`의 key 가운데 앱에 연 것이다. 실패는 `unavailable`의 `details.reason`(phoneUnavailableReasonSchema)이다.
+// capability는 `PHONE_CAPABILITIES`의 이름이고 이 route가 폰에 묻는 것은 그 가운데 backend가 부를 수 있는 것
+// (`phone/capabilities.ts`의 `from`)뿐이다: 화면만 쓰는 기능은 폰에 묻기 전에 `invalid_input`이다. 실패는 `unavailable`의 `details.reason`(phoneUnavailableReasonSchema)이다.
 
-export const phoneCapabilitySchema = z.enum([
-  "location.get",
-] as const satisfies readonly PhoneKind[]);
+export const phoneCapabilitySchema = z.enum(PHONE_CAPABILITIES);
 export type PhoneCapability = z.infer<typeof phoneCapabilitySchema>;
 
 const phoneRequestInputSchema = z.strictObject({

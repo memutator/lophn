@@ -1,0 +1,52 @@
+id: phone-capability-screens
+version: 0.23.115
+title: 앱의 폰 화면이 폰 기능(연결 상태, 진동, 클립보드, 스캔, 링크, 공유)을 폰 host에 직접 묻고, 폰이 앱의 허락을 요청마다 본다
+modules: [packages/protocol, packages/core/apps, packages/core/agent-workspaces, packages/sdk, packages/shell/renderer, packages/shell/preload, packages/design, packages/mobile]
+change: |
+  - 폰 기능 표 하나: protocol `phone` 폴더의 표가 기능마다 입력·출력 schema, deadline, `interactive`, 부를 수 있는 쪽(`screen`, `backend`), preview의 stand-in 값을 가진다. 이름 목록(`@lophn/declaration`의 `PHONE_CAPABILITIES`)과 표의 key가 어긋나면 type 오류이고 `phoneCapabilitySchema`와 `PHONE_KINDS`는 이 표에서 나온다. 연 기능은 여덟이다: `location.get`, `network.get`, `haptics.play`, `clipboard.read`(글만), `clipboard.write`, `code.scan`, `link.open`(scheme `https`·`http`·`tel`·`sms`·`mailto`·`geo`만), `share.text`. 컴퓨터의 backend가 `app_phone.request`로 부를 수 있는 것은 `location.get`·`network.get`이고 나머지는 core가 폰에 묻기 전에 `invalid_input`이다.
+  - 화면 길: guest가 host에 보내는 새 메시지 `phone {id, capability, input}`(입력 64 KiB, id는 `call`과 같은 counter)와 같은 `reply`(오류에 `reason`, grant 없음은 `permission: "phone.use"`와 `scope: {capability}`), `init.phone {capabilities, stand_in}`, 화면의 `lophnApp.phone {capabilities, standIn, request}`. host는 요청마다 기능 이름과 `from` → preview면 stand-in → 폰 앱이 앞에 있음(`phone_in_background`) → 앱의 grant(`forbidden`) → handler(`unsupported`) → 입력 schema → deadline 안에 실행(`timeout`) 순으로 본다. 사람의 손이 드는 기능은 한 번에 하나이고(`conflict`) `code.scan`은 lophn 자신의 전체 화면 스캐너를 화면 위에 그려 닫으면 `{cancelled: true}`로 답한다. `PHONE_BASE_FORMAT`은 3 → 4다.
+  - 폰이 허락을 안다: `apps/phone_screens`의 항목에 `phone_capabilities`(그 release의 선언 ∩ active `phone.use` grant, broker와 같은 계산)가 실리고 route가 `app_grants`를 따라 grant를 주거나 거두면 폰이 다시 읽는다. 폰에서 도는 앱은 설치 기록에 그 목록을 두고(옛 기록은 빈 목록으로 열린다) 컴퓨터를 읽을 때 새로 쓴다. 거둔 grant는 폰이 다음에 컴퓨터에 닿을 때 반영된다. 옛 컴퓨터의 답에 칸이 없으면 폰이 빈 목록으로 읽는다(앞서 더한 `runs_on`·`backend`·`code_commit`처럼 출력에 필수 칸으로 더했고 폰은 출력을 parse하지 않는다).
+  - preview: 폰의 preview 화면은 폰에 닿지 않고 stand-in 값을 `standIn`과 같이 답하되 preview 선언(`previews[].phone_capabilities`)이 `phone.use`로 선언한 기능에만 그렇다. 선언하지 않은 기능은 live처럼 `forbidden`이다. desktop의 폰 화면 preview도 같다: core의 `app_views/open` 답이 새 칸 `phone_capabilities`(phone 자리의 view만, live는 선언 ∩ grant, preview는 선언. 폰 목록과 같은 계산)를 싣고 shell main이 그것을 view 주소 query로 건네 preload의 stand-in `lophnApp.phone`이 쓴다. 허락이 바뀌면 shell main이 목록의 변화를 보고 view를 새 주소로 다시 연다. 폰은 계속 `apps/phone_screens`를 읽는다.
+  - 폰의 handler 표는 하나이고 컴퓨터의 `request`와 화면 길이 같이 쓴다. 기능은 port 하나를 거쳐 폰에 닿는다(`expo-location`·`expo-network`·`expo-haptics`·`expo-clipboard`·`expo-camera`와 React Native의 `Linking`·`Share`. 새 native 의존은 없다). build가 `EXPO_PUBLIC_LOPHN_PHONE_CAPABILITIES_OFF` 목록으로 기능을 이름으로 뺄 수 있고 뺀 기능은 `hello.capabilities`와 `init.phone.capabilities`에 없고 요청은 `unsupported`다. Google Play services의 "Location Accuracy" 대화를 사람이 거절하면 위치는 `internal`이 아니라 `unavailable`(`location_off`)이다.
+  - 동의 글: 동의 카드와 앱 상세가 기능마다 한 문장을 보이고(기능 하나당 key 하나, 빠지면 type 오류) 링크 열기는 앱 data가 링크로 나갈 수 있다고 말한다.
+  - SDK 판: `@lophn/cap-phone` 1.1.0(`getNetwork`, `playHaptic`, `readClipboard`, `writeClipboard`, `scanCode`, `openLink`, `shareText`, `getPhoneAccess`와 `getLocation`의 화면 길), `@lophn/declaration` 4.13.0(여덟 기능), `@lophn/app-ui` 2.24.1과 `@lophn/app-ui-native` 1.10.0(declaration의 정확한 pin을 따라 올렸고 app-ui-native는 guide도 바뀌었다). `migrate-sdk` 메모 넷을 같이 썼다. 폰 화면 build는 `@lophn/cap-phone`을 화면 bundle에 순수 JS로 묶고(build 규칙을 풀지 않았다) 폰에서 도는 backend build도 같다.
+  - agent 지침: 내장 skill `design-app`의 `phone-features.md`가 폰 기능 표, 기능마다의 `phone.use` 선언, 폰에서 도는 backend의 operation은 3초 안에 끝나야 하니 오래 걸리거나 화면을 띄우는 기능은 화면에서 부를 것, 허락 목록은 화면이 열릴 때의 값이고 요청은 늘 지금의 grant로 확인한다는 것, preview는 stand-in이고 폰의 preview는 선언하지 않은 기능을 `forbidden`으로 거절한다는 것, 사진·file·카메라 촬영·background 일은 아직 없다는 것을 말한다. 앱 workspace의 prompt와 SDK guide도 맞췄다.
+  - 개발: `packages/mobile/README.md`의 폰 기능 절(두 길, 앞에 있을 때만, preview의 선언 규칙, build 목록)과 control socket 설명(`XDG_RUNTIME_DIR`는 core를 띄운 때와 같게 둔다)을 고쳤다.
+why: |
+  폰 앱 화면이 쓸 수 있는 폰 기능이 위치 하나였고 컴퓨터의 backend에서만 불렀다. 기능을 쓰는 예가 생길 때마다 하나씩 열면 폰 앱을 새로 build해 깔아야 하고 앱 agent가 "그 기능은 아직 없다"고 답했다. 사람의 손이 드는 기능(스캔, 공유)은 사람이 그 화면 앞에 있을 때 시작되므로 컴퓨터를 돌아오지 않고 화면이 폰 host에 직접 묻는 길을 만들고, 폰이 앱의 허락을 요청마다 보게 하며, 기능 목록 셋과 동의 글 삼항 둘을 표 하나로 모았다(기능 하나를 더하는 일이 이름 하나, 표 항목, 동의 글, 폰 handler, SDK 함수 하나가 되게).
+decisions:
+  - text: >-
+      폰 앱이 기능을 넓게 싣고 허락(`phone.use {capability}`)이 유일한 문이다. background 일은 이 일에서 뺀다. 배포처별 판은 미루되 모든 기능은 build가 이름으로 끌 수 있어야 한다. 이유: 쓰는 예가 생길 때 하나씩 열면 열 때마다 폰 앱을 새로 깔아야 하고 못 쓰는 이유가 "lophn이 안 만들었다"가 된다. (사람, 2026-11-21)
+    by: person
+  - text: >-
+      화면이 폰 host에 직접 묻는 길을 만든다. 이유: 사람의 손이 드는 기능은 그 화면 앞에서 시작되고, 컴퓨터를 돌아오면 컴퓨터가 꺼졌을 때와 폰에서 도는 앱에서 못 쓴다. 버린 안: 모든 폰 기능을 컴퓨터(broker → core → 폰)로 라우팅하기.
+    by: agent
+  - text: >-
+      guest에 native module을 더 넘기지 않고 host가 기능을 돌려 결과만 넘긴다. 이유: guest에 secret, file, network를 가진 module을 더하지 않는 규칙을 그대로 둔다.
+    by: agent
+  - text: >-
+      permission kind는 `phone.use {capability}` 하나로 기능을 늘리고 기능 이름은 선언 SDK에 나열해 둔다(아무 이름이나 받지 않는다). 이유: 앱 agent가 틀린 이름을 선언 검사에서 바로 알고 기능마다 permission kind를 더할 때마다 파일이 열 개 남짓 는다. 대가: 기능을 묶어 열 때마다 SDK 판이 한 번 오른다.
+    by: agent
+  - text: >-
+      폰 기능을 읽은 기록은 남기지 않는다. 이유: 위치가 그렇다(동의는 동의 카드이고 읽는 것을 보이는 것은 OS다).
+    by: agent
+  - text: >-
+      preview는 stand-in으로 답하고 폰의 preview는 preview 선언에 없는 기능을 `forbidden`으로 거절한다. 이유: preview는 앱 agent가 release 전에 자기 실수를 잡는 자리이고 선언을 빠뜨리는 것이 그런 실수다. 처음 만든 모양(모든 기능에 stand-in)은 앱이 live에서 `forbidden`이 되는 것을 release 뒤에야 알게 했다. desktop preview도 같은 규칙이고 목록은 view binding을 쥔 core가 준다(renderer의 값을 믿지 않는다).
+    by: agent
+  - text: >-
+      링크 열기와 공유는 연다. 이유: desktop 화면에 이미 `openExternal`이 있고 사용자 앱을 공격자로 보지 않는다. 앱 data가 링크나 공유로 나갈 수 있다는 것은 동의 카드의 글이 말한다.
+    by: agent
+  - text: >-
+      사진과 file은 앱 file 자리가 생길 때 연다. 이유: 받은 bytes를 backend로 넘길 길이 없다(호출 입력 64 KiB). 한도를 올려 base64를 SQLite에 넣으면 목록 읽기, sync log, rewind가 모두 그 bytes를 끌고 다닌다.
+    by: agent
+  - text: >-
+      카메라 권한은 사람이 스캔을 누를 때마다 OS가 허용하는 동안 다시 묻는다(위치는 한 번). 이유: 사람이 방금 스캔을 눌렀으므로 다시 묻는 것이 기대에 맞는다.
+    by: agent
+  - text: >-
+      화면 길의 요청도 폰 앱이 앞에 있을 때만 답한다. 이유: background 일은 범위 밖이고 폰은 앞에 있을 때만 읽는다는 규칙이 있다. guest의 timer가 뒤에서 폰을 읽을 수 있으면 그 규칙이 깨진다. 요청이 시작할 때만 본다(그 요청이 연 OS 대화나 공유 sheet는 요청을 끊지 않는다).
+    by: agent
+checklist:
+  - "해야: 폰 앱을 새로 build해 깐다(화면 base format 4. 옛 폰 앱은 새로 지은 앱 화면을 phone_too_old로 거절한다)"
+  - 실제 폰에서 QR 코드를 스캔해 앱 화면에 글이 돌아오는지, 스캐너를 닫으면 화면이 그대로인지 본다
+  - 실제 폰에서 진동(`haptics.play`)이 느껴지고 클립보드 쓰기와 읽기, 링크 열기, 공유 sheet가 되는지 본다
+  - desktop의 동의 카드와 앱 상세, 폰의 동의 화면에서 기능마다 한 문장이 보이는지 본다

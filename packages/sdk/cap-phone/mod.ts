@@ -1,10 +1,29 @@
-export { createPhoneClient, getLocation } from "./phone.ts";
+export {
+  createPhoneClient,
+  getLocation,
+  getNetwork,
+  getPhoneAccess,
+  openLink,
+  playHaptic,
+  readClipboard,
+  scanCode,
+  shareText,
+  writeClipboard,
+} from "./phone.ts";
 export type {
+  HapticKind,
   LocationAccuracy,
   LocationOptions,
+  PhoneAccess,
+  PhoneApp,
+  PhoneCapabilityName,
   PhoneClient,
   PhoneClientDeps,
+  PhoneClipboardText,
+  PhoneDone,
   PhoneLocation,
+  PhoneNetwork,
+  PhoneScan,
 } from "./phone.ts";
 export { CapabilityError } from "./errors.ts";
 export type { CapabilityErrorCode } from "./errors.ts";

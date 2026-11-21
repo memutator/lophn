@@ -234,14 +234,13 @@ Rules:
   the body, the main action in `footer`.
 - `Sheet`, `Menu` and `Drawer` open inside the screen. Do not use React Native's
   `Modal`: it covers lophn and the phone tab cannot read it.
-- A touch target is 44 or more. `Row`, `IconButton` and `Button` already are.
-  Use `size="lg"` (54) for a screen's main action, and give a `Pressable` of
-  your own `minHeight: 44`. Nothing depends on hover.
-- Text sits in `Text`, with its `variant` and `tone`; do not set `fontSize`
-  (the person's text scale applies). Chrome takes its colors from `useTheme()`,
-  not from color values. The kit gives the fonts.
-- Native modules come only from this list, imported by their package name (no
-  sub-path such as `react-native/...`): `react`, `react/jsx-runtime`,
+- A touch target is 44 or more (`Row`, `IconButton`, `Button` already are;
+  `size="lg"` is 54, for the main action). Give your own `Pressable`
+  `minHeight: 44`. Nothing depends on hover.
+- Text sits in `Text` (its `variant` and `tone`; no `fontSize`: the person's
+  text scale applies). Colors come from `useTheme()`, fonts from the kit.
+- Native modules come only from this list, imported by package name (no
+  sub-path like `react-native/...`): `react`, `react/jsx-runtime`,
   `react-native`, `react-native-svg`, `react-native-safe-area-context`,
   `lucide-react-native`, `@lophn/ui-native`, `@lophn/app-ui-native`. Plain JS
   packages of the app are bundled in. `@lophn/ui`, `@lophn/app-ui`, `react-dom`,
@@ -251,7 +250,8 @@ Rules:
 - There is no network: no `fetch`, no WebSocket. Data comes only through
   operations (`useOperation`, `OperationButton`) and events (`useEvent`), and
   the declaration must list them. Images are the kit's `Icon` and `data:`
-  URIs.
+  URIs. Phone features come from `@lophn/cap-phone` (`phone.use`, see
+  `phone-features.md`).
 
 An example, `src/screens/orders/phone.tsx`:
 
@@ -299,7 +299,7 @@ phone app is older than the kit the screen was built with, the phone shows
 
 First read the bundled `phone-check.md` to check those on the person's
 phone (`lophn tab open --phone`); `phone-features.md` for home screen widgets
-and phone location (`phone.use`); `phone-apps.md` when the app's backend and
+and phone features (`phone.use`); `phone-apps.md` when the app's backend and
 data also run on the phone (`runs_on`); `folder-sync.md` when its data must
 reach the person's other computers (`sync_to`, `"computers"` first; changes
 from there arrive as `data.changed`). Use

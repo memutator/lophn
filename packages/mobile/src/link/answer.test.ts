@@ -15,7 +15,7 @@ function fake(opts: { permission?: boolean; services?: boolean } = {}) {
     current: async () => (calls.push("current"), fix),
   };
   const deps = (active = true): AnswerDeps => ({
-    ctx: { location, drive: {} as never },
+    ctx: { location, drive: {} as never } as never,
     isActive: () => active,
     wait: () => () => {},
   });
@@ -95,13 +95,15 @@ test("an allowed request answers with the position; a bad input is invalid_input
     ctx: {
       location: { ...slow.deps().ctx.location, current: () => new Promise(() => {}) },
       drive: {} as never,
-    },
+    } as never,
     wait: (_ms, fn) => (queueMicrotask(fn), () => {}),
   });
   assert.equal(never, undefined);
 
+  // what the link can be asked: the capabilities a backend may ask, and drive
   assert.deepEqual(phoneCapabilities(), [
     "location.get",
+    "network.get",
     "drive.snapshot",
     "drive.act",
     "drive.screenshot",

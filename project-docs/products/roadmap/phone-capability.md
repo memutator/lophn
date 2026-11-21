@@ -1,6 +1,6 @@
 # phone capability: 사용자 앱이 폰 기능을 넓게 쓴다
 
-상태: 로드맵 초안. 2026-11-21 사람이 방향을 냈고 planner가 썼다. 사람의 검수 전이다. `(agent)`로 적은 것은 planner가 근거를 적어 정한 것이라 검수에서 뒤집을 수 있다.
+상태: 단계 1은 `feat/phone-capability` branch에 지었다(2026-11-21. change-log `phone-capability-screens`, `architecture/phone-screen.md`·`remote.md`). emulator(release build, 개발 core, 손으로 지은 앱)에서 여덟 기능 전부, grant 없음과 거둠, preview의 stand-in, 폰에서 도는 앱의 offline 사용을 보았고, headless Electron에서 desktop preview의 stand-in과 선언하지 않은 기능의 거절을 보았다. 실제 폰과 실제 QR 스캔 끝까지는 보지 못했다. 단계 2와 3은 아직 열지 않았다. 이 문서의 나머지는 2026-11-21 사람이 방향을 낸 뒤 planner가 쓴 로드맵이고 사람의 검수 전이다. `(agent)`로 적은 것은 planner가 근거를 적어 정한 것이라 검수에서 뒤집을 수 있다.
 배경 문서: `project-docs/architecture/{phone-screen,remote,app-sync,activation,app-call,phone-home-screen}.md`, `project-docs/products/roadmap/mobile.md`("폰 기능").
 조사: worker 둘의 코드 조사(2026-11-21, main `8be849625`). Orca의 직접 배포는 `stablyai/orca` release 기록과 `harness-lab/orca`.
 
@@ -121,7 +121,7 @@
 
 ## 단계
 
-1. **길과 작은 값의 기능.** 기능 표를 하나로 맞추고(목록 셋, 글 삼항 둘), 화면 길, 폰의 허락 확인, 기능마다 켜고 끄기, preview stand-in을 만든다. 새 native 의존 없이 여는 기능: 진동, 클립보드 글 읽기와 쓰기, QR·바코드 읽기, 위치(화면 길 추가), 연결 상태, 링크 열기(전화, 문자, 메일 쓰기 화면 포함), 글 공유. `PHONE_BASE_FORMAT`과 SDK 판(`@lophn/cap-phone`, `@lophn/declaration`, `@lophn/app-ui`, `@lophn/app-ui-native`)이 오르고 지침(`design-app`의 `phone-features.md`, guide 셋, `prompts/app.md`)을 고친다.
+1. **길과 작은 값의 기능. 끝남(2026-11-21, branch `feat/phone-capability`).** 계획과 다른 점: preview는 모든 기능에 stand-in을 주지 않고 preview 선언이 선언한 기능에만 주며 선언하지 않은 기능은 live처럼 `forbidden`이다(폰의 preview와 desktop preview 모두. 목록은 core가 `app_views/open`의 답으로 준다). 화면 길도 폰 앱이 앞에 있을 때만 답한다. 기능 표를 하나로 맞추고(목록 셋, 글 삼항 둘), 화면 길, 폰의 허락 확인, 기능마다 켜고 끄기, preview stand-in을 만든다. 새 native 의존 없이 여는 기능: 진동, 클립보드 글 읽기와 쓰기, QR·바코드 읽기, 위치(화면 길 추가), 연결 상태, 링크 열기(전화, 문자, 메일 쓰기 화면 포함), 글 공유. `PHONE_BASE_FORMAT`과 SDK 판(`@lophn/cap-phone`, `@lophn/declaration`, `@lophn/app-ui`, `@lophn/app-ui-native`)이 오르고 지침(`design-app`의 `phone-features.md`, guide 셋, `prompts/app.md`)을 고친다.
 2. **앱 file 자리와 media.** 사진 찍기, 사진 고르기, file 고르기, 녹음과 재생, file 공유, 사진 저장, 클립보드 그림.
 3. **나머지 묶음.** 지문 확인, 연락처, 캘린더, 음성 인식과 읽기, 센서, 배터리, 기기 정보, 화면 켜두기와 밝기와 방향, 인쇄, 걸음 수와 건강 정보(앱을 열 때 지난 기록 읽기). 계속 받는 값(센서, 음성)은 host → guest `event`로 보낸다.
 
@@ -139,8 +139,8 @@
 
 ## 확인하지 않은 것
 
-- 폰 화면 build가 `@lophn/cap-phone`을 화면 bundle에 묶을 수 있는지. 되면 화면과 backend가 같은 part의 같은 함수 이름을 쓰고, 안 되면 화면 쪽 함수는 `@lophn/app-ui-native`가 낸다.
-- 카메라나 고르기 activity가 떠 있는 동안 Android가 lophn process를 죽이면 guest가 새로 떠서 결과를 잃는다. 얼마나 자주인지, 결과를 되찾을 길이 필요한지.
-- 고르기가 떠 있는 동안 `AppState`가 inactive가 되어 컴퓨터의 요청이 `phone_in_background`로 거절되는지.
-- 기능 하나하나가 Expo module로 실제로 되는지와 Android 판마다의 차이. 걸음 수와 건강 정보(Health Connect)를 앞에 있을 때 지난 기록까지 읽을 수 있는지.
+- 카메라나 고르기 activity가 떠 있는 동안 Android가 lophn process를 죽이면 guest가 새로 떠서 결과를 잃는다. 얼마나 자주인지, 결과를 되찾을 길이 필요한지. 단계 1의 스캐너는 같은 activity 안의 화면이라 이 문제가 없다. 단계 2의 카메라 촬영과 고르기는 다른 activity에서 결과가 온다.
+- 단계 2가 풀어야 할 것: (1) 폰 앱이 뒤로 가 연결이 끊기면 컴퓨터에서 도는 앱의 guest가 새로 떠 화면 상태를 잃는다(이슈 `phone-guest-remounts-after-background`. 폰에서 도는 앱은 영향이 없다). 다른 activity의 결과를 받으려면 같은 guest가 살아 있어야 한다. (2) 열린 요청의 결과를 process가 죽은 뒤 되찾는 길.
+- OS 대화가 그것을 연 요청을 끊지 않는 것은 알려졌다: 위치 요청은 OS 권한 대화와 Play services의 위치 설정 대화 뒤에 답했다(emulator, 2026-11-21). host가 폰 앱이 앞에 있는지를 요청이 시작할 때만 보기 때문이다. 고르기 activity가 뜨는 동안 `AppState`가 어떻게 되는지는 단계 2에서 본다.
+- 기능 하나하나가 Expo module로 실제로 되는지와 Android 판마다의 차이는 단계 1의 기능만 emulator로 보았다. 걸음 수와 건강 정보(Health Connect)를 앞에 있을 때 지난 기록까지 읽을 수 있는지는 단계 3.
 - 실제 폰. 지금까지 폰 기능은 emulator에서만 보았다(`remote.md` "열린 것").

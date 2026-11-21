@@ -44,7 +44,10 @@ const phoneScreenParamsSchema = z
 // (target live, screen, path `phone.js`)로 받고, 쓸 수 있는지는 폰이 `phoneCanRun`으로 manifest를 보고 정한다.
 // `runs_on`은 선언의 값이다(없으면 ["computer"]). `backend`는 `phone`에서 도는 앱의 `phone/backend.json`이고 그 file과
 // migration file은 `apps/phone_file`로 받는다. 앱의 `backend.json`을 읽지 못하면 그 앱의 화면은 싣지 않는다.
-// `previews`는 컴퓨터에서 지금 도는(ready) preview의 phone 화면이다. 화면 file은 `apps/screen_file`의 target
+// `phone_capabilities`는 그 앱이 지금 쓸 수 있는 폰 기능(그 release의 선언 ∩ active `phone.use` grant, `PHONE_CAPABILITIES`의
+// 이름)이다. preview의 `phone_capabilities`는 preview bundle의 선언이 `phone.use`로 선언한 기능이다(preview에는 grant가 없고,
+// 선언하지 않은 기능은 live처럼 `forbidden`이어야 앱 agent가 빠뜨린 선언을 preview에서 잡는다). 폰이 화면 길의 요청마다 허락을 보는 근거라 grant를 주거나 거두면 폰이 다시 읽는다(`app_grants`). 이 칸이 없는
+// 옛 컴퓨터의 답은 폰이 빈 목록으로 읽는다. `previews`는 컴퓨터에서 지금 도는(ready) preview의 phone 화면이다. 화면 file은 `apps/screen_file`의 target
 // `{mode: "preview", app, process_nonce}`, view는 `app_views/open`의 `mode: "preview"`로 연다.
 export const appPhoneScreens = defineRead({
   resource: "apps",
@@ -68,6 +71,7 @@ export const appPhoneScreens = defineRead({
           manifest: phoneManifestSchema,
           runs_on: z.array(z.enum(["computer", "phone"])),
           backend: phoneBackendManifestSchema.nullable(),
+          phone_capabilities: z.array(z.string()),
           // 그 release의 앱 process가 지금 live로 도는가
           running: z.boolean(),
         }),
@@ -81,6 +85,7 @@ export const appPhoneScreens = defineRead({
           release: releaseIdSchema.nullable(),
           bundle_hash: sha256Schema,
           process_nonce: processNonceSchema,
+          phone_capabilities: z.array(z.string()),
           screens: z.array(
             z.object({
               screen: z.string(),
@@ -93,7 +98,7 @@ export const appPhoneScreens = defineRead({
       ),
     }),
   ),
-  reads: ["releases", "app_runtime"],
+  reads: ["releases", "app_runtime", "app_grants"],
   actors: ["user"],
   errors: ["invalid_input", "forbidden", "unavailable"],
 });

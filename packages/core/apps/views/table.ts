@@ -32,6 +32,8 @@ export interface ViewBinding {
   release: string | null;
   bundle_hash: string;
   process_nonce: string;
+  /** 이 view가 폰에서 쓸 수 있는 기능. place가 phone이 아니면 빈 목록이다. */
+  phone_capabilities: string[];
 }
 
 export interface ViewEntry {
@@ -95,6 +97,16 @@ export function createViewTable(ports: AppViewsPorts) {
     entry.used = tick;
   }
 
+  // phone 자리의 view만 목록을 갖는다. 다른 자리는 빈 목록이다(schema를 가르지 않는다).
+  function phoneOf(
+    args: ViewArgs,
+    target: Parameters<AppViewsPorts["phoneCapabilities"]>[1],
+  ): Promise<Result<string[]>> {
+    return args.place === "phone"
+      ? ports.phoneCapabilities(args.app, target)
+      : Promise.resolve(ok([]));
+  }
+
   /**
    * 앱의 지금 process에 묶는다. `want`가 있으면 그 release여야 한다(아니면 conflict). live는 도는 release의 선언을,
    * preview는 release가 있을 때만 그 선언을 같이 읽는다.
@@ -124,6 +136,11 @@ export function createViewTable(ports: AppViewsPorts) {
           message: "the preview runs another release",
         });
       }
+      const phone = await phoneOf(args, {
+        mode: "preview",
+        process_nonce: found.value.process_nonce,
+      });
+      if (!phone.ok) return fail({ reason: "error", error: phone.error });
       let declaration: ReleaseView | null = null;
       if (found.value.release !== null) {
         const read = ports.release(args.app, found.value.release);
@@ -137,6 +154,7 @@ export function createViewTable(ports: AppViewsPorts) {
             release: found.value.release,
             bundle_hash: found.value.bundle_hash,
             process_nonce: found.value.process_nonce,
+            phone_capabilities: phone.value,
           },
           declaration,
         },
@@ -158,6 +176,11 @@ export function createViewTable(ports: AppViewsPorts) {
     if (read.value === null) {
       return fail({ reason: "stopped", message: "app is not available" });
     }
+    const phone = await phoneOf(args, {
+      mode: "live",
+      release: running.value.release,
+    });
+    if (!phone.ok) return fail({ reason: "error", error: phone.error });
     return {
       ok: true,
       value: {
@@ -165,6 +188,7 @@ export function createViewTable(ports: AppViewsPorts) {
           release: running.value.release,
           bundle_hash: read.value.bundle_hash,
           process_nonce: running.value.process_nonce,
+          phone_capabilities: phone.value,
         },
         declaration: read.value,
       },
@@ -244,6 +268,7 @@ export function createViewTable(ports: AppViewsPorts) {
       bundle_hash: entry.binding.bundle_hash,
       process_nonce: entry.binding.process_nonce,
       params: entry.params,
+      phone_capabilities: entry.binding.phone_capabilities,
     };
   }
 

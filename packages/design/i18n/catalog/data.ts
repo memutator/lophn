@@ -77,6 +77,18 @@ export const data = {
     "Asks your phone only while lophn is open on it. Allowed {when}.",
   "waiting.label.declared-phone": "Phone",
   "waiting.label.declared-phone-location": "Use your phone's location",
+  "waiting.label.declared-phone-network": "See whether your phone is online",
+  "waiting.label.declared-phone-haptics": "Vibrate your phone",
+  "waiting.label.declared-phone-clipboard-read":
+    "Read text you copied on your phone",
+  "waiting.label.declared-phone-clipboard-write":
+    "Copy text to your phone's clipboard",
+  "waiting.label.declared-phone-code-scan":
+    "Scan QR codes and barcodes with your phone's camera",
+  "waiting.label.declared-phone-link-open":
+    "Open links, calls, texts and emails from your phone. Data from this app can leave through a link.",
+  "waiting.label.declared-phone-share-text":
+    "Share text from this app to other apps on your phone",
   "waiting.label.declared-secret": "Secret",
   "waiting.label.effect-external": "external",
   "waiting.label.effect-read": "read",

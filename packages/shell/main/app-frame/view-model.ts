@@ -217,6 +217,9 @@ export function sameConnection(entry: Bound, next: Bound): boolean {
     entry.binding.release === next.binding.release &&
     entry.binding.bundleHash === next.binding.bundleHash &&
     entry.binding.processNonce === next.binding.processNonce &&
+    // 허락이 바뀌면 화면을 다시 연다(폰 화면 preview의 stand-in 목록은 열 때 URL로 들어간다).
+    entry.binding.phoneCapabilities.join(",") ===
+      next.binding.phoneCapabilities.join(",") &&
     sameHosts(entry.hosts, next.hosts)
   );
 }

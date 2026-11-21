@@ -1,5 +1,7 @@
 import type { z } from "zod";
 import { err, type LophnError, type Result } from "../../../base/mod.ts";
+import { capabilityFrom } from "../../../protocol/phone/capabilities.ts";
+import type { PhoneCapability } from "../../../protocol/apps/phone-request.ts";
 import {
   PHONE_KINDS,
   type PhoneKind,
@@ -10,20 +12,25 @@ import type {
   PhoneResponseFrame,
 } from "../../../protocol/phone/link.ts";
 import type { DrivePort } from "../apps/drive/controller.ts";
-import { type LocationPort, locationGet } from "./location.ts";
+import { CAPABILITY_HANDLERS, type CapabilityCtx } from "./capabilities.ts";
 
 // What handlers may use. A new kind that needs another native call adds a port here, so tests can fake it.
-export type PhoneCtx = { location: LocationPort; drive: DrivePort };
+export type PhoneCtx = CapabilityCtx & { drive: DrivePort };
 
 export type PhoneHandler<K extends PhoneKind> = (
   input: z.infer<(typeof PHONE_KINDS)[K]["input"]>,
   ctx: PhoneCtx,
 ) => Promise<Result<z.infer<(typeof PHONE_KINDS)[K]["output"]>>>;
 
-// The kinds this phone answers. A later kind is one entry here (and its entry in `PHONE_KINDS`); `answerRequest` and
-// `hello.capabilities` follow from the keys, so a kind with no handler is "unsupported" and never advertised.
+// The kinds this phone answers over the link: the capabilities a backend may ask (`capabilities.ts`, the same handlers a
+// phone screen reaches directly) and `drive.*`. `answerRequest` and `hello.capabilities` follow from the keys, so a kind
+// with no handler is "unsupported" and never advertised.
 export const PHONE_HANDLERS: { [K in PhoneKind]?: PhoneHandler<K> } = {
-  "location.get": locationGet,
+  ...(Object.fromEntries(
+    Object.entries(CAPABILITY_HANDLERS).filter(([name]) =>
+      capabilityFrom(name as PhoneCapability, "backend"),
+    ),
+  ) as { [K in PhoneKind]?: PhoneHandler<K> }),
   "drive.snapshot": (input, ctx) => ctx.drive.snapshot(input),
   "drive.act": (input, ctx) => ctx.drive.act(input),
   "drive.screenshot": (input, ctx) => ctx.drive.screenshot(input),

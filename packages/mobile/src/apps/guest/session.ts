@@ -1,14 +1,17 @@
 // The host half of one guest screen, without React Native: reads guest messages, answers `ready` with `init`, forwards
-// calls and app events, passes on `local_change`, and decides the guest's state. Who the guest is comes from the host
+// calls and app events, answers phone capability requests (`phone-host.ts`), passes on `local_change`, and decides the
+// guest's state. Who the guest is comes from the host
 // (the `call` it was given is already bound to the host's view); nothing a message says about an app, release or view
 // is read.
 import {
   type PhoneHostMessage,
   type PhoneLocal,
   type PhonePlace,
+  type PhoneReplyError,
   parsePhoneGuestMessage,
 } from "../../../../protocol/apps/phone-screen.ts";
 import type { JsonValue } from "../../../../protocol/base/json-values.ts";
+import type { PhoneHost } from "./phone-host.ts";
 
 export type GuestFailure = "did_not_start" | "fatal" | "crashed";
 export type GuestState =
@@ -16,10 +19,11 @@ export type GuestState =
   | "running"
   | { failed: GuestFailure; message?: string; name?: string };
 
-// `app_views/call`'s outcome. App error codes pass through as they are.
+// `app_views/call`'s outcome. App error codes pass through as they are. A phone capability's failure may also say why
+// (`reason`) and, for a missing grant, which one (`permission`, `scope`).
 export type CallOutcome =
   | { ok: true; value: JsonValue }
-  | { ok: false; error: { code: string; message: string } };
+  | { ok: false; error: PhoneReplyError };
 
 export type GuestCall = (
   operation: string,
@@ -28,6 +32,7 @@ export type GuestCall = (
 
 export type AppEvent = { source: string; event: string; payload: JsonValue };
 
+// What `init` says besides the capabilities, which the phone host decides when it answers.
 export type GuestInit = {
   place: PhonePlace;
   scheme: "light" | "dark";
@@ -55,6 +60,7 @@ export interface GuestSession {
 export function createGuestSession(options: {
   init: GuestInit;
   call: GuestCall;
+  phone: PhoneHost;
   post: (message: PhoneHostMessage) => void;
   onState: (state: GuestState) => void;
   // A local call in the guest committed a change (it is in the outbox).
@@ -85,11 +91,28 @@ export function createGuestSession(options: {
       const current = liveOptions!;
       switch (message.type) {
         case "ready":
-          current.post({ type: "init", ...init });
+          current.post({
+            type: "init",
+            ...init,
+            phone: { capabilities: current.phone.capabilities(), stand_in: current.phone.standIn },
+          });
           if (state === "starting") move("running");
           return;
         case "call":
           current.call(message.operation, message.input).then(
+            (outcome) => reply(message.id, outcome),
+            (thrown: unknown) =>
+              reply(message.id, {
+                ok: false,
+                error: {
+                  code: "internal",
+                  message: thrown instanceof Error ? thrown.message : String(thrown),
+                },
+              }),
+          );
+          return;
+        case "phone":
+          current.phone.request(message.capability, message.input).then(
             (outcome) => reply(message.id, outcome),
             (thrown: unknown) =>
               reply(message.id, {
@@ -141,6 +164,7 @@ export function createGuestSession(options: {
     },
     close() {
       closed = true;
+      liveOptions?.phone.close();
       liveOptions = null;
     },
   };

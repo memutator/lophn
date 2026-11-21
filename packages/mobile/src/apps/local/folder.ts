@@ -68,6 +68,30 @@ export function compareRelease(
   return a.release < b.release ? -1 : a.release > b.release ? 1 : 0;
 }
 
+/**
+ * `screens` with the phone capabilities of the same screens in a fresh listing of the same release (the person gave or took
+ * back a grant since the install). Returns `screens` itself when nothing changed.
+ */
+export function withPhoneCapabilities(
+  screens: readonly PhoneScreen[],
+  listed: readonly PhoneScreen[],
+): readonly PhoneScreen[] {
+  let changed = false;
+  const next = screens.map((screen) => {
+    const fresh = listed.find((one) => one.screen === screen.screen)?.phone_capabilities;
+    if (
+      fresh === undefined ||
+      (fresh.length === screen.phone_capabilities.length &&
+        fresh.every((name, at) => name === screen.phone_capabilities[at]))
+    ) {
+      return screen;
+    }
+    changed = true;
+    return { ...screen, phone_capabilities: fresh };
+  });
+  return changed ? next : screens;
+}
+
 export function withComputer(computers: readonly string[], computer: string): readonly string[] {
   return computers.includes(computer) ? computers : [...computers, computer];
 }
@@ -142,6 +166,11 @@ function parseInstalled(text: string | null): Installed | null {
     }
     return {
       ...raw,
+      // A record written before screens carried phone capabilities: none until the next read of the computer's list.
+      screens: (raw.screens ?? []).map((screen) => ({
+        ...screen,
+        phone_capabilities: Array.isArray(screen.phone_capabilities) ? screen.phone_capabilities : [],
+      })),
       ...(codeCommit === undefined ? {} : { code_commit: codeCommit }),
       ...(computerReleases === undefined ? {} : { computer_releases: computerReleases }),
       computers: Array.isArray(raw.computers) ? raw.computers : [],

@@ -26,7 +26,7 @@ files:
 
   - path: packages/mobile/src/apps/guest/session.test.ts
     covers: []
-    note: "폰 앱 화면 guest bridge 경계. 메시지가 내세우는 앱·release·view, 모르는 모양, 상한 초과 메시지는 버리고 call은 host가 묶은 view로만 간다"
+    note: "폰 앱 화면 guest bridge 경계. 메시지가 내세우는 앱·release·view, 모르는 모양, 상한 초과 메시지는 버리고 call은 host가 묶은 view로만 간다. phone 요청은 grant가 없으면 forbidden이고 handler를 돌리지 않으며 메시지에 앱이나 grant를 실을 수 없고, 폰 앱이 앞에 없으면 unavailable(phone_in_background)이며, stand-in(preview) 모드는 선언한 기능에만 값을 주고 선언하지 않은 기능은 forbidden이며 handler를 돌리지 않는다"
 
   - path: packages/mobile/src/apps/local/local.test.ts
     covers:

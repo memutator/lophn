@@ -91,6 +91,8 @@ export interface AppBinding {
   release: string | null;
   bundleHash: string;
   processNonce: string;
+  /** 이 view가 폰에서 쓸 수 있는 기능(core의 `app_views/open` 답). 폰 화면 자리의 preview가 stand-in에 쓴다. */
+  phoneCapabilities: readonly string[];
 }
 
 type Json = Record<string, unknown>;

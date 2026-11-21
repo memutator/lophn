@@ -24,6 +24,7 @@ import {
   runsOnPhone,
   withComputer,
   withComputerRelease,
+  withPhoneCapabilities,
   writeInstalled,
 } from "./folder.ts";
 import { type Ctx, type InstallStep, install } from "./install.ts";
@@ -564,13 +565,17 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
             ? withComputerRelease(one.computer_releases, computer, entries[0].release)
             : one.computer_releases;
         const code_commit = one.code_commit ?? (cmp === 0 ? entries[0].code_commit : undefined);
+        // The grants of the release already installed follow the computer that listed it last.
+        const installedScreens = cmp === 0 ? withPhoneCapabilities(one.screens, entries) : one.screens;
         if (
           computers !== one.computers ||
           computer_releases !== one.computer_releases ||
-          code_commit !== one.code_commit
+          code_commit !== one.code_commit ||
+          installedScreens !== one.screens
         ) {
           writeInstalled(files, {
             ...one,
+            screens: installedScreens,
             ...(code_commit === undefined ? {} : { code_commit }),
             ...(computer_releases === undefined ? {} : { computer_releases }),
             computers,

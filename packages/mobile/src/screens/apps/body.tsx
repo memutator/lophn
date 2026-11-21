@@ -56,6 +56,7 @@ export function Body({
             scheme={theme.scheme}
             locale={LOPHN_LOCALE}
             call={state.call}
+            phone={state.phone}
             subscribe={state.subscribe}
             onState={state.onState}
             {...("local" in state

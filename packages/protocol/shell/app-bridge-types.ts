@@ -214,6 +214,17 @@ export type LophnAppCommands = {
   register(name: string, handler: () => void, when?: () => boolean): () => void;
 };
 
+/**
+ * 폰 기능. 폰 화면의 `lophnApp`(폰의 guest와 desktop preview)에만 있고 다른 desktop 화면에는 없다.
+ * `capabilities`는 지금 쓸 수 있는 기능의 이름이고 `standIn`이면 요청이 폰에 닿지 않고 기능마다 정해진 값을 돌려준다
+ * (desktop preview는 늘 그렇다). 실패는 `Error("<code>: <message>")`에 `code`, `reason`, `permission`, `scope`를 달아 reject한다.
+ */
+export type LophnAppPhone = {
+  capabilities: readonly string[];
+  standIn: boolean;
+  request(capability: string, input: unknown): Promise<unknown>;
+};
+
 export type LophnApp = {
   place: AppPlace;
   callOperation(operation: string, input: Json): Promise<unknown>;
@@ -236,4 +247,6 @@ export type LophnApp = {
    * 끄지 않게 하려는 것이다. page가 새로 load되면 모두 꺼지므로 다시 보내야 한다.
    */
   setKeepAlive(active: boolean, key?: string): void;
+  /** 이 화면의 place가 `phone`일 때만 있다(desktop의 폰 화면 preview). 늘 stand-in이다. */
+  phone?: LophnAppPhone;
 };

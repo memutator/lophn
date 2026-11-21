@@ -68,6 +68,10 @@ export const appViewsOpenOutputSchema = z.strictObject({
   process_nonce: processNonceSchema,
   // 화면 선언의 params schema를 통과한(정규화한) 값. 주지 않았으면 null이다.
   params: jsonObjectSchema.nullable(),
+  // 이 view가 폰에서 쓸 수 있는 기능(`apps/phone_screens`의 `phone_capabilities`와 같은 뜻: live view는 선언 ∩ active grant,
+  // preview view는 preview 선언이 선언한 것). place가 `phone`이 아닌 view는 빈 목록이다. desktop host가 폰 화면 preview의
+  // stand-in에 쓴다(폰은 `apps/phone_screens`를 읽는다).
+  phone_capabilities: z.array(z.string()),
 });
 export type AppViewsOpenOutput = z.infer<typeof appViewsOpenOutputSchema>;
 

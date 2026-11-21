@@ -145,7 +145,13 @@ export function appEntryUrl(
   appLabel: string,
   screen: string,
   viewSession?: string,
-  place?: { place: string; params?: unknown; workspace?: unknown },
+  place?: {
+    place: string;
+    params?: unknown;
+    workspace?: unknown;
+    // 폰 화면 자리의 view가 폰에서 쓸 수 있는 기능(preview의 stand-in이 쓴다).
+    phone?: readonly string[];
+  },
 ): string {
   const base = `${APP_SCHEME}://${appLabel}/${encodeURIComponent(
     screen,
@@ -159,6 +165,9 @@ export function appEntryUrl(
     }
     if (place.workspace !== undefined) {
       query.set("workspace", JSON.stringify(place.workspace));
+    }
+    if (place.phone !== undefined) {
+      query.set("phone", JSON.stringify(place.phone));
     }
   }
   return `${base}?${query}`;

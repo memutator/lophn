@@ -50,6 +50,8 @@ export type PreviewBundle = {
   // bundle 선언의 operation과 command. preview 대상 호출이 이 선언으로 판정된다.
   operations: readonly OperationDeclaration[];
   commands: readonly CommandDeclaration[];
+  // 선언이 `phone.use`로 선언한 폰 기능. preview에는 grant가 없어 이것이 그 preview가 쓸 수 있는 기능이다.
+  phoneCapabilities: readonly string[];
   subscriptions: readonly SubscriptionDeclaration[];
   dataSchema: number;
   // bundle 파일 중 그 경로의 byte. fixture는 bundle 안의 파일이다.
@@ -129,11 +131,13 @@ export type CurrentPreview = {
   bundle_hash: string;
   operations: readonly OperationDeclaration[];
   commands: readonly CommandDeclaration[];
+  phone_capabilities: readonly string[];
 };
 
 export type PreviewDeclared = {
   operations: readonly OperationDeclaration[];
   commands: readonly CommandDeclaration[];
+  phone_capabilities: readonly string[];
 };
 
 function notFound(): Result<never> {
@@ -257,7 +261,11 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     }
     live.set(app, {
       nonce,
-      declared: { operations: bundle.operations, commands: bundle.commands },
+      declared: {
+        operations: bundle.operations,
+        commands: bundle.commands,
+        phone_capabilities: bundle.phoneCapabilities,
+      },
       bundle_hash: bundleHash,
     });
     deps.changed(app);

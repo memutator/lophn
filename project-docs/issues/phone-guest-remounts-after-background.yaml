@@ -1,0 +1,26 @@
+id: phone-guest-remounts-after-background
+title: 컴퓨터에서 도는 앱의 폰 화면은 폰 앱이 잠시 뒤로 가도 연결이 끊기면 guest가 내려가 화면 상태를 잃는다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile, packages/remote-client]
+now: |
+  `packages/mobile/src/apps/use-app-screen.ts`의 `state`는 컴퓨터 연결이 `connecting`이면 `loading`, 연결이 없으면 `offline`,
+  앱 목록을 다시 읽는 중이면 `loading`, view를 다시 여는 중이면 `loading`을 돌려주고, `screens/apps/body.tsx`는 `running`이 아닌
+  상태에서 `GuestScreen`을 그리지 않고 안내 화면을 그린다. 그러면 guest(runtime)가 unmount로 버려지고 연결이 돌아온 뒤 새 guest가
+  초기 상태로 뜬다.
+  폰 앱이 뒤로 가면 `data/hooks.tsx`가 연결을 `pause()`하고, 돌아오면 `resume()`이 `probe`로 열린 channel이 살았는지 본다
+  (`packages/remote-client/connection.ts`). background 동안 socket이 죽었으면 probe가 실패해 연결 상태가 `stale`(화면에서는
+  offline)이 되고 다시 연결된다. 에뮬레이터에서 화면의 단추를 눌러 상태를 만든 뒤 HOME, 약 10초 뒤 다시 열었더니 초기 상태였다.
+  6초쯤 걸린 Chrome 왕복(`link.open`)에서는 상태가 남았고 전화 앱 왕복(`tel:`)에서는 잃었다. 위 경로는 코드를 읽어 찾은 원인이고
+  기기에서 연결 상태를 따로 찍어 본 것은 아니다. 폰 기능 길을 만들기 전부터 그랬다. 폰에서 도는 앱(`use-local-screen.ts`)의 상태는
+  연결과 무관하게 설치 기록에서 오므로 영향이 없다.
+impact: |
+  컴퓨터에서 도는 앱의 폰 화면을 쓰다가 전화나 브라우저, 공유로 잠시 나갔다 오면 입력 중이던 글과 열어 둔 화면이 사라진다. 단계 2의
+  카메라나 고르기는 다른 activity에서 결과를 돌려주므로 그동안 폰 앱이 뒤에 있고, 결과가 와야 할 guest가 이미 내려가 있을 수 있다.
+fix: |
+  - 작음: 없다. 연결이 끊긴 동안 guest를 그대로 두려면 화면 상태 기계(`offline`, `loading`을 guest 위에 얹는 안내로 바꾸고 guest의
+    `call`이 연결 없이 `unavailable`을 돌려주게 하며 view를 다시 열 때 같은 guest를 유지)를 고쳐야 한다.
+  - 중간(추천): `useAppScreen`이 한 번 `running`이 된 guest는 연결 상태와 목록 읽기 상태가 바뀌어도 내리지 않고(release가 바뀌거나 사람이
+    Try again을 누를 때만 새로 띄운다) 연결 끊김과 다시 여는 중은 guest 위의 줄로 알린다. view가 `lost`면 그때 내린다.
+  - 큼: 폰 앱이 뒤로 가도 연결을 유지한다(background 연결은 이 일의 범위 밖).

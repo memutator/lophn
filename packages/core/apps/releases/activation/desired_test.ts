@@ -12,6 +12,7 @@ test("bundle의 필수 handler와 등록해도 되는 구독 handler(on.<source>
       operations: [{ name: "page", title: "Page", effect: "read" }],
       commands: [],
       subscriptions: [{ source: "masup", event: "usage.limit" }],
+      phoneCapabilities: [],
       dataSchema: 0,
       runsOnComputer: true,
     },

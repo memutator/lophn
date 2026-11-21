@@ -26,6 +26,7 @@ import {
   type SubscriptionDeclaration,
   validateDeclaration,
 } from "../../declaration/mod.ts";
+import { declaredPhoneCapabilities } from "../../phone/capabilities.ts";
 import type { PreviewBundle, PreviewBundles } from "../../preview/mod.ts";
 import type { DesiredApp } from "../../runtime/mod.ts";
 import {
@@ -43,6 +44,8 @@ type BundleParts = {
   commands: CommandDeclaration[];
   // 구독 handler(`on.<source>.<event>`)도 선언한 handler 이름이라 빠지면 준비 때 "handler not declared"로 거절된다.
   subscriptions: SubscriptionDeclaration[];
+  // 선언이 `phone.use`로 선언한 폰 기능(preview가 쓸 수 있는 기능).
+  phoneCapabilities: string[];
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
   // 선언 `runs_on`에 computer가 있다(없으면 `["computer"]`). 폰에서만 도는 앱은 컴퓨터에 process도 DB도 없다.
@@ -168,6 +171,7 @@ export async function readBundleCopy(
     operations: declaration.value.operations,
     commands: declaration.value.commands,
     subscriptions: declaration.value.subscriptions ?? [],
+    phoneCapabilities: declaredPhoneCapabilities(declaration.value.permissions),
     dataSchema: dataSchemaOf(manifest),
     runsOnComputer: (declaration.value.runs_on ?? ["computer"]).includes(
       "computer",
@@ -219,6 +223,7 @@ export function createCopyPreviewBundles(options: {
         operations: parts.operations,
         commands: parts.commands,
         subscriptions: parts.subscriptions,
+        phoneCapabilities: parts.phoneCapabilities,
         dataSchema: parts.dataSchema,
         async fixture(path) {
           const file = parts.manifest.files.find(

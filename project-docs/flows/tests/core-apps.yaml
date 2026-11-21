@@ -263,9 +263,13 @@ files:
     covers: [app-phone-file-read:served, app-phone-file-read:not-found]
     note: "backend.json이 적은 file(backend.js, backend.json, migration)만 내주고, `..`·backend.js.map·적지 않은 migration·다른 화면 file·node_modules·활성이 아닌 release는 not_found"
 
+  - path: packages/core/apps/phone-request/handler_test.ts
+    covers: [phone-request:invalid-input, phone-request:ok]
+    note: "화면 전용 기능(haptics.play, clipboard.read, code.scan)은 기준 폰에 묻지 않고 invalid_input. backend가 쓰는 기능(network.get)만 폰에 묻는다"
+
   - path: packages/core/apps/phone/screens_test.ts
     covers: [app-phone-screens-list:listed]
-    note: "runs_on에 phone이 있는 앱은 backend manifest를 싣고 읽지 못하면 그 앱을 빼며 log를 남김. 보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄. previews는 ready인 preview(release 없는 것 포함)의 phone 화면만 싣고 보관한 앱, preview가 없는 앱, phone 화면이 없는 preview, preview bundle 밖을 가리키는 manifest는 싣지 않음"
+    note: "runs_on에 phone이 있는 앱은 backend manifest를 싣고 읽지 못하면 그 앱을 빼며 log를 남김. 보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄. phone_capabilities는 선언했고 active grant가 있는 기능뿐이고 거둔 grant는 빠짐. previews는 ready인 preview(release 없는 것 포함)의 phone 화면만 싣고 보관한 앱, preview가 없는 앱, phone 화면이 없는 preview, preview bundle 밖을 가리키는 manifest는 싣지 않음"
 
   - path: packages/core/apps/phone/changed_test.ts
     covers: [phone-changed-notice:noticed, phone-changed-notice:not-noticed]

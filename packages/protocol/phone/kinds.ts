@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { atSchema } from "../base/values.ts";
+import type { PhoneCapability } from "../apps/phone-request.ts";
+import {
+  type BackendCapability,
+  capabilityFrom,
+  PHONE_CAPABILITY_TABLE,
+  type PhoneCapabilityTable,
+} from "./capabilities.ts";
 import {
   driveActInputSchema,
   driveActOutputSchema,
@@ -11,30 +17,27 @@ import {
   driveWaitOutputSchema,
 } from "./drive.ts";
 
-// 폰이 답하는 kind의 목록. kind를 더하면 여기 한 항목이다(frame은 바뀌지 않는다). `deadline_ms`는 core가 request에 싣는 값이다.
+// 폰이 답하는 kind의 목록이다. 앱 기능 가운데 backend가 부를 수 있는 것(`capabilities.ts`의 `from`에 `backend`가 든
+// 항목, schema를 다시 적지 않는다)과 preview 화면을 다루는 `drive.*`(`drive.ts`)다. kind를 더하면 frame은 바뀌지 않는다.
+// `deadline_ms`는 core가 request에 싣는 값이다. `drive.wait`의 deadline은 core가 `timeout_ms + 5_000`으로 싣는다.
+type BackendKind = {
+  [K in BackendCapability]: Pick<
+    PhoneCapabilityTable[K],
+    "input" | "output" | "deadline_ms"
+  >;
+};
 
-// accuracy 기본은 balanced, max_age_ms 기본은 0(캐시 없이 새로 잰다). 기본은 폰이 적용한다.
-export const locationGetInputSchema = z.strictObject({
-  accuracy: z.enum(["low", "balanced", "high"]).optional(),
-  max_age_ms: z.number().int().min(0).max(300_000).optional(),
-});
-export type LocationGetInput = z.infer<typeof locationGetInputSchema>;
-
-export const locationSchema = z.strictObject({
-  lat: z.number().min(-90).max(90),
-  lon: z.number().min(-180).max(180),
-  accuracy_m: z.number().min(0),
-  at: atSchema,
-});
-export type Location = z.infer<typeof locationSchema>;
+const backendKinds = Object.fromEntries(
+  Object.entries(PHONE_CAPABILITY_TABLE)
+    .filter(([name]) => capabilityFrom(name as PhoneCapability, "backend"))
+    .map(([name, { input, output, deadline_ms }]) => [
+      name,
+      { input, output, deadline_ms },
+    ]),
+) as BackendKind;
 
 export const PHONE_KINDS = {
-  "location.get": {
-    input: locationGetInputSchema,
-    output: locationSchema,
-    deadline_ms: 20_000,
-  },
-  // preview 화면을 다루는 kind다(`drive.ts`). `drive.wait`의 deadline은 core가 `timeout_ms + 5_000`으로 싣는다.
+  ...backendKinds,
   "drive.snapshot": {
     input: driveSnapshotInputSchema,
     output: driveSnapshotOutputSchema,
@@ -83,7 +86,7 @@ export type PhoneUnavailableReason = z.infer<
   typeof phoneUnavailableReasonSchema
 >;
 
-// 거절은 `forbidden`이다.
-// - 폰이 OS 권한을 거절당했을 때: `details.reason: "os_permission_denied"`
+// 거절은 `forbidden`이다. 화면 길(`apps/phone-screen.ts`의 `reply` 오류)도 같은 `reason`과 grant 거절 모양을 쓴다.
+// - 폰이 OS 권한(위치, 카메라)을 거절당했을 때: `details.reason: "os_permission_denied"`
 // - core가 grant 없음으로 거절할 때: `details: {permission: "phone.use", scope: {capability}}`(폰에는 묻지 않는다)
 export const PHONE_OS_PERMISSION_DENIED = "os_permission_denied";

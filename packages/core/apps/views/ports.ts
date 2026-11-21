@@ -38,6 +38,16 @@ export interface AppViewsPorts {
   >;
   /** 그 앱의 release 선언. 없는 release·다른 앱의 release는 null. */
   release(app: string, release: string): Result<ReleaseView | null>;
+  /**
+   * 그 view가 폰에서 쓸 수 있는 기능. live는 그 release의 선언 ∩ active grant, preview는 그 preview의 선언이 선언한 것이다
+   * (`apps/phone_screens`와 같은 계산).
+   */
+  phoneCapabilities(
+    app: string,
+    target:
+      | { mode: "live"; release: string }
+      | { mode: "preview"; process_nonce: string },
+  ): Promise<Result<string[]>>;
   lookup: Pick<AppToolLookup, "find" | "findPreview">;
   path: AppToolCallPath;
   /** 그 앱의 log에 줄 하나를 쓴다. 쓰지 못해도 호출 결과는 그대로다. */

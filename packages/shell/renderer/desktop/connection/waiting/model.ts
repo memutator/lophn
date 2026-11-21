@@ -4,6 +4,7 @@ import { formatRelativeTime, t } from "@lophn/i18n";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import type { PhoneCapability } from "../../../../../protocol/apps/phone-request.ts";
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
 import type { JobAction } from "../../../../../protocol/jobs/values.ts";
 import {
@@ -126,6 +127,25 @@ const DECLARED_LABELS = {
   "fs.read": "waiting.label.declared-file-read",
   "fs.write": "waiting.label.declared-file-write",
 } as const;
+
+// 폰 기능마다 사람이 읽는 한 문장이다. 기능을 더하면 여기도 한 줄이다(없으면 type 오류).
+const PHONE_CAPABILITY_LABELS = {
+  "location.get": "waiting.label.declared-phone-location",
+  "network.get": "waiting.label.declared-phone-network",
+  "haptics.play": "waiting.label.declared-phone-haptics",
+  "clipboard.read": "waiting.label.declared-phone-clipboard-read",
+  "clipboard.write": "waiting.label.declared-phone-clipboard-write",
+  "code.scan": "waiting.label.declared-phone-code-scan",
+  "link.open": "waiting.label.declared-phone-link-open",
+  "share.text": "waiting.label.declared-phone-share-text",
+} as const satisfies Record<PhoneCapability, string>;
+
+/** 폰 기능 grant의 이름. 동의 카드의 줄과 앱 상세가 같은 문장을 쓴다. 모르는 capability는 이름 그대로다. */
+export function phoneCapabilityText(capability: string): string {
+  return Object.hasOwn(PHONE_CAPABILITY_LABELS, capability)
+    ? t(PHONE_CAPABILITY_LABELS[capability as PhoneCapability])
+    : capability;
+}
 
 const LOSS_LABELS = {
   drop_table: "waiting.label.loss-drop-table",
@@ -269,10 +289,7 @@ function declaredLines(resources: readonly string[]): Line[] {
       const capability = resource.slice(at + 1);
       return {
         label: t("waiting.label.declared-phone"),
-        value:
-          capability === "location.get"
-            ? t("waiting.label.declared-phone-location")
-            : capability,
+        value: phoneCapabilityText(capability),
       };
     }
     if (kind in DECLARED_LABELS) {

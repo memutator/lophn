@@ -3,12 +3,18 @@
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";
+import {
+  capabilityFrom,
+  isPhoneCapability,
+  PHONE_CAPABILITY_TABLE,
+} from "../../protocol/phone/capabilities.ts";
 import type {
   AppPlace,
   AppPlaceWorkspace,
   Json,
   LophnApp,
   LophnAppCommands,
+  LophnAppPhone,
 } from "../../protocol/shell/app-bridge-types.ts";
 import {
   APP_KEYS_CHANNEL,
@@ -246,6 +252,46 @@ export function createAppKeys(
   return { commands, handle };
 }
 
+// main이 연 주소의 query `phone`(core가 이 view에 준 목록)에서 읽는다. 틀리거나 없으면 빈 목록이다.
+export function phoneCapabilitiesOf(query: string): string[] {
+  const text = new URLSearchParams(query).get("phone");
+  if (text === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) &&
+      parsed.every((name) => typeof name === "string")
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+// 폰 화면의 desktop preview에서 폰 기능은 늘 stand-in이다: IPC 없이 표의 값을 돌려준다. core가 이 view에 준 목록(preview 선언이
+// `phone.use`로 선언한 기능) 밖의 기능은 폰의 preview와 live처럼 `forbidden`이다.
+function standInPhone(capabilities: readonly string[]): LophnAppPhone {
+  return Object.freeze({
+    capabilities,
+    standIn: true,
+    async request(capability: string): Promise<unknown> {
+      if (
+        !isPhoneCapability(capability) ||
+        !capabilityFrom(capability, "screen")
+      ) {
+        throw new Error(
+          `invalid_input: ${capability} is not a phone capability`,
+        );
+      }
+      if (!capabilities.includes(capability)) {
+        throw new Error(
+          `forbidden: phone.use ${JSON.stringify({ capability })} is not permitted`,
+        );
+      }
+      return PHONE_CAPABILITY_TABLE[capability].stand_in;
+    },
+  });
+}
+
 export function createAppTool(
   transport: AppTransport,
   query: string,
@@ -299,8 +345,12 @@ export function createAppTool(
       ): void;
     }
   ).addEventListener?.("keydown", keys.handle, true);
+  const place = placeOf(query);
   return Object.freeze({
-    place: Object.freeze(placeOf(query)),
+    place: Object.freeze(place),
+    ...(place.place === "phone"
+      ? { phone: standInPhone(phoneCapabilitiesOf(query)) }
+      : {}),
     commands: Object.freeze(keys.commands),
     callOperation: (operation: string, input: unknown) =>
       request(transport, APP_CALL_OPERATION_CHANNEL, { operation, input }),

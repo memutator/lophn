@@ -11,6 +11,10 @@ import { DECLARATION_COPY_NAME } from "../releases/mod.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import type { ScreenFileDeps } from "../screens/mod.ts";
 import { serveFileUnder } from "../screens/mod.ts";
+import {
+  declaredPhoneCapabilities,
+  usablePhoneCapabilities,
+} from "./capabilities.ts";
 import { readBackendManifest } from "./files.ts";
 
 type PhoneScreensOutput = ReturnType<typeof appPhoneScreens.output.parse>;
@@ -129,6 +133,8 @@ async function readPreview(
     release: preview.release as never,
     bundle_hash: preview.bundle_hash as never,
     process_nonce: preview.process_nonce as never,
+    // preview에는 grant가 없다. 선언한 기능이 그 preview에서 쓸 수 있는 기능이다.
+    phone_capabilities: declaredPhoneCapabilities(declaration.permissions),
     screens,
   };
 }
@@ -149,9 +155,12 @@ export async function readPhoneScreens(
     const active = loadActiveDeclaration(sql, app.id);
     if (!active.ok) return active;
     if (active.value === null) continue;
-    const { release, declaration } = active.value;
+    const { release, declaration, facts } = active.value;
     const phone = declaration.screens.filter(isPhoneScreen);
     if (phone.length === 0) continue;
+    // 지금 쓸 수 있는 범위(선언 ∩ active grant)는 broker와 같은 계산이다.
+    const phoneCapabilities = usablePhoneCapabilities(sql, app.id, facts);
+    if (!phoneCapabilities.ok) return phoneCapabilities;
     const runsOn = declaration.runs_on ?? ["computer"];
     // 폰에서 도는 앱의 backend manifest를 읽지 못하면 그 앱은 폰에 보낼 수 없다.
     const backend = runsOn.includes("phone")
@@ -182,6 +191,7 @@ export async function readPhoneScreens(
         manifest,
         runs_on: runsOn,
         backend,
+        phone_capabilities: phoneCapabilities.value,
         running,
       });
     }

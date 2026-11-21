@@ -253,6 +253,7 @@ export default function Lab() {
                 scheme={scheme}
                 locale="en"
                 call={(operation, input) => call(operation, input, slot)}
+                phone={{ granted: [], standIn: true }}
                 subscribe={(listener) => {
                   listeners.current.add(listener);
                   return () => listeners.current.delete(listener);

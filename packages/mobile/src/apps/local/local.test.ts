@@ -180,6 +180,7 @@ async function fakeComputer(
       screen: "home",
       label: "Home",
       release: release.id,
+      phone_capabilities: [],
       code_commit: commitOf(release),
       bundle_hash: release.bundle_hash ?? sha(screen),
       manifest: {
@@ -692,6 +693,30 @@ test("legacy <computer>/<app> folders migrate seamlessly into <app> preserving l
     "new_c1:after migrate",
     "old:already on phone",
   ]);
+});
+
+// An app that lives only on the phone keeps its data and opens after an update of the phone app: a record written before
+// screens carried `phone_capabilities` loads (with none), and a later list of the same release carries the grants in.
+test("an install record written before phone capabilities loads, and a list of the same release updates its capabilities", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-local-caps-"));
+  dirs.push(dir);
+  const files = nodeFiles(join(dir, "apps"));
+  const deps: LocalDeps = { files, open: openDb, now: Date.now };
+  const rel1: Release = { id: "rel_1", data_schema: 1, migrations: [{ from: 0, to: 1, sql: ITEM }] };
+  const c1 = await fakeComputer(dir, rel1, ["phone"], "c1");
+  const installed = await install({ deps, remote: c1.remote, computer: "c1", node: "dev_phone" }, [c1.entry(rel1)]);
+  assert.ok(installed.ok);
+  const old = JSON.parse(JSON.stringify(installed.value));
+  for (const screen of old.screens) delete screen.phone_capabilities;
+  files.write(paths(APP).installed, JSON.stringify(old));
+  assert.deepEqual(readInstalled(files, APP)?.screens.map((s) => s.phone_capabilities), [[]]);
+  assert.equal(files.exists(paths(APP).db), true);
+
+  const store = createLocalApps({ ...deps, node: async () => "dev_phone" });
+  store.list("c1", [{ ...c1.entry(rel1), phone_capabilities: ["network.get"] }], () => {});
+  assert.deepEqual(store.installed(APP)?.screens.map((s) => s.phone_capabilities), [["network.get"]]);
+  store.list("c1", [c1.entry(rel1)], () => {});
+  assert.deepEqual(store.installed(APP)?.screens.map((s) => s.phone_capabilities), [[]]);
 });
 
 // The computer's first logged change, as pull hands it over (the install's snapshot was taken before it).

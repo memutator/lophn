@@ -150,6 +150,7 @@ function entryUrl(label: string, entry: Entry, mount: number): string {
     place,
     params,
     workspace,
+    ...(place === "phone" ? { phone: entry.binding.phoneCapabilities } : {}),
   })}&mount=${mount}`;
 }
 

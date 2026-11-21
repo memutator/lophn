@@ -104,6 +104,7 @@ test("local 호출 하나는 transaction 하나다: write와 outbox 줄은 같�
     place: { place: "phone", params: {}, workspace: null },
     scheme: "light",
     locale: "en",
+    phone: { capabilities: [], stand_in: false },
     local: {
       app: "app_items",
       release: "rel_1",

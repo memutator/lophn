@@ -48,7 +48,10 @@ import {
   useCoreRead,
   useFollowedRead,
 } from "../../desktop/connection/core-read.ts";
-import { shortId } from "../../desktop/connection/waiting/model.ts";
+import {
+  phoneCapabilityText,
+  shortId,
+} from "../../desktop/connection/waiting/model.ts";
 import {
   iconViewOf,
   type IconView,
@@ -77,7 +80,6 @@ import type {
   UnresolvedSubscription,
   VersionView,
 } from "./source.ts";
-import { phoneCapabilityText } from "./model.ts";
 
 const RELEASE_LIMIT = 200;
 const GRANT_LIMIT = 200;

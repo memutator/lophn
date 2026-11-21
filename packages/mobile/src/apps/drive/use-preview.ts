@@ -177,6 +177,8 @@ export function usePreview({
       file: bundle.got.file,
       call: link.call,
       subscribe: link.subscribe,
+      // A preview never reaches the phone: what its declaration declares answers with stand-in values, the rest is forbidden.
+      phone: { granted: preview?.phone_capabilities ?? [], standIn: true },
       onState: (next) => setGuest({ key: guestKey, state: next }),
     };
   })();

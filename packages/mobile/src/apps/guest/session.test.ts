@@ -6,8 +6,10 @@ import {
   type PhoneHostMessage,
 } from "../../../../protocol/apps/phone-screen.ts";
 import type { JsonValue } from "../../../../protocol/base/json-values.ts";
+import { ok } from "../../../../base/mod.ts";
 import { createUpdateCoalescer } from "./coalesce.ts";
 import { GUEST_BLOCKED_VIEWS, GUEST_MODULES, guestReactNative } from "./modules.ts";
+import { createPhoneHost } from "./phone-host.ts";
 import { createGuestSession, type GuestState } from "./session.ts";
 
 const init = {
@@ -28,6 +30,7 @@ function setup() {
       sent.push({ view: "view-1", operation, input });
       return { ok: true, value: operation };
     },
+    phone: noPhone(),
     post: (message) => posted.push(message),
     onState: (state) => states.push(state),
     onLocalChange: () => {},
@@ -35,6 +38,18 @@ function setup() {
   });
   return { session, posted, states, sent };
 }
+
+// A phone host that grants nothing and has no handler (a guest that never asks the phone).
+const noPhone = () =>
+  createPhoneHost({
+    granted: () => [],
+    standIn: false,
+    isActive: () => true,
+    handlers: {},
+    ctx: {} as never,
+    wait: () => () => {},
+    dismiss: () => {},
+  });
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -68,9 +83,10 @@ test("guest 메시지가 내세우는 앱·release·view는 신원이 아니고,
   await settle();
   assert.deepEqual(states, ["running"]);
   assert.deepEqual(sent, [{ view: "view-1", operation: "tasks.add", input: { title: "a" } }]);
+  const initMessage = { type: "init", ...init, phone: { capabilities: [], stand_in: false } };
   assert.deepEqual(posted, [
-    { type: "init", ...init },
-    { type: "init", ...init },
+    initMessage,
+    initMessage,
     { type: "reply", id: 7, outcome: { ok: true, value: "tasks.add" } },
   ]);
 
@@ -169,6 +185,7 @@ test("closing a guest session drops late replies from in-flight calls and ignore
       new Promise((resolve) => {
         resolveCall = resolve;
       }),
+    phone: noPhone(),
     post: (message) => posted.push(message),
     onState: () => {},
     onLocalChange: () => {},
@@ -184,4 +201,156 @@ test("closing a guest session drops late replies from in-flight calls and ignore
   session.appearance("dark");
   await settle();
   assert.equal(posted.length, 1);
+});
+
+// The phone host's identity is its own view and app, and the grant list is the computer's: a guest cannot talk its way to a
+// capability the app was not given, and a request the host refuses never reaches the phone.
+test("a phone request for a capability the app is not granted is forbidden and its handler never runs; nothing in the message names another app or adds a grant", async () => {
+  const ran: string[] = [];
+  const handler = (name: string, value: unknown) => async () => {
+    ran.push(name);
+    return ok(value);
+  };
+  const posted: PhoneHostMessage[] = [];
+  const session = createGuestSession({
+    init,
+    call: async () => ({ ok: true, value: null }),
+    phone: createPhoneHost({
+      granted: () => ["network.get"],
+      standIn: false,
+      isActive: () => true,
+      handlers: {
+        "network.get": handler("network.get", { online: true, type: "wifi" }),
+        "clipboard.read": handler("clipboard.read", { text: "secret" }),
+      } as never,
+      ctx: {} as never,
+      wait: () => () => {},
+      dismiss: () => {},
+    }),
+    post: (message) => posted.push(message),
+    onState: () => {},
+    onLocalChange: () => {},
+    log: () => {},
+  });
+  session.receive(JSON.stringify({ type: "ready" }));
+  const phone = (id: number, capability: string, extra: object = {}) =>
+    session.receive(JSON.stringify({ type: "phone", id, capability, input: {}, ...extra }));
+
+  phone(1, "clipboard.read");
+  // a message that names an app or carries a grant is not a message
+  phone(2, "clipboard.read", { app: "other" });
+  phone(3, "clipboard.read", { granted: ["clipboard.read"] });
+  phone(4, "clipboard.read", { grant: { capability: "clipboard.read" } });
+  phone(5, "network.get");
+  phone(6, "camera.take");
+  await settle();
+
+  assert.deepEqual(ran, ["network.get"]);
+  assert.deepEqual(posted.slice(1), [
+    {
+      type: "reply",
+      id: 1,
+      outcome: {
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: 'phone.use {"capability":"clipboard.read"} is not permitted',
+          permission: "phone.use",
+          scope: { capability: "clipboard.read" },
+        },
+      },
+    },
+    {
+      type: "reply",
+      id: 6,
+      outcome: { ok: false, error: { code: "invalid_input", message: "camera.take is not a phone capability" } },
+    },
+    { type: "reply", id: 5, outcome: { ok: true, value: { online: true, type: "wifi" } } },
+  ]);
+});
+
+// A preview has no grants; what the previewed declaration declares is usable (with stand-in values) and the rest fails as it
+// will live, so the app agent catches a capability it forgot to declare.
+test("in stand-in mode a declared capability answers its stand-in value and an undeclared one is forbidden, and no handler runs", async () => {
+  const ran: string[] = [];
+  const posted: PhoneHostMessage[] = [];
+  const handler = (name: string) => async () => {
+    ran.push(name);
+    return ok({});
+  };
+  const session = createGuestSession({
+    init,
+    call: async () => ({ ok: true, value: null }),
+    phone: createPhoneHost({
+      granted: () => ["network.get", "code.scan"],
+      standIn: true,
+      // a preview is usable with the phone app in the background too
+      isActive: () => false,
+      handlers: { "network.get": handler("network.get"), "code.scan": handler("code.scan") } as never,
+      ctx: {} as never,
+      wait: () => () => {},
+      dismiss: () => {},
+    }),
+    post: (message) => posted.push(message),
+    onState: () => {},
+    onLocalChange: () => {},
+    log: () => {},
+  });
+  session.receive(JSON.stringify({ type: "ready" }));
+  for (const [id, capability] of [[1, "network.get"], [2, "code.scan"], [3, "haptics.play"]] as const) {
+    session.receive(JSON.stringify({ type: "phone", id, capability, input: {} }));
+  }
+  await settle();
+
+  assert.deepEqual(ran, []);
+  const init0 = posted[0];
+  assert.ok(init0?.type === "init" && init0.phone.stand_in);
+  assert.deepEqual(init0.phone.capabilities, ["network.get", "code.scan"]);
+  const [one, two, three] = posted.slice(1).map((message) => message.type === "reply" && message.outcome);
+  assert.deepEqual(one, { ok: true, value: { online: true, type: "wifi" } });
+  assert.deepEqual(two, { ok: true, value: { cancelled: false, format: "qr", text: "https://example.com" } });
+  assert.ok(three && !three.ok && three.error.code === "forbidden");
+  assert.deepEqual(three.error.scope, { capability: "haptics.play" });
+});
+
+// The phone is read only while lophn is in front (remote.md): a guest timer cannot reach the phone from the background.
+test("a phone request while the phone app is not in front is unavailable (phone_in_background) and no handler runs", async () => {
+  let active = false;
+  const ran: string[] = [];
+  const posted: PhoneHostMessage[] = [];
+  const session = createGuestSession({
+    init,
+    call: async () => ({ ok: true, value: null }),
+    phone: createPhoneHost({
+      granted: () => ["network.get"],
+      standIn: false,
+      isActive: () => active,
+      handlers: {
+        "network.get": async () => {
+          ran.push("network.get");
+          return ok({ online: true, type: "wifi" });
+        },
+      } as never,
+      ctx: {} as never,
+      wait: () => () => {},
+      dismiss: () => {},
+    }),
+    post: (message) => posted.push(message),
+    onState: () => {},
+    onLocalChange: () => {},
+    log: () => {},
+  });
+  session.receive(JSON.stringify({ type: "ready" }));
+  session.receive(JSON.stringify({ type: "phone", id: 1, capability: "network.get", input: {} }));
+  await settle();
+  assert.deepEqual(ran, []);
+  const refused = posted[1];
+  assert.ok(refused?.type === "reply" && !refused.outcome.ok);
+  assert.equal(refused.outcome.error.code, "unavailable");
+  assert.equal(refused.outcome.error.reason, "phone_in_background");
+
+  active = true;
+  session.receive(JSON.stringify({ type: "phone", id: 2, capability: "network.get", input: {} }));
+  await settle();
+  assert.deepEqual(ran, ["network.get"]);
 });

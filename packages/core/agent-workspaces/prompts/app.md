@@ -114,10 +114,14 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - When the person should see a value at a glance on their phone home screen,
   declare `widgets` and publish it with `setWidget` (read the skill `design-app`,
   "Widgets", and the `@lophn/cap-notify` guide).
-- When the app needs the person's location from their phone, declare `phone.use`
-  and read the skill `design-app`, "Phone location", and the `@lophn/cap-phone`
-  guide. It answers only while the lophn phone app is in front, so handle
-  `unavailable`.
+- When the app needs the person's phone (location, network state, vibration,
+  clipboard text, a QR or barcode scan, opening a link, the share sheet), declare
+  `phone.use` once per capability and read the skill `design-app`, "Phone
+  features", and the `@lophn/cap-phone` guide. A phone screen can use all of
+  them; the computer's backend only location and network state, and only while
+  the lophn phone app is in front. Handle `forbidden` and `unavailable`, the
+  preview returns stand-in values, and photos, files, camera capture and
+  background work do not exist.
 - When the app must tell other apps that something happened (one fact, many
   listeners), declare `events` (publisher) and `subscriptions` (listener) and read
   the `@lophn/cap-tool` guide. Delivery is once and not stored, so the publisher

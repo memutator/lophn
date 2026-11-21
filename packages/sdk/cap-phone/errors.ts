@@ -16,7 +16,7 @@ export type CapabilityErrorInit = {
   permission?: string;
   scope?: Record<string, unknown>;
   // 폰이 낸 이유다. unavailable이면 no_phone·phone_unreachable·unsupported·phone_in_background·
-  // location_off·timeout 가운데 하나이고, forbidden이면 폰이 OS 위치 권한을 거절한 os_permission_denied다.
+  // location_off·timeout 가운데 하나이고, forbidden이면 폰이 OS 권한(위치, 카메라)을 거절한 os_permission_denied다.
   reason?: string;
 };
 

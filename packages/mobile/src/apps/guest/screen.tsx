@@ -2,10 +2,15 @@ import SandboxReactNativeView, {
   type SandboxReactNativeViewRef,
 } from "@callstack/react-native-sandbox";
 import { useEffect, useRef, useState } from "react";
+import { AppState, View } from "react-native";
 import type { PhoneLocal, PhonePlace } from "../../../../protocol/apps/phone-screen.ts";
+import { CAPABILITY_HANDLERS } from "../../link/capabilities.ts";
+import { cameraPermission, phonePorts } from "../../link/native.ts";
 import { APP_DB_SUBSTITUTION, type GuestAppDbProp, useAppDbBinding } from "./app-db.ts";
 import { basePath, fileExists, wrapBackend } from "./files.ts";
 import { GUEST_MODULES } from "./modules.ts";
+import { createPhoneHost } from "./phone-host.ts";
+import { createScanner, ScannerOverlay } from "./scanner.tsx";
 import {
   type AppEvent,
   createGuestSession,
@@ -26,6 +31,10 @@ export interface GuestScreenProps {
   locale: string;
   // Calls the screen's app operation for this view.
   call: GuestCall;
+  // Which phone capabilities this view may use. `granted` is the app's list (live: its release's declaration and the
+  // person's grants, from the computer or the install record; preview: what the previewed declaration declares),
+  // `standIn` a preview view, which never reaches the phone.
+  phone: { granted: readonly string[]; standIn: boolean };
   // App events for this view.
   subscribe: (listener: (event: AppEvent) => void) => () => void;
   onState: (state: GuestState) => void;
@@ -45,7 +54,8 @@ export interface GuestScreenProps {
 
 // One user app phone screen in its own React Native runtime. It starts on mount and is destroyed on unmount (no idle
 // keep-alive); to run it again, or to run a new screen file, remount it with a new `key`. Draw nothing on top of it:
-// the sandbox sends a touch to the host instead of the guest when another view covers it.
+// the sandbox sends a touch to the host instead of the guest when another view covers it. The one thing drawn over it
+// is the scanner of `code.scan`, while a scan is open.
 export function GuestScreen(props: GuestScreenProps) {
   const latest = useRef(props);
   latest.current = props;
@@ -79,6 +89,7 @@ export function GuestScreen(props: GuestScreenProps) {
       startTimer.current = null;
     }
   };
+  const [scanner] = useState(createScanner);
   const [session] = useState(() =>
     createGuestSession({
       init: {
@@ -88,6 +99,19 @@ export function GuestScreen(props: GuestScreenProps) {
         local: props.local ?? null,
       },
       call: (operation, input) => latest.current.call(operation, input),
+      phone: createPhoneHost({
+        granted: () => latest.current.phone.granted,
+        standIn: props.phone.standIn,
+        // The notion the link entrance uses: the connection pauses when the app state is not "active".
+        isActive: () => AppState.currentState === "active",
+        handlers: CAPABILITY_HANDLERS,
+        ctx: { ...phonePorts, scanner: { permission: cameraPermission, scan: scanner.scan } },
+        wait: (ms, fn) => {
+          const timer = setTimeout(fn, ms);
+          return () => clearTimeout(timer);
+        },
+        dismiss: scanner.close,
+      }),
       post: (message) => ref.current?.postMessage(message),
       onState: (state) => {
         if (state !== "starting") clearStartTimer();
@@ -126,16 +150,19 @@ export function GuestScreen(props: GuestScreenProps) {
 
   if (!present || !dbReady) return null;
   return (
-    <SandboxReactNativeView
-      ref={ref}
-      origin={origin}
-      componentName="Screen"
-      jsBundleSource={scripts.join("|")}
-      allowedTurboModules={GUEST_MODULES}
-      turboModuleSubstitutions={props.appDb ? APP_DB_SUBSTITUTION : undefined}
-      onMessage={session.receive}
-      onError={session.error}
-      style={{ flex: 1 }}
-    />
+    <View style={{ flex: 1 }}>
+      <SandboxReactNativeView
+        ref={ref}
+        origin={origin}
+        componentName="Screen"
+        jsBundleSource={scripts.join("|")}
+        allowedTurboModules={GUEST_MODULES}
+        turboModuleSubstitutions={props.appDb ? APP_DB_SUBSTITUTION : undefined}
+        onMessage={session.receive}
+        onError={session.error}
+        style={{ flex: 1 }}
+      />
+      <ScannerOverlay scanner={scanner} />
+    </View>
   );
 }

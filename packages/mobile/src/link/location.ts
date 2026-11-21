@@ -1,9 +1,7 @@
 import { err, ok } from "../../../base/mod.ts";
-import {
-  type LocationGetInput,
-  PHONE_OS_PERMISSION_DENIED,
-} from "../../../protocol/phone/kinds.ts";
-import type { PhoneHandler } from "./answer.ts";
+import type { LocationGetInput } from "../../../protocol/phone/capabilities.ts";
+import { PHONE_OS_PERMISSION_DENIED } from "../../../protocol/phone/kinds.ts";
+import type { CapabilityHandler } from "./capabilities.ts";
 
 export type LocationFix = {
   lat: number;
@@ -21,7 +19,9 @@ export type LocationPort = {
   current(accuracy: NonNullable<LocationGetInput["accuracy"]>): Promise<LocationFix>;
 };
 
-export const locationGet: PhoneHandler<"location.get"> = async (
+const SETTINGS_DECLINED = "ERR_LOCATION_SETTINGS_UNSATISFIED";
+
+export const locationGet: CapabilityHandler<"location.get"> = async (
   input,
   { location },
 ) => {
@@ -39,10 +39,25 @@ export const locationGet: PhoneHandler<"location.get"> = async (
       details: { reason: "location_off" },
     });
   }
-  const cached = input.max_age_ms
-    ? await location.lastKnown(input.max_age_ms)
-    : null;
-  const fix = cached ?? (await location.current(input.accuracy ?? "balanced"));
+  let fix: LocationFix;
+  try {
+    const cached = input.max_age_ms
+      ? await location.lastKnown(input.max_age_ms)
+      : null;
+    fix = cached ?? (await location.current(input.accuracy ?? "balanced"));
+  } catch (thrown) {
+    // Google Play services asks to turn on "Location Accuracy"; declining it makes expo-location reject with this code.
+    // expo-modules-core infers a Kotlin exception's code from its class name (`LocationSettingsUnsatisfiedException`), so
+    // the release build keeps those classes' names and keeps R8 from merging them (`extraProguardRules` in app.json).
+    if ((thrown as { code?: unknown } | null)?.code === SETTINGS_DECLINED) {
+      return err({
+        code: "unavailable",
+        message: "location_off",
+        details: { reason: "location_off" },
+      });
+    }
+    throw thrown;
+  }
   return ok({
     lat: fix.lat,
     lon: fix.lon,

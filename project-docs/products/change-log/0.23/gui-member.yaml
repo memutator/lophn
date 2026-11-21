@@ -1,5 +1,5 @@
 id: gui-member
-version: 0.23.115
+version: 0.23.118
 title: "project의 coding agent GUI 탭이 lophn 팀원이 되어 call을 받고 자기 이름으로 부른다"
 modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/terminal-agents, packages/core/extensions, packages/core/lophn-agent, packages/core/router, packages/core/events, packages/core/main]
 checked: []

@@ -1,7 +1,7 @@
 // 다른 기계가 `computers` 폴더 길로 보낸 mail을 이 기계의 mail 입구에 넘기고, 그 기계가 받았다고 알린 이 기계의 mail을 받은 것으로
 // 적는다. 읽는 곳은 `computers` 폴더뿐이고(사람의 폴더나 이름 붙인 폴더는 읽지 않는다), 그 안에서도 받는 자리가 지금 명단의 key로
 // 검증한 manifest가 그 크기·sha256으로 싣는 file만 읽는다. 다른 기계의 글이라 크기를 먼저 보고 mail schema로 읽고, 틀린 file은
-// log 한 줄(본문은 적지 않는다)로 넘긴다. 이 기계 자신의 하위 폴더는 mail의 출처가 아니다.
+// log 한 줄(본문은 적지 않는다, file마다 core가 뜬 동안 한 번)로 넘긴다. 이 기계 자신의 하위 폴더는 mail의 출처가 아니다.
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Result } from "../../../base/mod.ts";
@@ -28,8 +28,25 @@ export type MailCarryIn = {
    * 들고 있다(`replica.holds`). 명단에 없거나 key가 바뀐 컴퓨터의 file, 목록 밖에 놓인 file은 false다.
    */
   holds(machine: Id<"mch">, path: string): Promise<boolean>;
+  /** 그 기계의 지금 목록 사슬이 싣는데 아직 여기 없는 file(`replica.wantedOf`). */
+  wanted(machine: Id<"mch">): Promise<{ path: string }[]>;
+  /** 이미 log한 틀린 file의 path. 같은 file은 한 번만 적는다. */
+  logged: Set<string>;
   log(message: string): void;
 };
+
+// 폴더 길로 온 mail 하나를 입구가 timer scan마다 internal·unavailable로 거절한 횟수가 이만큼이면 그 mail을 버린다(link drain의
+// `INTERNAL_GIVE_UP`과 같다).
+export const MAIL_FOLDER_GIVE_UP = 5;
+
+/** 기계마다 줄 맨 앞 mail과 그 mail을 timer scan에서 입구가 거절한 횟수. 메모리에만 둔다(core가 다시 뜨면 0). */
+export type MailFailures = Map<Id<"mch">, { mail: string; count: number }>;
+
+function logOnce(deps: MailCarryIn, path: string, message: string): void {
+  if (deps.logged.has(path)) return;
+  deps.logged.add(path);
+  deps.log(message);
+}
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -72,14 +89,14 @@ export async function arrivedMail(
       const read = await reader.read(path, MAIL_FILE_MAX_BYTES);
       const mail = read.ok ? parseMail(read.value) : null;
       if (mail === null) {
-        deps.log(`${path} is not a mail file`);
+        logOnce(deps, path, `${path} is not a mail file`);
         continue;
       }
       // 다른 컴퓨터로 가는 mail도 같은 폴더에 있다.
       if (mail.to_machine !== deps.me) continue;
       // 그 폴더의 기계가 쓴 것만.
       if (mail.from.machine !== origin) {
-        deps.log(`${path} is not a mail of that computer`);
+        logOnce(deps, path, `${path} is not a mail of that computer`);
         continue;
       }
       mails.push(mail);
@@ -91,8 +108,11 @@ export async function arrivedMail(
 }
 
 /**
- * 폴더 길로 온 mail 가운데 아직 보지 않은 것을 기계마다 seq 순으로 입구에 넘긴다. 입구가 오류를 내면 그 기계의 나머지는 다음
- * 번에 다시 본다(순서를 지킨다). 넘겨 적용된 수.
+ * 폴더 길로 온 mail 가운데 아직 보지 않은 것을 기계마다 seq 순으로 입구에 넘긴다. 그 기계의 manifest가 싣는 mail file이 하나라도 아직
+ * 여기 없으면 그 기계의 mail은 넘기지 않는다: 앞 mail보다 뒤 mail이 먼저 돌면 답이 call을 끝낸 뒤 온 말이나 call보다 먼저 온 답이
+ * 사라진다. 입구가 오류를 내면 그 기계의 나머지는 다음 번에 다시 본다. 같은 맨 앞 mail을 timer scan(`byTimer`)에서 입구가
+ * internal·unavailable로 `MAIL_FOLDER_GIVE_UP`번 거절하면 그 mail을 거절 길(`refuse`)로 버리고 다음으로 간다: 본 것으로 적히고
+ * call mail이면 보낸 기계에 실패가 간다. reply·cancel·state mail은 버려질 뿐이다(link drain의 규칙과 같다). 넘겨 적용된 수.
  */
 export async function applyArrivedMail(
   deps: MailCarryIn & {
@@ -102,18 +122,46 @@ export async function applyArrivedMail(
       origin: Id<"mch">;
       via: "folder";
     }): Promise<Result<unknown>>;
+    refuse(input: { mail: Mail; origin: Id<"mch"> }): Promise<Result<unknown>>;
+    failures: MailFailures;
+    byTimer: boolean;
   },
 ): Promise<number> {
   let applied = 0;
   for (const [origin, mails] of await arrivedMail(deps)) {
+    const dir = `${mailDir(origin)}/`;
+    const missing = (await deps.wanted(origin)).some(
+      (file) =>
+        file.path.startsWith(dir) &&
+        mailFileId(file.path.slice(dir.length)) !== null,
+    );
+    if (missing) continue;
     for (const mail of mails) {
       if (deps.seen(origin, mail.id as Id<"mal">)) continue;
       const done = await deps.apply({ mail, origin, via: "folder" });
-      if (!done.ok) {
-        deps.log(`mail ${mail.id} from ${origin}: ${done.error.code}`);
+      const head = deps.failures.get(origin);
+      if (done.ok) {
+        if (head?.mail === mail.id) deps.failures.delete(origin);
+        applied += 1;
+        continue;
+      }
+      deps.log(`mail ${mail.id} from ${origin}: ${done.error.code}`);
+      const counted =
+        deps.byTimer &&
+        (done.error.code === "internal" || done.error.code === "unavailable");
+      if (!counted) break;
+      const count = head?.mail === mail.id ? head.count + 1 : 1;
+      if (count < MAIL_FOLDER_GIVE_UP) {
+        deps.failures.set(origin, { mail: mail.id, count });
         break;
       }
-      applied += 1;
+      deps.failures.delete(origin);
+      deps.log(`mail ${mail.id} (${mail.kind}) from ${origin} given up`);
+      const refused = await deps.refuse({ mail, origin });
+      if (!refused.ok) {
+        deps.log(`mail ${mail.id} not refused: ${refused.error.code}`);
+        break;
+      }
     }
   }
   return applied;
@@ -124,7 +172,9 @@ export async function seenArrivedMail(
   deps: MailCarryIn & { seen(origin: Id<"mch">, id: Id<"mal">): boolean },
 ): Promise<Id<"mal">[]> {
   const out: Id<"mal">[] = [];
-  for (const [origin, mails] of await arrivedMail(deps)) {
+  // 틀린 file은 읽기 scan이 적는다.
+  const quiet = { ...deps, logged: new Set<string>(), log: () => undefined };
+  for (const [origin, mails] of await arrivedMail(quiet)) {
     for (const mail of mails) {
       const id = mail.id as Id<"mal">;
       if (deps.seen(origin, id)) out.push(id);
@@ -154,7 +204,7 @@ export async function readMailAcks(
       ? decodeRecord(mailAcksSchema, read.value, MAIL_ACKS_MAX_BYTES)
       : null;
     if (!file?.ok) {
-      deps.log(`${path} is not a mail ack file`);
+      logOnce(deps, path, `${path} is not a mail ack file`);
       continue;
     }
     const ids = new Set<string>(file.value.mails);

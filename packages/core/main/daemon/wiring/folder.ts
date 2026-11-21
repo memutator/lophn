@@ -122,14 +122,19 @@ import { carryRoutes } from "../../../folder/carry-routes.ts";
 import { carryStatusHandler } from "../../../folder/carry-status.ts";
 import { createMirror } from "../../../folder/mirror.ts";
 import { CARRY_STAGING_DIR, createReplica } from "../../../folder/replica.ts";
-import { writeMailFiles } from "../../../folder/export/mail.ts";
+import {
+  MAIL_FILE_AFTER_MS,
+  writeMailFiles,
+} from "../../../folder/export/mail.ts";
 import {
   applyArrivedMail,
   type MailCarryIn,
+  type MailFailures,
   readMailAcks,
   seenArrivedMail,
 } from "../../../folder/import/mail.ts";
 import {
+  callsMailRefuse,
   callsMailSent,
   MAIL_QUEUED_TOPIC,
   mailSeen,
@@ -176,12 +181,15 @@ const alwaysOn = (ctx: WiringContext): AlwaysOn => {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// 다른 기계가 폴더 길로 받았다고 알린 이 기계의 mail을 받은 것으로 적는 core 안 machine 자격.
+// 다른 기계가 폴더 길로 받았다고 알린 이 기계의 mail을 받은 것으로 적고, 폴더 길로 와 늘 실패하는 mail을 버리는 core 안 machine 자격.
 const FOLDER_MAIL_PRINCIPAL = "machine:folder-mail";
 const FOLDER_MAIL_CONTEXT: AuthenticatedContext = {
   principal: FOLDER_MAIL_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [callsMailSent.name], targets: {} },
+  scope: {
+    operations: [callsMailSent.name, callsMailRefuse.name],
+    targets: {},
+  },
   conditions: {},
   credential_ref: FOLDER_MAIL_PRINCIPAL,
 };
@@ -242,6 +250,11 @@ export const folderWiring: WiringFactory = () => {
   // core 시작과 destination이 바뀐 뒤에는 scan이 다른 기계의 기록 사본(horizon)을 먼저 읽고 내보낸다: 사본 없이 내보내면
   // hold 규칙이 다른 기계의 horizon을 몰라 떨어져 있던 변경이 그대로 나간다.
   let exportAfterScan = false;
+  // 다음 scan이 2분 timer가 깨운 것이다. 폴더 길 mail의 버리기 규칙은 이 scan의 실패만 센다(file이 올 때마다 도는 scan은 몇 초
+  // 사이로 몰린다).
+  let timerScan = false;
+  const mailFailures: MailFailures = new Map();
+  const loggedMail = new Set<string>();
   // build가 만들고 start가 건다.
   let startTriggers: (() => Promise<void>) | undefined;
 
@@ -326,6 +339,8 @@ export const folderWiring: WiringFactory = () => {
         me: me(),
         root: computersRoot,
         holds: (machine, path) => replica.holds(machine, path),
+        wanted: (machine) => replica.wantedOf(machine),
+        logged: loggedMail,
         log: (message) => log("mail_file_skipped", message),
       });
       const seen = (origin: Id<"mch">, id: Id<"mal">) =>
@@ -867,11 +882,8 @@ export const folderWiring: WiringFactory = () => {
           me: me(),
           root: computersRoot,
           pending: pendingMails(sql),
-          acks: await seenArrivedMail({
-            ...mailIn(),
-            log: () => undefined,
-            seen,
-          }),
+          acks: await seenArrivedMail({ ...mailIn(), seen }),
+          nowMs: ctx.clock.nowMs(),
           random: ctx.random,
           log: (message) => log("mail_file_not_written", message),
         });
@@ -929,27 +941,50 @@ export const folderWiring: WiringFactory = () => {
 
       // 다른 기계가 폴더 길로 보낸 mail을 mail 입구에 넘기고, 받았다고 알려 온 이 기계의 mail을 받은 것으로 적는다. 입구(mail)가
       // 아직 없으면 읽지 않는다. 받은 mail의 id와 지울 file은 옮기기가 맞춘다.
-      async function readMail(): Promise<void> {
+      async function readMail(byTimer: boolean): Promise<void> {
         const inbox = ctx.peek.mailInbox;
         if (inbox === undefined) return;
+        const command = async (route: { name: string }, input: unknown) => {
+          const done = await ctx.writer.command(FOLDER_MAIL_CONTEXT, {
+            command: route.name,
+            input,
+            idempotency_key: `folder-mail-${ids.newId("key")}`,
+            compare: {},
+            prepared: [],
+          });
+          return done.ok ? ok(undefined) : done;
+        };
         const applied = await applyArrivedMail({
           ...mailIn(),
           seen,
           apply: (input) => inbox.apply(input),
+          // link drain이 버린 call mail과 같이 expired로 닫힌다.
+          refuse({ mail, origin }) {
+            const computer = ctx.peek.machineLinks
+              ?.computers()
+              .find((each) => each.machine === origin && !each.self);
+            if (computer === undefined) {
+              return Promise.resolve(
+                err({
+                  code: "forbidden" as const,
+                  message: "mail comes only from a computer in the roster",
+                }),
+              );
+            }
+            return command(callsMailRefuse, {
+              mail,
+              origin: { machine: origin, computer: computer.name },
+              reason: "expired",
+            });
+          },
+          failures: mailFailures,
+          byTimer,
         });
         const acked = await readMailAcks({
           ...mailIn(),
           pending: (peer) => pendingMails(sql, peer),
-          acked: async (mail) => {
-            const done = await ctx.writer.command(FOLDER_MAIL_CONTEXT, {
-              command: callsMailSent.name,
-              input: { mail, result: ACKED_BY_FOLDER },
-              idempotency_key: `folder-mail-ack-${ids.newId("key")}`,
-              compare: {},
-              prepared: [],
-            });
-            return done.ok ? ok(undefined) : done;
-          },
+          acked: (mail) =>
+            command(callsMailSent, { mail, result: ACKED_BY_FOLDER }),
         });
         if (applied > 0 || acked > 0) scheduleCarry();
       }
@@ -999,6 +1034,8 @@ export const folderWiring: WiringFactory = () => {
         } catch (thrown) {
           log("carry_in_threw", thrown);
         }
+        const byTimer = timerScan;
+        timerScan = false;
         // 돌기 시작할 때 가져간다: 도는 중에 destination이 바뀌면 다음 run이 새 destination을 읽은 뒤 내보낸다.
         const exportAfter = exportAfterScan;
         exportAfterScan = false;
@@ -1029,7 +1066,7 @@ export const folderWiring: WiringFactory = () => {
         }
         followUp();
         await readEvents();
-        await readMail();
+        await readMail(byTimer);
         return { ok: true, more: false };
       }
 
@@ -1242,6 +1279,7 @@ export const folderWiring: WiringFactory = () => {
       function everyImport() {
         later(() => {
           rewatch();
+          timerScan = true;
           kick("scan", scan);
           everyImport();
         }, IMPORT_TIMER_MS);
@@ -1585,14 +1623,14 @@ export const folderWiring: WiringFactory = () => {
           for (const [route, handler] of carry.reads) reads.set(route, handler);
         },
         writer: (inner) => {
-          // outbox에 줄이 생기면 바로 옮긴다(연결이 없는 컴퓨터에도 폴더 길로 가게).
+          // outbox에 줄이 생기면 그 mail이 file이 될 때(연결이 그 사이 닿지 않았으면) 옮긴다.
           const mailed = withAfterCommit(
             inner,
             (actions) => {
               if (
                 actions.some((action) => action.topic === MAIL_QUEUED_TOPIC)
               ) {
-                scheduleCarry();
+                later(scheduleCarry, MAIL_FILE_AFTER_MS + 1000);
               }
             },
             ctx.telemetry.logger,

@@ -138,7 +138,9 @@ files:
       - mail-folder:applied
       - mail-folder:skipped
       - mail-folder:acked
-    note: "두 컴퓨터의 computers 폴더, 실제 받는 자리와 Ed25519 명단, 가짜 mail 입구. 받는 자리를 거치지 않고 놓인 file, 명단에 없는 컴퓨터, 명단에서 빠진 컴퓨터, 사칭한 from.machine, 다른 컴퓨터로 가는 mail, 이 기계 자신의 mail은 넘기지 않고, 다시 읽어도 한 번이며 seq 순이고 입구 오류는 뒤를 다음으로 미룬다. 받았다는 알림은 검증한 사본에서만 읽고 알려 온 줄만 지우며, 지운 줄의 file과 manifest 칸이 양쪽에서 빠진다"
+      - mail-folder:waiting
+      - mail-folder:given-up
+    note: "두 컴퓨터의 computers 폴더, 실제 받는 자리와 Ed25519 명단, 가짜 mail 입구. 받는 자리를 거치지 않고 놓인 file, 명단에 없는 컴퓨터, 명단에서 빠진 컴퓨터, 사칭한 from.machine, 다른 컴퓨터로 가는 mail, 이 기계 자신의 mail은 넘기지 않고, 다시 읽어도 한 번이며 seq 순이고 입구 오류는 뒤를 다음으로 미룬다. 받았다는 알림은 검증한 사본에서만 읽고 실제 ledger의 그 컴퓨터로 간 줄만 지우며, 지운 줄의 file과 manifest 칸이 양쪽에서 빠진다. 목록의 mail file이 다 오기 전에는 넘기지 않고, 60초가 안 된 mail과 128 KiB를 넘는 mail 뒤의 같은 상대 mail은 쓰지 않으며, 늘 실패하는 맨 앞 mail은 timer scan 다섯 번 뒤에만 거절한다. 128 KiB·받은 id 목록의 수와 byte 한도, 쓴 file을 다시 쓰지 않음, 틀린 file의 log 한 번"
 
   - path: packages/core/folder/computers_test.ts
     covers:

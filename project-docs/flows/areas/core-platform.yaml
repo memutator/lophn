@@ -645,7 +645,7 @@ flows:
     title: "outbox의 mail을 computers 폴더에 실어 늦게 가는 길로 보내고, 다른 컴퓨터가 그 길로 보낸 mail을 받아 적용한다"
     actor: system
     entries: [system:mail-folder]
-    uses: [system:carry-link, system:carry-phone, route:calls/mail-sent]
+    uses: [system:carry-link, system:carry-phone, route:calls/mail-sent, route:calls/mail-refuse]
     pre: [core-boot:ready]
     boundary: [folder, router]
     code:
@@ -656,10 +656,11 @@ flows:
       - packages/protocol/remote/carry.ts
     docs: [architecture/folder-sync.md, architecture/agent-call.md]
     steps:
-      - "내보내기(folder wiring의 옮기기): 계기는 outbox에 줄을 더한 tx의 commit 뒤(router.mail-queued), mail을 적용했거나 받았다는 알림을 적은 scan 뒤, 그 밖의 옮기기 계기(5분 timer 포함). computers 폴더의 machines/<자기>/mail/에 outbox의 mail마다 <mal id>.json을 쓰고(temp와 rename, 다시 쓰지 않는다. 128 KiB를 넘는 mail은 link로만 간다) outbox에 없는 file은 지운다"
+      - "내보내기(folder wiring의 옮기기): 계기는 outbox에 줄을 더한 tx의 commit 61초 뒤(router.mail-queued), mail을 적용했거나 받았다는 알림을 적은 scan 뒤, 그 밖의 옮기기 계기(5분 timer 포함). computers 폴더의 machines/<자기>/mail/에 outbox에 60초 넘게 남은 mail마다 <mal id>.json을 쓴다(temp와 rename, 다시 쓰지 않는다). 연결이 닿는 컴퓨터로 가는 mail은 보통 file이 되지 않는다. 상대마다 seq 순으로 쓰다가 아직 60초가 안 된 mail이나 128 KiB를 넘는 mail에서 멈춘다(그 뒤 mail은 link를 기다린다). outbox에 없는 file은 지운다"
       - "폴더 길로 받아 이 기계가 본(mail_seen) 다른 컴퓨터의 mail id를 machines/<자기>/mail/acks.json에 적고 없으면 지운다. manifest는 이 폴더의 file을 선택 칸 mail에 싣는다(그 칸을 모르는 판은 칸을 버리고 서명을 검증한다). link·폰·같이 보는 폴더가 이 manifest와 file을 나른다"
       - "받기(읽기 scan): mail 입구가 있으면 computers 폴더의 다른 기계 하위 폴더 mail/에서, 받는 자리가 지금 명단의 그 컴퓨터 key로 검증해 든 manifest가 그 크기·sha256으로 싣는 file만 128 KiB 안에서 mail schema로 읽는다. 이 기계 자신의 하위 폴더와 사람의 폴더는 읽지 않는다"
-      - "to_machine이 이 기계이고 from.machine이 그 폴더의 기계인 mail 가운데 mail_seen에 없는 것을 기계마다 seq 순으로 mail 입구(via folder)에 넘긴다. 입구가 오류를 내면 그 기계의 나머지는 다음 scan에 넘긴다. 같은 mail이 link로 먼저 왔거나 다시 읽혀도 Router가 (origin, id)로 한 번만 돌린다"
+      - "그 기계의 manifest가 mail 칸에 싣는 mail file(acks.json 빼고)이 하나라도 아직 여기 없으면 그 기계의 mail은 넘기지 않는다. 다 있으면 to_machine이 이 기계이고 from.machine이 그 폴더의 기계인 mail 가운데 mail_seen에 없는 것을 seq 순으로 mail 입구(via folder)에 넘긴다. 입구가 오류를 내면 그 기계의 나머지는 다음 scan에 넘긴다. 같은 mail이 link로 먼저 왔거나 다시 읽혀도 Router가 (origin, id)로 한 번만 돌린다"
+      - "같은 맨 앞 mail을 2분 timer가 깨운 scan에서 입구가 internal·unavailable로 다섯 번 거절하면(file이 올 때마다 도는 scan은 세지 않는다. 맨 앞 mail이 바뀌거나 core가 다시 뜨면 0) calls/mail-refuse(expired)로 버리고 다음 mail로 간다: 본 것으로 적히고 call mail이면 보낸 기계에 실패 답이 간다. reply·cancel·state mail은 버려질 뿐이다(link drain과 같다)"
       - "다른 기계의 acks.json(같은 검증)에 있는 id 가운데 그 기계로 가는 이 기계 outbox의 줄을 calls/mail-sent acked(적용 결과 없음)로 적어 지운다. 받은 call의 상태는 받은 기계가 state mail로 따로 알린다. 다음 옮기기가 그 file을 지우고, 받은 기계의 사본과 acks.json에서도 빠진다"
     outcomes:
       - id: carried
@@ -668,8 +669,14 @@ flows:
       - id: applied
         when: "다른 컴퓨터가 이 기계에 쓴 믿는 mail file을 mail 입구에 넘겼다"
         observe: [ledger:mail_seen, ledger:agent_calls]
+      - id: waiting
+        when: "그 컴퓨터의 manifest가 싣는 mail file이 아직 다 오지 않았다. 그 컴퓨터의 mail은 다음 scan까지 넘기지 않는다"
+        observe: [ledger:mail_seen]
+      - id: given-up
+        when: "맨 앞 mail을 timer scan 다섯 번 입구가 internal·unavailable로 거절했다. 버리고 다음 mail로 간다"
+        observe: [ledger:mail_seen, ledger:mail_outbox, "log:folder mail_file_skipped"]
       - id: skipped
-        when: "받는 자리가 싣지 않은 file, 명단에 없거나 key가 바뀐 컴퓨터의 file, 그 폴더의 기계가 쓰지 않은 mail, 다른 컴퓨터로 가는 mail, 이미 본 mail, 이 기계 자신의 mail. 읽지 못한 file과 사칭한 mail은 log 한 줄(mail_file_skipped, 본문 없음)이고 나머지를 막지 않는다"
+        when: "받는 자리가 싣지 않은 file, 명단에 없거나 key가 바뀐 컴퓨터의 file, 그 폴더의 기계가 쓰지 않은 mail, 다른 컴퓨터로 가는 mail, 이미 본 mail, 이 기계 자신의 mail. 읽지 못한 file과 사칭한 mail은 file마다 core가 뜬 동안 log 한 줄(mail_file_skipped, 본문 없음)이고 나머지를 막지 않는다"
         observe: ["log:folder mail_file_skipped"]
       - id: acked
         when: "다른 컴퓨터가 폴더 길로 받았다고 알린 이 기계의 줄을 지웠다"

@@ -87,9 +87,8 @@ sync: {
 
 When a migration adds a table, add it to `sync` only if it must leave this
 computer. Removing a table from `sync` keeps its rows here; the rows the other
-computers already received stay there. When a table is listed (first time or
-again), the rows already on each computer count as written when the release
-starts there: for a row with the same key on two computers, the later one wins.
+computers already received stay there. A newly listed table's rows count as
+written when its release starts; of two computers, the later wins a shared key.
 
 Write the choice and the reason in DESIGN.md (Model): which tables go where, which
 stay on each computer, which tool moves them, whether it is encrypted.

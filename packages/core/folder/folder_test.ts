@@ -883,7 +883,12 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         self: () => ({ name: "Desk", lophn_version: "0.23.0" }),
         destinations,
         apps: () => [
-          { app: APP, destination: "personal", sent: null, release: app.release },
+          {
+            app: APP,
+            destination: "personal",
+            sent: null,
+            release: app.release,
+          },
         ],
         apply: {
           async applyChanges(input) {

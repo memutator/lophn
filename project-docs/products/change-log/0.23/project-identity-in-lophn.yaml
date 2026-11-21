@@ -1,5 +1,5 @@
 id: project-identity-in-lophn
-version: 0.23.115
+version: 0.23.117
 title: project의 기계를 넘는 id를 사람의 저장소에서 lophn으로 옮기고 같은 저장소를 내 컴퓨터들 사이에서 자동으로 맞춘다
 modules: [packages/core/projects, packages/core/main, packages/core/folder, packages/protocol, packages/protocol/folder, packages/cli, packages/shell/renderer, packages/shell/main, packages/shell/preload, packages/sdk, packages/design, packages/core/agent-workspaces, packages/core/apps]
 change: |

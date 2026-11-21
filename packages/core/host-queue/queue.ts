@@ -660,11 +660,11 @@ export function createHostQueue(deps: {
       ) {
         return err({
           code: "conflict" as const,
-          message:
-            "an agent opened this tab; only a person's browser tab can be handed",
+          message: "Only a browser tab the person opened can be handed over.",
         });
       }
       found.owner = input.owner;
+      found.workspace = input.workspace;
       found.profile = input.profile;
       found.handed = true;
       deps.changed?.();

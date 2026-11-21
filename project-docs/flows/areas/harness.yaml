@@ -936,7 +936,7 @@ flows:
     steps:
       - "사람 token만 부른다(route actor). 받을 session이 없거나 열려 있지 않으면 not_found"
       - "tab이 없으면 새 id로, tab이 있고 core 표에 없으면 그 id로 browser 탭을 표에 올린다(주인 그 session, handed, 받은 profile, 상태는 받은 url). 탭은 이미 창에 있어 tab_open 요청을 넣지 않는다. 창이 core에 다시 붙을 때 같은 tab으로 다시 부른다"
-      - "표에 있고 넘겨받은 탭이거나 사람 token이 연 browser 탭이면 주인·profile을 바꾸고 handed로 둔다. agent가 연 탭이나 browser 탭이 아니면 conflict"
+      - "표에 있고 넘겨받은 탭이거나 사람 token이 연 browser 탭이면 주인·workspace·profile을 바꾸고 handed로 둔다. agent가 연 탭이나 browser 탭이 아니면 conflict"
       - "멀리서 보기 목록이 바뀌었다고 알린다(browser_pages). 넘겨받은 session은 browser 호출로 그 탭을 다루지만 tabs/close는 forbidden이다"
     outcomes:
       - id: handed

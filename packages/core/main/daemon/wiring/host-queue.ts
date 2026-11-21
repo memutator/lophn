@@ -520,14 +520,20 @@ export function createTabHandlers(deps: TabDeps) {
   const list: MemoryHandler = (who) => {
     const caller = owner(who);
     if (!caller.ok) return caller;
+    // 탭마다 spawn tree를 거슬러 같은 session을 여러 번 읽으므로 이 호출 안에서 한 번만 읽는다.
+    const rows = new Map<string, AgentSessionRow | undefined>();
+    const row = (session: string) => {
+      if (!rows.has(session)) rows.set(session, sessionRow(session));
+      return rows.get(session);
+    };
     const items = queue.list(
       (found) =>
         withinTeam(
           caller.value,
           found,
-          (session) => sessionRow(session)?.spawned_by ?? null,
+          (session) => row(session)?.spawned_by ?? null,
         ),
-      (session) => sessionRow(session)?.title ?? "",
+      (session) => row(session)?.title ?? "",
     );
     const tabs = [];
     for (const item of items) {

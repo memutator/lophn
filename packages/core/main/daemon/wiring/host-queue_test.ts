@@ -47,6 +47,9 @@ const rows: Record<string, Partial<AgentSessionRow>> = {
   [id("ses", 2)]: { workspace_kind: "app", workspace_id: OTHER_APP },
   [id("ses", 3)]: { workspace_kind: "project", workspace_id: id("prj", 1) },
   [id("ses", 4)]: { workspace_kind: null, workspace_id: null },
+  // 5가 `team spawn`으로 6을 열었다.
+  [id("ses", 5)]: { spawned_by: null, title: "Lead" },
+  [id("ses", 6)]: { spawned_by: id("ses", 5), title: "Child" },
 };
 const agent = (n: number) =>
   ({
@@ -874,4 +877,50 @@ test("터미널 입력 허락이 없는 기기는 page를 다루지 못하고 ag
   } finally {
     await wiring.closeWork?.();
   }
+});
+
+// 목록이 남의 탭을 내면 agent가 부모나 남의 page(사람의 로그인) 제목과 주소를 읽고, redaction이 빠지면 page 주소의 secret이 model에 간다.
+test("tabs/list는 자기 탭과 자기 밑 session의 탭만 내고, 사람 token은 사람의 탭만 보며, url·title의 알려진 값은 지워진다", async () => {
+  const { queue, list } = setup(true);
+  const opened = (owner: Id<"ses"> | "person", url: string) =>
+    queue.openTab({
+      owner,
+      workspace: { kind: "home" },
+      target: { browser: { url } },
+      relation: null,
+      source: null,
+    });
+  const parent = opened(id("ses", 5) as Id<"ses">, "https://example.com/p");
+  const child = opened(
+    id("ses", 6) as Id<"ses">,
+    `https://example.com/c?token=${KNOWN}`,
+  );
+  queue.report(child, {
+    url: `https://example.com/c?token=${KNOWN}`,
+    title: `inbox ${KNOWN}`,
+    loading: false,
+  });
+  opened(id("ses", 1) as Id<"ses">, "https://example.com/s");
+  const mine = opened("person", "https://example.com/me");
+  const seen = async (who: AuthenticatedContext) => {
+    const reply = await list(who, {});
+    assert.ok(reply.ok);
+    return (
+      reply.value as { tabs: { tab: string; url: string; title: string }[] }
+    ).tabs;
+  };
+  const cases: [AuthenticatedContext, string[]][] = [
+    [agent(6), [child]],
+    [agent(5), [parent, child]],
+    [person, [mine]],
+  ];
+  for (const [who, tabs] of cases) {
+    assert.deepStrictEqual(
+      (await seen(who)).map((each) => each.tab),
+      tabs,
+    );
+  }
+  const [item] = await seen(agent(6));
+  assert.equal(item!.url, "https://example.com/c?token=[REDACTED]");
+  assert.equal(item!.title, "inbox [REDACTED]");
 });

@@ -439,6 +439,7 @@ files:
 
   - path: packages/core/main/daemon/wiring/host-queue_test.ts
     covers:
+      - host-tab-list:ok
       - host-preview-tab-open:accepted
       - host-preview-tab-open:reused
       - host-preview-tab-open:not_found

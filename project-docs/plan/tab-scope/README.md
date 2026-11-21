@@ -16,6 +16,8 @@ roadmap의 "정한 것"을 그대로 따른다. 아래는 lead가 구현을 위�
 - **agent 정의의 칸 이름은 `browser_profile`이다.** 사람만 쓰는 칸이다(`apps`처럼 agent 자격의 입력에 있으면 `forbidden`). 없으면 기본 profile이다.
 - **탭의 profile.** agent가 `tab open --url`로 여는 탭은 연 session의 agent 정의의 profile을 쓴다. 사람은 새 browser 탭을 열 때 profile을 고른다. popup은 연 탭을 따른다. 탭 값에 profile을 적어 다시 열어도 같은 profile이다. 탭 머리에 profile이 보인다(기본 profile은 표시하지 않는다).
 - **저장 login은 profile에 속한다.** `profile` 칸이 없는 login은 기본 profile의 것이라 기존 login은 그대로 기본 profile에 선다(data step 없음. 탭 값과 정의의 칸이 "없으면 기본"인 것과 같은 규칙). `lophn login list`와 `fill-login`은 그 탭의 profile에 든 login만 다룬다.
+- **browser 탭이 아닌 탭(preview, artifact, phone)의 저장 login은 기본 profile의 것이다.** 그 탭에서는 자기 profile이 기본인 쪽(사람, profile을 달지 않은 agent)만 login을 보고 채운다. profile을 단 agent는 그 탭에서 목록이 비고 채우기가 없는 login처럼 답한다. 이유: 그 page의 partition은 browser profile이 아니라서 다른 profile의 login을 내줄 근거가 없고, 기본으로 풀면 profile을 단 agent가 자기 artifact 탭으로 사람의 login 목록을 읽는다(`browser-profile-core`의 독립 review가 찾음). (lead, 2026-11-21)
+- **profile을 읽지 못하면 기본으로 떨어지지 않는다.** ledger나 agent 정의를 읽지 못하면 탭 열기와 login 목록은 `unavailable`이다. 기본 profile이 되는 것은 정의에 profile이 없을 때와, 적힌 profile이 설정에서 지워졌을 때 둘뿐이다. (lead, 2026-11-21)
 - **profile을 지우면** 그 partition의 data와 그 profile의 저장 login을 지우고(확인 dialog가 지울 login 수를 말한다), 그 profile을 쓰던 agent는 기본 profile로 떨어진다.
 - **profile id는 `bpf_<ULID>`다.** 꼴은 `idSchema("bpf")`(protocol base)이고, 목록·partition 규칙은 `packages/protocol/shell/browser-profiles.ts`다. `protocol/lophn-agent`와 `protocol/secrets`는 그 file을 import하지 않는다(protocol-cycle).
 - **i18n catalog는 wave마다 한 task만 고친다.** 다른 task는 필요한 key를 보고의 "등록할 것"에 적는다.

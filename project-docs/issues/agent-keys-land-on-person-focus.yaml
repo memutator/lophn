@@ -1,7 +1,7 @@
 id: agent-keys-land-on-person-focus
 title: agent가 browser 탭에 보낸 키가 그 page에 키보드 focus가 없으면 창에서 focus된 곳으로 간다
 kind: bug
-status: open
+status: fixed
 topic: browser-tab
 modules: [packages/shell/main, packages/shell/renderer]
 now: |
@@ -22,3 +22,6 @@ impact: |
 fix: |
   - (중간, 추천) guest의 focus와 상관없이 그 page에만 key를 넣는 길을 실제 Electron에서 재서 고른다(guest `webContents.sendInputEvent`, CDP focus emulation 등). `grab`의 마우스 누름을 창 focus를 옮기지 않는 것으로 바꾼다. key를 page에 넣지 못하면 다른 곳에 넣지 말고 고정 문장으로 실패한다. driver가 보낸 key는 어떤 경우에도 shell이 처리하지 않게 막는다.
   - (작음) 넣지 못하는 경우만 막는다: guest에 focus가 없으면 key를 보내지 않고 실패로 답한다. 잃는 것: 사람이 다른 곳을 보는 동안 agent의 `press`가 늘 실패한다.
+closed: |
+  agent와 멀리서 보기의 키와 글은 그 page의 `webContents.sendInputEvent`로 넣는다. 실제 Electron에서 잰 결과 CDP의 key event와 `Input.insertText`는 창에서 keyboard focus가 있는 곳으로 가고, `sendInputEvent`만 focus가 없는 guest(숨은 탭, 접힌 float)에 닿았다. input을 넣는 동안과 그 뒤 150ms는 그 page를 표시해 그 page의 key를 창 단축키와 menu 단축키로 보지 않는다. agent의 누름이 옮긴 창 focus는 shell이 곧바로 사람이 있던 요소로 되돌리고(agent의 page로 들어가는 이동과 Tab으로 나오는 이동만), 그 틈에 사람의 키가 agent의 page에 떨어지면 버린다. key가 page에 닿지 않으면 다른 곳에 넣지 않고 `unavailable`이다. 저장 login을 치는 동안 focus가 그 문서를 떠나면 멈춘다. 남은 빈틈(보이는 창에서만 확인되는 menu 단축키, 다른 origin의 frame이 focus를 빼앗는 순간의 한 글자)은 `browser-tab.md`의 "열린 것"에 있다.
+guard: "packages/shell/main/browser/agent/driver_test.ts, packages/shell/main/desktop/wiring/driver-input_test.ts, packages/shell/renderer/desktop/person-focus_test.ts"

@@ -16,6 +16,11 @@ export {
 } from "./broker/events.ts";
 export type { BrokerChild } from "./broker/invocations.ts";
 export {
+  createMachinesService,
+  type MachinesPort,
+  type MachinesService,
+} from "./broker/machines.ts";
+export {
   createSessionsService,
   type SessionsOperation,
   type SessionsPort,

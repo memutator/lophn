@@ -38,6 +38,7 @@ import {
   takeInInputSchema,
 } from "../../../../protocol/folder/mod.ts";
 import { parseActor } from "../../../../protocol/base/mod.ts";
+import { machineComputers } from "../../../../protocol/machine/mod.ts";
 import { appUpdateState } from "../../../../protocol/apps/update-state.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
@@ -87,6 +88,7 @@ import {
   type FolderEnvironment,
   readEnvironment,
 } from "../../../folder/environment.ts";
+import { readComputers } from "../../../folder/computers.ts";
 import { createFolderExport } from "../../../folder/export/mod.ts";
 import {
   ensureStream,
@@ -1176,6 +1178,20 @@ export const folderWiring: WiringFactory = () => {
         );
       }
 
+      // 명단의 link는 remote wiring이 늦게 낸다. remote가 꺼져 있으면 다른 컴퓨터가 없다.
+      function computers() {
+        return ok({
+          computers: readComputers({
+            machine: () => ({ id: me(), name: ctx.machine.status().name }),
+            keepsRunning: () => alwaysOn(ctx).keep_running,
+            others: () => ctx.peek.machineLinks?.list() ?? [],
+            recordedKeepsRunning: (machine) =>
+              importer.records().machines.find((row) => row.machine === machine)
+                ?.record.always_on?.keep_running ?? null,
+          }),
+        });
+      }
+
       function updateState(
         auth: AuthenticatedContext,
         input: unknown,
@@ -1427,6 +1443,7 @@ export const folderWiring: WiringFactory = () => {
       return ok({
         memory: [
           [key(machineForget), forgetMachine],
+          [key(machineComputers), computers],
           [key(appSyncHeld), syncHeld],
           [key(appSyncResume), syncResume],
           [key(appUpdateState), updateState],

@@ -11,6 +11,7 @@ import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
 import { serve } from "../../../server/serve.ts";
 import type { AppsCallService } from "./apps-call.ts";
 import type { EventsService } from "./events.ts";
+import type { MachinesService } from "./machines.ts";
 import type { SessionsService } from "./sessions.ts";
 import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
@@ -31,6 +32,7 @@ const BROKER_ROUTES = {
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
   eventsPublish: "/_lophn/broker/events/publish",
+  machinesList: "/_lophn/broker/machines/list",
   sessionsList: "/_lophn/broker/sessions/list",
   sessionsStatus: "/_lophn/broker/sessions/status",
   sessionsStop: "/_lophn/broker/sessions/stop",
@@ -55,6 +57,7 @@ export type BrokerServices = {
   appsCall?: AppsCallService;
   events?: EventsService;
   sessions?: SessionsService;
+  machines?: MachinesService;
 };
 
 export type BrokerSession = {
@@ -84,6 +87,7 @@ function routes(services: BrokerServices): Map<string, Handler> {
     appsCall,
     events,
     sessions,
+    machines,
   } = services;
   if (ready) {
     table.set(BROKER_ROUTES.ready, (child, body) =>
@@ -109,6 +113,9 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (events) {
     table.set(BROKER_ROUTES.eventsPublish, (c, b) => events.publish(c, b));
+  }
+  if (machines) {
+    table.set(BROKER_ROUTES.machinesList, (c, b) => machines.list(c, b));
   }
   if (sessions) {
     table.set(BROKER_ROUTES.sessionsList, (c, b) =>

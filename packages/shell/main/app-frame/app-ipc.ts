@@ -14,6 +14,7 @@ import {
   type AppReply,
 } from "../../ipc/app.ts";
 import { APP_AGENTS_CHANNEL } from "../../ipc/app-agents.ts";
+import { APP_MACHINES_LIST_CHANNEL } from "../../ipc/app-machines.ts";
 import { APP_PROJECTS_LIST_CHANNEL } from "../../ipc/app-projects.ts";
 import {
   APP_SESSIONS_LIST_CHANNEL,
@@ -46,6 +47,7 @@ interface AppIpcDeps {
   agentSnapshot(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   agentSend(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   projectsList(view: BoundView): Promise<CallOutcome<unknown>>;
+  machinesList(view: BoundView): Promise<CallOutcome<unknown>>;
   sessionsList(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   sessionsStatus(
     view: BoundView,
@@ -138,6 +140,10 @@ export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
     const view = senderView(deps.view, event);
     return view === undefined ? NOT_APP_VIEW : await deps.projectsList(view);
   });
+  ipc.handle(APP_MACHINES_LIST_CHANNEL, async (event) => {
+    const view = senderView(deps.view, event);
+    return view === undefined ? NOT_APP_VIEW : await deps.machinesList(view);
+  });
   ipc.on(APP_VIEW_ERROR_CHANNEL, (event, input) => {
     const view = senderView(deps.view, event);
     if (view !== undefined) void deps.viewError(view, input);
@@ -151,6 +157,7 @@ export function removeAppIpc(ipc: AppIpcHost): void {
   ipc.removeHandler(APP_AGENT_SNAPSHOT_CHANNEL);
   ipc.removeHandler(APP_AGENT_SEND_CHANNEL);
   ipc.removeHandler(APP_PROJECTS_LIST_CHANNEL);
+  ipc.removeHandler(APP_MACHINES_LIST_CHANNEL);
   ipc.removeHandler(APP_AGENTS_CHANNEL);
   ipc.removeHandler(APP_SESSIONS_LIST_CHANNEL);
   ipc.removeHandler(APP_SESSIONS_STATUS_CHANNEL);

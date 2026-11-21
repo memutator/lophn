@@ -1,6 +1,7 @@
 # Apps whose data reaches the person's other computers
 
-Read this before you set `sync_to` in `lophn.ts`, before you set up a sync folder
+Read this before you set `sync_to` in `lophn.ts`, before you build a screen that
+shows another computer's data, before you set up a sync folder
 or the tool that moves it, and when `lophn machine environment` shows an error.
 `sync_to` names a destination: a folder on each computer. lophn writes the app's
 changes and source into that folder and reads what the other computers
@@ -9,7 +10,9 @@ wrote there. There are two kinds:
 - `computers` ("my computers"): the computers in the person's device list. lophn
   keeps this folder itself and picks how its files travel: a direct link between
   the computers, the paired phone carrying them, or a folder all the person's
-  computers see that the person added in Settings. Nothing to set up.
+  computers see that the person added in Settings. Nothing to set up. A computer
+  that is always on carries the files of the others, so two computers that are
+  never on together still meet through it.
 - A named destination (`personal`, `work`): a folder the person set up themselves
   on each computer. lophn does not move it. A tool the person runs (Syncthing,
   rclone) does, and you set that tool up with the person.
@@ -17,11 +20,40 @@ wrote there. There are two kinds:
 lophn has no code, setting or credential for any storage service, and you never
 put one into lophn.
 
+## Two needs that look alike
+
+Decide which one the person has before you touch `sync_to`:
+
+- **See or use what is on another computer right now.** Examples: how many
+  resources the agents on my server use, each computer's own logs or harness
+  records. This is not sync. The person can open that computer's app from their
+  window: it draws the same screen with that computer's data. An app can also call
+  the other computer's commands with `connectCommands(app, commands, { on })`
+  (`@lophn/cap-tool`), with the list of computers from `useMachines()`
+  (`@lophn/app-ui`) or `machines()` (`@lophn/cap-tool`) and a `MachineSelector`
+  (`@lophn/ui`) to pick one. It needs that computer to be on. Use the roster API:
+  never read lophn's data folder or guess "this computer" from the hostname.
+- **Have the same data on every computer, also while the other one is off.** This
+  is `sync_to`.
+
+Data that describes one computer (raw logs, file offsets, process state) is not
+synced. When the screen needs another computer's numbers while it is off, sync or
+cache only the small summary.
+
+The limits of `sync_to` come before the choice. Today it moves the whole app
+database, not a table: the store must stay well under 1 GiB, with no triggers,
+text primary keys (no `AUTOINCREMENT`), and no `UNIQUE` or `CHECK` outside the key
+(the full list is in "What syncing asks of the app"). An app with a large
+per-computer table must not turn `sync_to` on to share a small summary: keep the
+large table out of the synced store or call the other computer instead.
+
 ## Pick `sync_to`
 
 The default is no `sync_to`: the data stays on this computer (and on the phone, for
 a `runs_on` phone app). Choose the default unless the person uses this app on
-another computer too, or the data must exist on another machine.
+another computer too, or the data must exist on another machine. The default does
+not stop the app from reaching the other computers: see "Bring an app to another
+machine".
 
 1. Run `lophn machine environment`. Note `this_machine`, the other `machines`, the
    `destinations` this computer has (name, path, state) and the `available` apps.
@@ -224,10 +256,17 @@ zero. If not, read "Read the state".
 
 ## Bring an app to another machine
 
-On the other computer, after its destination of the same name is set and the tool
-has run there:
+An active app that is not in a `private` workspace reaches the person's other
+computers without `sync_to`: its source and releases travel through `computers`,
+and `lophn machine environment` there lists it in `available`. Only its data and
+`across_machines` events need `sync_to`; without it each computer keeps its own
+data. Do not set `sync_to` just to install the app elsewhere.
 
-1. `lophn machine environment` lists the app in `available`.
+On the other computer:
+
+1. `lophn machine environment` lists the app in `available`. For a named
+   destination, its destination of the same name must be set and the tool must
+   have run there first; `computers` needs neither.
 2. In lophn's home conversation: `lophn app take-in <app>`. The app gets the same
    id, fetches the app's source commits from the other computer's source bundles,
    and builds and prepares the release natively on this computer. It lands
@@ -240,7 +279,8 @@ If take-in answers `conflict` with `sdk_missing`, or the environment shows
 `newer_format`, that computer's lophn is older: ask the person to update it first.
 `slug_in_use` means another app there has the slug; tell the person.
 `source_incomplete` means the source bundles for that commit have not fully
-arrived; wait for the tool and try again.
+arrived; wait for the tool (for `computers`, for the link or the carrying computer)
+and try again.
 
 For a new release, activate it on one computer only. Every other computer that has
 the app installs and activates it by itself once its files arrive (`apps[].follow`

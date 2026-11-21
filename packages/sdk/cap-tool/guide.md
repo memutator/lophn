@@ -48,6 +48,12 @@ import {
   모름) 가운데 하나다. `unknown`은 자동으로 다시 부르지 않는다. 호출 자체가
   실패하면 `ok: false`다. `options.on`은 다른 기계(컴퓨터 이름, `mch_`, `dev_`)의
   앱을 부른다("다른 기계의 앱 부르기").
+- `machines()` — 사람의 컴퓨터(폰 제외)와 이 앱 backend가 도는 컴퓨터를 읽는다. `{ok: true, value: Machine[]}`나 `{ok: false, error}`다.
+  `Machine`은 `{id, name, status, current, always_on}`이고 화면의 `useMachines()`(`@lophn/app-ui`)와 같은 모양이다.
+  `id`는 `mch_` id로 `connectCommands`의 `on`에 그대로 쓴다. `status`는 `online`·`offline`·`connecting`·`update`, `current`는 이 backend가 도는
+  컴퓨터 하나, `always_on`은 그 컴퓨터가 "늘 켜 둠"으로 표시됐는지다(그 컴퓨터의 기록이 아직 없으면 `null`). 허락이 필요 없고 선언에 적을 것도
+  없다. 부모 invocation이 돌고 있지 않아도 된다(시작 코드, timer). preview·test에서는 core에 가지 않고 이 컴퓨터 하나뿐인 목록을 돌려준다.
+  앱이 lophn의 data root를 읽거나 hostname·`/proc`으로 컴퓨터를 알아내지 않는다("다른 기계의 앱 부르기").
 - `publish(name, payload)` — 선언의 `events`에 있는 event를 낸다(아래 "앱 event"). `{ok, value: {publication,
   reachable, unreachable, refused}}`나 `{ok: false, error}`를 돌려준다. 선언하지 않은 event나 `payloadSchema`와 맞지 않는
   payload는 `invalid_input`이다. 구독자의 답을 기다리지 않는다. 부모 invocation이 돌고 있지 않아도 된다(시작 코드,
@@ -57,7 +63,7 @@ import {
   선언하지 않은 구독의 handler를 등록하면 앱이 시작하지 못한다. 선언만 하고 등록하지 않으면(화면만 구독하는 앱) process에는 그 event가 가지 않고 화면(`useEvent`)만 받는다. 내부적으로 이름 `on.<source>.<event>`의 `handle`이다.
 - type: `InvocationContext`, `AppCaller`, `HandlerPort`, `RegisteredHandler`,
   `ReadQuery`, `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
-  `RejectionCode`, `CommandClient`, `CallOutcome`, `CallOutput`, `AppResult`, `PublishOutput`
+  `RejectionCode`, `CommandClient`, `CallOutcome`, `CallOutput`, `AppResult`, `PublishOutput`, `Machine`
 
 ## 다른 기계의 앱 부르기
 
@@ -68,6 +74,27 @@ core가 정한 요청한 쪽과 함께 오므로, 받는 앱의 handler에서 `c
 `requester`는 `{ kind: "screen" }`(그 기계의 사람 화면), `{ kind: "terminal" }`(사람의 터미널),
 `{ kind: "agent", agent, session, name }`, `{ kind: "app", app }` 가운데 하나다. 다른 앱 호출과 같이 폰에서는 `unavailable`이다.
 다른 기계에서 온 event의 caller에는 그 난 기계가 `machine`으로 실린다.
+
+어느 컴퓨터가 있는지는 `machines()`로 읽는다. 화면은 `@lophn/app-ui`의 `useMachines()`와 `@lophn/ui/input`의 `MachineSelector`로 컴퓨터를 고르게
+하고 고른 `id`를 operation 입력으로 넘긴다. handler는 `current`인 컴퓨터면 직접 읽고 아니면 `on`에 그 `id`를 준다.
+
+```ts
+import { connectCommands, handle, machines } from "@lophn/cap-tool";
+
+handle("usage.read-on", async (input: { machine: string }) => {
+  const all = await machines();
+  if (!all.ok) throw new Error(all.error.message);
+  const target = all.value.find((m) => m.id === input.machine);
+  if (target === undefined) return { error: "unknown computer" };
+  if (target.current) return await readUsage(); // 이 컴퓨터는 직접 읽는다. `on`에 주면 invalid_input이다
+  const remote = connectCommands("usage", ["usage.read"], { on: target.id });
+  const there = await remote.call("usage.read");
+  return there.ok ? there.value.outcome : { error: there.error.message };
+});
+```
+
+앱은 lophn의 data root(`~/.lophn`의 `machine.json` 등)를 읽거나 hostname·`/proc`·환경 변수로 "이 컴퓨터"를 알아내지 않는다. 그 값은 `machines()`의
+`current`가 준다.
 
 ## 앱 event
 

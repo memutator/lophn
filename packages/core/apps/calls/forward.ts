@@ -43,6 +43,12 @@ export type RemoteForward = (call: {
 // 명단의 컴퓨터를 이름으로 풀고 route 하나를 그 컴퓨터(기기 id)로 넘긴다. remote wiring이 낸다(`ctx.machineLinks`).
 export type RemoteMachines = {
   computers(): MachineCandidate[];
+  /** 명단의 다른 컴퓨터와 link 상태(`machines/list`와 같다). `machine/computers`가 읽는다. */
+  list(): {
+    machine: Id<"mch">;
+    name: string;
+    status: "connecting" | "connected" | "offline" | "update";
+  }[];
   resolve(ref: string): Result<MachineCandidate>;
   call(
     device: string,

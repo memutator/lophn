@@ -19,6 +19,9 @@ import {
 } from "@lophn/cap-fs";
 ```
 
+- 경로는 절대 경로이거나 맨 앞이 `~`·`~/`인 home 기준 경로다. `~`는 이 컴퓨터의 home(`os.homedir()`)으로 펴지고 모든 함수가 같게 편다.
+  사람의 home 아래는 `~/…`로 쓰고(선언의 `fs.read`·`fs.write`의 `path`에도 같은 글을 적는다) 절대 경로는 home 밖(`/var/log`)에만 쓴다. 그러면 한
+  release가 `/home/alice`, `/home/ubuntu`, `C:\Users\bob`에서 다 돈다. `~user/…`는 펴지 않는다.
 - `readFile(path)`, `readTextFile(path)` — 파일을 읽는다.
 - `writeFile(path, bytes, { append?, createNew? })`,
   `writeTextFile(path, text, options)` — 파일에 쓴다. `append`는 뒤에 잇고
@@ -46,8 +49,9 @@ import {
 ```ts
 import { readTextFile, writeTextFile } from "@lophn/cap-fs";
 
-const text = await readTextFile("/home/me/notes/todo.md");
-await writeTextFile("/home/me/notes/todo.md", `${text}\n- 새 할 일`);
+// lophn.ts: { kind: "fs.write", scope: { path: "~/notes", recursive: true }, reason: "..." }
+const text = await readTextFile("~/notes/todo.md");
+await writeTextFile("~/notes/todo.md", `${text}\n- 새 할 일`);
 ```
 
 ## version 정책

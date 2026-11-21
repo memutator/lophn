@@ -205,7 +205,7 @@ test("runs_on에 phone이 있는 앱은 node: import, 선언과 다른 handler, 
         await writeFile(
           path,
           (await readFile(path, "utf8")).replace(
-            `{ name: "@lophn/cap-tool", version: "2.3.0" }`,
+            `{ name: "@lophn/cap-tool", version: "2.4.0" }`,
             `{ name: "@lophn/cap-tool", version: "2.1.0" }`,
           ),
         );

@@ -1,5 +1,5 @@
 // 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`,
-// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`), project 읽기(`projects`), session 목록·멈추기·끝내기(`sessions`), agent에게 call 보내기(`calls`)와 agent 명함(`agents`), 앱 event 받기(`events`)와 자기 탭 머리 줄(`setTabHead`·`onTabHead`)과 살려 두기 신호(`setKeepAlive`)만 열고, 다른 앱·shell API·token·임의
+// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`), project 읽기(`projects`), 컴퓨터 명단 읽기(`machines`), session 목록·멈추기·끝내기(`sessions`), agent에게 call 보내기(`calls`)와 agent 명함(`agents`), 앱 event 받기(`events`)와 자기 탭 머리 줄(`setTabHead`·`onTabHead`)과 살려 두기 신호(`setKeepAlive`)만 열고, 다른 앱·shell API·token·임의
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";
@@ -36,6 +36,7 @@ import {
 } from "../ipc/app.ts";
 import { APP_EVENT_CHANNEL } from "../ipc/app-events.ts";
 import { APP_AGENTS_CHANNEL } from "../ipc/app-agents.ts";
+import { APP_MACHINES_LIST_CHANNEL } from "../ipc/app-machines.ts";
 import { APP_PROJECTS_LIST_CHANNEL } from "../ipc/app-projects.ts";
 import {
   APP_SESSIONS_LIST_CHANNEL,
@@ -333,6 +334,9 @@ export function createAppTool(
     }),
     projects: Object.freeze({
       list: () => result(transport, APP_PROJECTS_LIST_CHANNEL, null),
+    }),
+    machines: Object.freeze({
+      list: () => result(transport, APP_MACHINES_LIST_CHANNEL, null),
     }),
     sessions: Object.freeze({
       list: (filter?: unknown) =>

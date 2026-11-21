@@ -113,6 +113,23 @@ export type LophnAppProjects = {
 };
 
 /**
+ * 앱 화면이 읽는 사람의 컴퓨터(폰 제외). `id`는 `connectCommands`의 `on`에 그대로 쓰고 `status`의 이름은 `MachineOption`과 같다.
+ * `current`는 이 화면의 backend가 도는 컴퓨터다.
+ */
+export type AppMachine = {
+  id: string;
+  name: string;
+  status: "online" | "offline" | "connecting" | "update";
+  current: boolean;
+  /** 그 컴퓨터가 "늘 켜 둠"으로 표시됐나. 그 컴퓨터의 기록이 아직 없으면 null. */
+  always_on: boolean | null;
+};
+
+export type LophnAppMachines = {
+  list(): Promise<Result<{ machines: AppMachine[] }>>;
+};
+
+/**
  * 앱 event를 받는다. `source`는 event를 낸 앱의 slug이거나 core가 내는 event의 `lophn`이다. 이 화면의 release가 선언에서
  * 구독(`subscriptions`)한 (source, event)만 온다(선언하지 않으면 listener를 달아도 아무것도 오지 않는다). 화면이 떠 있는
  * 동안만 받고, 놓친 event는 다시 오지 않으므로 처음 값은 발행 앱의 read command로 읽는다. 돌려주는 함수로 listener를 푼다.
@@ -208,6 +225,7 @@ export type LophnApp = {
   calls: LophnAppCalls;
   agents: LophnAppAgents;
   projects: LophnAppProjects;
+  machines: LophnAppMachines;
   events: LophnAppEvents;
   sessions: LophnAppSessions;
   commands: LophnAppCommands;

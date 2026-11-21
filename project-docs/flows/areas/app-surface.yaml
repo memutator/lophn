@@ -1349,6 +1349,31 @@ flows:
     crosses_process: true
     docs: [architecture/app-call.md]
 
+  - id: app-machines-list
+    title: 앱 화면이 사람의 컴퓨터 명단과 자기 backend가 도는 컴퓨터를 읽는다
+    actor: app
+    entries: []
+    uses: [ipc:app:machines-list, route:machine/computers]
+    boundary: [shell, machine]
+    code: [packages/shell/main/app-frame/app-machines.ts, packages/shell/main/app-frame/app-ipc.ts, packages/sdk/app-ui/use-machines.ts]
+    steps:
+      - "sender가 살아 있는 앱 view의 main frame이 아니면 forbidden이다(app-ipc)"
+      - "view의 기계(`view.machine`, null이면 이 컴퓨터)의 core에 사람 자격으로 machine.computers를 읽는다. 다른 컴퓨터의 창에 그려진 화면이면 그 컴퓨터가 답하고 자기를 current로 표시한다"
+      - "답의 computers를 {machines}로 돌려준다(id·name·status·current·always_on). 허락은 필요 없다"
+    outcomes:
+      - id: listed
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "sender가 앱 view의 main frame이 아니다(app-ipc)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "core를 쓸 수 없다, 또는 machine.computers가 실패했다(옛 lophn이라 route가 없는 기계 포함)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/app-call.md]
+
   # ---- 앱 view binding: core의 view 표(메모리) ----
   - id: view-table-open
     title: host가 앱 화면(view) 하나를 core의 view 표에 묶거나 다시 묶는다

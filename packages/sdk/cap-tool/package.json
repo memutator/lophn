@@ -1,6 +1,6 @@
 {
   "name": "@lophn/cap-tool",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "lophn": {
     "supported_from": "2.0.0"

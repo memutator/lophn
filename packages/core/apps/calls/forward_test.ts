@@ -102,6 +102,7 @@ function setup(
   const computers = options.computers ?? [STUDIO, SELF];
   const machines: RemoteMachines = {
     computers: () => computers,
+    list: () => [],
     resolve: (ref) => resolveMachine(ref, computers),
     call: (device, { lane, deadlineMs, ...call }, by) => {
       lanes.push({ lane, deadlineMs });

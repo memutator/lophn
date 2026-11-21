@@ -3,6 +3,7 @@
 import { createAppAgent } from "../../app-frame/app-agent.ts";
 import { createAppAgents } from "../../app-frame/app-agents.ts";
 import { createAppCall } from "../../app-frame/app-call.ts";
+import { createAppMachines } from "../../app-frame/app-machines.ts";
 import { createAppProjects } from "../../app-frame/app-projects.ts";
 import { createAppSessions } from "../../app-frame/app-sessions.ts";
 import { registerAppIpc, removeAppIpc } from "../../app-frame/app-ipc.ts";
@@ -36,6 +37,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
     },
   });
   const appProjects = createAppProjects({ call: views.caller });
+  const appMachines = createAppMachines({ call: views.caller });
   const appSessionsApi = createAppSessions({ call: views.caller });
   const appAgents = createAppAgents({ call: views.caller });
   // 앱 화면이 연 session의 ACP 갱신. 어느 view로 보낼지는 appAgent가 고른다.
@@ -64,6 +66,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
     agentSnapshot: (view, input) => appAgent.snapshot(view, input),
     agentSend: (view, input) => appAgent.send(view, input),
     projectsList: (view) => appProjects.list(view),
+    machinesList: (view) => appMachines.list(view),
     sessionsList: (view, input) => appSessionsApi.list(view, input),
     sessionsStatus: (view, input) => appSessionsApi.status(view, input),
     sessionsStop: (view, input) => appSessionsApi.stop(view, input),

@@ -488,6 +488,31 @@ flows:
         when: "machine.json을 쓰지 못했다. 메모리 값과 file은 그대로다"
     crosses_process: false
 
+  - id: machine-computers-read
+    title: "앱이 사람의 컴퓨터 명단과 자기가 도는 컴퓨터를 읽는다"
+    actor: app
+    entries: [route:machine/computers]
+    boundary: [core-api, machine, app-runtime]
+    code: [packages/protocol/machine/mod.ts, packages/core/folder/computers.ts, packages/core/main/daemon/wiring/folder.ts, packages/core/apps/permissions/broker/machines.ts, packages/core/main/app-supervisor/assembly.ts, packages/sdk/cap-tool/machines.ts]
+    steps:
+      - "앱 backend는 `@lophn/cap-tool`의 machines()로 broker `/_lophn/broker/machines/list`를 부른다. broker가 본문의 process_nonce·mode만 확인하고 그 자식의 app credential로 이 route를 부른다. preview·test는 core에 가지 않고 이 컴퓨터 하나뿐인 목록이다"
+      - "앱 화면은 shell main이 view의 기계(`view.machine`)의 core로 사람 자격(다른 기계의 view는 그 기계가 보는 기기 자격)으로 부른다(app-machines-list). 그래서 current는 화면의 backend가 도는 컴퓨터다"
+      - "이 컴퓨터는 machine 신원과 always-on 표시(keep_running)에서, 명단의 다른 컴퓨터(폰 제외)는 link 상태(connected는 online)와 폴더로 받은 기계 기록의 always_on에서 합친다. 새로 저장하는 상태는 없다. 기록이 아직 없는 컴퓨터는 always_on이 null이다. remote가 꺼져 있으면 다른 컴퓨터가 없다"
+      - "허락(grant)도 선언 permission도 없다. 이 컴퓨터가 처음이고 current는 하나다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 빈 객체가 아니다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "호출한 자격이 route의 actors(user, app)가 아니다(core dispatch가 먼저 막는다)"
+    crosses_process: false
+    docs: [architecture/app-call.md]
+
   - id: always-on-status
     title: "이 기계의 늘 켜 둠 표시와 OS가 답한 로그인 시작·keep-awake를 본다"
     actor: person

@@ -2,6 +2,7 @@
 // Zod·node·npm·IO·앱 코드 실행이 없다.
 // no-input hash의 정규 JSON null은 tool·schema·release 결합을 대신하지 않는다.
 
+import { canonicalJson } from "./json.ts";
 import {
   defineOwn,
   exactKeys,
@@ -12,14 +13,13 @@ import {
   OAUTH_RESERVED_PARAMS,
   type OAuthDeclaration,
   ownKeys,
-  PHONE_CAPABILITIES,
   type PermissionKind,
   type PermissionScope,
+  PHONE_CAPABILITIES,
   SECRET_NAME,
   SEMVER,
   type ValidationResult,
 } from "./types.ts";
-import { canonicalJson } from "./json.ts";
 
 function lexicalPath(value: unknown, listen: boolean): string | undefined {
   if (typeof value !== "string" || value === "" || /\p{Cc}/u.test(value)) {
@@ -36,6 +36,18 @@ function lexicalPath(value: unknown, listen: boolean): string | undefined {
     return "path must be an absolute lexical path";
   }
   return;
+}
+
+// 선언의 fs 경로: 절대 lexical 경로이거나 사람의 home 기준 `~`·`~/…`(슬래시만)다. `~`는 선언에 적힌 글 그대로 저장하고 동의 글에도
+// 그대로 보인다. 펴는 것은 앱 code(`@lophn/cap-fs`)다. 그래서 한 선언이 컴퓨터마다 다른 home에서 돈다.
+export function permissionPath(value: unknown): string | undefined {
+  if (typeof value === "string" && (value === "~" || value.startsWith("~/"))) {
+    return /\p{Cc}|\\/u.test(value) ||
+      value.split("/").some((part) => part === "." || part === "..")
+      ? "path must be absolute or start with ~/ and be lexical"
+      : undefined;
+  }
+  return lexicalPath(value, false);
 }
 
 function ipv4(value: string): boolean {
@@ -234,8 +246,10 @@ export function permissionScope(
   );
   if (unexpected) return invalid(`permission scope ${unexpected}`);
   if (kind === "fs.read" || kind === "fs.write") {
-    if (lexicalPath(value.path, false)) {
-      return invalid("permission path must be absolute and lexical");
+    if (permissionPath(value.path)) {
+      return invalid(
+        "permission path must be absolute or start with ~/ and be lexical",
+      );
     }
     if (typeof value.recursive !== "boolean") {
       return invalid("permission recursive must be boolean");

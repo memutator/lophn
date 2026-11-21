@@ -12,6 +12,7 @@ import {
   shareRequestList,
 } from "../approvals/share-request.ts";
 import { turnRequestDecide } from "../approvals/turn-request.ts";
+import { machineComputers } from "../machine/mod.ts";
 import { presenceReport, unseenDismiss, unseenList } from "../attention/mod.ts";
 import {
   activationConsent,
@@ -280,6 +281,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   projectApi.get,
   projectApi.icon,
   appIcon,
+  // 다른 컴퓨터의 창에 뜬 앱 화면이 그 화면의 backend가 도는 컴퓨터와 명단을 읽는다
+  machineComputers,
   // 새 session: 그 workspace에서 일할 수 있는 agent
   agentList,
   // 컴퓨터의 coding agent: 목록, view 바꾸기(미리 보기와 바꾸기), 새로 열기. 대화는 아래 `acp/*`다

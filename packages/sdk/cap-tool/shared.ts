@@ -40,3 +40,5 @@ export type {
 } from "./connect.ts";
 export { publish, subscribe } from "./events.ts";
 export type { PublishOutput } from "./events.ts";
+export { machines } from "./machines.ts";
+export type { Machine } from "./machines.ts";

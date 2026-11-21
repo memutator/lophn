@@ -41,4 +41,31 @@ export const machineRename = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-export const MACHINE_ROUTES = [machineStatus, machineRename] as const;
+// 사람의 컴퓨터 명단(폰 제외)에 이 컴퓨터를 더한 것. 앱이 "내가 어느 컴퓨터에서 도나, 다른 컴퓨터는 무엇이 있나"를 알려고 읽는다.
+// `current`는 이 요청에 답하는 core의 컴퓨터다(앱 화면이 다른 컴퓨터에서 그려지면 그 화면의 backend가 도는 컴퓨터의 core가 답한다).
+// `id`는 `connectCommands`의 `on`에 그대로 쓴다. `status`의 이름은 화면 component의 MachineOption과 같다(`connected`는 `online`).
+// `always_on`은 그 컴퓨터의 "늘 켜 둠" 표시다. 그 컴퓨터의 기록이 아직 오지 않았으면 null이다. 사람 허락 없이 읽는다.
+export const computerSchema = z.strictObject({
+  id: machineIdSchema,
+  name: machineNameSchema,
+  status: z.enum(["online", "offline", "connecting", "update"]),
+  current: z.boolean(),
+  always_on: z.boolean().nullable(),
+});
+export type Computer = z.infer<typeof computerSchema>;
+
+export const machineComputers = defineMemory({
+  resource: "machine",
+  method: "computers",
+  name: "machine.computers",
+  input: z.strictObject({}),
+  output: z.strictObject({ computers: z.array(computerSchema) }),
+  actors: ["user", "app"],
+  errors: ["invalid_input", "forbidden"],
+});
+
+export const MACHINE_ROUTES = [
+  machineStatus,
+  machineRename,
+  machineComputers,
+] as const;

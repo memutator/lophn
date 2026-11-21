@@ -1129,6 +1129,7 @@ export function remoteWiring(
       });
       ctx.provide("machineLinks", {
         computers: () => links.computers(),
+        list: () => links.list(),
         resolve: (ref) => resolveMachine(ref, links.computers()),
         call: (device, call, by) => links.callDevice(device, { ...call, by }),
       });

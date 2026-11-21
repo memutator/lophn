@@ -440,6 +440,7 @@ links:
   - {entry: "ipc:app:agent-update", flow: app-agent-snapshot}
   - {entry: "ipc:app:agent-send", flow: app-agent-send}
   - {entry: "ipc:app:projects-list", flow: app-projects-list}
+  - {entry: "ipc:app:machines-list", flow: app-machines-list}
   - {entry: "ipc:app:event", flow: app-event-view-deliver}
   - {entry: "ipc:app:sessions-list", flow: app-sessions-view}
   - {entry: "ipc:app:sessions-status", flow: app-sessions-view}

@@ -15,6 +15,7 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
+import { machineComputers } from "../../protocol/machine/mod.ts";
 import {
   appSessionsList,
   appSessionsStatus,
@@ -190,6 +191,7 @@ const APP_CHILD_OPERATIONS = [
   appSessionsList.name,
   appSessionsStatus.name,
   appSessionsStop.name,
+  machineComputers.name,
 ];
 
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
@@ -221,6 +223,11 @@ export function appsOperationPolicies(): OperationPolicy[] {
         kind: "command",
       }),
     ),
+    {
+      name: machineComputers.name,
+      actors: ["machine", "app"],
+      kind: "command",
+    },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appTools.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },

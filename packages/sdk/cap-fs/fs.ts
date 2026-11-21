@@ -3,7 +3,8 @@ import {
   readFile as readFileNode,
   writeFile as writeFileNode,
 } from "node:fs/promises";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CapabilityError } from "./errors.ts";
 
@@ -53,8 +54,14 @@ async function guarded<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
+// 맨 앞의 `~`·`~/`는 이 컴퓨터의 home이다. 선언의 fs 경로와 같은 글을 쓰면 한 release가 컴퓨터마다 다른 home에서 돈다.
 function absolute(path: string | URL): string {
-  return resolve(path instanceof URL ? fileURLToPath(path) : path);
+  if (path instanceof URL) return resolve(fileURLToPath(path));
+  return resolve(
+    path === "~" || path.startsWith("~/")
+      ? join(homedir(), path.slice(1))
+      : path,
+  );
 }
 
 export function readFile(path: string | URL): Promise<Uint8Array> {

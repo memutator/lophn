@@ -448,3 +448,29 @@ test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['p
     assert.equal(synced.value.sync_to, "personal");
   }
 });
+
+// fs 경로는 절대 경로이거나 home 기준 `~`·`~/…`다. `~`는 펴지 않고 적힌 대로 저장한다(grant와 동의 글이 그 글자열로 키가 된다).
+test("fs 권한 경로는 ~와 ~/…를 적힌 그대로 받고 ~user, ~\\, .. 은 거절한다", () => {
+  const withPath = (path: string) =>
+    validateDeclaration({
+      ...declarationWith([]),
+      permissions: [
+        {
+          kind: "fs.read",
+          scope: { path, recursive: true },
+          reason: "Read notes.",
+        },
+      ],
+    });
+  for (const path of ["~", "~/a/b", "~/.claude/projects", "/home/alice"]) {
+    const accepted = withPath(path);
+    assert.ok(accepted.ok, path);
+    assert.deepStrictEqual(accepted.value.permissions[0]?.scope, {
+      path,
+      recursive: true,
+    });
+  }
+  for (const path of ["~user/a", "~\\a", "~/a/../b", "~/./a", "a/b", ""]) {
+    assert.ok(!withPath(path).ok, path);
+  }
+});

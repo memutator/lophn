@@ -14,6 +14,7 @@ import {
   createBrokerEndpoint,
   createBrokerHub,
   createEventsService,
+  createMachinesService,
   createExceptionLogService,
   createNetFetchService,
   createNotifyService,
@@ -22,6 +23,7 @@ import {
   createSessionsService,
   createSecretUseService,
   type EventPublishPort,
+  type MachinesPort,
   type ExceptionLog,
   type NoticePostPort,
   type PhoneRequestPort,
@@ -42,6 +44,8 @@ export type BrokerAdapters = {
   events: EventPublishPort;
   // 앱이 session 목록·상태를 읽고 멈춘다. 그 자식의 app credential로 core의 app_sessions.*를 부른다.
   sessions: SessionsPort;
+  // 앱이 컴퓨터 명단을 읽는다. 그 자식의 app credential로 core의 machine.computers를 부른다.
+  machines: MachinesPort;
   // 앱이 사람에게 알린다. 그 자식의 app credential로 core의 notices.post를 부른다.
   notice: NoticePostPort;
   // 앱이 사람의 폰에 묻는다. 그 자식의 app credential로 core의 app_phone.request를 부른다.
@@ -97,6 +101,7 @@ function servicesFor(adapters: BrokerAdapters): BrokerServices {
       access: adapters.access,
       core: adapters.sessions,
     }),
+    machines: createMachinesService({ core: adapters.machines }),
   };
 }
 

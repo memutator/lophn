@@ -31,6 +31,7 @@ import {
   type AppCallPort,
   type BrokerChild,
   type EventPublishPort,
+  type MachinesPort,
   type NoticePostPort,
   type PhoneRequestPort,
   type ReadyReceiver,
@@ -438,6 +439,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       asChild(child, `app_sessions/${operation}`, input),
   };
 
+  const machines: MachinesPort = {
+    list: (child) => asChild(child, "machine/computers", {}),
+  };
+
   const toCore = { post: io.post, bearer: () => hello.credential };
   // 앱 secret 값은 supervisor의 machine credential로 core에서 받는다. 앱 process는 이 route를 부르지 못한다.
   const secrets = {
@@ -484,6 +489,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     appCall,
     events,
     sessions,
+    machines,
     notice,
     phone,
     platformPorts: () => (hello.apiPort === 0 ? [] : [hello.apiPort]),

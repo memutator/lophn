@@ -1,0 +1,24 @@
+id: app-roster-sdk
+version: 0.23.105
+title: 앱이 컴퓨터 명단을 읽고(useMachines, machines), fs 권한 경로를 home 기준 ~/…로 적고, design-app 지침이 원격 사용과 sync를 가른다
+modules: [packages/protocol, packages/core/folder, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/sdk, packages/shell/main, packages/shell/preload, packages/shell/ipc]
+change: |
+  - 컴퓨터 명단 읽기: core 읽기 `machine/computers`(`machine.computers`, actors user·app, 기기 route 목록에 있다)가 사람의 컴퓨터(폰 제외)에 이 컴퓨터를 더해 `{id(mch_), name, status(online|offline|connecting|update), current, always_on(boolean|null)}`를 돌려준다. 새로 저장하는 상태는 없다: 이 컴퓨터는 machine 신원과 always-on 표시에서, 다른 컴퓨터는 명단 link 상태(`connected`는 `online`)와 폴더로 받은 기계 기록의 `always_on.keep_running`(기록이 없으면 null)에서 합친다. 값의 이름은 `MachineOption`과 같아 `MachineSelector`에 그대로 넘기고 `id`는 `connectCommands({ on })`에 그대로 쓴다.
+  - 앱 backend는 broker `/_lophn/broker/machines/list`(그 자식의 app credential로 core를 부른다), 앱 화면은 `lophnApp.machines.list()`(IPC `app:machines-list`, shell main이 view의 기계의 core로 사람 자격으로 부른다)로 읽는다. `RemoteMachines`에 link 상태를 주는 `list()`를 더했다.
+  - fs 권한 경로: `fs.read`·`fs.write`의 path가 절대 경로 말고 `~`·`~/…`(슬래시만, `.`·`..` 조각과 `~user`·`~\` 거절)도 받는다. 선언 검증기와 grant schema가 한 함수(`permissionPath`)를 쓴다. 선언·grant·동의 글에는 적은 그대로 저장하고 보인다. `@lophn/cap-fs`가 모든 path 인자의 앞 `~`·`~/`를 이 컴퓨터의 home으로 편다.
+  - `design-app/folder-sync.md`: "지금 다른 컴퓨터의 것을 보거나 쓰기"(원격 사용: 그 컴퓨터의 앱 열기, `connectCommands({ on })`, `useMachines`/`machines`, `MachineSelector`)와 "꺼져 있을 때도 같은 data"(`sync_to`)를 가르는 절을 `sync_to` 고르기 앞에 더했다. `sync_to`가 앱 DB 전체를 옮기는 한계(1 GiB, trigger 없음, text primary key, key 밖 UNIQUE/CHECK 없음)를 선택 전에 쓰고 큰 컴퓨터별 표 때문에 작은 요약만 나누려 `sync_to`를 켜지 않게 한다. non-private 활성 앱의 source와 release는 `sync_to` 없이도 다른 컴퓨터에 닿는다는 것(`app-source-share-without-sync`)과 "Bring an app to another machine"이 `computers`에는 destination·도구를 요구하지 않는다는 것, 늘 켜 둔 컴퓨터가 다른 컴퓨터의 file을 나른다는 것을 썼다.
+  - SDK 판: `@lophn/app-ui` 2.22.1→2.23.0(`useMachines`), `@lophn/cap-tool` 2.3.0→2.4.0(`machines`), `@lophn/cap-fs` 1.0.0→1.1.0(`~` 펴기), `@lophn/declaration` 4.11.0→4.12.0(guide, `~` 경로), `@lophn/app-ui-native` 1.9.2→1.9.3(declaration pin만). 메모는 `migrate-sdk`에 판마다 하나. `lophn.supported_from`은 그대로다.
+why: |
+  사람은 컴퓨터 여러 대를 잇고 한 앱 release를 모두가 따른다. 실제 앱 agent 둘이 컴퓨터 목록을 알 길이 없어 `/proc/<pid>/environ`을 뒤지거나 `~/.lophn/machine.json`을 직접 읽었다. fs 권한 경로가 절대 경로여야 해서 `/home/alice`, `/home/ubuntu`, `C:\Users\bob`을 한 선언으로 못 덮었다. design-app 지침은 다른 컴퓨터에 앱을 두려면 `sync_to`가 필요한 것처럼 읽혔고 `connectCommands({ on })`를 말하지 않았으며 `sync_to`의 한계를 결정 뒤에야 보였다.
+decisions:
+  - text: "앱에게 '이 컴퓨터'는 그 앱 backend가 도는 컴퓨터다. 화면은 `useProjects`처럼 view의 기계의 core가 답하고 자기를 `current`로 적는다(다른 컴퓨터의 창에 그려진 화면은 그 컴퓨터가 current). 버린 길: shell이 있는 컴퓨터를 current로 하기(화면이 부르는 operation의 backend와 어긋난다)."
+    by: agent
+  - text: "컴퓨터 명단 읽기에 grant도 선언 permission도 두지 않는다. 컴퓨터 이름과 켜짐 상태이고 사람이 연 앱이 자기 컴퓨터를 아는 것은 기본 사실이며, `projects` 읽기와 같다. call의 private workspace 규칙은 그대로다. 버린 길: `machines.read` permission(앱 agent가 매번 선언하고 사람이 컴퓨터마다 허락해야 하는데 막을 것이 없다)."
+    by: agent
+  - text: "fs 경로의 `~/…`는 적은 그대로 저장하고 grant 키와 동의 글에도 그대로 둔다. core는 펴지 않고 `@lophn/cap-fs`가 편다(선언 경로는 런타임에서 강제하지 않는 보이는 값이다). 버린 길: core가 컴퓨터마다 home으로 펴서 저장하기(grant 키가 컴퓨터마다 달라지고 한 release의 선언 hash가 하나가 아니게 된다)."
+    by: agent
+  - text: "data를 맞추는 것과 다른 컴퓨터의 앱을 쓰는 것(remote use)은 다르다. design-app 지침이 둘을 가르고, `sync_to`는 꺼져 있을 때도 같은 data가 필요할 때만 고르게 한다."
+    by: person
+checklist:
+  - "해야: 앱이 home 아래 절대 경로(`/home/<이름>/…`)로 `fs.read`·`fs.write`를 선언했으면 `~/…`로 바꿔 새 release로 낸다(컴퓨터마다 그 권한을 한 번 더 허락한다)"
+  - "해야: 앱이 lophn data root, hostname, `/proc`으로 컴퓨터를 알아내면 `useMachines()`/`machines()`로 바꾼다"

@@ -2,26 +2,20 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { toolKeySchema } from "./channel-values.ts";
 import { phoneCapabilitySchema } from "./phone-request.ts";
-import { hostOf, oauthScope } from "./declaration/scope.ts";
+import { hostOf, oauthScope, permissionPath } from "./declaration/scope.ts";
 
 // declaration.permissions에는 이 중 fs·net·secret·document만 들어간다.
 // app.call·agent.commands는 Grant scope이며 선언 요구가 아니다.
 
 const LISTEN_HOSTS = ["localhost", "127.0.0.1", "::1"] as const;
 
-// lexical 절대 경로만 본다. realpath·보호 경로·OS 방향은 runtime이 검사한다.
+// lexical 경로만 본다(절대 경로, 또는 home 기준 `~/…`). realpath·보호 경로·OS 방향은 runtime이 검사한다.
 const lexicalPathSchema = z
   .string()
   .min(1)
-  .refine(
-    (value) =>
-      !/\p{Cc}/u.test(value) &&
-      (/^\//.test(value) ||
-        /^[A-Za-z]:[\\/]/.test(value) ||
-        /^\\\\[^\\]+\\[^\\]+/.test(value)) &&
-      !value.split(/[\\/]/).some((part) => part === "." || part === ".."),
-    { message: "expected absolute lexical path" },
-  );
+  .refine((value) => permissionPath(value) === undefined, {
+    message: "expected absolute or ~/ lexical path",
+  });
 
 const hostnameSchema = z
   .string()

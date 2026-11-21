@@ -12,4 +12,4 @@ lead만 고친다. `tools/status.py machine-a2a build`가 `tasks/*.md`에서 id,
 | `mail-hold` | mail | 2 | 없음 | merged | mail/mail-hold | 6287efcea |  |
 | `mail-hold-card` | mail | 2 | mail-hold | merged | mail/mail-hold-card | 695c97718 |  |
 | `handoff-note` | handoff | 3 | 없음 | merged | handoff/handoff-note | 237e6f8e9 |  |
-| `handoff-screen` | handoff | 3 | handoff-note | running | handoff/handoff-screen |  |  |
+| `handoff-screen` | handoff | 3 | handoff-note | merged | handoff/handoff-screen | ee4cfc617 |  |

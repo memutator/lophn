@@ -118,6 +118,15 @@ program이 내는 것은 이 셋이다.
 
 1과 3은 spike와 상관없이 간다. 0이 2와 4를 정한다: spike에서 막히면 2와 4를 하지 않고 headless 설정을 기본으로 켠다.
 
+### 진행 (2026-11-21, branch `feat/gui-member`)
+
+- 0은 됐다(가능, 제한은 승인 card와 restart 탭의 TUI). 2는 코드로 됐다. 설계는 `architecture/harness-gui.md` "팀원".
+  - project의 GUI 탭 다섯(Claude Code, Codex, OpenCode, omp, Antigravity)이 lophn 팀원 session이다. call을 받아 그 탭의 turn으로 돌고 마지막 글로 답하며, turn 자격 file로 자기 이름으로 부른다.
+  - 탭이 없는 팀원과 project에서 부른 내장 coding agent는 core가 그 project에 탭을 열어 받는다. 답 못 한 call은 보낸 쪽에 실패로 돌아간다.
+  - `session list`·`team read`에 탭의 상태로 서고 화면에는 터미널 탭으로만 보인다.
+  - 실제 CLI로는 아직 돌려 보지 않았다. 사람이 Claude Code와 Codex 탭으로 해 본 뒤 4로 간다.
+- 4(headless 걷어내기)에 남은 것: extension `harness`와 `harness/take|start_turn|record|finish_turn|set_external_id`, headless 명령 표, 설정 `extensions.harness.enabled`, 그 gating을 지운다. Home·앱 workspace의 coding agent, 사람이 정의한 harness agent, 사람이 Agent 탭으로 연 coding session을 어디서 돌릴지 정한다(GUI 탭은 지금 project에만 선다). `harness_gui`는 늘 켜진 값이 되어 지운다. 팀원 session을 끝내는 길(사람이 coding session을 목록에서 지우기)이 아직 없다.
+
 ## 하지 않는 것
 
 - lophn이 worker 여럿과 worktree를 관리하기.

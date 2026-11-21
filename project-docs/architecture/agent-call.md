@@ -46,7 +46,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **상태**는 accepted, done, failed, cancelled 넷이다. 끝난 행은 다시 바뀌지 않는다. 배달 실패는 accepted를 거치지 않고 바로 failed로 생긴다. 실패 이유는 `not_found`, `closed`, `receiver_ended`, `lophn_restarted` 넷이다.
   - none은 받는 turn이 입력을 가져갈 때(consumed) done이다. result는 받은 agent의 reply가 done으로 만든다. conversation은 program이 done으로 만들지 않고 취소나 실패로 끝난다.
 - **`agent_calls` 행**은 agent와 앱이 보낸 call에만 있다. 보낸 session이나 보낸 앱(`<앱 id>|<slug>`, 둘 중 하나), 풀린 받는 곳(`to`), 받는 session, 답 방식, 상태, 실패 이유, dedup 값, consumed, unattended, ask(`question` | `approval`, 팀의 ask call에만), 앱이 보낸 result call의 답 글(`result`)을 갖는다. 내용(body, refs)은 받는 session의 받은 메시지 기록에 있다.
-- **부를 수 있는 session 목록**(`session.list`, route `calls/sendable`)의 항목은 session ID, agent handle·이름, 제목, workspace, 상태, 마지막 활동 시각이다. 상태는 running, waiting, idle, unknown이다. waiting은 도는 turn이 사람의 동의나 질문 답을 기다리는 것이고, 그 turn이 없으면 idle이다. 자기 자신과 닫힌 session은 빼고, 팀 member에게는 부모·형제·자기 밑만 보인다.
+- **부를 수 있는 session 목록**(`session.list`, route `calls/sendable`)의 항목은 session ID, agent handle·이름, 제목, workspace, 상태, 마지막 활동 시각이다. 상태는 running, waiting, idle, unknown이다. waiting은 도는 turn이 사람의 동의나 질문 답을 기다리는 것이고, 그 turn이 없으면 idle이다. 자기 자신과 닫힌 session은 빼고, 팀 member에게는 부모·형제·자기 밑만 보인다. GUI 탭 팀원(아래 28)의 상태와 제목은 그 탭의 ACP 상태에서 읽는다(harness 자신의 승인 card를 기다리면 waiting, 묶인 탭이 없으면 idle). `team read`의 상태도 같다.
 - **call 읽기**(route `calls/read`)는 agent에게 자기가 보냈거나 받은 call만 보인다.
 - **팀**은 spawn tree다. `lophn team spawn`으로 연 session은 연 session의 자식이고 `sessions.spawned_by`에 부모가 남는다(바뀌지 않는다). spawn은 새 session을 여는 call의 한 갈래라 call 하나를 같이 만든다. `call.send`의 `to: {agent, workspace}` 새 session은 `spawned_by`가 없는 팀 밖이다(Home lophn이 project lophn에 넘기는 흐름이 팀 규칙에 묶이지 않게).
 
@@ -129,6 +129,9 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. call은 lophn에서 답하지 않은 때처럼 accepted로 남고 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 custom이 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다(자동 답은 답하지 않은 때만 가는 안전망이다).
     - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고 본문 blob은 tx 안에서 만들 수 없다. 마지막 응답 읽기는 run의 결과와 같은 규칙이고 글만 싣는다(`architecture/run.md`).
 28. harness runtime session은 run-loop 입력함이 아니라 harness queue가 받는다(`architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 custom과 같다.
+    - GUI 탭 팀원(`architecture/harness-gui.md` "팀원")은 그 설정과 상관없이 받는다. project의 GUI 탭이 그 팀원이고, project에서 부른 내장 coding agent(call, `team spawn`)도 팀원으로 열린다. 그 queue는 그 탭이 쉴 때 하나씩 그 탭의 새 turn으로 들어가고, result call의 답은 그 입력을 가져간 turn의 마지막 agent 글이다(`lophn call reply`로 먼저 답했으면 그것).
+    - 묶인 탭이 없는 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 그 CLI session을 resume하거나 새로 띄우고 거기 넣는다(사람 없이 도는 turn). 그 turn이 harness 자신의 승인 card에 닿으면 사람이 탭에서 답할 때까지 기다린다.
+    - 팀원 session은 archive되지 않고 열린 채라 13의 `receiver_ended`가 저절로 오지 않는다. 그래서 result call을 가져간 turn이 답 글 없이 끝나거나(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환), 30초 안에 turn이 열리지 않거나, 탭을 열지 못하면 core가 그 call 하나를 `receiver_ended`로 닫는다. 아직 가져가지 않은 call은 탭이 TUI를 보이는 동안 기다린다.
 
 ### 팀
 
@@ -143,7 +146,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - 답(`call reply`)은 자식의 입력함으로 배달하지 않는다. Router가 call을 done으로 두고 commit 뒤 topic `router.ask-answered`를 내면 main thread가 짝을 푼다. 승인 call의 답은 `decision`(`allow` | `reject`)이 있어야 하고 다른 call의 답은 `decision`을 싣지 못한다(`invalid_input`). 허락은 이번 한 번뿐이고 `always`는 없다. harness·custom 부모의 자동 답이 승인 call에 닿으면 `reject`다.
     - 자식 쪽이 먼저 끝나면 main thread가 취소하고 부모는 취소 알림을 받는다. 부모가 끝나 `receiver_ended`면 자식 입력함에 실패 알림을 넣지 않고 topic `router.ask-ended`로 기다리는 쪽을 거절로 푼다.
     - 재시작하면 짝이 메모리와 함께 사라진다. 그래서 켤 때 `lophn_restarted`로 닫는 call에 부모가 이미 가져간 ask call도 넣는다. 자식에게는 알리지 않는다(자식 turn은 같은 recover에서 interrupted로 닫힌다). 부모의 늦은 답은 `closed: true`다.
-34. agent가 연 새 session은 모두 탭으로 열린다. call이 새 session을 열거나(agent 이름으로 보냈거나 `fallback` session이 닫혀 새로 열린 경우) spawn이 session을 열면, commit된 뒤 router wiring이 host queue에 탭 열기를 요청한다(한 session에 한 번: spawn은 아래 relation을 싣는 요청이 하나이고 Router는 spawn이 아닌 call만 따로 알린다). 탭은 그 session의 workspace에 열리고 주인은 연 session이다. 같은 workspace면 연 session이 source이고 자리를 고르지 않고 무엇인지(`relation`)만 싣는다. `team spawn --as peer|stage`가 그 값이고 없으면 peer다(peer는 같은 일을 나눠 하는 동료, stage는 다음 단계나 다른 일을 맡는 coordinator). 그냥 call이 연 session은 `stage`다(연 탭 바로 뒤의 plain 탭이고 split 칸을 만들지 않는다). 다른 workspace의 session은 source 없이 그 workspace의 Main desk 끝에 열린다. 자리는 renderer의 `openAt()`이 정한다(`architecture/workspace-layout.md` "agent가 연 탭"). 이미 열린 session으로 보낸 call과 같은 dedup의 다시 보내기는 탭을 열지 않는다. 앱이 보낸 call이 연 session(`opened_by_app`)은 앱 화면이 자리라 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
+34. agent가 연 새 session은 모두 탭으로 열린다. call이 새 session을 열거나(agent 이름으로 보냈거나 `fallback` session이 닫혀 새로 열린 경우) spawn이 session을 열면, commit된 뒤 router wiring이 host queue에 탭 열기를 요청한다(한 session에 한 번: spawn은 아래 relation을 싣는 요청이 하나이고 Router는 spawn이 아닌 call만 따로 알린다). 탭은 그 session의 workspace에 열리고 주인은 연 session이다. 같은 workspace면 연 session이 source이고 자리를 고르지 않고 무엇인지(`relation`)만 싣는다. `team spawn --as peer|stage`가 그 값이고 없으면 peer다(peer는 같은 일을 나눠 하는 동료, stage는 다음 단계나 다른 일을 맡는 coordinator). 그냥 call이 연 session은 `stage`다(연 탭 바로 뒤의 plain 탭이고 split 칸을 만들지 않는다). 다른 workspace의 session은 source 없이 그 workspace의 Main desk 끝에 열린다. 자리는 renderer의 `openAt()`이 정한다(`architecture/workspace-layout.md` "agent가 연 탭"). 이미 열린 session으로 보낸 call과 같은 dedup의 다시 보내기는 탭을 열지 않는다. 앱이 보낸 call이 연 session(`opened_by_app`)은 앱 화면이 자리라 탭을 열지 않는다. GUI 탭 팀원으로 열린 session은 Agent 탭을 열지 않는다(그 터미널 탭은 입력을 넣을 때 core가 연다). layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
 
 ### 앱이 보낸 call
 
@@ -204,6 +207,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **앱도 call의 보낸 쪽이다. 단 화면만 보낸다(app-sdk, 2026-11-10).** 앱을 agent와 같은 보낸 쪽으로 두면 시야·명함·실패·취소가 한 벌이다. 앱 process가 call을 보내고 답을 handler로 받는 길은 만들지 않았다(roadmap의 하지 않는 것): AI가 만든 앱 process가 상한 없이 unattended turn을 열 수 있다. 그래서 모든 앱 call은 attended이고 `unattended` 갈래가 앱에 없다. 버린 안: 앱 전용 입구(실패 처리와 화면이 둘). 앱의 답을 message로 두는 안은 앱에 session이 없어 버리고 call 행의 글(`result`)로 두었다: 가장 단순하고 읽는 길이 `app_calls/read` 하나다. 글이 아닌 block은 담지 않는다(알려진 한계). event는 `call.settled`만 내고 본문을 싣지 않는다(저장하지 않는 event에 본문을 두지 않으려고, 본문은 읽는다). 앱의 slug는 message에 얼린다(tag bytes 고정).
 
 - **private은 컴퓨터 사이에도 선다.** 같은 규칙을 두 자리에서 보고(부르는 쪽 workspace, 받는 쪽 앱의 workspace) 쌍 규칙은 보지 않는다. 이유: 상대 컴퓨터의 설정을 읽을 길이 없고 쌍 규칙의 key는 컴퓨터마다 다른 id다. 대가: 쌍 규칙으로 연 예외는 컴퓨터를 건너지 못한다. (사람, 2026-11-17)
+
+- **GUI 탭 팀원의 답 못 한 call은 받은 session을 끝내지 않고 그 call만 닫는다(agent, 2026-11-21).** 팀원은 사람이 쓰는 탭이라 session을 끝낼 수 없고, 닫지 않으면 보낸 쪽이 영영 기다린다. 이유는 `receiver_ended` 하나다(이유를 나누려면 `agent_calls`를 다시 짜야 한다).
 
 ## 열린 것
 

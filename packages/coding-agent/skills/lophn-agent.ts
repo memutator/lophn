@@ -1,4 +1,4 @@
-// harness agent가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다. extension `harness`가
+// harness agent(headless와 GUI 탭 팀원)가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다. extension `harness`가
 // 켜져 있으면 `lophn harness sync-skills`가 harness의 skill 폴더에 앱 공유 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
 // 명령 사용법은 `packages/cli/commands/{call,session,agent,team}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
 // `packages/core/lophn-agent/run-loop/input-text.ts`가 만든다.
@@ -6,12 +6,17 @@ import type { SharedSkill } from "../harnesses/skill-copies.ts";
 
 const SKILL_MD = `---
 name: lophn-agent
-description: Use when the environment variable LOPHN_AGENT_CREDENTIAL is set, which means lophn started this turn. Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\` and \`lophn agent card\`, call a shell extension tool with \`lophn ext call\`, and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
+description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL or LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (the second is a coding agent chat tab that is a lophn team member). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\` and \`lophn agent card\`, call a shell extension tool with \`lophn ext call\`, and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
 ---
 
 # Working with other lophn agents
 
-lophn started this turn if \`LOPHN_AGENT_CREDENTIAL\` is set in your shell. Use the call, team, session and agent commands only then; the credential works for this turn only. If it is not set (a person's own terminal), those commands fail; only \`tab\`, \`preview\` and \`browser\` work with a person's token. Run \`lophn help\` or \`lophn <command> --help\` for the full usage.
+You are a lophn agent if \`LOPHN_AGENT_CREDENTIAL\` or \`LOPHN_AGENT_CREDENTIAL_FILE\` is set in your shell.
+
+- \`LOPHN_AGENT_CREDENTIAL\`: lophn started this turn.
+- \`LOPHN_AGENT_CREDENTIAL_FILE\`: you run in a chat tab of a lophn project and you are a member of the person's team. Other agents can call you there, and a call arrives in your conversation as \`<lophn-call ...>\`. lophn writes the current turn's credential to that file while a turn runs and removes it when the turn ends, so \`lophn\` commands work during a turn and answer \`unauthorized\` between turns. Do not read or copy the file; the \`lophn\` command reads it.
+
+The credential works for that turn only. If neither variable is set (a person's own terminal), the call, team, session and agent commands fail; only \`tab\`, \`preview\` and \`browser\` work with a person's token. Run \`lophn help\` or \`lophn <command> --help\` for the full usage.
 
 ## Reply to a call you received
 
@@ -42,7 +47,7 @@ lophn call send --to '{"agent":"reviewer","workspace":{"project":"my-project"}}'
 - \`--reply none\` asks for no answer. \`result\` and \`conversation\` ask the receiver to answer.
 - The command returns at once with the call ID. It never waits. The answer arrives later in your session as \`<lophn-reply call="cal_..." from="..." status="...">\` and starts a new turn, so do not poll: if you need the answer to go on, say what you are waiting for and end your turn.
 - \`lophn call cancel cal_xxx --reason "..."\` cancels a call you sent that has not ended.
-- Work for another coding agent splits by whether a person will continue it. For work the person will pick up or debug together, open that agent's TUI in a new terminal tab of this project with \`lophn tab open --coding <harness> --handoff "<text>"\`. Write the handoff like a note for an agent that knows nothing yet: the goal, what is known so far, the next steps. It is saved to a file; only that file's path is typed into the terminal. This works from a project workspace only, and the harness must be a coding agent the person marked as a favorite in Settings > Coding agents and that is detected on this computer; the error lists the ones you can use. If none can be opened, tell the person to mark an installed coding agent as a favorite there, or to check that it is detected. For one-off work that needs no person, send it headless with \`lophn team spawn <handle>\` (or \`call send\`), and the answer comes back to you.
+- Work for another coding agent splits by whether a person will continue it. For work the person will pick up or debug together, open that agent's TUI in a new terminal tab of this project with \`lophn tab open --coding <harness> --handoff "<text>"\`. Write the handoff like a note for an agent that knows nothing yet: the goal, what is known so far, the next steps. It is saved to a file; only that file's path is typed into the terminal. This works from a project workspace only, and the harness must be a coding agent the person marked as a favorite in Settings > Coding agents and that is detected on this computer; the error lists the ones you can use. If none can be opened, tell the person to mark an installed coding agent as a favorite there, or to check that it is detected. For one-off work that needs no person, send it with \`lophn team spawn <handle>\` (or \`call send\`), and the answer comes back to you. In a project, a coding agent called this way opens in its own chat tab there, where the person can watch it.
 
 ## Work with a team
 

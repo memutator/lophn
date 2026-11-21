@@ -21,9 +21,25 @@ roadmap의 "정한 것" 1~16을 그대로 따른다. 아래는 lead가 구현을
 - **handoff note.** session마다 하나이고 agent가 명령으로 쓴다. program이 기계, project 정체, branch와 commit, 시각을 붙인다. `across_machines` event file과 같은 길(folder-sync)로 다른 기계에 간다. private인 workspace는 남기지 않는다. 다른 기계는 그 project 아래에 "다른 기계에서 하던 일"로 보이고 note를 첫 입력으로 새 session을 연다.
 - **옛 판의 상대.** 새 route를 모르는 컴퓨터는 `not_found`로 답하고, 보낸 쪽은 그 컴퓨터의 lophn이 옛 판이라고 call을 실패로 닫는다.
 
+- **다른 컴퓨터의 mail이 가리킬 수 있는 session은 그 기계의 mail이 연 session뿐이다.** 사람이 연 session이나 다른 기계의 mail이 연 session을 주소로 쓰면 없는 session과 같다. 이유: mail이 연 session은 다른 컴퓨터로 보내지 못한다는 규칙(다시 넘기지 않기)이 이미 있는데, 있는 session에 mail을 넣을 수 있으면 그 session이 셋째 컴퓨터로 넘기는 길이 열린다. 사람의 대화에 다른 컴퓨터의 agent가 끼어드는 것도 같이 막는다. (lead, 2026-11-21. 본보기 `forward.ts`와 다른 점: forward는 session 주소를 그대로 받는다)
+- **답을 잃은 mail은 같은 id로 다시 보낸다.** roadmap 정한 것 11("결과를 모르는 호출은 자동으로 다시 보내지 않는다")은 일을 두 번 시키지 않는다는 뜻이고, 받는 쪽이 mail id마다 한 번만 적용하므로 같은 mail을 다시 보내는 것은 일을 다시 시키지 않는다. `unknown`은 지나가는 배달 상태다. (lead, 2026-11-21)
+- **대기에 선 mail은 push나 toast를 내지 않는다.** 대기 목록(Inbox)의 card와 badge로만 보인다. 알림은 요구가 생기면 더한다. (lead, 2026-11-21)
+
 ## task
 
-(계획을 여는 worker가 코드를 읽고 채운다: wave, id, 선행, 한 줄)
+계약은 첫 task `mail-router`가 고정한다(protocol `packages/protocol/lophn-agent/mail.ts`, `calls.ts`의 새 갈래, writer 명령 `calls/mail-*`, ledger 표). 같은 wave의 다른 task는 그 뒤에 선다. 이유: mail의 꼴, 보낸 쪽 `remote`, 실패 이유, call 행의 칸이 core·화면·CLI 모두에 닿아 type 오류가 여러 package에 한 번에 난다. 한 task가 그 꼴과 그 여파를 같이 고쳐야 나머지가 병렬로 설 수 있다.
+
+| wave | id | 선행 | 한 줄 | worker |
+|---|---|---|---|---|
+| 1 | `mail-router` | 없음 | mail 계약(protocol, ledger 표와 migration), Router의 보내기·받기·답·취소·켤 때 정산, writer 명령 `calls/mail-*` | opus-high |
+| 1 | `mail-link` | `mail-router` | 보내는 입구 `calls/send_remote`(검사, 기계·project 풀기, redaction), 받는 입구 `a2a/mail`(명단, 허락→skip), outbox drain(link·timer·옛 판·모름) | opus-high |
+| 1 | `mail-lists` | `mail-router` | `--on`을 `call send`·`session list`·`agent card`·새 `agent list`에, `machine computers`, 받는 쪽 목록·명함 route(private을 뺀다), skill 글 | opus-high |
+| 1 | `mail-screen` | `mail-router` | call card의 기계 이름과 실시간 상태, 받은 session의 보낸 쪽(기계·agent), [Open conversation]을 그 기계로 | sonnet-high |
+| 2 | `mail-hold` | 없음 | 늦게 온 mail을 hold로 세우기, `mail/holds`·`mail/decide_hold`, 7일 만료(보낸 쪽·받는 쪽) | opus-high |
+| 2 | `mail-carry` | 없음 | outbox를 folder-sync의 길(`computers` 폴더의 mail file, manifest `mail` 칸)로 싣고 받은 file을 같은 입구로 적용 | opus-high |
+| 2 | `mail-hold-card` | `mail-hold` | 대기 목록의 mail hold card([Start now]·[Skip]), desktop과 폰 | sonnet-high |
+| 3 | `handoff-note` | 없음 | `lophn handoff write`, program이 붙이는 사실, note file이 folder-sync로 흐르기, `handoff/list` | opus-high |
+| 3 | `handoff-screen` | `handoff-note` | 왼쪽 sidebar의 project 줄 아래 "다른 기계에서 하던 일"과 note로 새 session 열기 | sonnet-high |
 
 ## lead가 할 일
 

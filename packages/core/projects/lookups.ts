@@ -1,4 +1,8 @@
 import type { Tx } from "../../protocol/server/mod.ts";
+import { projectHoldingIdentity } from "./registry/store.ts";
+
+// 그 id를 지금이나 옛 identity로 가진 이 기계의 project. 정의는 registry의 것 하나다.
+export { projectHoldingIdentity };
 
 // 다른 concern(lophn-agent의 agent 정의 저장소 등)이 project 표를 읽을 때 쓰는 읽기 함수다. 표는 이 module이
 // 갖는다. 조립(core/main)이 port로 꽂으므로 다른 module은 SQL을 직접 쓰지 않는다.
@@ -80,17 +84,14 @@ export function projectByIdentity(
   return row === undefined ? null : String(row["id"]);
 }
 
-// 그 id를 지금이나 옛 identity로 가진 이 기계의 project(보관 포함). 지금 가진 것이 먼저다.
-export function projectHoldingIdentity(
+// 기계 사이 id(`pri_…`)를 지금이나 옛 id로 가진 이 기계 project의 이름. 없거나 private이면 null이다(private은 이름을 밝히지 않는다).
+export function projectNameByIdentity(
   sql: ReadSql,
   identity: string,
+  isPrivate: (project: string) => boolean,
 ): string | null {
-  const row = sql.get(
-    `select id from projects
-      where identity = ?
-         or exists (select 1 from json_each(former_identities) where value = ?)
-      order by identity = ? desc, id limit 1`,
-    [identity, identity, identity],
-  );
-  return row === undefined ? null : String(row["id"]);
+  const project = projectHoldingIdentity(sql, identity);
+  if (project === null || isPrivate(project)) return null;
+  const row = sql.get("select name from projects where id = ?", [project]);
+  return row === undefined ? null : String(row["name"]);
 }

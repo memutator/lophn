@@ -583,7 +583,7 @@ flows:
     steps:
       - 사람 자격(user)만 받는다. 기기는 모두 읽는다(폰도). 다른 컴퓨터의 agent·앱 요청은 기기 연결의 call 처리가 막는다
       - main thread 연결로 대기 줄을 오래 기다린 것부터 읽는다. 만료가 지난 줄과 보낸 컴퓨터가 지금 명단에 없는 줄은 빼고 준다
-      - 줄마다 보낸 기계, 이 기계 명단의 그 컴퓨터 이름, 쓴 agent, 주소, 답 방식, 본문 글의 앞 500자, 보낸·닿은·만료 시각을 준다
+      - 줄마다 보낸 기계, 이 기계 명단의 그 컴퓨터 이름, 쓴 agent, 주소(project 주소면 이 컴퓨터에서 그 id를 지금이나 옛 id로 가진 project의 이름 `project_name`, 없거나 private이면 null), 답 방식, 본문 글의 앞 500자, 보낸·닿은·만료 시각을 준다
       - 화면(desktop 대기 목록, 폰 Inbox)은 ready 뒤와 StateChanged(mail_holds)마다 읽어 "Mail from other computers" 묶음의 card로 세운다. 이 route를 모르는 옛 판의 컴퓨터(not_found)는 빈 목록으로 읽고, 다른 실패는 지금 card를 그대로 둔다(job 읽기와 따로다)
     outcomes:
       - id: ok

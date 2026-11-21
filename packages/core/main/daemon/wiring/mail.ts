@@ -3,7 +3,10 @@
 // 읽기는 같은 ledger를 읽는 main thread 연결로 한다(app-calls와 같다). 명단과 link는 remote wiring이 늦게 내므로 부를 때 읽는다.
 import { err, ok } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import {
   a2aMail,
@@ -13,6 +16,7 @@ import {
 } from "../../../../protocol/lophn-agent/mail.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import { projectNameByIdentity } from "../../../projects/lookups.ts";
 import { redactBlocks } from "../../../lophn-agent/session/message-body.ts";
 import { requesterOf } from "../../../remote/call.ts";
 import { createMailDrain, type MailDrain } from "../../../remote/mail-drain.ts";
@@ -90,6 +94,13 @@ export const mailWiring: WiringFactory = () => {
         sql,
         policy: () =>
           ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+        projectName: (identity) =>
+          projectNameByIdentity(sql, identity, (project) =>
+            isPrivate(deps.policy(), {
+              kind: "project",
+              id: project as Id<"prj">,
+            }),
+          ),
         computers: () => ctx.machineLinks.computers(),
         resolve: (ref) => ctx.machineLinks.resolve(ref),
         self: () => ctx.machine.id,

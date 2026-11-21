@@ -53,6 +53,7 @@ import {
   createCallBodyPreparer,
   prepareBodies,
 } from "../main/daemon/wiring/router.ts";
+import { projectNameByIdentity } from "../projects/lookups.ts";
 import {
   createDeviceCredentials,
   createRemoteCall,
@@ -319,6 +320,7 @@ async function machine(self: Id<"mch">) {
     command,
     sql,
     policy: () => DEFAULT_CALL_POLICY,
+    projectName: () => null,
     computers: () =>
       roster.map((each) => ({ ...each, self: each.machine === self })),
     resolve: () => err({ code: "not_found", message: "unused" }),
@@ -1090,3 +1092,29 @@ test("같은 기계의 cancel이 먼저 닿은 늦은 call은 대기에 서지 �
   assert.deepStrictEqual(await b.holds(), []);
   assert.equal(b.count("sessions"), 0);
 });
+
+test("대기 card의 받을 project 이름은 이 컴퓨터에서 그 id를 지금이나 옛 id로 가진 project의 이름이고, 없거나 private이면 이름을 밝히지 않는다", async () => {
+  const a = await machine(A);
+  const pri = (n: number) => `pri_0${String(n).repeat(25)}`;
+  const insert = db_insert(a.db);
+  insert("prj_00000000000000000000000001", "alpha", pri(1), []);
+  insert("prj_00000000000000000000000002", "beta", pri(2), [pri(3)]);
+  insert("prj_00000000000000000000000003", "secret", pri(4), []);
+  const privateSecret = (project: string) =>
+    project === "prj_00000000000000000000000003";
+  const nameOf = (identity: string) =>
+    projectNameByIdentity(a.sql, identity, privateSecret);
+  assert.equal(nameOf(pri(1)), "alpha");
+  assert.equal(nameOf(pri(3)), "beta");
+  assert.equal(nameOf(pri(5)), null);
+  assert.equal(nameOf(pri(4)), null);
+});
+
+function db_insert(db: DatabaseSync) {
+  return (id: string, name: string, identity: string, former: string[]) =>
+    db
+      .prepare(
+        "insert into projects (id, name, title, purpose, revision, status, identity, former_identities) values (?, ?, ?, '', '1', 'active', ?, ?)",
+      )
+      .run(id, name, name, identity, JSON.stringify(former));
+}

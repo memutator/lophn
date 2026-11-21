@@ -252,7 +252,7 @@ export const WaitingJobHoldConflict = () => {
   );
 };
 
-/** 늦게 온 mail: 다른 컴퓨터의 agent가 이 컴퓨터가 꺼진 사이 맡긴 일이 "Mail from other computers" 묶음으로 선다. 누가(agent와 컴퓨터 이름), 이 컴퓨터의 어느 agent와 workspace에게, 언제 보내 언제 닿았고 언제 만료되는지, 글의 앞부분이 보이고 단추는 오른쪽 끝에 [Skip], [Start now]이다. 만료가 가까운 것이 둘째 줄이다. */
+/** 늦게 온 mail: 다른 컴퓨터의 agent가 이 컴퓨터가 꺼진 사이 맡긴 일이 "Mail from other computers" 묶음으로 선다. 누가(agent와 컴퓨터 이름), 이 컴퓨터의 어느 agent와 workspace에게, 언제 보내 언제 닿았고 언제 만료되는지, 글의 앞부분이 보이고 단추는 오른쪽 끝에 [Skip], [Start now]이다. 받을 project가 이 컴퓨터에 있으면 그 이름(alpha)이, 없으면 짧은 id가 보인다(만료가 가까운 줄). */
 export const WaitingMailHolds = () => (
   <Over
     items={[SHELL_COMMAND(), MAIL_HOLD_WINDOWS(), MAIL_HOLD_EXPIRING()]}

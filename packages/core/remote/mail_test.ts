@@ -361,6 +361,7 @@ async function machine(self: Id<"mch">) {
     command,
     sql,
     policy: () => policy.value,
+    projectName: () => null,
     computers: links.computers,
     resolve: links.resolve,
     self: () => self,

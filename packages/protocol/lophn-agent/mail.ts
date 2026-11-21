@@ -179,6 +179,8 @@ export const mailHoldSchema = z.strictObject({
   computer: z.string(),
   from: mailAuthorSchema,
   address: remoteAddressSchema,
+  // 주소가 project(기계 사이 이름 `pri_`)일 때 이 컴퓨터에서 그 id를 지금이나 옛 id로 가진 project의 이름이다. 없거나 private이면 null이다.
+  project_name: z.string().nullable(),
   reply: callReplySchema,
   text: z.string(),
   sent_at: atSchema,

@@ -324,7 +324,10 @@ export const JOB_HOLD_BLOCKED = () => ({
 
 function mailHold(
   n: number,
-  more: Pick<MailHold, "computer" | "from" | "address" | "text"> & {
+  more: Pick<
+    MailHold,
+    "computer" | "from" | "address" | "project_name" | "text"
+  > & {
     sentMinutesAgo: number;
     arrivedMinutesAgo: number;
     expiresInMinutes: number;
@@ -336,6 +339,7 @@ function mailHold(
     computer: more.computer,
     from: more.from,
     address: more.address,
+    project_name: more.project_name,
     reply: "result",
     text: more.text,
     sent_at: ago(more.sentMinutesAgo),
@@ -355,13 +359,14 @@ export const MAIL_HOLD_WINDOWS = (): MailHold =>
       name: "Release manager",
     },
     address: { agent: "windows-builder", workspace: { project: id("pri", 1) } },
+    project_name: "alpha",
     text: "Build the Windows installer from main and run the full test suite. If a test fails, send me the failing test names and the first error of each.",
     sentMinutesAgo: 14 * 60,
     arrivedMinutesAgo: 6,
     expiresInMinutes: 6 * 24 * 60 + 10 * 60,
   });
 
-/** 만료가 가까운 맡김: 거의 이레 전에 보냈다. home의 lophn이 받는다. */
+/** 만료가 가까운 맡김: 거의 이레 전에 보냈다. 받을 project가 이 컴퓨터에 없다. */
 export const MAIL_HOLD_EXPIRING = (): MailHold =>
   mailHold(42, {
     computer: "Home desktop",
@@ -371,7 +376,9 @@ export const MAIL_HOLD_EXPIRING = (): MailHold =>
       session: null,
       name: "Bookkeeper",
     },
-    address: { agent: "lophn", workspace: { home: true } },
+    address: { agent: "accountant", workspace: { project: id("pri", 2) } },
+    // 이 컴퓨터에 그 project가 없어 이름 대신 짧은 id가 보인다.
+    project_name: null,
     text: "Export last month's invoices as CSV and put the file in the shared folder.",
     sentMinutesAgo: 6 * 24 * 60 + 20 * 60,
     arrivedMinutesAgo: 95,

@@ -350,7 +350,7 @@ export function jobHoldNote(hold: JobHold, now = new Date()): string {
   });
 }
 
-/** 받을 곳 한 줄. project는 기계 사이 이름(`pri_`)이라 이 기계의 이름을 알 수 없어 짧은 id로 보인다. */
+/** 받을 곳 한 줄. project는 core가 이 컴퓨터의 이름을 실어 주고(`project_name`), 이 컴퓨터에 없으면 기계 사이 id의 짧은 꼴이다. */
 function mailTo(hold: MailHold, names: InboxNames): string {
   const to = hold.address;
   if (!("workspace" in to)) {
@@ -361,9 +361,10 @@ function mailTo(hold: MailHold, names: InboxNames): string {
       ? t("left-sidebar.label.home")
       : "app" in to.workspace
         ? appText(to.workspace.app, names)
-        : t("waiting.label.workspace-project", {
+        : (hold.project_name ??
+          t("waiting.label.workspace-project", {
             id: shortId(to.workspace.project),
-          });
+          }));
   return t("waiting.notice.mail-to", { agent: to.agent, workspace });
 }
 

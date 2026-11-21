@@ -46,16 +46,17 @@ export function Head({
         <p className={styles.desc}>{view.description}</p>
         <span className={styles.meta}>{view.meta}</span>
       </div>
-      <div className={styles.side}>
+      <div
+        className={styles.side}
+        data-slot={toggle === undefined || undefined}
+      >
         {view.machine === undefined ? null : (
           <span className={styles.machine} data-machine-tag="">
             {view.machine}
           </span>
         )}
         <span className={styles.age}>{view.age}</span>
-        {toggle === undefined ? (
-          <span className={styles.slot} />
-        ) : (
+        {toggle === undefined ? null : (
           <IconButton
             icon={toggle.open ? commonIcons.collapse : commonIcons.expand}
             label={

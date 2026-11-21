@@ -58,6 +58,8 @@ export type MailEntryDeps = {
   self(): Id<"mch">;
   // 제품 redaction. 알려진 secret 목록이 아직 준비되지 않았으면 null이다.
   redact(blocks: readonly ContentBlock[]): ContentBlock[] | null;
+  // 기계 사이 project id(`pri_`)를 지금이나 옛 id로 가진 이 컴퓨터의 project 이름. 없거나 private이면 null이다.
+  projectName(identity: string): string | null;
   // 이 기계의 명단이 아는 기기의 종류.
   kind(principal: string): "phone" | "computer" | null;
   // 그 기계의 컴퓨터가 이 컴퓨터에서 터미널 입력을 허락받았는가. 받은 mail로 연 session이 agent의 skip을 따를지다.
@@ -277,6 +279,10 @@ export function holdsHandler(deps: MailEntryDeps): MemoryHandler {
         computer,
         from: mail.from,
         address: mail.address,
+        project_name:
+          "workspace" in mail.address && "project" in mail.address.workspace
+            ? deps.projectName(mail.address.workspace.project)
+            : null,
         reply: mail.reply,
         text: blocksText(mail.body).slice(0, HOLD_TEXT_MAX),
         sent_at: mail.sent_at,

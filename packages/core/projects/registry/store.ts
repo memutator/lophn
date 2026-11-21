@@ -181,7 +181,7 @@ export function projectHoldingIdentity(
      WHERE id <> ?
        AND (identity = ?
          OR EXISTS (SELECT 1 FROM json_each(former_identities) WHERE value = ?))
-     ORDER BY identity IS ? DESC LIMIT 1`,
+     ORDER BY identity IS ? DESC, id LIMIT 1`,
     [except, identity, identity, identity],
   );
   return row === undefined ? null : String(row.id);

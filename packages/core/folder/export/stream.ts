@@ -299,7 +299,8 @@ class Run {
     );
   }
 
-  // 줄의 changeset에서 destination으로 가는 표의 구간. 폰 앱의 줄은 폰만 받는 표도 담는다. bytes가 없는 줄은 null이다.
+  // 줄의 changeset에서 그 줄의 release가 destination으로 보내는 표의 구간. 폰 앱의 줄은 폰만 받는 표도 담는다. bytes가
+  // 없는 줄은 null이다.
   private async sentPart(
     row: FolderLogRow,
   ): Promise<Result<Uint8Array | null>> {
@@ -309,7 +310,7 @@ class Run {
       row.changeset.size,
     );
     if (!bytes.ok) return bytes;
-    const sent = this.app.sent;
+    const sent = this.deps.sentOf(row.release);
     return sent === null ? bytes : filterChangeset(bytes.value, sent);
   }
 

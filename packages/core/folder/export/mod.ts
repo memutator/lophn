@@ -27,8 +27,6 @@ export type ExportApp = {
   description: string;
   // 선언의 `sync`가 고른 destination 이름.
   destination: string;
-  // destination으로 가는 표. null이면 모든 표(옛 release의 선언). 폰 앱의 log 줄에는 폰만 받는 표도 있어 거른다.
-  sent: TableFilter;
   release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };
 
@@ -65,6 +63,11 @@ export type FolderExportDeps = {
   releaseKey(
     release: string,
   ): { code_commit: string; data_schema: number } | null;
+  /**
+   * 그 release의 선언이 destination으로 보내는 표(null이면 모든 표, 옛 release의 선언). log 줄은 그 줄의 release로
+   * 거른다: 폰 앱의 줄에는 폰만 받는 표도 있고, release가 바뀌기 전 줄은 그 release의 표 집합으로 나가야 한다.
+   */
+  sentOf(release: string): TableFilter;
   operationOf(invocation: string): { name: string; started_at: string } | null;
   /** 그 앱의 write 줄을 잡은 채 log head를 읽고 앱 DB의 보내는 표 사본을 `path`에 뜬다. 사본은 정확히 그 seq까지를 담는다. */
   snapshotAt(

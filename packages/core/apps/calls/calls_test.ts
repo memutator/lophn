@@ -1852,12 +1852,12 @@ function folderOf(
         name: "Notes",
         description: "",
         destination: "personal",
-        sent: null,
         release: { id: REL, code_commit: "c".repeat(40), data_schema: 1 },
       },
     ],
     log,
     releaseKey: () => ({ code_commit: "c".repeat(40), data_schema: 1 }),
+    sentOf: () => null,
     operationOf: () => null,
     async snapshotAt(_app, path) {
       const written = writeSnapshot(nodeSyncDb(here.raw), path);

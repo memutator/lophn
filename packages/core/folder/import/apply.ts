@@ -2,6 +2,7 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { filterChangeset } from "../../../base/mod.ts";
 import { clockAhead, maxHlc } from "../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -121,6 +122,13 @@ export async function applyChangesFile(
   }
   const ahead = clockAheadStop(deps, target, newest);
   if (ahead !== null) return ahead;
+  // 이 기계 선언이 보내지 않는 표의 구간은 버린다. 그 표의 row는 이 기계에만 있는 data라 다른 기계의 값으로 덮으면 잃는다.
+  const sent = deps.apps().find((app) => app.app === target.app)?.sent ?? null;
+  const kept = (bytes: Uint8Array): Uint8Array => {
+    if (sent === null) return bytes;
+    const filtered = filterChangeset(bytes, sent);
+    return filtered.ok ? filtered.value : bytes;
+  };
   const applied = await deps.apply.applyChanges({
     app: target.app,
     release: target.release.id,
@@ -130,7 +138,7 @@ export async function applyChangesFile(
       hlc: meta.hlc,
       operation: meta.operation,
       started_at: meta.started_at,
-      changeset: bytes,
+      changeset: kept(bytes),
     })),
   });
   if (!applied.ok) return applyError(deps, applied.error);

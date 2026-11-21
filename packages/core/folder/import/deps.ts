@@ -7,6 +7,7 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { TableFilter } from "../../../protocol/apps/declaration/sync-plan.ts";
 import {
   type AppRecord,
   BACKOFF_FIRST_MS,
@@ -23,6 +24,8 @@ export type ImportApp = {
   app: Id<"app">;
   // 선언의 `sync`가 table을 보내는 destination. 없으면 그 앱의 data를 읽지 않는다.
   destination: string | null;
+  // 활성 release의 선언이 보내는 표(null이면 모든 표). 같은 release의 변경만 적용하므로 받은 변경도 이 표만 남긴다.
+  sent: TableFilter;
   /** 이 기계의 활성 release. 없으면 그 앱은 읽지 않는다. */
   release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };

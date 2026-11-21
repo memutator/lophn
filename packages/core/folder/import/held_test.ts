@@ -176,6 +176,7 @@ async function make(base: string) {
       {
         app: APP,
         destination: "personal",
+        sent: null,
         release: { id: active.id, code_commit: active.commit, data_schema: 1 },
       },
     ],

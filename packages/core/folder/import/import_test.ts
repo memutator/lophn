@@ -32,6 +32,8 @@ import {
 } from "../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { TableFilter } from "../../../protocol/apps/declaration/sync-plan.ts";
+import { readChangeset } from "../../../protocol/apps/sync/changeset.ts";
 import {
   appRecordPath,
   containerPrefix,
@@ -59,9 +61,10 @@ type Call =
 
 async function setup(
   run: (env: Awaited<ReturnType<typeof make>>) => Promise<void>,
+  sent: TableFilter = null,
 ) {
   const base = await mkdtemp(join(tmpdir(), "lophn-folder-import-"));
-  const env = await make(base);
+  const env = await make(base, sent);
   try {
     await run(env);
   } finally {
@@ -70,7 +73,7 @@ async function setup(
   }
 }
 
-async function make(base: string) {
+async function make(base: string, sent: TableFilter) {
   const dest = join(base, "dest");
   const root = join(base, "root");
   mkdirSync(dest);
@@ -82,6 +85,8 @@ async function make(base: string) {
   const sql: Sql = createSql(db, () => true);
   const clock = manualClock(T0);
   const calls: Call[] = [];
+  // 앱 process에 넘긴 changeset bytes.
+  const applied: Uint8Array[] = [];
   const exportState = {
     settled: null as string | null,
     data_head: 0,
@@ -90,6 +95,7 @@ async function make(base: string) {
   const apply: FolderApply = {
     async applyChanges(input) {
       calls.push({ kind: "changes", ids: input.changes.map((c) => c.id) });
+      applied.push(...input.changes.map((c) => c.changeset));
       return ok({
         applied: input.changes.length,
         skipped: 0,
@@ -121,6 +127,7 @@ async function make(base: string) {
       {
         app: APP,
         destination: "personal",
+        sent,
         release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
       },
     ],
@@ -190,7 +197,7 @@ async function make(base: string) {
   };
   const changesFile = async (
     n: number,
-    opts: { commit?: string; aheadMs?: number } = {},
+    opts: { commit?: string; aheadMs?: number; bytes?: Uint8Array } = {},
   ) => {
     const file = await encodeChanges({
       machine: PEER,
@@ -207,7 +214,7 @@ async function make(base: string) {
             operation: "save",
             started_at: clock.now(),
           },
-          bytes: new TextEncoder().encode(`change ${n}`),
+          bytes: opts.bytes ?? new TextEncoder().encode(`change ${n}`),
         },
       ],
     });
@@ -240,7 +247,7 @@ async function make(base: string) {
   };
   const putChanges = async (
     n: number,
-    opts?: { commit?: string; aheadMs?: number },
+    opts?: { commit?: string; aheadMs?: number; bytes?: Uint8Array },
   ) => {
     const bytes = await changesFile(n, opts);
     put(dataEntryPath(PEER, APP, n, "changes"), bytes);
@@ -265,6 +272,7 @@ async function make(base: string) {
     root,
     clock,
     calls,
+    applied,
     exportState,
     apply,
     // 같은 ledger로 새로 만든 읽기(core 재시작).
@@ -710,4 +718,36 @@ test("clock이 5분 넘게 앞선 snapshot은 시각이 따라올 때까지 합�
     await env.run();
     assert.deepEqual(appliedIds(env.calls), ["snapshot 1"]);
   });
+});
+
+// 지우면 다른 기계(같은 release인데 표 집합을 잘못 걸렀거나 폰 앱의 줄)가 보낸, 이 기계에서는 보내지 않는 표의 변경이 이 기계에만
+// 있는 row를 덮는다.
+test("폴더로 온 변경은 이 기계 선언이 보내지 않는 표의 구간을 버리고 적용한다", async () => {
+  await setup(
+    async (env) => {
+      const app = new DatabaseSync(":memory:");
+      app.exec(
+        "create table item (id text primary key, title text); create table cache (id text primary key, body text)",
+      );
+      const session = app.createSession();
+      app.exec(
+        "insert into cache values ('k', 'other computer'); insert into item values ('i', 'milk')",
+      );
+      const bytes = session.changeset();
+      session.close();
+      env.putRecords(1, { data: { head: 1, snapshot: null } });
+      await env.folder.scan();
+      await env.putChanges(1, { bytes });
+      await env.run();
+      assert.deepEqual(appliedIds(env.calls), ["1"]);
+      assert.equal(env.applied.length, 1);
+      const read = readChangeset(env.applied[0]!);
+      assert.ok(read.ok);
+      assert.deepEqual(
+        read.value.map((change) => [change.table, change.op]),
+        [["item", "insert"]],
+      );
+    },
+    (table) => table === "item",
+  );
 });

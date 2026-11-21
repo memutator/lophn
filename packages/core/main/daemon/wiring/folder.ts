@@ -60,6 +60,7 @@ import {
 import {
   loadActiveDeclaration,
   loadRelease,
+  loadStoredDeclaration,
 } from "../../../apps/releases/store.ts";
 import {
   sentTables,
@@ -476,6 +477,7 @@ export const folderWiring: WiringFactory = () => {
           syncApps().map((app) => ({
             app: app.app,
             destination: app.destination,
+            sent: app.sent,
             release: app.release,
           })),
         apply: ports.apply,
@@ -507,6 +509,13 @@ export const folderWiring: WiringFactory = () => {
                 data_schema: found.value.data_schema,
               }
             : null;
+        },
+        sentOf(release) {
+          // 줄의 release 선언(봉인한 것)이 정한 표. 읽지 못하면 아무 표도 보내지 않는다.
+          const stored = loadStoredDeclaration(sql, release);
+          return stored.ok && stored.value !== null
+            ? sentTables(syncPlanOf(stored.value.declaration))
+            : () => false;
         },
         operationOf(invocation) {
           const found = ctx.invocationLedger.get(invocation as Id<"inv">);

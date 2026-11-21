@@ -32,6 +32,21 @@ import type { DestinationsView } from "../destinations.ts";
 import type { FolderLogRow } from "../ports.ts";
 import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
 import { createFolderExport, type ExportLog } from "./mod.ts";
+import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
+import {
+  sentTables,
+  type SyncPlan,
+  syncPlanOf,
+  type TableFilter,
+} from "../../../protocol/apps/declaration/sync-plan.ts";
+import { readChangeset } from "../../../protocol/apps/sync/changeset.ts";
+import { createSyncLog } from "../../apps/sync/log.ts";
+import {
+  SYNC_LOG_MACHINE_STEPS,
+  SYNC_LOG_SCHEMA_STEPS,
+} from "../../apps/sync/schema.ts";
+import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
+import { applyMigrations } from "../../storage/migration/migrations.ts";
 
 // 내보내기가 기대는 sync log 면이 core의 sync log와 맞는지 type check가 본다.
 void (null as unknown as SyncLog satisfies ExportLog);
@@ -160,12 +175,12 @@ async function setup(base: string) {
         name: "Notes",
         description: "",
         destination: "personal",
-        sent: null,
         release: { id: REL, code_commit: COMMIT, data_schema: 1 },
       },
     ],
     log: fake.log,
     releaseKey: () => ({ code_commit: COMMIT, data_schema: 1 }),
+    sentOf: () => null,
     operationOf: (invocation) => ({
       name: `op_${invocation}`,
       started_at: clock.now(),
@@ -482,5 +497,294 @@ test("남이 쓴 번호를 보면 쓰지 않고 foreign_writer다", async () => 
       assert.equal(h.exporter.status(APP)?.error?.code, "foreign_writer");
       assert.ok(statSync(h.dataFolder).isDirectory());
     });
+  }
+});
+
+// 진짜 sync log(임시 ledger file)와 그 위의 내보내기. 앱의 write·rewind changeset은 scratch DB의 session으로 뜬다.
+async function realExport(
+  base: string,
+  plan: SyncPlan,
+  sentOf: (release: string) => TableFilter,
+) {
+  const ledger = join(base, "ledger.sqlite");
+  const clock = manualClock(Date.parse("2026-11-16T00:00:00.000Z"));
+  assert.ok(
+    (
+      await applyMigrations(
+        ledger,
+        [
+          ...LEDGER_SCHEMA_STEPS,
+          ...SYNC_LOG_SCHEMA_STEPS,
+          ...SYNC_LOG_MACHINE_STEPS,
+        ],
+        { clock },
+      )
+    ).ok,
+  );
+  const db = new DatabaseSync(ledger);
+  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+    db.exec(step.sql);
+  }
+  const sql: Sql = {
+    run: (text, params) => db.prepare(text).run(...params),
+    get: (text, params) => db.prepare(text).get(...params) as never,
+    all: (text, params) => db.prepare(text).all(...params) as never,
+  };
+  const tx = {
+    sql,
+    now: () => clock.now(),
+    registerBlobRef: () => ok(undefined),
+  } as unknown as Tx;
+  function transaction<T>(fn: (tx: Tx) => Result<T>): Result<T> {
+    db.exec("begin immediate");
+    const done = fn(tx);
+    db.exec(done.ok ? "commit" : "rollback");
+    return done;
+  }
+  const stored = new Map<string, Uint8Array>();
+  const log = createSyncLog({
+    sql,
+    transaction,
+    blobs: {
+      async prepare(stream) {
+        const parts: Uint8Array[] = [];
+        for await (const part of stream) parts.push(part);
+        const bytes = new Uint8Array(Buffer.concat(parts));
+        const hash = createHash("sha256").update(bytes).digest("hex");
+        stored.set(hash, bytes);
+        return ok({
+          preparation: "p",
+          principal: "core",
+          purpose: "app_changeset",
+          hash,
+          size_bytes: bytes.byteLength,
+        });
+      },
+      read: (hash, offset, length) =>
+        Promise.resolve(
+          ok({
+            hash,
+            sizeBytes: stored.get(hash)!.byteLength,
+            bytes: stored.get(hash)!.slice(offset, offset + length),
+          }),
+        ),
+    },
+    ledger: { list: () => ok([]) },
+    activeRelease: () => ok(REL),
+    plan: () => plan,
+    now: () => clock.now(),
+    changed: () => {},
+  });
+  const destination = join(base, "dest");
+  const dataRoot = join(base, "root");
+  mkdirSync(destination);
+  mkdirSync(dataRoot);
+  const exporter = createFolderExport({
+    machine: () => ({ id: ME, name: "Studio" }),
+    destinations: {
+      list: () => [{ name: "personal", path: destination, state: "ok" }],
+      resolve: (name) =>
+        name === "personal" ? { path: destination, state: "ok" } : null,
+    },
+    apps: () => [
+      {
+        app: APP,
+        slug: "notes",
+        name: "Notes",
+        description: "",
+        destination: "personal",
+        release: { id: REL, code_commit: COMMIT, data_schema: 1 },
+      },
+    ],
+    log,
+    releaseKey: () => ({ code_commit: COMMIT, data_schema: 1 }),
+    sentOf,
+    operationOf: () => null,
+    async snapshotAt(_app, path) {
+      new DatabaseSync(path).close();
+      const bytes = readFileSync(path);
+      return ok({
+        seq: log.head(APP),
+        size: bytes.byteLength,
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+      });
+    },
+    facts: () => ({
+      addresses: { lan: [], port: null, relay: null },
+      alwaysOn: null,
+      projects: [],
+      lophn: { version: "0.23.0", protocol: { version: 2, min_version: 2 } },
+    }),
+    readsCaughtUp: () => true,
+    peerHorizons: () => [],
+    sql,
+    transaction,
+    clock,
+    random: seededRandom(7),
+    dataRoot,
+  });
+  // 앱의 표 둘: item은 보내고 cache는 이 기계에만 둔다.
+  const app = new DatabaseSync(":memory:");
+  app.exec(
+    "create table item (id text primary key, title text); create table cache (id text primary key, body text)",
+  );
+  const changeset = (text: string) => {
+    const session = app.createSession();
+    app.exec(text);
+    const bytes = session.changeset();
+    session.close();
+    return bytes;
+  };
+  const inv = (id: string, release: string = REL) =>
+    ({ id, app: APP, release, effect: "write" }) as unknown as AppInvocation;
+  return {
+    log,
+    changeset,
+    inv,
+    async run() {
+      const done = await exporter.runApp(APP);
+      assert.ok(done.ok, JSON.stringify(done));
+      assert.equal(done.value.error, null);
+    },
+    // 내보낸 changes file 하나의 변경마다 [id, 담은 표].
+    async exported(n: number) {
+      const rel = dataEntryPath(ME, APP, n, "changes");
+      const decoded = await decodeContainer(
+        readFileSync(join(destination, rel)),
+        rel,
+      );
+      assert.ok(decoded.ok);
+      return changesOf(decoded.value.header, decoded.value.payload).map(
+        ({ meta, bytes }) => {
+          const read = readChangeset(bytes);
+          assert.ok(read.ok);
+          return [meta.id, [...new Set(read.value.map((c) => c.table))]];
+        },
+      );
+    },
+    close: () => db.close(),
+  };
+}
+
+// 지우면 이 기계에만 두기로 한 표의 row가 changes file에 실려 다른 기계로 나가거나, 그런 write의 log 줄이 없어 core가 뜰 때마다
+// '다시 snapshot'이 되거나, 그 표만 되돌린 rewind가 폰과 폴더로 나간다.
+test("보내는 표와 이 기계에만 있는 표를 같이 바꾼 write와 rewind는 changes file에 보내는 표만 싣고, 이 기계에만 있는 표만 바꾼 write는 skipped 줄이다(폰 밖 앱). 폰 앱은 log에 모든 표를 두고 내보낼 때 거른다", async () => {
+  for (const [label, plan, kinds, exported] of [
+    [
+      "computer",
+      syncPlanOf({ sync: { item: "personal" } }),
+      [
+        ["change", "computer", ["item"]],
+        ["skipped", "computer", []],
+        ["change", "rewind", ["item"]],
+      ],
+      [
+        ["1", ["item"]],
+        ["3", ["item"]],
+      ],
+    ],
+    [
+      "phone",
+      syncPlanOf({
+        runs_on: ["computer", "phone"],
+        sync: { item: "personal" },
+      }),
+      [
+        ["change", "computer", ["cache", "item"]],
+        ["change", "computer", ["cache"]],
+        ["change", "rewind", ["cache"]],
+        ["change", "rewind", ["cache", "item"]],
+      ],
+      [
+        ["1", ["item"]],
+        ["4", ["item"]],
+      ],
+    ],
+  ] as const) {
+    const base = await mkdtemp(join(tmpdir(), "lophn-folder-sent-"));
+    const e = await realExport(base, plan, () => sentTables(plan));
+    try {
+      await e.run(); // 첫 file은 snapshot이다.
+      await e.log.written(
+        e.inv("inv_1"),
+        "100",
+        e.changeset(
+          "insert into item values ('a', 'milk'); insert into cache values ('c', 'local')",
+        ),
+      );
+      await e.log.written(
+        e.inv("inv_2"),
+        "101",
+        e.changeset("update cache set body = 'again'"),
+      );
+      await e.log.rewound(APP, REL, e.changeset("delete from cache"), "102");
+      await e.log.rewound(
+        APP,
+        REL,
+        e.changeset(
+          "update item set title = 'tea'; insert into cache values ('d', 'x')",
+        ),
+        "103",
+      );
+      const rows = e.log.page(APP, 0, 10);
+      const tablesOf = async (row: (typeof rows)[number]) => {
+        if (row.changeset === null) return [];
+        const bytes = await e.log.readChangeset(
+          row.changeset.hash,
+          row.changeset.size,
+        );
+        assert.ok(bytes.ok);
+        const read = readChangeset(bytes.value);
+        assert.ok(read.ok);
+        return [...new Set(read.value.map((c) => c.table))].sort();
+      };
+      assert.deepEqual(
+        await Promise.all(
+          rows.map(async (row) => [row.kind, row.origin, await tablesOf(row)]),
+        ),
+        kinds,
+        label,
+      );
+      await e.run();
+      assert.deepEqual(await e.exported(2), exported, label);
+    } finally {
+      e.close();
+      await rm(base, { recursive: true, force: true });
+    }
+  }
+});
+
+// 지우면 release가 바뀌기 전 줄이 지금 release의 표 집합으로 걸러져, 그 release에서는 이 기계에만 있던 표가 옛 release의 줄로 나간다.
+test("내보내기는 log 줄마다 그 줄의 release가 보내는 표로 거른다", async () => {
+  const base = await mkdtemp(join(tmpdir(), "lophn-folder-sent-release-"));
+  const OLD = "rel_01hyyyyyyyyyyyyyyyyyyyyyyy";
+  const plan = syncPlanOf({
+    runs_on: ["computer", "phone"],
+    sync: { item: "personal" },
+  });
+  const e = await realExport(base, plan, (release) =>
+    release === OLD
+      ? (table) => table === "item"
+      : (table) => table === "item" || table === "cache",
+  );
+  try {
+    await e.run();
+    const both =
+      "insert into item values ('a', 'milk'); insert into cache values ('c', 'local')";
+    await e.log.written(e.inv("inv_1", OLD), "100", e.changeset(both));
+    await e.log.written(
+      e.inv("inv_2"),
+      "101",
+      e.changeset(
+        "insert into item values ('b', 'tea'); insert into cache values ('d', 'x')",
+      ),
+    );
+    await e.run();
+    // release마다 file이 나뉜다.
+    assert.deepEqual(await e.exported(2), [["1", ["item"]]]);
+    assert.deepEqual(await e.exported(3), [["2", ["item", "cache"]]]);
+  } finally {
+    e.close();
+    await rm(base, { recursive: true, force: true });
   }
 });

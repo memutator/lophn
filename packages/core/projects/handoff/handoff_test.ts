@@ -325,12 +325,11 @@ async function withSides(
 ) {
   const base = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   const sides = {
-    // desk: 같이 있는 project 둘, desk에서만 private인 project, id 없는 project.
+    // desk: 같이 있는 project 둘, desk에서만 private인 project.
     desk: await sideOf(base, desk, viewOf(desk, [laptop]), [
       { id: prj(1), identity: SHARED },
       { id: prj(2), identity: OTHER },
       { id: prj(3), identity: LONE },
-      { id: prj(4), identity: null },
     ]),
     // laptop: 같은 project 둘이 다른 이 기계 id로 있다.
     laptop: await sideOf(base, laptop, viewOf(laptop, [desk]), [
@@ -368,16 +367,14 @@ test("private workspace의 session은 handoff note를 남기지 못하고 file�
     d.sessions.set(ses(1), project(prj(1)));
     d.sessions.set(ses(2), project(prj(2)));
     d.sessions.set(ses(3), project(prj(3)));
-    d.sessions.set(ses(4), project(prj(4)));
     d.sessions.set(ses(5), null);
     d.policy.private.push({ kind: "project", id: prj(3) });
 
-    // session 자격이 없으면 쓰지 못한다. private, home, id 없는 project도.
+    // session 자격이 없으면 쓰지 못한다. private과 home도.
     assert.equal(code(await d.write(undefined, "x")), "forbidden");
     assert.equal(code(await d.write(ses(3), "secret plan")), "forbidden");
     assert.equal(code(await d.write(ses(5), "x")), "invalid_input");
-    assert.equal(code(await d.write(ses(4), "x")), "invalid_input");
-    for (const n of [3, 4, 5])
+    for (const n of [3, 5])
       assert.equal(d.has(noteFilePath(DESK, ses(n))), false);
     assert.equal(d.kicks(), 0);
 

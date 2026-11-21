@@ -90,8 +90,7 @@ function projectCrossing(
   if (identity.value === null) {
     return err({
       code: "invalid_input",
-      message:
-        "this project has no id shared across computers; run lophn project share",
+      message: "this project has no id shared across computers",
     });
   }
   return ok({ project: identity.value });

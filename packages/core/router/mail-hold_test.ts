@@ -148,6 +148,7 @@ const agents: AgentDirectory = {
           apps: [],
           deny: [],
           remoteApps: [],
+          browserProfile: null,
         }
       : isLophn(id)
         ? {
@@ -160,6 +161,7 @@ const agents: AgentDirectory = {
             apps: [],
             deny: [],
             remoteApps: [],
+            browserProfile: null,
           }
         : null,
   agents: () => [agents.agent(REVIEWER)!, agents.agent(SKIPPER)!],

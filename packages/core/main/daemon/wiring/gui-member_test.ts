@@ -58,6 +58,7 @@ function router() {
       agent: lophn,
       accepting: true,
       spawned_by: null,
+      opened_by_machine: null,
     },
     [MEMBER]: {
       session: MEMBER as TargetSession["session"],
@@ -65,6 +66,7 @@ function router() {
       agent: lophn,
       accepting: true,
       spawned_by: null,
+      opened_by_machine: null,
     },
   };
   const rows = new Map<string, AgentCallRow>();
@@ -89,6 +91,7 @@ function router() {
       return ok(moved);
     },
     markConsumed: () => ok(undefined),
+    setDelivery: () => ok(undefined),
     lost: () => [],
     openReceivedBy: () => [],
   };
@@ -100,8 +103,16 @@ function router() {
       app: () => null,
       accepts: () => null,
       listOpen: () => [],
+      projectOfIdentity: () => null,
+      identityOfProject: () => ok(null),
+      appIdOf: () => ok("app_x" as never),
     },
     store,
+    // 이 test는 한 컴퓨터 안의 call만 본다. 다른 컴퓨터로 가는 길은 쓰이지 않는다.
+    outbox: {} as never,
+    seen: {} as never,
+    self: () => "mch_self",
+    steps: {} as never,
     callPolicy: () => DEFAULT_CALL_POLICY,
     announce: () => {},
     transport: {

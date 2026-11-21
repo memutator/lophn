@@ -91,13 +91,7 @@ export function handoffWriteHandler(deps: HandoffWriteDeps): MemoryHandler {
     const project = loadProject(deps.sql, workspace.id);
     if (!project.ok) return project;
     if (project.value === null) return fail("not_found", "project not found");
-    const identity = project.value.identity as Id<"pri"> | null;
-    if (identity === null) {
-      return fail(
-        "invalid_input",
-        "this project has no id shared across computers",
-      );
-    }
+    const identity = project.value.identity as Id<"pri">;
     const text = deps.redact(input.text);
     if (text === null) {
       return fail("unavailable", "handoff note redaction did not finish");

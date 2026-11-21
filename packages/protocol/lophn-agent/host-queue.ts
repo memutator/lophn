@@ -66,9 +66,6 @@ export type TabRelation = z.infer<typeof tabRelationSchema>;
 const sharedTargets = [
   z.strictObject({ session: idSchema("ses") }),
   z.strictObject({
-    browser: z.strictObject({ url: z.string().min(1).max(8192) }),
-  }),
-  z.strictObject({
     preview: z.strictObject({
       app: idSchema("app"),
       device: z.string().min(1).max(40).nullable().default(null),
@@ -79,8 +76,17 @@ const sharedTargets = [
 ] as const;
 // `terminal`은 core가 이미 연 터미널(`terminals/open`의 `tab`, `tabs/open`의 `tui`·`coding`)의 탭이다. shell은 새 터미널을 열지 않고
 // 그 터미널에 붙는다.
+const browserUrlSchema = z.string().min(1).max(8192);
+// shell에 가는 browser target만 browser profile을 싣는다(없으면 기본 profile). core가 연 session의 agent 정의로 정한 값이고,
+// `tabs/open` 입력의 browser target에는 이 칸이 없어 agent가 profile을 고르지 못한다.
 export const hostTabTargetSchema = z.union([
   ...sharedTargets,
+  z.strictObject({
+    browser: z.strictObject({
+      url: browserUrlSchema,
+      profile: idSchema("bpf").optional(),
+    }),
+  }),
   z.strictObject({
     terminal: z.strictObject({ terminal_ref: z.string().min(1) }),
   }),
@@ -126,6 +132,8 @@ const tabOpenPayloadSchema = z.strictObject({
   relation: tabRelationSchema.nullable(),
   // 연 agent session이다. renderer가 그 session의 탭 옆에 놓는다.
   source: idSchema("ses").nullable(),
+  // 그 탭의 주인 session이다. 없으면 사람의 탭이다.
+  owner: idSchema("ses").optional(),
 });
 
 // browser 호출의 act 하나다. ref는 snapshot마다 새로 나고, 낡은 ref는 shell이 `conflict`로 답한다.
@@ -354,6 +362,7 @@ export const tabsOpen = defineMemory({
   input: z.strictObject({
     target: z.union([
       ...sharedTargets,
+      z.strictObject({ browser: z.strictObject({ url: browserUrlSchema }) }),
       tuiTargetSchema,
       phoneTabTargetSchema,
       codingOpenSchema,

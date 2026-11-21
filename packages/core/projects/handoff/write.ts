@@ -38,7 +38,7 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 import type { z } from "zod";
 import { createFolderReader, createFolderWriter } from "../../folder/fs.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
-import { projectByIdentity } from "../lookups.ts";
+import { projectHoldingIdentity } from "../registry/store.ts";
 import { loadProject } from "../registry/mod.ts";
 
 type ReadSql = Pick<Sql, "get" | "all">;
@@ -149,7 +149,8 @@ export function handoffWriteHandler(deps: HandoffWriteDeps): MemoryHandler {
 
 /**
  * 자기 note 가운데 `HANDOFF_MAX_AGE_MS`보다 옛 것, 읽지 못하는 것, 지금 이 기계에서 private이거나 없는 project의 것을 지운다
- * (쓴 뒤 private이 된 project의 note도 다른 기계로 가지 않는다). 나르기가 manifest를 쓰기 전에 부른다.
+ * (쓴 뒤 private이 된 project의 note도 다른 기계로 가지 않는다). project는 지금 id나 옛 id로 찾는다(쓴 뒤 컴퓨터끼리 맞추어 id가
+ * 바뀌어도 note는 남는다). 나르기가 manifest를 쓰기 전에 부른다.
  */
 export async function pruneHandoffNotes(input: {
   me: Id<"mch">;
@@ -182,7 +183,7 @@ export async function pruneHandoffNotes(input: {
       ? decodeRecord(handoffFileSchema, read.value, NOTE_FILE_MAX_BYTES)
       : null;
     const project = file?.ok
-      ? projectByIdentity(input.sql, file.value.identity)
+      ? projectHoldingIdentity(input.sql, file.value.identity)
       : null;
     const keep =
       file?.ok === true &&

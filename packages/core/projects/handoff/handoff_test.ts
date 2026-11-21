@@ -543,3 +543,31 @@ test("지금 명단의 컴퓨터 폴더에 있고 그 기계가 쓴 7일 안의 
     assert.deepEqual(await l.list(), []);
   });
 });
+
+// 컴퓨터끼리 처음 보면 project의 id가 하나로 맞춰져 바뀐다. 그 전에 쓴 note를 잃거나 숨기면 안 된다.
+test("project의 기계를 건너는 id가 바뀌기 전에 쓴 note는 쓴 기계에서 지워지지 않고 받는 기계에서 보인다", async () => {
+  await withSides(async ({ desk: d, laptop: l }) => {
+    d.sessions.set(ses(1), project(prj(1)));
+    assert.equal(code(await d.write(ses(1), "before the ids matched")), "ok");
+    // 두 기계 모두 SHARED가 옛 id가 되고 새 id를 쓴다.
+    const NEW = "pri_01hddddddddddddddddddddddd";
+    for (const [side, id] of [
+      [d, prj(1)],
+      [l, prj(11)],
+    ] as const) {
+      side.db
+        .prepare(
+          "update projects set identity = ?, former_identities = ? where id = ?",
+        )
+        .run(NEW, JSON.stringify([SHARED]), id);
+    }
+    assert.ok((await d.prune()).ok);
+    assert.equal(d.has(noteFilePath(DESK, ses(1))), true);
+    await d.publish();
+    await carry(d, l);
+    assert.deepEqual(
+      (await l.list(prj(11))).map((note) => [note.session, note.project]),
+      [[ses(1), prj(11)]],
+    );
+  });
+});

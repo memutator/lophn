@@ -32,7 +32,8 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 import type { z } from "zod";
 import { createFolderReader } from "../../folder/fs.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
-import { projectByIdentity, projectStatusOf } from "../lookups.ts";
+import { projectStatusOf } from "../lookups.ts";
+import { projectHoldingIdentity } from "../registry/store.ts";
 
 type ReadSql = Pick<Sql, "get" | "all">;
 
@@ -130,7 +131,8 @@ async function arrivedNotes(
       if (at > now + CLOCK_AHEAD_MAX_MS || now - at > HANDOFF_MAX_AGE_MS) {
         continue;
       }
-      const project = projectByIdentity(deps.sql, note.identity);
+      // 컴퓨터끼리 맞추어 id가 바뀐 project의 note는 옛 id로 쓰였다.
+      const project = projectHoldingIdentity(deps.sql, note.identity);
       if (
         project === null ||
         (only !== null && project !== only) ||

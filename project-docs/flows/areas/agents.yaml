@@ -1311,7 +1311,7 @@ flows:
   - id: handoff-write
     title: agent가 자기 session의 handoff note를 남긴다
     actor: agent
-    entries: [route:handoff/write, cli:handoff.write]
+    entries: [route:handoff/write]
     boundary: [projects, remote, core-api]
     code: [packages/core/projects/handoff/write.ts, packages/core/main/daemon/wiring/handoff.ts, packages/cli/commands/handoff.ts, packages/protocol/lophn-agent/handoff.ts]
     steps:

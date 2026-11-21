@@ -495,6 +495,7 @@ links:
   - {entry: "cli:browser.navigate", flow: host-browser-act}
   - {entry: "cli:browser.evaluate", flow: host-browser-act}
   - {entry: "cli:call.send", flow: call-send}
+  - {entry: "cli:handoff.write", flow: handoff-write}
   - {entry: "cli:call.reply", flow: call-reply}
   - {entry: "cli:call.cancel", flow: call-cancel}
   - {entry: "cli:job.create", flow: job-create}

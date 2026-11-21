@@ -169,21 +169,31 @@ export function storeSeparated(tx: Pick<Tx, "sql">, before: Project): Project {
   return { ...before, separated: true };
 }
 
+// 이 기계에서 지금이나 옛 identity로 그 id를 가진 project(보관 포함, `except`는 뺀다). 지금 id로 가진 것이 먼저다.
+// 컴퓨터끼리 맞추면 project의 id가 바뀌므로 다른 기계가 옛 id로 쓴 것도 이 project를 가리킨다.
+export function projectHoldingIdentity(
+  sql: Query,
+  identity: string,
+  except = "",
+): string | null {
+  const row = sql.get(
+    `SELECT id FROM projects
+     WHERE id <> ?
+       AND (identity = ?
+         OR EXISTS (SELECT 1 FROM json_each(former_identities) WHERE value = ?))
+     ORDER BY identity IS ? DESC LIMIT 1`,
+    [except, identity, identity, identity],
+  );
+  return row === undefined ? null : String(row.id);
+}
+
 // 이 기계에서 지금이나 옛 identity로 그 id를 가진 다른 project(보관 포함)가 있는가.
 export function identityHeldElsewhere(
   sql: Query,
   identity: string,
   project: string,
 ): boolean {
-  return (
-    sql.get(
-      `SELECT 1 AS held FROM projects
-       WHERE id <> ?
-         AND (identity = ?
-           OR EXISTS (SELECT 1 FROM json_each(former_identities) WHERE value = ?))`,
-      [project, identity, identity],
-    ) !== undefined
-  );
+  return projectHoldingIdentity(sql, identity, project) !== null;
 }
 
 // identity가 없는 project에 ledger에서 난 id를 준다(data step). 이미 준 것은 다시 고르지 않아 끊겨 다시 돌아도 같다.

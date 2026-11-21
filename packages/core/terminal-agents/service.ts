@@ -7,6 +7,7 @@ import {
   type HarnessId,
   harnessOfProcess,
   hookSignalOf,
+  launchArgsOfProcess,
   sessionOfProcess,
 } from "../../protocol/coding-agent/mod.ts";
 import {
@@ -78,6 +79,10 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       harness in HARNESS_ADAPTERS
         ? sessionOfProcess(harness as HarnessId, argv)
         : null,
+    launchArgsOfProcess: (harness, argv) =>
+      harness in HARNESS_ADAPTERS
+        ? launchArgsOfProcess(harness as HarnessId, argv)
+        : [],
     interruptKeys: (harness) => adapterOf(harness)?.interrupt_keys ?? [],
     signalOf: (harness, event, payload) =>
       harness in HARNESS_ADAPTERS

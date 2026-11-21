@@ -35,14 +35,15 @@ export const terminalHookLineSchema = z.strictObject({
 });
 export type TerminalHookLine = z.infer<typeof terminalHookLineSchema>;
 
-// 탭에서 친 `<harness> gui`가 그 탭을 GUI로 바꿔 달라는 요청이다. 같은 hook socket을 쓰고 event 이름만 다르다.
+// 탭에서 친 `<harness> --gui`가 그 탭을 GUI로 바꿔 달라는 요청이다. 같은 hook socket을 쓰고 event 이름만 다르다.
 // `cwd`는 `lophn hook`이 그 함수를 친 shell의 폴더로 더한다(main은 shell이 `cd`한 뒤의 폴더를 모른다).
 export const TERMINAL_GUI_EVENT = "lophn-gui";
 export const terminalGuiPayloadSchema = z.strictObject({
   cwd: absolutePathSchema.max(4096),
   resume: z
     .string()
-    .regex(/^[A-Za-z0-9._-]{1,200}$/)
+    .regex(/^[A-Za-z0-9._:-]{1,200}$/)
     .optional(),
+  args: z.array(z.string().max(4096)).max(64).optional(),
 });
 export type TerminalGuiPayload = z.infer<typeof terminalGuiPayloadSchema>;

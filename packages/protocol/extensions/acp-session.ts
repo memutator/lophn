@@ -67,13 +67,13 @@ export type AcpTerminal = {
   writeImage(image: { name: string; data: Uint8Array }): Promise<string | null>;
 };
 
-/** `onTab`의 `gui`가 받는 것. 탭이 GUI로 가야 한다. `resume`은 그 CLI 자신의 session id. */
+/** `onTab`의 `gui`가 받는 것. 탭이 GUI로 가야 한다. `resume`은 그 CLI 자신의 session id, `args`는 함께 넘긴 CLI flag다. */
 export type AcpTabRequest = {
   terminal: AcpTerminal;
   harness: GuiHarness;
   resume?: string;
-  /** TUI가 `--dangerously-skip-permissions`로 돌고 있었으면 GUI에도 같은 flag를 이어 간다(antigravity). */
-  skipPermissions?: boolean;
+  /** `<harness> --gui ...`나 TUI argv에서 전달된 CLI flag(resume 제외). */
+  args?: readonly string[];
 };
 
 /** 그 CLI가 이 폴더에서 가진 지난 session 하나(`open_session`의 `cli_session`이 `id`다). */

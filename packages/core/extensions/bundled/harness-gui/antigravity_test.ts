@@ -38,8 +38,8 @@ async function setup(
   name: string,
   options: {
     resume?: string;
-    skipPermissions?: boolean;
-    carry?: { skipPermissions?: boolean };
+    args?: readonly string[];
+    carry?: { args?: readonly string[] };
     /** 대화 file이 있는 id. 없으면 저장된 적 없는 대화다. */
     saved?: string[];
     /** 설정 요청의 답을 바꾼다. */
@@ -132,9 +132,7 @@ async function setup(
     terminal: null,
     cwd: `/work/${name}`,
     ...(options.resume === undefined ? {} : { resume: options.resume }),
-    ...(options.skipPermissions === undefined
-      ? {}
-      : { skipPermissions: options.skipPermissions }),
+    ...(options.args === undefined ? {} : { args: options.args }),
     ...(options.carry === undefined ? {} : { carry: options.carry }),
     session,
     spawn: (command, args) => {
@@ -422,28 +420,37 @@ test("the TUI command resumes the conversation and carries only what the GUI cha
   );
 });
 
-test("explicit --dangerously-skip-permissions is preserved across agy acp spawn, tuiCommand, and carry", async () => {
+test("explicit CLI flags are preserved across agy acp spawn, tuiCommand, and carry", async () => {
   const id = "d1fb45c2-7787-48fa-8857-7b99e57222f7";
-  const direct = await setup("text", { skipPermissions: true });
+  const direct = await setup("text", {
+    args: ["--dangerously-skip-permissions", "--add-dir", "/extra"],
+  });
   assert.deepEqual(direct.spawned, [
-    { command: "agy", args: ["acp", "--dangerously-skip-permissions"] },
+    {
+      command: "agy",
+      args: ["acp", "--dangerously-skip-permissions", "--add-dir", "/extra"],
+    },
   ]);
   assert.equal(
     direct.run.tuiCommand(),
-    `agy --conversation ${id} --dangerously-skip-permissions`,
+    `agy --conversation ${id} --dangerously-skip-permissions --add-dir /extra`,
   );
-  assert.deepEqual(direct.run.carry?.(), { skipPermissions: true });
+  assert.deepEqual(direct.run.carry?.(), {
+    args: ["--dangerously-skip-permissions", "--add-dir", "/extra"],
+  });
 
-  // carry가 있고 skipPermissions가 생략되면 이어 간다.
-  const carried = await setup("text", { carry: { skipPermissions: true } });
+  // carry가 있고 args가 생략되면 이어 간다.
+  const carried = await setup("text", {
+    carry: { args: ["--dangerously-skip-permissions"] },
+  });
   assert.deepEqual(carried.spawned, [
     { command: "agy", args: ["acp", "--dangerously-skip-permissions"] },
   ]);
 
-  // TUI가 flag 없이 떴으면(skipPermissions: false) 이전 carry를 덮어쓴다.
+  // TUI가 flag 없이 떴으면(args: []) 이전 carry를 덮어쓴다.
   const plain = await setup("text", {
-    skipPermissions: false,
-    carry: { skipPermissions: true },
+    args: [],
+    carry: { args: ["--dangerously-skip-permissions"] },
   });
   assert.deepEqual(plain.spawned, [{ command: "agy", args: ["acp"] }]);
   assert.equal(plain.run.tuiCommand(), `agy --conversation ${id}`);

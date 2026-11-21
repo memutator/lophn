@@ -182,12 +182,17 @@ test("GUI 탭의 session은 ACP 상태의 제목, CLI session, turn 단계로 �
 test("lophn-gui 요청은 그 key의 터미널에만 handle을 열고 모르는 key로는 열지 않는다", async () => {
   const t = setup();
 
-  t.line(KEY_A, { cwd: "/work/a", resume: "abc-1" });
+  t.line(KEY_A, {
+    cwd: "/work/a",
+    resume: "abc-1",
+    args: ["--dangerously-skip-permissions"],
+  });
   await t.settle();
   assert.equal(t.requests.length, 1);
   assert.equal(t.requests[0]?.terminal.id, "trm_a");
   assert.equal(t.requests[0]?.terminal.cwd, "/work/a");
   assert.equal(t.requests[0]?.resume, "abc-1");
+  assert.deepEqual(t.requests[0]?.args, ["--dangerously-skip-permissions"]);
   assert.deepEqual(t.opened(), ["trm_a"]);
 
   t.line("c".repeat(64), { cwd: "/work/c" }); // 모르는 key
@@ -788,7 +793,7 @@ test("GUI ACP session title updates persist to AgentSessionStore without overwri
   }
 });
 
-test("gui.toggle passes skipPermissions from TUI to AcpTabRequest and seeds resumingTui on GUI->TUI restart", async () => {
+test("gui.toggle passes launch args from TUI to AcpTabRequest and seeds resumingTui on GUI->TUI restart", async () => {
   const requests: AcpTabRequest[] = [];
   const resumed: { ref: string; harness: string; session: string }[] = [];
   let opened: ReturnType<typeof liveHandle> | null = null;
@@ -823,7 +828,7 @@ test("gui.toggle passes skipPermissions from TUI to AcpTabRequest and seeds resu
         state: "idle",
         session: "conv-1",
         cwd: "/work",
-        skipPermissions: true,
+        args: ["--dangerously-skip-permissions"],
       }),
       type: async () => {},
       signal: async () => {},
@@ -838,7 +843,7 @@ test("gui.toggle passes skipPermissions from TUI to AcpTabRequest and seeds resu
   assert.deepEqual(await gui.toggle({ terminal_ref: "trm_a", to: "gui" }), {
     ok: true,
   });
-  assert.equal(requests[0]?.skipPermissions, true);
+  assert.deepEqual(requests[0]?.args, ["--dangerously-skip-permissions"]);
   assert.equal(requests[0]?.resume, "conv-1");
 
   assert.deepEqual(await gui.toggle({ terminal_ref: "trm_a", to: "tui" }), {

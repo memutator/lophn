@@ -183,19 +183,97 @@ const ADAPTER_COMMANDS: AcpCommand[] = [
   },
 ];
 
+const AGY_ACP_BOOL_FLAGS = new Set([
+  "--dangerously-skip-permissions",
+  "--sandbox",
+  "--disable-telemetry",
+  "--disable_telemetry",
+  "--include-default-customizations",
+  "--process-per-session",
+]);
+const AGY_ACP_VALUE_FLAGS = new Set([
+  "--add-dir",
+  "--agent",
+  "--log-file",
+  "--app-data-dir",
+  "--app_data_dir",
+  "--gemini-dir",
+  "--gemini_dir",
+  "--ide-mcp-port",
+  "--ide_mcp_port",
+]);
+
+function parseAgyArgs(raw: readonly string[]) {
+  const acpArgs: string[] = [];
+  const tuiRest: string[] = [];
+  let model: string | undefined;
+  let effort: string | undefined;
+  let mode: string | undefined;
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const token = raw[i]!;
+    if (token === "--") break;
+    const eq = token.indexOf("=");
+    const flag = eq > 0 ? token.slice(0, eq) : token;
+    const inline = eq > 0 ? token.slice(eq + 1) : undefined;
+    const takeValue = (): string | undefined => {
+      if (inline !== undefined) return inline;
+      const next = raw[i + 1];
+      if (next !== undefined && !next.startsWith("-")) {
+        i += 1;
+        return next;
+      }
+      return undefined;
+    };
+    if (flag === "--model") {
+      model = takeValue() ?? model;
+      continue;
+    }
+    if (flag === "--effort") {
+      effort = takeValue() ?? effort;
+      continue;
+    }
+    if (flag === "--mode") {
+      mode = takeValue() ?? mode;
+      continue;
+    }
+    if (AGY_ACP_BOOL_FLAGS.has(flag)) {
+      acpArgs.push(token);
+      tuiRest.push(token);
+      continue;
+    }
+    if (AGY_ACP_VALUE_FLAGS.has(flag)) {
+      if (inline !== undefined) {
+        acpArgs.push(token);
+        tuiRest.push(token);
+      } else {
+        const val = takeValue();
+        if (val !== undefined) {
+          acpArgs.push(flag, val);
+          tuiRest.push(flag, val);
+        }
+      }
+      continue;
+    }
+    tuiRest.push(token);
+  }
+  return { acpArgs, tuiRest, model, effort, mode };
+}
+
 const start: (io: AntigravityIo) => Start =
   (io) =>
   async ({
     cwd,
     resume,
+    args: givenArgs,
     carry,
-    skipPermissions,
     session,
     spawn,
     clock,
     ids,
   }) => {
-    const skip = skipPermissions ?? carry?.skipPermissions ?? false;
+    const launchArgs = givenArgs ?? carry?.args ?? [];
+    const parsedArgs = parseAgyArgs(launchArgs);
     let closed = false;
     let exited = false;
     let stopping = false;
@@ -254,7 +332,7 @@ const start: (io: AntigravityIo) => Start =
       write({ id: rpc, result });
 
     function connect() {
-      const args = skip ? ["acp", "--dangerously-skip-permissions"] : ["acp"];
+      const args = ["acp", ...parsedArgs.acpArgs];
       const mine = spawn("agy", args, { cwd });
       proc = mine;
       exited = false;
@@ -1864,6 +1942,29 @@ const start: (io: AntigravityIo) => Start =
       };
     }
     started = true;
+    // launch flag로 준 --model·--effort·--mode는 ACP session이 열린 뒤 config option으로 적용한다.
+    const initialConfigs: [
+      string,
+      string | undefined,
+      "model" | "thought" | "mode",
+    ][] = [
+      ["model", parsedArgs.model, "model"],
+      ["thought_level", parsedArgs.effort, "thought"],
+      ["mode", parsedArgs.mode, "mode"],
+    ];
+    for (const [configId, value, track] of initialConfigs) {
+      if (value === undefined) continue;
+      const applied = await request("session/set_config_option", {
+        sessionId,
+        configId,
+        value,
+      });
+      if (applied.ok) {
+        applyConfigs(applied.data.configOptions);
+        changed[track] = true;
+        publishMeta();
+      }
+    }
     const version = str(rec(init.data.agentInfo).version);
     if (version !== "" && version !== RECORDED_VERSION) {
       info(
@@ -1920,7 +2021,12 @@ const start: (io: AntigravityIo) => Start =
       // `--model`은 `agy models`의 legacy id(thinking 단계가 id 끝에 붙는다)로 준다. agy는 `--model <legacy id>`와 `--effort`를
       // 같이 주면 거절하므로(`--model X conflicts with --effort`) 단계는 id에 싣는다. GUI에서 바꾼 값만 싣는다.
       tuiCommand() {
-        const parts = ["agy", "--conversation", shq(sessionId)];
+        const parts = [
+          "agy",
+          "--conversation",
+          shq(sessionId),
+          ...parsedArgs.tuiRest.map(shq),
+        ];
         if (changed.model || changed.thought) {
           const model = modelNow();
           const thought = cfg("thought_level")?.current ?? "";
@@ -1932,17 +2038,23 @@ const start: (io: AntigravityIo) => Start =
             if (changed.thought && thought !== "")
               parts.push("--effort", shq(thought));
           }
+        } else {
+          if (parsedArgs.model !== undefined) {
+            parts.push("--model", shq(parsedArgs.model));
+          }
+          if (parsedArgs.effort !== undefined) {
+            parts.push("--effort", shq(parsedArgs.effort));
+          }
         }
         const mode = modeNow();
         if (changed.mode && (mode === "accept-edits" || mode === "plan")) {
           parts.push("--mode", mode);
-        }
-        if (skip) {
-          parts.push("--dangerously-skip-permissions");
+        } else if (!changed.mode && parsedArgs.mode !== undefined) {
+          parts.push("--mode", shq(parsedArgs.mode));
         }
         return parts.join(" ");
       },
-      carry: () => (skip ? { skipPermissions: true } : {}),
+      carry: () => (launchArgs.length > 0 ? { args: launchArgs } : {}),
       async sessions() {
         if (exited) return [];
         const reply = await request("session/list", { cwd });

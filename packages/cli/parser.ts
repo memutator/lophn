@@ -228,6 +228,10 @@ export function splitOn(
   const rest: string[] = [];
   let on: string | null = null;
   for (let at = 0; at < argv.length; at += 1) {
+    if (argv[at] === "--") {
+      rest.push(...argv.slice(at));
+      break;
+    }
     if (argv[at] !== "--on") {
       rest.push(argv[at]);
       continue;

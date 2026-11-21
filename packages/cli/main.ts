@@ -28,7 +28,10 @@ import {
 } from "../coding-agent/mod.ts";
 import type { RpcFetch } from "../protocol/client/mod.ts";
 import type { ControlDial, SpawnDetached } from "../protocol/client/mod.ts";
-import { HOOK_STDIN_MAX_BYTES } from "../protocol/coding-agent/mod.ts";
+import {
+  HOOK_STDIN_MAX_BYTES,
+  TERMINAL_GUI_EVENT,
+} from "../protocol/coding-agent/mod.ts";
 import {
   SESSION_ENV_NAME,
   TERMINAL_SESSION_PREFIX,
@@ -236,7 +239,14 @@ export async function cliMain(
 
   let commands: readonly (Command | LocalCommand | CoreCommand)[] = all;
   let core: Result<CommandCore, LophnError> | undefined;
-  let parsed = parseCommandLine(argv, commands, { readText });
+  // `lophn hook <harness> lophn-gui -- <args...>`는 `--` 뒤의 인자를 CLI flag로 파싱하지 않고 그대로 hook에 넘긴다.
+  const dashAt =
+    argv[0] === "hook" && argv[2] === TERMINAL_GUI_EVENT
+      ? argv.indexOf("--")
+      : -1;
+  const parseArgv = dashAt >= 0 ? argv.slice(0, dashAt) : argv;
+  const extraArgs = dashAt >= 0 ? argv.slice(dashAt + 1) : undefined;
+  let parsed = parseCommandLine(parseArgv, commands, { readText });
   const word = argv[0];
   if (
     !parsed.ok &&
@@ -304,6 +314,7 @@ export async function cliMain(
             cwd: process.cwd(),
             now: () => new Date().toISOString(),
             stdin: options.stdin ?? readProcessStdin,
+            ...(extraArgs === undefined ? {} : { extraArgs }),
             core: () => ok(localCore),
           });
     if (!ran.ok) return await fail(ran.error);

@@ -357,7 +357,7 @@ test("a new turn after a finished signal dismisses the terminal's unseen mark, a
   assert.deepEqual(dismissed, ["t", "t"]);
 });
 
-test("tracker seeds resumed session and skipPermissions from foreground argv, falls back to expectResume, and hydrates saved names", async () => {
+test("tracker seeds resumed session and launch args from foreground argv, falls back to expectResume, and hydrates saved names", async () => {
   const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
   let latest: TerminalRuntime = runtime;
   const tracker = createAgentTracker({
@@ -366,6 +366,8 @@ test("tracker seeds resumed session and skipPermissions from foreground argv, fa
       const idx = argv.indexOf("--conversation");
       return idx >= 0 ? (argv[idx + 1] ?? null) : null;
     },
+    launchArgsOfProcess: (_harness, argv) =>
+      argv.slice(1).filter((a) => a !== "--conversation" && a !== "conv-1"),
     interruptKeys: () => ["escape", "ctrl-c"],
     signalOf: () => null,
     runtimeOf: () => runtime,
@@ -393,7 +395,7 @@ test("tracker seeds resumed session and skipPermissions from foreground argv, fa
     state: "unknown",
     session: "conv-1",
     cwd: null,
-    skipPermissions: true,
+    args: ["--dangerously-skip-permissions"],
   });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(latest.agent?.session, "conv-1");
@@ -409,7 +411,7 @@ test("tracker seeds resumed session and skipPermissions from foreground argv, fa
     state: "unknown",
     session: "conv-1",
     cwd: null,
-    skipPermissions: false,
+    args: [],
   });
   // 한 번 쓴 뒤 다시 새 TUI를 띄우면 이전 expectResume을 재사용하지 않는다.
   tracker.foreground("t", null);

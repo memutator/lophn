@@ -592,17 +592,54 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
   const start: HarnessGuiAdapter["start"] = async ({
     cwd,
     resume,
+    args: givenArgs,
+    carry,
     session,
     spawn,
     clock,
     ids,
   }) => {
+    const launchArgs = givenArgs ?? carry?.args ?? [];
+    const serverArgs: string[] = [];
+    const tuiExtra: string[] = [];
+    let initialAutoAccept = false;
+    for (let i = 0; i < launchArgs.length; i += 1) {
+      const token = launchArgs[i]!;
+      if (token === "--") break;
+      if (token === "--auto") {
+        initialAutoAccept = true;
+        tuiExtra.push(token);
+        continue;
+      }
+      if (token === "--print-logs") {
+        serverArgs.push(token);
+        tuiExtra.push(token);
+        continue;
+      }
+      if (token === "--log-level" || token.startsWith("--log-level=")) {
+        if (token.startsWith("--log-level=")) {
+          serverArgs.push(token);
+          tuiExtra.push(token);
+        } else {
+          const next = launchArgs[i + 1];
+          if (next !== undefined && !next.startsWith("-")) {
+            serverArgs.push(token, next);
+            tuiExtra.push(token, next);
+            i += 1;
+          }
+        }
+      }
+    }
     const password = ids.newId("pwd");
     // env는 extension spawner(`nodeSpawn`)가 login shell env < 여기서 넘기는 env 순으로 합친다. 여기서는 바꾸는 칸만 넘긴다.
-    const proc = spawn("opencode", ["serve", "--stdio", "--port", "0"], {
-      cwd,
-      env: { OPENCODE_PASSWORD: password },
-    });
+    const proc = spawn(
+      "opencode",
+      ["serve", "--stdio", "--port", "0", ...serverArgs],
+      {
+        cwd,
+        env: { OPENCODE_PASSWORD: password },
+      },
+    );
     if (proc.pid === undefined) {
       return {
         ok: false,
@@ -728,7 +765,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     let replaying = true;
     // server가 이 session의 execution이 돈다고 알려 준 동안.
     let executing = false;
-    let autoAccept = false;
+    let autoAccept = initialAutoAccept;
     let currentModel = "";
     let backlog: Json[] = [];
     let contextLimit = new Map<string, number>();
@@ -2912,8 +2949,16 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           await secret.remove();
         },
         // password는 친 글에 싣지 않는다. 0600 file에서 읽어 그 명령에만 env로 준다.
-        tuiCommand: () =>
-          `OPENCODE_PASSWORD="$(cat '${secret.path.replaceAll("'", "'\\''")}')" opencode --server ${url} --session ${sessionId}`,
+        tuiCommand: () => {
+          const quoted = tuiExtra.map((arg) =>
+            /^[A-Za-z0-9._/:=-]+$/.test(arg)
+              ? arg
+              : `'${arg.replaceAll("'", "'\\''")}'`,
+          );
+          const extra = quoted.length === 0 ? "" : ` ${quoted.join(" ")}`;
+          return `OPENCODE_PASSWORD="$(cat '${secret.path.replaceAll("'", "'\\''")}')" opencode --server ${url} --session ${sessionId}${extra}`;
+        },
+        carry: () => (launchArgs.length > 0 ? { args: launchArgs } : {}),
         sessionId: () => sessionId,
         // 이 폴더의 최근 session. subagent 자식(parentID)은 빠진다. 2.1.4가 lab과 같은 query 이름을 받는 것은 녹화 list로 확인했다.
         async sessions() {

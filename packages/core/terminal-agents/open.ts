@@ -2,6 +2,7 @@
 // `<harness> gui [--resume <id>]`를 친다. 창이 없어도 열린다(그 project를 보이는 창이 있으면 탭으로 보인다). 되살리기는 ledger의
 // harness agent session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
+import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
 import { isGuiHarness } from "../../protocol/extensions/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 
@@ -92,7 +93,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     if (!isGuiHarness(input.harness)) {
       return err({
         code: "invalid_input",
-        message: `${input.harness} cannot open as chat; use one of: claude, codex, opencode, omp.`,
+        message: `${input.harness} cannot open as chat; use one of: claude, codex, opencode, omp, antigravity.`,
       });
     }
     if (!deps.guiOn()) {
@@ -107,7 +108,8 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       if (!found.ok) return found;
       resume = found.value;
     }
-    const command = `${input.harness} gui${resume === undefined ? "" : ` --resume ${resume.cli_session}`}`;
+    const binary = HARNESS_ADAPTERS[input.harness].commands[0];
+    const command = `${binary} --gui${resume === undefined ? "" : ` --resume ${resume.cli_session}`}`;
     const opened = await deps.open(input.project, command);
     if (!opened.ok) return opened;
     if (resume !== undefined) deps.held(opened.value, resume.session);

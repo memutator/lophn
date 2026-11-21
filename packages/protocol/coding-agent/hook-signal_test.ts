@@ -3,7 +3,11 @@ import { test } from "node:test";
 
 import { HARNESS_ADAPTERS } from "./harness-adapter.ts";
 import { HARNESS_IDS, type HarnessId } from "./harness-id.ts";
-import { sessionOfProcess } from "./harness-process.ts";
+import {
+  launchArgsOfProcess,
+  parseGuiLaunchArgs,
+  sessionOfProcess,
+} from "./harness-process.ts";
 import { type HookSignal, hookSignalOf } from "./hook-signal.ts";
 
 const status = (type: string, lophn_outcome?: string) => ({
@@ -463,4 +467,49 @@ test("sessionOfProcess extracts resumed CLI session ids across flag styles and r
     sessionOfProcess("antigravity", ["agy", "--", "--conversation", "conv-3"]),
     null,
   );
+});
+
+test("parseGuiLaunchArgs separates resume id from launch flags and rejects invalid session ids", () => {
+  assert.deepEqual(
+    parseGuiLaunchArgs("antigravity", [
+      "--dangerously-skip-permissions",
+      "--gui",
+      "--conversation",
+      "conv-1",
+      "--model",
+      "gemini-3",
+    ]),
+    {
+      ok: true,
+      resume: "conv-1",
+      args: ["--dangerously-skip-permissions", "--model", "gemini-3"],
+    },
+  );
+  assert.deepEqual(
+    parseGuiLaunchArgs("codex", [
+      "--no-daemon",
+      "-m",
+      "o3",
+      "resume",
+      "thr_1",
+      "--dangerously-bypass-approvals-and-sandbox",
+    ]),
+    {
+      ok: true,
+      resume: "thr_1",
+      args: ["-m", "o3", "--dangerously-bypass-approvals-and-sandbox"],
+    },
+  );
+  assert.deepEqual(
+    launchArgsOfProcess("claude", [
+      "claude",
+      "--dangerously-skip-permissions",
+      "--resume",
+      "ses-1",
+      "--model",
+      "opus",
+    ]),
+    ["--dangerously-skip-permissions", "--model", "opus"],
+  );
+  assert.equal(parseGuiLaunchArgs("claude", ["--resume", "../etc"]).ok, false);
 });

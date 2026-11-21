@@ -488,6 +488,10 @@ files:
     covers: [data-steps-apply:applied, settings-places-default-on:removed]
     note: 옛 sidebar panel·tray 설정 key 제거
 
+  - path: packages/core/main/daemon/wiring/coding-gui-flag_test.ts
+    covers: [data-steps-apply:applied, settings-coding-gui-flag:moved]
+    note: 옛 coding agent `gui` 명령을 `--gui` flag로 옮기기
+
   - path: packages/core/main/daemon/wiring/sealed-marker_test.ts
     covers: [data-steps-apply:applied, apps-sealed-marker:marked]
     note: 옛 봉인 사본에 표지 쓰기

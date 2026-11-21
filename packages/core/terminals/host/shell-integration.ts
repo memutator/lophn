@@ -1,7 +1,7 @@
 // 사람 터미널의 shell에 끼우는 시작 층. 사용자의 startup file을 login shell처럼 모두 읽은 뒤에
 // `codex`·`opencode`·`kilo`·`cline` 함수를 정의해, 사람이 친 명령이 공유 background server가 아니라
-// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`일 때만 그 탭의 hook socket으로
-// 탭을 GUI로 바꿔 달라는 요청(`lophn hook <harness> lophn-gui`)을 보내고, 그 밖의 인자는 원래 명령에 그대로 넘긴다.
+// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 `--` 앞에 `--gui` flag가 있을 때 그 탭의
+// hook socket으로 탭을 GUI로 바꿔 달라는 요청(`lophn hook <harness> lophn-gui`)을 보내며, 함께 준 나머지 flag도 그대로 넘긴다.
 //
 // 왜: Codex(0.156+)와 OpenCode(2.x)는 TUI를 사용자당 하나인 background server에 붙이고 turn과 hook(plugin)을
 // 그 server에서 돌린다. server는 처음 뜰 때의 env를 그대로 쓰므로(Codex `app-server-daemon/README.md`:
@@ -134,32 +134,43 @@ __lophn_external() {
   fi
 }
 
+__lophn_has_gui() {
+  local __a
+  for __a in "$@"; do
+    case "$__a" in
+      --) return 1 ;;
+      --gui) return 0 ;;
+    esac
+  done
+  return 1
+}
+
 __lophn_gui() {
-  local __harness="$1" __id=""
+  local __harness="$1" __seen=0 __i=0 __n
   shift
-  case "$#" in
-    0) ;;
-    1) case "$1" in --resume=*) __id="\${1#--resume=}" ;; *) __id="-" ;; esac ;;
-    2) if [ "$1" = --resume ]; then __id="$2"; else __id="-"; fi ;;
-    *) __id="-" ;;
-  esac
-  case "$__id" in
-    -|*[!A-Za-z0-9._-]*) printf 'usage: %s gui [--resume <id>]\\n' "$__harness" >&2; return 2 ;;
-  esac
-  if [ "$#" -gt 0 ] && { [ -z "$__id" ] || [ "\${#__id}" -gt 200 ]; }; then
-    printf 'usage: %s gui [--resume <id>]\\n' "$__harness" >&2; return 2
-  fi
-  if [ -n "$__id" ]; then
-    printf '{"resume":"%s"}' "$__id"
+  __n=$#
+  while [ "$__i" -lt "$__n" ]; do
+    __i=$((__i + 1))
+    if [ "$__seen" = 0 ] && [ "$1" = -- ]; then
+      __seen=1
+      set -- "$@" "$1"
+    elif [ "$__seen" = 0 ] && [ "$1" = --gui ]; then
+      :
+    else
+      set -- "$@" "$1"
+    fi
+    shift
+  done
+  if [ "$#" -gt 0 ]; then
+    command __LOPHN_CLI__ hook "$__harness" lophn-gui -- "$@" </dev/null
   else
-    printf '{}'
-  fi | command __LOPHN_CLI__ hook "$__harness" lophn-gui
+    command __LOPHN_CLI__ hook "$__harness" lophn-gui </dev/null
+  fi
 }
 
 if __lophn_external claude; then
   function claude {
-    if [ "\${1-}" = gui ]; then
-      shift
+    if __lophn_has_gui "$@"; then
       __lophn_gui claude "$@"
       return
     fi
@@ -169,8 +180,7 @@ fi
 
 if __lophn_external omp; then
   function omp {
-    if [ "\${1-}" = gui ]; then
-      shift
+    if __lophn_has_gui "$@"; then
       __lophn_gui omp "$@"
       return
     fi
@@ -180,8 +190,7 @@ fi
 
 if __lophn_external agy; then
   function agy {
-    if [ "\${1-}" = gui ]; then
-      shift
+    if __lophn_has_gui "$@"; then
       __lophn_gui antigravity "$@"
       return
     fi
@@ -191,8 +200,7 @@ fi
 
 if __lophn_external codex; then
   function codex {
-    if [ "\${1-}" = gui ]; then
-      shift
+    if __lophn_has_gui "$@"; then
       __lophn_gui codex "$@"
       return
     fi
@@ -213,8 +221,7 @@ fi
 
 if __lophn_external opencode; then
   function opencode {
-    if [ "\${1-}" = gui ]; then
-      shift
+    if __lophn_has_gui "$@"; then
       __lophn_gui opencode "$@"
       return
     fi
@@ -265,37 +272,43 @@ unset -f __lophn_external
 `;
 
 const FISH = `# lophn shell integration
+function __lophn_has_gui
+  for a in $argv
+    if test "$a" = --
+      return 1
+    else if test "$a" = --gui
+      return 0
+    end
+  end
+  return 1
+end
+
 function __lophn_gui
   set -l harness $argv[1]
-  set -l rest $argv
-  set -e rest[1]
-  set -l id
-  if test (count $rest) -eq 0
-  else if test (count $rest) -eq 1; and string match -qr -- '^--resume=' $rest[1]
-    set id (string replace -- '--resume=' '' $rest[1])
-    or set id ''
-  else if test (count $rest) -eq 2; and test "$rest[1]" = --resume
-    set id $rest[2]
-  else
-    echo "usage: $harness gui [--resume <id>]" >&2
-    return 2
-  end
-  if test (count $rest) -gt 0; and not string match -qr -- '^[A-Za-z0-9._-]{1,200}$' "$id"
-    echo "usage: $harness gui [--resume <id>]" >&2
-    return 2
+  set -e argv[1]
+  set -l rest
+  set -l seen 0
+  for a in $argv
+    if test $seen -eq 0; and test "$a" = --
+      set seen 1
+      set -a rest $a
+    else if test $seen -eq 0; and test "$a" = --gui
+      continue
+    else
+      set -a rest $a
+    end
   end
   if test (count $rest) -gt 0
-    printf '{"resume":"%s"}' $id | command __LOPHN_CLI__ hook $harness lophn-gui
+    command __LOPHN_CLI__ hook $harness lophn-gui -- $rest </dev/null
   else
-    printf '{}' | command __LOPHN_CLI__ hook $harness lophn-gui
+    command __LOPHN_CLI__ hook $harness lophn-gui </dev/null
   end
 end
 
 set -l __lophn_kind (type -t claude 2>/dev/null)
 if test "$__lophn_kind" = file
   function claude
-    if test "$argv[1]" = gui
-      set -e argv[1]
+    if __lophn_has_gui $argv
       __lophn_gui claude $argv
       return
     end
@@ -306,8 +319,7 @@ end
 set __lophn_kind (type -t omp 2>/dev/null)
 if test "$__lophn_kind" = file
   function omp
-    if test "$argv[1]" = gui
-      set -e argv[1]
+    if __lophn_has_gui $argv
       __lophn_gui omp $argv
       return
     end
@@ -318,8 +330,7 @@ end
 set __lophn_kind (type -t agy 2>/dev/null)
 if test "$__lophn_kind" = file
   function agy
-    if test "$argv[1]" = gui
-      set -e argv[1]
+    if __lophn_has_gui $argv
       __lophn_gui antigravity $argv
       return
     end
@@ -330,8 +341,7 @@ end
 set __lophn_kind (type -t codex 2>/dev/null)
 if test "$__lophn_kind" = file
   function codex
-    if test "$argv[1]" = gui
-      set -e argv[1]
+    if __lophn_has_gui $argv
       __lophn_gui codex $argv
       return
     end
@@ -346,8 +356,7 @@ end
 set __lophn_kind (type -t opencode 2>/dev/null)
 if test "$__lophn_kind" = file
   function opencode
-    if test "$argv[1]" = gui
-      set -e argv[1]
+    if __lophn_has_gui $argv
       __lophn_gui opencode $argv
       return
     end
@@ -401,7 +410,7 @@ set -e __lophn_kind
 // PowerShell 7·5.1 시작 층. 사용자의 profile을 모두 읽은 뒤 dot-source되므로 profile·alias·function은 고치지 않고
 // 지금 실제 외부 명령으로 잡히는 것만 감싼다. 감싼 경로를 call operator로 불러 자기 함수를 다시 부르지 않는다.
 // 경로는 `$global:`에 둔다. `$script:`는 함수를 부른 script의 scope로 풀려서 사용자 .ps1 안에서 부르면 비어 있었다.
-// GUI 다섯은 첫 인자가 `gui`일 때만 분기하고, private server wrapper 넷은 bash·zsh·fish의 `FUNCTIONS`와 같은 규칙을 쓴다.
+// GUI 다섯은 `--` 앞에 `--gui` flag가 있을 때 분기하고, private server wrapper 넷은 bash·zsh·fish의 `FUNCTIONS`와 같은 규칙을 쓴다.
 const POWERSHELL = `# lophn shell integration (PowerShell 7·5.1)
 function __lophn_native {
   param([string] $Name)
@@ -416,52 +425,45 @@ function __lophn_native {
   return $found.Path
 }
 
-# gui 요청의 인자 모양은 여기서만 본다. 잘못된 인자는 사용법과 LASTEXITCODE 2다. cwd는 lophn hook이 더한다.
+function __lophn_has_gui {
+  param([object[]] $Items)
+  foreach ($item in $Items) {
+    $text = [string] $item
+    if ($text -ceq '--') { return $false }
+    if ($text -ceq '--gui') { return $true }
+  }
+  return $false
+}
+
+# --gui 요청은 --gui를 뺀 나머지 인자를 lophn hook에 그대로 넘긴다. 파싱과 cwd 추가는 lophn hook이 한다.
 function __lophn_gui {
-  param([string] $Harness, [string[]] $Rest)
-  $id = $null
-  $count = 0
-  if ($null -ne $Rest) {
-    $count = $Rest.Count
-  }
-  switch ($count) {
-    0 { }
-    1 {
-      if ($Rest[0] -clike '--resume=*') {
-        $id = $Rest[0].Substring(9)
-      } else {
-        $id = '-'
-      }
+  param([string] $Harness, [object[]] $Items)
+  $rest = @()
+  $seen = $false
+  foreach ($item in $Items) {
+    $text = [string] $item
+    if (-not $seen -and $text -ceq '--') {
+      $seen = $true
+      $rest += $text
+    } elseif (-not $seen -and $text -ceq '--gui') {
+      continue
+    } else {
+      $rest += $text
     }
-    2 {
-      if ($Rest[0] -ceq '--resume') {
-        $id = $Rest[1]
-      } else {
-        $id = '-'
-      }
-    }
-    default { $id = '-' }
   }
-  if ($null -ne $id -and ($id -ceq '-' -or $id -cnotmatch '^[A-Za-z0-9._-]{1,200}$')) {
-    [Console]::Error.WriteLine("usage: $Harness gui [--resume <id>]")
-    $global:LASTEXITCODE = 2
-    return
-  }
-  if ($null -ne $id) {
-    $payload = '{"resume":"' + $id + '"}'
+  if ($rest.Count -gt 0) {
+    '{}' | & __LOPHN_CLI__ hook $Harness lophn-gui -- @rest
   } else {
-    $payload = '{}'
+    '{}' | & __LOPHN_CLI__ hook $Harness lophn-gui
   }
-  $payload | & __LOPHN_CLI__ hook $Harness lophn-gui
 }
 
 $__lophn_path = __lophn_native 'claude'
 if ($null -ne $__lophn_path) {
   $global:__lophn_native_claude = $__lophn_path
   function claude {
-    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
-      $rest = @($args | Select-Object -Skip 1)
-      __lophn_gui 'claude' $rest
+    if (__lophn_has_gui $args) {
+      __lophn_gui 'claude' $args
       return
     }
     & $global:__lophn_native_claude @args
@@ -472,9 +474,8 @@ $__lophn_path = __lophn_native 'omp'
 if ($null -ne $__lophn_path) {
   $global:__lophn_native_omp = $__lophn_path
   function omp {
-    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
-      $rest = @($args | Select-Object -Skip 1)
-      __lophn_gui 'omp' $rest
+    if (__lophn_has_gui $args) {
+      __lophn_gui 'omp' $args
       return
     }
     & $global:__lophn_native_omp @args
@@ -485,9 +486,8 @@ $__lophn_path = __lophn_native 'agy'
 if ($null -ne $__lophn_path) {
   $global:__lophn_native_agy = $__lophn_path
   function agy {
-    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
-      $rest = @($args | Select-Object -Skip 1)
-      __lophn_gui 'antigravity' $rest
+    if (__lophn_has_gui $args) {
+      __lophn_gui 'antigravity' $args
       return
     }
     & $global:__lophn_native_agy @args
@@ -499,9 +499,8 @@ $__lophn_path = __lophn_native 'codex'
 if ($null -ne $__lophn_path) {
   $global:__lophn_native_codex = $__lophn_path
   function codex {
-    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
-      $rest = @($args | Select-Object -Skip 1)
-      __lophn_gui 'codex' $rest
+    if (__lophn_has_gui $args) {
+      __lophn_gui 'codex' $args
       return
     }
     $guarded = $false
@@ -527,9 +526,8 @@ $__lophn_path = __lophn_native 'opencode'
 if ($null -ne $__lophn_path) {
   $global:__lophn_native_opencode = $__lophn_path
   function opencode {
-    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
-      $rest = @($args | Select-Object -Skip 1)
-      __lophn_gui 'opencode' $rest
+    if (__lophn_has_gui $args) {
+      __lophn_gui 'opencode' $args
       return
     }
     $passthrough = $false

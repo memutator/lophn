@@ -940,9 +940,60 @@ const TASK_STATES: Record<Sub["state"], AcpTask["state"]> = {
 const noticeLevel = (level: string | undefined) =>
   level === "warning" || level === "error" ? "warning" : "info";
 
+function parseOmpArgs(raw: readonly string[]) {
+  let approvalMode: string | null = null;
+  const extra: string[] = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const token = raw[i]!;
+    if (token === "--") break;
+    if (token.startsWith("--approval-mode=")) {
+      approvalMode = token.slice("--approval-mode=".length) || approvalMode;
+      continue;
+    }
+    if (token === "--approval-mode") {
+      const next = raw[i + 1];
+      if (next !== undefined && !next.startsWith("-")) {
+        approvalMode = next;
+        i += 1;
+      }
+      continue;
+    }
+    // GUI RPC 경계와 충돌하는 flag는 제외한다.
+    if (
+      token === "--mode" ||
+      token.startsWith("--mode=") ||
+      token === "--cwd" ||
+      token.startsWith("--cwd=")
+    ) {
+      if (
+        !token.includes("=") &&
+        raw[i + 1] !== undefined &&
+        !raw[i + 1]!.startsWith("-")
+      ) {
+        i += 1;
+      }
+      continue;
+    }
+    extra.push(token);
+  }
+  return { approvalMode, extra };
+}
+
 const start: (io: OmpIo) => Start =
   (io) =>
-  async ({ terminal, cwd, resume, session, spawn, clock, ids }) => {
+  async ({
+    terminal,
+    cwd,
+    resume,
+    args: givenArgs,
+    carry,
+    session,
+    spawn,
+    clock,
+    ids,
+  }) => {
+    const launchArgs = givenArgs ?? carry?.args ?? [];
+    const parsedArgs = parseOmpArgs(launchArgs);
     let closed = false;
     let exited = false;
     let stopping = false;
@@ -1023,7 +1074,7 @@ const start: (io: OmpIo) => Start =
     let roles: AcpRole[] = [];
     let configMode: string | null = null;
     // 이 run에서 `set_mode`로 바꾼 승인 mode. 없으면 사람 설정을 따른다.
-    let approvalMode: string | null = null;
+    let approvalMode: string | null = parsedArgs.approvalMode;
     let todoJson = "";
     // 마지막으로 보낸 명령 이름. omp의 `command_output` frame에는 이름이 없다.
     let lastCommand: string | null = null;
@@ -1232,6 +1283,7 @@ const start: (io: OmpIo) => Start =
       "--mode",
       "rpc-ui",
       `--cwd=${cwd}`,
+      ...parsedArgs.extra,
       ...(resumeId === null ? [] : [`--resume=${resumeId}`]),
       ...(mode === null ? [] : [`--approval-mode=${mode}`]),
     ];
@@ -2180,10 +2232,10 @@ const start: (io: OmpIo) => Start =
     // 정의를 다 마친 뒤에 띄운다: ready 앞뒤로 온 frame이 아래 정의를 쓴다.
     // 첫 메시지 전의 TUI session은 파일이 없어 `--resume`이 ready 전에 끝난다. 조용히 새 session으로 다시 띄운다.
     let resumed = resume !== undefined;
-    let launched = await connect(argsFor(resume ?? null, null));
+    let launched = await connect(argsFor(resume ?? null, approvalMode));
     if (launched === "exit" && resumed) {
       resumed = false;
-      launched = await connect(argsFor(null, null));
+      launched = await connect(argsFor(null, approvalMode));
     }
     if (launched !== "ready") {
       closed = true;
@@ -3001,8 +3053,14 @@ const start: (io: OmpIo) => Start =
             "omp has not saved this session yet (no model turn), so the terminal view starts a new session.",
           );
         }
-        return `omp${cliSession === null || !hadModelTurn ? "" : ` --resume=${cliSession}`}${approvalMode === null ? "" : ` --approval-mode=${approvalMode}`}`;
+        const extra = parsedArgs.extra.map((arg) =>
+          /^[A-Za-z0-9._/:=-]+$/.test(arg)
+            ? arg
+            : `'${arg.replaceAll("'", "'\\''")}'`,
+        );
+        return `omp${extra.length === 0 ? "" : ` ${extra.join(" ")}`}${cliSession === null || !hadModelTurn ? "" : ` --resume=${cliSession}`}${approvalMode === null ? "" : ` --approval-mode=${approvalMode}`}`;
       },
+      carry: () => (launchArgs.length > 0 ? { args: launchArgs } : {}),
       async sessions() {
         return (await sessionFiles()).map(({ path: _, ...one }) => one);
       },

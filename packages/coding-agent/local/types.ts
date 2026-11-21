@@ -21,6 +21,8 @@ export type LocalContext = {
   cwd: string;
   now(): string;
   stdin(): Promise<string>;
+  /** `lophn hook <harness> lophn-gui -- <args...>`처럼 `--` 뒤에 그대로 넘겨진 인자들. */
+  extraArgs?: readonly string[];
   core(): Result<LocalCore>;
 };
 

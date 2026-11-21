@@ -57,6 +57,37 @@ test("hook CLI는 LPN_TERMINAL_HOOK이 없으면 아무것도 보내지 않고 s
   assert.deepStrictEqual([sent, read, control], [false, false, false]);
 });
 
+test("lophn hook <harness> lophn-gui -- <args...> rejects invalid resume id without calling core", async () => {
+  const stdout = sink();
+  const stderr = sink();
+  const code = await cliMain(
+    [
+      "hook",
+      "antigravity",
+      "lophn-gui",
+      "--",
+      "--dangerously-skip-permissions",
+      "--conversation",
+      "../etc",
+    ],
+    {
+      env: {
+        get: (name) =>
+          name === "LPN_TERMINAL_HOOK"
+            ? JSON.stringify({
+                socket: "/nonexistent.sock",
+                key: "a".repeat(64),
+              })
+            : undefined,
+      },
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+    },
+  );
+  assert.equal(code, 2);
+  assert.match(stderr.text(), /invalid session id/);
+});
+
 // --- control·fetch를 끼운 자격 경계 표 ---
 
 type ControlPlan = {

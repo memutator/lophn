@@ -121,3 +121,120 @@ export function sessionOfProcess(
   }
   return null;
 }
+
+const GUI_RESUME_VALUE_FLAGS: Partial<Record<HarnessId, readonly string[]>> = {
+  claude: ["--resume", "-r"],
+  antigravity: ["--resume", "--conversation"],
+  codex: ["--resume"],
+  opencode: ["--resume", "--session", "-s"],
+  omp: ["--resume", "-r"],
+};
+
+// lophn shell integration이 private server용으로 자동 주입하는 flag. GUI로 넘길 때 원본 flag로 보지 않는다.
+const WRAPPER_FLAGS: Partial<Record<HarnessId, readonly string[]>> = {
+  codex: ["--no-daemon"],
+  opencode: ["--standalone"],
+};
+
+function validSessionId(raw: string | undefined): string | null {
+  return raw !== undefined && !raw.includes("..") && SESSION_ID.test(raw)
+    ? raw
+    : null;
+}
+
+/**
+ * `<harness> --gui ...` 또는 foreground TUI argv에서 resume session id와 나머지 CLI flag들을 나눈다.
+ * `--` 앞의 `--gui`와 wrapper 자동 flag(`--no-daemon`, `--standalone`), resume 인자는 떼고 나머지는 순서대로 남긴다.
+ * resume flag의 값이 비었거나 session id 규칙에 맞지 않으면 실패한다.
+ */
+export function parseGuiLaunchArgs(
+  harness: HarnessId,
+  rawArgs: readonly string[],
+):
+  | { ok: true; resume?: string; args: string[] }
+  | { ok: false; message: string } {
+  const valueFlags = GUI_RESUME_VALUE_FLAGS[harness] ?? ["--resume"];
+  const wrapper = WRAPPER_FLAGS[harness] ?? [];
+  const args: string[] = [];
+  let resume: string | undefined;
+  let literal = false;
+
+  for (let i = 0; i < rawArgs.length; i += 1) {
+    const token = rawArgs[i]!;
+    if (literal) {
+      args.push(token);
+      continue;
+    }
+    if (token === "--") {
+      literal = true;
+      args.push(token);
+      continue;
+    }
+    if (token === "--gui" || wrapper.includes(token)) continue;
+
+    // `codex resume <id>` 형태
+    if (harness === "codex" && token === "resume") {
+      const next = rawArgs[i + 1];
+      if (next !== undefined && !next.startsWith("-")) {
+        const id = validSessionId(next);
+        if (id === null) {
+          return { ok: false, message: `invalid session id: ${next}` };
+        }
+        resume = id;
+        i += 1;
+        continue;
+      }
+      continue;
+    }
+
+    const eqFlag = valueFlags.find(
+      (flag) => flag.startsWith("--") && token.startsWith(`${flag}=`),
+    );
+    if (eqFlag !== undefined) {
+      const raw = token.slice(eqFlag.length + 1);
+      const id = validSessionId(raw);
+      if (id === null) {
+        return {
+          ok: false,
+          message: `invalid session id for ${eqFlag}: ${raw}`,
+        };
+      }
+      resume = id;
+      continue;
+    }
+    if (valueFlags.includes(token)) {
+      const raw = rawArgs[i + 1];
+      const id = validSessionId(raw);
+      if (id === null) {
+        return {
+          ok: false,
+          message:
+            raw === undefined
+              ? `${token} needs a session id`
+              : `invalid session id for ${token}: ${raw}`,
+        };
+      }
+      resume = id;
+      i += 1;
+      continue;
+    }
+    args.push(token);
+  }
+
+  return { ok: true, ...(resume === undefined ? {} : { resume }), args };
+}
+
+/**
+ * foreground process argv에서 실행 파일·resume 인자·wrapper 자동 flag를 뺀 launch flag 목록을 읽는다.
+ * TUI → GUI 전환 시 사람이 TUI에 준 flag를 GUI에 그대로 이어 갈 때 쓴다.
+ */
+export function launchArgsOfProcess(
+  harness: HarnessId,
+  argv: readonly string[],
+): string[] {
+  const slice = argv.slice(argsStart(argv));
+  const parsed = parseGuiLaunchArgs(harness, slice);
+  if (parsed.ok) return parsed.args;
+  const wrapper = WRAPPER_FLAGS[harness] ?? [];
+  return slice.filter((token) => token !== "--gui" && !wrapper.includes(token));
+}

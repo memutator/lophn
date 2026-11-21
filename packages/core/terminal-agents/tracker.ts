@@ -50,6 +50,8 @@ export type AgentTrackerDeps = {
   harnessOfProcess(argv: readonly string[]): string | null;
   /** foreground process argv가 resume하는 harness의 CLI session id. 모르면 null. */
   sessionOfProcess?(harness: string, argv: readonly string[]): string | null;
+  /** foreground process argv에서 실행 파일·resume 인자를 뺀 CLI launch flag들. */
+  launchArgsOfProcess?(harness: string, argv: readonly string[]): string[];
   /** 그 harness에서 사람이 치면 도는 turn을 끊는 키. */
   interruptKeys(harness: string): readonly ("escape" | "ctrl-c")[];
   signalOf(
@@ -234,7 +236,7 @@ export type AgentTracker = {
     state: TerminalAgent["state"];
     session: string | null;
     cwd: string | null;
-    skipPermissions: boolean;
+    args: readonly string[];
   } | null;
   /** `terminals/open`의 `resume`이나 GUI→TUI 전환처럼 곧 뜰 TUI의 session id를 미리 알린다(argv에 인자가 없는 비 Linux 대비). */
   expectResume(terminalRef: string, harness: string, session: string): void;
@@ -672,8 +674,10 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         state: agent.state,
         session: entry.session,
         cwd: entry.cwd,
-        skipPermissions:
-          entry.argv?.includes("--dangerously-skip-permissions") ?? false,
+        args:
+          entry.argv === null
+            ? []
+            : (deps.launchArgsOfProcess?.(agent.harness, entry.argv) ?? []),
       };
     },
     expectResume(ref, harness, session) {

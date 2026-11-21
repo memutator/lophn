@@ -104,6 +104,6 @@ test("Home(project: home) coding session도 schema와 open이 받고 터미널�
   });
   assert.deepEqual(done, ok({ session: `ses_${"2".repeat(26)}` }));
   assert.deepEqual(calls, [
-    { project: HOME_TERMINAL_PROJECT, command: "claude gui" },
+    { project: HOME_TERMINAL_PROJECT, command: "claude --gui" },
   ]);
 });

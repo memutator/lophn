@@ -1483,7 +1483,7 @@ flows:
     docs: [architecture/terminal-agent.md, architecture/coding-agent.md]
 
   - id: harness-gui-open
-    title: 터미널 탭에서 claude gui 등을 치면 탭을 GUI 채팅 화면으로 바꾼다
+    title: 터미널 탭에서 claude --gui 등을 치면 탭을 GUI 채팅 화면으로 바꾼다
     actor: person
     uses: [cli:hook]
     when: "hook event가 lophn-gui일 때"
@@ -1496,7 +1496,7 @@ flows:
       - packages/core/terminal-agents/gui.ts
       - packages/core/extensions/bundled/harness-gui/index.ts
     steps:
-      - "사람이 터미널에서 claude gui, codex gui, opencode gui, omp gui, agy gui(gui --resume id 포함)를 친다. 셸 함수가 lophn hook으로 resume 값을 보낸다"
+      - "사람이 터미널에서 claude --gui, codex --gui, opencode --gui, omp --gui, agy --gui(추가 CLI flag·resume 인자 포함)를 친다. 셸 함수가 --gui를 뺀 나머지 인자를 lophn hook으로 보내고 hook이 resume과 args로 파싱해 보낸다"
       - "core가 key로 터미널을 찾는다. harness가 GUI를 지원하고 터미널이 살아 있을 때만 extension의 onTab.gui를 부른다. 아니면 무시한다"
       - "이미 그 터미널에 GUI를 여는 중이면 이 요청은 아무 일도 하지 않는다"
       - "TUI가 떠 있으면 adapter.exitTui로 끄고 5초 안에 foreground가 shell이 되기를 기다린다. 못 기다리면 실패"

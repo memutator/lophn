@@ -61,7 +61,7 @@ export type TabGuiDeps = {
       state: "running" | "waiting" | "idle" | "unknown";
       session: string | null;
       cwd: string | null;
-      skipPermissions?: boolean;
+      args?: readonly string[];
     } | null;
     type(terminalRef: string, text: string): Promise<void>;
     signal(terminalRef: string, signal: "SIGINT" | "SIGTERM"): Promise<void>;
@@ -277,7 +277,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     cwd: string,
     resume: string | undefined,
     checkStarted: boolean,
-    skipPermissions?: boolean,
+    args?: readonly string[],
   ): Promise<ToggleReply> {
     if (byTerminal.has(terminalRef)) {
       setView(terminalRef, "gui");
@@ -298,7 +298,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         terminal: terminalOf(terminalRef, harness, cwd),
         harness,
         ...(resume === undefined ? {} : { resume }),
-        ...(skipPermissions === undefined ? {} : { skipPermissions }),
+        ...(args === undefined ? {} : { args }),
       };
       await handlers.gui(request);
       if (!checkStarted || handlers.running(terminalRef) !== null) {
@@ -339,6 +339,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         payload.data.cwd,
         payload.data.resume,
         false,
+        payload.data.args,
       );
     },
 
@@ -428,7 +429,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           tui.cwd ?? runtime.cwd,
           tui.session,
           true,
-          tui.skipPermissions,
+          tui.args,
         );
       }
       if (tab === undefined) return { ok: true };

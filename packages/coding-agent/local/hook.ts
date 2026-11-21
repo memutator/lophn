@@ -4,15 +4,17 @@
 // 어떤 실패도 내지 않는다. stdout은 harness가 요구하는 것(`hookStdout`)만 쓰고 나머지는 비운다(harness가 model context로
 // 읽을 수 있다). launcher가 env 없이 일찍 끝날 때도 같은 표를 쓴다.
 import { connect, type Socket } from "node:net";
-import { ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 import {
+  type HarnessId,
   harnessIdSchema,
   HOOK_EVENT_MAX_CHARS,
   HOOK_PAYLOAD_MAX_BYTES,
   HOOK_STDIN_MAX_BYTES,
   HOOK_TEXT_FIELD_MAX_CHARS,
   hookStdout,
+  parseGuiLaunchArgs,
   TERMINAL_GUI_EVENT,
   TERMINAL_HOOK_ENV,
   terminalHookEnvSchema,
@@ -112,28 +114,56 @@ async function runHook(
   const target = terminalHookOf(ctx.env);
   if (target === null) return ok(stdout);
   const startedAt = Date.parse(ctx.now());
-  try {
-    // 기한 뒤 매달린 읽기는 그대로 둔다. cliMain이 끝에서 process.exit하므로 process를 붙잡지 않는다.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const text = await Promise.race([
-      ctx.stdin(),
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), HOOK_DEADLINE_MS);
-      }),
-    ]).finally(() => clearTimeout(timer));
-    if (text === null) return ok(stdout);
-    // 읽다 만 JSON은 못 읽는다.
-    if (new TextEncoder().encode(text).length > HOOK_STDIN_MAX_BYTES) {
-      return ok(stdout);
+  // `--gui` shell 함수는 `--` 뒤에 CLI 인자들을 그대로 넘긴다. 잘못된 resume id는 바로 알려 준다.
+  let guiExtra: { resume?: string; args: string[] } | undefined;
+  if (
+    input.event === TERMINAL_GUI_EVENT &&
+    ctx.extraArgs !== undefined &&
+    ctx.extraArgs.length > 0
+  ) {
+    const parsedArgs = parseGuiLaunchArgs(
+      input.harness as HarnessId,
+      ctx.extraArgs,
+    );
+    if (!parsedArgs.ok) {
+      return err({ code: "invalid_input", message: parsedArgs.message });
     }
-    // PowerShell은 `$OutputEncoding`이 BOM 있는 UTF-8이면 native 명령에 파이프로 넘긴 글 앞에 BOM을 붙인다.
-    // 그대로 두면 `claude gui` 요청이 JSON parse에서 조용히 버려진다.
-    const body = text.replace(/^﻿/, "");
-    const parsed = shortened(body.trim() === "" ? {} : JSON.parse(body));
+    guiExtra = parsedArgs;
+  }
+  try {
+    let parsed: unknown = {};
+    if (guiExtra === undefined) {
+      // 기한 뒤 매달린 읽기는 그대로 둔다. cliMain이 끝에서 process.exit하므로 process를 붙잡지 않는다.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const text = await Promise.race([
+        ctx.stdin(),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), HOOK_DEADLINE_MS);
+        }),
+      ]).finally(() => clearTimeout(timer));
+      if (text === null) return ok(stdout);
+      // 읽다 만 JSON은 못 읽는다.
+      if (new TextEncoder().encode(text).length > HOOK_STDIN_MAX_BYTES) {
+        return ok(stdout);
+      }
+      // PowerShell은 `$OutputEncoding`이 BOM 있는 UTF-8이면 native 명령에 파이프로 넘긴 글 앞에 BOM을 붙인다.
+      // 그대로 두면 GUI 요청이 JSON parse에서 조용히 버려진다.
+      const body = text.replace(/^﻿/, "");
+      parsed = shortened(body.trim() === "" ? {} : JSON.parse(body));
+    }
     // main은 shell이 `cd`한 뒤의 폴더를 모르므로 gui 요청에는 이 함수를 친 폴더를 더한다.
     const payload =
       input.event === TERMINAL_GUI_EVENT
-        ? { ...(parsed as object), cwd: ctx.cwd }
+        ? {
+            ...(parsed as object),
+            cwd: ctx.cwd,
+            ...(guiExtra?.resume === undefined
+              ? {}
+              : { resume: guiExtra.resume }),
+            ...(guiExtra !== undefined && guiExtra.args.length > 0
+              ? { args: guiExtra.args }
+              : {}),
+          }
         : parsed;
     if (
       new TextEncoder().encode(JSON.stringify(payload)).length >

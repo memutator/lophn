@@ -735,7 +735,92 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       });
     },
 
-    async start({ cwd, resume, session, spawn, clock, ids }) {
+    async start({
+      cwd,
+      resume,
+      args: givenArgs,
+      carry,
+      session,
+      spawn,
+      clock,
+      ids,
+    }) {
+      const launchArgs = givenArgs ?? carry?.args ?? [];
+      const serverArgs: string[] = [];
+      const tuiExtra: string[] = [];
+      const explicitPolicy: Json = {};
+      let explicitModel: string | undefined;
+      for (let i = 0; i < launchArgs.length; i += 1) {
+        const token = launchArgs[i]!;
+        if (token === "--") break;
+        const eq = token.indexOf("=");
+        const flag = eq > 0 ? token.slice(0, eq) : token;
+        const inline = eq > 0 ? token.slice(eq + 1) : undefined;
+        const takeValue = (): string | undefined => {
+          if (inline !== undefined) return inline;
+          const next = launchArgs[i + 1];
+          if (next !== undefined && !next.startsWith("-")) {
+            i += 1;
+            return next;
+          }
+          return undefined;
+        };
+        if (flag === "--dangerously-bypass-approvals-and-sandbox") {
+          explicitPolicy.approvalPolicy = "never";
+          explicitPolicy.sandbox = "danger-full-access";
+          tuiExtra.push(token);
+          continue;
+        }
+        if (flag === "--full-auto") {
+          explicitPolicy.approvalPolicy = "on-request";
+          explicitPolicy.sandbox = "workspace-write";
+          tuiExtra.push(token);
+          continue;
+        }
+        if (flag === "-a" || flag === "--ask-for-approval") {
+          const val = takeValue();
+          if (val !== undefined) {
+            explicitPolicy.approvalPolicy = val;
+            tuiExtra.push(flag, val);
+          }
+          continue;
+        }
+        if (flag === "-s" || flag === "--sandbox") {
+          const val = takeValue();
+          if (val !== undefined) {
+            explicitPolicy.sandbox = val;
+            tuiExtra.push(flag, val);
+          }
+          continue;
+        }
+        if (flag === "-m" || flag === "--model") {
+          const val = takeValue();
+          if (val !== undefined) {
+            explicitModel = val;
+            tuiExtra.push(flag, val);
+          }
+          continue;
+        }
+        if (
+          flag === "-c" ||
+          flag === "--config" ||
+          flag === "--enable" ||
+          flag === "--disable"
+        ) {
+          const val = takeValue();
+          if (val !== undefined) {
+            serverArgs.push(flag, val);
+            tuiExtra.push(flag, val);
+          }
+          continue;
+        }
+        if (flag === "-p" || flag === "--profile") {
+          const val = takeValue();
+          if (val !== undefined) tuiExtra.push(flag, val);
+          continue;
+        }
+      }
+      const hasExplicitPolicy = Object.keys(explicitPolicy).length > 0;
       let closed = false;
       let dead: { code: string; message: string } | null = null;
       let stderrTail = "";
@@ -758,7 +843,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       const socket = join(dir, "codex.sock");
       const proc = spawn(
         "codex",
-        ["app-server", "--listen", `unix://${socket}`],
+        ["app-server", "--listen", `unix://${socket}`, ...serverArgs],
         {
           cwd,
         },
@@ -2650,7 +2735,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           },
         });
         write({ method: "initialized" });
-        policy = await readPolicy();
+        policy = hasExplicitPolicy ? explicitPolicy : await readPolicy();
+        const modelParam =
+          explicitModel === undefined ? {} : { model: explicitModel };
         // 첫 메시지 전의 TUI thread는 rollout이 없어 resume이 "no rollout found"로 실패한다. 조용히 새 thread를 연다.
         const resumed =
           resume === undefined
@@ -2660,12 +2747,15 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 cwd,
                 excludeTurns: true,
                 ...policy,
+                ...modelParam,
               }).catch((cause: Error) => {
                 if (!/no rollout found/.test(cause.message)) throw cause;
                 return null;
               });
         if (resumed === null) {
-          useThread(await request("thread/start", { cwd, ...policy }));
+          useThread(
+            await request("thread/start", { cwd, ...policy, ...modelParam }),
+          );
         } else {
           useThread(resumed);
           await replayThread(root);
@@ -3270,8 +3360,15 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             info(
               "Send a first message before switching to the terminal view; Codex cannot resume an empty conversation.",
             );
-          return `codex resume ${threadId} --remote 'unix://${socket}' --cd "$PWD"`;
+          const quoted = tuiExtra.map((arg) =>
+            /^[A-Za-z0-9._/:=-]+$/.test(arg)
+              ? arg
+              : `'${arg.replaceAll("'", "'\\''")}'`,
+          );
+          const extra = quoted.length === 0 ? "" : ` ${quoted.join(" ")}`;
+          return `codex resume ${threadId} --remote 'unix://${socket}' --cd "$PWD"${extra}`;
         },
+        carry: () => (launchArgs.length > 0 ? { args: launchArgs } : {}),
         sessionId: () => (threadId === "" ? null : threadId),
         running: () => ({ turn: root.turn !== null, tasks: runningTasks() }),
         // 기본 sourceKinds를 그대로 둔다: GUI thread의 source는 vscode라 TUI thread와 같이 나온다.

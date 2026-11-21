@@ -845,18 +845,104 @@ function inputQueue() {
   };
 }
 
+function parseClaudeArgs(raw: readonly string[]) {
+  let skipPermissions = false;
+  let model: string | undefined;
+  let effort: string | undefined;
+  let mode: string | undefined;
+  const dirs: string[] = [];
+  const rules: string[] = [];
+  const extraArgs: Record<string, string | null> = {};
+  const rawExtra: string[] = [];
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const token = raw[i]!;
+    if (token === "--") break;
+    if (token === "--dangerously-skip-permissions") {
+      skipPermissions = true;
+      continue;
+    }
+    const eq = token.indexOf("=");
+    const flag = eq > 0 ? token.slice(0, eq) : token;
+    const inline = eq > 0 ? token.slice(eq + 1) : undefined;
+    const takeValue = (): string | undefined => {
+      if (inline !== undefined) return inline;
+      const next = raw[i + 1];
+      if (next !== undefined && !next.startsWith("-")) {
+        i += 1;
+        return next;
+      }
+      return undefined;
+    };
+    if (flag === "--model") {
+      model = takeValue() ?? model;
+      continue;
+    }
+    if (flag === "--effort") {
+      effort = takeValue() ?? effort;
+      continue;
+    }
+    if (flag === "--permission-mode") {
+      mode = takeValue() ?? mode;
+      continue;
+    }
+    if (flag === "--add-dir") {
+      const val = takeValue();
+      if (val !== undefined) dirs.push(val);
+      continue;
+    }
+    if (flag === "--allowedTools" || flag === "--allowed-tools") {
+      const val = takeValue();
+      if (val !== undefined) rules.push(val);
+      continue;
+    }
+    if (flag.startsWith("--") && flag.length > 2) {
+      const key = flag.slice(2);
+      if (inline !== undefined) {
+        extraArgs[key] = inline;
+        rawExtra.push(token);
+      } else {
+        const next = raw[i + 1];
+        if (next !== undefined && !next.startsWith("-")) {
+          extraArgs[key] = next;
+          rawExtra.push(flag, next);
+          i += 1;
+        } else {
+          extraArgs[key] = null;
+          rawExtra.push(flag);
+        }
+      }
+      continue;
+    }
+    rawExtra.push(token);
+  }
+  return {
+    skipPermissions,
+    model,
+    effort,
+    mode,
+    dirs,
+    rules,
+    extraArgs,
+    rawExtra,
+  };
+}
+
 const start: (sdk: ClaudeSdk) => Start =
   (sdk) =>
   async ({
     terminal,
     cwd,
     resume,
+    args: givenArgs,
     carry: given,
     session,
     spawn,
     clock,
     ids,
   }) => {
+    const launchArgs = givenArgs ?? given?.args ?? [];
+    const parsedArgs = parseClaudeArgs(launchArgs);
     // 한 session을 두 process가 같이 쓰지 않는다. TUI가 foreground에 있으면 먼저 `exitTui`로 끝내야 한다.
     if (terminal !== null && terminal.state() !== "shell") {
       return {
@@ -939,13 +1025,17 @@ const start: (sdk: ClaudeSdk) => Start =
       rules: Set<string>;
       dirs: Set<string>;
     } = {
-      model: given?.model ?? null,
-      effort: given?.effort ?? null,
-      mode: given?.mode ?? null,
+      model: parsedArgs.model ?? given?.model ?? null,
+      effort: parsedArgs.effort ?? given?.effort ?? null,
+      mode:
+        parsedArgs.mode ??
+        (parsedArgs.skipPermissions ? "bypassPermissions" : null) ??
+        given?.mode ??
+        null,
       fast: null,
       thinking: null,
-      rules: new Set(),
-      dirs: new Set(),
+      rules: new Set(parsedArgs.rules),
+      dirs: new Set(parsedArgs.dirs),
     };
     // 첫 메시지 전의 session은 CLI가 저장하지 않아 resume이 못 연다. 그 id로 새 session을 연다.
     const saved = async (id: string) =>
@@ -2553,10 +2643,15 @@ const start: (sdk: ClaudeSdk) => Start =
       const exited = new Promise<void>((resolve) => {
         onExit = resolve;
       });
-      const mode =
-        carry.mode !== null && PASSABLE_MODES.has(carry.mode)
+      const bypass =
+        parsedArgs.skipPermissions &&
+        (carry.mode === null || carry.mode === "bypassPermissions");
+      const mode = bypass
+        ? "bypassPermissions"
+        : carry.mode !== null && PASSABLE_MODES.has(carry.mode)
           ? carry.mode
           : null;
+      const hasExtraArgs = Object.keys(parsedArgs.extraArgs).length > 0;
       const options: Options = {
         cwd,
         // 사람 PATH의 `claude`. 번들 사본은 받지 않는다(root overrides).
@@ -2581,6 +2676,8 @@ const start: (sdk: ClaudeSdk) => Start =
         ...(mode === null
           ? {}
           : { permissionMode: mode as NonNullable<Options["permissionMode"]> }),
+        ...(bypass ? { allowDangerouslySkipPermissions: true } : {}),
+        ...(hasExtraArgs ? { extraArgs: parsedArgs.extraArgs } : {}),
         // flag 층의 설정이라 사람의 설정 file에는 쓰이지 않는다.
         ...(carry.fast === null ? {} : { settings: { fastMode: carry.fast } }),
         ...(carry.thinking === false ? { thinking: { type: "disabled" } } : {}),
@@ -3577,13 +3674,18 @@ const start: (sdk: ClaudeSdk) => Start =
         tuiCommand() {
           if (!finished)
             throw new Error("tuiCommand() was called before stop() finished");
+          const bypass =
+            parsedArgs.skipPermissions &&
+            (carry.mode === null || carry.mode === "bypassPermissions");
           const flags = [
             // 메시지가 없는 session은 --resume이 못 연다("No conversation found")(녹화 clear_resume).
             empty ? "--session-id" : "--resume",
             shellQuote(cliSession),
-            ...(carry.mode !== null && PASSABLE_MODES.has(carry.mode)
-              ? ["--permission-mode", shellQuote(carry.mode)]
-              : []),
+            ...(bypass
+              ? ["--dangerously-skip-permissions"]
+              : carry.mode !== null && PASSABLE_MODES.has(carry.mode)
+                ? ["--permission-mode", shellQuote(carry.mode)]
+                : []),
             ...(carry.model === null
               ? []
               : ["--model", shellQuote(carry.model)]),
@@ -3596,6 +3698,7 @@ const start: (sdk: ClaudeSdk) => Start =
             ...(carry.rules.size === 0
               ? []
               : ["--allowedTools", ...[...carry.rules].map(shellQuote)]),
+            ...parsedArgs.rawExtra.map(shellQuote),
             // 고른 fast·thinking만 넘긴다. flag 층이라 사람의 설정 file에는 쓰이지 않는다.
             ...(carry.fast === null && carry.thinking === null
               ? []
@@ -3618,6 +3721,7 @@ const start: (sdk: ClaudeSdk) => Start =
           ...(carry.model === null ? {} : { model: carry.model }),
           ...(carry.effort === null ? {} : { effort: carry.effort }),
           ...(carry.mode === null ? {} : { mode: carry.mode }),
+          ...(launchArgs.length === 0 ? {} : { args: launchArgs }),
         }),
         running: () => ({ turn: root.turn !== null, tasks: runningTasks() }),
         sessions,

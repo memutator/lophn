@@ -172,9 +172,7 @@ export function activate(ctx: ExtensionContext): void {
         terminal,
         cwd: terminal.cwd,
         ...(request.resume === undefined ? {} : { resume: request.resume }),
-        ...(request.skipPermissions === undefined
-          ? {}
-          : { skipPermissions: request.skipPermissions }),
+        ...(request.args === undefined ? {} : { args: request.args }),
         ...(carry === undefined ? {} : { carry }),
         session: {
           ...session,

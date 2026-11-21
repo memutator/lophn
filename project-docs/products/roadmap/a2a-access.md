@@ -81,7 +81,7 @@ program이 내는 것은 이 셋이다.
 
 - call, reply, 자식의 ask, 사람이 팀원에게 한 말의 알림을 mail 하나로 맞춘다. 깨우는 mail과 쌓기만 하는 mail이 있다.
 - 자식의 결과는 쌓이기만 하고 부모가 기다린다. reply마다 turn이 열리지 않는다.
-- 기계 사이 mail(`a2a-multi-device.md`)과 같은 꼴이다.
+- 기계 사이 mail(`architecture/machine-a2a.md`)과 같은 꼴이다.
 
 ### 보이는 것
 

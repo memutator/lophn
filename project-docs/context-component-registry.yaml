@@ -513,6 +513,14 @@ components:
     change_reasons:
       boundaries: [app-sync]
 
+  - id: architecture-machine-a2a
+    kind: doc
+    roles: [planner, lead]
+    description: "한 컴퓨터의 agent가 사람의 다른 컴퓨터의 agent에게 일을 맡기는 설계: 기계 사이 mail(outbox, link와 폴더의 두 길, 한 번 적용, 배달 상태, 다시 보내기와 버리기, 만료), 늦게 온 mail의 대기 목록, 다른 컴퓨터의 agent·session 목록과 명함, handoff note와 sidebar의 이어 열기."
+    path: project-docs/architecture/machine-a2a.md
+    change_reasons:
+      paths: [packages/protocol/lophn-agent/mail.ts, packages/protocol/lophn-agent/a2a.ts, packages/protocol/lophn-agent/handoff.ts, packages/core/router/mail-store.ts, packages/core/router/mail-schema.ts, packages/core/router/remote-reach.ts, packages/core/remote/mail-entry.ts, packages/core/remote/mail-drain.ts, packages/core/remote/a2a-lists.ts, packages/core/folder/export/mail.ts, packages/core/folder/import/mail.ts, packages/core/projects/handoff/, packages/shell/renderer/desktop/connection/waiting/cards/mail-hold-card.tsx, packages/shell/renderer/desktop/workspaces/projects/handoff-source.ts, packages/shell/renderer/workspace/sidebar/handoff-row.tsx]
+
   - id: architecture-machine
     kind: doc
     roles: [planner, lead]

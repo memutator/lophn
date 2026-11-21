@@ -38,7 +38,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 `AcpItem`은 대화의 줄 하나이고 `seq`(session 안의 순번, 1부터)로 순서를 정한다. 종류는 다섯이다.
 
 - `message`: actor(user, agent, received), sender, call, reply_to, delivery, turn, `content`(content block 배열), `reasoning`, `cards`, `complete`, `origin`.
-  - `received`는 다른 쪽(다른 agent나 program)이 보낸 메시지이고 sender로 가른다.
+  - `received`는 다른 쪽(다른 agent나 program)이 보낸 메시지이고 sender로 가른다. 다른 컴퓨터의 agent가 보낸 것은 sender가 agent(agent id 없음)이고 이름이 "<name> on <computer>"다(live와 이력이 같은 글).
   - `via`(선택 `{app, name}`)는 앱 화면이 보낸 사람 메시지의 이름표다. 이름표일 뿐 보낸 쪽(sender)이 아니다: 메시지는 사람의 것(`actor: user`, `from` human)이고 model이 받는 글, 허락, attended, checkpoint·rewind·steer·queue edit은 그대로다. name은 보낼 때의 앱 slug다. snapshot과 갱신, 줄 선 메시지(`queued`)에 모두 있다. 채팅 탭·CLI·run·job이 보낸 메시지에는 없다.
   - `cards`는 `visual.show`가 올린 앱 카드 `{app, view, params?}`이고 content block이 아니라 message의 따로 칸이다. `params`는 그 카드 화면의 선언 schema로 검사해 실은 인자이고, 옛 message에는 없다.
   - `origin`은 그 CLI 자신의 message id다. 같은 CLI session을 다시 열어도 같아서 thread bookmark의 key가 된다. lophn은 null이고 늦게 알면 `origin_set`으로 채운다.
@@ -51,7 +51,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 
 ### tool 종류와 본문
 
-`detail.kind`는 `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session), `question`(group, outcome, reply, lines), `consent`(release), `subagent`(agent, description, `child`, state, model, last), `generic`이다.
+`detail.kind`는 `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session, remote. `remote`는 다른 컴퓨터로 보낸 call의 `{machine, computer, delivery, session}`이고 이 기계 안의 call은 null이다. `architecture/machine-a2a.md`), `question`(group, outcome, reply, lines), `consent`(release), `subagent`(agent, description, `child`, state, model, last), `generic`이다.
 
 - 종류는 tool 이름이 정하므로 시작 때부터 그 종류이고, 실패·거절·취소해도 지킨다(실패는 항목의 `state`가 말한다). 단 동의(`consent`)는 결과를 봐야 알아 성공해 끝난 뒤에만 생긴다.
 - 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차 있다. 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아서 그 전과 실패한 tool에서는 null이다.

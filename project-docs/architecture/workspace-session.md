@@ -91,7 +91,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - archive·지움은 receiver_ended 알림 글을 blob으로 미리 준비해야 한다(못 하면 `unavailable`). `sessions/archive`는 지금 도는 turn이 있으면 `stop_turn: true` 없이 `conflict`(`turn_running`)로 거절해 다른 기기에서 방금 시작한 turn이 확인 없이 끊기지 않게 한다. 받은 열린 call을 닫을 때 보낸 쪽이 살아 있는 agent session이면 그 queue에 그 call을 가리키는 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다). 기다리던 request와 질문은 `SessionEnded`를 듣는 approvals 쪽이 cancelled(`session_closed`)로 푼다. 지움은 메시지 본문의 blob 영구 참조, rewind 기록과 checkpoint, 메시지와 turn·model call 기록, session 행을 지우고 되돌릴 수 없다. 응답에는 지운 내용을 싣지 않고 지운 시각만 돌려준다. archive한 session은 기록을 그대로 두고 읽기는 된다.
 - fork 입력은 `through_seq`(고른 메시지의 `created_seq`까지 복사. agent 답에서 갈라도 그 답까지 들어간다)다. 출처의 확정 메시지가 아니면 `invalid_input`이다.
 - event: `SessionStarted`, `SessionEnded`(reason `archived` | `deleted`). turn 끝은 `TurnEnded`. 이 agent event와 turn·요청·질문 event를 core가 `session.started|running|waiting|idle|ended`(발행자 `lophn`)로 바꿔 앱에 준다(아래 "session lifecycle"). supervision의 `turn_stop`(reason `user_stopped` | `session_ended`)이 agent runtime child에 간다.
-- 저장: `sessions` 표(`agent`, `workspace_kind`, `workspace_id`, `skip`, `called_from_kind`, `called_from_id`, `state_seq`, model 선택). 이미지는 blob 참조(메시지의 `image`)와 옛 `<data>/message-images/<session>/`.
+- 저장: `sessions` 표(`agent`, `workspace_kind`, `workspace_id`, `skip`, `called_from_kind`, `called_from_id`, `opened_by_machine`(다른 컴퓨터의 mail이 연 session의 보낸 기계, 바뀌지 않는다. `architecture/machine-a2a.md`), `state_seq`, model 선택). 이미지는 blob 참조(메시지의 `image`)와 옛 `<data>/message-images/<session>/`.
 - 설정·표시: `app.edit_folders`(앱에 더 이은 폴더), agent 정의의 `skip`(새 session의 skip 기본값).
 - 앱 rewind와의 이음: session rewind가 사람이 고른 앱의 rewind를 요청한다(`architecture/app-call.md`).
 

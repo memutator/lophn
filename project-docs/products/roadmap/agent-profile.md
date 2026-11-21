@@ -75,7 +75,7 @@ lophn은 handle 하나로 부르고 명함을 program이 계산한다. Paseo는 
 
 ### 기계
 
-- 정의는 기계마다 따로다. 다른 기계의 agent는 그 기계·workspace의 목록과 명함을 읽어 고른다(`a2a-multi-device.md`).
+- 정의는 기계마다 따로다. 다른 기계의 agent는 그 기계·workspace의 목록과 명함을 읽어 고른다(`architecture/machine-a2a.md`).
 
 ## 정한 것
 

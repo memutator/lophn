@@ -70,7 +70,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 
 ### 다른 컴퓨터의 앱 부르기
 
-내 컴퓨터들은 같은 사람의 것이고 앱 id는 컴퓨터 사이에 같다. agent, 앱, 사람의 터미널이 다른 컴퓨터의 앱 command 하나를 부르는 길이다. 대상은 command뿐이다(operation과 다른 컴퓨터의 agent에게 일 맡기기는 아니다).
+내 컴퓨터들은 같은 사람의 것이고 앱 id는 컴퓨터 사이에 같다. agent, 앱, 사람의 터미널이 다른 컴퓨터의 앱 command 하나를 부르는 길이다. 대상은 command뿐이다(operation은 아니고, 다른 컴퓨터의 agent에게 일 맡기기는 call mail이다. `machine-a2a.md`).
 
 ```
  agent ── lophn <앱> <command> (할당 줄 (컴퓨터, 앱)) ─┐
@@ -248,7 +248,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 앱이 "내가 어느 컴퓨터에서 도나, 다른 컴퓨터는 무엇이 있나"를 알아야 하는 때(`connectCommands`의 `on`으로 다른 컴퓨터의 앱을 부르려고 컴퓨터를 고른다)를 위해 core가 한 읽기를 준다. 앱이 data root(`machine.json`)나 hostname, `/proc`으로 알아내지 않게 하려는 것이다.
 
-1. core 읽기 `machine/computers`(`machine.computers`)는 사람의 컴퓨터 명단(폰 제외)에 이 컴퓨터를 더해 `{id(mch_), name, status, current, always_on}`로 돌려준다. 새로 저장하는 상태는 없다: 이 컴퓨터는 machine 신원과 always-on 표시에서, 다른 컴퓨터는 명단의 link 상태(`machines/list`와 같다. `connected`는 `online`)와 폴더로 받은 기계 기록의 `always_on.keep_running`(기록이 아직 없으면 null)에서 합친다. 한 core가 답하므로 `current`는 그 core의 컴퓨터다.
+1. core 읽기 `machine/computers`(`machine.computers`)는 사람의 컴퓨터 명단(폰 제외)에 이 컴퓨터를 더해 `{id(mch_), name, status, current, always_on}`로 돌려준다. 새로 저장하는 상태는 없다: 이 컴퓨터는 machine 신원과 always-on 표시에서, 다른 컴퓨터는 명단의 link 상태(`machines/list`와 같다. `connected`는 `online`)와 폴더로 받은 기계 기록의 `always_on.keep_running`(기록이 아직 없으면 null)에서 합친다. 한 core가 답하므로 `current`는 그 core의 컴퓨터다. agent도 같은 route를 `lophn machine computers`로 읽어 `--on`에 쓸 컴퓨터를 고른다(`machine-a2a.md`).
 2. "이 컴퓨터"는 앱 backend가 도는 컴퓨터다. 앱 backend는 broker `/_lophn/broker/machines/list`로 부르고(자식 연결이 앱을 정하고 그 자식의 app credential로 이 route를 부른다), 앱 화면은 `lophnApp.machines.list()`(IPC `app:machines-list`)다. shell main이 sender view를 확인하고 `projects`와 같이 view의 기계(`view.machine`)의 core로 부른다. 그래서 다른 컴퓨터의 창에 그려진 화면은 그 화면의 backend가 도는 컴퓨터의 core가 답하고 자기를 `current`로 적는다. 이 route는 기기 route 목록(`REMOTE_ALLOWED_ROUTES`)에 있다.
 3. 사람 허락(grant)도 선언 permission도 없다. 컴퓨터 이름과 켜짐 상태이고, 사람이 연 앱이 자기 컴퓨터를 아는 것은 앱의 기본 사실이다(`projects` 읽기와 같다). 읽기만 연다. 켜짐 상태의 push는 없고 화면이 `reload`로 다시 읽는다. `always_on`은 기록이 마지막으로 읽힌 때의 값이다(실시간이 아니다).
 4. SDK: 화면 `@lophn/app-ui`의 `useMachines()`, backend `@lophn/cap-tool`의 `machines()`. 둘 다 같은 모양이고 `status`의 이름이 `@lophn/ui`의 `MachineOption`과 같아 `MachineSelector`에 그대로 넘긴다. `id`는 `connectCommands(…, { on })`에 그대로 쓴다.

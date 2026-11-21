@@ -159,6 +159,10 @@ event와 저장
 - 저장: `workflow_instances`, `workflow_lines`(고치지도 지우지도 않는 trigger), step 입력의 `messages` 열(`step_instance`, `step_name`). 정의는 `<data>/projects/<prj>/workflows/<name>/`, flow의 stderr log는 `<data>/flows/<instance>.log`.
 - 선언의 `agent`·`participants`의 agent는 handle이다. 내부 id가 아니다.
 
+다른 컴퓨터의 참가자
+- 선언: agent 참가자의 `on`. mail: call mail의 `step: {instance, name}`, reply mail의 `report: {next, session}`(mail 계약은 `architecture/machine-a2a.md`). 받은 컴퓨터의 report는 core 안 machine 명령 `calls/step-report`가 reply mail로 내고, 시작한 컴퓨터는 `ApplyWorkflowChange`의 `mail` 칸으로 적용한다.
+- 줄: `handed`의 `remote: {machine, computer, call}`(receiver null), `not_handed`의 이유 `unknown_computer`·`remote_failed`, report 줄의 `by` `remote {machine, computer, name}`. 읽기: `ReadWorkflowInstance`의 `remote_steps`(call, step, machine, computer, state, delivery, fail_reason, session). 다른 컴퓨터에서 받은 step의 report 답은 줄이 없어 `line`이 null이다.
+
 flow 통로
 - stdin·stdout JSON 줄: `start`, `response`(core → process), `agent`·`tool`·`report` 요청(process → core). 줄 상한 1 MiB. 모양은 SDK와 core가 각자 갖고(손으로 옮김) 어긋나면 host가 값 오류로 돌려보낸다.
 
@@ -221,7 +225,7 @@ flow
 - 진짜 flow process를 띄우는 test는 두지 않는다. 손으로 확인한다. (agent)
 
 다른 컴퓨터의 참가자
-- 참가자가 컴퓨터를 고를 수 있다. 그 컴퓨터가 꺼져 있으면 기다리고, 늦게 켜지면 늦은 call처럼 대기 card로 선다. 화면은 step이 도는 컴퓨터와 배달 상태를 보인다. (사람, 2026-11-21, roadmap `a2a-multi-device.md` 정한 것 17)
+- 참가자가 컴퓨터를 고를 수 있다. 그 컴퓨터가 꺼져 있으면 기다리고, 늦게 켜지면 늦은 call처럼 대기 card로 선다. 화면은 step이 도는 컴퓨터와 배달 상태를 보인다. (사람, 2026-11-21)
 - step과 report는 새 mail 종류가 아니라 `call`·`reply`에 칸(`step`, `report`)을 더해 싣는다. 이유: 받는 쪽 규칙(한 번 적용, 기계 확인, 대기, 만료, 먼저 닿은 취소, private, session 규칙, 재시작 실패)이 모두 call mail과 call 행에 걸려 있어 step이 call이면 그대로 다 선다. 버린 안: `step`·`report` 종류를 더하기(규칙마다 둘째 갈래가 생기고 대기·만료 code가 새 종류를 배워야 한다). (agent)
 - 보낸 컴퓨터에 보낸 쪽 program인 call 행을 둔다(agent_calls의 보낸 쪽 칸이 셋 다 빈 행, 다른 컴퓨터로 보낸 행에만). 이유: 배달 상태, 받은 session, 만료, 옛 판, 취소가 이미 call 행에서 돈다. 버린 안: workflow 표에 배달 상태를 따로 두기(같은 상태 기계를 둘 둔다). (agent)
 - 다른 컴퓨터의 report는 mail 입구가 workflows에 넘겨 `ApplyWorkflowChange` 하나로 적용한다. 이유: 다음 step 본문은 blob이라 command 앞에서 준비해야 하고, 본 기록과 report 줄과 넘기기가 한 transaction이어야 반쪽이 남지 않는다. 버린 안: `calls/mail-apply` 안에서 줄만 남기고 commit 뒤에 넘기기(그 사이에 꺼지면 넘기지 않은 report가 남는다). (agent)
@@ -229,7 +233,8 @@ flow
 
 ## 열린 것
 
-- 다른 컴퓨터가 가져간 step의 turn이 실패하거나 멈추거나 재시작으로 끊기면 시작한 컴퓨터에 줄이 남지 않는다. 사람은 그 step의 배달 상태(`remote_steps`의 running)와 그 컴퓨터의 session으로만 안다. 그 turn에서 step을 닫으면 뒤의 report가 거절되고, 이 컴퓨터의 step도 실패한 turn으로 닫지 않는다.
+- run 화면은 다른 컴퓨터로 넘긴 step의 컴퓨터와 배달 상태(위 결정의 사람 요구)를 아직 보이지 않는다. `remote_steps`가 읽기에 있다. roadmap `a2a-multi-device.md`.
+- 다른 컴퓨터가 가져간 step의 turn이 실패하거나 멈추거나 재시작으로 끊기면 시작한 컴퓨터에 줄이 남지 않는다. 사람은 그 step의 배달 상태(`remote_steps`의 running)와 그 컴퓨터의 session으로만 안다. 그 turn에서 step을 닫으면 뒤의 report가 거절되고, 이 컴퓨터의 step도 실패한 turn으로 닫지 않는다. 이슈 `workflow-remote-step-turn-end-no-line`.
 
 - flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory는 V8 heap 512 MiB에서 막힌다. CPU를 막으려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`.
 - `workflow.yaml`에 남은 옛 `{kind: harness}` 참가자는 옮기지 않는다. `invalid_declaration`이고 손으로 고친다(agent 이름을 알 수 없다).

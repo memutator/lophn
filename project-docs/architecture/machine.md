@@ -12,7 +12,7 @@ lophn 설치 하나가 "어느 기계인가"를 아는 길이다. 설치마다 �
 ## 목표와 비목표
 
 - 목표: 설치마다 기계 id 하나. 복사된 data root는 새 기계로 바꾸고, 기계에 묶인 상태는 각자 자기 표지로 다른 기계의 것인지 안다. 컴퓨터의 자기 이름을 사람이 바꿀 수 있고 명단과 연결로 모든 기기에 간다. 사람의 `~/.lophn`과 이미 pairing한 폰은 다시 pairing하지 않고 이어진다.
-- 비목표: "main" 기계. 기계 목록과 이름의 유일성 검사(기계 목록을 만드는 계획이 한다). data root가 공유 저장소 위에 있는지 검사하기. agent가 기계 정보를 읽는 길. 판이 다른 기계 사이의 안내 화면. 기계 사이에 agent 정의·skill·설정·자격 맞추기.
+- 비목표: "main" 기계. 기계 목록과 이름의 유일성 검사(기계 목록을 만드는 계획이 한다). data root가 공유 저장소 위에 있는지 검사하기. 판이 다른 기계 사이의 안내 화면. (agent는 사람의 컴퓨터 목록을 `lophn machine computers`로 읽는다. `machine-a2a.md`) 기계 사이에 agent 정의·skill·설정·자격 맞추기.
 
 ## 모델
 
@@ -71,7 +71,7 @@ host key와 서명 key는 같이 만들고 같이 지운다. 서명 key만 새�
 
 ## 지키는 것
 
-1. `machine.json`은 어디로도 내보내지 않는다. ledger만 담는 recovery 복구본에 실리지 않고, backup·export·폴더로 내보내는 길에 들지 않는다. 다른 기계로 가는 기록은 id 값을 출처로만 싣는다(폴더의 하위 폴더 이름 `machines/<id>/`, manifest와 event file의 `machine`).
+1. `machine.json`은 어디로도 내보내지 않는다. ledger만 담는 recovery 복구본에 실리지 않고, backup·export·폴더로 내보내는 길에 들지 않는다. 다른 기계로 가는 기록은 id 값을 출처로만 싣는다(폴더의 하위 폴더 이름 `machines/<id>/`, manifest, event file, mail, handoff note의 `machine`).
 2. 깨지거나 읽지 못하는 `machine.json`은 덮지 않고 기동을 거절한다. 새 id로 덮으면 remote key 표지가 어긋나 명단과 key가 모두 버려진다.
 3. 같은 기계인지 알 수 없으면 같은 기계다. OS 값을 못 읽거나 binding이 없으면 id를 그대로 둔다. 복제는 OS 값이 binding과 맞지 않을 때만이다.
 4. data root의 path와 hostname은 판정에 들지 않는다. 같은 기계에서 data root를 옮기거나 hostname을 바꿔도 id가 그대로다.

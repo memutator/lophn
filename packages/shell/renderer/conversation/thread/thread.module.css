@@ -159,6 +159,15 @@
   font-weight: var(--font-weight-medium);
 }
 
+.callComputer {
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .callActions {
   display: inline-flex;
   flex: none;

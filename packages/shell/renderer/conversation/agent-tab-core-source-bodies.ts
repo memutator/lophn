@@ -9,6 +9,7 @@ import { turnBodyView } from "../../../protocol/lophn-agent/turn-reads.ts";
 import type {
   Envelope,
   EvidenceRef,
+  RemoteSender,
   Sender,
   SourceResult,
   ToolCallBodyView,
@@ -50,7 +51,7 @@ async function senderOf(
   env: Env,
   memo: BodiesMemo,
   from: ReceivedMessage["from"],
-): Promise<Sender | null> {
+): Promise<Sender | RemoteSender | null> {
   switch (from.kind) {
     case "human":
       return null;
@@ -58,12 +59,13 @@ async function senderOf(
       return { kind: "program", label: null };
     case "app":
       return { kind: "app", app: from.app, name: from.slug };
-    // 기계와 agent를 제대로 그리는 것은 다음 일이다. 지금은 이름에 컴퓨터를 붙인다.
     case "remote":
       return {
-        kind: "agent",
-        agent: null,
-        name: `${from.name} (${from.computer})`,
+        kind: "remote",
+        computer: from.computer,
+        name: from.name,
+        session: from.session,
+        machine: from.machine,
       };
     case "agent": {
       const agent = await agentOf(env, memo, from.session);
@@ -78,9 +80,9 @@ async function senderOf(
 
 async function withName(
   env: Env,
-  sender: Sender,
+  sender: Sender | RemoteSender,
   from: ReceivedMessage["from"],
-): Promise<Sender> {
+): Promise<Sender | RemoteSender> {
   if (sender.kind !== "agent" || from.kind !== "agent") return sender;
   const session = await readSession(env, from.session);
   if (!session.ok) return sender;

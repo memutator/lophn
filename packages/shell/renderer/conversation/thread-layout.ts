@@ -242,7 +242,11 @@ function entryOf(item: AcpItem): ThreadEntry | null {
               status:
                 detail.state === null
                   ? null
-                  : { state: detail.state, reason: detail.fail_reason },
+                  : {
+                      state: detail.state,
+                      reason: detail.fail_reason,
+                      remote: detail.remote,
+                    },
               toolState: item.state,
               session: detail.session,
             },

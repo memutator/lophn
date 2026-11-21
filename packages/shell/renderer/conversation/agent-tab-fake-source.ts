@@ -15,6 +15,7 @@ import {
   type AcpModelCurrent,
   type AcpModelGroup,
   type AcpSender,
+  acpRemoteSenderName,
   type AcpRole,
   type AcpSessionMeta,
   type AcpState,
@@ -71,6 +72,8 @@ export const AGENT_TAB_SCENES = [
   "request-error",
   "sender-chips",
   "call-open",
+  /** 다른 컴퓨터로 보낸 call: 배달 상태 넷(아직 닿지 않음, 대기 목록, 도는 중, 모름)과 옛 판 실패. */
+  "call-remote",
   "call-replies",
   /** 도는 편집과 call. 종류가 시작 때부터 있어 일반 tool 줄이 아닌 카드와 블록으로 그려진다. */
   "tool-running",
@@ -622,7 +625,9 @@ const fromEnvelope = (sender: Envelope["sender"]): AcpSender =>
     ? { kind: "program" }
     : sender.kind === "app"
       ? sender
-      : { kind: "agent", agent: sender.agent, name: sender.name };
+      : sender.kind === "remote"
+        ? { kind: "agent", agent: null, name: acpRemoteSenderName(sender) }
+        : { kind: "agent", agent: sender.agent, name: sender.name };
 
 function received(
   n: number,
@@ -644,8 +649,9 @@ function call(
   minutes: number,
   detail: Omit<
     Extract<AcpToolItem["detail"], { kind: "call" }>,
-    "kind" | "call"
-  >,
+    "kind" | "call" | "remote"
+  > &
+    Partial<Pick<Extract<AcpToolItem["detail"], { kind: "call" }>, "remote">>,
 ): AcpToolItem {
   return tool(
     20 + n,
@@ -655,7 +661,7 @@ function call(
       category: "other",
       title: `Send a call to ${detail.to}`,
     },
-    { detail: { kind: "call", call: callId(n), ...detail } },
+    { detail: { kind: "call", call: callId(n), remote: null, ...detail } },
   );
 }
 
@@ -708,6 +714,7 @@ const unsentCall = (
         state: null,
         fail_reason: null,
         session: null,
+        remote: null,
       },
     },
   );
@@ -747,6 +754,34 @@ const CALL_CANCELLED = {
   fail_reason: null,
   session: sessionId(11),
 } as const;
+
+// 다른 컴퓨터로 보낸 call. computer는 보낼 때의 명단 이름이고 to는 agent가 `--on`에 적은 그대로다.
+const remoteCall = (
+  to: string,
+  task: string,
+  computer: string,
+  machine: number,
+  over: {
+    reply?: "none" | "result" | "conversation";
+    state?: "accepted" | "failed";
+    fail_reason?: "old_version" | null;
+    delivery: "pending" | "unknown" | "held" | "running" | null;
+    session?: string | null;
+  },
+) => ({
+  to,
+  task,
+  reply: over.reply ?? "result",
+  state: over.state ?? "accepted",
+  fail_reason: over.fail_reason ?? null,
+  session: null,
+  remote: {
+    machine: fakeId("mch", machine),
+    computer,
+    delivery: over.delivery,
+    session: over.session ?? null,
+  },
+});
 
 type AskedQuestions = NonNullable<
   NonNullable<AcpState["pending"]["question"]>["questions"]
@@ -1140,6 +1175,17 @@ function sceneData(scene: AgentTabScene): SceneData {
         ],
         { id: SESSION_EARLIER, title: "Weekly report" },
       );
+      const studio = envelope(
+        {
+          kind: "remote",
+          computer: "Studio",
+          name: "Release agent",
+          session: sessionId(15),
+          machine: fakeId("mch", 1),
+        },
+        [],
+        null,
+      );
       return {
         agent: EVAL_ANALYST,
         title: "Eval board keeps crashing",
@@ -1157,12 +1203,20 @@ function sceneData(scene: AgentTabScene): SceneData {
               "About the fix for P-12: keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
               lophn.sender,
             ),
+            received(
+              3,
+              40,
+              "The release branch is ready on my side. Please run the Eval board check against it before I tag it.",
+              studio.sender,
+              { call: callId(30) },
+            ),
           ],
           { turn: turnOf("working") },
         ),
         envelopes: {
           [messageId(1)]: notice,
           [messageId(2)]: lophn,
+          [messageId(3)]: studio,
         },
       };
     }
@@ -1186,6 +1240,85 @@ function sceneData(scene: AgentTabScene): SceneData {
               "While that runs, I am drafting the sections that do not need it. I cancelled the check on the eval context, because the answer changed nothing.",
             ),
             call(2, 47, CALL_CANCELLED),
+          ],
+          { turn: turnOf("working") },
+        ),
+      };
+    case "call-remote":
+      return {
+        agent: LOPHN,
+        title: "Week 41 summary",
+        state: numbered(
+          [
+            user(1, 43, "Run the regression check on Studio and the Laptop."),
+            agent(
+              2,
+              44,
+              "I sent work to your other computers. Each one is at a different point.",
+            ),
+            call(
+              5,
+              44,
+              remoteCall(
+                "Eval analyst on Studio",
+                "Find what the 3 regressions have in common.",
+                "Studio",
+                1,
+                { delivery: "pending" },
+              ),
+            ),
+            call(
+              6,
+              44,
+              remoteCall(
+                "Release notes writer on Laptop",
+                "Draft the week 41 release notes from the merged changes.",
+                "Laptop",
+                2,
+                { delivery: "held" },
+              ),
+            ),
+            call(
+              7,
+              45,
+              remoteCall(
+                "Eval analyst on home",
+                "Re-run the nightly eval with the new scenario list.",
+                "Home server",
+                3,
+                {
+                  reply: "conversation",
+                  delivery: "running",
+                  session: sessionId(14),
+                },
+              ),
+            ),
+            call(
+              8,
+              45,
+              remoteCall(
+                "Experiment planner on Studio",
+                "Plan exp-013 so it isolates the recipe lookup.",
+                "Studio",
+                1,
+                { delivery: "unknown" },
+              ),
+            ),
+            call(
+              9,
+              46,
+              remoteCall(
+                "Eval analyst on Laptop",
+                "Check the eval context against the new reports.",
+                "Laptop",
+                2,
+                {
+                  state: "failed",
+                  fail_reason: "old_version",
+                  delivery: null,
+                },
+              ),
+            ),
           ],
           { turn: turnOf("working") },
         ),
@@ -2533,7 +2666,11 @@ export function createFakeAgentTabSource(
       const found = callItemOf(call);
       return found === undefined || found.detail.state === null
         ? fail("not_found")
-        : ok({ state: found.detail.state, reason: found.detail.fail_reason });
+        : ok({
+            state: found.detail.state,
+            reason: found.detail.fail_reason,
+            remote: found.detail.remote,
+          });
     },
     toolCallBody(toolCall, part) {
       const found =

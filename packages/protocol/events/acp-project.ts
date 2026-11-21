@@ -1,6 +1,7 @@
 import type { AgentId } from "../lophn-agent/workspaces.ts";
 import {
   ACP_TOOL_BODY_LIMIT,
+  acpRemoteSenderName,
   type AcpToolDetail,
   type AcpToolItem,
   type AcpCard,
@@ -139,11 +140,18 @@ export function acpUpdatesOf(
                   ? { kind: "program" }
                   : from.kind === "app"
                     ? { kind: "app", app: from.app, name: from.slug }
-                    : {
-                        kind: "agent",
-                        agent,
-                        name: agent === null ? null : context.agentName(agent),
-                      },
+                    : from.kind === "remote"
+                      ? {
+                          kind: "agent",
+                          agent: null,
+                          name: acpRemoteSenderName(from),
+                        }
+                      : {
+                          kind: "agent",
+                          agent,
+                          name:
+                            agent === null ? null : context.agentName(agent),
+                        },
             call,
             reply_to,
             delivery: steer ? "steer" : "next_turn",

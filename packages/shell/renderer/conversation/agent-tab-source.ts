@@ -11,6 +11,7 @@ import type {
   CallFailReason,
   CallReply,
   CallState,
+  MailDelivery,
 } from "../../../protocol/lophn-agent/calls.ts";
 import {
   type ContentBlock,
@@ -44,7 +45,13 @@ export type SourceResult<T> =
 /** 보내는 방식. 기본은 다음 turn이고, steer는 도는 turn에 들어간다. contract의 `InputDelivery`와 같다. */
 export type Delivery = "next_turn" | "steer";
 
-export type { CallFailReason, CallReply, CallState, RewindReason };
+export type {
+  CallFailReason,
+  CallReply,
+  CallState,
+  MailDelivery,
+  RewindReason,
+};
 
 /** avatar가 그리는 얼굴. */
 export type AgentProfile =
@@ -154,6 +161,19 @@ export type Sender =
       readonly name: string;
     };
 
+/**
+ * 다른 컴퓨터의 agent가 보낸 입력의 보낸 쪽이다. 대화 줄의 chip은 ACP가 준 이름("<name> on <computer>")으로 서고, 이 값은 chip을
+ * 눌러 읽는 `envelope`에만 있다. phone이 `Sender`를 그대로 가르므로 `Sender`에 섞지 않는다.
+ */
+export interface RemoteSender {
+  readonly kind: "remote";
+  readonly computer: string;
+  readonly name: string;
+  /** 보낸 session. 모르면 null. */
+  readonly session: string | null;
+  readonly machine: string;
+}
+
 /** 맡긴 글의 근거 링크. */
 export interface EvidenceRef {
   readonly kind: "file" | "session" | "annotation";
@@ -164,9 +184,9 @@ export interface EvidenceRef {
 
 /** 보낸 쪽 chip을 누르면 panel에 읽어 보이는 것. 맡긴 글은 받은 메시지의 본문이라 여기 없다. */
 export interface Envelope {
-  readonly sender: Sender;
+  readonly sender: Sender | RemoteSender;
   readonly refs: readonly EvidenceRef[];
-  /** 보낸 session. program이 보낸 것은 없다. */
+  /** 보낸 session. program이 보낸 것은 없다. 다른 컴퓨터가 보낸 것은 `sender.session`이다. */
   readonly session: { readonly id: string; readonly title: string } | null;
 }
 
@@ -176,6 +196,13 @@ export interface CallStatus {
   readonly state: CallState;
   /** failed일 때만 있다. */
   readonly reason: CallFailReason | null;
+  /** 다른 컴퓨터로 보낸 call이면 그 컴퓨터와 배달 상태, 그 컴퓨터에서 받은 session(알면). 이 기계 안의 call은 null이다. */
+  readonly remote: {
+    readonly machine: string;
+    readonly computer: string;
+    readonly delivery: MailDelivery | null;
+    readonly session: string | null;
+  } | null;
 }
 
 /** 이 session이 보낸 call 블록. 상태는 thread를 읽은 때의 것이고 취소한 뒤 `callState`로 다시 읽는다. */
@@ -622,7 +649,7 @@ export interface AgentTabSource {
   draft?(): Promise<SourceResult<AcpSessionMeta>>;
   /** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. 없으면(harness GUI) chip은 열리지 않는다. */
   envelope?(message: string): Promise<SourceResult<Envelope>>;
-  /** call 블록이 취소한 뒤 읽는다. 상태가 바뀌어도 따로 알리지 않는다. */
+  /** call 블록이 취소한 뒤, 다른 컴퓨터로 보낸 call은 `StateChanged{agent_calls}`를 받을 때마다 읽는다. */
   callState(call: string): Promise<SourceResult<CallStatus>>;
   /** call 줄을 펼칠 때 읽는다. 아직 출력이 없으면 output은 not_found다. */
   toolCallBody(

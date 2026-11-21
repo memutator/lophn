@@ -58,6 +58,7 @@ import {
 import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
+import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { CallBlock } from "./thread/call-block.tsx";
 import { CommandOutput } from "./thread/command-output.tsx";
 import { InfoRow } from "./thread/info-row.tsx";
@@ -493,7 +494,15 @@ function itemsOf(
             key={entry.id}
             call={entry.call}
             source={props.source}
-            onOpenSession={props.onOpenSession}
+            onOpenSession={
+              props.onOpenSession === undefined
+                ? undefined
+                : (session, machine) =>
+                    // 다른 컴퓨터가 받은 session은 그 컴퓨터의 session으로 연다.
+                    machine === null
+                      ? props.onOpenSession?.(session)
+                      : runToastAction({ kind: "session", session, machine })
+            }
           />,
         );
         break;

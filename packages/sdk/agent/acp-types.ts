@@ -130,6 +130,12 @@ export type AcpToolDetail =
         | "old_version"
         | null;
       session: string | null;
+      remote: {
+        machine: string;
+        computer: string;
+        delivery: "pending" | "unknown" | "held" | "running" | null;
+        session: string | null;
+      } | null;
     }
   | {
       kind: "question";

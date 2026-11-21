@@ -8,6 +8,7 @@ import {
   CALL_FAIL_REASONS,
   CALL_REPLIES,
   CALL_STATES,
+  MAIL_DELIVERIES,
 } from "../lophn-agent/calls.ts";
 import { contentBlockSchema } from "../lophn-agent/content-block.ts";
 import { inputDeliverySchema } from "../lophn-agent/inputs.ts";
@@ -39,6 +40,15 @@ export const acpSenderSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type AcpSender = z.infer<typeof acpSenderSchema>;
+
+// 다른 컴퓨터의 agent가 보낸 입력의 보낸 쪽 이름이다. live 변환과 이력 만들기가 같은 글을 내도록 한 곳에 둔다.
+// 새 sender kind를 더하면 phone의 sender 분기가 깨져서 kind는 agent로 두고 이름에 컴퓨터를 싣는다.
+export function acpRemoteSenderName(from: {
+  name: string;
+  computer: string;
+}): string {
+  return `${from.name} on ${from.computer}`;
+}
 
 export const acpReasoningSchema = z.strictObject({
   text: z.string(),
@@ -109,6 +119,15 @@ export const acpToolDetailSchema = z.discriminatedUnion("kind", [
     state: z.enum(CALL_STATES).nullable(),
     fail_reason: z.enum(CALL_FAIL_REASONS).nullable(),
     session: id.nullable(),
+    /** 다른 컴퓨터로 보낸 call이면 그 컴퓨터와 배달 상태, 그 컴퓨터에서 받은 session(알면). 이 기계 안의 call은 null. */
+    remote: z
+      .strictObject({
+        machine: idSchema("mch"),
+        computer: z.string(),
+        delivery: z.enum(MAIL_DELIVERIES).nullable(),
+        session: id.nullable(),
+      })
+      .nullable(),
   }),
   /**
    * 사람에게 묻는 `ask`. 풀리기 전에는 outcome이 null이고, 답 줄은 모르면 answer가 null이다.

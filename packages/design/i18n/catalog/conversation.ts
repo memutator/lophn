@@ -322,10 +322,12 @@ export const conversation = {
   "conversation.label.search-sessions": "Search {agent} sessions",
   "conversation.label.sender-agent-other": "Another agent",
   "conversation.label.sender-based-on": "Based on",
+  "conversation.label.sender-computer": "Computer",
   "conversation.label.sender-from": "From",
   "conversation.label.sender-head-handed": "What was handed over",
   "conversation.label.sender-head-why": "Why you got this",
   "conversation.label.sender-program-unknown": "lophn",
+  "conversation.label.sender-remote-session": "Session on that computer",
   "conversation.label.sender-sent-by": "Sent by {sender}",
   "conversation.label.sender-sent-from": "Sent from",
   "conversation.label.session-archived-title": "{title} · Archived",
@@ -437,6 +439,13 @@ export const conversation = {
   "conversation.notice.approval-paused": "{agent} is paused until you decide.",
   "conversation.notice.call-cancel-failed": "Couldn't cancel it. Try again.",
   "conversation.notice.call-cancelled": "It was cancelled before it finished.",
+  "conversation.notice.call-delivery-held":
+    "Waiting in {computer}'s Inbox for the person to start it.",
+  "conversation.notice.call-delivery-pending":
+    "Not delivered yet. It goes when {computer} is reachable.",
+  "conversation.notice.call-delivery-running": "Running on {computer}.",
+  "conversation.notice.call-delivery-unknown":
+    "Sent to {computer}; not known whether it arrived.",
   "conversation.notice.call-fail-closed": "That session is closed.",
   "conversation.notice.call-fail-expired":
     "The other computer didn't take it within seven days.",

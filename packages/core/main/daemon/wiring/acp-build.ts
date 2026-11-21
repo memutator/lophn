@@ -26,6 +26,7 @@ import {
   type AcpModelGroup,
   type AcpSessionMeta,
   type AcpUsage,
+  acpRemoteSenderName,
 } from "../../../../protocol/acp/mod.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { agentCallRead } from "../../../../protocol/lophn-agent/calls.ts";
@@ -367,10 +368,12 @@ export async function toolDetailOf(
     const input = asRecord(await bodyOf(env, "tool_call_input", call.id));
     const body = typeof input?.["body"] === "string" ? input["body"] : "";
     const reply = input?.["reply"];
+    const on = input?.["on"];
+    const target = await toLabel(env, asRecord(input?.["to"]) ?? {});
     const detail: Extract<AcpToolDetail, { kind: "call" }> = {
       kind: "call",
       call: null,
-      to: await toLabel(env, asRecord(input?.["to"]) ?? {}),
+      to: typeof on === "string" && on !== "" ? `${target} on ${on}` : target,
       task: body.split("\n")[0] ?? "",
       reply:
         reply === "result" || reply === "conversation" || reply === "none"
@@ -379,6 +382,7 @@ export async function toolDetailOf(
       state: null,
       fail_reason: null,
       session: null,
+      remote: null,
     };
     if (!ok) return detail;
     const output = await bodyOf(env, "tool_call_output", call.id);
@@ -387,15 +391,24 @@ export async function toolDetailOf(
     const read = await env.read<Output<typeof agentCallRead>>(agentCallRead, {
       call: id,
     });
-    return read.ok
-      ? {
-          ...detail,
-          call: id,
-          state: read.value.call.state,
-          fail_reason: read.value.call.fail_reason,
-          session: read.value.call.receiver_session,
-        }
-      : detail;
+    if (!read.ok) return detail;
+    const row = read.value.call;
+    return {
+      ...detail,
+      call: id,
+      state: row.state,
+      fail_reason: row.fail_reason,
+      session: row.receiver_session,
+      remote:
+        row.to.kind === "remote"
+          ? {
+              machine: row.to.machine,
+              computer: row.to.computer,
+              delivery: row.delivery,
+              session: row.remote_session,
+            }
+          : null,
+    };
   }
   if (call.tool === "release.activate") {
     if (!ok) return null;
@@ -705,6 +718,8 @@ function senderOf(
   if (from.kind === "program") return { kind: "program" };
   if (from.kind === "app")
     return { kind: "app", app: from.app, name: from.slug };
+  if (from.kind === "remote")
+    return { kind: "agent", agent: null, name: acpRemoteSenderName(from) };
   return { kind: "agent", agent, name };
 }
 

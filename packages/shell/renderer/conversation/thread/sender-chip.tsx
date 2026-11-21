@@ -1,12 +1,13 @@
 // 받은 메시지의 보낸 쪽 chip과, chip을 누르면 열리는 panel. 사람이 직접 쓰지 않은 입력(다른 agent의 부탁,
 // lophn이 보낸 알림, 배달 알림)이 chip을 단다. panel은 근거 링크와 보낸 session을 읽어 보인다. 맡긴 글은 늘 보이는
-// 본문이라 panel에 다시 두지 않는다.
+// 본문이라 panel에 다시 두지 않는다. 다른 컴퓨터가 보낸 것은 chip이 "<name> on <computer>"로 서고 panel이 그 컴퓨터와 session을 보인다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
+import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import type {
   AgentTabSource,
   Envelope,
@@ -126,6 +127,7 @@ export function SenderPanel({
   }, [source, message]);
   const empty =
     loaded.state === "ready" &&
+    loaded.envelope.sender.kind !== "remote" &&
     loaded.envelope.refs.length === 0 &&
     loaded.envelope.session === null;
   useEffect(() => {
@@ -151,12 +153,45 @@ export function SenderPanel({
     );
   }
   const { envelope } = loaded;
+  const remote = envelope.sender.kind === "remote" ? envelope.sender : null;
   return (
     <section
       className={styles.senderPanel}
       aria-label={t("conversation.title.sender-details")}
       data-sender-panel="ready"
     >
+      {remote === null ? null : (
+        <div className={styles.senderBlock} data-sender-remote="">
+          <p className={styles.senderHead}>
+            {t("conversation.label.sender-computer")}
+          </p>
+          <p className={styles.sessionLink}>{remote.computer}</p>
+          {remote.session === null ? null : (
+            <>
+              <p className={styles.senderHead}>
+                {t("conversation.label.sender-remote-session")}
+              </p>
+              <p className={styles.sessionLink}>
+                <Icon
+                  icon={commonIcons.openLink}
+                  pixels={iconPixels("small")}
+                />
+                <TextLink
+                  onClick={() =>
+                    runToastAction({
+                      kind: "session",
+                      session: remote.session!,
+                      machine: remote.machine,
+                    })
+                  }
+                >
+                  {remote.session}
+                </TextLink>
+              </p>
+            </>
+          )}
+        </div>
+      )}
       {envelope.refs.length === 0 ? null : (
         <div className={styles.senderBlock}>
           <p className={styles.senderHead}>

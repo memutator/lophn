@@ -7,8 +7,8 @@ lead만 고친다. `tools/status.py tab-scope build`가 `tasks/*.md`에서 id, �
 | `browser-profile-partitions` | browser-profile | 1 | 없음 | merged | browser-profile/browser-profile-partitions | ca1ecc010 |  |
 | `tab-owner-core` | tab-owner | 1 | 없음 | merged | tab-owner/tab-owner-core | d53b165f6 |  |
 | `tab-owner-layout` | tab-owner | 1 | 없음 | merged | tab-owner/tab-owner-layout | e15f21b51 |  |
-| `browser-profile-core` | browser-profile | 2 | tab-owner-core, browser-profile-partitions | todo |  |  |  |
-| `tab-owner-screen` | tab-owner | 2 | tab-owner-core, tab-owner-layout, browser-profile-partitions | todo |  |  |  |
-| `tab-owner-sidebar` | tab-owner | 2 | tab-owner-layout | todo |  |  |  |
+| `browser-profile-core` | browser-profile | 2 | tab-owner-core, browser-profile-partitions | running | browser-profile/browser-profile-core |  |  |
+| `tab-owner-screen` | tab-owner | 2 | tab-owner-core, tab-owner-layout, browser-profile-partitions | running | tab-owner/tab-owner-screen |  |  |
+| `tab-owner-sidebar` | tab-owner | 2 | tab-owner-layout | running | tab-owner/tab-owner-sidebar |  |  |
 | `browser-profile-settings` | browser-profile | 3 | browser-profile-core, browser-profile-partitions | todo |  |  |  |
 | `tab-owner-hand` | tab-owner | 3 | tab-owner-core, tab-owner-screen, tab-owner-sidebar | todo |  |  |  |

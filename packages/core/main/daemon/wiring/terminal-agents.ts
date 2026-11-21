@@ -60,7 +60,7 @@ import {
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { shellSettings } from "../../../config/mod.ts";
+import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import {
   loadSession,
   workspaceOf,
@@ -636,6 +636,8 @@ export const terminalAgentsWiring: WiringFactory = () => {
         hold: (session) => ctx.harnessHold.open(session as Id<"ses">),
         held: (terminal, session) =>
           agents.holds.hold(terminal, session, "gui"),
+        codingCommand: (harness) =>
+          ctx.settings.get(codingAgentsSetting)?.commands?.[harness],
       });
 
       return ok({

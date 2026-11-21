@@ -20,6 +20,7 @@ import {
   terminalsWatch,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
+import { codingAgentsSetting } from "../../../config/mod.ts";
 import {
   projectExists,
   projectFolderPaths,
@@ -124,6 +125,8 @@ export const terminalsWiring: WiringFactory = () => {
           );
         },
         platform: process.platform,
+        codingCommand: (harness) =>
+          ctx.peek.settings?.get(codingAgentsSetting)?.commands?.[harness],
         hostExited(exit) {
           ctx.telemetry.logger.warn({
             component: "terminals",

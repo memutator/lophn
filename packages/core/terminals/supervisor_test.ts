@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { mock, test } from "node:test";
 import { createSupervisor, readLines } from "./supervisor.ts";
+import { buildResumeCommand } from "./service.ts";
 
 const SNAPSHOT = { type: "snapshot", terminal_ref: "trm_a" } as const;
 
@@ -85,4 +86,39 @@ test("답이 오지 않는 요청은 기한 뒤 host_lost로 끝나고 늦게 �
   } finally {
     mock.timers.reset();
   }
+});
+
+test("buildResumeCommand applies saved coding agent flags and avoids duplicating subcommands", () => {
+  assert.equal(
+    buildResumeCommand(
+      { harness: "antigravity", external_session: "conv-1" },
+      "agy --dangerously-skip-permissions",
+    ),
+    "agy --dangerously-skip-permissions --conversation conv-1",
+  );
+  assert.equal(
+    buildResumeCommand(
+      { harness: "claude", external_session: "ses-1" },
+      "claude --gui --dangerously-skip-permissions",
+    ),
+    "claude --gui --dangerously-skip-permissions --resume ses-1",
+  );
+  assert.equal(
+    buildResumeCommand(
+      { harness: "codex", external_session: "thr-1" },
+      "codex --dangerously-bypass-approvals-and-sandbox",
+    ),
+    "codex --dangerously-bypass-approvals-and-sandbox resume thr-1",
+  );
+  assert.equal(
+    buildResumeCommand(
+      { harness: "kiro", external_session: "k-1" },
+      "kiro-cli chat --trust-all-tools",
+    ),
+    "kiro-cli chat --trust-all-tools --resume-id k-1",
+  );
+  assert.equal(
+    buildResumeCommand({ harness: "antigravity", external_session: "conv-1" }),
+    "agy --conversation conv-1",
+  );
 });

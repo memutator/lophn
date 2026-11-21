@@ -31,6 +31,8 @@ export type CodingOpenDeps = {
   hold(session: string): Result<unknown>;
   // 연 터미널이 끝날 때까지 그 ledger session을 쥔다.
   held(terminal: string, session: string): void;
+  // 사람이 Settings › Coding agents에 저장한 실행 명령어(flag 포함). GUI 열기 시 그 flag를 함께 적용한다.
+  codingCommand?(harness: string): string | undefined;
 };
 
 export function createCodingOpen(deps: CodingOpenDeps) {
@@ -109,7 +111,10 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       resume = found.value;
     }
     const binary = HARNESS_ADAPTERS[input.harness].commands[0];
-    const command = `${binary} --gui${resume === undefined ? "" : ` --resume ${resume.cli_session}`}`;
+    const custom = deps.codingCommand?.(input.harness)?.trim() ?? "";
+    const base = custom !== "" && !/[\r\n]/.test(custom) ? custom : binary;
+    const hasGui = base.split(/\s+/).includes("--gui");
+    const command = `${base}${hasGui ? "" : " --gui"}${resume === undefined ? "" : ` --resume ${resume.cli_session}`}`;
     const opened = await deps.open(input.project, command);
     if (!opened.ok) return opened;
     if (resume !== undefined) deps.held(opened.value, resume.session);

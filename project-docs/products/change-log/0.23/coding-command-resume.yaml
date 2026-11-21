@@ -1,0 +1,11 @@
+id: coding-command-resume
+version: 0.23.112
+title: Settings에 저장한 coding agent flag를 resume과 GUI 열기에도 함께 적용한다
+modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/main]
+change: |
+  전: Settings › Coding agents(`shell.coding_agents.commands`)에 저장한 명령어와 flag는 새 세션을 열 때만 쓰이고, sidebar에서 지난 세션을 resume하거나 `coding_sessions/open`으로 열 때는 기본 명령어만 실행해 저장된 flag와 `--gui`가 빠졌다.
+  후: `terminals/open`의 `resume` 명령 조립(`buildResumeCommand`)과 `coding_sessions/open` 모두 `shell.coding_agents.commands`에 저장된 명령어·flag를 바탕으로 resume 인자와 `--gui`를 이어 붙인다. `kiro-cli chat`처럼 subcommand로 시작하는 resume 규칙은 저장된 명령에 이미 subcommand가 있으면 중복하지 않는다.
+why: |
+  coding agent마다 저장해 둔 `--dangerously-skip-permissions`, `--gui`, `--model` 같은 flag가 새 세션에서만 적용되고 resume할 때는 매번 풀려 불편했다.
+checklist:
+  - "Settings › Coding agents에 `agy --dangerously-skip-permissions` 또는 `claude --gui --dangerously-skip-permissions`를 저장한 뒤 sidebar Recent 세션을 눌러 resume했을 때 해당 flag(및 `--gui`)가 그대로 적용되는지 확인한다"

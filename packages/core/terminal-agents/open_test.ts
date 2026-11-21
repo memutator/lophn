@@ -15,6 +15,7 @@ const TERMINAL = `trm_${"2".repeat(26)}`;
 function setup(
   listed: { harness: string; cli_session: string | null }[],
   guiOn = true,
+  commands: Record<string, string> = {},
 ) {
   const calls: unknown[] = [];
   const holds: string[] = [];
@@ -34,6 +35,7 @@ function setup(
       return ok({});
     },
     held: () => {},
+    codingCommand: (harness) => commands[harness],
   };
   return { opener: createCodingOpen(deps), calls, holds };
 }
@@ -105,5 +107,33 @@ test("Home(project: home) coding session도 schema와 open이 받고 터미널�
   assert.deepEqual(done, ok({ session: `ses_${"2".repeat(26)}` }));
   assert.deepEqual(calls, [
     { project: HOME_TERMINAL_PROJECT, command: "claude --gui" },
+  ]);
+});
+
+test("coding_sessions/open applies saved coding agent flags without duplicating --gui", async () => {
+  const { opener, calls } = setup([], true, {
+    antigravity: "agy --dangerously-skip-permissions",
+    claude: "claude --gui --model opus",
+  });
+  await opener.open({
+    project: PROJECT,
+    harness: "antigravity",
+    key: "k-agy",
+  });
+  await opener.open({
+    project: PROJECT,
+    harness: "claude",
+    resume: { session: LEDGER },
+    key: "k-claude",
+  });
+  assert.deepEqual(calls, [
+    {
+      project: PROJECT,
+      command: "agy --dangerously-skip-permissions --gui",
+    },
+    {
+      project: PROJECT,
+      command: "claude --gui --model opus --resume cli-1",
+    },
   ]);
 });

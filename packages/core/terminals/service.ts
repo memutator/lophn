@@ -65,20 +65,34 @@ function commandInput(command: string | undefined): string | null {
 }
 
 // 저장한 session을 다시 여는 명령 한 줄. resume 규칙이 없는 harness면 null이다.
-function resumeLine(resume: {
-  harness: string;
-  external_session: string;
-}): string | null {
+// Settings › Coding agents에 저장한 command(flag 포함)가 있으면 그 명령을 바탕으로 resume 인자를 붙인다.
+export function buildResumeCommand(
+  resume: {
+    harness: string;
+    external_session: string;
+  },
+  savedCommand?: string,
+): string | null {
   if (!Object.hasOwn(HARNESS_ADAPTERS, resume.harness)) return null;
   const adapter =
     HARNESS_ADAPTERS[resume.harness as keyof typeof HARNESS_ADAPTERS];
   if (adapter.session.resume === null) return null;
-  return [
-    adapter.commands[0],
-    ...adapter.session.resume.map((arg) =>
-      arg.replace("{id}", resume.external_session),
-    ),
-  ].join(" ");
+  const custom = savedCommand?.trim() ?? "";
+  const base =
+    custom !== "" && !/[\r\n]/.test(custom) ? custom : adapter.commands[0];
+  let resumeArgs = adapter.session.resume.map((arg) =>
+    arg.replace("{id}", resume.external_session),
+  );
+  // kiro(`chat --resume-id {id}`)처럼 subcommand로 시작하는 resume 규칙은 저장된 명령에 이미 같은 subcommand가 있으면 중복하지 않는다.
+  const first = resumeArgs[0];
+  if (
+    first !== undefined &&
+    !first.startsWith("-") &&
+    base.split(/\s+/).slice(1).includes(first)
+  ) {
+    resumeArgs = resumeArgs.slice(1);
+  }
+  return [base, ...resumeArgs].join(" ");
 }
 
 // TerminalRuntimeChanged는 runtime의 뜻이 바뀔 때만 간다. 출력마다 오르는 seq와 넘침 표시는 출력 쪽 일이다.
@@ -94,6 +108,8 @@ export function createTerminals(deps: {
   // project의 등록 폴더(`folder_ref`는 `<project>_<index>`). Home은 사람의 home 폴더 하나다. 없는 project는 not_found다.
   folders(project: string): Promise<Result<readonly Folder[]>>;
   platform: NodeJS.Platform;
+  // 사람이 Settings › Coding agents에 저장한 실행 명령어(flag 포함). resume 시 기본 명령어 대신 쓴다.
+  codingCommand?(harness: string): string | undefined;
   // host가 스스로 끝났다(code, signal, stderr 마지막 4 KiB).
   hostExited(exit: HostExit): void;
 }): Terminals {
@@ -245,7 +261,13 @@ export function createTerminals(deps: {
       const runtime = done.ok ? decorate(done.value) : null;
       for (const one of hooked) one.opened(runtime);
       if (runtime === null) return done;
-      const line = input.resume === undefined ? null : resumeLine(input.resume);
+      const line =
+        input.resume === undefined
+          ? null
+          : buildResumeCommand(
+              input.resume,
+              deps.codingCommand?.(input.resume.harness),
+            );
       const typed = line !== null ? `${line}\r` : commandInput(input.command);
       if (typed !== null) {
         // 터미널은 이미 열렸다. 친 줄이 거절돼도 열기를 실패로 만들지 않고 다시 치지 않는다.

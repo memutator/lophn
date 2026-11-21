@@ -8,5 +8,5 @@ export {
   LEASE_MS,
   type TerminalRoutes,
 } from "./routes.ts";
-export { createTerminals } from "./service.ts";
+export { buildResumeCommand, createTerminals } from "./service.ts";
 export { type HostProcess, spawnNodeHost } from "./supervisor.ts";

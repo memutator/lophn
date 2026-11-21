@@ -256,8 +256,9 @@ export function holdsHandler(deps: MailEntryDeps): MemoryHandler {
   };
 }
 
-// `mail/decide_hold`: 받는 기계의 사람이 [Start now]나 [Skip]을 고른다. 누가 부를 수 있는지는 route의 actor(사람)와 기기 목록(허락받은
-// 기기의 화면만)이 정한다. skip을 따를지는 정하는 때의 허락으로 본다.
+// `mail/decide_hold`: 사람이 이 컴퓨터나 자기 기기의 화면에서 [Start now]나 [Skip]을 고른다(job hold처럼 터미널 입력 허락은 보지 않는다).
+// 누가 부를 수 있는지는 route의 actor(사람)와 기기 목록(터미널·다른 컴퓨터의 agent·앱 요청은 못 받는다)이 정한다. skip을 따를지는
+// 누른 기기가 아니라 mail을 보낸 컴퓨터에 이 컴퓨터가 정하는 때 준 허락으로 본다.
 export function decideHoldHandler(deps: MailEntryDeps): MemoryHandler {
   return async (_ctx, body) => {
     const input = body as z.infer<typeof mailDecideHold.input>;

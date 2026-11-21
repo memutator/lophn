@@ -1284,6 +1284,7 @@ export function createRouter(deps: RouterDeps): Router {
     }
     const now = tx.now();
     // 만료된 mail은 돌지 않는다. 늦게 온 call은 돌지 않고 대기 목록에 서서 사람을 기다린다(reply·cancel·state는 늦어도 바로 적용한다).
+    // 늦음은 이 기계의 시계와 보낸 기계의 sent_at을 견준다. 시계가 10분 넘게 어긋난 두 컴퓨터는 모든 mail이 서거나 하나도 서지 않는다(알고 둔다).
     // 이미 있는 call id는 쓰지 않는다(insert가 터지면 그 기계의 drain이 같은 mail을 끝없이 다시 낸다).
     const expired = now > mail.expires_at;
     const clash =
@@ -1554,6 +1555,19 @@ export function createRouter(deps: RouterDeps): Router {
       if (record === null || isFinished(record.state)) continue;
       const failed = failSent(tx, record, "expired");
       if (!failed.ok) return failed;
+    }
+    // 그 기계가 받고 답이 없는 call: 그 기계가 다시 오지 않아도 보낸 쪽에 영영 열려 있지 않게 닫는다. 받는 기계는 만료된 대기 줄을 시작하지
+    // 않으므로 늦은 Start now가 여기서 닫은 call을 돌리지 않는다. 만료 뒤 10분은 두 기계의 시계 차이를 위한 여유다. 만료는 행을 쓴 때(call
+    // mail의 sent_at과 같은 tx 시각)에서 센다.
+    const sentBefore = new Date(
+      Date.parse(now) - MAIL_EXPIRY_MS - MAIL_LATE_MS,
+    ).toISOString();
+    for (const call of outbox.sentOpenBefore(tx, sentBefore)) {
+      const record = store.read(tx, calId(call));
+      if (record === null || isFinished(record.state)) continue;
+      const failed = failSent(tx, record, "expired");
+      if (!failed.ok) return failed;
+      expired++;
     }
     for (const row of seen.held(tx)) {
       if (row.mail?.kind !== "call" || !(now > row.mail.expires_at)) continue;

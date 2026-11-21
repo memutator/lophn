@@ -691,7 +691,10 @@ files:
       - calls-mail-decide:skipped
       - calls-mail-decide:expired
       - calls-mail-sweep:ok
-    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 대기 목록 handler에서 writer 명령과 Router까지 잇는다. 10분 넘게 늦은 call은 session을 열지 않고 대기에 서며 Start now에서만 열리고(본문 blob을 그때 준비한다) Skip은 보낸 쪽 call을 skipped로 닫는다. 두 번 정하기, 보낸 쪽 취소 뒤, 만료 뒤는 conflict이고 양쪽 상태가 하나다. skip은 정하는 때의 허락을 따른다. agent 자격, 보낸 컴퓨터, 허락 없는 폰, 터미널·agent 요청은 정하지 못하고 허락받은 폰은 정한다. 만료된 call은 받는 기계에서 돌지 않고, 보낸 기계와 받는 기계의 sweep이 expired로 닫아 보낸 session에 한 번 알리며, 받은 기록은 만료의 두 배 뒤에 지운다. 대기 목록의 바뀜에는 본문이 없다"
+      - calls-mail-apply:held
+      - calls-mail-apply:expired
+      - mail-drain:swept
+    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 대기 목록 handler에서 writer 명령과 Router까지 잇는다. 10분 넘게 늦은 call은 session을 열지 않고 대기에 서며 Start now에서만 열리고(본문 blob을 그때 준비한다) Skip은 보낸 쪽 call을 skipped로 닫는다. 두 번 정하기, 보낸 쪽 취소 뒤, 만료 뒤는 conflict이고 양쪽 상태가 하나다. skip은 누른 기기가 아니라 보낸 컴퓨터에 정하는 때 준 허락만 따른다. 허락 없는 폰의 화면과 사람 자격은 정하고, 터미널(허락이 있어도)·다른 컴퓨터의 agent·앱 요청과 agent 자격은 정하지 못한다. 만료된 call은 받는 기계에서 돌지 않고, 보낸 기계와 받는 기계의 sweep이 expired로 닫아 보낸 session에 한 번 알린다. 받는 기계가 받고 다시 오지 않으면 보낸 기계가 만료 뒤 10분에 닫고 그 뒤 온 답은 무시한다. 받은 기록은 만료의 두 배 뒤에 지운다. 대기 목록의 바뀜에는 본문이 없다"
 
   - path: packages/core/remote/mail_test.ts
     covers:

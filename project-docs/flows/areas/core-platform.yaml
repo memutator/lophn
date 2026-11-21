@@ -606,13 +606,13 @@ flows:
     title: "outbox의 mail을 명단의 다른 컴퓨터로 link에 실어 보내고 답을 적는다"
     actor: system
     entries: [system:mail-drain]
-    uses: [route:a2a/mail, route:calls/mail-sent]
+    uses: [route:a2a/mail, route:calls/mail-sent, route:calls/mail-sweep]
     pre: [core-boot:ready]
     boundary: [remote, router]
     code: [packages/core/remote/mail-drain.ts, packages/core/main/daemon/wiring/mail.ts]
     docs: [architecture/agent-call.md, architecture/remote.md]
     steps:
-      - "깨우는 때: outbox에 줄을 더한 tx의 commit 뒤(router.mail-queued, 그 기계만), StateChanged remote_devices(link가 붙거나 끊김), 60초 timer, ready 뒤 한 번. 기계마다 한 번에 하나이고 도는 중에 깨우면 끝난 뒤 한 번 더 돈다"
+      - "깨우는 때: outbox에 줄을 더한 tx의 commit 뒤(router.mail-queued, 그 기계만), StateChanged remote_devices(link가 붙거나 끊김), 60초 timer, ready 뒤 한 번. 기계마다 한 번에 하나이고 도는 중에 깨우면 끝난 뒤 한 번 더 돈다. 60초 timer는 먼저 만료 알림 글을 준비하고 calls/mail-sweep으로 만료된 mail을 닫는다(실패하면 log만 남기고 보내기는 돈다)"
       - "outbox에 줄이 남은 기계마다 link가 connected가 아니면 넘긴다. 그 기계의 mail을 seq 순으로 a2a/mail로 보낸다(요청한 쪽 agent, mail을 쓴 agent의 값. command lane이 아니고 기한은 기본 120초)"
       - "ok면 받은 결과(acked)를 calls/mail-sent로 적고 다음 mail로 간다. 답의 꼴을 읽지 못하면 결과를 모르는 것과 같다"
       - "link를 떠난 뒤 답을 잃었으면(unavailable, sent) unknown으로 적고 그 기계를 멈춘다. 줄은 남아 다음 때 같은 mail id로 다시 가고 받는 쪽은 id로 한 번만 돌린다"
@@ -638,6 +638,12 @@ flows:
       - id: skipped
         observe: [ledger:mail_outbox]
         when: "그 기계의 link가 connected가 아니다"
+      - id: swept
+        observe: [ledger:mail_outbox, ledger:agent_calls, ledger:mail_seen, event:MessageReceived]
+        when: "60초 timer가 만료된 mail을 닫았다(calls-mail-sweep:ok)"
+      - id: sweep-failed
+        observe: ["log:mail mail_sweep_failed"]
+        when: "만료 알림 글을 준비하지 못했거나 calls/mail-sweep이 오류로 끝났다. 다음 timer에 다시 한다"
     crosses_process: true
     risk: [permission]
 

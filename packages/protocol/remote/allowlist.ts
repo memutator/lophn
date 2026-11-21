@@ -361,8 +361,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobApprove,
   shareRequestList,
   shareRequestDecide,
-  // 늦게 닿아 대기 목록에 선 다른 컴퓨터의 mail(정하는 것은 REMOTE_PERSON_ROUTES)
+  // 늦게 닿아 대기 목록에 선 다른 컴퓨터의 mail과 사람의 결정(job hold처럼 화면이면 허락 없이 정한다. 터미널은 REMOTE_TERMINAL_DENIED)
   mailHolds,
+  mailDecideHold,
   // Agents
   agentCard,
   agentProfileImageRead,
@@ -536,8 +537,6 @@ export const REMOTE_PERSON_ROUTES = [
   // 늘 켜 두기(다른 컴퓨터의 Settings › Remote › Keep running). 화면 없는 기계는 가서 켤 곳이 없다
   alwaysOnStatus,
   alwaysOnSet,
-  // 늦게 닿은 다른 컴퓨터의 mail을 돌릴지 정한다. 이 컴퓨터의 사람만 정하므로 job hold와 달리 허락 없는 폰도 받지 않는다
-  mailDecideHold,
 ] as const;
 
 // 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):

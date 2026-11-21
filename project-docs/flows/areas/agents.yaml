@@ -609,9 +609,9 @@ flows:
     boundary: [router, remote, core-api]
     code: [packages/core/remote/mail-entry.ts, packages/core/remote/call.ts, packages/core/main/daemon/wiring/mail.ts, packages/protocol/remote/allowlist.ts]
     steps:
-      - 사람 자격(user)만 받는다. 기기는 이 컴퓨터에서 터미널 입력을 허락받은 기기의 화면(by 없는 폰, 컴퓨터의 screen 요청)만 정한다. 허락 없는 폰, 보낸 컴퓨터를 포함한 허락 없는 컴퓨터, 터미널 요청, 다른 컴퓨터의 agent·앱 요청은 forbidden이다
+      - 사람 자격(user)만 받는다(agent 자격은 forbidden). 기기는 화면(by 없는 폰, 컴퓨터의 screen 요청)이면 터미널 입력 허락 없이 정한다(job hold와 같다). 터미널 요청은 허락이 있어도, 다른 컴퓨터의 agent·앱 요청은 늘 forbidden이다
       - Start now면 줄의 본문(받을 때 redaction을 거쳤다)을 이 자격으로 blob으로 준비한다
-      - core 안 machine 자격으로 calls/mail-decide를 부른다. skip을 따를지는 정하는 때 보낸 컴퓨터에 준 터미널 입력 허락으로 본다
+      - core 안 machine 자격으로 calls/mail-decide를 부른다. skip을 따를지는 누른 기기가 아니라 mail을 보낸 컴퓨터에 이 컴퓨터가 정하는 때 준 터미널 입력 허락으로 본다
       - 명령이 만료된 줄을 닫았으면 conflict로 답한다. 낸 state·실패 mail은 commit 뒤 drain이 보낸 기계로 낸다
     outcomes:
       - id: started
@@ -622,7 +622,7 @@ flows:
         when: Skip. session을 열지 않고 실패 mail(skipped)이 보낸 기계로 가 그 call이 닫힌다
       - id: forbidden
         code: forbidden
-        when: 사람 자격이 아니다(agent 자격), 허락 없는 기기, 터미널 요청, 다른 컴퓨터의 agent·앱 요청이다
+        when: 사람 자격이 아니다(agent 자격), 터미널 요청(허락이 있어도), 다른 컴퓨터의 agent·앱 요청이다
         observe: [response]
       - id: not-found
         code: not_found

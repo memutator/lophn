@@ -69,6 +69,15 @@ export function createMailOutbox(): MailOutbox {
         )
         .flatMap((row) => mailOf(row["mail"]) ?? []);
     },
+    sentOpenBefore(tx, before) {
+      return tx.sql
+        .all(
+          `select call from agent_calls where state = 'accepted'
+           and delivery in ('held', 'running', 'unknown') and created_at < ?`,
+          [before],
+        )
+        .map((row) => String(row["call"]));
+    },
   };
 }
 

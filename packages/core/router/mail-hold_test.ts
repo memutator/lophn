@@ -14,7 +14,7 @@ import {
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
-import { callCancel } from "../../protocol/lophn-agent/calls.ts";
+import { callCancel, callReply } from "../../protocol/lophn-agent/calls.ts";
 import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import {
   MAIL_EXPIRY_MS,
@@ -513,6 +513,48 @@ test("만료된 call mail은 받는 기계에서 session을 열지 않고, 보�
   later(1);
   await b.tick();
   assert.equal(b.count("mail_seen"), 0);
+
+  // 받는 기계가 받고(대기, 실행) 다시 오지 않았다: 보낸 기계의 sweep이 만료 뒤 10분(시계 차이의 여유)에 닫고 한 번 알린다.
+  const waiting = await a.send(sender, B);
+  const sentAt = clock.ms;
+  later(MAIL_LATE_MS + 1);
+  const running = await a.send(sender, B);
+  assert.deepStrictEqual(
+    (await carry(a, b)).map((applied) => applied.delivery),
+    ["held", "running"],
+  );
+  clock.ms = sentAt + MAIL_EXPIRY_MS + MAIL_LATE_MS;
+  await a.tick();
+  assert.equal(a.callRow(waiting)?.["state"], "accepted");
+  later(1);
+  a.forget();
+  await a.tick();
+  assert.equal(a.callRow(waiting)?.["fail_reason"], "expired");
+  assert.equal(a.callRow(running)?.["state"], "accepted");
+  later(MAIL_LATE_MS + 1);
+  await a.tick();
+  await a.tick();
+  assert.equal(a.callRow(running)?.["fail_reason"], "expired");
+  assert.deepStrictEqual(failures(a), Array(5).fill("expired"));
+  // 닫은 뒤 그 기계의 답이 와도 끝난 call의 답이라 아무것도 넣지 않는다.
+  const receiver = String(a.callRow(running)?.["remote_session"]);
+  const answered = await b.command(
+    callReply,
+    { call: running, body: textBlocks("built and tested"), refs: [] },
+    {
+      principal: `agent:${receiver}`,
+      actor: `agent:${receiver}`,
+      scope: { operations: [], targets: {} },
+      conditions: { session: receiver },
+      credential_ref: "agent",
+      turn: "trn_00000000000000000000000001",
+    } as unknown as AuthenticatedContext,
+  );
+  assert.ok(answered.ok, JSON.stringify(answered));
+  const messages = a.count("messages");
+  await carry(b, a);
+  assert.equal(a.count("messages"), messages);
+  assert.equal(a.callRow(running)?.["fail_reason"], "expired");
 });
 
 test("10분 넘게 늦게 온 call mail은 session을 열지 않고 대기 목록에 서며, Start now에서만 열리고 Skip이면 skipped 실패 mail이 돌아간다", async () => {
@@ -646,17 +688,18 @@ test("held mail의 Start now는 그때 그 컴퓨터의 터미널 입력 허락�
   );
 });
 
-test("대기 중인 mail은 그 컴퓨터의 사람만 정한다: agent 자격, 보낸 컴퓨터, 허락 없는 폰, 터미널 요청은 forbidden이고 허락받은 폰의 화면은 정한다", async () => {
+test("대기 중인 mail은 사람이 이 컴퓨터나 자기 기기의 화면에서 정한다: 허락 없는 폰도 정하고, 터미널·다른 컴퓨터의 agent·앱 요청과 agent 자격은 forbidden이며, skip은 보낸 컴퓨터의 허락만 따른다", async () => {
   clock.ms = START;
   const a = await machine(A);
   const b = await machine(B);
   const sender = a.openSession("lophn_home");
-  await a.send(sender, B);
+  // 정의가 skip인 agent에게 가는 셋. B는 A에 터미널 입력을 허락하지 않았다.
+  for (let i = 0; i < 3; i++) await a.send(sender, B, "skipper");
   later(MAIL_LATE_MS + 1);
   await carry(a, b);
-  const [hold] = await b.holds();
-  assert.ok(hold !== undefined);
-  const decision = { origin: A, mail: hold.mail, decision: "run_now" };
+  const [first, second, third] = await b.holds();
+  assert.ok(first !== undefined && second !== undefined && third);
+  const decision = { origin: A, mail: first.mail, decision: "run_now" };
 
   // B의 기기 연결: 보낸 컴퓨터 A와 폰이 명단에 있다.
   const registry = new CredentialRegistry({
@@ -719,71 +762,95 @@ test("대기 중인 mail은 그 컴퓨터의 사람만 정한다: agent 자격, 
       ...(by === undefined ? {} : { by }),
     });
   };
-  const AGENT: Requester = {
-    kind: "agent",
-    agent: "lophn_home",
-    session: null,
-    name: "lophn",
+  // 이 컴퓨터의 HTTP API: 자격의 actor만 다르다.
+  const local = async (actor: string, body: unknown) => {
+    const done = await dispatchHttp(
+      new Request("http://local/mail/decide_hold", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      routes.lookup("/mail/decide_hold")!,
+      {
+        principal: actor,
+        actor,
+        scope: { operations: [], targets: {} },
+        conditions: {},
+        credential_ref: actor,
+      } as AuthenticatedContext,
+      {
+        credentials: registry,
+        clock: manualClock(START),
+        memory,
+        bodyTimeoutMs: 1000,
+        jsonMaxBytes: 1 << 20,
+      },
+    );
+    return (
+      (done as { json: { error?: { code: string } } }).json.error?.code ?? "ok"
+    );
   };
-
-  // 목록은 허락 없는 폰도 읽는다.
-  assert.equal(code(await remote(PHONE, "holds", {})), "ok");
   const refused: [string, () => Promise<Result<unknown>>][] = [
-    ["phone without grant", () => remote(PHONE, "decide_hold", decision)],
     [
-      "sending computer's screen without grant",
-      () => remote(A_DEV, "decide_hold", decision, { kind: "screen" }),
+      "terminal",
+      () => remote(A_DEV, "decide_hold", decision, { kind: "terminal" }),
     ],
     [
-      "sending computer's agent",
-      () => remote(A_DEV, "decide_hold", decision, AGENT),
+      "agent on another computer",
+      () =>
+        remote(A_DEV, "decide_hold", decision, {
+          kind: "agent",
+          agent: "lophn_home",
+          session: null,
+          name: "lophn",
+        }),
+    ],
+    [
+      "app on another computer",
+      () =>
+        remote(A_DEV, "decide_hold", decision, {
+          kind: "app",
+          app: "app_00000000000000000000000001",
+        }),
     ],
   ];
-  for (const [who, run] of refused) {
-    assert.equal(code(await run()), "forbidden", who);
+  for (const granted of [false, true]) {
+    if (granted) grantedDevices.add(devicePrincipal(A_DEV));
+    for (const [who, run] of refused) {
+      assert.equal(code(await run()), "forbidden", `${who} granted=${granted}`);
+    }
   }
-  grantedDevices.add(devicePrincipal(A_DEV));
-  for (const by of [AGENT, { kind: "terminal" } as Requester]) {
-    assert.equal(
-      code(await remote(A_DEV, "decide_hold", decision, by)),
-      "forbidden",
-      `granted computer's ${by.kind}`,
-    );
-  }
-  // 이 컴퓨터의 agent session 자격.
-  const agentCall = await dispatchHttp(
-    new Request("http://local/mail/decide_hold", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(decision),
-    }),
-    routes.lookup("/mail/decide_hold")!,
-    {
-      principal: "agent:ses_00000000000000000000000001",
-      actor: "agent:ses_00000000000000000000000001",
-      scope: { operations: [], targets: {} },
-      conditions: {},
-      credential_ref: "agent",
-    } as AuthenticatedContext,
-    {
-      credentials: registry,
-      clock: manualClock(START),
-      memory,
-      bodyTimeoutMs: 1000,
-      jsonMaxBytes: 1 << 20,
-    },
-  );
   assert.equal(
-    (agentCall as { json: { error?: { code: string } } }).json.error?.code,
+    await local("agent:ses_00000000000000000000000001", decision),
     "forbidden",
   );
-  assert.equal(b.count("mail_seen", "state = 'held'"), 1);
+  assert.equal(b.count("mail_seen", "state = 'held'"), 3);
   assert.equal(b.count("sessions"), 0);
 
-  // 허락받은 폰의 화면은 이 컴퓨터의 사람이다.
-  grantedDevices.add(devicePrincipal(PHONE));
+  // 허락 없는 폰의 화면이 읽고 정한다. 보낸 컴퓨터 A에 허락이 없으니 skip인 agent여도 묻는 session이다.
+  const listed = await remote(PHONE, "holds", {});
+  assert.ok(listed.ok);
+  assert.equal((listed.value as { holds: MailHold[] }).holds.length, 3);
   const started = await remote(PHONE, "decide_hold", decision);
   assert.ok(started.ok, JSON.stringify(started));
   assert.equal((started.value as MailApplied).delivery, "running");
-  assert.equal(b.count("sessions"), 1);
+  // 누른 기기에 허락이 있어도 skip은 보낸 컴퓨터의 허락만 따른다.
+  grantedDevices.add(devicePrincipal(PHONE));
+  const pressed = await remote(PHONE, "decide_hold", {
+    ...decision,
+    mail: second.mail,
+  });
+  assert.ok(pressed.ok, JSON.stringify(pressed));
+  // 이 컴퓨터의 사람 자격도 정한다.
+  assert.equal(
+    await local("user", { origin: A, mail: third.mail, decision: "run_now" }),
+    "ok",
+  );
+  assert.deepStrictEqual(
+    b.db
+      .prepare("select skip from sessions order by created_seq")
+      .all()
+      .map((row) => row["skip"]),
+    [0, 0, 0],
+  );
 });

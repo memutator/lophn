@@ -177,6 +177,9 @@ export interface MailOutbox {
   callMailOf(tx: Tx, call: string): Mail | null;
   // 만료 시각(expires_at)이 now보다 앞인 줄.
   expired(tx: Tx, now: string): Mail[];
+  // 이 기계가 다른 컴퓨터로 보내 그 기계가 받았거나(held, running) 받았는지 모르는(unknown) 끝나지 않은 call 가운데 before보다 먼저 보낸 것.
+  // outbox에 줄이 없어 그 기계의 답만 기다린다.
+  sentOpenBefore(tx: Tx, before: string): string[];
 }
 
 export const MAIL_SEEN_STATES = [

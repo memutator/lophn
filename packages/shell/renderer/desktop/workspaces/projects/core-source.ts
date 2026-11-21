@@ -46,6 +46,7 @@ interface IdentityValue {
   repo: IdentityStatus["repo"];
   remote: { key: string } | null;
   found: boolean;
+  separated: boolean;
   same_repository: string | null;
 }
 
@@ -174,6 +175,7 @@ async function identityStatus(
       repo: value.repo,
       remote: value.remote !== null,
       found: value.found,
+      separated: value.separated,
       sameRepository,
     },
   };

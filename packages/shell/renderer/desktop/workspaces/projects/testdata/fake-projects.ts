@@ -71,6 +71,7 @@ export interface FakeProjectsOptions {
   identity?: {
     repo?: "git" | "none";
     remote?: boolean;
+    separated?: boolean;
     sameRepository?: IdentityStatus["sameRepository"];
   };
   /** 등록 dialog가 고른 폴더를 읽은 값. 없으면 같은 저장소가 없는 git 폴더다. null이면 읽지 못한다. */
@@ -90,6 +91,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
   let status = {
     repo: options.identity?.repo ?? "git",
     remote: options.identity?.remote ?? true,
+    separated: options.identity?.separated ?? false,
     sameRepository: options.identity?.sameRepository ?? null,
     identity: null as string | null,
   };
@@ -99,6 +101,7 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
     repo: status.repo,
     remote: status.remote,
     found: project.folders[0]?.found ?? false,
+    separated: status.separated,
     sameRepository: status.sameRepository,
   });
 
@@ -224,7 +227,12 @@ export function fakeProjects(options: FakeProjectsOptions = {}) {
       calls.push(["renewIdentity", project.id]);
       const failed = failure();
       if (failed) return Promise.resolve(failed);
-      status = { ...status, sameRepository: null, identity: NEW_IDENTITY };
+      status = {
+        ...status,
+        sameRepository: null,
+        separated: true,
+        identity: NEW_IDENTITY,
+      };
       return Promise.resolve({ ok: true, value: statusOf(project) });
     },
     linkIdentity(project, identity) {

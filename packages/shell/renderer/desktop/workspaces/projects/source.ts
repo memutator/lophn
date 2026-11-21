@@ -35,6 +35,8 @@ export interface IdentityStatus {
   /** git remote가 있다. 없으면 다른 컴퓨터와 자동으로 맞춰지지 않는다. */
   readonly remote: boolean;
   readonly found: boolean;
+  /** 사람이 [Separate project]로 나눴다. 다른 컴퓨터와 다시 자동으로 맞춰지지 않는다. */
+  readonly separated: boolean;
   /** 같은 저장소인 이 기계의 다른 active project. 있으면 둘 다 자동으로 맞춰지지 않는다. */
   readonly sameRepository: {
     readonly id: string;

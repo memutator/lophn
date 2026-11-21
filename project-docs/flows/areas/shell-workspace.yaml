@@ -2729,7 +2729,7 @@ flows:
       - packages/shell/main/desktop/core/allowlist.ts
     uses: [route:projects/identity, route:projects/renew_identity]
     steps:
-      - "열 때 projects/identity를 한 번 읽는다. 상태마다 글 하나를 보인다: 저장소로 맞춰짐(줄 끝 menu에 [Separate project]), 같은 저장소의 다른 project가 이 컴퓨터에 있음(오른쪽 끝 [Separate project]), remote 없음, git이 아님"
+      - "열 때 projects/identity를 한 번 읽는다. 상태마다 글 하나를 보인다: 저장소로 맞춰짐(줄 끝 menu에 [Separate project]), 같은 저장소의 다른 project가 이 컴퓨터에 있음(오른쪽 끝 [Separate project]), 사람이 나눔(다시 맞춰지지 않는다), remote 없음, git이 아님"
       - "[Separate project]는 다른 컴퓨터와 다시 자동으로 맞춰지지 않는다는 확인 dialog를 거쳐 command projects/renew_identity를 부르고 줄을 다시 읽는다(secondary, 되돌릴 수 없는 파괴가 아니다)"
       - "단추가 실패하면 줄 아래에 한 줄 오류를 보이고 줄을 다시 읽는다"
     outcomes:

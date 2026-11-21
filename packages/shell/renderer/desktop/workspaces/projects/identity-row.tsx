@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/i18n";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Dialog, Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
+import { Dialog, Menu, MenuIcon } from "@lophn/ui/overlay";
 
 import { homeIcons, shellIcons } from "../../../icons/mod.ts";
 import type { IdentityStatus, ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./identity-row.module.css";
 
 /** 글의 key 끝(`projects.state.identity-<state>`). */
-type LineState = "not-git" | "no-remote" | "same-repository" | "matched";
+type LineState =
+  | "not-git"
+  | "no-remote"
+  | "separated"
+  | "same-repository"
+  | "matched";
 
 interface Line {
   readonly state: LineState;
@@ -24,6 +29,7 @@ function lineOf(status: IdentityStatus): Line | null {
   if (!status.found || status.repo === null) return null;
   if (status.repo === "none") return { state: "not-git" };
   if (!status.remote) return { state: "no-remote" };
+  if (status.separated) return { state: "separated" };
   if (status.sameRepository !== null) {
     return {
       state: "same-repository",
@@ -107,15 +113,14 @@ export function IdentityRow({
         ) : null}
         {line.menu ? (
           <Menu
+            // Tooltip으로 감싸면 Menu trigger의 pointer 처리가 IconButton에 닿지 않아 menu가 열리지 않는다. label이 이름이다.
             trigger={
-              <Tooltip content={more}>
-                <IconButton
-                  icon={homeIcons.more}
-                  label={more}
-                  size="sm"
-                  data-identity-menu=""
-                />
-              </Tooltip>
+              <IconButton
+                icon={homeIcons.more}
+                label={more}
+                size="sm"
+                data-identity-menu=""
+              />
             }
             items={[
               {

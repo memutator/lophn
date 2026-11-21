@@ -163,4 +163,6 @@ export const workspace = {
     "Not in git, so this project stays on this computer.",
   "projects.state.identity-same-repository":
     "{title} on this computer uses the same repository, so lophn matches neither",
+  "projects.state.identity-separated":
+    "Kept separate from your other computers",
 } as const;

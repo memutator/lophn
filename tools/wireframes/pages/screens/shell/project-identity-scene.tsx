@@ -120,6 +120,20 @@ const SCENES = {
     },
     steps: DETAILS,
   },
+  "row-separated": {
+    title: "Detail · Kept separate",
+    options: { identity: { separated: true } },
+    steps: DETAILS,
+  },
+  "row-separate-confirm": {
+    title: "Detail · Separate project?",
+    options: {},
+    steps: [
+      ...DETAILS,
+      () => press("[data-identity-menu]"),
+      () => click('[data-menu-item="separate"]'),
+    ],
+  },
   "row-no-remote": {
     title: "Detail · No git remote",
     options: { identity: { remote: false } },

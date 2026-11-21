@@ -44,6 +44,14 @@ does not read it or call it wrong.
   or `{ kind: human }`.
   - `agent` is the agent's handle. `workspace` is `{project: <name>}` or
     `{app: <slug>}`; when left out it is this instance's project, not home.
+  - `on: <computer>` hands that participant's steps to the agent on another
+    computer of the person (a name or id from `lophn machine computers`). The
+    project must exist there under the same cross-computer id; `workspace`
+    names it as on this computer. If that computer is off, the step waits and
+    goes when it comes back; a step that arrives late waits for the person
+    there. The participant there reports with `lophn workflow report` as usual,
+    and the report comes back here. A `human` participant has no `on`, and a
+    private project does not hand steps to another computer.
 - `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next? }`.
   The first key is the first step.
   - `by`: the participant key that does the step.

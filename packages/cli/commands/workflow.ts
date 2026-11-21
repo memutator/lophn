@@ -127,7 +127,7 @@ const get = defineCommand({
 const report = defineCommand({
   name: "workflow.report",
   summary: "Report a step's result and hand over to the next step",
-  description: `Report a step result. --next hands a step or ends the instance (end); omit it for a progress note. --session new|same chooses whether the next step opens a new session. The report stays even if handing fails; the summary explains why. ${TEXT_NOTE} ${STATE_NOTE}`,
+  description: `Report a step result. --next hands a step or ends the instance (end); omit it for a progress note. --session new|same chooses whether the next step opens a new session. The report stays even if handing fails; the summary explains why. For a step that came from another computer, the same command sends the report back to that computer (only the session that got the step; a report with --next ends the step there). ${TEXT_NOTE} ${STATE_NOTE}`,
   input: z.strictObject({
     instance,
     step: stepNameSchema,

@@ -17,6 +17,7 @@ import { skillsRead } from "./skill-settings.ts";
 import { TURN_COMMANDS } from "./turns.ts";
 import { TURN_READS } from "./turn-reads.ts";
 import { AGENT_CALL_ROUTES } from "./calls.ts";
+import { MAIL_ROUTES } from "./mail.ts";
 import { TEAM_ROUTES } from "./team.ts";
 import {
   QUEUED_INPUT_ROUTES,
@@ -70,6 +71,8 @@ export const ROUTES = [
   ...TURN_COMMANDS,
   ...TURN_READS,
   ...AGENT_CALL_ROUTES,
+  // 기계 사이 mail: agent가 다른 컴퓨터로 보내는 입구와 다른 컴퓨터의 core가 넘기는 입구.
+  ...MAIL_ROUTES,
   ...TEAM_ROUTES,
   sendMessage,
   recordShellMessage,

@@ -43,6 +43,7 @@ import {
 import { appSdkStatus } from "../apps/sdk-status.ts";
 import { appUpdateState } from "../apps/update-state.ts";
 import { appRemoteCall } from "../apps/calls/remote.ts";
+import { a2aMail } from "../lophn-agent/mail.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
 import { appScreenFile } from "../apps/calls/screen.ts";
@@ -381,6 +382,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   projectFilesRead,
   // 다른 컴퓨터가 넘긴 앱 command의 입구. 허락받은 컴퓨터만 core가 받는다(`by` 없는 폰은 forbidden)
   appRemoteCall,
+  // 다른 컴퓨터의 agent가 보낸 mail의 입구. 명단의 컴퓨터만 받는다(handler가 본다. 폰은 forbidden)
+  a2aMail,
   // 앱 workspace: 실행 기록과 판
   runList,
   runRead,
@@ -530,12 +533,13 @@ export const REMOTE_PERSON_ROUTES = [
 ] as const;
 
 // 다른 컴퓨터의 agent와 앱이 요청한 call이 받는 기계에서 닿는 route다(scope가 아니라 거르기용이다. 모두 REMOTE_ALLOWED_ROUTES에도 있다):
-// 앱 목록과 그 command 목록(`machines/app_tools`가 읽는다)과 앱 command 입구. 사람의 route와 확인이 필요한 command는 이 밖이다.
+// 앱 목록과 그 command 목록(`machines/app_tools`가 읽는다)과 앱 command 입구, mail 입구. 사람의 route와 확인이 필요한 command는 이 밖이다.
 export const REMOTE_AGENT_ROUTES = [
   appList,
   appGet,
   appTools,
   appRemoteCall,
+  a2aMail,
 ] as const;
 
 // 컴퓨터가 요청한 쪽(`by`) 없이 보내는 frame은 그 컴퓨터의 core가 스스로 하는 일이다(사람이나 agent가 시킨 것이 아니다). 받는 기계는 이 목록

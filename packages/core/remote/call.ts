@@ -17,6 +17,7 @@ import {
 import { appGet, appList, appRemoteCall } from "../../protocol/apps/mod.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
 import { jobUpdate } from "../../protocol/jobs/mod.ts";
+import { a2aMail } from "../../protocol/lophn-agent/mail.ts";
 import type { Requester } from "../../protocol/machine/requester.ts";
 import {
   REMOTE_AGENT_ROUTES,
@@ -307,7 +308,9 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
       const result = await dispatchHttp(
         request,
         entry,
-        entry.route.name === appRemoteCall.name && by
+        (entry.route.name === appRemoteCall.name ||
+          entry.route.name === a2aMail.name) &&
+          by
           ? Object.assign({}, current.value, { [REQUESTER]: by })
           : current.value,
         dispatch,

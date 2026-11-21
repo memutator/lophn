@@ -448,39 +448,86 @@ flows:
     title: agent가 다른 컴퓨터의 agent에게 call을 보낸다
     actor: agent
     entries: [route:calls/send_remote]
-    boundary: [router, core-api]
-    code: [packages/protocol/lophn-agent/mail.ts]
+    uses: [route:calls/mail-send]
+    boundary: [router, remote, core-api]
+    code: [packages/core/remote/mail-entry.ts, packages/core/main/daemon/wiring/mail.ts, packages/core/router/remote-reach.ts, packages/protocol/lophn-agent/mail.ts]
     steps:
-      - 계약만 있다. route는 아직 등록되지 않았고 handler(보내는 쪽 검사, 기계·project 풀기, redaction, calls/mail-send 부르기)는 다음 일이 짠다
+      - agent 자격이 session에 묶이지 않았으면 forbidden이다
+      - 보낸 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach). private workspace의 session과 다른 컴퓨터의 mail로 열린 session은 컴퓨터 이름을 풀기 전에 forbidden이다(없는 이름도 forbidden). 할당은 보지 않는다(명단의 컴퓨터는 mail을 받는다)
+      - 명단의 컴퓨터를 이름, 기계 id, 기기 id로 푼다. 이 컴퓨터면 invalid_input, 없으면 not_found, 같은 이름이 여럿이면 invalid_input(후보 기기 id)이다
+      - 주소의 workspace를 기계를 건너는 꼴로 바꾼다(project는 공유 id pri_, 앱은 app_, home). session 꼴은 그대로다
+      - 본문은 글 block만이고 redaction을 거친 글이 64 KiB 안이어야 한다
+      - core 안 machine 자격으로 calls/mail-send를 불러 call 행과 outbox mail을 한 tx에 쓰고 call id를 바로 돌려준다. link는 기다리지 않는다(mail-drain이 낸다)
     outcomes:
-      - id: not-registered
+      - id: queued
+        observe: [ledger:agent_calls, ledger:mail_outbox, response]
+        when: 행(delivery pending)과 outbox mail을 썼다. 같은 dedup이면 그 call의 상태를 돌려준다
+      - id: sender-refused
+        code: forbidden
+        when: 자격에 session이 없다, 보낸 session의 workspace가 private이다, 보낸 session이 다른 컴퓨터의 mail로 열렸다. outbox 줄도 행도 없다
         observe: [response]
-        when: route가 등록되기 전이다. core는 모르는 route로 거절한다
+      - id: not-found
+        code: not_found
+        when: 보낸 session이 없다, 그 이름의 컴퓨터가 명단에 없다, 주소의 project나 앱이 이 기계에 없다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 이 컴퓨터를 골랐다, 컴퓨터 이름이 여럿에 맞는다, project에 공유 id가 없다, 글이 아닌 block이 있다, 본문이 64 KiB(또는 block 64개)를 넘는다, 주소가 mail의 꼴에 맞지 않는다(agent 이름 64자 초과)
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 알려진 secret 목록이 아직 준비되지 않아 redaction을 끝내지 못했다, 또는 Router나 writer가 아직 없다
+        observe: [response]
     crosses_process: false
     risk: [permission]
-    docs: [architecture/agent-call.md]
-    declared_only: [invalid_input, forbidden, not_found, unavailable, unauthorized]
-    unclear:
-      - handler가 생기면 outcome을 쓴다
+    docs: [architecture/agent-call.md, architecture/remote.md]
+    declared_only: [unauthorized]
+    unclear: []
 
   - id: a2a-mail-receive
     title: 다른 컴퓨터의 core가 mail 하나를 이 기계에 넘긴다
     actor: system
     entries: [route:a2a/mail]
-    boundary: [router, core-api]
-    code: [packages/protocol/lophn-agent/mail.ts]
+    uses: [route:calls/mail-apply, route:calls/mail-refuse]
+    boundary: [router, remote, core-api]
+    code: [packages/core/remote/call.ts, packages/core/remote/mail-entry.ts, packages/core/main/daemon/wiring/mail.ts, packages/core/main/daemon/wiring/router.ts]
     steps:
-      - 계약만 있다. route는 아직 등록되지 않았고 handler(명단, 허락에서 skip, calls/mail-apply·mail-refuse 부르기)는 다음 일이 짠다. not_found는 내지 않는다(보낸 쪽이 옛 판으로 읽는다)
+      - 기기 연결의 call 처리가 먼저 건다. 컴퓨터는 요청한 쪽(by)을 싣고 폰은 싣지 않는다(어기면 invalid_input). by가 agent·앱이면 REMOTE_AGENT_ROUTES만 받는다. 이 route는 요청한 쪽을 자격 옆에 실어 handler에 준다
+      - handler는 이 기계의 자료로 본다. 기기 principal이 명단의 컴퓨터가 아니거나, 요청한 쪽이 agent가 아니거나, 기기 id로 명단의 컴퓨터를 찾지 못하거나, mail을 쓴 기계가 그 컴퓨터가 아니거나 받는 기계가 이 기계가 아니면 forbidden이고 Router에 닿지 않는다. 터미널 입력 허락은 받을지에는 보지 않는다
+      - 폴더 길(mailInbox)도 같은 적용을 쓴다. origin 기계가 명단의 컴퓨터가 아니면 forbidden이다
+      - 적용은 calls/mail-apply다. skip은 그 컴퓨터가 이 컴퓨터에서 터미널 입력을 허락받았을 때만 agent 정의를 따른다. 받는 session에 쓰일 글(call·reply 본문은 redaction을 한 번 더, 실패 알림, 취소 알림)은 router wiring의 쓰기 앞 처리기가 이 자격으로 미리 blob으로 준비한다
+      - mail-apply가 not_found·forbidden·invalid_input·conflict로 되돌아가면 calls/mail-refuse로 본 것으로 적고 call mail이면 실패 mail(conflict는 closed, 나머지는 not_found)을 낸 뒤 delivery failed로 답한다. 보낸 쪽이 같은 mail을 끝없이 다시 내지 않게 한다
+      - not_found는 내지 않는다(보낸 쪽이 옛 판으로 읽는다)
     outcomes:
-      - id: not-registered
+      - id: running
+        observe: [ledger:agent_calls, ledger:mail_seen, ledger:sessions, event:MessageReceived, response]
+        when: call mail이 받는 session에 들어갔다
+      - id: failed
+        observe: [ledger:mail_seen, ledger:mail_outbox, response]
+        when: Router가 배달하지 못했거나(없는 주소, private, 남이 연 session, 닫힘) mail-apply가 오류로 되돌아가 refuse로 적었다. 실패 mail이 그 기계로 간다
+      - id: repeated
         observe: [response]
-        when: route가 등록되기 전이다. core는 모르는 route로 거절한다
-    crosses_process: false
+        when: 같은 mail id를 이미 받았다. 지난 결과를 돌려준다
+      - id: applied
+        observe: [ledger:agent_calls, ledger:mail_seen, event:MessageReceived, response]
+        when: reply·cancel·state mail을 적용했다(delivery null)
+      - id: forbidden
+        code: forbidden
+        when: 폰, 명단 밖 기기, 요청한 쪽이 agent가 아님(터미널·화면), 기기 id로 컴퓨터를 찾지 못함, 다른 컴퓨터가 실어 온 mail, 이 기계로 쓰지 않은 mail, 폴더 길의 명단 밖 기계
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 컴퓨터가 by 없이 불렀거나 폰이 by를 실었다, body가 mail의 꼴이 아니다(옛 판이 모르는 꼴 포함). 기기 연결의 call 처리가 낸다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문 blob을 준비하지 못했다, redaction이 끝나지 않았다, Router나 writer가 아직 없다. 보낸 쪽이 다음 drain에 같은 id로 다시 낸다
+        observe: [response]
+    crosses_process: true
     risk: [permission]
     docs: [architecture/agent-call.md, architecture/remote.md]
-    declared_only: [invalid_input, forbidden, unavailable]
     unclear:
-      - handler가 생기면 outcome을 쓴다
+      - mail-apply나 mail-refuse가 internal로 끝나면 그대로 돌려준다(route errors에 internal이 없지만 dispatch는 거르지 않는다). 보낸 쪽은 그 기계를 멈추고 다음 때 같은 mail을 다시 내므로, 늘 internal로 끝나는 mail 하나는 그 기계로 가는 줄을 막는다
 
   - id: call-state-read
     title: 사람이 call 하나의 현재 상태를 읽는다

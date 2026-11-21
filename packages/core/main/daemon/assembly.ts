@@ -48,6 +48,7 @@ import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { machineWiring } from "./wiring/machine.ts";
+import { mailWiring } from "./wiring/mail.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
 import { lophnSplitWiring } from "./wiring/lophn-split.ts";
 import { eventsWiring } from "./wiring/events.ts";
@@ -240,6 +241,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnSplitWiring,
   // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
   domainsRetireWiring,
+  // router 뒤다: mail 명령의 본문 준비는 router의 쓰기 앞 처리기가 한다. 명단과 link(remote)는 부를 때 읽는다.
+  mailWiring,
   // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step(host key의 machine 표지)은 앞 step과 상관없다.
   remoteWiring,
 ];

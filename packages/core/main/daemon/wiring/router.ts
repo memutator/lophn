@@ -75,6 +75,8 @@ import {
   callsAppSend,
   callsAskOpen,
   callsAskWithdraw,
+  callsMailApply,
+  callsMailSent,
   callsRecover,
   FAILURE_TEXTS,
   TEAM_SPAWNED_TOPIC,
@@ -160,7 +162,7 @@ export async function prepareTexts(
   );
 }
 
-function createCallBodyPreparer(deps: {
+export function createCallBodyPreparer(deps: {
   relay(): BodyPrepare | undefined;
   known?(): KnownSecretMatch | undefined;
 }) {
@@ -213,6 +215,45 @@ function createCallBodyPreparer(deps: {
     ) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
       bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
+    } else if (name === callsMailApply.name) {
+      // 다른 컴퓨터의 mail이 이 기계의 session에 넣는 글: call·reply의 본문(보낸 기계가 했어도 redaction을 한 번 더 거친다), 실패 알림,
+      // 취소 알림.
+      const shaped = callsMailApply.input.safeParse(input);
+      if (!shaped.success) return ok(envelope);
+      const { mail } = shaped.data;
+      const body =
+        mail.kind === "call" || mail.kind === "reply" ? mail.body : null;
+      if (body !== null) {
+        const safe = redactBlocks(createProductRedactor(deps.known?.()), body);
+        if (safe === null) {
+          return rejected("unavailable", "call redaction did not finish");
+        }
+        bodies.push(safe);
+        next = {
+          ...envelope,
+          input: { ...shaped.data, mail: { ...mail, body: safe } },
+        };
+      }
+      if (mail.kind === "reply" && mail.outcome?.state === "failed") {
+        bodies.push(
+          textBlocks(FAILURE_TEXTS[mail.outcome.reason ?? "receiver_ended"]),
+        );
+      }
+      if (mail.kind === "cancel") bodies.push(textBlocks(CANCEL_TEXT));
+      if (bodies.length === 0) return ok(envelope);
+    } else if (name === callsMailSent.name) {
+      // 다른 컴퓨터가 받지 못한 call의 실패 알림이다: 옛 판이 거절했거나 그 기계가 배달하지 못했다.
+      const shaped = callsMailSent.input.safeParse(input);
+      if (!shaped.success) return ok(envelope);
+      const { result } = shaped.data;
+      const reason =
+        result.kind === "refused"
+          ? "old_version"
+          : result.kind === "acked" && result.applied.delivery === "failed"
+            ? (result.applied.reason ?? "not_found")
+            : null;
+      if (reason === null) return ok(envelope);
+      bodies.push(textBlocks(FAILURE_TEXTS[reason]));
     } else return ok(envelope);
     const relay = deps.relay();
     if (relay === undefined) {

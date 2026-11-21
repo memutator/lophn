@@ -48,6 +48,7 @@ import {
   stageRewindFile,
   takeRewindSummaryRequest,
 } from "../../protocol/lophn-agent/mod.ts";
+import { MAIL_ROUTES } from "../../protocol/lophn-agent/mail.ts";
 import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
@@ -979,6 +980,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...SESSION_LIFECYCLE_ROUTES,
       // 앱이 보내는 call과 읽기. handler는 wiring/app-calls.ts가 붙인다.
       ...APP_CALL_ROUTES,
+      // 기계 사이 mail의 보내는 입구와 받는 입구. handler는 wiring/mail.ts가 붙인다.
+      ...MAIL_ROUTES,
       // provider 잇기(이 기계의 주소)와 구독 로그인의 시작·상태. handler는 wiring/lophn-agent.ts의 provider login이 붙인다.
       providerConnectLocal,
       providerSignIn,

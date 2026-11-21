@@ -601,6 +601,41 @@ flows:
         when: "표시가 꺼졌거나 다른 기계의 것인데 이 기계 OS에 이 data root의 항목이 있다"
     crosses_process: true
 
+  - id: mail-drain
+    title: "outbox의 mail을 명단의 다른 컴퓨터로 link에 실어 보내고 답을 적는다"
+    actor: system
+    entries: [system:mail-drain]
+    uses: [route:a2a/mail, route:calls/mail-sent]
+    pre: [core-boot:ready]
+    boundary: [remote, router]
+    code: [packages/core/remote/mail-drain.ts, packages/core/main/daemon/wiring/mail.ts]
+    docs: [architecture/agent-call.md, architecture/remote.md]
+    steps:
+      - "깨우는 때: outbox에 줄을 더한 tx의 commit 뒤(router.mail-queued, 그 기계만), StateChanged remote_devices(link가 붙거나 끊김), 60초 timer, ready 뒤 한 번. 기계마다 한 번에 하나이고 도는 중에 깨우면 끝난 뒤 한 번 더 돈다"
+      - "outbox에 줄이 남은 기계마다 link가 connected가 아니면 넘긴다. 그 기계의 mail을 seq 순으로 a2a/mail로 보낸다(요청한 쪽 agent, mail을 쓴 agent의 값. command lane이 아니고 기한은 기본 120초)"
+      - "ok면 받은 결과(acked)를 calls/mail-sent로 적고 다음 mail로 간다. 답의 꼴을 읽지 못하면 결과를 모르는 것과 같다"
+      - "link를 떠난 뒤 답을 잃었으면(unavailable, sent) unknown으로 적고 그 기계를 멈춘다. 줄은 남아 다음 때 같은 mail id로 다시 가고 받는 쪽은 id로 한 번만 돌린다"
+      - "not_found(route를 모르는 옛 판)나 invalid_input(그 판이 mail의 꼴을 읽지 못함)이면 refused로 적어 call을 old_version으로 닫고 다음 mail로 간다. 두면 그 기계의 줄이 영영 막힌다"
+      - "그 밖(link를 떠나지 않은 unavailable, forbidden, internal 등)은 그 기계를 멈추고 다음 때 다시 한다. mail-sent를 적지 못해도 멈춘다"
+    outcomes:
+      - id: acked
+        observe: [ledger:mail_outbox, ledger:agent_calls]
+        when: "그 기계가 받았다. 줄을 지우고 call 행의 delivery를 running으로 적거나, 그 기계가 failed로 답했으면 행을 그 이유로 닫고 보낸 session에 알린다"
+      - id: unknown
+        observe: [ledger:agent_calls]
+        when: "보냈는데 답을 잃었다. delivery unknown, 줄은 남는다"
+      - id: old-version
+        observe: [ledger:mail_outbox, ledger:agent_calls, event:MessageReceived]
+        when: "그 기계가 mail route를 모르거나 mail의 꼴을 읽지 못했다. call이 old_version으로 닫히고 보낸 session에 실패 알림이 들어간다"
+      - id: stopped
+        observe: ["log:mail mail_send_stopped"]
+        when: "link가 끊겼거나 그 기계가 다른 오류로 답했다. 줄은 그대로다"
+      - id: skipped
+        observe: [ledger:mail_outbox]
+        when: "그 기계의 link가 connected가 아니다"
+    crosses_process: true
+    risk: [permission]
+
   - id: ledger-migrate
     title: "ledger schema step을 설치본과 대조해 적용하거나 시작을 거절한다"
     actor: system

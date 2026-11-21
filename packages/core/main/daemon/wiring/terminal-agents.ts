@@ -337,6 +337,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 ...(timeout_ms === undefined ? {} : { timeout_ms }),
               })(args);
       const harnesses = createHarnessSettings(cli());
+      ctx.provide("codingDetection", harnesses);
       const skillSync = createSkillSync({ runCli: cli(), log });
 
       const labelOf = (harness: string) =>

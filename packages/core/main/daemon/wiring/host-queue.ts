@@ -142,6 +142,8 @@ type TabDeps = {
     favorites: readonly string[];
     commands: Readonly<Record<string, string>>;
   };
+  // 이 컴퓨터에서 감지된 harness id(Settings › Coding agents의 마지막 감지 결과).
+  codingDetected(): Promise<readonly string[]>;
   handoffs: HandoffFiles;
   // project에 터미널을 연다(`ctx.terminals.open`). command는 첫 prompt 뒤 치고, resume은 그 harness의 resume 명령을 친다.
   openTerminal(input: {
@@ -347,14 +349,24 @@ export function createTabHandlers(deps: TabDeps) {
       }
       const { harness, handoff } = input.target.coding;
       const agents = deps.codingAgents();
+      // 사람이 즐겨찾기했고 이 컴퓨터에 설치된 것만 연다. 없는 CLI를 치면 터미널에 command not found만 남는다.
+      const detected = await deps.codingDetected();
       const openable = agents.favorites.filter(
         (id) =>
+          detected.includes(id) &&
           HARNESS_ADAPTERS[id as keyof typeof HARNESS_ADAPTERS]?.session.prompt,
       );
+      if (openable.length === 0) {
+        return err({
+          code: "invalid_input",
+          message:
+            "No coding agent can be opened: none of the person's favorite coding agents is detected on this computer. Tell the person to open Settings > Coding agents, mark an installed coding agent as a favorite, and check that it shows as detected there (Detect again after installing one).",
+        });
+      }
       if (!openable.includes(harness)) {
         return err({
           code: "invalid_input",
-          message: `${harness} cannot open a handoff; use one of: ${openable.join(", ") || "(none; add a coding agent to the favorites in Settings)"}`,
+          message: `${harness} cannot open a handoff; use one of: ${openable.join(", ")}. Only coding agents the person marked as a favorite in Settings > Coding agents and that are detected on this computer open.`,
         });
       }
       const tab = queue.newTabId();
@@ -859,6 +871,10 @@ export const hostQueueWiring: WiringFactory = () => {
             favorites: [],
             commands: {},
           },
+        codingDetected: async () =>
+          ((await ctx.peek.codingDetection?.read()) ?? [])
+            .filter((one) => one.discovery === "detected")
+            .map((one) => one.harness_id),
         handoffs: fileHandoffs(ctx.root.path),
         async openTerminal(input) {
           const opened = await ctx.terminals.open(input);

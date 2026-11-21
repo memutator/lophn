@@ -1,0 +1,17 @@
+id: coding-open-detected
+version: 0.23.105
+title: agent의 coding agent TUI handoff는 즐겨찾기이면서 이 컴퓨터에서 감지된 것만 연다
+modules: [packages/core/main, packages/core/terminal-agents, packages/core/agent-workspaces, packages/coding-agent, packages/cli]
+change: |
+  - `lophn tab open --coding <harness>`는 즐겨찾기(`shell.coding_agents.favorites`) 가운데 Settings › Coding agents의 마지막 감지 결과가 `detected`인 harness만 연다. 감지되지 않은 즐겨찾기는 `invalid_input`이고 message가 열 수 있는 id를 싣는다.
+  - 열 수 있는 것이 하나도 없으면 사람에게 Settings › Coding agents에서 설치된 coding agent를 즐겨찾기하거나 감지를 확인하라고 전하라는 `invalid_input`이다.
+  - home·project lophn 지침, coding agent의 `lophn-agent` skill, `lophn tab open` help에서 `claude`·`codex`·`opencode`를 박은 목록을 지우고 위 규칙과 "없으면 사람에게 설정을 보라고 말한다"로 바꿨다.
+why: |
+  지침이 세 harness를 박아 두어 agent가 사람이 즐겨찾기하지 않았거나 설치하지 않은 CLI를 열려 했다. 기본 즐겨찾기는 설치와 상관없이 세 개라 없는 CLI를 터미널에 쳐 command not found만 남을 수 있었다.
+decisions:
+  - text: >-
+      감지는 Settings › Coding agents와 같은 마지막 결과(`lophn harness detect`, 처음 한 번 돌고 [Detect again] 때 갱신)를 쓴다. 설치 직후에는 사람이 Detect again을 눌러야 열린다. 버린 길: 열 때마다 PATH를 다시 찾기(화면과 agent가 다른 답을 볼 수 있다).
+    by: agent
+  - text: >-
+      headless 내장 coding agent(`lophn team spawn claude` 등, "Agents you can call")는 그대로 즐겨찾기만 본다. 이번 일은 TUI handoff다.
+    by: agent

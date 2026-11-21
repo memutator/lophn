@@ -66,7 +66,10 @@ import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { AppViews } from "../../../apps/views/mod.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
-import type { TerminalAgents } from "../../../terminal-agents/mod.ts";
+import type {
+  HarnessSettings,
+  TerminalAgents,
+} from "../../../terminal-agents/mod.ts";
 import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
 import type { ExtensionHost } from "../../../extensions/ports.ts";
@@ -298,6 +301,8 @@ type Late = {
   // terminal-agents wiring이 낸다. 터미널 coding agent의 tracker, GUI handle, coding session 목록과 대화다. acp·session-lifecycle·
   // 터미널 보기·extension host(`acpOpened`)가 쓴다.
   terminalAgents: TerminalAgents;
+  // terminal-agents wiring이 낸다. Settings › Coding agents의 harness 감지 결과다. agent의 TUI handoff가 설치된 것만 고르는 데 쓴다.
+  codingDetection: HarnessSettings;
   // terminal-view wiring이 낸다. 폰이 보는 coding session 터미널의 최신 화면과 보는 principal의 lease다.
   terminalView: TerminalView;
   // terminals wiring이 낸다. core가 띄운 PTY host의 터미널이다. route handler, coding agent tracker, 폰의 터미널 보기가 쓴다.
@@ -427,6 +432,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   hostQueue: true,
   hostLink: true,
   terminalAgents: true,
+  codingDetection: true,
   terminalView: true,
   terminals: true,
   personEnv: true,

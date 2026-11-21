@@ -92,6 +92,7 @@ function setup(
   launchShell?: (failed: () => void) => void,
   primary: string | null = null,
   phone: FakePhone = fakePhone(),
+  favorites?: string[],
 ) {
   const clock = manualClock(1_700_000_000_000);
   const terminals: { project: string; command?: string }[] = [];
@@ -118,8 +119,12 @@ function setup(
       Promise.resolve(workspace.id === id("prj", 1) && name === "report"),
     deviceNames: () => ["Pixel"],
     harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
-    // pi는 즐겨찾기지만 TUI 첫 prompt 인자가 없다. cursor는 있어도 즐겨찾기가 아니다.
-    codingAgents: () => ({ favorites: ["claude", "pi"], commands: {} }),
+    // pi는 즐겨찾기지만 TUI 첫 prompt 인자가 없다. codex는 즐겨찾기지만 이 컴퓨터에서 감지되지 않았다. cursor는 감지됐지만 즐겨찾기가 아니다.
+    codingAgents: () => ({
+      favorites: favorites ?? ["claude", "pi", "codex"],
+      commands: {},
+    }),
+    codingDetected: () => Promise.resolve(["claude", "pi", "cursor"]),
     handoffs: fileHandoffs(root),
     openTerminal: (input) => {
       terminals.push(input);
@@ -385,7 +390,7 @@ test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마
 });
 
 // handoff 글은 agent가 쓴 것이다. 깨지면 열 수 없는 자리의 요청이 data root에 file을 남기거나, 글이 터미널 쪽으로 새거나, file이 남에게 읽힌다.
-test("coding handoff는 사람 token, 앱 session, 즐겨찾기에 없는 harness면 invalid_input이고 file도 요청도 남지 않는다", async () => {
+test("coding handoff는 사람 token, 앱 session, 즐겨찾기가 아니거나 감지되지 않은 harness면 invalid_input이고 file도 요청도 남지 않는다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   try {
     const { queue, open, terminals } = setup(true, root);
@@ -396,14 +401,22 @@ test("coding handoff는 사람 token, 앱 session, 즐겨찾기에 없는 harnes
     assert.equal(code(await open(person, coding("claude"))), "invalid_input");
     // 앱 session. 앱에는 터미널이 없다.
     assert.equal(code(await open(agent(1), coding("claude"))), "invalid_input");
-    // 즐겨찾기에 없는 harness, 즐겨찾기지만 첫 prompt 인자가 없는 harness.
-    const unknown = await open(agent(3), coding("codex"));
-    assert.equal(code(unknown), "invalid_input");
-    assert.match(JSON.stringify(unknown), /claude/);
+    // 감지되지 않은 즐겨찾기, 즐겨찾기가 아닌 감지된 harness, 즐겨찾기지만 첫 prompt 인자가 없는 harness.
+    const absent = await open(agent(3), coding("codex"));
+    assert.equal(code(absent), "invalid_input");
+    assert.match(JSON.stringify(absent), /use one of: claude\./);
+    assert.equal(code(await open(agent(3), coding("cursor"))), "invalid_input");
     assert.equal(code(await open(agent(3), coding("pi"))), "invalid_input");
+    // 열 수 있는 것이 하나도 없으면 사람에게 Settings › Coding agents를 보라고 전하게 한다.
+    const none = setup(true, root, undefined, null, fakePhone(), ["codex"]);
+    connect(none.queue, [PROJECT_1]);
+    const empty = await none.open(agent(3), coding("codex"));
+    assert.equal(code(empty), "invalid_input");
+    assert.match(JSON.stringify(empty), /Settings > Coding agents/);
     assert.deepEqual(await readdir(root), []);
     assert.equal(host.next(), null);
     assert.deepEqual(terminals, []);
+    assert.deepEqual(none.terminals, []);
   } finally {
     await rm(root, { recursive: true });
   }

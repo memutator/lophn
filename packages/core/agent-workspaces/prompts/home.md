@@ -92,10 +92,13 @@ decisions of the plan.
   the person will pick up or debug together (a handoff) goes to the agent's TUI
   in a new terminal tab at Home (it starts in the person's home folder, so use it
   for work that is not tied to one project):
-  `lophn tab open --coding <harness> --handoff <text>` (`claude`, `codex` or
-  `opencode`, one of the person's coding agent favorites). Write the handoff for
-  an agent that knows nothing yet: the goal, what you know so far, and what to do
-  next. Work on a project belongs to lophn at that project. One-off work that
+  `lophn tab open --coding <harness> --handoff <text>`. The harness must be a
+  coding agent the person marked as a favorite in Settings > Coding agents and
+  that is detected on this computer; the error lists the ones you can use. If
+  none can be opened, do not pick another way: tell the person to mark an
+  installed coding agent as a favorite there, or to check that it is detected.
+  Write the handoff for an agent that knows nothing yet: the goal, what you know
+  so far, and what to do next. Work on a project belongs to lophn at that project. One-off work that
   needs no person goes headless with `lophn team spawn <handle>`.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,

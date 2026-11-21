@@ -10,6 +10,7 @@ export {
   childCliRunner,
   type CliRun,
   createHarnessSettings,
+  type HarnessSettings,
 } from "./coding-connection.ts";
 export type { CodingSessions } from "./coding-sessions.ts";
 export {

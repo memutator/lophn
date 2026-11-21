@@ -6,6 +6,7 @@
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  addProviderCredential,
   connectProvider,
   inputRequestAnswerSecret,
   type InputRequestResult,
@@ -28,7 +29,11 @@ import type { MemoryHandler, UploadHandler } from "../../server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 import { readSecretBody } from "../../secrets/routes.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
-import { providerSecretName } from "./oauth-secrets.ts";
+import {
+  defaultCredentialId,
+  maskApiKey,
+  providerSecretName,
+} from "./oauth-secrets.ts";
 
 export type ConnectTarget = {
   name: string;
@@ -130,12 +135,15 @@ export function createKeyConnect(deps: KeyConnectDeps) {
     who: AuthenticatedContext,
     target: ConnectTarget & { id: string },
     staged: string,
+    keyHint?: string,
   ): Promise<Result<ProviderRecord>> {
     try {
       return await send(who, {
         ...target,
+        credential_id: defaultCredentialId(target.id),
         auth_kind: "api_key",
         credential: { secret: staged },
+        ...(keyHint === undefined ? {} : { key_hint: keyHint }),
       });
     } catch {
       return err({ code: "internal", message: "connecting failed" });
@@ -149,12 +157,48 @@ export function createKeyConnect(deps: KeyConnectDeps) {
     target: ConnectTarget & { id: string },
     value: string,
   ): Promise<Result<ProviderRecord>> {
-    const staged = await stage(target.id, value);
+    const credentialId = defaultCredentialId(target.id);
+    const staged = await stage(credentialId, value);
     if (!staged.ok) return staged;
-    return await connectStaged(who, target, staged.value);
+    return await connectStaged(who, target, staged.value, maskApiKey(value));
   }
 
-  return { send, stage, connectStaged, connectWithKey };
+  async function addKeyToProvider(
+    who: AuthenticatedContext,
+    provider: { id: string; revision: number },
+    credentialId: string,
+    value: string,
+    label?: string,
+  ): Promise<Result<ProviderRecord>> {
+    const staged = await stage(credentialId, value);
+    if (!staged.ok) return staged;
+    try {
+      const sent = await deps.writer().command(who, {
+        command: addProviderCredential.name,
+        input: {
+          provider: provider.id,
+          credential_id: credentialId,
+          auth_kind: "api_key",
+          credential: { secret: staged.value },
+          key_hint: maskApiKey(value),
+          ...(label === undefined ? {} : { label }),
+          activate: true,
+        },
+        idempotency_key: deps.newKey(),
+        compare: { revision: provider.revision },
+        prepared: [],
+      });
+      return sent.ok
+        ? ok((sent.value.result as { provider: ProviderRecord }).provider)
+        : sent;
+    } catch {
+      return err({ code: "internal", message: "adding credential failed" });
+    } finally {
+      await deps.secrets.delete(staged.value).catch(() => {});
+    }
+  }
+
+  return { send, stage, connectStaged, connectWithKey, addKeyToProvider };
 }
 
 export type KeyConnect = ReturnType<typeof createKeyConnect>;
@@ -230,9 +274,17 @@ export function secretAnswerHandler(deps: {
         ? finish(ok({ stored: true }))
         : err({ code: "unavailable", message: "the value was not stored" });
     }
-    const staged = await deps.keys.stage(connect.id, secretValue);
+    const staged = await deps.keys.stage(
+      defaultCredentialId(connect.id),
+      secretValue,
+    );
     if (!staged.ok) return staged;
-    const connected = await deps.keys.connectStaged(who, connect, staged.value);
+    const connected = await deps.keys.connectStaged(
+      who,
+      connect,
+      staged.value,
+      maskApiKey(secretValue),
+    );
     return finish(
       connected.ok
         ? ok({ stored: true })
@@ -247,16 +299,23 @@ export function secretAnswerHandler(deps: {
 
 export type ProviderConnectDeps = KeyConnectDeps & {
   // 부른 사람의 자격으로 읽은 provider 전부.
-  listProviders(
-    who: AuthenticatedContext,
-  ): Promise<Result<readonly { id: string; definition: { key: string } }[]>>;
+  listProviders(who: AuthenticatedContext): Promise<
+    Result<
+      readonly {
+        id: string;
+        revision?: number;
+        definition: { key: string; auth_kinds?: readonly string[] };
+      }[]
+    >
+  >;
   // 정의 key의 연결 대상. 보통 builtinTarget이다.
   target(key: string, way: ConnectWay): Result<ConnectTarget>;
   newId(): string;
+  newCredentialId?: () => string;
 };
 
 export function createProviderConnect(deps: ProviderConnectDeps) {
-  const { send, connectWithKey } = createKeyConnect(deps);
+  const { send, connectWithKey, addKeyToProvider } = createKeyConnect(deps);
   // 정의 key → provider id. 끊은 provider를 다시 이으면 같은 id로 이어, 그 provider를 고른 agent가 다시 쓴다. core가
   // 사는 동안 본 연결과 만든 id를 쥔다.
   const ids = new Map<string, string>();
@@ -290,7 +349,7 @@ export function createProviderConnect(deps: ProviderConnectDeps) {
 
   // 연결 대상: 내장 정의는 key로, Custom은 그 주소 규칙(https이거나 이 기계의 http)으로 정한다.
   function targetOf(
-    target: ProviderConnectTarget,
+    target: Exclude<ProviderConnectTarget, { provider: string }>,
     withKey: boolean,
   ): Result<ConnectTarget> {
     if ("definition" in target)
@@ -328,7 +387,37 @@ export function createProviderConnect(deps: ProviderConnectDeps) {
     if (!value.ok) return value;
     const normalized = normalizeApiKey(value.value);
     if (!normalized.ok) return normalized;
-    const target = targetOf(input.data.target, true);
+    const rawTarget = input.data.target;
+    if ("provider" in rawTarget) {
+      const listed = await deps.listProviders(who);
+      if (!listed.ok) return listed;
+      const existing = listed.value.find(
+        (row) => row.id === rawTarget.provider,
+      );
+      if (existing === undefined) {
+        return err({ code: "not_found", message: "provider not found" });
+      }
+      if (
+        existing.definition.auth_kinds !== undefined &&
+        !existing.definition.auth_kinds.includes("api_key")
+      ) {
+        return err({
+          code: "invalid_input",
+          message: "this provider does not support API keys",
+        });
+      }
+      const credentialId =
+        deps.newCredentialId?.() ?? defaultCredentialId(deps.newId());
+      const record = await addKeyToProvider(
+        who,
+        { id: existing.id, revision: existing.revision ?? 1 },
+        credentialId,
+        normalized.value,
+        rawTarget.label,
+      );
+      return record.ok ? ok({ provider: record.value }) : record;
+    }
+    const target = targetOf(rawTarget, true);
     if (!target.ok) return target;
     const id = await freshId(who, target.value.definition.key);
     if (!id.ok) return id;

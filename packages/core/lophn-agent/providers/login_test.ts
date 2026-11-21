@@ -82,9 +82,9 @@ test("ChatGPT 로그인은 고정 callback으로 교환하고, 계정 claim이 �
       state: "connected",
       account: "acct-1",
       secrets: [
-        "provider.01h455vb4pex5v6nkc6gd5fd12",
-        "provider.01h455vb4pex5v6nkc6gd5fd12.meta",
-        "provider.01h455vb4pex5v6nkc6gd5fd12.refresh",
+        "provider.crd_01h455vb4pex5v6nkc6gd5fd12",
+        "provider.crd_01h455vb4pex5v6nkc6gd5fd12.meta",
+        "provider.crd_01h455vb4pex5v6nkc6gd5fd12.refresh",
       ],
     },
   );
@@ -140,7 +140,9 @@ async function fixedLogin(input: {
                 protocol: sent.protocol,
                 credential: {
                   kind: "oauth",
-                  secret_ref: { name: "provider.01h455vb4pex5v6nkc6gd5fd12" },
+                  secret_ref: {
+                    name: "provider.crd_01h455vb4pex5v6nkc6gd5fd12",
+                  },
                   revision: 1,
                   state: "available",
                   unavailable_reason: null,
@@ -475,7 +477,7 @@ test("Antigravity 로그인은 tier가 없으면 onboarding을 기다린 뒤 마
 test("이미 이어진 id로 잇기가 conflict로 끝나면 그 provider의 key·token은 그대로이고 새 값은 남지 않는다", async () => {
   const builtin = builtinProviderDefinition("openai");
   assert.ok(builtin.ok && builtin.value.oauth?.product === "chatgpt");
-  const secret = "provider.01h455vb4pex5v6nkc6gd5fd12";
+  const secret = "provider.crd_01h455vb4pex5v6nkc6gd5fd12";
   const existing = {
     [secret]: "OLD-ACCESS",
     [`${secret}.refresh`]: "OLD-REFRESH",

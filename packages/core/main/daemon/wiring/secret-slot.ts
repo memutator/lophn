@@ -21,6 +21,7 @@ import {
   type ConnectTarget,
   providerTargetOf,
 } from "../../../lophn-agent/providers/connect-key.ts";
+import { providerSecretName } from "../../../lophn-agent/providers/oauth-secrets.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { RegisteredMcpServer } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import type { RequestContent } from "../../../lophn-agent/tools/questions/wait.ts";
@@ -49,7 +50,11 @@ type ProviderRow = {
   id: string;
   endpoint: string;
   definition: { key: string };
-  credential: { kind?: string };
+  credential: {
+    id?: string;
+    kind?: string;
+    secret_ref?: { name: string } | null;
+  };
 };
 
 type Definition = ProviderDefinition;
@@ -124,7 +129,9 @@ export function createSecretSlots(deps: SecretSlotDeps) {
       if (!fresh.ok) return fresh;
       id = fresh.value;
     }
-    const name = `provider.${id.slice("pvd_".length)}`;
+    const name =
+      existing?.credential.secret_ref?.name ??
+      providerSecretName(existing?.credential.id ?? id);
     return ok({
       kind: "secret",
       slot,

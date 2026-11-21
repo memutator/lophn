@@ -1,4 +1,5 @@
 export {
+  providerMultiCredentialsSchemaSteps,
   providerOpencodeGoGeminiSchemaSteps,
   providerReportedModelLimitsSchemaSteps,
   providerSchemaSteps,
@@ -24,7 +25,9 @@ export {
 export { credentialUsable } from "./credentials.ts";
 export { listProviders, loadProvider } from "./store.ts";
 export {
+  defaultCredentialId,
   loadProviderTokens,
+  maskApiKey,
   providerSecretName,
   providerTokenNames,
   removeProviderTokens,

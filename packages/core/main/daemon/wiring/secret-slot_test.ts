@@ -127,7 +127,7 @@ function setup(
     },
     freshId: () => Promise.resolve(ok("pvd_new")),
     configured: (name) =>
-      name === "provider.old" || name === "app-oauth.gdrive.client_id",
+      name === "provider.crd_old" || name === "app-oauth.gdrive.client_id",
   });
 }
 const code = (result: { ok: boolean }) =>
@@ -195,7 +195,7 @@ test("provider 자리는 home만, 앱 자리는 그 앱과 home만 청하고 이
   // 새 provider는 새 id의 이름과 연결 입력을 싣고, 이미 연결된 provider는 그 key 자리만 가리킨다.
   const fresh = await slots.resolve(null, AGENT, { provider: "openrouter" });
   assert.ok(fresh.ok && fresh.value.kind === "secret");
-  assert.equal(fresh.value.name, "provider.new");
+  assert.equal(fresh.value.name, "provider.crd_new");
   assert.deepEqual(fresh.value.destinations, ["https://openrouter.ai/api/v1"]);
   assert.equal((fresh.value.connect as { id: string }).id, "pvd_new");
   assert.equal(fresh.value.configured, false);
@@ -205,7 +205,7 @@ test("provider 자리는 home만, 앱 자리는 그 앱과 home만 청하고 이
     { provider: "openrouter" },
   );
   assert.ok(again.ok && again.value.kind === "secret");
-  assert.equal(again.value.name, "provider.old");
+  assert.equal(again.value.name, "provider.crd_old");
   assert.equal(again.value.connect, null);
   assert.equal(again.value.configured, true);
 });
@@ -264,7 +264,7 @@ test("custom provider는 https 주소만 key와 함께 받고 이름은 core가 
   const asked = await slots.resolve(null, AGENT, river);
   assert.ok(asked.ok && asked.value.kind === "secret");
   assert.deepEqual(asked.value.destinations, ["https://api.river.ai/v1"]);
-  assert.equal(asked.value.name, "provider.new");
+  assert.equal(asked.value.name, "provider.crd_new");
   assert.equal(
     (asked.value.connect as { endpoint: string }).endpoint,
     "https://api.river.ai/v1",

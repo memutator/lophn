@@ -45,8 +45,12 @@ function resolverFor(
       ? subscription.value.protocols[0]
       : "openai-chat-completions",
     credential: {
+      id: "crd_00000000000000000000000000",
+      active: true,
       kind: account.kind,
       secret_ref: account.kind === "oauth" ? ({ name: "sub" } as never) : null,
+      label: null,
+      key_hint: null,
       revision: 1,
       state: "available",
       unavailable_reason: null,
@@ -58,6 +62,27 @@ function resolverFor(
       reported_models: account.reported_models,
       account: null,
     },
+    credentials: [
+      {
+        id: "crd_00000000000000000000000000",
+        active: true,
+        kind: account.kind,
+        secret_ref:
+          account.kind === "oauth" ? ({ name: "sub" } as never) : null,
+        label: null,
+        key_hint: null,
+        revision: 1,
+        state: "available",
+        unavailable_reason: null,
+        until: null,
+        expires_at: null,
+        logged_in_at: null,
+        refreshed_at: null,
+        model_blocks: [],
+        reported_models: account.reported_models,
+        account: null,
+      },
+    ],
     revision: 1,
   };
   return createModelResolver({
@@ -167,8 +192,12 @@ test("OpenCode Go provider 하나가 model마다 catalog의 wire로 gateway 요�
       endpoint: "https://opencode.ai/inference/go/openai/v1",
       protocol: "openai-chat-completions",
       credential: {
+        id: "crd_00000000000000000000000000",
+        active: true,
         kind: "api_key",
         secret_ref: { name: "provider.x" },
+        label: null,
+        key_hint: null,
         revision: 1,
         state: "available",
         unavailable_reason: null,
@@ -180,6 +209,26 @@ test("OpenCode Go provider 하나가 model마다 catalog의 wire로 gateway 요�
         reported_models: null,
         account: null,
       },
+      credentials: [
+        {
+          id: "crd_00000000000000000000000000",
+          active: true,
+          kind: "api_key",
+          secret_ref: { name: "provider.x" },
+          label: null,
+          key_hint: null,
+          revision: 1,
+          state: "available",
+          unavailable_reason: null,
+          until: null,
+          expires_at: null,
+          logged_in_at: null,
+          refreshed_at: null,
+          model_blocks: [],
+          reported_models: null,
+          account: null,
+        },
+      ],
       revision: 1,
     };
     const sent: {

@@ -242,10 +242,10 @@ test("기기에서 넣은 값은 secret 저장소에만 있고 command envelope�
       [codeOf(connected), codeOf(answered), finished],
       ["ok", "ok", ok({ stored: true })],
     );
-    // 둘 다 `provider.<id>`로 옮겨졌고 임시 이름은 없다.
+    // 둘 다 `provider.<crd_id>`로 옮겨졌고 임시 이름은 없다.
     const stored = await t.names();
     assert.equal(stored.length, 2);
-    assert.ok(stored.every((name) => /^provider\.[0-9a-z]+$/.test(name)));
+    assert.ok(stored.every((name) => /^provider\.crd_[0-9a-z]+$/.test(name)));
     const seen = JSON.stringify([t.envelopes, t.events, connected, answered]);
     assert.equal(t.envelopes.length, 2);
     assert.ok(!seen.includes(VALUE));
@@ -286,8 +286,9 @@ test("재기동 뒤 새 connect helper에서 Disconnect → Reconnect해도 같�
             definition: input.definition,
             endpoint: input.endpoint,
             protocol: input.protocol,
+            credentials: [{ id: `crd_${input.id.slice(4)}` }],
             revision: 1,
-          } as ProviderRecord;
+          } as unknown as ProviderRecord;
           providers.set(input.id, record);
           return Promise.resolve(
             ok({

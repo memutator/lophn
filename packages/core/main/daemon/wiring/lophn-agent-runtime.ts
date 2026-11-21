@@ -14,6 +14,7 @@ import {
   OAUTH_REFRESH_LEAD_MS,
   WORKSPACE_KINDS,
   type ProviderRecord,
+  providerList,
   providerRead,
   recordProviderModels,
   refreshProviderCredential,
@@ -73,6 +74,7 @@ const PROVIDER_REFRESH_CONTEXT: AuthenticatedContext = {
   scope: {
     operations: [
       providerRead.name,
+      providerList.name,
       refreshProviderCredential.name,
       recordProviderModels.name,
     ],
@@ -238,13 +240,36 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           }
           return read.error.code === "not_found" ? ok(null) : read;
         },
+        async listProviders() {
+          const rows: ProviderRecord[] = [];
+          let cursor: string | undefined;
+          for (let page = 0; page < 20; page += 1) {
+            const read = await runtime.readers.read(
+              providerList,
+              PROVIDER_REFRESH_CONTEXT,
+              cursor === undefined ? {} : { cursor },
+            );
+            if (!read.ok) return read;
+            const value = read.value as {
+              providers: ProviderRecord[];
+              next_cursor: string | null;
+            };
+            rows.push(...value.providers);
+            if (value.next_cursor === null) break;
+            cursor = value.next_cursor;
+          }
+          return ok(rows);
+        },
         secrets: ctx.secretStore,
         http: ctx.issuerRequests.fetch,
-        record: (provider, result) =>
+        record: (provider, result, credentialId) =>
           ctx.writer.command(PROVIDER_REFRESH_CONTEXT, {
             command: refreshProviderCredential.name,
             input: {
               provider: provider.id,
+              ...(credentialId === undefined
+                ? {}
+                : { credential: credentialId }),
               expires_at: "expires_at" in result ? result.expires_at : null,
               unavailable_reason:
                 "unavailable_reason" in result
@@ -255,11 +280,14 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             compare: { revision: provider.revision },
             prepared: [],
           }),
-        recordModels: (provider, roster) =>
+        recordModels: (provider, roster, credentialId) =>
           ctx.writer.command(PROVIDER_REFRESH_CONTEXT, {
             command: recordProviderModels.name,
             input: {
               provider: provider.id,
+              ...(credentialId === undefined
+                ? {}
+                : { credential: credentialId }),
               models: roster.models,
               model_limits: roster.limits,
             },

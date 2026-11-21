@@ -69,6 +69,16 @@ const providerTarget = z.union([
         .strict(),
     })
     .strict(),
+  z
+    .object({
+      provider: z.string().regex(/^pvd_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
+      label: z
+        .string()
+        .max(80)
+        .refine((v) => v.trim().length > 0)
+        .optional(),
+    })
+    .strict(),
 ]);
 
 /** 새 provider를 key로 잇는다. 이름이 없다: 값은 core가 id를 정해 잇는다(`providers/connect-key`). */

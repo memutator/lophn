@@ -116,3 +116,95 @@ set definition = json_set(
 where definition_key = 'opencode-go';`,
   },
 ];
+
+// provider당 여러 credential(다계정 OAuth + 다중 API key)을 두고 활성 1개를 선택한다.
+// PK를 provider에서 고유 id(crd_…)로 옮기고 active·label·key_hint를 더한다. 기존 row는
+// crd_<provider ULID>·active=1로 옮기고 secret_name도 provider.crd_<ULID>로 맞춘다
+// (secrets.json 파일 키 옮기기는 dataStep이 기동 직후 이어서 한다).
+export const providerMultiCredentialsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "lophn-agent.harness-provider.multi-credentials",
+    foreignKeys: "off",
+    sql: `
+create table provider_credentials_new (
+  id text primary key,
+  provider text not null references providers (id) on delete restrict,
+  active integer not null check (active in (0, 1)),
+  kind text not null check (kind in ('api_key', 'oauth', 'none')),
+  secret_name text,
+  label text,
+  key_hint text,
+  revision integer not null check (revision >= 1),
+  state text not null check (state in ('available', 'rejected', 'usage_wait', 'revoked')),
+  unavailable_reason text check (unavailable_reason in ('authentication', 'quota', 'plan_access', 'refresh_revoked')),
+  until text,
+  expires_at text,
+  logged_in_at text,
+  refreshed_at text,
+  reported_models text,
+  reported_model_limits text,
+  account text,
+  check ((kind in ('api_key', 'oauth')) = (secret_name is not null)),
+  check (
+    (state = 'usage_wait') = (until is not null)
+  ),
+  check (
+    (state = 'available') = (unavailable_reason is null)
+  )
+) strict;
+insert into provider_credentials_new (
+  id, provider, active, kind, secret_name, label, key_hint, revision,
+  state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at,
+  reported_models, reported_model_limits, account
+)
+select
+  'crd_' || substr(provider, 5),
+  provider,
+  1,
+  kind,
+  case when secret_name is not null then 'provider.crd_' || substr(provider, 5) else null end,
+  null,
+  null,
+  revision,
+  state,
+  unavailable_reason,
+  until,
+  expires_at,
+  logged_in_at,
+  refreshed_at,
+  reported_models,
+  reported_model_limits,
+  account
+from provider_credentials;
+
+create table provider_credential_model_blocks_new (
+  credential text not null references provider_credentials_new (id) on delete restrict,
+  model_name text not null check (length(trim(model_name)) > 0),
+  reason text not null check (reason in ('not_found', 'retired', 'account_model_access')),
+  until text,
+  primary key (credential, model_name)
+) strict;
+insert into provider_credential_model_blocks_new (credential, model_name, reason, until)
+select 'crd_' || substr(provider, 5), model_name, reason, until
+from provider_credential_model_blocks;
+
+drop table provider_credential_model_blocks;
+drop table provider_credentials;
+alter table provider_credentials_new rename to provider_credentials;
+alter table provider_credential_model_blocks_new rename to provider_credential_model_blocks;
+
+create unique index provider_credentials_one_active
+  on provider_credentials (provider) where active = 1;
+create index provider_credentials_provider
+  on provider_credentials (provider);
+create index provider_credentials_state_until
+  on provider_credentials (state, until);
+create trigger provider_credentials_identity_immutable
+before update of id, provider, kind on provider_credentials
+begin
+  select raise(abort, 'credential identity is immutable');
+end;
+create index provider_credential_model_blocks_until
+  on provider_credential_model_blocks (until);`,
+  },
+];

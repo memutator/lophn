@@ -41,6 +41,7 @@ import {
   createProviderConnect,
 } from "../../../lophn-agent/providers/connect-key.ts";
 import { opencodeGoMergeStep } from "./opencode-go-merge.ts";
+import { providerCredentialsSecretsStep } from "./provider-credentials-migrate.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
 import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
@@ -139,7 +140,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
   let ending: (() => Promise<void>) | undefined;
   return {
     name: "lophn-agent-provider-login",
-    dataSteps: [opencodeGoMergeStep],
+    dataSteps: [opencodeGoMergeStep, providerCredentialsSecretsStep],
     async build(ctx) {
       // 연결 중에 core가 죽어 남은 임시 key(`provider.<id>.new.<꼬리>`)를 치운다. API가 열리기 전이라 진행 중인 연결의 것을
       // 지우지 않는다(secrets wiring이 먼저 저장소를 연다). 못 지운 이름은 log에 남기고 기동은 잇는다.
@@ -197,6 +198,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
         listProviders: readProviders,
         target,
         newId: () => ids.newId("pvd"),
+        newCredentialId: () => ids.newId("crd"),
         newKey: () => ids.newId("idk"),
         tail: () => ids.newId("stg").slice("stg_".length),
       });
@@ -225,6 +227,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             openListener: openCallbackListener,
             secrets: ctx.secretStore,
             newKey: () => ids.newId("idk"),
+            newCredentialId: () => ids.newId("crd"),
             nowMs: () => ctx.clock.nowMs(),
             random: ctx.random,
             target,

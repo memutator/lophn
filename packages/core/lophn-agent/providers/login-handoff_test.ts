@@ -172,9 +172,9 @@ test("기기가 시작한 ChatGPT 로그인은 port 없이 주소를 내주고, 
       "http://localhost:1455/auth/callback",
       1,
       [
-        "provider.01h455vb4pex5v6nkc6gd5fd12",
-        "provider.01h455vb4pex5v6nkc6gd5fd12.meta",
-        "provider.01h455vb4pex5v6nkc6gd5fd12.refresh",
+        "provider.crd_01h455vb4pex5v6nkc6gd5fd12",
+        "provider.crd_01h455vb4pex5v6nkc6gd5fd12.meta",
+        "provider.crd_01h455vb4pex5v6nkc6gd5fd12.refresh",
       ],
     ],
   );

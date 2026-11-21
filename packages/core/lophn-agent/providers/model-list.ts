@@ -6,6 +6,8 @@
 // 나갈 수 있어 새 주소도 바로 닿는다. 실패하면 사람의 refresh가 다시 읽는다. 요청은 ChatGPT 목록과 같은 발급자 요청 대기열로 나간다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  activateProviderCredential,
+  addProviderCredential,
   connectProvider,
   type ProviderRecord,
   recordProviderModels,
@@ -72,7 +74,10 @@ export function withProviderModelList(
       ) {
         return unavailable("the model list address is not the endpoint");
       }
-      const key = deps.secrets.get(providerSecretName(provider.id));
+      const secretName =
+        provider.credential.secret_ref?.name ??
+        providerSecretName(provider.credential.id);
+      const key = deps.secrets.get(secretName);
       if (!key.ok) return unavailable("the provider key is missing");
       access = key.value;
     }
@@ -125,11 +130,20 @@ export function withProviderModelList(
           : done;
       }
       const done = await writer.command(ctx, envelope);
-      if (done.ok && envelope.command === connectProvider.name) {
+      if (
+        done.ok &&
+        (envelope.command === connectProvider.name ||
+          envelope.command === addProviderCredential.name ||
+          envelope.command === activateProviderCredential.name)
+      ) {
         const { provider } = done.value.result as { provider: ProviderRecord };
-        // 연결 결과를 기다리게 하지 않고 뒤에서 읽는다. 구독 로그인은 login.ts가 읽는다.
+        // 연결·추가·전환 결과를 기다리게 하지 않고 뒤에서 읽는다. 구독 로그인 직후는 login.ts가 읽는다.
+        const needsRefresh =
+          envelope.command === activateProviderCredential.name
+            ? provider.credential.reported_models === null
+            : provider.credential.kind !== "oauth";
         if (
-          provider.credential.kind !== "oauth" &&
+          needsRefresh &&
           readsModels({
             ...provider,
             kind: provider.credential.kind,

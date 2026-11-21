@@ -15,6 +15,31 @@ const ID = "pvd_00000000000000000000000001";
 const WHO = { actor: "user" } as AuthenticatedContext;
 
 function custom(): ProviderRecord {
+  const credential: ProviderCredential = {
+    id: `crd_${ID.slice(4)}` as ProviderCredential["id"],
+    active: true,
+    kind: "api_key",
+    secret_ref: { name: `provider.crd_${ID.slice(4)}` },
+    label: null,
+    key_hint: null,
+    revision: 1,
+    state: "available",
+    unavailable_reason: null,
+    until: null,
+    expires_at: null,
+    logged_in_at: null,
+    refreshed_at: null,
+    model_blocks: [],
+    reported_models: ["old"],
+    reported_model_limits: {
+      old: {
+        context_limit: 1000,
+        max_context_limit: null,
+        output_limit: 100,
+      },
+    },
+    account: null,
+  };
   return {
     id: ID,
     name: "Local",
@@ -29,27 +54,8 @@ function custom(): ProviderRecord {
     },
     endpoint: "http://127.0.0.1:9000/v1/",
     protocol: "openai-chat-completions",
-    credential: {
-      kind: "api_key",
-      secret_ref: { name: `provider.${ID.slice(4)}` },
-      revision: 1,
-      state: "available",
-      unavailable_reason: null,
-      until: null,
-      expires_at: null,
-      logged_in_at: null,
-      refreshed_at: null,
-      model_blocks: [],
-      reported_models: ["old"],
-      reported_model_limits: {
-        old: {
-          context_limit: 1000,
-          max_context_limit: null,
-          output_limit: 100,
-        },
-      },
-      account: null,
-    },
+    credential,
+    credentials: [credential],
     revision: 1,
   } as ProviderRecord;
 }

@@ -110,6 +110,7 @@ import {
   FOLDER_SCHEMA_STEPS,
 } from "../../../folder/schema.ts";
 import { OUTBOUND_CALLS_SCHEMA_STEPS } from "../../../apps/calls/outbound-schema.ts";
+import { providerMultiCredentialsSchemaSteps } from "../../../lophn-agent/providers/mod.ts";
 import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
 import { readMachineId } from "../../../machine/mod.ts";
 import {
@@ -903,6 +904,7 @@ export function remoteWiring(
       ...GRANTS_SCHEMA_STEPS,
       ...FOLDER_CODE_COMMIT_STEPS,
       ...OUTBOUND_CALLS_SCHEMA_STEPS,
+      ...providerMultiCredentialsSchemaSteps,
     ],
     dataSteps: [
       hostKeyMachineStep,

@@ -31,6 +31,8 @@ interface ConnectDialogProps {
   source: ProviderSettingsSource;
   /** 연결할 정의. null이면 닫혀 있다. */
   definition: ProviderDefinitionRow | null;
+  /** 이미 연결된 provider에 credential을 추가할 때 그 provider id. */
+  addingProviderId?: string | null;
   onClose: () => void;
   /** 연결을 시작했거나 Custom provider를 등록한 뒤 부른다. 목록이 다시 읽는다. */
   onConnected: () => void;
@@ -43,10 +45,10 @@ interface ConnectDialogProps {
 // 주소는 key 없이 바로 연결한다. 인증 없음은 고르는 방법이 아니다.
 // 다른 기계의 범위에서는 device code 로그인만 단추다. 그 기계의 browser로 돌아와야 하는 로그인은 그 자리에 까닭 한 줄을 둔다.
 export function ConnectDialog(props: ConnectDialogProps): ReactNode {
-  // 정의가 바뀌면 입력과 오류를 새로 시작하도록 key를 정의로 둔다.
+  // 정의나 추가 대상이 바뀌면 입력과 오류를 새로 시작하도록 key를 둔다.
   return props.definition === null ? null : (
     <OpenDialog
-      key={props.definition.key}
+      key={`${props.addingProviderId ?? "new"}:${props.definition.key}`}
       {...props}
       definition={props.definition}
     />
@@ -75,6 +77,7 @@ function failureOf(code: string): Failure {
 function MethodDialog({
   source,
   definition,
+  addingProviderId,
   onClose,
   onConnected,
 }: Props): ReactNode {
@@ -97,18 +100,25 @@ function MethodDialog({
     setFailed(null);
     const stop = new AbortController();
     signIn.current = stop;
-    const started =
+    const progress =
       way === "oauth"
-        ? await source.connect(definition.key, way, {
+        ? {
             signal: stop.signal,
-            started: (info) =>
+            started: (info: {
+              readonly userCode: string | null;
+              readonly handoff?: SignInHandoff | null;
+            }) =>
               setWaiting({
                 userCode: info.userCode,
                 handoff: info.handoff ?? null,
               }),
             events,
-          })
-        : await source.connect(definition.key, way);
+          }
+        : undefined;
+    const started =
+      addingProviderId != null
+        ? await source.addCredential(addingProviderId, way, progress)
+        : await source.connect(definition.key, way, progress);
     signIn.current = null;
     if (stop.signal.aborted) return;
     setBusy(false);
@@ -132,7 +142,12 @@ function MethodDialog({
       onOpenChange={(open) => {
         if (!open) close();
       }}
-      title={t("settings.title.connect-provider", { name: definition.name })}
+      title={t(
+        addingProviderId != null
+          ? "settings.title.add-credential"
+          : "settings.title.connect-provider",
+        { name: definition.name },
+      )}
       actions={<Button onClick={close}>{t("settings.button.cancel")}</Button>}
     >
       {waiting === undefined ? (

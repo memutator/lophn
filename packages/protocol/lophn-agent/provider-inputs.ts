@@ -75,8 +75,11 @@ export const connectProviderInputSchema = z
   .strictObject({
     id: idSchema("pvd"),
     ...providerTargetFields,
+    credential_id: idSchema("crd").optional(),
     auth_kind: providerAuthKindSchema,
     credential: z.strictObject({ secret: secretNameSchema }).nullable(),
+    label: nonblankSchema.nullable().optional(),
+    key_hint: nonblankSchema.nullable().optional(),
     expires_at: atSchema.optional(),
     // 구독 로그인이 확정한 계정이다. core의 로그인 처리기만 싣는다.
     account: providerAccountSchema.optional(),
@@ -86,12 +89,51 @@ export const connectProviderInputSchema = z
       targetFits(value, value.auth_kind) &&
       (value.auth_kind === "none") === (value.credential === null) &&
       (value.auth_kind === "oauth") === (value.expires_at !== undefined) &&
-      (value.auth_kind === "oauth" || value.account === undefined),
+      (value.auth_kind === "oauth" || value.account === undefined) &&
+      (value.auth_kind === "api_key" ||
+        value.key_hint === undefined ||
+        value.key_hint === null),
     {
       message:
         "endpoint, protocol or credential is outside the provider definition",
     },
   );
+
+// 이미 연결된 provider에 credential(API key 또는 OAuth 계정)을 추가한다.
+export const addProviderCredentialInputSchema = z
+  .strictObject({
+    provider: idSchema("pvd"),
+    credential_id: idSchema("crd"),
+    auth_kind: providerAuthKindSchema,
+    credential: z.strictObject({ secret: secretNameSchema }).nullable(),
+    label: nonblankSchema.nullable().optional(),
+    key_hint: nonblankSchema.nullable().optional(),
+    expires_at: atSchema.optional(),
+    account: providerAccountSchema.optional(),
+    activate: z.boolean().optional(),
+  })
+  .refine(
+    (value) =>
+      (value.auth_kind === "none") === (value.credential === null) &&
+      (value.auth_kind === "oauth") === (value.expires_at !== undefined) &&
+      (value.auth_kind === "oauth" || value.account === undefined) &&
+      (value.auth_kind === "api_key" ||
+        value.key_hint === undefined ||
+        value.key_hint === null),
+    {
+      message: "credential fields do not agree with auth_kind",
+    },
+  );
+
+export const activateProviderCredentialInputSchema = z.strictObject({
+  provider: idSchema("pvd"),
+  credential: idSchema("crd"),
+});
+
+export const removeProviderCredentialInputSchema = z.strictObject({
+  provider: idSchema("pvd"),
+  credential: idSchema("crd"),
+});
 
 export const providerRevisionCompareSchema = z.strictObject({
   revision: positiveIntegerSchema,
@@ -105,6 +147,7 @@ export const disconnectProviderInputSchema = z.strictObject({
 export const refreshProviderCredentialInputSchema = z
   .strictObject({
     provider: idSchema("pvd"),
+    credential: idSchema("crd").optional(),
     expires_at: atSchema.nullable(),
     unavailable_reason: z
       .enum(["authentication", "refresh_revoked"])
@@ -119,6 +162,7 @@ export const refreshProviderCredentialInputSchema = z
 export const recordProviderModelsInputSchema = z
   .strictObject({
     provider: idSchema("pvd"),
+    credential: idSchema("crd").optional(),
     models: z.array(nonblankSchema).min(1).max(2000),
     // 목록과 함께 읽은 model별 한도다. 없으면 앞서 저장한 한도를 지운다(목록처럼 통째로 바꾼다).
     model_limits: reportedModelLimitsSchema.optional(),
@@ -138,6 +182,7 @@ export const refreshProviderModelsInputSchema = z.strictObject({
 export const recordProviderAvailabilityInputSchema = z
   .strictObject({
     provider: idSchema("pvd"),
+    credential: idSchema("crd").optional(),
     state: z.enum(CREDENTIAL_STATES),
     unavailable_reason: z.enum(UNAVAILABLE_REASONS).nullable(),
     until: atSchema.nullable(),
@@ -213,6 +258,11 @@ const customTargetSchema = z.strictObject({
 export const providerConnectTargetSchema = z.union([
   z.strictObject({ definition: z.string().min(1).max(64) }),
   z.strictObject({ custom: customTargetSchema }),
+  // 이미 연결된 provider에 API key credential을 하나 더 붙인다.
+  z.strictObject({
+    provider: idSchema("pvd"),
+    label: nonblankSchema.max(80).optional(),
+  }),
 ]);
 export type ProviderConnectTarget = z.infer<typeof providerConnectTargetSchema>;
 
@@ -220,9 +270,10 @@ export const connectLocalProviderInputSchema = z.strictObject({
   custom: customTargetSchema,
 });
 
-// 로그인 시작: 내장 정의 key이거나, agent의 sign_in 요청(core가 만든 id와 대상을 그 요청에서 읽는다).
+// 로그인 시작: 내장 정의 key, 이미 연결된 provider에 계정 추가, 또는 agent의 sign_in 요청.
 export const providerSignInInputSchema = z.union([
   z.strictObject({ definition: z.string().min(1).max(64) }),
+  z.strictObject({ provider: idSchema("pvd") }),
   z.strictObject({
     request: z.strictObject({
       session: idSchema("ses"),

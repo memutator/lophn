@@ -187,6 +187,8 @@ import {
   workspaceModelRead,
 } from "../lophn-agent/models.ts";
 import {
+  activateProviderCredential,
+  addProviderCredential,
   connectProvider,
   disconnectProvider,
   loginCancel,
@@ -200,6 +202,7 @@ import {
   providerSignInState,
   recordProviderModels,
   refreshProviderModels,
+  removeProviderCredential,
 } from "../lophn-agent/providers.ts";
 import { receivedMessageRead } from "../lophn-agent/received-messages.ts";
 import {
@@ -459,6 +462,9 @@ export const REMOTE_PERSON_ROUTES = [
   secretStatus,
   // provider: 연결과 끊기, 로그인. 안에서 부른 사람의 자격으로 `providers/connect`와 `provider-credentials/record-models`를 writer에 보낸다
   connectProvider,
+  addProviderCredential,
+  activateProviderCredential,
+  removeProviderCredential,
   disconnectProvider,
   providerList,
   providerDefinitions,

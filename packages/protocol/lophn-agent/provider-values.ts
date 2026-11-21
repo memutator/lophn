@@ -252,8 +252,13 @@ const providerAccountOutputSchema = z.object(providerAccountFields);
 export type ProviderAccount = z.infer<typeof providerAccountSchema>;
 
 const credentialFields = {
+  id: idSchema("crd"),
+  active: z.boolean(),
   kind: providerAuthKindSchema,
   secret_ref: providerSecretRefSchema.nullable(),
+  label: nonblankSchema.nullable(),
+  // API key 마스킹 힌트(예: sk-…a1b2). 원문이 아니며 api_key 연결에만 있다.
+  key_hint: nonblankSchema.nullable(),
   revision: positiveIntegerSchema,
   state: z.enum(CREDENTIAL_STATES),
   unavailable_reason: z.enum(UNAVAILABLE_REASONS).nullable(),
@@ -273,6 +278,7 @@ const credentialFields = {
 function credentialShape(value: {
   kind: (typeof PROVIDER_AUTH_KINDS)[number];
   secret_ref: unknown;
+  key_hint: string | null;
   state: (typeof CREDENTIAL_STATES)[number];
   unavailable_reason: string | null;
   until: string | null;
@@ -281,6 +287,7 @@ function credentialShape(value: {
 }): boolean {
   const secret = (value.kind === "none") === (value.secret_ref === null);
   const account = value.kind === "oauth" || value.account === null;
+  const keyHint = value.kind === "api_key" || value.key_hint === null;
   const waiting = value.state === "usage_wait";
   const reason =
     value.state === "available"
@@ -289,6 +296,7 @@ function credentialShape(value: {
   return (
     secret &&
     account &&
+    keyHint &&
     reason &&
     waiting === (value.until !== null) &&
     unique(value.model_blocks.map((block) => block.model_name))
@@ -324,8 +332,10 @@ const providerFields = {
   definition: providerDefinitionSchema,
   endpoint: z.string(),
   protocol: providerProtocolSchema,
-  // provider에는 credential이 정확히 하나다. 계정 목록·순서·켜기 상태는 없다.
+  // 현재 활성(active) credential 하나.
   credential: providerCredentialSchema,
+  // 이 provider에 등록된 모든 credential 목록(최소 1개, 그중 정확히 1개가 active).
+  credentials: z.array(providerCredentialSchema).min(1),
   revision: positiveIntegerSchema,
 };
 
@@ -334,13 +344,22 @@ function providerShape(value: {
   endpoint: string;
   protocol: (typeof PROVIDER_PROTOCOLS)[number];
   credential: ProviderCredential;
+  credentials: readonly ProviderCredential[];
 }): boolean {
   const remote = isHttpsUrl(value.endpoint);
+  const active = value.credentials.filter((item) => item.active);
   return (
     value.definition.protocols.includes(value.protocol) &&
     (remote || loopback(value.endpoint)) &&
-    value.definition.auth_kinds.includes(value.credential.kind) &&
-    (!remote || value.credential.kind !== "none")
+    active.length === 1 &&
+    value.credential.active &&
+    active[0]!.id === value.credential.id &&
+    unique(value.credentials.map((item) => item.id)) &&
+    value.credentials.every(
+      (item) =>
+        value.definition.auth_kinds.includes(item.kind) &&
+        (!remote || item.kind !== "none"),
+    )
   );
 }
 
@@ -349,6 +368,7 @@ export const providerRecordSchema = z
     ...providerFields,
     definition: providerDefinitionOutputSchema,
     credential: providerCredentialOutputSchema,
+    credentials: z.array(providerCredentialOutputSchema).min(1),
   })
   .refine(providerShape, {
     message: "provider endpoint, protocol and credential do not agree",

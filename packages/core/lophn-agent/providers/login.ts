@@ -12,6 +12,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RandomSource } from "../../../base/mod.ts";
 import {
+  addProviderCredential,
+  addProviderCredentialInputSchema,
   connectProvider,
   connectProviderInputSchema,
   disconnectProvider,
@@ -26,6 +28,8 @@ import {
   providerSignInState,
   type ProviderSignInState,
   recordProviderModels,
+  removeProviderCredential,
+  removeProviderCredentialInputSchema,
   providerSignInCallbackInputSchema,
   providerSignInOutputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -36,13 +40,18 @@ import { readProviderModels, readsModels } from "./reported-models.ts";
 import { createProviderOAuth } from "./oauth.ts";
 import type { IssuerFetch } from "./issuer-http.ts";
 import {
+  defaultCredentialId,
   isStagedProviderSecret,
   providerSecretName,
   removeProviderTokens,
   saveProviderTokens,
 } from "./oauth-secrets.ts";
 import type { CommandSuccess, Writer } from "../../storage/ledger/mod.ts";
-import type { ConnectTarget, ConnectWay } from "./connect-key.ts";
+import {
+  providerTargetOf,
+  type ConnectTarget,
+  type ConnectWay,
+} from "./connect-key.ts";
 import type { z } from "zod";
 
 // complete가 발급자에 닿지 못해 연달아 실패해도 다시 보는 횟수다.
@@ -53,8 +62,10 @@ const NOT_FINISHED = "The sign-in did not finish.";
 type SignInOutput = z.output<typeof providerSignInOutputSchema>;
 
 // 로그인 하나. key는 정의 key다. request는 agent의 sign_in 요청으로 시작했을 때의 그 요청이다.
+// adding이 true면 이미 연결된 provider에 계정을 추가하는 로그인이다.
 type Login = {
   key: string;
+  adding: boolean;
   state: ProviderSignInState;
   request: { session: string; tool_call: string } | null;
 };
@@ -64,6 +75,7 @@ export type ProviderLoginDeps = {
   openListener(options?: CallbackOptions): Promise<Result<CallbackListener>>;
   secrets: Pick<SecretStorePort, "get" | "put" | "delete">;
   newKey(): string;
+  newCredentialId?: () => string;
   nowMs(): number;
   random: RandomSource;
   // 계정 준비(onboarding)와 로그인의 다음 확인까지 쉰다. test가 바로 돌아오게 한다.
@@ -127,6 +139,7 @@ export function withProviderLogin(
     ctx: AuthenticatedContext,
     provider: string,
     id: string,
+    adding: boolean,
   ): Promise<
     Result<{ state: "pending"; interval_ms: number } | { state: "connected" }>
   > {
@@ -142,25 +155,68 @@ export function withProviderLogin(
         message: "the device lost its terminal input grant during sign-in",
       });
     }
-    const connected = await writer.command(ctx, {
-      command: connectProvider.name,
-      input: {
-        id: provider,
-        ...target,
-        auth_kind: "oauth",
-        credential: { secret: providerSecretName(provider) },
-        expires_at: at(tokens.expires_at_ms),
-        ...(tokens.account === null ? {} : { account: tokens.account }),
-      },
-      idempotency_key: deps.newKey(),
-      compare: {},
-      prepared: [],
-    });
-    if (!connected.ok) return connected;
+    let record: ProviderRecord;
+    let credentialId: string;
+    if (adding) {
+      if (deps.readProvider === undefined) {
+        return err({
+          code: "unavailable",
+          message: "provider lookup unavailable",
+        });
+      }
+      const existing = await deps.readProvider(ctx, provider);
+      if (!existing.ok) return existing;
+      if (existing.value === null) {
+        return err({ code: "not_found", message: "provider not found" });
+      }
+      const candidateId =
+        deps.newCredentialId?.() ?? defaultCredentialId(provider);
+      const added = await writer.command(ctx, {
+        command: addProviderCredential.name,
+        input: {
+          provider,
+          credential_id: candidateId,
+          auth_kind: "oauth",
+          credential: { secret: providerSecretName(candidateId) },
+          expires_at: at(tokens.expires_at_ms),
+          ...(tokens.account === null ? {} : { account: tokens.account }),
+          activate: true,
+        },
+        idempotency_key: deps.newKey(),
+        compare: { revision: existing.value.revision },
+        prepared: [],
+      });
+      if (!added.ok) return added;
+      const result = added.value.result as {
+        provider: ProviderRecord;
+        credential_id: string;
+      };
+      record = result.provider;
+      credentialId = result.credential_id;
+    } else {
+      credentialId = defaultCredentialId(provider);
+      const connected = await writer.command(ctx, {
+        command: connectProvider.name,
+        input: {
+          id: provider,
+          ...target,
+          credential_id: credentialId,
+          auth_kind: "oauth",
+          credential: { secret: providerSecretName(credentialId) },
+          expires_at: at(tokens.expires_at_ms),
+          ...(tokens.account === null ? {} : { account: tokens.account }),
+        },
+        idempotency_key: deps.newKey(),
+        compare: {},
+        prepared: [],
+      });
+      if (!connected.ok) return connected;
+      record = (connected.value.result as { provider: ProviderRecord })
+        .provider;
+    }
     // 연결된 뒤에 쓴다. 못 쓰면 provider는 token 없이 남고 첫 turn이 인증 오류를 낸다. 사람은 끊고 다시 잇는다.
-    const saved = await saveProviderTokens(deps.secrets, provider, tokens);
+    const saved = await saveProviderTokens(deps.secrets, credentialId, tokens);
     if (!saved.ok) return saved;
-    const record = (connected.value.result as { provider: unknown }).provider;
     // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. 실패하면 token을 처음 건넬 때(prepareToken) 다시 읽는다.
     const source = { ...target, kind: "oauth", account: tokens.account };
     if (readsModels(source)) {
@@ -172,11 +228,12 @@ export function withProviderLogin(
                 command: recordProviderModels.name,
                 input: {
                   provider,
+                  credential: credentialId,
                   models: roster.models,
                   model_limits: roster.limits,
                 },
                 idempotency_key: deps.newKey(),
-                compare: { revision: (record as ProviderRecord).revision },
+                compare: { revision: record.revision },
                 prepared: [],
               }),
         )
@@ -229,7 +286,7 @@ export function withProviderLogin(
       }
       let step: Awaited<ReturnType<typeof complete>>;
       try {
-        step = await complete(ctx, state.provider, id);
+        step = await complete(ctx, state.provider, id, entry.adding);
       } catch {
         await login.cancel(state.provider, id);
         return fail("internal");
@@ -285,6 +342,7 @@ export function withProviderLogin(
     }
     let target: ConnectTarget & { provider: string };
     let request: Login["request"] = null;
+    let adding = false;
     // agent의 요청으로 시작한 로그인이 시작부터 실패하면 그 요청도 그 오류로 끝낸다(기다리는 agent가 알게).
     const failed = <T>(result: Result<T>): Result<T> => {
       if (!result.ok && request !== null) {
@@ -302,6 +360,30 @@ export function withProviderLogin(
       const id = await deps.freshId(who, found.value.definition.key);
       if (!id.ok) return id;
       target = { ...found.value, provider: id.value };
+    } else if ("provider" in input.data) {
+      if (deps.readProvider === undefined) {
+        return err({
+          code: "unavailable",
+          message: "provider lookup unavailable",
+        });
+      }
+      const existing = await deps.readProvider(who, input.data.provider);
+      if (!existing.ok) return existing;
+      if (existing.value === null) {
+        return err({ code: "not_found", message: "provider not found" });
+      }
+      const found = providerTargetOf(existing.value.definition, "oauth");
+      if (
+        found === null ||
+        !existing.value.definition.auth_kinds.includes("oauth")
+      ) {
+        return err({
+          code: "invalid_input",
+          message: "no sign-in for this provider",
+        });
+      }
+      adding = true;
+      target = { ...found, provider: existing.value.id };
     } else {
       const asking = input.data.request;
       const view = deps.requests.readRequest(asking.session, asking.tool_call);
@@ -339,6 +421,7 @@ export function withProviderLogin(
     const expires_at = at(begun.value.expires_at_ms);
     const entry: Login = {
       key: connect.definition.key,
+      adding,
       request,
       state: {
         state: "waiting",
@@ -397,18 +480,22 @@ export function withProviderLogin(
       : ok(entry.state);
   }
 
-  // API key 연결. 값은 `provider.<id>.new.<무작위>`에 먼저 올라와 있다. 연결이 성공하면 `provider.<id>`로 옮기고,
-  // 실패하면 버린다. 새로 만든 id에 바로 올린 `provider.<id>`(agent의 secret 요청)는 그대로 넘긴다.
+  // API key 연결. 값은 `provider.<crd_id>.new.<무작위>`에 먼저 올라와 있다. 연결이 성공하면 `provider.<crd_id>`로 옮기고,
+  // 실패하면 버린다.
   async function connect(
     ctx: Parameters<Writer["command"]>[0],
     envelope: Parameters<Writer["command"]>[1],
   ): Promise<Result<CommandSuccess>> {
     const parsed = connectProviderInputSchema.safeParse(envelope.input);
     const staged = parsed.success ? parsed.data.credential?.secret : undefined;
+    const credentialId = parsed.success
+      ? (parsed.data.credential_id ?? defaultCredentialId(parsed.data.id))
+      : undefined;
     if (
       !parsed.success ||
       staged === undefined ||
-      !isStagedProviderSecret(parsed.data.id, staged)
+      credentialId === undefined ||
+      !isStagedProviderSecret(credentialId, staged)
     ) {
       return await writer.command(ctx, envelope);
     }
@@ -416,10 +503,14 @@ export function withProviderLogin(
     if (!value.ok) {
       return err({ code: "invalid_input", message: "staged key is missing" });
     }
-    const secret = providerSecretName(parsed.data.id);
+    const secret = providerSecretName(credentialId);
     const connected = await writer.command(ctx, {
       ...envelope,
-      input: { ...parsed.data, credential: { secret } },
+      input: {
+        ...parsed.data,
+        credential_id: credentialId,
+        credential: { secret },
+      },
     });
     if (connected.ok) {
       const put = await deps.secrets.put(secret, value.value);
@@ -430,6 +521,54 @@ export function withProviderLogin(
     }
     await deps.secrets.delete(staged);
     return connected;
+  }
+
+  // 기존 provider에 API key 추가. 임시 이름을 `provider.<crd_id>`로 옮긴다.
+  async function addCredential(
+    ctx: Parameters<Writer["command"]>[0],
+    envelope: Parameters<Writer["command"]>[1],
+  ): Promise<Result<CommandSuccess>> {
+    const parsed = addProviderCredentialInputSchema.safeParse(envelope.input);
+    const staged = parsed.success ? parsed.data.credential?.secret : undefined;
+    if (
+      !parsed.success ||
+      staged === undefined ||
+      !isStagedProviderSecret(parsed.data.credential_id, staged)
+    ) {
+      return await writer.command(ctx, envelope);
+    }
+    const value = deps.secrets.get(staged);
+    if (!value.ok) {
+      return err({ code: "invalid_input", message: "staged key is missing" });
+    }
+    const secret = providerSecretName(parsed.data.credential_id);
+    const added = await writer.command(ctx, {
+      ...envelope,
+      input: { ...parsed.data, credential: { secret } },
+    });
+    if (added.ok) {
+      const put = await deps.secrets.put(secret, value.value);
+      if (!put.ok) {
+        await deps.secrets.delete(staged);
+        return err({ code: "unavailable", message: "key를 저장하지 못했다" });
+      }
+    }
+    await deps.secrets.delete(staged);
+    return added;
+  }
+
+  async function removeCredential(
+    ctx: Parameters<Writer["command"]>[0],
+    envelope: Parameters<Writer["command"]>[1],
+  ): Promise<Result<CommandSuccess>> {
+    const parsed = removeProviderCredentialInputSchema.safeParse(
+      envelope.input,
+    );
+    const done = await writer.command(ctx, envelope);
+    if (done.ok && !done.value.replayed && parsed.success) {
+      await removeProviderTokens(deps.secrets, parsed.data.credential);
+    }
+    return done;
   }
 
   async function disconnect(
@@ -446,8 +585,12 @@ export function withProviderLogin(
     if (done.ok && !done.value.replayed && parsed.success) {
       if (existing !== null && existing.ok && existing.value !== null) {
         deps.rememberId?.(existing.value.definition.key, existing.value.id);
+        for (const cred of existing.value.credentials) {
+          await removeProviderTokens(deps.secrets, cred.id);
+        }
+      } else {
+        await removeProviderTokens(deps.secrets, parsed.data.provider);
       }
-      await removeProviderTokens(deps.secrets, parsed.data.provider);
     }
     return done;
   }
@@ -478,6 +621,12 @@ export function withProviderLogin(
       }
       if (envelope.command === connectProvider.name) {
         return await connect(ctx, envelope);
+      }
+      if (envelope.command === addProviderCredential.name) {
+        return await addCredential(ctx, envelope);
+      }
+      if (envelope.command === removeProviderCredential.name) {
+        return await removeCredential(ctx, envelope);
       }
       if (envelope.command === disconnectProvider.name) {
         return await disconnect(ctx, envelope);

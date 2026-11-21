@@ -29,6 +29,7 @@ function connection(
   definition: string,
   way: AuthWay,
 ): ProviderRow {
+  const credId = `crd_${id.replace(/^pvd_/, "")}`;
   return {
     id,
     name,
@@ -36,6 +37,35 @@ function connection(
     way,
     state: "available",
     reason: null,
+    ways:
+      definition === "openai" || definition === "xai"
+        ? ["oauth", "api_key"]
+        : [way],
+    signIn:
+      definition === "openai"
+        ? { product: "ChatGPT", deviceCode: false }
+        : definition === "xai"
+          ? { product: "SuperGrok", deviceCode: true }
+          : null,
+    credentials: [
+      {
+        id: credId,
+        way,
+        active: true,
+        state: "available",
+        reason: null,
+        label: null,
+        keyHint: way === "api_key" ? "sk-…1234" : null,
+        account:
+          way === "oauth"
+            ? {
+                email: "user@example.com",
+                organizationName: null,
+                projectId: null,
+              }
+            : null,
+      },
+    ],
     revision: 1,
   };
 }
@@ -76,6 +106,9 @@ function definition(
 type ProviderCall =
   | readonly ["disconnect", string]
   | readonly ["connect", string, Exclude<AuthWay, "none">]
+  | readonly ["add-credential", string, Exclude<AuthWay, "none">]
+  | readonly ["activate-credential", string, string]
+  | readonly ["remove-credential", string, string]
   | readonly ["custom", CustomProviderInput];
 
 /** gallery와 mock이 고르는 연결 상태. "none"은 하나도 연결하지 않았고 "some"은 Anthropic만 연결했다. 기본은 셋이 연결된 모양이다. */
@@ -101,17 +134,48 @@ interface FakeProvidersOptions {
 
 /** 화면의 줄을 `providers/list`의 provider로 되돌린다. 화면이 읽는 칸만 채운다. */
 function recordOf(row: ProviderRow): ProviderRecord {
+  const credentials = row.credentials.map((cred) => ({
+    id: cred.id,
+    active: cred.active,
+    kind: cred.way,
+    state: cred.state,
+    unavailable_reason: cred.reason,
+    label: cred.label,
+    key_hint: cred.keyHint,
+    account:
+      cred.account === null
+        ? null
+        : {
+            id: null,
+            email: cred.account.email,
+            organization_id: null,
+            organization_name: cred.account.organizationName,
+            project_id: cred.account.projectId,
+          },
+  }));
+  const active = credentials.find((c) => c.active) ?? credentials[0];
   return {
     id: row.id,
     name: row.name,
     endpoint: "https://api.example.com/v1",
     revision: row.revision,
-    definition: { key: row.definition, auth_kinds: [row.way] },
-    credential: {
-      kind: row.way,
-      state: row.state,
-      unavailable_reason: row.reason,
+    definition: {
+      key: row.definition,
+      auth_kinds: [...row.ways],
+      oauth:
+        row.signIn === null
+          ? null
+          : {
+              product:
+                row.definition === "openai"
+                  ? "chatgpt"
+                  : row.definition === "xai"
+                    ? "supergrok"
+                    : "claude",
+            },
     },
+    credential: active,
+    credentials,
   } as never;
 }
 
@@ -175,6 +239,97 @@ export function fakeProviders(options: FakeProvidersOptions = {}) {
       ) {
         add(connection(`pvd_fake_${++created}`, chosen.display_name, key, way));
       }
+      return Promise.resolve(ok(null));
+    },
+    addCredential(providerId, way, progress) {
+      calls.push(["add-credential", providerId, way]);
+      const waits = options.signInWaits;
+      if (way === "oauth" && waits !== undefined && progress !== undefined) {
+        progress.started(waits);
+        return new Promise((resolve) =>
+          progress.signal.addEventListener(
+            "abort",
+            () => resolve({ ok: false, code: "cancelled" }),
+            { once: true },
+          ),
+        );
+      }
+      const failed = fail("connect");
+      if (failed) return Promise.resolve(failed);
+      connected = connected.map((row) => {
+        if (row.id !== providerId) return row;
+        const newId = `crd_fake_${++created}`;
+        const nextCred = {
+          id: newId,
+          way,
+          active: true,
+          state: "available" as const,
+          reason: null,
+          label: null,
+          keyHint: way === "api_key" ? "sk-…9999" : null,
+          account:
+            way === "oauth"
+              ? {
+                  email: `user${created}@example.com`,
+                  organizationName: null,
+                  projectId: null,
+                }
+              : null,
+        };
+        return {
+          ...row,
+          way,
+          credentials: [
+            nextCred,
+            ...row.credentials.map((c) => ({ ...c, active: false })),
+          ],
+          revision: row.revision + 1,
+        };
+      });
+      core.changed("providers", "models");
+      return Promise.resolve(ok(null));
+    },
+    activateCredential(providerId, credentialId) {
+      calls.push(["activate-credential", providerId, credentialId]);
+      connected = connected.map((row) => {
+        if (row.id !== providerId) return row;
+        const target = row.credentials.find((c) => c.id === credentialId);
+        if (target === undefined) return row;
+        return {
+          ...row,
+          way: target.way,
+          state: target.state,
+          reason: target.reason,
+          credentials: row.credentials.map((c) => ({
+            ...c,
+            active: c.id === credentialId,
+          })),
+          revision: row.revision + 1,
+        };
+      });
+      core.changed("providers", "models");
+      return Promise.resolve(ok(null));
+    },
+    removeCredential(providerId, credentialId) {
+      calls.push(["remove-credential", providerId, credentialId]);
+      connected = connected.map((row) => {
+        if (row.id !== providerId || row.credentials.length <= 1) return row;
+        const kept = row.credentials.filter((c) => c.id !== credentialId);
+        const hasActive = kept.some((c) => c.active);
+        const next = hasActive
+          ? kept
+          : kept.map((c, idx) => ({ ...c, active: idx === 0 }));
+        const active = next.find((c) => c.active) ?? next[0]!;
+        return {
+          ...row,
+          way: active.way,
+          state: active.state,
+          reason: active.reason,
+          credentials: next,
+          revision: row.revision + 1,
+        };
+      });
+      core.changed("providers", "models");
       return Promise.resolve(ok(null));
     },
     registerCustom(input) {

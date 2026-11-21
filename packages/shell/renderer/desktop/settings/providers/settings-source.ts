@@ -7,6 +7,7 @@ import type { SignInProgress } from "../sign-in.ts";
 import type {
   AuthWay,
   CredentialReason,
+  CredentialRow,
   CredentialState,
   ProviderRow,
   SourceResult,
@@ -19,6 +20,7 @@ export type { SignInProgress } from "../sign-in.ts";
 export type {
   AuthWay,
   CredentialReason,
+  CredentialRow,
   CredentialState,
   ProviderRow,
   SourceResult,
@@ -77,6 +79,28 @@ export interface ProviderSettingsSource {
     way: Exclude<AuthWay, "none">,
     progress?: SignInProgress,
   ): Promise<WindowOutcome>;
+  /**
+   * 이미 연결된 provider에 credential(OAuth 계정 또는 API key)을 하나 더 추가한다.
+   */
+  addCredential(
+    provider: string,
+    way: Exclude<AuthWay, "none">,
+    progress?: SignInProgress,
+  ): Promise<WindowOutcome>;
+  /**
+   * 등록된 credential 중 하나를 활성(active)으로 전환한다.
+   */
+  activateCredential(
+    provider: string,
+    credential: string,
+  ): Promise<SourceResult<null>>;
+  /**
+   * 등록된 credential 하나를 제거한다. 마지막 하나는 disconnect를 써야 한다.
+   */
+  removeCredential(
+    provider: string,
+    credential: string,
+  ): Promise<SourceResult<null>>;
   /**
    * Custom provider를 연결한다. withKey면 key용 보호 창이 열려 거기서 연결을 끝내고, 아니면 이 컴퓨터의
    * 주소에 인증 없이 바로 연결한다.

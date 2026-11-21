@@ -17,9 +17,14 @@ import type {
 } from "../../../../ipc/confirmation.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
-import { disconnectProvider } from "../../../../../protocol/lophn-agent/providers.ts";
+import {
+  activateProviderCredential,
+  disconnectProvider,
+  removeProviderCredential,
+} from "../../../../../protocol/lophn-agent/providers.ts";
 import {
   oauthFlowOf,
+  type OAuthDefinition,
   type ProviderDefinition,
 } from "../../../../../protocol/lophn-agent/provider-values.ts";
 import type { CoreSource } from "../../connection/connection.ts";
@@ -39,6 +44,7 @@ import { followProviderSignIn } from "../sign-in.ts";
 import type {
   AuthWay,
   CredentialReason,
+  CredentialRow,
   CredentialState,
   CustomProviderInput,
   ProviderDefinitionRow,
@@ -49,6 +55,21 @@ import type {
   WindowOutcome,
 } from "./settings-source.ts";
 
+export interface ProviderCredentialValue {
+  id: string;
+  active: boolean;
+  kind: AuthWay;
+  state: CredentialState;
+  unavailable_reason: CredentialReason | null;
+  label?: string | null;
+  key_hint?: string | null;
+  account?: {
+    email: string | null;
+    organization_name: string | null;
+    project_id: string | null;
+  } | null;
+}
+
 export interface ProviderValue {
   id: string;
   name: string;
@@ -56,13 +77,12 @@ export interface ProviderValue {
   revision: number;
   definition: {
     key: string;
+    display_name?: string;
     auth_kinds: AuthWay[];
+    oauth?: Pick<OAuthDefinition, "product"> | null;
   };
-  credential: {
-    kind: AuthWay;
-    state: CredentialState;
-    unavailable_reason: CredentialReason | null;
-  };
+  credential: ProviderCredentialValue;
+  credentials?: readonly ProviderCredentialValue[];
 }
 
 /** `providers/definitions`가 주는 내장 정의. 연결 창이 그대로 싣기 때문에 원본을 쥔다. */
@@ -81,8 +101,33 @@ const PRODUCTS: Readonly<Record<string, string>> = {
   antigravity: "Google Antigravity",
 };
 
+function credentialRowOf(value: ProviderCredentialValue): CredentialRow {
+  return {
+    id: value.id,
+    way: value.kind,
+    active: value.active,
+    state: value.state,
+    reason: value.unavailable_reason,
+    label: value.label ?? null,
+    keyHint: value.key_hint ?? null,
+    account:
+      value.account == null
+        ? null
+        : {
+            email: value.account.email,
+            organizationName: value.account.organization_name,
+            projectId: value.account.project_id,
+          },
+  };
+}
+
 /** `providers/list`의 provider 하나를 화면의 줄로. */
 export function providerOf(value: ProviderValue): ProviderRow {
+  const oauth = value.definition.oauth ?? null;
+  const list =
+    value.credentials !== undefined && value.credentials.length > 0
+      ? value.credentials
+      : [value.credential];
   return {
     id: value.id,
     name: value.name,
@@ -90,6 +135,18 @@ export function providerOf(value: ProviderValue): ProviderRow {
     way: value.credential.kind,
     state: value.credential.state,
     reason: value.credential.unavailable_reason,
+    ways: waysOf(value.definition.auth_kinds),
+    signIn:
+      oauth === null
+        ? null
+        : {
+            product:
+              PRODUCTS[oauth.product] ??
+              value.definition.display_name ??
+              value.name,
+            deviceCode: oauthFlowOf(oauth.product) === "device_code",
+          },
+    credentials: list.map(credentialRowOf),
     revision: value.revision,
   };
 }
@@ -262,6 +319,64 @@ export function coreProviderSettingsSource(
         subject: found.display_name,
       });
       return entered.ok ? { ok: true, value: null } : entered;
+    },
+
+    async addCredential(provider, way, progress) {
+      if (way === "oauth") {
+        return await followProviderSignIn(
+          progress?.events ?? null,
+          openLink,
+          { provider },
+          progress,
+        );
+      }
+      const read = await call<{ provider: { name: string } }>(
+        core,
+        "read",
+        "providers",
+        "read",
+        { provider },
+      );
+      if (!read.ok) return read;
+      const entered = await enterSecret(openSecret, {
+        provider: { provider },
+        subject: read.value.provider.name,
+      });
+      return entered.ok ? { ok: true, value: null } : entered;
+    },
+
+    async activateCredential(provider, credential) {
+      const read = await call<{ provider: { revision: number } }>(
+        core,
+        "read",
+        "providers",
+        "read",
+        { provider },
+      );
+      if (!read.ok) return read;
+      const sent = await command(core, activateProviderCredential, {
+        input: { provider, credential },
+        key: `provider-activate-${random()}`,
+        compare: { revision: read.value.provider.revision },
+      });
+      return sent.ok ? { ok: true, value: null } : sent;
+    },
+
+    async removeCredential(provider, credential) {
+      const read = await call<{ provider: { revision: number } }>(
+        core,
+        "read",
+        "providers",
+        "read",
+        { provider },
+      );
+      if (!read.ok) return read;
+      const sent = await command(core, removeProviderCredential, {
+        input: { provider, credential },
+        key: `provider-remove-cred-${random()}`,
+        compare: { revision: read.value.provider.revision },
+      });
+      return sent.ok ? { ok: true, value: null } : sent;
     },
 
     async registerCustom(input: CustomProviderInput) {

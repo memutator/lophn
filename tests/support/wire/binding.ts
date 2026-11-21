@@ -43,6 +43,24 @@ export async function wireBinding(
   idle?: IdleDeps,
 ): Promise<ModelBinding> {
   const target = TARGET[protocol];
+  const credential = {
+    id: "crd_00000000000000000000000000" as const,
+    active: true,
+    kind: "none" as const,
+    secret_ref: null,
+    label: null,
+    key_hint: null,
+    revision: 1,
+    state: "available" as const,
+    unavailable_reason: null,
+    until: null,
+    expires_at: null,
+    logged_in_at: null,
+    refreshed_at: null,
+    model_blocks: [],
+    reported_models: null,
+    account: null,
+  };
   const provider: ProviderRecord = {
     id: PROVIDER_ID,
     name: "wire test",
@@ -57,20 +75,8 @@ export async function wireBinding(
     },
     endpoint: "http://127.0.0.1:1",
     protocol,
-    credential: {
-      kind: "none",
-      secret_ref: null,
-      revision: 1,
-      state: "available",
-      unavailable_reason: null,
-      until: null,
-      expires_at: null,
-      logged_in_at: null,
-      refreshed_at: null,
-      model_blocks: [],
-      reported_models: null,
-      account: null,
-    },
+    credential,
+    credentials: [credential],
     revision: 1,
   };
   const entry = snapshotCatalogEntry(target.key, target.model);

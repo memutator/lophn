@@ -1,11 +1,29 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
 
-// provider credential의 `secrets.json` 이름이다. API key와 OAuth access token이 같은 이름 `provider.<id>`를 쓰고
+// provider credential의 `secrets.json` 이름이다. API key와 OAuth access token이 같은 이름 `provider.<crd_id>`를 쓰고
 // (credential의 secret_ref가 이것을 가리키고 목적지 규칙이 이 이름만 provider endpoint로 보낸다), OAuth는 그 옆에
 // refresh token과 meta를 둔다. `.refresh`·`.meta`는 어떤 provider의 secret_name과도 같지 않아 core 밖으로 안 나간다.
-export function providerSecretName(provider: string): string {
-  return `provider.${provider.replace(/^pvd_/, "")}`;
+export function providerSecretName(id: string): string {
+  if (id.startsWith("crd_")) return `provider.${id}`;
+  return `provider.crd_${id.replace(/^pvd_/, "")}`;
+}
+
+// provider의 기본 첫 credential id(`pvd_<ULID>` → `crd_<ULID>`).
+export function defaultCredentialId(providerId: string): string {
+  return `crd_${providerId.replace(/^pvd_/, "")}`;
+}
+
+// API key의 마스킹 힌트를 만든다. 원문은 어디에도 남기지 않고 끝 4자리(와 짧은 접두사)만 남긴다.
+export function maskApiKey(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.length < 8) return "••••";
+  const tail = trimmed.slice(-4);
+  if (trimmed.length >= 10 && /^[A-Za-z]{2,3}-/.test(trimmed)) {
+    const dash = trimmed.indexOf("-");
+    return `${trimmed.slice(0, dash + 1)}…${tail}`;
+  }
+  return `…${tail}`;
 }
 
 // API key를 처음 받는 자리. 연결하는 쪽이 `provider.<id>.new.<무작위>`에 값을 올리고 ConnectProvider에 이 이름을 싣는다.

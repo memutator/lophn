@@ -12,6 +12,7 @@ import { createFileSecretAttach } from "../../secrets/mod.ts";
 import { runtimeServerOfLayer } from "../extensions/mod.ts";
 import { createSecretDestinations } from "../secret-destinations.ts";
 import {
+  providerMultiCredentialsSchemaSteps,
   providerReportedModelLimitsSchemaSteps,
   providerSchemaSteps,
 } from "./schema.ts";
@@ -19,31 +20,46 @@ import { providerSecretDestinations } from "./secret-refs.ts";
 
 const VALUE = "sk-live-MARKER-5c1e";
 
-// 실제 provider 표에 credential 세 개를 둔다. 값은 가짜 file에만 있다.
+// 실제 provider 표에 credential 네 개를 둔다(비활성 credential 포함). 값은 가짜 file에만 있다.
 function setup() {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
   for (const step of providerReportedModelLimitsSchemaSteps) db.exec(step.sql);
+  for (const step of providerMultiCredentialsSchemaSteps) db.exec(step.sql);
   const provider = (id: string, endpoint: string) =>
     db
       .prepare(
         `insert into providers values (?, ?, 'x', '{}', ?, 'openai-chat-completions', 1)`,
       )
       .run(id, id, endpoint);
-  const credential = (id: string, name: string, state: string) =>
+  const credential = (
+    crdId: string,
+    providerId: string,
+    active: number,
+    name: string,
+    state: string,
+  ) =>
     db
       .prepare(
         `insert into provider_credentials
-         (provider, kind, secret_name, revision, state, unavailable_reason)
-       values (?, 'api_key', ?, 1, ?, ?)`,
+         (id, provider, active, kind, secret_name, revision, state, unavailable_reason)
+       values (?, ?, ?, 'api_key', ?, 1, ?, ?)`,
       )
-      .run(id, name, state, state === "available" ? null : "authentication");
+      .run(
+        crdId,
+        providerId,
+        active,
+        name,
+        state,
+        state === "available" ? null : "authentication",
+      );
   provider("p1", "https://api.example.com/v1");
-  credential("p1", "provider.p1", "available");
+  credential("c1", "p1", 1, "provider.p1", "available");
+  credential("c1_off", "p1", 0, "provider.p1_inactive", "available");
   provider("p2", "https://revoked.example.com");
-  credential("p2", "provider.p2", "revoked");
+  credential("c2", "p2", 1, "provider.p2", "revoked");
   provider("p3", "http://api.lan.example.com");
-  credential("p3", "provider.p3", "available");
+  credential("c3", "p3", 1, "provider.p3", "available");
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,
@@ -98,12 +114,13 @@ test("attach는 허락한 provider endpoint origin이 아닌 목적지에 값을
     return { result, reads, sent };
   };
 
-  // (a) endpoint와 다른 origin, (b) 모르는 이름, (c) revoked, (d) loopback이 아닌 http
+  // (a) endpoint와 다른 origin, (b) 모르는 이름, (c) revoked, (d) loopback이 아닌 http, (e) 비활성 credential
   const denied = [
     ["a", "provider.p1", "https://evil.example.com"],
     ["b", "provider.nope", "https://api.example.com"],
     ["c", "provider.p2", "https://revoked.example.com"],
     ["d", "provider.p3", "http://api.lan.example.com"],
+    ["e", "provider.p1_inactive", "https://api.example.com"],
   ] as const;
   for (const [label, name, origin] of denied) {
     const destination =

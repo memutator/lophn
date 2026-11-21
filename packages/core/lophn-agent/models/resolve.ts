@@ -393,6 +393,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
         if (!again.ok) return false;
         const current = again.value.provider.credential;
         return (
+          current.id === credential.id &&
           current.kind === credential.kind &&
           current.secret_ref?.name === credential.secret_ref?.name &&
           current.logged_in_at === credential.logged_in_at

@@ -21,9 +21,25 @@ export type CredentialReason =
   | "plan_access"
   | "refresh_revoked";
 
+/** provider에 등록된 credential 하나. secret 원문이나 참조는 싣지 않는다. */
+export interface CredentialRow {
+  readonly id: string;
+  readonly way: AuthWay;
+  readonly active: boolean;
+  readonly state: CredentialState;
+  readonly reason: CredentialReason | null;
+  readonly label: string | null;
+  readonly keyHint: string | null;
+  readonly account: {
+    readonly email: string | null;
+    readonly organizationName: string | null;
+    readonly projectId: string | null;
+  } | null;
+}
+
 /**
- * 연결된 provider 하나. provider에는 연결(credential)이 하나라 계정 목록이나 순서는 없다.
- * 행은 이름·로그인 방법·불가 상태만 말하고 secret 참조는 싣지 않는다.
+ * 연결된 provider 하나. 여러 credential(다계정 OAuth + 다중 API key)을 가질 수 있고 그중 1개가 active다.
+ * 행은 이름·활성 credential 요약·전체 credential 목록만 말하고 secret 참조는 싣지 않는다.
  */
 export interface ProviderRow {
   /** provider id. */
@@ -31,10 +47,19 @@ export interface ProviderRow {
   readonly name: string;
   /** 정의 key. */
   readonly definition: string;
-  /** 이 연결의 로그인 방법. */
+  /** 현재 활성 credential의 로그인 방법. */
   readonly way: AuthWay;
   readonly state: CredentialState;
   readonly reason: CredentialReason | null;
+  /** 이 provider 정의가 지원하는 인증 방식. */
+  readonly ways: readonly AuthWay[];
+  /** 구독 로그인이 있는 정의만 제품명과 deviceCode 여부. */
+  readonly signIn: {
+    readonly product: string;
+    readonly deviceCode: boolean;
+  } | null;
+  /** 이 provider에 등록된 모든 credential(활성 먼저). */
+  readonly credentials: readonly CredentialRow[];
   /** 보호 입력이 비교하는 기준. 화면은 보내지 않는다. */
   readonly revision: number;
 }

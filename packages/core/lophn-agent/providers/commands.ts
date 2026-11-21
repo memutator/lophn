@@ -1,14 +1,18 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  activateProviderCredential,
+  addProviderCredential,
   connectProvider,
   disconnectProvider,
   loginCancel,
+  type ProviderAccount,
   type ProviderCredential,
   type ProviderRecord,
   recordProviderAvailability,
   recordProviderModels,
   refreshProviderCredential,
   refreshProviderModels,
+  removeProviderCredential,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -21,24 +25,24 @@ import {
   assertCredential,
   assertDefinition,
   assertRecord,
+  endpointForCredential,
   nextCredentialState,
   providerFromRow,
 } from "./model.ts";
-import { providerSecretName } from "./oauth-secrets.ts";
+import { defaultCredentialId, providerSecretName } from "./oauth-secrets.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
-// provider에는 credential이 하나다. 계정 목록·순서·끄기는 없고, 바꾸거나 다시 로그인하려면
-// Disconnect 뒤 Connect한다.
+// provider 아래에 여러 credential(다계정 OAuth + 다중 API key)을 두고 그중 활성(active) 1개를 쓴다.
 
-function notFound(): Result<never> {
-  return err({ code: "not_found", message: "provider not found" });
+function notFound(message = "provider not found"): Result<never> {
+  return err({ code: "not_found", message });
 }
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
 }
 
-// Connect와 Disconnect는 사람만 결정한다.
+// Connect, Disconnect와 credential 추가·전환·삭제는 사람만 결정한다.
 function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user"
     ? ok(undefined)
@@ -70,7 +74,30 @@ function checkRevision(
   return ok(undefined);
 }
 
-// secret 이름은 provider별 하나다. credential이 아니라 provider를 가리킨다.
+function findTargetCredential(
+  provider: ProviderRecord,
+  credentialId: string | undefined,
+): Result<ProviderCredential> {
+  if (credentialId === undefined) return ok(provider.credential);
+  const found = provider.credentials.find((item) => item.id === credentialId);
+  return found === undefined ? notFound("credential not found") : ok(found);
+}
+
+// 같은 provider 안에서 같은 OAuth 계정인지 판정한다. id가 있으면 id로, 없으면 email(대소문자 무시)로 비교한다.
+function sameOAuthAccount(
+  existing: ProviderAccount | null,
+  incoming: ProviderAccount | null,
+): boolean {
+  if (existing === null || incoming === null) return false;
+  if (existing.id !== null && incoming.id !== null) {
+    return existing.id === incoming.id;
+  }
+  if (existing.email !== null && incoming.email !== null) {
+    return existing.email.toLowerCase() === incoming.email.toLowerCase();
+  }
+  return false;
+}
+
 function insertCredential(
   tx: Tx,
   providerId: string,
@@ -78,13 +105,17 @@ function insertCredential(
 ): void {
   tx.sql.run(
     `insert into provider_credentials
-      (provider, kind, secret_name, revision,
+      (id, provider, active, kind, secret_name, label, key_hint, revision,
        state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at, account)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      value.id,
       providerId,
+      value.active ? 1 : 0,
       value.kind,
       value.secret_ref?.name ?? null,
+      value.label,
+      value.key_hint,
       value.revision,
       value.state,
       value.unavailable_reason,
@@ -97,20 +128,19 @@ function insertCredential(
   );
 }
 
-// identity(provider·kind)는 SET에 넣지 않는다. trigger가 같은 값도 막는다.
-function updateCredential(
-  tx: Tx,
-  providerId: string,
-  value: ProviderCredential,
-): void {
+// identity(id·provider·kind)는 SET에 넣지 않는다. trigger가 같은 값도 막는다.
+function updateCredential(tx: Tx, value: ProviderCredential): void {
   tx.sql.run(
     `update provider_credentials set
-       secret_name = ?, revision = ?,
+       active = ?, secret_name = ?, label = ?, key_hint = ?, revision = ?,
        state = ?, unavailable_reason = ?, until = ?, expires_at = ?,
-       logged_in_at = ?, refreshed_at = ?
-     where provider = ?`,
+       logged_in_at = ?, refreshed_at = ?, account = ?
+     where id = ?`,
     [
+      value.active ? 1 : 0,
       value.secret_ref?.name ?? null,
+      value.label,
+      value.key_hint,
       value.revision,
       value.state,
       value.unavailable_reason,
@@ -118,7 +148,8 @@ function updateCredential(
       value.expires_at,
       value.logged_in_at,
       value.refreshed_at,
-      providerId,
+      value.account === null ? null : JSON.stringify(value.account),
+      value.id,
     ],
   );
 }
@@ -126,24 +157,27 @@ function updateCredential(
 // model block은 바꿀 때 통째로 교체한다.
 function replaceModelBlocks(
   tx: Tx,
-  providerId: string,
+  credentialId: string,
   blocks: ProviderCredential["model_blocks"],
 ): void {
   tx.sql.run(
-    "delete from provider_credential_model_blocks where provider = ?",
-    [providerId],
+    "delete from provider_credential_model_blocks where credential = ?",
+    [credentialId],
   );
   for (const block of blocks) {
     tx.sql.run(
       `insert into provider_credential_model_blocks
-        (provider, model_name, reason, until) values (?, ?, ?, ?)`,
-      [providerId, block.model_name, block.reason, block.until],
+        (credential, model_name, reason, until) values (?, ?, ?, ?)`,
+      [credentialId, block.model_name, block.reason, block.until],
     );
   }
 }
 
 export function createProviderCommands(): {
   connect: CommandDefinition<typeof connectProvider>;
+  addCredential: CommandDefinition<typeof addProviderCredential>;
+  activateCredential: CommandDefinition<typeof activateProviderCredential>;
+  removeCredential: CommandDefinition<typeof removeProviderCredential>;
   disconnect: CommandDefinition<typeof disconnectProvider>;
   refreshCredential: CommandDefinition<typeof refreshProviderCredential>;
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
@@ -172,7 +206,7 @@ export function createProviderCommands(): {
         });
       },
     },
-    // Connect: provider와 그 credential 하나를 함께 둔다. secret 값은 이미 secrets.json에 있고 이름만 받는다.
+    // Connect: provider와 첫 credential 하나를 함께 둔다. secret 값은 이미 secrets.json에 있고 이름만 받는다.
     connect: {
       route: connectProvider,
       handle(tx, ctx, input) {
@@ -186,29 +220,35 @@ export function createProviderCommands(): {
         if (existing !== undefined) {
           return conflict("provider id already exists");
         }
+        const credentialId =
+          input.credential_id ?? defaultCredentialId(input.id);
         // provider가 앱·MCP의 다른 secret 이름을 가리켜 그 값이 endpoint로 가는 일을 막는다.
         if (
           input.credential !== null &&
-          input.credential.secret !== providerSecretName(input.id)
+          input.credential.secret !== providerSecretName(credentialId)
         ) {
           return err({
             code: "invalid_input",
-            message: "secret name must be provider.<id>",
+            message: "secret name must be provider.<credential_id>",
           });
         }
         const credential = assertCredential({
+          id: credentialId as ProviderCredential["id"],
+          active: true,
           kind: input.auth_kind,
           secret_ref:
             input.credential === null
               ? null
               : { name: input.credential.secret },
+          label: input.label ?? null,
+          key_hint: input.key_hint ?? null,
           revision: 1,
           state: "available",
           unavailable_reason: null,
           until: null,
           // OAuth access token의 만료다. API key는 없다.
           expires_at: input.expires_at ?? null,
-          // 이 연결의 identity다. Disconnect 뒤 다시 Connect한 것과 구분한다.
+          // 이 연결의 identity다.
           logged_in_at: tx.now(),
           refreshed_at: null,
           model_blocks: [],
@@ -223,6 +263,7 @@ export function createProviderCommands(): {
           endpoint: input.endpoint,
           protocol: input.protocol,
           credential: credential.value,
+          credentials: [credential.value],
           revision: 1,
         });
         if (!record.ok) return record;
@@ -244,8 +285,245 @@ export function createProviderCommands(): {
         return ok({ provider: record.value });
       },
     },
-    // Disconnect: 확인 창을 거쳐 provider와 credential(secret 참조)을 함께 지운다. 확인 창의 증거는
-    // route의 confirmation 선언을 executor가 검사한다.
+    // AddCredential: 이미 연결된 provider에 새 credential을 추가한다. 같은 OAuth 계정이면 중복 대신 갱신한다.
+    addCredential: {
+      route: addProviderCredential,
+      handle(tx, ctx, input, compare) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        const current = requireProvider(tx, input.provider);
+        if (!current.ok) return current;
+        const same = checkRevision(current.value, compare);
+        if (!same.ok) return same;
+        if (!current.value.definition.auth_kinds.includes(input.auth_kind)) {
+          return err({
+            code: "invalid_input",
+            message: "auth_kind is not supported by this provider definition",
+          });
+        }
+        const remote = current.value.endpoint.startsWith("https://");
+        if (remote && input.auth_kind === "none") {
+          return err({
+            code: "invalid_input",
+            message: "remote provider requires a credential",
+          });
+        }
+        const activate = input.activate !== false;
+        const incomingAccount = input.account ?? null;
+        const matched =
+          input.auth_kind === "oauth"
+            ? current.value.credentials.find(
+                (item) =>
+                  item.kind === "oauth" &&
+                  sameOAuthAccount(item.account, incomingAccount),
+              )
+            : undefined;
+        let targetId: string;
+        let activeKind = current.value.credential.kind;
+        if (matched !== undefined) {
+          targetId = matched.id;
+          if (
+            input.credential !== null &&
+            input.credential.secret !== providerSecretName(matched.id) &&
+            input.credential.secret !== providerSecretName(input.credential_id)
+          ) {
+            return err({
+              code: "invalid_input",
+              message: "secret name must be provider.<credential_id>",
+            });
+          }
+          const nextActive = activate ? true : matched.active;
+          const updated = assertCredential({
+            ...matched,
+            active: nextActive,
+            secret_ref: { name: providerSecretName(matched.id) },
+            label: input.label !== undefined ? input.label : matched.label,
+            revision: matched.revision + 1,
+            state: "available",
+            unavailable_reason: null,
+            until: null,
+            expires_at: input.expires_at ?? null,
+            logged_in_at: tx.now(),
+            refreshed_at: null,
+            account: incomingAccount,
+          });
+          if (!updated.ok) return updated;
+          if (activate && !matched.active) {
+            tx.sql.run(
+              "update provider_credentials set active = 0 where provider = ? and active = 1",
+              [input.provider],
+            );
+          }
+          updateCredential(tx, updated.value);
+          if (nextActive) activeKind = updated.value.kind;
+        } else {
+          targetId = input.credential_id;
+          if (
+            current.value.credentials.some(
+              (item) => item.id === input.credential_id,
+            )
+          ) {
+            return conflict("credential id already exists");
+          }
+          if (
+            input.credential !== null &&
+            input.credential.secret !== providerSecretName(input.credential_id)
+          ) {
+            return err({
+              code: "invalid_input",
+              message: "secret name must be provider.<credential_id>",
+            });
+          }
+          const created = assertCredential({
+            id: input.credential_id as ProviderCredential["id"],
+            active: activate,
+            kind: input.auth_kind,
+            secret_ref:
+              input.credential === null
+                ? null
+                : { name: input.credential.secret },
+            label: input.label ?? null,
+            key_hint: input.key_hint ?? null,
+            revision: 1,
+            state: "available",
+            unavailable_reason: null,
+            until: null,
+            expires_at: input.expires_at ?? null,
+            logged_in_at: tx.now(),
+            refreshed_at: null,
+            model_blocks: [],
+            reported_models: null,
+            account: incomingAccount,
+          });
+          if (!created.ok) return created;
+          if (activate) {
+            tx.sql.run(
+              "update provider_credentials set active = 0 where provider = ? and active = 1",
+              [input.provider],
+            );
+          }
+          insertCredential(tx, input.provider, created.value);
+          if (activate) activeKind = created.value.kind;
+        }
+        const nextEndpoint = endpointForCredential(
+          current.value.definition,
+          current.value.endpoint,
+          activeKind,
+        );
+        const revision = compare.revision + 1;
+        tx.sql.run(
+          "update providers set endpoint = ?, revision = ? where id = ? and revision = ?",
+          [nextEndpoint, revision, input.provider, compare.revision],
+        );
+        const reloaded = requireProvider(tx, input.provider);
+        if (!reloaded.ok) return reloaded;
+        return ok({
+          provider: reloaded.value,
+          credential_id: targetId as ProviderCredential["id"],
+        });
+      },
+    },
+    // ActivateCredential: 등록된 credential 중 하나를 활성(active)으로 전환한다.
+    activateCredential: {
+      route: activateProviderCredential,
+      handle(tx, ctx, input, compare) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        const current = requireProvider(tx, input.provider);
+        if (!current.ok) return current;
+        const same = checkRevision(current.value, compare);
+        if (!same.ok) return same;
+        const target = current.value.credentials.find(
+          (item) => item.id === input.credential,
+        );
+        if (target === undefined) return notFound("credential not found");
+        if (target.active) {
+          return ok({ provider: current.value });
+        }
+        tx.sql.run(
+          "update provider_credentials set active = 0 where provider = ? and active = 1",
+          [input.provider],
+        );
+        tx.sql.run("update provider_credentials set active = 1 where id = ?", [
+          target.id,
+        ]);
+        const nextEndpoint = endpointForCredential(
+          current.value.definition,
+          current.value.endpoint,
+          target.kind,
+        );
+        const revision = compare.revision + 1;
+        tx.sql.run(
+          "update providers set endpoint = ?, revision = ? where id = ? and revision = ?",
+          [nextEndpoint, revision, input.provider, compare.revision],
+        );
+        const reloaded = requireProvider(tx, input.provider);
+        if (!reloaded.ok) return reloaded;
+        return ok({ provider: reloaded.value });
+      },
+    },
+    // RemoveCredential: credential 하나를 지운다. 마지막 하나는 DisconnectProvider로 끊어야 한다.
+    removeCredential: {
+      route: removeProviderCredential,
+      handle(tx, ctx, input, compare) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        const current = requireProvider(tx, input.provider);
+        if (!current.ok) return current;
+        const same = checkRevision(current.value, compare);
+        if (!same.ok) return same;
+        const target = current.value.credentials.find(
+          (item) => item.id === input.credential,
+        );
+        if (target === undefined) return notFound("credential not found");
+        if (current.value.credentials.length <= 1) {
+          return conflict(
+            "cannot remove the last credential; disconnect the provider instead",
+          );
+        }
+        tx.sql.run(
+          "delete from provider_credential_model_blocks where credential = ?",
+          [target.id],
+        );
+        tx.sql.run("delete from provider_credentials where id = ?", [
+          target.id,
+        ]);
+        let activeKind = current.value.credential.kind;
+        if (target.active) {
+          const remaining = current.value.credentials
+            .filter((item) => item.id !== target.id)
+            .sort((a, b) => {
+              const ta = a.logged_in_at ?? "";
+              const tb = b.logged_in_at ?? "";
+              if (ta !== tb) return tb.localeCompare(ta);
+              return b.id.localeCompare(a.id);
+            });
+          const successor = remaining[0]!;
+          tx.sql.run(
+            "update provider_credentials set active = 1 where id = ?",
+            [successor.id],
+          );
+          activeKind = successor.kind;
+        }
+        const nextEndpoint = endpointForCredential(
+          current.value.definition,
+          current.value.endpoint,
+          activeKind,
+        );
+        const revision = compare.revision + 1;
+        tx.sql.run(
+          "update providers set endpoint = ?, revision = ? where id = ? and revision = ?",
+          [nextEndpoint, revision, input.provider, compare.revision],
+        );
+        const reloaded = requireProvider(tx, input.provider);
+        if (!reloaded.ok) return reloaded;
+        return ok({
+          provider: reloaded.value,
+          removed_credential: target.id,
+        });
+      },
+    },
+    // Disconnect: 확인 창을 거쳐 provider와 모든 credential(secret 참조)을 함께 지운다.
     disconnect: {
       route: disconnectProvider,
       handle(tx, ctx, input, compare) {
@@ -256,7 +534,8 @@ export function createProviderCommands(): {
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
         tx.sql.run(
-          "delete from provider_credential_model_blocks where provider = ?",
+          `delete from provider_credential_model_blocks
+            where credential in (select id from provider_credentials where provider = ?)`,
           [input.provider],
         );
         tx.sql.run("delete from provider_credentials where provider = ?", [
@@ -278,7 +557,9 @@ export function createProviderCommands(): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        const existing = current.value.credential;
+        const target = findTargetCredential(current.value, input.credential);
+        if (!target.ok) return target;
+        const existing = target.value;
         let next: ProviderCredential;
         if (input.expires_at !== null) {
           next = {
@@ -309,18 +590,14 @@ export function createProviderCommands(): {
         const checked = assertCredential(next);
         if (!checked.ok) return checked;
         const revision = compare.revision + 1;
-        updateCredential(tx, input.provider, checked.value);
+        updateCredential(tx, checked.value);
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
           [revision, input.provider, compare.revision],
         );
-        return ok({
-          provider: {
-            ...current.value,
-            revision,
-            credential: checked.value,
-          },
-        });
+        const reloaded = requireProvider(tx, input.provider);
+        if (!reloaded.ok) return reloaded;
+        return ok({ provider: reloaded.value });
       },
     },
     // provider가 알려 준 model 목록만 바꾼다. credential.revision은 올리지 않는다: 그 판은 model 호출 기록이 가리키는 데
@@ -332,6 +609,8 @@ export function createProviderCommands(): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
+        const target = findTargetCredential(current.value, input.credential);
+        if (!target.ok) return target;
         const models = [...new Set(input.models)].sort();
         // 한도는 이름 순으로 저장해 같은 읽기가 같은 JSON이 되게 한다. 없으면 앞서 저장한 한도를 지운다.
         const limitEntries = Object.entries(input.model_limits ?? {});
@@ -340,7 +619,7 @@ export function createProviderCommands(): {
         );
         const limits = Object.fromEntries(limitEntries);
         const credential = {
-          ...current.value.credential,
+          ...target.value,
           reported_models: models,
         };
         delete credential.reported_model_limits;
@@ -351,24 +630,20 @@ export function createProviderCommands(): {
         if (!checked.ok) return checked;
         const revision = compare.revision + 1;
         tx.sql.run(
-          "update provider_credentials set reported_models = ?, reported_model_limits = ? where provider = ?",
+          "update provider_credentials set reported_models = ?, reported_model_limits = ? where id = ?",
           [
             JSON.stringify(models),
             limitEntries.length === 0 ? null : JSON.stringify(limits),
-            input.provider,
+            target.value.id,
           ],
         );
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
           [revision, input.provider, compare.revision],
         );
-        return ok({
-          provider: {
-            ...current.value,
-            revision,
-            credential: checked.value,
-          },
-        });
+        const reloaded = requireProvider(tx, input.provider);
+        if (!reloaded.ok) return reloaded;
+        return ok({ provider: reloaded.value });
       },
     },
     recordAvailability: {
@@ -383,7 +658,9 @@ export function createProviderCommands(): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        const existing = current.value.credential;
+        const target = findTargetCredential(current.value, input.credential);
+        if (!target.ok) return target;
+        const existing = target.value;
         const state = nextCredentialState(existing.state, input.state);
         if (!state.ok) return state;
         // model 전용 제한은 그 model 하나의 block만 바꾸고 다른 model의 상태는 건드리지 않는다.
@@ -406,21 +683,17 @@ export function createProviderCommands(): {
         });
         if (!checked.ok) return checked;
         const revision = compare.revision + 1;
-        updateCredential(tx, input.provider, checked.value);
+        updateCredential(tx, checked.value);
         if (input.model_block !== null) {
-          replaceModelBlocks(tx, input.provider, checked.value.model_blocks);
+          replaceModelBlocks(tx, existing.id, checked.value.model_blocks);
         }
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
           [revision, input.provider, compare.revision],
         );
-        return ok({
-          provider: {
-            ...current.value,
-            revision,
-            credential: checked.value,
-          },
-        });
+        const reloaded = requireProvider(tx, input.provider);
+        if (!reloaded.ok) return reloaded;
+        return ok({ provider: reloaded.value });
       },
     },
   };

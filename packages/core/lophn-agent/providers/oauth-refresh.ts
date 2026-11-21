@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   CATALOG_REFRESH_INTERVAL_MS,
   type OAuthDefinition,
+  type ProviderCredential,
   type ProviderRecord,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -85,17 +86,20 @@ export type RefreshRecord =
 
 export function createProviderRefresher(deps: {
   readProvider(provider: string): Promise<Result<ProviderRecord | null>>;
+  listProviders?: () => Promise<Result<readonly ProviderRecord[]>>;
   secrets: Pick<SecretStorePort, "get" | "put" | "delete">;
   http: IssuerFetch;
   // RefreshProviderCredential을 그 provider의 revision으로 부른다.
   record(
     provider: ProviderRecord,
     result: RefreshRecord,
+    credentialId?: string,
   ): Promise<Result<unknown>>;
   // RecordProviderModels를 그 provider의 revision으로 부른다.
   recordModels(
     provider: ProviderRecord,
     roster: ReportedModelRoster,
+    credentialId?: string,
   ): Promise<Result<unknown>>;
   nowMs(): number;
   leadMs: number;
@@ -116,56 +120,67 @@ export function createProviderRefresher(deps: {
     string,
     { token: string; loggedInAt: string | null }
   >();
-  // provider마다 마지막으로 읽기를 시작한 때다. 기동하면 비어 있어 처음 쓸 때 한 번 읽는다.
+  // credential마다 마지막으로 읽기를 시작한 때다. 기동하면 비어 있어 처음 쓸 때 한 번 읽는다.
   const readAt = new Map<string, number>();
 
-  function readModelsWhenStale(provider: ProviderRecord): void {
-    const at = readAt.get(provider.id);
+  function readModelsWhenStale(
+    provider: ProviderRecord,
+    credential: ProviderCredential,
+  ): void {
+    const at = readAt.get(credential.id);
     // 읽기가 실패해도 주기를 기다린다. 목록을 못 읽는 provider에서 model 호출마다 다시 읽지 않는다.
     if (at === undefined || deps.nowMs() - at >= CATALOG_REFRESH_INTERVAL_MS) {
-      readModelsLater(provider);
+      readModelsLater(provider, credential);
     }
   }
 
-  // provider마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
-  function readModelsLater(provider: ProviderRecord): void {
+  // credential마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
+  function readModelsLater(
+    provider: ProviderRecord,
+    credential: ProviderCredential,
+  ): void {
     const source = {
       ...provider,
-      kind: provider.credential.kind,
-      account: provider.credential.account,
+      kind: credential.kind,
+      account: credential.account,
     };
-    if (!readsModels(source) || reads.has(provider.id)) return;
-    readAt.set(provider.id, deps.nowMs());
+    if (!readsModels(source) || reads.has(credential.id)) return;
+    readAt.set(credential.id, deps.nowMs());
     const read = (async () => {
-      const access = deps.secrets.get(providerTokenNames(provider.id).access);
+      const secretName =
+        credential.secret_ref?.name ?? providerTokenNames(credential.id).access;
+      const access = deps.secrets.get(secretName);
       if (!access.ok) return;
       const roster = await readProviderModels(deps.http, source, access.value);
       if (roster === null) return;
       const latest = await deps.readProvider(provider.id);
       if (!latest.ok || latest.value === null) return;
-      await deps.recordModels(latest.value, roster);
+      await deps.recordModels(latest.value, roster, credential.id);
     })()
       .catch(() => {})
-      .finally(() => reads.delete(provider.id));
-    reads.set(provider.id, read);
+      .finally(() => reads.delete(credential.id));
+    reads.set(credential.id, read);
   }
 
-  async function refresh(provider: ProviderRecord): Promise<Result<void>> {
+  async function refresh(
+    provider: ProviderRecord,
+    credential: ProviderCredential,
+  ): Promise<Result<void>> {
     const oauth = provider.definition.oauth;
-    const stored = loadProviderTokens(deps.secrets, provider.id);
+    const stored = loadProviderTokens(deps.secrets, credential.id);
     if (oauth === null || !stored.ok) {
       return err({ code: "unavailable", message: "저장된 token이 없다" });
     }
-    const names = providerTokenNames(provider.id);
+    const names = providerTokenNames(credential.id);
     let refreshToken = stored.value.refresh;
-    const kept = unsaved.get(provider.id);
+    const kept = unsaved.get(credential.id);
     if (kept !== undefined) {
-      if (kept.loggedInAt !== provider.credential.logged_in_at) {
-        unsaved.delete(provider.id);
+      if (kept.loggedInAt !== credential.logged_in_at) {
+        unsaved.delete(credential.id);
       } else {
         refreshToken = kept.token;
         if ((await putAgain(names.refresh, kept.token)).ok) {
-          unsaved.delete(provider.id);
+          unsaved.delete(credential.id);
         }
       }
     }
@@ -173,7 +188,7 @@ export function createProviderRefresher(deps: {
     // Antigravity token은 계정 project와 함께여야 쓸 수 있다. project 없는 기록은 다시 로그인해야 한다.
     if (
       oauth.product === "antigravity" &&
-      provider.credential.account?.project_id == null
+      credential.account?.project_id == null
     ) {
       return err({
         code: "unavailable",
@@ -181,7 +196,7 @@ export function createProviderRefresher(deps: {
       });
     }
     const still = (): Result<void> => {
-      const expires = Date.parse(provider.credential.expires_at ?? "");
+      const expires = Date.parse(credential.expires_at ?? "");
       return Number.isFinite(expires) && expires > deps.nowMs()
         ? ok(undefined)
         : err({ code: "unavailable", message: "token을 갱신하지 못했다" });
@@ -195,18 +210,22 @@ export function createProviderRefresher(deps: {
     } catch {
       return still();
     }
-    // 기다리는 동안 Disconnect하거나 다시 로그인했으면 늦은 답으로 지금 연결을 덮거나 지운 token을 되살리지 않는다.
+    // 기다리는 동안 Disconnect·삭제하거나 다시 로그인했으면 늦은 답으로 지금 연결을 덮거나 지운 token을 되살리지 않는다.
     const latest = await deps.readProvider(provider.id);
+    const latestCred = latest.ok
+      ? latest.value?.credentials.find((item) => item.id === credential.id)
+      : undefined;
     if (
       !latest.ok ||
       latest.value === null ||
-      latest.value.credential.logged_in_at !== provider.credential.logged_in_at
+      latestCred === undefined ||
+      latestCred.logged_in_at !== credential.logged_in_at
     ) {
       return err({ code: "unavailable", message: "연결이 바뀌었다" });
     }
     if (GRANT_REFUSED.includes(text(body["error"]) ?? "")) {
-      unsaved.delete(provider.id);
-      const revoked = await recordWithRetry(provider, {
+      unsaved.delete(credential.id);
+      const revoked = await recordWithRetry(latest.value, credential.id, {
         unavailable_reason: "refresh_revoked",
       });
       if (!revoked.ok) return revoked;
@@ -223,18 +242,18 @@ export function createProviderRefresher(deps: {
     if (rotated !== null) {
       const put = await putAgain(names.refresh, rotated);
       if (!put.ok) {
-        unsaved.set(provider.id, {
+        unsaved.set(credential.id, {
           token: rotated,
-          loggedInAt: provider.credential.logged_in_at,
+          loggedInAt: credential.logged_in_at,
         });
         return put;
       }
-      unsaved.delete(provider.id);
+      unsaved.delete(credential.id);
     }
     const put = await putAgain(names.access, access);
     if (!put.ok) return put;
     const seconds = positive(body["expires_in"]) ?? ACCESS_DEFAULT_S;
-    return await recordWithRetry(provider, {
+    return await recordWithRetry(latest.value, credential.id, {
       expires_at: new Date(deps.nowMs() + seconds * 1000).toISOString(),
     });
   }
@@ -250,9 +269,10 @@ export function createProviderRefresher(deps: {
   // 읽은 뒤 provider revision이 바뀌었으면(다른 갱신, 상태 기록) 다시 읽어 한 번 더 기록한다.
   async function recordWithRetry(
     provider: ProviderRecord,
+    credentialId: string,
     result: RefreshRecord,
   ): Promise<Result<void>> {
-    const first = await deps.record(provider, result);
+    const first = await deps.record(provider, result, credentialId);
     if (first.ok) return ok(undefined);
     if (first.error.code !== "conflict") return first;
     const again = await deps.readProvider(provider.id);
@@ -262,8 +282,37 @@ export function createProviderRefresher(deps: {
         message: "provider를 다시 읽지 못했다",
       });
     }
-    const second = await deps.record(again.value, result);
+    const second = await deps.record(again.value, result, credentialId);
     return second.ok ? ok(undefined) : second;
+  }
+
+  async function findBySecret(
+    secretName: string,
+    suffix: string,
+  ): Promise<
+    Result<{ provider: ProviderRecord; credential: ProviderCredential } | null>
+  > {
+    if (deps.listProviders !== undefined) {
+      const listed = await deps.listProviders();
+      if (!listed.ok) return listed;
+      for (const provider of listed.value) {
+        const match = provider.credentials.find(
+          (item) => item.secret_ref?.name === secretName,
+        );
+        if (match !== undefined) {
+          return ok({ provider, credential: match });
+        }
+      }
+      return ok(null);
+    }
+    const read = await deps.readProvider(`pvd_${suffix.replace(/^crd_/, "")}`);
+    if (!read.ok) return read;
+    if (read.value === null) return ok(null);
+    const match =
+      read.value.credentials.find(
+        (item) => item.secret_ref?.name === secretName,
+      ) ?? read.value.credential;
+    return ok({ provider: read.value, credential: match });
   }
 
   return {
@@ -273,36 +322,33 @@ export function createProviderRefresher(deps: {
     async prepareToken(use, options) {
       const name = ACCESS_NAME.exec(use.name);
       if (name === null) return undefined;
-      const read = await deps.readProvider(`pvd_${name[1]}`);
-      if (!read.ok) return read;
-      const provider = read.value;
-      if (provider === null) return undefined;
-      if (provider.credential.kind === "api_key") {
-        readModelsWhenStale(provider);
+      const found = await findBySecret(use.name, name[1]!);
+      if (!found.ok) return found;
+      if (found.value === null) return undefined;
+      const { provider, credential } = found.value;
+      if (credential.kind === "api_key") {
+        readModelsWhenStale(provider, credential);
         return undefined;
       }
-      if (
-        provider.credential.kind !== "oauth" ||
-        provider.credential.state === "revoked"
-      )
+      if (credential.kind !== "oauth" || credential.state === "revoked")
         return undefined;
-      const expires = Date.parse(provider.credential.expires_at ?? "");
+      const expires = Date.parse(credential.expires_at ?? "");
       if (
         options?.force !== true &&
         Number.isFinite(expires) &&
         expires - deps.nowMs() > deps.leadMs
       ) {
-        readModelsWhenStale(provider);
+        readModelsWhenStale(provider, credential);
         return undefined;
       }
-      const running = flights.get(provider.id);
+      const running = flights.get(credential.id);
       if (running !== undefined) return await running;
-      const flight = refresh(provider).finally(() =>
-        flights.delete(provider.id),
+      const flight = refresh(provider, credential).finally(() =>
+        flights.delete(credential.id),
       );
-      flights.set(provider.id, flight);
+      flights.set(credential.id, flight);
       const refreshed = await flight;
-      if (refreshed.ok) readModelsLater(provider);
+      if (refreshed.ok) readModelsLater(provider, credential);
       return refreshed;
     },
   };

@@ -16,13 +16,14 @@ import {
   useFollowedRead,
 } from "../../connection/core-read.ts";
 import { useScopeMachineItem } from "../../machines/context.tsx";
-import { wayLabel } from "../model.ts";
+import { wayLabel, waysOf } from "../model.ts";
 import { AvailableList, useAvailable } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
 import { type ListedModels, useAfterConnect } from "./connect-host.tsx";
 import { providerOf } from "./core-source.ts";
 import { ProviderName } from "./provider-name.tsx";
 import type {
+  CredentialRow,
   ProviderDefinitionRow,
   ProviderRow,
   ProviderSettingsSource,
@@ -33,11 +34,10 @@ interface ProviderListProps {
   source: ProviderSettingsSource;
 }
 
-// Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값 칸이 없다. 위는 연결된 provider
-// (vendor 아이콘과 이름, 로그인 방법 badge, [Disconnect]; 사용량 대기나 사용 불가일 때만 그 상태와 다음 행동 한 줄)이고
-// 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는 연결 하나다. [+ Connect]는 Connect dialog를
-// 연다(connect-dialog.tsx). [Disconnect]는 화면 안 Dialog로 한 번 묻는다. custom provider를 붙이면 model 목록을 읽은 결과
-// ("N개 찾음" 또는 "목록 없음")가 그 줄 아래에 남고 [Manage models]나 [Add model]이 그 창을 연다.
+// Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값 칸이 없다.
+// 위는 연결된 provider 목록으로, 각 provider 아래에 등록된 credential(OAuth 계정·API key)이 나열된다.
+// 각 줄에는 방식·이메일/키 마스킹 힌트·Active 표시가 있고, 비활성 줄은 [Use], 2개 이상이면 [Remove]가 붙는다.
+// provider마다 [+ Add account or key]로 연결을 끊지 않고 계정·키를 추가할 수 있고, [Disconnect]는 확인 창을 거쳐 전체를 끊는다.
 export function ProviderList({ source }: ProviderListProps): ReactNode {
   // 다른 창이나 core가 이은·끊은 provider도 바로 보인다. 다시 읽다 실패해도 보이던 목록은 그대로다.
   const { loaded: connected, reload: reloadConnected } = useFollowedRead(
@@ -51,9 +51,16 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
     "",
   );
   const { available, retry: retryAvailable } = useAvailable();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<"disconnect" | "credential" | null>(
+    null,
+  );
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
+  const [adding, setAdding] = useState<{
+    providerId: string;
+    definition: ProviderDefinitionRow;
+  } | null>(null);
   const [leaving, setLeaving] = useState<ProviderRow | null>(null);
+  const [busyCredential, setBusyCredential] = useState<string | null>(null);
   const afterConnect = useAfterConnect();
   const manage = useManageModels();
   // custom provider를 붙인 뒤 읽은 model 목록의 결과. 이 화면을 떠날 때까지 그 줄 아래에 둔다.
@@ -63,10 +70,50 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
 
   async function disconnect(row: ProviderRow): Promise<void> {
     setLeaving(null);
-    setFailed(false);
+    setFailed(null);
     setListed(({ [row.id]: _, ...rest }) => rest);
     const done = await source.disconnect(row.id);
-    if (!done.ok) setFailed(true);
+    if (!done.ok) setFailed("disconnect");
+  }
+
+  async function activateCredential(
+    providerId: string,
+    credentialId: string,
+  ): Promise<void> {
+    if (busyCredential !== null) return;
+    setBusyCredential(credentialId);
+    setFailed(null);
+    const done = await source.activateCredential(providerId, credentialId);
+    setBusyCredential(null);
+    if (!done.ok) setFailed("credential");
+  }
+
+  async function removeCredential(
+    providerId: string,
+    credentialId: string,
+  ): Promise<void> {
+    if (busyCredential !== null) return;
+    setBusyCredential(credentialId);
+    setFailed(null);
+    const done = await source.removeCredential(providerId, credentialId);
+    setBusyCredential(null);
+    if (!done.ok) setFailed("credential");
+  }
+
+  function startAddCredential(row: ProviderRow): void {
+    const ways = waysOf(row.ways);
+    if (ways.length === 0) return;
+    setAdding({
+      providerId: row.id,
+      definition: {
+        key: row.definition,
+        name: row.name,
+        hint: null,
+        ways,
+        signIn: row.signIn,
+        custom: false,
+      },
+    });
   }
 
   return (
@@ -100,6 +147,14 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
                       row={row}
                       listed={listed[row.id]}
                       manage={manage}
+                      busyCredential={busyCredential}
+                      onAddCredential={() => startAddCredential(row)}
+                      onUseCredential={(credentialId) =>
+                        void activateCredential(row.id, credentialId)
+                      }
+                      onRemoveCredential={(credentialId) =>
+                        void removeCredential(row.id, credentialId)
+                      }
                       onDisconnect={() => setLeaving(row)}
                     />
                   ),
@@ -108,9 +163,13 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
             )}
           </Loading>
         )}
-        {failed ? (
+        {failed !== null ? (
           <p className={styles.notice} role="status" data-notice="failed">
-            {t("agents.notice.providers-disconnect-failed")}
+            {t(
+              failed === "disconnect"
+                ? "agents.notice.providers-disconnect-failed"
+                : "settings.error.credential-action-failed",
+            )}
           </p>
         ) : null}
       </section>
@@ -126,9 +185,14 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
       </section>
       <ConnectDialog
         source={source}
-        definition={target}
-        onClose={() => setTarget(null)}
+        definition={adding?.definition ?? target}
+        addingProviderId={adding?.providerId ?? null}
+        onClose={() => {
+          setAdding(null);
+          setTarget(null);
+        }}
         onConnected={() => {
+          if (adding !== null) return;
           afterConnect(
             connected.state === "ready"
               ? connected.value.map((row) => row.id)
@@ -175,36 +239,114 @@ function ConnectedItem({
   row,
   listed,
   manage,
+  busyCredential,
+  onAddCredential,
+  onUseCredential,
+  onRemoveCredential,
   onDisconnect,
 }: {
   row: ProviderRow;
   listed: ListedModels | undefined;
   manage: ManageModelsApi | null;
+  busyCredential: string | null;
+  onAddCredential: () => void;
+  onUseCredential: (credentialId: string) => void;
+  onRemoveCredential: (credentialId: string) => void;
   onDisconnect: () => void;
 }): ReactNode {
-  const status = statusOf(row);
   const machine = useScopeMachineItem();
+  const canAdd = waysOf(row.ways).length > 0;
+  const canRemove = row.credentials.length > 1;
   return (
     <li className={styles.item} data-provider={row.id}>
-      <span className={styles.identity}>
-        <ProviderName name={row.name} />
-        <span className={styles.badge} data-login-methods="">
-          {loginMethod(row, machine?.name)}
+      <div className={styles.header}>
+        <span className={styles.identity}>
+          <ProviderName name={row.name} />
         </span>
-      </span>
-      <Button
-        size="sm"
-        icon={actionIcons.disconnect}
-        data-action="disconnect"
-        onClick={onDisconnect}
-      >
-        {t("settings.button.disconnect")}
-      </Button>
-      {status === null ? null : (
-        <p className={styles.status} data-status={status.kind}>
-          {status.text}
-        </p>
-      )}
+        <span className={styles.headerActions}>
+          {canAdd ? (
+            <Button
+              size="sm"
+              icon={actionIcons.add}
+              data-action="add-credential"
+              onClick={onAddCredential}
+            >
+              {t("settings.button.add-credential")}
+            </Button>
+          ) : null}
+          <Button
+            size="sm"
+            icon={actionIcons.disconnect}
+            data-action="disconnect"
+            onClick={onDisconnect}
+          >
+            {t("settings.button.disconnect")}
+          </Button>
+        </span>
+      </div>
+      <ul className={styles.credentials} data-credentials="">
+        {row.credentials.map((cred) => {
+          const status = statusOf(cred);
+          const detail = credentialDetail(cred);
+          return (
+            <li
+              key={cred.id}
+              className={styles.credentialRow}
+              data-credential={cred.id}
+              data-active={cred.active ? "true" : "false"}
+            >
+              <span className={styles.credentialInfo}>
+                <span className={styles.badge} data-login-methods="">
+                  {credentialWayLabel(row, cred, machine?.name)}
+                </span>
+                {detail === null ? null : (
+                  <span
+                    className={styles.credentialDetail}
+                    data-credential-detail=""
+                  >
+                    {detail}
+                  </span>
+                )}
+                {cred.active ? (
+                  <span
+                    className={styles.activeBadge}
+                    data-credential-active=""
+                  >
+                    {t("settings.label.active")}
+                  </span>
+                ) : null}
+              </span>
+              <span className={styles.credentialActions}>
+                {!cred.active ? (
+                  <Button
+                    size="sm"
+                    disabled={busyCredential !== null}
+                    data-action="use-credential"
+                    onClick={() => onUseCredential(cred.id)}
+                  >
+                    {t("settings.button.use")}
+                  </Button>
+                ) : null}
+                {canRemove ? (
+                  <Button
+                    size="sm"
+                    disabled={busyCredential !== null}
+                    data-action="remove-credential"
+                    onClick={() => onRemoveCredential(cred.id)}
+                  >
+                    {t("settings.button.remove")}
+                  </Button>
+                ) : null}
+              </span>
+              {status === null ? null : (
+                <p className={styles.status} data-status={status.kind}>
+                  {status.text}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       {listed === undefined ? null : (
         <div
           className={styles.result}
@@ -253,23 +395,47 @@ function ConnectedItem({
   );
 }
 
-/** 이 연결의 로그인 방법. 로그인한 연결은 "Signed in"이다. machine은 다른 기계의 범위이 보는 그 기계의 이름이다. */
-function loginMethod(row: ProviderRow, machine: string | undefined): string {
-  return row.way === "oauth"
-    ? t("settings.label.login-signed-in")
-    : wayLabel(row.way, machine);
+/** credential의 인증 방식 이름. OAuth는 제품명(예: Claude OAuth, ChatGPT OAuth)을 함께 보인다. */
+function credentialWayLabel(
+  row: ProviderRow,
+  cred: CredentialRow,
+  machine: string | undefined,
+): string {
+  if (cred.way === "oauth") {
+    return row.signIn !== null
+      ? t("settings.label.login-oauth", { product: row.signIn.product })
+      : t("settings.label.login-signed-in");
+  }
+  return wayLabel(cred.way, machine);
+}
+
+/** credential의 식별 정보(OAuth 이메일·조직, API key 마스킹 힌트·라벨). */
+function credentialDetail(cred: CredentialRow): string | null {
+  const parts: string[] = [];
+  if (cred.label !== null) parts.push(cred.label);
+  if (cred.way === "oauth" && cred.account !== null) {
+    if (cred.account.email !== null) parts.push(cred.account.email);
+    if (cred.account.organizationName !== null) {
+      parts.push(`(${cred.account.organizationName})`);
+    }
+  } else if (cred.way === "api_key" && cred.keyHint !== null) {
+    parts.push(cred.keyHint);
+  }
+  return parts.length === 0 ? null : parts.join(" · ");
 }
 
 /**
  * 쓸 수 없을 때만 그 상태와 다음 행동 한 줄을 말한다. 사용량 대기는 기다리라고, 요금제 제한은 요금제를
- * 확인하라고, 인증 문제는 Disconnect 뒤 다시 Connect하라고 한다.
+ * 확인하라고, 인증 문제는 다시 연결하라고 한다.
  */
-function statusOf(row: ProviderRow): { kind: string; text: string } | null {
-  if (row.state === "available") return null;
-  if (row.state === "usage_wait") {
+function statusOf(
+  cred: Pick<CredentialRow, "state" | "reason">,
+): { kind: string; text: string } | null {
+  if (cred.state === "available") return null;
+  if (cred.state === "usage_wait") {
     return { kind: "usage-limit", text: t("settings.status.usage-limit") };
   }
-  if (row.reason === "plan_access") {
+  if (cred.reason === "plan_access") {
     return { kind: "plan-access", text: t("settings.status.plan-access") };
   }
   return {

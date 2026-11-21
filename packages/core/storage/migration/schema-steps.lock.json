@@ -370,5 +370,9 @@
   {
     "id": "apps.remote-calls",
     "sha256": "3dd3cd8ac0b6c886db70b9c61b449b3478cc4a25653d033d5a20e5ef80183f8c"
+  },
+  {
+    "id": "lophn-agent.harness-provider.multi-credentials",
+    "sha256": "366609d490e930f8b6a2d2a7b8a397709918bdde04508373318c56c32784071a"
   }
 ]

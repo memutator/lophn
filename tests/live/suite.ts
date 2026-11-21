@@ -120,26 +120,32 @@ export async function callLive(
   if (!definition.ok || model === undefined || entry === undefined) {
     throw new Error(`no snapshot entry for ${config.provider}/${model}`);
   }
+  const credential = {
+    id: "crd_00000000000000000000000000" as const,
+    active: true,
+    kind: "api_key" as const,
+    secret_ref: { name: "live-key" },
+    label: null,
+    key_hint: null,
+    revision: 1,
+    state: "available" as const,
+    unavailable_reason: null,
+    until: null,
+    expires_at: null,
+    logged_in_at: null,
+    refreshed_at: null,
+    model_blocks: [],
+    reported_models: null,
+    account: null,
+  };
   const provider: ProviderRecord = {
     id: PROVIDER_ID,
     name: config.provider,
     definition: definition.value,
     endpoint: config.endpoint,
     protocol: config.protocol,
-    credential: {
-      kind: "api_key",
-      secret_ref: { name: "live-key" },
-      revision: 1,
-      state: "available",
-      unavailable_reason: null,
-      until: null,
-      expires_at: null,
-      logged_in_at: null,
-      refreshed_at: null,
-      model_blocks: [],
-      reported_models: null,
-      account: null,
-    },
+    credential,
+    credentials: [credential],
     revision: 1,
   };
   const attach: SecretAttachLike = {

@@ -99,7 +99,8 @@ export const opencodeGoMergeStep: DataStep = {
             id,
           ]);
           connection.sql.run(
-            "delete from provider_credential_model_blocks where provider = ?",
+            `delete from provider_credential_model_blocks
+              where credential in (select id from provider_credentials where provider = ?)`,
             [id],
           );
           connection.sql.run(

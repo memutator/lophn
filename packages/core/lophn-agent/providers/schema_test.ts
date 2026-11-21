@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import {
+  providerMultiCredentialsSchemaSteps,
   providerReportedModelLimitsSchemaSteps,
   providerSchemaSteps,
 } from "./schema.ts";
@@ -55,6 +56,7 @@ test("옛 ChatGPT 연결은 새 정의로 옮겨 읽히고 다시 로그인하�
 
   db.exec(providerSchemaSteps[1]!.sql);
   db.exec(providerReportedModelLimitsSchemaSteps[0]!.sql);
+  db.exec(providerMultiCredentialsSchemaSteps[0]!.sql);
 
   const moved = loadProvider(sql, "pvd_00000000000000000000000001");
   const untouched = loadProvider(sql, "pvd_00000000000000000000000002");
@@ -113,6 +115,7 @@ test("한도 단계는 옛 provider의 model 목록·판을 그대로 두고 한
   } as never;
 
   db.exec(providerReportedModelLimitsSchemaSteps[0]!.sql);
+  db.exec(providerMultiCredentialsSchemaSteps[0]!.sql);
 
   const loaded = loadProvider(sql, id);
   assert.ok(loaded.ok && loaded.value !== null);

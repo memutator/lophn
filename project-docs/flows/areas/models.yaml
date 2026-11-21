@@ -977,7 +977,108 @@ flows:
     docs: []
     unclear:
       - "custom provider의 definition key가 내장 key와 같아도 막지 않는다. 그러면 model 목록을 읽지 않고 사람이 적은 model 정보도 저장되지 않는다"
-      - "api_key 연결은 core 안에서 providers/connect-key와 input_request/answer_secret이 임시 이름(provider.<id>.new.<무작위>)으로 부르고 쓰기 앞 처리기가 commit 뒤 provider.<id>로 옮긴다. 이 route를 바로 부르는 곳은 그 둘과 구독 로그인, dev 도구다"
+      - "api_key 연결은 core 안에서 providers/connect-key와 input_request/answer_secret이 임시 이름(provider.<crd_id>.new.<무작위>)으로 부르고 쓰기 앞 처리기가 commit 뒤 provider.<crd_id>로 옮긴다. 이 route를 바로 부르는 곳은 그 둘과 구독 로그인, dev 도구다"
+
+  - id: provider-add-credential
+    title: "이미 연결된 provider에 credential(API key 또는 OAuth 계정)을 추가한다"
+    actor: person
+    entries: [route:providers/add-credential]
+    boundary: [models]
+    code: [packages/core/lophn-agent/providers/commands.ts, packages/core/lophn-agent/providers/model.ts, packages/core/lophn-agent/providers/login.ts]
+    steps:
+      - "사람이 아니면 forbidden이다(requireUser)"
+      - "provider가 없으면 not_found, revision이 다르면 conflict다"
+      - "정의의 auth_kinds에 없는 방식이거나 원격 주소에 none이면 invalid_input이다"
+      - "같은 OAuth 계정(account.id 또는 email 일치)이 이미 있으면 중복 생성하지 않고 기존 credential을 갱신한다. 없으면 새 credential을 추가한다"
+      - "activate가 false가 아니면 새·갱신 credential을 active로 만들고 필요 시 provider endpoint를 맞춘다"
+    outcomes:
+      - id: added
+        observe: ["ledger:providers", "ledger:provider_credentials", "response"]
+      - id: not_found
+        code: not_found
+        when: "provider가 없다"
+        observe: ["response"]
+      - id: conflict
+        code: conflict
+        when: "revision이 바뀌었거나 credential id가 중복이다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 actor가 불렀다"
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        when: "정의 밖 auth_kind이거나 secret 이름이 규칙과 맞지 않는다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [secret]
+    refs: []
+    docs: []
+    unclear: []
+
+  - id: provider-activate-credential
+    title: "provider의 등록된 credential 중 하나를 활성(active)으로 전환한다"
+    actor: person
+    entries: [route:providers/activate-credential]
+    boundary: [models]
+    code: [packages/core/lophn-agent/providers/commands.ts, packages/core/lophn-agent/providers/model.ts]
+    steps:
+      - "사람이 아니면 forbidden이다(requireUser)"
+      - "provider 또는 credential이 없으면 not_found, revision이 다르면 conflict다"
+      - "대상 credential을 active=1로, 기존 active를 0으로 바꾸고 필요 시 provider endpoint를 맞춘다"
+    outcomes:
+      - id: activated
+        observe: ["ledger:providers", "ledger:provider_credentials", "response"]
+      - id: not_found
+        code: not_found
+        when: "provider 또는 credential이 없다"
+        observe: ["response"]
+      - id: conflict
+        code: conflict
+        when: "revision이 바뀌었다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 actor가 불렀다"
+        observe: ["response"]
+    crosses_process: false
+    risk: []
+    refs: []
+    docs: []
+    unclear: []
+
+  - id: provider-remove-credential
+    title: "provider에서 등록된 credential 하나를 제거한다"
+    actor: person
+    entries: [route:providers/remove-credential]
+    boundary: [models]
+    code: [packages/core/lophn-agent/providers/commands.ts, packages/core/lophn-agent/providers/login.ts]
+    steps:
+      - "사람이 아니면 forbidden이다(requireUser)"
+      - "provider 또는 credential이 없으면 not_found, revision이 다르면 conflict다"
+      - "credential이 하나뿐이면 conflict다(DisconnectProvider로 끊어야 한다)"
+      - "대상 credential과 model block을 지우고, active였다면 남은 것 중 가장 최근 항목을 active로 승계하며 endpoint를 맞춘다"
+      - "쓰기 앞 처리기가 commit 뒤 해당 credential의 secret 값을 지운다"
+    outcomes:
+      - id: removed
+        observe: ["ledger:providers", "ledger:provider_credentials", "ledger:provider_credential_model_blocks", "disk:<root>/secrets.json", "response"]
+      - id: not_found
+        code: not_found
+        when: "provider 또는 credential이 없다"
+        observe: ["response"]
+      - id: conflict
+        code: conflict
+        when: "revision이 바뀌었거나 마지막 남은 credential이다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 actor가 불렀다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, secret]
+    refs: []
+    docs: []
+    unclear: []
 
   - id: provider-disconnect
     title: "provider의 연결을 끊는다"

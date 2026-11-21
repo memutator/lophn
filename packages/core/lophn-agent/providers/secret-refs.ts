@@ -16,7 +16,7 @@ export function providerSecretDestinations(
     rows = sql.all(
       `select p.endpoint
          from provider_credentials c join providers p on p.id = c.provider
-        where c.secret_name = ? and c.state != 'revoked'`,
+        where c.secret_name = ? and c.active = 1 and c.state != 'revoked'`,
       [name],
     );
   } catch {

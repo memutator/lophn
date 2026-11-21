@@ -8,12 +8,13 @@ import { builtinProviderDefinition } from "./definitions.ts";
 import { createProviderRefresher } from "./oauth-refresh.ts";
 import { loadProvider } from "./store.ts";
 import {
+  providerMultiCredentialsSchemaSteps,
   providerReportedModelLimitsSchemaSteps,
   providerSchemaSteps,
 } from "./schema.ts";
 
 const ID = "pvd_00000000000000000000000001";
-const ACCESS = "provider.00000000000000000000000001";
+const ACCESS = "provider.crd_00000000000000000000000001";
 const ENDPOINT = "https://chatgpt.com/backend-api/codex";
 const MODELS_URL = `${ENDPOINT}/models?client_version=0.159.0`;
 const NOW = Date.parse("2026-10-17T00:00:00.000Z");
@@ -24,6 +25,7 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
   for (const step of providerReportedModelLimitsSchemaSteps) db.exec(step.sql);
+  for (const step of providerMultiCredentialsSchemaSteps) db.exec(step.sql);
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,

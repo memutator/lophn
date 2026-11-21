@@ -9,6 +9,8 @@ import { SECRET_INPUT_MAX_BYTES } from "../secrets/secrets.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
+  activateProviderCredentialInputSchema,
+  addProviderCredentialInputSchema,
   connectLocalProviderInputSchema,
   connectProviderInputSchema,
   disconnectProviderInputSchema,
@@ -21,6 +23,7 @@ import {
   recordProviderModelsInputSchema,
   refreshProviderCredentialInputSchema,
   refreshProviderModelsInputSchema,
+  removeProviderCredentialInputSchema,
   providerSignInCallbackInputSchema,
   providerSignInStateSchema,
   providerSignInInputSchema,
@@ -65,6 +68,51 @@ export const connectProvider = defineCommand({
   output: providerOutput,
   actors: ["user"],
   errors: [...userErrors],
+});
+
+// 이미 연결된 provider에 credential(API key 또는 OAuth 계정)을 더한다. 같은 OAuth 계정이면 갱신한다.
+export const addProviderCredential = defineCommand({
+  resource: "providers",
+  method: "add-credential",
+  name: "AddProviderCredential",
+  changes: ["providers", "models"],
+  input: addProviderCredentialInputSchema,
+  output: z.object({
+    provider: providerRecordSchema,
+    credential_id: idSchema("crd"),
+  }),
+  compare: providerRevisionCompareSchema,
+  actors: ["user"],
+  errors: [...userErrors, "not_found"],
+});
+
+// provider의 등록된 credential 중 하나를 활성(active)으로 전환한다.
+export const activateProviderCredential = defineCommand({
+  resource: "providers",
+  method: "activate-credential",
+  name: "ActivateProviderCredential",
+  changes: ["providers", "models"],
+  input: activateProviderCredentialInputSchema,
+  output: providerOutput,
+  compare: providerRevisionCompareSchema,
+  actors: ["user"],
+  errors: [...userErrors, "not_found"],
+});
+
+// provider에서 credential 하나를 제거한다. 마지막 하나는 DisconnectProvider로 끊어야 한다.
+export const removeProviderCredential = defineCommand({
+  resource: "providers",
+  method: "remove-credential",
+  name: "RemoveProviderCredential",
+  changes: ["providers", "models", "secrets"],
+  input: removeProviderCredentialInputSchema,
+  output: z.object({
+    provider: providerRecordSchema,
+    removed_credential: idSchema("crd"),
+  }),
+  compare: providerRevisionCompareSchema,
+  actors: ["user"],
+  errors: [...userErrors, "not_found"],
 });
 
 // Disconnect는 provider와 credential(secret)을 함께 지우므로 사람이 확인 창을 거쳐 결정한다.
@@ -263,6 +311,9 @@ export const providerSignInCallback = defineMemory({
 });
 
 export const PROVIDER_ROUTES = [
+  addProviderCredential,
+  activateProviderCredential,
+  removeProviderCredential,
   disconnectProvider,
   providerRead,
   providerList,

@@ -837,6 +837,9 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     ],
     commands: [
       commands.connect,
+      commands.addCredential,
+      commands.activateCredential,
+      commands.removeCredential,
       commands.disconnect,
       commands.refreshCredential,
       commands.recordAvailability,

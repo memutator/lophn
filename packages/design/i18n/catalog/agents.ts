@@ -310,14 +310,19 @@ export const agents = {
   "settings.agents.no-instructions": "No instructions yet.",
   "settings.agents.no-servers": "No MCP servers yet.",
   "settings.agents.no-skills": "No skills yet.",
+  "settings.button.add-credential": "Add account or key",
   "settings.button.add-server": "Add server",
   "settings.button.add-skill": "Add skill",
   "settings.button.disconnect": "Disconnect",
   "settings.button.edit": "Edit",
+  "settings.button.remove": "Remove",
   "settings.button.save": "Save",
   "settings.button.skip": "Skip",
+  "settings.button.use": "Use",
   "settings.error.connect-failed":
     "Couldn't connect. Nothing changed. Try again.",
+  "settings.error.credential-action-failed":
+    "Couldn't update that credential. Nothing changed. Try again.",
   "settings.error.custom-id":
     "Use lowercase letters, numbers, hyphens or underscores.",
   "settings.error.custom-name": "Enter a display name.",
@@ -335,6 +340,7 @@ export const agents = {
   "settings.heading.agents-servers": "MCP servers (all projects)",
   "settings.heading.agents-skills": "Skills (all projects)",
   "settings.heading.connected": "Connected",
+  "settings.label.active": "Active",
   "settings.label.agents-target": "your agent settings",
   "settings.label.available-target": "the providers you can add",
   "settings.label.api-anthropic-messages": "Anthropic Messages",
@@ -348,6 +354,7 @@ export const agents = {
   "settings.label.custom-url": "Base URL",
   "settings.label.extensions-target": "your tools and skills",
   "settings.label.login-signed-in": "Signed in",
+  "settings.label.login-oauth": "{product} OAuth",
   "settings.label.method-opens-browser": "Opens your browser",
   "settings.label.method-sign-in": "Sign in with {product}",
   "settings.label.off": "Off",
@@ -422,6 +429,7 @@ export const agents = {
   "settings.status.usage-limit":
     "Usage limit reached. Wait for the limit to reset.",
   "settings.title.choose-default-model": "Choose a default model",
+  "settings.title.add-credential": "Add account or key to {name}",
   "settings.title.connect-provider": "Connect {name}",
   "settings.title.custom-provider": "Custom provider",
 } as const;

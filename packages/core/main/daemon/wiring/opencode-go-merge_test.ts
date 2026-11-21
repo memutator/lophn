@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { modelSchemaSteps } from "../../../lophn-agent/models/mod.ts";
 import {
+  providerMultiCredentialsSchemaSteps,
   providerReportedModelLimitsSchemaSteps,
   providerSchemaSteps,
 } from "../../../lophn-agent/providers/mod.ts";
@@ -42,6 +43,7 @@ async function setup(root: string) {
   for (const step of [
     ...providerSchemaSteps,
     ...providerReportedModelLimitsSchemaSteps,
+    ...providerMultiCredentialsSchemaSteps,
     ...modelSchemaSteps,
   ]) {
     db.exec(step.sql);
@@ -72,9 +74,9 @@ async function setup(root: string) {
       protocol,
     );
     db.prepare(
-      `insert into provider_credentials (provider, kind, secret_name, revision, state, reported_models)
-       values (?, 'api_key', ?, 1, 'available', '["glm-5.3"]')`,
-    ).run(id, `provider.${id.slice(4)}`);
+      `insert into provider_credentials (id, provider, active, kind, secret_name, revision, state, reported_models)
+       values (?, ?, 1, 'api_key', ?, 1, 'available', '["glm-5.3"]')`,
+    ).run(`crd_${id.slice(4)}`, id, `provider.crd_${id.slice(4)}`);
   }
   db.prepare(
     "insert into model_choices (scope, provider, model_name, option_values) values ('global', ?, 'gpt-6-luna', '{}')",
@@ -91,9 +93,9 @@ async function setup(root: string) {
   await writeFile(
     join(root, "secrets.json"),
     JSON.stringify({
-      [`provider.${CHAT.slice(4)}`]: "k",
-      [`provider.${RESPONSES.slice(4)}`]: "k",
-      [`provider.${MESSAGES.slice(4)}`]: "k",
+      [`provider.crd_${CHAT.slice(4)}`]: "k",
+      [`provider.crd_${RESPONSES.slice(4)}`]: "k",
+      [`provider.crd_${MESSAGES.slice(4)}`]: "k",
       other: "x",
     }),
   );
@@ -173,7 +175,7 @@ test("OpenCode Go 옛 provider 셋은 하나로 합쳐지고 가리키던 것은
       Object.keys(
         JSON.parse(await readFile(join(root, "secrets.json"), "utf8")),
       ),
-      [`provider.${CHAT.slice(4)}`, "other"],
+      [`provider.crd_${CHAT.slice(4)}`, "other"],
     );
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -10,6 +10,7 @@ import {
   workspaceIcons,
 } from "../icons/mod.ts";
 import { OwnerMark } from "../parts/agent-session/owner.tsx";
+import type { HandTarget } from "../workspace/hand.ts";
 import styles from "./tab-menu.module.css";
 
 export type TabAction =
@@ -85,12 +86,6 @@ export interface TabMenuState {
   readonly handTo?: readonly HandTarget[];
   /** 사람이 session에 넘긴 탭이다. Take back이 선다. */
   readonly handed?: boolean;
-}
-
-/** Hand to 하위 menu의 줄 하나. 얼굴은 그 session의 주인 avatar다. */
-export interface HandTarget {
-  readonly session: string;
-  readonly name: string;
 }
 
 // Hand to(하위 menu)와 Take back. 탭을 다른 session에 다시 넘기면 Take back과 Hand to가 같이 선다.

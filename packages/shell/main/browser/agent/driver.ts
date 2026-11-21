@@ -8,7 +8,13 @@ import type {
 } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { TabControl } from "./control.ts";
-import { type CdpSend, pressKey, typeChar, typeText } from "./keys.ts";
+import {
+  type CdpSend,
+  pressKey,
+  sendingKeys,
+  typeChar,
+  typeText,
+} from "./keys.ts";
 import { type Page, type PageLookup, pageOf } from "./page.ts";
 import { type AxNode, createRefs, type Refs } from "./snapshot.ts";
 
@@ -356,11 +362,13 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     await send(session, "Input.dispatchMouseEvent", params);
   }
 
-  // 기한을 건 send다(keys.ts의 key·글 치기가 쓴다).
+  // 기한을 건 send다(keys.ts의 key·글 치기가 쓴다). key event를 보내는 동안은 그 page를 표시해 창 단축키로 넘어가지 않게 한다.
   const cdp =
     (session: Session): CdpSend =>
     (method, params) =>
-      send(session, method, params);
+      method === "Input.dispatchKeyEvent"
+        ? sendingKeys(session.page.id, () => send(session, method, params))
+        : send(session, method, params);
 
   async function key(session: Session, spec: string): Promise<void> {
     if (!(await pressKey(cdp(session), spec))) {

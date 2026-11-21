@@ -5,10 +5,11 @@
 import { t } from "@lophn/i18n";
 import { Icon } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
-import type { ReactNode } from "react";
+import { type ReactNode, useContext } from "react";
 
 import { browserIcons } from "../../icons/mod.ts";
 import { OwnerMark, useOwners } from "../../parts/agent-session/owner.tsx";
+import { HandSessionsContext } from "../../workspace/hand.ts";
 import styles from "./float-chips.module.css";
 
 export interface FloatChip {
@@ -95,6 +96,8 @@ function OwnerChip({
   onPick: (key: string) => void;
 }) {
   const { name } = useOwners()(owner);
+  // 끄는 browser 탭을 놓으면 이 주인에게 넘긴다. 끝났거나 다른 기계의 session이면 놓을 자리가 아니다.
+  const droppable = useContext(HandSessionsContext)?.has(owner) === true;
   const label = t("shell.label.owner-chip", { name, count: members.length });
   // menu는 기본 자리(beside)라 창 맨 아래 작업 표시줄에서는 위로 펴진다.
   return (
@@ -111,7 +114,7 @@ function OwnerChip({
           className={styles.chip}
           data-named={named || undefined}
           data-owner-chip={owner}
-          data-drop-session={owner}
+          data-drop-session={droppable ? owner : undefined}
           aria-label={label}
           aria-pressed={members.some((member) =>
             pressed.includes(member.chip.key),

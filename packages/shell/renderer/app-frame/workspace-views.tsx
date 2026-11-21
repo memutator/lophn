@@ -16,7 +16,9 @@ import {
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
-import { workspaceKey } from "../shell/desk-model.ts";
+import { useMachineHub } from "../desktop/machines/scope.tsx";
+import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
+import { releaseStored } from "../workspace/hand.ts";
 import { hostTabOf } from "../workspace/model.ts";
 import { surfaceApi } from "../workspace/use-surface-requests.ts";
 import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
@@ -66,6 +68,8 @@ export interface WorkspaceViewPool {
 }
 
 interface Pool extends WorkspaceViewPool {
+  /** 이 pool의 workspace. 상한으로 놓은 넘긴 탭을 저장된 layout에서 사람의 탭으로 돌릴 때 쓴다. */
+  ref: WorkspaceRef;
   mounted: boolean;
   /** mount되기 전에 만든 agent page의 bind를 알리는 구독. mount되면 탭이 알리므로 푼다. */
   offBind: Map<string, () => void>;
@@ -76,7 +80,7 @@ interface Pool extends WorkspaceViewPool {
 
 export interface WorkspaceViews {
   /** workspace의 화면 그릇과 보관소. 돌아오면 두고 간 것이 그대로 있다. */
-  acquire(workspace: string): WorkspaceViewPool;
+  acquire(workspace: WorkspaceRef): WorkspaceViewPool;
   setLayer(node: HTMLElement | null): void;
   /** guest session의 탭이 download를 받기 시작했거나 끝났다. 떠난 workspace의 탭도 맞춘다. */
   downloading(session: string, active: boolean): void;
@@ -87,7 +91,7 @@ export interface WorkspaceViews {
   /** workspace 상관없이 이 창의 어느 pool에든 있는 page가 agent가 다루는 page면 그 core 탭 id. */
   tabOf(session: string): string | undefined;
   /** mount되지 않은 workspace에 agent가 연 browser page를 만들어 두고 자리는 mount될 때로 미룬다. */
-  hostPage(workspace: string, placement: HostPlacement): void;
+  hostPage(workspace: WorkspaceRef, placement: HostPlacement): void;
   /**
    * mount되지 않은 workspace의 agent 탭 page를 놓는다. `layout`이면 탭이 닫힌 것이라 mount될 때 layout에서도 뺀다.
    * 아니면 다른 창이 page를 이어받은 것이라 layout은 건드리지 않는다.
@@ -101,6 +105,8 @@ export interface HostPageHooks {
   bound(tab: string, session: string): void;
   /** 상한 때문에 page를 놓았다. */
   gone(tab: string): void;
+  /** 상한 때문에 넘긴 탭의 page를 놓았다. 저장된 layout에서도 그 탭의 주인을 지운다. */
+  released(workspace: WorkspaceRef, key: string): void;
 }
 
 export function createWorkspaceViews(
@@ -135,8 +141,10 @@ export function createWorkspaceViews(
     const tab = pool.webviews.hostTab(key);
     if (tab !== null) {
       // 넘긴 탭은 사람의 탭이라 layout에서 빼지 않고 mount될 때 주인만 지운다. agent가 연 탭(key가 곧 id)은 layout에서도 뺀다.
-      if (hostTabOf({ key }) === null) pendingOf(workspace).released.push(key);
-      else forget(workspace, key);
+      if (hostTabOf({ key }) === null) {
+        pendingOf(workspace).released.push(key);
+        hooks.released(pool.ref, key);
+      } else forget(workspace, key);
       hooks.gone(tab);
     }
     pool.offBind.get(key)?.();
@@ -172,11 +180,13 @@ export function createWorkspaceViews(
     }
   }
 
-  function create(workspace: string, mounted: boolean): Pool {
+  function create(ref: WorkspaceRef, mounted: boolean): Pool {
+    const workspace = workspaceKey(ref);
     const webviews = createWebviewHost(tick);
     webviews.attach(layer);
     const keeps = createViewKeeps(close);
     const pool: Pool = {
+      ref,
       webviews,
       keeps,
       mounted,
@@ -227,10 +237,11 @@ export function createWorkspaceViews(
   }
 
   return {
-    acquire(workspace) {
+    acquire(ref) {
+      const workspace = workspaceKey(ref);
       const existing = pools.get(workspace);
       if (existing === undefined) {
-        const pool = create(workspace, true);
+        const pool = create(ref, true);
         pools.set(workspace, pool);
         return pool;
       }
@@ -260,10 +271,11 @@ export function createWorkspaceViews(
       }
       return undefined;
     },
-    hostPage(workspace, placement) {
+    hostPage(ref, placement) {
+      const workspace = workspaceKey(ref);
       let pool = pools.get(workspace);
       if (pool === undefined) {
-        pool = create(workspace, false);
+        pool = create(ref, false);
         pools.set(workspace, pool);
       }
       const key = `host:${placement.tab}`;
@@ -333,11 +345,19 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
   const closeRef = useRef<(session: string) => void>(() => {});
   closeRef.current = (session) =>
     void appViews?.views.closeView({ view_session: session }).catch(() => {});
+  // 이 컴퓨터의 layout 저장(넘긴 탭은 이 컴퓨터의 것이다). hub가 없으면(gallery) 메모리의 목록만 쓴다.
+  const hub = useMachineHub();
+  const layoutRef = useRef(hub?.get(null).workspace.layout);
+  layoutRef.current = hub?.get(null).workspace.layout;
   const [views] = useState(() =>
     createWorkspaceViews((session) => closeRef.current(session), {
       bound: (tab, session) =>
         void surfaceApi()?.report({ bind: { tab, view_session: session } }),
       gone: (tab) => void surfaceApi()?.report({ tab, state: "closed" }),
+      released: (workspace, key) => {
+        const layout = layoutRef.current;
+        if (layout !== undefined) void releaseStored(layout, workspace, key);
+      },
     }),
   );
   const browser = useBrowserApi();
@@ -351,7 +371,7 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
       if (views.mounted(workspace)) return;
       if (request.kind === "tab_open" && "browser" in request.payload.target) {
         const { tab, target, relation, source, owner } = request.payload;
-        views.hostPage(workspace, {
+        views.hostPage(request.workspace, {
           tab,
           url: target.browser.url,
           profile: target.browser.profile ?? null,

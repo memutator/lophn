@@ -26,6 +26,7 @@ import {
 import type { TabHost } from "../../workspace/kinds/host.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { TabItem } from "../../workspace/model.ts";
+import { reportClosed } from "../../workspace/hand.ts";
 import {
   closeFloat,
   type Desk,
@@ -318,6 +319,13 @@ export function GlobalFloatsProvider({
       store.commit(change, attach);
     };
     const closeNow = (key: string) => act((desk) => closeFloat(desk, key));
+    // 사람이 닫거나 뺀 float이 넘긴 browser 탭이면 그 core 탭 id를 바로 닫혔다고 알린다. workspace 창이 하나도 없어도(Settings)
+    // agent가 곧바로 손을 뗀다. desk로 옮기는 것(moveToDesk)은 닫기가 아니라 알리지 않는다.
+    const closeHanded = (key: string) => {
+      const handed = floats.find((float) => float.key === key)?.tab.handedTab;
+      closeNow(key);
+      if (handed !== undefined) reportClosed(handed);
+    };
     return {
       enabled: true,
       floats,
@@ -396,10 +404,10 @@ export function GlobalFloatsProvider({
           item === undefined || host === undefined
             ? null
             : tabKindOf(item.tab.kind)?.beforeClose?.(item.tab, host);
-        if (!confirm) closeNow(key);
-        else void confirm.then((close) => close && closeNow(key));
+        if (!confirm) closeHanded(key);
+        else void confirm.then((close) => close && closeHanded(key));
       },
-      remove: closeNow,
+      remove: closeHanded,
       minimizeLoose: (inside) =>
         act((desk) => minimizeLooseFloats(desk, inside)),
       registerDesk,

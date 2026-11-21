@@ -19,6 +19,7 @@ import {
   Fragment,
   type ReactElement,
   type ReactNode,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -67,6 +68,7 @@ import {
   QuickLaunchRow,
 } from "./quick-launch.tsx";
 import { useRemembered } from "./sidebar-memory.tsx";
+import { HandSessionsContext } from "../workspace/hand.ts";
 
 export interface LeftSidebarProps {
   workspaces: readonly SidebarWorkspace[];
@@ -269,7 +271,7 @@ function SessionRow({
   dot?: boolean;
   machineName?: string;
   onDragStart?: (event: PointerEvent<HTMLButtonElement>) => void;
-  /** 끄는 browser 탭을 이 줄에 놓으면 이 session에 넘긴다(tab-drag.tsx). 이 컴퓨터의 lophn session 줄만이다. */
+  /** 끄는 browser 탭을 이 줄에 놓으면 이 session에 넘긴다(tab-drag.tsx). 이 컴퓨터의 열린 lophn session 줄만이다(hand.ts). */
   dropSession?: string;
 }) {
   return (
@@ -421,6 +423,8 @@ export function LeftSidebar({
     (workspace: SidebarWorkspace, item: SidebarSession) =>
     (event: PointerEvent<HTMLButtonElement>) =>
       onRowDrag?.(event, workspace, item);
+  // 끄는 browser 탭을 놓을 수 있는 session(이 컴퓨터의 열린 lophn session). 다른 기계의 줄과 끝난 줄은 놓을 자리가 아니다.
+  const handSessions = useContext(HandSessionsContext);
   const canDrag = (item: SidebarSession) =>
     onRowDrag !== undefined &&
     item.kind !== "workflow" &&
@@ -447,9 +451,7 @@ export function LeftSidebar({
         machineName={nameOf(item.machine)}
         onClick={() => onSession(workspace, item)}
         {...(canDrag(item) ? { onDragStart: dragFrom(workspace, item) } : {})}
-        {...(item.kind === "session" &&
-        workspace.ref.machine === undefined &&
-        item.offline !== true
+        {...(item.kind === "session" && handSessions?.has(item.ref) === true
           ? { dropSession: item.ref }
           : {})}
       />

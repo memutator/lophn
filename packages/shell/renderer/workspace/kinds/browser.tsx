@@ -194,7 +194,7 @@ export const browserKind: TabKindDef = {
           ? {}
           : {
               onTakeBack: () =>
-                takeBack((key, patch) => host.patchTab(key, patch), tab.key),
+                takeBack(tab, (key, patch) => host.patchTab(key, patch)),
             })}
         adopt={typeof adopt === "string" ? adopt : undefined}
         favicon={typeof favicon === "string" ? favicon : undefined}
@@ -251,7 +251,8 @@ export const browserKind: TabKindDef = {
           }))
         }
         // 넘긴 탭은 page가 스스로 닫지 못한다: page의 window.close()는 그 page를 다루는 agent가 부를 수 있고, 넘긴 탭은 사람의 것이라
-        // agent가 닫지 못한다. 사람은 탭의 X와 단축키로 닫는다.
+        // agent가 닫지 못한다. 사람은 탭의 X와 단축키로 닫는다. Electron이 그 뒤 `<webview>` guest를 어떻게 하는지는 merge 뒤 실제 창에서
+        // 확인한다(여기서는 탭을 지우지 않는 것까지만 한다).
         onCloseRequested={() => {
           if (tab.handedTab === undefined) host.removeTab(tab.key);
         }}

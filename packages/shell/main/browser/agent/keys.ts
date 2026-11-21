@@ -91,6 +91,35 @@ export function parseKey(spec: string): KeyEvent | undefined {
   };
 }
 
+// driver가 지금 key event를 보내는 page(webContents id → 보내는 중인 수). 그 page의 키는 창 단축키로 넘기지 않는다(desktop.ts):
+// CDP `Input.dispatchKeyEvent`도 guest의 before-input-event를 거쳐, agent가 누른 Control+w가 창의 `tab.close`가 되어 사람의 탭을
+// 닫았다. driver와 창 단축키는 서로 다른 wiring이고 둘이 같이 보는 것이 webContents id뿐이라 이 module에 둔다. Chromium은 key가
+// before-input-event를 지난 뒤에 그 명령에 답하므로 보내는 동안만 표시하면 된다.
+const sending = new Map<number, number>();
+
+/** page에 key event를 보내는 동안 그 page를 표시한다. */
+export async function sendingKeys<T>(
+  page: number,
+  run: () => Promise<T>,
+): Promise<T> {
+  sending.set(page, (sending.get(page) ?? 0) + 1);
+  try {
+    return await run();
+  } finally {
+    const left = (sending.get(page) ?? 1) - 1;
+    if (left === 0) sending.delete(page);
+    else sending.set(page, left);
+  }
+}
+
+/**
+ * 이 webContents의 키를 창 단축키로 넘기는가. driver가 key를 보내는 중이면 아니다: 넘기지도 삼키지도 않아 key는 page에만 간다.
+ * 사람이 그 탭에 친 키는 그대로 넘긴다.
+ */
+export function forwardsShortcut(contents: number): boolean {
+  return !sending.has(contents);
+}
+
 /** CDP 명령 하나를 보내는 길이다. driver는 기한을 건 send를 준다. */
 export type CdpSend = (
   method: string,

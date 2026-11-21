@@ -143,11 +143,7 @@ import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
 import { Taskbar } from "../shell/taskbar/taskbar.tsx";
 import { TrayHost } from "../shell/tray/tray.tsx";
-import {
-  type HandTarget,
-  TabContextMenu,
-  type TabMenuState,
-} from "../shell/tab-menu.tsx";
+import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import { type DragHit, TabDragProvider } from "../shell/tab-drag.tsx";
 import {
   movedTab,
@@ -207,7 +203,16 @@ import { NoticeCard } from "./notice-card.tsx";
 import { keepsSavedFile } from "../shell/layout-source.ts";
 import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
 import { clampFloatRect, hostTabOf } from "./model.ts";
-import { announceHanded, canHand, handTab, takeBack } from "./hand.ts";
+import {
+  announceHanded,
+  canDropOn,
+  canHand,
+  HandSessionsContext,
+  type HandTarget,
+  handTab,
+  handTargets,
+  takeBack,
+} from "./hand.ts";
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { Favicon } from "../browser/favicon.tsx";
 import { launchKey } from "../desktop/settings/quick-launch/source.ts";
@@ -469,7 +474,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
   const pool = useMemo(
-    () => workspaceViews?.views.acquire(workspaceId) ?? null,
+    () => workspaceViews?.views.acquire(workspace) ?? null,
     [workspaceViews, workspaceId],
   );
   const bookmarkList = useBookmarks();
@@ -1230,9 +1235,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       const tab = desk.tabs.find((one) => one.key === item.key);
       return item.row === undefined &&
         tab !== undefined &&
-        machine === null &&
-        canHand(tab) &&
-        tab.owner !== hit.target
+        canDropOn(tab, hit.target, targetsFor(tab.owner))
         ? "ok"
         : "none";
     }
@@ -1523,7 +1526,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     return client.subscribe({ types: ["SessionEnded"] }, (message) => {
       if (message.kind === "disconnected") return;
       const globals = globalFloatsRef.current;
-      announceHanded(client.core, [
+      void announceHanded(client.core, [
         ...(machine === null
           ? allTabs(latestLayout.current).map((tab) => ({
               tab,
@@ -1557,38 +1560,33 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       if (!ok) setHandFailed((count) => count + 1);
     });
   };
-  // "Hand to"의 상대: 이 컴퓨터의 열린 lophn session(지금 주인은 뺀다). 이 workspace의 것이 먼저다. 이름은 session 제목, 없으면 agent 이름이다.
-  const handTargets = (owner: string | undefined): HandTarget[] => {
-    const entries = machineData(null)
-      .stores.sessions.get()
-      .sessions.filter(
-        (entry) =>
-          entry.ended === null &&
-          !entry.archived &&
-          entry.agent !== null &&
-          entry.session !== owner,
-      );
-    const here = (entry: (typeof entries)[number]) =>
-      workspace.kind === "home"
-        ? entry.workspace === null
-        : entry.workspace?.kind === workspace.kind &&
-          entry.workspace.id === workspace.id;
+  // "Hand to"의 상대(hand.ts). 이름은 session 제목, 없으면 agent 이름이다. 다른 기계의 workspace 창은 넘기지 않아 비어 있다.
+  const targetsFor = (owner: string | undefined): HandTarget[] => {
+    if (machine !== null) return [];
+    const entries = machineData(null).stores.sessions.get().sessions;
     const names = ownerLookup(
       entries,
       sidebarAgents.agents,
       sidebarAgents.lophnNames,
     );
-    return [
-      ...entries.filter(here),
-      ...entries.filter((entry) => !here(entry)),
-    ].map((entry) => ({
-      session: entry.session,
-      name:
-        sessionTitles.known.get(entry.session)?.title ||
-        names(entry.session)?.name ||
+    return handTargets(
+      entries,
+      workspace,
+      owner,
+      (session) =>
+        sessionTitles.known.get(session)?.title ||
+        names(session)?.name ||
         t("shell.label.owner-unknown"),
-    }));
+    );
   };
+  // 끌기 자리로 표시할 session 줄과 주인 chip. 문자열로 접어 값이 같으면 같은 Set을 준다.
+  const handSessionList = targetsFor(undefined)
+    .map((target) => target.session)
+    .join();
+  const handSessions = useMemo(
+    () => new Set(handSessionList === "" ? [] : handSessionList.split(",")),
+    [handSessionList],
+  );
 
   // 이 창의 탭 하나를 그 자리(desk, float, 뗀 창)에서 앞으로 낸다.
   const revealTab = (key: string) => {
@@ -2645,7 +2643,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       hasOthers: tabs.length > span.length,
       hasRight: lastAt < tabs.length - 1,
       ...(machine === null && canHand(tab)
-        ? { handable: true, handTo: handTargets(tab.owner) }
+        ? { handable: true, handTo: targetsFor(tab.owner) }
         : {}),
       handed: tab.handedTab !== undefined,
     };
@@ -2666,7 +2664,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     const tab = desk.tabs.find((item) => item.key === key);
     if (tab === undefined) return;
     if (action === "take-back") {
-      takeBack(patchTabRef.current, key);
+      takeBack(tab, patchTabRef.current);
       return;
     }
     if (action.startsWith("hand:")) {
@@ -3702,9 +3700,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             sidebarAgents.lophnNames,
           )}
         >
-          {workspaceViews === null
-            ? content
-            : createPortal(content, workspaceViews.context)}
+          <HandSessionsContext.Provider value={handSessions}>
+            {workspaceViews === null
+              ? content
+              : createPortal(content, workspaceViews.context)}
+          </HandSessionsContext.Provider>
         </OwnerProvider>
       </AppWorkspaceProvider>
     </InboxNamesProvider>

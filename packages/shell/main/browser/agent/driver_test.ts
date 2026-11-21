@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { createTabControl } from "./control.ts";
 import { type BrowserCallPayload, createBrowserDriver } from "./driver.ts";
+import { forwardsShortcut } from "./keys.ts";
 import type { Page, PageEvents, PageLookup } from "./page.ts";
 import type { AxNode } from "./snapshot.ts";
 
@@ -351,4 +352,23 @@ test("fill_login은 page의 browser profile을 실어 값을 청한다", async (
     released.map((one) => one.profile),
     [work],
   );
+});
+
+test("driver가 보내는 key는 그 page에서 창 단축키로 넘어가지 않고, 끝나면 사람의 키는 다시 넘어간다", async () => {
+  const { fake, run } = setup("preview");
+  const original = fake.page.send;
+  const during: boolean[] = [];
+  (fake.page as { send: Page["send"] }).send = ((method, params) => {
+    if (method === "Input.dispatchKeyEvent") {
+      during.push(forwardsShortcut(fake.page.id));
+    }
+    return original(method, params);
+  }) as Page["send"];
+  const out = await run({
+    kind: "act",
+    act: { type: "press", key: "Control+w" },
+  });
+  assert.ok("content" in out, JSON.stringify(out));
+  assert.deepEqual(during, [false, false]);
+  assert.equal(forwardsShortcut(fake.page.id), true);
 });

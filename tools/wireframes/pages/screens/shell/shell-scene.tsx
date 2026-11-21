@@ -32,10 +32,10 @@ import {
 import { DeskSwitcher } from "../../../../../packages/shell/renderer/shell/desk-switcher.tsx";
 import { FloatLayer } from "../../../../../packages/shell/renderer/shell/float-layer.tsx";
 import {
-  type HandTarget,
   TabContextMenu,
   type TabMenuState,
 } from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
+import type { HandTarget } from "../../../../../packages/shell/renderer/workspace/hand.ts";
 import { neighborLeaf } from "../../../../../packages/shell/renderer/shell/group-geometry.ts";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";

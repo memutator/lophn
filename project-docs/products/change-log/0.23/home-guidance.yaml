@@ -1,5 +1,5 @@
 id: home-guidance
-version: 0.23.105
+version: 0.23.108
 title: Home agent는 늘 켜 둔 컴퓨터가 있으면 아무것도 세우지 않고, help는 --on이 듣는 명령에만 --on을 보인다
 modules: [packages/core/agent-workspaces, packages/cli, packages/core/lophn-agent]
 change: |

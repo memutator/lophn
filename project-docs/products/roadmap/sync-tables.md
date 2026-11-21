@@ -50,7 +50,7 @@ sync: {
 한 대로: 아래 표 그대로다. 다른 점과 더한 것:
 
 - 폰 앱이 일부 표만 적으면 log 줄은 모든 표를 담고(폰 길) 폴더로 내보낼 때 보내는 표만 남긴다. 그래서 거르는 자리는 log에 넣기 전(폰 앱이 아니면 clock을 다는 표 = 보내는 표)과 내보내기 둘이다. horizon 밖 held로 바꾸기도 보내는 표가 없는 줄은 건너뛴다.
-- 옛 release의 `sync_to`를 읽으려고 `validateDeclaration`이 봉인한 선언을 다시 읽는 자리(`sealed`)에서만 그 칸을 받는다. 폴더 앱 기록 `app.json`의 `sync_to` 칸은 이름 그대로 둔다(옛 lophn이 칸 없는 기록을 읽지 못한다). `machine/environment`는 `sends_to`, `carry/status`는 `destination`으로 바꿨다.
+- 옛 release의 `sync_to`를 읽으려고 `validateDeclaration`이 봉인한 선언을 다시 읽는 자리(`sealed`)와 다른 컴퓨터가 낸 release의 take-in·따라가기에서만 그 칸을 받는다. 거절은 이 컴퓨터에서 새로 쓰는 release뿐이다. 폴더 앱 기록 `app.json`의 `sync_to` 칸은 이름 그대로 둔다(옛 lophn이 칸 없는 기록을 읽지 못한다). `machine/environment`는 `sends_to`, `carry/status`는 `destination`으로 바꿨다.
 - `@lophn/declaration`은 major(5.0.0)로 올렸다(칸 제거).
 - 확인한 것: node:sqlite(Node 24.20)에서 WAL 앱 DB 연결에 ATTACH해 `INSERT … SELECT`로 복사가 되고 붙인 DB의 쓰기는 main session에 들지 않는다. 새 연결의 foreign_keys 기본값은 켜짐이다(cap-store도 켠다). 복사 중에는 끈다.
 

@@ -290,6 +290,7 @@ export function createFolderAppsHost(deps: {
         app: input.app,
         sourcePath: input.sourcePath,
         commit: input.commit,
+        // 다른 컴퓨터가 낸 release다. `release.record`가 이것으로 봉인한 선언처럼 읽는다(옛 칸 `sync_to`).
         createdBy: "machine",
       });
       if (!prepared.ok) return prepared;

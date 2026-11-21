@@ -17,7 +17,9 @@ try {
   console.error("declaration value is not JSON");
   process.exit(1);
 }
-const validated = validateDeclaration(parsed);
+// 다른 컴퓨터에서 온 release(take-in·따라가기)는 그 컴퓨터에서 이미 봉인한 선언이라 옛 칸(`sync_to`)도 받는다. 이 컴퓨터에서
+// 새로 쓰는 release인지는 core의 `release.record`가 가르고 거기서 거절한다.
+const validated = validateDeclaration(parsed, { sealed: true });
 if (!validated.ok) {
   console.error("declaration value is not a declaration");
   process.exit(1);

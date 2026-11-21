@@ -601,10 +601,13 @@ export function createReleaseCommands(): {
         if (app.value.status === "archived") {
           return conflict("archived app cannot prepare a release");
         }
-        // 정규 선언은 검증기를 통과한 것만 hash로 고정한다.
+        // 정규 선언은 검증기를 통과한 것만 hash로 고정한다. machine이 만든 release는 다른 컴퓨터가 이미 낸 release(take-in,
+        // 따라가기: 같은 code_commit)라 봉인한 선언처럼 읽어 옛 칸 `sync_to`를 받는다(모든 표를 그 destination으로). 그 밖에
+        // 이 컴퓨터에서 새로 쓰는 release는 그 칸을 거절한다.
         const validated = validateDeclaration(input.declaration, {
           app: input.app,
           slug: app.value.slug,
+          sealed: input.created_by === "machine",
         });
         if (!validated.ok) return invalid(validated.error.message);
         const declaration = validated.value;

@@ -75,6 +75,7 @@ import {
   sealBundle,
 } from "../../apps/releases/bundle/seal.ts";
 import { createReleaseCommands } from "../../apps/releases/commands.ts";
+import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
 import { compareForActivation } from "../../apps/releases/compare.ts";
 import { releasesSchemaSteps } from "../../apps/releases/schema.ts";
 import {
@@ -224,6 +225,8 @@ function makeLocalPrepare(
   root: string,
   command: FolderCommand,
   prepared: { app: string; sourcePath: string; commit: string }[],
+  // 선언에 더할 칸. 선언 값 추출 자식처럼 봉인한 선언으로 읽는다(옛 칸을 거절하는 것은 release.record다).
+  extra: () => Record<string, unknown> = () => ({}),
 ) {
   let seq = 0;
   return async (input: {
@@ -247,16 +250,20 @@ function makeLocalPrepare(
       sourcePath: input.sourcePath,
       commit: input.commit,
     });
-    const validated = validateDeclaration({
-      name: "Notes",
-      description: "Keeps notes.",
-      screens: [],
-      operations: [],
-      commands: [],
-      permissions: [],
-      app_connections: [],
-      sdk_dependencies: [{ name: "@lophn/declaration", version: "4.9.0" }],
-    });
+    const validated = validateDeclaration(
+      {
+        name: "Notes",
+        description: "Keeps notes.",
+        screens: [],
+        operations: [],
+        commands: [],
+        permissions: [],
+        app_connections: [],
+        sdk_dependencies: [{ name: "@lophn/declaration", version: "4.9.0" }],
+        ...extra(),
+      },
+      { sealed: true },
+    );
     assert.ok(validated.ok);
     const declarationJson = canonicalJson(validated.value as never);
     const declaration = new TextEncoder().encode(declarationJson);
@@ -353,6 +360,8 @@ type World = {
   folderA: FolderApps;
   folderB: FolderApps;
   preparedB: { app: string; sourcePath: string; commit: string }[];
+  // B가 준비하는 release의 선언에 더할 칸.
+  extraB: Record<string, unknown>;
   clock: ReturnType<typeof manualClock>;
 };
 
@@ -458,6 +467,7 @@ async function world(): Promise<World> {
     dataRoot: rootA,
   });
   const preparedB: { app: string; sourcePath: string; commit: string }[] = [];
+  const extraB: Record<string, unknown> = {};
   const blobsB = createMemoryBlobs();
   const cmdB = commandPort(dbB, () => clock.now());
   const folderB = createFolderApps({
@@ -469,7 +479,7 @@ async function world(): Promise<World> {
     host: createFolderAppsHost({
       sql: sqlOf(dbB),
       command: cmdB,
-      prepareCommit: makeLocalPrepare(rootB, cmdB, preparedB),
+      prepareCommit: makeLocalPrepare(rootB, cmdB, preparedB, () => extraB),
       random: seededRandom(4),
       dataRoot: rootB,
       readBlob: blobsB.readBlob,
@@ -503,6 +513,7 @@ async function world(): Promise<World> {
     folderA,
     folderB,
     preparedB,
+    extraB,
     clock,
   };
 }
@@ -599,6 +610,54 @@ test("take-in은 동의도 grant도 옮기지 않고, source bundle로 이 기�
     assert.ok(judged.ok);
     assert.equal(judged.value, "waiting_consent");
     assert.deepStrictEqual(asked, [taken.value.release]);
+  });
+});
+
+// 지우면 옛 release(`sync_to`로 봉인)를 켜 둔 앱을 새 컴퓨터나 다시 깐 컴퓨터가 들이지도 따라가지도 못하고, 앱 agent가 다시
+// release할 때까지 그 컴퓨터에 사람의 앱과 data가 오지 않는다. 이 컴퓨터에서 새로 쓰는 release만 그 칸을 거절한다.
+test("다른 컴퓨터의 옛 release가 sync_to로 봉인되었어도 take-in이 준비해 모든 표를 그 destination으로 읽고, 이 컴퓨터에서 쓰는 release는 sync_to를 거절한다", async () => {
+  await withWorld(async (w) => {
+    w.extraB.sync_to = DESTINATION;
+    assert.ok((await w.folderA.runApp(APP)).ok);
+    const taken = await w.folderB.takeIn({ app: APP });
+    assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
+    const stored = loadStoredDeclaration(sqlOf(w.dbB), taken.value.release);
+    assert.ok(stored.ok && stored.value !== null);
+    const plan = syncPlanOf(stored.value.declaration);
+    assert.deepStrictEqual(
+      { destination: plan.destination, tables: plan.tables },
+      { destination: DESTINATION, tables: null },
+    );
+
+    // 같은 선언을 사람이나 agent가 이 컴퓨터에서 새 commit의 release로 쓰면 거절된다.
+    const source = taken.value.source_path!;
+    git(
+      source,
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "here",
+    );
+    const here = git(source, "rev-parse", "HEAD");
+    const authored = await makeLocalPrepare(
+      w.rootB,
+      w.cmdB,
+      [],
+      () => w.extraB,
+    )({
+      app: APP,
+      sourcePath: source,
+      commit: here,
+      createdBy: "user",
+    });
+    assert.ok(!authored.ok);
+    assert.equal(authored.error.code, "invalid_input");
+    assert.match(authored.error.message, /sync_to was replaced by sync/);
   });
 });
 

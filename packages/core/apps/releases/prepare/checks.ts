@@ -83,6 +83,9 @@ function planOf(declaration: unknown): SyncPlan {
       sync !== null && typeof sync === "object" && !Array.isArray(sync)
         ? (sync as Record<string, string>)
         : undefined,
+    // 다른 컴퓨터에서 온 옛 release(take-in·따라가기)는 이 칸으로 모든 표를 보낸다.
+    sync_to:
+      typeof given["sync_to"] === "string" ? given["sync_to"] : undefined,
   });
 }
 

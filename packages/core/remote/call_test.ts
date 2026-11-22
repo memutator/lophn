@@ -12,6 +12,8 @@ import {
   appsOAuthCallback,
 } from "../../protocol/apps/oauth.ts";
 import { alwaysOnSet } from "../../protocol/always-on/mod.ts";
+import { browserVaultExchange } from "../../protocol/secrets/browser-vault.ts";
+import { browserVaultExchangeHandler } from "../secrets/vault-sync.ts";
 import {
   APP_FILE_PIECE_MAX_BYTES,
   appFilesPut,
@@ -40,7 +42,10 @@ import {
   projectFilesRename,
   projectFilesWrite,
 } from "../../protocol/projects/project-files.ts";
-import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
+import {
+  REMOTE_COMPUTER_CORE_ROUTES,
+  REMOTE_PERSON_ROUTES,
+} from "../../protocol/remote/allowlist.ts";
 import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
 import {
   devicesClearPush,
@@ -99,6 +104,24 @@ const TURN = `trn_0${"1".repeat(25)}`;
 const PROVIDER = `pvd_0${"1".repeat(25)}`;
 const APP = `app_0${"1".repeat(25)}`;
 const SECRET_VALUE = "sk-should-never-leave";
+const LOGIN = `lgn_0${"1".repeat(25)}`;
+const LOGIN_PASSWORD = "login-password-should-only-reach-a-computer-core";
+const VAULT = {
+  format: 1 as const,
+  profiles: [],
+  logins: [
+    {
+      id: LOGIN,
+      label: "Mail",
+      origin: "https://mail.example",
+      username: "me",
+      note: "",
+      revs: { label: 1, origin: 1, username: 1, note: 1, password: 1, totp: 1 },
+    },
+  ],
+  removed: [],
+  clear: [],
+};
 
 const routes: Route[] = [
   secretPut,
@@ -246,13 +269,15 @@ function setup(
     random,
     clock,
     // 표의 route는 agent도 받는 정책으로 둔다. agent 자격을 막는 것이 정책이 아니라 call이어야 한다.
-    operations: [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES].map(
-      (route) => ({
-        name: route.name,
-        actors: routes.includes(route) ? ["user", "agent"] : ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      }),
-    ),
+    operations: [
+      ...REMOTE_ALLOWED_ROUTES,
+      ...REMOTE_PERSON_ROUTES,
+      ...REMOTE_COMPUTER_CORE_ROUTES,
+    ].map((route) => ({
+      name: route.name,
+      actors: routes.includes(route) ? ["user", "agent"] : ["user"],
+      kind: route.kind === "command" ? "command" : "read",
+    })),
   });
   const confirmations = new ConfirmationRegistry({
     clock,
@@ -288,7 +313,12 @@ function setup(
     : registry;
   const call = createRemoteCall({
     registry: seen,
-    routes: new RouteRegistry([...routes, ...NEVER, appFilesPut]),
+    routes: new RouteRegistry([
+      ...routes,
+      ...NEVER,
+      appFilesPut,
+      browserVaultExchange,
+    ]),
     clock,
     memory: new Map([
       [
@@ -315,6 +345,23 @@ function setup(
       [pathOf(projectFilesRemove), reach(pathOf(projectFilesRemove))],
       [pathOf(alwaysOnSet), reach(pathOf(alwaysOnSet))],
       [pathOf(appFilesPut), reach(pathOf(appFilesPut))],
+      [
+        pathOf(browserVaultExchange),
+        (ctx, input) => {
+          reached.push(pathOf(browserVaultExchange));
+          return browserVaultExchangeHandler({
+            vault: { read: () => ok(VAULT) } as never,
+            secrets: {
+              get: (name) =>
+                name === `login.${LOGIN}.password`
+                  ? ok(LOGIN_PASSWORD)
+                  : err({ code: "not_found", message: "no secret" }),
+            },
+            isComputer: () => options.computer === true,
+            sharing: () => true,
+          })(ctx, input);
+        },
+      ],
       ...NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
     ]),
     reads: new Map(
@@ -504,6 +551,37 @@ test("always_on/set은 터미널 입력을 허락받은 기기의 screen만 부�
     "ok",
   );
   assert.deepEqual(computer.reached, ["always_on/set"]);
+});
+
+// 깨지면 사람의 site login 값(password, TOTP seed)이 폰, 다른 컴퓨터의 화면·터미널(그 컴퓨터의 coding agent도 친다)이나 agent에게 간다.
+test("browser_vault/exchange는 명단의 컴퓨터의 core 자신(요청한 쪽 없음)만 받고 폰과 요청한 쪽이 있는 call은 handler에 닿지 않는다", async () => {
+  const call = { resource: "browser_vault", method: "exchange", body: {} };
+  const phone = setup();
+  for (const id of [PLAIN, GRANTED]) {
+    const done = await phone.call(await phone.device(id), call);
+    assert.equal(done.ok ? "ok" : done.error.code, "forbidden");
+  }
+  assert.deepEqual(phone.reached, []);
+
+  const computer = setup({ computer: true });
+  const granted = await computer.device(GRANTED);
+  for (const by of [
+    { kind: "screen" },
+    { kind: "terminal" },
+    { kind: "agent", agent: "lophn_home", session: null, name: "Ada" },
+    { kind: "app", app: APP },
+  ] as const) {
+    const done = await computer.call(granted, { ...call, by });
+    assert.equal(done.ok ? "ok" : done.error.code, "forbidden", by.kind);
+    assert.ok(!JSON.stringify(done).includes(LOGIN_PASSWORD));
+  }
+  assert.deepEqual(computer.reached, []);
+  const own = await computer.call(await computer.device(PLAIN), call);
+  assert.ok(own.ok);
+  assert.equal(
+    (own.value as { logins: { password: string }[] }).logins[0]!.password,
+    LOGIN_PASSWORD,
+  );
 });
 
 test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요한 명령을 통과하지 못한다", async () => {

@@ -26,6 +26,8 @@ export type BrowserVault = {
   read(): Result<VaultFile>;
   // 바꾼 vault를 쓴다. stamp는 이번 바꿈에 쓸 칸 stamp다.
   update<T>(change: VaultChange<T>): Result<T>;
+  // 지금 vault가 `seen`(read가 준 그 값)이면 `next`로 바꾼다. 그 사이 바뀌었으면 쓰지 않고 false다(합치기가 다시 한다).
+  replace(seen: VaultFile, next: VaultFile): Result<boolean>;
 };
 
 export const EMPTY_VAULT: VaultFile = {
@@ -117,6 +119,15 @@ export function createBrowserVault(options: {
       if (!written.ok) return written;
       cached = changed.value.vault;
       return ok(changed.value.value);
+    },
+    replace(seen, next) {
+      const current = read();
+      if (!current.ok) return current;
+      if (current.value !== seen) return ok(false);
+      const written = writeVaultFile(path, next);
+      if (!written.ok) return written;
+      cached = next;
+      return ok(true);
     },
   };
 }

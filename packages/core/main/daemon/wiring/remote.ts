@@ -128,6 +128,13 @@ import {
 import { devicePrincipal } from "../../../remote/call.ts";
 import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
 import {
+  createVaultSync,
+  type VaultSync,
+} from "../../../secrets/vault-sync.ts";
+import { browserShareSetting } from "../../../config/shell-settings.ts";
+import { browserVaultExchange } from "../../../../protocol/secrets/browser-vault.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
+import {
   changesSubscriptions,
   createRemoteSubscriptions,
   sharesAppEvent,
@@ -450,6 +457,7 @@ export function remoteWiring(
   // 명단의 다른 컴퓨터마다 하나인 link. remote가 켜진 동안만 붙는다.
   let links: Links;
   let carry: CarryLinks;
+  let vaultSync: VaultSync;
   let subscriptions: ReturnType<typeof createRemoteSubscriptions>;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
@@ -751,6 +759,7 @@ export function remoteWiring(
       listenerFailure = undefined;
       hostText = undefined;
       carry.stop();
+      vaultSync.stop();
       links.sync(undefined);
       return;
     }
@@ -872,6 +881,7 @@ export function remoteWiring(
     const reached = await identify(ctx, ownReach(ctx));
     if (!reached.ok) logError(ctx, "roster_not_signed", reached.error.message);
     carry.start();
+    vaultSync.start();
     links.sync(keys.host);
     refreshSubscriptions(ctx);
   }
@@ -1088,6 +1098,32 @@ export function remoteWiring(
         wait,
         logger: ctx.telemetry.logger,
       });
+      // browser profile과 저장 login(값 포함)은 link로만 맞춘다(폴더, 폰, relay가 읽는 곳에 쓰지 않는다).
+      vaultSync = createVaultSync({
+        vault: ctx.browserVault,
+        secrets: ctx.secretStore,
+        exchange: (machine) =>
+          links.call({
+            machine,
+            resource: browserVaultExchange.resource,
+            method: browserVaultExchange.method,
+            body: {},
+          }),
+        peers: () =>
+          links
+            .list()
+            .filter((each) => each.status === "connected")
+            .map((each) => each.machine),
+        sharing: () => ctx.settings.get(browserShareSetting) ?? true,
+        changed: () =>
+          publishStateChanged(ctx.bus, ctx.clock.now(), [
+            { name: "browser_profiles", id: null },
+            { name: "logins", id: null },
+          ]),
+        clock: ctx.clock,
+        wait,
+        logger: ctx.telemetry.logger,
+      });
       links = createLinks({
         roster,
         name: () => ctx.machine.status().name,
@@ -1097,8 +1133,12 @@ export function remoteWiring(
         wait,
         publish: (event) => ctx.bus.publish(event),
         logger: ctx.telemetry.logger,
-        onPeerReady: (machine) => carry.ready(machine),
+        onPeerReady: (machine) => {
+          carry.ready(machine);
+          vaultSync.ready(machine);
+        },
         onPeerCarry: (machine) => carry.peerChanged(machine),
+        onPeerVault: (machine) => vaultSync.peerChanged(machine),
         // 그 컴퓨터가 보낸 앱 event는 core의 구독자(job, 앱 선언)에게 이 기계의 event로 낸다.
         onPeerEvent(machine, event) {
           const received = receivedAppEvent(event);
@@ -1540,6 +1580,15 @@ export function remoteWiring(
           if (changes.some((change) => change.name === "carry_files")) {
             carry.changed();
           }
+          if (
+            changes.some(
+              (change) =>
+                change.name === "settings" &&
+                (change.id === null || change.id === browserShareSetting.key),
+            )
+          ) {
+            vaultSync.sharingChanged();
+          }
         },
         close: () => undefined,
       });
@@ -1554,6 +1603,7 @@ export function remoteWiring(
       sender?.close();
       await reconciling;
       carry.stop();
+      vaultSync.stop();
       links.sync(undefined);
       host?.shutdown();
       await listener?.close();

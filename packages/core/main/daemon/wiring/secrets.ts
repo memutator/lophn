@@ -7,6 +7,7 @@ import {
   browserProfilesDelete,
   browserProfilesList,
   browserProfilesSave,
+  browserVaultExchange,
   LOGIN_FIELDS,
   type LoginField,
   loginIdSchema,
@@ -48,6 +49,8 @@ import {
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readAgentMcp } from "./agent-mcp.ts";
 import { agentBrowserProfile } from "./browser-profile.ts";
+import { browserShareSetting } from "../../../config/shell-settings.ts";
+import { browserVaultExchangeHandler } from "../../../secrets/vault-sync.ts";
 import { browserVaultStep } from "./browser-vault-step.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -254,6 +257,17 @@ export const secretsWiring: WiringFactory = () => {
           [
             key(browserProfilesCleared),
             browserProfilesClearedHandler({ vault: logins }),
+          ],
+          [
+            key(browserVaultExchange),
+            browserVaultExchangeHandler({
+              vault: logins,
+              secrets,
+              // remote wiring이 늦게 낸다. 부를 때 읽는다.
+              isComputer: (principal) =>
+                ctx.deviceKind(principal) === "computer",
+              sharing: () => ctx.settings.get(browserShareSetting) ?? true,
+            }),
           ],
           [key(secretStatus), secretStatusHandler(secrets)],
           [key(secretDelete), secretDeleteHandler(secrets, valueChanged)],

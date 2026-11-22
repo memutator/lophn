@@ -239,6 +239,7 @@ import {
   secretPut,
   secretStatus,
 } from "../secrets/secret-file.ts";
+import { browserVaultExchange } from "../secrets/browser-vault.ts";
 import {
   workflowInstanceList,
   workflowInstanceRead,
@@ -563,6 +564,12 @@ export const REMOTE_AGENT_ROUTES = [
 // 하나만 연다. 컴퓨터의 `by` 없는 call이 이 밖이면 `invalid_input`이고, `by`가 있는 call은 이 목록 때문에 더 받는 것이 없다.
 // 지금은 폴더로 나르는 file의 pull과 push(`carry/*`)다.
 export const REMOTE_CORE_ROUTES = [...CARRY_ROUTES] as const;
+
+// 명단의 다른 컴퓨터의 core 자신만(kind computer, `by` 없이) 부르는 route다. 위 두 목록과 달리 폰, 그 컴퓨터의 화면·터미널·agent·앱
+// 요청은 받지 않는다(`forbidden`). 기기 자격의 scope에는 들지만 REMOTE_ALLOWED_ROUTES에 두지 않아 폰의 목록에 없다. handler도 부른 쪽이
+// 지금 명단의 컴퓨터인지 한 번 더 본다(이 컴퓨터의 사람 token은 기기가 아니다). 지금은 browser profile과 저장 login(값 포함)을
+// 맞추는 `browser_vault/exchange`다.
+export const REMOTE_COMPUTER_CORE_ROUTES = [browserVaultExchange] as const;
 
 // 터미널에서 친 요청(`by: terminal`)이 기기 목록에서 받지 못하는 route다. `terminal`은 사람이 친 것인지 그 사람의 CLI token을 쥔 coding
 // agent가 친 것인지 가를 수 없고, 터미널 입력 허락은 그 컴퓨터의 화면에게 준 것이지 그 컴퓨터의 shell에서 도는 것에게 준 것이 아니다.

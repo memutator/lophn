@@ -1900,6 +1900,64 @@ flows:
     docs: [architecture/browser-tab.md]
     unclear: []
 
+  - id: browser-vault-exchange
+    title: "명단의 다른 컴퓨터의 core가 이 컴퓨터의 vault(profile, login, 값, 흔적)를 받는다"
+    actor: system
+    entries: [route:browser_vault/exchange]
+    boundary: [secrets, remote]
+    code: [packages/core/secrets/vault-sync.ts, packages/core/remote/call.ts, packages/core/main/daemon/wiring/secrets.ts]
+    steps:
+      - "기기 입구는 이 route를 그 컴퓨터의 core 자신의 call(kind computer, 요청한 쪽 `by` 없음)으로만 받는다. 폰, 그 컴퓨터의 화면·터미널·agent·앱 요청은 handler에 닿기 전에 막는다"
+      - "handler는 부른 principal이 지금 명단의 컴퓨터인지 다시 본다(이 컴퓨터의 사람 token, agent, CLI, 빠진 컴퓨터는 막힌다)"
+      - "이 컴퓨터가 나누기(`shell.browser.share_with_computers`)를 껐으면 막는다"
+      - "vault의 profile, login, 흔적과 login마다 secrets.json의 password·TOTP seed를 낸다. 값은 이 응답(link의 Noise 안)에만 있고 log, ledger, event에 없다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "폰이나 요청한 쪽이 있는 call(기기 입구), 기기가 아닌 자격이나 지금 명단의 컴퓨터가 아닌 기기(handler), 나누기를 끔"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 빈 object가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "browser-vault.json을 읽지 못했다"
+        observe: [response]
+    crosses_process: false
+    risk: [secret]
+    docs: [architecture/browser-tab.md, architecture/remote.md]
+    unclear: []
+
+  - id: browser-vault-sync
+    title: "link가 붙은 명단의 컴퓨터마다 그 vault를 받아 이 컴퓨터에 합친다"
+    actor: system
+    entries: [system:browser-vault-sync]
+    uses: [route:browser_vault/exchange]
+    boundary: [secrets, remote]
+    code: [packages/core/secrets/vault-sync.ts, packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts]
+    steps:
+      - "계기: link가 붙음, 그 컴퓨터의 `StateChanged{browser_profiles|logins}`(2초 debounce), 5분 timer, 이 컴퓨터의 나누기를 켬. 컴퓨터마다 한 번에 하나다. 나누기를 끈 컴퓨터는 받지 않는다"
+      - "그 컴퓨터의 browser_vault/exchange를 link로 부른다(요청한 쪽 없이). 모양이 맞지 않으면 버린다"
+      - "칸마다 합친다(browser-vault-merge). 바뀐 값을 secret store의 put·delete로 먼저 쓰고(put은 쓰기 전에 알려진 값으로 올린다), 합치는 사이 vault가 바뀌지 않았을 때만 합친 vault를 쓴다(바뀌었으면 다시 합친다). 그 뒤 vault에 없는 login의 값을 지운다"
+      - "바뀌었으면 `StateChanged{browser_profiles, logins}`를 내서 화면, shell main, 다른 컴퓨터가 다시 읽는다"
+    outcomes:
+      - id: merged
+        observe: ["disk:<root>/browser-vault.json", "disk:<root>/secrets.json", "event:StateChanged"]
+      - id: peer-not-sharing
+        when: "그 컴퓨터가 나누기를 껐거나(forbidden) 이 route를 모르는 옛 판이다(not_found). 물러나지 않고 다음 계기를 기다린다"
+        observe: ["process:stdout 없음"]
+      - id: failed
+        code: unavailable
+        when: "link 실패, 모양이 틀린 답, 값이나 vault를 쓰지 못함. log 한 줄(값 없음)을 남기고 1분부터 두 배씩 1시간까지 물러난다"
+        observe: ["process:stdout browser_vault_sync_failed"]
+    crosses_process: false
+    risk: [secret, data-loss]
+    docs: [architecture/browser-tab.md]
+    unclear: []
+
   - id: login-release
     title: "shell main이 login 값을 받는다(password, 지금의 TOTP code)"
     actor: shell

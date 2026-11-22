@@ -1,7 +1,8 @@
 // 기기 연결의 자격과 `call`. 기기는 actor user, principal `device:<id>`이고 scope는 REMOTE_ALLOWED_ROUTES와 REMOTE_PERSON_ROUTES의
 // 합이다. `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다. frame은 JSON뿐이라 file·upload route의 bytes는 base64로 싣는다.
 // 무엇을 여는지는 요청한 쪽(frame의 `by`)이 정한다. 폰은 `by`가 없고 컴퓨터는 있다(폰이 `by`를 싣고 부르면 `invalid_input`이다. 컴퓨터가
-// `by` 없이 부르면 그 컴퓨터의 core가 스스로 하는 일이라 REMOTE_CORE_ROUTES만 열고 그 밖은 `invalid_input`이다). 사람 route와 확인이 필요한 command는 `by`가 없는 폰이나 `screen`이고 터미널 입력을 허락받은 기기에만 연다.
+// `by` 없이 부르면 그 컴퓨터의 core가 스스로 하는 일이라 REMOTE_CORE_ROUTES와 REMOTE_COMPUTER_CORE_ROUTES만 열고 그 밖은 `invalid_input`이다.
+// REMOTE_COMPUTER_CORE_ROUTES는 그 길(컴퓨터, `by` 없음)만 받고 폰과 요청한 쪽이 있는 call은 `forbidden`이다). 사람 route와 확인이 필요한 command는 `by`가 없는 폰이나 `screen`이고 터미널 입력을 허락받은 기기에만 연다.
 // `terminal`은 사람의 route와 REMOTE_TERMINAL_DENIED를 못 받고(그 터미널에서 치는 coding agent도 같은 token이다), `agent`와 `app`은
 // REMOTE_AGENT_ROUTES만 받는다. 그 가운데 앱 목록·읽기는 private인 앱을 빼고 준다.
 // `by`는 부른 컴퓨터가 자기 자격에서 정한 값이라 이 기계는 그 종류만 믿고 `agent`의 name 같은 글로는 아무것도 정하지 않는다.
@@ -22,6 +23,7 @@ import type { Requester } from "../../protocol/machine/requester.ts";
 import {
   REMOTE_AGENT_ROUTES,
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_COMPUTER_CORE_ROUTES,
   REMOTE_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
   REMOTE_TERMINAL_DENIED,
@@ -56,6 +58,7 @@ export function devicePrincipal(device: string): string {
 const DEVICE_OPERATIONS = [
   ...REMOTE_ALLOWED_ROUTES,
   ...REMOTE_PERSON_ROUTES,
+  ...REMOTE_COMPUTER_CORE_ROUTES,
 ].map((route) => route.name);
 const PERSON_OPERATIONS = new Set<string>(
   REMOTE_PERSON_ROUTES.map((route) => route.name),
@@ -65,6 +68,9 @@ const AGENT_OPERATIONS = new Set<string>(
 );
 const CORE_OPERATIONS = new Set<string>(
   REMOTE_CORE_ROUTES.map((route) => route.name),
+);
+const COMPUTER_CORE_OPERATIONS = new Set<string>(
+  REMOTE_COMPUTER_CORE_ROUTES.map((route) => route.name),
 );
 const TERMINAL_DENIED = new Set<string>(
   REMOTE_TERMINAL_DENIED.map((route) => route.name),
@@ -203,11 +209,19 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     const { principal } = current.value;
     const kind = deps.kind(principal);
     const by = call.by;
-    // `by` 없는 컴퓨터는 core가 스스로 하는 일(`carry/*`)만 한다.
+    // 명단의 컴퓨터의 core 자신만 부르는 route(login 값이 실린다)는 폰과 요청한 쪽이 있는 call을 받지 않는다.
+    const computerCore = COMPUTER_CORE_OPERATIONS.has(entry.route.name);
+    if (computerCore && !(kind === "computer" && by === undefined)) {
+      return err({
+        code: "forbidden",
+        message: "only the lophn of a paired computer reaches this",
+      });
+    }
+    // `by` 없는 컴퓨터는 core가 스스로 하는 일(`carry/*`, `browser_vault/exchange`)만 한다.
     const coreOwn =
       kind === "computer" &&
       by === undefined &&
-      CORE_OPERATIONS.has(entry.route.name);
+      (CORE_OPERATIONS.has(entry.route.name) || computerCore);
     if (!coreOwn && (kind === "computer") === (by === undefined)) {
       return err({
         code: "invalid_input",

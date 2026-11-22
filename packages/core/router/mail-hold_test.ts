@@ -31,6 +31,7 @@ import {
 import type { Requester } from "../../protocol/machine/requester.ts";
 import {
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_COMPUTER_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
 } from "../../protocol/remote/mod.ts";
 import type {
@@ -742,13 +743,15 @@ test("대기 중인 mail은 사람이 이 컴퓨터나 자기 기기의 화면�
     epoch: "test",
     random: seededRandom(7),
     clock: manualClock(START),
-    operations: [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES].map(
-      (route) => ({
-        name: route.name,
-        actors: ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      }),
-    ),
+    operations: [
+      ...REMOTE_ALLOWED_ROUTES,
+      ...REMOTE_PERSON_ROUTES,
+      ...REMOTE_COMPUTER_CORE_ROUTES,
+    ].map((route) => ({
+      name: route.name,
+      actors: ["user"],
+      kind: route.kind === "command" ? "command" : "read",
+    })),
   });
   const memory = new Map<string, MemoryHandler>([
     ["mail/holds", holdsHandler(b.entry)],

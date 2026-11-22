@@ -798,6 +798,13 @@ files:
       - browser-vault-merge:deleted
     note: 첫 합치기는 합집합(같은 이름의 profile도 둘), 떨어져 고친 다른 칸은 둘 다·같은 칸은 나중 것, 지울 때 몰랐던 고침은 login을 되살리고 아니면 지운 것이 이기며, 지운 profile의 몰랐던 login은 profile을 되살린다. 두 컴퓨터가 서로를 합친 결과가 같고 다시 받아도 바뀌지 않는다. 합치기가 지운 profile은 partition data를 지울 목록에 들고 되살아나면 빠진다
 
+  - path: packages/core/secrets/vault-sync_test.ts
+    covers:
+      - browser-vault-exchange:ok
+      - browser-vault-exchange:forbidden
+      - browser-vault-sync:merged
+    note: exchange는 지금 명단의 컴퓨터에만 값을 내고 이 컴퓨터의 사람 token, 빠진 컴퓨터, 나누기를 끈 때는 forbidden이다. 받은 vault를 합치면 새 login의 값을 넣고 지워진 login과 vault 밖 login의 값을 지운다
+
   - path: packages/core/secrets/login-routes_test.ts
     covers:
       - login-release:released
@@ -1036,8 +1043,8 @@ files:
     note: "메모리 전송으로 실제 connectRemote client 둘을 core host와 link에 붙인다. 기기 표·자격·call·timer만 가짜다. 요청이 지정한 기기의 연결로만 가는지, 적지 않은 kind를 보내지 않는지, 모르는 id·다른 기기·deadline 뒤의 response를 버리는지, 기다리는 사이 닫힘을 본다"
 
   - path: packages/core/remote/call_test.ts
-    covers: [remote-connection:call-forbidden, remote-connection:call-confirmed, decision-handle-consume:consumed, core-machines-call:no-shell-capability, core-machines-call:this-computer, core-machines-watch:no-shell-capability, core-machines-app-tools:ok, secret-put:device-vault-refused]
-    note: "createRemoteCall을 실제 CredentialRegistry·ConfirmationRegistry와 가짜 handler·writer(확인을 executor처럼 예약·소비)로 돌린다. 터미널 입력 허락이 없는 기기의 secrets/put, providers/connect-key, input_request/answer_secret, providers/disconnect, settings/update, agents/create, projects/create는 forbidden이고 handler·writer에 닿지 않으며 값이 오류에 없다. 허락받은 기기는 같은 표가 닿고 providers/disconnect는 core가 붙인 handle을 소비한다. 허락받은 기기도 허락이 있어도 열지 않는 표(roster, logins, 목록 밖 devices, machines, MCP 로그인 시작, change-skip)와 vault 이름의 secrets/put은 forbidden이고 아무것도 닿지 않는다. 기기 route 목록 둘(REMOTE_ALLOWED_ROUTES, REMOTE_PERSON_ROUTES)은 겹치지 않고 사람이 부를 수 있는 route만 든다. handler 오류의 details가 기기의 결과에 그대로 온다. app_files/put은 기본 256 KiB를 넘는 조각(1 MiB)도 기기 link에서 받고 조각 상한을 넘는 것은 handler에 닿기 전에 거절한다(한도는 body를 읽는 곳이 정한다). agent 자격은 targets를 넓혀도 actor 검사에 막혀 secrets/put과 providers/disconnect가 forbidden이고 handle이 생기지 않는다(principal user인 사람 자격도). machines/call의 요청한 쪽은 core가 자격에서 정한다: 살아 있는 capability는 screen, capability 없는 사람 token은 terminal, 죽은 capability는 forbidden이고 link에 보내지 않으며 입력의 by나 capability는 다른 기계로 가지 않는다. 이 컴퓨터를 고르면 invalid_input이고 구독(machines/watch)은 capability가 없거나 죽었으면 forbidden이다. machines/app_tools는 session 없는 agent로 묻고 닿지 않는 앱은 view null이며 private workspace의 agent에는 앱을 비우고, 다른 컴퓨터가 준 command 목록은 다시 걸러 틀린 것은 빼고 긴 설명은 자른다. 명단의 컴퓨터 목록은 컴퓨터만 담고 이 컴퓨터를 self로 표시한다"
+    covers: [remote-connection:call-forbidden, remote-connection:call-confirmed, decision-handle-consume:consumed, core-machines-call:no-shell-capability, core-machines-call:this-computer, core-machines-watch:no-shell-capability, core-machines-app-tools:ok, secret-put:device-vault-refused, browser-vault-exchange:forbidden]
+    note: "createRemoteCall을 실제 CredentialRegistry·ConfirmationRegistry와 가짜 handler·writer(확인을 executor처럼 예약·소비)로 돌린다. 터미널 입력 허락이 없는 기기의 secrets/put, providers/connect-key, input_request/answer_secret, providers/disconnect, settings/update, agents/create, projects/create는 forbidden이고 handler·writer에 닿지 않으며 값이 오류에 없다. 허락받은 기기는 같은 표가 닿고 providers/disconnect는 core가 붙인 handle을 소비한다. 허락받은 기기도 허락이 있어도 열지 않는 표(roster, logins, 목록 밖 devices, machines, MCP 로그인 시작, change-skip)와 vault 이름의 secrets/put은 forbidden이고 아무것도 닿지 않는다. 기기 route 목록 둘(REMOTE_ALLOWED_ROUTES, REMOTE_PERSON_ROUTES)은 겹치지 않고 사람이 부를 수 있는 route만 든다. handler 오류의 details가 기기의 결과에 그대로 온다. app_files/put은 기본 256 KiB를 넘는 조각(1 MiB)도 기기 link에서 받고 조각 상한을 넘는 것은 handler에 닿기 전에 거절한다(한도는 body를 읽는 곳이 정한다). agent 자격은 targets를 넓혀도 actor 검사에 막혀 secrets/put과 providers/disconnect가 forbidden이고 handle이 생기지 않는다(principal user인 사람 자격도). machines/call의 요청한 쪽은 core가 자격에서 정한다: 살아 있는 capability는 screen, capability 없는 사람 token은 terminal, 죽은 capability는 forbidden이고 link에 보내지 않으며 입력의 by나 capability는 다른 기계로 가지 않는다. 이 컴퓨터를 고르면 invalid_input이고 구독(machines/watch)은 capability가 없거나 죽었으면 forbidden이다. machines/app_tools는 session 없는 agent로 묻고 닿지 않는 앱은 view null이며 private workspace의 agent에는 앱을 비우고, 다른 컴퓨터가 준 command 목록은 다시 걸러 틀린 것은 빼고 긴 설명은 자른다. 명단의 컴퓨터 목록은 컴퓨터만 담고 이 컴퓨터를 self로 표시한다. browser_vault/exchange는 컴퓨터의 core 자신(요청한 쪽 없음)만 handler에 닿고 폰과 screen·terminal·agent·app 요청은 forbidden이며 값이 결과에 없다"
 
   - path: packages/core/remote/a2a-lists_test.ts
     covers: [a2a-lists-receive:ok, a2a-lists-receive:workspace-unknown, a2a-lists-receive:forbidden, machines-lists:ok, machines-lists:forbidden, machines-lists:unreadable, machines-lists:other-refused]

@@ -43,6 +43,7 @@ import type {
 } from "../../protocol/machine/requester.ts";
 import {
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_COMPUTER_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
 } from "../../protocol/remote/mod.ts";
 import {
@@ -122,13 +123,15 @@ function setup() {
     epoch: "test",
     random: seededRandom(5),
     clock,
-    operations: [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES].map(
-      (route) => ({
-        name: route.name,
-        actors: ["user"],
-        kind: route.kind === "command" ? "command" : "read",
-      }),
-    ),
+    operations: [
+      ...REMOTE_ALLOWED_ROUTES,
+      ...REMOTE_PERSON_ROUTES,
+      ...REMOTE_COMPUTER_CORE_ROUTES,
+    ].map((route) => ({
+      name: route.name,
+      actors: ["user"],
+      kind: route.kind === "command" ? "command" : "read",
+    })),
   });
   // handler와 writer에 닿은 route.
   const reached: string[] = [];

@@ -1574,6 +1574,7 @@ async function linkedComputer(
     } as never,
     onPeerReady: () => undefined,
     onPeerCarry: () => undefined,
+    onPeerVault: () => undefined,
     onPeerEvent: (_machine, event) => void peerEvents.push(event),
   });
   links.sync(aKey);

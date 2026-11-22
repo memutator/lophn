@@ -138,9 +138,32 @@ export const browserProfilesCleared = defineMemory({
   errors: ["invalid_input", "unavailable"],
 });
 
+// 명단의 다른 컴퓨터의 core가 이 컴퓨터의 vault를 값과 함께 받는다. 그 컴퓨터의 core 자신만(요청한 쪽 없이) 부르고
+// 사람·agent·앱·터미널·폰과 이 컴퓨터의 사람 token은 받지 않는다(core/remote/call.ts, handler). 값은 이 응답에만 있다.
+// 이 컴퓨터가 나누기를 껐으면 `forbidden`이다.
+export const exchangeLoginSchema = vaultLoginSchema.extend({
+  password: z.string().nullable(),
+  totp: z.string().nullable(),
+});
+export type ExchangeLogin = z.infer<typeof exchangeLoginSchema>;
+export const browserVaultExchange = defineMemory({
+  resource: "browser_vault",
+  method: "exchange",
+  name: "BrowserVaultExchange",
+  input: z.strictObject({}),
+  output: z.strictObject({
+    profiles: z.array(vaultProfileSchema),
+    logins: z.array(exchangeLoginSchema),
+    removed: z.array(vaultRemovedSchema),
+  }),
+  actors: ["user"],
+  errors: ["forbidden", "unavailable"],
+});
+
 export const BROWSER_VAULT_ROUTES = [
   browserProfilesList,
   browserProfilesSave,
   browserProfilesDelete,
   browserProfilesCleared,
+  browserVaultExchange,
 ] as const;

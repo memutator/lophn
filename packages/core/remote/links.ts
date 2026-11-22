@@ -156,6 +156,8 @@ export type LinksDeps = {
   onPeerReady(machine: Id<"mch">): void;
   // 그 컴퓨터가 든 옮기는 file이 바뀌었다(그 컴퓨터의 `StateChanged{carry_files}`).
   onPeerCarry(machine: Id<"mch">): void;
+  // 그 컴퓨터의 browser profile이나 저장 login이 바뀌었다(`StateChanged{browser_profiles|logins}`).
+  onPeerVault(machine: Id<"mch">): void;
   // 그 컴퓨터가 보낸 event 가운데 core 안 구독자(capability가 없는 구독자)의 조건에 든 것. 그 컴퓨터가 보낸 글이라 믿지 않고 받는 쪽이 다시 읽는다.
   // bus의 `MachineFrameReceived`에는 싣지 않는다: 창이 원한 것이 아니다.
   onPeerEvent(machine: Id<"mch">, event: unknown): void;
@@ -383,6 +385,15 @@ export function createLinks(deps: LinksDeps) {
           event.payload?.changes?.some((each) => each.name === "carry_files")
         ) {
           deps.onPeerCarry(machine);
+        }
+        if (
+          event.type === "StateChanged" &&
+          event.payload?.changes?.some(
+            (each) =>
+              each.name === "browser_profiles" || each.name === "logins",
+          )
+        ) {
+          deps.onPeerVault(machine);
         }
         // 구독자마다 자기가 건 것만 받는다: core 안 구독자의 조건에 든 것은 core로, 화면의 조건에 든 것만 bus로 싣는다(나르기 때문에 더 건
         // `StateChanged`나 core가 건 `AppEventPublished`가 창에 가지 않는다).

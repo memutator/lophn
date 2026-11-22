@@ -40,6 +40,7 @@ import type {
 } from "../../protocol/server/mod.ts";
 import {
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_COMPUTER_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
 } from "../../protocol/remote/mod.ts";
 import type { RemoteMachines } from "../apps/calls/forward.ts";
@@ -404,13 +405,15 @@ async function machine(self: Id<"mch">) {
       epoch: "test",
       random: seededRandom(index),
       clock: manualClock(Date.parse("2026-11-21T00:00:00.000Z")),
-      operations: [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES].map(
-        (route) => ({
-          name: route.name,
-          actors: ["user"],
-          kind: route.kind === "command" ? "command" : "read",
-        }),
-      ),
+      operations: [
+        ...REMOTE_ALLOWED_ROUTES,
+        ...REMOTE_PERSON_ROUTES,
+        ...REMOTE_COMPUTER_CORE_ROUTES,
+      ].map((route) => ({
+        name: route.name,
+        actors: ["user"],
+        kind: route.kind === "command" ? "command" : "read",
+      })),
     });
     const call = createRemoteCall({
       registry,

@@ -5,6 +5,7 @@ import { sha256Hex } from "../../../base/mod.ts";
 import { ROUTES } from "../../../protocol/registry.ts";
 import {
   REMOTE_ALLOWED_ROUTES,
+  REMOTE_COMPUTER_CORE_ROUTES,
   REMOTE_PERSON_ROUTES,
 } from "../../../protocol/remote/mod.ts";
 import { RouteRegistry, WORKSPACE_MEMORY_ROUTES } from "../../server/mod.ts";
@@ -87,7 +88,11 @@ test("조립된 전체 route는 중복이 없고 remote 허용 목록의 모든 
   const registered = new Set(
     allRoutes.map((route) => `${route.resource}/${route.method}`),
   );
-  const missing = [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES]
+  const missing = [
+    ...REMOTE_ALLOWED_ROUTES,
+    ...REMOTE_PERSON_ROUTES,
+    ...REMOTE_COMPUTER_CORE_ROUTES,
+  ]
     .map((route) => `${route.resource}/${route.method}`)
     .filter((key) => !registered.has(key));
   assert.deepStrictEqual(missing, []);

@@ -43,7 +43,7 @@
 ### mail
 
 - **꼴.** mail 하나는 `{id: mal_…, call, from, to_machine, seq, sent_at, expires_at}`와 종류마다의 칸이다. id와 call id는 보낸 기계가 짓고 두 기계가 같은 값을 쓴다. `from`은 쓴 쪽 `{machine, agent, session, name}`이고 받는 기계는 `machine`만 믿는다(나머지는 표시다). `seq`는 받는 기계마다 1부터 늘고 줄을 지워도 다시 쓰지 않는다.
-  - `call`: 주소, 답 방식(none, result, conversation), 본문, unattended. workflow의 step이면 `step: {instance, name}`(`workflow.md`).
+  - `call`: 주소, 답 방식(none, result, conversation), 본문, unattended. workflow의 step이면 `step: {instance, name}`(`workflow.md`). `team spawn --on`이면 `spawn: {session}`: 보낸 기계가 지은 팀원 session id이고 받는 기계는 그 id로 session을 열어 보낸 session을 부모(`spawned_by`)로 적는다. 주소는 agent 꼴이고 그 id의 session이 이미 있으면 열지 않고 실패(`not_found`)로 답한다.
   - `reply`: 본문(없을 수 있다), 끝(`outcome`: done·failed·cancelled와 실패 이유, 없으면 conversation의 말), unattended. workflow의 report면 `report: {next, session}`. 받은 컴퓨터에서 step을 가져간 turn이 report 없이 끝나면 그 기계의 program이 `report`에 `ended`(`failed | stopped | restarted`)를 싣고 `next`와 본문 없이 낸다(step은 열어 둔다, `workflow.md` 51). 실패 알림은 본문 없이 이유만 싣고 받는 쪽이 자기 고정 글로 만든다(그 기계가 고른 글을 실을 때만 본문이 있다: 가져간 뒤 재시작). 본문 없는 done·cancelled는 보낸 쪽 행만 닫고 입력을 넣지 않는다(답 없는 call의 소비, 받는 기계의 사람이 취소).
   - `cancel`: 보낸 쪽이 call을 취소했다.
   - `state`: 받는 기계가 call을 어떻게 받았는지(`held`, `running`, 받은 session)를 알린다. 답이 없는 길(폴더, 대기 뒤 시작)에서만 낸다. link는 답(`{delivery, reason, session}`)이 같은 일을 한다.

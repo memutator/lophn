@@ -43,8 +43,12 @@ export function browserProfilesSaveHandler(deps: {
     const { id: given, name, color } = input.data;
     const id = given ?? deps.ids.newId(BROWSER_PROFILE_ID_PREFIX);
     return deps.vault.update((vault, stamp) => {
-      // 이름 겹침과 수는 이 컴퓨터에서 만들고 고칠 때만 본다. 다른 컴퓨터와 합친 목록에는 같은 이름이 둘 있을 수 있다.
+      // 이름 겹침은 이 컴퓨터에서 만들거나 이름을 바꿀 때만 본다. 다른 컴퓨터와 합친 목록에는 같은 이름이 둘 있을 수 있어서
+      // 이름을 그대로 두는 저장(색 바꾸기)은 겹쳐도 받는다.
+      const renamed =
+        vault.profiles.find((one) => one.id === id)?.name !== name;
       if (
+        renamed &&
         vault.profiles.some(
           (one) =>
             one.id !== id && one.name.toLowerCase() === name.toLowerCase(),

@@ -790,6 +790,14 @@ files:
       - secret-attach:forbidden
     note: 허락된 이름과 목적지만 요청에 붙고, OAuth 내부 이름은 누구에게도 가지 않는다
 
+  - path: packages/core/secrets/vault-merge_test.ts
+    covers:
+      - browser-vault-merge:union
+      - browser-vault-merge:fields-merged
+      - browser-vault-merge:revived
+      - browser-vault-merge:deleted
+    note: 첫 합치기는 합집합(같은 이름의 profile도 둘), 떨어져 고친 다른 칸은 둘 다·같은 칸은 나중 것, 지울 때 몰랐던 고침은 login을 되살리고 아니면 지운 것이 이기며, 지운 profile의 몰랐던 login은 profile을 되살린다. 두 컴퓨터가 서로를 합친 결과가 같고 다시 받아도 바뀌지 않는다. 합치기가 지운 profile은 partition data를 지울 목록에 들고 되살아나면 빠진다
+
   - path: packages/core/secrets/login-routes_test.ts
     covers:
       - login-release:released

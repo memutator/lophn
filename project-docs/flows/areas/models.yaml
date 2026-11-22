@@ -1871,6 +1871,35 @@ flows:
     docs: [architecture/browser-tab.md]
     unclear: []
 
+  - id: browser-vault-merge
+    title: "다른 컴퓨터의 vault(profile, login, 값, 흔적)를 이 컴퓨터의 vault와 칸마다 합친다"
+    actor: system
+    entries: [system:browser-vault-merge]
+    boundary: [secrets]
+    code: [packages/core/secrets/vault-merge.ts]
+    steps:
+      - "profile과 login은 칸마다 stamp가 큰 쪽이 이긴다(같으면 값의 글자 순서). password·TOTP seed도 칸이다"
+      - "지운 것의 흔적은 지울 때 본 칸 stamp를 든다. 어느 칸이든 그보다 새 사본이 있으면 항목이 되살아나고 흔적이 빠진다. 아니면 지운 것이 이긴다"
+      - "지운 profile에 살아 있는 login이 있으면 profile도 되살아난다"
+      - "합친 결과로 이 컴퓨터에서 없어진 profile은 `clear`(partition data를 지울 목록)에 더하고, 되살아난 profile은 뺀다. 기본 profile은 id가 없어 들지 않는다"
+    outcomes:
+      - id: union
+        observe: ["disk:<root>/browser-vault.json"]
+        when: "흔적이 없는 첫 합치기: 두 컴퓨터의 모든 profile과 login이 남는다(같은 이름의 profile도 둘)"
+      - id: fields-merged
+        observe: ["disk:<root>/browser-vault.json", "disk:<root>/secrets.json"]
+        when: "떨어져 있는 동안 두 컴퓨터가 같은 항목을 고쳤다. 다른 칸은 둘 다, 같은 칸은 나중 것이 남는다"
+      - id: revived
+        observe: ["disk:<root>/browser-vault.json"]
+        when: "지울 때 몰랐던 고침(또는 지운 profile의 몰랐던 login)이 있다"
+      - id: deleted
+        observe: ["disk:<root>/browser-vault.json", "disk:<root>/secrets.json"]
+        when: "다른 컴퓨터가 지웠고 그 뒤 고친 칸이 없다. 지운 profile은 `clear`에 든다"
+    crosses_process: false
+    risk: [data-loss, secret]
+    docs: [architecture/browser-tab.md]
+    unclear: []
+
   - id: login-release
     title: "shell main이 login 값을 받는다(password, 지금의 TOTP code)"
     actor: shell

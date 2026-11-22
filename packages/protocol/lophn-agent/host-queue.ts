@@ -549,8 +549,8 @@ export const browserWait = defineMemory({
   errors,
 });
 
-// 자기가 연 탭을 사람에게 보인다(접힌 float을 편다). 사람 손이 필요할 때(로그인, captcha) `ask`와 같이 쓴다. 남이 연 탭이면
-// `forbidden`, 없는 탭이면 `not_found`다. 접수만 답한다.
+// 자기가 연 탭을 사람에게 보인다(접힌 float을 편다). 사람 손이 필요할 때(로그인, captcha) `ask`와 같이 쓴다. 자기 밑 session의
+// 탭이면 `forbidden`, 없는 탭과 볼 수 없는 탭은 같은 `not_found`다. 접수만 답한다.
 export const tabsShow = defineMemory({
   resource: "tabs",
   method: "show",

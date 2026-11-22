@@ -523,7 +523,14 @@ export function createTabHandlers(deps: TabDeps) {
     const caller = owner(who);
     if (!caller.ok) return caller;
     const input = tabsShow.input.parse(body);
-    const shown = queue.show(input.tab as Id<"tab">, caller.value);
+    // 볼 수 없는 탭은 없는 탭과 같은 답이다(close와 같다).
+    const shown = queue.show(input.tab as Id<"tab">, caller.value, (found) =>
+      withinTeam(
+        caller.value,
+        found,
+        (session) => sessionRow(session)?.spawned_by ?? null,
+      ),
+    );
     // 원격 보기는 browser 탭만 본다(`page_view/*`). preview·artifact 탭은 그 기계의 창에서만 펴진다.
     if (shown.ok && caller.value !== "person") {
       const found = queue.browserTab(shown.value, caller.value);

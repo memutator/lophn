@@ -1030,7 +1030,7 @@ flows:
       - packages/core/main/daemon/wiring/host-queue.ts
     steps:
       - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
-      - "탭이 없으면 not_found. 주인이 다른 탭이면 forbidden"
+      - "탭이 없거나 볼 수 없으면(주인이 자기도 자기 밑 session도 아니다. 사람 token은 사람 token의 탭만 본다) 같은 not_found다. 볼 수 있지만 주인이 다른 탭(자기 밑 session의 탭)이면 forbidden"
       - "phone 탭이면 탭이 폰에 있어 펼 것이 없으므로 invalid_input(사람에게 폰을 보라고 하라는 정한 문장)이다"
       - "탭은 표에 그대로 두고 tab_show 요청을 그 탭의 workspace로 넣는다. 접힌 float을 그 자리에서 펴는 것은 shell main이 /host-link로 받아 하고, float이 아니거나 이미 펴져 있으면 할 일이 없다"
       - "agent가 편 browser 탭이면 TabShowRequested {tab}을 subject <session>으로 Bus에 낸다. 그 session을 다른 컴퓨터에서 보는 창이 그 page의 원격 보기 탭을 연다(remote-tab-show). 화면 없는 기계에서는 이 길만 사람에게 닿는다. preview·artifact 탭과 사람 token이 편 탭은 내지 않는다"
@@ -1039,11 +1039,11 @@ flows:
         observe: [response, event:TabShowRequested]
       - id: not_found
         code: not_found
-        when: "탭이 없다"
+        when: "탭이 없거나 볼 수 없다(부모·형제·남의 탭, 사람 token에게 agent의 탭)"
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "주인이 다른 탭이거나, agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "자기 밑 session이 주인인 탭이거나, agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
       - id: invalid_input
         code: invalid_input

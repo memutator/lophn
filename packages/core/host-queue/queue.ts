@@ -456,7 +456,7 @@ export function createHostQueue(deps: {
   }
 
   // 자기 탭(연 탭, 넘겨받은 탭)만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: 같은 not_found 문장).
-  // sees를 주면(close) 볼 수 없는 주인의 탭은 없는 탭과 같은 답이다(남의 탭이 있는지 새지 않게).
+  // sees를 주면(close, show) 볼 수 없는 주인의 탭은 없는 탭과 같은 답이다(남의 탭이 있는지 새지 않게).
   function owned(
     tab: Id<"tab">,
     caller: TabOwner,
@@ -893,8 +893,12 @@ export function createHostQueue(deps: {
       );
       return ok(tab);
     },
-    show(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
-      const found = owned(tab, caller, "show");
+    show(
+      tab: Id<"tab">,
+      caller: TabOwner,
+      sees?: (owner: TabOwner) => boolean,
+    ): Result<Id<"tab">> {
+      const found = owned(tab, caller, "show", sees);
       if (!found.ok) return found;
       if (found.value.kind === "phone") {
         return err({

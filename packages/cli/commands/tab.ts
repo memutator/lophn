@@ -202,7 +202,7 @@ const show = defineCommand({
   description:
     "Expand a folded tab you opened (a --as work tab) in place so the person sees it, without moving their focus or layout. " +
     "Use it when you need the person's hands on your work tab (login, captcha, payment confirmation) and send `ask` with it saying what to do. " +
-    "A tab that is not folded needs nothing. A phone tab is on the phone, so it is invalid_input (ask the person to look at the phone). You cannot show tabs other sessions or the person opened (forbidden); an unknown tab is not_found. Returns accepted: the shell shows it when it shows this workspace.",
+    "A tab that is not folded needs nothing. A phone tab is on the phone, so it is invalid_input (ask the person to look at the phone). You cannot show a tab of a session under you (forbidden); any other tab that is not yours is not_found, like an unknown tab. Returns accepted: the shell shows it when it shows this workspace.",
   input: z.strictObject({ tab: idSchema("tab") }),
   positional: ["tab"],
   effect: "write",

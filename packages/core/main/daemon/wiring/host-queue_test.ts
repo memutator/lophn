@@ -1139,7 +1139,7 @@ test("browser 탭이 아닌 탭의 fill_login은 기본 profile의 login만이�
 
 // 탭 주기는 권한 경계다. 깨지면 agent가 부모·형제·남의 탭(사람의 로그인 page)을 가져가거나, 탭을 다룰 수 없는 곳에 주어 잃는다.
 test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn session에만 주고, 준 사슬의 session만 되찾는다", async () => {
-  const { queue, give, open, close } = setup(true);
+  const { queue, give, open, close, show } = setup(true);
   const tab = queue.openTab({
     owner: id("ses", 5) as Id<"ses">,
     workspace: { kind: "home" },
@@ -1202,5 +1202,13 @@ test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn sessio
   const missing = await closing(8, id("tab", 99));
   assert.deepStrictEqual(unseen.error, missing.error);
   assert.equal(missing.error.code, "not_found");
+  // tab show도 같다.
+  const shownUnseen = await show(agent(8), { tab });
+  const shownMissing = await show(agent(8), { tab: id("tab", 99) });
+  assert.deepStrictEqual(
+    (shownUnseen as unknown as { error: unknown }).error,
+    (shownMissing as unknown as { error: unknown }).error,
+  );
+  assert.equal(code(shownMissing), "not_found");
   assert.equal((await closing(5, tab)).error.code, "forbidden");
 });

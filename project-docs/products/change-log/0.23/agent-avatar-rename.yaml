@@ -1,5 +1,5 @@
 id: agent-avatar-rename
-version: 0.23.126
+version: 0.23.127
 title: agent 정의의 `profile` 칸을 `avatar`로 바꾼다
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/main, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/cli, packages/design, packages/mobile, tools]
 change: |

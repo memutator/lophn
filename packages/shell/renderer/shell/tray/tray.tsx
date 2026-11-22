@@ -21,6 +21,7 @@ import type { TrayTone, TrayValue } from "../../../../protocol/apps/tray.ts";
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
 import {
   type AppScreens,
+  appScreenLabel,
   type ScreensRead,
   useAppViews,
   useAppWorkspace,
@@ -97,10 +98,7 @@ export function trayItems(
           app: app.app,
           release: app.release,
           screen: screen.key,
-          title: t("app-panel.label.screen", {
-            app: app.name,
-            screen: screen.label,
-          }),
+          title: appScreenLabel(app.name, screen.label),
           label: screen.label,
           ...(screen.tray === undefined ? {} : { size: screen.tray }),
           ...(value === undefined

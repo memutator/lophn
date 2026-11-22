@@ -7,7 +7,7 @@ import { Field, Input, SegmentedControl, Switch } from "@lophn/ui/input";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
-import type { AppScreens } from "../../app-frame/app-views.tsx";
+import { type AppScreens, appScreenLabel } from "../../app-frame/app-views.tsx";
 import {
   type AppLaunch,
   type AppLaunchMap,
@@ -394,10 +394,7 @@ export function SidebarPanelList({
       .map((screen) => ({
         app: app.app,
         screen: screen.key,
-        label: t("app-panel.label.screen", {
-          app: app.name,
-          screen: screen.label,
-        }),
+        label: appScreenLabel(app.name, screen.label),
       })),
   );
   if (loading) return showLoading ? <Skeleton lines={3} /> : null;

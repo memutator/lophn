@@ -27,7 +27,10 @@ import {
   type Command,
   KEYBINDINGS,
 } from "../../../protocol/shell/keybindings.ts";
-import { AppWorkspaceProvider } from "../app-frame/app-views.tsx";
+import {
+  appScreenLabel,
+  AppWorkspaceProvider,
+} from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
@@ -3183,10 +3186,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             surface: pin.surface,
             label:
               app !== undefined && screen !== undefined
-                ? t("app-panel.label.screen", {
-                    app: app.name,
-                    screen: screen.label,
-                  })
+                ? appScreenLabel(app.name, screen.label)
                 : title,
             onOpen: () => launchAppPanel(pin, title),
           },

@@ -7,7 +7,10 @@ import { Switch } from "@lophn/ui/input";
 import { IconButton } from "@lophn/ui/primitives";
 
 import { AppTabIcon } from "../../../app-frame/app-icon.tsx";
-import type { AppScreens } from "../../../app-frame/app-views.tsx";
+import {
+  type AppScreens,
+  appScreenLabel,
+} from "../../../app-frame/app-views.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
 import styles from "../../../workspace/project-settings/quick-launch-editor.module.css";
 import { byTrayOrder, type SidebarPanelPick } from "./source.ts";
@@ -36,10 +39,7 @@ export function TrayList({
       .map((screen) => ({
         app: app.app,
         screen: screen.key,
-        label: t("app-panel.label.screen", {
-          app: app.name,
-          screen: screen.label,
-        }),
+        label: appScreenLabel(app.name, screen.label),
       })),
   );
   const choices = byTrayOrder(declared, order);

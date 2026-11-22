@@ -14,6 +14,7 @@ import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import {
   type AppRead,
   type AppScreens,
+  appScreenLabel,
   type ScreensRead,
   useAppViews,
   useAppWorkspace,
@@ -99,7 +100,7 @@ export function useScreensRead(
   };
 }
 
-/** 고를 수 있는 (앱, panel 화면) 목록. label은 "앱 · 화면"이다. picker가 쓴다. */
+/** 고를 수 있는 (앱, panel 화면) 목록. label은 "앱 · 화면"(같으면 앱 이름만)이다. picker가 쓴다. */
 export function panelChoices(
   apps: readonly AppScreens[],
 ): readonly (PanelChoice & { readonly label: string })[] {
@@ -108,10 +109,7 @@ export function panelChoices(
       app: app.app,
       screen: screen.key,
       title: app.name,
-      label: t("app-panel.label.screen", {
-        app: app.name,
-        screen: screen.label,
-      }),
+      label: appScreenLabel(app.name, screen.label),
     })),
   );
 }

@@ -2,6 +2,7 @@
 // preload의 view 통로로 main이 열고, 이름·판은 core의 app read로 읽는다. 앱 UI 코드와 앱 scheme
 // 자원은 여기 오지 않는다. 창마다 하나를 provider로 둔다.
 import { createContext, type ReactNode, useContext, useMemo } from "react";
+import { t } from "@lophn/i18n";
 
 import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -42,6 +43,19 @@ export interface AppScreens {
   readonly screens: readonly AppScreen[];
   /** 앱이 선언한 key. Settings › Keyboard 줄이 되고, 앱 page가 맞출 글이 된다. */
   readonly keys?: readonly AppKeyDeclaration[];
+}
+
+/** 앱과 화면을 함께 가리키는 label. 화면 이름이 앱 이름과 같으면 앱 이름만 돌려준다. */
+export function appScreenLabel(app: string, screen: string): string {
+  const appName = app.trim();
+  const screenName = screen.trim();
+  if (
+    screenName.length === 0 ||
+    appName.toLowerCase() === screenName.toLowerCase()
+  ) {
+    return appName || screenName;
+  }
+  return t("app-panel.label.screen", { app: appName, screen: screenName });
 }
 
 export type ScreensRead =

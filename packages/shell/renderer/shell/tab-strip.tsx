@@ -13,7 +13,7 @@ import { t } from "@lophn/i18n";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 
-import type { BrowserProfile } from "../../../protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../protocol/secrets/browser-vault.ts";
 import { ProfileMark } from "../browser/browser-chrome.tsx";
 import { shellIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";

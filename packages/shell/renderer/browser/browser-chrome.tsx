@@ -11,7 +11,7 @@ import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
-import type { BrowserProfile } from "../../../protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../protocol/secrets/browser-vault.ts";
 import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";
 import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import type { AgentControl } from "../workspace/use-surface-requests.ts";

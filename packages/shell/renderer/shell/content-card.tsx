@@ -15,7 +15,7 @@ import { t } from "@lophn/i18n";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, Popover, Tooltip } from "@lophn/ui/overlay";
 
-import type { BrowserProfile } from "../../../protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../protocol/secrets/browser-vault.ts";
 import { ProfileMark } from "../browser/browser-chrome.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { shellIcons } from "../icons/mod.ts";

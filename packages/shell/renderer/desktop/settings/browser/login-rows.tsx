@@ -26,7 +26,7 @@ import type {
   LoginForm,
   LoginRow,
 } from "./source.ts";
-import { useSharing } from "./share-row.tsx";
+import { useDeletesSpread } from "./share-row.tsx";
 import { loginRowsOf } from "./window-source.ts";
 
 const EMPTY: LoginForm = { label: "", origin: "", username: "", note: "" };
@@ -64,7 +64,7 @@ interface Group {
 
 export function LoginRows({ source }: { source: BrowserSettingsSource }) {
   const loaded = useLoginRows();
-  const sharing = useSharing();
+  const spreads = useDeletesSpread();
   const profileRead = useCoreRead(browserProfilesList, {}).loaded;
   const profiles = useMemo(
     () => (profileRead.state === "ready" ? profileRead.value.profiles : null),
@@ -340,7 +340,7 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
             label: deleting?.label ?? "",
           })}
         </p>
-        {sharing === true ? (
+        {spreads ? (
           <p data-login-delete-shared="">{t("settings.note.delete-shared")}</p>
         ) : null}
       </Dialog>

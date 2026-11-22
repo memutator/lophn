@@ -335,6 +335,11 @@ export function MyDevices({
         <p className={remoteStyles.dialogText}>
           {t("settings.note.remote-remove", { name: removeName })}
         </p>
+        {removing?.kind === "computer" ? (
+          <p className={remoteStyles.dialogText}>
+            {t("settings.note.remote-remove-logins", { name: removeName })}
+          </p>
+        ) : null}
       </Dialog>
     </>
   );

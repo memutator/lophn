@@ -7,6 +7,7 @@ import { t } from "@lophn/i18n";
 import { settingsList } from "../../../../../protocol/config/file.ts";
 import { BROWSER_SHARE_SETTING } from "../../../../../protocol/secrets/browser-vault.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
+import { useMachinesView } from "../../machines/context.tsx";
 import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
 import type { BrowserSettingsSource } from "./source.ts";
@@ -23,6 +24,18 @@ export function useSharing(): boolean | null {
         : null,
     [loaded],
   );
+}
+
+/**
+ * 지우기가 다른 컴퓨터에서도 지워지는가: 이 컴퓨터가 나누고 명단에 다른 컴퓨터가 하나라도 있다. 기계 목록을 모르면(기계 보기가
+ * 없는 화면) 없는 것으로 본다.
+ */
+export function useDeletesSpread(): boolean {
+  const sharing = useSharing();
+  const others = useMachinesView()?.machines.some(
+    (one) => one.status !== "removed",
+  );
+  return sharing === true && others === true;
 }
 
 export function ShareRow({ source }: { source: BrowserSettingsSource }) {

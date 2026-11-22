@@ -484,7 +484,7 @@ export const SettingsRemoteRemovedHere = () => (
   />
 );
 
-/** Settings › Remote: Home server의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못한다. */
+/** Settings › Remote: Home server의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 그 컴퓨터가 이미 받은 저장 login은 거기 남는다. */
 export const SettingsRemoteRemove = () => (
   <SettingsFrame
     pane="remote"

@@ -1,7 +1,7 @@
 // Settings 틀. 화면은 renderer의 실제 SettingsSpace가 그린다. 화면이 읽는 route는 가짜 core(core-answers)가 답하고
 // 통로는 그 core를 나눠 쓰는 fake다. 필수 설정이 빈 상태는 fake의 설정이고, 열린 dialog 같은 모양은 mount 뒤에 사람이
 // 하듯이 눌러 만든다.
-import type { BrowserProfile } from "../../../../packages/protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../../packages/protocol/secrets/browser-vault.ts";
 import { type ReactNode, useMemo, useState } from "react";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { AppViewsProvider } from "../../../../packages/shell/renderer/app-frame/app-views.tsx";

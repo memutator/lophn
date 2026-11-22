@@ -1,6 +1,6 @@
 // 탭 주인 gallery의 고정 값: 탭을 연 agent session 둘(이름과 얼굴), browser profile 하나, shell 틀 page의 어느 탭이 누구의 것인지.
 // 앱에서는 session 목록과 agent 목록이 주인을 정한다. gallery는 `OwnerProvider`에 이 표를 준다.
-import type { BrowserProfile } from "../../../packages/protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../packages/protocol/secrets/browser-vault.ts";
 import type {
   Owner,
   OwnerLookup,

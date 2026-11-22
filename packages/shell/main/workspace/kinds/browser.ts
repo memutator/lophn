@@ -1,7 +1,7 @@
 // browser 탭 kind. url·favicon·browser profile만 저장하고 title과 history는 저장하지 않는다.
 import { z } from "zod";
 
-import { browserProfileIdSchema } from "../../../../protocol/shell/browser-profiles.ts";
+import { browserProfileIdSchema } from "../../../../protocol/secrets/browser-vault.ts";
 
 import { defineTabKind } from "./kind.ts";
 import { tabKey } from "./values.ts";

@@ -325,11 +325,12 @@ export const settingsArea: Area = {
       id: "settings-browser-profile-delete",
       title: "Settings · Browser · delete a profile",
       description:
-        "Work의 [Delete]를 눌러 확인 dialog가 열렸다. 그 profile의 저장 login 수와 cookie·site data가 함께 지워진다는 것, 그 profile을 쓰던 agent는 기본 profile로 떨어진다는 것, 다른 컴퓨터와 나누는 중이면 거기서도 지워진다는 것을 말한다. 확인하면 partition data를 지운 뒤 core가 login과 profile을 지우고, 중간에 실패하면 profile이 남는다.",
+        "Work의 [Delete]를 눌러 확인 dialog가 열렸다. 그 profile의 저장 login 수와 cookie·site data가 함께 지워진다는 것, 그 profile을 쓰던 agent는 기본 profile로 떨어진다는 것, 다른 컴퓨터와 나누는 중이고 명단에 다른 컴퓨터가 있으면 거기서도 지워진다는 것을 말한다. 확인하면 partition data를 지운 뒤 core가 login과 profile을 지우고, 중간에 실패하면 profile이 남는다.",
       render: () => (
         <SettingsFrame
           pane="browser"
           browser={WITH_PROFILES}
+          machines={{}}
           steps={[
             scrollToSection("[data-profiles]"),
             () => click("[data-profile-delete]"),
@@ -452,7 +453,7 @@ export const settingsArea: Area = {
       id: "settings-remote-remove",
       title: "Settings · Remote · remove a device",
       description:
-        "Home server의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못한다.",
+        "Home server의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못한다. 컴퓨터면 그 컴퓨터가 이미 받은 저장 login은 거기 남는다는 한 줄이 더 있다.",
       render: () => <SettingsRemoteRemove />,
     },
     {

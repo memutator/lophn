@@ -4,7 +4,7 @@
 // shell:view-close를 그대로 쓴다.
 import { z } from "zod";
 
-import { browserProfileIdSchema } from "../../protocol/shell/browser-profiles.ts";
+import { browserProfileIdSchema } from "../../protocol/secrets/browser-vault.ts";
 
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 // app-frame.ts의 viewSession과 같은 규칙.

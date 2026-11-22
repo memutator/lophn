@@ -4,7 +4,7 @@
 import {
   type BrowserProfile,
   browserProfileSchema,
-} from "../../../../protocol/shell/browser-profiles.ts";
+} from "../../../../protocol/secrets/browser-vault.ts";
 
 type CallResult = { ok: true; value: unknown } | { ok: false; error: unknown };
 

@@ -1,6 +1,6 @@
 // Browser 항목이 읽고 쓰는 통로. shell IPC(`window.lophnBrowser`)는 window-source.ts만 안다. link 열 곳·기기·login은
 // 화면이 core를 useCoreRead로 읽는다.
-import type { BrowserProfile } from "../../../../../protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../../../protocol/secrets/browser-vault.ts";
 import type { BookmarkList } from "../../../../ipc/browser.ts";
 import type { SourceResult } from "../source.ts";
 

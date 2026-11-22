@@ -2,8 +2,8 @@
 // browser profile과 login은 가짜 core의 `browser_profiles/list`·`logins/list` 답이다.
 import type { Bookmark } from "../../../../../ipc/browser.ts";
 import { agentList } from "../../../../../../protocol/lophn-agent/agent-definitions.ts";
-import { BROWSER_PROFILES_MAX } from "../../../../../../protocol/shell/browser-profiles.ts";
 import {
+  BROWSER_PROFILES_MAX,
   BROWSER_SHARE_SETTING,
   browserProfilesList,
 } from "../../../../../../protocol/secrets/browser-vault.ts";

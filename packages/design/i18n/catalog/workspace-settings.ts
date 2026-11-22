@@ -431,6 +431,8 @@ export const workspaceSettings = {
     "This computer has not granted access to that computer yet, so it sees this computer as view-only. Turn on the switch to allow terminals and public app commands.",
   "settings.note.remote-remove":
     "{name} is cut off on every computer in your devices and cannot join again with its current key. To add it back, invite it again: it joins as a new device.",
+  "settings.note.remote-remove-logins":
+    "Saved logins already on {name} stay there. If you no longer trust it, change those passwords on their sites.",
   "settings.note.remote-device-terminal-input":
     "When this switch is on for a device, anyone holding that device can type into terminals on this computer and run commands as you. For a computer, it also lets its agents and apps call public app commands on this computer, and installs new versions of your apps made there without asking. Each computer keeps its own choice: turn it on in Settings › Remote on every computer the device should reach.",
   "settings.notice.computer-cloned":

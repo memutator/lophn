@@ -9,7 +9,7 @@ import type {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
-import type { BrowserProfile } from "../../../../protocol/shell/browser-profiles.ts";
+import type { BrowserProfile } from "../../../../protocol/secrets/browser-vault.ts";
 import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 

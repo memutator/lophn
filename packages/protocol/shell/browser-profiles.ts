@@ -2,14 +2,6 @@ import { browserProfileIdSchema } from "../secrets/browser-vault.ts";
 
 // browser profile의 partition. 정의(이름, 색)와 목록은 core의 vault(`protocol/secrets/browser-vault.ts`)이고 사람만 바꾼다.
 // 기본 profile은 목록에 없고 id가 없다(null). 그 partition은 처음부터 쓰던 `persist:lophn-browser`라 기존 로그인이 남는다.
-export {
-  BROWSER_PROFILE_ID_PREFIX,
-  BROWSER_PROFILES_MAX,
-  type BrowserProfile,
-  browserProfileIdSchema,
-  browserProfileSchema,
-} from "../secrets/browser-vault.ts";
-
 export const DEFAULT_BROWSER_PARTITION = "persist:lophn-browser";
 
 /** profile의 partition. null은 기본 profile이다. */

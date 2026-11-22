@@ -5,7 +5,7 @@ import { t } from "@lophn/i18n";
 import {
   type BrowserProfile,
   browserProfileIdSchema,
-} from "../../../../protocol/shell/browser-profiles.ts";
+} from "../../../../protocol/secrets/browser-vault.ts";
 import type { BrowserViewState } from "../../../ipc/browser.ts";
 import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";

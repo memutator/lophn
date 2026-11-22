@@ -8,11 +8,11 @@ import {
   useState,
 } from "react";
 
-import { browserProfilesList } from "../../../protocol/secrets/browser-vault.ts";
 import {
+  browserProfilesList,
   type BrowserProfile,
-  browserPartition,
-} from "../../../protocol/shell/browser-profiles.ts";
+} from "../../../protocol/secrets/browser-vault.ts";
+import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { followRead, type Read } from "../desktop/connection/core-read.ts";
 import { useOptionalEventClient } from "../desktop/connection/events/hooks.tsx";

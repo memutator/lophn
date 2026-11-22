@@ -68,7 +68,7 @@ import { callsMailApply, callsMailRefuse } from "./commands.ts";
 import type { RoutedInput } from "./ports.ts";
 import { LEFT_ROSTER_TEXT, TAKEN_RESTART_TEXTS } from "./model.ts";
 import { createRouter } from "./router.ts";
-import { createCallStore } from "./store.ts";
+import { createCallStore, memberDeliveryOf } from "./store.ts";
 
 // 실제 ledger schema, store, session directory로 두 기계의 Router 사이에 mail을 오가게 한다. 같은 mail이 두 번 돌거나, 켤 때 정산이
 // 다른 기계로 보낸 call을 잃은 것으로 닫거나, private workspace와 사람이 연 session에 다른 컴퓨터가 끼어들면 곤란하다.
@@ -1803,6 +1803,24 @@ test("다른 컴퓨터에 연 팀원은 이 컴퓨터의 팀 상한과 깊이에
     9,
     "a refused member leaves no session row",
   );
+  // spawn call이 끝나도 자리가 열려 있는 동안은 한 자리다. 자리를 보관하면 자리가 빈다.
+  assert.ok(
+    b.router.reply(
+      b.tx,
+      { session: member as Id<"ses"> },
+      {
+        call: first.value.call as Id<"cal">,
+        body: textBlocks("built"),
+        refs: [],
+      },
+    ).ok,
+  );
+  carry(b, a);
+  assert.equal(a.call(first.value.call)?.["state"], "done");
+  const stillFull = spawnOn(a, root, B, "s9");
+  assert.ok(!stillFull.ok && stillFull.error.code === "conflict");
+  assert.ok(a.directory.archive(a.tx, member as Id<"ses">).ok);
+  assert.ok(spawnOn(a, root, B, "s10").ok);
 
   // 깊이: root(0) 밑 자식(1)이 연 팀원은 깊이 2라 되고, 팀원은 이 컴퓨터에 자식을 두지 못하는 잎이다.
   const other = await machine(A);
@@ -1825,6 +1843,47 @@ test("다른 컴퓨터에 연 팀원은 이 컴퓨터의 팀 상한과 깊이에
   assert.ok(deep.ok && deep.value.session !== null);
   const deeper = spawnOn(other, deep.value.session, B, "deeper");
   assert.ok(!deeper.ok);
+});
+
+test("늦게 닿은 spawn mail은 그 컴퓨터의 대기 목록에 서고 연 기계의 자리는 held이며, 사람이 시작하면 running, 건너뛰면 자리가 닫힌다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const root = a.openSession(REVIEWER);
+  const late = async (dedup: string) => {
+    const sent = spawnOn(a, root, B, dedup);
+    assert.ok(sent.ok && sent.value.session !== null);
+    const [mail] = pendingMails(a.sql, B as never);
+    assert.ok(mail !== undefined);
+    await deliver(a, b, [{ ...mail, sent_at: "2026-11-20T23:00:00.000Z" }]);
+    assert.equal(
+      memberDeliveryOf(a, sent.value.session as Id<"ses">)?.state,
+      "held",
+    );
+    assert.equal(lifecycleOf(b, sent.value.session), undefined);
+    return { mail: mail.id, member: sent.value.session };
+  };
+  const decide = (mail: string, decision: "run_now" | "skip") =>
+    b.router.decideHold(b.tx, {
+      origin: A,
+      mail,
+      decision,
+      skipAllowed: false,
+    });
+
+  const started = await late("s1");
+  assert.ok(decide(started.mail, "run_now").ok);
+  await deliver(b, a);
+  assert.equal(lifecycleOf(b, started.member), "open");
+  assert.equal(lifecycleOf(a, started.member), "open");
+  assert.equal(
+    memberDeliveryOf(a, started.member as Id<"ses">)?.state,
+    "running",
+  );
+
+  const skipped = await late("s2");
+  assert.ok(decide(skipped.mail, "skip").ok);
+  await deliver(b, a);
+  assert.equal(lifecycleOf(a, skipped.member), "archived");
 });
 
 test("받는 기계는 명단 밖 컴퓨터의 spawn mail과 이미 있는 session id로 여는 spawn mail로 session을 열지 않는다", async () => {

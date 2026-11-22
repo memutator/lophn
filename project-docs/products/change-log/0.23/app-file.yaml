@@ -1,5 +1,5 @@
 id: app-file
-version: 0.23.125
+version: 0.23.126
 title: "앱 file(사진, 고른 file): 앱 data 영역의 files/와 손잡이, 폰의 카메라·사진·file 선택기·공유, desktop과 폰 화면이 그리는 길"
 modules: [packages/protocol, packages/core/apps, packages/core/main, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/sdk, packages/core/agent-workspaces, packages/design, packages/mobile]
 change: |

@@ -1,5 +1,5 @@
 id: phone-guest-stays-mounted
-version: 0.23.125
+version: 0.23.126
 title: 컴퓨터에서 도는 앱의 폰 화면이 폰 앱이 잠시 뒤로 가거나 연결이 끊겨도 상태를 지키고, 닿지 않는다는 말은 화면 위 한 줄로 한다
 modules: [packages/mobile, packages/design]
 change: |

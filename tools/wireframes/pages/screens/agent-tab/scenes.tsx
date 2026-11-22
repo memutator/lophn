@@ -43,6 +43,8 @@ export function QueuedEditScene() {
 export const RequestErrorScene = () => <Scene sub="request-error" />;
 /** 받은 메시지의 보낸 쪽 chip 셋(program의 reaction, 다른 agent, coding agent). 마지막 chip은 눌러서 panel을 열었다. */
 export const SenderChipsScene = () => <Scene sub="sender-chips" />;
+/** 다른 컴퓨터의 coordinator가 `team spawn --on`으로 연 팀원 session(도는 컴퓨터 쪽). 첫 메시지 chip이 "Team member · from"이다. */
+export const MemberOpenedScene = () => <Scene sub="member-opened" />;
 /** 보낸 session의 call 블록: handoff, 답을 기다리는 call, 취소한 call. */
 export const CallOpenScene = () => <Scene sub="call-open" />;
 export const CallRemoteScene = () => <Scene sub="call-remote" />;

@@ -63,7 +63,7 @@ DetachedItem { tab, bounds }
 - 주인은 자리와 상관없다. 탭 줄, group 칸, 펴진 float, 접힌 float, 전역 float, detached 창 어디로 옮겨도 칸이 따라간다. 배치는 shell의 것이고 core는 배치를 모른다. 주인은 두 곳에 있고 뜻은 하나다: 화면은 탭 값의 주인을 그리고, 권한 판정(누가 닫고 다루나)은 core의 메모리 탭 표가 한다.
 - 화면: 주인이 있는 탭은 탭 줄과 group 칸 머리의 kind 아이콘 옆에 주인 avatar(그 session의 agent 얼굴, tooltip "Opened by <이름>")를, float bar, detached 창 제목, 전역 float bar는 제목 앞에 avatar와 이름을 둔다. 모르는 session은 이름 "Agent"와 기본 얼굴이다. 사람의 탭에는 아무것도 그리지 않는다. take control 줄은 "<이름> is controlling this tab"으로 어느 agent인지 말한다(`browser-tab.md` 40).
 - float chip: 주인이 있는 float은 전역 float과 desk float을 가리지 않고 주인마다 chip 하나(avatar와 개수)로 묶여 그 주인의 첫 float 자리에 선다. 누르면 그 주인의 float 목록(전역 float은 지구 표시)이 펴지고 하나를 고르면 그 chip을 누른 것과 같다. 사람의 float은 지금처럼 하나씩이다. 4개를 넘으면 +N은 chip 단위다. 작업 표시줄과 작업 표시줄이 꺼졌을 때의 탭 줄 끝이 같은 chip이다.
-- 왼쪽 sidebar의 팀 tree: session snapshot과 `SessionStarted`가 `spawned_by`(팀의 부모)를 싣는다. desk 묶음마다 부모가 같은 묶음에 있는 session 줄은 그 부모 줄 아래로 한 단계씩 들여 선다. 부모가 다른 desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 줄 순서 규칙은 단계마다 그대로다.
+- 왼쪽 sidebar의 팀 tree: session snapshot과 `SessionStarted`가 `spawned_by`(팀의 부모)를 싣는다. desk 묶음마다 부모가 같은 묶음에 있는 session 줄은 그 부모 줄 아래로 한 단계씩 들여 선다. 부모가 다른 desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 줄 순서 규칙은 단계마다 그대로다. 다른 컴퓨터에서 도는 팀원(snapshot의 `runs_on`)은 current에 선 부모 줄 아래에만 선다(`machine-a2a.md` "화면").
 - session의 탭: lophn session 줄 가운데 주인 탭이 있는 줄에 펼침 단추(Show tabs·Hide tabs)가 서고, 펴면 줄 아래에 그 session이 주인인 탭(kind 아이콘과 이름)이 자리와 상관없이 나온다. 이 창이 아는 모든 workspace의 layout(탭 줄, float, 접힌 float, detached)에서 모으고 그 session 자기 대화 탭은 뺀다(줄 자체가 그 탭이다). 펼침은 창 메모리다. 누르면 이 workspace의 탭은 그 탭을 보이고(접힌 float은 펴고 detached는 그 창을 앞으로), 다른 workspace의 탭은 그 workspace layout에 그 desk와 탭을 골라(접힌 float은 펴서) 써 두고 그 workspace로 간다.
 
 ### group과 칸의 stack

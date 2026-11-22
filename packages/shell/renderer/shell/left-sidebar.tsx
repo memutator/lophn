@@ -175,11 +175,38 @@ function ageOf(at: number): string {
 }
 
 function AgentMark({ agent }: { agent: SidebarSession["agent"] }) {
-  return agent.kind === "workflow" ? (
-    <Icon icon={shellIcons.workflow} pixels={14} />
-  ) : (
-    <AgentFaceIcon face={agent} />
-  );
+  if (agent.kind === "workflow") {
+    return <Icon icon={shellIcons.workflow} pixels={14} />;
+  }
+  if (agent.kind === "member") {
+    return <Icon icon={sidebarIcons.machine} pixels={14} />;
+  }
+  return <AgentFaceIcon face={agent} />;
+}
+
+// 다른 컴퓨터에서 도는 팀원 줄 끝의 상태 글과 hover 설명. running은 글이 없다(그 컴퓨터에서 turn이 도는지는 이 컴퓨터가 모른다).
+function memberState(member: NonNullable<SidebarSession["member"]>): {
+  readonly text: string | null;
+  readonly hint: string;
+} {
+  const computer = member.computer;
+  switch (member.state) {
+    case "pending":
+      return {
+        text: t("left-sidebar.label.member-pending"),
+        hint: t("left-sidebar.label.member-pending-hint", { computer }),
+      };
+    case "held":
+      return {
+        text: t("left-sidebar.label.member-held"),
+        hint: t("left-sidebar.label.member-held-hint", { computer }),
+      };
+    case "running":
+      return {
+        text: null,
+        hint: t("left-sidebar.label.member-running", { computer }),
+      };
+  }
 }
 
 function NavRow({
@@ -279,7 +306,8 @@ function SessionRow({
   /** 끄는 browser 탭을 이 줄에 놓으면 이 session에 넘긴다(tab-drag.tsx). 이 컴퓨터의 열린 lophn session 줄만이다(hand.ts). */
   dropSession?: string;
 }) {
-  return (
+  const member = item.member === undefined ? null : memberState(item.member);
+  const row = (
     <button
       type="button"
       className={styles.sessionRow}
@@ -293,6 +321,8 @@ function SessionRow({
       data-terminal={item.kind === "terminal" ? item.ref : undefined}
       data-draft={item.kind === "draft" ? item.ref : undefined}
       data-workflow={item.kind === "workflow" ? item.ref : undefined}
+      data-member={item.kind === "member" ? item.ref : undefined}
+      data-member-state={item.member?.state}
       aria-current={selected || undefined}
       onClick={onClick}
       onContextMenu={(event) => {
@@ -306,6 +336,11 @@ function SessionRow({
       </span>
       <span className={styles.rowLabel}>{item.title}</span>
       <MachineTag name={machineName} />
+      {member?.text == null ? null : (
+        <span className={styles.rowMeta} data-member-note="">
+          {member.text}
+        </span>
+      )}
       {recent && item.at > 0 ? (
         <span className={styles.rowMeta}>{ageOf(item.at)}</span>
       ) : null}
@@ -315,6 +350,13 @@ function SessionRow({
         </span>
       ) : null}
     </button>
+  );
+  return member === null ? (
+    row
+  ) : (
+    <Tooltip content={member.hint} placement="beside">
+      {row}
+    </Tooltip>
   );
 }
 
@@ -434,6 +476,7 @@ export function LeftSidebar({
   const canDrag = (item: SidebarSession) =>
     onRowDrag !== undefined &&
     item.kind !== "workflow" &&
+    item.kind !== "member" &&
     item.offline !== true;
   // current 줄 하나와, 펼쳤으면 그 session의 탭 줄, 그 아래 팀 자식 줄(한 단계 들여쓴다).
   const renderItem = (
@@ -516,7 +559,11 @@ export function LeftSidebar({
               <button
                 type="button"
                 className={styles.rowAction}
-                aria-label={t("left-sidebar.button.stop-session")}
+                aria-label={t(
+                  item.kind === "member"
+                    ? "left-sidebar.button.end-member"
+                    : "left-sidebar.button.stop-session",
+                )}
                 data-session-stop=""
                 data-dot={item.dot === null ? undefined : ""}
                 onClick={() => onStopSession(workspace, item)}

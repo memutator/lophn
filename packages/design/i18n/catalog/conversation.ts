@@ -324,6 +324,7 @@ export const conversation = {
   "conversation.label.sender-based-on": "Based on",
   "conversation.label.sender-computer": "Computer",
   "conversation.label.sender-from": "From",
+  "conversation.label.sender-member-from": "Team member · from",
   "conversation.label.sender-head-handed": "What was handed over",
   "conversation.label.sender-head-why": "Why you got this",
   "conversation.label.sender-program-unknown": "lophn",

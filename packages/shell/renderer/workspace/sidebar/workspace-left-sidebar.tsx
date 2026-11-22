@@ -12,6 +12,9 @@ import {
 } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import { archiveSession } from "../../../../protocol/lophn-agent/sessions.ts";
+import { commandCall } from "../../command-call.ts";
+import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { lophnIdAt } from "../agents/agent-key.ts";
@@ -430,6 +433,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         current,
         rows: lists.rows,
         entries,
+        members: lists.members,
         offline: lists.offline,
         agents: props.agents,
         lophnNames: props.lophnNames,
@@ -448,6 +452,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       workspaceKey(current),
       lists.rows,
       entries,
+      lists.members,
       lists.offline,
       props.agents,
       props.lophnNames,
@@ -734,6 +739,15 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const open = (workspace: SidebarWorkspace, item: SidebarSession) => {
     const here = workspaceKey(workspace.ref) === workspaceKey(current);
     if (item.offline) return;
+    // 다른 컴퓨터에서 도는 팀원은 그 컴퓨터의 session을 그 기계를 단 탭으로 연다(그 컴퓨터가 꺼져 있으면 탭이 한 줄로 말한다).
+    if (item.member !== undefined) {
+      runToastAction({
+        kind: "session",
+        session: item.ref,
+        machine: item.member.machine,
+      });
+      return;
+    }
     if (item.kind === "session" && !here) {
       if (props.onSessionAt !== undefined) {
         props.onSessionAt(workspace.ref, item.ref, item.machine);
@@ -812,6 +826,10 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   // Stop은 session을 current에서 내린다: 도는 turn을 멈추고 탭을 닫는다. 멈추지 못하면 탭을 남긴다.
   const stopSession = (workspace: SidebarWorkspace, item: SidebarSession) => {
     const here = workspaceKey(workspace.ref) === workspaceKey(current);
+    if (item.member !== undefined) {
+      endMember(item.ref, item.member.stateSeq);
+      return;
+    }
     if (item.kind === "terminal" && !here) {
       void closeTerminalAt(workspace.ref, item.ref);
       return;
@@ -827,6 +845,26 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       if (here) props.onCloseTab?.(item);
       else void closeAgentTabAt(workspace.ref, item.ref);
     });
+  };
+
+  // 다른 컴퓨터에서 도는 팀원을 끝낸다: 자리를 가진 기계에서 자리를 보관하면 그 기계가 곧바로 닫고 그 컴퓨터에 닫으라는 mail을 낸다.
+  // 자리는 session read에 없어 snapshot의 `state_seq`가 compare다. 줄은 `SessionEnded`로 빠진다.
+  const endMember = (session: string, stateSeq: string) => {
+    const owner = lists.members.find((one) => one.session === session);
+    if (owner === undefined) return;
+    void dataOf(owner.machine)
+      .core.call(
+        commandCall(archiveSession, {
+          input: { session },
+          compare: { state_seq: stateSeq },
+          key: `sessions-archive-${session}-${stateSeq}`,
+        }),
+      )
+      .then((reply) => {
+        if (!reply.ok) {
+          failToast.show({ title: t("left-sidebar.error.end-member-failed") });
+        }
+      });
   };
 
   // sidebar 줄의 탭을 끌어 놓기(`move-tab.ts`). 줄의 탭은 kind를 가리지 않고 그 줄의 workspace layout에서 찾는다: session은 그
@@ -944,7 +982,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   return (
     <HandoffProvider value={handoffs}>
       <LeftSidebar
-        onRowDrag={(event, workspace, item) =>
+        onRowDrag={(event, workspace, item) => {
+          // 다른 컴퓨터의 팀원은 이 창에 탭이 없어 끌지 않는다(LeftSidebar도 끌기를 걸지 않는다).
+          if (item.kind === "member") return;
           startDrag(
             event,
             {
@@ -958,8 +998,8 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
               },
             },
             "leaf",
-          )
-        }
+          );
+        }}
         workspaces={workspaces}
         current={current}
         selected={props.selected}

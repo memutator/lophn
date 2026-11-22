@@ -71,6 +71,8 @@ export const AGENT_TAB_SCENES = [
   "queued",
   "request-error",
   "sender-chips",
+  /** 다른 컴퓨터의 coordinator가 `team spawn --on`으로 연 팀원 session. 첫 메시지(팀원을 연 call)의 chip이 팀원이라고 말한다. */
+  "member-opened",
   "call-open",
   /** 다른 컴퓨터로 보낸 call: 배달 상태 넷(아직 닿지 않음, 대기 목록, 도는 중, 모름)과 옛 판 실패. */
   "call-remote",
@@ -1218,6 +1220,41 @@ function sceneData(scene: AgentTabScene): SceneData {
           [messageId(2)]: lophn,
           [messageId(3)]: studio,
         },
+      };
+    }
+    case "member-opened": {
+      const laptop = envelope(
+        {
+          kind: "remote",
+          computer: "Laptop",
+          name: "lophn",
+          session: sessionId(16),
+          machine: fakeId("mch", 2),
+        },
+        [],
+        null,
+      );
+      return {
+        agent: LOPHN,
+        title: "Build the Windows installer",
+        state: numbered(
+          [
+            received(
+              1,
+              30,
+              "Build the Windows installer from the release branch and tell me the size of the .msi.",
+              laptop.sender,
+              { call: callId(31) },
+            ),
+            agent(
+              2,
+              31,
+              "Building it now. I will reply to your call with the size when the build finishes.",
+            ),
+          ],
+          { turn: turnOf("working") },
+        ),
+        envelopes: { [messageId(1)]: laptop },
       };
     }
     case "call-open":

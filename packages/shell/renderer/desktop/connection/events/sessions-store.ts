@@ -1,4 +1,7 @@
 // session 목록과 상태. 상태는 event와 snapshot에서 이 쪽이 계산한다.
+// 다른 컴퓨터에서 도는 팀원의 자리(snapshot의 `runs_on`)는 이 컴퓨터에서 도는 session이 아니라 `sessions`에 넣지 않고 `members`에 따로
+// 둔다(Recent, 찾기, 넘기기, session 고르기가 자리를 session으로 보지 않게). 자리에는 `SessionStarted`가 없어 `StateChanged{sessions}`
+// (자리가 열림)와 `StateChanged{agent_calls}`(spawn call의 배달이 바뀜)에 자리의 snapshot을 다시 읽는다.
 import type { z } from "zod";
 import type {
   BusEvent,
@@ -32,8 +35,28 @@ export interface SessionEntry {
   readonly unseen: boolean;
 }
 
+/** 다른 컴퓨터에서 도는 팀원의 자리. 끝난 자리는 빠진다. */
+export interface MemberEntry {
+  readonly session: string;
+  readonly workspace: Workspace | null;
+  /** 이 컴퓨터의 부모 session. */
+  readonly spawnedBy: string | null;
+  readonly runsOn: {
+    readonly machine: string;
+    /** spawn 때의 명단 이름. */
+    readonly computer: string;
+    /** 그 컴퓨터의 agent handle. */
+    readonly handle: string;
+    /** pending: 아직 닿지 않음(꺼졌거나 mail이 가는 중), held: 그 컴퓨터의 대기 목록, running: 그 컴퓨터가 받음. */
+    readonly state: "pending" | "held" | "running";
+    /** 사람이 보관할 때의 compare. */
+    readonly stateSeq: string;
+  };
+}
+
 export interface SessionsState {
   readonly sessions: readonly SessionEntry[];
+  readonly members: readonly MemberEntry[];
 }
 
 const SESSIONS_CONDITION: EventCondition = {
@@ -46,6 +69,7 @@ const SESSIONS_CONDITION: EventCondition = {
     "TurnRequestClosed",
     "QuestionAsked",
     "QuestionResolved",
+    "StateChanged",
   ],
 };
 
@@ -70,8 +94,9 @@ export function createSessionsStore(
   client: EventClient,
   unseen: Pick<UnseenStore, "get" | "subscribe"> | null = null,
 ): SessionsStore {
-  const state = createValueStore<SessionsState>({ sessions: [] });
+  const state = createValueStore<SessionsState>({ sessions: [], members: [] });
   let records = new Map<string, Record_>();
+  let members = new Map<string, MemberEntry>();
 
   function publish() {
     const sessions: SessionEntry[] = [];
@@ -92,7 +117,55 @@ export function createSessionsStore(
         unseen: unseen?.get().marks.has(session) ?? false,
       });
     }
-    state.set({ sessions });
+    state.set({ sessions, members: [...members.values()] });
+  }
+
+  // 끝난 자리와 읽어도 없는 자리는 뺀다.
+  function putMember(snapshot: SessionSnapshot) {
+    const place = snapshot.runs_on;
+    if (place === null) return;
+    if (place.state === "ended") {
+      members.delete(snapshot.session);
+      return;
+    }
+    members.set(snapshot.session, {
+      session: snapshot.session,
+      workspace: snapshot.workspace,
+      spawnedBy: snapshot.spawned_by,
+      runsOn: {
+        machine: place.machine,
+        computer: place.computer,
+        handle: place.handle,
+        state: place.state,
+        stateSeq: place.state_seq,
+      },
+    });
+  }
+
+  async function readMembers(ids: string[]) {
+    const snapshots = await readSessionSnapshots(client.core, ids);
+    if (snapshots === null) return;
+    const found = new Set(snapshots.map((snapshot) => snapshot.session));
+    for (const id of ids) if (!found.has(id)) members.delete(id);
+    for (const snapshot of snapshots) putMember(snapshot);
+    publish();
+  }
+
+  // 이 컴퓨터의 session이 바뀐 것은 다른 event가 알린다. 모르는 id(새 자리일 수 있다)와 아는 자리만 다시 읽는다.
+  function membersChanged(event: Extract<BusEvent, { type: "StateChanged" }>) {
+    const ids = new Set<string>();
+    for (const change of event.payload.changes) {
+      if (
+        change.name === "sessions" &&
+        change.id !== null &&
+        !records.has(change.id)
+      ) {
+        ids.add(change.id);
+      } else if (change.name === "agent_calls") {
+        for (const id of members.keys()) ids.add(id);
+      }
+    }
+    if (ids.size > 0) void readMembers([...ids]);
   }
 
   function recordOf(session: string): Record_ {
@@ -128,6 +201,7 @@ export function createSessionsStore(
         break;
       }
       case "SessionEnded":
+        if (members.delete(event.session)) break;
         if (event.payload.reason === "deleted") records.delete(event.session);
         else recordOf(event.session).ended = event.payload.reason;
         break;
@@ -155,6 +229,9 @@ export function createSessionsStore(
       case "QuestionResolved":
         recordOf(event.session).pending.delete(event.payload.group);
         break;
+      case "StateChanged":
+        membersChanged(event);
+        return;
       default:
         return;
     }
@@ -167,7 +244,12 @@ export function createSessionsStore(
     for (const [session, record] of records) {
       if (record.ended === "archived") next.set(session, record);
     }
+    members = new Map();
     for (const snapshot of snapshots) {
+      if (snapshot.runs_on !== null) {
+        putMember(snapshot);
+        continue;
+      }
       next.set(snapshot.session, {
         base: snapshot.state === "unknown" ? "unknown" : "idle",
         turnActive:

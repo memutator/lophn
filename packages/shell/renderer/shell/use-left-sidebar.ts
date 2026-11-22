@@ -25,7 +25,10 @@ import {
 } from "../desktop/connection/core-read.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import type { InboxNamesByMachine } from "../desktop/connection/waiting/names.ts";
-import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
+import type {
+  MemberEntry,
+  SessionEntry,
+} from "../desktop/connection/events/sessions-store.ts";
 import { useMachinesView } from "../desktop/machines/context.tsx";
 import type { MachineData, OnMachine } from "../desktop/machines/data.ts";
 import {
@@ -88,6 +91,8 @@ export interface MachineSnapshot extends MachineLists {
   readonly projects: readonly ListedItem[];
   readonly apps: readonly AppRow[];
   readonly sessions: readonly SessionEntry[];
+  /** 그 기계가 다른 컴퓨터에 연 팀원의 자리. */
+  readonly members: readonly MemberEntry[];
   /** 그 기계의 터미널에서 도는 coding agent. 이 컴퓨터의 것은 이 창의 terminal store가 알아 비어 있다. */
   readonly coding: readonly CodingSession[];
 }
@@ -103,6 +108,8 @@ export interface MachineListsValue {
   readonly lists: readonly MachineSnapshot[];
   readonly rows: readonly MachineWorkspace[];
   readonly entries: readonly OnMachine<SessionEntry>[];
+  /** 모든 기계의 팀원 자리. `machine`은 자리를 가진 기계다(도는 컴퓨터는 `runsOn`). */
+  readonly members: readonly OnMachine<MemberEntry>[];
   /** 다른 기계의 터미널 coding agent. 그 기계의 화면에서 시작한 것도 든다. */
   readonly terminals: readonly RemoteTerminal[];
   /** 모든 기계의 session 제목. session id는 기계를 건너 겹치지 않는다. */
@@ -135,7 +142,7 @@ type TitleRow = {
 };
 
 type Seen = Partial<
-  Pick<MachineSnapshot, "projects" | "apps" | "sessions" | "coding">
+  Pick<MachineSnapshot, "projects" | "apps" | "sessions" | "members" | "coding">
 > & { readonly titles?: readonly TitleRow[] };
 
 type Report = (machine: MachineRef, seen: Seen) => void;
@@ -210,7 +217,7 @@ function Reader({
 }) {
   const projects = useCoreRead(projectApi.list, ALL).loaded;
   const apps = useAppList().loaded;
-  const { sessions } = useSessions();
+  const { sessions, members } = useSessions();
   const titles = useSessionTitles(
     sessions,
     useMachineData().agentViewSource,
@@ -231,6 +238,9 @@ function Reader({
   useEffect(() => {
     if (live) report(machine, { sessions });
   }, [machine, live, sessions, report]);
+  useEffect(() => {
+    if (live) report(machine, { members });
+  }, [machine, live, members, report]);
   useEffect(() => {
     if (titles.state === "ready") report(machine, { titles: titles.value });
   }, [machine, titles, report]);
@@ -276,6 +286,9 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<
     ReadonlyMap<string, readonly SessionEntry[]>
   >(new Map());
+  const [members, setMembers] = useState<
+    ReadonlyMap<string, readonly MemberEntry[]>
+  >(new Map());
   const [coding, setCoding] = useState<
     ReadonlyMap<string, readonly CodingSession[]>
   >(new Map());
@@ -291,6 +304,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
       (now: ReadonlyMap<string, T>) =>
         same(now.get(key), entries) ? now : new Map(now).set(key, entries);
     if (next.sessions !== undefined) setSessions(keep(next.sessions));
+    else if (next.members !== undefined) setMembers(keep(next.members));
     else if (next.coding !== undefined) setCoding(keep(next.coding));
     else if (next.titles !== undefined) {
       const rows = next.titles;
@@ -329,7 +343,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
   const sessionTitles = useMemo(() => ({ known, put }), [known, put]);
   const dataOf = useCallback((machine: MachineRef) => hub.get(machine), [hub]);
   const lists = useMemo(
-    (): readonly Omit<MachineSnapshot, "sessions" | "coding">[] =>
+    (): readonly Omit<MachineSnapshot, "sessions" | "members" | "coding">[] =>
       [
         { machine: null, name: "", live: true },
         ...roster.map((one) => ({
@@ -366,6 +380,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
       (list): MachineSnapshot => ({
         ...list,
         sessions: sessions.get(list.machine ?? "") ?? [],
+        members: members.get(list.machine ?? "") ?? [],
         coding: coding.get(list.machine ?? "") ?? [],
       }),
     );
@@ -374,6 +389,9 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
       rows,
       entries: snapshots.flatMap((list) =>
         list.sessions.map((entry) => ({ ...entry, machine: list.machine })),
+      ),
+      members: snapshots.flatMap((list) =>
+        list.members.map((entry) => ({ ...entry, machine: list.machine })),
       ),
       terminals: snapshots.flatMap(({ machine, coding }) =>
         machine === null ? [] : coding.map((one) => ({ ...one, machine })),
@@ -399,6 +417,7 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
     lists,
     rows,
     sessions,
+    members,
     coding,
     sessionTitles,
     roster,

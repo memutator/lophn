@@ -9,17 +9,25 @@ import type { WorkspaceRef } from "./desk-model.ts";
 
 /**
  * session 줄의 종류. lophn agent session, 첫 메시지 전이라 아직 session이 없는 lophn Agent 탭(draft),
- * 터미널 coding agent session, 사람 차례인 workflow desk.
+ * 터미널 coding agent session, 사람 차례인 workflow desk, 다른 컴퓨터에서 도는 팀원(member: 부모 줄 아래에만 선다).
  */
-export type SidebarSessionKind = "session" | "draft" | "terminal" | "workflow";
+export type SidebarSessionKind =
+  | "session"
+  | "draft"
+  | "terminal"
+  | "workflow"
+  | "member";
 
 export interface SidebarSession {
   readonly kind: SidebarSessionKind;
   /** session id, draft는 탭 key, 터미널 key, workflow 이름. */
   readonly ref: string;
   readonly title: string;
-  /** 줄 앞의 agent 아이콘. workflow desk는 vendor도 profile도 없다. */
-  readonly agent: AgentFace | { readonly kind: "workflow" };
+  /** 줄 앞의 agent 아이콘. workflow desk는 vendor도 profile도 없다. 다른 컴퓨터의 팀원은 이 컴퓨터의 agent가 아니라 컴퓨터 아이콘이다. */
+  readonly agent:
+    | AgentFace
+    | { readonly kind: "workflow" }
+    | { readonly kind: "member" };
   readonly dot: SessionDot | null;
   /** 줄에 hover하면 연필(Rename)과 x(Stop)가 뜬다. draft는 이름을 둘 session이 없어 x만 뜬다. */
   readonly actions: boolean;
@@ -40,6 +48,16 @@ export interface SidebarSession {
     readonly terminal: string;
     readonly tab: string | null;
     readonly harness: string;
+  };
+  /**
+   * 다른 컴퓨터에서 도는 팀원(kind member). 누르면 그 컴퓨터의 session을 그 기계를 단 탭으로 열고, x는 자리를 보관한다(`stateSeq`가
+   * compare다). 상태는 pending(그 컴퓨터가 꺼졌거나 mail이 아직 닿지 않음), held(그 컴퓨터의 Inbox에서 허락을 기다림), running이다.
+   */
+  readonly member?: {
+    readonly machine: string;
+    readonly computer: string;
+    readonly state: "pending" | "held" | "running";
+    readonly stateSeq: string;
   };
   /** 팀(spawn tree)에서 이 줄의 자식. 같은 desk 묶음 안에 부모가 있는 session 줄이 그 부모 아래로 온다. */
   readonly children?: readonly SidebarSession[];

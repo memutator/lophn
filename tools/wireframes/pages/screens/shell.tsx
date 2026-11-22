@@ -23,6 +23,7 @@ import {
 } from "../../mock/machines-data.ts";
 import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
+import { MemberOpenedScene } from "./agent-tab/scenes.tsx";
 import { TrayScene } from "./shell/tray-scene.tsx";
 
 export const shellArea: Area = {
@@ -512,6 +513,20 @@ export const shellArea: Area = {
       description:
         "팀(spawn tree)이 도는 project의 왼쪽 sidebar. coordinator 줄 밑에 자식과 손자가 들여쓰기로 서고, 편 줄 아래에 그 session이 주인인 탭(자식의 대화 탭, artifact 탭, 접힌 browser float)이 자리와 상관없이 나온다.",
       render: () => <SidebarScene workspace="team" />,
+    },
+    {
+      id: "shell-left-sidebar-team-across",
+      title: "Shell · Left sidebar · Team across computers",
+      description:
+        "coordinator 아래에 이 컴퓨터의 자식 하나와 다른 컴퓨터에 연 팀원 셋(`team spawn --on`)이 선다. 팀원 줄은 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표이고 상태 글은 Waiting(그 컴퓨터가 꺼졌거나 call이 아직 닿지 않음), Needs approval(그 컴퓨터의 Inbox), 도는 것은 글이 없다. 누르면 그 컴퓨터의 session을 열고 오른쪽 끝 x가 팀원을 끝낸다.",
+      render: () => <SidebarScene workspace="team-across" />,
+    },
+    {
+      id: "agent-member-opened-across",
+      title: "Agent · Team member opened from another computer",
+      description:
+        '다른 컴퓨터의 coordinator가 `team spawn --on`으로 이 컴퓨터에 연 팀원 session. 그 팀원을 연 첫 메시지의 보낸 쪽 chip이 "Team member · from <agent> on <컴퓨터>"로 서고, chip을 누르면 그 컴퓨터와 보낸 session이 나온다. 탭은 저절로 열리지 않는다(사람이 sidebar에서 연 모습이다).',
+      render: () => <MemberOpenedScene />,
     },
     {
       id: "shell-left-sidebar-home",

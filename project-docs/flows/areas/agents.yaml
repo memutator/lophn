@@ -488,10 +488,10 @@ flows:
     steps:
       - call-send-remote와 같은 검사(session, remoteReach, 명단 풀기, 글만, redaction, 64 KiB)를 거친다. workspace를 빼면 이 컴퓨터의 spawn처럼 부른 session의 workspace를 기계를 건너는 이름으로 싣는다. 본문 앞에 팀 지시문을 붙인다. 다른 컴퓨터의 mail로 열린 session(다른 컴퓨터가 연 팀원 포함)은 잎이라 열지 못한다
       - calls/mail-send를 spawn으로 불러 이 컴퓨터의 팀 상한과 깊이로 팀원의 자리를 연다. 그 컴퓨터가 꺼져 있어도 바로 돌아온다
-      - 받는 컴퓨터는 mail의 spawn id로 session을 열고 보낸 session을 부모(spawned_by)로 적는다. 그 id의 session이 이미 있으면 열지 않고 실패 mail이다. 그 컴퓨터에서의 실패는 늦게 call의 실패로 온다
+      - 받는 컴퓨터는 mail의 spawn id로 session을 열고 보낸 session을 부모(spawned_by)로 적는다. 그 id의 session이 이미 있으면 열지 않고 실패 mail이다. 그 컴퓨터에서의 실패는 늦게 call의 실패로 온다. 그 컴퓨터의 창에서는 탭이 저절로 열리지 않고, 사람이 그 session을 열면 첫 메시지의 보낸 쪽 chip이 "Team member · from <agent> on <연 컴퓨터>"다
     outcomes:
       - id: opened
-        observe: [ledger:sessions, ledger:agent_calls, ledger:mail_outbox, response]
+        observe: [ledger:sessions, ledger:agent_calls, ledger:mail_outbox, response, "screen:shell-left-sidebar-team-across", "screen:agent-member-opened-across"]
         when: 팀원의 자리와 call 행과 outbox mail을 썼다. 답은 {session, call}이다
       - id: team-full
         code: conflict

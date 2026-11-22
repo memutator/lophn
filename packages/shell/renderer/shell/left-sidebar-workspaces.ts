@@ -19,6 +19,8 @@
 // - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 Main desk 묶음에 둔다.
 // - 팀(spawn tree): desk 묶음마다 부모(`spawnedBy`)가 같은 묶음에 있는 session 줄은 그 부모 줄 아래(`children`)로 간다. 부모가 다른
 //   desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 순서 규칙은 단계마다 그대로다. 묶음을 건너 옮기면 desk 묶음의 뜻이 흐려진다.
+// - 다른 컴퓨터에서 도는 팀원(`members`)은 current에 선 부모 줄 아래에만 선다(이 컴퓨터의 자식 뒤, 만든 순). 이 컴퓨터에서 도는 것이
+//   없어 혼자서는 current도 Recent도 아니다. 부모 줄이 current에 없으면 보이지 않는다(부모의 `team read`에는 있다).
 // - lophn session 줄의 `tabs`는 그 session이 주인인 탭이다(`TabItem.owner`). 이 창이 아는 모든 workspace layout에서 자리(탭 줄, float,
 //   접힌 float, detached)와 상관없이 모으고 그 session의 대화 탭은 뺀다(줄 자체가 그 탭이다).
 // - 줄(workspace)은 기계마다 따로다(`desktop/workspaces/projects/machine-workspaces.ts`). session은 자기 기계의 workspace 줄에 선다.
@@ -32,7 +34,10 @@ import {
   codingBuiltinOf,
   isLophn,
 } from "../../../protocol/lophn-agent/workspaces.ts";
-import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
+import type {
+  MemberEntry,
+  SessionEntry,
+} from "../desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../desktop/machines/data.ts";
 import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
 import {
@@ -140,6 +145,8 @@ export interface WorkspacesInput {
   readonly rows: readonly MachineWorkspace[];
   /** 모든 기계의 session. */
   readonly entries: readonly OnMachine<SessionEntry>[];
+  /** 모든 기계가 다른 컴퓨터에 연 팀원의 자리. */
+  readonly members: readonly OnMachine<MemberEntry>[];
   /** 꺼진 기계. 그 session은 마지막으로 본 줄이다. */
   readonly offline: ReadonlySet<string>;
   readonly agents: readonly SidebarAgent[];
@@ -415,8 +422,44 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     return items.filter((item) => parentOf(item) === null).map(grow);
   };
 
+  // 부모 session id → 다른 컴퓨터에서 도는 그 팀원의 줄(만든 순).
+  const membersOf = new Map<string, SidebarSession[]>();
+  for (const entry of [...input.members].sort((a, b) =>
+    byCreated(a.session, b.session),
+  )) {
+    if (entry.spawnedBy === null) continue;
+    const { runsOn } = entry;
+    membersOf.set(entry.spawnedBy, [
+      ...(membersOf.get(entry.spawnedBy) ?? []),
+      {
+        kind: "member",
+        ref: entry.session,
+        title: runsOn.handle,
+        agent: { kind: "member" },
+        dot: null,
+        actions: true,
+        at: 0,
+        noRename: true,
+        machine: runsOn.machine,
+        member: {
+          machine: runsOn.machine,
+          computer: runsOn.computer,
+          state: runsOn.state,
+          stateSeq: runsOn.stateSeq,
+        },
+      },
+    ]);
+  }
+  const withMembers = (item: SidebarSession): SidebarSession => {
+    const kids = [
+      ...(item.children ?? []).map(withMembers),
+      ...(item.kind === "session" ? (membersOf.get(item.ref) ?? []) : []),
+    ];
+    return kids.length === 0 ? item : { ...item, children: kids };
+  };
+
   // 종류 안에서는 만든 순이다. 새 줄은 끝에 붙고 다시 시작해도 같다.
-  const order = { session: 0, draft: 1, terminal: 2, workflow: 3 };
+  const order = { session: 0, draft: 1, terminal: 2, workflow: 3, member: 4 };
   const stable = (a: SidebarSession, b: SidebarSession) =>
     a.kind === b.kind ? byCreated(a.ref, b.ref) : order[a.kind] - order[b.kind];
   const workspace = (row: MachineWorkspace): SidebarWorkspace => {
@@ -457,7 +500,10 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       name,
       current: groups
         .filter((group) => group.items.length > 0)
-        .map((group) => ({ ...group, items: teamTree(group.items) })),
+        .map((group) => ({
+          ...group,
+          items: teamTree(group.items).map(withMembers),
+        })),
       recent: (recent.get(key) ?? []).sort(byNewest),
       also: row.also,
       ...(row.listed === undefined ? {} : { listed: row.listed }),

@@ -36,6 +36,8 @@ function senderLabel(sender: Sender): string {
 
 interface SenderChipProps {
   sender: Sender;
+  /** 다른 컴퓨터가 팀원으로 연 session의 첫 메시지(그 팀원을 연 call)다. chip 머리가 팀원이라고 말한다. */
+  member?: boolean;
   open: boolean;
   /** 없으면 열 panel이 없어(읽을 상세가 없는 source) 이름만 보인다. */
   onToggle?: (() => void) | undefined;
@@ -44,20 +46,25 @@ interface SenderChipProps {
 /** "From …" chip. 누르면 panel이 열린다. */
 export function SenderChip({
   sender,
+  member = false,
   open,
   onToggle,
 }: SenderChipProps): ReactElement {
   const label = senderLabel(sender);
+  const from = t(
+    member
+      ? "conversation.label.sender-member-from"
+      : "conversation.label.sender-from",
+  );
   if (onToggle === undefined) {
     return (
       <span
         className={styles.senderChip}
         aria-label={t("conversation.label.sender-sent-by", { sender: label })}
         data-sender-chip={sender.kind}
+        data-sender-member={member || undefined}
       >
-        <span className={styles.senderFrom}>
-          {t("conversation.label.sender-from")}
-        </span>
+        <span className={styles.senderFrom}>{from}</span>
         <span className={styles.senderName}>{label}</span>
       </span>
     );
@@ -69,11 +76,10 @@ export function SenderChip({
       aria-expanded={open}
       aria-label={t("conversation.label.sender-sent-by", { sender: label })}
       data-sender-chip={sender.kind}
+      data-sender-member={member || undefined}
       onClick={onToggle}
     >
-      <span className={styles.senderFrom}>
-        {t("conversation.label.sender-from")}
-      </span>
+      <span className={styles.senderFrom}>{from}</span>
       <span className={styles.senderName}>{label}</span>
       <Icon
         icon={open ? commonIcons.collapse : commonIcons.expand}

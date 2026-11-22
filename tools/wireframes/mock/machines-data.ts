@@ -305,6 +305,7 @@ export function machineSidebar(
     current,
     rows,
     entries,
+    members: [],
     offline: new Set(laptop ? [LAPTOP] : []),
     agents: [LOPHN],
     lophnNames: {},

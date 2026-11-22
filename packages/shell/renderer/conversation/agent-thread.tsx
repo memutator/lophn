@@ -125,6 +125,11 @@ interface AgentThreadProps {
   onOpenRef: ((ref: EvidenceRef) => void) | undefined;
   /** 받은 메시지 panel의 보낸 session 링크. */
   onOpenSession: ((session: string) => void) | undefined;
+  /**
+   * 이 session은 다른 컴퓨터의 `team spawn --on`이 연 팀원이다. 대화의 첫 항목인 그 컴퓨터의 메시지(팀원을 연 call)의 chip이
+   * 팀원이라고 말한다.
+   */
+  memberOpened?: boolean;
   /** 글 안 artifact path를 link로 그리는 길. */
   artifacts: ArtifactsSlice | undefined;
   /** provider 오류 줄의 [Enter key]. 읽기 전용 대화에는 없다. 부르는 쪽이 값을 안정되게 쥔다. */
@@ -703,6 +708,12 @@ function receivedMessage(
       key={message.id}
       message={message.id}
       sender={message.sender}
+      member={
+        props.memberOpened === true &&
+        all[0]?.id === message.id &&
+        message.sender.kind === "agent" &&
+        message.sender.agent === null
+      }
       time={clockTime(message.at)}
       replyTo={taskOfCall(all, message.replyTo)}
       source={props.source}

@@ -4,6 +4,7 @@ export const leftSidebar = {
   "left-sidebar.button.app-detail": "App details",
   "left-sidebar.button.create-app": "Create app",
   "left-sidebar.button.dismiss-handoff": "Dismiss",
+  "left-sidebar.button.end-member": "End team member",
   "left-sidebar.button.inbox": "Inbox",
   "left-sidebar.button.jobs": "Jobs",
   "left-sidebar.button.new-session-in": "New session in {workspace}",
@@ -29,6 +30,8 @@ export const leftSidebar = {
   "left-sidebar.heading.commands": "Commands",
   "left-sidebar.heading.lophn-agents": "lophn agents",
   "left-sidebar.heading.workspaces": "Workspaces",
+  "left-sidebar.error.end-member-failed":
+    "Couldn't end this team member. Try again.",
   "left-sidebar.error.handoff-continue-failed":
     "Couldn't continue from this note. Try again.",
   "left-sidebar.label.handoff-branch": "Branch {branch}",
@@ -39,6 +42,13 @@ export const leftSidebar = {
   "left-sidebar.label.home": "Home",
   "left-sidebar.label.home-on": "Home · {machine}",
   "left-sidebar.label.off": "Off",
+  "left-sidebar.label.member-pending": "Waiting",
+  "left-sidebar.label.member-pending-hint":
+    "Waiting for {computer}: it is off or the call has not arrived yet",
+  "left-sidebar.label.member-held": "Needs approval",
+  "left-sidebar.label.member-held-hint":
+    "Waiting for approval in the Inbox on {computer}",
+  "left-sidebar.label.member-running": "Team member on {computer}",
   "left-sidebar.label.nav": "Sidebar",
   "left-sidebar.label.new-session": "New session",
   "left-sidebar.label.recent": "Recent",

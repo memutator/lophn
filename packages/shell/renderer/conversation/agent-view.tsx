@@ -27,6 +27,7 @@ import {
 } from "../../../protocol/lophn-agent/content-block.ts";
 import { actionIcons } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
+import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import {
   type AgentTabData,
   useAgentTabData,
@@ -308,6 +309,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
+  // 부모가 있는 session의 첫 항목이 다른 컴퓨터의 메시지면 그 컴퓨터의 `team spawn --on`이 연 팀원이다(AgentThread가 첫 항목을 본다).
+  const memberOpened = useSessions().sessions.some(
+    (known) => known.session === session && known.spawnedBy !== null,
+  );
   // 열린 대화는 제목이 바뀐 것을 갱신(`session_changed`)으로 바로 안다: 이름 바꾸기, 첫 말의 자동 제목, 조금 뒤에 오는
   // AI 제목. session 목록은 다시 읽어야 따라오므로 갱신이 준 제목이 먼저다.
   const sessionTitle =
@@ -1308,6 +1313,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 }
                 onOpenFile={host.openFile}
                 onOpenSession={host.openSession}
+                memberOpened={memberOpened}
                 artifacts={host.artifacts}
               />
             </ThreadIndexContext.Provider>

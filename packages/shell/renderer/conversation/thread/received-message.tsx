@@ -20,6 +20,8 @@ interface ReceivedMessageProps {
   /** 받은 메시지 id. */
   message: string;
   sender: Sender;
+  /** 다른 컴퓨터가 이 session을 팀원으로 연 메시지다(chip 머리가 팀원이라고 말한다). */
+  member?: boolean;
   /** 화면에 보일 시각 글. */
   time: string;
   /** 이 메시지가 답하는 부탁의 맡긴 글. 호출한 쪽이 `replyTo`의 call에서 찾아 준다. */
@@ -34,6 +36,7 @@ interface ReceivedMessageProps {
 export function ReceivedMessage({
   message,
   sender,
+  member = false,
   time,
   replyTo,
   source,
@@ -58,6 +61,7 @@ export function ReceivedMessage({
       <div className={styles.receivedHead}>
         <SenderChip
           sender={sender}
+          member={member}
           open={open}
           onToggle={
             source.envelope === undefined || empty

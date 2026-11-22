@@ -256,7 +256,30 @@ export function Conversation({
     [scene, tab.key],
   );
   const [drafts] = useState(() => new DraftStore());
-  const [client] = useState(() => createEventClient(createFakeSource()));
+  // 다른 컴퓨터가 팀원으로 연 session은 부모가 그 컴퓨터의 session id다(이 컴퓨터에는 없다).
+  const [client] = useState(() =>
+    createEventClient(
+      createFakeSource(
+        scene === "member-opened"
+          ? {
+              snapshots: [
+                {
+                  session: SESSION_MAIN,
+                  agent: null,
+                  workspace: null,
+                  spawned_by: "ses_01h455vb4pex5v6nkc6gd5f016",
+                  runs_on: null,
+                  state: "running",
+                  turn_requests: [],
+                  questions: [],
+                },
+              ],
+              consents: [],
+            }
+          : undefined,
+      ),
+    ),
+  );
   const [session, setSession] = useState<string | null>(
     scene === "empty" ? null : archived ? SESSION_ARCHIVED : SESSION_MAIN,
   );

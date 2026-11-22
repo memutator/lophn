@@ -2618,7 +2618,7 @@ flows:
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/export/, packages/core/folder/apps/]
     steps:
       - "계기: 앱마다 AppSyncChanged 뒤 5초 debounce, 5분 timer, folder.destinations 설정이 바뀜, core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(scan이 실패하면 다음 scan 뒤로 미룬다). data stream은 (앱, destination)마다 따로 돌고 따로 물러나며 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 기계 기록은 시작 listener가 제품 판을 알려 준 뒤부터 쓴다"
-      - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱 기록·release·source를 쓴다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다"
+      - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱이 쓰는 destination마다(따로 물러나는 일 하나씩) 앱 기록·release·source를 쓰고 manifest를 잡는다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다"
       - "sync log 줄은 destination마다 나뉘어 있다(폰 앱이 아닌 앱의 write는 destination마다 줄 하나, destination이 없는 줄은 모든 stream의 것). stream은 자기 destination의 줄과 destination이 없는 줄만 내보낸다. changes file에는 줄의 changeset에서 그 줄 release의 선언이 이 destination으로 보내는 표의 구간만 담고(폰 앱의 줄에는 폰만 받는 표도 있다) 남는 것이 없는 줄은 건너뛴다. snapshot은 앱 process가 apps.snapshot(for folder, destination)으로 새 DB file에 그 destination으로 보내는 표와 그 clock 줄, sync 상태만 복사한 것이고 1 GiB 한도는 그 file을 잰다. 옛 release(sync_to)는 모든 표이고 VACUUM INTO로 DB 통째다"
       - "다른 기계에서 온 일(snapshot 합치기, 결과 모르는 받은 변경)의 '다시 snapshot' 줄(origin machine)은 건너뛴다: 그 data는 출처가 이미 냈다. 그래서 서로의 snapshot을 합친 두 기계도 뒤의 write는 changes file로 나간다"
       - "그 destination의 다른 기계 horizon 밖이면 아직 내보내지 않은 그 stream의 자기 change 줄 가운데 clock이 horizon 이하인 것을 그 자리에서 held로 바꾼다(snapshot 앞에는 그 seq까지 먼저). 그 stream의 held인 자기 변경이 풀리지 않았으면 그 destination에 snapshot을 쓰지 않는다: 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없으면 away_too_long으로 멈춘다. 다른 destination의 stream은 그대로 나간다"

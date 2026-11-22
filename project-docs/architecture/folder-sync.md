@@ -215,7 +215,7 @@
 
 - 내보내기와 앱 기록·release·source 쓰기: 앱마다 sync log가 바뀐 뒤 5초 debounce, 5분 timer, destination 설정이 바뀜, 활성 release가 바뀜(활성화, take-in), core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 읽기 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(사본 없이 내보내면 hold 규칙이 다른 기계의 horizon을 몰라 떨어져 있던 변경이 그대로 나간다). scan이 실패하면 다음 scan 뒤로 미룬다.
 - 읽기: destination의 `machines/`와 다른 기계의 하위 폴더를 폴더마다 감시(2초 debounce)하고 2분 timer. 새 폴더는 다음 scan이 감시에 더한다.
-- 내보내기는 (앱, destination)마다, 읽기는 앱마다(그 안에서 (destination, 출처 기계) stream마다 따로 물러난다) 한 번에 하나이고, 한 번에 64 MiB까지 다룬다. 더 남으면 바로 이어 돈다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다(한 destination의 실패가 다른 destination을 미루지 않는다). `clock_ahead`는 물러나지 않는다. 사람이 held를 풀거나 내보내기를 다시 켜면 물러남을 지우고 바로 돈다. 이 일들은 idle-exit를 막지 않는다.
+- 내보내기와 앱 기록·source 쓰기는 (앱, destination)마다, 읽기는 앱마다(그 안에서 (destination, 출처 기계) stream마다 따로 물러난다) 한 번에 하나이고, 한 번에 64 MiB까지 다룬다. 더 남으면 바로 이어 돈다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다(한 destination의 실패가 다른 destination을 미루지 않는다). `clock_ahead`는 물러나지 않는다. 사람이 held를 풀거나 내보내기를 다시 켜면 물러남을 지우고 바로 돈다. 이 일들은 idle-exit를 막지 않는다.
 
 ## 지키는 것
 

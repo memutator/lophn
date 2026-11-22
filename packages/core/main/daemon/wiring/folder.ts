@@ -897,12 +897,24 @@ export const folderWiring: WiringFactory = () => {
         }
         await noticeAway(app, wasAway, ran.value.held);
         await cleanup(app);
-        kick(`app:${id}`, () => writeAppRecord(id));
+        writeAppRecords(id);
         return { ok: ran.value.error === null, more: ran.value.more };
       }
 
-      async function writeAppRecord(id: Id<"app">): Promise<RunOutcome> {
-        const written = await apps.runApp(id);
+      // 앱이 쓰는 destination마다 lane 하나: 한 destination이 없거나 쓰지 못해 물러나도 다른 destination의 앱 기록과 manifest는
+      // 바로 나간다.
+      function writeAppRecords(id: Id<"app">) {
+        const app = shareApps().find((each) => each.app === id);
+        for (const name of app?.writes_to ?? []) {
+          kick(`app:${id}:${name}`, () => writeAppRecord(id, name));
+        }
+      }
+
+      async function writeAppRecord(
+        id: Id<"app">,
+        destination: string,
+      ): Promise<RunOutcome> {
+        const written = await apps.runApp(id, destination);
         if (!written.ok) log("app_record_failed", written.error.message);
         // 앱 기록·release·source와 그 앞의 data file을 manifest에 싣는다.
         scheduleCarry();
@@ -1282,7 +1294,7 @@ export const folderWiring: WiringFactory = () => {
         kick("records", () => publishRecords());
         for (const app of shareApps()) {
           if (app.destinations.length > 0) exportLanes(app.app);
-          else kick(`app:${app.app}`, () => writeAppRecord(app.app));
+          else writeAppRecords(app.app);
         }
       }
 

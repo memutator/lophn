@@ -550,7 +550,7 @@ const rows = (db: DatabaseSync, sql: string) =>
 // 동의와 grant는 그 기계의 사람이 준다. 다른 기계에서 켜졌다고 이 기계에서 묻지 않고 켜면 사람이 허락하지 않은 권한이 돈다.
 test("take-in은 동의도 grant도 옮기지 않고, source bundle로 이 기계에서 release를 준비한다", async () => {
   await withWorld(async (w) => {
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     // build된 releases/ 폴더는 내보내지 않고 source bundle만 내보낸다.
     assert.equal(
       existsSync(join(w.dest, "machines", A, "apps", APP, "releases")),
@@ -629,7 +629,7 @@ test("take-in은 동의도 grant도 옮기지 않고, source bundle로 이 기�
 test("다른 컴퓨터의 옛 release가 sync_to로 봉인되었어도 take-in이 준비해 모든 표를 그 destination으로 읽고, 이 컴퓨터에서 쓰는 release는 sync_to를 거절한다", async () => {
   await withWorld(async (w) => {
     w.extraB.sync_to = DESTINATION;
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     const taken = await w.folderB.takeIn({ app: APP });
     assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
     const stored = loadStoredDeclaration(sqlOf(w.dbB), taken.value.release);
@@ -672,7 +672,7 @@ test("다른 컴퓨터의 옛 release가 sync_to로 봉인되었어도 take-in�
 // 따라가기(machine-update)가 같은 함수를 부른다. 두 번 부르거나 사람이 이 기계에서 고친 앱에 부르면 앱 행을 덮거나 release가 늘면 안 된다.
 test("take-in을 두 번 부르거나 이미 들인 앱에 부르면 앱 행은 그대로이고 release는 하나다", async () => {
   await withWorld(async (w) => {
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     // 이 기계에 이미 있는 같은 id의 앱(사람이 이름을 바꿨고 source가 없다).
     const port = commandPort(w.dbB, () => w.clock.now());
     assert.ok(
@@ -713,7 +713,7 @@ test("take-in을 두 번 부르거나 이미 들인 앱에 부르면 앱 행은 
 // 폴더는 바깥 도구가 옮겨 덜 온 file이 흔하다. source bundle이 덜 왔거나 SDK·의존 package가 빠졌으면 앱이나 저장소를 남기지 않는다.
 test("완전하지 않은 source나 빠진 SDK·의존 package는 아무것도 등록하지 않는다", async () => {
   await withWorld(async (w) => {
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     const template = join(w.base, "template");
     cpSync(w.dest, template, { recursive: true });
     const cases: [string, () => void][] = [
@@ -770,7 +770,7 @@ test("완전하지 않은 source나 빠진 SDK·의존 package는 아무것도 �
         ...w.local.release!,
         code_commit: git(w.repoA, "rev-parse", "HEAD"),
       };
-      assert.ok((await w.folderA.runApp(APP)).ok);
+      assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
       const taken = await w.folderB.takeIn({ app: APP });
       assert.ok(!taken.ok, wantReason);
       assert.equal(taken.error.code, "conflict", wantReason);
@@ -789,7 +789,7 @@ test("완전하지 않은 source나 빠진 SDK·의존 package는 아무것도 �
 // 또 A의 commit 위에 B가 commit해 증분 bundle을 냈을 때 C가 B의 release를 바로 들일 수 있어야 한다.
 test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 증분 source bundle(A → B → C)도 따라간다", async () => {
   await withWorld(async (w) => {
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     const taken = await w.folderB.takeIn({ app: APP });
     assert.ok(taken.ok, taken.ok ? "" : taken.error.message);
     const repoB = taken.value.source_path;
@@ -825,7 +825,7 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
     git(w.repoA, "commit", "-q", "-am", "second");
     const second = git(w.repoA, "rev-parse", "HEAD");
     w.clock.advance(1000);
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     const imported = await w.folderB.importSource(APP);
     assert.ok(imported.ok, imported.ok ? "" : imported.error.message);
 
@@ -882,7 +882,7 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
       random: seededRandom(6),
       dataRoot: w.rootB,
     });
-    assert.ok((await folderBExport.runApp(APP)).ok);
+    assert.ok((await folderBExport.runApp(APP, DESTINATION)).ok);
 
     const rootC = join(w.base, "c");
     const sdkDirC = join(rootC, "sdk", "declaration", "4.9.0");
@@ -1059,7 +1059,7 @@ test("기계 A가 내보낸 @me/* package(의존 사슬 포함)를 기계 B가 t
       code_commit: git(w.repoA, "rev-parse", "HEAD"),
     };
 
-    assert.ok((await w.folderA.runApp(APP)).ok);
+    assert.ok((await w.folderA.runApp(APP, DESTINATION)).ok);
     assert.equal(
       existsSync(join(w.dest, packageFilePath(A, "@me/utils", "1.2.0"))),
       true,
@@ -1189,7 +1189,7 @@ test("computers carry(서명된 manifest·replica)로 @me/* package를 옮기고
       random: seededRandom(13),
       dataRoot: w.rootA,
     });
-    assert.ok((await folderAComp.runApp(APP)).ok);
+    assert.ok((await folderAComp.runApp(APP, COMPUTERS_DESTINATION)).ok);
 
     // manifest.json을 쓰고 replica B가 manifest → wants → receive로 모든 file(packages 포함)을 받는다.
     const txA = <T>(fn: (tx: { sql: Sql }) => Result<T>) =>
@@ -1384,7 +1384,7 @@ test("data를 보내지 않는 앱도 computers destination으로 source와 app.
       random: seededRandom(21),
       dataRoot: w.rootA,
     });
-    const ran = await folderANoSync.runApp(APP);
+    const ran = await folderANoSync.runApp(APP, COMPUTERS_DESTINATION);
     assert.ok(ran.ok, ran.ok ? "" : ran.error.message);
 
     const decoded = decodeRecord(

@@ -37,8 +37,8 @@ export type {
 export type { AvailableApp } from "./take-in.ts";
 
 export type FolderApps = {
-  /** 그 앱이 쓰는 destination마다 source bundle(branch가 바뀌었을 때만)과 `app.json`(바뀌었을 때만)을 쓴다. */
-  runApp(app: Id<"app">): Promise<Result<void>>;
+  /** 그 앱이 쓰는 destination 하나에 source bundle(branch가 바뀌었을 때만)과 `app.json`(바뀌었을 때만)을 쓴다. */
+  runApp(app: Id<"app">, destination: string): Promise<Result<void>>;
   /** 다른 기계의 source bundle을 번호 순서로 검사하고 받는다. 이 기계에 source가 없으면 저장소를 만든다. */
   importSource(app: Id<"app">): Promise<Result<void>>;
   takeIn(input: TakeInInput): Promise<Result<TakeInOutput>>;
@@ -104,16 +104,12 @@ export function createFolderApps(deps: FolderAppsDeps): FolderApps {
   }
 
   return {
-    async runApp(id) {
+    async runApp(id, destination) {
       const app = deps.apps().find((each) => each.app === id);
-      if (app === undefined) return ok(undefined);
-      let first: Result<void> = ok(undefined);
-      // 한 destination이 없거나 쓰지 못해도 다른 destination은 쓴다.
-      for (const name of app.writes_to) {
-        const written = await writeTo(app, name);
-        if (!written.ok && first.ok) first = written;
+      if (app === undefined || !app.writes_to.includes(destination)) {
+        return ok(undefined);
       }
-      return first;
+      return writeTo(app, destination);
     },
 
     async importSource(id) {

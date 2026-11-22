@@ -108,6 +108,7 @@ function router() {
       resolveAddress: () => ok(lophn),
       archive: () => ok(false),
       membersOn: () => [],
+      membersFrom: () => [],
       membersUnder: () => [],
       openMember: () => err({ code: "forbidden", message: "not in this test" }),
       open: () => ok(sessions[MEMBER]!),

@@ -2317,6 +2317,36 @@ test("다른 컴퓨터에서 도는 팀원의 자리는 이 기계 agent의 call
   assert.ok(!a.delivered.some((each) => each.session === member));
 });
 
+test("팀원으로 이어진 컴퓨터가 명단에서 빠지면(어느 쪽이 뺐든) 연 기계의 자리와 열린 call이 닫히고, 도는 기계에서는 그 기계가 연 팀원 session과 그 ask가 닫히며, 그 컴퓨터로 낼 mail이 남지 않는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { root, member, call } = memberOnB(a, b);
+  const asked = routeCall(b, member, { session: root }, { ask: "approval" });
+  assert.ok(asked.ok && asked.value.call !== null);
+  carry(b, a);
+  assert.equal(a.call(call)?.["state"], "accepted");
+
+  // 연 기계: B가 A를 명단에서 빼 A가 옛 명단을 버렸다(쓸기가 B를 빠진 기계로 받는다).
+  assert.ok(a.router.sweepMail(a.tx, [B]).ok);
+  assert.equal(lifecycleOf(a, member), "archived");
+  assert.equal(a.call(call)?.["state"], "failed");
+  assert.equal(a.call(asked.value.call)?.["state"], "cancelled");
+  assert.equal(pendingMails(a.sql, B as never).length, 0);
+
+  // 도는 기계: 연 기계가 명단에서 빠졌다. 부모에게 다시 닿을 길이 없다.
+  assert.ok(b.router.sweepMail(b.tx, [A]).ok);
+  assert.equal(lifecycleOf(b, member), "archived");
+  assert.notEqual(b.call(asked.value.call)?.["state"], "accepted");
+  assert.ok(
+    b.announced.some(
+      (each) =>
+        each.topic === ASK_ENDED_TOPIC &&
+        (each.data as { call: string }).call === asked.value.call,
+    ),
+  );
+  assert.equal(pendingMails(b.sql, A as never).length, 0);
+});
+
 test("다시 짠 agent_calls와 messages에 옛 행이 칸 그대로 옮겨진다", async () => {
   const steps = allSteps();
   const mine = steps.findIndex(

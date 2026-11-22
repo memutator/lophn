@@ -119,6 +119,8 @@ export interface SessionDirectory {
   archive(tx: Tx, session: Id<"ses">): Result<boolean>;
   // 그 기계에서 도는 이 기계 팀원의 열린 자리.
   membersOn(tx: Tx, machine: Id<"mch">): Id<"ses">[];
+  // 그 기계가 이 기계에 연 팀원의 열린 session.
+  membersFrom(tx: Tx, machine: Id<"mch">): Id<"ses">[];
   // 그 session 밑에 연, 다른 컴퓨터에서 도는 팀원의 열린 자리.
   membersUnder(tx: Tx, parent: Id<"ses">): Id<"ses">[];
   // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.

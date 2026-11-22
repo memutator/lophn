@@ -54,6 +54,7 @@ import {
   type Id,
 } from "../../../../protocol/base/mod.ts";
 import {
+  machineGone,
   machineRemoved,
   machineSigningKey,
   signManifest,
@@ -1083,6 +1084,9 @@ export function remoteWiring(
       );
       ctx.provide("computerRemoved", (machine) =>
         machineRemoved(roster.view(), machine),
+      );
+      ctx.provide("computerGone", (machine) =>
+        machineGone(roster.view(), roster.self()?.id, machine),
       );
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       const wait = (ms: number, fn: () => void) => {

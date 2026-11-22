@@ -118,6 +118,7 @@ function setup(
     resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
     archive: () => ok(false),
     membersOn: () => [],
+    membersFrom: () => [],
     membersUnder: () => [],
     openMember: () => err({ code: "forbidden", message: "not in this test" }),
     open: (_tx, agent, _opener, spawnedBy) => {

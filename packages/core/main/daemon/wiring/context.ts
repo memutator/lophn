@@ -373,6 +373,9 @@ type Late = {
   // remote가 낸다. 그 machine의 컴퓨터가 정해진 빼기로 빠졌고, 그 이름의 컴퓨터도 정해지지 않은 빼기도 지금 없다. 받는 자리가
   // 하위 폴더를 지우는 때다.
   computerRemoved: (machine: string) => boolean;
+  // remote가 낸다. 그 machine의 컴퓨터가 이 컴퓨터의 명단에 더 없다: 정해진 빼기로 빠졌거나, 이 컴퓨터가 명단에서 빠져 옛 명단을
+  // 버렸다. 명단을 아직 읽지 못했으면 거짓이다. 그 컴퓨터와 이어진 팀원과 낼 mail을 닫는 때다.
+  computerGone: (machine: string) => boolean;
   // folder가 낸다. link·폰·거울이 가져온 file을 받는 `computers` 폴더의 자리.
   folderReplica: FolderReplica;
   // folder가 낸다. `computers` 폴더의 자기 하위 폴더에 file을 둔 다른 wiring(handoff note)이 나르기(manifest 쓰기와 거울)를 깨운다.
@@ -482,6 +485,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   computerSigningKey: true,
   computerGranted: true,
   computerRemoved: true,
+  computerGone: true,
   folderReplica: true,
   folderCarry: true,
   crossEvents: true,

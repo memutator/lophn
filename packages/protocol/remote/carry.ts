@@ -361,6 +361,34 @@ export function machineRemoved(view: RosterView, machine: string): boolean {
   );
 }
 
+// 그 기계의 컴퓨터가 이 컴퓨터의 명단에 더 없다: 정해진 빼기로 빠졌거나, 명단에 그 기계의 항목도 정해지지 않은 빼기도 없다(이
+// 컴퓨터가 명단에서 빠져 옛 명단을 버린 뒤가 이렇다). 이 컴퓨터의 항목(`self`, 기기 id)이 명단에 없으면 명단을 아직 읽지 못한 것이라
+// 아무것도 빠지지 않았다.
+export function machineGone(
+  view: RosterView,
+  self: string | undefined,
+  machine: string,
+): boolean {
+  if (machineRemoved(view, machine)) return true;
+  if (
+    self === undefined ||
+    !view.devices.some((each) => each.body.id === self)
+  ) {
+    return false;
+  }
+  return (
+    !view.devices.some(
+      (each) => each.body.kind === "computer" && each.body.machine === machine,
+    ) &&
+    !view.removed.some(
+      (each) =>
+        !each.settled &&
+        each.entry?.kind === "computer" &&
+        each.entry.machine === machine,
+    )
+  );
+}
+
 /**
  * 받은 manifest 글에서 믿을 body와 맞춘 서명 key. `signingKeyOf(machine)`은 받는 기계의 `machineSigningKey`다. 크기, 꼴,
  * 서명 하나라도 틀리거나 서명 key가 없으면 null이다. 서명은 받은 body 그대로의 canonical 글에 대해 본다(schema가 모르는

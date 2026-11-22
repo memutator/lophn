@@ -48,6 +48,7 @@ test("a stopped instance is not handed: report with next records the line only a
         resolveAddress: () => ok(lophnAtWorkspace),
         archive: () => ok(false),
         membersOn: () => [],
+        membersFrom: () => [],
         membersUnder: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),

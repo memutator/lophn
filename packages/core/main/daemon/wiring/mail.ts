@@ -140,14 +140,14 @@ export const mailWiring: WiringFactory = () => {
           textBlocks(FAILURE_TEXTS.receiver_ended),
         ]);
         if (!prepared.ok) return prepared;
-        // 없음이 아니라 정해진 빼기로 빠진 기계만이다(명단을 아직 읽지 못한 때 모든 call을 닫지 않게).
-        // 그 기계에서 도는 이 기계 팀원의 자리도 닫는다(spawn call이 끝났어도).
+        // 명단에 더 없는 기계다: 이 컴퓨터가 뺐거나, 그 기계가 이 컴퓨터를 빼 이 컴퓨터가 옛 명단을 버렸다(명단을 아직 읽지 못한 때는
+        // 아무것도 빠지지 않는다). 그 기계와 팀원으로 이어진 곳(이 기계가 그 기계에 연 자리, 그 기계가 이 기계에 연 팀원 session)도 닫는다.
         const removed = [
           ...new Set<Id<"mch">>([
             ...sentPeers(sql),
             ...(memberMachines({ sql }) as Id<"mch">[]),
           ]),
-        ].filter((peer) => ctx.peek.computerRemoved?.(peer) ?? false);
+        ].filter((peer) => ctx.peek.computerGone?.(peer) ?? false);
         return await command(callsMailSweep, { removed });
       };
       sweep = sweeping;

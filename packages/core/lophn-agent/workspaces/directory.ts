@@ -119,6 +119,14 @@ export function createSessionDirectory(
         )
         .map((row) => String(row["id"]) as Id<"ses">);
     },
+    membersFrom(tx, machine) {
+      return tx.sql
+        .all(
+          "select id from sessions where opened_by_machine = ? and spawned_by is not null and lifecycle = 'open' order by created_seq",
+          [machine],
+        )
+        .map((row) => String(row["id"]) as Id<"ses">);
+    },
     membersUnder(tx, parent) {
       return tx.sql
         .all(

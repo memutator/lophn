@@ -46,6 +46,7 @@ function world() {
         resolveAddress: () => ok({ agent: "lophn_home", workspace: null }),
         archive: () => ok(false),
         membersOn: () => [],
+        membersFrom: () => [],
         membersUnder: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),

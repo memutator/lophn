@@ -23,6 +23,7 @@ import {
   expectedFile,
   expectedFiles,
   MANIFEST_SIGN_CONTEXT,
+  machineGone,
   machineRemoved,
   machineSigningKey,
   mailAcksPath,
@@ -250,6 +251,20 @@ test("하위 폴더는 정해진 빼기로 빠진 컴퓨터의 것만 지운다"
     ),
   );
   assert.equal(machineRemoved(disputed, c.machine), false);
+});
+
+// 다른 컴퓨터가 이 컴퓨터를 명단에서 빼면 이 컴퓨터는 명단을 버리고 자기 항목만 남는다. 그때 옛 명단의 컴퓨터가 빠진 것으로 보이지
+// 않으면 그 컴퓨터에서 도는 팀원의 자리, 그 컴퓨터가 연 팀원 session, 그 컴퓨터로 낼 mail이 영영 남는다. 명단을 읽기 전에 빠진 것으로
+// 보이면 모든 다른 컴퓨터의 일이 닫힌다.
+test("명단에서 빠진 컴퓨터는 정해진 빼기와 이 컴퓨터가 버린 옛 명단에서 모두 빠진 것이고, 명단을 읽기 전과 다툼 중에는 빠지지 않았다", () => {
+  assert.equal(machineGone(view, a.id, b.machine), false);
+  assert.equal(machineGone(view, a.id, c.machine), true);
+  const forgotten = rosterView([signed(entry(a), a)], [self], self);
+  assert.equal(machineGone(forgotten, a.id, b.machine), true);
+  assert.equal(machineGone(forgotten, a.id, a.machine), false);
+  const unread = rosterView([], [self], self);
+  assert.equal(machineGone(unread, a.id, b.machine), false);
+  assert.equal(machineGone(forgotten, undefined, b.machine), false);
 });
 
 test("표시보다 revision이 크지 않은 manifest는 받지 않는다", () => {

@@ -2254,7 +2254,12 @@ export function createRouter(deps: RouterDeps): Router {
         );
         if (!notified.ok) return notified;
       }
-      // 자리를 닫으며 낸 mail까지 그 기계로 낼 줄은 모두 지운다.
+      // 그 기계가 이 기계에 연 팀원: 부모에게 다시 닿을 길이 없다. 도는 turn을 멈추고 열린 ask를 닫는다(session 끝내기와 같다).
+      for (const member of directory.membersFrom(tx, peer as Id<"mch">)) {
+        const ended = directory.archive(tx, member);
+        if (!ended.ok) return ended;
+      }
+      // 자리와 팀원을 닫으며 낸 mail까지 그 기계로 낼 줄은 모두 지운다.
       outbox.dropPeer(tx, peer);
     }
     // 이 기계가 낸 줄: 닿지 못한 call은 보낸 session에 늦은 실패로 알린다.

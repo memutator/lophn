@@ -383,16 +383,18 @@ export function openSessions(lookup: {
     .map(sessionRowOf);
 }
 
-// 이 컴퓨터의 팀원이 열린 채로 도는 다른 컴퓨터들(`team spawn --on`의 자리).
+// 열린 팀원으로 이어진 다른 컴퓨터들: 이 컴퓨터의 팀원이 도는 곳(`team spawn --on`의 자리)과 이 컴퓨터의 팀원 session을 연 곳.
 export function memberMachines(lookup: {
   sql: { all: (query: string, params: SqlParams) => SqlRow[] };
 }): string[] {
   return lookup.sql
     .all(
-      "select distinct runs_on from sessions where runs_on is not null and lifecycle = 'open'",
+      `select runs_on as machine from sessions where runs_on is not null and lifecycle = 'open'
+       union select opened_by_machine from sessions
+       where opened_by_machine is not null and spawned_by is not null and lifecycle = 'open'`,
       [],
     )
-    .map((row) => String(row["runs_on"]));
+    .map((row) => String(row["machine"]));
 }
 
 export function workspaceOf(row: AgentSessionRow): Workspace | null {

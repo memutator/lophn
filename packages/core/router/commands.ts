@@ -316,7 +316,7 @@ export const callsMailSweep = defineCommand({
   method: "mail-sweep",
   name: "SweepCallMail",
   changes: [],
-  // 사람의 명단에서 정해진 빼기로 빠진 기계(부르는 쪽이 명단으로 정한다).
+  // 이 컴퓨터의 명단에 더 없는 기계(부르는 쪽이 명단으로 정한다. 이 컴퓨터가 뺐거나 그 기계가 이 컴퓨터를 뺐다).
   input: z.strictObject({ removed: z.array(idSchema("mch")) }),
   output: z.strictObject({
     expired: z.number().int(),

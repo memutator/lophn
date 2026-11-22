@@ -66,6 +66,7 @@ function world(refuse: boolean) {
             : ok({ agent: "lophn_app", workspace: null }),
         archive: () => ok(false),
         membersOn: () => [],
+        membersFrom: () => [],
         membersUnder: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),

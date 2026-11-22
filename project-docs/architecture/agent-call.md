@@ -136,10 +136,11 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 
 ### 팀
 
-29. 팀의 규칙은 셋이다.
+29. 팀의 규칙은 넷이다.
     1. spawn은 늘 내 밑이다. 부모는 입력이 아니라 자격의 session이다. `--workspace`가 없으면 부모의 workspace다. spawn은 새 session을 여는 call의 길을 그대로 거쳐 받는 곳 풀기, call 정책, 팀 규칙, 명함 검사가 같다. spawn의 실패는 call의 실패가 아니라 오류로 돌려준다(팀이 가득 찬 `conflict`가 `closed`로 바뀌지 않게).
     2. `spawned_by`가 있는 session의 call은 부모, 형제(같은 부모), 자기 자손에게만 간다. call 정책 다음에 보고 아니면 `forbidden`이다. call 정책은 그 위에 그대로 겹친다. root(`spawned_by` 없음), 사람 메시지, program 입력, reply·cancel은 거르지 않는다. 팀 밖에서 팀원에게 오는 call도 지금 규칙 그대로다. member의 `session list`도 같은 집합만 보인다.
-    3. 끝내기(`lophn team end <ses>`)는 자기 엄격한 자손만이다. 대상과 그 밑의 열린 session을 잎부터 archive처럼 닫는다. 남의 자손이면 `forbidden`이다. 사람이 부모를 archive하거나 지워도 자식은 남는다.
+    3. 끝내기(`lophn team end <ses>`)는 자기 엄격한 자손만이다. 대상과 그 밑의 열린 session을 잎부터 archive처럼 닫는다. 남의 자손이면 `forbidden`이다. 사람이 부모를 archive하거나 지워도 자식은 남는다. 끝난 session이 다른 session에게서 받은 browser 탭은 준 session에게(끝났으면 사람에게) 돌아간다(`architecture/workspace-layout.md` "agent가 연 탭"의 주기).
+    4. session은 자기가 든 browser 탭을 자기 엄격한 자손에게 준다(`lophn tab give <tab> --to <ses>`, 되찾기는 `--back`). 자손이 아니면 `forbidden`이다. 팀의 시야(2)처럼 자식은 부모·형제의 탭을 가져오지 못한다.
 30. 팀 상한은 설정 `lophn-agent.team`(기본 `max_members: 8`, `max_depth: 2`)이다. core는 desk를 모르므로 root session 아래 열린 자손 수와 새 자식의 깊이(root 0)로 센다. desk는 root가 있는 자리라 같은 뜻이다. 넘으면 `conflict`이고 tx가 되돌아가 session도 call 행도 남지 않는다. 거절 글은 "do the work yourself or ask your parent"로 끝난다. 설정은 call 정책처럼 data root 설정 file에서 spawn마다 읽는다.
 31. 연락처는 prompt가 아니라 `lophn team read`(`team/read`)다. 부모, 형제, 자식의 handle·이름·description·runtime·상태와, caller가 그 팀원에게 보내고 아직 답을 받지 못한 call(`open_calls`)이다. lophn 자식이 `call reply`를 잊으면 부모가 깨지 않으므로 부모가 이것으로 알아챈다. 팀이 바뀌면 turn을 준비할 때 앞에 본 팀(부모·형제·자식의 session ID와 handle 줄)과 비교해 고정 글 notice `team_changed`를 대화 끝에 붙인다(`tools_changed`와 같은 길). 입력함에 입력으로 넣지 않으므로 쉬던 session을 깨우지 않고 그 session의 다음 turn에 닿는다. custom은 팀을 보지 않는다.
 32. `team spawn`의 `--reply` 기본은 result이고 첫 call 본문 앞에 core가 고정 글을 붙인다. 직접 하라, 끝나면 `call reply`, 모르면 `ask`(부모에게 간다), spawn한 뒤 turn을 끝내고 poll하지 마라. 같은 말이 `team spawn` help와 skill `lophn-agent`에 있다. system prompt에는 넣지 않는다(prompt cache). 받은 메시지로 저장되어 이력 재생이 같은 bytes다.

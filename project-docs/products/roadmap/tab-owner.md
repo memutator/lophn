@@ -1,6 +1,6 @@
 # tab owner: 탭이 agent의 시야와 책임을 보인다
 
-상태: 1·2단계(주인 저장과 표시, sidebar의 팀 tree와 session 탭 목록, `lophn tab list`, 사람의 browser 탭 넘기기와 되찾기)는 계획 tab-scope로 만들었다(change-log `tab-scope`). 지금 설계는 `project-docs/architecture/workspace-layout.md`의 "탭의 주인"과 "agent가 연 탭"이다. 이 문서에는 남은 것만 둔다.
+상태: 1·2단계(주인 저장과 표시, sidebar의 팀 tree와 session 탭 목록, `lophn tab list`, 사람의 browser 탭 넘기기와 되찾기)는 계획 tab-scope로 만들었다(change-log `tab-scope`). session이 든 탭을 자기 밑 session에 주는 길(`lophn tab give`)은 change-log `tab-give`다. 지금 설계는 `project-docs/architecture/workspace-layout.md`의 "탭의 주인"과 "agent가 연 탭"이다. 이 문서에는 남은 것만 둔다.
 배경 문서: `project-docs/architecture/{workspace-layout,browser-tab,agent-call}.md`, `project-docs/products/roadmap/{a2a-access,browser-profile}.md`.
 
 ## 사람의 말 (원문)
@@ -13,13 +13,12 @@
 
 ## 남은 것
 
-- **coordinator가 자기 탭을 자식에게 넘기기.** 지금 넘기는 것은 사람뿐이다(사람의 browser 탭 → 이 컴퓨터의 열린 lophn session). coordinator가 `team spawn`으로 연 자식에게 자기 browser 탭을 넘기는 길은 roadmap에서 정했으나 만들지 않았다. 자식이 끝날 때 탭이 누구에게 돌아가는지를 같이 정한다.
 - **"Hand to"의 상대 넓히기.** 지금 상대는 lophn session뿐이다. coding agent GUI 탭이 팀 member가 되면(`a2a-access.md`) 그때 상대에 든다.
 
 ## 정한 것
 
 1. 넘길 수 있는 상대는 그 탭이 있는 기계에서 도는 session이다. (agent)
-2. coordinator가 자기 탭을 자식에게 넘길 수 있다. (agent, 2026-11-21 roadmap. tab-scope 범위 밖으로 미뤘다)
+2. coordinator가 자기 탭을 자식에게 넘길 수 있다. (agent, 2026-11-21 roadmap. change-log `tab-give`로 만들었다)
 
 ## 하지 않는 것
 

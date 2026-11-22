@@ -171,12 +171,15 @@ test("연결 요청은 연결이 없으면 대기하지 않고 바로 unavailabl
 // 넘겨받은 탭을 agent가 닫으면 사람이 쓰던 page(로그인, 입력)가 사라진다.
 test("넘겨받은 browser 탭은 주인 session이 닫으려 해도 forbidden이고 탭은 표에 남는다", () => {
   const { queue } = setup();
-  const handed = queue.hand({
-    owner: OWNER,
-    workspace: HOME,
-    profile: null,
-    url: "https://mail.example.com/",
-  });
+  const handed = queue.hand(
+    {
+      owner: OWNER,
+      workspace: HOME,
+      profile: null,
+      url: "https://mail.example.com/",
+    },
+    () => true,
+  );
   assert.ok(handed.ok);
   const tab = handed.value;
   const closed = queue.close(tab, OWNER);
@@ -202,13 +205,16 @@ test("tabs/hand는 agent가 연 탭을 사람에게 넘겨받은 탭으로 바�
     relation: null,
     source: OWNER,
   });
-  const handed = queue.hand({
-    tab,
-    owner: OTHER,
-    workspace: HOME,
-    profile: null,
-    url: "https://example.com/",
-  });
+  const handed = queue.hand(
+    {
+      tab,
+      owner: OTHER,
+      workspace: HOME,
+      profile: null,
+      url: "https://example.com/",
+    },
+    () => true,
+  );
   assert.equal(!handed.ok && handed.error.code, "conflict");
   assert.equal(queue.close(tab, OWNER).ok, true);
 });
@@ -270,4 +276,99 @@ test("tab list는 자기 탭과 자기 밑 session의 탭만 내고 부모·형�
       caller,
     );
   }
+});
+
+// 받은 session이 끝났는데 탭이 그 session에 남으면 아무도 그 page를 다루지 못하고, 사람에게 가야 할 탭이 끝난 session의 부모에게
+// 가면 사람의 로그인이 그 agent에게 남는다.
+test("준 탭은 받은 session이 끝나면 준 session에게, 준 session도 끝났으면 사람에게 돌아가고, 창이 다시 알려도 core의 주인이 남는다", () => {
+  const { queue } = setup();
+  const A = "ses_a" as Id<"ses">;
+  const B = "ses_b" as Id<"ses">;
+  const C = "ses_c" as Id<"ses">;
+  const all = () => true;
+  const handed = queue.hand(
+    { owner: A, workspace: HOME, profile: null, url: "https://mail.example/" },
+    all,
+  );
+  assert.ok(handed.ok);
+  const tab = handed.value;
+  assert.equal(queue.give(tab, A, B, all).ok, true);
+  assert.equal(queue.give(tab, B, C, all).ok, true);
+  // 창이 앞 주인으로 다시 알려도(session 끝, core에 다시 붙음) core가 든 주인을 바꾸지 않는다.
+  assert.ok(
+    queue.hand(
+      {
+        tab,
+        owner: A,
+        workspace: HOME,
+        profile: null,
+        url: "https://mail.example/",
+      },
+      all,
+    ).ok,
+  );
+  assert.equal(queue.read(tab, C).ok, true);
+  assert.equal(queue.read(tab, A).ok, false);
+
+  const host = connect(queue, [HOME]);
+  const owners = () => {
+    const seen: (string | null)[] = [];
+    for (let next = host.next(); next !== null; next = host.next()) {
+      if (next.kind === "tab_owner") seen.push(next.payload.owner ?? null);
+    }
+    return seen;
+  };
+  assert.deepStrictEqual(owners(), [B, C]);
+  // 턴이 아니라 session이 끝날 때만 돌아간다. C가 끝나면 B에게 간다.
+  queue.ended(C, all);
+  assert.equal(queue.read(tab, B).ok, true);
+  assert.deepStrictEqual(owners(), [B]);
+  // B가 끝났는데 A도 이미 끝났다: 사람의 탭으로 돌아가 core 표에서 빠지고 창은 넘긴 표시를 지운다.
+  queue.ended(B, (session) => session !== A);
+  assert.equal(queue.read(tab, B).ok, false);
+  assert.equal(queue.read(tab, A).ok, false);
+  assert.deepStrictEqual(owners(), [null]);
+
+  // agent가 연 탭을 준 session이 끝났으면 사람 token의 탭이 된다. 자기가 연 탭은 끝나도 그대로다.
+  const opened = queue.openTab({
+    owner: A,
+    workspace: HOME,
+    target: { browser: { url: "https://example.com" } },
+    relation: null,
+    source: A,
+  });
+  const own = queue.openTab({
+    owner: B,
+    workspace: HOME,
+    target: { browser: { url: "https://example.com/b" } },
+    relation: null,
+    source: B,
+  });
+  assert.equal(queue.give(opened, A, B, all).ok, true);
+  queue.ended(B, (session) => session !== A);
+  assert.equal(queue.browserTab(opened, "person").ok, true);
+  assert.equal(queue.browserTab(own, B).ok, true);
+});
+
+// 사람의 Take back이 사슬을 끝내지 않으면 사람이 되찾은 탭(로그인한 page)을 준 session이 다시 가져간다.
+test("사람이 넘긴 탭을 되찾으면 준 사슬이 끝나 아무도 되찾거나 다루지 못한다", () => {
+  const { queue } = setup();
+  const all = () => true;
+  const handed = queue.hand(
+    { owner: OWNER, workspace: HOME, profile: null, url: "https://bank/" },
+    all,
+  );
+  assert.ok(handed.ok);
+  const tab = handed.value;
+  assert.equal(queue.give(tab, OWNER, OTHER, all).ok, true);
+  // 받은 쪽은 닫지 못한다.
+  const close = queue.close(tab, OTHER);
+  assert.equal(!close.ok && close.error.code, "forbidden");
+  // 창의 Take back은 그 id의 closed 알림이다.
+  queue.report(tab, "closed");
+  const back = queue.give(tab, OWNER, OWNER, all);
+  assert.equal(!back.ok && back.error.code, "not_found");
+  assert.equal(queue.browserTab(tab, OTHER).ok, false);
+  queue.ended(OTHER, all);
+  assert.equal(queue.browserTab(tab, OWNER).ok, false);
 });

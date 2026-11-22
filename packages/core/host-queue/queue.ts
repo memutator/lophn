@@ -67,6 +67,9 @@ type TabEntry = {
   phone: PhoneTab | null;
   // 사람이 넘겨준 browser 탭이다. 주인 session도 닫지 못한다.
   handed: boolean;
+  // 이 탭을 준 session들이다(`tabs/give`, 먼저 준 쪽부터). 끝은 지금 주인에게 준 session이다. 받은 session은 닫지 못하고, 여기 있는
+  // session은 되찾을 수 있다. core 메모리에만 있어 창이 다시 알린 탭은 빈 사슬이다.
+  givers: Id<"ses">[];
   // browser 탭의 profile이다. null은 기본 profile이다.
   profile: Id<"bpf"> | null;
 };
@@ -102,6 +105,13 @@ export const NOT_BROWSER_TAB = "not_browser";
 // 넘겨받은 탭을 닫으려 할 때 model이 그대로 받는 문장이다.
 const HANDED_TAB =
   "The person handed you this tab; you cannot close it. Tell the person when you are done.";
+const GIVEN_TAB =
+  "Another session gave you this tab; you cannot close it. Tell that session when you are done: it takes the tab back with `lophn tab give <tab> --back`, and the tab goes back to it when your session ends.";
+// `tabs/give`의 거절 문장도 model이 그대로 받는다(work.ts).
+const NOT_GIVABLE =
+  "Only a browser tab can be given. Open the page with `lophn tab open --url` and give that tab.";
+const NOT_HOLDER =
+  "You do not hold this tab, so you cannot give it. Only the session that holds a tab gives it on; a session that gave it can take it back with `lophn tab give <tab> --back`.";
 
 // 다른 wiring(browser·tab route, 터미널 탭 열기, 멀리서 page 보기)이 쓰는 port다.
 export type HostQueue = {
@@ -149,8 +159,21 @@ export type HostQueue = {
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
   // 사람이 창의 browser 탭을 session에 넘긴다. tab이 없거나 표에 없으면 그 id(없으면 새 id)로 표에 올리고(tab_open은 넣지 않는다.
-  // 탭은 이미 창에 있다), 표에 있으면 넘겨받은 탭이거나 사람의 browser 탭일 때만 주인을 바꾼다. agent가 연 탭은 `conflict`다.
-  hand(input: HandInput): Result<Id<"tab">>;
+  // 탭은 이미 창에 있다), 표에 있는 사람의 browser 탭이면 주인을 바꾼다. 둘 다 `open()`(받을 session이 열려 있다)이 거짓이면
+  // `not_found`다. 표에 있는 넘긴 탭은 창이 다시 알린 것이라 주인은 core 표의 것을 그대로 두고(그 사이 주었거나 돌아갔을 수 있다)
+  // workspace와 profile만 맞춘다. agent가 연 탭은 `conflict`다.
+  hand(input: HandInput, open: () => boolean): Result<Id<"tab">>;
+  // caller가 든 browser 탭을 to에게 준다. to가 caller면 되찾기이고 caller가 준 사슬에 있어야 한다. 받는 session의 검사(자기 밑,
+  // 열림, 탭을 다룸)는 부른 쪽이 한다. sees가 거짓인 주인의 탭은 없는 탭과 같다. 주인이 바뀌면 창에 tab_owner를 보낸다.
+  give(
+    tab: Id<"tab">,
+    caller: Id<"ses">,
+    to: Id<"ses">,
+    sees: (owner: TabOwner) => boolean,
+  ): Result<Id<"ses">>;
+  // session이 끝났다. 그 session이 받은 탭은 준 session이 열려 있으면 그쪽으로, 아니면 사람에게 돌아가고, 사람이 넘긴 탭은 사람에게
+  // 돌아간다(넘긴 탭은 표에서 빠진다). 자기가 연 탭은 그대로다.
+  ended(session: Id<"ses">, open: (session: Id<"ses">) => boolean): void;
   // inScope가 참인 주인의 탭 목록이다. session 탭의 title은 sessionTitle로 읽는다. title·url은 부른 쪽이 redaction을 거친다.
   list(
     inScope: (owner: TabOwner) => boolean,
@@ -283,6 +306,13 @@ export function createHostQueue(deps: {
   const forget = (tab: Id<"tab">) => {
     const entry = tabs.get(tab);
     tabs.delete(tab);
+    // 아직 창에 가지 않은 주인 고치기는 버린다. 창이 다시 알린 탭이 core 표의 주인과 다른 주인을 그리지 않게 한다.
+    for (let at = pending.length - 1; at >= 0; at--) {
+      const { request } = pending[at]!;
+      if (request.kind === "tab_owner" && request.payload.tab === tab) {
+        pending.splice(at, 1);
+      }
+    }
     if (entry?.kind === "browser") deps.changed?.();
   };
   // 결과를 기다리는 browser_call과 browser 탭 열기, 연결 요청. deadline이 null이면 기한이 없다.
@@ -448,6 +478,20 @@ export function createHostQueue(deps: {
   const noSuchTab = () =>
     err({ code: "not_found" as const, message: NO_SUCH_TAB });
 
+  // 창의 탭 값에 지금 주인을 적게 한다. 그 workspace를 보이는 창이 받고, 없으면 보일 때까지 기다린다.
+  function announceOwner(tab: Id<"tab">, entry: TabEntry): void {
+    enqueue({
+      id: deps.ids.newId("hrq") as Id<"hrq">,
+      kind: "tab_owner",
+      workspace: entry.workspace,
+      payload: {
+        tab,
+        ...(entry.owner === "person" ? {} : { owner: entry.owner }),
+      },
+    });
+    deps.changed?.();
+  }
+
   // 탭 표에 올리고 tab_open 요청을 넣는다. wait면 shell main이 page를 만들었다고 done으로 답할 때까지 기다리는 result를 같이 준다.
   function place(
     input: OpenInput,
@@ -529,6 +573,7 @@ export function createHostQueue(deps: {
       state: null,
       phone: null,
       handed: false,
+      givers: [],
       profile: input.profile ?? null,
     });
     if (kind === "browser") deps.changed?.();
@@ -654,9 +699,12 @@ export function createHostQueue(deps: {
       return launchedAt !== null;
     },
     newTabId: () => deps.ids.newId("tab") as Id<"tab">,
-    hand(input: HandInput): Result<Id<"tab">> {
+    hand(input: HandInput, open: () => boolean): Result<Id<"tab">> {
       const found = input.tab === undefined ? undefined : tabs.get(input.tab);
+      const closed = () =>
+        err({ code: "not_found" as const, message: "session not found" });
       if (found === undefined) {
+        if (!open()) return closed();
         const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
         tabs.set(tab, {
           owner: input.owner,
@@ -667,6 +715,7 @@ export function createHostQueue(deps: {
           state: { url: input.url, title: "", loading: false },
           phone: null,
           handed: true,
+          givers: [],
           profile: input.profile,
         });
         deps.changed?.();
@@ -681,12 +730,65 @@ export function createHostQueue(deps: {
           message: "Only a browser tab the person opened can be handed over.",
         });
       }
-      found.owner = input.owner;
+      if (!found.handed) {
+        if (!open()) return closed();
+        found.owner = input.owner;
+        found.givers = [];
+        found.handed = true;
+      }
       found.workspace = input.workspace;
       found.profile = input.profile;
-      found.handed = true;
       deps.changed?.();
       return ok(input.tab!);
+    },
+    give(
+      tab: Id<"tab">,
+      caller: Id<"ses">,
+      to: Id<"ses">,
+      sees: (owner: TabOwner) => boolean,
+    ): Result<Id<"ses">> {
+      const entry = tabs.get(tab);
+      if (entry === undefined || !sees(entry.owner)) return noSuchTab();
+      if (entry.kind !== "browser") {
+        return err({ code: "invalid_input" as const, message: NOT_GIVABLE });
+      }
+      if (entry.owner === to) return ok(to);
+      if (to === caller) {
+        const at = entry.givers.indexOf(caller);
+        if (at < 0) {
+          return err({ code: "forbidden" as const, message: NOT_HOLDER });
+        }
+        entry.givers = entry.givers.slice(0, at);
+      } else {
+        if (entry.owner !== caller) {
+          return err({ code: "forbidden" as const, message: NOT_HOLDER });
+        }
+        entry.givers = [...entry.givers, caller];
+      }
+      entry.owner = to;
+      announceOwner(tab, entry);
+      return ok(to);
+    },
+    ended(session: Id<"ses">, open: (session: Id<"ses">) => boolean): void {
+      for (const [tab, entry] of [...tabs]) {
+        if (entry.owner !== session) continue;
+        const giver = entry.givers.at(-1);
+        if (giver !== undefined && open(giver)) {
+          entry.givers = entry.givers.slice(0, -1);
+          entry.owner = giver;
+        } else if (giver === undefined && !entry.handed) {
+          continue;
+        } else if (entry.handed) {
+          // 사람의 탭으로 돌아간다. 창이 되찾기처럼 owner·handed_tab을 지운다.
+          forget(tab);
+          entry.owner = "person";
+        } else {
+          // agent가 연 탭을 준 session이 이미 끝났다. 사람의 탭(사람 token의 주인)이 된다.
+          entry.owner = "person";
+          entry.givers = [];
+        }
+        announceOwner(tab, entry);
+      }
     },
     list(
       inScope: (owner: TabOwner) => boolean,
@@ -734,6 +836,7 @@ export function createHostQueue(deps: {
         state: null,
         phone: { app: input.app, screen: input.screen, counter: 0, last: null },
         handed: false,
+        givers: [],
         profile: null,
       });
       return tab;
@@ -756,6 +859,9 @@ export function createHostQueue(deps: {
     close(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
       const found = owned(tab, caller, "close");
       if (!found.ok) return found;
+      if (found.value.givers.length > 0) {
+        return err({ code: "forbidden" as const, message: GIVEN_TAB });
+      }
       if (found.value.handed) {
         return err({ code: "forbidden" as const, message: HANDED_TAB });
       }

@@ -898,7 +898,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "주인이 다른 탭이거나, 사람이 넘겨준 탭이거나(주인 session도 못 닫는다. model이 그대로 받는 고정 문장), agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "주인이 다른 탭이거나, 사람이 넘겨준 탭이나 다른 session이 준 탭이거나(주인 session도 못 닫는다. model이 그대로 받는 고정 문장), agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
@@ -939,16 +939,16 @@ flows:
       - packages/core/host-queue/queue.ts
       - packages/core/main/daemon/wiring/host-queue.ts
     steps:
-      - "사람 token만 부른다(route actor). 받을 session이 없거나 열려 있지 않으면 not_found"
-      - "tab이 없으면 새 id로, tab이 있고 core 표에 없으면 그 id로 browser 탭을 표에 올린다(주인 그 session, handed, 받은 profile, 상태는 받은 url). 탭은 이미 창에 있어 tab_open 요청을 넣지 않는다. 창이 core에 다시 붙을 때 같은 tab으로 다시 부른다"
-      - "표에 있고 넘겨받은 탭이거나 사람 token이 연 browser 탭이면 주인·workspace·profile을 바꾸고 handed로 둔다. agent가 연 탭이나 browser 탭이 아니면 conflict"
+      - "사람 token만 부른다(route actor)"
+      - "tab이 없으면 새 id로, tab이 있고 core 표에 없으면 그 id로 browser 탭을 표에 올린다(주인 그 session, handed, 준 사슬 없음, 받은 profile, 상태는 받은 url). 받을 session이 없거나 열려 있지 않으면 not_found. 탭은 이미 창에 있어 tab_open 요청을 넣지 않는다. 창이 core에 다시 붙을 때 같은 tab으로 다시 부른다"
+      - "표에 있는 넘겨받은 탭이면 창이 다시 알린 것이라 주인과 준 사슬은 core 표의 것을 그대로 두고(그 사이 tabs/give가 옮겼거나 돌아갔을 수 있다) workspace·profile만 바꾼다. session 검사도 하지 않는다. 표에 있는 사람 token의 browser 탭이면 받을 session이 열려 있을 때 주인·workspace·profile을 바꾸고 handed로 둔다. agent가 연 탭이나 browser 탭이 아니면 conflict"
       - "멀리서 보기 목록이 바뀌었다고 알린다(browser_pages). 넘겨받은 session은 browser 호출로 그 탭을 다루지만 tabs/close는 forbidden이다"
     outcomes:
       - id: handed
         observe: [response, event:StateChanged]
       - id: not_found
         code: not_found
-        when: "받을 session이 없거나 열려 있지 않다"
+        when: "새로 올리거나 사람 token의 탭을 넘기는데 받을 session이 없거나 열려 있지 않다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -961,6 +961,63 @@ flows:
     crosses_process: false
     risk: [permission]
     docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
+
+  - id: host-tab-give
+    title: session이 든 browser 탭을 자기 밑 session에 주거나 준 탭을 되찾는다
+    actor: agent
+    entries: [route:tabs/give]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "agent 자격의 session만 부른다(route actor, 자격에 session이 있어야 한다). session이 없거나 자기면 되찾기다"
+      - "주기면 받을 session을 ledger에서 읽는다. 없거나 열려 있지 않으면 not_found, 부른 session의 엄격한 자손(spawned_by를 거슬러 부른 session을 만남)이 아니면 forbidden, coding agent 채팅 탭 팀원(harness_gui)이면 conflict"
+      - "core 표에서 탭을 찾는다. 없거나 주인이 부른 session 자신도 그 밑도 아니면 없는 탭과 같은 not_found 문장이다(부모·형제·사람의 탭이 있는지 새지 않는다). browser 탭이 아니면 invalid_input"
+      - "주기는 부른 session이 지금 주인일 때만이고 준 사슬 끝에 부른 session을 더한다. 되찾기는 부른 session이 준 사슬에 있을 때만이고 사슬을 그 앞까지 자른다. 아니면 forbidden(든 session이 아니다)이다. 이미 그 session이 주인이면 그대로 ok다"
+      - "주인을 바꾸고 tab_owner {tab, owner} 요청을 그 탭의 workspace로 넣어 창이 탭 값의 owner를 고치게 하고, 멀리서 보기 목록이 바뀌었다고 알린다(browser_pages). 탭 id, page, profile, take control 상태는 그대로다. 받은 session은 browser 호출로 다루지만 tabs/close는 forbidden이고, 준 session은 되찾기 전까지 그 탭에 browser 호출을 하지 못한다(not_found)"
+    outcomes:
+      - id: given
+        observe: [response, event:StateChanged]
+      - id: not_found
+        code: not_found
+        when: "탭이 없거나 볼 수 없다, 또는 받을 session이 없거나 열려 있지 않다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "받을 session이 부른 session의 자손이 아니거나, 부른 session이 그 탭을 들지 않았거나(되찾기면 준 사슬에 없다), agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "받을 session이 coding agent 채팅 탭 팀원이라 탭을 다룰 수 없다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "browser 탭이 아니다(preview, artifact, phone, session, terminal)"
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/workspace-layout.md, architecture/browser-tab.md, architecture/agent-call.md]
+
+  - id: host-tab-return
+    title: session이 끝나면 그 session이 받은 탭과 넘겨받은 탭이 돌아간다
+    actor: system
+    entries: [system:host-tab-return]
+    boundary: [host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "host-queue wiring이 SessionEnded(보관, 지움, team end)를 듣는다. turn이 끝나는 것으로는 돌아가지 않는다"
+      - "그 session이 주인인 탭마다: 준 session이 있고 그 session이 열려 있으면 그 session이 주인이 되고 사슬에서 빠진다"
+      - "준 session이 끝났거나 없는 넘겨받은 탭은 사람에게 돌아가 core 표에서 빠진다. 준 session이 끝난 agent의 탭은 사람 token의 탭(주인 person)이 된다. 받지 않은 자기 탭은 그대로다"
+      - "주인이 바뀐 탭마다 tab_owner 요청을 그 탭의 workspace로 넣는다(사람에게 돌아가면 owner 없이). 창이 그 탭 값을 고친다(agent-tab-request). 아직 창에 가지 않은 앞 tab_owner는 탭이 표에서 빠질 때 버린다"
+    outcomes:
+      - id: returned
+        observe: [event:StateChanged]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/workspace-layout.md, architecture/agent-call.md]
 
   - id: host-tab-show
     title: agent나 사람 token이 자기가 연 접힌 탭을 사람에게 편다

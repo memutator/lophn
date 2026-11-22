@@ -102,7 +102,7 @@ export type SurfaceControl = { tab: string; agent: boolean; held: boolean };
 export type SurfaceRequest = {
   request: Extract<
     HostRequest,
-    { kind: "tab_open" | "tab_close" | "tab_show" }
+    { kind: "tab_open" | "tab_close" | "tab_show" | "tab_owner" }
   >;
 };
 

@@ -1602,8 +1602,8 @@ flows:
       - "preview 탭은 앱마다 하나다. 이 창에 이미 열려 있으면 새로 열지 않고 요청의 기기와 화면만 바꾼다. 사람이 [Preview]로 연 같은 앱의 탭이 있으면 그 자리에 agent 탭을 열고 그것을 닫는다. preview 탭은 요청의 화면(없으면 앱의 첫 tab 화면)을 그 release 선언에서 찾아 그 화면의 places에서 고른 자리(phone, tab, 첫 자리 순)로 연다. 못 찾으면 screen not ready를 보인다"
       - "열었으면 ack하고, 못 열었으면(agent 목록을 모름, resume 없음, 터미널 통로 없음) ack하지 않아 main이 되돌린다"
       - "work나 glance(float)인데 desk float이 20개 상한이면 openFloatTab이 조용히 아무것도 안 하지만 browser·session 경로는 그래도 ack한다"
-      - "tab_show면 어느 desk에 있든 그 key의 접힌 float을 그 자리에서 펴고(desk, 선택, focus는 그대로) ack한다. float이 아니거나 없으면 할 일 없이 ack한다"
       - "tab_close면 그 탭을 빼고(터미널은 PTY까지 닫고) ack한다. 터미널 종료를 확인받지 못하면 탭은 남고 ack는 간다. 사람이 닫은 탭은 shell:surface-report로 closed를 알린다"
+      - "tab_show면 어느 desk에 있든 그 key의 접힌 float을 그 자리에서 펴고(desk, 선택, focus는 그대로) ack한다. float이 아니거나 없으면 할 일 없이 ack한다. tab_owner면 이 workspace layout(모든 desk)이나 전역 float에서 그 core 탭 id의 탭(key host:<id>나 handedTab)을 찾아 owner를 요청의 session으로 고치고 ack한다. owner가 없으면 사람에게 돌아간 것이라 넘긴 탭이면 되찾기처럼 owner와 handedTab을 지우고 closed를 알리며, agent가 연 탭이면 owner만 지운다. 없는 탭이면 할 일 없이 ack한다"
     uses: [ipc:shell:surface-request, ipc:shell:surface-ack, ipc:shell:surface-workspace, ipc:shell:surface-report]
     outcomes:
       - id: opened
@@ -1620,6 +1620,9 @@ flows:
       - id: show-noop
         when: "tab_show 요청인데 그 탭이 float이 아니거나 이미 펴져 있거나 없다. 할 일 없이 ack한다"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "response"]
+      - id: owner-rewritten
+        when: "tab_owner 요청이다. 그 탭의 owner가 바뀌거나(사람에게 돌아가면 지워지고 넘긴 탭은 handedTab도 지워진다) 탭이 없으면 그대로 ack한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "response"]
       - id: closed
         observe: ["disk:<data>/shell/workspaces/<workspace>.json", "response"]
       - id: closed-absent
@@ -1777,7 +1780,7 @@ flows:
       - packages/shell/renderer/workspace/workspace-window.tsx
       - packages/shell/renderer/app-frame/workspace-views.tsx
     steps:
-      - "core 표는 메모리라 다시 뜨면 비어 있다. 창이 그 창의 layout(모든 desk의 tabs·floats·detached)과 전역 float에서 handedTab과 owner가 있는 browser 탭마다 tabs/hand {tab: handedTab, session: owner, workspace, profile, url}을 부른다. 넘긴 적 없는 사람의 탭은 알리지 않는다"
+      - "core 표는 메모리라 다시 뜨면 비어 있다. 창이 그 창의 layout(모든 desk의 tabs·floats·detached)과 전역 float에서 handedTab과 owner가 있는 browser 탭마다 tabs/hand {tab: handedTab, session: owner, workspace, profile, url}을 부른다. 넘긴 적 없는 사람의 탭은 알리지 않는다. owner는 지금 든 session(tabs/give로 받은 session일 수 있다)이고, 준 사슬은 다시 알리지 않아 core가 다시 뜨면 사라진다"
       - "not_found(session이 끝남)나 conflict면 그 탭의 owner·handedTab을 지운다. 그 밖의 실패는 다음 ready에 다시 한다"
       - "mount되지 않은 workspace에서 상한(12)이 넘긴 탭의 page를 놓으면 closed를 보내고, 그 workspace의 저장된 layout을 읽어 그 탭의 owner·handed_tab을 지워 다시 쓴다(창이 그 전에 닫혀도 다음 시작이 다시 알리지 않는다). 다시 mount될 때도 메모리의 목록으로 지운다(탭은 layout에 남는다)"
       - "다른 기계의 workspace는 알리지 않는다"

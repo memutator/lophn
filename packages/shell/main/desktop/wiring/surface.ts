@@ -64,10 +64,10 @@ const WINDOW_CLOSED =
   "The lophn window that was to hold the browser page was closed, so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
-// 창에 보내는 탭 요청이다. target은 열기에만 있다.
+// 창에 보내는 탭 요청이다. target은 열기에만 있다. 주인 고치기(`tab_owner`)는 그 workspace를 보이는 창이 그 layout에서 한다.
 type TabRequest = {
   id: string;
-  kind: "tab_open" | "tab_close" | "tab_show";
+  kind: "tab_open" | "tab_close" | "tab_show" | "tab_owner";
   workspace: Workspace;
   payload: { tab: string; target?: Record<string, unknown> };
 };
@@ -447,6 +447,7 @@ export function register(
   ctx.hostLink.onRequest("tab_open", queueTab);
   ctx.hostLink.onRequest("tab_close", queueTab);
   ctx.hostLink.onRequest("tab_show", queueTab);
+  ctx.hostLink.onRequest("tab_owner", queueTab);
 
   async function openTab(request: TabRequest): Promise<void> {
     const browserOpen =

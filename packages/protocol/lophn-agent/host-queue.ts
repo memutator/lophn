@@ -272,6 +272,17 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     workspace: hostWorkspaceSchema,
     payload: z.strictObject({ tab: idSchema("tab") }),
   }),
+  // 창에 이미 있는 탭(agent가 연 탭, 사람이 넘긴 탭)의 주인을 고친다. session이 탭을 자손에게 주거나 되찾거나, 받은 session이 끝나
+  // 탭이 돌아갔을 때다. owner가 없으면 사람에게 돌아간 것이다(넘긴 탭이면 창이 되찾기처럼 넘긴 표시도 지운다).
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("tab_owner"),
+    workspace: hostWorkspaceSchema,
+    payload: z.strictObject({
+      tab: idSchema("tab"),
+      owner: idSchema("ses").optional(),
+    }),
+  }),
   z.strictObject({
     id: idSchema("hrq"),
     kind: z.literal("browser_call"),
@@ -588,6 +599,7 @@ export const tabsList = defineMemory({
 // 사람이 창의 browser 탭을 열린 session에 넘긴다. 탭은 그 자리에 그대로 있고 core 표의 주인만 그 session이 된다. 넘겨받은 탭은
 // 그 session이 browser 호출로 다루지만 닫지 못한다(`tabs/close`가 `forbidden`). session이 없거나 열려 있지 않으면 `not_found`,
 // agent가 연 탭(넘겨받은 탭 밖)이거나 browser 탭이 아니면 `conflict`다. 창이 core에 다시 붙을 때 같은 `tab`으로 다시 부른다.
+// core 표에 이미 있는 넘긴 탭을 다시 알리면 주인은 core 표의 것을 그대로 둔다(그 사이 `tabs/give`가 옮겼을 수 있다).
 export const tabsHand = defineMemory({
   resource: "tabs",
   method: "hand",
@@ -609,12 +621,33 @@ export const tabsHand = defineMemory({
   errors,
 });
 
+// session이 지금 든 browser 탭(자기가 연 탭, 사람이 넘겨준 탭, 받은 탭)을 `team spawn`으로 연 자기 밑 session(엄격한 자손)에게 준다.
+// 받는 session은 이 컴퓨터의 열린 lophn session이어야 하고 coding agent 채팅 탭 팀원은 받지 못한다. 받은 session은 그 탭을 다루지만
+// 닫지 못한다. `session`이 없거나 자기 session이면 되찾기다: 그 탭을 준 사슬에 있는 session만 자기에게 되돌린다. 받은 session이
+// 끝나면 탭은 준 session에게(끝났으면 사람에게) 돌아간다. 사슬은 core 메모리에만 있다.
+// 없는 탭이나 볼 수 없는 탭은 `not_found`, 보이지만 든 session이 아니면 `forbidden`, browser 탭이 아니면 `invalid_input`,
+// 받을 session이 없거나 열려 있지 않으면 `not_found`, 자기 밑이 아니면 `forbidden`, 탭을 다룰 수 없는 session이면 `conflict`다.
+export const tabsGive = defineMemory({
+  resource: "tabs",
+  method: "give",
+  name: "GiveTab",
+  changes: [],
+  input: z.strictObject({
+    tab: idSchema("tab"),
+    session: idSchema("ses").optional(),
+  }),
+  output: z.strictObject({ tab: idSchema("tab"), owner: idSchema("ses") }),
+  actors: ["agent"],
+  errors,
+});
+
 export const HOST_QUEUE_MEMORY_ROUTES = [
   tabsOpen,
   tabsClose,
   tabsShow,
   tabsList,
   tabsHand,
+  tabsGive,
   browserRead,
   browserSnapshot,
   browserAct,

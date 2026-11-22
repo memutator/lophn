@@ -18,6 +18,7 @@ import { artifactTab } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
+import { takeBack } from "./hand.ts";
 import { hostTabOf, type TabItem } from "./model.ts";
 import { closeTerminalTab } from "../terminal/deps.ts";
 import { type AgentOpen, openAt } from "./open-policy.ts";
@@ -128,6 +129,8 @@ type Args = {
   hasPage: ((key: string) => boolean) | undefined;
   /** 이 창의 전역 float 탭. 넘긴 탭이 전역 float으로 옮겨도 core 표에 남는다. */
   globalTabs: readonly TabItem[];
+  /** 전역 float 탭 값 고치기. */
+  patchGlobal: (key: string, patch: Partial<TabItem>) => void;
 };
 
 export function useSurfaceRequests(args: Args): void {
@@ -173,6 +176,25 @@ export function useSurfaceRequests(args: Args): void {
       if (request.kind === "tab_show") {
         // 접힌 float이 아니면 할 일이 없다. 열려 있지 않은 탭도 같다.
         showFloat(key);
+        done();
+        return;
+      }
+      if (request.kind === "tab_owner") {
+        // core가 이 탭의 주인을 바꿨다(session이 자손에게 주었거나 되찾았거나, 받은 session이 끝나 돌아갔다). 이 workspace layout이나
+        // 전역 float의 그 탭에 적는다. 주인이 없으면 사람에게 돌아간 것이고, 넘긴 탭이면 되찾기처럼 넘긴 표시도 지운다.
+        const { owner } = request.payload;
+        const held = (tab: TabItem) => hostTabOf(tab) === request.payload.tab;
+        const here = host().windowTabs().find(held);
+        const found = here ?? latest.current.globalTabs.find(held);
+        const patch: (key: string, patch: Partial<TabItem>) => void =
+          here !== undefined
+            ? (key, value) => host().patchTab(key, value)
+            : latest.current.patchGlobal;
+        // 없으면 이미 닫힌 탭이다.
+        if (found !== undefined && owner !== undefined) {
+          patch(found.key, { owner });
+        } else if (found?.handedTab !== undefined) takeBack(found, patch);
+        else if (found !== undefined) patch(found.key, { owner: undefined });
         done();
         return;
       }

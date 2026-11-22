@@ -38,6 +38,7 @@ import {
   pageViewSnapshot,
   pageViewWatch,
   tabsClose,
+  tabsGive,
   tabsHand,
   tabsList,
   tabsOpen,
@@ -561,22 +562,57 @@ export function createTabHandlers(deps: TabDeps) {
     }
     return ok({ tabs });
   };
+  const isOpen = (session: string) => sessionRow(session)?.lifecycle === "open";
   // 사람이 창의 browser 탭을 열린 session에 넘긴다(route actor가 사람뿐이다).
   const hand: MemoryHandler = (_who, body) => {
     const input = tabsHand.input.parse(body);
-    const row = sessionRow(input.session);
-    if (row === undefined || row.lifecycle !== "open") {
-      return err({ code: "not_found", message: "session not found" });
-    }
-    const handed = queue.hand({
-      ...(input.tab === undefined ? {} : { tab: input.tab as Id<"tab"> }),
-      owner: input.session as Id<"ses">,
-      workspace: input.workspace,
-      profile: (input.profile ?? null) as Id<"bpf"> | null,
-      url: input.url,
-    });
+    const handed = queue.hand(
+      {
+        ...(input.tab === undefined ? {} : { tab: input.tab as Id<"tab"> }),
+        owner: input.session as Id<"ses">,
+        workspace: input.workspace,
+        profile: (input.profile ?? null) as Id<"bpf"> | null,
+        url: input.url,
+      },
+      () => isOpen(input.session),
+    );
     return handed.ok ? ok({ tab: handed.value }) : handed;
   };
+  // 문장은 model이 그대로 받는다(work.ts).
+  const NOT_BELOW =
+    "You can give a tab only to a session you opened with `lophn team spawn` or one below it.";
+  const NO_TABS =
+    "That session is a coding agent chat tab; it cannot drive browser tabs.";
+  // 자기가 든 browser 탭을 자기 밑의 열린 lophn session에 주거나(`session`), 준 탭을 되찾는다(`session`이 없거나 자기).
+  const give: MemoryHandler = (who, body) => {
+    const caller = agentSession(who);
+    if (!caller.ok) return caller;
+    const input = tabsGive.input.parse(body);
+    const to = (input.session ?? caller.value) as Id<"ses">;
+    const parentOf = (session: Id<"ses">) =>
+      sessionRow(session)?.spawned_by ?? null;
+    if (to !== caller.value) {
+      const row = sessionRow(to);
+      if (row === undefined || row.lifecycle !== "open") {
+        return err({ code: "not_found", message: "session not found" });
+      }
+      if (!withinTeam(caller.value, to, parentOf)) {
+        return err({ code: "forbidden", message: NOT_BELOW });
+      }
+      // GUI 탭 팀원의 turn은 그 터미널 탭의 coding agent가 돌려 lophn browser를 쓰지 않는다.
+      if (row.harness_gui) return err({ code: "conflict", message: NO_TABS });
+    }
+    const given = queue.give(
+      input.tab as Id<"tab">,
+      caller.value,
+      to,
+      (owner) => withinTeam(caller.value, owner, parentOf),
+    );
+    return given.ok ? ok({ tab: input.tab, owner: given.value }) : given;
+  };
+  // session이 끝나면(보관, 지움, `team end`) 그 session이 받은 탭과 넘겨받은 탭을 돌려준다.
+  const ended = (session: string) =>
+    queue.ended(session as Id<"ses">, (giver) => isOpen(giver));
   const read: MemoryHandler = (who, body) => {
     const caller = owner(who);
     if (!caller.ok) return caller;
@@ -831,6 +867,8 @@ export function createTabHandlers(deps: TabDeps) {
     show,
     list,
     hand,
+    give,
+    ended,
     read,
     snapshot,
     act,
@@ -994,6 +1032,12 @@ export const hostQueueWiring: WiringFactory = () => {
           }),
       });
       tabs = handlers;
+      ctx.bus.subscribe([{ types: ["SessionEnded"] }], {
+        send(event) {
+          if ("session" in event) handlers.ended(event.session);
+        },
+        close() {},
+      });
 
       const view = createPageView({
         clock: ctx.clock,
@@ -1031,6 +1075,7 @@ export const hostQueueWiring: WiringFactory = () => {
           [key(tabsShow), handlers.show],
           [key(tabsList), handlers.list],
           [key(tabsHand), handlers.hand],
+          [key(tabsGive), handlers.give],
           [key(browserRead), handlers.read],
           [key(browserSnapshot), handlers.snapshot],
           [key(browserAct), handlers.act],

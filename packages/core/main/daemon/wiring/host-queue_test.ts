@@ -49,8 +49,22 @@ const rows: Record<string, Partial<AgentSessionRow>> = {
   [id("ses", 3)]: { workspace_kind: "project", workspace_id: id("prj", 1) },
   [id("ses", 4)]: { workspace_kind: null, workspace_id: null },
   // 5가 `team spawn`으로 6을 열었다.
-  [id("ses", 5)]: { spawned_by: null, title: "Lead" },
-  [id("ses", 6)]: { spawned_by: id("ses", 5), title: "Child" },
+  [id("ses", 5)]: { spawned_by: null, title: "Lead", lifecycle: "open" },
+  [id("ses", 6)]: {
+    spawned_by: id("ses", 5),
+    title: "Child",
+    lifecycle: "open",
+  },
+  // 탭 주기: 7은 6의 자식, 8은 6의 형제, 9는 5가 연 coding agent 채팅 탭 팀원, 10은 보관한 5의 자식, 11은 팀 밖이다.
+  [id("ses", 7)]: { spawned_by: id("ses", 6), lifecycle: "open" },
+  [id("ses", 8)]: { spawned_by: id("ses", 5), lifecycle: "open" },
+  [id("ses", 9)]: {
+    spawned_by: id("ses", 5),
+    lifecycle: "open",
+    harness_gui: true,
+  },
+  [id("ses", 10)]: { spawned_by: id("ses", 5), lifecycle: "archived" },
+  [id("ses", 11)]: { spawned_by: null, lifecycle: "open" },
 };
 const agent = (n: number) =>
   ({
@@ -819,7 +833,7 @@ test("터미널 입력 허락이 없는 기기는 page를 다루지 못하고 ag
     telemetry: { logger: undefined },
     options: {},
     root: { path: "/nonexistent" },
-    bus: { publish() {} },
+    bus: { publish() {}, subscribe() {} },
     // 기기 dev_b만 허락받았다.
     peek: {
       terminalInputGrant: (principal: string) => principal === "device:dev_b",
@@ -1121,4 +1135,57 @@ test("browser 탭이 아닌 탭의 fill_login은 기본 profile의 login만이�
     ],
   });
   assert.equal(code(await reply), "ok");
+});
+
+// 탭 주기는 권한 경계다. 깨지면 agent가 부모·형제·남의 탭(사람의 로그인 page)을 가져가거나, 탭을 다룰 수 없는 곳에 주어 잃는다.
+test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn session에만 주고, 준 사슬의 session만 되찾는다", async () => {
+  const { queue, give, open } = setup(true);
+  const tab = queue.openTab({
+    owner: id("ses", 5) as Id<"ses">,
+    workspace: { kind: "home" },
+    target: { browser: { url: "https://example.com/" } },
+    relation: null,
+    source: null,
+  });
+  const giving = async (by: number, to: number | null, which = tab) =>
+    code(
+      (await give(agent(by), {
+        tab: which,
+        ...(to === null ? {} : { session: id("ses", to) }),
+      })) as { ok: boolean },
+    );
+  const previewTab = (await open(agent(1), target)) as {
+    ok: true;
+    value: { tab: string };
+  };
+  const cases: [string, number, number | null, string][] = [
+    ["자식이 부모의 탭을 자기에게", 6, null, "not_found"],
+    ["자식이 부모의 탭을 자기 자식에게", 6, 7, "not_found"],
+    ["형제가 남의 탭을 자기에게", 8, null, "not_found"],
+    ["팀 밖 session에게", 5, 11, "forbidden"],
+    ["coding agent 채팅 탭 팀원에게", 5, 9, "conflict"],
+    ["보관한 자식에게", 5, 10, "not_found"],
+    ["없는 session에게", 5, 12, "not_found"],
+    ["자식에게", 5, 6, "ok"],
+    ["준 뒤 형제에게(든 session이 아님)", 5, 8, "forbidden"],
+    ["받은 자식이 형제에게", 6, 8, "forbidden"],
+    ["형제가 받은 탭을", 8, null, "not_found"],
+    ["받은 자식이 자기 자식에게", 6, 7, "ok"],
+    ["사슬의 부모가 되찾기", 6, null, "ok"],
+    ["사슬의 조부모가 되찾기", 5, null, "ok"],
+  ];
+  for (const [name, by, to, expected] of cases) {
+    assert.equal(await giving(by, to), expected, name);
+  }
+  assert.equal(
+    await giving(1, 1, previewTab.value.tab as never),
+    "invalid_input",
+    "browser 탭이 아니다",
+  );
+  // 준 동안 준 쪽은 그 page를 다루지 못하고 받은 쪽은 닫지 못한다.
+  assert.equal(await giving(5, 6), "ok");
+  assert.equal(queue.browserTab(tab, id("ses", 5) as Id<"ses">).ok, false);
+  assert.equal(queue.browserTab(tab, id("ses", 6) as Id<"ses">).ok, true);
+  const closed = queue.close(tab, id("ses", 6) as Id<"ses">);
+  assert.equal(!closed.ok && closed.error.code, "forbidden");
 });

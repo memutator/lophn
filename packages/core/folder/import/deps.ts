@@ -195,7 +195,8 @@ export type StoredRecords = {
     Id<"mch">,
     {
       record: MachineRecord;
-      destination: string;
+      // 그 기계의 기록을 읽은 destination 모두. 내용은 가장 큰 revision 하나다.
+      destinations: string[];
       read_at: string;
       forgotten_at: string | null;
     }
@@ -231,8 +232,16 @@ export function loadRecords(
       const origin = row.origin as Id<"mch">;
       const record = JSON.parse(row.record as string) as MachineRecord;
       const kept = out.machines.get(origin);
+      const destinations = [...(kept?.destinations ?? []), base.destination];
       if (kept === undefined || kept.record.revision < record.revision) {
-        out.machines.set(origin, { ...base, record });
+        out.machines.set(origin, {
+          record,
+          destinations,
+          read_at: base.read_at,
+          forgotten_at: base.forgotten_at,
+        });
+      } else {
+        kept.destinations = destinations;
       }
     } else {
       out.apps.push({

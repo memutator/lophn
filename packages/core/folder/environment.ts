@@ -153,14 +153,14 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
     },
     ...records.machines
       .filter((row) => row.machine !== me.id)
-      .map(({ machine, record, destination }) => ({
+      .map(({ machine, record, destinations }) => ({
         id: machine,
         name: record.name,
         always_on: record.always_on,
         addresses: record.addresses,
         lophn_version: record.lophn.version,
         record_at: record.updated_at,
-        destinations: [destination],
+        destinations,
       })),
   ];
   // 이름이 겹친 기계는 `이름 (id 6자)`. id의 앞쪽은 만든 시각이라 같은 날 만든 두 기계가 같다. 무작위인 끝 6자를 쓴다.
@@ -184,24 +184,25 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
       return {
         app: app.app,
         name: app.name,
-        destinations: app.destinations.map(({ name, tables }) => ({
-          name,
-          tables,
-          state:
-            deps.destinations.resolve(name) === null
-              ? ("not_set_here" as const)
-              : ("set" as const),
-          export: deps.exportStatus(app.app, name),
-          imports: deps.importStatus(app.app, name).map((row) => ({
-            machine: row.machine,
-            imported_at: row.imported_at,
-            cursor: row.cursor,
-            waiting_for: row.waiting_for,
-            held: row.held,
-            owes_absent_pass: row.owes_absent_pass,
-            error: row.error,
-          })),
-        })),
+        destinations: app.destinations.map(({ name, tables }) => {
+          const here = deps.destinations.resolve(name) !== null;
+          return {
+            name,
+            tables,
+            state: here ? ("set" as const) : ("not_set_here" as const),
+            // 이 기계에 없는 destination으로는 내보내지 않는다. log head를 밀린 줄로 보이지 않게 비운다.
+            export: here ? deps.exportStatus(app.app, name) : null,
+            imports: deps.importStatus(app.app, name).map((row) => ({
+              machine: row.machine,
+              imported_at: row.imported_at,
+              cursor: row.cursor,
+              waiting_for: row.waiting_for,
+              held: row.held,
+              owes_absent_pass: row.owes_absent_pass,
+              error: row.error,
+            })),
+          };
+        }),
         release: app.code_commit,
         follow: update?.follow ?? null,
         held: update?.held ?? [],
@@ -221,7 +222,7 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
       state: each.state,
       // 그 destination에서 기록을 읽은 다른 기계 수.
       machines: records.machines.filter(
-        (row) => row.machine !== me.id && row.destination === each.name,
+        (row) => row.machine !== me.id && row.destinations.includes(each.name),
       ).length,
     })),
     apps,

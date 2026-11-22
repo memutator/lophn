@@ -31,7 +31,8 @@ export type KnownRecords = {
   machines: {
     machine: Id<"mch">;
     record: MachineRecord;
-    destination: string;
+    // 그 기계의 기록을 읽은 destination 모두.
+    destinations: string[];
     read_at: string;
   }[];
   apps: {
@@ -55,10 +56,10 @@ export function records(deps: FolderImportDeps, app?: Id<"app">): KnownRecords {
   return {
     machines: [...stored.machines]
       .filter(([machine]) => !forgotten.has(machine))
-      .map(([machine, { record, destination, read_at }]) => ({
+      .map(([machine, { record, destinations, read_at }]) => ({
         machine,
         record,
-        destination,
+        destinations,
         read_at,
       })),
     apps: stored.apps

@@ -510,22 +510,27 @@
   cursor: default;
 }
 
-/* 다른 컴퓨터에서 도는 팀원 줄. handle이 먼저 보인다: 컴퓨터 꼬리표가 먼저(최소 폭까지, 줄의 절반을 넘지 않고) 줄고 그다음에
-   handle이 줄어 말줄임표가 붙는다. 상태 글은 오른쪽 끝 고정 열이라 줄마다 같은 자리이고, hover나 focus 때 그 자리에 x가 뜬다. */
+/* 다른 컴퓨터에서 도는 팀원 줄. handle이 먼저 보인다: handle은 제 폭에서 줄지 않고(조금이라도 줄면 다 들어갈 이름에도
+   말줄임표가 붙는다) 컴퓨터 꼬리표가 최소 폭까지 준다. handle은 아이콘, 꼬리표 최소 폭, 상태 열을 뺀 폭을 넘을 때만
+   잘린다. 상태 글은 오른쪽 끝 고정 열이라 줄마다 같은 자리이고, hover나 focus 때 그 자리에 x가 뜬다. */
 .memberLine > .sessionRow,
 .memberLine:hover > .sessionRow,
 .memberLine:focus-within > .sessionRow {
   padding-inline-end: var(--space-3);
 }
 
+/* 100%에서 빼는 것: 아이콘(space-7), 꼬리표 최소 폭(space-11), 상태 열(space-11 + space-5), 사이 간격 셋. */
 .memberHandle {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  max-width: calc(
+    100% - var(--space-7) - var(--space-11) -
+      (var(--space-11) + var(--space-5)) - 3 * var(--space-3)
+  );
 }
 
 .memberTag {
-  flex: 0 100 auto;
-  min-width: var(--space-7);
-  max-width: 50%;
+  flex: 0 1 auto;
+  min-width: var(--space-11);
 }
 
 .memberState {

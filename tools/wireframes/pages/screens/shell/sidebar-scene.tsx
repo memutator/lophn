@@ -1,7 +1,7 @@
 // 왼쪽 sidebar만 보이는 shell 틀. 맨 아래 줄의 빠른 실행(Terminal · Browser · App ▾)을 workspace마다 보인다.
 // `team`은 팀(spawn tree)이 도는 phroner다: coordinator 아래 자식 둘과 손자 하나가 들여쓰여 서고, coordinator 줄을 펴 그
 // session이 주인인 탭(자식의 대화 탭, artifact 탭, 접힌 browser float)이 보인다. `team-across`는 coordinator 아래에 이 컴퓨터의 자식
-// 하나와 다른 컴퓨터에서 도는 팀원 셋(pending, held, running)이 선다. `narrow`는 sidebar를 가장 좁은 폭으로 그린다.
+// 하나와 다른 컴퓨터에서 도는 팀원 셋(pending, held, running)이 선다.
 import { useState } from "react";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
@@ -126,11 +126,9 @@ export const sidebarSteps = {
 export function SidebarScene({
   workspace,
   steps = [],
-  narrow = false,
 }: {
   workspace: "project" | "home" | "app" | "team" | "team-across";
   steps?: readonly Step[];
-  narrow?: boolean;
 }) {
   useDrive(() => runSteps(steps));
   return (
@@ -152,19 +150,7 @@ export function SidebarScene({
         }
         leftSidebar={
           workspace === "team" || workspace === "team-across" ? (
-            narrow ? (
-              <div
-                style={{
-                  display: "flex",
-                  width: "var(--layout-sidebar-min)",
-                  minHeight: "var(--space-0)",
-                }}
-              >
-                <TeamSidebar across={workspace === "team-across"} />
-              </div>
-            ) : (
-              <TeamSidebar across={workspace === "team-across"} />
-            )
+            <TeamSidebar across={workspace === "team-across"} />
           ) : (
             <PageLeftSidebar
               workspace={workspace}

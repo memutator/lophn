@@ -47,6 +47,13 @@
   list-style: none;
 }
 
+.spaceLead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
 .notice {
   display: flex;
   flex-direction: column;

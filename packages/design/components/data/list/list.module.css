@@ -12,12 +12,12 @@
   background: var(--color-selection);
 }
 
-/* 항목 세로 여백 8px, 제목과 메타 사이 2px. */
+/* 항목 세로 여백 8px, 아이콘과 글 사이 간격, 제목과 메타 사이 2px. */
 .body {
   box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  row-gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-3);
   width: 100%;
   margin: var(--space-0);
   padding: var(--space-4) var(--space-5);
@@ -26,6 +26,22 @@
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   text-align: left;
+}
+
+.leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  row-gap: var(--space-1);
+  min-width: var(--space-0);
 }
 
 button.body {

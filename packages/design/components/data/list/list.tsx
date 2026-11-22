@@ -14,16 +14,28 @@ export interface ListItemProps {
   // 사람이 지은 이름. 메타는 그 아래 2px에 작은 글로 둔다.
   title: string;
   meta?: ReactNode;
+  leading?: ReactNode;
   selected?: boolean;
   // 있으면 항목 전체가 버튼이다.
   onSelect?: () => void;
 }
 
-export function ListItem({ title, meta, selected, onSelect }: ListItemProps) {
+export function ListItem({
+  title,
+  meta,
+  leading,
+  selected,
+  onSelect,
+}: ListItemProps) {
   const body = (
     <>
-      <span className={styles.title}>{title}</span>
-      {meta !== undefined && <span className={styles.meta}>{meta}</span>}
+      {leading !== undefined && (
+        <span className={styles.leading}>{leading}</span>
+      )}
+      <span className={styles.text}>
+        <span className={styles.title}>{title}</span>
+        {meta !== undefined && <span className={styles.meta}>{meta}</span>}
+      </span>
     </>
   );
   return (

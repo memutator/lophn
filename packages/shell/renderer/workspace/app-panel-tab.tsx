@@ -11,6 +11,7 @@ import { actionIcons, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
+import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import {
   type AppRead,
   type AppScreens,
@@ -158,8 +159,11 @@ export function AppPanelPicker({
                   className={styles.spaceOnly}
                   data-app-space-only={app.app}
                 >
-                  <span className={styles.note}>
-                    {t("app-panel.notice.app-space-only", { app: app.name })}
+                  <span className={styles.spaceLead}>
+                    <AppTabIcon app={app.app} />
+                    <span className={styles.note}>
+                      {t("app-panel.notice.app-space-only", { app: app.name })}
+                    </span>
                   </span>
                   {onOpenAppSpace === undefined ? null : (
                     <Button
@@ -176,6 +180,7 @@ export function AppPanelPicker({
             return panelChoices([app]).map((choice) => (
               <ListItem
                 key={`${choice.app}:${choice.screen}`}
+                leading={<AppTabIcon app={choice.app} />}
                 title={choice.label}
                 onSelect={() =>
                   onChoose({

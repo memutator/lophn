@@ -54,6 +54,9 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
 // 고정 문장이다. forbidden은 볼 수 있는 탭에만 나서(볼 수 없는 탭은 없는 탭과 같은 not_found) 존재가 새지 않는다. 이유를 못 받은
 // agent는 되풀이해 닫으려 한다.
 // `tab give`의 not_found·forbidden·invalid_input도 lophn이 쓴 고정 문장이다(누구에게 줄 수 있고 어떻게 되찾는지).
+// `team spawn`(`--on` 포함)의 conflict·forbidden도 이 컴퓨터의 core가 쓴 고정 문장이다(팀이 가득 참·깊음은 "do the work yourself or
+// ask your parent"로 끝난다, 팀원은 잎이다, call 정책·팀 규칙·private). 다른 컴퓨터의 글은 spawn의 답에 오지 않는다(그 컴퓨터의
+// 실패는 늦게 call의 실패로 온다). 이유를 못 받은 agent는 spawn을 되풀이한다.
 // 그 밖의 code(forbidden 등)는 대상 이름·존재를 가리려 공통 문장으로 둔다.
 function carriesReason(name: string, code: string): boolean {
   return (
@@ -61,6 +64,7 @@ function carriesReason(name: string, code: string): boolean {
       (code === "unavailable" || code === "conflict")) ||
     (name.startsWith("browser.") && code === "not_found") ||
     (name === "tab.close" && code === "forbidden") ||
+    (name === "team.spawn" && (code === "conflict" || code === "forbidden")) ||
     (name === "tab.give" &&
       (code === "not_found" ||
         code === "forbidden" ||

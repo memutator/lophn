@@ -35,10 +35,10 @@ export type ExportLog = FolderLog & {
   /** 정리된 흔적과 부딪힐 자기 change 줄을 내보내지 않고 그 자리에서 held 줄로 바꾼다. */
   hold(seq: number): Result<void>;
   /**
-   * 풀리지 않은 held 줄 가운데 변경이 이미 이 기계의 data에 있는 것의 수(그 destination의 줄과 destination이 없는 줄). 하나라도
-   * 있으면 그 destination에 snapshot을 쓰지 않는다.
+   * 풀리지 않은 held 줄 가운데 변경이 이미 이 기계의 data에 있고 지금 활성 release가 그 destination으로 보내는 표를 건드리는
+   * 것의 수. 하나라도 있으면 그 destination에 snapshot을 쓰지 않는다.
    */
-  heldInData(app: string, destination: string): number;
+  heldInData(app: string, destination: string): Promise<Result<number>>;
 };
 
 export type ExportFacts = {

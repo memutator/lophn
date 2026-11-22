@@ -90,9 +90,13 @@ function fakeLog() {
       return ok(undefined);
     },
     heldInData: () =>
-      rows.filter(
-        (row) => row.kind === "held" && !row.resolved && heldInData(row),
-      ).length,
+      Promise.resolve(
+        ok(
+          rows.filter(
+            (row) => row.kind === "held" && !row.resolved && heldInData(row),
+          ).length,
+        ),
+      ),
   };
   function put(bytes: Uint8Array) {
     const hash = createHash("sha256").update(bytes).digest("hex");
@@ -550,16 +554,41 @@ async function realExport(
     get: (text, params) => db.prepare(text).get(...params) as never,
     all: (text, params) => db.prepare(text).all(...params) as never,
   };
+  // 활성 release와 release마다의 선언, core가 뜰 때 메우기가 읽는 live invocation, 그리고 n번째 log 줄을 넣을 때 core가
+  // 죽는 것(던지고 transaction은 commit되지 않는다).
+  const knobs = {
+    active: REL as string,
+    plans: new Map<string, SyncPlan>([[REL, plan]]),
+    live: [] as unknown[],
+    dieAtInsert: null as number | null,
+  };
   const tx = {
-    sql,
+    sql: {
+      ...sql,
+      run(text: string, params: never[]) {
+        if (
+          knobs.dieAtInsert !== null &&
+          text.includes("INSERT INTO app_sync_log") &&
+          --knobs.dieAtInsert === 0
+        ) {
+          throw new Error("core died");
+        }
+        return sql.run(text, params);
+      },
+    },
     now: () => clock.now(),
     registerBlobRef: () => ok(undefined),
   } as unknown as Tx;
   function transaction<T>(fn: (tx: Tx) => Result<T>): Result<T> {
     db.exec("begin immediate");
-    const done = fn(tx);
-    db.exec(done.ok ? "commit" : "rollback");
-    return done;
+    try {
+      const done = fn(tx);
+      db.exec(done.ok ? "commit" : "rollback");
+      return done;
+    } catch (thrown) {
+      db.exec("rollback");
+      throw thrown;
+    }
   }
   const stored = new Map<string, Uint8Array>();
   const log = createSyncLog({
@@ -589,9 +618,9 @@ async function realExport(
           }),
         ),
     },
-    ledger: { list: () => ok([]) },
-    activeRelease: () => ok(REL),
-    plan: () => plan,
+    ledger: { list: () => ok(knobs.live as never) },
+    activeRelease: () => ok(knobs.active as Id<"rel">),
+    plan: (_app, release) => knobs.plans.get(release) ?? null,
     now: () => clock.now(),
     changed: () => {},
   });
@@ -620,7 +649,11 @@ async function realExport(
         name: "Notes",
         description: "",
         destinations: names,
-        release: { id: REL, code_commit: COMMIT, data_schema: 1 },
+        release: {
+          id: knobs.active as Id<"rel">,
+          code_commit: COMMIT,
+          data_schema: 1,
+        },
       },
     ],
     log,
@@ -672,6 +705,7 @@ async function realExport(
     }) as unknown as AppInvocation;
   return {
     log,
+    knobs,
     changeset,
     inv,
     exporter,
@@ -919,6 +953,137 @@ test("한 destination에서 held가 된 변경은 같은 앱의 다른 destinati
       "000000000003.snapshot",
     ]);
     assert.deepEqual(e.files("personal"), ["000000000001.snapshot"]);
+  } finally {
+    e.close();
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// 지우면 write 하나를 destination마다 나눈 줄의 앞쪽만 log에 들고 core가 죽을 수 있다. 메우기는 줄이 하나도 없는 invocation만
+// 채우므로 빠진 destination의 변경은 영영 내보내지지 않고, 그 stream의 흔적 정리가 그 변경의 지우기 흔적을 지울 수 있다.
+test("destination마다 나눈 write의 줄은 같이 들거나 하나도 들지 않아, 사이에서 죽으면 메우기가 모든 destination에 '다시 snapshot'을 남긴다", async () => {
+  const base = await mkdtemp(join(tmpdir(), "lophn-folder-split-crash-"));
+  const plan = syncPlanOf({ sync: { item: "personal", note: "drive" } });
+  const e = await realExport(base, plan, (_release, destination) =>
+    sentTables(plan, destination),
+  );
+  try {
+    await e.run("personal");
+    await e.run("drive");
+    const both =
+      "insert into item values ('a', 'milk'); insert into note values ('n', 'call')";
+    // 첫 줄을 넣은 뒤 둘째 줄을 넣다 죽는다.
+    e.knobs.dieAtInsert = 2;
+    await assert.rejects(
+      e.log.written(e.inv("inv_1"), "100", e.changeset(both)),
+    );
+    assert.deepEqual(e.log.page(APP, 0, 10), []);
+
+    // 다시 뜬 core가 메운다: 그 invocation은 줄이 없으니 모든 destination의 '다시 snapshot' 줄 하나다.
+    e.knobs.dieAtInsert = null;
+    e.knobs.live = [
+      {
+        id: "inv_1",
+        app: APP,
+        release: REL,
+        caller: null,
+        effect: "write",
+        status: "succeeded",
+        changeset: { hash: "h", size: 1 },
+      },
+    ];
+    const filled = await e.log.backfill(APP);
+    assert.ok(filled.ok && filled.value === 1);
+    assert.deepEqual(
+      e.log.page(APP, 0, 10).map((row) => [row.kind, row.destination]),
+      [["snapshot", null]],
+    );
+    await e.run("personal");
+    await e.run("drive");
+    for (const name of ["personal", "drive"]) {
+      assert.deepEqual(e.files(name), [
+        "000000000001.snapshot",
+        "000000000002.snapshot",
+      ]);
+    }
+
+    // 죽지 않으면 destination마다 한 줄씩 한 번 든다.
+    await e.log.written(
+      e.inv("inv_2"),
+      "101",
+      e.changeset(
+        "update item set title = 'tea'; update note set body = 'text'",
+      ),
+    );
+    assert.deepEqual(
+      e.log
+        .page(APP, 1, 10)
+        .map((row) => [row.kind, row.destination, row.invocation]),
+      [
+        ["change", "drive", "inv_2"],
+        ["change", "personal", "inv_2"],
+      ],
+    );
+  } finally {
+    e.close();
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// 지우면 release가 표를 다른 destination으로 옮긴 뒤 이 기계의 held 변경이 줄에 적힌 옛 destination에만 걸려, 새 destination의
+// snapshot에 사람이 아직 정하지 않은 그 변경이 실려 나간다.
+test("이 기계의 held 변경은 지금 release가 그 표를 보내는 destination의 snapshot을 막는다: 표를 옮긴 release 뒤에는 새 destination이 막힌다", async () => {
+  const base = await mkdtemp(join(tmpdir(), "lophn-folder-held-moved-"));
+  const plan = syncPlanOf({ sync: { item: "personal", note: "drive" } });
+  const REL2 = "rel_01hyyyyyyyyyyyyyyyyyyyyyyy";
+  const horizons: Record<string, { machine: Id<"mch">; horizon: string }[]> =
+    {};
+  const e = await realExport(
+    base,
+    plan,
+    (release, destination) =>
+      sentTables(e.knobs.plans.get(release)!, destination),
+    horizons,
+  );
+  try {
+    await e.run("personal");
+    await e.run("drive");
+    // personal에서 떨어져 있는 동안 item을 고쳤다: personal의 held 줄이다.
+    horizons.personal = [{ machine: PEER_A, horizon: "1000" }];
+    await e.log.written(
+      e.inv("inv_1"),
+      "100",
+      e.changeset("insert into item values ('a', 'milk')"),
+    );
+    await e.run("personal");
+    const [held] = e.log.heldList(APP);
+    assert.equal(held?.destination, "personal");
+
+    // 새 release가 item을 drive로, note를 personal로 옮긴다.
+    e.knobs.plans.set(
+      REL2,
+      syncPlanOf({ sync: { item: "drive", note: "personal" } }),
+    );
+    e.knobs.active = REL2;
+    await e.log.unknown(e.inv("inv_2", REL2));
+    const drive = await e.exporter.runStream(APP, "drive");
+    assert.ok(drive.ok);
+    assert.equal(drive.value.error?.code, "away_too_long");
+    assert.deepEqual(e.files("drive"), ["000000000001.snapshot"]);
+    // personal은 이제 item을 보내지 않아 그 held가 막지 않는다.
+    await e.run("personal");
+    assert.deepEqual(e.files("personal"), [
+      "000000000001.snapshot",
+      "000000000002.snapshot",
+    ]);
+
+    // 사람이 풀면 drive도 snapshot을 쓴다.
+    assert.ok(e.log.resolve(held!.seq, "2026-11-16T00:00:00.000Z").ok);
+    await e.run("drive");
+    assert.deepEqual(e.files("drive"), [
+      "000000000001.snapshot",
+      "000000000002.snapshot",
+    ]);
   } finally {
     e.close();
     await rm(base, { recursive: true, force: true });

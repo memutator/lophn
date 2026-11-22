@@ -509,6 +509,8 @@ test("destination step은 기존 읽기 cursor(빚진 지우기 표시 포함)·
     record.run(ME, OTHER, "machine", "", 3, "personal");
     record.run(ME, OTHER, "app", OLD_SYNC_TO, 5, "personal");
     record.run(ME, OTHER, "app", SOURCE_ONLY, 2, "computers");
+    // 다른 release를 돌던 그 기계의 기록 사본은 활성 release의 destination과 다른 곳에서 읽었다. data cursor는 활성 release를 따른다.
+    record.run(ME, OTHER, "app", STAGE_ONE, 4, "personal");
     db.prepare(
       `insert into folder_held (machine, app, origin, n, kind, code_commit, data_schema, path, sha256, size, held_at)
        values (?, ?, ?, 8, 'changes', ?, 1, ?, ?, 10, '2026-11-16T00:00:00.000Z')`,
@@ -599,6 +601,7 @@ test("destination step은 기존 읽기 cursor(빚진 지우기 표시 포함)·
         .map((row) => [row.kind, row.key, row.destination, row.revision]),
       [
         ["app", OLD_SYNC_TO, "personal", 5],
+        ["app", STAGE_ONE, "personal", 4],
         ["app", SOURCE_ONLY, "computers", 2],
         ["machine", "", "personal", 3],
       ],
@@ -1115,7 +1118,7 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
           page: () => [],
           readChangeset: async () => ok(new Uint8Array()),
           hold: () => ok(undefined),
-          heldInData: () => 0,
+          heldInData: () => Promise.resolve(ok(0)),
         },
         releaseKey: () => ({ code_commit: ACTIVE, data_schema: 1 }),
         sentOf: () => null,

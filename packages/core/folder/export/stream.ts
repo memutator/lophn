@@ -541,9 +541,10 @@ class Run {
     }
     const passed = await this.holdPast();
     if (!passed.ok) return passed;
-    const inData = deps.log.heldInData(app.app, this.key.destination);
-    if (inData > 0)
-      return need === "required" ? this.heldStop(inData) : ok(true);
+    const inData = await deps.log.heldInData(app.app, this.key.destination);
+    if (!inData.ok) return inData;
+    if (inData.value > 0)
+      return need === "required" ? this.heldStop(inData.value) : ok(true);
     const dir = join(
       appFolder(deps.dataRoot, app.app),
       TEMP_DIR,

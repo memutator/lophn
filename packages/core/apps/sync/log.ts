@@ -1,4 +1,5 @@
-// sync log의 기록과 읽기. 쓰기는 apps가 main thread에서 쓰는 ledger 연결(write-link)의 짧은 transaction 하나씩이다.
+// sync log의 기록과 읽기. 쓰기는 apps가 main thread에서 쓰는 ledger 연결(write-link)의 짧은 transaction이고, 한 invocation의
+// 줄(destination마다 하나)은 한 transaction에 같이 든다.
 // 폰에 보낼 줄의 changeset은 blob store에 둔다. blob store는 hash로 file 하나를 두므로 invocation이 이미 쥔 bytes와
 // 같으면 같은 file을 가리킬 뿐 새로 담지 않는다.
 // bytes를 담지 못하는 변경(너무 큼, blob 준비 실패, 결과 모름)은 '다시 snapshot' 줄로 남긴다: 그 변경을 보내지 못하면
@@ -145,10 +146,11 @@ export type SyncLog = SyncRecorder & {
    */
   hold(seq: number): Result<void>;
   /**
-   * 풀리지 않은 held 줄 가운데 변경이 이미 이 기계의 data에 있는 것(`heldInData`)의 수. `destination`을 주면 그
-   * destination의 줄(과 destination이 없는 줄)만 센다.
+   * 풀리지 않은 held 줄 가운데 변경이 이미 이 기계의 data에 있고(`heldInData`) 지금 활성 release가 `destination`으로 보내는
+   * 표를 건드리는 것의 수. 줄에 적힌 destination이 아니라 지금 release로 가른다: release가 표를 다른 destination으로 옮겨도
+   * 그 표의 held 변경은 새 destination의 snapshot에 실린다.
    */
-  heldInData(app: string, destination?: string): number;
+  heldInData(app: string, destination: string): Promise<Result<number>>;
   /** held 줄을 풀었다고 적는다. bytes와 줄은 남는다. */
   resolve(seq: number, at: string): Result<void>;
   /** activation 뒤: 옛 release의 줄(held는 빼고)을 지우고, 지운 것이 있으면 새 release에 '다시 snapshot' 줄을 남긴다. */
@@ -279,29 +281,45 @@ function splitByDestination(
 }
 
 export function createSyncLog(deps: SyncLogDeps): SyncLog {
-  async function append(row: Append): Promise<Result<number>> {
-    let blob: PreparedBlob | null = null;
-    if (row.kind === "change" || row.kind === "held") {
+  // 한 invocation의 줄들(destination마다 하나)을 같이 남긴다. blob은 transaction 앞에 모두 준비하고 줄과 blob 참조는 한
+  // transaction에서 넣는다: 사이에서 죽으면 그 invocation의 줄이 하나도 없어 core가 뜰 때의 메우기가 '다시 snapshot'으로
+  // 닫는다. 몇 줄만 남으면 메우기는 그 invocation을 남긴 것으로 보고, 빠진 destination의 변경은 영영 log에 들지 않는다.
+  // 돌려주는 seq는 첫 줄의 것이다.
+  async function append(rows: readonly Append[]): Promise<Result<number>> {
+    const prepared: { row: Append; blob: PreparedBlob | null }[] = [];
+    for (const row of rows) {
+      if (row.kind !== "change" && row.kind !== "held") {
+        prepared.push({ row, blob: null });
+        continue;
+      }
       const bytes = row.bytes ?? null;
-      const prepared =
+      const blob =
         bytes !== null &&
         bytes.length > 0 &&
         bytes.length <= CHANGESET_MAX_BYTES
           ? await deps.blobs.prepare(oneChunk(bytes))
           : null;
-      if (prepared?.ok) blob = prepared.value;
+      if (blob?.ok) prepared.push({ row, blob: blob.value });
       else if (row.kind === "held") {
-        return prepared === null
+        return blob === null
           ? err({
               code: "invalid_input",
               message: "a held change has no bytes or is too large",
             })
-          : prepared;
-      } else return append({ ...row, kind: "snapshot", bytes: null });
+          : blob;
+      } else {
+        prepared.push({
+          row: { ...row, kind: "snapshot", bytes: null },
+          blob: null,
+        });
+      }
     }
     const done = deps.transaction((tx) => {
-      const seq = insertRow(tx, row, blob);
-      if (blob !== null) {
+      const seqs: number[] = [];
+      for (const { row, blob } of prepared) {
+        const seq = insertRow(tx, row, blob);
+        seqs.push(seq);
+        if (blob === null) continue;
         const registered = tx.registerBlobRef({
           owner_kind: SYNC_LOG_OWNER_KIND,
           owner_key: String(seq),
@@ -311,13 +329,52 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
         });
         if (!registered.ok) return registered;
       }
-      return ok(seq);
+      return ok(seqs);
     });
-    if (!done.ok && blob !== null && row.kind === "change") {
-      return append({ ...row, kind: "snapshot", bytes: null });
+    if (!done.ok) {
+      // blob 참조를 두지 못했으면 bytes 없는 '다시 snapshot' 줄로 다시 한다.
+      const retry = prepared.some(
+        ({ row, blob }) => row.kind === "change" && blob !== null,
+      );
+      return retry
+        ? append(
+            prepared.map(({ row }) =>
+              row.kind === "change"
+                ? { ...row, kind: "snapshot" as const, bytes: null }
+                : row,
+            ),
+          )
+        : done;
     }
-    if (done.ok) deps.changed(row.app, row.release, done.value);
-    return done;
+    for (const [i, seq] of done.value.entries()) {
+      deps.changed(rows[i]!.app, rows[i]!.release, seq);
+    }
+    return ok(done.value[0]!);
+  }
+
+  async function readChangeset(
+    hash: string,
+    size: number,
+  ): Promise<Result<Uint8Array>> {
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    while (offset < size) {
+      const chunk = await deps.blobs.read(
+        hash,
+        offset,
+        Math.min(BLOB_READ_MAX_BYTES, size - offset),
+      );
+      if (!chunk.ok) return chunk;
+      if (chunk.value.hash !== hash || chunk.value.bytes.length === 0) {
+        return err({
+          code: "unavailable",
+          message: "changeset is unreadable",
+        });
+      }
+      bytes.set(chunk.value.bytes, offset);
+      offset += chunk.value.bytes.length;
+    }
+    return ok(bytes);
   }
 
   function heldList(app: string): SyncLogRow[] {
@@ -338,16 +395,18 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
       caller !== null && caller.kind === "person"
         ? (caller.machine ?? null)
         : null;
-    return append({
-      app: inv.app,
-      release: inv.release,
-      kind: "snapshot",
-      ...(from === null
-        ? { origin: "computer" as const }
-        : { origin: "machine" as const, machine: from, change_id: inv.id }),
-      hlc: null,
-      invocation: inv.id,
-    });
+    return append([
+      {
+        app: inv.app,
+        release: inv.release,
+        kind: "snapshot",
+        ...(from === null
+          ? { origin: "computer" as const }
+          : { origin: "machine" as const, machine: from, change_id: inv.id }),
+        hlc: null,
+        invocation: inv.id,
+      },
+    ]);
   }
 
   return {
@@ -370,29 +429,29 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
     async written(inv, hlc, bytes) {
       if (hlc === undefined) return;
       const parts = splitByDestination(deps.plan(inv.app, inv.release), bytes);
-      if (parts.length === 0) {
-        await append({
-          app: inv.app,
-          release: inv.release,
-          kind: "skipped",
-          origin: "computer",
-          hlc,
-          invocation: inv.id,
-        });
-        return;
-      }
-      for (const part of parts) {
-        await append({
-          app: inv.app,
-          release: inv.release,
-          destination: part.destination,
-          kind: "change",
-          origin: "computer",
-          hlc,
-          invocation: inv.id,
-          bytes: part.bytes,
-        });
-      }
+      await append(
+        parts.length === 0
+          ? [
+              {
+                app: inv.app,
+                release: inv.release,
+                kind: "skipped",
+                origin: "computer",
+                hlc,
+                invocation: inv.id,
+              },
+            ]
+          : parts.map((part) => ({
+              app: inv.app,
+              release: inv.release,
+              destination: part.destination,
+              kind: "change" as const,
+              origin: "computer" as const,
+              hlc,
+              invocation: inv.id,
+              bytes: part.bytes,
+            })),
+      );
     },
 
     async unknown(inv) {
@@ -402,69 +461,74 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
     },
 
     phone(inv, change, status) {
-      return append({
-        app: inv.app,
-        release: inv.release,
-        kind: status === "applied" ? "change" : "skipped",
-        origin: "device",
-        device: change.device,
-        change_id: change.id,
-        hlc: change.hlc,
-        invocation: inv.id,
-        bytes: change.changeset,
-      });
+      return append([
+        {
+          app: inv.app,
+          release: inv.release,
+          kind: status === "applied" ? "change" : "skipped",
+          origin: "device",
+          device: change.device,
+          change_id: change.id,
+          hlc: change.hlc,
+          invocation: inv.id,
+          bytes: change.changeset,
+        },
+      ]);
     },
 
     machine(inv, change, status) {
-      return append({
-        app: inv.app,
-        release: inv.release,
-        destination: change.destination,
-        kind: status === "applied" ? "change" : "skipped",
-        origin: "machine",
-        machine: change.machine,
-        change_id: change.id,
-        hlc: change.hlc,
-        invocation: inv.id,
-        bytes: change.changeset,
-      });
+      return append([
+        {
+          app: inv.app,
+          release: inv.release,
+          destination: change.destination,
+          kind: status === "applied" ? "change" : "skipped",
+          origin: "machine",
+          machine: change.machine,
+          change_id: change.id,
+          hlc: change.hlc,
+          invocation: inv.id,
+          bytes: change.changeset,
+        },
+      ]);
     },
 
     merged: marker,
 
     held(app, release, change) {
-      return append({
-        app,
-        release,
-        destination: change.destination ?? null,
-        kind: "held",
-        origin: change.origin,
-        device: change.device,
-        machine: change.machine,
-        change_id: change.id,
-        hlc: change.hlc,
-        invocation: null,
-        bytes: change.changeset,
-      });
+      return append([
+        {
+          app,
+          release,
+          destination: change.destination ?? null,
+          kind: "held",
+          origin: change.origin,
+          device: change.device,
+          machine: change.machine,
+          change_id: change.id,
+          hlc: change.hlc,
+          invocation: null,
+          bytes: change.changeset,
+        },
+      ]);
     },
 
     async rewound(app, release, effective, hlc) {
       // 되돌린 것이 모두 이 기계에만 있는 표면 줄이 없다. 폰도 폴더도 받을 것이 없다.
-      for (const part of splitByDestination(
-        deps.plan(app, release),
-        effective,
-      )) {
-        await append({
+      const parts = splitByDestination(deps.plan(app, release), effective);
+      if (parts.length === 0) return;
+      await append(
+        parts.map((part) => ({
           app,
           release,
           destination: part.destination,
-          kind: "change",
-          origin: "rewind",
+          kind: "change" as const,
+          origin: "rewind" as const,
           hlc,
           invocation: null,
           bytes: part.bytes,
-        });
-      }
+        })),
+      );
     },
 
     head(app) {
@@ -495,38 +559,34 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
         .map(rowOf);
     },
 
-    async readChangeset(hash, size) {
-      const bytes = new Uint8Array(size);
-      let offset = 0;
-      while (offset < size) {
-        const chunk = await deps.blobs.read(
-          hash,
-          offset,
-          Math.min(BLOB_READ_MAX_BYTES, size - offset),
-        );
-        if (!chunk.ok) return chunk;
-        if (chunk.value.hash !== hash || chunk.value.bytes.length === 0) {
-          return err({
-            code: "unavailable",
-            message: "changeset is unreadable",
-          });
-        }
-        bytes.set(chunk.value.bytes, offset);
-        offset += chunk.value.bytes.length;
-      }
-      return ok(bytes);
-    },
+    readChangeset,
 
     heldList,
 
-    heldInData(app, destination) {
-      return heldList(app).filter(
-        (row) =>
-          heldInData(row) &&
-          (destination === undefined ||
-            row.destination === null ||
-            row.destination === destination),
-      ).length;
+    async heldInData(app, destination) {
+      const rows = heldList(app).filter(heldInData);
+      if (rows.length === 0) return ok(0);
+      const active = deps.activeRelease(app as Id<"app">);
+      if (!active.ok) return active;
+      const plan = active.value === null ? null : deps.plan(app, active.value);
+      if (plan === null) return ok(0);
+      const sent = sentTables(plan, destination);
+      let count = 0;
+      for (const row of rows) {
+        if (sent === null || row.changeset === null) {
+          count += 1;
+          continue;
+        }
+        const bytes = await readChangeset(
+          row.changeset.hash,
+          row.changeset.size,
+        );
+        if (!bytes.ok) return bytes;
+        const kept = filterChangeset(bytes.value, sent);
+        // 읽지 못한 changeset은 어느 표인지 몰라 붙든다.
+        if (!kept.ok || kept.value.length > 0) count += 1;
+      }
+      return ok(count);
     },
 
     hold(seq) {

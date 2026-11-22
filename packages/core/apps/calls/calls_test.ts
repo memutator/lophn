@@ -1849,9 +1849,13 @@ function folderOf(
       return ok(undefined);
     },
     heldInData: () =>
-      lines.filter(
-        (l) => l.kind === "held" && l.resolved_at === null && heldInData(l),
-      ).length,
+      Promise.resolve(
+        ok(
+          lines.filter(
+            (l) => l.kind === "held" && l.resolved_at === null && heldInData(l),
+          ).length,
+        ),
+      ),
   };
   const knobs = { horizons: [] as { machine: Id<"mch">; horizon: string }[] };
   const exporter = createFolderExport({

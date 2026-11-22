@@ -30,6 +30,9 @@ export const leftSidebar = {
   "left-sidebar.heading.commands": "Commands",
   "left-sidebar.heading.lophn-agents": "lophn agents",
   "left-sidebar.heading.workspaces": "Workspaces",
+  "left-sidebar.body.end-member":
+    "Its session on {computer} is closed too, and any work in progress there stops.",
+  "left-sidebar.title.end-member": "End team member {handle}?",
   "left-sidebar.error.end-member-failed":
     "Couldn't end this team member. Try again.",
   "left-sidebar.error.handoff-continue-failed":
@@ -45,7 +48,7 @@ export const leftSidebar = {
   "left-sidebar.label.member-pending": "Waiting",
   "left-sidebar.label.member-pending-hint":
     "Waiting for {computer}: it is off or the call has not arrived yet",
-  "left-sidebar.label.member-held": "Needs approval",
+  "left-sidebar.label.member-held": "Approval",
   "left-sidebar.label.member-held-hint":
     "Waiting for approval in the Inbox on {computer}",
   "left-sidebar.label.member-running": "Team member on {computer}",

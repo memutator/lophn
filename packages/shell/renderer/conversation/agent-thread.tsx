@@ -217,6 +217,8 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
       props.onOpenChild,
       props.onStopShell,
       props.providerKey,
+      // session store가 snapshot을 읽은 뒤에야 true가 된다.
+      props.memberOpened,
     ],
   );
   const nodes = [...settled.nodes];

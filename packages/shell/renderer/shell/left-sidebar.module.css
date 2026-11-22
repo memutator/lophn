@@ -509,3 +509,49 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* 다른 컴퓨터에서 도는 팀원 줄. handle이 먼저 보인다: 컴퓨터 꼬리표가 먼저(최소 폭까지, 줄의 절반을 넘지 않고) 줄고 그다음에
+   handle이 줄어 말줄임표가 붙는다. 상태 글은 오른쪽 끝 고정 열이라 줄마다 같은 자리이고, hover나 focus 때 그 자리에 x가 뜬다. */
+.memberLine > .sessionRow,
+.memberLine:hover > .sessionRow,
+.memberLine:focus-within > .sessionRow {
+  padding-inline-end: var(--space-3);
+}
+
+.memberHandle {
+  flex: 0 1 auto;
+}
+
+.memberTag {
+  flex: 0 100 auto;
+  min-width: var(--space-7);
+  max-width: 50%;
+}
+
+.memberState {
+  flex: none;
+  width: calc(var(--space-11) + var(--space-5));
+  margin-inline-start: auto;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberEnd {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.memberLine:hover .memberEnd,
+.memberLine:focus-within .memberEnd {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.memberLine:hover .memberState,
+.memberLine:focus-within .memberState {
+  visibility: hidden;
+}

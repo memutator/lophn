@@ -2516,7 +2516,7 @@ flows:
       - packages/shell/renderer/shell/left-sidebar.tsx
     steps:
       - "current 줄은 desk 묶음마다 팀(spawn tree)으로 선다: 부모(session의 spawned_by)가 같은 묶음에 있는 session 줄은 그 부모 줄 아래에 한 단계씩 들여쓴다. 부모가 다른 desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 단계마다 순서는 id 순 그대로다"
-      - "다른 컴퓨터에서 도는 팀원(team spawn --on의 자리, session snapshot의 runs_on)은 current에 선 부모 줄 아래에만 선다(이 컴퓨터의 자식 뒤). 줄은 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표이고 상태 글은 pending이면 Waiting, held면 Needs approval, running이면 없다. 이 컴퓨터의 turn 점과 이름 바꾸기, 끌기가 없고 Recent·찾기·넘기기·session 고르기에 들지 않는다(session store가 자리를 따로 든다). 누르면 그 컴퓨터의 session을 그 기계를 단 탭으로 연다(toast의 session 행동과 같은 길)"
+      - "다른 컴퓨터에서 도는 팀원(team spawn --on의 자리, session snapshot의 runs_on)은 current에 선 부모 줄 아래에만 선다(이 컴퓨터의 자식 뒤). 줄은 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표이고 상태 글은 pending이면 Waiting, held면 Approval, running이면 없다(오른쪽 끝 고정 열, 좁으면 컴퓨터 꼬리표가 먼저 준다). 이 컴퓨터의 turn 점과 이름 바꾸기, 끌기가 없고 Recent·찾기·넘기기·session 고르기에 들지 않는다(session store가 자리를 따로 든다). 누르면 그 컴퓨터의 session을 그 기계를 단 탭으로 연다(toast의 session 행동과 같은 길)"
       - "lophn session 줄은 그 session이 주인(TabItem.owner)인 탭을 이 창이 아는 모든 workspace layout에서 자리(탭 줄, group 칸, float, 접힌 float, detached)와 상관없이 모은다. 그 session의 대화 탭은 빼고 자식의 대화 탭은 든다. 하나라도 있으면 줄 앞에 펼침 단추가 서고, 펴면 줄 아래에 탭 줄(kind 아이콘과 제목)이 선다. 펼침은 창 메모리다"
       - "이 workspace의 session이면 openSessionTab이 agent 탭을 연다. 이미 있으면 고른다. session이나 agent 목록을 모르면 열지 않는다"
       - "draft 줄이면 그 탭을 고르고, 터미널 줄이면 터미널 탭을 연다(terminal-tab-focus와 같은 길)"
@@ -2562,7 +2562,7 @@ flows:
       - "lophn session이면 source.stopSession으로 도는 turn을 멈춘다(sessions 쪽 flow). source가 없거나 멈추지 못하면 탭을 남긴다"
       - "이 workspace의 탭이면 onCloseTab으로 닫고, 다른 workspace면 이 창이 아는 그 workspace의 layout(Agent 탭은 저장하지 않아 창 메모리의 값)에서 agent 탭을 뺀다(editTabAt). layout을 못 읽으면 그대로 둔다"
       - "터미널은 이 workspace면 탭 닫기처럼 확인을 묻고, 다른 workspace면 PTY store로 닫은 뒤 저장된 layout에서 뺀다. PTY를 못 닫으면 탭을 남긴다"
-      - "다른 컴퓨터에서 도는 팀원 줄의 x(End team member)는 자리를 가진 기계에서 sessions/archive를 snapshot의 runs_on.state_seq를 compare로 부른다. 그 기계는 자리를 곧바로 닫고 그 컴퓨터에 닫으라는 mail을 낸다. 줄은 SessionEnded로 빠진다"
+      - "다른 컴퓨터에서 도는 팀원 줄의 x(End team member, hover나 focus 때 상태 글 자리에 뜬다)는 확인 dialog(그 컴퓨터의 session도 닫힌다)에서 [End team member]를 누르면 자리를 가진 기계에서 sessions/archive를 snapshot의 runs_on.state_seq를 compare로 부른다. 그 기계는 자리를 곧바로 닫고 그 컴퓨터에 닫으라는 mail을 낸다. 줄은 SessionEnded로 빠진다"
     uses: [ipc:shell:workspace-layout-save, route:sessions/archive]
     outcomes:
       - id: closed
@@ -2571,7 +2571,7 @@ flows:
         observe: ["disk:<data>/shell/workspaces/<other workspace>.json"]
       - id: member-ended
         when: "다른 컴퓨터에서 도는 팀원을 끝냈다. 자리가 닫히고 줄이 빠진다"
-        observe: [ledger:sessions, event:SessionEnded, "screen:shell-left-sidebar-team-across"]
+        observe: [ledger:sessions, event:SessionEnded, "screen:shell-left-sidebar-team-across", "screen:shell-left-sidebar-team-across-end"]
       - id: member-end-failed
         when: "자리 보관이 거절됐다(state_seq가 지났거나 이미 닫힘). 그 탭 위 toast가 다시 해 보라고 말한다"
         observe: [response]

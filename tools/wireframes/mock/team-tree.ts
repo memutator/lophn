@@ -127,7 +127,7 @@ export const STUDIO = "mch_01h455vb4pex5v6nkc6gd5fm11";
 export const BUILD_BOX = "mch_01h455vb4pex5v6nkc6gd5fm12";
 export const ACROSS_MACHINE_NAMES: ReadonlyMap<string, string> = new Map([
   [STUDIO, "Studio"],
-  [BUILD_BOX, "Windows build box"],
+  [BUILD_BOX, "Windows build box in the lab"],
 ]);
 
 /** coordinator. 이 컴퓨터의 자식 하나와 다른 컴퓨터의 팀원 셋을 둔다. */
@@ -139,7 +139,7 @@ const ACROSS_SESSIONS: typeof SESSIONS = [
   [ACROSS_LOCAL, "Update the install docs", ACROSS_COORDINATOR, "running"],
 ];
 
-// session id, handle, 컴퓨터, 상태.
+// session id, handle, 컴퓨터, 상태. 줄이 좁을 때를 보려고 짧은 handle·긴 컴퓨터, 둘 다 긴 것, 긴 handle·짧은 컴퓨터를 둔다.
 const ACROSS_MEMBERS: readonly (readonly [
   string,
   string,
@@ -147,8 +147,18 @@ const ACROSS_MEMBERS: readonly (readonly [
   MemberEntry["runsOn"]["state"],
 ])[] = [
   ["ses_01h455vb4pex5v6nkc6gd5fx03", "builder", BUILD_BOX, "running"],
-  ["ses_01h455vb4pex5v6nkc6gd5fx04", "signer", BUILD_BOX, "held"],
-  ["ses_01h455vb4pex5v6nkc6gd5fx05", "smoke-tester", STUDIO, "pending"],
+  [
+    "ses_01h455vb4pex5v6nkc6gd5fx04",
+    "release-signer-for-windows",
+    BUILD_BOX,
+    "held",
+  ],
+  [
+    "ses_01h455vb4pex5v6nkc6gd5fx05",
+    "integration-smoke-tester",
+    STUDIO,
+    "pending",
+  ],
 ];
 
 const ACROSS_TABS: readonly TabItem[] = ACROSS_SESSIONS.map(

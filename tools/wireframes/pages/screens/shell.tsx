@@ -518,8 +518,24 @@ export const shellArea: Area = {
       id: "shell-left-sidebar-team-across",
       title: "Shell · Left sidebar · Team across computers",
       description:
-        "coordinator 아래에 이 컴퓨터의 자식 하나와 다른 컴퓨터에 연 팀원 셋(`team spawn --on`)이 선다. 팀원 줄은 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표이고 상태 글은 Waiting(그 컴퓨터가 꺼졌거나 call이 아직 닿지 않음), Needs approval(그 컴퓨터의 Inbox), 도는 것은 글이 없다. 누르면 그 컴퓨터의 session을 열고 오른쪽 끝 x가 팀원을 끝낸다.",
+        "coordinator 아래에 이 컴퓨터의 자식 하나와 다른 컴퓨터에 연 팀원 셋(`team spawn --on`)이 선다. 팀원 줄은 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표이고 상태 글은 Waiting(그 컴퓨터가 꺼졌거나 call이 아직 닿지 않음), Approval(그 컴퓨터의 Inbox), 도는 것은 글이 없다(오른쪽 끝 고정 열). 누르면 그 컴퓨터의 session을 열고, hover나 focus 때 상태 글 자리에 뜨는 x가 확인 뒤 팀원을 끝낸다.",
       render: () => <SidebarScene workspace="team-across" />,
+    },
+    {
+      id: "shell-left-sidebar-team-across-narrow",
+      title: "Shell · Left sidebar · Team across computers, narrowest",
+      description:
+        "같은 팀을 sidebar의 가장 좁은 폭으로 그린다. 짧은 handle·긴 컴퓨터, 둘 다 긴 것, 긴 handle·짧은 컴퓨터에서 handle이 먼저 보이고(컴퓨터 꼬리표가 먼저 준다) 상태 글은 줄마다 같은 오른쪽 끝 자리다.",
+      render: () => <SidebarScene workspace="team-across" narrow />,
+    },
+    {
+      id: "shell-left-sidebar-team-across-end",
+      title: "Shell · Left sidebar · End a team member on another computer",
+      description:
+        "다른 컴퓨터에서 도는 팀원 줄의 x(End team member)를 누르면 확인 dialog가 연다: 그 컴퓨터의 session도 닫히고 거기서 하던 일이 멈춘다. 오른쪽 끝에 Cancel(글자만)과 [End team member](primary)가 있다. session은 지우지 않고 보관한다.",
+      render: () => (
+        <SidebarScene workspace="team-across" steps={sidebarSteps.endMember} />
+      ),
     },
     {
       id: "agent-member-opened-across",

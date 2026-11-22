@@ -5,6 +5,7 @@
 // 앱을 든다. 다른 기계 묶음은 접힌 채 시작하고 이 창이 그 기계의 workspace를 보이면 펼친다. 꺼진 기계의 줄은 흐리고 열리지 않는다.
 import { t } from "@lophn/i18n";
 import {
+  Dialog,
   Menu,
   MenuIcon,
   type MenuItem,
@@ -12,7 +13,7 @@ import {
   PopoverRow,
   Tooltip,
 } from "@lophn/ui/overlay";
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import {
   type PointerEvent,
@@ -275,9 +276,22 @@ function SessionRename({
 }
 
 /** 줄 끝의 기계 꼬리표. Workspaces panel의 줄도 쓴다. */
-export function MachineTag({ name }: { name: string | undefined }) {
+export function MachineTag({
+  name,
+  className,
+}: {
+  name: string | undefined;
+  className?: string;
+}) {
   return name === undefined ? null : (
-    <span className={styles.machineTag} data-machine-tag="">
+    <span
+      className={
+        className === undefined
+          ? styles.machineTag
+          : `${styles.machineTag} ${className}`
+      }
+      data-machine-tag=""
+    >
       {name}
     </span>
   );
@@ -334,10 +348,21 @@ function SessionRow({
       <span className={styles.rowIcon}>
         <AgentMark agent={item.agent} />
       </span>
-      <span className={styles.rowLabel}>{item.title}</span>
-      <MachineTag name={machineName} />
-      {member?.text == null ? null : (
-        <span className={styles.rowMeta} data-member-note="">
+      <span
+        className={
+          member === null
+            ? styles.rowLabel
+            : `${styles.rowLabel} ${styles.memberHandle}`
+        }
+      >
+        {item.title}
+      </span>
+      <MachineTag
+        name={machineName}
+        {...(member === null ? {} : { className: styles.memberTag })}
+      />
+      {member === null ? null : (
+        <span className={styles.memberState} data-member-note="">
           {member.text}
         </span>
       )}
@@ -444,6 +469,11 @@ export function LeftSidebar({
     readonly x: number;
     readonly y: number;
   } | null>(null);
+  // 다른 컴퓨터에서 도는 팀원을 끝내기 전의 확인. 그 컴퓨터의 session도 닫혀 한 번 묻는다.
+  const [ending, setEnding] = useState<{
+    readonly workspace: SidebarWorkspace;
+    readonly item: SidebarSession;
+  } | null>(null);
 
   const addItems: MenuItem[] = [
     ...(onRegisterProject === undefined
@@ -496,7 +526,9 @@ export function LeftSidebar({
         item={item}
         selected={here && itemKey === selected}
         recent={false}
-        dot={!actions || onStopSession === undefined}
+        dot={
+          item.kind !== "member" && (!actions || onStopSession === undefined)
+        }
         machineName={nameOf(item.machine)}
         onClick={() => onSession(workspace, item)}
         {...(canDrag(item) ? { onDragStart: dragFrom(workspace, item) } : {})}
@@ -526,7 +558,31 @@ export function LeftSidebar({
         </button>
       );
     let line: ReactElement;
-    if (actions && renaming === itemKey) {
+    if (item.kind === "member") {
+      // 상태 글은 오른쪽 끝 고정 열이고, hover나 focus 때 그 자리에 x가 뜬다(handoff 줄의 age와 같은 모양).
+      line = (
+        <div
+          className={`${styles.sessionLine} ${styles.memberLine}`}
+          data-session-line={itemKey}
+        >
+          {row}
+          {onStopSession === undefined ? null : (
+            <span className={styles.rowActions}>
+              <button
+                type="button"
+                className={`${styles.rowAction} ${styles.memberEnd}`}
+                aria-label={t("left-sidebar.button.end-member")}
+                data-session-stop=""
+                data-member-end={item.ref}
+                onClick={() => setEnding({ workspace, item })}
+              >
+                <Icon icon={shellIcons.close} pixels={14} />
+              </button>
+            </span>
+          )}
+        </div>
+      );
+    } else if (actions && renaming === itemKey) {
       line = (
         <SessionRename
           title={item.title}
@@ -559,11 +615,7 @@ export function LeftSidebar({
               <button
                 type="button"
                 className={styles.rowAction}
-                aria-label={t(
-                  item.kind === "member"
-                    ? "left-sidebar.button.end-member"
-                    : "left-sidebar.button.stop-session",
-                )}
+                aria-label={t("left-sidebar.button.stop-session")}
                 data-session-stop=""
                 data-dot={item.dot === null ? undefined : ""}
                 onClick={() => onStopSession(workspace, item)}
@@ -1048,6 +1100,41 @@ export function LeftSidebar({
             setMenu(null);
           }}
         />
+      )}
+      {ending === null ? null : (
+        <Dialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setEnding(null);
+          }}
+          title={t("left-sidebar.title.end-member", {
+            handle: ending.item.title,
+          })}
+          actions={
+            <>
+              <Button onClick={() => setEnding(null)}>
+                {t("common.button.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                icon={actionIcons.stop}
+                data-action="confirm-end-member"
+                onClick={() => {
+                  onStopSession?.(ending.workspace, ending.item);
+                  setEnding(null);
+                }}
+              >
+                {t("left-sidebar.button.end-member")}
+              </Button>
+            </>
+          }
+        >
+          <p data-end-member={ending.item.ref}>
+            {t("left-sidebar.body.end-member", {
+              computer: ending.item.member?.computer ?? "",
+            })}
+          </p>
+        </Dialog>
       )}
     </div>
   );

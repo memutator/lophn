@@ -1,11 +1,9 @@
-// Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다. link 열 곳과 기기, browser profile은 가짜 core의
-// 설정이고 login은 가짜 core의 `logins/list` 답이다.
+// Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다. link 열 곳과 기기는 가짜 core의 설정이고
+// browser profile과 login은 가짜 core의 `browser_profiles/list`·`logins/list` 답이다.
 import type { Bookmark } from "../../../../../ipc/browser.ts";
 import { agentList } from "../../../../../../protocol/lophn-agent/agent-definitions.ts";
-import {
-  BROWSER_PROFILES_MAX,
-  BROWSER_PROFILES_SETTING,
-} from "../../../../../../protocol/shell/browser-profiles.ts";
+import { BROWSER_PROFILES_MAX } from "../../../../../../protocol/shell/browser-profiles.ts";
+import { browserProfilesList } from "../../../../../../protocol/secrets/browser-vault.ts";
 import {
   loginSecretName,
   loginsList,
@@ -71,7 +69,7 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
   };
   for (const row of LINK_ROWS) core.set(row.settingKey, links[row.id]);
   core.set(DEVICES_KEY, options.devices ?? []);
-  core.set(BROWSER_PROFILES_SETTING, options.profiles ?? []);
+  let profiles: readonly BrowserProfile[] = options.profiles ?? [];
   let logins: readonly LoginRow[] = options.logins ?? [];
   const passwords = () => {
     for (const login of logins) {
@@ -80,6 +78,10 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
   };
   passwords();
   core.answers.push(
+    fakeAnswer(browserProfilesList, () => ({
+      profiles: [...profiles],
+      clear: [],
+    })),
     fakeAnswer(loginsList, () =>
       logins.map(({ password: _password, ...login }) => login),
     ),
@@ -159,17 +161,34 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
     },
-    saveProfiles(next) {
-      calls.push(["saveProfiles", next]);
-      // core의 선언이 거절하는 것 가운데 이름 겹침(대소문자 무시)과 개수 상한만 흉내 낸다.
+    saveProfile(input) {
+      calls.push(["saveProfile", input]);
+      // core가 거절하는 것 가운데 이름 겹침(대소문자 무시)과 개수 상한만 흉내 낸다.
       if (
-        next.length > BROWSER_PROFILES_MAX ||
-        new Set(next.map((p) => p.name.toLowerCase())).size !== next.length
+        (input.id === undefined && profiles.length >= BROWSER_PROFILES_MAX) ||
+        profiles.some(
+          (p) =>
+            p.id !== input.id &&
+            p.name.toLowerCase() === input.name.toLowerCase(),
+        )
       ) {
-        return refused("invalid_value");
+        return Promise.resolve({ ok: false, code: "conflict" });
       }
-      core.set(BROWSER_PROFILES_SETTING, next);
-      core.changed("settings");
+      const id =
+        input.id ??
+        `bpf_01k0000000000000000000000${profiles.length}`.slice(0, 30);
+      profiles =
+        input.id === undefined
+          ? [...profiles, { id, name: input.name, color: input.color }]
+          : profiles.map((p) => (p.id === id ? { ...p, ...input, id } : p));
+      core.changed("browser_profiles");
+      return Promise.resolve({ ok: true, value: id });
+    },
+    deleteProfile(id) {
+      calls.push(["deleteProfile", id]);
+      profiles = profiles.filter((p) => p.id !== id);
+      logins = logins.filter((l) => l.profile !== id);
+      core.changed("browser_profiles", "logins");
       return Promise.resolve({ ok: true, value: null });
     },
     saveLogin(input) {

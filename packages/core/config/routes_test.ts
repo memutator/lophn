@@ -416,8 +416,8 @@ test("remote.addresses는 agent가 바꾸면 승인 카드에 바뀜을 보이�
   }
 });
 
-// browser profile 목록은 agent가 쓰는 cookie와 저장 login을 정한다. 깨지면 agent가 profile을 지우거나 더해 다른 로그인으로 옮겨 간다.
-test("agent 자격은 shell.browser_profiles를 바꾸지 못하고 사람은 바꾼다", async () => {
+// 저장 login의 값이 다른 컴퓨터로 가는지를 정한다. 깨지면 agent가 사람이 꺼 둔 나누기를 켠다.
+test("agent 자격은 shell.browser.share_with_computers를 바꾸지 못하고 사람은 바꾼다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-settings-profiles-"));
   const store = createSettingsStore({
     root,
@@ -431,9 +431,9 @@ test("agent 자격은 shell.browser_profiles를 바꾸지 못하고 사람은 �
   const change = {
     changes: [
       {
-        key: "shell.browser_profiles",
+        key: "shell.browser.share_with_computers",
         action: "set",
-        value: [{ id: `bpf_${"1".repeat(26)}`, name: "Work", color: "sage" }],
+        value: false,
       },
     ],
   };
@@ -446,7 +446,9 @@ test("agent 자격은 shell.browser_profiles를 바꾸지 못하고 사람은 �
       ok: true,
       value: {
         changed: [],
-        rejected: [{ key: "shell.browser_profiles", reason: "locked" }],
+        rejected: [
+          { key: "shell.browser.share_with_computers", reason: "locked" },
+        ],
         notes: [],
       },
     });
@@ -457,16 +459,16 @@ test("agent 자격은 shell.browser_profiles를 바꾸지 못하고 사람은 �
         return "";
       }
     };
-    assert.ok(!written().includes("shell.browser_profiles"));
+    assert.ok(!written().includes("shell.browser.share_with_computers"));
     const done = await update(
       { ...(PERSON as object), principal: "user" } as never,
       change,
     );
     assert.deepStrictEqual(
       (done as { value: { changed: string[] } }).value.changed,
-      ["shell.browser_profiles"],
+      ["shell.browser.share_with_computers"],
     );
-    assert.ok(written().includes("shell.browser_profiles"));
+    assert.ok(written().includes("shell.browser.share_with_computers"));
   } finally {
     store.close();
     await rm(root, { recursive: true, force: true });

@@ -17,10 +17,13 @@ import {
   loginsSave,
   loginSecretName,
   LOGIN_FIELDS,
+  LOGIN_META_FIELDS,
+  type LoginField,
+  type VaultFile,
 } from "../../protocol/secrets/mod.ts";
 import type { ShellCapabilities } from "../server/control/capability.ts";
 import type { MemoryHandler } from "../server/mod.ts";
-import type { LoginStore } from "./logins.ts";
+import { type BrowserVault, loginsOf } from "./browser-vault.ts";
 import type { SecretStore } from "./secret-store.ts";
 import { totpCode } from "./totp.ts";
 
@@ -29,9 +32,14 @@ const INVALID = (message: string) =>
 const NOT_FOUND = err({ code: "not_found" as const, message: "login이 없다" });
 
 type Deps = {
-  logins: LoginStore;
+  vault: BrowserVault;
   secrets: Pick<SecretStore, "names" | "get" | "delete">;
 };
+
+function listLogins(vault: BrowserVault) {
+  const read = vault.read();
+  return read.ok ? ok(loginsOf(read.value)) : read;
+}
 
 // 탭의 profile. "not_browser"는 profile이 없는 preview·artifact·phone 탭이다(host-queue의 NOT_BROWSER_TAB).
 type TabProfile = string | null | "not_browser";
@@ -86,7 +94,7 @@ export function loginsListHandler(deps: Deps & ProfileDeps) {
     if (!input.success) return INVALID("login 조회 입력이 올바르지 않다");
     const profile = listedProfile(who, input.data.tab, deps);
     if (!profile.ok) return profile;
-    const logins = await deps.logins.list();
+    const logins = listLogins(deps.vault);
     if (!logins.ok) return logins;
     const names = deps.secrets.names();
     if (!names.ok) return names;
@@ -108,31 +116,96 @@ export function loginsListHandler(deps: Deps & ProfileDeps) {
   return handler;
 }
 
-export function loginsSaveHandler(deps: { logins: LoginStore; ids: IdSource }) {
+export function loginsSaveHandler(deps: {
+  vault: BrowserVault;
+  ids: IdSource;
+}) {
   const handler: MemoryHandler = async (_ctx, rawInput) => {
     const input = loginsSave.input.safeParse(rawInput);
     if (!input.success) return INVALID("login 입력이 올바르지 않다");
     const { id: given, note, profile, ...fields } = input.data;
     const id = given ?? deps.ids.newId(LOGIN_ID_PREFIX);
-    return await deps.logins.update((logins) => {
-      const entry = { id, ...fields, note: note ?? "" };
+    const entry = { ...fields, note: note ?? "" };
+    return deps.vault.update((vault, stamp) => {
       if (given === undefined) {
+        const revs = {
+          label: stamp,
+          origin: stamp,
+          username: stamp,
+          note: stamp,
+          password: stamp,
+          totp: stamp,
+        };
         return ok({
-          logins: [...logins, { ...entry, profile: profile ?? null }],
+          vault: {
+            ...vault,
+            logins: [
+              ...vault.logins,
+              { id, ...entry, ...(profile ? { profile } : {}), revs },
+            ],
+          },
           value: { id },
         });
       }
-      if (!logins.some((l) => l.id === id)) return NOT_FOUND;
-      // 고칠 때 profile은 그 login의 것을 그대로 둔다.
+      const login = vault.logins.find((l) => l.id === id);
+      if (login === undefined) return NOT_FOUND;
+      // 고칠 때 profile은 그 login의 것을 그대로 두고, 바뀐 칸만 stamp를 올린다.
+      const revs = { ...login.revs };
+      for (const field of LOGIN_META_FIELDS) {
+        if (login[field] !== entry[field]) revs[field] = stamp;
+      }
       return ok({
-        logins: logins.map((l) =>
-          l.id === id ? { ...entry, profile: l.profile } : l,
-        ),
+        vault: {
+          ...vault,
+          logins: vault.logins.map((l) =>
+            l.id === id ? { ...l, ...entry, revs } : l,
+          ),
+        },
         value: { id },
       });
     });
   };
   return handler;
+}
+
+/** login의 값(`login.<id>.<field>`)을 넣거나 지웠다. 그 칸의 stamp를 올린다. 없는 login이면 아무것도 하지 않는다. */
+export function touchLoginValue(
+  vault: BrowserVault,
+  id: string,
+  field: LoginField,
+): Result<boolean> {
+  return vault.update((current, stamp) => {
+    const login = current.logins.find((l) => l.id === id);
+    if (login === undefined) return ok({ vault: current, value: false });
+    return ok({
+      vault: {
+        ...current,
+        logins: current.logins.map((l) =>
+          l.id === id ? { ...l, revs: { ...l.revs, [field]: stamp } } : l,
+        ),
+      },
+      value: true,
+    });
+  });
+}
+
+/** login들을 vault에서 빼고 흔적을 남긴다. 흔적의 `seen`은 지울 때 본 칸 stamp다(그보다 새 고침이 오면 되살아난다). */
+export function removeLogins(
+  vault: VaultFile,
+  ids: readonly string[],
+  stamp: number,
+): VaultFile {
+  const gone = new Set(ids);
+  return {
+    ...vault,
+    logins: vault.logins.filter((l) => !gone.has(l.id)),
+    removed: [
+      ...vault.removed.filter((r) => !gone.has(r.id)),
+      ...vault.logins
+        .filter((l) => gone.has(l.id))
+        .map((l) => ({ id: l.id, at: stamp, seen: { ...l.revs } })),
+    ],
+  };
 }
 
 // 값을 먼저 지우고 metadata를 지운다. 중간에 실패하면 metadata가 남아 다시 지울 수 있다.
@@ -141,22 +214,22 @@ export function loginsDeleteHandler(deps: Deps) {
     const input = loginsDelete.input.safeParse(rawInput);
     if (!input.success) return INVALID("login id가 올바르지 않다");
     const { id } = input.data;
-    const logins = await deps.logins.list();
+    const logins = listLogins(deps.vault);
     if (!logins.ok) return logins;
     if (!logins.value.some((l) => l.id === id)) return NOT_FOUND;
     for (const field of LOGIN_FIELDS) {
       const deleted = await deps.secrets.delete(loginSecretName(id, field));
       if (!deleted.ok) return deleted;
     }
-    return await deps.logins.update((current) =>
-      ok({ logins: current.filter((l) => l.id !== id), value: { id } }),
+    return deps.vault.update((current, stamp) =>
+      ok({ vault: removeLogins(current, [id], stamp), value: { id } }),
     );
   };
   return handler;
 }
 
 export function loginsReleaseHandler(
-  deps: Pick<Deps, "logins"> & {
+  deps: Pick<Deps, "vault"> & {
     secrets: Pick<SecretStore, "get">;
     // shell main이 `connect {client: shell}`로 받은 capability만 통과한다.
     capabilities: Pick<ShellCapabilities, "has">;
@@ -170,7 +243,7 @@ export function loginsReleaseHandler(
     if (!deps.capabilities.has(shell_capability)) {
       return err({ code: "forbidden", message: "shell capability가 아니다" });
     }
-    const logins = await deps.logins.list();
+    const logins = listLogins(deps.vault);
     if (!logins.ok) return logins;
     const login = logins.value.find((l) => l.id === id);
     if (login === undefined) return NOT_FOUND;

@@ -1,13 +1,10 @@
 // Page port의 Electron 구현과, bind가 가리킨 view_session에서 webContents를 찾는 곳(desktop 앱). 창 없는 page host는 createPages만 쓴다.
 import { session, type WebContents, webContents } from "electron";
 
-import {
-  BROWSER_PROFILES_SETTING,
-  profileOfPartition,
-} from "../../../../protocol/shell/browser-profiles.ts";
+import { profileOfPartition } from "../../../../protocol/shell/browser-profiles.ts";
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { ArtifactViews } from "../../artifact/registry.ts";
-import type { ShellSettings } from "../../desktop/core/settings.ts";
+import type { BrowserProfiles } from "../../desktop/core/browser-profiles.ts";
 import { knownBrowserPartitions } from "../session.ts";
 import type { DebuggerOwner, Page, PageLookup } from "./page.ts";
 
@@ -89,7 +86,7 @@ const alive = (contents: WebContents | undefined): contents is WebContents =>
 export function electronLookup(
   appFrame: Pick<AppFrameService, "senderView">,
   artifacts: Pick<ArtifactViews, "guestId">,
-  settings: Pick<ShellSettings, "get">,
+  profiles: Pick<BrowserProfiles, "list">,
 ): PageLookup {
   const pageOf = createPages();
   return {
@@ -99,9 +96,7 @@ export function electronLookup(
         id === undefined ? undefined : webContents.fromId(Number(id));
       if (!alive(contents)) return undefined;
       // 앱·artifact view도 `wv-<id>`다. 알려진 browser profile partition의 guest만 browser 탭이다.
-      for (const partition of knownBrowserPartitions(
-        settings.get(BROWSER_PROFILES_SETTING),
-      )) {
+      for (const partition of knownBrowserPartitions(profiles.list())) {
         if (contents.session === session.fromPartition(partition)) {
           return pageOf(contents, profileOfPartition(partition) ?? null);
         }

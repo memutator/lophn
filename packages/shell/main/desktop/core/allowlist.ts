@@ -52,6 +52,10 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:logins/list",
   "memory:logins/save",
   "memory:logins/delete",
+  // browser profile 정의. `browser_profiles/cleared`(partition data를 지웠다)는 shell main 전용이라 넣지 않는다.
+  "memory:browser_profiles/list",
+  "memory:browser_profiles/save",
+  "memory:browser_profiles/delete",
   // agent의 입력 요청 card가 읽고 Cancel하고, sign_in 요청의 로그인 결과를 알린다(done). hold는 once 값을 싣는 shell main 전용이다.
   "memory:input_request/read",
   "memory:input_request/cancel",

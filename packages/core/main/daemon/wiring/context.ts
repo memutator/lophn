@@ -75,7 +75,7 @@ import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
 import type { AcpTabHandlers } from "../../../../protocol/acp/mod.ts";
 import type { PhoneLink } from "../../../remote/mod.ts";
-import type { SecretStore } from "../../../secrets/mod.ts";
+import type { BrowserVault, SecretStore } from "../../../secrets/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
@@ -270,6 +270,8 @@ type Late = {
   secretStore: SecretStorePort &
     Pick<SecretStore, "hold" | "release" | "names">;
   secretAttach: SecretAttachPort;
+  // secrets가 낸다. browser profile 정의와 저장 login metadata(`browser-vault.json`).
+  browserVault: BrowserVault;
   // events가 낸다.
   bus: Bus;
   // Bus 밖 frame을 연결된 Gateway client 하나에 보낸다.
@@ -432,6 +434,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   settingsUpdate: true,
   secretStore: true,
   secretAttach: true,
+  browserVault: true,
   bus: true,
   gateway: true,
   approvals: true,

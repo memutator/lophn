@@ -16,6 +16,10 @@ import type { CoreConnection } from "../core/connection.ts";
 import { createHostLink, type HostLink } from "../core/host-link.ts";
 import { nodeSockets } from "../core/node-io.ts";
 import { createShellSettings, type ShellSettings } from "../core/settings.ts";
+import {
+  type BrowserProfiles,
+  createBrowserProfiles,
+} from "../core/browser-profiles.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
 import {
   createMachineRoute,
@@ -135,6 +139,8 @@ export type ShellContext = {
   hostLink: HostLink;
   /** core 설정의 살아 있는 사본. 설정을 적용하는 영역이 듣는다. */
   settings: ShellSettings;
+  /** core의 browser profile 목록 사본. partition 붙이기와 driver가 읽는다. */
+  browserProfiles: BrowserProfiles;
   ipc: Ipc;
   relay: CoreRelay;
   windowHooks: WindowHooks;
@@ -238,6 +244,15 @@ export function createShellContext(): ShellContext {
   relay.events.push((event) => {
     if (changedIds(event, "settings").length > 0) settings.refresh();
   });
+  const browserProfiles = createBrowserProfiles(() =>
+    coreInternal("memory", "browser_profiles", "list", {}),
+  );
+  relay.ready.push(() => browserProfiles.refresh());
+  relay.events.push((event) => {
+    if (changedIds(event, "browser_profiles").length > 0) {
+      browserProfiles.refresh();
+    }
+  });
 
   const windowStates = createWindowStateStore(dataRoot);
   const ctx: ShellContext = {
@@ -263,6 +278,7 @@ export function createShellContext(): ShellContext {
     coreInternal,
     hostLink,
     settings,
+    browserProfiles,
     ipc: {
       handle,
       on: (channel, listener) =>

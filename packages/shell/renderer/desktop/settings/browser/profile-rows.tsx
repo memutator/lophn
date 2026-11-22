@@ -1,32 +1,25 @@
 // Settings › Browser의 Profiles 구역. 맨 위가 기본 profile(지우지 못한다)이고 아래가 사람이 만든 profile이다.
-// 목록은 설정 `shell.browser_profiles` 하나라 바꿀 때마다 목록 전체를 저장한다. 저장이 끝나야 줄이 바뀌고 열리므로
-// 막 만든 profile은 core가 받은 뒤에야 보인다. 지우기는 그 profile의 login, partition data, 목록 순서로 하고 중간에 실패하면
-// 멈춘다(profile이 남아 있어 다시 할 수 있다).
+// 목록은 core의 vault이고 profile 하나씩 저장한다. 저장이 끝나야 줄이 바뀌고 열리므로 막 만든 profile은 core가 받은 뒤에야
+// 보인다. 지우기는 partition data를 먼저 지우고 그다음 core가 그 profile의 login과 profile을 지운다. 중간에 실패하면 멈춘다
+// (profile이 남아 있어 다시 할 수 있다).
 
 import { t } from "@lophn/i18n";
 import { Field, Input, SwatchPicker } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { settingsList } from "../../../../../protocol/config/file.ts";
 import { AGENT_CHARACTER_COLORS } from "../../../../../protocol/lophn-agent/agent-avatar.ts";
 import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import {
-  BROWSER_PROFILE_ID_PREFIX,
-  BROWSER_PROFILES_MAX,
-  BROWSER_PROFILES_SETTING,
-} from "../../../../../protocol/shell/browser-profiles.ts";
+import { browserProfilesList } from "../../../../../protocol/secrets/browser-vault.ts";
+import { BROWSER_PROFILES_MAX } from "../../../../../protocol/shell/browser-profiles.ts";
 import { ProfileMark } from "../../../browser/browser-chrome.tsx";
-import { actionIcons } from "../../../icons/mod.ts";
+import { actionIcons, actionIcons } from "../../../icons/mod.ts";
 import { CHARACTER_COLORS } from "../../../parts/avatar/character.tsx";
-import { newId } from "../../../prefixed-id.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
-import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
 import { useLoginRows } from "./login-rows.tsx";
 import { PROFILE_COLOR_LABEL } from "./model.ts";
 import type { BrowserProfile, BrowserSettingsSource } from "./source.ts";
-import { profilesOf } from "./window-source.ts";
 
 // 어느 칸을 여는가. 새 profile은 둘 다, 있는 profile은 Rename이 이름만 Color가 색만 고른다.
 type Fields = "name" | "color" | "both";
@@ -44,12 +37,9 @@ export function ProfileRows({
   /** [Clear data]를 눌렀다. 확인과 결과는 호출한 쪽이 보인다. */
   onClear: (profile: BrowserProfile) => void;
 }) {
-  const { loaded } = useCoreRead(settingsList, {
-    keys: [BROWSER_PROFILES_SETTING],
-  });
+  const { loaded } = useCoreRead(browserProfilesList, {});
   const read = useMemo(
-    () =>
-      loaded.state === "ready" ? profilesOf(effectiveOf(loaded.value)) : null,
+    () => (loaded.state === "ready" ? loaded.value.profiles : null),
     [loaded],
   );
   // 저장한 목록은 다음에 읽은 값이 올 때까지 그대로 보인다.
@@ -102,58 +92,46 @@ export function ProfileRows({
     setEditing(next);
   }
 
-  async function save(next: readonly BrowserProfile[]): Promise<boolean> {
-    const done = await source.saveProfiles(next);
-    if (done.ok) setSaved(next);
-    else {
-      setError(
-        done.code === "invalid_value" || done.code === "out_of_range"
-          ? "invalid"
-          : "failed",
-      );
-    }
-    return done.ok;
-  }
-
   async function submit(): Promise<void> {
     const name = form.name.trim();
     if (editing!.fields !== "color" && (name === "" || name.length > 40)) {
       return setError("invalid");
     }
-    const next =
+    const current =
       editing!.id === null
-        ? [
-            ...list,
-            {
-              id: newId(BROWSER_PROFILE_ID_PREFIX),
-              name,
-              color: form.color,
-            },
-          ]
+        ? undefined
+        : list.find((one) => one.id === editing!.id);
+    const input = {
+      ...(current === undefined ? {} : { id: current.id }),
+      name: editing!.fields === "color" ? current!.name : name,
+      color: editing!.fields === "name" ? current!.color : form.color,
+    };
+    const done = await source.saveProfile(input);
+    if (!done.ok) {
+      return setError(
+        done.code === "conflict" || done.code === "invalid_input"
+          ? "invalid"
+          : "failed",
+      );
+    }
+    setSaved(
+      current === undefined
+        ? [...list, { ...input, id: done.value }]
         : list.map((one) =>
-            one.id === editing!.id
-              ? {
-                  ...one,
-                  ...(editing!.fields === "color" ? {} : { name }),
-                  ...(editing!.fields === "name" ? {} : { color: form.color }),
-                }
-              : one,
-          );
-    if (await save(next)) setEditing(null);
+            one.id === current.id ? { ...one, ...input } : one,
+          ),
+    );
+    setEditing(null);
   }
 
-  // ① 그 profile의 login ② partition data ③ 목록에서 뺀다. 앞이 실패하면 멈춘다.
+  // ① partition data ② core가 그 profile의 login과 profile을 지운다. 앞이 실패하면 멈춘다.
   async function remove(profile: BrowserProfile): Promise<void> {
     setDeleting(null);
     setDeleteFailed(null);
     const failed = () => setDeleteFailed(profile.name);
-    for (const login of loginsOf(profile) ?? []) {
-      if (!(await source.deleteLogin(login.id)).ok) return failed();
-    }
     if (!(await source.clearData(profile.id)).ok) return failed();
-    const next = list.filter((one) => one.id !== profile.id);
-    const done = await source.saveProfiles(next);
-    if (done.ok) setSaved(next);
+    const done = await source.deleteProfile(profile.id);
+    if (done.ok) setSaved(list.filter((one) => one.id !== profile.id));
     else failed();
   }
 

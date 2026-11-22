@@ -189,7 +189,7 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
 });
 
-// agent가 `tab open --url`로 여는 탭의 browser profile(설정 `shell.browser_profiles`의 id). 없거나 지운 profile이면 기본 profile이다.
+// agent가 `tab open --url`로 여는 탭의 browser profile(core의 browser profile 목록의 id). 없거나 지운 profile이면 기본 profile이다.
 // 사람만 쓰는 칸이다. protocol/shell을 import하지 못해 id 꼴만 쓴다.
 const browserProfileSchema = idSchema("bpf");
 

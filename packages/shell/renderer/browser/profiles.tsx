@@ -1,4 +1,4 @@
-// browser profile 목록(core 설정 `shell.browser_profiles`, 사람만 바꾼다)과 탭의 partition. 목록은 설정이 바뀌면 다시 읽는다.
+// browser profile 목록(core의 `browser_profiles/list`, 사람만 바꾼다)과 탭의 partition. 목록이 바뀌면 다시 읽는다.
 // gallery와 fake는 provider로 고정 목록을 준다.
 import {
   createContext,
@@ -8,11 +8,10 @@ import {
   useState,
 } from "react";
 
+import { browserProfilesList } from "../../../protocol/secrets/browser-vault.ts";
 import {
-  BROWSER_PROFILES_SETTING,
   type BrowserProfile,
   browserPartition,
-  browserProfilesSchema,
 } from "../../../protocol/shell/browser-profiles.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { followRead, type Read } from "../desktop/connection/core-read.ts";
@@ -37,9 +36,9 @@ export function BrowserProfilesProvider(props: {
 async function readProfiles(core: CoreSource): Read<readonly BrowserProfile[]> {
   const reply = await core.call({
     kind: "memory",
-    resource: "settings",
-    method: "list",
-    body: { keys: [BROWSER_PROFILES_SETTING] },
+    resource: browserProfilesList.resource,
+    method: browserProfilesList.method,
+    body: {},
   });
   if (!reply.ok) {
     return {
@@ -47,15 +46,8 @@ async function readProfiles(core: CoreSource): Read<readonly BrowserProfile[]> {
       ...(reply.error?.code === undefined ? {} : { code: reply.error.code }),
     };
   }
-  const entry = (
-    reply.value as {
-      settings: { key: string; default?: unknown; chosen?: unknown }[];
-    }
-  ).settings.find((one) => one.key === BROWSER_PROFILES_SETTING);
-  const parsed = browserProfilesSchema.safeParse(
-    entry?.chosen ?? entry?.default,
-  );
-  return { ok: true, value: parsed.success ? parsed.data : [] };
+  const parsed = browserProfilesList.output.safeParse(reply.value);
+  return { ok: true, value: parsed.success ? parsed.data.profiles : [] };
 }
 
 // null은 아직 읽지 못했다. 읽을 길(event client)이 없거나 읽기가 실패하면 빈 목록이다.
@@ -68,7 +60,7 @@ function useProfilesState(): readonly BrowserProfile[] | null {
     const follow = followRead(
       client,
       readProfiles,
-      ["settings"],
+      ["browser_profiles"],
       (loaded) => {
         if (loaded.state === "ready") setLive(loaded.value);
         else if (loaded.state === "failed") setLive((now) => now ?? []);

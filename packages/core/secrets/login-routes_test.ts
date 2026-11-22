@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 import {
@@ -18,7 +18,7 @@ import {
   loginsReleaseHandler,
   loginsSaveHandler,
 } from "./login-routes.ts";
-import { createLoginStore } from "./logins.ts";
+import { createBrowserVault } from "./browser-vault.ts";
 import { totpCode } from "./totp.ts";
 
 const CAPABILITY = "c".repeat(43);
@@ -64,12 +64,12 @@ async function setup(agentProfile: string | null = null) {
     },
   };
   const clock = { now: () => "", nowMs: () => 59_000 };
-  const logins = createLoginStore({ root });
+  const logins = createBrowserVault({ root, clock });
   const ids = createIdSource({
     clock,
     random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
   });
-  const save = loginsSaveHandler({ logins, ids });
+  const save = loginsSaveHandler({ vault: logins, ids });
   const saved = await save(CTX, {
     label: "Example",
     origin: ORIGIN,
@@ -80,7 +80,7 @@ async function setup(agentProfile: string | null = null) {
   values.set(`login.${id}.password`, PASSWORD);
   values.set(`login.${id}.totp`, SEED);
   const release = loginsReleaseHandler({
-    logins,
+    vault: logins,
     secrets,
     capabilities: { has: (c) => c === CAPABILITY },
     clock,
@@ -92,7 +92,7 @@ async function setup(agentProfile: string | null = null) {
     save,
     root,
     list: loginsListHandler({
-      logins,
+      vault: logins,
       secrets,
       tabProfile,
       agentBrowserProfile: (session) =>
@@ -100,7 +100,7 @@ async function setup(agentProfile: string | null = null) {
     }),
     logins,
     secrets,
-    remove: loginsDeleteHandler({ logins, secrets }),
+    remove: loginsDeleteHandler({ vault: logins, secrets }),
     done: () => rm(root, { recursive: true, force: true }),
   };
 }
@@ -285,51 +285,6 @@ test("agent의 login list는 그 탭 profile의 login만 내고, 탭이 없으�
   }
 });
 
-// 깨지면 이 판 전에 저장한 login이 읽히지 않거나(사람이 다시 넣어야 한다) 다른 profile의 탭에 나온다.
-test("profile 칸이 없는 저장 login은 기본 profile의 login으로 읽히고 다른 profile의 탭에는 나오지 않는다", async () => {
-  const t = await setup(WORK);
-  try {
-    const old = `lgn_${"0".repeat(26)}`;
-    const path = `${t.root}/logins.json`;
-    await writeFile(
-      path,
-      JSON.stringify([
-        { id: old, label: "Old", origin: ORIGIN, username: "me", note: "" },
-      ]),
-    );
-    const person = await t.list(PERSON, {});
-    assert.ok(person.ok);
-    assert.equal(
-      (person.value as { profile: string | null }[])[0]!.profile,
-      null,
-    );
-    const ids = async (input: object) => {
-      const result = await t.list(AGENT, input);
-      assert.ok(result.ok);
-      return (result.value as { id: string }[]).map((l) => l.id);
-    };
-    assert.deepEqual(await ids({ tab: TAB_DEFAULT }), [old]);
-    assert.deepEqual(await ids({ tab: TAB_WORK }), []);
-    assert.deepEqual(await ids({}), []);
-    // 다른 login을 저장해 file을 다시 써도 기본 profile의 항목에는 칸이 생기지 않는다.
-    assert.ok(
-      (
-        await t.save(CTX, {
-          label: "New",
-          origin: ORIGIN,
-          username: "me",
-          profile: WORK,
-        })
-      ).ok,
-    );
-    const stored = JSON.parse(await readFile(path, "utf8")) as object[];
-    assert.ok(!Object.hasOwn(stored[0]!, "profile"));
-    assert.deepEqual(await ids({ tab: TAB_DEFAULT }), [old]);
-  } finally {
-    await t.done();
-  }
-});
-
 // 깨지면 agent가 남의 탭 id로 그 탭 profile의 login을 보거나, 다른 profile의 agent가 자기 preview·artifact 탭에서 기본 profile의 login을 본다.
 test("logins/list의 탭은 부른 쪽의 탭이어야 하고, browser 탭이 아닌 탭의 login은 기본 profile의 것이라 기본 profile의 agent와 사람만 본다", async () => {
   const t = await setup();
@@ -346,7 +301,7 @@ test("logins/list의 탭은 부른 쪽의 탭이어야 하고, browser 탭이 �
       ids: createIdSource({ clock, random: seededRandom(1) }),
     });
     const list = loginsListHandler({
-      logins: t.logins,
+      vault: t.logins,
       secrets: t.secrets,
       tabProfile: (tab, caller) =>
         queue.tabProfile(tab as Id<"tab">, caller as Id<"ses"> | "person"),

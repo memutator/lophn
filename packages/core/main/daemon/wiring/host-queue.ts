@@ -82,7 +82,7 @@ import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
-import { createLoginStore, loginProfileOn } from "../../../secrets/mod.ts";
+import { loginProfileOn, loginsOf } from "../../../secrets/mod.ts";
 import { agentBrowserProfile } from "./browser-profile.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -930,7 +930,6 @@ export const hostQueueWiring: WiringFactory = () => {
         );
         return found.ok ? found.value : undefined;
       };
-      const loginStore = createLoginStore({ root: ctx.root.path });
       const redactor = createProductRedactor(ctx.knownSecrets);
       const redact = (text: string) =>
         redactor(BROWSER_RESULT, "text/plain", text);
@@ -1026,10 +1025,12 @@ export const hostQueueWiring: WiringFactory = () => {
                   failed();
                 }),
             }),
-        // 같은 파일을 읽기만 하는 store다. 쓰기는 secrets wiring의 store가 한다.
+        // secrets wiring의 vault를 읽는다.
         login: async (id) => {
-          const logins = await loginStore.list();
-          return logins.ok ? ok(logins.value.find((l) => l.id === id)) : logins;
+          const vault = ctx.browserVault.read();
+          return vault.ok
+            ? ok(loginsOf(vault.value).find((l) => l.id === id))
+            : vault;
         },
         browserProfile: (session) => agentBrowserProfile(ctx, session),
         redact,

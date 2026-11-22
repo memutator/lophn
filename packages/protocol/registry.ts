@@ -23,6 +23,7 @@ import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
 import { SETTINGS_FILE_ROUTES } from "./config/file.ts";
 import { SECRET_FILE_ROUTES } from "./secrets/secret-file.ts";
 import { LOGIN_ROUTES } from "./secrets/logins.ts";
+import { BROWSER_VAULT_ROUTES } from "./secrets/browser-vault.ts";
 import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
 import { MACHINE_ROUTES } from "./machine/mod.ts";
 import { A2A_LIST_ROUTES } from "./lophn-agent/a2a.ts";
@@ -56,6 +57,7 @@ export const ROUTES = [
   ...SETTINGS_FILE_ROUTES,
   ...SECRET_FILE_ROUTES,
   ...LOGIN_ROUTES,
+  ...BROWSER_VAULT_ROUTES,
   ...DIAGNOSTIC_STATUS_ROUTES,
   ...MACHINE_ROUTES,
   ...A2A_LIST_ROUTES,

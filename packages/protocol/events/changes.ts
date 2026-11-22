@@ -23,6 +23,7 @@ export const CHANGE_NAMES = [
   "widgets",
   "secrets",
   "logins",
+  "browser_profiles",
   "providers",
   "models",
   "extension_settings",

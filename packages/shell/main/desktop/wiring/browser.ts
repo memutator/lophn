@@ -16,7 +16,7 @@ import {
   BROWSER_EVENT_CHANNEL,
   BROWSER_STATE_CHANNEL,
 } from "../../../ipc/browser.ts";
-import { BROWSER_PROFILES_SETTING } from "../../../../protocol/shell/browser-profiles.ts";
+import { browserPartition } from "../../../../protocol/shell/browser-profiles.ts";
 import { createActivation } from "../../browser/activation.ts";
 import { electronBrowserViews } from "../../browser/electron-view.ts";
 import { electronBrowserSession } from "../../browser/electron-session.ts";
@@ -163,6 +163,32 @@ export function register(ctx: ShellContext): BrowserWiring {
     views.closeWindow(ref);
   });
 
+  // 다른 컴퓨터에서 지워져 이 컴퓨터의 합치기가 지운 profile의 partition data를 지운다. 그 목록(`clear`)은 core가 합친
+  // vault를 쓴 뒤에 내고, 되살아난 profile과 기본 profile은 들지 않는다. 지운 것은 core에 알려 목록에서 뺀다.
+  let clearing = false;
+  ctx.browserProfiles.watch(() => {
+    const ids = ctx.browserProfiles.clear();
+    if (clearing || ids.length === 0) return;
+    clearing = true;
+    void (async () => {
+      const done: string[] = [];
+      for (const id of ids) {
+        try {
+          await ensureSession(browserPartition(id)).clearData();
+          done.push(id);
+        } catch {
+          log("다른 컴퓨터에서 지운 browser profile의 data를 지우지 못했다");
+        }
+      }
+      if (done.length > 0) {
+        await ctx.coreInternal("memory", "browser_profiles", "cleared", {
+          ids: done,
+        });
+      }
+      clearing = false;
+    })();
+  });
+
   // app·artifact view의 붙이기 판정. 영역이 자기 resolver를 넣는다.
   const resolvers: WebviewGuestResolver[] = [];
   // 모든 붙이기의 격리 기본값. browser view만 이 위에 DevTools를 켠다.
@@ -197,10 +223,8 @@ export function register(ctx: ShellContext): BrowserWiring {
         params: params as unknown as Record<string, string>,
         app: guest?.target.kind === "app" ? guest.target : undefined,
         artifact: guest?.target.kind === "artifact" ? guest.target : undefined,
-        // 붙일 때마다 지금 설정을 읽는다. 막 만든 profile을 main이 아직 읽지 못했으면 거절된다(빈 page).
-        browserPartitions: knownBrowserPartitions(
-          ctx.settings.get(BROWSER_PROFILES_SETTING),
-        ),
+        // 붙일 때마다 지금 목록을 읽는다. 막 만든 profile을 main이 아직 읽지 못했으면 거절된다(빈 page).
+        browserPartitions: knownBrowserPartitions(ctx.browserProfiles.list()),
         base,
       });
       if (target === undefined) {

@@ -2,10 +2,9 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 
-// site login 하나의 metadata는 `<data root>/logins.json`이고 값은 `secrets.json`의 `login.<id>.password|totp`다.
-// 값은 `secrets/put`(보호 입력 창)으로 넣는다. login은 browser profile 하나에 속하고 그 profile의 탭에서만 list·fill된다.
-// protocol/shell을 import하지 못해 profile은 id 꼴만 쓴다. null은 기본 profile이다.
-export const LOGINS_FILE_NAME = "logins.json";
+// site login 하나의 metadata는 `<data root>/browser-vault.json`(browser-vault.ts)에 있고 값은 `secrets.json`의
+// `login.<id>.password|totp`다. 값은 `secrets/put`(보호 입력 창)으로 넣는다. login은 browser profile 하나에 속하고
+// 그 profile의 탭에서만 list·fill된다. profile은 id 꼴만 쓴다(browser-vault.ts가 이 file을 import한다). null은 기본 profile이다.
 
 export const LOGIN_ID_PREFIX = "lgn";
 export const loginIdSchema = z
@@ -31,19 +30,14 @@ export const loginOriginSchema = z.string().refine(
 
 const loginProfileSchema = idSchema("bpf").nullable();
 
-// `logins.json`의 항목. `profile`이 없으면 기본 profile의 login이다(그래서 옛 file이 옮기지 않고 그대로 읽힌다).
-const storedLoginSchema = z.strictObject({
+const loginSchema = z.strictObject({
   id: loginIdSchema,
   label: z.string().min(1).max(100),
   origin: loginOriginSchema,
   username: z.string().max(200),
   note: z.string().max(1000),
-  profile: idSchema("bpf").optional(),
+  profile: loginProfileSchema,
 });
-export const loginsFileSchema = z.array(storedLoginSchema);
-export type StoredLogin = z.infer<typeof storedLoginSchema>;
-
-const loginSchema = storedLoginSchema.extend({ profile: loginProfileSchema });
 export type Login = z.infer<typeof loginSchema>;
 
 const loginView = loginSchema.extend({ totp: z.boolean() });

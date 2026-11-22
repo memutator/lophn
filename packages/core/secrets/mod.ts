@@ -10,7 +10,12 @@ export {
   secretPutHandler,
   secretStatusHandler,
 } from "./routes.ts";
-export { createLoginStore, type LoginStore } from "./logins.ts";
+export {
+  type BrowserVault,
+  createBrowserVault,
+  loginsOf,
+  profilesOf,
+} from "./browser-vault.ts";
 export {
   loginsDeleteHandler,
   loginsListHandler,
@@ -18,4 +23,11 @@ export {
   loginsSaveHandler,
   loginProfileOn,
   NO_LOGINS,
+  touchLoginValue,
 } from "./login-routes.ts";
+export {
+  browserProfilesClearedHandler,
+  browserProfilesDeleteHandler,
+  browserProfilesListHandler,
+  browserProfilesSaveHandler,
+} from "./profile-routes.ts";

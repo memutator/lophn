@@ -140,7 +140,7 @@ export interface AgentDraft {
   readonly mcp_servers?: readonly McpServer[];
   /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
   readonly skip?: boolean;
-  /** 이 agent가 여는 browser 탭의 profile(`shell.browser_profiles`의 id). 없으면 기본이다. 사람만 쓴다. */
+  /** 이 agent가 여는 browser 탭의 profile(core의 browser profile 목록의 id). 없으면 기본이다. 사람만 쓴다. */
   readonly browser_profile?: string;
   readonly body: string;
 }

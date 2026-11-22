@@ -10,10 +10,8 @@ const BASE = { sandbox: true, contextIsolation: true, nodeIntegration: false };
 
 const WORK = "bpf_01hzy3m6z5v8q2w4e6r8t0y2a4";
 const REMOVED = "bpf_01hzy3m6z5v8q2w4e6r8t0y2a5";
-// 설정 `shell.browser_profiles`에 profile 하나가 있다.
-const KNOWN = knownBrowserPartitions([
-  { id: WORK, name: "Work", color: "coral" },
-]);
+// core의 profile 목록에 profile 하나가 있다.
+const KNOWN = knownBrowserPartitions([{ id: WORK }]);
 
 const APP_SRC =
   "lophn-app://app-abc/panel/index.html?view_session=view-1&mount=1";
@@ -221,14 +219,6 @@ test("a known browser profile partition attaches as a browser guest with that pa
   ] as const) {
     assert.equal(attach({ partition, src }).target, undefined, partition);
   }
-  // 설정이 없거나 깨졌으면 기본 partition뿐이다.
+  // 목록을 아직 읽지 못했으면 기본 partition뿐이다.
   assert.deepEqual([...knownBrowserPartitions(undefined)], [DEFAULT]);
-  assert.deepEqual(
-    [
-      ...knownBrowserPartitions([
-        { id: "not-an-id", name: "x", color: "coral" },
-      ]),
-    ],
-    [DEFAULT],
-  );
 });

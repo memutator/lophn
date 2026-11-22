@@ -36,10 +36,7 @@ import {
   remoteAddressesSchema,
   remoteDeviceSchema,
 } from "../../protocol/remote/frames.ts";
-import {
-  BROWSER_PROFILES_SETTING,
-  browserProfilesSchema,
-} from "../../protocol/shell/browser-profiles.ts";
+import { BROWSER_SHARE_SETTING } from "../../protocol/secrets/browser-vault.ts";
 import {
   bindingId,
   isChordText,
@@ -405,14 +402,14 @@ export const devicesSetting = declareSetting({
     "Devices for app previews: each has a name, a viewport size in CSS px, a pixel ratio and an OS. `lophn tab open --preview <app> --device <name>` and the preview tab use them. Names are unique. Entries added by phone pairing also carry `device`, the paired device id; renaming or removing that device changes only its entry.",
 });
 
-// browser profile 목록(기본 profile은 없다). agent 정의의 `browser_profile`이 id로 가리키고 탭의 cookie와 저장 login이 profile마다 따로다.
-// 어느 profile의 로그인을 agent가 쓰는지가 걸려 사람만 바꾼다.
-export const browserProfilesSetting = declareSetting({
-  key: BROWSER_PROFILES_SETTING,
-  type: browserProfilesSchema,
-  default: [],
+// browser profile 정의와 저장 login(값 포함)을 명단의 다른 컴퓨터와 link로 맞출지. 끄면 이 컴퓨터는 내주지도 받지도 않는다.
+// 사람의 login 값이 기계를 떠나는 일이라 사람만 바꾼다.
+export const browserShareSetting = declareSetting({
+  key: BROWSER_SHARE_SETTING,
+  type: z.boolean(),
+  default: true,
   description:
-    "Browser profiles besides the default one: each has an id, a name and a color, and keeps its own cookies and saved site logins. An agent definition's `browser_profile` picks one for the tabs that agent opens; only the person changes this list.",
+    "Keep browser profiles (name, color) and saved site logins, passwords and TOTP seeds included, the same on the person's other paired computers. They travel only over the encrypted link between paired computers, never through a shared folder. Cookies and site data stay on each computer. When off, this computer neither sends nor receives them.",
   locked: true,
 });
 
@@ -574,7 +571,7 @@ export const shellSettings = [
   codingAgentsSetting,
   taskbarSetting,
   devicesSetting,
-  browserProfilesSetting,
+  browserShareSetting,
   remoteEnabledSetting,
   remotePortSetting,
   remoteAddressesSetting,

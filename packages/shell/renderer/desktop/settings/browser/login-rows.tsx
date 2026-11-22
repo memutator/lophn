@@ -10,8 +10,7 @@ import { actionIcons } from "../../../icons/mod.ts";
 
 import { loginsList } from "../../../../../protocol/secrets/logins.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
-import { settingsList } from "../../../../../protocol/config/file.ts";
-import { BROWSER_PROFILES_SETTING } from "../../../../../protocol/shell/browser-profiles.ts";
+import { browserProfilesList } from "../../../../../protocol/secrets/browser-vault.ts";
 import {
   type Loaded,
   readRoute,
@@ -20,7 +19,6 @@ import {
   useFollowedRead,
 } from "../../connection/core-read.ts";
 import { ProfileMark } from "../../../browser/browser-chrome.tsx";
-import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
 import type {
   BrowserProfile,
@@ -28,7 +26,7 @@ import type {
   LoginForm,
   LoginRow,
 } from "./source.ts";
-import { loginRowsOf, profilesOf } from "./window-source.ts";
+import { loginRowsOf } from "./window-source.ts";
 
 const EMPTY: LoginForm = { label: "", origin: "", username: "", note: "" };
 
@@ -65,14 +63,9 @@ interface Group {
 
 export function LoginRows({ source }: { source: BrowserSettingsSource }) {
   const loaded = useLoginRows();
-  const profileRead = useCoreRead(settingsList, {
-    keys: [BROWSER_PROFILES_SETTING],
-  }).loaded;
+  const profileRead = useCoreRead(browserProfilesList, {}).loaded;
   const profiles = useMemo(
-    () =>
-      profileRead.state === "ready"
-        ? profilesOf(effectiveOf(profileRead.value))
-        : null,
+    () => (profileRead.state === "ready" ? profileRead.value.profiles : null),
     [profileRead],
   );
   // 고치는 줄의 id. 새로 더하는 줄은 "new:<profile id>"이고 기본 profile이면 "new:"다.

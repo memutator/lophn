@@ -5,8 +5,8 @@ modules: [packages/protocol, packages/core/config, packages/core/main, packages/
 change: |
   저장 모양. 전: profile 목록은 컴퓨터마다의 locked 설정 `shell.browser_profiles`, 저장 login metadata는 `<data>/logins.json`(배열), 값은 `secrets.json`의 `login.<id>.password|totp`였다. 후: profile 정의와 login metadata가 `<data>/browser-vault.json`(0600) 하나다(`{format: 1, profiles, logins, removed, clear}`). 항목마다 칸 stamp(`revs`, login은 password·totp 칸 포함), 지운 것의 흔적(`removed`: 지운 때와 지울 때 본 칸 stamp), partition data를 지울 profile(`clear`)을 든다. secret 이름은 그대로다. data step `browser.vault`(secrets wiring)가 옛 설정과 `logins.json`을 같은 id와 칸으로, 칸 stamp 0으로 옮기고(vault를 먼저 쓰고) 설정 key와 file을 지운다. 설정 `shell.browser_profiles`는 없어지고 `shell.browser.share_with_computers`(boolean, 기본 켬, locked)가 생겼다.
   route. 새 `browser_profiles/list`(user, `{profiles, clear}`)·`save`(user, `{id?, name, color}` → `{id}`, 만들거나 바꾼 이름의 겹침과 새 profile 16개 넘음은 `conflict`)·`delete`(user, 그 profile의 login 값, login, profile을 지우고 흔적을 남긴다)·`cleared`(shell capability만, `logins/release`와 같다). `logins/save|delete`와 `secrets/put|delete`의 `login.` 이름은 칸 stamp를 올린다. 새 `browser_vault/exchange`(memory, user)는 vault와 값을 낸다. 새 기기 route 목록 REMOTE_COMPUTER_CORE_ROUTES에만 들어 명단의 컴퓨터의 core가 요청한 쪽 없이 부를 때만 받고(폰, `screen`·`terminal`·`agent`·`app` 요청은 `forbidden`) handler가 지금 명단의 컴퓨터인지와 나누기를 다시 본다. 새 change 이름 `browser_profiles`.
-  맞추기. remote가 켜진 동안 컴퓨터마다 link가 붙을 때, 상대의 `StateChanged{browser_profiles|logins}`, 5분마다, 나누기를 켤 때 그 컴퓨터의 exchange를 불러 칸마다 합친다: 칸은 stamp가 큰 쪽, 흔적은 지울 때 몰랐던 새 칸이 있으면 되살아나고, 지운 profile의 몰랐던 login은 profile을 되살린다. 첫 합치기는 합집합이다. 값은 secret store로 먼저 쓰고 vault를 쓴 뒤 vault 밖 login의 값을 지운다. 폴더(`computers`, 같이 보는 폴더), 폰, relay가 읽는 곳에는 아무것도 쓰지 않는다. 다른 컴퓨터에서 지워져 합치기가 지운 profile은 shell main이 partition data를 지운다.
-  shell main은 profile 목록을 설정 대신 `browser_profiles/list`의 사본(core 준비와 `StateChanged{browser_profiles}`에 다시 읽음)으로 partition을 가린다. Settings › Browser의 Profiles는 profile 하나씩 저장하고, 지우기는 partition data를 먼저 지운 뒤 route가 login과 profile을 지운다. 새 구역 Your other computers(한 줄 설명과 Switch). 나누는 동안 profile·login 지우기 확인은 다른 컴퓨터에서도 지워진다고 말한다.
+  맞추기. remote가 켜진 동안 컴퓨터마다 link가 붙을 때, 상대의 `StateChanged{browser_profiles|logins}`, 5분마다, 나누기를 켤 때 그 컴퓨터의 exchange를 불러 칸마다 합친다: 칸은 stamp가 큰 쪽(같으면 값이 있는 쪽: 값은 더 새 stamp로만 지워진다), 흔적은 지울 때 몰랐던 새 칸이 있으면 되살아나고, 지운 profile의 몰랐던 login은 profile을 되살린다. 첫 합치기는 합집합이다. 값은 secret store로 먼저 쓰고 vault를 쓴 뒤 흔적이 있는 login의 값만 지운다. 이 컴퓨터나 상대가 login 값을 못 읽으면(`secrets.json`을 못 읽음) exchange는 `unavailable`이고 받기는 아무것도 쓰지 않는다. login 값 쓰기(`secrets/put|delete`와 그 칸 stamp), `logins/delete`, `browser_profiles/delete`, 합치기는 core 안에서 한 줄로 돌고, 값을 쓴 뒤 stamp를 올리지 못하면 앞 값으로 되돌리고 오류를 낸다. 답이 온 뒤 그 컴퓨터가 명단에서 빠졌으면 합치지 않는다. 폴더(`computers`, 같이 보는 폴더), 폰, relay가 읽는 곳에는 아무것도 쓰지 않는다. 다른 컴퓨터에서 지워져 합치기가 지운 profile은 shell main이 partition data를 지운다.
+  shell main은 profile 목록을 설정 대신 `browser_profiles/list`의 사본(core 준비와 `StateChanged{browser_profiles}`에 다시 읽음)으로 partition을 가린다. Settings › Browser의 Profiles는 profile 하나씩 저장하고, 지우기는 partition data를 먼저 지운 뒤 route가 login과 profile을 지운다. 새 구역 Your other computers(한 줄 설명과 Switch). 나누는 동안 명단에 다른 컴퓨터가 있으면 profile·login 지우기 확인은 다른 컴퓨터에서도 지워진다고 말한다. Settings › Remote에서 컴퓨터를 빼는 확인 창은 그 컴퓨터가 이미 받은 저장 login이 거기 남는다고 말한다. renderer는 profile 목록을 못 읽으면 빈 목록이 아니라 "아직 모름"으로 두어 profile 탭이 기본 partition으로 열리지 않고 기다린다.
 why: |
   profile과 저장 login이 컴퓨터마다 따로라 사람은 컴퓨터마다 profile을 만들고 login을 다시 넣어야 했다. 사람이 2026-11-21에 profile 정의와 저장 login을 기계 사이에 맞추기로 정했다(cookie, 저장소, agent의 profile은 컴퓨터마다).
 decisions:
@@ -22,13 +22,19 @@ decisions:
     by: agent
   - text: '기본 profile의 login도 맞춘다. 대가: 다른 컴퓨터에서 profile을 달지 않은 agent도 그 login을 친다(handle과 origin 일치는 그대로).'
     by: agent
-  - text: '명단에서 뺀 컴퓨터는 곧바로 받지 못한다(자격과 연결을 거둔다). 이미 받은 것은 거둘 수 없다.'
+  - text: '명단에서 뺀 컴퓨터는 곧바로 받지 못한다(자격과 연결을 거둔다). 이미 받은 것은 거둘 수 없다. 컴퓨터를 빼는 확인 창이 그렇게 말한다.'
+    by: agent
+  - text: '값이 없는 쪽은 같은 stamp에서 값을 이기지 못한다. 값은 더 새 stamp로만 지워지고, 값을 못 읽는 컴퓨터는 값을 내지도 합치지도 않는다. 이유: 첫 맞추기 뒤에는 모든 컴퓨터의 stamp가 같아서, `secrets.json`을 못 읽는 컴퓨터 하나가 "없음"을 내면 모든 컴퓨터의 password와 TOTP seed가 지워지고 퍼졌다(독립 review가 찾았다). 대가: 다른 컴퓨터에서 지운 값은 그 컴퓨터가 stamp를 올려야 지워진다(사람이 지우면 늘 올린다).'
+    by: agent
+  - text: '합친 뒤 지우는 값은 흔적이 있는 login의 것뿐이다. vault에 없다는 것만으로는 지우지 않는다. 이유: `browser-vault.json`이 지워지거나 빈 채(되돌린 판에서 다시 올린 경우 등)면 빈 vault로 읽혀 첫 받기가 모든 저장 login 값을 지웠다. 대가: 흔적 없이 vault에서 빠진 login의 값은 `secrets.json`에 남는다(다시 받으면 같은 id로 이어진다).'
+    by: agent
+  - text: 'login 값 쓰기와 그 칸 stamp 올리기, login·profile 지우기, 합치기는 core 안 queue 하나로 한 번에 하나씩 돈다. 이유: 합치는 사이 사람이 같은 칸을 저장하면 사람의 새 stamp에 다른 컴퓨터의 값이 붙어 퍼질 수 있었다. stamp를 올리지 못하면 값을 되돌리고 오류를 낸다(새 값에 옛 stamp가 붙으면 합치기가 되돌리거나 퍼뜨린다). 버린 길: 합치기만 재시도(사람의 저장과 엇갈림이 남는다).'
     by: agent
   - text: 'profile 목록을 설정에서 저장 login과 같은 vault file로 옮긴다. 칸마다 합치려면 stamp와 흔적이 있어야 하는데 설정은 컴퓨터마다의 값이고 화면이 목록을 통째로 쓴다. 버린 길: 설정을 두고 합치는 쪽이 목록 차이로 고침을 추리기(진실이 두 곳).'
     by: agent
   - text: '기계 사이 route는 새 기기 route 목록 REMOTE_COMPUTER_CORE_ROUTES에 두어 폰과 요청한 쪽이 있는 call을 막는다. 지금 REMOTE_CORE_ROUTES(`carry/*`)는 폰도 나르므로 그대로 둔다.'
     by: agent
-  - text: '받기만 있고 보내기는 없다. 늘 켜 둔 컴퓨터가 저절로 가운데가 되어 A의 것이 B를 거쳐 C에 간다. vault를 통째로 주고받는다(link frame 16 MiB 안). 상대가 나누기를 껐거나 옛 판이면 물러나지 않고 상대가 바뀔 때마다 한 번씩만 묻는다.'
+  - text: '받기만 있고 보내기는 없다. 늘 켜 둔 컴퓨터가 저절로 가운데가 되어 A의 것이 B를 거쳐 C에 간다. vault를 통째로 주고받는다(link frame 16 MiB 안). 상대가 나누기를 껐거나 옛 판이면 물러나지 않고 다음 계기(상대의 바뀜, 5분 timer)를 기다린다.'
     by: agent
 checklist:
   - "해야: 이 판으로 올리면 Settings › Browser의 profile과 저장 login(password, TOTP key 포함)이 짝지은 모든 컴퓨터로 저절로 간다. 그러고 싶지 않은 컴퓨터에서는 Settings › Browser › Your other computers의 Share profiles and saved logins를 끈다"

@@ -2185,7 +2185,7 @@ flows:
       - packages/shell/renderer/desktop/settings/browser/window-source.ts
     docs: [architecture/browser-tab.md]
     steps:
-      - "[Delete]는 확인 dialog를 보인다: 지울 저장 login 수(password·TOTP 포함)와 cookie·site data, 이 profile을 쓰던 agent는 기본 profile로 떨어진다는 문장. 로그인 목록을 읽지 못했으면 단추가 꺼져 있다"
+      - "[Delete]는 확인 dialog를 보인다: 지울 저장 login 수(password·TOTP 포함)와 cookie·site data, 이 profile을 쓰던 agent는 기본 profile로 떨어진다는 문장, 나누기가 켜져 있고 명단에 다른 컴퓨터가 있으면 거기서도 지워진다는 문장. 로그인 목록을 읽지 못했으면 단추가 꺼져 있다"
       - "확인하면 ① 그 profile의 partition data를 clear-data IPC로 지운다 ② browser_profiles/delete가 그 profile의 login 값, login, profile을 지운다(흔적이 다른 컴퓨터로 가서 거기서도 지운다)"
       - "어느 단계가 실패하면 거기서 멈추고 오류 한 줄을 보인다. 목록은 ②에서만 바뀌므로 profile이 남아 있어 다시 할 수 있다"
       - "그 profile을 가리키던 agent 정의는 고치지 않는다. 열 때 기본 profile로 떨어지고 편집기가 Deleted profile로 보인다"

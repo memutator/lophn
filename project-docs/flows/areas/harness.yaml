@@ -493,7 +493,7 @@ flows:
     steps:
       - "agent면 자격의 session 행을 읽는다(없으면 not_found, session 자격이 없으면 forbidden). 사람 token의 주인은 person이다. url이 http나 https가 아니면 invalid_input"
       - "shell이 붙어 있지 않으면(/host-link 연결이 없으면) 앱을 띄운다(host-shell-launch). 띄울 길이 없으면 바로 unavailable이다. 띄우는 시도가 쉬는 중이거나 바로 실패해도 unavailable이다"
-      - "탭 표에 주인과 workspace(agent면 그 session의 것, 사람 token이면 입력의 workspace나 home)와 profile을 적고 tab_open 요청을 넣는다. profile은 agent면 그 session의 agent 정의 `browser_profile`(설정 `shell.browser_profiles`에 없는 지운 profile이거나 칸이 없으면 기본), 사람 token이면 기본이고, 기본이 아니면 browser target에 싣는다. ledger나 정의를 읽지 못하면 기본으로 열지 않고 앱을 띄우기 전에 unavailable이다. 입력 target에는 profile 칸이 없어 agent가 고르지 못한다. 요청은 workspace를 가리지 않고 아무 shell main이 가져간다"
+      - "탭 표에 주인과 workspace(agent면 그 session의 것, 사람 token이면 입력의 workspace나 home)와 profile을 적고 tab_open 요청을 넣는다. profile은 agent면 그 session의 agent 정의 `browser_profile`(core vault의 profile 목록에 없는 지운 profile이거나 칸이 없으면 기본), 사람 token이면 기본이고, 기본이 아니면 browser target에 싣는다. ledger나 정의를 읽지 못하면 기본으로 열지 않고 앱을 띄우기 전에 unavailable이다. 입력 target에는 profile 칸이 없어 agent가 고르지 못한다. 요청은 workspace를 가리지 않고 아무 shell main이 가져간다"
       - "shell main은 그 workspace를 보이는 창(가장 최근에 focus를 받은 것), 없으면 가장 최근 일반 창에 보낸다. 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive)"
       - "창이 그 workspace를 mount하고 있으면 평소처럼 자리를 정해 탭을 연다. mount하지 않았으면 그 workspace의 pool에 page만 숨은 항목으로 만들고 자리는 다음 mount로 미룬다(agent-browser-page-host). 어느 쪽이든 ack한다"
       - "page의 guest가 dom-ready로 붙어 창이 bind를 알리면 shell main이 done으로 답하고 core는 tab id와 accepted를 돌려준다. 기한은 shell이 붙어 있으면 10초, 앱을 띄웠으면 30초(앱 시작과 창 열기와 page까지)다. 같은 시도를 기다리던 열기는 함께 끝난다"

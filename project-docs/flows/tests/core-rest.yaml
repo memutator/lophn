@@ -521,8 +521,8 @@ files:
     note: 옛 coding agent `gui` 명령을 `--gui` flag로 옮기기
 
   - path: packages/core/main/daemon/wiring/browser-vault-step_test.ts
-    covers: [browser-vault-step:moved]
-    note: 옛 profile 목록과 logins.json의 모든 항목이 같은 id와 칸으로 vault에 가고 secrets.json은 그대로이며 다시 돌아도 같고, 옛 file이 없는 root는 빈 vault다
+    covers: [browser-vault-step:moved, browser-vault-step:failed]
+    note: 옛 profile 목록과 logins.json의 모든 항목이 같은 id와 칸으로 vault에 가고 secrets.json은 그대로이며 다시 돌아도 같고, 옛 file이 없는 root는 빈 vault다. 잘린 logins.json이나 모양이 맞지 않는 옛 profile 목록이면 오류이고 vault를 쓰지 않으며 옛 file과 key가 남는다
 
   - path: packages/core/main/daemon/wiring/sealed-marker_test.ts
     covers: [data-steps-apply:applied, apps-sealed-marker:marked]
@@ -796,14 +796,16 @@ files:
       - browser-vault-merge:fields-merged
       - browser-vault-merge:revived
       - browser-vault-merge:deleted
-    note: 첫 합치기는 합집합(같은 이름의 profile도 둘), 떨어져 고친 다른 칸은 둘 다·같은 칸은 나중 것, 지울 때 몰랐던 고침은 login을 되살리고 아니면 지운 것이 이기며, 지운 profile의 몰랐던 login은 profile을 되살린다. 두 컴퓨터가 서로를 합친 결과가 같고 다시 받아도 바뀌지 않는다. 합치기가 지운 profile은 partition data를 지울 목록에 들고 되살아나면 빠진다
+    note: 첫 합치기는 합집합(같은 이름의 profile도 둘), 떨어져 고친 다른 칸은 둘 다·같은 칸은 나중 것, 같은 stamp의 값과 없음은 값, 지울 때 몰랐던 고침은 login을 되살리고 아니면 지운 것이 이기며, 지운 profile의 몰랐던 login은 profile을 되살린다. 두 컴퓨터가 서로를 합친 결과가 같고 다시 받아도 바뀌지 않는다. 합치기가 지운 profile은 partition data를 지울 목록에 들고 되살아나면 빠진다
 
   - path: packages/core/secrets/vault-sync_test.ts
     covers:
       - browser-vault-exchange:ok
       - browser-vault-exchange:forbidden
+      - browser-vault-exchange:unavailable
       - browser-vault-sync:merged
-    note: exchange는 지금 명단의 컴퓨터에만 값을 내고 이 컴퓨터의 사람 token, 빠진 컴퓨터, 나누기를 끈 때는 forbidden이다. 받은 vault를 합치면 새 login의 값을 넣고 지워진 login과 vault 밖 login의 값을 지운다
+      - browser-vault-sync:failed
+    note: exchange는 지금 명단의 컴퓨터에만 값을 내고 이 컴퓨터의 사람 token, 빠진 컴퓨터, 나누기를 끈 때는 forbidden이며, 값을 못 읽으면 unavailable이다. 받은 vault를 합치면 새 login의 값을 넣고 흔적이 있는 login의 값만 지운다(vault가 비어도 vault 밖 값은 남는다). 이 컴퓨터의 값을 못 읽으면 받기는 아무것도 쓰지 않는다
 
   - path: packages/core/secrets/login-routes_test.ts
     covers:

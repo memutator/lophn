@@ -3002,7 +3002,7 @@ flows:
     docs: [architecture/remote.md, architecture/agent-call.md]
     steps:
       - "다른 컴퓨터의 core가 기기 자격(principal device:<id>)으로 부른다. 기기 route 목록과 agent 요청한 쪽 목록에 있다. 명단의 다른 컴퓨터만 받는다: 폰, 명단 밖 기기, 기기가 아닌 자격은 forbidden이다"
-      - "a2a/sessions: main thread 연결로 열린 session을 Router의 session 목록과 같은 규칙(받는지, 상태)으로 읽고, 부른 컴퓨터의 mail이 연 session만 남긴다(그 컴퓨터가 부를 수 있는 것은 그것뿐이다). 받지 않는 session과 이 기계에서 private인 workspace의 session은 뺀다. workspace는 기계를 건너는 꼴(home, project의 identity와 이름, 앱 id와 slug)이다"
+      - "a2a/sessions: main thread 연결로 열린 session을 Router의 session 목록과 같은 규칙(받는지, 상태)으로 읽고, 부른 컴퓨터의 mail이 연 session만 남긴다(그 컴퓨터가 부를 수 있는 것은 그것뿐이다). 그 컴퓨터가 연 팀원 session은 뺀다(그 컴퓨터는 팀원에게 자기의 자리로, 팀 규칙을 거쳐 보낸다). 받지 않는 session과 이 기계에서 private인 workspace의 session은 뺀다. workspace는 기계를 건너는 꼴(home, project의 identity와 이름, 앱 id와 slug)이다"
       - "a2a/agents: `pri_`는 이 기계의 project로 풀고 앱 id와 home은 그대로다. 없거나 보관했거나 private이면 셋을 가르지 않고 {found: false, cards: []}다. 아니면 reader의 agents/cards를 machine 자격(machine:a2a-lists)으로 읽고 callable을 뺀다. 이 기계에서 private인 앱은 without_apps로 넘겨 명함의 차이(할당한 앱의 command·skill과 그 skill의 끄기)에 남지 않게 한다"
       - "둘 다 not_found를 내지 않는다(보내는 쪽이 not_found를 옛 판으로 읽는다)"
     outcomes:

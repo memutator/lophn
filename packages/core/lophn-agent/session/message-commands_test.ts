@@ -111,7 +111,7 @@ test("RecordShellMessage로 쓴 메시지는 Router에 넣지 않고 켤 때 que
       },
     },
     directory: {
-      find: () => ({ accepting: true }) as never,
+      find: () => ({ accepting: true, runs_on: null }) as never,
       app: () => null,
     },
     publish: (_tx, event) => published.push(event.type),
@@ -161,7 +161,7 @@ test("앱 화면이 보낸 메시지는 보낸 앱을 이름표로 얼리고 mod
       },
     },
     directory: {
-      find: () => ({ accepting: true }) as never,
+      find: () => ({ accepting: true, runs_on: null }) as never,
       app: () => ({ slug: "masup" }),
     },
   });
@@ -247,7 +247,7 @@ test("다른 기기의 사람 메시지가 seen 뒤에 있으면 보내기는 ch
       },
     },
     directory: {
-      find: () => ({ accepting: true }) as never,
+      find: () => ({ accepting: true, runs_on: null }) as never,
       app: () => null,
     },
   });

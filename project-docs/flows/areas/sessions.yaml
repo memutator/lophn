@@ -49,7 +49,7 @@ flows:
       - packages/core/lophn-agent/session/commands.ts
       - packages/core/lophn-agent/session/session-title.ts
     steps:
-      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없거나 다른 컴퓨터에서 도는 팀원의 자리(runs_on)면 not_found다."
       - "제목 글을 정리한다(앞뒤 빈칸을 자르고 빈 제목이나 120자 넘는 제목은 invalid_input으로 거절한다)."
       - "같은 제목이면 아무것도 쓰지 않고 이전 결과를 돌려준다. archive된 session도 이름은 바꾼다."
       - "state_seq가 요청과 다르면 conflict다. 같으면 제목과 state_seq를 한 tx에서 고친다."
@@ -128,9 +128,9 @@ flows:
       - "부르기 전 앞 단계가 알림 글(receiver_ended)을 blob으로 준비한다. 준비하지 못하면 여기서 unavailable이다."
       - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. 이미 archive됐으면 이전 결과를 돌려준다."
       - "state_seq가 낡았으면 conflict다. 도는 turn이 있는데 stop_turn이 true가 아니면 conflict(details.reason turn_running)로 거절한다. 아니면 lifecycle을 archived로 바꾼다."
-      - "같은 tx에서 도는 turn을 interrupted(session_ended)로 닫고, 받은 열린 call은 receiver_ended로 닫는다. 닫은 call의 보낸 쪽이 살아 있는 agent session이면 그 queue에 reply_to가 그 call인 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다)."
+      - "같은 tx에서 도는 turn을 interrupted(session_ended)로 닫고, 받은 열린 call은 receiver_ended로 닫는다. 닫은 call의 보낸 쪽이 살아 있는 agent session이면 그 queue에 reply_to가 그 call인 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다). 그 session이 보낸 열린 ask call은 취소한다(기다리던 짝은 거절로 풀리고, 다른 컴퓨터의 부모에게 보낸 것이면 cancel mail을 낸다). 그 session 밑에 다른 컴퓨터에 연 팀원의 열린 자리도 같이 archive처럼 닫는다."
       - "commit 뒤 queue를 비우고 SessionEnded(reason archived)를 낸다. 기다리던 turn request와 질문은 같은 tx가 아니라 이 event를 듣는 approvals wiring이 cancelled(session_closed)로 푼다(끝내기 effect의 cancelPendingRequests는 no-op이다). 도던 turn의 agent runtime child에는 Bus의 TurnEnded를 보고 turn_stop이 가서 model 요청을 끊는다."
-      - "archive한 session은 기록을 그대로 두고 읽기는 된다. 되살리는 길은 없다. 다른 컴퓨터에서 도는 팀원의 자리(runs_on, session read에 없어 state_seq는 session snapshot이 싣는다)면 그 자리로 보낸 열린 call을 닫고 그 컴퓨터로 cancel(end) mail을 낸다. 그 컴퓨터에 닿지 않아도 자리는 닫힌다. 다른 컴퓨터가 연 팀원 session이면 연 기계에 state(ended) mail을 낸다."
+      - "archive한 session은 기록을 그대로 두고 읽기는 된다. 되살리는 길은 없다. 다른 컴퓨터에서 도는 팀원의 자리(runs_on, session read에 없어 state_seq는 session snapshot이 싣는다)면 그 자리로 보낸 열린 call을 닫고, 그 팀원이 이 기계로 보낸 열린 call(부모에게 온 ask 포함)을 취소하고, 그 컴퓨터로 cancel(end) mail을 낸다. 그 컴퓨터에 닿지 않아도 자리는 닫힌다. 다른 컴퓨터가 연 팀원 session이면 연 기계에 state(ended) mail을 낸다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, ledger:turns, ledger:agent_calls, ledger:mail_outbox, event:SessionEnded, response]
@@ -213,7 +213,7 @@ flows:
       - packages/core/lophn-agent/workspaces/lifecycle.ts
     steps:
       - "사람이 아니면 forbidden이다(requireUser). 같은 id가 이미 있으면 같은 출처와 지점이면 replay, 아니면 conflict다."
-      - "출처 session이 없으면 not_found다. through_seq가 출처의 확정 메시지가 아니면 invalid_input이다."
+      - "출처 session이 없거나 다른 컴퓨터에서 도는 팀원의 자리면 not_found다. through_seq가 출처의 확정 메시지가 아니면 invalid_input이다."
       - "같은 agent와 workspace로 새 session을 열되 제목과 model 선택은 잇고, skip과 compaction과 대기 request·열린 call·rewind 기록은 가져가지 않는다. 열 수 없으면(agent 정의 없음, workspace 없음·보관, harness 꺼짐) 그 오류를 돌려준다."
       - "rewind가 숨긴 구간을 뺀 메시지를 복사하고 본문과 이미지 blob 참조를 복사본마다 새로 건다. 참조가 원본과 맞지 않으면 거절한다."
     outcomes:
@@ -254,7 +254,7 @@ flows:
       - packages/core/lophn-agent/session/commands.ts
       - packages/core/lophn-agent/session/session-model.ts
     steps:
-      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. archive된 session이면 conflict다. 같은 선택이면 이전 결과다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없거나 다른 컴퓨터에서 도는 팀원의 자리면 not_found다. archive된 session이면 conflict다. 같은 선택이면 이전 결과다."
       - "model을 고르면 provider 기록을 확인하고, option 값이 그 model이 선언한 축과 값 안인지 본다. 직접 적은 이름은 catalog에 없어도 저장한다. null이면 agent 기본값으로 돌아간다(검사 없음)."
       - "state_seq가 낡았으면 conflict다. 아니면 model_selection을 바꾸고 고른 model을 picker에 보이게 하고 전역 기본이 비었으면 기본으로 정한다."
       - "바뀐 값은 다음 turn부터 쓴다."
@@ -1228,7 +1228,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "session을 읽지 못했다"
+        when: "session을 읽지 못했다, 또는 다른 컴퓨터에서 도는 팀원의 자리다(shell은 그 컴퓨터에서 돈다)"
         observe: [response]
       - id: conflict
         code: conflict
@@ -1431,7 +1431,7 @@ flows:
     steps:
       - "core 안 machine이 아니면 forbidden이다(requireMachine)."
       - "router나 environment가 아직 없으면 unavailable이다."
-      - "잃어버린 call(받았으나 turn이 가져가지 않은 call, 기다리던 ask call)을 lophn_restarted로 닫는다. notify가 true면 살아 있는 보낸 session에 알림을 넣는다."
+      - "잃어버린 call(받았으나 turn이 가져가지 않은 call, 이 기계에서 낸 기다리던 ask call)을 lophn_restarted로 닫는다. notify가 true면 살아 있는 보낸 session에 알림을 넣는다."
       - "도는 turn을 interrupted(restarted)로 닫는다. 그 turn이 가져가고 아직 답하지 않은 result call도 lophn_restarted로 닫는다(다른 컴퓨터에서 받은 call이면 실패 reply mail). 다른 컴퓨터에서 받은 workflow step은 닫지 않고 그 기계로 진행 줄 reply mail 하나를 낸다. queue와 앱 줄은 메모리라 이 tx 밖이다."
       - "닫은 failed·interrupted 수를 돌려준다. 알림 글 준비, 실패 log, 기동을 잇는 일은 wiring이 맡는다(agents call-restart-recovery)."
     outcomes:
@@ -1468,7 +1468,7 @@ flows:
       - "core 안 machine이 아니면 forbidden이다. 보낸 session의 검사(private, mail이 연 session, 명단, 주소 풀기)는 부르는 main thread가 마쳤다."
       - "router나 environment가 아직 없으면 unavailable이다. 본문은 글만이고 64 KiB를 넘으면 schema가 invalid_input으로 거른다."
       - "같은 보낸 session과 dedup의 call이 있으면 그 상태를 돌려준다."
-      - "보낸 session이 없으면 not_found다. 그 workspace가 private이거나, 보낸 session이 다른 컴퓨터의 mail이 연 session인데 그 mail을 보낸 기계가 아닌 곳으로 보내면 쓰기 전에 forbidden이다(main thread의 검사를 쓰는 tx에서 한 번 더 본다)."
+      - "보낸 session이 없으면 not_found다. 주소의 session이 이 기계가 다른 컴퓨터에 연 팀원의 자리면 그 자리로 보내는 call(agents call-send의 길: call 정책, 팀 규칙, 닫힌 자리는 failed closed)이다. 그 workspace가 private이거나, 보낸 session이 다른 컴퓨터의 mail이 연 session인데 다른 컴퓨터가 연 팀원이 아니거나 팀원이 자기를 연 기계가 아닌 곳으로 보내면 쓰기 전에 forbidden이다(main thread의 검사를 쓰는 tx에서 한 번 더 본다)."
       - "spawn이면(team spawn --on) 다른 컴퓨터의 mail이 연 session은 forbidden이고 주소가 agent 꼴이어야 하며(아니면 invalid_input) 보낸 session 밑에 그 컴퓨터에서 도는 팀원의 자리(sessions.runs_on, agent는 그 컴퓨터의 handle, workspace는 부모의 것)를 이 컴퓨터의 팀 상한과 깊이로 센 뒤 연다. 넘으면 conflict이고 아무것도 쓰지 않는다. 그 id를 mail의 spawn에 싣고 행의 받는 session과 remote_session으로 적는다. 자리는 SessionStarted 대신 StateChanged(sessions)를 낸다."
       - "call mail을 그 기계의 outbox에 넣고(seq는 기계마다), 같은 tx에 보낸 기계의 행(to remote, 받는 session 없음, delivery pending)을 쓴다. commit 뒤 router.mail-queued로 drain을 깨운다."
     outcomes:
@@ -1525,10 +1525,10 @@ flows:
       - "core 안 machine이 아니면 forbidden이다. mail을 쓴 기계가 보낸 기계(origin)가 아니거나 받는 기계가 이 기계가 아니면 forbidden이다."
       - "같은 기계의 같은 mail id를 이미 받았으면 아무것도 하지 않고 지난 결과(대기 중이면 held, 만료·건너뜀이면 그 실패, 아니면 받은 call 행의 상태와 session)를 돌려준다."
       - "만료(expires_at)가 지난 mail은 돌지 않는다: call mail이면 실패 mail(expired)을 내고 reply·cancel·state는 본 것으로만 적는다. call mail의 call id로 된 행이 이미 있으면 길을 타지 않고 failed(not_found)로 답한다(session도 행도 만들지 않는다). 같은 기계의 cancel mail이 먼저 닿았던 call이면(폴더 길은 순서가 바뀔 수 있다) 늦었어도 대기에 세우지 않고 돌리지도 않으며 failed(closed)로 답하고 실패 reply mail만 낸다. 다른 기계의 cancel은 막지 못한다. 보낸 시각보다 10분 넘게 늦은 call mail은 받을 곳이 있으면(풀리고 private이 아니며 session 주소면 그 기계의 mail이 연 열린 session) 돌지 않고 mail을 든 대기 줄(held)이 되며(받을 곳이 없으면 아래 배달 실패 길이다) StateChanged(mail_holds)를 낸다. 폴더 길이면 state mail(held)을 낸다. 늦음은 이 기계의 시계로 잰다."
-      - "call mail: 주소를 푼다. project 정체(pri_)는 이 기계의 project로, 앱은 앱 id로, home은 home으로 푼다. session을 가리키는 주소는 그 기계의 mail이 연 session일 때만 그 session이다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다). 보낸 session이 이 기계가 그 기계에 연 팀원의 자리(runs_on이 그 기계)면 어느 session이든 가리키고, 이 기계의 팀원처럼 call 정책, 팀 규칙, 명함 검사를 거친다(막히면 forbidden·invalid_input). ask가 실려 있으면 행에 남긴다. 받는 workspace가 이 기계의 call 정책에서 private이면 없는 것과 같다."
+      - "call mail: 주소를 푼다. project 정체(pri_)는 이 기계의 project로, 앱은 앱 id로, home은 home으로 푼다. session을 가리키는 주소는 그 기계의 mail이 연 session일 때만 그 session이다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다). 보낸 session이 이 기계가 그 기계에 연 팀원의 열린 자리(runs_on이 그 기계)면 어느 session이든 가리키고, 이 기계의 팀원처럼 call 정책, 팀 규칙, 명함 검사를 거친다(막히면 forbidden·invalid_input). ask가 실려 있으면 행에 남긴다. 받는 workspace가 이 기계의 call 정책에서 private이면 없는 것과 같다."
       - "풀리면 같은 call id로 받는 session에 넣는다(보낸 쪽 remote, 명함 검사 없음, 탭 열기 없음). 새 session은 그 기계가 연 것으로 표시되고 받는 기계의 허락이 없으면 agent 정의가 skip이어도 묻는 session이다. spawn이 실렸으면 그 id로 열고 보낸 session을 부모로 적는다. 이 기계 팀원의 자리로 가는 주소는 닫힌 session과 같다. 폴더 길이면 state mail(running)을 낸다."
-      - "풀리지 않거나 닫혔으면 실패 행(풀린 받는 곳이 있으면)과 실패 reply mail을 그 기계의 outbox에 넣는다."
-      - "reply mail: 이 기계가 그 기계로 보낸 끝나지 않은 call이면 보낸 session에 답이나 실패를 넣고 outcome이 있으면 행을 닫고 남은 call mail을 지운다. 팀원의 ask면 queue 대신 짝으로 간다(답은 decision과 함께 router.ask-answered, 실패·취소는 router.ask-ended). 실패한 것이 팀원의 spawn call이고 이유가 receiver_ended·lophn_restarted가 아니면 그 자리를 archive처럼 닫는다. 이 기계가 그 기계에서 받은 conversation call이면 받는 session에 넣는다. cancel mail은 그 기계에서 받은 call을 취소하고 받는 session에 알린다. end가 실렸으면 그 call이 연 팀원 session을 archive처럼 닫는다. 그 call이 대기 줄이면 session을 열지 않고 줄을 cancelled로 닫는다(StateChanged mail_holds). 모르는 call이면 무시한다. state mail은 보낸 call의 delivery와 그 기계의 session을 적는다. ended면 그 기계에서 도는 이 기계 팀원의 자리를 archive처럼 닫는다."
+      - "풀리지 않거나 닫혔으면 실패 행(풀린 받는 곳이 있으면)과 실패 reply mail을 그 기계의 outbox에 넣는다. 보낸 session이 이 기계가 이미 닫은 팀원 자리(runs_on이 그 기계)면(state ended 말고) 그 기계로 cancel(end) mail을 다시 낸다(닫을 때 낸 것이 만료로 사라졌을 수 있다). call mail이면 돌리지 않고 failed(closed)로 답하며 실패 reply mail을 낸다."
+      - "reply mail: 이 기계가 그 기계로 보낸 끝나지 않은 call이면 보낸 session에 답이나 실패를 넣고 outcome이 있으면 행을 닫고 남은 call mail을 지운다. 팀원의 ask면 queue 대신 짝으로 간다(답은 decision과 함께 router.ask-answered, 실패·취소는 router.ask-ended). 실패한 것이 팀원의 spawn call이고 이유가 receiver_ended·lophn_restarted가 아니거나, 팀원의 자리로 보낸 call이 closed·not_found로 실패했으면(그 컴퓨터에서 session이 닫혔거나 없다) 그 자리를 archive처럼 닫는다. 이 기계가 그 기계에서 받은 conversation call이면 받는 session에 넣는다. cancel mail은 그 기계에서 받은 call을 취소하고 받는 session에 알린다. end가 실렸으면 그 call이 연 팀원 session을 archive처럼 닫는다. 그 call이 대기 줄이면 session을 열지 않고 줄을 cancelled로 닫는다(StateChanged mail_holds). 모르는 call이면 무시한다. state mail은 보낸 call의 delivery와 그 기계의 session을 적는다. ended면 그 기계에서 도는 이 기계 팀원의 자리를 archive처럼 닫는다."
     outcomes:
       - id: running
         observe: [ledger:agent_calls, ledger:mail_seen, ledger:sessions, event:MessageReceived, response]
@@ -1550,7 +1550,7 @@ flows:
         when: "reply·cancel·state mail을 적용했거나(대기 줄의 cancel이면 줄을 닫았다) 관계없는 call이라 무시했다(delivery null)"
       - id: member-ended
         observe: [ledger:sessions, ledger:agent_calls, ledger:mail_outbox, event:SessionEnded, response]
-        when: "팀원의 끝이 닿았다: 연 기계의 cancel(end)이 이 기계의 팀원 session을, 그 기계의 state(ended)나 돌기 전에 실패한 spawn call이 이 기계의 자리를 archive처럼 닫았다"
+        when: "팀원의 끝이 닿았다: 연 기계의 cancel(end)이 이 기계의 팀원 session을, 그 기계의 state(ended), 돌기 전에 실패한 spawn call, 그 컴퓨터에서 closed·not_found로 실패한 자리의 call이 이 기계의 자리를 archive처럼 닫았다. 이미 닫은 자리의 session이 보낸 mail이면 cancel(end)을 다시 냈다"
       - id: forbidden
         code: forbidden
         when: "core 안 machine이 아닌 호출자거나, mail의 보낸 기계와 origin이 다르거나 받는 기계가 이 기계가 아니다. 이 기계가 연 팀원의 call이 call 정책이나 팀 규칙(부모, 형제, 자기 밑) 밖이다"

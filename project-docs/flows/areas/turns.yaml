@@ -374,7 +374,7 @@ flows:
     steps:
       - "agent runtime child가 종료되면(onEnd) core가 machine 자격으로 InterruptTurns를 부른다. machine이 아니면 forbidden이다(requireMachine)"
       - "writer 앞 처리기가 core 메모리에서 센 active를 turn마다 CheckpointTurn으로 마감한다. 실패해도 다음 단계로 간다"
-      - "같은 tx에서 running인 turn 전부를 interrupted(restarted)로 닫고 TurnEnded를 낸다. 그 turn의 requested·started tool call은 결과를 모르므로 uncertain으로 닫고 turn 결과의 unknown_effects에 싣는다. 그 turn이 가져간 아직 답하지 않은 result call은 lophn_restarted로 보낸 쪽에 돌아간다. 다른 컴퓨터에서 받은 workflow step을 가져간 turn이면 call을 닫지 않고 그 기계로 program이 쓴 진행 줄(report의 ended, next 없음) reply mail 하나를 낸다. 도는 turn이 없으면 0으로 끝난다"
+      - "같은 tx에서 running인 turn 전부를 interrupted(restarted)로 닫고 TurnEnded를 낸다. 그 turn의 requested·started tool call은 결과를 모르므로 uncertain으로 닫고 turn 결과의 unknown_effects에 싣는다. 그 turn이 가져간 아직 답하지 않은 result call은 receiver_ended로 보낸 쪽에 돌아간다(lophn은 다시 켜지지 않았다). 다른 컴퓨터에서 받은 workflow step을 가져간 turn이면 call을 닫지 않고 그 기계로 program이 쓴 진행 줄(report의 ended failed, next 없음) reply mail 하나를 낸다. 도는 turn이 없으면 0으로 끝난다"
       - "InterruptTurns가 실패했어도 queue의 도는 표시는 푼다(finally). 새 입력이 running 행과 겹치지 않게 하려는 순서다"
     outcomes:
       - id: interrupted

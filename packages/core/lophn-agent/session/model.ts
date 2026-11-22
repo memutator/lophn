@@ -346,6 +346,16 @@ export function loadSession(
   return row === undefined ? undefined : sessionRowOf(row);
 }
 
+// 이 컴퓨터에서 도는 session. 다른 컴퓨터에서 도는 팀원의 자리(`runs_on`)는 대화, model, 기록이 그 컴퓨터에 있어 session id로 하나를
+// 다루는 길(읽기, 이름, model, fork)에서 없는 session과 같다.
+export function loadLocalSession(
+  lookup: Lookup,
+  id: string,
+): AgentSessionRow | undefined {
+  const row = loadSession(lookup, id);
+  return row?.runs_on === null ? row : undefined;
+}
+
 // 앱 workspace의 session 전부(archive한 것도). 앱을 지울 때 지운다.
 export function appWorkspaceSessions(
   lookup: {

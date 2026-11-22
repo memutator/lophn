@@ -16,6 +16,7 @@ import { hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser } from "./guards.ts";
 import { imageRefsOf } from "./message-images.ts";
 import {
+  loadLocalSession,
   loadSession,
   MESSAGE_COLUMNS,
   messageRowOf,
@@ -84,7 +85,7 @@ export function createForkCommand(
       if (!user.ok) return user;
       const existing = loadSession(tx, input.id);
       if (existing !== undefined) return replay(tx, existing, input);
-      const source = loadSession(tx, input.source);
+      const source = loadLocalSession(tx, input.source);
       if (source === undefined) {
         return reject("not_found", "source session not found");
       }

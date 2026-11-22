@@ -9,6 +9,7 @@ import {
 import type { ReadDefinition, SqlRow } from "../../../protocol/server/mod.ts";
 import { sessionVisible, visibleSessions } from "./guards.ts";
 import {
+  loadLocalSession,
   loadMessage,
   loadSession,
   MESSAGE_COLUMNS,
@@ -69,15 +70,8 @@ export function createConversationReads(): {
     session: {
       route: workspaceSessionRead,
       handle(snapshot, ctx, input) {
-        const row = loadSession(snapshot, input.session);
-        // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니다(대화와 agent가 그 컴퓨터에 있다).
-        if (
-          row === undefined ||
-          row.runs_on !== null ||
-          !sessionVisible(ctx, row)
-        ) {
-          return notFound();
-        }
+        const row = loadLocalSession(snapshot, input.session);
+        if (row === undefined || !sessionVisible(ctx, row)) return notFound();
         return ok({
           session: workspaceSessionOf(row),
           as_of_seq: snapshot.as_of_seq,

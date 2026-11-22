@@ -1222,3 +1222,23 @@ test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn sessio
   assert.equal(code(shownMissing), "not_found");
   assert.equal((await closing(5, tab)).error.code, "forbidden");
 });
+
+// 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니다. 깨지면 그 자리에 이 컴퓨터의 빈 session 탭이 열리거나 사람의 browser
+// 탭이 아무도 다루지 못하는 주인에게 간다.
+test("다른 컴퓨터에서 도는 팀원의 자리는 tab open --session의 대상도 tabs/hand의 받는 session도 아니다", async () => {
+  const { open, hand } = setup(true);
+  const opening = async (n: number) =>
+    code(await open(agent(5), { target: { session: id("ses", n) } }));
+  const handing = async (n: number) =>
+    code(
+      (await hand(person, {
+        session: id("ses", n),
+        workspace: { kind: "home" },
+        url: "https://example.com/",
+      })) as { ok: boolean },
+    );
+  assert.equal(await opening(21), "not_found");
+  assert.equal(await handing(21), "not_found");
+  assert.equal(await opening(6), "ok");
+  assert.equal(await handing(6), "ok");
+});

@@ -47,6 +47,7 @@ import {
   type SendMessageDeps,
 } from "./message-commands.ts";
 import {
+  loadLocalSession,
   loadSession,
   modelSelectionOf,
   nextSessionSeq,
@@ -237,7 +238,7 @@ export function createConversationCommands(deps: ConversationDeps): {
       handle(tx, ctx, input: Input<typeof renameSession>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
-        const session = loadSession(tx, input.session);
+        const session = loadLocalSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
         const title = renameSessionTitle(input.title);
         if (!title.ok) return title;
@@ -382,7 +383,7 @@ export function createConversationCommands(deps: ConversationDeps): {
       handle(tx, ctx, input: Input<typeof changeSessionModel>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
-        const session = loadSession(tx, input.session);
+        const session = loadLocalSession(tx, input.session);
         if (session === undefined) return sessionNotFound();
         if (session.lifecycle !== "open") {
           return reject("conflict", "the session is archived");

@@ -455,7 +455,7 @@ flows:
       - "lophn tool이나 lophn tab open 명령이 agent 자격이나 사람 token으로 부른다. 탭의 주인은 agent면 그 session, 사람 token이면 모두 같은 주인 person이다"
       - "사람 token은 session 대상을 열지 못한다. invalid_input"
       - "agent면 자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
-      - "같은 workspace의 열린 session인지 본다. 아니면 not_found"
+      - "같은 workspace의 열린 session인지 본다. 아니면 not_found(다른 컴퓨터에서 도는 팀원의 자리도 이 컴퓨터의 session이 아니라 not_found)"
       - "탭 표에 주인을 적고 tab_open 요청을 host queue에 넣는다. workspace는 agent면 부른 session의 것(home이면 home), 사람 token이면 입력의 workspace(없으면 home)다. --as로 말한 relation(peer, stage, aside, work, glance)을 요청에 그대로 싣는다(말하지 않으면 null). 자리는 core가 정하지 않고 renderer가 relation과 target으로 정한다"
       - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell main이 /host-link로 받아 연다. 그 workspace를 보이는 창이 없으면 요청은 기다린다"
     outcomes:
@@ -463,7 +463,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "호출 session이 없거나, 대상 session이 없거나 닫혔거나 다른 workspace다"
+        when: "호출 session이 없거나, 대상 session이 없거나 닫혔거나 다른 workspace이거나 다른 컴퓨터에서 도는 팀원의 자리다"
         observe: [response]
       - id: forbidden
         code: forbidden

@@ -518,7 +518,10 @@ flows:
         when: "늦게: spawn call이 그 컴퓨터에서 돌기 전에 실패했다(not_found, closed, expired, skipped, old_version, 명단에서 빠짐). 자리를 archive처럼 닫고 부모는 실패 알림을 받는다. 받은 turn이 답 없이 끝난 실패(receiver_ended, lophn_restarted)로는 닫지 않는다(session이 그 컴퓨터에 살아 있다)"
       - id: member-ended-there
         observe: [ledger:sessions, event:SessionEnded, ledger:agent_calls]
-        when: "늦게: 그 컴퓨터에서 팀원 session이 보관되거나 지워져 state ended mail이 왔다. 자리를 닫고 그 자리로 보낸 열린 call은 receiver_ended다"
+        when: "늦게: 그 컴퓨터에서 팀원 session이 보관되거나 지워져 state ended mail이 왔거나, 그 mail을 잃었어도 자리로 보낸 call이 그 컴퓨터에서 closed·not_found로 실패했다. 자리를 닫고 그 자리로 보낸 열린 call은 receiver_ended다"
+      - id: member-ended-with-parent
+        observe: [ledger:sessions, event:SessionEnded, ledger:mail_outbox]
+        when: "부모 session이 보관되거나 지워지거나 team end로 끝났다. 그 밑의 열린 자리도 같이 닫히고 그 컴퓨터로 cancel(end)이 간다"
     crosses_process: false
     risk: [permission]
     docs: [architecture/agent-call.md, architecture/machine-a2a.md]
@@ -534,18 +537,19 @@ flows:
     code: [packages/core/remote/mail-entry.ts, packages/core/main/daemon/wiring/mail.ts, packages/core/router/remote-reach.ts, packages/protocol/lophn-agent/mail.ts]
     steps:
       - agent 자격이 session에 묶이지 않았으면 forbidden이다
-      - 보낸 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach). private workspace의 session은 컴퓨터 이름을 풀기 전에 forbidden이다(없는 이름도 forbidden). 다른 컴퓨터의 mail로 열린 session은 이름을 푼 뒤 그 mail을 보낸 컴퓨터가 아니면 forbidden이다(셋째 컴퓨터로 넘기지 않는다. 다른 컴퓨터가 연 팀원은 이 길로 부모에게 닿는다). 할당은 보지 않는다(명단의 컴퓨터는 mail을 받는다)
+      - 보낸 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach). private workspace의 session은 컴퓨터 이름을 풀기 전에 forbidden이다(없는 이름도 forbidden). 다른 컴퓨터의 mail로 열린 session은 컴퓨터 이름을 풀기 전에 forbidden이다(받은 call의 답은 call reply다). 예외는 다른 컴퓨터가 연 팀원 하나이고 이름을 푼 뒤 자기를 연 컴퓨터가 아니면 forbidden이다(셋째 컴퓨터로 넘기지 않는다. 팀원은 이 길로 부모에게 닿는다). 할당은 보지 않는다(명단의 컴퓨터는 mail을 받는다)
       - 명단의 컴퓨터를 이름, 기계 id, 기기 id로 푼다. 이 컴퓨터이거나 기계 id가 이 기계면 invalid_input, 없으면 not_found, 같은 이름이 여럿이면 invalid_input(후보 기기 id)이다
       - 주소의 workspace를 기계를 건너는 꼴로 바꾼다(project는 공유 id pri_, 앱은 app_, home). session 꼴은 그대로다
       - 본문은 글 block만이고 redaction을 거친 글이 64 KiB 안이어야 한다
       - core 안 machine 자격으로 calls/mail-send를 불러 call 행과 outbox mail을 한 tx에 쓰고 call id를 바로 돌려준다. link는 기다리지 않는다(mail-drain이 낸다)
+      - 주소의 session이 이 컴퓨터가 그 컴퓨터에 연 팀원의 자리면 그 자리로 보내는 call과 같다(call-send의 call 정책, 팀 규칙, 닫힌 자리는 failed closed). 팀원에게 닿는 길은 이 하나다
     outcomes:
       - id: queued
         observe: [ledger:agent_calls, ledger:mail_outbox, response]
         when: 행(delivery pending)과 outbox mail을 썼다. 같은 dedup이면 그 call의 상태를 돌려준다
       - id: sender-refused
         code: forbidden
-        when: 자격에 session이 없다, 보낸 session의 workspace가 private이다, 보낸 session이 다른 컴퓨터의 mail로 열렸다. outbox 줄도 행도 없다
+        when: 자격에 session이 없다, 보낸 session의 workspace가 private이다, 보낸 session이 다른 컴퓨터의 mail로 열렸다(다른 컴퓨터가 연 팀원이 자기를 연 컴퓨터로 보내는 것만 된다), 이 컴퓨터가 연 팀원의 자리로 보내는데 call 정책이나 팀 규칙 밖이다. outbox 줄도 행도 없다
         observe: [response]
       - id: not-found
         code: not_found
@@ -1285,7 +1289,7 @@ flows:
     code: [packages/core/main/daemon/wiring/router.ts, packages/core/router/commands.ts]
     steps:
       - agent runtime이 turn을 읽기 전에 core가 calls/recover를 machine 자격으로 부른다(wiring start)
-      - queue와 call 줄이 메모리라서 accepted인데 아직 가져가지 않은 call을 failed(lophn_restarted)로 닫는다. 팀의 ask call은 부모가 가져갔어도 닫는다
+      - queue와 call 줄이 메모리라서 accepted인데 아직 가져가지 않은 call을 failed(lophn_restarted)로 닫는다. 이 기계에서 낸 팀의 ask call은 부모가 가져갔어도 닫는다(다른 컴퓨터의 팀원이 낸 ask는 짝이 그 컴퓨터에 살아 있어 가져갔으면 둔다)
       - 보낸 session이 살아 있고 실패 글의 blob이 준비됐으면 이유를 새 입력으로 돌려준다. 자식 ask call은 자식에게 알리지 않는다
       - 같은 시점에 도는 turn은 interrupted로 닫는다
       - 다른 컴퓨터로 보낸 call은 이 기계의 queue에 없어 닫지 않는다(답은 outbox와 그 기계가 맡는다). 다른 컴퓨터에서 받아 가져가지 않은 call은 lophn_restarted로 닫고 보낸 기계로 실패 reply mail을 낸다

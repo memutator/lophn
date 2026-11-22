@@ -30,7 +30,8 @@ export function interruptRunningTurns(
   reason: InterruptReason,
   session?: Id<"ses">,
   // 재시작으로 닫는 turn이 가져간 call을 보낸 쪽에 돌려준다. session을 끝낼 때는 Router가 그 session의 call을 따로 닫는다.
-  calls?: { signals: CallSignals; notify: boolean },
+  // `vanished`면 lophn은 그대로이고 runtime child만 사라졌다: 보낸 쪽에는 재시작이 아니라 실패로 알린다.
+  calls?: { signals: CallSignals; notify: boolean; vanished?: boolean },
 ): Result<number> {
   const rows = (
     session === undefined
@@ -77,7 +78,9 @@ export function interruptRunningTurns(
       tx,
       calls?.signals,
       current,
-      outcome,
+      calls?.vanished === true
+        ? { kind: "failed", reason: "runtime_vanished" }
+        : outcome,
       calls?.notify ?? false,
     );
     if (!abandoned.ok) return abandoned;
@@ -111,7 +114,9 @@ export function interruptTurnsCommand(
         publish,
         "restarted",
         undefined,
-        calls === undefined ? undefined : { signals: calls, notify: true },
+        calls === undefined
+          ? undefined
+          : { signals: calls, notify: true, vanished: true },
       );
       return done.ok ? ok({ interrupted: done.value }) : done;
     },

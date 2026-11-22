@@ -380,7 +380,8 @@ function recordShell(
   input: Input<typeof recordShellMessage>,
 ): Result<SentMessage> {
   const target = deps.directory.find(tx, input.session as Id<"ses">);
-  if (target === null) return sessionNotFound();
+  // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니다(shell은 그 컴퓨터에서 돈다).
+  if (target === null || target.runs_on !== null) return sessionNotFound();
   if (!target.accepting) {
     return reject("conflict", "this session takes no new input");
   }

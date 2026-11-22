@@ -418,7 +418,7 @@ export function createTabHandlers(deps: TabDeps) {
       return ok({ tab, status: "accepted" as const });
     }
     if ("session" in input.target || "tui" in input.target) {
-      // 같은 workspace의 열린 session만 연다.
+      // 같은 workspace의 열린 session만 연다. 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니다.
       const session =
         "session" in input.target ? input.target.session : input.target.tui;
       const target = sessionRow(session);
@@ -427,6 +427,7 @@ export function createTabHandlers(deps: TabDeps) {
       if (
         target === undefined ||
         target.lifecycle !== "open" ||
+        target.runs_on !== null ||
         (there?.kind ?? "home") !== (here?.kind ?? "home") ||
         there?.id !== here?.id
       ) {

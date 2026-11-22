@@ -94,7 +94,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 
 ### 꺼졌다 켜질 때
 
-18. 입력함은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 `failed(lophn_restarted)`로 닫는다. 팀의 ask call은 가져갔어도 닫는다(아래 "팀"). 가져간 result call도 그 turn이 답 없이 끝나면 닫는다: turn이 재시작으로 끊기면 `failed(lophn_restarted)`, 실패하거나 멈추면 `failed(receiver_ended)`이고 보낸 쪽은 늦은 실패로 안다(다른 컴퓨터에서 온 call이면 실패 mail로 간다). 이유: 가져간 call을 accepted로 두면 부른 쪽이 받은 session이 보관될 때까지 기다린다. 정상으로 끝난 turn, 이미 답했거나 취소된 call, conversation call은 그대로다. (agent, 2026-11-21. 전에는 accepted로 남겼다)
+18. 입력함은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 `failed(lophn_restarted)`로 닫는다. 팀의 ask call은 가져갔어도 닫는다(아래 "팀"). 가져간 result call도 그 turn이 답 없이 끝나면 닫는다: turn이 재시작으로 끊기면 `failed(lophn_restarted)`, 실패하거나 멈추면 `failed(receiver_ended)`이고 보낸 쪽은 늦은 실패로 안다(다른 컴퓨터에서 온 call이면 실패 mail로 간다). 이유: 가져간 call을 accepted로 두면 부른 쪽이 받은 session이 보관될 때까지 기다린다. 정상으로 끝난 turn, 이미 답했거나 취소된 call, conversation call은 그대로다. 다른 컴퓨터에서 받은 workflow step은 닫지 않고 그 컴퓨터에 진행 줄 하나만 보낸다(`architecture/workflow.md` 51). (agent, 2026-11-21. 전에는 accepted로 남겼다)
     - 같은 tx에서 돌던 turn도 interrupted로 닫고, agent runtime이 turn을 읽기 전에 끝낸다. durable queue를 만들지 않는 대신 조용히 사라지는 call이 없게 하는 장치다. 입력함이 메모리인 한 켤 때 정산은 필요하다.
 19. none은 받는 turn이 입력을 가져갈 때 done이 된다. 배달할 때 done으로 두면 켤 때 입력함과 함께 잃은 handoff를 위 장치가 가리지 못한다. 가져간 뒤에도 accepted로 두면 받은 session을 archive할 때 이미 넘어간 일에 `receiver_ended`가 가고 화면의 [Cancel]이 남는다.
 

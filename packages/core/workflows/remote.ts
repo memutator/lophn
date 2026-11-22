@@ -2,6 +2,7 @@ import { ok, type Result } from "../../base/mod.ts";
 import type { StepEnding } from "../router/ports.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
 import type { HandedLine } from "../../protocol/workflows/mod.ts";
+import type { TurnEndedKind } from "../../protocol/lophn-agent/mail.ts";
 import { STATE_CHANGED_TOPIC } from "../storage/ledger/after-commit.ts";
 import type { RemoteStep } from "../../protocol/workflows/mod.ts";
 import { readCall } from "../router/mod.ts";
@@ -84,6 +85,20 @@ export function remoteFailureText(
     case "lophn_restarted":
       return `lophn on ${computer} restarted before the step was taken.`;
   }
+}
+
+// 그 컴퓨터에서 step을 가져간 turn이 report 없이 끝났다. step은 열려 있어 그 session이 뒤에 낸 report가 닿는다.
+export function remoteTurnEndedText(
+  computer: string,
+  ended: TurnEndedKind,
+): string {
+  const what =
+    ended === "failed"
+      ? "failed"
+      : ended === "stopped"
+        ? "was stopped by the person there"
+        : `was cut off when lophn on ${computer} restarted`;
+  return `The turn that took this step on ${computer} ${what} before reporting. The step is still open; continue it in that session on ${computer}.`;
 }
 
 // 그 call로 넘긴 step이 다른 컴퓨터에서 돌지 못하고 끝났다. not_handed 줄을 남긴다. 이어 넘기는 일은 agent나 사람의 hand_now다.

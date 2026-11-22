@@ -13,6 +13,7 @@ import {
   NotHanded,
   RemoteFailed,
   RemoteHeld,
+  RemoteTurnEnded,
   Restarted,
   Running,
   Start,
@@ -103,6 +104,13 @@ export const workflowArea: Area = {
       description:
         "다른 컴퓨터로 넘긴 step이 거기서 돌지 못한 run이다. 한 장과 그 step에 core가 적은 이유 글(건너뜀, 만료, 취소, report 없이 닫힘)이 그대로 보인다.",
       render: () => <RemoteFailed />,
+    },
+    {
+      id: "workflow-tab-remote-turn-ended",
+      title: "Run · turn on another computer ended without a report",
+      description:
+        '다른 컴퓨터가 가져간 step의 turn이 거기서 실패해(멈춤, 재시작도 같다) report 없이 끝난 run이다. 그 컴퓨터의 lophn이 쓴 줄이 "lophn on Home server"로 그 step의 마지막 글에 보이고, 한 장이 넘기지 못한 step과 같은 무게로 그 컴퓨터의 session에서 이으라고 말한다. step은 열려 있어 뒤에 낸 report가 닿고 상태는 Running이다.',
+      render: () => <RemoteTurnEnded />,
     },
     {
       id: "workflow-tab-invalid",

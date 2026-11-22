@@ -33,6 +33,7 @@ import {
   stepsOf,
 } from "./declaration.ts";
 import { planHandoff } from "./plan.ts";
+import { remoteTurnEndedText } from "./remote.ts";
 import type {
   WorkflowFiles,
   WorkflowFlows,
@@ -362,17 +363,27 @@ export function createWorkflowService(deps: {
     ): Promise<Result<null | { line: string | null }>> {
       const report = mail.report;
       const hand = remote.handOf(mail.call);
-      if (report === undefined || mail.body === null || !hand.ok) {
+      // 그 컴퓨터의 program이 쓴 진행 줄(step을 가져간 turn이 report 없이 끝남)은 본문이 없고 글을 이 컴퓨터가 쓴다.
+      const ended = report?.ended;
+      if (
+        report === undefined ||
+        (mail.body === null && ended === undefined) ||
+        !hand.ok
+      ) {
         return hand.ok ? ok(null) : hand;
       }
       if (hand.value === null) return ok(null);
       const { instance: id, step } = hand.value;
+      const machine = origin.machine as Id<"mch">;
       const done = await apply(id, (state) => {
         const { instance } = state;
-        const next = report.next;
+        const next = ended === undefined ? report.next : null;
         const hands =
           instance.state !== "stopped" && next !== null && next !== "end";
-        const text = blocksText(mail.body!);
+        const text =
+          ended === undefined
+            ? blocksText(mail.body!)
+            : remoteTurnEndedText(origin.computer, ended);
         return ok({
           instance: instance.id,
           change: {
@@ -382,12 +393,15 @@ export function createWorkflowService(deps: {
             next,
             session: report.session,
           },
-          by: {
-            kind: "remote",
-            machine: origin.machine as Id<"mch">,
-            computer: origin.computer,
-            name: mail.from.name,
-          },
+          by:
+            ended === undefined
+              ? {
+                  kind: "remote",
+                  machine,
+                  computer: origin.computer,
+                  name: mail.from.name,
+                }
+              : { kind: "remote_lophn", machine, computer: origin.computer },
           handoff: hands
             ? planHandoff({
                 instance,

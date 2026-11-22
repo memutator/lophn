@@ -854,15 +854,39 @@ test("폴더 길로 cancel이 call보다 먼저 닿으면 그 call은 돌지 않
 });
 
 // 받는 turn이 call을 가져간 뒤 끝나지 못한 것을 흉내 낸다: 받은 message와 도는 turn을 쓰고, 재시작처럼 turn을 interrupted로 닫는다.
-function interruptAfterTake(m: Machine, session: string, call: string) {
+// step이면 받은 message가 다른 컴퓨터에서 온 step 입력(보낸 쪽 program, call id, 답 칸 없음)이다.
+function interruptAfterTake(
+  m: Machine,
+  session: string,
+  call: string,
+  step?: { instance: string; name: string },
+) {
   const n = m.count("messages") + 1;
   const message = `msg_0${String(n).padStart(25, "0")}`;
-  m.db
-    .prepare(
-      `insert into messages (id, session, from_kind, from_ref, call, reply, body, created_seq, created_at, state_seq)
+  if (step === undefined) {
+    m.db
+      .prepare(
+        `insert into messages (id, session, from_kind, from_ref, call, reply, body, created_seq, created_at, state_seq)
        values (?, ?, 'agent', 'x', ?, 'result', ?, ?, 't', ?)`,
-    )
-    .run(message, session, call, "a".repeat(64), 1000 + n, 1000 + n);
+      )
+      .run(message, session, call, "a".repeat(64), 1000 + n, 1000 + n);
+  } else {
+    m.db
+      .prepare(
+        `insert into messages (id, session, from_kind, call, step_instance, step_name, body, created_seq, created_at, state_seq)
+       values (?, ?, 'program', ?, ?, ?, ?, ?, 't', ?)`,
+      )
+      .run(
+        message,
+        session,
+        call,
+        step.instance,
+        step.name,
+        "a".repeat(64),
+        1000 + n,
+        1000 + n,
+      );
+  }
   m.db
     .prepare(
       `insert into turns (id, session, input_message, state, basis, started_at, limits, mode, state_seq)
@@ -1173,6 +1197,77 @@ test("다른 컴퓨터로 넘긴 step이 report 없이 끝나면(그 컴퓨터�
       cancelled[0]?.kind === "not_handed" &&
       /cancelled on this computer/.test(cancelled[0].message),
   );
+});
+
+test("다른 컴퓨터가 가져간 step의 turn이 report 없이 끝나면 그 turn마다 진행 줄 mail 하나가 가고 step은 열려 있으며, report로 닫힌 step은 mail이 없다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { id } = a.start(REMOTE_BUILD);
+  await deliver(a, b);
+  const got = b.delivered.at(-1)!;
+  const call = got.input.call!;
+  interruptAfterTake(b, got.session, call, { instance: id, name: "build" });
+  // 같은 turn을 다시 닫는 길(켤 때 정산이 또 돈다)은 둘째 mail을 내지 않는다.
+  assert.ok(
+    interruptRunningTurns(b.tx, undefined, "restarted", undefined, {
+      signals: {
+        consumed: (tx, one) => b.router.markConsumed(tx, one),
+        abandoned: (tx, input) => b.router.abandoned(tx, input),
+      },
+      notify: true,
+    }).ok,
+  );
+  const mails = pendingMails(b.sql, A as never);
+  assert.equal(mails.length, 1);
+  const [mail] = mails;
+  assert.ok(mail?.kind === "reply");
+  assert.deepStrictEqual(
+    { body: mail.body, outcome: mail.outcome, report: mail.report },
+    {
+      body: null,
+      outcome: null,
+      report: { next: null, session: "new", ended: "restarted" },
+    },
+  );
+  assert.equal(b.call(call)?.["state"], "accepted");
+  await deliver(b, a);
+  const [line] = linesOf(a, id, "report");
+  assert.ok(line?.kind === "report");
+  assert.deepStrictEqual(line.by, {
+    kind: "remote_lophn",
+    machine: B,
+    computer: "windows",
+  });
+  assert.match(
+    line.text,
+    /on windows was cut off when lophn on windows restarted/,
+  );
+  assert.equal(a.read(id).remote_steps[0]?.state, "accepted");
+  // 사람이 그 session을 다시 밀어 낸 report는 그대로 닿아 다음 step을 넘긴다.
+  const reported = await b.workflows.report(
+    { instance: id, step: "build", text: "built", next: "review" },
+    { kind: "agent", session: got.session as Id<"ses"> },
+  );
+  assert.ok(reported.ok, JSON.stringify(reported));
+  await deliver(b, a);
+  assert.equal(a.read(id).remote_steps[0]?.state, "done");
+  assert.equal(linesOf(a, id, "handed").length, 2);
+
+  // report(next)로 닫힌 step은 그 뒤 turn이 끊겨도 mail이 없다.
+  const second = a.start(REMOTE_BUILD);
+  await deliver(a, b);
+  const took = b.delivered.at(-1)!;
+  const closed = await b.workflows.report(
+    { instance: second.id, step: "build", text: "built", next: "review" },
+    { kind: "agent", session: took.session as Id<"ses"> },
+  );
+  assert.ok(closed.ok);
+  await deliver(b, a);
+  interruptAfterTake(b, took.session, took.input.call!, {
+    instance: second.id,
+    name: "build",
+  });
+  assert.equal(pendingMails(b.sql, A as never).length, 0);
 });
 
 test("다른 컴퓨터의 report는 다음 step을 넘기지 못해도 report 줄과 not_handed 줄로 남는다", async () => {

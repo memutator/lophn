@@ -1430,7 +1430,7 @@ flows:
       - "core 안 machine이 아니면 forbidden이다(requireMachine)."
       - "router나 environment가 아직 없으면 unavailable이다."
       - "잃어버린 call(받았으나 turn이 가져가지 않은 call, 기다리던 ask call)을 lophn_restarted로 닫는다. notify가 true면 살아 있는 보낸 session에 알림을 넣는다."
-      - "도는 turn을 interrupted(restarted)로 닫는다. 그 turn이 가져가고 아직 답하지 않은 result call도 lophn_restarted로 닫는다(다른 컴퓨터에서 받은 call이면 실패 reply mail). queue와 앱 줄은 메모리라 이 tx 밖이다."
+      - "도는 turn을 interrupted(restarted)로 닫는다. 그 turn이 가져가고 아직 답하지 않은 result call도 lophn_restarted로 닫는다(다른 컴퓨터에서 받은 call이면 실패 reply mail). 다른 컴퓨터에서 받은 workflow step은 닫지 않고 그 기계로 진행 줄 reply mail 하나를 낸다. queue와 앱 줄은 메모리라 이 tx 밖이다."
       - "닫은 failed·interrupted 수를 돌려준다. 알림 글 준비, 실패 log, 기동을 잇는 일은 wiring이 맡는다(agents call-restart-recovery)."
     outcomes:
       - id: ok

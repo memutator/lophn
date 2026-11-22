@@ -31,6 +31,9 @@ export const MAIL_LATE_MS = 10 * 60 * 1000;
 export const MAIL_TEXT_MAX_BYTES = 64 * 1024;
 // 한 mail 본문의 block 수.
 const MAIL_BLOCKS_MAX = 64;
+// 받은 컴퓨터에서 step을 가져간 turn이 report 없이 끝난 모양: 실패, 사람이 멈춤, 재시작으로 끊김.
+export const TURN_ENDED_KINDS = ["failed", "stopped", "restarted"] as const;
+export type TurnEndedKind = (typeof TURN_ENDED_KINDS)[number];
 
 // mail을 쓴 쪽이다. 받는 기계는 machine만 믿고(link의 기기나 폴더의 기계 폴더와 같아야 한다) 나머지는 표시다.
 // name은 `requesterName`으로 만든다.
@@ -100,10 +103,13 @@ export const mailSchema = z.discriminatedUnion("kind", [
     unattended: z.boolean(),
     // step call에 받은 참가자가 낸 report. 글은 body다. next가 있으면 outcome이 done이다. step 이름의 꼴은 시작한 컴퓨터의
     // ApplyWorkflowChange가 본다(protocol의 workflows를 import하면 최상위 사이 순환이다).
+    // `ended`는 참가자가 아니라 받은 컴퓨터의 program이 쓴 진행 줄이다: step을 가져간 turn이 report 없이 끝났다(next null, body null).
+    // 글은 시작한 컴퓨터가 자기 명단의 이름으로 쓴다.
     report: z
       .strictObject({
         next: z.string().min(1).max(63).nullable(),
         session: z.enum(["new", "same"]),
+        ended: z.enum(TURN_ENDED_KINDS).optional(),
       })
       .optional(),
   }),

@@ -111,6 +111,12 @@ export type WorkflowLineBy =
       readonly machine: string;
       readonly computer: string;
       readonly name: string;
+    }
+  /** 다른 컴퓨터의 lophn이 쓴 줄: 그 컴퓨터에서 step을 가져간 turn이 report 없이 끝났다. */
+  | {
+      readonly kind: "remote_lophn";
+      readonly machine: string;
+      readonly computer: string;
     };
 
 /** instance를 시작한 쪽. job이면 제목을 붙여 온다(지워진 job은 null). */

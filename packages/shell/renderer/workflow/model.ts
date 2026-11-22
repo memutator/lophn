@@ -216,11 +216,14 @@ const lastOf = <K extends WorkflowLineView["kind"]>(
 ): Line<K> | undefined =>
   lines.findLast((line): line is Line<K> => line.kind === kind);
 
-/** 그 step을 다른 컴퓨터로 넘겼으면 그 컴퓨터와 지금 전달 상태. 이 컴퓨터로 넘긴 step은 null이다. */
+/**
+ * 그 step을 다른 컴퓨터로 넘겼으면 그 컴퓨터와 지금 전달 상태. 이 컴퓨터로 넘긴 step은 null이다.
+ * turnEnded는 그 step의 가장 나중 줄이 그 컴퓨터의 lophn이 쓴 줄(가져간 turn이 report 없이 끝남)이라는 것이다.
+ */
 export function remoteOfStep(
   detail: WorkflowInstanceDetailView,
   step: string,
-): { computer: string; delivery: RemoteDelivery } | null {
+): { computer: string; delivery: RemoteDelivery; turnEnded: boolean } | null {
   const handed = detail.lines.findLast(
     (line): line is Line<"handed"> =>
       line.kind === "handed" && line.step === step,
@@ -228,7 +231,14 @@ export function remoteOfStep(
   const remote = handed?.remote ?? null;
   if (remote === null) return null;
   const call = detail.remote_steps.find((item) => item.call === remote.call);
-  return { computer: remote.computer, delivery: call?.delivery ?? null };
+  const last = detail.lines.findLast(
+    (line) => "step" in line && line.step === step,
+  );
+  return {
+    computer: remote.computer,
+    delivery: call?.delivery ?? null,
+    turnEnded: last?.by.kind === "remote_lophn",
+  };
 }
 
 /** 다른 컴퓨터로 넘긴 step의 전달 상태. 끝난 call은 null이다. */
@@ -256,6 +266,8 @@ export type Now =
       readonly who: Who;
       readonly computer: string;
       readonly delivery: RemoteDelivery;
+      /** 그 컴퓨터에서 step을 가져간 turn이 report 없이 끝났다. step은 열려 있다. */
+      readonly turnEnded: boolean;
     }
   /** flow의 program이 도는 중이다. */
   | { readonly kind: "program"; readonly step: string }

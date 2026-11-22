@@ -36,6 +36,7 @@ import {
   MAIL_LATE_MS,
   MAIL_TEXT_MAX_BYTES,
   mailBodySchema,
+  type TurnEndedKind,
 } from "../../protocol/lophn-agent/mail.ts";
 import { requesterName } from "../../protocol/machine/requester.ts";
 import {
@@ -145,12 +146,14 @@ export interface Router {
   // 받는 session의 turn이 이 call의 입력을 가져갔다(turn을 시작할 때 부른다).
   markConsumed(tx: Tx, call: string): Result<void>;
   // 받는 session의 turn이 call을 가져간 뒤 끝나지 못했다(실패, 멈춤, 재시작). 아직 답하지 않은 result call을 보낸 쪽에 실패로 돌려준다.
+  // 다른 컴퓨터에서 받은 workflow step(`step`)은 닫지 않고(뒤에 낸 report가 닿아야 한다) 보낸 기계에 program이 쓴 진행 줄 mail을 낸다.
   abandoned(
     tx: Tx,
     input: {
       call: string;
       session: string;
-      reason: CallFailReason;
+      ended: TurnEndedKind;
+      step: boolean;
       notify: boolean;
     },
   ): Result<void>;
@@ -1942,7 +1945,7 @@ export function createRouter(deps: RouterDeps): Router {
     abandoned(tx, input) {
       const record = store.read(tx, calId(input.call));
       // 답한 call(done), 취소·실패한 call은 그대로다. conversation은 답이 여럿이라 끝나지 않은 turn이 끝을 뜻하지 않는다.
-      // ask call은 켤 때 정산과 짝의 규칙이 따로 닫는다.
+      // ask call은 켤 때 정산과 짝의 규칙이 따로 닫는다. next로 report한 step은 이미 done이다.
       if (
         record === null ||
         isFinished(record.state) ||
@@ -1952,7 +1955,28 @@ export function createRouter(deps: RouterDeps): Router {
       ) {
         return ok(undefined);
       }
-      const done = failAll(tx, [record], input.reason, input.notify, true);
+      if (input.step) {
+        if (record.from.kind !== "remote") return ok(undefined);
+        const queued = queue(tx, {
+          kind: "reply",
+          call: calId(record.call),
+          from: authorOf(input.session),
+          to_machine: record.from.machine,
+          ...stamp(tx),
+          body: null,
+          outcome: null,
+          unattended: record.unattended,
+          report: { next: null, session: "new", ended: input.ended },
+        });
+        return queued.ok ? ok(undefined) : queued;
+      }
+      const done = failAll(
+        tx,
+        [record],
+        input.ended === "restarted" ? "lophn_restarted" : "receiver_ended",
+        input.notify,
+        true,
+      );
       return done.ok ? ok(undefined) : done;
     },
     sendRemote,

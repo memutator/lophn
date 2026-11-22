@@ -3,6 +3,7 @@ import { requestPrincipal } from "../storage/ledger/after-commit.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { TargetSession } from "./ports.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import type { TurnEndedKind } from "../../protocol/lophn-agent/mail.ts";
 import { createRouter, type Router, type RouterDeps } from "./router.ts";
 import type { RouteInput, RouteResult } from "./model.ts";
 import type { SqlView } from "./store.ts";
@@ -107,7 +108,8 @@ export const callSignals = {
     input: {
       call: Id<"cal">;
       session: Id<"ses">;
-      reason: "receiver_ended" | "lophn_restarted";
+      ended: TurnEndedKind;
+      step: boolean;
       notify: boolean;
     },
   ): Result<void> {

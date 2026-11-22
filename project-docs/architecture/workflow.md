@@ -81,7 +81,7 @@ instance와 줄
 12. instance는 시작할 때 선언의 참가자와 step 가운데 읽는 칸만 골라 옮겨 갖는다. 그 뒤 선언이 바뀌어도 instance는 그대로이고, instance의 step은 참가자가 `EditWorkflow`로 고친다.
 13. `ended`는 누가 그렇게 말했다는 기록일 뿐이다(report의 `next: end`나 edit의 `end`). `running`이었을 때만 `ended` 줄과 끝난 시각을 쓴다. 그 뒤 report나 `hand_now`가 실제로 넘기면(`handed`) 다시 `running`이 되고 끝난 시각이 비워진다. 넘기지 못했으면 `ended` 그대로다.
 14. `stopped`는 사람이 멈춘 것이다(`StopWorkflow`, actor user). 멈춘 instance에는 넘기지 않고 고치기와 다시 멈추기를 `conflict`로 거절한다. report는 줄만 남기고 `handed: null`이다. 늦게 온 report를 잃지 않는다.
-15. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. flow code가 낸 report는 `program`이고, 다른 컴퓨터의 참가자가 낸 report는 `remote`(그 기계, 컴퓨터 이름, 이름)다. `started` 줄만 `started_by`(사람 또는 job)를 그대로 싣는다. `handed`·`not_handed`·`ended`·`lophn_restarted`·`program_exited`는 lophn이다. seq는 instance 안에서 1부터 잇는다.
+15. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. flow code가 낸 report는 `program`이고, 다른 컴퓨터의 참가자가 낸 report는 `remote`(그 기계, 컴퓨터 이름, 이름)이며, 다른 컴퓨터의 lophn이 쓴 진행 줄(51)은 `remote_lophn`(그 기계, 컴퓨터 이름)이다. `started` 줄만 `started_by`(사람 또는 job)를 그대로 싣는다. `handed`·`not_handed`·`ended`·`lophn_restarted`·`program_exited`는 lophn이다. seq는 instance 안에서 1부터 잇는다.
 16. 한 command는 instance 행을 한 번 고치고(`state_seq`가 한 번 오른다) commit 뒤 `workflow_instances` 변경(`StateChanged`)을 한 번 낸다. 쓰는 쪽은 읽은 `state_seq`로 compare를 걸고, `conflict`면 다시 읽어 `state_seq`가 바뀌었을 때만 최대 3번 건다. 안 바뀌었으면 진짜 conflict다.
 17. `ReadWorkflowInstance`는 instance, step마다 가장 나중 report(`last_reports`), 줄 200개씩(`cursor`)을 준다. machine 자격도 받는다. `ListWorkflowInstances`는 project(와 workflow, state)로 거르고 새것이 앞이며 50개씩, 줄마다 마지막 줄을 붙인다.
 
@@ -138,7 +138,7 @@ flow
 48. 받는 컴퓨터는 그 agent와 workspace의 step 입력(보낸 쪽 program, 입력 종류 `step`)으로 넣는다. 본문 앞에 다른 컴퓨터에서 온 step이라는 고정 줄 하나를 붙인다. tag, 고정 영어 줄, report하는 법은 이 컴퓨터의 step과 같다. skip은 call처럼 그 컴퓨터의 터미널 입력 허락을 따른다.
 49. report는 같은 명령(`workflow report`)이다. 받은 컴퓨터에는 instance가 없으므로, 그 session이 그 instance·step의 step 입력을 다른 컴퓨터에서 받았으면 report를 그 call의 reply mail(`report: {next, session}`, 글은 본문)로 낸다. 그 step을 받은 session만 낼 수 있고, `next`가 있는 report는 그 call을 끝내 한 번뿐이다(진행 글은 call이 열린 동안 여러 번). 다른 session의 report는 이 컴퓨터의 instance를 찾다 `not_found`다.
 50. 시작한 컴퓨터는 그 reply mail을 `ApplyWorkflowChange`의 report로 한 transaction에서 적용한다: mail을 본 것으로 적고(한 번), call 행이 그 기계로 보낸 열린 행인지 보고, report 줄(by `remote`)을 남기고, 다음 step을 지금처럼 넘긴다(이 컴퓨터든 다른 컴퓨터든). 다음 step을 넘길 수 없으면(redaction 뒤 64 KiB를 넘는 글, 그 사이 private이 된 project) report는 그대로 남고 다음 step은 `not_handed` 줄이다. 다른 기계나 끝난 call의 report는 아무것도 바꾸지 않는다. instance가 계속 바뀌어 적용하지 못하면 `unavailable`로 답해 그 기계가 같은 mail을 다시 보낸다.
-51. 다른 컴퓨터로 넘긴 step이 report 없이 끝나면 늘 시작한 컴퓨터에 `not_handed`(`remote_failed`) 줄과 사람이 읽는 글이 남는다: 그 컴퓨터에서 돌지 못함(건너뜀, 만료, 옛 판, 거절, 없는 받는 곳, 가져가기 전 재시작, 받은 session의 끝), 그 컴퓨터에서 report 아닌 길로 닫힘(사람의 취소, `call reply`), 이 컴퓨터에서 그 call을 취소함. 가져간 뒤 그 컴퓨터의 turn이 실패하거나 멈추거나 재시작으로 끊기면 step은 열린 채다(이 컴퓨터의 step이 실패한 turn으로 닫히지 않는 것과 같다. 뒤에 낸 report가 닿아야 한다). `StopWorkflow`는 그 instance의 열린 다른 컴퓨터 step call을 취소한다(낼 call mail을 지우고 cancel mail을 낸다). 그 취소는 따로 줄을 남기지 않는다(stopped 줄이 말한다).
+51. 다른 컴퓨터로 넘긴 step이 report 없이 끝나면 늘 시작한 컴퓨터에 `not_handed`(`remote_failed`) 줄과 사람이 읽는 글이 남는다: 그 컴퓨터에서 돌지 못함(건너뜀, 만료, 옛 판, 거절, 없는 받는 곳, 가져가기 전 재시작, 받은 session의 끝), 그 컴퓨터에서 report 아닌 길로 닫힘(사람의 취소, `call reply`), 이 컴퓨터에서 그 call을 취소함. 가져간 뒤 그 컴퓨터의 turn이 실패하거나 멈추거나 재시작으로 끊기면 step은 열린 채다(이 컴퓨터의 step이 실패한 turn으로 닫히지 않는 것과 같다. 뒤에 낸 report가 닿아야 한다). 그때 그 컴퓨터의 program이 진행 줄 하나를 보낸다: reply mail의 `report`에 `ended`(`failed | stopped | restarted`)를 싣고 `next`와 본문은 없다. 시작한 컴퓨터는 그것을 report 줄(by `remote_lophn`, `next` null)로 남기고 글은 자기 명단의 그 컴퓨터 이름으로 쓴다. turn은 한 번만 끝나므로 turn 하나에 줄은 하나다. `next`로 report해 닫힌 step은 보내지 않는다. 진행 글만 낸 turn이 그 뒤 끊겨도 step이 열려 있으므로 보낸다. `StopWorkflow`는 그 instance의 열린 다른 컴퓨터 step call을 취소한다(낼 call mail을 지우고 cancel mail을 낸다). 그 취소는 따로 줄을 남기지 않는다(stopped 줄이 말한다).
 52. `handed` 줄은 다른 컴퓨터로 넘긴 때 `receiver`가 null이고 `remote: {machine, computer, call}`을 싣는다. `ReadWorkflowInstance`의 `remote_steps`가 그 call마다 지금 상태(`state`, `delivery`, `fail_reason`, `session`)를 준다. 배달 상태가 바뀌면 `workflow_instances` 변경이 난다. `workflow edit`을 다른 컴퓨터에서 하는 길은 없다.
 
 ## 경계와 계약
@@ -160,8 +160,8 @@ event와 저장
 - 선언의 `agent`·`participants`의 agent는 handle이다. 내부 id가 아니다.
 
 다른 컴퓨터의 참가자
-- 선언: agent 참가자의 `on`. mail: call mail의 `step: {instance, name}`, reply mail의 `report: {next, session}`(mail 계약은 `architecture/machine-a2a.md`). 받은 컴퓨터의 report는 core 안 machine 명령 `calls/step-report`가 reply mail로 내고, 시작한 컴퓨터는 `ApplyWorkflowChange`의 `mail` 칸으로 적용한다.
-- 줄: `handed`의 `remote: {machine, computer, call}`(receiver null), `not_handed`의 이유 `unknown_computer`·`remote_failed`, report 줄의 `by` `remote {machine, computer, name}`. 읽기: `ReadWorkflowInstance`의 `remote_steps`(call, step, machine, computer, state, delivery, fail_reason, session). 다른 컴퓨터에서 받은 step의 report 답은 줄이 없어 `line`이 null이다.
+- 선언: agent 참가자의 `on`. mail: call mail의 `step: {instance, name}`, reply mail의 `report: {next, session, ended?}`(mail 계약은 `architecture/machine-a2a.md`). 받은 컴퓨터의 report는 core 안 machine 명령 `calls/step-report`가 reply mail로 내고, 시작한 컴퓨터는 `ApplyWorkflowChange`의 `mail` 칸으로 적용한다.
+- 줄: `handed`의 `remote: {machine, computer, call}`(receiver null), `not_handed`의 이유 `unknown_computer`·`remote_failed`, report 줄의 `by` `remote {machine, computer, name}`과 `remote_lophn {machine, computer}`(가져간 turn이 report 없이 끝난 진행 줄). 읽기: `ReadWorkflowInstance`의 `remote_steps`(call, step, machine, computer, state, delivery, fail_reason, session). 다른 컴퓨터에서 받은 step의 report 답은 줄이 없어 `line`이 null이다.
 
 flow 통로
 - stdin·stdout JSON 줄: `start`, `response`(core → process), `agent`·`tool`·`report` 요청(process → core). 줄 상한 1 MiB. 모양은 SDK와 core가 각자 갖고(손으로 옮김) 어긋나면 host가 값 오류로 돌려보낸다.
@@ -180,7 +180,7 @@ artifact
 - "지금" 한 장은 run이 어디에 있는지 한 문장과 사람이 다음에 할 일의 단추다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)이다. agent가 일하는 중이면 그 agent와 [Open session]이고, 그 session이 사람의 답을 기다리면 사람 차례와 같은 무게로 보인다. 넘기지 못했거나(`not_handed`) lophn이 다시 켜져 끊겼으면(`lophn_restarted`) 이유와 말을 걸 session이다. 끝났으면 마지막 report 글이고, flow는 `program_exited`의 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 같이 보인다. 멈췄으면 멈춘 때다.
 - step 목록은 step마다 맡은 쪽, 상태, 마지막 report 글이다. 그 step의 줄은 접힌 Activity 안에 있다. step을 받은 session이 있으면 [Open session]이 그 대화를 workflow 탭 옆에 연다. 단추는 이 창이 열 수 있는 session(이 workspace의 agent의 session)에만 있다. 다른 workspace의 참가자가 받은 session에는 "지금" 한 장에도 step 목록에도 단추가 없다. `not_handed`와 `lophn_restarted`는 그 step에 이유 한 줄이고 step 줄의 그 칸이 "Not sent"가 된다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. step 없는 `edit`과 `lophn_restarted`는 "지금" 한 장 아래 한 줄이다. step을 옮기는 단추는 없다.
 - 참가자의 얼굴과 이름은 탭이 그 project의 agent 목록에서 찾는다. 다른 workspace의 agent와 목록에 없는 이름은 선언에 적힌 글 그대로다.
-- 다른 컴퓨터의 참가자(`on`)는 이름 뒤에 그 컴퓨터가 붙는다("Eval analyst on Home server"). 그 step을 넘긴 뒤 아직 거기서 돌지 않으면(닿지 않음, 답 없음, 늦게 닿아 그 컴퓨터에서 사람을 기다림) step 줄의 칸과 step 목록의 상태가 "Waiting on <컴퓨터>"이고, "지금" 한 장이 배달 상태마다 한 문장을 쓴다: 그 컴퓨터가 켜지면 간다, 보냈고 답이 아직 없다, 늦게 닿아 그 컴퓨터의 Inbox에서 시작해야 한다(이것만 사람 차례의 색이다), 그 agent가 일하는 중이다. 받은 session은 그 컴퓨터에 있어 [Open session]이 없다. 거기서 돌지 못한 step(`remote_failed`)은 core가 경우마다 적은 글을 그대로 보이고, 그 step의 상태는 step 줄의 칸과 같이 "Not sent"다. 다른 컴퓨터의 참가자가 낸 report는 "<이름> on <컴퓨터>"가 낸 것으로 보인다.
+- 다른 컴퓨터의 참가자(`on`)는 이름 뒤에 그 컴퓨터가 붙는다("Eval analyst on Home server"). 그 step을 넘긴 뒤 아직 거기서 돌지 않으면(닿지 않음, 답 없음, 늦게 닿아 그 컴퓨터에서 사람을 기다림) step 줄의 칸과 step 목록의 상태가 "Waiting on <컴퓨터>"이고, "지금" 한 장이 배달 상태마다 한 문장을 쓴다: 그 컴퓨터가 켜지면 간다, 보냈고 답이 아직 없다, 늦게 닿아 그 컴퓨터의 Inbox에서 시작해야 한다(이것만 사람 차례의 색이다), 그 agent가 일하는 중이다. 받은 session은 그 컴퓨터에 있어 [Open session]이 없다. 거기서 돌지 못한 step(`remote_failed`)은 core가 경우마다 적은 글을 그대로 보이고, 그 step의 상태는 step 줄의 칸과 같이 "Not sent"다. 다른 컴퓨터의 참가자가 낸 report는 "<이름> on <컴퓨터>"가 낸 것으로 보인다. 그 step의 가장 나중 줄이 그 컴퓨터의 lophn이 쓴 진행 줄이면 그 줄은 "lophn on <컴퓨터>"가 낸 마지막 글이고, "지금" 한 장은 넘기지 못한 step과 같은 무게로 그 컴퓨터의 session에서 이으라고 말한다. 상태는 Running 그대로다.
 - 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. run 목록과 고른 run은 처음, `workflow_instances` 변경이 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
 - project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 사람 차례인 run 수와 도는 run 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. 목록 아래 [Ask lophn for a workflow]는 그 workspace에서 lophn과 새 대화를 연다(workflow는 agent가 만든다). panel은 열려 있는 동안 열릴 때와 `workflow_instances` 변경 때 읽는다.
 
@@ -230,11 +230,10 @@ flow
 - step과 report는 새 mail 종류가 아니라 `call`·`reply`에 칸(`step`, `report`)을 더해 싣는다. 이유: 받는 쪽 규칙(한 번 적용, 기계 확인, 대기, 만료, 먼저 닿은 취소, private, session 규칙, 재시작 실패)이 모두 call mail과 call 행에 걸려 있어 step이 call이면 그대로 다 선다. 버린 안: `step`·`report` 종류를 더하기(규칙마다 둘째 갈래가 생기고 대기·만료 code가 새 종류를 배워야 한다). (agent)
 - 보낸 컴퓨터에 보낸 쪽 program인 call 행을 둔다(agent_calls의 보낸 쪽 칸이 셋 다 빈 행, 다른 컴퓨터로 보낸 행에만). 이유: 배달 상태, 받은 session, 만료, 옛 판, 취소가 이미 call 행에서 돈다. 버린 안: workflow 표에 배달 상태를 따로 두기(같은 상태 기계를 둘 둔다). (agent)
 - 다른 컴퓨터의 report는 mail 입구가 workflows에 넘겨 `ApplyWorkflowChange` 하나로 적용한다. 이유: 다음 step 본문은 blob이라 command 앞에서 준비해야 하고, 본 기록과 report 줄과 넘기기가 한 transaction이어야 반쪽이 남지 않는다. 버린 안: `calls/mail-apply` 안에서 줄만 남기고 commit 뒤에 넘기기(그 사이에 꺼지면 넘기지 않은 report가 남는다). (agent)
+- 다른 컴퓨터가 가져간 step의 turn이 report 없이 끝나면 step을 닫지 않고 그 컴퓨터의 program이 진행 줄 하나를 보낸다. 새 mail 종류가 아니라 reply mail의 `report`(next 없음)에 `ended`를 더했고, 줄은 report 줄에 `by` `remote_lophn` 갈래 하나다. 글은 시작한 컴퓨터가 쓴다(다른 줄의 컴퓨터 이름과 같은 명단에서 온다). 이유: 닫으면 사람이 그 session을 다시 밀어 낸 report가 거절되고, 아무것도 보내지 않으면 run이 말없이 도는 것처럼 보인다. 버린 안: 그 turn에서 step 닫기, 새 줄 종류 더하기(화면과 읽기가 다 배워야 한다). 이슈 `workflow-remote-step-turn-end-no-line`. (agent)
 - 받은 step의 다른 컴퓨터 표시는 본문 앞 고정 줄이다. 이유: step 입력은 보낸 쪽이 program이어야 하고(`messages` 표의 규칙) 이력 재생이 같은 bytes를 만들려면 표시가 저장된 본문에 있어야 한다. (agent)
 
 ## 열린 것
-
-- 다른 컴퓨터가 가져간 step의 turn이 실패하거나 멈추거나 재시작으로 끊기면 시작한 컴퓨터에 줄이 남지 않는다. 사람은 run 화면이 보이는 그 컴퓨터 이름과 배달 상태(도는 중)로만 알고, 그 컴퓨터의 session을 열어 봐야 turn이 끊긴 것을 안다. 그 turn에서 step을 닫으면 뒤의 report가 거절되고, 이 컴퓨터의 step도 실패한 turn으로 닫지 않는다. 이슈 `workflow-remote-step-turn-end-no-line`.
 
 - flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory는 V8 heap 512 MiB에서 막힌다. CPU를 막으려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`.
 - `workflow.yaml`에 남은 옛 `{kind: harness}` 참가자는 옮기지 않는다. `invalid_declaration`이고 손으로 고친다(agent 이름을 알 수 없다).

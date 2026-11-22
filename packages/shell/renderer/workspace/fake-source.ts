@@ -169,6 +169,7 @@ const IDS = {
   flowRestarted: "wfi_01h455vb4pex5v6nkc6gd5fd09",
   remoteHeld: "wfi_01h455vb4pex5v6nkc6gd5fd10",
   remoteFailed: "wfi_01h455vb4pex5v6nkc6gd5fd11",
+  remoteTurnEnded: "wfi_01h455vb4pex5v6nkc6gd5fd12",
 } as const;
 
 const EVAL_STEPS = [
@@ -1032,7 +1033,64 @@ const remoteFailed: WorkflowInstanceDetailView = {
   ],
 };
 
-/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 둘이 붙는다. */
+// Home server에서 step을 가져간 turn이 report 없이 실패했다. step은 열려 있고 그 컴퓨터의 lophn이 쓴 줄이 남았다.
+const remoteTurnEndedInput =
+  "Profile the quest loader on the home server's GPU box";
+const remoteTurnEndedPlan = reportOf(
+  IDS.remoteTurnEnded,
+  3,
+  80,
+  LOPHN_SESSION,
+  "plan",
+  "Profile run with the new loader flag. Plan: eval/experiments/exp-015-profile.md.",
+  "execute",
+);
+const REMOTE_TURN_ENDED_CALL = "cal_01h455vb4pex5v6nkc6gd5fc03";
+const remoteTurnEndedLine: WorkflowLineView = {
+  instance: IDS.remoteTurnEnded,
+  seq: "5",
+  at: minutesAgo(41),
+  by: { kind: "remote_lophn", machine: HOME_SERVER, computer: "Home server" },
+  kind: "report",
+  step: "execute",
+  text: "The turn that took this step on Home server failed before reporting. The step is still open; continue it in that session on Home server.",
+  next: null,
+  session: "new",
+};
+const remoteTurnEnded: WorkflowInstanceDetailView = {
+  instance: instanceOf(
+    IDS.remoteTurnEnded,
+    remoteTurnEndedInput,
+    "running",
+    { step: "execute", human_turn: false },
+    82,
+    null,
+    { kind: "user" },
+    REMOTE_PARTICIPANTS,
+  ),
+  last_reports: {
+    plan: remoteTurnEndedPlan,
+    execute: remoteTurnEndedLine,
+  },
+  lines: [
+    ...startLines(IDS.remoteTurnEnded, remoteTurnEndedInput, 82),
+    remoteTurnEndedPlan,
+    remoteHand(IDS.remoteTurnEnded, 4, 80, REMOTE_TURN_ENDED_CALL),
+    remoteTurnEndedLine,
+  ],
+  remote_steps: [
+    {
+      call: REMOTE_TURN_ENDED_CALL,
+      step: "execute",
+      machine: HOME_SERVER,
+      computer: "Home server",
+      state: "accepted",
+      delivery: "running",
+    },
+  ],
+};
+
+/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋이 붙는다. */
 export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   running,
   humanTurn,
@@ -1045,6 +1103,7 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   flowRestarted,
   remoteHeld,
   remoteFailed,
+  remoteTurnEnded,
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [

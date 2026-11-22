@@ -110,7 +110,8 @@ function sha256(value: unknown): string {
 }
 
 // turn이 끝나지 못했으면(실패, 멈춤, 재시작) 그 turn이 가져간 call을 Router에 알린다. 답 없이 끝난 result call이 보낸 쪽에서
-// 끝없이 기다리지 않게 한다. 정상으로 끝난 turn의 call은 그대로다(다음 turn에서 답할 수 있다).
+// 끝없이 기다리지 않게 하고, 다른 컴퓨터에서 받은 step은 그 컴퓨터의 run에 줄을 남긴다. 정상으로 끝난 turn의 call은 그대로다
+// (다음 turn에서 답할 수 있다). turn은 한 번만 끝나므로 turn 하나에 알림도 하나다.
 export function abandonTurnCall(
   tx: Tx,
   calls: CallSignals | undefined,
@@ -119,17 +120,23 @@ export function abandonTurnCall(
   notify: boolean,
 ): Result<void> {
   if (calls === undefined || outcome.kind === "completed") return ok(undefined);
-  // 답(reply)도 call id를 싣는다. call 입력만 reply 칸이 있다.
+  // 답(reply)도 call id를 싣는다. call 입력만 reply 칸이 있고, call id가 있는 step 입력은 다른 컴퓨터에서 받은 step이다.
   const message = tx.sql.get(
-    "select call from messages where id = ? and call is not null and reply is not null",
+    `select call, step_instance from messages
+      where id = ? and call is not null and (reply is not null or step_instance is not null)`,
     [turn.input_message],
   );
   if (message === undefined) return ok(undefined);
   return calls.abandoned(tx, {
     call: String(message["call"]) as Id<"cal">,
     session: turn.session as Id<"ses">,
-    reason:
-      outcome.reason === "restarted" ? "lophn_restarted" : "receiver_ended",
+    ended:
+      outcome.reason === "restarted"
+        ? "restarted"
+        : outcome.kind === "failed"
+          ? "failed"
+          : "stopped",
+    step: message["step_instance"] !== null,
     notify,
   });
 }

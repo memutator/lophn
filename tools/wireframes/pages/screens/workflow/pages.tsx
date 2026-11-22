@@ -21,7 +21,7 @@ const noop = () => {};
 
 // FAKE_WORKFLOW_INSTANCES의 순서: running, humanTurn, notHanded, restarted, ended, stopped,
 // 그 뒤에 nightly-flow의 도는 것, program_exited로 닫힌 것, 켜질 때 닫힌 것,
-// 그 뒤에 다른 컴퓨터로 넘긴 step이 거기서 사람을 기다리는 것과 거기서 돌지 못한 것.
+// 그 뒤에 다른 컴퓨터로 넘긴 step이 거기서 사람을 기다리는 것, 거기서 돌지 못한 것, 가져간 turn이 report 없이 끝난 것.
 const [
   RUNNING,
   HUMAN_TURN,
@@ -34,6 +34,7 @@ const [
   FLOW_RESTARTED,
   REMOTE_HELD,
   REMOTE_FAILED,
+  REMOTE_TURN_ENDED,
 ] = FAKE_WORKFLOW_INSTANCES.map((detail) => detail.instance.id);
 
 const PROJECT = FAKE_WORKFLOWS[0].project;
@@ -140,6 +141,9 @@ export const RemoteHeld = () => (
 );
 export const RemoteFailed = () => (
   <WorkflowWindow name="eval-loop" instance={REMOTE_FAILED} />
+);
+export const RemoteTurnEnded = () => (
+  <WorkflowWindow name="eval-loop" instance={REMOTE_TURN_ENDED} />
 );
 export const Invalid = () => <WorkflowWindow name="broken-draft" />;
 

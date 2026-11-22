@@ -1,6 +1,7 @@
 import type { Clock, Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import type { TurnEndedKind } from "../../../protocol/lophn-agent/mail.ts";
 import type {
   ModelOutcome,
   ToolResult,
@@ -91,13 +92,15 @@ export type AgentEventSink = {
 export type CallSignals = {
   consumed(tx: Tx, call: Id<"cal">): Result<void>;
   // 가져간 turn이 끝나지 못했다(실패, 멈춤, 재시작). Router가 아직 답하지 않은 result call을 보낸 쪽에 실패로 돌려준다.
+  // 다른 컴퓨터에서 받은 workflow step(`step`)이면 닫지 않고 보낸 컴퓨터에 진행 줄 하나를 낸다.
   // notify는 보낸 session에 줄 실패 글의 blob이 준비됐는지다.
   abandoned(
     tx: Tx,
     input: {
       call: Id<"cal">;
       session: Id<"ses">;
-      reason: "receiver_ended" | "lophn_restarted";
+      ended: TurnEndedKind;
+      step: boolean;
       notify: boolean;
     },
   ): Result<void>;

@@ -44,7 +44,7 @@
 
 - **꼴.** mail 하나는 `{id: mal_…, call, from, to_machine, seq, sent_at, expires_at}`와 종류마다의 칸이다. id와 call id는 보낸 기계가 짓고 두 기계가 같은 값을 쓴다. `from`은 쓴 쪽 `{machine, agent, session, name}`이고 받는 기계는 `machine`만 믿는다(나머지는 표시다). `seq`는 받는 기계마다 1부터 늘고 줄을 지워도 다시 쓰지 않는다.
   - `call`: 주소, 답 방식(none, result, conversation), 본문, unattended. workflow의 step이면 `step: {instance, name}`(`workflow.md`).
-  - `reply`: 본문(없을 수 있다), 끝(`outcome`: done·failed·cancelled와 실패 이유, 없으면 conversation의 말), unattended. workflow의 report면 `report: {next, session}`. 실패 알림은 본문 없이 이유만 싣고 받는 쪽이 자기 고정 글로 만든다(그 기계가 고른 글을 실을 때만 본문이 있다: 가져간 뒤 재시작). 본문 없는 done·cancelled는 보낸 쪽 행만 닫고 입력을 넣지 않는다(답 없는 call의 소비, 받는 기계의 사람이 취소).
+  - `reply`: 본문(없을 수 있다), 끝(`outcome`: done·failed·cancelled와 실패 이유, 없으면 conversation의 말), unattended. workflow의 report면 `report: {next, session}`. 받은 컴퓨터에서 step을 가져간 turn이 report 없이 끝나면 그 기계의 program이 `report`에 `ended`(`failed | stopped | restarted`)를 싣고 `next`와 본문 없이 낸다(step은 열어 둔다, `workflow.md` 51). 실패 알림은 본문 없이 이유만 싣고 받는 쪽이 자기 고정 글로 만든다(그 기계가 고른 글을 실을 때만 본문이 있다: 가져간 뒤 재시작). 본문 없는 done·cancelled는 보낸 쪽 행만 닫고 입력을 넣지 않는다(답 없는 call의 소비, 받는 기계의 사람이 취소).
   - `cancel`: 보낸 쪽이 call을 취소했다.
   - `state`: 받는 기계가 call을 어떻게 받았는지(`held`, `running`, 받은 session)를 알린다. 답이 없는 길(폴더, 대기 뒤 시작)에서만 낸다. link는 답(`{delivery, reason, session}`)이 같은 일을 한다.
 - **본문.** 글 block만이고 64개까지, 글의 UTF-8 합이 64 KiB까지다. 보내는 쪽이 redaction을 거치고, 받는 쪽이 받는 session 기록에 쓰기 전에 한 번 더 거친다.
@@ -86,7 +86,7 @@
 - 받은 입력의 tag는 `from="remote:<name>@<computer>"`이고 끝의 고정 줄이 다른 컴퓨터의 agent가 보냈고 사람이 보낸 것이 아니라고 말한다. 이 기계 agent의 줄은 그대로다(prompt cache).
 - reply mail은 이 기계가 그 기계로 보낸 행이면 보낸 session에 입력(답, 고정 글의 실패 알림)으로 넣고, 끝이 있으면 행을 그 상태로 닫고 남은 call mail을 지운다. 그 기계에서 받은 conversation call이면 받은 session에 넣는다. cancel mail은 그 기계가 보낸 받은 call을 취소로 닫고 받은 session에 취소 알림을 넣는다. 행이 없는 call의 cancel은 대기 줄을 닫거나 기억해 같은 call이 뒤에 와도 돌지 않게 한다. state mail은 보낸 행의 `delivery`와 받은 session을 고치고 남은 call mail을 지운다. 끝난 행에 온 mail은 아무것도 바꾸지 않는다. reply·cancel·state는 늦어도 바로 적용한다.
 - 적용이 `not_found`·`forbidden`·`invalid_input`·`conflict` 오류로 되돌아가면 본 것으로 따로 적고(state `refused`) call mail이면 실패 mail(`conflict`는 `closed`, 나머지는 `not_found`)을 낸다. 아니면 그 기계가 같은 mail을 끝없이 다시 낸다. `unavailable`·`internal`은 그대로 돌려줘 보낸 쪽이 다시 보낸다.
-- 받은 call의 끝도 mail이다: 답 없는 call을 turn이 가져가면 `{done}`, 받는 기계의 사람이 취소하면 `{cancelled}`, 받은 session이 끝나면 `receiver_ended`, 켤 때 가져가지 않은 call은 `lophn_restarted`, 가져간 result call의 turn이 실패하거나 멈추거나 재시작으로 끊기면 `receiver_ended`·`lophn_restarted`(`agent-call.md` 18. 재시작이면 "그 컴퓨터에서 일하던 중 재시작했다"는 글을 싣는다).
+- 받은 call의 끝도 mail이다: 답 없는 call을 turn이 가져가면 `{done}`, 받는 기계의 사람이 취소하면 `{cancelled}`, 받은 session이 끝나면 `receiver_ended`, 켤 때 가져가지 않은 call은 `lophn_restarted`, 가져간 result call의 turn이 실패하거나 멈추거나 재시작으로 끊기면 `receiver_ended`·`lophn_restarted`(`agent-call.md` 18. 재시작이면 "그 컴퓨터에서 일하던 중 재시작했다"는 글을 싣는다). 가져간 workflow step은 같은 때 닫히지 않고 `ended`를 실은 report mail 하나가 간다.
 
 ### 배달 상태
 
@@ -228,4 +228,3 @@ agent가 누구를 부를지 고르는 길이다. system prompt에 싣지 않고
 - 명단에서 빠진 컴퓨터로 간 mail은 만료(7일)로만 끝난다. 보낸 agent는 그동안 `pending`을 본다.
 - `unknown`인 동안 그 기계의 줄은 다음 깨움(새 mail, link 바뀜, 60초 timer)까지 멈춘다. 그 사이 뒤의 mail(취소 포함)도 기다린다.
 - 확인은 한 기계에 띄운 개발 core 둘(link로 붙인 것)로 했다. 서로 다른 기계와 OS, 폰을 거치는 길, 실제 동기 도구(Syncthing, Google Drive)로 가는 folder 길은 돌려 보지 않았다.
-- 다른 컴퓨터가 가져간 workflow step의 turn이 실패·멈춤·재시작으로 끝나면 시작한 컴퓨터에 줄이 남지 않는다. 이슈 `workflow-remote-step-turn-end-no-line`.

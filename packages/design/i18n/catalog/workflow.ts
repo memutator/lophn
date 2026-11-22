@@ -109,6 +109,8 @@ export const workflow = {
   "workflow.note.now-remote-pending":
     "{step} is waiting to reach {computer}. It goes out when that computer is on.",
   "workflow.note.now-remote-running": "{who} is working on {step}.",
+  "workflow.note.now-remote-turn-ended":
+    "{who} stopped on {computer} before reporting {step}. The step is still open; continue it in that session on {computer}.",
   "workflow.note.now-remote-unknown":
     "{step} was sent to {computer}. No answer from it yet.",
   "workflow.note.now-stopped": "You stopped this run {when}.",

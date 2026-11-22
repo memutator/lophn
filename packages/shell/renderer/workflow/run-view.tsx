@@ -62,6 +62,12 @@ function lineBy(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
       computer: line.by.computer,
     });
   }
+  if (line.by.kind === "remote_lophn") {
+    return t("workflow.label.participant-on", {
+      who: t("workflow.label.participant-lophn"),
+      computer: line.by.computer,
+    });
+  }
   const session = line.by.session;
   const handed = detail.lines.find(
     (item) => item.kind === "handed" && item.receiver === session,
@@ -172,6 +178,13 @@ const REMOTE_NOW = {
   },
 } as const;
 
+// 그 컴퓨터에서 step을 가져간 turn이 report 없이 끝났다. 사람이 그 컴퓨터의 session에서 이어야 해서 넘기지 못한 step과 같은 무게다.
+const REMOTE_TURN_ENDED = {
+  key: "workflow.note.now-remote-turn-ended",
+  tone: "serious",
+  icon: editorIcons.problem,
+} as const;
+
 /** 지금 어디에 있는지 한 장. 사람이 다음에 할 일이 있으면 그 단추가 오른쪽 끝에 온다. */
 function NowCard({
   detail,
@@ -194,7 +207,11 @@ function NowCard({
     dotOf?.(now.session) === "waiting";
   // 끝난 call의 전달 상태는 없다. 그때는 도는 것으로 읽는다(다음 줄이 곧 온다).
   const remote =
-    now.kind === "remote" ? REMOTE_NOW[now.delivery ?? "running"] : null;
+    now.kind !== "remote"
+      ? null
+      : now.turnEnded
+        ? REMOTE_TURN_ENDED
+        : REMOTE_NOW[now.delivery ?? "running"];
   const tone = asking ? "warning" : (remote?.tone ?? NOW_TONE[now.kind]);
   const open =
     (now.kind === "human" ||

@@ -29,6 +29,12 @@ export const lineBySchema = z.discriminatedUnion("kind", [
     computer: z.string(),
     name: z.string(),
   }),
+  // 다른 컴퓨터의 lophn이 쓴 진행 줄: 그 컴퓨터에서 step을 가져간 turn이 report 없이 끝났다(실패, 멈춤, 재시작).
+  z.strictObject({
+    kind: z.literal("remote_lophn"),
+    machine: idSchema("mch"),
+    computer: z.string(),
+  }),
 ]);
 export type LineBy = z.infer<typeof lineBySchema>;
 

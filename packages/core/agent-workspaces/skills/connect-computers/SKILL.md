@@ -31,7 +31,7 @@ You set none of this up and nothing chooses between these ways:
 
 The person sees the way each computer's files last arrived, and when each app
 last caught up, in Settings › Sync. You can read the same facts with
-`lophn machine environment` (the other computers and each app's `sends_to`).
+`lophn machine environment` (the other computers and each app's `destinations`).
 Look there before you suggest anything.
 
 Check before you propose any folder or tool: run `lophn machine environment` and

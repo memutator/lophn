@@ -73,14 +73,19 @@ to another machine".
    the person set one up for this kind of data (it shows in `destinations`) or
    asks for one. A new name is short and means something to the person
    (`personal`, `work`), and it is the same name on every computer: the path
-   behind it may differ per computer. For now every listed table goes to the same
-   destination.
+   behind it may differ per computer.
+5. Tables may go to different destinations (summaries to `"computers"`, an
+   archive to a named folder). Each syncs on its own and a computer gets only the
+   tables of the destinations it has. Keep tables that reference each other in
+   one destination (release preparation refuses a reference between two). A
+   `runs_on` phone app sends all its listed tables to one destination.
 
 ```ts
 // lophn.ts
 sync: {
   usage_hour: "computers",
   plan: "computers",
+  session_archive: "personal",
 },
 ```
 
@@ -90,7 +95,8 @@ computers already received stay there. Listing a table with rows on several
 computers merges the copies: a shared row takes the copy of the computer that
 starts the release last, over edits and deletions made elsewhere while the
 table was local. If that is not acceptable, sync a new table and move this
-computer's rows into it.
+computer's rows into it. Moving a listed table to another destination keeps
+every computer's edits; a computer without the new destination stops getting it.
 
 Write the choice and the reason in DESIGN.md (Model): which tables go where, which
 stay on each computer, which tool moves them, whether it is encrypted.
@@ -213,69 +219,10 @@ app's data.
 
 ## Move the folder with a tool
 
-For a named destination, lophn only writes files into the folder and reads them.
-Pick the tool in this order:
-
-1. **Syncthing**, when the person's computers reach each other (same network, or
-   Syncthing's relays). It moves files directly between the person's devices,
-   encrypted on the way, and stores them only on those devices. It moves files only
-   while two devices are on at the same time; if the computers are rarely on
-   together, add an always-on device of the person's (a NAS, a home server) to the
-   same Syncthing folder, or use a cloud.
-2. **rclone with a `crypt` remote**, for a cloud. The cloud stores only encrypted
-   files. Google Drive, Dropbox, OneDrive and S3 are all rclone remotes: put the
-   `crypt` remote on top of one of them.
-3. **A network share the person owns** (a NAS mounted on each computer): the
-   destination is a folder on the mount and no tool runs. Use a subfolder of the
-   mount, so an unmounted share shows as `destination_missing` instead of being
-   written to the local disk.
-4. **A cloud folder that does not encrypt** (Google Drive for desktop, the Dropbox
-   or OneDrive app): not by default. Use it only after you say, in plain words,
-   "the files in this folder are uploaded to Google unencrypted, and Google can
-   read them" (name the service), and the person accepts that.
-
-Never send the person's data to a cloud without encryption unless they accepted it
-as in 4.
-
-Who does what:
-
-- The person installs the tool, logs in to the cloud, and pairs devices (accepts a
-  Syncthing device id) on each computer. You prepare the commands, say which
-  button to press, and check the result. Never ask for a password, a token or a
-  pairing code in the chat.
-- The `crypt` password and salt are chosen by the person and typed by the person
-  into `rclone config` on each computer. Tell them to keep the password somewhere
-  safe: without it the cloud copy cannot be read.
-
-### Syncthing
-
-Share the destination folder itself as one Syncthing folder ("Send & Receive") on
-every computer, each at its own destination path. Syncthing starts at login when
-the person installs it as a user service or with the OS's autostart; check that it
-does. No schedule is needed.
-
-### rclone
-
-rclone does not watch the folder, so run it from the OS's scheduler every few
-minutes (5 is fine): a systemd user timer on Linux, a launchd agent on macOS, Task
-Scheduler on Windows. Do not let two runs overlap (each of those schedulers waits
-by default). Do not use `rclone bisync`. Run two commands, upload then download:
-
-```
-# upload this computer's own part; files lophn removed are removed in the cloud too
-rclone sync "<path>/machines/<this machine id>" "<remote>:machines/<this machine id>" --exclude "*.tmp-*"
-# download the other computers' parts; never touch this computer's own part
-rclone copy "<remote>:machines" "<path>/machines" --exclude "/<this machine id>/**" --exclude "*.tmp-*"
-```
-
-`<remote>` is the `crypt` remote, `<path>` the destination path on this computer,
-and `<this machine id>` is `this_machine.id` in `lophn machine environment`
-(`mch_…`). lophn writes only under `machines/<its own id>/` and never removes
-another computer's files; the upload touches only this computer's part and the
-download every part but this one. Run the upload only when
-`<path>/machines/<this machine id>/record.json` exists, so a missing or unmounted
-folder never empties the cloud copy. Put both commands in one small script that the
-timer runs.
+For a named destination, lophn only writes files into the folder and reads them;
+a tool the person runs moves it. Pick and set up the tool as `folder-tools.md`
+says (Syncthing, rclone with an encrypted remote, or a network share; a cloud
+folder that does not encrypt only when the person accepts it).
 
 ### Check it
 
@@ -372,10 +319,10 @@ in their own terminal. If that computer writes to the folder again, it comes bac
 ## Read the state
 
 `lophn machine environment` is what lophn last read and wrote, not live. Each
-`apps[]` entry has `sends_to`, the destination its `sync` names (null when no table
-leaves this computer), and `destination`: `set`, or `not_set_here` when this
-computer has no destination of that name. Each `export` and `imports[]` entry has
-an `error` with a `code`:
+`apps[]` entry has `destinations`, one per destination its `sync` names: `name`,
+`tables`, `state` (`set`, or `not_set_here` when this computer has no such
+destination), `export` and `imports[]`. Each `export` and `imports[]` entry has an
+`error` with a `code`:
 
 - `destination_missing`: the folder is gone, moved or not mounted, or the tool
   removed it. Check the path; if the person moved it, change the destination (with
@@ -427,8 +374,8 @@ on its releases (an app without it has `follow: null` and empty `held` and
   - `diverged`: two computers built releases apart. Merge the other computer's
     branch (`refs/remotes/<machine id>/*`) into this one, build a release and
     activate it; every computer follows it.
-- `held`: changes from another release that wait here, one line per computer and
-  release, with `changes` and `why`:
+- `held`: changes from another release that wait here, one line per destination,
+  computer and release, with `changes` and `why`:
   - `newer_release`: applied once this computer runs that release (`follow`).
   - `older_release`: that computer runs an older release; its changes come when it
     follows.

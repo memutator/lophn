@@ -1,6 +1,6 @@
 # folder-sync
 
-한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록을 폴더 하나로 주고받는 설계다. `computers` 폴더는 다른 컴퓨터의 agent에게 보내는 mail과 handoff note도 나른다(`machine-a2a.md`). 앱 선언의 `sync`가 앱 DB의 표마다 data 동기화 destination 이름(기계마다 local 폴더 경로에 묶인 이름)을 고르고, 적지 않은 표는 그 컴퓨터를 떠나지 않는다. `sync`가 표를 보내지 않는 앱도 `private` workspace가 아닌 활성 앱이면 기본 `computers` 갈 곳으로 앱 기록(`app.json`, destination 칸 null)과 source git bundle 및 `@me/*` package 의존성을 자동 내보내, 다른 컴퓨터에서 바로 들이고(`take-in`) 새 release를 따라간다(data와 `across_machines` event는 `sync`가 표를 보내는 앱만 동기화한다). 컴퓨터는 그런 앱의 보내는 표의 변경을 destination 안 자기 하위 폴더에 file로 쓰고, 다른 기계의 하위 폴더에서 file을 읽어 전부 검사한 뒤 한 transaction으로 적용한다. 이름 붙인 폴더를 기계 사이로 옮기는 것은 사람이 고른 바깥 도구(같은 LAN의 Syncthing, rclone `crypt` 위 cloud 등)다. 미리 있는 갈 곳 `computers`("내 컴퓨터들")는 data root 안 폴더이고, 그 file은 lophn이 고른 길(컴퓨터 사이 연결, 폰, 사람이 정한 같이 보는 폴더)로 옮긴다. 낸 기계가 file 목록(manifest)에 명단의 서명 key로 서명하고, 받는 기계는 명단의 컴퓨터가 서명한 목록에 맞는 file만 받는다. 두 번째 기계는 폴더에 온 release를 사람의 동의로 받는다. 앱을 들인 기계는 다른 기계가 낸 새 release를 스스로 따라가고(`activation.md`), 기계마다 앱 release나 lophn 판이 다른 동안 다른 release의 변경은 잃지 않고 두었다가 차례로 적용하며, 폴더 꼴을 서로 읽을 수 없으면 멈추고 누가 올려야 하는지 보인다. agent는 읽기 명령 `machine.environment`로 환경을 읽고, 지침(`design-app` skill의 `folder-sync.md`)을 따라 정책을 고르고 바깥 도구를 붙인다. 사람은 Settings › Sync에서 폴더를 보고 고치고 지금 어느 길로 맞는지 본다. 칸 단위 맞추기 규칙과 sync log는 `app-sync.md`, 기계 id는 `machine.md`, release 활성화와 동의는 `activation.md`가 맡는다.
+한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록을 폴더 하나로 주고받는 설계다. `computers` 폴더는 다른 컴퓨터의 agent에게 보내는 mail과 handoff note도 나른다(`machine-a2a.md`). 앱 선언의 `sync`가 앱 DB의 표마다 data 동기화 destination 이름(기계마다 local 폴더 경로에 묶인 이름)을 고르고, 적지 않은 표는 그 컴퓨터를 떠나지 않는다. `private` workspace가 아닌 활성 앱은 `sync`가 표를 보내든 아니든 늘 기본 `computers` 갈 곳으로, 그리고 표를 보내는 destination마다 앱 기록(`app.json`)과 source git bundle 및 `@me/*` package 의존성을 자동 내보내, 다른 컴퓨터에서 바로 들이고(`take-in`) 새 release를 따라간다(data와 `across_machines` event는 `sync`가 표를 보내는 destination으로만 간다). 한 앱의 표가 여러 destination으로 갈 수 있고 destination마다 stream이 따로다. 컴퓨터는 보내는 표의 변경을 그 표의 destination 안 자기 하위 폴더에 file로 쓰고, 다른 기계의 하위 폴더에서 file을 읽어 전부 검사한 뒤 한 transaction으로 적용한다. 이름 붙인 폴더를 기계 사이로 옮기는 것은 사람이 고른 바깥 도구(같은 LAN의 Syncthing, rclone `crypt` 위 cloud 등)다. 미리 있는 갈 곳 `computers`("내 컴퓨터들")는 data root 안 폴더이고, 그 file은 lophn이 고른 길(컴퓨터 사이 연결, 폰, 사람이 정한 같이 보는 폴더)로 옮긴다. 낸 기계가 file 목록(manifest)에 명단의 서명 key로 서명하고, 받는 기계는 명단의 컴퓨터가 서명한 목록에 맞는 file만 받는다. 두 번째 기계는 폴더에 온 release를 사람의 동의로 받는다. 앱을 들인 기계는 다른 기계가 낸 새 release를 스스로 따라가고(`activation.md`), 기계마다 앱 release나 lophn 판이 다른 동안 다른 release의 변경은 잃지 않고 두었다가 차례로 적용하며, 폴더 꼴을 서로 읽을 수 없으면 멈추고 누가 올려야 하는지 보인다. agent는 읽기 명령 `machine.environment`로 환경을 읽고, 지침(`design-app` skill의 `folder-sync.md`)을 따라 정책을 고르고 바깥 도구를 붙인다. 사람은 Settings › Sync에서 폴더를 보고 고치고 지금 어느 길로 맞는지 본다. 칸 단위 맞추기 규칙과 sync log는 `app-sync.md`, 기계 id는 `machine.md`, release 활성화와 동의는 `activation.md`가 맡는다.
 
 ## 문제
 
@@ -21,18 +21,18 @@
 - 목표: 앱의 표마다 선언(`sync`)으로 data가 가는 길을 고르고, 적지 않은 표는 그 컴퓨터를 떠나지 않는다. 기계가 아무 순서로 켜지고 꺼져도 사본이 같아지고, 충돌하지 않는 편집은 잃지 않는다. 폴더에서 깨지거나 반만 온 것은 하나도 적용하지 않는다. 사람이 쓴 것은 흔적 정리 때문에 버려지지 않는다. 두 번째 기계는 같은 앱 id로 source를 받아 이 기계에서 직접 release를 준비하고 활성화는 그 기계에서 사람이 동의한다.
 - 목표: 다른 release의 변경을 잃지 않고 두었다가 이 기계가 그 release가 되면 차례로 적용한다. 옛 release에서 한 변경은 그 기계가 올라온 뒤의 snapshot으로 온다. 기다리는 동안 앱은 이 기계의 data로 그대로 돈다.
 - 목표: lophn 판은 범위로 본다. 범위 안이면 계속 주고받고, 범위 밖이면 그 기계의 file을 열지도 지우지도 않고 멈추며 누가 올려야 하는지 고칠 수 있는 곳에서 말한다.
-- 비목표: 실시간 맞추기(분 단위로 늦을 수 있다). 바깥 도구의 설치·설정·이름(code, 의존성, 설정 어디에도 없다. agent가 지침대로 붙인다). lophn이 cloud API를 부르는 길(보류. file 꼴은 폴더든 API든 같은 bytes다). agent 정의·skill·설정·자격 맞추기(browser profile과 저장 site login은 폴더가 아니라 컴퓨터 사이 link로 맞춘다, `browser-tab.md` "기계 사이"). 폰이 폴더를 쓰거나 file을 검증·적용하는 것(폰은 `computers`의 file을 내용을 읽지 않고 나르기만 하고, 폰이 쓴 변경은 짝지은 컴퓨터를 거친다). 대량 삭제를 멈추고 묻기, 칸·줄별 정책, 한 앱의 표를 여러 destination으로 나누기(roadmap `sync-tables` 2단계). 충돌을 보이는 화면. 모든 기계를 올리는 단추와 updater(올리기는 각 기계에서 사람이 한다). 옛 release의 변경을 새 schema로 다시 표현하기(폰의 길. 컴퓨터는 자기 DB를 migration하고 덮지 않는 합치기를 받으니 snapshot이 그 일을 한다). 갈라진 release를 합치기(앱 agent가 합쳐 새 release를 낸다, `activation.md`).
+- 비목표: 실시간 맞추기(분 단위로 늦을 수 있다). 바깥 도구의 설치·설정·이름(code, 의존성, 설정 어디에도 없다. agent가 지침대로 붙인다). lophn이 cloud API를 부르는 길(보류. file 꼴은 폴더든 API든 같은 bytes다). agent 정의·skill·설정·자격 맞추기(browser profile과 저장 site login은 폴더가 아니라 컴퓨터 사이 link로 맞춘다, `browser-tab.md` "기계 사이"). 폰이 폴더를 쓰거나 file을 검증·적용하는 것(폰은 `computers`의 file을 내용을 읽지 않고 나르기만 하고, 폰이 쓴 변경은 짝지은 컴퓨터를 거친다). 대량 삭제를 멈추고 묻기, 칸·줄별 정책, 폰 사본의 표별 정책, 사람이 Settings에서 표마다 길을 고르는 화면. 충돌을 보이는 화면. 모든 기계를 올리는 단추와 updater(올리기는 각 기계에서 사람이 한다). 옛 release의 변경을 새 schema로 다시 표현하기(폰의 길. 컴퓨터는 자기 DB를 migration하고 덮지 않는 합치기를 받으니 snapshot이 그 일을 한다). 갈라진 release를 합치기(앱 agent가 합쳐 새 release를 낸다, `activation.md`).
 
 ## 모델
 
 ```
- 기계 A                                    destination 폴더(바깥 도구가 옮김)                기계 B
- 앱 DB ─ sync log(app_sync_log) ─ 내보내기 ─▶ machines/<A>/apps/<app>/data/<n>.changes|snapshot
+ 기계 A                                    destination 폴더마다(바깥 도구가 옮김)            기계 B
+ 앱 DB ─ sync log(app_sync_log, 줄마다 destination) ─ 내보내기(앱, destination) ─▶ machines/<A>/apps/<app>/data/<n>.changes|snapshot
                                             machines/<A>/apps/<app>/{app.json, source/}
                                             machines/<A>/record.json
                                             machines/<B>/…  ◀─ B만 쓴다
                          읽기(검사 → 한 tx 적용, 다른 release는 held로 복사) ─▶ B의 앱 DB, B의 sync log(origin machine)
- ledger: folder_streams·folder_written(쓴 것)   folder_reads·folder_held·folder_records(읽은 것)
+ ledger: folder_streams·folder_written(쓴 것)   folder_reads·folder_held·folder_records(읽은 것). 모두 destination이 key에 든다
 ```
 
 ### destination과 `sync`
@@ -40,8 +40,9 @@
 - destination은 기계마다의 설정 `folder.destinations`(`{ "<이름>": { "path": "<절대 경로>" } }`, 이름 `^[a-z][a-z0-9-]{0,31}$`, 16개까지)다. 경로는 기계마다 다르고 설정은 기계를 넘지 않는다. 앱 선언 `sync`의 값(`{ <표>: "<이름>" }`)은 이름만 고르므로 같은 선언이 경로가 다른 기계에서도 맞는다. 이 기계에 그 이름이 없으면 그 앱은 이 기계에서 내보내지도 읽지도 않는다.
 - 거절하는 경로: 상대 경로, data root 안이나 data root를 품은 경로, 다른 이름과 같거나 서로 안에 있는 경로(symlink를 따라간 꼴과 글자 그대로의 꼴 둘 다 본다). 사람이 `settings.json`을 손으로 고쳐 검사를 지나친 값은 없는 것으로 본다. 그 밖의 위험(data root를 network·sync 폴더 위에 두기)은 code가 도구를 모르니 지침이 막는다.
 - destination을 더하고 바꾸고 지우는 것은 사람의 승인이다(사람은 Settings › Sync나 자기 터미널의 `lophn settings`에서 직접 바꾼다. 사람 자격이라 승인 카드 없이 바로 바뀌고, 바꾸기 전에 file이 평문으로 나갈 수 있다는 경고를 화면이 보인다). 설정 선언이 `approval: "person"`과 바뀜을 사람의 말로 쓰는 `describe(before, after)`를 갖는다(`settings.md`, `approval.md`). 카드는 `Add sync folder "personal": /home/me/Sync/lophn`처럼 이름과 전체 경로를 보인다.
-- `sync`가 표를 보내는 앱은 컴퓨터에서 sync 앱이다(clock 표와 sync log, `app-sync.md`). 그래서 보내는 표에 폰 앱과 같은 schema 규칙과 `@lophn/cap-store` 2.0.0 하한을 release 준비가 본다. 지금은 한 앱의 표가 모두 같은 destination이다. `runs_on: ["phone"]`은 `sync`를 쓰지 못한다(컴퓨터 사본이 없다). 켜 둔 옛 release의 선언이 가진 destination 하나(`sync_to`)는 모든 표를 그리 보내는 것으로 읽는다(`app-sync.md`).
-- 폴더로 가는 것은 보내는 표뿐이다: changes file은 sync log 줄의 changeset에서 보내는 표의 구간만 담고(남는 것이 없는 줄은 건너뛴다), snapshot은 보내는 표와 그 clock 줄, sync 상태만 담은 DB file이다. 받는 쪽은 자기 선언(같은 `code_commit`이라 같은 표)의 보내는 표만 합치고, 받은 changes file에서도 보내지 않는 표의 구간을 버린다. 내보내기는 log 줄마다 그 줄의 release가 보내는 표로 거른다. 표가 `sync`에 (처음이든 다시든) 오르면 그 release가 뜰 때 이 기계에 있던 row가 그 순간의 로컬 write로 찍힌다(`app-sync.md`): 같은 key의 row는 나중 찍은 기계의 것이 되고, 옛 release에 머문 기계의 옛 사본이 그것을 덮지 못한다.
+- `sync`가 표를 보내는 앱은 컴퓨터에서 sync 앱이다(clock 표와 sync log, `app-sync.md`). 그래서 보내는 표에 폰 앱과 같은 schema 규칙과 `@lophn/cap-store` 2.0.0 하한을 release 준비가 본다. 표마다 destination이 달라도 된다. 보내는 표끼리의 foreign key는 같은 destination일 때만 된다(한 destination만 가진 기계에는 부모 줄이 없다). `runs_on`에 phone이 든 앱은 destination 하나까지다(폰 길은 DB 통째를 한 줄로 다룬다). `runs_on: ["phone"]`은 `sync`를 쓰지 못한다(컴퓨터 사본이 없다). 켜 둔 옛 release의 선언이 가진 destination 하나(`sync_to`)는 모든 표를 그리 보내는 것으로 읽는다(`app-sync.md`).
+- **destination마다 stream.** 내보내기와 읽기는 앱이 아니라 (앱, destination)마다 돈다. sync log는 폰 앱이 아닌 앱의 write를 destination마다 줄 하나로 나눠 두고(줄에 그 destination), stream은 자기 destination의 줄과 destination이 없는 줄(폰 앱의 줄, '다시 snapshot' 줄, 건너뛴 줄)만 본다. 그래서 hold, held, snapshot 막기, 물러남, 오류가 destination마다 따로다: 한 destination이 없거나 멈추거나 떨어져 있어도 다른 destination은 그대로 나가고 읽힌다. 받는 기계는 자기 선언(같은 `code_commit`)에서 destination마다 표 집합을 안다. 폴더 꼴(`FOLDER_FORMAT`)은 그대로다.
+- 한 destination으로 가는 것은 그리 보내는 표뿐이다: changes file은 sync log 줄의 changeset에서 그 destination으로 보내는 표의 구간만 담고(남는 것이 없는 줄은 건너뛴다), snapshot은 그 표와 그 clock 줄, sync 상태만 담은 DB file이다. 받는 쪽은 자기 선언(같은 `code_commit`이라 같은 표)이 그 destination으로 보내는 표만 합치고(없는 row 지우기도 그 표만), 받은 changes file에서도 그 밖의 표의 구간을 버린다. 내보내기는 log 줄마다 그 줄의 release가 그 destination으로 보내는 표로 거른다. 표가 `sync`에 (처음이든 다시든) 오르면 그 release가 뜰 때 이 기계에 있던 row가 그 순간의 로컬 write로 찍힌다(`app-sync.md`): 같은 key의 row는 나중 찍은 기계의 것이 되고, 옛 release에 머문 기계의 옛 사본이 그것을 덮지 못한다.
 
 ### 폴더 배치
 
@@ -70,7 +71,7 @@
  사람의 폴더(folder.shared): 기계마다 자기 machines/<자기>/만 그대로 복사한다. 남의 것은 받는 자리로 들인다.
 ```
 
-- **갈 곳.** 앱 선언 `sync`의 값 `"computers"`는 "내 명단의 컴퓨터들"이다. 그 폴더는 `<data root>/computers/`(0700)이고 배치와 file 꼴은 이름 붙인 폴더와 같다. 내보내기와 읽기는 이 폴더를 이름 붙인 destination처럼 쓴다(따로 갈래가 없다). 사람은 `folder.destinations`에 이름 `computers`를 쓰지 못한다. 앱 하나는 갈 곳 하나다(`sync`의 값이 모두 같아야 하고 읽기 cursor가 destination 없이 (앱, 출처)마다라서).
+- **갈 곳.** 앱 선언 `sync`의 값 `"computers"`는 "내 명단의 컴퓨터들"이다. 그 폴더는 `<data root>/computers/`(0700)이고 배치와 file 꼴은 이름 붙인 폴더와 같다. 내보내기와 읽기는 이 폴더를 이름 붙인 destination처럼 쓴다(따로 갈래가 없다). 사람은 `folder.destinations`에 이름 `computers`를 쓰지 못한다. 한 앱의 표가 `computers`와 이름 붙인 destination으로 나뉘어 갈 수 있다.
 - **누가 쓰나.** 자기 하위 폴더 `machines/<자기>/`는 내보내기만 쓴다. 다른 기계의 하위 폴더는 받는 자리만 쓰고, 그 기계가 서명한 목록에 맞는 file만 쓴다. 그래서 남의 writer 검사(자기 하위 폴더에 자기가 쓰지 않은 file)는 그대로 맞는다.
 - **사람의 폴더.** 설정 `folder.shared`(`{path} | null`, 기본 null, 사람 승인, `folder.destinations`와 같은 겹침 검사)는 사람이 고른 "내 컴퓨터들이 같이 보는 폴더"(dual boot의 공유 디스크, Google Drive나 Syncthing이 옮기는 폴더)다. 그 폴더는 `computers` 폴더의 거울이다: 기계마다 자기 `machines/<자기>/`만 그대로 복사하고(지금 목록에 없는 자기 file은 지운다), 다른 기계의 하위 폴더는 받는 자리로 들인다. 읽기는 거울을 바로 읽지 않는다. 서명을 보므로 그 폴더를 믿지 않아도 된다. 사람의 폴더는 누구나 쓸 수 있어 거울이 읽는 양을 줄인다: 서명 key가 없는 기계의 하위 폴더는 열기 전에 건너뛰고, 명단에 없는 기계의 명단 file은 scan마다 4개(`CARRY_UNKNOWN_ROSTER_FILES_MAX`)만 돌아가며 읽어 그 기계 이름의 컴퓨터 항목이 다루는 key의 statement만 명단에 넘기고(아직 믿지 못하는 컴퓨터의 들어오기만 이 길로 온다), 명단에 든 기계의 명단 file은 `computers`에서만 읽는다. 사람의 폴더에서 받는 자리로 들이는 반복도 기계마다 scan에 8번까지다(받은 목록 file이 그 아래 file을 새로 바라므로 사슬 층수만큼 돈다). 거울만 보는 기계가 다른 기계의 file을 받는 것은 그 기계가 직접 거울에 낸 것으로 한정된다(아래 열린 것).
 - **목록의 사슬.** 기계의 file 목록은 세 층이다. 층마다 아래 file의 path, 크기, sha256을 싣는다.
@@ -102,7 +103,7 @@
   - 이 route가 없는 상대(옛 lophn)는 `not_found`로 답한다. 나르는 쪽은 그것을 "이 상대는 나르지 않는다"로 보고 다음 계기까지 묻지 않는다.
   - 이 기계가 든 manifest가 바뀌거나 다른 컴퓨터의 file을 받아 놓거나 지우면 `StateChanged{carry_files}`를 낸다(받은 file은 다음 읽기 scan에서 묶어 한 번). link의 상대와 폰, 이 컴퓨터의 화면이 그것으로 다시 본다. manifest가 file보다 먼저 닿으므로 manifest 때만 알리면 화면이 file이 닿기 전에 읽는다.
 - **명단 file.** `machines/<mch>/roster.json` = `{format: 1, machine, written_at, statements}`(8 MiB까지). remote가 켜져 있고 자기 항목이 있는 컴퓨터가 쓴다. 주소(reach)는 싣지 않고, 읽을 때도 statement만 명단에 넘긴다: 폴더는 명단 밖의 누구나 쓸 수 있어, 서명 없는 주소를 받으면 기기들이 거는 곳을 그가 정한다. 주소는 Noise로 확인한 연결로만 온다. 명단 규칙이 서명을 보고 statement를 스스로 거른다(믿는 서명이 없는 statement는 모르는 서명자 상한 안에서만 남고 기기가 되지 않는다). `roster.json`은 manifest가 없어도 받아 명단에 넘긴다: 아직 믿지 못하는 컴퓨터(dual boot의 다른 OS)의 들어오기 statement가 이 길로만 온다. 하위 폴더에 두는 것은 목록에 있을 때만이다.
-- **기계를 건너는 event file.** `machines/<mch>/apps/<app>/events/<id>.json`(id는 ULID) = `{format: 2, machine, app, id, code_commit, name, payload, at}`(64 KiB까지). 앱 선언이 그 event에 `across_machines`를 단 것만 쓴다.
+- **기계를 건너는 event file.** `machines/<mch>/apps/<app>/events/<id>.json`(id는 ULID) = `{format: 2, machine, app, id, code_commit, name, payload, at}`(64 KiB까지). 앱 선언이 그 event에 `across_machines`를 단 것만, 그 앱이 표를 보내는 destination마다 같은 file을 쓴다(받는 기계는 같은 id를 한 번만 낸다).
   - 난 기계, 앱, id는 path에서 얻는다(서명된 목록이 싣는 것은 path다). 내용의 `machine`, `app`, `id`가 path와 다르면 거절한다. 그래서 믿는 컴퓨터도 자기 하위 폴더에서 다른 기계가 낸 event인 척하지 못한다.
   - `at`이 받는 쪽 시각보다 5분(`CLOCK_AHEAD_MAX_MS`) 넘게 앞서거나 7일보다 옛 것, 이 기계 활성 release와 `code_commit`이 다른 것은 내지 않는다. 쓴 기계는 7일보다 옛 자기 event file을 지운다.
   - 이 기계가 이미 낸 것은 ledger `folder_events_seen`이 들어 여러 길로 와도 한 번만 난다. 그 행은 14일(나이 한도의 두 배)이 지나야 지운다: 행이 지워진 뒤 같은 file이 아직 나이 한도 안일 수 없다.
@@ -128,10 +129,10 @@
 
 ### stream과 cursor
 
-- 번호는 (기계, 앱) stream마다 1부터 빈틈없이 는다. stream의 첫 file과 주인의 release가 바뀐 뒤의 첫 file은 snapshot이다.
+- 번호는 (기계, 앱, destination) stream마다 1부터 빈틈없이 는다. stream의 첫 file과 주인의 release가 바뀐 뒤의 첫 file은 snapshot이다.
 - 쓰는 쪽은 file bytes의 sha256을 먼저 `folder_written`에 의도로 적고, temp에 쓰고 rename한 뒤, 한 transaction에서 다음 번호를 올린다. 다시 돌 때 끝나지 않은 의도는 file이 같은 hash면 끝난 것, 없으면 지우고, 다르면 남의 writer다.
 - 자기 하위 폴더에 자기가 쓰지 않은 번호가 보이면(알아채지 못한 data root 복제가 같은 id로 쓴다) 내보내기를 멈추고 `foreign_writer`로 알린다. 저절로 풀리지 않고 사람이 그 file을 치운 뒤 `app.sync_resume`으로 다시 켠다.
-- 읽는 쪽은 (앱, 출처 기계)마다 cursor(적용했거나 held로 넘긴 마지막 번호)를 자기 ledger `folder_reads`에 둔다. 다음 번호가 없거나 맞지 않으면 기다린다. 그보다 큰 번호의 맞는 snapshot이 있으면 그것을 합치고 cursor를 그 번호로 둔다(주인의 compaction이 옛 file을 지운 뒤 온 기계). 앱 기록의 `data.head`로 "아직 안 옴"과 "끝"을 가른다.
+- 읽는 쪽은 (앱, destination, 출처 기계)마다 cursor(적용했거나 held로 넘긴 마지막 번호)를 자기 ledger `folder_reads`에 둔다(source cursor도 destination마다다). 다음 번호가 없거나 맞지 않으면 기다린다. 그보다 큰 번호의 맞는 snapshot이 있으면 그것을 합치고 cursor를 그 번호로 둔다(주인의 compaction이 옛 file을 지운 뒤 온 기계). 앱 기록의 `data.head`로 "아직 안 옴"과 "끝"을 가른다.
 - 받은 file 하나는 앱 DB transaction 하나다. 받은 변경 하나는 invocation 하나이고(caller `{kind: person, view_session: <주인 log seq>, machine: <출처>}`, operation과 시작 시각은 주인 것) 제약에 걸린 변경만 건너뛴다. 같은 (출처 기계, 변경 id)는 한 번만 적용된다. 그래서 폰 변경과 같이 Activity와 rewind가 덮는다(`app-call.md`). 받은 변경은 sync log에 origin `machine` 줄로 남아 폰이 pull한다.
 - compaction은 주인만 한다. 마지막 snapshot이 30일 지났고 새 줄이 있으면 새 snapshot을 쓰고, 그 앞 snapshot보다 작은 번호의 자기 file 가운데 30일 지난 것을 지운다. 마지막 snapshot은 남는다. 늦은 기계는 그 snapshot으로 따라온다.
 
@@ -143,14 +144,14 @@
 
 ### held: 두 가지
 
-- **다른 release의 file(`folder_held`).** 맞는 data file의 `release.code_commit`이 이 기계의 그 앱 활성 release와 다르면 적용하지 않는다. bytes를 크기와 hash를 확인한 뒤 `<data root>/folder-held/<app>/<출처>/<n>.<kind>`(0600)에 temp와 rename으로 그대로 복사하고, 그 뒤 한 transaction에서 `folder_held` 행과 그 출처의 cursor를 둔다. 주인의 compaction이 폴더에서 지워도 잃지 않는다. held는 "적용하지 않았고 잃지 않았다"는 뜻이다. 적용, 지우기, 한도는 아래 "다른 release와 다른 lophn 판"이다.
+- **다른 release의 file(`folder_held`).** 맞는 data file의 `release.code_commit`이 이 기계의 그 앱 활성 release와 다르면 적용하지 않는다. bytes를 크기와 hash를 확인한 뒤 `<data root>/folder-held/<app>/<destination>/<출처>/<n>.<kind>`(0600, 2단계 전에 둔 사본은 destination 없는 자리에 그대로이고 행이 그 path를 든다)에 temp와 rename으로 그대로 복사하고, 그 뒤 한 transaction에서 `folder_held` 행과 그 출처의 cursor를 둔다. 주인의 compaction이 폴더에서 지워도 잃지 않는다. held는 "적용하지 않았고 잃지 않았다"는 뜻이다. 적용, 지우기, 한도는 아래 "다른 release와 다른 lophn 판"이다.
 - **흔적과 부딪을 수 있는 변경(sync log의 `held` 줄).** 아래 horizon 규칙이 내보내지 않거나 적용하지 않은 변경이다. changeset blob과 출처를 쥐고 폰에 보내지 않고 내보내지 않는다. 사람이나 그 앱의 agent가 `apps/sync_held`로 푼다.
 
 ### 흔적 정리와 horizon
 
-- `settled`: 기계 M이 앱 기록에 싣는 HLC. M의 그 앱 DB clock이 "내보낼 것이 없고 읽는 모든 출처의 cursor가 그 출처 앱 기록의 `data.head`에 닿은" 마지막 때의 값이다. M은 그 clock 이하의 자기 것을 다 냈고 남이 그때까지 낸 것을 다 받았다는 뜻이다.
-- 정리: 컴퓨터는 앱 release마다 core가 뜬 뒤 첫 내보내기와 하루에 한 번, clock이 `max(min(알려진 모든 기계와 자기의 settled), now − 90일)`보다 작은 흔적만 지우고(settled가 없는 기계가 있으면 90일 쪽만) 지운 가장 큰 clock을 `horizon`으로 앱 기록에 싣는다. 알려진 기계는 이 기계가 그 앱의 기록을 가진 기계이고, 사람이 `machine/forget`으로 목록에서 지운 기계는 빠진다(더 큰 revision의 기록을 쓰면 돌아온다).
-- horizon 밖: 기계 N의 `settled`가 다른 기계 X의 `horizon`보다 작으면 N은 그 앱에 대해 떨어져 있다(away). 그러면
+- `settled`: 기계 M이 destination마다의 앱 기록에 싣는 HLC. M의 그 앱 DB clock이 "그 stream에 내보낼 것이 없고 그 destination에서 읽는 모든 출처의 cursor가 그 출처 앱 기록의 `data.head`에 닿은" 마지막 때의 값이다. M은 그 clock 이하의 자기 것을 다 냈고 남이 그때까지 낸 것을 다 받았다는 뜻이다.
+- 정리: 흔적은 앱 DB에 하나다. 컴퓨터는 앱 release마다 core가 뜬 뒤 첫 내보내기와 하루에 한 번, clock이 `max(min(그 앱이 data를 주고받는 모든 destination의 알려진 기계와 자기 stream의 settled), now − 90일)`보다 작은 흔적만 지우고(settled가 없는 기계나 stream이 있으면 90일 쪽만) 지운 가장 큰 clock을 `horizon`으로 모든 destination의 앱 기록에 싣는다. 가장 느린 상대가 모든 표의 흔적을 붙든다. 알려진 기계는 이 기계가 그 destination에서 그 앱의 기록을 가진 기계이고, 사람이 `machine/forget`으로 목록에서 지운 기계는 빠진다(더 큰 revision의 기록을 쓰면 돌아온다).
+- horizon 밖: 한 destination에서 기계 N의 `settled`가 그 destination의 다른 기계 X의 `horizon`보다 작으면 N은 그 앱의 그 stream에 대해 떨어져 있다(away). 그러면 그 stream에서
   - 내보내기는 아직 내보내지 않은 자기 변경 가운데 clock이 X의 horizon 이하인 것을 그 자리에서 `held` 줄로 바꾼다. snapshot을 쓰기 전에는 그 seq까지의 모든 줄에 먼저 이 규칙을 건다.
   - 그 변경은 이 기계의 앱 DB에 그대로 있어 snapshot에 실린다. 그래서 이렇게 held인 자기 변경이 하나라도 풀리지 않았으면 snapshot을 쓰지 않는다. 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없는 stream(첫 file, release가 바뀜, bytes로 남지 못한 자기 변경)은 `away_too_long`으로 멈춰 사람이 풀기를 기다린다. changes file은 계속 나간다.
   - N은 X를 snapshot으로 따라온다. 합치기는 X의 horizon 이하 clock만 가진 N의 row 가운데 X의 snapshot에 없고 N의 held가 건드리지 않는 것을 지운다(그 사이 다른 곳에서 지워지고 흔적이 정리된 row). 이 지우기는 X의 앱 기록 `read[N].n`이 N의 `data.head`에 닿은 뒤에만 한다: X가 N이 낸 것을 다 받았어야 "X에 없음"이 "지워짐"이다. 닿기 전에는 표시(`owes_absent_pass`)를 남기고 기다렸다가 X의 최신 snapshot을 한 번 더 합친다.
@@ -180,9 +181,9 @@
 ### 기계 기록과 환경
 
 - 기계 기록 `record.json`: `{format, machine, revision, updated_at, name, always_on, addresses: {lan, port, relay}, lophn: {version, protocol: {version, min_version}, folder: {version, min_version}}, projects: [{identity, remote_key, separated}]}`. 주소는 `remote.enabled`일 때만 싣는다. `projects`는 이 기계의 active git project 가운데 remote key가 있고 private workspace가 아닌 것(512개, key 256자까지, 기록이 상한을 넘으면 뒤 줄부터 덜어 낸다)이고 내 다른 컴퓨터가 같은 저장소의 project를 같은 id로 맞추는 데 쓴다(`project-identity.md` "자동 match"). 그 일에는 `computers` 폴더의 사본만 읽는다(이름 붙인 폴더의 기록은 서명이 없다). 이름, 경로, url은 싣지 않고, 이 칸이 없는 옛 기록은 빈 목록이다. 공개 key, pairing code, binding, 자격은 싣지 않는다. destination마다 같은 내용으로 하나씩 쓰고, project 목록이 바뀌면 다시 쓴다. 읽는 쪽은 기계마다 가장 큰 `revision`을 남기고, 한 기계의 기록을 읽다 실패하면 옛 사본을 그대로 둔다. `lophn.folder`가 범위 밖인 기계의 file은 읽지 않는다(`newer_format`, 아래 "다른 release와 다른 lophn 판").
-- 앱 기록 `app.json`: `{format: 2, machine, app, revision, updated_at, slug, name, description, sync_to, active_release: {code_commit, data_schema, created_at} | null, data: {head, snapshot}, source: {head}, read: {<mch>: {n, at}}, settled, horizon}`. 칸 `sync_to`는 그 앱 data가 가는 destination 이름(보내지 않으면 null)이고 이름은 옛 lophn이 읽는 그대로다(그 판은 칸이 없는 기록을 읽지 못한다).
-- 읽는 쪽의 cursor, held, 남의 기록 사본은 그 기계 ledger 표(`folder_reads`, `folder_held`, `folder_records`)에 두고 행마다 그 기계 id를 적는다. 다른 기계 id가 적힌 행(복제된 data root에서 온 것)은 없는 것이다.
-- 읽기 명령 `machine.environment`(route `machine/environment`, actors user·agent, workspaces home·app)는 이 기계, 알려진 기계(이름이 겹치면 `display_name`이 `이름 (id 끝 6자)`), destination 상태, 앱마다 data가 가는 destination(`sends_to`, 선언의 `sync`가 고른 이름)과 그 이름이 이 기계에 있는지(`destination`), 내보내기·읽기·`away`, 들일 수 있는 앱을 돌려준다. 기계마다 폴더 꼴 판 범위(`exchange`), 앱마다 `apps/update_state`와 같은 따라가기(`follow`), held, 기계별 release(`machines`)도 실어 agent가 따라가기와 기다리는 변경을 읽는다(폴더로 맞추지 않는 앱은 `follow`가 null이고 둘은 빈 목록). 오류 code는 `destination_missing`, `not_writable`, `foreign_writer`, `invalid_file`, `newer_format`, `too_large`, `clock_ahead`, `apply_failed`, `app_not_running`, `away_too_long`이다.
+- 앱 기록 `app.json`: `{format: 2, machine, app, revision, updated_at, slug, name, description, sync_to, active_release: {code_commit, data_schema, created_at} | null, data: {head, snapshot}, source: {head}, read: {<mch>: {n, at}}, settled, horizon}`. 앱이 쓰는 destination마다 하나이고 `data`·`source`·`read`·`settled`는 그 destination stream의 것, `horizon`은 앱 DB의 것, `revision`은 destination마다 센다. 칸 `sync_to`는 그 destination이 그 앱의 표를 받으면 그 이름, source와 기록만 받으면 null이고 이름은 옛 lophn이 읽는 그대로다(그 판은 칸이 없는 기록을 읽지 못한다).
+- 읽는 쪽의 cursor, held, 남의 기록 사본은 그 기계 ledger 표(`folder_reads`, `folder_held`, `folder_records`)에 (destination마다) 두고 행마다 그 기계 id를 적는다. 기계 기록은 destination마다 같은 내용이라 읽을 때 기계마다 가장 큰 revision 하나를 쓰고, 활성 release처럼 destination과 상관없는 앱 기록 칸은 가장 늦게 쓴(`updated_at`) 사본을 쓴다. 다른 기계 id가 적힌 행(복제된 data root에서 온 것)은 없는 것이다.
+- 읽기 명령 `machine.environment`(route `machine/environment`, actors user·agent, workspaces home·app)는 이 기계, 알려진 기계(이름이 겹치면 `display_name`이 `이름 (id 끝 6자)`), destination 상태, 앱마다 `sync`가 표를 보내는 destination 목록(`destinations`: 이름, 그리 가는 표, 그 이름이 이 기계에 있는지(`state`), 그 stream의 내보내기·읽기), `away`, 들일 수 있는 앱을 돌려준다. 기계마다 폴더 꼴 판 범위(`exchange`), 앱마다 `apps/update_state`와 같은 따라가기(`follow`), held, 기계별 release(`machines`)도 실어 agent가 따라가기와 기다리는 변경을 읽는다(폴더로 맞추지 않는 앱은 `follow`가 null이고 둘은 빈 목록). 오류 code는 `destination_missing`, `not_writable`, `foreign_writer`, `invalid_file`, `newer_format`, `too_large`, `clock_ahead`, `apply_failed`, `app_not_running`, `away_too_long`이다.
 - 확장 자리: 뒤 계획은 명령의 code를 고치지 않고 자기 wiring에서 `ctx.folderEnvironment.register({name, top?, machine?, app?})`를 한 번 부른다. 함수가 던지거나 2초를 넘기면 그 section만 `{error}`가 되고 명령은 나머지를 돌려준다. `always_on`은 section이 아니라 기계 칸이다(이 기계는 `ctx.alwaysOn`, 다른 기계는 기록).
 
 ### 다른 release와 다른 lophn 판
@@ -214,7 +215,7 @@
 
 - 내보내기와 앱 기록·release·source 쓰기: 앱마다 sync log가 바뀐 뒤 5초 debounce, 5분 timer, destination 설정이 바뀜, 활성 release가 바뀜(활성화, take-in), core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 읽기 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(사본 없이 내보내면 hold 규칙이 다른 기계의 horizon을 몰라 떨어져 있던 변경이 그대로 나간다). scan이 실패하면 다음 scan 뒤로 미룬다.
 - 읽기: destination의 `machines/`와 다른 기계의 하위 폴더를 폴더마다 감시(2초 debounce)하고 2분 timer. 새 폴더는 다음 scan이 감시에 더한다.
-- (앱, destination)·(앱, 출처 기계)마다 한 번에 하나이고, 한 번에 64 MiB까지 다룬다. 더 남으면 바로 이어 돈다. 실패한 일은 1분부터 두 배씩 1시간까지 물러난다. `clock_ahead`는 물러나지 않는다. 사람이 held를 풀거나 내보내기를 다시 켜면 물러남을 지우고 바로 돈다. 이 일들은 idle-exit를 막지 않는다.
+- 내보내기는 (앱, destination)마다, 읽기는 앱마다(그 안에서 (destination, 출처 기계) stream마다 따로 물러난다) 한 번에 하나이고, 한 번에 64 MiB까지 다룬다. 더 남으면 바로 이어 돈다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다(한 destination의 실패가 다른 destination을 미루지 않는다). `clock_ahead`는 물러나지 않는다. 사람이 held를 풀거나 내보내기를 다시 켜면 물러남을 지우고 바로 돈다. 이 일들은 idle-exit를 막지 않는다.
 
 ## 지키는 것
 
@@ -245,21 +246,22 @@
 25. 기계를 건너는 event는 한 기계에서 한 번만 난다. 난 기계·앱·id는 path의 것이다. 폴더로 온 mail과 handoff note도 path의 기계가 쓴 것(내용의 `machine`·`from.machine`이 path와 같은 것)만 쓰고, mail은 mail id마다 한 번만 적용한다.
 26. 폴더로 온 명단 file은 statement만 명단에 넘긴다. 주소는 폴더로 오가지 않는다.
 27. 내는 쪽은 manifest와 앱 목록을 쓴 file의 기록으로 만든다. 목록이 한도를 넘으면 쓰지 않고 내는 기계에 오류를 보인다.
-28. 선언의 `sync`가 적지 않은 표의 data는 폴더(changes file, snapshot)에 쓰이지 않는다. 받은 snapshot의 합치기와 없는 row 지우기는 받는 쪽 선언이 보내는 표에만 건다.
+28. 선언의 `sync`가 적지 않은 표의 data는 폴더(changes file, snapshot)에 쓰이지 않는다. 한 destination에는 그리 보내는 표만 쓰인다. 받은 snapshot의 합치기와 없는 row 지우기는 받는 쪽 선언이 그 destination으로 보내는 표에만 건다.
+29. 한 destination stream의 hold, held, snapshot 막기, 오류, 물러남은 같은 앱의 다른 destination stream을 붙들지 않는다. 흔적 정리만 앱 DB에 하나라 모든 stream의 상대를 기다린다.
 
 ## 경계와 계약
 
 - boundary `folder`(내보내기·읽기·앱 기록·take-in·환경, 폴더 꼴과 상태 schema, 다른 release의 held·drain·한도, 꼴 판 범위, `computers` 폴더의 받는 자리·manifest 쓰기·사람의 폴더 거울·명단 file·event file·지금 길 읽기 `carry/status`), `remote`(명단의 컴퓨터마다 드는 link가 `carry/*`로 file을 받는 나르기), `remote-protocol`(manifest와 목록 사슬의 계약, `carry/*` route, 기기 route 목록), `mobile`(폰의 나르기와 Settings의 크기 선택), `events`(`data.changed`, `StateChanged{carry_files}`), `shell`(Settings › Sync), `agent-workspaces`(내장 skill `connect-computers`), `app-sync`(sync core의 snapshot 합치기·흔적 정리·held, sync log의 origin `machine`과 `held` 줄), `app-runtime`(앱 process의 file 적용·합치기·정리·다시 찍기 control, 칸 clock 옮기기), `apps`(take-in 등록, `sync_held`), `app-releases`(따라가기와 `apps/update_state`), `config`·`approvals`(설정의 사람 승인).
 - 선언: `sync`(표 → destination. `@lophn/declaration` 5.0.0이 앱에 destination 하나이던 칸을 대신했다. 4.10.0이 `computers`와 `across_machines`를 더했다. 지금 판은 `@lophn/declaration` 5.1.0, `@lophn/app-ui` 2.25.0, `@lophn/app-ui-native` 1.11.0). 설정: `folder.destinations`(`approval: "person"`).
 - route와 CLI: `machine/environment`(read, `lophn machine environment`), `machine/forget`(memory, 사람만, `lophn machine forget`), `apps/take_in`(command `app.take_in`, user·agent, `lophn app take-in`), `apps/sync_held`(memory, 사람과 그 앱의 agent, `lophn app sync-held <app> list|apply|discard [seq]`), `apps/sync_resume`(memory, 사람, `lophn app sync-resume`). `app_sync/pull`의 `origin`에 `machine`.
-- 앱 process control: `sync_apply`(변경 묶음 1~1,000개·16 MiB), `snapshot_merge`, `sync_cleanup {before} → {dropped, horizon, max_hlc}`, `sync_reapply`.
-- route(기계 사이로 옮기기, actors user. 앞의 넷은 기기 route 목록에 있어 연결의 컴퓨터와 폰이 부르고, `carry/status`는 목록 밖이라 사람의 화면만 부른다): `carry/manifests`(read, `{}` → `{manifests: [{machine, revision, size, sha256}]}`), `carry/wants`(read, `{limit?, after?: {machine, path}}` → `{files: [{machine, path, size, sha256}]}`, (machine, path) 순서, 1,000개까지), `carry/file`(file, `{machine, path, offset, length}`, 8 MiB까지. 들고 지금 목록이 싣는 file과 든 `machines/<mch>/manifest.json`만, 아니면 `not_found`), `carry/put`(memory, `{machine, path, size, sha256, offset, bytes}` → `{status}`, path `machines/<mch>/manifest.json`은 manifest). `carry/status`(read, `{}` → `{shared: {path, state} | null, machines: [{machine, revision, received_at, via}], apps: [{app, name, destination, read_at}]}`. 받은 때와 길(`link`·`phone`·`folder`)은 메모리에만 있어 core를 다시 띄우면 비고, Settings › Sync가 읽는다). 바뀜 이름 `carry_files`. 설정 `folder.shared`. 내장 skill `connect-computers`(home만. 같이 보는 폴더나 Tailscale을 사람과 함께 붙이는 지침이고 lophn이 둘 다 설치하지는 않는다). event `data.changed`(발행자 `lophn`). 선언 칸 `events[].across_machines`.
+- 앱 process control: `sync_apply`(변경 묶음 1~1,000개·16 MiB), `snapshot {path, for, destination?}`(폴더 사본은 그 destination의 표만), `snapshot_merge {path, destination, absent_deletes?}`(그 destination의 표만 합친다), `sync_cleanup {before} → {dropped, horizon, max_hlc}`, `sync_reapply`.
+- route(기계 사이로 옮기기, actors user. 앞의 넷은 기기 route 목록에 있어 연결의 컴퓨터와 폰이 부르고, `carry/status`는 목록 밖이라 사람의 화면만 부른다): `carry/manifests`(read, `{}` → `{manifests: [{machine, revision, size, sha256}]}`), `carry/wants`(read, `{limit?, after?: {machine, path}}` → `{files: [{machine, path, size, sha256}]}`, (machine, path) 순서, 1,000개까지), `carry/file`(file, `{machine, path, offset, length}`, 8 MiB까지. 들고 지금 목록이 싣는 file과 든 `machines/<mch>/manifest.json`만, 아니면 `not_found`), `carry/put`(memory, `{machine, path, size, sha256, offset, bytes}` → `{status}`, path `machines/<mch>/manifest.json`은 manifest). `carry/status`(read, `{}` → `{shared: {path, state} | null, machines: [{machine, revision, received_at, via}], apps: [{app, name, destinations, read_at}]}`. 받은 때와 길(`link`·`phone`·`folder`)은 메모리에만 있어 core를 다시 띄우면 비고, Settings › Sync가 읽는다). 바뀜 이름 `carry_files`. 설정 `folder.shared`. 내장 skill `connect-computers`(home만. 같이 보는 폴더나 Tailscale을 사람과 함께 붙이는 지침이고 lophn이 둘 다 설치하지는 않는다). event `data.changed`(발행자 `lophn`). 선언 칸 `events[].across_machines`.
 - 폴더(기계 사이): `manifest.json`(서명 문맥 `lophn-folder-manifest/1`, 선택 칸 `packages`·`mail`·`notes`), `apps/<app>/files.json`, `roster.json`(statement만), `apps/<app>/events/<id>.json`, `mail/<mal id>.json`, `mail/acks.json`, `notes/<ses id>.json`. data root의 `computers/`(0700)와 받는 staging.
-- 저장: ledger schema step `apps.sync-log.machine`(sync log 다시 만들기: origin `machine`, 칸 `machine`, kind `held`, 칸 `resolved_at`), `folder.tables`(`folder_streams`, `folder_written`, `folder_reads`, `folder_held`, `folder_records`), `folder.away-notified`(`folder_streams.away_notified`: 떨어져 있음 알림에 마지막으로 쓴 held 수), `folder.events-seen`(`folder_events_seen`: 이 기계가 이미 낸 다른 기계의 event), `folder.carry-marks`(`folder_carry_marks`: (기계, 서명 key)마다 받아 들인 가장 큰 manifest revision), `folder.code-commit`(`folder_streams`·`folder_reads`에 `code_commit` 추가, `folder_held`를 `code_commit` 기준으로 다시 만들기, `folder_written`에서 옛 `release` 행 정리), `apps.event-publications.machine`(`app_event_publications.machine`: 다른 기계에서 온 event를 낸 기록의 난 기계). data step은 없다. data root의 `folder-held/`. 앱 DB 숨은 표 `lophn_sync_kept`와 `lophn_sync_state`의 `horizon`.
+- 저장: ledger schema step `apps.sync-log.machine`(sync log 다시 만들기: origin `machine`, 칸 `machine`, kind `held`, 칸 `resolved_at`), `folder.tables`(`folder_streams`, `folder_written`, `folder_reads`, `folder_held`, `folder_records`), `folder.away-notified`(`folder_streams.away_notified`: 떨어져 있음 알림에 마지막으로 쓴 held 수), `folder.events-seen`(`folder_events_seen`: 이 기계가 이미 낸 다른 기계의 event), `folder.carry-marks`(`folder_carry_marks`: (기계, 서명 key)마다 받아 들인 가장 큰 manifest revision), `folder.code-commit`(`folder_streams`·`folder_reads`에 `code_commit` 추가, `folder_held`를 `code_commit` 기준으로 다시 만들기, `folder_written`에서 옛 `release` 행 정리), `apps.sync-log.destination`(`app_sync_log.destination`, 기존 change·held 줄은 그 줄 release 선언의 destination, 폰 앱의 줄은 없음), `folder.destination`(`folder_reads`·`folder_held`·`folder_records`의 key에 destination. 기존 행은 그 앱 활성 release 선언의 destination으로, source cursor는 그 기록 사본을 읽은 destination으로 채운다. 빚진 지우기 표시를 `folder_reads.error` 안 JSON에서 제 칸 `absent`·`absent_caught_up_at`으로 옮긴다), `apps.event-publications.machine`(`app_event_publications.machine`: 다른 기계에서 온 event를 낸 기록의 난 기계). data step은 없다. data root의 `folder-held/`. 앱 DB 숨은 표 `lophn_sync_kept`와 `lophn_sync_state`의 `horizon`.
 - notice kind `app_sync_away`(`app-notice.md`).
-- `folder_held` 행: 이 기계, 앱, 출처, 번호, 종류, `code_commit`, data schema, 크기. 앱 DB 숨은 표 `lophn_sync_columns`(표마다 마지막으로 본 칸 이름 목록).
+- `folder_held` 행: 이 기계, 앱, destination, 출처, 번호, 종류, `code_commit`, data schema, 크기. 앱 DB 숨은 표 `lophn_sync_columns`(표마다 마지막으로 본 칸 이름 목록).
 - 폴더: 기계 기록 `lophn: { version, protocol, folder: { version, min_version } }`. data file header의 `release.code_commit`·`data_schema`.
-- 읽기: `apps/update_state {app}`(memory, 사람과 그 앱 workspace의 agent. `follow`, `held: [{machine, code_commit, data_schema, changes, bytes, full, why: newer_release | older_release | diverged}]`, `machines: [{machine, name, this_machine, lophn_version, exchange, release}]`). 폴더 읽기 오류 `newer_format`의 `details: { machine, exchange: update_this | update_peer }`.
+- 읽기: `apps/update_state {app}`(memory, 사람과 그 앱 workspace의 agent. `destinations`, `follow`, `held: [{machine, destination, code_commit, data_schema, changes, bytes, full, why: newer_release | older_release | diverged}]`, `machines: [{machine, name, this_machine, lophn_version, exchange, release}]`). 폴더 읽기 오류 `newer_format`의 `details: { machine, exchange: update_this | update_peer }`.
 - 한도 상수: held 128 MiB(한 release의 changeset 합 한도와 같다).
 
 ## 결정
@@ -312,6 +314,12 @@
 - Settings › Sync는 지금 길을 보이기만 하고 길을 고르는 설정은 두지 않는다. 이유: 길은 lophn이 고른다. 보이는 것은 폴더(이름 붙인 폴더와 같이 보는 폴더의 상태), 컴퓨터(연결이 있는지, 마지막으로 file이 온 길과 때), 앱(다른 기계의 변경을 마지막으로 읽은 때)이다. 컴퓨터의 마지막 길과 때는 메모리에만 있어 core를 다시 띄우면 빈다. (agent)
 - 바깥 도구(같이 보는 폴더의 Google Drive나 Syncthing, 밖에서 붙기 위한 Tailscale)는 lophn이 설치하지 않고 home의 agent가 내장 skill `connect-computers`로 사람과 함께 붙인다. 이유: lophn 안에 도구를 넣으면 그 도구의 자격과 계약을 lophn이 져야 한다. (사람, 2026-11-17)
 
+- 한 앱의 표는 destination마다 다른 길로 간다. 내보내기와 읽기는 (앱, destination)마다 stream 하나이고 sync log 줄도 destination마다 나눈다(폰 앱의 줄은 모든 표를 담아 나누지 않는다). 이유: hold와 held가 줄 단위라 섞인 줄은 한 destination에서만 붙들 수 없고, 한 destination이 없거나 멈춘 것이 다른 destination을 막으면 안 된다. 폴더 꼴은 그대로이고 받는 기계는 자기 선언에서 표 집합을 안다. 버린 안: 앱에 stream 하나를 두고 file 안에서 destination을 가르기(꼴 판이 바뀌고, 폴더마다 다른 바깥 도구가 옮기는데 한 번호 사슬을 나눌 수 없다). (agent, roadmap `sync-tables` 2단계)
+- 흔적 정리와 horizon은 앱 DB에 하나다: 경계는 그 앱이 data를 주고받는 모든 destination의 상대와 자기 stream의 settled 가운데 가장 늦은 쪽(가장 작은 값)이고, horizon은 모든 destination의 앱 기록에 같이 싣는다. hold 규칙은 stream마다 그 destination 상대의 horizon만 본다. 이유: destination마다 두면 한 DB 안의 clock 표가 갈린다. 대가: 가장 느린 상대가 모든 표의 흔적을 90일까지 붙든다. `computers`에 source와 기록만 쓰는 상대의 기록(settled 없음)은 경계를 붙들지 않는다. (agent, roadmap)
+- `private`이 아닌 앱은 늘 `computers`에, 그리고 표를 보내는 destination 모두에 source와 앱 기록을 쓴다. 이유: 이름 붙인 destination만 쓰던 앱이 `computers`에 나가지 않아 다른 컴퓨터가 들이지 못했다(`app-source-share-without-sync`의 결정과 어긋남). 대가: 그런 앱은 이 판 뒤 첫 내보내기에 `computers`로 source 전체 bundle을 한 번 쓴다. (planner, roadmap)
+- 표를 destination X에서 Y로 옮긴 release: 다른 release 바뀜과 같다(새 release의 첫 file이 stream마다 snapshot이고 다른 기계는 따라올 때까지 held). 그 표는 계속 보내던 표라 row·칸 clock이 남아 있어 Y의 snapshot이 칸 단위로 합쳐지고, 로컬에서 다시 올린 표처럼 "새 release를 가장 늦게 시작한 컴퓨터가 이긴다"가 아니다. X에 남은 그 표의 옛 release 변경은 그 출처의 X stream에서 held로 있다가 그 출처가 올라온 뒤 X에 쓰는 첫 snapshot이 덮고, 그 출처의 옛 고침은 Y의 snapshot으로 온다. Y가 없는 기계는 그 표를 더 받지 않는다. (agent)
+- 기록 사본은 destination마다 둔다(앱 기록의 data·read·settled가 destination마다 다르다). 기계 기록은 기계마다 가장 큰 revision을, 활성 release와 source처럼 destination과 상관없는 앱 기록 칸은 가장 늦게 쓴 사본을 읽는다(revision은 destination마다 따로 센다). (agent)
+
 ## 열린 것
 
 - 실제 두 기계와 실제 바깥 도구로 돌려 보지 않았다. 한 기계에서 data root 둘(개발 core 둘)과 같은 local 폴더로 내보내기, take-in과 동의, 양쪽 row, 같은 row의 다른 칸 양쪽 편집, snapshot 주고받기가 멈춤, 손으로 자른 file(`invalid_file`, 아무것도 적용 안 됨), 한쪽만 새 release(held 복사, data 그대로), 손으로 지운 changes file(snapshot으로 따라옴), 폴더에 id file·secret·host key 없음, 손으로 쓴 미래 clock file(`clock_ahead`가 기계를 말함), 앞당긴 시각의 흔적 정리(떨어진 기계의 자기 변경이 held)를 보았다. 같은 OS 위라 두 기계의 이름이 같았다. 다른 release의 따라가기, held drain, 꼴 판 범위도 두 개발 core가 한 폴더를 나눈 끝에서 끝 확인으로만 보았다(change-log `machine-update`).
@@ -322,7 +330,6 @@
 - 범위 밖이 되기 전에 읽은 앱 기록이 없는 기계는 폴더로 맞추는 모든 앱의 Machines 절에 선다.
 - `update_peer`(그 기계를 올려야 한다)는 `FOLDER_FORMAT` `{2, 2}`에서 옛 `{1, 1}` 기계와 만날 때 생기며, 판정 표는 test가 다섯 경우를 본다.
 - 따라가기의 설치 실패와 거절은 메모리에만 있어 core가 다시 뜨면 다시 한다(`activation.md`).
-- 빚진 지우기 표시가 `folder_reads.error` 칸 안 JSON에 산다. 그 칸을 읽고 쓰는 곳이 import 하나라 칸을 나누는 schema step은 folder 표를 다음에 고칠 때 같이 한다(이슈 `folder-absent-pass-mark-in-error-column`, kept).
 - `clock_ahead`의 글은 기계 이름만 쓴다. 이름이 겹친 기계끼리는 `details.machine`(id)으로만 가린다.
 - 기계 사이로 옮기기는 실제 두 기계와 바깥 폴더 도구(Google Drive, Syncthing, dual boot의 공유 디스크)로는 돌려 보지 않았다. 자동 test는 가짜 link와 가짜 받는 자리, 한 폴더를 나눈 data root 둘로만 본다.
 - 앱 목록의 data file을 줄이는 이른 snapshot은 큰 앱 DB에서 무겁다(5초마다 바뀌는 앱은 몇 시간마다 snapshot이다). held인 자기 변경이 있는 동안은 snapshot을 쓰지 못해 목록이 한도에 닿을 수 있고, 그때는 내는 기계에 오류가 선다.
@@ -337,3 +344,5 @@
 - key가 맞지 않게 된 컴퓨터의 하위 폴더에는 든 file이 남아 있어, 사람이 그 컴퓨터를 `from`으로 골라 `app.take_in`하는 것은 막지 않는다. 활성화는 그래도 사람의 동의를 묻는다.
 - `carry/file`은 기기 자격이면 누구에게나 `computers`로 맞추는 모든 앱의 file을 내준다. 짝지은 폰이 명단의 컴퓨터가 낸 앱 data와 source bundle을 모두 읽을 수 있다.
 - 이름 붙인 폴더에는 manifest가 없어 그 폴더의 event file은 서명으로 막히지 않는다. 그 폴더를 쓸 수 있는 누구나 다른 기계가 낸 event인 척하는 file을 둘 수 있다(난 기계는 path에서 읽을 뿐이다). `computers`의 event file은 manifest 사슬이 싣는다.
+- 한 출처 기계가 source를 여러 destination에 쓰면 받는 쪽은 destination마다 따로 받는다(같은 commit을 두 번 fetch할 수 있다).
+- 2단계 전에 둔 held 사본은 destination 없는 자리(`folder-held/<app>/<출처>/`)에 그대로 있고 행이 그 path를 든다. 새 사본만 destination 아래에 둔다.

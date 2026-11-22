@@ -92,13 +92,13 @@ root의 오류 경계는 폰 앱의 base가 둔다. 폰 화면의 머리 줄은 
 
 ```json
 "devDependencies": {
-  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.11.0"
+  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.11.1"
 }
 ```
 
 ```ts
 sdk_dependencies: [
-  { name: "@lophn/app-ui-native", version: "1.11.0" },
+  { name: "@lophn/app-ui-native", version: "1.11.1" },
 ],
 ```
 

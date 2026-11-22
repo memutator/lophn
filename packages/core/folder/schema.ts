@@ -166,7 +166,9 @@ export const FOLDER_CODE_COMMIT_STEPS: readonly SchemaStep[] = [
 // 그 앱 stream이 destination마다 따로 번호를 세고, 앱 기록(`app.json`)도 destination마다 다른 data head·읽은 번호를 싣는다.
 // - folder_reads: (앱, destination, 출처, stream)마다. data cursor는 그 앱 활성 release의 선언이 고른 destination(1단계까지는
 //   앱에 하나)에서 읽은 것이고, source cursor는 그 출처의 앱 기록 사본을 읽은 destination에서 읽은 것이다. 둘 다 없으면
-//   `computers`(source만 내보내는 앱의 길)다. 쓰지 않던 bundle_hash 칸은 뺀다.
+//   `computers`(source만 내보내는 앱의 길)다. 쓰지 않던 bundle_hash 칸은 뺀다. data 행의 error 칸에 오류와 같이 JSON으로
+//   살던 빚진 "없는 row 지우기" 표시(`{error, absent: {caught_up_at} | null}`)를 제 칸 absent·absent_caught_up_at으로 옮기고
+//   error에는 오류만 둔다(source 행의 error는 처음부터 오류뿐이다).
 // - folder_held: 다른 release라 둔 file도 그 앱 활성 release 선언의 destination에서 읽었다. 사본 path는 행에 그대로 있다.
 // - folder_records: 이미 destination 칸이 있다. 기계 기록과 앱 기록을 destination마다 둔다.
 // remote wiring의 schemaStepsAfterTeams 끝(apps.sync-log.destination 뒤)에 잇는다.
@@ -193,10 +195,13 @@ export const FOLDER_DESTINATION_STEPS: readonly SchemaStep[] = [
       next_try_at TEXT,
       waiting_for INTEGER,
       error TEXT CHECK (error IS NULL OR json_valid(error)),
+      absent INTEGER NOT NULL DEFAULT 0 CHECK (absent IN (0, 1)),
+      absent_caught_up_at TEXT,
       PRIMARY KEY (machine, app, destination, origin, stream)
     ) STRICT;
     INSERT INTO folder_reads_next
-      (machine, app, destination, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error)
+      (machine, app, destination, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error,
+       absent, absent_caught_up_at)
     SELECT r.machine, r.app,
       coalesce(
         CASE WHEN r.stream = 'data' THEN ${ACTIVE_DESTINATION("r.app")} END,
@@ -204,7 +209,10 @@ export const FOLDER_DESTINATION_STEPS: readonly SchemaStep[] = [
           WHERE fr.machine = r.machine AND fr.origin = r.origin AND fr.kind = 'app' AND fr.key = r.app),
         ${ACTIVE_DESTINATION("r.app")},
         'computers'),
-      r.origin, r.stream, r.cursor, r.code_commit, r.read_at, r.attempts, r.next_try_at, r.waiting_for, r.error
+      r.origin, r.stream, r.cursor, r.code_commit, r.read_at, r.attempts, r.next_try_at, r.waiting_for,
+      CASE WHEN r.stream = 'data' AND r.error IS NOT NULL THEN json_extract(r.error, '$.error') ELSE r.error END,
+      CASE WHEN r.stream = 'data' AND json_type(r.error, '$.absent') = 'object' THEN 1 ELSE 0 END,
+      CASE WHEN r.stream = 'data' THEN json_extract(r.error, '$.absent.caught_up_at') END
     FROM folder_reads AS r;
     DROP TABLE folder_reads;
     ALTER TABLE folder_reads_next RENAME TO folder_reads;

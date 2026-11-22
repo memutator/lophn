@@ -95,10 +95,6 @@ export type ReadRow = {
   absent: AbsentPass | null;
 };
 
-// `folder_reads.error` 칸에 오류와 빚진 합치기를 같이 둔다: `{ error, absent }`. 둘 다 없으면 NULL이다.
-// 칸 하나를 더하는 schema step 없이 재시작을 넘긴다.
-type StateColumn = { error: FolderError | null; absent: AbsentPass | null };
-
 /** 읽는 data stream 하나: (앱, destination, 출처 기계). */
 export type ReadKey = {
   app: Id<"app">;
@@ -112,7 +108,7 @@ export function loadRead(
   key: ReadKey,
 ): ReadRow {
   const row = sql.get(
-    `SELECT cursor, read_at, attempts, next_try_at, waiting_for, error FROM folder_reads
+    `SELECT cursor, read_at, attempts, next_try_at, waiting_for, error, absent, absent_caught_up_at FROM folder_reads
      WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND stream = 'data'`,
     [me, key.app, key.destination, key.origin],
   );
@@ -127,18 +123,20 @@ export function loadRead(
       absent: null,
     };
   }
-  const state: StateColumn =
-    row.error === null
-      ? { error: null, absent: null }
-      : (JSON.parse(row.error as string) as StateColumn);
   return {
     cursor: Number(row.cursor),
     read_at: row.read_at as string | null,
     attempts: Number(row.attempts),
     next_try_at: row.next_try_at as string | null,
     waiting_for: row.waiting_for === null ? null : Number(row.waiting_for),
-    error: state.error,
-    absent: state.absent,
+    error:
+      row.error === null
+        ? null
+        : (JSON.parse(row.error as string) as FolderError),
+    absent:
+      Number(row.absent) === 1
+        ? { caught_up_at: row.absent_caught_up_at as string | null }
+        : null,
   };
 }
 
@@ -150,8 +148,9 @@ export function saveRead(
 ): void {
   sql.run(
     `INSERT INTO folder_reads
-       (machine, app, destination, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error)
-     VALUES (?, ?, ?, ?, 'data', ?, ?, ?, ?, ?, ?, ?)
+       (machine, app, destination, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error,
+        absent, absent_caught_up_at)
+     VALUES (?, ?, ?, ?, 'data', ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (machine, app, destination, origin, stream) DO UPDATE SET
        cursor = excluded.cursor,
        code_commit = coalesce(excluded.code_commit, folder_reads.code_commit),
@@ -159,7 +158,9 @@ export function saveRead(
        attempts = excluded.attempts,
        next_try_at = excluded.next_try_at,
        waiting_for = excluded.waiting_for,
-       error = excluded.error`,
+       error = excluded.error,
+       absent = excluded.absent,
+       absent_caught_up_at = excluded.absent_caught_up_at`,
     [
       me,
       key.app,
@@ -171,9 +172,9 @@ export function saveRead(
       row.attempts,
       row.next_try_at,
       row.waiting_for,
-      row.error === null && row.absent === null
-        ? null
-        : JSON.stringify({ error: row.error, absent: row.absent }),
+      row.error === null ? null : JSON.stringify(row.error),
+      row.absent === null ? 0 : 1,
+      row.absent?.caught_up_at ?? null,
     ],
   );
 }

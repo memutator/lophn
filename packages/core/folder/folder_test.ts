@@ -345,7 +345,7 @@ test("folder.tables가 기존 ledger에 걸려도 다른 표의 행이 그대로
 // 사람의 ledger가 이 step을 돈다. 읽기 cursor의 destination을 틀리게 채우면 다음 기동이 그 stream을 0부터 다시 읽어 다른 기계의
 // 변경을 다시 받거나(cursor가 다른 destination에 걸림) 받은 적 없는 stream으로 보고, held 사본과 log 줄은 아무 stream도 맡지 않아
 // 잃는다.
-test("destination step은 기존 읽기 cursor·held·기록 사본과 log 줄을 그 앱 release 선언의 destination으로 옮긴다", () => {
+test("destination step은 기존 읽기 cursor(빚진 지우기 표시 포함)·held·기록 사본과 log 줄을 그 앱 release 선언의 destination으로 옮긴다", () => {
   const db = new DatabaseSync(":memory:");
   try {
     for (const step of [...SYNC_LOG_SCHEMA_STEPS, ...SYNC_LOG_MACHINE_STEPS]) {
@@ -486,6 +486,21 @@ test("destination step은 기존 읽기 cursor·held·기록 사본과 log 줄�
     read.run(ME, OLD_SYNC_TO, OTHER, "data", 7, "a".repeat(40));
     read.run(ME, OLD_SYNC_TO, OTHER, "source", 2, null);
     read.run(ME, STAGE_ONE, OTHER, "data", 4, "b".repeat(40));
+    // 오류와 빚진 "없는 row 지우기" 표시가 한 칸 JSON에 살던 행.
+    const stuck = {
+      code: "app_not_running",
+      message: "the app stopped",
+      at: "2026-11-16T00:00:00.000Z",
+    };
+    db.prepare(
+      "update folder_reads set error = ? where app = ? and stream = 'data'",
+    ).run(
+      JSON.stringify({
+        error: stuck,
+        absent: { caught_up_at: "2026-11-15T00:00:00.000Z" },
+      }),
+      STAGE_ONE,
+    );
     read.run(ME, SOURCE_ONLY, OTHER, "source", 3, null);
     const record = db.prepare(
       `insert into folder_records (machine, origin, kind, key, revision, record, destination, read_at)
@@ -540,7 +555,13 @@ test("destination step은 기존 읽기 cursor·held·기록 사본과 log 줄�
       origin: OTHER,
     });
     assert.equal(loadRead(sql, ME, key(OLD_SYNC_TO, "personal")).cursor, 7);
-    assert.equal(loadRead(sql, ME, key(STAGE_ONE, "computers")).cursor, 4);
+    const moved = loadRead(sql, ME, key(STAGE_ONE, "computers"));
+    assert.equal(moved.cursor, 4);
+    assert.deepEqual(moved.error, stuck);
+    assert.deepEqual(moved.absent, {
+      caught_up_at: "2026-11-15T00:00:00.000Z",
+    });
+    assert.equal(loadRead(sql, ME, key(OLD_SYNC_TO, "personal")).absent, null);
     assert.equal(
       sourceCursor(sql, { machine: ME, ...key(OLD_SYNC_TO, "personal") }),
       2,

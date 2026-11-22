@@ -2611,19 +2611,19 @@ flows:
     crosses_process: true
 
   - id: folder-export-run
-    title: "선언의 sync가 보내는 표의 data, 앱 기록, release, source와 기계 기록을 destination의 자기 하위 폴더에 쓴다"
+    title: "선언의 sync가 보내는 표의 data를 그 표의 destination마다, 앱 기록, release, source와 기계 기록을 앱이 쓰는 destination마다 자기 하위 폴더에 쓴다"
     actor: system
     entries: [system:folder-export]
     boundary: [folder, app-sync]
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/export/, packages/core/folder/apps/]
     steps:
-      - "계기: 앱마다 AppSyncChanged 뒤 5초 debounce, 5분 timer, folder.destinations 설정이 바뀜, core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(scan이 실패하면 다음 scan 뒤로 미룬다). (앱, destination)마다 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 기계 기록은 시작 listener가 제품 판을 알려 준 뒤부터 쓴다"
+      - "계기: 앱마다 AppSyncChanged 뒤 5초 debounce, 5분 timer, folder.destinations 설정이 바뀜, core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(scan이 실패하면 다음 scan 뒤로 미룬다). data stream은 (앱, destination)마다 따로 돌고 따로 물러나며 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 기계 기록은 시작 listener가 제품 판을 알려 준 뒤부터 쓴다"
       - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱 기록·release·source를 쓴다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다"
-      - "changes file에는 줄의 changeset에서 선언의 sync가 보내는 표의 구간만 담고(폰 앱의 줄에는 폰만 받는 표도 있다) 남는 것이 없는 줄은 건너뛴다. snapshot은 앱 process가 apps.snapshot(for folder)으로 새 DB file에 보내는 표와 그 clock 줄, sync 상태만 복사한 것이고 1 GiB 한도는 그 file을 잰다. 옛 release(sync_to)는 모든 표이고 VACUUM INTO로 DB 통째다"
+      - "sync log 줄은 destination마다 나뉘어 있다(폰 앱이 아닌 앱의 write는 destination마다 줄 하나, destination이 없는 줄은 모든 stream의 것). stream은 자기 destination의 줄과 destination이 없는 줄만 내보낸다. changes file에는 줄의 changeset에서 그 줄 release의 선언이 이 destination으로 보내는 표의 구간만 담고(폰 앱의 줄에는 폰만 받는 표도 있다) 남는 것이 없는 줄은 건너뛴다. snapshot은 앱 process가 apps.snapshot(for folder, destination)으로 새 DB file에 그 destination으로 보내는 표와 그 clock 줄, sync 상태만 복사한 것이고 1 GiB 한도는 그 file을 잰다. 옛 release(sync_to)는 모든 표이고 VACUUM INTO로 DB 통째다"
       - "다른 기계에서 온 일(snapshot 합치기, 결과 모르는 받은 변경)의 '다시 snapshot' 줄(origin machine)은 건너뛴다: 그 data는 출처가 이미 냈다. 그래서 서로의 snapshot을 합친 두 기계도 뒤의 write는 changes file로 나간다"
-      - "horizon 밖이면 아직 내보내지 않은 자기 change 줄 가운데 clock이 horizon 이하인 것을 그 자리에서 held로 바꾼다(snapshot 앞에는 그 seq까지 먼저). held인 자기 변경이 풀리지 않았으면 snapshot을 쓰지 않는다: 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없으면 away_too_long으로 멈춘다"
+      - "그 destination의 다른 기계 horizon 밖이면 아직 내보내지 않은 그 stream의 자기 change 줄 가운데 clock이 horizon 이하인 것을 그 자리에서 held로 바꾼다(snapshot 앞에는 그 seq까지 먼저). 그 stream의 held인 자기 변경이 풀리지 않았으면 그 destination에 snapshot을 쓰지 않는다: 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없으면 away_too_long으로 멈춘다. 다른 destination의 stream은 그대로 나간다"
       - "앱이 다른 기계의 horizon 밖(away_since)이면 core 알림 app_sync_away 하나(앱마다 key 하나)를 쓴다. held 수가 늘면 다시 쓴다. 이번 run이 held로 둔 변경이 있으면 그 run에서 따라잡아 떨어져 있음이 이미 끝났어도 쓴다. 새 held 없이 떨어져 있음이 끝나거나(run 앞뒤의 away_since) 사람이 held를 풀어 줄면 같은 줄을 '따라잡았다'와 남은 held 수로 바꾼다. 마지막으로 알린 held 수는 folder_streams.away_notified(ledger)에 두어 core를 다시 켜도 같은 수로 다시 쓰지 않는다"
-      - "앱 release마다 core가 뜬 뒤 처음과 하루에 한 번 흔적 정리: before = max(min(알려진 기계와 자기의 settled), now − 90일)(settled 없는 기계가 있으면 90일 쪽만)로 앱 process의 sync_cleanup을 부르고 돌아온 horizon을 folder_streams에 둔다. 앱이 떠 있지 않으면 다음 run에 다시 본다"
+      - "앱 release마다 core가 뜬 뒤 처음과 하루에 한 번 흔적 정리(앱 DB에 하나): before = max(min(그 앱이 data를 주고받는 모든 destination의 알려진 기계와 자기 stream의 settled), now − 90일)(settled 없는 기계나 stream이 있으면 90일 쪽만)로 앱 process의 sync_cleanup을 부르고 돌아온 horizon을 그 앱의 모든 data stream 행(folder_streams)에 둔다. 앱이 떠 있지 않으면 다음 run에 다시 본다"
     outcomes:
       - id: written
         observe: ["disk:<destination>/machines/<mch>/", "ledger:folder_streams", "ledger:folder_written"]
@@ -2653,11 +2653,11 @@ flows:
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/import/, packages/core/folder/apps/source.ts]
     steps:
       - "계기: destination마다 machines/와 다른 기계의 하위 폴더·apps·앱 폴더·data·source의 fs.watch(폴더마다, 이 기계 자신의 하위 폴더는 빼고 2초 debounce), 2분 timer, 설정 바뀜, 활성 release가 바뀜, 시작. 새 폴더는 scan 뒤와 timer에 더한다"
-      - "scan이 기계·앱 기록 사본을 고친다. 기계 기록의 lophn.folder가 이 기계의 꼴 판 범위 밖이면(또는 기록 자체가 더 새 꼴이면) 기계 기록만 두고 앱 기록은 읽지 않으며 newer_format으로 남긴다. 그 기계의 앱 기록은 records()에서 빠져 release·source도 읽지 않는다. 그 뒤 sync 앱마다 import를 돈다(먼저 sync log의 held 줄이 건드리는 row를 읽어 둔다). 출처 stream의 물러남은 import가 stream마다 한다. 받은 file이 있으면 그 앱의 내보내기를 잡는다(앱 기록의 read·settled)"
-      - "출처마다 stream 앞에 지금 활성 release의 held(folder_held)를 번호 순서로 FolderApply로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다(drain). 활성 release가 바뀌면 release 상태 바뀜이 scan과 import를 다시 돌려 drain이 돈다. 지금 release의 held가 남으면 그 출처의 stream은 읽지 않는다"
+      - "scan이 기계·앱 기록 사본을 destination마다 고친다(앱 기록은 destination마다 그 stream의 data head·read를 싣는다). 기계 기록의 lophn.folder가 이 기계의 꼴 판 범위 밖이면(또는 기록 자체가 더 새 꼴이면) 기계 기록만 두고 앱 기록은 읽지 않으며 newer_format으로 남긴다. 그 기계의 앱 기록은 records()에서 빠져 release·source도 읽지 않는다. 그 뒤 sync 앱마다 import를 돈다(먼저 sync log의 held 줄이 건드리는 row를 읽어 둔다). 출처 stream의 물러남은 import가 stream마다 한다. 받은 file이 있으면 그 앱의 내보내기를 잡는다(앱 기록의 read·settled)"
+      - "sync 앱이 표를 보내는 destination마다, 출처마다 stream을 따로 읽는다(cursor·held·물러남이 (앱, destination, 출처)마다). 받은 변경과 snapshot은 이 기계 선언이 그 destination으로 보내는 표만 적용하고 합친다. stream 앞에 지금 활성 release의 held(folder_held)를 번호 순서로 FolderApply로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다(drain). 활성 release가 바뀌면 release 상태 바뀜이 scan과 import를 다시 돌려 drain이 돈다. 지금 release의 held가 남으면 그 출처의 stream은 읽지 않는다"
       - "출처의 snapshot m이 합쳐지거나(stream·drain) held가 되면 같은 transaction에서 그 출처의 m보다 작은 번호의 held를 release와 상관없이 지우고 commit 뒤 사본을 지운다"
       - "다른 release의 changes를 held로 둘 때 그 출처에서 가장 새 held snapshot 뒤 held changes가 128 MiB를 넘게 되면 복사하지 않고 cursor를 두고 멈춘다(full). 폴더에 더 뒤 snapshot이 있으면 그리로 건너뛴다. 이 기계의 release나 출처 앱 기록의 snapshot 번호가 바뀔 때까지 폴더를 다시 읽지 않는다(core 메모리)"
-      - "source 받기는 앱마다 따로 돌고 실패하면 그 일만 물러난다"
+      - "source 받기는 앱마다 따로 돌고 실패하면 그 일만 물러난다. 출처 기계가 source를 쓴 destination마다(기록 사본마다) 따로 번호를 센다"
     outcomes:
       - id: followed
         observe: ["ledger:folder_reads", "ledger:folder_records", "ledger:app_sync_log"]
@@ -2699,7 +2699,7 @@ flows:
     boundary: [folder, core-api]
     code: [packages/core/folder/environment.ts, packages/core/main/daemon/wiring/folder.ts, packages/protocol/folder/environment.ts, packages/protocol/folder/status.ts]
     steps:
-      - "메인 스레드 read handler가 this_machine, 기계 목록(자기와 지우지 않은 기록 사본. 이름이 겹치면 display_name에 id 끝 6자. 기계마다 폴더 꼴 판 범위 exchange), 이 기계의 always_on(ctx.alwaysOn), destination 상태, 활성 release가 있는 앱마다 export·imports(owes_absent_pass 포함)·apps/update_state와 같은 follow·held·machines·away, 들일 수 있는 앱을 모은다. away는 horizon 밖이거나 풀리지 않은 held 줄이 남은 동안 서고 떨어져 있지 않으면 since가 null이다. 경로 말고는 local file 내용을 싣지 않는다"
+      - "메인 스레드 read handler가 this_machine, 기계 목록(자기와 지우지 않은 기록 사본. 이름이 겹치면 display_name에 id 끝 6자. 기계마다 폴더 꼴 판 범위 exchange), 이 기계의 always_on(ctx.alwaysOn), destination 상태, 활성 release가 있는 앱마다 sync가 표를 보내는 destination 목록(이름, 표, 이 기계에 그 이름이 있는지, 그 stream의 export·imports(owes_absent_pass 포함))과 apps/update_state와 같은 follow·held·machines·away, 들일 수 있는 앱을 모은다. away는 horizon 밖이거나 풀리지 않은 held 줄이 남은 동안 서고 떨어져 있지 않으면 since가 null이다. 경로 말고는 local file 내용을 싣지 않는다"
       - "뒤 계획이 ctx.folderEnvironment.register로 꽂은 section(top, 기계마다, 앱마다)을 부른다. 하나가 던지거나 2초를 넘으면 그 section만 { error }다"
     outcomes:
       - id: ok
@@ -2754,7 +2754,7 @@ flows:
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/apps/calls/service.ts, packages/protocol/folder/held.ts]
     steps:
       - "앱 workspace의 agent 자격은 자기 앱만 본다(다른 앱은 not_found)"
-      - "list: 풀리지 않은 held 줄과 줄마다 made_here(이 기계가 낸 변경이라 이미 이 기계의 data에 있다), changeset이 건드리는 표·종류·때"
+      - "list: 풀리지 않은 held 줄과 줄마다 destination(null이면 모든 destination), made_here(이 기계가 낸 변경이라 이미 이 기계의 data에 있다), changeset이 건드리는 표·종류·때"
       - "apply(받은 변경): 그 changeset을 지금 clock의 이 기계 write로 다시 적용한다(invocation 하나, caller는 사람이나 agent의 tool call). 보통 write처럼 sync log에 남아 내보내지고 held 줄은 풀린다. agent는 tool_call이 있어야 한다"
       - "apply(made_here): 다시 적용하지 않는다. 앱 process가 그 변경이 건드린 row·칸의 지금 값을 새 clock으로 찍어 돌려주고 그것이 change 줄로 내보내진다(invocation은 data를 바꾸지 않아 changeset이 없다)"
       - "discard: 적용하지도 내보내지도 않고 resolved_at을 적는다. bytes는 기록에 남는다. note가 뜻을 말한다(made_here면 이 기계의 data에 남는다)"
@@ -2796,7 +2796,7 @@ flows:
     boundary: [folder]
     code: [packages/core/main/daemon/wiring/folder.ts, packages/protocol/folder/held.ts]
     steps:
-      - "그 앱 data stream의 오류와 내보내기의 물러남을 지우고 바로 내보낸다. 자기 하위 폴더에 남의 file이 아직 있으면 다음 내보내기가 다시 foreign_writer로 멈춘다"
+      - "그 앱 data stream(destination마다)의 오류와 내보내기의 물러남을 지우고 바로 내보낸다. 자기 하위 폴더에 남의 file이 아직 있으면 다음 내보내기가 다시 foreign_writer로 멈춘다"
     outcomes:
       - id: resumed
         observe: [response, "ledger:folder_streams"]
@@ -2823,7 +2823,7 @@ flows:
       - "앱 workspace의 agent 자격은 자기 앱만 본다(다른 앱은 not_found)"
       - "이 기계에서 선언의 sync가 표를 보내고 활성 release가 있는 앱만 답한다. 메모리 값(follow 상태, held, 기계별 꼴 판 범위)과 기록 사본, 이 기계의 release 행을 읽기만 한다"
       - "machines: 이 기계(첫 줄)와 그 앱 기록이 있는 기계의 활성 release(이 기계에 있으면 r<n> 번호), 그리고 꼴 판이 범위 밖이라 앱 기록을 읽지 않은 기계(release null)와 각 기계의 lophn 판·exchange. 범위 밖 기계는 범위 밖이 되기 전에 읽은 그 기계의 앱 기록 사본이 있는 앱에만 선다(사본이 하나도 없으면 모든 앱에 선다)"
-      - "held: 출처와 release마다 변경 수·bytes·한도. 이 기계의 따라가기가 갈라졌고 그 release의 held면 diverged(합친 release가 나와야 온다), 이 기계가 지금 release보다 먼저 들인 release(번호가 낮다)이거나 data schema가 지금보다 낮으면 older_release, 아니면 newer_release(사람이 돌아가 내려놓은 release도 newer_release다). 지금 release의 held(적용 중)는 뺀다"
+      - "destinations: 이 기계 선언이 그 앱의 표를 보내는 destination. held: destination, 출처, release마다 변경 수·bytes·한도. 이 기계의 따라가기가 갈라졌고 그 release의 held면 diverged(합친 release가 나와야 온다), 이 기계가 지금 release보다 먼저 들인 release(번호가 낮다)이거나 data schema가 지금보다 낮으면 older_release, 아니면 newer_release(사람이 돌아가 내려놓은 release도 newer_release다). 지금 release의 held(적용 중)는 뺀다"
       - "follow 상태·held·기계 범위가 바뀌거나 scan이 새 기록을 읽으면 folder wiring이 StateChanged(app_runtime)를 내고, 활성 release가 바뀌면 releases 변경으로 화면이 다시 읽는다"
       - "App details의 Machines 절이 기계마다 한 줄, 이 기계 줄 아래 따라가기 상태, 다른 기계 줄 아래 기다리는 변경과 범위 밖 안내, 기다리는 동안 앱이 이 기계의 data로 돈다는 한 줄을 보인다. 동의를 기다리면 Open waiting list가 대기 panel을 연다. 올리는 단추는 없다. 폴더로 맞추지 않는 앱(not_found)이나 첫 읽기가 실패하면 절이 서지 않는다"
     outcomes:

@@ -1,0 +1,41 @@
+id: sync-tables-destinations
+version: 0.23.126
+title: "한 앱이 표마다 다른 destination으로 data를 보내고, destination마다 따로 내보내고 읽는다(roadmap sync-tables 2단계)"
+modules: [packages/base, packages/protocol, packages/protocol/apps/sync, packages/sdk, packages/cli, packages/core/apps, packages/core/apps/sync, packages/core/apps/update-state, packages/core/folder, packages/core/agent-workspaces, packages/core/main, packages/shell/renderer]
+checked: [boundary-catalog]
+change: |
+  전: 선언 `sync`의 값은 모두 같은 destination이어야 했다. 내보내기·읽기는 앱마다 stream 하나, 읽기 cursor·held·기록 사본은 (앱, 출처)마다였다. 이름 붙인 destination만 쓰는 앱은 `computers`에 source와 앱 기록을 쓰지 않았다.
+  후:
+  - 선언: 표마다 다른 destination을 적을 수 있다. `runs_on`에 phone이 든 앱은 destination 하나까지(`invalid_input` "an app that runs on the phone sends its tables to one destination …"). release 준비는 보내는 표끼리 destination이 다른 foreign key를 거절한다. 1단계의 trigger·FK 규칙은 그대로다. `syncPlanOf`는 destination → 표 집합을 돌려준다(옛 `sync_to`는 그 destination에 모든 표).
+  - sync log: `app_sync_log.destination`. 폰 앱이 아닌 앱의 write·rewind는 destination마다 줄 하나(그리 가는 표의 구간만)로 나뉜다. 폰 앱의 줄, '다시 snapshot' 줄, 건너뛴 줄은 destination이 없고 모든 stream의 것이다. 다른 기계에서 받은 줄과 held 줄은 그 변경이 온 destination을 적는다. `heldInData`는 destination마다 센다.
+  - 내보내기·읽기: (앱, destination)마다 stream 하나. 내보내기는 그 destination의 줄과 destination이 없는 줄만 보고, hold·held·snapshot 막기·오류·물러남이 destination마다 따로다(folder wiring의 lane도 `export:<app>:<destination>`). 앱 process control `apps.snapshot`(for folder)과 `apps.snapshot_merge`에 `destination`: 사본은 그리 보내는 표만 담고 합치기·없는 row 지우기도 그 표만이다. 받은 changes file은 이 기계 선언이 그 destination으로 보내는 표의 구간만 적용한다.
+  - 흔적 정리: 앱 DB에 하나. 경계는 그 앱이 data를 주고받는 모든 destination의 알려진 기계와 자기 stream의 settled로 정하고(source와 기록만 쓰는 `computers` 기록은 빼고), horizon은 그 앱의 모든 data stream 행과 모든 앱 기록에 싣는다. hold 규칙은 stream마다 그 destination 상대의 horizon만 본다.
+  - source·앱 기록: `private`이 아닌 앱은 늘 `computers`에, 그리고 표를 보내는 destination 모두에 source bundle, `@me/*` package file, `app.json`을 쓴다. `app.json`은 destination마다 그 stream의 data head·read·settled를 싣고 `sync_to`는 그 destination이 표를 받으면 그 이름, 아니면 null이다. source 받기 cursor는 (출처, destination)마다다.
+  - event: `across_machines` event file을 그 앱이 표를 보내는 destination마다 쓴다(받는 쪽은 id로 한 번만 낸다).
+  - ledger: schema step `apps.sync-log.destination`(칸 더하기, 기존 change·held 줄은 그 줄 release 선언의 destination, 폰 앱의 줄은 NULL)과 `folder.destination`(`folder_reads`·`folder_held`·`folder_records`를 destination이 든 key로 다시 만든다. data cursor와 held는 그 앱 활성 release 선언의 destination, source cursor는 그 출처 기록 사본을 읽은 destination, 그 밖은 `computers`. 빚진 "없는 row 지우기" 표시를 `folder_reads.error` 안 JSON에서 칸 `absent`·`absent_caught_up_at`으로 옮기고 쓰지 않던 `bundle_hash`를 뺀다). held 사본의 새 자리는 `folder-held/<app>/<destination>/<출처>/`이고 옛 사본은 행이 든 path 그대로다. `FOLDER_FORMAT`은 그대로다.
+  - 읽기 계약: `machine/environment`의 앱 칸 `sends_to`·`destination`·`export`·`imports` → `destinations: [{name, tables, state, export, imports}]`. `carry/status`의 앱 칸 `destination` → `destinations`. `apps/update_state`에 `destinations`와 held마다 `destination`. `apps/sync_held` list에 줄마다 `destination`. Settings › Sync의 앱 줄이 destination 목록을 보인다.
+  - SDK: `@lophn/declaration` 5.2.0(minor, 표마다 destination), `@lophn/app-ui` 2.25.1과 `@lophn/app-ui-native` 1.11.1(pin만). `migrate-sdk` 메모 `declaration-5.2.0.md`(Instruction diff), `app-ui-2.25.1.md`, `app-ui-native-1.11.1.md`. 지원 하한은 그대로다. `design-app`의 `folder-sync.md`, declaration guide, `connect-computers`가 표마다 destination과 두 규칙, `destinations` 읽기를 말한다.
+why: |
+  사람은 앱 안의 data마다 길을 정하길 원했다(집계는 컴퓨터끼리, 오래된 원본은 cloud 폴더로). 1단계는 보내지 않는 표만 뺐고 한 앱의 보내는 표는 destination 하나였다. 또 이름 붙인 destination만 쓰는 앱이 `computers`에 나가지 않아 `app-source-share-without-sync`의 결정과 어긋났다.
+decisions:
+  - text: "stream은 (앱, destination)마다이고 sync log 줄도 destination마다 나눈다(폰 앱의 줄은 나누지 않는다). 버린 길: 줄 하나에 두고 내보낼 때만 destination마다 거르기(hold가 줄째로 바뀌어 다른 destination의 변경까지 held가 되고 그 snapshot을 막는다)."
+    by: agent
+  - text: "흔적 정리와 horizon은 앱 DB에 하나이고 그 앱이 data를 주고받는 모든 destination의 상대를 기다린다. `computers`에 source와 기록만 쓰는 상대의 기록(settled 없음)은 세지 않는다: 세면 그런 앱은 늘 90일 쪽으로만 정리된다. 대가: 가장 느린 상대가 모든 표의 흔적을 90일까지 붙든다."
+    by: agent
+  - text: "표를 destination X에서 Y로 옮긴 release는 다른 release 바뀜과 같다: 새 release의 첫 file이 stream마다 snapshot이고 다른 기계는 따라올 때까지 held로 둔다. 그 표는 계속 보내던 표라 row·칸 clock이 남아 Y의 snapshot이 칸 단위로 합쳐진다(로컬에서 다시 올린 표의 '가장 늦게 시작한 컴퓨터가 이긴다'와 다르다). X에 남은 옛 release 변경은 그 출처가 올라온 뒤 X에 쓰는 snapshot이 덮고 옛 고침은 Y의 snapshot으로 온다. Y가 없는 기계는 그 표를 더 받지 않는다."
+    by: agent
+  - text: "기록 사본은 destination마다 둔다. 기계 기록은 기계마다 가장 큰 revision을, 활성 release·source처럼 destination과 상관없는 앱 기록 칸은 가장 늦은 `updated_at` 사본을 읽는다(revision은 destination마다 따로 센다)."
+    by: agent
+  - text: "ledger step은 기존 data cursor와 held를 그 앱 활성 release 선언의 destination으로, source cursor를 기록 사본을 읽은 destination으로 채운다. log 줄은 그 줄 release의 선언으로 채운다(앞 release가 다른 destination이었던 줄도 맞는 stream이 맡는다)."
+    by: agent
+  - text: "빚진 '없는 row 지우기' 표시를 이 step에서 `folder_reads.error` JSON 밖 제 칸으로 옮겼다(이슈 `folder-absent-pass-mark-in-error-column`이 다음 folder 표 step에 같이 하기로 한 것)."
+    by: agent
+  - text: "`private`이 아닌 앱은 늘 `computers`와 표를 보내는 destination 모두에 source와 앱 기록을 쓴다. 대가: 이름 붙인 destination만 쓰던 앱은 이 판 뒤 첫 내보내기에 `computers`로 source 전체 bundle을 한 번 쓴다."
+    by: agent
+  - text: "roadmap `sync-tables`는 다 했으므로 지웠다. 하지 않는 것(칸·줄별 정책, 폰 사본의 표별 정책, 표마다 길을 고르는 화면)은 `folder-sync.md`의 비목표로 남는다."
+    by: agent
+follow_up: |
+  앱 file(사진·file bytes)은 여전히 컴퓨터 사이로 가지 않는다(row만 간다. `app-file.md`).
+checklist:
+  - "해야: lophn을 다시 build하고 설치한다"
+  - "폴더로 맞추던 앱이 업데이트 뒤에도 그대로 맞춰지는지(`lophn machine environment`의 그 앱 `destinations[].imports`의 cursor가 업데이트 전과 같고 export에 오류가 없는지) 본다"

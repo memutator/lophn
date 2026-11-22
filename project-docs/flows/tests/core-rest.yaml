@@ -130,7 +130,7 @@ files:
       - carry-removed-computer:restored
       - carry-removed-computer:deleted
       - folder-release-follow:waiting-consent
-    note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다"
+    note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다. schema step apps.sync-log.destination·folder.destination은 기존 읽기 cursor·held·기록 사본을 그 앱 활성 release 선언의 destination으로(source cursor는 기록 사본을 읽은 destination으로), log 줄을 그 줄 release 선언의 destination으로 옮기고 폰 앱의 줄은 모든 destination의 것으로 둔다"
 
   - path: packages/core/folder/mail_test.ts
     covers:
@@ -156,7 +156,7 @@ files:
     covers:
       - folder-export-run:written
       - folder-export-run:stream-error
-    note: "폴더 내보내기(route 없음, folder wiring이 부른다). 내보내기·snapshot·compaction·기계 기록을 여러 번 돌려도 다른 기계의 하위 폴더와 사람의 file이 bytes 그대로다. data root의 machine.json binding·secrets.json·host key 비밀 key가 폴더 file에 없다. 다른 기계 horizon 이하의 내보내지 않은 변경은 file에 없고 같은 bytes의 held 줄이 된다. rename 뒤 기록 전에 죽어도 번호를 다시 쓰지 않고, 자기 하위 폴더에 남이 쓴 번호·바뀐 file이 있으면 쓰지 않고 foreign_writer다"
+    note: "폴더 내보내기(route 없음, folder wiring이 부른다). 내보내기·snapshot·compaction·기계 기록을 여러 번 돌려도 다른 기계의 하위 폴더와 사람의 file이 bytes 그대로다. data root의 machine.json binding·secrets.json·host key 비밀 key가 폴더 file에 없다. 다른 기계 horizon 이하의 내보내지 않은 변경은 file에 없고 같은 bytes의 held 줄이 된다. rename 뒤 기록 전에 죽어도 번호를 다시 쓰지 않고, 자기 하위 폴더에 남이 쓴 번호·바뀐 file이 있으면 쓰지 않고 foreign_writer다. 표마다 다른 destination으로 보내는 앱의 write는 destination마다 줄 하나가 되고, 한 destination에서 held가 된 변경은 다른 destination의 변경을 붙들지도 그 snapshot을 막지도 않는다(진짜 sync log)"
 
   - path: packages/core/folder/import/held_test.ts
     covers:

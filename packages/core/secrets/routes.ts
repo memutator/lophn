@@ -53,18 +53,13 @@ export function secretStatusHandler(store: Pick<SecretStore, "names">) {
   return handler;
 }
 
-// `changed`는 이름의 값을 넣거나 지운 뒤에 부른다(site login 값이면 vault가 그 칸의 stamp를 올린다).
-export function secretDeleteHandler(
-  store: Pick<SecretStore, "delete">,
-  changed: (name: string) => void,
-) {
+// site login 값(`login.`)이면 store가 그 칸의 stamp도 올린다(secrets wiring).
+export function secretDeleteHandler(store: Pick<SecretStore, "delete">) {
   const handler: MemoryHandler = async (ctx, rawInput) => {
     const input = secretDelete.input.safeParse(rawInput);
     if (!input.success) return INVALID("secret 이름이 올바르지 않다");
     if (closedToDevice(ctx.principal, input.data.name)) return CLOSED();
-    const deleted = await store.delete(input.data.name);
-    if (deleted.ok) changed(input.data.name);
-    return deleted;
+    return await store.delete(input.data.name);
   };
   return handler;
 }
@@ -110,10 +105,7 @@ export async function readSecretBody(
 }
 
 // body를 읽어 UTF-8 문자열로 바꿔 put한다.
-export function secretPutHandler(
-  store: Pick<SecretStore, "put">,
-  changed: (name: string) => void,
-) {
+export function secretPutHandler(store: Pick<SecretStore, "put">) {
   const handler: UploadHandler = async (ctx, rawInput, body) => {
     const input = secretPut.input.safeParse(rawInput);
     if (!input.success) {
@@ -130,7 +122,6 @@ export function secretPutHandler(
       input.data.name,
       value.value,
     );
-    if (put.ok) changed(input.data.name);
     return put;
   };
   return handler;

@@ -371,16 +371,13 @@ function setup(
       // 실제 handler와 가짜 저장소: 기기가 vault 이름을 쓰지 못하는 것은 handler가 막는다.
       [
         "secrets/put",
-        secretPutHandler(
-          {
-            async put(name, value) {
-              reached.push("secrets/put");
-              received.push(String(value));
-              return ok({ name, configured: true });
-            },
+        secretPutHandler({
+          async put(name, value) {
+            reached.push("secrets/put");
+            received.push(String(value));
+            return ok({ name, configured: true });
           },
-          () => {},
-        ),
+        }),
       ],
       ...["providers/connect-key", "input_request/answer_secret"].map(
         (path) =>

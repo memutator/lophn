@@ -9,6 +9,7 @@
 // - 나누기를 끈 컴퓨터는 받지도 내주지도 않는다.
 // - 값을 못 읽으면(secret store가 unavailable) 내주지도 합치지도 않는다. 못 읽은 값을 "없음"으로 보내면 상대가 그 값을 지운다.
 // - 합친 값은 secret store의 put으로 쓴다(file에 쓰기 전에 알려진 값으로 올린다). 값은 ledger, log, event, 오류에 없다.
+// - 합치기는 사람의 login 값 쓰기(그 칸 stamp 올리기까지)와 한 줄로 돈다(secrets wiring의 queue).
 import {
   type Clock,
   err,
@@ -106,7 +107,8 @@ export function browserVaultExchangeHandler(deps: {
 
 /**
  * 받은 vault를 이 컴퓨터에 합친다. 값을 먼저 쓰고, 합친 vault를 쓴 뒤, 흔적이 있는 login의 값을 지운다(중간에 끊겨도 다시
- * 합치면 같은 결과다). 바뀌었으면 true다. 이 컴퓨터의 값을 못 읽으면 아무것도 쓰지 않고 unavailable이다.
+ * 합치면 같은 결과다). 바뀌었으면 true다. 이 컴퓨터의 값을 못 읽으면 아무것도 쓰지 않고 unavailable이다. 부르는 쪽이 login
+ * 값 쓰기와 한 줄로 부른다.
  */
 export async function applyRemoteVault(
   deps: { vault: BrowserVault; secrets: Secrets },
@@ -159,12 +161,14 @@ export async function applyRemoteVault(
 }
 
 export type VaultSyncDeps = {
-  vault: BrowserVault;
-  secrets: Secrets;
+  // 받은 답을 이 컴퓨터에 합친다(applyRemoteVault를 login 값 쓰기와 한 줄로).
+  merge(answer: unknown): Promise<Result<boolean>>;
   // 그 컴퓨터의 `browser_vault/exchange`를 link로 부른다.
   exchange(machine: Id<"mch">): Promise<Result<unknown>>;
   // link가 붙은 컴퓨터의 기계 id.
   peers(): Id<"mch">[];
+  // 그 기계가 지금 명단의 컴퓨터인가.
+  inRoster(machine: Id<"mch">): boolean;
   sharing(): boolean;
   // 합쳐서 바뀌었다. 화면과 shell main, 다른 컴퓨터가 다시 읽게 알린다.
   changed(): void;
@@ -252,9 +256,9 @@ export function createVaultSync(deps: VaultSyncDeps) {
   async function pullFrom(machine: Id<"mch">): Promise<Result<boolean>> {
     const answer = await deps.exchange(machine);
     if (!answer.ok) return answer;
-    // 받는 사이 나누기를 껐으면 합치지 않는다.
-    if (!deps.sharing()) return ok(false);
-    return await applyRemoteVault(deps, answer.value);
+    // 받는 사이 나누기를 껐거나 그 컴퓨터가 명단에서 빠졌으면 합치지 않는다.
+    if (!deps.sharing() || !deps.inRoster(machine)) return ok(false);
+    return await deps.merge(answer.value);
   }
 
   function all() {

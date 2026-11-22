@@ -272,6 +272,8 @@ type Late = {
   secretAttach: SecretAttachPort;
   // secrets가 낸다. browser profile 정의와 저장 login metadata(`browser-vault.json`).
   browserVault: BrowserVault;
+  // secrets가 낸다. 다른 컴퓨터가 낸 vault(`browser_vault/exchange`의 답)를 login 값 쓰기와 한 줄로 합친다.
+  mergeBrowserVault: (answer: unknown) => Promise<Result<boolean>>;
   // events가 낸다.
   bus: Bus;
   // Bus 밖 frame을 연결된 Gateway client 하나에 보낸다.
@@ -435,6 +437,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   secretStore: true,
   secretAttach: true,
   browserVault: true,
+  mergeBrowserVault: true,
   bus: true,
   gateway: true,
   approvals: true,

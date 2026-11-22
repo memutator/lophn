@@ -1,4 +1,4 @@
-import { createIdSource, err, ok } from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { TabOwner } from "../../../host-queue/mod.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
@@ -17,6 +17,8 @@ import {
   loginsRelease,
   loginsSave,
   secretDelete,
+  type SecretFileStatus,
+  type SecretValue,
   secretPut,
   secretStatus,
 } from "../../../../protocol/secrets/mod.ts";
@@ -50,7 +52,11 @@ import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readAgentMcp } from "./agent-mcp.ts";
 import { agentBrowserProfile } from "./browser-profile.ts";
 import { browserShareSetting } from "../../../config/shell-settings.ts";
-import { browserVaultExchangeHandler } from "../../../secrets/vault-sync.ts";
+import {
+  applyRemoteVault,
+  browserVaultExchangeHandler,
+} from "../../../secrets/vault-sync.ts";
+import type { MemoryHandler } from "../../../server/mod.ts";
 import { browserVaultStep } from "./browser-vault-step.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -75,6 +81,14 @@ function loginValueName(
 export const secretsWiring: WiringFactory = () => {
   let store: SecretStore | undefined;
   let vault: BrowserVault | undefined;
+  // login 값 쓰기(그 칸 stamp 올리기까지), login·profile 지우기, 다른 컴퓨터 vault 합치기는 한 번에 하나씩 돈다. 합치는 사이
+  // 사람이 같은 칸을 저장하면 사람의 새 stamp에 다른 컴퓨터의 값이 붙어 퍼질 수 있다.
+  let queue: Promise<unknown> = Promise.resolve();
+  const serial = <T>(run: () => Promise<T>): Promise<T> => {
+    const next = queue.then(run, run);
+    queue = next.catch(() => {});
+    return next;
+  };
   return {
     name: "secrets",
     dataSteps: [browserVaultStep],
@@ -100,6 +114,10 @@ export const secretsWiring: WiringFactory = () => {
       ctx.provide("secretStore", store);
       vault = createBrowserVault({ root: ctx.root.path, clock: ctx.clock });
       ctx.provide("browserVault", vault);
+      const merging = { vault, secrets: store };
+      ctx.provide("mergeBrowserVault", (answer) =>
+        serial(() => applyRemoteVault(merging, answer)),
+      );
       // 값을 다 알기 전(open 전, 못 읽는 동안)에는 ready가 false라서 redactor가 막는다.
       ctx.provide("knownSecrets", store.known);
       // log가 file에 남으므로 알려진 secret 원문도 지운다. 아직 다 모르면(ready 전) pattern 규칙만 적용된다.
@@ -191,25 +209,42 @@ export const secretsWiring: WiringFactory = () => {
       ctx.runtime.onReaderRespawn(() => secrets.sync());
       const logins = vault!;
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      // site login 값을 넣거나 지우면 그 칸의 stamp를 올린다(다른 컴퓨터와 칸마다 합친다).
-      const valueChanged = (name: string) => {
+      // site login 값을 넣거나 지우면 queue 안에서 그 칸의 stamp를 올린다(다른 컴퓨터와 칸마다 합친다). stamp를 올리지
+      // 못하면 값을 되돌리고 오류를 낸다: 새 값에 옛 stamp가 붙으면 합치기가 그 값을 되돌리거나 옛 값을 이긴 것처럼 퍼뜨린다.
+      const loginWrite = async (
+        name: string,
+        write: () => Promise<Result<SecretFileStatus>>,
+      ): Promise<Result<SecretFileStatus>> => {
         const login = loginValueName(name);
-        if (login === undefined) return;
-        const touched = touchLoginValue(logins, login.id, login.field);
-        if (!touched.ok) {
-          ctx.telemetry.logger.warn({
-            component: "secrets",
-            event: "login_value_stamp_failed",
-            message: touched.error.message,
-          });
-          return;
-        }
-        if (touched.value) {
-          publishStateChanged(ctx.bus, ctx.clock.now(), [
-            { name: "logins", id: login.id },
-          ]);
-        }
+        if (login === undefined) return await write();
+        return await serial(async () => {
+          const before = secrets.get(name);
+          const written = await write();
+          if (!written.ok) return written;
+          const touched = touchLoginValue(logins, login.id, login.field);
+          if (!touched.ok) {
+            await (before.ok
+              ? secrets.put(name, before.value)
+              : secrets.delete(name));
+            return touched;
+          }
+          if (touched.value) {
+            publishStateChanged(ctx.bus, ctx.clock.now(), [
+              { name: "logins", id: login.id },
+            ]);
+          }
+          return written;
+        });
       };
+      const loginValues = {
+        put: (name: string, value: SecretValue) =>
+          loginWrite(name, () => secrets.put(name, value)),
+        delete: (name: string) => loginWrite(name, () => secrets.delete(name)),
+      };
+      const queued =
+        (handler: MemoryHandler): MemoryHandler =>
+        (handlerCtx, input) =>
+          serial(async () => await handler(handlerCtx, input));
       return ok({
         memory: [
           [
@@ -228,7 +263,10 @@ export const secretsWiring: WiringFactory = () => {
             }),
           ],
           [key(loginsSave), loginsSaveHandler({ vault: logins, ids })],
-          [key(loginsDelete), loginsDeleteHandler({ vault: logins, secrets })],
+          [
+            key(loginsDelete),
+            queued(loginsDeleteHandler({ vault: logins, secrets })),
+          ],
           [
             key(loginsRelease),
             loginsReleaseHandler({
@@ -252,7 +290,7 @@ export const secretsWiring: WiringFactory = () => {
           ],
           [
             key(browserProfilesDelete),
-            browserProfilesDeleteHandler({ vault: logins, secrets }),
+            queued(browserProfilesDeleteHandler({ vault: logins, secrets })),
           ],
           [
             key(browserProfilesCleared),
@@ -270,9 +308,9 @@ export const secretsWiring: WiringFactory = () => {
             }),
           ],
           [key(secretStatus), secretStatusHandler(secrets)],
-          [key(secretDelete), secretDeleteHandler(secrets, valueChanged)],
+          [key(secretDelete), secretDeleteHandler(loginValues)],
         ],
-        uploads: [[key(secretPut), secretPutHandler(secrets, valueChanged)]],
+        uploads: [[key(secretPut), secretPutHandler(loginValues)]],
       });
     },
     closeIntake() {

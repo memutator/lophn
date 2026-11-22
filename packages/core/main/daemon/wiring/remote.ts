@@ -1100,8 +1100,7 @@ export function remoteWiring(
       });
       // browser profile과 저장 login(값 포함)은 link로만 맞춘다(폴더, 폰, relay가 읽는 곳에 쓰지 않는다).
       vaultSync = createVaultSync({
-        vault: ctx.browserVault,
-        secrets: ctx.secretStore,
+        merge: ctx.mergeBrowserVault,
         exchange: (machine) =>
           links.call({
             machine,
@@ -1114,6 +1113,13 @@ export function remoteWiring(
             .list()
             .filter((each) => each.status === "connected")
             .map((each) => each.machine),
+        inRoster: (machine) =>
+          roster
+            .view()
+            .devices.some(
+              (each) =>
+                each.body.kind === "computer" && each.body.machine === machine,
+            ),
         sharing: () => ctx.settings.get(browserShareSetting) ?? true,
         changed: () =>
           publishStateChanged(ctx.bus, ctx.clock.now(), [

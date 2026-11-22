@@ -1,5 +1,5 @@
 id: tab-give
-version: 0.23.126
+version: 0.23.128
 title: session이 든 browser 탭을 자기 밑 session에 주고 되찾으며, 받은 session이 끝나면 탭이 돌아간다
 modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/shell/ipc, packages/shell/main, packages/shell/renderer]
 change: |

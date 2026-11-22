@@ -456,10 +456,12 @@ const R8_COMMIT = "c42d9e1".padEnd(40, "0");
 
 const UPDATE_WAITING: UpdateState = {
   app: MAIN,
+  destinations: ["computers"],
   follow: { state: "waiting_consent", release: R8_COMMIT, reason: null },
   held: [
     {
       machine: LAPTOP,
+      destination: "computers",
       code_commit: R8_COMMIT,
       data_schema: 5,
       changes: 37,

@@ -30,10 +30,15 @@ import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { heldInData, type SyncLog } from "../../apps/sync/log.ts";
 import type { DestinationsView } from "../destinations.ts";
 import type { FolderLogRow } from "../ports.ts";
-import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import {
+  FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
+  FOLDER_SCHEMA_STEPS,
+} from "../schema.ts";
 import { createFolderExport, type ExportLog } from "./mod.ts";
 import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import {
+  sendsTo,
   sentTables,
   type SyncPlan,
   syncPlanOf,
@@ -42,6 +47,7 @@ import {
 import { readChangeset } from "../../../protocol/apps/sync/changeset.ts";
 import { createSyncLog } from "../../apps/sync/log.ts";
 import {
+  SYNC_LOG_DESTINATION_STEPS,
   SYNC_LOG_MACHINE_STEPS,
   SYNC_LOG_SCHEMA_STEPS,
 } from "../../apps/sync/schema.ts";
@@ -58,6 +64,14 @@ const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 const REL = "rel_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"rel">;
 const COMMIT = "b".repeat(40);
 const DAY = 24 * 60 * 60 * 1000;
+// folder 표 step이 기대는 release 표(활성 release의 선언에서 destination을 채운다). 이 test의 ledger에는 그 표만 있으면 된다.
+const RELEASES =
+  "create table releases (id text, app text, status text, declaration text)";
+const FOLDER_STEPS = [
+  ...FOLDER_SCHEMA_STEPS,
+  ...FOLDER_CODE_COMMIT_STEPS,
+  ...FOLDER_DESTINATION_STEPS,
+];
 
 function fakeLog() {
   const rows: (FolderLogRow & { resolved: boolean })[] = [];
@@ -99,6 +113,7 @@ function fakeLog() {
     change(hlc: number, text: string, origin = "computer") {
       add({
         release: REL,
+        destination: null,
         kind: "change",
         origin,
         hlc: String(hlc),
@@ -110,6 +125,7 @@ function fakeLog() {
     marker(origin = "computer") {
       add({
         release: REL,
+        destination: null,
         kind: "snapshot",
         origin,
         hlc: null,
@@ -137,9 +153,8 @@ async function setup(base: string) {
   mkdirSync(dataRoot);
   mkdirSync(destination);
   const db = new DatabaseSync(":memory:");
-  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
-    db.exec(step.sql);
-  }
+  db.exec(RELEASES);
+  for (const step of FOLDER_STEPS) db.exec(step.sql);
   const sql: Sql = {
     run: (text, params) => db.prepare(text).run(...params),
     get: (text, params) => db.prepare(text).get(...params) as never,
@@ -174,7 +189,7 @@ async function setup(base: string) {
         slug: "notes",
         name: "Notes",
         description: "",
-        destination: "personal",
+        destinations: ["personal"],
         release: { id: REL, code_commit: COMMIT, data_schema: 1 },
       },
     ],
@@ -185,7 +200,7 @@ async function setup(base: string) {
       name: `op_${invocation}`,
       started_at: clock.now(),
     }),
-    async snapshotAt(_app, path) {
+    async snapshotAt(_app, _destination, path) {
       const copy = new DatabaseSync(path);
       copy.exec("create table notes (id integer primary key, body text)");
       for (const body of knobs.rows) {
@@ -227,7 +242,7 @@ async function setup(base: string) {
     knobs,
     exporter,
     async run() {
-      const done = await exporter.runApp(APP);
+      const done = await exporter.runStream(APP, "personal");
       assert.ok(done.ok, JSON.stringify(done));
       return done.value;
     },
@@ -303,7 +318,7 @@ test("기계는 자기 하위 폴더 밖에 쓰지 않는다", async () => {
     assert.deepStrictEqual(tree(h.destination, h.own), before);
     // compaction이 자기 옛 file을 지웠고 마지막 snapshot은 남았다.
     assert.ok(!existsSync(h.file(1, "snapshot")));
-    const last = h.exporter.status(APP)!;
+    const last = h.exporter.status(APP, "personal")!;
     assert.ok(existsSync(h.file(last.head, "snapshot")));
     assert.equal(last.error, null);
   });
@@ -357,7 +372,7 @@ test("horizon 밖의 기계는 정리된 흔적과 부딪힐 자기 변경을 �
   await harness(async (h) => {
     h.fake.change(100, "early");
     await h.run();
-    assert.equal(h.exporter.settledOf(APP)?.settled, "100");
+    assert.equal(h.exporter.settledOf(APP, "personal")?.settled, "100");
 
     const oldSeq = h.fake.change(150, "offline edit");
     const newSeq = h.fake.change(500, "fresh edit");
@@ -379,7 +394,7 @@ test("horizon 밖의 기계는 정리된 흔적과 부딪힐 자기 변경을 �
     }
     assert.ok(ids.includes(String(newSeq)));
     assert.ok(!ids.includes(String(oldSeq)));
-    assert.notEqual(h.exporter.settledOf(APP)?.away_since, null);
+    assert.notEqual(h.exporter.settledOf(APP, "personal")?.away_since, null);
 
     // 다시 돌아도 held 줄을 내보내거나 다시 held로 옮기지 않는다.
     const files = readdirSync(h.dataFolder);
@@ -415,7 +430,7 @@ test("horizon 밖에서 held로 둔 자기 변경은 사람이 풀기 전에는 
     const blocked = await h.run();
     assert.equal(blocked.error?.code, "away_too_long");
     assert.deepStrictEqual(snapshots(), ["000000000001.snapshot"]);
-    assert.notEqual(h.exporter.settledOf(APP)?.away_since, null);
+    assert.notEqual(h.exporter.settledOf(APP, "personal")?.away_since, null);
 
     // 사람이 풀었다(apply는 새 change 줄로, discard는 풀기만).
     h.fake.rows[offline - 1]!.resolved = true;
@@ -437,7 +452,7 @@ test("horizon 밖에서 held로 둔 자기 변경은 사람이 풀기 전에는 
     assert.equal(resumed.error, null);
     assert.ok(existsSync(h.file(1, "snapshot")));
     // 내보낼 것이 없고 다 받았으니 settled가 horizon을 넘어 더는 떨어져 있지 않다.
-    assert.equal(h.exporter.settledOf(APP)?.away_since, null);
+    assert.equal(h.exporter.settledOf(APP, "personal")?.away_since, null);
   });
 });
 
@@ -470,7 +485,7 @@ test("rename 뒤 기록 전에 죽어도 번호를 다시 쓰지 않고 남의 w
       changesOf(third.header, third.payload).map((one) => one.meta.id),
       ["4"],
     );
-    assert.equal(h.exporter.status(APP)?.head, 3);
+    assert.equal(h.exporter.status(APP, "personal")?.head, 3);
   });
 });
 
@@ -494,7 +509,10 @@ test("남이 쓴 번호를 보면 쓰지 않고 foreign_writer다", async () => 
       // 사람이 볼 때까지 멈춘 채다.
       assert.equal((await h.run()).error?.code, "foreign_writer");
       assert.deepStrictEqual(tree(h.destination), before);
-      assert.equal(h.exporter.status(APP)?.error?.code, "foreign_writer");
+      assert.equal(
+        h.exporter.status(APP, "personal")?.error?.code,
+        "foreign_writer",
+      );
       assert.ok(statSync(h.dataFolder).isDirectory());
     });
   }
@@ -504,8 +522,8 @@ test("남이 쓴 번호를 보면 쓰지 않고 foreign_writer다", async () => 
 async function realExport(
   base: string,
   plan: SyncPlan,
-  sentOf: (release: string) => TableFilter,
-  horizons: { machine: Id<"mch">; horizon: string }[] = [],
+  sentOf: (release: string, destination: string) => TableFilter,
+  horizons: Record<string, { machine: Id<"mch">; horizon: string }[]> = {},
 ) {
   const ledger = join(base, "ledger.sqlite");
   const clock = manualClock(Date.parse("2026-11-16T00:00:00.000Z"));
@@ -523,7 +541,8 @@ async function realExport(
     ).ok,
   );
   const db = new DatabaseSync(ledger);
-  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+  db.exec(RELEASES);
+  for (const step of [...SYNC_LOG_DESTINATION_STEPS, ...FOLDER_STEPS]) {
     db.exec(step.sql);
   }
   const sql: Sql = {
@@ -576,16 +595,23 @@ async function realExport(
     now: () => clock.now(),
     changed: () => {},
   });
-  const destination = join(base, "dest");
+  // destination마다 폴더 하나.
+  const names = sendsTo(plan);
+  const folderOf = (name: string) => join(base, `dest-${name}`);
+  for (const name of names) mkdirSync(folderOf(name));
   const dataRoot = join(base, "root");
-  mkdirSync(destination);
   mkdirSync(dataRoot);
   const exporter = createFolderExport({
     machine: () => ({ id: ME, name: "Studio" }),
     destinations: {
-      list: () => [{ name: "personal", path: destination, state: "ok" }],
+      list: () =>
+        names.map((name) => ({
+          name,
+          path: folderOf(name),
+          state: "ok" as const,
+        })),
       resolve: (name) =>
-        name === "personal" ? { path: destination, state: "ok" } : null,
+        names.includes(name) ? { path: folderOf(name), state: "ok" } : null,
     },
     apps: () => [
       {
@@ -593,7 +619,7 @@ async function realExport(
         slug: "notes",
         name: "Notes",
         description: "",
-        destination: "personal",
+        destinations: names,
         release: { id: REL, code_commit: COMMIT, data_schema: 1 },
       },
     ],
@@ -601,7 +627,7 @@ async function realExport(
     releaseKey: () => ({ code_commit: COMMIT, data_schema: 1 }),
     sentOf,
     operationOf: () => null,
-    async snapshotAt(_app, path) {
+    async snapshotAt(_app, _destination, path) {
       new DatabaseSync(path).close();
       const bytes = readFileSync(path);
       return ok({
@@ -617,17 +643,17 @@ async function realExport(
       lophn: { version: "0.23.0", protocol: { version: 2, min_version: 2 } },
     }),
     readsCaughtUp: () => true,
-    peerHorizons: () => horizons,
+    peerHorizons: (_app, destination) => horizons[destination] ?? [],
     sql,
     transaction,
     clock,
     random: seededRandom(7),
     dataRoot,
   });
-  // 앱의 표 둘: item은 보내고 cache는 이 기계에만 둔다.
+  // 앱의 표 셋: item과 note는 보내고(plan이 고른 destination으로) cache는 이 기계에만 둔다.
   const app = new DatabaseSync(":memory:");
   app.exec(
-    "create table item (id text primary key, title text); create table cache (id text primary key, body text)",
+    "create table item (id text primary key, title text); create table note (id text primary key, body text); create table cache (id text primary key, body text)",
   );
   const changeset = (text: string) => {
     const session = app.createSession();
@@ -648,16 +674,20 @@ async function realExport(
     log,
     changeset,
     inv,
-    async run() {
-      const done = await exporter.runApp(APP);
+    exporter,
+    async run(name = "personal") {
+      const done = await exporter.runStream(APP, name);
       assert.ok(done.ok, JSON.stringify(done));
       assert.equal(done.value.error, null);
     },
+    // 그 destination의 이 기계 data file 이름.
+    files: (name: string) =>
+      readdirSync(join(folderOf(name), "machines", ME, "apps", APP, "data")),
     // 내보낸 changes file 하나의 변경마다 [id, 담은 표].
-    async exported(n: number) {
+    async exported(n: number, name = "personal") {
       const rel = dataEntryPath(ME, APP, n, "changes");
       const decoded = await decodeContainer(
-        readFileSync(join(destination, rel)),
+        readFileSync(join(folderOf(name), rel)),
         rel,
       );
       assert.ok(decoded.ok);
@@ -709,7 +739,9 @@ test("보내는 표와 이 기계에만 있는 표를 같이 바꾼 write와 rew
     ],
   ] as const) {
     const base = await mkdtemp(join(tmpdir(), "lophn-folder-sent-"));
-    const e = await realExport(base, plan, () => sentTables(plan));
+    const e = await realExport(base, plan, (_release, destination) =>
+      sentTables(plan, destination),
+    );
     try {
       await e.run(); // 첫 file은 snapshot이다.
       await e.log.written(
@@ -804,8 +836,15 @@ test("horizon 밖에서도 보내는 표가 없는 줄은 held로 붙들지 않�
     runs_on: ["computer", "phone"],
     sync: { item: "personal" },
   });
-  const horizons: { machine: Id<"mch">; horizon: string }[] = [];
-  const e = await realExport(base, plan, () => sentTables(plan), horizons);
+  const horizons: Record<string, { machine: Id<"mch">; horizon: string }[]> = {
+    personal: [],
+  };
+  const e = await realExport(
+    base,
+    plan,
+    (_release, destination) => sentTables(plan, destination),
+    horizons,
+  );
   try {
     await e.run();
     // 결과를 모르는 write: '다시 snapshot' 줄. 그 뒤에 이 기계에만 있는 표만 바꾼 write.
@@ -815,9 +854,71 @@ test("horizon 밖에서도 보내는 표가 없는 줄은 held로 붙들지 않�
       "100",
       e.changeset("insert into cache values ('c', 'local')"),
     );
-    horizons.push({ machine: PEER_A, horizon: "1000" });
+    horizons.personal!.push({ machine: PEER_A, horizon: "1000" });
     await e.run();
     assert.deepEqual(e.log.heldList(APP), []);
+  } finally {
+    e.close();
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+// 지우면 한 앱이 표마다 다른 destination으로 보낼 때 한 destination의 hold가 섞인 줄째로 다른 destination의 변경까지 붙들거나
+// (그 destination으로 가지 않고 사람이 풀 때까지 갇힌다), 한 destination의 held가 다른 destination의 snapshot을 막는다.
+test("한 destination에서 held가 된 변경은 같은 앱의 다른 destination 변경을 붙들지도 그 snapshot을 막지도 않는다", async () => {
+  const base = await mkdtemp(join(tmpdir(), "lophn-folder-held-split-"));
+  const plan = syncPlanOf({ sync: { item: "personal", note: "drive" } });
+  const horizons: Record<string, { machine: Id<"mch">; horizon: string }[]> =
+    {};
+  const e = await realExport(
+    base,
+    plan,
+    (_release, destination) => sentTables(plan, destination),
+    horizons,
+  );
+  try {
+    await e.run("personal");
+    await e.run("drive");
+    // write 하나가 두 destination의 표와 이 기계에만 있는 표를 같이 바꾼다: destination마다 줄 하나.
+    await e.log.written(
+      e.inv("inv_1"),
+      "100",
+      e.changeset(
+        "insert into item values ('a', 'milk'); insert into note values ('n', 'call'); insert into cache values ('c', 'x')",
+      ),
+    );
+    const lines = e.log.page(APP, 0, 10);
+    assert.deepEqual(
+      lines.map((row) => [row.kind, row.destination]),
+      [
+        ["change", "drive"],
+        ["change", "personal"],
+      ],
+    );
+    // personal의 상대만 흔적을 정리했다: 이 기계는 personal에서만 떨어져 있다.
+    horizons.personal = [{ machine: PEER_A, horizon: "1000" }];
+    await e.run("personal");
+    await e.run("drive");
+    assert.deepEqual(
+      e.log.heldList(APP).map((row) => [row.seq, row.destination]),
+      [[lines[1]!.seq, "personal"]],
+    );
+    // drive 쪽 변경은 붙들리지 않고 그 표만 나갔다.
+    assert.deepEqual(await e.exported(2, "drive"), [
+      [String(lines[0]!.seq), ["note"]],
+    ]);
+    // 결과를 모르는 write는 두 stream 모두 snapshot을 부른다: personal은 held인 자기 변경 때문에 멈추고 drive는 쓴다.
+    await e.log.unknown(e.inv("inv_2"));
+    const personal = await e.exporter.runStream(APP, "personal");
+    assert.ok(personal.ok);
+    assert.equal(personal.value.error?.code, "away_too_long");
+    await e.run("drive");
+    assert.deepEqual(e.files("drive"), [
+      "000000000001.snapshot",
+      "000000000002.changes",
+      "000000000003.snapshot",
+    ]);
+    assert.deepEqual(e.files("personal"), ["000000000001.snapshot"]);
   } finally {
     e.close();
     await rm(base, { recursive: true, force: true });

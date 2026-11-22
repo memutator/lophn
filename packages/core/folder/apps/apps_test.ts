@@ -91,6 +91,7 @@ import { createReplica } from "../replica.ts";
 import {
   FOLDER_CARRY_MARKS_STEPS,
   FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
   FOLDER_SCHEMA_STEPS,
 } from "../schema.ts";
 import {
@@ -377,13 +378,21 @@ function openLedger(full: boolean): DatabaseSync {
         ...FOLDER_SCHEMA_STEPS,
         ...FOLDER_CARRY_MARKS_STEPS,
         ...FOLDER_CODE_COMMIT_STEPS,
+        ...FOLDER_DESTINATION_STEPS,
       ]
     : [
         ...sdkSchemaSteps,
         ...FOLDER_SCHEMA_STEPS,
         ...FOLDER_CARRY_MARKS_STEPS,
         ...FOLDER_CODE_COMMIT_STEPS,
+        ...FOLDER_DESTINATION_STEPS,
       ];
+  // folder 표 step은 활성 release의 선언을 읽는다. release 표가 없는 ledger에는 그 열만 둔다.
+  if (!full) {
+    db.exec(
+      "create table releases (id text, app text, status text, declaration text)",
+    );
+  }
   for (const step of steps) db.exec(step.sql);
   return db;
 }
@@ -426,7 +435,8 @@ async function world(): Promise<World> {
     slug: "notes",
     name: "Notes",
     description: "Keeps notes.",
-    destination: DESTINATION,
+    sends_to: [DESTINATION],
+    writes_to: [DESTINATION],
     source_path: repoA,
     release: {
       id: "rel_01hzzzzzzzzzzzzzzzzzzzzz01" as Id<"rel">,
@@ -625,10 +635,7 @@ test("다른 컴퓨터의 옛 release가 sync_to로 봉인되었어도 take-in�
     const stored = loadStoredDeclaration(sqlOf(w.dbB), taken.value.release);
     assert.ok(stored.ok && stored.value !== null);
     const plan = syncPlanOf(stored.value.declaration);
-    assert.deepStrictEqual(
-      { destination: plan.destination, tables: plan.tables },
-      { destination: DESTINATION, tables: null },
-    );
+    assert.deepStrictEqual(plan.destinations, new Map([[DESTINATION, null]]));
 
     // 같은 선언을 사람이나 agent가 이 컴퓨터에서 새 commit의 release로 쓰면 거절된다.
     const source = taken.value.source_path!;
@@ -836,7 +843,8 @@ test("source 받기는 사람의 code를 덮지 않고, 여러 기계를 거친 
       slug: "notes",
       name: "Notes",
       description: "Keeps notes.",
-      destination: DESTINATION,
+      sends_to: [DESTINATION],
+      writes_to: [DESTINATION],
       source_path: repoB,
       release: {
         id: "rel_01hzzzzzzzzzzzzzzzzzzzzz02" as Id<"rel">,
@@ -1143,7 +1151,8 @@ test("computers carry(서명된 manifest·replica)로 @me/* package를 옮기고
     const commit = git(w.repoA, "rev-parse", "HEAD");
     const localComp: FolderLocalApp = {
       ...w.local,
-      destination: COMPUTERS_DESTINATION,
+      sends_to: [COMPUTERS_DESTINATION],
+      writes_to: [COMPUTERS_DESTINATION],
       release: { ...w.local.release!, code_commit: commit },
     };
     const compDest = (path: string): DestinationsView => ({
@@ -1341,7 +1350,11 @@ test("data를 보내지 않는 앱도 computers destination으로 source와 app.
       resolve: (name) =>
         name === COMPUTERS_DESTINATION ? { path: comp, state: "ok" } : null,
     };
-    const localNoSync = { ...w.local, destination: null };
+    const localNoSync = {
+      ...w.local,
+      sends_to: [],
+      writes_to: [COMPUTERS_DESTINATION],
+    };
     const folderANoSync = createFolderApps({
       machine: () => A,
       destinations: compDest,

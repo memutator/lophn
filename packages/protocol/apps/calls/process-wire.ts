@@ -125,6 +125,8 @@ export type ProcessSyncApplyResponse = z.infer<
 // (horizon 밖에서 돌아올 때). keep의 pk는 `lophn_sync_row.pk` bytes의 base64다.
 export const processSnapshotMergeRequestSchema = z.strictObject({
   path: z.string().min(1),
+  // snapshot이 온 destination. 선언이 그리 보내는 표만 합친다.
+  destination: z.string().min(1),
   absent_deletes: z
     .strictObject({
       below: hlcSchema,
@@ -207,10 +209,12 @@ export type ProcessSyncReapplyResponse = z.infer<
 >;
 
 // core가 고른 절대 path에 앱 DB의 사본을 쓴다. 이미 file이 있으면 실패한다. `phone`은 폰이 받을 DB 통째(`VACUUM INTO`),
-// `folder`는 다른 기계로 갈 사본이라 선언이 보내는 표만 담는다.
+// `folder`는 `destination`으로 갈 사본이라 선언이 그리 보내는 표만 담는다.
+// `folder`만 `destination`이 있다(앱 process가 그 짝을 본다).
 export const processSnapshotRequestSchema = z.strictObject({
   path: z.string().min(1),
   for: z.enum(["phone", "folder"]),
+  destination: z.string().min(1).optional(),
 });
 export type ProcessSnapshotRequest = z.infer<
   typeof processSnapshotRequestSchema

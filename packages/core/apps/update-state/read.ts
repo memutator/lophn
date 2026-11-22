@@ -13,6 +13,8 @@ type ActiveRelease = {
 export type UpdateStateInput = {
   app: Id<"app">;
   me: Id<"mch">;
+  /** 이 기계 선언이 그 앱의 표를 보내는 destination. */
+  destinations: readonly string[];
   /** 이 기계의 활성 release. */
   current: ActiveRelease | null;
   follow: FollowState;
@@ -90,6 +92,7 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
         (number !== null && currentNumber !== null && number < currentNumber);
       return {
         machine: row.origin,
+        destination: row.destination,
         code_commit: row.code_commit,
         data_schema: row.data_schema,
         changes: row.changes,
@@ -103,5 +106,11 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
       };
     });
 
-  return { app: input.app, follow: input.follow, held, machines };
+  return {
+    app: input.app,
+    destinations: [...input.destinations],
+    follow: input.follow,
+    held,
+    machines,
+  };
 }

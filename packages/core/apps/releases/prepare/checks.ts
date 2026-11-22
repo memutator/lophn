@@ -184,10 +184,15 @@ export async function checkMigration(input: {
   if (syncsData(plan)) {
     const db = new DatabaseSync(empty.path, { readOnly: true });
     try {
+      const destinationOf = new Map<string, string>();
+      for (const [name, tables] of plan.destinations) {
+        for (const table of tables ?? []) destinationOf.set(table, name);
+      }
       const problems = phoneSchemaProblemsOfDatabase(
         db,
         plan.phone ? null : sentTables(plan),
-        [...(plan.tables ?? [])],
+        [...destinationOf.keys()],
+        destinationOf,
       );
       if (problems.length > 0) {
         return {

@@ -161,3 +161,92 @@ export const FOLDER_CODE_COMMIT_STEPS: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// 읽는 쪽 상태의 key에 destination을 넣는다(roadmap sync-tables 2단계): 한 앱이 표마다 다른 destination으로 보내면 출처 기계 하나의
+// 그 앱 stream이 destination마다 따로 번호를 세고, 앱 기록(`app.json`)도 destination마다 다른 data head·읽은 번호를 싣는다.
+// - folder_reads: (앱, destination, 출처, stream)마다. data cursor는 그 앱 활성 release의 선언이 고른 destination(1단계까지는
+//   앱에 하나)에서 읽은 것이고, source cursor는 그 출처의 앱 기록 사본을 읽은 destination에서 읽은 것이다. 둘 다 없으면
+//   `computers`(source만 내보내는 앱의 길)다. 쓰지 않던 bundle_hash 칸은 뺀다.
+// - folder_held: 다른 release라 둔 file도 그 앱 활성 release 선언의 destination에서 읽었다. 사본 path는 행에 그대로 있다.
+// - folder_records: 이미 destination 칸이 있다. 기계 기록과 앱 기록을 destination마다 둔다.
+// remote wiring의 schemaStepsAfterTeams 끝(apps.sync-log.destination 뒤)에 잇는다.
+const ACTIVE_DESTINATION = (app: string) => `(
+      SELECT coalesce(
+        json_extract(rel.declaration, '$.sync_to'),
+        (SELECT s.value FROM json_each(rel.declaration, '$.sync') AS s ORDER BY s.key LIMIT 1))
+      FROM releases AS rel WHERE rel.app = ${app} AND rel.status = 'active')`;
+
+export const FOLDER_DESTINATION_STEPS: readonly SchemaStep[] = [
+  {
+    id: "folder.destination",
+    sql: `
+    CREATE TABLE folder_reads_next (
+      machine TEXT NOT NULL,
+      app TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      stream TEXT NOT NULL CHECK (stream IN ('data', 'source')),
+      cursor INTEGER NOT NULL DEFAULT 0,
+      code_commit TEXT,
+      read_at TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_try_at TEXT,
+      waiting_for INTEGER,
+      error TEXT CHECK (error IS NULL OR json_valid(error)),
+      PRIMARY KEY (machine, app, destination, origin, stream)
+    ) STRICT;
+    INSERT INTO folder_reads_next
+      (machine, app, destination, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error)
+    SELECT r.machine, r.app,
+      coalesce(
+        CASE WHEN r.stream = 'data' THEN ${ACTIVE_DESTINATION("r.app")} END,
+        (SELECT fr.destination FROM folder_records AS fr
+          WHERE fr.machine = r.machine AND fr.origin = r.origin AND fr.kind = 'app' AND fr.key = r.app),
+        ${ACTIVE_DESTINATION("r.app")},
+        'computers'),
+      r.origin, r.stream, r.cursor, r.code_commit, r.read_at, r.attempts, r.next_try_at, r.waiting_for, r.error
+    FROM folder_reads AS r;
+    DROP TABLE folder_reads;
+    ALTER TABLE folder_reads_next RENAME TO folder_reads;
+    CREATE TABLE folder_held_next (
+      machine TEXT NOT NULL,
+      app TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      n INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('changes', 'snapshot')),
+      code_commit TEXT NOT NULL,
+      data_schema INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      sha256 TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      held_at TEXT NOT NULL,
+      PRIMARY KEY (machine, app, destination, origin, n)
+    ) STRICT;
+    INSERT INTO folder_held_next
+      (machine, app, destination, origin, n, kind, code_commit, data_schema, path, sha256, size, held_at)
+    SELECT h.machine, h.app, coalesce(${ACTIVE_DESTINATION("h.app")}, 'computers'),
+      h.origin, h.n, h.kind, h.code_commit, h.data_schema, h.path, h.sha256, h.size, h.held_at
+    FROM folder_held AS h;
+    DROP TABLE folder_held;
+    ALTER TABLE folder_held_next RENAME TO folder_held;
+    CREATE TABLE folder_records_next (
+      machine TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('machine', 'app')),
+      key TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      record TEXT NOT NULL CHECK (json_valid(record)),
+      read_at TEXT NOT NULL,
+      forgotten_at TEXT,
+      PRIMARY KEY (machine, origin, kind, key, destination)
+    ) STRICT;
+    INSERT INTO folder_records_next
+      (machine, origin, kind, key, destination, revision, record, read_at, forgotten_at)
+    SELECT machine, origin, kind, key, destination, revision, record, read_at, forgotten_at FROM folder_records;
+    DROP TABLE folder_records;
+    ALTER TABLE folder_records_next RENAME TO folder_records;
+  `,
+  },
+];

@@ -74,31 +74,37 @@ export const machineEnvironmentSchema = z.object({
     z.object({
       app: idSchema("app"),
       name: z.string(),
-      // 선언의 `sync`가 table을 보내는 destination 이름. 보내지 않는 앱은 null.
-      sends_to: z.string().nullable(),
-      destination: z.enum(["set", "not_set_here"]).nullable(),
-      release: commitSchema.nullable(),
-      export: z
-        .object({
-          exported_at: atSchema.nullable(),
-          head: count,
-          pending: count,
-          error: folderErrorSchema.nullable(),
-        })
-        .nullable(),
-      imports: z.array(
+      // 선언의 `sync`가 table을 보내는 destination마다: 그리 가는 표(null이면 모든 표, 옛 release), 그 이름이 이 기계에
+      // 있는지, 그 stream의 내보내기와 출처 기계마다의 읽기. 보내지 않는 앱은 비었다.
+      destinations: z.array(
         z.object({
-          machine: idSchema("mch"),
-          imported_at: atSchema.nullable(),
-          cursor: count,
-          waiting_for: count.nullable(),
-          held: count,
-          // 그 기계의 snapshot을 합쳤지만 다른 곳에서 지워진 row를 아직 지우지 않았다: 그 기계가 이 기계의 변경을 다 받으면
-          // 그 기계의 다음 snapshot으로 한 번 더 합치며 지운다.
-          owes_absent_pass: z.boolean(),
-          error: folderErrorSchema.nullable(),
+          name: z.string(),
+          tables: z.array(z.string()).nullable(),
+          state: z.enum(["set", "not_set_here"]),
+          export: z
+            .object({
+              exported_at: atSchema.nullable(),
+              head: count,
+              pending: count,
+              error: folderErrorSchema.nullable(),
+            })
+            .nullable(),
+          imports: z.array(
+            z.object({
+              machine: idSchema("mch"),
+              imported_at: atSchema.nullable(),
+              cursor: count,
+              waiting_for: count.nullable(),
+              held: count,
+              // 그 기계의 snapshot을 합쳤지만 다른 곳에서 지워진 row를 아직 지우지 않았다: 그 기계가 이 기계의 변경을 다
+              // 받으면 그 기계의 다음 snapshot으로 한 번 더 합치며 지운다.
+              owes_absent_pass: z.boolean(),
+              error: folderErrorSchema.nullable(),
+            }),
+          ),
         }),
       ),
+      release: commitSchema.nullable(),
       // `apps/update_state`와 같은 값. 폴더로 맞추지 않는 앱은 follow가 null이고 held·machines가 비었다.
       follow: followStateSchema.nullable(),
       held: updateStateSchema.shape.held,

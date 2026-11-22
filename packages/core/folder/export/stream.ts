@@ -1,4 +1,6 @@
-// 앱 하나의 data stream을 따라잡는다. 번호는 stream마다 1부터 빈틈없이 늘고, 쓴 번호는 다시 쓰지 않는다.
+// 앱 하나의 destination 하나의 data stream을 따라잡는다. 번호는 stream마다 1부터 빈틈없이 늘고, 쓴 번호는 다시 쓰지 않는다.
+// 한 앱이 표마다 다른 destination으로 보내면 stream이 destination마다 따로 있고, 모두 같은 sync log를 읽되 자기 destination의
+// 줄(과 destination이 없는 줄)만 내보낸다. hold와 held·snapshot 막기도 그 줄만 본다.
 // 쓰기 순서: file bytes의 sha256을 먼저 구해 `folder_written`에 의도로 적고(이때 stream의 next_n은 그대로다), writer로
 // temp에 쓰고 rename한 뒤, 한 transaction에서 next_n과 last_seq를 올린다. 그래서 next_n 이상 번호의 `folder_written` 행은
 // 끝나지 않은 의도다: 다시 돌 때 그 file이 같은 sha256이면 끝난 것으로 적고, 없으면 의도를 지우고, 다르면 남의 writer다.
@@ -55,7 +57,7 @@ import {
 } from "./status.ts";
 
 const PAGE = 500;
-// snapshot 사본을 뜨는 앱 폴더 아래 임시 폴더. 뜨기 전에 비워 앞서 죽은 run이 남긴 것을 지운다.
+// snapshot 사본을 뜨는 앱 폴더 아래 임시 폴더(destination마다). 뜨기 전에 비워 앞서 죽은 run이 남긴 것을 지운다.
 const TEMP_DIR = "folder-export";
 
 type ExportOrigin = ChangeMeta["origin"];
@@ -115,7 +117,10 @@ export function createStreams(deps: FolderExportDeps) {
     return seen.hlc;
   }
 
-  async function runApp(appId: Id<"app">): Promise<Result<ExportOutcome>> {
+  async function runStream(
+    appId: Id<"app">,
+    name: string,
+  ): Promise<Result<ExportOutcome>> {
     const outcome: ExportOutcome = {
       files: 0,
       bytes: 0,
@@ -124,14 +129,20 @@ export function createStreams(deps: FolderExportDeps) {
       error: null,
     };
     const app = deps.apps().find((each) => each.app === appId);
-    if (app === undefined || app.release === null) return ok(outcome);
-    const destination = deps.destinations.resolve(app.destination);
+    if (
+      app === undefined ||
+      app.release === null ||
+      !app.destinations.includes(name)
+    ) {
+      return ok(outcome);
+    }
+    const destination = deps.destinations.resolve(name);
     if (destination === null) return ok(outcome);
     const me = deps.machine().id;
     const key: StreamKey = {
       machine: me,
       app: app.app,
-      destination: app.destination,
+      destination: name,
       stream: "data",
     };
     const sticky = readStream(deps.sql, key)?.error;
@@ -142,13 +153,13 @@ export function createStreams(deps: FolderExportDeps) {
     if (destination.state === "missing") {
       return run.fail(
         "destination_missing",
-        `The sync folder "${app.destination}" is missing at ${destination.path}`,
+        `The sync folder "${name}" is missing at ${destination.path}`,
       );
     }
     if (destination.state === "not_writable") {
       return run.fail(
         "not_writable",
-        `The sync folder "${app.destination}" at ${destination.path} is not writable`,
+        `The sync folder "${name}" at ${destination.path} is not writable`,
       );
     }
     const done = await run.go(destination.path);
@@ -156,7 +167,7 @@ export function createStreams(deps: FolderExportDeps) {
   }
 
   return {
-    runApp,
+    runStream,
     forget(app: string) {
       logMax.delete(app);
     },
@@ -239,7 +250,9 @@ class Run {
 
     const before = this.state();
     const peer = maxOf(
-      deps.peerHorizons(app.app).map((each) => BigInt(each.horizon)),
+      deps
+        .peerHorizons(app.app, key.destination)
+        .map((each) => BigInt(each.horizon)),
     );
     const settled = before?.settled == null ? null : BigInt(before.settled);
     // 이 기계가 다른 기계의 horizon 밖이면, 그 이하 clock의 아직 내보내지 않은 변경은 정리된 흔적과 부딪힐 수 있다.
@@ -288,10 +301,16 @@ class Run {
       : null;
   }
 
+  // 이 stream이 내보내는 줄: 이 destination의 줄과 destination이 없는 줄. 다른 destination의 줄은 그 stream이 맡는다.
+  private mine(row: FolderLogRow): boolean {
+    return row.destination === null || row.destination === this.key.destination;
+  }
+
   // hold 규칙에 걸리는 줄: 아직 내보내지 않은 이 기계의 변경 가운데 clock이 horizon 이하인 것.
   private covered(row: FolderLogRow): boolean {
     return (
       this.holdUpTo !== null &&
+      this.mine(row) &&
       row.kind === "change" &&
       EXPORT_ORIGINS.has(row.origin) &&
       row.hlc !== null &&
@@ -299,7 +318,7 @@ class Run {
     );
   }
 
-  // 줄의 changeset에서 그 줄의 release가 destination으로 보내는 표의 구간. 폰 앱의 줄은 폰만 받는 표도 담는다. bytes가
+  // 줄의 changeset에서 그 줄의 release가 이 destination으로 보내는 표의 구간. 폰 앱의 줄은 폰만 받는 표도 담는다. bytes가
   // 없는 줄은 null이다.
   private async sentPart(
     row: FolderLogRow,
@@ -310,7 +329,7 @@ class Run {
       row.changeset.size,
     );
     if (!bytes.ok) return bytes;
-    const sent = this.deps.sentOf(row.release);
+    const sent = this.deps.sentOf(row.release, this.key.destination);
     return sent === null ? bytes : filterChangeset(bytes.value, sent);
   }
 
@@ -522,15 +541,19 @@ class Run {
     }
     const passed = await this.holdPast();
     if (!passed.ok) return passed;
-    const inData = deps.log.heldInData(app.app);
+    const inData = deps.log.heldInData(app.app, this.key.destination);
     if (inData > 0)
       return need === "required" ? this.heldStop(inData) : ok(true);
-    const dir = join(appFolder(deps.dataRoot, app.app), TEMP_DIR);
+    const dir = join(
+      appFolder(deps.dataRoot, app.app),
+      TEMP_DIR,
+      this.key.destination,
+    );
     await rm(dir, { recursive: true, force: true });
     await mkdir(dir, { recursive: true });
     const temp = join(dir, `${hex16(deps.random)}.sqlite`);
     try {
-      const taken = await deps.snapshotAt(app.app, temp);
+      const taken = await deps.snapshotAt(app.app, this.key.destination, temp);
       if (!taken.ok) {
         return taken.error.code === "unavailable"
           ? this.stop(
@@ -540,13 +563,18 @@ class Run {
           : taken;
       }
       // 기다리는 사이 activation이 release를 바꿨으면 이 사본의 release를 모른다. 다음 run이 다시 뜬다.
-      const now = deps.apps().find((each) => each.app === app.app)?.release;
-      if (now?.code_commit !== release.code_commit) return ok(false);
+      const now = deps.apps().find((each) => each.app === app.app);
+      if (
+        now?.release?.code_commit !== release.code_commit ||
+        !now.destinations.includes(this.key.destination)
+      ) {
+        return ok(false);
+      }
       const size = (await stat(temp)).size;
       if (size > SNAPSHOT_PAYLOAD_MAX_BYTES) {
         return this.stop(
           "too_large",
-          `The data of ${app.name} is over 1 GiB and cannot go to the sync folder`,
+          `The data of ${app.name} for "${this.key.destination}" is over 1 GiB and cannot go to the sync folder`,
         );
       }
       const previous = this.state()?.last_snapshot_n ?? null;
@@ -647,6 +675,10 @@ class Run {
           this.cursor = row.seq;
           continue;
         }
+        if (!this.mine(row)) {
+          this.cursor = row.seq;
+          continue;
+        }
         if (row.kind === "snapshot") {
           resnapshot = true;
           break;
@@ -738,7 +770,7 @@ class Run {
     let settled = state?.settled == null ? null : BigInt(state.settled);
     if (
       (state?.last_seq ?? 0) >= deps.log.head(app.app) &&
-      deps.readsCaughtUp(app.app)
+      deps.readsCaughtUp(app.app, this.key.destination)
     ) {
       const max = this.maxHlc(app.app);
       if (max !== null && (settled === null || max > settled)) settled = max;

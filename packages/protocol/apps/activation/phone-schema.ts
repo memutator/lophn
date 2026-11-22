@@ -22,13 +22,16 @@ const FOLLOWING_ACTIONS = new Set(["CASCADE", "SET NULL", "SET DEFAULT"]);
 
 /**
  * 영어 문장 목록이다. 비어 있으면 통과한다. agent가 읽고 고친다. `synced`는 다른 사본과 맞추는 표이고 null이면 모든
- * 표다(폰 앱). `listed`는 선언의 `sync`가 적은 표다: 있어야 하고 PRIMARY KEY가 있어야 한다.
+ * 표다(폰 앱). `listed`는 선언의 `sync`가 적은 표다: 있어야 하고 PRIMARY KEY가 있어야 한다. `destinationOf`는 적은 표가
+ * 가는 destination이다: 보내는 표끼리의 foreign key는 같은 destination일 때만 된다(다른 destination만 받는 기계에는
+ * 부모 줄이 없다).
  */
 export function phoneSchemaProblems(
   tables: readonly PhoneSchemaTable[],
   triggers: readonly SchemaTrigger[],
   synced: ((table: string) => boolean) | null = null,
   listed: readonly string[] = [],
+  destinationOf: ReadonlyMap<string, string> = new Map(),
 ): string[] {
   const problems: string[] = [];
   const isSynced = (table: string) => synced === null || synced(table);
@@ -80,7 +83,19 @@ export function phoneSchemaProblems(
   if (synced === null) return problems;
   for (const table of tables) {
     for (const foreign of table.foreignKeys) {
-      if (isSynced(table.name) && !isSynced(foreign.table)) {
+      const child = destinationOf.get(table.name);
+      const parent = destinationOf.get(foreign.table);
+      if (
+        isSynced(table.name) &&
+        isSynced(foreign.table) &&
+        child !== undefined &&
+        parent !== undefined &&
+        child !== parent
+      ) {
+        problems.push(
+          `Table ${table.name} goes to "${child}" but references ${foreign.table}, which goes to "${parent}". A computer that gets only one of the two has no parent row; send both tables to the same destination, or drop the reference.`,
+        );
+      } else if (isSynced(table.name) && !isSynced(foreign.table)) {
         problems.push(
           `Table ${table.name} syncs but references ${foreign.table}, which stays on this computer. Other computers have no such parent row; list ${foreign.table} in sync too (then it must follow these sync schema rules as well: a text primary key, no AUTOINCREMENT, UNIQUE, CHECK or trigger), or drop the reference.`,
         );

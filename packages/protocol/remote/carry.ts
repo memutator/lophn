@@ -745,8 +745,8 @@ export const carryStatus = defineRead({
       z.object({
         app: appIdSchema,
         name: z.string(),
-        // 선언의 `sync`가 그 앱의 table을 보내는 destination.
-        destination: z.string(),
+        // 선언의 `sync`가 그 앱의 table을 보내는 destination(글자 순서).
+        destinations: z.array(z.string()),
         read_at: atSchema.nullable(),
       }),
     ),

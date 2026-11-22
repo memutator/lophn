@@ -42,7 +42,11 @@ import {
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { FolderApply } from "../ports.ts";
-import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import {
+  FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
+  FOLDER_SCHEMA_STEPS,
+} from "../schema.ts";
 import { exchangeWith } from "./compat.ts";
 import { createFolderImport } from "./mod.ts";
 
@@ -108,7 +112,15 @@ async function make(base: string) {
   mkdirSync(dest);
   mkdirSync(root);
   const ledger = new DatabaseSync(":memory:");
-  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+  // folder 표 step이 기대는 release 표(활성 release의 선언에서 destination을 채운다).
+  ledger.exec(
+    "create table releases (id text, app text, status text, declaration text)",
+  );
+  for (const step of [
+    ...FOLDER_SCHEMA_STEPS,
+    ...FOLDER_CODE_COMMIT_STEPS,
+    ...FOLDER_DESTINATION_STEPS,
+  ]) {
     ledger.exec(step.sql);
   }
   const sql: Sql = createSql(ledger, () => true);
@@ -175,8 +187,7 @@ async function make(base: string) {
     apps: () => [
       {
         app: APP,
-        destination: "personal",
-        sent: null,
+        destinations: [{ name: "personal", sent: null }],
         release: { id: active.id, code_commit: active.commit, data_schema: 1 },
       },
     ],
@@ -321,11 +332,12 @@ async function make(base: string) {
       .all(ME, APP, origin)
       .map((row) => Number(row.n));
   const heldCopies = (origin: Id<"mch">) => {
-    const dir = join(root, "folder-held", APP, origin);
+    const dir = join(root, "folder-held", APP, "personal", origin);
     return existsSync(dir) ? readdirSync(dir).sort() : [];
   };
   const cursor = (origin: Id<"mch">) =>
-    folder.status(APP).find((row) => row.machine === origin)?.cursor ?? 0;
+    folder.status(APP, "personal").find((row) => row.machine === origin)
+      ?.cursor ?? 0;
   const run = async () => {
     const outcome = await folder.runApp(APP);
     assert.ok(outcome.ok);

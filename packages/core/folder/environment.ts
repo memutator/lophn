@@ -85,17 +85,19 @@ export type FolderSections = ReturnType<typeof createFolderSections>;
 
 /**
  * 흔적 정리의 경계: clock이 이보다 작은 tombstone만 지운다. `max(min(알려진 기계와 자기의 settled), now − 90일)`.
- * 모두가 지난 것이거나 90일보다 옛 것만 지운다는 뜻이다. `peers`는 알려진(사람이 지우지 않은) 다른 기계의 그 앱
- * 기록이다. 자기나 알려진 기계 가운데 `settled`가 없는 기계가 있으면 90일 쪽만 쓴다.
+ * 모두가 지난 것이거나 90일보다 옛 것만 지운다는 뜻이다. 흔적은 앱 DB에 하나라서, `own`은 이 기계의 그 앱 stream마다
+ * (destination마다)의 settled이고 `peers`는 모든 destination에서 읽은 알려진(사람이 지우지 않은) 다른 기계의 그 앱
+ * 기록이다. 가장 느린 상대가 모든 표의 흔적을 붙든다. 자기 stream이나 알려진 기계 가운데 `settled`가 없는 것이 있으면
+ * 90일 쪽만 쓴다.
  */
 export function cleanupBefore(input: {
-  own: string | null;
+  own: readonly (string | null)[];
   peers: readonly { settled: string | null }[];
   nowMs: number;
 }): bigint {
   const floor = hlcAtMs(input.nowMs - TOMBSTONE_HORIZON_MS);
-  const all = [input.own, ...input.peers.map((peer) => peer.settled)];
-  if (all.some((settled) => settled === null)) return floor;
+  const all = [...input.own, ...input.peers.map((peer) => peer.settled)];
+  if (all.length === 0 || all.some((settled) => settled === null)) return floor;
   const least = all
     .map((settled) => BigInt(settled!))
     .reduce((min, each) => (each < min ? each : min));
@@ -105,8 +107,8 @@ export function cleanupBefore(input: {
 export type EnvironmentApp = {
   app: Id<"app">;
   name: string;
-  // 선언의 `sync`가 table을 보내는 destination. 보내지 않으면 null.
-  destination: string | null;
+  // 선언의 `sync`가 table을 보내는 destination과 그리 가는 표(null이면 모든 표). 보내지 않으면 비었다.
+  destinations: readonly { name: string; tables: string[] | null }[];
   code_commit: string | null;
 };
 
@@ -118,8 +120,8 @@ export type EnvironmentDeps = {
   destinations: DestinationsView;
   /** 이 기계의 활성 release가 있는 앱. */
   apps(): EnvironmentApp[];
-  exportStatus(app: Id<"app">): ExportStatus | null;
-  importStatus(app: Id<"app">): ImportStatus[];
+  exportStatus(app: Id<"app">, destination: string): ExportStatus | null;
+  importStatus(app: Id<"app">, destination: string): ImportStatus[];
   away(app: Id<"app">): Promise<Env["apps"][number]["away"]>;
   /** 기계마다 폴더 꼴 판 범위. 없는 기계는 ok다. */
   exchange(): readonly {
@@ -182,24 +184,25 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
       return {
         app: app.app,
         name: app.name,
-        sends_to: app.destination,
-        destination:
-          app.destination === null
-            ? null
-            : deps.destinations.resolve(app.destination) === null
+        destinations: app.destinations.map(({ name, tables }) => ({
+          name,
+          tables,
+          state:
+            deps.destinations.resolve(name) === null
               ? ("not_set_here" as const)
               : ("set" as const),
-        release: app.code_commit,
-        export: deps.exportStatus(app.app),
-        imports: deps.importStatus(app.app).map((row) => ({
-          machine: row.machine,
-          imported_at: row.imported_at,
-          cursor: row.cursor,
-          waiting_for: row.waiting_for,
-          held: row.held,
-          owes_absent_pass: row.owes_absent_pass,
-          error: row.error,
+          export: deps.exportStatus(app.app, name),
+          imports: deps.importStatus(app.app, name).map((row) => ({
+            machine: row.machine,
+            imported_at: row.imported_at,
+            cursor: row.cursor,
+            waiting_for: row.waiting_for,
+            held: row.held,
+            owes_absent_pass: row.owes_absent_pass,
+            error: row.error,
+          })),
         })),
+        release: app.code_commit,
         follow: update?.follow ?? null,
         held: update?.held ?? [],
         machines: update?.machines ?? [],

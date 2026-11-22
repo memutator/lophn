@@ -1,4 +1,4 @@
-// held 적용(drain). 이 기계의 앱이 held의 release가 되면, 출처마다 그 release의 held를 번호 순서로 stream과 같은 적용
+// held 적용(drain). 이 기계의 앱이 held의 release가 되면, (destination, 출처)마다 그 release의 held를 번호 순서로 stream과 같은 적용
 // 길(`FolderApply`)로 적용하고, 하나가 성공할 때마다 그 행을 지우고 사본을 지운다. 실패하면 그 출처는 그 행에서 멈추고
 // 다음 계기(읽기마다, release가 바뀌어 읽기가 다시 돌 때)에 같은 행부터 한다. 지금 release의 held가 남은 출처의 stream은
 // 읽지 않는다: stream의 cursor는 held 뒤에 있어 먼저 읽으면 순서가 뒤집힌다(stream.ts가 지킨다).
@@ -38,7 +38,7 @@ export async function drainHeld(
   target: ApplyTarget,
 ): Promise<Result<Drained>> {
   const me = deps.machine();
-  const { app, origin } = target;
+  const { app, destination, origin } = target;
   const local = createFolderReader(deps.root);
   const out: Drained = {
     files: 0,
@@ -49,8 +49,9 @@ export async function drainHeld(
     // 매번 다시 읽는다: snapshot을 합치면 그보다 옛 행이 지워진다.
     const next = deps.sql.get(
       `SELECT n, kind, path FROM folder_held
-       WHERE machine = ? AND app = ? AND origin = ? AND code_commit = ? ORDER BY n LIMIT 1`,
-      [me, app, origin, target.release.code_commit],
+       WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND code_commit = ?
+       ORDER BY n LIMIT 1`,
+      [me, app, destination, origin, target.release.code_commit],
     ) as HeldRow | undefined;
     if (next === undefined) return ok(out);
     const n = Number(next.n);
@@ -110,10 +111,11 @@ export async function drainHeld(
     }
     const removed = deps.transaction((tx) => {
       const covered =
-        next.kind === "snapshot" ? dropCovered(tx.sql, me, app, origin, n) : [];
+        next.kind === "snapshot" ? dropCovered(tx.sql, me, target, n) : [];
       tx.sql.run(
-        `DELETE FROM folder_held WHERE machine = ? AND app = ? AND origin = ? AND n = ?`,
-        [me, app, origin, n],
+        `DELETE FROM folder_held
+         WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND n = ?`,
+        [me, app, destination, origin, n],
       );
       return ok([...covered, next.path]);
     });

@@ -56,6 +56,8 @@ export type MachineExchange = {
 };
 
 export type HeldDetail = {
+  // 그 file이 온 destination.
+  destination: string;
   origin: Id<"mch">;
   code_commit: string;
   data_schema: number;

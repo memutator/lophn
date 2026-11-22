@@ -134,10 +134,16 @@ function peersFor(
     if (destination === null || destination.state === "missing") continue;
     out.push({
       origin: copy.origin,
+      destination: copy.destination,
       reader: createFolderReader(destination.path),
       head: copy.record.source.head,
       cursor: useStoredCursor
-        ? sourceCursor(deps.sql, me, app, copy.origin)
+        ? sourceCursor(deps.sql, {
+            machine: me,
+            app,
+            destination: copy.destination,
+            origin: copy.origin,
+          })
         : 0,
     });
   }
@@ -155,7 +161,7 @@ function savePeerResults(
     if (one.cursor > 0) {
       setSourceRead(
         deps.sql,
-        { machine: me, app, origin: one.origin },
+        { machine: me, app, destination: one.destination, origin: one.origin },
         { cursor: one.cursor, at },
       );
     }

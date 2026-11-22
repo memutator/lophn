@@ -55,7 +55,11 @@ import {
 } from "../../protocol/remote/roster.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
 import type { SyncLog } from "../apps/sync/log.ts";
-import { SYNC_LOG_SCHEMA_STEPS } from "../apps/sync/schema.ts";
+import {
+  SYNC_LOG_DESTINATION_STEPS,
+  SYNC_LOG_MACHINE_STEPS,
+  SYNC_LOG_SCHEMA_STEPS,
+} from "../apps/sync/schema.ts";
 import { createFileSettingsReader } from "../config/reader.ts";
 import { createSettingsRegistry } from "../config/registry.ts";
 import { createSettingsStore } from "../config/store.ts";
@@ -68,7 +72,9 @@ import { createFolderReader, createFolderWriter } from "./fs.ts";
 import { readArrivedEvents } from "./import/events.ts";
 import { followAsksPerson } from "./import/follow.ts";
 import { createFolderImport } from "./import/mod.ts";
+import { loadRead } from "./import/deps.ts";
 import { createRosterFiles } from "./import/roster.ts";
+import { sourceCursor } from "./apps/state.ts";
 import { createMirror } from "./mirror.ts";
 import type { FolderLog } from "./ports.ts";
 import { createReplica } from "./replica.ts";
@@ -76,6 +82,7 @@ import {
   FOLDER_AWAY_NOTIFIED_STEPS,
   FOLDER_CARRY_MARKS_STEPS,
   FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
   FOLDER_EVENTS_SEEN_STEPS,
   FOLDER_SCHEMA_STEPS,
 } from "./schema.ts";
@@ -84,6 +91,9 @@ import {
 void (null as unknown as SyncLog satisfies FolderLog);
 
 const ME = "mch_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mch">;
+// folder 표 step이 기대는 release 표(활성 release의 선언에서 destination을 채운다). 이 test의 ledger에는 그 열만 있으면 된다.
+const RELEASES =
+  "create table releases (id text, app text, status text, declaration text)";
 const OTHER = "mch_01hyyyyyyyyyyyyyyyyyyyyyyy" as Id<"mch">;
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"app">;
 
@@ -332,6 +342,251 @@ test("folder.tables가 기존 ledger에 걸려도 다른 표의 행이 그대로
   }
 });
 
+// 사람의 ledger가 이 step을 돈다. 읽기 cursor의 destination을 틀리게 채우면 다음 기동이 그 stream을 0부터 다시 읽어 다른 기계의
+// 변경을 다시 받거나(cursor가 다른 destination에 걸림) 받은 적 없는 stream으로 보고, held 사본과 log 줄은 아무 stream도 맡지 않아
+// 잃는다.
+test("destination step은 기존 읽기 cursor·held·기록 사본과 log 줄을 그 앱 release 선언의 destination으로 옮긴다", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of [...SYNC_LOG_SCHEMA_STEPS, ...SYNC_LOG_MACHINE_STEPS]) {
+      db.exec(step.sql);
+    }
+    db.exec(RELEASES);
+    for (const step of [
+      ...FOLDER_SCHEMA_STEPS,
+      ...FOLDER_AWAY_NOTIFIED_STEPS,
+      ...FOLDER_EVENTS_SEEN_STEPS,
+      ...FOLDER_CARRY_MARKS_STEPS,
+      ...FOLDER_CODE_COMMIT_STEPS,
+    ]) {
+      db.exec(step.sql);
+    }
+    const OLD_SYNC_TO = "app_01hyyyyyyyyyyyyyyyyyyyyyya" as Id<"app">;
+    const STAGE_ONE = "app_01hyyyyyyyyyyyyyyyyyyyyyyb" as Id<"app">;
+    const PHONE = "app_01hyyyyyyyyyyyyyyyyyyyyyyc" as Id<"app">;
+    const SOURCE_ONLY = "app_01hyyyyyyyyyyyyyyyyyyyyyyd" as Id<"app">;
+    const release = db.prepare(
+      "insert into releases (id, app, status, declaration) values (?, ?, ?, ?)",
+    );
+    // 옛 release(봉인한 `sync_to`)와 그 앞 release, 1단계 `sync`(값 하나), 폰 앱, data를 보내지 않는 앱.
+    release.run(
+      "rel_a0",
+      OLD_SYNC_TO,
+      "superseded",
+      JSON.stringify({ sync_to: "gdrive" }),
+    );
+    release.run(
+      "rel_a1",
+      OLD_SYNC_TO,
+      "active",
+      JSON.stringify({ sync_to: "personal" }),
+    );
+    release.run(
+      "rel_b1",
+      STAGE_ONE,
+      "active",
+      JSON.stringify({ sync: { note: "computers", item: "computers" } }),
+    );
+    release.run(
+      "rel_c1",
+      PHONE,
+      "active",
+      JSON.stringify({
+        runs_on: ["computer", "phone"],
+        sync: { x: "computers" },
+      }),
+    );
+    release.run("rel_d1", SOURCE_ONLY, "active", JSON.stringify({}));
+    const line = db.prepare(
+      `insert into app_sync_log (app, release, kind, origin, machine, change_id, hlc, changeset_hash, changeset_size, created_at)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, '2026-11-16T00:00:00.000Z')`,
+    );
+    const blob = "c".repeat(64);
+    line.run(
+      OLD_SYNC_TO,
+      "rel_a0",
+      "change",
+      "computer",
+      null,
+      null,
+      "4",
+      blob,
+      3,
+    );
+    line.run(
+      OLD_SYNC_TO,
+      "rel_a1",
+      "change",
+      "computer",
+      null,
+      null,
+      "5",
+      blob,
+      3,
+    );
+    line.run(
+      OLD_SYNC_TO,
+      "rel_a1",
+      "held",
+      "computer",
+      null,
+      null,
+      "6",
+      blob,
+      3,
+    );
+    line.run(
+      OLD_SYNC_TO,
+      "rel_a1",
+      "change",
+      "machine",
+      OTHER,
+      "9",
+      "7",
+      blob,
+      3,
+    );
+    line.run(
+      OLD_SYNC_TO,
+      "rel_a1",
+      "snapshot",
+      "computer",
+      null,
+      null,
+      null,
+      null,
+      null,
+    );
+    line.run(
+      OLD_SYNC_TO,
+      "rel_a1",
+      "skipped",
+      "computer",
+      null,
+      null,
+      "8",
+      null,
+      null,
+    );
+    line.run(
+      STAGE_ONE,
+      "rel_b1",
+      "change",
+      "computer",
+      null,
+      null,
+      "5",
+      blob,
+      3,
+    );
+    line.run(PHONE, "rel_c1", "change", "computer", null, null, "5", blob, 3);
+    const read = db.prepare(
+      "insert into folder_reads (machine, app, origin, stream, cursor, code_commit) values (?, ?, ?, ?, ?, ?)",
+    );
+    read.run(ME, OLD_SYNC_TO, OTHER, "data", 7, "a".repeat(40));
+    read.run(ME, OLD_SYNC_TO, OTHER, "source", 2, null);
+    read.run(ME, STAGE_ONE, OTHER, "data", 4, "b".repeat(40));
+    read.run(ME, SOURCE_ONLY, OTHER, "source", 3, null);
+    const record = db.prepare(
+      `insert into folder_records (machine, origin, kind, key, revision, record, destination, read_at)
+       values (?, ?, ?, ?, ?, '{}', ?, '2026-11-16T00:00:00.000Z')`,
+    );
+    record.run(ME, OTHER, "machine", "", 3, "personal");
+    record.run(ME, OTHER, "app", OLD_SYNC_TO, 5, "personal");
+    record.run(ME, OTHER, "app", SOURCE_ONLY, 2, "computers");
+    db.prepare(
+      `insert into folder_held (machine, app, origin, n, kind, code_commit, data_schema, path, sha256, size, held_at)
+       values (?, ?, ?, 8, 'changes', ?, 1, ?, ?, 10, '2026-11-16T00:00:00.000Z')`,
+    ).run(
+      ME,
+      OLD_SYNC_TO,
+      OTHER,
+      "c".repeat(40),
+      `folder-held/${OLD_SYNC_TO}/${OTHER}/000000000008.changes`,
+      "d".repeat(64),
+    );
+
+    for (const step of [
+      ...SYNC_LOG_DESTINATION_STEPS,
+      ...FOLDER_DESTINATION_STEPS,
+    ]) {
+      db.exec(step.sql);
+    }
+
+    assert.deepEqual(
+      db
+        .prepare(
+          "select release, kind, origin, destination from app_sync_log order by seq",
+        )
+        .all()
+        .map((row) => [row.release, row.kind, row.origin, row.destination]),
+      [
+        // 줄은 그 줄 release의 선언을 따른다.
+        ["rel_a0", "change", "computer", "gdrive"],
+        ["rel_a1", "change", "computer", "personal"],
+        ["rel_a1", "held", "computer", "personal"],
+        ["rel_a1", "change", "machine", "personal"],
+        ["rel_a1", "snapshot", "computer", null],
+        ["rel_a1", "skipped", "computer", null],
+        ["rel_b1", "change", "computer", "computers"],
+        // 폰 앱의 줄은 모든 destination의 것이다.
+        ["rel_c1", "change", "computer", null],
+      ],
+    );
+    const sql: Sql = createSql(db, () => true);
+    const key = (app: Id<"app">, destination: string) => ({
+      app,
+      destination,
+      origin: OTHER,
+    });
+    assert.equal(loadRead(sql, ME, key(OLD_SYNC_TO, "personal")).cursor, 7);
+    assert.equal(loadRead(sql, ME, key(STAGE_ONE, "computers")).cursor, 4);
+    assert.equal(
+      sourceCursor(sql, { machine: ME, ...key(OLD_SYNC_TO, "personal") }),
+      2,
+    );
+    assert.equal(
+      sourceCursor(sql, { machine: ME, ...key(SOURCE_ONLY, "computers") }),
+      3,
+    );
+    assert.equal(
+      Number(db.prepare("select count(*) as n from folder_reads").get()!.n),
+      4,
+    );
+    // held 사본은 옛 path 그대로 그 stream의 행이다.
+    assert.deepEqual(
+      db
+        .prepare("select app, destination, origin, n, path from folder_held")
+        .all()
+        .map((row) => ({ ...row })),
+      [
+        {
+          app: OLD_SYNC_TO,
+          destination: "personal",
+          origin: OTHER,
+          n: 8,
+          path: `folder-held/${OLD_SYNC_TO}/${OTHER}/000000000008.changes`,
+        },
+      ],
+    );
+    assert.deepEqual(
+      db
+        .prepare(
+          "select kind, key, destination, revision from folder_records order by kind, key",
+        )
+        .all()
+        .map((row) => [row.kind, row.key, row.destination, row.revision]),
+      [
+        ["app", OLD_SYNC_TO, "personal", 5],
+        ["app", SOURCE_ONLY, "computers", 2],
+        ["machine", "", "personal", 3],
+      ],
+    );
+  } finally {
+    db.close();
+  }
+});
+
 // --- 기계 사이로 옮기기(`computers` 폴더) ---
 
 const OUTSIDER = "mch_01hxxxxxxxxxxxxxxxxxxxxxxx" as Id<"mch">;
@@ -499,12 +754,14 @@ async function carrySetup(base: string) {
   mkdirSync(shared);
   const computers = join(dataRoot, "computers");
   const db = new DatabaseSync(":memory:");
+  db.exec(RELEASES);
   for (const step of [
     ...FOLDER_SCHEMA_STEPS,
     ...FOLDER_AWAY_NOTIFIED_STEPS,
     ...FOLDER_EVENTS_SEEN_STEPS,
     ...FOLDER_CARRY_MARKS_STEPS,
     ...FOLDER_CODE_COMMIT_STEPS,
+    ...FOLDER_DESTINATION_STEPS,
   ]) {
     db.exec(step.sql);
   }
@@ -633,8 +890,7 @@ async function carrySetup(base: string) {
         apps: () => [
           {
             app: APP,
-            destination: "computers",
-            sent: null,
+            destinations: [{ name: "computers", sent: null }],
             release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
           },
         ],
@@ -803,9 +1059,11 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
     });
     const db = new DatabaseSync(":memory:");
     try {
+      db.exec(RELEASES);
       for (const step of [
         ...FOLDER_SCHEMA_STEPS,
         ...FOLDER_CODE_COMMIT_STEPS,
+        ...FOLDER_DESTINATION_STEPS,
       ]) {
         db.exec(step.sql);
       }
@@ -824,7 +1082,7 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         slug: "notes",
         name: "Notes",
         description: "",
-        destination: "personal",
+        destinations: ["personal"],
         release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
       };
       const exporter = createFolderExport({
@@ -841,7 +1099,7 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         releaseKey: () => ({ code_commit: ACTIVE, data_schema: 1 }),
         sentOf: () => null,
         operationOf: () => null,
-        async snapshotAt(_app, path) {
+        async snapshotAt(_app, _destination, path) {
           writeFileSync(path, "app db");
           return ok({ seq: 0, size: 6, sha256: hex(text("app db")) });
         },
@@ -862,7 +1120,7 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         random: seededRandom(5),
         dataRoot,
       });
-      const ran = await exporter.runApp(APP);
+      const ran = await exporter.runStream(APP, "personal");
       assert.ok(ran.ok && ran.value.error === null, JSON.stringify(ran));
       assert.deepEqual(
         readdirSync(join(sync, "machines", ME, "apps", APP, "data")),
@@ -885,8 +1143,7 @@ test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴
         apps: () => [
           {
             app: APP,
-            destination: "personal",
-            sent: null,
+            destinations: [{ name: "personal", sent: null }],
             release: app.release,
           },
         ],

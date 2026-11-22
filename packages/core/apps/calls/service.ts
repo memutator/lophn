@@ -811,7 +811,7 @@ export function createAppCalls(deps: AppCallsDeps): {
     const attached = syncOf();
     if (!attached.ok) return attached;
     const sync = attached.value;
-    const { app, release, origin, changes } = input;
+    const { app, release, origin, destination, changes } = input;
     const counts = { applied: 0, skipped: 0, duplicate: 0, held: 0 };
     const size = changes.reduce(
       (sum, change) => sum + change.changeset.byteLength,
@@ -886,6 +886,7 @@ export function createAppCalls(deps: AppCallsDeps): {
         const change = fresh[i]!;
         const received = {
           machine: origin,
+          destination,
           id: change.id,
           hlc: change.hlc,
           changeset: change.changeset,
@@ -925,7 +926,7 @@ export function createAppCalls(deps: AppCallsDeps): {
     const attached = syncOf();
     if (!attached.ok) return attached;
     const sync = attached.value;
-    const { app, release, origin } = input;
+    const { app, release, origin, destination } = input;
     let changed = false;
     const done = await inLane(app, release, async (job) => {
       const active = activeIs(app, release);
@@ -949,6 +950,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       const absent = input.absentDeletes;
       const merged = await deps.link.snapshotMerge(app, {
         path: input.path,
+        destination,
         ...(absent === undefined
           ? {}
           : {
@@ -986,6 +988,7 @@ export function createAppCalls(deps: AppCallsDeps): {
           {
             origin: "machine",
             machine: origin,
+            destination,
             hlc: row.hlc,
             changeset: unbase64(row.changeset)!,
           },

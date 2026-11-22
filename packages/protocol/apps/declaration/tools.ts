@@ -168,6 +168,7 @@ const RESERVED_TABLE = /^(lophn_|sqlite_)/i;
 
 // sync의 모양(table 이름 → destination 이름)과 runs_on과의 짝. 비면 칸이 없는 것과 같다. table이 앱 DB에 있고 PK가
 // 있는지는 release 준비가 target schema의 DB에서 본다. ["phone"] 앱은 컴퓨터 사본이 없어서 폴더로 보낼 data가 없다.
+// table마다 destination이 달라도 되지만 폰에서도 도는 앱은 하나까지다: 폰 길은 앱 DB 통째를 한 줄로 다룬다.
 export function validateSync(
   sync: unknown,
   runsOn: RunsOn | undefined,
@@ -198,9 +199,12 @@ export function validateSync(
       );
     }
   }
-  if (new Set(entries.map(([, destination]) => destination)).size > 1) {
+  if (
+    runsOn?.includes("phone") === true &&
+    new Set(entries.map(([, destination]) => destination)).size > 1
+  ) {
     return invalid(
-      "sync sends every listed table to one destination for now: use the same destination name for each table",
+      "an app that runs on the phone sends its tables to one destination: use the same destination name for each table in sync",
     );
   }
   if (runsOn?.length === 1 && runsOn[0] === "phone") {

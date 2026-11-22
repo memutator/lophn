@@ -1,4 +1,4 @@
-// 읽기의 상태: 앱마다 출처 기계의 cursor·held·오류(읽기 명령의 `imports`), 알려진 기계의 기록 사본, 따라잡았는지.
+// 읽기의 상태: (앱, destination)마다 출처 기계의 cursor·held·오류(읽기 명령의 `imports`), 알려진 기계의 기록 사본, 따라잡았는지.
 // 알려진 기계는 이 기계가 기록 사본을 가진 기계에서 사람이 지운(`forgotten_at`) 기계를 뺀 것이다.
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
@@ -73,22 +73,49 @@ export function records(deps: FolderImportDeps, app?: Id<"app">): KnownRecords {
   };
 }
 
-export function status(deps: FolderImportDeps, app: Id<"app">): ImportStatus[] {
+/**
+ * 기계·앱마다 가장 새로 쓴 앱 기록 하나. 앱 기록은 destination마다 있고 revision은 destination마다 따로 세므로 `updated_at`으로
+ * 견준다. 활성 release와 source처럼 destination과 상관없는 칸을 읽을 때 쓴다.
+ */
+export function latestAppRecords<
+  T extends { machine: Id<"mch">; app: Id<"app">; record: AppRecord },
+>(rows: readonly T[]): T[] {
+  const out = new Map<string, T>();
+  for (const row of rows) {
+    const key = `${row.machine}\0${row.app}`;
+    const kept = out.get(key);
+    if (kept === undefined || kept.record.updated_at < row.record.updated_at) {
+      out.set(key, row);
+    }
+  }
+  return [...out.values()];
+}
+
+export function status(
+  deps: FolderImportDeps,
+  app: Id<"app">,
+  destination: string,
+): ImportStatus[] {
   const me = deps.machine();
   const known = records(deps, app);
-  const origins = new Set<Id<"mch">>(known.apps.map((row) => row.machine));
+  const origins = new Set<Id<"mch">>(
+    known.apps
+      .filter((row) => row.destination === destination)
+      .map((row) => row.machine),
+  );
   for (const row of deps.sql.all(
-    `SELECT origin FROM folder_reads WHERE machine = ? AND app = ? AND stream = 'data'`,
-    [me, app],
+    `SELECT origin FROM folder_reads WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
+    [me, app, destination],
   )) {
     const origin = row.origin as Id<"mch">;
     if (!isForgotten(deps.sql, me, origin)) origins.add(origin);
   }
   return [...origins].sort().map((origin) => {
-    const read = loadRead(deps.sql, me, app, origin);
+    const read = loadRead(deps.sql, me, { app, destination, origin });
     const held = deps.sql.get(
-      `SELECT count(*) AS n FROM folder_held WHERE machine = ? AND app = ? AND origin = ?`,
-      [me, app, origin],
+      `SELECT count(*) AS n FROM folder_held
+       WHERE machine = ? AND app = ? AND destination = ? AND origin = ?`,
+      [me, app, destination, origin],
     );
     return {
       machine: origin,
@@ -102,23 +129,36 @@ export function status(deps: FolderImportDeps, app: Id<"app">): ImportStatus[] {
   });
 }
 
-/** 알려진 모든 기계에서 그 앱의 cursor가 그 기계 앱 기록의 `data.head`에 닿았는가. */
-export function readsCaughtUp(deps: FolderImportDeps, app: Id<"app">): boolean {
+/** 그 destination에서 알려진 모든 기계의 그 앱 cursor가 그 기계 앱 기록의 `data.head`에 닿았는가. */
+export function readsCaughtUp(
+  deps: FolderImportDeps,
+  app: Id<"app">,
+  destination: string,
+): boolean {
   const me = deps.machine();
-  return records(deps, app).apps.every(
-    (row) =>
-      loadRead(deps.sql, me, app, row.machine).cursor >= row.record.data.head,
-  );
+  return records(deps, app)
+    .apps.filter((row) => row.destination === destination)
+    .every(
+      (row) =>
+        loadRead(deps.sql, me, { app, destination, origin: row.machine })
+          .cursor >= row.record.data.head,
+    );
 }
 
-/** 알려진 기계의 그 앱 기록이 싣는 `settled`와 `horizon`. */
+/**
+ * 그 destination에서 읽은 알려진 기계의 그 앱 기록이 싣는 `settled`와 `horizon`. 흔적 정리는 앱 DB에 하나라 부르는 쪽이 그 앱이
+ * data를 주고받는 모든 destination의 것을 모은다.
+ */
 export function peerHorizons(
   deps: FolderImportDeps,
   app: Id<"app">,
+  destination: string,
 ): { machine: Id<"mch">; settled: string | null; horizon: string | null }[] {
-  return records(deps, app).apps.map((row) => ({
-    machine: row.machine,
-    settled: row.record.settled,
-    horizon: row.record.horizon,
-  }));
+  return records(deps, app)
+    .apps.filter((row) => row.destination === destination)
+    .map((row) => ({
+      machine: row.machine,
+      settled: row.record.settled,
+      horizon: row.record.horizon,
+    }));
 }

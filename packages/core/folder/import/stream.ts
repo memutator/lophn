@@ -1,4 +1,4 @@
-// (이 기계, 앱, 출처 기계)의 data stream을 번호 순서로 따라간다. file은 전부 검사한 뒤에만 적용하거나 held로 둔다:
+// (이 기계, 앱, destination, 출처 기계)의 data stream을 번호 순서로 따라간다. file은 전부 검사한 뒤에만 적용하거나 held로 둔다:
 // 깨지거나 반만 온 file에서는 아무것도 적용하지 않고 그 번호에서 기다린다. 다음 번호가 없거나 맞지 않을 때 그보다 큰
 // 번호의 맞는 snapshot이 있으면 그것을 합치고 cursor를 그 번호로 둔다(주인이 compaction한 뒤에 온 기계).
 // 읽기 앞에 그 출처의 지금 release held를 적용하고(drain.ts), 남으면 stream을 읽지 않는다. 출처의 snapshot m을 합치거나
@@ -23,6 +23,7 @@ import {
 } from "../../../protocol/folder/mod.ts";
 import type { FolderReader } from "../fs.ts";
 import {
+  type ApplyTarget,
   applyChangesFile,
   type Counts,
   fileInvalid,
@@ -71,12 +72,8 @@ export type StreamOutcome = {
   full: boolean;
 };
 
-export type StreamInput = {
-  app: Id<"app">;
-  release: { id: Id<"rel">; code_commit: string; data_schema: number };
-  origin: Id<"mch">;
-  originName: string;
-  /** 출처의 그 앱 기록 사본. 없으면 `data.head`를 모른다(끝으로 본다). */
+export type StreamInput = ApplyTarget & {
+  /** 출처가 그 destination에 쓴 그 앱 기록의 사본. 없으면 `data.head`를 모른다(끝으로 본다). */
   record: AppRecord | null;
   reader: FolderReader;
   /** 그 기계의 꼴 판이 범위 밖이다(compat.ts). 폴더의 file을 열지 않는다. */
@@ -101,7 +98,7 @@ export async function followStream(
   if (!followed.ok) return followed;
   const passed = await absentPass(deps, input);
   if (!passed.ok) return passed;
-  const row = loadRead(deps.sql, deps.machine(), input.app, input.origin);
+  const row = loadRead(deps.sql, deps.machine(), input);
   return ok({ ...followed.value, error: row.error });
 }
 
@@ -111,7 +108,7 @@ async function followFiles(
 ): Promise<Result<StreamOutcome>> {
   const me = deps.machine();
   const { app, origin, reader } = input;
-  let row: ReadRow = loadRead(deps.sql, me, app, origin);
+  let row: ReadRow = loadRead(deps.sql, me, input);
   const outcome: StreamOutcome = {
     machine: origin,
     cursor: row.cursor,
@@ -128,7 +125,7 @@ async function followFiles(
   }
   const save = (next: ReadRow): Result<StreamOutcome> => {
     const saved = deps.transaction((tx) => {
-      saveRead(tx.sql, me, app, origin, next);
+      saveRead(tx.sql, me, input, next);
       return { ok: true, value: undefined };
     });
     if (!saved.ok) return saved;
@@ -248,7 +245,7 @@ async function followFiles(
         return fail(step.error, step.backoff);
       case "done": {
         // cursor와 read 행(빚진 합치기 표지 포함)은 processFile이 같은 transaction에서 바꿨다.
-        row = loadRead(deps.sql, me, app, origin);
+        row = loadRead(deps.sql, me, input);
         outcome.cursor = step.n;
         outcome.waiting_for = null;
         outcome.error = null;
@@ -294,11 +291,9 @@ async function advance(
   const me = deps.machine();
   const advanced = deps.transaction((tx) => {
     const covered =
-      header.kind === "snapshot"
-        ? dropCovered(tx.sql, me, input.app, input.origin, n)
-        : [];
-    const current = loadRead(tx.sql, me, input.app, input.origin).absent;
-    saveRead(tx.sql, me, input.app, input.origin, {
+      header.kind === "snapshot" ? dropCovered(tx.sql, me, input, n) : [];
+    const current = loadRead(tx.sql, me, input).absent;
+    saveRead(tx.sql, me, input, {
       absent: current ?? (owesAbsentPass ? { caught_up_at: null } : null),
       cursor: n,
       code_commit: header.release.code_commit,
@@ -324,6 +319,7 @@ async function holdStep(
 ): Promise<Step> {
   const held = recordHeld(deps, {
     app: input.app,
+    destination: input.destination,
     origin: input.origin,
     n,
     kind: header.kind,
@@ -369,8 +365,7 @@ async function processChanges(
       heldOverLimit(
         deps.sql,
         deps.machine(),
-        input.app,
-        input.origin,
+        input,
         read.value.byteLength,
         deps.heldMaxBytes,
       )
@@ -379,7 +374,7 @@ async function processChanges(
     }
     try {
       await writeAtomic(
-        heldFile(deps.root, heldPath(input.app, input.origin, n, "changes")),
+        heldFile(deps.root, heldPath(input, n, "changes")),
         read.value,
         deps.random,
       );
@@ -443,7 +438,7 @@ async function processSnapshot(
       rel,
       head.value,
       0,
-      heldFile(deps.root, heldPath(input.app, input.origin, n, "snapshot")),
+      heldFile(deps.root, heldPath(input, n, "snapshot")),
       deps.random,
     );
     if (!copied.ok) {
@@ -458,7 +453,7 @@ async function processSnapshot(
   if (merged.kind !== "merged") return merged;
   // horizon 밖에서 지우기 없이 합쳤다. 출처가 이 기계의 것을 다 받은 뒤의 snapshot으로 다시 합칠 빚을 남긴다.
   const owes =
-    deps.exportState(input.app).away_since !== null &&
+    deps.exportState(input.app, input.destination).away_since !== null &&
     (input.record?.horizon ?? null) !== null;
   const advanced = await advance(deps, input, n, header, owes);
   if (!advanced.ok) {
@@ -483,19 +478,22 @@ async function absentPass(
 ): Promise<Result<void>> {
   const me = deps.machine();
   const { app, origin } = input;
-  let row = loadRead(deps.sql, me, app, origin);
+  let row = loadRead(deps.sql, me, input);
   if (row.absent === null || input.blocked !== null) return ok(undefined);
   if (row.next_try_at !== null && row.next_try_at > deps.clock.now()) {
     return ok(undefined);
   }
   const save = (next: ReadRow): Result<void> =>
     deps.transaction((tx) => {
-      saveRead(tx.sql, me, app, origin, next);
+      saveRead(tx.sql, me, input, next);
       return ok(undefined);
     });
   if (row.absent.caught_up_at === null) {
     const read = input.record?.read[me];
-    if (read === undefined || read.n < deps.exportState(app).data_head) {
+    if (
+      read === undefined ||
+      read.n < deps.exportState(app, input.destination).data_head
+    ) {
       return ok(undefined);
     }
     row = { ...row, absent: { caught_up_at: read.at } };
@@ -533,7 +531,7 @@ async function absentPass(
       { below: horizon, keep: deps.heldRows(app) },
     );
     if (merged.kind === "invalid" || merged.kind === "gone") continue;
-    row = loadRead(deps.sql, me, app, origin);
+    row = loadRead(deps.sql, me, input);
     if (merged.kind === "merged") return save({ ...row, absent: null });
     if (merged.error === null) return ok(undefined);
     return save({

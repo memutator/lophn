@@ -8,11 +8,14 @@ import type { FolderReplica } from "./ports.ts";
 
 export function carryStatusHandler(deps: {
   replica: Pick<FolderReplica, "manifests">;
-  /** data를 보내는 앱과 그 destination. */
-  apps(): { app: Id<"app">; name: string; destination: string }[];
+  /** data를 보내는 앱과 그 destination들. */
+  apps(): { app: Id<"app">; name: string; destinations: string[] }[];
   /** 쓸 수 있는 같이 보는 폴더의 path. 없거나 겹치면 null. */
   shared(): string | null;
-  importStatus(app: Id<"app">): { imported_at: string | null }[];
+  importStatus(
+    app: Id<"app">,
+    destination: string,
+  ): { imported_at: string | null }[];
 }): ReadHandler {
   return async () => {
     const manifests = await deps.replica.manifests();
@@ -26,14 +29,14 @@ export function carryStatusHandler(deps: {
         received_at: row.received_at,
         via: row.via,
       })),
-      apps: deps.apps().map(({ app, name, destination }) => ({
+      apps: deps.apps().map(({ app, name, destinations }) => ({
         app,
         name,
-        destination,
+        destinations,
         // 시각은 ISO(UTC) 글이라 글자 순서가 시간 순서다.
         read_at:
-          deps
-            .importStatus(app)
+          destinations
+            .flatMap((destination) => deps.importStatus(app, destination))
             .flatMap((row) =>
               row.imported_at === null ? [] : [row.imported_at],
             )

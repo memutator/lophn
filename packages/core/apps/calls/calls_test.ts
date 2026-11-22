@@ -62,6 +62,7 @@ import { createFolderExport, type ExportLog } from "../../folder/export/mod.ts";
 import type { FolderChange } from "../../folder/ports.ts";
 import {
   FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
   FOLDER_SCHEMA_STEPS,
 } from "../../folder/schema.ts";
 import { heldInData, type SyncLog, type SyncLogRow } from "../sync/log.ts";
@@ -1309,6 +1310,7 @@ function receiver(schema: string, node = "receiver") {
     lines.push({
       seq,
       release: REL,
+      destination: null,
       device: null,
       machine: null,
       hlc: null,
@@ -1388,6 +1390,7 @@ function receiver(schema: string, node = "receiver") {
           kind: status === "applied" ? "change" : "skipped",
           origin: "machine",
           machine: change.machine,
+          destination: change.destination,
           change_id: change.id,
           hlc: change.hlc,
           bytes: change.changeset,
@@ -1402,6 +1405,7 @@ function receiver(schema: string, node = "receiver") {
           origin: change.origin,
           device: change.device ?? null,
           machine: change.machine ?? null,
+          destination: change.destination ?? null,
           change_id: change.id ?? null,
           hlc: change.hlc,
           bytes: change.changeset,
@@ -1557,6 +1561,7 @@ test("폴더 file을 적용해도 사람의 data를 잃거나 망가뜨리지 �
       app: here.app,
       release: REL,
       origin: OTHER,
+      destination: "personal",
       changes,
     });
 
@@ -1624,6 +1629,7 @@ test("변경 묶음을 앱 process에 보낸 뒤 답을 잃으면 연 invocation
     app: here.app,
     release: REL,
     origin: OTHER,
+    destination: "personal",
     changes: [other.write(T0 + 1000, "insert into item values ('a', 'milk')")],
   });
   assert.equal(!lost.ok && lost.error.code, "unavailable");
@@ -1668,6 +1674,7 @@ test("snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 다른 
       app: here.app,
       release: REL,
       origin: OTHER,
+      destination: "personal",
       n: 7,
       path: snapshot,
     });
@@ -1730,6 +1737,7 @@ test("정리된 흔적과 부딪는 변경은 버려지지 않는다: horizon �
       app: here.app,
       release: REL,
       origin: OTHER,
+      destination: "personal",
       changes: [theirs],
     }),
     { ok: true, value: { applied: 0, skipped: 0, duplicate: 0, held: 1 } },
@@ -1804,7 +1812,15 @@ function folderOf(
   destination: string,
 ) {
   const db = new DatabaseSync(":memory:");
-  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+  // folder 표 step이 기대는 release 표(활성 release의 선언에서 destination을 채운다).
+  db.exec(
+    "create table releases (id text, app text, status text, declaration text)",
+  );
+  for (const step of [
+    ...FOLDER_SCHEMA_STEPS,
+    ...FOLDER_CODE_COMMIT_STEPS,
+    ...FOLDER_DESTINATION_STEPS,
+  ]) {
     db.exec(step.sql);
   }
   const sql: Sql = {
@@ -1851,7 +1867,7 @@ function folderOf(
         slug: "notes",
         name: "Notes",
         description: "",
-        destination: "personal",
+        destinations: ["personal"],
         release: { id: REL, code_commit: "c".repeat(40), data_schema: 1 },
       },
     ],
@@ -1859,7 +1875,7 @@ function folderOf(
     releaseKey: () => ({ code_commit: "c".repeat(40), data_schema: 1 }),
     sentOf: () => null,
     operationOf: () => null,
-    async snapshotAt(_app, path) {
+    async snapshotAt(_app, _destination, path) {
       const written = writeSnapshot(nodeSyncDb(here.raw), path);
       return written.ok ? ok({ seq: lines.length, ...written.value }) : written;
     },
@@ -1893,7 +1909,7 @@ function folderOf(
   return {
     knobs,
     async run() {
-      const done = await exporter.runApp(here.app);
+      const done = await exporter.runStream(here.app, "personal");
       assert.ok(done.ok, JSON.stringify(done));
       assert.equal(done.value.error, null);
       return done.value;
@@ -1933,6 +1949,7 @@ test("두 기계가 서로의 snapshot을 한 번씩 합친 뒤에는 어느 쪽
       app: into.app,
       release: REL,
       origin,
+      destination: "personal",
       n,
       path: file,
     });
@@ -1984,6 +2001,7 @@ test("두 기계가 서로의 snapshot을 한 번씩 합친 뒤에는 어느 쪽
     app: b.app,
     release: REL,
     origin: machines[0]!,
+    destination: "personal",
     changes: changesOf(fromA.header, fromA.payload).map(({ meta, bytes }) => ({
       id: meta.id,
       hlc: meta.hlc,

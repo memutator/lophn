@@ -4,14 +4,16 @@ import type { AppRecord } from "../../../protocol/folder/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { DestinationsView } from "../destinations.ts";
 
-/** 이 기계에서 다른 기계로 source와 앱 기록을 내보내는 앱(보내는 table이 없으면 기본 `computers`로 source만 내보낸다). */
+/** 이 기계에서 다른 기계로 source와 앱 기록을 내보내는 앱. */
 export type FolderLocalApp = {
   app: Id<"app">;
   slug: string;
   name: string;
   description: string;
-  // 선언의 `sync`가 table을 보내는 destination. 없으면 null.
-  destination: string | null;
+  // 선언의 `sync`가 table을 보내는 destination(글자 순서). 보내지 않으면 비었다.
+  sends_to: readonly string[];
+  // source·`@me/*` package·앱 기록을 쓰는 destination: private이 아닌 앱은 늘 `computers`, 그리고 `sends_to` 모두.
+  writes_to: readonly string[];
   source_path: string | null;
   release: {
     id: Id<"rel">;
@@ -97,7 +99,8 @@ export type FolderAppsDeps = {
   destinations: DestinationsView;
   apps(): readonly FolderLocalApp[];
   records(): readonly FolderAppRecordCopy[];
-  progress(app: Id<"app">): FolderAppProgress;
+  /** 그 destination에 쓰는 앱 기록에 싣는 것. */
+  progress(app: Id<"app">, destination: string): FolderAppProgress;
   host: FolderAppsHost;
   /** ledger. folder 표를 쓴다. */
   sql: Sql;

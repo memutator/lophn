@@ -96,6 +96,7 @@ function parseSyncApply(
 function parseSnapshotMerge(value: unknown):
   | {
       path: string;
+      destination: string;
       absentDeletes?: {
         below: bigint;
         keep: { table: string; pk: Uint8Array }[];
@@ -105,13 +106,20 @@ function parseSnapshotMerge(value: unknown):
   const source = record(value);
   if (
     !source ||
-    exact(source, ["path", "absent_deletes"], ["path"]) ||
+    exact(
+      source,
+      ["path", "destination", "absent_deletes"],
+      ["path", "destination"],
+    ) ||
     typeof source.path !== "string" ||
-    source.path === ""
+    source.path === "" ||
+    typeof source.destination !== "string" ||
+    source.destination === ""
   ) {
     return;
   }
-  if (source.absent_deletes === undefined) return { path: source.path };
+  const base = { path: source.path, destination: source.destination };
+  if (source.absent_deletes === undefined) return base;
   const absent = record(source.absent_deletes);
   if (!absent || exact(absent, ["below", "keep"])) return;
   const below = hlcOf(absent.below);
@@ -124,7 +132,7 @@ function parseSnapshotMerge(value: unknown):
     if (typeof row.table !== "string" || row.table === "" || !pk) return;
     keep.push({ table: row.table, pk });
   }
-  return { path: source.path, absentDeletes: { below, keep } };
+  return { ...base, absentDeletes: { below, keep } };
 }
 
 // sync 앱이 아니면 not_sync로 답하고, 맞으면 요청을 읽어 문 안에서 돈다.
@@ -173,7 +181,7 @@ export function handleSyncApply(
   });
 }
 
-// 폰이 받을 DB 사본이나 폴더로 갈 사본(보내는 표만)을 core가 준 path에 쓴다(`apps.snapshot`). core가 write 줄을 쥔 채
+// 폰이 받을 DB 사본이나 폴더의 한 destination으로 갈 사본(그리 보내는 표만)을 core가 준 path에 쓴다(`apps.snapshot`). core가 write 줄을 쥔 채
 // 부른다.
 export function handleSnapshot(
   state: RuntimeState,
@@ -184,18 +192,26 @@ export function handleSnapshot(
     raw,
     (value) => {
       const source = record(value);
-      if (!source || exact(source, ["path", "for"])) return;
-      return typeof source.path === "string" &&
-        source.path !== "" &&
-        (source.for === "phone" || source.for === "folder")
-        ? { path: source.path, for: source.for }
+      if (
+        !source ||
+        exact(source, ["path", "for", "destination"], ["path", "for"])
+      )
+        return;
+      if (typeof source.path !== "string" || source.path === "") return;
+      if (source.for === "phone" && source.destination === undefined) {
+        return { path: source.path, destination: null };
+      }
+      return source.for === "folder" &&
+        typeof source.destination === "string" &&
+        source.destination !== ""
+        ? { path: source.path, destination: source.destination }
         : undefined;
     },
     (sync, request) => {
       const written =
-        request.for === "phone"
+        request.destination === null
           ? writeSnapshot(sync.db, request.path)
-          : writeFolderSnapshot(sync, request.path);
+          : writeFolderSnapshot(sync, request.path, request.destination);
       if (!written.ok) return failWith(written.error);
       return { status: 200, body: { status: "written", ...written.value } };
     },

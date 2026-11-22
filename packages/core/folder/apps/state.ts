@@ -152,15 +152,19 @@ export function clearStreamError(
   );
 }
 
-export function sourceCursor(
-  sql: Sql,
-  machine: Id<"mch">,
-  app: Id<"app">,
-  origin: Id<"mch">,
-): number {
+// 다른 기계 source의 받은 번호. source stream도 destination마다 따로 번호를 센다.
+export type SourceKey = {
+  machine: Id<"mch">;
+  app: Id<"app">;
+  destination: string;
+  origin: Id<"mch">;
+};
+
+export function sourceCursor(sql: Sql, key: SourceKey): number {
   const row = sql.get(
-    `SELECT cursor FROM folder_reads WHERE machine = ? AND app = ? AND origin = ? AND stream = 'source'`,
-    [machine, app, origin],
+    `SELECT cursor FROM folder_reads
+     WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND stream = 'source'`,
+    [key.machine, key.app, key.destination, key.origin],
   );
   return row === undefined ? 0 : Number(row.cursor);
 }
@@ -168,19 +172,19 @@ export function sourceCursor(
 // 받은 번호를 올리거나(cursor), 기다리는 번호(waiting_for)나 오류를 남긴다. 넘긴 칸만 바꾼다.
 export function setSourceRead(
   sql: Sql,
-  key: { machine: Id<"mch">; app: Id<"app">; origin: Id<"mch"> },
+  key: SourceKey,
   value:
     | { cursor: number; at: string }
     | { waiting_for: number }
     | { error: FolderError },
 ): void {
   sql.run(
-    `INSERT INTO folder_reads (machine, app, origin, stream) VALUES (?, ?, ?, 'source')
-     ON CONFLICT (machine, app, origin, stream) DO NOTHING`,
-    [key.machine, key.app, key.origin],
+    `INSERT INTO folder_reads (machine, app, destination, origin, stream) VALUES (?, ?, ?, ?, 'source')
+     ON CONFLICT (machine, app, destination, origin, stream) DO NOTHING`,
+    [key.machine, key.app, key.destination, key.origin],
   );
-  const where = `WHERE machine = ? AND app = ? AND origin = ? AND stream = 'source'`;
-  const ids = [key.machine, key.app, key.origin];
+  const where = `WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND stream = 'source'`;
+  const ids = [key.machine, key.app, key.destination, key.origin];
   if ("cursor" in value) {
     sql.run(
       `UPDATE folder_reads SET cursor = ?, read_at = ?, waiting_for = NULL, error = NULL ${where}`,

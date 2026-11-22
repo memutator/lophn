@@ -13,11 +13,13 @@ type ReadableDb = {
 
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-// `synced`는 다른 사본과 맞추는 표(null이면 모든 표), `listed`는 선언의 `sync`가 적은 표다.
+// `synced`는 다른 사본과 맞추는 표(null이면 모든 표), `listed`는 선언의 `sync`가 적은 표, `destinationOf`는 그 표가 가는
+// destination이다.
 export function phoneSchemaProblemsOfDatabase(
   db: ReadableDb,
   synced: TableFilter = null,
   listed: readonly string[] = [],
+  destinationOf: ReadonlyMap<string, string> = new Map(),
 ): string[] {
   const tables: PhoneSchemaTable[] = db
     .prepare(
@@ -66,5 +68,5 @@ export function phoneSchemaProblemsOfDatabase(
       name: String(row["name"]),
       table: String(row["tbl_name"]),
     }));
-  return phoneSchemaProblems(tables, triggers, synced, listed);
+  return phoneSchemaProblems(tables, triggers, synced, listed, destinationOf);
 }

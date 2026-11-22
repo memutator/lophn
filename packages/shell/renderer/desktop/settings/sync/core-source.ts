@@ -142,7 +142,7 @@ export function coreSyncSource(
           apps: read.value.apps.map((row) => ({
             app: row.app,
             name: row.name,
-            destination: row.destination,
+            destinations: row.destinations,
             readAt: row.read_at,
           })),
           duplicateMachines: roster.ok

@@ -255,7 +255,7 @@ export type AppDeclaration = {
   runs_on?: RunsOn;
   // 없어도 된다. table 이름 → destination 이름. 적은 table의 data만 그 destination으로 가고 적지 않은 table은 이 기계를
   // 떠나지 않는다. 값은 destination 이름뿐이다: 폴더 경로는 기계마다 달라서 선언에 두면 다른 기계에서 맞지 않는다. 경로는
-  // 기계마다의 설정이 이름에 묶는다. 지금은 모든 값이 같은 destination이어야 한다. 비면 칸을 두지 않는다.
+  // 기계마다의 설정이 이름에 묶는다. table마다 다른 destination이어도 되고(폰에서도 도는 앱은 하나까지), 비면 칸을 두지 않는다.
   sync?: Record<string, string>;
   // 옛 release의 봉인한 선언에만 있다(모든 table을 그 destination으로). 새 release 준비는 거절하고 `syncPlanOf`만 읽는다.
   sync_to?: string;

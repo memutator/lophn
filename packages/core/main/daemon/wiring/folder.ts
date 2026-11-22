@@ -8,7 +8,8 @@
 //   mail 입구에 넘기고, 그 기계가 받았다고 알린 이 기계의 mail을 받은 것으로 적는다.
 // - handoff note: handoff wiring이 자기 notes 폴더에 file을 쓰고 `folderCarry.kick`으로 옮기기를 깨운다. 옮기기는 7일보다 옛 note와
 //   지금 private인 project의 note를 지우고 manifest의 `notes` 칸에 싣는다.
-// (앱, destination)·(앱, 출처)마다 한 번에 하나만 돈다. 결과가 `more`면 바로 이어 돌고, 실패한 일은 1분부터 두 배씩 1시간까지
+// (앱, destination)·(앱, 출처)마다 한 번에 하나만 돈다. 한 앱이 표마다 다른 destination으로 보내면 내보내기는 destination마다
+// 따로 돌고 따로 물러난다(한 destination이 막혀도 다른 destination은 나간다). 결과가 `more`면 바로 이어 돌고, 실패한 일은 1분부터 두 배씩 1시간까지
 // 물러난다(읽기의 data stream은 import가 stream마다 따로 물러난다). 이 일들은 idle-exit를 막지 않는다.
 import { type FSWatcher, readdirSync, watch } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -67,6 +68,7 @@ import {
   loadStoredDeclaration,
 } from "../../../apps/releases/store.ts";
 import {
+  sendsTo,
   sentTables,
   syncPlanOf,
   type TableFilter,
@@ -213,9 +215,9 @@ type LocalApp = {
   name: string;
   description: string;
   source_path: string | null;
-  // 선언의 `sync`가 table을 보내는 destination(없으면 null)과 그리 가는 표(null이면 모든 표, 옛 release).
-  destination: string | null;
-  sent: TableFilter;
+  // 선언의 `sync`가 table을 보내는 destination(글자 순서)과 그리 가는 표(sent·tables가 null이면 모든 표, 옛 release).
+  // 보내지 않으면 비었다.
+  destinations: { name: string; sent: TableFilter; tables: string[] | null }[];
   release: {
     id: Id<"rel">;
     code_commit: string;
@@ -223,8 +225,6 @@ type LocalApp = {
     created_at: string;
   } | null;
 };
-
-type SyncApp = LocalApp & { destination: string };
 
 // 한 번 돈 결과. ok가 아니면 물러난다.
 type RunOutcome = { ok: boolean; more: boolean };
@@ -362,39 +362,44 @@ export const folderWiring: WiringFactory = () => {
           Promise.resolve(ok(undefined)),
         log: (message) => log("roster_file_skipped", message),
       });
-      // 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱 data의 destination 폴더에 event file로 쓴다. 폴더로 맞추지 않는 앱은 둘 곳이
-      // 없다.
+      // 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱이 표를 보내는 destination 폴더마다 event file로 쓴다(받는 기계는 같은 id를
+      // 한 번만 낸다). 폴더로 맞추지 않는 앱은 둘 곳이 없다. 한 destination에 쓰지 못해도 다른 destination에는 쓴다.
       ctx.provide("crossEvents", {
         async write(app, release, event) {
           const found = syncApp(app);
-          const destination =
-            found === undefined
-              ? null
-              : destinations.resolve(found.destination);
-          if (found === undefined || destination === null) return ok(undefined);
-          if (destination.state !== "ok") {
-            return err({
-              code: "unavailable",
-              message: `the sync folder "${found.destination}" is ${destination.state}`,
-            });
-          }
+          if (found === undefined) return ok(undefined);
           const stored = loadRelease(sql, release);
           if (!stored.ok) return stored;
           if (stored.value === null) {
             return err({ code: "not_found", message: "release not found" });
           }
-          const written = await writeEventFile({
-            me: me(),
-            destination: { name: found.destination, path: destination.path },
-            app,
-            code_commit: stored.value.code_commit,
-            event,
-            transaction: writeLink.transaction,
-            clock: ctx.clock,
-            random: ctx.random,
-          });
-          if (written.ok) scheduleCarry();
-          return written;
+          let first: Result<void> = ok(undefined);
+          for (const { name } of found.destinations) {
+            const destination = destinations.resolve(name);
+            if (destination === null) continue;
+            if (destination.state !== "ok") {
+              if (first.ok) {
+                first = err({
+                  code: "unavailable",
+                  message: `the sync folder "${name}" is ${destination.state}`,
+                });
+              }
+              continue;
+            }
+            const written = await writeEventFile({
+              me: me(),
+              destination: { name, path: destination.path },
+              app,
+              code_commit: stored.value.code_commit,
+              event,
+              transaction: writeLink.transaction,
+              clock: ctx.clock,
+              random: ctx.random,
+            });
+            if (!written.ok && first.ok) first = written;
+          }
+          scheduleCarry();
+          return first;
         },
       });
 
@@ -429,8 +434,14 @@ export const folderWiring: WiringFactory = () => {
               name: app.name,
               description: app.description,
               source_path: app.source_path ?? null,
-              destination: plan.destination,
-              sent: sentTables(plan),
+              destinations: sendsTo(plan).map((name) => {
+                const tables = plan.destinations.get(name) ?? null;
+                return {
+                  name,
+                  sent: sentTables(plan, name),
+                  tables: tables === null ? null : [...tables].sort(),
+                };
+              }),
               release: {
                 id: release.id as Id<"rel">,
                 code_commit: release.code_commit,
@@ -441,37 +452,47 @@ export const folderWiring: WiringFactory = () => {
           ];
         });
       }
-      const syncApps = (): SyncApp[] =>
-        localApps().filter((app): app is SyncApp => app.destination !== null);
+      const syncApps = (): LocalApp[] =>
+        localApps().filter((app) => app.destinations.length > 0);
       const syncApp = (app: Id<"app">) =>
         syncApps().find((each) => each.app === app);
-      // source·앱 기록·`@me/*` package를 내보내고 따라가는 앱: data를 보내는 앱 전부와, 보내지 않더라도
-      // `private`이 아닌 활성 앱(`computers`로 source만 내보내 다른 컴퓨터에서 바로 들이게 한다).
-      const shareApps = (): LocalApp[] => {
+      const namesOf = (app: LocalApp) =>
+        app.destinations.map((each) => each.name);
+      // source·앱 기록·`@me/*` package를 내보내고 따라가는 앱과 그것을 쓰는 destination: `private`이 아닌 활성 앱은 늘
+      // `computers`(다른 컴퓨터에서 바로 들이게 한다)와 표를 보내는 destination 모두, `private`인 앱은 표를 보내는 destination만.
+      const shareApps = (): (LocalApp & { writes_to: string[] })[] => {
         const policy =
           ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
-        return localApps().filter(
-          (app) =>
-            app.destination !== null ||
-            !isPrivate(policy, { kind: "app", id: app.app }),
-        );
+        return localApps().flatMap((app) => {
+          const sends = namesOf(app);
+          const shared = !isPrivate(policy, { kind: "app", id: app.app });
+          const writes = shared
+            ? [...new Set([COMPUTERS_DESTINATION, ...sends])].sort()
+            : sends;
+          return writes.length === 0 ? [] : [{ ...app, writes_to: writes }];
+        });
       };
 
-      const dataKey = (app: SyncApp) => ({
+      const dataKey = (app: Id<"app">, destination: string) => ({
         machine: me(),
-        app: app.app,
-        destination: app.destination,
+        app,
+        destination,
         stream: "data" as const,
       });
-      // 흔적 정리가 올린 horizon. 앱 기록에 실린다.
+      // 흔적 정리가 올린 horizon. 흔적은 앱 DB에 하나라 그 앱의 모든 data stream에 같은 값을 둔다. 앱 기록에 실린다.
       function horizonOf(id: Id<"app">): string | null {
-        const app = syncApp(id);
-        if (app === undefined) return null;
-        const row = sql.get(
-          `SELECT horizon FROM folder_streams WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
-          [me(), id, app.destination],
-        );
-        return (row?.horizon as string | null | undefined) ?? null;
+        const horizons = sql
+          .all(
+            `SELECT horizon FROM folder_streams
+             WHERE machine = ? AND app = ? AND stream = 'data' AND horizon IS NOT NULL`,
+            [me(), id],
+          )
+          .map((row) => BigInt(row.horizon as string));
+        return horizons.length === 0
+          ? null
+          : horizons
+              .reduce((max, each) => (each > max ? each : max))
+              .toString();
       }
 
       // held 줄이 건드리는 row(표, 종류, 때, pk hex). 읽지 못한 줄은 빈 목록이다.
@@ -541,16 +562,18 @@ export const folderWiring: WiringFactory = () => {
         apps: () =>
           syncApps().map((app) => ({
             app: app.app,
-            destination: app.destination,
-            sent: app.sent,
+            destinations: app.destinations.map(({ name, sent }) => ({
+              name,
+              sent,
+            })),
             release: app.release,
           })),
         apply: ports.apply,
-        exportState(app) {
-          const settled = exporter.settledOf(app);
+        exportState(app, destination) {
+          const settled = exporter.settledOf(app, destination);
           return {
             settled: settled?.settled ?? null,
-            data_head: exporter.status(app)?.head ?? 0,
+            data_head: exporter.status(app, destination)?.head ?? 0,
             away_since: settled?.away_since ?? null,
           };
         },
@@ -564,7 +587,8 @@ export const folderWiring: WiringFactory = () => {
       const exporter = createFolderExport({
         machine: () => ({ id: me(), name: ctx.machine.status().name }),
         destinations,
-        apps: () => syncApps(),
+        apps: () =>
+          syncApps().map((app) => ({ ...app, destinations: namesOf(app) })),
         log: ports.log,
         releaseKey(release) {
           const found = loadRelease(sql, release);
@@ -575,11 +599,11 @@ export const folderWiring: WiringFactory = () => {
               }
             : null;
         },
-        sentOf(release) {
-          // 줄의 release 선언(봉인한 것)이 정한 표. 읽지 못하면 아무 표도 보내지 않는다.
+        sentOf(release, destination) {
+          // 줄의 release 선언(봉인한 것)이 그 destination으로 보내는 표. 읽지 못하면 아무 표도 보내지 않는다.
           const stored = loadStoredDeclaration(sql, release);
           return stored.ok && stored.value !== null
-            ? sentTables(syncPlanOf(stored.value.declaration))
+            ? sentTables(syncPlanOf(stored.value.declaration), destination)
             : () => false;
         },
         operationOf(invocation) {
@@ -592,12 +616,13 @@ export const folderWiring: WiringFactory = () => {
             started_at,
           };
         },
-        async snapshotAt(app, path) {
+        async snapshotAt(app, destination, path) {
           const taken = await ports.exclusive(app, async () => {
             const seq = ports.log.head(app);
             const written = await ctx.appsControl.link.snapshot(app, {
               path,
               for: "folder",
+              destination,
             });
             if (!written.ok) return written;
             if (written.value.status === "not_sync") {
@@ -617,10 +642,11 @@ export const folderWiring: WiringFactory = () => {
           );
         },
         facts,
-        readsCaughtUp: (app) => importer.readsCaughtUp(app),
-        peerHorizons: (app) =>
+        readsCaughtUp: (app, destination) =>
+          importer.readsCaughtUp(app, destination),
+        peerHorizons: (app, destination) =>
           importer
-            .peerHorizons(app)
+            .peerHorizons(app, destination)
             .flatMap((peer) =>
               peer.horizon === null
                 ? []
@@ -646,23 +672,24 @@ export const folderWiring: WiringFactory = () => {
       const apps = createFolderApps({
         machine: me,
         destinations,
-        apps: () => shareApps(),
+        apps: () =>
+          shareApps().map((app) => ({ ...app, sends_to: namesOf(app) })),
         records: () =>
           importer.records().apps.map((row) => ({
             origin: row.machine,
             destination: row.destination,
             record: row.record,
           })),
-        progress(app) {
+        progress(app, destination) {
           const read: Record<Id<"mch">, { n: number; at: string }> = {};
-          for (const row of importer.status(app)) {
+          for (const row of importer.status(app, destination)) {
             if (row.imported_at !== null) {
               read[row.machine] = { n: row.cursor, at: row.imported_at };
             }
           }
           return {
             read,
-            settled: exporter.settledOf(app)?.settled ?? null,
+            settled: exporter.settledOf(app, destination)?.settled ?? null,
             horizon: horizonOf(app),
           };
         },
@@ -845,11 +872,25 @@ export const folderWiring: WiringFactory = () => {
         return { ok: published.ok, more: false };
       }
 
-      async function exportApp(id: Id<"app">): Promise<RunOutcome> {
+      // 앱이 그 destination에서 떨어져 있기 시작한 때. 떨어져 있는 stream이 없으면 null.
+      function awaySince(app: LocalApp): string | null {
+        const since = app.destinations
+          .map(({ name }) => exporter.settledOf(app.app, name)?.away_since)
+          .filter((at): at is string => typeof at === "string")
+          .sort();
+        return since[0] ?? null;
+      }
+
+      async function exportStream(
+        id: Id<"app">,
+        destination: string,
+      ): Promise<RunOutcome> {
         const app = syncApp(id);
-        if (app === undefined) return { ok: true, more: false };
-        const wasAway = exporter.settledOf(id)?.away_since ?? null;
-        const ran = await exporter.runApp(id);
+        if (app === undefined || !namesOf(app).includes(destination)) {
+          return { ok: true, more: false };
+        }
+        const wasAway = awaySince(app);
+        const ran = await exporter.runStream(id, destination);
         if (!ran.ok) {
           log("export_failed", ran.error.message);
           return { ok: false, more: false };
@@ -941,13 +982,11 @@ export const folderWiring: WiringFactory = () => {
           apps: syncApps().flatMap((app) =>
             app.release === null
               ? []
-              : [
-                  {
-                    app: app.app,
-                    destination: app.destination,
-                    code_commit: app.release.code_commit,
-                  },
-                ],
+              : app.destinations.map(({ name }) => ({
+                  app: app.app,
+                  destination: name,
+                  code_commit: app.release!.code_commit,
+                })),
           ),
           destinations,
           transaction: writeLink.transaction,
@@ -1120,14 +1159,20 @@ export const folderWiring: WiringFactory = () => {
       }
 
       // 흔적 정리(README 계약 10). 앱 release마다 core가 뜬 뒤 처음과 하루에 한 번. 앱이 떠 있지 않으면 다음 run에 다시 본다.
-      async function cleanup(app: SyncApp): Promise<void> {
+      // 흔적은 앱 DB에 하나라 모든 destination의 자기 stream과 상대를 함께 본다.
+      async function cleanup(app: LocalApp): Promise<void> {
         if (app.release === null) return;
         const mark = `${app.app}:${app.release.id}`;
         const last = cleaned.get(mark);
         if (last !== undefined && ctx.clock.nowMs() - last < DAY_MS) return;
         const before = cleanupBefore({
-          own: exporter.settledOf(app.app)?.settled ?? null,
-          peers: importer.peerHorizons(app.app),
+          own: app.destinations.map(
+            ({ name }) => exporter.settledOf(app.app, name)?.settled ?? null,
+          ),
+          // 그 앱의 data를 주고받는 destination의 기록만이다. `computers`에 source와 기록만 쓰는 기계의 기록은 settled가 없다.
+          peers: app.destinations.flatMap(({ name }) =>
+            importer.peerHorizons(app.app, name),
+          ),
           nowMs: ctx.clock.nowMs(),
         });
         const done = await ctx.appsControl.link.syncCleanup(app.app, {
@@ -1140,11 +1185,13 @@ export const folderWiring: WiringFactory = () => {
         }
         const horizon = done.value.horizon;
         const saved = writeLink.transaction((tx) => {
-          ensureStream(tx.sql, dataKey(app));
-          tx.sql.run(
-            `UPDATE folder_streams SET horizon = ? WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
-            [horizon, me(), app.app, app.destination],
-          );
+          for (const { name } of app.destinations) {
+            ensureStream(tx.sql, dataKey(app.app, name));
+            tx.sql.run(
+              `UPDATE folder_streams SET horizon = ? WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
+              [horizon, me(), app.app, name],
+            );
+          }
           return ok(undefined);
         });
         if (!saved.ok) log("horizon_not_saved", saved.error.message);
@@ -1153,15 +1200,23 @@ export const folderWiring: WiringFactory = () => {
       // horizon 밖이 되었거나 held가 늘면 사람에게 알린다. 같은 앱은 한 줄(key)이다. 돌아온 기계는 받을 것을 다 받으면 그 run에서
       // 바로 settled가 horizon을 넘어 떨어져 있음이 끝날 수 있다: 그래도 이번 run이 held로 둔 변경이 있으면 알린다(사람이 풀 일이
       // 남았다). 떨어져 있음이 끝났거나 사람이 held를 풀어 줄었으면 같은 줄을 "따라잡았다"와 남은 held 수로 바꾼다(program 행은
-      // 지우지 않는다). 마지막으로 알린 수(away_notified)와 run 앞뒤의 away_since는 ledger에 있어 core가 다시 떠도 같다.
+      // 지우지 않는다). 마지막으로 알린 수(away_notified)와 run 앞뒤의 away_since는 ledger에 있어 core가 다시 떠도 같다. 알림은
+      // 앱마다 하나라 그 앱의 모든 destination stream을 합쳐 보고, 알린 수는 모든 data stream에 같이 둔다.
       async function noticeAway(
-        app: SyncApp,
+        app: LocalApp,
         wasAway: string | null,
         newlyHeld: number,
       ): Promise<void> {
-        const away = exporter.settledOf(app.app)?.away_since ?? null;
+        const away = awaySince(app);
         const held = ports.log.heldList(app.app).length;
-        const last = readStream(sql, dataKey(app))?.away_notified ?? null;
+        const notifiedRows = app.destinations
+          .map(
+            ({ name }) =>
+              readStream(sql, dataKey(app.app, name))?.away_notified ?? null,
+          )
+          .filter((count): count is number => count !== null);
+        const last =
+          notifiedRows.length === 0 ? null : Math.max(...notifiedRows);
         let params: { held: number; back?: boolean };
         let notified: number | null;
         if (away !== null || newlyHeld > 0) {
@@ -1185,7 +1240,11 @@ export const folderWiring: WiringFactory = () => {
           return;
         }
         const saved = writeLink.transaction((tx) => {
-          updateStream(tx.sql, dataKey(app), { away_notified: notified });
+          for (const { name } of app.destinations) {
+            updateStream(tx.sql, dataKey(app.app, name), {
+              away_notified: notified,
+            });
+          }
           return ok(undefined);
         });
         if (!saved.ok) log("away_notice_failed", saved.error.message);
@@ -1193,19 +1252,27 @@ export const folderWiring: WiringFactory = () => {
 
       // 사람이 막힘을 풀었다(held를 풀거나 남의 writer를 보고 다시 켬): 물러남을 지우고 바로 내보낸다. 물러남은 1시간까지
       // 자라 그대로 두면 사람이 푼 뒤에도 그만큼 기다린다.
-      function exportNow(id: Id<"app">) {
-        const lane = lanes.get(`export:${id}`);
-        if (lane !== undefined) {
-          lane.attempts = 0;
-          lane.notBefore = 0;
+      // 그 앱이 표를 보내는 destination마다 lane 하나.
+      function exportLanes(id: Id<"app">) {
+        const app = syncApp(id);
+        if (app === undefined) return;
+        for (const name of namesOf(app)) {
+          kick(`export:${id}:${name}`, () => exportStream(id, name));
         }
-        kick(`export:${id}`, () => exportApp(id));
+      }
+
+      function exportNow(id: Id<"app">) {
+        for (const [name, lane] of lanes) {
+          if (name.startsWith(`export:${id}:`)) {
+            lane.attempts = 0;
+            lane.notBefore = 0;
+          }
+        }
+        exportLanes(id);
       }
 
       function scheduleExport(id: Id<"app">) {
-        debounce(`export:${id}`, EXPORT_DEBOUNCE_MS, () =>
-          kick(`export:${id}`, () => exportApp(id)),
-        );
+        debounce(`export:${id}`, EXPORT_DEBOUNCE_MS, () => exportLanes(id));
       }
       function scheduleScan() {
         debounce("scan", IMPORT_DEBOUNCE_MS, () => kick("scan", scan));
@@ -1214,11 +1281,8 @@ export const folderWiring: WiringFactory = () => {
       function exportAll() {
         kick("records", () => publishRecords());
         for (const app of shareApps()) {
-          if (app.destination !== null) {
-            kick(`export:${app.app}`, () => exportApp(app.app));
-          } else {
-            kick(`app:${app.app}`, () => writeAppRecord(app.app));
-          }
+          if (app.destinations.length > 0) exportLanes(app.app);
+          else kick(`app:${app.app}`, () => writeAppRecord(app.app));
         }
       }
 
@@ -1313,7 +1377,8 @@ export const folderWiring: WiringFactory = () => {
       // --- route ---
       // 떨어져 있음이 끝나도 풀리지 않은 held 줄이 남으면 싣는다: 그동안 그 변경은 다른 기계에 가지 않고 snapshot도 막힌다.
       async function away(id: Id<"app">) {
-        const since = exporter.settledOf(id)?.away_since ?? null;
+        const app = syncApp(id);
+        const since = app === undefined ? null : awaySince(app);
         const rows = ports.log.heldList(id);
         if (since === null && rows.length === 0) return null;
         const changes = (await Promise.all(rows.map(heldChanges)))
@@ -1325,7 +1390,8 @@ export const folderWiring: WiringFactory = () => {
 
       const updateDeps = {
         machine: me,
-        syncApps,
+        syncApps: () =>
+          syncApps().map((app) => ({ ...app, destinations: namesOf(app) })),
         follow,
         exchange: importer.exchange,
         records: () => importer.records(),
@@ -1344,11 +1410,16 @@ export const folderWiring: WiringFactory = () => {
               localApps().map((app) => ({
                 app: app.app,
                 name: app.name,
-                destination: app.destination,
+                destinations: app.destinations.map(({ name, tables }) => ({
+                  name,
+                  tables,
+                })),
                 code_commit: app.release?.code_commit ?? null,
               })),
-            exportStatus: (app) => exporter.status(app),
-            importStatus: (app) => importer.status(app),
+            exportStatus: (app, destination) =>
+              exporter.status(app, destination),
+            importStatus: (app, destination) =>
+              importer.status(app, destination),
             away,
             exchange: () => importer.exchange.machines(),
             update(app) {
@@ -1433,6 +1504,7 @@ export const folderWiring: WiringFactory = () => {
                 origin: row.origin,
                 machine: row.machine,
                 device: row.device,
+                destination: row.destination,
                 hlc: row.hlc,
                 made_here: heldInData(row),
                 changes: (await heldChanges(row)).map(({ table, op, at }) => ({
@@ -1480,10 +1552,17 @@ export const folderWiring: WiringFactory = () => {
       ): Promise<Result<unknown>> {
         const app = syncApp((input as { app: Id<"app"> }).app);
         if (app === undefined) return Promise.resolve(ok({ resumed: false }));
-        const stopped = readStream(sql, dataKey(app))?.error ?? null;
-        if (stopped === null) return Promise.resolve(ok({ resumed: false }));
+        const stopped = app.destinations.filter(
+          ({ name }) =>
+            (readStream(sql, dataKey(app.app, name))?.error ?? null) !== null,
+        );
+        if (stopped.length === 0) {
+          return Promise.resolve(ok({ resumed: false }));
+        }
         const cleared = writeLink.transaction((tx) => {
-          updateStream(tx.sql, dataKey(app), { error: null });
+          for (const { name } of stopped) {
+            updateStream(tx.sql, dataKey(app.app, name), { error: null });
+          }
           return ok(undefined);
         });
         if (!cleared.ok) return Promise.resolve(cleared);
@@ -1640,9 +1719,15 @@ export const folderWiring: WiringFactory = () => {
             key(carryStatus),
             carryStatusHandler({
               replica,
-              apps: syncApps,
+              apps: () =>
+                syncApps().map((app) => ({
+                  app: app.app,
+                  name: app.name,
+                  destinations: namesOf(app),
+                })),
               shared: sharedFolder,
-              importStatus: (app) => importer.status(app),
+              importStatus: (app, destination) =>
+                importer.status(app, destination),
             }),
           );
           for (const [route, handler] of carry.reads) reads.set(route, handler);

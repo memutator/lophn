@@ -324,8 +324,10 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+// 출처 기계가 한 destination에 쓴 source stream. 같은 기계가 여러 destination에 쓰면 stream이 여럿이다(받는 commit은 같다).
 export type PeerSource = {
   origin: Id<"mch">;
+  destination: string;
   reader: FolderReader;
   head: number;
   cursor: number;
@@ -333,6 +335,7 @@ export type PeerSource = {
 
 export type PeerSourceResult = {
   origin: Id<"mch">;
+  destination: string;
   cursor: number;
   stopped: { waiting_for: number } | { error: SourceError } | null;
 };
@@ -376,8 +379,9 @@ export async function fetchPeerSources(input: {
     }
     if (!progressed) break;
   }
-  return states.map(({ origin, cursor, stopped }) => ({
+  return states.map(({ origin, destination, cursor, stopped }) => ({
     origin,
+    destination,
     cursor,
     stopped,
   }));

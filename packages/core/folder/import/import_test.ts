@@ -44,7 +44,11 @@ import {
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { FolderApply } from "../ports.ts";
-import { FOLDER_CODE_COMMIT_STEPS, FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import {
+  FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
+  FOLDER_SCHEMA_STEPS,
+} from "../schema.ts";
 import { createFolderImport, type FolderImportDeps } from "./mod.ts";
 
 const ME = "mch_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mch">;
@@ -79,7 +83,15 @@ async function make(base: string, sent: TableFilter) {
   mkdirSync(dest);
   mkdirSync(root);
   const db = new DatabaseSync(":memory:");
-  for (const step of [...FOLDER_SCHEMA_STEPS, ...FOLDER_CODE_COMMIT_STEPS]) {
+  // folder 표 step이 기대는 release 표(활성 release의 선언에서 destination을 채운다).
+  db.exec(
+    "create table releases (id text, app text, status text, declaration text)",
+  );
+  for (const step of [
+    ...FOLDER_SCHEMA_STEPS,
+    ...FOLDER_CODE_COMMIT_STEPS,
+    ...FOLDER_DESTINATION_STEPS,
+  ]) {
     db.exec(step.sql);
   }
   const sql: Sql = createSql(db, () => true);
@@ -126,8 +138,7 @@ async function make(base: string, sent: TableFilter) {
     apps: () => [
       {
         app: APP,
-        destination: "personal",
-        sent,
+        destinations: [{ name: "personal", sent }],
         release: { id: REL, code_commit: ACTIVE, data_schema: 1 },
       },
     ],
@@ -313,7 +324,7 @@ test("깨지거나 반만 온 file은 아무것도 적용하지 않고 stream이
       assert.equal(env.cursor(), 0, label);
       assert.equal(stream?.error?.code, "invalid_file", label);
       assert.equal(
-        env.folder.status(APP)[0]?.error?.code,
+        env.folder.status(APP, "personal")[0]?.error?.code,
         "invalid_file",
         label,
       );
@@ -367,7 +378,7 @@ test("다른 release의 file은 적용되지 않고 data root에 같은 bytes로
       assert.deepEqual(new Uint8Array(copy), bytes);
       assert.equal(row.sha256, await sha256Hex(bytes));
     }
-    assert.equal(env.folder.status(APP)[0]?.held, 3);
+    assert.equal(env.folder.status(APP, "personal")[0]?.held, 3);
   });
 });
 
@@ -420,6 +431,7 @@ test("실패한 읽기는 기록 사본도 local data도 지우지 않는다", a
       env.root,
       "folder-held",
       APP,
+      "personal",
       PEER,
       "000000000001.changes",
     );
@@ -450,7 +462,7 @@ test("실패한 읽기는 기록 사본도 local data도 지우지 않는다", a
     await env.run();
     assert.equal(env.cursor(), 1);
     assert.ok(existsSync(heldCopy));
-    assert.equal(env.folder.status(APP)[0]?.held, 1);
+    assert.equal(env.folder.status(APP, "personal")[0]?.held, 1);
   });
 });
 
@@ -543,7 +555,7 @@ test("horizon 밖에서 돌아온 기계는 출처가 다 받은 뒤의 snapshot
       "mine:edited away",
       "old:deleted elsewhere",
     ]);
-    assert.equal(env.folder.status(APP)[0]?.owes_absent_pass, true);
+    assert.equal(env.folder.status(APP, "personal")[0]?.owes_absent_pass, true);
 
     // 2. 재시작 뒤 출처가 다 받았다고 알리지만, 그 뒤에 만든 snapshot이 아직 없다: 오류 없이 기다린다.
     env.clock.advance(60 * 60 * 1000);
@@ -557,8 +569,8 @@ test("horizon 밖에서 돌아온 기계는 출처가 다 받은 뒤의 snapshot
     env.clock.advance(60 * 60 * 1000);
     assert.ok((await again.runApp(APP)).ok);
     assert.equal(ids().length, 3);
-    assert.equal(again.status(APP)[0]?.owes_absent_pass, true);
-    assert.equal(again.status(APP)[0]?.error, null);
+    assert.equal(again.status(APP, "personal")[0]?.owes_absent_pass, true);
+    assert.equal(again.status(APP, "personal")[0]?.error, null);
 
     // 3. 출처가 다 받은 뒤의 snapshot이 오면 그것으로 다시 합친다.
     env.put(
@@ -573,8 +585,8 @@ test("horizon 밖에서 돌아온 기계는 출처가 다 받은 뒤의 snapshot
     await again.scan();
     assert.ok((await again.runApp(APP)).ok);
     assert.deepEqual(ids(), ["kept:everywhere", "mine:edited away"]);
-    assert.equal(again.status(APP)[0]?.owes_absent_pass, false);
-    assert.equal(again.status(APP)[0]?.cursor, 2);
+    assert.equal(again.status(APP, "personal")[0]?.owes_absent_pass, false);
+    assert.equal(again.status(APP, "personal")[0]?.cursor, 2);
     // 풀어 둔 임시 file은 남지 않는다.
     assert.deepEqual(readdirSync(join(env.root, "folder-tmp", APP)), []);
   });
@@ -616,9 +628,9 @@ test("지운 기계는 알려진 기계에서 빠지지만 행과 data는 남고
     assert.ok(env.folder.forgetMachine(PEER).ok);
     assert.equal(env.folder.isForgotten(PEER), true);
     assert.deepEqual(env.folder.records(), { machines: [], apps: [] });
-    assert.deepEqual(env.folder.peerHorizons(APP), []);
-    assert.deepEqual(env.folder.status(APP), []);
-    assert.equal(env.folder.readsCaughtUp(APP), true);
+    assert.deepEqual(env.folder.peerHorizons(APP, "personal"), []);
+    assert.deepEqual(env.folder.status(APP, "personal"), []);
+    assert.equal(env.folder.readsCaughtUp(APP, "personal"), true);
     assert.equal(
       Number(
         env.db.prepare(`SELECT count(*) AS n FROM folder_records`).get()!.n,
@@ -631,7 +643,14 @@ test("지운 기계는 알려진 기계에서 빠지지만 행과 data는 남고
     );
     assert.ok(
       existsSync(
-        join(env.root, "folder-held", APP, PEER, "000000000001.changes"),
+        join(
+          env.root,
+          "folder-held",
+          APP,
+          "personal",
+          PEER,
+          "000000000001.changes",
+        ),
       ),
     );
     // 같은 revision을 다시 읽어도 돌아오지 않는다.
@@ -640,7 +659,7 @@ test("지운 기계는 알려진 기계에서 빠지지만 행과 data는 남고
     env.putRecords(2, { data: { head: 1, snapshot: null }, horizon: "6" });
     await env.folder.scan();
     assert.equal(env.folder.isForgotten(PEER), false);
-    assert.deepEqual(env.folder.peerHorizons(APP), [
+    assert.deepEqual(env.folder.peerHorizons(APP, "personal"), [
       { machine: PEER, settled: null, horizon: "6" },
     ]);
   });
@@ -665,7 +684,7 @@ test("주인이 compaction한 뒤에 온 기계는 가장 큰 맞는 snapshot으
     assert.deepEqual(appliedIds(env.calls), ["snapshot 3", "4"]);
     assert.equal(env.cursor(), 4);
     assert.equal(stream?.error?.code, "invalid_file");
-    assert.equal(env.folder.readsCaughtUp(APP), false);
+    assert.equal(env.folder.readsCaughtUp(APP, "personal"), false);
   });
 });
 
@@ -691,7 +710,7 @@ test("clock이 5분 넘게 앞선 file은 시각이 따라올 때까지 적용�
     env.clock.advance(6 * 60 * 1000);
     await env.run();
     assert.deepEqual(appliedIds(env.calls), ["1"]);
-    assert.equal(env.folder.readsCaughtUp(APP), true);
+    assert.equal(env.folder.readsCaughtUp(APP, "personal"), true);
   });
 });
 

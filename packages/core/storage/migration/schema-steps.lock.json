@@ -402,5 +402,13 @@
   {
     "id": "lophn-agent.member.runs-on",
     "sha256": "50e64321d446aa35179191509632d59bcf83c912ebe464151808ea1056dadd80"
+  },
+  {
+    "id": "apps.sync-log.destination",
+    "sha256": "71937ef578a68bc991e88ac8cbd820d787af5278e24f4d93820cc5cddbd3c8d0"
+  },
+  {
+    "id": "folder.destination",
+    "sha256": "2b468a3d4b434418535abd3ea48d5909d5977540fa7ed484048e9a458e077cfb"
   }
 ]

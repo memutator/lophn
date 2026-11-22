@@ -16,6 +16,8 @@ const heldChangeSchema = z.object({
   origin: z.enum(["computer", "device", "rewind", "machine"]),
   machine: idSchema("mch").nullable(),
   device: idSchema("dev").nullable(),
+  // 그 줄이 가는(받은 변경이면 온) destination. null이면 앱의 모든 destination이다(폰 앱의 줄).
+  destination: z.string().nullable(),
   hlc: z.string().nullable(),
   // 이 기계가 낸 변경이라 이미 이 기계의 data에 있다. 다른 기계에는 가지 않았다.
   made_here: z.boolean(),

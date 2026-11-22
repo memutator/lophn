@@ -6,6 +6,7 @@ import { filterChangeset } from "../../../base/mod.ts";
 import { clockAhead, maxHlc } from "../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { TableFilter } from "../../../protocol/apps/declaration/sync-plan.ts";
 import {
   CLOCK_AHEAD_MAX_MS,
   type ContainerHead,
@@ -36,6 +37,9 @@ export type ApplyTarget = {
   release: { id: Id<"rel">; code_commit: string; data_schema: number };
   origin: Id<"mch">;
   originName: string;
+  // file이 온 destination과 이 기계 선언이 그리 보내는 표(null이면 모든 표).
+  destination: string;
+  sent: TableFilter;
 };
 
 export const fileInvalid = (
@@ -122,8 +126,9 @@ export async function applyChangesFile(
   }
   const ahead = clockAheadStop(deps, target, newest);
   if (ahead !== null) return ahead;
-  // 이 기계 선언이 보내지 않는 표의 구간은 버린다. 그 표의 row는 이 기계에만 있는 data라 다른 기계의 값으로 덮으면 잃는다.
-  const sent = deps.apps().find((app) => app.app === target.app)?.sent ?? null;
+  // 이 기계 선언이 그 destination으로 보내지 않는 표의 구간은 버린다. 그 표의 row는 이 기계에만 있거나 다른 destination이 맞추는
+  // data라, 이 길로 온 값으로 덮으면 잃는다.
+  const sent = target.sent;
   const kept = (bytes: Uint8Array): Uint8Array => {
     if (sent === null) return bytes;
     const filtered = filterChangeset(bytes, sent);
@@ -133,6 +138,7 @@ export async function applyChangesFile(
     app: target.app,
     release: target.release.id,
     origin: target.origin,
+    destination: target.destination,
     changes: changes.map(({ meta, bytes }) => ({
       id: meta.id,
       hlc: meta.hlc,
@@ -191,6 +197,7 @@ export async function mergeFile(
       app: target.app,
       release: target.release.id,
       origin: target.origin,
+      destination: target.destination,
       n,
       path: temp,
       ...(absentDeletes === undefined ? {} : { absentDeletes }),

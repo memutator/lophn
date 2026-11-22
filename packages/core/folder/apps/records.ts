@@ -26,8 +26,9 @@ export async function writeAppRecord(
     slug: app.slug,
     name: app.name,
     description: app.description,
-    // 앱 기록의 칸 이름은 옛 lophn이 읽는 그대로다(그 판은 이 칸이 없는 기록을 읽지 못한다). 값은 data가 가는 destination이다.
-    sync_to: app.destination,
+    // 앱 기록의 칸 이름은 옛 lophn이 읽는 그대로다(그 판은 이 칸이 없는 기록을 읽지 못한다). 값은 이 destination이 그 앱의
+    // 표를 받으면 이 destination 이름이고, source와 기록만 받으면 null이다.
+    sync_to: app.sends_to.includes(destination) ? destination : null,
     active_release:
       app.release === null
         ? null

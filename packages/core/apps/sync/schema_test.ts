@@ -10,7 +10,11 @@ import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
 import { applyMigrations } from "../../storage/migration/migrations.ts";
 import { createSyncLog } from "./log.ts";
-import { SYNC_LOG_MACHINE_STEPS, SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
+import {
+  SYNC_LOG_DESTINATION_STEPS,
+  SYNC_LOG_MACHINE_STEPS,
+  SYNC_LOG_SCHEMA_STEPS,
+} from "./schema.ts";
 import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
 
 const clock = manualClock(Date.parse("2026-11-16T00:00:00.000Z"));
@@ -118,6 +122,11 @@ test("apps.sync-log.machine으로 표를 다시 만들어도 모든 행과 seq�
     ],
   );
 
+  // 지금 sync log는 그 뒤 step의 칸(destination)도 쓴다.
+  after.exec(
+    "create table releases (id text, app text, status text, declaration text)",
+  );
+  for (const step of SYNC_LOG_DESTINATION_STEPS) after.exec(step.sql);
   const sql: Sql = {
     run: (text, params) => after.prepare(text).run(...params),
     get: (text, params) => after.prepare(text).get(...params) as never,

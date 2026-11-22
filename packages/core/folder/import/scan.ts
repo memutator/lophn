@@ -1,4 +1,5 @@
-// 다른 기계의 기록(`record.json`, `apps/*/app.json`)을 읽어 `folder_records`에 사본으로 둔다.
+// 다른 기계의 기록(`record.json`, `apps/*/app.json`)을 읽어 `folder_records`에 destination마다 사본으로 둔다(앱 기록은
+// destination마다 그 destination의 data stream을 싣는다).
 // 한 출처 기계의 기록이 모두 읽혀야 그 기계의 행을 한 transaction에서 바꾼다. 읽기에 실패하거나 `newer_format`이면 옛
 // 행을 그대로 두고 그 기계의 오류로 남긴다. 폴더에서 기계나 file이 사라져도("아직 안 옴") 행을 지우지 않는다.
 // 꼴 판이 범위 밖인 기계(compat.ts)는 기계 기록만 사본으로 두고(누가 올려야 하는지 보인다) 앱 기록은 읽지 않으며
@@ -34,8 +35,9 @@ export type ScanOutcome = {
 
 type Found<R> = { record: R; destination: string };
 
+// destination마다 읽은 것. 앱 기록의 key는 `<앱>\0<destination>`이다.
 type Gathered = {
-  machine: Found<MachineRecord> | null;
+  machines: Found<MachineRecord>[];
   apps: Map<string, Found<AppRecord>>;
   error: { destination: string; error: FolderError } | null;
 };
@@ -141,18 +143,6 @@ async function readMachine(
   return { kind: "found", machine: machine.record, apps };
 }
 
-function keepLarger<R extends { revision: number }>(
-  current: Found<R> | null | undefined,
-  record: R,
-  destination: string,
-): Found<R> {
-  return current !== null &&
-    current !== undefined &&
-    current.record.revision >= record.revision
-    ? current
-    : { record, destination };
-}
-
 export async function scan(
   deps: FolderImportDeps,
 ): Promise<Result<ScanOutcome>> {
@@ -179,8 +169,8 @@ export async function scan(
       if (origin === me) continue;
       const read = await readMachine(deps, reader, origin);
       if (read.kind === "absent") continue;
-      const into = gathered.get(origin) ?? {
-        machine: null,
+      const into: Gathered = gathered.get(origin) ?? {
+        machines: [],
         apps: new Map(),
         error: null,
       };
@@ -189,12 +179,15 @@ export async function scan(
         into.error ??= { destination: destination.name, error: read.error };
         continue;
       }
-      into.machine = keepLarger(into.machine, read.machine, destination.name);
+      into.machines.push({
+        record: read.machine,
+        destination: destination.name,
+      });
       for (const app of read.apps) {
-        into.apps.set(
-          app.app,
-          keepLarger(into.apps.get(app.app), app, destination.name),
-        );
+        into.apps.set(`${app.app}\0${destination.name}`, {
+          record: app,
+          destination: destination.name,
+        });
       }
     }
   }
@@ -204,20 +197,24 @@ export async function scan(
       outcome.errors.push({ machine: origin, ...found.error });
       continue;
     }
+    // 막을지는 destination마다가 아니라 가장 큰 revision의 기계 기록으로 정한다.
+    const largest = found.machines.reduce<Found<MachineRecord> | null>(
+      (max, each) =>
+        max === null || each.record.revision > max.record.revision ? each : max,
+      null,
+    );
     const exchange =
-      found.machine === null
-        ? "ok"
-        : exchangeWith(found.machine.record.lophn.folder);
+      largest === null ? "ok" : exchangeWith(largest.record.lophn.folder);
     if (exchange !== "ok") {
       // 옛 앱 기록 사본은 그대로 둔다.
       found.apps.clear();
       outcome.errors.push({
         machine: origin,
-        destination: found.machine!.destination,
+        destination: largest!.destination,
         error: exchangeError(
           deps.clock,
           origin,
-          found.machine!.record.name,
+          largest!.record.name,
           exchange,
         ),
       });
@@ -231,8 +228,9 @@ export async function scan(
         value: Found<{ revision: number }>,
       ) => {
         const stored = tx.sql.get(
-          `SELECT revision FROM folder_records WHERE machine = ? AND origin = ? AND kind = ? AND key = ?`,
-          [me, origin, kind, key],
+          `SELECT revision FROM folder_records
+           WHERE machine = ? AND origin = ? AND kind = ? AND key = ? AND destination = ?`,
+          [me, origin, kind, key, value.destination],
         );
         if (
           stored !== undefined &&
@@ -242,9 +240,8 @@ export async function scan(
         tx.sql.run(
           `INSERT INTO folder_records (machine, origin, kind, key, revision, record, destination, read_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT (machine, origin, kind, key) DO UPDATE SET
-             revision = excluded.revision, record = excluded.record,
-             destination = excluded.destination, read_at = excluded.read_at`,
+           ON CONFLICT (machine, origin, kind, key, destination) DO UPDATE SET
+             revision = excluded.revision, record = excluded.record, read_at = excluded.read_at`,
           [
             me,
             origin,
@@ -258,8 +255,10 @@ export async function scan(
         );
         changed = true;
       };
-      if (found.machine !== null) put("machine", "", found.machine);
-      for (const [app, value] of found.apps) put("app", app, value);
+      for (const machine of found.machines) put("machine", "", machine);
+      for (const value of found.apps.values()) {
+        put("app", value.record.app, value);
+      }
       // 사람이 목록에서 지운 기계가 다시 기록을 쓰면 알려진 기계로 돌아온다.
       if (changed) {
         tx.sql.run(

@@ -82,6 +82,7 @@ import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.t
 import { rewindUnknownSchemaSteps } from "../../../apps/rewind/mod.ts";
 import { foldSyncLogDevice } from "../../../apps/sync/device-fold.ts";
 import {
+  SYNC_LOG_DESTINATION_STEPS,
   SYNC_LOG_MACHINE_STEPS,
   SYNC_LOG_SCHEMA_STEPS,
 } from "../../../apps/sync/schema.ts";
@@ -108,6 +109,7 @@ import {
   FOLDER_AWAY_NOTIFIED_STEPS,
   FOLDER_CARRY_MARKS_STEPS,
   FOLDER_CODE_COMMIT_STEPS,
+  FOLDER_DESTINATION_STEPS,
   FOLDER_EVENTS_SEEN_STEPS,
   FOLDER_SCHEMA_STEPS,
 } from "../../../folder/schema.ts";
@@ -937,6 +939,8 @@ export function remoteWiring(
       ...remoteSenderMessagesSchemaSteps,
       ...mailSchemaSteps,
       ...memberRunsOnSchemaSteps,
+      ...SYNC_LOG_DESTINATION_STEPS,
+      ...FOLDER_DESTINATION_STEPS,
     ],
     dataSteps: [
       hostKeyMachineStep,

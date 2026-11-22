@@ -54,7 +54,11 @@ import { createSyncLog } from "./log.ts";
 import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
 
 const PHONE_APP = syncPlanOf({ runs_on: ["computer", "phone"] });
-import { SYNC_LOG_MACHINE_STEPS, SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
+import {
+  SYNC_LOG_DESTINATION_STEPS,
+  SYNC_LOG_MACHINE_STEPS,
+  SYNC_LOG_SCHEMA_STEPS,
+} from "./schema.ts";
 import { createAppSync } from "./service.ts";
 import { createSnapshots } from "./snapshots.ts";
 
@@ -135,6 +139,11 @@ function computer() {
   ]) {
     ledgerDb.exec(step.sql);
   }
+  // sync log의 destination step은 release 선언을 읽는다. 이 ledger에는 그 열만 둔다.
+  ledgerDb.exec(
+    "create table releases (id text, app text, status text, declaration text)",
+  );
+  for (const step of SYNC_LOG_DESTINATION_STEPS) ledgerDb.exec(step.sql);
   const sql: Sql = {
     run: (text, params) => ledgerDb.prepare(text).run(...params),
     get: (text, params) => ledgerDb.prepare(text).get(...params) as never,
@@ -720,6 +729,7 @@ test("다른 기계에서 온 줄은 폰 pull에 원래 changeset과 hlc로 나�
       machineInvocation(1),
       {
         machine: machineA,
+        destination: "computers",
         id: "7",
         hlc: change.hlc,
         changeset: bytesOf(change),
@@ -754,6 +764,7 @@ test("다른 기계에서 온 줄은 폰 pull에 원래 changeset과 hlc로 나�
       machineInvocation(2),
       {
         machine: machineB,
+        destination: "computers",
         id: "7",
         hlc: change.hlc,
         changeset: bytesOf(change),

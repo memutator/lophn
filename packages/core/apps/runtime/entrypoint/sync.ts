@@ -17,6 +17,7 @@ import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/result.ts";
 import {
   clockedTables,
+  sentTableNames,
   sentTables,
   type SyncPlan,
   type TableFilter,
@@ -211,7 +212,7 @@ export function dropUnclockedClocks(db: SyncDb, clocked: TableFilter): void {
  * 옛 release(모든 표, `tables` null)는 지금까지처럼 두고, 다른 사본(폰, 폴더)은 release가 바뀐 뒤의 snapshot으로 이 clock을 받는다.
  */
 export function stampUnclockedRows(sync: SyncStore): number {
-  const tables = sync.plan.tables;
+  const tables = sentTableNames(sync.plan);
   if (tables === null) return 0;
   const db = sync.db;
   let hlc: bigint | null = null;
@@ -546,15 +547,17 @@ export function writeSnapshot(
 const SNAPSHOT_SCHEMA = "lophn_snapshot";
 
 /**
- * 폴더로 갈 snapshot을 core가 준 절대 path에 쓴다. 옛 release(모든 표를 보내는 선언)는 `VACUUM INTO`로 DB 통째다. 그 밖에는
- * 새 DB file을 앱 연결에 ATTACH해 보내는 표(앱이 쓴 CREATE TABLE 그대로)와 그 표의 clock·kept 줄, sync 상태를 한
- * transaction으로 복사한다. 보내지 않는 표는 이 기계를 떠나지 않는다. 1 GiB 한도는 이 file이 잰다.
+ * `destination`으로 갈 snapshot을 core가 준 절대 path에 쓴다. 옛 release(모든 표를 보내는 선언)는 `VACUUM INTO`로 DB 통째다.
+ * 그 밖에는 새 DB file을 앱 연결에 ATTACH해 그 destination으로 보내는 표(앱이 쓴 CREATE TABLE 그대로)와 그 표의 clock·kept
+ * 줄, sync 상태를 한 transaction으로 복사한다. 다른 destination의 표와 보내지 않는 표는 이 file에 없다. 1 GiB 한도는 이 file이
+ * 잰다.
  */
 export function writeFolderSnapshot(
   sync: SyncStore,
   path: string,
+  destination: string,
 ): Result<{ size: number; sha256: string }> {
-  const sent = sentTables(sync.plan);
+  const sent = sentTables(sync.plan, destination);
   if (sent === null) return writeSnapshot(sync.db, path);
   if (!isAbsolute(path)) {
     return err({
@@ -638,7 +641,8 @@ export type SnapshotMerged = {
 
 /**
  * 다른 기계의 snapshot file(core가 풀어 둔 SQLite)을 읽기 전용으로 열어 한 transaction에서 row·칸 clock으로 합치고 실제로
- * 바뀐 것을 session으로 뜬다. 보내는 표만 합친다: 보내지 않는 표는 snapshot에 없고 그 표의 이 기계 row는 이 기계에만 있다.
+ * 바뀐 것을 session으로 뜬다. 그 snapshot이 온 destination으로 보내는 표만 합친다: 다른 표는 snapshot에 없고, 그 표의 이 기계
+ * row를 없는 row로 지우면 안 된다.
  * 보내는 표 가운데 모양이 다른 것이 있으면 아무것도 쓰지 않고 conflict다. 정리된 흔적과 부딪을 수 있는 source
  * row는 적용하지 않고 `held`로 돌려준다. 그 합이 응답에 담기지 않을 만큼 크면 합치지 않는다(held를 잃는다).
  * `absentDeletes`의 keep pk는 `lophn_sync_row.pk` bytes다.
@@ -647,6 +651,8 @@ export function mergeSnapshotFile(
   sync: SyncStore,
   input: {
     path: string;
+    // snapshot이 온 destination. 그리 보내는 표만 합친다.
+    destination: string;
     absentDeletes?: {
       below: bigint;
       keep: readonly { table: string; pk: Uint8Array }[];
@@ -673,7 +679,7 @@ export function mergeSnapshotFile(
         let effective: Uint8Array | null;
         sync.record.begin();
         try {
-          const tables = sentTables(sync.plan);
+          const tables = sentTables(sync.plan, input.destination);
           merged = mergeSnapshot(db, nodeSyncDb(source), sync.clock, {
             ...(tables === null ? {} : { tables }),
             ...(absent === undefined

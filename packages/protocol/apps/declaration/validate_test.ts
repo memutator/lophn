@@ -392,8 +392,11 @@ test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['p
     ["sync value not a string", { sync: { notes: 1 } }],
     ["sync of a lophn table", { sync: { lophn_sync_row: "personal" } }],
     [
-      "sync to two destinations",
-      { sync: { notes: "computers", archive: "personal" } },
+      "a phone app that syncs to two destinations",
+      {
+        sync: { notes: "computers", archive: "personal" },
+        runs_on: ["computer", "phone"],
+      },
     ],
     [
       "sync on a phone-only app",

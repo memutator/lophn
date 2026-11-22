@@ -22,10 +22,9 @@ import type { FolderApply } from "../ports.ts";
 
 export type ImportApp = {
   app: Id<"app">;
-  // 선언의 `sync`가 table을 보내는 destination. 없으면 그 앱의 data를 읽지 않는다.
-  destination: string | null;
-  // 활성 release의 선언이 보내는 표(null이면 모든 표). 같은 release의 변경만 적용하므로 받은 변경도 이 표만 남긴다.
-  sent: TableFilter;
+  // 선언의 `sync`가 table을 보내는 destination과 그리 가는 표(null이면 모든 표, 옛 release). destination마다 출처의 stream을
+  // 따로 읽는다. 같은 release의 변경만 적용하므로 받은 변경도 그 destination의 표만 남긴다. 비면 그 앱의 data를 읽지 않는다.
+  destinations: readonly { name: string; sent: TableFilter }[];
   /** 이 기계의 활성 release. 없으면 그 앱은 읽지 않는다. */
   release: { id: Id<"rel">; code_commit: string; data_schema: number } | null;
 };
@@ -37,8 +36,11 @@ export type FolderImportDeps = {
   destinations: Pick<DestinationsView, "list" | "resolve">;
   apps(): readonly ImportApp[];
   apply: FolderApply;
-  /** folder-export가 아는 이 기계의 그 앱 상태. `away_since`가 있으면 이 기계가 horizon 밖이다. */
-  exportState(app: Id<"app">): {
+  /** folder-export가 아는 이 기계의 그 앱 그 destination stream 상태. `away_since`가 있으면 이 기계가 horizon 밖이다. */
+  exportState(
+    app: Id<"app">,
+    destination: string,
+  ): {
     settled: string | null;
     data_head: number;
     away_since: string | null;
@@ -97,16 +99,22 @@ export type ReadRow = {
 // 칸 하나를 더하는 schema step 없이 재시작을 넘긴다.
 type StateColumn = { error: FolderError | null; absent: AbsentPass | null };
 
+/** 읽는 data stream 하나: (앱, destination, 출처 기계). */
+export type ReadKey = {
+  app: Id<"app">;
+  destination: string;
+  origin: Id<"mch">;
+};
+
 export function loadRead(
   sql: Pick<Sql, "get">,
   me: Id<"mch">,
-  app: Id<"app">,
-  origin: Id<"mch">,
+  key: ReadKey,
 ): ReadRow {
   const row = sql.get(
     `SELECT cursor, read_at, attempts, next_try_at, waiting_for, error FROM folder_reads
-     WHERE machine = ? AND app = ? AND origin = ? AND stream = 'data'`,
-    [me, app, origin],
+     WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND stream = 'data'`,
+    [me, key.app, key.destination, key.origin],
   );
   if (row === undefined) {
     return {
@@ -137,15 +145,14 @@ export function loadRead(
 export function saveRead(
   sql: Sql,
   me: Id<"mch">,
-  app: Id<"app">,
-  origin: Id<"mch">,
+  key: ReadKey,
   row: ReadRow & { code_commit?: string },
 ): void {
   sql.run(
     `INSERT INTO folder_reads
-       (machine, app, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error)
-     VALUES (?, ?, ?, 'data', ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (machine, app, origin, stream) DO UPDATE SET
+       (machine, app, destination, origin, stream, cursor, code_commit, read_at, attempts, next_try_at, waiting_for, error)
+     VALUES (?, ?, ?, ?, 'data', ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (machine, app, destination, origin, stream) DO UPDATE SET
        cursor = excluded.cursor,
        code_commit = coalesce(excluded.code_commit, folder_reads.code_commit),
        read_at = excluded.read_at,
@@ -155,8 +162,9 @@ export function saveRead(
        error = excluded.error`,
     [
       me,
-      app,
-      origin,
+      key.app,
+      key.destination,
+      key.origin,
       row.cursor,
       row.code_commit ?? null,
       row.read_at,
@@ -179,6 +187,8 @@ export function backoffUntil(nowMs: number, attempts: number): string {
   return formatAt(nowMs + delay);
 }
 
+// 다른 기계의 기록 사본. 기계 기록은 destination마다 같은 내용이라 기계마다 가장 큰 revision 하나를 두고, 앱 기록은
+// destination마다 다른 data stream을 싣으므로 (기계, 앱, destination)마다 둔다.
 export type StoredRecords = {
   machines: Map<
     Id<"mch">,
@@ -206,7 +216,7 @@ export function loadRecords(
 ): StoredRecords {
   const rows = sql.all(
     `SELECT origin, kind, key, record, destination, read_at, forgotten_at FROM folder_records
-     WHERE machine = ? AND (kind = 'machine' OR ? IS NULL OR key = ?) ORDER BY origin, kind, key`,
+     WHERE machine = ? AND (kind = 'machine' OR ? IS NULL OR key = ?) ORDER BY origin, kind, key, destination`,
     [me, app ?? null, app ?? null],
   );
   const out: StoredRecords = { machines: new Map(), apps: [] };
@@ -217,10 +227,12 @@ export function loadRecords(
       forgotten_at: row.forgotten_at as string | null,
     };
     if (row.kind === "machine") {
-      out.machines.set(row.origin as Id<"mch">, {
-        ...base,
-        record: JSON.parse(row.record as string) as MachineRecord,
-      });
+      const origin = row.origin as Id<"mch">;
+      const record = JSON.parse(row.record as string) as MachineRecord;
+      const kept = out.machines.get(origin);
+      if (kept === undefined || kept.record.revision < record.revision) {
+        out.machines.set(origin, { ...base, record });
+      }
     } else {
       out.apps.push({
         ...base,

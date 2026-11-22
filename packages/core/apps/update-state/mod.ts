@@ -4,7 +4,11 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { UpdateState } from "../../../protocol/apps/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
-import type { FolderExchange, KnownRecords } from "../../folder/import/mod.ts";
+import {
+  type FolderExchange,
+  type KnownRecords,
+  latestAppRecords,
+} from "../../folder/import/mod.ts";
 import type { Follow } from "../follow/mod.ts";
 import { loadReleases } from "../releases/store.ts";
 import { buildUpdateState } from "./read.ts";
@@ -14,6 +18,7 @@ export type UpdateStateDeps = {
   /** 이 기계에서 폴더로 맞추는 앱(선언의 sync가 table을 보낸다)과 그 활성 release. */
   syncApps(): readonly {
     app: Id<"app">;
+    destinations: readonly string[];
     release: {
       code_commit: string;
       data_schema: number;
@@ -42,17 +47,17 @@ export function readUpdateState(
     buildUpdateState({
       app,
       me: deps.machine(),
+      destinations: local.destinations,
       current: local.release,
       follow: deps.follow.state(app),
       held: deps.exchange.held(app),
       machines: deps.exchange.machines(),
-      offered: deps
-        .records()
-        .apps.filter((row) => row.app === app)
-        .map((row) => ({
-          machine: row.machine,
-          release: row.record.active_release,
-        })),
+      offered: latestAppRecords(
+        deps.records().apps.filter((row) => row.app === app),
+      ).map((row) => ({
+        machine: row.machine,
+        release: row.record.active_release,
+      })),
       recorded: deps.exchange.recorded(),
       releases: releases.value,
     }),

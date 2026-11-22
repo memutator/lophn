@@ -505,10 +505,13 @@ export function SyncPanel({
                   <span className={styles.lineName}>{app.name}</span>
                   <span className={styles.lineHelp}>
                     {t("settings-sync.note.syncs-to", {
-                      folder:
-                        app.destination === "computers"
-                          ? t("settings-sync.label.destination-computers")
-                          : app.destination,
+                      folder: app.destinations
+                        .map((name) =>
+                          name === "computers"
+                            ? t("settings-sync.label.destination-computers")
+                            : name,
+                        )
+                        .join(", "),
                     })}
                     {" · "}
                     {app.readAt === null

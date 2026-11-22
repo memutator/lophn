@@ -1,5 +1,5 @@
 // 다른 release의 file을 data root에 그대로 복사해 둔다(held). 적용하지 않았고 잃지 않았다는 뜻이다.
-// bytes를 `<root>/folder-held/<app>/<origin>/<n>.<kind>`에 temp와 rename으로 쓰고(0600), 그 뒤 한 transaction에서
+// bytes를 `<root>/folder-held/<app>/<destination>/<origin>/<n>.<kind>`에 temp와 rename으로 쓰고(0600), 그 뒤 한 transaction에서
 // `folder_held` 행과 cursor를 둔다. 복사 뒤 transaction 전에 죽으면 다음 번에 같은 file을 다시 쓴다(같은 bytes).
 // held가 없어지는 길은 셋뿐이다: 이 기계가 그 release가 되어 적용했다(drain.ts), 같은 출처의 더 큰 번호 snapshot이
 // 합쳐졌거나 held가 되어 그것이 담는다(`dropCovered`), 앱을 이 기계에서 지웠다.
@@ -20,18 +20,21 @@ import {
   verifyContainer,
 } from "../../../protocol/folder/mod.ts";
 import type { FolderReader } from "../fs.ts";
-import { type FolderImportDeps, hex16, loadRead, saveRead } from "./deps.ts";
+import {
+  type FolderImportDeps,
+  hex16,
+  loadRead,
+  type ReadKey,
+  saveRead,
+} from "./deps.ts";
 
 export const HELD_DIR = "folder-held";
 // snapshot payload를 합치기 전에 풀어 두는 곳. 앱마다 한 번에 하나만 돌아 runApp이 시작할 때 비운다.
 export const IMPORT_TMP_DIR = "folder-tmp";
 
-export const heldPath = (
-  app: Id<"app">,
-  origin: Id<"mch">,
-  n: number,
-  kind: DataKind,
-) => `${HELD_DIR}/${app}/${origin}/${entryNumber(n)}.${kind}`;
+// 1단계까지 둔 사본은 destination 없는 `<app>/<origin>/` 아래에 있고 행이 그 path를 그대로 든다.
+export const heldPath = (key: ReadKey, n: number, kind: DataKind) =>
+  `${HELD_DIR}/${key.app}/${key.destination}/${key.origin}/${entryNumber(n)}.${kind}`;
 
 /**
  * 폴더 file을 `start`부터 끝까지 `target`에 temp로 쓰며 payload(`head.payloadOffset`부터)의 hash를 잰다. 크기와 hash가
@@ -128,9 +131,7 @@ export async function writeAtomic(
  */
 export function recordHeld(
   deps: FolderImportDeps,
-  input: {
-    app: Id<"app">;
-    origin: Id<"mch">;
+  input: ReadKey & {
     n: number;
     kind: DataKind;
     code_commit: string;
@@ -143,30 +144,29 @@ export function recordHeld(
   const at = deps.clock.now();
   return deps.transaction((tx) => {
     const covered =
-      input.kind === "snapshot"
-        ? dropCovered(tx.sql, me, input.app, input.origin, input.n)
-        : [];
+      input.kind === "snapshot" ? dropCovered(tx.sql, me, input, input.n) : [];
     tx.sql.run(
       `INSERT INTO folder_held
-         (machine, app, origin, n, kind, code_commit, data_schema, path, sha256, size, held_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (machine, app, origin, n) DO NOTHING`,
+         (machine, app, destination, origin, n, kind, code_commit, data_schema, path, sha256, size, held_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (machine, app, destination, origin, n) DO NOTHING`,
       [
         me,
         input.app,
+        input.destination,
         input.origin,
         input.n,
         input.kind,
         input.code_commit,
         input.data_schema,
-        heldPath(input.app, input.origin, input.n, input.kind),
+        heldPath(input, input.n, input.kind),
         input.sha256,
         input.size,
         at,
       ],
     );
-    saveRead(tx.sql, me, input.app, input.origin, {
-      absent: loadRead(tx.sql, me, input.app, input.origin).absent,
+    saveRead(tx.sql, me, input, {
+      absent: loadRead(tx.sql, me, input).absent,
       cursor: input.n,
       code_commit: input.code_commit,
       read_at: at,
@@ -187,15 +187,15 @@ export function recordHeld(
 export function dropCovered(
   sql: Sql,
   me: Id<"mch">,
-  app: Id<"app">,
-  origin: Id<"mch">,
+  key: ReadKey,
   n: number,
 ): string[] {
-  const where = `machine = ? AND app = ? AND origin = ? AND n < ?`;
+  const where = `machine = ? AND app = ? AND destination = ? AND origin = ? AND n < ?`;
+  const params = [me, key.app, key.destination, key.origin, n];
   const paths = sql
-    .all(`SELECT path FROM folder_held WHERE ${where}`, [me, app, origin, n])
+    .all(`SELECT path FROM folder_held WHERE ${where}`, params)
     .map((row) => row.path as string);
-  sql.run(`DELETE FROM folder_held WHERE ${where}`, [me, app, origin, n]);
+  sql.run(`DELETE FROM folder_held WHERE ${where}`, params);
   return paths;
 }
 
@@ -208,23 +208,23 @@ export async function removeHeldFiles(
 }
 
 /**
- * held changes `size` bytes를 더 복사하면 그 출처의 한도를 넘는가. 셈은 그 출처에서 가장 새 held snapshot 뒤의 held
+ * held changes `size` bytes를 더 복사하면 그 stream(destination, 출처)의 한도를 넘는가. 셈은 그 stream에서 가장 새 held snapshot 뒤의 held
  * changes다(그 앞은 snapshot이 담아 곧 지워진다). snapshot은 셈을 줄이므로 막지 않는다.
  */
 export function heldOverLimit(
   sql: Pick<Sql, "get">,
   me: Id<"mch">,
-  app: Id<"app">,
-  origin: Id<"mch">,
+  key: ReadKey,
   size: number,
   limit = HELD_MAX_BYTES,
 ): boolean {
+  const stream = [me, key.app, key.destination, key.origin];
   const row = sql.get(
     `SELECT coalesce(sum(size), 0) AS bytes FROM folder_held
-     WHERE machine = ? AND app = ? AND origin = ? AND kind = 'changes'
+     WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND kind = 'changes'
        AND n > coalesce((SELECT max(n) FROM folder_held
-         WHERE machine = ? AND app = ? AND origin = ? AND kind = 'snapshot'), 0)`,
-    [me, app, origin, me, app, origin],
+         WHERE machine = ? AND app = ? AND destination = ? AND origin = ? AND kind = 'snapshot'), 0)`,
+    [...stream, ...stream],
   );
   return Number(row?.bytes ?? 0) + size > limit;
 }

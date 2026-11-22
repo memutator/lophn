@@ -396,7 +396,7 @@ test("옛 release에서 한 칸 고침은 칸 하나를 더한 migration 뒤에�
   const path = join(dir, "b.sqlite");
   assert.ok(writeSnapshot(b.db, path).ok);
 
-  const merged = mergeSnapshotFile(a2, { path });
+  const merged = mergeSnapshotFile(a2, { path, destination: "computers" });
   assert.ok(merged.ok);
   assert.equal(dumpData(a2.db), "# item\n'x'|NULL|'milk A'|'n B'");
 });
@@ -614,7 +614,7 @@ test("sync가 표를 적은 앱은 컴퓨터에서 sync 앱이라 write가 그 �
     { tbl: "item" },
   ]);
   const snapshotPath = join(dir, "folder.sqlite");
-  assert.ok(writeFolderSnapshot(sync, snapshotPath).ok);
+  assert.ok(writeFolderSnapshot(sync, snapshotPath, "personal").ok);
   const snapshot = readOnly(snapshotPath);
   assert.deepEqual(
     rowsOf(
@@ -635,10 +635,7 @@ test("sync가 표를 적은 앱은 컴퓨터에서 sync 앱이라 write가 그 �
 
   // 옛 release: 봉인한 선언의 sync_to는 모든 표를 그 destination으로 보낸다(지금까지와 같다).
   const legacy = syncPlanOf({ sync_to: "personal" });
-  assert.deepEqual(
-    { destination: legacy.destination, tables: legacy.tables },
-    { destination: "personal", tables: null },
-  );
+  assert.deepEqual(legacy.destinations, new Map([["personal", null]]));
   const old = machineDb(join(dir, "legacy.sqlite"), schema, legacy);
   const written = await syncedWrite(old.sync, () =>
     Promise.resolve(
@@ -653,7 +650,7 @@ test("sync가 표를 적은 앱은 컴퓨터에서 sync 앱이라 write가 그 �
     [{ tbl: "cache" }, { tbl: "item" }],
   );
   const full = join(dir, "legacy-folder.sqlite");
-  assert.ok(writeFolderSnapshot(old.sync, full).ok);
+  assert.ok(writeFolderSnapshot(old.sync, full, "personal").ok);
   const fullDb = readOnly(full);
   assert.deepEqual(rowsOf(fullDb, "select * from cache"), [
     { id: "c", body: "x" },
@@ -744,7 +741,7 @@ test("보내지 않는 표가 없는 snapshot을 합쳐도 이 기계에만 있�
   );
   assert.ok(fromA.ok);
   const path = join(dir, "a-folder.sqlite");
-  assert.ok(writeFolderSnapshot(a.sync, path).ok);
+  assert.ok(writeFolderSnapshot(a.sync, path, "computers").ok);
 
   const b = machineDb(join(dir, "b.sqlite"), schema, plan, { ms: 5000 });
   const mine = await syncedWrite(b.sync, () =>
@@ -757,6 +754,7 @@ test("보내지 않는 표가 없는 snapshot을 합쳐도 이 기계에만 있�
   assert.ok(mine.ok);
   const merged = mergeSnapshotFile(b.sync, {
     path,
+    destination: "computers",
     absentDeletes: { below: BigInt(2) ** BigInt(62), keep: [] },
   });
   assert.ok(merged.ok, JSON.stringify(merged));
@@ -877,14 +875,18 @@ test("sync에서 빠졌다 다시 오른 표의 row는 다시 오른 release가 
   c.sync = c.reopen(rel1);
   const snap = (m: typeof a, name: string) => {
     const path = join(dir, name);
-    assert.ok(writeFolderSnapshot(m.sync, path).ok);
+    assert.ok(writeFolderSnapshot(m.sync, path, "computers").ok);
     return path;
   };
   const fromA = snap(a, "a.snap");
   const fromB = snap(b, "b.snap");
   const fromC = snap(c, "c.snap");
-  assert.ok(mergeSnapshotFile(b.sync, { path: fromA }).ok);
-  assert.ok(mergeSnapshotFile(a.sync, { path: fromB }).ok);
+  assert.ok(
+    mergeSnapshotFile(b.sync, { path: fromA, destination: "computers" }).ok,
+  );
+  assert.ok(
+    mergeSnapshotFile(a.sync, { path: fromB, destination: "computers" }).ok,
+  );
   const notes = (m: typeof a) =>
     rowsOf(m.raw, "select * from note order by id");
   // 나중에 찍은 B의 n1이 이기고, A가 다시 넣은 n2는 둘 다에 있다.
@@ -895,8 +897,12 @@ test("sync에서 빠졌다 다시 오른 표의 row는 다시 오른 release가 
   assert.deepEqual(notes(a), expected);
   assert.deepEqual(notes(b), expected);
   // rel1에 머물렀던 C의 snapshot(옛 n1, n2의 옛 흔적)은 아무것도 되돌리지 못한다.
-  assert.ok(mergeSnapshotFile(a.sync, { path: fromC }).ok);
-  assert.ok(mergeSnapshotFile(b.sync, { path: fromC }).ok);
+  assert.ok(
+    mergeSnapshotFile(a.sync, { path: fromC, destination: "computers" }).ok,
+  );
+  assert.ok(
+    mergeSnapshotFile(b.sync, { path: fromC, destination: "computers" }).ok,
+  );
   assert.deepEqual(notes(a), expected);
   assert.deepEqual(notes(b), expected);
   for (const m of [a, b, c]) m.raw.close();
@@ -914,10 +920,10 @@ test("생성 칸이 있는 보내는 표도 폴더 snapshot에 담기고 받는 
   );
   assert.ok(written.ok);
   const path = join(dir, "a.snap");
-  const taken = writeFolderSnapshot(a.sync, path);
+  const taken = writeFolderSnapshot(a.sync, path, "computers");
   assert.ok(taken.ok, JSON.stringify(taken));
   const b = machineDb(join(dir, "b.sqlite"), schema, plan);
-  assert.ok(mergeSnapshotFile(b.sync, { path }).ok);
+  assert.ok(mergeSnapshotFile(b.sync, { path, destination: "computers" }).ok);
   assert.deepEqual(rowsOf(b.raw, "select * from item"), [
     { id: "x", n: 4, twice: 8, stored: 5 },
   ]);

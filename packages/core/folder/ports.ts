@@ -25,6 +25,8 @@ export type FolderApply = {
     app: Id<"app">;
     release: Id<"rel">;
     origin: Id<"mch">;
+    // 그 file이 온 destination. sync log 줄에 적는다.
+    destination: string;
     changes: readonly FolderChange[];
   }): Promise<
     Result<{
@@ -35,7 +37,8 @@ export type FolderApply = {
     }>
   >;
   /**
-   * 다른 기계의 snapshot을 row·칸 clock으로 합친다. `path`는 core가 data root 아래에 payload만 풀어 둔 SQLite file.
+   * 다른 기계의 snapshot을 row·칸 clock으로 합친다. `path`는 core가 data root 아래에 payload만 풀어 둔 SQLite file이고,
+   * 이 기계 선언이 `destination`으로 보내는 표만 합친다.
    * `absentDeletes`가 있으면 clock이 `below` 이하이고 snapshot에 없으며 `keep`이 아닌 이 기계의 row를 지운다(horizon 밖에서
    * 돌아올 때). `keep`의 pk는 `lophn_sync_row.pk`의 hex다.
    */
@@ -43,6 +46,7 @@ export type FolderApply = {
     app: Id<"app">;
     release: Id<"rel">;
     origin: Id<"mch">;
+    destination: string;
     n: number;
     path: string;
     absentDeletes?: {
@@ -56,6 +60,8 @@ export type FolderApply = {
 export type FolderLogRow = {
   seq: number;
   release: string;
+  // 그 줄이 가는 destination. null이면 모든 destination이다.
+  destination: string | null;
   kind: string;
   origin: string;
   hlc: string | null;

@@ -97,6 +97,28 @@ export const SYNC_LOG_MACHINE_STEPS: readonly SchemaStep[] = [
   },
 ];
 
+// 줄이 가는 destination(roadmap sync-tables 2단계). 한 앱이 표마다 다른 destination으로 보내면 write 하나가 destination마다 줄이
+// 된다(hold와 held가 줄 단위라). NULL은 모든 destination의 줄이다: 폰 앱의 줄(폰 길이 모든 표를 다룬다), '다시 snapshot'
+// 줄, 건너뛴 줄. 이미 있는 change·held 줄은 그 줄 release의 선언이 고른 destination 하나(옛 `sync_to`나 `sync`의 값.
+// 1단계까지는 앱에 하나였다)로 채우고 폰 앱의 줄은 NULL로 둔다. `folder.destination` 앞에 낸 step 목록의 끝에 잇는다.
+export const SYNC_LOG_DESTINATION_STEPS: readonly SchemaStep[] = [
+  {
+    id: "apps.sync-log.destination",
+    sql: `
+    ALTER TABLE app_sync_log ADD COLUMN destination TEXT;
+    UPDATE app_sync_log SET destination = (
+      SELECT coalesce(
+        json_extract(r.declaration, '$.sync_to'),
+        (SELECT s.value FROM json_each(r.declaration, '$.sync') AS s ORDER BY s.key LIMIT 1))
+      FROM releases AS r
+      WHERE r.id = app_sync_log.release
+        AND NOT EXISTS (
+          SELECT 1 FROM json_each(r.declaration, '$.runs_on') AS p WHERE p.value = 'phone'))
+    WHERE kind IN ('change', 'held');
+  `,
+  },
+];
+
 export const SYNC_LOG_OWNER_KIND = "app_sync_log";
 export const SYNC_LOG_FIELD_NAME = "changeset";
 

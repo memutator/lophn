@@ -28,11 +28,15 @@ export const followStateSchema = z.object({
 
 export const updateStateSchema = z.object({
   app: appIdSchema,
+  // 이 기계 선언이 그 앱의 표를 보내는 destination 이름(글자 순서).
+  destinations: z.array(z.string()),
   follow: followStateSchema,
-  // 다른 release라 이 기계가 적용하지 않고 둔 변경. 출처와 release마다 한 줄.
+  // 다른 release라 이 기계가 적용하지 않고 둔 변경. destination, 출처, release마다 한 줄.
   held: z.array(
     z.object({
       machine: idSchema("mch"),
+      // 그 변경이 온 destination.
+      destination: z.string(),
       code_commit: commitSchema,
       data_schema: count,
       changes: count,

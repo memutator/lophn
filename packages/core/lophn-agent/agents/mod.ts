@@ -1,41 +1,41 @@
 export {
+  type AvatarAssetDeps,
+  type AvatarFileHandler,
+  type AvatarImageFiles,
+  type AvatarReaders,
+  type AvatarUploadHandler,
+  avatarImageFileHandler,
+  avatarImageUploadHandler,
+} from "./avatar-asset.ts";
+export { createAgentCommands } from "./commands.ts";
+export {
   type AgentFileDefinition,
   parseAgentFile,
   serializeAgentFile,
 } from "./definition-file.ts";
-export { resolveAgent, type ResolvedAgent } from "./resolve.ts";
-export { createAgentCommands } from "./commands.ts";
-export { createAgentReads } from "./reads.ts";
-export {
-  type AgentContext,
-  listAgents,
-  loadAgent,
-  type Loaded,
-  nameOf,
-  openAgentContext,
-  profileOf,
-} from "./inspect.ts";
 export {
   type AgentDirectory,
   type AgentInfo,
   createAgentDirectory,
 } from "./directory.ts";
 export {
-  type ProfileAssetDeps,
-  type ProfileFileHandler,
-  profileImageFileHandler,
-  type ProfileImageFiles,
-  profileImageUploadHandler,
-  type ProfileReaders,
-  type ProfileUploadHandler,
-} from "./profile-asset.ts";
+  type AgentContext,
+  avatarOf,
+  type Loaded,
+  listAgents,
+  loadAgent,
+  nameOf,
+  openAgentContext,
+} from "./inspect.ts";
 export type {
   AgentDeps,
   AgentFileSystem,
   AgentLookups,
-  WorkspaceLookups,
   ReadSql,
+  WorkspaceLookups,
 } from "./ports.ts";
+export { createAgentReads } from "./reads.ts";
+export { type ResolvedAgent, resolveAgent } from "./resolve.ts";
 export {
   type AgentFile,
   type AgentSlot,

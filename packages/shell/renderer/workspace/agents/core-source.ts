@@ -1,17 +1,18 @@
 // AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentId로
 // 가리킨다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
 // 자리는 "home"이거나 project·앱 id다. Home·project·앱이 같은 층(지침, skill 끄기, MCP, model)과 memory를 갖는다.
-// profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
+// avatar 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
 import { t } from "@lophn/i18n";
 
 import {
+  type AgentCard,
+  type AgentRow,
   agentChange,
   agentCreate,
-  type AgentCard,
   agentDelete,
-  type AgentRow,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type {
   CatalogEntry,
@@ -25,7 +26,6 @@ import {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ProviderRecord } from "../../../../protocol/lophn-agent/provider-values.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
-import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
@@ -44,43 +44,42 @@ import {
   changeWorkspaceSettings,
   instructionsTargetOf,
   memoryOpenOf,
-  workspaceOf,
-  readGlobalModel,
   readAgentServerLogins,
+  readGlobalModel,
   readInstructions,
-  windowFiles,
-  windowInstructions,
-  windowMemory,
-  writeInstructions,
   readServers,
   readSkills,
   signInMcpServer,
+  windowFiles,
+  windowInstructions,
+  windowMemory,
+  workspaceOf,
+  writeInstructions,
 } from "./core-extensions.ts";
 import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
 import { providerChoiceOf } from "./model-picker-data.ts";
 import type {
+  AgentCardView,
+  AgentDetail,
+  AgentDraft,
+  AgentGlance,
+  AgentListRow,
+  AgentsOverview,
+  AgentsSource,
+  ModelsView,
+  ReadResult,
+  SaveInput,
+  SaveResult,
+  ShownModel,
+  UserModels,
+  WorkspaceView,
+} from "./source.ts";
+import type {
   InstructionsFile,
   MemoryTarget,
   WorkspaceInstructionsView,
 } from "./views.ts";
-
-import type {
-  AgentCardView,
-  AgentDetail,
-  AgentGlance,
-  AgentDraft,
-  AgentListRow,
-  AgentsOverview,
-  AgentsSource,
-  ShownModel,
-  ModelsView,
-  WorkspaceView,
-  ReadResult,
-  SaveInput,
-  SaveResult,
-  UserModels,
-} from "./source.ts";
 
 /** 목록을 끝까지 모을 때 page 상한. */
 const PAGE_LIMIT = 20;
@@ -90,7 +89,7 @@ const CATALOG_PAGE_LIMIT = 60;
 /** agent ID의 본문: 소문자 Crockford base32 26자, 첫 글자는 0~7이다. */
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
 
-const DEFAULT_PROFILE = {
+const DEFAULT_AVATAR = {
   kind: "character",
   shape: "arch",
   color: "sage",
@@ -143,7 +142,7 @@ function toRow(row: AgentRow): AgentListRow {
     handle: row.handle,
     workspace: row.workspace,
     name: row.name,
-    profile: row.profile,
+    avatar: row.avatar,
     ...(row.description === undefined ? {} : { description: row.description }),
     model:
       row.model === null
@@ -175,7 +174,7 @@ export function coreAgentsSource(
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const link: Link = createLink(core, random);
 
-  // 읽은 profile 이미지의 blob URL. 키는 `<agent id>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
+  // 읽은 avatar 이미지의 blob URL. 키는 `<agent id>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
   // 다시 올리면 uploadImage가 새 값으로 바꾼다.
   const images = new Map<string, string>();
   const loadImage = async (agent: string, image: string) => {
@@ -183,7 +182,7 @@ export function coreAgentsSource(
     try {
       const reply = await core.call({
         kind: "file",
-        resource: "profile-images",
+        resource: "avatar-images",
         method: "read",
         body: { agent },
       });
@@ -314,8 +313,8 @@ export function coreAgentsSource(
       );
     await Promise.all(
       rows.map((row) =>
-        row.profile.kind === "image"
-          ? loadImage(row.assignment, row.profile.image)
+        row.avatar.kind === "image"
+          ? loadImage(row.assignment, row.avatar.image)
           : undefined,
       ),
     );
@@ -392,8 +391,8 @@ export function coreAgentsSource(
     );
     await Promise.all(
       rows.map((row) =>
-        row.profile.kind === "image"
-          ? loadImage(row.assignment, row.profile.image)
+        row.avatar.kind === "image"
+          ? loadImage(row.assignment, row.avatar.image)
           : undefined,
       ),
     );
@@ -413,8 +412,8 @@ export function coreAgentsSource(
           value: string;
           source: "global" | "project" | "agent" | "session";
         };
-        profile: {
-          value: AgentListRow["profile"];
+        avatar: {
+          value: AgentListRow["avatar"];
           source: "global" | "project" | "agent" | "session";
         };
         model: {
@@ -445,8 +444,8 @@ export function coreAgentsSource(
       workspace,
       saved.browser_profile ?? null,
     );
-    if (value.effective.profile.value.kind === "image") {
-      await loadImage(agent, value.effective.profile.value.image);
+    if (value.effective.avatar.value.kind === "image") {
+      await loadImage(agent, value.effective.avatar.value.image);
     }
     return {
       ok: true,
@@ -458,7 +457,7 @@ export function coreAgentsSource(
         hash: value.hash,
         effective: {
           name: value.effective.name,
-          profile: value.effective.profile,
+          avatar: value.effective.avatar,
         },
         inheritedModel: await inheritedOf(value.effective.model),
         issues: value.issues,
@@ -713,7 +712,7 @@ export function coreAgentsSource(
         hash: null,
         effective: {
           name: { value: "", source: "global" },
-          profile: { value: DEFAULT_PROFILE, source: "global" },
+          avatar: { value: DEFAULT_AVATAR, source: "global" },
         },
         inheritedModel:
           global.ok && global.value !== null
@@ -762,12 +761,12 @@ export function coreAgentsSource(
       if (!isAgentId(input.assignment)) {
         return { ok: false, message: "not_found", issues: [] };
       }
-      // 이번 저장에서 새로 생긴 server를 가리려고, 그리고 lophn의 잠긴 handle·profile을 그대로 보내려고 읽는다.
+      // 이번 저장에서 새로 생긴 server를 가리려고, 그리고 lophn의 잠긴 handle·avatar를 그대로 보내려고 읽는다.
       const before = await link.read<{
         definition: AgentDraft | null;
         effective: {
           name: { value: string };
-          profile: { value: AgentListRow["profile"] };
+          avatar: { value: AgentListRow["avatar"] };
         };
       }>("agents", "read", { agent: input.assignment });
       if (!before.ok) {
@@ -779,7 +778,7 @@ export function coreAgentsSource(
             ...draft,
             handle: LOPHN_AGENT_HANDLE,
             name: draft.name ?? before.value.effective.name.value,
-            profile: stored?.profile ?? before.value.effective.profile.value,
+            avatar: stored?.avatar ?? before.value.effective.avatar.value,
           }
         : draft;
       const saved = await link.command(agentChange, {
@@ -817,7 +816,7 @@ export function coreAgentsSource(
       }
       const uploaded = await core.call({
         kind: "upload",
-        resource: "profile-images",
+        resource: "avatar-images",
         method: "upload",
         body: { agent, content_type: file.type, bytes: bytes.byteLength },
         bytes,
@@ -825,7 +824,7 @@ export function coreAgentsSource(
       if (!uploaded.ok) {
         return { ok: false, message: uploaded.error?.code ?? "internal" };
       }
-      const image = (uploaded.value as { profile: { image: string } }).profile
+      const image = (uploaded.value as { avatar: { image: string } }).avatar
         .image;
       images.set(`${agent}/${image}`, URL.createObjectURL(file));
       return { ok: true, value: { image } };

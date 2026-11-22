@@ -9,8 +9,8 @@ import {
   MAIN_DESK,
   type TabItem,
   type WorkspaceLayout,
-  workspaceKey,
   type WorkspaceRef,
+  workspaceKey,
 } from "../../../packages/shell/renderer/shell/desk-model.ts";
 import type { SidebarWorkspace } from "../../../packages/shell/renderer/shell/left-sidebar-model.ts";
 import {
@@ -35,7 +35,7 @@ const SOLO = "ses_01h455vb4pex5v6nkc6gd5ft05";
 const LOPHN: SidebarAgent = {
   assignment: LOPHN_ID,
   name: "lophn",
-  profile: { kind: "character", shape: "square", color: "coral" },
+  avatar: { kind: "character", shape: "square", color: "coral" },
   waiting: false,
 };
 

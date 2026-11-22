@@ -53,7 +53,7 @@ import { partsOfContent } from "../../../../shell/renderer/conversation/thread-l
 import { failedText } from "../../../../shell/renderer/conversation/thread/turn-failure.ts";
 import { useNav } from "../../app/nav.ts";
 import { useInbox } from "../../data/mod.ts";
-import { Face, type Profile } from "../../parts/mod.ts";
+import { Face, type Look } from "../../parts/mod.ts";
 import { duration, elapsedText, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import { Line } from "./parts.tsx";
 
@@ -130,7 +130,7 @@ export function rowsOf(
 export interface ThreadActions {
   readonly session: string;
   readonly source: AgentTabSource;
-  readonly agent: { readonly name: string; readonly profile: Profile };
+  readonly agent: { readonly name: string; readonly avatar: Look };
   readonly readOnly: boolean;
   readonly canRetry: boolean;
   /** App names by id, for app cards and release lines. */
@@ -354,7 +354,7 @@ function QueuedMessage({ queued }: { queued: QueuedView }) {
 function Turn({ entries, live }: { entries: readonly ThreadEntry[]; live: AcpWriting | null }) {
   const { agent } = useActions();
   return (
-    <AgentTurn face={<Face profile={agent.profile} size={20} />} name={agent.name}>
+    <AgentTurn face={<Face look={agent.avatar} size={20} />} name={agent.name}>
       {entries.map((entry) => (
         <TurnEntry key={entry.id} entry={entry} said={entries} />
       ))}

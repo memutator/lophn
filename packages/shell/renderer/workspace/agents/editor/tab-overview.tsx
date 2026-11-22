@@ -1,8 +1,9 @@
 // Overview 탭: editor의 첫 화면. 정의를 네 묶음(Who, Runs on, Sees, Works how)의 절로 한 장에 보이고, 절마다 오른쪽 끝
 // [Edit]이 그 묶음의 탭을 연다. 값은 편집 중인 정의 그대로라 다른 탭에서 바꾼 것이 저장 전에도 여기 보인다.
 // runtime이 자기 것을 쓰는 칸은 "Uses its own"으로 남긴다.
-import { Button } from "@lophn/ui/primitives";
+
 import { t } from "@lophn/i18n";
+import { Button } from "@lophn/ui/primitives";
 import type { ReactNode } from "react";
 
 import type { Modality } from "../../../../../protocol/lophn-agent/agent-values.ts";
@@ -10,8 +11,9 @@ import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces
 import { ProfileMark } from "../../../browser/browser-chrome.tsx";
 import { useBrowserProfiles } from "../../../browser/profiles.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
-import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
+import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
 import { modalityLabel, scopeLabel } from "../agent-card.tsx";
+import glance from "../agent-glance.module.css";
 import {
   GlanceRow,
   MEMORY_TOOL,
@@ -19,11 +21,10 @@ import {
   RuntimeName,
   runtimeLabel,
 } from "../agent-glance.tsx";
-import glance from "../agent-glance.module.css";
 import type { ModelsView } from "../source.ts";
+import styles from "./agent-editor.module.css";
 import type { AgentFacts, FormProps, Group, Ready } from "./editor-model.ts";
 import { ownServers } from "./tab-sees.tsx";
-import styles from "./agent-editor.module.css";
 
 const ALL_MODALITIES: readonly Modality[] = ["text", "image", "file"];
 
@@ -45,7 +46,7 @@ export type AppNames =
 
 interface OverviewTabProps extends FormProps {
   readonly facts: AgentFacts;
-  readonly face: AvatarProfile | null;
+  readonly face: AvatarLook | null;
   readonly name: string;
   readonly models: ModelsView | null;
   readonly apps: AppNames;
@@ -185,9 +186,7 @@ export function OverviewTab(props: OverviewTabProps) {
 
       <Section group="who" onEdit={onEdit}>
         <div className={styles.overviewWho}>
-          {props.face === null ? null : (
-            <Avatar profile={props.face} size="lg" />
-          )}
+          {props.face === null ? null : <Avatar look={props.face} size="lg" />}
           <div className={styles.overviewWhoText}>
             <span className={styles.overviewName}>
               {props.name === ""

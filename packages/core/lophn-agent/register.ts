@@ -7,11 +7,18 @@ import {
   askRead,
   askWait,
 } from "../../protocol/lophn-agent/ask-tool.ts";
+import { HANDOFF_ROUTES } from "../../protocol/lophn-agent/handoff.ts";
 import {
-  agentProfileImageRead,
-  agentProfileImageUpload,
+  MAIL_HOLD_ROUTES,
+  MAIL_ROUTES,
+} from "../../protocol/lophn-agent/mail.ts";
+import {
   type AgentId,
+  APP_CALL_ROUTES,
+  agentAvatarImageRead,
+  agentAvatarImageUpload,
   finishRewindSummary,
+  HARNESS_HOST_MEMORY_ROUTES,
   instructionsGet,
   instructionsReadGlobal,
   instructionsWriteGlobal,
@@ -29,40 +36,33 @@ import {
   messageImagePath,
   messageImagePrepare,
   messageImageRead,
-  HARNESS_HOST_MEMORY_ROUTES,
-  APP_CALL_ROUTES,
-  SESSION_LIFECYCLE_ROUTES,
   messageImageUpload,
   providerConnectKey,
   providerConnectLocal,
   providerSignIn,
   providerSignInCallback,
   providerSignInState,
-  type Workspace,
-  workspaceKeyOf,
-  workspaceKindOf,
   QUEUED_INPUT_ROUTES,
   readRewindSummary,
   recordRewindWrite,
   requestRewindSummary,
+  SESSION_LIFECYCLE_ROUTES,
   stageRewindFile,
   takeRewindSummaryRequest,
+  type Workspace,
+  workspaceKeyOf,
+  workspaceKindOf,
 } from "../../protocol/lophn-agent/mod.ts";
-import {
-  MAIL_HOLD_ROUTES,
-  MAIL_ROUTES,
-} from "../../protocol/lophn-agent/mail.ts";
-import { HANDOFF_ROUTES } from "../../protocol/lophn-agent/handoff.ts";
 import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import {
   callSignals,
+  deleteAppCallsReceivedBy,
   failReceivedCall,
   failReceivedCalls,
   messageApp,
   messageDirectory,
-  deleteAppCallsReceivedBy,
   messageRouter,
 } from "../router/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
@@ -75,19 +75,19 @@ import {
   type AgentDeps,
   type AgentFileSystem,
   type AgentLookups,
+  type AvatarAssetDeps,
+  type AvatarFileHandler,
+  type AvatarImageFiles,
+  type AvatarReaders,
+  type AvatarUploadHandler,
+  avatarImageFileHandler,
+  avatarImageUploadHandler,
   createAgentCommands,
   createAgentReads,
   listAgents,
   loadAgent,
   openAgentContext,
   type WorkspaceLookups,
-  type ProfileAssetDeps,
-  type ProfileFileHandler,
-  type ProfileImageFiles,
-  type ProfileReaders,
-  type ProfileUploadHandler,
-  profileImageFileHandler,
-  profileImageUploadHandler,
 } from "./agents/mod.ts";
 import { createCommandReads } from "./commands/mod.ts";
 import type { AgentMcpEntry } from "./extensions/mcp-snapshot.ts";
@@ -101,15 +101,15 @@ import {
   type ExtensionRegistry,
   extensionSettings,
   globalMcpServersSetting,
-  type WorkspaceFiles,
   type ProjectLayer,
   readSharedHeads,
   runtimeServerOfLayer,
-  sharedFor,
   type SkillFiles,
   type SkillSources,
+  sharedFor,
   skillFoldersSetting,
   skillsOffSetting,
+  type WorkspaceFiles,
 } from "./extensions/mod.ts";
 import {
   type MessageImageDeps,
@@ -131,11 +131,6 @@ import {
 } from "./models/mod.ts";
 import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
 import { createTraceReads } from "./observability/mod.ts";
-import {
-  COMMIT_END_DEPS,
-  openDepsOf,
-  UNWIRED_END_DEPS,
-} from "./workspaces/mod.ts";
 import {
   createProviderCommands,
   createProviderDefinitionsRead,
@@ -196,6 +191,11 @@ import {
   modelCallBodyFields,
   usageSchemaSteps,
 } from "./usage/mod.ts";
+import {
+  COMMIT_END_DEPS,
+  openDepsOf,
+  UNWIRED_END_DEPS,
+} from "./workspaces/mod.ts";
 
 // agent runtime 등록 뼈대. child는 lophn 자신의 process라 권한 flag 없이 돈다. 권한은 경계가 아니다
 // (shell.run이 사용자 uid로 /bin/sh를 띄워 우회된다). file tool이 닿는 폴더는 `workspaceScope`와
@@ -595,27 +595,27 @@ const NODE_AGENT_FILES = new URL(
 const {
   createNodeAgentFiles,
   createNodeMessageImageFiles,
-  createNodeProfileImageFiles,
+  createNodeAvatarImageFiles,
 } = (await import(NODE_AGENT_FILES)) as {
   createNodeAgentFiles(): AgentFileSystem;
   createNodeMessageImageFiles(): MessageImageFiles;
-  createNodeProfileImageFiles(): ProfileImageFiles;
+  createNodeAvatarImageFiles(): AvatarImageFiles;
 };
 
-// profile 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리의 판정은
+// avatar 이미지 바이트의 upload·file 처리기다. core.ts가 route 이름으로 붙인다. 자리의 판정은
 // runtime의 reader가 하고, 파일은 이 adapter로 core 프로세스에서 비동기로 읽고 쓴다.
-export function agentProfileHandlers(
-  readers: ProfileReaders,
+export function agentAvatarHandlers(
+  readers: AvatarReaders,
   dataRoot: string,
-): { upload: ProfileUploadHandler; file: ProfileFileHandler } {
-  const deps: ProfileAssetDeps = {
+): { upload: AvatarUploadHandler; file: AvatarFileHandler } {
+  const deps: AvatarAssetDeps = {
     root: dataRoot,
-    files: createNodeProfileImageFiles(),
+    files: createNodeAvatarImageFiles(),
     readers,
   };
   return {
-    upload: profileImageUploadHandler(deps),
-    file: profileImageFileHandler(deps),
+    upload: avatarImageUploadHandler(deps),
+    file: avatarImageFileHandler(deps),
   };
 }
 
@@ -995,14 +995,14 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       providerSignInCallback,
       providerSignInState,
     ],
-    // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
+    // avatar 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
     // provider key로 잇기의 입구도 upload다(handler는 wiring/lophn-agent.ts의 provider login).
     uploadRoutes: [
-      agentProfileImageUpload,
+      agentAvatarImageUpload,
       messageImageUpload,
       providerConnectKey,
     ],
-    files: [agentProfileImageRead, messageImageRead],
+    files: [agentAvatarImageRead, messageImageRead],
     // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
     // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
   };

@@ -2,35 +2,35 @@
 // 이 탭에서 연 agent들 사이를 오간다(브라우저처럼). ← →는 card 머리 줄에 올리고, card 밖에서만 스스로 그린다. 읽기와 설정 바꾸기는 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다.
 // 이동 기록과 저장하지 않은 편집은 창이 쥔 탭 상태(`AgentsTabs`)에 있어서 다른 탭에 다녀와도 남는다.
 // 목록과 workspace 층은 core의 변경 알림으로 다시 읽는다: 이 탭의 쓰기도, 다른 창이나 CLI의 쓰기도 같은 길로 온다.
-import { type ReactElement, useEffect, useRef, useState } from "react";
+
+import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/i18n";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { useCommands } from "../../commands/react.tsx";
-import { useCardHead } from "../../parts/card-head/card-head.tsx";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { commonIcons } from "../../icons/mod.ts";
-import { codingFaceOf } from "./coding-face.ts";
+import { useCardHead } from "../../parts/card-head/card-head.tsx";
+import styles from "./agents-tab.module.css";
 import { AgentsTab } from "./agents-tab.tsx";
+import { codingFaceOf } from "./coding-face.ts";
 import { AgentEditor } from "./editor/agent-editor.tsx";
 import type { Ready } from "./editor/editor-model.ts";
-import styles from "./agents-tab.module.css";
 import type { AgentsSource } from "./source.ts";
-import { useAgentModels } from "./use-agent-models.ts";
 import {
-  agentOfPlace,
   AgentsTabs,
+  agentOfPlace,
   back,
   canBack,
   canForward,
   type Face,
   forget,
   forward,
-  here,
   type History,
+  here,
   LIST,
   open,
   type Place,
@@ -38,6 +38,7 @@ import {
   samePlace,
   startHistory,
 } from "./tab-state.ts";
+import { useAgentModels } from "./use-agent-models.ts";
 
 interface AgentsPageProps {
   /** 이 탭의 workspace 열쇠: "home", project id, 앱 id. */
@@ -151,16 +152,16 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         ? null
         : {
             name: row.name,
-            profile:
+            avatar:
               codingFaceOf(assignment) ??
-              (row.profile.kind === "character"
-                ? row.profile
+              (row.avatar.kind === "character"
+                ? row.avatar
                 : {
                     kind: "image",
                     src: source.imageSrc(
                       row.workspace?.id ?? workspace,
                       assignment,
-                      row.profile.image,
+                      row.avatar.image,
                     ),
                   }),
           },

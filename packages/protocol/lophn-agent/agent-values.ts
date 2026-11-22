@@ -1,17 +1,17 @@
 import { z } from "zod";
+import { toolKeySchema } from "../apps/channel-values.ts";
 import { idSchema } from "../base/ids.ts";
 import { slugSchema } from "../projects/values.ts";
-import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
+import { avatarOutputSchema, avatarSchema } from "./agent-avatar.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
-import { toolKeySchema } from "../apps/channel-values.ts";
-import { CODING_BUILTINS } from "./workspaces.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
+import { CODING_BUILTINS } from "./workspaces.ts";
 
-export * from "./agent-profile.ts";
+export * from "./agent-avatar.ts";
 
 // agent 정의의 값. 정의와 설정은 app data의 Markdown 파일이고,
 // 파일에는 사람이 바꾼 칸만 있다. 그래서 칸은 모두 optional(없음 = 아래 층을 따름)이고 null을 받지 않는다.
@@ -193,13 +193,13 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
 // 사람만 쓰는 칸이다. protocol/shell을 import하지 못해 id 꼴만 쓴다.
 const browserProfileSchema = idSchema("bpf");
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·avatar·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,
   name: agentNameSchema,
   workspace: agentWorkspaceSchema.optional(),
-  profile: profileSchema.optional(),
+  avatar: avatarSchema.optional(),
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
   tools: toolPicksSchema.optional(),
@@ -219,7 +219,7 @@ const frontmatterOutputFields = {
   handle: agentHandleSchema,
   name: agentNameSchema,
   workspace: agentWorkspaceOutputSchema.optional(),
-  profile: profileOutputSchema.optional(),
+  avatar: avatarOutputSchema.optional(),
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
   tools: toolPicksSchema.optional(),

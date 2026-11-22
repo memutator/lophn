@@ -2,14 +2,15 @@
 // feed에서 읽고, 대화 조작은 core의 `acp/send`로 handle에 보낸다. feed에는 tool 본문이 없어 줄을 펼칠 때 `toolBody`로 읽는다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
 // 화면이 읽는다. 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)은 `act`로 handle에 간다. lophn session의 것(권한 요약,
 // call)은 없어서 unavailable로 답한다. session 목록은 그 CLI의 지난 session이고 id가 CLI session id다.
-import type { AcpInput, AcpState } from "../../../protocol/acp/mod.ts";
-import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
-import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import type {
   AcpCliSession,
+  AcpInput,
   AcpRewindPreview,
+  AcpState,
   GuiHarness,
 } from "../../../protocol/acp/mod.ts";
+import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendors.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
@@ -52,7 +53,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
   const face: AgentFace = {
     agent: lophnIdOf(null),
     name: label,
-    profile:
+    avatar:
       vendor === undefined
         ? { kind: "initial", text: label.slice(0, 1) }
         : { kind: "vendor", vendor },

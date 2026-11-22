@@ -282,7 +282,7 @@ function Empty() {
       <div className={s.center}>
         <span className={s.box} style={{ width: 64, height: 64, opacity: 0.9 }}>
           <AgentCharacter
-            profile={{ kind: "character", shape: "square", color: "coral" }}
+            look={{ kind: "character", shape: "square", color: "coral" }}
           />
         </span>
         <h1
@@ -314,7 +314,7 @@ function Notice({
       <span className={s.noticeIcon}>
         <span className={s.box} style={{ width: 26, height: 26 }}>
           <AgentCharacter
-            profile={{ kind: "character", shape: "square", color: "coral" }}
+            look={{ kind: "character", shape: "square", color: "coral" }}
           />
         </span>
       </span>

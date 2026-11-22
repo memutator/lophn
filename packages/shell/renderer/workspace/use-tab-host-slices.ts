@@ -1,32 +1,31 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
-
-import { useArtifactList } from "../artifact/use-artifact-list.ts";
-import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { createViewKeeps } from "../app-frame/embedded-view.tsx";
 import { createWebviewHost } from "../app-frame/webview-host.tsx";
 import type { WorkspaceViewPool } from "../app-frame/workspace-views.tsx";
+import { useArtifactList } from "../artifact/use-artifact-list.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
-import type { TerminalStore } from "../terminal/store.ts";
-import { useSidebarAgents } from "./agents/sidebar-agents.ts";
+import { useSessions } from "../desktop/connection/events/hooks.tsx";
+import type { SettingsPane } from "../desktop/settings/model.ts";
+import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
+import type { WorkspaceRef } from "../shell/desk-model.ts";
 import { useKnownSessions } from "../shell/use-left-sidebar.ts";
-import { AgentsTabs } from "./agents/tab-state.ts";
+import type { TerminalStore } from "../terminal/store.ts";
 import type { MachineProjects } from "./agent/machine-copies.ts";
+import { useSidebarAgents } from "./agents/sidebar-agents.ts";
+import { AgentsTabs } from "./agents/tab-state.ts";
 import { openAgent } from "./kinds/agent.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
-import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import {
   agentRow,
   openedWorkspaceLophnSession,
 } from "./sidebar/panel-sessions.ts";
 import type { WorkspaceSource } from "./source.ts";
-import type { SettingsPane } from "../desktop/settings/model.ts";
-import type { WorkspaceRef } from "../shell/desk-model.ts";
 
 interface TabHostSlicesInput {
   /** 이 창의 workspace. */
@@ -118,9 +117,9 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
             terminalStore === undefined || input.floats === false
               ? null
               : (command) => openTerminal(hostRef.current(), { command }),
-          profileOf: (agent) =>
+          avatarOf: (agent) =>
             sidebarAgents.agents.find((row) => row.assignment === agent)
-              ?.profile,
+              ?.avatar,
           dotOf: (session) => lophnSessionDot(sessionStates, session),
           openSettings: () => onSettings("tools"),
           openConnections: () => onSettings("providers"),
@@ -160,7 +159,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
             );
             return row === undefined
               ? undefined
-              : { name: row.name, profile: row.profile };
+              : { name: row.name, avatar: row.avatar };
           },
         };
 

@@ -1,13 +1,14 @@
 // 대화 줄의 부품. agent의 말 한 덩어리(AgentTurn과 Said), 내 메시지(UserMessage), 일하는 중
 // 줄(WorkingRow). 조립은 부르는 쪽이 한다. 이 부품들은 children을 놓기만 하고 source 값을 읽지 않는다.
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
-import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import { Icon, IconButton, useCopy } from "@lophn/ui/primitives";
+
+import { t } from "@lophn/i18n";
 import { Shimmer, useDelayedLoading } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
+import { Icon, IconButton, useCopy } from "@lophn/ui/primitives";
 import { iconPixels, systemClipboard } from "@lophn/ui/shared";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
-import { t } from "@lophn/i18n";
+import { Avatar, type AvatarLook } from "../../parts/avatar/avatar.tsx";
 
 import { duration, startSecondTick } from "../activity/elapsed.ts";
 import styles from "./turns.module.css";
@@ -114,7 +115,7 @@ export function AgentTurn({
   onFork,
   children,
 }: {
-  agent: { readonly name: string; readonly profile: AvatarProfile };
+  agent: { readonly name: string; readonly avatar: AvatarLook };
   /** 아래 줄의 시각. 사람 메시지와 같은 모양이다. */
   actionTime?: string;
   /** 덩어리에서 글이 비어 있지 않은 마지막 agent 메시지. 누를 때 읽는다. */
@@ -127,7 +128,7 @@ export function AgentTurn({
   return (
     <div className={styles.agentTurn} data-agent-turn="" data-side="start">
       <div className={styles.agentHead}>
-        <Avatar profile={agent.profile} size="md" />
+        <Avatar look={agent.avatar} size="md" />
         <span className={styles.agentName} data-agent-name="">
           {agent.name}
         </span>

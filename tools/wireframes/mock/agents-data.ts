@@ -1,6 +1,6 @@
-import type { CharacterProfile } from "../../../packages/protocol/lophn-agent/agent-values.ts";
-import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import type { AcpUsage } from "../../../packages/protocol/acp/mod.ts";
+import type { CharacterAvatar } from "../../../packages/protocol/lophn-agent/agent-values.ts";
+import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import type { TabSpec } from "../pages/screens/project-window.tsx";
 // agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn과 사람이 만든
 // agent 셋, agent별 session이다. model과 option은 models-data.ts(catalog)에서만 온다.
@@ -39,39 +39,38 @@ export interface ChatInit {
   readonly view?: "permissions" | "status";
 }
 
-export interface AgentProfile
-  extends Pick<CharacterProfile, "shape" | "color"> {
+export interface AgentAvatar extends Pick<CharacterAvatar, "shape" | "color"> {
   readonly image?: boolean;
 }
 
 export interface AgentRow {
   readonly id: string;
   readonly name: string;
-  readonly profile: AgentProfile;
+  readonly avatar: AgentAvatar;
 }
 
 /** sidebar Agents 묶음의 줄. 목록은 전역이고 lophn이 첫 줄이다. */
 export const AGENT_ROWS: readonly AgentRow[] = [
-  { id: "lophn", name: "lophn", profile: { shape: "square", color: "coral" } },
+  { id: "lophn", name: "lophn", avatar: { shape: "square", color: "coral" } },
   {
     id: "eval-analyst",
     name: "Eval analyst",
-    profile: { shape: "pear", color: "lavender", image: true },
+    avatar: { shape: "pear", color: "lavender", image: true },
   },
   {
     id: "experiment-planner",
     name: "Experiment planner",
-    profile: { shape: "round", color: "blue" },
+    avatar: { shape: "round", color: "blue" },
   },
   {
     id: "budget-reviewer",
     name: "Budget reviewer",
-    profile: { shape: "arch", color: "sage" },
+    avatar: { shape: "arch", color: "sage" },
   },
 ];
 
-export const profileOf = (name: string): AgentProfile =>
-  AGENT_ROWS.find((row) => row.name === name)?.profile ?? {
+export const avatarOf = (name: string): AgentAvatar =>
+  AGENT_ROWS.find((row) => row.name === name)?.avatar ?? {
     shape: "square",
     color: "coral",
   };

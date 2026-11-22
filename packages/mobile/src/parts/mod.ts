@@ -3,7 +3,7 @@ export {
   Character,
   Face,
   LOPHN,
-  type Profile,
+  type Look,
   VendorIcon,
 } from "./face.tsx";
 export { WorkspaceMark } from "./workspace-mark.tsx";

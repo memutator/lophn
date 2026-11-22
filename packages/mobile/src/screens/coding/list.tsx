@@ -6,7 +6,7 @@ import { Dot, Label, Row, Text } from "@lophn/ui-native";
 import { useNav } from "../../app/nav.ts";
 import { useCodingSessions, useCurrentComputer } from "../../data/mod.ts";
 import { Face } from "../../parts/mod.ts";
-import { codingPlace, codingTitle, harnessProfile, ReadFailed, stateOf, TerminalMark } from "./parts.tsx";
+import { codingPlace, codingTitle, harnessAvatar, ReadFailed, stateOf, TerminalMark } from "./parts.tsx";
 
 /** The coding sessions of one project. Nothing while loading or when none runs. */
 export function CodingSessionList({ project }: { project: string }) {
@@ -26,7 +26,7 @@ export function CodingSessionList({ project }: { project: string }) {
           return (
             <Row
               key={session.session}
-              lead={<Face profile={harnessProfile(session.harness, session.label)} size={24} />}
+              lead={<Face look={harnessAvatar(session.harness, session.label)} size={24} />}
               title={codingTitle(session)}
               sub={
                 terminal ? (

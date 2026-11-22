@@ -6,35 +6,44 @@ import {
   acpSnapshot,
   acpToolBodyRead,
 } from "../acp/routes.ts";
+import { alwaysOnSet, alwaysOnStatus } from "../always-on/mod.ts";
 import { assignmentGet } from "../approvals/assignment.ts";
 import {
   shareRequestDecide,
   shareRequestList,
 } from "../approvals/share-request.ts";
 import { turnRequestDecide } from "../approvals/turn-request.ts";
-import { a2aAgents, a2aSessions } from "../lophn-agent/a2a.ts";
-import { machineComputers } from "../machine/mod.ts";
-import { presenceReport, unseenDismiss, unseenList } from "../attention/mod.ts";
-import {
-  activationConsent,
-  activationConsents,
-} from "../apps/activation/consent.ts";
 import {
   activationsCompare,
   activationsQueue,
   releasesGetRecord,
   releasesListRecords,
 } from "../apps/activation/activation.ts";
+import {
+  activationConsent,
+  activationConsents,
+} from "../apps/activation/consent.ts";
 import { annotationSend } from "../apps/annotation.ts";
-import { alwaysOnSet, alwaysOnStatus } from "../always-on/mod.ts";
+import { appFilesPut, appFilesRead } from "../apps/app-files.ts";
 import {
   appSyncPull,
   appSyncPush,
   appSyncSnapshot,
   appSyncSnapshotFile,
 } from "../apps/app-sync.ts";
-import { appFilesPut, appFilesRead } from "../apps/app-files.ts";
 import { appGet, appList } from "../apps/apps.ts";
+import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
+import { appRemoteCall } from "../apps/calls/remote.ts";
+import { appRewindPlan } from "../apps/calls/rewind.ts";
+import { appScreenFile } from "../apps/calls/screen.ts";
+import { appIcon, appTools } from "../apps/declaration/read.ts";
+import { appGrantsList } from "../apps/grants.ts";
+import {
+  noticeDismiss,
+  noticeMarkRead,
+  noticesList,
+  noticesOpen,
+} from "../apps/notice.ts";
 import {
   appsOAuthBegin,
   appsOAuthCallback,
@@ -42,23 +51,10 @@ import {
   appsOAuthSignOut,
   appsOAuthState,
 } from "../apps/oauth.ts";
-import { appSdkStatus } from "../apps/sdk-status.ts";
-import { appUpdateState } from "../apps/update-state.ts";
-import { appRemoteCall } from "../apps/calls/remote.ts";
-import { a2aMail, mailDecideHold, mailHolds } from "../lophn-agent/mail.ts";
-import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
-import { appRewindPlan } from "../apps/calls/rewind.ts";
-import { appScreenFile } from "../apps/calls/screen.ts";
-import { appIcon, appTools } from "../apps/declaration/read.ts";
-import {
-  noticeDismiss,
-  noticeMarkRead,
-  noticesList,
-  noticesOpen,
-} from "../apps/notice.ts";
 import { appPhoneFile, appPhoneScreens } from "../apps/phone.ts";
 import { appLogs, appRuntime } from "../apps/runtime.ts";
-import { appGrantsList } from "../apps/grants.ts";
+import { appSdkStatus } from "../apps/sdk-status.ts";
+import { appUpdateState } from "../apps/update-state.ts";
 import {
   appViewsCall,
   appViewsClose,
@@ -66,6 +62,7 @@ import {
   appViewsOpen,
 } from "../apps/views.ts";
 import { appWidgetsList } from "../apps/widget.ts";
+import { presenceReport, unseenDismiss, unseenList } from "../attention/mod.ts";
 import {
   codingAgentsHookStatus,
   codingAgentsInstallHooks,
@@ -95,20 +92,8 @@ import {
   terminalsRenameSaved,
   terminalsRestart,
 } from "../coding-agent/terminals.ts";
-import { CARRY_ROUTES } from "./carry.ts";
-import {
-  PAGE_VIEW_ROUTES,
-  pageViewControl,
-  pageViewInput,
-  pageViewOpen,
-} from "../lophn-agent/page-view.ts";
-import {
-  appSessionsEnd,
-  appSessionsList,
-  appSessionsOpen,
-  appSessionsStatus,
-  appSessionsStop,
-} from "../lophn-agent/session-lifecycle.ts";
+import { settingsList, settingsUpdate } from "../config/file.ts";
+import { diagnosticsStatus } from "../diagnostics/diagnostics.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -120,16 +105,15 @@ import {
   jobRunList,
   jobUpdate,
 } from "../jobs/jobs.ts";
-import { settingsList, settingsUpdate } from "../config/file.ts";
-import { diagnosticsStatus } from "../diagnostics/diagnostics.ts";
+import { a2aAgents, a2aSessions } from "../lophn-agent/a2a.ts";
 import {
+  agentAvatarImageRead,
+  agentAvatarImageUpload,
   agentCard,
   agentChange,
   agentCreate,
   agentDelete,
   agentList,
-  agentProfileImageRead,
-  agentProfileImageUpload,
   agentRead,
 } from "../lophn-agent/agent-definitions.ts";
 import {
@@ -152,10 +136,6 @@ import {
   inputRequestRead,
 } from "../lophn-agent/input-request.ts";
 import {
-  instructionsReadGlobal,
-  instructionsWriteGlobal,
-} from "../lophn-agent/instructions.ts";
-import {
   editQueued,
   moveQueued,
   removeQueued,
@@ -163,18 +143,23 @@ import {
   steerQueuedNow,
 } from "../lophn-agent/inputs.ts";
 import {
-  messageImageRead,
-  messageImageUpload,
-} from "../lophn-agent/message-images.ts";
-import { messageSearch } from "../lophn-agent/message-search.ts";
+  instructionsReadGlobal,
+  instructionsWriteGlobal,
+} from "../lophn-agent/instructions.ts";
+import { a2aMail, mailDecideHold, mailHolds } from "../lophn-agent/mail.ts";
 import {
   mcpAuthBegin,
   mcpAuthCallback,
   mcpAuthCancel,
   mcpAuthState,
-  workspaceExtensionSettingsRead,
   workspaceExtensionSettingsChange,
+  workspaceExtensionSettingsRead,
 } from "../lophn-agent/mcp-settings.ts";
+import {
+  messageImageRead,
+  messageImageUpload,
+} from "../lophn-agent/message-images.ts";
+import { messageSearch } from "../lophn-agent/message-search.ts";
 import { messageBody } from "../lophn-agent/messages.ts";
 import {
   changeShownModels,
@@ -188,6 +173,12 @@ import {
   workspaceModelChange,
   workspaceModelRead,
 } from "../lophn-agent/models.ts";
+import {
+  PAGE_VIEW_ROUTES,
+  pageViewControl,
+  pageViewInput,
+  pageViewOpen,
+} from "../lophn-agent/page-view.ts";
 import {
   activateProviderCredential,
   addProviderCredential,
@@ -208,6 +199,13 @@ import {
 } from "../lophn-agent/providers.ts";
 import { receivedMessageRead } from "../lophn-agent/received-messages.ts";
 import {
+  appSessionsEnd,
+  appSessionsList,
+  appSessionsOpen,
+  appSessionsStatus,
+  appSessionsStop,
+} from "../lophn-agent/session-lifecycle.ts";
+import {
   sessionRewind,
   sessionRewindPreview,
 } from "../lophn-agent/session-rewinds.ts";
@@ -221,6 +219,7 @@ import {
 import { skillsRead } from "../lophn-agent/skill-settings.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
 import { stopTurn } from "../lophn-agent/turns.ts";
+import { machineComputers } from "../machine/mod.ts";
 import { projectAdd, projectBrowse } from "../projects/add-api.ts";
 import { artifactsFile, artifactsList } from "../projects/artifact-api.ts";
 import { projectIdentityApi } from "../projects/identity-api.ts";
@@ -247,6 +246,7 @@ import {
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
+import { CARRY_ROUTES } from "./carry.ts";
 import { devicesSetPush, rosterLeave } from "./routes.ts";
 
 // 기기가 부를 수 있는 route는 두 목록이다. 기기 자격의 scope는 두 목록의 합이고, 밖의 route는 `forbidden`이다.
@@ -370,7 +370,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   mailDecideHold,
   // Agents
   agentCard,
-  agentProfileImageRead,
+  agentAvatarImageRead,
   skillsRead,
   // Jobs
   jobList,
@@ -522,7 +522,7 @@ export const REMOTE_PERSON_ROUTES = [
   agentCreate,
   agentChange,
   agentDelete,
-  agentProfileImageUpload,
+  agentAvatarImageUpload,
   instructionsReadGlobal,
   instructionsWriteGlobal,
   // project. `project.add`는 안에서 부른 사람의 자격으로 `projects/create`를 writer에 보낸다

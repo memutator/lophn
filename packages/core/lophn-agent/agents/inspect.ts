@@ -5,13 +5,13 @@ import {
   type AgentValueLayer,
   CODING_BUILTINS,
   codingBuiltinOf,
-  LOPHN_AGENT_HANDLE,
   isLophn,
-  lophnIdOf,
-  workspaceOfLophn,
+  LOPHN_AGENT_HANDLE,
   LOPHN_AGENT_NAME,
+  lophnIdOf,
   type ModelChoice,
   type Workspace,
+  workspaceOfLophn,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   codingAgentsSetting,
@@ -19,12 +19,12 @@ import {
 } from "../../config/mod.ts";
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
-import { AGENT_DEFAULT_PROFILE, LOPHN_PROFILE } from "./resolve.ts";
+import { AGENT_DEFAULT_AVATAR, LOPHN_AVATAR } from "./resolve.ts";
 import {
   type AgentFile,
-  agentSlotOf,
   type AgentSlot,
   type AgentStore,
+  agentSlotOf,
   createAgentStore,
   dataRootOf,
 } from "./store.ts";
@@ -155,9 +155,9 @@ export function visibleIn(
   );
 }
 
-export function profileOf(loaded: Loaded) {
-  if (isLophn(loaded.agent)) return LOPHN_PROFILE;
-  return loaded.definition?.profile ?? AGENT_DEFAULT_PROFILE;
+export function avatarOf(loaded: Loaded) {
+  if (isLophn(loaded.agent)) return LOPHN_AVATAR;
+  return loaded.definition?.avatar ?? AGENT_DEFAULT_AVATAR;
 }
 
 // 내장 coding agent는 그 harness가 coding agent 즐겨찾기에 있고 headless 명령이 있을 때만 목록에 선다

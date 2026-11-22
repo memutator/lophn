@@ -16,7 +16,7 @@ import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 export type ModelLabel = (choice: ModelChoice) => string;
 
 /**
- * 올린 이미지 avatar의 주소(profile-images/read). contract의 profile은 파일 이름(`avatar.png`)만 가져서
+ * 올린 이미지 avatar의 주소(avatar-images/read). contract의 avatar는 파일 이름(`avatar.png`)만 가져서
  * 화면이 읽을 수 있는 주소는 연결 쪽이 풀어 준다.
  */
 export type ImageSrc = (assignment: string, image: string) => string;

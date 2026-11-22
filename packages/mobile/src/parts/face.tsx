@@ -3,21 +3,21 @@
 import { Text, useTheme } from "@lophn/ui-native";
 import { Image, View } from "react-native";
 import Svg, { Circle, G, Path, SvgXml } from "react-native-svg";
-import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
+import type { CharacterAvatar } from "../../../protocol/lophn-agent/agent-values.ts";
 import type { Vendor } from "../../../shell/renderer/parts/vendor-icon/vendors.ts";
 import type { Who } from "../data/mod.ts";
 import { VENDOR_SVG } from "./vendor-svg.ts";
 
-export type Profile = Who["profile"];
+export type Look = Who["avatar"];
 
 /** lophn's own face: the product mark in the sidebar and on the welcome screen. */
-export const LOPHN: CharacterProfile = {
+export const LOPHN: CharacterAvatar = {
   kind: "character",
   shape: "square",
   color: "coral",
 };
 
-const COLORS: Record<CharacterProfile["color"], string> = {
+const COLORS: Record<CharacterAvatar["color"], string> = {
   coral: "#ff806b",
   periwinkle: "#7b91f5",
   yellow: "#ffd465",
@@ -29,7 +29,7 @@ const COLORS: Record<CharacterProfile["color"], string> = {
 };
 
 const BODIES: Record<
-  CharacterProfile["shape"],
+  CharacterAvatar["shape"],
   { path: string; eyes: number }
 > = {
   square: {
@@ -59,16 +59,16 @@ const BODIES: Record<
 };
 
 export function Character({
-  profile,
+  look,
   size,
 }: {
-  profile: CharacterProfile;
+  look: CharacterAvatar;
   size: number;
 }) {
-  const body = BODIES[profile.shape];
+  const body = BODIES[look.shape];
   return (
     <Svg width={size} height={size} viewBox="0 0 96 96">
-      <Path d={body.path} fill={COLORS[profile.color]} />
+      <Path d={body.path} fill={COLORS[look.color]} />
       <G fill="#1c2530">
         <Circle cx={37} cy={body.eyes} r={4.8} />
         <Circle cx={59} cy={body.eyes} r={4.8} />
@@ -91,7 +91,7 @@ export function VendorIcon({ vendor, size }: { vendor: Vendor; size: number }) {
 }
 
 /** Whoever runs a session, in a `size` square. A vendor icon fills most of it, as on the desktop. */
-export function Face({ profile, size = 24 }: { profile: Profile; size?: number }) {
+export function Face({ look, size = 24 }: { look: Look; size?: number }) {
   const theme = useTheme();
   const box = {
     width: size,
@@ -99,19 +99,19 @@ export function Face({ profile, size = 24 }: { profile: Profile; size?: number }
     alignItems: "center",
     justifyContent: "center",
   } as const;
-  switch (profile.kind) {
+  switch (look.kind) {
     case "character":
-      return <Character profile={profile} size={size} />;
+      return <Character look={look} size={size} />;
     case "vendor":
       return (
         <View style={box}>
-          <VendorIcon vendor={profile.vendor} size={Math.round(size * 0.84)} />
+          <VendorIcon vendor={look.vendor} size={Math.round(size * 0.84)} />
         </View>
       );
     case "image":
       return (
         <Image
-          source={{ uri: profile.src }}
+          source={{ uri: look.src }}
           style={{ width: size, height: size, borderRadius: size / 2 }}
         />
       );
@@ -132,7 +132,7 @@ export function Face({ profile, size = 24 }: { profile: Profile; size?: number }
               lineHeight: (size * 0.6) / theme.textScale,
             }}
           >
-            {profile.text}
+            {look.text}
           </Text>
         </View>
       );

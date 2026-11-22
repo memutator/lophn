@@ -43,7 +43,7 @@ import {
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { Face, LOPHN, useUnreachable, WorkspaceMark } from "../../parts/mod.ts";
-import { CodingAgentGroup, harnessProfile, problemText } from "../coding/index.tsx";
+import { CodingAgentGroup, harnessAvatar, problemText } from "../coding/index.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import { AttachSheet, CommandsSheet, FilesSheet, ModelSheet } from "./sheets.tsx";
 
@@ -131,14 +131,14 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const workspaceName = shown === undefined ? t("left-sidebar.label.home") : nameOf(shown);
   const lophn: AgentChoice | null =
     choices.find((one) => one.agent === agent) ??
-    (face === null || face === undefined ? null : { agent, name: face.name, profile: face.profile, scoped: false });
+    (face === null || face === undefined ? null : { agent, name: face.name, avatar: face.avatar, scoped: false });
   // The workspace's own lophn is always there, even before the list is read.
   const listed: readonly AgentChoice[] =
     lophn !== null && !choices.some((one) => one.agent === lophn.agent) ? [lophn, ...choices] : choices;
   const who =
     harness === null
       ? lophn
-      : { name: HARNESS_ADAPTERS[harness].label, profile: harnessProfile(harness, HARNESS_ADAPTERS[harness].label) };
+      : { name: HARNESS_ADAPTERS[harness].label, avatar: harnessAvatar(harness, HARNESS_ADAPTERS[harness].label) };
 
   const caps = capabilitiesOf(meta);
   // The agent's commands that make sense before a session exists (the desktop drops the ones that need a session).
@@ -293,7 +293,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
       }
     >
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
-        <Face profile={who?.profile ?? LOPHN} size={60} />
+        <Face look={who?.avatar ?? LOPHN} size={60} />
         <Text variant="h1" weight="semibold" align="center" style={{ marginTop: 14 }}>
           {t("mobile.session.title.new", { agent: who?.name ?? "lophn" })}
         </Text>
@@ -307,7 +307,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
           </Pill>
           <Pill
             tall
-            lead={who === null ? undefined : <Face profile={who.profile} size={18} />}
+            lead={who === null ? undefined : <Face look={who.avatar} size={18} />}
             onPress={() => setSheet("agent")}
           >
             {who?.name ?? ""}
@@ -337,7 +337,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
         {listed.map((one) => (
           <Row
             key={one.agent}
-            lead={<Face profile={one.profile} size={30} />}
+            lead={<Face look={one.avatar} size={30} />}
             title={one.name}
             strong
             sub={

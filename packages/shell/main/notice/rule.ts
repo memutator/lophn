@@ -22,7 +22,7 @@ export type SessionWho = {
   session: string;
   /** agent의 이름과 얼굴(알림을 낼 때 읽은 값). */
   agent: string;
-  profile: AvatarFace;
+  avatar: AvatarFace;
   /** 그 Agent 탭의 session 이름. 아직 이름이 없으면 없다. */
   title?: string;
 };

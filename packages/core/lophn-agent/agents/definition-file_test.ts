@@ -3,29 +3,29 @@ import { test } from "node:test";
 import {
   AGENT_CHARACTER_COLORS,
   AGENT_CHARACTER_SHAPES,
-  type Profile,
+  type AgentAvatar,
 } from "../../../protocol/lophn-agent/agent-values.ts";
 import { LOPHN_HOME_ID } from "../../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 
 const AGENT = "agt_00000000000000000000000001";
 
-// serializer가 profile의 새 칸을 빠뜨리면 저장한 선택이 다음 읽기에서 사라진다.
+// serializer가 avatar의 새 칸을 빠뜨리면 저장한 선택이 다음 읽기에서 사라진다.
 test("정의 파일을 저장하고 다시 읽어도 character의 형태·색과 이미지 선택이 보존된다", () => {
   const target = { agent: AGENT } as const;
-  const profiles: Profile[] = AGENT_CHARACTER_SHAPES.flatMap((shape) =>
+  const avatars: AgentAvatar[] = AGENT_CHARACTER_SHAPES.flatMap((shape) =>
     AGENT_CHARACTER_COLORS.map((color) => ({
       kind: "character" as const,
       shape,
       color,
     })),
   );
-  profiles.push({ kind: "image", image: "avatar.png" });
-  for (const profile of profiles) {
+  avatars.push({ kind: "image", image: "avatar.png" });
+  for (const avatar of avatars) {
     const definition = {
       handle: "reviewer",
       name: "reviewer",
-      profile,
+      avatar,
       body: "Review changes.",
     };
     const saved = serializeAgentFile(definition, target);
@@ -144,7 +144,7 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
 });
 
 // lophn.md에 handle을 적으면 주소가 흔들린다. name은 사람이 바꿀 수 있고 바꾼 값만 file에 남는다.
-test("lophn은 handle·profile을 file에 적을 수 없고 name은 바꾼 값만 쓴다", () => {
+test("lophn은 handle·avatar를 file에 적을 수 없고 name은 바꾼 값만 쓴다", () => {
   const builtin = { agent: LOPHN_HOME_ID } as const;
   assert.ok(!parseAgentFile("---\nhandle: x\n---\n", builtin).ok);
   const empty = parseAgentFile("", builtin);

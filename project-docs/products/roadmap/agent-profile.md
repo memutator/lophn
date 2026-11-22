@@ -14,15 +14,14 @@
 
 ## 왜
 
-- 사람이 말하는 agent profile은 agent 정의 전체인데, 정의의 `profile` 칸은 avatar다.
 - 같은 Claude Code가 세 가지(터미널 TUI, 그 탭의 GUI, headless agent)로 따로 있고 화면마다 다른 것을 가리킨다.
 - harness runtime의 agent에는 model과 effort가 가지 않는다. `codex-high`처럼 model과 effort를 정한 worker를 정의로 만들 수 없다.
 - 설정 자리가 넷이고 runtime마다 조용히 안 먹는 칸이 있다.
 
 ## 지금 코드
 
-- **`profile`은 avatar다.** `{kind: "character", shape, color}`나 `{kind: "image", image}`이고 기본은 arch·sage다(`packages/protocol/lophn-agent/agent-profile.ts`).
-- **정의의 칸**(`packages/protocol/lophn-agent/agent-values.ts`): handle, name, workspace, profile, runtime, description, tools, skills, modality, model, skills_off, mcp_off, mcp_servers, apps, remote_apps, extensions, permissions, skip, 본문. 사람만 쓰는 칸은 mcp_servers, apps, remote_apps, extensions, permissions, skip이다. 정의 file은 `<data>/agents/<id>.md`다.
+- **`avatar`는 그림 칸이다.** `{kind: "character", shape, color}`나 `{kind: "image", image}`이고 기본은 arch·sage다(`packages/protocol/lophn-agent/agent-avatar.ts`). 옛 이름 `profile`은 0.23.126에서 바뀌었다(data step `agents.avatar`).
+- **정의의 칸**(`packages/protocol/lophn-agent/agent-values.ts`): handle, name, workspace, avatar, runtime, description, tools, skills, modality, model, skills_off, mcp_off, mcp_servers, apps, remote_apps, extensions, permissions, skip, 본문. 사람만 쓰는 칸은 mcp_servers, apps, remote_apps, extensions, permissions, skip이다. 정의 file은 `<data>/agents/<id>.md`다.
 - **runtime은 다섯이다.** `AGENT_RUNTIMES = ["lophn", "custom", "claude-code", "codex", "opencode"]`(`agent-values.ts:151-153`). harness 값은 `extensions.harness.enabled`가 켜졌을 때만 편집기에 나온다(`:163-167`).
 - **headless harness에 넘어가는 것은 넷이다.** `args({prompt, sessionId, forkFrom, deny})`(`packages/protocol/coding-agent/headless/types.ts`). model, effort, mode가 없어 그 CLI의 기본 설정으로 돈다.
 - **runtime마다 안 먹는 칸.** harness runtime은 model, skill, tool, MCP, memory를 쓰지 않는다. custom은 전역·workspace 지침과 memory, `skills_off`를 쓰지 않는다(`architecture/agent-definition.md`).
@@ -69,10 +68,6 @@ lophn은 handle 하나로 부르고 명함을 program이 계산한다. Paseo는 
 - 복제를 더한다.
 - 띄울 때 model과 effort를 덮을 수 있다(session 층은 이미 있다).
 
-### 이름
-
-- `profile` 칸을 `avatar`로 바꾼다. data step이 기존 정의 file을 옮긴다.
-
 ### 기계
 
 - 정의는 기계마다 따로다. 다른 기계의 agent는 그 기계·workspace의 목록과 명함을 읽어 고른다(`architecture/machine-a2a.md`).
@@ -81,7 +76,7 @@ lophn은 handle 하나로 부르고 명함을 program이 계산한다. Paseo는 
 
 1. agent 정의는 기계 사이에 무조건 맞추지 않는다. 환경과 지침이 기계마다 다르다. (사람, 2026-11-21)
 2. agent는 부를 수 있는 agent의 목록과 명함을 볼 수 있어야 한다. 어느 상황에서 누구를 부르는지는 지침만 정하고 program은 검사하지 않는다. (사람, 2026-11-21. `a2a-access.md`)
-3. `profile` 칸을 `avatar`로 바꾼다. (agent: browser profile, agent profile과 말이 겹친다)
+3. 정의의 그림 칸 이름은 `avatar`다(한 일: browser profile, agent profile과 말이 겹쳐 `profile`에서 바꿨다). (agent)
 4. 정의는 한 장 profile로 간다: 누구, 무엇으로 도나, 무엇을 보나, 어떻게 일하나. preset은 따로 두지 않고 지침이 빈 얇은 agent와 복제로 만든다. (agent: 개념이 하나이고, handle 하나로 부르는 것이 정한 것 2의 "목록, 명함, 부르는 길"과 맞는다. 신원과 preset을 나누면 부를 때 둘을 지정해야 한다)
 5. 명함에 "언제 쓰나" 칸을 두지 않는다. (agent: 정한 것 2. 명함에 두면 같은 것이 두 곳에 생긴다)
 6. harness runtime에는 model과 effort를 전달한다. mode(권한 mode, 계획 mode)는 그 harness의 자기 설정에 둔다. (agent: harness마다 이름과 뜻이 다르다)
@@ -95,7 +90,7 @@ lophn은 handle 하나로 부르고 명함을 program이 계산한다. Paseo는 
 
 | 단계 | 하는 일 |
 |---|---|
-| 1 | `avatar`로 이름 바꾸기, 카드 앞면, 복제 |
+| 1 | 카드 앞면, 복제(`avatar` 이름 바꾸기는 끝났다) |
 | 2 | harness runtime에 model과 effort 전달 |
 | 3 | 편집기를 네 묶음으로 다시 짜기, Coding agents 두 자리를 하나로 |
 

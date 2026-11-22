@@ -1,7 +1,6 @@
 // fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(lophn과 사람이 만든 agent 셋)와 층마다 정한
 // model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
 
-import type { BrowserProfile } from "../../../../protocol/shell/browser-profiles.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type {
   CatalogEntry,
@@ -10,6 +9,7 @@ import type {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { BrowserProfile } from "../../../../protocol/shell/browser-profiles.ts";
 import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
@@ -182,7 +182,7 @@ export const FAKE_AGENTS: readonly FakeAgent[] = [
       "Talks with you about lophn itself: your projects, apps and settings.",
     definition: {
       name: "lophn",
-      profile: { kind: "character", shape: "square", color: "coral" },
+      avatar: { kind: "character", shape: "square", color: "coral" },
       body: `Answer in short plain sentences.
 When a question is about one project, read that project's LOPHN.md first.`,
       mcp_off: [{ server_name: "calendar" }],
@@ -196,7 +196,7 @@ When a question is about one project, read that project's LOPHN.md first.`,
       handle: "eval-analyst",
       name: "Eval analyst",
       description: "Explains what changed in the eval loop and why it matters.",
-      profile: { kind: "image", image: "avatar.png" },
+      avatar: { kind: "image", image: "avatar.png" },
       browser_profile: PROFILE_WORK,
       model: {
         provider: ANTHROPIC,
@@ -254,7 +254,7 @@ Keep answers short. Name the scenario for every regression.`,
       name: "Experiment planner",
       description: "Plans the next experiments from the project documents.",
       workspace: { kind: "project", id: PROJECT_ID },
-      profile: { kind: "character", shape: "round", color: "blue" },
+      avatar: { kind: "character", shape: "round", color: "blue" },
       body: `# Experiment planner
 Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
@@ -271,7 +271,7 @@ change to try and how you will know it worked. Ask before you create files.`,
       name: "Budget reviewer",
       description: "Reads the month's expenses and flags what looks off.",
       workspace: { kind: "app", id: APP_ID },
-      profile: { kind: "character", shape: "round", color: "blue" },
+      avatar: { kind: "character", shape: "round", color: "blue" },
       body: `# Budget reviewer
 Read the expenses of the month and list the ones that look wrong.
 Never change an expense. Ask me first.`,
@@ -288,7 +288,7 @@ Never change an expense. Ask me first.`,
       runtime: "custom",
       description: "Reads the run queue and answers with what is stuck.",
       tools: ["file.read", "file.grep"],
-      profile: { kind: "character", shape: "capsule", color: "teal" },
+      avatar: { kind: "character", shape: "capsule", color: "teal" },
       body: `Read the queue file the caller names and list the runs that
 have not moved. Answer in one short list.`,
     },
@@ -302,7 +302,7 @@ have not moved. Answer in one short list.`,
       name: "Codex runner",
       runtime: "codex",
       description: "Runs coding tasks in Codex.",
-      profile: { kind: "character", shape: "square", color: "teal" },
+      avatar: { kind: "character", shape: "square", color: "teal" },
       body: "Do the coding task the caller names and answer with a short summary.",
     },
   },
@@ -315,7 +315,7 @@ have not moved. Answer in one short list.`,
       handle: "claude",
       runtime: "claude-code",
       description: "Runs Claude Code headless.",
-      profile: { kind: "character", shape: "square", color: "sage" },
+      avatar: { kind: "character", shape: "square", color: "sage" },
       body: "",
     },
   },

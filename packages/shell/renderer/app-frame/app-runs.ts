@@ -1,8 +1,9 @@
 // 앱 workspace의 Logs 목록 줄. run 기록(`runs/list`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
 // 이 앱 workspace에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 workspace의 run은 그 workspace 몫이다.
 // 목록이 열려 있는 동안 runs·jobs 변경으로 다시 읽는다.
-import { useEffect, useMemo, useState } from "react";
+
 import { t } from "@lophn/i18n";
+import { useEffect, useMemo, useState } from "react";
 import type { z } from "zod";
 
 import { jobList } from "../../../protocol/jobs/jobs.ts";
@@ -14,15 +15,15 @@ import {
   useSessions,
 } from "../desktop/connection/events/hooks.tsx";
 import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
+import type { AvatarLook } from "../parts/avatar/avatar.tsx";
 import type { PanelSession } from "../workspace/sidebar/panel-types.ts";
 import type { RunRecordView, RunRow } from "../workspace/sidebar/run-list.tsx";
-import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
 
 /** run 줄에 이름과 avatar를 대는 agent. */
 interface AppSpaceAgent {
   readonly assignment: string;
   readonly name: string;
-  readonly profile: AvatarProfile;
+  readonly avatar: AvatarLook;
 }
 
 type RawRun = z.output<typeof runList.output>["runs"][number];
@@ -142,7 +143,7 @@ export function useAppRuns(
                   id: record.id,
                   name: record.job?.title ?? record.target.tool,
                   via: record.job === null ? null : record.target.tool,
-                  profile: null,
+                  avatar: null,
                   state: record.state,
                   at,
                   session: null,
@@ -160,7 +161,7 @@ export function useAppRuns(
             id: record.id,
             name: record.job?.title ?? agent.name,
             via: record.job === null ? null : agent.name,
-            profile: agent.profile,
+            avatar: agent.avatar,
             state: record.state,
             at,
             session:

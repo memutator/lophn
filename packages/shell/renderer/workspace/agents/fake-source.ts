@@ -5,12 +5,7 @@
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
-import {
-  isLophn,
-  lophnIdOf,
-  type Workspace,
-  workspaceOfLophn,
-} from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { McpOwnerWorkspace } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import {
   type CatalogEntry,
   effortAxisOf,
@@ -18,6 +13,12 @@ import {
   type UserModelItem,
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
+import {
+  isLophn,
+  lophnIdOf,
+  type Workspace,
+  workspaceOfLophn,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { ReadResult } from "../source.ts";
 import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import { appsFor } from "./editor/grants-model.ts";
@@ -52,20 +53,20 @@ import {
   PROJECT_SKILLS,
 } from "./fake-data.ts";
 import type {
-  AgentDetail,
   AgentCardView,
+  AgentDetail,
   AgentDraft,
   AgentListRow,
   AgentsOverview,
   AgentsSource,
   GrantsView,
-  ShownModel,
   ModelsView,
-  WorkspaceView,
   SaveInput,
   SaveResult,
+  ShownModel,
   UserModelKey,
   UserModels,
+  WorkspaceView,
 } from "./source.ts";
 import type {
   InstructionsFile,
@@ -74,17 +75,15 @@ import type {
   SkillRow,
   WorkspaceInstructionsView,
 } from "./views.ts";
-import type { McpOwnerWorkspace } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 
 export {
   ANTHROPIC,
   APP_ID,
   APP_NAME,
-  BUDGET_REVIEWER_ID,
   BROKEN_AGENT_ID,
+  BUDGET_REVIEWER_ID,
   CODEX_RUNNER_ID,
   EVAL_ANALYST_ID,
-  QUEUE_WATCHER_ID,
   EXPERIMENT_PLANNER_ID,
   FAKE_AGENTS,
   FAKE_GRANTS,
@@ -96,6 +95,7 @@ export {
   PROJECT_ID,
   PROJECT_LOPHN_ID,
   PROJECT_NAME,
+  QUEUE_WATCHER_ID,
 } from "./fake-data.ts";
 
 type FakeCall =
@@ -162,12 +162,12 @@ interface Stored {
   readonly hash: string;
 }
 
-const DEFAULT_PROFILE = {
+const DEFAULT_AVATAR = {
   kind: "character",
   shape: "arch",
   color: "sage",
 } as const;
-const BUILT_IN_PROFILE = {
+const BUILT_IN_AVATAR = {
   lophn: { kind: "character", shape: "square", color: "coral" },
 } as const;
 
@@ -484,9 +484,9 @@ export function createFakeAgentsSource(
     };
   };
 
-  const profileOf = (key: string, item: Stored) =>
-    item.definition.profile ??
-    (isLophn(key) ? BUILT_IN_PROFILE.lophn : DEFAULT_PROFILE);
+  const avatarOf = (key: string, item: Stored) =>
+    item.definition.avatar ??
+    (isLophn(key) ? BUILT_IN_AVATAR.lophn : DEFAULT_AVATAR);
 
   // 그 자리의 lophn(첫 줄), 전역 agent, 그 자리 범위 agent만 보인다. home("home")은 Home lophn과 전역만 남는다.
   const visible = (workspace: string) => {
@@ -593,7 +593,7 @@ export function createFakeAgentsSource(
         handle: "broken-notes",
         workspace: null,
         name: item.name,
-        profile: DEFAULT_PROFILE,
+        avatar: DEFAULT_AVATAR,
         model: null,
         issues: BROKEN_ISSUES,
         counts: { skills: null, mcp: null },
@@ -621,7 +621,7 @@ export function createFakeAgentsSource(
       handle: isLophn(key) ? "lophn" : (item.definition.handle ?? key),
       workspace: scopeOf(key, item),
       name: item.name,
-      profile: profileOf(key, item),
+      avatar: avatarOf(key, item),
       ...(definition.description === undefined
         ? {}
         : { description: definition.description }),
@@ -686,7 +686,7 @@ export function createFakeAgentsSource(
       hash: item.hash,
       effective: {
         name: { value: item.name, source: "agent" },
-        profile: { value: row.profile, source: "agent" },
+        avatar: { value: row.avatar, source: "agent" },
       },
       inheritedModel: inheritedModel(workspace),
       issues: key === BROKEN_AGENT_ID ? BROKEN_ISSUES : [],
@@ -928,7 +928,7 @@ export function createFakeAgentsSource(
           hash: null,
           effective: {
             name: { value: "", source: "global" },
-            profile: { value: DEFAULT_PROFILE, source: "global" },
+            avatar: { value: DEFAULT_AVATAR, source: "global" },
           },
           inheritedModel: inheritedModel(workspace),
           issues: [],

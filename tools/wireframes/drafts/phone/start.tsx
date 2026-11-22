@@ -42,7 +42,7 @@ function Welcome({ over }: { over?: ReactNode }) {
       <div className={s.center}>
         <span className={s.box} style={{ width: 92, height: 92 }}>
           <AgentCharacter
-            profile={{ kind: "character", shape: "square", color: "coral" }}
+            look={{ kind: "character", shape: "square", color: "coral" }}
           />
         </span>
         <h1 className={s.hero}>lophn on your phone</h1>

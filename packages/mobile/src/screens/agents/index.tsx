@@ -50,7 +50,7 @@ function ListRow({
 }) {
   return (
     <Row
-      lead={<Face profile={agent.face} size={36} />}
+      lead={<Face look={agent.face} size={36} />}
       title={
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text
@@ -215,7 +215,7 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
                 paddingHorizontal: 20,
               }}
             >
-              <Face profile={agent.face} size={64} />
+              <Face look={agent.face} size={64} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text variant="heading" weight="semibold">
                   {agent.name}
@@ -257,7 +257,7 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
             {recent.map((one) => (
               <Row
                 key={one.target.session}
-                lead={<Face profile={agent.face} />}
+                lead={<Face look={agent.face} />}
                 title={one.title ?? t("conversation.label.session-untitled")}
                 sub={t("mobile.ops.agent.session-line", {
                   workspace:

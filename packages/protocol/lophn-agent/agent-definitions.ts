@@ -1,26 +1,26 @@
 import { z } from "zod";
+import { withReadCommon } from "../base/envelope.ts";
+import { idSchema } from "../base/ids.ts";
 import {
   defineCommand,
   defineFile,
   defineRead,
   defineUpload,
 } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
-import { withReadCommon } from "../base/envelope.ts";
 import {
-  AGENT_PROFILE_IMAGE_MAX_BYTES,
+  AGENT_AVATAR_IMAGE_MAX_BYTES,
+  agentAvatarImageTypeSchema,
   agentCountsSchema,
   agentDefinitionOutputSchema,
   agentDefinitionSchema,
   agentHandleSchema,
   agentNameSchema,
-  agentWorkspaceOutputSchema,
-  agentProfileImageTypeSchema,
   agentRuntimeSchema,
+  agentWorkspaceOutputSchema,
+  avatarImageOutputSchema,
+  avatarOutputSchema,
   modalitySchema,
-  profileImageOutputSchema,
-  profileOutputSchema,
 } from "./agent-values.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
 import { nonnegativeDecimalSchema } from "./resolved-model.ts";
@@ -82,7 +82,7 @@ export type AgentDefinitionIssue = z.infer<typeof agentDefinitionIssueSchema>;
 // ---------- 전역 agent 정의 ----------
 
 // 정의 file 이름은 id이고 주소는 handle(만들 때 정해 바뀌지 않는다)이다. 정의는 전역이거나 `workspace` 하나에 범위가 있다.
-// agent 자격은 목록, 읽기, 만들기, 고치기만 한다. lophn의 profile·handle을 바꾸거나 lophn을 지우면 `forbidden`이다.
+// agent 자격은 목록, 읽기, 만들기, 고치기만 한다. lophn의 avatar·handle을 바꾸거나 lophn을 지우면 `forbidden`이다.
 // 할당(`apps`, `extensions`, `permissions`), `mcp_servers`, `browser_profile`, `skip`은 사람만 정하고 agent가 주면 core가 거절한다.
 
 export const agentRowSchema = z.object({
@@ -91,7 +91,7 @@ export const agentRowSchema = z.object({
   name: agentNameSchema,
   // 범위가 없으면 전역이다.
   workspace: agentWorkspaceOutputSchema.nullable(),
-  profile: profileOutputSchema,
+  avatar: avatarOutputSchema,
   description: z.string().optional(),
   model: z
     .object({
@@ -135,7 +135,7 @@ export const agentRead = defineRead({
       hash: sha256Schema.nullable(),
       effective: z.object({
         name: agentSourced(agentNameSchema),
-        profile: agentSourced(profileOutputSchema),
+        avatar: agentSourced(avatarOutputSchema),
         model: agentSourced(modelChoiceOutputSchema).nullable(),
       }),
       issues: z.array(agentDefinitionIssueSchema),
@@ -256,18 +256,18 @@ export const agentDelete = defineCommand({
   errors: [...writeErrors],
 });
 
-// 이미지 바이트는 body이고 input은 header로 온다. 저장 때 정의의 profile로 연결한다(이 route는 event가 없다).
-export const agentProfileImageUpload = defineUpload({
-  resource: "profile-images",
+// 이미지 바이트는 body이고 input은 header로 온다. 저장 때 정의의 avatar로 연결한다(이 route는 event가 없다).
+export const agentAvatarImageUpload = defineUpload({
+  resource: "avatar-images",
   method: "upload",
-  name: "UploadProfileImage",
+  name: "UploadAvatarImage",
   changes: [{ name: "agents", id: (input) => input.agent }],
   input: z.strictObject({
     agent: agentIdSchema,
-    content_type: agentProfileImageTypeSchema,
-    bytes: z.number().int().min(1).max(AGENT_PROFILE_IMAGE_MAX_BYTES),
+    content_type: agentAvatarImageTypeSchema,
+    bytes: z.number().int().min(1).max(AGENT_AVATAR_IMAGE_MAX_BYTES),
   }),
-  output: z.object({ profile: profileImageOutputSchema }),
+  output: z.object({ avatar: avatarImageOutputSchema }),
   actors: ["user"],
   // 이미지 파일을 쓰지 못하면 unavailable이다. 옛 확장자의 정리는 정의 저장이 맡는다.
   errors: [
@@ -277,13 +277,13 @@ export const agentProfileImageUpload = defineUpload({
     "not_found",
     "unavailable",
   ],
-  max_bytes: AGENT_PROFILE_IMAGE_MAX_BYTES,
+  max_bytes: AGENT_AVATAR_IMAGE_MAX_BYTES,
 });
 
-export const agentProfileImageRead = defineFile({
-  resource: "profile-images",
+export const agentAvatarImageRead = defineFile({
+  resource: "avatar-images",
   method: "read",
-  name: "ReadProfileImage",
+  name: "ReadAvatarImage",
   input: z.strictObject({ agent: agentIdSchema }),
   contentType: "application/octet-stream",
   actors: readActors,
@@ -298,6 +298,6 @@ export const AGENT_ROUTES = [
   agentCreate,
   agentChange,
   agentDelete,
-  agentProfileImageUpload,
-  agentProfileImageRead,
+  agentAvatarImageUpload,
+  agentAvatarImageRead,
 ] as const;

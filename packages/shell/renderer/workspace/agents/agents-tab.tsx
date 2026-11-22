@@ -3,10 +3,10 @@
 // 사람의 coding agent(내장 coding agent) 카드, 같이 쓰는 지침(LOPHN.md, 앱은 AGENTS.md), workspace memory, workspace 층 model 하나, skill,
 // MCP server와 맨 아래 "Agent definitions are stored in lophn, not in your project folder." 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 
+import { t } from "@lophn/i18n";
 import { Card } from "@lophn/ui/layout";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { t } from "@lophn/i18n";
 import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { MEMORY_MAX_BYTES } from "../../../../protocol/lophn-agent/tool-lists.ts";
@@ -15,12 +15,12 @@ import {
   isLophn,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons, shellIcons } from "../../icons/mod.ts";
-import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import { Avatar, type AvatarLook } from "../../parts/avatar/avatar.tsx";
 import { scopeLabel } from "./agent-card.tsx";
 import { CardGlance } from "./agent-glance.tsx";
 import { kindOfWorkspace } from "./agent-key.ts";
-import { codingFaceOf } from "./coding-face.ts";
 import styles from "./agents-tab.module.css";
+import { codingFaceOf } from "./coding-face.ts";
 import {
   InstructionsEditor,
   type InstructionsPort,
@@ -60,12 +60,12 @@ interface AgentsTabProps {
 /** 미리보기로 보이는 지침·memory 줄 수. */
 const PREVIEW_LINES = 3;
 
-function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
+function avatarLook(row: AgentListRow, imageSrc: ImageSrc): AvatarLook {
   return (
     codingFaceOf(row.assignment) ??
-    (row.profile.kind === "character"
-      ? row.profile
-      : { kind: "image", src: imageSrc(row.assignment, row.profile.image) })
+    (row.avatar.kind === "character"
+      ? row.avatar
+      : { kind: "image", src: imageSrc(row.assignment, row.avatar.image) })
   );
 }
 
@@ -96,7 +96,7 @@ function AgentCardView({
       <Card>
         <div className={styles.cardBody}>
           <div className={styles.cardHead}>
-            <Avatar profile={avatarProfile(row, imageSrc)} size="md" />
+            <Avatar look={avatarLook(row, imageSrc)} size="md" />
             <div className={styles.who}>
               <h3 className={styles.name} data-agent-name="">
                 {row.name}

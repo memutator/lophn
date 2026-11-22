@@ -16,7 +16,7 @@ import {
   type Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
-import type { AgentProfile } from "../../../shell/renderer/conversation/agent-tab-source.ts";
+import type { AgentAvatarLook } from "../../../shell/renderer/conversation/agent-tab-source.ts";
 import {
   type Loaded,
   readRoute,
@@ -151,7 +151,7 @@ export type AgentScope =
 export interface AgentItem {
   readonly id: AgentId;
   readonly name: string;
-  readonly face: Who["profile"];
+  readonly face: Who["avatar"];
   /** The Home lophn, which every computer has. */
   readonly builtIn: boolean;
   /** Claude Code, Codex: the person's own coding agents, not lophn's. */
@@ -209,8 +209,8 @@ export function useAgents(): {
         name: row.name,
         face:
           codingFaceOf(row.agent) ??
-          (row.profile.kind === "character"
-            ? row.profile
+          (row.avatar.kind === "character"
+            ? row.avatar
             : { kind: "initial", text: row.name.slice(0, 1) }),
         builtIn: row.agent === LOPHN_HOME_ID,
         coding: isCodingBuiltin(row.agent),
@@ -304,7 +304,7 @@ export function useAgentSessions(): ReadonlyMap<
 export interface AgentChoice {
   readonly agent: AgentId;
   readonly name: string;
-  readonly profile: AgentProfile;
+  readonly avatar: AgentAvatarLook;
   /** Bound to one project or app; false when it works in every workspace. */
   readonly scoped: boolean;
 }
@@ -338,9 +338,9 @@ export function useAgentChoices(
       .map((row) => ({
         agent: row.agent,
         name: row.name,
-        profile:
-          row.profile.kind === "character"
-            ? row.profile
+        avatar:
+          row.avatar.kind === "character"
+            ? row.avatar
             : { kind: "initial" as const, text: row.name.slice(0, 1) },
         scoped: row.workspace !== null,
       }))

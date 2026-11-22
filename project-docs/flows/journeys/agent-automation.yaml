@@ -90,15 +90,15 @@ journeys:
     gaps:
       - "C25의 할당 제안 자체(이유와 함께 사람에게 제안하는 글)에 대응하는 flow가 없다. ask 질문 글로만 간다"
 
-  - id: agent-profile-image-change
+  - id: agent-avatar-image-change
     title: "사람이 agent의 프로필 이미지를 바꾼다"
     actor: person
     goal: "사람이 이미지를 올리고 저장해 agent 프로필로 잇고, 화면이 그 이미지를 받아 보인다"
     refs: [H11]
     steps:
-      - {do: "agent 설정에서 이미지를 고른다. 올린 이미지가 profile로 보인다", screen: agent-settings-image-uploaded, flow: agent-profile-image-upload:stored}
-      - {do: "저장해서 정의의 profile로 잇는다", screen: agent-settings-image-uploaded, flow: agent-change:saved}
-      - {do: "화면이 이미지를 받아 보인다", flow: agent-profile-image-read:ok}
+      - {do: "agent 설정에서 이미지를 고른다. 올린 이미지가 avatar로 보인다", screen: agent-settings-image-uploaded, flow: agent-avatar-image-upload:stored}
+      - {do: "저장해서 정의의 avatar로 잇는다", screen: agent-settings-image-uploaded, flow: agent-change:saved}
+      - {do: "화면이 이미지를 받아 보인다", flow: agent-avatar-image-read:ok}
 
   - id: agent-delete-by-person
     title: "사람이 사람이 만든 agent를 지운다"
@@ -123,10 +123,10 @@ journeys:
   - id: agent-lophn-edit
     title: "사람이 lophn의 이름을 고치고 지울 수 없음을 본다"
     actor: person
-    goal: "lophn은 handle과 profile이 잠기고 Delete가 없다. 이름과 나머지 칸만 고쳐 저장한다"
+    goal: "lophn은 handle과 avatar가 잠기고 Delete가 없다. 이름과 나머지 칸만 고쳐 저장한다"
     refs: [H11]
     steps:
-      - {do: "project의 lophn 설정을 연다. handle과 profile이 잠기고 Delete가 없다", screen: new-agent-editor-lophn, flow: agent-definition-read:ok}
+      - {do: "project의 lophn 설정을 연다. handle과 avatar가 잠기고 Delete가 없다", screen: new-agent-editor-lophn, flow: agent-definition-read:ok}
       - {do: "이름을 고쳐 저장한다", screen: new-agent-editor-lophn, flow: agent-change:saved}
       - {do: "Home의 lophn도 같다. 범위 칸이 Home이고 Memory 칸이 없다", screen: agent-settings-home-lophn, flow: agent-definition-read:ok}
 
@@ -180,13 +180,13 @@ journeys:
       - {do: "그 줄을 열면 틀린 칸의 이유가 보인다", screen: agent-settings-broken, flow: agent-definition-read:ok}
       - {do: "고쳐 저장한다", screen: agent-settings-broken, flow: agent-change:saved}
 
-  - id: agent-profile-image-rejected
+  - id: agent-avatar-image-rejected
     title: "틀린 이미지는 올려지지 않고 toast가 뜬다"
     actor: person
-    goal: "형식이나 크기가 틀린 이미지를 올리면 거절되고 profile은 그대로다"
+    goal: "형식이나 크기가 틀린 이미지를 올리면 거절되고 avatar는 그대로다"
     refs: [H11]
     steps:
-      - {do: "틀린 이미지를 고른다", screen: agent-settings-image-upload-failed, flow: agent-profile-image-upload:invalid-image}
+      - {do: "틀린 이미지를 고른다", screen: agent-settings-image-upload-failed, flow: agent-avatar-image-upload:invalid-image}
 
   # ---- 대화 화면의 조작 (명령, model, 상태, 읽기) ----
 

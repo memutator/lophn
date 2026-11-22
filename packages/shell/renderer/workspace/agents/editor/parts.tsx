@@ -1,20 +1,20 @@
-// agent 설정 화면들이 같이 쓰는 조각: 층이 붙은 skill·MCP 목록, profile 칸, 지침 블록, 보호 입력 안내.
+// agent 설정 화면들이 같이 쓰는 조각: 층이 붙은 skill·MCP 목록, avatar 칸, 지침 블록, 보호 입력 안내.
 // 토글은 줄 오른쪽 끝 고정 열에 있고, 이름은 줄 왼쪽에 따로 있어서 Switch의 라벨은 눈에는 숨긴다.
 
-import { Field, Switch, Textarea } from "@lophn/ui/input";
-import { Button } from "@lophn/ui/primitives";
 import type { MessageKey } from "@lophn/i18n";
 import { t } from "@lophn/i18n";
+import { Field, Switch, Textarea } from "@lophn/ui/input";
+import { Button } from "@lophn/ui/primitives";
 import { type ReactNode, useRef, useState } from "react";
 import {
   AGENT_CHARACTER_COLORS,
   AGENT_CHARACTER_SHAPES,
-  type CharacterProfile,
+  type AgentAvatar,
+  type CharacterAvatar,
   DEFAULT_AGENT_CHARACTER,
-  type Profile,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
 import { actionIcons } from "../../../icons/mod.ts";
-import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
+import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
 import type {
   McpLayer,
   McpRow,
@@ -254,7 +254,7 @@ export function McpList({
   );
 }
 
-const SHAPE_LABEL: Record<CharacterProfile["shape"], MessageKey> = {
+const SHAPE_LABEL: Record<CharacterAvatar["shape"], MessageKey> = {
   square: "agents.label.character-square",
   capsule: "agents.label.character-capsule",
   wide: "agents.label.character-wide",
@@ -263,7 +263,7 @@ const SHAPE_LABEL: Record<CharacterProfile["shape"], MessageKey> = {
   arch: "agents.label.character-arch",
 };
 
-const COLOR_LABEL: Record<CharacterProfile["color"], MessageKey> = {
+const COLOR_LABEL: Record<CharacterAvatar["color"], MessageKey> = {
   coral: "agents.label.character-coral",
   periwinkle: "agents.label.character-periwinkle",
   yellow: "agents.label.character-yellow",
@@ -274,44 +274,44 @@ const COLOR_LABEL: Record<CharacterProfile["color"], MessageKey> = {
   teal: "agents.label.character-teal",
 };
 
-interface ProfileFieldProps {
-  readonly value: Profile;
+interface AvatarFieldProps {
+  readonly value: AgentAvatar;
   /** 올린 이미지 파일 이름을 화면이 읽을 수 있는 주소로 푼다. */
   readonly imageSrc: (image: string) => string;
   /** 새 agent는 저장하기 전에는 이미지를 올릴 수 없다. */
   readonly canUpload: boolean;
-  readonly onChange: (profile: Profile) => void;
+  readonly onChange: (avatar: AgentAvatar) => void;
   readonly onUpload: (file: File) => void;
 }
 
-export function ProfileField({
+export function AvatarField({
   value,
   imageSrc,
   canUpload,
   onChange,
   onUpload,
-}: ProfileFieldProps) {
+}: AvatarFieldProps) {
   const [grid, setGrid] = useState(true);
   const file = useRef<HTMLInputElement>(null);
   const character =
     value.kind === "character" ? value : DEFAULT_AGENT_CHARACTER;
-  const shown: AvatarProfile =
+  const shown: AvatarLook =
     value.kind === "character"
       ? value
       : { kind: "image", src: imageSrc(value.image) };
   return (
-    <fieldset className={styles.group} data-field="profile">
+    <fieldset className={styles.group} data-field="avatar">
       <legend className={styles.legend}>
-        {t("project-workspace.heading.agent-editor-profile")}
+        {t("project-workspace.heading.agent-editor-avatar")}
       </legend>
-      <div className={styles.profileRow}>
+      <div className={styles.avatarRow}>
         <Avatar
-          profile={shown}
+          look={shown}
           size="lg"
           label={t("agents.label.avatar-preview")}
         />
-        <div className={styles.profileTools}>
-          <div className={styles.profileButtons}>
+        <div className={styles.avatarTools}>
+          <div className={styles.avatarButtons}>
             <Button
               size="sm"
               icon={actionIcons.edit}
@@ -375,7 +375,7 @@ export function ProfileField({
                       }
                       onClick={() => onChange({ ...character, shape })}
                     >
-                      <Avatar profile={{ ...character, shape }} size="lg" />
+                      <Avatar look={{ ...character, shape }} size="lg" />
                     </button>
                   ))}
                 </div>
@@ -401,7 +401,7 @@ export function ProfileField({
                       }
                       onClick={() => onChange({ ...character, color })}
                     >
-                      <Avatar profile={{ ...character, color }} size="lg" />
+                      <Avatar look={{ ...character, color }} size="lg" />
                     </button>
                   ))}
                 </div>
@@ -410,7 +410,7 @@ export function ProfileField({
           )}
           <p className={styles.note}>
             {canUpload
-              ? t("agents.notice.profile-help")
+              ? t("agents.notice.avatar-help")
               : t("project-workspace.notice.agent-editor-save-first")}
           </p>
         </div>

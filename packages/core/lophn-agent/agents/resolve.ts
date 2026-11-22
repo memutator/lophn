@@ -7,6 +7,7 @@ import {
   sha256Hex,
 } from "../../../base/mod.ts";
 import {
+  type AgentAvatar,
   type AgentDefinition,
   type AgentDefinitionIssue,
   type AgentId,
@@ -18,18 +19,17 @@ import {
   type McpTool,
   type ModelChoice,
   type Workspace,
-  type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { skillReceived } from "../extensions/skills.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
 
-export const LOPHN_PROFILE: Profile = {
+export const LOPHN_AVATAR: AgentAvatar = {
   kind: "character",
   shape: "square",
   color: "coral",
 };
 
-export const AGENT_DEFAULT_PROFILE: Profile = {
+export const AGENT_DEFAULT_AVATAR: AgentAvatar = {
   kind: "character",
   shape: "arch",
   color: "sage",
@@ -61,7 +61,7 @@ type ResolveInput = {
 
 const RESOLVED_FIELDS = [
   "name",
-  "profile",
+  "avatar",
   "agent_instructions",
   "model",
   "runtime",
@@ -77,7 +77,7 @@ export type ResolvedAgent = {
   workspace: Workspace | null;
   called_from: Workspace | null;
   name: string;
-  profile: Profile;
+  avatar: AgentAvatar;
   agent_instructions: string;
   model: ModelChoice;
   runtime: AgentRuntime;
@@ -117,9 +117,9 @@ export async function resolveAgent(
 
   const body = definition?.body ?? "";
   const lophn = isLophn(agent);
-  const profile = lophn
-    ? LOPHN_PROFILE
-    : (definition?.profile ?? AGENT_DEFAULT_PROFILE);
+  const avatar = lophn
+    ? LOPHN_AVATAR
+    : (definition?.avatar ?? AGENT_DEFAULT_AVATAR);
   const skillsOff = definition?.skills_off ?? [];
   const mcpOff = definition?.mcp_off ?? [];
   const runtime: AgentRuntime = definition?.runtime ?? "lophn";
@@ -165,7 +165,7 @@ export async function resolveAgent(
     workspace: copy(workspace),
     called_from: copy(input.called_from),
     name: definition?.name ?? LOPHN_AGENT_NAME,
-    profile: copy(profile),
+    avatar: copy(avatar),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),
     runtime,
@@ -178,7 +178,7 @@ export async function resolveAgent(
         lophn && (definition?.name ?? LOPHN_AGENT_NAME) === LOPHN_AGENT_NAME
           ? "global"
           : "agent",
-      profile: lophn || definition?.profile === undefined ? "global" : "agent",
+      avatar: lophn || definition?.avatar === undefined ? "global" : "agent",
       agent_instructions: body.length > 0 ? "agent" : "global",
       model: chosen[1],
       runtime: definition?.runtime === undefined ? "global" : "agent",

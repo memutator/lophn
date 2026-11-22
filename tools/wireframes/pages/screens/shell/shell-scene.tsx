@@ -1,10 +1,12 @@
 // shell 틀을 fake desk 상태로 그린다. 진짜 연결은 project 화면 task가 하고, 여기는 틀이 callback에 맞게 움직이는지 보이려고
 // 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다. 사람이 session에 넘긴 browser
 // 탭(`handed`)은 주인만 이 장면의 state로 바꾼다(Hand to로 다른 session, Take back으로 사람).
-import { type ReactNode, useEffect, useRef, useState } from "react";
+
 import { Icon } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { matchKey } from "../../../../../packages/protocol/shell/keybindings.ts";
+import { AgentControlBar } from "../../../../../packages/shell/renderer/browser/browser-chrome.tsx";
 import { MachinesProvider } from "../../../../../packages/shell/renderer/desktop/machines/context.tsx";
 import { OnlyHere } from "../../../../../packages/shell/renderer/desktop/machines/only-here.tsx";
 import {
@@ -15,12 +17,11 @@ import {
   browserIcons,
   shellIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
-import { AgentControlBar } from "../../../../../packages/shell/renderer/browser/browser-chrome.tsx";
-import { useCardHead } from "../../../../../packages/shell/renderer/parts/card-head/card-head.tsx";
 import {
   type OwnerLookup,
   OwnerProvider,
 } from "../../../../../packages/shell/renderer/parts/agent-session/owner.tsx";
+import { useCardHead } from "../../../../../packages/shell/renderer/parts/card-head/card-head.tsx";
 import {
   ContentCard,
   type TabAction,
@@ -29,24 +30,6 @@ import {
   DeskCloseDialog,
   type DeskCloseSummary,
 } from "../../../../../packages/shell/renderer/shell/desk-close-dialog.tsx";
-import { DeskSwitcher } from "../../../../../packages/shell/renderer/shell/desk-switcher.tsx";
-import { FloatLayer } from "../../../../../packages/shell/renderer/shell/float-layer.tsx";
-import {
-  TabContextMenu,
-  type TabMenuState,
-} from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
-import type { HandTarget } from "../../../../../packages/shell/renderer/workspace/hand.ts";
-import { neighborLeaf } from "../../../../../packages/shell/renderer/shell/group-geometry.ts";
-import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
-import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
-import { QuickLaunchRow } from "../../../../../packages/shell/renderer/shell/quick-launch.tsx";
-import { Taskbar } from "../../../../../packages/shell/renderer/shell/taskbar/taskbar.tsx";
-import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
-import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
-import {
-  TabsCloseDialog,
-  type TabsCloseRow,
-} from "../../../../../packages/shell/renderer/shell/tabs-close-dialog.tsx";
 import {
   applyTabDrop,
   closeFloat,
@@ -57,8 +40,8 @@ import {
   deskEntries,
   deskTabs,
   dirsOf,
-  emptyDesk,
   dockFloat,
+  emptyDesk,
   floatTab,
   groupOf,
   leavesOf,
@@ -75,11 +58,39 @@ import {
   setRatio,
   splitPartner,
   splitTab,
-  tabDropState,
   type TabItem,
+  tabDropState,
   ungroup,
   ungroupTab,
 } from "../../../../../packages/shell/renderer/shell/desk-model.ts";
+import { DeskSwitcher } from "../../../../../packages/shell/renderer/shell/desk-switcher.tsx";
+import { FloatLayer } from "../../../../../packages/shell/renderer/shell/float-layer.tsx";
+import { neighborLeaf } from "../../../../../packages/shell/renderer/shell/group-geometry.ts";
+import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
+import { QuickLaunchRow } from "../../../../../packages/shell/renderer/shell/quick-launch.tsx";
+import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
+import {
+  TabContextMenu,
+  type TabMenuState,
+} from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
+import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
+import {
+  TabsCloseDialog,
+  type TabsCloseRow,
+} from "../../../../../packages/shell/renderer/shell/tabs-close-dialog.tsx";
+import { Taskbar } from "../../../../../packages/shell/renderer/shell/taskbar/taskbar.tsx";
+import type { HandTarget } from "../../../../../packages/shell/renderer/workspace/hand.ts";
+import {
+  click,
+  contextMenu,
+  dragPointer,
+  find,
+  press,
+  type Spot,
+  useDrive,
+  wait,
+} from "../../../mock/drive.ts";
 import {
   cardPane,
   FLOAT_RECTS,
@@ -104,16 +115,6 @@ import {
   TAB_MARKS,
 } from "../../../mock/tab-owners.ts";
 import { PageLeftSidebar, pageQuick } from "../project-window.tsx";
-import {
-  click,
-  contextMenu,
-  dragPointer,
-  find,
-  press,
-  type Spot,
-  useDrive,
-  wait,
-} from "../../../mock/drive.ts";
 
 // 사람이 쓰던 browser 탭(Stripe의 Billing)을 Researcher에게 넘겼다. 탭 줄 끝에 고른 채 선다.
 const HANDED_MOCK: MockTab = {
@@ -136,7 +137,7 @@ const handOwners: OwnerLookup = (session) =>
         name: "Writer",
         face: {
           kind: "lophn",
-          profile: { kind: "character", shape: "square", color: "coral" },
+          avatar: { kind: "character", shape: "square", color: "coral" },
         },
       }
     : undefined;

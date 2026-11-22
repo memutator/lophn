@@ -6,34 +6,33 @@
 // 칸은 그 기계 안의 workspace다.
 
 import { useEffect, useRef } from "react";
-
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
+import { newSessionKey } from "../../conversation/agent-view-model.ts";
 import { desktopParts } from "../../conversation/desktop-parts-impl.tsx";
 import type { Draft } from "../../conversation/drafts.ts";
 import { useReportVisible } from "../../conversation/report-visible.ts";
-import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { useEventClient } from "../../desktop/connection/events/hooks.tsx";
+import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { conversationIcons } from "../../icons/mod.ts";
-import { newId } from "../../prefixed-id.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
-import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
-import {
-  agentOf,
-  workspaceOf,
-  sessionOf,
-  sourceWorkspaceOf,
-} from "../agent/tab-fields.ts";
-import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
-import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
-import { newSessionKey } from "../../conversation/agent-view-model.ts";
-import type { ProjectCopy } from "../agent/machine-copies.ts";
+import { newId } from "../../prefixed-id.ts";
 import type { Desk, WorkspaceRef } from "../../shell/desk-model.ts";
 import { whereInDesk } from "../../shell/desk-model.ts";
+import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
+import type { ProjectCopy } from "../agent/machine-copies.ts";
+import {
+  agentOf,
+  sessionOf,
+  sourceWorkspaceOf,
+  workspaceOf,
+} from "../agent/tab-fields.ts";
 import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
-import { openPage } from "./page-view.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
+import { openPage } from "./page-view.tsx";
 
 // 탭 fields.workspace와 layout의 Home 표식. project id와 겹치지 않는다.
 const HOME = "home";
@@ -281,13 +280,12 @@ export const agentKind: TabKindDef = {
   kind: "agent",
   labelKey: "project-workspace.label.kind-agent",
   icon: conversationIcons.dock,
-  // 그 agent의 profile 아이콘. 목록에서 찾지 못하면 종류 아이콘이다.
+  // 그 agent의 avatar 아이콘. 목록에서 찾지 못하면 종류 아이콘이다.
   iconOf(tab, host) {
     const agent = agentOf(tab);
-    const profile =
-      agent === null ? undefined : host.agentView?.profileOf(agent);
-    return profile === undefined ? null : (
-      <AgentFaceIcon face={{ kind: "lophn", profile }} />
+    const avatar = agent === null ? undefined : host.agentView?.avatarOf(agent);
+    return avatar === undefined ? null : (
+      <AgentFaceIcon face={{ kind: "lophn", avatar }} />
     );
   },
   dotOf: (tab, host) => host.agentView?.dotOf(sessionOf(tab)) ?? null,

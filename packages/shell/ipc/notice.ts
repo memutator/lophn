@@ -72,7 +72,7 @@ export type NoticeToast = {
   title: string;
   /** 마지막 응답의 앞부분, 권한 물음의 요약, 실패 까닭. 모르면 없다. */
   body?: string;
-  /** 제목 앞의 그림. main이 harness나 agent의 profile로 정한다. */
+  /** 제목 앞의 그림. main이 harness나 agent의 avatar로 정한다. */
   lead?: OverlayLead;
   target: NoticeTarget;
 };

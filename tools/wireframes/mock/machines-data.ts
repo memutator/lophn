@@ -224,7 +224,7 @@ const SESSIONS: readonly Row[] = [
 const LOPHN: SidebarAgent = {
   assignment: `lophn_${PHRONER}`,
   name: "lophn",
-  profile: { kind: "character", shape: "square", color: "coral" },
+  avatar: { kind: "character", shape: "square", color: "coral" },
   waiting: false,
 };
 

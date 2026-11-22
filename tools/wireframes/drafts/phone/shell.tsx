@@ -27,8 +27,8 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { AgentCharacter } from "../../../../packages/shell/renderer/parts/avatar/character.tsx";
 import type { SessionDot } from "../../../../packages/shell/renderer/parts/agent-session/activity.ts";
+import { AgentCharacter } from "../../../../packages/shell/renderer/parts/avatar/character.tsx";
 import { TabStateDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import {
   Badge,
@@ -192,7 +192,7 @@ export function SidebarBody({
       <div className={s.brand}>
         <span className={s.box} style={{ width: 26, height: 26 }}>
           <AgentCharacter
-            profile={{ kind: "character", shape: "square", color: "coral" }}
+            look={{ kind: "character", shape: "square", color: "coral" }}
           />
         </span>
         <span className={s.grow}>lophn</span>

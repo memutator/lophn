@@ -59,11 +59,11 @@ export function Character({
   who?: string;
   size: number;
 }) {
-  const profile = AGENTS[who] ?? AGENTS.lophn!;
-  const body = BODIES[profile.shape];
+  const avatar = AGENTS[who] ?? AGENTS.lophn!;
+  const body = BODIES[avatar.shape];
   return (
     <Svg width={size} height={size} viewBox="0 0 96 96">
-      <Path d={body.path} fill={COLORS[profile.color]} />
+      <Path d={body.path} fill={COLORS[avatar.color]} />
       <Circle cx={37} cy={body.eyes} r={4.8} fill="#1c2530" />
       <Circle cx={59} cy={body.eyes} r={4.8} fill="#1c2530" />
     </Svg>

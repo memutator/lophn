@@ -2,6 +2,9 @@
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
 // 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 서고, 쓰는 중인 글은 끝 agent 묶음의
 // 마지막에 선다.
+
+import { t } from "@lophn/i18n";
+import { StatusMark } from "@lophn/ui/feedback";
 import {
   memo,
   type ReactElement,
@@ -9,21 +12,13 @@ import {
   type Ref,
   useMemo,
 } from "react";
-import { StatusMark } from "@lophn/ui/feedback";
-import { t } from "@lophn/i18n";
-
+import type { AcpWriting } from "../../../protocol/acp/mod.ts";
+import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { EditCard } from "./activity/file-edit-card.tsx";
 import type { ViewDetail } from "./activity/model.ts";
 import { SubagentRow } from "./activity/subagent-row.tsx";
 import { ToolLine } from "./activity/tool-line.tsx";
 import { WorkedFor } from "./activity/worked-for.tsx";
-import {
-  clockTime,
-  messageTime,
-  shownEntries,
-  taskOfCall,
-  textOfParts,
-} from "./agent-view-model.ts";
 import type {
   AgentFace,
   AgentTabSource,
@@ -31,8 +26,14 @@ import type {
   ThreadEntry,
   ThreadMessage,
 } from "./agent-tab-source.ts";
-import type { AcpWriting } from "../../../protocol/acp/mod.ts";
-import { partsOfContent } from "./thread-layout.ts";
+import styles from "./agent-view.module.css";
+import {
+  clockTime,
+  messageTime,
+  shownEntries,
+  taskOfCall,
+  textOfParts,
+} from "./agent-view-model.ts";
 import { ApprovalResult } from "./approval-card/approval-card.tsx";
 import {
   deliveryAction,
@@ -40,39 +41,38 @@ import {
   waitsInQueue,
 } from "./delivery-state.ts";
 import {
-  agentReplyIds,
-  useThreadAnnouncement,
-} from "./message-list/announce.ts";
-import {
   AgentTurn,
   Said,
   UserMessage,
   WorkingRow,
 } from "./message-list/agent-turn.tsx";
+import {
+  agentReplyIds,
+  useThreadAnnouncement,
+} from "./message-list/announce.ts";
+import type { ArtifactsSlice } from "./message-list/artifact-text.tsx";
 import { LiveMessage } from "./message-list/live-message.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
 import {
   ThreadScroll,
   type ThreadScrollHandle,
 } from "./message-list/thread-scroll.tsx";
+import turns from "./message-list/turns.module.css";
 import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
-import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { CallBlock } from "./thread/call-block.tsx";
 import { CommandOutput } from "./thread/command-output.tsx";
 import { InfoRow } from "./thread/info-row.tsx";
-import { ReleaseConsent } from "./thread/release-consent.tsx";
-import { ShellRun } from "./thread/shell-run.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import type { ProviderKeyFix } from "./thread/provider-key.ts";
 import { ReceivedMessage } from "./thread/received-message.tsx";
-import type { ArtifactsSlice } from "./message-list/artifact-text.tsx";
-import turns from "./message-list/turns.module.css";
-import styles from "./agent-view.module.css";
+import { ReleaseConsent } from "./thread/release-consent.tsx";
+import { ShellRun } from "./thread/shell-run.tsx";
+import { partsOfContent } from "./thread-layout.ts";
 
 interface AgentThreadProps {
-  agent: Pick<AgentFace, "name" | "profile">;
+  agent: Pick<AgentFace, "name" | "avatar">;
   entries: readonly ThreadEntry[];
   detail: ViewDetail;
   /** 아직 저장되지 않은 model 호출 하나의 글. */

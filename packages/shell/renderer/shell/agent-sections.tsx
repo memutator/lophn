@@ -59,7 +59,7 @@ export function agentChoices(
         kind: "lophn" as const,
         id: agent.assignment,
         name: agent.name,
-        face: { kind: "lophn" as const, profile: agent.profile },
+        face: { kind: "lophn" as const, avatar: agent.avatar },
       })),
     ...favorites.map((id) => ({
       kind: "coding" as const,

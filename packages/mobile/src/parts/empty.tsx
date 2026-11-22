@@ -32,7 +32,7 @@ export function EmptyScreen({
       }}
     >
       <View style={{ opacity: 0.9 }}>
-        <Character profile={LOPHN} size={64} />
+        <Character look={LOPHN} size={64} />
       </View>
       <Text
         variant="heading"

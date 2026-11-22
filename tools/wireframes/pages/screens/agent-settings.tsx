@@ -1,52 +1,52 @@
-import type { Area } from "../types.ts";
+import { t } from "@lophn/i18n";
 import { BrowserProfilesProvider } from "../../../../packages/shell/renderer/browser/profiles.tsx";
 import {
   EVAL_ANALYST_ID,
   PROFILE_SHOP,
   SAMPLE_BROWSER_PROFILES,
 } from "../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
-import { t } from "@lophn/i18n";
 import { press, type Step } from "../../mock/drive.ts";
-import { AgentSettingsEditor, agentTab } from "./agents-tab.tsx";
-import { ProjectApp } from "./project-app.tsx";
+import type { Area } from "../types.ts";
 import {
   AgentCreatePage,
   AgentCustomOverviewPage,
-  AgentHarnessWorksPage,
-  AgentSeesTabPage,
-  AgentsCardMenuPage,
-  AgentsDuplicatedPage,
-  AgentWhoTabPage,
-  HomeAgentsCodingPage,
   AgentDeleteConfirmPage,
   AgentDeleteFailedPage,
-  AgentEditorCustomPage,
   AgentEditorBrokenPage,
+  AgentEditorCustomPage,
   AgentEditorHarnessPage,
-  AgentImageUploadedPage,
-  AgentImageUploadFailedPage,
-  AgentSaveConflictPage,
-  AgentSaveIssuesPage,
-  AgentsBrokenPage,
   AgentGrantsAppPage,
   AgentGrantsOtherComputerPage,
   AgentGrantsPage,
+  AgentHarnessWorksPage,
+  AgentImageUploadedPage,
+  AgentImageUploadFailedPage,
   AgentInstructionsTabPage,
   AgentMemoryTabPage,
   AgentModelPickerPage,
   AgentRuntimeTabPage,
-  AgentToolsTabPage,
-  AgentsOpenedEditedPage,
+  AgentSaveConflictPage,
+  AgentSaveIssuesPage,
+  AgentSeesTabPage,
   AgentServerFormPage,
+  AgentsBrokenPage,
+  AgentsCardMenuPage,
+  AgentsDuplicatedPage,
+  AgentsOpenedEditedPage,
+  AgentToolsTabPage,
+  AgentWhoTabPage,
   AppAgentsNoSourcePage,
   AppAgentsPage,
   AppWorkspaceEditorPage,
+  HomeAgentsCodingPage,
   HomeAgentsOpenScopedPage,
   HomeAgentsPage,
   HomeLophnEditorPage,
   LophnEditorPage,
   ProjectAgentsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
+import { AgentSettingsEditor, agentTab } from "./agents-tab.tsx";
+import { ProjectApp } from "./project-app.tsx";
 
 // Eval analyst의 설정. 목록은 Settings에서 만든 profile들이다(Overview·카드·Sees가 그 이름과 색 점을 보인다).
 function BrowserProfileEditor(props: {
@@ -155,7 +155,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-who",
       title: "Agent settings · Who",
       description:
-        "Who 탭: profile(character 고르기나 이미지 올리기), 이름, handle(만든 뒤 잠긴다), 역할 한 줄(Role, description 칸), 명함(다른 agent가 읽는 것), Delete.",
+        "Who 탭: avatar(character 고르기나 이미지 올리기), 이름, handle(만든 뒤 잠긴다), 역할 한 줄(Role, description 칸), 명함(다른 agent가 읽는 것), Delete.",
       render: () => <AgentWhoTabPage />,
     },
     {
@@ -237,7 +237,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-editor-lophn",
       title: "Agent settings · lophn",
       description:
-        "project의 lophn Overview다(workspace마다 하나). Who에 handle과 역할 줄이 없고 Memory가 workspace memory다. Who 탭에서 handle과 profile이 잠기고 이름은 바꿀 수 있으며 Delete가 없다.",
+        "project의 lophn Overview다(workspace마다 하나). Who에 handle과 역할 줄이 없고 Memory가 workspace memory다. Who 탭에서 handle과 avatar가 잠기고 이름은 바꿀 수 있으며 Delete가 없다.",
       render: () => <LophnEditorPage />,
     },
     {
@@ -251,7 +251,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-home-lophn",
       title: "Agent settings · Home lophn",
       description:
-        "Home의 lophn Overview다. 범위가 Home이고 Memory는 Home의 workspace memory다(global memory). Who 탭에서 handle과 profile이 잠기고 Delete가 없다.",
+        "Home의 lophn Overview다. 범위가 Home이고 Memory는 Home의 workspace memory다(global memory). Who 탭에서 handle과 avatar가 잠기고 Delete가 없다.",
       render: () => <HomeLophnEditorPage />,
     },
     {
@@ -319,16 +319,16 @@ export const agentSettingsArea: Area = {
     },
     {
       id: "agent-settings-image-uploaded",
-      title: "Agent settings · profile image uploaded",
+      title: "Agent settings · avatar image uploaded",
       description:
-        "Who 탭 Profile의 Upload image로 이미지를 올려 character 대신 그 이미지가 profile로 보이는 상태다(저장 전). [Remove image]로 character로 돌아간다.",
+        "Who 탭 Avatar의 Upload image로 이미지를 올려 character 대신 그 이미지가 avatar로 보이는 상태다(저장 전). [Remove image]로 character로 돌아간다.",
       render: () => <AgentImageUploadedPage />,
     },
     {
       id: "agent-settings-image-upload-failed",
       title: "Agent settings · image upload failed",
       description:
-        "이미지가 틀려(형식, 크기) 올리기가 거절됐다. toast가 뜨고 profile은 그대로다.",
+        "이미지가 틀려(형식, 크기) 올리기가 거절됐다. toast가 뜨고 avatar는 그대로다.",
       render: () => <AgentImageUploadFailedPage />,
     },
     {

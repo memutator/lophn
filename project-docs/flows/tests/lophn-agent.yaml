@@ -1,7 +1,7 @@
 group: lophn-agent
 files:
   - path: packages/core/lophn-agent/agents/commands_test.ts
-    covers: [agent-create:created, agent-create:invalid-definition, agent-create:human-only-field, agent-change:hash-changed, agent-change:handle-changed, agent-change:human-only-field, agent-change:lophn-profile, agent-delete:lophn-cannot-delete]
+    covers: [agent-create:created, agent-create:invalid-definition, agent-create:human-only-field, agent-change:hash-changed, agent-change:handle-changed, agent-change:human-only-field, agent-change:lophn-avatar, agent-delete:lophn-cannot-delete]
     note: "lophn 고정 칸, handle 중복과 변경 거절, 옛 hash 충돌, custom tool 이름 검사, agent가 만든 agent의 범위, agent 자격의 browser_profile 넣기·바꾸기 거절"
 
   - path: packages/core/lophn-agent/agents/definition-file_test.ts
@@ -15,6 +15,10 @@ files:
   - path: packages/core/lophn-agent/agents/runtime-custom-step_test.ts
     covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]
     note: "runtime: bare를 custom으로 옮기는 data step. 본문 줄과 다른 runtime의 file은 그대로이고 다시 돌려도 같다"
+
+  - path: packages/core/lophn-agent/agents/avatar-step_test.ts
+    covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]
+    note: "profile 칸을 avatar로 옮기는 data step. 값(들여쓴 줄)·다른 칸·본문은 한 byte도 그대로이고 다시 돌려도 같다"
 
   - path: packages/core/lophn-agent/agents/tools-no-commands-step_test.ts
     covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]

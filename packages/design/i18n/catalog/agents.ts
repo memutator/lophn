@@ -281,13 +281,13 @@ export const agents = {
   "agents.notice.instructions-help-lophn":
     "Read after your global instructions (Settings \u203a Agents).",
   "agents.notice.handle-fixed-lophn":
-    "lophn's handle and profile can't be changed. You can rename how it is shown.",
+    "lophn's handle and avatar can't be changed. You can rename how it is shown.",
   "agents.label.handle": "Handle",
   "agents.notice.handle-help":
     "How other agents and apps address this agent. Lowercase letters, digits, - and _. Left empty, it is made from the name. It can't be changed after you save.",
   "agents.notice.workspace-help":
     "Where this agent can be used. A scoped agent shows only in its workspace. It can't be changed after you save.",
-  "agents.notice.profile-help":
+  "agents.notice.avatar-help":
     "Choose a shape and color, or upload an image. It shows next to the agent's messages.",
   "agents.notice.protected-key":
     "Typed in a protected prompt after you add the server. It isn't typed here and isn't shown again.",
@@ -337,7 +337,7 @@ export const agents = {
   "project-workspace.heading.agent-editor-delete-title": "Delete {name}?",
   "project-workspace.heading.agent-editor-mcp": "MCP servers",
   "project-workspace.heading.agent-editor-model": "Model",
-  "project-workspace.heading.agent-editor-profile": "Profile",
+  "project-workspace.heading.agent-editor-avatar": "Avatar",
   "project-workspace.heading.agent-editor-skills": "Skills",
   "project-workspace.heading.agents-new-agent": "New agent",
   "project-workspace.heading.instructions": "Instructions",

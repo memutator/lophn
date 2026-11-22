@@ -22,7 +22,7 @@ export const GROUPS = ["who", "runs", "sees", "works"] as const;
 export type Group = (typeof GROUPS)[number];
 
 export type FieldName =
-  | "profile"
+  | "avatar"
   | "handle"
   | "workspace"
   | "name"
@@ -45,7 +45,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   handle: "handle",
   workspace: "workspace",
   name: "name",
-  profile: "profile",
+  avatar: "avatar",
   description: "description",
   runtime: "runtime",
   modality: "modality",
@@ -66,7 +66,7 @@ export const fieldOf = (issue: AgentDefinitionIssue): FieldName | null =>
 
 /** 칸이 어느 탭에 있는가. issue가 숨은 탭에 있으면 그 탭에 표시를 단다. */
 const TAB_OF_FIELD: Readonly<Record<FieldName, Group>> = {
-  profile: "who",
+  avatar: "who",
   handle: "who",
   name: "who",
   description: "who",

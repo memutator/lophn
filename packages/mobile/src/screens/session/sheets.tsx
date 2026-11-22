@@ -60,7 +60,7 @@ import {
 import { createLayoutCache, layoutOf } from "../../../../shell/renderer/conversation/thread-layout.ts";
 import { vendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
 import { type Candidate, useProjectFiles } from "../../data/mod.ts";
-import { Face, type Profile, VendorIcon } from "../../parts/mod.ts";
+import { Face, type Look, VendorIcon } from "../../parts/mod.ts";
 import { AttachPicks } from "./attach.tsx";
 import { toolIcon } from "./parts.tsx";
 import { Row as ThreadRowView, rowsOf, ThreadContext } from "./thread.tsx";
@@ -469,7 +469,7 @@ export function ModelSheet({
 export function SessionMenu({
   open,
   onClose,
-  profile,
+  look,
   title,
   where,
   mode,
@@ -484,7 +484,7 @@ export function SessionMenu({
 }: {
   open: boolean;
   onClose: () => void;
-  profile: Profile;
+  look: Look;
   title: string;
   where: string;
   /** The current permission mode's name, when the source has modes. */
@@ -504,7 +504,7 @@ export function SessionMenu({
     <Menu
       open={open}
       onClose={onClose}
-      lead={<Face profile={profile} size={34} />}
+      lead={<Face look={look} size={34} />}
       title={title}
       sub={where}
       items={[

@@ -10,7 +10,7 @@ import { useNav } from "../../app/nav.ts";
 import type { CodingSession } from "../../data/mod.ts";
 import { Face } from "../../parts/mod.ts";
 import { TerminalView } from "../terminal/index.tsx";
-import { harnessProfile, stateOf } from "./parts.tsx";
+import { harnessAvatar, stateOf } from "./parts.tsx";
 import { SwitchSheet } from "./switch-sheet.tsx";
 
 export function TerminalSession({ session }: { session: CodingSession }) {
@@ -27,7 +27,7 @@ export function TerminalSession({ session }: { session: CodingSession }) {
       <Menu
         open={sheet === "menu"}
         onClose={() => setSheet(null)}
-        lead={<Face profile={harnessProfile(session.harness, session.label)} size={34} />}
+        lead={<Face look={harnessAvatar(session.harness, session.label)} size={34} />}
         title={session.title ?? session.label}
         sub={stateOf(session).text ?? session.label}
         items={[

@@ -5,11 +5,10 @@ import { useMemo } from "react";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { commonIcons } from "../../icons/mod.ts";
 import type { FaceOf } from "../../workflow/model.ts";
+import { WorkflowPage } from "../../workflow/workflow-page.tsx";
 import { codingFaceOf } from "../agents/coding-face.ts";
-
 import type { TabItem } from "../model.ts";
 import { PaddedTab } from "../padded-tab.tsx";
-import { WorkflowPage } from "../../workflow/workflow-page.tsx";
 import { openWorkflowArtifact } from "./artifact.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -104,16 +103,16 @@ function useFaces(host: TabHost, project: string): FaceOf | undefined {
         row.handle,
         {
           name: row.name,
-          profile:
+          avatar:
             codingFaceOf(row.assignment) ??
-            (row.profile.kind === "character"
-              ? row.profile
+            (row.avatar.kind === "character"
+              ? row.avatar
               : {
                   kind: "image" as const,
                   src: source.imageSrc(
                     project,
                     row.assignment,
-                    row.profile.image,
+                    row.avatar.image,
                   ),
                 }),
         },

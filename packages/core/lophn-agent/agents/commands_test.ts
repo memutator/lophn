@@ -3,8 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { LOPHN_HOME_ID } from "../../../protocol/lophn-agent/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import { createAgentCommands } from "./commands.ts";
 import type { AgentLookups } from "./ports.ts";
@@ -31,7 +31,7 @@ const lookups: AgentLookups = {
   workspaceModel: () => null,
 };
 
-test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·remote_apps·extensions·permissions을 넣지 못한다", async () => {
+test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·remote_apps·extensions·permissions을 넣지 못한다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const files = createNodeAgentFiles();
@@ -69,14 +69,14 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
     assert.ok(!deleted.ok);
     assert.equal(deleted.error.code, "forbidden");
 
-    const profileChange = change({
+    const avatarChange = change({
       handle: "lophn",
       name: "lophn",
-      profile: { kind: "character", shape: "arch", color: "sage" },
+      avatar: { kind: "character", shape: "arch", color: "sage" },
       body: "x",
     });
-    assert.ok(!profileChange.ok);
-    assert.equal(profileChange.error.code, "forbidden");
+    assert.ok(!avatarChange.ok);
+    assert.equal(avatarChange.error.code, "forbidden");
     const handleChange = change({ handle: "other", name: "lophn", body: "x" });
     assert.ok(!handleChange.ok);
     assert.equal(handleChange.error.code, "invalid_input");

@@ -91,7 +91,7 @@ export function AppMenu({
       )}
       <Divider spacing={6} />
       <Row
-        lead={<Face profile={LOPHN} />}
+        lead={<Face look={LOPHN} />}
         title={t("mobile.apps.menu.sessions")}
         end={<Badge count={waiting} />}
         onPress={() => go({ name: "workspace", workspace })}

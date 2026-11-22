@@ -3,25 +3,27 @@
 // (탭마다 파일 하나: tab-*.tsx). 앱 할당은 Sees 탭에 있고 바로 저장된다. 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다.
 // source에서 agent를 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 
+import type { MessageKey } from "@lophn/i18n";
+import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
-import type { MessageKey } from "@lophn/i18n";
-import { t } from "@lophn/i18n";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
-
-import { actionIcons } from "../../../icons/mod.ts";
+import {
+  isLophn,
+  workspaceOfLophn,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { useCommands } from "../../../commands/react.tsx";
-import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
+import { actionIcons } from "../../../icons/mod.ts";
+import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
 import { codingFaceOf } from "../coding-face.ts";
-import { useAgentModels } from "../use-agent-models.ts";
-import type { Face } from "../tab-state.ts";
 import type { AgentDraft, AgentsSource, GrantsView } from "../source.ts";
+import type { Face } from "../tab-state.ts";
+import { useAgentModels } from "../use-agent-models.ts";
 import type { McpLogin, McpRow, McpSecret, McpStatus } from "../views.ts";
-import { isLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
-import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import styles from "./agent-editor.module.css";
 import { copyDefinition, copyHandle } from "./duplicate.ts";
 import {
   type EditorTab,
@@ -40,7 +42,6 @@ import { RunsTab } from "./tab-runs.tsx";
 import { SeesTab } from "./tab-sees.tsx";
 import { WhoTab } from "./tab-who.tsx";
 import { WorksTab } from "./tab-works.tsx";
-import styles from "./agent-editor.module.css";
 
 /** editor가 source에서 쓰는 것. */
 export type AgentEditorSource = Pick<
@@ -262,17 +263,17 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     ready === null
       ? ""
       : (ready.definition.name ?? ready.detail.effective.name.value);
-  const shownProfile: AvatarProfile | null = (() => {
+  const shownAvatar: AvatarLook | null = (() => {
     if (ready === null) return null;
     const coding =
       ready.detail.assignment === null
         ? undefined
         : codingFaceOf(ready.detail.assignment);
     if (coding !== undefined) return coding;
-    const profile =
-      ready.definition.profile ?? ready.detail.effective.profile.value;
-    return profile.kind === "character"
-      ? profile
+    const avatar =
+      ready.definition.avatar ?? ready.detail.effective.avatar.value;
+    return avatar.kind === "character"
+      ? avatar
       : {
           kind: "image",
           src:
@@ -281,13 +282,13 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
               : source.imageSrc(
                   workspace,
                   ready.detail.assignment,
-                  profile.image,
+                  avatar.image,
                 ),
         };
   })();
   // 탭 줄이 이 agent의 이름과 아이콘을 보이도록 알린다(새 agent는 이름이 없어 제목 글이다).
   useEffect(() => {
-    if (ready === null || shownProfile === null) return;
+    if (ready === null || shownAvatar === null) return;
     lastReport.current?.({
       ready,
       dirty,
@@ -296,11 +297,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           ready.detail.assignment === null && shownName.trim() === ""
             ? t("project-workspace.heading.agents-new-agent")
             : shownName,
-        profile: shownProfile,
+        avatar: shownAvatar,
       },
     });
-    // shownProfile은 매번 새로 만들어서 값으로 비교한다.
-  }, [ready, dirty, shownName, JSON.stringify(shownProfile)]);
+    // shownAvatar는 매번 새로 만들어서 값으로 비교한다.
+  }, [ready, dirty, shownName, JSON.stringify(shownAvatar)]);
 
   const save = () => {
     if (ready === null) return;
@@ -467,7 +468,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         setNotice(null);
         edit({
           ...definition,
-          profile: { kind: "image", image: result.value.image },
+          avatar: { kind: "image", image: result.value.image },
         });
       });
   };
@@ -608,8 +609,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         <div className={styles.head}>
           <div className={styles.headRow}>
             <h1 className={styles.title}>
-              {shownProfile === null ? null : (
-                <Avatar profile={shownProfile} size="md" />
+              {shownAvatar === null ? null : (
+                <Avatar look={shownAvatar} size="md" />
               )}
               <span className={styles.titleText}>
                 {fresh && name.trim() === ""
@@ -666,7 +667,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           <OverviewTab
             {...form}
             facts={facts}
-            face={shownProfile}
+            face={shownAvatar}
             name={name}
             models={models}
             apps={appNames}

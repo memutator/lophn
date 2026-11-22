@@ -1,14 +1,14 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
+  type AgentAvatar,
+  type AgentId,
   agentChange,
   agentCreate,
-  agentHandleKey,
-  type AgentId,
   agentDelete,
+  agentHandleKey,
   codingBuiltinOf,
   isLophn,
-  type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -18,6 +18,8 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
+import { loadSession, workspaceOf } from "../session/model.ts";
+import { staleImagePaths } from "./avatar-asset.ts";
 import {
   type AgentContext,
   handleOf,
@@ -25,14 +27,12 @@ import {
   openAgentContext,
   workspaceOfAgent,
 } from "./inspect.ts";
-import { loadSession, workspaceOf } from "../session/model.ts";
 import type { AgentDeps } from "./ports.ts";
-import { LOPHN_PROFILE } from "./resolve.ts";
-import { staleImagePaths } from "./profile-asset.ts";
+import { LOPHN_AVATAR } from "./resolve.ts";
 import { agentMemoryFile, agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
 
-// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn은 workspace마다 하나이고 handle·profile은 고정이며 지울 수 없다(workspace를 지울 때만 정의 file이 지워진다).
+// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn은 workspace마다 하나이고 handle·avatar는 고정이며 지울 수 없다(workspace를 지울 때만 정의 file이 지워진다).
 // 내장 coding agent는 handle·runtime·범위가 고정이고 지울 수 없다.
 // handle과 범위 workspace는 만들 때만 정한다. agent가 만들면 범위는 그 session의 workspace다(home이면 전역).
 // agent 자격은 `mcp_servers`, `skip`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`을 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
@@ -53,12 +53,12 @@ function removeStaleImages(
   deps: AgentDeps,
   context: AgentContext,
   agent: string,
-  profile: Profile | undefined,
+  avatar: AgentAvatar | undefined,
 ): void {
   for (const path of staleImagePaths(
     `${context.store.root}/agents`,
     agent,
-    profile,
+    avatar,
   )) {
     try {
       deps.files.remove(path);
@@ -150,7 +150,7 @@ export function createAgentCommands(deps: AgentDeps): {
         const slot = agentSlotOf(context.value.store.root, id);
         const written = context.value.store.write(slot, checked.value);
         if (!written.ok) return written;
-        removeStaleImages(deps, context.value, id, definition.profile);
+        removeStaleImages(deps, context.value, id, definition.avatar);
         return ok({ agent: id, hash: written.value });
       },
     },
@@ -198,11 +198,11 @@ export function createAgentCommands(deps: AgentDeps): {
           });
         }
         if (isLophn(input.agent)) {
-          const profile = input.definition.profile;
-          if (profile !== undefined && !same(profile, LOPHN_PROFILE)) {
+          const avatar = input.definition.avatar;
+          if (avatar !== undefined && !same(avatar, LOPHN_AVATAR)) {
             return err({
               code: "forbidden",
-              message: "lophn's profile is fixed",
+              message: "lophn's avatar is fixed",
             });
           }
         }
@@ -238,7 +238,7 @@ export function createAgentCommands(deps: AgentDeps): {
           deps,
           context.value,
           input.agent,
-          input.definition.profile,
+          input.definition.avatar,
         );
         return ok({ agent: input.agent, hash: written.value });
       },

@@ -1,16 +1,16 @@
 // Background(run) 목록. run 줄 아래에 그 run이 연 session을 들여 쓴다. project sidebar의 Agent 쪽과
 // 앱 공간의 오른쪽 패널이 같이 쓴다. 상태 점은 탭 줄과 같은 `TabStateDot`이다.
-import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+
+import { formatRelativeTime, t } from "@lophn/i18n";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { settingsIcons } from "../../icons/mod.ts";
-import { formatRelativeTime, t } from "@lophn/i18n";
-
 import type {
   AgentId,
   Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { settingsIcons } from "../../icons/mod.ts";
+import { Avatar, type AvatarLook } from "../../parts/avatar/avatar.tsx";
+import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import type { PanelSession } from "./panel-types.ts";
 import styles from "./project-sidebar.module.css";
 
@@ -45,7 +45,7 @@ export interface RunRow {
   /** job이 연 run이면 둘째 줄에 시각 앞으로 가는 agent 이름 또는 tool 이름. */
   readonly via: string | null;
   /** agent의 avatar. tool run은 null이라 tool 아이콘을 그린다. */
-  readonly profile: AvatarProfile | null;
+  readonly avatar: AvatarLook | null;
   readonly state: RunStateView;
   /** 시작한 때(epoch ms). */
   readonly at: number;
@@ -114,12 +114,12 @@ export function RunList({
           data-run-state={run.state}
         >
           <div className={`${styles.li} ${styles.runRow}`}>
-            {run.profile === null ? (
+            {run.avatar === null ? (
               <span className={styles.runIcon}>
                 <Icon icon={settingsIcons.tools} pixels={iconPixels("small")} />
               </span>
             ) : (
-              <Avatar profile={run.profile} size="sm" />
+              <Avatar look={run.avatar} size="sm" />
             )}
             <span className={styles.sessionText}>
               <span className={styles.label}>{run.name}</span>

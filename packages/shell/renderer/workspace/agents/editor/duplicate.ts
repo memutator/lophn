@@ -50,12 +50,12 @@ export function copyDefinition(
     handle: _handle,
     name: _name,
     workspace: _workspace,
-    profile,
+    avatar,
     runtime,
     mcp_servers,
     ...rest
   } = source.definition;
-  const imageDropped = profile?.kind === "image";
+  const imageDropped = avatar?.kind === "image";
   const shownRuntime = runtime ?? source.runtime;
   return {
     imageDropped,
@@ -64,7 +64,7 @@ export function copyDefinition(
       handle: copy.handle,
       name: copy.name,
       ...(source.scope === null ? {} : { workspace: source.scope }),
-      ...(profile === undefined || imageDropped ? {} : { profile }),
+      ...(avatar === undefined || imageDropped ? {} : { avatar }),
       ...(shownRuntime === undefined || shownRuntime === "lophn"
         ? {}
         : { runtime: shownRuntime }),

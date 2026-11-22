@@ -2,22 +2,22 @@
 // 목록은 설정 `shell.browser_profiles` 하나라 바꿀 때마다 목록 전체를 저장한다. 저장이 끝나야 줄이 바뀌고 열리므로
 // 막 만든 profile은 core가 받은 뒤에야 보인다. 지우기는 그 profile의 login, partition data, 목록 순서로 하고 중간에 실패하면
 // 멈춘다(profile이 남아 있어 다시 할 수 있다).
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { Button } from "@lophn/ui/primitives";
-import { Dialog } from "@lophn/ui/overlay";
-import { Field, Input, SwatchPicker } from "@lophn/ui/input";
-import { t } from "@lophn/i18n";
-import { actionIcons } from "../../../icons/mod.ts";
 
+import { t } from "@lophn/i18n";
+import { Field, Input, SwatchPicker } from "@lophn/ui/input";
+import { Dialog } from "@lophn/ui/overlay";
+import { Button } from "@lophn/ui/primitives";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { settingsList } from "../../../../../protocol/config/file.ts";
+import { AGENT_CHARACTER_COLORS } from "../../../../../protocol/lophn-agent/agent-avatar.ts";
 import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import { AGENT_CHARACTER_COLORS } from "../../../../../protocol/lophn-agent/agent-profile.ts";
 import {
   BROWSER_PROFILE_ID_PREFIX,
   BROWSER_PROFILES_MAX,
   BROWSER_PROFILES_SETTING,
 } from "../../../../../protocol/shell/browser-profiles.ts";
 import { ProfileMark } from "../../../browser/browser-chrome.tsx";
+import { actionIcons } from "../../../icons/mod.ts";
 import { CHARACTER_COLORS } from "../../../parts/avatar/character.tsx";
 import { newId } from "../../../prefixed-id.ts";
 import { useCoreRead } from "../../connection/core-read.ts";

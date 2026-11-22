@@ -35,7 +35,7 @@ flows:
     boundary: [agents, core-api]
     code: [packages/core/lophn-agent/agents/commands.ts, packages/core/lophn-agent/agents/validate.ts, packages/core/lophn-agent/agents/definition-file.ts]
     steps:
-      - Agents 화면이 정의 전체(handle, name, workspace, profile, runtime 등과 본문)를 agents/create로 보낸다. 복제는 화면이 저장된 정의를 옮기고 name(`<name> copy`)과 겹치지 않는 handle만 새로 지어 같은 길로 보낸다(올린 이미지 avatar는 옮기지 않는다)
+      - Agents 화면이 정의 전체(handle, name, workspace, avatar, runtime 등과 본문)를 agents/create로 보낸다. 복제는 화면이 저장된 정의를 옮기고 name(`<name> copy`)과 겹치지 않는 handle만 새로 지어 같은 길로 보낸다(올린 이미지 avatar는 옮기지 않는다)
       - agent 자격이 부르면 mcp_servers, skip, apps, remote_apps, extensions, permissions를 거절하고, 범위는 부른 session의 workspace로 정한다(home이면 전역)
       - 사람이 낸 id가 이미 있으면 거절하고, id가 없으면 core가 새로 정한다
       - checkAgent가 파일 모양, 도구 이름, handle 중복과 예약 이름, 새 handle 모양, 범위 workspace의 존재를 검사한다
@@ -76,7 +76,7 @@ flows:
       - 정의 전체와 읽을 때의 hash(compare)를 agents/change로 보낸다
       - hash가 file과 다르면 conflict로 거절한다
       - agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions 가운데 하나를 바꾸면 거절한다
-      - lophn의 profile이 고정 값과 다르면 거절한다
+      - lophn의 avatar가 고정 값과 다르면 거절한다
       - 정의가 있는 agent의 handle과(lophn 포함) 범위 workspace는 만들 때 정한 값과 같아야 한다
       - checkAgent 뒤 파일 전체를 새 내용으로 쓴다. 쓰지 않은 칸은 지워진다
       - CLI `agent.update`는 agents/list로 handle을 찾고(없으면 not_found), agents/read로 현재 정의와 hash를 받아 보낸 칸만 덮어 합친 뒤 그 hash로 agents/change를 부른다. 틀린 file은 부르지 않고 거절한다
@@ -99,9 +99,9 @@ flows:
         code: forbidden
         when: agent 자격이 사람만 정하는 칸(mcp_servers, skip, apps, remote_apps, extensions, permissions, browser_profile)을 지금 file의 값과 다르게 냈다
         observe: [response]
-      - id: lophn-profile
+      - id: lophn-avatar
         code: forbidden
-        when: lophn의 profile을 고정 값과 다르게 낸다
+        when: lophn의 avatar를 고정 값과 다르게 낸다
         observe: [response, "screen:new-agent-editor-lophn"]
       - id: handle-changed
         code: invalid_input
@@ -222,17 +222,17 @@ flows:
     risk: [permission]
     docs: [architecture/agent-call.md, architecture/agent-definition.md]
 
-  - id: agent-profile-image-upload
-    title: 사람이 agent의 profile 이미지를 올린다
+  - id: agent-avatar-image-upload
+    title: 사람이 agent의 avatar 이미지를 올린다
     actor: person
-    entries: [route:profile-images/upload]
+    entries: [route:avatar-images/upload]
     boundary: [agents, core-api]
-    code: [packages/core/lophn-agent/agents/profile-asset.ts]
+    code: [packages/core/lophn-agent/agents/avatar-asset.ts]
     steps:
       - 편집 화면이 형식(png, jpg, webp), 크기와 바이트를 보낸다
       - core가 선언한 형식, 크기, 길이와 첫 byte의 형식이 모두 맞는지 본다
       - agent를 읽어 lophn이 아닌지 본다
-      - 맞으면 agents/<id>/avatar.<ext>를 원자적으로 쓴다. 정의는 바꾸지 않는다. 정의를 저장할 때 profile로 연결된다
+      - 맞으면 agents/<id>/avatar.<ext>를 원자적으로 쓴다. 정의는 바꾸지 않는다. 정의를 저장할 때 avatar로 연결된다
     outcomes:
       - id: stored
         observe: [disk:agents/<id>/avatar.<ext>, "screen:agent-settings-image-uploaded"]
@@ -240,9 +240,9 @@ flows:
         code: invalid_input
         when: 입력이 틀렸거나, 형식이 png·jpg·webp가 아니거나, 크기가 범위 밖이거나, 선언 길이와 다르거나, 첫 byte가 형식과 다르거나, body를 읽지 못했다
         observe: [response, "screen:agent-settings-image-upload-failed"]
-      - id: lophn-profile
+      - id: lophn-avatar
         code: forbidden
-        when: lophn의 profile은 고정이라 올릴 수 없다
+        when: lophn의 avatar는 고정이라 올릴 수 없다
         observe: [response, "screen:new-agent-editor-lophn"]
       - id: agent-not-found
         code: not_found
@@ -264,26 +264,26 @@ flows:
     refs: [P1]
     docs: [architecture/agent-definition.md]
 
-  - id: agent-profile-image-read
-    title: 사람이 화면에서 agent의 profile 이미지를 받는다
+  - id: agent-avatar-image-read
+    title: 사람이 화면에서 agent의 avatar 이미지를 받는다
     actor: person
-    entries: [route:profile-images/read]
+    entries: [route:avatar-images/read]
     boundary: [agents, core-api]
-    code: [packages/core/lophn-agent/agents/profile-asset.ts]
+    code: [packages/core/lophn-agent/agents/avatar-asset.ts]
     steps:
       - 화면이 agent의 이미지를 file route로 요청한다
-      - core가 정의의 profile이 image인지 본다
+      - core가 정의의 avatar가 image인지 본다
       - 파일을 읽고 실제 형식(png, jpeg, webp)을 sniff해서 Content-Type으로 준다
     outcomes:
       - id: ok
         observe: [response]
       - id: image-not-found
         code: not_found
-        when: agent가 없거나, 정의의 profile이 image가 아니거나, 파일이 없다
+        when: agent가 없거나, 정의의 avatar가 image가 아니거나, 파일이 없다
         observe: [response]
-      - id: lophn-profile
+      - id: lophn-avatar
         code: forbidden
-        when: lophn의 profile은 고정이라 이미지가 없다
+        when: lophn의 avatar는 고정이라 이미지가 없다
         observe: [response]
       - id: image-unreadable
         code: unavailable
@@ -1282,11 +1282,12 @@ flows:
     actor: system
     entries: [system:agent-definition-data-steps]
     boundary: [agents, storage]
-    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/runtime-custom-step.ts, packages/core/lophn-agent/agents/tools-no-commands-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
+    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/runtime-custom-step.ts, packages/core/lophn-agent/agents/tools-no-commands-step.ts, packages/core/lophn-agent/agents/avatar-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
     steps:
       - 기동 때 data step agents.handle이 먼저 돈다. name을 handle로 채운다(handle이 있거나 name이 없으면 두고 고치지 않는다)
       - "agents.runtime-custom이 frontmatter의 `runtime: bare`를 `runtime: custom`으로 옮긴다(그 한 줄만 고친다)"
       - "agents.tools-no-commands가 정의 `tools`에서 lophn 명령·앱 command 이름(내장 tool, MCP, extension tool이 아닌 것)을 뺀다. 다 빠지면 칸을 지운다"
+      - "agents.avatar가 frontmatter 최상위의 옛 `profile:` 키를 `avatar:`로 옮긴다(키 한 줄만 고치고 값과 나머지 bytes는 그대로 둔다)"
       - agents.drop-domains가 옛 domains 칸을 지운다
       - agents.skills-off가 옛 skills를 skills_off로 옮긴다. 옮기기 전에 받던 skill이 그대로 받아지도록 끈 이름을 적는다
       - 정의마다 새 모양만 schema로 검사해 다시 쓴다. 칸이 없는 파일이나 깨진 파일은 건드리지 않는다

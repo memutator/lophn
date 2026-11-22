@@ -226,7 +226,7 @@ export function Face({ who, size = 24 }: { who: string; size?: number }) {
   const profile = AGENTS[who] ?? AGENTS.lophn!;
   return (
     <span className={s.box} style={{ width: size, height: size }}>
-      <AgentCharacter profile={{ kind: "character", ...profile }} />
+      <AgentCharacter look={{ kind: "character", ...profile }} />
     </span>
   );
 }

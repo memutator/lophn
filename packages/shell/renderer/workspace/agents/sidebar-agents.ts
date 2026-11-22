@@ -7,8 +7,8 @@ import {
   lophnIdOf,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
+import type { AvatarLook } from "../../parts/avatar/avatar.tsx";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
-import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 import { codingFaceOf } from "./coding-face.ts";
 import { workspaceOf } from "./core-extensions.ts";
@@ -34,7 +34,7 @@ export function useSidebarAgents(
     [remembered, mine],
   );
   const [lophnNames, setLophnNames] = useRemembered("lophnNames");
-  // 목록은 profile 이미지를 미리 받아 두는 source 읽기라 route 하나로 끝나지 않는다.
+  // 목록은 avatar 이미지를 미리 받아 두는 source 읽기라 route 하나로 끝나지 않는다.
   const read = useFollowedRead<{
     readonly rows: readonly AgentListRow[];
     readonly names: Readonly<Record<string, string>> | null;
@@ -61,22 +61,18 @@ export function useSidebarAgents(
     if (names !== null) setLophnNames(() => ({ ...names }));
     setAgents(() =>
       read.value.rows.map((row) => {
-        const profile: AvatarProfile =
+        const avatar: AvatarLook =
           codingFaceOf(row.assignment) ??
-          (row.profile.kind === "character"
-            ? row.profile
+          (row.avatar.kind === "character"
+            ? row.avatar
             : {
                 kind: "image",
-                src: source.imageSrc(
-                  project,
-                  row.assignment,
-                  row.profile.image,
-                ),
+                src: source.imageSrc(project, row.assignment, row.avatar.image),
               });
         return {
           assignment: row.assignment,
           name: row.name,
-          profile,
+          avatar,
           // 답을 기다리는 session은 conversation 쪽이 알려 줄 때 켠다.
           waiting: false,
         };

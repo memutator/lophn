@@ -70,7 +70,7 @@ export function OfflineBody({
             <Row
               key={row.id}
               dim
-              lead={<Face profile={row.who?.profile ?? LOPHN} />}
+              lead={<Face look={row.who?.avatar ?? LOPHN} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={wasOf(row)}
               end={<SessionDot status={row.status} />}

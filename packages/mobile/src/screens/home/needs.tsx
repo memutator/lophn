@@ -157,7 +157,7 @@ function Head({
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <Face profile={who?.profile ?? LOPHN} size={22} />
+      <Face look={who?.avatar ?? LOPHN} size={22} />
       <Text variant="control" weight="medium" grow numberOfLines={1} style={{ lineHeight: 20 }}>
         {title}
       </Text>

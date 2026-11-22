@@ -1,14 +1,14 @@
 // agents 탭 kind. 전역 agent와 이 workspace(Home, project, 앱) 범위 agent의 카드, 설정 구역을 보이고, [Open]이나 [New agent]로
 // 같은 탭 안에서 editor를 연다. 탭은 workspace에 하나이고 열어 둔 agent만 필드로 남긴다. agent를 열면 탭 이름과 아이콘이 그 agent가 되고,
 // 저장하지 않은 편집이 있으면 문서 탭처럼 탭 줄에 표시가 뜨고 닫을 때 묻는다.
-import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
-import { commonIcons } from "../../icons/mod.ts";
-import { workspaceKey } from "../../shell/desk-model.ts";
-import { t } from "@lophn/i18n";
 
-import { AgentsPage } from "../agents/agents-page.tsx";
-import { isAgentId } from "../agents/agent-key.ts";
+import { t } from "@lophn/i18n";
+import { commonIcons } from "../../icons/mod.ts";
+import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
+import { workspaceKey } from "../../shell/desk-model.ts";
 import { TAB_KEY } from "../agent/tab-fields.ts";
+import { isAgentId } from "../agents/agent-key.ts";
+import { AgentsPage } from "../agents/agents-page.tsx";
 import type { Face } from "../agents/tab-state.ts";
 import type { TabItem } from "../model.ts";
 import { PaddedTab } from "../padded-tab.tsx";
@@ -51,7 +51,7 @@ export const agentsKind: TabKindDef = {
   iconOf(tab, host) {
     const face = faceOf(tab, host);
     return face === undefined ? null : (
-      <AgentFaceIcon face={{ kind: "lophn", profile: face.profile }} />
+      <AgentFaceIcon face={{ kind: "lophn", avatar: face.avatar }} />
     );
   },
   // 저장하지 않은 편집이 있으면 사람에게 묻는다. 사람이 이미 잃기를 확인한 길(`confirmed`)은 묻지 않는다.

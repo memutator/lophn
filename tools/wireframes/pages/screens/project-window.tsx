@@ -24,35 +24,34 @@ import {
   paletteIcons,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
-import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
-import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import type { SessionDot } from "../../../../packages/shell/renderer/parts/agent-session/activity.ts";
-import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
-
-import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
+import type { AvatarLook } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
+import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import { VendorIcon } from "../../../../packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx";
+import { agentChoices } from "../../../../packages/shell/renderer/shell/agent-sections.tsx";
+import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
+import type {
+  SidebarSession,
+  SidebarWorkspace,
+} from "../../../../packages/shell/renderer/shell/left-sidebar-model.ts";
+import type { QuickLaunch } from "../../../../packages/shell/renderer/shell/quick-launch.tsx";
+import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
+import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
+import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import {
   type SidebarCtx,
   sidebarPanelsFor,
 } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-panels.tsx";
-import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
-import { agentChoices } from "../../../../packages/shell/renderer/shell/agent-sections.tsx";
-import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
-import type { QuickLaunch } from "../../../../packages/shell/renderer/shell/quick-launch.tsx";
-import type {
-  SidebarWorkspace,
-  SidebarSession,
-} from "../../../../packages/shell/renderer/shell/left-sidebar-model.ts";
 import {
   AGENT_ROWS,
-  type AgentProfile,
+  type AgentAvatar,
+  avatarOf,
   type ChatInit,
-  profileOf,
   SESSIONS,
   type SessionRow,
 } from "../../mock/agents-data.ts";
@@ -103,7 +102,7 @@ export interface TabSpec {
   };
 }
 
-// 탭 머리 아이콘: 파일은 tree와 같은 FileIcon, agent는 그 agent의 profile 아이콘, 나머지는 종류 아이콘이다.
+// 탭 머리 아이콘: 파일은 tree와 같은 FileIcon, agent는 그 agent의 avatar 아이콘, 나머지는 종류 아이콘이다.
 function agentNameOf(tab: TabSpec): string {
   return tab.chat?.agent ?? tab.title.split(" · ").pop() ?? tab.title;
 }
@@ -123,7 +122,7 @@ function tabIcon(tab: TabSpec): ReactNode {
     return <FileIcon name={tab.sub ?? tab.title} size={14} />;
   }
   if (tab.kind === "agent") {
-    return <Avatar profile={avatarOf(profileOf(agentNameOf(tab)))} size="sm" />;
+    return <Avatar look={toLook(avatarOf(agentNameOf(tab)))} size="sm" />;
   }
   return <Icon icon={KIND_ICON[tab.kind]} pixels={iconPixels("small")} />;
 }
@@ -213,15 +212,15 @@ const PHOTO = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#b9d3ee"/><circle cx="28" cy="12" r="5" fill="#f6d77a"/><path d="M0 40V28c6-7 12-7 18-1 6-8 14-8 22 1v12z" fill="#5f8f6a"/></svg>',
 )}`;
 
-const avatarOf = (profile: AgentProfile): AvatarProfile =>
-  profile.image === true
+const toLook = (avatar: AgentAvatar): AvatarLook =>
+  avatar.image === true
     ? { kind: "image", src: PHOTO }
-    : { kind: "character", shape: profile.shape, color: profile.color };
+    : { kind: "character", shape: avatar.shape, color: avatar.color };
 
 const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.map((row) => ({
   assignment: row.id,
   name: row.name,
-  profile: avatarOf(row.profile),
+  avatar: toLook(row.avatar),
   waiting: false,
 }));
 
@@ -260,7 +259,7 @@ const lophnLine = (
           kind: "session",
           ref: row.id,
           title: row.title,
-          agent: { kind: "lophn", profile: agent.profile },
+          agent: { kind: "lophn", avatar: agent.avatar },
           dot,
           actions: true,
           at: whenMs(row.when),

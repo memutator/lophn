@@ -29,7 +29,7 @@ import {
 } from "../../data/mod.ts";
 import { Face, OfflineBanner } from "../../parts/mod.ts";
 import { KeyCap, KeyRow, NoticeLine, TypeBox, useForeground } from "../../parts/typing.tsx";
-import { harnessProfile, stateOf } from "../coding/parts.tsx";
+import { harnessAvatar, stateOf } from "../coding/parts.tsx";
 import { type BarKey, barKeyBytes, charBytes, type Mods, NO_MODS } from "./keys.ts";
 import { type Grid, TerminalRows } from "./rows.tsx";
 
@@ -155,7 +155,7 @@ export function TerminalView({
             {...left}
             lead={
               row === null ? undefined : (
-                <Face profile={harnessProfile(row.harness, row.label)} size={26} />
+                <Face look={harnessAvatar(row.harness, row.label)} size={26} />
               )
             }
             title={title}

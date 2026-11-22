@@ -4,49 +4,49 @@ import { z } from "zod";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
-  agentProfileImageRead,
-  agentProfileImageUpload,
+  agentAvatarImageRead,
+  agentAvatarImageUpload,
   instructionsReadGlobal,
   instructionsWriteGlobal,
   messageImagePath,
   messageImagePrepare,
   messageImageRead,
   messageImageUpload,
+  type ProviderRecord,
   providerConnectKey,
   providerConnectLocal,
   providerDefinitionSchema,
   providerList,
   providerProtocolSchema,
   providerRead,
-  type ProviderRecord,
   providerSignIn,
   providerSignInCallback,
   providerSignInState,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import {
-  agentProfileHandlers,
-  messageImageHandlers,
-} from "../../../lophn-agent/register.ts";
+import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { createGlobalInstructionsHandlers } from "../../../lophn-agent/instructions/global.ts";
-import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
-import { isStagedSecretName } from "../../../lophn-agent/providers/oauth-secrets.ts";
+import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import {
   builtinTarget,
-  TEST_PROVIDER_TARGETS,
   type ConnectTarget,
   type ConnectWay,
   createProviderConnect,
+  TEST_PROVIDER_TARGETS,
 } from "../../../lophn-agent/providers/connect-key.ts";
-import { opencodeGoMergeStep } from "./opencode-go-merge.ts";
-import { providerCredentialsSecretsStep } from "./provider-credentials-migrate.ts";
+import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
-import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
-import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import { isStagedSecretName } from "../../../lophn-agent/providers/oauth-secrets.ts";
+import {
+  agentAvatarHandlers,
+  messageImageHandlers,
+} from "../../../lophn-agent/register.ts";
+import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import { opencodeGoMergeStep } from "./opencode-go-merge.ts";
+import { providerCredentialsSecretsStep } from "./provider-credentials-migrate.ts";
 
 const PAGE_LIMIT = 20;
 const key = (route: { resource: string; method: string }) =>
@@ -90,7 +90,7 @@ function targetsFrom(
 export const lophnAgentWiring: WiringFactory = () => ({
   name: "lophn-agent",
   build(ctx) {
-    const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
+    const avatars = agentAvatarHandlers(ctx.runtime.readers, ctx.root.path);
     const globalInstructions = createGlobalInstructionsHandlers(
       ctx.root.path,
       ctx.random,
@@ -118,15 +118,15 @@ export const lophnAgentWiring: WiringFactory = () => ({
         [key(messageImagePath), images.path],
         [key(messageImagePrepare), images.prepare],
       ],
-      // profile 이미지 올리기: agent는 reader가 보고 파일은 core가 비동기로 쓴다.
+      // avatar 이미지 올리기: agent는 reader가 보고 파일은 core가 비동기로 쓴다.
       uploads: [
-        [key(agentProfileImageUpload), profiles.upload],
+        [key(agentAvatarImageUpload), avatars.upload],
         [key(messageImageUpload), images.upload],
       ],
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
-      // profile 이미지 읽기: 정의의 profile이 가리키는 파일을 실제 형식의 Content-Type으로 흘린다.
+      // avatar 이미지 읽기: 정의의 avatar가 가리키는 파일을 실제 형식의 Content-Type으로 흘린다.
       fileStreams: [
-        [key(agentProfileImageRead), profiles.file],
+        [key(agentAvatarImageRead), avatars.file],
         [key(messageImageRead), images.file],
       ],
     });

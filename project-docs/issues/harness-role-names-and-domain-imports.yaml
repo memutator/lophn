@@ -6,7 +6,7 @@ topic: layers
 modules: [packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/apps, packages/core/projects, tools]
 now: |
   harness와 domain을 나누면서 domain tool 정의는 `apps/agent-tools/`·`problems/agent-tools.ts`로, role 목록·prompt·place 정보·role 규칙이 든 tool은 `agent-roles`로 옮겼다. 그래도 `packages/core/lophn-agent`의 25개 file이 `protocol/{apps,problems,projects,coding-agent}`를 import하거나 role 이름 문자열(`"project_manager"`, `"app_engineer"`, `"operator"`)을 쓴다. `tools/check-deps.ts`의 `HARNESS_LEFTOVERS`가 file마다 이유를 달아 면제하고, 목록 밖의 새 위반만 막는다(rule `harness-domain`). 묶으면:
-  - agent 정의(`agents/` 10개: `names.ts`의 `BUILTIN_NAMES`, `resolve.ts`의 `DEFAULT_PROFILES`, `store.ts`, `validate.ts`, `inspect.ts`, `reads.ts`, `commands.ts`, `definition-file.ts`, `profile-asset.ts`, `layers.ts`): built-in과 Operator를 role 이름으로 가르고 role별 기본값·폴더를 고른다.
+  - agent 정의(`agents/` 10개: `names.ts`의 `BUILTIN_NAMES`, `resolve.ts`의 `DEFAULT_PROFILES`, `store.ts`, `validate.ts`, `inspect.ts`, `reads.ts`, `commands.ts`, `definition-file.ts`, `avatar-asset.ts`, `layers.ts`): built-in과 Operator를 role 이름으로 가르고 role별 기본값·폴더를 고른다.
   - place와 session(`places/directory.ts`, `places/lifecycle.ts`, `session/model.ts`, `instructions/files.ts`, `register.ts`의 `operatorDirectory`): role별 place 종류와 지침 file 이름을 role 이름으로 푼다.
   - 동적 app-api tool(`tools/app-tools.ts`, `tools/app-toolkit.ts`, `tools/app-api/input.ts`)과 `tools/runtime-permissions.ts`(`appDirectSocketPaths`), `run-loop/runtime-access.ts`(agent runtime이 여는 route 목록): apps·projects protocol을 직접 쓴다.
   - 범용 tool에 샌 domain(`tools/bundles/call.ts`·`tools/call/target.ts`의 `projectList`·`appList`, `tools/file/image.ts`의 `annotationsGet`, `tools/file/read.ts`의 `openableKind`).

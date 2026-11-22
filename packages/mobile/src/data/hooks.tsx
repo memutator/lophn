@@ -395,7 +395,7 @@ function useKnown(entries: readonly SessionEntry[]): Known {
                     agent,
                     {
                       name: one.value.effective.name.value,
-                      profile: one.value.effective.profile.value,
+                      avatar: one.value.effective.avatar.value,
                     },
                   ] as const)
                 : null;

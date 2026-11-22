@@ -2,6 +2,11 @@
 // 맨 위 검색, 그 agent의 session만(Today·Earlier), 줄에 hover하면 Rename·Archive·Delete, 기다리는 coding 맡기기,
 // 접어 둔 Archived, + New session. 이름 고치기는 줄이 input으로 바뀌고, 삭제는 줄 안 확인을 거친다.
 // session의 수명은 열림과 archive 둘이고 되살리는 단추는 없다. archive한 줄은 눌러 열면 기록만 읽을 수 있다.
+
+import { type MessageKey, t } from "@lophn/i18n";
+import { Popover } from "@lophn/ui/overlay";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   type KeyboardEvent,
   type MutableRefObject,
@@ -10,10 +15,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Avatar } from "../../parts/avatar/avatar.tsx";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Popover } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
 import {
   actionIcons,
   commonIcons,
@@ -21,10 +22,10 @@ import {
   homeIcons,
   paletteIcons,
 } from "../../icons/mod.ts";
-import { type MessageKey, t } from "@lophn/i18n";
+import { Avatar } from "../../parts/avatar/avatar.tsx";
 
 import type {
-  AgentProfile,
+  AgentAvatarLook,
   SessionEntry,
   SessionSearchMatch,
   SessionStatus,
@@ -75,7 +76,7 @@ const titleOf = (entry: Pick<SessionEntry, "title">): string =>
   entry.title ?? t("conversation.label.session-untitled");
 
 export interface SessionSwitcherProps {
-  agent: { readonly name: string; readonly profile: AgentProfile };
+  agent: { readonly name: string; readonly avatar: AgentAvatarLook };
   /** 지금 보는 session. null은 아직 만들지 않은 새 session이다. */
   current: { readonly id: string; readonly title: string | null } | null;
   /** 그 agent의 session 전부(archive한 것 포함). 정렬은 여기서 한다. */
@@ -208,7 +209,7 @@ export function AgentFace({
 }): ReactElement {
   return (
     <>
-      <Avatar profile={agent.profile} size="md" />
+      <Avatar look={agent.avatar} size="md" />
       <span className={styles.name}>{agent.name}</span>
       {sep ? <span className={styles.sep}>·</span> : null}
     </>

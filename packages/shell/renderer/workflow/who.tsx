@@ -25,8 +25,8 @@ export function WhoMark({
     return (
       <Avatar
         size="sm"
-        profile={
-          face?.profile ?? {
+        look={
+          face?.avatar ?? {
             kind: "initial",
             text: who.handle.slice(0, 1).toUpperCase(),
           }

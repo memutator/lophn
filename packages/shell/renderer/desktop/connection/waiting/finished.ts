@@ -2,17 +2,18 @@
 // 못 본 끝(정본은 core의 `unseen`)을 그대로 읽어 만든다. 탭을 보면 core가 끄니 줄도 저절로 빠진다.
 // core는 session 참조만 가지므로 이름·얼굴·제목은 이 창이 아는 값이다: 터미널은 runtime의 harness와 탭 이름,
 // lophn session은 session store의 agent로 그 정의와 session 이름을 읽는다.
+
+import { t } from "@lophn/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
-import { terminalSessionId } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import { agentRead } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../../protocol/lophn-agent/agent-sessions.ts";
+import { terminalSessionId } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import {
   type AgentId,
   isLophn,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
-import { t } from "@lophn/i18n";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import type { AvatarFace } from "../../../../ipc/overlay.ts";
 import type { CoreSource } from "../connection.ts";
@@ -27,10 +28,10 @@ export interface FinishedRow {
   readonly target: NoticeTarget;
   /** 이 컴퓨터가 아닌 기계의 이름(꼬리표). */
   readonly machineName?: string | undefined;
-  /** 아이콘. 터미널은 harness의 vendor 아이콘, lophn agent는 그 agent의 profile이다. */
+  /** 아이콘. 터미널은 harness의 vendor 아이콘, lophn agent는 그 agent의 avatar다. */
   readonly face:
     | { readonly kind: "vendor"; readonly harness: string }
-    | { readonly kind: "avatar"; readonly profile: AvatarFace };
+    | { readonly kind: "avatar"; readonly avatar: AvatarFace };
   readonly label: string;
   readonly title: string;
 }
@@ -38,7 +39,7 @@ export interface FinishedRow {
 /** lophn session 줄의 누가와 어디서. 읽기 전이거나 읽지 못하면 없다. */
 export interface SessionWho {
   readonly agent: string;
-  readonly profile: AvatarFace;
+  readonly avatar: AvatarFace;
   readonly title: string | null;
 }
 
@@ -73,7 +74,7 @@ export function finishedRows(
       id: idOf(`session:${entry.session}`),
       target: { kind: "session", session: entry.session, ...at },
       ...tag,
-      face: { kind: "avatar", profile: known.profile },
+      face: { kind: "avatar", avatar: known.avatar },
       label: known.title ?? t("conversation.label.session-untitled"),
       title: known.agent,
     });
@@ -91,18 +92,18 @@ function agentName(agent: AgentId | null): string {
 }
 
 // 올린 이미지는 이름 첫 글자로 갈음한다(Agent 화면 머리와 같다).
-function faceOf(name: string, profile: unknown): AvatarFace {
-  return (profile as { kind?: string } | undefined)?.kind === "character"
-    ? (profile as AvatarFace)
+function faceOf(name: string, avatar: unknown): AvatarFace {
+  return (avatar as { kind?: string } | undefined)?.kind === "character"
+    ? (avatar as AvatarFace)
     : { kind: "initial", text: [...name][0] ?? "?" };
 }
 
 function fallbackWho(agent: AgentId | null): SessionWho {
   const name = agentName(agent);
-  return { agent: name, profile: faceOf(name, undefined), title: null };
+  return { agent: name, avatar: faceOf(name, undefined), title: null };
 }
 
-// 못 본 끝이 있는 lophn session의 agent 정의와 session 이름. agent 이름·profile과 session 이름은 사람이 바꿀 수 있어
+// 못 본 끝이 있는 lophn session의 agent 정의와 session 이름. agent 이름·avatar와 session 이름은 사람이 바꿀 수 있어
 // 바뀜에 다시 읽는다. 기계마다 그 기계의 core를 읽고 따라간다.
 async function readWho(
   core: CoreSource,
@@ -119,9 +120,9 @@ async function readWho(
         : agentName(agent);
       const who: SessionWho = {
         agent: name,
-        profile: faceOf(
+        avatar: faceOf(
           name,
-          definition.ok ? definition.value.effective.profile.value : null,
+          definition.ok ? definition.value.effective.avatar.value : null,
         ),
         title: record.ok ? record.value.session.title : null,
       };

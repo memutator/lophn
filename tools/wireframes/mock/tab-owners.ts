@@ -16,14 +16,14 @@ const OWNERS: Readonly<Record<string, Owner>> = {
     name: "Researcher",
     face: {
       kind: "lophn",
-      profile: { kind: "character", shape: "round", color: "teal" },
+      avatar: { kind: "character", shape: "round", color: "teal" },
     },
   },
   [REVIEWER]: {
     name: "Reviewer",
     face: {
       kind: "lophn",
-      profile: { kind: "character", shape: "pear", color: "lavender" },
+      avatar: { kind: "character", shape: "pear", color: "lavender" },
     },
   },
 };

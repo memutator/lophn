@@ -1,18 +1,17 @@
 // 대화 글 안 artifact link. 진짜 MessageBody가 이 project의 artifact 목록(ArtifactsSlice)으로 path를 link로 그린다.
 // 목록에 없는 path는 link가 아닌 글 그대로다. hover한 모양은 mount 뒤 link에 pointer를 올려 만든다.
 import type { ReactNode } from "react";
-
+import type { BodyPart } from "../../../../../packages/shell/renderer/conversation/agent-tab-source.ts";
 import {
   AgentTurn,
   Said,
   UserMessage,
 } from "../../../../../packages/shell/renderer/conversation/message-list/agent-turn.tsx";
-import { MessageBody } from "../../../../../packages/shell/renderer/conversation/message-list/message-body.tsx";
-import type { BodyPart } from "../../../../../packages/shell/renderer/conversation/agent-tab-source.ts";
 import type { ArtifactsSlice } from "../../../../../packages/shell/renderer/conversation/message-list/artifact-text.tsx";
-import { PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
+import { MessageBody } from "../../../../../packages/shell/renderer/conversation/message-list/message-body.tsx";
 import { ARTIFACTS } from "../../../mock/artifact/data.ts";
 import { find, useDrive, wait } from "../../../mock/drive.ts";
+import { PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
 
 const noop = () => {};
 const FOLDER = `projects/${PROJECT_GROCERY}/artifacts`;
@@ -26,7 +25,7 @@ const SLICE: ArtifactsSlice = {
 
 const AGENT = {
   name: "Eval analyst",
-  profile: { kind: "initial", text: "E" },
+  avatar: { kind: "initial", text: "E" },
 } as const;
 
 const ready = (text: string): BodyPart[] => [{ kind: "text", text }];

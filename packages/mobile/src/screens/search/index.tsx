@@ -102,7 +102,7 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
           {found.sessions.map(({ row, workspaceName }) => (
             <Row
               key={row.id}
-              lead={<Face profile={row.who?.profile ?? LOPHN} />}
+              lead={<Face look={row.who?.avatar ?? LOPHN} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={[row.who?.name, workspaceName]
                 .filter((part) => part !== undefined)
@@ -185,7 +185,7 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
           {found.agents.map((hit) => (
             <Row
               key={hit.id}
-              lead={<Face profile={hit.who.profile} />}
+              lead={<Face look={hit.who.avatar} />}
               title={hit.name}
               sub={hit.sub}
               onPress={() => nav.open({ name: "agent", id: hit.id })}

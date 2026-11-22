@@ -27,11 +27,11 @@
 import { t } from "@lophn/i18n";
 
 import type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
+import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   codingBuiltinOf,
   isLophn,
 } from "../../../protocol/lophn-agent/workspaces.ts";
-import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import type { OnMachine } from "../desktop/machines/data.ts";
 import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
@@ -44,17 +44,16 @@ import {
 } from "../parts/agent-session/activity.ts";
 import { codingFace } from "../parts/agent-session/coding.ts";
 import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
-import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
-import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { codingFaceOf } from "../workspace/agents/coding-face.ts";
-import { sessionRowTitle } from "./session-titles.ts";
+import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
+import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import {
   MAIN_DESK,
   type TabItem,
   type WorkspaceLayout,
-  workspaceKey,
   type WorkspaceRef,
+  workspaceKey,
 } from "./desk-model.ts";
 import type {
   OwnedTab,
@@ -63,8 +62,9 @@ import type {
   SidebarTab,
   SidebarWorkspace,
 } from "./left-sidebar-model.ts";
+import { sessionRowTitle } from "./session-titles.ts";
 
-// lophn의 기본 얼굴(core의 `LOPHN_PROFILE`과 같다).
+// lophn의 기본 얼굴(core의 `LOPHN_AVATAR`과 같다).
 const LOPHN_FACE = {
   kind: "character",
   shape: "square",
@@ -176,7 +176,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const lophnRow = input.agents.find((agent) => isLophn(agent.assignment)) ?? {
     assignment: "",
     name: LOPHN_AGENT_NAME,
-    profile: LOPHN_FACE,
+    avatar: LOPHN_FACE,
     waiting: false,
   };
   const agentOf = (id: string): SidebarAgent => {
@@ -189,7 +189,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         return {
           assignment: id,
           name: coding.label,
-          profile: face,
+          avatar: face,
           waiting: false,
         };
       }
@@ -275,7 +275,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
             : input.lophnNames[entry.agent]) || agent.name,
         untitled: t("left-sidebar.label.untitled"),
       }),
-      agent: { kind: "lophn", profile: agent.profile },
+      agent: { kind: "lophn", avatar: agent.avatar },
       dot,
       actions: offline.offline === undefined,
       at: read?.at ?? 0,
@@ -303,7 +303,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       kind: "draft",
       ref: draft.key,
       title: t("left-sidebar.label.new-session"),
-      agent: { kind: "lophn", profile: agent.profile },
+      agent: { kind: "lophn", avatar: agent.avatar },
       dot: null,
       actions: true,
       at: 0,

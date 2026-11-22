@@ -12,14 +12,14 @@ import {
   workspaceSessionOpen,
   workspaceSessionRead,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
-import type {
-  AgentId,
-  Workspace,
-} from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   archiveSession,
   deleteSession,
 } from "../../../protocol/lophn-agent/sessions.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import {
@@ -136,15 +136,15 @@ export async function readFace(
   const apps = await readApps(env);
   if (!apps.ok) return apps;
   const name = effective.name.value;
-  const profile = effective.profile.value;
+  const avatar = effective.avatar.value;
   const face: AgentFace = {
     agent: env.agent,
     name,
     // 내장 coding agent는 그 제품 아이콘이다. 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
-    profile:
+    avatar:
       codingFaceOf(env.agent) ??
-      (profile.kind === "character"
-        ? profile
+      (avatar.kind === "character"
+        ? avatar
         : { kind: "initial", text: name.slice(0, 1) }),
     workspace:
       workspace === null ? null : { kind: workspace.kind, name: named.value },

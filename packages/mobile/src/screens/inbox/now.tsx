@@ -537,7 +537,7 @@ function NoticeItem({ notice, inbox, locked }: { notice: Notice } & Shared) {
   const app = notice.app;
   return (
     <Item
-      face={<Character profile={LOPHN} size={24} />}
+      face={<Character look={LOPHN} size={24} />}
       title={notice.title}
       onTitle={
         app === null

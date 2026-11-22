@@ -1,15 +1,17 @@
-// Who 탭(누구): profile · Name · Handle · Role(description) · 명함 · 지우기.
+// Who 탭(누구): avatar · Name · Handle · Role(description) · 명함 · 지우기.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
-import { useState } from "react";
+
+import { t } from "@lophn/i18n";
 import { Field, Input } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/i18n";
+import { useState } from "react";
 
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
-import { codingFaceOf } from "../coding-face.ts";
 import { CardFacts } from "../agent-card.tsx";
+import { codingFaceOf } from "../coding-face.ts";
+import styles from "./agent-editor.module.css";
 import {
   type AgentFacts,
   type FormProps,
@@ -18,8 +20,7 @@ import {
   withField,
 } from "./editor-model.ts";
 import { Group, Issues } from "./form-kit.tsx";
-import { ProfileField } from "./parts.tsx";
-import styles from "./agent-editor.module.css";
+import { AvatarField } from "./parts.tsx";
 
 // 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
 function DeleteAgent({
@@ -80,33 +81,33 @@ export function WhoTab(props: WhoTabProps) {
     issuesOf(props.issues, name);
   const set = (key: Parameters<typeof withField>[1], value: unknown) =>
     onChange(withField(definition, key, value));
-  const profile = definition.profile ?? detail.effective.profile.value;
+  const avatar = definition.avatar ?? detail.effective.avatar.value;
   // 내장 coding agent의 얼굴은 그 제품 아이콘이고 고르지 않는다.
-  const shownProfile =
+  const shownAvatar =
     (detail.assignment === null
       ? undefined
       : codingFaceOf(detail.assignment)) ??
-    (profile.kind === "character"
-      ? profile
-      : { kind: "image" as const, src: props.imageSrc(profile.image) });
+    (avatar.kind === "character"
+      ? avatar
+      : { kind: "image" as const, src: props.imageSrc(avatar.image) });
   const name = definition.name ?? detail.effective.name.value;
 
   return (
     <div className={styles.form}>
       {lophn || coding ? (
         <Group
-          name="profile"
-          heading={t("project-workspace.heading.agent-editor-profile")}
+          name="avatar"
+          heading={t("project-workspace.heading.agent-editor-avatar")}
         >
-          <Avatar profile={shownProfile} size="lg" />
+          <Avatar look={shownAvatar} size="lg" />
         </Group>
       ) : (
         <>
-          <ProfileField
-            value={profile}
+          <AvatarField
+            value={avatar}
             imageSrc={props.imageSrc}
             canUpload={!fresh}
-            onChange={(next) => set("profile", next)}
+            onChange={(next) => set("avatar", next)}
             onUpload={props.onUpload}
           />
           {props.copyOf?.imageDropped ? (
@@ -114,7 +115,7 @@ export function WhoTab(props: WhoTabProps) {
               {t("agents.notice.copy-image")}
             </p>
           ) : null}
-          <Issues issues={issues("profile")} />
+          <Issues issues={issues("avatar")} />
         </>
       )}
 

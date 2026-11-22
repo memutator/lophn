@@ -1,7 +1,15 @@
 // kind 선언이 작업대에서 받는 것이다. Workspace가 만들어 넘기고, kind는 이 모양으로만 배치와
 // 통로를 건드린다.
 
-import type { FloatRect, TabItem } from "../model.ts";
+import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
+import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
+import type { DraftStore } from "../../conversation/drafts.ts";
+import type { ArtifactsSlice } from "../../conversation/message-list/artifact-text.tsx";
+import type { MachineData } from "../../desktop/machines/data.ts";
+import type { MachineRef } from "../../desktop/machines/scope.tsx";
+import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
+import type { AvatarLook } from "../../parts/avatar/avatar.tsx";
 import type {
   Desk,
   OpenRelation,
@@ -9,20 +17,12 @@ import type {
   WorkspaceQuick,
   WorkspaceRef,
 } from "../../shell/desk-model.ts";
-import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
-import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
-import type { WorkspaceWindowProps } from "../workspace-window.tsx";
+import type { MachineProjects } from "../agent/machine-copies.ts";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentsTabs, Face } from "../agents/tab-state.ts";
-import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
-import type { DraftStore } from "../../conversation/drafts.ts";
+import type { FloatRect, TabItem } from "../model.ts";
+import type { WorkspaceWindowProps } from "../workspace-window.tsx";
 import type { ReadPosition } from "./kind.ts";
-import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import type { ArtifactsSlice } from "../../conversation/message-list/artifact-text.tsx";
-import type { SessionDot } from "../../parts/agent-session/activity.ts";
-import type { MachineProjects } from "../agent/machine-copies.ts";
-import type { MachineData } from "../../desktop/machines/data.ts";
-import type { MachineRef } from "../../desktop/machines/scope.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
 interface DocumentSlice {
@@ -36,7 +36,7 @@ export interface AgentsSlice {
   openExtensions(): void;
   /** 탭마다의 이동 기록과 저장하지 않은 편집. 탭 줄의 저장 안 됨 표시와 닫기 확인이 같은 곳을 본다. */
   readonly tabs: AgentsTabs;
-  /** sidebar 목록에서 찾은 agent의 이름과 profile. 탭이 아직 본문을 그리지 않았을 때 탭 줄이 쓴다. */
+  /** sidebar 목록에서 찾은 agent의 이름과 avatar. 탭이 아직 본문을 그리지 않았을 때 탭 줄이 쓴다. */
   faceOf(assignment: string): Face | undefined;
 }
 
@@ -53,8 +53,8 @@ export interface AgentViewSlice {
   openFile(path: string, from?: string): void;
   /** 대화의 shell 코드 블록을 floated 새 터미널에서 실행한다. 터미널 통로가 없으면 null이다. */
   readonly runCommand: ((command: string) => void) | null;
-  /** 탭 줄이 그리는 agent의 profile 아이콘. 목록에 없으면 undefined. */
-  profileOf(agent: string): AvatarProfile | undefined;
+  /** 탭 줄이 그리는 agent의 avatar 아이콘. 목록에 없으면 undefined. */
+  avatarOf(agent: string): AvatarLook | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */
   dotOf(session: string | null): SessionDot | null;
   /** `/skills`·`/mcp`가 Settings › Agents로 간다. */

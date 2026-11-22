@@ -1,5 +1,5 @@
 // mock 모드의 Agent 탭 통로. agent(담당과 자리)마다 메모리 source 하나를 만들어 두고, 같은 agent를 다시 얻으면
-// 같은 기록을 본다. 이름·profile은 편집 화면과 같은 AgentsSource에서 읽어 탭과 대화 머리가 어긋나지 않게 한다.
+// 같은 기록을 본다. 이름·avatar는 편집 화면과 같은 AgentsSource에서 읽어 탭과 대화 머리가 어긋나지 않게 한다.
 
 import { t } from "@lophn/i18n";
 import {
@@ -35,21 +35,21 @@ export function mockAgentTabSource(
           const grants = await agents.grants(project, agent.assignment);
           if (!grants.ok) return { ok: false, code: grants.message };
           const { workspace, effective } = read.value;
-          const profile = effective.profile.value;
+          const avatar = effective.avatar.value;
           return {
             ok: true,
             value: {
               agent: agent.assignment,
               name: effective.name.value,
-              profile:
-                profile.kind === "character"
-                  ? profile
+              avatar:
+                avatar.kind === "character"
+                  ? avatar
                   : {
                       kind: "image",
                       src: agents.imageSrc(
                         project,
                         agent.assignment,
-                        profile.image,
+                        avatar.image,
                       ),
                     },
               // home(global)은 자리 칸이 없다.

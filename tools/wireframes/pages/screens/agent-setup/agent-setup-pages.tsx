@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { appList } from "../../../../../packages/protocol/apps/apps.ts";
 import { appTools } from "../../../../../packages/protocol/apps/declaration/read.ts";
+import { BrowserProfilesProvider } from "../../../../../packages/shell/renderer/browser/profiles.tsx";
 import {
   createFakeSource,
   fakeAnswer,
@@ -15,40 +16,39 @@ import type {
 } from "../../../../../packages/shell/renderer/desktop/machines/data.ts";
 import { MachineHubProvider } from "../../../../../packages/shell/renderer/desktop/machines/scope.tsx";
 import { fakeMachines } from "../../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
-import { BrowserProfilesProvider } from "../../../../../packages/shell/renderer/browser/profiles.tsx";
+import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
+import { AgentsPage } from "../../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import {
   COMPUTER_APPS,
   SAMPLE_BROWSER_PROFILES,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
-import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {
   ANTHROPIC,
   BROKEN_AGENT_ID,
   BUDGET_REVIEWER_ID,
   CODEX_RUNNER_ID,
+  createFakeAgentsSource,
   EVAL_ANALYST_ID,
   EXPERIMENT_PLANNER_ID,
-  createFakeAgentsSource,
   type FakeAgentsOptions,
   HOME_LOPHN_ID,
   PROJECT_LOPHN_ID,
   QUEUE_WATCHER_ID,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
-import { AgentsPage } from "../../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import { AgentsTabs } from "../../../../../packages/shell/renderer/workspace/agents/tab-state.ts";
+import { click, find, press, type Step, type } from "../../../mock/drive.ts";
+import { Driven } from "../../../mock/driven.tsx";
 import {
   AGENTS_TAB_SPEC,
   AgentSettingsEditor,
-  AgentsBody,
   type AgentsAt,
-  FakeAgentEvents,
+  AgentsBody,
   agentTab,
+  FakeAgentEvents,
 } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 import { SettingsFrame } from "../settings-frame.tsx";
-import { Driven } from "../../../mock/driven.tsx";
-import { click, find, press, type Step, type } from "../../../mock/drive.ts";
 
 const SIDEBAR = { foldersClosed: true } as const;
 
@@ -193,7 +193,7 @@ export const AgentInstructionsTabPage = () =>
 export const AgentMemoryTabPage = () =>
   editor(EVAL_ANALYST_ID, [WORKS_TAB, scrollTo("[data-field=memory]", "end")]);
 
-/** Who 탭. profile, 이름, handle, 역할 한 줄, 명함, Delete. */
+/** Who 탭. avatar, 이름, handle, 역할 한 줄, 명함, Delete. */
 export const AgentWhoTabPage = () => editor(EVAL_ANALYST_ID, [WHO_TAB]);
 
 /** Sees 탭 위쪽: 범위, Browser profile, MCP servers. */
@@ -288,11 +288,11 @@ const pickImage: Step = async () => {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 };
 
-/** 사람이 만든 agent의 profile 이미지를 올려 character 대신 그 이미지가 profile로 보이는 상태(저장 전). */
+/** 사람이 만든 agent의 avatar 이미지를 올려 character 대신 그 이미지가 avatar로 보이는 상태(저장 전). */
 export const AgentImageUploadedPage = () =>
   editor(QUEUE_WATCHER_ID, [WHO_TAB, pickImage]);
 
-/** 이미지 올리기가 거절되어 toast가 뜬 상태. profile은 그대로다. */
+/** 이미지 올리기가 거절되어 toast가 뜬 상태. avatar는 그대로다. */
 export const AgentImageUploadFailedPage = () =>
   editor(QUEUE_WATCHER_ID, [WHO_TAB, pickImage], { uploadFails: true });
 
@@ -341,7 +341,7 @@ export const AgentModelPickerPage = () =>
 /** 새 agent를 만든다. */
 export const AgentCreatePage = () => editor("new");
 
-/** project의 lophn 설정. profile과 handle이 잠기고 Delete가 없다. */
+/** project의 lophn 설정. avatar와 handle이 잠기고 Delete가 없다. */
 export const LophnEditorPage = () => editor(PROJECT_LOPHN_ID);
 
 /** 앱 자리에서 연 agent의 Works how. 앱 source의 AGENTS.md가 workspace 지침으로 보인다. */

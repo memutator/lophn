@@ -213,7 +213,7 @@ export function useSearch(query: string): SearchResults {
               const who = whoOf(row.agent, {
                 titles: new Map(),
                 agents: new Map([
-                  [row.agent, { name: row.name, profile: row.profile }],
+                  [row.agent, { name: row.name, avatar: row.avatar }],
                 ]),
               });
               return who === null

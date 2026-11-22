@@ -2,7 +2,7 @@
 import { formatRelativeTime, t } from "@lophn/i18n";
 
 import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
-import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
+import type { AvatarLook } from "../parts/avatar/avatar.tsx";
 import type {
   WorkflowEntryView,
   WorkflowInstanceDetailView,
@@ -81,7 +81,7 @@ export const runTitle = (input: string): string =>
 /** agent handle의 얼굴. 탭이 agent 목록에서 찾아 넘긴다(없으면 handle 글만 보인다). */
 export interface WorkflowFace {
   readonly name: string;
-  readonly profile: AvatarProfile;
+  readonly avatar: AvatarLook;
 }
 export type FaceOf = (handle: string) => WorkflowFace | undefined;
 

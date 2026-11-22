@@ -50,7 +50,7 @@ import {
   type WorkspaceView,
 } from "../data/mod.ts";
 import { Character, Face, LOPHN, SESSION_DOT, WorkspaceMark } from "../parts/mod.ts";
-import { codingPlace, codingTitle, harnessProfile, stateOf as codingState, TerminalMark } from "../screens/coding/parts.tsx";
+import { codingPlace, codingTitle, harnessAvatar, stateOf as codingState, TerminalMark } from "../screens/coding/parts.tsx";
 import { NewAppSheet } from "../screens/home/new-app.tsx";
 import { filterStateOf, stateOf } from "./computer-state.ts";
 import { FrameContext, type Place, paramsOf } from "./nav.ts";
@@ -153,7 +153,7 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
       }}
     >
       <SidebarHead
-        lead={<Character profile={LOPHN} size={26} />}
+        lead={<Character look={LOPHN} size={26} />}
         title={t("mobile.frame.label.brand")}
         right={
           <IconButton
@@ -381,7 +381,7 @@ function Workspace({
   const sessionRow = (row: WorkspaceView["recent"][number]) => (
     <SessionRow
       key={row.id}
-      face={<Face profile={row.who?.profile ?? LOPHN} size={20} />}
+      face={<Face look={row.who?.avatar ?? LOPHN} size={20} />}
       title={row.title ?? t("left-sidebar.label.untitled")}
       tone={SESSION_DOT[row.status]}
       on={on === `session:${key}:${row.id}`}
@@ -483,7 +483,7 @@ function CodingLines({
     .map((session) => (
       <SessionRow
         key={session.session}
-        face={<Face profile={harnessProfile(session.harness, session.label)} size={20} />}
+        face={<Face look={harnessAvatar(session.harness, session.label)} size={20} />}
         title={codingTitle(session)}
         mark={session.view === "tui" ? <TerminalMark /> : undefined}
         tone={codingState(session).tone}

@@ -7,10 +7,10 @@ import { View } from "react-native";
 import { harnessVendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
 import type { Place } from "../../app/nav.ts";
 import type { CodingSession, CodingTarget } from "../../data/mod.ts";
-import { ago, type Profile } from "../../parts/mod.ts";
+import { ago, type Look } from "../../parts/mod.ts";
 
 /** The face of a harness: its product icon, or its initial when lophn has none for it. */
-export function harnessProfile(harness: string, label: string): Profile {
+export function harnessAvatar(harness: string, label: string): Look {
   const vendor = harnessVendorOf(harness);
   return vendor === undefined
     ? { kind: "initial", text: label.slice(0, 1) }

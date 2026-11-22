@@ -1,7 +1,7 @@
 // Agents 탭 하나가 화면 밖에서 쥐는 상태: 탭 안의 이동 기록(list → agent A → …), 저장하지 않은 편집, 탭 줄에 보일 얼굴.
 // 탭을 고르지 않는 동안 본문이 unmount되어도 편집이 남고(탭 줄의 저장 안 됨 표시도 그대로다), 창 하나가 하나씩 갖는다.
 // 기록은 메모리에만 있다. layout 파일에는 열어 둔 agent(`fields.agent`)만 남는다.
-import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import type { AvatarLook } from "../../parts/avatar/avatar.tsx";
 import type { Ready } from "./editor/editor-model.ts";
 
 /** 탭 안에서 보는 자리. new는 첫 저장 전의 새 agent다(n은 구분하는 번호, from은 복제한 원래 agent). */
@@ -78,10 +78,10 @@ export const back = (history: History): History =>
 export const forward = (history: History): History =>
   canForward(history) ? { ...history, at: history.at + 1 } : history;
 
-/** 탭 줄이 보이는 얼굴: 열어 둔 agent의 이름과 profile. */
+/** 탭 줄이 보이는 얼굴: 열어 둔 agent의 이름과 avatar. */
 export interface Face {
   readonly name: string;
-  readonly profile: AvatarProfile;
+  readonly avatar: AvatarLook;
 }
 
 const sameFace = (a: Face | null, b: Face | null): boolean =>

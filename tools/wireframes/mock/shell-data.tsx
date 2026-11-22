@@ -1,15 +1,17 @@
 // shell 틀 gallery page의 고정 data. desk 셋(Main, Review, Release check)과 tab 일곱. 본문은 틀을 보이려는 간단한 그림이다.
 // desk는 실제 desk model(`shell/desk-model.ts`)이고 group·float은 그 함수로 만든다.
-import type { ReactNode } from "react";
+
 import { FileIcon, Icon } from "@lophn/ui/primitives";
 import { Markdown } from "@lophn/ui/reading";
+import type { ReactNode } from "react";
 import { shellIcons } from "../../../packages/shell/renderer/icons/mod.ts";
-import { Avatar } from "../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import type { SessionDot } from "../../../packages/shell/renderer/parts/agent-session/activity.ts";
+import { Avatar } from "../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import {
   type Vendor,
   VendorIcon,
 } from "../../../packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx";
+import type { CardPane } from "../../../packages/shell/renderer/shell/content-card.tsx";
 import {
   type Desk,
   emptyDesk,
@@ -22,10 +24,9 @@ import {
   splitTab,
   type TabItem,
 } from "../../../packages/shell/renderer/shell/desk-model.ts";
-import type { FloatRect } from "../../../packages/shell/renderer/workspace/model.ts";
-import type { CardPane } from "../../../packages/shell/renderer/shell/content-card.tsx";
 import type { TabMenuState } from "../../../packages/shell/renderer/shell/tab-menu.tsx";
 import type { StripTab } from "../../../packages/shell/renderer/shell/tab-strip.tsx";
+import type { FloatRect } from "../../../packages/shell/renderer/workspace/model.ts";
 
 type Agent =
   | { kind: "lophn"; shape: "square" | "round"; color: "coral" | "blue" }
@@ -513,7 +514,7 @@ export function tabIcon(tab: MockTab): ReactNode {
   const agent = tab.agent ?? LOPHN;
   return agent.kind === "lophn" ? (
     <Avatar
-      profile={{ kind: "character", shape: agent.shape, color: agent.color }}
+      look={{ kind: "character", shape: agent.shape, color: agent.color }}
       size="sm"
     />
   ) : (

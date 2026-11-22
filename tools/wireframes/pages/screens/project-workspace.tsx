@@ -1,59 +1,44 @@
+import { Icon } from "@lophn/ui/primitives";
 import { useEffect, useMemo, useState } from "react";
-
-import type { Area } from "../types.ts";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
-import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { fakeWorkspaceSource } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
-import { RightSidebar } from "../../../../packages/shell/renderer/shell/right-sidebar.tsx";
-import { WorkflowPanel } from "../../../../packages/shell/renderer/workspace/sidebar/workflow-panel.tsx";
+import {
+  createEventStores,
+  EventsProvider,
+} from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
+import { MachinesProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import type {
+  MachineData,
+  MachineHub,
+} from "../../../../packages/shell/renderer/desktop/machines/data.ts";
+import { MachineHubProvider } from "../../../../packages/shell/renderer/desktop/machines/scope.tsx";
+import { TabScope } from "../../../../packages/shell/renderer/desktop/machines/tab-scope.tsx";
+import {
+  fakeMachines,
+  sampleMachines,
+} from "../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
 import { openProject } from "../../../../packages/shell/renderer/desktop/router.ts";
+import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
+import { ContentCard } from "../../../../packages/shell/renderer/shell/content-card.tsx";
+import { RightSidebar } from "../../../../packages/shell/renderer/shell/right-sidebar.tsx";
+import { ShellFrame } from "../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { TabStrip } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
+import type { TerminalDeps } from "../../../../packages/shell/renderer/terminal/deps.ts";
+import { TerminalTab } from "../../../../packages/shell/renderer/terminal/terminal-tab.tsx";
+import { fakeWorkspaceSource } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
+import { WorkflowPanel } from "../../../../packages/shell/renderer/workspace/sidebar/workflow-panel.tsx";
+import { fakeTerminalDeps } from "../../mock/fake-terminal.ts";
 import {
-  LeftSidebarPage,
-  ExplorerActionsMenu,
-  ExplorerHead,
-  ExplorerMove,
-  ExplorerMultiSelect,
-  ExplorerNewExists,
-  ExplorerNewFile,
-  ExplorerPasteEmpty,
-  ExplorerRename,
-  ExplorerRootMenu,
-  FileConflict,
-  FileConflictCompare,
-  FileDeleteConfirm,
-  FolderActionsMenu,
-  FileReloaded,
-  FileSearchFolder,
-  FileSearchOpened,
-  FileSearchResults,
-  InstructionsFile,
-  MarkdownEditing,
-  MediaFiles,
-  OpenPathPalette,
-  OutsideFile,
-  TextFiles,
-} from "./project-files/pages.tsx";
-import {
-  DocumentOrganize,
-  DocumentTabInfo,
-  DocumentTabPage,
-  EditorTabs,
-  NewTabMenu,
-  TabKinds,
-} from "./project-pages.tsx";
-import {
-  FloatMinimized,
-  FloatOverApp,
-  FloatStack,
-  FloatTerminal,
-} from "./project-float/pages.tsx";
-import { DetachedTerminal } from "./project-detached/pages.tsx";
-import { EditorTabMenu } from "./project-files/tab-menu.tsx";
+  MockDesktop,
+  type PaneSpec,
+  PROJECT_GROCERY,
+} from "../../mock/mock-desktop.tsx";
+import { documentTab } from "../../mock/phroner-data.ts";
+import type { Area } from "../types.ts";
 import {
   BrowserAgentControl,
   BrowserAgentHeld,
-  BrowserHandedControl,
   BrowserBlank,
   BrowserBookmarkMenu,
   BrowserBridgeOnePane,
@@ -62,6 +47,7 @@ import {
   BrowserDevtoolsFloat,
   BrowserDevtoolsMenu,
   BrowserDevtoolsRight,
+  BrowserHandedControl,
   BrowserNewTabBookmarks,
   BrowserOauthPopup,
   BrowserOverflowMenu,
@@ -74,33 +60,48 @@ import {
   NewTabMenuBrowser,
 } from "./browser/pages.tsx";
 import { ProjectApp } from "./project-app.tsx";
-import { createEventStores } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { MachinesProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
-import type {
-  MachineData,
-  MachineHub,
-} from "../../../../packages/shell/renderer/desktop/machines/data.ts";
-import { MachineHubProvider } from "../../../../packages/shell/renderer/desktop/machines/scope.tsx";
-import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
-import { TabScope } from "../../../../packages/shell/renderer/desktop/machines/tab-scope.tsx";
+import { DetachedTerminal } from "./project-detached/pages.tsx";
 import {
-  fakeMachines,
-  sampleMachines,
-} from "../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
-import { Icon } from "@lophn/ui/primitives";
-import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
-import { ContentCard } from "../../../../packages/shell/renderer/shell/content-card.tsx";
-import { ShellFrame } from "../../../../packages/shell/renderer/shell/shell-frame.tsx";
-import { TabStrip } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
-import type { TerminalDeps } from "../../../../packages/shell/renderer/terminal/deps.ts";
-import { TerminalTab } from "../../../../packages/shell/renderer/terminal/terminal-tab.tsx";
-import { fakeTerminalDeps } from "../../mock/fake-terminal.ts";
-import { documentTab } from "../../mock/phroner-data.ts";
+  ExplorerActionsMenu,
+  ExplorerHead,
+  ExplorerMove,
+  ExplorerMultiSelect,
+  ExplorerNewExists,
+  ExplorerNewFile,
+  ExplorerPasteEmpty,
+  ExplorerRename,
+  ExplorerRootMenu,
+  FileConflict,
+  FileConflictCompare,
+  FileDeleteConfirm,
+  FileReloaded,
+  FileSearchFolder,
+  FileSearchOpened,
+  FileSearchResults,
+  FolderActionsMenu,
+  InstructionsFile,
+  LeftSidebarPage,
+  MarkdownEditing,
+  MediaFiles,
+  OpenPathPalette,
+  OutsideFile,
+  TextFiles,
+} from "./project-files/pages.tsx";
+import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
-  MockDesktop,
-  type PaneSpec,
-  PROJECT_GROCERY,
-} from "../../mock/mock-desktop.tsx";
+  FloatMinimized,
+  FloatOverApp,
+  FloatStack,
+  FloatTerminal,
+} from "./project-float/pages.tsx";
+import {
+  DocumentOrganize,
+  DocumentTabInfo,
+  DocumentTabPage,
+  EditorTabs,
+  NewTabMenu,
+  TabKinds,
+} from "./project-pages.tsx";
 
 // WorkflowPanel은 workflow 변경 event를 듣는다. Workspace 밖에서 세우는 page는 provider를 직접 둔다.
 function WithEvents({ children }: { children: React.ReactNode }) {
@@ -670,7 +671,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-project-tabs",
       title: "Project · tab kinds",
       description:
-        "한 칸에 md 문서, JSON 파일, project 키워드 검색, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
+        "한 칸에 md 문서, JSON 파일, project 키워드 검색, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 avatar 아이콘이다.",
       render: () => <TabKinds />,
     },
     {

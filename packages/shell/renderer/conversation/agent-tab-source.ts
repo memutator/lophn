@@ -1,6 +1,16 @@
+import type {
+  AcpCard,
+  AcpChildState,
+  AcpInput,
+  AcpPlan,
+  AcpSessionMeta,
+  AcpState,
+  AcpTask,
+  AcpWriting,
+} from "../../../protocol/acp/mod.ts";
 import type { AcpApprovalSubject } from "../../../protocol/approvals/gate-call.ts";
 import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
-import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
+import type { CharacterAvatar } from "../../../protocol/lophn-agent/agent-values.ts";
 // Agent 탭이 core에 묻고 쓰는 통로와 그 화면 값. 화면 부품(thread, cards, composer, sessions)은 모두 이 타입 위에 선다.
 // 대화는 ACP다: source가 snapshot(`AcpState`)을 주고 화면이 갱신을 `reduceAcp`로 접은 뒤 줄 모양으로 늘어놓는다
 // (`thread-layout.ts`). 그 밖의 값은 contract(lophn-agent의 agent-sessions·received-messages·calls·session-rewinds·
@@ -21,20 +31,10 @@ import type {
   InputRequestView,
   SignInRequestView,
 } from "../../../protocol/lophn-agent/input-request.ts";
-import type { SignInProgress } from "../desktop/settings/sign-in.ts";
-import type { EventClient } from "../desktop/connection/events/client.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
-import type {
-  AcpCard,
-  AcpChildState,
-  AcpInput,
-  AcpPlan,
-  AcpSessionMeta,
-  AcpState,
-  AcpTask,
-  AcpWriting,
-} from "../../../protocol/acp/mod.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
+import type { EventClient } from "../desktop/connection/events/client.ts";
+import type { SignInProgress } from "../desktop/settings/sign-in.ts";
 import type { Vendor } from "../parts/vendor-icon/vendors.ts";
 import type { ToolCallState, ToolCallView } from "./activity/model.ts";
 
@@ -54,8 +54,8 @@ export type {
 };
 
 /** avatar가 그리는 얼굴. */
-export type AgentProfile =
-  | CharacterProfile
+export type AgentAvatarLook =
+  | CharacterAvatar
   | { readonly kind: "image"; readonly src: string }
   | { readonly kind: "initial"; readonly text: string }
   | { readonly kind: "vendor"; readonly vendor: Vendor };
@@ -64,7 +64,7 @@ export type AgentProfile =
 export interface AgentFace {
   readonly agent: AgentId;
   readonly name: string;
-  readonly profile: AgentProfile;
+  readonly avatar: AgentAvatarLook;
   /** 이 source의 session이 열리는 자리. home은 null이다. */
   readonly workspace: {
     readonly kind: "project" | "app";

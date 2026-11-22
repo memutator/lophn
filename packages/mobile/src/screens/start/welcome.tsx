@@ -79,7 +79,7 @@ export function WelcomeScreen({
       }
     >
       <Center>
-        <Character profile={LOPHN} size={92} />
+        <Character look={LOPHN} size={92} />
         <Hero>{t("mobile.start.heading.welcome")}</Hero>
         <Lead>{t("mobile.start.intro.welcome")}</Lead>
         <Plain style={{ alignSelf: "stretch", marginTop: 28 }}>

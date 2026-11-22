@@ -286,14 +286,14 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
-/* Profile */
-.profileRow {
+/* Avatar */
+.avatarRow {
   display: flex;
   align-items: flex-start;
   gap: var(--space-6);
 }
 
-.profileTools {
+.avatarTools {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -301,7 +301,7 @@
   min-width: var(--space-0);
 }
 
-.profileButtons {
+.avatarButtons {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);

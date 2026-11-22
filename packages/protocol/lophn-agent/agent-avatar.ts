@@ -12,49 +12,49 @@ export const AGENT_CHARACTER_SHAPES = [
   "arch",
 ] as const;
 export { AGENT_CHARACTER_COLORS };
-export const characterProfileFields = {
+export const characterAvatarFields = {
   kind: z.literal("character"),
   shape: z.enum(AGENT_CHARACTER_SHAPES),
   color: z.enum(AGENT_CHARACTER_COLORS),
 };
-export const characterProfileSchema = z.strictObject(characterProfileFields);
-export type CharacterProfile = z.infer<typeof characterProfileSchema>;
+export const characterAvatarSchema = z.strictObject(characterAvatarFields);
+export type CharacterAvatar = z.infer<typeof characterAvatarSchema>;
 export const DEFAULT_AGENT_CHARACTER = {
   kind: "character",
   shape: "arch",
   color: "sage",
-} as const satisfies CharacterProfile;
+} as const satisfies CharacterAvatar;
 
-export const AGENT_PROFILE_IMAGE_MAX_BYTES = 1_048_576;
-export const AGENT_PROFILE_IMAGE_TYPES = {
+export const AGENT_AVATAR_IMAGE_MAX_BYTES = 1_048_576;
+export const AGENT_AVATAR_IMAGE_TYPES = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
 } as const;
-export const agentProfileImageTypeSchema = z.enum(
-  Object.keys(AGENT_PROFILE_IMAGE_TYPES) as [
-    keyof typeof AGENT_PROFILE_IMAGE_TYPES,
-    ...(keyof typeof AGENT_PROFILE_IMAGE_TYPES)[],
+export const agentAvatarImageTypeSchema = z.enum(
+  Object.keys(AGENT_AVATAR_IMAGE_TYPES) as [
+    keyof typeof AGENT_AVATAR_IMAGE_TYPES,
+    ...(keyof typeof AGENT_AVATAR_IMAGE_TYPES)[],
   ],
 );
 
 const imageNameSchema = z.string().regex(/^avatar\.(png|jpg|webp)$/);
 
-const profileImageSchema = z.strictObject({
+const avatarImageSchema = z.strictObject({
   kind: z.literal("image"),
   image: imageNameSchema,
 });
-export const profileImageOutputSchema = z.object({
+export const avatarImageOutputSchema = z.object({
   kind: z.literal("image"),
   image: imageNameSchema,
 });
 
-export const profileSchema = z.discriminatedUnion("kind", [
-  characterProfileSchema,
-  profileImageSchema,
+export const avatarSchema = z.discriminatedUnion("kind", [
+  characterAvatarSchema,
+  avatarImageSchema,
 ]);
-export const profileOutputSchema = z.discriminatedUnion("kind", [
-  z.object(characterProfileFields),
-  profileImageOutputSchema,
+export const avatarOutputSchema = z.discriminatedUnion("kind", [
+  z.object(characterAvatarFields),
+  avatarImageOutputSchema,
 ]);
-export type Profile = z.infer<typeof profileSchema>;
+export type AgentAvatar = z.infer<typeof avatarSchema>;

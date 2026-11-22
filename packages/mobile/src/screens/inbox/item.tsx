@@ -16,7 +16,7 @@ const OTHER_AGENT = {
 export function Asker({ agent }: { agent: AgentId | null }) {
   return (
     <Character
-      profile={agent === null || isLophn(agent) ? LOPHN : OTHER_AGENT}
+      look={agent === null || isLophn(agent) ? LOPHN : OTHER_AGENT}
       size={24}
     />
   );

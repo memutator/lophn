@@ -1,17 +1,20 @@
 // Agents 탭과 agent editor가 읽고 쓰는 통로. 정의 파일의 칸과 칸별 값·출처는 protocol/lophn-agent의
 // agents를, 할당은 approvals/assignment를 그대로 따르고, 화면이 contract만으로 만들 수 없는 것
 // (켬·끔 줄, 놓을 곳 후보, 붙일 앱 목록)만 여기서 더한다. 화면은 이 통로를 지나는 값으로만 그리고 core를 직접 부르지 않는다.
+
+import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type {
+  AgentCard,
   AgentDefinitionIssue,
   AgentValueLayer,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type {
+  AgentAvatar,
   AgentCounts,
   AgentRuntime,
   AgentWorkspace,
   McpOff,
   Modality,
-  Profile,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type {
@@ -20,13 +23,11 @@ import type {
   UserModelItem,
   UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
-import type { AgentCard } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ReadResult } from "../source.ts";
 import type {
-  McpLogin,
   InstructionsFile,
+  McpLogin,
   McpRow,
   MemoryTarget,
   SkillRow,
@@ -54,7 +55,7 @@ export interface AgentListRow {
   readonly workspaceName?: string;
   /** 보이는 이름이다. 겹쳐도 되고 바꿀 수 있다. */
   readonly name: string;
-  readonly profile: Profile;
+  readonly avatar: AgentAvatar;
   readonly description?: string;
   readonly model: {
     readonly provider: string;
@@ -110,7 +111,7 @@ export interface AgentsOverview {
 
 /**
  * 정의 파일 한 개의 값. 모든 agent가 같은 칸을 갖는다. `skills_off`는 이 agent가 끈 skill 이름이고 없으면 보이는 skill을 모두 받는다.
- * lophn의 `handle`·`profile`은 바꾸지 못하고(name은 바꾼다), `handle`과 `workspace`는 만들 때만 정한다.
+ * lophn의 `handle`·`avatar`는 바꾸지 못하고(name은 바꾼다), `handle`과 `workspace`는 만들 때만 정한다.
  * `mcp_servers`·`skip`은 사람만 쓴다. 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
 export interface AgentDraft {
@@ -119,7 +120,7 @@ export interface AgentDraft {
   readonly name?: string;
   /** 범위 workspace. 없으면 전역이다. 저장된 값을 그대로 돌려보낸다. */
   readonly workspace?: AgentWorkspace;
-  readonly profile?: Profile;
+  readonly avatar?: AgentAvatar;
   /** 없으면 lophn이다. custom은 본문과 `tools`, `skills`가 고른 것만 싣는다. */
   readonly runtime?: AgentRuntime;
   /** 한 줄 목적. */
@@ -169,7 +170,7 @@ export interface AgentDetail {
   /** 정의에 칸이 없을 때 보일 상속 값. */
   readonly effective: {
     readonly name: Sourced<string>;
-    readonly profile: Sourced<Profile>;
+    readonly avatar: Sourced<AgentAvatar>;
   };
   /** 이 agent가 model을 고르지 않으면 따르는 값. 어느 층에도 model이 없으면 null이다. */
   readonly inheritedModel: Sourced<ModelChoice> | null;
@@ -333,7 +334,7 @@ export interface AgentsSource {
     assignment: string,
     hash: string,
   ): Promise<ReadResult<null>>;
-  /** profile 이미지를 올리고 정의의 profile에 쓸 파일 이름을 돌려준다. 저장은 따로다. */
+  /** avatar 이미지를 올리고 정의의 avatar에 쓸 파일 이름을 돌려준다. 저장은 따로다. */
   uploadImage(
     workspace: string | null,
     assignment: string,

@@ -20,7 +20,7 @@ import {
 import type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
 import type { TerminalLine } from "../../../protocol/coding-agent/terminal-view.ts";
 import type { BusEvent, SessionSnapshot } from "../../../protocol/events/mod.ts";
-import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
+import type { CharacterAvatar } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   type AgentId,
   LOPHN_HOME_ID,
@@ -59,30 +59,30 @@ const READING = { kind: "app", id: id("app", 4) } as const;
 const LOPHN_PHRONER = lophnIdOf(PHRONER);
 const PLANNER = id("agt", 1);
 
-const AGENTS: Record<string, { name: string; profile: CharacterProfile }> = {
+const AGENTS: Record<string, { name: string; avatar: CharacterAvatar }> = {
   [LOPHN_HOME_ID]: {
     name: "lophn",
-    profile: { kind: "character", shape: "square", color: "coral" },
+    avatar: { kind: "character", shape: "square", color: "coral" },
   },
   [LOPHN_PHRONER]: {
     name: "lophn",
-    profile: { kind: "character", shape: "square", color: "coral" },
+    avatar: { kind: "character", shape: "square", color: "coral" },
   },
   [lophnIdOf(ORDERS)]: {
     name: "lophn",
-    profile: { kind: "character", shape: "square", color: "coral" },
+    avatar: { kind: "character", shape: "square", color: "coral" },
   },
   [PLANNER]: {
     name: "Experiment planner",
-    profile: { kind: "character", shape: "round", color: "blue" },
+    avatar: { kind: "character", shape: "round", color: "blue" },
   },
   coding_claude: {
     name: "Claude Code",
-    profile: { kind: "character", shape: "square", color: "coral" },
+    avatar: { kind: "character", shape: "square", color: "coral" },
   },
   coding_codex: {
     name: "Codex",
-    profile: { kind: "character", shape: "square", color: "coral" },
+    avatar: { kind: "character", shape: "square", color: "coral" },
   },
 };
 
@@ -487,12 +487,12 @@ function jobRuns(job: JobView): JobRunView[] {
     : [run(1, "done", 72)];
 }
 
-const agentRow = (agent: string, name: string, profile: CharacterProfile, extra: Record<string, unknown> = {}) => ({
+const agentRow = (agent: string, name: string, avatar: CharacterAvatar, extra: Record<string, unknown> = {}) => ({
   agent,
   handle: name.toLowerCase().replace(/\W+/g, "-"),
   name,
   workspace: null,
-  profile,
+  avatar,
   model: { provider: "pvd_sample", model_name: "Sonnet 5.5", source: "global" },
   issues: [],
   counts: { skills: 5, mcp: 2 },
@@ -500,20 +500,20 @@ const agentRow = (agent: string, name: string, profile: CharacterProfile, extra:
 });
 
 const AGENT_ROWS = [
-  agentRow(LOPHN_HOME_ID, "lophn", AGENTS[LOPHN_HOME_ID]!.profile, { handle: "lophn" }),
+  agentRow(LOPHN_HOME_ID, "lophn", AGENTS[LOPHN_HOME_ID]!.avatar, { handle: "lophn" }),
   agentRow(EVAL, "Eval analyst", { kind: "character", shape: "pear", color: "lavender" }),
-  agentRow(PLANNER, "Experiment planner", AGENTS[PLANNER]!.profile, {
+  agentRow(PLANNER, "Experiment planner", AGENTS[PLANNER]!.avatar, {
     workspace: PHRONER,
     description:
       "Plans the next eval experiment from the findings, cheapest first, and writes the plan where the runner picks it up.",
   }),
   agentRow(BUDGET, "Budget reviewer", { kind: "character", shape: "arch", color: "sage" }, { workspace: ORDERS }),
-  agentRow("coding_claude", "Claude Code", AGENTS.coding_claude!.profile, {
+  agentRow("coding_claude", "Claude Code", AGENTS.coding_claude!.avatar, {
     model: null,
     counts: { skills: null, mcp: null },
     handle: "claude",
   }),
-  agentRow("coding_codex", "Codex", AGENTS.coding_codex!.profile, {
+  agentRow("coding_codex", "Codex", AGENTS.coding_codex!.avatar, {
     model: null,
     counts: { skills: null, mcp: null },
     handle: "codex",
@@ -867,7 +867,7 @@ function sampleCore(): CoreSource {
             agent: body.agent,
             effective: {
               name: { value: agent.name },
-              profile: { value: agent.profile },
+              avatar: { value: agent.avatar },
             },
           };
     },

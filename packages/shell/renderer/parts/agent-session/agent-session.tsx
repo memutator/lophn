@@ -4,13 +4,13 @@
 import { Icon } from "@lophn/ui/primitives";
 
 import { shellIcons } from "../../icons/mod.ts";
-import { Avatar, type AvatarProfile } from "../avatar/avatar.tsx";
+import { Avatar, type AvatarLook } from "../avatar/avatar.tsx";
 import { type Vendor, VendorIcon } from "../vendor-icon/vendor-icon.tsx";
 
 export type AgentSessionKind = "lophn" | "coding";
 
 export type AgentFace =
-  | { readonly kind: "lophn"; readonly profile: AvatarProfile }
+  | { readonly kind: "lophn"; readonly avatar: AvatarLook }
   | { readonly kind: "coding"; readonly vendor: Vendor | undefined };
 
 /** 새 session을 열 수 있는 agent 하나. */
@@ -29,7 +29,7 @@ export function AgentFaceIcon({
   face: AgentFace;
   vendorSize?: 14 | 16;
 }) {
-  if (face.kind === "lophn") return <Avatar profile={face.profile} size="sm" />;
+  if (face.kind === "lophn") return <Avatar look={face.avatar} size="sm" />;
   return face.vendor === undefined ? (
     <Icon icon={shellIcons.terminal} pixels={14} />
   ) : (

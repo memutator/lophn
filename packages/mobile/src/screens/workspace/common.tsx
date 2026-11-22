@@ -79,7 +79,7 @@ export function AskBar({
         chips={
           unreachable !== null ? undefined : (
             <Chip
-              lead={<Face profile={LOPHN} size={18} />}
+              lead={<Face look={LOPHN} size={18} />}
               onPress={() =>
                 nav.open({
                   name: "new-session",

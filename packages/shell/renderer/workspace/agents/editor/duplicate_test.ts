@@ -22,7 +22,7 @@ test("복제는 이미지 avatar를 빼고 agent 층 server의 secret 이름을 
       definition: {
         handle: "notes",
         name: "Notes",
-        profile: { kind: "image", image: "avatar.png" },
+        avatar: { kind: "image", image: "avatar.png" },
         body: "Read notes.",
         mcp_servers: [
           {
@@ -45,7 +45,7 @@ test("복제는 이미지 avatar를 빼고 agent 층 server의 secret 이름을 
     { name: "Notes copy", handle: "notes-copy", id: "agt_new" },
   );
   assert.equal(imageDropped, true);
-  assert.equal(definition.profile, undefined);
+  assert.equal(definition.avatar, undefined);
   assert.equal(definition.body, "Read notes.");
   assert.match(JSON.stringify(definition.mcp_servers), /mcp\.agt_new\.docs/);
   assert.doesNotMatch(JSON.stringify(definition.mcp_servers), /agt_old/);

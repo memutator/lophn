@@ -9,9 +9,9 @@ import {
   type AgentId,
   agentDefinitionSchema,
   codingBuiltinOf,
-  LOPHN_AGENT_HANDLE,
   isLophn,
   isReservedHandle,
+  LOPHN_AGENT_HANDLE,
   LOPHN_AGENT_NAME,
 } from "../../../protocol/lophn-agent/mod.ts";
 
@@ -22,7 +22,7 @@ import {
 //   YAML이 깨졌거나 map이 아니면 `frontmatter`가 `malformed`다. 첫 줄이 `---`가 아니면 파일 전체가 본문이다.
 // - 본문은 앞쪽 빈 줄과 뒤쪽 공백을 뺀 글이다. 쓸 때는 끝에 줄바꿈 하나를 붙인다. 본문 안의 `---` 줄은 본문이다.
 // - 쓸 때는 있는 칸만 쓴다. 비운 칸과 빈 목록은 쓰지 않고, 칸이 하나도 없으면 frontmatter 줄 없이 본문만 쓴다.
-//   lophn의 handle·profile은 file에 쓰지 않는다(고정). lophn의 name은 사람이 바꿨을 때만 쓴다.
+//   lophn의 handle·avatar는 file에 쓰지 않는다(고정). lophn의 name은 사람이 바꿨을 때만 쓴다.
 
 type AgentFileTarget = { agent: AgentId };
 export type AgentFileDefinition = AgentDefinition;
@@ -154,7 +154,7 @@ function checkDefinition(
     fields.name ??= coding.label;
   }
   if (lophn) {
-    for (const key of ["handle", "profile", "workspace"]) {
+    for (const key of ["handle", "avatar", "workspace"]) {
       if (Object.hasOwn(fields, key)) {
         addIssue(issues, key, "not_allowed");
         delete fields[key];
@@ -250,8 +250,8 @@ function orderedFrontmatter(value: Plain): Plain {
   if (value.workspace !== undefined) {
     out.workspace = pick(value.workspace as Plain, ["kind", "id"]);
   }
-  if (value.profile !== undefined) {
-    out.profile = pick(value.profile as Plain, [
+  if (value.avatar !== undefined) {
+    out.avatar = pick(value.avatar as Plain, [
       "kind",
       "shape",
       "color",
@@ -312,7 +312,7 @@ export function serializeAgentFile(
   const lophn = isLophn(target.agent);
   if (lophn) {
     delete stored.handle;
-    delete stored.profile;
+    delete stored.avatar;
     delete stored.workspace;
   }
   const checked = checkDefinition(stored, body, target);

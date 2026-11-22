@@ -7,7 +7,7 @@
 import type { AgentFace } from "../../../shell/renderer/conversation/agent-tab-source.ts";
 import type { SessionEntry } from "../../../shell/renderer/desktop/connection/events/sessions-store.ts";
 import type { WaitingEntry } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
-import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
+import type { CharacterAvatar } from "../../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentId,
   Workspace,
@@ -28,7 +28,7 @@ export type SessionStatus = "waiting" | "working" | "finished" | "ended" | "idle
 /** Who runs a session: a lophn agent's character, or a coding agent's product icon. Same rule as the conversation header. */
 export interface Who {
   readonly name: string;
-  readonly profile: AgentFace["profile"];
+  readonly avatar: AgentFace["avatar"];
 }
 
 /** What a waiting session waits for: a permission request, a question, or another Inbox item. */
@@ -79,12 +79,12 @@ export interface WorkspaceView {
   readonly recent: readonly SessionRow[];
 }
 
-/** What the reads found: session id → title and last activity, agent id → name and profile. */
+/** What the reads found: session id → title and last activity, agent id → name and avatar. */
 export interface Known {
   readonly titles: ReadonlyMap<string, { title: string | null; at: number }>;
   readonly agents: ReadonlyMap<
     string,
-    { name: string; profile: CharacterProfile | { kind: "image" } }
+    { name: string; avatar: CharacterAvatar | { kind: "image" } }
   >;
 }
 
@@ -108,10 +108,10 @@ export function whoOf(agent: AgentId, known: Known): Who | null {
   if (read === undefined) return null;
   return {
     name: read.name,
-    profile:
+    avatar:
       codingFaceOf(agent) ??
-      (read.profile.kind === "character"
-        ? read.profile
+      (read.avatar.kind === "character"
+        ? read.avatar
         : { kind: "initial", text: read.name.slice(0, 1) }),
   };
 }

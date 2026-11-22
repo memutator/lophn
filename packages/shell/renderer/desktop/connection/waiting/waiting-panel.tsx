@@ -1,30 +1,31 @@
 // 펼친 Inbox. Now(답할 것 묶음들, 그 아래 휘발 알림, 결정한 직후 남는 줄)와 History(영구 기록) 두 탭이다.
-import { useState } from "react";
-import { StatusMark } from "@lophn/ui/feedback";
-import { Button, IconButton } from "@lophn/ui/primitives";
-import { Tooltip } from "@lophn/ui/overlay";
-import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
+
 import { t } from "@lophn/i18n";
+import { StatusMark } from "@lophn/ui/feedback";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
+import { Tooltip } from "@lophn/ui/overlay";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { useState } from "react";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
-import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
+import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import {
   harnessVendorOf,
   VendorIcon,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
 import { ActivationCard } from "./cards/activation-card.tsx";
+import type { OnDecide } from "./cards/decision.tsx";
 import { JobApprovalCard } from "./cards/job-approval-card.tsx";
 import { JobHoldCard } from "./cards/job-hold-card.tsx";
 import { MailHoldCard } from "./cards/mail-hold-card.tsx";
-import type { OnDecide } from "./cards/decision.tsx";
 import {
   type DecideCardProps,
   PermissionCard,
 } from "./cards/permission-card.tsx";
-import { ShareCard } from "./cards/share-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
-import type { FinishedRow } from "./finished.ts";
+import { ShareCard } from "./cards/share-card.tsx";
 import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
+import type { FinishedRow } from "./finished.ts";
 import { HistoryView } from "./history-view.tsx";
 import type { Inbox, InboxEntry, InboxNotice } from "./inbox.ts";
 import { cardOf } from "./model.ts";
@@ -134,7 +135,7 @@ function NotificationList({
             <div className={styles.who}>
               <span className={styles.face}>
                 {row.face.kind === "avatar" ? (
-                  <Avatar profile={row.face.profile} size="sm" />
+                  <Avatar look={row.face.avatar} size="sm" />
                 ) : vendor === undefined ? null : (
                   <VendorIcon vendor={vendor} />
                 )}

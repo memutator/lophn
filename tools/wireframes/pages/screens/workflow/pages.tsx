@@ -1,21 +1,20 @@
 // workflow 탭 gallery. 실제 WorkflowPage를 Workspace 없이 세운다(card만 같은 모양으로 두른다).
 // 바탕은 fake source가 정하고 사람이 하는 것(dialog 열기, 입력 채우기)은 drive가 한다. 화면에 gallery 전용 prop은 없다.
 import { useMemo, useState } from "react";
-
-import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { ContentCard } from "../../../../../packages/shell/renderer/shell/content-card.tsx";
-import { workflowTab } from "../../../../../packages/shell/renderer/workspace/kinds/workflow.tsx";
+import type { FaceOf } from "../../../../../packages/shell/renderer/workflow/model.ts";
+import { WorkflowPage } from "../../../../../packages/shell/renderer/workflow/workflow-page.tsx";
 import {
   FAKE_WORKFLOW_INSTANCES,
   FAKE_WORKFLOWS,
   fakeWorkspaceSource,
 } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
+import { workflowTab } from "../../../../../packages/shell/renderer/workspace/kinds/workflow.tsx";
 import { PaddedTab } from "../../../../../packages/shell/renderer/workspace/padded-tab.tsx";
-import { WorkflowPage } from "../../../../../packages/shell/renderer/workflow/workflow-page.tsx";
 import type { WorkspaceSource } from "../../../../../packages/shell/renderer/workspace/source.ts";
-import type { FaceOf } from "../../../../../packages/shell/renderer/workflow/model.ts";
 import { click, type, useDrive } from "../../../mock/drive.ts";
 
 const noop = () => {};
@@ -43,11 +42,11 @@ const PROJECT = FAKE_WORKFLOWS[0].project;
 const FACES: Readonly<Record<string, ReturnType<FaceOf>>> = {
   lophn: {
     name: "lophn",
-    profile: { kind: "character", shape: "square", color: "coral" },
+    avatar: { kind: "character", shape: "square", color: "coral" },
   },
   "Eval analyst": {
     name: "Eval analyst",
-    profile: { kind: "character", shape: "arch", color: "sage" },
+    avatar: { kind: "character", shape: "arch", color: "sage" },
   },
 };
 const faceOf: FaceOf = (handle) => FACES[handle];

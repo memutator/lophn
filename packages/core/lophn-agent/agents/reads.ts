@@ -1,11 +1,12 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { isPrivate } from "../../../protocol/lophn-agent/call-policy.ts";
 import {
+  type AgentRow,
+  type AgentValueLayer,
   agentCard,
   agentCards,
   agentList,
   agentRead,
-  type AgentRow,
-  type AgentValueLayer,
   isLophn,
   LOPHN_AGENT_NAME,
   type ModelChoice,
@@ -18,23 +19,22 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import {
-  type AgentContext,
-  effectiveModel,
-  listAgents,
-  loadAgent,
-  handleOf,
-  type Loaded,
-  nameOf,
-  openAgentContext,
-  profileOf,
-  visibleIn,
-  workspaceOfAgent,
-} from "./inspect.ts";
-import { isPrivate } from "../../../protocol/lophn-agent/call-policy.ts";
 import { callPolicyAt } from "../../config/setting-declarations.ts";
 import { loadSession, workspaceOf } from "../session/model.ts";
 import { type CardCaller, cardByHandle, cardsIn } from "./card.ts";
+import {
+  type AgentContext,
+  avatarOf,
+  effectiveModel,
+  handleOf,
+  type Loaded,
+  listAgents,
+  loadAgent,
+  nameOf,
+  openAgentContext,
+  visibleIn,
+  workspaceOfAgent,
+} from "./inspect.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
 
@@ -75,7 +75,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
     handle: handleOf(loaded),
     name: nameOf(loaded),
     workspace,
-    profile: profileOf(loaded),
+    avatar: avatarOf(loaded),
     ...(definition?.description === undefined
       ? {}
       : { description: definition.description }),
@@ -261,7 +261,7 @@ export function createAgentReads(deps: AgentDeps): {
           loaded,
           isLophn(loaded.agent) ? workspaceOfAgent(loaded) : asked,
         );
-        const profile = profileOf(loaded);
+        const avatar = avatarOf(loaded);
         return ok({
           agent: loaded.agent,
           definition: loaded.definition,
@@ -274,11 +274,11 @@ export function createAgentReads(deps: AgentDeps): {
                   ? "global"
                   : "agent",
             },
-            profile: {
-              value: profile,
+            avatar: {
+              value: avatar,
               source:
                 !isLophn(loaded.agent) &&
-                loaded.definition?.profile !== undefined
+                loaded.definition?.avatar !== undefined
                   ? "agent"
                   : "global",
             },

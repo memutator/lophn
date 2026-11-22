@@ -53,7 +53,7 @@ export function SessionList({ view }: { view: WorkspaceView }) {
           {group.rows.map((row) => (
             <Row
               key={row.id}
-              lead={<Face profile={row.who?.profile ?? LOPHN} size={24} />}
+              lead={<Face look={row.who?.avatar ?? LOPHN} size={24} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={subOf(row)}
               end={<SessionDot status={row.status} />}
@@ -71,7 +71,7 @@ export function SessionList({ view }: { view: WorkspaceView }) {
             <Row
               key={row.id}
               dim
-              lead={<Face profile={row.who?.profile ?? LOPHN} size={24} />}
+              lead={<Face look={row.who?.avatar ?? LOPHN} size={24} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={row.at === 0 ? undefined : ago(row.at)}
               onPress={() => open(row)}

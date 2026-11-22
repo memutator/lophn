@@ -176,7 +176,7 @@ function LophnMark({ size = 28 }: { size?: number }) {
   return (
     <span className={s.box} style={{ width: size, height: size }}>
       <AgentCharacter
-        profile={{ kind: "character", shape: "square", color: "coral" }}
+        look={{ kind: "character", shape: "square", color: "coral" }}
       />
     </span>
   );

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
+import { machinesAgents } from "../../protocol/lophn-agent/a2a.ts";
 import {
   type AgentCard,
   type AgentDefinition,
@@ -25,7 +26,6 @@ import {
   type Workspace,
   workspaceNameSchema,
 } from "../../protocol/lophn-agent/workspaces.ts";
-import { machinesAgents } from "../../protocol/lophn-agent/a2a.ts";
 import { agentModels } from "./agent-models.ts";
 import { type CommandContext, defineCommand } from "./types.ts";
 
@@ -177,7 +177,7 @@ const create = defineCommand({
   name: "agent.create",
   summary: "Create an agent",
   description:
-    "Create an agent. Give its handle (the address others use as `to.agent`; lowercase letters, digits, - and _, up to 40; unique, cannot change later; `lophn`, `claude`, `codex` and `opencode` are reserved), name (the display name; defaults to the handle), description (one line), runtime (`lophn` by default; `custom` loads only the instructions body and the tools and skills you pick, `claude-code`, `codex` or `opencode` run that CLI headless when the harness extension is on), tools (names to pick; custom only), skills (names to pick; custom only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), profile, model, skills_off, mcp_off and instructions (body). It is scoped to the workspace you run in (global when you run at home). Read agent.models before choosing a model and its option_values. Its assignments are given by the person. A favorite coding agent needs no definition: it is already callable by the handle `claude`, `codex` or `opencode`.",
+    "Create an agent. Give its handle (the address others use as `to.agent`; lowercase letters, digits, - and _, up to 40; unique, cannot change later; `lophn`, `claude`, `codex` and `opencode` are reserved), name (the display name; defaults to the handle), description (one line), runtime (`lophn` by default; `custom` loads only the instructions body and the tools and skills you pick, `claude-code`, `codex` or `opencode` run that CLI headless when the harness extension is on), tools (names to pick; custom only), skills (names to pick; custom only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), avatar, model, skills_off, mcp_off and instructions (body). It is scoped to the workspace you run in (global when you run at home). Read agent.models before choosing a model and its option_values. Its assignments are given by the person. A favorite coding agent needs no definition: it is already callable by the handle `claude`, `codex` or `opencode`.",
   input: agentDefinitionSchema
     .omit({
       workspace: true,

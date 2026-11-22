@@ -1,16 +1,17 @@
 // 새 shell의 창 틀. title bar(왼쪽 구역, tab 줄, 오른쪽 구역)와 몸통(왼쪽 sidebar, 둥근 card가 서는 stage, 오른쪽 sidebar),
 // 맨 아래 작업 표시줄(선택)이다.
 // 내용은 모두 slot으로 받는다: 틀은 칸의 폭, 접힘, 창 끌기 영역과 OS별 자리만 안다.
+
+import { t } from "@lophn/i18n";
+import { IconButton } from "@lophn/ui/primitives";
 import {
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
   useCallback,
   useRef,
   useState,
 } from "react";
-import { t } from "@lophn/i18n";
-import { IconButton } from "@lophn/ui/primitives";
 
 import type { WindowControlsApi } from "../../ipc/window-controls.ts";
 import {
@@ -224,7 +225,7 @@ export function ShellFrame({
           {left ? (
             <span className={styles.brand}>
               <Avatar
-                profile={{ kind: "character", shape: "square", color: "coral" }}
+                look={{ kind: "character", shape: "square", color: "coral" }}
                 size="sm"
               />
               <span className={styles.brandName}>lophn</span>

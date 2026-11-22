@@ -3,32 +3,32 @@
 // 알린다. 그래서 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
 
 import {
-  type AcpCommand,
   type AcpCapabilities,
   type AcpChildState,
+  type AcpCommand,
   type AcpEntry,
   type AcpInput,
   type AcpItem,
   type AcpMessageItem,
-  type AcpNoticeItem,
   type AcpModelAxis,
   type AcpModelCurrent,
   type AcpModelGroup,
-  type AcpSender,
-  acpRemoteSenderName,
+  type AcpNoticeItem,
   type AcpRole,
+  type AcpSender,
   type AcpSessionMeta,
   type AcpState,
   type AcpTask,
   type AcpToggle,
   type AcpToolItem,
   type AcpTurn,
+  type AcpUpdate,
   type AcpUsage,
   acpNoticeId,
+  acpRemoteSenderName,
   EMPTY_ACP_CHILD_STATE,
   EMPTY_ACP_STATE,
   reduceAcp,
-  type AcpUpdate,
 } from "../../../protocol/acp/mod.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
@@ -128,7 +128,7 @@ const PHRONER = { kind: "project", id: fakeId("prj", 1) } as const;
 const LOPHN: AgentFace = {
   agent: lophnIdOf(PHRONER),
   name: "lophn",
-  profile: { kind: "character", shape: "pear", color: "lavender" },
+  avatar: { kind: "character", shape: "pear", color: "lavender" },
   workspace: { kind: "project", name: "phroner" },
   permissionSummary: "2 apps assigned",
 };
@@ -136,7 +136,7 @@ const LOPHN: AgentFace = {
 const CLAUDE: AgentFace = {
   agent: lophnIdOf(null),
   name: "Claude",
-  profile: { kind: "vendor", vendor: "claude" },
+  avatar: { kind: "vendor", vendor: "claude" },
   workspace: { kind: "project", name: "phroner" },
   permissionSummary: "",
 };
@@ -144,7 +144,7 @@ const CLAUDE: AgentFace = {
 const EVAL_ANALYST: AgentFace = {
   agent: fakeId("agt", 1),
   name: "Eval analyst",
-  profile: { kind: "character", shape: "wide", color: "yellow" },
+  avatar: { kind: "character", shape: "wide", color: "yellow" },
   workspace: { kind: "app", name: "Eval board" },
   permissionSummary: LOPHN.permissionSummary,
 };

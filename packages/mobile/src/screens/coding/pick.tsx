@@ -10,7 +10,7 @@ import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adap
 import { GUI_HARNESSES, type GuiHarness } from "../../../../protocol/acp/mod.ts";
 import { useCodingSessions, useCurrentComputer } from "../../data/mod.ts";
 import { Face } from "../../parts/mod.ts";
-import { harnessProfile, ReadFailed } from "./parts.tsx";
+import { harnessAvatar, ReadFailed } from "./parts.tsx";
 
 export function CodingAgentGroup({
   project,
@@ -35,7 +35,7 @@ export function CodingAgentGroup({
         return (
           <Row
             key={harness}
-            lead={<Face profile={harnessProfile(harness, label)} size={30} />}
+            lead={<Face look={harnessAvatar(harness, label)} size={30} />}
             title={label}
             strong
             dim={!ready}

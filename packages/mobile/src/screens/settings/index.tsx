@@ -596,7 +596,7 @@ function PreviewCard() {
       }}
     >
       <UserBubble>Write this week’s eval report.</UserBubble>
-      <AgentTurn face={<Face profile={LOPHN} size={20} />} name="lophn">
+      <AgentTurn face={<Face look={LOPHN} size={20} />} name="lophn">
         <Markdown
           variant="chat"
           source="I wrote the report from the three findings. The regression share fell to **0.4%**."

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { characterProfileFields } from "../../protocol/lophn-agent/agent-profile.ts";
+import { characterAvatarFields } from "../../protocol/lophn-agent/agent-avatar.ts";
 
 const coordinate = z.number().int().min(0).max(32768);
 export const rectSchema = z
@@ -38,10 +38,10 @@ const PALETTE_ICONS = [
   "panel",
   "bookmark",
 ] as const;
-// lophn agent의 얼굴. renderer의 AvatarProfile 중 main이 core에서 읽어 줄 수 있는 둘이다(올린 이미지는 renderer만 읽을
+// lophn agent의 얼굴. renderer의 AvatarLook 중 main이 core에서 읽어 줄 수 있는 둘이다(올린 이미지는 renderer만 읽을
 // 주소가 있어 이니셜로 갈음한다).
-export const avatarProfileSchema = z.discriminatedUnion("kind", [
-  z.object(characterProfileFields).strict(),
+export const avatarLookSchema = z.discriminatedUnion("kind", [
+  z.object(characterAvatarFields).strict(),
   z
     .object({ kind: z.literal("initial"), text: z.string().min(1).max(8) })
     .strict(),
@@ -64,7 +64,7 @@ const overlayModelSchema = z
           })
           .strict(),
         z
-          .object({ kind: z.literal("avatar"), profile: avatarProfileSchema })
+          .object({ kind: z.literal("avatar"), avatar: avatarLookSchema })
           .strict(),
       ])
       .optional(),
@@ -135,7 +135,7 @@ export type OverlayOpen = z.infer<typeof overlayOpenSchema>;
 export type OverlayIdentity = z.infer<typeof overlayCloseSchema>;
 export type OverlayModel = z.infer<typeof overlayModelSchema>;
 export type OverlayLead = NonNullable<OverlayModel["lead"]>;
-export type AvatarFace = z.infer<typeof avatarProfileSchema>;
+export type AvatarFace = z.infer<typeof avatarLookSchema>;
 type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
 export type PaletteIcon = (typeof PALETTE_ICONS)[number];
 export type OverlayResult = z.infer<typeof overlayResultSchema>;

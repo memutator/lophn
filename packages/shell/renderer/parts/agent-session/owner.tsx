@@ -4,7 +4,7 @@
 import { t } from "@lophn/i18n";
 import { createContext, type ReactNode, useContext } from "react";
 
-import { DEFAULT_AGENT_CHARACTER } from "../../../../protocol/lophn-agent/agent-profile.ts";
+import { DEFAULT_AGENT_CHARACTER } from "../../../../protocol/lophn-agent/agent-avatar.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SidebarAgent } from "../../workspace/sidebar/sidebar-agent.ts";
@@ -21,10 +21,10 @@ export type OwnerLookup = (session: string) => Owner | undefined;
 
 const OwnerContext = createContext<OwnerLookup>(() => undefined);
 
-// lophn의 기본 얼굴(core의 `LOPHN_PROFILE`과 같다).
+// lophn의 기본 얼굴(core의 `LOPHN_AVATAR`과 같다).
 const LOPHN_FACE: AgentFace = {
   kind: "lophn",
-  profile: { kind: "character", shape: "square", color: "coral" },
+  avatar: { kind: "character", shape: "square", color: "coral" },
 };
 
 /**
@@ -44,7 +44,7 @@ export function ownerLookup(
     if (agent == null) return undefined;
     const row = agents.find((one) => one.assignment === agent);
     if (row !== undefined) {
-      return { name: row.name, face: { kind: "lophn", profile: row.profile } };
+      return { name: row.name, face: { kind: "lophn", avatar: row.avatar } };
     }
     if (isLophn(agent)) {
       return { name: lophnNames[agent] ?? LOPHN_AGENT_NAME, face: LOPHN_FACE };
@@ -76,7 +76,7 @@ export function useOwners(): (owner: string) => Owner {
   return (owner) =>
     lookup(owner) ?? {
       name: t("shell.label.owner-unknown"),
-      face: { kind: "lophn", profile: DEFAULT_AGENT_CHARACTER },
+      face: { kind: "lophn", avatar: DEFAULT_AGENT_CHARACTER },
     };
 }
 

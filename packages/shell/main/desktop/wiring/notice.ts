@@ -4,22 +4,21 @@
 // 앞으로 가져오고 고른다. toast를 받는 창은 하나뿐이라 창이 여럿이어도 한 번만 뜬다.
 // 무엇을 보고 있는지(창 focus, idle, 보이는 session·터미널)는 core에도 알린다(presence). 못 본 turn 끝(`unseen`)은 core가 든다.
 import { BrowserWindow, Notification, powerMonitor } from "electron";
-
-import type { Id } from "../../../../protocol/base/ids.ts";
-import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import {
   ALERT_PROGRAM_KINDS,
-  type Notice as NoticeRow,
   type NoticeKind,
+  type Notice as NoticeRow,
   noticesOpen,
 } from "../../../../protocol/apps/notice.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
-import { terminalSessionId } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
+import { terminalSessionId } from "../../../../protocol/lophn-agent/session-tag.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import {
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
@@ -41,9 +40,9 @@ import {
   SessionVisibility,
   type SessionWho,
 } from "../../notice/rule.ts";
-import type { TerminalFocusTable } from "../terminal-focus.ts";
-import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { word } from "../i18n.ts";
+import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
+import type { TerminalFocusTable } from "../terminal-focus.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import { openDesktopWindow } from "./desktop-window.ts";
 
@@ -332,7 +331,7 @@ export function createNoticeWiring(
     return parsed.success ? parsed.data : null;
   }
 
-  // 누구의 어느 session인지. agent 이름·profile은 사람이 바꿀 수 있고 session 이름도 바뀌어서 알릴 때마다 읽는다.
+  // 누구의 어느 session인지. agent 이름·avatar는 사람이 바꿀 수 있고 session 이름도 바뀌어서 알릴 때마다 읽는다.
   async function who(
     machine: Id<"mch"> | null,
     session: string,
@@ -354,17 +353,17 @@ export function createNoticeWiring(
           ? "waiting.label.agent-lophn"
           : "waiting.label.agent-unnamed",
       );
-    const profile = definition?.effective.profile.value;
+    const avatar = definition?.effective.avatar.value;
     // 올린 이미지는 renderer만 읽을 주소가 있어 이름 첫 글자로 갈음한다(Agent 화면 머리와 같다).
     const face: AvatarFace =
-      profile?.kind === "character"
-        ? profile
+      avatar?.kind === "character"
+        ? avatar
         : { kind: "initial", text: [...name][0] };
     const title = record?.session.title ?? undefined;
     return {
       session,
       agent: name,
-      profile: face,
+      avatar: face,
       ...(title === undefined ? {} : { title }),
     };
   }
@@ -436,7 +435,7 @@ export function createNoticeWiring(
             agent: notice.who.agent,
             workspace: notice.who.title,
             body: notice.body,
-            lead: { kind: "avatar", profile: notice.who.profile },
+            lead: { kind: "avatar", avatar: notice.who.avatar },
             target: { kind: "session", session: notice.who.session, ...on },
           }),
       });

@@ -106,12 +106,12 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.
 const RENDERER_UPLOAD_ROUTES: readonly string[] = [
-  "upload:profile-images/upload",
+  "upload:avatar-images/upload",
   "upload:message-images/upload",
   "upload:acp/image_upload",
 ];
 const RENDERER_FILE_ROUTES: readonly string[] = [
-  "file:profile-images/read",
+  "file:avatar-images/read",
   "file:message-images/read",
   "file:acp/image_read",
 ];

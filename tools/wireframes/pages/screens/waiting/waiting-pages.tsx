@@ -1,19 +1,22 @@
 // 대기 목록·toast·secret 보호 입력 화면. 동작하는 ProjectApp 위에 renderer의 대기 목록 층을 얹고, 항목은 fake Gateway가
 // 채운다. toast는 design Toast를 직접 쓴다.
-import { type CSSProperties, useState } from "react";
-import { Toast, ToastStack } from "@lophn/ui/overlay";
 
+import { Toast, ToastStack } from "@lophn/ui/overlay";
+import { type CSSProperties, useState } from "react";
+import { busEventSchema } from "../../../../../packages/protocol/events/mod.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/connection/events/reactions.ts";
+import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
 import {
   ACTIVATION,
   allItems,
   createFakeWaiting,
   EXTERNAL_CALL,
   FIRST_ACTIVATION,
+  JOB_APPROVAL_TOOL,
   JOB_HOLD_AGENT,
   JOB_HOLD_BLOCKED,
-  JOB_APPROVAL_TOOL,
   JOB_HOLD_TOOL,
   JOB_HOLD_WORKFLOW,
   MAIL_HOLD_EXPIRED,
@@ -28,13 +31,10 @@ import {
   WaitingLayer,
   type WaitingLayerProps,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/waiting-layer.tsx";
-import { busEventSchema } from "../../../../../packages/protocol/events/mod.ts";
-import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/connection/events/reactions.ts";
-import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
-import { ProjectApp } from "../project-app.tsx";
-import { documentTab } from "../../../mock/phroner-data.ts";
-import { click, runSteps, type Step, useDrive } from "../../../mock/drive.ts";
 import { SecretInput } from "../../../../../packages/shell/renderer/secret-input/secret-input.tsx";
+import { click, runSteps, type Step, useDrive } from "../../../mock/drive.ts";
+import { documentTab } from "../../../mock/phroner-data.ts";
+import { ProjectApp } from "../project-app.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
 
@@ -139,7 +139,7 @@ const FINISHED = [
   {
     id: "session:1",
     target: { kind: "session", session: sid("ses", 1) },
-    face: { kind: "avatar", profile: { kind: "initial", text: "B" } },
+    face: { kind: "avatar", avatar: { kind: "initial", text: "B" } },
     label: "Invoice import",
     title: "Bookkeeper",
   },

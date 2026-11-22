@@ -21,7 +21,7 @@ PRODUCT.md §3, §4 축 1을 agent의 일로 옮긴 것이다. 아래 모든 줄
 
 agent는 lophn과 사람이 만든 agent 둘이다. 사람이 만든 agent는 workspace에 놓이지 않는다(범위를 고르면 그 workspace에서만 보인다). session이 workspace를 갖는다(`architecture/workspace-session.md`, `architecture/agent-definition.md`).
 
-- P1. lophn은 workspace마다 하나인 내장 agent다. handle `lophn`은 예약이고 id는 workspace에서 나온다(`lophn_home`, `lophn_<prj id>`, `lophn_<app id>`. `lophnIdOf`). 한 lophn은 (handle `lophn`, workspace) 짝으로 가리킨다. handle과 profile은 바꾸지 못하고 지우지 못한다. 나머지 칸(name, model, skill, 지침 본문)은 다른 agent처럼 그 workspace의 lophn 것이다. 정의 file이 없으면 기본 정의다.
+- P1. lophn은 workspace마다 하나인 내장 agent다. handle `lophn`은 예약이고 id는 workspace에서 나온다(`lophn_home`, `lophn_<prj id>`, `lophn_<app id>`. `lophnIdOf`). 한 lophn은 (handle `lophn`, workspace) 짝으로 가리킨다. handle과 avatar는 바꾸지 못하고 지우지 못한다. 나머지 칸(name, model, skill, 지침 본문)은 다른 agent처럼 그 workspace의 lophn 것이다. 정의 file이 없으면 기본 정의다.
 - P2. 사람이 만든 agent의 정의는 전역이거나 workspace 하나에 범위가 있다. handle은 전역에서 겹치지 않고 `lophn`은 쓰지 못한다. 정의에 권한 칸은 없다.
 - P3. session은 열 때 agent 하나와 workspace 하나를 정하고 바꾸지 않는다. workspace는 home(workspace 없음), project, app 셋 가운데 하나다. 창에서 열면 그 창의 workspace다.
 - P4. 같은 workspace 종류의 lophn runtime session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다. 좁히는 것은 정의의 `skills_off`와 사람의 할당이다. 정의가 `runtime: custom`인 agent는 제품 규칙, workspace 지침, 전역·workspace 지침, skill 없이 정의 본문과 정의 `tools`가 고른 tool만 받는다. 고를 수 있는 것은 그 workspace 종류 목록 안의 tool과 명령, 할당한 앱 command, 설정한 MCP tool이고, credential 상한과 file 범위는 workspace 종류 그대로다. result call은 turn이 끝날 때 마지막 응답이 답이다(`architecture/agent-definition.md`, `architecture/agent-call.md`).
@@ -130,7 +130,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
 - H9. 사람은 Jobs 탭과 왼쪽 sidebar의 Jobs overlay(모든 job)와 project 창 오른쪽 sidebar의 Jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다. lophn이 꺼진 사이 놓친 차례와, 켜진 채라도 컴퓨터가 잠들어 차례 시각보다 10분 넘게 늦은 차례가 놓친 차례다.
 - H10. 앱이 선언한 secret은 사람이 앱 Access 탭에서 넣는다. OAuth secret이면 사람이 그 서비스에 만든 client의 id와 secret을 넣고 [Sign in]한다. agent는 값을 대화로 묻지 않고 무엇을 넣을지 알린다. sign-in이 끊기면 앱이 다시 sign-in하라고 알린다.
-- H11. 사람은 Agents 탭에서 agent를 만들고 고치고 지운다. Agents 탭은 Home, project, 앱 어디서나 열린다. 목록은 그 workspace의 lophn(첫 줄)과 전역 agent, 그 workspace 범위 agent다. 새 agent의 범위는 만들 때 고르고(기본은 화면을 연 workspace) 뒤에 바꾸지 못한다. lophn은 handle과 profile이 잠기고 name만 바꾸며 지우기가 없다. Settings › Agents에는 lophn이 없다. 탭은 그 workspace의 층(지침, workspace memory, model, skill 켜고 끄기, MCP server)도 보이고 고친다.
+- H11. 사람은 Agents 탭에서 agent를 만들고 고치고 지운다. Agents 탭은 Home, project, 앱 어디서나 열린다. 목록은 그 workspace의 lophn(첫 줄)과 전역 agent, 그 workspace 범위 agent다. 새 agent의 범위는 만들 때 고르고(기본은 화면을 연 workspace) 뒤에 바꾸지 못한다. lophn은 handle과 avatar가 잠기고 name만 바꾸며 지우기가 없다. Settings › Agents에는 lophn이 없다. 탭은 그 workspace의 층(지침, workspace memory, model, skill 켜고 끄기, MCP server)도 보이고 고친다.
 
 ## 3. 넘기는 길
 

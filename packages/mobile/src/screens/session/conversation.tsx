@@ -59,8 +59,8 @@ import {
   useWorkspaces,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { DIM, Face, LOPHN, OfflineBanner, type Profile, useUnreachable } from "../../parts/mod.ts";
-import { ContinueAsChat, harnessProfile, TerminalSession } from "../coding/index.tsx";
+import { DIM, Face, LOPHN, OfflineBanner, type Look, useUnreachable } from "../../parts/mod.ts";
+import { ContinueAsChat, harnessAvatar, TerminalSession } from "../coding/index.tsx";
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import {
@@ -228,12 +228,12 @@ function ChatScreen({
   const [sampleAt, setSampleAt] = useState(2);
 
   const face = conversation.agent ?? null;
-  const who: { name: string; profile: Profile } = found?.row.who ??
+  const who: { name: string; avatar: Look } = found?.row.who ??
     (face !== null
-      ? { name: face.name, profile: face.profile }
+      ? { name: face.name, avatar: face.avatar }
       : codingRow !== null
-        ? { name: codingRow.label, profile: harnessProfile(codingRow.harness, codingRow.label) }
-        : { name: "", profile: LOPHN });
+        ? { name: codingRow.label, avatar: harnessAvatar(codingRow.harness, codingRow.label) }
+        : { name: "", avatar: LOPHN });
   const entry = conversation.sessions.find((one) => one.id === session);
   const title =
     thread?.session?.title ??
@@ -503,7 +503,7 @@ function ChatScreen({
   const canFork = caps.fork;
   const canRewind = caps.rewind && !readOnly;
   const apps = names.apps;
-  const whoKey = `${who.name}\0${JSON.stringify(who.profile)}`;
+  const whoKey = `${who.name}\0${JSON.stringify(who.avatar)}`;
   const actions = useMemo<ThreadActions>(
     () => ({
       session,
@@ -566,7 +566,7 @@ function ChatScreen({
         sample?.(SAMPLE_STATES[next]!);
       }}
     >
-      <Face profile={who.profile} size={26} />
+      <Face look={who.avatar} size={26} />
     </Pressable>
   );
 
@@ -716,7 +716,7 @@ function ChatScreen({
       <SessionMenu
         open={sheet?.kind === "menu"}
         onClose={close}
-        profile={who.profile}
+        look={who.avatar}
         title={title}
         where={where}
         mode={modeLabel}

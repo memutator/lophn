@@ -108,8 +108,13 @@ async function setup(
 
 async function make(base: string) {
   const dest = join(base, "dest");
+  // 둘째 destination(`work`). 앱이 그리로도 표를 보낼 때만 읽는다.
+  const work = join(base, "work");
+  const folders: Record<string, string> = { personal: dest, work };
+  let names = ["personal"];
   const root = join(base, "root");
   mkdirSync(dest);
+  mkdirSync(work);
   mkdirSync(root);
   const ledger = new DatabaseSync(":memory:");
   // folder 표 step이 기대는 release 표(활성 release의 선언에서 destination을 채운다).
@@ -180,14 +185,19 @@ async function make(base: string) {
     machine: () => ME,
     self: () => ({ name: "Desk", lophn_version: "0.23.0" }),
     destinations: {
-      list: () => [{ name: "personal", path: dest, state: "ok" }],
+      list: () =>
+        names.map((name) => ({
+          name,
+          path: folders[name]!,
+          state: "ok" as const,
+        })),
       resolve: (name) =>
-        name === "personal" ? { path: dest, state: "ok" } : null,
+        names.includes(name) ? { path: folders[name]!, state: "ok" } : null,
     },
     apps: () => [
       {
         app: APP,
-        destinations: [{ name: "personal", sent: null }],
+        destinations: names.map((name) => ({ name, sent: null })),
         release: { id: active.id, code_commit: active.commit, data_schema: 1 },
       },
     ],
@@ -213,8 +223,8 @@ async function make(base: string) {
       return heldMax;
     },
   });
-  const put = (rel: string, bytes: Uint8Array | string) => {
-    const path = join(dest, ...rel.split("/"));
+  const put = (rel: string, bytes: Uint8Array | string, into = "personal") => {
+    const path = join(folders[into]!, ...rel.split("/"));
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, bytes);
   };
@@ -225,6 +235,7 @@ async function make(base: string) {
       version: 2,
       min_version: 2,
     },
+    into = "personal",
   ) => {
     revision += 1;
     put(
@@ -243,6 +254,7 @@ async function make(base: string) {
           folder: folderFormat,
         },
       }),
+      into,
     );
   };
   const putApp = (
@@ -279,6 +291,7 @@ async function make(base: string) {
     n: number,
     release: { commit: string },
     change: { hlc: bigint; changeset: Uint8Array },
+    into = "personal",
   ) => {
     const file = await encodeChanges({
       machine: origin,
@@ -300,13 +313,14 @@ async function make(base: string) {
       ],
     });
     assert.ok(file.ok);
-    put(dataEntryPath(origin, APP, n, "changes"), file.value);
+    put(dataEntryPath(origin, APP, n, "changes"), file.value, into);
   };
   const putSnapshot = async (
     origin: Id<"mch">,
     n: number,
     release: { commit: string },
     of: Replica,
+    into = "personal",
   ) => {
     const payload = of.raw.serialize();
     const head = await containerPrefix({
@@ -322,17 +336,18 @@ async function make(base: string) {
     put(
       dataEntryPath(origin, APP, n, "snapshot"),
       Buffer.concat([head.value, payload]),
+      into,
     );
   };
-  const heldRows = (origin: Id<"mch">) =>
+  const heldRows = (origin: Id<"mch">, destination = "personal") =>
     ledger
       .prepare(
-        `SELECT n FROM folder_held WHERE machine = ? AND app = ? AND origin = ? ORDER BY n`,
+        `SELECT n FROM folder_held WHERE machine = ? AND app = ? AND destination = ? AND origin = ? ORDER BY n`,
       )
-      .all(ME, APP, origin)
+      .all(ME, APP, destination, origin)
       .map((row) => Number(row.n));
-  const heldCopies = (origin: Id<"mch">) => {
-    const dir = join(root, "folder-held", APP, "personal", origin);
+  const heldCopies = (origin: Id<"mch">, destination = "personal") => {
+    const dir = join(root, "folder-held", APP, destination, origin);
     return existsSync(dir) ? readdirSync(dir).sort() : [];
   };
   const cursor = (origin: Id<"mch">) =>
@@ -353,6 +368,9 @@ async function make(base: string) {
     folder,
     setActive: (release: typeof R1) => {
       active = release;
+    },
+    setDestinations: (next: string[]) => {
+      names = next;
     },
     setHeldMax: (bytes: number) => {
       heldMax = bytes;
@@ -520,6 +538,79 @@ test("출처의 snapshot m이 합쳐지거나 held가 되면 그보다 옛 held�
     assert.deepEqual(env.heldRows(Q), [1]);
     assert.deepEqual(env.heldCopies(Q), ["000000000001.changes"]);
     assert.equal(env.cursor(P), 5);
+  });
+});
+
+// 한 앱이 표마다 다른 destination으로 보내면 출처 하나의 stream이 destination마다 따로 번호를 센다. 한 destination의 snapshot이
+// 다른 destination의 held를 지우면 그 변경을 잃고, 적용(drain)이 다른 destination의 held를 집으면 그 사본을 지운 채 행이 남아
+// 영영 멈춘다.
+test("held는 destination마다다: 한 destination의 snapshot은 그 destination의 옛 held만 지우고, 적용은 destination마다 제 held만 한다", async () => {
+  await setup(async (env) => {
+    env.setDestinations(["personal", "work"]);
+    const xp = replica("xp");
+    const xw = replica("xw");
+    for (const into of ["personal", "work"]) {
+      env.putMachine(P, undefined, into);
+    }
+    // P가 R2로 두 destination에 쓴다. 이 기계는 R1이라 모두 held다.
+    await env.putChanges(
+      P,
+      1,
+      R2,
+      write(xp, T0 - 9000, "insert into notes values ('a', 'one')"),
+    );
+    await env.putChanges(
+      P,
+      2,
+      R2,
+      write(xp, T0 - 8000, "insert into notes values ('b', 'two')"),
+    );
+    await env.putChanges(
+      P,
+      1,
+      R2,
+      write(xw, T0 - 8500, "insert into notes values ('w1', 'work one')"),
+      "work",
+    );
+    await env.putChanges(
+      P,
+      2,
+      R2,
+      write(xw, T0 - 7500, "insert into notes values ('w2', 'work two')"),
+      "work",
+    );
+    await env.folder.scan();
+    await env.run();
+    assert.deepEqual(env.heldRows(P), [1, 2]);
+    assert.deepEqual(env.heldRows(P, "work"), [1, 2]);
+
+    // work에만 snapshot 3이 온다: work의 1, 2만 지워지고 personal의 1, 2는 남는다.
+    await env.putSnapshot(P, 3, R2, xw, "work");
+    await env.run();
+    assert.deepEqual(env.heldRows(P), [1, 2]);
+    assert.deepEqual(env.heldCopies(P), [
+      "000000000001.changes",
+      "000000000002.changes",
+    ]);
+    assert.deepEqual(env.heldRows(P, "work"), [3]);
+    assert.deepEqual(env.heldCopies(P, "work"), ["000000000003.snapshot"]);
+
+    // 이 기계가 R2가 되면 destination마다 제 held를 적용한다.
+    env.setActive(R2);
+    const streams = await env.run();
+    assert.deepEqual(
+      streams.map((stream) => stream.error),
+      [null, null],
+    );
+    for (const destination of ["personal", "work"]) {
+      assert.deepEqual(env.heldRows(P, destination), [], destination);
+      assert.deepEqual(env.heldCopies(P, destination), [], destination);
+    }
+    const theirs = replica("both");
+    theirs.raw.exec(
+      "insert into notes values ('a', 'one'), ('b', 'two'), ('w1', 'work one'), ('w2', 'work two')",
+    );
+    assert.equal(dumpData(env.here.db), dumpData(theirs.db));
   });
 });
 

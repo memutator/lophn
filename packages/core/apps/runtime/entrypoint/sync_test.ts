@@ -659,6 +659,49 @@ test("sync가 표를 적은 앱은 컴퓨터에서 sync 앱이라 write가 그 �
   old.raw.close();
 });
 
+// 지우면 한 앱이 표마다 다른 destination으로 보낼 때 한 destination의 snapshot에 다른 destination의 표가 실려, 그 destination만
+// 가진 기계(사람이 그 data를 두지 않기로 한 곳)로 나간다.
+test("destination마다의 폴더 snapshot은 그 destination으로 가는 표와 그 clock만 담는다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-split-snapshot-"));
+  const plan = syncPlanOf({ sync: { item: "personal", note: "drive" } });
+  const m = machineDb(
+    join(dir, "a.sqlite"),
+    "create table item (id text primary key, title text); create table note (id text primary key, body text); create table cache (id text primary key, body text)",
+    plan,
+  );
+  const written = await syncedWrite(m.sync, () =>
+    Promise.resolve(
+      m.raw.exec(
+        "insert into item values ('a', 'milk'); insert into note values ('n', 'call'); insert into cache values ('c', 'x')",
+      ),
+    ),
+  );
+  assert.ok(written.ok);
+  for (const [destination, table] of [
+    ["personal", "item"],
+    ["drive", "note"],
+  ] as const) {
+    const path = join(dir, `${destination}.sqlite`);
+    assert.ok(writeFolderSnapshot(m.sync, path, destination).ok);
+    const snapshot = readOnly(path);
+    assert.deepEqual(
+      rowsOf(
+        snapshot,
+        "select name from sqlite_master where type = 'table' and name not glob 'lophn_*' order by name",
+      ),
+      [{ name: table }],
+      destination,
+    );
+    assert.deepEqual(
+      rowsOf(snapshot, "select distinct tbl from lophn_sync_row"),
+      [{ tbl: table }],
+      destination,
+    );
+    snapshot.close();
+  }
+  m.raw.close();
+});
+
 // 지우면 폴더로 가는 changeset에 보내지 않는 표를 빼는 일이 bytes를 깨뜨려, 받는 기계가 그 변경을 적용하지 못하거나 다른 값을
 // 적용한다.
 test("filterChangeset을 거친 changeset은 남긴 표의 변경을 그대로 담아 SQLite와 칸 단위 적용 모두에서 그대로 적용된다", async () => {

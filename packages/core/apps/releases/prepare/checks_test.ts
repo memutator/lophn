@@ -148,7 +148,7 @@ test("runs_on에 phone이 있거나 sync가 그 표를 보내는 앱은 정수 P
 
 // 받은 변경과 snapshot은 foreign_keys를 끄고 적용한다. 보내는 표가 이 기계에만 있는 부모를 가리키면 다른 기계에는 부모가
 // 없고, 이 기계에만 있는 자식이 CASCADE로 보내는 부모를 따르면 다른 기계에서 온 지우기가 자식을 남겨 사본이 갈린다.
-test("보내는 표가 보내지 않는 표를 foreign key로 가리키거나 보내지 않는 표가 보내는 표를 CASCADE·SET NULL로 가리키면 migration 검사에서 떨어지고, 그냥 가리키는 것은 통과한다", async () => {
+test("보내는 표가 보내지 않는 표나 다른 destination으로 가는 표를 foreign key로 가리키거나 보내지 않는 표가 보내는 표를 CASCADE·SET NULL로 가리키면 migration 검사에서 떨어지고, 같은 destination의 표를 그냥 가리키는 것은 통과한다", async () => {
   const sync = { parent: "personal" };
   const check = (sql: string) =>
     migrationOk({ "0-1": sql }, 1, null, ["computer"], sync);
@@ -172,6 +172,18 @@ test("보내는 표가 보내지 않는 표를 foreign key로 가리키거나 �
       )
     ).ok,
   );
+  // 보내는 두 표가 다른 destination으로 가면 한쪽만 받는 기계에는 부모 줄이 없다.
+  const split = await migrationOk(
+    {
+      "0-1":
+        "CREATE TABLE parent (id TEXT PRIMARY KEY); CREATE TABLE child (id TEXT PRIMARY KEY, p TEXT REFERENCES parent(id))",
+    },
+    1,
+    null,
+    ["computer"],
+    { parent: "personal", child: "work" },
+  );
+  assert.ok(!split.ok && split.reason.includes("references parent"));
 });
 
 test("sync가 표를 보내는 앱(폰 밖)은 cap-store 2.0.0 하한을 걸어야 하고 cap-tool은 요구하지 않는다", () => {

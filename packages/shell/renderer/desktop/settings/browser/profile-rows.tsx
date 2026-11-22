@@ -13,7 +13,7 @@ import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions
 import { browserProfilesList } from "../../../../../protocol/secrets/browser-vault.ts";
 import { BROWSER_PROFILES_MAX } from "../../../../../protocol/shell/browser-profiles.ts";
 import { ProfileMark } from "../../../browser/browser-chrome.tsx";
-import { actionIcons, actionIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { CHARACTER_COLORS } from "../../../parts/avatar/character.tsx";
 import { useCoreRead } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";

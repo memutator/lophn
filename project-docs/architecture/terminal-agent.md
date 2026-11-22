@@ -229,7 +229,7 @@ tracker ─ 바뀔 때 runtime.agent를 실어 TerminalRuntimeChanged ─▶ 화
 - **파일 경로의 상대 기준은 shell 시작 폴더다.** 버린 안: OSC 7로 지금 폴더를 받는다(shell 시작 층을 고쳐야 한다). (agent)
 - **[Run in terminal]은 bash·sh·zsh만, 한 줄만 바로 실행한다.** 버린 안: 여러 줄도 바로 실행(줄마다 실행되어 중간 실패를 못 본다). (사람)
 - **터미널 첫 열기 안내는 숨기지 않고 지운다.** 복원한 터미널은 기다리지 않고 볼 때 연다. (사람, 2026-10-26)
-- **Windows: 인증은 기존 64 hex key만 쓴다.** SID·DACL 검사는 더하지 않는다. 경로가 한도를 넘으면 기능을 끄고 로그 한 줄만 남기며 pointer file·TCP로 우회하지 않는다. hook 준비는 browser shim·listen 성공과 분리한다. PowerShell은 사람의 실행 정책을 우회하지 않는다. Windows foreground·signal·TUI toggle·GUI adapter 전체 대응은 아직 범위가 아니다. (agent)
+- **Windows: 인증은 기존 64 hex key만 쓴다.** SID·DACL 검사는 더하지 않는다. 경로가 한도를 넘으면 기능을 끄고 로그 한 줄만 남기며 pointer file·TCP로 우회하지 않는다. hook 준비는 browser shim·listen 성공과 분리한다. PowerShell은 사람의 실행 정책을 우회하지 않는다. Windows foreground는 shell pid 아래 자손 process tree(CreateToolhelp32Snapshot + 캐시된 CommandLine)에서 가장 얕은 harness를 고른다. Windows signal·TUI toggle·GUI adapter 전체 대응은 아직 범위가 아니다. (agent)
 - **resume 규칙은 확인한 것과 못 한 것이 섞여 있다.** 이 컴퓨터의 `--help`로 확인한 것(claude, codex, opencode, omp, kiro-cli, agy, grok, devin, hermes, cline)과 herdr의 표에서 가져와 실행해 보지 못한 것(copilot, droid, qwen, qoder, cursor, kimi, kilo, letta)이 있다. (agent)
 - **터미널 탭의 shell에 session 표지 `LOPHN_SESSION_ID=term:<탭>`을 넣는다.** 앱(process 감시)이 TUI CLI와 그 아래 process를 session에 잇는 키이고, 앱이 보는 session 목록의 id와 같다. 터미널 env는 `LOPHN_*`를 지우므로(물려받은 값은 쓰지 않는다) PTY를 띄울 때 그 터미널의 id로 직접 넣는다. 버린 안: shell pid 아래 process tree만으로 잇기(GUI view가 띄운 CLI는 extension host의 자식이라 닿지 않는다). GUI view의 CLI에는 harness-gui가 같은 값을 실어 띄우고, 앱이 보는 목록의 GUI 탭 행은 handle의 상태로 채운다(`harness-gui.md`, `workspace-session.md`). (agent)
 - **터미널에서 lophn을 부르는 code는 CLI 경로와 data root를 터미널을 가진 쪽에서 받는다.** 이것이 적혀 있지 않아 개발 앱 터미널의 `lophn gui`가 사람의 `~/.lophn` 앱으로 가 사람의 data root에 개발 판 schema가 적용될 뻔한 일이 있었다(mistakes 이슈). 그 뒤 `lophn gui` 명령은 없어졌고 `claude gui`는 그 탭의 hook socket에 한 줄만 쓴다(core도 앱도 띄우지 않는다). (agent)
@@ -252,7 +252,7 @@ tracker ─ 바뀔 때 runtime.agent를 실어 TerminalRuntimeChanged ─▶ 화
 - 끊기 key 판정이 남은 harness는 tool이 없는 turn(긴 생성)에서 입력 지우기로 내려간 상태를 되돌리지 못한다. hermes는 `on_session_end`의 `interrupted`를 읽는 코드가 있으나 실제로 오는지 확인하지 못해 key 판정을 남겼다.
 - hook 설치 물음은 그 터미널의 탭을 가진 창만 답한다. 폰이나 agent가 연 터미널처럼 그 탭을 보이는 창이 없으면 아무도 묻지 않은 채 shell 연결이 닫힐 때 거절로 세고, 그 core 실행에서는 다시 묻지 않는다. Settings의 [Install hooks]로는 놓을 수 있다.
 - 이미 hook을 놓은 사람은 새 event가 생긴 판에서 [Install hooks]를 다시 누르거나 처음 물을 때 허락해야 child 상태 같은 새 기능이 보인다.
-- macOS는 node로 도는 CLI를 hook이 올 때까지 알아보지 못한다. Windows는 foreground·signal이 없다. PowerShell 7·5.1에서 hook·시작 층·`claude gui`·알림·`$BROWSER` 중계는 실기로 확인했다(저장소 root의 Windows checklist). macOS도 실기로 돌리지 않았다.
+- macOS는 node로 도는 CLI를 hook이 올 때까지 알아보지 못한다. Windows는 signal(TUI 끄기)이 없다. PowerShell 7·5.1에서 hook·시작 층·`claude gui`·알림·`$BROWSER` 중계는 실기로 확인했다(저장소 root의 Windows checklist). macOS도 실기로 돌리지 않았다.
 - 개발 core가 연 터미널에서 사람이 친 `lophn`(PATH 앞의 dev launcher)은 `LOPHN_HOME`이 없어 사람의 `~/.lophn`으로 간다. 터미널 env는 바깥 `LOPHN_*`를 지우고 core는 data root를 넣지 않는다. hook과 `<harness> gui`는 탭의 socket으로 가 걸리지 않는다. 추천은 개발 core가 터미널에 자기 data root를 넣는 것이다(이슈 `dev-terminal-cli-reaches-real-root`).
 - 다시 붙은 탭(앱을 다시 켬, 폰이나 agent가 연 터미널)에서 지난 출력의 한 줄이 빠지고 prompt가 두 번 보일 수 있다. 탭 칸과 PTY 치수가 다를 때 snapshot을 쓰는 순서와 xterm reflow가 맞지 않는 것으로 보인다(이슈 `terminal-reattach-reflow-drops-line`). 새 출력은 맞다.
 - macOS 설치본은 packaging이 node-pty의 `spawn-helper`에 실행 bit를 주지만 실기로 돌려 보지 않았다. 없으면 core가 터미널을 띄우지 못한다(`spawn_failed`).

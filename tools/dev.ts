@@ -305,10 +305,21 @@ async function writeDevCli(root: string): Promise<string> {
   const electron = createRequire(import.meta.url)("electron") as string;
   const dir = `${root}/.cache/dev-cli`;
   const path = `${dir}/lophn`;
+  const rows = hookStdoutRows();
   await mkdir(dir, { recursive: true });
   await writeFile(
     `${path}.tmp`,
-    devCliLauncher({ electron, platform: root }, hookStdoutRows()),
+    devCliLauncher(
+      {
+        electron:
+          process.platform === "win32"
+            ? electron.replaceAll("\\", "/")
+            : electron,
+        platform:
+          process.platform === "win32" ? root.replaceAll("\\", "/") : root,
+      },
+      rows,
+    ),
     { mode: 0o755 },
   );
   await rename(`${path}.tmp`, path);
@@ -318,7 +329,7 @@ async function writeDevCli(root: string): Promise<string> {
   const cmd = `${path}.cmd`;
   await writeFile(
     `${cmd}.tmp`,
-    winDevCliLauncher({ electron, platform: normalize(root) }),
+    winDevCliLauncher({ electron, platform: normalize(root) }, rows),
   );
   await rename(`${cmd}.tmp`, cmd);
   return cmd;

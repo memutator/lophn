@@ -812,3 +812,115 @@ trust_level = "trusted"
   });
   assert.deepStrictEqual(files.get(configFile), `${original}\n${orcaTable(1)}`);
 });
+
+// contract: Windows home(`C:\Users\u`)과 Windows 절대 경로 command(`C:/…/lophn.cmd`)에서도 모든 harness의
+// 설치·dry_run·재설치·지우기가 동작하고, Codex trust key·Muse 경로는 Windows 구분자를 쓰며, Copilot은 powershell을,
+// Cline은 `.ps1`을 쓴다.
+test("Windows home과 Windows command에서 모든 harness 설치·재설치·지우기가 동작한다", async () => {
+  const home = "C:\\Users\\u";
+  const winCmd = "C:/projects/lophn/.cache/dev-cli/lophn.cmd";
+  const winMemory = (files: Map<string, string>) => {
+    const below = (dir: string) =>
+      [...files.keys()]
+        .filter(
+          (path) =>
+            path.startsWith(`${dir}\\`) &&
+            !path.slice(dir.length + 1).includes("\\"),
+        )
+        .map((path) => path.slice(dir.length + 1));
+    return {
+      read: (path: string) => Promise.resolve(files.get(path) ?? null),
+      write: (path: string, text: string) => {
+        files.set(path, text);
+        return Promise.resolve();
+      },
+      list: (dir: string) => {
+        const exists = [...files.keys()].some((path) =>
+          path.startsWith(`${dir}\\`),
+        );
+        return Promise.resolve(exists ? below(dir) : null);
+      },
+      remove: (path: string) => {
+        if (files.delete(path)) return Promise.resolve();
+        if (below(path).length > 0) {
+          return Promise.reject(new Error("directory not empty"));
+        }
+        return Promise.resolve();
+      },
+    } satisfies InstallPorts;
+  };
+
+  for (const harness of HARNESS_IDS) {
+    if (HARNESS_ADAPTERS[harness].hook === null) continue;
+    const files = new Map<string, string>();
+    const base = { harness, home, now: NOW, command: winCmd };
+    const first = await installGlobal(winMemory(files), {
+      ...base,
+      dryRun: false,
+    });
+    assert.deepStrictEqual(first.ok && first.value.hook, "installed", harness);
+    const snapshot = JSON.stringify([...files]);
+    const dryNoCmd = await installGlobal(winMemory(files), {
+      ...base,
+      command: undefined,
+      dryRun: true,
+    });
+    assert.deepStrictEqual(
+      dryNoCmd.ok && dryNoCmd.value.hook,
+      "unchanged",
+      `${harness} dryRun(no cmd)`,
+    );
+    const dryWithCmd = await installGlobal(winMemory(files), {
+      ...base,
+      dryRun: true,
+    });
+    assert.deepStrictEqual(
+      dryWithCmd.ok && dryWithCmd.value.hook,
+      "unchanged",
+      `${harness} dryRun(winCmd)`,
+    );
+    // 다시 설치해도 중복되지 않고 byte가 그대로다.
+    await installGlobal(winMemory(files), { ...base, dryRun: false });
+    assert.deepStrictEqual(JSON.stringify([...files]), snapshot, harness);
+
+    if (harness === "codex") {
+      const toml = files.get("C:\\Users\\u\\.codex\\config.toml") ?? "";
+      assert.equal(
+        toml.includes(
+          '[hooks.state."C:\\\\Users\\\\u\\\\.codex\\\\hooks.json:session_start:0:0"]',
+        ),
+        true,
+      );
+    }
+    if (harness === "copilot") {
+      const doc = JSON.parse(
+        files.get("C:\\Users\\u\\.copilot\\hooks\\lophn.json")!,
+      );
+      assert.equal(doc.hooks.Stop[0].powershell, `${winCmd} hook copilot Stop`);
+    }
+    if (harness === "cline") {
+      const ps1 = files.get("C:\\Users\\u\\.cline\\hooks\\TaskComplete.ps1");
+      assert.equal(
+        ps1,
+        `[Console]::In.ReadToEnd() | & '${winCmd}' hook cline TaskComplete\n`,
+      );
+    }
+    if (harness === "opencode") {
+      const plugin = files.get(
+        "C:\\Users\\u\\.config\\opencode\\plugins\\lophn-status.ts",
+      )!;
+      assert.equal(plugin.includes("windowsVerbatimArguments"), true);
+    }
+
+    const removed = await uninstallGlobal(winMemory(files), { harness, home });
+    assert.deepStrictEqual(
+      removed.ok && removed.value.hook,
+      "removed",
+      `${harness} uninstall`,
+    );
+    const left = [...files].filter(([, text]) =>
+      /lophn|LPN_TERMINAL_HOOK|hooks\.state/.test(text),
+    );
+    assert.deepStrictEqual(left, [], `${harness} left`);
+  }
+});

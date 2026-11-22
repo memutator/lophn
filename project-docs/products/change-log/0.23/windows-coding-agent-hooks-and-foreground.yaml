@@ -1,0 +1,26 @@
+id: windows-coding-agent-hooks-and-foreground
+version: 0.23.132
+title: "Windows coding agent hook 실행·설치·인식과 foreground process 감지"
+modules: [packages/base, packages/protocol, packages/coding-agent, packages/core/terminals, packages/core/main, tools]
+change: |
+  전:
+    - Windows 설치본은 `bin/lophn.cmd`만 두고 `bin/lophn`(sh)이 없어 Git Bash 기반 hook(Claude Code 등)이 `lophn: command not found`(127)로 실패했고, `lophn.cmd`는 `LPN_TERMINAL_HOOK` 없을 때 fast-exit 없이 매번 Electron을 띄웠다.
+    - plugin/extension hook(`opencode`, `kilo`, `mimocode`, `pi`, `omp`, `amp`)은 `shell` 없이 `spawn()`을 불러 Windows에서 `ENOENT`/`EINVAL`로 모두 실패했다.
+    - `ownedCommand`/`placedCommand`가 `C:/…` Windows 절대 경로를 인식하지 못했고, Codex trust key·Muse managed 경로에 혼합 구분자가 들어갔으며 Copilot의 `powershell`과 Cline의 `.ps1`이 없었다.
+    - `foregroundOf`가 `win32`에서 항상 `null`이라 Windows 터미널에서 자동 hook 설치와 TUI 종료 정리가 돌지 않았다.
+  후:
+    - Windows 패키지에 `bin/lophn.cmd`와 함께 Git Bash용 `bin/lophn` sh launcher(`pwd -W` 대응)를 싣고, `lophn.cmd`에 `LPN_TERMINAL_HOOK` 없을 때 필수 `hookStdout`만 찍고 바로 끝나는 `:hook_noop` 분기를 추가했다.
+    - Windows 설치본·dev 모두 공백 없는 `C:/…/lophn.cmd` 절대 경로를 hook command로 쓰고(경로에 공백 등이 있으면 `lophn`으로 fallback), `ownedCommand`/`placedCommand`가 Windows 경로를 인식한다.
+    - plugin `spawn()`이 `win32`에서 `cmd.exe /d /s /c` + `windowsVerbatimArguments` + `windowsHide`로 실행한다.
+    - Windows home 경로를 `\`로 정규화해 Codex trust key와 Muse 경로를 맞추고, Copilot에 `powershell` 필드를, Windows Cline에 `.ps1` script를 쓴다.
+    - `harnessOfProcess`가 Windows 경로·확장자(`.exe`/`.cmd`/`.bat`)·대소문자를 처리하고, `terminal-host`가 `.NET Framework 4 csc.exe`로 한 번 build한 상주 helper(`CreateToolhelp32Snapshot` + `GetProcessTimes` + 신규 자손 pid만 WMI `CommandLine` 캐시)로 Windows PTY의 foreground coding agent를 감지한다.
+why: |
+  Windows에서 coding agent hook이 Git Bash·plugin·경로 인식·포맷 전반에서 실패하고, foreground 감지가 꺼져 있어 터미널에서 직접 실행할 때 자동 hook 설치와 TUI 종료 뒤 탭 정리가 되지 않았다.
+decisions:
+  - text: "Windows foreground 감지는 별도 native addon이나 매 poll PowerShell 기동 대신 OS 내장 `.NET Framework 4 csc.exe`로 한 번 build하는 상주 helper(`CreateToolhelp32Snapshot` + 캐시된 WMI `CommandLine`)를 쓴다. 버린 길: 매 poll `Get-CimInstance`(CPU·지연 큼), PEB `ReadProcessMemory` 직접 오프셋 파싱(32/64비트·권한 깨짐)."
+    by: agent
+  - text: "Windows hook command는 공백 없는 `C:/…/lophn.cmd` 절대 경로를 우선 쓰고, 공백이 있는 경로는 `lophn`으로 fallback하며 설치본 `bin/`에 `lophn` sh script를 함께 둬 lophn 터미널 안 Git Bash에서도 동작하게 한다."
+    by: agent
+checklist:
+  - "해야: Windows 설치본을 다시 build하고 설치한다"
+  - "Windows 터미널에서 Claude Code·Antigravity(`agy`) 실행 시 자동 hook 설치·turn 상태·알림과 TUI 종료 뒤 탭 상태 정리를 본다"

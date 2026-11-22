@@ -55,8 +55,19 @@ export function serveHost(options: {
     onOutput: (chunk) => output.write(chunk),
   });
 
+  let polling = false;
   const poll = setInterval(() => {
-    for (const foreground of host.foregroundChanges()) send({ foreground });
+    if (polling || exiting) return;
+    polling = true;
+    Promise.resolve(host.foregroundChanges())
+      .then((changes) => {
+        if (exiting) return;
+        for (const foreground of changes) send({ foreground });
+      })
+      .catch(() => {})
+      .finally(() => {
+        polling = false;
+      });
   }, FOREGROUND_POLL_MS);
   poll.unref();
 

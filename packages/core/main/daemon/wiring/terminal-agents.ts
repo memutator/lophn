@@ -395,16 +395,26 @@ export const terminalAgentsWiring: WiringFactory = () => {
         harness in HARNESS_ADAPTERS
           ? HARNESS_ADAPTERS[harness as HarnessId].label
           : harness;
+      const winHookCommand = (path: string): string | undefined => {
+        const normalized = path.replaceAll("\\", "/");
+        return /^[A-Za-z]:\/[\w./-]+$/.test(normalized) &&
+          !normalized.includes("..")
+          ? normalized
+          : undefined;
+      };
       const installer = createHookInstaller({
         runCli: cli(15_000),
-        // hook command는 harness 설정 file의 shell 문자열이 된다. 설치본은 PATH의 `lophn`이고 개발 실행은 launcher의 절대 경로다.
-        // Windows는 `\` 대신 `/`로 쓴다(Git Bash와 cmd가 둘 다 읽는다).
+        // hook command는 harness 설정 file의 shell 문자열이 된다. POSIX 설치본은 PATH의 `lophn`이고 개발 실행은 launcher 절대 경로다.
+        // Windows는 설치본이 사용자 PATH에 없으므로 공백 없는 절대 경로(`C:/…/lophn.cmd`)를 써서 lophn 밖·Git Bash·cmd·PowerShell
+        // 모두에서 돌게 한다. 경로에 공백 등이 있으면 `lophn`으로 내려가고 lophn 터미널 안에서는 bin/의 lophn·lophn.cmd가 받는다.
         hookCommand:
-          installedLayout(PLATFORM_ROOT, existsSync) || cliPath === null
+          cliPath === null
             ? undefined
             : process.platform === "win32"
-              ? cliPath.replaceAll("\\", "/")
-              : cliPath,
+              ? winHookCommand(cliPath)
+              : installedLayout(PLATFORM_ROOT, existsSync)
+                ? undefined
+                : cliPath,
         hasHook: (harness) =>
           harness in HARNESS_ADAPTERS &&
           HARNESS_ADAPTERS[harness as HarnessId].hook !== null,

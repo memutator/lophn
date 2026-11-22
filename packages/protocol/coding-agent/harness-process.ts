@@ -6,13 +6,21 @@ const INTERPRETER = /^(node(js)?|bun|deno|python[\d.]*)$/;
 const SESSION_ID = /^[A-Za-z0-9_][A-Za-z0-9._:-]{0,199}$/;
 
 function basename(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
+  const normalized = path.replaceAll("\\", "/");
+  return normalized.slice(normalized.lastIndexOf("/") + 1);
+}
+
+// Windows 실행 파일 이름은 대소문자를 가리지 않고 `.exe`·`.cmd`·`.bat` 확장자가 붙는다.
+function execName(path: string): string {
+  return basename(path)
+    .replace(/\.(exe|cmd|bat|com)$/i, "")
+    .toLowerCase();
 }
 
 function argsStart(argv: readonly string[]): number {
   const first = argv[0];
   if (first === undefined) return 1;
-  const exe = basename(first);
+  const exe = execName(first);
   if (!INTERPRETER.test(exe)) return 1;
   let i = 1;
   while (i < argv.length && argv[i]!.startsWith("-") && argv[i] !== "-c") i++;
@@ -47,7 +55,7 @@ function matches(
 export function harnessOfProcess(argv: readonly string[]): HarnessId | null {
   const first = argv[0];
   if (first === undefined) return null;
-  const exe = basename(first);
+  const exe = execName(first);
   const hit: { name?: string; script?: string; code?: string } = {};
   if (INTERPRETER.test(exe)) {
     // interpreter 옵션(`python3 -I`, `node --inspect`)은 script나 code 앞에 올 수 있어 건너뛴다.
@@ -56,8 +64,10 @@ export function harnessOfProcess(argv: readonly string[]): HarnessId | null {
     if (argv[i] === "-c") {
       hit.code = argv[i + 1];
     } else if (argv[i] !== undefined) {
-      hit.script = argv[i];
-      hit.name = basename(argv[i]!).replace(/\.(js|mjs|cjs|ts|py)$/, "");
+      hit.script = argv[i]!.replaceAll("\\", "/");
+      hit.name = basename(argv[i]!)
+        .replace(/\.(js|mjs|cjs|ts|py)$/i, "")
+        .toLowerCase();
     }
   } else {
     hit.name = exe;

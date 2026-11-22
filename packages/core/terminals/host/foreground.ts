@@ -59,3 +59,80 @@ export function foregroundOf(deps: ForegroundDeps): string[] | null {
     return null;
   }
 }
+
+export type WinDescendant = {
+  pid: number;
+  ppid: number;
+  name: string;
+  commandLine: string | null;
+};
+
+// Windows CommandLineToArgvW 규칙으로 command line을 argv로 나눈다.
+export function parseWindowsCommandLine(commandLine: string): string[] {
+  const args: string[] = [];
+  let i = 0;
+  const n = commandLine.length;
+  while (i < n && args.length < MAX_ARGS) {
+    while (i < n && (commandLine[i] === " " || commandLine[i] === "\t")) i++;
+    if (i >= n) break;
+    let current = "";
+    let inQuotes = false;
+    while (i < n) {
+      const ch = commandLine[i]!;
+      if (ch === "\\") {
+        let slashes = 0;
+        while (i < n && commandLine[i] === "\\") {
+          slashes++;
+          i++;
+        }
+        if (i < n && commandLine[i] === '"') {
+          current += "\\".repeat(Math.floor(slashes / 2));
+          if (slashes % 2 === 1) {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+            i++;
+          }
+        } else {
+          current += "\\".repeat(slashes);
+        }
+      } else if (ch === '"') {
+        if (inQuotes && i + 1 < n && commandLine[i + 1] === '"') {
+          current += '"';
+          i += 2;
+        } else {
+          inQuotes = !inQuotes;
+          i++;
+        }
+      } else if ((ch === " " || ch === "\t") && !inQuotes) {
+        break;
+      } else {
+        current += ch;
+        i++;
+      }
+    }
+    args.push(current.slice(0, MAX_ARG_CHARS));
+  }
+  return args;
+}
+
+// Windows PTY shell의 자손 process 목록(BFS 순)에서 가장 얕은 coding agent harness의 argv를 고른다.
+// claude.exe 아래에 bash.exe·node.exe가 떠도 얕은 claude.exe가 먼저 잡히고, cmd.exe → node.exe <qwen>은
+// cmd.exe를 건너뛰고 node.exe를 잡는다. harness가 없으면 null이다.
+export function selectWinForeground(
+  descendants: readonly WinDescendant[],
+  isHarness: (argv: readonly string[]) => boolean,
+): string[] | null {
+  for (const proc of descendants) {
+    const raw =
+      proc.commandLine !== null && proc.commandLine.trim() !== ""
+        ? parseWindowsCommandLine(proc.commandLine)
+        : proc.name !== ""
+          ? [proc.name]
+          : [];
+    if (raw.length === 0) continue;
+    if (isHarness(raw)) return raw;
+  }
+  return null;
+}

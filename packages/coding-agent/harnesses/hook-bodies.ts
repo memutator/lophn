@@ -36,14 +36,26 @@ export function pluginSource(
 }
 
 // 모든 본문이 쓰는 process 실행이다. hook 실패가 harness를 멈추게 하지 않는다.
+// Windows Node는 shell 없이 `.cmd`를 띄우지 못하고(EINVAL) PATH의 `lophn`도 `.cmd`로 풀지 못해(ENOENT) cmd.exe로 띄운다.
 function spawnSend(harness: HarnessId): string {
   return `const COMMAND_ARGS = ["hook", ${JSON.stringify(harness)}];
 
 function run(event, body) {
   try {
-    const child = spawn(COMMAND, [...COMMAND_ARGS, event], {
-      stdio: ["pipe", "ignore", "ignore"],
-    });
+    const args = [...COMMAND_ARGS, event];
+    const child = process.platform === "win32"
+      ? spawn(
+          process.env.ComSpec || "cmd.exe",
+          ["/d", "/s", "/c", \`""\${COMMAND.replaceAll("/", "\\\\")}" \${args.join(" ")}"\`],
+          {
+            stdio: ["pipe", "ignore", "ignore"],
+            windowsHide: true,
+            windowsVerbatimArguments: true,
+          },
+        )
+      : spawn(COMMAND, args, {
+          stdio: ["pipe", "ignore", "ignore"],
+        });
     child.on("error", () => {});
     child.stdin.on("error", () => {});
     child.stdin.end(JSON.stringify(body));

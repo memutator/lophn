@@ -11,12 +11,20 @@ import {
 } from "../../protocol/coding-agent/mod.ts";
 import { hermesHooksWithout, kimiHooksWithout } from "./block-hooks.ts";
 import { codexHookKey } from "./codex-trust.ts";
-import { CLINE_OWNED, CODEX_CONFIG_PATH, trustedHashes } from "./install.ts";
+import {
+  CLINE_OWNED,
+  CLINE_WIN_OWNED,
+  CODEX_CONFIG_PATH,
+  trustedHashes,
+} from "./install.ts";
 import {
   type InstallPorts,
   isObject,
+  isWindowsHome,
+  joinHome,
   type Json,
   ownedCommand,
+  trimHome,
   unchangedSinceRead,
 } from "./install-common.ts";
 import { jsoncHooksWithout } from "./jsonc-hooks.ts";
@@ -72,7 +80,7 @@ function indentOf(text: string): string | number {
 // 우리 이름의 file(`lophn.json`, `lophn-hooks.json`)이다. 사람의 항목이 남지 않으면 file째 지운다. 다른 file도 `{}`만
 // 남으면 지운다.
 function dedicated(path: string): boolean {
-  return /\/lophn[^/]*$/.test(path);
+  return /[\\/]lophn[^\\/]*$/.test(path);
 }
 
 function emptyHooksDoc(text: string): boolean {
@@ -225,7 +233,8 @@ async function uninstallHook(
   spec: HarnessHook,
 ): Promise<UninstallStep> {
   const { harness, home } = input;
-  const at = (path: string) => `${home}/${path}`;
+  const win = isWindowsHome(home);
+  const at = (path: string) => joinHome(home, path);
   switch (spec.format) {
     case "json": {
       const hooksPath = at(spec.path);
@@ -305,12 +314,13 @@ async function uninstallHook(
       ]);
     case "script_dir": {
       const dir = at(spec.path);
+      const owned = win ? CLINE_WIN_OWNED : CLINE_OWNED;
       const step = await changeFiles(
         ports,
         Object.keys(HARNESS_ADAPTERS[harness].events).map((event) => ({
-          path: `${dir}/${event}`,
+          path: joinHome(home, `${spec.path}/${win ? `${event}.ps1` : event}`),
           // 사람이 같은 이름으로 쓴 script는 남긴다.
-          make: (text: string) => (CLINE_OWNED.test(text) ? REMOVE : text),
+          make: (text: string) => (owned.test(text) ? REMOVE : text),
         })),
       );
       if (step.outcome === "removed" && (await ports.list(dir))?.length === 0) {
@@ -335,7 +345,7 @@ export async function uninstallGlobal(
   try {
     const step = await uninstallHook(
       ports,
-      { harness: input.harness, home: input.home.replace(/\/+$/, "") },
+      { harness: input.harness, home: trimHome(input.home) },
       spec,
     );
     return ok({ hook: step.outcome, files: step.files });

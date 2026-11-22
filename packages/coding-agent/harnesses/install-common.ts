@@ -24,22 +24,38 @@ export function isObject(value: unknown): value is Json {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// 우리 hook command(`lophn hook <harness> `나 개발 경로의 `<절대 경로> hook <harness> `)인지다.
+export function isWindowsHome(home: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(home) || home.includes("\\");
+}
+
+export function trimHome(home: string): string {
+  return home.replace(/[\\/]+$/, "");
+}
+
+// home 기준 상대 경로를 home의 OS 구분자에 맞춰 잇는다(Codex trust key·Muse managed 경로가 혼합 구분자로 깨지지 않게).
+export function joinHome(home: string, rel: string): string {
+  const sep = isWindowsHome(home) ? "\\" : "/";
+  return `${trimHome(home)}${sep}${rel.replaceAll("/", sep)}`;
+}
+
+// 우리 hook command(`lophn hook <harness> `나 개발·설치 절대 경로 `<절대 경로> hook <harness> `)인지다.
 export function ownedCommand(harness: HarnessId, command: unknown): boolean {
   return (
     typeof command === "string" &&
-    new RegExp(`^(lophn|/\\S+) hook ${harness} `).test(command)
+    new RegExp(`^(?:lophn|(?:\\/|[A-Za-z]:[\\\\/])\\S+) hook ${harness} `).test(
+      command,
+    )
   );
 }
 
-// 놓인 file 본문에서 hook command의 앞부분(`lophn`이나 개발 경로)을 읽는다. dry_run은 이것으로 기대 본문을 만들어
+// 놓인 file 본문에서 hook command의 앞부분(`lophn`이나 절대 경로)을 읽는다. dry_run은 이것으로 기대 본문을 만들어
 // command만 다른 것(개발 경로로 놓인 것, 옛 경로)은 놓을 것으로 보지 않는다.
 export function placedCommand(
   harness: HarnessId,
   text: string | null,
 ): string | undefined {
   return text?.match(
-    new RegExp(`"(lophn|/[^"\\\\\\n]*) hook ${harness} `),
+    new RegExp(`"(lophn|(?:\\/|[A-Za-z]:\\/)[^"\\\\\\n]*) hook ${harness} `),
   )?.[1];
 }
 

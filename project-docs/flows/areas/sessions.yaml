@@ -152,7 +152,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "알림 글을 blob으로 준비하지 못했다(준비 경로가 없거나 준비가 실패했다)"
+        when: "알림 글(receiver_ended, 취소 알림)을 blob으로 준비하지 못했다(준비 경로가 없거나 준비가 실패했다). 쓰는 tx에서 준비된 blob이 없으면 고정 글 \"the notice for a call closed with this session could not be written; try again\"이다"
         observe: [response]
     crosses_process: true
     refs: [T13, T17]

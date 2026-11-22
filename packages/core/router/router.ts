@@ -2356,8 +2356,21 @@ export function createRouter(deps: RouterDeps): Router {
     return closed === null || closed.ok ? ok(undefined) : closed;
   }
 
-  // session 하나가 끝날 때(archive, 지움, `team end`) 그 session에 걸린 call과 팀원을 닫는다.
+  // session 하나가 끝날 때(archive, 지움, `team end`) 그 session에 걸린 call과 팀원을 닫는다. 받은 session에 쓰는 고정 알림의 blob은
+  // 쓰는 tx 밖에서 미리 준비한다. 준비되지 않았으면 blob 등록의 안쪽 글 대신 고정 글로 거절한다(사람과 model이 보는 글이다).
   function sessionEnded(tx: Tx, session: Id<"ses">): Result<void> {
+    const done = closeEnding(tx, session);
+    return done.ok ||
+      (done.error.code !== "invalid_input" && done.error.code !== "forbidden")
+      ? done
+      : err({
+          code: "unavailable",
+          message:
+            "the notice for a call closed with this session could not be written; try again",
+        });
+  }
+
+  function closeEnding(tx: Tx, session: Id<"ses">): Result<void> {
     const ending = directory.find(session);
     // 이 session이 보낸 ask: 기다리던 짝(request·질문)은 session과 같이 끝나 거절로 푼다. 다른 컴퓨터의 부모에게 보낸 것이면 그 기계의
     // 행도 cancel mail로 닫는다.

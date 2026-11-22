@@ -57,6 +57,8 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
 // `team spawn`(`--on` 포함)의 conflict·forbidden도 이 컴퓨터의 core가 쓴 고정 문장이다(팀이 가득 참·깊음은 "do the work yourself or
 // ask your parent"로 끝난다, 팀원은 잎이다, call 정책·팀 규칙·private). 다른 컴퓨터의 글은 spawn의 답에 오지 않는다(그 컴퓨터의
 // 실패는 늦게 call의 실패로 온다). 이유를 못 받은 agent는 spawn을 되풀이한다.
+// `call send`(`--on` 포함)의 forbidden도 core가 쓴 고정 문장이다(call 정책, 팀 규칙, private, 받은 mail로 열린 session은 다른 컴퓨터로
+// 보내지 못함). 다른 컴퓨터로 보낸 call의 그 컴퓨터 쪽 실패는 늦게 call의 실패로 오고 이 답에 오지 않는다.
 // 그 밖의 code(forbidden 등)는 대상 이름·존재를 가리려 공통 문장으로 둔다.
 function carriesReason(name: string, code: string): boolean {
   return (
@@ -65,6 +67,7 @@ function carriesReason(name: string, code: string): boolean {
     (name.startsWith("browser.") && code === "not_found") ||
     (name === "tab.close" && code === "forbidden") ||
     (name === "team.spawn" && (code === "conflict" || code === "forbidden")) ||
+    (name === "call.send" && code === "forbidden") ||
     (name === "tab.give" &&
       (code === "not_found" ||
         code === "forbidden" ||

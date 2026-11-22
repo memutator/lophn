@@ -55,10 +55,15 @@ import {
   createReceivedRecorder,
   createSessionDirectory,
 } from "../lophn-agent/workspaces/mod.ts";
+import { SESSION_END_DEPS } from "../lophn-agent/workspaces/environment.ts";
+import { createTeamEnd } from "../lophn-agent/session/team-commands.ts";
+import { messageBodyFields } from "../lophn-agent/session/model.ts";
+import { createBlobRegistrar } from "../storage/blobs/register.ts";
 import { TEAMS, WIRINGS } from "../main/daemon/assembly.ts";
 import { assemble } from "../main/daemon/registration.ts";
 import { createCallBodyPreparer } from "../main/daemon/wiring/router.ts";
 import {
+  callsAskOpen,
   callsMailSent,
   createCallStore,
   createMailOutbox,
@@ -85,6 +90,7 @@ import {
   type MailEntryDeps,
   mailHandler,
   sendRemoteHandler,
+  spawnRemoteHandler,
 } from "./mail-entry.ts";
 
 // 기계 사이 mail의 권한 경계다. 두 기계마다 실제 ledger schema(SQLite 하나), Router 명령, store, session directory, 받은 입력 기록을 두고,
@@ -192,6 +198,7 @@ const apps = {
   appByName: () =>
     ({ ok: false, error: { code: "not_found", message: "no app" } }) as never,
 };
+// 끝내기는 core와 같은 영향이다(도는 turn, 받은 call과 팀원은 Router가 닫는다).
 const directoryOf = (sql: Sql) =>
   createSessionDirectory({
     projects,
@@ -200,6 +207,7 @@ const directoryOf = (sql: Sql) =>
     names: createWorkspaceNameRules({ projects, apps, agents }),
     publish: () => {},
     sql: () => sql,
+    end: SESSION_END_DEPS,
   });
 
 // Router 명령은 설치된 환경으로 Router를 만든다. 환경은 tx의 sql로 기계를 고른다.
@@ -235,19 +243,21 @@ async function machine(self: Id<"mch">) {
   };
   let counter = 0;
   const prepared = new Set<string>();
+  // 받은 입력의 본문은 그 자격으로 미리 준비된 blob이어야 기록된다: writer가 쓰는 blob 등록 그대로다.
+  let current: AuthenticatedContext = MAIL_CONTEXT;
+  const register = createBlobRegistrar({
+    preparations: { live: (key) => ok(prepared.has(preparedKey(key))) },
+    fields: messageBodyFields,
+    nowMs: () => 0,
+    current: () => current,
+  });
   const tx = {
     sql,
     now: () => "2026-11-21T00:00:00.000Z",
     newId: (prefix: string) =>
       `${prefix}_0${String(index * 1_000_000 + ++counter).padStart(25, "0")}`,
     port: () => ({ push: () => {}, principal: () => MAIL_PRINCIPAL }),
-    // 받은 입력의 본문은 그 자격으로 미리 준비된 blob이어야 기록된다(writer가 하는 검사).
-    registerBlobRef: (ref: {
-      source: { blob: { hash: string; principal: string; purpose: string } };
-    }) =>
-      prepared.has(preparedKey(ref.source.blob))
-        ? ok({})
-        : err({ code: "invalid_input", message: "body was not prepared" }),
+    registerBlobRef: (reference: never) => register(sql, reference),
   } as unknown as Tx;
   const policy: { value: CallPolicy } = { value: DEFAULT_CALL_POLICY };
   routerDepsBySql.set(sql, {
@@ -288,31 +298,36 @@ async function machine(self: Id<"mch">) {
     },
   };
   const preparer = createCallBodyPreparer({ relay: () => relay });
-  // 접은 writer 대신: 본문 준비 → schema → Router 명령을 한 tx로, 오류면 되돌린다.
-  const command = async (
-    route: { name: string },
+  // 접은 writer 대신: 본문 준비 → schema → 명령을 한 tx로, 오류면 되돌린다. 기본은 Router 명령과 core 안 machine 자격이다.
+  const run = async (
+    definition: {
+      route: { name: string; input: { safeParse(input: unknown): unknown } };
+      handle: (...args: never[]) => Result<unknown>;
+    },
+    ctx: AuthenticatedContext,
     input: unknown,
   ): Promise<Result<unknown>> => {
-    const ready = await preparer(MAIL_CONTEXT, {
-      command: route.name,
+    const ready = await preparer(ctx, {
+      command: definition.route.name,
       input,
       idempotency_key: "k",
       compare: {},
       prepared: [],
     });
     if (!ready.ok) return ready;
-    const definition = ROUTER_COMMANDS.find(
-      (each) => each.route.name === route.name,
-    )!;
-    const parsed = definition.route.input.safeParse(ready.value.input);
+    const parsed = definition.route.input.safeParse(ready.value.input) as {
+      success: boolean;
+      data: unknown;
+    };
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "input schema" });
     }
+    current = ctx;
     db.exec("begin");
     try {
       const done = definition.handle(
-        tx,
-        MAIL_CONTEXT as never,
+        tx as never,
+        ctx as never,
         parsed.data as never,
         {} as never,
       );
@@ -321,8 +336,19 @@ async function machine(self: Id<"mch">) {
     } catch (thrown) {
       db.exec("rollback");
       throw thrown;
+    } finally {
+      current = MAIL_CONTEXT;
     }
   };
+  const command = async (
+    route: { name: string },
+    input: unknown,
+  ): Promise<Result<unknown>> =>
+    await run(
+      ROUTER_COMMANDS.find((each) => each.route.name === route.name)! as never,
+      MAIL_CONTEXT,
+      input,
+    );
 
   // 이 기계가 보는 명단과 link. call은 test가 정한다.
   const status = new Map<string, "connected" | "offline">(
@@ -503,6 +529,8 @@ async function machine(self: Id<"mch">) {
     callRow,
     openSession,
     sendRemote,
+    run,
+    command,
     inbox: createMailInbox(entry),
   };
 }
@@ -840,4 +868,65 @@ test("받는 기계가 줄 맨 앞 mail에 timer가 시작한 차례마다 inter
       .map((row) => row["fail_reason"]),
     ["expired"],
   );
+});
+
+// 다른 컴퓨터의 팀원이 연 ask(승인, 질문)가 부모에게 열려 있을 때 연 기계에서 자리를 끝낸다. 받은 부모에게 가는 취소 알림의 blob을 쓰는 tx
+// 밖에서 준비하지 않으면 끝내기가 거절되어 자리와 그 컴퓨터의 session이 영영 열려 있고 그 컴퓨터의 turn이 기다린다.
+test("다른 컴퓨터의 팀원이 연 ask가 부모에게 열려 있어도(가져갔든 아니든) 연 기계의 team end가 자리를 닫고 그 ask가 두 컴퓨터에서 취소된다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  connect(a, b);
+  connect(b, a);
+  const root = a.openSession("lophn_home");
+  const as = (session: string) =>
+    ({
+      ...MAIL_CONTEXT,
+      actor: `agent:${session}`,
+      conditions: { session: session as Id<"ses"> },
+    }) as AuthenticatedContext;
+  const spawned = await spawnRemoteHandler(a.entry)(as(root), {
+    agent: "reviewer",
+    machine: "studio",
+    reply: "result",
+    body: textBlocks("build it there"),
+    dedup: "s1",
+  });
+  assert.ok(spawned.ok, JSON.stringify(spawned));
+  const member = (spawned.value as { session: string }).session;
+  await a.drain.wake(B);
+  const asks: string[] = [];
+  for (const ask of ["approval", "question"] as const) {
+    const opened = await b.command(callsAskOpen, {
+      from: member,
+      to: root,
+      ask,
+      body: textBlocks("may I run the build?"),
+      unattended: false,
+    });
+    assert.ok(opened.ok, JSON.stringify(opened));
+    asks.push((opened.value as { call: string }).call);
+  }
+  await b.drain.wake(A);
+  for (const call of asks) assert.equal(a.callRow(call)?.["state"], "accepted");
+  // 부모가 하나는 가져갔다.
+  a.sql.run("update agent_calls set consumed = 1 where call = ?", [asks[0]!]);
+
+  const ended = await a.run(
+    createTeamEnd(SESSION_END_DEPS) as never,
+    as(root),
+    { session: member },
+  );
+  assert.ok(ended.ok, JSON.stringify(ended));
+  const lifecycle = (m: Machine) =>
+    m.sql.get("select lifecycle from sessions where id = ?", [member])?.[
+      "lifecycle"
+    ];
+  assert.equal(lifecycle(a), "archived");
+  for (const call of asks)
+    assert.equal(a.callRow(call)?.["state"], "cancelled");
+  await a.drain.wake(B);
+  assert.equal(lifecycle(b), "archived");
+  for (const call of asks) {
+    assert.notEqual(b.callRow(call)?.["state"], "accepted");
+  }
 });

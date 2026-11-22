@@ -218,8 +218,12 @@ export function createCallBodyPreparer(deps: {
       name === deleteSession.name ||
       name === teamEnd.name
     ) {
-      // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
-      bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
+      // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림과, 끝나는 session이 보낸 ask나 끝나는 팀원 자리가 이 기계로
+      // 보낸 call이 취소되며 받은 session에 가는 취소 알림이다.
+      bodies.push(
+        textBlocks(FAILURE_TEXTS.receiver_ended),
+        textBlocks(CANCEL_TEXT),
+      );
     } else if (
       name === stopTurn.name ||
       (name === finishTurn.name &&
@@ -260,15 +264,17 @@ export function createCallBodyPreparer(deps: {
           textBlocks(FAILURE_TEXTS[mail.outcome.reason ?? "receiver_ended"]),
         );
       }
-      if (mail.kind === "cancel") bodies.push(textBlocks(CANCEL_TEXT));
-      // 팀원 session이나 그 자리가 끝나면(cancel의 end, state의 ended, 실패한 spawn call) 그 session이 받은 열린 call이 receiver_ended로
-      // 닫혀 보낸 session에 가는 알림이다.
+      // 팀원 session이나 그 자리가 끝나면(cancel의 end, state의 ended, 실패한 spawn call이나 자리로 보낸 call) 그 session이 받은 열린
+      // call이 receiver_ended로 닫혀 보낸 session에 가는 알림과, 그 session이 보낸 ask나 그 팀원이 이 기계로 보낸 call의 취소 알림이다.
       if (
         mail.kind === "cancel" ||
         mail.kind === "state" ||
         (mail.kind === "reply" && mail.outcome?.state === "failed")
       ) {
-        bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
+        bodies.push(
+          textBlocks(FAILURE_TEXTS.receiver_ended),
+          textBlocks(CANCEL_TEXT),
+        );
       }
       if (bodies.length === 0) return ok(envelope);
     } else if (name === callsMailSent.name) {
@@ -283,10 +289,12 @@ export function createCallBodyPreparer(deps: {
             ? (result.applied.reason ?? "not_found")
             : null;
       if (reason === null) return ok(envelope);
-      // spawn call이 실패하면 그 팀원의 자리가 끝나며 자리로 보낸 다른 열린 call도 receiver_ended로 닫힌다.
+      // spawn call이나 자리로 보낸 call이 실패하면 그 팀원의 자리가 끝나며 자리로 보낸 다른 열린 call도 receiver_ended로 닫히고 그 팀원이
+      // 이 기계로 보낸 call은 취소된다.
       bodies.push(
         textBlocks(FAILURE_TEXTS[reason]),
         textBlocks(FAILURE_TEXTS.receiver_ended),
+        textBlocks(CANCEL_TEXT),
       );
     } else return ok(envelope);
     const relay = deps.relay();

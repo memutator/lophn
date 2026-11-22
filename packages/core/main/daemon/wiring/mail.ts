@@ -38,6 +38,7 @@ import {
   callsMailSend,
   callsMailSent,
   callsMailSweep,
+  CANCEL_TEXT,
   FAILURE_TEXTS,
   LEFT_ROSTER_TEXT,
   MAIL_QUEUED_TOPIC,
@@ -138,6 +139,8 @@ export const mailWiring: WiringFactory = () => {
           textBlocks(LEFT_ROSTER_TEXT),
           // 끝나는 팀원의 자리로 보낸 다른 열린 call의 알림이다.
           textBlocks(FAILURE_TEXTS.receiver_ended),
+          // 끝나는 팀원(자리와 그 컴퓨터가 연 session)이 보낸 call의 취소 알림이다.
+          textBlocks(CANCEL_TEXT),
         ]);
         if (!prepared.ok) return prepared;
         // 명단에 더 없는 기계다: 이 컴퓨터가 뺐거나, 그 기계가 이 컴퓨터를 빼 이 컴퓨터가 옛 명단을 버렸다(명단을 아직 읽지 못한 때는

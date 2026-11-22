@@ -139,7 +139,8 @@ const send = defineCommand({
         fail_reason,
         ...(fail_reason === "closed"
           ? {
-              hint: "that session is closed; call its agent and workspace to open a new session",
+              // 닫힌 session이 다른 컴퓨터에 연 팀원이었는지는 답에 없다(이 컴퓨터에 그 session의 대화가 없다).
+              hint: "that session is closed; call its agent and workspace to open a new session, or if it was a team member on another computer, open a new one with `team spawn <handle> --on <computer>`",
             }
           : {}),
       },

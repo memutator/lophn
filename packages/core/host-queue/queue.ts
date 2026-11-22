@@ -307,13 +307,17 @@ export function createHostQueue(deps: {
     const entry = tabs.get(tab);
     tabs.delete(tab);
     // 아직 창에 가지 않은 주인 고치기는 버린다. 창이 다시 알린 탭이 core 표의 주인과 다른 주인을 그리지 않게 한다.
+    dropOwner(tab);
+    if (entry?.kind === "browser") deps.changed?.();
+  };
+  // 그 탭의 아직 창에 가지 않은 주인 고치기를 뺀다. 창은 마지막 것만 알면 된다.
+  const dropOwner = (tab: Id<"tab">) => {
     for (let at = pending.length - 1; at >= 0; at--) {
       const { request } = pending[at]!;
       if (request.kind === "tab_owner" && request.payload.tab === tab) {
         pending.splice(at, 1);
       }
     }
-    if (entry?.kind === "browser") deps.changed?.();
   };
   // 결과를 기다리는 browser_call과 browser 탭 열기, 연결 요청. deadline이 null이면 기한이 없다.
   const waiting = new Map<
@@ -452,13 +456,15 @@ export function createHostQueue(deps: {
   }
 
   // 자기 탭(연 탭, 넘겨받은 탭)만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: 같은 not_found 문장).
+  // sees를 주면(close) 볼 수 없는 주인의 탭은 없는 탭과 같은 답이다(남의 탭이 있는지 새지 않게).
   function owned(
     tab: Id<"tab">,
     caller: TabOwner,
     missing: "close" | "show" | "read",
+    sees?: (owner: TabOwner) => boolean,
   ) {
     const entry = tabs.get(tab);
-    if (entry === undefined) {
+    if (entry === undefined || (sees !== undefined && !sees(entry.owner))) {
       return err({
         code: "not_found" as const,
         message: missing === "read" ? NO_SUCH_TAB : "tab not found",
@@ -480,6 +486,7 @@ export function createHostQueue(deps: {
 
   // 창의 탭 값에 지금 주인을 적게 한다. 그 workspace를 보이는 창이 받고, 없으면 보일 때까지 기다린다.
   function announceOwner(tab: Id<"tab">, entry: TabEntry): void {
+    dropOwner(tab);
     enqueue({
       id: deps.ids.newId("hrq") as Id<"hrq">,
       kind: "tab_owner",
@@ -487,6 +494,7 @@ export function createHostQueue(deps: {
       payload: {
         tab,
         ...(entry.owner === "person" ? {} : { owner: entry.owner }),
+        given: entry.givers.length > 0,
       },
     });
     deps.changed?.();
@@ -752,8 +760,8 @@ export function createHostQueue(deps: {
       if (entry.kind !== "browser") {
         return err({ code: "invalid_input" as const, message: NOT_GIVABLE });
       }
-      if (entry.owner === to) return ok(to);
       if (to === caller) {
+        if (entry.owner === caller) return ok(to);
         const at = entry.givers.indexOf(caller);
         if (at < 0) {
           return err({ code: "forbidden" as const, message: NOT_HOLDER });
@@ -772,19 +780,21 @@ export function createHostQueue(deps: {
     ended(session: Id<"ses">, open: (session: Id<"ses">) => boolean): void {
       for (const [tab, entry] of [...tabs]) {
         if (entry.owner !== session) continue;
-        const giver = entry.givers.at(-1);
-        if (giver !== undefined && open(giver)) {
-          entry.givers = entry.givers.slice(0, -1);
-          entry.owner = giver;
-        } else if (giver === undefined && !entry.handed) {
-          continue;
+        if (entry.givers.length === 0 && !entry.handed) continue;
+        // `team end`는 자손을 잎부터 한 tx에서 닫아 event가 commit 뒤에 오므로, 바로 준 session도 이미 끝났을 수 있다. 가장 가까운
+        // 열린 session에게 돌아가고 끝난 session은 사슬에서 빠진다.
+        const at = entry.givers.findLastIndex(open);
+        if (at >= 0) {
+          entry.owner = entry.givers[at]!;
+          entry.givers = entry.givers.slice(0, at);
         } else if (entry.handed) {
           // 사람의 탭으로 돌아간다. 창이 되찾기처럼 owner·handed_tab을 지운다.
           forget(tab);
           entry.owner = "person";
         } else {
-          // agent가 연 탭을 준 session이 이미 끝났다. 사람의 탭(사람 token의 주인)이 된다.
-          entry.owner = "person";
+          // agent가 연 탭은 사람 token의 탭으로 만들지 않는다(그 agent의 profile login에 닿는다). 끝난 연 session의 탭으로 돌아가
+          // 그 session이 스스로 연 탭과 같이 아무 agent도 다루지 못하고 사람은 창에서 본다. 사슬 처음이 연 session이다.
+          entry.owner = entry.givers[0]!;
           entry.givers = [];
         }
         announceOwner(tab, entry);
@@ -856,8 +866,12 @@ export function createHostQueue(deps: {
         if (entry.kind === "browser") deps.changed?.();
       }
     },
-    close(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
-      const found = owned(tab, caller, "close");
+    close(
+      tab: Id<"tab">,
+      caller: TabOwner,
+      sees?: (owner: TabOwner) => boolean,
+    ): Result<Id<"tab">> {
+      const found = owned(tab, caller, "close", sees);
       if (!found.ok) return found;
       if (found.value.givers.length > 0) {
         return err({ code: "forbidden" as const, message: GIVEN_TAB });

@@ -1497,6 +1497,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     hasPage: pool === null ? undefined : (key) => pool.carried().includes(key),
     globalTabs: globalFloats.floats.map((item) => item.tab),
     patchGlobal: globalFloats.patch,
+    setGiven: (key, on) => webviews.setGiven(key, on),
   });
 
   // 넘긴 browser 탭의 page는 agent가 연 page처럼 workspace를 떠나도 살고 agent page 상한에 센다(app-frame/webview-host.tsx).

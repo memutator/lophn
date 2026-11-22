@@ -507,7 +507,14 @@ export function createTabHandlers(deps: TabDeps) {
     const caller = owner(who);
     if (!caller.ok) return caller;
     const input = tabsClose.input.parse(body);
-    const closed = queue.close(input.tab as Id<"tab">, caller.value);
+    // 볼 수 없는 탭(부모·형제·남의 탭)은 없는 탭과 같은 답이다. 볼 수 있지만 닫지 못하는 탭은 forbidden이다.
+    const closed = queue.close(input.tab as Id<"tab">, caller.value, (found) =>
+      withinTeam(
+        caller.value,
+        found,
+        (session) => sessionRow(session)?.spawned_by ?? null,
+      ),
+    );
     return closed.ok
       ? ok({ tab: closed.value, status: "accepted" as const })
       : closed;

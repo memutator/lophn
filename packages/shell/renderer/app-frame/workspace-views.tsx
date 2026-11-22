@@ -273,7 +273,12 @@ export function createWorkspaceViews(
         if (pool.mounted) continue;
         const key = pool.webviews.keyOf(session);
         const tab = key === undefined ? null : pool.webviews.hostTab(key);
-        if (key === undefined || tab === null || hostTabOf({ key }) !== null) {
+        // 넘긴 탭(사람의 key)과 준 agent 탭만 page를 새로 연다. 그 밖의 agent 탭은 page와 같이 닫힌다.
+        if (
+          key === undefined ||
+          tab === null ||
+          (hostTabOf({ key }) !== null && !pool.webviews.isGiven(key))
+        ) {
           continue;
         }
         pool.webviews.renew(key);

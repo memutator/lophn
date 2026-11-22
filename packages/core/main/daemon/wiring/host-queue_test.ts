@@ -254,17 +254,17 @@ test("돌고 있는 preview가 없으면 conflict다", async () => {
   assert.equal(code(await open(person, target)), "conflict");
 });
 
-test("탭은 연 쪽만 닫고, 같은 앱의 preview 탭은 하나이며 주인은 나중에 연 쪽이다", async () => {
+test("탭은 연 쪽만 닫고(볼 수 없는 탭은 없는 탭과 같은 답), 같은 앱의 preview 탭은 하나이며 주인은 나중에 연 쪽이다", async () => {
   const { open, close } = setup(true);
   const first = await open(agent(1), target);
   assert.ok(first.ok);
   const tab = (first.value as { tab: string }).tab;
-  assert.equal(code(await close(person, { tab })), "forbidden");
+  assert.equal(code(await close(person, { tab })), "not_found");
 
   const second = await open(person, target);
   assert.ok(second.ok);
   assert.equal((second.value as { tab: string }).tab, tab);
-  assert.equal(code(await close(agent(1), { tab })), "forbidden");
+  assert.equal(code(await close(agent(1), { tab })), "not_found");
   assert.equal(code(await close(person, { tab })), "ok");
   assert.equal(code(await close(person, { tab })), "not_found");
 });
@@ -616,7 +616,7 @@ test("agent는 자기 앱 workspace가 아닌 앱의 phone 탭을 열지 못하�
     assert.equal(code(await screenshot(who, { tab })), "not_found");
     assert.equal(code(await read(who, { tab })), "not_found");
   }
-  assert.equal(code(await close(agent(2), { tab })), "forbidden");
+  assert.equal(code(await close(agent(2), { tab })), "not_found");
   assert.deepEqual(phone.calls, []);
   // phone 탭은 shell queue에 들어가지 않는다.
   assert.equal(host.next(), null);
@@ -1139,7 +1139,7 @@ test("browser 탭이 아닌 탭의 fill_login은 기본 profile의 login만이�
 
 // 탭 주기는 권한 경계다. 깨지면 agent가 부모·형제·남의 탭(사람의 로그인 page)을 가져가거나, 탭을 다룰 수 없는 곳에 주어 잃는다.
 test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn session에만 주고, 준 사슬의 session만 되찾는다", async () => {
-  const { queue, give, open } = setup(true);
+  const { queue, give, open, close } = setup(true);
   const tab = queue.openTab({
     owner: id("ses", 5) as Id<"ses">,
     workspace: { kind: "home" },
@@ -1173,6 +1173,10 @@ test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn sessio
     ["받은 자식이 자기 자식에게", 6, 7, "ok"],
     ["사슬의 부모가 되찾기", 6, null, "ok"],
     ["사슬의 조부모가 되찾기", 5, null, "ok"],
+    ["손자에게 바로", 5, 7, "ok"],
+    ["사슬에 없는 중간 조상의 되찾기", 6, null, "forbidden"],
+    ["든 session이 아닌 쪽이 지금 주인에게", 6, 7, "forbidden"],
+    ["조부모가 되찾기", 5, null, "ok"],
   ];
   for (const [name, by, to, expected] of cases) {
     assert.equal(await giving(by, to), expected, name);
@@ -1188,4 +1192,15 @@ test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn sessio
   assert.equal(queue.browserTab(tab, id("ses", 6) as Id<"ses">).ok, true);
   const closed = queue.close(tab, id("ses", 6) as Id<"ses">);
   assert.equal(!closed.ok && closed.error.code, "forbidden");
+  // 볼 수 없는 탭을 닫으면 없는 탭과 같은 답이고(있는지 새지 않는다), 볼 수 있지만 닫지 못하는 탭은 forbidden이다.
+  const closing = async (by: number, which: string) =>
+    (await close(agent(by), { tab: which })) as unknown as {
+      ok: boolean;
+      error: { code: string; message: string };
+    };
+  const unseen = await closing(8, tab);
+  const missing = await closing(8, id("tab", 99));
+  assert.deepStrictEqual(unseen.error, missing.error);
+  assert.equal(missing.error.code, "not_found");
+  assert.equal((await closing(5, tab)).error.code, "forbidden");
 });

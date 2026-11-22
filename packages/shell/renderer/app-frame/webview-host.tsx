@@ -167,6 +167,12 @@ export interface WebviewHost {
    */
   setHostTab(key: string, tab: string | null): void;
   /**
+   * agent가 연 browser 탭을 연 session이 아닌 session이 든다(`tab give`). 그동안 page의 window.close()는 넘긴 탭처럼 탭을 닫지 않고
+   * page를 새로 연다. 창 메모리에만 있다(core가 다시 뜨면 사슬도 없다).
+   */
+  setGiven(key: string, on: boolean): void;
+  isGiven(key: string): boolean;
+  /**
    * workspace를 떠난다. 살려 둘 이유가 있고(앱 page 신호, 사람의 Keep alive, download, 소리 남) `tabKeys`(layout에
    * 아직 있는 탭)에 든 화면만 두고 나머지는 놓는다. 둔 key를 돌려준다.
    */
@@ -294,6 +300,8 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
   const driven = new Set<string>();
   // setHostTab이 단 넘긴 탭의 core 탭 id(key → id).
   const handed = new Map<string, string>();
+  // setGiven이 단 준 탭의 key.
+  const given = new Set<string>();
   let own = 0;
   const now = tick ?? (() => ++own);
 
@@ -715,6 +723,11 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       entry.hostTab = next;
       apply(entry);
     },
+    setGiven(key, on) {
+      if (on) given.add(key);
+      else given.delete(key);
+    },
+    isGiven: (key) => given.has(key),
     setDownloading(key, on) {
       const entry = entries.get(key);
       if (entry !== undefined) entry.downloading = on;

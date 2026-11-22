@@ -180,7 +180,7 @@ const close = defineCommand({
   name: "tab.close",
   summary: "Close a tab you opened",
   description:
-    "Close a tab you opened with tab open (a person token closes tabs a person token opened). You cannot close tabs other sessions or the person opened, nor a tab the person handed you (forbidden). Returns accepted: a --url page closes at once, any other tab closes when the shell shows this workspace.",
+    "Close a tab you opened with tab open (a person token closes tabs a person token opened). You cannot close a tab the person handed you or another session gave you, nor a tab of a session under you (forbidden); any other tab that is not yours is not_found, like a tab that does not exist. Returns accepted: a --url page closes at once, any other tab closes when the shell shows this workspace.",
   input: z.strictObject({ tab: idSchema("tab") }),
   positional: ["tab"],
   effect: "write",

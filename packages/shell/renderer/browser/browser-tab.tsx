@@ -386,7 +386,12 @@ function OpenTab(
       } else if (event.kind === "open-tab" && event.opener === viewSession) {
         callbacks.current.onOpenTab(event.url);
       } else if (event.kind === "close" && event.view_session === viewSession) {
-        if (callbacks.current.handed === true && !native) {
+        // 넘긴 탭과 다른 session이 든 agent 탭(준 탭)은 page가 닫아도 탭을 지우지 않는다.
+        if (
+          (callbacks.current.handed === true ||
+            webviews.isGiven(callbacks.current.keepKey)) &&
+          !native
+        ) {
           webviews.renew(callbacks.current.keepKey);
         } else callbacks.current.onCloseRequested();
       } else if (

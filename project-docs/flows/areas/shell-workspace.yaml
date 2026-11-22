@@ -1603,7 +1603,7 @@ flows:
       - "열었으면 ack하고, 못 열었으면(agent 목록을 모름, resume 없음, 터미널 통로 없음) ack하지 않아 main이 되돌린다"
       - "work나 glance(float)인데 desk float이 20개 상한이면 openFloatTab이 조용히 아무것도 안 하지만 browser·session 경로는 그래도 ack한다"
       - "tab_close면 그 탭을 빼고(터미널은 PTY까지 닫고) ack한다. 터미널 종료를 확인받지 못하면 탭은 남고 ack는 간다. 사람이 닫은 탭은 shell:surface-report로 closed를 알린다"
-      - "tab_show면 어느 desk에 있든 그 key의 접힌 float을 그 자리에서 펴고(desk, 선택, focus는 그대로) ack한다. float이 아니거나 없으면 할 일 없이 ack한다. tab_owner면 이 workspace layout(모든 desk)이나 전역 float에서 그 core 탭 id의 탭(key host:<id>나 handedTab)을 찾아 owner를 요청의 session으로 고치고 ack한다. owner가 없으면 사람에게 돌아간 것이라 넘긴 탭이면 되찾기처럼 owner와 handedTab을 지우고 closed를 알리며, agent가 연 탭이면 owner만 지운다. 없는 탭이면 할 일 없이 ack한다"
+      - "tab_show면 어느 desk에 있든 그 key의 접힌 float을 그 자리에서 펴고(desk, 선택, focus는 그대로) ack한다. float이 아니거나 없으면 할 일 없이 ack한다. tab_owner면 이 workspace layout(모든 desk)이나 전역 float에서 그 core 탭 id의 탭(key host:<id>나 handedTab)을 찾아 owner를 요청의 session으로 고치고 ack한다. layout의 탭이면 given을 page 그릇 메모리에 달아 그동안 page의 window.close()에 탭을 닫지 않고 page를 새로 연다. owner가 없으면 사람에게 돌아간 것이라 넘긴 탭이면 되찾기처럼 owner와 handedTab을 지우고 closed를 알리며, agent가 연 탭이면 owner만 지운다. 없는 탭이면 할 일 없이 ack한다"
     uses: [ipc:shell:surface-request, ipc:shell:surface-ack, ipc:shell:surface-workspace, ipc:shell:surface-report]
     outcomes:
       - id: opened

@@ -131,6 +131,8 @@ type Args = {
   globalTabs: readonly TabItem[];
   /** 전역 float 탭 값 고치기. */
   patchGlobal: (key: string, patch: Partial<TabItem>) => void;
+  /** 이 workspace page 그릇에 그 탭이 준 탭(연 session이 아닌 session이 듦)인지 단다(`WebviewHost.setGiven`). */
+  setGiven: (key: string, on: boolean) => void;
 };
 
 export function useSurfaceRequests(args: Args): void {
@@ -182,7 +184,7 @@ export function useSurfaceRequests(args: Args): void {
       if (request.kind === "tab_owner") {
         // core가 이 탭의 주인을 바꿨다(session이 자손에게 주었거나 되찾았거나, 받은 session이 끝나 돌아갔다). 이 workspace layout이나
         // 전역 float의 그 탭에 적는다. 주인이 없으면 사람에게 돌아간 것이고, 넘긴 탭이면 되찾기처럼 넘긴 표시도 지운다.
-        const { owner } = request.payload;
+        const { owner, given } = request.payload;
         const held = (tab: TabItem) => hostTabOf(tab) === request.payload.tab;
         const here = host().windowTabs().find(held);
         const found = here ?? latest.current.globalTabs.find(held);
@@ -190,6 +192,9 @@ export function useSurfaceRequests(args: Args): void {
           here !== undefined
             ? (key, value) => host().patchTab(key, value)
             : latest.current.patchGlobal;
+        if (found !== undefined && here !== undefined) {
+          latest.current.setGiven(found.key, given);
+        }
         // 없으면 이미 닫힌 탭이다.
         if (found !== undefined && owner !== undefined) {
           patch(found.key, { owner });

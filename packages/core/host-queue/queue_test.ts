@@ -318,7 +318,8 @@ test("준 탭은 받은 session이 끝나면 준 session에게, 준 session도 �
     }
     return seen;
   };
-  assert.deepStrictEqual(owners(), [B, C]);
+  // 창에 가지 않은 앞 주인 고치기는 새것이 대신한다(숨은 workspace에서 되풀이해도 queue가 늘지 않는다).
+  assert.deepStrictEqual(owners(), [C]);
   // 턴이 아니라 session이 끝날 때만 돌아간다. C가 끝나면 B에게 간다.
   queue.ended(C, all);
   assert.equal(queue.read(tab, B).ok, true);
@@ -329,7 +330,8 @@ test("준 탭은 받은 session이 끝나면 준 session에게, 준 session도 �
   assert.equal(queue.read(tab, A).ok, false);
   assert.deepStrictEqual(owners(), [null]);
 
-  // agent가 연 탭을 준 session이 끝났으면 사람 token의 탭이 된다. 자기가 연 탭은 끝나도 그대로다.
+  // agent가 연 탭을 준 session이 끝났으면 사람 token의 탭(그 agent의 profile login에 닿는다)이 아니라 끝난 연 session의 탭으로
+  // 돌아가 아무도 다루지 못한다. 자기가 연 탭은 끝나도 그대로다.
   const opened = queue.openTab({
     owner: A,
     workspace: HOME,
@@ -346,8 +348,48 @@ test("준 탭은 받은 session이 끝나면 준 session에게, 준 session도 �
   });
   assert.equal(queue.give(opened, A, B, all).ok, true);
   queue.ended(B, (session) => session !== A);
-  assert.equal(queue.browserTab(opened, "person").ok, true);
+  assert.equal(queue.browserTab(opened, "person").ok, false);
+  assert.equal(queue.browserTab(opened, B).ok, false);
+  assert.equal(queue.browserTab(opened, A).ok, true);
   assert.equal(queue.browserTab(own, B).ok, true);
+});
+
+// `team end D`는 D와 G를 잎부터 한 tx에서 닫고 event는 commit 뒤에 온다. G의 event를 받을 때 D는 이미 끝나 있어, 바로 준 session만
+// 보면 P가 연 탭이 P를 건너 사람이나 끝난 D에게 간다.
+test("P가 D에게, D가 G에게 준 탭은 P가 team end D를 하면 P에게 돌아간다", () => {
+  const { queue } = setup();
+  const P = "ses_p" as Id<"ses">;
+  const D = "ses_d" as Id<"ses">;
+  const G = "ses_g" as Id<"ses">;
+  const all = () => true;
+  const opened = queue.openTab({
+    owner: P,
+    workspace: HOME,
+    target: { browser: { url: "https://example.com" } },
+    relation: null,
+    source: P,
+  });
+  // 사람이 P에게 넘긴 탭이면 바로 준 session만 보는 길이 사람에게 돌려 차이가 드러난다.
+  const handed = queue.hand(
+    { owner: P, workspace: HOME, profile: null, url: "https://mail.example/" },
+    all,
+  );
+  assert.ok(handed.ok);
+  const ended = new Set<string>([D, G]);
+  const open = (session: Id<"ses">) => !ended.has(session);
+  for (const tab of [opened, handed.value]) {
+    assert.equal(queue.give(tab, P, D, all).ok, true);
+    assert.equal(queue.give(tab, D, G, all).ok, true);
+  }
+  queue.ended(G, open);
+  queue.ended(D, open);
+  for (const tab of [opened, handed.value]) {
+    assert.equal(queue.browserTab(tab, P).ok, true);
+    // 끝난 D는 사슬에서 빠졌다: 다시 되찾을 것이 없다.
+    const back = queue.give(tab, D, D, all);
+    assert.equal(!back.ok && back.error.code, "forbidden");
+  }
+  assert.equal(queue.close(opened, P).ok, true);
 });
 
 // 사람의 Take back이 사슬을 끝내지 않으면 사람이 되찾은 탭(로그인한 page)을 준 session이 다시 가져간다.

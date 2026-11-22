@@ -281,6 +281,8 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     payload: z.strictObject({
       tab: idSchema("tab"),
       owner: idSchema("ses").optional(),
+      // 연 session이 아닌 session이 든다(주었다). 창은 그동안 page의 window.close()에 탭을 닫지 않고 page를 새로 연다(메모리만).
+      given: z.boolean(),
     }),
   }),
   z.strictObject({
@@ -387,7 +389,8 @@ export const tabsOpen = defineMemory({
   errors,
 });
 
-// 자기가 연 탭만 닫는다. 남이 연 탭과 사람이 넘겨준 탭이면 `forbidden`, 없는 탭이면 `not_found`다.
+// 자기가 연 탭만 닫는다. 자기 밑 session의 탭과 사람이 넘겨준 탭·다른 session이 준 탭이면 `forbidden`, 없는 탭과 볼 수 없는 탭
+// (부모·형제·남의 탭, 사람 token에게 agent의 탭)은 같은 `not_found`다.
 export const tabsClose = defineMemory({
   resource: "tabs",
   method: "close",

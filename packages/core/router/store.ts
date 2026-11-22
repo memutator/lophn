@@ -245,12 +245,13 @@ export function createCallStore(): CallStore {
     },
     // ask call은 부모가 가져갔어도 닫는다: 자식의 request·질문이 메모리라 사라져 부모의 늦은 답이 갈 곳이 없다. 다른 컴퓨터의 부모에게
     // 보낸 ask call(팀원의 ask)도 같다. 그 밖의 다른 컴퓨터로 보낸 행(delivery가 있다)은 이 기계의 queue에 있지 않아 잃지 않는다. 답은
-    // outbox와 그 기계가 맡는다.
+    // outbox와 그 기계가 맡는다. 다른 컴퓨터의 팀원이 이 기계의 부모에게 보낸 ask는 가져갔으면 그대로 둔다: 짝은 그 기계의 메모리에 살아 있다.
     lost(tx) {
       return many(
         tx.sql.all(
           `select ${COLUMNS} from agent_calls
-         where state = 'accepted' and (consumed = 0 or ask is not null) and (delivery is null or ask is not null)
+         where state = 'accepted' and (consumed = 0 or (ask is not null and from_machine is null))
+           and (delivery is null or ask is not null)
          order by created_at, call`,
           [],
         ),
@@ -263,6 +264,27 @@ export function createCallStore(): CallStore {
          where state = 'accepted' and receiver_session = ?
          order by created_at, call`,
           [session],
+        ),
+      );
+    },
+    openAsksSentBy(tx, session) {
+      return many(
+        tx.sql.all(
+          `select ${COLUMNS} from agent_calls
+         where state = 'accepted' and from_session = ? and ask is not null
+         order by created_at, call`,
+          [session],
+        ),
+      );
+    },
+    openSentFromRemote(tx, machine, session) {
+      return many(
+        tx.sql.all(
+          `select ${COLUMNS} from agent_calls
+         where state = 'accepted' and from_machine is not null
+           and json_extract(from_machine, '$.machine') = ? and json_extract(from_machine, '$.session') = ?
+         order by created_at, call`,
+          [machine, session],
         ),
       );
     },

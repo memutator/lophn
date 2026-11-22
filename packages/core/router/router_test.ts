@@ -46,6 +46,7 @@ function target(
     transport: "lophn",
     agent,
     accepting,
+    open: true,
     spawned_by: spawned_by as TargetSession["spawned_by"],
     opened_by_machine: null,
     runs_on: null,
@@ -102,12 +103,22 @@ function setup(
       [...rows.values()].filter(
         (row) => row.state === "accepted" && row.receiver_session === session,
       ),
+    openAsksSentBy: (_tx, session) =>
+      [...rows.values()].filter(
+        (row) =>
+          row.state === "accepted" &&
+          row.ask !== null &&
+          row.from.kind === "agent" &&
+          row.from.session === session,
+      ),
+    openSentFromRemote: () => [],
   };
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
     resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
     archive: () => ok(false),
     membersOn: () => [],
+    membersUnder: () => [],
     openMember: () => err({ code: "forbidden", message: "not in this test" }),
     open: (_tx, agent, _opener, spawnedBy) => {
       opened += 1;

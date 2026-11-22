@@ -66,7 +66,12 @@ import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
 import { createMailInbox, type MailEntryDeps } from "../remote/mail-entry.ts";
 import { callsMailApply, callsMailRefuse } from "./commands.ts";
 import type { RoutedInput } from "./ports.ts";
-import { LEFT_ROSTER_TEXT, TAKEN_RESTART_TEXTS } from "./model.ts";
+import {
+  ASK_ANSWERED_TOPIC,
+  ASK_ENDED_TOPIC,
+  LEFT_ROSTER_TEXT,
+  TAKEN_RESTART_TEXTS,
+} from "./model.ts";
 import { createRouter } from "./router.ts";
 import { createCallStore, memberDeliveryOf } from "./store.ts";
 
@@ -184,6 +189,8 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
       ({ ok: false, error: { code: "not_found", message: "no app" } }) as never,
   };
   const delivered: { session: string; input: RoutedInput }[] = [];
+  // commit 뒤 할 일(ask 짝 풀기 등). main thread가 받는 것을 그대로 적는다.
+  const announced: { topic: string; data: unknown }[] = [];
   // session을 끝내면(archive) 받은 열린 call을 이 Router가 닫는다(core의 session 끝내기와 같다).
   const directory = {
     ...createSessionDirectory({
@@ -220,7 +227,9 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     seen: createMailSeen(),
     self: () => self,
     callPolicy: () => policy,
-    announce: () => {},
+    announce: (_tx, topic, data) => {
+      announced.push({ topic, data });
+    },
     steps: {
       failed: (tx, call, reason) =>
         remoteStepFailed(tx, call, reason, () => {}),
@@ -437,6 +446,7 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     router,
     directory,
     delivered,
+    announced,
     count,
     call,
     openSession,
@@ -725,7 +735,7 @@ test("셋째 기계의 reply·cancel·state는 다른 두 기계 사이의 call�
   assert.ok(!elsewhere.ok && elsewhere.error.code === "forbidden");
 });
 
-test("mail이 연 session은 그 mail을 보낸 컴퓨터 말고는 보내지 못하고 private workspace의 session은 어디로도 보내지 못한다", async () => {
+test("팀원이 아닌 mail이 연 session과 private workspace의 session은 어느 컴퓨터로도 새 call을 보내지 못하고, 받은 call에는 답한다", async () => {
   const a = await machine(A);
   const b = await machine(B, {
     ...DEFAULT_CALL_POLICY,
@@ -755,19 +765,33 @@ test("mail이 연 session은 그 mail을 보낸 컴퓨터 말고는 보내지 �
       body: textBlocks("pass it on"),
       unattended: false,
     });
+  // 팀원이 아닌 mail이 연 session은 연 컴퓨터로도 새 call을 보내지 못한다(A와 B 사이를 오가며 session을 여는 고리). 받은 call의 답은
+  // 보내기가 아니라 그대로 간다.
   for (const [session, peer] of [
     [opened, C],
+    [opened, A],
     [secret, A],
   ] as const) {
     const sent = sendOn(session, peer);
-    assert.ok(!sent.ok && sent.error.code === "forbidden");
+    assert.ok(
+      !sent.ok && sent.error.code === "forbidden",
+      `${session} ${peer}`,
+    );
   }
   assert.equal(b.count("mail_outbox"), 0);
   assert.equal(b.count("agent_calls"), rows);
   assert.ok(
-    sendOn(opened, A).ok,
-    "it answers back to the computer that opened it",
+    b.router.reply(
+      b.tx,
+      { session: opened as Id<"ses"> },
+      {
+        call: b.delivered[0]!.input.call!,
+        body: textBlocks("done"),
+        refs: [],
+      },
+    ).ok,
   );
+  assert.equal(pendingMails(b.sql, A as never)[0]?.kind, "reply");
 });
 
 test("mail이 연 session은 허락이 없으면 묻는 session이고 허락이 있으면 agent의 skip을 따른다", async () => {
@@ -1600,6 +1624,45 @@ test("다른 컴퓨터의 팀원이 보낸 mail은 연 기계에서 그 팀원�
   carry(a, b);
   assert.equal(b.call(asked.value.call!)?.["state"], "done");
   assert.equal(b.delivered.length, heard);
+  const decided = (call: string) =>
+    (
+      b.announced.findLast(
+        (each) =>
+          each.topic === ASK_ANSWERED_TOPIC &&
+          (each.data as { call: string }).call === call,
+      )?.data as { decision: string | null } | undefined
+    )?.decision;
+  assert.equal(decided(asked.value.call!), "allow");
+  // 거절도 그대로 그 컴퓨터의 짝에 닿는다.
+  const again = b.router.route(b.tx, {
+    from: { kind: "agent", session: member as Id<"ses"> },
+    to: { session: root },
+    reply: "result",
+    body: textBlocks("may I push?"),
+    refs: [],
+    reply_to: null,
+    dedup: null,
+    kind: "call",
+    delivery: "next_turn",
+    unattended: false,
+    ask: "approval",
+  });
+  assert.ok(again.ok && again.value.call !== null);
+  carry(b, a);
+  assert.ok(
+    a.router.reply(
+      a.tx,
+      { session: root as Id<"ses"> },
+      {
+        call: again.value.call as Id<"cal">,
+        body: textBlocks("no"),
+        refs: [],
+        decision: "reject",
+      },
+    ).ok,
+  );
+  carry(a, b);
+  assert.equal(decided(again.value.call!), "reject");
 
   // 부모에게는 닿고, 팀 밖 session은 연 기계가 거절한다(받는 기계는 모른다).
   assert.ok(toA({ session: root }, "up").ok);
@@ -1919,6 +1982,339 @@ test("받는 기계는 명단 밖 컴퓨터의 spawn mail과 이미 있는 sessi
     JSON.stringify(reused),
   );
   assert.equal(b.count("sessions"), before + 1);
+});
+
+// 이 기계 agent의 call(route 입력). ask와 spawn은 extra로 준다.
+function routeCall(
+  m: Machine,
+  from: string,
+  to: Record<string, unknown>,
+  extra: Record<string, unknown> = {},
+) {
+  return m.router.route(m.tx, {
+    from: { kind: "agent", session: from as Id<"ses"> },
+    to: to as never,
+    reply: "result",
+    body: textBlocks("please"),
+    refs: [],
+    reply_to: null,
+    dedup: null,
+    kind: "call",
+    delivery: "next_turn",
+    unattended: false,
+    ...extra,
+  });
+}
+
+// A의 새 root 밑에 B에서 도는 팀원을 열고 spawn mail을 B에 건넨다.
+function memberOnB(a: Machine, b: Machine, dedup = "s1") {
+  const root = a.openSession(REVIEWER);
+  const spawned = spawnOn(a, root, B, dedup);
+  assert.ok(spawned.ok && spawned.value.session !== null);
+  carry(a, b);
+  return { root, member: spawned.value.session, call: spawned.value.call };
+}
+
+// 만료(7일)가 지난 때. 그동안 나가지 못한 mail은 쓸기에서 사라진다.
+const weekLater = (m: Machine) =>
+  ({ ...m.tx, now: () => "2026-12-01T00:00:00.000Z" }) as Tx;
+
+test("닫힌 팀원 자리는 팀원이 아니다: 부모의 call은 closed로 실패하고, 닫는 mail을 잃은 그 컴퓨터의 session이 보낸 mail은 거절되며 그 session을 닫는 mail이 다시 간다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { root, member } = memberOnB(a, b);
+  assert.ok(a.directory.archive(a.tx, member as Id<"ses">).ok);
+  // 그 컴퓨터가 7일 넘게 꺼져 있어 cancel(`end`)이 만료로 사라졌다.
+  assert.ok(a.router.sweepMail(weekLater(a), []).ok);
+  assert.equal(pendingMails(a.sql, B as never).length, 0);
+
+  for (const to of [
+    { session: member },
+    { agent: "reviewer", session: member, fallback: "new" },
+  ]) {
+    const sent = routeCall(a, root, to);
+    assert.ok(sent.ok, JSON.stringify(sent));
+    assert.ok(
+      sent.value.state === "failed" || sent.value.session !== member,
+      JSON.stringify(sent),
+    );
+  }
+  assert.equal(pendingMails(a.sql, B as never).length, 0);
+
+  // 그 컴퓨터의 session은 아직 열려 있고 부모에게 보낸다. 연 기계는 팀원으로 받지 않는다.
+  assert.equal(lifecycleOf(b, member), "open");
+  const up = routeCall(b, member, { session: root });
+  assert.ok(up.ok && up.value.call !== null);
+  const heard = a.delivered.length;
+  carry(b, a);
+  assert.equal(a.delivered.length, heard);
+  assert.equal(b.call(up.value.call)?.["fail_reason"], "closed");
+  carry(a, b);
+  assert.equal(lifecycleOf(b, member), "archived");
+});
+
+test("그 컴퓨터에서 닫힌 팀원의 끝남 알림을 잃어도, 자리로 보낸 call이 그 컴퓨터에서 closed나 not_found로 실패하면 자리가 닫힌다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const closed = memberOnB(a, b, "s1");
+  assert.ok(b.directory.archive(b.tx, closed.member as Id<"ses">).ok);
+  // 연 기계가 7일 넘게 꺼져 있어 state(`ended`)와 spawn call의 실패 mail이 만료로 사라졌다.
+  assert.ok(b.router.sweepMail(weekLater(b), []).ok);
+  assert.equal(pendingMails(b.sql, A as never).length, 0);
+  const sent = routeCall(a, closed.root, { session: closed.member });
+  assert.ok(sent.ok && sent.value.state === "accepted");
+  carry(a, b);
+  assert.equal(a.call(sent.value.call!)?.["fail_reason"], "closed");
+  assert.equal(lifecycleOf(a, closed.member), "archived");
+
+  // 그 컴퓨터에서 지워졌다.
+  const gone = memberOnB(a, b, "s2");
+  const asked = routeCall(a, gone.root, { session: gone.member });
+  assert.ok(asked.ok && asked.value.call !== null);
+  const [mail] = pendingMails(a.sql, B as never);
+  assert.ok(
+    a.router.mailSent(a.tx, {
+      mail: mail!.id,
+      result: {
+        kind: "acked",
+        applied: { delivery: "failed", reason: "not_found", session: null },
+      },
+    }).ok,
+  );
+  assert.equal(lifecycleOf(a, gone.member), "archived");
+});
+
+test("팀원을 연 session이 끝나면 그 밑에 다른 컴퓨터에 연 팀원도 끝나 자리가 비고 그 컴퓨터의 session도 닫힌다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const top = a.openSession(REVIEWER);
+  const child = routeCall(a, top, { agent: "reviewer" }, { spawn: true });
+  assert.ok(child.ok && child.value.session !== null);
+  const spawned = spawnOn(a, child.value.session, B, "s1");
+  assert.ok(spawned.ok && spawned.value.session !== null);
+  const member = spawned.value.session;
+  carry(a, b);
+  assert.ok(a.directory.archive(a.tx, child.value.session as Id<"ses">).ok);
+  assert.equal(lifecycleOf(a, member), "archived");
+  carry(a, b);
+  assert.equal(lifecycleOf(b, member), "archived");
+});
+
+test("팀원의 자리가 어느 쪽에서 끝나든 그 팀원의 열린 ask가 두 컴퓨터에서 닫히고 기다리던 짝은 거절로 풀린다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const ended = (m: Machine, call: string) =>
+    m.announced.some(
+      (each) =>
+        each.topic === ASK_ENDED_TOPIC &&
+        (each.data as { call: string }).call === call,
+    );
+  const askUp = (team: { root: string; member: string }) => {
+    const asked = routeCall(
+      b,
+      team.member,
+      { session: team.root },
+      { ask: "approval" },
+    );
+    assert.ok(asked.ok && asked.value.call !== null);
+    carry(b, a);
+    assert.equal(a.call(asked.value.call)?.["state"], "accepted");
+    return asked.value.call;
+  };
+
+  // 연 기계가 끝낸다.
+  const here = memberOnB(a, b, "s1");
+  const first = askUp(here);
+  assert.ok(a.directory.archive(a.tx, here.member as Id<"ses">).ok);
+  assert.equal(a.call(first)?.["state"], "cancelled");
+  carry(a, b);
+  assert.equal(lifecycleOf(b, here.member), "archived");
+  assert.notEqual(b.call(first)?.["state"], "accepted");
+  assert.ok(ended(b, first));
+
+  // 도는 컴퓨터가 끝낸다.
+  const there = memberOnB(a, b, "s2");
+  const second = askUp(there);
+  assert.ok(b.directory.archive(b.tx, there.member as Id<"ses">).ok);
+  assert.equal(b.call(second)?.["state"], "cancelled");
+  assert.ok(ended(b, second));
+  carry(b, a);
+  assert.equal(a.call(second)?.["state"], "cancelled");
+  assert.equal(lifecycleOf(a, there.member), "archived");
+});
+
+test("연 기계가 다시 켜져도 부모가 가져간 다른 컴퓨터 팀원의 ask는 열려 있고, 팀원의 컴퓨터가 다시 켜지면 그 ask가 두 컴퓨터에서 닫힌다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { root, member } = memberOnB(a, b);
+  const asked = routeCall(b, member, { session: root }, { ask: "approval" });
+  assert.ok(asked.ok && asked.value.call !== null);
+  const call = asked.value.call;
+  carry(b, a);
+  assert.ok(a.router.markConsumed(a.tx, call as Id<"cal">).ok);
+  assert.ok(a.router.failLostOnStart(a.tx, true).ok);
+  assert.equal(a.call(call)?.["state"], "accepted");
+  assert.equal(pendingMails(a.sql, B as never).length, 0);
+
+  assert.ok(b.router.failLostOnStart(b.tx, true).ok);
+  assert.equal(b.call(call)?.["fail_reason"], "lophn_restarted");
+  carry(b, a);
+  assert.equal(a.call(call)?.["state"], "cancelled");
+});
+
+test("다른 컴퓨터에 연 팀원의 id로 --on 보낸 call은 그 자리로 보내는 call이라 팀 규칙과 자리의 열림을 거친다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { root, member } = memberOnB(a, b);
+  // 다른 팀의 팀원은 팀 규칙(부모, 형제, 자기 밑)에 막힌다.
+  const otherTeam = routeCall(
+    a,
+    a.openSession(REVIEWER),
+    { agent: "reviewer" },
+    { spawn: true },
+  );
+  assert.ok(otherTeam.ok && otherTeam.value.session !== null);
+  const direct = (session: string, dedup: string) =>
+    a.router.sendRemote(a.tx, {
+      session,
+      dedup,
+      peer: { machine: B, computer: "windows" },
+      address: { session: member },
+      reply: "result",
+      body: textBlocks("do this too"),
+      unattended: false,
+    });
+  const out = direct(otherTeam.value.session, "o1");
+  assert.ok(!out.ok && out.error.code === "forbidden", JSON.stringify(out));
+  assert.equal(pendingMails(a.sql, B as never).length, 0);
+  // 부모의 call은 자리로 보낸 call이라 자리가 끝나면 같이 닫힌다.
+  const sent = direct(root, "r1");
+  assert.ok(sent.ok && sent.value.state === "accepted");
+  assert.equal(a.call(sent.value.call)?.["receiver_session"], member);
+  assert.ok(a.directory.archive(a.tx, member as Id<"ses">).ok);
+  assert.equal(a.call(sent.value.call)?.["fail_reason"], "receiver_ended");
+  const after = direct(root, "r2");
+  assert.ok(
+    after.ok && after.value.fail_reason === "closed",
+    JSON.stringify(after),
+  );
+});
+
+test("팀원의 정체는 그 팀원이 도는 기계가 보낸 mail에만 붙는다: 셋째 기계가 팀원 id를 대도, 그 기계가 이 기계의 다른 session id를 대도 팀원이 아니다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const c = await machine(C);
+  const { root, member } = memberOnB(a, b);
+  const outsider = a.openSession(REVIEWER);
+  const claim = (m: Machine, as: string, dedup: string) => {
+    const mine = m.openSession(REVIEWER);
+    assert.ok(
+      m.router.sendRemote(m.tx, {
+        session: mine,
+        dedup,
+        peer: { machine: A, computer: "laptop" },
+        address: { session: root },
+        reply: "result",
+        body: textBlocks("let me in"),
+        unattended: false,
+      }).ok,
+    );
+    const [mail] = pendingMails(m.sql, A as never).slice(-1);
+    return applyFrom(
+      a,
+      { ...mail!, from: { ...mail!.from, session: as } } as Mail,
+      m.self,
+    );
+  };
+  const heard = a.delivered.length;
+  for (const applied of [claim(c, member, "c1"), claim(b, outsider, "b1")]) {
+    assert.ok(
+      applied.ok && applied.value.delivery === "failed",
+      JSON.stringify(applied),
+    );
+  }
+  assert.equal(a.delivered.length, heard);
+
+  // 셋째 기계의 state(`ended`)는 자리를 닫지 못한다.
+  const spawn = a.db
+    .prepare("select call from agent_calls where remote_session = ?")
+    .get(member)?.["call"];
+  const forgedEnd = {
+    ...forged("state", String(spawn), C, A, "77"),
+    delivery: "ended",
+    session: member,
+  } as Mail;
+  assert.ok(applyFrom(a, forgedEnd, C).ok);
+  assert.equal(lifecycleOf(a, member), "open");
+});
+
+test("팀원은 잎이다: 그 컴퓨터에도 다른 컴퓨터에도 팀원을 열지 못하고, 팀원이 아닌 mail이 연 session도 다른 컴퓨터에 팀원을 열지 못한다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { member } = memberOnB(a, b);
+  const local = routeCall(b, member, { agent: "reviewer" }, { spawn: true });
+  assert.ok(!local.ok && local.error.code === "conflict");
+  for (const [peer, dedup] of [
+    [A, "m-a"],
+    [C, "m-c"],
+  ] as const) {
+    const remote = spawnOn(b, member, peer, dedup);
+    assert.ok(!remote.ok && remote.error.code === "forbidden", dedup);
+  }
+  send(
+    a,
+    a.openSession(REVIEWER),
+    B,
+    { agent: "reviewer", workspace: { home: true } },
+    "plain",
+  );
+  carry(a, b);
+  const plain = b.delivered.at(-1)!.session;
+  const fromPlain = spawnOn(b, plain, A, "y-a");
+  assert.ok(!fromPlain.ok && fromPlain.error.code === "forbidden");
+});
+
+test("다른 컴퓨터에서 도는 팀원의 자리는 이 기계 agent의 call 말고는 받지 않는다(사람, 앱, program, 다른 컴퓨터)", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const { member } = memberOnB(a, b);
+  const other = memberOnB(a, b, "s2");
+  const mails = pendingMails(a.sql, B as never).length;
+  const to = (from: Record<string, unknown>, kind = "call") =>
+    a.router.route(a.tx, {
+      from: from as never,
+      to: { session: member },
+      reply: "result",
+      body: textBlocks("hello"),
+      refs: [],
+      reply_to: null,
+      dedup: null,
+      kind: kind as never,
+      delivery: "next_turn",
+      unattended: false,
+    });
+  const human = to({ kind: "human" }, "message");
+  assert.ok(!human.ok);
+  for (const from of [
+    { kind: "program" },
+    { kind: "app", app: "app_00000000000000000000000001", slug: "notes" },
+    {
+      kind: "remote",
+      machine: B,
+      computer: "windows",
+      agent: "reviewer",
+      session: other.member,
+      name: "reviewer",
+    },
+  ]) {
+    const routed = to(from);
+    assert.ok(
+      routed.ok && routed.value.fail_reason === "closed",
+      JSON.stringify(routed),
+    );
+  }
+  assert.equal(pendingMails(a.sql, B as never).length, mails);
+  assert.ok(!a.delivered.some((each) => each.session === member));
 });
 
 test("다시 짠 agent_calls와 messages에 옛 행이 칸 그대로 옮겨진다", async () => {

@@ -101,7 +101,8 @@ async function sendRemote(
   if (session === undefined) {
     return forbidden("only an agent session sends to another computer");
   }
-  // private workspace는 다른 기계에 닿지 않고, 받은 mail로 열린 session은 그 mail을 보낸 기계에만 닿는다. Router가 쓰는 tx에서 한 번 더 본다.
+  // private workspace는 다른 기계에 닿지 않고, 받은 mail로 열린 session은 보내지 못한다. 다른 컴퓨터가 연 팀원은 자기를 연 기계에만
+  // 닿는다. Router가 쓰는 tx에서 한 번 더 본다.
   const reach = remoteReach(
     deps.sql,
     session as Id<"ses">,
@@ -116,7 +117,7 @@ async function sendRemote(
     reach.value.opened_by_machine !== resolved.value.machine
   ) {
     return forbidden(
-      "a session opened by mail from another computer sends only to that computer",
+      "a team member opened from another computer sends only to that computer",
     );
   }
   // 명단에 이 기계의 항목이 둘이면 self가 아닌 쪽도 이 기계다. 그 mail은 영영 닿지 않는다.

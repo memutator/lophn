@@ -38,6 +38,8 @@ export type TargetSession = {
   agent: AgentAtWorkspace;
   // archive, 지움, workspace 보관이면 false(새 입력을 받지 않는다).
   accepting: boolean;
+  // 행이 열려 있다(lifecycle open). 다른 컴퓨터에서 도는 팀원의 자리는 accepting이 늘 false라 팀원으로 살아 있는지를 이것으로 본다.
+  open: boolean;
   // `team spawn`으로 열린 session이면 연 session. 팀 규칙이 보낸 쪽과 받는 쪽의 관계를 이걸로 푼다.
   spawned_by: Id<"ses"> | null;
   // 다른 컴퓨터에서 온 mail이 연 session이면 그 기계. 그 session은 다른 컴퓨터로 보내지 못하고, 그 기계의 mail만 이 session에 이어 들어간다.
@@ -117,6 +119,8 @@ export interface SessionDirectory {
   archive(tx: Tx, session: Id<"ses">): Result<boolean>;
   // 그 기계에서 도는 이 기계 팀원의 열린 자리.
   membersOn(tx: Tx, machine: Id<"mch">): Id<"ses">[];
+  // 그 session 밑에 연, 다른 컴퓨터에서 도는 팀원의 열린 자리.
+  membersUnder(tx: Tx, parent: Id<"ses">): Id<"ses">[];
   // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.
   projectOfIdentity(identity: string): Id<"prj"> | null;
   // 이 기계의 project(id나 정확한 이름)의 기계를 건너는 정체. 없는 project는 not_found, 정체가 없으면 null이다.
@@ -181,6 +185,14 @@ export interface CallStore {
   ): Result<void>;
   // 이 session이 받은 끝나지 않은 call. archive나 지움에서 receiver_ended로 닫는다.
   openReceivedBy(tx: Tx, session: Id<"ses">): readonly AgentCallRow[];
+  // 이 session이 보낸 끝나지 않은 ask call. session이 끝나면 취소한다(기다리던 짝은 거절로 풀린다).
+  openAsksSentBy(tx: Tx, session: Id<"ses">): readonly AgentCallRow[];
+  // 그 기계의 그 session이 보내 이 기계가 받은 끝나지 않은 call. 그 기계에서 도는 팀원의 자리가 끝나면 취소한다.
+  openSentFromRemote(
+    tx: Tx,
+    machine: Id<"mch">,
+    session: Id<"ses">,
+  ): readonly AgentCallRow[];
 }
 
 // outbox에 넣을 mail. id와 seq는 넣을 때 정한다.

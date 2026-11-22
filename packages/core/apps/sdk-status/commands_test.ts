@@ -47,6 +47,7 @@ function world(refuse: boolean) {
     transport: "lophn",
     agent: { agent: "lophn_app", workspace: null },
     accepting: true,
+    open: true,
     spawned_by: null,
     opened_by_machine: null,
     runs_on: null,
@@ -65,6 +66,7 @@ function world(refuse: boolean) {
             : ok({ agent: "lophn_app", workspace: null }),
         archive: () => ok(false),
         membersOn: () => [],
+        membersUnder: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target),
@@ -97,6 +99,8 @@ function world(refuse: boolean) {
         setDelivery: () => ok(undefined),
         lost: () => [],
         openReceivedBy: () => [],
+        openAsksSentBy: () => [],
+        openSentFromRemote: () => [],
       },
     }),
   });

@@ -57,6 +57,7 @@ function router() {
       transport: "lophn",
       agent: lophn,
       accepting: true,
+      open: true,
       spawned_by: null,
       opened_by_machine: null,
       runs_on: null,
@@ -66,6 +67,7 @@ function router() {
       transport: "harness",
       agent: lophn,
       accepting: true,
+      open: true,
       spawned_by: null,
       opened_by_machine: null,
       runs_on: null,
@@ -97,6 +99,8 @@ function router() {
     setDelivery: () => ok(undefined),
     lost: () => [],
     openReceivedBy: () => [],
+    openAsksSentBy: () => [],
+    openSentFromRemote: () => [],
   };
   const r = createRouter({
     directory: {
@@ -104,6 +108,7 @@ function router() {
       resolveAddress: () => ok(lophn),
       archive: () => ok(false),
       membersOn: () => [],
+      membersUnder: () => [],
       openMember: () => err({ code: "forbidden", message: "not in this test" }),
       open: () => ok(sessions[MEMBER]!),
       app: () => null,

@@ -66,6 +66,7 @@ export function createSessionDirectory(
       accepting:
         row.runs_on === null &&
         acceptsInput(row, workspaceArchived(workspaceOf(row))),
+      open: row.lifecycle === "open",
       spawned_by: row.spawned_by as Id<"ses"> | null,
       opened_by_machine: row.opened_by_machine as Id<"mch"> | null,
       runs_on: row.runs_on as Id<"mch"> | null,
@@ -115,6 +116,14 @@ export function createSessionDirectory(
         .all(
           "select id from sessions where runs_on = ? and lifecycle = 'open' order by created_seq",
           [machine],
+        )
+        .map((row) => String(row["id"]) as Id<"ses">);
+    },
+    membersUnder(tx, parent) {
+      return tx.sql
+        .all(
+          "select id from sessions where spawned_by = ? and runs_on is not null and lifecycle = 'open' order by created_seq",
+          [parent],
         )
         .map((row) => String(row["id"]) as Id<"ses">);
     },

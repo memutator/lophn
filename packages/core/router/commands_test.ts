@@ -31,6 +31,7 @@ function world() {
     transport: "lophn",
     agent: { agent: "lophn_home", workspace: null },
     accepting: true,
+    open: true,
     spawned_by: null,
     opened_by_machine: null,
     runs_on: null,
@@ -45,6 +46,7 @@ function world() {
         resolveAddress: () => ok({ agent: "lophn_home", workspace: null }),
         archive: () => ok(false),
         membersOn: () => [],
+        membersUnder: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target(RECEIVER)),
@@ -90,6 +92,8 @@ function world() {
         setDelivery: () => ok(undefined),
         lost: () => [],
         openReceivedBy: () => [],
+        openAsksSentBy: () => [],
+        openSentFromRemote: () => [],
       },
     }),
   });

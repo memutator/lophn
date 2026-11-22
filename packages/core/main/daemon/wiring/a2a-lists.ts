@@ -75,6 +75,7 @@ export function a2aListsReads(
           workspace: one.agent.workspace,
           accepting: one.accepting,
           opened_by_machine: one.opened_by_machine,
+          spawned_by: one.spawned_by,
           state: sessionStateOf(sql, one.session).state,
           last_active_at: one.last_active_at,
         })),

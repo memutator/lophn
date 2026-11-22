@@ -43,6 +43,7 @@ export type OpenSession = {
   workspace: Workspace | null;
   accepting: boolean;
   opened_by_machine: Id<"mch"> | null;
+  spawned_by: Id<"ses"> | null;
   state: string;
   last_active_at: string | null;
 };
@@ -225,6 +226,7 @@ export function createA2aLists(deps: A2aListsDeps) {
   }
 
   // 다른 컴퓨터가 부를 수 있는 session은 그 컴퓨터의 mail이 연 session뿐이다(Router의 받는 규칙). 목록에 있는 것은 모두 부를 수 있다.
+  // 그 컴퓨터가 연 팀원은 내지 않는다: 그 컴퓨터는 팀원에게 자기 자리(팀 규칙)로만 보낸다.
   function sessions(
     ctx: AuthenticatedContext,
   ): Result<z.infer<typeof a2aSessions.output>> {
@@ -236,6 +238,7 @@ export function createA2aLists(deps: A2aListsDeps) {
       if (
         !one.accepting ||
         one.opened_by_machine !== from.value ||
+        one.spawned_by !== null ||
         isPrivate(policy, one.workspace)
       ) {
         continue;

@@ -47,10 +47,13 @@ async function readProfiles(core: CoreSource): Read<readonly BrowserProfile[]> {
     };
   }
   const parsed = browserProfilesList.output.safeParse(reply.value);
-  return { ok: true, value: parsed.success ? parsed.data.profiles : [] };
+  return parsed.success
+    ? { ok: true, value: parsed.data.profiles }
+    : { ok: false };
 }
 
-// null은 아직 읽지 못했다. 읽을 길(event client)이 없거나 읽기가 실패하면 빈 목록이다.
+// null은 아직 읽지 못했다. 읽기가 실패해도 null로 둔다: 빈 목록으로 두면 profile 탭이 기본 partition(기본 profile의 cookie)으로
+// 열린다. 읽을 길(event client)이 없으면(gallery) 빈 목록이다.
 function useProfilesState(): readonly BrowserProfile[] | null {
   const fixed = useContext(FixedProfiles);
   const client = useOptionalEventClient();
@@ -63,7 +66,6 @@ function useProfilesState(): readonly BrowserProfile[] | null {
       ["browser_profiles"],
       (loaded) => {
         if (loaded.state === "ready") setLive(loaded.value);
-        else if (loaded.state === "failed") setLive((now) => now ?? []);
       },
       () => new Date(),
     );

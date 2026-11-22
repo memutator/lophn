@@ -5,7 +5,7 @@ modules: [packages/protocol, packages/core/lophn-agent, packages/core/router, pa
 change: |
   전: workflow step을 다른 컴퓨터(`on`)에 넘긴 뒤 그 컴퓨터의 turn이 step을 가져가 실패하거나, 사람이 멈추거나, 재시작으로 끊기면 시작한 컴퓨터로 아무것도 가지 않았다. run은 그 step이 그 컴퓨터에서 도는 중("<agent> is working on <step>")으로 줄 없이 서 있었다.
   후:
-  - 받은 컴퓨터: step을 가져간 turn이 report 없이 끝나면(실패, 멈춤, 재시작으로 끊김. 켤 때 정산과 agent runtime이 사라졌을 때도 같다) Router가 step call을 닫지 않고 보낸 기계로 reply mail 하나를 낸다. `report: {next: null, session: "new", ended: failed | stopped | restarted}`, 본문과 outcome은 없다. turn은 한 번만 끝나 turn 하나에 mail 하나다. `next`로 report해 닫힌 step은 내지 않는다.
+  - 받은 컴퓨터: step을 가져간 turn이 report 없이 끝나면(실패, 멈춤, 재시작으로 끊김. 켤 때 정산도 같고, agent runtime child만 사라져 끊긴 turn은 lophn이 다시 켜지지 않았으므로 failed다) Router가 step call을 닫지 않고 보낸 기계로 reply mail 하나를 낸다. `report: {next: null, session: "new", ended: failed | stopped | restarted}`, 본문과 outcome은 없다. turn은 한 번만 끝나 turn 하나에 mail 하나다. `next`로 report해 닫힌 step은 내지 않는다.
   - 시작한 컴퓨터: 그 mail을 `ApplyWorkflowChange`의 report로 적용해 report 줄(`next` null, by `remote_lophn {machine, computer}`)을 남기고 글은 자기 명단의 컴퓨터 이름으로 쓴다. call 행은 열린 채이고 배달 상태는 running이라 그 session이 뒤에 낸 report가 그대로 닿는다.
   - run 화면: 그 줄은 "lophn on <computer>"가 낸 그 step의 마지막 글로 보이고, 그 step의 가장 나중 줄이 이 줄이면 "지금" 한 장이 넘기지 못한 step과 같은 무게로 그 컴퓨터의 session에서 이으라고 말한다(message key `workflow.note.now-remote-turn-ended`). gallery `workflow-tab-remote-turn-ended`.
   - 계약: mail `reply.report.ended`(선택), workflow 줄 `by`의 `remote_lophn`. 저장 모양 바뀜 없음(줄의 by는 JSON 칸).

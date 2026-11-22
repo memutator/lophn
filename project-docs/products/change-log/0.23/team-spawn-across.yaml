@@ -7,13 +7,15 @@ change: |
   후:
   - `team spawn --on <컴퓨터>`(`team/spawn_remote`): A(연 컴퓨터)가 부모 밑에 팀원의 자리(`sessions.runs_on`, B의 handle, 부모의 workspace)를 열어 A의 팀 상한과 깊이에 세고 spawn call mail(`spawn: {session}`)을 낸다. B는 같은 id로 session을 열고 A의 부모를 `spawned_by`로 적는다. spawn은 B가 꺼져 있어도 바로 `{session, call}`을 돌려준다.
   - A의 session이 자리로 보낸 call은 A의 call 정책과 팀 규칙을 거친 뒤 queue 대신 B로 가는 call mail이다(답, 취소, dedup, 배달 상태, 만료, 옛 판 규칙이 그대로). 사람 메시지와 그 밖의 입력은 닫힌 session과 같다.
-  - B의 팀원이 보낸 mail은 A에서 자리가 보낸 것처럼 call 정책, 팀 규칙, 명함 검사를 거친다. 받은 mail로 열린 session은 그 mail을 보낸 컴퓨터로만 보내고 셋째 컴퓨터로는 보내지 못한다(목록과 명함은 그대로 못 읽는다). 팀원은 B에도 다른 컴퓨터에도 팀원을 열지 못한다.
-  - 팀원의 `ask`(질문, shell 승인)는 A의 부모에게 가는 call mail(`ask`)이고 부모의 결정은 reply mail의 `decision`으로 돌아가 B의 짝을 푼다. B가 다시 켜지면 그 ask call을 닫고 A에 cancel mail을 낸다.
-  - 끝: A의 `team end`와 사람의 보관·지움은 자리를 A에서 곧바로 닫고(그 자리로 보낸 열린 call은 receiver_ended) B로 `cancel{end: true}`를 낸다. B는 그 session을 보관한다. B에서 그 session이 끝나면 `state{delivery: ended}`가 가고 A가 자리를 닫는다. spawn call이 B에서 돌기 전에 실패하면(not_found, closed, expired, skipped, old_version, 명단에서 빠짐) 자리가 닫히고, 받은 turn이 답 없이 끝난 receiver_ended·lophn_restarted로는 닫히지 않는다. 명단에서 빠진 컴퓨터의 자리는 같은 쓸기에서 닫히고 부모가 한 번 듣는다.
+  - B의 팀원이 보낸 mail은 A에서 그 열린 자리가 보낸 것처럼 call 정책, 팀 규칙, 명함 검사를 거친다(팀원의 정체는 B가 보낸 mail에만 붙는다). 팀원은 자기를 연 컴퓨터(A)로만 새 call을 보내고 셋째 컴퓨터로는 보내지 못한다. 팀원이 아닌 받은 mail로 열린 session은 전처럼 어느 컴퓨터로도 새 call을 보내지 못한다(받은 call의 답은 된다. 목록과 명함은 그대로 못 읽는다). 팀원은 B에도 다른 컴퓨터에도 팀원을 열지 못한다.
+  - 팀원에게 닿는 길은 A의 자리 하나다: A의 `call send --on B --to <자리 id>`도 자리로 보내는 call이고(팀 규칙, call 정책, 닫힌 자리는 `closed`), B의 `a2a/sessions`는 A가 연 팀원 session을 내지 않는다. 자리의 agent는 B의 handle이라 call 정책은 workspace 규칙만 맞는다. 자리는 session id로 하나를 다루는 길(탭 열기, shell 기록, fork, 이름, model)에서 `not_found`다.
+  - 팀원의 `ask`(질문, shell 승인)는 A의 부모에게 가는 call mail(`ask`)이고 부모의 결정은 reply mail의 `decision`으로 돌아가 B의 짝을 푼다. B가 다시 켜지면 그 ask call을 닫고 A에 cancel mail을 낸다. A가 다시 켜져도 부모가 가져간 그 ask는 그대로다(짝은 B에 있다). 자리가 어느 쪽에서 끝나든 그 팀원의 열린 ask는 두 컴퓨터에서 닫히고 짝은 거절로 풀린다(끝나는 session이 보낸 ask는 늘 취소된다).
+  - 끝: A의 `team end`와 사람의 보관·지움은 자리를 A에서 곧바로 닫고(그 자리로 보낸 열린 call은 receiver_ended) B로 `cancel{end: true}`를 낸다. B는 그 session을 보관한다. B에서 그 session이 끝나면 `state{delivery: ended}`가 가고 A가 자리를 닫는다. spawn call이 B에서 돌기 전에 실패하면(not_found, closed, expired, skipped, old_version, 명단에서 빠짐) 자리가 닫히고, 받은 turn이 답 없이 끝난 receiver_ended·lophn_restarted로는 닫히지 않는다. 부모가 끝나면(보관, 지움, `team end`) 그 밑의 자리도 같은 길로 닫힌다. 닫힌 자리는 팀원이 아니다: 자리로 보낸 call은 `closed`이고 그 session이 보낸 mail은 거절되며 A가 cancel(`end`)을 다시 낸다. 자리로 보낸 call이 B에서 `closed`·`not_found`로 실패하면 자리가 닫힌다(끝의 mail이 만료로 사라져도 스스로 낫는다). 그 컴퓨터가 이 컴퓨터의 명단에 더 없으면(이 컴퓨터가 뺐거나, 그 컴퓨터가 이 컴퓨터를 빼 이 컴퓨터가 옛 명단을 버렸다) 그 컴퓨터의 자리는 같은 쓸기에서 닫히고 부모가 한 번 들으며, 그 컴퓨터가 연 팀원 session도 닫히고(도는 turn 멈춤, ask 닫힘) 그 컴퓨터로 낼 mail은 지워진다.
   - 읽기: `team read`가 자리를 자식으로 내고 `computer`와 상태 `pending | held | running`을 싣는다(runtime은 null일 수 있다). `team_changed`도 같다. session snapshot이 자리를 `agent: null`, `runs_on {machine, computer, handle, state: pending | held | running | ended, state_seq}`로 싣는다. session 목록(Recent), session read, 앱의 session 목록, `tabs/hand`는 자리를 내지 않는다. 자리는 `SessionStarted` 대신 `StateChanged{sessions}`를 낸다.
   - 연 컴퓨터의 왼쪽 sidebar: 다른 컴퓨터에서 도는 팀원은 current에 선 부모 줄 아래에 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표로 선다. 상태 글은 pending이면 "Waiting"(그 컴퓨터가 꺼졌거나 call이 아직 닿지 않음), held면 "Approval"(그 컴퓨터의 Inbox), running이면 없다. 상태 글은 오른쪽 끝 고정 열이고 handle이 컴퓨터 꼬리표보다 먼저 보인다. 이 컴퓨터의 turn 점, 이름 바꾸기, 끌기가 없다. 누르면 그 컴퓨터의 session을 그 기계를 단 탭으로 열고, hover나 focus 때 상태 글 자리에 뜨는 x(End team member)가 확인 dialog("그 컴퓨터의 session도 닫히고 하던 일이 멈춘다") 뒤에 자리를 보관한다(`sessions/archive`, snapshot의 `state_seq`). 창의 session store는 자리를 session 목록과 따로 들어 Recent, 찾기, Hand to, session 고르기에 들지 않는다.
   - 도는 컴퓨터: 탭은 저절로 열리지 않는다. 그 session을 열면 첫 메시지(팀원을 연 call)의 보낸 쪽 chip이 "Team member · from <agent> on <연 컴퓨터>"다.
   - 팀 자리 수: 자리는 이 컴퓨터의 팀원과 같은 규칙(root 아래 열린 행)으로 열려 있는 동안 `max_members`의 한 자리다. spawn call이 끝나도 세고 보관하면 빈다. 늦게 닿은 spawn mail은 그 컴퓨터의 대기 목록에 서고 연 컴퓨터의 자리는 held, 그 컴퓨터의 사람이 시작하면 running, 건너뛰면 자리가 닫힌다. 둘 다 코드는 이미 그렇게 돌아 test로 못 박았다.
+  - `team spawn`(이 컴퓨터, `--on`)의 conflict·forbidden 거절은 core가 쓴 고정 글이 agent의 tool 결과에 그대로 실린다(팀이 가득 참·깊음은 "do the work yourself or ask your parent").
   - 내장 skill `lophn-agent`: `team spawn <handle> --on <컴퓨터>`(컴퓨터는 `machine computers`, handle은 `agent list --on`·`agent card --on`), 바로 돌아오고 문제는 늦게 call의 실패로 온다, 팀원은 잎이다, 팀원의 `ask`는 부른 쪽에 온다.
   - 계약: mail call의 `spawn`·`ask`, reply의 `decision`, cancel의 `end`, state의 `ended`(mail 종류는 넷 그대로). `calls/mail-send` 입력의 `self` 칸을 뺐다(core가 안다). 저장: schema step `lophn-agent.member.runs-on`(`sessions.runs_on`과 바꾸지 못하게 하는 trigger).
 why: |
@@ -31,7 +33,13 @@ decisions:
     by: agent
   - text: 두 컴퓨터가 같은 session id를 쓰고, 다른 컴퓨터의 팀원은 `max_members`의 한 자리다.
     by: agent
-  - text: 받은 mail로 열린 session의 규칙은 버리지 않고 좁힌다. 그 mail을 보낸 컴퓨터로만 보내고 셋째 컴퓨터는 막는다(A의 일이 B를 거쳐 C로 가지 않는다).
+  - text: 받은 mail로 열린 session의 규칙은 그대로 두고 팀원 하나만 연다. 팀원(spawn mail로 연 session)은 자기를 연 컴퓨터로만 보내고, 그 밖의 mail이 연 session은 어느 컴퓨터로도 새 call을 보내지 못한다. 버린 길은 모든 mail이 연 session에 연 컴퓨터를 열기(`call send --on`이 A와 B 사이를 오가며 session을 끝없이 연다)다. 한 단계를 거쳐 셋째 컴퓨터에 닿는 길은 이 변경 전부터 있어 이슈 `mail-opened-session-reaches-third-computer`로 남겼다.
+    by: agent
+  - text: 팀원 자리의 끝을 알리는 mail(cancel `end`, state `ended`)을 만료에서 빼지 않고 스스로 낫게 했다. 연 컴퓨터는 닫은 자리의 session이 다시 말하면 cancel(`end`)을 다시 내고, 자리로 보낸 call이 그 컴퓨터에서 그 session이 닫혔거나 없어 실패하면 자리를 닫는다. 버린 길은 끝의 mail을 만료 없이 두기(꺼진 컴퓨터로 낼 줄이 영영 남는다)다.
+    by: agent
+  - text: 자리가 끝나면 그 팀원이 이 컴퓨터로 보낸 열린 call(부모에게 온 ask 포함)은 그 팀원이 거둔 것처럼 취소(cancelled)로 닫는다. 받은 부모는 취소 알림을 받고 그 컴퓨터의 행도 닫힌다. 버린 길은 실패로 닫기(부모의 queue에 들어간 call이 알림 없이 남는다)다.
+    by: agent
+  - text: 다른 컴퓨터가 명단에서 빠졌다는 판정은 "이 컴퓨터의 명단에 더 없다" 하나다. 이 컴퓨터가 정해진 빼기로 뺀 때와 그 컴퓨터가 이 컴퓨터를 빼 이 컴퓨터가 옛 명단을 버린 때가 같고, 명단을 아직 읽지 못했거나 빼기가 정해지지 않은 때는 빠지지 않았다. 버린 길은 빼기 기록만 보기(이 컴퓨터가 빠지면 옛 명단과 함께 기록도 사라져 팀원이 영영 열려 있다)다.
     by: agent
   - text: 자리를 닫는 일은 상대를 기다리지 않는다. 연 컴퓨터는 곧바로 닫고 `end` cancel을 내며, 상대가 이미 닫았으면 그 mail이나 되돌아온 `ended`는 아무것도 바꾸지 않는다(한 통이 더 갈 수 있다). 버린 길은 상대의 확인 뒤에 닫기(그 컴퓨터가 영영 오지 않을 수 있다)다.
     by: agent

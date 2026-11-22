@@ -1,0 +1,28 @@
+id: mail-opened-session-reaches-third-computer
+title: 다른 컴퓨터의 mail이 연 session이 한 단계를 거쳐 셋째 컴퓨터로 일을 넘긴다
+kind: bug
+status: open
+topic: machine-a2a
+modules: [packages/core/router, packages/core/lophn-agent, packages/core/workflows, packages/core/apps]
+now: |
+  `opened_by_machine`이 붙은 session(A의 mail이 B에 연, 팀원이 아닌 session)은 Router의 `mayMail`(packages/core/router/router.ts)과
+  보내는 입구의 `remoteReach`(packages/core/router/remote-reach.ts)가 어느 컴퓨터로도 새 call을 보내지 못하게 막는다. 그런데 이 제한은
+  그 session 하나에만 붙고, 그 session이 이 컴퓨터에서 한 단계 거친 곳은 막지 않는다. 세 길이 있다.
+  - 로컬 session을 거친다: 그 session이 `team spawn`으로 자식을 열거나 agent 주소로 call을 보내 새 session을 열면
+    (`createSessionDirectory().open`, packages/core/lophn-agent/workspaces/directory.ts) 그 session의 `opened_by_machine`은 null이라
+    `call send --on C`가 통과한다.
+  - workflow: `workflows/edit`의 `hand_now`(packages/core/workflows/service.ts `edit`)는 부른 session을 줄의 `by`로만 쓰고 그 session이
+    mail로 열렸는지 보지 않는다. 다른 컴퓨터(C)에서 도는 참가자의 step이면 C로 step mail이 간다.
+  - 앱 call: 할당된 다른 컴퓨터의 앱 command를 부르는 길(`lophn <slug> --on C`, packages/core/apps/calls/outbound.ts,
+    packages/core/remote/call.ts)도 부른 session의 `opened_by_machine`을 보지 않는다.
+  다른 컴퓨터에 팀원을 여는 기능 전부터 그렇다. 그 팀원(spawn mail로 연 session)은 자식을 열지 못하지만 agent 주소로 새 session을 여는 길과
+  둘째·셋째 길은 같다.
+impact: |
+  A에서 시작한 일이 B를 거쳐 C로 넘어간다. A의 agent도 사람도 C를 고르지 않았다. 사람은 "받은 일을 또 다른 컴퓨터로 넘기지 않는다"
+  (machine-a2a 지키는 것 7)를 믿고 B에 일을 맡기지만 그 일이 C의 agent와 model key로 돌 수 있다. 각 단계에서 늦은 mail의 대기, call
+  정책, private workspace는 그대로 걸려 C의 사람이 모르게 도는 것은 아니다.
+fix: |
+  - (추천, 중간) 제한을 이어받게 한다: mail로 열린 session이 열거나 spawn한 session에도 같은 기계를 `opened_by_machine`처럼 남기고(칸 하나,
+    schema step), workflow hand와 앱의 다른 컴퓨터 call은 부른 session의 그 칸을 본다. 그 session에서 시작한 일은 어디로도 다른 컴퓨터에
+    가지 않는다.
+  - (작음) workflow `hand_now`와 앱 call만 부른 session을 본다. 로컬 session을 거치는 길은 남는다.

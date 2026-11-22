@@ -1,5 +1,5 @@
 id: browser-profile-sync
-version: 0.23.126
+version: 0.23.129
 title: browser profile 정의와 저장 login(값 포함)이 컴퓨터 사이 link로 사람의 다른 컴퓨터에 간다
 modules: [packages/protocol, packages/core/config, packages/core/main, packages/core/remote, packages/core/secrets, packages/design, packages/shell/main, packages/shell/renderer]
 change: |

@@ -42,7 +42,7 @@
 - **session과 대화는 옮기지 않는다.** 그 기계의 project 폴더 위에서 일어난 일이다. 다른 기계의 것은 remote로 본다.
 - **사용자 data를 기계 사이에 다루는 부분은 lophn이 스스로 정한다.** 사람이 자기 앱을 갖는 것이 lophn만의 차별점이고, 조사한 제품 가운데 그것을 하는 곳이 없다. 선례가 없다는 것은 하지 말라는 근거가 아니라 빌릴 답이 없다는 뜻이다.
 - **사람마다 다른 부분은 제품에 박지 않고 agent에게 둔다.** 보관소 연결, 폴더를 옮기는 도구, 그 기계의 git 로그인은 사람마다 다르다. lophn은 좁은 약속(폴더, 읽을 수 있는 환경 정보)만 내고 agent가 그 위에서 맞춘다.
-- **자격은 기계를 넘지 않는다.** provider key, secret, git token을 기계 사이에 복사하거나 맞추지 않는다.
+- **자격은 기계를 넘지 않는다.** provider key, 앱·MCP secret, git token을 기계 사이에 복사하거나 맞추지 않는다. 하나뿐인 예외는 browser의 저장 site login(password, TOTP seed)이다: 사람이 2026-11-21에 site login에 한해 고쳤고, 명단의 컴퓨터끼리 link(두 core 사이 Noise)로만 가고 폴더로는 가지 않는다(`architecture/browser-tab.md` "기계 사이").
 
 ## 모양
 
@@ -163,7 +163,7 @@
 - lophn의 relay나 서버가 사용자 data를 맡아 두기.
 - 기계 사이 중계와 순번을 lophn이 구현하기.
 - 보관소 연결부(Drive, Dropbox 등)를 제품 기능으로 고정하기.
-- provider key, secret, git token을 기계 사이에 맞추기.
+- provider key, 앱·MCP secret, git token을 기계 사이에 맞추기(site login은 위의 예외).
 - project 폴더(code)를 lophn이 맞추기.
 
 ## 보류

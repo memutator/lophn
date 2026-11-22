@@ -189,7 +189,7 @@ event (남지 않는다. commit 뒤 Bus)
 | 요청한 쪽 | 기기 목록(`REMOTE_ALLOWED_ROUTES`) | 사람 목록(`REMOTE_PERSON_ROUTES`)과 확인이 필요한 command | 앱 command 입구 `apps/remote_call` |
 |---|---|---|---|
 | 폰(`by` 없음) | 된다 | 허락이 있으면 | 안 된다(컴퓨터만) |
-| 컴퓨터의 core(`by` 없음) | `REMOTE_CORE_ROUTES`(`carry/*`)만. 허락과 상관없고 그 밖은 `invalid_input`이다 | 안 된다 | 안 된다 |
+| 컴퓨터의 core(`by` 없음) | `REMOTE_CORE_ROUTES`(`carry/*`)와 `REMOTE_COMPUTER_CORE_ROUTES`(`browser_vault/exchange`)만. 허락과 상관없고 그 밖은 `invalid_input`이다 | 안 된다 | 안 된다 |
 | 컴퓨터의 `screen` | 된다 | 허락이 있으면(지금처럼 handle을 붙인다) | 허락이 있으면 |
 | 컴퓨터의 `terminal` | `REMOTE_TERMINAL_DENIED`를 뺀 것 | 안 된다 | 허락이 있으면(private인 앱도 된다) |
 | 컴퓨터의 `agent`, `app` | `REMOTE_AGENT_ROUTES`의 앱 읽기 셋(`apps/list|get|tools`)과 agent 사이의 `a2a/mail|sessions|agents`만. private인 workspace의 앱은 목록에서 빠지고 읽으면 `not_found`다. `a2a/*`는 허락과 상관없이 `agent` 요청을 받고 private인 workspace를 없는 것처럼 답한다 | 안 된다 | 허락이 있고 대상 앱의 workspace가 private이 아니면 |
@@ -246,7 +246,7 @@ event (남지 않는다. commit 뒤 Bus)
 - 앱 command의 허락(터미널 입력 허락)과 사람의 route의 허락은 같은 스위치 하나다. 이유: 앱에 시키는 것은 그 기계를 다루는 것이고 터미널에 칠 수 있는 컴퓨터는 이미 그 기계를 온전히 다룬다. 허락을 하나 더 만들지 않는다. 잃는 것: "터미널은 되지만 agent와 앱은 안 된다"를 고를 수 없다. (agent)
 - private은 기계 사이에도 서고 두 자리에서 본다. 부르는 기계는 부른 쪽 workspace(private이면 보내지 않는다)를, 받는 기계는 대상 앱의 workspace를 각자 자기 call 정책의 `private` 목록으로 본다. 쌍 규칙은 기계 사이에 보지 않는다. 이유: 쌍 규칙의 key가 기계마다의 id이고 상대의 설정을 읽을 길이 없다. 사람의 화면과 터미널은 private이어도 된다. (사람, 2026-11-17)
 - `terminal`은 사람의 터미널이 아니라 그 컴퓨터의 CLI token을 쥔 쪽이다. 이유: lophn 터미널 탭의 shell은 사람 token을 받고 거기서 도는 coding agent와 사람을 가를 수 없다(`cli`가 명단을 바꾸는 명령을 막는 것도 지나가는 실수 막기다). 그래서 받는 기계는 `terminal`에 사람의 route, 자동 확인, 터미널·page를 움직이는 route, 사람의 결정 route를 주지 않고 앱 command와 기기 목록의 읽기만 연다. 잃는 것: 그 컴퓨터를 허락한 상태에서 CLI token을 쥔 coding agent는 `lophn … --on`으로 앱의 public command를 부를 수 있다. 그 범위는 받는 컴퓨터가 그 컴퓨터에 준 허락 하나로 정해진다. (agent)
-- 컴퓨터의 core가 스스로 하는 call(나르기)은 요청한 쪽 없이 보내고 받는 기계가 `REMOTE_CORE_ROUTES`만 연다. 이유: 시킨 사람이 없는 일을 `screen`이나 `terminal`로 꾸미면 그 종류의 권한이 샌다. 다섯째 종류를 만들어 `by`에 싣는 것보다 `by` 없음을 core 자신으로 두는 것이 받는 쪽의 검사를 하나로 둔다. 버린 안: 나르기를 `terminal`로 보내기. (agent)
+- 컴퓨터의 core가 스스로 하는 call(나르기)은 요청한 쪽 없이 보내고 받는 기계가 `REMOTE_CORE_ROUTES`와 `REMOTE_COMPUTER_CORE_ROUTES`만 연다. 뒤의 목록(login 값이 실리는 `browser_vault/exchange`)은 그 길만 받고 폰과 요청한 쪽이 있는 call은 `forbidden`이다(`browser-tab.md` "기계 사이"). 이유: 시킨 사람이 없는 일을 `screen`이나 `terminal`로 꾸미면 그 종류의 권한이 샌다. 다섯째 종류를 만들어 `by`에 싣는 것보다 `by` 없음을 core 자신으로 두는 것이 받는 쪽의 검사를 하나로 둔다. 버린 안: 나르기를 `terminal`로 보내기. (agent)
 - 폰은 일하는 창이라 대화를 이어 가는 쓰기(보내기, 멈추기, 대기열, model, 이름, fork, compact, rewind)와 켜고 끄고 시작하는 것(job 켜고 끄기, workflow 시작·멈춤)은 넣고, 되돌릴 수 없는 `sessions/delete`와 agent의 자율을 넓히는 skip 켜기는 뺀다. 이유: skip은 권한 설정과 같은 무게이고 desktop에서 정한다. 버린 안: 대화 조작을 `acp/send` 하나로 열기(안의 route 이름으로 보지 않으면 목록이 경계 노릇을 못 한다). (agent, 2026-11-15)
 - agent가 sync 폴더(destination)를 바꾸는 것은 사람이 그 한 번을 허락할 때만이다. 지금 있는 승인 카드에 이름과 전체 local 경로가 보인다. unattended turn과 팀 자식은 요청하지 못한다. 이유: 사람의 data가 data root를 떠나 바깥 도구가 올리는 폴더로 가기 시작하는 일이라 pairing·연결과 같다. 버린 안: locked(agent가 지침대로 바깥 도구를 붙이는 길이 막힌다), 묻지 않고 바꾸기. (planner, 2026-11-16 뒤집음)
 - 설정의 승인은 새 묻는 길을 두지 않고 그 agent의 `lophn settings` tool call로 같은 turn 안 request를 연다. route가 묻고 기다리며, 허락은 그 호출이 물은 값 한 번이다. 이유: request id를 실어 나중 쓰기에 맞추는 길보다 바꿔치기할 틈이 없고(지키는 것 13), 카드·대기 목록·폰이 그대로 쓴다. 판정에 skip을 묻는 예외를 두었다: 사람이 skip으로 맡긴 것은 shell 실수의 무게이지 data가 기계 밖으로 나가는 길이 아니다. (agent)

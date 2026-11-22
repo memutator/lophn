@@ -180,7 +180,6 @@ export const callsMailSend = defineCommand({
     // 보낸 turn. unattended 표시를 그 turn의 mode에서 찍는다.
     turn: idSchema("trn").nullable(),
     dedup: z.string().min(1),
-    self: idSchema("mch"),
     peer: originSchema,
     address: remoteAddressSchema,
     reply: callReplySchema,
@@ -633,7 +632,6 @@ const mailSendCommand: CommandDefinition<typeof callsMailSend> = {
     const sent = router.value.sendRemote(tx, {
       session: input.session,
       dedup: input.dedup,
-      self: input.self,
       peer: input.peer,
       address: input.address,
       reply: input.reply,

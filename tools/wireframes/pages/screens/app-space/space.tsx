@@ -131,6 +131,7 @@ const RUN_SNAPSHOTS: readonly SessionSnapshot[] = fixedRuns(APP).flatMap(
             agent: run.target.agent.agent,
             workspace: { kind: "app" as const, id: APP },
             spawned_by: null,
+            runs_on: null,
             state:
               run.state === "running"
                 ? ("running" as const)

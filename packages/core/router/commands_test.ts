@@ -43,6 +43,8 @@ function world() {
       directory: {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn_home", workspace: null }),
+        archive: () => ok(false),
+        membersOn: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target(RECEIVER)),
@@ -78,6 +80,7 @@ function world() {
               row.dedup === dedup,
           ) ?? null,
         read: (_tx, call) => rows.get(call) ?? null,
+        memberCall: () => null,
         move: (_tx, call, to, reason) => {
           const moved = { ...rows.get(call)!, state: to, fail_reason: reason };
           rows.set(call, moved);

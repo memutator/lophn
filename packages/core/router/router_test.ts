@@ -83,6 +83,7 @@ function setup(
           row.dedup === dedup,
       ) ?? null,
     read: (_tx, call) => rows.get(call) ?? null,
+    memberCall: () => null,
     move: (_tx, call, to, reason, result) => {
       const row = rows.get(call)!;
       const moved = {
@@ -105,6 +106,8 @@ function setup(
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
     resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
+    archive: () => ok(false),
+    membersOn: () => [],
     openMember: () => err({ code: "forbidden", message: "not in this test" }),
     open: (_tx, agent, _opener, spawnedBy) => {
       opened += 1;

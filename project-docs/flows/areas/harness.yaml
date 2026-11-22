@@ -940,7 +940,7 @@ flows:
       - packages/core/main/daemon/wiring/host-queue.ts
     steps:
       - "사람 token만 부른다(route actor)"
-      - "tab이 없으면 새 id로, tab이 있고 core 표에 없으면 그 id로 browser 탭을 표에 올린다(주인 그 session, handed, 준 사슬 없음, 받은 profile, 상태는 받은 url). 받을 session이 없거나 열려 있지 않으면 not_found. 탭은 이미 창에 있어 tab_open 요청을 넣지 않는다. 창이 core에 다시 붙을 때 같은 tab으로 다시 부른다"
+      - "tab이 없으면 새 id로, tab이 있고 core 표에 없으면 그 id로 browser 탭을 표에 올린다(주인 그 session, handed, 준 사슬 없음, 받은 profile, 상태는 받은 url). 받을 session이 없거나 열려 있지 않거나 다른 컴퓨터에서 도는 팀원의 자리(runs_on)면 not_found. 탭은 이미 창에 있어 tab_open 요청을 넣지 않는다. 창이 core에 다시 붙을 때 같은 tab으로 다시 부른다"
       - "표에 있는 넘겨받은 탭이면 창이 다시 알린 것이라 주인과 준 사슬은 core 표의 것을 그대로 두고(그 사이 tabs/give가 옮겼거나 돌아갔을 수 있다) workspace·profile만 바꾼다. session 검사도 하지 않는다. 표에 있는 사람 token의 browser 탭이면 받을 session이 열려 있을 때 주인·workspace·profile을 바꾸고 handed로 둔다. agent가 연 탭이나 browser 탭이 아니면 conflict"
       - "멀리서 보기 목록이 바뀌었다고 알린다(browser_pages). 넘겨받은 session은 browser 호출로 그 탭을 다루지만 tabs/close는 forbidden이다"
     outcomes:
@@ -948,7 +948,7 @@ flows:
         observe: [response, event:StateChanged]
       - id: not_found
         code: not_found
-        when: "새로 올리거나 사람 token의 탭을 넘기는데 받을 session이 없거나 열려 있지 않다"
+        when: "새로 올리거나 사람 token의 탭을 넘기는데 받을 session이 없거나 열려 있지 않다, 또는 다른 컴퓨터에서 도는 팀원의 자리다(browser는 이 컴퓨터에 있다)"
         observe: [response]
       - id: conflict
         code: conflict

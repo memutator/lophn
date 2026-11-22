@@ -46,6 +46,8 @@ test("a stopped instance is not handed: report with next records the line only a
       directory: {
         find: () => null,
         resolveAddress: () => ok(lophnAtWorkspace),
+        archive: () => ok(false),
+        membersOn: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () =>
@@ -54,6 +56,7 @@ test("a stopped instance is not handed: report with next records the line only a
             transport: "lophn",
             agent: lophnAtWorkspace,
             accepting: true,
+            runs_on: null,
           } as never),
         app: () => null,
         accepts: () => null,

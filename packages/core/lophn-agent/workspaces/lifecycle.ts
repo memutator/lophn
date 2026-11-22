@@ -178,10 +178,10 @@ export function startSession(
 }
 
 // 다른 컴퓨터에 연 팀원의 자리(`team spawn --on`). agent는 그 컴퓨터의 handle 그대로이고(정의는 기계마다다) workspace는 부모의 것이다.
-// turn, 받은 메시지, queue는 이 기계에 없다. 상한은 부른 쪽이 먼저 셌다.
+// turn, 받은 메시지, queue는 이 기계에 없다. 상한은 부른 쪽이 먼저 셌다. `SessionStarted`는 내지 않는다: 그 agent는 이 컴퓨터의
+// agent id가 아니다. 화면은 `StateChanged{sessions}`(Router가 낸다)로 다시 읽는다.
 export function startMemberSession(
   tx: Tx,
-  deps: OpenDeps,
   input: {
     id: string;
     handle: string;
@@ -210,19 +210,7 @@ export function startMemberSession(
       seq,
     ],
   );
-  const row = loadSession(tx, input.id)!;
-  deps.publish({
-    session: row.id as Id<"ses">,
-    type: "SessionStarted",
-    at: tx.now(),
-    payload: {
-      agent: row.agent,
-      workspace: workspaceOf(row),
-      spawned_by: input.parent,
-      revived: false,
-    },
-  });
-  return ok(row);
+  return ok(loadSession(tx, input.id)!);
 }
 
 // archive와 지움이 묶는 영향이다. 모두 같은 tx 안이다. 보낸 call의 답은 받은 session에만 남으므로 하지 않는다.

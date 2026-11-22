@@ -316,12 +316,15 @@ flows:
       - 주소가 안 풀리거나 session이 닫혔거나 workspace가 보관됐으면 주소가 풀린 경우에만 call 행을 failed로 남기고 보낸 쪽에는 state로 돌려준다. 열린 session 주소는 닫혔으면 fallback이 없는 한 새로 열지 않는다
       - call 정책, 팀 규칙, 받는 agent 명함(modality, reply 방식) 순으로 거른다. 거르면 err로 돌려 tx가 되돌아가 행도 새 session도 없다
       - 통과하면 agent_calls에 accepted 행을 쓰고 받는 session의 queue에 봉투를 넣는다. unattended 표시는 call을 따라간다
-      - 새 session을 열었으면(agent가 보낸 call) commit 뒤 그 session의 Agent 탭을 host queue에 요청한다(topic router.call-session-opened, harness-team-child-tab)
-      - 보낸 쪽은 기다리지 않고 답은 나중에 새 입력으로 온다
+      - 받는 session이 다른 컴퓨터에서 도는 팀원의 자리(runs_on)면 명함 검사 없이 거른 뒤 queue 대신 그 컴퓨터로 가는 call mail과 행(to remote, 받는 session과 remote_session이 그 자리, delivery pending)을 쓴다. 글이 아니거나 64 KiB를 넘으면 invalid_input이다. 다른 컴퓨터가 연 팀원이 이 컴퓨터에 없는 부모 session으로 보낸 call(ask 포함)은 그 팀원을 연 기계로 가는 call mail이다
+      - 새 session을 열었으면(agent가 보낸 call) commit 뒤 그 session의 Agent 탭을 host queue에 요청한다(topic router.call-session-opened, harness-team-child-tab). 보낸 쪽은 기다리지 않고 답은 나중에 새 입력으로 온다
     outcomes:
       - id: accepted
         observe: [ledger:agent_calls, event:MessageReceived, response]
         when: 열린 session에 넣었거나 fallback으로 새 session을 열었다
+      - id: mailed
+        observe: [ledger:agent_calls, ledger:mail_outbox, response]
+        when: 받는 곳이 다른 컴퓨터에서 도는 팀원의 자리이거나, 다른 컴퓨터가 연 팀원이 연 기계의 부모에게 보냈다. accepted이고 배달은 mail이다
       - id: deduplicated
         observe: [ledger:agent_calls, response]
         when: 같은 보낸 session과 tool call ID의 call이 이미 있다. 새 행과 session을 만들지 않고 그 상태를 돌려준다
@@ -345,7 +348,7 @@ flows:
         observe: [response]
       - id: card-refused
         code: invalid_input
-        when: 받는 agent 명함의 입력 modality나 답 방식에 없다
+        when: 받는 agent 명함의 입력 modality나 답 방식에 없다. 다른 컴퓨터에서 도는 팀원에게 글이 아닌 block이나 64 KiB 넘는 글을 보냈다
         observe: [response]
       - id: harness-off
         code: unavailable
@@ -383,7 +386,7 @@ flows:
       - reply none인 call에는 답하지 못한다. 끝난 call이면 아무것도 쓰지 않고 closed로 돌려준다
       - 팀 자식의 질문이나 승인이면 자식 queue가 아니라 main thread의 짝으로 보낸다(topic router.ask-answered)
       - 보낸 session이 열려 있으면 답을 그 session의 queue에 넣고, result 답이면 call을 done으로 닫는다
-      - 다른 컴퓨터에서 받은 call의 답과 다른 컴퓨터로 보낸 conversation call에 잇는 말은 queue가 아니라 그 기계로 가는 reply mail이다. 글만 싣고(64 KiB까지) result 답이면 call을 done으로 닫는다
+      - 다른 컴퓨터에서 받은 call의 답과 다른 컴퓨터로 보낸 conversation call에 잇는 말은 queue가 아니라 그 기계로 가는 reply mail이다. 글만 싣고(64 KiB까지) result 답이면 call을 done으로 닫는다. 이 컴퓨터가 연 팀원이 그 컴퓨터에서 보낸 ask면 결정을 이 컴퓨터의 규칙으로 본 뒤 reply mail의 decision에 싣는다(그 컴퓨터가 짝을 푼다)
     outcomes:
       - id: delivered
         observe: [ledger:agent_calls, event:MessageReceived, response]
@@ -420,7 +423,7 @@ flows:
         observe: [response]
       - id: decision-mismatch
         code: invalid_input
-        when: 승인 call에 allow나 reject가 없거나, 질문이나 일반 call에 결정을 실었다
+        when: 승인 call에 allow나 reject가 없거나, 질문이나 일반 call에 결정을 실었다(다른 컴퓨터의 팀원이 보낸 ask도 같다)
         observe: [response]
       - id: router-unwired
         code: unavailable
@@ -483,7 +486,7 @@ flows:
     boundary: [router, remote, core-api]
     code: [packages/core/remote/mail-entry.ts, packages/core/main/daemon/wiring/mail.ts, packages/core/router/remote-reach.ts, packages/core/router/router.ts, packages/cli/commands/team.ts]
     steps:
-      - call-send-remote와 같은 검사(session, remoteReach, 명단 풀기, 글만, redaction, 64 KiB)를 거친다. workspace를 빼면 이 컴퓨터의 spawn처럼 부른 session의 workspace를 기계를 건너는 이름으로 싣는다. 본문 앞에 팀 지시문을 붙인다
+      - call-send-remote와 같은 검사(session, remoteReach, 명단 풀기, 글만, redaction, 64 KiB)를 거친다. workspace를 빼면 이 컴퓨터의 spawn처럼 부른 session의 workspace를 기계를 건너는 이름으로 싣는다. 본문 앞에 팀 지시문을 붙인다. 다른 컴퓨터의 mail로 열린 session(다른 컴퓨터가 연 팀원 포함)은 잎이라 열지 못한다
       - calls/mail-send를 spawn으로 불러 이 컴퓨터의 팀 상한과 깊이로 팀원의 자리를 연다. 그 컴퓨터가 꺼져 있어도 바로 돌아온다
       - 받는 컴퓨터는 mail의 spawn id로 session을 열고 보낸 session을 부모(spawned_by)로 적는다. 그 id의 session이 이미 있으면 열지 않고 실패 mail이다. 그 컴퓨터에서의 실패는 늦게 call의 실패로 온다
     outcomes:
@@ -496,7 +499,7 @@ flows:
         observe: [response]
       - id: sender-refused
         code: forbidden
-        when: 자격에 session이 없다, 보낸 session의 workspace가 private이다, 보낸 session이 다른 컴퓨터의 mail로 열렸다
+        when: 자격에 session이 없다, 보낸 session의 workspace가 private이다, 보낸 session이 다른 컴퓨터의 mail로 열렸다(그 mail을 보낸 컴퓨터로도 팀원은 열지 못한다)
         observe: [response]
       - id: not-found
         code: not_found
@@ -510,6 +513,12 @@ flows:
         code: unavailable
         when: redaction을 끝내지 못했다, Router나 writer가 아직 없다
         observe: [response]
+      - id: member-ended
+        observe: [ledger:sessions, event:SessionEnded, ledger:agent_calls]
+        when: "늦게: spawn call이 그 컴퓨터에서 돌기 전에 실패했다(not_found, closed, expired, skipped, old_version, 명단에서 빠짐). 자리를 archive처럼 닫고 부모는 실패 알림을 받는다. 받은 turn이 답 없이 끝난 실패(receiver_ended, lophn_restarted)로는 닫지 않는다(session이 그 컴퓨터에 살아 있다)"
+      - id: member-ended-there
+        observe: [ledger:sessions, event:SessionEnded, ledger:agent_calls]
+        when: "늦게: 그 컴퓨터에서 팀원 session이 보관되거나 지워져 state ended mail이 왔다. 자리를 닫고 그 자리로 보낸 열린 call은 receiver_ended다"
     crosses_process: false
     risk: [permission]
     docs: [architecture/agent-call.md, architecture/machine-a2a.md]
@@ -525,7 +534,7 @@ flows:
     code: [packages/core/remote/mail-entry.ts, packages/core/main/daemon/wiring/mail.ts, packages/core/router/remote-reach.ts, packages/protocol/lophn-agent/mail.ts]
     steps:
       - agent 자격이 session에 묶이지 않았으면 forbidden이다
-      - 보낸 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach). private workspace의 session과 다른 컴퓨터의 mail로 열린 session은 컴퓨터 이름을 풀기 전에 forbidden이다(없는 이름도 forbidden). 할당은 보지 않는다(명단의 컴퓨터는 mail을 받는다)
+      - 보낸 session이 다른 컴퓨터에 닿아도 되는지 본다(remoteReach). private workspace의 session은 컴퓨터 이름을 풀기 전에 forbidden이다(없는 이름도 forbidden). 다른 컴퓨터의 mail로 열린 session은 이름을 푼 뒤 그 mail을 보낸 컴퓨터가 아니면 forbidden이다(셋째 컴퓨터로 넘기지 않는다. 다른 컴퓨터가 연 팀원은 이 길로 부모에게 닿는다). 할당은 보지 않는다(명단의 컴퓨터는 mail을 받는다)
       - 명단의 컴퓨터를 이름, 기계 id, 기기 id로 푼다. 이 컴퓨터이거나 기계 id가 이 기계면 invalid_input, 없으면 not_found, 같은 이름이 여럿이면 invalid_input(후보 기기 id)이다
       - 주소의 workspace를 기계를 건너는 꼴로 바꾼다(project는 공유 id pri_, 앱은 app_, home). session 꼴은 그대로다
       - 본문은 글 block만이고 redaction을 거친 글이 64 KiB 안이어야 한다
@@ -811,6 +820,7 @@ flows:
       - agent가 lophn team end로 session 하나를 준다
       - core가 대상이 부른 agent의 엄격한 자손인지 본다. 자기, 형제, 부모, 남의 session이면 거절한다
       - 대상과 그 밑의 열린 session을 잎부터 archive처럼 닫는다(도는 turn interrupted, 받은 call receiver_ended, 대기 request cancelled, queue 비움, SessionEnded)
+      - 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터에서 바로 닫히고(그 자리로 보낸 열린 call은 receiver_ended, 내지 않은 call mail은 거둔다) 그 컴퓨터로 cancel(end) mail이 간다. 그 컴퓨터는 닿을 때 그 session을 archive처럼 닫는다. 그 컴퓨터가 영영 오지 않아도 자리는 닫혀 있다
       - 사람의 archive와 달리 자식을 따라 닫는다
     outcomes:
       - id: ended
@@ -844,10 +854,11 @@ flows:
     actor: agent
     entries: [route:team/read]
     boundary: [router, agent-sessions, core-api]
-    code: [packages/core/router/reads.ts, packages/core/main/daemon/wiring/terminal-agents.ts]
+    code: [packages/core/router/reads.ts, packages/core/router/store.ts, packages/core/main/daemon/wiring/terminal-agents.ts]
     steps:
       - agent가 lophn team read로 팀을 읽는다
       - 부모, 형제(같은 부모), 자식(열린 것)의 handle, 이름, 설명, runtime, 상태를 주고, 내가 그 팀원에게 보내 답을 받지 못한 call(open_calls)을 싣는다
+      - 다른 컴퓨터에서 도는 팀원(열린 자리)도 자식이다. computer는 그 컴퓨터 이름이고 상태는 spawn call의 배달이다(pending, held, running). 설명과 runtime은 null이다
       - 팀 밖 session은 빈 목록이다
       - GUI 탭 팀원의 상태는 core(terminal-agents wiring)가 그 탭의 ACP 상태로 바꿔 낸다
     outcomes:

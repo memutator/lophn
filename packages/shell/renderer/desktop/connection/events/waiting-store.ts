@@ -403,6 +403,8 @@ export function createWaitingStore(
     const at = now();
     const next: WaitingEntry[] = [];
     for (const snapshot of snapshots) {
+      // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터에서 기다리는 것이 없다.
+      if (snapshot.agent === null) continue;
       sessions.set(snapshot.session, {
         agent: snapshot.agent,
         workspace: snapshot.workspace,

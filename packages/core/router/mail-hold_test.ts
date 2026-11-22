@@ -400,7 +400,6 @@ async function machine(self: Id<"mch">) {
       session,
       turn: null,
       dedup: `d${++counter}`,
-      self,
       peer: { machine: to, computer: "windows" },
       address:
         typeof agent === "string"

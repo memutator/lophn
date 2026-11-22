@@ -93,7 +93,7 @@ const read = defineCommand({
   name: "team.read",
   summary: "Read your team: parent, siblings and members",
   description:
-    "Read your team: your parent, your siblings (same parent) and the open sessions you spawned, each with session ID, agent handle and name, one-line description, runtime, state (running, waiting for a human, or idle) and open_calls (calls you sent it that it has not answered yet). Empty when you are not in a team. Run it when you are told your team changed.",
+    "Read your team: your parent, your siblings (same parent) and the open sessions you spawned, each with session ID, agent handle and name, one-line description, runtime, state (running, waiting for a human, or idle) and open_calls (calls you sent it that it has not answered yet). A member opened on another computer shows that computer and the state pending (not there yet), held (waiting in that computer's Inbox) or running. Empty when you are not in a team. Run it when you are told your team changed.",
   input: z.strictObject({}),
   effect: "read",
   routes: [teamRead],

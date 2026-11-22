@@ -112,6 +112,11 @@ export interface SessionDirectory {
     handle: string,
     machine: Id<"mch">,
   ): Result<TargetSession>;
+  // 열린 session을 사람의 archive처럼 끝낸다(도는 turn, 받은 call, queue). 이미 끝났으면 false다. 다른 컴퓨터가 팀원을 끝냈거나
+  // 연 기계가 팀원을 닫았을 때 쓴다.
+  archive(tx: Tx, session: Id<"ses">): Result<boolean>;
+  // 그 기계에서 도는 이 기계 팀원의 열린 자리.
+  membersOn(tx: Tx, machine: Id<"mch">): Id<"ses">[];
   // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.
   projectOfIdentity(identity: string): Id<"prj"> | null;
   // 이 기계의 project(id나 정확한 이름)의 기계를 건너는 정체. 없는 project는 not_found, 정체가 없으면 null이다.
@@ -151,6 +156,8 @@ export interface CallStore {
   // 같은 보낸 쪽(session이나 앱)과 dedup 값의 call.
   byDedup(tx: Tx, sender: CallFrom, dedup: string): AgentCallRow | null;
   read(tx: Tx, call: Id<"cal">): AgentCallRow | null;
+  // 다른 컴퓨터에 연 팀원의 첫 call(연 기계의 spawn call, 도는 기계에서 그 session을 연 call). 없으면 null이다.
+  memberCall(tx: Tx, session: Id<"ses">): AgentCallRow | null;
   move(
     tx: Tx,
     call: Id<"cal">,

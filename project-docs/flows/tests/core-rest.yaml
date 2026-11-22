@@ -709,7 +709,12 @@ files:
       - calls-mail-sweep:ok
       - workflow-start-agent:handed
       - workflow-start-agent:not-handed
-    note: "두 기계의 실제 ledger·store·session directory로 mail을 오가게 한다. 사람이 쓴 선언 글로 시작한 instance의 참가자 on이 목록과 instance에 남아 다음 step이 그 컴퓨터로 넘어가고, 명단에 없는 이름은 unknown_computer, 사람 참가자의 on은 틀린 선언이다. 다른 컴퓨터로 넘긴 workflow step은 그 컴퓨터의 step 입력이 되고, 받은 session의 report만 시작한 컴퓨터에서 한 번 적용되어 다음 step을 넘긴다. 늦은 step의 건너뜀, private workspace, report 없이 닫힌 step(그 컴퓨터의 취소, call 답, 이 컴퓨터의 취소), 넘기지 못한 다음 step은 읽을 수 있는 not_handed 줄을 남기고, 멈춘 instance는 열린 step을 줄 없이 거둔다. 가져간 뒤 재시작으로 끊긴 call은 가져가기 전에 잃었다는 글이 아니다. 같은 mail id는 한 번만 돌고, private workspace와 사람이 연 session·다른 기계가 연 session에는 들어가지 못하며, 셋째 기계의 reply·cancel·state는 남의 call을 바꾸지 못한다. mail이 연 session과 private workspace는 다른 컴퓨터로 보내지 못하고, mail이 연 session은 허락이 있을 때만 skip이다. 취소는 drain이 call mail을 읽은 뒤에도 닿고 cancel이 먼저 닿은 call은 돌지 않으며, 이미 있는 call id는 not_found다. 가져간 turn이 재시작으로 끝난 result call은 한 컴퓨터 안에서도 다른 컴퓨터로도 lophn_restarted로 보낸 쪽에 돌아가고, 답한 call은 그대로다. 끝난 행은 delivery가 없다. mail 본문은 글만, byte·block 상한 안이다. 다시 짠 agent_calls·messages에 옛 행이 칸 그대로 옮겨진다"
+      - call-send:mailed
+      - call-reply:decision-mismatch
+      - team-spawn-remote:member-ended
+      - team-spawn-remote:member-ended-there
+      - calls-mail-apply:member-ended
+    note: "두 기계의 실제 ledger·store·session directory로 mail을 오가게 한다. 사람이 쓴 선언 글로 시작한 instance의 참가자 on이 목록과 instance에 남아 다음 step이 그 컴퓨터로 넘어가고, 명단에 없는 이름은 unknown_computer, 사람 참가자의 on은 틀린 선언이다. 다른 컴퓨터로 넘긴 workflow step은 그 컴퓨터의 step 입력이 되고, 받은 session의 report만 시작한 컴퓨터에서 한 번 적용되어 다음 step을 넘긴다. 늦은 step의 건너뜀, private workspace, report 없이 닫힌 step(그 컴퓨터의 취소, call 답, 이 컴퓨터의 취소), 넘기지 못한 다음 step은 읽을 수 있는 not_handed 줄을 남기고, 멈춘 instance는 열린 step을 줄 없이 거둔다. 가져간 뒤 재시작으로 끊긴 call은 가져가기 전에 잃었다는 글이 아니다. 같은 mail id는 한 번만 돌고, private workspace와 사람이 연 session·다른 기계가 연 session에는 들어가지 못하며, 셋째 기계의 reply·cancel·state는 남의 call을 바꾸지 못한다. mail이 연 session은 그 mail을 보낸 컴퓨터 말고는(셋째 컴퓨터) 보내지 못하고 private workspace는 어디로도 보내지 못하며, mail이 연 session은 허락이 있을 때만 skip이다. 다른 컴퓨터에 연 팀원은 연 기계의 팀 상한·깊이에 세이고, 그 팀원의 mail은 연 기계에서 팀원의 자리로 팀 규칙을 거치며(팀 밖은 forbidden), 팀원의 승인 ask는 연 기계의 부모에게 가 결정이 돌아온다. 팀원의 자리는 spawn call이 돌기 전에 실패하면 닫히고 받은 turn의 receiver_ended로는 닫히지 않으며, 연 기계에서 닫으면 그 컴퓨터에 닿지 않아도 닫히고 닿으면 그 컴퓨터의 session도 닫히며, 그 컴퓨터에서 닫히면 연 기계의 자리도 닫히고, 명단에서 빠진 컴퓨터의 자리는 쓸기에서 닫혀 부모가 한 번 듣는다. 취소는 drain이 call mail을 읽은 뒤에도 닿고 cancel이 먼저 닿은 call은 돌지 않으며, 이미 있는 call id는 not_found다. 가져간 turn이 재시작으로 끝난 result call은 한 컴퓨터 안에서도 다른 컴퓨터로도 lophn_restarted로 보낸 쪽에 돌아가고, 답한 call은 그대로다. 끝난 행은 delivery가 없다. mail 본문은 글만, byte·block 상한 안이다. 다시 짠 agent_calls·messages에 옛 행이 칸 그대로 옮겨진다"
 
   - path: packages/core/router/mail-hold_test.ts
     covers:
@@ -745,7 +750,7 @@ files:
       - mail-drain:unknown
       - mail-drain:acked
       - mail-drain:given-up
-    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 입구 handler에서 기기 연결의 call 처리, 본문 준비, writer 명령, Router까지 잇는다. 폰·명단 밖 기기·터미널이 시킨 것·다른 컴퓨터가 실어 온 mail·이 기계로 쓰지 않은 mail은 Router에 닿지 않고, 허락 없는 컴퓨터의 mail은 skip이어도 묻는 session이다. private workspace와 mail이 연 session은 컴퓨터 이름을 풀기 전에 forbidden이다. 옛 판의 not_found는 줄을 막지 않고 old_version으로 닫으며 그 실패 알림이 보낸 session에 기록된다. 답을 잃은 mail은 같은 id로 다시 가 한 번만 돈다. 보내는 쪽과 받는 쪽 모두 redaction을 거쳐 outbox와 받는 session 기록의 글에 secret이 없다. 이 컴퓨터(같은 기계 id의 옛 명단 항목 포함)로는 보내지 못하고, 폴더 길은 이 컴퓨터를 origin으로 받지 않는다. 답을 잃으면 그 기계의 줄이 거기서 멈추고 한 기계의 보내기는 겹치지 않는다. timer가 시작한 차례의 internal 다섯 번이면 그 call을 expired로 닫고 다음 mail이 간다"
+    note: "두 기계마다 실제 ledger·Router 명령·session directory·받은 입력 기록을 두고 입구 handler에서 기기 연결의 call 처리, 본문 준비, writer 명령, Router까지 잇는다. 폰·명단 밖 기기·터미널이 시킨 것·다른 컴퓨터가 실어 온 mail·이 기계로 쓰지 않은 mail은 Router에 닿지 않고, 허락 없는 컴퓨터의 mail은 skip이어도 묻는 session이다. private workspace는 컴퓨터 이름을 풀기 전에 forbidden이고, mail이 연 session은 그 mail을 보낸 컴퓨터가 아니면 forbidden이다. 옛 판의 not_found는 줄을 막지 않고 old_version으로 닫으며 그 실패 알림이 보낸 session에 기록된다. 답을 잃은 mail은 같은 id로 다시 가 한 번만 돈다. 보내는 쪽과 받는 쪽 모두 redaction을 거쳐 outbox와 받는 session 기록의 글에 secret이 없다. 이 컴퓨터(같은 기계 id의 옛 명단 항목 포함)로는 보내지 못하고, 폴더 길은 이 컴퓨터를 origin으로 받지 않는다. 답을 잃으면 그 기계의 줄이 거기서 멈추고 한 기계의 보내기는 겹치지 않는다. timer가 시작한 차례의 internal 다섯 번이면 그 call을 expired로 닫고 다음 mail이 간다"
 
   - path: packages/core/router/router_test.ts
     covers:

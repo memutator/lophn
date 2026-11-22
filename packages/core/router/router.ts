@@ -9,6 +9,7 @@ import {
 import type {
   AgentCallRow,
   CallAddressInput,
+  CallAskKind,
   CallDecision,
   CallFailReason,
   CallFrom,
@@ -228,7 +229,6 @@ export type MailOrigin = { machine: string; computer: string };
 export type SendRemoteInput = {
   session: string;
   dedup: string;
-  self: string;
   peer: MailOrigin;
   address: RemoteAddress;
   reply: CallReply;
@@ -340,6 +340,8 @@ export function createRouter(deps: RouterDeps): Router {
         };
         const target = directory.find(sesId(addressing.session));
         if (target === null) return ok(failed("not_found", to));
+        // 다른 컴퓨터에서 도는 팀원의 자리는 이 기계의 queue로 받지 않는다. route가 거름 뒤에 그 컴퓨터로 보낸다.
+        if (target.runs_on !== null) return ok({ ok: true, to, target });
         if (!target.accepting) return ok(failed("closed", to));
         return ok({ ok: true, to, target });
       }
@@ -388,10 +390,18 @@ export function createRouter(deps: RouterDeps): Router {
       agent,
     };
     const target = directory.find(sesId(session));
-    if (target !== null && target.accepting) {
+    if (target !== null && (target.accepting || target.runs_on !== null)) {
       return ok({ ok: true, to, target });
     }
     return open(tx, from, agent, to, spawn, input);
+  }
+
+  // 다른 컴퓨터의 mail을 보낸 session이 그 기계에 연 이 기계 팀원의 자리면 그 자리. 그 mail은 이 기계의 팀원이 보낸 것처럼 call 정책,
+  // 팀 규칙, 명함 검사를 거친다.
+  function memberSender(from: CallFrom): TargetSession | null {
+    if (from.kind !== "remote" || from.session === null) return null;
+    const target = directory.find(sesId(from.session));
+    return target?.runs_on === from.machine ? target : null;
   }
 
   function inputOf(input: RouteInput, call: string | null): RoutedInput {
@@ -695,19 +705,22 @@ export function createRouter(deps: RouterDeps): Router {
     });
   }
 
-  // 다른 컴퓨터로 가는 답은 글만 싣는다(image blob은 기계를 건너지 않는다).
-  function remoteBody(body: ContentBlock[]): Result<ContentBlock[]> {
+  // 다른 컴퓨터로 가는 call과 답은 글만 싣는다(image blob은 기계를 건너지 않는다).
+  function mailBody(
+    body: ContentBlock[],
+    what: "call" | "reply",
+  ): Result<ContentBlock[]> {
     if (body.some((block) => block.type !== "text")) {
       return err({
         code: "invalid_input",
-        message: "a reply to another computer carries text only",
+        message: `a ${what} to another computer carries text only`,
       });
     }
     return mailBodySchema.safeParse(body).success
       ? ok(body)
       : err({
           code: "invalid_input",
-          message: `a reply to another computer is at most ${MAIL_TEXT_MAX_BYTES} bytes of text`,
+          message: `a ${what} to another computer is at most ${MAIL_TEXT_MAX_BYTES} bytes of text`,
         });
   }
 
@@ -727,6 +740,10 @@ export function createRouter(deps: RouterDeps): Router {
         });
       }
     }
+    if (from.kind === "agent") {
+      const up = toOpener(tx, from.session, input);
+      if (up !== null) return up;
+    }
     const resolved = resolve(tx, from, input);
     if (!resolved.ok) return resolved;
     if (!resolved.value.ok) {
@@ -738,17 +755,29 @@ export function createRouter(deps: RouterDeps): Router {
       );
     }
     const { to, target, opened } = resolved.value;
-    if (from.kind === "agent") {
+    // 팀원의 자리는 이 기계 agent의 call만 받는다(사람 메시지, 앱, 다른 컴퓨터, program 알림은 닫힌 session과 같다).
+    const toMember = target.runs_on !== null;
+    if (toMember && !(from.kind === "agent" && input.kind === "call")) {
+      return deliveryFailed(tx, input, to, "closed");
+    }
+    const member = memberSender(from);
+    const sender =
+      from.kind === "agent" ? from.session : (member?.session ?? null);
+    if (sender !== null) {
+      // 다른 컴퓨터의 agent 명함은 이 기계에 없다. 팀원에게 가는 call은 그 컴퓨터가 자기 정의로 받는다.
       const refused =
-        policyRefusal(from.session, target.agent, input.reply) ??
-        teamRefusal(from.session, target) ??
-        refusal(target.agent.agent, input);
+        policyRefusal(sender, target.agent, input.reply) ??
+        teamRefusal(sender, target) ??
+        (toMember ? null : refusal(target.agent.agent, input));
       if (refused !== null) return refused;
     } else if (from.kind === "app") {
       const refused =
         appPolicyRefusal(from.app, target.agent) ??
         refusal(target.agent.agent, input);
       if (refused !== null) return refused;
+    }
+    if (toMember && from.kind === "agent") {
+      return callMember(tx, from.session, input, target);
     }
     const hasRow =
       from.kind === "agent" || from.kind === "app" || from.kind === "remote";
@@ -813,7 +842,21 @@ export function createRouter(deps: RouterDeps): Router {
       return err({ code: "conflict", message: "this call takes no reply" });
     }
     if (isFinished(record.state)) return ok({ delivered: false, closed: true });
-    // 다른 컴퓨터를 건넌 call의 답은 queue가 아니라 그 기계로 가는 mail이다.
+    const decision =
+      input.decision ??
+      (input.auto === true && record.ask === "approval" ? "reject" : null);
+    // 승인 ask call의 답은 결정이 있어야 하고 다른 call의 답은 결정을 싣지 않는다.
+    const misdecided =
+      asReceiver && record.ask !== null
+        ? (record.ask === "approval") !== (decision !== null)
+          ? record.ask === "approval"
+            ? "answer an approval call with --allow or --reject"
+            : "a question call takes no decision"
+          : null
+        : decision !== null
+          ? "only an approval call takes a decision"
+          : null;
+    // 다른 컴퓨터를 건넌 call의 답은 queue가 아니라 그 기계로 가는 mail이다. 다른 컴퓨터의 팀원이 보낸 ask의 결정도 싣는다.
     const peer =
       asReceiver && record.from.kind === "remote"
         ? record.from.machine
@@ -821,7 +864,10 @@ export function createRouter(deps: RouterDeps): Router {
           ? record.to.machine
           : null;
     if (peer !== null) {
-      const body = remoteBody(input.body);
+      if (misdecided !== null) {
+        return err({ code: "invalid_input", message: misdecided });
+      }
+      const body = mailBody(input.body, "reply");
       if (!body.ok) return body;
       const result = asReceiver && record.reply === "result";
       const queued = queue(tx, {
@@ -833,6 +879,7 @@ export function createRouter(deps: RouterDeps): Router {
         body: body.value,
         outcome: result ? { state: "done", reason: null } : null,
         unattended: input.unattended === true,
+        ...(decision === null ? {} : { decision }),
       });
       if (!queued.ok) return queued;
       if (result) {
@@ -846,18 +893,9 @@ export function createRouter(deps: RouterDeps): Router {
       const closed = finish(tx, record, "done", null, blocksText(input.body));
       return closed.ok ? ok({ delivered: true, closed: false }) : closed;
     }
-    const decision =
-      input.decision ??
-      (input.auto === true && record.ask === "approval" ? "reject" : null);
     if (asReceiver && record.ask !== null) {
-      if ((record.ask === "approval") !== (decision !== null)) {
-        return err({
-          code: "invalid_input",
-          message:
-            record.ask === "approval"
-              ? "answer an approval call with --allow or --reject"
-              : "a question call takes no decision",
-        });
+      if (misdecided !== null) {
+        return err({ code: "invalid_input", message: misdecided });
       }
       // 답은 자식의 queue가 아니라 main thread의 짝(request·질문)으로 간다.
       const closed = store.move(tx, calId(record.call), "done", null);
@@ -869,11 +907,8 @@ export function createRouter(deps: RouterDeps): Router {
       });
       return ok({ delivered: false, closed: false });
     }
-    if (decision !== null) {
-      return err({
-        code: "invalid_input",
-        message: "only an approval call takes a decision",
-      });
+    if (misdecided !== null) {
+      return err({ code: "invalid_input", message: misdecided });
     }
     const toSession = asReceiver ? sender : record.receiver_session;
     const target = toSession === null ? null : directory.find(sesId(toSession));
@@ -983,14 +1018,12 @@ export function createRouter(deps: RouterDeps): Router {
     for (const record of records) {
       const moved = finish(tx, record, "failed", reason);
       if (!moved.ok) return moved;
-      // ask call의 보낸 쪽은 기다리는 request·질문이라 queue에 알리지 않고 main thread가 푼다. 재시작이면 짝이 이미 없다.
-      if (record.ask !== null) {
-        if (reason === "receiver_ended") {
-          announce(tx, ASK_ENDED_TOPIC, { call: record.call });
-        }
-        continue;
+      // 다른 컴퓨터로 보낸 call(이 기계 팀원의 자리로 보낸 것)은 아직 내지 않은 call mail도 거둔다.
+      if (record.to.kind === "remote") {
+        const dropped = dropCallMail(tx, record.call);
+        if (!dropped.ok) return dropped;
       }
-      // 다른 컴퓨터에서 받은 call의 실패는 queue 알림 대신 그 기계로 가는 mail이다.
+      // 다른 컴퓨터에서 받은 call의 실패는 queue 알림 대신 그 기계로 가는 mail이다(그 기계 팀원의 ask도 그 기계가 짝을 푼다).
       if (record.from.kind === "remote") {
         const queued = queueFailure(
           tx,
@@ -1001,6 +1034,25 @@ export function createRouter(deps: RouterDeps): Router {
           restartedTaken ? TAKEN_RESTART_TEXTS.remote : undefined,
         );
         if (!queued.ok) return queued;
+        continue;
+      }
+      // ask call의 보낸 쪽은 기다리는 request·질문이라 queue에 알리지 않고 main thread가 푼다. 재시작이면 짝이 이미 없다. 다른 컴퓨터의
+      // 부모에게 보낸 ask(이 기계에서 도는 팀원의 것)는 그 기계의 행도 닫는다: 그 부모의 늦은 답이 갈 짝이 없다.
+      if (record.ask !== null) {
+        if (record.to.kind === "remote") {
+          const queued = queue(tx, {
+            kind: "cancel",
+            call: calId(record.call),
+            from: authorOf(
+              record.from.kind === "agent" ? record.from.session : null,
+            ),
+            to_machine: record.to.machine,
+            ...stamp(tx),
+          });
+          if (!queued.ok) return queued;
+        } else if (reason === "receiver_ended") {
+          announce(tx, ASK_ENDED_TOPIC, { call: record.call });
+        }
         continue;
       }
       if (notify && record.from.kind === "agent") {
@@ -1018,6 +1070,105 @@ export function createRouter(deps: RouterDeps): Router {
     return ok(records.length);
   }
 
+  // 보낸 session이 그 기계에 닿아도 되는가. main thread의 보내는 입구(remoteReach)가 먼저 답하지만 쓰는 tx에서 한 번 더 본다.
+  // 받은 mail로 열린 session은 그 mail을 보낸 기계로만 보낸다(다른 컴퓨터가 연 팀원이 부모에게 닿는 길이다). A의 일이 B를 거쳐 C에 닿지 않는다.
+  function mayMail(sender: TargetSession, peer: string): Result<void> {
+    if (isPrivate(callPolicy(), sender.agent.workspace)) {
+      return err({
+        code: "forbidden",
+        message: "a private workspace does not reach another computer",
+      });
+    }
+    if (
+      sender.opened_by_machine !== null &&
+      sender.opened_by_machine !== peer
+    ) {
+      return err({
+        code: "forbidden",
+        message:
+          "a session opened by mail from another computer sends only to that computer",
+      });
+    }
+    return ok(undefined);
+  }
+
+  // 다른 컴퓨터로 call mail을 낸다. 행과 mail이 한 tx에서 생기고 행은 이 기계의 queue에 없다(앱이 보낸 call처럼).
+  function mailCall(
+    tx: Tx,
+    sender: TargetSession,
+    input: {
+      dedup: string | null;
+      peer: MailOrigin;
+      address: RemoteAddress;
+      reply: CallReply;
+      body: ContentBlock[];
+      unattended: boolean;
+      ask: CallAskKind | null;
+      // 받을 session을 이미 안다: 이 기계 팀원의 자리, 팀원을 연 기계의 부모, `team spawn --on`이 연 자리.
+      session: Id<"ses"> | null;
+      spawn: boolean;
+    },
+  ): Result<SentRemote> {
+    const body = mailBody(input.body, "call");
+    if (!body.ok) return body;
+    const call = tx.newId("cal") as Id<"cal">;
+    const agent = sender.agent.agent;
+    const queued = queue(tx, {
+      kind: "call",
+      call,
+      from: {
+        machine: self(),
+        agent,
+        session: sender.session,
+        name: requesterName(directory.accepts(agent)?.name ?? agent),
+      },
+      to_machine: input.peer.machine,
+      ...stamp(tx),
+      address: input.address,
+      reply: input.reply,
+      body: body.value,
+      unattended: input.unattended,
+      ...(input.spawn && input.session !== null
+        ? { spawn: { session: input.session } }
+        : {}),
+      ...(input.ask === null ? {} : { ask: input.ask }),
+    });
+    if (!queued.ok) return queued;
+    const at = tx.now();
+    const record: AgentCallRow = {
+      call,
+      from: { kind: "agent", session: sender.session },
+      to: {
+        kind: "remote",
+        machine: input.peer.machine,
+        computer: input.peer.computer,
+        address: input.address,
+      },
+      // 받을 session을 아는 call은 그 session을 받는 session으로 적는다: 팀원의 자리가 끝나면 그 call이 닫히고 `team read`가 연 call을 센다.
+      receiver_session: input.session,
+      reply: input.reply,
+      state: "accepted",
+      fail_reason: null,
+      dedup: input.dedup,
+      unattended: input.unattended,
+      ask: input.ask,
+      result: null,
+      created_at: at,
+      state_changed_at: at,
+      delivery: "pending",
+      remote_session: input.session,
+    };
+    const stored = store.insert(tx, record);
+    if (!stored.ok) return stored;
+    changedIfRemote(tx, record);
+    return ok({
+      call,
+      state: "accepted",
+      fail_reason: null,
+      session: input.session,
+    });
+  }
+
   function sendRemote(tx: Tx, input: SendRemoteInput): Result<SentRemote> {
     const from: CallFrom = { kind: "agent", session: sesId(input.session) };
     const prior = store.byDedup(tx, from, input.dedup);
@@ -1033,23 +1184,18 @@ export function createRouter(deps: RouterDeps): Router {
     if (sender === null) {
       return err({ code: "not_found", message: "sender session not found" });
     }
-    // main thread의 보내는 입구(remoteReach)가 먼저 답하지만, 쓰는 tx에서 한 번 더 본다.
-    if (isPrivate(callPolicy(), sender.agent.workspace)) {
-      return err({
-        code: "forbidden",
-        message: "a private workspace does not reach another computer",
-      });
-    }
-    if (sender.opened_by_machine !== null) {
-      return err({
-        code: "forbidden",
-        message:
-          "a session opened by mail from another computer does not send to another computer",
-      });
-    }
-    // 팀원의 자리는 이 기계의 팀 규칙(상한, 깊이)을 그대로 거친다. 팀원은 그 컴퓨터에서 자식을 열지 못하는 잎이다.
+    const may = mayMail(sender, input.peer.machine);
+    if (!may.ok) return may;
+    // 팀원의 자리는 이 기계의 팀 규칙(상한, 깊이)을 그대로 거친다. 다른 컴퓨터가 연 팀원은 잎이라 어디에도 팀원을 열지 못한다.
     let member: TargetSession | null = null;
     if (input.spawn === true) {
+      if (sender.opened_by_machine !== null) {
+        return err({
+          code: "forbidden",
+          message:
+            "a session opened by mail from another computer does not spawn members",
+        });
+      }
       if (!("agent" in input.address) || "session" in input.address) {
         return err({
           code: "invalid_input",
@@ -1064,68 +1210,106 @@ export function createRouter(deps: RouterDeps): Router {
       );
       if (!opened.ok) return opened;
       member = opened.value;
+      // 자리는 이 컴퓨터의 session이 아니라 `SessionStarted`가 없다. 화면의 팀 tree는 이것으로 다시 읽는다.
+      announce(tx, STATE_CHANGED_TOPIC, [
+        { name: "sessions", id: member.session },
+      ]);
     }
-    const call = tx.newId("cal") as Id<"cal">;
-    const agent = sender.agent.agent;
-    const queued = queue(tx, {
-      kind: "call",
-      call,
-      from: {
-        machine: input.self,
-        agent,
-        session: input.session,
-        name: requesterName(directory.accepts(agent)?.name ?? agent),
-      },
-      to_machine: input.peer.machine,
-      ...stamp(tx),
+    return mailCall(tx, sender, {
+      dedup: input.dedup,
+      peer: input.peer,
       address: input.address,
       reply: input.reply,
       body: input.body,
       unattended: input.unattended,
-      ...(member === null ? {} : { spawn: { session: member.session } }),
-    });
-    if (!queued.ok) return queued;
-    const at = tx.now();
-    const record: AgentCallRow = {
-      call,
-      from,
-      to: {
-        kind: "remote",
-        machine: input.peer.machine,
-        computer: input.peer.computer,
-        address: input.address,
-      },
-      // 팀원에게 보낸 call은 그 자리를 받는 session으로 적는다: 팀원의 끝이 그 call을 닫고 `team read`가 연 call을 센다.
-      receiver_session: member?.session ?? null,
-      reply: input.reply,
-      state: "accepted",
-      fail_reason: null,
-      dedup: input.dedup,
-      unattended: input.unattended,
       ask: null,
-      result: null,
-      created_at: at,
-      state_changed_at: at,
-      delivery: "pending",
-      remote_session: member?.session ?? null,
-    };
-    const stored = store.insert(tx, record);
-    if (!stored.ok) return stored;
-    changedIfRemote(tx, record);
-    return ok({
-      call,
-      state: "accepted",
-      fail_reason: null,
       session: member?.session ?? null,
+      spawn: member !== null,
+    });
+  }
+
+  // 이 기계 agent의 call이 다른 컴퓨터에서 도는 팀원의 자리로 간다. 거름(call 정책, 팀 규칙)은 route가 마쳤고 배달은 그 컴퓨터로 가는 mail이다.
+  // 그 컴퓨터 이름은 spawn call에 얼어 있다.
+  function callMember(
+    tx: Tx,
+    session: string,
+    input: RouteInput,
+    target: TargetSession,
+  ): Result<RouteResult> {
+    const sender = directory.find(sesId(session));
+    if (sender === null) {
+      return err({ code: "not_found", message: "sender session not found" });
+    }
+    const machine = target.runs_on!;
+    const may = mayMail(sender, machine);
+    if (!may.ok) return may;
+    const spawn = store.memberCall(tx, target.session);
+    return mailCall(tx, sender, {
+      dedup: input.dedup,
+      peer: {
+        machine,
+        computer: spawn?.to.kind === "remote" ? spawn.to.computer : machine,
+      },
+      address: { session: target.session },
+      reply: input.reply,
+      body: input.body,
+      unattended: input.unattended === true,
+      ask: input.ask ?? null,
+      session: target.session,
+      spawn: false,
+    });
+  }
+
+  // 다른 컴퓨터가 연 팀원이 그 기계의 부모에게 보내는 call(`ask` 포함). 부모는 이 기계에 없고 팀 규칙은 그 기계가 건다. 그 밖의 주소면 null이다.
+  function toOpener(
+    tx: Tx,
+    session: string,
+    input: RouteInput,
+  ): Result<RouteResult> | null {
+    const addressing = addressingOf(input.to);
+    if (
+      input.kind !== "call" ||
+      addressing.form !== "session" ||
+      directory.find(sesId(addressing.session)) !== null
+    ) {
+      return null;
+    }
+    const sender = directory.find(sesId(session));
+    if (
+      sender === null ||
+      sender.opened_by_machine === null ||
+      sender.spawned_by !== addressing.session
+    ) {
+      return null;
+    }
+    const opening = store.memberCall(tx, sender.session);
+    return mailCall(tx, sender, {
+      dedup: input.dedup,
+      peer: {
+        machine: sender.opened_by_machine,
+        computer:
+          opening?.from.kind === "remote"
+            ? opening.from.computer
+            : sender.opened_by_machine,
+      },
+      address: { session: addressing.session },
+      reply: input.reply,
+      body: input.body,
+      unattended: input.unattended === true,
+      ask: input.ask ?? null,
+      session: sesId(addressing.session),
+      spawn: false,
     });
   }
 
   // mail의 주소를 이 기계의 call 주소로 푼다. 실패면 이유와 행에 남길 풀린 받는 곳이다.
   // 다른 컴퓨터의 mail은 그 기계의 mail이 연 session에만 이어 들어간다(사람이 연 session이나 다른 기계의 mail이 연 session은 없는 것과 같다).
+  // 이 기계가 그 기계에 연 팀원(`member`)의 mail은 이 기계의 팀원처럼 어느 session이든 가리키고 팀 규칙이 거른다.
   // 받는 workspace가 private이면 없는 것과 같다(있는지를 알리지 않는다).
   function localAddress(
     address: RemoteAddress,
     origin: string,
+    member: boolean,
   ):
     | { ok: true; to: CallAddressInput }
     | { ok: false; reason: CallFailReason; to: CallTarget | null } {
@@ -1133,7 +1317,7 @@ export function createRouter(deps: RouterDeps): Router {
     const ours = (session: string) => {
       const target = directory.find(sesId(session));
       return target !== null &&
-        target.opened_by_machine === origin &&
+        (member || target.opened_by_machine === origin) &&
         !isPrivate(policy, target.agent.workspace)
         ? target
         : null;
@@ -1171,8 +1355,12 @@ export function createRouter(deps: RouterDeps): Router {
   }
 
   // 지금 돌리면 받는 session에 닿는가(session을 열지는 않는다).
-  function receivable(address: RemoteAddress, origin: string): boolean {
-    const local = localAddress(address, origin);
+  function receivable(
+    address: RemoteAddress,
+    origin: string,
+    member: boolean,
+  ): boolean {
+    const local = localAddress(address, origin, member);
     if (!local.ok) return false;
     if ("agent" in local.to) return true;
     return directory.find(sesId(local.to.session))?.accepting === true;
@@ -1214,6 +1402,7 @@ export function createRouter(deps: RouterDeps): Router {
       ...mail.from,
       computer: origin.computer,
     };
+    const member = memberSender(from) !== null;
     // workflow의 step이면 step 입력으로 넣는다. 받은 행은 call처럼 남아 대기·만료·재시작·답(report)이 그 행으로 돈다.
     const step = mail.step;
     const routeInput: Omit<RouteInput, "to"> = {
@@ -1235,8 +1424,9 @@ export function createRouter(deps: RouterDeps): Router {
         step === undefined
           ? null
           : { instance: step.instance as Id<"wfi">, step: step.name },
+      ask: mail.ask ?? null,
     };
-    const address = localAddress(mail.address, origin.machine);
+    const address = localAddress(mail.address, origin.machine, member);
     // 다른 컴퓨터의 팀원은 agent 주소로만 열리고 그 기계가 지은 id를 쓴다. 부모는 그 기계의 보낸 session이다.
     const spawn = mail.spawn;
     if (
@@ -1381,6 +1571,22 @@ export function createRouter(deps: RouterDeps): Router {
         outcome?.state === "failed"
           ? (outcome.reason ?? "receiver_ended")
           : null;
+      // 다른 컴퓨터의 부모에게 보낸 ask: 답은 팀원의 queue가 아니라 main thread의 짝(request·질문)으로 간다. 답 아닌 끝은 짝을 거절로 푼다.
+      if (record.ask !== null) {
+        if (outcome === null) return ok(undefined);
+        const moved = finish(tx, record, outcome.state, reason);
+        if (!moved.ok) return moved;
+        if (outcome.state === "done") {
+          announce(tx, ASK_ANSWERED_TOPIC, {
+            call: record.call,
+            decision: mail.decision ?? null,
+            text: mail.body === null ? "" : blocksText(mail.body),
+          });
+        } else {
+          announce(tx, ASK_ENDED_TOPIC, { call: record.call });
+        }
+        return dropCallMail(tx, calId(record.call));
+      }
       const input =
         reason !== null
           ? {
@@ -1399,7 +1605,9 @@ export function createRouter(deps: RouterDeps): Router {
       if (outcome === null) return ok(undefined);
       const moved = finish(tx, record, outcome.state, reason);
       if (!moved.ok) return moved;
-      return dropCallMail(tx, calId(record.call));
+      const dropped = dropCallMail(tx, calId(record.call));
+      if (!dropped.ok) return dropped;
+      return reason === null ? ok(undefined) : spawnFailed(tx, record, reason);
     }
     // workflow가 그 기계로 넘긴 step의 실패·끝. report는 workflows가 따로 받는다(acceptStepReport).
     if (
@@ -1459,7 +1667,11 @@ export function createRouter(deps: RouterDeps): Router {
       !clash &&
       !withdrawn &&
       Date.parse(now) - Date.parse(mail.sent_at) > MAIL_LATE_MS &&
-      receivable(mail.address, origin.machine);
+      receivable(
+        mail.address,
+        origin.machine,
+        memberSender({ kind: "remote", ...mail.from, computer: "" }) !== null,
+      );
     const fresh = seen.mark(tx, {
       origin: origin.machine,
       id: mail.id,
@@ -1541,27 +1753,51 @@ export function createRouter(deps: RouterDeps): Router {
       }
       case "cancel": {
         if (
-          isFinished(record.state) ||
           record.from.kind !== "remote" ||
           record.from.machine !== origin.machine
         ) {
           return ok(NOT_APPLIED);
         }
-        const moved = finish(tx, record, "cancelled", null);
-        if (!moved.ok) return moved;
-        const target =
-          record.receiver_session === null
-            ? null
-            : directory.find(sesId(record.receiver_session));
-        const cancelled = transport.cancel(
-          tx,
-          target,
-          calId(record.call),
-          record.unattended,
-        );
-        return cancelled.ok ? ok(NOT_APPLIED) : cancelled;
+        if (!isFinished(record.state)) {
+          const moved = finish(tx, record, "cancelled", null);
+          if (!moved.ok) return moved;
+          const target =
+            record.receiver_session === null
+              ? null
+              : directory.find(sesId(record.receiver_session));
+          const cancelled = transport.cancel(
+            tx,
+            target,
+            calId(record.call),
+            record.unattended,
+          );
+          if (!cancelled.ok) return cancelled;
+        }
+        // 연 기계가 팀원의 자리를 닫았다(`team end`, 그 기계에서 보관): 이 call이 연 팀원 session을 사람의 archive처럼 닫는다.
+        if (mail.end === true && record.receiver_session !== null) {
+          const target = directory.find(sesId(record.receiver_session));
+          if (
+            target !== null &&
+            target.opened_by_machine === origin.machine &&
+            target.spawned_by !== null
+          ) {
+            const ended = directory.archive(tx, target.session);
+            if (!ended.ok) return ended;
+          }
+        }
+        return ok(NOT_APPLIED);
       }
       case "state": {
+        // 이 기계가 그 기계에 연 팀원의 session이 거기서 끝났다. 자리를 보관하고 그 자리로 보낸 열린 call은 receiver_ended다.
+        if (mail.delivery === "ended") {
+          const member =
+            mail.session === null ? null : directory.find(sesId(mail.session));
+          if (member === null || member.runs_on !== origin.machine) {
+            return ok(NOT_APPLIED);
+          }
+          const ended = directory.archive(tx, member.session);
+          return ended.ok ? ok(NOT_APPLIED) : ended;
+        }
         if (
           isFinished(record.state) ||
           record.to.kind !== "remote" ||
@@ -1630,16 +1866,45 @@ export function createRouter(deps: RouterDeps): Router {
     if (record.from.kind === "program") {
       return deps.steps.failed(tx, record.call, ending);
     }
-    return record.from.kind === "agent"
-      ? notifyFailed(
-          tx,
-          record.from.session,
-          record.call,
-          reason,
-          record.unattended,
-          body,
-        )
-      : ok(undefined);
+    // 팀원의 ask가 연 기계의 부모에게 닿지 못했다. 기다리는 request·질문을 거절로 푼다.
+    if (record.ask !== null) {
+      announce(tx, ASK_ENDED_TOPIC, { call: record.call });
+      return ok(undefined);
+    }
+    if (record.from.kind === "agent") {
+      const told = notifyFailed(
+        tx,
+        record.from.session,
+        record.call,
+        reason,
+        record.unattended,
+        body,
+      );
+      if (!told.ok) return told;
+    }
+    return spawnFailed(tx, record, reason);
+  }
+
+  // 다른 컴퓨터에 연 팀원의 spawn call이 그 컴퓨터에서 돌기 전에 실패했다(없는 agent, 이미 있는 id, 닫힘, 만료, 건너뜀, 옛 판, 명단에서
+  // 빠짐): 그 자리는 끝난다. 받은 turn이 답 없이 끝난 실패(receiver_ended, lophn_restarted)는 그 session이 살아 있어 자리를 둔다.
+  function spawnFailed(
+    tx: Tx,
+    record: AgentCallRow,
+    reason: CallFailReason,
+  ): Result<void> {
+    if (
+      record.to.kind !== "remote" ||
+      !("agent" in record.to.address) ||
+      record.remote_session === null ||
+      reason === "receiver_ended" ||
+      reason === "lophn_restarted" ||
+      directory.find(sesId(record.remote_session))?.runs_on !==
+        record.to.machine
+    ) {
+      return ok(undefined);
+    }
+    const ended = directory.archive(tx, sesId(record.remote_session));
+    return ended.ok ? ok(undefined) : ended;
   }
 
   function mailSent(
@@ -1881,8 +2146,9 @@ export function createRouter(deps: RouterDeps): Router {
     let expired = 0;
     let gone = 0;
     // 명단에서 빠진 기계: 닿을 길이 없으니 만료까지 기다리지 않는다(대기·모름·도는 중 모두). 그 기계가 보내던 답도 이제 받지 않는다.
+    // 그 기계에서 돌던 이 기계 팀원의 자리도 끝난다. 그 자리로 보낸 열린 call이 없던 부모에게는 같은 글을 한 번 준다.
     for (const peer of removed) {
-      outbox.dropPeer(tx, peer);
+      const told = new Set<string>();
       for (const call of outbox.openSentTo(tx, peer)) {
         const record = store.read(tx, calId(call));
         if (record === null || isFinished(record.state)) continue;
@@ -1894,8 +2160,27 @@ export function createRouter(deps: RouterDeps): Router {
           textBlocks(LEFT_ROSTER_TEXT),
         );
         if (!failed.ok) return failed;
+        if (record.remote_session !== null) told.add(record.remote_session);
         gone++;
       }
+      for (const member of directory.membersOn(tx, peer as Id<"mch">)) {
+        const ended = directory.archive(tx, member);
+        if (!ended.ok) return ended;
+        const spawn = store.memberCall(tx, member);
+        const parent = directory.find(member)?.spawned_by ?? null;
+        if (told.has(member) || spawn === null || parent === null) continue;
+        const notified = notifyFailed(
+          tx,
+          parent,
+          spawn.call,
+          "not_found",
+          spawn.unattended,
+          textBlocks(LEFT_ROSTER_TEXT),
+        );
+        if (!notified.ok) return notified;
+      }
+      // 자리를 닫으며 낸 mail까지 그 기계로 낼 줄은 모두 지운다.
+      outbox.dropPeer(tx, peer);
     }
     // 이 기계가 낸 줄: 닿지 못한 call은 보낸 session에 늦은 실패로 알린다.
     for (const mail of outbox.expired(tx, now)) {
@@ -1935,6 +2220,39 @@ export function createRouter(deps: RouterDeps): Router {
     return ok({ expired, gone });
   }
 
+  // 다른 컴퓨터를 건넌 팀원 session이 끝났다. 연 기계의 자리면 도는 컴퓨터에 그 session을 닫으라는 cancel(`end`)을, 도는 컴퓨터의 session이면
+  // 연 기계에 state `ended`를 낸다. 상대가 이미 닫았으면 그 mail은 아무것도 바꾸지 않는다. 자리는 상대에 닿지 않아도 이 기계에서 끝난다.
+  function memberEnded(tx: Tx, session: Id<"ses">): Result<void> {
+    const target = directory.find(session);
+    if (target === null) return ok(undefined);
+    const opening = store.memberCall(tx, session);
+    if (opening === null) return ok(undefined);
+    if (target.runs_on !== null) {
+      const queued = queue(tx, {
+        kind: "cancel",
+        call: calId(opening.call),
+        from: authorOf(target.spawned_by),
+        to_machine: target.runs_on,
+        ...stamp(tx),
+        end: true,
+      });
+      return queued.ok ? ok(undefined) : queued;
+    }
+    if (target.opened_by_machine !== null && target.spawned_by !== null) {
+      const queued = queue(tx, {
+        kind: "state",
+        call: calId(opening.call),
+        from: authorOf(session),
+        to_machine: target.opened_by_machine,
+        ...stamp(tx),
+        delivery: "ended",
+        session,
+      });
+      return queued.ok ? ok(undefined) : queued;
+    }
+    return ok(undefined);
+  }
+
   return {
     appSender(app) {
       const info = directory.app(app);
@@ -1958,7 +2276,8 @@ export function createRouter(deps: RouterDeps): Router {
             !(record.from.kind === "agent" && record.from.session === session),
         );
       const done = failAll(tx, records, "receiver_ended", true);
-      return done.ok ? ok(undefined) : done;
+      if (!done.ok) return done;
+      return memberEnded(tx, sesId(session));
     },
     failReceived(tx, session, call) {
       const record = store.read(tx, calId(call));

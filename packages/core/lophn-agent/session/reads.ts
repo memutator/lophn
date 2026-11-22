@@ -70,7 +70,14 @@ export function createConversationReads(): {
       route: workspaceSessionRead,
       handle(snapshot, ctx, input) {
         const row = loadSession(snapshot, input.session);
-        if (row === undefined || !sessionVisible(ctx, row)) return notFound();
+        // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니다(대화와 agent가 그 컴퓨터에 있다).
+        if (
+          row === undefined ||
+          row.runs_on !== null ||
+          !sessionVisible(ctx, row)
+        ) {
+          return notFound();
+        }
         return ok({
           session: workspaceSessionOf(row),
           as_of_seq: snapshot.as_of_seq,
@@ -92,11 +99,13 @@ export function createConversationReads(): {
         if (scope === undefined) return empty;
         // 목록은 agent별이다. 제목 검색은 화면이 이 결과의 제목만 거른다.
         const which = sessionClause(input.agent, input.workspace);
-        // GUI 탭의 팀원 session은 그 탭이 자리다. 목록에 한 번 더 세우지 않는다.
+        // GUI 탭의 팀원 session은 그 탭이 자리다. 목록에 한 번 더 세우지 않는다. 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이
+        // 아니다(팀 tree는 session snapshot이 그린다).
         const clauses = [
           "created_seq > ?",
           `(${which.sql})`,
           "harness_gui = 0",
+          "runs_on is null",
         ];
         const params: (string | bigint | null)[] = [
           after.value ?? 0n,

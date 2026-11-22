@@ -92,6 +92,43 @@ function many(
   return records;
 }
 
+// 다른 컴퓨터에 연 팀원(`team spawn --on`)의 첫 call: 연 기계에서는 그 자리로 보낸 spawn call, 팀원이 도는 기계에서는 그 session을 연
+// call이다. 두 기계 사이의 팀원 mail(끝, 끝남 알림)이 이 call id를 쓰고, 상대 컴퓨터의 이름도 여기 얼어 있다.
+export function memberCallOf(
+  view: Pick<SqlView, "sql">,
+  session: Id<"ses">,
+): AgentCallRow | null {
+  const row = view.sql.get(
+    `select ${COLUMNS} from agent_calls
+     where (remote_session = ? and json_extract("to", '$.kind') = 'remote')
+        or (receiver_session = ? and from_machine is not null)
+     order by created_at, call limit 1`,
+    [session, session],
+  );
+  if (row === undefined) return null;
+  const record = recordOf(row);
+  return record.ok ? record.value : null;
+}
+
+// 다른 컴퓨터에 연 팀원의 자리가 어디까지 갔는지: 그 컴퓨터 이름과, spawn call의 배달 상태(닿지 않음·모름은 pending, 그 컴퓨터의 대기
+// 목록이면 held, 받았거나 spawn call이 끝났으면 running). 자리가 끝났는지(ended)는 session 행이 안다.
+export function memberDeliveryOf(
+  view: Pick<SqlView, "sql">,
+  session: Id<"ses">,
+): { computer: string; state: "pending" | "held" | "running" } | null {
+  const spawn = memberCallOf(view, session);
+  if (spawn === null || spawn.to.kind !== "remote") return null;
+  return {
+    computer: spawn.to.computer,
+    state:
+      spawn.delivery === "pending" || spawn.delivery === "unknown"
+        ? "pending"
+        : spawn.delivery === "held"
+          ? "held"
+          : "running",
+  };
+}
+
 // 하나라도 읽지 못하는 행이 있으면 건너뛴다. 닫는 일이 나머지를 막지 않게 한다.
 export function createCallStore(): CallStore {
   return {
@@ -168,6 +205,7 @@ export function createCallStore(): CallStore {
       const read = readCall(tx, call);
       return read.ok ? read.value : null;
     },
+    memberCall: (tx, session) => memberCallOf(tx, session),
     move(tx, call, to, reason, result) {
       const current = readCall(tx, call);
       if (!current.ok) return current;
@@ -205,13 +243,14 @@ export function createCallStore(): CallStore {
       );
       return ok(undefined);
     },
-    // ask call은 부모가 가져갔어도 닫는다: 자식의 request·질문이 메모리라 사라져 부모의 늦은 답이 갈 곳이 없다.
-    // 다른 컴퓨터로 보낸 행(delivery가 있다)은 이 기계의 queue에 있지 않아 잃지 않는다. 답은 outbox와 그 기계가 맡는다.
+    // ask call은 부모가 가져갔어도 닫는다: 자식의 request·질문이 메모리라 사라져 부모의 늦은 답이 갈 곳이 없다. 다른 컴퓨터의 부모에게
+    // 보낸 ask call(팀원의 ask)도 같다. 그 밖의 다른 컴퓨터로 보낸 행(delivery가 있다)은 이 기계의 queue에 있지 않아 잃지 않는다. 답은
+    // outbox와 그 기계가 맡는다.
     lost(tx) {
       return many(
         tx.sql.all(
           `select ${COLUMNS} from agent_calls
-         where state = 'accepted' and (consumed = 0 or ask is not null) and delivery is null
+         where state = 'accepted' and (consumed = 0 or ask is not null) and (delivery is null or ask is not null)
          order by created_at, call`,
           [],
         ),

@@ -10,6 +10,7 @@ import { loadProject } from "../../../projects/registry/mod.ts";
 import {
   createReceivedRecorder,
   createSessionDirectory,
+  SESSION_END_DEPS,
   workspaceDepsOf,
 } from "../../../lophn-agent/workspaces/mod.ts";
 import {
@@ -52,6 +53,8 @@ const environment: RouterEnvironment = {
         publish: (event) =>
           view.port(afterCommit).push(AGENT_EVENT_TOPIC, event),
         sql: () => view.sql,
+        // 다른 컴퓨터가 팀원을 끝내면(연 기계의 `team end`, 팀원이 도는 기계의 보관) 사람의 archive처럼 닫는다.
+        end: SESSION_END_DEPS,
       }),
       projectOfIdentity: (identity: string) =>
         projectByIdentity(view.sql, identity) as Id<"prj"> | null,

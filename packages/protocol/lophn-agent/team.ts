@@ -85,14 +85,21 @@ export const teamEnd = defineCommand({
   errors: [...commandErrors],
 });
 
+// 다른 컴퓨터에서 도는 팀원만의 상태. running은 이 컴퓨터의 상태와 같은 말이다.
+export const TEAM_MEMBER_REMOTE_STATES = ["pending", "held"] as const;
+
 const teamMemberSchema = z.object({
   session: idSchema("ses"),
   // agent handle과 보이는 이름, 한 줄 목적이다.
   agent: z.string(),
   name: z.string(),
   description: z.string().nullable(),
-  runtime: agentRuntimeSchema,
-  state: z.enum(SENDABLE_SESSION_STATES),
+  // 다른 컴퓨터에서 도는 팀원은 그 컴퓨터의 정의라 이 컴퓨터가 runtime을 모른다(null).
+  runtime: agentRuntimeSchema.nullable(),
+  // 다른 컴퓨터에서 도는 팀원(`team spawn --on`)이면 그 컴퓨터 이름. 이 컴퓨터의 팀원은 null이다.
+  computer: z.string().nullable(),
+  // 다른 컴퓨터의 팀원은 spawn call의 배달로 읽는다: 아직 닿지 않음(pending), 그 컴퓨터의 대기 목록(held), 받아 돎(running).
+  state: z.enum([...SENDABLE_SESSION_STATES, ...TEAM_MEMBER_REMOTE_STATES]),
   // 내가 이 팀원에게 보낸, 아직 답을 받지 못한 result·conversation call. 팀원이 `call reply`를 잊은 것을 알아채는 길이다.
   open_calls: z.array(
     z.object({

@@ -12,6 +12,7 @@ export { UNWIRED_END_DEPS, UNWIRED_WORKSPACE_DEPS } from "./unwired.ts";
 export {
   COMMIT_END_DEPS,
   installWorkspaceEnvironment,
+  SESSION_END_DEPS,
   openDepsOf,
   workspaceDepsOf,
 } from "./environment.ts";

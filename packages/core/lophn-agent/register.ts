@@ -60,7 +60,6 @@ import {
   callSignals,
   deleteAppCallsReceivedBy,
   failReceivedCall,
-  failReceivedCalls,
   messageApp,
   messageDirectory,
   messageRouter,
@@ -141,7 +140,6 @@ import {
   createTurnCommands,
   createTurnReads,
   deleteSessionTurns,
-  interruptRunningTurns,
   interruptTurnsCommand,
   publishAfterCommit,
   turnBodyFields,
@@ -192,8 +190,8 @@ import {
   usageSchemaSteps,
 } from "./usage/mod.ts";
 import {
-  COMMIT_END_DEPS,
   openDepsOf,
+  SESSION_END_DEPS,
   UNWIRED_END_DEPS,
 } from "./workspaces/mod.ts";
 
@@ -333,20 +331,7 @@ const conversationCommands = createConversationCommands({
   open: openDepsOf,
   failCall: failReceivedCall,
   // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. queue 비우기와 Bus event는 commit 뒤에 main thread가 한다.
-  end: {
-    ...UNWIRED_END_DEPS,
-    ...COMMIT_END_DEPS,
-    effects: { ...UNWIRED_END_DEPS.effects, failReceivedCalls },
-    interruptRunningTurns: (tx, session) => {
-      const done = interruptRunningTurns(
-        tx,
-        publishAfterCommit,
-        "session_ended",
-        session,
-      );
-      return done.ok ? ok(undefined) : done;
-    },
-  },
+  end: SESSION_END_DEPS,
 });
 const conversationReads = createConversationReads();
 // 창 한도는 저장 검사와 같은 catalog 바탕에서 읽는다.

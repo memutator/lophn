@@ -82,6 +82,7 @@ function router() {
     },
     byDedup: () => null,
     read: (_tx, call) => rows.get(call) ?? null,
+    memberCall: () => null,
     move: (_tx, call, to, reason, result) => {
       const moved = {
         ...rows.get(call)!,
@@ -101,6 +102,8 @@ function router() {
     directory: {
       find: (session) => sessions[session] ?? null,
       resolveAddress: () => ok(lophn),
+      archive: () => ok(false),
+      membersOn: () => [],
       openMember: () => err({ code: "forbidden", message: "not in this test" }),
       open: () => ok(sessions[MEMBER]!),
       app: () => null,

@@ -645,7 +645,7 @@ test("터미널 입력 허락이 없는 컴퓨터가 보낸 mail로 열린 sessi
   assert.equal(a.count("mail_outbox"), 0);
 });
 
-test("private workspace의 session과 받은 mail로 열린 session은 send_remote가 forbidden이고 outbox에 줄이 생기지 않는다", async () => {
+test("private workspace의 session은 send_remote가 forbidden이고 받은 mail로 열린 session은 연 컴퓨터에만 보내며, 막힌 것은 outbox에 줄이 생기지 않는다", async () => {
   const a = await machine(A);
   const b = await machine(B);
   connect(a, b);
@@ -690,7 +690,11 @@ test("private workspace의 session과 받은 mail로 열린 session은 send_remo
   await a.drain.wake(B);
   const opened = b.db.prepare("select id from sessions").get()?.["id"];
   assert.equal(typeof opened, "string");
-  for (const name of ["laptop", "tower", "nowhere"]) {
+  // 받은 mail로 열린 session은 그 mail을 보낸 컴퓨터에만 보낸다.
+  for (const [name, expected] of [
+    ["tower", "forbidden"],
+    ["nowhere", "not_found"],
+  ] as const) {
     assert.equal(
       code(
         await b.sendRemote(
@@ -699,12 +703,22 @@ test("private workspace의 session과 받은 mail로 열린 session은 send_remo
           name,
         ),
       ),
-      "forbidden",
+      expected,
       name,
     );
   }
   assert.equal(b.count("mail_outbox"), 0);
   assert.equal(b.count("agent_calls"), 1);
+  assert.equal(
+    code(
+      await b.sendRemote(
+        String(opened),
+        { ...HOME_REVIEWER, machine: "laptop" },
+        "back",
+      ),
+    ),
+    "ok",
+  );
 });
 
 test("drain에서 상대가 not_found로 답하면 call이 old_version으로 닫히고, 답을 잃으면 delivery가 unknown으로 남아 다음 drain에 같은 mail id가 다시 간다", async () => {

@@ -35,12 +35,18 @@ function directoryOf(sql: ReadSql): Result<SessionDirectory> {
   return ok(environment.value.deps(view, () => "").directory);
 }
 
-// 보낸 session이 다른 컴퓨터에 닿아도 되는가.
+// 보낸 session이 다른 컴퓨터에 닿아도 되는가. call을 보내는 쪽(`sending`)은 받은 mail로 열린 session이 그 기계로만 보내는지를 컴퓨터를
+// 푼 뒤 `opened_by_machine`으로 본다. 목록과 명함은 받은 mail로 열린 session이 읽지 못한다.
 export function remoteReach(
   sql: ReadSql,
   session: Id<"ses">,
   policy: CallPolicy,
-): Result<{ workspace: Workspace | null; agent: AgentId }> {
+  sending = false,
+): Result<{
+  workspace: Workspace | null;
+  agent: AgentId;
+  opened_by_machine: Id<"mch"> | null;
+}> {
   const directory = directoryOf(sql);
   if (!directory.ok) return directory;
   const target = directory.value.find(session);
@@ -55,14 +61,14 @@ export function remoteReach(
     });
   }
   // 받은 일을 또 다른 기계로 넘기지 않는다.
-  if (target.opened_by_machine !== null) {
+  if (target.opened_by_machine !== null && !sending) {
     return err({
       code: "forbidden",
       message:
-        "a session opened by mail from another computer does not send to another computer",
+        "a session opened by mail from another computer does not list another computer",
     });
   }
-  return ok({ workspace, agent });
+  return ok({ workspace, agent, opened_by_machine: target.opened_by_machine });
 }
 
 function crossing(

@@ -63,6 +63,8 @@ function world(refuse: boolean) {
           refuse
             ? err({ code: "forbidden" as const, message: "private" })
             : ok({ agent: "lophn_app", workspace: null }),
+        archive: () => ok(false),
+        membersOn: () => [],
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target),
@@ -85,6 +87,7 @@ function world(refuse: boolean) {
         },
         byDedup: () => null,
         read: (_tx, call) => rows.get(call) ?? null,
+        memberCall: () => null,
         move: (_tx, call, to, reason) => {
           const moved = { ...rows.get(call)!, state: to, fail_reason: reason };
           rows.set(call, moved);

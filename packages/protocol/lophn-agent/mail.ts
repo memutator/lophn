@@ -5,6 +5,8 @@ import { atSchema } from "../base/values.ts";
 import { contentBlocksSchema } from "./content-block.ts";
 import {
   agentCallSend,
+  callAskKindSchema,
+  callDecisionSchema,
   callFailReasonSchema,
   callReplySchema,
   remoteAddressSchema,
@@ -92,6 +94,8 @@ export const mailSchema = z.discriminatedUnion("kind", [
     // `team spawn --on`이면 보낸 기계가 지은 새 session id. 받는 기계는 그 id로 session을 열고 보낸 session(`from.session`)을
     // 그 팀의 부모로 적는다. 주소는 agent 꼴이어야 한다.
     spawn: z.strictObject({ session: idSchema("ses") }).optional(),
+    // 다른 컴퓨터에 연 팀원의 ask(질문, shell 승인)면 그 종류. 연 기계의 부모가 답하고 답의 `decision`이 돌아간다.
+    ask: callAskKindSchema.optional(),
   }),
   z.strictObject({
     kind: z.literal("reply"),
@@ -115,13 +119,21 @@ export const mailSchema = z.discriminatedUnion("kind", [
         ended: z.enum(TURN_ENDED_KINDS).optional(),
       })
       .optional(),
+    // 승인 ask call의 답이면 부모의 결정.
+    decision: callDecisionSchema.optional(),
   }),
-  z.strictObject({ kind: z.literal("cancel"), ...common }),
-  // 받는 기계가 call mail을 어떻게 받았는지 보낸 기계에 알린다.
+  // `end`는 `team end`나 사람이 연 기계에서 팀원의 자리를 닫은 것이다: 받는 기계는 그 call이 연 팀원 session을 보관한다.
+  z.strictObject({
+    kind: z.literal("cancel"),
+    ...common,
+    end: z.literal(true).optional(),
+  }),
+  // 받는 기계가 call mail을 어떻게 받았는지 보낸 기계에 알린다. `ended`는 다른 컴퓨터가 연 팀원 session이 받는 기계에서 끝났다는 것이다
+  // (보낸 기계는 팀원의 자리를 보관한다).
   z.strictObject({
     kind: z.literal("state"),
     ...common,
-    delivery: z.enum(["held", "running"]),
+    delivery: z.enum(["held", "running", "ended"]),
     session: idSchema("ses").nullable(),
   }),
 ]);

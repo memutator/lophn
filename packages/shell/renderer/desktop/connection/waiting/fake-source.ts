@@ -589,6 +589,7 @@ export function createFakeWaiting(
         agent: session.agent,
         workspace: session.workspace,
         spawned_by: null,
+        runs_on: null,
         state: "waiting",
         turn_requests: [],
         questions: [],

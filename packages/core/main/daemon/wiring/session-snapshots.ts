@@ -26,6 +26,8 @@ import {
   openConnection,
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { memberDeliveryOf } from "../../../router/store.ts";
 
 // 멈춘 turn의 쓰는 중인 글을 저장하고, core가 끝내는 turn의 active를 마감하는 core 안 자격이다.
 // 기동 때 ledger에 기록한다.
@@ -100,6 +102,30 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
         for (const row of lophn) {
           // GUI 탭의 팀원 session은 그 탭이 화면의 자리다(`hidingSessions`).
           if (row.harness_gui) continue;
+          // 다른 컴퓨터에서 도는 팀원의 자리: turn과 기다림은 그 컴퓨터에 있다. 자리의 상태는 spawn call의 배달이다.
+          if (row.runs_on !== null) {
+            const delivery = memberDeliveryOf(lookup, row.id as Id<"ses">);
+            snapshots.push({
+              session: row.id,
+              agent: null,
+              workspace: workspaceOf(row),
+              spawned_by: row.spawned_by as SessionSnapshot["spawned_by"],
+              runs_on: {
+                machine: row.runs_on as Id<"mch">,
+                computer: delivery?.computer ?? row.runs_on,
+                handle: row.agent,
+                state:
+                  row.lifecycle !== "open"
+                    ? "ended"
+                    : (delivery?.state ?? "pending"),
+                state_seq: row.state_seq,
+              },
+              state: "unknown",
+              turn_requests: [],
+              questions: [],
+            });
+            continue;
+          }
           const turn_requests = requests(row.id);
           const questions = ctx.questionWaits.list(row.id);
           snapshots.push({
@@ -107,6 +133,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             agent: row.agent,
             workspace: workspaceOf(row),
             spawned_by: row.spawned_by as SessionSnapshot["spawned_by"],
+            runs_on: null,
             state: sessionStateOf(sql, row.id, {
               approval: turn_requests.length > 0,
               question: questions.length > 0,

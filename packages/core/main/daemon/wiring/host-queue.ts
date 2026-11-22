@@ -580,6 +580,7 @@ export function createTabHandlers(deps: TabDeps) {
   // 사람이 창의 browser 탭을 열린 session에 넘긴다(route actor가 사람뿐이다).
   const hand: MemoryHandler = (_who, body) => {
     const input = tabsHand.input.parse(body);
+    // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 browser를 다루지 못해 받을 session으로 치지 않는다.
     const handed = queue.hand(
       {
         ...(input.tab === undefined ? {} : { tab: input.tab as Id<"tab"> }),
@@ -588,7 +589,10 @@ export function createTabHandlers(deps: TabDeps) {
         profile: (input.profile ?? null) as Id<"bpf"> | null,
         url: input.url,
       },
-      () => isOpen(input.session),
+      () => {
+        const row = sessionRow(input.session);
+        return row?.lifecycle === "open" && row.runs_on === null;
+      },
     );
     return handed.ok ? ok({ tab: handed.value }) : handed;
   };
@@ -597,6 +601,8 @@ export function createTabHandlers(deps: TabDeps) {
     "You can give a tab only to a session you opened with `lophn team spawn` or one below it.";
   const NO_TABS =
     "That session is a coding agent chat tab; it cannot drive browser tabs.";
+  const ELSEWHERE =
+    "That team member runs on another computer; it cannot drive browser tabs on this one.";
   // 자기가 든 browser 탭을 자기 밑의 열린 lophn session에 주거나(`session`), 준 탭을 되찾는다(`session`이 없거나 자기).
   const give: MemoryHandler = (who, body) => {
     const caller = agentSession(who);
@@ -615,6 +621,10 @@ export function createTabHandlers(deps: TabDeps) {
       }
       // GUI 탭 팀원의 turn은 그 터미널 탭의 coding agent가 돌려 lophn browser를 쓰지 않는다.
       if (row.harness_gui) return err({ code: "conflict", message: NO_TABS });
+      // 다른 컴퓨터에서 도는 팀원의 자리도 이 컴퓨터의 browser를 쓰지 않는다.
+      if (row.runs_on !== null) {
+        return err({ code: "conflict", message: ELSEWHERE });
+      }
     }
     const given = queue.give(
       input.tab as Id<"tab">,

@@ -19,6 +19,7 @@ import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import { projectNameByIdentity } from "../../../projects/lookups.ts";
 import { redactBlocks } from "../../../lophn-agent/session/message-body.ts";
+import { memberMachines } from "../../../lophn-agent/session/model.ts";
 import { requesterOf } from "../../../remote/call.ts";
 import { createMailDrain, type MailDrain } from "../../../remote/mail-drain.ts";
 import {
@@ -135,12 +136,18 @@ export const mailWiring: WiringFactory = () => {
         const prepared = await deps.prepare([
           textBlocks(FAILURE_TEXTS.expired),
           textBlocks(LEFT_ROSTER_TEXT),
+          // 끝나는 팀원의 자리로 보낸 다른 열린 call의 알림이다.
+          textBlocks(FAILURE_TEXTS.receiver_ended),
         ]);
         if (!prepared.ok) return prepared;
         // 없음이 아니라 정해진 빼기로 빠진 기계만이다(명단을 아직 읽지 못한 때 모든 call을 닫지 않게).
-        const removed = sentPeers(sql).filter(
-          (peer) => ctx.peek.computerRemoved?.(peer) ?? false,
-        );
+        // 그 기계에서 도는 이 기계 팀원의 자리도 닫는다(spawn call이 끝났어도).
+        const removed = [
+          ...new Set<Id<"mch">>([
+            ...sentPeers(sql),
+            ...(memberMachines({ sql }) as Id<"mch">[]),
+          ]),
+        ].filter((peer) => ctx.peek.computerRemoved?.(peer) ?? false);
         return await command(callsMailSweep, { removed });
       };
       sweep = sweeping;

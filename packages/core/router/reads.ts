@@ -8,7 +8,7 @@ import { teamRead } from "../../protocol/lophn-agent/team.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import { routerEnvironment } from "./environment.ts";
 import { calId, sesId, teamMayReach } from "./model.ts";
-import { openCallsSentBy, readCall } from "./store.ts";
+import { memberDeliveryOf, openCallsSentBy, readCall } from "./store.ts";
 
 // call을 누를 때 그때의 상태를 읽는다. 상태 구독은 없다. agent는 자기가 보냈거나 받은 call만 본다.
 const readCallRead: ReadDefinition<typeof agentCallRead> = {
@@ -94,19 +94,35 @@ const readTeam: ReadDefinition<typeof teamRead> = {
     if (me === null) {
       return err({ code: "not_found", message: "session not found" });
     }
+    // 다른 컴퓨터에서 도는 팀원의 자리는 입력을 받지 않아도 팀원이다.
     const open = directory
       .listOpen()
-      .filter((target) => target.accepting && target.session !== me.session);
+      .filter(
+        (target) =>
+          (target.accepting || target.runs_on !== null) &&
+          target.session !== me.session,
+      );
     const sent = openCallsSentBy(snapshot, me.session);
     const memberOf = (target: (typeof open)[number]) => {
-      const described = environment.value.describe?.(snapshot, target);
+      const remote =
+        target.runs_on === null
+          ? null
+          : memberDeliveryOf(snapshot, target.session);
+      const described =
+        target.runs_on === null
+          ? environment.value.describe?.(snapshot, target)
+          : undefined;
       return {
         session: target.session,
         agent: target.handle,
         name: target.name,
-        description: target.description,
-        runtime: target.runtime,
-        state: STATES.find((one) => one === described?.state) ?? "unknown",
+        description: target.runs_on === null ? target.description : null,
+        runtime: target.runs_on === null ? target.runtime : null,
+        computer: remote?.computer ?? null,
+        state:
+          remote?.state ??
+          STATES.find((one) => one === described?.state) ??
+          "unknown",
         open_calls: sent
           .filter((one) => one.receiver_session === target.session)
           .map((one) => ({

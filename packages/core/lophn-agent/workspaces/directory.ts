@@ -9,6 +9,7 @@ import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
 import {
   type AgentSessionRow,
   loadSession,
+  nextSessionSeq,
   workspaceOf,
   SESSION_COLUMNS,
   sessionRowOf,
@@ -18,15 +19,18 @@ import { DEFAULT_TEAM_LIMITS } from "../../../protocol/lophn-agent/team.ts";
 import { dataRootOf } from "../agents/mod.ts";
 import {
   checkSpawnSlot,
+  endSession,
   startMemberSession,
   startSession,
 } from "./lifecycle.ts";
 import { acceptsInput } from "./model.ts";
-import type { OpenDeps } from "./ports.ts";
+import type { EndDeps, OpenDeps } from "./ports.ts";
 
 type SessionDirectoryDeps = OpenDeps & {
   // 지금 transaction의 sql이다. Router가 한 tx 안에서 부르는 find와 listOpen이 읽는다.
   sql(): Pick<Sql, "get" | "all">;
+  // session을 끝낼 때의 영향(archive). 읽기만 하는 directory는 없다.
+  end?: EndDeps;
 };
 
 // Router가 쓰는 SessionDirectory를 구현한다. session 행이 곧 받는 곳이다. project 정체는 projects module의 것이라 wiring이 더한다.
@@ -81,7 +85,7 @@ export function createSessionDirectory(
       if (sender === undefined) {
         return err({ code: "not_found", message: "session not found" });
       }
-      const started = startMemberSession(tx, deps, {
+      const started = startMemberSession(tx, {
         id: tx.newId("ses"),
         handle,
         workspace: workspaceOf(sender),
@@ -90,10 +94,48 @@ export function createSessionDirectory(
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },
+    archive(tx, session) {
+      const row = loadSession(tx, session);
+      if (row === undefined || row.lifecycle !== "open") return ok(false);
+      if (deps.end === undefined) {
+        return err({
+          code: "unavailable",
+          message: "sessions cannot end here",
+        });
+      }
+      tx.sql.run(
+        "update sessions set lifecycle = 'archived', state_seq = ? where id = ?",
+        [nextSessionSeq(tx), row.id],
+      );
+      const ended = endSession(tx, deps.end, row, "archived");
+      return ended.ok ? ok(true) : ended;
+    },
+    membersOn(tx, machine) {
+      return tx.sql
+        .all(
+          "select id from sessions where runs_on = ? and lifecycle = 'open' order by created_seq",
+          [machine],
+        )
+        .map((row) => String(row["id"]) as Id<"ses">);
+    },
     open(tx, agent, opener, spawnedBy, options) {
       const member = options?.member;
       if (member !== undefined && loadSession({ sql: tx.sql }, member.id)) {
         return err({ code: "not_found", message: "that session id is taken" });
+      }
+      // 다른 컴퓨터가 연 팀원은 잎이다: 이 컴퓨터에 자식을 열지 못한다(팀 규칙과 상한은 연 기계가 센다).
+      const parent =
+        spawnedBy === null ? undefined : loadSession(tx, spawnedBy);
+      if (
+        parent !== undefined &&
+        parent.opened_by_machine !== null &&
+        parent.spawned_by !== null
+      ) {
+        return err({
+          code: "conflict",
+          message:
+            "a team member opened from another computer does not spawn; do the work yourself or ask your parent",
+        });
       }
       if (spawnedBy !== null) {
         // writer Worker 안에서 설정 파일을 읽는다. 읽지 못하면 기본 상한이다.

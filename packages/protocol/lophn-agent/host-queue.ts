@@ -600,7 +600,7 @@ export const tabsList = defineMemory({
 });
 
 // 사람이 창의 browser 탭을 열린 session에 넘긴다. 탭은 그 자리에 그대로 있고 core 표의 주인만 그 session이 된다. 넘겨받은 탭은
-// 그 session이 browser 호출로 다루지만 닫지 못한다(`tabs/close`가 `forbidden`). session이 없거나 열려 있지 않으면 `not_found`,
+// 그 session이 browser 호출로 다루지만 닫지 못한다(`tabs/close`가 `forbidden`). session이 없거나 열려 있지 않거나 다른 컴퓨터에서 도는 팀원의 자리면 `not_found`,
 // agent가 연 탭(넘겨받은 탭 밖)이거나 browser 탭이 아니면 `conflict`다. 창이 core에 다시 붙을 때 같은 `tab`으로 다시 부른다.
 // core 표에 이미 있는 넘긴 탭을 다시 알리면 주인은 core 표의 것을 그대로 둔다(그 사이 `tabs/give`가 옮겼을 수 있다).
 export const tabsHand = defineMemory({

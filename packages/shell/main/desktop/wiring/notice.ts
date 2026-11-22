@@ -340,7 +340,8 @@ export function createNoticeWiring(
       sessions: [session],
     });
     const agent = snapshots?.snapshots[0]?.agent;
-    if (agent === undefined) return null;
+    // 다른 컴퓨터에서 도는 팀원의 자리(agent null)는 이 컴퓨터의 알림을 내지 않는다.
+    if (agent === undefined || agent === null) return null;
     const [definition, record] = await Promise.all([
       read(machine, "read", agentRead, { agent }),
       read(machine, "read", workspaceSessionRead, { session }),

@@ -373,6 +373,18 @@ export function openSessions(lookup: {
     .map(sessionRowOf);
 }
 
+// 이 컴퓨터의 팀원이 열린 채로 도는 다른 컴퓨터들(`team spawn --on`의 자리).
+export function memberMachines(lookup: {
+  sql: { all: (query: string, params: SqlParams) => SqlRow[] };
+}): string[] {
+  return lookup.sql
+    .all(
+      "select distinct runs_on from sessions where runs_on is not null and lifecycle = 'open'",
+      [],
+    )
+    .map((row) => String(row["runs_on"]));
+}
+
 export function workspaceOf(row: AgentSessionRow): Workspace | null {
   return row.workspace_kind === null || row.workspace_id === null
     ? null

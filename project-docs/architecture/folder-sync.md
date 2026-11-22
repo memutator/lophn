@@ -159,6 +159,7 @@
 - 풀기(`apps/sync_held`, 사람과 그 앱의 agent): 목록(줄마다 `made_here`와 건드리는 표·종류·때), `apply`, `discard`. 저절로 풀리지 않는다.
   - apply: 이 기계가 낸 변경은 이미 data에 있어 다시 적용하지 않는다. 앱 process가 그 변경이 건드린 row·칸의 지금 값을 새 clock으로 찍고 그것이 보통 변경으로 나간다(사람의 다시 정함). 사라졌거나 뒤 변경이 다시 쓴 row는 뒤 변경이 맡으니 뺀다. 다른 기계나 폰에서 온 변경은 다시 적용하고 지금 data와 부딪으면 `conflict`다.
   - discard: 적용하지도 내보내지도 않고 `resolved_at`을 적는다. bytes는 기록에 남는다. 이 기계가 낸 변경은 이 기계의 data에 남고 변경으로는 나가지 않는다(뒤에 이 기계가 snapshot을 쓰면 그 지금 값이 실린다).
+  - 풀기는 그 기계의 일이다. 같은 변경이 여러 기계에서 held여도(같은 snapshot을 받은 기계마다) 한 기계의 apply는 그 row를 새 clock의 보통 변경으로 내보내므로, 다른 기계가 같은 held row를 discard해도 그 row는 그 기계에 온다(discard는 그 기계가 그 held를 적용하지 않는 것이지 그 row를 막는 것이 아니다).
 
 ### 미래 clock
 
@@ -215,7 +216,7 @@
 
 - 내보내기와 앱 기록·release·source 쓰기: 앱마다 sync log가 바뀐 뒤 5초 debounce, 5분 timer, destination 설정이 바뀜, 활성 release가 바뀜(활성화, take-in), core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 읽기 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(사본 없이 내보내면 hold 규칙이 다른 기계의 horizon을 몰라 떨어져 있던 변경이 그대로 나간다). scan이 실패하면 다음 scan 뒤로 미룬다.
 - 읽기: destination의 `machines/`와 다른 기계의 하위 폴더를 폴더마다 감시(2초 debounce)하고 2분 timer. 새 폴더는 다음 scan이 감시에 더한다.
-- 내보내기와 앱 기록·source 쓰기는 (앱, destination)마다, 읽기는 앱마다(그 안에서 (destination, 출처 기계) stream마다 따로 물러난다) 한 번에 하나이고, 한 번에 64 MiB까지 다룬다. 더 남으면 바로 이어 돈다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다(한 destination의 실패가 다른 destination을 미루지 않는다). `clock_ahead`는 물러나지 않는다. 사람이 held를 풀거나 내보내기를 다시 켜면 물러남을 지우고 바로 돈다. 이 일들은 idle-exit를 막지 않는다.
+- 내보내기와 앱 기록·source 쓰기는 (앱, destination)마다, 읽기는 앱마다(그 안에서 (destination, 출처 기계) stream마다 따로 물러난다) 한 번에 하나이고, 한 번에 64 MiB까지 다룬다. 더 남으면 바로 이어 돈다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다(한 destination의 실패가 다른 destination을 미루지 않는다). `clock_ahead`는 물러나지 않는다. 사람이 held를 풀거나 내보내기를 다시 켜면 물러남을 지우고 바로 돈다. 앱 process가 없어서(`app_not_running`) 물러난 그 앱의 내보내기와 읽기는 앱이 새로 떠 시작 사실을 남기면 물러남을 지우고 바로 한 번 다시 돈다(core를 다시 켠 뒤 앱이 뜨기 전의 첫 시도가 몇 분을 기다리지 않게). 다른 오류의 물러남은 그대로다. 이 일들은 idle-exit를 막지 않는다.
 
 ## 지키는 것
 

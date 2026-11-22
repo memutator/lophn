@@ -2618,7 +2618,7 @@ flows:
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/export/, packages/core/folder/apps/]
     steps:
       - "계기: 앱마다 AppSyncChanged 뒤 5초 debounce, 5분 timer, folder.destinations 설정이 바뀜, core 시작. core 시작과 destination 바뀜 뒤의 첫 내보내기는 scan이 다른 기계의 기록 사본(horizon)을 읽은 뒤에 돈다(scan이 실패하면 다음 scan 뒤로 미룬다). data stream은 (앱, destination)마다 따로 돌고 따로 물러나며 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 기계 기록은 시작 listener가 제품 판을 알려 준 뒤부터 쓴다"
-      - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱이 쓰는 destination마다(따로 물러나는 일 하나씩) 앱 기록·release·source를 쓰고 manifest를 잡는다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다"
+      - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱이 쓰는 destination마다(따로 물러나는 일 하나씩) 앱 기록·release·source를 쓰고 manifest를 잡는다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다. 앱 process가 없어서(app_not_running) 물러난 그 앱의 data stream은 앱이 새로 떠 시작 사실을 남기면 물러남을 지우고 바로 한 번 다시 돈다(다른 오류의 물러남은 그대로)"
       - "sync log 줄은 destination마다 나뉘어 있다(폰 앱이 아닌 앱의 write는 destination마다 줄 하나, destination이 없는 줄은 모든 stream의 것). stream은 자기 destination의 줄과 destination이 없는 줄만 내보낸다. changes file에는 줄의 changeset에서 그 줄 release의 선언이 이 destination으로 보내는 표의 구간만 담고(폰 앱의 줄에는 폰만 받는 표도 있다) 남는 것이 없는 줄은 건너뛴다. snapshot은 앱 process가 apps.snapshot(for folder, destination)으로 새 DB file에 그 destination으로 보내는 표와 그 clock 줄, sync 상태만 복사한 것이고 1 GiB 한도는 그 file을 잰다. 옛 release(sync_to)는 모든 표이고 VACUUM INTO로 DB 통째다"
       - "다른 기계에서 온 일(snapshot 합치기, 결과 모르는 받은 변경)의 '다시 snapshot' 줄(origin machine)은 건너뛴다: 그 data는 출처가 이미 냈다. 그래서 서로의 snapshot을 합친 두 기계도 뒤의 write는 changes file로 나간다"
       - "그 destination의 다른 기계 horizon 밖이면 아직 내보내지 않은 그 stream의 자기 change 줄 가운데 clock이 horizon 이하인 것을 그 자리에서 held로 바꾼다(snapshot 앞에는 그 seq까지 먼저). 그 stream의 held인 자기 변경이 풀리지 않았으면 그 destination에 snapshot을 쓰지 않는다: 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없으면 away_too_long으로 멈춘다. 다른 destination의 stream은 그대로 나간다"
@@ -2657,6 +2657,7 @@ flows:
       - "sync 앱이 표를 보내는 destination마다, 출처마다 stream을 따로 읽는다(cursor·held·물러남이 (앱, destination, 출처)마다). 받은 변경과 snapshot은 이 기계 선언이 그 destination으로 보내는 표만 적용하고 합친다. stream 앞에 지금 활성 release의 held(folder_held)를 번호 순서로 FolderApply로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다(drain). 활성 release가 바뀌면 release 상태 바뀜이 scan과 import를 다시 돌려 drain이 돈다. 지금 release의 held가 남으면 그 출처의 stream은 읽지 않는다"
       - "출처의 snapshot m이 합쳐지거나(stream·drain) held가 되면 같은 transaction에서 그 출처의 m보다 작은 번호의 held를 release와 상관없이 지우고 commit 뒤 사본을 지운다"
       - "다른 release의 changes를 held로 둘 때 그 출처에서 가장 새 held snapshot 뒤 held changes가 128 MiB를 넘게 되면 복사하지 않고 cursor를 두고 멈춘다(full). 폴더에 더 뒤 snapshot이 있으면 그리로 건너뛴다. 이 기계의 release나 출처 앱 기록의 snapshot 번호가 바뀔 때까지 폴더를 다시 읽지 않는다(core 메모리)"
+      - "앱 process가 없어서(app_not_running, 아직 준비되지 않음) 물러난 그 앱의 출처 stream은 앱이 새로 떠 시작 사실을 남기면 물러남을 지우고 바로 다시 읽는다(다른 오류의 물러남은 그대로)"
       - "source 받기는 앱마다 따로 돌고 실패하면 그 일만 물러난다. 출처 기계가 source를 쓴 destination마다(기록 사본마다) 따로 번호를 센다"
     outcomes:
       - id: followed

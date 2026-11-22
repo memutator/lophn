@@ -382,6 +382,9 @@ type Late = {
   folderCarry: { kick(): void };
   // folder가 낸다. 다른 기계에도 알릴 앱 event를 event file로 쓴다.
   crossEvents: CrossEvents;
+  // folder가 낸다. 앱 process가 새로 떠 일을 받는다(apps가 시작 사실을 남긴 뒤 부른다). 앱이 없어서 물러난 그 앱의 폴더 내보내기와
+  // 읽기를 바로 다시 한다.
+  folderAppStarted: (app: Id<"app">) => void;
   // folder가 낸다. 다른 기계의 `across_machines` event를 이 기계가 냈다고 적는다(늦은 길과 연결이 한 표로 한 번만 낸다). 새 줄이면 true.
   crossSeen: (origin: Id<"mch">, app: Id<"app">, id: string) => Result<boolean>;
   // apps가 낸다. 다른 기계에서 온 event를 이 기계에서 낸다.
@@ -489,6 +492,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   folderReplica: true,
   folderCarry: true,
   crossEvents: true,
+  folderAppStarted: true,
   crossSeen: true,
   eventArrived: true,
   appMachineSubscriptions: true,

@@ -865,7 +865,14 @@ export const appsWiring: WiringFactory = () => {
                     ids,
                   }),
                 ),
-                { ledger, sql: link.sql, clock: ctx.clock, ids, sync },
+                {
+                  ledger,
+                  sql: link.sql,
+                  clock: ctx.clock,
+                  ids,
+                  sync,
+                  started: (app) => ctx.peek.folderAppStarted?.(app),
+                },
               ),
               // 다른 topic은 router·coding wiring의 applier가 따로 본다.
               (actions) => {

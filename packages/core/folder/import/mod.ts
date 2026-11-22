@@ -62,6 +62,11 @@ export type FolderImport = {
   /** 알려진 기계의 기록 사본. 꼴 판이 범위 밖인 기계의 앱 기록은 빠진다(그 기계의 release·source를 읽지 않는다). */
   records(): KnownRecords;
   forget(app: Id<"app">): Promise<Result<void>>;
+  /**
+   * 그 앱의 process가 떴다. 앱이 없어서(`app_not_running`) 물러난 data stream의 물러남을 지운다. 다른 오류의 물러남은 그대로다.
+   * 다시 읽기는 부르는 쪽이 한다.
+   */
+  appReady(app: Id<"app">): Result<void>;
   exchange: FolderExchange;
 };
 
@@ -281,6 +286,18 @@ export function createFolderImport(deps: FolderImportDeps): FolderImport {
       });
     },
     isForgotten: (origin) => isForgotten(deps.sql, deps.machine(), origin),
+    appReady(app) {
+      const me = deps.machine();
+      return deps.transaction((tx) => {
+        tx.sql.run(
+          `UPDATE folder_reads SET next_try_at = NULL, attempts = 0
+           WHERE machine = ? AND app = ? AND stream = 'data' AND next_try_at IS NOT NULL
+             AND json_extract(error, '$.code') = 'app_not_running'`,
+          [me, app],
+        );
+        return ok(undefined);
+      });
+    },
     readsCaughtUp: (app, destination) => readsCaughtUp(deps, app, destination),
     peerHorizons: (app, destination) => peerHorizons(deps, app, destination),
     status: (app, destination) => status(deps, app, destination),

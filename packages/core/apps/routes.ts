@@ -336,6 +336,11 @@ export function appToolLookupOf(
 // 앱 시작이 DB를 바꿨으면(`record_started`의 start_changeset) 그 시작을 invocation으로 남기고
 // changeset을 붙인다. 이유는 이전 관측과 release가 다르면 activation, 같으면 restart다. 시작 사실의
 // 기록이 먼저이고, invocation을 남기지 못해도 시작 기록은 그대로다.
+type AppRecordStartedInput = Extract<
+  ReturnType<typeof appRecordStartedInputSchema.safeParse>,
+  { success: true }
+>["data"];
+
 export function withStartInvocation(
   inner: Writer,
   deps: {
@@ -345,6 +350,8 @@ export function withStartInvocation(
     ids: IdSource;
     // sync 앱이면 시작의 변경도 그 clock(`start_hlc`)과 함께 sync log에 남는다.
     sync?: Pick<SyncRecorder, "written">;
+    // 앱 process가 새로 떠 일을 받는다(새 시작 사실, 시작의 변경을 남긴 뒤). 폴더 동기화가 앱이 없어서 물러난 일을 다시 한다.
+    started?(app: Id<"app">): void;
   },
 ): Writer {
   function lastStartedRelease(app: string): string | null {
@@ -370,49 +377,58 @@ export function withStartInvocation(
       if (!done.ok || done.value.first_seq === null || !input.success) {
         return done;
       }
-      const {
-        app,
-        attestation,
-        start_changeset: changeset,
-        start_hlc: hlc,
-      } = input.data;
-      if (
-        typeof changeset !== "string" ||
-        changeset === "" ||
-        attestation.release === null
-      )
-        return done;
-      const id = deps.ids.newId("inv") as Id<"inv">;
-      const begun = deps.ledger.begin({
-        id,
-        app: app as Id<"app">,
-        release: attestation.release as Id<"rel">,
-        mode: "live",
-        operation: {
-          kind: "start",
-          reason: before === attestation.release ? "restart" : "activation",
-        },
-        caller: null,
-        effect: "write",
-        started_at: input.data.started_at ?? deps.clock.now(),
-        input_hash: null,
-      });
-      if (begun.ok) {
-        const bytes = new Uint8Array(Buffer.from(changeset, "base64"));
-        const finished = await deps.ledger.finish(id, {
-          status: "succeeded",
-          finished_at: deps.clock.now(),
-          summary: {},
-          detail_hash: null,
-          changeset: bytes,
-        });
-        if (finished.ok) {
-          await deps.sync?.written(finished.value, hlc ?? undefined, bytes);
-        }
-      }
+      const started = input.data;
+      await recordStart(started, before);
+      deps.started?.(started.app as Id<"app">);
       return done;
     },
   };
+
+  // 앱이 뜨며 한 write(시작의 변경)를 invocation 하나로 남긴다.
+  async function recordStart(
+    data: AppRecordStartedInput,
+    before: string | null,
+  ): Promise<void> {
+    const {
+      app,
+      attestation,
+      start_changeset: changeset,
+      start_hlc: hlc,
+    } = data;
+    if (
+      typeof changeset !== "string" ||
+      changeset === "" ||
+      attestation.release === null
+    )
+      return;
+    const id = deps.ids.newId("inv") as Id<"inv">;
+    const begun = deps.ledger.begin({
+      id,
+      app: app as Id<"app">,
+      release: attestation.release as Id<"rel">,
+      mode: "live",
+      operation: {
+        kind: "start",
+        reason: before === attestation.release ? "restart" : "activation",
+      },
+      caller: null,
+      effect: "write",
+      started_at: data.started_at ?? deps.clock.now(),
+      input_hash: null,
+    });
+    if (!begun.ok) return;
+    const bytes = new Uint8Array(Buffer.from(changeset, "base64"));
+    const finished = await deps.ledger.finish(id, {
+      status: "succeeded",
+      finished_at: deps.clock.now(),
+      summary: {},
+      detail_hash: null,
+      changeset: bytes,
+    });
+    if (finished.ok) {
+      await deps.sync?.written(finished.value, hlc ?? undefined, bytes);
+    }
+  }
 }
 
 // UI bundle 사본 폴더. 운영(live) 대상은 그 release에 고정된 bundle 사본이다. preview 대상은 그 앱의

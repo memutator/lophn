@@ -108,6 +108,7 @@ import {
   updateStream,
 } from "../../../folder/export/status.ts";
 import { peerProjects } from "../../../folder/import/peer-projects.ts";
+import { createFolderLanes, type RunOutcome } from "./folder-lanes.ts";
 import {
   createFolderImport,
   latestAppRecords,
@@ -229,21 +230,10 @@ type LocalApp = {
   } | null;
 };
 
-// 한 번 돈 결과. ok가 아니면 물러난다.
-type RunOutcome = { ok: boolean; more: boolean };
-
-type Lane = {
-  running: boolean;
-  again: boolean;
-  attempts: number;
-  notBefore: number;
-};
-
 export const folderWiring: WiringFactory = () => {
   let link: WriteLink | undefined;
   let stopped = false;
   const work = new Set<Promise<void>>();
-  const lanes = new Map<string, Lane>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const debounces = new Map<string, ReturnType<typeof setTimeout>>();
   const watchers = new Map<string, FSWatcher>();
@@ -299,6 +289,15 @@ export const folderWiring: WiringFactory = () => {
               message instanceof Error ? message.message : String(message),
           },
         });
+      const lanes = createFolderLanes({
+        nowMs: () => ctx.clock.nowMs(),
+        stopped: () => stopped,
+        log,
+        track(done) {
+          work.add(done);
+          void done.finally(() => work.delete(done));
+        },
+      });
 
       ctx.productStartListeners.push((start) => {
         version = start.version;
@@ -796,6 +795,7 @@ export const folderWiring: WiringFactory = () => {
           { name: "app_runtime", id: app },
         ]);
       follow.onChange((app) => updateChanged(app));
+      ctx.provide("folderAppStarted", (app) => appReady(app));
       importer.exchange.onChange(() => updateChanged(null));
       const followUp = (app?: Id<"app">) => {
         if (stopped) return;
@@ -804,50 +804,7 @@ export const folderWiring: WiringFactory = () => {
 
       // --- 한 번 돌기(lane) ---
       function kick(name: string, job: () => Promise<RunOutcome>): void {
-        if (stopped) return;
-        let lane = lanes.get(name);
-        if (lane === undefined) {
-          lane = { running: false, again: false, attempts: 0, notBefore: 0 };
-          lanes.set(name, lane);
-        }
-        const one = lane;
-        if (one.running) {
-          one.again = true;
-          return;
-        }
-        if (ctx.clock.nowMs() < one.notBefore) return;
-        one.running = true;
-        const done = (async () => {
-          try {
-            for (;;) {
-              one.again = false;
-              let outcome: RunOutcome;
-              try {
-                outcome = await job();
-              } catch (thrown) {
-                log("run_threw", thrown);
-                outcome = { ok: false, more: false };
-              }
-              if (!outcome.ok) {
-                one.notBefore =
-                  ctx.clock.nowMs() +
-                  Math.min(
-                    BACKOFF_FIRST_MS * 2 ** Math.min(one.attempts, 20),
-                    BACKOFF_MAX_MS,
-                  );
-                one.attempts += 1;
-                return;
-              }
-              one.attempts = 0;
-              one.notBefore = 0;
-              if (stopped || !(outcome.more || one.again)) return;
-            }
-          } finally {
-            one.running = false;
-          }
-        })();
-        work.add(done);
-        void done.finally(() => work.delete(done));
+        lanes.kick(name, job);
       }
 
       function later(fn: () => void, ms: number) {
@@ -905,7 +862,11 @@ export const folderWiring: WiringFactory = () => {
         await noticeAway(app, wasAway, ran.value.held);
         await cleanup(app);
         writeAppRecords(id);
-        return { ok: ran.value.error === null, more: ran.value.more };
+        return {
+          ok: ran.value.error === null,
+          more: ran.value.more,
+          appDown: ran.value.error?.code === "app_not_running",
+        };
       }
 
       // 앱이 쓰는 destination마다 lane 하나: 한 destination이 없거나 쓰지 못해 물러나도 다른 destination의 앱 기록과 manifest는
@@ -1280,13 +1241,19 @@ export const folderWiring: WiringFactory = () => {
         }
       }
 
-      function exportNow(id: Id<"app">) {
-        for (const [name, lane] of lanes) {
-          if (name.startsWith(`export:${id}:`)) {
-            lane.attempts = 0;
-            lane.notBefore = 0;
-          }
+      // 앱 process가 떴다(core를 다시 켠 뒤, 앱이 다시 뜬 뒤). 앱이 없어서 물러난 그 앱의 내보내기와 읽기를 바로 다시 한다:
+      // 그대로 두면 앱이 뜨기 전의 첫 시도가 물러나 data가 몇 분 늦는다. 다른 까닭으로 물러난 것은 그대로다.
+      function appReady(id: Id<"app">) {
+        lanes.appReady([`export:${id}:`]);
+        const cleared = importer.appReady(id);
+        if (!cleared.ok) log("import_not_woken", cleared.error.message);
+        if (syncApp(id) !== undefined) {
+          kick(`import:${id}`, () => importApp(id));
         }
+      }
+
+      function exportNow(id: Id<"app">) {
+        lanes.clear(`export:${id}:`);
         exportLanes(id);
       }
 

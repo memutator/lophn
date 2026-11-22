@@ -379,6 +379,10 @@ files:
       - shell-run:ok
       - shell-run:forbidden
 
+  - path: packages/core/main/daemon/wiring/folder-lanes_test.ts
+    covers: [folder-export-run:stream-error]
+    note: "폴더 wiring의 lane: 앱이 없어서 물러난 내보내기만 앱이 뜬 신호에 바로 한 번 다시 돌고 다른 오류의 물러남은 그대로다(manual clock)"
+
   - path: packages/core/main/daemon/wiring/approvals_test.ts
     covers:
       - tool-gate-check:forbidden

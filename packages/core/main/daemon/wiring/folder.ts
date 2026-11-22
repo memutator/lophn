@@ -108,7 +108,10 @@ import {
   updateStream,
 } from "../../../folder/export/status.ts";
 import { peerProjects } from "../../../folder/import/peer-projects.ts";
-import { createFolderImport } from "../../../folder/import/mod.ts";
+import {
+  createFolderImport,
+  latestAppRecords,
+} from "../../../folder/import/mod.ts";
 import { IMPORT_TMP_DIR } from "../../../folder/import/held.ts";
 import {
   markEventSeen,
@@ -741,16 +744,20 @@ export const folderWiring: WiringFactory = () => {
                   },
                 ],
           ),
+        // 기계마다 가장 새 앱 기록 하나(`update_state`와 같다): 표를 옮긴 뒤 더는 쓰지 않는 destination에 남은 옛 기록이 옛
+        // release를 내놓지 않게 한다.
         offered: (app) =>
-          importer
-            .records()
-            .apps.flatMap((row) =>
-              row.record.app === app &&
-              row.machine !== me() &&
-              row.record.active_release !== null
-                ? [{ machine: row.machine, ...row.record.active_release }]
-                : [],
-            ),
+          latestAppRecords(
+            importer
+              .records()
+              .apps.filter(
+                (row) => row.record.app === app && row.machine !== me(),
+              ),
+          ).flatMap((row) =>
+            row.record.active_release !== null
+              ? [{ machine: row.machine, ...row.record.active_release }]
+              : [],
+          ),
         takeIn: (input) => apps.takeIn(input),
         // 사람에게 물을지는 그 release를 낸 기계와 길로 정한다(`import/follow.ts`).
         activate(release) {

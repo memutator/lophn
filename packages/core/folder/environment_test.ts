@@ -33,6 +33,9 @@ function peersOf(
     machine: Id<"mch">;
     settled: bigint | null;
     destination?: string;
+    // 그 destination으로 source와 기록만 보내는 기계의 기록(`sync_to` null).
+    sourceOnly?: boolean;
+    horizon?: bigint;
   }[],
   forget: Id<"mch">[] = [],
 ) {
@@ -57,9 +60,10 @@ function peersOf(
         row.machine,
         APP,
         JSON.stringify({
+          sync_to: row.sourceOnly ? null : (row.destination ?? "personal"),
           data: { head: 1 },
           settled: row.settled === null ? null : row.settled.toString(),
-          horizon: null,
+          horizon: row.horizon === undefined ? null : row.horizon.toString(),
         }),
         row.destination ?? "personal",
       ],
@@ -86,8 +90,8 @@ function peersOf(
   for (const machine of forget) {
     assert.equal(folder.forgetMachine(machine).ok, true);
   }
-  // 그 앱이 data를 주고받는 destination 둘의 기록을 모은다(흔적은 앱 DB에 하나다).
-  return ["personal", "drive"].flatMap((destination) =>
+  // 그 앱이 data를 주고받는 destination 셋의 기록을 모은다(흔적은 앱 DB에 하나다).
+  return ["personal", "drive", "computers"].flatMap((destination) =>
     folder.peerHorizons(APP, destination),
   );
 }
@@ -99,11 +103,7 @@ test("the cleanup bound never passes a known machine's settled on any destinatio
     name: string;
     // 이 기계의 그 앱 stream마다(destination마다)의 settled.
     own: (bigint | null)[];
-    peers: {
-      machine: Id<"mch">;
-      settled: bigint | null;
-      destination?: string;
-    }[];
+    peers: Parameters<typeof peersOf>[0];
     forget?: Id<"mch">[];
     want: bigint;
   }[] = [
@@ -160,6 +160,21 @@ test("the cleanup bound never passes a known machine's settled on any destinatio
       want: RECENT,
     },
     {
+      // 다른 release의 기계가 `computers`로는 source와 기록만 보낸다. 그 기록은 data stream이 없어 경계를 붙들지 않는다.
+      name: "a record that carries only source does not hold it",
+      own: [NEWER, NEWER],
+      peers: [
+        { machine: LAPTOP, settled: NEWER, destination: "personal" },
+        {
+          machine: LAPTOP,
+          settled: null,
+          destination: "computers",
+          sourceOnly: true,
+        },
+      ],
+      want: NEWER,
+    },
+    {
       name: "one stream of this machine with no settled yet: only the 90-day side",
       own: [NEWER, null],
       peers: [{ machine: LAPTOP, settled: NEWER }],
@@ -189,4 +204,32 @@ test("the cleanup bound never passes a known machine's settled on any destinatio
       each.name,
     );
   }
+});
+
+// 틀리면 다른 release의 기계가 source만 싣는 `computers` 기록에 낸 horizon이 이 기계의 `computers` stream을 horizon 밖으로 보아
+// 자기 변경을 held로 붙든다(away_too_long).
+test("a record that carries only source gives no horizon to the stream of that destination", () => {
+  assert.deepEqual(
+    peersOf([
+      {
+        machine: LAPTOP,
+        settled: NEWER,
+        destination: "computers",
+        sourceOnly: true,
+        horizon: RECENT,
+      },
+    ]),
+    [],
+  );
+  assert.deepEqual(
+    peersOf([
+      {
+        machine: LAPTOP,
+        settled: NEWER,
+        destination: "computers",
+        horizon: RECENT,
+      },
+    ]),
+    [{ machine: LAPTOP, settled: at(NEWER), horizon: at(RECENT) }],
+  );
 });

@@ -19,6 +19,7 @@ export async function writeAppRecord(
   const { app, me, sql, destination } = target;
   const data = streamOf(sql, me, app.app, destination, "data");
   const source = streamOf(sql, me, app.app, destination, "source");
+  const carries = app.sends_to.includes(destination);
   const body: Omit<AppRecord, "revision" | "updated_at"> = {
     format: FOLDER_FORMAT.version,
     machine: me,
@@ -28,7 +29,7 @@ export async function writeAppRecord(
     description: app.description,
     // 앱 기록의 칸 이름은 옛 lophn이 읽는 그대로다(그 판은 이 칸이 없는 기록을 읽지 못한다). 값은 이 destination이 그 앱의
     // 표를 받으면 이 destination 이름이고, source와 기록만 받으면 null이다.
-    sync_to: app.sends_to.includes(destination) ? destination : null,
+    sync_to: carries ? destination : null,
     active_release:
       app.release === null
         ? null
@@ -43,8 +44,9 @@ export async function writeAppRecord(
     },
     source: { head: source === null ? 0 : source.next_n - 1 },
     read: progress.read,
-    settled: progress.settled,
-    horizon: progress.horizon,
+    // data가 없는 destination의 기록은 흔적 정리의 하한을 싣지 않는다(읽는 쪽도 그 기록을 하한에 넣지 않는다).
+    settled: carries ? progress.settled : null,
+    horizon: carries ? progress.horizon : null,
   };
   const path = appRecordPath(me, app.app);
   const before = written(sql, me, destination, path);

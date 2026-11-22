@@ -91,6 +91,15 @@ export function latestAppRecords<
   return [...out.values()];
 }
 
+// 그 destination에서 읽은 앱 기록이 그 앱의 data를 싣는가. source와 기록만 싣는 기록(`sync_to` null)은 data stream이 없어
+// 읽기 목록·따라잡기·흔적 정리의 하한에 들지 않는다.
+function carriesData(
+  row: { destination: string; record: AppRecord },
+  destination: string,
+): boolean {
+  return row.destination === destination && row.record.sync_to === destination;
+}
+
 export function status(
   deps: FolderImportDeps,
   app: Id<"app">,
@@ -100,7 +109,7 @@ export function status(
   const known = records(deps, app);
   const origins = new Set<Id<"mch">>(
     known.apps
-      .filter((row) => row.destination === destination)
+      .filter((row) => carriesData(row, destination))
       .map((row) => row.machine),
   );
   for (const row of deps.sql.all(
@@ -137,7 +146,7 @@ export function readsCaughtUp(
 ): boolean {
   const me = deps.machine();
   return records(deps, app)
-    .apps.filter((row) => row.destination === destination)
+    .apps.filter((row) => carriesData(row, destination))
     .every(
       (row) =>
         loadRead(deps.sql, me, { app, destination, origin: row.machine })
@@ -155,7 +164,7 @@ export function peerHorizons(
   destination: string,
 ): { machine: Id<"mch">; settled: string | null; horizon: string | null }[] {
   return records(deps, app)
-    .apps.filter((row) => row.destination === destination)
+    .apps.filter((row) => carriesData(row, destination))
     .map((row) => ({
       machine: row.machine,
       settled: row.record.settled,

@@ -124,6 +124,23 @@ test("떨어져 고친 다른 칸은 둘 다 남고 같은 칸은 나중 것이 
   assert.equal(both(a2, b).logins[0]!.username, "a@example.com");
 });
 
+// 깨지면 첫 합치기 뒤 stamp가 같은 동안 secret store를 못 읽는 컴퓨터 하나가 모든 컴퓨터의 password와 TOTP seed를 지운다.
+test("같은 stamp에서 값은 없음을 이기고, 두 값은 어느 쪽에서 합쳐도 같은 값이 남는다", () => {
+  const kept = state({ logins: [login(L1, 5, { totp: "SEED" })] });
+  const missing = state({
+    logins: [login(L1, 5, { password: null, totp: null })],
+  });
+  for (const merged of [
+    mergeVaults(kept, missing),
+    mergeVaults(missing, kept),
+  ]) {
+    assert.equal(merged.logins[0]!.password, `pw-${L1}`);
+    assert.equal(merged.logins[0]!.totp, "SEED");
+  }
+  // both는 두 방향의 결과가 같은지 본다.
+  both(kept, state({ logins: [login(L1, 5, { password: "other" })] }));
+});
+
 // 깨지면 한 컴퓨터가 지우는 사이 다른 컴퓨터에서 고친 login이 말없이 사라진다.
 test("지울 때 몰랐던 고침이 있으면 login이 되살아나고, 없으면 지운 것이 이긴다", () => {
   const base = login(L1, 10);

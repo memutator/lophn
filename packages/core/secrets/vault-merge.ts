@@ -1,7 +1,7 @@
 // 두 컴퓨터의 vault를 합친다. 순수 함수다: 값 쓰기와 file 쓰기는 부르는 쪽(vault-sync.ts)이 한다.
 //
 // 규칙:
-// - 칸마다 stamp가 큰 쪽이 이긴다(같으면 값의 글자 순서가 큰 쪽). 그래서 떨어져 있는 동안 두 컴퓨터가 같은 login의 다른 칸을
+// - 칸마다 stamp가 큰 쪽이 이긴다(같으면 값이 있는 쪽, 둘 다 있으면 값의 글자 순서가 큰 쪽). 그래서 떨어져 있는 동안 두 컴퓨터가 같은 login의 다른 칸을
 //   고쳐도 둘 다 남고, 같은 칸을 고치면 나중에 친 값이 남는다. password·TOTP seed는 metadata와 같이 칸이다.
 // - 지운 것의 흔적은 지울 때 본 칸 stamp(`seen`)를 든다. 어느 칸이든 그보다 새 사본이 있으면(지운 컴퓨터가 몰랐던 고침)
 //   그 항목은 되살아나고 흔적이 빠진다. 그렇지 않으면 지운 것이 이긴다. 그래서 고친 login이 말없이 사라지지 않는다.
@@ -32,12 +32,16 @@ const LOGIN_FIELDS_ALL = [...LOGIN_META_FIELDS, ...LOGIN_VALUE_FIELDS];
 type Revs = Record<string, number>;
 type Item = { id: string; revs: Revs } & Record<string, unknown>;
 
-// 같은 stamp면 값의 JSON 글자가 큰 쪽이다. 어느 컴퓨터에서 합쳐도 같은 쪽을 고른다.
+// 같은 stamp면 값이 있는 쪽이 이긴다: 값은 더 새 stamp로만 지워진다(못 읽은 값이 "없음"으로 와도 지우지 않는다). 둘 다
+// 값이면 JSON 글자가 큰 쪽이다. 어느 컴퓨터에서 합쳐도 같은 쪽을 고른다.
 function newer(a: Item, b: Item, field: string): boolean {
   const ra = a.revs[field] ?? -1;
   const rb = b.revs[field] ?? -1;
   if (ra !== rb) return ra > rb;
-  return JSON.stringify(a[field] ?? null) >= JSON.stringify(b[field] ?? null);
+  const va = a[field] ?? null;
+  const vb = b[field] ?? null;
+  if (va === null || vb === null) return vb === null;
+  return JSON.stringify(va) >= JSON.stringify(vb);
 }
 
 function mergeItem<T extends Item>(
@@ -145,8 +149,6 @@ export type MergePlan = {
   vault: VaultFile;
   // 바뀐 값. null이면 그 이름을 지운다.
   values: { id: string; field: "password" | "totp"; value: string | null }[];
-  // 합친 결과로 지워진 login(값을 지운다).
-  goneLogins: string[];
   // vault가 바뀌었는가(file을 다시 쓰고 알린다).
   changed: boolean;
 };
@@ -173,10 +175,6 @@ export function planMerge(
       }
     }
   }
-  const alive = new Set(merged.logins.map((login) => login.id));
-  const goneLogins = local.logins
-    .map((login) => login.id)
-    .filter((id) => !alive.has(id));
   const profileIds = new Set(merged.profiles.map((profile) => profile.id));
   const clear = [
     ...vault.clear.filter((id) => !profileIds.has(id)),
@@ -196,7 +194,6 @@ export function planMerge(
   return {
     vault: next,
     values: planned,
-    goneLogins,
     changed: JSON.stringify(next) !== JSON.stringify(vault),
   };
 }

@@ -5,8 +5,9 @@
 //   자기 vault에 합친다. 상대도 같은 일을 하므로 늘 켜 둔 컴퓨터가 저절로 가운데가 되어 A의 것이 B를 거쳐 C에 간다.
 // - 계기: link가 붙음, 상대의 `StateChanged{logins|browser_profiles}`(2초 debounce), 5분 timer, 이 컴퓨터의 나누기를 켬.
 //   실패는 1분부터 두 배씩 1시간까지 물러난다. 상대가 나누기를 껐거나(forbidden) 옛 판(not_found)이면 물러나지 않고 조용히
-//   다음 계기를 기다린다(상대가 바꿀 때마다 한 번씩만 묻는다).
+//   다음 계기(상대의 바뀜, 5분 timer)를 기다린다.
 // - 나누기를 끈 컴퓨터는 받지도 내주지도 않는다.
+// - 값을 못 읽으면(secret store가 unavailable) 내주지도 합치지도 않는다. 못 읽은 값을 "없음"으로 보내면 상대가 그 값을 지운다.
 // - 합친 값은 secret store의 put으로 쓴다(file에 쓰기 전에 알려진 값으로 올린다). 값은 ledger, log, event, 오류에 없다.
 import {
   type Clock,
@@ -23,7 +24,9 @@ import {
 import {
   browserVaultExchange,
   LOGIN_SECRET_PREFIX,
+  LOGIN_VALUE_FIELDS,
   loginSecretName,
+  type VaultFile,
 } from "../../protocol/secrets/mod.ts";
 import type { MemoryHandler } from "../server/mod.ts";
 import type { BrowserVault } from "./browser-vault.ts";
@@ -38,14 +41,27 @@ const MERGE_ATTEMPTS = 3;
 
 type Secrets = Pick<SecretStore, "get" | "put" | "delete" | "names">;
 
-function valuesOf(secrets: Pick<Secrets, "get">) {
-  return (id: string): LoginValues => {
-    const read = (field: "password" | "totp") => {
-      const got = secrets.get(loginSecretName(id, field));
-      return got.ok ? got.value : null;
-    };
-    return { password: read("password"), totp: read("totp") };
-  };
+// vault의 login 값을 다 읽는다. 없는 값(not_found)만 null이고 다른 실패는 unavailable이다.
+function readValues(
+  secrets: Pick<Secrets, "get">,
+  vault: VaultFile,
+): Result<(id: string) => LoginValues> {
+  const values = new Map<string, LoginValues>();
+  for (const login of vault.logins) {
+    const one: LoginValues = { password: null, totp: null };
+    for (const field of LOGIN_VALUE_FIELDS) {
+      const got = secrets.get(loginSecretName(login.id, field));
+      if (got.ok) one[field] = got.value;
+      else if (got.error.code !== "not_found") {
+        return err({
+          code: "unavailable",
+          message: "saved login values cannot be read",
+        });
+      }
+    }
+    values.set(login.id, one);
+  }
+  return ok((id) => values.get(id) ?? { password: null, totp: null });
 }
 
 /**
@@ -81,14 +97,16 @@ export function browserVaultExchangeHandler(deps: {
     }
     const read = deps.vault.read();
     if (!read.ok) return read;
-    return ok(stateOf(read.value, valuesOf(deps.secrets)));
+    const values = readValues(deps.secrets, read.value);
+    if (!values.ok) return values;
+    return ok(stateOf(read.value, values.value));
   };
   return handler;
 }
 
 /**
- * 받은 vault를 이 컴퓨터에 합친다. 값을 먼저 쓰고, 합친 vault를 쓴 뒤, 지워진 login과 vault에 없는 login의 값을 지운다
- * (중간에 끊겨도 다시 합치면 같은 결과다). 바뀌었으면 true다.
+ * 받은 vault를 이 컴퓨터에 합친다. 값을 먼저 쓰고, 합친 vault를 쓴 뒤, 흔적이 있는 login의 값을 지운다(중간에 끊겨도 다시
+ * 합치면 같은 결과다). 바뀌었으면 true다. 이 컴퓨터의 값을 못 읽으면 아무것도 쓰지 않고 unavailable이다.
  */
 export async function applyRemoteVault(
   deps: { vault: BrowserVault; secrets: Secrets },
@@ -104,7 +122,9 @@ export async function applyRemoteVault(
   for (let attempt = 0; attempt < MERGE_ATTEMPTS; attempt++) {
     const read = deps.vault.read();
     if (!read.ok) return read;
-    const plan = planMerge(read.value, valuesOf(deps.secrets), remote.data);
+    const values = readValues(deps.secrets, read.value);
+    if (!values.ok) return values;
+    const plan = planMerge(read.value, values.value, remote.data);
     for (const one of plan.values) {
       const name = loginSecretName(one.id, one.field);
       const written =
@@ -118,16 +138,15 @@ export async function applyRemoteVault(
       : ok(true);
     if (!replaced.ok) return replaced;
     if (!replaced.value) continue;
-    // 지워진 login의 값과, 끊긴 앞 합치기가 남긴 vault 밖 login의 값을 지운다. 지우는 사이 사람이 막 저장한 login(vault에 먼저
-    // 들고 값이 뒤에 온다)을 지우지 않게 이름마다 지금 vault를 본다.
+    // 흔적이 있는 login의 값만 지운다(이번에 지워진 것과 끊긴 앞 합치기가 남긴 것). vault에 없다는 것만으로는 지우지 않는다:
+    // vault file이 없거나 비면 빈 vault로 읽혀 모든 login 값이 지워진다.
+    const gone = new Set(plan.vault.removed.map((one) => one.id));
     const names = deps.secrets.names();
     if (!names.ok) return names;
     for (const name of names.value) {
       if (!name.startsWith(LOGIN_SECRET_PREFIX)) continue;
       const id = name.slice(LOGIN_SECRET_PREFIX.length).split(".")[0]!;
-      const now = deps.vault.read();
-      if (!now.ok) return now;
-      if (now.value.logins.some((login) => login.id === id)) continue;
+      if (!gone.has(id)) continue;
       const deleted = await deps.secrets.delete(name);
       if (!deleted.ok) return deleted;
     }

@@ -65,6 +65,12 @@ const rows: Record<string, Partial<AgentSessionRow>> = {
   },
   [id("ses", 10)]: { spawned_by: id("ses", 5), lifecycle: "archived" },
   [id("ses", 11)]: { spawned_by: null, lifecycle: "open" },
+  // 21은 5가 다른 컴퓨터에 연 팀원의 자리다.
+  [id("ses", 21)]: {
+    spawned_by: id("ses", 5),
+    lifecycle: "open",
+    runs_on: id("mch", 2),
+  },
 };
 const agent = (n: number) =>
   ({
@@ -132,7 +138,10 @@ function setup(
   });
   const handlers = createTabHandlers({
     queue,
-    sessionRow: (session) => rows[session] as AgentSessionRow | undefined,
+    sessionRow: (session) =>
+      rows[session] === undefined
+        ? undefined
+        : ({ runs_on: null, ...rows[session] } as AgentSessionRow),
     app: (app) => Promise.resolve(ok(app === APP ? {} : null)),
     preview: () =>
       Promise.resolve(ok(running ? { release: id("rel", 1) } : null)),
@@ -1164,6 +1173,7 @@ test("tabs/give는 든 session이 자기 엄격한 자손의 열린 lophn sessio
     ["형제가 남의 탭을 자기에게", 8, null, "not_found"],
     ["팀 밖 session에게", 5, 11, "forbidden"],
     ["coding agent 채팅 탭 팀원에게", 5, 9, "conflict"],
+    ["다른 컴퓨터에서 도는 팀원의 자리에게", 5, 21, "conflict"],
     ["보관한 자식에게", 5, 10, "not_found"],
     ["없는 session에게", 5, 12, "not_found"],
     ["자식에게", 5, 6, "ok"],

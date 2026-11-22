@@ -80,6 +80,7 @@ test("a stopped instance is not handed: report with next records the line only a
           return ok(undefined);
         },
         cancel: () => ok(undefined),
+        withdraw: () => ok(undefined),
       },
     });
     const commands = createWorkflowCommands(() => ok(router));

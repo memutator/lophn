@@ -6,6 +6,8 @@ import {
 } from "../../../protocol/lophn-agent/content-block.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import { createQueue } from "./queue.ts";
+import { QUEUE_PUT_TOPIC, QUEUE_WITHDRAW_TOPIC } from "./topics.ts";
+import { createQueueApplier } from "./work.ts";
 
 const SESSION = "ses_s1" as never;
 
@@ -114,4 +116,26 @@ test("지금 올리기와 빼기는 아직 가져가지 않은 사람 메시지�
   } as RoutedInput);
   assert.deepStrictEqual(queue.remove(SESSION, "msg_q2"), true);
   assert.deepStrictEqual(queue.next(SESSION), undefined);
+});
+
+// 닫힌 call(끝난 팀원의 ask, 취소한 call)이 아직 queue에 있으면 다음 turn이 그 call을 입력으로 받아 답할 수 없는 일을 한다.
+test("거둔 call 입력은 다음 turn의 입력이 아니고, 이미 가져간 call은 거둘 것이 없다", () => {
+  const queue = createQueue();
+  const apply = createQueueApplier({ queue, publish: () => {} });
+  const ask = { ...input("call", "may I run the build?"), call: "cal_ask" };
+  const other = { ...input("call", "review it"), call: "cal_other" };
+  apply([
+    { topic: QUEUE_PUT_TOPIC, data: { session: SESSION, input: ask, at: "t" } },
+    {
+      topic: QUEUE_PUT_TOPIC,
+      data: { session: SESSION, input: other, at: "t" },
+    },
+    {
+      topic: QUEUE_WITHDRAW_TOPIC,
+      data: { session: SESSION, call: "cal_ask" },
+    },
+  ] as never);
+  assert.equal(queue.take(SESSION)?.call, "cal_other");
+  assert.equal(queue.next(SESSION), undefined);
+  assert.equal(queue.withdrawCall(SESSION, "cal_other"), false);
 });

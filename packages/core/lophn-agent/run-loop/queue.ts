@@ -30,6 +30,8 @@ export type Queue = {
   steerNow(session: Session, message: string): boolean;
   // queue에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
   remove(session: Session, message: string): boolean;
+  // 아직 가져가지 않은 그 call의 입력을 뺀다(그 call이 닫혔다). 이미 가져갔으면 false다.
+  withdrawCall(session: Session, call: string): boolean;
   // 아직 가져가지 않은 사람 메시지의 본문이나 순서를 바꾼다. 없으면 false다. 사람 메시지끼리만
   // 순서를 맞바꾸므로 사람 메시지가 먼저라는 규칙은 그대로다.
   edit(session: Session, message: string, body: ContentBlock[]): boolean;
@@ -108,6 +110,16 @@ export function createQueue(): Queue {
         ...(steering.get(session) ?? []),
         { ...found.input, delivery: "steer" },
       ]);
+      return true;
+    },
+    withdrawCall(session, call) {
+      const entries = queued.get(session) ?? [];
+      const rest = entries.filter(
+        (entry) => !(entry.input.kind === "call" && entry.input.call === call),
+      );
+      if (rest.length === entries.length) return false;
+      if (rest.length === 0) queued.delete(session);
+      else queued.set(session, rest);
       return true;
     },
     remove(session, message) {

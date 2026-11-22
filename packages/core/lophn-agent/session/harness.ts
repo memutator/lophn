@@ -11,6 +11,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { InputTransport, RoutedInput } from "../../router/ports.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
+import { QUEUE_WITHDRAW_TOPIC } from "../run-loop/topics.ts";
 import { reject, requireMachine, sessionNotFound } from "./guards.ts";
 import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 
@@ -66,6 +67,14 @@ export function createHarnessInputTransport(deps: {
         step: null,
         unattended,
       });
+    },
+    withdraw(tx, target, call) {
+      if (target.transport !== "harness") return ok(undefined);
+      tx.port(afterCommit).push(QUEUE_WITHDRAW_TOPIC, {
+        session: target.session,
+        call,
+      });
+      return ok(undefined);
     },
   };
 }

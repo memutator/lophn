@@ -89,7 +89,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - 이미 끝난 call(취소, Router가 먼저 닫음)에는 실패 알림이 다시 가지 않는다.
 14. 이름을 풀지 못한 call은 행이 없다(받는 곳을 적을 수 없다). 이유와 call ID는 그대로 돌려준다. 끝난 행은 trigger가 막아 바뀌지 않는다. 이어지는 일은 새 call이다.
 15. 닫힌 call에 늦게 온 답은 오류가 아니라 `closed: true`로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 한다. 답 없는 call(none)에는 답할 수 없고 `conflict`다. 당사자가 아닌 session의 답이나 취소는 `forbidden`이다.
-16. 보낸 agent는 자기가 보낸 call만, 사람은 모두 취소한다. 취소는 받는 session에 취소 알림을 보낸다.
+16. 보낸 agent는 자기가 보낸 call만, 사람은 모두 취소한다. 받는 session이 그 call을 이미 가져갔으면 취소 알림을 보내고, 아직 가져가지 않았으면 그 입력을 queue에서 거둔다(알림 없음). 닫힌 call은 받는 session의 다음 turn 입력이 되지 않는다. 끝나는 session의 ask, 끝난 팀원 자리가 보낸 call, 다른 컴퓨터의 cancel도 같다. (agent, 2026-11-22. 전에는 가져가지 않은 call도 입력으로 남고 그 뒤 turn에 알림이 갔다)
 17. dedup(보낸 session + tool call ID)은 unique다. run-loop는 일시 실패한 read tool을 같은 tool call로 한 번 더 부르고 call 보내기의 효과는 read라 그 대상이다. 첫 시도가 call을 만들고 실패로 돌아온 뒤의 재시도가 call과 session을 하나 더 만들지 않아야 한다. 같은 dedup은 처음 call의 결과를 그대로 돌려준다.
 
 ### 꺼졌다 켜질 때

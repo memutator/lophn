@@ -938,7 +938,7 @@ test("다른 컴퓨터의 팀원이 연 ask가 부모에게 열려 있어도(가
 
 // 앱을 지우면 같은 tx에서 그 앱 workspace의 session을 DeleteSession으로 지운다. 그 session이 받은 열린 call(실패 알림)과 보낸 ask(취소
 // 알림)의 글을 앱 지우기 명령의 본문 준비가 미리 준비하지 않으면 열린 call 하나가 앱 지우기를 막는다.
-test("앱 지우기가 지우는 session에 받은 열린 call과 보낸 열린 ask가 있어도 지우기가 되고 둘이 알림과 함께 닫힌다", async () => {
+test("앱 지우기가 지우는 session에 받은 열린 call과 보낸 열린 ask가 있어도 지우기가 되고 둘이 닫힌다", async () => {
   const a = await machine(A);
   const lead = a.openSession("lophn_home");
   const as = (session: string) =>
@@ -1005,6 +1005,6 @@ test("앱 지우기가 지우는 session에 받은 열린 call과 보낸 열린 
     { state: "failed", fail_reason: "receiver_ended", delivery: null },
   );
   assert.equal(a.callRow(ask)?.["state"], "cancelled");
-  // 부모에게 실패 알림과 취소 알림이 남는다.
-  assert.equal(toLead() - before, 2);
+  // 부모에게는 실패 알림이 남고, 아직 가져가지 않은 ask는 알림 없이 부모의 queue에서 거둔다.
+  assert.equal(toLead() - before, 1);
 });

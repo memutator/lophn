@@ -68,6 +68,7 @@ function world() {
           return ok(undefined);
         },
         cancel: () => ok(undefined),
+        withdraw: () => ok(undefined),
       },
       store: {
         insert: (_tx, record) => {
@@ -89,6 +90,7 @@ function world() {
           rows.set(call, moved);
           return ok(moved);
         },
+        consumed: () => true,
         markConsumed: () => ok(undefined),
         setDelivery: () => ok(undefined),
         lost: () => [],

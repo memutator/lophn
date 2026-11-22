@@ -95,6 +95,7 @@ function router() {
       rows.set(call, moved);
       return ok(moved);
     },
+    consumed: () => true,
     markConsumed: () => ok(undefined),
     setDelivery: () => ok(undefined),
     lost: () => [],
@@ -140,6 +141,7 @@ function router() {
         return ok(undefined);
       },
       cancel: () => ok(undefined),
+      withdraw: () => ok(undefined),
     },
   });
   return { tx, router: r, rows, toLead, memberQueue, queued };

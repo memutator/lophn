@@ -109,6 +109,7 @@ export function transportBySession(
     deliver: (tx, target, input) => of(target).deliver(tx, target, input),
     cancel: (tx, target, call, unattended) =>
       of(target).cancel(tx, target, call, unattended),
+    withdraw: (tx, target, call) => of(target).withdraw(tx, target, call),
   };
 }
 
@@ -1010,17 +1011,21 @@ export function createRouter(deps: RouterDeps): Router {
     // 받는 기계의 사람이 다른 컴퓨터에서 받은 call을 취소했다. 보낸 기계의 행도 닫는다.
     const closed = queueClosed(tx, record, "cancelled");
     if (closed !== null && !closed.ok) return closed;
+    const cancelled = cancelInput(tx, record);
+    return cancelled.ok ? moved : cancelled;
+  }
+
+  // 취소한 call을 받은 session에 알린다. 받은 turn이 아직 가져가지 않았으면 queue에서 거둔다: 닫힌 call(팀원의 ask 포함)을 받는 session이
+  // 다음 turn에 받지 않는다. 가져갔으면 취소 알림이다.
+  function cancelInput(tx: Tx, record: AgentCallRow): Result<void> {
     const target =
       record.receiver_session === null
         ? null
         : directory.find(sesId(record.receiver_session));
-    const cancelled = transport.cancel(
-      tx,
-      target,
-      calId(record.call),
-      record.unattended,
-    );
-    return cancelled.ok ? moved : cancelled;
+    if (target !== null && !store.consumed(tx, calId(record.call))) {
+      return transport.withdraw(tx, target, calId(record.call));
+    }
+    return transport.cancel(tx, target, calId(record.call), record.unattended);
   }
 
   function failAll(
@@ -1828,16 +1833,7 @@ export function createRouter(deps: RouterDeps): Router {
         if (!isFinished(record.state)) {
           const moved = finish(tx, record, "cancelled", null);
           if (!moved.ok) return moved;
-          const target =
-            record.receiver_session === null
-              ? null
-              : directory.find(sesId(record.receiver_session));
-          const cancelled = transport.cancel(
-            tx,
-            target,
-            calId(record.call),
-            record.unattended,
-          );
+          const cancelled = cancelInput(tx, record);
           if (!cancelled.ok) return cancelled;
         }
         // 연 기계가 팀원의 자리를 닫았다(`team end`, 그 기계에서 보관): 이 call이 연 팀원 session을 사람의 archive처럼 닫는다.
@@ -2336,21 +2332,12 @@ export function createRouter(deps: RouterDeps): Router {
     return queued.ok ? ok(undefined) : queued;
   }
 
-  // 받은 call을 보낸 쪽이 거둔 것처럼 닫는다(그 기계의 cancel mail을 받은 것과 같다). 받은 session에는 취소 알림이 가고, 보낸 기계의
-  // 행도 닫힌다(팀원의 ask면 그 기계의 짝이 거절로 풀린다).
+  // 받은 call을 보낸 쪽이 거둔 것처럼 닫는다(그 기계의 cancel mail을 받은 것과 같다). 받은 session은 가져가지 않은 입력이면 받지 않고
+  // 가져갔으면 취소 알림을 받는다. 보낸 기계의 행도 닫힌다(팀원의 ask면 그 기계의 짝이 거절로 풀린다).
   function withdrawReceived(tx: Tx, record: AgentCallRow): Result<void> {
     const moved = finish(tx, record, "cancelled", null);
     if (!moved.ok) return moved;
-    const target =
-      record.receiver_session === null
-        ? null
-        : directory.find(sesId(record.receiver_session));
-    const cancelled = transport.cancel(
-      tx,
-      target,
-      calId(record.call),
-      record.unattended,
-    );
+    const cancelled = cancelInput(tx, record);
     if (!cancelled.ok) return cancelled;
     const closed = queueClosed(tx, record, "cancelled");
     return closed === null || closed.ok ? ok(undefined) : closed;

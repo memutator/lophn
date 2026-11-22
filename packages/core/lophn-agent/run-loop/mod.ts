@@ -13,6 +13,7 @@ export {
 export {
   AGENT_EVENT_TOPIC,
   QUEUE_CLEAR_TOPIC,
+  QUEUE_WITHDRAW_TOPIC,
   QUEUE_PUT_TOPIC,
 } from "./topics.ts";
 export {

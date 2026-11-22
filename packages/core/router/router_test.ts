@@ -96,6 +96,7 @@ function setup(
       rows.set(call, moved);
       return ok(moved);
     },
+    consumed: () => true,
     markConsumed: () => ok(undefined),
     setDelivery: () => ok(undefined),
     lost: () => [],
@@ -152,6 +153,7 @@ function setup(
         cancelled.push(unattended);
         return ok(undefined);
       },
+      withdraw: () => ok(undefined),
     },
   });
   return {

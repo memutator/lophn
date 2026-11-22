@@ -14,6 +14,7 @@ import {
   AGENT_EVENT_TOPIC,
   QUEUE_CLEAR_TOPIC,
   QUEUE_PUT_TOPIC,
+  QUEUE_WITHDRAW_TOPIC,
 } from "./topics.ts";
 
 // queue에서 시작할 turn을 고른다. 입력 하나가 turn 하나이고, session이 idle이면 맨 앞 입력으로
@@ -148,6 +149,14 @@ export function createLophnInputTransport(deps: {
         unattended,
       });
     },
+    withdraw(tx, target, call) {
+      if (target.transport !== "lophn") return ok(undefined);
+      tx.port(afterCommit).push(QUEUE_WITHDRAW_TOPIC, {
+        session: target.session,
+        call,
+      });
+      return ok(undefined);
+    },
   };
 }
 
@@ -182,6 +191,12 @@ export function createQueueApplier(deps: {
         } as AgentEvent);
       } else if (action.topic === QUEUE_CLEAR_TOPIC) {
         queue.clear((action.data as { session: Id<"ses"> }).session);
+      } else if (action.topic === QUEUE_WITHDRAW_TOPIC) {
+        const { session, call } = action.data as {
+          session: Id<"ses">;
+          call: string;
+        };
+        queue.withdrawCall(session, call);
       } else if (action.topic === AGENT_EVENT_TOPIC) {
         deps.publish(action.data as AgentEvent);
       }

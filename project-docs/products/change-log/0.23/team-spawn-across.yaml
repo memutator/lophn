@@ -17,6 +17,7 @@ change: |
   - 팀 자리 수: 자리는 이 컴퓨터의 팀원과 같은 규칙(root 아래 열린 행)으로 열려 있는 동안 `max_members`의 한 자리다. spawn call이 끝나도 세고 보관하면 빈다. 늦게 닿은 spawn mail은 그 컴퓨터의 대기 목록에 서고 연 컴퓨터의 자리는 held, 그 컴퓨터의 사람이 시작하면 running, 건너뛰면 자리가 닫힌다. 둘 다 코드는 이미 그렇게 돌아 test로 못 박았다.
   - `team spawn`(이 컴퓨터, `--on`)의 conflict·forbidden 거절과 `call send`(`--on` 포함)의 forbidden 거절은 core가 쓴 고정 글이 agent의 tool 결과에 그대로 실린다(팀이 가득 참·깊음은 "do the work yourself or ask your parent", 받은 mail로 열린 session은 다른 컴퓨터로 보내지 못함). 닫힌 session으로 보낸 `call send`의 hint는 다른 컴퓨터의 팀원이었으면 `team spawn <handle> --on <computer>`로 새로 열라고도 말한다.
   - 팀원이 연 ask가 부모에게 열려 있어도(가져갔든 아니든) 자리를 끝내는 길(team end, 보관, 지움, 부모의 끝, 명단 쓸기, 끝의 mail)이 된다: 그 길마다 취소 알림의 blob을 미리 준비하고, 준비되지 않았으면 고정 글(unavailable)로 거절한다. 앱 지우기가 그 앱의 session을 지울 때도 같은 알림을 준비해 받은 열린 call이나 열린 ask가 앱 지우기를 막지 않는다(받은 call은 이 변경 전에도 막았다).
+  - 취소된 call(끝나는 session의 ask, 끝난 팀원 자리가 보낸 call, `call cancel`, 다른 컴퓨터의 cancel)을 받은 session이 아직 가져가지 않았으면 그 입력을 queue에서 거둔다. 닫힌 ask가 부모의 다음 turn 입력이 되지 않는다. 가져갔으면 전처럼 `call_cancelled` 알림이다.
   - 내장 skill `lophn-agent`: `team spawn <handle> --on <컴퓨터>`(컴퓨터는 `machine computers`, handle은 `agent list --on`·`agent card --on`), 바로 돌아오고 문제는 늦게 call의 실패로 온다, 팀원은 잎이다, 팀원의 `ask`는 부른 쪽에 온다.
   - 계약: mail call의 `spawn`·`ask`, reply의 `decision`, cancel의 `end`, state의 `ended`(mail 종류는 넷 그대로). `calls/mail-send` 입력의 `self` 칸을 뺐다(core가 안다). 저장: schema step `lophn-agent.member.runs-on`(`sessions.runs_on`과 바꾸지 못하게 하는 trigger).
 why: |

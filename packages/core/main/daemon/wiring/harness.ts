@@ -42,6 +42,7 @@ import {
   createQueueApplier,
   QUEUE_CLEAR_TOPIC,
   QUEUE_PUT_TOPIC,
+  QUEUE_WITHDRAW_TOPIC,
   inputParts,
   turnLimitsOf,
 } from "../../../lophn-agent/run-loop/mod.ts";
@@ -668,7 +669,8 @@ export const harnessWiring: WiringFactory = () => {
                 actions.flatMap((action) =>
                   action.topic === HARNESS_QUEUE_PUT_TOPIC
                     ? [{ ...action, topic: QUEUE_PUT_TOPIC }]
-                    : action.topic === QUEUE_CLEAR_TOPIC
+                    : action.topic === QUEUE_CLEAR_TOPIC ||
+                        action.topic === QUEUE_WITHDRAW_TOPIC
                       ? [action]
                       : [],
                 ),

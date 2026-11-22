@@ -82,7 +82,11 @@ function world(refuse: boolean) {
       seen: {} as never,
       self: () => "mch_self",
       steps: {} as never,
-      transport: { deliver: () => ok(undefined), cancel: () => ok(undefined) },
+      transport: {
+        deliver: () => ok(undefined),
+        cancel: () => ok(undefined),
+        withdraw: () => ok(undefined),
+      },
       store: {
         insert: (_tx, record) => {
           rows.set(record.call, record);
@@ -96,6 +100,7 @@ function world(refuse: boolean) {
           rows.set(call, moved);
           return ok(moved);
         },
+        consumed: () => true,
         markConsumed: () => ok(undefined),
         setDelivery: () => ok(undefined),
         lost: () => [],

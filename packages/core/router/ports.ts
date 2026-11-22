@@ -148,13 +148,15 @@ export interface SessionDirectory {
 export interface InputTransport {
   // 그 transport가 맡은 session의 queue에 넣는다.
   deliver(tx: Tx, target: TargetSession, input: RoutedInput): Result<void>;
-  // 취소 입력(notice)을 넣는다.
+  // 취소 입력(notice)을 넣는다. 받는 session이 이미 가져간 call이다.
   cancel(
     tx: Tx,
     target: TargetSession | null,
     call: Id<"cal">,
     unattended: boolean,
   ): Result<void>;
+  // 아직 가져가지 않은 call의 입력을 commit 뒤 queue에서 거둔다. 그 session은 닫힌 call을 받지 않는다.
+  withdraw(tx: Tx, target: TargetSession, call: Id<"cal">): Result<void>;
 }
 
 export interface CallStore {
@@ -172,6 +174,8 @@ export interface CallStore {
     // 앱이 보낸 result call의 답 글. 다른 call은 싣지 않는다.
     result?: string,
   ): Result<AgentCallRow>;
+  // 받는 session의 turn이 그 call 입력을 가져갔는가.
+  consumed(tx: Tx, call: Id<"cal">): boolean;
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 답 없는 call은 여기서 done이 된다. 재시작 때 잃어버린 call을
   // 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;

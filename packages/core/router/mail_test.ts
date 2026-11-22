@@ -191,6 +191,9 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
   const delivered: { session: string; input: RoutedInput }[] = [];
   // commit 뒤 할 일(ask 짝 풀기 등). main thread가 받는 것을 그대로 적는다.
   const announced: { topic: string; data: unknown }[] = [];
+  // 받은 session에 간 취소 알림(가져간 call)과 queue에서 거둔 입력(아직 가져가지 않은 call).
+  const cancelled: { session: string; call: string }[] = [];
+  const withdrawn: { session: string; call: string }[] = [];
   // session을 끝내면(archive) 받은 열린 call을 이 Router가 닫는다(core의 session 끝내기와 같다).
   const directory = {
     ...createSessionDirectory({
@@ -220,7 +223,14 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
         delivered.push({ session: target.session, input });
         return ok(undefined);
       },
-      cancel: () => ok(undefined),
+      cancel: (_tx, target, call) => {
+        if (target !== null) cancelled.push({ session: target.session, call });
+        return ok(undefined);
+      },
+      withdraw: (_tx, target, call) => {
+        withdrawn.push({ session: target.session, call });
+        return ok(undefined);
+      },
     },
     store: createCallStore(),
     outbox: createMailOutbox(),
@@ -447,6 +457,8 @@ async function machine(self: string, policy: CallPolicy = DEFAULT_CALL_POLICY) {
     directory,
     delivered,
     announced,
+    cancelled,
+    withdrawn,
     count,
     call,
     openSession,
@@ -2345,6 +2357,47 @@ test("팀원으로 이어진 컴퓨터가 명단에서 빠지면(어느 쪽이 �
     ),
   );
   assert.equal(pendingMails(b.sql, A as never).length, 0);
+});
+
+// 끝나는 session의 ask(이 컴퓨터의 자식, 다른 컴퓨터의 팀원)가 부모의 queue에 아직 있으면 부모가 다음 turn에 닫힌 ask를 받는다.
+test("끝난 자식과 끝난 팀원 자리의 ask는 부모가 아직 가져가지 않았으면 queue에서 거두고, 가져갔으면 취소 알림을 준다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const has = (list: { session: string; call: string }[], call: string) =>
+    list.some((each) => each.call === call);
+  const localAsk = () => {
+    const parent = a.openSession(REVIEWER);
+    const child = routeCall(a, parent, { agent: "reviewer" }, { spawn: true });
+    assert.ok(child.ok && child.value.session !== null);
+    const asked = routeCall(
+      a,
+      child.value.session,
+      { session: parent },
+      { ask: "question" },
+    );
+    assert.ok(asked.ok && asked.value.call !== null);
+    return { session: child.value.session, call: asked.value.call };
+  };
+  const memberAsk = (dedup: string) => {
+    const { root, member } = memberOnB(a, b, dedup);
+    const asked = routeCall(b, member, { session: root }, { ask: "approval" });
+    assert.ok(asked.ok && asked.value.call !== null);
+    carry(b, a);
+    return { session: member, call: asked.value.call };
+  };
+  for (const make of [localAsk, () => memberAsk("s1")]) {
+    const unread = make();
+    assert.ok(a.directory.archive(a.tx, unread.session as Id<"ses">).ok);
+    assert.equal(a.call(unread.call)?.["state"], "cancelled");
+    assert.ok(has(a.withdrawn, unread.call));
+    assert.ok(!has(a.cancelled, unread.call));
+
+    const taken = make === localAsk ? localAsk() : memberAsk("s2");
+    assert.ok(a.router.markConsumed(a.tx, taken.call as Id<"cal">).ok);
+    assert.ok(a.directory.archive(a.tx, taken.session as Id<"ses">).ok);
+    assert.ok(has(a.cancelled, taken.call));
+    assert.ok(!has(a.withdrawn, taken.call));
+  }
 });
 
 test("다시 짠 agent_calls와 messages에 옛 행이 칸 그대로 옮겨진다", async () => {

@@ -233,6 +233,15 @@ export function createCallStore(): CallStore {
     },
     // 답 없는 call은 받는 turn이 입력을 가져갈 때 끝난다. 배달할 때 끝내면 켤 때 queue와 함께 잃은 것을 가리지 못하고,
     // 가져간 뒤에도 열어 두면 받은 session을 닫을 때 끝난 일에 receiver_ended가 간다.
+    consumed(tx, call) {
+      return (
+        Number(
+          tx.sql.get("select consumed from agent_calls where call = ?", [
+            call,
+          ])?.["consumed"] ?? 0,
+        ) === 1
+      );
+    },
     markConsumed(tx, call) {
       tx.sql.run(
         `update agent_calls set consumed = 1,

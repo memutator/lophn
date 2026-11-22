@@ -82,12 +82,14 @@ lophn agent list --on <computer> [--workspace '{"project":"my-project"}']
 lophn agent card reviewer --on <computer>
 lophn session list --on <computer>
 lophn call send --on <computer> --to '{"agent":"reviewer","workspace":{"project":"my-project"}}' --reply result --body "..."
+lophn team spawn builder --on <computer> --body "..."
 \`\`\`
 
 - \`machine computers\` lists the person's computers. \`--on <computer>\` takes a name or id from it. Each computer has its own agents, projects and sessions.
 - The workspace there is a project by its cross-computer \`pri_\` id (from \`lophn project identity\` on that computer or from \`agent list --on\`), an app slug, or \`{"home":true}\`. A project name works only when the same project is also on this computer. Without one, \`agent list\` and \`agent card\` look in the workspace you run in, and \`call send\` opens the agent at home as on this computer. \`session list --on\` shows the sessions calls from this computer opened there; send to one with \`--to '{"session":"ses_xxx"}'\`.
 - Only text goes. Files, images and changes you have not committed stay on this computer; if the other side needs code, move it first (for example with git) as your instructions say.
 - A call to a computer that is off goes when it comes back. A session opened by a call from another computer cannot send to a third computer.
+- \`team spawn <handle> --on <computer>\` opens a team member there: the handle comes from \`agent list --on\` (read its \`agent card --on\` first), and \`--workspace\` works as in \`call send --on\` (without it, your own workspace). It returns at once, even when that computer is off; if the member cannot start there (no such agent, the person there skipped it), the call fails later. The member counts in your team here and \`team read\` shows its computer and state (pending, held, running). It is a leaf: it cannot spawn members. Its \`ask\` comes to you.
 - Which computer and agent to call is for your instructions and the person to decide; lophn does not pick one.
 
 ## Handoff note

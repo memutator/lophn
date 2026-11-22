@@ -11,6 +11,10 @@ change: |
   - 팀원의 `ask`(질문, shell 승인)는 A의 부모에게 가는 call mail(`ask`)이고 부모의 결정은 reply mail의 `decision`으로 돌아가 B의 짝을 푼다. B가 다시 켜지면 그 ask call을 닫고 A에 cancel mail을 낸다.
   - 끝: A의 `team end`와 사람의 보관·지움은 자리를 A에서 곧바로 닫고(그 자리로 보낸 열린 call은 receiver_ended) B로 `cancel{end: true}`를 낸다. B는 그 session을 보관한다. B에서 그 session이 끝나면 `state{delivery: ended}`가 가고 A가 자리를 닫는다. spawn call이 B에서 돌기 전에 실패하면(not_found, closed, expired, skipped, old_version, 명단에서 빠짐) 자리가 닫히고, 받은 turn이 답 없이 끝난 receiver_ended·lophn_restarted로는 닫히지 않는다. 명단에서 빠진 컴퓨터의 자리는 같은 쓸기에서 닫히고 부모가 한 번 듣는다.
   - 읽기: `team read`가 자리를 자식으로 내고 `computer`와 상태 `pending | held | running`을 싣는다(runtime은 null일 수 있다). `team_changed`도 같다. session snapshot이 자리를 `agent: null`, `runs_on {machine, computer, handle, state: pending | held | running | ended, state_seq}`로 싣는다. session 목록(Recent), session read, 앱의 session 목록, `tabs/hand`는 자리를 내지 않는다. 자리는 `SessionStarted` 대신 `StateChanged{sessions}`를 낸다.
+  - 연 컴퓨터의 왼쪽 sidebar: 다른 컴퓨터에서 도는 팀원은 current에 선 부모 줄 아래에 컴퓨터 아이콘, 그 컴퓨터의 handle, 컴퓨터 꼬리표로 선다. 상태 글은 pending이면 "Waiting"(그 컴퓨터가 꺼졌거나 call이 아직 닿지 않음), held면 "Needs approval"(그 컴퓨터의 Inbox), running이면 없다. 이 컴퓨터의 turn 점, 이름 바꾸기, 끌기가 없다. 누르면 그 컴퓨터의 session을 그 기계를 단 탭으로 열고, 오른쪽 끝 x(End team member)가 자리를 보관한다(`sessions/archive`, snapshot의 `state_seq`). 창의 session store는 자리를 session 목록과 따로 들어 Recent, 찾기, Hand to, session 고르기에 들지 않는다.
+  - 도는 컴퓨터: 탭은 저절로 열리지 않는다. 그 session을 열면 첫 메시지(팀원을 연 call)의 보낸 쪽 chip이 "Team member · from <agent> on <연 컴퓨터>"다.
+  - 팀 자리 수: 자리는 이 컴퓨터의 팀원과 같은 규칙(root 아래 열린 행)으로 열려 있는 동안 `max_members`의 한 자리다. spawn call이 끝나도 세고 보관하면 빈다. 늦게 닿은 spawn mail은 그 컴퓨터의 대기 목록에 서고 연 컴퓨터의 자리는 held, 그 컴퓨터의 사람이 시작하면 running, 건너뛰면 자리가 닫힌다. 둘 다 코드는 이미 그렇게 돌아 test로 못 박았다.
+  - 내장 skill `lophn-agent`: `team spawn <handle> --on <컴퓨터>`(컴퓨터는 `machine computers`, handle은 `agent list --on`·`agent card --on`), 바로 돌아오고 문제는 늦게 call의 실패로 온다, 팀원은 잎이다, 팀원의 `ask`는 부른 쪽에 온다.
   - 계약: mail call의 `spawn`·`ask`, reply의 `decision`, cancel의 `end`, state의 `ended`(mail 종류는 넷 그대로). `calls/mail-send` 입력의 `self` 칸을 뺐다(core가 안다). 저장: schema step `lophn-agent.member.runs-on`(`sessions.runs_on`과 바꾸지 못하게 하는 trigger).
 why: |
   agent가 다른 컴퓨터(Windows에서만 되는 build, 늘 켜 둔 기계)에 일을 맡길 때 팀원처럼 맡기고 싶었다. 팀 밖 call은 팀 tree, 상한, `ask`, `team end`, `team read`가 닿지 않아 coordinator가 그 일을 팀으로 다루지 못했다.
@@ -35,5 +39,16 @@ decisions:
     by: agent
   - text: 자리의 상태는 spawn call의 배달로 읽는다(닿지 않음·모름은 pending, 대기는 held, 받았거나 spawn call이 끝났으면 running). 그 컴퓨터에서 turn이 도는지는 연 컴퓨터가 모른다.
     by: agent
+  - text: 다른 컴퓨터에서 도는 팀원 줄은 current에 선 부모 줄 아래에만 선다. 혼자서는 current도 Recent도 아니다(이 컴퓨터에서 도는 것이 없다). 부모가 Recent에 있으면 보이지 않고 부모의 `team read`에 있다. 버린 길은 자리를 맨 위 단계 줄로 세우기(끝난 coordinator 밑의 자리가 current를 채운다)다.
+    by: agent
+  - text: 팀원 줄의 x는 이 컴퓨터의 팀원 줄의 x(Stop)와 같은 자리에서 확인 없이 자리를 보관한다(그 컴퓨터의 session도 닫힌다). 이 컴퓨터의 current 줄에는 오른쪽 클릭 menu가 없어 menu를 따로 만들지 않았다.
+    by: agent
+  - text: 도는 컴퓨터의 표시는 새 chip이 아니라 그 팀원을 연 첫 메시지의 보낸 쪽 chip 머리를 "Team member · from"으로 바꾼 것이다. 부모가 있는 session의 첫 항목이 다른 컴퓨터의 메시지인 것으로 안다(새 mail 칸 없음). coordinator 이름은 mail이 이미 싣는 보낸 agent 이름이다.
+    by: agent
 follow_up: |
-  화면(sidebar의 자리와 chip, gallery), 내장 skill `lophn-agent`의 글, roadmap 정리, 개발 core 둘로 하는 확인은 다음 일이다. 자리를 누르면 그 컴퓨터의 session 탭(탭의 `machine`)으로 열 수 있다.
+  개발 core 둘로 하는 확인은 따로 한다. 자리의 이름은 그 컴퓨터의 handle이다(그 agent의 보이는 이름은 연 컴퓨터가 모른다).
+checklist:
+  - "해야: 두 컴퓨터 모두 이 판(또는 그 뒤)으로 올린다. 옛 판 컴퓨터로 연 팀원은 old_version 실패로 닫힌다"
+  - "coordinator session에서 agent에게 `lophn team spawn <handle> --on <다른 컴퓨터>`를 시켜 보고, 왼쪽 sidebar의 coordinator 줄 아래에 팀원 줄(handle, 컴퓨터 꼬리표, 상태)이 서는지 본다"
+  - "팀원 줄을 눌러 그 컴퓨터의 session이 열리는지, 그 session의 첫 메시지 chip이 \"Team member · from …\"인지 본다"
+  - "다른 컴퓨터를 끈 채 spawn하면 줄이 Waiting이고, 켠 뒤 running(글 없음)이 되는지 본다"

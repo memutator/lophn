@@ -57,6 +57,8 @@ import {
 } from "../lophn-agent/workspaces/mod.ts";
 import { SESSION_END_DEPS } from "../lophn-agent/workspaces/environment.ts";
 import { createTeamEnd } from "../lophn-agent/session/team-commands.ts";
+import { createConversationCommands } from "../lophn-agent/session/commands.ts";
+import { appDelete } from "../../protocol/apps/mod.ts";
 import { messageBodyFields } from "../lophn-agent/session/model.ts";
 import { createBlobRegistrar } from "../storage/blobs/register.ts";
 import { TEAMS, WIRINGS } from "../main/daemon/assembly.ts";
@@ -306,9 +308,12 @@ async function machine(self: Id<"mch">) {
     },
     ctx: AuthenticatedContext,
     input: unknown,
+    // 본문 준비는 envelope의 명령 이름으로 고른다. 다른 명령이 같은 tx에서 부르는 명령이면 그 바깥 명령의 이름이다.
+    envelope: string = definition.route.name,
+    compare: unknown = {},
   ): Promise<Result<unknown>> => {
     const ready = await preparer(ctx, {
-      command: definition.route.name,
+      command: envelope,
       input,
       idempotency_key: "k",
       compare: {},
@@ -329,7 +334,7 @@ async function machine(self: Id<"mch">) {
         tx as never,
         ctx as never,
         parsed.data as never,
-        {} as never,
+        compare as never,
       );
       db.exec(done.ok ? "commit" : "rollback");
       return done;
@@ -929,4 +934,77 @@ test("다른 컴퓨터의 팀원이 연 ask가 부모에게 열려 있어도(가
   for (const call of asks) {
     assert.notEqual(b.callRow(call)?.["state"], "accepted");
   }
+});
+
+// 앱을 지우면 같은 tx에서 그 앱 workspace의 session을 DeleteSession으로 지운다. 그 session이 받은 열린 call(실패 알림)과 보낸 ask(취소
+// 알림)의 글을 앱 지우기 명령의 본문 준비가 미리 준비하지 않으면 열린 call 하나가 앱 지우기를 막는다.
+test("앱 지우기가 지우는 session에 받은 열린 call과 보낸 열린 ask가 있어도 지우기가 되고 둘이 알림과 함께 닫힌다", async () => {
+  const a = await machine(A);
+  const lead = a.openSession("lophn_home");
+  const as = (session: string) =>
+    ({
+      ...MAIL_CONTEXT,
+      actor: `agent:${session}`,
+      conditions: { session: session as Id<"ses"> },
+      turn: "trn_00000000000000000000000001",
+    }) as AuthenticatedContext;
+  const spawned = await a.run(
+    ROUTER_COMMANDS.find(
+      (each) => each.route.name === "SpawnTeamMember",
+    )! as never,
+    as(lead),
+    {
+      agent: "reviewer",
+      reply: "result",
+      body: textBlocks("work on the app"),
+      dedup: "s1",
+    },
+  );
+  assert.ok(spawned.ok, JSON.stringify(spawned));
+  const { session: member, call: received } = spawned.value as {
+    session: string;
+    call: string;
+  };
+  const asked = await a.command(callsAskOpen, {
+    from: member,
+    to: lead,
+    ask: "approval",
+    body: textBlocks("may I run the build?"),
+    unattended: false,
+  });
+  assert.ok(asked.ok, JSON.stringify(asked));
+  const ask = (asked.value as { call: string }).call;
+  const toLead = () =>
+    Number(
+      a.sql.get("select count(*) as n from messages where session = ?", [
+        lead,
+      ])?.["n"],
+    );
+  const before = toLead();
+  const remove = createConversationCommands({
+    send: {} as never,
+    deleteSessionRecords: () => ok(undefined),
+    catalog: () => [],
+    eraseBlobRefs: () => ok(undefined),
+    open: () => ({}) as never,
+    end: SESSION_END_DEPS,
+  }).delete;
+  const seq = a.sql.get("select state_seq from sessions where id = ?", [
+    member,
+  ])?.["state_seq"];
+  const deleted = await a.run(
+    remove as never,
+    { ...MAIL_CONTEXT, actor: "user" } as AuthenticatedContext,
+    { session: member },
+    appDelete.name,
+    { state_seq: String(seq) },
+  );
+  assert.ok(deleted.ok, JSON.stringify(deleted));
+  assert.deepStrictEqual(
+    { ...a.callRow(received) },
+    { state: "failed", fail_reason: "receiver_ended", delivery: null },
+  );
+  assert.equal(a.callRow(ask)?.["state"], "cancelled");
+  // 부모에게 실패 알림과 취소 알림이 남는다.
+  assert.equal(toLead() - before, 2);
 });

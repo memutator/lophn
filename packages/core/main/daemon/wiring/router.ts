@@ -1,4 +1,5 @@
 import { realpath } from "node:fs/promises";
+import { appDelete } from "../../../../protocol/apps/mod.ts";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
@@ -216,7 +217,9 @@ export function createCallBodyPreparer(deps: {
     } else if (
       name === archiveSession.name ||
       name === deleteSession.name ||
-      name === teamEnd.name
+      name === teamEnd.name ||
+      // 앱을 지우면 같은 tx에서 그 앱 workspace의 session을 지운다(DeleteSession과 같은 끝).
+      name === appDelete.name
     ) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림과, 끝나는 session이 보낸 ask나 끝나는 팀원 자리가 이 기계로
       // 보낸 call이 취소되며 받은 session에 가는 취소 알림이다.

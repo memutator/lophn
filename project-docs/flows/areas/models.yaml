@@ -1939,7 +1939,7 @@ flows:
     boundary: [secrets, remote]
     code: [packages/core/secrets/vault-sync.ts, packages/core/remote/links.ts, packages/core/main/daemon/wiring/remote.ts]
     steps:
-      - "계기: link가 붙음, 그 컴퓨터의 `StateChanged{browser_profiles|logins}`(2초 debounce), 5분 timer, 이 컴퓨터의 나누기를 켬. 컴퓨터마다 한 번에 하나다. 나누기를 끈 컴퓨터는 받지 않는다"
+      - "계기: link가 붙음, 그 컴퓨터의 `StateChanged{browser_profiles|logins}`(2초 debounce), 5분 timer, 이 컴퓨터의 나누기를 켬. 컴퓨터마다 한 번에 하나다. 나누기를 끈 컴퓨터는 받지 않는다. 물러나는 동안 온 계기는 물러나기가 끝나면 한 번 받고, link가 다시 붙으면 물러나기를 풀고 바로 받는다"
       - "그 컴퓨터의 browser_vault/exchange를 link로 부른다(요청한 쪽 없이). 모양이 맞지 않으면 버린다. 답이 온 뒤 나누기를 껐거나 그 컴퓨터가 명단에서 빠졌으면 합치지 않는다"
       - "합치기는 사람의 login 값 쓰기(그 칸 stamp까지)와 login·profile 지우기와 한 줄로 돈다. 이 컴퓨터의 login 값을 못 읽으면 아무것도 쓰지 않는다"
       - "칸마다 합친다(browser-vault-merge). 바뀐 값을 secret store의 put·delete로 먼저 쓰고(put은 쓰기 전에 알려진 값으로 올린다), 합치는 사이 vault가 바뀌지 않았을 때만 합친 vault를 쓴다(바뀌었으면 다시 합친다). 그 뒤 합친 vault에 흔적이 있는 login의 값만 지운다(vault에 없다는 것만으로는 지우지 않는다)"

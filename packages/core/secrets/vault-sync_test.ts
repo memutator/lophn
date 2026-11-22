@@ -6,7 +6,12 @@ import { test } from "node:test";
 
 import { err, manualClock, ok } from "../../base/mod.ts";
 import { createBrowserVault } from "./browser-vault.ts";
-import { applyRemoteVault, browserVaultExchangeHandler } from "./vault-sync.ts";
+import { BACKOFF_FIRST_MS } from "../../protocol/folder/limits.ts";
+import {
+  applyRemoteVault,
+  browserVaultExchangeHandler,
+  createVaultSync,
+} from "./vault-sync.ts";
 
 const KEEP = `lgn_${"1".repeat(26)}`;
 const GONE = `lgn_${"2".repeat(26)}`;
@@ -210,4 +215,76 @@ test("값을 못 읽으면 exchange는 unavailable이고 받기는 아무것도 
   } finally {
     t.done();
   }
+});
+
+// 깨지면 받기가 한 번 실패한 뒤 상대가 다시 뜨거나 바뀌어도 5분 timer까지 받지 않는다(profile 탭이 목록을 기다리며 비어 있다).
+test("물러나는 동안 온 계기는 notBefore가 지난 뒤 한 번 받고, link가 붙으면 바로 받는다", async () => {
+  const clock = manualClock(0);
+  const timers: { at: number; fn: () => void; live: boolean }[] = [];
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  // 때가 된 timer를 부른다(5분 timer는 넘지 않는다).
+  const advance = async (ms: number) => {
+    clock.advance(ms);
+    for (const one of [...timers]) {
+      if (one.live && one.at <= clock.nowMs()) {
+        one.live = false;
+        one.fn();
+      }
+    }
+    await settle();
+  };
+  const PEER = `mch_${"1".repeat(26)}` as never;
+  let pulls = 0;
+  let failing = true;
+  const sync = createVaultSync({
+    merge: async () => ok(false),
+    exchange: async () => {
+      pulls += 1;
+      return failing
+        ? err({ code: "unavailable" as const, message: "down" })
+        : ok({});
+    },
+    peers: () => [PEER],
+    inRoster: () => true,
+    sharing: () => true,
+    changed: () => {},
+    clock,
+    wait(ms, fn) {
+      const one = { at: clock.nowMs() + ms, fn, live: true };
+      timers.push(one);
+      return () => {
+        one.live = false;
+      };
+    },
+    logger: { warn() {}, info() {}, error() {}, debug() {} } as never,
+  });
+  sync.start();
+  sync.ready(PEER);
+  await settle();
+  assert.equal(pulls, 1);
+  // 물러나는 동안(1분) 온 계기 둘은 한 번으로 미뤄진다.
+  failing = false;
+  sync.peerChanged(PEER);
+  await advance(2_000);
+  sync.peerChanged(PEER);
+  await advance(2_000);
+  assert.equal(pulls, 1);
+  await advance(BACKOFF_FIRST_MS);
+  assert.equal(pulls, 2);
+  await advance(BACKOFF_FIRST_MS);
+  assert.equal(pulls, 2);
+
+  // 다시 실패해 물러나는 중에 link가 붙으면 기다리지 않고 받는다.
+  failing = true;
+  sync.peerChanged(PEER);
+  await advance(2_000);
+  assert.equal(pulls, 3);
+  failing = false;
+  sync.ready(PEER);
+  await settle();
+  assert.equal(pulls, 4);
+  // 풀린 물러나기의 미뤄 둔 받기는 남지 않는다.
+  await advance(BACKOFF_FIRST_MS);
+  assert.equal(pulls, 4);
+  sync.stop();
 });

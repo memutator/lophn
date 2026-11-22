@@ -805,7 +805,7 @@ files:
       - browser-vault-exchange:unavailable
       - browser-vault-sync:merged
       - browser-vault-sync:failed
-    note: exchange는 지금 명단의 컴퓨터에만 값을 내고 이 컴퓨터의 사람 token, 빠진 컴퓨터, 나누기를 끈 때는 forbidden이며, 값을 못 읽으면 unavailable이다. 받은 vault를 합치면 새 login의 값을 넣고 흔적이 있는 login의 값만 지운다(vault가 비어도 vault 밖 값은 남는다). 이 컴퓨터의 값을 못 읽으면 받기는 아무것도 쓰지 않는다
+    note: exchange는 지금 명단의 컴퓨터에만 값을 내고 이 컴퓨터의 사람 token, 빠진 컴퓨터, 나누기를 끈 때는 forbidden이며, 값을 못 읽으면 unavailable이다. 받은 vault를 합치면 새 login의 값을 넣고 흔적이 있는 login의 값만 지운다(vault가 비어도 vault 밖 값은 남는다). 이 컴퓨터의 값을 못 읽으면 받기는 아무것도 쓰지 않는다. 물러나는 동안 온 계기는 notBefore 뒤 한 번 받고 link가 붙으면 바로 받는다
 
   - path: packages/core/secrets/login-routes_test.ts
     covers:

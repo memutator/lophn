@@ -4,7 +4,8 @@
 // - 받기(pull)만 있다. 이 컴퓨터는 link가 붙은 컴퓨터마다 그 컴퓨터의 `browser_vault/exchange`를 불러 받은 vault(값 포함)를
 //   자기 vault에 합친다. 상대도 같은 일을 하므로 늘 켜 둔 컴퓨터가 저절로 가운데가 되어 A의 것이 B를 거쳐 C에 간다.
 // - 계기: link가 붙음, 상대의 `StateChanged{logins|browser_profiles}`(2초 debounce), 5분 timer, 이 컴퓨터의 나누기를 켬.
-//   실패는 1분부터 두 배씩 1시간까지 물러난다. 상대가 나누기를 껐거나(forbidden) 옛 판(not_found)이면 물러나지 않고 조용히
+//   실패는 1분부터 두 배씩 1시간까지 물러난다. 물러나는 동안 온 계기는 버리지 않고 물러나기가 끝나면 한 번 받는다. link가
+//   다시 붙으면 물러나기를 풀고 바로 받는다. 상대가 나누기를 껐거나(forbidden) 옛 판(not_found)이면 물러나지 않고 조용히
 //   다음 계기(상대의 바뀜, 5분 timer)를 기다린다.
 // - 나누기를 끈 컴퓨터는 받지도 내주지도 않는다.
 // - 값을 못 읽으면(secret store가 unavailable) 내주지도 합치지도 않는다. 못 읽은 값을 "없음"으로 보내면 상대가 그 값을 지운다.
@@ -183,6 +184,8 @@ type Lane = {
   again: boolean;
   attempts: number;
   notBefore: number;
+  // 물러나는 동안 온 계기. `notBefore`가 지나면 받기 한 번을 한다(줄을 세우지 않는다). 취소 함수다.
+  deferred: (() => void) | undefined;
 };
 
 export type VaultSync = ReturnType<typeof createVaultSync>;
@@ -194,11 +197,33 @@ export function createVaultSync(deps: VaultSyncDeps) {
   let cancelTimer: (() => void) | undefined;
   let active = false;
 
+  // 물러나는 동안 온 계기를 버리지 않고 `notBefore`가 지난 뒤 한 번 받는다. 이미 잡혀 있으면 더하지 않는다.
+  function defer(lane: Lane, machine: Id<"mch">) {
+    if (lane.deferred !== undefined) return;
+    lane.deferred = deps.wait(lane.notBefore - deps.clock.nowMs(), () => {
+      lane.deferred = undefined;
+      kick(machine);
+    });
+  }
+
+  function resetBackoff(lane: Lane) {
+    lane.deferred?.();
+    lane.deferred = undefined;
+    lane.attempts = 0;
+    lane.notBefore = 0;
+  }
+
   function kick(machine: Id<"mch">) {
     if (!active || !deps.sharing()) return;
     let lane = lanes.get(machine);
     if (lane === undefined) {
-      lane = { running: false, again: false, attempts: 0, notBefore: 0 };
+      lane = {
+        running: false,
+        again: false,
+        attempts: 0,
+        notBefore: 0,
+        deferred: undefined,
+      };
       lanes.set(machine, lane);
     }
     const one = lane;
@@ -206,7 +231,10 @@ export function createVaultSync(deps: VaultSyncDeps) {
       one.again = true;
       return;
     }
-    if (deps.clock.nowMs() < one.notBefore) return;
+    if (deps.clock.nowMs() < one.notBefore) {
+      defer(one, machine);
+      return;
+    }
     one.running = true;
     void (async () => {
       try {
@@ -240,6 +268,8 @@ export function createVaultSync(deps: VaultSyncDeps) {
                 BACKOFF_MAX_MS,
               );
             one.attempts += 1;
+            // 받는 사이 온 계기도 물러난 뒤 한 번 받는다.
+            if (one.again) defer(one, machine);
             return;
           }
           one.attempts = 0;
@@ -276,10 +306,7 @@ export function createVaultSync(deps: VaultSyncDeps) {
     start() {
       if (active) return;
       active = true;
-      for (const lane of lanes.values()) {
-        lane.attempts = 0;
-        lane.notBefore = 0;
-      }
+      for (const lane of lanes.values()) resetBackoff(lane);
       tick();
     },
     stop() {
@@ -288,9 +315,17 @@ export function createVaultSync(deps: VaultSyncDeps) {
       cancelTimer = undefined;
       for (const cancel of debounces.values()) cancel();
       debounces.clear();
+      for (const lane of lanes.values()) {
+        lane.deferred?.();
+        lane.deferred = undefined;
+      }
     },
-    // link가 붙었다.
-    ready: kick,
+    // link가 붙었다. 상대가 다시 떴거나 길이 돌아왔으니 물러나기를 풀고 바로 받는다.
+    ready(machine: Id<"mch">) {
+      const lane = lanes.get(machine);
+      if (lane !== undefined) resetBackoff(lane);
+      kick(machine);
+    },
     // 상대의 profile이나 login이 바뀌었다.
     peerChanged(machine: Id<"mch">) {
       debounces.get(machine)?.();

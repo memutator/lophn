@@ -1,5 +1,5 @@
 id: reader-workspace-environment
-version: 0.23.128
+version: 0.23.130
 title: project·앱의 팀원이 team read와 session list에서 부모와 형제를 handle로 본다
 modules: [packages/core/main, packages/core/storage]
 change: |

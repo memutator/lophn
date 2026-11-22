@@ -1,5 +1,5 @@
 id: workflow-remote-step-turn-end-line
-version: 0.23.126
+version: 0.23.130
 title: 다른 컴퓨터가 가져간 workflow step의 turn이 report 없이 끝나면 시작한 컴퓨터의 run에 그 컴퓨터의 lophn이 쓴 줄이 남는다
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/router, packages/core/workflows, packages/shell/renderer, packages/design]
 change: |

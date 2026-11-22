@@ -1,5 +1,5 @@
 id: team-spawn-across
-version: 0.23.127
+version: 0.23.130
 title: 다른 컴퓨터에 연 팀원이 연 컴퓨터의 팀 규칙 하나 아래 팀원으로 일한다(team spawn --on)
 modules: [packages/protocol, packages/core/router, packages/core/remote, packages/core/lophn-agent, packages/core/main, packages/cli, packages/shell/main, packages/shell/renderer]
 change: |

@@ -437,8 +437,8 @@ flows:
       - packages/core/lophn-agent/session/reads.ts
       - packages/core/lophn-agent/session/guards.ts
     steps:
-      - "session 하나는 보이는 범위(agent는 자기 session만)에서 찾는다. 없거나 보이지 않으면 not_found다."
-      - "목록은 agent와 workspace로 거르고 archived 기본값은 exclude다. agent는 자기 session만 보고, 50개씩 cursor로 나눈다. GUI 탭의 팀원 session(harness_gui)은 그 탭이 자리라 목록에 없다."
+      - "session 하나는 보이는 범위(agent는 자기 session만)에서 찾는다. 없거나 보이지 않거나 다른 컴퓨터에서 도는 팀원의 자리(runs_on)면 not_found다."
+      - "목록은 agent와 workspace로 거르고 archived 기본값은 exclude다. agent는 자기 session만 보고, 50개씩 cursor로 나눈다. GUI 탭의 팀원 session(harness_gui)은 그 탭이 자리라, 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니라 목록에 없다."
       - "archive된 session도 원문 그대로 읽힌다."
     outcomes:
       - id: ok
@@ -446,7 +446,7 @@ flows:
         when: "session이나 목록을 돌려줬다(목록은 agent 범위에 없으면 빈 목록)"
       - id: not_found
         code: not_found
-        when: "session 하나를 찾을 수 없거나 보이지 않는다"
+        when: "session 하나를 찾을 수 없거나 보이지 않는다, 또는 다른 컴퓨터에서 도는 팀원의 자리다"
         observe: [response]
       - id: invalid_input
         code: invalid_input

@@ -325,7 +325,7 @@ export const settingsArea: Area = {
       id: "settings-browser-profile-delete",
       title: "Settings · Browser · delete a profile",
       description:
-        "Work의 [Delete]를 눌러 확인 dialog가 열렸다. 그 profile의 저장 login 수와 cookie·site data가 함께 지워진다는 것, 그 profile을 쓰던 agent는 기본 profile로 떨어진다는 것을 말한다. 확인하면 login, partition data, 목록 순서로 지우고 중간에 실패하면 profile이 남는다.",
+        "Work의 [Delete]를 눌러 확인 dialog가 열렸다. 그 profile의 저장 login 수와 cookie·site data가 함께 지워진다는 것, 그 profile을 쓰던 agent는 기본 profile로 떨어진다는 것, 다른 컴퓨터와 나누는 중이면 거기서도 지워진다는 것을 말한다. 확인하면 partition data를 지운 뒤 core가 login과 profile을 지우고, 중간에 실패하면 profile이 남는다.",
       render: () => (
         <SettingsFrame
           pane="browser"
@@ -334,6 +334,19 @@ export const settingsArea: Area = {
             scrollToSection("[data-profiles]"),
             () => click("[data-profile-delete]"),
           ]}
+        />
+      ),
+    },
+    {
+      id: "settings-browser-share",
+      title: "Settings · Browser · share with other computers",
+      description:
+        "Logins 아래의 Your other computers 구역이다. 줄 하나가 profile과 저장 login(password, TOTP key 포함)을 짝지은 컴퓨터들과 같게 둔다는 것, 컴퓨터 사이의 암호화된 연결로만 가고 같이 보는 폴더로는 가지 않으며 두 컴퓨터가 같이 켜져 있을 때 닿는다는 것, cookie와 site data는 컴퓨터마다 따로이고 어느 agent가 어느 profile을 쓰는지도 컴퓨터마다 정한다는 것을 말하고, 오른쪽 끝 Switch로 이 컴퓨터의 나누기를 끈다(기본은 켬).",
+      render: () => (
+        <SettingsFrame
+          pane="browser"
+          browser={WITH_PROFILES}
+          steps={[scrollToSection("[data-browser-share]")]}
         />
       ),
     },

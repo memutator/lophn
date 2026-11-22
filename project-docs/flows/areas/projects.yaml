@@ -2151,6 +2151,29 @@ flows:
         observe: ["response"]
     crosses_process: false
 
+  - id: browser-share-toggle
+    title: "Settings에서 이 컴퓨터의 profile과 저장 login을 다른 컴퓨터와 나눌지 켜고 끈다"
+    actor: person
+    entries: [ui:browser-share-toggle]
+    uses: [route:settings/update]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/settings/browser/share-row.tsx
+      - packages/shell/renderer/desktop/settings/browser/window-source.ts
+    docs: [architecture/browser-tab.md]
+    steps:
+      - "Your other computers 구역의 Switch가 `shell.browser.share_with_computers`(기본 켬, 사람만 바꾼다)를 settings/update로 쓴다. 고른 값은 저장 전에도 보이고 저장하지 못하면 앞 값으로 돌아가며 오류 한 줄을 보인다"
+      - "끄면 이 컴퓨터는 다른 컴퓨터에 vault를 내주지도 받지도 않는다. 이미 받은 것은 남는다. 켜면 link가 붙은 컴퓨터마다 곧 받는다"
+    outcomes:
+      - id: saved
+        observe: ["response", "event:StateChanged", "screen:settings-browser-share"]
+      - id: failed
+        code: unavailable
+        when: "core가 닿지 않거나 쓰기가 거절됐다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [secret]
+
   - id: browser-profile-delete
     title: "Settings에서 browser profile을 지운다(그 profile의 login과 data도 지운다)"
     actor: person

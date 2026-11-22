@@ -3,7 +3,10 @@
 import type { Bookmark } from "../../../../../ipc/browser.ts";
 import { agentList } from "../../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { BROWSER_PROFILES_MAX } from "../../../../../../protocol/shell/browser-profiles.ts";
-import { browserProfilesList } from "../../../../../../protocol/secrets/browser-vault.ts";
+import {
+  BROWSER_SHARE_SETTING,
+  browserProfilesList,
+} from "../../../../../../protocol/secrets/browser-vault.ts";
 import {
   loginSecretName,
   loginsList,
@@ -37,6 +40,8 @@ interface FakeBrowserSettingsOptions {
   devices?: Device[];
   /** 처음 login 목록. 없으면 비어 있다. */
   logins?: LoginRow[];
+  /** 다른 컴퓨터와 나누기. 없으면 켜져 있다. */
+  share?: boolean;
   /** 처음 browser profile 목록(기본 profile은 들지 않는다). 없으면 비어 있다. */
   profiles?: BrowserProfile[];
   /** profile을 쓰는 agent. 있으면 `agents/list`가 이 목록으로 답한다(없으면 다른 fake의 답이 그대로다). */
@@ -69,6 +74,7 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
   };
   for (const row of LINK_ROWS) core.set(row.settingKey, links[row.id]);
   core.set(DEVICES_KEY, options.devices ?? []);
+  core.set(BROWSER_SHARE_SETTING, options.share ?? true);
   let profiles: readonly BrowserProfile[] = options.profiles ?? [];
   let logins: readonly LoginRow[] = options.logins ?? [];
   const passwords = () => {
@@ -158,6 +164,12 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
         return refused("invalid_value");
       }
       core.set(DEVICES_KEY, list);
+      core.changed("settings");
+      return Promise.resolve({ ok: true, value: null });
+    },
+    chooseShare(on) {
+      calls.push(["chooseShare", on]);
+      core.set(BROWSER_SHARE_SETTING, on);
       core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
     },

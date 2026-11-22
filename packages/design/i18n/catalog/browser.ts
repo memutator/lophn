@@ -64,6 +64,7 @@ export const browser = {
   "settings.error.bookmark-duplicate":
     "Another bookmark already has this address.",
   "settings.error.bookmark-failed": "Could not change the bookmark.",
+  "settings.error.browser-share-failed": "Could not change sharing. Try again.",
   "settings.error.bookmark-title": "Enter a title of 1 to 200 characters.",
   "settings.error.bookmark-url":
     "Enter a web address that starts with http:// or https://.",
@@ -91,6 +92,7 @@ export const browser = {
   "settings.heading.links": "Links",
   "settings.heading.logins": "Logins",
   "settings.heading.profiles": "Profiles",
+  "settings.heading.browser-share": "Your other computers",
   "settings.label.bookmark-title": "Title",
   "settings.label.bookmark-url": "URL",
   "settings.label.device-android": "Android",
@@ -106,6 +108,7 @@ export const browser = {
   "settings.label.login-note": "Note",
   "settings.label.login-origin": "Site",
   "settings.label.login-username": "Username",
+  "settings.label.browser-share": "Share profiles and saved logins",
   "settings.label.profile-color": "Color",
   "settings.label.profile-default": "Default",
   "settings.label.profile-name": "Name",
@@ -132,6 +135,9 @@ export const browser = {
     "Agents that use it open their tabs in the Default profile from now on.",
   "settings.note.profile-delete-confirm":
     "This deletes the profile with its cookies, site data and {logins, plural, one {# saved login} other {# saved logins}} (and their passwords and TOTP keys).",
+  "settings.note.browser-share":
+    "Profiles and saved logins, with their passwords and TOTP keys, stay the same on your paired computers. They travel only over the encrypted link between your computers, never through a shared folder, and arrive when both computers are on at the same time. Cookies and site data stay on each computer. Which agent uses which profile is set on each computer.",
+  "settings.note.delete-shared": "It is also deleted on your other computers.",
   "settings.note.profiles":
     "Each profile keeps its own cookies and saved logins. An agent opens its Browser tabs in the profile set in its settings; everything else uses Default.",
   "settings.note.logins":

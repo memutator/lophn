@@ -11,6 +11,7 @@ import type { z } from "zod";
 
 import type { loginsList } from "../../../../../protocol/secrets/logins.ts";
 import type { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
+import { BROWSER_SHARE_SETTING } from "../../../../../protocol/secrets/browser-vault.ts";
 import { chooseSetting } from "../declared.ts";
 import { DEVICES_KEY, LINK_DEFAULT, LINK_ROWS } from "./model.ts";
 import type {
@@ -84,6 +85,7 @@ export function windowBrowserSettings(
       return chooseSetting(core, row.settingKey, value);
     },
     saveDevices: (list) => chooseSetting(core, DEVICES_KEY, list),
+    chooseShare: (on) => chooseSetting(core, BROWSER_SHARE_SETTING, on),
     saveProfile: async (input) => {
       const saved = await coreCall<{ id: string }>(
         core,

@@ -1,4 +1,5 @@
-// Settings › Browser. bookmark 목록을 고치고, browser profile을 만들고 지우고, profile마다 site login을 관리하고,
+// Settings › Browser. bookmark 목록을 고치고, browser profile을 만들고 지우고, profile마다 site login을 관리하고, 둘을
+// 다른 컴퓨터와 맞출지 고르고,
 // preview 탭이 흉내 낼 기기를 등록하고, profile 하나의 cookie, site data, cache를 지운다(Browsing data 구역은 기본 profile이다).
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
@@ -12,6 +13,7 @@ import { DeviceRows } from "./device-rows.tsx";
 import { LinkRows } from "./link-rows.tsx";
 import { LoginRows } from "./login-rows.tsx";
 import { ProfileRows } from "./profile-rows.tsx";
+import { ShareRow } from "./share-row.tsx";
 import type { BrowserProfile, BrowserSettingsSource } from "./source.ts";
 
 interface BrowserPanelProps {
@@ -68,6 +70,12 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
         <h2 className={styles.groupTitle}>{t("settings.heading.logins")}</h2>
         <p className={styles.lineHelp}>{t("settings.note.logins")}</p>
         <LoginRows source={source} />
+      </section>
+      <section className={styles.groupBlock}>
+        <h2 className={styles.groupTitle}>
+          {t("settings.heading.browser-share")}
+        </h2>
+        <ShareRow source={source} />
       </section>
       <section className={styles.groupBlock}>
         <h2 className={styles.groupTitle}>{t("settings.heading.devices")}</h2>

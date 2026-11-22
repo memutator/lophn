@@ -18,6 +18,7 @@ import { CHARACTER_COLORS } from "../../../parts/avatar/character.tsx";
 import { useCoreRead } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
 import { useLoginRows } from "./login-rows.tsx";
+import { useSharing } from "./share-row.tsx";
 import { PROFILE_COLOR_LABEL } from "./model.ts";
 import type { BrowserProfile, BrowserSettingsSource } from "./source.ts";
 
@@ -47,6 +48,7 @@ export function ProfileRows({
   useEffect(() => setSaved(null), [read]);
   const agents = useCoreRead(agentList, {}).loaded;
   const logins = useLoginRows();
+  const sharing = useSharing();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [form, setForm] = useState<Pick<BrowserProfile, "name" | "color">>({
     name: "",
@@ -330,6 +332,11 @@ export function ProfileRows({
           })}
         </p>
         <p>{t("settings.note.profile-delete-agents")}</p>
+        {sharing === true ? (
+          <p data-profile-delete-shared="">
+            {t("settings.note.delete-shared")}
+          </p>
+        ) : null}
       </Dialog>
     </>
   );

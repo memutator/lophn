@@ -52,6 +52,8 @@ export interface BrowserSettingsSource {
   chooseLink(id: LinkId, value: LinkWhere): Promise<SourceResult<null>>;
   /** 등록한 기기들(core 선언 설정)의 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
   saveDevices(list: readonly Device[]): Promise<SourceResult<null>>;
+  /** 이 컴퓨터가 profile과 저장 login을 다른 컴퓨터와 맞출지(core의 사람만 바꾸는 설정)를 정한다. */
+  chooseShare(on: boolean): Promise<SourceResult<null>>;
   /** browser profile 하나를 만들거나(id 없음) 고친다. 이름이 겹치거나 수가 넘치면 `conflict`다. 값은 그 profile의 id다. */
   saveProfile(input: {
     id?: string;

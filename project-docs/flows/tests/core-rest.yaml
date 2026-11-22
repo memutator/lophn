@@ -814,7 +814,9 @@ files:
       - login-list:not_found
       - login-save:saved
       - login-delete:deleted
-    note: origin이나 browser profile이 다르거나 shell capability가 아니면 값을 내주지 않고, list는 값을 싣지 않고 그 탭이나 agent 정의의 profile에 든 login만 내며, 탭은 실제 탭 표로 부른 쪽의 것이어야 하고(남의 탭은 not_found), preview·artifact 탭의 login은 기본 profile의 것이라 기본 profile의 agent와 사람만 보며, 지우면 두 secret 이름도 지워진다
+      - browser-profile-cleared:cleared
+      - browser-profile-cleared:forbidden
+    note: origin이나 browser profile이 다르거나 shell capability가 아니면 값을 내주지 않고(browser_profiles/cleared도 shell capability가 아니면 clear 목록에서 빼지 않는다), list는 값을 싣지 않고 그 탭이나 agent 정의의 profile에 든 login만 내며, 탭은 실제 탭 표로 부른 쪽의 것이어야 하고(남의 탭은 not_found), preview·artifact 탭의 login은 기본 profile의 것이라 기본 profile의 agent와 사람만 보며, 지우면 두 secret 이름도 지워진다
 
   - path: packages/core/main/daemon/wiring/input-request_test.ts
     covers:

@@ -1848,10 +1848,10 @@ flows:
     actor: shell
     entries: [route:browser_profiles/cleared]
     boundary: [secrets, shell]
-    code: [packages/core/secrets/profile-routes.ts, packages/shell/main/desktop/wiring/browser.ts, packages/shell/main/desktop/core/browser-profiles.ts]
+    code: [packages/core/secrets/profile-routes.ts, packages/shell/main/desktop/wiring/browser.ts, packages/shell/main/desktop/core/browser-profiles.ts, packages/shell/main/desktop/core/connection.ts]
     steps:
       - "shell main은 browser_profiles/list의 `clear`에 든 profile(목록에 다시 선 것과 기본 profile은 들지 않는다)의 partition data를 지운다"
-      - "지운 id를 이 route로 알려 core가 vault의 `clear`에서 뺀다. renderer allowlist에 없다"
+      - "지운 id를 shell capability와 함께 이 route로 알려 core가 vault의 `clear`에서 뺀다. renderer allowlist에 없다"
     outcomes:
       - id: cleared
         observe: ["disk:<root>/browser-vault.json", "disk:persist:lophn-browser-<bpf id>", "event:StateChanged"]
@@ -1861,7 +1861,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람이 아닌 actor가 불렀다(dispatch)"
+        when: "사람이 아닌 actor가 불렀다(dispatch), 또는 입력의 shell capability가 shell main이 받은 것이 아니다(사람 token만으로는 빼지 못한다)"
         observe: [response]
       - id: unavailable
         code: unavailable

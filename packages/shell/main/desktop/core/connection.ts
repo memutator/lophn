@@ -118,7 +118,7 @@ export interface CoreConnection {
     | { ok: false; error: { code: string; message: string } }
   >;
   /**
-   * `logins/release`를 부른다. shell capability는 이것과 `terminalCall`·`machineCall`만 입력에 싣고 값은 호출한 쪽(browser driver)에만 돌아간다.
+   * `logins/release`를 부른다. shell capability는 이것과 `profilesCleared`·`terminalCall`·`machineCall`만 입력에 싣고 값은 호출한 쪽(browser driver)에만 돌아간다.
    * origin은 부르는 쪽이 ref 요소가 든 frame에서 잰 값이고 profile은 그 page의 browser profile(null은 기본)이다.
    */
   releaseLogin(request: {
@@ -128,6 +128,13 @@ export interface CoreConnection {
     profile: string | null;
   }): Promise<
     | { ok: true; value: { value: string } }
+    | { ok: false; error: { code: string; message: string } }
+  >;
+  /** partition data를 지운 profile을 core의 `clear`에서 뺀다(`browser_profiles/cleared`, shell capability를 싣는다). */
+  profilesCleared(
+    ids: readonly string[],
+  ): Promise<
+    | { ok: true; value: unknown }
     | { ok: false; error: { code: string; message: string } }
   >;
   /**
@@ -528,6 +535,20 @@ export function startCoreConnection(
         { ...request, shell_capability: attached.capability },
       );
       return released as Awaited<ReturnType<CoreConnection["releaseLogin"]>>;
+    },
+    async profilesCleared(ids) {
+      if (attached === undefined) {
+        return {
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        };
+      }
+      return (await attached.session.internal(
+        "memory",
+        "browser_profiles",
+        "cleared",
+        { ids, shell_capability: attached.capability },
+      )) as Awaited<ReturnType<CoreConnection["profilesCleared"]>>;
     },
     async terminalCall(method, body) {
       if (attached === undefined) {

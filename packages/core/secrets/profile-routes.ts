@@ -10,6 +10,7 @@ import {
   loginSecretName,
   PROFILE_FIELDS,
 } from "../../protocol/secrets/mod.ts";
+import type { ShellCapabilities } from "../server/control/capability.ts";
 import type { MemoryHandler } from "../server/mod.ts";
 import { type BrowserVault, profilesOf } from "./browser-vault.ts";
 import { removeLogins } from "./login-routes.ts";
@@ -144,10 +145,17 @@ export function browserProfilesDeleteHandler(deps: {
   return handler;
 }
 
-export function browserProfilesClearedHandler(deps: { vault: BrowserVault }) {
+export function browserProfilesClearedHandler(deps: {
+  vault: BrowserVault;
+  // shell main이 `connect {client: shell}`로 받은 capability만 통과한다.
+  capabilities: Pick<ShellCapabilities, "has">;
+}) {
   const handler: MemoryHandler = (_ctx, rawInput) => {
     const input = browserProfilesCleared.input.safeParse(rawInput);
     if (!input.success) return INVALID("browser profile id가 올바르지 않다");
+    if (!deps.capabilities.has(input.data.shell_capability)) {
+      return err({ code: "forbidden", message: "shell capability가 아니다" });
+    }
     const done = new Set<string>(input.data.ids);
     return deps.vault.update((vault) =>
       ok({

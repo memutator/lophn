@@ -126,16 +126,20 @@ export const browserProfilesDelete = defineMemory({
   errors: ["invalid_input", "not_found", "unavailable"],
 });
 
-// shell main이 partition data를 지운 profile을 `clear`에서 뺀다.
+// shell main이 partition data를 지운 profile을 `clear`에서 뺀다. shell capability가 있어야 한다(`logins/release`와 같다):
+// 사람 token만으로 빼면 지운 profile의 cookie가 남는다.
 export const browserProfilesCleared = defineMemory({
   resource: "browser_profiles",
   method: "cleared",
   name: "BrowserProfilesCleared",
   changes: ["browser_profiles"],
-  input: z.strictObject({ ids: z.array(browserProfileIdSchema).max(256) }),
+  input: z.strictObject({
+    ids: z.array(browserProfileIdSchema).max(256),
+    shell_capability: z.string().min(1),
+  }),
   output: z.strictObject({}),
   actors: ["user"],
-  errors: ["invalid_input", "unavailable"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
 // 명단의 다른 컴퓨터의 core가 이 컴퓨터의 vault를 값과 함께 받는다. 그 컴퓨터의 core 자신만(요청한 쪽 없이) 부르고

@@ -294,7 +294,14 @@ export const secretsWiring: WiringFactory = () => {
           ],
           [
             key(browserProfilesCleared),
-            browserProfilesClearedHandler({ vault: logins }),
+            browserProfilesClearedHandler({
+              vault: logins,
+              // 늦게 읽는다. 아직 없으면 아무도 통과하지 못한다.
+              capabilities: {
+                has: (capability) =>
+                  ctx.peek.shellCapabilities?.has(capability) ?? false,
+              },
+            }),
           ],
           [
             key(browserVaultExchange),

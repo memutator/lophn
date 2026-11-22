@@ -19,6 +19,7 @@ import {
   loginsSaveHandler,
 } from "./login-routes.ts";
 import { createBrowserVault } from "./browser-vault.ts";
+import { browserProfilesClearedHandler } from "./profile-routes.ts";
 import { totpCode } from "./totp.ts";
 
 const CAPABILITY = "c".repeat(43);
@@ -136,6 +137,40 @@ test("release는 capability가 없거나 origin이 다르면 값을 내주지 �
     assert.deepEqual(loginsRelease.actors, ["user"]);
   } finally {
     await t.done();
+  }
+});
+
+// 깨지면 사람 token이나 다른 credential이 지운 profile을 clear 목록에서 빼 그 profile의 cookie가 이 컴퓨터에 남는다.
+test("browser_profiles/cleared는 shell capability가 있어야 clear 목록에서 뺀다", async () => {
+  const root = await mkdtemp(`${tmpdir()}/profiles-`);
+  try {
+    const vault = createBrowserVault({ root, clock: manualClock(0) });
+    assert.ok(
+      vault.update((now) => ok({ vault: { ...now, clear: [WORK] }, value: 0 }))
+        .ok,
+    );
+    const cleared = browserProfilesClearedHandler({
+      vault,
+      capabilities: { has: (capability) => capability === CAPABILITY },
+    });
+    const clear = () => {
+      const read = vault.read();
+      assert.ok(read.ok);
+      return read.value.clear;
+    };
+    const refused = await cleared(PERSON, {
+      ids: [WORK],
+      shell_capability: "d".repeat(43),
+    });
+    assert.ok(!refused.ok);
+    assert.equal(refused.error.code, "forbidden");
+    assert.deepEqual(clear(), [WORK]);
+    assert.ok(
+      (await cleared(PERSON, { ids: [WORK], shell_capability: CAPABILITY })).ok,
+    );
+    assert.deepEqual(clear(), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

@@ -181,9 +181,7 @@ export function register(ctx: ShellContext): BrowserWiring {
         }
       }
       if (done.length > 0) {
-        await ctx.coreInternal("memory", "browser_profiles", "cleared", {
-          ids: done,
-        });
+        await ctx.core.profilesCleared(done);
       }
       clearing = false;
     })();

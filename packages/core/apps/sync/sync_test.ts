@@ -23,11 +23,13 @@ import {
   adoptSnapshot,
   applyIncoming,
   dumpData,
+  ensureSyncTables,
   openClock,
   stampLocal,
   type SyncDb,
 } from "../../../protocol/apps/sync/mod.ts";
 import { readChangeset } from "../../../protocol/apps/sync/changeset.ts";
+import { hlcAtMs } from "../../../protocol/apps/sync/clock.ts";
 import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
 import type { ProcessCallResponse } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -43,7 +45,9 @@ import { rewindSchemaSteps } from "../rewind/schema.ts";
 import { handleApply } from "../runtime/entrypoint/apply.ts";
 import {
   handleSnapshot,
+  handleSnapshotMerge,
   handleSyncApply,
+  handleSyncCleanup,
 } from "../runtime/entrypoint/control-server.ts";
 import { createStoreAccess } from "../runtime/entrypoint/cap-host.ts";
 import { handleCall } from "../runtime/entrypoint/invoke.ts";
@@ -51,7 +55,10 @@ import { createRuntimeState } from "../runtime/entrypoint/state.ts";
 import { openSyncStore, syncedWrite } from "../runtime/entrypoint/sync.ts";
 import { ensureAppToolPort } from "../runtime/entrypoint/tool-port.ts";
 import { createSyncLog } from "./log.ts";
-import { syncPlanOf } from "../../../protocol/apps/declaration/sync-plan.ts";
+import {
+  type SyncPlan,
+  syncPlanOf,
+} from "../../../protocol/apps/declaration/sync-plan.ts";
 
 const PHONE_APP = syncPlanOf({ runs_on: ["computer", "phone"] });
 import {
@@ -89,7 +96,7 @@ function reply<T>(done: { status: number; body: unknown }): Result<T> {
 }
 
 // 컴퓨터 한 대: 앱 process(같은 thread의 runtime handler)와 진짜 SQLite ledger 위의 invocation·sync log·호출 길.
-function computer() {
+function computer(plan: SyncPlan = PHONE_APP) {
   const dir = mkdtempSync(join(tmpdir(), "lophn-app-sync-"));
   const file = join(dir, "app.sqlite");
   const raw = openConnection(file);
@@ -122,7 +129,7 @@ function computer() {
     record: store,
     nowMs: () => clock.nowMs(),
     startChangeset: null,
-    plan: PHONE_APP,
+    plan,
   });
 
   const ledgerDb = new DatabaseSync(":memory:");
@@ -228,10 +235,10 @@ function computer() {
       await hold.gate;
       return reply(await handleSnapshot(state, encode(request)));
     },
-    snapshotMerge: () =>
-      Promise.resolve(err({ code: "internal", message: "unused" })),
-    syncCleanup: () =>
-      Promise.resolve(err({ code: "internal", message: "unused" })),
+    snapshotMerge: async (_app, request) =>
+      reply(await handleSnapshotMerge(state, encode(request))),
+    syncCleanup: async (_app, request) =>
+      reply(await handleSyncCleanup(state, encode(request))),
     syncReapply: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
   };
@@ -243,7 +250,7 @@ function computer() {
     blobs,
     ledger,
     activeRelease,
-    plan: () => PHONE_APP,
+    plan: () => plan,
     now: () => clock.now(),
     changed: () => {},
   });
@@ -423,6 +430,7 @@ function computer() {
   return {
     raw,
     state,
+    link,
     sql,
     ledger,
     log,
@@ -805,13 +813,16 @@ test("held 줄의 bytes는 풀어도, release가 바뀌어도 남고 폰 pull에
     const held = await pc.log.held(
       APP,
       REL,
-      {
-        origin: "machine",
-        machine: ids.newId("mch") as Id<"mch">,
-        id: "9",
-        hlc: change.hlc,
-        changeset: bytesOf(change),
-      },
+      [
+        {
+          origin: "machine",
+          machine: ids.newId("mch") as Id<"mch">,
+          destination: "personal",
+          id: "9",
+          hlc: change.hlc,
+          changeset: bytesOf(change),
+        },
+      ],
       "past_horizon",
     );
     assert.ok(held.ok);
@@ -869,6 +880,66 @@ test("폰 push가 변경을 적용하면 dataChanged가 한 번 불리고 duplic
     assert.ok(duplicate.ok);
     assert.equal(duplicate.value.results[0]!.status, "duplicate");
     assert.deepEqual(pc.dataChangedApps, [APP]);
+  } finally {
+    pc.close();
+  }
+});
+
+// 지우면 합치기에서 나온 held 줄이 id 없이 들어가 sync log의 CHECK에 걸려, 읽기가 그 출처의 snapshot을 끝없이 다시 합치며
+// 그 stream 전체가 멈춘다(앱은 도는데 app_not_running으로 보였다). 다시 합칠 때 같은 held 줄이 둘 생겨도 안 된다.
+test("다른 기계의 snapshot 합치기가 정리된 흔적과 부딪는 row를 held로 내면 진짜 sync log에 한 번만 남고 합치기는 끝난다. 같은 snapshot을 다시 합쳐도 줄이 늘지 않는다", async () => {
+  const pc = computer(syncPlanOf({ sync: { item: "personal" } }));
+  try {
+    await pc.write("insert into item values ('x', 'mine', 0)");
+    await pc.write("delete from item where id = 'x'");
+    const cleaned = await pc.link.syncCleanup(APP, {
+      before: String(hlcAtMs(clock.nowMs() + 1)),
+    });
+    assert.ok(cleaned.ok && cleaned.value.status === "cleaned");
+    assert.equal(cleaned.value.dropped, 1);
+
+    // 다른 기계가 그 사이(horizon 이하 clock) x를 넣은 사본.
+    const dir = mkdtempSync(join(tmpdir(), "lophn-sync-merge-held-"));
+    const path = join(dir, "4.sqlite");
+    const raw = new DatabaseSync(path);
+    raw.exec(
+      "create table item (id text primary key, title text, done integer)",
+    );
+    const other = nodeSyncDb(raw);
+    ensureSyncTables(other, "other");
+    other.exec("begin immediate");
+    const session = other.session();
+    other.exec("insert into item values ('x', 'theirs', 0)");
+    const changeset = session.changeset();
+    session.close();
+    assert.ok(
+      stampLocal(other, changeset, openClock(other).next(START + 1500)).ok,
+    );
+    other.exec("commit");
+    raw.close();
+
+    const OTHER = ids.newId("mch") as Id<"mch">;
+    const merge = () =>
+      pc.calls.folder.mergeSnapshot({
+        app: APP,
+        release: REL,
+        origin: OTHER,
+        destination: "personal",
+        n: 4,
+        path,
+      });
+    const first = await merge();
+    assert.ok(first.ok, JSON.stringify(first));
+    const held = () =>
+      pc.log
+        .heldList(APP)
+        .map((row) => [row.origin, row.machine, row.destination]);
+    assert.deepEqual(held(), [["machine", OTHER, "personal"]]);
+    assert.doesNotMatch(pc.dump(), /theirs/);
+
+    const again = await merge();
+    assert.ok(again.ok, JSON.stringify(again));
+    assert.deepEqual(held(), [["machine", OTHER, "personal"]]);
   } finally {
     pc.close();
   }

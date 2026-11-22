@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import {
   type Clock,
   err,
@@ -37,6 +38,7 @@ import {
   type PhoneChange,
   type SyncLog,
   type SyncLogRow,
+  type HeldChange,
 } from "../sync/log.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
 import { callAllowed, type CallGateDeps } from "./gate.ts";
@@ -780,7 +782,7 @@ export function createAppCalls(deps: AppCallsDeps): {
         const held = await sync.held(
           app,
           release,
-          { origin: "device", ...change },
+          [{ origin: "device", ...change }],
           "past_horizon",
         );
         if (!held.ok) return held;
@@ -905,7 +907,7 @@ export function createAppCalls(deps: AppCallsDeps): {
             ? await sync.held(
                 app,
                 release,
-                { origin: "machine", ...received },
+                [{ origin: "machine", ...received }],
                 "past_horizon",
               )
             : await sync.machine(closed.value, received, result.status);
@@ -981,20 +983,28 @@ export function createAppCalls(deps: AppCallsDeps): {
         unbase64(out.effective),
       );
       if (!closed.ok) return closed;
+      // 합치기에서 나온 held는 그 snapshot file(앱, destination, 번호)과 row의 bytes로 id를 정한다. 기록이 실패하면 읽기가
+      // 같은 snapshot을 다시 합치는데(cursor는 그대로다), 이미 합친 row는 그대로이고 같은 held row가 같은 bytes로 다시 나와
+      // 이미 둔 줄은 건너뛴다. 남기지 못한 것은 한 transaction이라 하나도 남지 않는다.
+      const held: HeldChange[] = [];
       for (const row of out.held) {
-        const held = await sync.held(
-          app,
-          release,
-          {
-            origin: "machine",
-            machine: origin,
-            destination,
-            hlc: row.hlc,
-            changeset: unbase64(row.changeset)!,
-          },
-          "past_horizon",
-        );
-        if (!held.ok) return held;
+        const changeset = unbase64(row.changeset)!;
+        const id = `snapshot:${app}:${destination}:${input.n}:${createHash("sha256").update(changeset).digest("hex")}`;
+        const seen = sync.duplicateFrom(origin, id);
+        if (!seen.ok) return seen;
+        if (seen.value !== null) continue;
+        held.push({
+          origin: "machine",
+          machine: origin,
+          destination,
+          id,
+          hlc: row.hlc,
+          changeset,
+        });
+      }
+      if (held.length > 0) {
+        const kept = await sync.held(app, release, held, "past_horizon");
+        if (!kept.ok) return kept;
       }
       if (changed) {
         const marked = await sync.merged(closed.value);

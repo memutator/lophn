@@ -65,14 +65,14 @@ export type MachineChange = {
   changeset: Uint8Array;
 };
 
-// held로 남길 변경. device·machine·id는 그 변경이 폰이나 다른 기계에서 왔을 때만 있다.
-export type HeldChange = {
-  origin: SyncOrigin;
-  device?: Id<"dev">;
-  machine?: Id<"mch">;
-  // 다른 기계에서 폴더로 왔으면 그 destination.
-  destination?: string;
-  id?: string;
+// held로 남길 받은 변경. id는 그 기기·기계 안에서 그 변경 하나를 가리킨다(줄의 CHECK가 기기·기계와 같이 요구하고, 같은
+// 변경을 다시 받을 때 줄을 하나만 두는 key다).
+export type HeldChange = (
+  | { origin: "device"; device: Id<"dev"> }
+  // 다른 기계에서 폴더로 왔다. destination은 그 폴더다.
+  | { origin: "machine"; machine: Id<"mch">; destination: string }
+) & {
+  id: string;
   hlc: string;
   changeset: Uint8Array;
 };
@@ -112,13 +112,14 @@ export type SyncRecorder = {
    */
   merged(inv: AppInvocation): Promise<Result<number>>;
   /**
-   * 받았지만 정리된 흔적과 안전하게 합칠 수 없어 적용하지 않은 변경(폰이나 다른 기계에서 온 것). bytes를 blob으로 쥐고,
-   * 쥐지 못하면 줄을 남기지 않고 오류다(다시 snapshot 줄로 바꾸면 그 변경을 잃는다). invocation은 비어 있다.
+   * 받았지만 정리된 흔적과 안전하게 합칠 수 없어 적용하지 않은 변경들(폰이나 다른 기계에서 온 것). 한 transaction에 모두
+   * 넣고 첫 줄의 seq를 돌려준다. bytes를 blob으로 쥐고, 쥐지 못하면 줄을 남기지 않고 오류다(다시 snapshot 줄로 바꾸면 그
+   * 변경을 잃는다). invocation은 비어 있다.
    */
   held(
     app: Id<"app">,
     release: Id<"rel">,
-    change: HeldChange,
+    changes: readonly HeldChange[],
     reason: "past_horizon",
   ): Promise<Result<number>>;
   /** rewind가 실제로 바꾼 것(effective)과 그것에 찍은 새 clock. */
@@ -495,22 +496,25 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
 
     merged: marker,
 
-    held(app, release, change) {
-      return append([
-        {
+    held(app, release, changes) {
+      return append(
+        changes.map((change) => ({
           app,
           release,
-          destination: change.destination ?? null,
-          kind: "held",
-          origin: change.origin,
-          device: change.device,
-          machine: change.machine,
+          kind: "held" as const,
+          ...(change.origin === "device"
+            ? { origin: "device" as const, device: change.device }
+            : {
+                origin: "machine" as const,
+                machine: change.machine,
+                destination: change.destination,
+              }),
           change_id: change.id,
           hlc: change.hlc,
           invocation: null,
           bytes: change.changeset,
-        },
-      ]);
+        })),
+      );
     },
 
     async rewound(app, release, effective, hlc) {

@@ -95,10 +95,12 @@ export function openWriteLink(deps: WriteLinkDeps): Result<WriteLink> {
         return result;
       } catch (thrown) {
         rollback();
+        // 저장소 탓이 아닌 throw(제약 위반 같은 code 결함)는 그 까닭을 그대로 보인다. unavailable로 두면 부르는 쪽이 "앱이
+        // 돌지 않는다"로 읽고 같은 실패를 물러나며 끝없이 되풀이한다.
         if (!isStorageUnavailable(thrown)) {
           return err({
-            code: "unavailable",
-            message: "ledger에 기록할 수 없다",
+            code: "internal",
+            message: `ledger에 기록할 수 없다: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
           });
         }
         const reason = storageReason(thrown);

@@ -1398,19 +1398,21 @@ function receiver(schema: string, node = "receiver") {
         }),
       ),
     merged: (inv) => Promise.resolve(marker(inv)),
-    held: (_app, _release, change) =>
-      Promise.resolve(
+    held: (_app, _release, changes) => {
+      const seqs = changes.map((change) =>
         append({
           kind: "held",
           origin: change.origin,
-          device: change.device ?? null,
-          machine: change.machine ?? null,
-          destination: change.destination ?? null,
-          change_id: change.id ?? null,
+          device: change.origin === "device" ? change.device : null,
+          machine: change.origin === "machine" ? change.machine : null,
+          destination: change.origin === "machine" ? change.destination : null,
+          change_id: change.id,
           hlc: change.hlc,
           bytes: change.changeset,
         }),
-      ),
+      );
+      return Promise.resolve(seqs[0]!);
+    },
     heldList: () =>
       lines
         .filter((l) => l.kind === "held" && l.resolved_at === null)

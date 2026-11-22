@@ -116,3 +116,28 @@ test("browser.vault는 옛 file이 없는 root에 빈 vault를 둔다", async ()
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// 깨지면 읽히지 않는 옛 file이나 설정이 빈 목록으로 옮겨지고 옛 것이 지워져 사람의 login이나 profile이 사라진다.
+test("browser.vault는 옛 logins.json이나 profile 설정을 읽지 못하면 오류이고 vault를 쓰지 않으며 옛 것을 남긴다", async () => {
+  const cases = [
+    { logins: '[{"id": "lgn_', profiles: [] as unknown },
+    { logins: "[]", profiles: [{ id: WORK, name: "", color: "nope" }] },
+  ];
+  for (const one of cases) {
+    const root = mkdtempSync(join(tmpdir(), "lophn-vault-step-"));
+    try {
+      const settings = JSON.stringify({
+        "shell.browser_profiles": one.profiles,
+      });
+      writeFileSync(join(root, "settings.json"), settings);
+      writeFileSync(join(root, "logins.json"), one.logins);
+      const ran = await browserVaultStep.run(root, { ids });
+      assert.equal(ran.ok, false);
+      assert.equal(existsSync(join(root, "browser-vault.json")), false);
+      assert.equal(readFileSync(join(root, "logins.json"), "utf8"), one.logins);
+      assert.equal(readFileSync(join(root, "settings.json"), "utf8"), settings);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});

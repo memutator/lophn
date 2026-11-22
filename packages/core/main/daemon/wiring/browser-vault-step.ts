@@ -61,7 +61,7 @@ export const browserVaultStep: DataStep = {
     if (!settings.ok) return settings;
 
     if (!existsSync(vaultPath)) {
-      // 사람의 login을 잃지 않게 옛 file이 읽히지 않으면 옮기지 않고 멈춘다.
+      // 사람의 login을 잃지 않게 옛 file이 읽히지 않으면 옮기지 않고 멈춘다(옛 file과 설정 key가 그대로 남는다).
       const logins = readJson(loginsPath);
       if (!logins.ok) return logins;
       const parsedLogins = z
@@ -70,16 +70,19 @@ export const browserVaultStep: DataStep = {
       if (!parsedLogins.success) {
         return failed("logins.json의 모양이 맞지 않는다");
       }
-      // 설정 선언이 검사하던 값이라 맞지 않는 항목은 core가 이미 없는 것으로 보던 것이다.
+      // profile을 말없이 잃지 않게 옛 목록도 모양이 맞지 않으면 멈춘다.
       const stored = isRecord(settings.value)
         ? settings.value[OLD_SETTING]
         : undefined;
-      const profiles = Array.isArray(stored)
-        ? stored.flatMap((one) => {
-            const parsed = browserProfileSchema.safeParse(one);
-            return parsed.success ? [parsed.data] : [];
-          })
-        : [];
+      const parsedProfiles = z
+        .array(browserProfileSchema)
+        .safeParse(stored ?? []);
+      if (!parsedProfiles.success) {
+        return failed(
+          "settings.json의 옛 browser profile 목록 모양이 맞지 않는다",
+        );
+      }
+      const profiles = parsedProfiles.data;
       const vault: VaultFile = {
         format: 1,
         profiles: profiles.map((profile) => ({

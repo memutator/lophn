@@ -614,6 +614,41 @@ test("held는 destination마다다: 한 destination의 snapshot은 그 destinati
   });
 });
 
+// 규칙을 못 박는다(이것이 바뀌면 folder-sync.md의 "stream을 떠난 표"도 바꾼다): 다른 release라 둔 출처의 file은 그 출처의 더 큰
+// 번호 snapshot이 오면 release와 상관없이 지워진다. 그 snapshot의 release가 그 표를 이 stream으로 더 보내지 않으면 그 file의
+// 변경은 여기에 적용되지 않는다. 그 표의 새 destination을 출처와 이 기계가 다 가질 때만 그 snapshot으로 온다.
+test("다른 release라 둔 출처의 file은 그 출처의 뒤 snapshot이 지우고, 그 snapshot이 싣지 않는 변경은 이 stream으로 적용되지 않는다", async () => {
+  await setup(async (env) => {
+    const x = replica("x");
+    env.putMachine(P);
+    // P가 R2에서 쓴 변경: 이 기계는 R1이라 held다.
+    await env.putChanges(
+      P,
+      1,
+      R2,
+      write(x, T0 - 9000, "insert into notes values ('n', 'on R2')"),
+    );
+    await env.folder.scan();
+    await env.run();
+    assert.deepEqual(env.heldRows(P), [1]);
+
+    // P가 R1 snapshot 2를 쓴다. 그 release는 그 변경의 표를 이 stream으로 보내지 않아 snapshot에 없다.
+    const without = replica("without");
+    write(without, T0 - 8000, "insert into notes values ('k', 'kept')");
+    await env.putSnapshot(P, 2, R1, without);
+    await env.run();
+    assert.deepEqual(env.applied, ["P2 snapshot"]);
+    assert.deepEqual(env.heldRows(P), []);
+    assert.deepEqual(env.heldCopies(P), []);
+
+    // 이 기계가 R2가 되어도 적용할 것이 남지 않았다.
+    env.setActive(R2);
+    await env.run();
+    assert.doesNotMatch(dumpData(env.here.db), /on R2/);
+    assert.match(dumpData(env.here.db), /kept/);
+  });
+});
+
 // 모르는 꼴을 읽으면 틀리게 적용하고, 지우거나 cursor를 옮기면 그 기계가 올라온 뒤 받을 것을 잃는다.
 test("폴더 꼴 판이 범위 밖인 기계의 file은 열리지도 복사되지도 지워지지도 않고 cursor가 그대로이며, 범위 안으로 돌아오면 그 cursor부터 잇는다", async () => {
   await setup(async (env) => {

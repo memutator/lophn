@@ -1,5 +1,5 @@
 id: sync-tables-destinations
-version: 0.23.126
+version: 0.23.131
 title: "한 앱이 표마다 다른 destination으로 data를 보내고, destination마다 따로 내보내고 읽는다(roadmap sync-tables 2단계)"
 modules: [packages/base, packages/protocol, packages/protocol/apps/sync, packages/sdk, packages/cli, packages/core/apps, packages/core/apps/sync, packages/core/apps/update-state, packages/core/folder, packages/core/agent-workspaces, packages/core/main, packages/shell/renderer]
 checked: [boundary-catalog]

@@ -139,7 +139,7 @@ core는 daemon main thread, writer·reader Worker, I/O child process, agent runt
 - boundary ID: `core`(core main, install-and-update, host queue), `lophn-agent`(하위: `agents`, `agent-sessions`, `run-loop`, `agent-tools`, `models`, `host-queue-core`, `harness-host-core`), `agent-workspaces`, `projects`, `apps`, `runs`, `workflows`, `jobs`, `approvals`, `router`, `events`, `storage`, `server`, `supervision`, `secrets`, `config`, `diagnostics`, `protocol`, `base`, `coding-agent`, `coding-agent-cli`, `design`, `sdk`, `shell`.
 - `agent-tool-spi`: feature module와 `agent-workspaces`가 harness에 agent tool을 등록하는 계약. 제공은 apps 같은 feature module과 `agent-workspaces`, 정의는 `lophn-agent`의 `agent-tools`다.
 - port: module이 바깥에서 받는 것을 자기 안에 type으로 둔 것. 구현은 core main의 wiring이 끼운다. `runs`는 agent·메시지·turn·앱 tool 호출·origin, `workflows`는 정의 file·project·turn·flow process, `jobs`는 대상 이름 풀기·시간대·timer·run과 instance 시작, `router`는 session directory·input transport·call store, `approvals`는 할당 읽기·쓰기와 앱 공유 요청의 이름 풀기에 port를 둔다.
-- wiring: daemon은 module마다 하나의 wiring이 자기 module의 값을 끼우고, 순서는 조립 목록이 정한다. 저장된 data의 새 schema step은 그 목록 맨 뒤 wiring이 낸다(AGENTS.md "호환성"). `lophn-agent` 팀 등록처럼 reader·writer Worker가 싣는 파일은 따로 있다.
+- wiring: daemon은 module마다 하나의 wiring이 자기 module의 값을 끼우고, 순서는 조립 목록이 정한다. 저장된 data의 새 schema step은 그 목록 맨 뒤 wiring이 낸다(AGENTS.md "호환성"). `lophn-agent` 팀 등록처럼 reader·writer Worker가 싣는 파일은 따로 있다. reader Worker는 reader 등록을 내는 파일만 싣고, 조회를 꽂는 등록 파일은 import가 아니라 등록을 만들 때 꽂는다. 그래서 read가 없어도 reader의 read가 쓰는 조회(project·앱 조회, agent 이름 풀기)를 꽂는 파일은 빈 reader 등록을 낸다.
 - agent tool 이름이 아니라 route 이름이 agent credential 상한이다(위 "harness" 절).
 - 설정 key, 저장 파일은 이 문서가 정하지 않는다. 각 메커니즘 문서가 가진다.
 

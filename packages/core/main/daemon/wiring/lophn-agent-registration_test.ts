@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { workspaceDepsOf } from "../../../lophn-agent/workspaces/environment.ts";
-import "./lophn-agent-registration.ts";
+import { createCoreRegistration } from "./lophn-agent-registration.ts";
+
+createCoreRegistration();
 
 const MAHAS = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const OTHER = "app_01hzzzzzzzzzzzzzzzzzzzzzzb";

@@ -1,17 +1,11 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { err } from "../../../base/mod.ts";
-import type {
-  ReadDefinition,
-  RequestContext,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import { KNOWN_SECRETS } from "./known-secrets.ts";
 import { openReaderConnection } from "./reader-connection.ts";
-import {
-  executeRead,
-  type ReaderRegistrationModule,
-  readKey,
-} from "./reads.ts";
+import { composeReaderReads } from "./reader-composition.ts";
+import { executeRead } from "./reads.ts";
 
 const port = parentPort!;
 // core가 Worker를 만들 때 넘긴 ledger 경로와 등록 module이다.
@@ -19,14 +13,6 @@ const boot = workerData as { path: string; modules: string[] };
 
 async function start(): Promise<void> {
   try {
-    const loaded: ReaderRegistrationModule[] = await Promise.all(
-      boot.modules.map((url) => import(url)),
-    );
-    const registrations = loaded.flatMap((module) =>
-      module.createReaderRegistration
-        ? [module.createReaderRegistration()]
-        : [],
-    );
     // 알려진 secret 값은 이 Worker의 보호 메모리(이 closure)에만 있다. handler에는 일치 검사만
     // 하는 matcher를 port로 준다. 값은 core가 pool로 보내는 등록·회수 message로만 바뀐다.
     const known = createKnownSecretRegistry();
@@ -39,38 +25,10 @@ async function start(): Promise<void> {
         return ready;
       },
     });
-    const definitions = new Map<
-      string,
-      {
-        read: ReadDefinition;
-        ports: ReadonlyMap<unknown, unknown>;
-      }
-    >();
-    // writer의 tx port처럼 어느 registration이 등록한 port든 모든 read가 쓴다. 같은 key를 두 곳에서 등록하면
-    // 조용히 덮이지 않게 기동 때 던진다.
-    const sharedPorts = new Map<unknown, unknown>();
-    for (const registration of registrations) {
-      for (const [key, registeredPort] of registration.ports) {
-        if (sharedPorts.has(key)) {
-          throw new Error(
-            `duplicate reader port ${(key as { name: string }).name}`,
-          );
-        }
-        sharedPorts.set(key, registeredPort);
-      }
-    }
-    for (const registration of registrations) {
-      for (const read of registration.reads) {
-        const key = readKey(read.route);
-        if (definitions.has(key)) {
-          throw new Error("duplicate read registration");
-        }
-        definitions.set(key, {
-          read,
-          ports: new Map([...sharedPorts, [KNOWN_SECRETS, matcher]]),
-        });
-      }
-    }
+    const definitions = await composeReaderReads(
+      boot.modules,
+      new Map([[KNOWN_SECRETS, matcher]]),
+    );
     const opened = openReaderConnection(boot.path);
     if (!opened.ok) {
       port.postMessage({ ready: opened });

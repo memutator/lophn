@@ -1,7 +1,10 @@
-// projects와 lophn-agent가 서로를 import하지 않으므로 이 wiring file이 둘을 writer·reader Worker 안에서 잇는다.
-// Worker가 팀 등록 file로 import한다.
-// - session을 열고 Router가 session 목록을 읽을 때 쓰는 project와 앱 조회
+// projects와 lophn-agent가 서로를 import하지 않으므로 이 wiring file이 둘을 main thread와 writer·reader Worker 안에서 잇는다.
+// 환경은 import가 아니라 등록을 만들 때 놓는다. import로 놓으면 이 file을 조립하지 않은 thread에서 빠져도
+// 다른 import로 우연히 놓여 드러나지 않는다.
+// - session을 열고 Router가 session 목록을 읽을 때 쓰는 project와 앱 조회. reader에서는 snapshot의 sql로 읽기만 한다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
+import type { ReaderRegistration } from "../../../storage/ledger/mod.ts";
 import { projectInfoOf } from "../../../projects/registry/mod.ts";
 import { createWorkspaceNameRules } from "../../../agent-workspaces/workspace/session-directory.ts";
 import { installWorkspaceEnvironment } from "../../../lophn-agent/workspaces/mod.ts";
@@ -10,8 +13,8 @@ import { agentDirectory } from "./lophn-agent-team.ts";
 // 열 수 있는지만 보므로 폴더가 있는지는 묻지 않는다.
 const ANY_FOLDER = { exists: () => true };
 
-installWorkspaceEnvironment({
-  deps: (sql) => {
+const environment = {
+  deps: (sql: Pick<Sql, "get" | "all">) => {
     const projects = {
       project(id: string) {
         const found = projectInfoOf(sql, ANY_FOLDER, { id });
@@ -58,7 +61,7 @@ installWorkspaceEnvironment({
       names: createWorkspaceNameRules({ projects, apps, agents }),
     };
   },
-});
+};
 
 function appOrNull(row: Record<string, unknown> | undefined) {
   return row === undefined ? null : appOf(row);
@@ -76,5 +79,12 @@ function appOf(row: Record<string, unknown>) {
 }
 
 export function createCoreRegistration() {
+  installWorkspaceEnvironment(environment);
   return { ports: [] };
+}
+
+// reader의 read(team read, session 목록)도 main thread와 같은 project·앱·이름 조회로 session을 본다.
+export function createReaderRegistration(): ReaderRegistration {
+  installWorkspaceEnvironment(environment);
+  return { reads: [], ports: new Map() };
 }

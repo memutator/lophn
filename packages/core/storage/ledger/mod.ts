@@ -38,6 +38,7 @@ export type {
 export { openConnection };
 export type { LedgerConnection };
 export { createReaderPool } from "./reader-pool.ts";
+export { composeReaderReads, readerModulesOf } from "./reader-composition.ts";
 export type { ReaderPool } from "./reader-pool.ts";
 export {
   KNOWN_SECRETS,

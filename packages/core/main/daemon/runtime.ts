@@ -23,6 +23,7 @@ import {
   createReaderPool,
   openConnection,
   type ReaderPool,
+  readerModulesOf,
   type Writer,
 } from "../../storage/ledger/mod.ts";
 import type {
@@ -114,25 +115,11 @@ export async function openRuntime(input: {
     },
     input.onDead,
   );
-  // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
-  const readerModules: URL[] = [];
-  for (const url of input.modules) {
-    const module = (await import(url)) as {
-      createReaderRegistration?: unknown;
-    };
-    if (typeof module.createReaderRegistration === "function") {
-      readerModules.push(new URL(url));
-    }
-  }
   // 격리됐다 다시 뜬 reader는 알려진 secret 값을 모른다. secret store가 현재 값을 다시 넣는다.
   const respawnHooks: (() => Promise<unknown>)[] = [];
   const readers = await createReaderPool(
     input.ledgerPath,
-    [
-      new URL("../../storage/ledger/reader-registration.ts", import.meta.url),
-      // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
-      ...readerModules,
-    ],
+    await readerModulesOf(input.modules),
     {
       logger: input.logger,
       onRespawn: () => Promise.all(respawnHooks.map((hook) => hook())),

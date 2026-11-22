@@ -9,7 +9,7 @@ import type { EndDeps, OpenDeps, WorkspaceDeps } from "./ports.ts";
 import { UNWIRED_END_DEPS, UNWIRED_WORKSPACE_DEPS } from "./unwired.ts";
 
 // project, 앱, agent 정의는 다른 module의 것이라 읽는 길을 wiring이 끼운다. tx나 snapshot마다 그 sql을 보는
-// 구현이 필요해서 요청마다 만든다. writer·reader Worker는 wiring 등록 file을 import하는 것으로 이 환경을 놓는다.
+// 구현이 필요해서 요청마다 만든다. main thread와 writer·reader Worker는 wiring 등록 file의 등록을 만들 때 이 환경을 놓는다.
 type WorkspaceEnvironment = {
   deps(sql: Pick<Sql, "get" | "all">): WorkspaceDeps;
 };

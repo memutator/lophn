@@ -504,6 +504,10 @@ files:
     covers: [call-send:ambiguous-app]
     note: "앱 주소 풀기: id·slug 먼저, 여러 앱에 걸린 표시 이름은 invalid_input, 없으면 not_found. call·job·run이 같은 풀기를 쓴다"
 
+  - path: packages/core/main/daemon/reader-reads_test.ts
+    covers: [team-read:ok, call-sendable-list:ok]
+    note: "reader Worker가 고르는 module과 Worker의 조립 그대로 만든 read로, project의 팀원이 team read와 session 목록에서 부모와 형제를 handle로 본다(reader에 project 조회와 이름 풀기가 꽂힌다). Worker를 띄우지 않는다"
+
   - path: packages/core/main/daemon/wiring/lophn-split_test.ts
     covers: [data-steps-apply:applied, lophn-split-per-workspace:split]
     note: "옛 lophn id를 workspace별 값으로 나누는 data step. lophn-split-per-workspace:split"

@@ -1,0 +1,15 @@
+id: reader-workspace-environment
+version: 0.23.128
+title: project·앱의 팀원이 team read와 session list에서 부모와 형제를 handle로 본다
+modules: [packages/core/main, packages/core/storage]
+change: |
+  전: read는 reader Worker에서 도는데 reader에는 project·앱 조회와 agent 이름 풀기가 꽂히지 않았다. 그래서 reader에서 project·앱 session이 모두 입력을 받지 않는(닫힌 workspace의) session으로 읽혔다.
+  - `team read`(`team/read`): project·앱에 있는 팀원은 `parent: null`이고 project·앱에 있는 형제·자식이 빠졌다. home 팀원도 `agent`·`name`이 handle이 아니라 agent id였고 `description`은 null, `runtime`은 늘 `lophn`이었다.
+  - `session list`(`calls/sendable`): project·앱 session이 아무에게도 보이지 않았다(project의 팀원은 빈 목록). `handle`·`name`은 agent id였다.
+  후: reader도 main thread·writer와 같은 project·앱 조회와 이름 풀기를 쓴다. project·앱의 팀원은 두 read에서 부모, 형제, 자기 밑을 본다. 팀원이 아닌 agent의 `session list`에는 project·앱의 열린 session도 나온다(문서의 규칙 그대로: 자기와 닫힌 session만 뺀다. call 정책은 보낼 때 본다). handle·이름·설명·runtime이 정의대로 나온다.
+  - 조회는 등록 파일을 import할 때가 아니라 등록을 만들 때 꽂힌다. 그 등록 파일이 빈 reader 등록을 내 reader에 실린다.
+why: |
+  두 core로 팀을 확인하다 project의 팀원이 `team read`에서 부모를 못 보는 것을 찾았다. main에서도 같았다. reader는 reader 등록을 내는 파일만 싣는데, 조회를 꽂는 파일은 reader 등록이 없어 reader에 실리지 않았다. import로 꽂던 탓에 다른 thread에서는 우연히 꽂혀 드러나지 않았다.
+decisions:
+  - text: 조회를 꽂는 파일이 빈 reader 등록을 내고, 조회는 import가 아니라 등록(core·reader)을 만들 때 꽂는다. 등록을 조립하지 않은 thread에는 조회가 없다는 것이 test에서 드러난다. 버린 길은 reader 등록이 있는 다른 파일(router 등록)이 이 파일을 import하기(조립 목록 밖의 숨은 의존)와 `reads`가 `accepting`을 보지 않기(증상만 가린다)다.
+    by: agent

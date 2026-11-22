@@ -1520,6 +1520,131 @@ test("멈춘 instance는 아직 가져가지 않은 다른 컴퓨터의 step을 
 
 // 사람의 ledger에는 agent_calls와 messages에 지난 call과 대화가 있다. 다시 짠 표에 옛 행이 칸마다 그대로 옮겨지고, 새 칸은 null이며,
 // index·trigger와 messages의 FK 자식(checkpoints)이 그대로여야 한다.
+// `team spawn --on`: 보낸 기계가 팀원의 자리를 열고 그 id를 실은 call mail을 낸다.
+function spawnOn(from: Machine, parent: string, peer: string, dedup: string) {
+  return from.router.sendRemote(from.tx, {
+    session: parent,
+    dedup,
+    self: from.self,
+    peer: { machine: peer, computer: "windows" },
+    address: { agent: "reviewer", workspace: { home: true } },
+    reply: "result",
+    body: textBlocks("build it there"),
+    unattended: false,
+    spawn: true,
+  });
+}
+
+test("다른 컴퓨터에 연 팀원은 이 컴퓨터의 팀 상한과 깊이에 세이고, 받는 기계는 같은 id의 session을 그 부모의 팀원으로 연다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const root = a.openSession(REVIEWER);
+  const first = spawnOn(a, root, B, "s1");
+  assert.ok(first.ok && first.value.session !== null, JSON.stringify(first));
+  const member = first.value.session;
+  assert.deepStrictEqual(
+    {
+      ...a.db
+        .prepare("select spawned_by, runs_on from sessions where id = ?")
+        .get(member),
+    },
+    { spawned_by: root, runs_on: B },
+  );
+  carry(a, b);
+  assert.deepStrictEqual(
+    {
+      ...b.db
+        .prepare(
+          "select spawned_by, opened_by_machine, runs_on from sessions where id = ?",
+        )
+        .get(member),
+    },
+    { spawned_by: root, opened_by_machine: A, runs_on: null },
+  );
+  assert.equal(b.delivered.at(-1)?.session, member);
+
+  // 이 컴퓨터의 자식 하나와 다른 컴퓨터의 팀원 여섯을 더하면 상한(8)이고, 아홉째는 어느 쪽이든 conflict다.
+  const local = a.router.route(a.tx, {
+    from: { kind: "agent", session: root as Id<"ses"> },
+    to: { agent: "reviewer" },
+    reply: "result",
+    body: textBlocks("help"),
+    refs: [],
+    reply_to: null,
+    dedup: "local",
+    kind: "call",
+    delivery: "next_turn",
+    unattended: false,
+    spawn: true,
+  });
+  assert.ok(local.ok && local.value.session !== null);
+  for (let n = 2; n <= 7; n++) assert.ok(spawnOn(a, root, B, `s${n}`).ok);
+  const full = spawnOn(a, root, B, "s8");
+  assert.ok(!full.ok && full.error.code === "conflict");
+  assert.equal(
+    a.count("sessions"),
+    9,
+    "a refused member leaves no session row",
+  );
+
+  // 깊이: root(0) 밑 자식(1)이 연 팀원은 깊이 2라 되고, 팀원은 이 컴퓨터에 자식을 두지 못하는 잎이다.
+  const other = await machine(A);
+  const top = other.openSession(REVIEWER);
+  const child = other.router.route(other.tx, {
+    from: { kind: "agent", session: top as Id<"ses"> },
+    to: { agent: "reviewer" },
+    reply: "result",
+    body: textBlocks("help"),
+    refs: [],
+    reply_to: null,
+    dedup: "child",
+    kind: "call",
+    delivery: "next_turn",
+    unattended: false,
+    spawn: true,
+  });
+  assert.ok(child.ok && child.value.session !== null);
+  const deep = spawnOn(other, child.value.session, B, "deep");
+  assert.ok(deep.ok && deep.value.session !== null);
+  const deeper = spawnOn(other, deep.value.session, B, "deeper");
+  assert.ok(!deeper.ok);
+});
+
+test("받는 기계는 명단 밖 컴퓨터의 spawn mail과 이미 있는 session id로 여는 spawn mail로 session을 열지 않는다", async () => {
+  const a = await machine(A);
+  const b = await machine(B);
+  const root = a.openSession(REVIEWER);
+  assert.ok(spawnOn(a, root, B, "s1").ok);
+  const [mail] = pendingMails(a.sql, B as never);
+  assert.ok(mail?.kind === "call" && mail.spawn !== undefined);
+  const before = b.count("sessions");
+  const D = "mch_0ddddddddddddddddddddddddd";
+  const stranger = await b.inbox.apply({
+    mail: { ...mail, from: { ...mail.from, machine: D } },
+    origin: D as Id<"mch">,
+    via: "link",
+  });
+  assert.ok(!stranger.ok && stranger.error.code === "forbidden");
+  assert.equal(b.count("sessions"), before);
+
+  const taken = b.openSession(REVIEWER);
+  const reused = applyFrom(
+    b,
+    {
+      ...mail,
+      id: `mal_0${"7".repeat(25)}`,
+      call: `cal_0${"7".repeat(25)}`,
+      spawn: { session: taken },
+    },
+    A,
+  );
+  assert.ok(
+    reused.ok && reused.value.delivery === "failed",
+    JSON.stringify(reused),
+  );
+  assert.equal(b.count("sessions"), before + 1);
+});
+
 test("다시 짠 agent_calls와 messages에 옛 행이 칸 그대로 옮겨진다", async () => {
   const steps = allSteps();
   const mine = steps.findIndex(

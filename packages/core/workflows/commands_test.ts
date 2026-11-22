@@ -46,6 +46,8 @@ test("a stopped instance is not handed: report with next records the line only a
       directory: {
         find: () => null,
         resolveAddress: () => ok(lophnAtWorkspace),
+        openMember: () =>
+          err({ code: "forbidden", message: "not in this test" }),
         open: () =>
           ok({
             session: SES,

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { ok } from "../../../../base/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
 import { manualClock } from "../../../../base/clock.ts";
 import { createIdSource } from "../../../../base/id.ts";
 import { seededRandom } from "../../../../base/random.ts";
@@ -59,6 +59,7 @@ function router() {
       accepting: true,
       spawned_by: null,
       opened_by_machine: null,
+      runs_on: null,
     },
     [MEMBER]: {
       session: MEMBER as TargetSession["session"],
@@ -67,6 +68,7 @@ function router() {
       accepting: true,
       spawned_by: null,
       opened_by_machine: null,
+      runs_on: null,
     },
   };
   const rows = new Map<string, AgentCallRow>();
@@ -99,6 +101,7 @@ function router() {
     directory: {
       find: (session) => sessions[session] ?? null,
       resolveAddress: () => ok(lophn),
+      openMember: () => err({ code: "forbidden", message: "not in this test" }),
       open: () => ok(sessions[MEMBER]!),
       app: () => null,
       accepts: () => null,

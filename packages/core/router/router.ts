@@ -234,12 +234,16 @@ export type SendRemoteInput = {
   reply: CallReply;
   body: ContentBlock[];
   unattended: boolean;
+  // `team spawn --on`: 보낸 session 밑에 그 컴퓨터에서 도는 팀원의 자리를 열고 그 id를 mail에 싣는다.
+  spawn?: boolean;
 };
 
 export type SentRemote = {
   call: string;
   state: CallState;
   fail_reason: CallFailReason | null;
+  // spawn이면 연 팀원의 session(두 컴퓨터가 같은 id다).
+  session: string | null;
 };
 
 export type ApplyMailInput = {
@@ -297,14 +301,17 @@ export function createRouter(deps: RouterDeps): Router {
     agent: AgentAtWorkspace,
     to: CallTarget,
     spawn: boolean,
-    skipAllowed: boolean | undefined,
+    input: Pick<RouteInput, "skipAllowed" | "member">,
   ): Result<Resolved> {
     const opened = directory.open(
       tx,
       agent,
       from,
       spawn && from.kind === "agent" ? sesId(from.session) : null,
-      { skipAllowed },
+      {
+        skipAllowed: input.skipAllowed,
+        ...(input.member === undefined ? {} : { member: input.member }),
+      },
     );
     if (opened.ok) {
       return ok({ ok: true, to, target: opened.value, opened: true });
@@ -373,7 +380,7 @@ export function createRouter(deps: RouterDeps): Router {
       : resolved.value;
     if (session === null) {
       const to: CallTarget = { kind: "new_session", agent };
-      return open(tx, from, agent, to, spawn, input.skipAllowed);
+      return open(tx, from, agent, to, spawn, input);
     }
     const to: CallTarget = {
       kind: "open_session_or_new",
@@ -384,7 +391,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (target !== null && target.accepting) {
       return ok({ ok: true, to, target });
     }
-    return open(tx, from, agent, to, spawn, input.skipAllowed);
+    return open(tx, from, agent, to, spawn, input);
   }
 
   function inputOf(input: RouteInput, call: string | null): RoutedInput {
@@ -1019,6 +1026,7 @@ export function createRouter(deps: RouterDeps): Router {
         call: calId(prior.call),
         state: prior.state,
         fail_reason: prior.fail_reason,
+        session: prior.remote_session,
       });
     }
     const sender = directory.find(sesId(input.session));
@@ -1039,6 +1047,24 @@ export function createRouter(deps: RouterDeps): Router {
           "a session opened by mail from another computer does not send to another computer",
       });
     }
+    // 팀원의 자리는 이 기계의 팀 규칙(상한, 깊이)을 그대로 거친다. 팀원은 그 컴퓨터에서 자식을 열지 못하는 잎이다.
+    let member: TargetSession | null = null;
+    if (input.spawn === true) {
+      if (!("agent" in input.address) || "session" in input.address) {
+        return err({
+          code: "invalid_input",
+          message: "a member opens from an agent address",
+        });
+      }
+      const opened = directory.openMember(
+        tx,
+        sesId(input.session),
+        input.address.agent,
+        input.peer.machine as Id<"mch">,
+      );
+      if (!opened.ok) return opened;
+      member = opened.value;
+    }
     const call = tx.newId("cal") as Id<"cal">;
     const agent = sender.agent.agent;
     const queued = queue(tx, {
@@ -1056,6 +1082,7 @@ export function createRouter(deps: RouterDeps): Router {
       reply: input.reply,
       body: input.body,
       unattended: input.unattended,
+      ...(member === null ? {} : { spawn: { session: member.session } }),
     });
     if (!queued.ok) return queued;
     const at = tx.now();
@@ -1068,7 +1095,8 @@ export function createRouter(deps: RouterDeps): Router {
         computer: input.peer.computer,
         address: input.address,
       },
-      receiver_session: null,
+      // 팀원에게 보낸 call은 그 자리를 받는 session으로 적는다: 팀원의 끝이 그 call을 닫고 `team read`가 연 call을 센다.
+      receiver_session: member?.session ?? null,
       reply: input.reply,
       state: "accepted",
       fail_reason: null,
@@ -1079,12 +1107,17 @@ export function createRouter(deps: RouterDeps): Router {
       created_at: at,
       state_changed_at: at,
       delivery: "pending",
-      remote_session: null,
+      remote_session: member?.session ?? null,
     };
     const stored = store.insert(tx, record);
     if (!stored.ok) return stored;
     changedIfRemote(tx, record);
-    return ok({ call, state: "accepted", fail_reason: null });
+    return ok({
+      call,
+      state: "accepted",
+      fail_reason: null,
+      session: member?.session ?? null,
+    });
   }
 
   // mail의 주소를 이 기계의 call 주소로 푼다. 실패면 이유와 행에 남길 풀린 받는 곳이다.
@@ -1204,8 +1237,32 @@ export function createRouter(deps: RouterDeps): Router {
           : { instance: step.instance as Id<"wfi">, step: step.name },
     };
     const address = localAddress(mail.address, origin.machine);
+    // 다른 컴퓨터의 팀원은 agent 주소로만 열리고 그 기계가 지은 id를 쓴다. 부모는 그 기계의 보낸 session이다.
+    const spawn = mail.spawn;
+    if (
+      spawn !== undefined &&
+      (!("agent" in mail.address) ||
+        "session" in mail.address ||
+        mail.from.session === null)
+    ) {
+      return err({
+        code: "invalid_input",
+        message: "a member opens from an agent address with a parent",
+      });
+    }
     const routed = address.ok
-      ? route(tx, { ...routeInput, to: address.to })
+      ? route(tx, {
+          ...routeInput,
+          to: address.to,
+          ...(spawn === undefined
+            ? {}
+            : {
+                member: {
+                  id: sesId(spawn.session),
+                  parent: sesId(mail.from.session!),
+                },
+              }),
+        })
       : deliveryFailed(tx, routeInput, address.to, address.reason);
     if (!routed.ok) return routed;
     const { fail_reason, session } = routed.value;

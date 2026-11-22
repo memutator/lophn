@@ -92,3 +92,18 @@ begin
 end;`,
   },
 ];
+
+// 다른 컴퓨터에 연 팀원(`team spawn --on`)의 행이다. 그 session의 turn은 `runs_on` 기계에서 돌고 이 기계에는 팀 tree의 자리만
+// 있다(같은 session id). 열 때 정해 바뀌지 않는다.
+export const memberRunsOnSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "lophn-agent.member.runs-on",
+    sql: `
+alter table sessions add column runs_on text;
+create trigger sessions_runs_on_immutable
+before update of runs_on on sessions
+begin
+  select raise(abort, 'where a member runs is immutable');
+end;`,
+  },
+];

@@ -19,7 +19,9 @@ import {
   type MailHold,
   type mailDecideHold,
   type RemoteAddress,
+  type teamSpawnRemote,
 } from "../../protocol/lophn-agent/mail.ts";
+import { TEAM_MEMBER_PREAMBLE } from "../../protocol/lophn-agent/team.ts";
 import type {
   MachineCandidate,
   Requester,
@@ -80,59 +82,126 @@ export type MailEntryDeps = {
 const forbidden = (message: string): Result<never> =>
   err({ code: "forbidden", message });
 
-// 다른 컴퓨터의 agent에게 call을 보낸다. mail을 outbox에 넣고 call id를 바로 돌려준다(link는 drain이 맡는다).
+type RemoteSend = {
+  to: z.infer<typeof callSendRemote.input>["to"];
+  reply: z.infer<typeof callSendRemote.input>["reply"];
+  body: z.infer<typeof callSendRemote.input>["body"];
+  dedup: string;
+  spawn: boolean;
+};
+
+// 다른 컴퓨터의 agent에게 call을 보내거나(`call send --on`) 팀원을 연다(`team spawn --on`). 같은 검사와 주소 바꾸기를 거쳐
+// mail을 outbox에 넣고 call id를 바로 돌려준다(link는 drain이 맡는다).
+async function sendRemote(
+  deps: MailEntryDeps,
+  ctx: Parameters<MemoryHandler>[0],
+  input: RemoteSend,
+): Promise<Result<unknown>> {
+  const session = ctx.conditions.session;
+  if (session === undefined) {
+    return forbidden("only an agent session sends to another computer");
+  }
+  // private workspace와 받은 mail로 열린 session은 다른 기계에 닿지 않는다. Router가 쓰는 tx에서 한 번 더 본다.
+  const reach = remoteReach(deps.sql, session as Id<"ses">, deps.policy());
+  if (!reach.ok) return reach;
+  const resolved = deps.resolve(input.to.machine);
+  if (!resolved.ok) return resolved;
+  // 명단에 이 기계의 항목이 둘이면 self가 아닌 쪽도 이 기계다. 그 mail은 영영 닿지 않는다.
+  if (resolved.value.self || resolved.value.machine === deps.self()) {
+    return err({
+      code: "invalid_input",
+      message: input.spawn
+        ? "that is this computer; spawn without --on"
+        : "that is this computer; send the call without --on",
+    });
+  }
+  const address = remoteAddressOf(
+    deps,
+    input.to,
+    reach.value.workspace,
+    input.spawn,
+  );
+  if (!address.ok) return address;
+  if (input.body.some((block) => block.type !== "text")) {
+    return err({
+      code: "invalid_input",
+      message: "only text goes to another computer",
+    });
+  }
+  const safe = deps.redact(input.body);
+  if (safe === null) {
+    return err({
+      code: "unavailable",
+      message: "call redaction did not finish",
+    });
+  }
+  // team spawn의 첫 call은 이 컴퓨터의 spawn과 같은 고정 글을 앞에 붙인다.
+  const body = input.spawn
+    ? [{ type: "text" as const, text: TEAM_MEMBER_PREAMBLE }, ...safe]
+    : safe;
+  const checked = mailBodySchema.safeParse(body);
+  if (!checked.success) {
+    return err({
+      code: "invalid_input",
+      message: checked.error.issues[0]?.message ?? "the call text is too large",
+    });
+  }
+  return await deps.command(callsMailSend, {
+    session,
+    turn: ctx.conditions.turn ?? null,
+    dedup: input.dedup,
+    self: deps.self(),
+    peer: { machine: resolved.value.machine, computer: resolved.value.name },
+    address: address.value,
+    reply: input.reply,
+    body: checked.data,
+    ...(input.spawn ? { spawn: true } : {}),
+  });
+}
+
 export function sendRemoteHandler(deps: MailEntryDeps): MemoryHandler {
   return async (ctx, body) => {
     const input = body as z.infer<typeof callSendRemote.input>;
-    const session = ctx.conditions.session;
-    if (session === undefined) {
-      return forbidden("only an agent session sends to another computer");
-    }
-    // private workspace와 받은 mail로 열린 session은 다른 기계에 닿지 않는다. Router가 쓰는 tx에서 한 번 더 본다.
-    const reach = remoteReach(deps.sql, session as Id<"ses">, deps.policy());
-    if (!reach.ok) return reach;
-    const resolved = deps.resolve(input.to.machine);
-    if (!resolved.ok) return resolved;
-    // 명단에 이 기계의 항목이 둘이면 self가 아닌 쪽도 이 기계다. 그 mail은 영영 닿지 않는다.
-    if (resolved.value.self || resolved.value.machine === deps.self()) {
-      return err({
-        code: "invalid_input",
-        message: "that is this computer; send the call without --on",
-      });
-    }
-    const address = remoteAddressOf(deps, input.to, reach.value.workspace);
-    if (!address.ok) return address;
-    if (input.body.some((block) => block.type !== "text")) {
-      return err({
-        code: "invalid_input",
-        message: "only text goes to another computer",
-      });
-    }
-    const safe = deps.redact(input.body);
-    if (safe === null) {
-      return err({
-        code: "unavailable",
-        message: "call redaction did not finish",
-      });
-    }
-    const checked = mailBodySchema.safeParse(safe);
-    if (!checked.success) {
-      return err({
-        code: "invalid_input",
-        message:
-          checked.error.issues[0]?.message ?? "the call text is too large",
-      });
-    }
-    return await deps.command(callsMailSend, {
-      session,
-      turn: ctx.conditions.turn ?? null,
-      dedup: input.dedup,
-      self: deps.self(),
-      peer: { machine: resolved.value.machine, computer: resolved.value.name },
-      address: address.value,
+    const sent = await sendRemote(deps, ctx, { ...input, spawn: false });
+    if (!sent.ok) return sent;
+    const { call, state, fail_reason } = sent.value as {
+      call: string;
+      state: string;
+      fail_reason: string | null;
+    };
+    return ok({ call, state, fail_reason });
+  };
+}
+
+// `team spawn --on`. 받는 곳은 agent와 workspace이고, workspace를 빼면 부른 session의 workspace다(이 컴퓨터의 spawn과 같다).
+export function spawnRemoteHandler(deps: MailEntryDeps): MemoryHandler {
+  return async (ctx, body) => {
+    const input = body as z.infer<typeof teamSpawnRemote.input>;
+    const sent = await sendRemote(deps, ctx, {
+      to: {
+        agent: input.agent,
+        machine: input.machine,
+        ...(input.workspace === undefined
+          ? {}
+          : { workspace: input.workspace }),
+      },
       reply: input.reply,
-      body: checked.data,
+      body: input.body,
+      dedup: input.dedup,
+      spawn: true,
     });
+    if (!sent.ok) return sent;
+    const { call, session } = sent.value as {
+      call: string;
+      session: string | null;
+    };
+    if (session === null) {
+      return err({
+        code: "conflict",
+        message: "that dedup was used for a call, not a spawn",
+      });
+    }
+    return ok({ session, call });
   };
 }
 
@@ -141,6 +210,7 @@ function remoteAddressOf(
   deps: MailEntryDeps,
   to: z.infer<typeof callSendRemote.input>["to"],
   callerWorkspace: Parameters<typeof remoteWorkspaceOf>[3],
+  spawn: boolean,
 ): Result<RemoteAddress> {
   if (!("agent" in to)) return ok({ session: to.session });
   const workspace = remoteWorkspaceOf(
@@ -148,6 +218,7 @@ function remoteAddressOf(
     to.workspace,
     to.agent,
     callerWorkspace,
+    spawn,
   );
   if (!workspace.ok) return workspace;
   return ok(

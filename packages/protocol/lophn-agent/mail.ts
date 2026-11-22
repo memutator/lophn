@@ -89,6 +89,9 @@ export const mailSchema = z.discriminatedUnion("kind", [
         name: z.string().min(1).max(63),
       })
       .optional(),
+    // `team spawn --on`이면 보낸 기계가 지은 새 session id. 받는 기계는 그 id로 session을 열고 보낸 session(`from.session`)을
+    // 그 팀의 부모로 적는다. 주소는 agent 꼴이어야 한다.
+    spawn: z.strictObject({ session: idSchema("ses") }).optional(),
   }),
   z.strictObject({
     kind: z.literal("reply"),
@@ -176,7 +179,33 @@ export const callSendRemote = defineMemory({
   ],
 });
 
-export const MAIL_ROUTES = [a2aMail, callSendRemote] as const;
+// 다른 컴퓨터에 팀원을 연다(`team spawn --on`). 팀 규칙과 상한은 이 기계가 이 기계의 팀원 행으로 센다. 그 컴퓨터에서의 실패는
+// 늦게 그 call의 실패로 온다(그 컴퓨터가 꺼져 있을 수 있다).
+export const teamSpawnRemote = defineMemory({
+  resource: "team",
+  method: "spawn_remote",
+  name: "SpawnRemoteTeamMember",
+  input: z.strictObject({
+    agent: z.string().min(1),
+    workspace: agentAddressSchema.shape.workspace,
+    machine: z.string().min(1),
+    reply: callReplySchema,
+    body: contentBlocksSchema,
+    dedup: z.string().min(1),
+  }),
+  output: z.object({ session: idSchema("ses"), call: idSchema("cal") }),
+  actors: ["agent"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+    "unauthorized",
+  ],
+});
+
+export const MAIL_ROUTES = [a2aMail, callSendRemote, teamSpawnRemote] as const;
 
 // 늦게 닿아 받는 기계의 대기 목록에 선 call mail 하나. 사람이 [Start now]나 [Skip]으로 정한다. text는 본문 글을 500자까지 자른 것이다.
 export const mailHoldSchema = z.strictObject({

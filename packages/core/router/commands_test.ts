@@ -33,6 +33,7 @@ function world() {
     accepting: true,
     spawned_by: null,
     opened_by_machine: null,
+    runs_on: null,
   });
   installRouterEnvironment({
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",
@@ -42,6 +43,8 @@ function world() {
       directory: {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn_home", workspace: null }),
+        openMember: () =>
+          err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target(RECEIVER)),
         app: () => null,
         accepts: () => null,

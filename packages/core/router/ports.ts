@@ -42,6 +42,8 @@ export type TargetSession = {
   spawned_by: Id<"ses"> | null;
   // 다른 컴퓨터에서 온 mail이 연 session이면 그 기계. 그 session은 다른 컴퓨터로 보내지 못하고, 그 기계의 mail만 이 session에 이어 들어간다.
   opened_by_machine: Id<"mch"> | null;
+  // 다른 컴퓨터에 연 팀원(`team spawn --on`)의 행이면 그 기계. turn은 그 기계에서 돌고 이 기계의 행은 팀 tree의 자리다.
+  runs_on: Id<"mch"> | null;
 };
 
 // 한 번 배달할 입력. 종류마다 tag를 고르는 것은 받는 쪽이 한다.
@@ -97,7 +99,18 @@ export interface SessionDirectory {
     agent: AgentAtWorkspace,
     opener: CallFrom,
     spawnedBy: Id<"ses"> | null,
-    options?: { skipAllowed?: boolean },
+    options?: {
+      skipAllowed?: boolean;
+      // 다른 컴퓨터의 `team spawn --on`: 그 기계가 지은 id와 그 기계의 부모 session. 상한은 그 기계가 셌다.
+      member?: { id: Id<"ses">; parent: Id<"ses"> };
+    },
+  ): Result<TargetSession>;
+  // `team spawn --on`: 다른 컴퓨터에서 도는 팀원의 자리를 이 기계의 부모 밑에 연다. 팀 상한을 센다(넘으면 conflict).
+  openMember(
+    tx: Tx,
+    parent: Id<"ses">,
+    handle: string,
+    machine: Id<"mch">,
   ): Result<TargetSession>;
   // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.
   projectOfIdentity(identity: string): Id<"prj"> | null;

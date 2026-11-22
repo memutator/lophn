@@ -177,6 +177,54 @@ export function startSession(
   return ok(row);
 }
 
+// 다른 컴퓨터에 연 팀원의 자리(`team spawn --on`). agent는 그 컴퓨터의 handle 그대로이고(정의는 기계마다다) workspace는 부모의 것이다.
+// turn, 받은 메시지, queue는 이 기계에 없다. 상한은 부른 쪽이 먼저 셌다.
+export function startMemberSession(
+  tx: Tx,
+  deps: OpenDeps,
+  input: {
+    id: string;
+    handle: string;
+    workspace: Workspace | null;
+    parent: Id<"ses">;
+    machine: Id<"mch">;
+  },
+): Result<AgentSessionRow> {
+  const seq = nextSessionSeq(tx);
+  const kind = input.workspace?.kind ?? null;
+  const id = input.workspace?.id ?? null;
+  tx.sql.run(
+    `insert into sessions (id, agent, project, app, workspace_kind, workspace_id, lifecycle,
+       spawned_by, runs_on, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
+    [
+      input.id,
+      input.handle,
+      kind === "project" ? id : null,
+      kind === "app" ? id : null,
+      kind,
+      id,
+      input.parent,
+      input.machine,
+      seq,
+      seq,
+    ],
+  );
+  const row = loadSession(tx, input.id)!;
+  deps.publish({
+    session: row.id as Id<"ses">,
+    type: "SessionStarted",
+    at: tx.now(),
+    payload: {
+      agent: row.agent,
+      workspace: workspaceOf(row),
+      spawned_by: input.parent,
+      revived: false,
+    },
+  });
+  return ok(row);
+}
+
 // archive와 지움이 묶는 영향이다. 모두 같은 tx 안이다. 보낸 call의 답은 받은 session에만 남으므로 하지 않는다.
 export function endSession(
   tx: Tx,

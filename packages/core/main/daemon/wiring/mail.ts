@@ -11,6 +11,7 @@ import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import {
   a2aMail,
   callSendRemote,
+  teamSpawnRemote,
   mailDecideHold,
   mailHolds,
 } from "../../../../protocol/lophn-agent/mail.ts";
@@ -27,6 +28,7 @@ import {
   type MailEntryDeps,
   mailHandler,
   sendRemoteHandler,
+  spawnRemoteHandler,
 } from "../../../remote/mail-entry.ts";
 import {
   callsMailApply,
@@ -178,6 +180,10 @@ export const mailWiring: WiringFactory = () => {
           [
             `${callSendRemote.resource}/${callSendRemote.method}`,
             sendRemoteHandler(deps),
+          ],
+          [
+            `${teamSpawnRemote.resource}/${teamSpawnRemote.method}`,
+            spawnRemoteHandler(deps),
           ],
           [`${a2aMail.resource}/${a2aMail.method}`, mailHandler(deps)],
           [`${mailHolds.resource}/${mailHolds.method}`, holdsHandler(deps)],

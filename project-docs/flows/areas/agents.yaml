@@ -475,6 +475,47 @@ flows:
     refs: [T18]
     docs: [architecture/agent-call.md]
 
+  - id: team-spawn-remote
+    title: agent가 다른 컴퓨터에 팀원을 연다(team spawn --on)
+    actor: agent
+    entries: [route:team/spawn_remote]
+    uses: [route:calls/mail-send]
+    boundary: [router, remote, core-api]
+    code: [packages/core/remote/mail-entry.ts, packages/core/main/daemon/wiring/mail.ts, packages/core/router/remote-reach.ts, packages/core/router/router.ts, packages/cli/commands/team.ts]
+    steps:
+      - call-send-remote와 같은 검사(session, remoteReach, 명단 풀기, 글만, redaction, 64 KiB)를 거친다. workspace를 빼면 이 컴퓨터의 spawn처럼 부른 session의 workspace를 기계를 건너는 이름으로 싣는다. 본문 앞에 팀 지시문을 붙인다
+      - calls/mail-send를 spawn으로 불러 이 컴퓨터의 팀 상한과 깊이로 팀원의 자리를 연다. 그 컴퓨터가 꺼져 있어도 바로 돌아온다
+      - 받는 컴퓨터는 mail의 spawn id로 session을 열고 보낸 session을 부모(spawned_by)로 적는다. 그 id의 session이 이미 있으면 열지 않고 실패 mail이다. 그 컴퓨터에서의 실패는 늦게 call의 실패로 온다
+    outcomes:
+      - id: opened
+        observe: [ledger:sessions, ledger:agent_calls, ledger:mail_outbox, response]
+        when: 팀원의 자리와 call 행과 outbox mail을 썼다. 답은 {session, call}이다
+      - id: team-full
+        code: conflict
+        when: 팀이 상한이나 깊이를 넘는다. 같은 dedup이 spawn이 아닌 call에 쓰였다
+        observe: [response]
+      - id: sender-refused
+        code: forbidden
+        when: 자격에 session이 없다, 보낸 session의 workspace가 private이다, 보낸 session이 다른 컴퓨터의 mail로 열렸다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: 그 이름의 컴퓨터가 명단에 없다, 주소의 project나 앱이 이 기계에 없다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 이 컴퓨터를 골랐다, 컴퓨터 이름이 여럿에 맞는다, 글이 아닌 block이 있다, 본문이 64 KiB를 넘는다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: redaction을 끝내지 못했다, Router나 writer가 아직 없다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-call.md, architecture/machine-a2a.md]
+    declared_only: [unauthorized]
+    unclear: []
+
   - id: call-send-remote
     title: agent가 다른 컴퓨터의 agent에게 call을 보낸다
     actor: agent

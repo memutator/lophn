@@ -54,6 +54,8 @@ export type RouteInput = {
   // 다른 컴퓨터에서 받은 call은 보낸 기계가 정한 call id를 그대로 쓴다.
   call?: string;
   // 새 session을 열 때 agent 정의의 skip을 따를지. 다른 컴퓨터에서 받은 call만 싣는다(받는 기계의 허락). 없으면 정의대로다.
+  // 다른 컴퓨터의 `team spawn --on`이 연 팀원: 그 기계가 지은 session id와 그 기계의 부모 session.
+  member?: { id: Id<"ses">; parent: Id<"ses"> };
   skipAllowed?: boolean;
 };
 

@@ -97,11 +97,14 @@ export function remoteWorkspaceOf(
   name: AgentAddress["workspace"],
   handle: string,
   callerWorkspace: Workspace | null,
+  // `team spawn`은 이 컴퓨터에서처럼 workspace를 빼면 어느 agent든 부른 쪽 workspace다.
+  spawn = false,
 ): Result<RemoteWorkspace> {
   const directory = directoryOf(sql);
   if (!directory.ok) return directory;
   if (name === undefined) {
-    return agentHandleKey(handle) === agentHandleKey(LOPHN_AGENT_HANDLE)
+    return spawn ||
+      agentHandleKey(handle) === agentHandleKey(LOPHN_AGENT_HANDLE)
       ? crossing(directory.value, callerWorkspace)
       : ok({ home: true });
   }

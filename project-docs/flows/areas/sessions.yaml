@@ -1467,11 +1467,19 @@ flows:
       - "router나 environment가 아직 없으면 unavailable이다. 본문은 글만이고 64 KiB를 넘으면 schema가 invalid_input으로 거른다."
       - "같은 보낸 session과 dedup의 call이 있으면 그 상태를 돌려준다."
       - "보낸 session이 없으면 not_found다. 보낸 session이 다른 컴퓨터의 mail이 연 session이거나 그 workspace가 private이면 쓰기 전에 forbidden이다(main thread의 검사를 쓰는 tx에서 한 번 더 본다)."
+      - "spawn이면(team spawn --on) 주소가 agent 꼴이어야 하고(아니면 invalid_input) 보낸 session 밑에 그 컴퓨터에서 도는 팀원의 자리(sessions.runs_on, agent는 그 컴퓨터의 handle, workspace는 부모의 것)를 이 컴퓨터의 팀 상한과 깊이로 센 뒤 연다. 넘으면 conflict이고 아무것도 쓰지 않는다. 그 id를 mail의 spawn에 싣고 행의 받는 session과 remote_session으로 적는다."
       - "call mail을 그 기계의 outbox에 넣고(seq는 기계마다), 같은 tx에 보낸 기계의 행(to remote, 받는 session 없음, delivery pending)을 쓴다. commit 뒤 router.mail-queued로 drain을 깨운다."
     outcomes:
       - id: queued
         observe: [ledger:agent_calls, ledger:mail_outbox, response]
         when: "call mail을 outbox에 넣고 accepted 행을 썼다"
+      - id: member-opened
+        observe: [ledger:sessions, ledger:agent_calls, ledger:mail_outbox, event:SessionStarted, response]
+        when: "spawn이라 팀원의 자리(runs_on)를 열고 spawn을 실은 call mail을 냈다. 답에 그 session이 있다"
+      - id: team-full
+        code: conflict
+        when: "spawn인데 팀이 상한(max_members)이나 깊이(max_depth)를 넘는다. session도 행도 mail도 없다"
+        observe: [response]
       - id: deduplicated
         observe: [response]
         when: "같은 보낸 session과 dedup의 call이 이미 있다"

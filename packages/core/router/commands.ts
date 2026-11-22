@@ -185,11 +185,14 @@ export const callsMailSend = defineCommand({
     address: remoteAddressSchema,
     reply: callReplySchema,
     body: mailBodySchema,
+    // `team spawn --on`: 보낸 session 밑에 그 컴퓨터에서 도는 팀원의 자리를 연다.
+    spawn: z.boolean().optional(),
   }),
   output: z.object({
     call: idSchema("cal"),
     state: callStateSchema,
     fail_reason: callFailReasonSchema.nullable(),
+    session: idSchema("ses").nullable(),
   }),
   compare: z.strictObject({}),
   actors: ["machine"],
@@ -197,6 +200,7 @@ export const callsMailSend = defineCommand({
     "invalid_input",
     "forbidden",
     "not_found",
+    "conflict",
     "unavailable",
     "internal",
   ],
@@ -636,9 +640,14 @@ const mailSendCommand: CommandDefinition<typeof callsMailSend> = {
       body: input.body,
       unattended:
         input.turn !== null && environment.value.unattendedTurn(tx, input.turn),
+      spawn: input.spawn,
     });
     if (!sent.ok) return sent;
-    return ok({ ...sent.value, call: calId(sent.value.call) });
+    return ok({
+      ...sent.value,
+      call: calId(sent.value.call),
+      session: sent.value.session === null ? null : sesId(sent.value.session),
+    });
   },
 };
 

@@ -2,7 +2,9 @@
 // route의 actor가 agent뿐이라 binary(사람)에서는 forbidden이다. 팀 규칙(부모는 자격의 session, 자기 밑만 끝냄)은 core가 건다.
 // effect가 read인 것은 call.send와 같은 이유다: 같은 tool call을 다시 불러도 dedup이 같아 session이 하나만 생긴다.
 import { z } from "zod";
-import { ok } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
+import { teamSpawnRemote } from "../../protocol/lophn-agent/mail.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { callReplySchema } from "../../protocol/lophn-agent/calls.ts";
 import {
@@ -27,22 +29,48 @@ const spawn = defineCommand({
     "reply: none requires no answer; result (default) asks it to reply; conversation lets both sides continue via call reply. body is text; repeat --image <path> to attach an image file as in call send. " +
     "The team is limited in size and depth (conflict when full). A member in your workspace appears as a tab; --as says what it is to you and the shell places it: peer (default) = a worker splitting the same job as you, in your group; stage = a member that will itself coordinate more members or takes the next step, which starts its own group. " +
     "After you spawn, end your turn: the answers arrive as new input. Do not poll. A member does the work itself; if it is unsure or needs approval, it uses `ask`, which goes to its parent (you). " +
-    "Spawn is headless, for one-off work that needs no person. To hand work to a coding agent the person will continue in a terminal, use `lophn tab open --coding <harness> --handoff <text>`.",
+    "Spawn is headless, for one-off work that needs no person. To hand work to a coding agent the person will continue in a terminal, use `lophn tab open --coding <harness> --handoff <text>`. " +
+    "--on <computer> opens the member on another computer of the person (machine computers): agent is a handle from agent list --on there, workspace as in call send --on (without it, your own workspace by its cross-computer id). Only text goes. It returns at once even when that computer is off; the member counts in your team here, cannot spawn members itself, and problems there (no such agent, the person there skipped it) come back later as the call failing.",
   input: z.strictObject({
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),
     reply: callReplySchema.default("result"),
     as: z.enum(["peer", "stage"]).optional(),
     ...bodyFields,
+    on: z.string().min(1).optional(),
   }),
   positional: ["agent"],
   effect: "read",
-  routes: [teamSpawn, messageImagePrepare],
+  routes: [teamSpawn, teamSpawnRemote, messageImagePrepare],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const body = await bodyOf(input, ctx);
+    if (input.on !== undefined) {
+      if (input.image.length > 0) {
+        return err({
+          code: "invalid_input",
+          message: "only text goes to another computer",
+        });
+      }
+      const spawned = await ctx.core.read(teamSpawnRemote, {
+        agent: input.agent,
+        ...(input.workspace === undefined
+          ? {}
+          : { workspace: input.workspace }),
+        machine: input.on,
+        reply: input.reply,
+        body: textBlocks(input.body),
+        dedup: ctx.key,
+      });
+      if (!spawned.ok) return spawned;
+      return ok({
+        summary: `member ${spawned.value.session} opening on ${input.on}, call ${spawned.value.call}`,
+        content: spawned.value,
+      });
+    }
+    const { on: _on, ...local } = input;
+    const body = await bodyOf(local, ctx);
     if (!body.ok) return body;
-    const { image: _image, as: relation, ...rest } = input;
+    const { image: _image, as: relation, ...rest } = local;
     const spawned = await ctx.core.command(
       teamSpawn,
       {

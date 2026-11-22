@@ -49,6 +49,7 @@ function world(refuse: boolean) {
     accepting: true,
     spawned_by: null,
     opened_by_machine: null,
+    runs_on: null,
   };
   installRouterEnvironment({
     unattendedTurn: () => false,
@@ -62,6 +63,8 @@ function world(refuse: boolean) {
           refuse
             ? err({ code: "forbidden" as const, message: "private" })
             : ok({ agent: "lophn_app", workspace: null }),
+        openMember: () =>
+          err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target),
         accepts: () => null,
         listOpen: () => [],

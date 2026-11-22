@@ -113,7 +113,10 @@ import {
 import { OUTBOUND_CALLS_SCHEMA_STEPS } from "../../../apps/calls/outbound-schema.ts";
 import { providerMultiCredentialsSchemaSteps } from "../../../lophn-agent/providers/mod.ts";
 import { guiMemberSchemaSteps } from "../../../lophn-agent/session/mod.ts";
-import { remoteSenderMessagesSchemaSteps } from "../../../lophn-agent/session/remote-sender-schema.ts";
+import {
+  memberRunsOnSchemaSteps,
+  remoteSenderMessagesSchemaSteps,
+} from "../../../lophn-agent/session/remote-sender-schema.ts";
 import {
   mailSchemaSteps,
   remoteSenderCallsSchemaSteps,
@@ -932,6 +935,7 @@ export function remoteWiring(
       ...remoteSenderCallsSchemaSteps,
       ...remoteSenderMessagesSchemaSteps,
       ...mailSchemaSteps,
+      ...memberRunsOnSchemaSteps,
     ],
     dataSteps: [
       hostKeyMachineStep,

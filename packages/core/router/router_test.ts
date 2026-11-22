@@ -1,7 +1,7 @@
 import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ok } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import {
   type AgentCallRow,
   callReply,
@@ -48,6 +48,7 @@ function target(
     accepting,
     spawned_by: spawned_by as TargetSession["spawned_by"],
     opened_by_machine: null,
+    runs_on: null,
   };
 }
 
@@ -104,6 +105,7 @@ function setup(
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
     resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
+    openMember: () => err({ code: "forbidden", message: "not in this test" }),
     open: (_tx, agent, _opener, spawnedBy) => {
       opened += 1;
       openedAt.push(agent);

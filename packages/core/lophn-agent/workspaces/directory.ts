@@ -4,7 +4,7 @@ import {
   isCodingBuiltin,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { Sql } from "../../../protocol/server/mod.ts";
+import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
 import {
   type AgentSessionRow,
@@ -16,7 +16,11 @@ import {
 import { teamLimitsAt } from "../../config/setting-declarations.ts";
 import { DEFAULT_TEAM_LIMITS } from "../../../protocol/lophn-agent/team.ts";
 import { dataRootOf } from "../agents/mod.ts";
-import { checkSpawnSlot, startSession } from "./lifecycle.ts";
+import {
+  checkSpawnSlot,
+  startMemberSession,
+  startSession,
+} from "./lifecycle.ts";
 import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
 
@@ -39,14 +43,28 @@ export function createSessionDirectory(
     return info === null || info.archived;
   }
 
+  // 부모 밑에 자식 하나가 더 들어가도 팀이 상한 안인지. 설정 파일은 writer Worker 안에서 읽고, 읽지 못하면 기본 상한이다.
+  function spawnSlot(tx: Tx, parent: Id<"ses">) {
+    const root = dataRootOf(tx.sql, undefined);
+    return checkSpawnSlot(
+      tx,
+      parent,
+      root.ok ? teamLimitsAt(root.value) : DEFAULT_TEAM_LIMITS,
+    );
+  }
+
   function targetOf(row: AgentSessionRow): TargetSession {
     return {
       session: row.id as Id<"ses">,
       transport: row.harness === null ? "lophn" : "harness",
       agent: { agent: row.agent, workspace: workspaceOf(row) },
-      accepting: acceptsInput(row, workspaceArchived(workspaceOf(row))),
+      // 다른 컴퓨터에서 도는 팀원은 이 기계의 queue로 받지 않는다.
+      accepting:
+        row.runs_on === null &&
+        acceptsInput(row, workspaceArchived(workspaceOf(row))),
       spawned_by: row.spawned_by as Id<"ses"> | null,
       opened_by_machine: row.opened_by_machine as Id<"mch"> | null,
+      runs_on: row.runs_on as Id<"mch"> | null,
     };
   }
 
@@ -56,15 +74,30 @@ export function createSessionDirectory(
       return row === undefined ? null : targetOf(row);
     },
     resolveAddress: deps.names.resolveAddress,
+    openMember(tx, parent, handle, machine) {
+      const slot = spawnSlot(tx, parent);
+      if (!slot.ok) return slot;
+      const sender = loadSession({ sql: tx.sql }, parent);
+      if (sender === undefined) {
+        return err({ code: "not_found", message: "session not found" });
+      }
+      const started = startMemberSession(tx, deps, {
+        id: tx.newId("ses"),
+        handle,
+        workspace: workspaceOf(sender),
+        parent,
+        machine,
+      });
+      return started.ok ? ok(targetOf(started.value)) : started;
+    },
     open(tx, agent, opener, spawnedBy, options) {
+      const member = options?.member;
+      if (member !== undefined && loadSession({ sql: tx.sql }, member.id)) {
+        return err({ code: "not_found", message: "that session id is taken" });
+      }
       if (spawnedBy !== null) {
         // writer Worker 안에서 설정 파일을 읽는다. 읽지 못하면 기본 상한이다.
-        const root = dataRootOf(tx.sql, undefined);
-        const slot = checkSpawnSlot(
-          tx,
-          spawnedBy,
-          root.ok ? teamLimitsAt(root.value) : DEFAULT_TEAM_LIMITS,
-        );
+        const slot = spawnSlot(tx, spawnedBy);
         if (!slot.ok) return slot;
       }
       // archived 앱은 agent에게 없는 앱이다. 사람과 program은 conflict로 닫힘을 안다.
@@ -89,7 +122,7 @@ export function createSessionDirectory(
             ? null
             : workspaceOf(sender);
       const started = startSession(tx, deps, {
-        id: tx.newId("ses"),
+        id: member?.id ?? tx.newId("ses"),
         agent: agent.agent,
         workspace: agent.workspace,
         calledFrom:
@@ -99,7 +132,7 @@ export function createSessionDirectory(
             agent.workspace.id !== from.id)
             ? from
             : null,
-        spawnedBy,
+        spawnedBy: member?.parent ?? spawnedBy,
         // 앱이 불러 열린 session은 그 앱이 끝낼 수 있다.
         openedByApp: opener.kind === "app" ? opener.app : null,
         // project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원으로 연다(core가 탭을 연다). 다른 곳은 headless다.

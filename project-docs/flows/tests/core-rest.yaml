@@ -682,6 +682,8 @@ files:
   - path: packages/core/router/mail_test.ts
     covers:
       - calls-mail-send:queued
+      - calls-mail-send:member-opened
+      - calls-mail-send:team-full
       - calls-mail-send:sender-refused
       - calls-mail-apply:running
       - calls-mail-apply:repeated

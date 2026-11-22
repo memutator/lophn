@@ -95,7 +95,7 @@ turn은 시작할 때 mode(attended, unattended, skip)를 정해 turn 행(`turns
 
 ### 팀 자식의 물음
 
-spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`architecture/agent-call.md`의 지키는 것, 팀의 ask call). 자식 turn은 turn 안 request(질문은 질문 대기)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다.
+spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`architecture/agent-call.md`의 지키는 것, 팀의 ask call). 자식 turn은 turn 안 request(질문은 질문 대기)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다. 다른 컴퓨터에서 도는 팀원(`agent-call.md` 29a)의 물음도 그 컴퓨터의 사람이 아니라 연 컴퓨터의 부모에게 mail로 간다.
 
 - 질문은 mode와 skip에 상관없이 부모에게 간다. shell 승인은 skip이 켜진 session이면 `run`이다. skip은 사람이 그 session에 정한 "묻지 마"라서 부모가 뒤집지 않는다. 팀 밖 session은 그대로다(unattended 질문은 `unattended`, skip 아닌 attended shell ask는 사람에게).
 - unattended 여부는 core가 질문 입구에서 가른다. 자식이 아니고 turn이 unattended면 `unattended`를 바로 돌려준다. ask call은 자식 turn의 unattended 표시를 싣고 가므로, unattended 사슬의 root가 받은 물음에서는 root의 `ask`가 `unattended`를 돌려주고 root가 스스로 정한다.

@@ -1,0 +1,39 @@
+id: team-spawn-across
+version: 0.23.127
+title: 다른 컴퓨터에 연 팀원이 연 컴퓨터의 팀 규칙 하나 아래 팀원으로 일한다(team spawn --on)
+modules: [packages/protocol, packages/core/router, packages/core/remote, packages/core/lophn-agent, packages/core/main, packages/cli, packages/shell/main, packages/shell/renderer]
+change: |
+  전: 팀원은 이 컴퓨터에만 열렸다. 다른 컴퓨터의 agent에게는 `call send --on`으로 팀 밖 call만 보냈고, 받은 mail로 열린 session은 어느 컴퓨터로도 보내지 못했다.
+  후:
+  - `team spawn --on <컴퓨터>`(`team/spawn_remote`): A(연 컴퓨터)가 부모 밑에 팀원의 자리(`sessions.runs_on`, B의 handle, 부모의 workspace)를 열어 A의 팀 상한과 깊이에 세고 spawn call mail(`spawn: {session}`)을 낸다. B는 같은 id로 session을 열고 A의 부모를 `spawned_by`로 적는다. spawn은 B가 꺼져 있어도 바로 `{session, call}`을 돌려준다.
+  - A의 session이 자리로 보낸 call은 A의 call 정책과 팀 규칙을 거친 뒤 queue 대신 B로 가는 call mail이다(답, 취소, dedup, 배달 상태, 만료, 옛 판 규칙이 그대로). 사람 메시지와 그 밖의 입력은 닫힌 session과 같다.
+  - B의 팀원이 보낸 mail은 A에서 자리가 보낸 것처럼 call 정책, 팀 규칙, 명함 검사를 거친다. 받은 mail로 열린 session은 그 mail을 보낸 컴퓨터로만 보내고 셋째 컴퓨터로는 보내지 못한다(목록과 명함은 그대로 못 읽는다). 팀원은 B에도 다른 컴퓨터에도 팀원을 열지 못한다.
+  - 팀원의 `ask`(질문, shell 승인)는 A의 부모에게 가는 call mail(`ask`)이고 부모의 결정은 reply mail의 `decision`으로 돌아가 B의 짝을 푼다. B가 다시 켜지면 그 ask call을 닫고 A에 cancel mail을 낸다.
+  - 끝: A의 `team end`와 사람의 보관·지움은 자리를 A에서 곧바로 닫고(그 자리로 보낸 열린 call은 receiver_ended) B로 `cancel{end: true}`를 낸다. B는 그 session을 보관한다. B에서 그 session이 끝나면 `state{delivery: ended}`가 가고 A가 자리를 닫는다. spawn call이 B에서 돌기 전에 실패하면(not_found, closed, expired, skipped, old_version, 명단에서 빠짐) 자리가 닫히고, 받은 turn이 답 없이 끝난 receiver_ended·lophn_restarted로는 닫히지 않는다. 명단에서 빠진 컴퓨터의 자리는 같은 쓸기에서 닫히고 부모가 한 번 듣는다.
+  - 읽기: `team read`가 자리를 자식으로 내고 `computer`와 상태 `pending | held | running`을 싣는다(runtime은 null일 수 있다). `team_changed`도 같다. session snapshot이 자리를 `agent: null`, `runs_on {machine, computer, handle, state: pending | held | running | ended, state_seq}`로 싣는다. session 목록(Recent), session read, 앱의 session 목록, `tabs/hand`는 자리를 내지 않는다. 자리는 `SessionStarted` 대신 `StateChanged{sessions}`를 낸다.
+  - 계약: mail call의 `spawn`·`ask`, reply의 `decision`, cancel의 `end`, state의 `ended`(mail 종류는 넷 그대로). `calls/mail-send` 입력의 `self` 칸을 뺐다(core가 안다). 저장: schema step `lophn-agent.member.runs-on`(`sessions.runs_on`과 바꾸지 못하게 하는 trigger).
+why: |
+  agent가 다른 컴퓨터(Windows에서만 되는 build, 늘 켜 둔 기계)에 일을 맡길 때 팀원처럼 맡기고 싶었다. 팀 밖 call은 팀 tree, 상한, `ask`, `team end`, `team read`가 닿지 않아 coordinator가 그 일을 팀으로 다루지 못했다.
+decisions:
+  - text: 팀원은 연 컴퓨터의 session 행(자리) 하나로 팀에 든다. 팀 규칙과 상한은 연 컴퓨터 하나가 쥐고 도는 컴퓨터는 mail이 이미 주는 것(명단, 보낸 기계, 늦은 mail의 대기, private, skip 허락, 자기 agent 정의)만 본다. 두 컴퓨터가 같은 session id를 쓴다. 새 mail 종류 없이 칸만 더한다. 버린 길은 두 컴퓨터가 팀 규칙을 나눠 갖기(규칙이 두 벌)다.
+    by: agent
+  - text: spawn은 비동기다. session id를 바로 돌려주고 그 컴퓨터에서 찾은 문제는 늦게 call의 실패로 오며 자리가 닫힌다.
+    by: agent
+  - text: 다른 컴퓨터에 연 팀원은 잎이다. 그 컴퓨터에도 다른 컴퓨터에도 팀원을 열지 못한다.
+    by: agent
+  - text: 팀원의 `ask`는 그 컴퓨터의 사람이 아니라 연 컴퓨터의 부모에게 간다.
+    by: agent
+  - text: 늦게 닿은 spawn은 다른 mail처럼 그 컴퓨터의 대기 목록에서 그 컴퓨터의 사람을 기다린다.
+    by: agent
+  - text: 두 컴퓨터가 같은 session id를 쓰고, 다른 컴퓨터의 팀원은 `max_members`의 한 자리다.
+    by: agent
+  - text: 받은 mail로 열린 session의 규칙은 버리지 않고 좁힌다. 그 mail을 보낸 컴퓨터로만 보내고 셋째 컴퓨터는 막는다(A의 일이 B를 거쳐 C로 가지 않는다).
+    by: agent
+  - text: 자리를 닫는 일은 상대를 기다리지 않는다. 연 컴퓨터는 곧바로 닫고 `end` cancel을 내며, 상대가 이미 닫았으면 그 mail이나 되돌아온 `ended`는 아무것도 바꾸지 않는다(한 통이 더 갈 수 있다). 버린 길은 상대의 확인 뒤에 닫기(그 컴퓨터가 영영 오지 않을 수 있다)다.
+    by: agent
+  - text: 자리는 session 목록과 session read에 없고 `SessionStarted`를 내지 않는다(그 agent는 이 컴퓨터의 agent id가 아니다). 팀 tree는 session snapshot의 `runs_on`으로 그리고 사람의 보관에 드는 `state_seq`도 거기 싣는다. 버린 길은 session 꼴의 agent 칸을 넓히기(모든 session 화면이 다른 컴퓨터의 handle을 다뤄야 한다)다.
+    by: agent
+  - text: 자리의 상태는 spawn call의 배달로 읽는다(닿지 않음·모름은 pending, 대기는 held, 받았거나 spawn call이 끝났으면 running). 그 컴퓨터에서 turn이 도는지는 연 컴퓨터가 모른다.
+    by: agent
+follow_up: |
+  화면(sidebar의 자리와 chip, gallery), 내장 skill `lophn-agent`의 글, roadmap 정리, 개발 core 둘로 하는 확인은 다음 일이다. 자리를 누르면 그 컴퓨터의 session 탭(탭의 `machine`)으로 열 수 있다.

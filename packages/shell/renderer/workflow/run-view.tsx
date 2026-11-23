@@ -1,9 +1,9 @@
-// run 하나의 화면. 머리(이름, 상태, [Stop]) 아래에 step 줄, 지금 어디에 있는지 한 장, step마다 맡은 쪽과 마지막 report가 온다.
-// step을 받은 session으로 가는 [Open session]이 step마다 있다. 순서를 바꾸는 단추는 없다: 사람은 그 agent에게 말한다.
+// run 하나의 화면. 머리(이름, 상태, [Stop]) 아래에 step 줄, 지금 어디에 있는지 한 장, session tree, 산출물 파일(refs), step마다 맡은 쪽과 마지막 report가 온다.
+// step을 받은 session으로 가는 [Open session]과 막혔을 때 같은 session에서 이어가는 [Retry]가 있다.
 import { Button, Icon } from "@lophn/ui/primitives";
 import { CodeBlock } from "@lophn/ui/reading";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
+import { type MessageKey, t } from "@lophn/i18n";
 
 import { actionIcons, commonIcons, editorIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
@@ -12,6 +12,8 @@ import type {
   WorkflowLineView,
 } from "../workspace/source.ts";
 import {
+  buildSessionTree,
+  canRetry,
   type FaceOf,
   headLines,
   jobWho,
@@ -19,12 +21,17 @@ import {
   notHandedKey,
   nowOf,
   participantText,
+  previewText,
+  refsOf,
   relayOfRun,
   runTitle,
+  type SessionNodeStatus,
   sessionOfStep,
-  shownOf,
+  sessionSummaryText,
+  shownOfRun,
   STEP_KEY,
   stepRows,
+  summarizeSessions,
   whenOf,
   whoName,
   whoOf,
@@ -129,11 +136,22 @@ function textOf(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
       return line.code === null
         ? t("workflow.note.program-signal")
         : t("workflow.note.program-exited", { code: String(line.code) });
+    case "step_stalled":
+      return t("workflow.note.step-stalled", { step: line.step });
+    case "retried":
+      return line.step === null
+        ? t("workflow.label.line-retried")
+        : t("workflow.label.line-retried-step", { step: line.step });
+    case "escalated":
+      return t("workflow.label.line-escalated", { text: line.text });
+    case "code_updated":
+      return t("workflow.label.line-code-updated");
   }
 }
 
 const NOW_TONE = {
   human: "warning",
+  escalated: "warning",
   working: "good",
   remote: "good",
   program: "good",
@@ -145,6 +163,7 @@ const NOW_TONE = {
 
 const NOW_ICON = {
   human: commonIcons.stateYourTurn,
+  escalated: commonIcons.stateYourTurn,
   working: commonIcons.stateRunning,
   remote: commonIcons.stateRunning,
   program: commonIcons.stateRunning,
@@ -153,6 +172,13 @@ const NOW_ICON = {
   stopped: commonIcons.stateStopped,
   waiting: commonIcons.stateNotReached,
 } as const satisfies Record<Now["kind"], unknown>;
+
+const SESSION_STATE_KEY: Record<SessionNodeStatus, MessageKey> = {
+  running: "workflow.label.session-state-running",
+  waiting: "workflow.label.session-state-waiting",
+  idle: "workflow.label.session-state-idle",
+  failed: "workflow.label.session-state-failed",
+};
 
 // 다른 컴퓨터로 넘긴 step의 전달 상태마다 한 장의 글, 색, 아이콘. 늦게 닿아 그 컴퓨터에서 사람을 기다리는 것만 사람 차례의 무게다.
 const REMOTE_NOW = {
@@ -191,12 +217,14 @@ function NowCard({
   now,
   faceOf,
   dotOf,
+  onRetry,
   onOpenSession,
 }: {
   detail: Detail;
   now: Now;
   faceOf: FaceOf | undefined;
   dotOf: ((session: string) => SessionDot | null) | undefined;
+  onRetry: ((step?: string) => void) | null;
   /** 열 수 있는 session이면 여는 함수, 아니면 null. */
   onOpenSession: (session: string) => (() => void) | null;
 }) {
@@ -216,10 +244,14 @@ function NowCard({
   const open =
     (now.kind === "human" ||
       now.kind === "working" ||
-      now.kind === "blocked") &&
+      now.kind === "blocked" ||
+      now.kind === "escalated") &&
     now.session !== null
       ? onOpenSession(now.session)
       : null;
+  const retryable = onRetry !== null && canRetry(detail, now);
+  const retryStep =
+    now.kind === "blocked" && now.step !== null ? now.step : undefined;
   const text = (() => {
     switch (now.kind) {
       case "human":
@@ -227,6 +259,8 @@ function NowCard({
           step: now.step,
           agent: whoName(now.who, faceOf),
         });
+      case "escalated":
+        return now.line.text;
       case "working":
         return t(
           asking ? "workflow.note.now-asking" : "workflow.note.now-working",
@@ -241,7 +275,9 @@ function NowCard({
       case "program":
         return t("workflow.note.now-program", { step: now.step });
       case "blocked":
-        return textOf(detail, now.line, faceOf);
+        return now.line === null
+          ? t("workflow.note.blocked")
+          : textOf(detail, now.line, faceOf);
       case "ended":
         return t("workflow.note.now-ended", { when: whenOf(now.at) });
       case "stopped":
@@ -268,24 +304,48 @@ function NowCard({
         <div className={styles.nowText}>
           <p className={styles.nowMain}>{text}</p>
           {now.kind === "blocked" ? (
-            <p className={styles.nowHint}>{t("workflow.note.blocked-hint")}</p>
+            <p className={styles.nowHint}>
+              {t(
+                retryable
+                  ? "workflow.note.blocked-retry-hint"
+                  : "workflow.note.blocked-hint",
+              )}
+            </p>
           ) : null}
         </div>
-        {open === null ? null : (
+        {open === null && !retryable ? null : (
           <span className={styles.actions}>
-            <Button
-              size="sm"
-              variant={now.kind === "human" || asking ? "primary" : "secondary"}
-              trailingIcon={actionIcons.open}
-              onClick={open}
-              data-open-session=""
-            >
-              {t(
-                now.kind === "human"
-                  ? "workflow.button.open-conversation"
-                  : "workflow.button.open-session",
-              )}
-            </Button>
+            {retryable ? (
+              <Button
+                size="sm"
+                variant="primary"
+                icon={actionIcons.retry}
+                onClick={() => onRetry(retryStep)}
+                data-retry=""
+              >
+                {t("workflow.button.retry")}
+              </Button>
+            ) : null}
+            {open === null ? null : (
+              <Button
+                size="sm"
+                variant={
+                  !retryable &&
+                  (now.kind === "human" || now.kind === "escalated" || asking)
+                    ? "primary"
+                    : "secondary"
+                }
+                trailingIcon={actionIcons.open}
+                onClick={open}
+                data-open-session=""
+              >
+                {t(
+                  now.kind === "human"
+                    ? "workflow.button.open-conversation"
+                    : "workflow.button.open-session",
+                )}
+              </Button>
+            )}
           </span>
         )}
       </div>
@@ -322,8 +382,10 @@ export function RunView({
   dotOf,
   onBack,
   onStop,
+  onRetry,
   onOpenArtifact,
   onOpenSession,
+  onOpenFile,
   canOpenSession,
 }: {
   detail: Detail;
@@ -334,10 +396,14 @@ export function RunView({
   dotOf: ((session: string) => SessionDot | null) | undefined;
   onBack: () => void;
   onStop: () => void;
+  /** 막힌 step을 같은 session에서 이어서 재시도한다. 없으면 [Retry]를 그리지 않는다. */
+  onRetry?: ((step?: string) => void) | null;
   onOpenArtifact: () => void;
   /** step을 받은 session의 대화를 연다. 없으면 단추를 그리지 않는다. */
   onOpenSession: ((session: string) => void) | null;
-  /** 이 창이 열 수 있는 session인가(다른 workspace의 agent는 열지 못한다). 없으면 모두 연다. */
+  /** 명시적 산출물 파일(`refs`)을 편집기로 연다. 없으면 읽기 전용 목록이다. */
+  onOpenFile?: ((path: string) => void) | null;
+  /** 이 창이 열 수 있는 session인가. 없으면 모두 연다. */
   canOpenSession: ((session: string) => boolean) | undefined;
 }) {
   const { instance } = detail;
@@ -350,10 +416,16 @@ export function RunView({
   const title = runTitle(instance.input);
   const rows = stepRows(detail);
   const relay = relayOfRun(detail);
+  const sessionRows = buildSessionTree(detail.sessions, dotOf);
+  const sessionSummary = summarizeSessions(sessionRows);
+  const refs = refsOf(detail);
   // 머리 쪽 줄 가운데 한 장이 이미 말한 것(끝남, 멈춤, program 종료)은 다시 적지 않는다.
   // 한 장이 이미 여는 session은 step 줄에서 다시 단추로 두지 않는다.
   const nowSession =
-    now.kind === "human" || now.kind === "working" || now.kind === "blocked"
+    now.kind === "human" ||
+    now.kind === "working" ||
+    now.kind === "blocked" ||
+    now.kind === "escalated"
       ? now.session
       : null;
   const notes = headLines(detail).filter(
@@ -383,7 +455,13 @@ export function RunView({
         <div className={styles.headText}>
           <h1 className={styles.title}>{title}</h1>
           <p className={styles.meta}>
-            <StateMark shown={shownOf(instance.state, instance.current)} />
+            <StateMark
+              shown={shownOfRun(
+                instance.state,
+                instance.current,
+                detail.derived_status,
+              )}
+            />
             <span>
               {t("workflow.label.started-at", {
                 when: whenOf(instance.created_at),
@@ -430,6 +508,7 @@ export function RunView({
         now={now}
         faceOf={faceOf}
         dotOf={dotOf}
+        onRetry={onRetry ?? null}
         onOpenSession={openerOf}
       />
       {notes.length === 0 ? null : (
@@ -444,6 +523,137 @@ export function RunView({
             </li>
           ))}
         </ul>
+      )}
+      {sessionRows.length === 0 ? null : (
+        <section
+          className={styles.section}
+          data-sessions=""
+          aria-label={t("workflow.heading.sessions")}
+        >
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("workflow.heading.sessions")}
+            </h2>
+            <span className={styles.sectionSummary} data-sessions-summary="">
+              {sessionSummaryText(sessionSummary)}
+            </span>
+          </div>
+          <ul className={styles.sessions}>
+            {sessionRows.map(({ node, depth, status }) => {
+              const open = openerOf(node.session);
+              const preview = previewText(node.last_assistant_preview);
+              const agentLabel = faceOf?.(node.agent)?.name ?? node.agent;
+              const waitingLabel =
+                node.waiting_for === "approval"
+                  ? t("workflow.label.session-waiting-approval")
+                  : node.waiting_for === "question"
+                    ? t("workflow.label.session-waiting-question")
+                    : null;
+              return (
+                <li
+                  key={node.session}
+                  className={styles.sessionRow}
+                  data-session-node={node.session}
+                  data-session-state={status}
+                  data-depth={Math.min(depth, 4)}
+                >
+                  <div className={styles.sessionMain}>
+                    <div className={styles.sessionHead}>
+                      <span
+                        className={styles.sessionDot}
+                        data-state={status}
+                        aria-hidden="true"
+                      />
+                      <span className={styles.sessionAgent}>{agentLabel}</span>
+                      <span className={styles.sessionState}>
+                        {waitingLabel ?? t(SESSION_STATE_KEY[status])}
+                      </span>
+                      {node.workspace !== null &&
+                      (node.workspace.kind !== "project" ||
+                        node.workspace.id !== instance.project) ? (
+                        <span className={styles.sessionWorkspace}>
+                          {node.workspace.id}
+                        </span>
+                      ) : null}
+                    </div>
+                    {preview === null ? null : (
+                      <p className={styles.sessionPreview}>{preview}</p>
+                    )}
+                    {node.last_error === null ? null : (
+                      <p className={styles.sessionError} data-session-error="">
+                        <Icon
+                          icon={editorIcons.problem}
+                          pixels={iconPixels("base")}
+                        />
+                        <span>{node.last_error}</span>
+                      </p>
+                    )}
+                  </div>
+                  {open === null ? null : (
+                    <span className={styles.stepAction}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        trailingIcon={actionIcons.open}
+                        onClick={open}
+                        data-session-open={node.session}
+                      >
+                        {t("workflow.button.open-session")}
+                      </Button>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+      {refs.length === 0 ? null : (
+        <section
+          className={styles.section}
+          data-refs=""
+          aria-label={t("workflow.heading.refs")}
+        >
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("workflow.heading.refs")}
+            </h2>
+          </div>
+          <ul className={styles.refs}>
+            {refs.map((path) => (
+              <li key={path} className={styles.refItem}>
+                {onOpenFile !== null && onOpenFile !== undefined ? (
+                  <button
+                    type="button"
+                    className={styles.refButton}
+                    onClick={() => onOpenFile(path)}
+                    data-ref-path={path}
+                  >
+                    <Icon
+                      icon={commonIcons.documents}
+                      pixels={iconPixels("base")}
+                    />
+                    <span className={styles.refPath}>{path}</span>
+                    <span className={styles.refOpen} aria-hidden="true">
+                      <Icon
+                        icon={actionIcons.open}
+                        pixels={iconPixels("base")}
+                      />
+                    </span>
+                  </button>
+                ) : (
+                  <span className={styles.refStatic} data-ref-path={path}>
+                    <Icon
+                      icon={commonIcons.documents}
+                      pixels={iconPixels("base")}
+                    />
+                    <span className={styles.refPath}>{path}</span>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       <ol className={styles.steps} aria-label={t("workflow.label.steps")}>
         {rows.map((row, index) => {
@@ -472,14 +682,16 @@ export function RunView({
                     </span>
                   )}
                   <span className={styles.stepStatus}>
-                    {/* step 줄의 칸과 같은 말을 쓴다: 넘기지 못한 step은 도는 중이 아니다. */}
-                    {row.notice?.kind === "not_handed"
-                      ? t("workflow.label.step-blocked")
-                      : step.waitingOn !== undefined
-                        ? t("workflow.label.step-remote-waiting", {
-                            computer: step.waitingOn,
-                          })
-                        : t(STEP_KEY[row.shown])}
+                    {/* step 줄의 칸과 같은 말을 쓴다: 넘기지 못했거나 stall된 step은 도는 중이 아니다. */}
+                    {row.notice?.kind === "step_stalled"
+                      ? t("workflow.label.step-stalled")
+                      : row.notice?.kind === "not_handed"
+                        ? t("workflow.label.step-blocked")
+                        : step.waitingOn !== undefined
+                          ? t("workflow.label.step-remote-waiting", {
+                              computer: step.waitingOn,
+                            })
+                          : t(STEP_KEY[row.shown])}
                   </span>
                 </div>
                 {row.report === undefined ? null : (

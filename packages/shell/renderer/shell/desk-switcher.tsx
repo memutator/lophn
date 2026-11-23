@@ -10,15 +10,44 @@ import { useKeyLabel } from "../commands/react.tsx";
 import { actionIcons, shellIcons } from "../icons/mod.ts";
 import styles from "./desk-switcher.module.css";
 
+export type DeskStatusTone = "working" | "needs_you" | "blocked";
+
 export interface DeskOption {
   readonly key: string;
   readonly label: string;
   /** workflow desk. Workflows 묶음에 들어간다. */
   readonly workflow?: boolean;
-  /** workflow desk 이름 옆의 상태 글(예: "step 2/4 · your turn"). */
+  /** workflow desk 이름 옆의 상태 글(예: "execute · Running"). */
   readonly status?: string;
+  /** workflow desk의 진행 상태 색/점(working | needs_you | blocked). */
+  readonly tone?: DeskStatusTone;
   /** 줄 오른쪽에 이름 바꾸기·지우기 단추를 둔다. Main과 workflow desk는 아니다. */
   readonly manageable?: boolean;
+}
+
+const TONE_PRIORITY: Record<DeskStatusTone, number> = {
+  needs_you: 3,
+  blocked: 2,
+  working: 1,
+};
+
+/**
+ * 현재 workspace의 활성 workflow desk 요약(점 색과 수).
+ * needs_you > blocked > working 순으로 앞세워, Main에 있을 때도 title bar에서 진행 상태를 보게 한다.
+ */
+export function summarizeWorkflowDesks(
+  desks: readonly DeskOption[],
+): { readonly tone: DeskStatusTone; readonly count: number } | null {
+  let count = 0;
+  let top: DeskStatusTone | null = null;
+  for (const desk of desks) {
+    if (!desk.workflow || desk.tone === undefined) continue;
+    count += 1;
+    if (top === null || TONE_PRIORITY[desk.tone] > TONE_PRIORITY[top]) {
+      top = desk.tone;
+    }
+  }
+  return top === null ? null : { tone: top, count };
 }
 
 export interface DeskSwitcherProps {
@@ -57,6 +86,7 @@ export function DeskSwitcher({
   if (now === undefined) return null;
   const own = desks.filter((desk) => !desk.workflow);
   const flows = desks.filter((desk) => desk.workflow);
+  const workflowSummary = summarizeWorkflowDesks(desks);
   const pick = (key: string) => {
     setOpen(false);
     onSelect(key);
@@ -67,6 +97,7 @@ export function DeskSwitcher({
       className={styles.row}
       data-current={desk.key === now.key || undefined}
       data-desk-row={desk.key}
+      data-tone={desk.tone}
     >
       {desk.key === renaming ? (
         <>
@@ -105,8 +136,17 @@ export function DeskSwitcher({
             />
           </span>
           <span className={styles.name}>{desk.label}</span>
-          {desk.status === undefined ? null : (
-            <span className={styles.status}>{desk.status}</span>
+          {desk.status === undefined && desk.tone === undefined ? null : (
+            <span className={styles.status} data-tone={desk.tone}>
+              {desk.tone === undefined ? null : (
+                <span
+                  className={styles.dot}
+                  data-tone={desk.tone}
+                  aria-hidden="true"
+                />
+              )}
+              {desk.status === undefined ? null : <span>{desk.status}</span>}
+            </span>
           )}
         </button>
       )}
@@ -158,6 +198,25 @@ export function DeskSwitcher({
               pixels={14}
             />
             <span className={styles.label}>{now.label}</span>
+            {workflowSummary === null ? null : (
+              <span
+                className={styles.summary}
+                data-tone={workflowSummary.tone}
+                data-desk-summary=""
+                aria-label={t("workflow.label.desk-summary", {
+                  count: workflowSummary.count,
+                })}
+              >
+                <span
+                  className={styles.dot}
+                  data-tone={workflowSummary.tone}
+                  aria-hidden="true"
+                />
+                <span className={styles.summaryCount}>
+                  {workflowSummary.count}
+                </span>
+              </span>
+            )}
             <Icon icon={shellIcons.expand} pixels={12} />
           </button>
         }

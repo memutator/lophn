@@ -6,6 +6,7 @@
 
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
+import { workflowRetry } from "../../../protocol/workflows/routes.ts";
 import type { FileReply, FilesApi } from "../../ipc/files.ts";
 import { commandCall } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -21,12 +22,14 @@ import type {
   FileRow,
   ProjectView,
   ReadResult,
+  WorkflowDerivedStatus,
   WorkflowEntryView,
   WorkflowInstanceFilter,
   WorkflowInstanceSummaryView,
   WorkflowInstanceView,
   WorkflowLineView,
   WorkflowRemoteStepView,
+  WorkflowSessionNodeView,
   WorkflowStartedBy,
   WorkspaceSource,
 } from "./source.ts";
@@ -74,6 +77,9 @@ interface WorkflowReadValue {
   last_reports: Record<string, WorkflowLineView>;
   lines: WorkflowLineView[];
   remote_steps: WorkflowRemoteStepView[];
+  derived_status?: WorkflowDerivedStatus;
+  sessions?: WorkflowSessionNodeView[];
+  refs?: string[];
   next_cursor: string | null;
 }
 
@@ -417,6 +423,9 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             created_at: entry.created_at,
             finished_at: entry.finished_at,
             last_line: entry.last_line,
+            ...(entry.derived_status === undefined
+              ? {}
+              : { derived_status: entry.derived_status }),
           }),
         ),
       };
@@ -453,6 +462,11 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           last_reports: last!.last_reports,
           lines,
           remote_steps: last!.remote_steps,
+          ...(last!.derived_status === undefined
+            ? {}
+            : { derived_status: last!.derived_status }),
+          ...(last!.sessions === undefined ? {} : { sessions: last!.sessions }),
+          ...(last!.refs === undefined ? {} : { refs: last!.refs }),
         },
       };
     },
@@ -481,6 +495,18 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         resource: "workflows",
         method: "stop",
         body: { instance },
+      });
+      return reply.ok
+        ? { ok: true, value: null }
+        : { ok: false, message: reply.error?.code ?? "internal" };
+    },
+
+    async retryWorkflowStep(instance, step) {
+      const reply = await core.call({
+        kind: workflowRetry.kind,
+        resource: workflowRetry.resource,
+        method: workflowRetry.method,
+        body: { instance, ...(step === undefined ? {} : { step }) },
       });
       return reply.ok
         ? { ok: true, value: null }

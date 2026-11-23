@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
+import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { commonIcons } from "../../icons/mod.ts";
 import type { FaceOf } from "../../workflow/model.ts";
 import { WorkflowPage } from "../../workflow/workflow-page.tsx";
@@ -10,6 +11,7 @@ import { codingFaceOf } from "../agents/coding-face.ts";
 import type { TabItem } from "../model.ts";
 import { PaddedTab } from "../padded-tab.tsx";
 import { openWorkflowArtifact } from "./artifact.tsx";
+import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -122,6 +124,13 @@ function useFaces(host: TabHost, project: string): FaceOf | undefined {
   }, [loaded, source, project]);
 }
 
+const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/;
+
+function resolveRefPath(path: string, root: string | undefined): string {
+  if (ABSOLUTE_PATH.test(path) || root === undefined) return path;
+  return `${root.replace(/\/+$/, "")}/${path.replace(/^\.\/+/, "")}`;
+}
+
 function WorkflowTabBody({
   tab,
   host,
@@ -160,20 +169,30 @@ function WorkflowTabBody({
           instance: picked,
         })
       }
-      canOpenSession={
-        agentView === null
-          ? undefined
-          : (session) => agentView.nameOf(session) !== undefined
+      onOpenFile={(path) =>
+        openFile(host, resolveRefPath(path, host.explorerRoot), {
+          from: tab.key,
+        })
       }
-      onOpenSession={
-        agentView === null
-          ? null
-          : // step을 받은 대화는 workflow 탭 옆 칸에 열어 run을 보면서 말하게 한다.
-            (session) =>
-              agentView.openSession(session, {
-                options: { after: tab.key, beside: true },
-              })
-      }
+      onOpenSession={(session) => {
+        if (agentView !== null && agentView.nameOf(session) !== undefined) {
+          // 같은 project의 대화는 workflow 탭 옆 칸에 열어 run을 보면서 말하게 한다.
+          agentView.openSession(session, {
+            options: { after: tab.key, beside: true },
+          });
+          return;
+        }
+        // 다른 project의 session이라도 이미 이 창(workflow desk 등)에 열려 있으면 그 탭을 고른다.
+        const existing = host
+          .windowTabs()
+          .find((item) => item.fields?.session === session);
+        if (existing !== undefined) {
+          host.openTab(existing);
+          return;
+        }
+        // 아직 안 열린 다른 workspace의 session은 toast [Open]과 같은 길로 그 workspace에서 연다.
+        runToastAction({ kind: "session", session });
+      }}
     />
   );
 }

@@ -2128,11 +2128,16 @@ flows:
       - packages/shell/renderer/workspace/kinds/workflow.tsx
       - packages/shell/renderer/workspace/workspace-window.tsx
       - packages/shell/renderer/shell/desk-model.ts
+      - packages/shell/renderer/shell/desk-switcher.tsx
+      - packages/shell/renderer/workflow/run-view.tsx
+      - packages/shell/renderer/workflow/model.ts
     steps:
       - "openWorkflow가 workflow 탭을 연다. homeDesk 규칙으로 이미 열린 desk가 있으면 그리로 간다"
       - "desk가 없으면 addDesk로 workflow 이름의 desk를 만들고 그 안에 붙인다. desk가 200개 상한이면 desk를 못 만들고 아무 일도 없다"
       - "그 desk가 보이면 sidebar Workflows 줄이 강조된다"
-    uses: [ipc:shell:workspace-layout-save]
+      - "title bar DeskSwitcher는 현재 project의 실행 중 workflow instance(derived_status 우선, 없으면 current·마지막 줄)를 읽어 각 workflow desk 줄에 진행 점·상태 글을 보이고, 활성 workflow가 하나라도 있으면 상단 Desk 단추에 요약 점·개수(needs_you > blocked > working)를 보인다"
+      - "Run 화면은 연결된 session tree(부모·spawned_by 자식, 집계 요약, live 점, 마지막 assistant 앞 160자, 실패 사유), 명시적 산출물 refs 목록(클릭 시 문서 편집기 열기), cross-workspace [Open session], blocked 상태의 [Retry](workflows/retry)를 제공한다"
+    uses: [ipc:shell:workspace-layout-save, route:workflows/retry]
     outcomes:
       - id: opened
         observe: ["disk:<data>/shell/workspaces/<workspace>.json"]

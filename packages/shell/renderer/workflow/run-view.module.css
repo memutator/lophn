@@ -318,3 +318,209 @@
   color: var(--color-text-muted);
   white-space: nowrap;
 }
+
+/* Sessions tree와 Output files(refs) 묶음. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sectionSummary {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.sessions {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  list-style: none;
+}
+
+.sessionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.sessionRow[data-depth="1"] {
+  padding-inline-start: var(--space-6);
+}
+
+.sessionRow[data-depth="2"] {
+  padding-inline-start: calc(var(--space-6) * 2);
+}
+
+.sessionRow[data-depth="3"] {
+  padding-inline-start: calc(var(--space-6) * 3);
+}
+
+.sessionRow[data-depth="4"] {
+  padding-inline-start: calc(var(--space-6) * 4);
+}
+
+.sessionMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+.sessionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.sessionDot {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--status-neutral-marker);
+}
+
+.sessionDot[data-state="running"] {
+  background: var(--status-good-marker);
+}
+
+.sessionDot[data-state="waiting"] {
+  background: var(--status-warning-marker);
+}
+
+.sessionDot[data-state="failed"] {
+  background: var(--status-critical-marker);
+}
+
+.sessionAgent {
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sessionState {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.sessionRow[data-session-state="running"] .sessionState {
+  color: var(--status-good-text);
+}
+
+.sessionRow[data-session-state="waiting"] .sessionState {
+  color: var(--status-warning-text);
+}
+
+.sessionRow[data-session-state="failed"] .sessionState {
+  color: var(--status-critical-text);
+}
+
+.sessionWorkspace {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.sessionPreview {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}
+
+.sessionError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}
+
+.sessionError > :first-child {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+.refs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.refItem {
+  display: flex;
+  min-width: var(--space-0);
+}
+
+.refButton,
+.refStatic {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: start;
+  background: transparent;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.refButton {
+  cursor: pointer;
+}
+
+.refButton:hover,
+.refButton:focus-visible {
+  background: var(--color-surface-muted);
+  outline: none;
+}
+
+.refPath {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.refOpen {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-text-muted);
+}

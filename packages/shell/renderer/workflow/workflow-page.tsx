@@ -44,6 +44,8 @@ export interface WorkflowPageProps {
   onOpenArtifact: (view: "static" | "instance", instance?: string) => void;
   /** step을 받은 session의 대화를 연다. null이면 단추를 그리지 않는다. */
   onOpenSession: ((session: string) => void) | null;
+  /** 산출물 파일 경로를 편집기로 연다. 없으면 클릭할 수 없는 경로 글로만 보인다. */
+  onOpenFile?: ((path: string) => void) | null;
   /** 이 창이 열 수 있는 session인가. 없으면 모두 연다. */
   canOpenSession?: (session: string) => boolean;
   /** 참가자 agent의 얼굴. 없으면 선언에 적힌 이름만 보인다. */
@@ -134,10 +136,12 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               dotOf={props.dotOf}
               onBack={() => onInstance(null)}
               onStop={state.stop}
+              onRetry={state.retry}
               onOpenArtifact={() =>
                 props.onOpenArtifact("instance", detail.instance.id)
               }
               onOpenSession={props.onOpenSession}
+              onOpenFile={props.onOpenFile ?? null}
               canOpenSession={props.canOpenSession}
             />
           )}

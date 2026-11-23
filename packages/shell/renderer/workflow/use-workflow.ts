@@ -32,6 +32,7 @@ export interface UseWorkflow {
   /** 성공하면 true. 실패하면 알림을 띄우고 false다. */
   start(text: string, step?: string): Promise<boolean>;
   stop(): void;
+  retry(step?: string): void;
 }
 
 export function useWorkflow({
@@ -154,6 +155,18 @@ export function useWorkflow({
           setNotice({
             title: t("workflow.title.stop-failed", { workflow }),
             body: t("workflow.error.stop-failed"),
+          });
+        }
+        reload();
+      });
+    },
+    retry(step) {
+      if (instance === null) return;
+      void source.retryWorkflowStep(instance, step).then((result) => {
+        if (!result.ok) {
+          setNotice({
+            title: t("workflow.title.retry-failed", { workflow }),
+            body: t("workflow.error.retry-failed"),
           });
         }
         reload();

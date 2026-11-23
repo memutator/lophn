@@ -14,6 +14,10 @@
   color: var(--status-warning-text);
 }
 
+.stateMark[data-shown="blocked"] {
+  color: var(--status-serious-text);
+}
+
 .stateMark[data-shown="ended"] {
   color: var(--status-neutral-text);
 }

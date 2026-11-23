@@ -42,6 +42,7 @@ import {
 } from "../app-frame/webview-host.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import type { AppsSource } from "../apps/source.ts";
+import { useStateChanged } from "../desktop/connection/core-read.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import {
   useOpenPalette,
@@ -134,6 +135,7 @@ import {
   DeskCloseDialog,
   type DeskCloseSummary,
 } from "../shell/desk-close-dialog.tsx";
+import { workflowDeskStatus } from "../workflow/model.ts";
 import { DeskSwitcher } from "../shell/desk-switcher.tsx";
 import {
   TabsCloseDialog,
@@ -268,6 +270,7 @@ import type {
   ProjectView,
   ReadResult,
   WorkflowEntryView,
+  WorkflowInstanceSummaryView,
   WorkspaceSource,
 } from "./source.ts";
 import { useCommands, useWindowCommands } from "../commands/react.tsx";
@@ -518,6 +521,10 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const [workflowList, setWorkflowList] = useState<ReadResult<
     readonly WorkflowEntryView[]
   > | null>(null);
+  // title bar DeskSwitcher가 workflow desk별 진행 상태를 보일 때 쓰는 실행 중 instance 목록.
+  const [runningWorkflows, setRunningWorkflows] = useState<
+    readonly WorkflowInstanceSummaryView[]
+  >([]);
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<WorkspaceLayout>(defaultWorkspaceLayout);
   const desk = activeDesk(layout);
@@ -968,10 +975,28 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       if (result.ok) mergeVanished(result.value.map((entry) => entry.name));
     });
   };
+  const readRunningWorkflows = useCallback(() => {
+    const mine = projectId;
+    if (mine === null) {
+      setRunningWorkflows([]);
+      return;
+    }
+    void source
+      .workflowInstances({ project: mine, state: "running" })
+      .then((result) => {
+        if (shownProject.current !== mine) return;
+        if (result.ok) setRunningWorkflows(result.value);
+      });
+  }, [projectId, source]);
   useEffect(() => {
     setWorkflowList(null);
-    if (readyWorkspace === workspaceId) readWorkflows();
-  }, [workspaceId, source, readyWorkspace]);
+    setRunningWorkflows([]);
+    if (readyWorkspace === workspaceId) {
+      readWorkflows();
+      readRunningWorkflows();
+    }
+  }, [workspaceId, source, readyWorkspace, readRunningWorkflows]);
+  useStateChanged(["workflow_instances"], readRunningWorkflows);
 
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
   // 하는 첫 번째 장치이고, 두 번째는 openTab이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
@@ -2968,12 +2993,19 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   };
 
   const deskOptions = [
-    ...Object.values(layout.desks).map((item) => ({
-      key: item.key,
-      label: item.label,
-      workflow: item.workflow !== undefined,
-      manageable: item.key !== MAIN_DESK && item.workflow === undefined,
-    })),
+    ...Object.values(layout.desks).map((item) => {
+      const flowStatus =
+        item.workflow === undefined
+          ? undefined
+          : workflowDeskStatus(item.workflow, runningWorkflows);
+      return {
+        key: item.key,
+        label: item.label,
+        workflow: item.workflow !== undefined,
+        ...(flowStatus === undefined ? {} : flowStatus),
+        manageable: item.key !== MAIN_DESK && item.workflow === undefined,
+      };
+    }),
     // 목록에 있지만 아직 desk가 없는 workflow. 고르면 desk를 만들고 그 workflow 탭을 연다.
     ...(workflowList?.ok === true
       ? workflowList.value
@@ -2982,6 +3014,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             key: entry.name,
             label: entry.name,
             workflow: true,
+            ...(workflowDeskStatus(entry.name, runningWorkflows) ?? {}),
           }))
       : []),
   ];

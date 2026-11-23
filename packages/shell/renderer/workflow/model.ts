@@ -1,18 +1,25 @@
 // workflow 탭이 읽은 값을 화면에 그릴 꼴로 바꾸는 순수 함수와 protocol 값 → message key 표. desktop만 쓰는 것이 여기 있다.
-import { formatRelativeTime, t } from "@lophn/i18n";
+import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
 import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
+import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type { AvatarLook } from "../parts/avatar/avatar.tsx";
 import type {
+  WorkflowDerivedStatus,
   WorkflowEntryView,
   WorkflowInstanceDetailView,
   WorkflowInstanceSummaryView,
   WorkflowInstanceView,
   WorkflowLineView,
   WorkflowRemoteStepView,
+  WorkflowSessionNodeView,
+  WorkflowState,
 } from "../workspace/source.ts";
 import {
   participantText,
+  type Shown,
+  shownOf,
+  STATE_KEY,
   type StepRow as Row,
   type StepShown,
   stepRows,
@@ -31,6 +38,27 @@ export {
   stepRows,
   turnOf,
 } from "./rules.ts";
+
+/** desktop run 화면과 목록이 보이는 상태. 폰과 나누는 Shown에 blocked를 더했다. */
+export type DesktopShown = Shown | "blocked";
+
+export const DESKTOP_STATE_KEY: Record<DesktopShown, MessageKey> = {
+  ...STATE_KEY,
+  blocked: "workflow.label.state-blocked",
+};
+
+/** `derived_status`가 있으면 그대로 옮기고, 없으면 저장 상태와 current로 계산한다. */
+export function shownOfRun(
+  state: WorkflowState,
+  current: WorkflowInstanceView["current"],
+  derived?: WorkflowDerivedStatus,
+): DesktopShown {
+  if (state !== "running") return state;
+  if (derived === "blocked") return "blocked";
+  if (derived === "needs_you") return "human";
+  if (derived === "working") return "running";
+  return shownOf(state, current);
+}
 
 export type StepRow = Row<
   WorkflowInstanceView["steps"][number],
@@ -55,7 +83,7 @@ export const runningCount = (
   instances: readonly WorkflowInstanceSummaryView[],
 ): number => instances.filter((item) => item.state === "running").length;
 
-/** step이 없는 줄(ended, stopped, program_exited, step 없는 edit과 lophn_restarted). run 머리 쪽에 둔다. */
+/** step이 없는 줄(ended, stopped, program_exited, code_updated, step 없는 edit·lophn_restarted·retried·escalated). run 머리 쪽에 둔다. */
 export const headLines = (
   detail: WorkflowInstanceDetailView,
 ): WorkflowLineView[] =>
@@ -64,7 +92,11 @@ export const headLines = (
       line.kind === "ended" ||
       line.kind === "stopped" ||
       line.kind === "program_exited" ||
-      ((line.kind === "edit" || line.kind === "lophn_restarted") &&
+      line.kind === "code_updated" ||
+      ((line.kind === "edit" ||
+        line.kind === "lophn_restarted" ||
+        line.kind === "retried" ||
+        line.kind === "escalated") &&
         line.step === null),
   );
 
@@ -139,6 +171,8 @@ export interface RelayStep {
   readonly shown?: StepShown;
   /** 이 step으로 넘기지 못했거나 넘긴 것이 끊겼을 수 있다(run 화면만). */
   readonly blocked?: boolean;
+  /** 명시적 report 없이 turn이 끝나 멈췄다(run 화면만). */
+  readonly stalled?: boolean;
   /** 다른 컴퓨터로 넘겼는데 아직 거기서 돌지 않는다(닿지 않았거나 그 컴퓨터에서 사람을 기다린다). 그 컴퓨터 이름이다. */
   readonly waitingOn?: string;
   /** 늦게 닿아 그 컴퓨터에서 사람의 결정을 기다린다. 사람 차례의 색으로 보인다. */
@@ -171,6 +205,7 @@ export const relayOfRun = (detail: WorkflowInstanceDetailView): RelayStep[] =>
     return {
       ...relayStep(detail.instance.participants, row.step, row.shown),
       ...(row.notice === null ? {} : { blocked: true }),
+      ...(row.notice?.kind === "step_stalled" ? { stalled: true } : {}),
       ...(remote === null ||
       remote.delivery === null ||
       remote.delivery === "running"
@@ -181,23 +216,59 @@ export const relayOfRun = (detail: WorkflowInstanceDetailView): RelayStep[] =>
   });
 
 export interface RunGroups {
-  /** 사람 차례인 run. */
+  /** 사람 차례이거나 판단을 기다리는 run. */
   readonly needsYou: readonly WorkflowInstanceSummaryView[];
+  /** stall·넘김 실패·재시작 등으로 막힌 run. */
+  readonly blocked: readonly WorkflowInstanceSummaryView[];
   readonly running: readonly WorkflowInstanceSummaryView[];
   /** 끝났거나 멈춘 run. */
   readonly earlier: readonly WorkflowInstanceSummaryView[];
+}
+
+export type ActiveWorkflowTone = "working" | "needs_you" | "blocked";
+
+/** 도는 instance 한 개의 계산 상태(working | needs_you | blocked). derived_status가 없으면 줄과 current로 맞춘다. */
+export function activeToneOf(
+  item: WorkflowInstanceSummaryView,
+): ActiveWorkflowTone {
+  if (item.derived_status === "needs_you") return "needs_you";
+  if (item.derived_status === "blocked") return "blocked";
+  if (item.derived_status === "working") return "working";
+  if (
+    item.last_line?.kind === "not_handed" ||
+    item.last_line?.kind === "lophn_restarted" ||
+    item.last_line?.kind === "step_stalled"
+  ) {
+    return "blocked";
+  }
+  if (
+    item.current?.human_turn === true ||
+    item.last_line?.kind === "escalated"
+  ) {
+    return "needs_you";
+  }
+  return "working";
 }
 
 /** run 목록을 사람이 볼 순서로 가른다. 받은 순서(새것이 앞)는 묶음 안에서 그대로다. */
 export function groupRuns(
   instances: readonly WorkflowInstanceSummaryView[],
 ): RunGroups {
-  const running = instances.filter((item) => item.state === "running");
-  return {
-    needsYou: running.filter((item) => item.current?.human_turn === true),
-    running: running.filter((item) => item.current?.human_turn !== true),
-    earlier: instances.filter((item) => item.state !== "running"),
-  };
+  const needsYou: WorkflowInstanceSummaryView[] = [];
+  const blocked: WorkflowInstanceSummaryView[] = [];
+  const running: WorkflowInstanceSummaryView[] = [];
+  const earlier: WorkflowInstanceSummaryView[] = [];
+  for (const item of instances) {
+    if (item.state !== "running") {
+      earlier.push(item);
+      continue;
+    }
+    const tone = activeToneOf(item);
+    if (tone === "needs_you") needsYou.push(item);
+    else if (tone === "blocked") blocked.push(item);
+    else running.push(item);
+  }
+  return { needsYou, blocked, running, earlier };
 }
 
 /** 그 step을 가장 나중에 받은 session. 아직 아무도 받지 않았으면 null이다. */
@@ -271,10 +342,22 @@ export type Now =
     }
   /** flow의 program이 도는 중이다. */
   | { readonly kind: "program"; readonly step: string }
-  /** 넘기지 못했거나 lophn이 다시 켜져 끊겼을 수 있다. session은 말을 걸 만한 agent의 대화다. */
+  /** escalate: 사람의 판단을 기다린다. */
+  | {
+      readonly kind: "escalated";
+      readonly line: Line<"escalated">;
+      readonly step: string | null;
+      readonly session: string | null;
+    }
+  /** 넘기지 못했거나 stall·재시작 등으로 막혔다. session은 말을 걸 만한 agent의 대화다. */
   | {
       readonly kind: "blocked";
-      readonly line: Line<"not_handed"> | Line<"lophn_restarted">;
+      readonly line:
+        | Line<"not_handed">
+        | Line<"lophn_restarted">
+        | Line<"step_stalled">
+        | null;
+      readonly step: string | null;
       readonly session: string | null;
     }
   | {
@@ -307,23 +390,62 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
       exit: lastOf(lines, "program_exited") ?? null,
     };
   }
-  // 가장 나중에 넘기려던 결과가 실패나 끊김이면 그 뒤로 아무도 받지 않은 것이다.
+  const reportedAgentSession = () => {
+    const reported = lines.findLast(
+      (line) => line.kind === "report" && line.by.kind === "agent",
+    );
+    return reported?.by.kind === "agent" ? reported.by.session : null;
+  };
+  // 가장 나중 전이가 실패·끊김·stall·escalate이면 그 뒤로 다시 넘기거나 retry하지 않은 것이다.
   const moved = lines.findLast(
     (line) =>
       line.kind === "handed" ||
       line.kind === "not_handed" ||
+      line.kind === "step_stalled" ||
+      line.kind === "retried" ||
+      line.kind === "escalated" ||
       (line.kind === "lophn_restarted" && line.step !== null),
   );
-  if (moved?.kind === "not_handed" || moved?.kind === "lophn_restarted") {
-    const reported = lines.findLast(
-      (line) => line.kind === "report" && line.by.kind === "agent",
-    );
+  if (
+    moved?.kind === "not_handed" ||
+    moved?.kind === "lophn_restarted" ||
+    moved?.kind === "step_stalled"
+  ) {
+    const direct =
+      moved.kind === "step_stalled"
+        ? moved.session
+        : moved.kind === "lophn_restarted"
+          ? moved.receiver
+          : null;
     return {
       kind: "blocked",
       line: moved,
+      step: moved.step,
       session:
-        (moved.kind === "lophn_restarted" ? moved.receiver : null) ??
-        (reported?.by.kind === "agent" ? reported.by.session : null),
+        direct ??
+        (moved.step === null ? null : sessionOfStep(lines, moved.step)) ??
+        reportedAgentSession(),
+    };
+  }
+  if (moved?.kind === "escalated") {
+    return {
+      kind: "escalated",
+      line: moved,
+      step: moved.step,
+      session:
+        (moved.step === null ? null : sessionOfStep(lines, moved.step)) ??
+        reportedAgentSession(),
+    };
+  }
+  if (detail.derived_status === "blocked") {
+    const step = instance.current?.step ?? null;
+    return {
+      kind: "blocked",
+      line: null,
+      step,
+      session:
+        (step === null ? null : sessionOfStep(lines, step)) ??
+        reportedAgentSession(),
     };
   }
   const current = instance.current;
@@ -349,5 +471,211 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
     step: current.step,
     who,
     session: sessionOfStep(lines, current.step),
+  };
+}
+
+/** [Retry] 단추를 보일 조건. 도는 중이고 derived_status가 blocked이거나 지금 상태가 blocked다. */
+export function canRetry(
+  detail: WorkflowInstanceDetailView,
+  now: Now,
+): boolean {
+  return (
+    detail.instance.state === "running" &&
+    (detail.derived_status === "blocked" || now.kind === "blocked")
+  );
+}
+
+/** session tree 한 줄의 상태 점. */
+export type SessionNodeStatus = "running" | "waiting" | "idle" | "failed";
+
+export interface SessionTreeRow {
+  readonly node: WorkflowSessionNodeView;
+  readonly depth: number;
+  readonly status: SessionNodeStatus;
+}
+
+export interface SessionSummary {
+  readonly total: number;
+  readonly done: number;
+  readonly running: number;
+  readonly waiting: number;
+  readonly failed: number;
+}
+
+/** session node 한 개의 live 상태. 창이 아는 dot이 있으면 더 빠른 live 상태를 반영한다. */
+export function sessionNodeStatus(
+  node: WorkflowSessionNodeView,
+  dotOf?: (session: string) => SessionDot | null,
+): SessionNodeStatus {
+  const dot = dotOf?.(node.session) ?? null;
+  if (
+    node.state === "waiting" ||
+    node.waiting_for !== null ||
+    dot === "waiting"
+  ) {
+    return "waiting";
+  }
+  if (node.state === "running" || dot === "working") return "running";
+  if (node.last_error !== null) return "failed";
+  return "idle";
+}
+
+/** `sessions` 평면 목록을 parent(`spawned_by`) 기준 pre-order tree 줄로 푼다. 순환이나 빠진 부모에도 안전하다. */
+export function buildSessionTree(
+  sessions: readonly WorkflowSessionNodeView[] | undefined,
+  dotOf?: (session: string) => SessionDot | null,
+): SessionTreeRow[] {
+  if (sessions === undefined || sessions.length === 0) return [];
+  const byId = new Map(sessions.map((node) => [node.session, node]));
+  const children = new Map<string, WorkflowSessionNodeView[]>();
+  const roots: WorkflowSessionNodeView[] = [];
+  for (const node of sessions) {
+    if (
+      node.parent !== null &&
+      node.parent !== node.session &&
+      byId.has(node.parent)
+    ) {
+      const list = children.get(node.parent);
+      if (list === undefined) children.set(node.parent, [node]);
+      else list.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  const rows: SessionTreeRow[] = [];
+  const visited = new Set<string>();
+  const walk = (node: WorkflowSessionNodeView, depth: number) => {
+    if (visited.has(node.session)) return;
+    visited.add(node.session);
+    rows.push({ node, depth, status: sessionNodeStatus(node, dotOf) });
+    for (const child of children.get(node.session) ?? []) {
+      walk(child, depth + 1);
+    }
+  };
+  for (const root of roots) walk(root, 0);
+  // 순환에 갇힌 노드가 남아 있으면 root로 덧붙여 누락을 막는다.
+  for (const node of sessions) walk(node, 0);
+  return rows;
+}
+
+export function summarizeSessions(
+  rows: readonly SessionTreeRow[],
+): SessionSummary {
+  let done = 0;
+  let running = 0;
+  let waiting = 0;
+  let failed = 0;
+  for (const row of rows) {
+    if (row.status === "running") running += 1;
+    else if (row.status === "waiting") waiting += 1;
+    else if (row.status === "failed") failed += 1;
+    else done += 1;
+  }
+  return { total: rows.length, done, running, waiting, failed };
+}
+
+/** 예: "4/6 done · 1 running · 1 failed" */
+export function sessionSummaryText(summary: SessionSummary): string {
+  const parts = [
+    t("workflow.label.session-done", {
+      done: summary.done,
+      total: summary.total,
+    }),
+  ];
+  if (summary.running > 0) {
+    parts.push(t("workflow.label.session-running", { count: summary.running }));
+  }
+  if (summary.waiting > 0) {
+    parts.push(t("workflow.label.session-waiting", { count: summary.waiting }));
+  }
+  if (summary.failed > 0) {
+    parts.push(t("workflow.label.session-failed", { count: summary.failed }));
+  }
+  return parts.join(" · ");
+}
+
+/** 마지막 assistant 텍스트를 한 줄 평문으로 정리하고 최대 max자(기본 160자)로 자른다. */
+export function previewText(
+  text: string | null | undefined,
+  max = 160,
+): string | null {
+  if (text === null || text === undefined) return null;
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat === "") return null;
+  return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
+}
+
+/** instance의 명시적 산출물 경로 목록. `detail.refs`가 없으면 report 줄의 `refs`에서 모은다. */
+export function refsOf(detail: WorkflowInstanceDetailView): string[] {
+  const raw =
+    detail.refs !== undefined
+      ? detail.refs
+      : detail.lines.flatMap((line) =>
+          line.kind === "report" && line.refs !== undefined ? line.refs : [],
+        );
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const path of raw) {
+    const trimmed = path.trim();
+    if (trimmed === "" || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+const TONE_PRIORITY: Record<ActiveWorkflowTone, number> = {
+  needs_you: 3,
+  blocked: 2,
+  working: 1,
+};
+
+const DESK_TONE_KEY: Record<ActiveWorkflowTone, MessageKey> = {
+  needs_you: "workflow.label.desk-needs-you",
+  blocked: "workflow.label.desk-blocked",
+  working: "workflow.label.desk-running",
+};
+
+/**
+ * title bar DeskSwitcher의 workflow desk 줄에 실을 진행 상태(글과 색).
+ * 도는 run이 없으면 undefined다. 여럿 돌면 needs_you > blocked > working 순으로 앞세운다.
+ */
+export function workflowDeskStatus(
+  workflow: string,
+  instances: readonly WorkflowInstanceSummaryView[],
+): { readonly status: string; readonly tone: ActiveWorkflowTone } | undefined {
+  const active = instances.filter(
+    (item) => item.workflow === workflow && item.state === "running",
+  );
+  if (active.length === 0) return undefined;
+  let top = active[0];
+  let topTone = activeToneOf(top);
+  for (const item of active.slice(1)) {
+    const tone = activeToneOf(item);
+    if (TONE_PRIORITY[tone] > TONE_PRIORITY[topTone]) {
+      top = item;
+      topTone = tone;
+    }
+  }
+  const toneLabel = t(DESK_TONE_KEY[topTone]);
+  if (active.length === 1) {
+    const step = top.current?.step;
+    return {
+      tone: topTone,
+      status:
+        step === undefined
+          ? toneLabel
+          : t("workflow.label.desk-step-status", { step, status: toneLabel }),
+    };
+  }
+  return {
+    tone: topTone,
+    status:
+      topTone === "working"
+        ? t("workflow.label.running-count", { count: active.length })
+        : t("workflow.label.desk-multi-status", {
+            count: active.length,
+            status: toneLabel,
+          }),
   };
 }

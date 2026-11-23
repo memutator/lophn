@@ -49,17 +49,19 @@ export function Relay({
             <span className={styles.text}>
               <span className={styles.name}>{step.name}</span>
               <span className={styles.who}>
-                {step.blocked === true
-                  ? t("workflow.label.step-blocked")
-                  : step.waitingOn !== undefined
-                    ? t("workflow.label.step-remote-waiting", {
-                        computer: step.waitingOn,
-                      })
-                    : step.shown === undefined ||
-                        step.shown === "waiting" ||
-                        step.shown === "reported"
-                      ? assigneeText(step, faceOf)
-                      : t(STEP_KEY[step.shown])}
+                {step.stalled === true
+                  ? t("workflow.label.step-stalled")
+                  : step.blocked === true
+                    ? t("workflow.label.step-blocked")
+                    : step.waitingOn !== undefined
+                      ? t("workflow.label.step-remote-waiting", {
+                          computer: step.waitingOn,
+                        })
+                      : step.shown === undefined ||
+                          step.shown === "waiting" ||
+                          step.shown === "reported"
+                        ? assigneeText(step, faceOf)
+                        : t(STEP_KEY[step.shown])}
               </span>
             </span>
           </span>

@@ -6,7 +6,7 @@ import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../icons/mod.ts";
 import type { WorkflowInstanceSummaryView } from "../workspace/source.ts";
-import { groupRuns, runTitle, shownOf, whenOf } from "./model.ts";
+import { groupRuns, runTitle, shownOfRun, whenOf } from "./model.ts";
 import styles from "./run-list.module.css";
 import { StateMark } from "./state-mark.tsx";
 
@@ -31,7 +31,9 @@ function RunRow({
         <span className={styles.main}>
           <span className={styles.title}>{runTitle(item.input)}</span>
           <span className={styles.meta}>
-            <StateMark shown={shownOf(item.state, item.current)} />
+            <StateMark
+              shown={shownOfRun(item.state, item.current, item.derived_status)}
+            />
             {item.current === null || item.state !== "running" ? null : (
               <span>
                 {t("workflow.label.at-step", { step: item.current.step })}
@@ -108,6 +110,12 @@ export function RunList({
         id="needs-you"
         title={t("workflow.heading.runs-needs-you")}
         items={groups.needsYou}
+        onSelect={onSelect}
+      />
+      <Group
+        id="blocked"
+        title={t("workflow.heading.runs-blocked")}
+        items={groups.blocked}
         onSelect={onSelect}
       />
       <Group

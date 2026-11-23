@@ -125,7 +125,9 @@ export function stepRows<
         : "reported";
     const last = stepLines.at(-1);
     const notice =
-      last?.kind === "not_handed" || last?.kind === "lophn_restarted"
+      last?.kind === "not_handed" ||
+      last?.kind === "lophn_restarted" ||
+      last?.kind === "step_stalled"
         ? last
         : null;
     return { step, shown, report, lines: stepLines, notice, current };

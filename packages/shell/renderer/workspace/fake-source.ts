@@ -347,6 +347,7 @@ const running: WorkflowInstanceDetailView = {
     16,
     null,
   ),
+  derived_status: "working",
   last_reports: { plan: runningPlan },
   lines: [
     ...startLines(IDS.running, runningInput, 16),
@@ -366,6 +367,40 @@ const running: WorkflowInstanceDetailView = {
     },
   ],
   remote_steps: [],
+  sessions: [
+    {
+      session: ANALYST_SESSION,
+      parent: null,
+      agent: "Eval analyst",
+      workspace: { kind: "project", id: PROJECT },
+      state: "running",
+      waiting_for: null,
+      last_assistant_preview:
+        "Running 24 quest scenarios across two spawned workers.",
+      last_error: null,
+    },
+    {
+      session: "ses_01h455vb4pex5v6nkc6gd5fd21",
+      parent: ANALYST_SESSION,
+      agent: "coding_codex",
+      workspace: { kind: "project", id: PROJECT },
+      state: "idle",
+      waiting_for: null,
+      last_assistant_preview: "Batch 1 (12/12) finished with 11 passes.",
+      last_error: null,
+    },
+    {
+      session: "ses_01h455vb4pex5v6nkc6gd5fd22",
+      parent: ANALYST_SESSION,
+      agent: "coding_codex",
+      workspace: { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5fd02" },
+      state: "running",
+      waiting_for: null,
+      last_assistant_preview: "Evaluating quest line lookup edge cases.",
+      last_error: null,
+    },
+  ],
+  refs: ["eval/experiments/exp-013-ftb-quests-2.md"],
 };
 
 // ---- 사람 차례: review ----
@@ -398,7 +433,9 @@ const humanTurn: WorkflowInstanceDetailView = {
     70,
     null,
   ),
+  derived_status: "needs_you",
   last_reports: { plan: humanPlan, execute: humanRun },
+  refs: ["eval/experiments/exp-011.md", "eval/results/exp-013"],
   lines: [
     ...startLines(IDS.humanTurn, humanInput, 70),
     humanPlan,
@@ -631,6 +668,7 @@ const notHanded: WorkflowInstanceDetailView = {
     55,
     null,
   ),
+  derived_status: "blocked",
   last_reports: { plan: notHandedPlan, execute: notHandedRun },
   lines: [
     ...startLines(IDS.notHanded, notHandedInput, 55),
@@ -685,6 +723,7 @@ const restarted: WorkflowInstanceDetailView = {
     100,
     null,
   ),
+  derived_status: "blocked",
   last_reports: { plan: restartedPlan },
   lines: [
     ...startLines(IDS.restarted, restartedInput, 100),
@@ -1168,6 +1207,9 @@ function summaryOf(
     created_at: instance.created_at,
     finished_at: instance.finished_at,
     last_line: lines.at(-1) ?? null,
+    ...(detail.derived_status === undefined
+      ? {}
+      : { derived_status: detail.derived_status }),
   };
 }
 
@@ -1433,8 +1475,42 @@ export function fakeWorkspaceSource(
       };
       changeInstance(id, (item) => ({
         ...item,
+        derived_status: "stopped",
         instance: { ...item.instance, state: "stopped", finished_at: at },
         lines: [...item.lines, stopped],
+      }));
+      return Promise.resolve({ ok: true, value: null });
+    },
+    retryWorkflowStep(id, step) {
+      const detail = instances.find((item) => item.instance.id === id);
+      if (detail === undefined) {
+        return Promise.resolve({ ok: false, message: "not_found" });
+      }
+      if (detail.instance.state !== "running") {
+        return Promise.resolve({ ok: false, message: "conflict" });
+      }
+      const target = step ?? detail.instance.current?.step ?? null;
+      const handed =
+        target === null
+          ? undefined
+          : detail.lines.findLast(
+              (line): line is Extract<WorkflowLineView, { kind: "handed" }> =>
+                line.kind === "handed" && line.step === target,
+            );
+      const session = handed?.receiver ?? null;
+      const retried: WorkflowLineView = {
+        instance: id,
+        seq: String(detail.lines.length + 1),
+        at: FAKE_NOW.toISOString(),
+        by: { kind: "user" },
+        kind: "retried",
+        step: target,
+        session,
+      };
+      changeInstance(id, (item) => ({
+        ...item,
+        derived_status: "working",
+        lines: [...item.lines, retried],
       }));
       return Promise.resolve({ ok: true, value: null });
     },

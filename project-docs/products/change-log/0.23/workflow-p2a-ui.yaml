@@ -1,0 +1,26 @@
+id: workflow-p2a-ui
+version: 0.23.136
+title: Workflow Run 화면(session tree·refs·cross-workspace [Open session]·[Retry])과 title bar DeskSwitcher 진행 표시를 더한다
+modules:
+  - packages/shell/renderer
+  - packages/design
+change: |
+  - `WorkspaceSource`(`source.ts`, `core-source.ts`, `fake-source.ts`) 확장:
+    - `WorkflowInstanceDetailView`에 `derived_status?`, `sessions?`, `refs?`를, `WorkflowInstanceSummaryView`에 `derived_status?`를 싣고, `WorkflowLineView`에 `step_stalled`·`retried`·`escalated`·`code_updated`와 `report.refs`·`report.data`를 더한다.
+    - `retryWorkflowStep(instance, step?)`를 `WorkspaceSource`에 더해 `core-source.ts`에서 `workflowRetry`(`RetryWorkflowStep`) route로 잇고 `fake-source.ts`에 stub을 둔다.
+  - Workflow Run 화면(`packages/shell/renderer/workflow/*`, `packages/shell/renderer/workspace/kinds/workflow.tsx`):
+    - **Sessions tree**: 메인 step session과 `spawned_by` 자식 worker를 들여쓰기 tree로 보이고, 집계 요약(`done/total · running · waiting · failed`), live 상태 점(`running | waiting | idle | failed`), 마지막 assistant 앞 160자 평문 미리보기, `last_error`, 각 session별 `[Open session]`을 제공한다.
+    - **Output files (`refs`)**: report에 명시된 파일 경로 목록을 보이고, 누르면 문서 편집기(`openFile`, 상대 경로는 project 폴더 기준 풀이)로 연다.
+    - **Cross-workspace `[Open session]`**: 같은 project의 session은 workflow 탭 옆에 열고, 다른 workspace의 session도 이미 이 창에 열려 있으면 그 탭을 고르거나 toast session 열기 경로로 해당 workspace에서 연다.
+    - **`[Retry]` 단추**: `derived_status === "blocked"`이거나 `now.kind === "blocked"`(`step_stalled`, `lophn_restarted`, `not_handed`)일 때 `[Open session]` 옆에 `[Retry]`를 보여 `retryWorkflowStep`을 부른다.
+    - `step_stalled`, `retried`, `escalated`, `code_updated` 줄을 i18n 문구로 보이고 `RunList`에 `Blocked` 묶음을 더한다.
+  - Title bar `DeskSwitcher`(`desk-switcher.tsx`, `desk-switcher.module.css`, `workspace-window.tsx`):
+    - 현재 project의 실행 중 workflow instance 상태를 `StateChanged(workflow_instances)`에 맞춰 읽어 각 workflow `DeskOption`에 `status`와 `tone`(`working | needs_you | blocked`)을 싣는다.
+    - 드롭다운의 활성 workflow desk 줄에 상태 점과 글을 보이고, 활성 workflow가 하나라도 있으면 상단 Desk 단추에 요약 점과 개수(`needs_you > blocked > working` 우선)를 보여 `Main`에 있을 때도 진행 상태를 드러낸다.
+why: |
+  Workflow 2a 관측·복구 작업의 화면 쪽 변경이다. workflow가 여러 session과 cross-workspace 참가자를 거치며 돌 때 Run 화면과 title bar만 보고도 진행·막힘·산출물을 바로 파악하고, `[Retry]`와 `[Open session]`으로 즉시 개입할 수 있게 한다.
+decisions:
+  - text: "`DeskSwitcher` 상단 요약 indicator는 활성 workflow desk 수와 최우선 `tone`(`needs_you > blocked > working`) 점 하나를 함께 보인다. 버린 길: workflow마다 점을 여러 개 나열해 title bar 폭을 차지하기."
+    by: agent
+  - text: "다른 workspace의 session 열기는 현재 창에 이미 열린 탭을 먼저 찾고, 없으면 기존 `runToastAction({ kind: 'session', session })` 경로로 넘긴다. 버린 길: `agentView.openSession`의 같은 workspace 제약을 강제로 우회해 빈 탭 열기."
+    by: agent

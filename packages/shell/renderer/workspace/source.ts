@@ -99,6 +99,29 @@ export interface WorkflowInstanceFilter {
 
 export type WorkflowState = "running" | "ended" | "stopped";
 
+/** 읽을 때 계산한 workflow 상태. */
+export type WorkflowDerivedStatus =
+  | "working"
+  | "needs_you"
+  | "blocked"
+  | "ended"
+  | "stopped";
+
+/** instance의 `workflow_origin`을 가진 session 한 줄. parent로 spawn tree를 이룬다. */
+export interface WorkflowSessionNodeView {
+  readonly session: string;
+  readonly parent: string | null;
+  readonly agent: string;
+  readonly workspace:
+    | { readonly kind: "project"; readonly id: string }
+    | { readonly kind: "app"; readonly id: string }
+    | null;
+  readonly state: "running" | "waiting" | "idle" | "unknown";
+  readonly waiting_for: "approval" | "question" | null;
+  readonly last_assistant_preview: string | null;
+  readonly last_error: string | null;
+}
+
 export type WorkflowLineBy =
   | { readonly kind: "user" }
   | { readonly kind: "agent"; readonly session: string }
@@ -147,6 +170,8 @@ export type WorkflowLineView = {
       readonly text: string;
       readonly next: string | null;
       readonly session: "new" | "same";
+      readonly refs?: readonly string[];
+      readonly data?: unknown;
     }
   | {
       readonly kind: "edit";
@@ -188,6 +213,22 @@ export type WorkflowLineView = {
       readonly code: number | null;
       readonly stderr_tail: string;
     }
+  | {
+      readonly kind: "step_stalled";
+      readonly step: string;
+      readonly session: string | null;
+    }
+  | {
+      readonly kind: "retried";
+      readonly step: string | null;
+      readonly session: string | null;
+    }
+  | {
+      readonly kind: "escalated";
+      readonly step: string | null;
+      readonly text: string;
+    }
+  | { readonly kind: "code_updated" }
 );
 
 /** 시작할 때 선언에서 옮긴 instance. `state_seq`는 화면이 쓰지 않아 뺐다. */
@@ -241,6 +282,7 @@ export interface WorkflowInstanceSummaryView {
   readonly created_at: string;
   readonly finished_at: string | null;
   readonly last_line: WorkflowLineView | null;
+  readonly derived_status?: WorkflowDerivedStatus;
 }
 
 /** 다른 컴퓨터로 넘긴 step call의 지금 상태. `delivery`는 끝나지 않은 동안만 있다. */
@@ -259,6 +301,9 @@ export interface WorkflowInstanceDetailView {
   readonly last_reports: Readonly<Record<string, WorkflowLineView>>;
   readonly lines: readonly WorkflowLineView[];
   readonly remote_steps: readonly WorkflowRemoteStepView[];
+  readonly derived_status?: WorkflowDerivedStatus;
+  readonly sessions?: readonly WorkflowSessionNodeView[];
+  readonly refs?: readonly string[];
 }
 
 export type ReadResult<T> =
@@ -327,6 +372,8 @@ export interface WorkspaceSource {
     step?: string;
   }): Promise<ReadResult<{ instance: string }>>;
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
+  /** 막힌 step을 같은 session에서 이어서 다시 시도한다. step을 빼면 current step이다. */
+  retryWorkflowStep(instance: string, step?: string): Promise<ReadResult<null>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   /** workspace(project)의 desk layout 읽기와 저장. */

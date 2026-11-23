@@ -1,29 +1,22 @@
 import { realpath } from "node:fs/promises";
-import { appDelete } from "../../../../protocol/apps/mod.ts";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { createProductRedactor } from "../../../../base/redaction/mod.ts";
+import { appDelete } from "../../../../protocol/apps/mod.ts";
+import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
+import { workspaceUpdateRecord } from "../../../../protocol/apps/updates.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import {
-  type ArtifactWorkspace,
-  artifactsFolder,
-} from "../../../../protocol/projects/mod.ts";
+import { agentDelete } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   workspaceSessionOpen,
   workspaceSessionRead,
 } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { APP_CALL_SETTLED_EVENT } from "../../../../protocol/lophn-agent/app-calls.ts";
 import {
   agentCallSend,
   callCancel,
   callReply,
 } from "../../../../protocol/lophn-agent/calls.ts";
-import { APP_CALL_SETTLED_EVENT } from "../../../../protocol/lophn-agent/app-calls.ts";
-import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
-import {
-  TEAM_MEMBER_PREAMBLE,
-  teamEnd,
-  teamSpawn,
-} from "../../../../protocol/lophn-agent/team.ts";
 import {
   archiveSession,
   blocksOfContent,
@@ -41,18 +34,23 @@ import {
   textBlocks,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
+  TEAM_MEMBER_PREAMBLE,
+  teamEnd,
+  teamSpawn,
+} from "../../../../protocol/lophn-agent/team.ts";
+import {
   type AgentAtWorkspace,
   lophnIdOf,
   type Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  type ArtifactWorkspace,
+  artifactsFolder,
+} from "../../../../protocol/projects/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { ApprovalsService } from "../../../approvals/approvals.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import { appExists, appStatusOf } from "../../../apps/lookups.ts";
-import {
-  createSessionDirectory,
-  workspaceDepsOf,
-} from "../../../lophn-agent/workspaces/mod.ts";
 import { createQueueApplier } from "../../../lophn-agent/run-loop/mod.ts";
 import { QUEUE_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
@@ -61,13 +59,17 @@ import {
   redactBlocks,
   rejected,
 } from "../../../lophn-agent/session/message-body.ts";
+import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import {
   loadSession,
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
-import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
+import {
+  createSessionDirectory,
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
 import { projectStatusOf } from "../../../projects/lookups.ts";
 import {
   APP_CALL_SETTLED_TOPIC,
@@ -208,6 +210,37 @@ export function createCallBodyPreparer(deps: {
           : safe;
       bodies.push(body);
       next = { ...envelope, input: { ...(input as object), body } };
+    } else if (name === workspaceUpdateRecord.name) {
+      // 통합 update.record는 각 operation의 body(app_sdk·flow_sdk·platform handoffs)를 모두 redaction·blob 준비한다.
+      const shaped = workspaceUpdateRecord.input.safeParse(input);
+      if (!shaped.success) return ok(envelope);
+      const redact = createProductRedactor(deps.known?.());
+      const operations = [];
+      for (const op of shaped.data.operations) {
+        if (op.kind === "platform") {
+          const handoffs = [];
+          for (const handoff of op.handoffs) {
+            const safe = redactBlocks(redact, handoff.body);
+            if (safe === null) {
+              return rejected("unavailable", "call redaction did not finish");
+            }
+            bodies.push(safe);
+            handoffs.push({ ...handoff, body: safe });
+          }
+          operations.push({ ...op, handoffs });
+        } else if (op.body !== undefined) {
+          const safe = redactBlocks(redact, op.body);
+          if (safe === null) {
+            return rejected("unavailable", "call redaction did not finish");
+          }
+          bodies.push(safe);
+          operations.push({ ...op, body: safe });
+        } else {
+          operations.push(op);
+        }
+      }
+      if (bodies.length === 0) return ok(envelope);
+      next = { ...envelope, input: { ...shaped.data, operations } };
     } else if (
       name === callCancel.name ||
       name === callsAskWithdraw.name ||
@@ -218,8 +251,9 @@ export function createCallBodyPreparer(deps: {
       name === archiveSession.name ||
       name === deleteSession.name ||
       name === teamEnd.name ||
-      // 앱을 지우면 같은 tx에서 그 앱 workspace의 session을 지운다(DeleteSession과 같은 끝).
-      name === appDelete.name
+      // 앱·agent를 지우면 같은 tx에서 관련 session을 지운다(DeleteSession과 같은 끝).
+      name === appDelete.name ||
+      name === agentDelete.name
     ) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림과, 끝나는 session이 보낸 ask나 끝나는 팀원 자리가 이 기계로
       // 보낸 call이 취소되며 받은 session에 가는 취소 알림이다.

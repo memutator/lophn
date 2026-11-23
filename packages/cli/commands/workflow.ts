@@ -1,8 +1,9 @@
-// `lophn workflow list|get|report|edit|check|start|retry|resume|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 재시도하고, 이어 가고, 멈춘다.
+// `lophn workflow list|get|report|edit|check|rename|delete|start|retry|resume|stop`: workflow를 읽고, report하고, 고치고, 이름 바꾸고, 지우고, 시작하고, 재시도하고, 이어 가고, 멈춘다.
 // lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start·retry·resume·stop은 route가 user 전용이라
 // workspace 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 재시도·이어 가기·멈춤은 사람이 정한다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
+import { cleanUpModeSchema } from "../../protocol/base/follow-ups.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import {
@@ -12,13 +13,16 @@ import {
   stepNextSchema,
   workflowCheck,
   workflowDataSchema,
+  workflowDelete,
   workflowEdit,
   workflowEditInputSchema,
   workflowInputValuesSchema,
   workflowInstanceRead,
   workflowKeySchema,
   workflowList,
+  workflowNameSchema,
   workflowRefsSchema,
+  workflowRename,
   workflowReport,
   workflowResume,
   workflowRetry,
@@ -346,12 +350,88 @@ const stop = defineCommand({
   },
 });
 
+const rename = defineCommand({
+  name: "workflow.rename",
+  summary: "Rename a workflow in a project",
+  description:
+    "Rename a workflow folder and update its ledger instances, flow_sdk reviews, workflow_start jobs, and desk layout. Omit --project when running in that project workspace.",
+  input: z.strictObject({
+    from: workflowNameSchema,
+    to: workflowNameSchema,
+    project: idSchema("prj")
+      .optional()
+      .describe("Project ID (defaults to current project workspace)"),
+  }),
+  positional: ["from", "to"],
+  effect: "write",
+  routes: [workflowRename],
+  workspaces: ["home", "project"],
+  run: async (input, ctx) => {
+    const project =
+      input.project ??
+      (ctx.workspace?.kind === "project" ? ctx.workspace.id : undefined);
+    const done = await ctx.core.read(workflowRename, {
+      from: input.from,
+      to: input.to,
+      ...(project === undefined ? {} : { project }),
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary: `renamed workflow ${done.value.from} -> ${done.value.to} (${done.value.updated_jobs} jobs updated)`,
+      content: done.value,
+    });
+  },
+});
+
+const remove = defineCommand({
+  name: "workflow.delete",
+  summary: "Delete a workflow from a project",
+  description:
+    "Delete a workflow folder, stop running instances, erase its workflow_start jobs, and clean up its desk layout. Omit --project when running in that project workspace. Use --clean-up none|now|later to control semantic reference cleanup (defaults to later for agents when references exist).",
+  input: z.strictObject({
+    name: workflowNameSchema,
+    project: idSchema("prj")
+      .optional()
+      .describe("Project ID (defaults to current project workspace)"),
+    clean_up: cleanUpModeSchema
+      .optional()
+      .describe("Semantic cleanup mode: none, now, or later"),
+  }),
+  positional: ["name"],
+  effect: "write",
+  routes: [workflowDelete],
+  workspaces: ["home", "project"],
+  run: async (input, ctx) => {
+    const project =
+      input.project ??
+      (ctx.workspace?.kind === "project" ? ctx.workspace.id : undefined);
+    const done = await ctx.core.read(workflowDelete, {
+      name: input.name,
+      ...(project === undefined ? {} : { project }),
+      ...(input.clean_up === undefined ? {} : { clean_up: input.clean_up }),
+    });
+    if (!done.ok) return done;
+    const fupCount = done.value.follow_ups.length;
+    return ok({
+      summary: `deleted workflow ${done.value.name} (${done.value.erased_jobs} jobs erased${
+        fupCount === 0
+          ? ""
+          : `, ${fupCount} follow-up${fupCount === 1 ? "" : "s"}`
+      })`,
+      content: done.value,
+      arrayKeys: ["follow_ups"],
+    });
+  },
+});
+
 export const WORKFLOW_COMMANDS = [
   list,
   get,
   report,
   edit,
   check,
+  rename,
+  remove,
   start,
   retry,
   resume,

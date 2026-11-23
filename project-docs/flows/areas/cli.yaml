@@ -481,8 +481,12 @@ links:
   - {entry: "cli:machine.forget", flow: machine-forget}
   - {entry: "cli:machine.computers", flow: machine-computers-read}
   - {entry: "cli:app.sdk_status", flow: app-sdk-status-read}
-  - {entry: "cli:app.sdk_decide", flow: app-sdk-decide}
-  - {entry: "cli:app.sdk_feature", flow: app-sdk-feature}
+  - {entry: "cli:artifact.delete", flow: artifacts-delete}
+  - {entry: "cli:follow-up.list", flow: follow-up-list}
+  - {entry: "cli:follow-up.report", flow: follow-up-report}
+  - {entry: "cli:impact.read", flow: impact-read}
+  - {entry: "cli:update.status", flow: update-status-read}
+  - {entry: "cli:update.decide", flow: update-decide}
   - {entry: "cli:app.logs", flow: app-log-read}
   - {entry: "cli:app.invocations", flow: app-invocation-read}
   - {entry: "cli:app.event_publications", flow: app-event-publications-read}
@@ -533,6 +537,8 @@ links:
   - {entry: "cli:workflow.report", flow: workflow-report}
   - {entry: "cli:workflow.edit", flow: workflow-edit}
   - {entry: "cli:workflow.check", flow: workflow-check}
+  - {entry: "cli:workflow.rename", flow: workflow-rename}
+  - {entry: "cli:workflow.delete", flow: workflow-delete}
   - {entry: "cli:workflow.start", flow: workflow-start-agent}
   - {entry: "cli:workflow.retry", flow: workflow-retry}
   - {entry: "cli:workflow.resume", flow: workflow-resume}

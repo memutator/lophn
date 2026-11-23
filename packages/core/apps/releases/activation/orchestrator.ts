@@ -4,7 +4,13 @@
 // `activation.complete` commit → 업무 통로 열기 → 붙잡은 호출 넘기기다. 앞 단계가 확인되지 않으면 뒤 단계를
 // 시작하지 않고, commit 전 실패는 복원·`activation.fail`·이전 release 재준비로 닫는다(recovery.ts).
 // 응답을 잃었을 수 있는 core 호출 뒤에는 ledger를 다시 읽어 이어받는다.
+import type { Result } from "../../../../base/mod.ts";
 import type { ReleaseRecord } from "../../../../protocol/apps/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { AppDeclaration } from "../../declaration/mod.ts";
+import { type ContractDiff, diffReleaseContracts } from "../public-tools.ts";
+import { continueRecovery, rollback, settle } from "./recovery.ts";
+import { pathFrom } from "./state.ts";
 import {
   type ActivationOutcome,
   type ActivationPorts,
@@ -16,8 +22,26 @@ import {
   unavailable,
   unchangedResult,
 } from "./steps.ts";
-import { pathFrom } from "./state.ts";
-import { continueRecovery, rollback, settle } from "./recovery.ts";
+
+export type ContractChangedInfo = {
+  app: Id<"app">;
+  previousRelease: Id<"rel">;
+  nextRelease: Id<"rel">;
+  changes: ContractDiff[];
+};
+
+export type ReleaseDeclarationLoader = (
+  release: string,
+) =>
+  | Promise<
+      Result<Pick<AppDeclaration, "commands" | "skills" | "events"> | null>
+    >
+  | Result<Pick<AppDeclaration, "commands" | "skills" | "events"> | null>;
+
+export type RunActivationHooks = {
+  loadDeclaration?: ReleaseDeclarationLoader;
+  onContractChanged?: (info: ContractChangedInfo) => Promise<void> | void;
+};
 
 // 도는 호출이 스스로 끝나기를 기다리는 시간. 넘으면 결과 모름으로 닫고 강제로 멈춘다.
 const DRAIN_GRACE_MS = 30_000;
@@ -167,13 +191,52 @@ async function advance(
   });
 }
 
+export async function notifyContractChanges(
+  info: { app: string; previousRelease: string | null; release: string },
+  hooks?: RunActivationHooks,
+): Promise<void> {
+  if (
+    hooks?.onContractChanged === undefined ||
+    hooks.loadDeclaration === undefined ||
+    info.previousRelease === null ||
+    info.previousRelease === info.release
+  ) {
+    return;
+  }
+  const previous = await hooks.loadDeclaration(info.previousRelease);
+  if (!previous.ok || previous.value === null) return;
+  const next = await hooks.loadDeclaration(info.release);
+  if (!next.ok || next.value === null) return;
+  const changes = diffReleaseContracts(previous.value, next.value);
+  if (changes.length === 0) return;
+  try {
+    await hooks.onContractChanged({
+      app: info.app as Id<"app">,
+      previousRelease: info.previousRelease as Id<"rel">,
+      nextRelease: info.release as Id<"rel">,
+      changes,
+    });
+  } catch {
+    // 사후 인계 실패가 activation 확정을 되돌리거나 깨뜨리지 않게 한다.
+  }
+}
+
 export async function runActivation(
   ports: ActivationPorts,
   release: ReleaseRecord,
+  hooks?: RunActivationHooks,
 ): Promise<ActivationOutcome> {
   const attempt = attemptOf(release);
   if (attempt === undefined) return { status: "none" };
+  // completeActivation이 active_release를 덮기 전에 이전 활성 release ID를 잡아 둔다.
+  const previousRelease = attempt.previousRelease;
   const outcome = await advance(ports, attempt, release);
   await settle(ports, attempt.app, attempt.release, outcome);
+  if (outcome.status === "active") {
+    await notifyContractChanges(
+      { app: attempt.app, previousRelease, release: attempt.release },
+      hooks,
+    );
+  }
   return outcome;
 }

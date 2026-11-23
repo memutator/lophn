@@ -3,13 +3,13 @@
 // 명령은 끝난 것이라 오류가 아니라 `failed` 결과다: 오류로 돌리면 이유가 model에 닿지 않는다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
-import { idSchema } from "../../protocol/base/ids.ts";
 import {
   releaseActivate,
   releasePrepare,
   releasesGetRecord,
   releasesListRecords,
 } from "../../protocol/apps/mod.ts";
+import { idSchema } from "../../protocol/base/ids.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
@@ -85,7 +85,7 @@ const prepare = defineCommand({
   name: "release.prepare",
   summary: "Prepare a release from the HEAD commit",
   description:
-    "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and the public commands it removes that other apps or projects use, or the failed stage and its reason.",
+    "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and any public contract changes (commands, skills, events removed or changed with external user counts), or the failed stage and its reason.",
   input: z.strictObject({ app }),
   positional: ["app"],
   effect: "write",
@@ -101,16 +101,27 @@ const prepare = defineCommand({
       const summary = `release preparation failed at ${out.stage}`;
       return ok({ summary, content: out, failed: out.reason });
     }
-    const removed = out.removed_public_tools.length;
-    const removedSkills = out.removed_public_skills.length;
-    return ok({
-      summary: `prepared release #${out.release.number} (${out.release.id})${
+    const contractChanges = out.contract_changes ?? [];
+    let contractSummary = "";
+    if (contractChanges.length > 0) {
+      const formatted = contractChanges.map(
+        (entry) =>
+          `${entry.surface} ${entry.name} (${entry.change}, ${entry.external_user_count} external user${entry.external_user_count === 1 ? "" : "s"})`,
+      );
+      contractSummary = `, contract changes: ${formatted.join("; ")}`;
+    } else {
+      const removed = out.removed_public_tools.length;
+      const removedSkills = out.removed_public_skills.length;
+      contractSummary = `${
         removed === 0 ? "" : `, removes ${removed} public commands in use`
       }${
         removedSkills === 0
           ? ""
           : `, removes ${removedSkills} public skills in use: ${out.removed_public_skills.map((entry) => entry.skill).join(", ")}`
-      }`,
+      }`;
+    }
+    return ok({
+      summary: `prepared release #${out.release.number} (${out.release.id})${contractSummary}`,
       content: out,
     });
   },

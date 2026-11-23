@@ -6,12 +6,16 @@ import {
   type Result,
 } from "../../../../base/mod.ts";
 import type { PermissionScope } from "../../../../protocol/apps/declaration/mod.ts";
-import { publishStateChanged } from "../../../../protocol/events/changes.ts";
+import {
+  APP_DATA_CHANGED_EVENT,
+  appEventPublish,
+} from "../../../../protocol/apps/events.ts";
 import {
   type AppGrant,
   appGrantsList,
   GRANT_LIST_MAX_COUNT,
 } from "../../../../protocol/apps/grants.ts";
+import type { ToolCallOutput } from "../../../../protocol/apps/mod.ts";
 import {
   appConnectSource,
   appCreate,
@@ -22,23 +26,34 @@ import {
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
+import { appPhoneRequest } from "../../../../protocol/apps/phone-request.ts";
+import { appRecordPreview } from "../../../../protocol/apps/previews.ts";
 import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
+import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
+import {
+  appWidgetSet,
+  appWidgetsList,
+} from "../../../../protocol/apps/widget.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
-import type { ToolCallOutput } from "../../../../protocol/apps/mod.ts";
 import type { At } from "../../../../protocol/base/values.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../../protocol/storage/mod.ts";
-import { agentDirectory } from "./lophn-agent-team.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
+import { appFileRoutes } from "../../../apps/app-files/routes.ts";
+import { createAppFileStore } from "../../../apps/app-files/store.ts";
 import { createRemoteForward } from "../../../apps/calls/forward.ts";
-import { createOutboundCalls } from "../../../apps/calls/outbound.ts";
 import { createAppCalls, remoteCallHandler } from "../../../apps/calls/mod.ts";
-import { requesterOf } from "../../../remote/call.ts";
-import { agentAssignment } from "../../../apps/usage/users.ts";
+import { createOutboundCalls } from "../../../apps/calls/outbound.ts";
 import {
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
@@ -53,12 +68,19 @@ import {
 } from "../../../apps/control.ts";
 import { checkDeclaration } from "../../../apps/declaration/check.ts";
 import {
+  createEventArrival,
+  createEventDelivery,
+  createEventPublisher,
+  crossPublisherOf,
+} from "../../../apps/events/mod.ts";
+import {
   type ChangesetBlobs,
   closeUnfinishedInvocations,
   createInvocationLedger,
   INVOCATION_BLOB_PURPOSES,
   observeInvocations,
 } from "../../../apps/invocations/mod.ts";
+import { NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
 import {
   type AppOAuth,
   type AppOAuthDeclared,
@@ -69,14 +91,18 @@ import {
   PACKAGE_GUIDE_BLOB_OWNER_KIND,
   packageGuideOwnerKey,
 } from "../../../apps/packages/blobs.ts";
-import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
 import { registerVersionEnvelope } from "../../../apps/packages/install.ts";
+import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import {
   effectiveScope,
   loadGrants,
   secretValueHandler,
 } from "../../../apps/permissions/mod.ts";
+import { usablePhoneCapabilities } from "../../../apps/phone/capabilities.ts";
+import { startPhoneChangedWatch } from "../../../apps/phone/changed.ts";
+import { phoneFileStream } from "../../../apps/phone/files.ts";
+import { phoneRequestHandler } from "../../../apps/phone-request/mod.ts";
 import type {
   AppViewSignal,
   BundleLocator,
@@ -93,8 +119,6 @@ import {
 import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/consents.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
-import { startPhoneChangedWatch } from "../../../apps/phone/changed.ts";
-import { usablePhoneCapabilities } from "../../../apps/phone/capabilities.ts";
 import { releaseFacts } from "../../../apps/releases/mod.ts";
 import {
   loadActiveDeclaration,
@@ -120,46 +144,6 @@ import {
   screenFileStream,
   withStartInvocation,
 } from "../../../apps/routes.ts";
-import { phoneFileStream } from "../../../apps/phone/files.ts";
-import { appFileRoutes } from "../../../apps/app-files/routes.ts";
-import { createAppFileStore } from "../../../apps/app-files/store.ts";
-import { NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
-import {
-  readSdkStatus,
-  recordSdkUpdates,
-  SDK_REVIEW_CONTEXT,
-  sdkDecideHandler,
-  withSdkDecide,
-} from "../../../apps/sdk-status/mod.ts";
-import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
-import {
-  createEventArrival,
-  createEventDelivery,
-  createEventPublisher,
-  crossPublisherOf,
-} from "../../../apps/events/mod.ts";
-import { callPolicySetting } from "../../../config/setting-declarations.ts";
-import {
-  DEFAULT_CALL_POLICY,
-  isPrivate,
-} from "../../../../protocol/lophn-agent/call-policy.ts";
-import { APP_DATA_CHANGED_EVENT } from "../../../../protocol/apps/events.ts";
-import { createTray } from "../../../apps/tray/mod.ts";
-import { createWidgets } from "../../../apps/widgets/mod.ts";
-import { phoneRequestHandler } from "../../../apps/phone-request/mod.ts";
-import { appPhoneRequest } from "../../../../protocol/apps/phone-request.ts";
-import {
-  type AppViews,
-  appViewHandlers,
-  createAppViews,
-} from "../../../apps/views/mod.ts";
-import { appEventPublish } from "../../../../protocol/apps/events.ts";
-import { appRecordPreview } from "../../../../protocol/apps/previews.ts";
-import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
-import {
-  appWidgetsList,
-  appWidgetSet,
-} from "../../../../protocol/apps/widget.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import {
   appLogWriter,
@@ -168,7 +152,13 @@ import {
 } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
-import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
+import {
+  readSdkStatus,
+  recordSdkUpdates,
+  SDK_REVIEW_CONTEXT,
+  sdkDecideHandler,
+  withSdkDecide,
+} from "../../../apps/sdk-status/mod.ts";
 import { createSyncLog, type SyncLog } from "../../../apps/sync/log.ts";
 import {
   appSyncRoutes,
@@ -180,9 +170,20 @@ import {
   createSnapshots,
   type Snapshots,
 } from "../../../apps/sync/snapshots.ts";
+import { createTray } from "../../../apps/tray/mod.ts";
+import { agentAssignment } from "../../../apps/usage/users.ts";
+import {
+  type AppViews,
+  appViewHandlers,
+  createAppViews,
+} from "../../../apps/views/mod.ts";
+import { createWidgets } from "../../../apps/widgets/mod.ts";
+import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
+import { requesterOf } from "../../../remote/call.ts";
 import {
   authorize,
   CONDITION_TARGET_KEYS,
@@ -192,12 +193,14 @@ import {
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
+import { runContractChangeCascade } from "./cascade.ts";
 import {
   type AppsControl,
   createProductRedactor,
   type WiringContext,
   type WiringFactory,
 } from "./context.ts";
+import { agentDirectory } from "./lophn-agent-team.ts";
 
 export const appsWiring: WiringFactory = () => {
   let control: AppsControl | undefined;
@@ -818,6 +821,35 @@ export const appsWiring: WiringFactory = () => {
                 keepRelease as Id<"rel">,
               );
             },
+          },
+          onContractChanged: async (info) => {
+            const done = await runContractChangeCascade(
+              {
+                ledgerPath: ctx.ledgerPath,
+                dataRoot: ctx.root.path,
+                clock: ctx.clock,
+                ids,
+                bus: ctx.bus,
+                writer: () => ctx.writer,
+                callPolicy: () => ctx.peek.settings?.get(callPolicySetting),
+                secretNames: () => {
+                  const names = ctx.peek.secretStore?.names();
+                  return names?.ok ? names.value : [];
+                },
+              },
+              info,
+            );
+            if (!done.ok) {
+              ctx.telemetry.logger.warn({
+                component: "cascade",
+                event: "contract_change_cascade_failed",
+                fields: {
+                  app: info.app,
+                  next_release: info.nextRelease,
+                  message: done.error.message,
+                },
+              });
+            }
           },
         });
       }

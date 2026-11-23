@@ -10,8 +10,6 @@
 //   3. 이전 release로 돌아가기 요청(`activation_requests`)과 사람이 허락한 동의 줄(`activation_consents`)을 sweep이 읽어 시작한다.
 // Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
 import { type FileHandle, mkdir, open } from "node:fs/promises";
-import { publishStateChanged } from "../../../../protocol/events/changes.ts";
-
 import {
   type Clock,
   canonicalize,
@@ -43,6 +41,7 @@ import {
   type ReleaseRecord,
   rolledBackStepText,
 } from "../../../../protocol/apps/mod.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
 import type { PreparedBlob } from "../../../../protocol/storage/mod.ts";
 import type { Bus } from "../../../events/ports.ts";
@@ -66,7 +65,12 @@ import {
 import { allowedConsents, waitingConsents } from "./consents.ts";
 import { desiredFromBundle, readBundleCopy } from "./desired.ts";
 import { createActivationHandlers } from "./handler.ts";
-import { runActivation } from "./orchestrator.ts";
+import {
+  type ContractChangedInfo,
+  notifyContractChanges,
+  type RunActivationHooks,
+  runActivation,
+} from "./orchestrator.ts";
 import { createActivationQueue, type QueueEntry } from "./queue.ts";
 import { recoverActivation } from "./recovery.ts";
 import type { ActivationIntake, ActivationPorts, Attempt } from "./steps.ts";
@@ -116,6 +120,7 @@ type ActivationLate = {
   invocations: {
     pruneChangesets(app: string, keepRelease: string): Promise<Result<number>>;
   };
+  onContractChanged?: (info: ContractChangedInfo) => Promise<void> | void;
 };
 
 export type ActivationDriver = {
@@ -592,8 +597,23 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!found.ok || found.value === null) return;
     let release = found.value;
     let outcome;
+    const activationHooks: RunActivationHooks = {
+      loadDeclaration: (releaseId) =>
+        ledgerRead((sql) => {
+          const stored = loadStoredDeclaration(sql, releaseId);
+          return stored.ok ? ok(stored.value?.declaration ?? null) : stored;
+        }),
+      onContractChanged: late.onContractChanged,
+    };
     if (release.status === "activating") {
+      const previousRelease = release.activation?.previous_release ?? null;
       outcome = await recoverActivation(ports, release.id);
+      if (outcome.status === "active") {
+        await notifyContractChanges(
+          { app: release.app, previousRelease, release: release.id },
+          activationHooks,
+        );
+      }
     } else {
       if (release.status !== "prepared" && release.status !== "superseded") {
         return;
@@ -611,6 +631,10 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           return;
         }
       }
+      // completeActivation이 active_release를 덮기 전에 이전 release를 확보한다(즉시 activate·동의 [Allow] 모두).
+      const beforeActive = ledgerRead((sql) =>
+        loadActiveRelease(sql, release.app),
+      );
       const started = await sendValue(
         activationStart.name,
         { release: release.id, key: crypto.randomUUID() },
@@ -621,7 +645,23 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       if (!reread.ok || reread.value === null) return;
       if (!started.ok && reread.value.status !== "activating") return;
       release = reread.value;
-      outcome = await runActivation(ports, release);
+      const previousRelease =
+        release.activation?.previous_release ??
+        (beforeActive.ok ? (beforeActive.value?.id ?? null) : null);
+      if (
+        release.activation !== null &&
+        release.activation.previous_release === null &&
+        previousRelease !== null
+      ) {
+        release = {
+          ...release,
+          activation: {
+            ...release.activation,
+            previous_release: previousRelease,
+          },
+        };
+      }
+      outcome = await runActivation(ports, release, activationHooks);
     }
     // 복원이나 종료를 확인하지 못했으면 앱은 붙든 채로 둔다(이전 코드를 시작하지 않는다). 다음 sweep이 이어받는다.
     if (outcome.status !== "unavailable") {

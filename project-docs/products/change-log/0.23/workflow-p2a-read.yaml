@@ -1,5 +1,5 @@
 id: workflow-p2a-read
-version: 0.23.136
+version: 0.23.139
 title: ReadWorkflowInstance·ListWorkflowInstances의 derived_status·세션 트리·명시적 refs와 _instance.json 확장을 구현한다
 modules:
   - packages/core/workflows

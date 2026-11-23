@@ -1,5 +1,5 @@
 id: gui-member-slots-and-failure-trace
-version: 0.23.133
+version: 0.23.135
 title: GUI 팀원 탭의 상한은 줄 세우고, 답을 기다리는 탭은 닫지 않고, 실패 사유와 제목을 남긴다
 modules: [packages/core/terminal-agents, packages/core/harness-gui, packages/core/main]
 change: |

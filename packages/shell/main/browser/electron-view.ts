@@ -5,6 +5,7 @@ import {
   type BrowserWindow,
   type Event as ElectronEvent,
   type HandlerDetails,
+  nativeImage,
   type WebContents,
   webContents as electronContents,
   WebContentsView,
@@ -25,7 +26,7 @@ import type {
 } from "./registry.ts";
 import { openDevtoolsView } from "./devtools.ts";
 import { decideNavigation } from "./navigation.ts";
-import { faviconData } from "./favicon.ts";
+import { firstFaviconData } from "./favicon.ts";
 import { windowOpenHandler } from "./popup-host.ts";
 
 interface ElectronBrowserViewsInput {
@@ -40,6 +41,19 @@ type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
 
 // 취소(ERR_ABORTED). 새 navigation이 앞선 것을 대신할 때 나오고 실패가 아니다.
 const LOAD_ABORTED = -3;
+const FAVICON_SIZE = 32;
+
+function resizeFavicon(body: Buffer): Buffer | null {
+  const image = nativeImage.createFromBuffer(body);
+  if (image.isEmpty()) return null;
+  const { width, height } = image.getSize();
+  const scaled =
+    width > FAVICON_SIZE || height > FAVICON_SIZE
+      ? image.resize({ width: FAVICON_SIZE, height: FAVICON_SIZE })
+      : image;
+  const png = scaled.toPNG();
+  return png.byteLength > 0 ? png : null;
+}
 
 /**
  * contents에 navigation·활동·키·상태 hook을 건다. <webview> guest와 popup으로 생긴 contents가 모두
@@ -190,9 +204,9 @@ export function electronBrowserViews(
       canGoForward: false,
     };
     // favicon은 page가 알릴 때 그 page의 session으로 받는다. 다른 origin으로 가면 비우고, 그 사이
-    // 늦게 끝난 받기는 버린다(page가 바뀌면 번호가 오른다).
+    // 늦게 끝난 받기는 버린다(origin 변경·새 favicon 알림마다 번호가 오른다).
     let favicon: string | undefined;
-    let faviconPage = 0;
+    let faviconSeq = 0;
     let origin = "";
     contents.on("did-navigate", (_event, url) => {
       let next = "";
@@ -203,24 +217,41 @@ export function electronBrowserViews(
       }
       if (next === origin) return;
       origin = next;
-      faviconPage += 1;
+      faviconSeq += 1;
       if (favicon !== undefined) {
         favicon = undefined;
         hooks.onChange();
       }
     });
     contents.on("page-favicon-updated", (_event, favicons) => {
-      const url = favicons[0];
-      if (url === undefined) return;
-      const page = faviconPage;
-      void faviconData(url, (target) => contents.session.fetch(target)).then(
-        (data) => {
-          if (data === null || page !== faviconPage || contents.isDestroyed())
-            return;
-          favicon = data;
-          hooks.onChange();
-        },
-      );
+      if (favicons.length === 0) return;
+      faviconSeq += 1;
+      const seq = faviconSeq;
+      const referer = contents.getURL();
+      const headers =
+        referer.startsWith("http://") || referer.startsWith("https://")
+          ? { Referer: referer }
+          : undefined;
+      void firstFaviconData(
+        favicons,
+        (target) =>
+          contents.session.fetch(
+            target,
+            headers === undefined ? undefined : { headers },
+          ),
+        resizeFavicon,
+      ).then((data) => {
+        if (
+          data === null ||
+          seq !== faviconSeq ||
+          contents.isDestroyed() ||
+          favicon === data
+        ) {
+          return;
+        }
+        favicon = data;
+        hooks.onChange();
+      });
     });
     const adapter: BrowserContents = {
       id: contents.id,

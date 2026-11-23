@@ -113,6 +113,10 @@ files:
       - browser-bookmark-save:saved
     note: "깨진 bookmarks.json은 add·update·remove가 모두 거절되고 파일 byte가 그대로다(data-loss). 정상 파일에 동시에 add해도 둘 다 남는다"
 
+  - path: packages/shell/main/browser/favicon_test.ts
+    covers: []
+    note: "favicon byte를 data URL로 바꾸는 판정: 작은 이미지와 대소문자 섞인 content-type은 그대로, 48KB 초과나 content-type 없는 이미지는 resize를 거쳐 32px PNG(실패하면 버림), html 챌린지·쓰레기 바이트·2MiB 초과는 거절, 후보 목록은 중복을 건너뛰고 처음 성공한 것을 쓴다. browser-page-open의 push 상태 중 favicon 칸이지만 outcome은 나뉘지 않는다"
+
   - path: packages/shell/main/browser/navigation_test.ts
     covers:
       - browser-navigation:allowed

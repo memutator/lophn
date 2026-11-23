@@ -126,6 +126,8 @@ export interface WebviewHost {
   ensure(key: string, src: string, kind: WebviewKind, partition?: string): void;
   /** guest가 붙으면 session을 알린다. 이미 붙었으면 바로 부른다. */
   onSession(key: string, listener: (session: string) => void): () => void;
+  /** 어떤 key든 guest session이 정해지면 알린다(dom-ready 전 온 state를 뒤늦게 맞출 때 쓴다). */
+  onAnySession(listener: (key: string, session: string) => void): () => void;
   /** 자리 사각형(그릇 기준이 아닌 화면 좌표)과 층. null이면 숨긴다. */
   workspace(
     key: string,
@@ -294,6 +296,7 @@ function wantsKeep(entry: Entry): boolean {
  */
 export function createWebviewHost(tick?: () => number): WebviewHost {
   const entries = new Map<string, Entry>();
+  const sessionListeners = new Set<(key: string, session: string) => void>();
   const sizeListeners = new Set<(size: ContentSize) => void>();
   const loadedListeners = new Set<() => void>();
   let container: HTMLElement | null = null;
@@ -397,6 +400,10 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       if (session === entry.session) return;
       entry.session = session;
       for (const listener of entry.listeners) listener(session);
+      const key = element.dataset.webviewKey;
+      if (key !== undefined) {
+        for (const listener of sessionListeners) listener(key, session);
+      }
     });
     const moved = (event: Event) => {
       const { url, isMainFrame } = event as unknown as {
@@ -595,6 +602,10 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       if (entry.session !== null) listener(entry.session);
       entry.listeners.add(listener);
       return () => entry.listeners.delete(listener);
+    },
+    onAnySession(listener) {
+      sessionListeners.add(listener);
+      return () => sessionListeners.delete(listener);
     },
     workspace(key, slot, rect, layer) {
       const entry = entries.get(key);

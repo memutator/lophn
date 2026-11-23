@@ -1171,15 +1171,31 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 바뀔 때만 민다. 그 사이 온 favicon을 놓치면 아이콘이 기본으로 남으므로 mount와 상관없이 여기서 받는다.
   useEffect(() => {
     if (browserApi === null) return;
-    return browserApi.subscribeState((state) => {
-      const key = webviews.keyOf(state.view_session);
-      if (key === undefined) return;
+    const sameOrigin = (a: unknown, b: string): boolean => {
+      if (typeof a !== "string" || a === "" || b === "") return false;
+      try {
+        return new URL(a).origin === new URL(b).origin;
+      } catch {
+        return false;
+      }
+    };
+    const applyFavicon = (
+      key: string,
+      state: { url: string; favicon?: string },
+    ) => {
       const tab = allTabs(latestLayout.current).find(
         (item) => item.key === key,
       );
-      if (tab?.kind !== "browser" || tab.fields?.favicon === state.favicon) {
+      if (tab?.kind !== "browser") return;
+      // 같은 origin을 다시 여는 중에는 아직 새 favicon이 오기 전(undefined)이라도 저장된 favicon을 지우지 않는다.
+      if (
+        state.favicon === undefined &&
+        typeof tab.fields?.favicon === "string" &&
+        sameOrigin(tab.fields?.url, state.url)
+      ) {
         return;
       }
+      if (tab.fields?.favicon === state.favicon) return;
       patchTabRef.current(
         key,
         (current) => ({
@@ -1187,7 +1203,35 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         }),
         { later: true },
       );
+    };
+    const pending = new Map<string, { url: string; favicon?: string }>();
+    const offState = browserApi.subscribeState((state) => {
+      const key = webviews.keyOf(state.view_session);
+      if (key === undefined) {
+        pending.delete(state.view_session);
+        pending.set(state.view_session, {
+          url: state.url,
+          ...(state.favicon === undefined ? {} : { favicon: state.favicon }),
+        });
+        if (pending.size > 200) {
+          const oldest = pending.keys().next().value;
+          if (oldest !== undefined) pending.delete(oldest);
+        }
+        return;
+      }
+      pending.delete(state.view_session);
+      applyFavicon(key, state);
     });
+    const offSession = webviews.onAnySession((key, session) => {
+      const queued = pending.get(session);
+      if (queued === undefined) return;
+      pending.delete(session);
+      applyFavicon(key, queued);
+    });
+    return () => {
+      offState();
+      offSession();
+    };
   }, [browserApi, webviews]);
 
   // 팔레트 파일 행이 주는 문서 행을 파일 탭으로 연다. id가 경로면 그대로 연다.

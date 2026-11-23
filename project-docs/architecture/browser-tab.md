@@ -76,7 +76,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 ### favicon, bookmark, 데이터 지우기
 
-16. **favicon은 main이 그 page의 session으로 받아 data URL로 바꿔 싣는다.** shell CSP가 `img-src 'self' data: blob:`이고 shell 화면이 인터넷에 직접 요청하지 않는다. image type, 받은 byte 48KB, data URL 65536자까지다. 다른 origin으로 가면 비운다.
+16. **favicon은 main이 그 page의 session으로 받아 data URL로 바꿔 싣는다.** shell CSP가 `img-src 'self' data: blob:`이고 shell 화면이 인터넷에 직접 요청하지 않는다. page가 알린 후보를 순서대로 시도해 처음 되는 것을 쓴다(요청에는 그 page의 `Referer`를 싣는다 — WAF가 그걸 보는 site가 있다). 작은 이미지(48KB 이하, content-type이 `image/`)는 그대로 싣고, 그보다 큰 이미지나 content-type이 빠진 이미지는 nativeImage로 32px PNG로 줄여 싣는다(받는 byte 2MiB, 결과 PNG 48KB, data URL 65536자까지). `text/html`·json·xml 같은 문서 응답은 디코딩하지 않고 버린다(WAF 챌린지 페이지가 favicon 자리에 오는 경우). 다른 origin으로 가면 비운다. `.ico`는 nativeImage가 디코딩하지 못해 축소 경로가 null이고, 48KB 이하일 때만 그대로 통과한다.
 17. **탭의 favicon은 탭 필드에 두고 layout에도 저장한다.** 탭이 다시 mount될 때(접힘 해제, Float·Dock, desk 전환) 이 값을 이어 받는다(`<webview>`는 favicon을 모른다). main은 favicon을 바뀔 때만 밀므로, mount 여부와 상관없이 창이 state push를 받아 탭의 favicon을 갱신한다. 접힌 float과 다른 desk의 탭은 mount하지 않아 이 값이 접힌 아이콘의 출처이고, workspace를 옮겼다 오거나 다시 시작할 때 page가 아직 없는 탭의 아이콘도 이 값이다. layout의 favicon은 `data:image/`로 시작하는 65536자까지만 받고, 맞지 않으면 renderer가 빼고 저장한다(탭을 잃지 않게). bookmark favicon은 더할 때 한 번 저장한다.
 18. **데이터 지우기는 profile 하나의 저장소 전체를 지우고 cache를 지운 뒤 그 profile의 열린 page만 다시 load한다.** Settings의 Clear browsing data는 기본 profile이고 profile 줄의 Clear data는 그 profile이다. 목록에 없는 profile id도 받는다(지운 profile의 data를 지우는 길이다). 지울 종류를 이름으로 고르지 않는다(Electron 44의 이름이 rea·Chrome 문서와 달라 이름을 적으면 덜 지워진다).
 19. **bookmark는 `<dataRoot>/shell/bookmarks.json` 하나에 main만 쓴다.** temp 뒤 rename으로 쓰고(폴더 0700·파일 0600) layout과 같은 방식이며, 쓰기를 한 줄로 세워 창 둘의 요청이 서로 덮지 않는다. 바뀌면 열린 모든 shell 창에 `shell:bookmarks-changed`로 알린다.

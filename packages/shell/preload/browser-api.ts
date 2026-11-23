@@ -72,8 +72,27 @@ function subscribe<T>(
   return () => transport.removeListener(channel, callback);
 }
 
+const LATEST_STATE_MAX = 200;
+
 // transport는 closure 안에 남는다. view 만들기·이동·bookmark 저장은 main이 하고 여기서는 요청만 보낸다.
 export function createBrowserApi(transport: BrowserTransport): LophnBrowserApi {
+  // <webview>의 dom-ready(session 확정) 전에 main이 민 최신 state(특히 favicon)를 놓치지 않도록
+  // 창 단위로 마지막 state를 들고 있다가 구독자가 붙을 때 재생한다.
+  const latest = new Map<string, BrowserViewState>();
+  const stateListeners = new Set<(value: BrowserViewState) => void>();
+  transport.on(BROWSER_STATE_CHANNEL, (_event, payload) => {
+    const parsed = browserViewStateSchema.safeParse(payload);
+    if (!parsed.success) return;
+    const state = parsed.data;
+    latest.delete(state.view_session);
+    latest.set(state.view_session, state);
+    if (latest.size > LATEST_STATE_MAX) {
+      const oldest = latest.keys().next().value;
+      if (oldest !== undefined) latest.delete(oldest);
+    }
+    for (const listener of stateListeners) listener(state);
+  });
+
   return Object.freeze({
     adopt: (input) =>
       call<BrowserViewState>(transport, BROWSER_ADOPT_CHANNEL, input),
@@ -99,13 +118,21 @@ export function createBrowserApi(transport: BrowserTransport): LophnBrowserApi {
         await call<null>(transport, BROWSER_DEVTOOLS_WINDOW_CHANNEL, input);
       },
     }),
-    subscribeState: (listener) =>
-      subscribe(
-        transport,
-        BROWSER_STATE_CHANNEL,
-        (payload) => browserViewStateSchema.safeParse(payload),
-        listener,
-      ),
+    subscribeState: (listener) => {
+      stateListeners.add(listener);
+      let disposed = false;
+      queueMicrotask(() => {
+        if (disposed) return;
+        for (const state of latest.values()) {
+          if (disposed) return;
+          listener(state);
+        }
+      });
+      return () => {
+        disposed = true;
+        stateListeners.delete(listener);
+      };
+    },
     subscribeEvents: (listener) =>
       subscribe(
         transport,

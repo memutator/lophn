@@ -157,6 +157,15 @@ function pageUrl(url: string): string {
   return url === "about:blank" ? "" : url;
 }
 
+function sameOrigin(a: string, b: string): boolean {
+  if (a === "" || b === "") return false;
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
 function OpenTab(
   props: BrowserTabProps & {
     views: LophnShellViewsApi;
@@ -239,7 +248,20 @@ function OpenTab(
       });
     }
     const { view_session: _session, ...rest } = next;
-    const page = { ...rest, url: pageUrl(rest.url) };
+    const url = pageUrl(rest.url);
+    // 같은 origin을 다시 읽는 중(복원·새로고침)에 main이 아직 favicon을 받기 전이면 이전 favicon을 지우지 않는다.
+    const favicon =
+      rest.favicon !== undefined
+        ? rest.favicon
+        : reported.current.favicon !== undefined &&
+            sameOrigin(reported.current.url, url)
+          ? reported.current.favicon
+          : undefined;
+    const page = {
+      ...rest,
+      url,
+      ...(favicon === undefined ? {} : { favicon }),
+    };
     setState(page);
     if (
       page.url !== reported.current.url ||

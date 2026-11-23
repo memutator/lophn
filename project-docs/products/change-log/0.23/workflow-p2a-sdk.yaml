@@ -1,0 +1,20 @@
+id: workflow-p2a-sdk
+version: 0.23.136
+title: SessionInfo.workflow 투영과 @lophn/agent 1.17.0 SDK 판 올림을 더한다
+modules:
+  - packages/protocol
+  - packages/core/lophn-agent
+  - packages/core/apps
+  - packages/core/agent-workspaces
+  - packages/sdk
+change: |
+  - `sessionInfoSchema`(`packages/protocol/lophn-agent/session-lifecycle.ts`)에 `workflow: sessionWorkflowOriginSchema.nullable()`(`{ project, workflow, instance, step } | null`)를 더한다.
+  - `createSessionLifecycle`(`packages/core/lophn-agent/session/lifecycle.ts`)의 `infoOfRow`가 `sessions.workflow_origin` JSON을 검증해 `workflow`로 투영하고(`null`이거나 잘못된 값이면 `null`), `terminalInfo`는 `workflow: null`을 싣는다. `harness_gui = 0 and runs_on is null` 필터는 그대로 둔다(GUI 탭 세션은 terminal 세션으로 나타나며 `workflow: null`).
+  - SDK `@lophn/agent` 1.16.0 → 1.17.0(`supported_from` 1.1.0 유지): `SessionInfo`에 선택적 `workflow?: { project, workflow, instance, step } | null`을 더하고 `guide.md`를 갱신했다. 앱 template(`AGENTS.md.tmpl`, `lophn.ts.tmpl`, `package.json.tmpl`), `tests/support/app/sample/lophn.ts.tmpl`, `package-lock.json`의 pin을 1.17.0으로 맞추고 `migrate-sdk/agent-1.17.0.md`(`## Instruction diff` 포함)를 더했다.
+why: |
+  앱이 `sessions.list()`·`useSessions()`·`session.*` event에서 세션이 속한 workflow instance와 step을 `sessions.workflow_origin` 정본 그대로 읽을 수 있게 한다.
+decisions:
+  - text: "`packages/protocol/lophn-agent/session-lifecycle.ts`에서 `protocol/workflows/values.ts`를 직접 import하면 `lophn-agent ↔ workflows` 최상위 protocol 순환이 생기므로 `sessionWorkflowOriginSchema`를 같은 모양으로 두고 `agent_test.ts`에서 `WorkflowOrigin`과의 type 일치를 검사한다. 버린 길: `tools/check-deps.ts` 순환 예외 추가."
+    by: agent
+  - text: "GUI 탭 세션(`harness_gui = 1`)은 이미 `terminal` 세션으로 노출되므로 `lifecycle.ts`의 `harness_gui = 0 and runs_on is null` 필터를 유지하고 `workflow: null`로 문서화한다. 버린 길: GUI 탭 세션에 별도 `workflow` 투영 경로 추가."
+    by: agent

@@ -10,6 +10,7 @@ import {
 import {
   type SessionEventName,
   type SessionInfo,
+  sessionWorkflowOriginSchema,
   type TerminalSessionReport,
 } from "../../../protocol/lophn-agent/session-lifecycle.ts";
 import {
@@ -86,6 +87,16 @@ function workspaceOfRow(
     : ({ kind: row.workspace_kind, id: row.workspace_id } as Workspace);
 }
 
+function workflowOfRow(raw: string | null): SessionInfo["workflow"] {
+  if (raw === null) return null;
+  try {
+    const parsed = sessionWorkflowOriginSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createSessionLifecycle(deps: LifecycleDeps) {
   const terminals = new Map<string, TerminalSessionReport>();
   // 마지막으로 낸 상태. event를 상태가 바뀔 때만 내려고 쥔다. 처음 보는 session의 앞 상태는 idle이다.
@@ -113,6 +124,7 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
       cwd: where.cwd,
       folders: where.folders,
       terminal: null,
+      workflow: workflowOfRow(row.workflow_origin),
     };
   }
 
@@ -146,6 +158,7 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
         tab: report.terminal_ref,
         shell_pid: report.shell_pid,
       },
+      workflow: null,
     };
   }
 
@@ -165,8 +178,8 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
   function allOpen(): SessionInfo[] {
     const rows = deps.sql
       .all(
-        // GUI 탭의 팀원 session(`harness_gui`)은 그 터미널 session으로 이미 있다. 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이
-        // 아니다. 한 session 읽기(`rowInfo`)도 같다.
+        // GUI 탭의 팀원 session(`harness_gui`)은 그 터미널 session으로 이미 있다(그래서 workflow도 터미널 session 규칙대로 null이다).
+        // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 session이 아니다. 한 session 읽기(`rowInfo`)도 같다.
         `select ${SESSION_COLUMNS}, ${LAST_ACTIVE} from sessions where lifecycle = 'open' and harness_gui = 0 and runs_on is null order by created_seq`,
         [],
       )

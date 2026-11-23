@@ -2080,7 +2080,7 @@ flows:
     steps:
       - "Bus의 agent event(SessionStarted·SessionEnded, TurnStarted·TurnEnded·TurnResumed, TurnRequestOpened·Closed, QuestionAsked·Resolved)를 받으면 다음 microtask에 그 session의 상태를 다시 파생한다(session 상태 한 곳: 도는 turn, 기다림은 메모리의 대기 요청·질문)"
       - "마지막으로 낸 상태와 다르면(처음 본 session의 앞 상태는 idle) session.running|waiting|idle을, SessionStarted면 session.started를, SessionEnded면 session.ended(마지막으로 안 한 줄)를 낸다. 같은 상태면 아무것도 내지 않는다"
-      - "payload는 session 한 줄(id, kind, agent, harness, workspace, 제목, 상태, waiting_for, 마지막 활동, spawned_by, cwd, 폴더, terminal)이다. 발행자 lophn의 같은 전달 길(앱 event 전달)로 구독 앱의 handler를 부르고 AppEventPublished를 Bus로 낸다"
+      - "payload는 session 한 줄(id, kind, agent, harness, workspace, 제목, 상태, waiting_for, 마지막 활동, spawned_by, cwd, 폴더, terminal, workflow)이다. 발행자 lophn의 같은 전달 길(앱 event 전달)로 구독 앱의 handler를 부르고 AppEventPublished를 Bus로 낸다"
       - "구독자와 앱 화면은 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 session(call 정책, private은 안 보임)일 때만 받는다. 터미널 coding agent의 변화도 같은 event다(terminal-sessions-report가 알린 집합이 바뀔 때)"
     outcomes:
       - id: published
@@ -2103,7 +2103,7 @@ flows:
     code: [packages/core/lophn-agent/session/lifecycle.ts, packages/core/main/daemon/wiring/session-lifecycle.ts, packages/protocol/lophn-agent/session-lifecycle.ts]
     steps:
       - "앱 자격이면 앱은 자격이 정한다(입력의 app이 다르면 forbidden). 사람 자격이면(shell main이 앱 화면을 대신한다) 입력의 app을 쓰고 없으면 invalid_input이다. 기기(principal device:<id>, 다른 컴퓨터의 shell)는 자기가 연 앱 화면의 view를 줘야 하고 앱은 core view 표의 (기기, view)에서 정한다(app-principal). 이 열 route 모두 같다"
-      - "열린 lophn·harness session(ledger)과 shell main이 알린 터미널 coding agent(메모리)를 한 모양으로 합친다. GUI 탭의 팀원 session은 그 터미널 session으로만 선다. 상태는 session 상태 한 곳이 정한다"
+      - "열린 lophn·harness session(ledger)과 shell main이 알린 터미널 coding agent(메모리)를 한 모양으로 합친다. 각 session의 `workflow_origin`은 `workflow`(`{ project, workflow, instance, step } | null`)로 투영하고, GUI 탭의 팀원 session은 그 터미널 session으로만 서며 `workflow`는 `null`이다. 상태는 session 상태 한 곳이 정한다"
       - "그 앱 workspace에서 call로 닿을 수 있는 workspace의 session만 남기고(call 정책의 workspace 규칙, 같은 workspace, private) workspace·state·harness·kind로 거른다"
     outcomes:
       - id: listed

@@ -3,7 +3,10 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import type { CallPolicy } from "../../../protocol/lophn-agent/call-policy.ts";
-import type { SessionInfo } from "../../../protocol/lophn-agent/session-lifecycle.ts";
+import {
+  type SessionInfo,
+  sessionInfoSchema,
+} from "../../../protocol/lophn-agent/session-lifecycle.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { turnSchemaSteps } from "../run-loop/schema.ts";
 import { UNWIRED_END_DEPS } from "../workspaces/unwired.ts";
@@ -71,7 +74,7 @@ function setup() {
     report(OPEN, "t-open"),
     report(PRIVATE, "t-private"),
   ]);
-  return { lifecycle, emitted, interrupted };
+  return { db, lifecycle, emitted, interrupted };
 }
 
 // 앱은 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 session만 본다. private workspace의 session은 목록에도 event에도
@@ -93,6 +96,65 @@ test("private workspace의 session은 앱에게 목록·event에 안 보이고 �
   const allowed = await lifecycle.stop(ME, "term:t-open");
   assert.ok(allowed.ok);
   assert.deepStrictEqual(interrupted, ["t-open"]);
+});
+
+// sessions.workflow_origin이 있으면 SessionInfo.workflow에 그대로 투영하고, 일반·터미널 session은 null이다.
+test("SessionInfo.workflow는 workflow_origin을 투영하고 일반·터미널 session은 null이다", () => {
+  const { db, lifecycle, emitted } = setup();
+  const wfProject = prj("a1");
+  const sesWf = `ses_${"0".repeat(24)}w1`;
+  const sesPlain = `ses_${"0".repeat(24)}p1`;
+  const sesGui = `ses_${"0".repeat(24)}g1`;
+  const sesBad = `ses_${"0".repeat(24)}b1`;
+  const wfi = `wfi_${"0".repeat(24)}01`;
+  const origin = {
+    project: wfProject,
+    workflow: "release-check",
+    instance: wfi,
+    step: "review",
+  };
+  const insert = db.prepare(
+    `insert into sessions
+      (id, agent, project, app, workspace_kind, workspace_id, title, lifecycle, skip, harness, harness_gui, runs_on, workflow_origin, created_seq, state_seq)
+     values (?, 'agt_00000000000000000000000001', ?, null, 'project', ?, ?, 'open', 0, null, ?, null, ?, ?, ?)`,
+  );
+  insert.run(
+    sesWf,
+    wfProject,
+    wfProject,
+    "wf",
+    0,
+    JSON.stringify(origin),
+    "1",
+    "1",
+  );
+  insert.run(sesPlain, wfProject, wfProject, "plain", 0, null, "2", "2");
+  insert.run(
+    sesGui,
+    wfProject,
+    wfProject,
+    "gui",
+    1,
+    JSON.stringify(origin),
+    "3",
+    "3",
+  );
+  insert.run(sesBad, wfProject, wfProject, "bad", 0, "{not-json", "4", "4");
+
+  const byId = new Map(lifecycle.list(ME, {}).map((one) => [one.session, one]));
+  assert.equal(byId.has(sesGui), false);
+  assert.deepStrictEqual(byId.get(sesWf)?.workflow, origin);
+  assert.equal(byId.get(sesPlain)?.workflow, null);
+  assert.equal(byId.get(sesBad)?.workflow, null);
+  assert.equal(byId.get("term:t-open")?.workflow, null);
+  for (const id of [sesWf, sesPlain, sesBad]) {
+    assert.equal(sessionInfoSchema.safeParse(byId.get(id)).success, true);
+  }
+
+  emitted.length = 0;
+  lifecycle.onAgentEvent({ type: "SessionStarted", session: sesWf });
+  assert.equal(emitted.length, 1);
+  assert.deepStrictEqual(emitted[0]?.info.workflow, origin);
 });
 
 // 다른 기기가 방금 시작한 turn이 도는 중에는 확인(`stop_turn: true`) 없는 보관이 conflict(turn_running)로 거절되고 turn이 멈추지 않는다.

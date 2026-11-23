@@ -33,6 +33,19 @@ export const sessionRefSchema = z.union([
 // 터미널 CLI의 상태. hook을 들은 적 없으면 unknown이다.
 const sessionStateSchema = z.enum(["running", "waiting", "idle", "unknown"]);
 
+// session이 속한 workflow instance와 step이다(`sessions.workflow_origin`).
+// protocol/workflows/values.ts의 `workflowOriginSchema`와 같은 모양이다(workflows가 lophn-agent를 import해
+// 최상위 순환을 피하려고 여기서 같은 모양으로 둔다).
+export const sessionWorkflowOriginSchema = z.strictObject({
+  project: idSchema("prj"),
+  workflow: z
+    .string()
+    .max(63)
+    .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/),
+  instance: idSchema("wfi"),
+  step: z.string().min(1),
+});
+
 export const sessionInfoSchema = z.object({
   session: sessionRefSchema,
   kind: sessionKindSchema,
@@ -71,6 +84,8 @@ export const sessionInfoSchema = z.object({
       shell_pid: z.number().int().positive().nullable(),
     })
     .nullable(),
+  // workflow step이 넘겼거나 그 세션이 team spawn으로 연 자식이면 소속 workflow와 step. 아니면 null이다.
+  workflow: sessionWorkflowOriginSchema.nullable(),
 });
 export type SessionInfo = z.infer<typeof sessionInfoSchema>;
 

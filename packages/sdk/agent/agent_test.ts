@@ -15,6 +15,8 @@ import type {
   AppCallRow as ProtocolCallRow,
   CallSettledPayload as ProtocolCallSettled,
 } from "../../protocol/lophn-agent/app-calls.ts";
+import type { SessionInfo as ProtocolSessionInfo } from "../../protocol/lophn-agent/session-lifecycle.ts";
+import type { WorkflowOrigin as ProtocolWorkflowOrigin } from "../../protocol/workflows/values.ts";
 import type {
   LophnAppAgent,
   LophnAppAgents,
@@ -40,6 +42,7 @@ import type {
 import { newMessageId } from "./ids.ts";
 import { parseReply } from "./reply.ts";
 import type { AgentBridge } from "./session.ts";
+import type { SessionInfo } from "./session-types.ts";
 
 // acp-types.ts는 설치 사본이 zod 없이 읽는 정본의 사본이다. 정본이 바뀌어 어긋나면 여기서 type 오류가 난다.
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -77,6 +80,13 @@ same<
     ? true
     : false
 >();
+
+// session lifecycle의 SessionInfo 사본도 정본을 받고 workflow 모양이 workflowOriginSchema 정본과 같다.
+same<ProtocolSessionInfo extends SessionInfo ? true : false>();
+same<
+  Same<NonNullable<ProtocolSessionInfo["workflow"]>, ProtocolWorkflowOrigin>
+>();
+same<Same<NonNullable<SessionInfo["workflow"]>, ProtocolWorkflowOrigin>>();
 
 const SHAPE = {
   type: "object",

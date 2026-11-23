@@ -29,6 +29,13 @@ export type SessionInfo = {
     tab: string;
     shell_pid: number | null;
   } | null;
+  /** workflow step이 넘겼거나 그 세션이 team spawn으로 연 자식 세션이면 소속 workflow와 step. 아니면 null이다. GUI 탭 세션은 terminal 세션으로 나타나며 null이다. */
+  workflow?: {
+    project: string;
+    workflow: string;
+    instance: string;
+    step: string;
+  } | null;
 };
 
 export type SessionFilter = {

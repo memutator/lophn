@@ -1,5 +1,5 @@
 id: workflow-p4-ui-cli
-version: 0.23.150
+version: 0.23.153
 title: Workflow Phase 4 Run 화면 affordances([Resume], checkpoints, sub-workflows, human 대기, project 입력, broken_flow)와 CLI `workflow resume`을 더한다
 modules:
   - packages/shell/renderer

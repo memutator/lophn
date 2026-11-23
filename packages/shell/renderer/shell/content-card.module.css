@@ -111,6 +111,41 @@
   text-align: center;
 }
 
+.cycleGroup {
+  max-width: calc(var(--space-12) * 2);
+  margin-inline-end: var(--space-2);
+  padding: var(--space-0) var(--space-2);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+.cyclePick {
+  min-width: var(--space-8);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cyclePick:hover,
+.cyclePick[data-state="open"] {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
 .ready {
   flex: none;
   width: var(--space-3);

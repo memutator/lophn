@@ -5,6 +5,7 @@ import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { useKeyLabel } from "../commands/react.tsx";
 import {
   actionIcons,
+  commonIcons,
   editorIcons,
   shellIcons,
   workspaceIcons,
@@ -29,6 +30,9 @@ export type TabAction =
   | "split-remove"
   | "unstack"
   | "unsplit"
+  | "group-toggle-collapse"
+  | "group-rename"
+  | "ungroup"
   | "detach"
   | "copy-path"
   | "copy-relative-path"
@@ -72,6 +76,10 @@ export interface TabMenuState {
   readonly canDetach: boolean;
   /** tab이 든 group의 leaf 수. group에 들지 않았으면 0. */
   readonly group: number;
+  /** leaf 1개에 tab 둘 이상이 쌓인 비분할 탭 묶음(bundle)에 들었다. */
+  readonly bundle?: boolean;
+  /** bundle이 탭 줄에서 접혀 있다. */
+  readonly collapsed?: boolean;
   /** tab이 보이는 칸이 다른 tab도 돌려 본다(Close others in pane, Move out of pane). */
   readonly stacked?: boolean;
   /** 옆에 붙일 plain tab이 있고 group이 가득 차지 않았다(Split right·down을 할 수 있다). */
@@ -156,6 +164,33 @@ function splitItems(state: TabMenuState): MenuItem[] {
       leading: <MenuIcon icon={shellIcons.splitRemove} />,
     });
   }
+  if (state.bundle === true) {
+    items.push(
+      {
+        id: "group-toggle-collapse",
+        label: state.collapsed === true ? "Expand group" : "Collapse group",
+        leading: (
+          <MenuIcon
+            icon={
+              state.collapsed === true
+                ? commonIcons.expand
+                : commonIcons.collapse
+            }
+          />
+        ),
+      },
+      {
+        id: "group-rename",
+        label: "Rename group",
+        leading: <MenuIcon icon={editorIcons.edit} />,
+      },
+      {
+        id: "ungroup",
+        label: "Ungroup",
+        leading: <MenuIcon icon={shellIcons.unsplit} />,
+      },
+    );
+  }
   if (state.group >= 3) {
     items.push({
       id: "split-remove",
@@ -227,7 +262,7 @@ function baseItems(state: TabMenuState): MenuItem[] {
           },
         ]
       : []),
-    ...(state.group >= 2
+    ...(state.group >= 2 || state.bundle === true
       ? [
           {
             id: "close-group",

@@ -1,0 +1,15 @@
+id: collapsible-tab-groups-ui
+version: 0.23.137
+title: 비분할 탭 묶음(bundle)의 접기·이름·드래그·카드 전환 UI를 구현한다
+modules: [packages/shell/renderer]
+change: |
+  1-leaf stacked bundle(`isBundle(group)`)을 탭 줄·카드·드래그·탭 메뉴에 연결했다.
+  - `TabStrip`(`tab-strip.tsx`, `tab-strip.module.css`): bundle 머리 chip(접기/펼치기 chevron, 구성원 요약 상태 점 `waiting > working > finished > ended`, group `label` 또는 `N tabs` 개수, 인라인 이름 바꾸기)을 그린다. 접히면 머리 chip만 보이고, 펼치면 구성원 탭을 인라인으로 보여 눌러서 화면을 나누지 않고 단일 칸에서 전환한다.
+  - `ContentCard`(`content-card.tsx`, `content-card.module.css`): 1-leaf bundle을 전체 카드 영역(`FULL`)에 그리면서 카드 머리에 bundle 이름 표지, `‹ n/m ›` 순환·목록 전환 메뉴, 카드 머리 드래그를 지원한다.
+  - `tab-drag.tsx`: bundle에서 구성원 탭을 탭 줄로 끌어 꺼내기(`ungroupTab`), 탭을 다른 plain tab이나 접힌 bundle 가운데로 끌어 쌓아 bundle 만들기(`stackTab`)를 지원한다.
+  - `tab-menu.tsx` & `workspace-window.tsx`: bundle 탭 메뉴에 `Collapse group` / `Expand group`, `Rename group`, `Ungroup`, `Close group` 항목과 콜백을 연결했다.
+why: |
+  통합된 `Group` 모델의 1-leaf bundle을 사람이 탭 줄과 카드에서 직접 접고 펴고 이름 붙이고 드래그로 묶거나 풀 수 있게 하기 위해서다.
+decisions:
+  - text: 'bundle 카드 전환에 기존 `‹ n/m ›` 순환에 더해 `n/m` 클릭 메뉴 전환을 얹고, `CardPane`에 `groupLabel`·`stack`을 선택 필드로 실었다. 버린 길: 별도 bundle 전용 헤더 바를 카드 위에 한 줄 더 추가하기(세로 공간을 줄이고 기존 split pane stack과 UX가 갈린다).'
+    by: agent

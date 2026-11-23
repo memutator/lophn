@@ -13,7 +13,7 @@ import {
 } from "react";
 import { t } from "@lophn/i18n";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Menu, Popover, Tooltip } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, Popover, Tooltip } from "@lophn/ui/overlay";
 
 import type { BrowserProfile } from "../../../protocol/secrets/browser-vault.ts";
 import { ProfileMark } from "../browser/browser-chrome.tsx";
@@ -72,6 +72,10 @@ export interface CardPane {
   readonly owner?: string;
   /** 기본이 아닌 browser profile. 주인과 같은 자리에 색 점으로 선다. */
   readonly profile?: BrowserProfile;
+  /** 이 칸이 속한 비분할 bundle의 이름. 카드 머리 줄에 작은 표지로 보인다. */
+  readonly groupLabel?: string;
+  /** 이 칸의 stack에 든 tab 목록(온 순서). 주면 ‹ n/m › 숫자를 눌러 바로 전환할 수 있다. */
+  readonly stack?: readonly { readonly key: string; readonly title: string }[];
   readonly body: ReactNode;
 }
 
@@ -118,7 +122,7 @@ export function ContentCard({
   canOpenFile = true,
   onDropPath,
 }: ContentCardProps) {
-  const grouped = panes.length > 1 && layout !== undefined;
+  const split = panes.length > 1 && layout !== undefined;
   const { start: startDrag } = useTabDrag();
   const [dropping, setDropping] = useState(false);
   const area = useRef<HTMLDivElement>(null);
@@ -128,16 +132,16 @@ export function ContentCard({
     readonly ratio: number;
   } | null>(null);
   const shownLayout =
-    grouped && live !== null
+    split && live !== null
       ? setNodeRatio(layout, live.path, live.ratio)
       : layout;
-  const placed = grouped ? placeGroup(shownLayout!, GAP) : null;
+  const placed = layout !== undefined ? placeGroup(shownLayout!, GAP) : null;
   const dragTo = (
     event: PointerEvent<HTMLElement>,
     path: NodePath,
   ): number | null => {
     const box = area.current?.getBoundingClientRect();
-    if (box === undefined || !grouped) return null;
+    if (box === undefined || !split) return null;
     const handle = event.currentTarget.getBoundingClientRect();
     const dir = placed?.splits.find((split) => sameWay(split.path, path))?.dir;
     const ratio = dragRatio(
@@ -208,26 +212,28 @@ export function ContentCard({
         <div
           ref={area}
           className={styles.area}
-          data-grouped={grouped || undefined}
+          data-grouped={split || undefined}
         >
           {ordered.map((pane) => {
             const box = placed?.leaves.get(pane.key) ?? FULL;
-            const stack = grouped ? stackOfLeaf(layout, pane.key) : [];
+            const stack =
+              layout === undefined ? [] : stackOfLeaf(layout, pane.key);
+            const inGroup = split || stack.length >= 2;
             return (
               <section
                 key={pane.key}
                 className={styles.pane}
                 style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
                 data-pane={pane.key}
-                data-dim={(grouped && focus !== pane.key) || undefined}
-                data-focused={(grouped && focus === pane.key) || undefined}
+                data-dim={(split && focus !== pane.key) || undefined}
+                data-focused={(split && focus === pane.key) || undefined}
                 onPointerDown={() => {
-                  if (grouped) onFocus(pane.key);
+                  if (split) onFocus(pane.key);
                 }}
               >
                 <CardHead
                   pane={pane}
-                  grouped={grouped}
+                  grouped={split}
                   spec={heads[pane.key]}
                   onAction={(action) => onAction(action, pane.key)}
                   cycle={
@@ -236,11 +242,19 @@ export function ContentCard({
                       : {
                           at: stack.indexOf(pane.key) + 1,
                           count: stack.length,
+                          ...(split || pane.groupLabel === undefined
+                            ? {}
+                            : { label: pane.groupLabel }),
+                          ...(pane.stack === undefined
+                            ? {}
+                            : { items: pane.stack }),
+                          current: pane.key,
                           onStep: (delta) => onCycle(pane.key, delta),
+                          onSelect: (key) => onFocus(key),
                         }
                   }
                   onDragStart={
-                    grouped
+                    inGroup
                       ? (event) =>
                           startDrag(
                             event,
@@ -340,7 +354,14 @@ function CardHead({
     | {
         readonly at: number;
         readonly count: number;
+        readonly label?: string;
+        readonly items?: readonly {
+          readonly key: string;
+          readonly title: string;
+        }[];
+        readonly current: string;
         readonly onStep: (delta: number) => void;
+        readonly onSelect: (key: string) => void;
       }
     | undefined;
   /** group의 칸이면 머리 줄을 눌러 끌어 옮길 수 있다. */
@@ -420,18 +441,50 @@ function CardHead({
       {spec?.actions}
       {cycle === undefined ? null : (
         <span className={styles.cycle}>
+          {cycle.label === undefined ? null : (
+            <span className={styles.cycleGroup}>{cycle.label}</span>
+          )}
           <IconButton
             icon={shellIcons.panePrevious}
             label={t("shell.button.pane-previous")}
             size="sm"
             onClick={() => cycle.onStep(-1)}
           />
-          <span className={styles.cycleAt}>
-            {t("shell.label.pane-position", {
-              at: cycle.at,
-              count: cycle.count,
-            })}
-          </span>
+          {cycle.items !== undefined && cycle.items.length >= 2 ? (
+            <Menu
+              placement="corner-end"
+              onSelect={(id) => cycle.onSelect(id)}
+              items={cycle.items.map((item) => ({
+                id: item.key,
+                label: item.title,
+                ...(item.key === cycle.current
+                  ? { leading: <MenuIcon icon={shellIcons.current} /> }
+                  : {}),
+              }))}
+              trigger={
+                <button
+                  type="button"
+                  className={styles.cyclePick}
+                  aria-label={t("shell.label.pane-position", {
+                    at: cycle.at,
+                    count: cycle.count,
+                  })}
+                >
+                  {t("shell.label.pane-position", {
+                    at: cycle.at,
+                    count: cycle.count,
+                  })}
+                </button>
+              }
+            />
+          ) : (
+            <span className={styles.cycleAt}>
+              {t("shell.label.pane-position", {
+                at: cycle.at,
+                count: cycle.count,
+              })}
+            </span>
+          )}
           <IconButton
             icon={shellIcons.paneNext}
             label={t("shell.button.pane-next")}

@@ -137,12 +137,23 @@ export function previewOf(box: Rect, zone: PaneZone): Rect {
   }
 }
 
-function stripEntries(): (Rect & { key: string })[] {
+interface StripEntryBox extends Rect {
+  readonly key: string;
+  readonly collapsed: boolean;
+  readonly stackCount: number;
+}
+
+function stripEntries(): StripEntryBox[] {
   return [
     ...document.querySelectorAll<HTMLElement>(
       "[data-tab-strip] [data-entry-key]",
     ),
-  ].map((element) => ({ key: element.dataset.entryKey!, ...rectOf(element) }));
+  ].map((element) => ({
+    key: element.dataset.entryKey!,
+    collapsed: element.dataset.collapsed !== undefined,
+    stackCount: Number(element.dataset.stackCount ?? "1"),
+    ...rectOf(element),
+  }));
 }
 
 /** tab 줄 group 칸 안의 tab들. pane은 그 tab이 든 칸에 보이는 tab, index는 칸 stack 안의 자리다. */
@@ -185,7 +196,7 @@ export function TabDragProvider({
     const from = { x: event.clientX, y: event.clientY };
     const source = event.currentTarget;
     const doc = source.ownerDocument;
-    let strip: ActiveDrag["strip"] = [];
+    let strip: StripEntryBox[] = [];
     let items: StripItem[] = [];
     let live: ActiveDrag | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -252,6 +263,28 @@ export function TabDragProvider({
               kind: "stack",
               target: near.pane,
               index: near.index + (after ? 1 : 0),
+            } as const,
+          };
+        }
+        // 접힌 bundle이나 다른 plain tab의 가운데에 놓으면 그 칸에 쌓아 bundle로 묶는다(`stackTab`).
+        const centerTarget = item.whole
+          ? undefined
+          : strip.find((entry) => {
+              if (entry.key === item.key) return false;
+              if (items.some((one) => one.entry === entry.key)) return false;
+              const margin = entry.collapsed
+                ? Math.min(GROUP_EDGE, entry.width * 0.25)
+                : Math.max(GROUP_EDGE, entry.width * 0.25);
+              return (
+                x > entry.left + margin && x < entry.left + entry.width - margin
+              );
+            });
+        if (centerTarget !== undefined) {
+          return {
+            hit: {
+              kind: "stack",
+              target: centerTarget.key,
+              index: centerTarget.stackCount,
             } as const,
           };
         }

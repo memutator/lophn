@@ -86,7 +86,9 @@ import {
   type TabDropState,
   floatTab,
   focusLeaf,
+  groupKey,
   groupOf,
+  isBundle,
   leavesOf,
   mapLayoutTabs,
   membersOf,
@@ -112,12 +114,14 @@ import {
   selectTab,
   setActiveDesk,
   setFloatRect,
+  setGroupLabel,
   setRatio,
   splitPartner,
   splitTab,
   stepTab,
   swapTabs,
   tabDropState,
+  toggleGroupCollapsed,
   type WorkspaceRef,
   type FloatRect,
   type TabItem,
@@ -2458,10 +2462,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         "pane.swap-right",
         "pane.swap-up",
         "pane.swap-down",
-        "pane.unsplit",
-        "pane.close-group",
       ],
       () => (stateNow()?.group ?? 0) >= 2,
+    ],
+    [
+      ["pane.unsplit", "pane.close-group"],
+      () => (stateNow()?.group ?? 0) >= 2 || stateNow()?.bundle === true,
     ],
     [["pane.remove"], () => (stateNow()?.group ?? 0) >= 3],
     [
@@ -2654,6 +2660,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       canDetach:
         props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
       group: own === null ? 0 : leavesOf(own.layout).length,
+      ...(own !== null && isBundle(own)
+        ? { bundle: true, collapsed: own.collapsed === true }
+        : {}),
       stacked: paneStackOf(desk, tab.key).length > 1,
       // 칸에 숨은 tab은 나눌 자리가 없다.
       canSplit:
@@ -2669,6 +2678,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   };
 
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [renamingGroup, setRenamingGroup] = useState<string | null>(null);
   const [tabMenu, setTabMenu] = useState<{
     readonly key: string;
     readonly x: number;
@@ -2731,8 +2741,17 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         update((item) => ungroupTab(item, key));
         return;
       case "unsplit":
+      case "ungroup":
         update((item) => ungroup(item, key));
         return;
+      case "group-toggle-collapse":
+        update((item) => toggleGroupCollapsed(item, key));
+        return;
+      case "group-rename": {
+        const own = groupOf(desk, key);
+        if (own !== null) setRenamingGroup(groupKey(own));
+        return;
+      }
       case "detach":
         void detach(key);
         return;
@@ -2801,12 +2820,26 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const panes: CardPane[] = shown.map((tab) => {
     const dot = tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null;
     const browse = browseOf(tab);
+    const paneStack = paneStackOf(desk, tab.key);
     return {
       key: tab.key,
       crumbs: crumbsOf(tab),
       ...(browse === undefined ? {} : { browse }),
       ...(dot === null ? {} : { status: dotLabel(dot) }),
       ...marksOf(tab),
+      ...(group !== null && isBundle(group) && group.label !== undefined
+        ? { groupLabel: group.label }
+        : {}),
+      ...(paneStack.length > 1
+        ? {
+            stack: paneStack.flatMap((key) => {
+              const item = desk.tabs.find((each) => each.key === key);
+              return item === undefined
+                ? []
+                : [{ key: item.key, title: item.title }];
+            }),
+          }
+        : {}),
       menu: menuStateOf(tab),
       body: (
         <div key={tab.key} className={styles.tabBody} data-tab-body={tab.key}>
@@ -2833,7 +2866,15 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }),
     ...(entry.group === null
       ? {}
-      : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
+      : {
+          dirs: dirsOf(entry.group.layout),
+          focus: entry.group.focus,
+          ...(isBundle(entry.group) ? { bundle: true } : {}),
+          ...(entry.group.label === undefined
+            ? {}
+            : { label: entry.group.label }),
+          ...(entry.group.collapsed === true ? { collapsed: true } : {}),
+        }),
   }));
 
   // 이동 기록. ← →가 오가는 창 하나의 지나온 자리이고 저장하지 않는다.
@@ -3357,6 +3398,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                       tabKindOf(tab.kind)?.rename?.(tab, name, host);
                     }
                   }}
+                  onToggleGroupCollapsed={(key) =>
+                    update((item) => toggleGroupCollapsed(item, key))
+                  }
+                  renamingGroup={renamingGroup}
+                  onRenamingGroup={setRenamingGroup}
+                  onRenameGroup={(key, label) =>
+                    update((item) => setGroupLabel(item, key, label))
+                  }
                   onToggleFloat={toggleDeskFloat}
                   newTab={
                     <NewTabMenu

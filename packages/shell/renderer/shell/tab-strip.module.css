@@ -192,10 +192,12 @@
 }
 
 /* 닫기 자리가 보이는 때: 고른 tab, 고른 group의 focus tab, hover한 tab(고른 group은 그 칸). ●나 상태 점이 있으면 늘 보인다. */
-.tab[data-active]:not([data-split]) .close,
+.tab[data-active]:not([data-split], [data-bundle]) .close,
 .tab[data-active][data-split] .half[data-focused] .close,
-.tab:not([data-split]):hover .close,
+.tab[data-active][data-bundle] .half[data-focused] .close,
+.tab:not([data-split], [data-bundle]):hover .close,
 .tab[data-active][data-split] .half:hover .close,
+.tab[data-active][data-bundle] .half:hover .close,
 .close[data-unsaved],
 .close[data-dot] {
   visibility: visible;
@@ -409,15 +411,165 @@
 .close[data-dot] .cross,
 .close:focus-visible .mark,
 .close:focus-visible .stateDot,
-.tab:not([data-split]):hover .mark,
-.tab:not([data-split]):hover .stateDot,
+.tab:not([data-split], [data-bundle]):hover .mark,
+.tab:not([data-split], [data-bundle]):hover .stateDot,
 .tab[data-active][data-split] .half:not([data-hidden]):hover .mark,
-.tab[data-active][data-split] .half:not([data-hidden]):hover .stateDot {
+.tab[data-active][data-split] .half:not([data-hidden]):hover .stateDot,
+.tab[data-active][data-bundle] .half:hover .mark,
+.tab[data-active][data-bundle] .half:hover .stateDot {
   display: none;
 }
 
 .close:focus-visible .cross,
-.tab:not([data-split]):hover .close .cross,
-.tab[data-active][data-split] .half:not([data-hidden]):hover .close .cross {
+.tab:not([data-split], [data-bundle]):hover .close .cross,
+.tab[data-active][data-split] .half:not([data-hidden]):hover .close .cross,
+.tab[data-active][data-bundle] .half:hover .close .cross {
   display: inline-block;
+}
+
+/* plain tab이나 접힌 bundle 가운데에 끌어 올려 stack/bundle로 묶을 때의 테두리 표시. */
+.tab[data-drop-stack]::before {
+  background: var(--color-surface-muted);
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--border-focus-width));
+}
+
+.tab[data-active][data-drop-stack] {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--border-focus-width));
+}
+
+/* 비분할 탭 묶음(bundle). 머리 chip(접기 단추 + 요약 점 + 이름·개수)과 펼쳐진 구성원 tab을 하나의 묶음으로 보인다. */
+.tab[data-bundle] {
+  min-width: var(--space-0);
+  max-width: none;
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+}
+
+.tab[data-bundle]:not([data-active])::before {
+  background: var(--color-surface-subtle);
+  border: var(--border-width) solid var(--color-border-base);
+}
+
+.tab[data-bundle]:not([data-active]):hover::before {
+  background: var(--color-surface-muted);
+}
+
+.tab[data-bundle]:not([data-active]) .close {
+  pointer-events: none;
+}
+
+.tab[data-bundle]:not([data-active]) .close:not([data-unsaved], [data-dot]) {
+  display: none;
+}
+
+.bundleHead {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  height: var(--control-sm-height);
+  padding-inline: var(--space-1) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-sm);
+}
+
+.tab[data-bundle][data-active] .bundleHead:not([data-collapsed]) {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.tab[data-bundle][data-active] .bundleHead[data-collapsed] {
+  color: var(--color-text-primary);
+}
+
+.bundleToggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.bundleToggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.bundleDot {
+  flex: none;
+}
+
+.bundleLabel {
+  max-width: calc(var(--space-12) * 2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bundleCount {
+  flex: none;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bundleItems {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: var(--space-0);
+}
+
+.bundleItems > .half {
+  flex: none;
+  gap: var(--space-2);
+  height: var(--control-sm-height);
+  padding-inline: var(--space-3) var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.tab[data-bundle]:not([data-active]) .bundleItems > .half {
+  padding-inline-end: var(--space-3);
+}
+
+.bundleItems > .half .title {
+  max-width: calc(var(--space-12) * 2 + var(--space-6));
+}
+
+.tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]) {
+  color: var(--color-text-muted);
+}
+
+.tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]):hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.tab[data-bundle][data-active] .bundleItems > .half[data-focused] {
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+  border: var(--border-width) solid var(--color-border-base);
+}
+
+.tab[data-bundle]:not([data-active]) .bundleItems > .half[data-bundle-active] {
+  color: var(--color-text-primary);
+}
+
+/* 줄이 모자라면 고르지 않은 펼쳐진 bundle의 구성원도 아이콘만 보인다(머리 chip은 남는다). */
+.list[data-fold] .tab[data-bundle]:not([data-active]) .bundleItems > .half .title,
+.list[data-fold] .tab[data-bundle]:not([data-active]) .bundleItems > .half .machine,
+.list[data-fold="all"] .tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]) .title,
+.list[data-fold="all"] .tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]) .machine {
+  display: none;
 }

@@ -15,7 +15,7 @@ import { Tooltip } from "@lophn/ui/overlay";
 
 import type { BrowserProfile } from "../../../protocol/secrets/browser-vault.ts";
 import { ProfileMark } from "../browser/browser-chrome.tsx";
-import { shellIcons } from "../icons/mod.ts";
+import { commonIcons, shellIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
 import { OwnerMark, useOwner } from "../parts/agent-session/owner.tsx";
 import {
@@ -52,7 +52,7 @@ export interface StripTab {
   readonly stack?: readonly StripTab[];
 }
 
-/** 줄의 한 칸. tab이 둘 이상이면 group이고 한 칸에 붙는다. key는 첫 tab의 key다. */
+/** 줄의 한 칸. tab이 둘 이상이면 split group, bundle이면 leaf 1개에 쌓인 비분할 탭 묶음이다. key는 첫 tab의 key다. */
 export interface StripEntry {
   readonly key: string;
   readonly tabs: readonly StripTab[];
@@ -60,6 +60,30 @@ export interface StripEntry {
   readonly dirs?: readonly SplitDir[];
   /** group에서 강조할 tab의 key. */
   readonly focus?: string;
+  /** leaf 1개에 tab 둘 이상이 쌓인 비분할 탭 묶음(bundle). */
+  readonly bundle?: boolean;
+  /** group의 머리글(이름). */
+  readonly label?: string;
+  /** bundle이 탭 줄에서 접혀 있다. */
+  readonly collapsed?: boolean;
+}
+
+const DOT_PRIORITY: readonly SessionDot[] = [
+  "waiting",
+  "working",
+  "finished",
+  "ended",
+];
+
+/** bundle 구성원들의 상태 점을 중요도 순(waiting > working > finished > ended)으로 하나 고른다. */
+export function aggregateDot(tabs: readonly StripTab[]): SessionDot | null {
+  let best = DOT_PRIORITY.length;
+  for (const tab of tabs) {
+    if (!tab.dot) continue;
+    const rank = DOT_PRIORITY.indexOf(tab.dot);
+    if (rank >= 0 && rank < best) best = rank;
+  }
+  return best < DOT_PRIORITY.length ? DOT_PRIORITY[best]! : null;
 }
 
 export interface TabStripProps {
@@ -86,6 +110,14 @@ export interface TabStripProps {
   onRenaming?: (tabKey: string | null) => void;
   /** 입력을 확정했다. 빈 이름은 null이고 자동 이름으로 돌아간다. */
   onRename?: (tabKey: string, name: string | null) => void;
+  /** bundle group의 접힘을 켜고 끈다. */
+  onToggleGroupCollapsed?: (tabKey: string) => void;
+  /** group 이름을 바꾸는 중인 group의 tab key. */
+  renamingGroup?: string | null;
+  /** group 이름 바꾸기를 시작(key)하거나 끝냈다(null). */
+  onRenamingGroup?: (tabKey: string | null) => void;
+  /** group 이름을 확정했다. 빈 이름은 label을 지운다. */
+  onRenameGroup?: (tabKey: string, label: string) => void;
   /** 새 tab 단추 자리. 주지 않으면 onNewTab을 부르는 + 단추다. */
   newTab?: ReactNode;
   onNewTab?: () => void;
@@ -112,6 +144,10 @@ export function TabStrip({
   renaming = null,
   onRenaming,
   onRename,
+  onToggleGroupCollapsed,
+  renamingGroup = null,
+  onRenamingGroup,
+  onRenameGroup,
   newTab,
   onNewTab,
   onToggleFloat,
@@ -200,9 +236,37 @@ export function TabStrip({
       >
         {entries.map((entry, index) => {
           const active = entry.key === selected;
-          const grouped = entry.tabs.length > 1;
+          const split = entry.tabs.length > 1;
+          const bundleItems =
+            entry.bundle === true && (entry.tabs[0]?.stack?.length ?? 0) >= 2
+              ? entry.tabs[0]!.stack!
+              : null;
+          const bundle = bundleItems !== null;
+          const collapsed = bundle && entry.collapsed === true;
+          const grouped = split || bundle;
           const focused =
             entry.tabs.find((tab) => tab.key === entry.focus) ?? entry.tabs[0]!;
+          const stackTarget =
+            drag?.hit?.kind === "stack" &&
+            drag.hit.target === entry.key &&
+            drag.state === "ok" &&
+            (!grouped || collapsed);
+          const bundleDot = bundle ? aggregateDot(bundleItems) : null;
+          const editingGroup =
+            bundle &&
+            renamingGroup !== null &&
+            (renamingGroup === entry.key ||
+              bundleItems.some((item) => item.key === renamingGroup));
+          const bundleLabel = entry.label || `${bundleItems?.length ?? 0} tabs`;
+          const bundleTip = bundle
+            ? [
+                entry.label,
+                bundleItems.map((item) => item.title).join(" · "),
+                bundleDot === null ? null : dotLabel(bundleDot),
+              ]
+                .filter((part): part is string => Boolean(part))
+                .join(" — ")
+            : "";
           return (
             <div
               key={entry.key}
@@ -211,8 +275,12 @@ export function TabStrip({
               aria-selected={active}
               data-entry-key={entry.key}
               data-active={active || undefined}
-              data-split={grouped ? "" : undefined}
+              data-split={split ? "" : undefined}
+              data-bundle={bundle ? "" : undefined}
+              data-collapsed={collapsed ? "" : undefined}
+              data-stack-count={bundle ? bundleItems.length : undefined}
               data-drop={markOf(index)}
+              data-drop-stack={stackTarget ? "" : undefined}
               data-dragging={
                 (drag?.origin === "strip" && drag.item.key === entry.key) ||
                 undefined
@@ -223,10 +291,10 @@ export function TabStrip({
                   : undefined,
               }}
               onPointerDown={(event) => {
-                if (renaming !== null) return;
+                if (renaming !== null || renamingGroup !== null) return;
                 const target = event.target as HTMLElement;
                 if (target.closest("button, input")) return;
-                // group 칸 안의 tab을 누르면 그 tab 하나를, 칸의 빈 곳(방향 표시, 가장자리)을 누르면 group 통째를 끈다.
+                // group 칸 안의 tab을 누르면 그 tab 하나를, 칸의 빈 곳(방향 표시, bundle 머리, 가장자리)을 누르면 group 통째를 끈다.
                 const half = grouped
                   ? target.closest<HTMLElement>("[data-tab-key]")
                   : null;
@@ -240,9 +308,18 @@ export function TabStrip({
                   start(event, { key: entry.key, whole: grouped }, "strip");
                 }
               }}
-              onClick={() => onSelect(focused.key)}
+              onClick={() => {
+                if (collapsed) {
+                  if (active) onToggleGroupCollapsed?.(entry.key);
+                  else onSelect(focused.key);
+                  return;
+                }
+                onSelect(focused.key);
+              }}
               onContextMenu={(event) => {
-                if (!onMenu || renaming !== null) return;
+                if (!onMenu || renaming !== null || renamingGroup !== null) {
+                  return;
+                }
                 event.preventDefault();
                 const half = (event.target as HTMLElement).closest<HTMLElement>(
                   "[data-tab-key]",
@@ -258,136 +335,324 @@ export function TabStrip({
               }}
             >
               <span className={styles.flareStart} aria-hidden />
-              {entry.tabs.map((tab, at) => {
-                const items = tab.stack ?? [tab];
-                // 끄는 tab을 이 칸 stack의 어디에 넣을지(tab 줄 group 칸 안에 놓을 때).
-                const dropAt =
-                  drag?.hit?.kind === "stack" && drag.hit.target === tab.key
-                    ? drag.hit.index
-                    : null;
-                const halves = items.map((item, workspace) => {
-                  const editing = item.key === renaming;
-                  const one = item.dot
-                    ? t("project-workspace.label.tab-tooltip", {
-                        title: item.title,
-                        state: dotLabel(item.dot),
-                      })
-                    : item.title;
-                  // 이름이 안 보이는 접힌 group은 어느 쪽에 올려도 이름을 다 보인다.
-                  const tip =
-                    grouped && !active && fold !== null
-                      ? entry.tabs
-                          .flatMap((half) => half.stack ?? [half])
-                          .map((each) => each.title)
-                          .join(" | ")
-                      : one;
-                  return (
-                    <Tooltip
-                      key={item.key}
-                      content={
-                        <TabTip
-                          text={tip}
-                          owner={item.owner}
-                          profile={item.profile}
-                        />
-                      }
-                      open={editing ? false : undefined}
+              {bundle ? (
+                <>
+                  <Tooltip
+                    content={bundleTip}
+                    open={editingGroup ? false : undefined}
+                  >
+                    <span
+                      className={styles.bundleHead}
+                      data-collapsed={collapsed || undefined}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (editingGroup) return;
+                        if (collapsed) {
+                          if (active) onToggleGroupCollapsed?.(entry.key);
+                          else onSelect(focused.key);
+                        } else {
+                          onSelect(focused.key);
+                        }
+                      }}
+                      onDoubleClick={(event) => {
+                        if ((event.target as HTMLElement).closest("button")) {
+                          return;
+                        }
+                        event.stopPropagation();
+                        onRenamingGroup?.(entry.key);
+                      }}
                     >
-                      <span
-                        className={styles.half}
-                        data-tab-key={item.key}
-                        data-focused={
-                          (grouped && active && focused.key === item.key) ||
-                          undefined
+                      <button
+                        type="button"
+                        className={styles.bundleToggle}
+                        aria-label={
+                          collapsed ? "Expand group" : "Collapse group"
                         }
-                        data-hidden={item.key !== tab.key || undefined}
-                        data-pane-key={grouped ? tab.key : undefined}
-                        data-pane-index={grouped ? workspace : undefined}
-                        data-drop-item={
-                          dropAt === workspace
-                            ? "before"
-                            : dropAt === items.length &&
-                                workspace === items.length - 1
-                              ? "after"
-                              : undefined
-                        }
-                        data-dragging={
-                          (drag?.origin === "leaf" &&
-                            drag.item.key === item.key) ||
-                          undefined
-                        }
+                        aria-expanded={!collapsed}
                         onClick={(event) => {
                           event.stopPropagation();
-                          onSelect(item.key);
-                        }}
-                        onDoubleClick={() => {
-                          if (item.preview) onPin?.(item.key);
-                          else if (item.renamable) onRenaming?.(item.key);
-                        }}
-                        onAuxClick={(event) => {
-                          if (event.button !== 1 || editing) return;
-                          event.preventDefault();
-                          onClose(item.key);
+                          onToggleGroupCollapsed?.(entry.key);
                         }}
                       >
-                        <span className={styles.icon}>{item.icon}</span>
-                        <OwnerMark owner={item.owner} />
-                        {item.profile === undefined ? null : (
-                          <ProfileMark profile={item.profile} />
-                        )}
-                        {editing ? (
-                          <RenameInput
-                            title={item.title}
-                            onDone={(name) => {
-                              if (name !== undefined) {
-                                onRename?.(item.key, name);
-                              }
-                              onRenaming?.(null);
-                            }}
-                          />
-                        ) : (
-                          <span
-                            className={styles.title}
-                            data-preview={item.preview || undefined}
-                          >
-                            {item.title}
-                          </span>
-                        )}
-                        {item.machine === undefined || editing ? null : (
-                          <span className={styles.machine}>
-                            <MachineTag name={item.machine} />
-                          </span>
-                        )}
-                        <CloseSlot
-                          tab={item}
-                          onClose={() => onClose(item.key)}
-                        />
-                      </span>
-                    </Tooltip>
-                  );
-                });
-                return (
-                  <Fragment key={tab.key}>
-                    {at > 0 ? (
-                      <span className={styles.splitMark} aria-hidden>
                         <Icon
                           icon={
-                            entry.dirs?.[at - 1] === "column"
-                              ? shellIcons.splitDown
-                              : shellIcons.split
+                            collapsed
+                              ? commonIcons.expand
+                              : commonIcons.collapse
                           }
                           pixels={12}
                         />
-                      </span>
-                    ) : null}
-                    {items.length > 1 ? (
-                      <span className={styles.pane}>{halves}</span>
-                    ) : (
-                      halves
-                    )}
-                  </Fragment>
-                );
-              })}
+                      </button>
+                      {bundleDot === null ? null : (
+                        <TabStateDot
+                          dot={bundleDot}
+                          className={styles.bundleDot}
+                        />
+                      )}
+                      {editingGroup ? (
+                        <RenameInput
+                          title={entry.label ?? ""}
+                          ariaLabel="Group name"
+                          onDone={(name) => {
+                            if (name !== undefined) {
+                              onRenameGroup?.(entry.key, name ?? "");
+                            }
+                            onRenamingGroup?.(null);
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <span className={styles.bundleLabel}>
+                            {bundleLabel}
+                          </span>
+                          {entry.label ? (
+                            <span className={styles.bundleCount}>
+                              {bundleItems.length}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </span>
+                  </Tooltip>
+                  {collapsed ? null : (
+                    <span className={styles.bundleItems}>
+                      {bundleItems.map((item, at) => {
+                        const activeTab = entry.tabs[0]!;
+                        const editing = item.key === renaming;
+                        const dropAt =
+                          drag?.hit?.kind === "stack" &&
+                          drag.hit.target === activeTab.key
+                            ? drag.hit.index
+                            : null;
+                        const one = item.dot
+                          ? t("project-workspace.label.tab-tooltip", {
+                              title: item.title,
+                              state: dotLabel(item.dot),
+                            })
+                          : item.title;
+                        return (
+                          <Tooltip
+                            key={item.key}
+                            content={
+                              <TabTip
+                                text={one}
+                                owner={item.owner}
+                                profile={item.profile}
+                              />
+                            }
+                            open={editing ? false : undefined}
+                          >
+                            <span
+                              className={styles.half}
+                              data-tab-key={item.key}
+                              data-focused={
+                                (active && item.key === activeTab.key) ||
+                                undefined
+                              }
+                              data-bundle-active={
+                                item.key === activeTab.key || undefined
+                              }
+                              data-pane-key={activeTab.key}
+                              data-pane-index={at}
+                              data-drop-item={
+                                dropAt === at
+                                  ? "before"
+                                  : dropAt === bundleItems.length &&
+                                      at === bundleItems.length - 1
+                                    ? "after"
+                                    : undefined
+                              }
+                              data-dragging={
+                                (drag?.origin === "leaf" &&
+                                  drag.item.key === item.key) ||
+                                undefined
+                              }
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onSelect(item.key);
+                              }}
+                              onDoubleClick={(event) => {
+                                event.stopPropagation();
+                                if (item.preview) onPin?.(item.key);
+                                else if (item.renamable) onRenaming?.(item.key);
+                              }}
+                              onAuxClick={(event) => {
+                                if (event.button !== 1 || editing) return;
+                                event.preventDefault();
+                                onClose(item.key);
+                              }}
+                            >
+                              <span className={styles.icon}>{item.icon}</span>
+                              <OwnerMark owner={item.owner} />
+                              {item.profile === undefined ? null : (
+                                <ProfileMark profile={item.profile} />
+                              )}
+                              {editing ? (
+                                <RenameInput
+                                  title={item.title}
+                                  onDone={(name) => {
+                                    if (name !== undefined) {
+                                      onRename?.(item.key, name);
+                                    }
+                                    onRenaming?.(null);
+                                  }}
+                                />
+                              ) : (
+                                <span
+                                  className={styles.title}
+                                  data-preview={item.preview || undefined}
+                                >
+                                  {item.title}
+                                </span>
+                              )}
+                              {item.machine === undefined || editing ? null : (
+                                <span className={styles.machine}>
+                                  <MachineTag name={item.machine} />
+                                </span>
+                              )}
+                              <CloseSlot
+                                tab={item}
+                                onClose={() => onClose(item.key)}
+                              />
+                            </span>
+                          </Tooltip>
+                        );
+                      })}
+                    </span>
+                  )}
+                </>
+              ) : (
+                entry.tabs.map((tab, at) => {
+                  const items = tab.stack ?? [tab];
+                  // 끄는 tab을 이 칸 stack의 어디에 넣을지(tab 줄 group 칸 안에 놓을 때).
+                  const dropAt =
+                    drag?.hit?.kind === "stack" && drag.hit.target === tab.key
+                      ? drag.hit.index
+                      : null;
+                  const halves = items.map((item, workspace) => {
+                    const editing = item.key === renaming;
+                    const one = item.dot
+                      ? t("project-workspace.label.tab-tooltip", {
+                          title: item.title,
+                          state: dotLabel(item.dot),
+                        })
+                      : item.title;
+                    // 이름이 안 보이는 접힌 group은 어느 쪽에 올려도 이름을 다 보인다.
+                    const tip =
+                      split && !active && fold !== null
+                        ? entry.tabs
+                            .flatMap((half) => half.stack ?? [half])
+                            .map((each) => each.title)
+                            .join(" | ")
+                        : one;
+                    return (
+                      <Tooltip
+                        key={item.key}
+                        content={
+                          <TabTip
+                            text={tip}
+                            owner={item.owner}
+                            profile={item.profile}
+                          />
+                        }
+                        open={editing ? false : undefined}
+                      >
+                        <span
+                          className={styles.half}
+                          data-tab-key={item.key}
+                          data-focused={
+                            (split && active && focused.key === item.key) ||
+                            undefined
+                          }
+                          data-hidden={item.key !== tab.key || undefined}
+                          data-pane-key={split ? tab.key : undefined}
+                          data-pane-index={split ? workspace : undefined}
+                          data-drop-item={
+                            dropAt === workspace
+                              ? "before"
+                              : dropAt === items.length &&
+                                  workspace === items.length - 1
+                                ? "after"
+                                : undefined
+                          }
+                          data-dragging={
+                            (drag?.origin === "leaf" &&
+                              drag.item.key === item.key) ||
+                            undefined
+                          }
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSelect(item.key);
+                          }}
+                          onDoubleClick={() => {
+                            if (item.preview) onPin?.(item.key);
+                            else if (item.renamable) onRenaming?.(item.key);
+                          }}
+                          onAuxClick={(event) => {
+                            if (event.button !== 1 || editing) return;
+                            event.preventDefault();
+                            onClose(item.key);
+                          }}
+                        >
+                          <span className={styles.icon}>{item.icon}</span>
+                          <OwnerMark owner={item.owner} />
+                          {item.profile === undefined ? null : (
+                            <ProfileMark profile={item.profile} />
+                          )}
+                          {editing ? (
+                            <RenameInput
+                              title={item.title}
+                              onDone={(name) => {
+                                if (name !== undefined) {
+                                  onRename?.(item.key, name);
+                                }
+                                onRenaming?.(null);
+                              }}
+                            />
+                          ) : (
+                            <span
+                              className={styles.title}
+                              data-preview={item.preview || undefined}
+                            >
+                              {item.title}
+                            </span>
+                          )}
+                          {item.machine === undefined || editing ? null : (
+                            <span className={styles.machine}>
+                              <MachineTag name={item.machine} />
+                            </span>
+                          )}
+                          <CloseSlot
+                            tab={item}
+                            onClose={() => onClose(item.key)}
+                          />
+                        </span>
+                      </Tooltip>
+                    );
+                  });
+                  return (
+                    <Fragment key={tab.key}>
+                      {at > 0 ? (
+                        <span className={styles.splitMark} aria-hidden>
+                          <Icon
+                            icon={
+                              entry.dirs?.[at - 1] === "column"
+                                ? shellIcons.splitDown
+                                : shellIcons.split
+                            }
+                            pixels={12}
+                          />
+                        </span>
+                      ) : null}
+                      {items.length > 1 ? (
+                        <span className={styles.pane}>{halves}</span>
+                      ) : (
+                        halves
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
               <span className={styles.flareEnd} aria-hidden />
             </div>
           );
@@ -483,9 +748,11 @@ function CloseSlot({ tab, onClose }: { tab: StripTab; onClose: () => void }) {
 // Enter나 blur는 확정(빈 이름은 null), Escape는 취소(undefined)다. unmount 때 blur가 한 번 더 와도 두 번 확정하지 않는다.
 function RenameInput({
   title,
+  ariaLabel,
   onDone,
 }: {
   title: string;
+  ariaLabel?: string;
   onDone: (name: string | null | undefined) => void;
 }) {
   const done = useRef(false);
@@ -503,7 +770,7 @@ function RenameInput({
     <input
       ref={input}
       className={styles.rename}
-      aria-label={t("project-workspace.label.tab-rename")}
+      aria-label={ariaLabel ?? t("project-workspace.label.tab-rename")}
       defaultValue={title}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}

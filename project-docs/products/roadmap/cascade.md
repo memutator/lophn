@@ -1,6 +1,6 @@
 # cascade: 삭제와 계약 변경의 결정적 정리와 lophn 인계
 
-상태: 로드맵. 2026-11-23 사람이 방향을 냈고, 코드 재조사(`86db4d72d`)와 리뷰를 반영해 공통 토대와 기술 결정을 정리했다. 사람이 정할 제품 결정 2가지만 `## 정할 것`에 남겨 두었다. `(agent)`로 적은 것은 기존 원칙과 불변식으로 정한 것이라 검수에서 뒤집을 수 있다.
+상태: 로드맵. 2026-11-23 사람이 방향과 결정을 모두 확정했다. `(사람, 2026-11-23)`은 사람이 정한 것이고 `(agent)`는 기존 원칙과 불변식으로 정한 것이다.
 배경 문서: `project-docs/{PRODUCT.md,products/AGENT.md}`, `project-docs/architecture/{app-call,event,agent-definition,artifact,workflow,job,app-notice}.md`, `project-docs/products/roadmap/{sdk-update-checkpoint,platform-update}.md`.
 조사: main `86db4d72d` 코드 조사(2026-11-23, Workflow Phase 4 반영).
 
@@ -14,7 +14,7 @@
 > 또 특정 event를 발생하는 앱이 있는데 그럼 그걸 구독하는 쪽에서 또 수정해야한다거나
 > 사실 이것도 그냥 프로그램적으로 (결정적으로) 가능한 부분들이 있겠지만 lophn한테 인계해주는 흐름도 필요하다는거지
 
-> 내가 정해야하는 것만 정리해서 보고하고 로드맵 닫으면 될 것 같아
+> 전부 추천대로 복수 계정 등록은 그냥 예시였음 그런 게 가능해야한다는거지
 
 ## 왜
 
@@ -49,10 +49,11 @@
 
 ### 4. 앱 공개 계약·Event 변경과 사용처 조회 (`public-tools.ts`, `apps/usage/users.ts`)
 
-- `packages/core/apps/releases/commands.ts`(667줄)와 `public-tools.ts`는 `release.prepare` 때 `removed_public_tools`와 `removed_public_skills`만 낸다.
+- `packages/core/apps/releases/commands.ts`(667줄)와 `public-tools.ts`는 `release.prepare` 때 `removed_public_tools`와 `removed_public_skills`만 내고, `AGENT.md` A21(`prompts/app.md` 148줄)이 `activate` 전에 Home을 거쳐 하위 그릇들에 옮길 수 있는지 묻고 못 옮기면 되살리라고 지침으로만 시킨다.
 - **빈 곳**:
   1. **앱 event와 스키마 변경 미감지**: 이전 활성 release에 있던 `events`를 지우거나 `payloadSchema`를 바꿔도, 또는 공개 `command`의 `inputSchema`·`outputSchema`를 바꿔도 아무 신호가 없다. 그 event를 `subscriptions`로 듣는 다른 앱, `trigger`로 건 `job`, `onEvent`로 듣는 `workflow`(`packages/core/workflows/event-subscriptions.ts`)가 조용히 끊기거나 깨진다.
   2. **사용처(`appToolUsers`)가 과거 agent 호출만 본다**: `invocations` 표에서 `caller_kind = 'agent'`만 센다(`users.ts` 97줄). 다른 앱 선언의 `app_connections`·`subscriptions`, `jobs` 표의 `tool_run`·`trigger`, project `workflows`의 참조는 agent가 직접 부른 적이 없으면 빠진다.
+  3. **무겁고 쉽게 빠지는 사전 왕복 합의**: 프롬프트에만 기대어 빠지기 쉽고, 지키면 앱 하나 고칠 때 여러 세션이 동기로 멈춰 선다.
 
 ### 5. Workflow 삭제·이름 변경과 Phase 4 `code_snapshot`
 
@@ -84,50 +85,43 @@
 - **`P12` 경계 유지**: `app.usage`처럼 어느 그릇이 쓰는지를 담은 상세 impact read는 **사람 화면과 Home session만** 부른다. 앱 workspace의 `release.prepare` 응답에는 외부 사용처가 걸린 **자기 command·skill·event 이름과 개수만** 싣는다(다른 앱·private project 이름을 노출하지 않는다).
 - **계약 변경 판정 단순화**: JSON Schema 호환 검사기는 만들지 않는다. 이전 활성 release와 새 release 사이에서 공개 `command`·`skill`·`event`가 지워졌거나 정규화 선언 JSON이 달라졌으면 "바뀌었다"와 전후 정의만 내고, 실제로 하위 코드를 고쳐야 하는지는 인계받은 agent가 판단한다.
 
-### 3. 2단 의미적 Cascade — 주체별 인계 발송과 완료 보고
+### 3. 2단 의미적 Cascade — 확인 창 즉시 인계 + Activation 사후 인계
 
-`event.md` 불변식 3("program이 스스로 정해 session을 열지 않는다")을 지키며 행동 주체(actor)에 따라 인계를 연다.
+`event.md` 불변식 3("program이 스스로 정해 session을 열지 않는다")을 지키며 사람의 조작과 배포 확정 시점에 인계를 연다.
 
-- **사람이 화면·CLI에서 삭제할 때**: 사람의 지시이므로 공통 follow-up item을 기록하고 인계를 연다(즉시 열지 Inbox로 모을지는 아래 "정할 것" 1).
-- **agent session이 명령으로 삭제·변경할 때**: command 결과에 영향 요약과 생성된 follow-up item이 돌아가고, 같은 그릇 일이면 그 session이 바로 고치고 다른 그릇 일이면 Home(또는 해당 그릇)에 넘긴다.
-- **`release.activate`가 완료될 때**(바로 켜짐, 또는 사람이 `activation.consent`에서 `[Allow]`를 눌러 켜짐): 사람이 동의를 누른 것 또는 앱 session이 activate한 것이 기점이 되어 영향받는 하위 그릇에 대한 follow-up을 기록·전달한다.
-- **수신처 규칙(`AGENT.md` P12·G3·L10)**: 영향이 한 그릇 안뿐(예: project 하나의 artifact 삭제)이면 그 그릇 lophn에게 바로 보내고, 여러 그릇에 걸치면(전역 agent 삭제, 여러 곳이 구독하는 앱 event 변경) Home lophn이 받아 대체 방침을 정리한 뒤 각 그릇에 분배한다.
+- **사람이 화면에서 삭제할 때**:
+  - 깨지는 `declared` 참조가 **0곳**이면 일반 삭제처럼 조용히 끝낸다.
+  - **1곳 이상**이면 삭제 확인 창에 즉시 지워지는 것과 lophn이 손봐야 하는 곳을 보여 주고, 기본 단추 **[Delete & clean up now]**(삭제와 동시에 인계 session 열기)와 보조 단추 **[Delete only]**(삭제만 하고 미완료 follow-up으로 Inbox에 남기기)를 함께 둔다.
+- **agent session이 명령으로 삭제할 때**: command 결과에 영향 요약과 생성된 follow-up item이 돌아가고, 같은 그릇 일이면 그 session이 바로 고치고 다른 그릇 일이면 Home(또는 해당 그릇)에 넘긴다.
+- **앱이 공개 Command·Skill·Event 계약을 바꾸거나 지울 때 (`A21` 대체 — 사후 인계 통일)**:
+  - `release.prepare`에서 외부 사용 개수를 보여 주어 실수 삭제만 앱 agent가 스스로 되잡게 한다.
+  - 의도한 변경이면 사전 왕복 합의 없이 `release.activate`하고, **켜지는 순간**(바로 켜짐, 또는 사람이 `activation.consent`에서 `[Allow]`를 눌러 켜짐) program이 하위 구독·호출 그릇들에 대한 follow-up item을 기록하고 Home(단일 그릇 영향이면 그 그릇)으로 인계해 따라 고치게 한다.
+  - `products/AGENT.md`(A21·E8·C27)와 `prompts/{home,app,project}.md`를 이 사후 인계 규칙으로 고친다.
+- **수신처 규칙(`AGENT.md` P12·G3·L10)**: 영향이 한 그릇 안뿐이면 그 그릇 lophn에게 바로 보내고, 여러 그릇에 걸치면 Home lophn이 받아 대체 방침을 정리한 뒤 각 그릇에 분배한다.
 - **실행 중 workflow 안내**: lophn이 `workflow.yaml`이나 `flow.ts`를 고쳐도 이미 돌고 있는 Phase 4 instance는 시작 시점 `code_snapshot`을 유지한다. 막혀 있는(`blocked`) instance가 있으면 사람에게 `[Resume with updated code]`로 이어 갈 수 있다고 보고한다.
 
 ## 정한 것
 
-1. **1단 결정적 정리를 먼저 떼어 낸다**: `agent.delete`의 `mcp.<agt>.*` secret 누수 등은 2단 설계와 무관한 결함이므로 단계 1에서 바로 고친다. `(agent)`
-2. **참조는 정본에서 직접 읽되 `declared`와 `mentioned`를 구분하고, `memory.md`는 줄 매칭 대신 인계 고정 문구로 정리한다**: 자유 글의 이름 매칭 오탐을 확인 창에 사실처럼 보이지 않는다. `(agent)`
-3. **스키마 호환 검사기를 만들지 않는다**: 선언 정규화 JSON 변경 여부와 전후 diff만 program이 내고 깨짐 여부는 agent가 본다. `(agent: AGENTS.md "속도")`
-4. **`P12` 경계와 `event.md` 불변식 3 준수**: 앱 session에는 자기 항목별 외부 사용 유무·개수만 보이고 사용처 명단은 Home과 사람만 읽는다. 인계는 삭제·동의를 실행한 사람 또는 부른 agent session의 행위 안에서만 열린다. `(agent)`
-5. **`job` 처리는 가역성으로 가른다**: 되살릴 수 있는 보관(`app.archive`, `project.archive`)은 표를 고치지 않고 읽기와 `claim_due`·`job.activity`에서 동적으로 건너뛴다. 되살릴 수 없는 영구 삭제(`app.delete`, `agent.delete`, `workflow` 삭제)는 `job.md` 불변식 6(생성자 외 비가시)·7(`action` 불변) 때문에 같은 Tx에서 `job` 행을 지우되, 지워진 job의 명세를 인계 본문에 실어 대체 job 생성 여부를 판단하게 한다. `(agent)`
-6. **인계 수신처**: 단일 그릇 영향은 그 그릇 lophn 직행, 복수 그릇 영향은 Home lophn 경유로 분배한다. `(agent: AGENT.md P12·G3·L10)`
+1. **화면 삭제 시 영향이 있을 때만 확인 창에서 `[Delete & clean up now]`(기본)와 `[Delete only]`(Inbox 적립)를 함께 둔다**: 단건 삭제는 맥락이 살아 있을 때 바로 고치고, 연속 청소는 흐름을 끊지 않고 모아 처리하게 한다. `declared` 영향이 0곳이면 묻지 않고 바로 지운다. `(사람, 2026-11-23)`
+2. **앱 공개 계약(`command`, `skill`, `event`)의 삭제와 변경 모두 `A21` 사전 합의를 폐기하고 `release.activate` 확정 직후 사후 인계로 통일한다**: 프롬프트 망각으로 전파가 빠지는 일과 다중 세션 동기 대기를 없앤다. 하위 그릇이 따라 고쳐지기 전 짧은 실패 틈은 감수하고 문제 시 이전 release 롤백으로 복구한다. `(사람, 2026-11-23)`
+3. **1단 결정적 정리를 먼저 떼어 낸다**: `agent.delete`의 `mcp.<agt>.*` secret 누수 등은 2단 설계와 무관한 결함이므로 단계 1에서 바로 고친다. `(agent)`
+4. **참조는 정본에서 직접 읽되 `declared`와 `mentioned`를 구분하고, `memory.md`는 줄 매칭 대신 인계 고정 문구로 정리한다**. `(agent)`
+5. **스키마 호환 검사기를 만들지 않는다**: 선언 정규화 JSON 변경 여부와 전후 diff만 program이 내고 깨짐 여부는 agent가 본다. `(agent: AGENTS.md "속도")`
+6. **`P12` 경계와 `event.md` 불변식 3 준수**: 앱 session에는 자기 항목별 외부 사용 유무·개수만 보이고 사용처 명단은 Home과 사람만 읽는다. 인계는 삭제·동의를 실행한 사람 또는 부른 agent session의 행위 안에서만 열린다. `(agent)`
+7. **`job` 처리는 가역성으로 가른다**: 되살릴 수 있는 보관(`app.archive`, `project.archive`)은 표를 고치지 않고 읽기와 `claim_due`·`job.activity`에서 동적으로 건너뛴다. 되살릴 수 없는 영구 삭제(`app.delete`, `agent.delete`, `workflow` 삭제)는 `job.md` 불변식 6·7 때문에 같은 Tx에서 `job` 행을 지우되, 지워진 job의 명세를 인계 본문에 실어 대체 job 생성 여부를 판단하게 한다. `(agent)`
+8. **인계 수신처**: 단일 그릇 영향은 그 그릇 lophn 직행, 복수 그릇 영향은 Home lophn 경유로 분배한다. `(agent: AGENT.md P12·G3·L10)`
 
 ## 정할 것
 
-1. **사람이 화면에서 삭제할 때(agent, artifact, 앱, workflow) 인계를 시작하는 UX**
-   - **안 A (추천 — 삭제 확인 창에서 `declared` 영향을 보여주고 `[Delete and ask lophn to clean up]`으로 바로 시작)**: 확인 창에서 즉시 지워질 것과 lophn이 손볼 곳(예: 참여 workflow 2개)을 보여주고 삭제와 함께 인계 session을 연다(단순 삭제 보조 단추 병행, 미완료 항목만 Inbox에 남김).
-     - *얻는 것*: 지운 직후 맥락에서 바로 정리되고 Inbox를 따로 열 필요가 없다.
-     - *잃는 것*: 삭제 확인 창이 넓어지고 삭제 직후 정리 대화가 열린다.
-   - **안 B (삭제는 즉시 끝내고, 후속 인계는 늘 Inbox 영구 줄 `[Ask lophn]`으로 모음)**:
-     - *얻는 것*: 여러 자원을 연속으로 지울 때 조용하고 나중에 한 번에 묶어 시킬 수 있다.
-     - *잃는 것*: 사람이 Inbox 단추를 누르기 전까지 workflow나 구독 앱, memory가 깨진 채로 남는다.
-
-2. **앱이 공개 Command·Skill·Event를 바꾸거나 지울 때의 정책 (`A21` 사전 합의 유지 vs 사후 인계 전환)**
-   - **안 A (추천 — `release.activate` 확정 뒤 사후 인계로 통일)**: `release.prepare`에서 외부 사용 개수를 보여 주어 실수면 앱 agent가 고치게 하되, 의도한 변경으로 `activate`가 끝나면 하위 구독·호출 그릇에 follow-up 인계를 보낸다.
-     - *얻는 것*: 프롬프트 망각으로 전파가 빠지지 않고, 앱 하나를 고칠 때마다 `activate` 전에 여러 그릇 session이 왕복 합의로 멈춰 서지 않는다.
-     - *잃는 것*: 기존 `AGENT.md` A21("쓰는 쪽이 못 옮긴다 하면 지우려던 command를 되살린다")이 사라지고, 하위 그릇이 따라 고쳐지기 전 짧은 틈 동안 호출·구독이 실패할 수 있다(필요시 사람이 이전 release로 롤백).
-   - **안 B (공개 항목 삭제는 지금 `A21`처럼 `activate` 전 Home 왕복 합의를 유지하고, 스키마·event 변경만 사후 인계)**:
-     - *얻는 것*: 대체재 없이 쓰이는 command를 지우는 일을 배포 전에 막는다.
-     - *잃는 것*: 삭제와 변경의 경로가 둘로 갈라지고 사전 합의는 여전히 지침에 기댄다.
+없다.
 
 ## 단계
 
 | 순서 | 하는 일 | 비고 |
 |---|---|---|
-| 1 | 1단 결정적 정리 완성: `agent.delete`(MCP secret, `callPolicy`, session, `job`), `artifact` 삭제·`workflow` 이름 변경·삭제의 `core` command 이전, 보관된 앱·project의 `job` 동적 건너뛰기 | 결정 대기 없이 바로 착수 가능 |
+| 1 | 1단 결정적 정리 완성: `agent.delete`(MCP secret, `callPolicy`, session, `job`), `artifact` 삭제·`workflow` 이름 변경·삭제의 `core` command 이전, 보관된 앱·project의 `job` 동적 건너뛰기 | 독립 선행 |
 | 2 | 공통 토대(`platform-update.md` 단계 2와 공유): 작업 공간 정본 reader(`declared`/`mentioned`, `app.usage` 통합, `release.prepare`의 event·스키마 변경 개수 산출) + 공통 follow-up item 표·보고 명령 | `platform-update`와 한 번에 구현 |
-| 3 | 삭제 확인 창(또는 Inbox) 인계 UI와 `release.activate` 사후 인계 연결, 수신 지침(`AGENT.md` 갱신 포함) | 정할 것 1·2 확정 뒤 |
+| 3 | 삭제 확인 창(`[Delete & clean up now]` / `[Delete only]`)과 `release.activate` 사후 인계 연결, `AGENT.md`(A21 전환)·수신 지침 갱신 | 1·2 위 |
 
 ## 하지 않는 것
 

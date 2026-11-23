@@ -1,6 +1,6 @@
 # platform update: 앱 SDK를 넘어 작업 공간 전체에 새 가능성을 전한다
 
-상태: 로드맵. 2026-11-23 사람이 방향을 냈고, 코드 재조사(`86db4d72d`)와 리뷰를 반영해 공통 토대와 기술 결정을 정리했다. 사람이 정할 제품 결정 3가지만 `## 정할 것`에 남겨 두었다. `(agent)`로 적은 것은 기존 원칙과 불변식으로 정한 것이라 검수에서 뒤집을 수 있다.
+상태: 로드맵. 2026-11-23 사람이 방향과 결정을 모두 확정했다. `(사람, 2026-11-23)`은 사람이 정한 것이고 `(agent)`는 기존 원칙과 불변식으로 정한 것이다.
 배경 문서: `project-docs/{PRODUCT.md,products/AGENT.md}`, `project-docs/architecture/{app-notice,ui-kit,agent-definition,workflow,phone-screen}.md`, `project-docs/products/roadmap/{inbox-history-sdk-migration,sdk-update-checkpoint,phone-capability,workflow,cascade}.md`.
 조사: main `86db4d72d` 코드 조사(2026-11-23, Workflow Phase 4 및 `@lophn/flow` 2.0.0 반영).
 
@@ -17,13 +17,13 @@
 > 관련한게 app sdk update 내용을 보고 migration 및 업데이트 하는 흐름이 있는데
 > 이게 app에 국한해서만 진행되어서는 안 된다는거지
 
-> 내가 정해야하는 것만 정리해서 보고하고 로드맵 닫으면 될 것 같아
+> 전부 추천대로 복수 계정 등록은 그냥 예시였음 그런 게 가능해야한다는거지
 
 ## 왜
 
-- lophn은 앱 SDK 바깥에서도 크게 바뀐다: 폰 화면의 native 기능과 앱 file(`phone-capability.md`, `app-file.md`), durable workflow와 `@lophn/flow` 2.0.0(`step(key, fn)`, `human()`, `workflow()`, `onEvent()`, 선언적 `inputs`, `workflow.md`), coding agent `harness_config` 프로필(`agent-profile.md`), 컴퓨터 간 테이블 `sync`와 `across_machines` event, 앞으로 열릴 provider별 복수 credential 등록과 선택 activate.
+- lophn은 앱 SDK 바깥에서도 크게 바뀐다: 폰 화면의 native 기능과 앱 file(`phone-capability.md`, `app-file.md`), durable workflow와 `@lophn/flow` 2.0.0(`step(key, fn)`, `human()`, `workflow()`, `onEvent()`, 선언적 `inputs`, `workflow.md`), coding agent `harness_config` 프로필(`agent-profile.md`), 컴퓨터 간 테이블 `sync`와 `across_machines` event, 앞으로 열릴 수 있는 provider별 복수 credential 등록과 선택 activate 같은 lophn 자체 기능들이다.
 - 사람은 판마다 무엇이 바뀌어 내 작업 공간 어디에 쓸 수 있는지 대조하지 않는다(`PRODUCT.md` §4 축 1, `AGENT.md` F1). 그 판단은 숲을 보는 Home lophn의 몫이다.
-- 지금 업데이트 흐름(`sdk_update_needed` → `/update-apps` → `migrate-sdk`)은 **활성 앱이 선언에 pin한 `@lophn/*` 판**만 본다. 실제로 0.23.155(`86db4d72d`)에서 `@lophn/flow`가 `2.0.0`(`supported_from: "2.0.0"`, breaking)으로 오르고 `migrate-sdk/flow-2.0.0.md`까지 작성됐지만, 어떤 앱도 `@lophn/flow`를 pin하지 않고 project의 `flow.ts`도 판을 pin하지 않아 **기존 workflow는 단 하나도 감지·인계 대상에 잡히지 않는다.**
+- 지금 업데이트 흐름(`sdk_update_needed` → `/update-apps` → `migrate-sdk`)은 **활성 앱이 선언에 pin한 `@lophn/*` 판**만 본다. 실제로 0.23.155(`86db4d72d`)에서 `@lophn/flow`가 `2.0.0`(`supported_from: "2.0.0"`, breaking)으로 오르고 `migrate-sdk/flow-2.0.0.md`까지 작성됐지만, 어떤 앱도 `@lophn/flow`를 pin하지 않고 project의 `flow.ts`도 판을 기록하지 않아 **기존 workflow는 단 하나도 감지·인계 대상에 잡히지 않는다.**
 
 ## 지금 코드
 
@@ -41,7 +41,7 @@
 ### 앱 바깥의 공백
 
 1. **앱이 아닌 자산은 검토 사슬에 없다.**
-   - 모든 project의 `flow.ts`는 `<data>/projects/node_modules/@lophn/flow` 단일 symlink로 최신 설치 사본을 바라본다(`packages/core/main/flow-host/`). `@lophn/flow` 2.0.0처럼 breaking 변경이 올라와도 `readSdkStatus`에 잡히지 않고 새 run을 시작할 때 바로 깨진다(실행 중이던 run만 시작 시점 `code_snapshot`으로 돈다).
+   - 모든 project의 `flow.ts`는 `<data>/projects/node_modules/@lophn/flow` 단일 symlink로 최신 설치 사본을 바라본다(`packages/core/main/flow-host/sdk-link.ts`). `@lophn/flow` 2.0.0처럼 breaking 변경이 올라와도 어느 workflow가 옛 판 기준인지 적힌 곳이 없어 `readSdkStatus`에 잡히지 않고 새 run을 시작할 때 런타임 예외로 죽는다.
    - 기존 workflow를 새 기능(선언적 `inputs`, `onEvent`, sub-workflow `workflow()`)으로 개선하거나, 새 시스템 기능(coding agent 프로필, 복수 credential 등)을 기존 agent·workflow 구성에 제안하는 흐름이 없다.
 2. **바뀐 지침과 습관이 닿지 않는 자리가 있다.**
    - `runtime: custom`인 agent는 내장 지침을 싣지 않고 정의 본문만 읽는다(`architecture/agent-definition.md` 불변식 29).
@@ -62,56 +62,41 @@
 
 ### 1. 평소 turn 인지 정렬과 누락 방지 `check`
 
-- 새로 열린 핵심 가능성(폰 native 기능·앱 file, durable flow 2.0·선언적 `inputs`·`onEvent`, 다중 기기, 이후 들어올 복수 credential 등)이 평소 기획 turn에서도 바로 보이도록 내장 prompt(`home.md`, `project.md`, `app.md`)와 내장 skill의 frontmatter `description`("언제 읽어야 하는지")을 정렬한다. system 고정 층에 동적 판 비교 글은 넣지 않는다(prompt cache 보존).
+- 새로 열린 핵심 가능성(폰 native 기능·앱 file, durable flow 2.0·선언적 `inputs`·`onEvent`, 다중 기기 등)이 평소 기획 turn에서도 바로 보이도록 내장 prompt(`home.md`, `project.md`, `app.md`)와 내장 skill의 frontmatter `description`("언제 읽어야 하는지")을 정렬한다. system 고정 층에 동적 판 비교 글은 넣지 않는다(prompt cache 보존).
 - `tools/records.ts check`를 확장해, `modules`에 사용자·agent 역량 표면(`packages/protocol`, `packages/cli`, `packages/sdk`, `packages/core/agent-workspaces`, `packages/core/workflows`, `packages/core/lophn-agent`)이 포함된 새 change-log 항목에는 `platform_note: <note id> | none` 칸을 필수로 요구한다(이미 올라간 옛 항목은 제외).
 
-### 2. 플랫폼 역량 메모(platform note)와 순서 manifest
+### 2. Workflow의 `flow_sdk` 도장과 플랫폼 역량 메모(platform note)
 
-- 앱 SDK pin 바깥의 변화는 고정 절차 skill 하나에 딸린 **플랫폼 역량 메모(`<slug>.md`)** 와 **append-only 순서 파일(`platform-notes.json`)** 로 관리한다(`schema-steps.lock.json`과 같은 모양).
-- PATCH 판은 `land.sh`가 main에 올릴 때 정하므로 메모 이름과 순서에 제품 판 번호를 쓰지 않는다.
-- 메모 하나는 `id`(slug), `Breaking: yes | no`, 적용 영역(`home | project | workflow | agent | app`), 새로 가능해진 것과 옮기는 법, 바뀐 지침 습관(`Instruction diff`)을 담는다.
+- **workflow 작성 기준 판 도장(`flow_sdk`)**: 폴더마다 `package.json`을 두지 않고 `flow.ts`가 있는 workflow의 `workflow.yaml`에 `flow_sdk: "2.0.0"` 한 줄을 기록한다(`workflow.check` 통과 시 기록·검사, 실행 symlink는 지금처럼 최신 사본 하나 유지).
+  - `flow_sdk`(없으면 `1.0.0` 취급)가 설치된 `@lophn/flow`의 `supported_from`보다 낮으면 `required`(실행 전에 `migrate-sdk/flow-*.md`로 수리 필수, `StartWorkflow` 입구에서 이유와 함께 차단), `supported_from` 이상이고 최신 판보다 낮으면 `available`로 감지한다.
+- **플랫폼 역량 메모**: 앱 SDK와 `flow_sdk` 도장 바깥의 변화(선언적 `inputs` 같은 선언 기능, project skill·artifact 기능, agent·provider·권한·다중 기기 같은 lophn 자체 기능)는 고정 절차 skill 하나에 딸린 **플랫폼 역량 메모(`<slug>.md`)** 와 **append-only 순서 파일(`platform-notes.json`)** 로 관리한다.
+  - 메모 하나는 `id`(slug), `Breaking: yes | no`, 적용 영역(`home | project | workflow | agent | app`), 새로 가능해진 것과 옮기는 법, 바뀐 지침 습관(`Instruction diff`)을 담는다.
 
-### 3. 전체 작업 공간 업데이트 상태 read와 결정·인계
+### 3. 단일 창구 업데이트 검토, 자산 매칭 제안, 소유별 수정
 
-- ledger에 Home의 플랫폼 검토 위치(`through`: 마지막으로 검토한 note id; 새 data root `fresh: true`는 현재 끝 note로 시작)를 둔다.
-- Home lophn의 상태 read가 한 번에 ① 앱별 SDK 상태(`required`, `unreviewed`), ② `through` 이후의 미검토 platform note 목록, ③ 열린 follow-up item 목록, ④ 공통 정본 reader가 읽은 작업 공간 자산 요약(활성 project의 workflow·skill·artifact, agent 정의와 `runtime`, 연결된 provider 현황)을 준다.
-- 결정 command 하나가 `through`를 올리고 공통 follow-up item을 만들며 대상 그릇으로 handoff를 보낸다:
-  - `app` 대상: 그 앱의 lophn.
-  - `project` 대상(workflow 개편, `@lophn/flow` 이전, project skill·`memory.md` 정리, 그 project 범위 `custom` agent 수정): 그 project의 lophn.
-  - `home` 대상(전역 설정, provider 구성, 전역 `custom` agent 정의 본문 수정, Home `memory.md`의 낡은 우회 메모 정리): Home lophn이 직접 처리하고 같은 보고 명령으로 닫는다.
+- Inbox 알림 줄과 Home 업데이트 skill은 **하나의 단일 창구**로 통합한다(알림 문구에 당장 막힌 `required` 앱·workflow 수를 따로 표시해 긴급도를 드러낸다).
+- ledger에 Home의 플랫폼 검토 위치(`through`: 마지막으로 검토한 note id; 새 data root `fresh: true`는 현재 끝 note로 시작)와 project/workflow별 `flow_sdk` 검토 위치를 둔다.
+- Home lophn이 상태 read 하나로 앱별 SDK 상태, workflow별 `flow_sdk` 상태, 미검토 platform note, 열린 follow-up item, 작업 공간 자산 요약을 함께 읽고 숲을 판단한다:
+  - 필수 migration(`required` 앱·workflow, `Breaking: yes`)은 묻지 않고 바로 인계한다.
+  - 선택 질문(`ask`)은 **이미 가진 자산(앱, workflow, agent·provider 구성)에 당장 실익이 있는 제안만** 올린다. 당장 붙일 자산이 없는 새 역량은 질문하지 않고 보고 맨 끝에 한 줄 참고 안내로만 덧붙인다.
+  - 옛 한계를 전제한 우회 규칙 정리는 소유권으로 가른다: agent 소유(`memory.md`, 생성 skill)는 고친 뒤 무엇을 뺐는지 보고하고, 사람 소유(`LOPHN.md`)는 지워도 된다고 제안만 한다.
+- 결정 command 하나가 checkpoint를 올리고 공통 follow-up item을 만들며 대상 그릇(`app`, `project`, `home`)으로 handoff를 보낸다.
 
 ## 정한 것
 
-1. **공통 토대 공유**: 작업 공간 정본 reader와 follow-up item(표, handoff 조립, 완료 보고 명령, 수신 지침)은 `cascade.md` 및 기존 `sdk_features`와 하나로 합친다. `through` checkpoint는 업데이트 검토에만 둔다. `(agent: 같은 상태 추적을 세 벌 만들지 않는다)`
-2. **메모 key는 append-only 순서 manifest + slug id로 둔다**: 제품 PATCH 판은 `land.sh`·`main-merge.sh`가 올릴 때 정하므로 branch에서 판 번호로 사슬을 이을 수 없다. 새 설치(`fresh: true`)는 `through`를 manifest 끝으로 초기화하고, 기존 data root는 도입 시점 이전 기준선 메모를 첫 검토 후보로 둔다. `(agent)`
-3. **메모·지침 누락 검사는 역량 표면 `modules`를 건드린 새 change-log 항목의 `platform_note: <id> | none`으로 잡는다**: 모든 내부 수정에 강제하면 습관적인 `none`이 되어 무뎌지므로 대상 module이 걸릴 때만 묻는다. `(agent)`
-4. **평소 turn 인지가 1단계다**: Inbox를 누르지 않는 대화에 즉시 효력이 나고 비용이 가장 작다. 메모 본문은 skill 옆 `.md`에 두어 prompt cache를 깨지 않는다. `(agent)`
-5. **`runtime: custom` agent 수정 주체**: 정의의 `workspace`가 없으면(전역) Home lophn이, `project`·`app` 범위면 그 그릇의 lophn이 `agent.update`로 본문과 `tools`·`skills`를 고친다(할당·권한 칸은 사람 전용 그대로). `(agent: agent-definition.md 불변식 18·30)`
-6. **보관된 앱·project는 감지와 제안에서 뺀다**: 되살렸을 때 그때의 상태와 현재 차이로 다시 본다. `(agent)`
+1. **`workflow.yaml`에 작성 기준 판 도장 `flow_sdk`를 기록한다**: 멀티 버전 실행기는 두지 않고 `workflow.check`가 검증된 `@lophn/flow` 판을 도장으로 남겨, 지원 하한 아래로 떨어진 workflow를 `required`로 감지하고 수리 전 실행을 입구에서 막는다. `(사람, 2026-11-23)`
+2. **창구는 하나로 합치고, 질문은 보유 자산 매칭만 하며, 글 수정은 소유권으로 가른다**: 단일 Inbox 줄(`required` 수 명시)·단일 skill에서 앱·workflow·시스템을 함께 보되, `ask`는 보유 자산에 실익 있는 것만 묻고 나머지 새 역량은 보고 끝 한 줄 안내로만 전한다. `memory.md`·생성 skill은 고친 뒤 보고하고 `LOPHN.md`는 제안만 한다. `(사람, 2026-11-23)`
+3. **provider 복수 credential은 이 체계가 다뤄야 할 플랫폼 기능의 예시이며 이번에 별도 기능 로드맵을 열지는 않는다**. `(사람, 2026-11-23)`
+4. **공통 토대 공유**: 작업 공간 정본 reader와 follow-up item(표, handoff 조립, 완료 보고 명령, 수신 지침)은 `cascade.md` 및 기존 `sdk_features`와 하나로 합친다. `through` checkpoint는 업데이트 검토에만 둔다. `(agent)`
+5. **메모 key는 append-only 순서 manifest + slug id로 둔다**: 제품 PATCH 판은 `land.sh`·`main-merge.sh`가 올릴 때 정하므로 branch에서 판 번호로 사슬을 이을 수 없다. 새 설치(`fresh: true`)는 `through`를 manifest 끝으로 초기화한다. `(agent)`
+6. **메모·지침 누락 검사는 역량 표면 `modules`를 건드린 새 change-log 항목의 `platform_note: <id> | none`으로 잡는다**. `(agent)`
+7. **평소 turn 인지가 1단계다**: 내장 prompt·skill `description` 정렬이 가장 싸고 평소 대화에 바로 닿는다. 메모 본문은 skill 옆 `.md`에 두어 prompt cache를 깨지 않는다. `(agent)`
+8. **`runtime: custom` agent 수정 주체**: 전역 정의는 Home lophn이, `project`·`app` 범위 정의는 그 그릇의 lophn이 `agent.update`로 본문과 `tools`·`skills`를 고친다. `(agent: agent-definition.md 불변식 18·30)`
+9. **보관된 앱·project는 감지와 제안에서 뺀다**: 되살렸을 때 그때의 상태와 현재 차이로 다시 본다. `(agent)`
 
 ## 정할 것
 
-1. **workflow(`flow.ts`)에 `@lophn/flow` 판 고정(`flow_sdk`)을 둘지**
-   - **안 A (추천 — `workflow.yaml`에 가벼운 판 한 줄 `flow_sdk: "2.0.0"` 기록)**: 폴더마다 `package.json`을 만들지 않고 `workflow.yaml`에 `flow_sdk` 판만 적어(`workflow.check`가 채우거나 검사), `flow-host`가 `<data>/sdk/flow/<판>`으로 띄우고 지원 하한 아래로 떨어지면 앱과 똑같이 `required` 업데이트로 감지한다.
-     - *얻는 것*: `@lophn/flow` major가 올라도 기존 workflow가 즉시 깨지지 않고, 이미 써 둔 `flow-2.0.0.md` 같은 메모가 빠짐없이 `required` 인계를 탄다.
-     - *잃는 것*: `workflow.yaml`에 판 칸 하나가 생기고 옛 `@lophn/flow` 판 사본을 data root에 유지해야 한다(앱 SDK와 같음).
-   - **안 B (pin 없이 늘 최신 `@lophn/flow` 사용 + 플랫폼 메모로만 안내)**:
-     - *얻는 것*: `workflow.yaml`이 판 번호를 전혀 갖지 않는다.
-     - *잃는 것*: breaking 판이 오르면 사람이 업데이트 검토를 돌리기 전까지 기존 flow의 새 실행이 바로 실패한다.
-
-2. **기존 `/update-apps` 통합 모양과 제안·수정 범위**
-   - **안 A (추천 — 단일 입구로 합치되, 질문은 기존 자산에 실익 있는 것만 + 소유별 수정 분리)**:
-     - Inbox 알림 줄 하나(막힌 `required` 수는 따로 표시)와 Home skill 하나로 합쳐 앱·project/workflow·시스템을 한 숲에서 본다.
-     - `ask` 질문은 이미 가진 자산에 실익이 있는 것만 묻고, 해당 자산이 없는 새 역량은 보고 끝에 한 줄로만 덧붙인다.
-     - 옛 우회 지침 정리는 agent가 쓰는 글(`memory.md`, project skill)은 고친 뒤 보고하고, 사람이 쓰는 글(`LOPHN.md`)은 제안만 한다.
-     - *얻는 것*: 단추 하나로 앱과 workflow를 엮은 제안까지 받고, 질문 피로가 없으며, 사람이 쓴 지침을 멋대로 고치지 않는다.
-     - *잃는 것*: 앱 SDK만 따로 돌리고 싶을 때는 인자로 좁혀야 한다.
-   - **안 B (앱 SDK 업데이트 줄·skill과 플랫폼 업데이트 줄·skill을 분리, 또는 새 역량마다 써 볼지 질문)**:
-     - *얻는 것*: 지금 `/update-apps`가 그대로 유지되거나 아직 안 써 본 기능도 적극 권유받는다.
-     - *잃는 것*: 업데이트 한 번에 Inbox 줄과 대화가 둘로 갈라지거나 업데이트마다 질문이 늘어난다.
-
-3. **provider별 복수 credential 등록 및 선택 activate 기능 로드맵 분리**
-   - 추천: 이 메커니즘 로드맵과 분리해 별도 기능 로드맵(`provider-accounts.md`, 현재 `agent-definition.md` 불변식 59는 같은 정의 연결을 `conflict`로 거절)으로 열고, 완성될 때 첫 platform note 사례로 연결한다.
+없다.
 
 ## 단계
 
@@ -119,10 +104,12 @@
 |---|---|---|
 | 1 | 내장 prompt·skill `description`에 최근 역량 정렬 + `records.ts check`의 `platform_note` 검사 | 독립·선행 가능 |
 | 2 | 공통 토대(`cascade.md` 단계 2와 공유): 작업 공간 정본 reader + 공통 follow-up item 표(`sdk_features` 통합)·보고 명령 | `cascade`와 한 번에 구현 |
-| 3 | `platform-notes.json`·메모 규약, 플랫폼 `through` review와 상태 read 확장, 통합 업데이트 skill(및 정할 것 1의 `flow_sdk` 연결) | 1·2 위 |
+| 3 | `workflow.yaml`의 `flow_sdk` 도장·차단·감지, `platform-notes.json`·메모 규약과 기준선 메모(`flow-2.0.0.md` 연결 포함), 플랫폼 `through` review와 상태 read 확장, 단일 업데이트 skill | 1·2 위 |
 
 ## 하지 않는 것
 
 - 기동 시 사람 개입 없이 program이 스스로 agent session을 열어 기존 앱이나 workflow를 고치는 것(`architecture/event.md` 불변식 3).
+- `@lophn/flow` 옛 판으로 기존 `flow.ts`를 계속 돌리는 멀티 버전 flow 실행기.
 - 기능 변화 없이 판만 맞추려고 멀쩡히 도는 앱이나 workflow를 건드리는 것.
+- 사람이 쓴 `LOPHN.md`를 agent가 묻지 않고 직접 고쳐 쓰는 것.
 - 사용자·agent 역량과 무관한 내부 수정마다 플랫폼 메모 작성을 강제하는 것.

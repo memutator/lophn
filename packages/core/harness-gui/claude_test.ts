@@ -2,28 +2,27 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
-
-import { manualClock } from "../../base/clock.ts";
-import { createIdSource } from "../../base/id.ts";
-import { seededRandom } from "../../base/random.ts";
-import type { AcpInput } from "../../protocol/acp/input.ts";
-import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
-import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
-import type {
-  AcpSessionHandle,
-  AcpTerminal,
-  CliProcess,
-} from "../../protocol/acp/mod.ts";
 import type {
   CanUseTool,
   Options,
   SDKUserMessage,
   // biome-ignore lint/correctness/noUndeclaredDependencies: Agent SDK는 extension bundle에만 들어간다. core package.json에 두지 않는다(설치본 platform/이 OS별 claude 사본을 받게 된다).
 } from "@anthropic-ai/claude-agent-sdk";
+import { manualClock } from "../../base/clock.ts";
+import { createIdSource } from "../../base/id.ts";
+import { seededRandom } from "../../base/random.ts";
+import type { AcpInput } from "../../protocol/acp/input.ts";
+import type {
+  AcpSessionHandle,
+  AcpTerminal,
+  CliProcess,
+} from "../../protocol/acp/mod.ts";
+import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
+import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
 import {
+  type ClaudeSdk,
   claudeDenyTools,
   createClaudeAdapter,
-  type ClaudeSdk,
 } from "./claude.ts";
 
 // 녹화(fixtures/claude)로 adapter를 돌린다. 실제 `claude`는 띄우지 않고, SDK의 query()를 녹화 메시지를 내는
@@ -1466,6 +1465,39 @@ test("세션 제목은 SDK summary(lastPrompt)보다 firstPrompt를 먼저 쓰�
   await t.feed({ type: "result", subtype: "success", is_error: false });
   await flush();
   assert.equal(t.state.session?.title, "AI Generated Title");
+});
+
+test("lophn 봉투로 싼 firstPrompt는 봉투를 벗긴 본문 첫 줄이 제목이 되고 customTitle이 생기면 그쪽으로 갱신한다", async () => {
+  let info: { customTitle?: string; firstPrompt?: string; summary: string } = {
+    firstPrompt:
+      '<lophn-call from="agent:ses_x" call="cal_1" reply="result">\nResearch the pricing page\nmore detail',
+    summary: '<lophn-step instance="wfi_1" step="research">\nStep body',
+  };
+  const t = await setup({ sessionInfo: () => info });
+  await t.input(t.send("1", "x"));
+  await t.feed({ type: "result", subtype: "success", is_error: false });
+  await flush();
+  assert.equal(t.state.session?.title, "Research the pricing page");
+
+  // 닫는 tag 없이 잘린 firstPrompt와 summary의 step 봉투도 같다.
+  info = {
+    firstPrompt: '<lophn-call from="agent:ses_x" call="cal_1">',
+    summary: '<lophn-step instance="wfi_1" step="research">\nStep body',
+  };
+  await t.input(t.send("2", "y"));
+  await t.feed({ type: "result", subtype: "success", is_error: false });
+  await flush();
+  assert.equal(t.state.session?.title, "Step body");
+
+  info = {
+    customTitle: "AI title",
+    firstPrompt: info.firstPrompt,
+    summary: "",
+  };
+  await t.input(t.send("3", "z"));
+  await t.feed({ type: "result", subtype: "success", is_error: false });
+  await flush();
+  assert.equal(t.state.session?.title, "AI title");
 });
 
 // 팀원 탭의 `!`는 사람이 친 명령이다. turn 자격 file 경로를 비운 env로 띄워 `!lophn …`이 사람 자격으로 돈다. 팀원 탭은 `lophn`을 부를

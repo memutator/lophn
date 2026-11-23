@@ -131,7 +131,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고 본문 blob은 tx 안에서 만들 수 없다. 마지막 응답 읽기는 run의 결과와 같은 규칙이고 글만 싣는다(`architecture/run.md`).
 28. harness runtime session은 run-loop 입력함이 아니라 harness queue가 받는다(`architecture/coding-agent.md`). 답은 custom과 같다.
     - GUI 탭 팀원(`architecture/harness-gui.md` "팀원", `harness_gui = 1`)은 project의 GUI 탭이 받는다. project에서 부른 내장 coding agent(call, `team spawn`)는 팀원으로 열려 core가 그 project에 탭을 연다. 그 queue는 그 탭이 쉴 때 하나씩 그 탭의 새 turn으로 들어가고, result call의 답은 그 입력을 가져간 turn의 마지막 agent 글이다(`lophn call reply`로 먼저 답했으면 그것).
-    - 묶인 탭이 없는 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 그 CLI session을 resume하거나 새로 띄우고 거기 넣는다(project마다 8개까지, 할 일이 끝나면 닫는다). 그 turn이 harness 자신의 승인 card에 닿으면 사람이 탭에서 답할 때까지 기다린다.
+    - 묶인 탭이 없는 팀원에게 입력이 오면 core가 그 project에 터미널을 열어 그 CLI session을 resume하거나 새로 띄우고 거기 넣는다(project마다 일하는 탭이 8개까지이고 넘으면 줄 서며, 할 일이 끝나면 닫는다). 그 turn이 harness 자신의 승인 card에 닿으면 사람이 탭에서 답할 때까지 기다린다.
     - Home·앱 workspace·custom harness agent의 session(`harness_gui = 0`)은 core 안 background 실행기가 같은 상주 ACP 어댑터(`terminal: null`)로 받아 돌리고, 승인·질문은 자동으로 거절/미응답 처리하며, queue가 비면 짧은 linger 뒤 handle을 닫는다.
     - harness session은 archive되지 않고 열린 채라 13의 `receiver_ended`가 저절로 오지 않는다. 그래서 result call을 가져간 turn이 답 글 없이 끝나거나(멈춤, 실패, 탭·handle 닫힘이나 restart 탭의 TUI 전환), 사람 메시지가 연 turn이 그 call을 가져갔거나, 30초 안에 turn이 열리지 않거나, 탭을 열 수 없으면(상한, 실패) core가 그 call 하나를 `receiver_ended`로 닫는다. 사람이 그 coding session을 Recent에서 지우면 팀원 session이 보관되어 받은 열린 call도 같이 닫힌다. 아직 가져가지 않은 call은 탭이 TUI를 보이는 동안 기다린다.
 

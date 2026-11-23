@@ -1,7 +1,7 @@
 id: gui-member-opened-per-project-cap
 title: 프로젝트당 core가 연 GUI 팀원 탭 상한(8)을 넘으면 추가 spawn이 즉시 실패한다
 kind: defect
-status: open
+status: fixed
 topic: terminal-agent
 modules: [packages/core/terminal-agents]
 now: |
@@ -13,5 +13,6 @@ impact: |
 fix: |
   - 상한이 지키는 자원이 무엇인지(동시 실행 중인 harness 프로세스 수 vs 열린 탭 수, 프로젝트 단위 vs 기계 전체)를 먼저 정한다.
   - 상한 초과 시 `receiver_ended`로 즉시 튕기는 대신 대기 큐에 두고 앞선 팀원이 끝나면 순차 실행하거나, 거절해야 한다면 사유가 드러나는 오류를 돌려준다.
-decide: |
-  동시 GUI 팀원 상한을 어떤 기준(실행 중 프로세스 수 vs 열린 탭 수)으로 두고, 초과 시 대기 큐로 순차 실행할지 즉시 오류를 낼지 정한다.
+closed: |
+  상한(8)은 한꺼번에 일하는 core가 연 팀원 탭(GUI를 띄우는 중이거나 turn이 도는 중)을 project마다 센다. 일을 마치고 쉬는 탭과 사람이 연 탭은 세지 않는다. 상한을 넘는 입력은 `receiver_ended`로 튕기지 않고 줄 서서 자리가 나는 대로(turn 끝, 터미널 끝) 들어온 순서로 열리며, 30분 안에 자리가 나지 않으면 log를 남기고 실패로 돌려준다.
+guard: packages/core/terminal-agents/member_test.ts "a ninth call in a project waits for a free slot instead of failing back, and opens when a working tab ends"

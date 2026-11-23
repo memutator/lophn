@@ -1,7 +1,7 @@
 id: claude-gui-title-leaks-lophn-envelope
 title: Claude Code GUI 팀원 탭의 제목에 <lophn-call>·<lophn-step> 봉투 태그가 그대로 표시된다
 kind: bug
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/core/harness-gui]
 now: |
@@ -13,3 +13,6 @@ impact: |
 fix: |
   - `claude.ts`의 `refreshTitle()`과 `sessions()`에서 `firstPrompt`/`summary`를 제목 fallback으로 쓸 때 `<lophn-call ...>`, `<lophn-step ...>`, `<lophn-reply ...>` 등 lophn 봉투 태그를 벗긴 본문의 첫 의미 있는 줄을 추출한다(core의 `session-title` 규칙과 맞춘다).
   - 단위 test로 봉투가 감싼 `firstPrompt`에서 본문 첫 줄이 제목으로 나오고, `customTitle`이 생기면 그쪽으로 갱신되는 것을 검증한다.
+closed: |
+  `claude.ts`의 `refreshTitle()`과 `sessions()`가 `firstPrompt`·`summary`를 제목으로 쓸 때 `<lophn-…>` 봉투(닫는 tag가 잘린 것 포함)를 벗기고 본문의 첫 줄을 쓴다. `customTitle`이 생기면 그쪽이 앞선다.
+guard: packages/core/harness-gui/claude_test.ts "lophn 봉투로 싼 firstPrompt는 봉투를 벗긴 본문 첫 줄이 제목이 되고 customTitle이 생기면 그쪽으로 갱신한다"

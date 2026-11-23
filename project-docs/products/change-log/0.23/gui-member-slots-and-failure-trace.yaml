@@ -1,0 +1,16 @@
+id: gui-member-slots-and-failure-trace
+version: 0.23.133
+title: GUI 팀원 탭의 상한은 줄 세우고, 답을 기다리는 탭은 닫지 않고, 실패 사유와 제목을 남긴다
+modules: [packages/core/terminal-agents, packages/core/harness-gui, packages/core/main]
+change: |
+  전: core가 연 팀원 탭이 project마다 8개를 넘으면 그 입력을 `receiver_ended`로 바로 실패시켰다. 답을 기다리는 열린 call이 있어도 turn이 끝나면 탭을 닫아 reply마다 `--resume` 탭을 다시 열었고, 그 turn이 곧바로 실패하면 오류가 ledger에 남지 않았다(`model_error`뿐). Claude Code GUI 탭의 제목은 `<lophn-call …>` 봉투가 그대로 보였다.
+  후: 상한(8)은 한꺼번에 일하는 탭(GUI를 띄우는 중이거나 turn이 도는 중)만 센다. 넘는 입력은 줄 서서 자리가 나면 순서대로 열리고 30분 안에 자리가 나지 않으면 log와 함께 실패한다. 열린 outgoing call이 있거나 도는 workflow step을 맡은 세션의 탭은 닫지 않는다. 넣은 입력이 `failed`로 끝나면 adapter의 오류(credential을 가린 것)를 log와 그 ledger turn의 글로 남긴다. 제목은 봉투를 벗긴 본문 첫 줄이다.
+why: |
+  worker를 여러 개 띄우는 workflow에서 reply가 조용히 유실되고 탭 이름이 구분되지 않았다. 실패 사유가 없어 `--resume` 직후 실패의 원인을 좁힐 수 없었다.
+decisions:
+  - text: "상한이 지키는 것은 열린 탭 수가 아니라 동시에 일하는 harness 프로세스다. 쉬는 탭은 세지 않는다. 버린 길: 탭 수로 세기(team 탭이 자리를 영영 쥔다)."
+    by: agent
+  - text: "turn 실패 오류는 ledger turn의 글로 남긴다(TurnOutcome schema는 그대로). 버린 길: outcome에 message 칸 추가(protocol과 모든 쓰는 쪽을 바꾸는 큰 변경)."
+    by: agent
+follow_up: |
+  `--resume` 직후 CLI가 곧바로 죽는 원인은 실제 CLI로 재현하지 못했다. 다시 보이면 ledger turn의 오류 글로 원인을 좁힌다. 이미 꺼낸 입력(reply 등)은 같은 message로 turn을 다시 열 수 없어(`turns_input_message` unique) 재전달하지 않는다.

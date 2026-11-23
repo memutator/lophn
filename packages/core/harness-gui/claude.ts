@@ -5,28 +5,27 @@
 // 이 session 동안의 허락, fast·thinking)를 옵션으로 다시 넣는다. subagent의 대화는 `parent_tool_use_id`로 줄기(Lane)를 나눠
 // `child_update`로 내고, `/clear`는 CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. `!` 명령은 model에 보내지 않고 adapter가 돌린 뒤
 // 결과를 `shouldQuery: false` 사람 메시지로 transcript에만 붙인다(model은 다음 turn에 본다).
-import { PERSON_SHELL_ENV } from "../../protocol/coding-agent/credential-env.ts";
-import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
+
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import {
+  type CanUseTool,
   forkSession,
   getSessionInfo,
   getSessionMessages,
   getSubagentMessages,
   importSessionToStore,
   listSessions,
-  query,
-  renameSession,
-  type CanUseTool,
   type ModelInfo,
   type Options,
   type PermissionResult,
   type PermissionUpdate,
   type Query,
+  query,
+  renameSession,
   type SDKUserMessage,
   type SessionStoreEntry,
   type SlashCommand,
@@ -34,12 +33,6 @@ import {
   type SpawnOptions,
   // biome-ignore lint/correctness/noUndeclaredDependencies: Agent SDK는 extension bundle에만 들어간다. core package.json에 두지 않는다(설치본 platform/이 OS별 claude 사본을 받게 된다).
 } from "@anthropic-ai/claude-agent-sdk";
-import {
-  classifyReceived,
-  isTaskNotification,
-  type ReceivedText,
-  type TranscriptOrigin,
-} from "./received.ts";
 import type { IdSource } from "../../base/id.ts";
 import type { Result } from "../../base/result.ts";
 import { redactCredentials } from "../../base/telemetry/log.ts";
@@ -52,6 +45,16 @@ import {
   type AcpToolBody,
   type AcpToolItem,
 } from "../../protocol/acp/items.ts";
+import type {
+  AcpCliSession,
+  AcpRewindPreview,
+  AcpTerminal,
+  CliProcess,
+  CliSpawn,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/mod.ts";
+import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type {
   AcpCapabilities,
@@ -67,22 +70,21 @@ import type {
   AcpTask,
   AcpUpdate,
 } from "../../protocol/acp/state.ts";
+import { PERSON_SHELL_ENV } from "../../protocol/coding-agent/credential-env.ts";
 import {
-  IMAGE_NOTE,
   type ContentBlock,
+  IMAGE_NOTE,
 } from "../../protocol/lophn-agent/content-block.ts";
-import type {
-  AcpCliSession,
-  AcpRewindPreview,
-  AcpTerminal,
-  CliProcess,
-  CliSpawn,
-  HarnessCatalogResult,
-  HarnessLaunchConfig,
-} from "../../protocol/acp/mod.ts";
+import { INPUT_TAGS } from "../../protocol/lophn-agent/input-tags.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
 import { replayImages } from "./images.ts";
 import { swapQueued } from "./queue.ts";
+import {
+  classifyReceived,
+  isTaskNotification,
+  type ReceivedText,
+  type TranscriptOrigin,
+} from "./received.ts";
 
 export type { HarnessCatalogResult, HarnessLaunchConfig };
 
@@ -500,6 +502,33 @@ function spawned(proc: CliProcess): SpawnedProcess {
 
 const relative = (cwd: string, path: string) =>
   path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
+
+// `lophn team spawn`·workflow step으로 열린 session의 첫 prompt는 `<lophn-call …>`·`<lophn-step …>` 봉투로 싸여 있어 그대로 제목에 쓰면 탭마다 같은 tag만
+// 보인다. 봉투를 벗긴 본문의 첫 줄을 제목 후보로 쓴다(SDK의 `firstPrompt`는 잘려 닫는 tag가 없을 수 있다).
+const ENVELOPE_OPEN = new RegExp(
+  `^<(?:${Object.values(INPUT_TAGS).join("|")})(?: [a-z_]+="[^"]*")*>`,
+);
+function titleLine(text: string | undefined): string | null {
+  if (text === undefined) return null;
+  let body = text.trim();
+  while (ENVELOPE_OPEN.test(body))
+    body = body.replace(ENVELOPE_OPEN, "").trim();
+  const line = body
+    .replace(/&lt;(\/?)lophn-/g, "<$1lophn-")
+    .split(/\r?\n/)
+    .map((one) => one.trim())
+    .find((one) => one !== "" && !/^<\/lophn-[a-z]+>$/.test(one));
+  return line ?? null;
+}
+function sessionTitleOf(info: {
+  customTitle?: string;
+  firstPrompt?: string;
+  summary: string;
+}): string | null {
+  return (
+    info.customTitle ?? titleLine(info.firstPrompt) ?? titleLine(info.summary)
+  );
+}
 
 function summaryOf(cwd: string, input: Record<string, unknown>): string {
   for (const key of [
@@ -1987,8 +2016,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         const found = await sdk.getSessionInfo(cliSession, { dir: cwd });
         // SDK의 `summary`는 `customTitle`/`aiTitle`이 없으면 `lastPrompt`를 먼저 넣어 매 turn마다 제목이 마지막 프롬프트로 바뀐다.
         // `customTitle`(SDK가 `aiTitle` 포함) → `firstPrompt` → `summary` 순으로 읽는다.
-        const title =
-          found?.customTitle ?? found?.firstPrompt ?? found?.summary ?? null;
+        const title = found === undefined ? null : sessionTitleOf(found);
         if (title !== null && title !== titled) {
           titled = title;
           changed({ title });
@@ -3517,7 +3545,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         .sort((a, b) => b.lastModified - a.lastModified)
         .map((one) => ({
           id: one.sessionId,
-          title: one.customTitle ?? one.firstPrompt ?? one.summary,
+          title: sessionTitleOf(one),
           updated_at: new Date(one.lastModified).toISOString(),
         }));
     }

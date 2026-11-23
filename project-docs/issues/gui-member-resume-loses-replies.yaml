@@ -1,7 +1,7 @@
 id: gui-member-resume-loses-replies
 title: 닫힌 GUI 팀원 탭에 reply가 도착해 --resume으로 재기동할 때 즉시 실패해 reply가 유실되고 실패 사유도 남지 않는다
 kind: bug
-status: open
+status: fixed
 topic: terminal-agent
 modules: [packages/core/terminal-agents, packages/core/harness-gui, packages/core/main]
 now: |
@@ -16,3 +16,7 @@ fix: |
   1. `claude --gui --resume <id>`로 재기동 직후 `member.ts`가 입력을 넣는 경로를 로컬 재현해 ~100ms 실패의 정확한 원인을 고친다(`replay` 중 `idle` 판정/레이스 여부 및 CLI stderr 확인).
   2. 전달하지 못한 reply가 조용히 사라지지 않게 지키고, 실패한 turn의 오류 메시지(redaction 후)를 ledger/instance에 남겨 원인이 드러나게 한다.
   3. 열린 `agent_calls`의 reply를 기다리는 중이거나 활성 workflow step을 맡은 세션은 `closeIfDone`이 조기 종료해 불필요한 `--resume` 재기동과 자체 subagent 단절을 일으키지 않도록 검토한다.
+closed: |
+  `~100ms` 실패의 원인은 실제 CLI 없이는 재현하지 못했다. reply가 사라진 이유는 둘로 나뉜다. (1) 실패한 turn의 오류(`turn_ended.error`)가 ledger까지 오지 않아 사후 추적이 불가능했다. 이제 `member.ts`가 넣은 입력이 끝나지 못하면 그 입력 종류·message id·오류를 log에 남기고, `failed`로 끝난 turn에는 adapter의 오류 글(credential을 가린 것)을 ledger turn의 글로 남긴다. 이 글은 `completed`가 아니라 core의 자동 답으로 가지 않는다. (2) 답을 기다리는 열린 call이 있거나 도는 workflow step을 맡은 세션은 `closeIfDone`이 닫지 않는다(`HarnessMembers.holding`). worker 6개의 reply가 닫힌 탭에 `--resume`을 6번 걸던 경로가 없어진다.
+  남은 일: `--resume` 직후 CLI가 곧바로 죽는 이유는 이제 log와 ledger turn의 오류 글로 드러난다. 같은 증상이 다시 보이면 그 글로 원인을 좁힌다.
+guard: packages/core/terminal-agents/member_test.ts "a failed call turn keeps the adapter's error in the ledger turn, and a tab holding open work is not closed"

@@ -484,6 +484,21 @@ export const harnessWiring: WiringFactory = () => {
           });
           return done.ok ? ok(undefined) : done;
         },
+        // 답을 기다리는 열린 call이 있거나 도는 workflow step을 맡은 session. 읽지 못하면 쥔 것으로 보아 닫지 않는다.
+        holding(session) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            lookup.sql.all(
+              `select 1 as held from agent_calls
+                 where from_session = ? and state = 'accepted'
+               union all
+               select 1 from messages m
+                 join workflow_instances w on w.id = m.step_instance
+                 where m.session = ? and w.state = 'running' and w.current_step = m.step_name`,
+              [session, session],
+            ),
+          );
+          return !found.ok || found.value.length > 0;
+        },
         describe(session) {
           const found = harnessSession(session);
           if (!found.ok || !found.value.accepting) return null;

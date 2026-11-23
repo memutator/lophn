@@ -83,6 +83,7 @@ function setup() {
   const listeners = new Set<(session: string) => void>();
   let lateCredential: (() => void) | null = null;
   let startHold: Promise<void> | null = null;
+  let holding = false;
   // 열린 팀원 session의 ledger 모습과, 탭을 열지 못해 비운 queue.
   const rows = new Map<
     string,
@@ -114,6 +115,7 @@ function setup() {
     },
     describe: (session) => rows.get(session) ?? null,
     forget: async () => ok(0),
+    holding: () => holding,
     failQueued: async (session) => {
       emptied.push(session);
       queueOf(session).splice(0);
@@ -306,6 +308,9 @@ function setup() {
     emptied,
     takenSeen,
     ensured: () => ensured,
+    hold: (value: boolean) => {
+      holding = value;
+    },
     failOpens: () => {
       opensFail = true;
     },
@@ -533,7 +538,7 @@ const turnStarted = (turn: string): AcpUpdate => ({
 });
 
 // 결정 B: core가 연 탭은 project마다 8개까지다. 아홉째는 열지 않고 실패로 돌려준다.
-test("a project holds at most eight tabs core opened, and the ninth call fails back", async () => {
+test("a ninth call in a project waits for a free slot instead of failing back, and opens when a working tab ends", async () => {
   const kit = setup();
   try {
     for (let n = 1; n <= 9; n += 1) {
@@ -546,9 +551,35 @@ test("a project holds at most eight tabs core opened, and the ninth call fails b
       await kit.queueCall(n, id("ses", 100 + n));
     }
     assert.equal(kit.opens.length, 8);
-    assert.deepEqual(kit.emptied, [id("ses", 109)]);
+    assert.deepEqual(kit.emptied, []);
+    // 일하는 탭 하나가 끝나 자리가 나면 줄 선 팀원이 열린다.
+    kit.gui.terminalEnded(TERMINAL);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(kit.opens.length, 9);
   } finally {
     kit.cleanup();
+  }
+});
+
+test("a failed call turn keeps the adapter's error in the ledger turn, and a tab holding open work is not closed", async () => {
+  for (const held of [false, true]) {
+    const kit = setup();
+    try {
+      kit.hold(held);
+      await kit.queueCall(1);
+      await kit.open();
+      await kit.publish(turnStarted("acp_c"));
+      await kit.publish(kit.message(id("msg", 1), "acp_c", "user", "call"));
+      await kit.publish({
+        ...kit.ended("acp_c", "failed"),
+        error: { code: "internal", message: "No conversation found" },
+      } as AcpUpdate);
+      assert.deepEqual(kit.failed, [id("cal", 1)]);
+      assert.match([...kit.answers.values()].join(), /No conversation found/);
+      assert.deepEqual(kit.closed, held ? [] : [TERMINAL]);
+    } finally {
+      kit.cleanup();
+    }
   }
 });
 

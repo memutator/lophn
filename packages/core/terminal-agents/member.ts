@@ -106,6 +106,11 @@ export type HarnessMembers = {
     who: AuthenticatedContext,
     input: { project: string; harness: HarnessRuntime; cli_session: string },
   ): Promise<Result<number>>;
+  /**
+   * 그 session이 아직 끝나지 않은 일을 쥐고 있는지: 답을 기다리는 열린 call(내보낸 `agent_calls`)이 있거나 도는 workflow step을 맡았다.
+   * 쥐고 있으면 core가 연 탭도 turn이 끝났다고 닫지 않는다(닫으면 답이 올 때마다 `--resume`으로 다시 띄워야 한다).
+   */
+  holding?(session: string): boolean;
   /** 그 팀원 queue를 비우고 그 안의 call을 실패로 돌려준다(탭을 열지 못했다). */
   failQueued(session: string): Promise<Result<void>>;
   /** 그 turn의 자격을 끝낸다. */
@@ -136,8 +141,12 @@ export const OPEN_WAIT_MS = 60_000;
 // 넣은 입력이 탭의 turn을 열기를 기다리는 한도. 넘으면 그 입력은 탭에 닿지 않은 것으로 보고 닫는다. 사람의 turn이 도는 동안은 다시 잰다.
 export const INJECT_WAIT_MS = 30_000;
 
-// project마다 core가 스스로 연 팀원 터미널의 상한. 사람이 연 탭은 세지 않는다.
+// project마다 core가 스스로 연 팀원 터미널 가운데 한꺼번에 일하는 것(GUI를 띄우는 중이거나 turn이 도는 중)의 상한. 사람이 연 탭과 일을 마치고
+// 쉬는 탭은 세지 않는다. 넘는 입력은 자리가 날 때까지 줄 서고, 한도 안에 자리가 나지 않으면 실패로 돌려준다.
 export const OPENED_PER_PROJECT = 8;
+
+// 상한 때문에 줄 선 팀원이 자리를 기다리는 한도.
+export const OPEN_QUEUE_WAIT_MS = 30 * 60_000;
 
 type Turn = {
   // 넣은 입력의 ledger turn과 입력. 사람이 친 turn은 null이다.
@@ -179,7 +188,15 @@ type Member = {
 };
 
 // core가 연 터미널의 GUI를 기다리는 것. 한도가 지나도 터미널이 끝날 때까지 들고 있어 같은 팀원에 둘째 탭을 열지 않는다.
-type Pending = { session: string; timedOut: boolean; cancel: () => void };
+type Pending = {
+  session: string;
+  project: string;
+  timedOut: boolean;
+  cancel: () => void;
+};
+
+// 상한 때문에 탭을 열지 못해 줄 선 팀원.
+type OpenWait = { session: string; project: string; cancel: () => void };
 
 export type GuiMembers = ReturnType<typeof createGuiMembers>;
 
@@ -205,8 +222,10 @@ export function createGuiMembers(deps: {
   const byTerminal = new Map<string, Member>();
   // core가 그 팀원을 위해 연 터미널 → 기다림. 그 터미널의 handle이 열리면 묶는다.
   const pending = new Map<string, Pending>();
-  // 터미널을 여는 중인 팀원.
-  const opening = new Set<string>();
+  // 터미널을 여는 중인 팀원 → project.
+  const opening = new Map<string, string>();
+  // 상한에 막혀 자리를 기다리는 팀원. 들어온 순서대로 연다.
+  const openQueue: OpenWait[] = [];
   // core가 연 터미널 → project. 끝날 때까지 project마다 상한에 센다.
   const coreOpened = new Map<string, string>();
   let offQueued: (() => void) | null = null;
@@ -230,8 +249,8 @@ export function createGuiMembers(deps: {
   }
 
   // 탭이 없는 팀원에게 입력이 왔다. 사람이 coding agent를 스스로 띄우게 허락했으면 그 project에 터미널을 열어 CLI session을 이어(없으면
-  // 새로) GUI로 띄우고, 그 탭이 서면 묶고 넣는다. 허락이 없거나, project의 상한에 찼거나, 열지 못하거나, 한도 안에 GUI가 서지 않으면
-  // 기다리던 call을 실패로 돌려준다.
+  // 새로) GUI로 띄우고, 그 탭이 서면 묶고 넣는다. project에서 일하는 탭이 상한이면 자리가 날 때까지 줄 서고(`drainOpens`), 허락이 없거나,
+  // 열지 못하거나, 한도 안에 GUI가 서지 않거나, 자리가 한도 안에 나지 않으면 기다리던 call을 실패로 돌려준다.
   async function openFor(session: string) {
     const members = deps.members();
     if (members === null || opening.has(session)) return;
@@ -240,17 +259,29 @@ export function createGuiMembers(deps: {
       if (waiting.timedOut) await members.failQueued(session);
       return;
     }
+    if (openQueue.some((one) => one.session === session)) return;
     const info = members.describe(session);
     if (info === null) return;
-    const busy = [...coreOpened.values()].filter(
-      (project) => project === info.project,
-    ).length;
-    if (busy >= OPENED_PER_PROJECT) {
-      deps.log("gui member: too many tabs opened in this project");
-      await members.failQueued(session);
+    if (working(info.project) >= OPENED_PER_PROJECT) {
+      deps.log(
+        `gui member: ${OPENED_PER_PROJECT} tabs are working in this project, waiting for a free slot`,
+      );
+      const wait: OpenWait = {
+        session,
+        project: info.project,
+        cancel: () => {},
+      };
+      wait.cancel = deps.after(OPEN_QUEUE_WAIT_MS, () => {
+        const at = openQueue.indexOf(wait);
+        if (at < 0) return;
+        openQueue.splice(at, 1);
+        deps.log("gui member: no tab slot freed up in time, input dropped");
+        void members.failQueued(session);
+      });
+      openQueue.push(wait);
       return;
     }
-    opening.add(session);
+    opening.set(session, info.project);
     const opened = await deps.openTerminal({
       project: info.project,
       harness: GUI_OF_RUNTIME[info.harness],
@@ -260,11 +291,17 @@ export function createGuiMembers(deps: {
     if (!opened.ok) {
       deps.log(`gui member: tab not opened: ${opened.error.message}`);
       await members.failQueued(session);
+      drainOpens(info.project);
       return;
     }
     const terminal = opened.value;
     coreOpened.set(terminal, info.project);
-    const wait: Pending = { session, timedOut: false, cancel: () => {} };
+    const wait: Pending = {
+      session,
+      project: info.project,
+      timedOut: false,
+      cancel: () => {},
+    };
     wait.cancel = deps.after(OPEN_WAIT_MS, () => {
       if (pending.get(terminal) !== wait) return;
       wait.timedOut = true;
@@ -272,6 +309,46 @@ export function createGuiMembers(deps: {
       void members.failQueued(session);
     });
     pending.set(terminal, wait);
+  }
+
+  // project에서 일하는 core가 연 탭: 여는 중이거나 GUI를 기다리는 것, 묶인 뒤 입력을 넣으려 하거나 turn이 도는 것.
+  function working(project: string): number {
+    let count = [...opening.values()].filter((one) => one === project).length;
+    count += [...pending.values()].filter(
+      (one) => one.project === project,
+    ).length;
+    for (const member of byTerminal.values()) {
+      if (member.project !== project || !coreOpened.has(member.terminal)) {
+        continue;
+      }
+      const phase = member.handle?.state().turn?.phase;
+      if (
+        member.delivering ||
+        member.ready !== null ||
+        member.injected !== null ||
+        member.typed !== null ||
+        member.finishing > 0 ||
+        phase === "working" ||
+        phase === "waiting"
+      ) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  // 자리가 났다. 줄 선 팀원을 들어온 순서로 연다.
+  function drainOpens(project: string) {
+    for (;;) {
+      if (working(project) >= OPENED_PER_PROJECT) return;
+      const at = openQueue.findIndex((one) => one.project === project);
+      if (at < 0) return;
+      const [next] = openQueue.splice(at, 1);
+      next!.cancel();
+      const member = bySession(next!.session);
+      if (member !== undefined) void deliver(member);
+      else void openFor(next!.session);
+    }
   }
 
   // 가장 늦은 사람·받은 메시지가 아직 turn에 들지 않았으면 그 turn이 곧 열린다(adapter가 글을 먼저 올리고 turn을 뒤에 여는 경우).
@@ -489,6 +566,7 @@ export function createGuiMembers(deps: {
     turn: Turn,
     end: MemberTurnEnd,
     state: AcpState | null,
+    error: string | null = null,
   ) {
     if (member.injected === turn) member.injected = null;
     if (member.ready === turn) member.ready = null;
@@ -510,6 +588,21 @@ export function createGuiMembers(deps: {
         ? lastAgentText(state, turn.acp)
         : null;
     member.finishing += 1;
+    if (end !== "completed" && input !== null) {
+      // 넣은 입력은 이미 queue에서 꺼냈다. 조용히 사라지지 않게 무엇이 왜 못 닿았는지 남긴다(error는 adapter가 credential을 가린 글이다).
+      deps.log(
+        `gui member: ${input.kind} input ${input.message} ended ${end}${error === null ? "" : `: ${error}`}`,
+      );
+      if (end === "failed" && error !== null) {
+        const kept = await members.record(session, turn.ledger, {
+          kind: "text",
+          text: `The coding agent failed this turn: ${error}`,
+        });
+        if (!kept.ok) {
+          deps.log(`gui member: failure not kept: ${kept.error.message}`);
+        }
+      }
+    }
     if (text !== null && input?.kind === "call") {
       const recorded = await members.record(session, turn.ledger, {
         kind: "text",
@@ -540,6 +633,7 @@ export function createGuiMembers(deps: {
     member.finishing -= 1;
     await closeIfDone(member);
     void deliver(member);
+    drainOpens(member.project);
   }
 
   // core가 call을 받으려고 연 탭은 할 일이 끝나면 닫는다. 팀원(`team spawn`)과 사람이 손댄 탭은 둔다. session은 남아 다시 열린다.
@@ -555,6 +649,7 @@ export function createGuiMembers(deps: {
       member.injected !== null ||
       member.typed !== null ||
       member.finishing > 0 ||
+      members.holding?.(member.session) === true ||
       byTerminal.get(member.terminal) !== member
     ) {
       return;
@@ -586,7 +681,13 @@ export function createGuiMembers(deps: {
       const injected = member.injected;
       if (member.typed?.acp === change.turn) endTyped(member, member.typed);
       if (injected?.acp === change.turn) {
-        void endInjected(member, injected, change.outcome, state);
+        void endInjected(
+          member,
+          injected,
+          change.outcome,
+          state,
+          change.error?.message ?? null,
+        );
         return;
       }
     }
@@ -673,7 +774,9 @@ export function createGuiMembers(deps: {
      * 전에 끝났으면 기다리던 call을 실패로 돌려준다.
      */
     terminalEnded(terminalRef: string): void {
+      const freed = coreOpened.get(terminalRef);
       coreOpened.delete(terminalRef);
+      if (freed !== undefined) queueMicrotask(() => drainOpens(freed));
       const wait = pending.get(terminalRef);
       if (wait !== undefined) {
         pending.delete(terminalRef);
@@ -724,6 +827,7 @@ export function createGuiMembers(deps: {
       for (const wait of pending.values()) wait.cancel();
       pending.clear();
       opening.clear();
+      for (const wait of openQueue.splice(0)) wait.cancel();
       coreOpened.clear();
       for (const [ref, member] of [...byTerminal]) {
         member.detach?.();

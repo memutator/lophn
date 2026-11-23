@@ -606,28 +606,38 @@ flows:
   # ---------- flow: @lophn/flow ----------
 
   - id: sdk-flow-request
-    title: "flow code가 agent, tool, report 요청 한 줄을 core에 보내고 답을 받는다"
+    title: "flow code가 durable primitive(step, agent, human, workflow, tool, onEvent, report, escalate, withFallback)를 core 통로로 실행하고 답을 받는다"
     actor: system
-    entries: [sdk:flow/agent, sdk:flow/tool, sdk:flow/report]
+    entries:
+      - sdk:flow/step
+      - sdk:flow/agent
+      - sdk:flow/human
+      - sdk:flow/workflow
+      - sdk:flow/tool
+      - sdk:flow/onEvent
+      - sdk:flow/report
+      - sdk:flow/escalate
+      - sdk:flow/withFallback
     uses: [workflow-flow-agent-run:answered, workflow-flow-agent-run:run-failed, workflow-flow-agent-run:cancelled, workflow-flow-tool-run:answered, workflow-flow-tool-run:run-failed, workflow-flow-tool-run:cancelled, workflow-flow-report:recorded, workflow-flow-report:ended]
     pre: [workflow-start-flow:running]
     boundary: [sdk-api, child-supervision-protocol, workflows]
-    code: [packages/sdk/flow/wire.ts, packages/sdk/flow/mod.ts]
+    code: [packages/sdk/flow/wire.ts, packages/sdk/flow/runtime.ts, packages/sdk/flow/fallback.ts, packages/sdk/flow/mod.ts]
     steps:
-      - "flow host가 준 start 줄(instance, 입력, 선언적 inputs)을 port로 잡는다. flow process 밖에서 import하면 mod.ts가 Error를 던진다"
-      - "요청을 type을 붙인 JSON 한 줄로 stdout에 쓴다. JSON이 아니거나 1 MiB를 넘으면 core에 보내지 않고 invalid_input 답을 준다. process는 산다"
-      - "요청마다 id를 붙여 같은 id의 응답 줄을 기다린다. core의 outcome을 ok, result 또는 reason, message 꼴로 그대로 넘긴다"
-      - "core가 stdin을 닫으면 기다리던 요청을 버리고 process를 1로 끝낸다"
-      - "result의 T는 부르는 쪽의 단언이라 SDK는 검사하지 않는다"
+      - "flow host가 준 start 줄(instance, 입력, 선언적 inputs, 저장된 checkpoints)을 port로 잡는다. flow process 밖에서 import하면 mod.ts가 Error를 던진다"
+      - "step(key, fn)은 필수 고유 key로 checkpoint 범위를 열고, 이미 completed인 key는 fn을 다시 돌리지 않고 저장된 출력을 바로 돌려준다. AsyncLocalStorage로 병렬 분기의 순번(${key}/${kind}#${n})을 격리한다"
+      - "agent, human, workflow, tool은 step(key, fn) 안이거나 명시적 key가 있어야 한다. 둘 다 없으면 즉시 Error를 던진다. AbortSignal이 취소되면 cancel_id와 함께 cancel frame을 보낸다"
+      - "onEvent는 subscribe frame을 보내고 subscription_id로 도착하는 비영속 event frame을 handler에 넘긴다. disposer는 unsubscribe frame을 보낸다"
+      - "withFallback은 실패한 Outcome을 fallbackAgent에게 넘겨 retry, substitute, throw, escalate 중 하나를 결정·실행하는 core 밖 SDK helper다"
+      - "요청은 JSON 한 줄로 stdout에 쓴다. JSON이 아니거나 1 MiB를 넘으면 core에 보내지 않고 invalid_input 답을 준다. core가 stdin을 닫으면 process를 1로 끝낸다"
     outcomes:
       - id: answered
-        when: "core가 결과를 돌려줬다(agent 답, tool 결과, report 기록)"
+        when: "core가 결과를 돌려줬다(step·agent·human·workflow·tool·report·escalate·subscribe)"
         observe: ["response"]
       - id: run-failed
-        when: "core가 agent나 tool run이 failed로 끝났다고 돌려줬다(reason 그대로)"
+        when: "core가 primitive 실패 Outcome(경계 오류 코드 일곱 또는 cancelled, interrupted, stalled, model_error)을 돌려줬다"
         observe: ["response"]
       - id: cancelled
-        when: "core가 run을 cancelled로 돌려줬다"
+        when: "AbortSignal 취소나 instance 중지로 cancelled Outcome이 돌아왔다"
         observe: ["response"]
       - id: value-refused
         code: invalid_input

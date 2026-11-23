@@ -1,14 +1,56 @@
 import {
+  type FallbackDecision,
+  runWithFallback,
+  type WithFallbackOptions,
+} from "./fallback.ts";
+import { createFlowRuntime } from "./runtime.ts";
+import {
   type AgentAddress,
+  type AgentMode,
   type AgentRequest,
+  type Checkpoint,
+  type CheckpointKind,
+  type CheckpointState,
   currentPort,
+  type EscalateRequest,
+  type EventFilter,
+  type EventHandler,
+  type EventWorkspaceFilter,
+  type FlowEvent,
   type FlowPort,
+  type HumanRequest,
   type Outcome,
+  type OutcomeReason,
   type ReportRequest,
+  type SessionChoice,
+  type SoftOutput,
   type ToolRequest,
+  type WorkflowRequest,
 } from "./wire.ts";
 
-export type { AgentAddress, AgentRequest, Outcome, ReportRequest, ToolRequest };
+export type {
+  AgentAddress,
+  AgentMode,
+  AgentRequest,
+  Checkpoint,
+  CheckpointKind,
+  CheckpointState,
+  EscalateRequest,
+  EventFilter,
+  EventHandler,
+  EventWorkspaceFilter,
+  FallbackDecision,
+  FlowEvent,
+  HumanRequest,
+  Outcome,
+  OutcomeReason,
+  ReportRequest,
+  SessionChoice,
+  SoftOutput,
+  ToolRequest,
+  WithFallbackOptions,
+  WorkflowRequest,
+};
 
 function need(): FlowPort {
   const port = currentPort();
@@ -19,7 +61,9 @@ function need(): FlowPort {
   }
   return port;
 }
+
 const port = need();
+const runtime = createFlowRuntime(port);
 
 export const input: string = port.input;
 export const inputs: Readonly<Record<string, unknown>> = port.inputs
@@ -29,15 +73,44 @@ export const inputs: Readonly<Record<string, unknown>> = port.inputs
   : Object.freeze({});
 export const instance: string = port.instance;
 
-// result의 type T는 부르는 쪽의 단언이다. 검사하지 않는다.
-export function agent<T = unknown>(args: AgentRequest): Promise<Outcome<T>> {
-  return port.request({ type: "agent", ...args }) as Promise<Outcome<T>>;
+export function step<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
+  return runtime.step(key, fn);
 }
 
-export function tool<T = unknown>(args: ToolRequest): Promise<Outcome<T>> {
-  return port.request({ type: "tool", ...args }) as Promise<Outcome<T>>;
+export function agent(req: AgentRequest): Promise<Outcome<SoftOutput>> {
+  return runtime.agent(req);
 }
 
-export function report(args: ReportRequest): Promise<Outcome<null>> {
-  return port.request({ type: "report", ...args }) as Promise<Outcome<null>>;
+export function human(req: HumanRequest): Promise<Outcome<SoftOutput>> {
+  return runtime.human(req);
+}
+
+export function workflow(req: WorkflowRequest): Promise<Outcome<SoftOutput>> {
+  return runtime.workflow(req);
+}
+
+export function tool<T = unknown>(req: ToolRequest): Promise<Outcome<T>> {
+  return runtime.tool<T>(req);
+}
+
+export function onEvent<T = unknown>(
+  filter: EventFilter,
+  handler: EventHandler<T>,
+): () => void {
+  return runtime.onEvent(filter, handler);
+}
+
+export function report(req: ReportRequest): Promise<Outcome<void>> {
+  return runtime.report(req);
+}
+
+export function escalate(req: EscalateRequest): Promise<Outcome<void>> {
+  return runtime.escalate(req);
+}
+
+export function withFallback<T>(
+  outcome: Outcome<T>,
+  opts: WithFallbackOptions<T>,
+): Promise<Outcome<T>> {
+  return runWithFallback({ agent, escalate }, outcome, opts);
 }

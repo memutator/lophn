@@ -259,7 +259,7 @@ files:
 
   - path: packages/sdk/flow/wire_test.ts
     covers: []
-    note: "flow SDK의 start 줄 해석(inputs 기본 빈 객체, frozen, 객체 아닌 inputs 거절)과 mod.ts의 inputs export를 본다"
+    note: "flow SDK 2.0.0의 start 줄 해석(inputs·checkpoints frozen), step(key, fn) replay cache hit, AsyncLocalStorage 병렬 step 격리, step 밖 key 없는 primitive 거절, AbortSignal cancel frame, onEvent subscribe/event/unsubscribe, withFallback(retry/substitute/throw/escalate), mod.ts 전체 export를 본다"
 
   - path: tests/support/fake-oauth/issuer_test.ts
     covers: []

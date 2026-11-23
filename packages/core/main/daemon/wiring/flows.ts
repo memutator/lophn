@@ -1,5 +1,6 @@
 import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
@@ -42,6 +43,16 @@ export const flowsWiring: WiringFactory = () => {
           );
           return found.ok ? found.value : found;
         },
+        resolveApp(app) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            workspaceDepsOf(lookup.sql).apps.appByName(app),
+          );
+          if (!found.ok) return found;
+          const resolved = found.value;
+          return resolved.ok ? ok(resolved.value.id as Id<"app">) : resolved;
+        },
+        // flowEvents는 jobs wiring이 나중에 provide하므로 요청·정리 시점에 읽는다.
+        flowEvents: () => ctx.peek.flowEvents,
         workflows: ctx.workflowService,
         redact: (line) => redactor(SOURCE, "text/plain", line),
       });

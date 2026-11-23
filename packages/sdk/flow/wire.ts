@@ -3,9 +3,56 @@
 // 모양을 손으로 옮겼다. 모양이 어긋나면 host가 요청을 값 오류로 돌려보낸다.
 import process from "node:process";
 
+export type OutcomeReason =
+  | "invalid_input"
+  | "not_found"
+  | "forbidden"
+  | "unauthorized"
+  | "conflict"
+  | "unavailable"
+  | "internal"
+  | "cancelled"
+  | "interrupted"
+  | "stalled"
+  | "model_error";
+
 export type Outcome<T = unknown> =
   | { ok: true; result: T }
-  | { ok: false; reason: string; message: string };
+  | {
+      ok: false;
+      reason: OutcomeReason;
+      message: string;
+      session?: string;
+    };
+
+export type SoftOutput = {
+  summary: string;
+  refs?: string[];
+  data?: unknown;
+};
+
+export type CheckpointKind = "step" | "agent" | "human" | "workflow" | "tool";
+export type CheckpointState =
+  | "started"
+  | "completed"
+  | "failed"
+  | "interrupted";
+
+export type Checkpoint = {
+  instance: string;
+  key: string;
+  kind: CheckpointKind;
+  state: CheckpointState;
+  handle_ref: string | null;
+  output: unknown | null;
+  error: {
+    reason: OutcomeReason;
+    message: string;
+    session?: string;
+  } | null;
+  started_at: string;
+  finished_at: string | null;
+};
 
 // workspace가 없으면 이 workflow의 project다.
 export type AgentAddress = {
@@ -13,40 +60,201 @@ export type AgentAddress = {
   workspace?: { project: string } | { app: string };
 };
 
+export type AgentMode = "turn" | "report";
+export type SessionChoice = "new" | "same" | (string & {});
+
+export type EventWorkspaceFilter =
+  | string
+  | { kind: "project" | "app"; id: string };
+
+export type EventFilter = {
+  source: string;
+  event: string;
+  workspace?: EventWorkspaceFilter;
+};
+
+export type FlowEvent<T = unknown> = {
+  source: string;
+  event: string;
+  payload: T;
+};
+
+export type EventHandler<T = unknown> = (
+  event: FlowEvent<T>,
+) => void | Promise<void>;
+
 export type AgentRequest = {
   agent: AgentAddress;
   prompt: string;
   input?: unknown;
   schema?: Record<string, unknown>;
+  key?: string;
+  mode?: AgentMode;
+  session?: SessionChoice;
+  step?: string;
+  on?: string;
+  signal?: AbortSignal;
 };
-export type ToolRequest = { app: string; tool: string; input?: unknown };
-export type ReportRequest = { step: string; text: string; next?: string };
 
-export type RequestBody =
-  | ({ type: "agent" } & AgentRequest)
-  | ({ type: "tool" } & ToolRequest)
-  | ({ type: "report" } & ReportRequest);
+export type HumanRequest = {
+  with: AgentAddress | string;
+  prompt: string;
+  input?: unknown;
+  step?: string;
+  key?: string;
+  session?: SessionChoice;
+  signal?: AbortSignal;
+};
+
+export type WorkflowRequest = {
+  workflow: string;
+  input?: string;
+  inputs?: Record<string, unknown>;
+  key?: string;
+  signal?: AbortSignal;
+};
+
+export type ToolRequest = {
+  app: string;
+  tool: string;
+  input?: unknown;
+  key?: string;
+  signal?: AbortSignal;
+};
+
+export type ReportRequest = {
+  step: string;
+  text: string;
+  refs?: string[];
+  data?: unknown;
+  next?: string;
+};
+
+export type EscalateRequest = {
+  step: string;
+  reason: string;
+};
+
+export type WireRequestBody =
+  | { type: "step_begin"; key: string }
+  | { type: "step_end"; key: string; outcome: Outcome }
+  | {
+      type: "agent";
+      key: string;
+      agent: AgentAddress;
+      prompt: string;
+      input?: unknown;
+      schema?: Record<string, unknown>;
+      mode?: AgentMode;
+      session?: SessionChoice;
+      step?: string;
+      on?: string;
+      cancel_id?: string;
+    }
+  | {
+      type: "human";
+      key: string;
+      with: AgentAddress;
+      prompt: string;
+      input?: unknown;
+      step?: string;
+      session?: SessionChoice;
+      cancel_id?: string;
+    }
+  | {
+      type: "workflow";
+      key: string;
+      workflow: string;
+      input?: string;
+      inputs?: Record<string, unknown>;
+      cancel_id?: string;
+    }
+  | {
+      type: "tool";
+      key: string;
+      app: string;
+      tool: string;
+      input?: unknown;
+      cancel_id?: string;
+    }
+  | { type: "cancel"; cancel_id: string }
+  | {
+      type: "subscribe";
+      subscription_id: string;
+      source: string;
+      event: string;
+      workspace?: EventWorkspaceFilter;
+    }
+  | { type: "unsubscribe"; subscription_id: string }
+  | {
+      type: "report";
+      step: string;
+      text: string;
+      refs?: string[];
+      data?: unknown;
+      next?: string;
+    }
+  | {
+      type: "escalate";
+      step?: string;
+      reason: string;
+    };
 
 type StartLine = {
   type: "start";
   instance: string;
   input: string;
   inputs?: Record<string, unknown>;
+  checkpoints?: Checkpoint[];
 };
-type ResponseLine = { type: "response"; id: string; outcome: Outcome };
+
+type ResponseLine = {
+  type: "response";
+  id: string;
+  outcome: Outcome;
+};
+
+export type EventLine = {
+  type: "event";
+  subscription_id: string;
+  source: string;
+  event: string;
+  payload: unknown;
+};
+
+type HostLine = ResponseLine | EventLine;
 
 export type FlowPort = {
   instance: string;
   input: string;
   inputs: Readonly<Record<string, unknown>>;
-  request(body: RequestBody): Promise<Outcome>;
+  checkpoints: readonly Checkpoint[];
+  request(body: WireRequestBody): Promise<Outcome>;
+  registerEventListener(
+    subscriptionId: string,
+    handler: (event: FlowEvent) => void,
+  ): () => void;
 };
 
 export type ParsedStart = {
   instance: string;
   input: string;
   inputs: Readonly<Record<string, unknown>>;
+  checkpoints: readonly Checkpoint[];
 };
+
+function isValidCheckpoint(value: unknown): value is Checkpoint {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const cp = value as Record<string, unknown>;
+  return (
+    typeof cp.instance === "string" &&
+    typeof cp.key === "string" &&
+    typeof cp.kind === "string" &&
+    typeof cp.state === "string"
+  );
+}
 
 export function parseStartLine(
   line: string,
@@ -64,7 +272,10 @@ export function parseStartLine(
     (start.inputs !== undefined &&
       (typeof start.inputs !== "object" ||
         start.inputs === null ||
-        Array.isArray(start.inputs)))
+        Array.isArray(start.inputs))) ||
+    (start.checkpoints !== undefined &&
+      (!Array.isArray(start.checkpoints) ||
+        !start.checkpoints.every(isValidCheckpoint)))
   ) {
     return { ok: false, message: "flow: first line is not a start message" };
   }
@@ -74,6 +285,7 @@ export function parseStartLine(
       instance: start.instance,
       input: start.input,
       inputs: Object.freeze({ ...(start.inputs ?? {}) }),
+      checkpoints: Object.freeze([...(start.checkpoints ?? [])]),
     },
   };
 }
@@ -91,6 +303,7 @@ export function currentPort(): FlowPort | undefined {
 }
 
 const pending = new Map<string, (outcome: Outcome) => void>();
+const eventListeners = new Map<string, (event: FlowEvent) => void>();
 let nextId = 0;
 let writing = Promise.resolve();
 let writes = 0;
@@ -118,7 +331,7 @@ function writeAll(bytes: Uint8Array): Promise<void> {
   });
 }
 
-function request(body: RequestBody): Promise<Outcome> {
+function request(body: WireRequestBody): Promise<Outcome> {
   const id = String(++nextId);
   let bytes: Uint8Array;
   try {
@@ -147,23 +360,52 @@ function request(body: RequestBody): Promise<Outcome> {
   });
 }
 
+function registerEventListener(
+  subscriptionId: string,
+  handler: (event: FlowEvent) => void,
+): () => void {
+  eventListeners.set(subscriptionId, handler);
+  return () => {
+    if (eventListeners.get(subscriptionId) === handler) {
+      eventListeners.delete(subscriptionId);
+    }
+  };
+}
+
 function onLine(line: string): void {
-  let message: ResponseLine;
+  let message: HostLine;
   try {
     message = JSON.parse(line);
   } catch {
     console.error("flow: ignored a line that is not JSON");
     return;
   }
-  const resolve =
-    message?.type === "response" ? pending.get(message.id) : undefined;
-  if (!resolve) {
-    console.error("flow: ignored an unknown line or response id");
+  if (message?.type === "response") {
+    const resolve = pending.get(message.id);
+    if (!resolve) {
+      console.error("flow: ignored an unknown response id");
+      return;
+    }
+    pending.delete(message.id);
+    resolve(message.outcome);
+    wake?.();
     return;
   }
-  pending.delete(message.id);
-  resolve(message.outcome);
-  wake?.();
+  if (message?.type === "event") {
+    const listener = eventListeners.get(message.subscription_id);
+    if (!listener) return;
+    try {
+      listener({
+        source: message.source,
+        event: message.event,
+        payload: message.payload,
+      });
+    } catch (error) {
+      console.error("flow: event handler error:", error);
+    }
+    return;
+  }
+  console.error("flow: ignored an unknown line");
 }
 
 async function readLines(onFirst: (line: string) => void): Promise<void> {
@@ -185,7 +427,7 @@ async function readLines(onFirst: (line: string) => void): Promise<void> {
   fail(1, "stdin closed");
 }
 
-// 첫 줄(start)을 받고 port를 놓은 뒤 resolve한다. 그 뒤 줄은 response로 읽는다.
+// 첫 줄(start)을 받고 port를 놓은 뒤 resolve한다. 그 뒤 줄은 response/event로 읽는다.
 export function connect(): Promise<void> {
   return new Promise((resolve) => {
     void readLines((line) => {
@@ -194,6 +436,7 @@ export function connect(): Promise<void> {
       const port: FlowPort = {
         ...parsed.value,
         request,
+        registerEventListener,
       };
       (globalThis as Store)[FLOW_PORT] = port;
       resolve();

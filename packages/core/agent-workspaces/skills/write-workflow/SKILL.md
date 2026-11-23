@@ -5,12 +5,12 @@ description: "Write a workflow: how people and agents pass a job from step to st
 
 # Workflow
 
-A workflow is how people and agents pass a job from step to step. You write its
-definition as files. A person or a job starts it. There is no command that starts
-an instance, so an agent cannot start one.
+A workflow is how people, agents, app tools and app events compose a job from
+step to step. You write its definition as files. A person, a job, or a parent
+workflow (same project) starts it. General agent chats cannot start one.
 
-lophn only records what the participants say and passes it on to the next step.
-It does not check a result, does not judge whether a step passed and does not
+lophn only records what participants say, checkpoints durable execution and
+passes work on. It does not check a result, judge whether a step passed or
 force an order.
 
 ## What a workflow is
@@ -20,6 +20,7 @@ A workflow is one folder, `<Workflows folder>/<name>/`:
 ```
 <Workflows folder>/eval-loop/
 ├── workflow.yaml     the declaration, read by lophn
+├── flow.ts           optional; presence selects programmatic flow mode
 ├── workflow.md       the declaration in plain words, read by people and you
 └── artifacts/        optional
     ├── static/index.html     the steps drawn as nodes
@@ -31,16 +32,17 @@ your workspace information. Always write with that absolute path and `file.write
 relative path lands in the person's project folder, which is wrong. `<name>` is
 a lowercase slug (`eval-loop`).
 
+Execution mode is chosen solely by whether `flow.ts` exists in the folder. Do
+not write `kind: agent` or `kind: flow` (legacy `kind` is ignored).
+
 ## The declaration
 
 lophn reads only these fields. Any other field is the workflow's own and lophn
 does not read it or call it wrong.
 
-- `kind`: `agent`, or `flow`. With `flow`, a program (`flow.ts`) runs the steps;
-  see Flow workflows below.
-- `agent`: for a `flow`, the agent whose assignment the app
-  command calls use. It is an agent handle; when left out it is lophn.
-- `participants`: a map from a key you choose to `{ agent, workspace? }`
+- `agent`: for a folder with `flow.ts`, the agent whose assignment app command
+  (`tool`) calls use. It is an agent handle; when left out it is `lophn`.
+- `participants`: a map from a key you choose to `{ agent, workspace?, on? }`
   or `{ kind: human }`.
   - `agent` is the agent's handle. `workspace` is `{project: <name>}` or
     `{app: <slug>}`; when left out it is this instance's project, not home.
@@ -49,11 +51,11 @@ does not read it or call it wrong.
     project must exist there under the same cross-computer id; `workspace`
     names it as on this computer. If that computer is off, the step waits and
     goes when it comes back; a step that arrives late waits for the person
-    there. The participant there reports with `lophn workflow report` as usual,
-    and the report comes back here. A `human` participant has no `on`, and a
-    private project does not hand steps to another computer.
+    there. A `human` participant has no `on`, and a private project does not
+    hand steps to another computer.
 - `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next? }`.
-  The first key is the first step.
+  Required (non-empty) when there is no `flow.ts` (YAML shorthand); optional
+  when `flow.ts` is present (for display and `report` step names).
   - `by`: the participant key that does the step.
   - `with`: for a step `by` a `human` participant, the agent that talks with the
     person and reports the result.
@@ -76,7 +78,6 @@ does not read it or call it wrong.
   `{ type?: string | number | boolean | json | path | refs, description?, required? }`.
 
 ```yaml
-kind: agent
 inputs:
   mode:
     type: select
@@ -115,158 +116,167 @@ steps:
     next: [spec, end]
 ```
 
-## Flow workflows
+## Flow workflows (`flow.ts`)
 
-With `kind: flow`, a program runs the steps instead of agents passing a message
-along. The folder is:
-
-```
-<Workflows folder>/nightly/
-├── workflow.yaml     kind: flow and steps
-├── flow.ts           the code
-├── workflow.md       the same in plain words
-└── artifacts/        optional
-```
-
-lophn reads `kind: flow`, `agent`, `inputs`, `outputs` and `steps` from
-`workflow.yaml`. The keys of `steps` are the step names that the screens and
-`report` use. The other fields (`by`, `prompt`, `participants`) are not read by
-lophn; use them as notes only.
-`flow.ts` may import other files of the same folder by a relative path.
+When `flow.ts` exists in the folder, lophn snapshots the workflow folder's
+source files at start and runs `flow.ts` in a durable Node process.
+`flow.ts` may import sibling files of the same folder by relative path (`.ts`
+extension) and `node:` built-ins.
 
 ```ts
-import { agent, input, inputs, report, tool } from "@lophn/flow";
+import {
+  agent,
+  human,
+  input,
+  inputs,
+  report,
+  step,
+  tool,
+  withFallback,
+} from "@lophn/flow";
 
 const target = typeof inputs.target === "string" ? inputs.target : "notes";
-const draft = await agent<{ title: string }>({
-  agent: { agent: "lophn", workspace: { app: target } },
-  prompt: "Write a title for this note.",
-  input,
-  schema: { type: "object", required: ["title"] },
+const draft = await step("draft", async () => {
+  const first = await agent({
+    agent: { agent: "lophn", workspace: { app: target } },
+    prompt: "Write a short note summary.",
+    input,
+  });
+  return withFallback(first, {
+    fallbackAgent: { agent: "lophn" },
+    context: { target },
+    retry: () =>
+      agent({
+        agent: { agent: "lophn", workspace: { app: target } },
+        prompt: "Retry writing a concise note summary.",
+        input,
+      }),
+  });
 });
+
 if (!draft.ok) {
   await report({ step: "draft", text: draft.message, next: "end" });
 } else {
-  await tool({ app: target, tool: "notes.add", input: draft.result });
-  await report({ step: "draft", text: draft.result.title, next: "end" });
+  const confirmed = await step("confirm", () =>
+    human({
+      with: { agent: "lophn" },
+      prompt: `Review and confirm: ${draft.result.summary}`,
+    }),
+  );
+  if (confirmed.ok) {
+    await step("save", () =>
+      tool({ app: target, tool: "notes.add", input: { body: confirmed.result.summary } }),
+    );
+    await report({
+      step: "save",
+      text: confirmed.result.summary,
+      refs: confirmed.result.refs,
+      next: "end",
+    });
+  }
 }
 ```
 
-The SDK `@lophn/flow` gives six things:
+`@lophn/flow` (v2.0.0) exports:
 
-- `input`: the text the instance was started with.
-- `inputs`: read-only (`Readonly<Record<string, unknown>>`) object of validated,
-  default-filled values from the declared `inputs` (or `{}` when none).
-- `instance`: the instance id.
-- `agent({ agent, prompt, input?, schema? })`: calls one agent as a run, waits
-  until it ends and gives its answer. `agent` is `{ agent, workspace? }` (workspace left
-  out means this instance's project).
-- `tool({ app, tool, input? })`: calls one command of an app (`tool` is the
-  command's name).
-- `report({ step, text, next? })`: the same as `lophn workflow report`. `next: "end"`
-  ends the instance.
+- `input: string`: the start text.
+- `inputs: Readonly<Record<string, unknown>>`: frozen validated values from
+  `inputs:` in `workflow.yaml` (or `{}`).
+- `instance: string`: the instance id.
+- `step(key, fn)`: durable checkpoint block. `key` is **mandatory** and must be
+  unique. Completed steps return their saved output on replay without re-running
+  `fn`. Sequential primitives inside `step` get deterministic sub-keys
+  (`${key}/${kind}#${n}`, isolated across `Promise.all` via `AsyncLocalStorage`).
+  Wrap each `Promise.all` branch in its own `step(key, ...)` or pass an explicit `key`.
+- `agent({ agent, prompt, input?, schema?, key?, mode?, session?, step?, on?, signal? })`:
+  calls an agent and returns `Outcome<SoftOutput>`. `mode` is `"turn"` (default;
+  waits for turn completion and open outgoing `agent_calls` to settle, returning
+  `stalled` if calls settle with no follow-up turn) or `"report"` (waits for
+  `workflow.report`). `session` is `"new"`, `"same"`, or a session id. `signal`
+  cancels the running turn.
+- `human({ with, prompt, input?, step?, key?, session?, signal? })`:
+  starts a human-agent conversation (`human_turn`) and waits for `workflow.report`.
+  Excluded from stall detection; process stays alive while waiting.
+- `workflow({ workflow, input?, inputs?, key?, signal? })`:
+  calls another workflow in the same project as a sub-workflow (cross-project is
+  `forbidden`, cycle or nesting depth > 5 is `conflict`).
+- `tool({ app, tool, input?, key?, signal? })`:
+  calls a public app command with 2-phase checkpointing.
+- `onEvent({ source, event, workspace? }, handler)`:
+  non-persistent subscription to app events (`source: "<app>"`) or lophn session
+  events (`source: "lophn"`). Returns an unsubscribe disposer. Events missed
+  while stopped are not replayed; query current state with `tool()` after restart.
+- `report({ step, text, refs?, data?, next? })`:
+  records progress, explicit artifact paths (`refs`), optional structured `data`.
+  `next: "end"` closes the instance as `ended`.
+- `escalate({ step, reason })`:
+  records an escalation so the instance shows `needs_you`.
+- `withFallback(outcome, { fallbackAgent, context?, retry?, step?, key?, signal? })`:
+  SDK helper outside core; if `outcome` failed, asks `fallbackAgent` to choose
+  `retry | substitute | throw | escalate` and executes it.
 
-`agent`, `tool` and `report` never throw. They give `{ ok: true, result }` or
-`{ ok: false, reason, message }`.
+All primitives return `Outcome<T>`:
+`{ ok: true, result: T }` or `{ ok: false, reason, message, session? }`, where
+`SoftOutput = { summary: string, refs?: string[], data?: unknown }`. Calling
+`agent`, `human`, `workflow`, or `tool` outside `step(key, fn)` without an
+explicit `key` throws immediately.
 
-Failure and trying again are the code's job. lophn does not retry and does not
-judge whether a call succeeded. So the code looks at `ok: false` and decides:
-call again, tell with `report`, or throw to end. When it throws or finishes, the
-instance becomes `ended`, with the exit code and the last stderr line kept. If
-lophn is turned off and on, a running flow is not started again; its instance is
-closed as `ended`.
+Durable replay & recovery:
+- On restart, lophn never auto-reruns an in-flight `agent` or `tool`. Both
+  settle to `{ ok: false, reason: "interrupted", message, session? }`. Idle
+  `human()` waits re-attach without re-sending the prompt.
+- If a flow throws or exits non-zero, the instance stays `running` with derived
+  status `blocked` so the person can `[Retry]` (continue in the same session) or
+  `[Resume]` (replay from snapshot, or `use_latest_code: true` after fixing code).
 
-The process: lophn runs a flow as one Node process. There is no sandbox and no
-permission limit, so it can read and write files, use the network and start
-programs. lophn records only what goes through an app command (`tool`) or an agent
-(`agent`); send outside effects that way so lophn records them.
-`console.log` and `process.stdout.write` go to stderr and show in the last line
-of the instance when it ends. Node runs the code itself, stripping type syntax,
-so import `@lophn/flow`, files of the same folder (write the `.ts` extension)
-and Node's built-in modules. Syntax that needs a transform, such as `enum` or
-`namespace`, fails at run; `lophn workflow check` reports it.
+The process: lophn runs a flow as one Node process (512 MiB V8 heap limit, no
+sandbox, env limited to `HOME`, `PATH`, `XDG_CACHE_HOME`). Send outside effects
+through `tool` and `agent` so lophn checkpoints and records them. `console.log`
+goes to stderr. Avoid non-erasable TypeScript syntax (`enum`, `namespace`).
 
-Allotment: an app command that a flow calls works only within the current
-assignment of the agent whose handle is in `agent` of `workflow.yaml` (lophn when left
-out). Before you write the
-flow, choose that agent. If the app is not assigned to it, ask the person to
-assign it (an assignment is theirs to give), saying in their words what the
-workflow can then do.
-Without the assignment, `tool` comes back with `ok: false`. An agent that a flow
-calls can be anyone, but the agent works only within its own assignment.
+Allotment: app commands called by `tool()` use the current assignment of the
+agent in `workflow.yaml`'s `agent:` field (`lophn` when omitted). Ask the person
+before requiring a new app assignment.
 
-After you write or change `flow.ts`, run `lophn workflow check` with
-`<project>/<name>` and read the type errors. It does not run the flow, so it
-does not show that the flow works. No errors means it passes.
+After writing or changing `flow.ts`, run `lophn workflow check <project>/<name>`
+to verify TypeScript types and erasable syntax.
 
-Starting: a person (the screen, the CLI with optional `--inputs <json>`) or a
-job (`workflow_start` with optional `inputs`) starts it. You and other agents
-cannot. The start text arrives as `input` and the validated structured inputs
-arrive as `inputs`.
+Starting: a person (screen, `lophn workflow start --inputs <json>`), a job
+(`workflow_start`), or a parent `workflow()` starts it.
 
 ## A step message is all a participant gets
 
-A participant receives its own step's `prompt`, what it receives (`in` and the
-text of the report before it), what it produces (`out`) and the next candidates
-(`next`). The message labels are `Receives:`, `Received:`, `Produces:` and
-`Next candidates:`. When a `kind: agent` workflow starts with declared `inputs`,
-lophn also injects an `Inputs:` section (one `key: value` line per validated
-input) into the first step's message alongside `Received:`. It does not know
-`workflow.md`, the other steps or the whole workflow.
-
-So write each `prompt` so that it works when read alone: the absolute paths it
-needs, where it leaves its result, and in what words it reports when done. If a
-participant has to read `workflow.md`, that step's `prompt` says so.
+In YAML shorthand workflows, a participant receives its step's `prompt`, `in`,
+previous report text (`Received:`), `out`, `Next candidates:`, and for the first
+step an `Inputs:` section when `inputs:` are declared. Participants can report
+explicit file paths and JSON via `lophn workflow report --refs <paths> --data <json>`.
+Write each `prompt` to stand alone with any absolute paths it needs.
 
 ## After you write it
 
 Run `lophn workflow list`. A wrong declaration drops only that workflow, and its
-`problem` says why (for example `invalid_inputs` for a malformed `inputs` block
-such as missing `options`, invalid `default`/`min`/`max`, or unknown/cyclic
-`when`). A flow whose declaration is wrong or whose `flow.ts` is missing shows a
-`problem` too (`no_flow_file`). The names that `by`, `with` and `next` point to
-are not checked when the file is read: a wrong one shows up when a step is
-handed, as a step that could not be handed.
+`problem` says why (`no_declaration`, `invalid_yaml`, `invalid_declaration`,
+`invalid_inputs`, `broken_flow`). Participant and step references are resolved
+when handed.
 
-The declaration is copied when an instance starts. Changing the file does not
-change a running instance. The participants of that instance change its steps
-with `lophn workflow edit`.
+The declaration and (for flow workflows) a code snapshot are fixed at start.
+YAML instances can edit steps via `lophn workflow edit`; blocked flow instances
+can resume with updated code via `[Resume with updated code]`.
 
 ## Artifacts are optional: you decide
 
-A workflow does not need a picture. You decide, without asking the person,
-whether it gets a static artifact (the steps as nodes), an instance artifact
-(the state of one instance), both, or none. Make one when it helps the person
-follow work they handed off: an instance artifact when the instance runs long
-or passes through people. None is a good answer for a short workflow. If the
-person asks for a picture, make it.
+Make a static or instance artifact only when it helps the person follow work.
+Static artifacts (`artifacts/static/index.html`) inline their steps directly.
+Instance artifacts (`artifacts/instance/index.html`) fetch `"data/_instance.json"`,
+which returns `{ instance, derived_status, last_reports, lines, checkpoints, sessions, refs, children }`
+(or `{"error": ...}` if over 4 MiB). The page reloads on every instance change.
 
-## Drawing nodes with the kit
-
-Follow "Drawing nodes" in the `write-artifact` file `kit.md`: how to load the kit,
-the `renderGraph` call, the shape of nodes and edges and the rules. A workflow
-artifact adds only the following.
-
-The static artifact (`artifacts/static/index.html`) writes its steps straight in
-the HTML: it cannot read `workflow.yaml`, which is outside its folder.
-
-The instance artifact (`artifacts/instance/index.html`) reads
-`fetch("data/_instance.json")`, which gives
-`{ instance, derived_status, last_reports, lines, sessions, refs }`:
-`instance.steps` (name, `by`, `next`, ...), `instance.current`,
-`instance.state`, `derived_status` (`working | needs_you | blocked | ended | stopped`),
-the last report of each step in `last_reports[step]`, the history in `lines`,
-connected sessions in `sessions`, and explicit report file paths in `refs`.
-For a very large instance the response is an error body
-(`{"error": ...}`) with no `instance`: show that as text.
-
-The whole page reloads each time the instance changes, so nothing inside the
-page (open sections, scroll) is kept. Do not try to keep it.
+Follow "Drawing nodes" in the `write-artifact` file `kit.md` for `LophnKit.renderGraph`.
 
 ```html
 <!doctype html>
-<title>Eval loop instance</title>
-<meta name="description" content="Where one eval loop run is.">
+<title>Workflow instance</title>
+<meta name="description" content="Current workflow run state.">
 <link rel="stylesheet" href="/_lophn/kit.css">
 <div id="graph" style="display:block;width:100%"></div>
 <p id="error"></p>
@@ -275,15 +285,13 @@ page (open sections, scroll) is kept. Do not try to keep it.
 (async () => {
   const data = await (await fetch("data/_instance.json")).json();
   if (!data.instance) {
-    document.getElementById("error").textContent = data.error ??
-      "Cannot read the instance.";
+    document.getElementById("error").textContent = data.error ?? "Cannot read the instance.";
     return;
   }
   const { instance, last_reports } = data;
   const nodes = instance.steps.map((s) => {
     const report = last_reports[s.name];
-    const now = instance.state === "running" &&
-      instance.current?.step === s.name;
+    const now = instance.state === "running" && instance.current?.step === s.name;
     return {
       id: s.name,
       label: s.name,
@@ -296,10 +304,7 @@ page (open sections, scroll) is kept. Do not try to keep it.
     };
   });
   const edges = instance.steps.flatMap((s) =>
-    s.next.filter((n) => n !== "end" && n !== s.name).map((to) => ({
-      from: s.name,
-      to,
-    }))
+    s.next.filter((n) => n !== "end" && n !== s.name).map((to) => ({ from: s.name, to }))
   );
   LophnKit.renderGraph(document.getElementById("graph"), { nodes, edges });
 })();
@@ -308,8 +313,6 @@ page (open sections, scroll) is kept. Do not try to keep it.
 
 ## What you do not do
 
-- Do not put policy in the declaration (forcing an order, passing or failing a
-  result). lophn does not judge; it passes on what was said. If such a rule is
-  needed, write it in that step's `prompt`, or let the workflow's own program
-  hold it.
-- Do not start a workflow instance. A person (or a job) starts it.
+- Do not put domain pass/fail policy in `workflow.yaml`. Put rules in step
+  `prompt`s or in `flow.ts`.
+- Do not start a workflow instance from a general agent chat.

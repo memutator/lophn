@@ -1,0 +1,29 @@
+id: workflow-p4-host-sdk
+version: 0.23.154
+title: "@lophn/flow 2.0.0 durable SDK, v2 flow-wire, durable flow-host 및 snapshot 실행 배선을 구현한다"
+modules:
+  - packages/protocol
+  - packages/sdk
+  - packages/core/main
+  - packages/core/agent-workspaces
+change: |
+  - **v2 flow 통로 계약(`packages/protocol/workflows/flow-wire.ts`)**: `FLOW_SDK_VERSION = "2.0.0"`으로 올리고 1.x/2.0 요청 union 분리를 제거해 단일 `flowRequestSchema`(`step_begin`, `step_end`, `agent`, `human`, `workflow`, `tool`, `cancel`, `subscribe`, `unsubscribe`, `report`, `escalate`)와 `flowHostMessageSchema`(`start`, `response`, `event`)로 통일한다. `flowOutcomeSchema.reason`을 `workflowOutcomeReasonSchema`로 고정하고 `agent`/`human`의 `session`에 session id를 허용한다.
+  - **SDK `@lophn/flow` `1.1.0` → `2.0.0` (`lophn.supported_from: "2.0.0"`, `package-lock.json` pin 갱신)**:
+    - `step(key, fn)`(필수 `key`, 완료된 checkpoint replay 시 `fn` 미실행 즉시 반환, `AsyncLocalStorage` 기반 병렬 분기 격리 및 결정론적 순번 `${key}/${kind}#${n}` 부여)을 추가한다.
+    - `step(key, fn)` 밖에서 명시적 `key` 없이 `agent`/`human`/`workflow`/`tool`을 부르면 즉시 오류를 던진다.
+    - `agent`(기본 `mode: "turn"` / `"report"`, `session`, `on`, `signal`), `human`, `workflow`, `tool`, `onEvent`(비영속 `subscribe`/`event`/`unsubscribe`), `report`(`refs`/`data`/`next`), `escalate`를 통일된 `Outcome<T>`·`SoftOutput` 계약으로 제공한다.
+    - `packages/sdk/flow/fallback.ts`에 core 밖 recovery helper `withFallback(outcome, opts)`(`retry | substitute | throw | escalate`)를 추가한다.
+  - **Durable `flow-host` 및 `wiring/flows.ts`(`packages/core/main/flow-host/*`, `packages/core/main/daemon/wiring/flows.ts`)**:
+    - `codeSnapshot`이 있으면 `materializeSnapshot`으로 `<data>/projects/.flow-snapshots/<instance>-<runId>/`에 복원해 실행하고 process 종료 시 정리한다(상위 `<data>/projects/node_modules/@lophn/flow` 경로 해석 유지).
+    - `start` 줄에 `checkpoints`를 싣고, `step_begin`/`step_end`/`agent`/`human`/`workflow`/`tool`(replay cache + 2단계 checkpoint + `AbortController` 취소)/`cancel`/`subscribe`/`unsubscribe`(instance별 subscription id 격리 및 `flowEvents` 연결)/`report`(`refs`/`data`)/`escalate` 전체 v2 요청을 배선한다.
+    - process 종료·`stop(instance)` 시 `flowEvents.unsubscribeInstance(instance)`와 활성 `AbortController` 전체 취소를 수행하고, daemon `close()` 중에는 checkpoint를 덮어쓰지 않아 다음 기동 `reconcile()`이 `interrupted`로 확정하도록 유지한다.
+  - **지침·이전 메모·flow 기록**: `packages/sdk/flow/guide.md`, `packages/core/agent-workspaces/skills/write-workflow/SKILL.md`, `packages/core/agent-workspaces/skills/migrate-sdk/flow-2.0.0.md`(`## Instruction diff` 포함), `project-docs/flows/areas/sdk.yaml`, `project-docs/flows/tests/libs-tooling.yaml`을 갱신한다.
+why: |
+  Phase 4 durable core engine과 `flowEvents` 구독 표 위에 `@lophn/flow` 2.0.0 SDK와 `flow-host`를 연결해 code snapshot replay, 필수 checkpoint key 규칙, `human()`·`workflow()`·`onEvent()`·`escalate()`·`withFallback()`을 flow workflow에서 실제로 쓸 수 있게 하기 위해서다.
+decisions:
+  - text: "`flow-host`가 `flowEvents` registry에 등록하는 `subscriptionId`에 `${instance}:` 접두사를 붙이고, process로 보내는 `event` frame에는 원래 `subscription_id`를 복원한다. 이유: 서로 다른 flow instance가 각각 `sub_1`을 써도 전역 registry에서 덮어쓰지 않게 하기 위해서다."
+    by: agent
+  - text: "`close()`(daemon 종료)에서는 활성 `AbortController`를 abort해 `failed/cancelled` checkpoint를 쓰지 않고 child process 종료와 snapshot 임시 폴더·구독 정리만 수행한다. 이유: 종료 중 돌던 primitive가 `started`로 남아야 다음 기동 `reconcile()`이 `interrupted` + `lophn_restarted`로 확정하고 replay할 수 있기 때문이다."
+    by: agent
+  - text: "`withFallback`은 `agent()`의 `SoftOutput.data`와 `summary`(JSON 또는 fenced JSON)를 모두 해석해 `retry | substitute | throw | escalate`를 실행하는 순수 SDK helper로 둔다."
+    by: agent

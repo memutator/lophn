@@ -1,15 +1,16 @@
 import {
+  type FlowEventMessage,
+  type FlowRequest,
+  type FlowResponse,
+  type FlowStartMessage,
+  flowRequestSchema,
+} from "../../../protocol/workflows/flow-wire.ts";
+import {
   type ByteSource,
   createStreamDecoder,
   drain,
 } from "../../apps/runtime/observations/stream-decoder.ts";
 import type { SpawnedWriter } from "../../supervision/responsiveness/process.ts";
-import {
-  type FlowRequest,
-  flowRequestSchema,
-  type FlowResponse,
-  type FlowStartMessage,
-} from "../../../protocol/workflows/flow-wire.ts";
 
 // process -> core 한 줄의 상한(줄바꿈 제외). SDK는 줄바꿈까지 1 MiB를 넘기면 보내지 않는다.
 export const FLOW_LINE_MAX_BYTES = 1024 * 1024;
@@ -71,13 +72,15 @@ export async function readRequests(
   );
 }
 
-// 여러 요청이 동시에 응답하므로 쓰기를 한 줄로 이어 줄이 섞이지 않게 한다.
-// start는 쓰기 실패를 호출자에게 던진다(launch가 알아야 한다). response는 삼킨다. child가 이미 죽었으면
+// 여러 요청이 동시에 응답하고 event도 실리므로 쓰기를 한 줄로 이어 줄이 섞이지 않게 한다.
+// start는 쓰기 실패를 호출자에게 던진다(launch가 알아야 한다). response·event는 삼킨다. child가 이미 죽었으면
 // 그 instance는 `exited`가 정리한다.
 export function createWriter(stdin: SpawnedWriter) {
   let tail: Promise<void> = Promise.resolve();
   const encoder = new TextEncoder();
-  const send = (message: FlowStartMessage | FlowResponse): Promise<void> => {
+  const send = (
+    message: FlowStartMessage | FlowResponse | FlowEventMessage,
+  ): Promise<void> => {
     const bytes = encoder.encode(JSON.stringify(message) + "\n");
     const written = tail.then(() => stdin.write(bytes));
     tail = written.catch(() => {});
@@ -86,5 +89,6 @@ export function createWriter(stdin: SpawnedWriter) {
   return {
     start: (message: FlowStartMessage) => send(message),
     response: (message: FlowResponse) => send(message).catch(() => {}),
+    event: (message: FlowEventMessage) => send(message).catch(() => {}),
   };
 }

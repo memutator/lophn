@@ -1,5 +1,5 @@
 id: workflow-p3-jobs
-version: 0.23.144
+version: 0.23.146
 title: workflow_start job이 선택적 inputs를 저장·전달하고 CLI job create가 --inputs를 지원한다
 modules:
   - packages/core/jobs

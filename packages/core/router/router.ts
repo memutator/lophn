@@ -51,6 +51,7 @@ import {
 import { STATE_CHANGED_TOPIC } from "../storage/ledger/after-commit.ts";
 import {
   addressingOf,
+  AGENT_CALL_SETTLED_TOPIC,
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   CALL_SESSION_OPENED_TOPIC,
@@ -615,6 +616,22 @@ export function createRouter(deps: RouterDeps): Router {
         });
   }
 
+  function announceAgentSettled(
+    tx: Tx,
+    record: AgentCallRow,
+    to: Exclude<CallState, "accepted">,
+    reason: CallFailReason | null,
+  ): void {
+    // ask call은 부모 짝(ASK_ANSWERED/ASK_ENDED)이 따로 관리하며, 진행 중인 turn 내부 대기라 제외한다.
+    if (record.from.kind !== "agent" || record.ask !== null) return;
+    announce(tx, AGENT_CALL_SETTLED_TOPIC, {
+      session: record.from.session,
+      call: record.call,
+      state: to,
+      fail_reason: reason,
+    });
+  }
+
   // call을 끝낸 상태로 옮긴다. 앱이 보낸 call이면 commit 뒤 그 앱에 `call.settled`를 낸다(앱에는 queue가 없어 끝남을 알릴 곳이 이 event다).
   function finish(
     tx: Tx,
@@ -632,7 +649,10 @@ export function createRouter(deps: RouterDeps): Router {
         fail_reason: reason,
       });
     }
-    if (moved.ok) changedIfRemote(tx, record);
+    if (moved.ok) {
+      announceAgentSettled(tx, record, to, reason);
+      changedIfRemote(tx, record);
+    }
     return moved;
   }
 
@@ -962,6 +982,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (asReceiver && record.reply === "result") {
       const closed = store.move(tx, calId(record.call), "done", null);
       if (!closed.ok) return closed;
+      announceAgentSettled(tx, record, "done", null);
     }
     return ok({ delivered, closed: false });
   }
@@ -2451,6 +2472,7 @@ export function createRouter(deps: RouterDeps): Router {
           fail_reason: null,
         });
       }
+      announceAgentSettled(tx, before, "done", null);
       changedIfRemote(tx, before);
       const closed = queueClosed(tx, before, "done");
       return closed === null || closed.ok ? ok(undefined) : closed;

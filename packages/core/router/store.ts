@@ -351,3 +351,16 @@ export function openCallsSentBy(
     ),
   );
 }
+
+// 그 session이 보낸 열린(accepted) outgoing agent_calls 개수(ask 제외). workflow agent() 완료·stall 판정에 쓴다.
+export function countOpenOutgoingCalls(
+  view: Pick<SqlView, "sql">,
+  sender: Id<"ses">,
+): number {
+  const row = view.sql.get(
+    `select count(*) as open from agent_calls
+     where from_session = ? and state = 'accepted' and ask is null`,
+    [sender],
+  );
+  return Number(row?.["open"] ?? 0);
+}

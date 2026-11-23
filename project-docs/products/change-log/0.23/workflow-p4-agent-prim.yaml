@@ -1,0 +1,24 @@
+id: workflow-p4-agent-prim
+version: 0.23.150
+title: 통합 workflow agent() 실행 primitive(turn|report, 열린 agent_calls 정산·stall, session same, cancel, 원격 on)와 router outgoing call 정산 helper를 더한다
+modules:
+  - packages/core/workflows
+  - packages/core/router
+change: |
+  - `packages/core/workflows/agent-primitive.ts` 추가:
+    - 다른 feature module을 직접 import하지 않는 `AgentPrimitivePorts` 계약(`handOff`, `handOffRemote`, `openOutgoingCalls`, `subscribeTurnEnded`, `subscribeCallsSettled`, `subscribeReport`, 선택적 `subscribeTurnStarted`·`isTurnRunning`, `stopSession`, `onStalled`, `clock`, `timers`)과 `runAgentPrimitive`·`mapTurnOutcomeToReason`을 제공한다.
+    - `mode: "turn"`: turn이 `completed`이고 열린 outgoing `agent_calls`가 0이면 마지막 assistant 응답을 `WorkflowSoftOutput`으로 돌려준다. 열린 call이 남아 있으면 정산을 기다리고, 모든 call이 닫힌 뒤 `clock`/주입 `timers` 기반의 짧은 grace window 안에 후속 turn이 시작되지 않으면 `{ ok: false, reason: "stalled", session, message }`로 종료해 영구 대기를 막는다. `failed`·`stopped` turn은 정확한 `WorkflowOutcomeReason`과 `session`을 보존한다.
+    - `mode: "report"`: `(instance, step, session)`에 일치하는 명시적 `workflow.report`(`summary`, `refs?`, `data?`)가 올 때만 성공으로 완료한다. report 없이 turn이 끝나고 열린 outgoing call이 0이면(사람 step 제외) attempt당 최대 1회 `onStalled`를 부르고 `stalledResolves` 설정에 따라 대기하거나 `stalled`로 끝낸다.
+    - `session: "same"`(또는 명시적 session id) 재사용 시 매 넘김마다 최신 `workflow_origin`을 전달한다.
+    - `AbortSignal` 취소 시 `stopSession` 호출과 모든 listener·timer 정리를 보장하고 `{ ok: false, reason: "cancelled", message, session? }`를 돌려준다.
+    - `on: <machine>` 지정 시 `handOffRemote`로 원격 call mail 경로에 위임하며 `AbortSignal` 취소를 지원한다.
+  - `packages/core/router/` 최소 helper 추가:
+    - `countOpenOutgoingCalls(view, sender)`: 특정 session이 보낸 열린(`accepted`, ask 제외) outgoing `agent_calls` 수를 읽는 순수 조회 함수를 `store.ts`·`mod.ts`에 추가한다.
+    - `AGENT_CALL_SETTLED_TOPIC`(`router.agent-call-settled`): agent session이 보낸 non-ask call이 `accepted`에서 벗어날 때(`finish`, result `reply`, `reply: "none"` `markConsumed`) commit 뒤 알림을 내도록 `model.ts`·`router.ts`·`mod.ts`에 추가한다.
+why: |
+  Workflow Phase 4 통합 durable engine이 YAML 축약형과 flow `agent()` 양쪽에서 열린 `agent_calls` 정산, 영구 대기 방지, 정확한 실패 사유 보존, `session: "same"`의 `workflow_origin` 갱신, `AbortSignal` 취소, 원격 `on` 위임을 한 구현으로 쓰기 위해서다.
+decisions:
+  - text: "`AGENT_CALL_SETTLED_TOPIC`과 `countOpenOutgoingCalls` 모두 `ask IS NULL`인 outgoing call만 대상으로 한다. `ask` call은 부모 승인/질문 짝(`ASK_ANSWERED`/`ASK_ENDED`)이 별도로 관리하고 자식 turn이 도는 동안의 대기이므로, 제외해야 기존 router test 계약과 `agent()`의 정산 의미가 모두 일치한다."
+    by: agent
+  - text: "`mode: \"turn\"`에서 모든 열린 outgoing call이 정산된 뒤 시작되는 짧은 grace window는 `Clock`과 주입 가능한 `AgentPrimitiveTimers`를 쓰며, 선택적 `subscribeTurnStarted`·`isTurnRunning` port로 후속 turn 시작을 감지해 긴 후속 turn 중 오탐 `stalled`를 막는다."
+    by: agent

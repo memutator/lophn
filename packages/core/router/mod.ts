@@ -56,12 +56,15 @@ export {
 export { remoteReach, remoteWorkspaceOf } from "./remote-reach.ts";
 export {
   callsOfSession,
+  countOpenOutgoingCalls,
   deleteAppCallsReceivedBy,
   deleteCallsSentByApp,
   createCallStore,
   readCall,
 } from "./store.ts";
 export {
+  AGENT_CALL_SETTLED_TOPIC,
+  type AgentCallSettledNotice,
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,

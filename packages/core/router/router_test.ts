@@ -16,6 +16,7 @@ import {
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import {
+  AGENT_CALL_SETTLED_TOPIC,
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
@@ -811,4 +812,72 @@ test("an app call obeys the workspace policy, its reply is stored on the row and
     call: second.value.call as typeof call,
   });
   assert.ok(!stolen.ok && stolen.error.code === "forbidden");
+});
+
+test("an agent's outgoing non-ask call announces AGENT_CALL_SETTLED_TOPIC on reply, failure, and none-reply consume", () => {
+  const world = setup({
+    [SENDER]: target(SENDER, true),
+    [RECEIVER]: target(RECEIVER, true),
+  });
+  const first = world.router.route(world.tx, {
+    ...base,
+    to: { session: RECEIVER },
+    dedup: "d1",
+  });
+  assert.ok(first.ok && first.value.call !== null);
+  const replyRes = world.router.reply(
+    world.tx,
+    { session: RECEIVER },
+    { call: first.value.call as never, body: textBlocks("ok"), refs: [] },
+  );
+  assert.ok(replyRes.ok);
+
+  const second = world.router.route(world.tx, {
+    ...base,
+    to: { session: RECEIVER },
+    dedup: "d2",
+  });
+  assert.ok(second.ok && second.value.call !== null);
+  const failed = world.router.failReceivedBy(world.tx, RECEIVER);
+  assert.ok(failed.ok);
+
+  const third = world.router.route(world.tx, {
+    ...base,
+    reply: "none",
+    to: { session: RECEIVER },
+    dedup: "d3",
+  });
+  assert.ok(third.ok && third.value.call !== null);
+  const consumed = world.router.markConsumed(world.tx, third.value.call);
+  assert.ok(consumed.ok);
+
+  assert.deepStrictEqual(world.announced, [
+    {
+      topic: AGENT_CALL_SETTLED_TOPIC,
+      data: {
+        session: SENDER,
+        call: first.value.call,
+        state: "done",
+        fail_reason: null,
+      },
+    },
+    {
+      topic: AGENT_CALL_SETTLED_TOPIC,
+      data: {
+        session: SENDER,
+        call: second.value.call,
+        state: "failed",
+        fail_reason: "receiver_ended",
+      },
+    },
+    {
+      topic: AGENT_CALL_SETTLED_TOPIC,
+      data: {
+        session: SENDER,
+        call: third.value.call,
+        state: "done",
+        fail_reason: null,
+      },
+    },
+  ]);
 });

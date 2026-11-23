@@ -1019,6 +1019,10 @@ files:
     covers: [child-crash-restart:restarted-after-stable]
     note: "ready 뒤 60초를 버틴 child의 실패 수 계산(재기동 횟수 0으로 되돌림). child-crash-restart:restarted-after-stable"
 
+  - path: packages/core/workflows/agent-primitive_test.ts
+    covers: []
+    note: "통합 agent() primitive(mode turn|report, 열린 outgoing agent_calls 정산·grace window stall 판정, 실패 reason 보존, session same 재사용 및 workflow_origin 갱신, AbortSignal 취소 정리, 원격 on 위임, router countOpenOutgoingCalls)의 port 기반 단위 test"
+
   - path: packages/core/workflows/commands_test.ts
     covers:
       - workflow-instance-create:handed

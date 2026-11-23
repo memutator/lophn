@@ -1,5 +1,5 @@
 id: workflow-p2a-contract
-version: 0.23.134
+version: 0.23.136
 title: Workflow 2a 계약, schema step(workflow_origin·workflow_lines), step 넘김의 workflow_origin 기록·상속을 더한다
 modules:
   - packages/protocol

@@ -1,5 +1,5 @@
 id: writer-blob-clock
-version: 0.23.131
+version: 0.23.132
 title: 시스템 시계가 뒤로 간 뒤에도 준비한 blob을 ledger에 등록한다
 modules: [packages/core/storage, packages/core/main, packages/core/apps]
 change: |

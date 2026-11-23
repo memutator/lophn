@@ -25,6 +25,7 @@
   top: var(--space-3);
   z-index: var(--z-toast);
   display: flex;
+  align-items: flex-start;
   justify-content: center;
   height: var(--space-0);
   pointer-events: none;
@@ -32,6 +33,7 @@
 
 .toastSlot > div {
   width: 100%;
+  max-width: var(--page-form);
   pointer-events: auto;
 }
 

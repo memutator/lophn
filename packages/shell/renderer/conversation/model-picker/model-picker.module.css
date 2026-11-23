@@ -1,11 +1,10 @@
 /* model picker. 위에서부터 Roles, 층 한 줄, 검색칸, 따르기 줄, provider 묶음, option 축, 맨 아래 Manage models 줄. */
-/* 폭은 panel 폭이 바닥이고 option 축 한 줄이 더 길면 그만큼 넓어진다. 값 단추가 다음 줄로 떨어지지 않게 한다. */
+/* 폭은 panel 폭이 바닥이고 option 축 한 줄이 더 길거나 trigger가 더 넓으면 그만큼 넓어진다. 값 단추가 다음 줄로 떨어지지 않게 한다. */
 .picker {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  width: max-content;
   min-width: var(--layout-container-panel);
   max-width: 100%;
 }

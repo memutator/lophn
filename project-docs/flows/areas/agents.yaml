@@ -1043,7 +1043,7 @@ flows:
     crosses_process: true
     docs: [architecture/agent-definition.md]
 
-  - id: skill-update-apps
+  - id: skill-update
     title: 사람이 /update로 작업 공간 전체 업데이트 검토 skill을 부른다
     actor: person
     entries: [skill:update]

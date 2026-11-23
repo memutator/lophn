@@ -414,18 +414,18 @@ journeys:
       - {do: "다시 publish해 판이 등록된다", flow: package-publish:published}
 
   - id: app-sdk-update
-    title: "사람이 /update-apps로 앱이 쓰는 SDK 판을 올리고 앱이 다시 준비된다"
+    title: "사람이 /update로 작업 공간의 SDK·workflow·플랫폼 역량을 검토하고 반영한다"
     actor: person
-    goal: "알림의 action으로 home에 SDK 갱신 검토를 맡기고, 고른 앱이 migrate-sdk 지침으로 고쳐 다시 준비한다"
+    goal: "Inbox 알림의 action으로 home에 작업 공간 업데이트 검토를 맡기고, 고른 앱·project가 migrate-sdk 지침으로 고친 뒤 follow-up 결과를 보고한다"
     steps:
-      - {do: "Inbox 알림의 action 단추로 /update-apps를 home에 보낸다", screen: inbox-tab, flow: notice-action:sent}
-      - {do: "home lophn이 update-apps 지침을 읽는다", flow: skill-update-apps:loaded}
-      - {do: "앱이 고정한 SDK 판과 지원 하한을 읽는다", flow: app-sdk-status-read:listed}
+      - {do: "Inbox 알림의 action 단추로 /update를 home에 보낸다", screen: inbox-tab, flow: notice-action:sent}
+      - {do: "home lophn이 update 지침을 읽는다", flow: skill-update:loaded}
+      - {do: "앱 SDK·workflow flow_sdk·미검토 플랫폼 메모·열린 follow-up을 한 번에 읽는다", flow: update-status-read:ok}
       - {do: "새 SDK 판의 안내를 읽는다", flow: package-guide-read:ok}
-      - {do: "앱마다 결정을 기록하고 update는 그 앱의 lophn에게 같은 동작으로 맡긴다", flow: app-sdk-decide:recorded}
-      - {do: "앱 session이 migrate-sdk 지침을 읽고 코드를 고친다", flow: skill-migrate-sdk:loaded}
+      - {do: "앱·workflow·플랫폼 결정을 기록하고 update 대상 workspace의 lophn에게 같은 동작으로 맡긴다", flow: update-decide:recorded}
+      - {do: "대상 session이 migrate-sdk 지침을 읽고 코드를 고친다", flow: skill-migrate-sdk:loaded}
       - {do: "고친 코드로 release를 준비한다", flow: release-prepare:prepared}
-      - {do: "앱 lophn이 맡은 기능마다 결과를 낸다", flow: app-sdk-feature:reported}
+      - {do: "대상 workspace의 lophn이 맡은 follow-up item마다 결과를 보고한다", flow: follow-up-report:ok}
 
   - id: app-notify-person
     title: "앱이 사람에게 알림을 보내고 tray에 값을 둔다"

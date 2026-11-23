@@ -37,6 +37,7 @@ import {
   createCoreRegistration as createAttentionRegistration,
 } from "./wiring/attention.ts";
 import { bundleFileSharingWiring } from "./wiring/bundle-file-sharing.ts";
+import { cascadeWiring } from "./wiring/cascade.ts";
 import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { customReplyWiring } from "./wiring/custom-reply.ts";
@@ -104,6 +105,7 @@ import { supervisionWiring } from "./wiring/supervision.ts";
 import { terminalAgentsWiring } from "./wiring/terminal-agents.ts";
 import { terminalViewWiring } from "./wiring/terminal-view.ts";
 import { terminalsWiring } from "./wiring/terminals.ts";
+import { updatesWiring } from "./wiring/updates.ts";
 import { workflowsWiring } from "./wiring/workflows.ts";
 import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
 import { workspaceReaderWiring } from "./wiring/workspace-reader.ts";
@@ -212,6 +214,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   appsDeleteWiring,
   agentDeleteWiring,
   workspaceReaderWiring,
+  updatesWiring,
+  cascadeWiring,
   sealedMarkerWiring,
   // 봉인 표지를 보고 사본을 고르므로 sealed-marker 뒤다.
   bundleFileSharingWiring,

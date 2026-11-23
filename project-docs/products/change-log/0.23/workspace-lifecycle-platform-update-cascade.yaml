@@ -1,0 +1,42 @@
+id: workspace-lifecycle-platform-update-cascade
+version: 0.23.155
+platform_note: durable-workflows-and-flow-2
+title: "작업 공간 통합 업데이트(/update)와 삭제·변경 연쇄 정리(cascade)를 구현한다"
+modules:
+  - packages/protocol
+  - packages/cli
+  - packages/sdk
+  - packages/design
+  - packages/core/follow-ups
+  - packages/core/apps
+  - packages/core/jobs
+  - packages/core/projects
+  - packages/core/workflows
+  - packages/core/lophn-agent
+  - packages/core/agent-workspaces
+  - packages/core/main
+  - packages/shell/ipc
+  - packages/shell/preload
+  - packages/shell/main
+  - packages/shell/renderer
+  - tools
+change: |
+  - **통합 플랫폼·SDK 업데이트(`/update`)**:
+    - `follow_up_items`(기존 `sdk_features`를 `'fup_' || substr(id, 5)`로 이전 후 제거)·`flow_sdk_reviews`·`platform_reviews` 표와 P12 범위가 적용된 `follow_up.list`·`follow_up.report`를 추가한다.
+    - `workflow.yaml`에 `flow_sdk` 도장(`workflow.check` 통과 시 자동 기록, 미기재 시 `"1.0.0"` 취급)과 `supported_from` 미만 실행 차단(`startable: false`, `StartWorkflow` `conflict`)을 넣는다.
+    - `platform-notes.json`과 기준선 메모 3편(`durable-workflows-and-flow-2`, `phone-native-and-app-files`, `coding-agent-harness-profiles`), `fresh: true` 최초 설치 시 `platform_reviews` 시드, 통합 `workspace_update_needed` Inbox 알림(필수 건수 강조, 모두 0이면 자동 해소)과 `update.status`·`update.decide`·`update.record`를 구현한다.
+    - `/update-apps`를 통합 `/update` skill로 교체하고, 내장 `home`/`project`/`app` prompt·skill `description`을 현재 플랫폼 역량에 맞춰 정렬하며 `@lophn/agent`를 `1.18.0`으로 올리고 `agent-1.18.0.md` 메모를 추가한다.
+    - `tools/records.ts check`가 `0.23.155` 이후 역량 표면 module 변경 change-log에 `platform_note`를 강제하고 `tools/check-sdk-notes.ts`가 `platform-notes.json`과 메모 헤더를 검사하게 한다.
+  - **삭제·변경 연쇄 정리(Cascade)**:
+    - **1단계(결정적 정리)**: `agent.delete`가 MCP secret·`callPolicy` 규칙·열린 session·해당 agent의 `job`을 정리하고, `artifacts.delete`·`WorkflowRename`·`WorkflowDelete`를 core로 옮기며(`WorkflowRenamed`·`WorkflowRemoved` 발행 및 layout·job·instance 갱신), 보관된 앱·project를 가리키는 `job`은 `enabled`를 바꾸지 않고 동적으로 건너뛰며(`target_unavailable: true`, `next_due_at` 전진, `job.activity` 제외) 복원 시 자동 재개한다.
+    - **2단계(정본 정적 영향 조회)**: `workspace-reader`가 활성 작업 공간 정본을 읽어 `declared`(삭제 확인 창 표시)와 `mentioned`(`flow.ts`·skill 인계 후보, `memory.md` 미스캔)를 구분하는 `impact.read`(P12: user·Home agent 전용), 정적+호출 통합 `app.usage`, `release.prepare`의 `contract_changes`(P12: 외부 workspace 이름 비노출)를 제공한다.
+    - **3단계(의미적 인계·UI·CLI)**: App·Agent·Artifact·Workflow 삭제 확인 창이 `impact.read`를 조회해 영향이 있으면 `[Delete & clean up now]`(기본, `handoff_session` 열기)와 `[Delete only]`(보조, Inbox open follow-up)를 제공하고, `release.activate`/`activation.consent` 확정 직후 사후 계약 변경 인계를 수행한다. CLI에 `follow-up`, `update`, `impact`, `artifact delete`, `workflow rename|delete`를 더하고, 열린 창이 `WorkflowRenamed`를 받아 desk를 Main에 합치지 않고 원자적으로 이름 변경하도록 고친다(`workflow-rename-merges-desk-into-main` 해결).
+why: |
+  플랫폼 역량과 SDK(`@lophn/agent`, `@lophn/flow`) 변경을 한 흐름(`/update`)과 공통 `follow_up_items`로 통합하고, 작업 공간 자산 삭제·이름 변경·앱 계약 변경 시 결정적 정리와 의미적 lophn 인계를 안전하게 이어 주기 위해서다.
+decisions:
+  - text: "`sdk_features` 행을 `'fup_' || substr(id, 5)`로 `follow_up_items`에 옮긴 뒤 `sdk_features` 표를 제거하고, `notices`의 기존 `sdk_update_needed` 행은 과거 이력 호환을 위해 읽기만 유지하되 신규 발행은 통합 `workspace_update_needed` 하나로만 한다."
+    by: agent
+  - text: "P12 경계를 지켜 `impact.read`·`app.usage`·`update.status`는 user와 Home agent만 호출하고, `release.prepare`의 `contract_changes`는 외부 사용처 수만 노출하며, 계약 변경 연쇄 인계는 activation 확정 직후 core가 사후 수행한다."
+    by: agent
+  - text: "`workflow-rename-merges-desk-into-main` 이슈는 core `WorkflowRename`이 ledger·job·layout JSON을 함께 갱신하고 transient `WorkflowRenamed`를 발행해 열린 창이 목록 갱신 전에 `renameWorkflowDesk`를 먼저 적용하도록 해결했다."
+    by: agent

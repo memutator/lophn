@@ -144,6 +144,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     props.restore ?? { kind: "loading" },
   );
   const models = useAgentModels(source);
+  const openHandoff = useOpenHandoffSession();
   const [tab, setTab] = useState<EditorTab>("overview");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
@@ -372,7 +373,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     );
   const name = shownName;
 
-  const openHandoff = useOpenHandoffSession();
   const remove = (cleanUp: CleanUpMode) => {
     if (detail.assignment === null || detail.hash === null) return;
     void source

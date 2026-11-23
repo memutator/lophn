@@ -153,8 +153,6 @@ import {
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
 import {
-  readSdkStatus,
-  recordSdkUpdates,
   SDK_REVIEW_CONTEXT,
   sdkDecideHandler,
   withSdkDecide,
@@ -859,18 +857,6 @@ export const appsWiring: WiringFactory = () => {
         notesRoot: `${BUNDLED_SKILLS_ROOT}/migrate-sdk`,
         sql: link.sql,
       };
-      // lophn이 새 판으로 켜질 때나 설치된 SDK 판이 바뀌었을 때마다 SDK 갱신이 있는 앱이 하나라도 있으면 앱 없는 줄 하나를 남긴다(`architecture/app-notice.md`).
-      ctx.productStartListeners.push(async (start) => {
-        if (!start.changed && !start.sdksChanged) return;
-        const statuses = await readSdkStatus(sdkDeps);
-        if (!statuses.ok) throw new Error(statuses.error.message);
-        const failed = await recordSdkUpdates(
-          statuses.value,
-          ctx.noticeRecorder,
-        );
-        if (failed !== null && !failed.ok)
-          throw new Error(failed.error.message);
-      });
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);
       ctx.provide("appRewind", rewind);

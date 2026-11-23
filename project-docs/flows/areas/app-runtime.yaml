@@ -3134,7 +3134,7 @@ flows:
     actor: agent
     entries: [route:updates/status]
     boundary: [app-runtime, core-api]
-    code: [packages/core/apps/sdk-status/decide.ts]
+    code: [packages/core/main/daemon/wiring/updates.ts]
     steps:
       - 활성 앱, flow.ts 기반 workflow, 미검토 플랫폼 메모, 열린 follow-up, 자산 요약을 읽는다
     outcomes:
@@ -3153,7 +3153,7 @@ flows:
     actor: agent
     entries: [route:updates/decide, route:updates/record]
     boundary: [app-runtime, core-api]
-    code: [packages/core/apps/sdk-status/decide.ts]
+    code: [packages/core/apps/sdk-status/decide.ts, packages/core/main/daemon/wiring/updates.ts]
     steps:
       - 앱·workflow·플랫폼 검토 기록과 follow-up item을 한 transaction에 저장하고 대상 workspace에 handoff를 보낸다
     outcomes:

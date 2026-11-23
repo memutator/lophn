@@ -64,7 +64,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
    - 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
 5. data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처이고, 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 6. 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
-7. 새 release가 다른 workspace가 쓰는 공개 command를 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 command를 싣고, 그 앱 workspace의 session이 정한다(`architecture/app-call.md`).
+7. 새 release가 다른 workspace가 쓰는 공개 command·skill·event 계약을 지우거나 바꿔도 activation은 막지 않는다. `release.prepare`는 변경·제거된 항목과 외부 사용처 수(`contract_changes`, P12를 지켜 외부 workspace 이름은 숨김)만 돌려주고, activation 확정(`release.activate` 또는 `activation.consent` 승인) 직후 core가 영향받는 하위 workspace마다 `follow_up_items`를 남기고 대상 workspace의 `lophn`(둘 이상이면 Home `lophn`)에 정리 handoff를 보낸다(`architecture/app-call.md`).
 8. 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 앱 workspace의 session이 다시 부르거나 새 release를 준비한다. 실패는 다시 시도하지 않고 실패로 끝낸다.
 9. 끝내지 못한 시도(종료 확인이나 복원이 `unavailable`)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치다. 돌고 있는 메모리 상태는 꺼지면 사라지고 ledger의 진행 중 시도로 잇는다.
 

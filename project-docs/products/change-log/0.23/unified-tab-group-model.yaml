@@ -1,5 +1,5 @@
 id: unified-tab-group-model
-version: 0.23.135
+version: 0.23.137
 title: 칸 stack과 비분할 탭 묶음을 단일 group 모델로 통합하고 layout 판을 13으로 올린다
 modules: [packages/shell/renderer, packages/shell/main, packages/core/main]
 change: |

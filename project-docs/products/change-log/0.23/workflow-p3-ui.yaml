@@ -1,5 +1,5 @@
 id: workflow-p3-ui
-version: 0.23.144
+version: 0.23.149
 title: Workflow Phase 3 선언적 inputs 폼(InputsForm), StartBox·RunView 연동, callable_agents 및 invalid_inputs UI를 더한다
 modules:
   - packages/shell/renderer

@@ -15,6 +15,7 @@ import { cryptoRandom, err, manualClock, ok } from "../../base/mod.ts";
 import type { AcpInput, AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import { callReply } from "../../protocol/lophn-agent/calls.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 import { CredentialRegistry } from "../server/identity/registry.ts";
 import { createCredentialFiles } from "./credential-file.ts";
 import type { TabHandle } from "./gui.ts";
@@ -92,6 +93,7 @@ function setup() {
       harness: "claude-code";
       cli_session: string | null;
       team: boolean;
+      workflow_origin?: WorkflowOrigin | null;
     }
   >([
     [
@@ -165,6 +167,7 @@ function setup() {
     project: string;
     harness: string;
     cli_session: string | null;
+    workflow_origin?: WorkflowOrigin | null;
   }[] = [];
   const closed: string[] = [];
   let opensFail = false;
@@ -774,6 +777,45 @@ test("stopping the member binding removes every credential file", async () => {
     assert.ok(kit.fileToken() !== null);
     kit.gui.stop();
     assert.equal(kit.fileToken(), null);
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// workflow_origin이 다른 project를 가리켜도 PTY는 실행 project에 열고, UI 창이 그 workflow workspace를 보지 않아
+// tab_open이 대기 중이어도 PTY의 GUI handle이 서면 OPEN_WAIT_MS가 풀려 timeout하지 않는다.
+test("a member with cross-project workflow_origin opens in its exec project, forwards origin, and clears OPEN_WAIT_MS when GUI attaches", async () => {
+  const kit = setup();
+  const origin: WorkflowOrigin = {
+    project: id("prj", 9) as WorkflowOrigin["project"],
+    workflow: "ship-it",
+    instance: id("wfi", 7) as WorkflowOrigin["instance"],
+    step: "implement",
+  };
+  try {
+    kit.rows.set(SESSION, {
+      project: PROJECT,
+      harness: "claude-code",
+      cli_session: "cli-1",
+      team: false,
+      workflow_origin: origin,
+    });
+    await kit.queueCall(1);
+    assert.deepEqual(kit.opens, [
+      {
+        project: PROJECT,
+        harness: "claude",
+        cli_session: "cli-1",
+        workflow_origin: origin,
+      },
+    ]);
+    assert.equal(kit.timers.length, 1);
+    // UI 창이 workflow workspace를 보지 않아도 PTY가 바로 띄운 GUI handle이 붙으면 OPEN_WAIT_MS timer가 해제된다.
+    await kit.open();
+    assert.equal(kit.emptied.length, 0);
+    assert.equal(kit.sent.length, 1);
+    // 남아 있는 timer는 OPEN_WAIT_MS가 아니라 INJECT_WAIT_MS 하나뿐이다.
+    assert.equal(kit.timers.length, 1);
   } finally {
     kit.cleanup();
   }

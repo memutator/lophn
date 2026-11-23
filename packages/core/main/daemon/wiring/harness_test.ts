@@ -170,6 +170,7 @@ async function setup() {
     aliveBackground,
     evicted,
     put,
+    ledgerPath,
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }
@@ -290,6 +291,29 @@ test("only a GUI member is described for opening a tab, and forgetting a coding 
       harness: "claude-code",
       cli_session: "cli-p",
       team: false,
+      workflow_origin: null,
+    });
+    const origin = {
+      project: id("prj", 9),
+      workflow: "release",
+      instance: id("wfi", 7),
+      step: "verify",
+    };
+    const db = new DatabaseSync(kit.ledgerPath);
+    try {
+      db.prepare("update sessions set workflow_origin = ? where id = ?").run(
+        JSON.stringify(origin),
+        PROJECT_MEMBER,
+      );
+    } finally {
+      db.close();
+    }
+    assert.deepEqual(kit.members.describe(PROJECT_MEMBER), {
+      project: PROJECT,
+      harness: "claude-code",
+      cli_session: "cli-p",
+      team: false,
+      workflow_origin: origin,
     });
     const agent = {
       ...PERSON,

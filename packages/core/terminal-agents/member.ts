@@ -22,6 +22,7 @@ import type {
 } from "../../protocol/lophn-agent/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 import type { CredentialFiles } from "./credential-file.ts";
 import type { TabHandle } from "./gui.ts";
 
@@ -80,7 +81,7 @@ export type HarnessMembers = {
   /** 받은 call 하나를 failed(receiver_ended)로 닫아 보낸 쪽에 돌려준다. 이미 닫혔으면 아무것도 하지 않는다. */
   failCall(session: string, call: string): Promise<Result<void>>;
   /**
-   * 열린 GUI 탭 팀원 session의 project, harness, CLI session id(아직 없으면 null), `team spawn`으로 열렸는지.
+   * 열린 GUI 탭 팀원 session의 project, harness, CLI session id(아직 없으면 null), `team spawn`으로 열렸는지, workflow 출처.
    * GUI 탭 팀원이 아니거나 닫혔으면 null.
    */
   describe(session: string): {
@@ -88,6 +89,7 @@ export type HarnessMembers = {
     harness: HarnessRuntime;
     cli_session: string | null;
     team: boolean;
+    workflow_origin?: WorkflowOrigin | null;
   } | null;
   /** 열린 background harness session(`harness_gui = 0`)의 정보. 탭 팀원이거나 닫혔으면 null. */
   background?(session: string): BackgroundSessionInfo | null;
@@ -208,12 +210,13 @@ export function createGuiMembers(deps: {
   after(ms: number, run: () => void): () => void;
   /**
    * 그 project에 새 터미널을 열고 `<cli> --gui`(`cli_session`이 있으면 `--resume <id>`)를 친다. 연 터미널 참조다. 탭이 없는 팀원에게 입력이
-   * 오면 부른다.
+   * 오면 부른다. `workflow_origin`이 있으면 PTY는 실행 project에 두되 탭은 원 workflow의 workspace·desk에 놓는다.
    */
   openTerminal(input: {
     project: string;
     harness: GuiHarness;
     cli_session: string | null;
+    workflow_origin?: WorkflowOrigin | null;
   }): Promise<Result<string>>;
   /** core가 연 터미널을 닫는다. */
   closeTerminal(terminalRef: string): void;
@@ -286,6 +289,9 @@ export function createGuiMembers(deps: {
       project: info.project,
       harness: GUI_OF_RUNTIME[info.harness],
       cli_session: info.cli_session,
+      ...(info.workflow_origin == null
+        ? {}
+        : { workflow_origin: info.workflow_origin }),
     });
     opening.delete(session);
     if (!opened.ok) {

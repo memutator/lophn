@@ -134,8 +134,10 @@ export interface TabHost {
       readonly after?: string;
       readonly beside?: boolean;
       readonly relation?: OpenRelation;
-      /** `select: false`이고 `after`가 없을 때 붙일 desk. 없는 desk면 보이는 desk다. */
+      /** `select: false`이고 `after`가 없을 때 붙일 desk. workflow desk 이름이 아직 없으면 만든다. */
       readonly desk?: string;
+      /** 같은 부모·step에서 병렬로 생긴 탭의 묶음 key(Phase 2b 자동 묶음). */
+      readonly group?: string;
     },
   ): void;
   /**

@@ -6,9 +6,12 @@ import {
   codingSessionsOpen,
 } from "../../protocol/coding-agent/relay.ts";
 import { HOME_TERMINAL_PROJECT } from "../../protocol/coding-agent/terminals.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 import { type CodingOpenDeps, createCodingOpen } from "./open.ts";
 
 const PROJECT = `prj_${"0".repeat(26)}`;
+const WORKFLOW_PROJECT = `prj_${"9".repeat(26)}`;
+const INSTANCE = `wfi_${"7".repeat(26)}`;
 const LEDGER = `ses_${"1".repeat(26)}`;
 const TERMINAL = `trm_${"2".repeat(26)}`;
 
@@ -21,8 +24,8 @@ function setup(
   const holds: string[] = [];
   const deps: CodingOpenDeps = {
     guiOn: () => guiOn,
-    open(project, command) {
-      calls.push({ project, command });
+    open(project, command, tab) {
+      calls.push({ project, command, ...(tab === undefined ? {} : { tab }) });
       return Promise.resolve(ok(TERMINAL) as Result<string>);
     },
     session: (session) =>
@@ -188,4 +191,33 @@ test("a member's CLI session id that is not plain id characters is never typed i
     assert.ok(!opened.ok && opened.error.code === "invalid_input", cli);
   }
   assert.deepEqual(kit.calls, []);
+});
+
+// workflow_origin이 있으면 PTY는 실행 project에 열되 탭 배치는 원 workflow의 project·desk·group으로 보낸다.
+test("a member with workflow_origin keeps PTY in exec project and targets the workflow workspace, desk, and group for the tab", async () => {
+  const kit = setup([]);
+  const origin: WorkflowOrigin = {
+    project: WORKFLOW_PROJECT as WorkflowOrigin["project"],
+    workflow: "release",
+    instance: INSTANCE as WorkflowOrigin["instance"],
+    step: "review",
+  };
+  const opened = await kit.opener.member({
+    project: PROJECT,
+    harness: "claude",
+    cli_session: null,
+    workflow_origin: origin,
+  });
+  assert.ok(opened.ok);
+  assert.deepEqual(kit.calls, [
+    {
+      project: PROJECT,
+      command: "claude --gui",
+      tab: {
+        workspace: WORKFLOW_PROJECT,
+        desk: { workflow: "release" },
+        group: `${INSTANCE}:review`,
+      },
+    },
+  ]);
 });

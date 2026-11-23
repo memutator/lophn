@@ -193,6 +193,10 @@ type OpenInput = {
   tab?: Id<"tab">;
   // browser 탭의 profile이다. 없으면 기본 profile이다.
   profile?: Id<"bpf">;
+  // workflow_origin이 있는 session의 탭은 그 workflow의 desk에 연다.
+  desk?: { workflow: string };
+  // 같은 부모·step에서 병렬로 생긴 탭이 같은 묶음 key를 가지면 renderer가 한 묶음으로 둔다.
+  group?: string;
 };
 
 type HandInput = {
@@ -530,6 +534,8 @@ export function createHostQueue(deps: {
           relation: input.relation,
           source: input.source,
           ...(input.owner === "person" ? {} : { owner: input.owner }),
+          ...(input.desk === undefined ? {} : { desk: input.desk }),
+          ...(input.group === undefined ? {} : { group: input.group }),
         },
       };
       if (!wait) {

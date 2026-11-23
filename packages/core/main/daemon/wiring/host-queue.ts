@@ -50,6 +50,10 @@ import {
 } from "../../../../protocol/projects/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
+  type WorkflowOrigin,
+  workflowOriginSchema,
+} from "../../../../protocol/workflows/values.ts";
+import {
   createHostQueue,
   fileHandoffs,
   type HandoffFiles,
@@ -118,6 +122,40 @@ const PHONE_MISSING =
 const hostWorkspaceOf = (
   workspace: ReturnType<typeof workspaceOf>,
 ): HostWorkspace => workspace ?? { kind: "home" };
+
+function workflowOriginOf(
+  raw: string | null | undefined,
+): WorkflowOrigin | null {
+  if (raw == null) return null;
+  try {
+    const parsed = workflowOriginSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function workflowDeskOf(
+  origin: WorkflowOrigin | null,
+): { desk: { workflow: string }; group: string } | Record<never, never> {
+  return origin === null
+    ? {}
+    : {
+        desk: { workflow: origin.workflow },
+        group: `${origin.instance}:${origin.step}`,
+      };
+}
+
+function sameProjectDeskOf(
+  workspace: HostWorkspace,
+  origin: WorkflowOrigin | null,
+): { desk: { workflow: string }; group: string } | Record<never, never> {
+  return origin !== null &&
+    workspace.kind === "project" &&
+    workspace.id === origin.project
+    ? workflowDeskOf(origin)
+    : {};
+}
 
 type TabDeps = {
   queue: HostQueueService;
@@ -303,6 +341,7 @@ export function createTabHandlers(deps: TabDeps) {
     if ("artifact" in input.target) {
       // agent는 자기 session의 workspace, 사람 token은 입력의 workspace의 artifact만 연다.
       let where: HostWorkspace;
+      let origin: WorkflowOrigin | null = null;
       if (caller.value === "person")
         where = input.workspace ?? { kind: "home" };
       else {
@@ -311,6 +350,7 @@ export function createTabHandlers(deps: TabDeps) {
           return err({ code: "not_found", message: "session not found" });
         }
         where = hostWorkspaceOf(workspaceOf(row));
+        origin = workflowOriginOf(row.workflow_origin);
       }
       if (where.kind === "home") {
         return err({
@@ -331,6 +371,7 @@ export function createTabHandlers(deps: TabDeps) {
         target: input.target,
         relation: input.relation ?? null,
         source: caller.value === "person" ? null : caller.value,
+        ...sameProjectDeskOf(where, origin),
       });
       return ok({ tab, status: "accepted" as const });
     }
@@ -407,13 +448,16 @@ export function createTabHandlers(deps: TabDeps) {
         command,
       });
       if (!terminal.ok) return terminal;
+      const origin = workflowOriginOf(from!.workflow_origin);
       queue.openTab({
         owner: caller.value,
-        workspace: here,
+        workspace:
+          origin === null ? here : { kind: "project", id: origin.project },
         target: { terminal: { terminal_ref: terminal.value } },
         relation: input.relation ?? null,
         source: caller.value as Id<"ses">,
         tab,
+        ...workflowDeskOf(origin),
       });
       return ok({ tab, status: "accepted" as const });
     }
@@ -444,12 +488,19 @@ export function createTabHandlers(deps: TabDeps) {
         });
         if (!terminal.ok) return terminal;
         deps.holdTui(terminal.value, session);
+        const origin = workflowOriginOf(
+          target.workflow_origin ?? from!.workflow_origin,
+        );
         const tab = queue.openTab({
           owner: caller.value,
-          workspace: hostWorkspaceOf(there!),
+          workspace:
+            origin === null
+              ? hostWorkspaceOf(there!)
+              : { kind: "project", id: origin.project },
           target: { terminal: { terminal_ref: terminal.value } },
           relation: input.relation ?? null,
           source: caller.value === "person" ? null : caller.value,
+          ...workflowDeskOf(origin),
         });
         return ok({ tab, status: "accepted" as const });
       }
@@ -464,15 +515,24 @@ export function createTabHandlers(deps: TabDeps) {
         });
       }
     }
+    const workspace = person
+      ? (input.workspace ?? { kind: "home" as const })
+      : hostWorkspaceOf(workspaceOf(from!));
+    const origin = person
+      ? null
+      : workflowOriginOf(
+          ("session" in input.target
+            ? sessionRow(input.target.session)?.workflow_origin
+            : undefined) ?? from!.workflow_origin,
+        );
     const opening = {
       owner: caller.value,
       // 사람 token은 입력의 workspace(없으면 home)에, agent는 자기 session의 workspace에 연다.
-      workspace: person
-        ? (input.workspace ?? { kind: "home" as const })
-        : hostWorkspaceOf(workspaceOf(from!)),
+      workspace,
       target: input.target,
       relation: input.relation ?? null,
       source: caller.value === "person" ? null : caller.value,
+      ...sameProjectDeskOf(workspace, origin),
     };
     if (!("browser" in input.target)) {
       const tab = queue.openTab(opening);

@@ -31,6 +31,10 @@ import type {
   AuthenticatedContext,
   Output,
 } from "../../../../protocol/server/mod.ts";
+import {
+  type WorkflowOrigin,
+  workflowOriginSchema,
+} from "../../../../protocol/workflows/values.ts";
 import { appFolderPaths, appSourcePath } from "../../../apps/lookups.ts";
 import { createHold } from "../../../host-queue/mod.ts";
 import {
@@ -510,11 +514,23 @@ export const harnessWiring: WiringFactory = () => {
           ) {
             return null;
           }
+          let workflow_origin: WorkflowOrigin | null = null;
+          if (row.workflow_origin !== null) {
+            try {
+              const parsed = workflowOriginSchema.safeParse(
+                JSON.parse(row.workflow_origin),
+              );
+              if (parsed.success) workflow_origin = parsed.data;
+            } catch {
+              // 손상된 값은 무시하고 실행 project에 연다.
+            }
+          }
           return {
             project: row.workspace_id,
             harness: row.harness,
             cli_session: row.harness_session,
             team: row.spawned_by !== null,
+            workflow_origin,
           };
         },
         background(session) {

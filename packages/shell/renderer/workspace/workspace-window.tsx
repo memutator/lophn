@@ -1020,31 +1020,56 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           unsaved: isUnsaved,
         });
       // source가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
+      // workflow desk가 지정됐는데 아직 없으면 homeDesk와 같이 그 workflow desk를 만들어 거기에 붙인다(Main으로 떨어지지 않는다).
       const at =
         options?.after === undefined
           ? undefined
           : findTab(all, options.after)?.desk;
-      const named =
-        options?.desk !== undefined && Object.hasOwn(all.desks, options.desk)
-          ? options.desk
-          : undefined;
+      const requested = options?.desk;
       if (at !== undefined) updateAt(at, open);
-      else if (named !== undefined) updateAt(named, open);
-      else update(open);
+      else if (requested !== undefined) {
+        if (Object.hasOwn(all.desks, requested)) updateAt(requested, open);
+        else if (
+          projectId !== null &&
+          requested !== MAIN_DESK &&
+          !requested.startsWith("desk-")
+        ) {
+          commit(
+            updateDesk(
+              addDesk(all, requested, requested, requested),
+              requested,
+              open,
+            ),
+          );
+        } else update(open);
+      } else update(open);
       return;
     }
-    // 사는 desk가 있는 탭(workflow)은 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.
+    // 사는 desk가 있는 탭(workflow)이나 지정된 workflow desk는 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.
     const home = tabKindOf(tab.kind)?.homeDesk?.(tab);
+    const workflowDesk =
+      home ??
+      (options?.desk !== undefined &&
+      projectId !== null &&
+      options.desk !== MAIN_DESK &&
+      !options.desk.startsWith("desk-")
+        ? options.desk
+        : undefined);
     const target =
       found?.desk ??
-      home ??
+      workflowDesk ??
+      (options?.desk !== undefined && Object.hasOwn(all.desks, options.desk)
+        ? options.desk
+        : undefined) ??
       (options?.after === undefined
         ? undefined
         : findTab(all, options.after)?.desk) ??
       all.active;
     const base =
-      home !== undefined && found === null && !Object.hasOwn(all.desks, home)
-        ? addDesk(all, home, home, home)
+      workflowDesk !== undefined &&
+      found === null &&
+      !Object.hasOwn(all.desks, workflowDesk)
+        ? addDesk(all, workflowDesk, workflowDesk, workflowDesk)
         : all;
     // detached 탭은 그 창을 앞으로 가져올 뿐 붙이지 않는다. 다른 desk의 것이면 그 desk로 건너간다.
     if (found?.where === "detached") {

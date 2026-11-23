@@ -1242,3 +1242,79 @@ test("다른 컴퓨터에서 도는 팀원의 자리는 tab open --session의 �
   assert.equal(await opening(6), "ok");
   assert.equal(await handing(6), "ok");
 });
+
+// workflow_origin이 다른 project인 session이 coding handoff 탭을 열면 PTY는 실행 project에, 탭은 원 workflow의 workspace·desk에 놓인다.
+test("workflow_origin이 있는 session의 coding 탭 열기는 실행 project에 PTY를 열고 원 workflow workspace·desk로 tab_open을 보낸다", async () => {
+  const execProject = id("prj", 1);
+  const wfProject = id("prj", 9);
+  const instance = id("wfi", 7);
+  const origin = JSON.stringify({
+    project: wfProject,
+    workflow: "dev-loop",
+    instance,
+    step: "implement",
+  });
+  const dir = await mkdtemp(join(tmpdir(), "lophn-hq-wf-"));
+  try {
+    const clock = manualClock(1_700_000_000_000);
+    const ids = createIdSource({ clock, random: seededRandom(2) });
+    const queue = createHostQueue({ clock, ids });
+    const sent: HostRequest[] = [];
+    const link = queue.connect((request) => sent.push(request));
+    link.visible([{ kind: "project", id: wfProject as Id<"prj"> }]);
+    const terminalProjects: string[] = [];
+    const handlers = createTabHandlers({
+      queue,
+      sessionRow: (session) =>
+        session === id("ses", 30)
+          ? ({
+              id: session,
+              workspace_kind: "project",
+              workspace_id: execProject,
+              lifecycle: "open",
+              runs_on: null,
+              workflow_origin: origin,
+            } as AgentSessionRow)
+          : undefined,
+      app: async () => ok(null),
+      preview: async () => ok(null),
+      screens: async () => ok([]),
+      primaryDeviceName: async () => ok(null),
+      artifactExists: async () => false,
+      deviceNames: () => [],
+      harnessHold: {
+        open: () => ok({ harness: "claude", external_session: "x" }),
+      },
+      codingAgents: () => ({ favorites: ["claude"], commands: {} }),
+      codingDetected: async () => ["claude"],
+      handoffs: fileHandoffs(dir),
+      openTerminal: async (input) => {
+        terminalProjects.push(input.project);
+        return ok("trm_exec_1");
+      },
+      holdTui: () => {},
+      login: async () => ok(undefined),
+      browserProfile: () => ok(null),
+      redact: (text) => text,
+      previewViews: () => [],
+      phoneCall: async () => ok(null),
+      agentName: () => "coder",
+      shown: () => {},
+    });
+    const opened = await handlers.open(agent(30), {
+      target: { coding: { harness: "claude", handoff: "finish step" } },
+    });
+    assert.equal(opened.ok, true);
+    assert.deepStrictEqual(terminalProjects, [execProject]);
+    const req = sent.find((one) => one.kind === "tab_open");
+    assert.ok(req !== undefined && req.kind === "tab_open");
+    assert.deepStrictEqual(req.workspace, {
+      kind: "project",
+      id: wfProject,
+    });
+    assert.deepStrictEqual(req.payload.desk, { workflow: "dev-loop" });
+    assert.equal(req.payload.group, `${instance}:implement`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

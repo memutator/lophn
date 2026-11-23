@@ -48,6 +48,38 @@ function terminalProjectOf(host: TabHost): string | null {
       : null;
 }
 
+/** `folder_ref`(`<project>_<index>`, Home은 `home_0`)에서 터미널이 속한 project id를 읽는다. */
+export function projectOfFolder(folder: string | undefined): string | null {
+  if (folder === undefined) return null;
+  const cut = folder.lastIndexOf("_");
+  if (cut <= 0) return null;
+  if (!/^\d+$/.test(folder.slice(cut + 1))) return null;
+  const project = folder.slice(0, cut);
+  return project === HOME_TERMINAL_PROJECT || project.startsWith("prj_")
+    ? project
+    : null;
+}
+
+/** 탭이 실제로 실행되는 core의 project 값. 다른 project 폴더의 탭(workflow desk의 cross-project 터미널)이면 그 project가 먼저다. */
+export function terminalProjectFor(tab: TabItem, host: TabHost): string | null {
+  return projectOfFolder(tab.folder) ?? terminalProjectOf(host);
+}
+
+/** 다른 project 폴더에서 도는 터미널 탭이면 그 폴더 이름을 돌려준다(탭 제목·tooltip 구분용). 같은 project면 null이다. */
+export function crossProjectLabel(tab: TabItem, host: TabHost): string | null {
+  const tabProject = projectOfFolder(tab.folder);
+  const hostProject = terminalProjectOf(host);
+  if (
+    tabProject === null ||
+    hostProject === null ||
+    tabProject === hostProject
+  ) {
+    return null;
+  }
+  const folder = autoOf(tab).trim();
+  return folder.length > 0 ? folder : null;
+}
+
 /**
  * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 core가 정한다. Home은 Explorer가 없어 core가 사람의 home 폴더로 연다). 저장한 session을
  * 열 때만 폴더와 resume을 주고, 이때는 그 폴더가 우선이다. `command`는 대화 코드 블록의 실행이고 floated로 연다
@@ -392,13 +424,24 @@ export const terminalKind: TabKindDef = {
   noReopen: true,
   iconOf: agentTabIcon,
   dotOf: agentTabDot,
+  titleOf(tab, host) {
+    const label = crossProjectLabel(tab, host);
+    if (
+      label === null ||
+      tab.title === label ||
+      tab.title.endsWith(` · ${label}`)
+    ) {
+      return undefined;
+    }
+    return `${tab.title} · ${label}`;
+  },
   rename(tab, name, host) {
     const person = name?.trim() || null;
     const terminal = terminalOf(tab, host);
     host.patchTab(tab.key, (current) =>
       terminalNamed(current, person, terminal?.store),
     );
-    const project = terminalProjectOf(host);
+    const project = terminalProjectFor(tab, host);
     if (terminal !== undefined && project !== null) {
       pinAgentSessionName(terminal, project, tab.key, person);
     }
@@ -493,7 +536,7 @@ export const terminalKind: TabKindDef = {
   },
   render(tab, active, host) {
     const terminal = terminalOf(tab, host);
-    const project = terminalProjectOf(host);
+    const project = terminalProjectFor(tab, host);
     if (!terminal || project === null) return null;
     const body = (
       <TerminalTab

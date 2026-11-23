@@ -27,6 +27,7 @@ import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 const HOST_KEY = "host:";
 
 // agent가 연 탭의 자리와 주인. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다(session 탭은 Main desk 끝).
+// workflow desk(`desk`)가 주어지면 그 workflow desk에 놓는다.
 function placementOf(
   host: () => TabHost,
   key: string,
@@ -34,6 +35,8 @@ function placementOf(
   source: string | null,
   target: AgentOpen["target"],
   owner: string | undefined,
+  desk?: string,
+  group?: string,
 ): SessionTabOpen {
   const sourceTab =
     source === null
@@ -42,6 +45,11 @@ function placementOf(
           .windowTabs()
           .find((tab) => tab.kind === "agent" && sessionOf(tab) === source);
   const at = openAt(host().desk, sourceTab?.key, "show", { relation, target });
+  const targetDesk =
+    desk ??
+    (at.kind === "tab" && at.after === undefined && target === "session"
+      ? MAIN_DESK
+      : undefined);
   return {
     key,
     ...ownerField(owner),
@@ -53,10 +61,8 @@ function placementOf(
             after: at.after,
             beside: at.beside,
             relation: at.relation,
-            // 만든 이가 없는 session 탭(job·run, 다른 workspace의 call)은 보던 desk가 아니라 Main desk 끝에 쌓인다.
-            ...(at.after === undefined && target === "session"
-              ? { desk: MAIN_DESK }
-              : {}),
+            ...(targetDesk === undefined ? {} : { desk: targetDesk }),
+            ...(group === undefined ? {} : { group }),
           }
         : { minimized: at.minimized === true }),
     },
@@ -203,7 +209,7 @@ export function useSurfaceRequests(args: Args): void {
         done();
         return;
       }
-      const { target, relation, source, owner } = request.payload;
+      const { target, relation, source, owner, desk, group } = request.payload;
       const open = placementOf(
         host,
         key,
@@ -211,6 +217,8 @@ export function useSurfaceRequests(args: Args): void {
         source,
         Object.keys(target)[0] as AgentOpen["target"],
         owner,
+        desk?.workflow,
+        group,
       );
       if ("preview" in target) {
         // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 주인과 기기와 화면만 바꾼다(core는 같은 앱의 preview를 다시 연 caller를

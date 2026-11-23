@@ -414,3 +414,35 @@ test("사람이 넘긴 탭을 되찾으면 준 사슬이 끝나 아무도 되찾
   queue.ended(OTHER, all);
   assert.equal(queue.browserTab(tab, OWNER).ok, false);
 });
+
+// workflow desk 탭 열기는 desk·group을 payload에 그대로 싣고, 원 workflow workspace를 보이는 창이 나중에 나타날 때까지 기다린다.
+test("openTab passes workflow desk and group through on tab_open and delivers when that workspace becomes visible", () => {
+  const { queue } = setup();
+  const WF_PROJECT = "prj_wf" as Id<"prj">;
+  const EXEC_PROJECT = "prj_exec" as Id<"prj">;
+  const tab = queue.openTab({
+    owner: "person",
+    workspace: { kind: "project", id: WF_PROJECT },
+    target: { terminal: { terminal_ref: "trm_1" } },
+    relation: null,
+    source: null,
+    desk: { workflow: "deploy" },
+    group: "wfi_1:verify",
+  });
+  // 실행 project 창만 보고 있을 때는 배달되지 않는다.
+  const host = connect(queue, [{ kind: "project", id: EXEC_PROJECT }]);
+  assert.equal(host.next(), null);
+  // 원 workflow workspace로 전환하면 desk·group과 함께 배달된다.
+  host.link.visible([{ kind: "project", id: WF_PROJECT }]);
+  const lent = host.next();
+  assert.equal(lent?.kind, "tab_open");
+  assert.deepStrictEqual(lent.workspace, { kind: "project", id: WF_PROJECT });
+  assert.deepStrictEqual(lent.payload, {
+    tab,
+    target: { terminal: { terminal_ref: "trm_1" } },
+    relation: null,
+    source: null,
+    desk: { workflow: "deploy" },
+    group: "wfi_1:verify",
+  });
+});

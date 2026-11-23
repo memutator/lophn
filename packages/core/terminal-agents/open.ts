@@ -5,6 +5,7 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
 import { isGuiHarness } from "../../protocol/acp/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 
 // 다시 보낸 open을 알아보는 key 수(전체).
 const OPEN_KEYS_MAX = 200;
@@ -12,11 +13,22 @@ const OPEN_KEYS_MAX = 200;
 // 터미널에 `--resume <id>`로 치는 글자다. shell 함수가 받는 글자(`[A-Za-z0-9._-]` 200자)만 싣는다.
 const CLI_SESSION = /^[A-Za-z0-9._-]{1,200}$/;
 
+/** workflow_origin이 있는 팀원 탭의 배치(원 workflow의 workspace·desk·묶음). 터미널 PTY는 실행 project에 둔다. */
+export type CodingOpenTab = {
+  workspace: string;
+  desk: { workflow: string };
+  group: string;
+};
+
 export type CodingOpenDeps = {
   // harness-gui handler가 준비돼 있다. 기동 중이거나 없으면 `<harness> gui`를 쳐도 GUI가 서지 않는다.
   guiOn(): boolean;
-  // project에 새 터미널을 열고 command를 친다(탭도 연다). 연 터미널 참조다.
-  open(project: string, command: string): Promise<Result<string>>;
+  // project에 새 터미널을 열고 command를 친다(탭도 연다). tab을 주면 탭은 그 workspace·desk에 놓는다. 연 터미널 참조다.
+  open(
+    project: string,
+    command: string,
+    tab?: CodingOpenTab,
+  ): Promise<Result<string>>;
   // ledger session. harness는 harness agent session이면 그 adapter id(`claude`), 아니면 null이다. 없으면 undefined.
   session(session: string):
     | {
@@ -136,11 +148,12 @@ export function createCodingOpen(deps: CodingOpenDeps) {
 
   return {
     // GUI 탭 팀원에게 입력이 왔는데 묶인 탭이 없다. 그 project에 그 CLI session을 이어(없으면 새로) GUI로 연다. 그 CLI session이 이미
-    // 터미널에 열려 있으면 둘째 process를 띄우지 않는다. 연 터미널 참조다.
+    // 터미널에 열려 있으면 둘째 process를 띄우지 않는다. workflow_origin이 있으면 PTY는 실행 project에 두고 탭은 원 workflow desk에 놓는다.
     async member(input: {
       project: string;
       harness: string;
       cli_session: string | null;
+      workflow_origin?: WorkflowOrigin | null;
     }): Promise<Result<string>> {
       if (!isGuiHarness(input.harness)) {
         return err({ code: "invalid_input", message: "not a GUI harness" });
@@ -171,6 +184,15 @@ export function createCodingOpen(deps: CodingOpenDeps) {
           message: "This session is already open on the computer.",
         });
       }
+      const origin = input.workflow_origin ?? null;
+      const tab: CodingOpenTab | undefined =
+        origin === null
+          ? undefined
+          : {
+              workspace: origin.project,
+              desk: { workflow: origin.workflow },
+              group: `${origin.instance}:${origin.step}`,
+            };
       return await deps.open(
         input.project,
         guiCommand(
@@ -178,6 +200,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
           deps.codingCommand?.(input.harness),
           cli,
         ),
+        tab,
       );
     },
     // 같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 열 수 있다).

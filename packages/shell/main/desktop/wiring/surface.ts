@@ -21,6 +21,7 @@ import {
   type SurfaceEmulateResult,
   type SurfaceEmulationLost,
   surfaceReportSchema,
+  type SurfaceRequest,
   surfaceTakeSchema,
   surfaceWorkspaceSchema,
   type SurfaceWorkspace,
@@ -64,13 +65,8 @@ const WINDOW_CLOSED =
   "The lophn window that was to hold the browser page was closed, so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
-// 창에 보내는 탭 요청이다. target은 열기에만 있다. 주인 고치기(`tab_owner`)는 그 workspace를 보이는 창이 그 layout에서 한다.
-type TabRequest = {
-  id: string;
-  kind: "tab_open" | "tab_close" | "tab_show" | "tab_owner";
-  workspace: Workspace;
-  payload: { tab: string; target?: Record<string, unknown> };
-};
+// 창에 보내는 탭 요청이다. target·desk·group은 열기에만 있다. 주인 고치기(`tab_owner`)는 그 workspace를 보이는 창이 그 layout에서 한다.
+type TabRequest = SurfaceRequest["request"];
 
 const sameWorkspace = (a: Workspace, b: Workspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
@@ -362,7 +358,9 @@ export function register(
   // browser 탭의 page는 어느 workspace를 띄운 창이든 산다. 그 workspace를 띄운 창이 없으면 가장 최근 창이 받는다.
   // browser 탭의 닫기는 page를 가진 창이 먼저고, bind 전이면 열기를 보낸 창이다.
   function windowFor(request: TabRequest) {
-    const { tab, target } = request.payload;
+    const { tab } = request.payload;
+    const target =
+      request.kind === "tab_open" ? request.payload.target : undefined;
     const host = hostBrowser.get(tab);
     return (
       (request.kind === "tab_close" && host !== undefined
@@ -451,8 +449,7 @@ export function register(
 
   async function openTab(request: TabRequest): Promise<void> {
     const browserOpen =
-      request.kind === "tab_open" &&
-      "browser" in (request.payload.target ?? {});
+      request.kind === "tab_open" && "browser" in request.payload.target;
     const { tab } = request.payload;
     // page를 둘 창이 하나도 없으면 focus 없이 하나 연다. 창이 아직 받을 준비가 안 됐으면 아래 ack 기한과 retry가 기다린다.
     const target =

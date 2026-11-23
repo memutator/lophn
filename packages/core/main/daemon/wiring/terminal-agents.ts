@@ -653,22 +653,24 @@ export const terminalAgentsWiring: WiringFactory = () => {
 
       const opener = createCodingOpen({
         guiOn: () => ctx.harnessGuiTabs() !== null,
-        async open(project, command) {
+        async open(project, command, tab) {
           const opened = await ctx.terminals.open({
             project: project as TerminalProject,
             command,
           });
           if (!opened.ok) return opened;
           const terminal = opened.value.terminal_ref;
+          const targetProject = tab?.workspace ?? project;
           queue.openTab({
             owner: "person",
             workspace:
-              project === HOME_TERMINAL_PROJECT
+              targetProject === HOME_TERMINAL_PROJECT
                 ? { kind: "home" }
-                : { kind: "project", id: project as Id<"prj"> },
+                : { kind: "project", id: targetProject as Id<"prj"> },
             target: { terminal: { terminal_ref: terminal } },
             relation: null,
             source: null,
+            ...(tab === undefined ? {} : { desk: tab.desk, group: tab.group }),
           });
           return ok(terminal);
         },

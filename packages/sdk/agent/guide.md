@@ -76,9 +76,13 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
   매 turn마다 실려 느리고 비싸다.
 - 앱을 짓고 옮기는 lophn은 사람이 그 앱에서 고른 세부(임계값, 단축키)를 자기 memory(`agent.memory`)에
   적고, 사람에게 다시 묻기 전에 memory부터 본다. 모든 workspace가 읽는 global memory(Home이 씀)도
-  같은 prompt에 실리니, workspace를 건너는 사실은 거기서 먼저 본다. SDK를 올릴지·어떤 기능을 쓸지의
-  결정과 진행은 memory가 아니라 lophn이 기록한다(`lophn app sdk-status`로 읽는다): Home이 넘긴 기능마다
-  결과를 `lophn app sdk-feature`로 낸다.
+  같은 prompt에 실리니, workspace를 건너는 사실은 거기서 먼저 본다. 업데이트 결정과 맡겨진 후속 작업은
+  memory가 아니라 lophn이 기록한다(`lophn app sdk-status`, `lophn follow-up list`): 넘겨받은 항목마다
+  결과를 `lophn follow-up report <id> --state done|changed|skipped --outcome "<한 줄>"`로 낸다.
+  공개 command·skill·event를 지우거나 바꾸는 release는 `lophn release prepare`의 `contract_changes`로
+  실수 삭제만 먼저 확인하고, 의도한 변경이면 사전 합의 대기 없이 바로 activate한다(activate 직후 core가
+  영향 그릇의 follow-up과 handoff를 자동 연결한다). 옛 우회 메모 정리 시 `memory.md`와 생성 skill은
+  직접 고치고 보고하며, 사람 소유의 `LOPHN.md`는 제안만 한다.
 - `contextBlock({name, mimeType, text})` — 화면의 context(보고 있는 글, 고른 항목)를
   `resource` block으로 싼다. 같은 `name`이 한 메시지에서 구별되게 짓는다.
 - 꼴은 JSON schema의 부분이다: `type`(object, array, string, number, integer,

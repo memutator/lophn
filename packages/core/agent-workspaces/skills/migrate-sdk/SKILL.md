@@ -1,23 +1,53 @@
 ---
 name: migrate-sdk
-description: Move an app to newer lophn SDK versions (the @lophn/* packages the app pins). Read this when the person asks to update an app's SDK, when an app's pinned SDK versions are older than lophn's, or when an app stopped starting after a lophn update.
+description: Move an app (@lophn/* packages) or a project workflow (@lophn/flow, flow_sdk) to newer lophn SDK versions, or repair an app or workflow blocked after a lophn update.
 ---
 
-# Migrate an app's SDK
+# Migrate SDK (apps and workflows)
 
-An app pins exact versions of lophn's SDK packages. When lophn ships newer
-versions, the app's code may need changes. This skill is the one procedure;
-what changed in each version is in note files beside this file.
+Apps pin exact versions of `@lophn/*` SDK packages, and project `flow.ts`
+workflows record their `@lophn/flow` version in `workflow.yaml` (`flow_sdk`).
+When lophn ships newer versions, app or workflow code may need changes. This
+skill is the one procedure; what changed in each version is in note files beside
+this file.
 
-If you are lophn at Home, you do not change apps (you cannot read their
-source). Read the `update-apps` skill: it looks at all apps as a whole, decides
-per app whether to migrate, adopt new features or leave it, asks the person,
-records each decision with `lophn app sdk-decide`, and that one command hands the
-app to lophn at that app (no reply expected) with the target versions, the note
-files, the chosen features (each with an ID) and "follow the migrate-sdk skill".
-Skip archived apps.
+- **If you are lophn at Home**: you do not edit app or project source directly.
+  Read the `update` skill (`/update`): it inspects apps, project workflows,
+  platform notes, and open follow-ups via `lophn update status`, records
+  decisions with `lophn update decide`, and hands work to each app or project
+  workspace (no reply expected). Skip archived apps and archived projects.
+- **If you are lophn at a project**: follow "Migrating a project workflow
+  (`@lophn/flow`)" below for this project's workflows.
+- **If you are lophn at an app**: follow steps 1 to 12 below for this app only.
 
-If you are lophn at the app, do steps 1 to 12 for this app only.
+## Migrating a project workflow (`@lophn/flow`)
+
+1. Inspect the workflow's `workflow.yaml` and `flow.ts` in `<Workflows folder>/<name>/`.
+   Check `flow_sdk` in `workflow.yaml` (missing `flow_sdk` is treated as
+   `1.0.0`). `lophn workflow list` shows `flow_sdk` and `flow_sdk_status`, and
+   `lophn follow-up list` shows open follow-up items (`fup_...`) for this
+   project.
+2. Read the `flow-<version>.md` notes after the recorded `flow_sdk` up to the
+   current `@lophn/flow` version with
+   `skill.read {name: "migrate-sdk", path: "flow-<version>.md"}`, following
+   `Previous:` back to the starting version.
+3. Update `flow.ts` and `workflow.yaml` to match the notes (for example,
+   omitting legacy `kind:`, wrapping primitives in `step(key, fn)` or explicit
+   `key`, handling `SoftOutput`, and applying any `## Instruction diff` habits).
+   Clean up obsolete workarounds by ownership: edit `memory.md` (`agent.memory`)
+   and generated project skills directly and report what changed; propose edits
+   to `LOPHN.md` only (never edit `LOPHN.md` directly). Update project-scoped
+   `runtime: custom` agents with `agent.update` if their instructions changed.
+4. Run `lophn workflow check <project>/<name>` to type-check, verify erasable
+   TypeScript syntax, and stamp the current `flow_sdk` in `workflow.yaml`. Run
+   `lophn workflow list` to confirm no declaration problem remains.
+5. Running flow instances keep their start-time `code_snapshot`. If any instance
+   of the migrated workflow is `blocked`, tell the person they can continue it
+   with `[Resume with updated code]`.
+6. Report every follow-up item (`fup_...`) from the handoff with
+   `lophn follow-up report <id> --state done|changed|skipped --outcome "<one line>"`.
+
+## Migrating an app (`@lophn/*`)
 
 ## 1. Find the pinned versions
 
@@ -118,35 +148,41 @@ decided about it. If they settled it, follow that and say only that you did. If
 not, stop and ask the person (`ask`); do not guess. When they answer, write the
 decision in your Memory with `agent.memory`.
 
-## 11. Features chosen by the person
+## 11. Features and follow-ups chosen by the person
 
-Only if the handoff from Home lists features (each has an ID like `sdf_...`).
+Only if the handoff from Home lists follow-up items (each has an ID like
+`fup_...`; see `lophn follow-up list`).
 Do this after the migration is released and working, as a separate change. Each
-feature is a proposal the
-person picked from a short description, not a finished spec: confirm what they
-want in this app's conversation (`ask` for the open choices, such as the
-threshold or whether it is persistent; skip a choice your Memory already holds,
-follow it, and write each new answer there with `agent.memory`), design it with
-the `design-app` skill, read the notes of the version that adds it for the exact
-API, then implement, check, preview and release as in steps 6 and 7. If a feature does not fit once
-you see the code, say so and skip it instead of forcing it. What the person
-decides about a feature's details (a threshold, a shortcut key) is a preference
-only you can keep: it goes in your Memory as above, not in the report.
+item is a proposal the person picked from a short description, not a finished
+spec: confirm what they want in this app's conversation (`ask` for the open
+choices, such as the threshold or whether it is persistent; skip a choice your
+Memory already holds, follow it, and write each new answer there with
+`agent.memory`), design it with the `design-app` skill, read the notes of the
+version that adds it for the exact API, then implement, check, preview and
+release as in steps 6 and 7. If a feature does not fit once you see the code,
+say so and skip it instead of forcing it. What the person decides about a
+feature's details (a threshold, a shortcut key) is a preference only you can
+keep: it goes in your Memory as above, not in the report.
+
+When cleaning up stale workarounds from earlier SDK versions: edit `memory.md`
+(`agent.memory`) and generated app skills directly and report what changed;
+update app-scoped `runtime: custom` agents with `agent.update` if needed; for
+person-owned `LOPHN.md`, propose edits only and never edit it directly.
 
 ## 12. Report
 
 Tell the person in their words what changed in the app for them: whether it
-runs as before, what they can now do, and what to try. List each chosen feature
+runs as before, what they can now do, and what to try. List each follow-up item
 as done, changed after talking to the person, or skipped with the reason. If
 something was left undone, say what and why.
 
-Record the result of each feature the handoff listed, so lophn at Home can see
-it: `lophn app sdk-feature <feature ID> --state done|changed|skipped --note
-"<one line>"`. `done` is built as proposed, `changed` is built differently after
-talking to the person, `skipped` is not built. Do it for every listed feature
-once its outcome is known, also when you skip it. A feature without a result
-stays `open` and Home treats it as unfinished. The migration itself needs no
-report: it shows as the new pin once the release is live.
+Record the result of each follow-up item the handoff listed, so lophn at Home
+can see it: `lophn follow-up report <id> --state done|changed|skipped --outcome "<one line>"`.
+`done` is built as proposed, `changed` is built differently after talking to the
+person, `skipped` is not built. Do it for every listed item once its outcome is
+known, also when you skip it. An item without a result stays `open` and Home
+treats it as unfinished. The migration itself needs no report: it shows as the
+new pin once the release is live.
 
 Put the package versions, the code changes and what you verified (check, tests,
 preview) in the commit message, and give them to the person only if they ask.

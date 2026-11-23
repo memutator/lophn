@@ -1,6 +1,6 @@
 ---
 name: write-artifact
-description: "Write an artifact: a static HTML page in the artifacts folder of a project or app that shows the person a result on screen. What the page says, the page shapes and their templates, keeping it current, checking it on screen, and how to build it with lophn's kit."
+description: "Write a static HTML artifact in a project or app artifacts folder: pick Brief, Inbox, Explorer, or workflow graph templates with lophn's kit, choose snapshot/refresh/scheduled freshness, and verify on screen with browser screenshot."
 ---
 
 # Artifact

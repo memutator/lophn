@@ -1,6 +1,6 @@
 ---
 name: new-app
-description: Start a new app with the person.
+description: Plan a new app with the person at Home: compare existing apps, commands, and packages first, note needs like phone screens/native features, app files, cross-computer sync, or in-app custom agents, register with app create, and hand off to the app workspace.
 ---
 
 # Start a new app

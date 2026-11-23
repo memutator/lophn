@@ -47,7 +47,7 @@ export const BUILTIN_SKILLS: readonly {
     menu: true,
   },
   {
-    name: "update-apps",
+    name: "update",
     workspaces: ["home"],
     can_disable: false,
     menu: true,

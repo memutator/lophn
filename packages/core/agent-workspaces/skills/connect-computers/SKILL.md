@@ -1,6 +1,6 @@
 ---
 name: connect-computers
-description: Help the person keep their apps' data and files in step across their computers (home and work, a dual boot, a laptop and a desktop) or reach a computer directly from outside their network. Explains what lophn does by itself (an always-on computer in the device list becomes the middle with no setup), installs on this computer an app that another computer shares, and sets up the folder all computers see and Tailscale only when they need more.
+description: Keep apps, table sync data, across_machines events, and files in step across the person's computers (always-on computer relay, installing shared apps with app take-in, shared folder folder.shared, and Tailscale direct remote.addresses). Check machine environment before suggesting setup.
 ---
 
 # Connect computers

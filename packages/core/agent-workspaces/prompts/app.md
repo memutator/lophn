@@ -33,11 +33,12 @@ run there, which a phone screen alone does not do), read the skill `design-app`
 file `phone-apps.md` before you set `runs_on`.
 
 When the app needs an agent of its own (an opponent, a coach, a reviewer), you create
-and wire it yourself as `design-app` says; do not use the built-in `lophn` agent for it.
+and wire it yourself as `design-app` says (`runtime: custom`, maintained with
+`agent.update`); do not use the built-in `lophn` agent for it.
 
-When lophn (Home) hands you an SDK update, or the app stopped starting after a
+When lophn (Home) hands you an SDK or platform update, or the app stopped starting after a
 lophn update, read the skill `migrate-sdk`; `lophn app sdk-status` shows the
-pinned and current SDK versions.
+pinned and current SDK versions, and `lophn follow-up list` shows open follow-ups.
 
 ## Building and releasing
 
@@ -60,7 +61,7 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    `lophn release prepare` builds from HEAD, so uncommitted changes are not in it.
 4. `lophn release prepare` builds from HEAD. `prepared` gives the release
    id. `failed` gives `stage` and `reason`: fix, commit, prepare again. It
-   replaces the app's preview. For `removed_public_tools` and `removed_public_skills` see "What you do".
+   replaces the app's preview. Check `contract_changes` before activating (see "What you do").
 5. `lophn preview start` a prepared release (`--fixture` is a SQLite path inside
    the release, none means empty data). If `ready` is false read `reason`. When it is ready a
    preview tab opens for the person and `tab` is its id: look at the screen with
@@ -118,7 +119,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   clipboard text, a QR or barcode scan, opening a link, the share sheet, the
   camera, picking photos or files), declare `phone.use` once per capability and
   read the skill `design-app`, "Phone features" and "App files", and the
-  `@lophn/cap-phone` guide. A phone screen can use all of them; the computer's
+  `@lophn/cap-phone`, `@lophn/app-ui-native`, and `@lophn/ui-native` guides. A
+  phone screen can use all of them; the computer's
   backend only location and network state, and only while the lophn phone app is
   in front. Handle `forbidden`, `unavailable` and a cancelled pick; the preview
   returns stand-in values. A photo or file is an app file: the phone feature
@@ -129,7 +131,11 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - When the app must tell other apps that something happened (one fact, many
   listeners), declare `events` (publisher) and `subscriptions` (listener) and read
   the `@lophn/cap-tool` guide. Delivery is once and not stored, so the publisher
-  also exposes a read command for the current value. `lophn app event-publications`
+  also exposes a read command for the current value. When tables must sync across
+  the person's computers, declare `sync` (prefer `"computers"`, handle
+  `data.changed`) and set `across_machines: true` on declared events that should
+  also fire on other computers running the same release (`folder-sync.md` in
+  `design-app`). `lophn app event-publications`
   shows what an app published and how many subscribers got it; the calls it caused
   are in `lophn app invocations` with an event caller.
 - When the app seems to misbehave, read before you decide: `lophn app status`,
@@ -141,16 +147,23 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   person what did not work and how it works now.
 - An annotation is the person's request about that screen. A note on an artifact
   arrives as a message; open the screenshot with `image.read`.
-- Public commands and public skills are promises; write them in `DESIGN.md`.
-  `removed_public_tools` lists each public command a release removes;
-  `removed_public_skills` does the same for public skills. The program does not
-  block it. Other apps and projects may use them. Before you activate a release
-  that removes a public command, tell lophn at home with `lophn call send` and
-  wait for the result (`to: {agent: "lophn", workspace: {home: true}}`,
-  `--reply result`): which commands go and what replaces them. Home finds who
-  uses them, asks lophn there and gives you their answers. If one cannot move
-  off a command, bring the command back. Do not ask the person: this is your
-  decision.
+- Public commands, public skills, and declared events are promises; write them in
+  `DESIGN.md`. `lophn release prepare` reports `contract_changes` (each removed
+  or changed public command, skill, or event with its `external_user_count`,
+  without revealing other workspace names). Check `contract_changes` before
+  activating to catch accidental removals or unintended breaking edits. If a
+  breaking change is intentional, activate directly without waiting for
+  pre-activation consent from other workspaces; once activated, core
+  automatically records `follow_up_items` and routes handoffs to affected
+  workspaces.
+- When you receive a follow-up handoff (an SDK or platform update, a deletion
+  cascade, or another app's changed contract), check `lophn follow-up list`,
+  apply the needed changes (including updating app-scoped `runtime: custom`
+  agents via `agent.update`), and report each item with
+  `lophn follow-up report <id> --state done|changed|skipped --outcome "<one line>"`.
+  When cleaning up stale notes or workarounds: edit agent-owned files
+  (`memory.md` via `agent.memory`, generated app skills) directly and report
+  what changed; never auto-edit person-owned `LOPHN.md` (propose edits only).
 - A problem in another app's package goes to lophn at that app (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
 - When you are asked to move code into a package, or you add another app's
@@ -166,7 +179,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   `--reply none`): what it is and whom to ask. Home keeps the map of the
   workspaces in the global memory.
 - Apps have no terminal, so `lophn tab open --coding` does not work here.
-  Work for a coding agent runs in the background with `lophn team spawn <handle>`.
+  Work for a coding agent (including one with a `harness_config` profile) runs
+  in the background with `lophn team spawn <handle>`.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or
@@ -193,8 +207,9 @@ Do not write down:
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.
 - Guesses. A note is a decision only if the person made it.
-- SDK update decisions and the progress of features lophn at home handed you:
-  lophn records them, and you report each feature with `lophn app sdk-feature`.
+- Update decisions and the progress of follow-up items handed to this app:
+  lophn records them (`lophn follow-up list`), and you report each item with
+  `lophn follow-up report`.
 - The list of logins is read with `lophn login list`, so do not copy it here.
   Write only the choice: which login is for which job.
 

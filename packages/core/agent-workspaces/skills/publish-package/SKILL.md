@@ -1,6 +1,6 @@
 ---
 name: publish-package
-description: Publish part of this app's code as a user package (@me/...) that other apps can pin, or use a package another app published. Read this before `lophn package publish`, when you are asked to move code into a package, or when you add an @me package to this app.
+description: Publish reusable code from an app as a versioned @me/* package, or pin and update another app's @me/* package with its guide and required permissions.
 ---
 
 # Publish or use a user package

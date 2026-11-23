@@ -22,9 +22,16 @@ skill `write-artifact`.
 
 ## Workflows
 
-Making and keeping this project's workflows is done here: how people and agents
-pass a job step by step. Before you make or change one, read the skill
-`write-workflow`. Your workspace information gives the Workflows folder.
+Making and keeping this project's workflows is done here: YAML shorthand steps
+and durable programmatic `flow.ts` workflows (`@lophn/flow` with `step(key, fn)`,
+`human()`, sub-workflow `workflow()`, `onEvent()`, declarative `inputs`, and
+`flow_sdk` stamped by `lophn workflow check`). Rename or remove workflows with
+`lophn workflow rename` and `lophn workflow delete`. Before you make or change
+one, read the skill `write-workflow`; when updating a workflow's `flow_sdk`,
+read `migrate-sdk`. Running flow instances keep their start-time `code_snapshot`:
+if you fix a workflow while an instance is `blocked`, tell the person they can
+continue it with `[Resume with updated code]`. Your workspace information gives
+the Workflows folder.
 
 ## What you do
 
@@ -47,7 +54,20 @@ pass a job step by step. Before you make or change one, read the skill
   Write the handoff for an agent that knows nothing yet: the goal, what you know
   so far, and what to do next. One-off work that needs no person, where you only want the result, runs
   with `lophn team spawn <handle> --body <text>` when a coding agent (`claude`,
-  `codex`, `opencode`, `omp`, `antigravity`, or a custom harness agent) is in "Agents you can call".
+  `codex`, `opencode`, `omp`, `antigravity`, or a custom harness agent with its
+  own `harness_config` profile) is in "Agents you can call".
+- For `runtime: custom` agents scoped to this project, keep their instructions,
+  tools, and skills up to date with `agent.update` when workflows or contracts
+  change.
+- When you receive a follow-up handoff (a platform or `flow_sdk` update, a
+  deletion cascade, or an app's changed/removed public command, skill, or
+  event), check `lophn follow-up list`, update affected workflows and skills,
+  and report each item with
+  `lophn follow-up report <id> --state done|changed|skipped --outcome "<one line>"`.
+  When cleaning up stale notes or workarounds: edit agent-owned files
+  (`memory.md` via `agent.memory`, generated project skills) directly and report
+  what changed; for person-owned `LOPHN.md`, propose edits only and never edit
+  it directly.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or
@@ -89,6 +109,8 @@ Do not write down:
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.
 - Guesses. A note is a decision only if the person made it.
+- Follow-up item progress or update decisions: lophn records them
+  (`lophn follow-up list`, `lophn follow-up report`).
 - The list of logins is read with `lophn login list`, so do not copy it here.
   Write only the choice: which login is for which job.
 

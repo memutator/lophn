@@ -1044,17 +1044,17 @@ flows:
     docs: [architecture/agent-definition.md]
 
   - id: skill-update-apps
-    title: 사람이 /update-apps로 SDK 갱신 검토 skill을 부른다
+    title: 사람이 /update로 작업 공간 전체 업데이트 검토 skill을 부른다
     actor: person
-    entries: [skill:update-apps]
+    entries: [skill:update]
     uses: [route:messages/send, tool:skill.read]
     boundary: [agent-workspaces, agent-tools]
-    code: [packages/core/agent-workspaces/skills/update-apps/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    code: [packages/core/agent-workspaces/skills/update/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
     steps:
-      - 사람이 composer에 /update-apps를 치거나 Inbox 알림에서 부르면 core가 Use the "update-apps" skill for this request.를 사람 메시지로 접수한다
-      - agent가 skill.read로 update-apps 본문을 읽는다
+      - 사람이 composer에 /update를 치거나 Inbox 알림에서 부르면 core가 Use the "update" skill for this request.를 사람 메시지로 접수한다
+      - agent가 skill.read로 update 본문과 플랫폼 메모(notes/<id>.md)를 읽는다
       - home이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
-      - 본문을 tool 결과로 준다. 앱별 판단과 사람에게 묻기, 앱마다 결정을 기록하고 맡기는 app.sdk_decide는 본문이 정한다
+      - 본문을 tool 결과로 준다. update.status로 앱·workflow·플랫폼 메모·열린 follow-up을 읽고 자산 매칭 질문과 소유별 정리 뒤 update.decide로 결정·인계하는 절차는 본문이 정한다
     outcomes:
       - id: loaded
         observe: [response]
@@ -1199,7 +1199,7 @@ flows:
     steps:
       - agent가 app SDK 갱신을 맡으면 skill.read로 migrate-sdk 본문을 읽는다
       - 버전마다의 note 파일(SKILL.md 옆의 .md)은 skill.read에 path를 줘서 읽는다. 목록에 없는 path는 not_found다
-      - home이거나 app이면 선언에 있다. 다른 종류면 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - home, project, app이면 선언에 있다. 다른 종류면 turn의 skill 목록에 없어 forbidden으로 막힌다
     outcomes:
       - id: loaded
         observe: [response]

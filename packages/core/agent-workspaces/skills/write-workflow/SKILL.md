@@ -1,6 +1,6 @@
 ---
 name: write-workflow
-description: "Write a workflow: how people and agents pass a job from step to step. Read this skill and write it as it says."
+description: "Write or update a project workflow: YAML shorthand or durable programmatic flow.ts (@lophn/flow 2.0 step(key, fn), human(), sub-workflow workflow(), onEvent(), tool(), withFallback()), declarative inputs/outputs, flow_sdk stamped by workflow check, workflow rename/delete, and cross-computer steps."
 ---
 
 # Workflow
@@ -239,7 +239,10 @@ agent in `workflow.yaml`'s `agent:` field (`lophn` when omitted). Ask the person
 before requiring a new app assignment.
 
 After writing or changing `flow.ts`, run `lophn workflow check <project>/<name>`
-to verify TypeScript types and erasable syntax.
+to verify TypeScript types and erasable syntax and stamp `flow_sdk` in
+`workflow.yaml`. To rename or remove a workflow cleanly (keeping `workflow_start`
+jobs and desk layout in sync), use `lophn workflow rename` and
+`lophn workflow delete`.
 
 Starting: a person (screen, `lophn workflow start --inputs <json>`), a job
 (`workflow_start`), or a parent `workflow()` starts it.

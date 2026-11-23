@@ -1,6 +1,6 @@
 ---
 name: design-app
-description: Design an app or a change before you build it. Read this skill and write DESIGN.md as it says.
+description: Design an app or a change in DESIGN.md before building it: operations vs commands, shared skills, desktop and phone screens (@lophn/ui-native, @lophn/app-ui-native), phone native features (@lophn/cap-phone) and app files (@lophn/cap-store), widgets, runs_on phone backends, cross-computer table sync and across_machines events, and in-app custom agents.
 ---
 
 # Design an app
@@ -95,9 +95,8 @@ agent that files the person's receipts, are examples. If it is:
    approved with it, so do not ask the person to approve sharing separately.
    Otherwise it waits in the waiting list; tell the person.
 
-A change that removes a public skill or a command it calls shows in
-`removed_public_skills` or `removed_public_tools` at release prepare. Keep the
-skill and its commands in step.
+Removing or changing a public skill or command shows in `contract_changes` at
+release prepare. Keep the skill and its commands in step.
 
 ## Find what exists
 
@@ -409,23 +408,20 @@ process (a handler), never from a screen.
 ```ts
 import { readdirSync, readFileSync } from "node:fs";
 
-// pid -> parent pid for every process.
 function parents(): Map<number, number> {
   const out = new Map<number, number>();
   for (const name of readdirSync("/proc")) {
     if (!/^\d+$/.test(name)) continue;
     try {
-      // "pid (comm) S ppid ..." — comm may contain spaces, so split after the last ")".
+      // comm may contain spaces, so split after the last ")".
       const stat = readFileSync(`/proc/${name}/stat`, "utf8");
       out.set(Number(name), Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]));
-    } catch {
-      // the process ended meanwhile
-    }
+    } catch {}
   }
   return out;
 }
 
-// every descendant of root, deepest first (kill children before parents).
+// Descendants of root, deepest first (kill children before parents).
 export function treeOf(root: number): number[] {
   const parent = parents();
   const found: number[] = [];
@@ -437,25 +433,19 @@ export function treeOf(root: number): number[] {
   return found;
 }
 
-// pids whose environment has LOPHN_SESSION_ID=<session>: core sessions (ses_...) and terminal tabs (term:...).
+// PIDs carrying LOPHN_SESSION_ID=<session> (ses_... or term:...).
 export function processesOf(session: string): number[] {
   const want = `LOPHN_SESSION_ID=${session}`;
   return [...parents().keys()].filter((pid) => {
     try {
       return readFileSync(`/proc/${pid}/environ`, "utf8").split("\0").includes(want);
-    } catch {
-      return false; // not yours, or gone
-    }
+    } catch { return false; }
   });
 }
 
 export function kill(pids: number[], signal: NodeJS.Signals = "SIGTERM"): void {
   for (const pid of pids) {
-    try {
-      process.kill(pid, signal);
-    } catch {
-      // already gone
-    }
+    try { process.kill(pid, signal); } catch {}
   }
 }
 ```

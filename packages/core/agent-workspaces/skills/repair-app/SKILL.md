@@ -1,6 +1,6 @@
 ---
 name: repair-app
-description: Find out what went wrong in one of the person's apps.
+description: Diagnose a broken or misbehaving app from Home (status, logs, failed invocations, SDK or contract issues) and hand the evidence to lophn at that app to fix.
 ---
 
 # Repair an app

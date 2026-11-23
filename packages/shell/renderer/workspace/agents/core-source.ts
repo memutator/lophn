@@ -805,13 +805,21 @@ export function coreAgentsSource(
       };
     },
 
-    async deleteAgent(_project, agent, hash) {
+    async deleteAgent(_project, agent, hash, cleanUp) {
       const deleted = await link.command(agentDelete, {
-        input: { agent },
+        input: {
+          agent,
+          ...(cleanUp === undefined ? {} : { clean_up: cleanUp }),
+        },
         compare: { hash },
       });
       return deleted.ok
-        ? { ok: true, value: null }
+        ? {
+            ok: true,
+            value: {
+              handoff_session: deleted.value.handoff_session ?? null,
+            },
+          }
         : { ok: false, message: deleted.code };
     },
 

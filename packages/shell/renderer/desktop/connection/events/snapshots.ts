@@ -1,32 +1,34 @@
 // ready 뒤에 읽는 snapshot. 읽기나 모양이 틀리면 null이고, store는 지금 값을 그대로 두고 다음 ready를 기다린다.
-import type { CoreSource } from "../connection.ts";
-import {
-  type SessionSnapshot,
-  sessionSnapshotsList,
-} from "../../../../../protocol/events/mod.ts";
-import {
-  type ActivationConsent,
-  activationConsents,
-} from "../../../../../protocol/apps/activation/consent.ts";
+
 import {
   type ShareRequest,
   shareRequestList,
 } from "../../../../../protocol/approvals/share-request.ts";
 import {
+  type ActivationConsent,
+  activationConsents,
+} from "../../../../../protocol/apps/activation/consent.ts";
+import {
   type Notice,
   noticesOpen,
 } from "../../../../../protocol/apps/notice.ts";
+import type { FollowUpItem } from "../../../../../protocol/base/follow-ups.ts";
+import {
+  type SessionSnapshot,
+  sessionSnapshotsList,
+} from "../../../../../protocol/events/mod.ts";
 import {
   type JobHold,
   type JobRecord,
   jobHolds,
   jobPending,
 } from "../../../../../protocol/jobs/jobs.ts";
-
+import { followUpList } from "../../../../../protocol/lophn-agent/follow-ups.ts";
 import {
   type MailHold,
   mailHolds,
 } from "../../../../../protocol/lophn-agent/mail.ts";
+import type { CoreSource } from "../connection.ts";
 
 export async function readSessionSnapshots(
   core: CoreSource,
@@ -144,4 +146,25 @@ export async function readMailHolds(
   if (!reply?.ok) return null;
   const parsed = mailHolds.output.safeParse(reply.value);
   return parsed.success ? parsed.data.holds : null;
+}
+
+/**
+ * 열린 follow-up item 목록(`follow_up.list` state=open). 옛 판 기계가 route를 모르면(not_found) 빈 목록이다.
+ * 다른 snapshot과 묶지 않아 이 읽기가 실패해도 나머지 Inbox 항목은 맞춘다.
+ */
+export async function readOpenFollowUps(
+  core: CoreSource,
+): Promise<FollowUpItem[] | null> {
+  const reply = await core
+    .call({
+      kind: "read",
+      resource: followUpList.resource,
+      method: followUpList.method,
+      body: { state: "open" },
+    })
+    .catch(() => null);
+  if (reply?.ok === false && reply.error?.code === "not_found") return [];
+  if (!reply?.ok) return null;
+  const parsed = followUpList.output.safeParse(reply.value);
+  return parsed.success ? parsed.data.items : null;
 }

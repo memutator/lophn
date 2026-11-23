@@ -77,9 +77,32 @@ export const artifactListSchema = z.union([
   z.object({ project: projectId, machine: machineId.optional() }).strict(),
   z.object({ app: appId, machine: machineId.optional() }).strict(),
 ]);
-// 지우기는 project의 artifact만이다(앱 artifact는 sidebar 목록이 없다).
-export const artifactDeleteSchema = z
-  .object({ project: projectId, name: artifactNameSchema })
+const cleanUpMode = z.enum(["none", "now", "later"]);
+const sessionId = z.string().regex(new RegExp(`^ses_${ULID}$`));
+
+export const artifactDeleteSchema = z.union([
+  z
+    .object({
+      project: projectId,
+      name: artifactNameSchema,
+      clean_up: cleanUpMode.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      app: appId,
+      name: artifactNameSchema,
+      clean_up: cleanUpMode.optional(),
+    })
+    .strict(),
+]);
+
+export const artifactDeleteResultSchema = z
+  .object({
+    deleted: z.literal(true),
+    follow_ups: z.array(z.unknown()),
+    handoff_session: sessionId.nullable(),
+  })
   .strict();
 
 export const artifactViewStateSchema = z
@@ -124,6 +147,7 @@ export type ArtifactOpen = z.infer<typeof artifactOpenSchema>;
 export type ArtifactReload = z.infer<typeof artifactReloadSchema>;
 export type ArtifactList = z.infer<typeof artifactListSchema>;
 export type ArtifactDelete = z.infer<typeof artifactDeleteSchema>;
+export type ArtifactDeleteResult = z.infer<typeof artifactDeleteResultSchema>;
 export type ArtifactViewState = z.infer<typeof artifactViewStateSchema>;
 export type ArtifactEvent = z.infer<typeof artifactEventSchema>;
 export type ArtifactListItem = z.infer<typeof artifactListItemSchema>;
@@ -149,8 +173,8 @@ export interface LophnArtifactApi {
   open(input: ArtifactOpen): Promise<ArtifactViewState>;
   reload(input: ArtifactReload): Promise<null>;
   list(input: ArtifactList): Promise<{ artifacts: ArtifactListItem[] }>;
-  /** project의 artifact 폴더를 지운다. 되돌릴 수 없다. 열린 탭의 view는 main이 버리고 removed event를 민다. */
-  delete(input: ArtifactDelete): Promise<null>;
+  /** project나 앱의 artifact 폴더를 core를 통해 지운다. 되돌릴 수 없다. 열린 탭의 view는 main이 버리고 removed event를 민다. */
+  delete(input: ArtifactDelete): Promise<ArtifactDeleteResult>;
   subscribeState(listener: (state: ArtifactViewState) => void): () => void;
   subscribeEvent(listener: (event: ArtifactEvent) => void): () => void;
 }

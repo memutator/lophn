@@ -12,7 +12,7 @@ export const KIND_LABEL = {
   app_data_restored: "waiting.label.kind-app-data-restored",
   lophn_updated: "waiting.label.kind-lophn-updated",
   sdk_update_needed: "waiting.label.kind-sdk-update-needed",
-  workspace_update_needed: "waiting.label.kind-sdk-update-needed",
+  workspace_update_needed: "waiting.label.kind-workspace-update-needed",
   session_stopped_by_app: "waiting.label.kind-session-stopped-by-app",
   phone_changed: "waiting.label.kind-phone-changed",
   app_sync_away: "waiting.label.kind-app-sync-away",

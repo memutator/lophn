@@ -226,7 +226,7 @@ export const appSpace = {
   "app-detail.note.sdk-available":
     "Optional. The app runs as it is; newer versions only add features.",
   "app-detail.note.sdk-required":
-    "This app uses SDK versions lophn no longer runs. Ask lophn at Home with /update-apps to move it.",
+    "This app uses SDK versions lophn no longer runs. Ask lophn at Home with /update to move it.",
   "app-detail.note.go-back-busy":
     "Not available while a release is being applied.",
   "app-detail.note.go-back-schema":

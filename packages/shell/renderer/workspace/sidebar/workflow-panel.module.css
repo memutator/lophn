@@ -11,8 +11,29 @@
   background: var(--status-warning-marker);
 }
 
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* 목록 아래의 단추 줄. */
 .ask {
   display: flex;
   padding: var(--space-4) var(--space-3);
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dialogText {
+  margin: var(--space-0);
+}
+
+.dialogError {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
 }

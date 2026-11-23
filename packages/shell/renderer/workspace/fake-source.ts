@@ -1855,6 +1855,10 @@ export function fakeWorkspaceSource(
       }));
       return Promise.resolve({ ok: true, value: updatedInstance });
     },
+    renameWorkflow: ({ from, to }) =>
+      Promise.resolve({ ok: true, value: { from, to } }),
+    deleteWorkflow: () =>
+      Promise.resolve({ ok: true, value: { handoff_session: null } }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     layout: fakeLayoutSource(),
   };

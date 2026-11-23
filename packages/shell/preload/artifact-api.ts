@@ -5,11 +5,12 @@ import {
   ARTIFACT_OPEN_CHANNEL,
   ARTIFACT_RELOAD_CHANNEL,
   ARTIFACT_STATE_CHANNEL,
+  type ArtifactDeleteResult,
   type ArtifactEvent,
-  artifactEventSchema,
   type ArtifactListItem,
   type ArtifactReply,
   type ArtifactViewState,
+  artifactEventSchema,
   artifactViewStateSchema,
   type LophnArtifactApi,
 } from "../ipc/artifact.ts";
@@ -56,7 +57,8 @@ export function createArtifactApi(transport: ViewsTransport): LophnArtifactApi {
         ARTIFACT_LIST_CHANNEL,
         input,
       ),
-    delete: (input) => call<null>(transport, ARTIFACT_DELETE_CHANNEL, input),
+    delete: (input) =>
+      call<ArtifactDeleteResult>(transport, ARTIFACT_DELETE_CHANNEL, input),
     subscribeState: (listener) =>
       subscribe(
         transport,

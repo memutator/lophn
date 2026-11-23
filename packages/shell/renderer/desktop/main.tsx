@@ -9,6 +9,31 @@ import {
 
 import { codingSessionsList } from "../../../protocol/coding-agent/relay.ts";
 import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
+import { workspaceSessionRead } from "../../../protocol/lophn-agent/agent-sessions.ts";
+import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { LophnDetachedApi } from "../../ipc/detached.ts";
+import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { IntentApi } from "../../ipc/shortcuts.ts";
+import { AppWindow } from "../app-frame/app-window.tsx";
+import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
+import { AppKeyContributions } from "../commands/app-keys.ts";
+import { CommandsProvider } from "../commands/react.tsx";
+import { createWindowCommands } from "../commands/window.ts";
+import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
+import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
+import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
+import {
+  createSidebarMemory,
+  SidebarMemoryProvider,
+} from "../shell/sidebar-memory.tsx";
+import { TrayPopupLayer } from "../shell/tray/tray.tsx";
+import {
+  createTrayMemory,
+  TrayMemoryProvider,
+} from "../shell/tray/tray-memory.tsx";
+import { MachineListsProvider } from "../shell/use-left-sidebar.ts";
+import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
+import { WorkspaceWindow } from "../workspace/workspace-window.tsx";
 import {
   ConnectionNotice,
   retryConnection,
@@ -16,63 +41,39 @@ import {
 } from "./connection/connection.tsx";
 import { useStateChanged } from "./connection/core-read.ts";
 import { useSessions } from "./connection/events/hooks.tsx";
-import { HookPromptHost } from "./hook-prompt/hook-prompt-host.tsx";
-import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
+import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
-import { HomeGate } from "./workspaces/home-gate.tsx";
+import { HookPromptHost } from "./hook-prompt/hook-prompt-host.tsx";
+import { DesktopIntents } from "./intents.tsx";
 import {
   useHostMachine,
   useMachineData,
   useMachineHub,
 } from "./machines/scope.tsx";
-import {
-  createSidebarMemory,
-  SidebarMemoryProvider,
-} from "../shell/sidebar-memory.tsx";
-import {
-  createTrayMemory,
-  TrayMemoryProvider,
-} from "../shell/tray/tray-memory.tsx";
-import { TrayPopupLayer } from "../shell/tray/tray.tsx";
+import type { DesktopTarget } from "./palette/desktop-scope.ts";
+import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import {
   HOME,
   openApp,
+  openAppScreenAt,
   openHome,
   openNewApp,
+  openProject,
+  openSettings,
+  openTerminalIn,
   openWorkspace,
   openWorkspaceNewSession,
   openWorkspaceSession,
   openWorkspaceSettings,
-  openAppScreenAt,
-  openProject,
-  openSettings,
-  openTerminalIn,
   type Route,
 } from "./router.ts";
-import { WorkspaceWindow } from "../workspace/workspace-window.tsx";
-import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
-import type { LophnDetachedApi } from "../../ipc/detached.ts";
-import { SettingsSpace } from "./settings/settings-space.tsx";
-import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
-import type { IntentApi } from "../../ipc/shortcuts.ts";
-import { DesktopIntents } from "./intents.tsx";
-import type { DesktopTarget } from "./palette/desktop-scope.ts";
-import { AppWindow } from "../app-frame/app-window.tsx";
+import { applyAppearance } from "./settings/appearance/model.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import { ConnectProviderHost } from "./settings/providers/connect-host.tsx";
-import { applyAppearance } from "./settings/appearance/model.ts";
-import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
-import type { OverlayApi } from "../../ipc/overlay.ts";
-import { AppKeyContributions } from "../commands/app-keys.ts";
-import { CommandsProvider } from "../commands/react.tsx";
-import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
-import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
-import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
-import { createWindowCommands } from "../commands/window.ts";
+import { SettingsSpace } from "./settings/settings-space.tsx";
 import { currentPlatform } from "./top-bar/platform.ts";
-import { workspaceKey, type WorkspaceRef } from "../shell/desk-model.ts";
-import { MachineListsProvider } from "../shell/use-left-sidebar.ts";
+import { HomeGate } from "./workspaces/home-gate.tsx";
 
 // desktop preload만 연다(entry.tsx의 bridges와 같은 꼴). gallery·dev 창에는 없어 main이 먼저 받는 키는 표의 키로 남는다.
 
@@ -253,16 +254,47 @@ export function Desktop({
   known.current = sessions;
   const hub = useMachineHub();
   const openSession = (session: string, machine?: string) => {
-    const workspace = (
+    const routeSession = (
+      workspace:
+        | { readonly kind: "project"; readonly id: string }
+        | { readonly kind: "app"; readonly id: string }
+        | null
+        | undefined,
+    ) => {
+      if (workspace?.kind === "project") {
+        setRoute(openProject(workspace.id, { session, ...on(machine) }));
+      } else if (workspace?.kind === "app") {
+        setRoute(openApp(workspace.id, session, machine));
+      } else {
+        setRoute(openHome(session, machine));
+      }
+    };
+    const found = (
       machine === undefined
         ? known.current
         : (hub?.get(machine).stores.sessions.get().sessions ?? [])
-    ).find((entry) => entry.session === session)?.workspace;
-    if (workspace?.kind === "project") {
-      setRoute(openProject(workspace.id, { session, ...on(machine) }));
-    } else if (workspace?.kind === "app")
-      setRoute(openApp(workspace.id, session, machine));
-    else setRoute(openHome(session, machine));
+    ).find((entry) => entry.session === session);
+    if (found !== undefined) {
+      routeSession(found.workspace);
+      return;
+    }
+    // 방금 만든 handoff·follow-up session은 SessionStarted가 아직 store에 닿기 전일 수 있어 core에서 workspace를 확인한다.
+    const targetCore =
+      machine === undefined ? source : (hub?.get(machine).core ?? source);
+    void targetCore
+      .call({
+        kind: workspaceSessionRead.kind,
+        resource: workspaceSessionRead.resource,
+        method: workspaceSessionRead.method,
+        body: { session },
+      })
+      .then((reply) => {
+        const parsed = reply.ok
+          ? workspaceSessionRead.output.safeParse(reply.value)
+          : null;
+        routeSession(parsed?.success ? parsed.data.session.workspace : null);
+      })
+      .catch(() => routeSession(null));
   };
   const openRemoteTerminal = (terminalRef: string, machine: string) => {
     const data = hub?.get(machine);

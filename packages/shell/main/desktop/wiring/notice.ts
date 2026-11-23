@@ -49,6 +49,7 @@ import { openDesktopWindow } from "./desktop-window.ts";
 // core 기동 중에 쓰여 shell이 붙기 전에 지나간 기록 가운데 붙은 뒤 다시 읽어 띄우는 것(`notices.open`).
 const STARTUP_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "sdk_update_needed",
+  "workspace_update_needed",
   "app_unavailable",
 ]);
 

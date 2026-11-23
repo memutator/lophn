@@ -1,12 +1,12 @@
 // apps 화면과 앱 공간이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은
 // core-source.ts만 안다. 모양은 protocol(apps.list·get·archive·unarchive)에서 이
 // 화면이 쓰는 field만 옮긴 것이다.
+import type { CleanUpMode } from "../../../protocol/base/follow-ups.ts";
 import type { AppViewOpen } from "../../ipc/app-frame.ts";
 import type { SourceResult } from "../source-result.ts";
 import type { AvailableApp, TakeInOutcome } from "./take-in.ts";
 
-export type { SourceResult };
-export type { AvailableApp, TakeInOutcome };
+export type { AvailableApp, SourceResult, TakeInOutcome };
 
 /** 등록한 앱 하나. 이름은 사람이 지은 그대로다. */
 export interface AppRow {
@@ -53,7 +53,10 @@ export interface AppsSource {
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
   /** 보관한 앱을 영구히 지운다. 보관하지 않은 앱은 `conflict`, 앱 process가 아직 멈추는 중이면 `unavailable`이다. */
-  deleteApp(app: AppRow): Promise<SourceResult<null>>;
+  deleteApp(
+    app: AppRow,
+    cleanUp?: CleanUpMode,
+  ): Promise<SourceResult<{ readonly handoff_session: string | null } | null>>;
   /** 앱이 주인인 공개 package. 지워도 남고 주인이 빈다. 지우기 전에 사람에게 보인다. */
   publishedPackages(
     app: AppRow,

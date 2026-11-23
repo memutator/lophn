@@ -4,6 +4,7 @@
 
 import type { HarnessCatalogView } from "../../../../protocol/acp/harness-catalog.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
+import type { CleanUpMode } from "../../../../protocol/base/follow-ups.ts";
 import type { GuiHarness } from "../../../../protocol/coding-agent/gui-harness.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type {
@@ -347,7 +348,8 @@ export interface AgentsSource {
     workspace: string,
     assignment: string,
     hash: string,
-  ): Promise<ReadResult<null>>;
+    cleanUp?: CleanUpMode,
+  ): Promise<ReadResult<{ readonly handoff_session: string | null } | null>>;
   /** avatar 이미지를 올리고 정의의 avatar에 쓸 파일 이름을 돌려준다. 저장은 따로다. */
   uploadImage(
     workspace: string | null,

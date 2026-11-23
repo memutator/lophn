@@ -1,30 +1,33 @@
 // shell renderer의 artifact 탭 IPC. 매 요청마다 sender가 살아 있는 desktop 창 main frame인지,
 // 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view의 bounds·숨기기·폐기는
 // 앱 view와 같은 길(view-ipc.ts)을 쓴다.
+
+import {
+  type ArtifactWorkspace,
+  artifactWorkspaceOf,
+} from "../../../protocol/projects/artifact.ts";
 import {
   ARTIFACT_DELETE_CHANNEL,
   ARTIFACT_LIST_CHANNEL,
   ARTIFACT_OPEN_CHANNEL,
   ARTIFACT_RELOAD_CHANNEL,
+  type ArtifactDelete,
+  type ArtifactDeleteResult,
   type ArtifactListItem,
+  type ArtifactReply,
+  type ArtifactViewState,
   artifactDeleteSchema,
   artifactListSchema,
   artifactOpenSchema,
   artifactReloadSchema,
-  type ArtifactReply,
-  type ArtifactViewState,
 } from "../../ipc/artifact.ts";
 import {
   type CallerContents,
+  type ContentsRegistry,
   checkCaller,
   checkInput,
-  type ContentsRegistry,
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
-import {
-  type ArtifactWorkspace,
-  artifactWorkspaceOf,
-} from "../../../protocol/projects/artifact.ts";
 import type { ArtifactViews } from "./registry.ts";
 
 interface ArtifactIpcDeps {
@@ -36,11 +39,8 @@ interface ArtifactIpcDeps {
     workspace: ArtifactWorkspace,
     machine?: string,
   ): Promise<ArtifactListItem[]>;
-  /** project의 artifact 폴더를 지우고 그 폴더를 연 view를 버린다. */
-  remove(input: {
-    project: string;
-    name: string;
-  }): Promise<ArtifactReply<null>>;
+  /** project나 앱의 artifact 폴더를 core를 통해 지우고 그 폴더를 연 view를 버린다. */
+  remove(input: ArtifactDelete): Promise<ArtifactReply<ArtifactDeleteResult>>;
 }
 
 interface ArtifactIpcHandlers {
@@ -53,7 +53,10 @@ interface ArtifactIpcHandlers {
     event: IpcEvent,
     input: unknown,
   ): Promise<ArtifactReply<{ artifacts: ArtifactListItem[] }>>;
-  delete(event: IpcEvent, input: unknown): Promise<ArtifactReply<null>>;
+  delete(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<ArtifactReply<ArtifactDeleteResult>>;
 }
 
 const DESKTOP_HOST = "desktop";

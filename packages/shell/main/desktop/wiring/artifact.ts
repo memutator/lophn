@@ -7,17 +7,16 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { app } from "electron";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { artifactsFolder } from "../../../../protocol/projects/artifact.ts";
 import {
   ARTIFACT_EVENT_CHANNEL,
   ARTIFACT_STATE_CHANNEL,
+  type ArtifactDeleteResult,
 } from "../../../ipc/artifact.ts";
 import {
   createArtifactIpc,
   registerArtifactIpc,
   removeArtifactIpc,
 } from "../../artifact/artifact-ipc.ts";
-import { deleteArtifactFolder } from "../../artifact/delete.ts";
 import { electronArtifactSession } from "../../artifact/electron-session.ts";
 import { electronArtifactViews } from "../../artifact/electron-view.ts";
 import { listArtifacts } from "../../artifact/list.ts";
@@ -193,10 +192,12 @@ export function register(
         isRemoteMachine(machine)
           ? remoteArtifacts.list(machine, workspace)
           : listArtifacts(ctx.dataRoot, workspace, nodeArtifactFs),
-      remove: async ({ project, name }) => {
-        const deleted = await deleteArtifactFolder(
-          artifactsFolder(ctx.dataRoot, { kind: "project", id: project }),
-          name,
+      remove: async (input) => {
+        const deleted = await ctx.coreInternal(
+          "memory",
+          "artifacts",
+          "delete",
+          input,
         );
         if (!deleted.ok) {
           const { code, message } = deleted.error;
@@ -206,7 +207,8 @@ export function register(
               code:
                 code === "invalid_input" ||
                 code === "forbidden" ||
-                code === "not_found"
+                code === "not_found" ||
+                code === "unavailable"
                   ? code
                   : "internal",
               message,
@@ -214,8 +216,25 @@ export function register(
           };
         }
         // 지운 뒤에 view를 버린다. 지우기가 실패하면 열린 탭은 그대로다.
-        views.removeSource({ kind: "artifact", project, name });
-        return { ok: true, value: null };
+        views.removeSource(
+          "app" in input
+            ? { kind: "artifact", app: input.app, name: input.name }
+            : { kind: "artifact", project: input.project, name: input.name },
+        );
+        const value = deleted.value as Partial<ArtifactDeleteResult> | null;
+        return {
+          ok: true,
+          value: {
+            deleted: true,
+            follow_ups: Array.isArray(value?.follow_ups)
+              ? value.follow_ups
+              : [],
+            handoff_session:
+              typeof value?.handoff_session === "string"
+                ? value.handoff_session
+                : null,
+          },
+        };
       },
     }),
   );

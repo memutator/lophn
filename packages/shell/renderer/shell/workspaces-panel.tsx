@@ -4,38 +4,40 @@
 // 기기가 부를 수 없다.
 // 이 컴퓨터의 창은 다른 기계의 것도 보인다: 다른 기계에도 있는 project는 그 기계 이름을 아래 줄에 달고, 이 컴퓨터에 없는 project·앱은
 // 기계 꼬리표를 단 줄로 구역 끝에 선다(누르면 그 기계의 workspace를 연다. 꺼진 기계의 줄은 흐리고 열리지 않는다).
-import type { LucideIcon } from "lucide-react";
-import { type ReactNode, useState } from "react";
+
 import { t } from "@lophn/i18n";
-import { IconButton } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
-
+import { IconButton } from "@lophn/ui/primitives";
+import type { LucideIcon } from "lucide-react";
+import { type ReactNode, useState } from "react";
+import type { CleanUpMode } from "../../../protocol/base/follow-ups.ts";
 import { AppWorkspaceMark } from "../app-frame/app-icon.tsx";
 import { useAppList } from "../apps/app-list.ts";
 import type { AppRow, AppsSource, PublishedPackage } from "../apps/source.ts";
+import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { CreateAppDialog } from "../desktop/workspaces/create-app-dialog.tsx";
 import { missingFolder } from "../desktop/workspaces/model.ts";
+import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
 import { ProjectDetailDialog } from "../desktop/workspaces/projects/project-detail.tsx";
 import type {
   ProjectItem,
   ProjectsSource,
 } from "../desktop/workspaces/projects/source.ts";
-import type { MachineWorkspace } from "../desktop/workspaces/projects/machine-workspaces.ts";
 import { RegisterDialog } from "../desktop/workspaces/register-dialog.tsx";
-import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { actionIcons, commonIcons, homeIcons } from "../icons/mod.ts";
-import type { WorkspaceRef } from "./desk-model.ts";
-import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
 import { ProjectWorkspaceMark } from "../parts/project-icon/project-icon.tsx";
+import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
+import { useImpact, useOpenHandoffSession } from "./cascade-delete-confirm.tsx";
+import { DeleteAppDialog } from "./delete-app-dialog.tsx";
+import type { WorkspaceRef } from "./desk-model.ts";
+import { MachineTag } from "./left-sidebar.tsx";
 import {
   PanelEmpty,
   PanelRow,
   PanelRows,
   PanelSection,
 } from "./panel-rows.tsx";
-import { DeleteAppDialog } from "./delete-app-dialog.tsx";
-import { MachineTag } from "./left-sidebar.tsx";
 import { RightSidebar } from "./right-sidebar.tsx";
 import { useProjectList } from "./use-left-sidebar.ts";
 
@@ -226,6 +228,11 @@ export function WorkspacesPanel({
     });
   };
 
+  const openHandoff = useOpenHandoffSession();
+  const appImpact = useImpact(
+    deleting === null ? null : { kind: "app", app: deleting.row.id },
+  );
+
   // 쓴 결과는 core의 변경 알림으로 목록에 돌아온다. 실패는 대개 다른 창이 먼저 고친 것이라 그 알림이 이미 최신을 읽었다.
   const setProjectArchived = (project: ProjectItem, archived: boolean) =>
     void projects?.setArchived(project, archived);
@@ -233,13 +240,14 @@ export function WorkspacesPanel({
   const setAppArchived = (app: AppRow, archived: boolean) =>
     void apps?.setArchived(app, archived);
 
-  const deleteApp = async () => {
+  const deleteApp = async (cleanUp: CleanUpMode) => {
     if (!apps || deleting === null) return;
     const { row } = deleting;
     setDeleting({ row, busy: true });
-    const result = await apps.deleteApp(row);
+    const result = await apps.deleteApp(row, cleanUp);
     if (result.ok) {
       setDeleting(null);
+      openHandoff(result.value?.handoff_session);
       return;
     }
     // 앱 process가 아직 멈추는 중이면 잠시 뒤 다시 하면 된다.
@@ -520,10 +528,12 @@ export function WorkspacesPanel({
           packages={
             published?.app === deleting.row.id ? published.packages : []
           }
+          impact={appImpact.report}
+          impactLoading={appImpact.loading}
           busy={deleting.busy}
           failure={deleting.failure}
           onCancel={() => setDeleting(null)}
-          onConfirm={() => void deleteApp()}
+          onConfirm={(cleanUp) => void deleteApp(cleanUp)}
         />
       ) : null}
       {apps ? (

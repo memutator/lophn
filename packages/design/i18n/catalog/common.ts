@@ -1,4 +1,13 @@
 export const common = {
+  "cascade.button.delete-and-clean-up": "Delete & clean up now",
+  "cascade.button.delete-only": "Delete only",
+  "cascade.heading.affected":
+    "Affected {count, plural, one {# place} other {# places}}",
+  "cascade.heading.immediate": "Deleted immediately",
+  "cascade.label.affected-item": "{workspace} · {label}",
+  "cascade.note.checking-impact": "Checking what uses this…",
+  "cascade.note.handoff":
+    "Clean up now opens lophn to update these places. Delete only saves follow-up items in Inbox for later.",
   "common.button.apply": "Apply",
   "common.button.back": "Back",
   "common.button.cancel": "Cancel",

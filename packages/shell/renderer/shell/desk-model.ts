@@ -1739,6 +1739,149 @@ export function removeDesk(
 }
 
 /**
+ * workflow 이름이 바뀐 뒤(`WorkflowRenamed`) 그 workflow desk와 열린 workflow 탭·artifact 탭의 key·field를
+ * 원자적으로 옮긴다. `mergeVanished`보다 먼저 불러 rename된 desk가 Main으로 합쳐지지 않게 한다.
+ */
+export function renameWorkflowDesk(
+  layout: WorkspaceLayout,
+  from: string,
+  to: string,
+): WorkspaceLayout {
+  if (from === to || from === MAIN_DESK || to === MAIN_DESK) return layout;
+
+  const remapTab = (tab: TabItem): TabItem => {
+    if (tab.kind === "workflow" && tab.fields?.workflow === from) {
+      return {
+        ...tab,
+        key: tab.key === `workflow:${from}` ? `workflow:${to}` : tab.key,
+        title: tab.title === from ? to : tab.title,
+        fields: { ...tab.fields, workflow: to },
+      };
+    }
+    if (tab.kind === "artifact" && tab.fields?.workflow === from) {
+      const project =
+        typeof tab.fields.project === "string" ? tab.fields.project : null;
+      const prefix =
+        project === null ? null : `artifact-workflow:${project}:${from}:`;
+      const nextKey =
+        prefix !== null && tab.key.startsWith(prefix)
+          ? `artifact-workflow:${project}:${to}:${tab.key.slice(prefix.length)}`
+          : tab.key;
+      return {
+        ...tab,
+        key: nextKey,
+        title: tab.title === from ? to : tab.title,
+        fields: { ...tab.fields, workflow: to },
+      };
+    }
+    return tab;
+  };
+
+  const remapDesk = (desk: Desk): Desk => {
+    const keyMap = new Map<string, string>();
+    let deskChanged = false;
+    const mapOne = (tab: TabItem): TabItem => {
+      const next = remapTab(tab);
+      if (next !== tab) {
+        deskChanged = true;
+        if (next.key !== tab.key) keyMap.set(tab.key, next.key);
+      }
+      return next;
+    };
+    const tabs = desk.tabs.map(mapOne);
+    const floats = desk.floats.map((item) => {
+      const next = mapOne(item.tab);
+      return next === item.tab ? item : { ...item, tab: next };
+    });
+    const detached = desk.detached.map((item) => {
+      const next = mapOne(item.tab);
+      return next === item.tab ? item : { ...item, tab: next };
+    });
+    if (!deskChanged) return desk;
+    const renameKey = (key: string) => keyMap.get(key) ?? key;
+    const selected = desk.selected === null ? null : renameKey(desk.selected);
+    const groups =
+      keyMap.size === 0
+        ? desk.groups
+        : desk.groups.map((group) => renameInGroup(group, renameKey));
+    return settle({ ...desk, tabs, selected, groups, floats, detached });
+  };
+
+  let changed = false;
+  const desks: Record<string, Desk> = {};
+  const hasTargetKey = Object.hasOwn(layout.desks, to);
+
+  for (const [deskKey, rawDesk] of Object.entries(layout.desks)) {
+    const remapped = remapDesk(rawDesk);
+    if (remapped !== rawDesk) changed = true;
+    const isTarget = deskKey === from || remapped.workflow === from;
+    if (isTarget && deskKey !== MAIN_DESK) {
+      const nextKey = deskKey === from && !hasTargetKey ? to : deskKey;
+      const nextLabel = remapped.label === from ? to : remapped.label;
+      desks[nextKey] = {
+        ...remapped,
+        key: nextKey,
+        label: nextLabel,
+        workflow: to,
+      };
+      changed = true;
+    } else {
+      desks[deskKey] = remapped;
+    }
+  }
+
+  if (!changed) return layout;
+  const active =
+    layout.active === from && !hasTargetKey && Object.hasOwn(desks, to)
+      ? to
+      : layout.active;
+  return { ...layout, active, desks };
+}
+
+/**
+ * workflow가 지워진 뒤(`WorkflowRemoved`) 그 workflow desk와 어느 desk에든 열려 있던 workflow·workflow artifact 탭을
+ * 깨끗이 걷어낸다. 보던 desk가 지워지면 Main으로 돌아간다.
+ */
+export function removeWorkflowDesk(
+  layout: WorkspaceLayout,
+  name: string,
+): WorkspaceLayout {
+  if (name === MAIN_DESK) return layout;
+  const isTargetTab = (tab: TabItem) =>
+    (tab.kind === "workflow" && tab.fields?.workflow === name) ||
+    (tab.kind === "artifact" && tab.fields?.workflow === name);
+
+  let changed = false;
+  const desks: Record<string, Desk> = {};
+  for (const [deskKey, desk] of Object.entries(layout.desks)) {
+    const isTargetDesk =
+      deskKey !== MAIN_DESK && (deskKey === name || desk.workflow === name);
+    if (isTargetDesk) {
+      changed = true;
+      continue;
+    }
+    let next = desk;
+    for (const tab of desk.tabs) {
+      if (isTargetTab(tab)) next = dropTab(next, tab.key);
+    }
+    for (const item of desk.floats) {
+      if (isTargetTab(item.tab)) next = closeFloat(next, item.tab.key);
+    }
+    for (const item of desk.detached) {
+      if (isTargetTab(item.tab)) next = closeDetached(next, item.tab.key);
+    }
+    if (next !== desk) changed = true;
+    desks[deskKey] = next;
+  }
+
+  if (!changed) return layout;
+  const active = Object.hasOwn(desks, layout.active)
+    ? layout.active
+    : MAIN_DESK;
+  return { ...layout, active, desks };
+}
+
+/**
  * workflow가 끝나 사라진 desk를 Main에 합친다. tabs는 끝에 붙고(group은 그대로 따라온다), float·detached는 상한이
  * 남아 있을 때만 그대로 가며 아니면 tab으로 간다. Main에 이미 같은 key가 있는 tab은 옮기지 않고, 그 key를 가진
  * group의 leaf는 빠지며 1개가 되면 group은 풀린다. 사람이 끝낸 desk에는 쓰지 않는다(removeDesk).

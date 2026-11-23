@@ -7,11 +7,11 @@ import {
   applyTabDrop,
   closeDetached,
   closeFloat,
-  closeTargets,
   closeTab,
+  closeTargets,
   cyclePane,
-  defaultWorkspaceLayout,
   type Desk,
+  defaultWorkspaceLayout,
   deskEntries,
   detachTab,
   dockFloat,
@@ -20,10 +20,10 @@ import {
   findTab,
   floatTab,
   focusLeaf,
+  type GroupNode,
   groupById,
   groupOf,
   groupTabs,
-  type GroupNode,
   leavesOf,
   MAIN_DESK,
   membersOf,
@@ -32,11 +32,12 @@ import {
   moveTab,
   openTab,
   openTabInLayout,
-  paneStackOf,
   type PaneZone,
-  type WorkspaceLayout,
+  paneStackOf,
   reattachTab,
   removeDesk,
+  removeWorkflowDesk,
+  renameWorkflowDesk,
   restoreFloat,
   selectTab,
   setRatio,
@@ -44,14 +45,15 @@ import {
   stackTab,
   stepTab,
   swapTabs,
-  toggleGroupCollapsed,
   type TabDragItem,
   type TabDropHit,
-  tabDropState,
   type TabItem,
+  tabDropState,
+  toggleGroupCollapsed,
   ungroup,
   ungroupTab,
   updateDesk,
+  type WorkspaceLayout,
 } from "./desk-model.ts";
 
 const tab = (key: string): TabItem => ({ key, kind: "terminal", title: key });
@@ -779,4 +781,98 @@ test("leaf 하나의 bundle group: 묶기·접기·쌓기·빼기, 하나만 남
   assert.deepEqual(leavesOf(groupOf(plainStacked, "x")!.layout), ["z"]);
   assert.deepEqual(paneStackOf(plainStacked, "x"), ["x", "z"]);
   assertValid(plainStacked, ["x", "y", "z"]);
+});
+
+test("WorkflowRenamed 시 renameWorkflowDesk가 desk와 workflow 탭·group을 원자적으로 옮겨 Main 합병을 막는다", () => {
+  const wfTab: TabItem = {
+    key: "workflow:old-wf",
+    kind: "workflow",
+    title: "old-wf",
+    fields: { workflow: "old-wf", instance: "wfi_1" },
+  };
+  const artTab: TabItem = {
+    key: "artifact-workflow:prj_1:old-wf:static",
+    kind: "artifact",
+    title: "old-wf",
+    fields: { project: "prj_1", workflow: "old-wf", view: "static" },
+  };
+  const noteTab = tab("doc:notes");
+
+  let layout = addDesk(defaultWorkspaceLayout(), "old-wf", "old-wf", "old-wf");
+  layout = { ...layout, active: "old-wf" };
+  layout = updateDesk(layout, "old-wf", (desk) => {
+    let next = openTab(desk, wfTab);
+    next = openTab(next, noteTab);
+    next = splitTab(next, wfTab.key, noteTab.key, "right");
+    next = openTab(next, artTab);
+    next = floatTab(next, artTab.key, RECT);
+    next = selectTab(next, wfTab.key);
+    return next;
+  });
+
+  const renamed = renameWorkflowDesk(layout, "old-wf", "new-wf");
+  assert.equal(renamed.active, "new-wf");
+  assert.equal(renamed.desks["old-wf"], undefined);
+  assert.ok(renamed.desks["new-wf"]);
+  assert.equal(renamed.desks["new-wf"]!.workflow, "new-wf");
+  assert.equal(renamed.desks["new-wf"]!.label, "new-wf");
+  assert.equal(renamed.desks["new-wf"]!.selected, "workflow:new-wf");
+  assert.deepEqual(
+    renamed.desks["new-wf"]!.tabs.map((item) => item.key),
+    ["workflow:new-wf", "doc:notes"],
+  );
+  assert.deepEqual(renamed.desks["new-wf"]!.tabs[0]!.fields, {
+    workflow: "new-wf",
+    instance: "wfi_1",
+  });
+  assert.equal(
+    renamed.desks["new-wf"]!.floats[0]!.tab.key,
+    "artifact-workflow:prj_1:new-wf:static",
+  );
+  assert.equal(
+    renamed.desks["new-wf"]!.floats[0]!.tab.fields?.workflow,
+    "new-wf",
+  );
+  assertValid(renamed.desks["new-wf"]!, [
+    "workflow:new-wf",
+    "doc:notes",
+    "artifact-workflow:prj_1:new-wf:static",
+  ]);
+
+  // 이후 workflow 목록을 ["new-wf"]로 읽고 mergeVanished 규칙을 돌려도 desk가 Main으로 합쳐지지 않는다.
+  const liveNames = ["new-wf"];
+  const vanished = Object.values(renamed.desks).filter(
+    (item) => item.workflow !== undefined && !liveNames.includes(item.workflow),
+  );
+  assert.deepEqual(vanished, []);
+  assert.equal(renamed.desks[MAIN_DESK]!.tabs.length, 0);
+});
+
+test("WorkflowRemoved 시 removeWorkflowDesk가 workflow desk와 열린 workflow 탭을 깨끗이 지운다", () => {
+  const wfTab: TabItem = {
+    key: "workflow:drop-wf",
+    kind: "workflow",
+    title: "drop-wf",
+    fields: { workflow: "drop-wf" },
+  };
+  let layout = addDesk(
+    defaultWorkspaceLayout(),
+    "drop-wf",
+    "drop-wf",
+    "drop-wf",
+  );
+  layout = { ...layout, active: "drop-wf" };
+  layout = updateDesk(layout, "drop-wf", (desk) => openTab(desk, wfTab));
+  layout = updateDesk(layout, MAIN_DESK, (desk) =>
+    openTab(openTab(desk, tab("keep")), wfTab),
+  );
+
+  const removed = removeWorkflowDesk(layout, "drop-wf");
+  assert.equal(removed.active, MAIN_DESK);
+  assert.equal(removed.desks["drop-wf"], undefined);
+  assert.deepEqual(
+    removed.desks[MAIN_DESK]!.tabs.map((item) => item.key),
+    ["keep"],
+  );
+  assertValid(removed.desks[MAIN_DESK]!, ["keep"]);
 });

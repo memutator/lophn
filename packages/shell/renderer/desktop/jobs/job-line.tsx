@@ -1,10 +1,13 @@
 // job 한 줄과 펼친 기록. data는 props로 받는다. 줄 오른쪽 끝 고정 열에 switch, Edit, Delete, 기록 토글이 있다.
-import { Button, IconButton } from "@lophn/ui/primitives";
+
+import { t } from "@lophn/i18n";
 import { Skeleton, StatusMark, useDelayedLoading } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
-import { t } from "@lophn/i18n";
+import { Button, IconButton } from "@lophn/ui/primitives";
 
 import { actionIcons, commonIcons } from "../../icons/mod.ts";
+import styles from "./jobs.module.css";
+import { useMachineNameOf } from "./machine-names.ts";
 import {
   actionText,
   creatorText,
@@ -12,14 +15,13 @@ import {
   nextText,
   runText,
   runWhen,
-  sourceGoneText,
-  whenOf,
   STATE,
+  sourceGoneText,
+  targetUnavailableText,
+  whenOf,
   whenText,
 } from "./model.ts";
 import type { JobNames, JobRunView, JobView } from "./source.ts";
-import { useMachineNameOf } from "./machine-names.ts";
-import styles from "./jobs.module.css";
 
 /** 펼친 줄의 기록. 읽는 중이면 loading, 읽지 못했으면 failed. 펴지 않았으면 undefined. */
 export type History = readonly JobRunView[] | "loading" | "failed";
@@ -85,6 +87,15 @@ export function JobLine({
           {sourceGoneText(job) === null ? null : (
             <span className={styles.meta} data-source-gone="">
               {sourceGoneText(job)}
+            </span>
+          )}
+          {targetUnavailableText(job) === null ? null : (
+            <span className={styles.meta} data-target-unavailable="">
+              <StatusMark
+                tone="warning"
+                label={t("jobs.label.paused-target-badge")}
+              />{" "}
+              {targetUnavailableText(job)}
             </span>
           )}
           <span className={styles.last}>

@@ -144,18 +144,26 @@ export function coreAppsSource(core: CoreSource): AppsSource {
         : result;
     },
 
-    async deleteApp(app) {
-      const result = await call<unknown>(
+    async deleteApp(app, cleanUp) {
+      const result = await call<{ handoff_session?: string | null }>(
         core,
         "command",
         appDelete.method,
         commandBody(appDelete, {
-          input: { app: app.id },
+          input: {
+            app: app.id,
+            ...(cleanUp === undefined ? {} : { clean_up: cleanUp }),
+          },
           compare: { base_revision: app.revision },
           key: `apps-${appDelete.method}-${crypto.randomUUID()}`,
         }),
       );
-      return result.ok ? { ok: true, value: null } : result;
+      return result.ok
+        ? {
+            ok: true,
+            value: { handoff_session: result.value?.handoff_session ?? null },
+          }
+        : result;
     },
 
     async publishedPackages(app) {

@@ -11,6 +11,7 @@ import { Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
+import type { CleanUpMode } from "../../../../../protocol/base/follow-ups.ts";
 import {
   isLophn,
   workspaceOfLophn,
@@ -18,6 +19,7 @@ import {
 import { useCommands } from "../../../commands/react.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
+import { useOpenHandoffSession } from "../../../shell/cascade-delete-confirm.tsx";
 import { codingFaceOf } from "../coding-face.ts";
 import type { AgentDraft, AgentsSource, GrantsView } from "../source.ts";
 import type { Face } from "../tab-state.ts";
@@ -370,10 +372,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     );
   const name = shownName;
 
-  const remove = () => {
+  const openHandoff = useOpenHandoffSession();
+  const remove = (cleanUp: CleanUpMode) => {
     if (detail.assignment === null || detail.hash === null) return;
     void source
-      .deleteAgent(workspace ?? "", detail.assignment, detail.hash)
+      .deleteAgent(workspace ?? "", detail.assignment, detail.hash, cleanUp)
       .then((result) => {
         if (!result.ok) {
           setNotice({
@@ -383,6 +386,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           return;
         }
         (props.onGone ?? props.onDone)();
+        openHandoff(result.value?.handoff_session);
       });
   };
 

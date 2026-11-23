@@ -6,6 +6,7 @@ import type {
   Notice,
   NoticeAction,
 } from "../../../../../protocol/apps/notice.ts";
+import type { FollowUpItem } from "../../../../../protocol/base/follow-ups.ts";
 import { textBlocks } from "../../../../../protocol/lophn-agent/content-block.ts";
 import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { coreAgentTabSourceFactory } from "../../../conversation/agent-tab-core-source.ts";
@@ -58,4 +59,48 @@ export async function applyNoticeAction(
   const started = await runNoticeAction(core, action, machine);
   if (started && row.read_at === null) await markNoticesRead(core, [row.id]);
   return started;
+}
+
+/**
+ * 열린 follow-up item을 눌렀을 때 대상 그릇(home/project/app)의 lophn 새 대화를 열고
+ * 그 항목의 id·제목·본문을 첫 말로 넘겨 이어서 처리하게 한다.
+ */
+export async function openFollowUpSession(
+  core: CoreSource,
+  item: FollowUpItem,
+  machine: MachineRef = null,
+): Promise<boolean> {
+  const workspace =
+    item.workspace === null
+      ? ({ kind: "global", id: "" } as const)
+      : item.workspace;
+  const source = coreAgentTabSourceFactory(core)({
+    assignment: lophnIdOf(item.workspace),
+    workspace,
+  });
+  const now = Date.now();
+  const session = newId("ses", now);
+  const opened = await source.openSession({ id: session });
+  if (!opened.ok) return false;
+  const message = newId("msg", now);
+  const prompt = [
+    `Follow-up item ${item.id}: ${item.title}`,
+    "",
+    item.body,
+  ].join("\n");
+  const sent = await source.send({
+    session,
+    id: message,
+    key: `session-messages-send-${message}`,
+    content: textBlocks(prompt),
+    delivery: "next_turn",
+    seen: null,
+  });
+  if (!sent.ok) return false;
+  runToastAction({
+    kind: "session",
+    session,
+    ...(machine === null ? {} : { machine }),
+  });
+  return true;
 }

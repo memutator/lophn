@@ -43,6 +43,10 @@ export const workspaceSettings = {
   "jobs.label.skipped-last": "last skipped: {reason}",
   "jobs.label.source-gone":
     "The source no longer publishes this event, so this job will not run.",
+  "jobs.label.paused-target-badge": "Paused (archived target)",
+  "jobs.label.paused-target-unavailable": "Paused · target archived",
+  "jobs.label.target-unavailable":
+    "The app or project this job uses is archived or unavailable, so it is paused until restored.",
   "jobs.label.trigger-pass-event":
     "The event's data is passed to the tool as input.",
   "jobs.label.trigger-field": "When",

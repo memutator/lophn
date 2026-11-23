@@ -1,11 +1,12 @@
 // 펼친 Inbox. Now(답할 것 묶음들, 그 아래 휘발 알림, 결정한 직후 남는 줄)와 History(영구 기록) 두 탭이다.
 
-import { t } from "@lophn/i18n";
+import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { useState } from "react";
+import type { FollowUpOrigin } from "../../../../../protocol/base/follow-ups.ts";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
@@ -27,9 +28,10 @@ import { ShareCard } from "./cards/share-card.tsx";
 import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
 import type { FinishedRow } from "./finished.ts";
 import { HistoryView } from "./history-view.tsx";
-import type { Inbox, InboxEntry, InboxNotice } from "./inbox.ts";
+import type { Inbox, InboxEntry, InboxFollowUp, InboxNotice } from "./inbox.ts";
 import { cardOf } from "./model.ts";
-import { useInboxNamesOf } from "./names.ts";
+import { type InboxNames, useInboxNamesOf } from "./names.ts";
+import { openFollowUpSession } from "./notice-action.ts";
 import { NoticeRow } from "./notice-row.tsx";
 import type { Settled, SettledRow } from "./settled.ts";
 import styles from "./waiting.module.css";
@@ -180,6 +182,106 @@ function NotificationList({
   );
 }
 
+const FOLLOW_UP_ORIGIN_LABEL = {
+  app_sdk: "waiting.label.follow-up-origin-app-sdk",
+  flow_sdk: "waiting.label.follow-up-origin-flow-sdk",
+  platform_note: "waiting.label.follow-up-origin-platform-note",
+  cascade: "waiting.label.follow-up-origin-cascade",
+} as const satisfies Record<FollowUpOrigin, MessageKey>;
+
+function followUpWorkspaceLabel(
+  item: InboxFollowUp,
+  names: InboxNames,
+): string {
+  if (item.workspace === null) {
+    return t("waiting.label.follow-up-workspace-home");
+  }
+  if (item.workspace.kind === "project") {
+    return (
+      names.projects.get(item.workspace.id) ??
+      t("waiting.label.workspace-project", { id: item.workspace.id })
+    );
+  }
+  return (
+    names.apps.get(item.workspace.id) ??
+    t("waiting.label.workspace-app", { id: item.workspace.id })
+  );
+}
+
+/** 열린 follow-up item(`[Delete only]`나 업데이트 검토 backlog). 누르면 대상 그릇의 lophn 대화를 연다. */
+function FollowUpList({
+  items,
+  namesOf,
+  openingKey,
+  onOpen,
+}: {
+  items: readonly InboxFollowUp[];
+  namesOf: (machine: string | null) => InboxNames;
+  openingKey: string | null;
+  onOpen: (item: InboxFollowUp) => void;
+}) {
+  return (
+    <section
+      className={styles.group}
+      aria-label={t("waiting.label.group-follow-ups")}
+      data-follow-ups=""
+    >
+      <div className={styles.groupHead}>
+        <span>{t("waiting.label.group-follow-ups")}</span>
+        <span>{items.length}</span>
+      </div>
+      {items.map((item) => {
+        const preview = item.body
+          .split("\n")
+          .find((line) => line.trim() !== "");
+        const busy = openingKey === item.key;
+        return (
+          <div
+            key={item.key}
+            className={`${styles.request} ${styles.finished}`}
+            data-kind="follow-up"
+            data-follow-up={item.id}
+            onClick={() => {
+              if (!busy) onOpen(item);
+            }}
+          >
+            <div className={styles.who}>
+              <div className={styles.whoText}>
+                <p className={styles.title}>{item.title}</p>
+                {preview === undefined ? null : (
+                  <span className={styles.meta}>{preview}</span>
+                )}
+                <span className={styles.meta}>
+                  {[
+                    followUpWorkspaceLabel(item, namesOf(item.machine)),
+                    item.machineName ?? null,
+                    t(FOLLOW_UP_ORIGIN_LABEL[item.origin]),
+                    formatRelativeTime(new Date(item.created_at), new Date()),
+                  ]
+                    .filter((part) => part !== null)
+                    .join(" · ")}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                icon={actionIcons.send}
+                disabled={busy}
+                data-open-follow-up=""
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!busy) onOpen(item);
+                }}
+              >
+                {t("waiting.button.open-follow-up")}
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 export interface PanelInitial {
   /** 처음 보일 탭. 기본은 Now다. */
   readonly view?: "now" | "history";
@@ -200,6 +302,7 @@ export function WaitingPanel({
   onShowFinished,
   onDismissFinished,
   onOpenApp,
+  onFollowUpOpened,
 }: {
   /** 모든 기계의 대기 목록. 결정은 항목의 기계 core로 간다. */
   inbox: Inbox;
@@ -216,10 +319,27 @@ export function WaitingPanel({
   onDismissFinished: (target: NoticeTarget) => void;
   /** 앱 알림 줄을 누르면 그 앱 공간을 연다. 다른 기계의 앱이면 그 기계(null이 이 컴퓨터)를 준다. */
   onOpenApp: (app: string, machine: string | null) => void;
+  /** follow-up item을 열어 lophn 대화로 이동한 뒤 호출된다(overlay 닫기용). */
+  onFollowUpOpened?: () => void;
 }) {
-  const { entries, notices, historyUnread } = inbox;
+  const { entries, notices, followUps, historyUnread } = inbox;
   const namesOf = useInboxNamesOf();
   const [view, setView] = useState(initial?.view ?? "now");
+  const [openingFollowUp, setOpeningFollowUp] = useState<string | null>(null);
+
+  async function openFollowUp(item: InboxFollowUp) {
+    setOpeningFollowUp(item.key);
+    try {
+      const opened = await openFollowUpSession(
+        inbox.coreOf(item.machine),
+        item,
+        item.machine,
+      );
+      if (opened) onFollowUpOpened?.();
+    } finally {
+      setOpeningFollowUp(null);
+    }
+  }
 
   function decider(entry: InboxEntry): OnDecide {
     return async (choice, reason) => {
@@ -346,7 +466,8 @@ export function WaitingPanel({
             {entries.length === 0 &&
             settled.rows.length === 0 &&
             finished.length === 0 &&
-            notices.length === 0 ? (
+            notices.length === 0 &&
+            followUps.length === 0 ? (
               <p className={styles.empty}>{t("waiting.notice.empty")}</p>
             ) : null}
             {GROUPS.map((group) => {
@@ -370,6 +491,14 @@ export function WaitingPanel({
                 </section>
               );
             })}
+            {followUps.length > 0 ? (
+              <FollowUpList
+                items={followUps}
+                namesOf={namesOf}
+                openingKey={openingFollowUp}
+                onOpen={(item) => void openFollowUp(item)}
+              />
+            ) : null}
             {finished.length + notices.length > 0 ? (
               <NotificationList
                 finished={finished}

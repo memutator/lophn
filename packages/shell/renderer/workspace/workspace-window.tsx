@@ -1,7 +1,7 @@
+import { t } from "@lophn/i18n";
 import { Toast, ToastStack } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels, useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
 import {
   type ReactNode,
   useCallback,
@@ -13,104 +13,137 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { useAppRuns } from "../app-frame/app-runs.ts";
-import { lophnIdAt } from "./agents/agent-key.ts";
-import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
-import {
-  type DetachedEvent,
-  type LophnDetachedApi,
-  slimDetachedTab,
-  type TabTransfer,
-} from "../../ipc/detached.ts";
+import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
+import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   APP_PANEL,
   type Command,
   KEYBINDINGS,
 } from "../../../protocol/shell/keybindings.ts";
 import {
-  appScreenLabel,
+  type DetachedEvent,
+  type LophnDetachedApi,
+  slimDetachedTab,
+  type TabTransfer,
+} from "../../ipc/detached.ts";
+import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
+import { AppTabIcon } from "../app-frame/app-icon.tsx";
+import { useAppRuns } from "../app-frame/app-runs.ts";
+import {
   AppWorkspaceProvider,
+  appScreenLabel,
 } from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
-import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";
-import { useBookmarks } from "../browser/bookmarks.ts";
-import { useBrowserApi } from "../browser/browser-api.tsx";
-import { useBrowserProfiles } from "../browser/profiles.tsx";
 import {
   WebviewHostProvider,
   WebviewLayer,
 } from "../app-frame/webview-host.tsx";
-import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
+import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";
 import type { AppsSource } from "../apps/source.ts";
+import { useBookmarks } from "../browser/bookmarks.ts";
+import { useBrowserApi } from "../browser/browser-api.tsx";
+import { Favicon } from "../browser/favicon.tsx";
+import { useBrowserProfiles } from "../browser/profiles.tsx";
+import { useCommands, useWindowCommands } from "../commands/react.tsx";
+import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { useStateChanged } from "../desktop/connection/core-read.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
+import { InboxNamesProvider } from "../desktop/connection/waiting/names.ts";
+import type { JobsSource } from "../desktop/jobs/source.ts";
+import {
+  machineItemOf,
+  useMachinesView,
+} from "../desktop/machines/context.tsx";
+import { OnlyHere } from "../desktop/machines/only-here.tsx";
+import {
+  MachineScope,
+  useHostMachine,
+  useMachineData,
+  useScopeMachine,
+} from "../desktop/machines/scope.tsx";
+import { TabScope } from "../desktop/machines/tab-scope.tsx";
 import {
   useOpenPalette,
   usePaletteEnv,
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
-import type { ProjectsSource } from "../desktop/workspaces/projects/source.ts";
 import {
   focusTab,
   topFloat,
   workspaceScope,
 } from "../desktop/palette/workspace-scope.ts";
-import type { JobsSource } from "../desktop/jobs/source.ts";
+import type { NewSessionStart } from "../desktop/router.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
+import { launchKey } from "../desktop/settings/quick-launch/source.ts";
+import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
+import type { ProjectsSource } from "../desktop/workspaces/projects/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
-import { dotLabel } from "../parts/tab-state-dot/tab-state-dot.tsx";
+import { workspaceIcons } from "../icons/mod.ts";
 import {
-  ContentCard,
+  type AgentChoice,
+  AgentFaceIcon,
+} from "../parts/agent-session/agent-session.tsx";
+import { codingFace } from "../parts/agent-session/coding.ts";
+import { OwnerProvider, ownerLookup } from "../parts/agent-session/owner.tsx";
+import { dotLabel } from "../parts/tab-state-dot/tab-state-dot.tsx";
+import { agentChoices, codingCommand } from "../shell/agent-sections.tsx";
+import {
   type CardPane,
+  ContentCard,
   type TabAction,
 } from "../shell/content-card.tsx";
+import {
+  DeskCloseDialog,
+  type DeskCloseSummary,
+} from "../shell/desk-close-dialog.tsx";
 import {
   activeDesk,
   addDesk,
   allTabs,
   applyTabDrop,
-  closeDetached,
   type CloseScope,
+  closeDetached,
   closeFloat,
   closeTab,
   closeTargets,
   cyclePane,
   type Desk,
+  defaultWorkspaceLayout,
   deskEntries,
   deskTabs,
   detachTab,
   dirsOf,
   dockFloat,
   entryKey,
+  type FloatRect,
   findTab,
-  type TabDragItem,
-  type TabDropState,
   floatTab,
   focusLeaf,
   groupKey,
   groupOf,
   isBundle,
   leavesOf,
+  MAIN_DESK,
   mapLayoutTabs,
   membersOf,
+  mergeDeskIntoMain,
   minimizeFloat,
-  MAIN_DESK,
+  minimizeLooseFloats,
   moveTab,
   newFloatRect,
   openDetachedTab,
   openFloatTab,
-  pinFloat,
-  minimizeLooseFloats,
   openTab as openTabInDesk,
   paneStackOf,
-  type WorkspaceLayout,
-  defaultWorkspaceLayout,
+  pinFloat,
   pinTab,
-  workspaceKey,
   reattachTab,
-  mergeDeskIntoMain,
   removeDesk,
+  removeWorkflowDesk,
   renameDesk,
+  renameWorkflowDesk,
   restoreFloat,
   selectTab,
   setActiveDesk,
@@ -121,26 +154,20 @@ import {
   splitTab,
   stepTab,
   swapTabs,
+  type TabDragItem,
+  type TabDropState,
+  type TabItem,
   tabDropState,
   toggleGroupCollapsed,
-  type WorkspaceRef,
-  type FloatRect,
-  type TabItem,
   ungroup,
   ungroupTab,
   updateDesk,
+  type WorkspaceLayout,
+  type WorkspaceRef,
   whereInDesk,
+  workspaceKey,
 } from "../shell/desk-model.ts";
-import {
-  DeskCloseDialog,
-  type DeskCloseSummary,
-} from "../shell/desk-close-dialog.tsx";
-import { workflowDeskStatus } from "../workflow/model.ts";
 import { DeskSwitcher } from "../shell/desk-switcher.tsx";
-import {
-  TabsCloseDialog,
-  type TabsCloseRow,
-} from "../shell/tabs-close-dialog.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
 import {
   canGoGlobal,
@@ -148,30 +175,51 @@ import {
   useGlobalFloats,
 } from "../shell/global-floats/global-floats.tsx";
 import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
-import { PanelTabs } from "../shell/panel-tabs.tsx";
-import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
-import { Taskbar } from "../shell/taskbar/taskbar.tsx";
-import { TrayHost } from "../shell/tray/tray.tsx";
-import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
-import { type DragHit, TabDragProvider } from "../shell/tab-drag.tsx";
+import { keepsSavedFile } from "../shell/layout-source.ts";
 import {
-  movedTab,
-  placedIn,
-  putTab,
-  sessionTab,
-  tabMachineOf,
-} from "./sidebar/move-tab.ts";
-import type { SidebarRowDrops } from "./sidebar/workspace-left-sidebar.tsx";
+  type SidebarSession,
+  sessionKey,
+} from "../shell/left-sidebar-model.ts";
+import { layoutDesks } from "../shell/left-sidebar-workspaces.ts";
+import { PanelTabs } from "../shell/panel-tabs.tsx";
+import {
+  type QuickHoverItem,
+  type QuickLaunch,
+  QuickLaunchRow,
+} from "../shell/quick-launch.tsx";
+import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
+import { type DragHit, TabDragProvider } from "../shell/tab-drag.tsx";
+import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import {
   type StripEntry,
   type StripTab,
   TabStrip,
 } from "../shell/tab-strip.tsx";
+import {
+  TabsCloseDialog,
+  type TabsCloseRow,
+} from "../shell/tabs-close-dialog.tsx";
+import { Taskbar } from "../shell/taskbar/taskbar.tsx";
+import { TrayHost } from "../shell/tray/tray.tsx";
+import { useMachineLists } from "../shell/use-left-sidebar.ts";
 import { type TerminalDeps, terminalLive } from "../terminal/deps.ts";
+import { workflowDeskStatus } from "../workflow/model.ts";
 import { NewTabMenu } from "./add-tab-menu.tsx";
-import { panelChoices, useScreensRead } from "./app-panel-tab.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
+import { lophnIdAt } from "./agents/agent-key.ts";
+import { panelChoices, useScreensRead } from "./app-panel-tab.tsx";
 import { focusTabBody } from "./focus-tab.ts";
+import {
+  announceHanded,
+  canDropOn,
+  canHand,
+  HandSessionsContext,
+  type HandTarget,
+  handTab,
+  handTargets,
+  reportState,
+  takeBack,
+} from "./hand.ts";
 import {
   distinctAgentTab,
   openAgent,
@@ -189,17 +237,16 @@ import {
   appScreenTab,
   openAppScreen,
 } from "./kinds/app-screen.tsx";
-import { openInbox } from "./kinds/inbox.tsx";
-import { openJobs } from "./kinds/jobs.tsx";
-import { openPages } from "./kinds/page-view.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab, shownProfile } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { TabHost } from "./kinds/host.ts";
+import { openInbox } from "./kinds/inbox.tsx";
+import { openJobs } from "./kinds/jobs.tsx";
 import { isThisComputerOnly } from "./kinds/kind.ts";
-import { tabKindOf } from "./kinds/registry.ts";
-import { TabBoundary } from "./tab-boundary.tsx";
+import { openPages } from "./kinds/page-view.tsx";
 import { openProjectSettings } from "./kinds/project-settings.tsx";
+import { tabKindOf } from "./kinds/registry.ts";
 import { openSearchShortcut } from "./kinds/search.tsx";
 import {
   harnessOf,
@@ -208,56 +255,22 @@ import {
   terminalRefOf,
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
-import { NoticeCard } from "./notice-card.tsx";
-import { keepsSavedFile } from "../shell/layout-source.ts";
-import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
 import { clampFloatRect, hostTabOf } from "./model.ts";
-import {
-  announceHanded,
-  canDropOn,
-  canHand,
-  HandSessionsContext,
-  type HandTarget,
-  handTab,
-  handTargets,
-  reportState,
-  takeBack,
-} from "./hand.ts";
-import { AppTabIcon } from "../app-frame/app-icon.tsx";
-import { Favicon } from "../browser/favicon.tsx";
-import { launchKey } from "../desktop/settings/quick-launch/source.ts";
-import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
+import { NoticeCard } from "./notice-card.tsx";
+import { openTabWithGroup } from "./open-policy.ts";
+import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { CrumbBrowse } from "./sidebar/crumb-browse.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
+import {
+  movedTab,
+  placedIn,
+  putTab,
+  sessionTab,
+  tabMachineOf,
+} from "./sidebar/move-tab.ts";
 import { agentRow } from "./sidebar/panel-sessions.ts";
-import {
-  type SidebarSession,
-  sessionKey,
-} from "../shell/left-sidebar-model.ts";
-import { layoutDesks } from "../shell/left-sidebar-workspaces.ts";
-import { WorkspaceLeftSidebar } from "./sidebar/workspace-left-sidebar.tsx";
-import {
-  type QuickHoverItem,
-  type QuickLaunch,
-  QuickLaunchRow,
-} from "../shell/quick-launch.tsx";
-import { agentChoices, codingCommand } from "../shell/agent-sections.tsx";
-import {
-  AgentFaceIcon,
-  type AgentChoice,
-} from "../parts/agent-session/agent-session.tsx";
-import { codingFace } from "../parts/agent-session/coding.ts";
-import { OwnerProvider, ownerLookup } from "../parts/agent-session/owner.tsx";
-import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
-import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
-import { workspaceIcons } from "../icons/mod.ts";
-import type { NewSessionStart } from "../desktop/router.ts";
-import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
-import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
-import { useMachineLists } from "../shell/use-left-sidebar.ts";
-import { InboxNamesProvider } from "../desktop/connection/waiting/names.ts";
 import {
   SIDEBAR_KEEP_PREFIX,
   type SidebarCtx,
@@ -265,6 +278,8 @@ import {
   sidebarPanelsFor,
 } from "./sidebar/sidebar-panels.tsx";
 import { usePanelTerminals } from "./sidebar/use-panel-terminals.ts";
+import type { SidebarRowDrops } from "./sidebar/workspace-left-sidebar.tsx";
+import { WorkspaceLeftSidebar } from "./sidebar/workspace-left-sidebar.tsx";
 import type {
   FileRow,
   ProjectView,
@@ -273,22 +288,9 @@ import type {
   WorkflowInstanceSummaryView,
   WorkspaceSource,
 } from "./source.ts";
-import { useCommands, useWindowCommands } from "../commands/react.tsx";
-import { openTabWithGroup } from "./open-policy.ts";
+import { TabBoundary } from "./tab-boundary.tsx";
 import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
-import {
-  machineItemOf,
-  useMachinesView,
-} from "../desktop/machines/context.tsx";
-import {
-  MachineScope,
-  useHostMachine,
-  useMachineData,
-  useScopeMachine,
-} from "../desktop/machines/scope.tsx";
-import { TabScope } from "../desktop/machines/tab-scope.tsx";
-import { OnlyHere } from "../desktop/machines/only-here.tsx";
 import styles from "./workspace-window.module.css";
 
 /** 이 창이 보일 수 있는 workspace: Home, project, 앱. */
@@ -888,6 +890,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     if (save) persist(next);
     if (switched || sync) syncDetached(next);
   };
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
   // 보이는 desk를 바꾼다.
   const update = (change: (desk: Desk) => Desk) =>
     commit(
@@ -998,6 +1002,55 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
   }, [workspaceId, source, readyWorkspace, readRunningWorkflows]);
   useStateChanged(["workflow_instances"], readRunningWorkflows);
+
+  // workflow 이름 변경·삭제 event는 workflow 목록을 다시 읽기 전에 layout desk를 원자적으로 맞춰
+  // rename된 workflow desk가 `mergeVanished`로 Main에 합쳐지지 않게 한다.
+  const readWorkflowsRef = useRef(readWorkflows);
+  readWorkflowsRef.current = readWorkflows;
+  useEffect(() => {
+    if (projectId === null) return;
+    return data.events.subscribe(
+      { types: ["WorkflowRenamed", "WorkflowRemoved"] },
+      (message) => {
+        if (message.kind !== "event") return;
+        const { event } = message;
+        if (event.type === "WorkflowRenamed" && event.subject === projectId) {
+          const next = renameWorkflowDesk(
+            latestLayout.current,
+            event.payload.from,
+            event.payload.to,
+          );
+          if (next !== latestLayout.current) {
+            commitRef.current(next, true, true);
+          }
+          readWorkflowsRef.current();
+          return;
+        }
+        if (event.type === "WorkflowRemoved" && event.subject === projectId) {
+          const current = latestLayout.current;
+          const next = removeWorkflowDesk(current, event.payload.name);
+          if (next !== current) {
+            const stillDetached = new Set(
+              Object.values(next.desks).flatMap((item) =>
+                item.detached.map((entry) => entry.tab.key),
+              ),
+            );
+            for (const item of Object.values(current.desks)) {
+              for (const entry of item.detached) {
+                if (!stillDetached.has(entry.tab.key)) {
+                  void props.detached
+                    ?.close({ key: entry.tab.key })
+                    .catch(() => {});
+                }
+              }
+            }
+            commitRef.current(next, true, true);
+          }
+          readWorkflowsRef.current();
+        }
+      },
+    );
+  }, [data.events, projectId, props.detached]);
 
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
   // 하는 첫 번째 장치이고, 두 번째는 openTab이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
@@ -3184,6 +3237,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         : null,
     app: isApp
       ? {
+          ...(appId === null ? {} : { id: appId }),
+          onOpenArtifact: (name) => openArtifact(host, name),
           runs: runRows,
           onRunSession: (session) => {
             const row = sidebarAgents.agents.find(

@@ -7,7 +7,9 @@
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import {
+  workflowDelete,
   workflowList,
+  workflowRename,
   workflowResume,
   workflowRetry,
   workflowStart,
@@ -576,6 +578,41 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           ...raw,
           started_by: startedByOf(raw.started_by, titles),
         },
+      };
+    },
+
+    async renameWorkflow({ project: projectId, from, to }) {
+      const reply = await core.call({
+        kind: workflowRename.kind,
+        resource: workflowRename.resource,
+        method: workflowRename.method,
+        body: { project: projectId, from, to },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const value = reply.value as { from: string; to: string };
+      return { ok: true, value: { from: value.from, to: value.to } };
+    },
+
+    async deleteWorkflow({ project: projectId, name, cleanUp }) {
+      const reply = await core.call({
+        kind: workflowDelete.kind,
+        resource: workflowDelete.resource,
+        method: workflowDelete.method,
+        body: {
+          project: projectId,
+          name,
+          ...(cleanUp === undefined ? {} : { clean_up: cleanUp }),
+        },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const value = reply.value as { handoff_session?: string | null };
+      return {
+        ok: true,
+        value: { handoff_session: value.handoff_session ?? null },
       };
     },
 

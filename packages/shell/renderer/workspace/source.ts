@@ -1,6 +1,7 @@
 // 작업대가 읽는 통로. projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
+import type { CleanUpMode } from "../../../protocol/base/follow-ups.ts";
 import type {
   WorkflowInputsDeclaration,
   WorkflowOutputsDeclaration,
@@ -462,6 +463,18 @@ export interface WorkspaceSource {
     instance: string,
     options?: { readonly useLatestCode?: boolean },
   ): Promise<ReadResult<WorkflowInstanceView>>;
+  /** workflow 폴더와 관련 job·layout 이름을 바꾼다. */
+  renameWorkflow?(input: {
+    readonly project: string;
+    readonly from: string;
+    readonly to: string;
+  }): Promise<ReadResult<{ readonly from: string; readonly to: string }>>;
+  /** workflow 폴더·관련 job을 지우고 clean_up에 따라 follow-up/handoff를 연다. */
+  deleteWorkflow?(input: {
+    readonly project: string;
+    readonly name: string;
+    readonly cleanUp?: CleanUpMode;
+  }): Promise<ReadResult<{ readonly handoff_session: string | null }>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   /** workspace(project)의 desk layout 읽기와 저장. */

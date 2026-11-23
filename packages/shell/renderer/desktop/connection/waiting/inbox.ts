@@ -4,6 +4,10 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
+import type { FollowUpItem } from "../../../../../protocol/base/follow-ups.ts";
+import { useMachinesView } from "../../machines/context.tsx";
+import type { OnMachine } from "../../machines/data.ts";
+import { type MachineRef, useMachineHub } from "../../machines/scope.tsx";
 import type { CoreSource } from "../connection.ts";
 import type { EventClient } from "../events/client.ts";
 import {
@@ -18,9 +22,6 @@ import {
   type WaitingEntry,
   type WaitingState,
 } from "../events/waiting-store.ts";
-import { useMachinesView } from "../../machines/context.tsx";
-import type { OnMachine } from "../../machines/data.ts";
-import { type MachineRef, useMachineHub } from "../../machines/scope.tsx";
 
 /** 한 기계의 Inbox 재료. `name`은 이 컴퓨터가 아닌 기계의 꼬리표이고, `live`가 아니면 마지막으로 본 값이다. */
 export interface InboxSource {
@@ -46,12 +47,15 @@ export type InboxEntry = OnMachine<WaitingEntry> &
     readonly offline: boolean;
   };
 export type InboxNotice = OnMachine<Notice> & Tag;
+export type InboxFollowUp = OnMachine<FollowUpItem> & Tag;
 
 export interface Inbox {
   readonly sources: readonly InboxSource[];
   readonly entries: readonly InboxEntry[];
   /** 휘발 알림. */
   readonly notices: readonly InboxNotice[];
+  /** 열린 follow-up item(`[Delete only]`·업데이트 backlog). */
+  readonly followUps: readonly InboxFollowUp[];
   /** 안 읽은 영구 기록 수. History 탭이 보이는 이 컴퓨터와 연결된 다른 컴퓨터의 합이다. */
   readonly historyUnread: number;
   /** 끝난 탭 수(배지). 줄은 `useFinished`가 짓는다. */
@@ -82,12 +86,23 @@ function buildInbox(sources: readonly InboxSource[]): Inbox {
       }),
     ),
   );
+  const followUps = sources.flatMap((source) =>
+    source.waiting.followUps.map(
+      (item): InboxFollowUp => ({
+        ...item,
+        machine: source.machine,
+        key: inboxKey(source.machine, item.id),
+        machineName: source.name,
+      }),
+    ),
+  );
   const sourceOf = (machine: MachineRef) =>
     sources.find((source) => source.machine === machine);
   return {
     sources,
     entries,
     notices,
+    followUps,
     historyUnread: sources.reduce(
       (sum, source) => sum + (source.live ? source.waiting.historyUnread : 0),
       0,

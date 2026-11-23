@@ -59,6 +59,8 @@ export interface JobView {
   readonly last_skip_reason: "busy" | "too_soon" | null;
   /** event job의 앱이 지금 그 event를 내지 않는다(job.list만 채운다). */
   readonly source_gone?: boolean;
+  /** 가리키는 앱이나 project가 보관(archived)됐거나 지워져 동적으로 건너뛰는 중이다. */
+  readonly target_unavailable?: boolean;
   readonly action: JobActionView;
   readonly missed_policy: MissedPolicy;
   readonly enabled: boolean;

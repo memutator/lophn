@@ -1,13 +1,13 @@
 // Jobs 화면의 순수 규칙. 주기·할 일·기록 줄을 화면 말로 바꾼다. project 창의 job panel도 쓴다.
-import type { StatusTone } from "@lophn/ui";
-import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
-import { shortId } from "../connection/waiting/model.ts";
+import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
+import type { StatusTone } from "@lophn/ui";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import {
   type AgentId,
   isLophn,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { shortId } from "../connection/waiting/model.ts";
 import type {
   JobActionView,
   JobNames,
@@ -132,6 +132,13 @@ export function sourceGoneText(job: JobView): string | null {
     : null;
 }
 
+/** 가리키는 앱·project가 보관(archived)됐거나 사라져 일시 멈춘 상태의 안내. 아니면 null이다. */
+export function targetUnavailableText(job: JobView): string | null {
+  return job.target_unavailable === true
+    ? t("jobs.label.target-unavailable")
+    : null;
+}
+
 /** 주인이 이 기계가 아닌 job의 글. 기계 이름을 알면 이름으로 말한다. */
 export const belongsText = (machineName: string | null): string =>
   machineName === null
@@ -146,6 +153,9 @@ export function nextText(
   if (!job.runs_here) return belongsText(machineName);
   if (job.approved_at === null) return t("jobs.label.waiting-approval");
   if (!job.enabled) return t("jobs.label.turned-off");
+  if (job.target_unavailable === true) {
+    return t("jobs.label.paused-target-unavailable");
+  }
   if (job.trigger !== null) return eventStatsText(job, now);
   if (job.next_due_at === null) {
     return t("jobs.label.turned-off");

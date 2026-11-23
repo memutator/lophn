@@ -1,5 +1,11 @@
 // gallery와 dev-mock이 쓰는 대기 목록 fake. events의 fake Gateway에 대기 항목을 채우고, 결정과 질문 답 route를
 // 메모리에서 받아 항목을 빼고 event를 흘린다.
+
+import {
+  type ShareRequest,
+  shareRequestDecide,
+  shareRequestList,
+} from "../../../../../protocol/approvals/share-request.ts";
 import {
   type TurnRequest,
   turnRequestDecide,
@@ -9,11 +15,6 @@ import {
   activationConsent,
   activationConsents,
 } from "../../../../../protocol/apps/activation/consent.ts";
-import {
-  type ShareRequest,
-  shareRequestDecide,
-  shareRequestList,
-} from "../../../../../protocol/approvals/share-request.ts";
 import {
   type Notice,
   noticeDismiss,
@@ -26,21 +27,21 @@ import {
   sessionSnapshotsList,
 } from "../../../../../protocol/events/mod.ts";
 import {
+  type JobHold,
+  type JobRecord,
   jobApprove,
   jobDecideHold,
-  type JobHold,
   jobHolds,
   jobPending,
-  type JobRecord,
 } from "../../../../../protocol/jobs/jobs.ts";
 import {
-  askAnswer,
   type AskQuestion,
+  askAnswer,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
 import {
-  mailDecideHold,
   type MailHold,
+  mailDecideHold,
   mailHolds,
 } from "../../../../../protocol/lophn-agent/mail.ts";
 import {
@@ -441,14 +442,14 @@ export const EPHEMERAL_NOTICE = () =>
 /** 영구 기록 여럿: program 기록 종류들과 앱이 남긴 영구 알림. 첫 둘이 안 읽은 줄이다. */
 export const HISTORY_NOTICES = (): readonly Notice[] => [
   notice(2, 12, {
-    kind: "sdk_update_needed",
+    kind: "workspace_update_needed",
     app: null,
     app_name: null,
-    title: "SDK updates for your apps",
-    body: "3 apps must update, 2 can use new SDK features.",
+    title: "Updates for your workspace",
+    body: "3 apps and 1 workflow must update, 2 items have new features.",
     action: {
       kind: "open_home_skill",
-      skill: "update-apps",
+      skill: "update",
       args: "",
     },
   }),
@@ -881,6 +882,9 @@ export function createFakeWaiting(
           payload: { changes: [{ name: "jobs", id: hold.job.id }] },
         });
         return ok({ job_run: hold.job_run });
+      }
+      if (key === `read:follow-ups/list`) {
+        return ok({ ...COMMON, items: [] });
       }
       if (key === `memory:${mailHolds.resource}/${mailHolds.method}`) {
         return ok({ holds: mail });

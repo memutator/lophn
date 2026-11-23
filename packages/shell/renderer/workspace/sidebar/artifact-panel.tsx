@@ -1,15 +1,23 @@
-// project sidebar의 Artifacts 쪽. 탭이 그려질 때 한 번 목록을 읽고, 폴더 변경은 따라가지 않는다(다시 보일 때 읽는다).
+// project·앱 sidebar의 Artifacts 쪽. 탭이 그려질 때 한 번 목록을 읽고, 폴더 변경은 따라가지 않는다(다시 보일 때 읽는다).
 // 지우기는 줄에 마우스를 올리거나 focus가 들어올 때 보이는 휴지통이고, 확인 dialog를 거친다.
-import { useState } from "react";
+
 import { t } from "@lophn/i18n";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
-import { Button, IconButton } from "@lophn/ui/primitives";
+import { IconButton } from "@lophn/ui/primitives";
+import { useState } from "react";
 
+import type { CleanUpMode } from "../../../../protocol/base/follow-ups.ts";
 import type { ArtifactListItem } from "../../../ipc/artifact.ts";
 import { useArtifactApi } from "../../artifact/artifact-api.tsx";
 import { useArtifactList } from "../../artifact/use-artifact-list.ts";
 import { useScopeMachine } from "../../desktop/machines/context.tsx";
 import { actionIcons, artifactIcons } from "../../icons/mod.ts";
+import {
+  CascadeDeleteActions,
+  CascadeImpactDetails,
+  useImpact,
+  useOpenHandoffSession,
+} from "../../shell/cascade-delete-confirm.tsx";
 import {
   PanelEmpty,
   PanelRow,
@@ -19,27 +27,36 @@ import {
 import styles from "./artifact-panel.module.css";
 
 export function ArtifactPanel({
-  project,
+  workspace,
   onOpen,
 }: {
-  project: string;
+  workspace: { readonly kind: "project" | "app"; readonly id: string };
   onOpen: (name: string) => void;
 }) {
   const api = useArtifactApi();
   const remote = useScopeMachine() !== null;
-  const { items, reload } = useArtifactList({ kind: "project", id: project });
+  const openHandoff = useOpenHandoffSession();
+  const { items, reload } = useArtifactList(workspace);
   const [target, setTarget] = useState<ArtifactListItem | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const impact = useImpact(
+    target === null ? null : { kind: "artifact", workspace, name: target.name },
+  );
 
-  async function remove(item: ArtifactListItem) {
+  async function remove(item: ArtifactListItem, cleanUp: CleanUpMode) {
     if (api === null) return;
     setBusy(true);
     setFailed(false);
     try {
-      await api.delete({ project, name: item.name });
+      const result = await api.delete(
+        workspace.kind === "app"
+          ? { app: workspace.id, name: item.name, clean_up: cleanUp }
+          : { project: workspace.id, name: item.name, clean_up: cleanUp },
+      );
       setTarget(null);
       reload();
+      openHandoff(result?.handoff_session);
     } catch (error) {
       // 이미 없는 폴더면 목록만 맞추면 된다.
       if (error instanceof Error && error.message === "not_found") {
@@ -102,28 +119,29 @@ export function ArtifactPanel({
           }}
           title={t("artifact.dialog.delete-title", { title: target.title })}
           actions={
-            <>
-              <Button disabled={busy} onClick={cancel}>
-                {t("common.button.cancel")}
-              </Button>
-              <Button
-                variant="danger"
-                icon={actionIcons.delete}
-                disabled={busy}
-                data-action="confirm-delete-artifact"
-                onClick={() => void remove(target)}
-              >
-                {t("artifact.button.delete")}
-              </Button>
-            </>
+            <CascadeDeleteActions
+              report={impact.report}
+              loading={impact.loading}
+              busy={busy}
+              confirmLabel={t("artifact.button.delete")}
+              confirmAction="confirm-delete-artifact"
+              onCancel={cancel}
+              onConfirm={(cleanUp) => void remove(target, cleanUp)}
+            />
           }
         >
-          <p className={styles.text}>{t("artifact.dialog.delete-text")}</p>
-          {failed ? (
-            <p className={styles.failure} role="alert">
-              {t("artifact.error.delete-failed", { title: target.title })}
-            </p>
-          ) : null}
+          <div className={styles.body}>
+            <p className={styles.text}>{t("artifact.dialog.delete-text")}</p>
+            <CascadeImpactDetails
+              report={impact.report}
+              loading={impact.loading}
+            />
+            {failed ? (
+              <p className={styles.failure} role="alert">
+                {t("artifact.error.delete-failed", { title: target.title })}
+              </p>
+            ) : null}
+          </div>
         </Dialog>
       )}
     </>

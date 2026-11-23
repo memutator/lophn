@@ -7,8 +7,14 @@ import { Dialog } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { useState } from "react";
 
+import type { CleanUpMode } from "../../../../../protocol/base/follow-ups.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
+import {
+  CascadeDeleteActions,
+  CascadeImpactDetails,
+  useImpact,
+} from "../../../shell/cascade-delete-confirm.tsx";
 import { CardFacts } from "../agent-card.tsx";
 import { codingFaceOf } from "../coding-face.ts";
 import styles from "./agent-editor.module.css";
@@ -24,13 +30,18 @@ import { AvatarField } from "./parts.tsx";
 
 // 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
 function DeleteAgent({
+  agentId,
   name,
   onDelete,
 }: {
+  agentId: string | null;
   name: string;
-  onDelete: () => void;
+  onDelete: (cleanUp: CleanUpMode) => void;
 }) {
   const [asking, setAsking] = useState(false);
+  const impact = useImpact(
+    asking && agentId !== null ? { kind: "agent", agent: agentId } : null,
+  );
   return (
     <div className={styles.danger}>
       <Button icon={actionIcons.delete} onClick={() => setAsking(true)}>
@@ -43,24 +54,23 @@ function DeleteAgent({
           name,
         })}
         actions={
-          <>
-            <Button onClick={() => setAsking(false)}>
-              {t("common.button.cancel")}
-            </Button>
-            <Button
-              variant="danger"
-              icon={actionIcons.delete}
-              onClick={() => {
-                setAsking(false);
-                onDelete();
-              }}
-            >
-              {t("project-workspace.button.agent-editor-delete-confirm")}
-            </Button>
-          </>
+          <CascadeDeleteActions
+            report={impact.report}
+            loading={impact.loading}
+            confirmLabel={t(
+              "project-workspace.button.agent-editor-delete-confirm",
+            )}
+            confirmAction="confirm-delete-agent"
+            onCancel={() => setAsking(false)}
+            onConfirm={(cleanUp) => {
+              setAsking(false);
+              onDelete(cleanUp);
+            }}
+          />
         }
       >
         <p>{t("project-workspace.notice.agent-editor-delete-body")}</p>
+        <CascadeImpactDetails report={impact.report} loading={impact.loading} />
       </Dialog>
     </div>
   );
@@ -71,7 +81,7 @@ interface WhoTabProps extends FormProps {
   readonly copyOf: Ready["copyOf"];
   readonly imageSrc: (image: string) => string;
   readonly onUpload: (file: File) => void;
-  readonly onDelete: () => void;
+  readonly onDelete: (cleanUp: CleanUpMode) => void;
 }
 
 export function WhoTab(props: WhoTabProps) {
@@ -190,7 +200,11 @@ export function WhoTab(props: WhoTabProps) {
 
       <p className={styles.note}>{t("agents.notice.stored-in-lophn")}</p>
       {!fresh && !lophn && !coding ? (
-        <DeleteAgent name={name} onDelete={props.onDelete} />
+        <DeleteAgent
+          agentId={detail.assignment}
+          name={name}
+          onDelete={props.onDelete}
+        />
       ) : null}
     </div>
   );

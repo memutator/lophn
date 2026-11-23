@@ -1,30 +1,33 @@
 // 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job 등록 승인, job의 놓친 차례, 늦게 온 mail)을 session을 가리지 않고 한 목록에 든다.
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
-import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
-import type { Notice } from "../../../../../protocol/apps/notice.ts";
-import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+
+import type { z } from "zod";
 import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
-import type { JobHold, JobRecord } from "../../../../../protocol/jobs/jobs.ts";
-import type { MailHold } from "../../../../../protocol/lophn-agent/mail.ts";
+import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
+import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import type { Notice } from "../../../../../protocol/apps/notice.ts";
+import type { FollowUpItem } from "../../../../../protocol/base/follow-ups.ts";
+import type { TerminalRuntime } from "../../../../../protocol/coding-agent/terminals.ts";
 import type {
   BusEvent,
   EventCondition,
   SessionSnapshot,
 } from "../../../../../protocol/events/mod.ts";
+import type { JobHold, JobRecord } from "../../../../../protocol/jobs/jobs.ts";
+import type { MailHold } from "../../../../../protocol/lophn-agent/mail.ts";
+import { terminalSessionId } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import type {
   AgentId,
   workspaceOutputSchema,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
-import type { z } from "zod";
-import type { TerminalRuntime } from "../../../../../protocol/coding-agent/terminals.ts";
-import { terminalSessionId } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import type { EventClient } from "./client.ts";
 import {
   readActivationConsents,
-  readOpenNotices,
   readJobHolds,
   readJobPending,
   readMailHolds,
+  readOpenFollowUps,
+  readOpenNotices,
   readSessionSnapshots,
   readShareRequests,
 } from "./snapshots.ts";
@@ -99,6 +102,8 @@ export interface WaitingState {
   readonly finished: readonly FinishedTerminal[];
   /** 휘발 알림(앱이 사람에게 한 것). 답할 것이 아니라 지우기만 하는 줄이라 entries와 따로 둔다. 오래된 것부터다. */
   readonly notices: readonly Notice[];
+  /** 열린 follow-up item(`[Delete only]`나 업데이트 검토 backlog). 누르면 대상 그릇의 lophn 대화를 연다. */
+  readonly followUps: readonly FollowUpItem[];
   /** 안 읽은 영구 기록(History) 수. 배지에는 더하지 않고 History 탭 머리에만 보인다. */
   readonly historyUnread: number;
 }
@@ -152,6 +157,7 @@ export function createWaitingStore(
     count: 0,
     finished: [],
     notices: [],
+    followUps: [],
     historyUnread: 0,
   });
   let entries = new Map<string, WaitingEntry>();
@@ -160,6 +166,7 @@ export function createWaitingStore(
   const idle = new Map<string, FinishedTerminal>();
   // 안 읽은 줄 전부(휘발과 영구). 같은 key의 알림은 id가 같아 새 내용이 대신한다.
   let notices = new Map<string, Notice>();
+  let followUps: FollowUpItem[] = [];
   // session의 agent와 workspace는 SessionStarted와 snapshot에 실려 온다.
   const sessions = new Map<
     string,
@@ -212,6 +219,7 @@ export function createWaitingStore(
               ? -1
               : 1,
         ),
+      followUps: [...followUps],
       historyUnread: [...notices.values()].filter((one) => one.persistent)
         .length,
     });
@@ -392,6 +400,11 @@ export function createWaitingStore(
         ) {
           void refreshMail();
         }
+        if (
+          event.payload.changes.some((change) => change.name === "follow_ups")
+        ) {
+          void refreshFollowUps();
+        }
         return;
       default:
         return;
@@ -435,7 +448,7 @@ export function createWaitingStore(
   }
 
   async function readAll() {
-    const [snapshots, consents, shares, appNotices, jobs, mail] =
+    const [snapshots, consents, shares, appNotices, jobs, mail, openFollowUps] =
       await Promise.all([
         readSessionSnapshots(client.core),
         readActivationConsents(client.core),
@@ -443,9 +456,10 @@ export function createWaitingStore(
         readOpenNotices(client.core),
         readJobs(),
         readMailHolds(client.core),
+        readOpenFollowUps(client.core),
       ]);
     // snapshot과 동의와 공유 요청은 모두 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
-    // job과 mail은 따로 본다. 못 읽으면(null) 지금의 그 항목을 둔 채 나머지만 맞춘다.
+    // job·mail·follow-up은 따로 본다. 못 읽으면(null) 지금의 그 항목을 둔 채 나머지만 맞춘다.
     if (
       snapshots === null ||
       consents === null ||
@@ -454,7 +468,15 @@ export function createWaitingStore(
     ) {
       return null;
     }
-    return { snapshots, consents, shares, notices: appNotices, jobs, mail };
+    return {
+      snapshots,
+      consents,
+      shares,
+      notices: appNotices,
+      jobs,
+      mail,
+      followUps: openFollowUps,
+    };
   }
 
   async function refreshConsents() {
@@ -503,6 +525,13 @@ export function createWaitingStore(
     publish();
   }
 
+  async function refreshFollowUps() {
+    const open = await readOpenFollowUps(client.core);
+    if (open === null) return;
+    followUps = open;
+    publish();
+  }
+
   function replace(read: {
     snapshots: SessionSnapshot[];
     consents: ActivationConsent[];
@@ -510,8 +539,10 @@ export function createWaitingStore(
     notices: Notice[];
     jobs: JobReads | null;
     mail: MailHold[] | null;
+    followUps: FollowUpItem[] | null;
   }) {
     notices = new Map(read.notices.map((one) => [one.id, one]));
+    if (read.followUps !== null) followUps = read.followUps;
     // job이나 mail을 못 읽었으면 지금의 그 항목은 그대로 둔다.
     const kept = [...entries.values()].filter(
       (entry) =>

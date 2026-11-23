@@ -1,6 +1,19 @@
 export const workflow = {
   "workflow.button.all-runs": "All runs",
   "workflow.button.ask-lophn": "Ask lophn for a workflow",
+  "workflow.button.delete": "Delete",
+  "workflow.button.more": "More actions for {name}",
+  "workflow.button.rename": "Rename",
+  "workflow.dialog.delete-text":
+    "This deletes the workflow folder, stops any running runs, and removes jobs that start it.",
+  "workflow.dialog.delete-title": "Delete {name}?",
+  "workflow.dialog.rename-label": "New name",
+  "workflow.dialog.rename-title": "Rename {name}",
+  "workflow.error.delete-failed": "{name} wasn't deleted. Try again.",
+  "workflow.error.rename-conflict": "A workflow named {name} already exists.",
+  "workflow.error.rename-failed": "Couldn't rename {name}. Try again.",
+  "workflow.error.rename-invalid":
+    "Use lowercase letters, numbers, and hyphens, starting with a letter.",
   "workflow.button.open-artifact": "Open artifact",
   "workflow.button.open-conversation": "Open conversation",
   "workflow.button.open-instance-artifact": "Open run artifact",

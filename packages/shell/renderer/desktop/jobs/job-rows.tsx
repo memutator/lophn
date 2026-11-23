@@ -1,10 +1,11 @@
 // job 줄 목록. project sidebar는 이 project에 걸린 job만, Home과 Jobs overlay는 모든 job을 보인다. 줄은 제목, 오른쪽 끝
 // 고정 열의 switch, 아래 줄(주기 글과 상태 하나)이다. 줄을 누르면 `onOpen`(Jobs 탭을 연다, 그 job을 펼치지는 않는다).
 // 목록은 열릴 때와 job이 바뀔 때마다(`jobs` 변경) `JobsSource`에서 다시 읽는다.
-import { useState } from "react";
+
+import { t } from "@lophn/i18n";
 import { ErrorState, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
-import { t } from "@lophn/i18n";
+import { useState } from "react";
 
 import { shellIcons } from "../../icons/mod.ts";
 import {
@@ -14,23 +15,25 @@ import {
   TileIcon,
 } from "../../shell/panel-rows.tsx";
 import { useFollowedRead } from "../connection/core-read.ts";
+import styles from "./jobs.module.css";
+import { useMachineNameOf } from "./machine-names.ts";
 import {
   jobsOfProject,
   nextText,
-  sourceGoneText,
   STATE,
+  sourceGoneText,
   whenOf,
 } from "./model.ts";
 import type { JobsSource, JobView } from "./source.ts";
-import { useMachineNameOf } from "./machine-names.ts";
-import styles from "./jobs.module.css";
 
-// 꺼짐 → 놓친 차례를 기다림 → 다음 차례 순서로 하나만 보인다.
+// 꺼짐 → 대상 보관·없음 → 놓친 차례를 기다림 → 다음 차례 순서로 하나만 보인다.
 const stateText = (job: JobView): string =>
-  job.runs_here && job.enabled && job.last_run?.state === "held"
-    ? t("jobs.label.waiting-decision")
-    : ((job.runs_here && job.enabled ? sourceGoneText(job) : null) ??
-      nextText(job, new Date()));
+  job.runs_here && job.enabled && job.target_unavailable === true
+    ? t("jobs.label.paused-target-unavailable")
+    : job.runs_here && job.enabled && job.last_run?.state === "held"
+      ? t("jobs.label.waiting-decision")
+      : ((job.runs_here && job.enabled ? sourceGoneText(job) : null) ??
+        nextText(job, new Date()));
 
 export function JobRows({
   project,
@@ -106,6 +109,15 @@ export function JobRows({
                       {stateText(job)}
                     </>
                   )}
+                  {job.target_unavailable === true ? (
+                    <>
+                      {" "}
+                      <StatusMark
+                        tone="warning"
+                        label={t("jobs.label.paused-target-badge")}
+                      />
+                    </>
+                  ) : null}
                   {job.last_run?.state === "failed" ? (
                     <>
                       {" "}

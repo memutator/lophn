@@ -1,17 +1,18 @@
 // 위쪽 바 안의 알림 단추와 그 아래로 열리는 panel. 위쪽 바의 오른쪽 slot에 꽂는다. 호스트(project 창, 앱 공간,
 // 런처)는 callback만 준다.
-import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
+
 import { t } from "@lophn/i18n";
-import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
+import { IconButton } from "@lophn/ui/primitives";
+import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
+import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import { notificationsIcon } from "../../../icons/mod.ts";
 import {
-  OverlayLayer,
   type OverlayAlign,
+  OverlayLayer,
 } from "../../../shell/overlay-layer.tsx";
-import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
-import { runToastAction } from "../toasts/toast-actions.ts";
 import { createValueStore } from "../events/store.ts";
+import { runToastAction } from "../toasts/toast-actions.ts";
 import {
   type FinishedRow,
   targetMachine,
@@ -21,8 +22,8 @@ import {
 import { useInbox } from "./inbox.ts";
 import type { SettledRow } from "./settled.ts";
 import { useSettled } from "./settled.ts";
-import { type PanelInitial, WaitingPanel } from "./waiting-panel.tsx";
 import styles from "./waiting.module.css";
+import { type PanelInitial, WaitingPanel } from "./waiting-panel.tsx";
 
 // 열림 상태는 창 하나에 하나다. toast의 [Review]가 같은 상태를 쓴다.
 const panel = createValueStore(false);
@@ -64,14 +65,14 @@ export function WaitingLayer({
   initial,
 }: WaitingLayerProps) {
   const inbox = useInbox();
-  const { entries, notices, historyUnread } = inbox;
+  const { entries, notices, followUps, historyUnread } = inbox;
   const finished = useFinished(inbox, initial?.finished);
-  // 배지는 "지금 볼 것이 있다"는 뜻이라 끝난 줄과 휘발 알림, 안 읽은 기록(History)도 센다. 기록을 빼면 SDK 업데이트 같은
-  // 놓치면 안 되는 줄이 있어도 사람은 모른다.
+  // 배지는 "지금 볼 것이 있다"는 뜻이라 끝난 줄과 휘발 알림, 열린 follow-up, 안 읽은 기록(History)도 센다.
   const count =
     entries.length +
     (initial?.finished?.length ?? inbox.finishedCount) +
     notices.length +
+    followUps.length +
     historyUnread;
   const { open, setOpen } = useWaitingPanel();
   const settled = useSettled(inbox, initial?.settled);
@@ -151,6 +152,7 @@ export function WaitingLayer({
             ...(machine === null ? {} : { machine }),
           });
         }}
+        onFollowUpOpened={() => setOpen(false)}
         onDismissFinished={(target) => {
           // 그 기계의 core가 못 본 끝을 끄면 Finished 줄과 배지 수가 저절로 빠진다.
           const ref = unseenRefOf(target);

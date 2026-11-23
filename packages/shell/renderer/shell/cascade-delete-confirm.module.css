@@ -1,0 +1,37 @@
+/* 삭제 확인 창의 cascade 영향 구역. DeleteAppDialog와 같은 token만 쓴다. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding-left: var(--space-6);
+}
+
+.detail {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}

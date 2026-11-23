@@ -1,27 +1,26 @@
 // 오른쪽 sidebar의 panel 목록. 내장 panel과 (사람이 끄지 않은) 앱 sidebar 화면이 같은 모양(SidebarPanel)으로 한 목록에 선다.
 // title bar의 panel icon tab과 sidebar 본문은 "지금 workspace 종류로 거른 목록"만 본다.
+
+import { t } from "@lophn/i18n";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { t } from "@lophn/i18n";
-
-import { useAppViews, useAppWorkspace } from "../../app-frame/app-views.tsx";
-import type { AppScreens, ScreensRead } from "../../app-frame/app-views.tsx";
+import { useNotRunningFailure } from "../../app-frame/app-not-running.tsx";
 import {
   HeadControls,
   HeadSlotScope,
   useHeadSlot,
 } from "../../app-frame/app-tab-head.tsx";
-import { useNotRunningFailure } from "../../app-frame/app-not-running.tsx";
+import type { AppScreens, ScreensRead } from "../../app-frame/app-views.tsx";
+import { useAppViews, useAppWorkspace } from "../../app-frame/app-views.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
+import type { JobsSource } from "../../desktop/jobs/source.ts";
 import {
   type MachineRef,
   MachineScope,
   useMachineHub,
   useScopeMachine,
 } from "../../desktop/machines/scope.tsx";
-import { ArtifactPanel } from "./artifact-panel.tsx";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
-import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
 import { PanelActions, RightSidebar } from "../../shell/right-sidebar.tsx";
@@ -30,6 +29,7 @@ import {
   type WorkspacesPanelProps,
 } from "../../shell/workspaces-panel.tsx";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
+import { ArtifactPanel } from "./artifact-panel.tsx";
 import { JobPanel } from "./job-panel.tsx";
 import type { PanelSession } from "./panel-types.ts";
 import { ExplorerPanel, type ExplorerPanelProps } from "./project-sidebar.tsx";
@@ -61,6 +61,8 @@ export interface SidebarCtx {
   } | null;
   readonly home: WorkspacesPanelProps | null;
   readonly app: {
+    readonly id?: string;
+    readonly onOpenArtifact?: (name: string) => void;
     readonly runs: readonly RunRow[];
     readonly onRunSession: (session: PanelSession) => void;
   } | null;
@@ -101,19 +103,40 @@ function builtinPanels(): readonly SidebarPanel[] {
       key: "artifact",
       label: t("project-workspace.label.sidebar-tab-artifact"),
       icon: shellIcons.artifact,
-      kinds: ["project"],
-      render: ({ project }) =>
-        project?.view == null ? null : (
+      kinds: ["project", "app"],
+      available: (ctx) =>
+        ctx.kind === "project"
+          ? ctx.project?.view != null
+          : ctx.app?.id !== undefined && ctx.app?.onOpenArtifact !== undefined,
+      render: ({ kind, project, app }) => {
+        if (kind === "app") {
+          if (app?.id === undefined || app.onOpenArtifact === undefined) {
+            return null;
+          }
+          return (
+            <RightSidebar
+              title={t("project-workspace.label.sidebar-tab-artifact")}
+              panel="artifact"
+            >
+              <ArtifactPanel
+                workspace={{ kind: "app", id: app.id }}
+                onOpen={app.onOpenArtifact}
+              />
+            </RightSidebar>
+          );
+        }
+        return project?.view == null ? null : (
           <RightSidebar
             title={t("project-workspace.label.sidebar-tab-artifact")}
             panel="artifact"
           >
             <ArtifactPanel
-              project={project.view.id}
+              workspace={{ kind: "project", id: project.view.id }}
               onOpen={project.onOpenArtifact}
             />
           </RightSidebar>
-        ),
+        );
+      },
     },
     {
       key: "workflow",

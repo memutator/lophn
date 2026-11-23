@@ -629,7 +629,10 @@ const builtIn = (name: string, detail: string): SkillRow => ({
 export const BUILT_IN_SKILLS = {
   home: [
     builtIn("new-app", "Start a new app from an idea."),
-    builtIn("update-apps", "Move your apps to the current SDK."),
+    builtIn(
+      "update",
+      "Review platform, SDK, and workflow updates across your workspace.",
+    ),
   ],
   project: [
     builtIn("write-workflow", "Write or update a workflow of the project."),

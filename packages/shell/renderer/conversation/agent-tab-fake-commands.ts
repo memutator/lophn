@@ -59,7 +59,7 @@ const BUILTIN: readonly AcpCommand[] = [
 ];
 
 /**
- * lophn에게 core가 낼 값이다: 사람이 부르는 내장 skill(new-app, repair-app, update-apps. 설명은 SKILL.md frontmatter 그대로)과
+ * lophn에게 core가 낼 값이다: 사람이 부르는 내장 skill(new-app, repair-app, update. 설명은 SKILL.md frontmatter 그대로)과
  * 전역 skill을 이름 영문 사전순으로 둔다. 사용법 안내 skill은 model이 읽는 것이라 없다.
  */
 const SKILLS: readonly AcpCommand[] = [
@@ -67,7 +67,10 @@ const SKILLS: readonly AcpCommand[] = [
   skill("new-app", "Start a new app with the person."),
   skill("release-notes", "Draft release notes from merged changes"),
   skill("repair-app", "Find out what went wrong in one of the person's apps."),
-  skill("update-apps", "Move apps to newer lophn SDK versions."),
+  skill(
+    "update",
+    "Review platform, SDK, and workflow updates across your workspace.",
+  ),
   skill("weekly-report", "Write the weekly eval report"),
 ];
 

@@ -3,9 +3,16 @@
 // `openTab`이 한다. 여기는 새 탭의 자리만 정한다.
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 import {
+  addTabToGroup,
   type Desk,
   FLOATS_MAX,
+  groupById,
+  groupOf,
+  groupTabs,
+  type OpenOptions,
   type OpenRelation,
+  openTab,
+  type TabItem,
   whereInDesk,
 } from "../shell/desk-model.ts";
 
@@ -86,4 +93,74 @@ export function showAfter(
   return at.beside === true
     ? { after: at.after, beside: true }
     : { after: at.after };
+}
+
+/**
+ * `tab_open.group` 힌트(`"<instance>:<step>"`)에서 탭 줄 group 머리글로 쓸 step 이름을 뽑는다.
+ * 콜론이 없거나 뒤가 비면 공백을 걷은 원래 값을 쓴다.
+ */
+export function groupLabelFromHint(groupId: string): string {
+  const trimmed = groupId.trim();
+  const cut = trimmed.indexOf(":");
+  const step = cut >= 0 ? trimmed.slice(cut + 1).trim() : trimmed;
+  return step.length > 0 ? step : trimmed;
+}
+
+export interface AutoGroupOpenOptions extends OpenOptions {
+  /** 같은 부모·step에서 병렬로 열린 탭의 묶음 key(예: `"<instance>:<step>"`). */
+  readonly group?: string;
+}
+
+/**
+ * `openTab`에 `group` 힌트가 있으면 병렬 탭을 분할 없이 1-leaf 접힘 bundle로 자동 묶기한다.
+ * - `group` 힌트가 없거나 공백뿐이면 일반 `openTab`을 따른다.
+ * - 이미 `groupId === group`인 group이 있으면 분할하지 않고 `addTabToGroup`으로 그 묶음에 쌓는다(기존 `label` 유지).
+ * - 아직 그 group이 없으면 같은 desk에 같은 `group` 힌트로 열려 있는 ungrouped 탭을 찾는다.
+ *   - 있으면 새 탭을 분할 없이 열고 둘을 `groupTabs`로 1-leaf bundle(`groupId` + step `label`)로 묶는다.
+ *   - 없으면 단독 일반 탭으로 연다(둘째 병렬 탭이 올 때까지 묶지 않는다).
+ * - 어느 경우든 열린 탭의 힌트를 `hints`(tab key → groupId)에 기록하고, `select: false`이면 보고 있는 탭과 기존 group focus를 바꾸지 않는다.
+ */
+export function openTabWithGroup(
+  desk: Desk,
+  tab: TabItem,
+  options: AutoGroupOpenOptions = {},
+  hints?: Map<string, string>,
+): Desk {
+  const groupId = options.group?.trim();
+  if (!groupId) return openTab(desk, tab, options);
+  const select = options.select !== false;
+  if (whereInDesk(desk, tab.key) !== null) {
+    hints?.set(tab.key, groupId);
+    return openTab(desk, tab, options);
+  }
+  if (groupById(desk, groupId) !== null) {
+    hints?.set(tab.key, groupId);
+    return addTabToGroup(desk, groupId, tab, { select });
+  }
+  const mate =
+    hints === undefined
+      ? undefined
+      : desk.tabs.find(
+          (item) =>
+            item.key !== tab.key &&
+            hints.get(item.key) === groupId &&
+            groupOf(desk, item.key) === null,
+        );
+  // group 힌트가 있는 탭은 split하지 않는다(1번째 탭은 단독 일반 탭, 2번째 탭부터 1-leaf bundle).
+  const plainOptions: OpenOptions = {
+    select,
+    ...(mate !== undefined
+      ? { after: mate.key }
+      : options.after === undefined
+        ? {}
+        : { after: options.after }),
+    ...(options.unsaved === undefined ? {} : { unsaved: options.unsaved }),
+  };
+  const opened = openTab(desk, tab, plainOptions);
+  hints?.set(tab.key, groupId);
+  if (mate === undefined) return opened;
+  return groupTabs(opened, [mate.key, tab.key], {
+    groupId,
+    label: groupLabelFromHint(groupId),
+  });
 }

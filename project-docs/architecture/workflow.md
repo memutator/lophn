@@ -19,8 +19,8 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
   - instance를 사람이 추적할 수 있다(화면, artifact).
 - 비목표(일부러 하지 않는 것)
   - step 통과 판정, 결과 검증, 순서 강제. lophn은 report를 믿는다. 딱딱한 제약이 필요하면 그 workflow의 program(flow)이 진다.
-  - 넘기기 정책과 예외 처리(session 고르기, 순서 바꾸기, 다시 하기, instance를 고칠 자격 판정). workflow 안의 agent가 한다.
-  - 사람의 "step 옮기기" 단추. 사람은 그 agent에게 말한다.
+  - 넘기기 정책과 예외 처리(session 고르기, 순서 바꾸기, 자동 재시도, instance를 고칠 자격 판정). workflow 안의 agent가 한다. 단 로컬 step이 report 없이 멈추거나 넘기기에 실패했을 때 사람이 같은 session에서 이어 가게 하는 수동 복구(`RetryWorkflowStep`)는 지원한다.
+  - 사람의 임의 "step 옮기기" 단추. 사람은 그 agent에게 말한다.
   - workflow 그림 그리기. 필요하면 workflow의 artifact가 그린다. lophn의 기본 화면은 graph를 그리지 않는다.
   - workflow를 agent prompt에 늘 싣기와 연락처. agent는 자기 step의 prompt와 in/out만 받는다(캡슐화).
   - 선언의 반복·갈라짐 문법. step 안의 일은 담당의 일이다.
@@ -30,18 +30,19 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
 ## 모델
 
 ```
- 사람: 화면 | CLI (lophn workflow start|report|stop|get)          user token
- agent: tool workflow.list | get | report | edit | check          (시작 tool은 없다. check는 project workspace만)
+ 사람: 화면 | CLI (lophn workflow start|report|stop|get|retry)    user token
+ agent: tool workflow.list | get | report | edit | check          (시작·retry tool은 없다. check는 project workspace만)
  job: scheduler가 core 안에서 시작한다 (route 아님, architecture/job.md)
-   │  route ListWorkflows | StartWorkflow | ReportWorkflow | EditWorkflow | StopWorkflow | CheckWorkflow
+   │  route ListWorkflows | StartWorkflow | ReportWorkflow | EditWorkflow | StopWorkflow | RetryWorkflowStep | CheckWorkflow
    │        ReadWorkflowInstance | ListWorkflowInstances
    ▼
- workflows (정의 읽기, 받는 곳 풀기, step 메시지 본문 만들기, 글 redaction)
+ workflows (정의 읽기, 받는 곳 풀기, step 메시지 본문 만들기, 글·refs·data redaction)
    ▼
  CreateWorkflowInstance | ApplyWorkflowChange   (machine 자격만, 한 transaction)
-   │  instance 행 고치기, 줄 남기기, 넘길 곳이 있으면 Router에 step 입력을 넣기 ─▶ 받는 session
-   │  결과를 handed | not_handed 줄로
+   │  instance 행 고치기, 줄 남기기, 넘길 곳이 있으면 Router에 step 입력을 넣기 ─▶ 받는 session (`sessions.workflow_origin` 기록)
+   │  결과를 handed | not_handed | retried 줄로
    └ commit 뒤 StateChanged(workflow_instances) (남지 않는 event) ─▶ 화면과 artifact view가 다시 읽는다
+ TurnEnded 구독(commit 뒤): 로컬 non-human step 담당 session의 turn이 완료 report 없이 끝나면 `step_stalled` 줄
  켤 때: router가 돌던 turn을 닫은 뒤 reconcile (넘긴 step을 잃었으면 lophn_restarted 줄, 도는 flow는 닫는다)
 
  flow: start ─ instance 만들기(넘기기 없음) ─ flow host가 process를 띄운다 (instance마다 하나)
@@ -56,9 +57,9 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
 
 - workflow: project의 `workflows/<name>/` 폴더 하나. 선언(`workflow.yaml`), 사람과 agent가 읽는 글(`workflow.md`), 고르는 artifact(`artifacts/static`, `artifacts/instance`)로 이루어진다. `kind: flow`는 같은 폴더의 code file(flow code)이 하나 더 있다. 이름은 선언에 적지 않는다.
 - 참가자: `{agent, workspace?, on?}`(agent handle, `on`은 그 agent가 있는 사람의 다른 컴퓨터) 또는 `{kind: human}`. step의 `by`가 가리킨다. 사람은 step에서 `with`의 참가자(agent)의 session에서 일한다. 승인 단추가 아니라 실제로 논의하는 자리다.
-- instance: 시작한 workflow 한 번. `workflow_instances` 행 하나(상태, 지금 step, step 목록, 끝난 시각, `started_by`)와 `workflow_lines` 줄이 정본이다.
-- 줄 아홉 종류: `started`, `report`, `edit`, `handed`, `not_handed`, `ended`, `stopped`, `lophn_restarted`, `program_exited`.
-- 상태: `running | ended | stopped`.
+- instance: 시작한 workflow 한 번. `workflow_instances` 행 하나(상태, 지금 step, step 목록, 끝난 시각, `started_by`)와 `workflow_lines` 줄이 정본이다. 연결된 session의 소속은 `sessions.workflow_origin`(`{ project, workflow, instance, step }`)이 단일 정본이다.
+- 줄 열세 종류: `started`, `report`, `edit`, `handed`, `not_handed`, `ended`, `stopped`, `lophn_restarted`, `program_exited`, `step_stalled`, `retried`, `escalated`, `code_updated`(`escalated`·`code_updated`는 후속 단계를 위해 표 check와 계약에 함께 둔다).
+- 저장 상태: `running | ended | stopped`. 계산 상태(`derived_status`): `working | needs_you | blocked | ended | stopped`.
 - step 메시지: step을 맡은 session에 가는 입력(입력 종류 `step`).
 - flow: instance마다 process 하나로 도는 code. 같은 instance와 줄과 화면을 쓴다. 다른 것은 step을 넘기지 않고 code가 직접 report한다는 것뿐이다.
 
@@ -81,13 +82,13 @@ instance와 줄
 12. instance는 시작할 때 선언의 참가자와 step 가운데 읽는 칸만 골라 옮겨 갖는다. 그 뒤 선언이 바뀌어도 instance는 그대로이고, instance의 step은 참가자가 `EditWorkflow`로 고친다.
 13. `ended`는 누가 그렇게 말했다는 기록일 뿐이다(report의 `next: end`나 edit의 `end`). `running`이었을 때만 `ended` 줄과 끝난 시각을 쓴다. 그 뒤 report나 `hand_now`가 실제로 넘기면(`handed`) 다시 `running`이 되고 끝난 시각이 비워진다. 넘기지 못했으면 `ended` 그대로다.
 14. `stopped`는 사람이 멈춘 것이다(`StopWorkflow`, actor user). 멈춘 instance에는 넘기지 않고 고치기와 다시 멈추기를 `conflict`로 거절한다. report는 줄만 남기고 `handed: null`이다. 늦게 온 report를 잃지 않는다.
-15. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. flow code가 낸 report는 `program`이고, 다른 컴퓨터의 참가자가 낸 report는 `remote`(그 기계, 컴퓨터 이름, 이름)이며, 다른 컴퓨터의 lophn이 쓴 진행 줄(51)은 `remote_lophn`(그 기계, 컴퓨터 이름)이다. `started` 줄만 `started_by`(사람 또는 job)를 그대로 싣는다. `handed`·`not_handed`·`ended`·`lophn_restarted`·`program_exited`는 lophn이다. seq는 instance 안에서 1부터 잇는다.
+15. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. flow code가 낸 report는 `program`이고, 다른 컴퓨터의 참가자가 낸 report는 `remote`(그 기계, 컴퓨터 이름, 이름)이며, 다른 컴퓨터의 lophn이 쓴 진행 줄(51)은 `remote_lophn`(그 기계, 컴퓨터 이름)이다. `started` 줄만 `started_by`(사람 또는 job)를 그대로 싣는다. `handed`·`not_handed`·`ended`·`lophn_restarted`·`program_exited`·`step_stalled`는 lophn이고 `retried`는 user다. seq는 instance 안에서 1부터 잇는다.
 16. 한 command는 instance 행을 한 번 고치고(`state_seq`가 한 번 오른다) commit 뒤 `workflow_instances` 변경(`StateChanged`)을 한 번 낸다. 쓰는 쪽은 읽은 `state_seq`로 compare를 걸고, `conflict`면 다시 읽어 `state_seq`가 바뀌었을 때만 최대 3번 건다. 안 바뀌었으면 진짜 conflict다.
-17. `ReadWorkflowInstance`는 instance, step마다 가장 나중 report(`last_reports`), 줄 200개씩(`cursor`)을 준다. machine 자격도 받는다. `ListWorkflowInstances`는 project(와 workflow, state)로 거르고 새것이 앞이며 50개씩, 줄마다 마지막 줄을 붙인다.
+17. `ReadWorkflowInstance`는 instance, 계산 상태 `derived_status`, step마다 가장 나중 report(`last_reports`), 줄 200개씩(`cursor`), `sessions` tree, 명시된 산출물 경로 목록 `refs`를 준다. machine 자격도 받는다. `derived_status`와 `refs`는 200줄 cursor 페이지가 아니라 표의 전체 이력에서 직접 계산해 페이지를 넘겨도 값이 바뀌지 않는다. `ListWorkflowInstances`는 project(와 workflow, state)로 거르고 새것이 앞이며 50개씩, 줄마다 마지막 줄과 `derived_status`를 붙인다.
 
 report와 고치기
-18. report는 instance, step, 글, `next?`, `session?`이다. `next`가 step이면 그 step의 담당에게 넘기고, `end`면 끝 기록이고, 없으면 진행 글이라 넘기지 않는다. lophn은 그 step이 지금 step인지, 글이 무엇을 말하는지 보지 않는다.
-19. report 글과 `hand_now`의 글은 UTF-8 8 KiB 이하다. 긴 결과는 file에 두고 경로를 쓴다. 시작 입력에는 이 한도가 없다.
+18. report는 instance, step, 글, `next?`, `session?`, `refs?`(산출물 파일 경로 목록), `data?`(구조화 JSON)다. `next`가 step이면 그 step의 담당에게 넘기고, `end`면 끝 기록이고, 없으면 진행 글이라 넘기지 않는다. lophn은 그 step이 지금 step인지, 글이 무엇을 말하는지 보지 않는다. `refs`는 `ReadWorkflowInstance`의 `refs`로 중복 없이 순서대로 모이고 파일 시스템을 추정 스캔하지 않는다.
+19. report 글과 `hand_now`의 글은 UTF-8 8 KiB 이하다. 긴 결과는 file에 두고 경로를 `refs`나 글에 쓴다. 시작 입력에는 이 한도가 없다.
 20. 고치기(`EditWorkflow`)는 `add_step`, `update_step`, `remove_step`, `end`, `hand_now`다. 이름이 겹치는 add는 `conflict`, 없는 이름의 update·remove는 `not_found`다. 가리키는 이름이 있는지와 지우는 step이 지금 step인지는 보지 않는다. 고칠 자격도 보지 않는다. 누가 고쳤는지는 `edit` 줄의 `by`와 `detail`(고친 입력 그대로)로 남는다.
 
 넘기기
@@ -96,7 +97,7 @@ report와 고치기
     - harness agent(정의의 runtime이 harness)는 이름이 있는 agent라 `{agent}` 참가자로 넘긴다(Router가 harness queue로 보낸다, `architecture/coding-agent.md`).
     - `human`이면 `with`의 참가자로 같은 풀이를 하고 instance에 사람 차례(`current.human_turn`)를 적는다. `with`가 없으면 `no_with`다.
 22. `session: same`이면 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(가장 나중 `handed` 줄의 `receiver`)에 `fallback: new`로 보낸다. 없으면 새 session이다. 안 적으면 `new`다.
-23. command는 받은 plan대로 Router에 넣는다(보내는 쪽 program, 답 없음, 입력 종류 `step`, unattended). Router가 받았다고 하면 받은 session으로 `handed` 줄을 남기고 `current`를 그 step으로 한다. 못 넘겼다고 하면(없는 담당, 닫힌 session) `not_handed`(`unresolved`) 줄이다. Router가 오류를 주면 transaction 전체가 되돌아가 줄도 상태도 남지 않는다.
+23. command는 받은 plan대로 Router에 넣는다(보내는 쪽 program, 답 없음, 입력 종류 `step`, unattended). Router가 받았다고 하면 같은 transaction 안에서 받는 session의 `sessions.workflow_origin`을 `{ project, workflow, instance, step }`으로 기록·갱신하고(`session: same`이면 `step`이 최신으로 바뀐다), 받은 session으로 `handed` 줄을 남기며 `current`를 그 step으로 한다. 못 넘겼다고 하면(없는 담당, 닫힌 session) `not_handed`(`unresolved`) 줄이다. Router가 오류를 주면 transaction 전체가 되돌아가 줄도 상태도 `workflow_origin`도 남지 않는다. 다른 컴퓨터로 보내는 `--on` mail step에는 `workflow_origin`을 기록하지 않는다.
 24. 담당을 풀 수 없으면 넘기지 않고 그 사실만 줄로 남긴다. 고치는 것은 agent의 일이다.
 
 step 입력
@@ -104,7 +105,14 @@ step 입력
 26. 본문은 그 step의 `prompt`, 빈 줄, `Receives:` `in`, `Received:` 받은 글, `Produces:` `out`, `Next candidates:` `next`다(빈 칸은 줄째 뺀다). 받은 글은 report 글(시작이면 시작 입력, `hand_now`면 그 글 또는 마지막 report 글 또는 시작 입력)이다. `workflow.md`와 다른 step은 싣지 않는다.
 27. step 입력은 unattended 표시를 실어 그 turn이 묻지 않는다(`architecture/approval.md` "turn mode"). 할당은 넓히지 않는다. 받은 agent는 그래도 자기 할당에 없는 앱 tool을 쓰지 못한다. 사람 step의 대화에서 사람이 보낸 메시지가 연 turn은 attended다. job이 시작한 instance의 step 입력도 같다(사람이 없다).
 28. step 입력도 call처럼 rewind 시점(checkpoint)이다.
-29. 시작 입력, report와 `hand_now`의 글, 본문은 쓰기 앞에서 redaction을 거친다. 본문은 받는 session 기록에 들어가므로 workflows 이름으로 blob을 준비한다(`architecture/agent-call.md`).
+29. 시작 입력, report와 `hand_now`의 글, report의 `refs`와 `data` 안의 모든 문자열, `step_stalled` 오류 메시지, `retried` 본문, step 본문은 쓰기 앞에서 redaction을 거친다. 본문과 `retried` 본문은 받는 session 기록에 들어가므로 workflows 이름으로 blob을 준비한다(`architecture/agent-call.md`).
+
+관측, stall 감지, 같은 session retry
+29a. `workflow_origin` 상속과 투영: `team spawn`으로 여는 자식 session(lophn session·GUI 팀원 session)은 생성 시점의 부모 `sessions.workflow_origin`을 상속한다. `fork`와 일반 `agent call`은 상속하지 않는다. `sessions.workflow_origin`에는 불변 trigger를 두지 않으며 `(workflow_origin ->> '$.instance')` partial index로 instance별 연결 session을 조회한다. 앱 SDK(`@lophn/agent` 1.17.0)의 `SessionInfo.workflow`에도 이 값을 검증해 투영한다(GUI 탭 session은 `terminal` session으로 노출되어 `workflow: null`).
+29b. `sessions` tree와 미리보기: `ReadWorkflowInstance`의 `sessions`는 `workflow_origin` index로 모은 session마다 `session`, `parent`(`spawned_by`), `agent`, `workspace`, `state`, `waiting_for`, 마지막 assistant 텍스트 앞 160자 평문 미리보기(`last_assistant_preview`, LLM 요약 없음), 마지막 실패 turn 사유(`last_error`)를 싣는다. 미리보기는 자르기 전에 known-secret redaction을 먼저 적용해 경계에 걸친 secret 앞부분 유출을 막고, 알려진 secret 목록이 아직 준비되지 않았으면 `null`로 fail-closed한다.
+29c. `derived_status`: `working | needs_you | blocked | ended | stopped` 다섯 값이다. `instance.state`가 `ended`·`stopped`이면 그대로이고, `running`이면 전체 `workflow_lines`(`handed`, `retried`, `report`, `step_stalled`, `not_handed`, `lophn_restarted`, `program_exited`, `escalated`), `remote_steps`(`held`), 연결 session의 `waiting_for`(approval/question)에서 계산한다. `step_stalled` 뒤의 `retried`·`report`·`handed`는 `blocked`를 해제한다.
+29d. 로컬 step stall 감지(`step_stalled`): `TurnEnded` event(commit 뒤)를 받아 `running` instance의 현재 step 담당 session이 turn을 마쳤을 때 `human_turn`이 아니고, 그 넘김/retry 시도 뒤에 완료 report(`next` 있음)·`step_stalled`·`lophn_restarted`가 아직 없으며 열린 다른 컴퓨터 step call도 없으면 시도당 최대 1회 `step_stalled` 줄(실패·중단 시 redaction된 `reason`·`message` 포함)을 남긴다.
+29e. 같은 session 이어하기(`RetryWorkflowStep`, actor user): `running` instance의 대상 step(기본은 현재 막힌 step)이 blocked(`step_stalled`, `not_handed`, `lophn_restarted`, 실패한 turn)일 때만 허용하고 `stopped`이거나 정상 `working` 중이면 `conflict`로 거절한다. 이미 기록된 session이 있으면 `retried` 줄을 남기고 그 같은 session에만 이어서 하라는 입력을 넣는다(`fallback: new` 없음; 닫힌 session이면 transaction 전체를 `conflict`로 되돌려 조용히 새 session을 열지 않는다). 아직 session이 열리기 전(`not_handed`)이면 넘기기를 다시 시도한다.
 
 켤 때와 멈춤
 30. 켤 때 queue는 비고 step 메시지는 다시 넣지 않는다. router가 돌던 turn을 닫은 뒤 running instance마다 가장 나중 `handed` 줄을 본다. 그 session이 받은 메시지를 아직 turn이 가져가지 않았거나 가져간 turn이 restart로 끊겼으면 `lophn_restarted` 줄을 남긴다. 그 뒤에 이미 `lophn_restarted` 줄이나 그 step의 report가 있으면 남기지 않는다. 상태와 지금 step은 바꾸지 않는다. 다시 넘기는 일은 agent나 사람의 `hand_now`다.
@@ -146,17 +154,17 @@ flow
 boundary: `workflows`(정의 읽기·기록·넘기기), `jobs`(job의 `workflow_start`가 instance를 시작한다). flow host는 runs와 apps를 같이 알아야 해서 workflows module 밖(core 조립 쪽)에 있고, workflows module은 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, 기록 command 부르기, flow process 띄우기와 멈추기를 port로만 쓴다(`architecture/layers.md`).
 
 route(memory)
-- `ListWorkflows`(user, agent), `StartWorkflow`(user만), `CheckWorkflow`(agent), `ReportWorkflow`·`EditWorkflow`(user, agent), `StopWorkflow`(user만). 읽기 route는 `ReadWorkflowInstance`, `ListWorkflowInstances`.
-- 사람 화면이 부르는 memory route는 `ListWorkflows`, `StartWorkflow`, `StopWorkflow`뿐이다. report와 고치기는 agent가 한다. 사람이 순서를 바꾸고 싶으면 그 agent에게 말한다.
+- `ListWorkflows`(user, agent), `StartWorkflow`(user만), `CheckWorkflow`(agent), `ReportWorkflow`·`EditWorkflow`(user, agent), `StopWorkflow`·`RetryWorkflowStep`(user만). 읽기 route는 `ReadWorkflowInstance`, `ListWorkflowInstances`.
+- 사람 화면이 부르는 memory route는 `ListWorkflows`, `StartWorkflow`, `StopWorkflow`, `RetryWorkflowStep` 넷이다. report와 고치기는 agent가 한다. 사람이 순서를 바꾸고 싶으면 그 agent에게 말한다.
 
 명령
-- workflow 명령 하나(`workflow.<verb>`)를 lophn agent의 `lophn` tool과 binary가 같이 쓴다. `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`은 모든 workspace 종류의 agent가 부른다. 누구든 참가자일 수 있다. `workflow.check`는 project workspace만 부른다. `workflow.start`, `workflow.stop`은 route가 사람만 받아 binary 전용이다. agent가 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project workspace를 쓴다.
-- binary는 `lophn workflow start <workflow> <text>`(`--step`), `report <instance> <step> <text>`(`--next`, `--session`), `stop <instance>`, `get <instance>`(`--lines N`이면 최근 N줄)다. 자격은 user token이다(`architecture/run.md` "CLI와 자격"). lophn 밖의 program도 이 입구로 사람으로서 report한다. flow의 report는 이 입구가 아니라 core 안에서 `by: program`으로 들어간다.
+- workflow 명령 하나(`workflow.<verb>`)를 lophn agent의 `lophn` tool과 binary가 같이 쓴다. `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`은 모든 workspace 종류의 agent가 부른다. 누구든 참가자일 수 있다. `workflow.check`는 project workspace만 부른다. `workflow.start`, `workflow.stop`, `workflow.retry`는 route가 사람만 받아 binary 전용이다. agent가 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project workspace를 쓴다.
+- binary는 `lophn workflow start <workflow> <text>`(`--step`), `report <instance> <step> <text>`(`--next`, `--session`, `--refs`, `--data`), `stop <instance>`, `retry <instance> [step]`, `get <instance>`(`--lines N`이면 최근 N줄)다. 자격은 user token이다(`architecture/run.md` "CLI와 자격"). lophn 밖의 program도 이 입구로 사람으로서 report한다. flow의 report는 이 입구가 아니라 core 안에서 `by: program`으로 들어간다.
 - 모든 workspace 종류의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `workflow.get`으로 읽는다.
 
 event와 저장
-- `StateChanged`의 `workflow_instances`(id는 instance): 남지 않는 event. 놓친 화면은 다시 읽는다(`architecture/event.md`).
-- 저장: `workflow_instances`, `workflow_lines`(고치지도 지우지도 않는 trigger), step 입력의 `messages` 열(`step_instance`, `step_name`). 정의는 `<data>/projects/<prj>/workflows/<name>/`, flow의 stderr log는 `<data>/flows/<instance>.log`.
+- `StateChanged`의 `workflow_instances`(id는 instance): 남지 않는 event. 놓친 화면은 다시 읽는다(`architecture/event.md`). `TurnEnded`는 로컬 step stall 감지가 commit 뒤 구독한다.
+- 저장: `workflow_instances`, `workflow_lines`(고치지도 지우지도 않는 trigger, schema step `workflows.lines-kinds`로 `step_stalled`·`retried`·`escalated`·`code_updated` 추가), `sessions.workflow_origin` JSON 열과 `(workflow_origin ->> '$.instance')` partial index(schema step `lophn-agent.sessions.workflow-origin`), step 입력의 `messages` 열(`step_instance`, `step_name`). 정의는 `<data>/projects/<prj>/workflows/<name>/`, flow의 stderr log는 `<data>/flows/<instance>.log`.
 - 선언의 `agent`·`participants`의 agent는 handle이다. 내부 id가 아니다.
 
 다른 컴퓨터의 참가자
@@ -168,17 +176,20 @@ flow 통로
 
 artifact
 - workflow artifact는 봉한 view로 연다(`architecture/artifact.md`). source는 `{kind: workflow, project, workflow, view: static | instance, instance?}`이고 root는 그 project의 `workflows/` 안이어야 한다(realpath). instance view는 instance마다 host가 달라 origin이 갈린다.
-- 봉한 scheme이 가상 file을 준다. instance view의 `data/_instance.json`(`ReadWorkflowInstance`를 끝까지 읽은 `{instance, last_reports, lines}`, 4 MiB가 넘거나 못 읽으면 503)과, 모든 artifact view에 있는 `_lophn/kit.js`·`_lophn/kit.css`다.
+- 봉한 scheme이 가상 file을 준다. instance view의 `data/_instance.json`(`ReadWorkflowInstance`를 끝까지 읽은 `{instance, derived_status, last_reports, lines, sessions, refs}`, UTF-8 4 MiB가 넘거나 못 읽으면 503)과, 모든 artifact view에 있는 `_lophn/kit.js`·`_lophn/kit.css`다.
 - `workflow_instances` 변경이 오면 그 instance를 여는 view만 다시 load한다.
 - kit은 전역 `LophnKit.renderGraph(element, {nodes, edges})`를 내고 node에 `status`(label, tone)와 `note`를 받는다. 상태 값의 뜻은 component가 모르고 artifact가 정한다(`architecture/ui-kit.md`).
 
 화면
 - workflow 하나가 탭 하나다(kind `workflow`, key `workflow:<name>`, 필드 `{workflow, instance?}`). 탭 안의 화면은 둘이다: workflow 화면과 run 화면. 사람에게 보이는 말은 instance가 아니라 run이다. 고른 run은 layout에 남고 [All runs]로 workflow 화면에 돌아온다.
 - workflow 화면은 위에서부터 머리, step 줄, 새 run 칸, run 목록이다. 머리는 이름, 종류와 도는 run 수, [Refresh], static artifact가 있으면 [Open artifact]다. step 줄은 선언의 step을 순서대로 놓고 step마다 맡은 쪽을 보인다: agent는 얼굴과 이름, 사람은 "You"(같이 이야기할 agent가 있으면 그 이름도), flow의 step은 program이다. graph는 그리지 않는다. 새 run 칸은 dialog가 아니라 화면 안에 있다: 입력 글, agent kind에서 step이 둘 이상이면 첫 step 고르기, [Start]. flow는 입력 글만 받는다. flow code가 없는 flow는 이유 한 줄을 보이고 시작하지 못한다. 틀린 선언은 이유 한 줄만 있고 새 run 칸과 목록이 없다.
-- run 목록은 세 묶음이다: Needs you(사람 차례), Running, Earlier(끝났거나 멈춘 것, 다섯을 넘으면 [Show all]). 묶음 안은 새것이 앞이다. 줄은 run의 이름(시작 입력의 첫 줄), 상태, 지금 step, 시작하거나 끝난 때이고, job이 시작한 run은 job 제목을 보인다(지운 job이면 제목 없이 "Job"). run 화면의 머리도 같다. 제목은 읽는 쪽이 `job.list`로 붙인다.
-- run 화면은 머리, step 줄, "지금" 한 장, step 목록이다. 머리는 run의 이름, 상태, 시작한 때, running이면 [Stop](되돌릴 수 없어 danger), run artifact가 있으면 [Open run artifact]다. step 줄은 step마다 상태를 싣는다.
-- "지금" 한 장은 run이 어디에 있는지 한 문장과 사람이 다음에 할 일의 단추다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)이다. agent가 일하는 중이면 그 agent와 [Open session]이고, 그 session이 사람의 답을 기다리면 사람 차례와 같은 무게로 보인다. 넘기지 못했거나(`not_handed`) lophn이 다시 켜져 끊겼으면(`lophn_restarted`) 이유와 말을 걸 session이다. 끝났으면 마지막 report 글이고, flow는 `program_exited`의 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 같이 보인다. 멈췄으면 멈춘 때다.
-- step 목록은 step마다 맡은 쪽, 상태, 마지막 report 글이다. 그 step의 줄은 접힌 Activity 안에 있다. step을 받은 session이 있으면 [Open session]이 그 대화를 workflow 탭 옆에 연다. 단추는 이 창이 열 수 있는 session(이 workspace의 agent의 session)에만 있다. 다른 workspace의 참가자가 받은 session에는 "지금" 한 장에도 step 목록에도 단추가 없다. `not_handed`와 `lophn_restarted`는 그 step에 이유 한 줄이고 step 줄의 그 칸이 "Not sent"가 된다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. step 없는 `edit`과 `lophn_restarted`는 "지금" 한 장 아래 한 줄이다. step을 옮기는 단추는 없다.
+- run 목록은 네 묶음이다: Needs you(사람 차례·승인/질문 대기), Blocked(`step_stalled`·`not_handed`·`lophn_restarted` 등 막힘), Running, Earlier(끝났거나 멈춘 것, 다섯을 넘으면 [Show all]). 묶음 안은 새것이 앞이다. 줄은 run의 이름(시작 입력의 첫 줄), `derived_status` 기반 상태, 지금 step, 시작하거나 끝난 때이고, job이 시작한 run은 job 제목을 보인다(지운 job이면 제목 없이 "Job"). run 화면의 머리도 같다. 제목은 읽는 쪽이 `job.list`로 붙인다.
+- run 화면은 머리, step 줄, "지금" 한 장, Sessions tree, Output files(`refs`), step 목록이다. 머리는 run의 이름, `derived_status` 상태, 시작한 때, running이면 [Stop](되돌릴 수 없어 danger), run artifact가 있으면 [Open run artifact]다. step 줄은 step마다 상태(막힘·stall 포함)를 싣는다.
+- "지금" 한 장은 run이 어디에 있는지 한 문장과 사람이 다음에 할 일의 단추다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)이다. agent가 일하는 중이면 그 agent와 [Open session]이고, 그 session이 사람의 답을 기다리면 사람 차례와 같은 무게로 보인다. 막혔으면(`step_stalled`, `not_handed`, `lophn_restarted`) 이유와 [Open session] 옆에 [Retry] 단추(`RetryWorkflowStep`)를 두어 같은 session에서 바로 이어 갈 수 있게 한다. 끝났으면 마지막 report 글이고, flow는 `program_exited`의 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 같이 보인다. 멈췄으면 멈춘 때다.
+- Sessions tree는 `workflow_origin`으로 연결된 메인 step session과 `spawned_by` 자식 worker를 들여쓰기 tree로 보인다: 집계 요약(`done/total · running · waiting · failed`), live 상태 점(`running | waiting | idle | failed`), 마지막 assistant 앞 160자 평문 미리보기, `last_error`, 각 session별 [Open session].
+- Output files(`refs`)는 report에 명시된 파일 경로 목록을 보이고, 누르면 문서 편집기로 연다(상대 경로는 project 폴더 기준으로 푼다).
+- step 목록은 step마다 맡은 쪽, 상태, 마지막 report 글이다. 그 step의 줄은 접힌 Activity 안에 있다. step을 받은 session이 있으면 [Open session]이 같은 project의 session은 workflow 탭 옆에 열고, 다른 workspace의 session도 이 창에 이미 열려 있으면 그 탭을 고르거나 session 이동 경로로 해당 workspace에서 연다. `step_stalled`, `not_handed`, `lophn_restarted`는 그 step에 이유 한 줄이고 step 줄의 그 칸이 막힘 상태로 보인다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. step 없는 `edit`·`lophn_restarted`·`retried`·`escalated`·`code_updated`는 "지금" 한 장 아래 한 줄이다. 임의로 step을 옮기는 단추는 없다.
+- title bar의 desk 단추는 현재 project의 실행 중 workflow instance `derived_status`를 `StateChanged(workflow_instances)`에 맞춰 읽어 각 workflow desk 줄에 진행 상태를 보이고, 활성 workflow가 있으면 상단 단추에 개수와 최우선 상태 점(`needs_you > blocked > working`)을 요약한다.
 - 참가자의 얼굴과 이름은 탭이 그 project의 agent 목록에서 찾는다. 다른 workspace의 agent와 목록에 없는 이름은 선언에 적힌 글 그대로다.
 - 다른 컴퓨터의 참가자(`on`)는 이름 뒤에 그 컴퓨터가 붙는다("Eval analyst on Home server"). 그 step을 넘긴 뒤 아직 거기서 돌지 않으면(닿지 않음, 답 없음, 늦게 닿아 그 컴퓨터에서 사람을 기다림) step 줄의 칸과 step 목록의 상태가 "Waiting on <컴퓨터>"이고, "지금" 한 장이 배달 상태마다 한 문장을 쓴다: 그 컴퓨터가 켜지면 간다, 보냈고 답이 아직 없다, 늦게 닿아 그 컴퓨터의 Inbox에서 시작해야 한다(이것만 사람 차례의 색이다), 그 agent가 일하는 중이다. 받은 session은 그 컴퓨터에 있어 [Open session]이 없다. 거기서 돌지 못한 step(`remote_failed`)은 core가 경우마다 적은 글을 그대로 보이고, 그 step의 상태는 step 줄의 칸과 같이 "Not sent"다. 다른 컴퓨터의 참가자가 낸 report는 "<이름> on <컴퓨터>"가 낸 것으로 보인다. 그 step의 가장 나중 줄이 그 컴퓨터의 lophn이 쓴 진행 줄이면 그 줄은 "lophn on <컴퓨터>"가 낸 마지막 글이고, "지금" 한 장은 넘기지 못한 step과 같은 무게로 그 컴퓨터의 session에서 이으라고 말한다. 상태는 Running 그대로다.
 - 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. run 목록과 고른 run은 처음, `workflow_instances` 변경이 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
@@ -196,7 +207,7 @@ artifact
 - instance 상태는 workflow 안에서 고친다. 사람이 화면에서 step을 옮기는 길을 따로 두지 않는다. (사람, 2026-10-22) 사람 화면은 report와 고치기를 부르지 않는다. (agent, roadmap)
 - 정의는 셋이다: 선언, 자연어 글(`workflow.md`), artifact(정적인 것과 instance 상태까지 보이는 것). 모든 workflow에 artifact가 필요한 것은 아니다. workflow를 만드는 것은 project workspace의 agent의 책임이다. node 시각화는 kit에서 재사용할 수 있게 만든다. (사람, 2026-10-22) artifact를 둘지와 모양은 사람에게 묻지 않고 agent가 정한다(`products/AGENT.md` F5). (사람, 2026-11-09)
 - 사람 화면은 workflow 하나가 탭 하나다. 오른쪽 sidebar는 panel icon tab을 둔다(항목이 많아 segmented control로는 감당하지 못한다). wireframe을 추천안 그대로 승인했다. (사람, 2026-10-22)
-- 탭은 run 중심으로 읽힌다: workflow 화면(누가 어느 step을 맡는지와 run 목록)과 run 화면(지금 어디에 있고 사람이 무엇을 하면 되는지)으로 나눈다. 사람이 화면을 통째로 다시 짜라고 했다. (사람, 2026-11-21) 모양은 agent가 정했다: 목록과 고른 것을 한 화면에 쌓으면 사람 차례가 묻히고, step의 대화로 가는 길이 사람 차례에만 있어 agent가 무엇을 하는지 보려면 sidebar에서 session을 찾아야 했다. core와 protocol은 그대로다(사람 화면이 부르는 route는 여전히 List, Start, Stop 셋). (agent, 2026-11-21)
+- 탭은 run 중심으로 읽힌다: workflow 화면(누가 어느 step을 맡는지와 run 목록)과 run 화면(지금 어디에 있고 사람이 무엇을 하면 되는지)으로 나눈다. 사람이 화면을 통째로 다시 짜라고 했다. (사람, 2026-11-21) 모양은 agent가 정했다: 목록과 고른 것을 한 화면에 쌓으면 사람 차례가 묻히고, step의 대화로 가는 길이 사람 차례에만 있어 agent가 무엇을 하는지 보려면 sidebar에서 session을 찾아야 했다. 이후 2a 관측·복구 작업에서 `RetryWorkflowStep`과 `sessions` tree·`refs`·cross-workspace `[Open session]`이 더해졌다. (agent, 2026-11-21·23)
 - coding agent 같은 third party harness는 참가자가 된다. harness는 programmatic 실행을 공식으로 지원하므로 사람 없이(workflow, job) 돌려도 된다. 이름 없는 `{kind: harness}` 참가자는 지웠고, harness agent는 이름이 있는 agent라 `{agent}` 참가자다. (사람, 2026-11-04)
 
 기록과 넘기기
@@ -232,6 +243,13 @@ flow
 - 다른 컴퓨터의 report는 mail 입구가 workflows에 넘겨 `ApplyWorkflowChange` 하나로 적용한다. 이유: 다음 step 본문은 blob이라 command 앞에서 준비해야 하고, 본 기록과 report 줄과 넘기기가 한 transaction이어야 반쪽이 남지 않는다. 버린 안: `calls/mail-apply` 안에서 줄만 남기고 commit 뒤에 넘기기(그 사이에 꺼지면 넘기지 않은 report가 남는다). (agent)
 - 다른 컴퓨터가 가져간 step의 turn이 report 없이 끝나면 step을 닫지 않고 그 컴퓨터의 program이 진행 줄 하나를 보낸다. 새 mail 종류가 아니라 reply mail의 `report`(next 없음)에 `ended`를 더했고, 줄은 report 줄에 `by` `remote_lophn` 갈래 하나다. 글은 시작한 컴퓨터가 쓴다(다른 줄의 컴퓨터 이름과 같은 명단에서 온다). 이유: 닫으면 사람이 그 session을 다시 밀어 낸 report가 거절되고, 아무것도 보내지 않으면 run이 말없이 도는 것처럼 보인다. 버린 안: 그 turn에서 step 닫기, 새 줄 종류 더하기(화면과 읽기가 다 배워야 한다). 이슈 `workflow-remote-step-turn-end-no-line`. (agent)
 - 받은 step의 다른 컴퓨터 표시는 본문 앞 고정 줄이다. 이유: step 입력은 보낸 쪽이 program이어야 하고(`messages` 표의 규칙) 이력 재생이 같은 bytes를 만들려면 표시가 저장된 본문에 있어야 한다. (agent)
+
+관측과 복구
+- stalled·blocked step에 한해 사람이 Run 화면과 CLI에서 같은 session으로 바로 이어 가는 `RetryWorkflowStep`을 둔다(옛 "화면에서 재시도 없음" 규칙을 stalled/blocked step 복구 범위에서 대체한다). 이유: 로컬 non-human step이 명시적 report 없이 끝나거나 넘기기에 실패했을 때 매번 agent에게 새 말을 걸거나 새 session으로 처음부터 돌리면 맥락을 잃는다. 이미 열린 session이 있으면 `fallback: new` 없이 그 같은 session에만 이어서 하라는 입력을 넣어(닫힌 session이면 transaction 전체를 `conflict`로 되돌림) 조용히 새 session이 열리지 않게 한다. 임의 step 점프나 자동 재시도 정책은 여전히 두지 않는다. 버린 안: `fallback: new`로 새 session을 조용히 열기, 사람에게 `hand_now` 임의 step 이동 단추 열기. (사람: 방향, agent: 계약·구현, 2026-11-23)
+- `sessions.workflow_origin` JSON 열과 `(workflow_origin ->> '$.instance')` partial index를 workflow 소속의 단일 정본으로 두고, 로컬 step 넘김과 같은 transaction에서 갱신하며 `team spawn` 자식은 생성 시점에 상속한다(`fork`·일반 `agent call` 제외). 이유: Run 화면의 `sessions` tree, 앱 SDK `SessionInfo.workflow`, cross-workspace workflow desk 탭 배치가 같은 정본을 보게 하고, `workflow_lines`만 뒤져서는 다단계 자식 worker를 찾지 못하는 문제를 없앤다. 버린 안: `workflow_lines` 역추적만으로 session 목록 구성, `workflow_origin`에 불변 trigger 걸기(`session: same`이 다음 step으로 넘어갈 때 갱신하지 못한다). (agent, 2026-11-23)
+- 로컬 step stall 감지는 turn 종료 transaction 안에서 workflow 표를 직접 고치지 않고 `TurnEnded` commit 뒤 구독으로 시도당 최대 1회 `step_stalled` 줄을 남긴다. 이유: session runtime과 workflows 모듈 경계를 지키고, 실패 사유는 redaction 뒤 함께 남겨 Run 화면에서 바로 원인을 읽게 한다. 버린 안: turn 종료 transaction 안에서 workflow 표 직접 쓰기. (agent, 2026-11-23)
+- `sessions`의 `last_assistant_preview`는 LLM 요약 없이 앞 160자 평문 미리보기로 두고, 자르기 전에 known-secret redaction을 먼저 적용하며 secret 목록이 준비되지 않았으면 `null`로 fail-closed한다. `refs`는 `report` 줄에 명시된 경로만 cursor와 무관하게 모은다. 이유: 160자 경계에 걸친 secret 앞부분이 잘려 redaction을 빠져나가는 위험과, 파일 시스템 추정 스캔의 오탐을 막는다. 버린 안: 자른 뒤 redaction, 디스크 diff로 산출물 추정. (agent, 2026-11-23)
+- `workflow_lines` kind check 재구축 migration(`workflows.lines-kinds`)에서 `step_stalled`·`retried`뿐 아니라 후속 단계의 `escalated`·`code_updated`도 한 번에 더한다. 이유: 표 재구축 migration을 단계마다 두 번 돌리지 않기 위해서다. (agent, 2026-11-23)
 
 ## 열린 것
 

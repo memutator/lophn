@@ -1,0 +1,18 @@
+id: workflow-p2b-group
+version: 0.23.143
+title: 병렬 workflow step 탭을 group 힌트로 1-leaf 접힘 bundle로 자동 묶고 architecture 문서를 갱신한다
+modules:
+  - packages/shell/renderer
+change: |
+  - `packages/shell/renderer/workspace/open-policy.ts`: `groupLabelFromHint`과 `openTabWithGroup`을 더했다. `options.group`(`"<instance>:<step>"`)이 주어지면 대상 desk에 같은 `groupId`의 group이 이미 있을 때 분할 없이 `addTabToGroup`으로 쌓고(기존 `label` 유지), 아직 없으면 창 메모리의 탭 key별 힌트(`hints`)에서 같은 `group`의 ungrouped 탭을 찾아 2번째 병렬 탭이 도착하는 순간 둘을 `groupTabs`로 1-leaf 접힘 bundle(`groupId` + `:` 뒤 step 이름 `label`)로 묶는다. 1번째 단독 탭은 일반 탭으로 유지하고 `select: false`이면 보고 있는 탭·active desk·기존 group focus를 바꾸지 않는다.
+  - `packages/shell/renderer/workspace/workspace-window.tsx`: `groupHints` ref를 두고 `openTab`이 `openTabWithGroup`을 통해 `options.group`을 처리하며, `removeTab`에서 닫힌 탭의 힌트를 정리한다. `packages/shell/renderer/workspace/kinds/host.ts`의 `options.group` 주석을 실제 동작에 맞췄다.
+  - `project-docs/architecture/workspace-layout.md`: 통합 비분할 접힘 탭 group(layout schema v13), cross-workspace workflow desk 라우팅과 title bar 진행 표시, `tab_open.group` 병렬 탭 자동 묶기를 반영했다.
+  - `project-docs/architecture/workflow.md`: 2a 동작(`sessions.workflow_origin` 기록·상속·투영, 로컬 `step_stalled` 감지, `RetryWorkflowStep`과 Run 화면 `[Retry]`로 옛 재시도 없음 규칙 대체, `derived_status`, `sessions` tree + 160자 redaction 미리보기, 명시적 `refs`, 확장된 `_instance.json`)을 반영했다.
+  - `project-docs/flows/areas/shell-workspace.yaml`: `agent-tab-request` 단계에 workflow `desk` on-demand 생성과 `group` 힌트 자동 bundle 묶기를 반영했다.
+why: |
+  같은 workflow instance·step에서 병렬로 열리는 worker 탭이 탭 줄을 어지럽히거나 화면을 강제로 분할하지 않고 하나의 접힘 bundle로 모이게 하고, Phase 2a·2b에서 바뀐 설계를 architecture 정본 문서에 맞추기 위해서다.
+decisions:
+  - text: "1번째 탭의 `group` 힌트는 layout schema v13을 바꾸지 않고 창 메모리 `Map<tabKey, groupId>`에만 보관하다가 2번째 병렬 탭이 올 때 `groupTabs`로 1-leaf bundle(`groupId` 영속)을 만든다. 버린 길: 1번째 탭부터 단독 group 생성(단독 탭에 불필요한 group chrome) 또는 탭 저장 schema에 `group_hint` 필드 추가(schema v14 필요)."
+    by: agent
+  - text: "3번째 이후 병렬 탭이 기존 `groupId`에 합류할 때 `addTabToGroup`에 `label`을 덮어쓰지 않아 사람이 바꾼 group 이름을 유지한다. 버린 길: 새 탭이 올 때마다 step 이름으로 `label`을 매번 덮어쓰기."
+    by: agent

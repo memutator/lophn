@@ -1598,7 +1598,7 @@ flows:
       - packages/shell/main/desktop/wiring/surface.ts
     steps:
       - "shell main이 host queue에서 가져온 요청을 이 창이 보이는 workspace와 맞으면 shell:surface-request로 받는다(queue는 harness 쪽). 다른 workspace의 요청이면 이 창은 아무것도 하지 않고 main이 다른 창에 준다"
-      - "layout을 다 읽은 뒤에만 받고, openAt이 요청의 relation(peer, stage, aside, work, glance, 말하지 않으면 browser는 work, 나머지는 aside)과 source 탭의 자리로 자리를 정해 select 없이 session, TUI, browser, preview 탭을 연다. work는 접힌 float, glance는 펴진 float이다. coding 요청이면 사람의 즐겨찾기 명령 뒤에 고정 handoff 글과 file 경로만 첫 prompt로 붙여 새 터미널 탭을 연다. 명령이나 터미널 통로가 없거나 경로에 shell이 다르게 읽을 글자가 있으면 ack하지 않는다"
+      - "layout을 다 읽은 뒤에만 받고, openAt이 요청의 relation(peer, stage, aside, work, glance, 말하지 않으면 browser는 work, 나머지는 aside)과 source 탭의 자리로 자리를 정해 select 없이 session, TUI, browser, preview 탭을 연다. work는 접힌 float, glance는 펴진 float이다. 요청에 workflow desk(`desk`)가 있으면 `after`보다 먼저 따르며 그 workflow desk가 아직 없으면 만들어 붙인다(보이는 desk는 바꾸지 않는다). 요청에 `group` 힌트(`<instance>:<step>`)가 있으면 1번째 탭은 분할 없이 단독 일반 탭으로 열고 탭 key별 힌트를 창 메모리에 기억했다가 같은 desk에 같은 힌트의 2번째 탭이 오면 둘을 1-leaf 접힘 bundle(`groupId`와 step `label`)로 자동 묶고 3번째 이후는 그 bundle의 stack 끝에 분할 없이 쌓는다. coding 요청이면 사람의 즐겨찾기 명령 뒤에 고정 handoff 글과 file 경로만 첫 prompt로 붙여 새 터미널 탭을 연다. 명령이나 터미널 통로가 없거나 경로에 shell이 다르게 읽을 글자가 있으면 ack하지 않는다"
       - "preview 탭은 앱마다 하나다. 이 창에 이미 열려 있으면 새로 열지 않고 요청의 기기와 화면만 바꾼다. 사람이 [Preview]로 연 같은 앱의 탭이 있으면 그 자리에 agent 탭을 열고 그것을 닫는다. preview 탭은 요청의 화면(없으면 앱의 첫 tab 화면)을 그 release 선언에서 찾아 그 화면의 places에서 고른 자리(phone, tab, 첫 자리 순)로 연다. 못 찾으면 screen not ready를 보인다"
       - "열었으면 ack하고, 못 열었으면(agent 목록을 모름, resume 없음, 터미널 통로 없음) ack하지 않아 main이 되돌린다"
       - "work나 glance(float)인데 desk float이 20개 상한이면 openFloatTab이 조용히 아무것도 안 하지만 browser·session 경로는 그래도 ack한다"

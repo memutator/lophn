@@ -274,6 +274,7 @@ import type {
   WorkspaceSource,
 } from "./source.ts";
 import { useCommands, useWindowCommands } from "../commands/react.tsx";
+import { openTabWithGroup } from "./open-policy.ts";
 import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import {
@@ -1015,8 +1016,13 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     });
   }, [editorSessions]);
 
+  // 탭 key별 자동 묶음 힌트(`options.group`, 예: "<instance>:<step>"). 단독 1번째 탭을 기억했다가
+  // 같은 힌트의 2번째 병렬 탭이 오면 1-leaf bundle로 묶는다. layout schema를 바꾸지 않으려고 창 메모리에만 둔다.
+  const groupHints = useRef<Map<string, string>>(new Map());
+
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
+    groupHints.current.delete(key);
     const found = findTab(latestLayout.current, key);
     if (found === null) return;
     if (found.where === "detached") {
@@ -1037,13 +1043,19 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     if (!select) {
       if (found !== null) return;
       const open = (item: Desk) =>
-        openTabInDesk(item, tab, {
-          select: false,
-          after: options?.after,
-          beside: options?.beside,
-          relation: options?.relation,
-          unsaved: isUnsaved,
-        });
+        openTabWithGroup(
+          item,
+          tab,
+          {
+            select: false,
+            after: options?.after,
+            beside: options?.beside,
+            relation: options?.relation,
+            group: options?.group,
+            unsaved: isUnsaved,
+          },
+          groupHints.current,
+        );
       // 지정된 desk가 있으면 `after`보다 먼저 따른다. workflow desk가 아직 없으면 homeDesk와 같이 만들어 붙인다(Main으로 떨어지지 않는다).
       // 그 밖에는 source(`after`)가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
       const at =
@@ -1109,12 +1121,18 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
     commit(
       updateDesk(setActiveDesk(base, target), target, (item) =>
-        openTabInDesk(item, tab, {
-          after: options?.after,
-          beside: options?.beside,
-          relation: options?.relation,
-          unsaved: isUnsaved,
-        }),
+        openTabWithGroup(
+          item,
+          tab,
+          {
+            after: options?.after,
+            beside: options?.beside,
+            relation: options?.relation,
+            group: options?.group,
+            unsaved: isUnsaved,
+          },
+          groupHints.current,
+        ),
       ),
     );
   };

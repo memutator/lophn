@@ -57,7 +57,8 @@ export function CrumbBrowse({
           cut={false}
           dropping={false}
           tabStop
-          onActivate={activate}
+          onSelect={(one) => activate(one, false)}
+          onOpen={(one) => activate(one, true)}
           onMenu={noop}
           onDragStart={(_, event) => event.preventDefault()}
           onDragOver={noop}

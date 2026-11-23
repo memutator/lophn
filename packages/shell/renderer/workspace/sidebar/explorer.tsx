@@ -319,7 +319,7 @@ interface ExplorerProps {
   /** true면 고른 줄(없으면 첫 줄)에 focus를 주고 `onFocusAsked`로 요청을 내려놓는다. */
   focusAsked?: boolean;
   onFocusAsked?: () => void;
-  /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다(한 번 클릭). */
+  /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다. */
   onOpenFile: (path: string, keep?: boolean) => void;
   /** 이름 바꾸기와 옮기기. 열린 탭의 경로를 따라 바꾸는 일까지 한다. */
   onMove: (from: string, to: string) => Promise<TabAwareResult>;
@@ -709,13 +709,12 @@ export function Explorer({
   };
 
   /**
-   * 줄을 눌렀을 때. toggle이면 그 줄을 선택에 더하거나 빼고, range면 anchor부터 이 줄까지 고른다.
-   * 그 밖에는 이 줄 하나만 고르고 연다.
+   * 줄을 한 번 눌렀을 때. toggle이면 그 줄을 선택에 더하거나 빼고, range면 anchor부터 이 줄까지 고른다.
+   * 그 밖에는 이 줄 하나만 고르고, 폴더면 접고 편다. 파일은 더블 클릭이나 Enter/Space로 연다.
    */
-  const activate = (
+  const selectRow = (
     row: FileRow,
-    keep?: boolean,
-    modifiers: { toggle: boolean; range: boolean } = {
+    modifiers: { readonly toggle: boolean; readonly range: boolean } = {
       toggle: false,
       range: false,
     },
@@ -733,6 +732,12 @@ export function Explorer({
     }
     setSelection(only(row.id));
     // 고른 줄 하나만 남으므로 접히는 폴더 안의 줄은 이미 선택에 없다.
+    if (row.folder) tree.toggle(row.id);
+  };
+
+  /** 줄을 열 때(파일 더블 클릭, Enter/Space). 이 줄 하나만 고르고 폴더면 접고 펴며, 파일이면 탭으로 연다. */
+  const openRow = (row: FileRow, keep?: boolean) => {
+    setSelection(only(row.id));
     if (row.folder) tree.toggle(row.id);
     else onOpenFile(row.id, keep);
   };
@@ -1293,7 +1298,7 @@ export function Explorer({
     } else if (key === "Enter" || key === " ") {
       if (row === undefined) return;
       // Enter는 고정 탭, Space는 preview 탭으로 연다.
-      activate(row, key === "Enter");
+      openRow(row, key === "Enter");
     } else if (key.length === 1 && row !== undefined) {
       const now = Date.now();
       const text =
@@ -1337,7 +1342,8 @@ export function Explorer({
         dropping={row.id === dropTarget}
         tabStop={row.id === tabStop}
         draggable={!readOnly}
-        onActivate={activate}
+        onSelect={selectRow}
+        onOpen={(one) => openRow(one, true)}
         onMenu={(one, at) => {
           // 이미 고른 줄이면 선택을 그대로 두고, 아니면 그 줄만 고른다.
           if (!selection.ids.has(one.id)) setSelection(only(one.id));

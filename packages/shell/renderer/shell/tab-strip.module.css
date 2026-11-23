@@ -373,8 +373,9 @@
   border-inline-start: var(--border-width) solid var(--color-border-base);
 }
 
-/* preview tab은 이름이 italic이다. */
+/* preview tab은 이름이 italic이다. 기울어진 끝 글자가 overflow: hidden에 잘리지 않게 오른쪽에 작은 여유를 둔다. */
 .title[data-preview] {
+  padding-inline-end: var(--space-1);
   font-style: italic;
 }
 

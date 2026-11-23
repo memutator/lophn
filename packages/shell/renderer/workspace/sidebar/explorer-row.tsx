@@ -44,12 +44,13 @@ interface RowProps {
   tabStop: boolean;
   /** 끌기 허용 여부. 읽기 전용 원격 workspace에서는 끈다. */
   draggable?: boolean;
-  /** keep이면 파일을 고정 탭으로 연다(double-click). modifiers는 누른 modifier key다. */
-  onActivate: (
+  /** 한 번 클릭: 줄을 고르고(modifier에 따라 toggle·range) 폴더면 접고 편다. */
+  onSelect: (
     row: FileRow,
-    keep: boolean | undefined,
     modifiers: { readonly toggle: boolean; readonly range: boolean },
   ) => void;
+  /** 파일 더블 클릭: 파일을 고정 탭으로 연다. */
+  onOpen: (row: FileRow) => void;
   onMenu: (row: FileRow, at: { x: number; y: number }) => void;
   onDragStart: (row: FileRow, event: DragEvent<HTMLDivElement>) => void;
   onDragOver: (row: FileRow, event: DragEvent<HTMLDivElement>) => void;
@@ -65,7 +66,8 @@ export function Row({
   dropping,
   tabStop,
   draggable = true,
-  onActivate,
+  onSelect,
+  onOpen,
   onMenu,
   onDragStart,
   onDragOver,
@@ -89,15 +91,13 @@ export function Row({
       className={styles.treeRow}
       style={{ paddingLeft: indentOf(row.depth) }}
       onClick={(event) =>
-        onActivate(row, undefined, {
+        onSelect(row, {
           toggle: event.metaKey || event.ctrlKey,
           range: event.shiftKey,
         })
       }
       onDoubleClick={() => {
-        if (!row.folder) {
-          onActivate(row, true, { toggle: false, range: false });
-        }
+        if (!row.folder) onOpen(row);
       }}
       onContextMenu={(event: MouseEvent) => {
         event.preventDefault();

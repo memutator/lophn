@@ -2,16 +2,16 @@
 // machine만 부른다: 부르는 곳은 core의 `release.prepare` handler 하나이고, 검사에 떨어진 준비는 이 command까지
 // 오지 않아 release 행을 남기지 않는다. 같은 bundle의 prepared release가 이미 있으면 새로 만들지 않고 그것을 준다.
 // activation 쪽 command는 activation driver가 machine 자격으로 순서대로 부른다(activation/assembly.ts).
-import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
+
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type ActivationAttempt,
+  type ActivationDataResult,
   activationActivatePrevious,
   activationAskConsent,
-  type ActivationAttempt,
   activationComplete,
   activationConsent,
-  type ActivationDataResult,
   activationFail,
   activationReport,
   activationStart,
@@ -21,21 +21,27 @@ import {
   releaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
-import {
-  canonicalJson,
-  subscriptionHandlerName,
-  validateDeclaration,
-} from "../declaration/mod.ts";
-import { loadVersionPermissions } from "../packages/store.ts";
-import { missingSdkPermission } from "./sdk-permissions.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
 import { routerFor } from "../../router/mod.ts";
-
+import {
+  type AttemptGate,
+  createDataRecordStore,
+  discardBackups,
+} from "../data/mod.ts";
+import {
+  canonicalJson,
+  subscriptionHandlerName,
+  validateDeclaration,
+} from "../declaration/mod.ts";
+import { recordProgramNotice, releaseNameOf } from "../notices/mod.ts";
+import { loadVersionPermissions } from "../packages/store.ts";
+import { syncAppGrants } from "../permissions/mod.ts";
 import {
   appAccessDenied,
   authorizeApp,
@@ -43,15 +49,19 @@ import {
   replaceApp,
 } from "../registration/mod.ts";
 import {
-  type AttemptGate,
-  createDataRecordStore,
-  discardBackups,
-} from "../data/mod.ts";
-import { recordProgramNotice, releaseNameOf } from "../notices/mod.ts";
-import { syncAppGrants } from "../permissions/mod.ts";
+  bundledShare,
+  pushConsentEvent,
+  waitingConsents,
+} from "./activation/consents.ts";
+import { inProgress, storeActivation } from "./activation/state.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { factsOfDeclaration } from "./facts.ts";
-import { removedPublicSkillsOf, removedPublicToolsOf } from "./public-tools.ts";
+import {
+  contractChangesOf,
+  removedPublicSkillsOf,
+  removedPublicToolsOf,
+} from "./public-tools.ts";
+import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
   findPreparedRelease,
   insertRelease,
@@ -60,12 +70,6 @@ import {
   loadStoredDeclaration,
   nextReleaseNumber,
 } from "./store.ts";
-import { inProgress, storeActivation } from "./activation/state.ts";
-import {
-  bundledShare,
-  pushConsentEvent,
-  waitingConsents,
-} from "./activation/consents.ts";
 
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
@@ -677,9 +681,12 @@ export function createReleaseCommands(): {
             declaration.skills ?? [],
           );
           if (!skills.ok) return skills;
+          const changes = contractChangesOf(tx, input.app, declaration);
+          if (!changes.ok) return changes;
           return ok({
             removed_public_tools: tools.value,
             removed_public_skills: skills.value,
+            contract_changes: changes.value,
           });
         };
         const existing = findPreparedRelease(

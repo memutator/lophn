@@ -14,38 +14,33 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import { bundleFileStore } from "../../protocol/apps/app-storage.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
-import { machineComputers } from "../../protocol/machine/mod.ts";
-import {
-  appSessionsList,
-  appSessionsStatus,
-  appSessionsStop,
-} from "../../protocol/lophn-agent/session-lifecycle.ts";
 import {
   type AppGrant,
   activationAskConsent,
   activationComplete,
   activationFail,
   activationRecordBackup,
-  activationReport,
   activationRecordDataChange,
   activationRecordDataRestore,
+  activationReport,
   activationStart,
   appCallTool,
-  noticePost,
-  appTraySet,
-  appWidgetSet,
-  appPhoneRequest,
   appEventPublish,
   appGrantsList,
   appLogFile,
   appLogPreviousFile,
   appLogs,
+  appPhoneRequest,
   appRecordStarted,
   appRecordStopped,
   appRecordUnavailable,
   appRuntime,
   appsSecretValue,
+  appTraySet,
+  appWidgetSet,
+  noticePost,
   packageRegisterVersion,
   packagesGuideBody,
   previewsGet,
@@ -57,6 +52,12 @@ import {
   releaseRecord,
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
+import {
+  appSessionsList,
+  appSessionsStatus,
+  appSessionsStop,
+} from "../../protocol/lophn-agent/session-lifecycle.ts";
+import { machineComputers } from "../../protocol/machine/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
@@ -98,7 +99,6 @@ import {
   dataChangesOf,
   readBundleCopy,
 } from "./releases/activation/desired.ts";
-import { bundleFileStore } from "../../protocol/apps/app-storage.ts";
 import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
 import { gitCommandRunner } from "./releases/prepare/git-extract.ts";
 import { createActivationQueueRead } from "./releases/reads.ts";
@@ -312,6 +312,9 @@ export type PrepareCommitResult =
       removed_public_skills: ReturnType<
         typeof releaseRecord.output.parse
       >["removed_public_skills"];
+      contract_changes?: ReturnType<
+        typeof releaseRecord.output.parse
+      >["contract_changes"];
     }
   | {
       status: "failed";
@@ -725,6 +728,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         },
         removed_public_tools: recorded.removed_public_tools,
         removed_public_skills: recorded.removed_public_skills,
+        contract_changes: recorded.contract_changes ?? [],
       });
     } finally {
       preparing.delete(app);

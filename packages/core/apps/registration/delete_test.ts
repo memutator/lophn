@@ -9,6 +9,7 @@ import {
   TargetAuthorization,
   type Tx,
 } from "../../../protocol/server/mod.ts";
+import { WORKSPACE_LIFECYCLE_SCHEMA_STEP } from "../../follow-ups/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
 import { annotationSchemaSteps } from "../annotations/schema.ts";
@@ -23,10 +24,10 @@ import {
   noticeUnifiedSchemaSteps,
 } from "../notices/schema.ts";
 import { sdkSchemaSteps } from "../packages/schema.ts";
-import { sdkReviewSchemaSteps } from "../sdk-status/schema.ts";
 import { permissionsSchemaSteps } from "../permissions/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { rewindSchemaSteps } from "../rewind/schema.ts";
+import { sdkReviewSchemaSteps } from "../sdk-status/schema.ts";
 import { createAppCommands } from "./commands.ts";
 import { appDeleteSchemaSteps, appsSchemaSteps } from "./schema.ts";
 
@@ -68,6 +69,7 @@ function open(status: "active" | "archived") {
     ...sdkReviewSchemaSteps,
     ...invocationEventCallerSchemaSteps,
     ...eventPublicationSchemaSteps,
+    WORKSPACE_LIFECYCLE_SCHEMA_STEP,
   ]) {
     db.exec(step.sql);
   }
@@ -108,9 +110,9 @@ function open(status: "active" | "archived") {
        VALUES (?, ?, 'ses_x', 'leave', '{}', '2026-01-01')`,
     ).run(`sdr_${slug}`, id);
     db.prepare(
-      `INSERT INTO sdk_features (id, review, app, title, proposal, note_file, state, state_at)
-       VALUES (?, ?, ?, 't', 'p', 'n.md', 'open', '2026-01-01')`,
-    ).run(`sdf_${slug}`, `sdr_${slug}`, id);
+      `INSERT INTO follow_up_items (id, workspace_kind, workspace_id, origin, source_ref, title, body, state, created_at, updated_at, outcome)
+       VALUES (?, 'app', ?, 'app_sdk', 'n.md', 't', 'p', 'open', '2026-01-01', '2026-01-01', NULL)`,
+    ).run(`fup_${slug}`, id);
   }
   // program 줄은 기록이라 지우는 길이 없다.
   db.prepare(
@@ -183,7 +185,7 @@ const OWNED = [
   ["invocations", "app"],
   ["notices", "app"],
   ["sdk_reviews", "app"],
-  ["sdk_features", "app"],
+  ["follow_up_items", "workspace_id"],
   ["apps", "id"],
 ] as const;
 

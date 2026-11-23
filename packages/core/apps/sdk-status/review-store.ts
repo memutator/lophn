@@ -2,7 +2,13 @@ import type {
   SdkDecision,
   SdkFeatureState,
 } from "../../../protocol/apps/sdk-status.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import {
+  eraseWorkspaceFollowUps,
+  insertFollowUp,
+  loadFollowUp,
+} from "../../follow-ups/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -54,7 +60,7 @@ export function insertReview(
 
 // id는 handoff 글에 먼저 실려 호출 쪽이 정한다. 처음 state는 open이다. 결과를 안 내면 끝난 것으로 보이지 않는다.
 export function insertFeature(
-  tx: Pick<Tx, "sql" | "now">,
+  tx: Pick<Tx, "sql" | "newId" | "now">,
   input: {
     id: string;
     review: string;
@@ -64,31 +70,35 @@ export function insertFeature(
     note: string;
   },
 ): string {
-  const { id } = input;
-  tx.sql.run(
-    `INSERT INTO sdk_features (id, review, app, title, proposal, note_file, state, outcome, state_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'open', NULL, ?)`,
-    [
-      id,
-      input.review,
-      input.app,
-      input.title,
-      input.proposal,
-      input.note,
-      tx.now(),
-    ],
-  );
-  return id;
+  const item = insertFollowUp(tx, {
+    id: input.id,
+    workspace: { kind: "app", id: input.app as Id<"app"> },
+    origin: "app_sdk",
+    source_ref: input.note,
+    title: input.title,
+    body: input.proposal,
+  });
+  return item.id;
 }
 
 export function loadFeature(
   sql: Query,
   id: string,
 ): { id: string; app: string } | undefined {
-  const row = sql.get("SELECT id, app FROM sdk_features WHERE id = ?", [id]);
-  return row === undefined
-    ? undefined
-    : { id: String(row["id"]), app: String(row["app"]) };
+  const direct = loadFollowUp(sql, id);
+  const found =
+    direct ??
+    (id.startsWith("sdf_")
+      ? loadFollowUp(sql, `fup_${id.slice(4)}`)
+      : undefined);
+  if (
+    found === undefined ||
+    found.workspace?.kind !== "app" ||
+    found.origin !== "app_sdk"
+  ) {
+    return undefined;
+  }
+  return { id: found.id, app: found.workspace.id };
 }
 
 export function setFeatureState(
@@ -98,13 +108,13 @@ export function setFeatureState(
   outcome: string | null,
 ): void {
   tx.sql.run(
-    "UPDATE sdk_features SET state = ?, outcome = ?, state_at = ? WHERE id = ?",
+    "UPDATE follow_up_items SET state = ?, outcome = ?, updated_at = ? WHERE id = ?",
     [state, outcome, tx.now(), id],
   );
 }
 
 export function eraseAppReviews(tx: Pick<Tx, "sql">, app: string): void {
-  tx.sql.run("DELETE FROM sdk_features WHERE app = ?", [app]);
+  eraseWorkspaceFollowUps(tx, { kind: "app", id: app as Id<"app"> });
   tx.sql.run("DELETE FROM sdk_reviews WHERE app = ?", [app]);
 }
 
@@ -120,22 +130,25 @@ export function loadLastReview(
   );
   if (row === undefined) return null;
   const id = String(row["id"]);
+  const at = String(row["created_at"]);
   const features = sql
     .all(
-      `SELECT id, review, app, title, state, outcome, state_at FROM sdk_features
-       WHERE review = ? OR (app = ? AND state = 'open') ORDER BY rowid`,
-      [id, app],
+      `SELECT id, title, state, outcome, updated_at FROM follow_up_items
+       WHERE workspace_kind = 'app' AND workspace_id = ? AND origin = 'app_sdk'
+         AND (created_at >= ? OR state = 'open')
+       ORDER BY created_at ASC, id ASC`,
+      [app, at],
     )
     .map(
       (feature): FeatureRow => ({
         id: String(feature["id"]),
-        review: String(feature["review"]),
+        review: id,
         app,
         title: String(feature["title"]),
         state: feature["state"] as SdkFeatureState,
         outcome:
           feature["outcome"] === null ? null : String(feature["outcome"]),
-        state_at: String(feature["state_at"]),
+        state_at: String(feature["updated_at"]),
       }),
     );
   return {
@@ -143,7 +156,7 @@ export function loadLastReview(
     app,
     decision: row["decision"] as SdkDecision,
     through: JSON.parse(String(row["through"])) as Record<string, string>,
-    at: String(row["created_at"]),
+    at,
     features,
   };
 }

@@ -4,8 +4,8 @@ import {
   appSdkFeature,
   appSdkReviewRecord,
 } from "../../../protocol/apps/sdk-status.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import {
   FAILURE_TEXTS,
@@ -127,7 +127,7 @@ const recordFeature: CommandDefinition<typeof appSdkFeature> = {
       after: app.value,
     });
     if (!access.ok) return appAccessDenied(access) ? absent() : access;
-    setFeatureState(tx, input.feature, input.state, input.note ?? null);
+    setFeatureState(tx, feature.id, input.state, input.note ?? null);
     return ok({ feature: input.feature, state: input.state });
   },
 };

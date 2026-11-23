@@ -1,17 +1,17 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
+import type { SdkDecision } from "../../protocol/apps/sdk-status.ts";
 import {
+  definePort,
   type FollowUpItem,
   type FollowUpOrigin,
   type FollowUpState,
   type FollowUpWorkspace,
-  definePort,
   parseActor,
 } from "../../protocol/base/mod.ts";
 import {
   followUpList,
   followUpReport,
 } from "../../protocol/lophn-agent/follow-ups.ts";
-import type { SdkDecision } from "../../protocol/apps/sdk-status.ts";
 import type {
   CommandDefinition,
   ReadDefinition,
@@ -171,6 +171,7 @@ export function listFollowUps(
   filter?: {
     workspace?: "home" | FollowUpWorkspace;
     state?: FollowUpState;
+    origin?: FollowUpOrigin;
   },
 ): FollowUpItem[] {
   const clauses: string[] = [];
@@ -184,6 +185,10 @@ export function listFollowUps(
   if (filter?.state !== undefined) {
     clauses.push("state = ?");
     params.push(filter.state);
+  }
+  if (filter?.origin !== undefined) {
+    clauses.push("origin = ?");
+    params.push(filter.origin);
   }
   const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
   return sql
@@ -209,7 +214,7 @@ export function reportFollowUp(
   tx: Pick<Tx, "sql" | "now">,
   id: string,
   state: Exclude<FollowUpState, "open">,
-  outcome: string,
+  outcome: string | null,
 ): FollowUpItem | undefined {
   const now = tx.now();
   tx.sql.run(

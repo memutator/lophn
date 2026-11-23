@@ -182,7 +182,7 @@ files:
 
   - path: packages/core/apps/releases/public-tools_test.ts
     covers: []
-    note: "removedPublicOf 순수 함수: 공개였다가 비공개가 되거나 빠진 tool 목록"
+    note: "removedPublicOf·diffReleaseContracts·contractChangesOf(공개 command·skill·event 삭제·변경과 P12 외부 사용처 수만 노출) 및 workspace-reader(readWorkspaceSnapshot, scanImpact declared/mentioned·보관 제외·memory.md/LOPHN.md 미스캔, scanReleaseContractUsers)"
 
   - path: packages/core/apps/releases/schema_test.ts
     covers: []
@@ -252,8 +252,8 @@ files:
     covers: [app-sdk-status-read:listed]
     note: "sdkEntry 판정: 지원 하한보다 낮은 고정은 required, 그 위지만 옛 판이면 available, notes는 고정 판 다음부터 지금 판까지, unreviewed는 마지막 결정의 through와 고정 판 가운데 높은 쪽 다음부터. recordSdkUpdates는 필수 앱과 검토하지 않은 메모가 있는 앱 수를 세서 sdk_update_needed 알림 입력을 만들고 필요한 앱이 없으면 기록하지 않음. sdkEntry 판정은 app-sdk-status-read:listed. 알림 입력은 notice-record 쪽"
   - path: packages/core/apps/sdk-status/commands_test.ts
-    covers: [app-sdk-review-record:recorded, app-sdk-review-record:forbidden, app-sdk-feature:reported, app-sdk-feature:not-found]
-    note: "call이 거절된 update는 review도 feature도 남기지 않고, 받아들여지면 review와 open feature가 남는다. 앱 workspace의 agent는 다른 앱의 기능 결과를 쓰지 못하고(forbidden이나 not_found) 자기 앱의 것은 쓴다. 거절 갈래는 Router가 내는 forbidden"
+    covers: [app-sdk-review-record:recorded, app-sdk-review-record:forbidden, app-sdk-feature:reported, app-sdk-feature:not-found, follow-up-list:ok, follow-up-list:forbidden, follow-up-report:ok, follow-up-report:not-found]
+    note: "call이 거절된 update는 review도 follow_up_items도 남기지 않고, 받아들여지면 review와 open follow-up이 남는다. 앱 workspace의 agent는 다른 앱의 기능 결과를 쓰지 못하고 자기 앱의 것은 쓴다. WORKSPACE_LIFECYCLE_SCHEMA_STEP의 sdk_features -> follow_up_items SQL migration과 follow_up.list·follow_up.report의 P12 경계, flow_sdk_reviews·platform_reviews 왕복을 함께 본다"
 
   - path: packages/core/apps/phone/target_test.ts
     covers: [app-phone-target-read:found, app-phone-target-read:no-device]
@@ -277,7 +277,7 @@ files:
 
   - path: packages/core/apps/usage/users_test.ts
     covers: [app-usage-read:listed, app-command-call:denied-gate-blocked]
-    note: "사용 관계는 project session의 호출만 세고 home과 앱 자신의 workspace 호출은 안 셈. 두 번째 test는 callAllowed gate를 직접 불러 앱 workspace agent가 자기 앱 command를 할당 없이 부르고 다른 앱은 할당이 있어야 함을 단정. gate 판정을 단정하므로 app-command-call:denied-gate-blocked"
+    note: "사용 관계는 과거 project session 호출과 정적 선언(다른 활성 앱의 app_connections, 활성 job의 tool_run)을 중복 없이 합치고 보관 앱·home·자기 앱은 안 셈. 두 번째 test는 callAllowed gate를 직접 불러 앱 workspace agent가 자기 앱 command를 할당 없이 부르고 다른 앱은 할당이 있어야 함을 단정. gate 판정을 단정하므로 app-command-call:denied-gate-blocked"
 
   - path: packages/core/apps/app-files/routes_test.ts
     covers: [app-file-put:stored, app-file-put:partial, app-file-put:have, app-file-put:wrong-offset, app-file-put:wrong-file, app-file-read:served, app-file-read:not-found]

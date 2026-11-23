@@ -1,14 +1,14 @@
 import { ok, type Result } from "../../../base/mod.ts";
+import { wordsOf } from "../../../cli/parser.ts";
 import type { Assignment } from "../../../protocol/approvals/mod.ts";
 import type {
   AgentId,
   Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
-import { wordsOf } from "../../../cli/parser.ts";
 import type { AgentDirectory } from "../../lophn-agent/agents/directory.ts";
 import { workspaceDepsOf } from "../../lophn-agent/workspaces/mod.ts";
-import { loadApps } from "../registration/store.ts";
+import { loadApp, loadApps } from "../registration/store.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
 
@@ -79,7 +79,8 @@ export function agentAssignment(
   return ok({ agent, entries: [...entries, ...remote] });
 }
 
-// 이 앱의 tool을 부른 다른 앱·project: 앱 tool을 부른 agent session이 놓인 곳이다. home과 그 앱 자신의 workspace는 세지 않는다.
+// 이 앱의 tool을 쓰는 다른 앱·project: 정적 선언(다른 활성 앱의 app_connections, 활성 job의 tool_run)과
+// 과거 agent 호출 기록(invocations)을 합쳐 중복 없이 낸다. home과 그 앱 자신의 workspace는 세지 않는다.
 // 이름순으로 정렬해 같은 재료가 같은 bytes가 되게 한다.
 export function appToolUsers(
   sql: Query,
@@ -91,8 +92,21 @@ export function appToolUsers(
   const names = new Set(
     (active.value?.declaration.commands ?? []).map((tool) => tool.name),
   );
+  if (names.size === 0) return ok([]);
+
+  const target = loadApp(sql, app);
+  if (!target.ok) return target;
+  const targetSlug = target.value?.slug ?? null;
 
   const found = new Map<string, ToolUser>();
+  const add = (tool: string, workspace: Workspace | null | undefined) => {
+    if (!names.has(tool)) return;
+    if (workspace === undefined || workspace === null) return;
+    if (workspace.kind === "app" && workspace.id === app) return;
+    found.set(JSON.stringify([tool, workspace]), { tool, workspace });
+  };
+
+  // 1. 과거 agent 호출 기록(invocations).
   const calls = sql.all(
     `select distinct json_extract(operation, '$.name') as tool, session
        from invocations
@@ -102,11 +116,33 @@ export function appToolUsers(
   );
   for (const row of calls) {
     const tool = String(row["tool"]);
-    if (!names.has(tool)) continue;
     const workspace = ports.sessionWorkspace(String(row["session"]))?.workspace;
-    if (workspace === undefined || workspace === null) continue;
-    if (workspace.kind === "app" && workspace.id === app) continue;
-    found.set(JSON.stringify([tool, workspace]), { tool, workspace });
+    add(tool, workspace);
+  }
+
+  // 2. 다른 활성 앱의 활성 선언 app_connections.
+  const activeApps = loadApps(sql, "active");
+  if (!activeApps.ok) return activeApps;
+  for (const other of activeApps.value) {
+    if (other.id === app) continue;
+    const decl = loadActiveDeclaration(sql, other.id);
+    if (!decl.ok) return decl;
+    for (const conn of decl.value?.declaration.app_connections ?? []) {
+      if (
+        conn.app !== app &&
+        (targetSlug === null || conn.app !== targetSlug)
+      ) {
+        continue;
+      }
+      for (const tool of conn.commands) {
+        add(tool, { kind: "app", id: other.id });
+      }
+    }
+  }
+
+  // 3. 활성 job(tool_run) 등 다른 module의 정적 선언 사용처.
+  for (const use of ports.declaredToolUsers?.(app) ?? []) {
+    add(use.tool, use.workspace);
   }
 
   return ok(

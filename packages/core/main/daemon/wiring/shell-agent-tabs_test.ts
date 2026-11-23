@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   shellAgentTabsStep,
+  shellLayoutGroupsStep,
   shellLayoutMachinesStep,
   shellLayoutOwnersStep,
 } from "./shell-agent-tabs.ts";
@@ -212,3 +213,54 @@ for (const [step, layout, globalFloats] of [
     }
   });
 }
+
+test("shell.layout-groups: 판 12 layout은 split group·칸 stack을 byte 그대로 두고 판만 13으로 오르며 전역 float은 그대로고 다시 돌아도 같다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-shell-layout-groups-"));
+  try {
+    const folder = join(root, "shell", "workspaces");
+    await mkdir(folder, { recursive: true });
+    const desk = {
+      label: "Main",
+      tabs: [doc("d1"), doc("d2"), doc("d3"), doc("d4")],
+      selected_tab: "d1",
+      groups: [
+        {
+          layout: {
+            dir: "row",
+            ratio: 0.4,
+            a: { tab: "d1" },
+            b: { tab: "d2", stack: ["d2", "d3", "d4"] },
+          },
+          focus: "d1",
+        },
+      ],
+      floats: [],
+      detached: [],
+    };
+    const file = (version: number) =>
+      JSON.stringify({
+        schema_version: version,
+        active_desk: "_default",
+        desks: { _default: desk },
+      });
+    const floatsFile = join(root, "shell", "global-floats.json");
+    const floats = JSON.stringify({ schema_version: 4, floats: [] });
+    await writeFile(join(folder, "home.json"), file(12));
+    await writeFile(join(folder, "other.json"), file(11));
+    await writeFile(floatsFile, floats);
+    for (let run = 0; run < 2; run += 1) {
+      assert.deepEqual(await shellLayoutGroupsStep.run(root, stepDeps), {
+        ok: true,
+        value: undefined,
+      });
+      assert.equal(await readFile(join(folder, "home.json"), "utf8"), file(13));
+      assert.equal(
+        await readFile(join(folder, "other.json"), "utf8"),
+        file(11),
+      );
+      assert.equal(await readFile(floatsFile, "utf8"), floats);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

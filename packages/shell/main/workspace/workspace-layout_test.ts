@@ -39,7 +39,7 @@ test("옛 layouts/ 파일이 있어도 읽지 않고 workspace 파일이 없으�
   });
 });
 
-test("판 12 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭은 없이, 있는 탭은 그 칸과 함께 쓴 대로 읽힌다", async () => {
+test("판 13 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭은 없이, 있는 탭은 그 칸과 함께 쓴 대로 읽힌다", async () => {
   await withRoot(async (root) => {
     const store = createWorkspaceLayoutStore(root);
     const layout = {
@@ -85,7 +85,7 @@ test("판 12 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭�
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 12, ...layout } },
+      value: { ok: true, layout: { schema_version: 13, ...layout } },
     });
     // 꼴이 틀린 공통 칸은 저장하지 않는다.
     for (const field of ["machine", "owner", "handed_tab"]) {
@@ -130,7 +130,7 @@ test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 12, ...layout } },
+      value: { ok: true, layout: { schema_version: 13, ...layout } },
     });
   });
 });
@@ -259,7 +259,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 12, ...stacked } },
+      value: { ok: true, layout: { schema_version: 13, ...stacked } },
     });
 
     // 숨은 tab이 group 밖에 떨어져 있으면 저장하지 않는다.
@@ -275,7 +275,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     await writeFile(
       join(root, "shell", "workspaces", "home.json"),
       JSON.stringify({
-        schema_version: 12,
+        schema_version: 13,
         ...desk(
           [tab("/t.md"), gone, tab("/x.md"), tab("/a.md"), tab("/b.md")],
           { tab: "/c.md", stack: ["/a.md", "/b.md", "/c.md"] },
@@ -361,7 +361,7 @@ test("quick 필드가 없는 파일도 읽히고, quick이 있는 파일은 쓴 
     };
     await writeFile(
       join(dir, `${PROJECT}.json`),
-      JSON.stringify({ schema_version: 12, active_desk: "_default", desks }),
+      JSON.stringify({ schema_version: 13, active_desk: "_default", desks }),
     );
     const store = createWorkspaceLayoutStore(root);
     const old = await store.read(PROJECT);
@@ -424,7 +424,7 @@ test("browser 탭의 keep_alive는 쓴 대로 읽히고 없는 옛 탭도 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 12, ...layout } },
+      value: { ok: true, layout: { schema_version: 13, ...layout } },
     });
   });
 });
@@ -462,5 +462,97 @@ test("터미널 명령(commands)은 쓴 대로 읽히고, 빈 값이나 모르�
       const result = await store.write(PROJECT, { ...layout, commands: bad });
       assert.ok(!result.ok && result.error.code === "invalid_input");
     }
+  });
+});
+
+test("leaf 하나의 bundle group은 label·group_id·collapsed와 함께 쓴 대로 읽히고, 쌓이지 않은 leaf 하나는 거절된다", async () => {
+  await withRoot(async (root) => {
+    const store = createWorkspaceLayoutStore(root);
+    const layout = (group: object) => ({
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [tab("/a.md"), tab("/b.md"), tab("/c.md")],
+          selected_tab: "/c.md",
+          groups: [group],
+          floats: [],
+          detached: [],
+        },
+      },
+    });
+    const bundle = {
+      layout: { tab: "/a.md", stack: ["/a.md", "/b.md"] },
+      focus: "/a.md",
+      group_id: "wf:1/s1",
+      label: "Step 1",
+      collapsed: true,
+    };
+    assert.deepEqual(await store.write("home", layout(bundle)), {
+      ok: true,
+      value: null,
+    });
+    assert.deepEqual(await store.read("home"), {
+      ok: true,
+      value: { ok: true, layout: { schema_version: 13, ...layout(bundle) } },
+    });
+    const single = await store.write(
+      "home",
+      layout({ layout: { tab: "/a.md" }, focus: "/a.md", label: "x" }),
+    );
+    assert.ok(!single.ok && single.error.code === "invalid_input");
+
+    // bundle에서 알 수 없는 kind가 빠져 stack이 1개가 되면 group이 풀리고, 2개 이상 남으면 bundle이 남는다.
+    await writeFile(
+      join(root, "shell", "workspaces", "home.json"),
+      JSON.stringify({
+        schema_version: 13,
+        active_desk: "_default",
+        desks: {
+          _default: {
+            label: "Main",
+            tabs: [
+              tab("/a.md"),
+              { kind: "gone_kind", key: "/gone.md" },
+              tab("/b.md"),
+              tab("/c.md"),
+              { kind: "gone_kind", key: "/gone2.md" },
+            ],
+            selected_tab: "/a.md",
+            groups: [
+              {
+                layout: { tab: "/a.md", stack: ["/a.md", "/gone.md"] },
+                focus: "/a.md",
+                label: "Dissolves",
+              },
+              {
+                layout: {
+                  tab: "/gone2.md",
+                  stack: ["/b.md", "/c.md", "/gone2.md"],
+                },
+                focus: "/gone2.md",
+                group_id: "wf:1/s2",
+                label: "Survives",
+                collapsed: true,
+              },
+            ],
+            floats: [],
+            detached: [],
+          },
+        },
+      }),
+    );
+    const read = await store.read("home");
+    assert.ok(read.ok && read.value?.ok);
+    const readDesk = read.value.layout.desks._default!;
+    assert.deepEqual(readDesk.groups, [
+      {
+        layout: { tab: "/c.md", stack: ["/b.md", "/c.md"] },
+        focus: "/c.md",
+        group_id: "wf:1/s2",
+        label: "Survives",
+        collapsed: true,
+      },
+    ]);
   });
 });

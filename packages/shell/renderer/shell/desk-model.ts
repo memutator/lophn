@@ -2,9 +2,11 @@
 // 통째로 가진다. 모든 함수는 순수하고 새 값을 돌려준다. 바꿀 수 없으면 같은 참조를 돌려준다.
 //
 // 불변 조건: desk 안에서 tab key는 tabs·floats·detached를 통틀어 한 번만 나온다. `selected`는 tabs의 key다.
-// group은 tabs의 tab 2~4개를 한 칸으로 묶은 값이다. leaf key는 모두 tabs에 있고 tab은 group 하나에만 들며,
-// group의 tab은 tabs에서 leaf 순서(왼쪽·위에서부터)로 붙어 있다. 1개로 줄면 group은 풀린다. `selected`가 group
-// 구성원이면 그 group의 `focus`가 selected다. 모든 변경은 끝에 `settle`을 거쳐 이를 맞춘다.
+// group은 tabs의 tab 여럿을 묶은 값이다: leaf 2~4개로 나눠 보는 split이거나, leaf 하나의 칸에 tab 둘 이상이 쌓인
+// bundle(탭 줄의 접을 수 있는 묶음, 한 번에 tab 하나만 보인다)이다. leaf key는 모두 tabs에 있고 tab은 group 하나에만
+// 들며, group의 tab은 tabs에서 leaf 순서(왼쪽·위에서부터)로 붙어 있다. leaf가 1개이면서 stack이 없으면(tab 하나)
+// group은 풀린다. `selected`가 group 구성원이면 그 group의 `focus`가 selected다. 모든 변경은 끝에 `settle`을 거쳐
+// 이를 맞춘다.
 import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   clampFloatRect,
@@ -58,8 +60,7 @@ export type SplitDir = "row" | "column";
 export const SPLIT_RATIO_MIN = 0.15;
 export const SPLIT_RATIO_MAX = 0.85;
 
-/** group 하나의 leaf 수 범위. */
-export const GROUP_MIN = 2;
+/** group 하나의 leaf 수 상한. leaf 1개인 group은 그 칸에 tab 둘 이상이 쌓인 bundle일 때만 선다(`holdsGroup`). */
 export const GROUP_MAX = 4;
 
 /**
@@ -84,10 +85,17 @@ export type GroupNode =
 /** 나눔 node까지 가는 길. a 또는 b를 차례로 고른다. 빈 길이 root다. */
 export type NodePath = readonly ("a" | "b")[];
 
-/** `focus`는 leaf 하나의 tab key다. */
+/**
+ * `focus`는 leaf 하나의 tab key다. 나머지는 선택 칸이고 bundle(leaf 1개)과 split 모두에 쓴다: `groupId`는 자동으로
+ * 묶는 쪽이 같은 묶음을 다시 찾는 key(예: workflow instance·step), `label`은 탭 줄 머리글, `collapsed`는 탭 줄에서
+ * 접힘(모델은 접힘을 구성원 보임에 쓰지 않는다. 그리는 쪽이 정한다).
+ */
 export interface Group {
   readonly layout: GroupNode;
   readonly focus: string;
+  readonly groupId?: string;
+  readonly label?: string;
+  readonly collapsed?: boolean;
 }
 
 export function clampSplitRatio(ratio: number): number {
@@ -174,6 +182,17 @@ export function stackOf(leaf: GroupLeaf): readonly string[] {
 
 function paneLeaf(tab: string, stack: readonly string[]): GroupLeaf {
   return stack.length < 2 ? { tab } : { tab, stack };
+}
+
+/** layout이 group으로 설 수 있나: leaf 2개 이상이거나, leaf 하나의 칸에 tab 둘 이상이 쌓였다. */
+export function holdsGroup(node: GroupNode): boolean {
+  const leaves = leafNodes(node);
+  return leaves.length >= 2 || stackOf(leaves[0]!).length >= 2;
+}
+
+/** 칸이 하나이고 tab이 쌓인 group(split이 아닌 탭 묶음). */
+export function isBundle(group: Group): boolean {
+  return isLeaf(group.layout);
 }
 
 /** group tree의 보이는 leaf key를 왼쪽·위에서부터 차례로. */
@@ -309,6 +328,7 @@ function renameLeaves(
 
 function renameInGroup(group: Group, rename: (key: string) => string): Group {
   return {
+    ...group,
     layout: renameLeaves(group.layout, rename),
     focus: rename(group.focus),
   };
@@ -346,8 +366,8 @@ export function settle(desk: Desk): Desk {
     if (pruned === null) continue;
     const layout =
       desk.selected === null ? pruned : surface(pruned, desk.selected);
+    if (!holdsGroup(layout)) continue;
     const leaves = leavesOf(layout);
-    if (leaves.length < GROUP_MIN) continue;
     for (const key of membersOf(layout)) used.add(key);
     const focus =
       desk.selected !== null && leaves.includes(desk.selected)
@@ -358,7 +378,7 @@ export function settle(desk: Desk): Desk {
     groups.push(
       layout === group.layout && focus === group.focus
         ? group
-        : { layout, focus },
+        : { ...group, layout, focus },
     );
   }
   const owner = new Map<string, Group>();
@@ -700,6 +720,7 @@ function stackInto(
     groups: added.groups.map((item) =>
       item === group
         ? {
+            ...item,
             layout: replaceLeaf(group.layout, leafKey, (leaf) =>
               paneLeaf(show.visible ? key : leaf.tab, [...stackOf(leaf), key]),
             ),
@@ -805,7 +826,7 @@ export function selectTab(desk: Desk, key: string): Desk {
       group === null
         ? desk.groups
         : desk.groups.map((item) =>
-            item === group ? { layout: layout!, focus: key } : item,
+            item === group ? { ...item, layout: layout!, focus: key } : item,
           ),
   };
   // 칸이 보이는 tab을 바꾸면 tabs의 group 순서(membersOf)도 바뀐다.
@@ -913,6 +934,9 @@ export function splitTab(
   const inTabs = (key: string) => desk.tabs.some((tab) => tab.key === key);
   if (!inTabs(targetKey) || !inTabs(newKey)) return desk;
   const target = groupOf(desk, targetKey);
+  if (target !== null && !leavesOf(target.layout).includes(targetKey)) {
+    return desk;
+  }
   const from = groupOf(desk, newKey);
   const base =
     target === null
@@ -938,10 +962,10 @@ export function splitTab(
   const at = without.findIndex((tab) => tab.key === targetKey) + 1;
   const tabs = [...without.slice(0, at), tabNew, ...without.slice(at)];
   const groups = desk.groups.map((group) => {
-    if (group === target) return { layout, focus: selected };
+    if (group === target) return { ...group, layout, focus: selected };
     if (group === from) {
       const rest = removeLeaf(group.layout, newKey);
-      return rest === null ? group : { layout: rest, focus: group.focus };
+      return rest === null ? group : { ...group, layout: rest };
     }
     return group;
   });
@@ -969,9 +993,9 @@ export function splitPartner(desk: Desk, key: string): string | null {
 }
 
 /**
- * key를 targetKey가 보이는 칸의 stack index 자리(없으면 끝)에 넣어 보이고 고른다. key는 있던 자리(다른 칸, 다른
- * group)에서 빠지고, 이미 그 칸에 있으면 자리만 옮긴다. target이 group의 보이는 leaf가 아니거나 바뀌는 것이 없으면
- * 그대로다.
+ * key를 targetKey가 보이는 칸의 stack index 자리(없으면 끝)에 넣어 보이고 고른다. targetKey가 group에 없으면
+ * 둘로 leaf 하나짜리 bundle group을 새로 만든다. key는 있던 자리(다른 칸, 다른 group)에서 빠지고, 이미 그 칸에
+ * 있으면 자리만 옮긴다. targetKey가 숨은 tab이거나 둘이 같고 group이 없거나 바뀌는 것이 없으면 그대로다.
  */
 export function stackTab(
   desk: Desk,
@@ -979,12 +1003,14 @@ export function stackTab(
   key: string,
   index?: number,
 ): Desk {
-  const target = groupOf(desk, targetKey);
   if (
-    target === null ||
-    !leavesOf(target.layout).includes(targetKey) ||
+    !desk.tabs.some((tab) => tab.key === targetKey) ||
     !desk.tabs.some((tab) => tab.key === key)
   ) {
+    return desk;
+  }
+  const target = groupOf(desk, targetKey);
+  if (target !== null && !leavesOf(target.layout).includes(targetKey)) {
     return desk;
   }
   const insert = (stack: readonly string[], at: number | undefined) => {
@@ -992,6 +1018,25 @@ export function stackTab(
     const to = Math.max(0, Math.min(at ?? rest.length, rest.length));
     return [...rest.slice(0, to), key, ...rest.slice(to)];
   };
+  if (target === null) {
+    if (targetKey === key) return desk;
+    const from = groupOf(desk, key);
+    const layout = paneLeaf(key, insert([targetKey], index));
+    const moving = desk.tabs.find((tab) => tab.key === key)!;
+    const without = desk.tabs.filter((tab) => tab.key !== key);
+    const at = without.findIndex((tab) => tab.key === targetKey) + 1;
+    const groups = desk.groups.map((group) => {
+      if (group !== from) return group;
+      const rest = removeLeaf(group.layout, key);
+      return rest === null ? group : { ...group, layout: rest };
+    });
+    return settle({
+      ...desk,
+      tabs: [...without.slice(0, at), moving, ...without.slice(at)],
+      selected: key,
+      groups: [...groups, { layout, focus: key }],
+    });
+  }
   const current = stackOfLeaf(target.layout, targetKey);
   if (current.includes(key)) {
     // 같은 칸 안에서 옮기면 빠진 자리만큼 index가 당겨진다.
@@ -1008,7 +1053,7 @@ export function stackTab(
       ...desk,
       selected: key,
       groups: desk.groups.map((group) =>
-        group === target ? { layout, focus: key } : group,
+        group === target ? { ...group, layout, focus: key } : group,
       ),
     });
   }
@@ -1027,10 +1072,10 @@ export function stackTab(
     tabs: [...without.slice(0, at), moving, ...without.slice(at)],
     selected: key,
     groups: desk.groups.map((group) => {
-      if (group === target) return { layout, focus: key };
+      if (group === target) return { ...group, layout, focus: key };
       if (group === from) {
         const rest = removeLeaf(group.layout, key);
-        return rest === null ? group : { layout: rest, focus: group.focus };
+        return rest === null ? group : { ...group, layout: rest };
       }
       return group;
     }),
@@ -1068,7 +1113,7 @@ export function ungroupTab(desk: Desk, key: string, toIndex?: number): Desk {
   const shrunk: Desk = {
     ...desk,
     groups: desk.groups.map((item) =>
-      item === group ? { layout: left, focus: item.focus } : item,
+      item === group ? { ...item, layout: left } : item,
     ),
   };
   const end =
@@ -1146,13 +1191,15 @@ export function tabDropState(
   if (item.whole || hit.target === item.key) return "none";
   if (!desk.tabs.some((tab) => tab.key === hit.target)) return "none";
   if (hit.zone === "center") {
-    // group 칸의 가운데는 그 칸에 쌓기다. 옮기고 나면 group이 풀리는 경우(둘뿐인 group의 짝)는 놓지 않는다.
+    // group 칸의 가운데는 그 칸에 쌓기다. 2칸 group의 짝을 쌓아도 leaf 하나짜리 bundle로 남는다.
     if (groupOf(desk, hit.target) === null) return "ok";
-    return groupOf(stackTab(desk, hit.target, item.key), hit.target) === null
-      ? "none"
-      : "ok";
+    const next = stackTab(desk, hit.target, item.key);
+    return next === desk || groupOf(next, hit.target) === null ? "none" : "ok";
   }
   const target = groupOf(desk, hit.target);
+  if (target !== null && !leavesOf(target.layout).includes(hit.target)) {
+    return "none";
+  }
   if (
     target !== null &&
     target !== groupOf(desk, item.key) &&
@@ -1186,9 +1233,12 @@ export function applyTabDrop(
     }
     const rest = desk.tabs.filter((tab) => tab.key !== item.key);
     // 자기 group 칸 앞에 놓으면 남은 group의 앞이다(칸의 key가 끌고 있는 leaf일 수 있다).
-    const own = leavesOf(groupOf(desk, item.key)!.layout);
+    const ownGroup = groupOf(desk, item.key)!;
+    const own = leavesOf(ownGroup.layout);
+    // 끌고 있는 tab이 bundle의 유일한 보이는 leaf면 칸의 다음 tab이 이어받는 자리를 기준으로 한다.
     const before = own.includes(hit.before ?? "")
-      ? own.find((key) => key !== item.key)!
+      ? (own.find((key) => key !== item.key) ??
+        membersOf(ownGroup.layout).find((key) => key !== item.key)!)
       : hit.before;
     const at =
       before === null
@@ -1214,6 +1264,160 @@ export function ungroup(desk: Desk, key: string): Desk {
   return group === null
     ? desk
     : { ...desk, groups: desk.groups.filter((item) => item !== group) };
+}
+
+/** groupId가 같은 group. 없으면 null. 자동으로 묶는 쪽이 같은 묶음을 다시 찾는다. */
+export function groupById(desk: Desk, groupId: string): Group | null {
+  return desk.groups.find((group) => group.groupId === groupId) ?? null;
+}
+
+// keys를 다른 group에서 뺀다(칸이 비면 짝이 올라오고 tab 하나만 남은 group은 settle이 푼다).
+function withoutKeys(
+  groups: readonly Group[],
+  keys: ReadonlySet<string>,
+): Group[] {
+  return groups.flatMap((group) => {
+    const layout = pruneNode(group.layout, (key) => !keys.has(key));
+    if (layout === null) return [];
+    if (layout === group.layout) return [group];
+    const leaves = leavesOf(layout);
+    return [
+      {
+        ...group,
+        layout,
+        focus: leaves.includes(group.focus) ? group.focus : leaves[0]!,
+      },
+    ];
+  });
+}
+
+export interface GroupTabsOptions {
+  readonly groupId?: string;
+  readonly label?: string;
+  readonly collapsed?: boolean;
+}
+
+/**
+ * tabs의 tab 둘 이상(keys의 순서가 stack의 순서)을 칸 하나에 쌓은 bundle로 묶는다. 보이는 tab은 selected가
+ * keys에 있으면 selected, 아니면 첫 key다. 다른 group에 있던 tab은 거기서 빠지고, bundle은 keys 중 tabs에서 가장
+ * 앞선 tab 자리에 선다. tabs에 있는 tab이 둘 미만이면 그대로다.
+ */
+export function groupTabs(
+  desk: Desk,
+  keys: readonly string[],
+  options: GroupTabsOptions = {},
+): Desk {
+  const inTabs = new Set(desk.tabs.map((tab) => tab.key));
+  const stack = [...new Set(keys)].filter((key) => inTabs.has(key));
+  if (stack.length < 2) return desk;
+  const visible =
+    desk.selected !== null && stack.includes(desk.selected)
+      ? desk.selected
+      : stack[0]!;
+  const groupId = options.groupId?.trim();
+  const label = options.label?.trim();
+  const group: Group = {
+    layout: paneLeaf(visible, stack),
+    focus: visible,
+    ...(groupId ? { groupId } : {}),
+    ...(label ? { label } : {}),
+    ...(options.collapsed === true ? { collapsed: true } : {}),
+  };
+  return settle({
+    ...desk,
+    groups: [...withoutKeys(desk.groups, new Set(stack)), group],
+  });
+}
+
+/**
+ * groupId의 bundle(또는 split)의 마지막 칸 stack 끝에 tab을 쌓는다. tab이 tabs에 없으면 새로 넣고, 다른 group에
+ * 있으면 거기서 뺀다(group은 제자리에 남는다). float·detached에 이미 있거나 groupId의 group이 없거나 이미
+ * 구성원이면 그대로다(select면 그 tab을 고른다). select가 아니면 보던 tab과 group의 focus를 지키고 새 tab은 숨어
+ * 쌓인다. label을 주면 group의 label을 바꾼다.
+ */
+export function addTabToGroup(
+  desk: Desk,
+  groupId: string,
+  tab: TabItem,
+  options: { readonly label?: string; readonly select?: boolean } = {},
+): Desk {
+  const select = options.select === true;
+  const group = groupById(desk, groupId);
+  const where = whereInDesk(desk, tab.key);
+  if (group === null || where === "float" || where === "detached") return desk;
+  if (membersOf(group.layout).includes(tab.key)) {
+    return select ? selectTab(desk, tab.key) : desk;
+  }
+  const trimmed = options.label?.trim();
+  const label = trimmed ? trimmed : group.label;
+  const targetLeaf = leavesOf(group.layout).at(-1)!;
+  const item =
+    where === null
+      ? settled(tab)
+      : desk.tabs.find((entry) => entry.key === tab.key)!;
+  const without = desk.tabs.filter((entry) => entry.key !== tab.key);
+  const at = without.findIndex((entry) => entry.key === targetLeaf) + 1;
+  const base: Desk = {
+    ...desk,
+    tabs: [...without.slice(0, at), item, ...without.slice(at)],
+    groups:
+      where === null
+        ? desk.groups
+        : withoutKeys(desk.groups, new Set([tab.key])),
+  };
+  const target = groupById(base, groupId)!;
+  const stacked = stackInto(base, target, targetLeaf, tab.key, {
+    select,
+    visible: select,
+  });
+  return withLabel(stacked, groupId, label);
+}
+
+function withLabel(
+  desk: Desk,
+  groupId: string,
+  label: string | undefined,
+): Desk {
+  if (label === undefined) return desk;
+  return {
+    ...desk,
+    groups: desk.groups.map((group) =>
+      group.groupId === groupId ? { ...group, label } : group,
+    ),
+  };
+}
+
+/** key가 든 group의 label을 정한다(빈 글이면 지운다). */
+export function setGroupLabel(desk: Desk, key: string, label: string): Desk {
+  const group = groupOf(desk, key);
+  const name = label.trim();
+  if (group === null || (group.label ?? "") === name) return desk;
+  const { label: _old, ...rest } = group;
+  return {
+    ...desk,
+    groups: desk.groups.map((item) =>
+      item === group ? (name === "" ? rest : { ...rest, label: name }) : item,
+    ),
+  };
+}
+
+/** key가 든 group의 접힘을 켜고 끈다(collapsed를 주면 그 값, 없으면 뒤집는다). 접힘은 저장되고 구성원은 그대로다. */
+export function toggleGroupCollapsed(
+  desk: Desk,
+  key: string,
+  collapsed?: boolean,
+): Desk {
+  const group = groupOf(desk, key);
+  if (group === null) return desk;
+  const next = collapsed ?? group.collapsed !== true;
+  if ((group.collapsed === true) === next) return desk;
+  const { collapsed: _old, ...rest } = group;
+  return {
+    ...desk,
+    groups: desk.groups.map((item) =>
+      item === group ? (next ? { ...rest, collapsed: true } : rest) : item,
+    ),
+  };
 }
 
 /** key가 든 group에서 path의 나눔 node의 몫(a의 몫)을 정한다. 범위 밖이면 가장자리로 당긴다. */
@@ -1553,9 +1757,10 @@ export function mergeDeskIntoMain(
   const carried: Group[] = [];
   for (const group of gone.groups) {
     const node = pruneNode(group.layout, (leaf) => freshKeys.has(leaf));
-    if (node === null || leavesOf(node).length < GROUP_MIN) continue;
+    if (node === null || !holdsGroup(node)) continue;
     const leaves = leavesOf(node);
     carried.push({
+      ...group,
       layout: node,
       focus: leaves.includes(group.focus) ? group.focus : leaves[0]!,
     });

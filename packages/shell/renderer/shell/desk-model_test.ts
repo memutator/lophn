@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   addDesk,
+  addTabToGroup,
   applyTabDrop,
   closeDetached,
   closeFloat,
@@ -19,7 +20,9 @@ import {
   findTab,
   floatTab,
   focusLeaf,
+  groupById,
   groupOf,
+  groupTabs,
   type GroupNode,
   leavesOf,
   MAIN_DESK,
@@ -41,6 +44,7 @@ import {
   stackTab,
   stepTab,
   swapTabs,
+  toggleGroupCollapsed,
   type TabDragItem,
   type TabDropHit,
   tabDropState,
@@ -84,7 +88,11 @@ function assertValid(desk: Desk, expected: readonly string[]) {
   for (const group of desk.groups) {
     const leaves = leavesOf(group.layout);
     const members = membersOf(group.layout);
-    assert.ok(leaves.length >= 2 && leaves.length <= 4, "group size");
+    assert.ok(
+      (leaves.length >= 2 && leaves.length <= 4) ||
+        (leaves.length === 1 && members.length >= 2),
+      "group size",
+    );
     const at = tabKeys.indexOf(members[0]!);
     assert.ok(at >= 0, "leaf is not in tabs");
     assert.deepEqual(
@@ -680,7 +688,7 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
     ),
     "ok",
   );
-  // group 칸 가운데에 놓으면 그 칸에 쌓이고, 둘뿐인 group의 짝을 놓으면 group이 풀리므로 놓지 않는다.
+  // group 칸 가운데에 놓으면 그 칸에 쌓이고, 2칸 group의 짝을 놓아도 leaf 하나짜리 bundle로 남는다.
   const stacked = applyTabDrop(
     desk,
     { key: "c", whole: false },
@@ -688,14 +696,14 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
   );
   assert.deepEqual(paneStackOf(stacked, "c"), ["b", "h", "c"]);
   assert.equal(stacked.selected, "c");
-  assert.equal(
-    tabDropState(
-      desk,
-      { key: "a", whole: false },
-      { kind: "pane", target: "h", zone: "center" },
-    ),
-    "none",
+  const collapsedSplit = applyTabDrop(
+    desk,
+    { key: "a", whole: false },
+    { kind: "pane", target: "h", zone: "center" },
   );
+  assert.deepEqual(leavesOf(groupOf(collapsedSplit, "a")!.layout), ["a"]);
+  assert.deepEqual(paneStackOf(collapsedSplit, "a"), ["b", "h", "a"]);
+  assertValid(collapsedSplit, all);
   // group이 아닌 보이는 칸과 자리를 바꾼 tab이 보인다.
   const swapped = applyTabDrop(
     deskOf("x", "y"),
@@ -703,4 +711,72 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
     { kind: "pane", target: "y", zone: "center" },
   );
   assert.equal(swapped.selected, "x");
+});
+
+test("leaf 하나의 bundle group: 묶기·접기·쌓기·빼기, 하나만 남으면 풀린다", () => {
+  let desk = deskOf("a", "b", "c", "d");
+  desk = groupTabs(desk, ["b", "c"], { groupId: "wf:1/s1", label: "Step 1" });
+  assertValid(desk, ["a", "b", "c", "d"]);
+  const bundle = groupById(desk, "wf:1/s1")!;
+  assert.equal(bundle.label, "Step 1");
+  assert.deepEqual(leavesOf(bundle.layout), ["b"]);
+  assert.deepEqual(paneStackOf(desk, "c"), ["b", "c"]);
+  assert.deepEqual(
+    deskEntries(desk).map((entry) => entry.tabs.map((item) => item.key)),
+    [["a"], ["b"], ["d"]],
+  );
+
+  // 숨은 tab을 고르면 칸이 그 tab을 보인다. 접힘은 구성원을 바꾸지 않고 저장된 group에 남는다.
+  desk = selectTab(desk, "c");
+  assert.deepEqual(leavesOf(groupOf(desk, "b")!.layout), ["c"]);
+  const collapsed = toggleGroupCollapsed(desk, "b");
+  assert.equal(groupOf(collapsed, "c")!.collapsed, true);
+  assert.equal(groupOf(collapsed, "c")!.label, "Step 1");
+  assert.equal(toggleGroupCollapsed(collapsed, "b", true), collapsed);
+  assert.equal(
+    groupOf(toggleGroupCollapsed(collapsed, "c"), "b")!.collapsed,
+    undefined,
+  );
+
+  // 새 tab을 쌓는다. 보던 tab은 그대로이고 새 tab은 숨는다. 다른 group의 tab은 거기서 빠져 온다.
+  let more = addTabToGroup(desk, "wf:1/s1", tab("e"));
+  assert.deepEqual(paneStackOf(more, "b"), ["b", "c", "e"]);
+  assert.equal(more.selected, "c");
+  assertValid(more, ["a", "b", "c", "d", "e"]);
+  more = splitTab(more, "a", "d", "right");
+  more = addTabToGroup(more, "wf:1/s1", tab("d"));
+  assert.deepEqual(paneStackOf(more, "d"), ["b", "c", "e", "d"]);
+  assert.equal(groupOf(more, "a"), null);
+  assertValid(more, ["a", "b", "c", "d", "e"]);
+
+  // group 앞의 plain tab을 넣어도 group이 앞으로 튀지 않고 제자리에 남는다.
+  const stayed = addTabToGroup(desk, "wf:1/s1", tab("a"));
+  assert.deepEqual(
+    stayed.tabs.map((item) => item.key),
+    ["c", "b", "a", "d"],
+  );
+  assertValid(stayed, ["a", "b", "c", "d"]);
+
+  // 쌓은 tab이 2개 밑으로 줄면 group이 풀리고 tab은 tabs에 남는다.
+  let rest = more;
+  for (const key of ["e", "d"]) rest = ungroupTab(rest, key);
+  assert.deepEqual(paneStackOf(rest, "b"), ["b", "c"]);
+  rest = closeTab(rest, "c");
+  assert.deepEqual(rest.groups, []);
+  assertValid(rest, ["a", "b", "d", "e"]);
+
+  // bundle의 칸을 옆으로 나누면 split이 되고 label·groupId와 칸의 stack이 그대로 남는다.
+  const split = splitTab(desk, "c", "a", "left");
+  const splitGroup = groupOf(split, "a")!;
+  assert.deepEqual(leavesOf(splitGroup.layout), ["a", "c"]);
+  assert.deepEqual(paneStackOf(split, "c"), ["b", "c"]);
+  assert.equal(splitGroup.label, "Step 1");
+  assert.equal(splitGroup.groupId, "wf:1/s1");
+  assertValid(split, ["a", "b", "c", "d"]);
+
+  // plain tab끼리 stackTab으로 바로 bundle을 만들 수 있다.
+  const plainStacked = stackTab(deskOf("x", "y", "z"), "x", "z");
+  assert.deepEqual(leavesOf(groupOf(plainStacked, "x")!.layout), ["z"]);
+  assert.deepEqual(paneStackOf(plainStacked, "x"), ["x", "z"]);
+  assertValid(plainStacked, ["x", "y", "z"]);
 });

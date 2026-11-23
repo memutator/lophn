@@ -1466,7 +1466,7 @@ flows:
       - packages/shell/main/desktop/core/layout-ipc.ts
     steps:
       - "WorkspaceWindow가 mount될 때(창을 열거나 workspace를 옮길 때) shell:workspace-layout-read로 그 workspace 파일을 읽는다. project 목록과 파일은 기다리지 않는다"
-      - "파일 이름은 workspace key다: 이 컴퓨터의 workspace는 `home` | project id | app id, 다른 기계의 workspace(\"Home · X\", 그 기계에만 있는 project·앱)는 그 뒤에 `-<mch>`를 붙인다. 판 12만 읽는다(판 10은 core의 data step shell.layout-machines가, 판 11은 shell.layout-owners가 판만 올린다)"
+      - "파일 이름은 workspace key다: 이 컴퓨터의 workspace는 `home` | project id | app id, 다른 기계의 workspace(\"Home · X\", 그 기계에만 있는 project·앱)는 그 뒤에 `-<mch>`를 붙인다. 판 13만 읽는다(판 10은 core의 data step shell.layout-machines가, 판 11은 shell.layout-owners가, 판 12는 shell.layout-groups가 판만 올린다)"
       - "값이 있으면 desk layout으로 쓴다. 탭의 공통 칸 `machine`이 있으면 `TabItem.machine`이다(없으면 그 workspace의 기계). `owner`(주인 session, 없으면 사람)와 `handed_tab`(사람이 넘긴 browser 탭의 core 탭 id)은 `TabItem.owner`·`handedTab`이다. 없거나 읽기가 실패하면 freshLayout을 쓴다(Main 하나, 앱 workspace는 앱 화면 탭 하나)"
       - "읽기가 실패했거나(IPC 오류, 거절) 판이 다르면(unsupported_schema) layout source가 그 workspace의 쓰기를 막는다: 기본 layout이 사람의 파일을 덮지 않는다. 창의 알림 줄에 저장하지 않는다는 알림 card가 서고 다음 읽기가 되면 다시 쓴다. 손상(corrupt)은 잃을 것이 없어 막지 않는다. main이 읽을 때 <workspace>.json.bak으로 한 벌 남긴다"
       - "보이는 desk의 detached 창을 transfer 없이 되살린다. 다른 desk의 창은 그 desk로 갈 때 연다"

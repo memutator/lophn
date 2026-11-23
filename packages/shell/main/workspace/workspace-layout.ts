@@ -1,10 +1,12 @@
-// workspace(Home, project, app) layout 파일의 값. 파일 하나가 workspace 하나이고 desk 여럿을 가진다. 판 12다(판 10은 core의
-// data step `shell.layout-machines`가 11로, 판 11은 `shell.layout-owners`가 12로 판만 올린다: 판 11은 탭 공통 칸 `machine`을,
-// 판 12는 공통 칸 `owner`·`handed_tab`을 더했을 뿐이라 탭 값은 그대로다). 다른 판은 읽지 않는다.
+// workspace(Home, project, app) layout 파일의 값. 파일 하나가 workspace 하나이고 desk 여럿을 가진다. 판 13이다(판 10은 core의
+// data step `shell.layout-machines`가 11로, 판 11은 `shell.layout-owners`가 12로, 판 12는 `shell.layout-groups`가 13으로 판만
+// 올린다: 판 11은 탭 공통 칸 `machine`을, 판 12는 공통 칸 `owner`·`handed_tab`을, 판 13은 group의 선택 칸 `group_id`·`label`·
+// `collapsed`와 leaf 하나짜리 bundle group을 더했을 뿐이라 옛 값은 그대로다). 다른 판은 읽지 않는다.
 // Agent 탭은 저장하지 않는다(renderer의 창 메모리에만 산다). 여기 kind가 없고 옛 파일의 Agent 탭은 core의 data step `shell.agent-tabs-unsaved`가 걷어냈다.
 // 파일이 없으면 기본 layout으로 시작한다.
-// 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이고 tabs에서
-// leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer shell/desk-model.ts와 짝이다.
+// 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이거나 leaf 1개에
+// tab 둘 이상이 쌓인 bundle이고 tabs에서 leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer
+// shell/desk-model.ts와 짝이다.
 import { z } from "zod";
 
 import {
@@ -16,7 +18,7 @@ import {
 import { tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const WORKSPACE_SCHEMA_VERSION = 12;
+export const WORKSPACE_SCHEMA_VERSION = 13;
 
 // 파일 이름이 되는 key라 폴더 밖으로 나갈 수 있는 글자(`.`, `/`, `\`)는 아예 받지 않는다.
 export function isWorkspaceKey(value: unknown): value is string {
@@ -56,8 +58,6 @@ const nodeSchema: z.ZodType<StoredNode> = z.lazy(() =>
   ]),
 );
 
-type StoredGroup = { layout: StoredNode; focus: string };
-
 export function leavesOf(node: StoredNode): string[] {
   return "tab" in node
     ? [node.tab]
@@ -72,13 +72,24 @@ function hiddenOf(node: StoredNode): string[] {
 }
 
 const groupSchema = z
-  .strictObject({ layout: nodeSchema, focus: tabKey })
+  .strictObject({
+    layout: nodeSchema,
+    focus: tabKey,
+    // 자동으로 묶는 쪽이 같은 묶음을 찾는 key, 탭 줄 머리글, 탭 줄에서 접힘. 판 13에서 더한 선택 필드다.
+    group_id: z.string().min(1).max(200).optional(),
+    label: z.string().min(1).max(200).optional(),
+    collapsed: z.literal(true).optional(),
+  })
   .refine(
     (group) => {
       const count = leavesOf(group.layout).length;
-      return count >= 2 && count <= 4;
+      // leaf 하나는 칸에 tab 둘 이상이 쌓인 bundle일 때만이다(stack은 늘 둘 이상이다).
+      return (
+        (count >= 2 && count <= 4) ||
+        (count === 1 && hiddenOf(group.layout).length > 0)
+      );
     },
-    { message: "a group has 2 to 4 leaves" },
+    { message: "a group has 2 to 4 leaves or one stacked leaf" },
   )
   .refine((group) => leavesOf(group.layout).includes(group.focus), {
     message: "group focus is not a leaf",
@@ -344,7 +355,7 @@ const hiddenIn = (node: unknown): unknown[] => {
     : [];
 };
 
-// 등록된 tab만 남은 tabs 안에서 leaf를 걷어내고, 2개 미만이 된 group은 버린다. 모양이 틀린 group은 그대로 둬서 schema가 거절한다.
+// 등록된 tab만 남은 tabs 안에서 leaf를 걷어내고, leaf 1개에 tab 하나만 남은 group은 버린다. 모양이 틀린 group은 그대로 둬서 schema가 거절한다.
 function groupsWithin(
   groups: unknown[],
   keys: ReadonlySet<unknown>,
@@ -366,7 +377,7 @@ function groupsWithin(
     if (layout === null) return [];
     const leaves = leavesIn(layout);
     if (leaves.length === 0) return [group];
-    if (leaves.length < 2) return [];
+    if (leaves.length < 2 && hiddenIn(layout).length === 0) return [];
     return [
       {
         ...value,

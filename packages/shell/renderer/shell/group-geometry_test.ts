@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { GroupNode } from "./desk-model.ts";
-import { neighborLeaf } from "./group-geometry.ts";
+import { FULL, neighborLeaf, placeGroup } from "./group-geometry.ts";
 
 const leaf = (tab: string): GroupNode => ({ tab });
 
@@ -21,4 +21,11 @@ test("방향 키는 맞닿은 칸 중 겹침이 큰 칸으로 가고 가장자�
   assert.equal(neighborLeaf(root, "a", "left"), null);
   assert.equal(neighborLeaf(root, "c", "down"), null);
   assert.equal(neighborLeaf(root, "a", "up"), null);
+
+  // leaf 하나짜리 bundle은 FULL 한 칸이고 나눔 선과 이웃 칸이 없다.
+  const bundle: GroupNode = { tab: "a", stack: ["a", "b"] };
+  const placed = placeGroup(bundle, "8px");
+  assert.deepEqual([...placed.leaves.entries()], [["a", FULL]]);
+  assert.deepEqual(placed.splits, []);
+  assert.equal(neighborLeaf(bundle, "a", "right"), null);
 });

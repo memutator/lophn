@@ -336,7 +336,17 @@ function groupFromStored(value: unknown): Group | null {
   const group = value as Stored | null;
   const layout = nodeFromStored(group?.layout);
   if (layout === null || typeof group?.focus !== "string") return null;
-  return { layout, focus: group.focus };
+  return {
+    layout,
+    focus: group.focus,
+    ...(typeof group.group_id === "string" && group.group_id.length > 0
+      ? { groupId: group.group_id }
+      : {}),
+    ...(typeof group.label === "string" && group.label.length > 0
+      ? { label: group.label }
+      : {}),
+    ...(group.collapsed === true ? { collapsed: true } : {}),
+  };
 }
 
 function deskFromStored(key: string, value: unknown): Desk | null {
@@ -457,6 +467,13 @@ function deskToStored(input: Desk): Stored {
     groups: desk.groups.map((group) => ({
       layout: nodeToStored(group.layout),
       focus: group.focus,
+      ...(group.groupId !== undefined && group.groupId.length > 0
+        ? { group_id: group.groupId }
+        : {}),
+      ...(group.label !== undefined && group.label.length > 0
+        ? { label: group.label }
+        : {}),
+      ...(group.collapsed === true ? { collapsed: true } : {}),
     })),
     floats: compact(
       desk.floats.map((item) => {

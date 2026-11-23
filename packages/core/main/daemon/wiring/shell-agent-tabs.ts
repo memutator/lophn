@@ -5,7 +5,7 @@
 // - Agent 탭이 든 group은 풀고(남은 탭은 tabs에 그대로 남는다) 고른 탭이 지워졌으면 첫 보이는 탭을 고른다. artifact-move와 같은 규칙이다.
 // 다른 판(손상, 옛 판)의 파일은 건드리지 않는다. 다시 돌아도 같다(Agent 탭이 없으면 아무것도 쓰지 않는다).
 // 같은 wiring의 `shell.layout-machines`와 `shell.layout-owners`가 그 뒤에 두 파일의 판만 올린다(layout 10 → 11 → 12,
-// 전역 float 2 → 3 → 4).
+// 전역 float 2 → 3 → 4). `shell.layout-groups`는 layout만 12 → 13으로 올린다.
 import { readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { DataStep } from "../../../storage/migration/mod.ts";
@@ -201,10 +201,11 @@ const bumpVersion = (from: number, to: number) => (text: string) => {
 function bumpStep(
   id: string,
   layout: [from: number, to: number],
-  globalFloats: [from: number, to: number],
+  globalFloats?: [from: number, to: number],
 ): DataStep {
   const layoutNext = bumpVersion(...layout);
-  const globalFloatsNext = bumpVersion(...globalFloats);
+  const globalFloatsNext =
+    globalFloats === undefined ? null : bumpVersion(...globalFloats);
   return {
     id,
     async run(root): Promise<Result<void>> {
@@ -219,7 +220,9 @@ function bumpStep(
             await rewrite(`${folder}/${name}`, layoutNext);
           }
         }
-        await rewrite(`${root}/shell/global-floats.json`, globalFloatsNext);
+        if (globalFloatsNext !== null) {
+          await rewrite(`${root}/shell/global-floats.json`, globalFloatsNext);
+        }
         return ok(undefined);
       } catch {
         return err({
@@ -247,11 +250,16 @@ export const shellLayoutOwnersStep = bumpStep(
   [3, 4],
 );
 
+// 판 13 layout은 group의 선택 칸 `group_id`·`label`·`collapsed`와, leaf 하나의 칸에 tab 둘 이상이 쌓인 bundle group을
+// 더했다. 옛 group(leaf 2~4개, stack)은 그대로 맞다. 전역 float은 group이 없어 판이 그대로다.
+export const shellLayoutGroupsStep = bumpStep("shell.layout-groups", [12, 13]);
+
 export const shellAgentTabsWiring: WiringFactory = () => ({
   name: "shell-agent-tabs",
   dataSteps: [
     shellAgentTabsStep,
     shellLayoutMachinesStep,
     shellLayoutOwnersStep,
+    shellLayoutGroupsStep,
   ],
 });

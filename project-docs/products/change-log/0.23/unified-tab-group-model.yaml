@@ -1,0 +1,15 @@
+id: unified-tab-group-model
+version: 0.23.135
+title: 칸 stack과 비분할 탭 묶음을 단일 group 모델로 통합하고 layout 판을 13으로 올린다
+modules: [packages/shell/renderer, packages/shell/main, packages/core/main]
+change: |
+  desk model의 `Group`이 기존 2~4칸 split group에 더해 leaf 1개에 탭 둘 이상이 쌓인 비분할 탭 묶음(bundle)을 함께 표현하도록 통합했다.
+  `Group`에 선택 칸 `groupId`·`label`·`collapsed`를 더했고, `holdsGroup`·`isBundle`·`groupById`·`groupTabs`·`addTabToGroup`·`setGroupLabel`·`toggleGroupCollapsed`를 내보내며 `stackTab`이 plain tab끼리도 바로 bundle을 만들 수 있게 했다. `settle()`은 leaf 1개이면서 stack이 없을 때만 group을 푼다.
+  저장 모양: workspace layout `schema_version` 12 → 13(`groupSchema`가 leaf 1개 + stack >= 2와 선택 칸 `group_id`·`label`·`collapsed`를 허용). `layout-source.ts`가 두 모양을 왕복하고, core의 data step `shell.layout-groups`(shell-agent-tabs wiring의 `dataSteps` 끝)가 판 12 layout 파일을 판 13으로 올린다(기존 split·stack은 그대로, 전역 float은 판 4 그대로).
+why: |
+  workflow 병렬 worker 탭과 사람의 비분할 탭 묶음을 기존 칸 `stack`과 별도 개념으로 두지 않고 split + 단일 탭 묶음 둘로 단순하게 다루기 위해서다.
+decisions:
+  - text: '기존 `GroupLeaf.stack`을 1-leaf `Group`으로 일반화해 비분할 탭 묶음과 통합했다. 버린 길: 별도의 `tabGroups` 배열을 desk에 추가해 `groups`와 `stack`을 이중 관리하기(불변 조건과 drag·저장 경로가 두 벌로 갈린다).'
+    by: person
+  - text: 'layout 판을 13으로 올리고 `shell.layout-groups` data step이 판만 올리게 했다. 버린 길: 판 12 유지(1-leaf bundle이나 `label`·`collapsed`가 든 파일을 옛 빌드가 strict schema로 손상 처리해 덮어쓴다).'
+    by: agent

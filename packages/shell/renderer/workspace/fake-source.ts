@@ -290,6 +290,7 @@ const IDS = {
   remoteFailed: "wfi_01h455vb4pex5v6nkc6gd5fd11",
   remoteTurnEnded: "wfi_01h455vb4pex5v6nkc6gd5fd12",
   suiteInputs: "wfi_01h455vb4pex5v6nkc6gd5fd13",
+  flowBlocked: "wfi_01h455vb4pex5v6nkc6gd5fd14",
 } as const;
 
 const EVAL_STEPS = [
@@ -1308,7 +1309,108 @@ const suiteInputs: WorkflowInstanceDetailView = {
   remote_steps: [],
 };
 
-/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋, 끝에 선언적 inputs instance가 붙는다. */
+// ---- Phase 4: code_snapshot, checkpoints(completed/interrupted/human started), child sub-workflows, started_by.workflow를 가진 blocked flow instance ----
+const flowBlockedInput =
+  "Run durable digest with human review and child sub-workflows";
+const flowBlockedFetch = programReportOf(
+  IDS.flowBlocked,
+  2,
+  34,
+  "fetch",
+  FETCH_TEXT,
+);
+const flowBlocked: WorkflowInstanceDetailView = {
+  instance: {
+    ...flowInstanceOf(
+      IDS.flowBlocked,
+      flowBlockedInput,
+      "running",
+      null,
+      36,
+      null,
+      { kind: "workflow", instance: IDS.flowRunning },
+    ),
+    code_snapshot: "blb_01h455vb4pex5v6nkc6gd5fs01",
+  },
+  derived_status: "blocked",
+  last_reports: { fetch: flowBlockedFetch },
+  lines: [
+    flowStarted(IDS.flowBlocked, flowBlockedInput, 36, {
+      kind: "workflow",
+      instance: IDS.flowRunning,
+    }),
+    flowBlockedFetch,
+    {
+      instance: IDS.flowBlocked,
+      seq: "3",
+      at: minutesAgo(20),
+      by: lophn,
+      kind: "lophn_restarted",
+      step: null,
+      receiver: null,
+    },
+  ],
+  remote_steps: [],
+  checkpoints: [
+    {
+      instance: IDS.flowBlocked,
+      key: "fetch",
+      kind: "tool",
+      state: "completed",
+      handle_ref: "inv_01h455vb4pex5v6nkc6gd5fi01",
+      output: { summary: FETCH_TEXT },
+      error: null,
+      started_at: minutesAgo(35),
+      finished_at: minutesAgo(34),
+    },
+    {
+      instance: IDS.flowBlocked,
+      key: "summarize/agent#1",
+      kind: "agent",
+      state: "interrupted",
+      handle_ref: ANALYST_SESSION,
+      output: null,
+      error: {
+        reason: "interrupted",
+        message: "lophn restarted while the agent turn was running.",
+        session: ANALYST_SESSION,
+      },
+      started_at: minutesAgo(33),
+      finished_at: minutesAgo(20),
+    },
+    {
+      instance: IDS.flowBlocked,
+      key: "approve-publish",
+      kind: "human",
+      state: "started",
+      handle_ref: LOPHN_SESSION_2,
+      output: null,
+      error: null,
+      started_at: minutesAgo(19),
+      finished_at: null,
+    },
+  ],
+  children: [
+    {
+      instance: IDS.ended,
+      workflow: "eval-loop",
+      state: "ended",
+      derived_status: "ended",
+      started_at: minutesAgo(34),
+      ended_at: minutesAgo(25),
+    },
+    {
+      instance: IDS.flowRunning,
+      workflow: "nightly-flow",
+      state: "running",
+      derived_status: "working",
+      started_at: minutesAgo(18),
+      ended_at: null,
+    },
+  ],
+};
+
+/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋, 선언적 inputs instance, 끝에 Phase 4 durable flow instance가 붙는다. */
 export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   running,
   humanTurn,
@@ -1323,6 +1425,7 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   remoteFailed,
   remoteTurnEnded,
   suiteInputs,
+  flowBlocked,
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [
@@ -1717,6 +1820,40 @@ export function fakeWorkspaceSource(
         lines: [...item.lines, retried],
       }));
       return Promise.resolve({ ok: true, value: null });
+    },
+    resumeWorkflow(id, options) {
+      const detail = instances.find((item) => item.instance.id === id);
+      if (detail === undefined) {
+        return Promise.resolve({ ok: false, message: "not_found" });
+      }
+      if (detail.instance.state !== "running") {
+        return Promise.resolve({ ok: false, message: "conflict" });
+      }
+      const useLatest = options?.useLatestCode === true;
+      const updatedInstance: WorkflowInstanceView = useLatest
+        ? {
+            ...detail.instance,
+            code_snapshot: "blb_01h455vb4pex5v6nkc6gd5fs99",
+          }
+        : detail.instance;
+      const extraLines: WorkflowLineView[] = useLatest
+        ? [
+            {
+              instance: id,
+              seq: String(detail.lines.length + 1),
+              at: FAKE_NOW.toISOString(),
+              by: { kind: "user" },
+              kind: "code_updated",
+            },
+          ]
+        : [];
+      changeInstance(id, (item) => ({
+        ...item,
+        derived_status: "working",
+        instance: updatedInstance,
+        lines: [...item.lines, ...extraLines],
+      }));
+      return Promise.resolve({ ok: true, value: updatedInstance });
     },
     files: () => Promise.resolve({ ok: true, value: [] }),
     layout: fakeLayoutSource(),

@@ -52,9 +52,27 @@
 .actions {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: flex-end;
+  gap: var(--space-3);
   margin-left: auto;
+}
+
+.parentLink {
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.parentLink:hover,
+.parentLink:focus-visible {
+  color: var(--color-text-primary);
+  outline: none;
 }
 
 .label {
@@ -558,6 +576,172 @@
 
 .refOpen {
   display: inline-flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.checkpoints {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  list-style: none;
+}
+
+.checkpointRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.checkpointMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+.checkpointHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.checkpointBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--status-neutral-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.checkpointBadge[data-state="started"] {
+  color: var(--status-good-text);
+}
+
+.checkpointBadge[data-state="started"][data-kind="human"] {
+  color: var(--status-warning-text);
+}
+
+.checkpointBadge[data-state="failed"] {
+  color: var(--status-critical-text);
+}
+
+.checkpointBadge[data-state="interrupted"] {
+  color: var(--status-serious-text);
+}
+
+.checkpointKey {
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.checkpointKind,
+.checkpointWhen {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.checkpointHint {
+  margin: var(--space-0);
+  color: var(--status-warning-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.checkpointError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}
+
+.checkpointError > :first-child {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+.children {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  list-style: none;
+}
+
+.childRow,
+.childStatic {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-3) var(--space-2);
+  border: var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: start;
+}
+
+.childRow {
+  cursor: pointer;
+}
+
+.childRow:hover {
+  background: var(--color-surface-muted);
+}
+
+.childRow:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-width) * -1);
+}
+
+.childMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+.childName {
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.childMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.childGo {
+  display: flex;
   flex: none;
   color: var(--color-text-muted);
 }

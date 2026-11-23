@@ -5,6 +5,7 @@ import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type { AvatarLook } from "../parts/avatar/avatar.tsx";
 import type {
+  WorkflowCheckpointView,
   WorkflowDerivedStatus,
   WorkflowEntryView,
   WorkflowInstanceDetailView,
@@ -237,7 +238,8 @@ export function activeToneOf(
   if (
     item.last_line?.kind === "not_handed" ||
     item.last_line?.kind === "lophn_restarted" ||
-    item.last_line?.kind === "step_stalled"
+    item.last_line?.kind === "step_stalled" ||
+    item.last_line?.kind === "program_exited"
   ) {
     return "blocked";
   }
@@ -324,6 +326,12 @@ export type Now =
       readonly who: Who;
       readonly session: string | null;
     }
+  /** durable flow의 `human()` checkpoint가 사람의 입력을 기다린다. */
+  | {
+      readonly kind: "human_checkpoint";
+      readonly key: string;
+      readonly session: string | null;
+    }
   | {
       readonly kind: "working";
       readonly step: string;
@@ -349,13 +357,14 @@ export type Now =
       readonly step: string | null;
       readonly session: string | null;
     }
-  /** 넘기지 못했거나 stall·재시작 등으로 막혔다. session은 말을 걸 만한 agent의 대화다. */
+  /** 넘기지 못했거나 stall·재시작·flow 종료 등으로 막혔다. session은 말을 걸 만한 agent의 대화다. */
   | {
       readonly kind: "blocked";
       readonly line:
         | Line<"not_handed">
         | Line<"lophn_restarted">
         | Line<"step_stalled">
+        | Line<"program_exited">
         | null;
       readonly step: string | null;
       readonly session: string | null;
@@ -370,6 +379,44 @@ export type Now =
   | { readonly kind: "stopped"; readonly at: string }
   /** 도는 중인데 아직 아무도 step을 받지 않았다. */
   | { readonly kind: "waiting" };
+
+/** 사람의 입력을 기다리며 열려 있는 가장 나중 `human` checkpoint. 없으면 null이다. */
+export function activeHumanCheckpoint(
+  detail: WorkflowInstanceDetailView,
+): WorkflowCheckpointView | null {
+  const checkpoints = detail.checkpoints;
+  if (checkpoints === undefined || checkpoints.length === 0) return null;
+  return (
+    checkpoints.findLast(
+      (checkpoint) =>
+        checkpoint.kind === "human" && checkpoint.state === "started",
+    ) ?? null
+  );
+}
+
+/** 이 instance가 flow 실행을 가지는가(code_snapshot 또는 flow 종료·중단 줄·interrupted checkpoint). */
+export function hasFlowExecution(detail: WorkflowInstanceDetailView): boolean {
+  const { instance, lines, checkpoints } = detail;
+  if (
+    typeof instance.code_snapshot === "string" &&
+    instance.code_snapshot.length > 0
+  ) {
+    return true;
+  }
+  if (
+    lines.some(
+      (line) =>
+        line.kind === "program_exited" ||
+        (line.kind === "lophn_restarted" && line.step === null),
+    )
+  ) {
+    return true;
+  }
+  return (
+    checkpoints?.some((checkpoint) => checkpoint.state === "interrupted") ===
+    true
+  );
+}
 
 export function nowOf(detail: WorkflowInstanceDetailView): Now {
   const { instance, lines } = detail;
@@ -396,7 +443,7 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
     );
     return reported?.by.kind === "agent" ? reported.by.session : null;
   };
-  // 가장 나중 전이가 실패·끊김·stall·escalate이면 그 뒤로 다시 넘기거나 retry하지 않은 것이다.
+  // 가장 나중 전이가 실패·끊김·stall·escalate·flow 종료이면 그 뒤로 다시 넘기거나 retry·code 갱신을 하지 않은 것이다.
   const moved = lines.findLast(
     (line) =>
       line.kind === "handed" ||
@@ -404,12 +451,14 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
       line.kind === "step_stalled" ||
       line.kind === "retried" ||
       line.kind === "escalated" ||
-      (line.kind === "lophn_restarted" && line.step !== null),
+      line.kind === "code_updated" ||
+      line.kind === "program_exited" ||
+      line.kind === "lophn_restarted",
   );
   if (
     moved?.kind === "not_handed" ||
-    moved?.kind === "lophn_restarted" ||
-    moved?.kind === "step_stalled"
+    moved?.kind === "step_stalled" ||
+    (moved?.kind === "lophn_restarted" && moved.step !== null)
   ) {
     const direct =
       moved.kind === "step_stalled"
@@ -427,6 +476,25 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
         reportedAgentSession(),
     };
   }
+  if (
+    (moved?.kind === "program_exited" ||
+      (moved?.kind === "lophn_restarted" && moved.step === null)) &&
+    detail.derived_status !== "working" &&
+    detail.derived_status !== "needs_you"
+  ) {
+    const step =
+      moved.kind === "lophn_restarted"
+        ? moved.step
+        : (instance.current?.step ?? null);
+    return {
+      kind: "blocked",
+      line: moved,
+      step,
+      session:
+        (step === null ? null : sessionOfStep(lines, step)) ??
+        reportedAgentSession(),
+    };
+  }
   if (moved?.kind === "escalated") {
     return {
       kind: "escalated",
@@ -439,9 +507,16 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
   }
   if (detail.derived_status === "blocked") {
     const step = instance.current?.step ?? null;
+    const flowLine = hasFlowExecution(detail)
+      ? (lines.findLast(
+          (line): line is Line<"program_exited"> | Line<"lophn_restarted"> =>
+            line.kind === "program_exited" ||
+            (line.kind === "lophn_restarted" && line.step === null),
+        ) ?? null)
+      : null;
     return {
       kind: "blocked",
-      line: null,
+      line: flowLine,
       step,
       session:
         (step === null ? null : sessionOfStep(lines, step)) ??
@@ -449,9 +524,8 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
     };
   }
   const current = instance.current;
-  if (current === null) return { kind: "waiting" };
   const turn = turnOf(detail);
-  if (turn !== null) {
+  if (turn !== null && current !== null) {
     return {
       kind: "human",
       step: current.step,
@@ -459,6 +533,18 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
       session: turn.receiver,
     };
   }
+  const humanCheckpoint = activeHumanCheckpoint(detail);
+  if (
+    humanCheckpoint !== null &&
+    (detail.derived_status === "needs_you" || current === null)
+  ) {
+    return {
+      kind: "human_checkpoint",
+      key: humanCheckpoint.key,
+      session: humanCheckpoint.handle_ref,
+    };
+  }
+  if (current === null) return { kind: "waiting" };
   const step = instance.steps.find((item) => item.name === current.step);
   const who = whoOf(instance.participants, step?.by ?? FLOW_STEP_BY);
   if (who.kind === "program") return { kind: "program", step: current.step };
@@ -474,15 +560,38 @@ export function nowOf(detail: WorkflowInstanceDetailView): Now {
   };
 }
 
-/** [Retry] 단추를 보일 조건. 도는 중이고 derived_status가 blocked이거나 지금 상태가 blocked다. */
-export function canRetry(
+/** [Resume] / [Resume with updated code] 단추를 보일 조건. 도는 중이고 blocked이며 flow 실행을 가진다. */
+export function canResume(
   detail: WorkflowInstanceDetailView,
   now: Now,
 ): boolean {
   return (
     detail.instance.state === "running" &&
-    (detail.derived_status === "blocked" || now.kind === "blocked")
+    (detail.derived_status === "blocked" || now.kind === "blocked") &&
+    hasFlowExecution(detail)
   );
+}
+
+/** [Retry] 단추를 보일 조건. 도는 중이고 derived_status가 blocked이거나 지금 상태가 blocked다. */
+export function canRetry(
+  detail: WorkflowInstanceDetailView,
+  now: Now,
+): boolean {
+  if (
+    detail.instance.state !== "running" ||
+    (detail.derived_status !== "blocked" && now.kind !== "blocked")
+  ) {
+    return false;
+  }
+  // flow가 step 없이 process 종료·중단으로 막힌 경우는 [Resume]만 쓴다.
+  if (
+    hasFlowExecution(detail) &&
+    detail.instance.current === null &&
+    (now.kind !== "blocked" || now.step === null)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /** session tree 한 줄의 상태 점. */
@@ -680,12 +789,18 @@ export function workflowDeskStatus(
   };
 }
 
-/** workflow 선언 problem을 화면 글로 정리한다. `invalid_inputs`는 이유 머릿말을 덧붙인다. */
+/** workflow 선언 problem을 화면 글로 정리한다. `invalid_inputs`와 `broken_flow`는 이유 머릿말을 덧붙인다. */
 export function workflowProblemText(
   problem: NonNullable<WorkflowEntryView["problem"]>,
 ): string {
   if (problem.reason === "invalid_inputs") {
     const title = t("workflow.note.problem-invalid-inputs");
+    return problem.message.trim() === ""
+      ? title
+      : `${title}: ${problem.message}`;
+  }
+  if (problem.reason === "broken_flow") {
+    const title = t("workflow.note.problem-broken-flow");
     return problem.message.trim() === ""
       ? title
       : `${title}: ${problem.message}`;

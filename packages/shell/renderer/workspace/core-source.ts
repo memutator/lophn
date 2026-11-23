@@ -8,6 +8,7 @@ import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import {
   workflowList,
+  workflowResume,
   workflowRetry,
   workflowStart,
 } from "../../../protocol/workflows/routes.ts";
@@ -27,6 +28,8 @@ import type {
   FileRow,
   ProjectView,
   ReadResult,
+  WorkflowCheckpointView,
+  WorkflowChildSummaryView,
   WorkflowDerivedStatus,
   WorkflowEntryView,
   WorkflowInstanceFilter,
@@ -60,7 +63,10 @@ interface ProjectGetValue {
 }
 
 /** core가 주는 started_by. 제목은 화면이 `job.list`로 붙인다. */
-type RawStartedBy = { kind: "user" } | { kind: "job"; job: string };
+type RawStartedBy =
+  | { kind: "user" }
+  | { kind: "job"; job: string }
+  | { kind: "workflow"; instance: string };
 
 interface WorkflowListValue {
   workflows: (Omit<WorkflowEntryView, "invalid"> & {
@@ -86,6 +92,8 @@ interface WorkflowReadValue {
   derived_status?: WorkflowDerivedStatus;
   sessions?: WorkflowSessionNodeView[];
   refs?: string[];
+  checkpoints?: WorkflowCheckpointView[];
+  children?: WorkflowChildSummaryView[];
   next_cursor: string | null;
 }
 
@@ -150,9 +158,10 @@ async function titlesFor(
 }
 
 function startedByOf(by: RawStartedBy, titles: JobTitles): WorkflowStartedBy {
-  return by.kind === "user"
-    ? by
-    : { kind: "job", job: by.job, title: titles.get(by.job) ?? null };
+  if (by.kind === "job") {
+    return { kind: "job", job: by.job, title: titles.get(by.job) ?? null };
+  }
+  return by;
 }
 
 const jobOf = (started: RawStartedBy) =>
@@ -483,6 +492,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           ...(last!.instance.inputs === undefined
             ? {}
             : { inputs: last!.instance.inputs }),
+          ...(last!.checkpoints === undefined
+            ? {}
+            : { checkpoints: last!.checkpoints }),
+          ...(last!.children === undefined ? {} : { children: last!.children }),
         },
       };
     },
@@ -532,6 +545,38 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       return reply.ok
         ? { ok: true, value: null }
         : { ok: false, message: reply.error?.code ?? "internal" };
+    },
+
+    async resumeWorkflow(instance, options) {
+      const reply = await core.call({
+        kind: workflowResume.kind,
+        resource: workflowResume.resource,
+        method: workflowResume.method,
+        body: {
+          instance,
+          ...(options?.useLatestCode === undefined
+            ? {}
+            : { use_latest_code: options.useLatestCode }),
+        },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const raw = (
+        reply.value as {
+          instance: Omit<WorkflowInstanceView, "started_by"> & {
+            started_by: RawStartedBy;
+          };
+        }
+      ).instance;
+      const titles = await titlesFor(core, [jobOf(raw.started_by)]);
+      return {
+        ok: true,
+        value: {
+          ...raw,
+          started_by: startedByOf(raw.started_by, titles),
+        },
+      };
     },
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.

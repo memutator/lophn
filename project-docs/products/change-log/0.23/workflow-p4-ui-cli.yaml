@@ -1,0 +1,27 @@
+id: workflow-p4-ui-cli
+version: 0.23.150
+title: Workflow Phase 4 Run 화면 affordances([Resume], checkpoints, sub-workflows, human 대기, project 입력, broken_flow)와 CLI `workflow resume`을 더한다
+modules:
+  - packages/shell/renderer
+  - packages/design
+  - packages/cli
+change: |
+  - WorkspaceSource(`source.ts`, `core-source.ts`, `fake-source.ts`):
+    - `WorkflowInstanceView`에 `code_snapshot`, `WorkflowInstanceDetailView`에 `checkpoints`·`children`, `WorkflowStartedBy`·`WorkflowLineBy`에 `{ kind: "workflow", instance }`, `WorkflowProblemReason`에 `"broken_flow"`를 더한다.
+    - `resumeWorkflow(instance, options?: { useLatestCode?: boolean })`를 `workflows/resume` route에 연결하고 `fake-source.ts`에 stub과 Phase 4 blocked flow fixture(`code_snapshot`, `checkpoints`, `children`, `started_by.workflow`)를 `FAKE_WORKFLOW_INSTANCES` 끝에 추가한다.
+  - Run 화면·Workflow 페이지(`model.ts`, `use-workflow.ts`, `workflow-page.tsx`, `run-view.tsx`, `run-view.module.css`, `inputs-form.tsx`):
+    - flow 실행이 있는 blocked running instance에 `[Resume]`(`useLatestCode: false`)과 `[Resume with updated code]`(`useLatestCode: true`) 단추를 `NowCard`에 렌더링한다.
+    - `detail.checkpoints` 목록(`key`, `kind`, 상태 배지 `started|completed|failed|interrupted`, 실패/중단 `reason`/`message`, `human` 대기 시 `[Open session]`)과 `detail.children` sub-workflow 목록(이름, 계산 상태, 시각, 클릭 이동)을 렌더링한다.
+    - `started_by.workflow` origin을 instance 메타데이터와 줄 작성자에 표시하고, `human` checkpoint가 `started`(`needs_you`)일 때 `NowCard`에서 사람 대기 안내와 `handle_ref` 기준 `[Open session]`을 제공한다.
+    - `InputsForm`에 `"project"` 입력 칸을 더하고, `WorkflowPage`·`model.ts`에서 `"broken_flow"` 문제를 critical 톤과 전용 머릿말로 표시한다.
+    - 새 UI 문구를 `packages/design/i18n/catalog/workflow.ts`에 추가한다.
+  - CLI(`packages/cli/commands/workflow.ts`):
+    - user 전용 명령 `lophn workflow resume <instance> [--latest-code]`를 더해 `workflows/resume`에 `{ instance, use_latest_code }`를 보낸다.
+    - `project-docs/flows/areas/cli.yaml`에 `cli:workflow.resume`을 등록하고 `project-docs/flows/areas/shell-workspace.yaml`을 갱신한다.
+why: |
+  Phase 4 durable flow 실행의 재개(code snapshot / 최신 코드), checkpoint·sub-workflow 관측, `human()` 대기 안내, `project` 입력 필드와 `broken_flow` 오류 표시, 그리고 CLI `lophn workflow resume` 경로를 완성한다.
+decisions:
+  - text: "flow 실행이 있고 `current === null`인 blocked instance에서는 `canRetry`를 false로 두어 `NowCard`에 `[Resume]`과 `[Resume with updated code]`만 보이고, step이 막힌 경우에는 `[Retry]`를 함께 쓰게 했다."
+    by: agent
+  - text: "`children`과 `started_by.workflow` 클릭 이동은 기존 `WorkflowPage`의 `onInstance`를 그대로 사용한다(`useWorkflow`가 instance id로 직접 상세를 읽으므로 비소유 `kinds/workflow.tsx`를 고치지 않고 같은 탭에서 자식/부모 run을 열 수 있다)."
+    by: agent

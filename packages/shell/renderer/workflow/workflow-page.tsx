@@ -142,6 +142,8 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               onBack={() => onInstance(null)}
               onStop={state.stop}
               onRetry={state.retry}
+              onResume={state.resume}
+              onSelectInstance={(next) => onInstance(next)}
               onOpenArtifact={() =>
                 props.onOpenArtifact("instance", detail.instance.id)
               }
@@ -170,14 +172,18 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
             <span
               className={styles.problemMark}
               data-tone={
-                entry.invalid || entry.problem.reason === "invalid_inputs"
+                entry.invalid ||
+                entry.problem.reason === "invalid_inputs" ||
+                entry.problem.reason === "broken_flow"
                   ? "critical"
                   : "neutral"
               }
             >
               <Icon
                 icon={
-                  entry.invalid || entry.problem.reason === "invalid_inputs"
+                  entry.invalid ||
+                  entry.problem.reason === "invalid_inputs" ||
+                  entry.problem.reason === "broken_flow"
                     ? editorIcons.problem
                     : homeIcons.details
                 }

@@ -8,11 +8,14 @@ import { type MessageKey, t } from "@lophn/i18n";
 import { actionIcons, commonIcons, editorIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type {
+  WorkflowCheckpointKind,
+  WorkflowCheckpointState,
   WorkflowInstanceDetailView,
   WorkflowLineView,
 } from "../workspace/source.ts";
 import {
   buildSessionTree,
+  canResume,
   canRetry,
   type FaceOf,
   headLines,
@@ -63,6 +66,11 @@ function lineBy(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
   if (line.by.kind === "job") {
     const by = detail.instance.started_by;
     return jobWho(by.kind === "job" ? by.title : null);
+  }
+  if (line.by.kind === "workflow") {
+    return t("workflow.label.participant-workflow", {
+      instance: line.by.instance,
+    });
   }
   if (line.by.kind === "remote") {
     return t("workflow.label.participant-on", {
@@ -152,6 +160,7 @@ function textOf(detail: Detail, line: WorkflowLineView, faceOf?: FaceOf) {
 
 const NOW_TONE = {
   human: "warning",
+  human_checkpoint: "warning",
   escalated: "warning",
   working: "good",
   remote: "good",
@@ -164,6 +173,7 @@ const NOW_TONE = {
 
 const NOW_ICON = {
   human: commonIcons.stateYourTurn,
+  human_checkpoint: commonIcons.stateYourTurn,
   escalated: commonIcons.stateYourTurn,
   working: commonIcons.stateRunning,
   remote: commonIcons.stateRunning,
@@ -173,6 +183,21 @@ const NOW_ICON = {
   stopped: commonIcons.stateStopped,
   waiting: commonIcons.stateNotReached,
 } as const satisfies Record<Now["kind"], unknown>;
+
+const CHECKPOINT_KIND_KEY: Record<WorkflowCheckpointKind, MessageKey> = {
+  step: "workflow.label.checkpoint-kind-step",
+  agent: "workflow.label.checkpoint-kind-agent",
+  human: "workflow.label.checkpoint-kind-human",
+  workflow: "workflow.label.checkpoint-kind-workflow",
+  tool: "workflow.label.checkpoint-kind-tool",
+};
+
+const CHECKPOINT_STATE_KEY: Record<WorkflowCheckpointState, MessageKey> = {
+  started: "workflow.label.checkpoint-state-started",
+  completed: "workflow.label.checkpoint-state-completed",
+  failed: "workflow.label.checkpoint-state-failed",
+  interrupted: "workflow.label.checkpoint-state-interrupted",
+};
 
 const SESSION_STATE_KEY: Record<SessionNodeStatus, MessageKey> = {
   running: "workflow.label.session-state-running",
@@ -219,6 +244,7 @@ function NowCard({
   faceOf,
   dotOf,
   onRetry,
+  onResume,
   onOpenSession,
 }: {
   detail: Detail;
@@ -226,6 +252,7 @@ function NowCard({
   faceOf: FaceOf | undefined;
   dotOf: ((session: string) => SessionDot | null) | undefined;
   onRetry: ((step?: string) => void) | null;
+  onResume: ((useLatestCode: boolean) => void) | null;
   /** 열 수 있는 session이면 여는 함수, 아니면 null. */
   onOpenSession: (session: string) => (() => void) | null;
 }) {
@@ -244,12 +271,14 @@ function NowCard({
   const tone = asking ? "warning" : (remote?.tone ?? NOW_TONE[now.kind]);
   const open =
     (now.kind === "human" ||
+      now.kind === "human_checkpoint" ||
       now.kind === "working" ||
       now.kind === "blocked" ||
       now.kind === "escalated") &&
     now.session !== null
       ? onOpenSession(now.session)
       : null;
+  const resumable = onResume !== null && canResume(detail, now);
   const retryable = onRetry !== null && canRetry(detail, now);
   const retryStep =
     now.kind === "blocked" && now.step !== null ? now.step : undefined;
@@ -260,6 +289,8 @@ function NowCard({
           step: now.step,
           agent: whoName(now.who, faceOf),
         });
+      case "human_checkpoint":
+        return t("workflow.note.human-checkpoint-waiting", { key: now.key });
       case "escalated":
         return now.line.text;
       case "working":
@@ -287,6 +318,10 @@ function NowCard({
         return t("workflow.note.now-waiting");
     }
   })();
+  const blockedExit =
+    now.kind === "blocked" && now.line?.kind === "program_exited"
+      ? now.line
+      : null;
   return (
     <section
       className={styles.now}
@@ -307,19 +342,47 @@ function NowCard({
           {now.kind === "blocked" ? (
             <p className={styles.nowHint}>
               {t(
-                retryable
-                  ? "workflow.note.blocked-retry-hint"
-                  : "workflow.note.blocked-hint",
+                resumable
+                  ? "workflow.note.blocked-resume-hint"
+                  : retryable
+                    ? "workflow.note.blocked-retry-hint"
+                    : "workflow.note.blocked-hint",
               )}
+            </p>
+          ) : now.kind === "human_checkpoint" ? (
+            <p className={styles.nowHint}>
+              {t("workflow.note.human-checkpoint-hint")}
             </p>
           ) : null}
         </div>
-        {open === null && !retryable ? null : (
+        {open === null && !retryable && !resumable ? null : (
           <span className={styles.actions}>
+            {resumable ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={actionIcons.run}
+                  onClick={() => onResume(false)}
+                  data-resume=""
+                >
+                  {t("workflow.button.resume")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={actionIcons.refresh}
+                  onClick={() => onResume(true)}
+                  data-resume-latest=""
+                >
+                  {t("workflow.button.resume-latest")}
+                </Button>
+              </>
+            ) : null}
             {retryable ? (
               <Button
                 size="sm"
-                variant="primary"
+                variant={resumable ? "secondary" : "primary"}
                 icon={actionIcons.retry}
                 onClick={() => onRetry(retryStep)}
                 data-retry=""
@@ -331,8 +394,12 @@ function NowCard({
               <Button
                 size="sm"
                 variant={
+                  !resumable &&
                   !retryable &&
-                  (now.kind === "human" || now.kind === "escalated" || asking)
+                  (now.kind === "human" ||
+                    now.kind === "human_checkpoint" ||
+                    now.kind === "escalated" ||
+                    asking)
                     ? "primary"
                     : "secondary"
                 }
@@ -350,6 +417,11 @@ function NowCard({
           </span>
         )}
       </div>
+      {blockedExit !== null && blockedExit.stderr_tail !== "" ? (
+        <div className={styles.nowMore}>
+          <CodeBlock code={blockedExit.stderr_tail} />
+        </div>
+      ) : null}
       {now.kind === "ended" && now.exit !== null ? (
         <div className={styles.nowMore}>
           <p className={styles.nowHint}>{textOf(detail, now.exit, faceOf)}</p>
@@ -384,6 +456,8 @@ export function RunView({
   onBack,
   onStop,
   onRetry,
+  onResume,
+  onSelectInstance,
   onOpenArtifact,
   onOpenSession,
   onOpenFile,
@@ -399,6 +473,10 @@ export function RunView({
   onStop: () => void;
   /** 막힌 step을 같은 session에서 이어서 재시도한다. 없으면 [Retry]를 그리지 않는다. */
   onRetry?: ((step?: string) => void) | null;
+  /** 멈춘 flow instance를 replay로 이어 간다. 없으면 [Resume] 단추를 그리지 않는다. */
+  onResume?: ((useLatestCode: boolean) => void) | null;
+  /** 자식 sub-workflow나 부모 workflow instance로 이동한다. */
+  onSelectInstance?: ((instance: string) => void) | null;
   onOpenArtifact: () => void;
   /** step을 받은 session의 대화를 연다. 없으면 단추를 그리지 않는다. */
   onOpenSession: ((session: string) => void) | null;
@@ -421,20 +499,30 @@ export function RunView({
   const sessionSummary = summarizeSessions(sessionRows);
   const refs = refsOf(detail);
   const runInputs = runInputsOf(detail);
-  // 머리 쪽 줄 가운데 한 장이 이미 말한 것(끝남, 멈춤, program 종료)은 다시 적지 않는다.
+  const checkpoints = detail.checkpoints ?? [];
+  const children = detail.children ?? [];
+  const parentInstance =
+    instance.started_by.kind === "workflow"
+      ? instance.started_by.instance
+      : null;
+  // 머리 쪽 줄 가운데 한 장이 이미 말한 것(끝남, 멈춤, program 종료, 지금 막힘 줄)은 다시 적지 않는다.
   // 한 장이 이미 여는 session은 step 줄에서 다시 단추로 두지 않는다.
   const nowSession =
     now.kind === "human" ||
+    now.kind === "human_checkpoint" ||
     now.kind === "working" ||
     now.kind === "blocked" ||
     now.kind === "escalated"
       ? now.session
       : null;
+  const nowBlockedSeq =
+    now.kind === "blocked" && now.line !== null ? now.line.seq : null;
   const notes = headLines(detail).filter(
     (line) =>
       line.kind !== "ended" &&
       line.kind !== "stopped" &&
-      line.kind !== "program_exited",
+      line.kind !== "program_exited" &&
+      line.seq !== nowBlockedSeq,
   );
   return (
     <section
@@ -477,6 +565,25 @@ export function RunView({
                       title: instance.started_by.title,
                     })}
               </span>
+            ) : parentInstance !== null ? (
+              onSelectInstance !== null && onSelectInstance !== undefined ? (
+                <button
+                  type="button"
+                  className={styles.parentLink}
+                  data-started-by="workflow"
+                  onClick={() => onSelectInstance(parentInstance)}
+                >
+                  {t("workflow.label.started-by-workflow", {
+                    instance: parentInstance,
+                  })}
+                </button>
+              ) : (
+                <span data-started-by="workflow">
+                  {t("workflow.label.started-by-workflow", {
+                    instance: parentInstance,
+                  })}
+                </span>
+              )
             ) : null}
           </p>
         </div>
@@ -536,6 +643,7 @@ export function RunView({
         faceOf={faceOf}
         dotOf={dotOf}
         onRetry={onRetry ?? null}
+        onResume={onResume ?? null}
         onOpenSession={openerOf}
       />
       {notes.length === 0 ? null : (
@@ -550,6 +658,171 @@ export function RunView({
             </li>
           ))}
         </ul>
+      )}
+      {checkpoints.length === 0 ? null : (
+        <section
+          className={styles.section}
+          data-checkpoints=""
+          aria-label={t("workflow.heading.checkpoints")}
+        >
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("workflow.heading.checkpoints")}
+            </h2>
+            <span className={styles.sectionSummary}>{checkpoints.length}</span>
+          </div>
+          <ul className={styles.checkpoints}>
+            {checkpoints.map((checkpoint) => {
+              const humanWaiting =
+                checkpoint.kind === "human" && checkpoint.state === "started";
+              const open =
+                humanWaiting &&
+                checkpoint.handle_ref !== null &&
+                checkpoint.handle_ref !== nowSession
+                  ? openerOf(checkpoint.handle_ref)
+                  : null;
+              const failedError =
+                (checkpoint.state === "failed" ||
+                  checkpoint.state === "interrupted") &&
+                checkpoint.error !== null
+                  ? checkpoint.error
+                  : null;
+              return (
+                <li
+                  key={checkpoint.key}
+                  className={styles.checkpointRow}
+                  data-checkpoint={checkpoint.key}
+                  data-checkpoint-kind={checkpoint.kind}
+                  data-checkpoint-state={checkpoint.state}
+                >
+                  <div className={styles.checkpointMain}>
+                    <div className={styles.checkpointHead}>
+                      <span
+                        className={styles.checkpointBadge}
+                        data-state={checkpoint.state}
+                        data-kind={checkpoint.kind}
+                      >
+                        {t(CHECKPOINT_STATE_KEY[checkpoint.state])}
+                      </span>
+                      <span className={styles.checkpointKey}>
+                        {checkpoint.key}
+                      </span>
+                      <span className={styles.checkpointKind}>
+                        {t(CHECKPOINT_KIND_KEY[checkpoint.kind])}
+                      </span>
+                      <span className={styles.checkpointWhen}>
+                        {whenOf(
+                          checkpoint.finished_at ?? checkpoint.started_at,
+                        )}
+                      </span>
+                    </div>
+                    {humanWaiting ? (
+                      <p className={styles.checkpointHint}>
+                        {t("workflow.note.checkpoint-human-waiting")}
+                      </p>
+                    ) : null}
+                    {failedError === null ? null : (
+                      <p
+                        className={styles.checkpointError}
+                        data-checkpoint-error=""
+                      >
+                        <Icon
+                          icon={editorIcons.problem}
+                          pixels={iconPixels("base")}
+                        />
+                        <span>
+                          {failedError.message.trim() === ""
+                            ? failedError.reason
+                            : `${failedError.reason}: ${failedError.message}`}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  {open === null ? null : (
+                    <span className={styles.stepAction}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        trailingIcon={actionIcons.open}
+                        onClick={open}
+                        data-checkpoint-session={checkpoint.handle_ref ?? ""}
+                      >
+                        {t("workflow.button.open-session")}
+                      </Button>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+      {children.length === 0 ? null : (
+        <section
+          className={styles.section}
+          data-children=""
+          aria-label={t("workflow.heading.children")}
+        >
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("workflow.heading.children")}
+            </h2>
+            <span className={styles.sectionSummary}>{children.length}</span>
+          </div>
+          <ul className={styles.children}>
+            {children.map((child) => {
+              const shown = shownOfRun(child.state, null, child.derived_status);
+              const when =
+                child.ended_at !== null
+                  ? t("workflow.label.finished-at", {
+                      when: whenOf(child.ended_at),
+                    })
+                  : t("workflow.label.started-at", {
+                      when: whenOf(child.started_at),
+                    });
+              const body = (
+                <>
+                  <span className={styles.childMain}>
+                    <span className={styles.childName}>{child.workflow}</span>
+                    <span className={styles.childMeta}>
+                      <StateMark shown={shown} />
+                      <span>{when}</span>
+                    </span>
+                  </span>
+                  {onSelectInstance !== null &&
+                  onSelectInstance !== undefined ? (
+                    <span className={styles.childGo} aria-hidden="true">
+                      <Icon
+                        icon={commonIcons.expand}
+                        pixels={iconPixels("base")}
+                      />
+                    </span>
+                  ) : null}
+                </>
+              );
+              return (
+                <li
+                  key={child.instance}
+                  data-child-instance={child.instance}
+                  data-derived-status={child.derived_status}
+                >
+                  {onSelectInstance !== null &&
+                  onSelectInstance !== undefined ? (
+                    <button
+                      type="button"
+                      className={styles.childRow}
+                      onClick={() => onSelectInstance(child.instance)}
+                    >
+                      {body}
+                    </button>
+                  ) : (
+                    <div className={styles.childStatic}>{body}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
       {sessionRows.length === 0 ? null : (
         <section

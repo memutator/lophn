@@ -53,7 +53,8 @@ export type WorkflowProblemReason =
   | "invalid_yaml"
   | "invalid_declaration"
   | "invalid_inputs"
-  | "no_flow_file";
+  | "no_flow_file"
+  | "broken_flow";
 
 /** workflow `agent` 입력 칸의 선택지. ListWorkflows가 이 project에서 부를 수 있는 agent를 함께 돌려준다. */
 export interface CallableAgentOptionView {
@@ -144,11 +145,54 @@ export interface WorkflowSessionNodeView {
   readonly last_error: string | null;
 }
 
+export type WorkflowCheckpointKind =
+  | "step"
+  | "agent"
+  | "human"
+  | "workflow"
+  | "tool";
+
+export type WorkflowCheckpointState =
+  | "started"
+  | "completed"
+  | "failed"
+  | "interrupted";
+
+export interface WorkflowOutcomeErrorView {
+  readonly reason: string;
+  readonly message: string;
+  readonly session?: string;
+}
+
+/** durable flow 실행의 checkpoint 한 줄. */
+export interface WorkflowCheckpointView {
+  readonly instance: string;
+  readonly key: string;
+  readonly kind: WorkflowCheckpointKind;
+  readonly state: WorkflowCheckpointState;
+  readonly handle_ref: string | null;
+  readonly output: unknown | null;
+  readonly error: WorkflowOutcomeErrorView | null;
+  readonly started_at: string;
+  readonly finished_at: string | null;
+}
+
+/** 부모 workflow가 `workflow()`로 띄운 자식 sub-workflow 요약. */
+export interface WorkflowChildSummaryView {
+  readonly instance: string;
+  readonly workflow: string;
+  readonly state: WorkflowState;
+  readonly derived_status: WorkflowDerivedStatus;
+  readonly started_at: string;
+  readonly ended_at: string | null;
+}
+
 export type WorkflowLineBy =
   | { readonly kind: "user" }
   | { readonly kind: "agent"; readonly session: string }
   | { readonly kind: "lophn" }
   | { readonly kind: "job"; readonly job: string }
+  | { readonly kind: "workflow"; readonly instance: string }
   | { readonly kind: "program" }
   /** 다른 컴퓨터의 참가자가 낸 report. computer는 받은 때 이 컴퓨터 명단의 이름이다. */
   | {
@@ -171,7 +215,8 @@ export type WorkflowStartedBy =
       readonly kind: "job";
       readonly job: string;
       readonly title: string | null;
-    };
+    }
+  | { readonly kind: "workflow"; readonly instance: string };
 
 /** instance 줄. 줄은 instance 안에서 1부터 이어 센다(seq는 글). */
 export type WorkflowLineView = {
@@ -208,7 +253,7 @@ export type WorkflowLineView = {
       /** 다른 컴퓨터로 넘긴 step은 이 컴퓨터에 받은 session이 없다(null이고 `remote`가 있다). */
       readonly receiver: string | null;
       readonly human_turn: boolean;
-      readonly cause: "start" | "report" | "edit";
+      readonly cause: "start" | "report" | "edit" | "retry";
       readonly session: "new" | "same" | null;
       readonly remote?: {
         readonly machine: string;
@@ -290,6 +335,7 @@ export interface WorkflowInstanceView {
     readonly human_turn: boolean;
   } | null;
   readonly started_by: WorkflowStartedBy;
+  readonly code_snapshot?: string | null;
   readonly created_at: string;
   readonly finished_at: string | null;
 }
@@ -329,6 +375,8 @@ export interface WorkflowInstanceDetailView {
   readonly sessions?: readonly WorkflowSessionNodeView[];
   readonly refs?: readonly string[];
   readonly inputs?: Readonly<Record<string, unknown>>;
+  readonly checkpoints?: readonly WorkflowCheckpointView[];
+  readonly children?: readonly WorkflowChildSummaryView[];
 }
 
 export type ReadResult<T> =
@@ -409,6 +457,11 @@ export interface WorkspaceSource {
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 막힌 step을 같은 session에서 이어서 다시 시도한다. step을 빼면 current step이다. */
   retryWorkflowStep(instance: string, step?: string): Promise<ReadResult<null>>;
+  /** 멈춘(blocked) flow instance를 replay로 이어 간다. useLatestCode가 true면 최신 flow code로 snapshot을 갱신한다. */
+  resumeWorkflow(
+    instance: string,
+    options?: { readonly useLatestCode?: boolean },
+  ): Promise<ReadResult<WorkflowInstanceView>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   /** workspace(project)의 desk layout 읽기와 저장. */

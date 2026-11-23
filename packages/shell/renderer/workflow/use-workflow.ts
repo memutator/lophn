@@ -42,6 +42,7 @@ export interface UseWorkflow {
   ): Promise<boolean>;
   stop(): void;
   retry(step?: string): void;
+  resume(useLatestCode?: boolean): void;
 }
 
 export function useWorkflow({
@@ -181,6 +182,18 @@ export function useWorkflow({
           setNotice({
             title: t("workflow.title.retry-failed", { workflow }),
             body: t("workflow.error.retry-failed"),
+          });
+        }
+        reload();
+      });
+    },
+    resume(useLatestCode = false) {
+      if (instance === null) return;
+      void source.resumeWorkflow(instance, { useLatestCode }).then((result) => {
+        if (!result.ok) {
+          setNotice({
+            title: t("workflow.title.resume-failed", { workflow }),
+            body: t("workflow.error.resume-failed"),
           });
         }
         reload();

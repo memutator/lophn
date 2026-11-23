@@ -1,6 +1,6 @@
-// `lophn workflow list|get|report|edit|check|start|retry|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 재시도하고, 멈춘다.
-// lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start·retry·stop은 route가 user 전용이라
-// workspace 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 재시도와 멈춤은 사람이 정한다.
+// `lophn workflow list|get|report|edit|check|start|retry|resume|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 재시도하고, 이어 가고, 멈춘다.
+// lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start·retry·resume·stop은 route가 user 전용이라
+// workspace 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 재시도·이어 가기·멈춤은 사람이 정한다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -20,6 +20,7 @@ import {
   workflowList,
   workflowRefsSchema,
   workflowReport,
+  workflowResume,
   workflowRetry,
   workflowStart,
   workflowStop,
@@ -289,6 +290,42 @@ const retry = defineCommand({
   },
 });
 
+const resume = defineCommand({
+  name: "workflow.resume",
+  summary: "Resume a blocked flow workflow instance",
+  description:
+    "Resumes a blocked running flow workflow instance by restarting its flow process and replaying saved checkpoints. Pass --latest-code to update the instance code snapshot from the current workflow folder before replaying.",
+  input: z.strictObject({
+    instance,
+    latest_code: z
+      .boolean()
+      .optional()
+      .describe(
+        "update the code snapshot to the latest flow code before replaying",
+      ),
+  }),
+  positional: ["instance"],
+  effect: "write",
+  routes: [workflowResume],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const useLatest = Boolean(input.latest_code);
+    const resumed = await ctx.core.read(workflowResume, {
+      instance: input.instance,
+      use_latest_code: useLatest,
+    });
+    if (!resumed.ok) return resumed;
+    const { instance: inst } = resumed.value;
+    return ok({
+      summary: useLatest
+        ? "workflow resumed with updated code"
+        : "workflow resumed",
+      content: { instance: inst },
+      text: inst.id,
+    });
+  },
+});
+
 const stop = defineCommand({
   name: "workflow.stop",
   summary: "Stop a workflow instance",
@@ -317,5 +354,6 @@ export const WORKFLOW_COMMANDS = [
   check,
   start,
   retry,
+  resume,
   stop,
 ];

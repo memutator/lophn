@@ -1,5 +1,5 @@
 // workflow.yaml의 선언적 inputs 폼. protocol의 resolveInputDefaults·evaluateInputWhen을 그대로 써서
-// core의 validateWorkflowInputs와 같은 가시성·기본값 규칙으로 8종 입력 칸을 그린다.
+// core의 validateWorkflowInputs와 같은 가시성·기본값 규칙으로 9종 입력 칸을 그린다.
 import { useState } from "react";
 import { Checkbox, Field, Input, Select, Textarea } from "@lophn/ui/input";
 import { Icon } from "@lophn/ui/primitives";
@@ -320,6 +320,31 @@ export function InputsForm({
                     value={typeof value === "string" ? value : ""}
                     placeholder={
                       field.placeholder ?? defaultPathPlaceholder(field.kind)
+                    }
+                    disabled={disabled}
+                    onChange={(event) => {
+                      const raw = event.target.value;
+                      onChange(
+                        key,
+                        raw === "" && field.default === undefined
+                          ? undefined
+                          : raw,
+                      );
+                    }}
+                  />
+                </Field>
+              </div>
+            );
+          case "project":
+            return (
+              <div key={key} className={styles.item} data-input-field={key}>
+                <Field label={label} help={field.description} error={error}>
+                  <Input
+                    type="text"
+                    value={typeof value === "string" ? value : ""}
+                    placeholder={
+                      field.placeholder ??
+                      t("workflow.placeholder.input-project")
                     }
                     disabled={disabled}
                     onChange={(event) => {

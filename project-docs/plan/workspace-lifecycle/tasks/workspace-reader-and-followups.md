@@ -2,7 +2,7 @@
 
 작업 공간 정본 reader(`declared`/`mentioned` 정적 영향 조회, `app.usage` 정적+호출 통합), 공통 `follow_up_items` store 및 `follow_up.list`/`report`, `release.prepare`의 `command`/`skill`/`event` 계약 변경 감지를 구현한다.
 
-- 단위: `workspace-reader` (wave 1)
+- 단위: workspace-reader (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `packages/core/follow-ups/mod.ts`

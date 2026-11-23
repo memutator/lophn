@@ -2,7 +2,7 @@
 
 보관된 앱·project를 가리키는 `job`을 `enabled` 변경 없이 동적으로 건너뛰고(`target_unavailable`, `job.claim_due` cycle 전진, `job.activity` 제외), `agent.delete` 및 `workflow.rename`/`workflow.delete`용 `job` 정리 함수를 제공한다.
 
-- 단위: `jobs` (wave 1)
+- 단위: jobs (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `packages/core/jobs/ports.ts`

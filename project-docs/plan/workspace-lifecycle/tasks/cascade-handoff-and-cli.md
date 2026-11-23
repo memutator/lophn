@@ -2,7 +2,7 @@
 
 삭제 확인 창/CLI의 의미적 `clean_up`(`now`/`later`) 인계 연결, `release.activate` 확정(`A21` 전환) 사후 계약 변경 인계, 그리고 새 CLI 명령(`follow-up`, `update`, `impact`, `artifact delete`, `workflow rename|delete`)을 구현한다.
 
-- 단위: `cascade-handoff` (wave 2)
+- 단위: cascade-handoff (wave 2)
 - 선행: `jobs-archive-and-erase, cascade-deterministic-core, workspace-reader-and-followups`
 - 소유(이 task만 고친다):
   - `packages/core/apps/releases/activation/orchestrator.ts`

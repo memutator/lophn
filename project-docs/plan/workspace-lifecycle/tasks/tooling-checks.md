@@ -2,7 +2,7 @@
 
 역량 표면(`modules`)을 건드린 새 change-log 항목에 `platform_note` 칸을 필수로 검사하고, `/update`의 `platform-notes.json`과 메모 header 규약을 검사하게 만든다.
 
-- 단위: `tooling` (wave 1)
+- 단위: tooling (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `tools/records.ts`

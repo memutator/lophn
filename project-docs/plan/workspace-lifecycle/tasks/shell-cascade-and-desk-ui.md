@@ -2,7 +2,7 @@
 
 삭제 확인 창(영향 0곳이면 바로 삭제, 1곳 이상이면 `[Delete & clean up now]` 기본 + `[Delete only]` 보조), workflow 이름 변경·삭제와 열린 창 desk 동기화, 보관된 `job`의 `target_unavailable` 표시, Inbox의 `workspace_update_needed`·open follow-up 연결을 구현한다.
 
-- 단위: `shell-ui` (wave 2)
+- 단위: shell-ui (wave 2)
 - 선행: `cascade-deterministic-core, workspace-reader-and-followups`
 - 소유(이 task만 고친다):
   - `packages/shell/**`

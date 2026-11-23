@@ -2,7 +2,7 @@
 
 `agent.delete` 결정적 정리(MCP secret, `callPolicy`, open session, `job`), `artifacts.delete`의 core command 이전, workflow `flow_sdk` 도장·차단 및 `workflow.rename`·`workflow.delete`를 구현한다.
 
-- 단위: `cascade-core` (wave 1)
+- 단위: cascade-core (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `packages/core/lophn-agent/agents/commands.ts`

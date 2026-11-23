@@ -2,7 +2,7 @@
 
 통합 `update.status`·`update.decide`, `workspace_update_needed` Inbox 알림(필수 `required` 건수 강조, all-zero 해소), `fresh: true` 시 `platform_reviews` 시드, `sdk-decide_test.ts` 갱신을 구현한다.
 
-- 단위: `update-engine` (wave 2)
+- 단위: update-engine (wave 2)
 - 선행: `workspace-reader-and-followups, cascade-deterministic-core`
 - 소유(이 task만 고친다):
   - `packages/core/apps/notices/commands.ts`

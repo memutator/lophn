@@ -2,7 +2,7 @@
 
 평소 turn 인지를 위한 내장 prompt·skill `description` 정렬, 통합 `/update` skill과 `platform-notes.json` 기준선 메모 3편, `A21` 사후 인계 지침 전환, 그리고 `@lophn/agent` `1.18.0` 판 올림과 `agent-1.18.0.md` SDK 메모를 작성한다.
 
-- 단위: `prompts-skills` (wave 2)
+- 단위: prompts-skills (wave 2)
 - 선행: `tooling-checks, workspace-reader-and-followups`
 - 소유(이 task만 고친다):
   - `packages/core/agent-workspaces/prompts/home.md`

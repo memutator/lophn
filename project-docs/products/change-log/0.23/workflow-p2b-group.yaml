@@ -1,5 +1,5 @@
 id: workflow-p2b-group
-version: 0.23.143
+version: 0.23.145
 title: 병렬 workflow step 탭을 group 힌트로 1-leaf 접힘 bundle로 자동 묶고 architecture 문서를 갱신한다
 modules:
   - packages/shell/renderer

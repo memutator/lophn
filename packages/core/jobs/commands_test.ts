@@ -125,3 +125,88 @@ test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 �
     db.close();
   }
 });
+
+test("workflow_start job persists and reads optional inputs", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of jobsTestSteps) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    let seq = 0;
+    const ports = new Map<unknown, unknown>([
+      [
+        jobTargetsPort,
+        {
+          creatorOf: (session: string) => agents[session],
+          resolveProject: () => ok(PRJ),
+        },
+      ],
+      [jobZonePort, { zone: () => "UTC" }],
+      [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
+    ]);
+    const tx = {
+      sql,
+      now: () => "2026-10-22T00:00:00.000Z",
+      newId: (prefix: string) =>
+        `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzz${String.fromCharCode(97 + seq++)}`,
+      port: (key: unknown) => ports.get(key) ?? { push: () => {} },
+    } as unknown as Tx;
+    const commands = createJobCommands();
+    const agent = { actor: `agent:${LOPHN_1}` } as never;
+
+    const withInputs = commands.create.handle(
+      tx,
+      agent,
+      {
+        title: "Deploy nightly",
+        every: "1d",
+        action: {
+          kind: "workflow_start",
+          workflow: "acme/deploy",
+          text: "Run nightly deploy",
+          step: "prepare",
+          inputs: { env: "staging", dry_run: true, tags: ["a", "b"] },
+        },
+        missed_policy: "run",
+      },
+      {} as never,
+    );
+    assert.ok(withInputs.ok);
+    const loaded = loadJob(sql, withInputs.value.job.id, THIS_MACHINE);
+    assert.ok(loaded.ok && loaded.value !== null);
+    assert.deepStrictEqual(loaded.value.action, {
+      kind: "workflow_start",
+      project: PRJ,
+      workflow: "deploy",
+      text: "Run nightly deploy",
+      step: "prepare",
+      inputs: { env: "staging", dry_run: true, tags: ["a", "b"] },
+    });
+
+    const withoutInputs = commands.create.handle(
+      tx,
+      agent,
+      {
+        title: "Plain workflow",
+        every: "1d",
+        action: {
+          kind: "workflow_start",
+          workflow: "acme/deploy",
+          text: "Run plain",
+        },
+        missed_policy: "run",
+      },
+      {} as never,
+    );
+    assert.ok(withoutInputs.ok);
+    const loadedPlain = loadJob(sql, withoutInputs.value.job.id, THIS_MACHINE);
+    assert.ok(loadedPlain.ok && loadedPlain.value !== null);
+    assert.deepStrictEqual(loadedPlain.value.action, {
+      kind: "workflow_start",
+      project: PRJ,
+      workflow: "deploy",
+      text: "Run plain",
+    });
+  } finally {
+    db.close();
+  }
+});

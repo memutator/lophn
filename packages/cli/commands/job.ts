@@ -1,7 +1,7 @@
 // `lophn job create|update|delete|list`: 반복 job을 만들고 고치고 지우고 읽는다.
 // "내가 만든 job만" 같은 범위는 core route가 credential을 보고 정한다. 여기서는 route를 부르기만 한다.
 import { z } from "zod";
-import { ok } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import {
   jobActionInputSchema,
   jobTriggerInputSchema,
@@ -16,6 +16,7 @@ import {
   missedPolicySchema,
 } from "../../protocol/jobs/mod.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
+import { workflowInputValuesSchema } from "../../protocol/workflows/mod.ts";
 import { defineCommand } from "./types.ts";
 
 const SCHEDULE_NOTE =
@@ -23,7 +24,7 @@ const SCHEDULE_NOTE =
 const TRIGGER_NOTE =
   "Instead of every, trigger {source, event} runs the job when an event happens: source is an app (its slug, and the active release must declare the event) or lophn (session.started, session.running, session.waiting, session.idle, session.ended; session events are only for sessions this workspace may call). To run on an event of an app on another computer, add machine (the computer's name) and give source as that app's id (app_...); the other computer hands over only events the app declared, never from an app in a private workspace, and a job made in a private workspace never watches another computer. At most one run starts per min_interval (default 5m); an event that arrives while the previous run is still going, or too soon, is skipped and counted (see skipped_count in job list). The event is handed to the action as data: for agent_run it is attached to your prompt as a data block, for workflow_start the start text becomes JSON {text, event}, for tool_run it is added to the tool input as `event` only if you set trigger.pass_event. Events are not stored: nothing fires while lophn is off, and an event of another computer is lost while that computer is off or unreachable. A job started by an event does not fire again for the sessions it opens itself.";
 const ACTION_NOTE =
-  "Runs unattended. agent_run opens a new session (agent/workspace use exact names; no workspace means home). tool_run calls one app tool. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
+  "Runs unattended. agent_run opens a new session (agent/workspace use exact names; no workspace means home). tool_run calls one app tool. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows; inputs (or --inputs) passes declared workflow input values as a JSON object.";
 const APPROVAL_NOTE =
   "A new job waits until the person approves it in the waiting list (approved_at stays null until then); tell them. The action cannot be changed later: delete the job and create a new one.";
 const OWN_NOTE =
@@ -41,6 +42,9 @@ const create = defineCommand({
     at: jobAtSchema.optional(),
     trigger: jobTriggerInputSchema.optional(),
     action: jobActionInputSchema,
+    inputs: workflowInputValuesSchema
+      .optional()
+      .describe("JSON object of workflow inputs (workflow_start only)"),
     missed_policy: missedPolicySchema.optional(),
     enabled: z.boolean().optional(),
   }),
@@ -49,7 +53,28 @@ const create = defineCommand({
   routes: [jobCreate],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const made = await ctx.core.command(jobCreate, input, { key: ctx.key });
+    const { inputs, ...rest } = input;
+    let action = rest.action;
+    if (inputs !== undefined) {
+      if (action.kind !== "workflow_start") {
+        return err({
+          code: "invalid_input",
+          message: "--inputs is only for a workflow_start action",
+        });
+      }
+      if (action.inputs !== undefined) {
+        return err({
+          code: "invalid_input",
+          message: "inputs is given twice (in action and --inputs)",
+        });
+      }
+      action = { ...action, inputs };
+    }
+    const made = await ctx.core.command(
+      jobCreate,
+      { ...rest, action },
+      { key: ctx.key },
+    );
     if (!made.ok) return made;
     return ok({ summary: `created job ${input.title}`, content: made.value });
   },

@@ -99,6 +99,7 @@ function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
         workflow,
         text: input.text,
         ...(input.step === undefined ? {} : { step: input.step }),
+        ...(input.inputs === undefined ? {} : { inputs: input.inputs }),
       });
     }
   }

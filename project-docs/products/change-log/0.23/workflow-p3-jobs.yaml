@@ -1,0 +1,17 @@
+id: workflow-p3-jobs
+version: 0.23.144
+title: workflow_start job이 선택적 inputs를 저장·전달하고 CLI job create가 --inputs를 지원한다
+modules:
+  - packages/core/jobs
+  - packages/core/main
+  - packages/cli
+change: |
+  - `packages/core/jobs/commands.ts`: `resolveAction`이 `workflow_start` action의 선택적 `inputs`를 유지해 `jobs.action` JSON에 저장하고 읽을 때 복원한다(기존 action 텍스트·필드와 같은 규칙으로 `workflows.start` 시점에 redaction된다).
+  - `packages/core/main/daemon/wiring/jobs.ts`: `createJobStarter`를 분리하고 `workflow_start` job 실행 시 `action.inputs`를 `workflowService.start({ ..., inputs: action.inputs })`로 전달한다.
+  - `packages/cli/commands/job.ts`: `job.create`에 선택적 `--inputs <json>` 옵션을 추가하고(`workflow_start` 전용, JSON object 파싱·검증, `action.inputs`와의 중복 거절) `action.inputs`로 합쳐 `jobCreate` command에 넘긴다.
+  - 단위 테스트: `packages/core/jobs/commands_test.ts`와 `packages/core/main/daemon/wiring/jobs_test.ts`에 `workflow_start` job의 `inputs` 저장·조회 및 scheduler 발화 시 `workflowService.start` 전달 검증을 추가한다.
+why: |
+  Workflow Phase 3에서 선언적 `inputs`를 받는 workflow를 주기·event job과 CLI `lophn job create`로도 시작할 수 있게 한다.
+decisions:
+  - text: "`packages/cli/commands/job.ts`의 `--inputs`에 `workflowInputValuesSchema`를 직접 써서 `packages/cli/parser.ts`의 JSON flag 파싱·검증(`--inputs: not valid JSON`)과 `--input` object 병합이 모두 동작하게 하고, `run`에서 `workflow_start` 전용·중복 지정만 거른다. 버린 길: 문자열로 받아 `run` 안에서 별도 `JSON.parse`하기(`--input` JSON object와 호환이 깨지고 `--help`에 `string`으로 표시된다)."
+    by: agent

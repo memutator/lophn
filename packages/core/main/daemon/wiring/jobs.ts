@@ -31,7 +31,7 @@ import {
   DEFAULT_CALL_POLICY,
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
-import type { WiringFactory } from "./context.ts";
+import type { WiringContext, WiringFactory } from "./context.ts";
 
 // scheduler가 차례를 가져가고 줄을 닫고 workflow instance 상태를 읽는 core 안 machine 자격이다.
 // 기동 때 ledger에 기록한다.
@@ -102,6 +102,117 @@ export function withTriggerMachine(
   };
 }
 
+export function createJobStarter(deps: {
+  workflowService: Pick<WiringContext["workflowService"], "start">;
+  runService: Pick<WiringContext["runService"], "start" | "wait">;
+  instanceState: JobStarter["instanceState"];
+  isClosing: () => boolean;
+}): JobStarter {
+  return {
+    async start(job, jobRun) {
+      const action = job.action;
+      if (action.kind === "workflow_start") {
+        // event job은 시작 입력 글을 JSON으로 준다: 고정한 글과 event(data).
+        const started = await deps.workflowService.start(
+          {
+            workflow: `${action.project}/${action.workflow}`,
+            text:
+              jobRun.event === null
+                ? action.text
+                : JSON.stringify({
+                    text: action.text,
+                    event: jobRun.event,
+                  }),
+            ...(action.step === undefined ? {} : { step: action.step }),
+            ...(action.inputs === undefined ? {} : { inputs: action.inputs }),
+          },
+          { kind: "job", job: job.id },
+        );
+        return started.ok
+          ? ok({
+              run: null,
+              instance: started.value.instance.id as Id<"wfi">,
+              session: null,
+            })
+          : started;
+      }
+      const origin: RunOrigin = {
+        job: job.id as Id<"job">,
+        job_run: jobRun.id as Id<"jbr">,
+        remote:
+          jobRun.event?.machine !== undefined || jobRun.event?.remote === true,
+      };
+      // tool_run은 승인한 flag(pass_event)가 있을 때만 event를 입력의 `event` 칸에 합쳐 준다.
+      const input =
+        action.kind === "tool_run" &&
+        job.trigger?.pass_event === true &&
+        jobRun.event !== null
+          ? {
+              input: {
+                ...((action.input as Record<string, JsonValue> | undefined) ??
+                  {}),
+                event: jobRun.event,
+              },
+            }
+          : action.input === undefined
+            ? {}
+            : { input: action.input };
+      const started = await deps.runService.start(
+        action.kind === "agent_run"
+          ? {
+              kind: "agent_resolved",
+              agent: {
+                agent: action.agent,
+                workspace: action.agent_workspace,
+              },
+              prompt: action.prompt,
+              ...input,
+              ...(jobRun.event === null ? {} : { event: jobRun.event }),
+              ...(action.schema === undefined ? {} : { schema: action.schema }),
+            }
+          : {
+              kind: "tool",
+              app: action.app,
+              tool: action.tool,
+              ...input,
+            },
+        origin,
+      );
+      return started.ok
+        ? ok({
+            run: started.value.id as Id<"run">,
+            instance: null,
+            session:
+              action.kind === "agent_run"
+                ? (started.value.session as Id<"ses"> | null)
+                : null,
+          })
+        : started;
+    },
+    // wait는 최대 60초만 기다린다(run.md). runService.close()가 걸린 wait를 풀어 주므로 closing이면 멈춘다.
+    async waitRun(run) {
+      for (;;) {
+        if (deps.isClosing()) {
+          return err({
+            code: "unavailable",
+            message: "lophn is shutting down",
+          });
+        }
+        const waited = await deps.runService.wait(run, WAIT_MS);
+        if (!waited.ok) return waited;
+        const state = waited.value.state;
+        if (state !== "running") return ok({ state });
+      }
+    },
+    // timeout 0이면 wait는 읽기 한 번이다.
+    async runState(run) {
+      const waited = await deps.runService.wait(run, 0);
+      return waited.ok ? ok(waited.value.state) : waited;
+    },
+    instanceState: deps.instanceState,
+  };
+}
+
 // 규칙은 jobs module의 scheduler가 갖는다. 여기는 port를 core에 잇기만 한다.
 // runs·workflows 뒤다: 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
 export const jobsWiring: WiringFactory = () => {
@@ -160,110 +271,9 @@ export const jobsWiring: WiringFactory = () => {
         },
       };
 
-      const starter: JobStarter = {
-        async start(job, jobRun) {
-          const action = job.action;
-          if (action.kind === "workflow_start") {
-            // event job은 시작 입력 글을 JSON으로 준다: 고정한 글과 event(data).
-            const started = await ctx.workflowService.start(
-              {
-                workflow: `${action.project}/${action.workflow}`,
-                text:
-                  jobRun.event === null
-                    ? action.text
-                    : JSON.stringify({
-                        text: action.text,
-                        event: jobRun.event,
-                      }),
-                ...(action.step === undefined ? {} : { step: action.step }),
-              },
-              { kind: "job", job: job.id },
-            );
-            return started.ok
-              ? ok({
-                  run: null,
-                  instance: started.value.instance.id as Id<"wfi">,
-                  session: null,
-                })
-              : started;
-          }
-          const origin: RunOrigin = {
-            job: job.id as Id<"job">,
-            job_run: jobRun.id as Id<"jbr">,
-            remote:
-              jobRun.event?.machine !== undefined ||
-              jobRun.event?.remote === true,
-          };
-          // tool_run은 승인한 flag(pass_event)가 있을 때만 event를 입력의 `event` 칸에 합쳐 준다.
-          const input =
-            action.kind === "tool_run" &&
-            job.trigger?.pass_event === true &&
-            jobRun.event !== null
-              ? {
-                  input: {
-                    ...((action.input as
-                      | Record<string, JsonValue>
-                      | undefined) ?? {}),
-                    event: jobRun.event,
-                  },
-                }
-              : action.input === undefined
-                ? {}
-                : { input: action.input };
-          const started = await ctx.runService.start(
-            action.kind === "agent_run"
-              ? {
-                  kind: "agent_resolved",
-                  agent: {
-                    agent: action.agent,
-                    workspace: action.agent_workspace,
-                  },
-                  prompt: action.prompt,
-                  ...input,
-                  ...(jobRun.event === null ? {} : { event: jobRun.event }),
-                  ...(action.schema === undefined
-                    ? {}
-                    : { schema: action.schema }),
-                }
-              : {
-                  kind: "tool",
-                  app: action.app,
-                  tool: action.tool,
-                  ...input,
-                },
-            origin,
-          );
-          return started.ok
-            ? ok({
-                run: started.value.id as Id<"run">,
-                instance: null,
-                session:
-                  action.kind === "agent_run"
-                    ? (started.value.session as Id<"ses"> | null)
-                    : null,
-              })
-            : started;
-        },
-        // wait는 최대 60초만 기다린다(run.md). runService.close()가 걸린 wait를 풀어 주므로 closing이면 멈춘다.
-        async waitRun(run) {
-          for (;;) {
-            if (closing) {
-              return err({
-                code: "unavailable",
-                message: "lophn is shutting down",
-              });
-            }
-            const waited = await ctx.runService.wait(run, WAIT_MS);
-            if (!waited.ok) return waited;
-            const state = waited.value.state;
-            if (state !== "running") return ok({ state });
-          }
-        },
-        // timeout 0이면 wait는 읽기 한 번이다.
-        async runState(run) {
-          const waited = await ctx.runService.wait(run, 0);
-          return waited.ok ? ok(waited.value.state) : waited;
-        },
+      const starter = createJobStarter({
+        workflowService: ctx.workflowService,
+        runService: ctx.runService,
         async instanceState(instance) {
           const done = await read<Output<typeof workflowInstanceRead>>(
             workflowInstanceRead,
@@ -271,7 +281,8 @@ export const jobsWiring: WiringFactory = () => {
           );
           return done.ok ? ok(done.value.instance.state) : done;
         },
-      };
+        isClosing: () => closing,
+      });
 
       // event를 때로 가진 승인한 켜진 job이 있는 (앱 id 또는 null=lophn, event). event 전달이 job에 관심이 있는지 거르는 표다.
       // job이 바뀔 때마다 다시 읽는다. 저장하지 않으므로 core가 꺼진 사이의 event는 job을 열지 않는다.

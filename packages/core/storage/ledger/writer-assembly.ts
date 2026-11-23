@@ -61,16 +61,12 @@ export async function assembleWriter(
     confirmationRegistry: ConfirmationRegistry;
     preparations: PreparationRegistry;
     noteRequest(ctx: RequestContext | undefined): void;
-    // 테스트의 manual clock은 writer가 공유하지 못한다. core가 민 시각을 알린다.
-    noteTime(nowMs: number): void;
     onTx(tx: Tx | undefined): void;
     // command 하나를 run으로 돌리고 확정된 새 command의 결과에만 모은 것을 싣는다.
     afterCommit: ReturnType<typeof createAfterCommitCollector>;
   }
 > {
-  // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
-  let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
-  const clock = writerClock(boot, () => fixedMs);
+  const clock = writerClock(boot);
   const commands: CommandDefinition[] = [];
   const afterCommit = createAfterCommitCollector();
   const ports: TxPortRegistration[] = [
@@ -136,9 +132,6 @@ export async function assembleWriter(
     noteRequest(ctx: RequestContext | undefined) {
       currentRequest = ctx;
     },
-    noteTime(nowMs: number) {
-      if (nowMs > fixedMs) fixedMs = nowMs;
-    },
     onTx(tx: Tx | undefined) {
       currentTx = tx;
     },
@@ -149,10 +142,12 @@ export async function assembleWriter(
 
 // event `at`·tx.now()·ULID·확인 기한은 같은 시각을 쓴다. writer는 별도 Worker라 core의 clock
 // 객체를 그대로 받지 못한다. 제품 경로는 writer 자신의 system clock을 쓰고,
-// 테스트는 기동 시각에 고정한 clock을 쓴다. 어느 쪽이든 시각은 뒤로 가지 않는다.
-function writerClock(boot: WriterBoot, fixedMs: () => number): Clock {
+// 테스트는 기동 시각에 고정한 clock을 쓴다. 어느 쪽이든 시각은 뒤로 가지 않는다. 준비 blob의 수명도
+// 이 clock으로만 잰다(writer-message.ts의 `blob-prepared`).
+function writerClock(boot: WriterBoot): Clock {
   if (boot.clock === "system") return monotonicClock(systemClock);
-  return monotonicClock({ nowMs: fixedMs, now: () => "" });
+  const fixedMs = boot.clock;
+  return monotonicClock({ nowMs: () => fixedMs, now: () => "" });
 }
 
 function teamRegistration(team: TeamModule): Loose | undefined {

@@ -165,8 +165,8 @@ type Protected =
   | { stage: "done"; backup: BackupOutcome }
   // backup을 만들지 못했다. 데이터는 바뀌지 않았다.
   | { stage: "not_made" }
-  // backup은 있으나 ledger에 확정됐는지 모른다. 응답을 잃었을 수 있다.
-  | { stage: "not_recorded" };
+  // backup은 있으나 ledger에 확정됐는지 모른다. 응답을 잃었을 수 있다. message는 확정이 돌려준 오류다.
+  | { stage: "not_recorded"; message: string };
 
 export async function protectData(
   ports: ActivationPorts,
@@ -188,7 +188,7 @@ export async function protectData(
   });
   return recorded.ok
     ? { stage: "done", backup: made.value }
-    : { stage: "not_recorded" };
+    : { stage: "not_recorded", message: recorded.error.message };
 }
 
 // migration을 적용하고 실제 결과를 ledger에 확정한다. 목표가 아닌 schema의 결과는 실패다.

@@ -113,9 +113,13 @@ async function advance(
         startSchema,
       );
     }
-    // 확정 응답을 잃었을 수 있다. ledger가 아는 것을 보고 이어받는다.
+    // 확정 응답을 잃었을 수 있다. ledger가 아는 것을 보고 이어받는다. 거절 이유를 실패 기록에 남긴다:
+    // 버리면 "interrupted"로 남아 무엇이 막았는지 모른다.
     if (protectedData.stage === "not_recorded") {
-      return await continueRecovery(ports, attempt.release);
+      return await continueRecovery(ports, attempt.release, {
+        code: "backup_failed",
+        summary: `the data backup was not recorded: ${protectedData.message}`,
+      });
     }
     backupHash = protectedData.backup.backup_hash;
     const changed = await changeData(ports, started);

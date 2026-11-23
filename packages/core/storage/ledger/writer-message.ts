@@ -37,10 +37,11 @@ export type WriterRequest =
       envelope: CommandEnvelope;
     }
   | { id: number; op: "read-result"; ctx: AuthenticatedContext; key: string }
-  // core가 관측한 준비 참조를 writer 메모리에 알린다. 파일을 넘기지 않는다.
-  | { id: number; op: "blob-prepared"; prepared: PreparedBlob; nowMs: number }
-  // 준비 참조 수명 만기 prune. nowMs는 writer의 만기 판정 시각도 전진시킨다.
-  | { id: number; op: "blob-prune"; nowMs: number }
+  // core가 관측한 준비 참조를 writer 메모리에 알린다. 파일을 넘기지 않는다. 수명은 writer 자기 clock으로
+  // 잰다: 등록할 때 수명을 보는 clock과 같아야 한다. core 시각을 받으면 system 시계가 뒤로 간 뒤 writer의
+  // 뒤로 가지 않는 clock과 어긋나 방금 준비한 참조가 만기로 보인다.
+  | { id: number; op: "blob-prepared"; prepared: PreparedBlob }
+  | { id: number; op: "blob-prune" }
   | { id: number; op: "close" };
 
 export type StoredCommandResult = {

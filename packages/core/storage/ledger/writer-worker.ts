@@ -74,12 +74,6 @@ type WorkerMessage =
       context: unknown;
     }
   | {
-      // 테스트 manual clock을 민 시각. writer clock이 그 시각을 따라간다.
-      id: number;
-      op: "note-time";
-      nowMs: number;
-    }
-  | {
       id: number;
       op: "confirmation";
       action: "issue" | "close-window" | "clear" | "consume";
@@ -178,18 +172,14 @@ async function handle(
     return;
   }
   if (data.op === "blob-prepared") {
-    registration.preparations.register(data.prepared, data.nowMs);
-    registration.preparations.prune(data.nowMs);
+    const nowMs = registration.clock.nowMs();
+    registration.preparations.register(data.prepared, nowMs);
+    registration.preparations.prune(nowMs);
     port.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;
   }
-  if (data.op === "note-time") {
-    registration.noteTime(data.nowMs);
-    port.postMessage({ id: data.id, op: "time-noted" } as never);
-    return;
-  }
   if (data.op === "blob-prune") {
-    registration.preparations.prune(data.nowMs);
+    registration.preparations.prune(registration.clock.nowMs());
     port.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;
   }

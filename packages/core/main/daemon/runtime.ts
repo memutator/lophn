@@ -40,8 +40,8 @@ export type CoreRuntime = {
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
-  notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
-  prunePrepared(nowMs: number): Promise<Result<void>>;
+  notePrepared(prepared: PreparedBlob): Promise<Result<void>>;
+  prunePrepared(): Promise<Result<void>>;
   readers: ReaderPool;
   // 격리됐다 다시 뜬 reader가 healthy가 된 뒤 부를 함수를 더한다(secret store의 sync).
   onReaderRespawn(hook: () => Promise<unknown>): void;
@@ -198,8 +198,8 @@ function openProductWriter(
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
-  notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
-  prunePrepared(nowMs: number): Promise<Result<void>>;
+  notePrepared(prepared: PreparedBlob): Promise<Result<void>>;
+  prunePrepared(): Promise<Result<void>>;
 } {
   const worker = new Worker(
     new URL("../../storage/ledger/writer-worker.ts", import.meta.url),
@@ -311,19 +311,17 @@ function openProductWriter(
         });
       });
     },
-    notePrepared(prepared, nowMs) {
+    notePrepared(prepared) {
       return send({
         id: nextId++,
         op: "blob-prepared",
         prepared,
-        nowMs,
       } as unknown as WriterRequest).then(blobNoted);
     },
-    prunePrepared(nowMs) {
+    prunePrepared() {
       return send({
         id: nextId++,
         op: "blob-prune",
-        nowMs,
       } as unknown as WriterRequest).then(blobNoted);
     },
 

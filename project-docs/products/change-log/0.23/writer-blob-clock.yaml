@@ -1,0 +1,15 @@
+id: writer-blob-clock
+version: 0.23.131
+title: 시스템 시계가 뒤로 간 뒤에도 준비한 blob을 ledger에 등록한다
+modules: [packages/core/storage, packages/core/main, packages/core/apps]
+change: |
+  전: core가 blob을 준비하면 core 시각을 writer에 넘겨 준비 참조의 등록 시각으로 적었고, 만기 prune도 core 시각으로 했다. 영구 참조로 등록할 때의 10분 수명 검사는 writer 자신의 뒤로 가지 않는 clock으로 했다. 시스템 시계가 뒤로 가면(부팅 때 시계가 앞서 있다가 NTP가 고침) writer clock은 그 앞선 시각에 머물러, 방금 준비한 참조가 수 시간 지난 것으로 보였다. 그동안 blob을 새로 등록하는 command가 모두 `invalid_input`으로 거절됐다: 사람 메시지(`SendMessage`), activation backup(`activation.record_backup`, 실패가 "the activation was interrupted"로 남았다), annotation 등.
+  후: writer가 준비 참조의 등록, prune, 등록 때의 수명 검사를 모두 자기 clock 하나로 잰다. core→writer의 `blob-prepared`·`blob-prune` 메시지에서 시각을 뺐다. 아무도 보내지 않던 `note-time` 메시지와 writer의 시각 밀기를 지웠다.
+  activation: 보호 backup을 ledger에 확정하지 못하면 실패 기록이 "the activation was interrupted"(`start_failed`) 대신 `backup_failed`와 "the data backup was not recorded: <거절 이유>"다.
+why: |
+  사람의 컴퓨터에서 부팅 때 시계가 약 8시간 앞서 있다가 고쳐진 뒤, 앱 release 두 개가 "interrupted"로 실패하고 모든 session에서 메시지가 보내지지 않았다.
+decisions:
+  - text: 준비 참조의 수명은 writer clock으로만 잰다. 버린 길은 writer clock을 뒤로 가게 두기(event `at` 순서가 깨진다)와 core 시각을 등록 검사까지 넘기기(transaction 안의 시각이 둘이 된다)다. writer clock이 앞선 시각에 머무는 동안 준비 참조는 늦게 만기되지만 core 쪽 준비 참조가 먼저 만기되므로 새로 쓰이지 않는다.
+    by: agent
+  - text: 회귀 test를 더하지 않았다. 재현에는 시스템 시계를 뒤로 돌리는 writer Worker test가 필요하다.
+    by: agent

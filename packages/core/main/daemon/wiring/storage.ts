@@ -48,7 +48,7 @@ export const storageWiring: WiringFactory = () => {
       const relay = blobRelayFor(
         ctx.io,
         ctx.clock,
-        (prepared, nowMs) => ctx.runtime.notePrepared(prepared, nowMs),
+        (prepared) => ctx.runtime.notePrepared(prepared),
         gauge,
       );
       ctx.provide("blobBuffer", gauge);
@@ -68,11 +68,11 @@ export const storageWiring: WiringFactory = () => {
       return ok({});
     },
     start(ctx) {
-      // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
+      // 준비 참조 수명 만기 prune. writer 메모리는 writer가 자기 clock으로 판정한다.
       // 파일 GC는 하지 않고 메모리 참조만 떨어뜨린다.
       pruneTimer = setInterval(() => {
         ctx.blobRelay.prune(ctx.clock.nowMs());
-        ctx.runtime.prunePrepared(ctx.clock.nowMs());
+        ctx.runtime.prunePrepared();
       }, 60_000);
       return Promise.resolve(ok(undefined));
     },

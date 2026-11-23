@@ -218,6 +218,38 @@ flows:
     refs: [W3, W5, E9]
     docs: [architecture/workflow.md]
 
+  - id: workflow-retry
+    title: "사람이 막힌 workflow step을 같은 session에서 이어서 다시 시도한다"
+    actor: person
+    entries: [route:workflows/retry]
+    uses: [route:workflow_instances/apply]
+    boundary: [core-api, workflows]
+    code: [packages/protocol/workflows/routes.ts]
+    steps:
+      - "running이면서 계산 상태가 blocked인 step인지 확인한다(아니면 conflict)"
+      - "retried 줄을 쓰고 기록된 같은 session에 이어서 하라는 입력을 넣는다(session이 열리기 전이면 넘기기를 다시 시도한다)"
+    outcomes:
+      - id: retried
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
+      - id: conflict
+        code: conflict
+        when: "instance가 stopped이거나 해당 step이 blocked 상태가 아님"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "instance나 step이 없음"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "입력을 넣거나 redaction을 끝내지 못함"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/workflow.md]
+
   - id: workflow-stop
     title: "사람이 instance를 멈춘다"
     actor: person

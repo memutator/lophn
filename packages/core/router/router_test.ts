@@ -121,6 +121,7 @@ function setup(
     membersOn: () => [],
     membersFrom: () => [],
     membersUnder: () => [],
+    setWorkflowOrigin: () => {},
     openMember: () => err({ code: "forbidden", message: "not in this test" }),
     open: (_tx, agent, _opener, spawnedBy) => {
       opened += 1;

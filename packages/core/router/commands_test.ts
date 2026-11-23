@@ -48,6 +48,7 @@ function world() {
         membersOn: () => [],
         membersFrom: () => [],
         membersUnder: () => [],
+        setWorkflowOrigin: () => {},
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () => ok(target(RECEIVER)),

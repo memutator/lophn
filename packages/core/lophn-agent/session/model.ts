@@ -290,6 +290,9 @@ export type AgentSessionRow = {
   opened_by_machine: string | null;
   // 다른 컴퓨터에 연 팀원의 행이면 그 기계(`mch_`). turn은 그 기계에서 돌고 이 행은 팀 tree의 자리다. 열 때 정해 바뀌지 않는다.
   runs_on: string | null;
+  // 이 session이 속한 workflow instance와 step(JSON `{ project, workflow, instance, step }`). workflow가 step을 넘길 때마다 갱신하고
+  // `team spawn` 자식은 열 때 부모 것을 이어받는다. 다른 열과 달리 열린 뒤에도 바뀐다.
+  workflow_origin: string | null;
   created_seq: string;
   state_seq: string;
 };
@@ -299,7 +302,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
   workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine, runs_on, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine, runs_on, workflow_origin, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -330,6 +333,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     opened_by_app: text(row["opened_by_app"]),
     opened_by_machine: text(row["opened_by_machine"]),
     runs_on: text(row["runs_on"]),
+    workflow_origin: text(row["workflow_origin"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };

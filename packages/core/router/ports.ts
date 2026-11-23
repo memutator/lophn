@@ -25,6 +25,7 @@ import type {
   InputDelivery,
   RoutedInputKind,
 } from "../../protocol/lophn-agent/inputs.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 
 // Router가 바깥에서 받는 것들이다. Router는 feature module을 import하지 않고,
@@ -123,6 +124,8 @@ export interface SessionDirectory {
   membersFrom(tx: Tx, machine: Id<"mch">): Id<"ses">[];
   // 그 session 밑에 연, 다른 컴퓨터에서 도는 팀원의 열린 자리.
   membersUnder(tx: Tx, parent: Id<"ses">): Id<"ses">[];
+  // workflow가 step을 넘길 때마다 받은 session의 workflow_origin을 갱신한다(session: same이면 step이 최신으로 바뀐다).
+  setWorkflowOrigin(tx: Tx, session: Id<"ses">, origin: WorkflowOrigin): void;
   // 기계를 건너는 project 정체(`pri_`)로 이 기계의 project를 찾는다. 없으면 null이다.
   projectOfIdentity(identity: string): Id<"prj"> | null;
   // 이 기계의 project(id나 정확한 이름)의 기계를 건너는 정체. 없는 project는 not_found, 정체가 없으면 null이다.

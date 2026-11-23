@@ -9,6 +9,7 @@ export {
 } from "./model.ts";
 export { createConversationCommands } from "./commands.ts";
 export { guiMemberSchemaSteps } from "./gui-member-schema.ts";
+export { workflowOriginSchemaSteps } from "./workflow-origin-schema.ts";
 export {
   createHarnessCommands,
   createHarnessInputTransport,

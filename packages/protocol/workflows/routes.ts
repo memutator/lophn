@@ -8,7 +8,10 @@ import {
   stepNameSchema,
   stepNextSchema,
   workflowKeySchema,
+  derivedStatusSchema,
+  workflowDataSchema,
   workflowNameSchema,
+  workflowRefsSchema,
   workflowStateSchema,
   workflowTextSchema,
 } from "./values.ts";
@@ -21,6 +24,7 @@ import {
   workflowInstanceSchema,
   workflowInstanceSummarySchema,
   workflowLineSchema,
+  workflowSessionNodeSchema,
 } from "./instances.ts";
 
 const instanceRef = { instance: idSchema("wfi") };
@@ -89,6 +93,9 @@ export const workflowReport = defineMemory({
     text: workflowTextSchema,
     next: stepNextSchema.optional(),
     session: sessionChoiceSchema.optional(),
+    // 산출물 경로(명시한 것만 모은다)와 선택적 구조화 값.
+    refs: workflowRefsSchema.optional(),
+    data: workflowDataSchema.optional(),
   }),
   output: z.object({
     line: seqSchema.nullable(),
@@ -110,6 +117,19 @@ export const workflowEdit = defineMemory({
     handed: handResultSchema.nullable(),
   }),
   actors: ["user", "agent"],
+  errors: [...readErrors, "conflict"],
+});
+
+// running이면서 계산 상태가 blocked인 step에만 된다(아니면 conflict). 기록된 같은 session에 이어서 하라는 입력을 넣는다.
+// session이 열리기 전(not_handed)이면 넘기기를 다시 한다. step을 빼면 current step이다. line은 retried 줄의 seq다.
+export const workflowRetry = defineMemory({
+  resource: "workflows",
+  method: "retry",
+  name: "RetryWorkflowStep",
+  changes: [],
+  input: z.strictObject({ ...instanceRef, step: stepNameSchema.optional() }),
+  output: z.object({ instance: workflowInstanceSchema, line: seqSchema }),
+  actors: ["user"],
   errors: [...readErrors, "conflict"],
 });
 
@@ -141,6 +161,10 @@ export const workflowInstanceRead = defineRead({
       lines: z.array(workflowLineSchema),
       // 다른 컴퓨터로 넘긴 step call마다 지금 상태(handed 줄의 remote.call로 잇는다).
       remote_steps: z.array(remoteStepSchema),
+      // 2a: 읽을 때 계산한 상태, 이 instance의 workflow_origin을 가진 session tree, report가 명시한 산출물 경로.
+      derived_status: derivedStatusSchema.optional(),
+      sessions: z.array(workflowSessionNodeSchema).optional(),
+      refs: workflowRefsSchema.optional(),
     }),
   ),
   reads: [{ name: "workflow_instances", id: (input) => input.instance }],
@@ -186,6 +210,7 @@ export const WORKFLOW_ROUTES = [
   workflowCheck,
   workflowReport,
   workflowEdit,
+  workflowRetry,
   workflowStop,
   workflowInstanceRead,
   workflowInstanceList,

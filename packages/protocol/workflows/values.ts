@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
 import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
 
 export const workflowNameSchema = z
@@ -76,5 +77,34 @@ export const WORKFLOW_LINE_KINDS = [
   "stopped",
   "lophn_restarted",
   "program_exited",
+  // 2a: 명시적 완료 없이 끝난 step, 사람의 [Retry], escalate 대기, 사람이 고른 최신 code 적용.
+  "step_stalled",
+  "retried",
+  "escalated",
+  "code_updated",
 ] as const;
 export type WorkflowLineKind = (typeof WORKFLOW_LINE_KINDS)[number];
+
+// 저장하지 않고 읽을 때 계산하는 상태다(저장 상태는 WORKFLOW_STATES 셋뿐이다).
+export const DERIVED_STATUSES = [
+  "working",
+  "needs_you",
+  "blocked",
+  "ended",
+  "stopped",
+] as const;
+export const derivedStatusSchema = z.enum(DERIVED_STATUSES);
+export type DerivedStatus = z.infer<typeof derivedStatusSchema>;
+
+// session이 속한 workflow instance와 step이다(`sessions.workflow_origin`). step을 넘길 때마다 갱신하고 team spawn 자식은 열 때 이어받는다.
+export const workflowOriginSchema = z.strictObject({
+  project: idSchema("prj"),
+  workflow: workflowNameSchema,
+  instance: idSchema("wfi"),
+  step: z.string().min(1),
+});
+export type WorkflowOrigin = z.infer<typeof workflowOriginSchema>;
+
+// 명시적으로 report한 산출물 경로 목록과 선택적 구조화 값이다. 경로는 lophn이 판정하지 않고 적힌 대로 둔다.
+export const workflowRefsSchema = z.array(z.string().min(1).max(1024)).max(100);
+export const workflowDataSchema = z.json();

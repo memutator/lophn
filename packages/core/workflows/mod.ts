@@ -17,6 +17,7 @@ export type {
   WorkflowTurns,
 } from "./ports.ts";
 export { createWorkflowReads } from "./reads.ts";
+export { workflowLinesSchemaSteps } from "./lines-schema.ts";
 export { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
 export { runningInstances } from "./store.ts";
 export {

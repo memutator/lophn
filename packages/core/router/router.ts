@@ -803,6 +803,9 @@ export function createRouter(deps: RouterDeps): Router {
     const delivered = transport.deliver(tx, target, inputOf(input, call));
     if (!delivered.ok) return delivered;
     const receiver = target.session;
+    if (input.kind === "step" && input.workflowOrigin) {
+      directory.setWorkflowOrigin(tx, receiver, input.workflowOrigin);
+    }
     if (call !== null && hasRow) {
       const record = newRecord(
         tx,

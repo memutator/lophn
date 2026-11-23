@@ -36,6 +36,7 @@ test("a stopped instance is not handed: report with next records the line only a
     db.exec(workflowsSchemaSteps[0]!.sql);
     const sql = createSql(db, () => true);
     const delivered: RoutedInput[] = [];
+    const origins: { session: string; step: string }[] = [];
     const tx = {
       sql,
       now: () => "2026-10-22T00:00:00.000Z",
@@ -50,6 +51,9 @@ test("a stopped instance is not handed: report with next records the line only a
         membersOn: () => [],
         membersFrom: () => [],
         membersUnder: () => [],
+        setWorkflowOrigin: (_tx, session, origin) => {
+          origins.push({ session, step: origin.step });
+        },
         openMember: () =>
           err({ code: "forbidden", message: "not in this test" }),
         open: () =>
@@ -136,6 +140,11 @@ test("a stopped instance is not handed: report with next records the line only a
     const before = report();
     assert.ok(before.ok && before.value.handed?.outcome === "handed");
     assert.deepStrictEqual(delivered.length, 2);
+    // 넘길 때마다 받은 session의 workflow_origin을 갱신한다(session: same이면 step만 바뀐다).
+    assert.deepStrictEqual(origins, [
+      { session: SES, step: "a" },
+      { session: SES, step: "b" },
+    ]);
 
     const stop = commands.apply.handle(
       tx,

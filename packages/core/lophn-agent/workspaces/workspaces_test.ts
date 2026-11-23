@@ -455,6 +455,38 @@ test("max_depth와 max_members를 넘는 spawn은 conflict이고 session이 남�
   assert.deepStrictEqual(count(), beforeFull);
 });
 
+// workflow_origin은 step을 넘길 때마다 바뀌고, team spawn 자식만 열 때 부모 것을 이어받는다(일반 call로 열린 session은 아니다).
+test("workflow_origin은 갱신되고 spawn 자식만 이어받는다", () => {
+  const { sql, tx, spawn } = teamWorld();
+  const directory = createSessionDirectory({ ...deps, sql: () => sql });
+  const origin = (step: string) => ({
+    project: PROJECT as never,
+    workflow: "demo",
+    instance: "wfi_00000000000000000000000001" as never,
+    step,
+  });
+  const originOf = (session: string) =>
+    sql.get("select workflow_origin from sessions where id = ?", [session])?.[
+      "workflow_origin"
+    ];
+  const root = String(spawn(null));
+  directory.setWorkflowOrigin(tx, root as never, origin("a"));
+  directory.setWorkflowOrigin(tx, root as never, origin("b"));
+  assert.deepStrictEqual(JSON.parse(String(originOf(root))).step, "b");
+
+  const child = String(spawn(root));
+  assert.deepStrictEqual(originOf(child), originOf(root));
+
+  const called = directory.open(
+    tx,
+    { agent: REVIEWER, workspace: null } as never,
+    { kind: "agent", session: root as never },
+    null,
+  );
+  assert.ok(called.ok);
+  assert.deepStrictEqual(originOf(called.value.session), null);
+});
+
 test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자식은 forbidden이다", () => {
   const { sql, tx, spawn } = teamWorld();
   const root = String(spawn(null));

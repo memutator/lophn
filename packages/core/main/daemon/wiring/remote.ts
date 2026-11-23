@@ -115,7 +115,11 @@ import {
 } from "../../../folder/schema.ts";
 import { OUTBOUND_CALLS_SCHEMA_STEPS } from "../../../apps/calls/outbound-schema.ts";
 import { providerMultiCredentialsSchemaSteps } from "../../../lophn-agent/providers/mod.ts";
-import { guiMemberSchemaSteps } from "../../../lophn-agent/session/mod.ts";
+import {
+  guiMemberSchemaSteps,
+  workflowOriginSchemaSteps,
+} from "../../../lophn-agent/session/mod.ts";
+import { workflowLinesSchemaSteps } from "../../../workflows/mod.ts";
 import {
   memberRunsOnSchemaSteps,
   remoteSenderMessagesSchemaSteps,
@@ -941,6 +945,8 @@ export function remoteWiring(
       ...memberRunsOnSchemaSteps,
       ...SYNC_LOG_DESTINATION_STEPS,
       ...FOLDER_DESTINATION_STEPS,
+      ...workflowOriginSchemaSteps,
+      ...workflowLinesSchemaSteps,
     ],
     dataSteps: [
       hostKeyMachineStep,

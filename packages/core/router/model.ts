@@ -14,6 +14,7 @@ import type {
 } from "../../protocol/lophn-agent/calls.ts";
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type { RoutedInput, TargetSession } from "./ports.ts";
 
@@ -41,6 +42,8 @@ export type RouteInput = {
   event?: string | null;
   // step이면 그 workflow instance와 step 이름.
   step?: { instance: Id<"wfi">; step: string } | null;
+  // 이 컴퓨터로 넘긴 step이면 받은 session에 적을 workflow_origin. 다른 컴퓨터에서 받은 step은 그 기계의 project id라 싣지 않는다.
+  workflowOrigin?: WorkflowOrigin | null;
   // notice면 그 종류.
   notice?: NoticeKind | null;
   // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.

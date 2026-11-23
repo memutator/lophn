@@ -127,6 +127,12 @@ export function createSessionDirectory(
         )
         .map((row) => String(row["id"]) as Id<"ses">);
     },
+    setWorkflowOrigin(tx, session, origin) {
+      tx.sql.run("update sessions set workflow_origin = ? where id = ?", [
+        JSON.stringify(origin),
+        session,
+      ]);
+    },
     membersUnder(tx, parent) {
       return tx.sql
         .all(

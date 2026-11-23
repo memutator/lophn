@@ -11,7 +11,9 @@ import {
   sessionChoiceSchema,
   stepNameSchema,
   stepNextSchema,
+  workflowDataSchema,
   workflowNameSchema,
+  workflowRefsSchema,
 } from "./values.ts";
 import {
   handResultSchema,
@@ -106,6 +108,8 @@ const changeSchema = z.discriminatedUnion("kind", [
     text: z.string().min(1),
     next: stepNextSchema.nullable(),
     session: sessionChoiceSchema,
+    refs: workflowRefsSchema.optional(),
+    data: workflowDataSchema.optional(),
   }),
   z.strictObject({ kind: z.literal("edit"), edit: workflowEditSchema }),
   z.strictObject({ kind: z.literal("stop") }),

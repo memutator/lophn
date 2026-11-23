@@ -1,0 +1,25 @@
+id: workflow-p2a-contract
+version: 0.23.134
+title: Workflow 2a 계약, schema step(workflow_origin·workflow_lines), step 넘김의 workflow_origin 기록·상속을 더한다
+modules:
+  - packages/protocol
+  - packages/core/lophn-agent
+  - packages/core/router
+  - packages/core/workflows
+change: |
+  - ledger schema step 둘을 `WIRINGS` 맨 뒤 wiring(`remote`)의 `schemaStepsAfterTeams` 끝과 `schema-steps.lock.json`에 덧붙인다.
+    - `lophn-agent.sessions.workflow-origin`: `sessions.workflow_origin` JSON 열과 `(workflow_origin ->> '$.instance')` partial index를 더한다(immutability trigger 없음).
+    - `workflows.lines-kinds`: `workflow_lines` 표를 다시 짜 `kind` check에 `step_stalled`, `retried`, `escalated`, `code_updated` 넷을 한 번에 더하고 index와 append-only trigger 둘(`workflow_lines_keep`, `workflow_lines_stay`)을 그대로 다시 세운다.
+  - `workflow_origin` 기록과 상속:
+    - 이 컴퓨터의 workflow step을 넘길 때마다(`handOff` → `Router.route` → `SessionDirectory.setWorkflowOrigin`) 같은 tx에서 `sessions.workflow_origin`을 `{ project, workflow, instance, step }`으로 기록·갱신한다(`session: same`이면 `step`이 최신으로 바뀐다). 다른 컴퓨터로 보내는 `--on` mail step에는 기록하지 않는다.
+    - `startSession`과 `startMemberSession`은 `spawnedBy`/`parent`가 있을 때 생성 시점의 부모 `workflow_origin`을 상속한다. `fork`와 일반 `agent call`은 상속하지 않는다.
+  - protocol 계약 확장:
+    - `workflowOriginSchema`, `derivedStatusSchema`, `workflowSessionNodeSchema`, `workflowRefsSchema`, `workflowDataSchema`, `workflowRetry`(`RetryWorkflowStep`)와 새 line kind 넷을 `packages/protocol/workflows`에 더하고, `ReadWorkflowInstance`·`ListWorkflowInstances`·`ReportWorkflow`에 선택 필드를 더한다.
+    - `tabOpenPayloadSchema`(`packages/protocol/lophn-agent/host-queue.ts`)에 선택적 `desk?: { workflow: string }`과 `group?: string`을 더한다.
+why: |
+  Workflow 2a의 병렬 구현(stall 감지·retry·reads 확장, UI, 탭 배치)이 공통으로 기대는 저장 schema, `workflow_origin` 정본 기록·상속, protocol 계약을 먼저 고정한다.
+decisions:
+  - text: "`workflow_lines`의 kind check에 2a의 `step_stalled`·`retried`뿐 아니라 후속 단계의 `escalated`·`code_updated`도 한 번에 더해 표 재구축 migration을 한 번으로 끝낸다. 버린 길: 단계마다 표를 두 번 다시 짜기."
+    by: agent
+  - text: "`workflow_origin` 쓰기는 `SessionDirectory.setWorkflowOrigin` port를 통해 `Router.route` 안에서 배달과 같은 tx에 넣는다(`workflows` module이 `sessions` 표를 직접 건드리지 않는다). 버린 길: `workflows/commands.ts`에서 `sessions` 표에 직접 SQL 실행."
+    by: agent

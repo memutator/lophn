@@ -134,6 +134,10 @@ const tabOpenPayloadSchema = z.strictObject({
   source: idSchema("ses").nullable(),
   // 그 탭의 주인 session이다. 없으면 사람의 탭이다.
   owner: idSchema("ses").optional(),
+  // workflow_origin이 있는 session의 탭은 실행 cwd와 무관하게 그 workflow의 desk에 연다.
+  desk: z.strictObject({ workflow: z.string().min(1) }).optional(),
+  // 같은 부모·step에서 병렬로 생긴 탭이 같은 묶음 key를 가지면 renderer가 한 탭 묶음으로 둔다.
+  group: z.string().min(1).optional(),
 });
 
 // browser 호출의 act 하나다. ref는 snapshot마다 새로 나고, 낡은 ref는 shell이 `conflict`로 답한다.

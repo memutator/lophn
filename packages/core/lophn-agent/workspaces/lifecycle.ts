@@ -136,8 +136,9 @@ export function startSession(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
        model_selection, skip, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine,
-       created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       workflow_origin, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+       (select workflow_origin from sessions where id = ?), ?, ?)`,
     [
       input.id,
       input.agent,
@@ -157,6 +158,8 @@ export function startSession(
       input.spawnedBy ?? null,
       input.openedByApp ?? null,
       input.openedByMachine ?? null,
+      // team spawn 자식은 부모의 workflow_origin을 열 때 이어받는다. fork와 일반 call은 spawnedBy가 없어 null이다.
+      input.spawnedBy ?? null,
       seq,
       seq,
     ],
@@ -194,8 +197,9 @@ export function startMemberSession(
   const id = input.workspace?.id ?? null;
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind, workspace_id, lifecycle,
-       spawned_by, runs_on, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
+       spawned_by, runs_on, workflow_origin, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, 'open', ?, ?,
+       (select workflow_origin from sessions where id = ?), ?, ?)`,
     [
       input.id,
       input.handle,
@@ -205,6 +209,7 @@ export function startMemberSession(
       id,
       input.parent,
       input.machine,
+      input.parent,
       seq,
       seq,
     ],

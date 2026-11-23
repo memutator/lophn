@@ -410,5 +410,13 @@
   {
     "id": "folder.destination",
     "sha256": "1e04bad70bb6172771ea2cfdd08dc652779b6aa5c3463d951c96d2cb07f76467"
+  },
+  {
+    "id": "lophn-agent.sessions.workflow-origin",
+    "sha256": "374042d4ba7a0ee30f0ef53fb124cda4c2833a6534cd55312e1ae4159ddfb789"
+  },
+  {
+    "id": "workflows.lines-kinds",
+    "sha256": "ce3c2a02ce5c8e23e7e5f1929c00f29e7832687e0e297ea4274d5476047dc6e6"
   }
 ]

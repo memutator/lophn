@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { manualClock } from "../../base/mod.ts";
 import { instanceFromRow, lineFromRow } from "./rows.ts";
+import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 
@@ -40,7 +41,11 @@ test("harness 참가자와 harness 이유가 저장된 행은 step 뒤 새 schem
       (
         await applyMigrations(
           path,
-          [...workflowsSchemaSteps, ...workflowsNoHarnessKindSteps],
+          [
+            ...workflowsSchemaSteps,
+            ...workflowsNoHarnessKindSteps,
+            ...workflowLinesSchemaSteps,
+          ],
           deps,
         )
       ).ok,
@@ -64,7 +69,19 @@ test("harness 참가자와 harness 이유가 저장된 행은 step 뒤 새 schem
         line.value.kind === "not_handed" && line.value.reason,
         "unresolved",
       );
+      // 표를 다시 짠 뒤에도 줄은 그대로고 새 kind 넷이 들어가며 append-only trigger 둘이 선다.
+      for (const [i, kind] of [
+        "step_stalled",
+        "retried",
+        "escalated",
+        "code_updated",
+      ].entries()) {
+        after.exec(
+          `insert into workflow_lines (instance, seq, at, kind, by) values ('${WFI}', ${i + 2}, '${AT}', '${kind}', '{"kind":"lophn"}')`,
+        );
+      }
       assert.throws(() => after.exec("update workflow_lines set step = 'x'"));
+      assert.throws(() => after.exec("delete from workflow_lines"));
     } finally {
       after.close();
     }

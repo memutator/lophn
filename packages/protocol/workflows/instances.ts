@@ -6,13 +6,17 @@ import {
   callStateSchema,
   mailDeliverySchema,
 } from "../lophn-agent/calls.ts";
+import { workspaceOutputSchema } from "../lophn-agent/workspaces.ts";
 import {
+  derivedStatusSchema,
   participantKeySchema,
   participantSchema,
   sessionChoiceSchema,
   stepNameSchema,
   stepNextSchema,
+  workflowDataSchema,
   workflowNameSchema,
+  workflowRefsSchema,
   workflowStateSchema,
   workflowTextSchema,
 } from "./values.ts";
@@ -221,6 +225,9 @@ export const reportLineSchema = line("report", lineBySchema, {
   text: z.string(),
   next: stepNextSchema.nullable(),
   session: sessionChoiceSchema,
+  // 옛 줄에는 없다.
+  refs: workflowRefsSchema.optional(),
+  data: workflowDataSchema.optional(),
 });
 export type ReportLine = z.infer<typeof reportLineSchema>;
 
@@ -265,9 +272,41 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
     code: z.number().int().nullable(),
     stderr_tail: z.string(),
   }),
+  // 명시적 완료(report) 없이 turn이 끝났고 열린 call도 없다. 넘김(attempt)당 한 번, 사람 step은 제외한다.
+  line("step_stalled", lophnBy, {
+    step: z.string(),
+    session: idSchema("ses").nullable(),
+  }),
+  // 사람의 [Retry]: 기록된 같은 session에 이어서 하라는 입력을 넣었다(session이 열리기 전이면 넘기기를 다시 했다).
+  line("retried", userBy, {
+    step: z.string().nullable(),
+    session: idSchema("ses").nullable(),
+  }),
+  // escalate: 사람의 판단을 기다린다.
+  line("escalated", lineBySchema, {
+    step: z.string().nullable(),
+    text: z.string(),
+  }),
+  // 사람이 [Resume with updated code]로 최신 flow code를 snapshot에 적용했다.
+  line("code_updated", userBy, {}),
 ]);
 export type WorkflowLine = z.infer<typeof workflowLineSchema>;
 export type HandedLine = Extract<WorkflowLine, { kind: "handed" }>;
+
+// instance의 `workflow_origin`을 가진 session 한 줄이다. parent로 session tree를 이룬다(spawned_by).
+export const workflowSessionNodeSchema = z.object({
+  session: idSchema("ses"),
+  parent: idSchema("ses").nullable(),
+  agent: z.string(),
+  workspace: workspaceOutputSchema.nullable(),
+  state: z.enum(["running", "waiting", "idle", "unknown"]),
+  waiting_for: z.enum(["approval", "question"]).nullable(),
+  // 마지막 assistant 텍스트의 앞 160자(redaction 적용, LLM 요약 아님). 없으면 null.
+  last_assistant_preview: z.string().nullable(),
+  // 마지막 turn이 실패했으면 redaction된 이유. 아니면 null.
+  last_error: z.string().nullable(),
+});
+export type WorkflowSessionNode = z.infer<typeof workflowSessionNodeSchema>;
 
 export const workflowEntrySchema = z
   .object({
@@ -317,6 +356,8 @@ export const workflowInstanceSummarySchema = z.object({
   created_at: atSchema,
   finished_at: atSchema.nullable(),
   last_line: workflowLineSchema.nullable(),
+  // 읽을 때 계산한 상태. 2a 읽기가 채운다.
+  derived_status: derivedStatusSchema.optional(),
 });
 export type WorkflowInstanceSummary = z.infer<
   typeof workflowInstanceSummarySchema

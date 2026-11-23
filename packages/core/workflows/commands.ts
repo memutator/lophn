@@ -137,6 +137,12 @@ function handOff(
     kind: "step",
     delivery: "next_turn",
     step: { instance: scope.instance as Id<"wfi">, step: plan.step },
+    workflowOrigin: {
+      project: scope.project as Id<"prj">,
+      workflow: scope.workflow,
+      instance: scope.instance as Id<"wfi">,
+      step: plan.step,
+    },
     unattended: true,
   });
   if (!routed.ok) return routed;
@@ -357,6 +363,8 @@ export function createWorkflowCommands(
               text: change.text,
               next: change.next,
               session: change.session,
+              ...(change.refs !== undefined ? { refs: change.refs } : {}),
+              ...(change.data !== undefined ? { data: change.data } : {}),
             });
             if (input.by.kind === "program") {
               // flow는 넘기지 않는다. stopped나 ended 뒤의 report는 줄만 남고 다시 running이 되지 않는다.

@@ -1,0 +1,32 @@
+id: workflow-p4-engine
+version: 0.23.153
+title: 통합 durable workflow core engine(checkpoint, code snapshot, restart reconcile/replay, ResumeWorkflow, StopWorkflow 연쇄, workflow() sub-workflow, YAML 내장 interpreter, AgentPrimitivePorts 배선)을 구현한다
+modules:
+  - packages/core/workflows
+  - packages/core/main
+  - packages/protocol
+  - packages/shell/main
+change: |
+  - **통합 선언 모드 판정(`declaration.ts`, `service.ts`)**: `kind` 칸을 무시하고 workflow 폴더에 `flow.ts`가 있는지 여부만으로 flow/YAML 축약형 모드를 결정한다. `flow.ts`가 없으면 `steps`가 비지 않아야 하며(`invalid_declaration`), `flow.ts`가 있으면 `steps`는 선택이다.
+  - **Checkpoint 저장·command·redaction(`checkpoints.ts`, `commands.ts`, `rows.ts`, `store.ts`, `register.ts`, `wiring/workflows.ts`)**:
+    - `UpsertWorkflowCheckpoint`(`workflow_checkpoints/upsert`) machine command를 구현·등록하고 `withStepText`에서 `output`·`error`를 `redactJsonValues`로 재귀 fail-closed redaction한다.
+    - `loadCheckpoints`, `loadChildInstances`, `CreateWorkflowInstance.code_snapshot` 저장(및 permanent `blob_refs` 등록), `ApplyWorkflowChange`의 `code_updated`·`escalated`·`handoff` 처리를 구현한다.
+  - **Code snapshot(`snapshot.ts`)**: workflow 폴더의 source 파일(`.ts`, `.js`, `.mjs`, `.json`, `.yaml`, `.md` 등, `artifacts/`·`node_modules/`·symlink 제외)을 `purpose: "workflow_snapshot"` content-addressed blob으로 고정해 결정론적 JSON manifest(`{ version: 1, files: [{ path, blob_id, size_bytes }] }`)를 만들고, `materializeSnapshot` 복원 helper를 제공한다.
+  - **Durable primitive 메서드(`service.ts`, `workflow-call.ts`, `wiring/workflows.ts`)**:
+    - `upsertCheckpoint`, `loadCheckpoints`, `runAgentCall`(2단계 checkpoint + `completed`/`failed`/`interrupted` 즉시 replay + `AgentPrimitivePorts` 실제 배선), `runHumanStep`(재시작 후 `started` idle human 재부착 + stall 제외), `runSubWorkflow`(같은 project 전용/`forbidden`, cycle·최대 중첩 깊이 5 `conflict`, `started_by: { kind: "workflow", instance }`, `AbortSignal` 취소), `escalate`를 구현한다.
+    - `wiring/workflows.ts`에서 `Router`, `countOpenOutgoingCalls`, `AGENT_CALL_SETTLED_TOPIC`(`withAfterCommit`), `TurnStarted`/`TurnEnded`/`StateChanged`, `workflow.report`, `turns.stopSession`, `clock`, 원격 `on`을 `AgentPrimitivePorts`로 연결한다.
+  - **YAML 내장 interpreter(`yaml-interpreter.ts`)**: `flow.ts` 없는 workflow가 넘김(`started`, human/agent 구분)·`report --next`(`completed`)·재시작(`interrupted`)·`RetryWorkflowStep`(`started` 복구)마다 `workflow_checkpoints`를 함께 기록한다.
+  - **재시작 `reconcile()` · `ResumeWorkflow` · `StopWorkflow` 연쇄(`service.ts`, `commands.ts`)**:
+    - 2단계 `reconcile()`로 pre-Phase-4 flow는 `lophn_restarted`(`blocked`)로 두고 replay하지 않으며, Phase-4 `started` checkpoint 중 idle `human`은 `started`(`needs_you`) 유지, `agent`·`tool`·끊긴 `human`은 `interrupted` + `lophn_restarted`(절대 자동 재실행 금지), `workflow`는 재부착 유지 후 `code_snapshot`이 있는 durable flow를 replay로 재기동한다.
+    - `ResumeWorkflow`(`workflows/resume`)를 연결해 `running` + `blocked` flow를 시작 snapshot 또는 `use_latest_code: true`(최신 snapshot 갱신 + `code_updated` 줄)로 replay 재기동한다.
+    - `StopWorkflow`가 실행 중인 모든 자식 sub-workflow instance, flow process, in-flight primitive, turn, 원격 step call을 연쇄 중지한다.
+  - **관측 & `_instance.json`(`reads.ts`, `shell/main/desktop/wiring/artifact.ts`)**: `ReadWorkflowInstance`와 `_instance.json`(4 MiB 상한 유지)에 `checkpoints`·`children`(자식별 `derived_status`)을 싣고 `deriveWorkflowStatus`에 `started` `human`(`needs_you`)과 미처리 `interrupted`(`blocked`)를 반영한다.
+why: |
+  Workflow Phase 4 통합 durable 실행 엔진의 core 규칙(checkpoint, code snapshot, 재시작 복구·replay, sub-workflow 조합, YAML 내장 interpreter, `ResumeWorkflow`, `StopWorkflow` 연쇄)을 한 곳에서 제공해 다음 단계(`flow-host` + `@lophn/flow` 2.0.0)가 바로 붙을 수 있게 하기 위해서다.
+decisions:
+  - text: "`ApplyWorkflowChange`의 `changeSchema`에 `escalated`와 `handoff` variant를 추가해 `escalate()`와 flow `agent()`/`human()`의 `workflow_origin` 갱신 넘기기를 새 route 추가 없이 기존 machine command와 `withStepText` redaction 관문 위에서 처리한다."
+    by: agent
+  - text: "`program_exited`는 정상 종료(`code === 0`)만 `ended`로 닫고 비정상 종료(`code !== 0` 또는 `null`)는 `running`을 유지해 `derived_status: blocked`와 `ResumeWorkflow` 재개가 가능하게 한다."
+    by: agent
+  - text: "`reconcile()`를 2단계(1단계: 모든 running instance의 checkpoint·`lophn_restarted` 확정, 2단계: `code_snapshot` 있는 flow 재기동)로 나눠 부모 flow가 재기동해 자식 sub-workflow에 재부착할 때 자식이 이미 정리돼 있도록 보장한다."
+    by: agent

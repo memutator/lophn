@@ -1,12 +1,17 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
+import {
   agentCards,
-  workspaceSessionRead,
+  messageBody,
   receivedMessageList,
   stopTurn,
   turnList,
   turnRead,
+  workspaceSessionRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
@@ -14,47 +19,70 @@ import type {
   Output,
 } from "../../../../protocol/server/mod.ts";
 import {
+  type HandoffPlan,
   type LineBy,
+  type WorkflowSoftOutput,
   workflowCheck,
+  workflowCheckpointUpsert,
   workflowEdit,
+  workflowFolder,
   workflowInstanceApply,
   workflowInstanceCreate,
   workflowInstanceRead,
   workflowList,
   workflowReport,
+  workflowResume,
   workflowRetry,
   workflowStart,
   workflowStop,
 } from "../../../../protocol/workflows/mod.ts";
-import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
-import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import {
+  type BodyPrepare,
+  prepareBytes,
+} from "../../../lophn-agent/session/message-body.ts";
 import { loadSession } from "../../../lophn-agent/session/model.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
+import {
+  AGENT_CALL_SETTLED_TOPIC,
+  type AgentCallSettledNotice,
+  callsStepReport,
+  countOpenOutgoingCalls,
+  remoteWorkspaceOf,
+} from "../../../router/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   type CommandEnvelope,
   type KnownSecretMatch,
   type Writer,
+  withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import {
+  type AgentCallsSettledEvent,
+  type AgentPrimitivePorts,
+  type AgentTurnEndedEvent,
+  type AgentTurnStartedEvent,
+  captureWorkflowSnapshot,
   createWorkflowService,
+  loadCheckpoints,
+  loadChildInstances,
+  mapTurnOutcomeToReason,
+  redactCheckpointPayload,
   remoteHandOf,
   runningInstances,
-  workflowsNoHarnessKindSteps,
   type WorkflowFlows,
+  type WorkflowOutcome,
   type WorkflowRemote,
+  type WorkflowSnapshots,
+  workflowsNoHarnessKindSteps,
 } from "../../../workflows/mod.ts";
 import { redactJsonValues } from "../../../workflows/plan.ts";
 import type { WorkflowAgents } from "../../../workflows/ports.ts";
-import {
-  DEFAULT_CALL_POLICY,
-  isPrivate,
-} from "../../../../protocol/lophn-agent/call-policy.ts";
-import { callPolicySetting } from "../../../config/setting-declarations.ts";
-import { callsStepReport, remoteWorkspaceOf } from "../../../router/mod.ts";
 import { checkWorkflow } from "../../flow-host/check.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { prepareTexts } from "./router.ts";
+import { turnAnswer } from "./turn-answer.ts";
 import { createWorkflowFiles } from "./workflows-files.ts";
 
 // workflow service가 상태를 읽고 쓰고 turn을 멈추는 core 안 machine 자격이다. step 메시지 본문 blob은 command를 부른
@@ -67,10 +95,12 @@ const WORKFLOWS_CONTEXT: AuthenticatedContext = {
     operations: [
       workflowInstanceCreate.name,
       workflowInstanceApply.name,
+      workflowCheckpointUpsert.name,
       workflowInstanceRead.name,
       agentCards.name,
       callsStepReport.name,
       receivedMessageList.name,
+      messageBody.name,
       turnRead.name,
       turnList.name,
       stopTurn.name,
@@ -91,8 +121,9 @@ const SOURCE = {
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
-// 시작 입력(text·inputs), report·hand_now·retried의 글, step_stalled 오류 글, report의 refs/data, step 메시지 본문을 redaction한다.
-// 줄의 글과 inputs_json에도 원문 secret이 남지 않게 같은 redactor를 지난다. 본문만 받는 session 기록에 들어가므로 call 본문처럼 blob으로 준비한다.
+// 시작 입력(text·inputs), report·hand_now·retried·escalated의 글, step_stalled 오류 글, report의 refs/data,
+// checkpoint의 output/error, step 메시지 본문을 재귀 fail-closed redaction한다.
+// 줄의 글과 inputs_json·checkpoint에도 원문 secret이 남지 않게 같은 redactor를 지난다.
 export function withStepText(
   writer: Writer,
   deps: {
@@ -105,7 +136,9 @@ export function withStepText(
     envelope: CommandEnvelope,
   ): Promise<Result<CommandEnvelope>> {
     const create = envelope.command === workflowInstanceCreate.name;
-    if (!create && envelope.command !== workflowInstanceApply.name) {
+    const applyCmd = envelope.command === workflowInstanceApply.name;
+    const upsertCp = envelope.command === workflowCheckpointUpsert.name;
+    if (!create && !applyCmd && !upsertCp) {
       return ok(envelope);
     }
     const redact = createProductRedactor(deps.known());
@@ -125,6 +158,31 @@ export function withStepText(
       }
       return done.value;
     };
+
+    if (upsertCp) {
+      const raw = envelope.input as Input<typeof workflowCheckpointUpsert>;
+      const redacted = redactCheckpointPayload(
+        {
+          ...(raw.output !== undefined ? { output: raw.output } : {}),
+          ...(raw.error !== undefined ? { error: raw.error } : {}),
+        },
+        (text) => redact(SOURCE, "text/plain", text),
+      );
+      if (!redacted.ok) return redacted;
+      return ok({
+        ...envelope,
+        input: {
+          ...raw,
+          ...(redacted.value.output !== undefined
+            ? { output: redacted.value.output }
+            : {}),
+          ...(redacted.value.error !== undefined
+            ? { error: redacted.value.error }
+            : {}),
+        },
+      });
+    }
+
     const bodies: string[] = [];
     const safeHandoff = <H extends { delivery: { body: string } | null }>(
       handoff: H,
@@ -188,6 +246,9 @@ export function withStepText(
             nextChange = { ...change, body };
           }
           break;
+        case "escalated":
+          nextChange = { ...change, text: safe(change.text) };
+          break;
       }
       input = {
         ...raw,
@@ -224,11 +285,40 @@ export function withStepText(
   };
 }
 
+function formatAgentStepBody(input: {
+  prompt: string;
+  input?: unknown;
+  schema?: Record<string, unknown>;
+}): string {
+  const sections = [input.prompt];
+  if (input.input !== undefined) {
+    sections.push(`Input:\n${JSON.stringify(input.input, null, 2)}`);
+  }
+  if (input.schema !== undefined) {
+    sections.push(`Output schema:\n${JSON.stringify(input.schema, null, 2)}`);
+  }
+  return sections.join("\n\n");
+}
+
 // 규칙은 workflows module의 service가 갖는다. 여기는 port를 core에 잇기만 한다.
 // router 뒤에 돈다: 켤 때 router가 돌던 turn을 닫은 뒤여야 끊긴 step을 알아본다(runs와 같다).
 export const workflowsWiring: WiringFactory = () => {
   let service: ReturnType<typeof createWorkflowService> | undefined;
   let unsubscribe: (() => void) | undefined;
+  const turnEndedListeners = new Set<(event: AgentTurnEndedEvent) => void>();
+  const turnStartedListeners = new Set<
+    (event: AgentTurnStartedEvent) => void
+  >();
+  const callsSettledListeners = new Set<
+    (event: AgentCallsSettledEvent) => void
+  >();
+  let readHelper:
+    | (<T>(
+        r: { resource: string; method: string },
+        input: unknown,
+      ) => Promise<Result<T>>)
+    | undefined;
+
   return {
     name: "workflows",
     schemaStepsAfterTeams: workflowsNoHarnessKindSteps,
@@ -259,6 +349,7 @@ export const workflowsWiring: WiringFactory = () => {
           WORKFLOWS_CONTEXT,
           input,
         )) as Result<T>;
+      readHelper = read;
 
       // 끝까지 cursor를 따라 모은다.
       async function readAll<T extends { next_cursor?: string | null }>(
@@ -365,12 +456,44 @@ export const workflowsWiring: WiringFactory = () => {
           return ok({ turn: found.turn as Id<"trn">, state, outcome });
         },
         openOutgoingCalls(session: Id<"ses">) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            countOpenOutgoingCalls(lookup, session),
+          );
+          return Promise.resolve(found);
+        },
+        isTurnRunning(session: Id<"ses">) {
+          const found = ledgerSnapshot(
+            ctx.ledgerPath,
+            (lookup) =>
+              lookup.sql.get(
+                "SELECT 1 AS found FROM turns WHERE session = ? AND state = 'running' LIMIT 1",
+                [session],
+              ) !== undefined,
+          );
+          return Promise.resolve(found);
+        },
+        lastTurn(session: Id<"ses">) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
             const row = lookup.sql.get(
-              "SELECT count(*) AS open FROM agent_calls WHERE from_session = ? AND state = 'accepted'",
+              `SELECT id, state, outcome_kind, outcome_reason
+               FROM turns WHERE session = ? ORDER BY rowid DESC LIMIT 1`,
               [session],
             );
-            return Number(row?.["open"] ?? 0);
+            if (row === undefined) return null;
+            const state = String(row["state"]) as "running" | "finished";
+            const kind = row["outcome_kind"];
+            const reason = row["outcome_reason"];
+            const outcome =
+              typeof kind === "string" && typeof reason === "string"
+                ? ({ kind, reason } as Output<
+                    typeof turnRead
+                  >["turn"]["outcome"])
+                : null;
+            return {
+              turn: String(row["id"]) as Id<"trn">,
+              state,
+              outcome,
+            };
           });
           return Promise.resolve(found);
         },
@@ -391,6 +514,11 @@ export const workflowsWiring: WiringFactory = () => {
             input,
             compare,
           ),
+        upsertCheckpoint: (input: Input<typeof workflowCheckpointUpsert>) =>
+          command<Output<typeof workflowCheckpointUpsert>>(
+            workflowCheckpointUpsert,
+            input,
+          ),
         async read(instance: Id<"wfi">) {
           const pages = await readAll<Output<typeof workflowInstanceRead>>(
             workflowInstanceRead,
@@ -406,6 +534,49 @@ export const workflowsWiring: WiringFactory = () => {
             runningInstances(lookup.sql),
           );
           return Promise.resolve(found.ok ? found.value : found);
+        },
+        checkpoints(instance: Id<"wfi">) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            loadCheckpoints(lookup.sql, instance),
+          );
+          return Promise.resolve(found.ok ? found.value : found);
+        },
+        children(parent: Id<"wfi">) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            loadChildInstances(lookup.sql, parent),
+          );
+          return Promise.resolve(found.ok ? found.value : found);
+        },
+      };
+
+      const snapshots: WorkflowSnapshots = {
+        async capture(project, workflow) {
+          const relay = ctx.peek.bodyPrepare;
+          if (relay === undefined) {
+            return err({
+              code: "unavailable",
+              message: "blob preparation is not available",
+            });
+          }
+          return await captureWorkflowSnapshot(
+            workflowFolder(ctx.root.path, project, workflow),
+            {
+              async put(bytes, purpose) {
+                const prepared = await prepareBytes(
+                  relay,
+                  WORKFLOWS_CONTEXT,
+                  purpose,
+                  bytes,
+                  "workflow snapshot",
+                );
+                if (!prepared.ok) return prepared;
+                return ok({
+                  hash: prepared.value,
+                  sizeBytes: bytes.byteLength,
+                });
+              },
+            },
+          );
         },
       };
 
@@ -547,9 +718,296 @@ export const workflowsWiring: WiringFactory = () => {
         store,
         flows,
         remote,
+        snapshots,
+        clock: ctx.clock,
         ids,
         logger: ctx.telemetry.logger,
       });
+
+      const agentPorts: AgentPrimitivePorts = {
+        async handOff(input) {
+          const plan: HandoffPlan = {
+            step: input.origin.step,
+            participant: input.agent.agent,
+            human_turn: input.human,
+            cause: "start",
+            session: input.session === undefined ? "new" : "same",
+            delivery: {
+              to:
+                input.session === undefined
+                  ? input.agent
+                  : {
+                      ...input.agent,
+                      session: input.session,
+                      fallback: "new",
+                    },
+              body: formatAgentStepBody(input),
+            },
+            unresolved: null,
+          };
+          const applied = await built.handOffStep({
+            instance: input.origin.instance as Id<"wfi">,
+            plan,
+          });
+          if (!applied.ok) {
+            return {
+              ok: false,
+              reason: applied.error.code,
+              message: applied.error.message,
+            };
+          }
+          const handed = applied.value.handed;
+          if (handed === null || handed.outcome !== "handed") {
+            return {
+              ok: false,
+              reason: "unavailable",
+              message:
+                handed?.outcome === "not_handed"
+                  ? handed.message
+                  : "step was not handed off",
+            };
+          }
+          if (handed.receiver === null) {
+            return {
+              ok: false,
+              reason: "internal",
+              message: "local handoff returned no receiver session",
+            };
+          }
+          return { ok: true, session: handed.receiver as Id<"ses"> };
+        },
+        async handOffRemote(
+          input,
+        ): Promise<WorkflowOutcome<WorkflowSoftOutput>> {
+          const originProject = input.origin.project as Id<"prj">;
+          const originInstance = input.origin.instance as Id<"wfi">;
+          if (remote.isPrivate(originProject)) {
+            return {
+              ok: false,
+              reason: "forbidden",
+              message:
+                "a private workspace does not hand steps to another computer",
+            };
+          }
+          const computer = remote.computer(input.on);
+          if (!computer.ok) {
+            return {
+              ok: false,
+              reason: computer.error.code,
+              message: computer.error.message,
+            };
+          }
+          const workspace = remote.workspace(
+            input.agent.workspace,
+            originProject,
+          );
+          if (!workspace.ok) {
+            return {
+              ok: false,
+              reason: workspace.error.code,
+              message: workspace.error.message,
+            };
+          }
+          const reuse =
+            input.session === "same"
+              ? (input.sameSession ?? undefined)
+              : input.session !== undefined && input.session !== "new"
+                ? input.session
+                : undefined;
+          const plan: HandoffPlan = {
+            step: input.origin.step,
+            participant: input.agent.agent,
+            human_turn: false,
+            cause: "start",
+            session: input.session === "same" ? "same" : "new",
+            delivery: {
+              remote: {
+                machine: computer.value.machine,
+                computer: computer.value.computer,
+                address:
+                  reuse === undefined
+                    ? { agent: input.agent.agent, workspace: workspace.value }
+                    : {
+                        agent: input.agent.agent,
+                        workspace: workspace.value,
+                        session: reuse,
+                        fallback: "new",
+                      },
+              },
+              body: formatAgentStepBody(input),
+            },
+            unresolved: null,
+          };
+          const applied = await built.handOffStep({
+            instance: input.origin.instance as Id<"wfi">,
+            plan,
+          });
+          if (!applied.ok) {
+            return {
+              ok: false,
+              reason: applied.error.code,
+              message: applied.error.message,
+            };
+          }
+          if (applied.value.handed?.outcome !== "handed") {
+            return {
+              ok: false,
+              reason: "unavailable",
+              message:
+                applied.value.handed?.outcome === "not_handed"
+                  ? applied.value.handed.message
+                  : "remote step handoff failed",
+            };
+          }
+          const handedLineSeq = Number(applied.value.line);
+          return await new Promise<WorkflowOutcome<WorkflowSoftOutput>>(
+            (resolve) => {
+              let settled = false;
+              const finish = (outcome: WorkflowOutcome<WorkflowSoftOutput>) => {
+                if (settled) return;
+                settled = true;
+                input.signal?.removeEventListener("abort", onAbort);
+                offReport();
+                offUpdate();
+                resolve(outcome);
+              };
+              const checkState = async () => {
+                const current = await store.read(originInstance);
+                if (!current.ok || settled) return;
+                for (const line of current.value.lines) {
+                  if (Number(line.seq) <= handedLineSeq) continue;
+                  if (
+                    line.kind === "report" &&
+                    line.step === input.origin.step &&
+                    line.by.kind === "remote"
+                  ) {
+                    finish({
+                      ok: true,
+                      result: {
+                        summary: line.text,
+                        ...(line.refs !== undefined ? { refs: line.refs } : {}),
+                        ...(line.data !== undefined ? { data: line.data } : {}),
+                      },
+                    });
+                    return;
+                  }
+                  if (
+                    line.kind === "not_handed" &&
+                    line.step === input.origin.step
+                  ) {
+                    finish({
+                      ok: false,
+                      reason: "unavailable",
+                      message: line.message,
+                    });
+                    return;
+                  }
+                }
+                if (current.value.instance.state === "stopped") {
+                  finish({
+                    ok: false,
+                    reason: "cancelled",
+                    message: "workflow instance was stopped",
+                  });
+                }
+              };
+              const onAbort = () => {
+                finish({
+                  ok: false,
+                  reason: "cancelled",
+                  message: "remote agent call cancelled",
+                });
+              };
+              if (input.signal !== undefined) {
+                if (input.signal.aborted) {
+                  onAbort();
+                  return;
+                }
+                input.signal.addEventListener("abort", onAbort, { once: true });
+              }
+              const offReport = built.subscribeReports((event) => {
+                if (
+                  event.instance === input.origin.instance &&
+                  event.step === input.origin.step
+                ) {
+                  finish({
+                    ok: true,
+                    result: {
+                      summary: event.summary,
+                      ...(event.refs !== undefined ? { refs: event.refs } : {}),
+                      ...(event.data !== undefined ? { data: event.data } : {}),
+                    },
+                  });
+                }
+              });
+              const offUpdate = ctx.bus.subscribe(
+                [{ types: ["StateChanged"] }],
+                {
+                  send(event) {
+                    if (event.type !== "StateChanged") return;
+                    if (
+                      event.payload.changes.some(
+                        (c) =>
+                          c.name === "workflow_instances" &&
+                          c.id === originInstance,
+                      )
+                    ) {
+                      void checkState();
+                    }
+                  },
+                  close() {},
+                },
+              );
+              void checkState();
+            },
+          );
+        },
+        async openOutgoingCalls(session) {
+          const res = await turns.openOutgoingCalls(session);
+          if (!res.ok) throw new Error(res.error.message);
+          return res.value;
+        },
+        subscribeTurnEnded(fn) {
+          turnEndedListeners.add(fn);
+          return () => {
+            turnEndedListeners.delete(fn);
+          };
+        },
+        subscribeTurnStarted(fn) {
+          turnStartedListeners.add(fn);
+          return () => {
+            turnStartedListeners.delete(fn);
+          };
+        },
+        subscribeCallsSettled(fn) {
+          callsSettledListeners.add(fn);
+          return () => {
+            callsSettledListeners.delete(fn);
+          };
+        },
+        subscribeReport(fn) {
+          return built.subscribeReports(fn);
+        },
+        async isTurnRunning(session) {
+          const res = await turns.isTurnRunning(session);
+          return res.ok ? res.value : false;
+        },
+        async stopSession(session) {
+          await turns.stopSession(session);
+        },
+        async onStalled(info) {
+          await built.recordStall({
+            instance: info.origin.instance as Id<"wfi">,
+            step: info.origin.step,
+            session: info.session,
+            ...(info.reason !== undefined ? { reason: info.reason } : {}),
+            ...(info.message !== undefined ? { message: info.message } : {}),
+          });
+        },
+        clock: ctx.clock,
+      };
+      built.setAgentPorts(agentPorts);
+
       service = built;
       ctx.provide("workflowService", built);
 
@@ -571,10 +1029,33 @@ export const workflowsWiring: WiringFactory = () => {
 
       return ok({
         writer: (inner) =>
-          withStepText(inner, {
-            relay: () => ctx.bodyPrepare,
-            known: () => ctx.knownSecrets,
-          }),
+          withAfterCommit(
+            withStepText(inner, {
+              relay: () => ctx.bodyPrepare,
+              known: () => ctx.knownSecrets,
+            }),
+            (actions) => {
+              if (callsSettledListeners.size === 0) return;
+              for (const action of actions) {
+                if (action.topic !== AGENT_CALL_SETTLED_TOPIC) continue;
+                const notice = action.data as AgentCallSettledNotice;
+                const event: AgentCallsSettledEvent = {
+                  session: notice.session,
+                  call: notice.call,
+                  state: notice.state,
+                  failReason: notice.fail_reason,
+                };
+                for (const fn of [...callsSettledListeners]) {
+                  try {
+                    fn(event);
+                  } catch {
+                    // ignore listener error
+                  }
+                }
+              }
+            },
+            ctx.telemetry.logger,
+          ),
         memory: [
           [
             route(workflowList),
@@ -606,6 +1087,7 @@ export const workflowsWiring: WiringFactory = () => {
           ],
           [route(workflowEdit), handler((i, who) => built.edit(i, byOf(who)))],
           [route(workflowRetry), handler((i) => built.retry(i))],
+          [route(workflowResume), handler((i) => built.resume(i))],
           [route(workflowStop), handler((i, who) => built.stop(i, byOf(who)))],
           [
             route(workflowCheck),
@@ -618,6 +1100,99 @@ export const workflowsWiring: WiringFactory = () => {
       });
     },
     async start(ctx) {
+      // TurnStarted·TurnEnded·StateChanged를 reconcile 전에 구독해 replay 중 도착하는 event를 놓치지 않는다.
+      unsubscribe = ctx.bus.subscribe(
+        [{ types: ["TurnStarted", "TurnEnded", "StateChanged"] }],
+        {
+          send(event) {
+            if (event.type === "StateChanged") {
+              for (const change of event.payload.changes) {
+                if (
+                  change.name === "workflow_instances" &&
+                  change.id !== null
+                ) {
+                  service!.notifyInstanceUpdated(change.id);
+                }
+              }
+              return;
+            }
+            if (event.type === "TurnStarted") {
+              if (turnStartedListeners.size === 0) return;
+              const startedEvent: AgentTurnStartedEvent = {
+                session: event.session as Id<"ses">,
+                turn: event.payload.turn as Id<"trn">,
+              };
+              for (const fn of [...turnStartedListeners]) {
+                try {
+                  fn(startedEvent);
+                } catch {
+                  // ignore
+                }
+              }
+              return;
+            }
+            if (event.type !== "TurnEnded") return;
+            void service!
+              .turnEnded({
+                session: event.session as Id<"ses">,
+                turn: event.payload.turn as Id<"trn">,
+                outcome: event.payload.outcome,
+                error: event.payload.error,
+              })
+              .catch((e) => {
+                ctx.telemetry.logger.error({
+                  component: "workflows",
+                  event: "stall_check_failed",
+                  fields: { error: String(e) },
+                });
+              });
+
+            if (turnEndedListeners.size === 0) return;
+            const session = event.session as Id<"ses">;
+            const turn = event.payload.turn as Id<"trn">;
+            const outcome = event.payload.outcome;
+            const status =
+              outcome.kind === "completed"
+                ? "completed"
+                : outcome.kind === "interrupted"
+                  ? "stopped"
+                  : "failed";
+            const errorReason =
+              outcome.kind === "completed"
+                ? undefined
+                : mapTurnOutcomeToReason(outcome, event.payload.error?.code);
+            const errorMessage =
+              outcome.kind === "completed"
+                ? undefined
+                : (event.payload.error?.message ??
+                  outcome.reason.replaceAll("_", " "));
+
+            void (async () => {
+              let lastAssistantText: string | null = null;
+              if (status === "completed" && readHelper !== undefined) {
+                const answer = await turnAnswer(readHelper, session, turn);
+                if (answer.ok) lastAssistantText = answer.value;
+              }
+              const endedEvent: AgentTurnEndedEvent = {
+                session,
+                turn,
+                status,
+                ...(errorReason !== undefined ? { errorReason } : {}),
+                ...(errorMessage !== undefined ? { errorMessage } : {}),
+                lastAssistantText,
+              };
+              for (const fn of [...turnEndedListeners]) {
+                try {
+                  fn(endedEvent);
+                } catch {
+                  // ignore
+                }
+              }
+            })();
+          },
+          close() {},
+        },
+      );
       try {
         await service!.reconcile();
       } catch (e) {
@@ -627,32 +1202,14 @@ export const workflowsWiring: WiringFactory = () => {
           fields: { error: String(e) },
         });
       }
-      // TurnEnded는 commit 뒤 Bus로 오므로 tx 밖이다(custom-reply와 같은 패턴).
-      unsubscribe = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
-        send(event) {
-          if (event.type !== "TurnEnded") return;
-          void service!
-            .turnEnded({
-              session: event.session as Id<"ses">,
-              turn: event.payload.turn as Id<"trn">,
-              outcome: event.payload.outcome,
-              error: event.payload.error,
-            })
-            .catch((e) => {
-              ctx.telemetry.logger.error({
-                component: "workflows",
-                event: "stall_check_failed",
-                fields: { error: String(e) },
-              });
-            });
-        },
-        close() {},
-      });
       return ok(undefined);
     },
     closeIntake() {
       unsubscribe?.();
       unsubscribe = undefined;
+      turnEndedListeners.clear();
+      turnStartedListeners.clear();
+      callsSettledListeners.clear();
     },
   };
 };

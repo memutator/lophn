@@ -1,6 +1,6 @@
-import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type Id, parseActor } from "../../protocol/base/mod.ts";
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -13,20 +13,88 @@ import {
   type NotHandedReason,
   type WorkflowEdit,
   type WorkflowInstance,
+  type WorkflowState,
+  workflowCheckpointUpsert,
   workflowInstanceApply,
   workflowInstanceCreate,
-  type WorkflowState,
 } from "../../protocol/workflows/mod.ts";
 import { FAILURE_TEXTS, type Router, routerFor } from "../router/mod.ts";
+import {
+  WORKFLOW_SNAPSHOT_BLOB_FIELD_NAME,
+  WORKFLOW_SNAPSHOT_BLOB_OWNER_KIND,
+  WORKFLOW_SNAPSHOT_BLOB_PURPOSE,
+} from "./checkpoint-schema.ts";
+import { upsertCheckpointRow } from "./checkpoints.ts";
 import { remoteCallsOf } from "./remote.ts";
 import type { NewLine } from "./rows.ts";
+import { EMPTY_FILE_SHA256, parseSnapshotManifest } from "./snapshot.ts";
 import {
   appendLine,
   type Current,
+  hasTable,
   insertInstance,
   loadInstance,
   updateInstance,
 } from "./store.ts";
+
+function registerSnapshotBlobRefs(
+  tx: Tx,
+  ctx: RequestContext,
+  instance: string,
+  manifestJson: string | null | undefined,
+): Result<void> {
+  if (
+    manifestJson === undefined ||
+    manifestJson === null ||
+    typeof tx.registerBlobRef !== "function" ||
+    !hasTable(tx.sql, "blob_refs")
+  ) {
+    return ok(undefined);
+  }
+  const parsed = parseSnapshotManifest(manifestJson);
+  if (!parsed.ok) return parsed;
+  const seen = new Set<string>();
+  for (const file of parsed.value.files) {
+    if (
+      file.size_bytes === undefined ||
+      file.size_bytes === 0 ||
+      file.blob_id === EMPTY_FILE_SHA256 ||
+      seen.has(file.blob_id)
+    ) {
+      continue;
+    }
+    seen.add(file.blob_id);
+    const exists = tx.sql.get(
+      `SELECT 1 AS found FROM blob_refs
+       WHERE owner_kind = ? AND owner_key = ? AND field = ? AND hash = ?`,
+      [
+        WORKFLOW_SNAPSHOT_BLOB_OWNER_KIND,
+        instance,
+        WORKFLOW_SNAPSHOT_BLOB_FIELD_NAME,
+        file.blob_id,
+      ],
+    );
+    if (exists !== undefined) continue;
+    const registered = tx.registerBlobRef({
+      owner_kind: WORKFLOW_SNAPSHOT_BLOB_OWNER_KIND,
+      owner_key: instance,
+      field: WORKFLOW_SNAPSHOT_BLOB_FIELD_NAME,
+      registered_seq: "1",
+      source: {
+        kind: "prepared",
+        blob: {
+          preparation: file.blob_id,
+          principal: ctx.principal,
+          purpose: WORKFLOW_SNAPSHOT_BLOB_PURPOSE,
+          hash: file.blob_id,
+          size_bytes: file.size_bytes,
+        },
+      },
+    });
+    if (!registered.ok) return registered;
+  }
+  return ok(undefined);
+}
 
 function fail(
   code: "forbidden" | "not_found" | "conflict",
@@ -240,6 +308,7 @@ export function createWorkflowCommands(
 ): {
   create: CommandDefinition<typeof workflowInstanceCreate>;
   apply: CommandDefinition<typeof workflowInstanceApply>;
+  upsertCheckpoint: CommandDefinition<typeof workflowCheckpointUpsert>;
 } {
   function finish(tx: Tx, scope: Scope): Result<WorkflowInstance> {
     const updated = updateInstance(tx.sql, scope.instance, scope.draft);
@@ -264,6 +333,13 @@ export function createWorkflowCommands(
         ) {
           return fail("conflict", "workflow instance id already exists");
         }
+        const registered = registerSnapshotBlobRefs(
+          tx,
+          ctx,
+          input.id,
+          input.code_snapshot,
+        );
+        if (!registered.ok) return registered;
         const at = tx.now();
         insertInstance(tx.sql, {
           id: input.id as Id<"wfi">,
@@ -271,6 +347,9 @@ export function createWorkflowCommands(
           workflow: input.workflow,
           input: input.input,
           ...(input.inputs !== undefined ? { inputs: input.inputs } : {}),
+          ...(input.code_snapshot !== undefined
+            ? { code_snapshot: input.code_snapshot }
+            : {}),
           participants: input.participants,
           steps: input.steps,
           current: null,
@@ -449,24 +528,26 @@ export function createWorkflowCommands(
             break;
           }
           case "program_exited": {
-            // 남은 참가자가 없어 아무도 이어 갈 수 없다. 이미 ended·stopped면 줄만 남는다.
+            // 정상 종료(code === 0)만 ended로 닫는다. 비정상 종료·미처리 예외는 running을 유지해 blocked + Resume 가능으로 둔다.
             line = addLine(scope, {
               kind: "program_exited",
               by: LOPHN,
               code: change.code,
               stderr_tail: change.stderr_tail,
             });
-            endDraft(scope);
+            if (change.code === 0) {
+              endDraft(scope);
+            }
             break;
           }
           case "flow_restarted": {
+            // 재시작으로 끊긴 flow instance는 lophn_restarted 줄을 남기고 running(blocked)으로 둔다.
             line = addLine(scope, {
               kind: "lophn_restarted",
               by: LOPHN,
               step: null,
               receiver: null,
             });
-            endDraft(scope);
             break;
           }
           case "step_stalled": {
@@ -538,6 +619,13 @@ export function createWorkflowCommands(
             if (stopped) {
               return fail("conflict", "workflow instance is stopped");
             }
+            const registered = registerSnapshotBlobRefs(
+              tx,
+              ctx,
+              input.instance,
+              change.code_snapshot,
+            );
+            if (!registered.ok) return registered;
             tx.sql.run(
               "UPDATE workflow_instances SET code_snapshot = ? WHERE id = ?",
               [change.code_snapshot, input.instance],
@@ -548,11 +636,65 @@ export function createWorkflowCommands(
             });
             break;
           }
+          case "escalated": {
+            if (stopped) {
+              return fail("conflict", "workflow instance is stopped");
+            }
+            line = addLine(scope, {
+              kind: "escalated",
+              by: input.by,
+              step: change.step,
+              text: change.text,
+            });
+            break;
+          }
+          case "handoff": {
+            if (stopped) {
+              return fail("conflict", "workflow instance is stopped");
+            }
+            if (plan === null) {
+              return fail("conflict", "handoff plan is required");
+            }
+            const done = hand();
+            if (!done.ok) return done;
+            const lastSeq = tx.sql.get(
+              "SELECT max(seq) AS seq FROM workflow_lines WHERE instance = ?",
+              [input.instance],
+            );
+            line = String(lastSeq?.["seq"] ?? 1);
+            break;
+          }
         }
         const instance = finish(tx, scope);
         return instance.ok
           ? ok({ instance: instance.value, line, handed })
           : instance;
+      },
+    },
+    upsertCheckpoint: {
+      route: workflowCheckpointUpsert,
+      handle(tx, ctx, input) {
+        if (notMachine(ctx)) {
+          return fail("forbidden", "only core writes a workflow checkpoint");
+        }
+        const loaded = loadInstance(tx.sql, input.instance);
+        if (!loaded.ok) return loaded;
+        if (loaded.value === null) {
+          return fail("not_found", "workflow instance not found");
+        }
+        const upserted = upsertCheckpointRow(tx.sql, {
+          instance: input.instance,
+          key: input.key,
+          kind: input.kind,
+          state: input.state,
+          ...(input.handle_ref !== undefined
+            ? { handle_ref: input.handle_ref }
+            : {}),
+          ...(input.output !== undefined ? { output: input.output } : {}),
+          ...(input.error !== undefined ? { error: input.error } : {}),
+          at: tx.now(),
+        });
+        return upserted.ok ? ok({ checkpoint: upserted.value }) : upserted;
       },
     },
   };

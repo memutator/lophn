@@ -51,9 +51,9 @@ const logger: Logger = {
   flush: () => Promise.resolve(),
 };
 
-// 켤 때 running인 flow instance를 닫는 것이 process를 다시 띄우면 바깥 효과가 두 번 난다.
-// agent instance는 handed 줄이 없을 뿐 건드리지 않는다.
-test("reconcile closes a running flow instance without launching again and leaves an agent instance alone", async () => {
+// 켤 때 code_snapshot과 checkpoint가 없는 pre-Phase-4 running flow instance는 replay하지 않고
+// lophn_restarted 줄을 남겨 blocked(running)로 둔다. agent instance는 handed 줄이 없을 뿐 건드리지 않는다.
+test("reconcile marks pre-Phase-4 running flow instance blocked without relaunching and leaves an agent instance alone", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(workflowsSchemaSteps[0]!.sql);
@@ -160,12 +160,8 @@ test("reconcile closes a running flow instance without launching again and leave
     const agentBefore = kinds(AGENT);
     await service.reconcile();
 
-    assert.deepStrictEqual(kinds(FLOW), [
-      "started",
-      "lophn_restarted",
-      "ended",
-    ]);
-    assert.deepStrictEqual(stateOf(FLOW), "ended");
+    assert.deepStrictEqual(kinds(FLOW), ["started", "lophn_restarted"]);
+    assert.deepStrictEqual(stateOf(FLOW), "running");
     assert.deepStrictEqual(kinds(AGENT), agentBefore);
     assert.deepStrictEqual(stateOf(AGENT), "running");
     assert.deepStrictEqual(launched, []);

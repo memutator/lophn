@@ -1,17 +1,19 @@
 import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
+import type { RemoteWorkspace } from "../../protocol/lophn-agent/calls.ts";
 import type { TurnOutcome } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
+import type { Input, Output } from "../../protocol/server/mod.ts";
 import type {
   CallableAgentOption,
+  SessionChoice,
+  WorkflowCheckpoint,
   WorkflowInstance,
+  workflowCheckpointUpsert,
   workflowInstanceApply,
   workflowInstanceCreate,
   workflowInstanceRead,
 } from "../../protocol/workflows/mod.ts";
-import type { Input, Output } from "../../protocol/server/mod.ts";
-import type { RemoteWorkspace } from "../../protocol/lophn-agent/calls.ts";
-import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
-import type { SessionChoice } from "../../protocol/workflows/mod.ts";
 
 // workflows 폴더의 하위 폴더 하나. declaration은 workflow.yaml의 글(없으면 null)이다.
 export type DefinitionFile = {
@@ -50,9 +52,13 @@ export type WorkflowTurns = {
   ): Promise<Result<StepTurn | null>>;
   // 그 session이 보낸 열린(accepted) agent_calls 개수. worker 응답을 기다리는 중에는 stall로 보지 않는다.
   openOutgoingCalls(session: Id<"ses">): Promise<Result<number>>;
+  // 선택: 그 session의 가장 최근 turn 상태(재시작 시 human step turn이 끊겼는지 판별하는 데 쓴다).
+  lastTurn?(session: Id<"ses">): Promise<Result<StepTurn | null>>;
+  // 선택: 그 session에 실행 중인 turn이 있는지.
+  isTurnRunning?(session: Id<"ses">): Promise<Result<boolean>>;
 };
 
-// 두 command를 machine 자격으로 부른다.
+// 세 command를 machine 자격으로 부른다.
 export type WorkflowStore = {
   create(
     input: Input<typeof workflowInstanceCreate>,
@@ -67,6 +73,17 @@ export type WorkflowStore = {
   ): Promise<Result<Output<typeof workflowInstanceRead>>>;
   // 모든 project의 running instance.
   running(): Promise<Result<WorkflowInstance[]>>;
+  // Phase 4: durable checkpoint 저장·조회 및 직계 자식 sub-workflow 조회(선택적 — 옛 test fake 호환).
+  upsertCheckpoint?(
+    input: Input<typeof workflowCheckpointUpsert>,
+  ): Promise<Result<Output<typeof workflowCheckpointUpsert>>>;
+  checkpoints?(instance: Id<"wfi">): Promise<Result<WorkflowCheckpoint[]>>;
+  children?(parent: Id<"wfi">): Promise<Result<WorkflowInstance[]>>;
+};
+
+// flow 폴더 source를 content-addressed blob으로 고정해 manifest JSON을 만든다.
+export type WorkflowSnapshots = {
+  capture(project: Id<"prj">, workflow: string): Promise<Result<string>>;
 };
 
 // 다른 컴퓨터의 참가자. 구현은 workflows wiring이 명단(machine links), call 정책, Router의 mail 명령으로 끼운다.
@@ -114,6 +131,9 @@ export type WorkflowFlows = {
     inputs?: Record<string, unknown>;
     // flow의 앱 tool 호출을 맡는 agent 이름(선언의 agent, 없으면 lophn).
     agent: string;
+    // Phase 4 durable replay: 저장된 checkpoint 목록과 고정 code snapshot manifest.
+    checkpoints?: WorkflowCheckpoint[];
+    codeSnapshot?: string | null;
   }): Promise<Result<void>>;
   // process를 죽이고 그 instance가 연 run을 취소한다. process가 없으면 ok.
   stop(instance: Id<"wfi">): Promise<Result<void>>;

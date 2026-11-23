@@ -1,11 +1,21 @@
 import { z } from "zod";
-import { defineCommand } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
+import { defineCommand } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
-import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import { remoteAddressSchema } from "../lophn-agent/calls.ts";
 import { mailSchema } from "../lophn-agent/mail.ts";
+import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import { workflowInputValuesSchema } from "./inputs.ts";
+import {
+  handResultSchema,
+  instanceStepSchema,
+  lineBySchema,
+  notHandedReasonSchema,
+  startedBySchema,
+  workflowCheckpointSchema,
+  workflowEditSchema,
+  workflowInstanceSchema,
+} from "./instances.ts";
 import {
   participantKeySchema,
   participantSchema,
@@ -19,16 +29,6 @@ import {
   workflowOutcomeErrorSchema,
   workflowRefsSchema,
 } from "./values.ts";
-import {
-  handResultSchema,
-  instanceStepSchema,
-  lineBySchema,
-  notHandedReasonSchema,
-  startedBySchema,
-  workflowCheckpointSchema,
-  workflowEditSchema,
-  workflowInstanceSchema,
-} from "./instances.ts";
 
 // 받는 곳. CallAddressInput에 대입된다(맨 `{session}` 꼴은 plan이 만들지 않는다).
 const deliveryToSchema = z.union([
@@ -154,6 +154,16 @@ const changeSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("code_updated"),
     code_snapshot: z.string().min(1),
+  }),
+  // flow 또는 engine이 사람의 판단을 요청한다(escalated 줄 → derived_status: needs_you).
+  z.strictObject({
+    kind: z.literal("escalated"),
+    step: z.string().nullable(),
+    text: z.string().min(1),
+  }),
+  // durable flow의 agent()/human() 호출이 step 메시지와 workflow_origin을 session에 넘긴다.
+  z.strictObject({
+    kind: z.literal("handoff"),
   }),
 ]);
 

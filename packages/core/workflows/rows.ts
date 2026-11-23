@@ -1,8 +1,10 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  type WorkflowCheckpoint,
   type WorkflowInstance,
-  workflowInstanceSchema,
   type WorkflowLine,
+  workflowCheckpointSchema,
+  workflowInstanceSchema,
   workflowLineSchema,
 } from "../../protocol/workflows/mod.ts";
 
@@ -18,6 +20,10 @@ export function instanceFromRow(
       return err({ code: "internal", message: "invalid stored workflow" });
     }
   }
+  const codeSnapshot =
+    typeof row.code_snapshot === "string" && row.code_snapshot.length > 0
+      ? row.code_snapshot
+      : undefined;
   const parsed = workflowInstanceSchema.safeParse({
     id: row.id,
     project: row.project,
@@ -32,6 +38,7 @@ export function instanceFromRow(
         ? null
         : { step: row.current_step, human_turn: Number(row.human_turn) === 1 },
     started_by: JSON.parse(String(row.started_by)),
+    ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
     created_at: row.created_at,
     finished_at: row.finished_at,
     state_seq: String(row.state_seq),
@@ -39,6 +46,56 @@ export function instanceFromRow(
   return parsed.success
     ? ok(parsed.data)
     : err({ code: "internal", message: "invalid stored workflow" });
+}
+
+export function checkpointFromRow(
+  row: Record<string, unknown>,
+): Result<WorkflowCheckpoint> {
+  let output: unknown = null;
+  if (row.output_json !== undefined && row.output_json !== null) {
+    try {
+      output = JSON.parse(String(row.output_json));
+    } catch {
+      return err({
+        code: "internal",
+        message: "invalid stored workflow checkpoint",
+      });
+    }
+  }
+  let error: unknown = null;
+  if (row.error_json !== undefined && row.error_json !== null) {
+    try {
+      error = JSON.parse(String(row.error_json));
+    } catch {
+      return err({
+        code: "internal",
+        message: "invalid stored workflow checkpoint",
+      });
+    }
+  }
+  const parsed = workflowCheckpointSchema.safeParse({
+    instance: row.instance,
+    key: row.key,
+    kind: row.kind,
+    state: row.state,
+    handle_ref:
+      row.handle_ref === undefined || row.handle_ref === null
+        ? null
+        : String(row.handle_ref),
+    output,
+    error,
+    started_at: row.started_at,
+    finished_at:
+      row.finished_at === undefined || row.finished_at === null
+        ? null
+        : String(row.finished_at),
+  });
+  return parsed.success
+    ? ok(parsed.data)
+    : err({
+        code: "internal",
+        message: "invalid stored workflow checkpoint",
+      });
 }
 
 // kind에 없는 칸은 schema가 버린다(step은 ended·stopped에 없고 text는 report·started만 쓴다).

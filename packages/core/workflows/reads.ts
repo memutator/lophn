@@ -14,6 +14,8 @@ import type {
 import {
   type DerivedStatus,
   type RemoteStep,
+  type WorkflowCheckpoint,
+  type WorkflowChildSummary,
   type WorkflowInstance,
   type WorkflowSessionNode,
   type WorkflowState,
@@ -26,6 +28,7 @@ import { bodyContentOf } from "../lophn-agent/session/mod.ts";
 import { sessionStateOf } from "../lophn-agent/session/state.ts";
 import { objectPathFor } from "../storage/blobs/mod.ts";
 import { KNOWN_SECRETS, type KnownSecretMatch } from "../storage/ledger/mod.ts";
+import { loadCheckpoints } from "./checkpoints.ts";
 import { remoteStepsOf } from "./remote.ts";
 import {
   hasActivity,
@@ -37,6 +40,7 @@ import {
   lastReports,
   lastStatusLineKind,
   listInstances,
+  loadChildInstances,
   loadInstance,
   loadInstanceSessions,
   loadLines,
@@ -89,13 +93,14 @@ export function truncatePreview(text: string, max = PREVIEW_MAX_CHARS): string {
   return `${flat.slice(0, end)}…`;
 }
 
-// 저장 상태(running|ended|stopped)와 줄·연결 세션·원격 step 상태에서 계산 상태(derived_status)를 구한다.
+// 저장 상태(running|ended|stopped)와 줄·checkpoint·연결 세션·원격 step 상태에서 계산 상태(derived_status)를 구한다.
 export function deriveWorkflowStatus(input: {
   state: WorkflowState;
   current: WorkflowInstance["current"];
   latestStatusLine: StatusLineKind | null;
   sessions: readonly Pick<WorkflowSessionNode, "waiting_for">[];
   remoteSteps: readonly Pick<RemoteStep, "delivery">[];
+  checkpoints?: readonly Pick<WorkflowCheckpoint, "kind" | "state">[];
 }): DerivedStatus {
   if (input.state === "ended") return "ended";
   if (input.state === "stopped") return "stopped";
@@ -108,9 +113,27 @@ export function deriveWorkflowStatus(input: {
   ) {
     return "blocked";
   }
+  const checkpoints = input.checkpoints ?? [];
+  let lastInterruptedIdx = -1;
+  for (let i = checkpoints.length - 1; i >= 0; i--) {
+    if (checkpoints[i]!.state === "interrupted") {
+      lastInterruptedIdx = i;
+      break;
+    }
+  }
+  if (lastInterruptedIdx >= 0) {
+    // 이후 새 checkpoint가 시작·완료됐거나 사용자가 retried/escalated/report로 진행시켰으면 미처리 중단이 아니다.
+    const progressedAfter =
+      checkpoints.length - 1 > lastInterruptedIdx ||
+      input.latestStatusLine === "retried" ||
+      input.latestStatusLine === "report" ||
+      input.latestStatusLine === "escalated";
+    if (!progressedAfter) return "blocked";
+  }
   if (
     input.latestStatusLine === "escalated" ||
     input.current?.human_turn === true ||
+    checkpoints.some((cp) => cp.kind === "human" && cp.state === "started") ||
     input.remoteSteps.some((step) => step.delivery === "held")
   ) {
     return "needs_you";
@@ -242,6 +265,39 @@ function hasWaitingSession(sql: Query, instance: string): boolean {
   return false;
 }
 
+function deriveSummaryStatus(
+  sql: Query,
+  instance: WorkflowInstance,
+): DerivedStatus {
+  if (instance.state === "ended" || instance.state === "stopped") {
+    return instance.state;
+  }
+  const waiting = hasWaitingSession(sql, instance.id);
+  const latestStatusLine = waiting
+    ? null
+    : lastStatusLineKind(sql, instance.id);
+  const checkpointsLoaded = loadCheckpoints(sql, instance.id);
+  const checkpoints = checkpointsLoaded.ok ? checkpointsLoaded.value : [];
+  const remoteSteps =
+    waiting ||
+    latestStatusLine === "step_stalled" ||
+    latestStatusLine === "not_handed" ||
+    latestStatusLine === "lophn_restarted" ||
+    latestStatusLine === "program_exited" ||
+    latestStatusLine === "escalated" ||
+    instance.current?.human_turn === true
+      ? []
+      : remoteStepsOf(sql, instance.id);
+  return deriveWorkflowStatus({
+    state: instance.state,
+    current: instance.current,
+    latestStatusLine,
+    sessions: waiting ? [{ waiting_for: "approval" }] : [],
+    remoteSteps,
+    checkpoints,
+  });
+}
+
 export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
   read: ReadDefinition<typeof workflowInstanceRead>;
   list: ReadDefinition<typeof workflowInstanceList>;
@@ -274,6 +330,23 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
           limit: LINES + 1,
         });
         if (!loaded.ok) return loaded;
+        const checkpointsLoaded = loadCheckpoints(snapshot.sql, input.instance);
+        if (!checkpointsLoaded.ok) return checkpointsLoaded;
+        const childInstancesLoaded = loadChildInstances(
+          snapshot.sql,
+          input.instance,
+        );
+        if (!childInstancesLoaded.ok) return childInstancesLoaded;
+        const children: WorkflowChildSummary[] = childInstancesLoaded.value.map(
+          (child) => ({
+            instance: child.id,
+            workflow: child.workflow,
+            state: child.state,
+            derived_status: deriveSummaryStatus(snapshot.sql, child),
+            started_at: child.created_at,
+            ended_at: child.finished_at,
+          }),
+        );
         const lines = loaded.value.slice(0, LINES);
         const remoteSteps = remoteStepsOf(snapshot.sql, input.instance);
         const sessions = buildSessionNodes(snapshot, input.instance, deps);
@@ -287,6 +360,7 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
               : null,
           sessions,
           remoteSteps,
+          checkpoints: checkpointsLoaded.value,
         });
         return ok({
           instance: found.value,
@@ -296,6 +370,8 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
           derived_status: derivedStatus,
           sessions,
           refs,
+          checkpoints: checkpointsLoaded.value,
+          children,
           as_of_seq: snapshot.as_of_seq,
           next_cursor:
             loaded.value.length > LINES ? lines[lines.length - 1]!.seq : null,
@@ -318,32 +394,7 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
         for (const instance of page) {
           const last = lastLine(snapshot.sql, instance.id);
           if (!last.ok) return last;
-          let derivedStatus: DerivedStatus;
-          if (instance.state === "ended" || instance.state === "stopped") {
-            derivedStatus = instance.state;
-          } else {
-            const waiting = hasWaitingSession(snapshot.sql, instance.id);
-            const latestStatusLine = waiting
-              ? null
-              : lastStatusLineKind(snapshot.sql, instance.id);
-            const remoteSteps =
-              waiting ||
-              latestStatusLine === "step_stalled" ||
-              latestStatusLine === "not_handed" ||
-              latestStatusLine === "lophn_restarted" ||
-              latestStatusLine === "program_exited" ||
-              latestStatusLine === "escalated" ||
-              instance.current?.human_turn === true
-                ? []
-                : remoteStepsOf(snapshot.sql, instance.id);
-            derivedStatus = deriveWorkflowStatus({
-              state: instance.state,
-              current: instance.current,
-              latestStatusLine,
-              sessions: waiting ? [{ waiting_for: "approval" }] : [],
-              remoteSteps,
-            });
-          }
+          const derivedStatus = deriveSummaryStatus(snapshot.sql, instance);
           instances.push({
             id: instance.id,
             project: instance.project,

@@ -1032,6 +1032,13 @@ files:
       - workflow-stop:stopped
     note: 멈춘 instance는 넘기지 않고 줄만 남는다
 
+  - path: packages/core/workflows/durable_test.ts
+    covers:
+      - workflow-checkpoint-upsert:upserted
+      - workflow-resume:resumed
+      - workflow-resume:conflict
+    note: "통합 durable workflow engine 단위 test: completed/failed checkpoint replay(agent 재호출 없음), started human 재부착, reconcile의 agent/tool interrupted vs idle human started(needs_you), ResumeWorkflow(use_latest_code: true의 code_snapshot 갱신·code_updated 줄·checkpoint 유지), code snapshot capture/materialize, workflow() sub-workflow(같은 project, cross-project forbidden, cycle/depth>5 conflict, StopWorkflow 연쇄 중지), fail-closed checkpoint redaction, YAML 내장 interpreter checkpoint 기록과 flow.ts 단일 모드 판정"
+
   - path: packages/core/workflows/event-subscriptions_test.ts
     covers: []
     note: "flow onEvent 비영속 메모리 구독 registry(createFlowEventRegistry): 도달 범위(mayReachWorkspace), 자기 workflow instance 인과 사슬 제외, 비사람·자동화 session 제외, unsubscribe·unsubscribeInstance 정리, listener 오류 격리를 본다"

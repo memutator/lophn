@@ -33,7 +33,7 @@ export function createLedgerRegistration(
   return {
     schemaSteps: workflowsSchemaSteps,
     blobFields: [WORKFLOW_SNAPSHOT_BLOB_FIELD],
-    commands: [commands.create, commands.apply],
+    commands: [commands.create, commands.apply, commands.upsertCheckpoint],
     reads: [reads.read, reads.list, reads.activity],
     memoryRoutes: [
       workflowList,

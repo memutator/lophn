@@ -7,8 +7,8 @@ import {
   type Participant,
   validateInputDeclaration,
   type WorkflowDeclaration,
-  workflowDeclarationSchema,
   type WorkflowEntry,
+  workflowDeclarationSchema,
 } from "../../protocol/workflows/mod.ts";
 import type { DefinitionFile } from "./ports.ts";
 
@@ -69,17 +69,9 @@ export function parseDeclaration(file: DefinitionFile): ParsedDeclaration {
       };
     }
   }
-  const isFlow = file.flow || shaped.data.kind === "flow";
+  // 실행 모드는 오직 flow.ts 존재 여부로 결정한다(옛 YAML의 kind 칸은 무시한다).
+  const isFlow = file.flow;
   if (!isFlow) {
-    if (shaped.data.participants === undefined) {
-      return {
-        ok: false,
-        problem: {
-          reason: "invalid_declaration",
-          message: "participants: required",
-        },
-      };
-    }
     const steps = shaped.data.steps;
     if (steps === undefined || Object.keys(steps).length === 0) {
       return {
@@ -87,6 +79,15 @@ export function parseDeclaration(file: DefinitionFile): ParsedDeclaration {
         problem: {
           reason: "invalid_declaration",
           message: "steps: steps needs at least one step",
+        },
+      };
+    }
+    if (shaped.data.participants === undefined) {
+      return {
+        ok: false,
+        problem: {
+          reason: "invalid_declaration",
+          message: "participants: required",
         },
       };
     }
@@ -180,17 +181,18 @@ export function entryOf(
       ? { outputs: declaration.outputs }
       : {}),
   };
-  if (file.flow || declaration.kind === "flow") {
+  if (file.flow) {
     return {
       ...base,
       state: "ok",
       kind: "flow",
-      startable: file.flow,
-      problem: file.flow
-        ? null
-        : { reason: "no_flow_file", message: "flow.ts is missing" },
+      startable: true,
+      problem: null,
       ...io,
-      participants: null,
+      participants:
+        declaration.participants !== undefined
+          ? participantsOf(declaration)
+          : null,
       steps: flowStepsOf(declaration).map((s) => ({
         name: s.name,
         by: s.by,

@@ -1,38 +1,38 @@
 // artifact 탭: 봉한 partition의 `<webview>` guest 목록과 renderer IPC. 위치·보임은 renderer CSS이고,
 // 붙이기 판정은 browser의 combined `will-attach-webview` handler에 resolver로 넣는다.
-import { app } from "electron";
+
 import { randomUUID } from "node:crypto";
 import { watch } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-
+import { app } from "electron";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { artifactsFolder } from "../../../../protocol/projects/artifact.ts";
 import {
   ARTIFACT_EVENT_CHANNEL,
   ARTIFACT_STATE_CHANNEL,
 } from "../../../ipc/artifact.ts";
-import { createActivation } from "../../browser/activation.ts";
 import {
   createArtifactIpc,
   registerArtifactIpc,
   removeArtifactIpc,
 } from "../../artifact/artifact-ipc.ts";
 import { deleteArtifactFolder } from "../../artifact/delete.ts";
-import { electronArtifactViews } from "../../artifact/electron-view.ts";
 import { electronArtifactSession } from "../../artifact/electron-session.ts";
+import { electronArtifactViews } from "../../artifact/electron-view.ts";
 import { listArtifacts } from "../../artifact/list.ts";
 import { ARTIFACT_MAX_BYTES } from "../../artifact/paths.ts";
 import {
   type ArtifactViews,
   createArtifactViews,
 } from "../../artifact/registry.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
-import { artifactsFolder } from "../../../../protocol/projects/artifact.ts";
 import { createRemoteArtifacts } from "../../artifact/remote.ts";
 import { createArtifactRoots } from "../../artifact/roots.ts";
 import { createArtifactServer } from "../../artifact/serve.ts";
 import { sealArtifactSession } from "../../artifact/session.ts";
 import { nodeArtifactFs, resolveSource } from "../../artifact/source.ts";
 import { watchFolder } from "../../artifact/watch.ts";
+import { createActivation } from "../../browser/activation.ts";
 import type { BrowserWiring } from "./browser.ts";
 import { changedIds, type Registered, type ShellContext } from "./context.ts";
 
@@ -81,16 +81,20 @@ export function register(
           instance: state,
           last_reports,
           derived_status,
+          checkpoints,
           sessions,
           refs,
+          children,
         } = page as Record<string, unknown>;
         const json = JSON.stringify({
           instance: state,
           derived_status,
           last_reports,
           lines,
+          checkpoints,
           sessions,
           refs,
+          children,
         });
         return Buffer.byteLength(json, "utf8") > ARTIFACT_MAX_BYTES
           ? null

@@ -73,6 +73,7 @@ export function insertInstance(
     workflow: string;
     input: string;
     inputs?: Record<string, unknown>;
+    code_snapshot?: string | null;
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
@@ -80,47 +81,46 @@ export function insertInstance(
     created_at: string;
   },
 ): void {
+  const cols = [
+    "id",
+    "project",
+    "workflow",
+    "input",
+    "state",
+    "participants",
+    "steps",
+    "current_step",
+    "human_turn",
+    "started_by",
+    "created_at",
+    "state_seq",
+  ];
+  const values: (string | number | null)[] = [
+    instance.id,
+    instance.project,
+    instance.workflow,
+    instance.input,
+    "running",
+    JSON.stringify(instance.participants),
+    JSON.stringify(instance.steps),
+    instance.current?.step ?? null,
+    instance.current?.human_turn ? 1 : 0,
+    JSON.stringify(instance.started_by),
+    instance.created_at,
+    nextStateSeq(sql),
+  ];
   if (instance.inputs !== undefined) {
-    sql.run(
-      `INSERT INTO workflow_instances
-        (id, project, workflow, input, inputs_json, state, participants, steps, current_step,
-         human_turn, started_by, created_at, state_seq)
-       VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        instance.id,
-        instance.project,
-        instance.workflow,
-        instance.input,
-        JSON.stringify(instance.inputs),
-        JSON.stringify(instance.participants),
-        JSON.stringify(instance.steps),
-        instance.current?.step ?? null,
-        instance.current?.human_turn ? 1 : 0,
-        JSON.stringify(instance.started_by),
-        instance.created_at,
-        nextStateSeq(sql),
-      ],
-    );
-    return;
+    cols.push("inputs_json");
+    values.push(JSON.stringify(instance.inputs));
   }
+  if (instance.code_snapshot !== undefined && instance.code_snapshot !== null) {
+    cols.push("code_snapshot");
+    values.push(instance.code_snapshot);
+  }
+  const placeholders = cols.map(() => "?").join(", ");
   sql.run(
-    `INSERT INTO workflow_instances
-      (id, project, workflow, input, state, participants, steps, current_step,
-       human_turn, started_by, created_at, state_seq)
-     VALUES (?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      instance.id,
-      instance.project,
-      instance.workflow,
-      instance.input,
-      JSON.stringify(instance.participants),
-      JSON.stringify(instance.steps),
-      instance.current?.step ?? null,
-      instance.current?.human_turn ? 1 : 0,
-      JSON.stringify(instance.started_by),
-      instance.created_at,
-      nextStateSeq(sql),
-    ],
+    `INSERT INTO workflow_instances (${cols.join(", ")}) VALUES (${placeholders})`,
+    values,
   );
 }
 
@@ -297,6 +297,22 @@ export function runningInstances(sql: Query): Result<WorkflowInstance[]> {
     sql.all(
       "SELECT * FROM workflow_instances WHERE state = 'running' ORDER BY id",
       [],
+    ),
+  );
+}
+
+// 특정 상위 workflow instance가 workflow() primitive로 띄운 직계 자식 sub-workflow instance 목록.
+export function loadChildInstances(
+  sql: Query,
+  parentInstance: string,
+): Result<WorkflowInstance[]> {
+  return parseInstances(
+    sql.all(
+      `SELECT * FROM workflow_instances
+       WHERE started_by ->> '$.kind' = 'workflow'
+         AND started_by ->> '$.instance' = ?
+       ORDER BY id ASC`,
+      [parentInstance],
     ),
   );
 }

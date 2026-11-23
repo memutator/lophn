@@ -5,6 +5,7 @@ import { seqSchema } from "../base/values.ts";
 import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import { remoteAddressSchema } from "../lophn-agent/calls.ts";
 import { mailSchema } from "../lophn-agent/mail.ts";
+import { workflowInputValuesSchema } from "./inputs.ts";
 import {
   participantKeySchema,
   participantSchema,
@@ -81,6 +82,7 @@ export const workflowInstanceCreate = defineCommand({
     project: idSchema("prj"),
     workflow: workflowNameSchema,
     input: z.string(),
+    inputs: workflowInputValuesSchema.optional(),
     participants: z.record(participantKeySchema, participantSchema),
     steps: z.array(instanceStepSchema),
     started_by: startedBySchema,

@@ -1,0 +1,23 @@
+id: workflow-p3-contract
+version: 0.23.143
+title: Workflow Phase 3 선언적 inputs/outputs/when 계약, 순수 검증기, inputs_json schema step, job workflow_start inputs 계약을 더한다
+modules:
+  - packages/protocol
+  - packages/core/workflows
+change: |
+  - `packages/protocol/workflows/inputs.ts` 신설(순수 함수, I/O 없음):
+    - 8종 선언적 `inputs` 필드 schema(`string`, `text`, `number`, `boolean`, `select`, `multiselect`, `agent`, `path`), `when` 조건식(`equals`, `in`, `truthy`, 단일 또는 AND 배열), `outputs` 선언 schema를 정의한다.
+    - 순수 helper `resolveInputDefaults`, `evaluateInputWhen`, `validateWorkflowInputs`, `validateInputDeclaration`을 제공한다.
+  - workflow protocol 확장:
+    - `workflowDeclarationSchema`에 선택적 `inputs`, `outputs`를 더한다.
+    - `workflowEntrySchema`에 `invalid_inputs` problem 이유와 선택적 `inputs`, `outputs`를 더하고, `listWorkflowsResponseSchema`에 선택적 `callable_agents`를 더한다.
+    - `workflowInstanceSchema`, `workflowInstanceSummarySchema`, `StartWorkflow` 입력, `CreateWorkflowInstance` command 입력, `flowStartMessageSchema`에 선택적 `inputs?: Record<string, unknown>`을 더한다(`FLOW_SDK_VERSION`은 `"1.0.0"` 유지).
+  - `packages/protocol/jobs/values.ts`: `workflow_start` job action 입력·저장 schema에 선택적 `inputs?: Record<string, unknown>`을 더한다.
+  - ledger migration: `packages/core/workflows/inputs-schema.ts`에 `workflows.instances-inputs`(`workflow_instances.inputs_json` 열 추가) step을 만들고 `WIRINGS` 맨 뒤 wiring(`remote`)의 `schemaStepsAfterTeams`와 `schema-steps.lock.json` 끝에 덧붙인다.
+why: |
+  Workflow Phase 3의 병렬 구현(core 검증·주입, jobs, `@lophn/flow` 1.1.0, StartBox UI)이 공통으로 기대는 protocol 계약, core·shell 공용 `when`/입력 검증기, `inputs_json` 저장 schema를 먼저 고정한다.
+decisions:
+  - text: "`when` 평가기와 `inputs` 검증기를 I/O 없는 `packages/protocol/workflows/inputs.ts`에 두어 core와 shell StartBox가 같은 규칙을 공유한다. 버린 길: core와 shell에 평가기·검증기를 따로 구현하기."
+    by: agent
+  - text: "`inputs` 값 map schema에 `z.record(z.string(), z.unknown())`을 쓴다(`z.toJSONSchema` 호환과 `Record<string, unknown>` 타입 일치). 버린 길: `z.custom` 기반 `jsonValueSchema`(JSON Schema 생성 불가)나 `z.json()`(`Record<string, unknown>` 대입 마찰)."
+    by: agent

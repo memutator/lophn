@@ -2,6 +2,7 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import { jsonValueSchema, toolNameSchema } from "../apps/channel-values.ts";
+import { workflowInputValuesSchema } from "./inputs.ts";
 import {
   stepNameSchema,
   stepNextSchema,
@@ -22,6 +23,7 @@ export const flowStartMessageSchema = z.strictObject({
   type: z.literal("start"),
   instance: idSchema("wfi"),
   input: z.string(),
+  inputs: workflowInputValuesSchema.optional(),
 });
 export type FlowStartMessage = z.infer<typeof flowStartMessageSchema>;
 

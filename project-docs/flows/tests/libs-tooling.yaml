@@ -237,6 +237,10 @@ files:
     covers: []
     note: "remote key(자격이 key·url에 남지 않음). 이 순수 함수를 쓰는 route의 flow는 폴더 읽기를 짓는 변경이 잇는다"
 
+  - path: packages/protocol/workflows/inputs_test.ts
+    covers: []
+    note: "선언적 workflow inputs/outputs schema와 순수 helper(evaluateInputWhen, resolveInputDefaults, validateWorkflowInputs, validateInputDeclaration). 아직 core·shell에 연결 전이라 outcome이 없다"
+
   - path: packages/sdk/agent/agent_test.ts
     covers: [sdk-agent-session:reply-failed, sdk-agent-session:reply-value]
     note: parseReply가 답 꼴을 맞는지 본다(틀리면 error, 맞으면 value). 나머지는 type 동일성 검사와 message id helper

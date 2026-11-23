@@ -3,6 +3,7 @@ import { WORKFLOW_ROUTES } from "./routes.ts";
 
 export * from "./paths.ts";
 export * from "./values.ts";
+export * from "./inputs.ts";
 export * from "./declaration.ts";
 export * from "./instances.ts";
 export * from "./routes.ts";

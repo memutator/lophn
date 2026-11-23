@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { manualClock } from "../../base/mod.ts";
 import { instanceFromRow, lineFromRow } from "./rows.ts";
+import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
@@ -82,6 +83,71 @@ test("harness 참가자와 harness 이유가 저장된 행은 step 뒤 새 schem
       }
       assert.throws(() => after.exec("update workflow_lines set step = 'x'"));
       assert.throws(() => after.exec("delete from workflow_lines"));
+    } finally {
+      after.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("기존 workflow_instances 행은 workflows.instances-inputs step 뒤 inputs_json이 NULL이고 valid JSON만 받는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-workflows-inputs-schema-"));
+  try {
+    const path = join(root, "lophn.db");
+    const deps = { clock: manualClock(Date.UTC(2026, 10, 1)) };
+    const beforeSteps = [
+      ...workflowsSchemaSteps,
+      ...workflowsNoHarnessKindSteps,
+      ...workflowLinesSchemaSteps,
+    ];
+    assert.equal((await applyMigrations(path, beforeSteps, deps)).ok, true);
+
+    const db = new DatabaseSync(path);
+    db.exec(`
+      insert into workflow_instances (id, project, workflow, input, state, participants, steps, human_turn, started_by, created_at, finished_at, state_seq)
+        values ('${WFI}', '${PRJ}', 'review', 'hello', 'running',
+          '{"me":{"kind":"human"}}', '[]', 0, '{"kind":"user"}', '${AT}', NULL, 1);
+    `);
+    db.close();
+
+    assert.equal(
+      (
+        await applyMigrations(
+          path,
+          [...beforeSteps, WORKFLOW_INPUTS_SCHEMA_STEP],
+          deps,
+        )
+      ).ok,
+      true,
+    );
+
+    const after = new DatabaseSync(path);
+    try {
+      const existing = after
+        .prepare("select inputs_json from workflow_instances where id = ?")
+        .get(WFI) as { inputs_json: unknown };
+      assert.equal(existing.inputs_json, null);
+
+      const second = "wfi_01hzzzzzzzzzzzzzzzzzzzzzzb";
+      after.exec(`
+        insert into workflow_instances (id, project, workflow, input, inputs_json, state, participants, steps, human_turn, started_by, created_at, finished_at, state_seq)
+          values ('${second}', '${PRJ}', 'review', 'hello', '{"env":"prod","limit":3}', 'running',
+            '{"me":{"kind":"human"}}', '[]', 0, '{"kind":"user"}', '${AT}', NULL, 1);
+      `);
+      const inserted = after
+        .prepare("select inputs_json from workflow_instances where id = ?")
+        .get(second) as { inputs_json: string };
+      assert.deepEqual(JSON.parse(inserted.inputs_json), {
+        env: "prod",
+        limit: 3,
+      });
+
+      assert.throws(() =>
+        after.exec(`
+          update workflow_instances set inputs_json = '{not json' where id = '${WFI}';
+        `),
+      );
     } finally {
       after.close();
     }

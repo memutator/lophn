@@ -418,5 +418,9 @@
   {
     "id": "workflows.lines-kinds",
     "sha256": "ce3c2a02ce5c8e23e7e5f1929c00f29e7832687e0e297ea4274d5476047dc6e6"
+  },
+  {
+    "id": "workflows.instances-inputs",
+    "sha256": "8af52d10445ce443eed5fd05621140d10dfeeb0c18a8d8feae15937c9fba78ab"
   }
 ]

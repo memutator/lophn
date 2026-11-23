@@ -15,12 +15,13 @@ import {
   workflowStateSchema,
   workflowTextSchema,
 } from "./values.ts";
+import { workflowInputValuesSchema } from "./inputs.ts";
 import {
   handResultSchema,
+  listWorkflowsResponseSchema,
   remoteStepSchema,
   reportLineSchema,
   workflowEditInputSchema,
-  workflowEntrySchema,
   workflowInstanceSchema,
   workflowInstanceSummarySchema,
   workflowLineSchema,
@@ -43,7 +44,7 @@ export const workflowList = defineMemory({
   name: "ListWorkflows",
   // prj id 또는 project 이름. agent가 project workspace에 있으면 생략한다.
   input: z.strictObject({ project: z.string().min(1).optional() }),
-  output: z.object({ workflows: z.array(workflowEntrySchema) }),
+  output: listWorkflowsResponseSchema,
   actors: ["user", "agent"],
   errors: [...readErrors],
 });
@@ -59,6 +60,7 @@ export const workflowStart = defineMemory({
     workflow: workflowKeySchema,
     text: z.string().min(1),
     step: stepNameSchema.optional(),
+    inputs: workflowInputValuesSchema.optional(),
   }),
   // flow는 넘기지 않아 handed가 null이다.
   output: z.object({

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
+import { workflowInputsSchema, workflowOutputsSchema } from "./inputs.ts";
 import {
   participantKeySchema,
   stepNameSchema,
@@ -38,6 +39,8 @@ const NEEDS_STEP = { message: "steps needs at least one step" };
 export const workflowDeclarationSchema = z.discriminatedUnion("kind", [
   z.looseObject({
     kind: z.literal("agent"),
+    inputs: workflowInputsSchema.optional(),
+    outputs: workflowOutputsSchema.optional(),
     participants: z.record(participantKeySchema, declarationParticipantSchema),
     steps: z
       .record(stepNameSchema, declarationStepSchema)
@@ -46,6 +49,8 @@ export const workflowDeclarationSchema = z.discriminatedUnion("kind", [
   // flow는 참가자가 없고 step 이름만 읽는다(화면이 줄 때문에 쓴다).
   z.looseObject({
     kind: z.literal("flow"),
+    inputs: workflowInputsSchema.optional(),
+    outputs: workflowOutputsSchema.optional(),
     agent: z.string().min(1).optional(),
     steps: z.record(stepNameSchema, z.unknown()).refine(hasStep, NEEDS_STEP),
   }),

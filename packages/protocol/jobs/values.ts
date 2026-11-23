@@ -7,6 +7,7 @@ import {
 } from "../lophn-agent/workspaces.ts";
 import { toolNameSchema } from "../apps/channel-values.ts";
 import { machineRefSchema } from "../machine/requester.ts";
+import { workflowInputValuesSchema } from "../workflows/inputs.ts";
 import {
   stepNameSchema,
   workflowKeySchema,
@@ -117,6 +118,7 @@ export const jobActionInputSchema = z.discriminatedUnion("kind", [
     workflow: workflowKeySchema, // <project 이름>/<name>
     text: z.string().min(1),
     step: stepNameSchema.optional(),
+    inputs: workflowInputValuesSchema.optional(),
   }),
 ]);
 export type JobActionInput = z.infer<typeof jobActionInputSchema>;
@@ -144,6 +146,7 @@ export const jobActionSchema = z.discriminatedUnion("kind", [
     workflow: workflowNameSchema,
     text: z.string().min(1),
     step: stepNameSchema.optional(),
+    inputs: workflowInputValuesSchema.optional(),
   }),
 ]);
 export type JobAction = z.infer<typeof jobActionSchema>;

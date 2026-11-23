@@ -8,6 +8,11 @@ import {
 } from "../lophn-agent/calls.ts";
 import { workspaceOutputSchema } from "../lophn-agent/workspaces.ts";
 import {
+  workflowInputsSchema,
+  workflowInputValuesSchema,
+  workflowOutputsSchema,
+} from "./inputs.ts";
+import {
   derivedStatusSchema,
   participantKeySchema,
   participantSchema,
@@ -77,6 +82,7 @@ export const workflowInstanceSchema = z
     project: idSchema("prj"),
     workflow: workflowNameSchema,
     input: z.string(),
+    inputs: workflowInputValuesSchema.optional(),
     state: workflowStateSchema,
     participants: z.record(participantKeySchema, participantSchema), // 시작할 때 선언에서 옮긴 것
     steps: z.array(instanceStepSchema), // 순서 있음. agent가 고친다
@@ -324,11 +330,14 @@ export const workflowEntrySchema = z
           "no_declaration",
           "invalid_yaml",
           "invalid_declaration",
+          "invalid_inputs",
           "no_flow_file",
         ]),
         message: z.string(),
       })
       .nullable(),
+    inputs: workflowInputsSchema.optional(),
+    outputs: workflowOutputsSchema.optional(),
     participants: z.record(participantKeySchema, participantSchema).nullable(),
     steps: z
       .array(
@@ -347,6 +356,20 @@ export const workflowEntrySchema = z
   });
 export type WorkflowEntry = z.infer<typeof workflowEntrySchema>;
 
+// StartBox의 agent 입력 필드 선택지용. ListWorkflows가 project에서 호출 가능한 agent 목록을 함께 돌려준다.
+export const callableAgentOptionSchema = z.object({
+  name: z.string().min(1),
+  label: z.string().min(1).optional(),
+  kind: z.string().min(1).optional(),
+});
+export type CallableAgentOption = z.infer<typeof callableAgentOptionSchema>;
+
+export const listWorkflowsResponseSchema = z.object({
+  workflows: z.array(workflowEntrySchema),
+  callable_agents: z.array(callableAgentOptionSchema).optional(),
+});
+export type ListWorkflowsResponse = z.infer<typeof listWorkflowsResponseSchema>;
+
 export const workflowInstanceSummarySchema = z.object({
   id: idSchema("wfi"),
   project: idSchema("prj"),
@@ -354,6 +377,7 @@ export const workflowInstanceSummarySchema = z.object({
   state: workflowStateSchema,
   current: currentSchema,
   input: z.string(),
+  inputs: workflowInputValuesSchema.optional(),
   started_by: startedBySchema,
   created_at: atSchema,
   finished_at: atSchema.nullable(),

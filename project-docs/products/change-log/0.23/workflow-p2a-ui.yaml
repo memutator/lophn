@@ -1,5 +1,5 @@
 id: workflow-p2a-ui
-version: 0.23.136
+version: 0.23.143
 title: Workflow Run 화면(session tree·refs·cross-workspace [Open session]·[Retry])과 title bar DeskSwitcher 진행 표시를 더한다
 modules:
   - packages/shell/renderer

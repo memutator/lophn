@@ -72,6 +72,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:workflows/start",
   "memory:workflows/stop",
   "memory:workflows/retry",
+  "memory:workflows/resume",
   "memory:app_tray/list",
   "memory:roster/list",
   "memory:roster/invite",

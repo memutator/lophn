@@ -108,3 +108,59 @@ export type WorkflowOrigin = z.infer<typeof workflowOriginSchema>;
 // 명시적으로 report한 산출물 경로 목록과 선택적 구조화 값이다. 경로는 lophn이 판정하지 않고 적힌 대로 둔다.
 export const workflowRefsSchema = z.array(z.string().min(1).max(1024)).max(100);
 export const workflowDataSchema = z.json();
+
+// @lophn/flow와 durable 실행의 실패 사유. 경계 오류 코드 일곱에 실행 사유 넷을 더한다.
+export const WORKFLOW_OUTCOME_REASONS = [
+  "invalid_input",
+  "not_found",
+  "forbidden",
+  "unauthorized",
+  "conflict",
+  "unavailable",
+  "internal",
+  "cancelled",
+  "interrupted",
+  "stalled",
+  "model_error",
+] as const;
+export const workflowOutcomeReasonSchema = z.enum(WORKFLOW_OUTCOME_REASONS);
+export type WorkflowOutcomeReason = z.infer<typeof workflowOutcomeReasonSchema>;
+
+// Soft I/O 출력 모양: 자연어 요약, 명시적 산출물 경로(refs), 선택적 구조화 값(data).
+export const workflowSoftOutputSchema = z.object({
+  summary: z.string(),
+  refs: workflowRefsSchema.optional(),
+  data: z.unknown().optional(),
+});
+export type WorkflowSoftOutput = z.infer<typeof workflowSoftOutputSchema>;
+
+// durable primitive 실패 값과 checkpoint error_json 모양.
+export const workflowOutcomeErrorSchema = z.object({
+  reason: workflowOutcomeReasonSchema,
+  message: z.string(),
+  session: idSchema("ses").optional(),
+});
+export type WorkflowOutcomeError = z.infer<typeof workflowOutcomeErrorSchema>;
+
+export const WORKFLOW_CHECKPOINT_KINDS = [
+  "step",
+  "agent",
+  "human",
+  "workflow",
+  "tool",
+] as const;
+export const workflowCheckpointKindSchema = z.enum(WORKFLOW_CHECKPOINT_KINDS);
+export type WorkflowCheckpointKind = z.infer<
+  typeof workflowCheckpointKindSchema
+>;
+
+export const WORKFLOW_CHECKPOINT_STATES = [
+  "started",
+  "completed",
+  "failed",
+  "interrupted",
+] as const;
+export const workflowCheckpointStateSchema = z.enum(WORKFLOW_CHECKPOINT_STATES);
+export type WorkflowCheckpointState = z.infer<
+  typeof workflowCheckpointStateSchema
+>;

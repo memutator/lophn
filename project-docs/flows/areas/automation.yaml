@@ -277,6 +277,70 @@ flows:
     crosses_process: false
     docs: [architecture/workflow.md]
 
+  - id: workflow-resume
+    title: "사람이 멈춘 flow workflow instance를 replay로 이어 간다"
+    actor: person
+    entries: [route:workflows/resume]
+    uses: [route:workflow_instances/apply]
+    boundary: [core-api, workflows]
+    code: [packages/protocol/workflows/routes.ts]
+    steps:
+      - "running이면서 계산 상태가 blocked인 flow instance인지 확인한다(아니면 conflict)"
+      - "use_latest_code가 true면 최신 flow code로 code_snapshot을 갱신하고 code_updated 줄을 남긴다"
+      - "고정된 code_snapshot으로 flow process를 다시 띄워 저장된 checkpoint로 replay한다"
+    outcomes:
+      - id: resumed
+        observe: [ledger:workflow_instances, ledger:workflow_lines, "process:flow-host", event:StateChanged, response]
+      - id: conflict
+        code: conflict
+        when: "instance가 running이 아니거나 flow instance가 아니거나 blocked 상태가 아님"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "instance가 없음"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "code snapshot을 준비·복원하거나 flow process를 띄우지 못함"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/workflow.md]
+
+  - id: workflow-checkpoint-upsert
+    title: "durable workflow 실행의 checkpoint를 2단계(started -> completed|failed|interrupted)로 저장한다"
+    actor: system
+    entries: [route:workflow_checkpoints/upsert]
+    boundary: [workflows]
+    code: [packages/protocol/workflows/commands.ts, packages/core/workflows/checkpoint-schema.ts]
+    steps:
+      - "machine 자격만 받는다. 대상 instance가 없으면 not_found"
+      - "(instance, key) checkpoint 행을 삽입하거나 갱신하고 StateChanged(workflow_instances)를 낸다"
+    outcomes:
+      - id: upserted
+        observe: [ledger:workflow_checkpoints, event:StateChanged, response]
+      - id: not_found
+        code: not_found
+        when: "instance가 없음"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아님"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "checkpoint 상태 전이가 충돌함"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger에 쓰지 못함"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/workflow.md]
+
   - id: workflow-stop
     title: "사람이 instance를 멈춘다"
     actor: person

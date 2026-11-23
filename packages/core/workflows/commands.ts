@@ -534,6 +534,20 @@ export function createWorkflowCommands(
             }
             break;
           }
+          case "code_updated": {
+            if (stopped) {
+              return fail("conflict", "workflow instance is stopped");
+            }
+            tx.sql.run(
+              "UPDATE workflow_instances SET code_snapshot = ? WHERE id = ?",
+              [change.code_snapshot, input.instance],
+            );
+            line = addLine(scope, {
+              kind: "code_updated",
+              by: { kind: "user" },
+            });
+            break;
+          }
         }
         const instance = finish(tx, scope);
         return instance.ok

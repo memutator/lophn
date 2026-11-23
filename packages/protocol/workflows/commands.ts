@@ -12,8 +12,11 @@ import {
   sessionChoiceSchema,
   stepNameSchema,
   stepNextSchema,
+  workflowCheckpointKindSchema,
+  workflowCheckpointStateSchema,
   workflowDataSchema,
   workflowNameSchema,
+  workflowOutcomeErrorSchema,
   workflowRefsSchema,
 } from "./values.ts";
 import {
@@ -22,6 +25,7 @@ import {
   lineBySchema,
   notHandedReasonSchema,
   startedBySchema,
+  workflowCheckpointSchema,
   workflowEditSchema,
   workflowInstanceSchema,
 } from "./instances.ts";
@@ -86,6 +90,7 @@ export const workflowInstanceCreate = defineCommand({
     participants: z.record(participantKeySchema, participantSchema),
     steps: z.array(instanceStepSchema),
     started_by: startedBySchema,
+    code_snapshot: z.string().min(1).nullable().optional(),
     handoff: handoffPlanSchema.nullable(), // null이면 flow다. 넘기지 않는다
   }),
   output: z.object({
@@ -145,6 +150,11 @@ const changeSchema = z.discriminatedUnion("kind", [
     session: idSchema("ses").nullable(),
     body: z.string().min(1).optional(),
   }),
+  // 사람의 [Resume with updated code]: 최신 flow code snapshot으로 갱신하고 code_updated 줄을 남긴다.
+  z.strictObject({
+    kind: z.literal("code_updated"),
+    code_snapshot: z.string().min(1),
+  }),
 ]);
 
 export const workflowInstanceApply = defineCommand({
@@ -185,7 +195,37 @@ export const workflowInstanceApply = defineCommand({
   ],
 });
 
+// durable 실행의 2단계 checkpoint(started -> completed | failed | interrupted)를 쓴다.
+export const workflowCheckpointUpsert = defineCommand({
+  resource: "workflow_checkpoints",
+  method: "upsert",
+  name: "UpsertWorkflowCheckpoint",
+  changes: [{ name: "workflow_instances", id: (input) => input.instance }],
+  input: z.strictObject({
+    instance: idSchema("wfi"),
+    key: z.string().min(1),
+    kind: workflowCheckpointKindSchema,
+    state: workflowCheckpointStateSchema,
+    handle_ref: z.string().nullable().optional(),
+    output: z.unknown().nullable().optional(),
+    error: workflowOutcomeErrorSchema.nullable().optional(),
+  }),
+  output: z.object({
+    checkpoint: workflowCheckpointSchema,
+  }),
+  actors: ["machine"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
+});
+
 export const WORKFLOW_COMMAND_ROUTES = [
   workflowInstanceCreate,
   workflowInstanceApply,
+  workflowCheckpointUpsert,
 ] as const;

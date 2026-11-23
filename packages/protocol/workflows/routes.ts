@@ -21,6 +21,8 @@ import {
   listWorkflowsResponseSchema,
   remoteStepSchema,
   reportLineSchema,
+  workflowCheckpointSchema,
+  workflowChildSummarySchema,
   workflowEditInputSchema,
   workflowInstanceSchema,
   workflowInstanceSummarySchema,
@@ -135,6 +137,22 @@ export const workflowRetry = defineMemory({
   errors: [...readErrors, "conflict"],
 });
 
+// flow process가 멈춘(blocked) running flow instance의 process를 다시 띄워 replay로 이어간다.
+// 기본은 시작 시점 code snapshot을 쓰고, use_latest_code: true면 최신 flow code로 snapshot을 갱신한 뒤 이어간다.
+export const workflowResume = defineMemory({
+  resource: "workflows",
+  method: "resume",
+  name: "ResumeWorkflow",
+  changes: [],
+  input: z.strictObject({
+    ...instanceRef,
+    use_latest_code: z.boolean().optional(),
+  }),
+  output: z.object({ instance: workflowInstanceSchema }),
+  actors: ["user"],
+  errors: [...readErrors, "conflict"],
+});
+
 export const workflowStop = defineMemory({
   resource: "workflows",
   method: "stop",
@@ -167,6 +185,9 @@ export const workflowInstanceRead = defineRead({
       derived_status: derivedStatusSchema.optional(),
       sessions: z.array(workflowSessionNodeSchema).optional(),
       refs: workflowRefsSchema.optional(),
+      // Phase 4: durable checkpoint 목록과 자식 sub-workflow 요약.
+      checkpoints: z.array(workflowCheckpointSchema).optional(),
+      children: z.array(workflowChildSummarySchema).optional(),
     }),
   ),
   reads: [{ name: "workflow_instances", id: (input) => input.instance }],
@@ -213,6 +234,7 @@ export const WORKFLOW_ROUTES = [
   workflowReport,
   workflowEdit,
   workflowRetry,
+  workflowResume,
   workflowStop,
   workflowInstanceRead,
   workflowInstanceList,

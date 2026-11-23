@@ -9,6 +9,7 @@ export const WORKFLOW_INPUT_FIELD_TYPES = [
   "multiselect",
   "agent",
   "path",
+  "project",
 ] as const;
 export const workflowInputFieldTypeSchema = z.enum(WORKFLOW_INPUT_FIELD_TYPES);
 export type WorkflowInputFieldType = z.infer<
@@ -246,6 +247,12 @@ function validateFieldValue(
     case "path": {
       if (typeof value !== "string" || value.trim().length === 0) {
         return "must be a non-empty path";
+      }
+      return null;
+    }
+    case "project": {
+      if (typeof value !== "string" || value.trim().length === 0) {
+        return "must be a non-empty project";
       }
       return null;
     }

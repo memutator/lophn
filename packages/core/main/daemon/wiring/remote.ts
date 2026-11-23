@@ -121,6 +121,7 @@ import {
 } from "../../../lophn-agent/session/mod.ts";
 import { workflowLinesSchemaSteps } from "../../../workflows/mod.ts";
 import { WORKFLOW_INPUTS_SCHEMA_STEP } from "../../../workflows/inputs-schema.ts";
+import { WORKFLOW_CHECKPOINTS_SCHEMA_STEP } from "../../../workflows/checkpoint-schema.ts";
 import {
   memberRunsOnSchemaSteps,
   remoteSenderMessagesSchemaSteps,
@@ -949,6 +950,7 @@ export function remoteWiring(
       ...workflowOriginSchemaSteps,
       ...workflowLinesSchemaSteps,
       WORKFLOW_INPUTS_SCHEMA_STEP,
+      WORKFLOW_CHECKPOINTS_SCHEMA_STEP,
     ],
     dataSteps: [
       hostKeyMachineStep,

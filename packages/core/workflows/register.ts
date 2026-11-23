@@ -3,20 +3,23 @@ import {
   workflowEdit,
   workflowList,
   workflowReport,
+  workflowResume,
   workflowRetry,
   workflowStart,
   workflowStop,
 } from "../../protocol/workflows/mod.ts";
 import type { ReaderRegistration } from "../storage/ledger/mod.ts";
+import { WORKFLOW_SNAPSHOT_BLOB_FIELD } from "./checkpoint-schema.ts";
 import { createWorkflowCommands } from "./commands.ts";
 import { createWorkflowReads } from "./reads.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
+  blobFields?: readonly unknown[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
-  // 여섯 route의 handler는 core 조립(wf-service)이 붙인다. 여기 넣어야 agent credential이 닿는 route 목록에 든다.
+  // 여덟 route의 handler는 core 조립(wf-service)이 붙인다. 여기 넣어야 agent credential·remote allowlist가 닿는 route 목록에 든다.
   memoryRoutes?: readonly unknown[];
 };
 
@@ -29,6 +32,7 @@ export function createLedgerRegistration(
   const reads = createWorkflowReads();
   return {
     schemaSteps: workflowsSchemaSteps,
+    blobFields: [WORKFLOW_SNAPSHOT_BLOB_FIELD],
     commands: [commands.create, commands.apply],
     reads: [reads.read, reads.list, reads.activity],
     memoryRoutes: [
@@ -37,6 +41,7 @@ export function createLedgerRegistration(
       workflowReport,
       workflowEdit,
       workflowRetry,
+      workflowResume,
       workflowStop,
       workflowCheck,
     ],

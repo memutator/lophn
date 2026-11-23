@@ -19,8 +19,11 @@ import {
   sessionChoiceSchema,
   stepNameSchema,
   stepNextSchema,
+  workflowCheckpointKindSchema,
+  workflowCheckpointStateSchema,
   workflowDataSchema,
   workflowNameSchema,
+  workflowOutcomeErrorSchema,
   workflowRefsSchema,
   workflowStateSchema,
   workflowTextSchema,
@@ -50,10 +53,11 @@ export type LineBy = z.infer<typeof lineBySchema>;
 const userBy = z.strictObject({ kind: z.literal("user") });
 const lophnBy = z.strictObject({ kind: z.literal("lophn") });
 
-// 시작한 쪽: 사람(StartWorkflow) 또는 job
+// 시작한 쪽: 사람(StartWorkflow), 승인된 job, 또는 같은 project의 상위 workflow
 export const startedBySchema = z.discriminatedUnion("kind", [
   userBy,
   z.strictObject({ kind: z.literal("job"), job: idSchema("job") }),
+  z.strictObject({ kind: z.literal("workflow"), instance: idSchema("wfi") }),
 ]);
 export type StartedBy = z.infer<typeof startedBySchema>;
 
@@ -88,6 +92,7 @@ export const workflowInstanceSchema = z
     steps: z.array(instanceStepSchema), // 순서 있음. agent가 고친다
     current: currentSchema,
     started_by: startedBySchema,
+    code_snapshot: z.string().min(1).nullable().optional(),
     created_at: atSchema,
     finished_at: atSchema.nullable(),
     state_seq: seqSchema,
@@ -316,6 +321,29 @@ export const workflowSessionNodeSchema = z.object({
 });
 export type WorkflowSessionNode = z.infer<typeof workflowSessionNodeSchema>;
 
+export const workflowCheckpointSchema = z.object({
+  instance: idSchema("wfi"),
+  key: z.string().min(1),
+  kind: workflowCheckpointKindSchema,
+  state: workflowCheckpointStateSchema,
+  handle_ref: z.string().nullable(),
+  output: z.unknown().nullable(),
+  error: workflowOutcomeErrorSchema.nullable(),
+  started_at: atSchema,
+  finished_at: atSchema.nullable(),
+});
+export type WorkflowCheckpoint = z.infer<typeof workflowCheckpointSchema>;
+
+export const workflowChildSummarySchema = z.object({
+  instance: idSchema("wfi"),
+  workflow: workflowNameSchema,
+  state: workflowStateSchema,
+  derived_status: derivedStatusSchema,
+  started_at: atSchema,
+  ended_at: atSchema.nullable(),
+});
+export type WorkflowChildSummary = z.infer<typeof workflowChildSummarySchema>;
+
 export const workflowEntrySchema = z
   .object({
     key: z.string(), // 그 순간 project 이름으로 만든 보이는 글
@@ -332,6 +360,7 @@ export const workflowEntrySchema = z
           "invalid_declaration",
           "invalid_inputs",
           "no_flow_file",
+          "broken_flow",
         ]),
         message: z.string(),
       })

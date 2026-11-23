@@ -422,5 +422,9 @@
   {
     "id": "workflows.instances-inputs",
     "sha256": "8af52d10445ce443eed5fd05621140d10dfeeb0c18a8d8feae15937c9fba78ab"
+  },
+  {
+    "id": "workflows.checkpoints-and-snapshot",
+    "sha256": "69a748e67316ea7944434cd7ea456794b8c73f844c3e42b14328aadd2e7e9aa4"
   }
 ]

@@ -107,6 +107,7 @@ test("validateWorkflowInputs: 8종 타입, 기본값, 숨겨진 when 필드 제�
     },
     reviewer: { type: "agent", required: true },
     spec_path: { type: "path", kind: "file", required: true },
+    target_project: { type: "project", required: true },
     prod_ticket: {
       type: "string",
       required: true,
@@ -128,6 +129,7 @@ test("validateWorkflowInputs: 8종 타입, 기본값, 숨겨진 when 필드 제�
       targets: ["web", "cli"],
       reviewer: "coder",
       spec_path: "docs/spec.md",
+      target_project: "lophn",
       prod_ticket: "SHOULD-BE-STRIPPED",
       extra_unknown: "ignored",
     },
@@ -144,6 +146,7 @@ test("validateWorkflowInputs: 8종 타입, 기본값, 숨겨진 when 필드 제�
       targets: ["web", "cli"],
       reviewer: "coder",
       spec_path: "docs/spec.md",
+      target_project: "lophn",
     });
     assert.equal("prod_ticket" in okRes.value, false);
     assert.equal("prod_note" in okRes.value, false);
@@ -159,6 +162,7 @@ test("validateWorkflowInputs: 8종 타입, 기본값, 숨겨진 when 필드 제�
       targets: ["web"],
       reviewer: "coder",
       spec_path: "docs/spec.md",
+      target_project: "lophn",
     },
     { callableAgents },
   );
@@ -179,6 +183,7 @@ test("validateWorkflowInputs: 8종 타입, 기본값, 숨겨진 when 필드 제�
       targets: ["web", "unknown"],
       reviewer: "ghost",
       spec_path: "  ",
+      target_project: "   ",
     },
     { callableAgents },
   );
@@ -191,6 +196,7 @@ test("validateWorkflowInputs: 8종 타입, 기본값, 숨겨진 when 필드 제�
     assert.ok(invalid.errors.targets);
     assert.ok(invalid.errors.reviewer);
     assert.ok(invalid.errors.spec_path);
+    assert.ok(invalid.errors.target_project);
   }
 });
 

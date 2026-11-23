@@ -1,6 +1,7 @@
 import { parse } from "yaml";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
+  declarationStepSchema,
   FLOW_STEP_BY,
   type InstanceStep,
   type Participant,
@@ -15,8 +16,6 @@ import type { DefinitionFile } from "./ports.ts";
 // 가리키는 이름이 있는지(by·with·next)는 보지 않는다. 시작할 때 넘길 줄에서 걸린다.
 
 type Problem = NonNullable<WorkflowEntry["problem"]>;
-type AgentDeclaration = Extract<WorkflowDeclaration, { kind: "agent" }>;
-type FlowDeclaration = Extract<WorkflowDeclaration, { kind: "flow" }>;
 
 export type ParsedDeclaration =
   | { ok: true; declaration: WorkflowDeclaration }
@@ -70,14 +69,50 @@ export function parseDeclaration(file: DefinitionFile): ParsedDeclaration {
       };
     }
   }
+  const isFlow = file.flow || shaped.data.kind === "flow";
+  if (!isFlow) {
+    if (shaped.data.participants === undefined) {
+      return {
+        ok: false,
+        problem: {
+          reason: "invalid_declaration",
+          message: "participants: required",
+        },
+      };
+    }
+    const steps = shaped.data.steps;
+    if (steps === undefined || Object.keys(steps).length === 0) {
+      return {
+        ok: false,
+        problem: {
+          reason: "invalid_declaration",
+          message: "steps: steps needs at least one step",
+        },
+      };
+    }
+    for (const [name, raw] of Object.entries(steps)) {
+      const step = declarationStepSchema.safeParse(raw);
+      if (!step.success) {
+        const issue = step.error.issues[0];
+        const path = ["steps", name, ...issue.path.map(String)].join(".");
+        return {
+          ok: false,
+          problem: {
+            reason: "invalid_declaration",
+            message: `${path}: ${issue.message}`,
+          },
+        };
+      }
+    }
+  }
   return { ok: true, declaration: shaped.data };
 }
 
 export function participantsOf(
-  declaration: AgentDeclaration,
+  declaration: WorkflowDeclaration,
 ): Record<string, Participant> {
   const out: Record<string, Participant> = {};
-  for (const [key, raw] of Object.entries(declaration.participants)) {
+  for (const [key, raw] of Object.entries(declaration.participants ?? {})) {
     // 선언은 모르는 칸을 받으므로 읽는 칸만 옮긴다.
     const p = raw as Participant;
     out[key] =
@@ -92,21 +127,24 @@ export function participantsOf(
   return out;
 }
 
-export function stepsOf(declaration: AgentDeclaration): InstanceStep[] {
-  return Object.entries(declaration.steps).map(([name, s]) => ({
-    name,
-    by: s.by,
-    with: s.with ?? null,
-    prompt: s.prompt,
-    in: s.in ?? "",
-    out: s.out ?? "",
-    next: s.next ?? [],
-  }));
+export function stepsOf(declaration: WorkflowDeclaration): InstanceStep[] {
+  return Object.entries(declaration.steps ?? {}).map(([name, raw]) => {
+    const s = declarationStepSchema.parse(raw);
+    return {
+      name,
+      by: s.by,
+      with: s.with ?? null,
+      prompt: s.prompt,
+      in: s.in ?? "",
+      out: s.out ?? "",
+      next: s.next ?? [],
+    };
+  });
 }
 
 // flow의 by·prompt 등은 읽지 않는다. instance도 step 목록을 가져야 화면이 그린다.
-export function flowStepsOf(declaration: FlowDeclaration): InstanceStep[] {
-  return Object.keys(declaration.steps).map((name) => ({
+export function flowStepsOf(declaration: WorkflowDeclaration): InstanceStep[] {
+  return Object.keys(declaration.steps ?? {}).map((name) => ({
     name,
     by: FLOW_STEP_BY,
     with: null,
@@ -142,7 +180,7 @@ export function entryOf(
       ? { outputs: declaration.outputs }
       : {}),
   };
-  if (declaration.kind === "flow") {
+  if (file.flow || declaration.kind === "flow") {
     return {
       ...base,
       state: "ok",

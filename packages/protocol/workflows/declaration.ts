@@ -10,7 +10,7 @@ import {
 // lophn이 읽는 칸만 검사한다. 모르는 칸은 틀렸다고 하지 않고 읽지도 않는다.
 // by·with·next가 가리키는 이름이 있는지는 읽을 때 보지 않는다(넘길 때 "넘기지 못함" 줄이 된다).
 // 사람은 다른 컴퓨터에 있지 않다(on은 agent 참가자만).
-const declarationParticipantSchema = z.union([
+export const declarationParticipantSchema = z.union([
   z
     .looseObject({ kind: z.literal("human") })
     .refine((p) => !("on" in p), { message: "a human participant has no on" }),
@@ -21,7 +21,7 @@ const declarationParticipantSchema = z.union([
   }),
 ]);
 
-const declarationStepSchema = z.looseObject({
+export const declarationStepSchema = z.looseObject({
   by: participantKeySchema,
   with: participantKeySchema.optional(),
   prompt: z.string(),
@@ -30,29 +30,16 @@ const declarationStepSchema = z.looseObject({
   next: z.array(stepNextSchema).optional(),
 });
 
-// 첫 step이 steps의 첫 key라서 하나는 있어야 한다. 순서는 object의 key 순서에 기댄다.
-// 정수 꼴 key는 stepNameSchema가 글자로 시작하게 해서 이미 막혀 있다.
-const hasStep = (steps: Record<string, unknown>) =>
-  Object.keys(steps).length > 0;
-const NEEDS_STEP = { message: "steps needs at least one step" };
-
-export const workflowDeclarationSchema = z.discriminatedUnion("kind", [
-  z.looseObject({
-    kind: z.literal("agent"),
-    inputs: workflowInputsSchema.optional(),
-    outputs: workflowOutputsSchema.optional(),
-    participants: z.record(participantKeySchema, declarationParticipantSchema),
-    steps: z
-      .record(stepNameSchema, declarationStepSchema)
-      .refine(hasStep, NEEDS_STEP),
-  }),
-  // flow는 참가자가 없고 step 이름만 읽는다(화면이 줄 때문에 쓴다).
-  z.looseObject({
-    kind: z.literal("flow"),
-    inputs: workflowInputsSchema.optional(),
-    outputs: workflowOutputsSchema.optional(),
-    agent: z.string().min(1).optional(),
-    steps: z.record(stepNameSchema, z.unknown()).refine(hasStep, NEEDS_STEP),
-  }),
-]);
+// 통합 선언 schema다. `kind`는 제거하되 기존 YAML에 남아 있으면 보존·무시하고,
+// flow code 유무에 따른 `steps` 필수 여부와 step 모양 검사는 core가 맡는다.
+export const workflowDeclarationSchema = z.looseObject({
+  kind: z.enum(["agent", "flow"]).optional(),
+  inputs: workflowInputsSchema.optional(),
+  outputs: workflowOutputsSchema.optional(),
+  agent: z.string().min(1).optional(),
+  participants: z
+    .record(participantKeySchema, declarationParticipantSchema)
+    .optional(),
+  steps: z.record(stepNameSchema, z.unknown()).optional(),
+});
 export type WorkflowDeclaration = z.infer<typeof workflowDeclarationSchema>;

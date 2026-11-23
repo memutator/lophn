@@ -1,0 +1,26 @@
+id: workflow-p4-contract
+version: 0.23.149
+title: Workflow Phase 4 durable engine 계약, workflow_checkpoints·code_snapshot migration, ResumeWorkflow·UpsertWorkflowCheckpoint route를 더한다
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/shell/main
+change: |
+  - ledger migration(`packages/core/workflows/checkpoint-schema.ts`):
+    - `workflows.checkpoints-and-snapshot` step을 `WIRINGS` 맨 뒤 wiring(`remote`)의 `schemaStepsAfterTeams`와 `schema-steps.lock.json` 끝에 덧붙인다: `workflow_checkpoints` 표(`(instance, key)` PK, `kind`·`state` CHECK, `output_json`·`error_json` `json_valid`, `ON DELETE CASCADE`), `workflow_checkpoints_instance` 인덱스, `workflow_instances.code_snapshot` 열 추가(기존 행 NULL).
+    - `WORKFLOW_SNAPSHOT_BLOB_FIELD`(`owner_kind: "workflow_instance"`, `field: "code_snapshot"`, `retention: permanent`, `general_read: false`)를 `workflows/register.ts`의 `blobFields`에 등록한다(`workflow_snapshot` purpose는 blob store의 fail-closed permanent 규칙에 맞는다).
+  - workflow protocol 확장(`packages/protocol/workflows/*`):
+    - `inputs.ts`: `"project"` 입력 필드 타입을 지원한다.
+    - `declaration.ts`: `kind`와 `steps`를 선택으로 둔 통합 선언 schema로 바꾸고(`declarationParticipantSchema`·`declarationStepSchema` export), 기존 YAML의 `kind` 칸은 보존·무시한다.
+    - `values.ts`·`instances.ts`: `workflowOutcomeReasonSchema`(경계 오류 코드 7종 + 실행 사유 4종), `workflowSoftOutputSchema`, `workflowOutcomeErrorSchema`, `workflowCheckpointKindSchema`, `workflowCheckpointStateSchema`, `workflowCheckpointSchema`, `workflowChildSummarySchema`를 더하고, `startedBySchema`에 `{ kind: "workflow", instance }`, `workflowEntrySchema` problem reason에 `"broken_flow"`, `workflowInstanceSchema`에 선택적 `code_snapshot`을 더한다.
+    - `commands.ts`: `UpsertWorkflowCheckpoint`(`workflow_checkpoints/upsert`, machine 자격) command, `CreateWorkflowInstance`의 선택적 `code_snapshot`, `ApplyWorkflowChange`의 `code_updated` variant를 더한다.
+    - `routes.ts`·allowlists: `ResumeWorkflow`(`workflows/resume`, user 자격) route와 `ReadWorkflowInstance`의 선택적 `checkpoints`·`children`을 더하고 `REMOTE_ALLOWED_ROUTES`, `RENDERER_MEMORY_ROUTES`, `workflows/register.ts` `memoryRoutes`에 등록한다.
+    - `flow-wire.ts`: `FLOW_SDK_VERSION = "1.1.0"`과 기존 `flowRequestSchema` 호환을 유지하면서 durable v2 wire frame schema(`flowEventMessageSchema`, `flowStepBeginRequestSchema`, `flowStepEndRequestSchema`, `flowHumanRequestSchema`, `flowWorkflowRequestSchema`, `flowCancelRequestSchema`, `flowSubscribeRequestSchema`, `flowUnsubscribeRequestSchema`, `flowEscalateRequestSchema`, `flowWireRequestSchema` 및 `checkpoints`/`key`/`mode`/`cancel_id`/`refs`/`data`/`session`)를 추가한다.
+  - core 호환 갱신: `packages/core/workflows/declaration.ts`(통합 `WorkflowDeclaration` 수용 및 non-flow 선언의 `participants`·`steps` 검증)와 `packages/core/workflows/commands.ts`(`code_updated` 변경 분기 처리)를 함께 맞춘다.
+why: |
+  Workflow Phase 4 durable engine 구현(엔진 core, `@lophn/flow` 2.0.0 + flow-host, agent primitive, `onEvent`, UI/CLI)이 공통으로 기대는 저장 schema, protocol 계약, allowlist를 먼저 고정한다.
+decisions:
+  - text: "`flow-wire.ts`에서 기존 1.1.0 `flow-host`가 소비하는 `flowRequestSchema`와 `FLOW_SDK_VERSION = \"1.1.0\"`을 유지하면서 durable v2 개별 요청 schema와 전체 `flowWireRequestSchema`를 함께 내보낸다. 버린 길: 계약 단계에서 바로 `flowRequestSchema`와 `FLOW_SDK_VERSION`을 올려 `flow-host`/`@lophn/flow`를 깨뜨리기."
+    by: agent
+  - text: "blob store의 `purposeName`이 고정 enum이 아니고 미등록 purpose가 fail-closed permanent이므로 `packages/core/storage/blobs/*`는 건드리지 않고, `workflows/register.ts`의 `blobFields`에 `workflow_instance.code_snapshot` permanent field를 등록해 GC 유예 만료로 snapshot이 지워지지 않게 한다."
+    by: agent

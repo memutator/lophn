@@ -1,5 +1,5 @@
 id: workflow-p4-engine
-version: 0.23.153
+version: 0.23.154
 title: 통합 durable workflow core engine(checkpoint, code snapshot, restart reconcile/replay, ResumeWorkflow, StopWorkflow 연쇄, workflow() sub-workflow, YAML 내장 interpreter, AgentPrimitivePorts 배선)을 구현한다
 modules:
   - packages/core/workflows

@@ -1,5 +1,5 @@
 id: collapsible-tab-groups-ui
-version: 0.23.137
+version: 0.23.141
 title: 비분할 탭 묶음(bundle)의 접기·이름·드래그·카드 전환 UI를 구현한다
 modules: [packages/shell/renderer]
 change: |

@@ -133,6 +133,8 @@ export function openTerminal(
     void terminal.core?.list().then((list) => {
       const found = list?.find((one) => one.terminal_ref === attached);
       if (found === undefined) return;
+      // GUI 탭은 xterm이 서지 않아 generation을 아는 길이 이것뿐이다.
+      terminal.store.noteRuntime(found);
       host.patchTab(key, (current) =>
         current.folder === undefined
           ? startedPatch(current, {

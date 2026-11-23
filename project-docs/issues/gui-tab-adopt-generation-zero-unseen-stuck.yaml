@@ -1,7 +1,7 @@
 id: gui-tab-adopt-generation-zero-unseen-stuck
 title: core가 연 GUI 터미널 탭을 확인해도 완료 indicator(unseen dot)가 사라지지 않는다
 kind: bug
-status: open
+status: fixed
 topic: attention
 modules: [packages/shell/renderer]
 now: |
@@ -15,3 +15,6 @@ impact: |
 fix: |
   - `TerminalStore`가 `noteRuntime`으로 받은 live `TerminalRuntime`의 `generation`을 `terminalRef` 기준으로 보관·조회(`generationOf(tabKey)` 또는 `refOf(tabKey)` + runtime generation)하게 하거나, `GuiSwitch`가 `store.refOf(tab.key)`와 core runtime의 `generation`으로 `bridge.focus`를 보내게 고친다.
   - `openTerminal`에서 `core.list()`로 기존 터미널 정보를 읽을 때 `store.update(key, { generation: found.generation })`도 함께 반영하고, 재시작 복원 시 `store.remember()`만 된 탭도 `GuiSwitch`가 `store.refOf(tab.key)`로 focus를 보고하도록 맞춘다.
+closed: |
+  `TerminalStore.generationOf`가 noteRuntime의 live generation을 terminal_ref별로 알려 주고, `GuiSwitch`가 `refOf`와 `generationOf`로 focus를 보낸다.
+guard: packages/shell/renderer/terminal/store_test.ts "generationOf는 adopt한 0과 layout만 읽은 탭도 runtime의 generation을 따른다"

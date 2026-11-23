@@ -672,13 +672,13 @@ export function GuiSwitch({
     (listener) => store.subscribe(listener),
     () => store.version(),
   );
-  const entry = store.get(tab.key);
-  const terminalRef = entry?.terminalRef ?? null;
+  // 항목이 없거나(다시 켠 앱의 layout에서 읽기만 한 탭) generation이 0인(core가 연 탭) GUI 탭도 core가 알린 runtime으로 안다.
+  const terminalRef = store.refOf(tab.key);
   const gui = guiOf(store, tab.key);
   // GUI view에서는 TerminalTab이 서지 않아 main의 focus 표에 이 터미널을 적는 곳이 없다. 고른 GUI 탭도 '보고 있음'이어야
   // 끝난 turn의 점과 알림이 사라진다.
   const showingGui = gui !== null;
-  const generation = entry?.generation ?? 0;
+  const generation = store.generationOf(tab.key);
   useEffect(() => {
     const bridge = deps.bridge;
     if (

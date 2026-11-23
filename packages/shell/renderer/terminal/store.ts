@@ -56,6 +56,8 @@ export class TerminalStore {
   // 터미널 안에서 도는 coding agent. 탭 key가 아니라 terminal_ref로 둔다. core의 event가 탭 항목보다
   // 먼저 올 수 있고, 탭을 옮겨도 터미널 참조는 같다.
   readonly #agents = new Map<string, TabAgent>();
+  // core가 알린 터미널의 live generation. xterm 탭이 서지 않는 GUI 탭도 focus를 보고하려면 항목 없이 알아야 한다.
+  readonly #generations = new Map<string, number>();
   // 터미널마다 coding session(GUI view, handoff, 바꿀 수 있는가).
   #coding = new Map<string, CodingSession>();
   // 못 본 끝이 있는 terminal_ref. 창의 event 연결(EventsProvider)이 넣는다.
@@ -154,6 +156,15 @@ export class TerminalStore {
     this.#opening.delete(key);
   }
 
+  /** 탭 터미널의 generation. 항목(xterm 탭이 갱신)과 core가 알린 runtime 중 큰 쪽이고, 모르면 0이다. */
+  generationOf(key: string): number {
+    const ref = this.refOf(key);
+    return Math.max(
+      this.#entries.get(key)?.generation ?? 0,
+      ref === null ? 0 : (this.#generations.get(ref) ?? 0),
+    );
+  }
+
   /** 탭의 터미널 안에서 도는 coding agent. 없으면 undefined다. */
   agentOf(key: string): TabAgent | undefined {
     const ref = this.refOf(key);
@@ -175,6 +186,8 @@ export class TerminalStore {
   noteRuntime(runtime: TerminalRuntime): void {
     for (const listener of this.#runtimeListeners) listener(runtime);
     const ref = runtime.terminal_ref;
+    const generationChanged = this.#generations.get(ref) !== runtime.generation;
+    this.#generations.set(ref, runtime.generation);
     const before = this.#agents.get(ref);
     const next =
       runtime.agent === undefined
@@ -182,7 +195,10 @@ export class TerminalStore {
         : { ...runtime.agent, unseen: this.#unseen.has(ref) };
     // 칸을 골라 비교하면 새 칸(foreground, name)이 빠져, hook 뒤에 온 foreground 알림을 버리고 GUI 전환을 막았다.
     // core(tracker)가 agent를 같은 순서로 만들어 JSON으로 비교한다.
-    if (JSON.stringify(before) === JSON.stringify(next)) return;
+    if (JSON.stringify(before) === JSON.stringify(next)) {
+      if (generationChanged) this.#agentsChanged();
+      return;
+    }
     if (next === undefined) this.#agents.delete(ref);
     else this.#agents.set(ref, next);
     this.#agentsChanged();

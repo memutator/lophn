@@ -41,3 +41,35 @@ test("foreground나 이름만 바뀐 agent push도 반영한다", () => {
   store.noteRuntime(runtime({ ...hooked, foreground: true, name: "research" }));
   assert.equal(store.agentOf("tab")?.name, "research");
 });
+
+// GUI 탭은 xterm이 서지 않아 항목의 generation이 0에 머문다(core가 연 탭) 하거나 항목이 아예 없다(다시 켠 앱).
+// 그래도 core가 알린 runtime의 generation으로 focus를 보고해야 못 본 끝의 점이 꺼진다.
+const AGENT: TerminalAgent = {
+  harness: "claude",
+  state: "idle",
+  hooked: true,
+};
+
+test("generationOf는 adopt한 0과 layout만 읽은 탭도 runtime의 generation을 따른다", () => {
+  const store = new TerminalStore(null, null);
+  store.adopt("adopted", {
+    terminalRef: "trm_1",
+    generation: 0,
+    folderRef: null,
+  });
+  store.remember("restored", "trm_2");
+  assert.equal(store.generationOf("adopted"), 0);
+  assert.equal(store.generationOf("restored"), 0);
+  const seen: number[] = [];
+  store.subscribe(() => seen.push(store.version()));
+  store.noteRuntime(runtime(AGENT));
+  store.noteRuntime({
+    ...runtime(AGENT),
+    terminal_ref: "trm_2",
+    generation: 3,
+  });
+  assert.equal(store.generationOf("adopted"), 1);
+  assert.equal(store.generationOf("restored"), 3);
+  assert.equal(store.refOf("restored"), "trm_2");
+  assert.ok(seen.length >= 2);
+});

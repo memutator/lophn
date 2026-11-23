@@ -1,0 +1,14 @@
+id: gui-tab-unseen-focus
+version: 0.23.133
+title: core가 연 GUI 터미널 탭과 복원된 GUI 탭도 고르면 완료 dot이 꺼진다
+modules: [packages/shell/renderer]
+change: |
+  `TerminalStore`가 `noteRuntime`으로 받은 live generation을 terminal_ref별로 두고 `generationOf(tabKey)`로 준다(항목의 generation과 큰 쪽).
+  `GuiSwitch`는 `store.refOf(tab.key)`와 `generationOf`로 `bridge.focus`를 보낸다. 전에는 항목의 `terminalRef`·`generation`만 봐서
+  core가 연 탭(adopt의 generation 0)과 다시 켠 앱의 탭(layout에서 기억만 한 탭)은 focus가 한 번도 안 가 `unseen`이 꺼지지 않았다.
+  `openTerminal`은 이미 있는 터미널의 backfill 때 읽은 runtime을 store에도 알린다.
+why: |
+  GUI view에서는 xterm 탭이 서지 않아 generation을 갱신하는 곳이 없었고, 고른 완료 탭의 dot과 Inbox Finished가 지워지지 않았다.
+decisions:
+  - text: "generation은 항목에 덮어쓰지 않고 store가 runtime에서 따로 들고 조회 때 합친다. 버린 길: adopt·remember 때마다 항목을 갱신(항목이 없는 복원 탭을 못 덮고 두 곳이 어긋난다)."
+    by: agent

@@ -6,6 +6,7 @@ import { systemClock } from "../../../base/clock.ts";
 import { createIdSource } from "../../../base/id.ts";
 import { cryptoRandom } from "../../../base/random.ts";
 import { serveHost } from "./serve.ts";
+import { createWinForegroundReader } from "./win-foreground.ts";
 
 const served = serveHost({
   deps: {
@@ -13,6 +14,9 @@ const served = serveHost({
     // core가 사람의 login env로 띄운다. 터미널 env는 host가 이것을 걸러 만든다.
     env: process.env,
     platform: process.platform,
+    ...(process.platform === "win32"
+      ? { winForeground: createWinForegroundReader() }
+      : {}),
     // 앱 실행 alias(WindowsApps\pwsh.exe)는 stat이 EACCES라 existsSync가 false다. 자리만 본다.
     exists: (file) => {
       try {

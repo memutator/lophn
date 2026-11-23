@@ -4,8 +4,11 @@ import { join } from "node:path";
 
 import {
   WIN_CLI_LAUNCHER,
+  WIN_CLI_SH_LAUNCHER,
   winCliLauncher,
+  winCliShLauncher,
 } from "../../packages/base/install/win-install.ts";
+import { hookStdoutRows } from "../../packages/protocol/coding-agent/mod.ts";
 import type { Context } from "./main.ts";
 
 export const BUILDER_DIR = ["--win", "dir", "--x64"];
@@ -17,7 +20,13 @@ export const unpacked = (builderOut: string) =>
 export const bundle = (dir: string) => dir;
 
 export async function stage(ctx: Context, dir: string): Promise<void> {
-  await ctx.write(join(dir, WIN_CLI_LAUNCHER), winCliLauncher(), 0o755);
+  const rows = hookStdoutRows();
+  await ctx.write(join(dir, WIN_CLI_LAUNCHER), winCliLauncher(rows), 0o755);
+  await ctx.write(
+    join(dir, WIN_CLI_SH_LAUNCHER),
+    winCliShLauncher(rows),
+    0o755,
+  );
 }
 
 export async function pack(ctx: Context, dir: string): Promise<void> {

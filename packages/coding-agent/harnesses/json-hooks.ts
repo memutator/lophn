@@ -17,7 +17,7 @@ export type JsonHook = Extract<HarnessHook, { format: "json" }>;
 // 한 항목이 가진 command들이다(shape마다 칸이 다르다).
 function commandsOf(entry: unknown): unknown[] {
   if (!isObject(entry)) return [];
-  const own = [entry.command, entry.bash];
+  const own = [entry.command, entry.bash, entry.powershell];
   if (isObject(entry.action)) own.push(entry.action.command);
   if (Array.isArray(entry.hooks)) {
     for (const handler of entry.hooks) {
@@ -42,6 +42,7 @@ function handlerOf(
     return {
       type: "command",
       bash: line,
+      powershell: line,
       ...(hook.timeout === undefined ? {} : { timeoutSec: hook.timeout }),
     };
   }

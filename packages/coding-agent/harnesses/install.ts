@@ -19,12 +19,15 @@ import {
   editFiles,
   type InstallPorts,
   isObject,
+  isWindowsHome,
+  joinHome,
   type Json,
   type Outcome,
   ownedCommand,
   placedCommand,
   sameJson,
   type Step,
+  trimHome,
 } from "./install-common.ts";
 
 export type { InstallPorts } from "./install-common.ts";
@@ -55,8 +58,8 @@ async function removeRetiredSkills(
 ): Promise<Step> {
   const files: string[] = [];
   for (const name of RETIRED_SKILL_NAMES) {
-    const folder = `${home}/${skillDir}/${name}`;
-    const file = `${folder}/SKILL.md`;
+    const folder = joinHome(home, `${skillDir}/${name}`);
+    const file = joinHome(home, `${skillDir}/${name}/SKILL.md`);
     const names = await ports.list(folder);
     if (names === null || names.length !== 1 || names[0] !== "SKILL.md") {
       continue;
@@ -253,10 +256,15 @@ function allowlistText(
 }
 
 // Cline은 event마다 script file 하나를 읽고, 이름이 event다. 인자를 못 받아 event 이름을 script에 박는다.
+// POSIX는 확장자 없는 `#!/bin/sh`, Windows는 `.ps1`이다.
 export const CLINE_OWNED = /^#!\/bin\/sh\nexec "[^"\n]*" hook cline \w+\n$/;
+export const CLINE_WIN_OWNED =
+  /^\[Console\]::In\.ReadToEnd\(\) \| & '[^'\n]*' hook cline \w+\r?\n$/;
 
-function clineScript(command: string, event: string): string {
-  return `#!/bin/sh\nexec "${command}" hook cline ${event}\n`;
+function clineScript(command: string, event: string, win: boolean): string {
+  return win
+    ? `[Console]::In.ReadToEnd() | & '${command}' hook cline ${event}\n`
+    : `#!/bin/sh\nexec "${command}" hook cline ${event}\n`;
 }
 
 async function installHook(
@@ -272,7 +280,8 @@ async function installHook(
 ): Promise<HookStep> {
   const { harness, home, dryRun } = input;
   const events = Object.keys(HARNESS_ADAPTERS[harness].events);
-  const at = (path: string) => `${home}/${path}`;
+  const win = isWindowsHome(home);
+  const at = (path: string) => joinHome(home, path);
   // 넘긴 command(개발 경로)가 없으면 놓을 때는 PATH의 `lophn`이고, dry_run은 놓인 command를 그대로 쓴다(command만 다른 것은
   // 놓을 것으로 보지 않는다).
   const commandOf = (placed: string | undefined) =>
@@ -433,13 +442,16 @@ async function installHook(
       return await editFiles(
         ports,
         events.map((event) => ({
-          path: `${at(spec.path)}/${event}`,
-          executable: true,
+          path: joinHome(home, `${spec.path}/${win ? `${event}.ps1` : event}`),
+          executable: !win,
           // 사람이 같은 이름으로 쓴 script는 덮지 않는다.
           make: (text: string | null) => {
-            if (text !== null && !CLINE_OWNED.test(text)) return null;
-            const placed = text?.match(/^exec "([^"\n]*)" hook cline /m)?.[1];
-            return clineScript(commandOf(placed), event);
+            const owned = win ? CLINE_WIN_OWNED : CLINE_OWNED;
+            if (text !== null && !owned.test(text)) return null;
+            const placed = win
+              ? text?.match(/& '([^'\n]*)' hook cline /)?.[1]
+              : text?.match(/^exec "([^"\n]*)" hook cline /m)?.[1];
+            return clineScript(commandOf(placed), event, win);
           },
         })),
         dryRun,
@@ -486,7 +498,7 @@ export async function installGlobal(
   },
 ): Promise<Result<InstallResult, LophnError>> {
   const adapter = HARNESS_ADAPTERS[input.harness];
-  const home = input.home.replace(/\/+$/, "");
+  const home = trimHome(input.home);
   const none: Step = { outcome: "not_supported", files: [] };
   try {
     const skill =

@@ -22,6 +22,7 @@ import {
 } from "./pty.ts";
 import { Screen } from "./screen.ts";
 import { integrateShell } from "./shell-integration.ts";
+import type { WinForegroundReader } from "./win-foreground.ts";
 import type {
   ForegroundChange,
   HostReply,
@@ -50,6 +51,8 @@ export type HostDeps = {
   /** process가 끝나 runtime이 바뀌었다. 요청의 답이 아니라 host가 먼저 알린다. */
   onRuntime?: (runtime: TerminalRuntime) => void;
   onOutput?: (output: TerminalOutput) => void;
+  /** Windows shell pid 아래 자손 process에서 foreground coding agent argv를 읽는다. */
+  winForeground?: WinForegroundReader;
 };
 
 type Session = {
@@ -70,7 +73,7 @@ type Host = {
   ): Promise<HostReply | HostSnapshotReply | HostScreenReply>;
   sessions(): readonly TerminalRuntime[];
   /** 살아 있는 shell 터미널 중 foreground argv가 지난번과 달라진 것만 돌려준다. */
-  foregroundChanges(): ForegroundChange[];
+  foregroundChanges(): ForegroundChange[] | Promise<ForegroundChange[]>;
   /** 도는 모든 터미널을 SIGHUP, 확인, SIGKILL로 정리한다. host가 끝나기 전에 부른다. */
   shutdown(): Promise<void>;
 };
@@ -331,6 +334,32 @@ function createHost(deps: HostDeps): Host {
       return [...sessions.values()].map((session) => ({ ...session.runtime }));
     },
     foregroundChanges() {
+      if (deps.platform === "win32" && deps.winForeground !== undefined) {
+        const running = [...sessions.values()].filter(
+          (session) =>
+            session.runtime.state === "running" && session.handle !== null,
+        );
+        if (running.length === 0) return [];
+        const pids = running.map((session) => session.handle!.pid);
+        return deps.winForeground.query(pids).then((byPid) => {
+          const changes: ForegroundChange[] = [];
+          for (const session of running) {
+            const { runtime, handle } = session;
+            if (runtime.state !== "running" || !handle) continue;
+            if (!byPid.has(handle.pid)) continue;
+            const argv = byPid.get(handle.pid) ?? null;
+            const joined = argv === null ? null : argv.join("\0");
+            if (joined === session.foreground) continue;
+            session.foreground = joined;
+            changes.push({
+              terminal_ref: runtime.terminal_ref,
+              generation: runtime.generation,
+              argv,
+            });
+          }
+          return changes;
+        });
+      }
       const changes: ForegroundChange[] = [];
       for (const session of sessions.values()) {
         const { runtime, handle } = session;
@@ -352,6 +381,7 @@ function createHost(deps: HostDeps): Host {
       return changes;
     },
     async shutdown() {
+      deps.winForeground?.stop();
       await Promise.all(
         [...sessions.values()].map((session) => stop(session, deps.sleep)),
       );

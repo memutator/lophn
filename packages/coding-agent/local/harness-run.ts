@@ -190,13 +190,14 @@ export async function runHarnessUninstall(
   // lophn이 쓴 공유 skill 사본도 같이 지운다. 같은 폴더를 쓰는 다른 harness의 hook이 남았으면 다음 sync-skills가 다시 둔다.
   const skillDir = HARNESS_ADAPTERS[input.harness].skill_dir;
   if (skillDir === null) return ok(done.value);
-  const dir = `${home.replace(/\/+$/, "")}/${skillDir}`;
+  const sep = home.includes("\\") || /^[A-Za-z]:[\\/]/.test(home) ? "\\" : "/";
+  const dir = `${home.replace(/[\\/]+$/, "")}${sep}${skillDir.replaceAll("/", sep)}`;
   const copies = await syncSkillCopies(nodePorts, { dir, skills: [] });
   return ok({
     hook: done.value.hook,
     files: [
       ...done.value.files,
-      ...copies.removed.map((name) => `${dir}/${name}`),
+      ...copies.removed.map((name) => `${dir}${sep}${name}`),
     ],
   });
 }
@@ -215,7 +216,8 @@ export async function runHarnessSyncSkills(
   home: string,
   now: string,
 ): Promise<Result<SkillSyncRow[], LophnError>> {
-  const root = home.replace(/\/+$/, "");
+  const sep = home.includes("\\") || /^[A-Za-z]:[\\/]/.test(home) ? "\\" : "/";
+  const root = home.replace(/[\\/]+$/, "");
   const status = await runHarnessStatus({}, root, now);
   if (!status.ok) return status;
   const byDir = new Map<string, { id: HarnessId; hook: string }[]>();
@@ -233,7 +235,7 @@ export async function runHarnessSyncSkills(
     if (!installed && !harnesses.every((one) => one.hook === "missing")) {
       continue;
     }
-    const dir = `${root}/${skillDir}`;
+    const dir = `${root}${sep}${skillDir.replaceAll("/", sep)}`;
     try {
       const done = await syncSkillCopies(nodePorts, {
         dir,

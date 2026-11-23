@@ -19,7 +19,7 @@ Claude Code, Codex, OpenCode, omp, Antigravity(`agy`)는 터미널 TUI로 쓴다
   - TUI 화면을 긁지 않는다. 각 CLI의 공식 GUI 경계를 쓴다.
   - 사람의 CLI 설정 file을 바꾸지 않는다.
   - lophn 밖 터미널과 Home workspace의 터미널은 다루지 않는다.
-  - Windows에서 toggle은 없다(foreground를 모른다).
+  - Windows에서 toggle은 없다(TUI 끄기 signal이 없다).
 
 ## 모델
 

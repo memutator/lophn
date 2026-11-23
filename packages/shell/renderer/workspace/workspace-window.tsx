@@ -1019,17 +1019,19 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           relation: options?.relation,
           unsaved: isUnsaved,
         });
-      // source가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
-      // workflow desk가 지정됐는데 아직 없으면 homeDesk와 같이 그 workflow desk를 만들어 거기에 붙인다(Main으로 떨어지지 않는다).
+      // 지정된 desk가 있으면 `after`보다 먼저 따른다. workflow desk가 아직 없으면 homeDesk와 같이 만들어 붙인다(Main으로 떨어지지 않는다).
+      // 그 밖에는 source(`after`)가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
       const at =
         options?.after === undefined
           ? undefined
           : findTab(all, options.after)?.desk;
       const requested = options?.desk;
-      if (at !== undefined) updateAt(at, open);
-      else if (requested !== undefined) {
-        if (Object.hasOwn(all.desks, requested)) updateAt(requested, open);
-        else if (
+      if (requested !== undefined) {
+        if (Object.hasOwn(all.desks, requested)) {
+          updateAt(requested, open);
+          return;
+        }
+        if (
           projectId !== null &&
           requested !== MAIN_DESK &&
           !requested.startsWith("desk-")
@@ -1041,8 +1043,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               open,
             ),
           );
-        } else update(open);
-      } else update(open);
+          return;
+        }
+      }
+      if (at !== undefined) updateAt(at, open);
+      else update(open);
       return;
     }
     // 사는 desk가 있는 탭(workflow)이나 지정된 workflow desk는 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.

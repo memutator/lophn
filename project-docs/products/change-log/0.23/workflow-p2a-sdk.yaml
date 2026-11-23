@@ -1,5 +1,5 @@
 id: workflow-p2a-sdk
-version: 0.23.136
+version: 0.23.138
 title: SessionInfo.workflow 투영과 @lophn/agent 1.17.0 SDK 판 올림을 더한다
 modules:
   - packages/protocol

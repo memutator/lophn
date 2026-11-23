@@ -7,9 +7,9 @@ import { manualClock } from "../../base/clock.ts";
 import { createIdSource } from "../../base/id.ts";
 import { seededRandom } from "../../base/random.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
+import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
-import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
 import { type CodexLink, createCodexAdapter } from "./codex.ts";
 
 // 녹화(fixtures/codex, 실제 codex 0.166.0이 낸 줄을 scrub한 것)로 adapter를 돌린다. 실제 codex는 띄우지 않는다. 가짜 link가
@@ -35,8 +35,12 @@ async function boot(
   options: {
     config?: Record<string, unknown>;
     resume?: string;
+    forkFrom?: string;
     unsaved?: boolean;
     member?: { deny: readonly string[] };
+    carry?: { model?: string; effort?: string; args?: readonly string[] };
+    launch?: { model?: string; options?: Record<string, string> };
+    args?: readonly string[];
   } = {},
 ) {
   const written: Wire[] = [];
@@ -77,7 +81,11 @@ async function boot(
     terminal: null,
     cwd: "/work/startup",
     ...(options.resume === undefined ? {} : { resume: options.resume }),
+    ...(options.forkFrom === undefined ? {} : { forkFrom: options.forkFrom }),
     ...(options.member === undefined ? {} : { member: options.member }),
+    ...(options.carry === undefined ? {} : { carry: options.carry }),
+    ...(options.launch === undefined ? {} : { launch: options.launch }),
+    ...(options.args === undefined ? {} : { args: options.args }),
     session,
     spawn: () => proc,
     clock,
@@ -89,6 +97,10 @@ async function boot(
     const config = rec.find((one) => one.data.result?.config !== undefined);
     (config?.data.result as { config: unknown }).config = options.config;
   }
+  const hasSpeed =
+    options.resume === undefined &&
+    options.launch?.options?.speed !== undefined &&
+    options.launch.options.speed !== "default";
   // resume이면 시작은 thread/start가 아니라 thread/resume과 앞 turn 목록 읽기다.
   if (options.resume !== undefined) {
     const start = rec.findIndex((one) => one.data.method === "thread/start");
@@ -110,6 +122,21 @@ async function boot(
         { kind: "send", data: { method: "thread/start" } },
       );
     } else rec.splice(start + 2, 0, ...recording("origin"));
+  } else if (options.forkFrom !== undefined) {
+    const start = rec.findIndex((one) => one.data.method === "thread/start");
+    (rec[start] as Entry).data.method = "thread/fork";
+  }
+  if (hasSpeed) {
+    const start = rec.findIndex(
+      (one) =>
+        one.data.method === "thread/start" || one.data.method === "thread/fork",
+    );
+    rec.splice(
+      start + 2,
+      0,
+      { kind: "send", data: { method: "thread/settings/update" } },
+      { kind: "recv", data: { result: {} } as Wire },
+    );
   }
   let at = 0;
   let sent = 0;
@@ -799,4 +826,153 @@ test("a member tab's `!` runs without the turn credential file, and only a perso
       },
     ],
   );
+});
+
+test("launch의 model·effort·speed는 새 thread에 실리고, args > carry > launch 순이며 resume에는 launch를 덮지 않고 forkFrom은 thread/fork를 쓴다", async () => {
+  const launched = await boot({
+    launch: {
+      model: "gpt-x",
+      options: { effort: "high", speed: "priority" },
+    },
+  });
+  const start = launched.t.written.find((one) => one.method === "thread/start");
+  assert.equal(start?.params?.model, "gpt-x");
+  assert.deepEqual(start?.params?.config, { model_reasoning_effort: "high" });
+  const speedUpdate = launched.t.written.find(
+    (one) => one.method === "thread/settings/update",
+  );
+  assert.equal(speedUpdate?.params?.serviceTier, "priority");
+
+  const carried = await boot({
+    carry: { model: "gpt-carry", effort: "medium" },
+    launch: { model: "gpt-x", options: { effort: "high" } },
+  });
+  const carriedStart = carried.t.written.find(
+    (one) => one.method === "thread/start",
+  );
+  assert.equal(carriedStart?.params?.model, "gpt-carry");
+  assert.deepEqual(carriedStart?.params?.config, {
+    model_reasoning_effort: "medium",
+  });
+
+  const flagged = await boot({
+    carry: { model: "gpt-carry", effort: "medium" },
+    launch: { model: "gpt-x", options: { effort: "high" } },
+    args: ["--model", "gpt-y", "-c", "model_reasoning_effort=low"],
+  });
+  const flaggedStart = flagged.t.written.find(
+    (one) => one.method === "thread/start",
+  );
+  assert.equal(flaggedStart?.params?.model, "gpt-y");
+  assert.equal(flaggedStart?.params?.config, undefined);
+
+  // resume은 기존 thread의 model을 보존해 launch를 덮지 않는다.
+  const resumed = await boot({
+    resume: "01a1aa8e-0000",
+    launch: {
+      model: "gpt-x",
+      options: { effort: "high", speed: "priority" },
+    },
+  });
+  const resumeReq = resumed.t.written.find(
+    (one) => one.method === "thread/resume",
+  );
+  assert.equal(resumeReq?.params?.model, undefined);
+  assert.equal(resumeReq?.params?.config, undefined);
+  assert.equal(
+    resumed.t.written.some((one) => one.method === "thread/settings/update"),
+    false,
+  );
+
+  // forkFrom은 thread/fork로 새 thread를 연다.
+  const forked = await boot({
+    forkFrom: "01a1aa8e-src",
+    launch: { model: "gpt-x", options: { effort: "high" } },
+  });
+  const forkReq = forked.t.written.find((one) => one.method === "thread/fork");
+  assert.equal(forkReq?.params?.threadId, "01a1aa8e-src");
+  assert.equal(forkReq?.params?.model, "gpt-x");
+  assert.deepEqual(forkReq?.params?.config, { model_reasoning_effort: "high" });
+});
+
+test("fetchCatalog는 thread/start 없이 model/list와 config/read만 부르고 server를 끈다", async () => {
+  const methods: string[] = [];
+  let killed = false;
+  let exitListener = () => {};
+  let emit: (text: string) => void = () => {};
+  const link: CodexLink = {
+    send(text) {
+      const message = JSON.parse(text) as Wire;
+      if (message.method !== undefined) methods.push(message.method);
+      if (message.id === undefined) return;
+      const results: Record<string, Record<string, unknown>> = {
+        initialize: {},
+        "model/list": {
+          data: [
+            {
+              model: "gpt-x",
+              displayName: "GPT X",
+              isDefault: true,
+              supportedReasoningEfforts: [{ reasoningEffort: "low" }],
+            },
+            { model: "hidden", hidden: true },
+          ],
+        },
+        "config/read": {
+          config: { model: "gpt-x", model_reasoning_effort: "medium" },
+        },
+      };
+      setImmediate(() =>
+        emit(
+          JSON.stringify({
+            id: message.id,
+            result: results[message.method ?? ""] ?? {},
+          }),
+        ),
+      );
+    },
+    onMessage: (listener) => void (emit = listener),
+    onClose() {},
+    close() {},
+  };
+  const proc: CliProcess = {
+    pid: 1,
+    write() {},
+    end() {},
+    kill() {
+      killed = true;
+      exitListener();
+    },
+    onStdout() {},
+    onStderr() {},
+    onExit(listener) {
+      exitListener = () => listener(0);
+    },
+  };
+  const adapter = createCodexAdapter({
+    makeDir: () => "/tmp/lophn-codex-test",
+    removeDir() {},
+    connect: () => Promise.resolve(link),
+  });
+  const result = await adapter.fetchCatalog({
+    spawn: () => proc,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.value.defaults, {
+    model: "gpt-x",
+    options: { effort: "medium" },
+  });
+  assert.deepEqual(
+    result.value.models[0]?.models.map((one) => one.id),
+    ["gpt-x"],
+  );
+  assert.deepEqual(methods, [
+    "initialize",
+    "initialized",
+    "model/list",
+    "config/read",
+  ]);
+  assert.equal(killed, true);
 });

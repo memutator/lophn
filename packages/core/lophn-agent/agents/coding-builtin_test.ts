@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -29,10 +29,15 @@ const tx = { sql: {} } as unknown as Tx;
 async function inRoot(
   settings: Record<string, unknown>,
   body: (deps: AgentDeps, root: string) => void,
+  agentFiles: Record<string, string> = {},
 ) {
   const root = await mkdtemp(join(tmpdir(), "lophn-coding-builtin-"));
   try {
     await writeFile(join(root, SETTINGS_FILE_NAME), JSON.stringify(settings));
+    await mkdir(join(root, "agents"));
+    for (const [name, text] of Object.entries(agentFiles)) {
+      await writeFile(join(root, "agents", name), text);
+    }
     body(
       { files: createNodeAgentFiles(), lookups: () => lookups, dataRoot: root },
       root,
@@ -123,4 +128,32 @@ test("a built-in coding agent's handle, runtime and scope cannot change, it cann
       assert.equal(created.error.code, "invalid_input");
     }
   });
+});
+
+// 즐겨찾기한 harness는 headless 명령이 없는 omp·antigravity도 목록에 선다. 정의의 harness_config.model은 명함의 model로 보인다.
+test("every favorite coding agent is listed, and a pinned harness model shows on its card", async () => {
+  const favorites = ["claude", "codex", "opencode", "omp", "antigravity"];
+  await inRoot(
+    { "shell.coding_agents": { favorites, commands: {} } },
+    (deps) => {
+      const directory = createAgentDirectory((sql) =>
+        openAgentContext(deps, sql),
+      )({} as never);
+      assert.deepEqual(
+        directory.agents().map((agent) => agent.handle),
+        ["lophn", ...favorites],
+      );
+      assert.deepEqual(directory.cardOf("codex", null)?.model, {
+        provider: "codex",
+        model_name: "gpt-5",
+        price: null,
+        options: { effort: "high" },
+      });
+      assert.equal(directory.cardOf("omp", null)?.model, undefined);
+    },
+    {
+      "coding_codex.md":
+        "---\nharness_config:\n  model: gpt-5\n  options:\n    effort: high\n---\n",
+    },
+  );
 });

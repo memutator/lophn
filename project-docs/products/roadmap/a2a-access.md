@@ -125,7 +125,7 @@ program이 내는 것은 이 셋이다.
   - 탭이 없는 팀원과 project에서 부른 내장 coding agent는 core가 그 project에 탭을 열어 받는다. 답 못 한 call은 보낸 쪽에 실패로 돌아간다.
   - `session list`·`team read`에 탭의 상태로 서고 화면에는 터미널 탭으로만 보인다.
   - 실제 CLI로는 아직 돌려 보지 않았다. 사람이 Claude Code와 Codex 탭으로 해 본 뒤 4로 간다.
-- 4(headless 걷어내기)에 남은 것: extension `harness`와 `harness/take|start_turn|record|finish_turn|set_external_id`, headless 명령 표, 설정 `extensions.harness.enabled`, 그 gating을 지운다. Home·앱 workspace의 coding agent, 사람이 정의한 harness agent, 사람이 Agent 탭으로 연 coding session을 어디서 돌릴지 정한다(GUI 탭은 지금 project에만 선다). `harness_gui`는 늘 켜진 값이 되어 지운다. 팀원 session을 끝내는 길(사람이 coding session을 목록에서 지우기)이 아직 없다.
+- 4(headless 걷어내기) 완료 (2026-11-23): 구 일회성 headless 실행기(`packages/core/harness`, `packages/protocol/coding-agent/headless`, `harness/take|start_turn|record|finish_turn|set_external_id`, `extensions.harness.enabled` gating)를 제거하고 5종 harness(`claude`, `codex`, `opencode`, `omp`, `antigravity`)를 단일 상주 ACP 어댑터(`tab` 모드·`background` 모드)로 통합했다. Home·앱 workspace·custom harness agent·무인 실행은 `background` 모드(`harness_gui = 0`)로 돌고, project 내장 coding agent와 GUI 탭은 `tab` 모드(`harness_gui = 1`)로 돈다. `coding_sessions/forget`으로 팀원 session 보관도 지원한다.
 
 ## 하지 않는 것
 

@@ -60,3 +60,101 @@ test("새 agent는 미리 받은 id로 만들어지고 새 server의 값은 그 
   assert.deepStrictEqual(saved.ok && saved.value.assignment, draftId);
   assert.deepStrictEqual(opened, [`mcp.${draftId}.docs`]);
 });
+
+test("harnessCatalog·refreshHarnessCatalog·codingChoices가 맞는 route와 입력을 부른다", async () => {
+  const sent: {
+    kind: string;
+    resource: string;
+    method: string;
+    body: unknown;
+  }[] = [];
+  const sampleView = {
+    harness: "codex" as const,
+    status: "ready" as const,
+    catalog: {
+      models: [
+        {
+          id: "openai",
+          label: "OpenAI",
+          models: [{ id: "gpt-5.3-codex", label: "GPT-5.3 Codex", axes: [] }],
+        },
+      ],
+      defaults: { model: "gpt-5.3-codex", options: {} },
+    },
+    fetched_at: "2026-11-23T05:00:00.000Z",
+    stale: false,
+    error: null,
+  };
+  const core = {
+    subscribe: () => () => {},
+    call: (call: {
+      kind: string;
+      resource: string;
+      method: string;
+      body: unknown;
+    }) => {
+      sent.push(call);
+      if (call.resource === "harness_catalog") {
+        return Promise.resolve({ ok: true, value: sampleView });
+      }
+      if (call.resource === "settings" && call.method === "list") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            settings: [
+              {
+                key: "shell.coding_agents",
+                chosen: { favorites: ["omp", "claude"], commands: {} },
+              },
+            ],
+          },
+        });
+      }
+      if (call.resource === "coding_agents" && call.method === "list") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            harnesses: [
+              { harness_id: "claude", discovery: "detected" },
+              { harness_id: "codex", discovery: "absent" },
+              { harness_id: "omp", discovery: "detected" },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ ok: false, error: { code: "not_found" } });
+    },
+  } as unknown as CoreSource;
+
+  const source = coreAgentsSource(core);
+  const read = await source.harnessCatalog(
+    "codex",
+    true,
+    "prj_01h455vb4pex5v6nkc6gd5fd01",
+  );
+  const refreshed = await source.refreshHarnessCatalog("codex", "home");
+  const choices = await source.codingChoices();
+
+  assert.equal(read.ok, true);
+  assert.equal(refreshed.ok, true);
+  assert.deepStrictEqual(choices, {
+    ok: true,
+    value: { favorites: ["omp", "claude"], detected: ["claude", "omp"] },
+  });
+  assert.deepStrictEqual(sent[0], {
+    kind: "read",
+    resource: "harness_catalog",
+    method: "read",
+    body: {
+      harness: "codex",
+      workspace: { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5fd01" },
+      probe: true,
+    },
+  });
+  assert.deepStrictEqual(sent[1], {
+    kind: "memory",
+    resource: "harness_catalog",
+    method: "refresh",
+    body: { harness: "codex" },
+  });
+});

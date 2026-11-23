@@ -24,6 +24,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 터미널 탭의 GUI·TUI 바꾸기(`coding_sessions/switch`)
 // - Recent에서 지운 coding session의 팀원 session 보관(`coding_sessions/forget`)
 // - Settings › Coding agents의 다시 감지·hook 놓기·지우기와 hook 설치 물음의 답(`coding_agents/*`)
+// - Agent Profile 편집기의 harness model catalog 다시 묻기(`harness_catalog/refresh`). 읽기는 read route라 아래에서 자동으로 열린다.
 // - 사람이 browser 탭을 이 기계의 session에 넘기기와 창이 core에 다시 붙을 때 넘긴 탭을 다시 알리기(`tabs/hand`)
 // - key 없이 이 기계의 주소로 provider 잇기, 구독 로그인 시작과 상태 읽기(`providers/connect-local`·`sign-in`·`sign-in-state`. Settings › Providers와
 //   agent의 sign_in card). key로 잇기(`providers/connect-key`)는 upload라 main의 secret 입력 창만 부른다.
@@ -100,6 +101,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:coding_agents/refresh",
   "memory:coding_agents/install_hooks",
   "memory:coding_agents/uninstall_hooks",
+  "memory:harness_catalog/refresh",
   "memory:tabs/hand",
   "memory:projects/add",
   "memory:providers/connect-local",

@@ -487,9 +487,8 @@ test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자�
   assert.deepStrictEqual(open(), 2);
 });
 
-// project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원이 된다(core가 탭을 연다). 탭을 core가 스스로 열어야 하므로 사람이 coding
-// agent를 lophn이 돌리게 켰을 때만 열린다. Home과 앱에서 부른 것은 headless 그대로다.
-test("a coding agent called into a project opens as a GUI tab member only when coding agents may run on their own; Home and apps stay headless", () => {
+// project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원이 된다(core가 탭을 연다). Home과 앱에서 부른 것은 background다.
+test("a built-in coding agent called into a project opens as a GUI tab member; Home and apps run in background", () => {
   const root = mkdtempSync(join(tmpdir(), "lophn-coding-member-"));
   try {
     const db = new DatabaseSync(join(root, "lophn.db"));
@@ -547,9 +546,9 @@ test("a coding agent called into a project opens as a GUI tab member only when c
     assert.ok(member.ok);
     assert.equal(mark(member.value.session), 1);
     for (const workspace of [null, { kind: "app" as const, id: APP }]) {
-      const headless = call(workspace);
-      assert.ok(headless.ok);
-      assert.equal(mark(headless.value.session), 0);
+      const background = call(workspace);
+      assert.ok(background.ok);
+      assert.equal(mark(background.value.session), 0);
     }
     db.close();
   } finally {

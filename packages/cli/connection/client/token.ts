@@ -1,11 +1,8 @@
-// harness가 띄운 shell에는 core가 turn 자격(agent credential)을 넣어 둔다. env에 값으로 두거나(headless), env가 가리키는 file에
-// 둔다(GUI 탭의 CLI. core가 turn이 열릴 때 쓰고 끝나면 지운다). 어느 쪽이든 있으면 사람의 user 자격으로 바꾸지 않는다: harness는
-// 사람이 아니라 그 session의 agent로 부른다.
+// harness가 띄운 shell에는 core가 turn 자격(agent credential) file 경로를 env에 넣어 둔다(GUI 탭과 background 실행 모두).
+// core가 turn이 열릴 때 그 file에 쓰고 끝나면 지운다. 이 env가 있으면 사람의 user 자격으로 바꾸지 않는다: harness는 사람이 아니라
+// 그 session의 agent로 부른다.
 import { readFileSync } from "node:fs";
-import {
-  AGENT_CREDENTIAL_ENV,
-  AGENT_CREDENTIAL_FILE_ENV,
-} from "../../../protocol/coding-agent/headless/env.ts";
+import { AGENT_CREDENTIAL_FILE_ENV } from "../../../protocol/coding-agent/credential-env.ts";
 import { AGENT_SHELL_ENV } from "../../../protocol/lophn-agent/tool-lists.ts";
 
 type Env = { get(name: string): string | undefined };
@@ -28,8 +25,6 @@ export function agentCredential(
   env: Env,
   read: ReadCredentialFile = readCredentialFile,
 ): { token: string | null } | undefined {
-  const agent = env.get(AGENT_CREDENTIAL_ENV);
-  if (agent !== undefined && agent !== "") return { token: agent };
   const file = env.get(AGENT_CREDENTIAL_FILE_ENV);
   if (file === undefined || file === "") return undefined;
   const token = read(file)?.trim() ?? "";

@@ -30,6 +30,7 @@ export const CHANGE_NAMES = [
   "remote_devices",
   "unseen",
   "coding_sessions",
+  "harness_catalog",
   "terminal_saved_sessions",
   "browser_pages",
   "carry_files",

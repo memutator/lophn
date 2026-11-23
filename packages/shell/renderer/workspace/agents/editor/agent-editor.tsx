@@ -67,6 +67,9 @@ export type AgentEditorSource = Pick<
   | "writeInstructions"
   | "readMemory"
   | "writeMemory"
+  | "harnessCatalog"
+  | "refreshHarnessCatalog"
+  | "codingChoices"
 >;
 
 interface AgentEditorProps {
@@ -686,7 +689,13 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           />
         </TabPanel>
         <TabPanel value="runs">
-          <RunsTab {...form} facts={facts} models={models} source={source} />
+          <RunsTab
+            {...form}
+            facts={facts}
+            models={models}
+            workspace={workspace}
+            source={source}
+          />
         </TabPanel>
         <TabPanel value="sees">
           <SeesTab

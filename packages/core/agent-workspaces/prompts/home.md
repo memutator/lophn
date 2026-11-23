@@ -99,7 +99,7 @@ decisions of the plan.
   installed coding agent as a favorite there, or to check that it is detected.
   Write the handoff for an agent that knows nothing yet: the goal, what you know
   so far, and what to do next. Work on a project belongs to lophn at that project. One-off work that
-  needs no person goes headless with `lophn team spawn <handle>`.
+  needs no person runs in the background with `lophn team spawn <handle>`.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or

@@ -1,7 +1,10 @@
 // fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(lophn과 사람이 만든 agent 셋)와 층마다 정한
 // model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
 
+import type { HarnessCatalogView } from "../../../../protocol/acp/harness-catalog.ts";
+import type { AcpModelAxis } from "../../../../protocol/acp/session.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
+import type { GuiHarness } from "../../../../protocol/coding-agent/gui-harness.ts";
 import type {
   CatalogEntry,
   ModelChoice,
@@ -10,7 +13,12 @@ import type {
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { BrowserProfile } from "../../../../protocol/secrets/browser-vault.ts";
-import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
+import type {
+  AgentDraft,
+  CodingChoices,
+  GrantApp,
+  GrantCatalog,
+} from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
 const id = (prefix: string, seed: string) =>
@@ -160,6 +168,201 @@ export const CATALOG: readonly CatalogEntry[] = [
   entry("Haiku 5.5", [], 200_000, ["text", "image"]),
 ];
 
+// ---- harness catalog & coding agent choices ----
+
+const ACP_EFFORT: AcpModelAxis = {
+  id: "effort",
+  label: "Effort",
+  kind: "choice",
+  values: [
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" },
+    { value: "max", label: "Max" },
+  ],
+};
+
+const ACP_CODEX_EFFORT: AcpModelAxis = {
+  id: "effort",
+  label: "Effort",
+  kind: "choice",
+  values: [
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" },
+    { value: "xhigh", label: "XHigh" },
+  ],
+};
+
+const ACP_FAST_SWITCH: AcpModelAxis = {
+  id: "fast",
+  label: "Speed",
+  kind: "switch",
+  values: [
+    { value: "off", label: "Off" },
+    { value: "on", label: "Fast" },
+  ],
+};
+
+const HARNESS_FETCHED_AT = "2026-11-23T05:00:00.000Z";
+
+export const FAKE_CODING_CHOICES: CodingChoices = {
+  favorites: ["claude", "codex", "opencode"],
+  detected: ["claude", "codex", "opencode", "omp", "antigravity"],
+};
+
+export const FAKE_HARNESS_CATALOGS: Readonly<
+  Record<GuiHarness, HarnessCatalogView>
+> = {
+  claude: {
+    harness: "claude",
+    status: "ready",
+    catalog: {
+      models: [
+        {
+          id: "anthropic",
+          label: "Anthropic",
+          models: [
+            {
+              id: "claude-opus-4-7",
+              label: "Opus 4.7",
+              axes: [ACP_EFFORT, ACP_FAST_SWITCH],
+            },
+            {
+              id: "claude-sonnet-4-6",
+              label: "Sonnet 4.6",
+              axes: [ACP_EFFORT],
+            },
+            { id: "claude-haiku-4-5", label: "Haiku 4.5", axes: [] },
+          ],
+        },
+      ],
+      defaults: { model: "claude-sonnet-4-6", options: { effort: "medium" } },
+    },
+    fetched_at: HARNESS_FETCHED_AT,
+    stale: false,
+    error: null,
+  },
+  codex: {
+    harness: "codex",
+    status: "ready",
+    catalog: {
+      models: [
+        {
+          id: "openai",
+          label: "OpenAI",
+          models: [
+            {
+              id: "gpt-5.3-codex",
+              label: "GPT-5.3 Codex",
+              axes: [ACP_CODEX_EFFORT],
+            },
+            {
+              id: "gpt-5.2-codex",
+              label: "GPT-5.2 Codex",
+              axes: [ACP_CODEX_EFFORT],
+            },
+          ],
+        },
+      ],
+      defaults: { model: "gpt-5.3-codex", options: { effort: "medium" } },
+    },
+    fetched_at: HARNESS_FETCHED_AT,
+    stale: false,
+    error: null,
+  },
+  opencode: {
+    harness: "opencode",
+    status: "ready",
+    catalog: {
+      models: [
+        {
+          id: "anthropic",
+          label: "Anthropic",
+          models: [
+            {
+              id: "anthropic/claude-sonnet-4-6",
+              label: "Claude Sonnet 4.6",
+              axes: [ACP_EFFORT],
+            },
+          ],
+        },
+        {
+          id: "openai",
+          label: "OpenAI",
+          models: [
+            {
+              id: "openai/gpt-5.3-codex",
+              label: "GPT-5.3 Codex",
+              axes: [ACP_CODEX_EFFORT],
+            },
+          ],
+        },
+      ],
+      defaults: { model: "anthropic/claude-sonnet-4-6", options: {} },
+    },
+    fetched_at: HARNESS_FETCHED_AT,
+    stale: false,
+    error: null,
+  },
+  omp: {
+    harness: "omp",
+    status: "ready",
+    catalog: {
+      models: [
+        {
+          id: "anthropic",
+          label: "Anthropic",
+          models: [
+            {
+              id: "anthropic/claude-opus-4-7",
+              label: "Claude Opus 4.7",
+              axes: [ACP_EFFORT],
+            },
+            {
+              id: "anthropic/claude-sonnet-4-6",
+              label: "Claude Sonnet 4.6",
+              axes: [ACP_EFFORT],
+            },
+          ],
+        },
+      ],
+      defaults: { model: "anthropic/claude-sonnet-4-6", options: {} },
+    },
+    fetched_at: HARNESS_FETCHED_AT,
+    stale: false,
+    error: null,
+  },
+  antigravity: {
+    harness: "antigravity",
+    status: "ready",
+    catalog: {
+      models: [
+        {
+          id: "google",
+          label: "Google",
+          models: [
+            {
+              id: "gemini-3.8-pro",
+              label: "Gemini 3.8 Pro",
+              axes: [ACP_EFFORT],
+            },
+            {
+              id: "gemini-3.8-flash",
+              label: "Gemini 3.8 Flash",
+              axes: [ACP_EFFORT],
+            },
+          ],
+        },
+      ],
+      defaults: { model: "gemini-3.8-pro", options: { effort: "medium" } },
+    },
+    fetched_at: HARNESS_FETCHED_AT,
+    stale: false,
+    error: null,
+  },
+};
+
 // ---- 정의 ----
 
 export interface FakeAgent {
@@ -301,6 +504,10 @@ have not moved. Answer in one short list.`,
       handle: "codex-runner",
       name: "Codex runner",
       runtime: "codex",
+      harness_config: {
+        model: "gpt-5.3-codex",
+        options: { effort: "high" },
+      },
       description: "Runs coding tasks in Codex.",
       avatar: { kind: "character", shape: "square", color: "teal" },
       body: "Do the coding task the caller names and answer with a short summary.",
@@ -309,12 +516,12 @@ have not moved. Answer in one short list.`,
   {
     key: "coding_claude",
     name: "Claude Code",
-    summary: "Runs Claude Code headless.",
+    summary: "Runs Claude Code.",
     definition: {
       name: "Claude Code",
       handle: "claude",
       runtime: "claude-code",
-      description: "Runs Claude Code headless.",
+      description: "Runs Claude Code.",
       avatar: { kind: "character", shape: "square", color: "sage" },
       body: "",
     },

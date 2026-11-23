@@ -85,7 +85,7 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
     summary: "Copy the shared apps' public skills into coding agent harnesses",
     description:
       "Reads the apps you gave to coding agents and copies their public skills into the skill folder of every harness whose lophn hook is installed. " +
-      "While the harness extension is on, also copies the lophn-agent skill (how a harness agent replies to calls) into every harness skill folder, hook or not. " +
+      "Also copies the lophn-agent skill (how a harness agent replies to calls) into every harness skill folder, hook or not. " +
       "Only folders lophn wrote (they hold a .lophn-shared file) are overwritten or removed; a folder of yours with the same name is skipped. Needs lophn running.",
     input: empty,
     effect: "write",
@@ -113,7 +113,6 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
       return await runHarnessSyncSkills(
         {
           skills: read.value.skills,
-          harness_enabled: true,
         },
         ctx.home,
         ctx.now(),

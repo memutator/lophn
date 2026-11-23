@@ -19,12 +19,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { isGuiHarness } from "../../../../protocol/acp/gui-session.ts";
 import {
   acpImageRead,
   acpImageUpload,
   acpToolBodyRead,
 } from "../../../../protocol/acp/routes.ts";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/share-request.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   codingAgentsHookStatus,
   codingAgentsInstallHooks,
@@ -59,28 +61,27 @@ import {
   terminalsSavedSessions,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
-import { isGuiHarness } from "../../../../protocol/acp/gui-session.ts";
 import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
 import { teamRead } from "../../../../protocol/lophn-agent/team.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
+import { HARNESS_GUI_ADAPTERS } from "../../../harness-gui/index.ts";
 import {
   loadSession,
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
-import { RUNTIME_OF_GUI } from "../../../terminal-agents/member.ts";
-import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
 import { bytesFileStream } from "../../../server/mod.ts";
+import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
+import { RUNTIME_OF_GUI } from "../../../terminal-agents/member.ts";
 import {
-  childCliRunner,
   type CliRun,
+  type CodingOpen,
+  childCliRunner,
   createAgentSessionStore,
   createBridge,
-  type CodingOpen,
   createCodingOpen,
   createCredentialFiles,
   createFileHookOptOut,
@@ -95,8 +96,8 @@ import {
   listenHooks,
   moveSavedSessions,
   prepareRunDir,
-  readAntigravityTitle,
   type RunDir,
+  readAntigravityTitle,
   type TerminalAgents,
   type TerminalBridge,
   winLauncherFiles,
@@ -353,6 +354,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
           );
           return deny.ok ? deny.value : [];
         },
+        memberLaunch: (harness) => {
+          const config = ledgerSnapshot(
+            ctx.ledgerPath,
+            (lookup) =>
+              workspaceDepsOf(lookup.sql).agents.agent(
+                `coding_${harness}` as AgentId,
+              )?.harnessConfig,
+          );
+          return config.ok ? config.value : undefined;
+        },
+        enforcesDeny: (harness) => HARNESS_GUI_ADAPTERS[harness].enforcesDeny,
+        onCatalog: (harness, cwd, result) =>
+          void ctx.peek.harnessCatalog?.observe(harness, cwd, result),
         ids: { request: () => randomUUID() },
         hookEnv: (ref) => ingress?.envOf(ref) ?? {},
         identified: (harness, ref) => installer.ensureOnce(harness, ref),

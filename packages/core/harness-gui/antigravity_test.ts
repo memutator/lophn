@@ -7,9 +7,9 @@ import { manualClock } from "../../base/clock.ts";
 import { createIdSource } from "../../base/id.ts";
 import { seededRandom } from "../../base/random.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
+import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type { AcpState } from "../../protocol/acp/state.ts";
-import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
 import { createAntigravityAdapter } from "./antigravity.ts";
 
 // 녹화(fixtures/antigravity, agy 1.5.9)로 adapter를 돌린다. 진짜 agy는 띄우지 않고, spawn이 주는 process를 녹화한 줄을 내는
@@ -36,7 +36,8 @@ async function setup(
   options: {
     resume?: string;
     args?: readonly string[];
-    carry?: { args?: readonly string[] };
+    carry?: { args?: readonly string[]; model?: string; effort?: string };
+    launch?: { model?: string; options?: Record<string, string> };
     /** 대화 file이 있는 id. 없으면 저장된 적 없는 대화다. */
     saved?: string[];
     /** 설정 요청의 답을 바꾼다. */
@@ -131,6 +132,7 @@ async function setup(
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     ...(options.args === undefined ? {} : { args: options.args }),
     ...(options.carry === undefined ? {} : { carry: options.carry }),
+    ...(options.launch === undefined ? {} : { launch: options.launch }),
     session,
     spawn: (command, args) => {
       spawned.push({ command, args });
@@ -452,4 +454,150 @@ test("explicit CLI flags are preserved across agy acp spawn, tuiCommand, and car
   assert.deepEqual(plain.spawned, [{ command: "agy", args: ["acp"] }]);
   assert.equal(plain.run.tuiCommand(), `agy --conversation ${id}`);
   assert.deepEqual(plain.run.carry?.(), {});
+});
+
+// --- launch bundle, catalog, background ---------------------------------------------------------------------------------
+
+const configCalls = (written: Frame[]) =>
+  written
+    .filter((body) => body.method === "session/set_config_option")
+    .map((body) => {
+      const params = body.params as Frame;
+      return `${params.configId}=${params.value}`;
+    });
+
+test("launch model and effort are set after the session opens, with flags above carry above launch, and a loaded conversation is left alone", async () => {
+  const launched = await setup("text", {
+    launch: { model: "claude-sonnet-4-6", options: { effort: "low" } },
+  });
+  assert.deepEqual(configCalls(launched.written), [
+    "model=claude-sonnet-4-6",
+    "thought_level=low",
+  ]);
+
+  const flagged = await setup("text", {
+    args: ["--model", "gpt-oss-120b-medium"],
+    carry: { model: "claude-opus-4-6-thinking", effort: "medium" },
+    launch: { model: "claude-sonnet-4-6", options: { effort: "low" } },
+  });
+  // flag가 model을, carry가 effort를 이긴다.
+  assert.deepEqual(configCalls(flagged.written), [
+    "model=gpt-oss-120b-medium",
+    "thought_level=medium",
+  ]);
+
+  const carried = await setup("text", {
+    carry: { model: "claude-opus-4-6-thinking" },
+    launch: { model: "claude-sonnet-4-6" },
+  });
+  assert.deepEqual(configCalls(carried.written), [
+    "model=claude-opus-4-6-thinking",
+  ]);
+
+  const saved = "26e8bf45-50c5-4e72-b332-855cf6cff86e";
+  const loaded = await setup("load", {
+    resume: saved,
+    saved: [saved],
+    launch: { model: "claude-sonnet-4-6" },
+  });
+  assert.deepEqual(configCalls(loaded.written), []);
+});
+
+function catalogProc() {
+  const created = recording("text").find(
+    (entry) =>
+      entry.kind === "recv" &&
+      (entry.data.result as Frame | undefined)?.configOptions !== undefined,
+  )?.data.result as Frame;
+  const methods: string[] = [];
+  const state = { ended: false, killed: false };
+  let out: (text: string) => void = () => {};
+  let exit: (code: number | null) => void = () => {};
+  const proc: CliProcess = {
+    pid: 1,
+    write(text) {
+      const body = JSON.parse(text) as Frame;
+      methods.push(body.method as string);
+      const result = body.method === "session/new" ? created : {};
+      setImmediate(() =>
+        out(`${JSON.stringify({ jsonrpc: "2.0", id: body.id, result })}\n`),
+      );
+    },
+    end: () => void (state.ended = true),
+    kill() {
+      state.killed = true;
+      setImmediate(() => exit(null));
+    },
+    onStdout: (fn) => void (out = fn),
+    onStderr() {},
+    onExit: (fn) => void (exit = fn),
+  };
+  const spawned: { command: string; args: readonly string[] }[] = [];
+  return {
+    methods,
+    state,
+    spawned,
+    spawn: (command: string, args: readonly string[]) => {
+      spawned.push({ command, args });
+      return proc;
+    },
+  };
+}
+
+test("fetchCatalog reads model and thought_level from session/new without sending a prompt, then closes agy", async () => {
+  const fake = catalogProc();
+  const adapter = createAntigravityAdapter({
+    home: "/home/test",
+    readFile: () => Promise.reject(new Error("no files")),
+    exists: () => Promise.resolve(false),
+  });
+  assert.equal(adapter.catalogScope, "global");
+  const result = await adapter.fetchCatalog({
+    spawn: fake.spawn,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const group = result.value.models[0];
+  assert.equal(group?.id, "antigravity");
+  assert.deepEqual(
+    group?.models.map((model) => model.id),
+    [
+      "gemini-3.8-flash",
+      "claude-sonnet-4-6",
+      "claude-opus-4-6-thinking",
+      "gpt-oss-120b-medium",
+    ],
+  );
+  // 단계는 legacy id(`gemini-3.8-flash-low`)가 있는 model에 붙는다.
+  const flash = group?.models[0]?.axes[0];
+  assert.deepEqual(
+    flash?.kind === "choice" ? flash.values.map((one) => one.value) : null,
+    ["low", "medium", "high"],
+  );
+  assert.deepEqual(result.value.defaults, {
+    model: "gemini-3.8-flash",
+    options: { effort: "high" },
+  });
+  assert.deepEqual(fake.methods, [
+    "initialize",
+    "session/new",
+    "session/close",
+  ]);
+  assert.deepEqual(fake.spawned, [{ command: "agy", args: ["acp"] }]);
+  assert.equal(fake.state.ended, true);
+  assert.equal(fake.state.killed, true);
+});
+
+test("fetchCatalog does not spawn agy when already aborted", async () => {
+  const fake = catalogProc();
+  const controller = new AbortController();
+  controller.abort();
+  const result = await createAntigravityAdapter({
+    home: "/home/test",
+    readFile: () => Promise.reject(new Error("no files")),
+    exists: () => Promise.resolve(false),
+  }).fetchCatalog({ spawn: fake.spawn, signal: controller.signal });
+  assert.equal(result.ok, false);
+  assert.equal(fake.spawned.length, 0);
 });

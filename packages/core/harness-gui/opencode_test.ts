@@ -7,9 +7,9 @@ import { manualClock } from "../../base/clock.ts";
 import { createIdSource } from "../../base/id.ts";
 import { seededRandom } from "../../base/random.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
+import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type { AcpState } from "../../protocol/acp/state.ts";
-import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
 import { createOpencodeAdapter, type OpencodeTransport } from "./opencode.ts";
 
 // 녹화(fixtures/opencode)로 adapter를 돌린다. 실제 `opencode`는 띄우지 않고, server와 말하는 길을 녹화를 재생하는 대역으로
@@ -785,4 +785,246 @@ test("password file을 못 쓰면 start가 실패하고 server process를 끈다
   assert.equal(result.error.code, "unavailable");
   assert.match(result.error.message, /could not start: ENOSPC/);
   assert.equal(t.stopped.kill, 1);
+});
+
+// --- launch bundle, catalog, background ---------------------------------------------------------------------------------
+// 녹화 대신 손으로 만든 server다: 요청을 경로로 받아 model 선택을 기억한다.
+
+const CATALOG_MODELS = {
+  data: [
+    {
+      id: "deepseek/flash",
+      modelID: "deepseek/flash",
+      providerID: "openrouter",
+      name: "Flash",
+      enabled: true,
+      variants: [{ id: "none" }, { id: "thinking" }],
+      limit: { context: 1000 },
+    },
+    {
+      id: "gpt-x",
+      modelID: "gpt-x",
+      providerID: "openai",
+      name: "GPT X",
+      enabled: true,
+      variants: [],
+      limit: {},
+    },
+    { id: "off", modelID: "off", providerID: "openai", enabled: false },
+  ],
+};
+
+function handServer() {
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const picked: { model?: Record<string, unknown> } = {};
+  const transport: OpencodeTransport = {
+    request(method, path, options) {
+      requests.push({ method, path, body: options?.body });
+      const reply = (value: unknown) => Promise.resolve(value as undefined);
+      if (path === "/api/info") return reply({ version: "2.1.4" });
+      if (path === "/api/model") return reply(CATALOG_MODELS);
+      if (path === "/api/model/default")
+        return reply({
+          data: { providerID: "openrouter", modelID: "deepseek/flash" },
+        });
+      if (method === "POST" && path === "/api/session")
+        return reply({ data: { id: "ses_new" } });
+      if (method === "POST" && path.endsWith("/model")) {
+        picked.model = (
+          options?.body as { model: Record<string, unknown> }
+        ).model;
+        return reply(undefined);
+      }
+      if (method === "GET" && /^\/api\/session\/[^/]+$/.test(path))
+        return reply({
+          data: { id: path.split("/").pop(), model: picked.model },
+        });
+      return reply({ data: [] });
+    },
+    events: () => ({ close() {} }),
+  };
+  const exits: ((code: number | null) => void)[] = [];
+  const proc = {
+    ended: false,
+    killed: 0,
+    cli: {
+      pid: 1,
+      write() {},
+      end() {
+        proc.ended = true;
+      },
+      kill() {
+        proc.killed += 1;
+        for (const listener of exits) setImmediate(() => listener(null));
+      },
+      onStdout: (listener: (text: string) => void) =>
+        void setImmediate(() => listener('{"url":"http://127.0.0.1:1"}\n')),
+      onStderr() {},
+      onExit: (listener: (code: number | null) => void) =>
+        void exits.push(listener),
+    } satisfies CliProcess,
+  };
+  const spawned: { command: string; args: readonly string[]; cwd?: string }[] =
+    [];
+  const spawn = (
+    command: string,
+    args: readonly string[],
+    options?: { cwd?: string },
+  ) => {
+    spawned.push({
+      command,
+      args,
+      ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+    });
+    return proc.cli;
+  };
+  const adapter = createOpencodeAdapter({
+    connect: () => transport,
+    writeSecret: async () => ({ path: "/tmp/pw", remove: async () => {} }),
+    writeExport: async (name) => `/tmp/${name}`,
+    home: "/home/user",
+    readCommandTemplates: async () => new Map(),
+    newPassword: () => "pw",
+  });
+  return { adapter, requests, picked, proc, spawned, spawn };
+}
+
+async function startHand(
+  server: ReturnType<typeof handServer>,
+  options: {
+    resume?: string;
+    carry?: { model?: string; effort?: string };
+    launch?: { model?: string; options?: Record<string, string> };
+  },
+) {
+  let state: AcpState = EMPTY_ACP_STATE;
+  const session: AcpSessionHandle = {
+    id: "win_test",
+    publish: (update) => void (state = reduceAcp(state, update)),
+    onInput() {},
+    onClose() {},
+    close() {},
+  };
+  const clock = manualClock(Date.UTC(2026, 10, 5));
+  const result = await server.adapter.start({
+    terminal: null,
+    cwd: "/work",
+    ...(options.resume === undefined ? {} : { resume: options.resume }),
+    ...(options.carry === undefined ? {} : { carry: options.carry }),
+    ...(options.launch === undefined ? {} : { launch: options.launch }),
+    session,
+    spawn: server.spawn,
+    clock,
+    ids: createIdSource({ clock, random: seededRandom(1) }),
+  });
+  assert.equal(result.ok, true);
+  return { state: () => state };
+}
+
+const modelSwitches = (server: ReturnType<typeof handServer>) =>
+  server.requests
+    .filter((one) => one.method === "POST" && one.path.endsWith("/model"))
+    .map((one) => (one.body as { model: unknown }).model);
+
+test("fetchCatalog lists models with variant axes and the default, opens no session and closes the server", async () => {
+  const server = handServer();
+  const result = await server.adapter.fetchCatalog({
+    cwd: "/work",
+    spawn: server.spawn,
+    signal: new AbortController().signal,
+  });
+  assert.equal(server.adapter.catalogScope, "workspace");
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(
+    result.value.models.map((group) => [
+      group.id,
+      group.models.map((model) => [
+        model.id,
+        model.axes.flatMap((axis) =>
+          axis.kind === "choice" ? [axis.values.map((one) => one.value)] : [],
+        ),
+      ]),
+    ]),
+    [
+      ["openrouter", [["openrouter/deepseek/flash", [["none", "thinking"]]]]],
+      ["openai", [["openai/gpt-x", []]]],
+    ],
+  );
+  assert.deepEqual(result.value.defaults, {
+    model: "openrouter/deepseek/flash",
+    options: {},
+  });
+  // session을 만들지 않아야 사람의 OpenCode 기록이 더럽혀지지 않는다.
+  assert.equal(
+    server.requests.some((one) => one.method === "POST"),
+    false,
+  );
+  assert.equal(server.spawned[0]?.cwd, "/work");
+  assert.equal(server.proc.ended, true);
+  assert.ok(server.proc.killed >= 1);
+});
+
+test("fetchCatalog does not spawn when already aborted", async () => {
+  const server = handServer();
+  const controller = new AbortController();
+  controller.abort();
+  const result = await server.adapter.fetchCatalog({
+    spawn: server.spawn,
+    signal: controller.signal,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(server.spawned.length, 0);
+});
+
+test("launch model and effort go to the new session, carry beats launch, and a resumed session is left alone", async () => {
+  const launched = handServer();
+  const t = await startHand(launched, {
+    launch: {
+      model: "openrouter/deepseek/flash",
+      options: { effort: "thinking" },
+    },
+  });
+  assert.deepEqual(modelSwitches(launched), [
+    { providerID: "openrouter", id: "deepseek/flash", variant: "thinking" },
+  ]);
+  assert.deepEqual(t.state().session?.model?.options, { variant: "thinking" });
+
+  // Agent Profile UI가 저장하는 variant 축 이름도 동일하게 전달된다.
+  const variantLaunch = handServer();
+  const tv = await startHand(variantLaunch, {
+    launch: {
+      model: "openrouter/deepseek/flash",
+      options: { variant: "thinking" },
+    },
+  });
+  assert.deepEqual(modelSwitches(variantLaunch), [
+    { providerID: "openrouter", id: "deepseek/flash", variant: "thinking" },
+  ]);
+  assert.deepEqual(tv.state().session?.model?.options, { variant: "thinking" });
+
+  // effort만 있으면 server의 기본 model에 건다.
+  const effortOnly = handServer();
+  await startHand(effortOnly, { launch: { options: { effort: "thinking" } } });
+  assert.deepEqual(modelSwitches(effortOnly), [
+    { providerID: "openrouter", id: "deepseek/flash", variant: "thinking" },
+  ]);
+
+  const carried = handServer();
+  await startHand(carried, {
+    carry: { model: "openai/gpt-x" },
+    launch: { model: "openrouter/deepseek/flash" },
+  });
+  assert.deepEqual(modelSwitches(carried), [
+    { providerID: "openai", id: "gpt-x" },
+  ]);
+
+  const resumed = handServer();
+  await startHand(resumed, {
+    resume: "ses_old",
+    launch: { model: "openrouter/deepseek/flash" },
+  });
+  assert.deepEqual(modelSwitches(resumed), []);
+
+  // terminal이 null인 background 시작이 위 모든 경로에서 끝까지 갔다(startHand가 terminal: null이다).
 });

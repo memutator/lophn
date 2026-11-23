@@ -15,8 +15,8 @@ import { QUEUE_WITHDRAW_TOPIC } from "../run-loop/topics.ts";
 import { reject, requireMachine, sessionNotFound } from "./guards.ts";
 import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 
-// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 core 안의 harness host(headless)나
-// 터미널 GUI 탭(팀원 session, `harness_gui`)이 하고 core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
+// runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 터미널 GUI 탭(`harness_gui = 1`)이나
+// 터미널 없는 background 실행(`harness_gui = 0`)이 하고 core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
 
 // harness session의 queue는 run-loop의 것과 따로다(host가 가져간다). commit 뒤 main thread가 넣는다.
 export const HARNESS_QUEUE_PUT_TOPIC = "harness_queue.put";
@@ -105,15 +105,6 @@ export function forkedHarnessSession(
     String(last["seq"]) === row.forked_from_through_seq
     ? source.harness_session
     : null;
-}
-
-// harness session의 queue를 누가 가져가는가. 팀원 session(`harness_gui`)은 그 GUI 탭만, 나머지는 headless host만이다. 한 CLI session을
-// process 둘이 쓰지 않게 하는 판정이라 take, turn 시작, 팀원 연결이 모두 이것을 본다. harness session이 아니면 null이다.
-export function harnessTaker(
-  row: Pick<AgentSessionRow, "harness" | "harness_gui">,
-): "headless" | "gui" | null {
-  if (row.harness === null) return null;
-  return row.harness_gui ? "gui" : "headless";
 }
 
 // host route는 runtime이 harness인 session만 고친다. 그 판정 하나다.

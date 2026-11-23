@@ -91,6 +91,21 @@ function cardOf(
     }
   }
 
+  // harness runtime이 정의에 model을 고정했으면 명함에 보여 같은 harness의 설정만 다른 agent를 구분하게 한다. 가격은 알 수 없다.
+  const harnessConfig = definition?.harness_config;
+  const harnessModel =
+    isHarnessRuntime(runtime) && harnessConfig?.model !== undefined
+      ? {
+          provider: runtime,
+          model_name: harnessConfig.model,
+          price: null,
+          ...(harnessConfig.options === undefined ||
+          Object.keys(harnessConfig.options).length === 0
+            ? {}
+            : { options: harnessConfig.options }),
+        }
+      : undefined;
+
   return {
     handle: handleOf(loaded),
     name: nameOf(loaded),
@@ -99,15 +114,17 @@ function cardOf(
       ? {}
       : { description: definition.description }),
     runtime,
-    ...(chosen === null || info === null
-      ? {}
-      : {
-          model: {
-            provider: info.provider,
-            model_name: chosen.value.model_name,
-            price: info.price,
-          },
-        }),
+    ...(harnessModel !== undefined
+      ? { model: harnessModel }
+      : chosen === null || info === null
+        ? {}
+        : {
+            model: {
+              provider: info.provider,
+              model_name: chosen.value.model_name,
+              price: info.price,
+            },
+          }),
     modality: { input, output },
     // custom도 `lophn` tool로 `call.reply`를 늘 가져 모든 runtime이 셋 다 받는다.
     replies: ["none", "result", "conversation"],

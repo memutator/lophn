@@ -6,3 +6,4 @@ export * from "./state.ts";
 export * from "./routes.ts";
 export * from "./session.ts";
 export * from "./gui-session.ts";
+export * from "./harness-catalog.ts";

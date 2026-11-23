@@ -3,7 +3,13 @@
 // 돌려주는 연결만 한다. model 이름과 option 이름·값은 모두 catalog가 주고 화면 코드에는 없다.
 import { t } from "@lophn/i18n";
 
+import type { HarnessCatalogResult } from "../../../../protocol/acp/gui-session.ts";
+import type {
+  AcpModel,
+  AcpModelAxis,
+} from "../../../../protocol/acp/session.ts";
 import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { HarnessConfig } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type {
   CatalogEntry,
   ModelChoice,
@@ -303,4 +309,209 @@ export function manageProviders(
     ...views.filter((view) => view.id === first),
     ...views.filter((view) => view.id !== first),
   ];
+}
+
+// ---- harness model picker & summary ----
+
+function switchAxisName(axis: AcpModelAxis): string {
+  const on = axis.values[1]?.label;
+  return on === undefined || on.trim().toLowerCase() === "on" ? axis.label : on;
+}
+
+function acpAxisView(axis: AcpModelAxis): PickerAxisView {
+  return axis.kind === "switch"
+    ? { ...axis, label: switchAxisName(axis) }
+    : axis;
+}
+
+function capitalizeWord(word: string): string {
+  return word.length === 0 ? "" : word[0]!.toUpperCase() + word.slice(1);
+}
+
+/** harness_config.options를 카드 앞면·Overview에서 읽기 좋은 조각들로 바꾼다("High", "XHigh", "Fast"). */
+export function formatHarnessOptions(
+  options: Readonly<Record<string, string>> | undefined,
+): string[] {
+  if (options === undefined) return [];
+  const entries = Object.entries(options)
+    .filter(([key, value]) => key.trim() !== "" && value.trim() !== "")
+    .sort(([a], [b]) =>
+      a === "effort" ? -1 : b === "effort" ? 1 : a.localeCompare(b),
+    );
+  const parts: string[] = [];
+  for (const [axis, raw] of entries) {
+    const lower = raw.trim().toLowerCase();
+    if (lower === "very_high" || lower === "xhigh") {
+      parts.push("XHigh");
+      continue;
+    }
+    if (lower === "on" || lower === "true") {
+      parts.push(capitalizeWord(axis.replaceAll("_", " ")));
+      continue;
+    }
+    if (lower === "off" || lower === "false") {
+      if (axis === "effort" || axis === "thinking") parts.push("Off");
+      continue;
+    }
+    parts.push(capitalizeWord(raw.trim().replaceAll("_", " ")));
+  }
+  return parts;
+}
+
+/** harness_config를 "gpt-5.3-codex · High" 모양으로 잇는다. model이 없으면 null이다. */
+export function formatHarnessModel(
+  config:
+    | {
+        readonly model?: string;
+        readonly options?: Readonly<Record<string, string>>;
+      }
+    | undefined,
+): string | null {
+  if (config?.model === undefined || config.model.trim() === "") return null;
+  return [config.model, ...formatHarnessOptions(config.options)].join(" · ");
+}
+
+/** 빈 option을 뺀 HarnessConfig를 만든다. */
+export function cleanHarnessConfig(
+  model: string,
+  options?: Readonly<Record<string, string>>,
+): HarnessConfig {
+  const cleaned: Record<string, string> = {};
+  if (options !== undefined) {
+    for (const [key, value] of Object.entries(options)) {
+      if (key.trim() !== "" && value.trim() !== "") {
+        cleaned[key] = value;
+      }
+    }
+  }
+  return Object.keys(cleaned).length === 0
+    ? { model }
+    : { model, options: cleaned };
+}
+
+function carryHarnessOptions(
+  target: AcpModel,
+  previous: Readonly<Record<string, string>> | undefined,
+): Record<string, string> {
+  if (previous === undefined) return {};
+  const next: Record<string, string> = {};
+  for (const axis of target.axes) {
+    const prev = previous[axis.id];
+    if (prev !== undefined && axis.values.some((item) => item.value === prev)) {
+      next[axis.id] = prev;
+    }
+  }
+  return next;
+}
+
+export interface HarnessPickerBinding {
+  readonly catalog: HarnessCatalogResult | null;
+  readonly state: PickerState;
+  readonly setState: (state: PickerState) => void;
+  readonly value: HarnessConfig | undefined;
+  readonly followLabel: string;
+  readonly onChange: (next: HarnessConfig | undefined) => void;
+}
+
+/**
+ * harness catalog(`AcpModelGroup[]`)을 대화·lophn과 같은 `ModelPickerProps`로 옮긴다.
+ * catalog가 없거나 저장된 model이 목록에 없어도 저장된 model 이름을 그대로 유지하고 `matched: false`로 알린다.
+ */
+export function harnessPickerProps(binding: HarnessPickerBinding): {
+  readonly props: ModelPickerProps;
+  readonly matched: boolean;
+  readonly defaultModelLabel: string | null;
+} {
+  const { catalog, state, value, onChange } = binding;
+  const groups = catalog?.models ?? [];
+  const findModel = (id: string) => {
+    for (const group of groups) {
+      const model = group.models.find((one) => one.id === id);
+      if (model !== undefined) return { group, model };
+    }
+    return undefined;
+  };
+  const chosenId = value?.model;
+  const found = chosenId === undefined ? undefined : findModel(chosenId);
+  const defaultId = catalog?.defaults.model ?? null;
+  const defaultModelLabel =
+    defaultId === null
+      ? null
+      : (findModel(defaultId)?.model.label ?? defaultId);
+
+  const needle = state.query.trim().toLowerCase();
+  const layout = {
+    providers: groups
+      .map((group) => ({
+        provider: group.id,
+        label: group.label,
+        models: group.models
+          .filter(
+            (model) =>
+              needle === "" ||
+              model.label.toLowerCase().includes(needle) ||
+              model.id.toLowerCase().includes(needle) ||
+              group.label.toLowerCase().includes(needle),
+          )
+          .map((model) => ({
+            provider: group.id,
+            modelName: model.id,
+            label: model.label,
+          })),
+      }))
+      .filter((group) => group.models.length > 0),
+  };
+
+  return {
+    matched: chosenId === undefined || found !== undefined,
+    defaultModelLabel,
+    props: {
+      open: state.open,
+      onOpenChange: (open) =>
+        binding.setState(
+          open ? { ...state, open } : { open: false, query: "" },
+        ),
+      current:
+        chosenId === undefined
+          ? NONE
+          : {
+              provider: found?.group.id ?? "",
+              modelName: chosenId,
+            },
+      currentLabel:
+        chosenId === undefined
+          ? binding.followLabel
+          : (found?.model.label ?? chosenId),
+      axes: found === undefined ? [] : found.model.axes.map(acpAxisView),
+      axesReady: catalog !== null && found !== undefined,
+      optionValues: value?.options ?? {},
+      query: state.query,
+      layout,
+      onQueryChange: (query) => binding.setState({ ...state, query }),
+      onPick: (ref) => {
+        const target = findModel(ref.modelName)?.model;
+        if (target === undefined) return;
+        const carried = carryHarnessOptions(target, value?.options);
+        onChange(cleanHarnessConfig(target.id, carried));
+      },
+      onOptionChange: (axis, nextValue) => {
+        if (chosenId === undefined) return;
+        onChange(
+          cleanHarnessConfig(chosenId, {
+            ...(value?.options ?? {}),
+            [axis]: nextValue,
+          }),
+        );
+      },
+      layer: null,
+      follow: {
+        label: binding.followLabel,
+        on: chosenId === undefined,
+        onFollow: () => {
+          onChange(undefined);
+          binding.setState({ open: false, query: "" });
+        },
+      },
+    },
+  };
 }

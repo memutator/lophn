@@ -53,6 +53,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   skills: "skills",
   body: "instructions",
   model: "model",
+  harness_config: "model",
   skills_off: "skills",
   mcp_off: "mcp",
   mcp_servers: "mcp",

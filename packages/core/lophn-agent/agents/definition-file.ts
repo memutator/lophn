@@ -9,6 +9,8 @@ import {
   type AgentId,
   agentDefinitionSchema,
   codingBuiltinOf,
+  type AgentRuntime,
+  isHarnessRuntime,
   isLophn,
   isReservedHandle,
   LOPHN_AGENT_HANDLE,
@@ -167,14 +169,6 @@ function checkDefinition(
       addIssue(issues, "runtime", "not_allowed");
     }
   } else {
-    // headless 명령이 없는 harness(omp, antigravity)는 사람이 만든 agent의 runtime이 될 수 없다. 그 session은 내장 coding agent의 GUI 탭
-    // 팀원으로만 돈다(headless host를 걷어낼 때 이 거절도 함께 푼다).
-    if (
-      coding === null &&
-      (fields.runtime === "omp" || fields.runtime === "antigravity")
-    ) {
-      addIssue(issues, "runtime", "not_allowed");
-    }
     for (const key of ["handle", "name"]) {
       const value = fields[key];
       if (
@@ -191,6 +185,13 @@ function checkDefinition(
     if (fields[key] !== undefined && fields.runtime !== "custom") {
       addIssue(issues, key, "not_allowed");
     }
+  }
+
+  // harness_config는 harness runtime의 칸이고 lophn의 model은 lophn·custom runtime의 칸이다. 서로의 runtime에서는 뜻이 없어 거절한다.
+  if (isHarnessRuntime(fields.runtime as AgentRuntime | undefined)) {
+    if (fields.model !== undefined) addIssue(issues, "model", "not_allowed");
+  } else if (fields.harness_config !== undefined) {
+    addIssue(issues, "harness_config", "not_allowed");
   }
 
   const shaped = agentDefinitionSchema.safeParse({ ...fields, body: text });
@@ -243,6 +244,20 @@ function orderedModel(model: Plain): Plain {
   return { ...pick(model, ["provider", "model_name"]), option_values: sorted };
 }
 
+// 빈 options와 빈 harness_config는 쓰지 않는다(없음 = CLI 기본).
+function orderedHarnessConfig(config: Plain | undefined): Plain | undefined {
+  if (config === undefined) return undefined;
+  const out: Plain = {};
+  if (config.model !== undefined) out.model = config.model;
+  const options = config.options as Plain | undefined;
+  if (options !== undefined && Object.keys(options).length > 0) {
+    const sorted: Plain = {};
+    for (const key of Object.keys(options).sort()) sorted[key] = options[key];
+    out.options = sorted;
+  }
+  return Object.keys(out).length === 0 ? undefined : out;
+}
+
 function orderedFrontmatter(value: Plain): Plain {
   const out: Plain = {};
   if (value.handle !== undefined) out.handle = value.handle;
@@ -270,6 +285,10 @@ function orderedFrontmatter(value: Plain): Plain {
   if (value.model !== undefined) {
     out.model = orderedModel(value.model as Plain);
   }
+  const harness = orderedHarnessConfig(
+    value.harness_config as Plain | undefined,
+  );
+  if (harness !== undefined) out.harness_config = harness;
   for (const key of EMPTY_DEFAULT_LISTS) {
     const list = value[key] as Plain[] | undefined;
     if (list === undefined || list.length === 0) continue;

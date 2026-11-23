@@ -6,17 +6,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { err, ok } from "../../../../base/mod.ts";
 import { manualClock } from "../../../../base/clock.ts";
 import { createIdSource } from "../../../../base/id.ts";
+import { err, ok } from "../../../../base/mod.ts";
 import { seededRandom } from "../../../../base/random.ts";
 import type { AcpTerminal, CliProcess } from "../../../../protocol/acp/mod.ts";
-import type { AgentCallRow } from "../../../../protocol/lophn-agent/calls.ts";
 import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import type { AgentCallRow } from "../../../../protocol/lophn-agent/calls.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
-import { type AcpHandle, createAcp } from "../../../terminal-agents/acp.ts";
 import { createAntigravityAdapter } from "../../../harness-gui/antigravity.ts";
 import { receivedSends } from "../../../harness-gui/received.ts";
 import { inputParts } from "../../../lophn-agent/run-loop/input-text.ts";
@@ -26,6 +25,7 @@ import type {
   TargetSession,
 } from "../../../router/ports.ts";
 import { createRouter } from "../../../router/router.ts";
+import { type AcpHandle, createAcp } from "../../../terminal-agents/acp.ts";
 import {
   createGuiMembers,
   type HarnessMembers,
@@ -288,15 +288,14 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
       return ok({ turn, token: "token" });
     },
     credential: async () => ok({ turn: "trn_typed", token: "token" }),
-    record: async (_session, turn, text) => {
-      turns.get(turn)!.text = text;
+    record: async (_session, turn, part) => {
+      if (part.kind === "text") turns.get(turn)!.text = part.text;
       return ok(undefined);
     },
     finish: async (turn, end) =>
       autoReply({ turn, outcome: { kind: end } }) as never,
     failCall: async () => ok(undefined),
     describe: () => null,
-    canOpen: () => true,
     forget: async () => ok(0),
     failQueued: async () => ok(undefined),
     end: () => {},

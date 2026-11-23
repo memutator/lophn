@@ -21,6 +21,7 @@ import {
   RuntimeName,
   runtimeLabel,
 } from "../agent-glance.tsx";
+import { formatHarnessModel } from "../model-picker-data.ts";
 import type { ModelsView } from "../source.ts";
 import styles from "./agent-editor.module.css";
 import type { AgentFacts, FormProps, Group, Ready } from "./editor-model.ts";
@@ -121,6 +122,9 @@ export function OverviewTab(props: OverviewTabProps) {
 
   // 지금 model: 이 agent가 고른 것이 아니면 위 층이 준 것이다.
   const model = definition.model ?? detail.inheritedModel?.value ?? null;
+  const harnessModel = harness
+    ? formatHarnessModel(definition.harness_config)
+    : null;
   const layer =
     definition.model !== undefined
       ? "agent"
@@ -222,7 +226,7 @@ export function OverviewTab(props: OverviewTabProps) {
           </GlanceRow>
           <GlanceRow name="model" label={t("agents.label.field-model")}>
             {harness ? (
-              own
+              (harnessModel ?? own)
             ) : model === null ? (
               <Muted>{t("agents.label.no-model-chosen")}</Muted>
             ) : (

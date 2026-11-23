@@ -139,8 +139,8 @@ const mcpServersSchema = z
   );
 
 // runtime: 없으면 lophn이다. custom은 정의 본문과 `tools`, `skills`가 고른 것만 싣는다. harness 값은 third-party harness의
-// CLI가 도는 agent다(run-loop는 돌리지 않는다). 앞 셋은 extension host의 `harness` extension이 headless로도 돌리고, 다섯 모두
-// 터미널 GUI 탭(harness-gui)이 팀원 session으로 돌린다. omp·antigravity는 headless 명령이 없다.
+// CLI가 도는 agent다(run-loop는 돌리지 않는다). 다섯 모두 터미널 GUI 탭(harness-gui)이 팀원 session으로 돌리고,
+// 앞 셋은 extension host의 `harness` extension이 headless로도 돌린다.
 export const HARNESS_RUNTIMES = [
   "claude-code",
   "codex",
@@ -161,8 +161,16 @@ export function isHarnessRuntime(
 
 // 편집기가 runtime 고르기에 내는 값.
 export function selectableRuntimes(): readonly AgentRuntime[] {
-  return ["lophn", "custom", "claude-code", "codex", "opencode"];
+  return ["lophn", "custom", ...HARNESS_RUNTIMES];
 }
+
+// harness runtime agent가 CLI를 띄울 때 넘기는 값. `model`은 그 harness catalog의 model id, `options`는 model 축(effort 등)의 값이다.
+// lophn의 `model`(provider 선택)과는 따로이고 runtime이 harness일 때만 쓴다. lophn은 값을 해석하지 않는다.
+export const harnessConfigSchema = z.strictObject({
+  model: nonblankSchema.optional(),
+  options: z.record(nonblankSchema, nonblankSchema).optional(),
+});
+export type HarnessConfig = z.infer<typeof harnessConfigSchema>;
 
 // 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.
 export const AGENT_DESCRIPTION_MAX_CHARS = 200;
@@ -206,6 +214,7 @@ const frontmatterFields = {
   skills: skillsSchema.optional(),
   modality: modalityFieldSchema.optional(),
   model: modelChoiceSchema.optional(),
+  harness_config: harnessConfigSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
@@ -226,6 +235,7 @@ const frontmatterOutputFields = {
   skills: skillsSchema.optional(),
   modality: modalityFieldSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
+  harness_config: harnessConfigSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),

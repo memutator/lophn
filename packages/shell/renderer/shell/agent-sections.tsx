@@ -46,7 +46,7 @@ export function codingCommand(
 
 /**
  * 고를 수 있는 agent: lophn agent 먼저, 그 뒤에 즐겨찾기 coding agent.
- * 내장 coding agent(`coding_<harness>`)는 lophn이 부르는 headless 주소라 뺀다. 사람은 아래 Coding agents 줄로 같은 CLI를 TUI로 연다.
+ * 내장 coding agent(`coding_<harness>`)는 lophn이 부르는 coding agent 주소라 뺀다. 사람은 아래 Coding agents 줄로 같은 CLI를 연다.
  */
 export function agentChoices(
   agents: readonly SidebarAgent[],

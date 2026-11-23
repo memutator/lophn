@@ -1,11 +1,13 @@
 // CLI session 하나를 ACP로 내고 그 화면의 입력을 받는 계약이다. 터미널 탭 하나가 handle 하나다.
 // shell main tsc도 읽는 file이라 schema(zod)는 두지 않고 type만 import한다.
 import type { AcpInput } from "./input.ts";
+import type { AcpModelGroup } from "./session.ts";
 import type { AcpUpdate } from "./state.ts";
 import type {
   AcpCliSession,
   AcpRewindPreview,
   GuiHarness,
+  HarnessLaunchConfig,
 } from "../coding-agent/gui-harness.ts";
 
 export {
@@ -14,8 +16,15 @@ export {
   GUI_HANDOFF,
   GUI_HARNESSES,
   type GuiHarness,
+  type HarnessLaunchConfig,
   isGuiHarness,
 } from "../coding-agent/gui-harness.ts";
+
+/** harness CLI가 알려 준 model 목록과 CLI 기본값. `defaults.model`은 CLI가 기본 model을 모르면 null이다. */
+export type HarnessCatalogResult = {
+  models: AcpModelGroup[];
+  defaults: { model: string | null; options: Record<string, string> };
+};
 
 export type CliProcess = {
   readonly pid: number | undefined;
@@ -74,20 +83,36 @@ export type AcpTerminal = {
   writeImage(image: { name: string; data: Uint8Array }): Promise<string | null>;
 };
 
-/** `onTab`의 `gui`가 받는 것. 탭이 GUI로 가야 한다. `resume`은 그 CLI 자신의 session id, `args`는 함께 넘긴 CLI flag다. */
+/**
+ * `onTab`의 `gui`가 받는 것. 터미널 탭 GUI(`terminal` 있음) 또는 터미널 없는 background 실행(`terminal: null`)을 연다.
+ * `terminal`이 null이면 `key`와 `cwd`를 넘긴다. `resume`은 그 CLI 자신의 session id, `forkFrom`은 새 session이 갈라 나올 원본 CLI session id,
+ * `args`는 함께 넘긴 CLI flag다.
+ */
 export type AcpTabRequest = {
-  terminal: AcpTerminal;
+  terminal: AcpTerminal | null;
+  /** run과 carry를 구분하는 열쇠. 탭이면 `terminal.id`를 쓰고, background면 호출한 쪽이 준다(`bg:<session>`). */
+  key?: string;
+  /** CLI를 띄울 작업 폴더. 탭이면 `terminal.cwd`를 쓰고, background면 호출한 쪽이 준다. */
+  cwd?: string;
+  /** CLI process에 얹을 추가 env(`terminal.env` 위에 덮는다). background 실행은 turn 자격 file 경로와 session id를 넣는다. */
+  env?: Readonly<Record<string, string>>;
   harness: GuiHarness;
   resume?: string;
+  /** 원본 harness session에서 갈라 시작할 때 그 원본 CLI session id. `resume`이 없을 때만 쓴다. */
+  forkFrom?: string;
+  /** agent 정의의 `harness_config`. adapter가 model과 option 축을 CLI 시작에 싣는다. 없으면 CLI 기본이다. */
+  launch?: HarnessLaunchConfig;
   /** `<harness> --gui ...`나 TUI argv에서 전달된 CLI flag(resume 제외). */
   args?: readonly string[];
-  /** 이 탭이 lophn 팀원이다. adapter는 CLI가 `lophn`을 부를 길을 연다(headless host가 넣는 것과 같다). `deny`는 그 agent 정의의 deny 규칙이다. */
+  /** 이 실행이 lophn 팀원·agent다. adapter는 CLI가 `lophn`을 부를 길을 연다. `deny`는 그 agent 정의의 deny 규칙이다. */
   member?: { deny: readonly string[] };
 };
 
-/** terminal 탭에 묶인 handle을 여는 값. 그 탭에 GUI가 붙는다. */
+/** handle을 여는 값. `terminal`이 있으면 그 탭에 GUI가 붙고, null이면 터미널 없는 background 실행이다. */
 export type AcpOpenTab = {
-  terminal: AcpTerminal;
+  terminal: AcpTerminal | null;
+  /** background handle을 구분하는 열쇠(`terminal`이 null일 때). */
+  key?: string;
   harness: GuiHarness;
   title: string;
   /** adapter의 `handoff`. 탭의 modal과 toggle이 어느 길인지 안다. */

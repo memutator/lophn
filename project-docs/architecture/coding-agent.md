@@ -1,13 +1,13 @@
 # coding-agent
 
-lophn과 사람이 쓰는 coding agent(Claude Code, Codex, OpenCode 같은 harness)를 잇는 메커니즘이다. 세 가지다. (1) lophn이 내놓는 명령을 사람 터미널과 agent가 같은 표로 부르는 CLI. (2) 사람 터미널의 coding agent를 위한 제품 감지, 전역 hook 설치·제거, 공유 skill 사본. (3) 정의의 `runtime`이 harness인 lophn agent(harness agent)를 그 harness의 headless 명령으로 돌리는 길과 그 session을 TUI 탭으로 여는 길. 사람이 연 터미널 탭의 coding agent 상태, 탭 icon·점, 알림은 [terminal-agent.md](terminal-agent.md)의 일이다. 사람 터미널에 coding agent를 띄워 일을 맡기던 층(coding session)은 지웠다.
+lophn과 사람이 쓰는 coding agent(Claude Code, Codex, OpenCode, omp, Antigravity 같은 harness)를 잇는 메커니즘이다. 세 가지다. (1) lophn이 내놓는 명령을 사람 터미널과 agent가 같은 표로 부르는 CLI. (2) 사람 터미널의 coding agent를 위한 제품 감지, 전역 hook 설치·제거, 공유 skill 사본. (3) 정의의 `runtime`이 harness인 lophn agent(harness agent)를 단일 상주 구조화 프로토콜 어댑터(`tab` 모드·`background` 모드)로 돌리고 model catalog를 discovery·cache하는 길과 그 session을 TUI 탭으로 여는 길. 사람이 연 터미널 탭의 coding agent 상태, 탭 icon·점, 알림은 [terminal-agent.md](terminal-agent.md)의 일이다. 사람 터미널에 coding agent를 띄워 일을 맡기던 층(coding session)과 구 일회성 headless 실행기(`claude -p`, `codex exec`, `opencode run`)는 지웠다.
 
 ## 문제
 
 - 사람은 lophn 밖에서 자기 coding agent를 쓴다. lophn이 그것을 알아보고, 상태를 보이고, lophn의 앎(앱이 공유한 skill, 다른 agent를 부르는 법)을 줄 길이 없으면 둘이 따로 논다.
 - 그 길이 사람 설정을 함부로 고치면 사람의 다른 hook, 주석, 다른 도구의 항목을 잃는다. 묻지 않고 놓거나, 지울 때 사람의 것까지 지우면 신뢰를 잃는다.
 - lophn agent를 Claude Code나 Codex로 돌리고 싶다. workflow와 job처럼 사람 없이도 돌아야 하고, 그 agent가 다른 lophn agent를 부르고 답할 수도 있어야 한다. 그러려면 harness가 lophn을 부를 자격이 있어야 하는데, 그 자격이 새어 나가면 안 된다.
-- 한 harness session에 headless process와 사람의 TUI process가 같이 쓰면 그 CLI의 대화 기록이 섞이거나 깨진다.
+- 한 harness session에 background 상주 adapter process와 사람의 TUI process가 같이 쓰면 그 CLI의 대화 기록이 섞이거나 깨진다.
 
 ## 목표와 비목표
 
@@ -51,28 +51,42 @@ harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ core hook soc
 
 ### harness agent
 
-harness runtime은 다섯이다: `claude-code`, `codex`, `opencode`, `omp`, `antigravity`. 앞 셋은 headless 명령이 있고 뒤 둘은 GUI 탭 팀원으로만 돈다(사람이 만든 agent 정의는 뒤 둘을 runtime으로 쓰지 못한다). 정의의 `runtime`이 harness인 agent는 lophn session을 갖지만 run-loop가 돌리지 않는다. 사람이 즐겨찾기한 coding agent(`shell.coding_agents.favorites`) 가운데 이 셋은 정의 file 없이 전역 내장 agent(id `coding_<harness id>`, handle `claude`·`codex`·`opencode`)로 있다([agent-definition.md](agent-definition.md)). 입력(사람 메시지, call, run, step)은 core 안 extension host에서 도는 harness host(extension `harness`)가 그 harness의 headless 명령(`claude -p`, `codex exec`, `opencode run`)으로 실행한다. host는 extension context로만 lophn에 닿는다([extension.md](extension.md)).
+harness runtime은 다섯이다: `claude-code`, `codex`, `opencode`, `omp`, `antigravity`. 다섯 모두 단일 상주 구조화 프로토콜 어댑터([harness-gui.md](harness-gui.md))로 돈다. 정의의 `runtime`이 harness인 agent는 lophn session을 갖지만 run-loop가 돌리지 않는다. 사람이 즐겨찾기한 coding agent(`shell.coding_agents.favorites`) 가운데 이 다섯은 정의 file 없이 전역 내장 agent(id `coding_<harness id>`, handle `claude`·`codex`·`opencode`·`omp`·`antigravity`)로 있고, 사람이 만든 custom harness agent 정의도 다섯 runtime과 `harness_config`(model·options)를 모두 쓸 수 있다([agent-definition.md](agent-definition.md)).
 
-**GUI 탭 팀원**([harness-gui.md](harness-gui.md) "팀원")도 harness session이다. 행에 `harness_gui`가 켜져 있고 그 queue는 그 터미널 GUI 탭만 가져간다: headless host의 take·start_turn이 건너뛰고 TUI 열기가 거절한다. project의 GUI 탭이 열리면 core가 그 session을 열거나 잇고(설정과 상관없다), project에서 부른 내장 coding agent(call, `team spawn`)도 headless가 아니라 팀원으로 열려 core가 그 project에 탭을 연다. core가 CLI를 스스로 띄우는 이 길은 설정 `extensions.harness.enabled`가 켜졌을 때만이다(꺼져 있으면 새 session은 `unavailable`, 탭이 닫힌 팀원의 call은 실패로 돌아간다). Home·앱 workspace의 내장 coding agent와 사람이 정의한 harness agent, 사람이 Agent 탭으로 연 session은 headless 그대로다.
+실행 모드는 둘이다:
+- **`tab` 모드 (`harness_gui = 1`)**: project 터미널의 GUI 탭 팀원([harness-gui.md](harness-gui.md) "팀원"). project에서 연 GUI 탭과 project에서 부른 내장 coding agent(call, `team spawn`)가 이 모드로 열린다. 그 queue는 그 터미널 GUI 탭만 가져가며, TUI 열기가 거절한다.
+- **`background` 모드 (`harness_gui = 0`)**: Home·앱 workspace의 harness agent, 사람이 정의한 harness agent(custom `harness_config` 포함), 창 없는 무인 Job·Workflow. 터미널 PTY 없이 core 안 상주 ACP adapter(`terminal: null`)로 실행되고, turn이 끝나고 queue가 비면 짧은 linger(15초) 뒤 handle을 닫는다.
 
 ```
 Router ─ session.transport = harness ─▶ harness queue(core 메모리, run-loop queue와 따로)
-extension harness(1초마다) ─ core 안 사람 자격 ─▶ harness/take → harness/start_turn
-   ─ agents/read(permissions.deny), projects/get·apps/get(workspace 폴더) ─▶ 권한 flag, cwd
-   ─ spawn(<harness headless 명령>, cwd = workspace 폴더, stdin 닫음) ─ 줄마다 parser ─▶ harness/record(글, harness_tool)
-   ─ 1초마다 turns/read: core가 닫았으면(멈춤) process를 끈다 ─ process 끝 ─▶ harness/finish_turn
-                                          └▶ harness/set_external_id (harness의 session id, resume에 쓴다)
+ ├─ harness_gui = 1 (tab 모드) ─▶ project GUI 탭(member) ─▶ 상주 adapter(terminal = AcpTerminal)
+ └─ harness_gui = 0 (background 모드) ─▶ background 실행기(onQueued + 1초 sweep)
+      ─ StartTurn(ledger) + turn 자격 file(LOPHN_AGENT_CREDENTIAL_FILE)
+      ─ agent 정의(harness_config, permissions.deny), workspace cwd
+      ─ 상주 adapter(terminal = null, resume/forkFrom/launch) ─ ACP send
+      ─ message_recorded·tool_ended ─▶ RecordMessage(text, harness_tool) + MessageRecorded
+      ─ approval_opened·question_asked ─▶ 자동 거절/미응답 + 이유 기록
+      ─ TurnEnded(사람 Stop) ─▶ ACP stop / turn_ended ─▶ FinishTurn + 자격 file 삭제
+      ─ session_changed(cli_session, models) ─▶ BindHarnessSession + HarnessCatalogManager passive warming
 TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(custom의 자동 답과 같은 길)
 ```
 
 - turn은 시작 → 기록 → 끝 순서이고 `TurnEnded`는 한 번이다. 기록은 core 안 machine 자격으로 기존 command(StartTurn, RecordMessage, FinishTurn)에 남는다.
 - session의 harness와 외부 session id(harness 자신의 session id)는 session 행에 있다(ledger step `lophn-agent.sessions.harness`). harness는 열 때 정해지고 바뀌지 않으며 외부 id는 machine 전용 command `BindHarnessSession`만 쓴다.
-- harness가 쓴 tool은 메시지 part `harness_tool {name, summary, status}`로만 남는다. 기록마다 `MessageRecorded`(`model_call: null`)가 나가 대화가 바로 갱신된다.
+- background 모드에서 harness가 쓴 tool은 메시지 part `harness_tool {name, summary, status}`로 남고, 기록마다 `MessageRecorded`(`model_call: null`)가 나가 Home/App 대화가 바로 갱신된다.
 - cwd는 session workspace의 폴더다. project는 첫 폴더, 앱은 source 폴더(없으면 첫 폴더), home은 `<data root>/harness-home/<session>/`(turn 시작 때 만들고 지우지 않는다)다.
+
+### Harness Catalog Discovery & Cache
+
+Agent Profile 편집기가 harness runtime의 model과 option 축(`effort`, `speed`, `variant`, `thinking` 등)을 고를 수 있게 core daemon이 `HarnessCatalogManager`를 둔다.
+- **기동 시 자동 스폰 금지**: core가 뜰 때 외부 CLI를 임의로 실행하지 않는다.
+- **Passive Warming**: 열린 GUI 탭이나 background 실행기가 `session_changed`로 model 목록을 받을 때마다 공짜로 memory·disk cache(`<data root>/cache/harness-catalog.json`)를 갱신한다.
+- **Lazy Probe & Refresh**: `harness_catalog/read { harness, workspace?, probe? }`는 cache가 있으면 즉시 `ready`(stale 여부 포함)를 돌려주고, 비었으면서 `probe: true`일 때만 해당 어댑터의 `fetchCatalog`를 in-flight dedup + 20초 deadline으로 한 번 호출한다. `harness_catalog/refresh`는 강제 재조회하고 내용이 바뀌면 `StateChanged { harness_catalog }`를 낸다. `opencode`는 workspace cwd별로, 나머지 넷은 전역 key로 cache한다.
+- **User Intent 보존**: probe가 실패하거나 저장된 model id가 목록에 없어도 기존 disk cache와 Agent 정의의 `harness_config`를 지우거나 덮어쓰지 않고 `status: "error"` 값으로 알린다.
 
 ### TUI 탭과 hold
 
-harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서도 연다. core가 그 project에 터미널을 열고 그 CLI의 resume 줄(`claude --resume <id>`, `codex resume <id>`, `opencode --session <id>`)을 친 뒤 탭으로 보인다(그 workspace를 보이는 창이 없어도 터미널은 돈다). 그 터미널이 그 session을 쥔 동안 그 session의 headless turn은 시작하지 않는다. 이 hold는 lease다: core가 열 때 30초 예약을 걸고, 터미널을 쥔 쪽(core 안 terminal-agents)이 쥔 session 목록을 바뀔 때와 3초마다 넣어 10초로 이어 가며, 목록에서 빠지면 바로 푼다. `--tui`로 연 터미널은 그 harness가 foreground에 보였다 떠나면 놓고(CLI가 끝내 안 뜨면 터미널이 끝날 때까지 쥔다), 폰의 `coding_sessions/open`이 resume으로 연 터미널은 터미널이 끝날 때까지 쥔다(한 CLI session에 두 process가 쓰면 대화 기록이 섞이거나 깨진다). core가 다시 뜨면 임대라 저절로 풀린다.
+background harness session(`harness_gui = 0`)은 `lophn tab open --session <ses> --tui`로 터미널 탭에서도 연다. core가 그 project에 터미널을 열고 그 CLI의 resume 줄을 친 뒤 탭으로 보인다(그 workspace를 보이는 창이 없어도 터미널은 돈다). 상주 background handle이 아직 살아 있으면 `conflict`로 거절하며 유휴 handle을 즉시 닫아(evict) 다음 시도에 열리게 한다. 그 터미널이 그 session을 쥔 동안 그 session의 background turn은 시작하지 않는다. 이 hold는 lease다: core가 열 때 30초 예약을 걸고, 터미널을 쥔 쪽이 쥔 session 목록을 바뀔 때와 3초마다 넣어 10초로 이어 가며, 목록에서 빠지면 바로 푼다. `--tui`로 연 터미널은 그 harness가 foreground에 보였다 떠나면 놓고(CLI가 끝내 안 뜨면 터미널이 끝날 때까지 쥔다), 폰의 `coding_sessions/open`이 resume으로 연 터미널은 터미널이 끝날 때까지 쥔다(한 CLI session에 두 process가 쓰면 대화 기록이 섞이거나 깨진다). core가 다시 뜨면 임대라 저절로 풀린다.
 
 ## 지키는 것
 
@@ -99,10 +113,10 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
     - Codex는 우리 trust table을 지우고, 우리 group 뒤에 있던 다른 도구의 기록은 당겨진 위치의 key로 옮긴다(key가 바뀌면 Codex가 다시 trust하라고 한다).
     - 사람의 handler가 섞인 Devin 항목처럼 offset으로 안전하게 고칠 수 없거나 파싱되지 않으면 아무것도 쓰지 않고 `failed`다.
     - 누른 것이 허락이라 묻지 않고, 지운 뒤 이 실행에서는 터미널이 그 harness를 알아봐도 다시 묻지 않는다. 다음 실행에서는 거절처럼 다시 묻는다.
-13. **coding agent에게 가는 skill은 사람이 승인한 앱 공유의 public skill과, harness extension이 켜졌을 때의 내장 `lophn-agent` 하나다.**
+13. **coding agent에게 가는 skill은 사람이 승인한 앱 공유의 public skill과 내장 `lophn-agent` 하나다.**
     - 읽는 것은 설정 `coding-agent.shared_apps`(앱 slug 목록. 앱 workspace의 agent가 청한 공유 요청을 사람이 coding agent까지 골라 승인할 때만 더해진다: [approval.md](approval.md))와 core read `app.skills`([app-call.md](app-call.md))다.
     - 쓰는 곳은 hook이 놓인(`unchanged`) harness의 adapter `skill_dir`(사람 home 기준)이다: Claude Code `.claude/skills`, Codex·pi `.agents/skills`, OpenCode `.config/opencode/skills`. 다른 harness는 `skill_dir`이 null이라 사본이 없다. Codex와 pi는 폴더를 같이 쓰므로 하나라도 hook이 놓였으면 둔다. hook이 없는(`missing`) harness의 폴더에서는 lophn이 쓴 사본만 지우고, hook 상태를 못 읽은 폴더(`failed`)는 건드리지 않는다. 그 폴더를 쓸 수 없으면 `unavailable`이다.
-    - `lophn-agent` skill은 설정 `extensions.harness.enabled`가 켜졌으면 hook 상태와 상관없이(켜기가 사람의 허락이다) Claude Code·Codex·OpenCode의 `skill_dir`에 앱 공유 skill과 같은 표시 file로 두고, 꺼지면 그 사본만 지운다.
+    - `lophn-agent` skill은 hook 상태와 상관없이 `skill_dir`을 가진 harness(Claude Code·Codex·OpenCode)의 skill 폴더에 앱 공유 skill과 같은 표시 file로 늘 동기화한다.
 14. **사본은 lophn이 쓴 것만 덮고 지운다.**
     - skill 폴더마다 표시 file `.lophn-shared`(JSON `{app, release, files[]}`)를 두고, 표시가 있는 폴더만 덮고 지운다. 같은 이름의 폴더가 사람의 것이면(표시 없음) 건드리지 않고 건너뛰어 `skipped`로 알린다. 표시를 먼저 쓰므로 쓰다 멈춰도 다음에 우리 폴더로 알아본다.
     - 지울 때는 표시 file에 적힌 file만 지우고(recursive가 아니다) 비게 된 폴더만 치워, 사람이 그 안에 넣은 file은 남는다.
@@ -111,40 +125,35 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 15. **사본은 core process가 직접 쓰지 않고 core가 CLI(`lophn harness sync-skills`)를 exec해서 맞춘다.** 사람 home에 쓰는 규칙(표시 file, 우리 것만)은 CLI 한 곳에 있다. core가 exec하는 CLI에는 그 core의 주소(`LOPHN_DAEMON_URL`)를 줘서 그 core에만 붙는다. core가 멈추거나 죽으면 CLI는 실패로 끝나고 core를 다시 띄우지 않는다. 맞추는 때는 넷이다: core가 ready가 된 뒤 한 번, 앱 view의 activation 신호(`AppViewChanged`의 reason `activation`. 앱을 가리지 않으므로 공유하지 않은 앱의 activation에도 돌지만 사본이 같으면 아무것도 쓰지 않는다), `settings` 변경(`StateChanged`)의 id에 `coding-agent.shared_apps`나 `extensions.harness.enabled`가 있을 때, hook을 놓거나 지운 뒤. 한 번에 하나만 돌고 도는 중에 온 요청은 끝난 뒤 한 번 더 돈다. 실패는 log만 남기고 부른 쪽을 막지 않는다. session 시작 hook은 core를 부르지 않으므로 쓰지 않는다.
 16. **`harness uninstall`은 lophn이 쓴 사본도 지운다.** 그 harness의 skill 폴더에서 표시 있는 폴더를 치우고 지운 폴더를 출력 file 목록에 더한다. 같은 폴더를 쓰는 다른 harness의 hook이 남았으면 다음 sync가 다시 둔다.
 17. **설치는 전에 놓은, 지운 skill의 얇은 사본도 지운다.** 지우는 이름은 정해 둔 목록(`lophn-build-app`, `lophn-repair`)이고 패턴이나 목록 읽기로 고르지 않는다. 폴더에 `SKILL.md` 하나뿐이고, 그 글이 lophn이 쓰던 꼴과 byte까지 같고, `dry_run`이 아닐 때만 file 하나와 빈 폴더 하나를 지운다(recursive가 아니다). 사람이 고친 사본, 다른 file이 든 폴더, 다른 이름의 skill은 남긴다. 출력의 `skill` 칸은 이 지우기만 알린다. 옛 사본이 있는 사람은 `lophn harness install`을 한 번 돌려야 지워진다.
-18. **headless 켜기는 설정 `extensions.harness.enabled`(Settings › System › Extensions, 기본 꺼짐)다.** 사람이 연 GUI 탭 팀원은 이 설정과 상관없이 열리고 입력을 받는다. core가 coding agent의 탭을 스스로 여는 것은 이 설정이 켜졌을 때만이다. 꺼져 있으면 extension을 load하지 않고, harness runtime session을 열지 않고(`unavailable`), 그 session으로 가는 메시지·call·step도 `unavailable`이며, 새 turn을 여는 host route(`harness/take`, `harness/start_turn`)도 `unavailable`이다. 기록·끝냄·외부 id route는 꺼져 있어도 받아, 끌 때 돌던 turn이 끝난다. 답·reaction·알림은 받아 열린 call이 닫힌다. 편집기의 runtime 고르기는 켜졌을 때만 harness 값을 내고, 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
+18. **harness 실행은 별도 extension 켜기 설정(`extensions.harness.enabled`) 없이 core에 기본 내장된다.** 다섯 구조화 harness runtime(`claude-code`, `codex`, `opencode`, `omp`, `antigravity`)이 `tab`·`background` 모드로 바로 동작한다. 편집기 `Runs on`의 기본 runtime 선택지는 `Settings › Coding agents`의 `favorites`를 따르되, 나머지 지원 harness도 보조 선택지로 고를 수 있고 이미 저장된 runtime은 즐겨찾기 해제 후에도 보존한다.
 19. **harness session의 harness는 열 때 정해 바뀌지 않는다.** runtime이 harness가 아닌 session은 외부 id를 고치지 못한다.
-20. **host route는 사람 token(actor user)만, runtime이 harness인 session만 고친다.** memory route라 renderer 통로에는 없다. 재시작하면 끝나지 않은 harness turn은 interrupted(restarted)로 끝나고 늦은 FinishTurn은 `conflict`다.
+20. **core 안 harness 명령(`harness/bind_session`, `open_member`, `fail_call`)은 machine 전용이고, `harness_catalog/read|refresh`는 사람 자격 전용이다.** 재시작하면 끝나지 않은 harness turn은 interrupted(restarted)로 끝나고 늦은 FinishTurn은 `conflict`다.
 21. **harness가 쓴 tool은 lophn이 실행한 것이 아니다.** gate·rewind의 tool-call chain에 들지 않는다.
-22. **harness의 permission mode·sandbox는 lophn이 정하지 않는다.** 사람이 그 CLI에 해 둔 기본 설정대로 돈다. lophn이 넣는 것은 `lophn`을 부르는 길(Claude Code `Bash(lophn *)` 허락, Codex `network_access=true`)과 정의의 deny뿐이다. 정의에 deny가 있는데 옮길 수 없는 harness(Codex, opencode)는 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄).
-23. **harness는 turn 자격으로 자기 shell에서 `lophn`을 부른다.**
-    - `harness/start_turn`이 그 session·그 turn에만 쓰이는 agent 자격을 내고 host가 spawn env `LOPHN_AGENT_CREDENTIAL`에 넣는다. 범위는 그 workspace 종류의 `lophn` 명령 route뿐이고(file·rewind·gate·ask route 없음) `TurnEnded`에 끝난다.
-    - CLI는 그 env가 있으면 그 자격으로만 부르고 control connect를 하지 않는다. 자격이 만료되거나 거절되어도 user 자격으로 바꾸지 않는다. user token으로 `call.reply`·`call.send`는 `forbidden`이다.
-    - GUI 탭 팀원은 오래 사는 CLI라 env에 자격 대신 `LOPHN_AGENT_CREDENTIAL_FILE`(secret이 아닌 경로)을 둔다. core가 turn마다(사람이 친 turn도) 그 turn의 자격을 file에 쓰고 turn이 끝나면 지운다. CLI는 `LOPHN_AGENT_CREDENTIAL`이 없으면 이 file을 읽고, 없으면 2초까지 다시 읽은 뒤 사람 자격으로 바꾸지 않고 `unauthorized`다(turn 밖). 사람이 GUI에서 `!`로 친 명령은 이 file 없이 돌아 사람 자격이다. 사람이 설정한 CLI hook이 core 명령을 부르면 turn 밖에서는 `unauthorized`다.
-    - turn 자격(env든 file이든)은 누가 했는지를 남기는 것이지 가두는 것이 아니다: harness는 사람의 shell을 가져 변수를 지우면 control connect로 사람 자격을 얻는다. 막지 않는다.
-    - extension이 띄우는 process의 env는 core가 읽은 사람의 login shell env이고(harness가 자기 API key를 쓴다), core가 고른 `lophn` launcher의 폴더를 PATH 앞에 두고(개발은 저장소의 dev launcher) `LOPHN_HOME`(그 core의 data root)을 늘 넣는다. lophn user token은 넣지 않는다.
-24. **cwd는 session workspace의 폴더이고 폴더가 없으면 띄우지 않는다.** 폴더 없는 project·app에서는 띄우지 않는다. opencode는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 쓰고 directory option이 없어(2.1.4), 폴더가 git 저장소 안이지만 그 root가 아니면 띄우지 않고 이유 한 줄로 turn을 끝낸다. 앱 source 폴더는 늘 git root라 걸리지 않는다. data root가 git 저장소 안이면 home의 opencode도 거절된다.
-25. **harness session은 turn 중에 대기 메시지를 받지 못한다.** ACP `steer` capability가 꺼져 있고 send-now는 `unavailable`이다.
-26. **turn의 끝은 parser의 끝 event나 exit code다.** 실패는 `model_error`, 시작하지 못하면 `target_unavailable`, 글 없이 끝나면 `no_answer`다. 사람이 멈추거나 core가 turn을 닫으면 host가 process를 끈다. 사람 메시지의 이미지는 `[image: <mime> not passed to the harness]` 글로 바뀐다.
+22. **harness의 permission mode·sandbox는 lophn이 정하지 않는다.** 사람이 그 CLI에 해 둔 기본 설정대로 돈다. lophn이 넣는 것은 `lophn`을 부르는 길(Claude Code `Bash(lophn *)` 허락, Codex `network_access=true`), `harness_config`(model·options), 정의의 deny뿐이다. background 실행에서 정의에 deny가 있는데 옮길 수 없는 adapter(Claude 밖 넷)는 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄).
+23. **harness는 turn 자격 file로 자기 shell에서 `lophn`을 부른다.**
+    - `tab` 모드와 `background` 모드 모두 오래 사는 상주 CLI라 env에 자격 대신 `LOPHN_AGENT_CREDENTIAL_FILE`(secret이 아닌 per-run 경로)을 둔다. core가 turn마다 그 turn의 자격을 0600으로 쓰고 turn이 끝나면 지우고 자격을 끝낸다. 범위는 그 workspace 종류의 `lophn` 명령 route뿐이고(file·rewind·gate·ask route 없음) `TurnEnded`에 끝난다.
+    - CLI는 `LOPHN_AGENT_CREDENTIAL_FILE`이 있으면 그 file을 읽고(없으면 2초까지 다시 읽은 뒤) 사람 자격으로 바꾸지 않고 `unauthorized`다(turn 밖). user token으로 `call.reply`·`call.send`는 `forbidden`이다. 사람이 GUI에서 `!`로 친 명령은 이 file 없이 돌아 사람 자격이다.
+    - turn 자격은 누가 했는지를 남기는 것이지 가두는 것이 아니다: harness는 사람의 shell을 가져 변수를 지우면 control connect로 사람 자격을 얻는다. 막지 않는다.
+    - adapter가 띄우는 process의 env는 core가 읽은 사람의 login shell env이고(harness가 자기 API key를 쓴다), core가 고른 `lophn` launcher의 폴더를 PATH 앞에 두고 `LOPHN_HOME`(그 core의 data root)을 늘 넣는다. lophn user token은 넣지 않는다.
+24. **cwd는 session workspace의 폴더이고 폴더가 없으면 띄우지 않는다.** 폴더 없는 project·app에서는 띄우지 않는다.
+25. **background harness session은 turn 중에 대기 메시지를 받지 못한다.** ACP `steer` capability가 꺼져 있고 send-now는 `unavailable`이다.
+26. **background turn의 끝은 ACP `turn_ended`다.** 실패는 `model_error`, 시작 실패·종료는 `target_unavailable`, 글 없이 끝나면 `no_answer`, 설정·deny·cwd 오류는 `configuration_unavailable`다. 사람이 멈추거나 core가 turn을 닫으면 ACP `stop`을 보내고 `finish`를 다시 부르지 않는다. 사람 메시지의 이미지는 `[image: <mime> not passed to the harness]` 글로 바뀐다.
 27. **run-loop는 harness 입력을 돌리지 않는다.** 닿으면 turn을 시작하지 않고 `target_unavailable`로 닫는다. 켤 때 접수만 된 사람 메시지는 harness queue에 되돌린다.
-28. **TUI 열기는 조건이 있다.** harness session이 아니거나 GUI 탭 팀원이거나(그 탭이 CLI를 쥔다) project workspace가 아니면 `invalid_input`(hold가 project의 session만 통과시키고 앱의 headless cwd는 터미널 cwd 검사를 지나지 못한다), CLI session id가 아직 없거나(첫 turn 전) turn이 돌거나 이미 열려 있으면 `conflict`다. cwd는 session project의 첫 폴더(headless와 같은 자리)다. TUI process는 lophn 자격을 받지 않고 그 안의 turn은 lophn 기록에 없다. 다음 headless turn이 같은 CLI session을 resume하므로 agent는 기억한다.
-29. **TUI로 연 터미널이 그 session을 쥔 동안 그 session의 headless turn은 시작하지 않는다.** hold된 session은 `harness/take`가 건너뛰고 `harness/start_turn`이 `conflict`다. 입력과 call은 queue에 남고(call은 accepted) 풀리면 다음 tick에 돈다. core는 터미널을 연 순간부터 그 session을 쥐고, CLI가 foreground에 보인 뒤 떠났을 때와 터미널이 끝났을 때 푼다. CLI가 끝내 안 뜨면 터미널이 끝날 때까지 쥔다. 창이나 탭이 닫혀도 터미널이 돌면 쥔다. host 터미널 탭을 `tab close`로 닫으면 PTY도 닫는다.
+28. **TUI 열기는 조건이 있다.** harness session이 아니거나 GUI 탭 팀원(`harness_gui = 1`)이거나 project workspace가 아니면 `invalid_input`, CLI session id가 아직 없거나(첫 turn 전) turn이 돌거나 상주 background handle이 아직 살아 있거나(유휴 handle이면 즉시 evict를 요청한다) 이미 열려 있으면 `conflict`다. cwd는 session project의 첫 폴더다. TUI process는 lophn 자격을 받지 않고 그 안의 turn은 lophn 기록에 없다. 다음 background turn이 같은 CLI session을 resume하므로 agent는 기억한다.
+29. **TUI로 연 터미널이 그 session을 쥔 동안 그 session의 background turn은 시작하지 않는다.** hold된 session은 background 실행기가 건너뛰고 `start`가 `conflict`다. 입력과 call은 queue에 남고(call은 accepted) 풀리면 다음 sweep에 돈다. core는 터미널을 연 순간부터 그 session을 쥐고, CLI가 foreground에 보인 뒤 떠났을 때와 터미널이 끝났을 때 푼다. CLI가 끝내 안 뜨면 터미널이 끝날 때까지 쥔다. 창이나 탭이 닫혀도 터미널이 돌면 쥔다. host 터미널 탭을 `tab close`로 닫으면 PTY도 닫는다.
 
 ## 경계와 계약
 
 경계: `coding-agent-cli`(명령 표와 binary), `coding-agent`(hook·감지·공유 skill 사본), `coding-agent-cli-interface`, `coding-agent-harness-api`, `harness-host-interface`, `external-coding-agent`(사람의 coding agent).
 
-- **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL`(harness turn 자격), `LOPHN_AGENT_CREDENTIAL_FILE`(GUI 탭 팀원의 turn 자격 file 경로. secret이 아니다), `LOPHN_AGENT_SHELL`(lophn agent의 shell.run·ACP terminal 표시. 자격이 없으면 CLI가 바로 멈춘다), `LOPHN_SESSION_ID`(headless harness CLI에 넣는 lophn session id. CLI가 띄운 process가 상속하며 앱이 session의 process를 찾는 표지다. secret이 아니다. 터미널 env는 바깥 `LOPHN_*`를 지우고 탭의 shell에 그 탭의 session id `term:<탭>`을 직접 넣는다. TUI CLI는 shell의 자식이라 물려받고, GUI view가 띄운 CLI는 harness-gui가 같은 값을 실어 띄운다), `LOPHN_CLI`(shell과 CLI가 쓰는 개발 launcher 경로. core는 보지 않는다), `LOPHN_HOME`(data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
+- **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL_FILE`(GUI 탭 팀원과 background harness의 turn 자격 file 경로. secret이 아니다), `LOPHN_AGENT_SHELL`(lophn agent의 shell.run·ACP terminal 표시. 자격이 없으면 CLI가 바로 멈춘다), `LOPHN_SESSION_ID`(background harness CLI에 넣는 lophn session id `ses_…`. 터미널 env는 바깥 `LOPHN_*`를 지우고 탭의 shell에 `term:<탭>`을 넣으며, GUI view가 띄운 CLI도 같은 값을 싣는다), `LOPHN_CLI`(shell과 CLI가 쓰는 개발 launcher 경로. core는 보지 않는다), `LOPHN_HOME`(data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
 - **CLI 명령.** `lophn harness detect|refresh|install [--dry_run]|status|uninstall|sync-skills`, `lophn hook <harness> <event>`, `lophn core stop`, `lophn tab open --session <ses> --tui`, 그 밖은 core를 부르는 명령 표.
-- **설정 key.** `extensions.harness.enabled`, `coding-agent.shared_apps`(앱 slug 목록).
-- **core route·command.** `app.create`, `app.connect_source`, `app.skills`, harness host route(`harness/take`, `harness/start_turn`, `harness/record`, `harness/finish_turn`, `harness/set_external_id`), Settings › Coding agents의 `coding_agents/list|refresh|hook_status|install_hooks|uninstall_hooks`와 event `HookInstallFinished`, `turns/read`, `agents/read`, `projects/get`, `apps/get`. 기존 command StartTurn, RecordMessage, FinishTurn, machine 전용 `BindHarnessSession`. event `TurnEnded`, `MessageRecorded`, `settings` 변경(`StateChanged`), `AppViewChanged`.
-- **저장 모양.** session 행의 `harness`, 외부 session id `harness_session`(ledger step `lophn-agent.sessions.harness`), GUI 탭 팀원 표시 `harness_gui`(ledger step `lophn-agent.sessions.gui-member`). turn 자격 file `<per-run 폴더>/credentials/<터미널>`(0700 폴더, 0600 file, turn 동안만). 메시지 part `harness_tool {name, summary, status}`. `<data root>/harness-home/<session>/`, `<data root>/apps/<app>/source`, harness의 사용자 전역 설정(hook), 사람 home의 skill 폴더와 표시 file `.lophn-shared`, `~/.codex/config.toml`의 `[hooks.state."…"] trusted_hash`, 개발 launcher `<저장소>/.cache/dev-cli/lophn`.
+- **설정 key.** `coding-agent.shared_apps`(앱 slug 목록), `shell.coding_agents`(즐겨찾기·명령).
+- **core route·command.** `app.create`, `app.connect_source`, `app.skills`, `harness_catalog/read|refresh`, Settings › Coding agents의 `coding_agents/list|refresh|hook_status|install_hooks|uninstall_hooks`와 event `HookInstallFinished`, `turns/read`, `agents/read`, `projects/get`, `apps/get`. 기존 command StartTurn, RecordMessage, FinishTurn, machine 전용 `BindHarnessSession`·`OpenHarnessMember`·`FailHarnessMemberCall`. event `TurnEnded`, `MessageRecorded`, `StateChanged`(`settings`, `harness_catalog`), `AppViewChanged`.
+- **저장 모양.** session 행의 `harness`, 외부 session id `harness_session`(ledger step `lophn-agent.sessions.harness`), GUI 탭 팀원 표시 `harness_gui`(ledger step `lophn-agent.sessions.gui-member`, `1` = tab 모드, `0` = background 모드). turn 자격 file `<per-run 폴더>/credentials/<터미널 또는 session>`(0700 폴더, 0600 file, turn 동안만). model catalog disk cache `<data root>/cache/harness-catalog.json`. 메시지 part `harness_tool {name, summary, status}`. `<data root>/harness-home/<session>/`, `<data root>/apps/<app>/source`, harness의 사용자 전역 설정(hook), 사람 home의 skill 폴더와 표시 file `.lophn-shared`, `~/.codex/config.toml`의 `[hooks.state."…"] trusted_hash`, 개발 launcher `<저장소>/.cache/dev-cli/lophn`.
 - **TUI 열기 요청.** `tabs/open` target `{tui: <ses>}`이면 core가 그 session의 hold를 걸고 그 project에 터미널을 열어(`terminals/open`의 `resume {harness: <adapter id>, external_session}`) resume 줄을 친 뒤, host queue의 `tab_open`(target `{terminal: {terminal_ref}}`)으로 창에 탭을 보인다(key `host:<tab>`). runtime → adapter id 대응은 한 곳에서만 정한다.
 - **TUI handoff.** agent가 `tabs/open` target `{coding: {harness, handoff}}`(CLI `lophn tab open --coding <harness> --handoff <글>`)로 사람이 이어서 만질 일을 넘긴다. project와 home workspace의 agent만(앱은 `invalid_input`), 즐겨찾기 가운데 이 컴퓨터에서 감지되고(Settings › Coding agents의 마지막 감지 결과) adapter가 첫 prompt 인자 꼴(`session.prompt`)을 아는 harness만 된다. 하나도 없으면 agent가 사람에게 Settings › Coding agents에서 즐겨찾기하거나 감지를 확인하라고 전하게 하는 `invalid_input`이다. 지침은 harness 이름을 박지 않고 이 오류가 열 수 있는 id를 알려 준다. core는 글을 `<data root>/handoffs/<tab>.md`(0600)에 쓴다. 그다음 core가 그 project(home이면 사람의 home 폴더)에 새 터미널을 열어 사람의 즐겨찾기 명령 뒤에 고정 글 "Read the handoff at <file> and continue the work it describes."만 첫 prompt로 붙여 치고, 그 터미널을 탭으로 보인다. 이 탭은 사람의 터미널이라 lophn session도 hold도 없다.
-- **headless 명령.** harness마다 adapter 항목 하나(명령, parser, 권한 표)다. parser는 순수 함수이고 실제 녹화에서 만든 fixture로 본다(Claude Code 2.1.318, codex-cli 0.166.0, opencode 2.1.4).
-  - Claude Code: `claude -p --output-format stream-json --verbose --allowed-tools "Bash(lophn *)" [--resume <id> | --resume <원본 id> --fork-session] [--disallowed-tools …] -- <prompt>`. permission mode는 사람의 Claude Code 설정대로이고 `lophn`만 따로 허락한다(deny가 allow보다 앞선다). 정의의 deny `lophn(<slug> <command>)`는 `Bash(lophn <slug> <command>)`와 그 뒤 인자 꼴의 disallow다.
-  - Codex: `codex exec --json --skip-git-repo-check -c sandbox_workspace_write.network_access=true -- <prompt>`, 이어 가기는 `codex exec resume … -- <id> <prompt>`. sandbox mode는 사람의 Codex 설정대로다. stdin 끝을 기다리므로 host가 띄우자마자 닫는다.
-  - opencode: `opencode run --standalone --format json [--session <id> | --session <원본 id> --fork] <prompt>`. 권한 flag가 없어 사람의 opencode 설정대로 돌고, 그 설정이 `lophn`을 허락해야 부른다. 끝 event가 없어 process의 exit code가 끝이다.
-- **fork한 session의 첫 turn.** fork한 harness session이 아직 harness session id를 갖지 않았고 원본의 지금 마지막 메시지에서 갈라졌고 harness가 같으면, core가 take의 `fork_external_session_id`에 원본의 harness session id를 싣는다. Claude Code와 opencode는 그 session에서 갈라 시작해 앞 대화를 물려받고, Codex는 headless fork가 없어 새로 시작한다. 원본의 중간에서 갈랐으면 harness 기록이 원본의 끝까지라 싣지 않는다(새로 시작한다).
+- **fork한 session의 첫 turn.** fork한 background harness session이 아직 harness session id를 갖지 않았고 원본의 지금 마지막 메시지에서 갈라졌고 harness가 같으면, adapter `start`에 `forkFrom`으로 원본의 harness session id를 넘긴다. Claude Code·Codex·OpenCode는 그 session에서 갈라 시작해 앞 대화를 물려받고, omp·Antigravity는 새로 시작한다. 원본의 중간에서 갈랐으면 싣지 않는다(새로 시작한다).
 - **내장 skill `lophn-agent`.** 받은 call의 tag 읽기, `call reply`(승인을 청하는 팀원의 call에는 `--allow`·`--reject`)·`call send`·`call cancel`, `team`, `session list`·`agent list`·`agent card`, 사람의 다른 컴퓨터에 닿는 `--on`(`machine computers`, "Other computers" 절)과 `handoff write`("Handoff note" 절. `machine-a2a.md`), `ext call`을 적고 turn 자격이 있을 때만 쓰라고 한다. harness agent가 치는 binary는 agent 자격이라 `--on`을 `on` 칸을 가진 네 명령의 칸으로만 받는다(`remote.md`의 "`--on`"). `tab open --url|--preview`, `preview`, `browser snapshot → act --ref` 같은 탭 명령은 사람 token(사람의 터미널)으로도 되어 따로 적는다. 사람 token으로 연 탭의 주인은 "person"이다([workspace-layout.md](workspace-layout.md) "agent가 연 탭").
 - **hook 설치 출력.** `harness install`의 출력은 event·file 목록과 상태(`unchanged`, `missing`, `failed`, `conflict`, skill 사본의 `skipped`)이고 `dry_run`은 쓰지 않고 같은 판정을 낸다.
 

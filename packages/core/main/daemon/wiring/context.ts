@@ -6,29 +6,34 @@
 //   → prepare → openRuntime → records → build → API → start → ready → afterReady
 // 종료 순서: closeIntake → server.stop → closeChildren → 감독 정지 → closeWork → runtime.close → stopped
 import type { Clock, RandomSource, Result } from "../../../../base/mod.ts";
-import type { EventDelivery } from "../../../apps/events/mod.ts";
+import type { AcpTabHandlers } from "../../../../protocol/acp/mod.ts";
 import type { Frame, Id, Route } from "../../../../protocol/base/mod.ts";
+import type {
+  SettingDeclaration,
+  SettingsReader,
+} from "../../../../protocol/config/mod.ts";
+import type { SharedProject } from "../../../../protocol/folder/mod.ts";
+import type { ManifestBody } from "../../../../protocol/remote/carry.ts";
+import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
+import type {
+  SecretAttachPort,
+  SecretStorePort,
+} from "../../../../protocol/secrets/mod.ts";
 import type {
   AuthenticatedContext,
   SchemaStep,
 } from "../../../../protocol/server/mod.ts";
+import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
 import type {
   ChildMessage,
   Diagnostic,
 } from "../../../../protocol/supervision/mod.ts";
-import type {
-  ApiServer,
-  FileStreamHandler,
-  HostLink,
-  MemoryHandler,
-  ReadHandler,
-  UploadHandler,
-} from "../../../server/mod.ts";
-import type { ShellCapabilities } from "../../../server/control/capability.ts";
-import type {
-  CredentialRegistry,
-  OperationPolicy,
-} from "../../../server/identity/mod.ts";
+import type { AlwaysOn } from "../../../always-on/mod.ts";
+import type { ApprovalsService } from "../../../approvals/approvals.ts";
+import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
+import type { RemoteMachines } from "../../../apps/calls/forward.ts";
+import type { createAppsControl } from "../../../apps/control.ts";
+import type { EventDelivery } from "../../../apps/events/mod.ts";
 import type {
   AppIntake,
   AppRewind,
@@ -38,72 +43,68 @@ import type {
   CallerDirectory,
   InvocationLedger,
 } from "../../../apps/ports.ts";
-import type { KnownSecretMatch, Writer } from "../../../storage/ledger/mod.ts";
-import type { DataStep, RestartOwner } from "../../../storage/migration/mod.ts";
+import type { AppViews } from "../../../apps/views/mod.ts";
+import type { AttentionCore } from "../../../attention/mod.ts";
+import type { SettingsStore } from "../../../config/mod.ts";
+import type { StatusSource, Telemetry } from "../../../diagnostics/mod.ts";
+import type { ComponentCheck } from "../../../diagnostics/ports.ts";
+import type { Bus, GatewayFrames } from "../../../events/mod.ts";
+import type {
+  CrossEvents,
+  EventArrived,
+  FolderReplica,
+} from "../../../folder/ports.ts";
+import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
+import type { DataRoot } from "../../../install-and-update/mod.ts";
+import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
+import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
+import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
+import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
+import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
+import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
+import type { MachineIdentity } from "../../../machine/mod.ts";
+import type { MailInbox } from "../../../remote/mail-entry.ts";
+import type { PhoneLink } from "../../../remote/mod.ts";
+import type { RunService } from "../../../runs/mod.ts";
+import type { BrowserVault, SecretStore } from "../../../secrets/mod.ts";
+import type { ShellCapabilities } from "../../../server/control/capability.ts";
+import type {
+  CredentialRegistry,
+  OperationPolicy,
+} from "../../../server/identity/mod.ts";
+import type {
+  ApiServer,
+  FileStreamHandler,
+  HostLink,
+  MemoryHandler,
+  ReadHandler,
+  UploadHandler,
+} from "../../../server/mod.ts";
 import type {
   BlobPrepareCall,
   BlobPrepareRelay,
   BufferGauge,
   PreparedRelayResult,
 } from "../../../storage/blobs/prepare-relay.ts";
-import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
-import type { SettingsStore } from "../../../config/mod.ts";
-import type { StatusSource, Telemetry } from "../../../diagnostics/mod.ts";
-import type { ComponentCheck } from "../../../diagnostics/ports.ts";
-import type { Bus, GatewayFrames } from "../../../events/mod.ts";
-import type { ApprovalsService } from "../../../approvals/approvals.ts";
-import type {
-  SettingDeclaration,
-  SettingsReader,
-} from "../../../../protocol/config/mod.ts";
-import type {
-  SecretAttachPort,
-  SecretStorePort,
-} from "../../../../protocol/secrets/mod.ts";
+import type { KnownSecretMatch, Writer } from "../../../storage/ledger/mod.ts";
+import type { DataStep, RestartOwner } from "../../../storage/migration/mod.ts";
 import type { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
-import type { createAppsControl } from "../../../apps/control.ts";
-import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
-import type { AppViews } from "../../../apps/views/mod.ts";
-import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
-import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
 import type { HarnessMembers } from "../../../terminal-agents/member.ts";
 import type {
+  HarnessCatalogManager,
   HarnessSettings,
   TerminalAgents,
 } from "../../../terminal-agents/mod.ts";
 import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
-import type { AcpTabHandlers } from "../../../../protocol/acp/mod.ts";
-import type { PhoneLink } from "../../../remote/mod.ts";
-import type { BrowserVault, SecretStore } from "../../../secrets/mod.ts";
-import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
-import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
-import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
-import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
-import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
-import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
-import type { RunService } from "../../../runs/mod.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
-import type { AttentionCore } from "../../../attention/mod.ts";
-import type { MachineIdentity } from "../../../machine/mod.ts";
-import type { AlwaysOn } from "../../../always-on/mod.ts";
-import type { NoticeRecorder } from "./notices.ts";
-import type { FolderEnvironment, FolderPorts } from "./folder.ts";
-import type {
-  CrossEvents,
-  EventArrived,
-  FolderReplica,
-} from "../../../folder/ports.ts";
-import type { ManifestBody } from "../../../../protocol/remote/carry.ts";
-import type { RemoteMachines } from "../../../apps/calls/forward.ts";
-import type { SharedProject } from "../../../../protocol/folder/mod.ts";
-import type { MailInbox } from "../../../remote/mail-entry.ts";
-import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
-import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
+import type { Assembled } from "../registration.ts";
 import type { CoreRuntime } from "../runtime.ts";
-import type { DataRoot } from "../../../install-and-update/mod.ts";
+import type { FolderEnvironment, FolderPorts } from "./folder.ts";
+import type { NoticeRecorder } from "./notices.ts";
 
 // core가 켜질 때 한 번, 제품 판을 data root의 마지막 판과 견준 결과다(notices wiring이 afterReady에서 낸다).
 // changed: 판이 바뀐 기동(`lophn_updated` 기록을 남겼다). from: 바뀌기 전 판, 모르면(새 data root, 판을 적지 않던 옛 data root) null.
@@ -118,9 +119,9 @@ export type ProductStartListener = (
   start: ProductStart,
 ) => Promise<void> | void;
 
+export { createProductRedactor } from "../../../../base/redaction/mod.ts";
 // worker 통로와 제품 redactor를 가져오는 단일 import 지점이다. 위치가 옮겨지면 여기 두 줄만 고친다.
 export { createWorkerChannel } from "../../../supervision/responsiveness/mod.ts";
-export { createProductRedactor } from "../../../../base/redaction/mod.ts";
 
 export type Supervisor = ReturnType<typeof createSupervisor>;
 export type AppsControl = Awaited<ReturnType<typeof createAppsControl>>;
@@ -316,8 +317,9 @@ type Late = {
   terminals: Terminals;
   // terminals wiring이 낸다. 사람의 login shell env와 `lophn` 경로다. 터미널과 extension host가 띄우는 CLI가 쓴다.
   personEnv: PersonEnv;
-  // harness-runners wiring이 낸다. 터미널 coding agent의 GUI 전환 handler다.
+  // harness-runners wiring이 낸다. 터미널 coding agent의 GUI 전환 handler와 daemon-level catalog cache다.
   harnessGuiTabs: () => AcpTabHandlers | null;
+  harnessCatalog: HarnessCatalogManager;
   // 폰이 터미널에 글을 칠 수 있는 principal인지 정한다. 기기마다의 허락을 아는 쪽이 채우고, 채워지지 않았으면 입력은 늘 forbidden이다.
   // `ctx.peek`로만 읽는다.
   terminalInputGrant: (principal: string) => boolean;
@@ -467,6 +469,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   terminals: true,
   personEnv: true,
   harnessGuiTabs: true,
+  harnessCatalog: true,
   terminalInputGrant: true,
   deviceKind: true,
   phoneLink: true,

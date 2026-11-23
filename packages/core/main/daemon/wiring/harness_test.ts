@@ -1,6 +1,6 @@
-// 한 CLI session을 process 둘이 쓰지 않게 하는 harness queue의 규칙과, GUI 탭 팀원 turn 자격의 범위다. 깨지면 headless `claude -p`가
-// 열린 GUI 탭의 대화에 같이 쓰거나, 한 탭이 남의 session이나 다른 탭의 팀원 입력을 가져가거나, 자격이 그 session·project 밖에 닿는다.
-// harness wiring을 임시 ledger file과 가짜 writer로 세운다(core를 띄우지 않는다).
+// 한 CLI session을 process 둘이 쓰지 않게 하는 harness queue·hold 규칙과, 팀원 turn 자격의 범위다.
+// 깨지면 background handle이 살아 있는데 TUI가 같은 CLI session을 열거나, 한 탭이 남의 session을 가져가거나,
+// 자격이 그 session·project 밖에 닿는다. harness wiring을 임시 ledger file과 가짜 writer로 세운다(core를 띄우지 않는다).
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,10 +8,12 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { cryptoRandom, manualClock, ok } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { callReply } from "../../../../protocol/lophn-agent/calls.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { harnessOperations } from "../../../agent-workspaces/credentials.ts";
+import type { HarnessHold } from "../../../host-queue/mod.ts";
 import { HARNESS_QUEUE_PUT_TOPIC } from "../../../lophn-agent/session/mod.ts";
 import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
 import { installWorkspaceEnvironment } from "../../../lophn-agent/workspaces/environment.ts";
@@ -22,10 +24,10 @@ import { harnessWiring } from "./harness.ts";
 
 const id = (prefix: string, n: number) =>
   `${prefix}_${String(n).padStart(26, "0")}`;
-const HEADLESS = id("ses", 1);
+const BACKGROUND = id("ses", 1);
 const MEMBER = id("ses", 2);
 const PROJECT_MEMBER = id("ses", 3);
-const PROJECT_HEADLESS = id("ses", 4);
+const PROJECT_BACKGROUND = id("ses", 4);
 const PROJECT = id("prj", 1);
 const PERSON = {
   principal: "user",
@@ -42,10 +44,10 @@ async function setup() {
   for (const step of conversationTestSteps) db.exec(step.sql);
   db.exec(`
     insert into sessions (id, agent, harness, harness_gui, harness_session, project, workspace_kind, workspace_id, lifecycle, created_seq, state_seq)
-      values ('${HEADLESS}', 'coding_claude', 'claude-code', 0, null, null, null, null, 'open', 1, 1),
+      values ('${BACKGROUND}', 'coding_claude', 'claude-code', 0, null, null, null, null, 'open', 1, 1),
              ('${MEMBER}', 'coding_omp', 'omp', 1, 'cli-m', null, null, null, 'open', 2, 2),
              ('${PROJECT_MEMBER}', 'coding_claude', 'claude-code', 1, 'cli-p', '${PROJECT}', 'project', '${PROJECT}', 'open', 3, 3),
-             ('${PROJECT_HEADLESS}', 'coding_claude', 'claude-code', 0, 'cli-h', '${PROJECT}', 'project', '${PROJECT}', 'open', 4, 4);
+             ('${PROJECT_BACKGROUND}', 'coding_claude', 'claude-code', 0, 'cli-h', '${PROJECT}', 'project', '${PROJECT}', 'open', 4, 4);
   `);
   db.close();
 
@@ -68,6 +70,8 @@ async function setup() {
   const commands: string[] = [];
   const provided = new Map<string, unknown>();
   const archived: string[] = [];
+  const aliveBackground = new Set<string>();
+  const evicted: string[] = [];
   const command = async (
     _who: unknown,
     envelope: { command: string; input: { session?: string } },
@@ -81,8 +85,20 @@ async function setup() {
   const ctx = {
     clock,
     random: cryptoRandom,
+    root: { path: root },
     registry,
     ledgerPath,
+    peek: {
+      terminalAgents: {
+        background: {
+          isAlive: (session: string) => aliveBackground.has(session),
+          evict: (session: string) => {
+            evicted.push(session);
+            return aliveBackground.delete(session);
+          },
+        },
+      },
+    },
     runtime: {
       record: async () => ok(undefined),
       reads: new Map([
@@ -108,8 +124,8 @@ async function setup() {
   };
   const built = await harnessWiring().build!(ctx as never);
   assert.ok(built.ok);
-  const memory = new Map(built.value.memory);
   const members = provided.get("harnessMembers") as HarnessMembers;
+  const hold = provided.get("harnessHold") as HarnessHold;
   // commit 뒤 harness queue에 넣는 길(Router의 harness transport가 내는 afterCommit)로 입력을 넣는다.
   const writer = built.value.writer!({
     command: async () =>
@@ -146,38 +162,67 @@ async function setup() {
     return message;
   };
   return {
-    memory,
     members,
+    hold,
     registry,
     commands,
     archived,
+    aliveBackground,
+    evicted,
     put,
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }
 
-test("headless take and start_turn never take a GUI member's input, and a GUI tab takes only a member's own queue", async () => {
+test("background session next/start works, and hold.open conflicts and kicks eviction while a background handle is alive", async () => {
   const kit = await setup();
   try {
-    const memberInput = await kit.put(MEMBER);
-    const headlessInput = await kit.put(HEADLESS);
-
-    const take = await kit.memory.get("harness/take")!(PERSON, {});
-    assert.ok(take.ok);
-    const taken = (take.value as { input: { session: string } | null }).input;
-    assert.equal(taken?.session, HEADLESS);
-    const start = await kit.memory.get("harness/start_turn")!(PERSON, {
-      session: MEMBER,
-      input_message: memberInput,
+    installWorkspaceEnvironment({
+      deps: () => ({
+        ...UNWIRED_WORKSPACE_DEPS,
+        projects: {
+          project: (prj) => ({ id: prj, archived: false }) as never,
+          projectByName: () => null,
+        },
+      }),
     });
-    assert.ok(!start.ok && start.error.code === "conflict");
 
-    // GUI 연결은 headless session의 queue를 보지도 꺼내지도 못한다.
-    assert.equal(await kit.members.next(HEADLESS), null);
-    const stolen = await kit.members.start(HEADLESS, headlessInput);
-    assert.ok(!stolen.ok && stolen.error.code === "conflict");
-    assert.equal((await kit.members.next(MEMBER))?.message, memberInput);
-    assert.ok((await kit.members.start(MEMBER, memberInput)).ok);
+    // background()는 harness_gui=0만, describe()는 harness_gui=1만 낸다.
+    assert.equal(kit.members.background?.(MEMBER), null);
+    assert.equal(kit.members.background?.(PROJECT_MEMBER), null);
+    assert.equal(kit.members.background?.(BACKGROUND)?.harness, "claude-code");
+    assert.equal(
+      kit.members.background?.(PROJECT_BACKGROUND)?.cli_session,
+      "cli-h",
+    );
+
+    // TUI hold는 GUI 탭 session을 거절한다.
+    const tabHold = kit.hold.open(PROJECT_MEMBER as Id<"ses">);
+    assert.ok(!tabHold.ok && tabHold.error.code === "invalid_input");
+
+    // background handle이 살아 있는 동안 TUI hold는 conflict를 내고 유휴 handle 정리를 요청한다.
+    kit.aliveBackground.add(PROJECT_BACKGROUND);
+    const blocked = kit.hold.open(PROJECT_BACKGROUND as Id<"ses">);
+    assert.ok(!blocked.ok && blocked.error.code === "conflict");
+    assert.deepEqual(kit.evicted, [PROJECT_BACKGROUND]);
+
+    // evict가 handle을 닫은 뒤에는 hold가 열리고, hold 중에는 background next/start가 막힌다.
+    const opened = kit.hold.open(PROJECT_BACKGROUND as Id<"ses">);
+    assert.ok(opened.ok);
+    assert.equal(opened.value.external_session, "cli-h");
+    const heldMsg = await kit.put(PROJECT_BACKGROUND);
+    assert.equal(await kit.members.next(PROJECT_BACKGROUND), null);
+    const heldStart = await kit.members.start(PROJECT_BACKGROUND, heldMsg);
+    assert.ok(!heldStart.ok && heldStart.error.code === "conflict");
+
+    // hold가 없는 background session과 GUI member session은 모두 next/start가 된다.
+    const bgMsg = await kit.put(BACKGROUND);
+    assert.equal((await kit.members.next(BACKGROUND))?.message, bgMsg);
+    assert.ok((await kit.members.start(BACKGROUND, bgMsg)).ok);
+
+    const memberMsg = await kit.put(MEMBER);
+    assert.equal((await kit.members.next(MEMBER))?.message, memberMsg);
+    assert.ok((await kit.members.start(MEMBER, memberMsg)).ok);
   } finally {
     kit.cleanup();
   }
@@ -204,7 +249,7 @@ test("a tab never takes a member another tab already holds", async () => {
   }
 });
 
-test("a member turn's credential is scoped to that session and its project, and a headless session gets none from a tab", async () => {
+test("a member turn's credential is scoped to that session and its project", async () => {
   const kit = await setup();
   try {
     const issued = await kit.members.credential(PROJECT_MEMBER);
@@ -216,32 +261,29 @@ test("a member turn's credential is scoped to that session and its project, and 
     assert.equal(context.value.conditions.turn, issued.value.turn);
     assert.ok(
       !kit.registry.authorize(context.value, callReply.name, {
-        session: HEADLESS,
+        session: BACKGROUND,
         turn: issued.value.turn,
       }).ok,
     );
-    const headless = await kit.members.credential(HEADLESS);
-    assert.ok(!headless.ok && headless.error.code === "forbidden");
   } finally {
     kit.cleanup();
   }
 });
 
-// core가 탭을 열 팀원은 GUI 탭 팀원뿐이고(headless session으로 탭을 열지 않는다), 사람이 coding session을 지우면 그 팀원만 보관한다.
+// core가 탭을 열 팀원은 GUI 탭 팀원뿐이고(background session으로 탭을 열지 않는다), 사람이 coding session을 지우면 그 팀원만 보관한다.
 test("only a GUI member is described for opening a tab, and forgetting a coding session archives only its member, for a person only", async () => {
   const kit = await setup();
   try {
-    // project가 있다고 읽히게 한다(core에서는 wiring이 놓는다).
     installWorkspaceEnvironment({
       deps: () => ({
         ...UNWIRED_WORKSPACE_DEPS,
         projects: {
-          project: (id) => ({ id, archived: false }) as never,
+          project: (prj) => ({ id: prj, archived: false }) as never,
           projectByName: () => null,
         },
       }),
     });
-    assert.equal(kit.members.describe(PROJECT_HEADLESS), null);
+    assert.equal(kit.members.describe(PROJECT_BACKGROUND), null);
     assert.equal(kit.members.describe(MEMBER), null, "no project to open in");
     assert.deepEqual(kit.members.describe(PROJECT_MEMBER), {
       project: PROJECT,

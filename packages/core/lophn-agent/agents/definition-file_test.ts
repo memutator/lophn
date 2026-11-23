@@ -136,11 +136,81 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
   );
   const text = "---\nruntime: custom\n---\nbody\n";
   assert.ok(!parseAgentFile(text, builtin).ok);
-  // headless 명령이 없는 harness는 사람이 만든 agent의 runtime이 아니다(그 session이 돌 길이 없다).
-  for (const runtime of ["omp", "antigravity"]) {
-    const harness = `---\nhandle: ops\nname: ops\nruntime: ${runtime}\n---\nbody\n`;
-    assert.ok(!parseAgentFile(harness, target).ok, runtime);
+});
+
+// harness_config는 harness runtime의 칸이고 model은 lophn·custom의 칸이다. 섞이면 한쪽이 조용히 무시되므로 저장 때 거절한다.
+test("harness_config는 harness runtime에만, model은 harness가 아닌 runtime에만 둘 수 있고 다섯 harness 모두 runtime이 된다", () => {
+  const target = { agent: AGENT } as const;
+  const model = {
+    provider: "pvd_00000000000000000000000000",
+    model_name: "m",
+    option_values: {},
+  };
+  const config = { model: "gpt-5", options: { effort: "high" } };
+  for (const runtime of [
+    "claude-code",
+    "codex",
+    "opencode",
+    "omp",
+    "antigravity",
+  ] as const) {
+    const base = { handle: "ops", name: "ops", runtime, body: "" };
+    assert.ok(
+      serializeAgentFile({ ...base, harness_config: config }, target).ok,
+    );
+    assert.ok(!serializeAgentFile({ ...base, model }, target).ok, runtime);
   }
+  for (const runtime of [undefined, "lophn", "custom"] as const) {
+    const base = {
+      handle: "ops",
+      name: "ops",
+      body: "",
+      ...(runtime ? { runtime } : {}),
+    };
+    assert.ok(
+      !serializeAgentFile({ ...base, harness_config: config }, target).ok,
+      String(runtime),
+    );
+    assert.ok(
+      serializeAgentFile({ ...base, model }, target).ok,
+      String(runtime),
+    );
+  }
+});
+
+test("harness_config는 저장하고 다시 읽어도 보존되고 빈 값은 파일에 쓰지 않는다", () => {
+  const target = { agent: AGENT } as const;
+  const base = {
+    handle: "ops",
+    name: "ops",
+    runtime: "codex",
+    body: "",
+  } as const;
+  const config = { model: "gpt-5", options: { speed: "fast", effort: "high" } };
+  const written = serializeAgentFile(
+    { ...base, harness_config: config },
+    target,
+  );
+  assert.ok(written.ok);
+  assert.match(
+    written.value,
+    /harness_config:\n  model: gpt-5\n  options:\n    effort: high\n    speed: fast\n/,
+  );
+  const read = parseAgentFile(written.value, target);
+  assert.ok(read.ok);
+  assert.deepStrictEqual(read.value.harness_config, config);
+
+  for (const empty of [{}, { options: {} }]) {
+    const text = serializeAgentFile({ ...base, harness_config: empty }, target);
+    assert.ok(text.ok);
+    assert.ok(!text.value.includes("harness_config"));
+  }
+  const noOptions = serializeAgentFile(
+    { ...base, harness_config: { model: "m", options: {} } },
+    target,
+  );
+  assert.ok(noOptions.ok);
+  assert.ok(!noOptions.value.includes("options"));
 });
 
 // lophn.md에 handle을 적으면 주소가 흔들린다. name은 사람이 바꿀 수 있고 바꾼 값만 file에 남는다.

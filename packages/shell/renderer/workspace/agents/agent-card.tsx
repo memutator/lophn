@@ -2,12 +2,15 @@
 import { t } from "@lophn/i18n";
 import type { ReactElement } from "react";
 import {
+  type AgentRuntime,
   type AgentWorkspace,
+  isHarnessRuntime,
   LOPHN_AGENT_HANDLE,
   type Modality,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { ProfileMark } from "../../browser/browser-chrome.tsx";
 import { useBrowserProfiles } from "../../browser/profiles.tsx";
+import { formatHarnessModel } from "./model-picker-data.ts";
 import type { AgentCardView } from "./source.ts";
 import styles from "./agent-card.module.css";
 
@@ -68,18 +71,23 @@ export function CardFacts({
       </li>
       <li data-card-runtime="">
         {t("agents.label.card-runtime", {
-          runtime:
-            card.runtime === "custom"
-              ? t("agents.label.runtime-custom")
-              : card.runtime,
+          runtime: t(`agents.label.runtime-${card.runtime}`),
         })}
       </li>
       {card.model === undefined ? null : (
         <li data-card-model="">
           {card.model.price === null
             ? t("agents.label.card-model-line", {
-                provider: card.model.provider,
-                model: card.model.model_name,
+                provider: isHarnessRuntime(card.model.provider as AgentRuntime)
+                  ? t(
+                      `agents.label.runtime-${card.model.provider as AgentRuntime}`,
+                    )
+                  : card.model.provider,
+                model:
+                  formatHarnessModel({
+                    model: card.model.model_name,
+                    options: card.model.options,
+                  }) ?? card.model.model_name,
               })
             : t("agents.label.card-model-priced", {
                 provider: card.model.provider,

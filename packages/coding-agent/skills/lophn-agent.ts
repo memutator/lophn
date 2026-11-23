@@ -1,22 +1,21 @@
-// harness agent(headless와 GUI 탭 팀원)가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다. extension `harness`가
-// 켜져 있으면 `lophn harness sync-skills`가 harness의 skill 폴더에 앱 공유 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
+// harness agent(GUI 탭 팀원과 background 실행)가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다.
+// `lophn harness sync-skills`가 harness의 skill 폴더에 앱 공유 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
 // 명령 사용법은 `packages/cli/commands/{call,session,agent,team,handoff}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
 // `packages/core/lophn-agent/run-loop/input-text.ts`가 만든다.
 import type { SharedSkill } from "../harnesses/skill-copies.ts";
 
 const SKILL_MD = `---
 name: lophn-agent
-description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL or LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (the second is a coding agent chat tab that is a lophn team member). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\`, \`lophn agent list\` and \`lophn agent card\` (also on the person's other computers with \`--on\`), and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
+description: Use when lophn runs you as one of its agents, which means LOPHN_AGENT_CREDENTIAL_FILE is set in your shell (either a coding agent chat tab team member or a background run). Reply to a call you received with \`lophn call reply\`, hand work to another lophn agent with \`lophn call send\`, find out who you can call with \`lophn session list\`, \`lophn agent list\` and \`lophn agent card\` (also on the person's other computers with \`--on\`), and open and drive a browser or app preview tab with \`lophn tab open\` and \`lophn browser\`. A person's own terminal can use \`lophn tab\`, \`lophn preview\` and \`lophn browser\` too.
 ---
 
 # Working with other lophn agents
 
-You are a lophn agent if \`LOPHN_AGENT_CREDENTIAL\` or \`LOPHN_AGENT_CREDENTIAL_FILE\` is set in your shell.
+You are a lophn agent if \`LOPHN_AGENT_CREDENTIAL_FILE\` is set in your shell.
 
-- \`LOPHN_AGENT_CREDENTIAL\`: lophn started this turn.
-- \`LOPHN_AGENT_CREDENTIAL_FILE\`: you run in a chat tab of a lophn project and you are a member of the person's team. Other agents can call you there, and a call arrives in your conversation as \`<lophn-call ...>\`. lophn writes the current turn's credential to that file while a turn runs and removes it when the turn ends, so \`lophn\` commands work during a turn and answer \`unauthorized\` between turns. Do not read or copy the file; the \`lophn\` command reads it.
+lophn writes the current turn's credential to that file while a turn runs and removes it when the turn ends, so \`lophn\` commands work during a turn and answer \`unauthorized\` between turns. Do not read or copy the file; the \`lophn\` command reads it. When you run in a chat tab of a lophn project, you are a member of the person's team and calls arrive in your conversation as \`<lophn-call ...>\`.
 
-The credential works for that turn only. If neither variable is set (a person's own terminal), the call, team, session and agent commands fail; only \`tab\`, \`preview\` and \`browser\` work with a person's token. Run \`lophn help\` or \`lophn <command> --help\` for the full usage.
+The credential works for that turn only. If \`LOPHN_AGENT_CREDENTIAL_FILE\` is not set (a person's own terminal), the call, team, session and agent commands fail; only \`tab\`, \`preview\` and \`browser\` work with a person's token. Run \`lophn help\` or \`lophn <command> --help\` for the full usage.
 
 ## Reply to a call you received
 

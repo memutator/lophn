@@ -337,7 +337,7 @@ components:
     path: project-docs/architecture/coding-agent.md
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]
-      paths: [packages/core/lophn-agent/session/harness.ts, packages/core/main/daemon/wiring/harness.ts, packages/protocol/lophn-agent/harness-host.ts, packages/protocol/coding-agent/headless/, packages/core/harness/]
+      paths: [packages/core/lophn-agent/session/harness.ts, packages/core/main/daemon/wiring/harness.ts, packages/core/main/daemon/wiring/harness-runners.ts, packages/core/terminal-agents/background.ts, packages/core/terminal-agents/harness-catalog.ts, packages/protocol/lophn-agent/harness-host.ts, packages/protocol/acp/harness-catalog.ts, packages/protocol/coding-agent/credential-env.ts]
 
   - id: architecture-extension
     kind: doc

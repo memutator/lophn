@@ -45,9 +45,9 @@ pass a job step by step. Before you make or change one, read the skill
   none can be opened, do not pick another way: tell the person to mark an
   installed coding agent as a favorite there, or to check that it is detected.
   Write the handoff for an agent that knows nothing yet: the goal, what you know
-  so far, and what to do next. One-off work that needs no person, where you only want the result, goes
-  headless with `lophn team spawn <handle> --body <text>` when the built-in coding
-  agent (`claude`, `codex`, `opencode`) is in "Agents you can call".
+  so far, and what to do next. One-off work that needs no person, where you only want the result, runs
+  with `lophn team spawn <handle> --body <text>` when a coding agent (`claude`,
+  `codex`, `opencode`, `omp`, `antigravity`, or a custom harness agent) is in "Agents you can call".
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or

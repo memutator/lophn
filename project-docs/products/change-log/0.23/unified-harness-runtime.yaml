@@ -1,0 +1,32 @@
+id: unified-harness-runtime
+version: 0.23.131
+title: 외부 harness 실행을 단일 상주 어댑터(tab·background)로 통합하고 model catalog·harness_config를 지원한다
+modules:
+  - packages/protocol
+  - packages/core/lophn-agent
+  - packages/core/harness-gui
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/coding-agent
+  - packages/cli
+  - packages/design
+  - packages/shell/main
+  - packages/shell/renderer
+change: |
+  전: Claude Code·Codex·OpenCode만 일회성 headless(`claude -p`, `codex exec`, `opencode run`)로 돌고 `omp`·`antigravity`는 Agent 정의 runtime으로 고를 수 없었다. harness agent에는 model·effort를 지정할 수 없었고, 편집기 `Runs on`의 runtime 선택지가 하드코딩되어 있었다.
+  후: 5종 harness(`claude-code`, `codex`, `opencode`, `omp`, `antigravity`)를 단일 상주 구조화 어댑터 계약(`tab` 모드·`background` 모드)으로 통합하고 구 headless 실행기(`packages/core/harness/`, `packages/protocol/coding-agent/headless/`, `harness/take|start_turn|record|finish_turn|set_external_id`)를 제거했다. daemon 차원의 `HarnessCatalogManager`가 passive warming·lazy probe(in-flight dedup, 20초 deadline)·disk cache(`<dataRoot>/cache/harness-catalog.json`)로 `harness_catalog/read|refresh`와 `StateChanged{harness_catalog}`를 제공한다. Agent 정의에 `harness_config` (`model`, `options`)를 추가해 5종 어댑터 모두로 launch 설정을 전달하고 `AgentCard`와 편집기 `Runs on`(즐겨찾기 연동 runtime 선택 + `HarnessModelField`)에 반영했다.
+why: |
+  일회성 headless와 상주 GUI 어댑터가 둘로 갈려 5종 harness 지원과 model·effort 지정이 막혀 있었고, 사용자가 Settings에서 즐겨찾기한 coding agent를 Agent Profile에서 일관되게 골라 `codex-high` 같은 워커 프로필을 만들 수 있어야 했다.
+decisions:
+  - text: "Home·App·Job·custom harness agent는 터미널 없는 `background` 모드(`terminal: null`, `harness_gui = 0`)로 같은 상주 어댑터를 쓰고, project 내장 coding agent와 GUI 탭은 `tab` 모드(`harness_gui = 1`)를 유지한다. `sessions.harness_gui` 컬럼은 탭 표시 의미를 유지해 ledger migration 없이 간다."
+    by: agent
+  - text: "Agent Profile 1차 범위는 `model`과 모델 축(`effort`·`speed`·`variant` 등)만 포함하고 permission mode와 system prompt `body` append는 CLI 기본 정책 유지 및 2차 과제로 분리했다."
+    by: person
+  - text: "catalog discovery는 기동 시 자동 스폰하지 않고 열린 탭·background의 passive warming과 편집기 요청 시 lazy probe + disk cache로 처리하며, 조회 실패 시 저장된 `harness_config`와 기존 cache를 지우지 않는다."
+    by: agent
+  - text: "background 실행은 응답할 사람이 없으므로 approval·question 요청을 자동 거절/미응답 처리하고 대화에 이유를 남기며, deny 규칙을 지킬 수 없는 어댑터는 띄우지 않고 `configuration_unavailable`로 끝낸다."
+    by: agent
+checklist:
+  - "Agent Profile 편집기 `Runs on`에서 즐겨찾기 coding agent 선택, model·effort 선택과 Refresh, 오류 시 저장값 보존이 동작하는지 확인"
+  - "Home·App 또는 custom harness agent에서 background 모드로 대화가 돌고 text·tool 기록이 ledger에 남는지 확인"
+  - "project TUI hold(`tabs/open --tui`)가 살아 있는 background handle을 충돌·evict 처리하고 hold 중 background turn을 막는지 확인"

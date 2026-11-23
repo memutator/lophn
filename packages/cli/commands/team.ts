@@ -29,7 +29,7 @@ const spawn = defineCommand({
     "reply: none requires no answer; result (default) asks it to reply; conversation lets both sides continue via call reply. body is text; repeat --image <path> to attach an image file as in call send. " +
     "The team is limited in size and depth (conflict when full). A member in your workspace appears as a tab; --as says what it is to you and the shell places it: peer (default) = a worker splitting the same job as you, in your group; stage = a member that will itself coordinate more members or takes the next step, which starts its own group. " +
     "After you spawn, end your turn: the answers arrive as new input. Do not poll. A member does the work itself; if it is unsure or needs approval, it uses `ask`, which goes to its parent (you). " +
-    "Spawn is headless, for one-off work that needs no person. To hand work to a coding agent the person will continue in a terminal, use `lophn tab open --coding <harness> --handoff <text>`. " +
+    "Spawn runs in the background (or a project chat tab for built-in coding agents), for one-off work that needs no person. To hand work to a coding agent the person will continue in a terminal, use `lophn tab open --coding <harness> --handoff <text>`. " +
     "--on <computer> opens the member on another computer of the person (machine computers): agent is a handle from agent list --on there, workspace as in call send --on (without it, your own workspace by its cross-computer id). Only text goes. It returns at once even when that computer is off; the member counts in your team here, cannot spawn members itself, and problems there (no such agent, the person there skipped it) come back later as the call failing.",
   input: z.strictObject({
     agent: z.string().min(1),

@@ -5,8 +5,7 @@
 // 이 session 동안의 허락, fast·thinking)를 옵션으로 다시 넣는다. subagent의 대화는 `parent_tool_use_id`로 줄기(Lane)를 나눠
 // `child_update`로 내고, `/clear`는 CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. `!` 명령은 model에 보내지 않고 adapter가 돌린 뒤
 // 결과를 `shouldQuery: false` 사람 메시지로 transcript에만 붙인다(model은 다음 turn에 본다).
-import { claudeHeadless } from "../../protocol/coding-agent/headless/claude.ts";
-import { PERSON_SHELL_ENV } from "../../protocol/coding-agent/headless/env.ts";
+import { PERSON_SHELL_ENV } from "../../protocol/coding-agent/credential-env.ts";
 import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
@@ -77,10 +76,15 @@ import type {
   AcpRewindPreview,
   AcpTerminal,
   CliProcess,
+  CliSpawn,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
 } from "../../protocol/acp/mod.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
 import { replayImages } from "./images.ts";
 import { swapQueued } from "./queue.ts";
+
+export type { HarnessCatalogResult, HarnessLaunchConfig };
 
 /** adapter가 밖에 기대는 것. test가 가짜로 바꾼다. */
 export type ClaudeSdk = {
@@ -97,7 +101,22 @@ export type ClaudeSdk = {
   userDir: string;
 };
 
-type Start = HarnessGuiAdapter["start"];
+export type ClaudeAdapter = HarnessGuiAdapter & {
+  catalogScope: "global";
+  enforcesDeny: true;
+};
+
+/** agent 정의의 `lophn(<slug> <cmd>)` deny 규칙을 Claude `disallowedTools` 목록으로 옮긴다. 알 수 없는 규칙이 있으면 null이다. */
+export function claudeDenyTools(rules: readonly string[]): string[] | null {
+  const flags: string[] = [];
+  for (const rule of rules) {
+    const inner = /^lophn\((.+)\)$/.exec(rule)?.[1];
+    if (inner === undefined) return null;
+    // 인자 없는 호출과 인자 있는 호출을 둘 다 막는다.
+    flags.push(`Bash(lophn ${inner})`, `Bash(lophn ${inner} *)`);
+  }
+  return flags;
+}
 
 // SDK 메시지에서 읽는 칸만 적은 모양이다. SDK의 type은 Beta API type을 끌고 와 좁히기가 무겁다.
 type Block = {
@@ -424,6 +443,17 @@ async function contentOf(
   }
   const text = texts.join("\n");
   return images.length === 0 ? text : [...images, { type: "text", text }];
+}
+
+// SDK는 host process의 env 전체를 준다. 그대로 넘기면 extension spawner가 login shell env 위에 합치며 그것을 덮으므로 바뀐 값만 넘긴다.
+function childEnv(spawnOptions: SpawnOptions): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(spawnOptions.env)) {
+    if (value !== undefined && process.env[key] !== value) env[key] = value;
+  }
+  // CLI는 SDK mode에서 todo tool(TaskCreate 등)을 이 flag가 있어야 내놓는다. TUI와 같은 tool을 쓴다.
+  env.CLAUDE_CODE_ENABLE_TODO_TOOLS = "1";
+  return env;
 }
 
 // `CliProcess`를 SDK의 `SpawnedProcess`로 맞춘다.
@@ -930,17 +960,19 @@ function parseClaudeArgs(raw: readonly string[]) {
   };
 }
 
-// lophn 팀원 탭의 CLI가 `lophn`을 부르는 길(headless host의 `--allowed-tools`와 같다).
+// lophn 팀원·agent의 CLI가 `lophn`을 부르는 길이다.
 const LOPHN_BASH = "Bash(lophn *)";
 
-const start: (sdk: ClaudeSdk) => Start =
+const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
   (sdk) =>
   async ({
     terminal,
     cwd,
     resume,
+    forkFrom,
     args: givenArgs,
     carry: given,
+    launch,
     member,
     session,
     spawn,
@@ -1016,6 +1048,12 @@ const start: (sdk: ClaudeSdk) => Start =
     // transcript에만 붙인 shell 메시지의 uuid. 그 result(num_turns 0)는 turn이 아니다(녹화 shell_append).
     const shellUuids = new Set<string>();
 
+    // launch의 effort "off"/"disabled"는 effort 값이 아니라 thinking 끄기다. 사람이 effort를 이미 골랐으면 그쪽이 이긴다.
+    const launchEffort = launch?.options?.effort;
+    const launchOff =
+      (launchEffort === "off" || launchEffort === "disabled") &&
+      parsedArgs.effort === undefined &&
+      given?.effort === undefined;
     // query를 다시 열 때 넘기는 것과 TUI로 넘길 때의 flag. 사람이 고른 model·effort·mode는 앞 run에서도 이어 온다:
     // CLI의 `/effort`는 그 process에만 걸리고 transcript에 남지 않는다.
     const carry: {
@@ -1028,15 +1066,24 @@ const start: (sdk: ClaudeSdk) => Start =
       rules: Set<string>;
       dirs: Set<string>;
     } = {
-      model: parsedArgs.model ?? given?.model ?? null,
-      effort: parsedArgs.effort ?? given?.effort ?? null,
+      model: parsedArgs.model ?? given?.model ?? launch?.model ?? null,
+      effort:
+        parsedArgs.effort ??
+        given?.effort ??
+        (launchOff ? null : (launchEffort ?? null)),
       mode:
         parsedArgs.mode ??
         (parsedArgs.skipPermissions ? "bypassPermissions" : null) ??
         given?.mode ??
         null,
-      fast: null,
-      thinking: null,
+      // 화면에서 고르는 축이라 앞 run의 값(args·carry)은 없고 launch만 있다.
+      fast:
+        launch?.options?.fast === "on"
+          ? true
+          : launch?.options?.fast === "off"
+            ? false
+            : null,
+      thinking: launchOff || launch?.options?.thinking === "off" ? false : null,
       rules: new Set(parsedArgs.rules),
       dirs: new Set(parsedArgs.dirs),
     };
@@ -1044,6 +1091,8 @@ const start: (sdk: ClaudeSdk) => Start =
     const saved = async (id: string) =>
       (await sdk.getSessionInfo(id, { dir: cwd })) !== undefined;
     const resumable = resume !== undefined && (await saved(resume));
+    const forkable =
+      !resumable && forkFrom !== undefined && (await saved(forkFrom));
     let cliSession = resume ?? uuidOf(ids);
     let models: ModelInfo[] = [];
     let modelId: string | null = null; // 지금 model의 resolved id
@@ -2687,7 +2736,7 @@ const start: (sdk: ClaudeSdk) => Start =
         // flag 층의 설정이라 사람의 설정 file에는 쓰이지 않는다.
         ...(carry.fast === null ? {} : { settings: { fastMode: carry.fast } }),
         ...(carry.thinking === false ? { thinking: { type: "disabled" } } : {}),
-        // lophn 팀원 탭은 `lophn`을 부를 Bash를 허락하고 정의의 deny를 막는다(headless host와 같다. deny가 allow보다 앞선다).
+        // lophn 팀원·agent는 `lophn`을 부를 Bash를 허락하고 정의의 deny를 막는다(deny가 allow보다 앞선다).
         ...(carry.rules.size === 0 && member === undefined
           ? {}
           : {
@@ -2699,25 +2748,17 @@ const start: (sdk: ClaudeSdk) => Start =
         ...(member === undefined || member.deny.length === 0
           ? {}
           : {
-              disallowedTools: claudeHeadless.permissions(member.deny) ?? [],
+              disallowedTools: claudeDenyTools(member.deny) ?? [],
             }),
         ...(carry.dirs.size === 0
           ? {}
           : { additionalDirectories: [...carry.dirs] }),
         spawnClaudeCodeProcess(spawnOptions: SpawnOptions) {
-          // SDK는 host process의 env 전체를 준다. 그대로 넘기면 extension spawner가 login shell env 위에 합치며 그것을 덮으므로 바뀐 값만 넘긴다.
-          const env: Record<string, string> = {};
-          for (const [key, value] of Object.entries(spawnOptions.env)) {
-            if (value !== undefined && process.env[key] !== value)
-              env[key] = value;
-          }
-          // CLI는 SDK mode에서 todo tool(TaskCreate 등)을 이 flag가 있어야 내놓는다. TUI와 같은 tool을 쓴다.
-          env.CLAUDE_CODE_ENABLE_TODO_TOOLS = "1";
           const proc = spawn(spawnOptions.command, spawnOptions.args, {
             ...(spawnOptions.cwd === undefined
               ? {}
               : { cwd: spawnOptions.cwd }),
-            env,
+            env: childEnv(spawnOptions),
           });
           proc.onStderr((text) => {
             stderrTail = (stderrTail + text).slice(-500);
@@ -2843,7 +2884,13 @@ const start: (sdk: ClaudeSdk) => Start =
       return true;
     }
 
-    live = open(resumable ? { resume } : { sessionId: cliSession });
+    live = open(
+      resumable
+        ? { resume }
+        : forkable
+          ? { resume: forkFrom, fork: true }
+          : { sessionId: cliSession },
+    );
     // SDK가 query() 안에서 바로 process를 띄운다.
     if (spawnFailed) {
       live.q.close();
@@ -2861,7 +2908,7 @@ const start: (sdk: ClaudeSdk) => Start =
       defaults = settingsDefaults(await settingsFiles(sdk, cwd));
       changed({
         title: null,
-        cli_session: cliSession,
+        cli_session: forkable ? null : cliSession,
         capabilities: CAPABILITIES,
         models: [],
         model: null,
@@ -3769,8 +3816,97 @@ function exitTui(terminal: AcpTerminal): Promise<Result<void>> {
   });
 }
 
-export function createClaudeAdapter(sdk: ClaudeSdk): HarnessGuiAdapter {
-  return { handoff: GUI_HANDOFF.claude, start: start(sdk), exitTui };
+// 모델 목록은 SDK query를 열어 읽는다. 메시지를 하나도 보내지 않아 CLI가 session file을 만들지 않고(persistSession: false도 건다),
+// 읽고 나면 query를 닫아 process를 정리한다.
+function fetchCatalog(sdk: ClaudeSdk): ClaudeAdapter["fetchCatalog"] {
+  return async ({ cwd, spawn, signal }) => {
+    const where = cwd ?? process.cwd();
+    const input = inputQueue();
+    let q: Query | null = null;
+    const finish = () => {
+      input.end();
+      q?.close();
+    };
+    const aborted = new Promise<never>((_, reject) => {
+      const onAbort = () =>
+        reject(new Error("The catalog read was cancelled."));
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    });
+    aborted.catch(() => {});
+    let stderrTail = "";
+    try {
+      const options: Options = {
+        cwd: where,
+        pathToClaudeCodeExecutable: "claude",
+        settingSources: ["user", "project", "local"],
+        persistSession: false,
+        spawnClaudeCodeProcess(spawnOptions: SpawnOptions) {
+          const proc = spawn(spawnOptions.command, spawnOptions.args, {
+            ...(spawnOptions.cwd === undefined
+              ? {}
+              : { cwd: spawnOptions.cwd }),
+            env: childEnv(spawnOptions),
+          });
+          if (proc.pid === undefined)
+            throw new Error("`claude` was not found on PATH.");
+          proc.onStderr((text) => {
+            stderrTail = (stderrTail + text).slice(-500);
+          });
+          return spawned(proc);
+        },
+      };
+      q = sdk.query({ prompt: input, options });
+      const models = await Promise.race([
+        bounded(q.supportedModels(), "model list"),
+        aborted,
+      ]);
+      const files = await settingsFiles(sdk, where);
+      let model: string | null = null;
+      for (const file of files)
+        if (typeof file.model === "string" && file.model !== "")
+          model = file.model;
+      const effort = settingsDefaults(files).effort;
+      return {
+        ok: true,
+        value: {
+          models: modelGroups(models),
+          defaults: {
+            model,
+            options: (effort === null ? {} : { effort }) as Record<
+              string,
+              string
+            >,
+          },
+        },
+      };
+    } catch (cause) {
+      const message = redactCredentials(
+        cause instanceof Error ? cause.message : String(cause),
+      );
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message:
+            stderrTail === "" ? message : `${message}\n${stderrTail.trim()}`,
+        },
+      };
+    } finally {
+      finish();
+    }
+  };
+}
+
+export function createClaudeAdapter(sdk: ClaudeSdk): ClaudeAdapter {
+  return {
+    handoff: GUI_HANDOFF.claude,
+    catalogScope: "global",
+    enforcesDeny: true,
+    start: start(sdk),
+    exitTui,
+    fetchCatalog: fetchCatalog(sdk),
+  };
 }
 
 export const claudeAdapter = createClaudeAdapter({

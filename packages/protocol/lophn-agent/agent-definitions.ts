@@ -155,7 +155,7 @@ export const agentCardSchema = z.object({
   workspace: agentWorkspaceOutputSchema.nullable(),
   description: z.string().optional(),
   runtime: agentRuntimeSchema,
-  // 쓰는 model(정의 → workspace → 전역 순으로 정해진 것)과 가격(USD, 1000000 token당). harness runtime은 자기 model을 써서 없다.
+  // 쓰는 model(정의 → workspace → 전역 순으로 정해진 것)과 가격(USD, 1000000 token당). harness runtime은 정의의 `harness_config.model`이 있을 때만 있고(provider는 runtime, price는 null) 없으면 자기 model을 쓴다.
   // provider는 사람이 붙인 이름이다. price는 catalog가 가격을 모르면 null이다.
   model: z
     .object({
@@ -167,6 +167,8 @@ export const agentCardSchema = z.object({
           output: nonnegativeDecimalSchema.nullable(),
         })
         .nullable(),
+      // harness runtime이 정의에 고정한 model 축 값(effort 등). lophn runtime에는 없다.
+      options: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
   modality: z.object({

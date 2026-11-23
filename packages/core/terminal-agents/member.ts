@@ -10,11 +10,18 @@
 //   (custom-reply wiring)이 보낸다. agent가 먼저 `lophn call reply`로 답했으면 call이 이미 닫혀 보내지 않는다. 답 글 없이 끝나면
 //   (멈춤, 실패, 탭·handle 닫힘, 한도 안에 turn이 열리지 않음) result call을 보낸 쪽에 실패(receiver_ended)로 돌려준다.
 import type { Result } from "../../base/mod.ts";
-import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
-import type { AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
-import type { GuiHarness } from "../../protocol/acp/gui-session.ts";
-import type { HarnessRuntime } from "../../protocol/lophn-agent/agent-values.ts";
+import type {
+  AcpState,
+  AcpUpdate,
+  GuiHarness,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/mod.ts";
+import type {
+  HarnessRecordPart,
+  HarnessRuntime,
+} from "../../protocol/lophn-agent/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
+import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type { CredentialFiles } from "./credential-file.ts";
 import type { TabHandle } from "./gui.ts";
 
@@ -28,7 +35,20 @@ export type MemberInput = {
   prompt: string;
 };
 
-export type MemberTurnEnd = "completed" | "stopped" | "failed" | "closed";
+export type MemberTurnEnd =
+  | "completed"
+  | "stopped"
+  | "failed"
+  | "closed"
+  | "unconfigured";
+
+export type BackgroundSessionInfo = {
+  harness: HarnessRuntime;
+  agent: string;
+  cli_session: string | null;
+  fork_from: string | null;
+  held: boolean;
+};
 
 /** harness wiring이 낸다. ledger와 harness queue에 닿는 쪽이다. */
 export type HarnessMembers = {
@@ -39,7 +59,7 @@ export type HarnessMembers = {
     cli_session: string;
     taken: ReadonlySet<string>;
   }): Promise<Result<string>>;
-  /** 묶인 탭의 CLI session id가 바뀌었다. */
+  /** 묶인 탭이나 background의 CLI session id가 바뀌었다. */
   bind(session: string, cliSession: string): Promise<Result<void>>;
   /** 그 팀원 queue의 맨 앞(꺼내지 않는다). 없거나 그 session이 입력을 받지 않으면 null. */
   next(session: string): Promise<MemberInput | null>;
@@ -50,13 +70,18 @@ export type HarnessMembers = {
   ): Promise<Result<{ turn: string; token: string }>>;
   /** ledger turn 없이 그 session의 turn 자격만 낸다(사람이 탭에서 친 turn). */
   credential(session: string): Promise<Result<{ turn: string; token: string }>>;
-  /** ledger turn에 agent 글 하나를 남긴다. */
-  record(session: string, turn: string, text: string): Promise<Result<void>>;
+  /** ledger turn에 글이나 `harness_tool` 조각 하나를 남긴다. */
+  record(
+    session: string,
+    turn: string,
+    part: HarnessRecordPart,
+  ): Promise<Result<void>>;
   finish(turn: string, end: MemberTurnEnd): Promise<Result<void>>;
   /** 받은 call 하나를 failed(receiver_ended)로 닫아 보낸 쪽에 돌려준다. 이미 닫혔으면 아무것도 하지 않는다. */
   failCall(session: string, call: string): Promise<Result<void>>;
   /**
-   * 열린 팀원 session의 project, harness, CLI session id(아직 없으면 null), `team spawn`으로 열렸는지. 팀원이 아니거나 닫혔으면 null.
+   * 열린 GUI 탭 팀원 session의 project, harness, CLI session id(아직 없으면 null), `team spawn`으로 열렸는지.
+   * GUI 탭 팀원이 아니거나 닫혔으면 null.
    */
   describe(session: string): {
     project: string;
@@ -64,8 +89,18 @@ export type HarnessMembers = {
     cli_session: string | null;
     team: boolean;
   } | null;
-  /** core가 coding agent CLI를 스스로 띄워도 되는가(사람이 켠 설정 `extensions.harness.enabled`). */
-  canOpen(): boolean;
+  /** 열린 background harness session(`harness_gui = 0`)의 정보. 탭 팀원이거나 닫혔으면 null. */
+  background?(session: string): BackgroundSessionInfo | null;
+  /** queue에 입력이 기다리는 session 목록. */
+  waiting?(): readonly string[];
+  /** background session이 쓸 cwd. Home은 session 전용 폴더를 만들고, 폴더 없는 project·app은 null. */
+  cwd?(session: string): Promise<string | null>;
+  /** background session의 agent 정의에서 launch 설정과 deny 규칙을 읽는다. */
+  definition?(
+    session: string,
+  ): Promise<
+    Result<{ harness_config?: HarnessLaunchConfig; deny: readonly string[] }>
+  >;
   /** 사람이 그 coding session을 목록에서 지웠다. 그 CLI session의 열린 팀원 session을 사람 자격으로 보관한다. 보관한 수다. */
   forget(
     who: AuthenticatedContext,
@@ -77,6 +112,10 @@ export type HarnessMembers = {
   end(turn: string): void;
   /** 팀원 queue에 입력이 들어왔다. */
   onQueued(listener: (session: string) => void): () => void;
+  /** ledger turn이 끝났다(사람의 Stop 포함). */
+  onTurnClosed?(
+    listener: (event: { session: string; turn: string }) => void,
+  ): () => void;
 };
 
 export const RUNTIME_OF_GUI: Readonly<Record<GuiHarness, HarnessRuntime>> = {
@@ -87,7 +126,7 @@ export const RUNTIME_OF_GUI: Readonly<Record<GuiHarness, HarnessRuntime>> = {
   antigravity: "antigravity",
 };
 
-const GUI_OF_RUNTIME = Object.fromEntries(
+export const GUI_OF_RUNTIME = Object.fromEntries(
   Object.entries(RUNTIME_OF_GUI).map(([gui, runtime]) => [runtime, gui]),
 ) as Readonly<Record<HarnessRuntime, GuiHarness>>;
 
@@ -206,12 +245,8 @@ export function createGuiMembers(deps: {
     const busy = [...coreOpened.values()].filter(
       (project) => project === info.project,
     ).length;
-    if (!members.canOpen() || busy >= OPENED_PER_PROJECT) {
-      deps.log(
-        members.canOpen()
-          ? "gui member: too many tabs opened in this project"
-          : "gui member: coding agents may not start on their own",
-      );
+    if (busy >= OPENED_PER_PROJECT) {
+      deps.log("gui member: too many tabs opened in this project");
       await members.failQueued(session);
       return;
     }
@@ -476,7 +511,10 @@ export function createGuiMembers(deps: {
         : null;
     member.finishing += 1;
     if (text !== null && input?.kind === "call") {
-      const recorded = await members.record(session, turn.ledger, text);
+      const recorded = await members.record(session, turn.ledger, {
+        kind: "text",
+        text,
+      });
       if (!recorded.ok) {
         deps.log(`gui member: answer not kept: ${recorded.error.message}`);
       }

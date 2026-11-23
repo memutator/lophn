@@ -197,7 +197,7 @@ export function createConversationCommands(deps: ConversationDeps): {
           id: input.id,
           agent: agent.id,
           workspace: { kind: "project", id: input.project },
-          gui: "tab",
+          tab: true,
         });
         if (!started.ok) return started;
         if (input.external_session_id === null) {
@@ -211,7 +211,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         return ok({ id: input.id, state_seq: String(seq) });
       },
     },
-    // GUI 탭 팀원의 turn이 받은 result call에 답하지 못하고 끝났다. 보낸 쪽에 receiver_ended로 돌려준다.
+    // harness session의 turn이 받은 result call에 답하지 못하고 끝났다. 보낸 쪽에 receiver_ended로 돌려준다.
     memberFail: {
       route: failHarnessMemberCall,
       handle(
@@ -223,8 +223,8 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (!machine.ok) return machine;
         const row = loadSession(tx, input.session);
         if (row === undefined) return sessionNotFound();
-        if (!row.harness_gui) {
-          return reject("forbidden", "not a member session");
+        if (row.harness === null) {
+          return reject("forbidden", "not a harness session");
         }
         if (deps.failCall === undefined) {
           return reject("unavailable", "the router is not wired");

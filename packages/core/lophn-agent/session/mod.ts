@@ -15,7 +15,6 @@ export {
   HARNESS_QUEUE_PUT_TOPIC,
   forkedHarnessSession,
   harnessOf,
-  harnessTaker,
 } from "./harness.ts";
 export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
 export { editQueuedCommand } from "./queued-edit.ts";

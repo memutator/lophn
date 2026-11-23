@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { createConversationCommands } from "./commands.ts";
 import { createConversationReads } from "./reads.ts";
-import { createHarnessCommands, harnessOf, harnessTaker } from "./harness.ts";
+import { createHarnessCommands, harnessOf } from "./harness.ts";
 import { loadSession } from "./model.ts";
 import { conversationTestSteps } from "./test-steps.ts";
 
@@ -44,7 +44,7 @@ test("harness host binding cannot change a session whose runtime is not a harnes
     assert.ok(call("ses_codex").ok);
     assert.equal(loadSession({ sql }, "ses_codex")?.harness_session, "ext-1");
 
-    // 열 때 정한 harness는 바뀌지 않는다.
+    // 열 때 정한 harness와 탭 여부는 바뀌지 않는다.
     assert.throws(
       () =>
         db.exec(
@@ -52,51 +52,24 @@ test("harness host binding cannot change a session whose runtime is not a harnes
         ),
       /immutable/,
     );
+    assert.throws(
+      () =>
+        db.exec("update sessions set harness_gui = 1 where id = 'ses_codex'"),
+      /immutable/,
+    );
+    // harness 없는 session은 GUI 탭 팀원이 될 수 없다.
+    assert.throws(() =>
+      db.exec(`insert into sessions (id, agent, harness, harness_gui, lifecycle, created_seq, state_seq)
+        values ('ses_bad', 'lophn', null, 1, 'open', 4, 4)`),
+    );
     assert.ok(!harnessOf(loadSession({ sql }, "ses_plain")).ok);
   } finally {
     db.close();
   }
 });
 
-// GUI 탭의 팀원 session은 그 탭만 queue를 가져가고 headless host는 가져가지 않는다. 깨지면 한 CLI session에 GUI의 CLI와 `claude -p`가
-// 같이 써서 대화 기록이 섞인다. 표시는 열 때 정해 바뀌지 않는다.
-test("only the GUI tab takes a member session's queue and the mark never changes", () => {
-  const db = new DatabaseSync(":memory:");
-  try {
-    for (const step of [...conversationTestSteps]) db.exec(step.sql);
-    db.exec(`
-      insert into sessions (id, agent, harness, harness_gui, lifecycle, created_seq, state_seq)
-        values ('ses_plain', 'lophn', null, 0, 'open', 1, 1),
-               ('ses_headless', 'coding_claude', 'claude-code', 0, 'open', 2, 2),
-               ('ses_member', 'coding_omp', 'omp', 1, 'open', 3, 3);
-    `);
-    const sql: Sql = {
-      run: (query, params) => db.prepare(query).run(...params),
-      get: (query, params) => db.prepare(query).get(...params) as never,
-      all: (query, params) => db.prepare(query).all(...params) as never,
-    };
-    const taker = (id: string) => harnessTaker(loadSession({ sql }, id)!);
-    assert.equal(taker("ses_plain"), null);
-    assert.equal(taker("ses_headless"), "headless");
-    assert.equal(taker("ses_member"), "gui");
-    for (const flip of [
-      "update sessions set harness_gui = 0 where id = 'ses_member'",
-      "update sessions set harness_gui = 1 where id = 'ses_headless'",
-    ]) {
-      assert.throws(() => db.exec(flip), /immutable/);
-    }
-    // harness 없는 session은 팀원이 될 수 없다.
-    assert.throws(() =>
-      db.exec(`insert into sessions (id, agent, harness, harness_gui, lifecycle, created_seq, state_seq)
-        values ('ses_bad', 'lophn', null, 1, 'open', 4, 4)`),
-    );
-  } finally {
-    db.close();
-  }
-});
-
-// 팀원 session은 core 안 GUI 연결만 연다. 사람이나 agent가 열면 headless 설정을 건너뛴 harness session을 마음대로 만든다.
-test("only core opens or fails a GUI member session; a person or an agent is forbidden", () => {
+// 팀원 session 열기와 harness call 실패 처리는 core(machine)만 부른다. 사람이나 agent는 forbidden이다.
+test("only core opens or fails a harness session; a person or an agent is forbidden", () => {
   const commands = createConversationCommands({} as never);
   const input = {
     id: "ses_00000000000000000000000001",
@@ -117,15 +90,16 @@ test("only core opens or fails a GUI member session; a person or an agent is for
   }
 });
 
-// core가 팀원의 call을 닫는 길은 GUI 탭 팀원 session에만 닿는다. headless session의 call은 그 host의 turn 끝이 정한다.
-test("core fails a call back only for a GUI tab member session", () => {
+// core가 harness call을 실패로 닫는 길은 harness session(탭·background 모두)에만 닿고 일반 lophn session은 거절한다.
+test("core fails a call back for any harness session and refuses non-harness sessions", () => {
   const db = new DatabaseSync(":memory:");
   try {
     for (const step of [...conversationTestSteps]) db.exec(step.sql);
     db.exec(`
       insert into sessions (id, agent, harness, harness_gui, lifecycle, created_seq, state_seq)
-        values ('ses_00000000000000000000000001', 'coding_claude', 'claude-code', 0, 'open', 1, 1),
-               ('ses_00000000000000000000000002', 'coding_claude', 'claude-code', 1, 'open', 2, 2);
+        values ('ses_00000000000000000000000000', 'lophn', null, 0, 'open', 1, 1),
+               ('ses_00000000000000000000000001', 'coding_claude', 'claude-code', 0, 'open', 2, 2),
+               ('ses_00000000000000000000000002', 'coding_claude', 'claude-code', 1, 'open', 3, 3);
     `);
     const sql: Sql = {
       run: (query, params) => db.prepare(query).run(...params),
@@ -141,13 +115,20 @@ test("core fails a call back only for a GUI tab member session", () => {
     } as never);
     const machine = { actor: "machine" } as unknown as RequestContext;
     const call = "cal_00000000000000000000000001";
-    const headless = commands.memberFail.handle(
+    const plain = commands.memberFail.handle(
+      { sql } as unknown as Tx,
+      machine,
+      { session: "ses_00000000000000000000000000", call } as never,
+      {},
+    );
+    assert.ok(!plain.ok && plain.error.code === "forbidden");
+    const background = commands.memberFail.handle(
       { sql } as unknown as Tx,
       machine,
       { session: "ses_00000000000000000000000001", call } as never,
       {},
     );
-    assert.ok(!headless.ok && headless.error.code === "forbidden");
+    assert.ok(background.ok);
     const member = commands.memberFail.handle(
       { sql } as unknown as Tx,
       machine,
@@ -155,14 +136,17 @@ test("core fails a call back only for a GUI tab member session", () => {
       {},
     );
     assert.ok(member.ok);
-    assert.deepEqual(failed, ["ses_00000000000000000000000002"]);
+    assert.deepEqual(failed, [
+      "ses_00000000000000000000000001",
+      "ses_00000000000000000000000002",
+    ]);
   } finally {
     db.close();
   }
 });
 
 // GUI 탭 팀원은 그 터미널 탭이 화면의 자리다. 사람의 session 목록에 한 번 더 서면 같은 coding agent가 둘로 보인다.
-test("a GUI tab member session is not in the person's session list, and a headless one of the same agent is", () => {
+test("a GUI tab member session is not in the person's session list, and a background one of the same agent is", () => {
   const db = new DatabaseSync(":memory:");
   try {
     for (const step of [...conversationTestSteps]) db.exec(step.sql);

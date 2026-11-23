@@ -295,8 +295,28 @@ export const agents = {
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
   "agents.notice.description-help":
     "One line about what this agent is for. Other agents read it on its card.",
+  "agents.button.more-harnesses": "More harnesses",
+  "agents.button.refresh-models": "Refresh",
+  "agents.label.harness-model-default": "Use {runtime} default",
+  "agents.label.harness-model-default-named":
+    "Use {runtime} default \u2014 {model}",
+  "agents.label.harness-model-overrides": "Overrides {runtime} default",
+  "agents.label.harness-options-saved": "Saved options: {options}",
+  "agents.notice.runtime-favorites-help":
+    "Manage favorite coding agents in Settings \u203a Coding agents.",
+  "agents.notice.harness-model-help":
+    "Leave on default to use {runtime}'s own model and effort settings.",
+  "agents.notice.harness-model-loading": "Loading models from {runtime}\u2026",
+  "agents.notice.harness-model-stale":
+    "Showing cached models \u2014 couldn't refresh from {runtime}.",
+  "agents.notice.harness-model-missing":
+    "Saved model isn't in {runtime}'s current list. It stays until you pick another.",
+  "agents.notice.harness-model-empty":
+    "{runtime} didn't report any models yet.",
+  "agents.error.harness-model-load":
+    "Couldn't load models from {runtime}. Your saved setting is kept.",
   "agents.notice.runtime-help":
-    "lophn adds the lophn rules, skills and built-in tools. Custom sends only this agent's instructions, the lophn tool and the tools and skills you pick. Claude Code, Codex and OpenCode run their own CLI with their own model, tools, skills and memory.",
+    "lophn adds the lophn rules, skills and built-in tools. Custom sends only this agent's instructions, the lophn tool and the tools and skills you pick. External coding agents run their own CLI with their own tools, skills and memory.",
   "agents.notice.fixed-coding":
     "Built-in coding agent: its handle, runtime and scope can't be changed, and it can't be deleted. You can rename how it is shown. It runs the CLI with your own settings.",
   "agents.notice.tools-help":

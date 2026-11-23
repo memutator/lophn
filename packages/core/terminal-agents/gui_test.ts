@@ -12,8 +12,6 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import { manualClock } from "../../base/clock.ts";
-import { terminalHookLineSchema } from "../../protocol/coding-agent/terminal-hook.ts";
-import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
 import type { AcpTabRequest } from "../../protocol/acp/mod.ts";
 import {
   type AcpState,
@@ -21,18 +19,20 @@ import {
   type AcpUpdate,
   EMPTY_ACP_STATE,
 } from "../../protocol/acp/mod.ts";
+import { terminalHookLineSchema } from "../../protocol/coding-agent/terminal-hook.ts";
+import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
 import type { Terminals } from "../terminals/ports.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
-import { createHookIngress } from "./ingress.ts";
-import { cliEnv } from "./spawner.ts";
 import {
   attachBatched,
   createTabGui,
   type TabGuiDeps,
   type TabHandle,
 } from "./gui.ts";
+import { createHookIngress } from "./ingress.ts";
 import { createTerminalAgents } from "./service.ts";
 import { createAgentSessionStore } from "./session-store.ts";
+import { cliEnv } from "./spawner.ts";
 
 const NO_IMAGES: TabGuiDeps["images"] = {
   root: "/tmp/lophn-gui",
@@ -53,7 +53,7 @@ function setup(
       gui(request) {
         requests.push(request);
         // extension은 탭에 묶인 handle을 열어 core에 알린다.
-        gui.opened(fakeHandle(request.terminal.id, options.state));
+        gui.opened(fakeHandle(request.terminal!.id, options.state));
       },
       tui: () => {},
       running: () => null,
@@ -132,7 +132,7 @@ test("GUI가 띄우는 CLI는 그 탭의 session 표지를 받고 extension host
   const t = setup();
   t.line(KEY_A, { cwd: "/work/a" });
   await t.settle();
-  const given = t.requests[0]?.terminal.env;
+  const given = t.requests[0]?.terminal?.env;
   assert.equal(given?.LOPHN_SESSION_ID, "term:trm_a");
   const env = cliEnv({
     base: { PATH: "/usr/bin", LOPHN_SESSION_ID: "ses_from_host" },
@@ -189,8 +189,8 @@ test("lophn-gui 요청은 그 key의 터미널에만 handle을 열고 모르는 
   });
   await t.settle();
   assert.equal(t.requests.length, 1);
-  assert.equal(t.requests[0]?.terminal.id, "trm_a");
-  assert.equal(t.requests[0]?.terminal.cwd, "/work/a");
+  assert.equal(t.requests[0]?.terminal?.id, "trm_a");
+  assert.equal(t.requests[0]?.terminal?.cwd, "/work/a");
   assert.equal(t.requests[0]?.resume, "abc-1");
   assert.deepEqual(t.requests[0]?.args, ["--dangerously-skip-permissions"]);
   assert.deepEqual(t.opened(), ["trm_a"]);
@@ -205,7 +205,7 @@ test("lophn-gui 요청은 그 key의 터미널에만 handle을 열고 모르는 
   t.line(KEY_B, { cwd: "/work/b" });
   await t.settle();
   assert.deepEqual(
-    t.requests.map((request) => request.terminal.id),
+    t.requests.map((request) => request.terminal?.id),
     ["trm_a", "trm_b"],
   );
   assert.deepEqual(t.opened(), ["trm_a", "trm_b"]);
@@ -255,7 +255,7 @@ test("GUI 전환은 창 없이 GUI로 남고, TUI를 끄지 못하면 handle을 
     handlers: () => ({
       // extension의 길: handle을 열고, foreground TUI를 끈 뒤에야 adapter를 시작한다. 실패는 handle의 실패한 turn이다.
       gui(request) {
-        const opened = liveHandle(request.terminal.id, handles.length);
+        const opened = liveHandle(request.terminal!.id, handles.length);
         handles.push(opened);
         gui.opened(opened.handle);
         if (exitFails) {
@@ -801,7 +801,7 @@ test("gui.toggle passes launch args from TUI to AcpTabRequest and seeds resuming
     handlers: () => ({
       gui(request) {
         requests.push(request);
-        opened = liveHandle(request.terminal.id, 1);
+        opened = liveHandle(request.terminal!.id, 1);
         const origState = opened.handle.state;
         opened.handle.state = () => ({
           ...origState(),

@@ -38,3 +38,12 @@ export type AcpCliSession = {
 export type AcpRewindPreview = {
   files: { path: string; change: "create" | "update" | "delete" }[];
 };
+
+/**
+ * agent 정의의 `harness_config`가 harness를 띄울 때 넘기는 값. `model`은 catalog의 model id이고 `options`는 그 model의 축 값
+ * (`effort` 등 axis id → value)이다. 둘 다 없으면 CLI 기본이다. adapter가 자기 wire로 옮기고 lophn은 값을 해석하지 않는다.
+ */
+export type HarnessLaunchConfig = {
+  model?: string;
+  options?: Record<string, string>;
+};

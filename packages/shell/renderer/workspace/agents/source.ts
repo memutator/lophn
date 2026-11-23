@@ -2,7 +2,10 @@
 // agents를, 할당은 approvals/assignment를 그대로 따르고, 화면이 contract만으로 만들 수 없는 것
 // (켬·끔 줄, 놓을 곳 후보, 붙일 앱 목록)만 여기서 더한다. 화면은 이 통로를 지나는 값으로만 그리고 core를 직접 부르지 않는다.
 
+import type { HarnessCatalogView } from "../../../../protocol/acp/harness-catalog.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
+import type { GuiHarness } from "../../../../protocol/coding-agent/gui-harness.ts";
+import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type {
   AgentCard,
   AgentDefinitionIssue,
@@ -13,6 +16,7 @@ import type {
   AgentCounts,
   AgentRuntime,
   AgentWorkspace,
+  HarnessConfig,
   McpOff,
   Modality,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
@@ -79,6 +83,8 @@ export interface AgentListRow {
 export interface AgentGlance {
   /** 정의 → workspace → 전역 순으로 정해진 model(option 값 포함). 어느 층에도 없으면 null이다. */
   readonly model: ModelChoice | null;
+  /** harness runtime이 정의에 고정한 model·option. 없으면 그 CLI 기본 설정이다. */
+  readonly harnessConfig?: HarnessConfig;
   /** 정의 본문(이 agent의 지침)이 비어 있지 않은가. */
   readonly instructions: boolean;
   /** 이 컴퓨터의 할당 앱 수. */
@@ -135,6 +141,8 @@ export interface AgentDraft {
   /** custom이 고른 skill 이름. runtime이 custom일 때만 둔다. */
   readonly skills?: readonly string[];
   readonly model?: ModelChoice;
+  /** harness runtime이 CLI를 띄울 때 쓰는 model과 축 값(effort 등). */
+  readonly harness_config?: HarnessConfig;
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
@@ -293,6 +301,12 @@ export interface GrantsView {
   readonly revision: number;
 }
 
+/** Agent editor의 runtime 선택에 쓰는 coding agent 즐겨찾기와 감지 목록. */
+export interface CodingChoices {
+  readonly favorites: readonly HarnessId[];
+  readonly detected: readonly HarnessId[];
+}
+
 export interface AgentsSource {
   /**
    * 전역 agent와 화면을 연 자리 범위 agent의 목록(lophn이 첫 줄). 자리는 "home"이거나 project·앱 id다. sidebar의 Agents 묶음이
@@ -399,4 +413,17 @@ export interface AgentsSource {
     text: string,
     hash: string | null,
   ): Promise<ReadResult<InstructionsFile>>;
+  /** harness CLI의 model·축 목록을 읽는다. probe가 true면 cache가 없을 때 CLI를 한 번 띄워 묻는다. */
+  harnessCatalog(
+    harness: GuiHarness,
+    probe?: boolean,
+    workspace?: string | null,
+  ): Promise<ReadResult<HarnessCatalogView>>;
+  /** harness CLI의 model·축 목록을 강제로 다시 묻는다. */
+  refreshHarnessCatalog(
+    harness: GuiHarness,
+    workspace?: string | null,
+  ): Promise<ReadResult<HarnessCatalogView>>;
+  /** Settings › Coding agents의 즐겨찾기와 감지된 harness 목록. */
+  codingChoices(): Promise<ReadResult<CodingChoices>>;
 }

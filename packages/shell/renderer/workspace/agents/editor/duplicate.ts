@@ -52,6 +52,7 @@ export function copyDefinition(
     workspace: _workspace,
     avatar,
     runtime,
+    harness_config,
     mcp_servers,
     ...rest
   } = source.definition;
@@ -68,6 +69,18 @@ export function copyDefinition(
       ...(shownRuntime === undefined || shownRuntime === "lophn"
         ? {}
         : { runtime: shownRuntime }),
+      ...(harness_config === undefined
+        ? {}
+        : {
+            harness_config: {
+              ...(harness_config.model === undefined
+                ? {}
+                : { model: harness_config.model }),
+              ...(harness_config.options === undefined
+                ? {}
+                : { options: { ...harness_config.options } }),
+            },
+          }),
       ...(mcp_servers === undefined
         ? {}
         : {

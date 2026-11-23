@@ -7,6 +7,7 @@ import {
   acpToolBodyRead,
 } from "./acp/routes.ts";
 import { CODING_AGENT_ROUTES } from "./coding-agent/coding-agents.ts";
+import { HARNESS_CATALOG_ROUTES } from "./acp/harness-catalog.ts";
 import { CODING_RELAY_ROUTES } from "./coding-agent/relay.ts";
 import { TERMINAL_VIEW_ROUTES } from "./coding-agent/terminal-view.ts";
 import { TERMINAL_ROUTES } from "./coding-agent/terminals.ts";
@@ -49,6 +50,7 @@ export const ROUTES = [
   acpImageRead,
   ...CODING_RELAY_ROUTES,
   ...CODING_AGENT_ROUTES,
+  ...HARNESS_CATALOG_ROUTES,
   ...TERMINAL_VIEW_ROUTES,
   ...TERMINAL_ROUTES,
   ...PAGE_VIEW_ROUTES,

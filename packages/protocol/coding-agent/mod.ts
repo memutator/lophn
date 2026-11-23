@@ -25,15 +25,13 @@ export {
   harnessDetectionSchema,
   harnessIdSchema,
 } from "./harnesses.ts";
-export type {
-  HeadlessEvent,
-  HeadlessParser,
-  HeadlessSpec,
-} from "./headless/mod.ts";
 export {
-  type HookSignal,
-  hookSignalOf,
-} from "./hook-signal.ts";
+  AGENT_CREDENTIAL_FILE_ENV,
+  PERSON_SHELL_ENV,
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "./credential-env.ts";
+export { type HookSignal, hookSignalOf } from "./hook-signal.ts";
 export { ROUTES } from "./registry.ts";
 export * from "./relay.ts";
 export * from "./terminal-view.ts";

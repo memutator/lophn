@@ -13,7 +13,7 @@ import { ProfileMark } from "../../browser/browser-chrome.tsx";
 import { useBrowserProfiles } from "../../browser/profiles.tsx";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import { scopeLabel } from "./agent-card.tsx";
-import { modelLabelOf } from "./model-picker-data.ts";
+import { formatHarnessModel, modelLabelOf } from "./model-picker-data.ts";
 import type { AgentListRow, ModelsView } from "./source.ts";
 import styles from "./agent-glance.module.css";
 
@@ -150,6 +150,17 @@ export function CardGlance({
     row.workspace === null || isLophn(row.assignment)
       ? null
       : scopeLabel(row.workspace, workspaceName);
+  const harnessModel = harness
+    ? formatHarnessModel(
+        glance.harnessConfig ??
+          (row.card?.model === undefined
+            ? undefined
+            : {
+                model: row.card.model.model_name,
+                options: row.card.model.options,
+              }),
+      )
+    : null;
 
   return (
     <dl className={styles.glance} data-card-glance="">
@@ -158,7 +169,7 @@ export function CardGlance({
           items={[
             <RuntimeName key="runtime" runtime={runtime} />,
             harness ? (
-              t("agents.label.own-model")
+              (harnessModel ?? t("agents.label.own-model"))
             ) : glance.model === null ? (
               t("project-workspace.label.agent-no-model")
             ) : (

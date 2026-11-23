@@ -2,6 +2,12 @@
 // 저장한 session, resume으로 연 터미널의 hold. 터미널(`Terminals`)의 foreground·출력·사람 입력·runtime을 듣고, 바뀐 agent를
 // `Terminals.patch`로 runtime에 실어 `TerminalRuntimeChanged`가 가게 한다. socket·per-run 폴더·CLI는 wiring이 끼운다.
 import { type Clock, err, ok, type Result } from "../../base/mod.ts";
+import type {
+  AcpTabHandlers,
+  GuiHarness,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/gui-session.ts";
 import {
   HARNESS_ADAPTERS,
   type HarnessId,
@@ -16,18 +22,15 @@ import {
 } from "../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../protocol/events/bus.ts";
 import { publishStateChanged } from "../../protocol/events/changes.ts";
-import type {
-  AcpTabHandlers,
-  GuiHarness,
-} from "../../protocol/acp/gui-session.ts";
 import { terminalSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { Terminals } from "../terminals/ports.ts";
+import { createBackgroundMembers } from "./background.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
 import type { CredentialFiles } from "./credential-file.ts";
-import { createGuiMembers, type HarnessMembers } from "./member.ts";
 import { createTabGui, type TabGuiDeps } from "./gui.ts";
 import { createTerminalHolds } from "./hold.ts";
 import type { RoutedHook } from "./ingress.ts";
+import { createGuiMembers, type HarnessMembers } from "./member.ts";
 import { createTitleScanner } from "./osc-title.ts";
 import type { AgentSessionStore } from "./session-store.ts";
 import { createAgentTracker } from "./tracker.ts";
@@ -39,6 +42,7 @@ export type TerminalAgentsDeps = {
   terminals: Terminals;
   clock: Clock;
   after(ms: number, run: () => void): () => void;
+  every?(ms: number, run: () => void): () => void;
   publish(event: BusEvent): void;
   // 못 본 끝과 push를 정하는 attention. 터미널의 계기와 새 turn·끝의 지우기를 받는다.
   attention(): {
@@ -67,8 +71,17 @@ export type TerminalAgentsDeps = {
     harness: GuiHarness;
     cli_session: string | null;
   }): Promise<Result<string>>;
-  // 그 GUI harness의 내장 coding agent 정의가 가진 deny 규칙. 팀원 탭의 CLI를 띄울 때 넣는다.
+  // 그 GUI harness의 내장 coding agent 정의가 가진 deny 규칙과 launch 설정. 팀원 탭의 CLI를 띄울 때 넣는다.
   memberDeny?(harness: GuiHarness): readonly string[];
+  memberLaunch?(harness: GuiHarness): HarnessLaunchConfig | undefined;
+  /** 그 adapter가 agent 정의의 deny 규칙을 지킬 수 있는가(background 실행 시 검사). */
+  enforcesDeny?(harness: GuiHarness): boolean;
+  /** 열린 GUI 탭이나 background handle이 model 목록을 받았을 때 catalog cache를 공짜로 채운다. */
+  onCatalog?(
+    harness: GuiHarness,
+    cwd: string | undefined,
+    result: HarnessCatalogResult,
+  ): void;
   ids: { request(): string };
   // 그 터미널에 준 hook env. GUI가 띄운 CLI도 같은 탭으로 hook을 보내게 한다.
   hookEnv(terminalRef: string): Record<string, string>;
@@ -230,13 +243,15 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     },
     images: deps.images,
     // project 터미널의 GUI 탭이 팀원이다(Home과 앱 workspace는 아니다).
-    member: (ref, harness) =>
-      project(ref)?.startsWith("prj_") === true
-        ? {
-            credentialFile: deps.credentials?.pathOf(ref) ?? null,
-            deny: deps.memberDeny?.(harness) ?? [],
-          }
-        : null,
+    member: (ref, harness) => {
+      if (project(ref)?.startsWith("prj_") !== true) return null;
+      const launch = deps.memberLaunch?.(harness);
+      return {
+        credentialFile: deps.credentials?.pathOf(ref) ?? null,
+        deny: deps.memberDeny?.(harness) ?? [],
+        ...(launch === undefined ? {} : { launch }),
+      };
+    },
     log: deps.log,
     changed: () => coding.changed(),
     resumingTui: (ref, harness, session) =>
@@ -264,6 +279,23 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       const where = project(ref);
       return where?.startsWith("prj_") === true ? where : null;
     },
+    log: deps.log,
+  });
+
+  const background = createBackgroundMembers({
+    members: () => deps.members?.() ?? null,
+    files: deps.credentials ?? null,
+    handlers: deps.handlers,
+    enforcesDeny: deps.enforcesDeny ?? (() => false),
+    after: deps.after,
+    every:
+      deps.every ??
+      ((ms, runLater) => {
+        const timer = setInterval(runLater, ms);
+        timer.unref?.();
+        return () => clearInterval(timer);
+      }),
+    ...(deps.onCatalog === undefined ? {} : { onCatalog: deps.onCatalog }),
     log: deps.log,
   });
 
@@ -302,7 +334,32 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     gui.onHandle((handle) => members.opened(handle)),
     gui.onHandle((handle) => {
       let lastNoted = "";
+      let lastModels: unknown = null;
+      let lastModel: unknown = null;
+      const observeCatalog = () => {
+        const session = handle.state().session;
+        if (
+          session === null ||
+          !Array.isArray(session.models) ||
+          session.models.length === 0 ||
+          (session.models === lastModels && session.model === lastModel)
+        ) {
+          return;
+        }
+        lastModels = session.models;
+        lastModel = session.model;
+        const cwd =
+          terminals.runtime(handle.terminal)?.cwd_at_start ?? handle.cwd;
+        deps.onCatalog?.(handle.harness, cwd || undefined, {
+          models: session.models,
+          defaults: {
+            model: session.model?.model ?? null,
+            options: session.model?.options ?? {},
+          },
+        });
+      };
       const noteFromState = () => {
+        observeCatalog();
         const session = handle.state().session;
         const cliSession = session?.cli_session ?? null;
         if (cliSession === null) return;
@@ -390,6 +447,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     coding,
     holds,
     members,
+    background,
 
     // 터미널 hook socket의 줄 하나(`lophn-gui` 밖).
     hook(hook: RoutedHook): void {
@@ -470,6 +528,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
 
     stop(): void {
       for (const off of offs) off();
+      void background.stop();
       members.stop();
       coding.stop();
       gui.stop();

@@ -104,7 +104,7 @@ function parsedAgent(
       if (file === null && coding !== null) {
         definition = {
           ...definition,
-          description: `Runs ${coding.label} headless.`,
+          description: `Runs ${coding.label}.`,
         };
       }
     } else issues.push(...issuesOfError(parsed.error));
@@ -160,14 +160,13 @@ export function avatarOf(loaded: Loaded) {
   return loaded.definition?.avatar ?? AGENT_DEFAULT_AVATAR;
 }
 
-// 내장 coding agent는 그 harness가 coding agent 즐겨찾기에 있고 headless 명령이 있을 때만 목록에 선다
-// (목록의 agent는 이름으로 불러 새 headless session을 연다). 끈 뒤에도 id로 읽는 길(`loadAgent`)은 그대로다: 열린 session, harness host,
-// GUI 탭의 팀원 session이 계속 돈다.
+// 내장 coding agent는 그 harness가 coding agent 즐겨찾기에 있을 때만 목록에 선다. 끈 뒤에도 id로 읽는 길(`loadAgent`)은
+// 그대로다: 열린 session, harness host, GUI 탭의 팀원 session이 계속 돈다.
 function shownCodingIds(root: string): AgentId[] {
   const settings = createFileSettingsReader(root);
   const favorites = settings.get(codingAgentsSetting)?.favorites ?? [];
-  return CODING_BUILTINS.filter(
-    (builtin) => favorites.includes(builtin.harness) && builtin.headless,
+  return CODING_BUILTINS.filter((builtin) =>
+    favorites.includes(builtin.harness),
   ).map((builtin) => builtin.id);
 }
 

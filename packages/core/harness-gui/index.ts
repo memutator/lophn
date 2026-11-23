@@ -1,5 +1,5 @@
-// extension 입구. 터미널 탭의 `<harness> gui`(`onTab.gui`)와 GUI ↔ TUI toggle(`onTab.tui`)을 받아 harness의 adapter로 그 탭의
-// ACP session 하나를 연다.
+// harness-gui 입구. 터미널 탭의 `<harness> gui`(`onTab.gui`), 터미널 없는 background 실행(`terminal: null`),
+// GUI ↔ TUI toggle(`onTab.tui`)을 받아 harness의 adapter로 ACP session 하나를 연다.
 // 어느 process를 끄고 띄우는지는 adapter의 `handoff`가 정한다(`adapter.ts`의 toggle 흐름). 이 file이 그 순서를 지킨다.
 import type { Clock } from "../../base/clock.ts";
 import type { IdSource } from "../../base/id.ts";
@@ -16,8 +16,17 @@ import {
   type HarnessGuiAdapter,
   type HarnessGuiCarry,
   type HarnessGuiRun,
+  type HarnessRuntimeAdapter,
 } from "./adapter.ts";
 import { receivedSends } from "./received.ts";
+
+export {
+  HARNESS_GUI_ADAPTERS,
+  type HarnessGuiAdapter,
+  type HarnessGuiCarry,
+  type HarnessGuiRun,
+  type HarnessRuntimeAdapter,
+};
 
 export type HarnessGuiDeps = {
   acp: ExtensionAcp;
@@ -52,9 +61,9 @@ function within<T>(ms: number, work: Promise<T>, otherwise: T): Promise<T> {
   });
 }
 
-/** 탭 하나의 GUI. `run`은 adapter가 시작을 마친 뒤에야 있다. */
+/** 실행 중인 ACP handle 하나(탭 GUI 또는 background). `run`은 adapter가 시작을 마친 뒤에야 있다. */
 type Tab = {
-  terminal: AcpTerminal;
+  terminal: AcpTerminal | null;
   adapter: HarnessGuiAdapter;
   session: AcpSessionHandle;
   run: HarnessGuiRun | null;
@@ -65,28 +74,31 @@ type Tab = {
 
 export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
   const tabs = new Map<string, Tab>();
-  // terminal id → 끝난 run이 넘긴 값. handle은 toggle과 resume마다 새로 열리므로 탭(terminal)에 둔다. 작은 값이라 터미널이 닫혀도 남긴다.
+  // key(terminal id 또는 background key) → 끝난 run이 넘긴 값. handle은 toggle과 resume마다 새로 열리므로 key에 둔다. 작은 값이라 닫혀도 남긴다.
   const carried = new Map<string, HarnessGuiCarry>();
-  const keepCarry = (terminalId: string, run: HarnessGuiRun | null) => {
+  const keepCarry = (key: string, run: HarnessGuiRun | null) => {
     const carry = run?.carry?.();
-    if (carry !== undefined) carried.set(terminalId, carry);
+    if (carry !== undefined) carried.set(key, carry);
   };
 
-  // env는 (spawn이 얹는 login shell) < 탭의 hook env < adapter가 바꾸는 칸 순서다. 탭의 hook env 덕에 GUI가 띄운 CLI의 hook도 같은
-  // 탭으로 와서 GUI turn 동안에도 탭의 상태 점이 맞는다.
+  // env는 (spawn이 얹는 login shell) < 탭의 hook env < 요청 env(background 자격·session) < adapter가 바꾸는 칸 순서다.
+  // 탭의 hook env 덕에 GUI가 띄운 CLI의 hook도 같은 탭으로 와서 GUI turn 동안에도 탭의 상태 점이 맞는다.
   const spawnFor =
-    (terminal: AcpTerminal | null): CliSpawn =>
+    (
+      terminal: AcpTerminal | null,
+      extraEnv?: Readonly<Record<string, string>>,
+    ): CliSpawn =>
     (command, args, options) =>
       ctx.spawn(command, args, {
         ...options,
-        env: { ...terminal?.env, ...options?.env },
+        env: { ...terminal?.env, ...extraEnv, ...options?.env },
       });
 
   function fail(
     session: AcpSessionHandle,
     error: { code: string; message: string },
   ) {
-    // handle은 열어 두고 오류를 끝난 turn으로 보인다. 닫는 것(TUI로 돌아가기)은 사람이다.
+    // handle은 열어 두고 오류를 끝난 turn으로 보인다. 닫는 것(TUI로 돌아가기나 background 정리)은 부른 쪽이다.
     session.publish({
       type: "turn_ended",
       turn: ctx.ids.newId("trn"),
@@ -123,12 +135,12 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
   // shared run에서 CLI session id가 바뀌면(GUI의 fork, `/new`, fork하는 rewind) 그 server에 붙은 TUI client는 옛 session을
   // 본다. client만 끄고 새 id로 붙는 명령을 다시 친다. server와 turn은 그대로 돈다. client가 없으면 다음 toggle이 새 명령을 친다.
   async function followSession(tab: Tab): Promise<void> {
-    const run = tab.run;
+    const { run, terminal } = tab;
+    if (terminal === null) return;
     const id = run?.sessionId() ?? null;
     if (run === null || id === null || id === tab.seen) return;
     const first = tab.seen === null;
     tab.seen = id;
-    const { terminal } = tab;
     if (first || terminal.state() === "shell") return;
     terminal.signal("SIGTERM");
     if (await exited(terminal)) terminal.type(`${run.tuiCommand()}\r`);
@@ -136,9 +148,15 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
 
   async function gui(request: AcpTabRequest): Promise<void> {
     const { terminal, harness } = request;
+    const key = request.key ?? terminal?.id;
+    const cwd = request.cwd ?? terminal?.cwd;
+    if (key === undefined || cwd === undefined) {
+      throw new Error("background harness request needs key and cwd");
+    }
     const adapter = HARNESS_GUI_ADAPTERS[harness];
     const session = ctx.acp.open({
       terminal,
+      ...(request.key === undefined ? {} : { key: request.key }),
       harness,
       title: harness,
       handoff: adapter.handoff,
@@ -151,13 +169,13 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
       closed: false,
       seen: request.resume ?? null,
     };
-    tabs.set(terminal.id, tab);
+    tabs.set(key, tab);
     session.onClose(() => {
       tab.closed = true;
-      if (tabs.get(terminal.id) === tab) tabs.delete(terminal.id);
+      if (tabs.get(key) === tab) tabs.delete(key);
       const run = tab.run;
       tab.run = null;
-      keepCarry(terminal.id, run);
+      keepCarry(key, run);
       // 닫힌 handle이라 오류를 보일 곳이 없다.
       run?.stop().catch(() => {});
     });
@@ -165,7 +183,7 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
     try {
       // TUI가 foreground에 있으면(TUI → GUI) 먼저 끈다. 한 session을 두 process가 같이 쓰지 않는다.
       // tracker가 TUI를 떠나면 session id를 잊으므로 `resume`은 요청이 이미 들고 있다.
-      if (terminal.state() !== "shell") {
+      if (terminal !== null && terminal.state() !== "shell") {
         const ended = await within(EXIT_WAIT_MS, adapter.exitTui(terminal), {
           ok: false as const,
           error: EXIT_TIMEOUT,
@@ -175,23 +193,27 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
       }
       if (tab.closed) return;
 
-      const carry = carried.get(terminal.id);
+      const carry = carried.get(key);
       const started = await adapter.start({
         terminal,
-        cwd: terminal.cwd,
+        cwd,
         ...(request.resume === undefined ? {} : { resume: request.resume }),
+        ...(request.forkFrom === undefined
+          ? {}
+          : { forkFrom: request.forkFrom }),
         ...(request.args === undefined ? {} : { args: request.args }),
         ...(carry === undefined ? {} : { carry }),
+        ...(request.launch === undefined ? {} : { launch: request.launch }),
         ...(request.member === undefined ? {} : { member: request.member }),
         session: receivedSends({
           ...session,
           publish(update) {
             session.publish(update);
-            if (adapter.handoff === "shared")
+            if (adapter.handoff === "shared" && terminal !== null)
               void followSession(tab).catch(() => {});
           },
         }),
-        spawn: spawnFor(terminal),
+        spawn: spawnFor(terminal, request.env),
         clock: ctx.clock,
         ids: ctx.ids,
       });
@@ -213,7 +235,7 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
 
   async function tui(terminalId: string): Promise<void> {
     const tab = tabs.get(terminalId);
-    if (tab === undefined) return;
+    if (tab === undefined || tab.terminal === null) return;
     const { run, terminal } = tab;
     if (tab.adapter.handoff === "restart") {
       // CLI가 끝난 뒤에야 handle을 닫고 같은 session을 TUI로 잇는다.

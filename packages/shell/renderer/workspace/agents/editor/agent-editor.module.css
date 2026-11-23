@@ -582,3 +582,19 @@
   gap: var(--space-4);
 }
 
+/* 즐겨찾기 밖 harness 선택 menu와 Settings 안내 */
+.runtimeMoreRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* harness model 칸 아래 상태 글과 Refresh 단추 */
+.harnessModelFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+

@@ -117,7 +117,7 @@ elements:
 
           - id: harness-host-core
             kind: component
-            description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. queue, turn·메시지 기록, harness의 session id. 실행은 core 안 extension host가 한다.
+            description: runtime이 harness(claude-code, codex, opencode, omp, antigravity)인 agent의 session·queue·turn 기록·harness session id와 daemon-level HarnessCatalogManager(model catalog discovery·cache)를 core가 다루는 쪽. 실행은 단일 상주 ACP adapter(`tab` 모드·`background` 모드)로 한다.
 
       - id: events
         kind: component
@@ -422,7 +422,7 @@ interfaces:
 
   - id: harness-host-interface
     kind: interface
-    description: core 안 extension host의 harness host(bundled extension `harness`)가 `ctx.core`의 자격(`machine:extensions`, actor user)으로 부르는 core의 memory route(`harness/take`, `start_turn`, `record`, `finish_turn`, `set_external_id`). TUI 탭이 hold한 session은 take가 건너뛰고 start_turn이 `conflict`다. renderer의 호출 통로에는 없다.
+    description: core 안 harness 실행기(GUI 탭 팀원과 background 실행기)가 machine 자격으로 쓰는 command(`harness/bind_session`, `open_member`, `fail_call`)와 사람 자격의 model catalog route(`harness_catalog/read`, `harness_catalog/refresh`). TUI 탭이 hold한 session은 background 실행기가 건너뛴다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:
@@ -443,7 +443,7 @@ interfaces:
 
   - id: coding-agent-cli-interface
     kind: interface
-    description: lophn 명령의 계약(`lophn <group> <verb>`, 앱 command는 `lophn <app> <command>`). 어느 core 명령에나 `--on <컴퓨터>`(이름, `mch_`, `dev_`)가 붙어 그 컴퓨터로 간다(요청한 쪽은 `terminal`이고 받는 컴퓨터가 허락한 만큼만 된다. 앱 command는 최상위 입력 `on`을 선언하지 못한다). lophn agent는 `lophn` tool로, 사람과 coding agent는 control connect로 받은 user token으로 binary를 쓰고(core가 없으면 binary가 띄운다), harness agent는 turn 자격(`LOPHN_AGENT_CREDENTIAL`)만 쓰며, harness hook은 hook 명령만 부른다.
+    description: lophn 명령의 계약(`lophn <group> <verb>`, 앱 command는 `lophn <app> <command>`). 어느 core 명령에나 `--on <컴퓨터>`(이름, `mch_`, `dev_`)가 붙어 그 컴퓨터로 간다(요청한 쪽은 `terminal`이고 받는 컴퓨터가 허락한 만큼만 된다. 앱 command는 최상위 입력 `on`을 선언하지 못한다). lophn agent는 `lophn` tool로, 사람과 coding agent는 control connect로 받은 user token으로 binary를 쓰고(core가 없으면 binary가 띄운다), harness agent는 turn 자격 file(`LOPHN_AGENT_CREDENTIAL_FILE`)만 쓰며, harness hook은 hook 명령만 부른다.
     interface_type: protocol
     defined_by: coding-agent
     provided_by:

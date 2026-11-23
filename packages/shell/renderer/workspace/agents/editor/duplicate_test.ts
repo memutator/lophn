@@ -50,3 +50,34 @@ test("복제는 이미지 avatar를 빼고 agent 층 server의 secret 이름을 
   assert.match(JSON.stringify(definition.mcp_servers), /mcp\.agt_new\.docs/);
   assert.doesNotMatch(JSON.stringify(definition.mcp_servers), /agt_old/);
 });
+
+test("복제는 harness runtime의 harness_config를 복사한다", () => {
+  const original = {
+    handle: "codex-high",
+    name: "Codex High",
+    runtime: "codex" as const,
+    harness_config: {
+      model: "gpt-5.3-codex",
+      options: { effort: "high" },
+    },
+    body: "Review carefully.",
+  };
+  const { definition } = copyDefinition(
+    {
+      id: "agt_old",
+      scope: null,
+      runtime: "codex",
+      definition: original,
+    },
+    { name: "Codex High copy", handle: "codex-high-copy", id: "agt_new" },
+  );
+  assert.equal(definition.runtime, "codex");
+  assert.deepStrictEqual(definition.harness_config, {
+    model: "gpt-5.3-codex",
+    options: { effort: "high" },
+  });
+  assert.notEqual(
+    definition.harness_config?.options,
+    original.harness_config.options,
+  );
+});

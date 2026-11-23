@@ -18,7 +18,6 @@ import {
   agentAvatarImageRead,
   agentAvatarImageUpload,
   finishRewindSummary,
-  HARNESS_HOST_MEMORY_ROUTES,
   instructionsGet,
   instructionsReadGlobal,
   instructionsWriteGlobal,
@@ -497,11 +496,12 @@ function agentLookups(
   };
   return {
     workspaces: () => [
-      ...workspaces
-        .projectIds(sql)
-        .map(
-          (id): Workspace => ({ kind: "project", id: id as `prj_${string}` }),
-        ),
+      ...workspaces.projectIds(sql).map(
+        (id): Workspace => ({
+          kind: "project",
+          id: id as `prj_${string}`,
+        }),
+      ),
       ...workspaces
         .appIds(sql)
         .map((id): Workspace => ({ kind: "app", id: id as `app_${string}` })),
@@ -963,8 +963,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       instructionsWriteGlobal,
       // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
       ...QUEUED_INPUT_ROUTES,
-      // core 안 extension host의 harness extension이 부르는 입구. handler는 wiring/harness.ts가 붙인다.
-      ...HARNESS_HOST_MEMORY_ROUTES,
       // 앱이 보는 session 목록·상태·멈추기와 core가 아는 터미널 coding agent. handler는 wiring/session-lifecycle.ts가 붙인다.
       ...SESSION_LIFECYCLE_ROUTES,
       // 앱이 보내는 call과 읽기. handler는 wiring/app-calls.ts가 붙인다.

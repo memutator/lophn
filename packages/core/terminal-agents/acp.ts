@@ -2,14 +2,14 @@
 // 쥔다. 늦게 붙는 화면은 그 상태를 snapshot으로 한 번 받고 이어서 새 update를 받는다(raw update와 글 조각을 쌓지 않는다).
 import type { IdSource } from "../../base/id.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
-import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
-import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
 import type {
   AcpSessionHandle,
   AcpTabHandlers,
   ExtensionAcp,
   GuiHarness,
 } from "../../protocol/acp/mod.ts";
+import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
+import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
 
 /** 화면 쪽이 handle 하나에 붙는 listener. */
 export type AcpListener = {
@@ -34,12 +34,18 @@ export type AcpHandle = {
 
 export function createAcp(
   ids: IdSource,
-  // handle이 열릴 때 부른다. 화면에 보이는 일은 받는 쪽이 한다.
+  // 터미널 탭 handle이 열릴 때 부른다. 화면에 보이는 일은 받는 쪽이 한다.
   opened: (handle: AcpHandle) => void,
+  // 터미널 없는 background handle(`options.terminal === null`)이 열릴 때 부른다.
+  background?: (handle: AcpHandle) => void,
 ): { acp: ExtensionAcp; tab(): AcpTabHandlers | undefined } {
   let tab: AcpTabHandlers | undefined;
   const acp: ExtensionAcp = {
     open(options) {
+      const terminalKey = options.key ?? options.terminal?.id;
+      if (terminalKey === undefined) {
+        throw new Error("ACP open requires terminal or key");
+      }
       const id = ids.newId("win");
       let state: AcpState = EMPTY_ACP_STATE;
       const attached = new Set<AcpListener>();
@@ -65,12 +71,12 @@ export function createAcp(
         onClose: (listener) => void closers.push(listener),
         close,
       };
-      opened({
+      const acpHandle: AcpHandle = {
         id,
-        terminal: options.terminal.id,
+        terminal: terminalKey,
         harness: options.harness,
         handoff: options.handoff,
-        cwd: options.terminal.cwd,
+        cwd: options.terminal?.cwd ?? "",
         state: () => state,
         attach(listener) {
           if (closed) {
@@ -83,7 +89,12 @@ export function createAcp(
         },
         input: (input) => inputs.forEach((listener) => listener(input)),
         close,
-      });
+      };
+      if (options.terminal === null) {
+        background?.(acpHandle);
+      } else {
+        opened(acpHandle);
+      }
       return handle;
     },
     onTab(next) {

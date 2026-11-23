@@ -350,12 +350,12 @@ journeys:
   - id: agent-opens-tui
     title: "agent가 harness session을 터미널 TUI 탭으로 열어 준다"
     actor: agent
-    goal: "agent가 harness session의 CLI를 터미널 TUI 탭에서 이어 보이게 하고, 탭이 열린 동안 headless turn을 멈춘다"
+    goal: "agent가 background harness session의 CLI를 터미널 TUI 탭에서 이어 보이게 하고, 탭이 열린 동안 background turn을 멈춘다"
     refs: [P6]
     steps:
       - {do: "agent가 harness session을 TUI 탭으로 연다. CLI session을 hold한다", flow: harness-tui-open:accepted}
-      - {do: "탭이 열려 있는 동안 shell이 heartbeat로 hold를 연장한다", flow: harness-tui-hold:extended}
-      - {do: "탭을 닫으면 hold가 풀리고 headless turn이 다시 돈다", flow: harness-tui-hold:released}
+      - {do: "탭이 열려 있는 동안 core가 heartbeat로 hold를 연장한다", flow: harness-tui-hold:extended}
+      - {do: "탭을 닫으면 hold가 풀리고 background turn이 다시 돈다", flow: harness-tui-hold:released}
 
   - id: desk-new-rename-switch
     title: "desk를 만들고 이름을 바꾸고 desk를 옮겨 본다"
@@ -855,17 +855,15 @@ journeys:
       - {do: "agent가 그 메시지의 사진 파일 경로를 푼다", flow: message-image-path:ok}
 
   - id: harness-agent-session
-    title: "harness로 켠 agent session에 말을 걸면 CLI가 headless turn을 돈다"
+    title: "harness로 켠 agent session에 말을 걸면 상주 adapter가 background turn을 돈다"
     actor: person
-    goal: "Settings에서 harness를 켜고 harness agent session을 열어 말하면 CLI가 입력을 받아 turn을 끝까지 돈다"
+    goal: "harness agent session을 열어 말하면 상주 ACP adapter가 background 모드로 입력을 받아 turn을 끝까지 돈다"
     refs: [P6]
     steps:
-      - {do: "harness 설정이 꺼져 있으면 harness agent를 열 수 없다", flow: session-open:unavailable}
-      - {do: "Settings › System › Extensions에서 harness를 켜고 다시 연다", screen: new-agent-harness, flow: session-open:ok}
+      - {do: "harness agent session을 연다", screen: new-agent-harness, flow: session-open:ok}
       - {do: "메시지를 보낸다", screen: new-agent-harness, flow: session-send:ok}
-      - {do: "headless CLI가 입력을 가져가 turn을 연다", flow: harness-turn-start:started}
-      - {do: "CLI가 알려 준 session id를 session에 둔다", flow: harness-session-bind:bound}
-      - {do: "headless CLI가 turn을 끝까지 돌린다", flow: harness-turn-run:completed}
+      - {do: "CLI가 알려 준 session id를 session에 둔다", flow: harness-bind-session:bound}
+      - {do: "상주 adapter가 background turn을 끝까지 돌린다", flow: harness-background-turn:completed}
 
   - id: usage-and-trace-read
     title: "turn, tool, model 호출의 기록과 사용량을 펼쳐 본다"

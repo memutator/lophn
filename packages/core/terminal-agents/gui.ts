@@ -5,6 +5,16 @@
 // (session id, 상태)만 준다.
 import { isAbsolute, join, relative, sep } from "node:path";
 import {
+  type AcpCliSession,
+  type AcpRewindPreview,
+  type AcpTabHandlers,
+  type AcpTabRequest,
+  type AcpTerminal,
+  type GuiHarness,
+  type HarnessLaunchConfig,
+  isGuiHarness,
+} from "../../protocol/acp/gui-session.ts";
+import {
   type AcpInput,
   type AcpState,
   type AcpUpdate,
@@ -12,17 +22,8 @@ import {
   updateWithoutToolBodies,
   withoutToolBodies,
 } from "../../protocol/acp/mod.ts";
+import { AGENT_CREDENTIAL_FILE_ENV } from "../../protocol/coding-agent/credential-env.ts";
 import { terminalGuiPayloadSchema } from "../../protocol/coding-agent/terminal-hook.ts";
-import {
-  type AcpCliSession,
-  type AcpRewindPreview,
-  type AcpTabHandlers,
-  type AcpTabRequest,
-  type AcpTerminal,
-  type GuiHarness,
-  isGuiHarness,
-} from "../../protocol/acp/gui-session.ts";
-import { AGENT_CREDENTIAL_FILE_ENV } from "../../protocol/coding-agent/headless/env.ts";
 import {
   SESSION_ENV_NAME,
   terminalSessionId,
@@ -84,7 +85,11 @@ export type TabGuiDeps = {
   member?(
     terminalRef: string,
     harness: GuiHarness,
-  ): { credentialFile: string | null; deny: readonly string[] } | null;
+  ): {
+    credentialFile: string | null;
+    deny: readonly string[];
+    launch?: HarnessLaunchConfig;
+  } | null;
   log(message: string): void;
   /** handle이 열리거나 닫히거나, view나 그 session의 상태(title, turn phase)가 바뀌었다. coding session 목록을 다시 만든다. */
   changed?(): void;
@@ -314,6 +319,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         harness,
         ...(resume === undefined ? {} : { resume }),
         ...(args === undefined ? {} : { args }),
+        ...(member?.launch === undefined ? {} : { launch: member.launch }),
         ...(member === null ? {} : { member: { deny: member.deny } }),
       };
       await handlers.gui(request);

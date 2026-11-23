@@ -2,11 +2,8 @@
 // HTTP+SSE API를 손으로 짠 client로 말한다(`@opencode/client`는 쓰지 않는다: effect에 기대고 OpenCode 판 하나에 묶인다).
 // 탭마다 server 하나를 띄우고(`--stdio`: stdin을 쥐고 있는 동안이 server의 lease) GUI와 TUI(`opencode --server <url>`)가 같이 붙는다.
 // server event를 ACP 갱신으로, 창의 ACP 입력을 API 호출로 옮긴다. 권한은 사람의 OpenCode 설정을 따른다(ask 규칙이 없으면 승인 카드는 뜨지 않는다).
-import {
-  PERSON_SHELL_PREFIX,
-  withoutPersonShell,
-} from "../../protocol/coding-agent/headless/env.ts";
-import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
+
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import { homedir, tmpdir } from "node:os";
@@ -20,6 +17,13 @@ import {
   type AcpToolBody,
   type AcpToolItem,
 } from "../../protocol/acp/items.ts";
+import type {
+  CliProcess,
+  CliSpawn,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/mod.ts";
+import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type {
   AcpCommand,
@@ -35,6 +39,10 @@ import type {
   AcpUpdate,
 } from "../../protocol/acp/state.ts";
 import type { AcpApprovalSubject } from "../../protocol/approvals/gate-call.ts";
+import {
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "../../protocol/coding-agent/credential-env.ts";
 import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
 import { swapQueued } from "./queue.ts";
@@ -341,6 +349,14 @@ export type OpencodeDeps = {
    * server의 `GET /api/command`는 template을 주지 않아서 인자를 받는 명령인지는 file에서 읽는다.
    */
   readCommandTemplates(dirs: string[]): Promise<Map<string, string>>;
+  /** `fetchCatalog`가 임시 server에 거는 password. 기본은 무작위 UUID다. */
+  newPassword?(): string;
+};
+
+export type { HarnessCatalogResult, HarnessLaunchConfig };
+export type OpencodeAdapter = HarnessGuiAdapter & {
+  catalogScope: "workspace";
+  enforcesDeny: false;
 };
 
 const realDeps: OpencodeDeps = {
@@ -521,6 +537,144 @@ const modelKey = (ref: Json) => `${str(ref.providerID)}/${str(ref.id)}`;
 const variantOf = (ref: Json) =>
   str(ref.variant) === "default" ? "" : str(ref.variant);
 
+// server의 model 목록을 picker 묶음으로 옮긴다. variant가 있는 model만 `variant` 축을 갖는다.
+function groupModels(models: Json[]) {
+  const groups = new Map<string, AcpModelGroup>();
+  const contextLimit = new Map<string, number>();
+  const modelNames = new Map<string, string>();
+  for (const model of models) {
+    if (model.enabled === false) continue;
+    const provider = str(model.providerID);
+    const key = `${provider}/${str(model.modelID) || str(model.id)}`;
+    const variants = arr(model.variants)
+      .map((one) => str(rec(one).id))
+      .filter((one) => one !== "");
+    let group = groups.get(provider);
+    if (group === undefined) {
+      group = { id: provider, label: provider, models: [] };
+      groups.set(provider, group);
+    }
+    group.models.push({
+      id: key,
+      label: str(model.name) || key,
+      axes:
+        variants.length === 0
+          ? []
+          : [
+              {
+                id: "variant",
+                label: "Variant",
+                kind: "choice" as const,
+                values: variants.map((value) => ({ value, label: value })),
+              },
+            ],
+    });
+    modelNames.set(key, str(model.name) || key);
+    contextLimit.set(key, Number(rec(model.limit).context) || 0);
+  }
+  return { groups: [...groups.values()], contextLimit, modelNames };
+}
+
+type Server = {
+  proc: CliProcess;
+  url: string;
+  exited: Promise<void>;
+  alive(): boolean;
+  stderr(): string;
+};
+
+/** `opencode serve --stdio`를 띄우고 첫 줄 `{"url": …}`까지 기다린다. `signal`이 서면 process를 끈다. */
+async function launchServer(input: {
+  spawn: CliSpawn;
+  cwd: string | undefined;
+  password: string;
+  args: readonly string[];
+  signal?: AbortSignal;
+}): Promise<Result<Server>> {
+  // env는 extension spawner(`nodeSpawn`)가 login shell env < 여기서 넘기는 env 순으로 합친다. 여기서는 바꾸는 칸만 넘긴다.
+  const proc = input.spawn(
+    "opencode",
+    ["serve", "--stdio", "--port", "0", ...input.args],
+    {
+      ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
+      env: { OPENCODE_PASSWORD: input.password },
+    },
+  );
+  if (proc.pid === undefined) {
+    return {
+      ok: false,
+      error: {
+        code: "unavailable",
+        message: "`opencode` was not found on PATH.",
+      },
+    };
+  }
+  let stderrTail = "";
+  proc.onStderr((text) => {
+    stderrTail = (stderrTail + text).slice(-500);
+  });
+  // 끝난 process에는 kill을 보내지 않는다.
+  let alive = true;
+  const exited = new Promise<void>((resolve) =>
+    proc.onExit(() => {
+      alive = false;
+      resolve();
+    }),
+  );
+  const stop = () => {
+    proc.end();
+    proc.kill();
+  };
+  input.signal?.addEventListener("abort", stop, { once: true });
+  // server가 첫 줄에 `{"url": …}`를 쓰면 준비된 것이다.
+  const url = await new Promise<string | null>((resolve) => {
+    let buffer = "";
+    let settled = false;
+    const timer = setTimeout(() => finish(null), 20_000);
+    const finish = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    proc.onStdout((text) => {
+      if (settled) return;
+      buffer += text;
+      const line = buffer.split("\n").find((one) => one.startsWith("{"));
+      if (line === undefined) return;
+      try {
+        finish(str((JSON.parse(line) as Json).url) || null);
+      } catch {
+        finish(null);
+      }
+    });
+    proc.onExit(() => finish(null));
+  });
+  input.signal?.removeEventListener("abort", stop);
+  if (url === null) {
+    stop();
+    return {
+      ok: false,
+      error: {
+        code: "unavailable",
+        message: redactCredentials(
+          `OpenCode did not start.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+        ),
+      },
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      proc,
+      url,
+      exited,
+      alive: () => alive,
+      stderr: () => stderrTail,
+    },
+  };
+}
+
 // --- adapter ------------------------------------------------------------------------------------------------------------
 
 // 대화 한 줄기. 부모 session 하나와 subagent 자식마다 하나씩이고, 갱신을 내는 길만 다르다(자식은 `child_update`로 싼다).
@@ -621,12 +775,14 @@ type Approval = {
 
 type Form = { id: string; session: string; fields: Json[]; call: Call };
 
-export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
+export function createOpencodeAdapter(deps: OpencodeDeps): OpencodeAdapter {
   const start: HarnessGuiAdapter["start"] = async ({
     cwd,
     resume,
+    forkFrom,
     args: givenArgs,
     carry,
+    launch,
     member,
     session,
     spawn,
@@ -665,77 +821,18 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       }
     }
     const password = ids.newId("pwd");
-    // env는 extension spawner(`nodeSpawn`)가 login shell env < 여기서 넘기는 env 순으로 합친다. 여기서는 바꾸는 칸만 넘긴다.
-    const proc = spawn(
-      "opencode",
-      ["serve", "--stdio", "--port", "0", ...serverArgs],
-      {
-        cwd,
-        env: { OPENCODE_PASSWORD: password },
-      },
-    );
-    if (proc.pid === undefined) {
-      return {
-        ok: false,
-        error: {
-          code: "unavailable",
-          message: "`opencode` was not found on PATH.",
-        },
-      } satisfies Result<never>;
-    }
+    const launched = await launchServer({
+      spawn,
+      cwd,
+      password,
+      args: serverArgs,
+    });
+    if (!launched.ok) return launched;
+    const server = launched.value;
+    const { proc, url, exited } = server;
 
     let closed = false;
     let dead: { code: string; message: string } | null = null;
-    let stderrTail = "";
-    proc.onStderr((text) => {
-      stderrTail = (stderrTail + text).slice(-500);
-    });
-    // 끝난 process에는 kill을 보내지 않는다.
-    let alive = true;
-    const exited = new Promise<void>((resolve) =>
-      proc.onExit(() => {
-        alive = false;
-        resolve();
-      }),
-    );
-
-    // server가 첫 줄에 `{"url": …}`를 쓰면 준비된 것이다.
-    const url = await new Promise<string | null>((resolve) => {
-      let buffer = "";
-      let settled = false;
-      const timer = setTimeout(() => finish(null), 20_000);
-      const finish = (value: string | null) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(value);
-      };
-      proc.onStdout((text) => {
-        if (settled) return;
-        buffer += text;
-        const line = buffer.split("\n").find((one) => one.startsWith("{"));
-        if (line === undefined) return;
-        try {
-          finish(str((JSON.parse(line) as Json).url) || null);
-        } catch {
-          finish(null);
-        }
-      });
-      proc.onExit(() => finish(null));
-    });
-    if (url === null) {
-      proc.end();
-      proc.kill();
-      return {
-        ok: false,
-        error: {
-          code: "unavailable",
-          message: redactCredentials(
-            `OpenCode did not start.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
-          ),
-        },
-      } satisfies Result<never>;
-    }
 
     let secret: SecretFile;
     try {
@@ -1923,39 +2020,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
             ])
             .catch(() => new Map<string, string>()),
         ]);
-      const groups = new Map<string, AcpModelGroup>();
-      contextLimit = new Map();
-      modelNames = new Map();
-      for (const model of models.map(rec)) {
-        if (model.enabled === false) continue;
-        const provider = str(model.providerID);
-        const key = `${provider}/${str(model.modelID) || str(model.id)}`;
-        const variants = arr(model.variants)
-          .map((one) => str(rec(one).id))
-          .filter((one) => one !== "");
-        let group = groups.get(provider);
-        if (group === undefined) {
-          group = { id: provider, label: provider, models: [] };
-          groups.set(provider, group);
-        }
-        group.models.push({
-          id: key,
-          label: str(model.name) || key,
-          axes:
-            variants.length === 0
-              ? []
-              : [
-                  {
-                    id: "variant",
-                    label: "Variant",
-                    kind: "choice" as const,
-                    values: variants.map((value) => ({ value, label: value })),
-                  },
-                ],
-        });
-        modelNames.set(key, str(model.name) || key);
-        contextLimit.set(key, Number(rec(model.limit).context) || 0);
-      }
+      const grouped = groupModels(models.map(rec));
+      contextLimit = grouped.contextLimit;
+      modelNames = grouped.modelNames;
       const ref = rec(current.model);
       const selected =
         str(ref.id) === ""
@@ -2009,7 +2076,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         title: str(current.title) || null,
         cli_session: sessionId,
         capabilities: CAPABILITIES,
-        models: [...groups.values()],
+        models: grouped.groups,
         model:
           str(selected.id) === ""
             ? null
@@ -2830,6 +2897,42 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       }
     }
 
+    // 처음 연 session에 launch bundle의 model과 effort(variant)를 싣는다. 우선순위는 carry > launch이고,
+    // 이 adapter는 model flag를 읽지 않아 명시 flag 층은 없다. 이어 연 session은 server가 model을 기억하니 carry가 말할 때만 바꾼다.
+    async function applyLaunch(resumed: boolean) {
+      const model = carry?.model ?? launch?.model;
+      const effort =
+        carry?.effort ?? launch?.options?.variant ?? launch?.options?.effort;
+      if (model === undefined && effort === undefined) return;
+      const fromCarry =
+        carry?.model !== undefined || carry?.effort !== undefined;
+      if (resumed && !fromCarry) return;
+      try {
+        let ref: Json;
+        if (model !== undefined) {
+          const slash = model.indexOf("/");
+          if (slash <= 0)
+            throw new Error(`"${model}" is not a provider/model id.`);
+          ref = {
+            providerID: model.slice(0, slash),
+            id: model.slice(slash + 1),
+          };
+        } else {
+          // effort만 있으면 server의 기본 model에 variant를 건다.
+          const fallback = await api.defaultModel();
+          ref = {
+            providerID: str(fallback.providerID),
+            id: str(fallback.modelID) || str(fallback.id),
+          };
+          if (str(ref.id) === "") return;
+        }
+        if (effort !== undefined && effort !== "") ref.variant = effort;
+        await api.switchModel(sessionId, { model: ref });
+      } catch (cause) {
+        info(`Could not apply the launch model: ${message(cause)}`, "warning");
+      }
+    }
+
     // --- 시작 ---
 
     const failure = (reason: string) => {
@@ -2837,14 +2940,16 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       dead = {
         code: "unavailable",
         message: redactCredentials(
-          stderrTail === "" ? reason : `${reason}\n${stderrTail.trim()}`,
+          server.stderr() === ""
+            ? reason
+            : `${reason}\n${server.stderr().trim()}`,
         ),
       };
       endTurn(main, "failed", dead);
       // 다시 구독을 포기했는데 process가 산 채면 server를 끈다(shared handoff의 TUI도 같이 끝난다).
       clearTimeout(retry);
       events?.close();
-      if (alive) {
+      if (server.alive()) {
         proc.end();
         proc.kill();
       }
@@ -2882,7 +2987,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         (cause) => {
           if (closed || dead !== null) return;
           failures += 1;
-          if (!alive || failures >= RECONNECT_GIVE_UP) {
+          if (!server.alive() || failures >= RECONNECT_GIVE_UP) {
             failure(cause.message);
             return;
           }
@@ -2932,10 +3037,19 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
             return false;
           },
         );
-      if (!resumed)
+      let forked = false;
+      if (!resumed && forkFrom !== undefined) {
+        const next = await api.fork(forkFrom, {}).catch(() => null);
+        if (next !== null && str(next.id) !== "") {
+          sessionId = str(next.id);
+          forked = true;
+        }
+      }
+      if (!resumed && !forked)
         sessionId = str(
           (await api.create({ location: { directory: cwd } })).id,
         );
+      await applyLaunch(resumed);
       publishMeta(await loadMeta());
       if (version !== RECORDED_OPENCODE_VERSION && version !== "")
         info(
@@ -3023,8 +3137,83 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     };
   };
 
+  async function fetchCatalog(options: {
+    cwd?: string;
+    spawn: CliSpawn;
+    signal: AbortSignal;
+  }): Promise<Result<HarnessCatalogResult>> {
+    const aborted = {
+      ok: false,
+      error: {
+        code: "unavailable",
+        message: "The model list read was aborted.",
+      },
+    } satisfies Result<never>;
+    if (options.signal.aborted) return aborted;
+    const password = (deps.newPassword ?? randomUUID)();
+    const launched = await launchServer({
+      spawn: options.spawn,
+      cwd: options.cwd,
+      password,
+      args: [],
+      signal: options.signal,
+    });
+    if (!launched.ok) return launched;
+    const { proc, url, exited } = launched.value;
+    const stop = () => {
+      proc.end();
+      proc.kill();
+    };
+    options.signal.addEventListener("abort", stop, { once: true });
+    try {
+      // session을 만들지 않는다: 읽기만 해서 사람의 OpenCode 기록에 흔적이 남지 않는다.
+      const api = createApi(deps.connect({ url, password }));
+      const [models, fallback] = await Promise.all([
+        api.models(),
+        api.defaultModel().catch((): Json => ({})),
+      ]);
+      if (options.signal.aborted) return aborted;
+      const defaultId = str(fallback.modelID) || str(fallback.id);
+      return {
+        ok: true,
+        value: {
+          models: groupModels(models.map(rec)).groups,
+          defaults: {
+            model:
+              defaultId === ""
+                ? null
+                : modelKey({ providerID: fallback.providerID, id: defaultId }),
+            options: {},
+          },
+        },
+      };
+    } catch (cause) {
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message: `OpenCode did not list its models: ${message(cause)}`,
+        },
+      };
+    } finally {
+      options.signal.removeEventListener("abort", stop);
+      stop();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        exited,
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, 5000);
+        }),
+      ]);
+      clearTimeout(timer);
+    }
+  }
+
   return {
     handoff: GUI_HANDOFF.opencode,
+    catalogScope: "workspace",
+    enforcesDeny: false,
+    fetchCatalog,
     start,
     // TUI의 `/exit`(slash 명령 `app.exit`, 별칭 quit·q)다. 키(ctrl+c·ctrl+d)는 입력 상태에 따라 다른 뜻이라 쓰지 않는다.
     // 초안이 남아 있거나 dialog가 열려 있어 끝나지 않으면 호출한 쪽의 시간 제한이 오류로 알린다.

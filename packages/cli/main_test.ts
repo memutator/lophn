@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, test } from "node:test";
 
 // 제품 판은 root package.json 하나다. identify가 알리는 판도 같다.
 import productPackage from "../../package.json" with { type: "json" };
@@ -170,6 +173,10 @@ function fakeFetch(plan: FetchPlan): { fetch: RpcFetch; calls: FetchCall[] } {
 const HOME = "/fake-home";
 const USER_TOKEN = "user-token-secret";
 const AGENT_TOKEN = "agent-token-secret";
+const AGENT_CREDENTIAL_DIR = mkdtempSync(join(tmpdir(), "lophn-cli-cred-"));
+const AGENT_CREDENTIAL_FILE = join(AGENT_CREDENTIAL_DIR, "cred");
+writeFileSync(AGENT_CREDENTIAL_FILE, AGENT_TOKEN, "utf8");
+after(() => rmSync(AGENT_CREDENTIAL_DIR, { recursive: true, force: true }));
 const RUN_ID = "run_00000000000000000000000000";
 const CORE_A = "http://127.0.0.1:51001";
 const CORE_B = "http://127.0.0.1:51002";
@@ -226,7 +233,7 @@ const cases: readonly Case[] = [
   {
     name: "agent 자격은 identify가 알린 core에만 그 자격으로 보낸다",
     argv: ["run", "show", RUN_ID],
-    env: { LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN },
+    env: { LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE },
     control: { identify: { apiUrl: CORE_A } },
     fetch: { status: 200, body: runReply(`echo ${AGENT_TOKEN}`) },
     expect: {
@@ -242,7 +249,7 @@ const cases: readonly Case[] = [
     name: "agent 자격의 명시 주소가 같은 core면 그 이름으로 부른다",
     argv: ["run", "show", RUN_ID],
     env: {
-      LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN,
+      LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE,
       LOPHN_DAEMON_URL: "http://localhost:51001",
     },
     control: { identify: { apiUrl: CORE_A } },
@@ -258,7 +265,7 @@ const cases: readonly Case[] = [
     name: "agent 자격의 명시 주소가 다른 core면 자격을 보내지 않는다",
     argv: ["run", "show", RUN_ID],
     env: {
-      LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN,
+      LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE,
       LOPHN_DAEMON_URL: CORE_B,
     },
     control: { identify: { apiUrl: CORE_A } },
@@ -267,14 +274,14 @@ const cases: readonly Case[] = [
   {
     name: "core가 없으면 agent 자격으로 user connect를 하지 않는다",
     argv: ["run", "show", RUN_ID],
-    env: { LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN },
+    env: { LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE },
     control: {},
     expect: { exit: 5, calls: ["identify"], secret: AGENT_TOKEN },
   },
   {
     name: "agent 자격이 거절돼도 user 자격을 받지 않는다",
     argv: ["run", "show", RUN_ID],
-    env: { LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN },
+    env: { LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE },
     control: { identify: { apiUrl: CORE_A } },
     fetch: {
       status: 401,
@@ -347,7 +354,7 @@ const cases: readonly Case[] = [
   {
     name: "core stop은 agent 문맥에서 forbidden이다",
     argv: ["core", "stop"],
-    env: { LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN },
+    env: { LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE },
     control: { stop: "ok" },
     expect: { exit: 3, calls: [], secret: AGENT_TOKEN },
   },
@@ -597,7 +604,7 @@ test("agent 자격의 call send --on은 calls/send_remote로 가고, 다른 명�
     "laptop",
   ];
   const sent = { call: CALL, state: "accepted", fail_reason: null };
-  const agent = { LOPHN_AGENT_CREDENTIAL: AGENT_TOKEN };
+  const agent = { LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE };
 
   // machines/call을 거치지 않은 요청은 body에 resource·method가 없어 그 key로 답한다.
   const direct = machineFetch({ "undefined/undefined": sent });

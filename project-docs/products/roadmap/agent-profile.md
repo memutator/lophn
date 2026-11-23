@@ -22,9 +22,8 @@
 
 - **`avatar`는 그림 칸이다.** `{kind: "character", shape, color}`나 `{kind: "image", image}`이고 기본은 arch·sage다(`packages/protocol/lophn-agent/agent-avatar.ts`). 옛 이름 `profile`은 0.23.126에서 바뀌었다(data step `agents.avatar`).
 - **정의의 칸**(`packages/protocol/lophn-agent/agent-values.ts`): handle, name, workspace, avatar, runtime, description, tools, skills, modality, model, skills_off, mcp_off, mcp_servers, apps, remote_apps, extensions, permissions, skip, 본문. 사람만 쓰는 칸은 mcp_servers, apps, remote_apps, extensions, permissions, skip이다. 정의 file은 `<data>/agents/<id>.md`다.
-- **runtime은 다섯이다.** `AGENT_RUNTIMES = ["lophn", "custom", "claude-code", "codex", "opencode"]`(`agent-values.ts:151-153`). harness 값은 `extensions.harness.enabled`가 켜졌을 때만 편집기에 나온다(`:163-167`).
-- **headless harness에 넘어가는 것은 넷이다.** `args({prompt, sessionId, forkFrom, deny})`(`packages/protocol/coding-agent/headless/types.ts`). model, effort, mode가 없어 그 CLI의 기본 설정으로 돈다.
-- **runtime마다 안 먹는 칸.** harness runtime은 model, skill, tool, MCP, memory를 쓰지 않는다. custom은 전역·workspace 지침과 memory, `skills_off`를 쓰지 않는다(`architecture/agent-definition.md`).
+- **runtime과 `harness_config` (완료, 2026-11-23):** 5종 harness(`claude-code`, `codex`, `opencode`, `omp`, `antigravity`) 모두 단일 상주 어댑터(`tab`·`background` 모드)와 `harness_config` (`model`·`options`)를 지원하며, daemon-level `HarnessCatalogManager`가 lazy probe·passive warming·disk cache로 모델·축을 제공하고, 편집기 `Runs on`이 즐겨찾기 연동 runtime 선택과 `HarnessModelField`를 제공한다. 구 일회성 headless 실행기(`claude -p`, `codex exec`, `opencode run`)는 제거했다.
+- **runtime마다 안 먹는 칸.** harness runtime은 lophn `model`, skill, tool, MCP, memory를 쓰지 않는다(`harness_config`를 쓴다). custom은 전역·workspace 지침과 memory, `skills_off`를 쓰지 않는다(`architecture/agent-definition.md`).
 - **편집기는 7탭이다**: General, Runtime, Instructions, Skills, Memory, Tools, Grants(`packages/shell/renderer/workspace/agents/editor/`).
 - **설정 자리가 넷이다**: Settings › Agents(전역 model, 전역 지침, call 정책), workspace의 Agents 탭(workspace 층과 agent 목록), 편집기, session(model, skip).
 - **새 session 메뉴**(`packages/shell/renderer/shell/agent-sections.tsx`): lophn agents와 Coding agents 두 줄이다. Coding agents는 터미널 TUI를 연다. 내장 `coding_*` agent는 이 메뉴에 없고 Agents 탭의 Coding agents 절에만 있다.

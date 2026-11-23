@@ -2,7 +2,7 @@
 // 창의 ACP 입력을 ACP 요청으로 옮긴다. agy는 승인(`session/request_permission`)과 질문(`elicitation/create`)을 우리에게 요청으로
 // 보내므로 사람이 정하기 전에는 답하지 않는다. 판은 사람 기계의 1.5.9(녹화 fixtures/antigravity)에 맞춘다.
 // agy의 대화 id(`sessionId`)가 TUI의 conversation id라 `agy --conversation <id>`로 같은 대화를 잇는다. 사람의 `~/.gemini`는 읽기만 한다.
-import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
+
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
@@ -16,19 +16,32 @@ import {
   type AcpToolItem,
 } from "../../protocol/acp/items.ts";
 import type {
+  AcpCliSession,
+  AcpTerminal,
+  CliSpawn,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/mod.ts";
+import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
+import type {
   AcpCommand,
+  AcpModelGroup,
   AcpSessionMeta,
   AcpUsage,
 } from "../../protocol/acp/session.ts";
 import type { AcpUpdate } from "../../protocol/acp/state.ts";
 import type { AcpApprovalSubject } from "../../protocol/approvals/gate-call.ts";
-import type { AcpCliSession, AcpTerminal } from "../../protocol/acp/mod.ts";
 import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
 import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyReceived, type ReceivedText } from "./received.ts";
 
+export type { HarnessCatalogResult, HarnessLaunchConfig };
 type Start = HarnessGuiAdapter["start"];
+export type AntigravityAdapter = HarnessGuiAdapter & {
+  catalogScope: "global";
+  enforcesDeny: false;
+};
 
 /** adapter가 파일 시스템에 닿는 길. 이미지 첨부를 읽고 agy 대화 file이 있는지만 본다. 쓰는 길은 없다. test가 바꾼다. */
 export type AntigravityIo = {
@@ -200,6 +213,94 @@ const AGY_ACP_VALUE_FLAGS = new Set([
   "--ide_mcp_port",
 ]);
 
+function parseConfigs(list: unknown): Config[] {
+  if (!Array.isArray(list)) return [];
+  return list.map(rec).flatMap((one) => {
+    const options = arr(one.options).flatMap((option) => {
+      const inner = rec(option);
+      const flat = Array.isArray(inner.options) ? inner.options : [inner];
+      return flat.map(rec).map((it) => ({
+        value: str(it.value),
+        name: str(it.name) || str(it.value),
+        description: str(it.description) || null,
+      }));
+    });
+    return str(one.id) === ""
+      ? []
+      : [{ id: str(one.id), current: str(one.currentValue), options }];
+  });
+}
+
+// 모델마다 thinking 단계가 있는지는 session/new의 legacy id(`gemini-3.8-flash-low`)에서 읽고, 지금 모델은 thought_level 칸이 맞다.
+function effortsOf(
+  configs: readonly Config[],
+  legacy: readonly string[],
+  model: string,
+): Opt[] {
+  const seen = legacy.flatMap((id) =>
+    id.startsWith(`${model}-`) &&
+    EFFORT_ORDER.includes(id.slice(model.length + 1))
+      ? [id.slice(model.length + 1)]
+      : [],
+  );
+  if (seen.length > 0) {
+    return EFFORT_ORDER.filter((one) => seen.includes(one)).map((one) => ({
+      value: one,
+      name: capital(one),
+      description: null,
+    }));
+  }
+  const now = configs.find((one) => one.id === "model")?.current ?? "";
+  return model === now
+    ? (configs.find((one) => one.id === "thought_level")?.options ?? [])
+    : [];
+}
+
+function modelGroupsOf(
+  configs: readonly Config[],
+  legacy: readonly string[],
+): AcpModelGroup[] {
+  const model = configs.find((one) => one.id === "model");
+  if (model === undefined) return [];
+  return [
+    {
+      id: "antigravity",
+      label: "Antigravity",
+      models: model.options.map((one) => {
+        const levels = effortsOf(configs, legacy, one.value);
+        return {
+          id: one.value,
+          label: one.name,
+          axes:
+            levels.length === 0
+              ? []
+              : [
+                  {
+                    id: "effort",
+                    label: "Thinking",
+                    kind: "choice" as const,
+                    values: levels.map((level) => ({
+                      value: level.value,
+                      label: level.name,
+                    })),
+                  },
+                ],
+        };
+      }),
+    },
+  ];
+}
+
+const initParams = () => ({
+  protocolVersion: 1,
+  clientCapabilities: {
+    fs: { readTextFile: false, writeTextFile: false },
+    terminal: false,
+    elicitation: { form: {} },
+  },
+  clientInfo: { name: "lophn", version: CLIENT_VERSION },
+});
+
 function parseAgyArgs(raw: readonly string[]) {
   const acpArgs: string[] = [];
   const tuiRest: string[] = [];
@@ -264,6 +365,7 @@ const start: (io: AntigravityIo) => Start =
     resume,
     args: givenArgs,
     carry,
+    launch,
     session,
     spawn,
     clock,
@@ -1315,42 +1417,11 @@ const start: (io: AntigravityIo) => Start =
     // --- 설정과 meta ---
     function applyConfigs(list: unknown) {
       if (!Array.isArray(list)) return;
-      configs = list.map(rec).flatMap((one) => {
-        const options = arr(one.options).flatMap((option) => {
-          const inner = rec(option);
-          const flat = Array.isArray(inner.options) ? inner.options : [inner];
-          return flat.map(rec).map((it) => ({
-            value: str(it.value),
-            name: str(it.name) || str(it.value),
-            description: str(it.description) || null,
-          }));
-        });
-        return str(one.id) === ""
-          ? []
-          : [{ id: str(one.id), current: str(one.currentValue), options }];
-      });
+      configs = parseConfigs(list);
     }
     const cfg = (id: string) => configs.find((one) => one.id === id);
     const modelNow = () => cfg("model")?.current ?? "";
     const modeNow = () => cfg("mode")?.current ?? null;
-
-    // 모델마다 thinking 단계가 있는지는 session/new의 legacy id(`gemini-3.8-flash-low`)에서 읽고, 지금 모델은 thought_level 칸이 맞다.
-    function efforts(model: string): Opt[] {
-      const seen = legacy.flatMap((id) =>
-        id.startsWith(`${model}-`) &&
-        EFFORT_ORDER.includes(id.slice(model.length + 1))
-          ? [id.slice(model.length + 1)]
-          : [],
-      );
-      if (seen.length > 0) {
-        return EFFORT_ORDER.filter((one) => seen.includes(one)).map((one) => ({
-          value: one,
-          name: capital(one),
-          description: null,
-        }));
-      }
-      return model === modelNow() ? (cfg("thought_level")?.options ?? []) : [];
-    }
 
     function usageOf(): AcpUsage | null {
       if (context === null && totals === null) return null;
@@ -1420,36 +1491,7 @@ const start: (io: AntigravityIo) => Start =
           shell: false,
           resume: true,
         },
-        models:
-          model === undefined
-            ? []
-            : [
-                {
-                  id: "antigravity",
-                  label: "Antigravity",
-                  models: model.options.map((one) => {
-                    const levels = efforts(one.value);
-                    return {
-                      id: one.value,
-                      label: one.name,
-                      axes:
-                        levels.length === 0
-                          ? []
-                          : [
-                              {
-                                id: "effort",
-                                label: "Thinking",
-                                kind: "choice" as const,
-                                values: levels.map((level) => ({
-                                  value: level.value,
-                                  label: level.name,
-                                })),
-                              },
-                            ],
-                    };
-                  }),
-                },
-              ],
+        models: modelGroupsOf(configs, legacy),
         model:
           model === undefined
             ? null
@@ -1567,16 +1609,6 @@ const start: (io: AntigravityIo) => Start =
       return reviving;
     }
     const alive = async () => (exited ? await revive() : null);
-
-    const initParams = () => ({
-      protocolVersion: 1,
-      clientCapabilities: {
-        fs: { readTextFile: false, writeTextFile: false },
-        terminal: false,
-        elicitation: { form: {} },
-      },
-      clientInfo: { name: "lophn", version: CLIENT_VERSION },
-    });
 
     // --- 입력 ---
     // 같은 글(이미지 뒤의 글 한 덩이)을 agy에 준다. 앱 context와 이미지 아닌 file도 글이다.
@@ -1940,13 +1972,21 @@ const start: (io: AntigravityIo) => Start =
     }
     started = true;
     // launch flag로 준 --model·--effort·--mode는 ACP session이 열린 뒤 config option으로 적용한다.
+    // 우선순위는 명시 flag > carry > launch bundle이다. 이어 연 대화는 agy가 model을 기억하니 launch는 새 대화에만 건다.
+    const fresh = !(resume !== undefined && sessionId === resume);
+    const launchModel =
+      parsedArgs.model ?? carry?.model ?? (fresh ? launch?.model : undefined);
+    const launchEffort =
+      parsedArgs.effort ??
+      carry?.effort ??
+      (fresh ? launch?.options?.effort : undefined);
     const initialConfigs: [
       string,
       string | undefined,
       "model" | "thought" | "mode",
     ][] = [
-      ["model", parsedArgs.model, "model"],
-      ["thought_level", parsedArgs.effort, "thought"],
+      ["model", launchModel, "model"],
+      ["thought_level", launchEffort, "thought"],
       ["mode", parsedArgs.mode, "mode"],
     ];
     for (const [configId, value, track] of initialConfigs) {
@@ -2076,9 +2116,136 @@ const start: (io: AntigravityIo) => Start =
     return { ok: true, value: run };
   };
 
-export function createAntigravityAdapter(io: AntigravityIo): HarnessGuiAdapter {
+/**
+ * `agy acp`를 잠깐 띄워 `initialize`와 `session/new`의 configOptions(model, thought_level)를 읽고 끈다.
+ * prompt를 보내지 않은 대화는 file이 남지 않는다(adapter의 "저장되지 않은 대화"와 같다). 그래도 `session/close`로 닫는다.
+ */
+async function fetchAgyCatalog(
+  io: AntigravityIo,
+  options: { cwd?: string; spawn: CliSpawn; signal: AbortSignal },
+): Promise<Result<HarnessCatalogResult>> {
+  const fail = (message: string) =>
+    ({ ok: false, error: { code: "unavailable", message } }) as const;
+  if (options.signal.aborted) return fail("The model list read was aborted.");
+  const proc = options.spawn(
+    "agy",
+    ["acp"],
+    options.cwd === undefined ? {} : { cwd: options.cwd },
+  );
+  if (proc.pid === undefined) return fail("`agy` was not found on PATH.");
+
+  let stderrTail = "";
+  proc.onStderr((text) => {
+    stderrTail = (stderrTail + text).slice(-500);
+  });
+  const tail = () =>
+    stderrTail === "" ? "" : `\n${redactCredentials(stderrTail.trim())}`;
+  const waiting = new Map<number, (reply: Reply) => void>();
+  let exited = false;
+  const gone = new Promise<void>((resolve) =>
+    proc.onExit(() => {
+      exited = true;
+      for (const answer of waiting.values())
+        answer({ ok: false, error: "agy exited" });
+      waiting.clear();
+      resolve();
+    }),
+  );
+  let buffer = "";
+  proc.onStdout((text) => {
+    buffer += text;
+    for (let at = buffer.indexOf("\n"); at >= 0; at = buffer.indexOf("\n")) {
+      const line = buffer.slice(0, at);
+      buffer = buffer.slice(at + 1);
+      let msg: unknown;
+      try {
+        msg = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      // agy가 우리에게 보내는 요청과 알림은 이 읽기에 필요 없다.
+      if (!isRec(msg) || typeof msg.method === "string") continue;
+      if (typeof msg.id !== "number") continue;
+      const answer = waiting.get(msg.id);
+      if (answer === undefined) continue;
+      waiting.delete(msg.id);
+      if (msg.error !== undefined) {
+        answer({
+          ok: false,
+          error: redactCredentials(str(rec(msg.error).message) || "agy failed"),
+        });
+      } else answer({ ok: true, data: rec(msg.result) });
+    }
+  });
+  let counter = 0;
+  const request = (method: string, params: Json) =>
+    new Promise<Reply>((resolve) => {
+      if (exited) return resolve({ ok: false, error: "agy exited" });
+      const id = ++counter;
+      waiting.set(id, resolve);
+      proc.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+    });
+
+  const stop = () => {
+    proc.end();
+    proc.kill();
+  };
+  options.signal.addEventListener("abort", stop, { once: true });
+  // 응답이 안 오는 agy가 붙들지 않게 시작부터 끝까지 한 기한이다.
+  const deadline = setTimeout(stop, REQUEST_WAIT_MS);
+  try {
+    const init = await request("initialize", initParams());
+    if (!init.ok) return fail(`\`agy\` did not start: ${init.error}${tail()}`);
+    const created = await request("session/new", {
+      cwd: options.cwd ?? io.home,
+      mcpServers: [],
+    });
+    if (options.signal.aborted) return fail("The model list read was aborted.");
+    if (!created.ok)
+      return fail(`agy did not open a session: ${created.error}${tail()}`);
+    const configs = parseConfigs(created.data.configOptions);
+    const legacy = arr(rec(created.data.models).availableModels).map((one) =>
+      str(rec(one).modelId),
+    );
+    await request("session/close", {
+      sessionId: str(created.data.sessionId),
+    });
+    const current = (id: string) =>
+      configs.find((one) => one.id === id)?.current ?? "";
+    const thought = current("thought_level");
+    return {
+      ok: true,
+      value: {
+        models: modelGroupsOf(configs, legacy),
+        defaults: {
+          model: current("model") || null,
+          options: thought === "" ? {} : { effort: thought },
+        },
+      },
+    };
+  } finally {
+    clearTimeout(deadline);
+    options.signal.removeEventListener("abort", stop);
+    stop();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      gone,
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, EXIT_WAIT_MS);
+      }),
+    ]);
+    clearTimeout(timer);
+  }
+}
+
+export function createAntigravityAdapter(
+  io: AntigravityIo,
+): AntigravityAdapter {
   return {
     handoff: GUI_HANDOFF.antigravity,
+    catalogScope: "global",
+    enforcesDeny: false,
+    fetchCatalog: (options) => fetchAgyCatalog(io, options),
     start: start(io),
     // TUI의 agy는 Ctrl+C를 두 번 눌러야 끝난다(첫 번은 입력을 지우거나 도는 일을 멈추고 안내만 낸다). foreground가 끝난 뒤에야
     // resolve해서 한 대화를 두 process가 같이 쥐지 않는다.

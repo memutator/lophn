@@ -18,6 +18,7 @@ import {
   AgentGrantsAppPage,
   AgentGrantsOtherComputerPage,
   AgentGrantsPage,
+  AgentHarnessRunsPage,
   AgentHarnessWorksPage,
   AgentImageUploadedPage,
   AgentImageUploadFailedPage,
@@ -279,8 +280,15 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-harness",
       title: "Agent settings · harness runtime",
       description:
-        "runtime이 harness(Codex)인 agent의 Overview. Runtime 줄에 OpenAI 아이콘이 붙고 Model, MCP servers, Tools, Skills, Memory 줄이 Uses its own이다. 칸을 숨기지 않아 왜 효과가 없는지 보인다.",
+        "runtime이 harness(Codex)인 agent의 Overview. Runtime 줄에 OpenAI 아이콘이 붙고 Model 줄에 지정한 model · effort(gpt-5.3-codex · High)가 보이며, MCP servers, Tools, Skills, Memory 줄이 Uses its own이다.",
       render: () => <AgentEditorHarnessPage />,
+    },
+    {
+      id: "agent-settings-harness-runs",
+      title: "Agent settings · harness runtime, Runs on",
+      description:
+        "harness agent의 Runs on 탭. 즐겨찾기한 coding agent만 기본 runtime 선택지에 나오고 나머지는 More harnesses로 고른다. Model 칸은 그 CLI catalog의 model과 effort 축, Use default, Refresh를 제공한다.",
+      render: () => <AgentHarnessRunsPage />,
     },
     {
       id: "agent-settings-harness-works",

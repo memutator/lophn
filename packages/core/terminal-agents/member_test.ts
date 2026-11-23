@@ -106,7 +106,6 @@ function setup() {
   const emptied: string[] = [];
   const takenSeen: string[][] = [];
   let ensured = 0;
-  let gate = true;
   const members: HarnessMembers = {
     ensure: async (input) => {
       ensured += 1;
@@ -114,7 +113,6 @@ function setup() {
       return ok(SESSION);
     },
     describe: (session) => rows.get(session) ?? null,
-    canOpen: () => gate,
     forget: async () => ok(0),
     failQueued: async (session) => {
       emptied.push(session);
@@ -134,8 +132,8 @@ function setup() {
         : new Promise((resolve) => {
             lateCredential = () => resolve(ok(issue()));
           }),
-    record: async (_session, turn, text) => {
-      answers.set(turn, text);
+    record: async (_session, turn, part) => {
+      if (part.kind === "text") answers.set(turn, part.text);
       return ok(undefined);
     },
     finish: async (turn, end) => {
@@ -308,9 +306,6 @@ function setup() {
     emptied,
     takenSeen,
     ensured: () => ensured,
-    gateOff: () => {
-      gate = false;
-    },
     failOpens: () => {
       opensFail = true;
     },
@@ -535,19 +530,6 @@ const turnStarted = (turn: string): AcpUpdate => ({
   type: "turn_started",
   turn,
   at,
-});
-
-// 결정 A: core가 coding agent CLI를 스스로 띄우는 것은 사람이 켠 설정이 있을 때뿐이다.
-test("with coding agents not allowed to start on their own, a call for a member with no tab opens nothing and fails back", async () => {
-  const kit = setup();
-  try {
-    kit.gateOff();
-    await kit.queueCall(1);
-    assert.deepEqual(kit.opens, []);
-    assert.deepEqual(kit.emptied, [SESSION]);
-  } finally {
-    kit.cleanup();
-  }
 });
 
 // 결정 B: core가 연 탭은 project마다 8개까지다. 아홉째는 열지 않고 실패로 돌려준다.

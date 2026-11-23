@@ -194,10 +194,9 @@ export function createSessionDirectory(
         spawnedBy: member?.parent ?? spawnedBy,
         // 앱이 불러 열린 session은 그 앱이 끝낼 수 있다.
         openedByApp: opener.kind === "app" ? opener.app : null,
-        // project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원으로 연다(core가 탭을 연다). 다른 곳은 headless다.
-        // 탭은 core가 열어야 하므로 사람이 coding agent를 lophn이 돌리게 켰을 때만 열린다(꺼져 있으면 unavailable).
+        // project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원으로 연다(core가 탭을 연다). 그 밖의 자리와 사람이 만든 harness agent는 background다.
         ...(isCodingBuiltin(agent.agent) && agent.workspace?.kind === "project"
-          ? { gui: "called" as const }
+          ? { tab: true as const }
           : {}),
         // 다른 컴퓨터의 mail이 연 session은 다른 컴퓨터로 보내지 못한다. 부른 workspace는 이 기계의 것이 아니라 남기지 않는다.
         openedByMachine: opener.kind === "remote" ? opener.machine : null,

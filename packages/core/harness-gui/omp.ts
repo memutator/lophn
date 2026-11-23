@@ -3,11 +3,7 @@
 // 뜨지 않는다). 이 run에서 `set_mode`로 바꾼 뒤에만 `--approval-mode`를 싣고 같은 session을 다시 띄운다.
 // 판은 사람 기계의 18.8.7에 맞춘다: plan mode와 승인 mode를 바꾸는 RPC, 승인의 "이 session 동안" 선택지가 없다.
 // `~/.omp` 설정(role, 승인 mode)은 읽기만 한다.
-import {
-  PERSON_SHELL_PREFIX,
-  withoutPersonShell,
-} from "../../protocol/coding-agent/headless/env.ts";
-import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
+
 import { open, readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
@@ -15,6 +11,7 @@ import { parse } from "yaml";
 import type { Clock } from "../../base/clock.ts";
 import { formatAt } from "../../base/clock.ts";
 import type { IdSource } from "../../base/id.ts";
+import type { Result } from "../../base/result.ts";
 import { redactCredentials } from "../../base/telemetry/log.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
 import {
@@ -25,10 +22,19 @@ import {
   type AcpToolDetail,
   type AcpToolItem,
 } from "../../protocol/acp/items.ts";
+import type {
+  AcpCliSession,
+  CliSpawn,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/mod.ts";
+import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type {
   AcpCommand,
   AcpGoal,
+  AcpModelAxis,
+  AcpModelGroup,
   AcpRole,
   AcpSessionMeta,
   AcpUsage,
@@ -39,17 +45,25 @@ import type {
   AcpTask,
   AcpUpdate,
 } from "../../protocol/acp/state.ts";
-import type { AcpCliSession } from "../../protocol/acp/mod.ts";
 import {
-  IMAGE_NOTE,
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "../../protocol/coding-agent/credential-env.ts";
+import {
   type ContentBlock,
+  IMAGE_NOTE,
 } from "../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
 import { replayImages } from "./images.ts";
 import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyReceived, type ReceivedText } from "./received.ts";
 
+export type { HarnessCatalogResult, HarnessLaunchConfig };
 type Start = HarnessGuiAdapter["start"];
+export type OmpAdapter = HarnessGuiAdapter & {
+  catalogScope: "global";
+  enforcesDeny: false;
+};
 
 /** adapter가 파일 시스템에 닿는 길. 이미지 첨부, omp 설정(role, 승인 mode), 지난 session 목록을 읽는다. 쓰는 길은 없다. test가 바꾼다. */
 export type OmpIo = {
@@ -945,8 +959,57 @@ const TASK_STATES: Record<Sub["state"], AcpTask["state"]> = {
 const noticeLevel = (level: string | undefined) =>
   level === "warning" || level === "error" ? "warning" : "info";
 
+// 전역 범위 slow(Anthropic)는 omp가 사람의 설정 file에 쓰므로 내지도 보내지도 않는다.
+const slowSupported = (st: State | null) =>
+  st?.slowModeSupported === true && st.slowModeScope === "session";
+const speedAxisOf = (st: State | null): AcpModelAxis => ({
+  id: "speed",
+  label: "Speed",
+  kind: "choice",
+  values: [
+    { value: "standard", label: "Standard" },
+    { value: "fast", label: "Fast" },
+    ...(slowSupported(st) ? [{ value: "slow", label: "Slow" }] : []),
+  ],
+});
+
+// 단계 목록은 지금 model의 것이다. 다른 model이 같은 단계를 갖는지는 골라 봐야 안다.
+// Speed는 ModelInfo에 tier 정보가 없어 지금 model에만 둔다.
+function modelGroupsOf(
+  models: readonly Model[],
+  levels: readonly string[],
+  currentId: string | null,
+  speed: AcpModelAxis,
+): AcpModelGroup[] {
+  const axis: AcpModelAxis = {
+    id: "effort",
+    label: "Thinking",
+    kind: "choice",
+    values: levels.map((value) => ({ value, label: value })),
+  };
+  const groups = new Map<string, Model[]>();
+  for (const model of models) {
+    groups.set(model.provider, [...(groups.get(model.provider) ?? []), model]);
+  }
+  return [...groups].map(([provider, list]) => ({
+    id: provider,
+    label: provider,
+    models: list.map((model) => ({
+      id: `${model.provider}/${model.id}`,
+      label: model.name ?? model.id,
+      axes: [
+        ...(model.reasoning === false || levels.length === 0 ? [] : [axis]),
+        ...(`${model.provider}/${model.id}` === currentId ? [speed] : []),
+      ],
+    })),
+  }));
+}
+
 function parseOmpArgs(raw: readonly string[]) {
   let approvalMode: string | null = null;
+  // launch bundle보다 앞서는 명시 flag.
+  let hasModel = false;
+  let hasThinking = false;
   const extra: string[] = [];
   for (let i = 0; i < raw.length; i += 1) {
     const token = raw[i]!;
@@ -979,9 +1042,12 @@ function parseOmpArgs(raw: readonly string[]) {
       }
       continue;
     }
+    if (token === "--model" || token.startsWith("--model=")) hasModel = true;
+    if (token === "--thinking" || token.startsWith("--thinking="))
+      hasThinking = true;
     extra.push(token);
   }
-  return { approvalMode, extra };
+  return { approvalMode, extra, hasModel, hasThinking };
 }
 
 const start: (io: OmpIo) => Start =
@@ -992,6 +1058,7 @@ const start: (io: OmpIo) => Start =
     resume,
     args: givenArgs,
     carry,
+    launch,
     member,
     session,
     spawn,
@@ -1309,19 +1376,8 @@ const start: (io: OmpIo) => Start =
 
     // --- 세션 정보 ---
     const currentMode = () => approvalMode ?? configMode ?? "yolo";
-    // 전역 범위 slow(Anthropic)는 omp가 사람의 설정 file에 쓰므로 내지도 보내지도 않는다.
-    const slowAvailable = () =>
-      st?.slowModeSupported === true && st.slowModeScope === "session";
-    const speedAxis = () => ({
-      id: "speed",
-      label: "Speed",
-      kind: "choice" as const,
-      values: [
-        { value: "standard", label: "Standard" },
-        { value: "fast", label: "Fast" },
-        ...(slowAvailable() ? [{ value: "slow", label: "Slow" }] : []),
-      ],
-    });
+    const slowAvailable = () => slowSupported(st);
+    const speedAxis = () => speedAxisOf(st);
     const speedNow = () =>
       st?.slowModeEnabled === true
         ? "slow"
@@ -1419,19 +1475,6 @@ const start: (io: OmpIo) => Start =
       );
 
     function meta(): AcpSessionMeta {
-      const axis = {
-        id: "effort",
-        label: "Thinking",
-        kind: "choice" as const,
-        values: levels.map((value) => ({ value, label: value })),
-      };
-      const groups = new Map<string, Model[]>();
-      for (const model of models) {
-        groups.set(model.provider, [
-          ...(groups.get(model.provider) ?? []),
-          model,
-        ]);
-      }
       const current = st?.model;
       const currentId =
         current === undefined ? null : `${current.provider}/${current.id}`;
@@ -1464,24 +1507,7 @@ const start: (io: OmpIo) => Start =
           shell: true,
           resume: true,
         },
-        models: [...groups].map(([provider, list]) => ({
-          id: provider,
-          label: provider,
-          models: list.map((model) => ({
-            id: `${model.provider}/${model.id}`,
-            label: model.name ?? model.id,
-            // 단계 목록은 지금 model의 것이다. 다른 model이 같은 단계를 갖는지는 골라 봐야 안다.
-            // Speed는 ModelInfo에 tier 정보가 없어 지금 model에만 둔다.
-            axes: [
-              ...(model.reasoning === false || levels.length === 0
-                ? []
-                : [axis]),
-              ...(`${model.provider}/${model.id}` === currentId
-                ? [speedAxis()]
-                : []),
-            ],
-          })),
-        })),
+        models: modelGroupsOf(models, levels, currentId, speedAxis()),
         model:
           current === undefined
             ? null
@@ -2325,6 +2351,46 @@ const start: (io: OmpIo) => Start =
       }
     }
 
+    // 처음 연 session에 launch bundle의 model·thinking·speed를 싣는다. 우선순위는 명시 flag(`--model`, `--thinking`) > carry > launch이고,
+    // 이어 연 session은 omp가 model을 session file에 남기니 carry가 말할 때만 바꾼다.
+    async function applyLaunch() {
+      const fresh = !resumed;
+      const model = parsedArgs.hasModel
+        ? undefined
+        : (carry?.model ?? (fresh ? launch?.model : undefined));
+      const effort = parsedArgs.hasThinking
+        ? undefined
+        : (carry?.effort ?? (fresh ? launch?.options?.effort : undefined));
+      const speed = fresh ? launch?.options?.speed : undefined;
+      if (model !== undefined) {
+        const slash = model.indexOf("/");
+        const current = st?.model;
+        if (slash <= 0) {
+          info(
+            `Could not switch the model: "${model}" is not a provider/model id.`,
+            "warning",
+          );
+        } else if (
+          current === undefined ||
+          `${current.provider}/${current.id}` !== model
+        ) {
+          const reply = await request("set_model", {
+            provider: model.slice(0, slash),
+            modelId: model.slice(slash + 1),
+          });
+          if (!reply.ok)
+            info(`Could not switch the model: ${reply.error}`, "warning");
+          else await Promise.all([readLevels(), readState()]);
+        }
+      }
+      if (effort !== undefined && levels.includes(effort)) {
+        await request("set_thinking_level", { level: effort });
+      }
+      if (speed !== undefined && speed !== speedNow()) await setSpeed(speed);
+      if (model !== undefined || effort !== undefined || speed !== undefined)
+        await readState();
+    }
+
     const ready = (async () => {
       const [, , , available, commandsReply] = await Promise.all([
         readState(),
@@ -2336,6 +2402,7 @@ const start: (io: OmpIo) => Start =
       ]);
       models = available.ok ? available.data.models : [];
       commands = commandsReply.ok ? commandsReply.data.commands : [];
+      await applyLaunch();
       publishMeta();
       if (resumed) await replayHistory();
       await attachRunning();
@@ -3081,9 +3148,179 @@ const start: (io: OmpIo) => Start =
     return { ok: true, value: run };
   };
 
-export function createOmpAdapter(io: OmpIo): HarnessGuiAdapter {
+/**
+ * `omp --mode rpc-ui --no-session`을 잠깐 띄워 model과 thinking 단계, 지금 값을 읽고 끈다. session file이 남지 않는다.
+ * 목록이 큰 frame은 v2의 chunk로 오므로 adapter와 같이 v2로 올린다.
+ */
+async function fetchOmpCatalog(options: {
+  cwd?: string;
+  spawn: CliSpawn;
+  signal: AbortSignal;
+}): Promise<Result<HarnessCatalogResult>> {
+  const fail = (message: string) =>
+    ({ ok: false, error: { code: "unavailable", message } }) as const;
+  if (options.signal.aborted) return fail("The model list read was aborted.");
+  const proc = options.spawn(
+    "omp",
+    [
+      "--mode",
+      "rpc-ui",
+      "--no-session",
+      ...(options.cwd === undefined ? [] : [`--cwd=${options.cwd}`]),
+    ],
+    options.cwd === undefined ? {} : { cwd: options.cwd },
+  );
+  if (proc.pid === undefined) return fail("`omp` was not found on PATH.");
+
+  let stderrTail = "";
+  proc.onStderr((text) => {
+    stderrTail = (stderrTail + text).slice(-500);
+  });
+  const tail = () =>
+    stderrTail === "" ? "" : `\n${redactCredentials(stderrTail.trim())}`;
+  const waiting = new Map<string, (reply: Reply<unknown>) => void>();
+  let settleReady: (value: "ready" | "exit") => void = () => {};
+  const first = new Promise<"ready" | "exit">((resolve) => {
+    settleReady = resolve;
+  });
+  const gone = new Promise<void>((resolve) =>
+    proc.onExit(() => {
+      settleReady("exit");
+      for (const reply of waiting.values())
+        reply({ ok: false, error: "omp exited" });
+      waiting.clear();
+      resolve();
+    }),
+  );
+  const chunks = new Map<string, Buffer[]>();
+  const onLine = (line: string) => {
+    let frame: Frame;
+    try {
+      const parsed: unknown = JSON.parse(line);
+      if (!isRecord(parsed)) return;
+      frame = parsed as Frame;
+    } catch {
+      return;
+    }
+    if (frame.type === "ready") return settleReady("ready");
+    if (frame.type === "rpc_chunk") {
+      const { chunkId, count, index } = frame;
+      if (
+        typeof chunkId !== "string" ||
+        !Number.isInteger(count) ||
+        !Number.isInteger(index) ||
+        (index as number) < 0 ||
+        (index as number) >= (count as number)
+      )
+        return;
+      const parts = chunks.get(chunkId) ?? [];
+      parts[index as number] = Buffer.from(String(frame.data ?? ""), "base64");
+      chunks.set(chunkId, parts);
+      if (parts.filter(Boolean).length === count) {
+        chunks.delete(chunkId);
+        onLine(Buffer.concat(parts).toString("utf8"));
+      }
+      return;
+    }
+    if (frame.type !== "response") return;
+    const done = waiting.get(frame.id ?? "");
+    if (done === undefined) return;
+    waiting.delete(frame.id ?? "");
+    done(
+      frame.success === true
+        ? { ok: true, data: frame.data }
+        : { ok: false, error: errorText(frame) },
+    );
+  };
+  let buffer = "";
+  proc.onStdout((text) => {
+    buffer += text;
+    for (let at = buffer.indexOf("\n"); at >= 0; at = buffer.indexOf("\n")) {
+      const line = buffer.slice(0, at);
+      buffer = buffer.slice(at + 1);
+      if (line.trim() !== "") onLine(line);
+    }
+  });
+  let counter = 0;
+  const request = <T>(
+    type: string,
+    params: Record<string, unknown> = {},
+  ): Promise<Reply<T>> =>
+    new Promise((resolve) => {
+      const id = `cat-${++counter}`;
+      waiting.set(id, resolve as (reply: Reply<unknown>) => void);
+      proc.write(`${JSON.stringify({ id, type, ...params })}\n`);
+    });
+
+  const stop = () => {
+    proc.end();
+    proc.kill();
+  };
+  options.signal.addEventListener("abort", stop, { once: true });
+  // 응답이 안 오는 omp가 붙들지 않게 시작부터 끝까지 한 기한이다.
+  const deadline = setTimeout(stop, START_WAIT_MS);
+  try {
+    if ((await first) !== "ready")
+      return fail(`\`omp\` did not start.${tail()}`);
+    const negotiated = await request("negotiate_protocol", {
+      protocolVersion: 2,
+    });
+    if (!negotiated.ok)
+      return fail(`omp rejected the RPC protocol: ${negotiated.error}`);
+    const [available, thinking, state] = await Promise.all([
+      request<{ models: Model[] }>("get_available_models"),
+      request<{ levels: string[] }>("get_available_thinking_levels"),
+      request<State>("get_state"),
+    ]);
+    if (options.signal.aborted) return fail("The model list read was aborted.");
+    if (!available.ok || !Array.isArray(available.data?.models))
+      return fail(
+        `omp did not list its models: ${available.ok ? "no list" : available.error}${tail()}`,
+      );
+    const st = state.ok && isRecord(state.data) ? state.data : null;
+    const got = thinking.ok ? thinking.data?.levels : undefined;
+    // 추론하지 않는 model은 ["off"]만 준다: 그 model에서 목록을 비우지 않는 adapter 규칙과 같다.
+    const levels = Array.isArray(got) && got.length > 1 ? got : [];
+    const current = st?.model;
+    const currentId =
+      current === undefined ? null : `${current.provider}/${current.id}`;
+    return {
+      ok: true,
+      value: {
+        models: modelGroupsOf(
+          available.data.models,
+          levels,
+          currentId,
+          speedAxisOf(st),
+        ),
+        defaults: {
+          model: currentId,
+          options:
+            st?.thinkingLevel === undefined ? {} : { effort: st.thinkingLevel },
+        },
+      },
+    };
+  } finally {
+    clearTimeout(deadline);
+    options.signal.removeEventListener("abort", stop);
+    stop();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      gone,
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, EXIT_WAIT_MS);
+      }),
+    ]);
+    clearTimeout(timer);
+  }
+}
+
+export function createOmpAdapter(io: OmpIo): OmpAdapter {
   return {
     handoff: GUI_HANDOFF.omp,
+    catalogScope: "global",
+    enforcesDeny: false,
+    fetchCatalog: fetchOmpCatalog,
     start: start(io),
     // TUI의 omp를 SIGTERM으로 끈다. Ctrl+D는 입력창이 비었을 때만 끝나고 사람이 바꿀 수 있다. SIGTERM은 TUI가 Ctrl+D와
     // 같은 정리(draft 저장, session 닫기)로 받는다. foreground가 끝난 뒤에야 resolve해서 한 session을 두 process가 같이 쥐지 않는다.

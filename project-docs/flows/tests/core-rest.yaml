@@ -435,7 +435,7 @@ files:
     note: "harness turn 자격 발급과 해제"
 
   - path: packages/core/main/daemon/wiring/harness-credential_test.ts
-    covers: [harness-turn-start:started]
+    covers: [harness-background-turn:completed]
     note: harness turn 자격이 자기 session·turn에만 닿고 turn 끝에 멈춘다. user 자격의 call.reply 발급 거절은 outcome이 없다
 
   - path: packages/core/main/daemon/shell-launcher_test.ts
@@ -887,8 +887,16 @@ files:
     note: "GUI 탭 팀원의 turn 자격은 그 turn 동안만 0700 폴더의 0600 file에 있고 turn이 끝나거나 터미널이 끝나면 file이 지워지고 자격이 거절된다(늦게 온 자격도). 다음 turn은 다른 자격이다. 사람 글이 turn을 기다리는 동안 call은 넣지 않고, call의 답은 그 입력을 가져간 turn의 마지막 글뿐이다. 멈추거나 실패하거나 turn이 열리지 않은 call은 보낸 쪽에 실패로 돌아간다"
 
   - path: packages/core/main/daemon/wiring/harness_test.ts
-    covers: [harness-take:input, harness-turn-start:conflict, gui-member-call:headless-skips, gui-member-call:bound, gui-member-call:turn-credential, coding-session-forget:archived, coding-session-forget:forbidden]
-    note: "harness wiring을 임시 ledger로 세운다. headless take·start_turn은 팀원 입력을 가져가지 않고, GUI 연결은 headless session의 queue를 보지도 꺼내지도 못하며, 다른 탭이 쥔 팀원을 잇지 않는다. 팀원 turn 자격은 그 session과 그 project 조건에 묶인다"
+    covers: [harness-background-turn:completed, harness-tui-open:conflict, gui-member-call:bound, gui-member-call:turn-credential, coding-session-forget:archived, coding-session-forget:forbidden]
+    note: "harness wiring을 임시 ledger로 세운다. background session의 next·start와 TUI hold 충돌·유휴 background handle evict, 다른 탭이 쥔 팀원을 잇지 않음, 팀원 turn 자격의 session·project 범위, 사람만 coding session을 보관함을 본다"
+
+  - path: packages/core/terminal-agents/harness-catalog_test.ts
+    covers: [harness-catalog-read:ok, harness-catalog-refresh:ok]
+    note: "HarnessCatalogManager 단위 테스트. probe 없는 lazy read, passive observe와 disk cache 복원·stale 판정, 동시 probe/refresh dedup, 20초 deadline abort 시 기존 cached catalog 보존, workspace(opencode) vs global scope 분리를 본다"
+
+  - path: packages/core/terminal-agents/background_test.ts
+    covers: [harness-background-turn:completed, harness-background-turn:configuration-unavailable, harness-background-turn:stopped-by-core, harness-background-turn:target-unavailable]
+    note: "background harness 실행기 단위 테스트. credential file 쓰기·지우기, text·harness_tool ledger 기록, cli_session 바인딩, passive catalog warming, idle linger 닫기, 승인·질문 자동 거절, deny 미지원 adapter 거절, hold 건너뛰기·유휴 evict, 사람 Stop과 core 종료 정리를 본다"
 
   - path: packages/core/terminal-agents/session-store_test.ts
     covers: [terminal-agent-identity:saved, terminals-rename-saved:renamed]

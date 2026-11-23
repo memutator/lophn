@@ -93,9 +93,8 @@ export function startSession(
     spawnedBy?: Id<"ses"> | null;
     // 앱이 열었으면 그 앱. 앱은 자기가 연 session만 끝낼 수 있다.
     openedByApp?: string | null;
-    // 터미널 GUI 탭의 팀원 session이다. `tab`은 사람이 연 탭이라 headless 설정과 상관없이 열고, `called`는 core가 탭을 열어야 해서
-    // 사람이 coding agent를 lophn이 돌리게 켰을 때만 연다.
-    gui?: "tab" | "called";
+    // 터미널 GUI 탭의 팀원 session이다. 없으면 터미널 없는 background 실행이다.
+    tab?: true;
     // 다른 컴퓨터의 mail이 열었으면 그 기계.
     openedByMachine?: string | null;
     // false면 agent 정의가 skip이어도 묻는 session으로 연다(다른 컴퓨터의 mail은 받는 기계의 허락이 있을 때만 skip을 따른다).
@@ -152,7 +151,7 @@ export function startSession(
       inherit?.model_selection ?? null,
       definition.skip && input.skipAllowed !== false ? 1 : 0,
       harness,
-      input.gui !== undefined && harness !== null ? 1 : 0,
+      input.tab === true && harness !== null ? 1 : 0,
       input.calledFrom?.kind ?? null,
       input.calledFrom?.id ?? null,
       input.spawnedBy ?? null,

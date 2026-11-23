@@ -161,8 +161,9 @@ areas:
       - packages/core/secrets/
 
   - id: harness
-    title: harness host, host queue, 터미널, coding agent
+    title: harness runtime, host queue, 터미널, coding agent
     entries:
+      - packages/protocol/acp/harness-catalog.ts
       - packages/protocol/lophn-agent/harness-host.ts
       - packages/protocol/lophn-agent/host-queue.ts
       - packages/protocol/lophn-agent/page-view.ts
@@ -170,7 +171,7 @@ areas:
       - packages/protocol/coding-agent/
       - packages/coding-agent/
     owns:
-      - runtime이 harness인 agent의 turn(take, start_turn, record, finish_turn)
+      - runtime이 harness인 agent의 turn(GUI 탭 모드·background 모드)과 model catalog discovery·cache
       - host queue(agent가 연 탭 열기·닫기, browser read)
       - 터미널 탭과 그 안의 agent 상태
       - harness hook, coding agent 감지, 공유 skill 사본

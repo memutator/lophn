@@ -8,13 +8,13 @@ import { manualClock } from "../../base/clock.ts";
 import { createIdSource } from "../../base/id.ts";
 import { seededRandom } from "../../base/random.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
-import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
-import type { AcpState } from "../../protocol/acp/state.ts";
 import type {
   AcpSessionHandle,
   AcpTerminal,
   CliProcess,
 } from "../../protocol/acp/mod.ts";
+import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
+import type { AcpState } from "../../protocol/acp/state.ts";
 import { createOmpAdapter } from "./omp.ts";
 
 // 녹화(fixtures/omp, omp 18.8.7)로 adapter를 돌린다. 진짜 omp는 띄우지 않고, spawn이 주는 process를 녹화한 줄을 내는 대역으로
@@ -85,6 +85,9 @@ async function setup(
     unsaved?: string;
     /** lophn 팀원 탭이다. */
     member?: { deny: readonly string[] };
+    args?: readonly string[];
+    carry?: { model?: string; effort?: string };
+    launch?: { model?: string; options?: Record<string, string> };
   } = {},
 ) {
   const tweak = options.tweak ?? ((frame: Frame) => frame);
@@ -180,6 +183,9 @@ async function setup(
     cwd: `/work/${name}`,
     ...(options.unsaved === undefined ? {} : { resume: options.unsaved }),
     ...(options.member === undefined ? {} : { member: options.member }),
+    ...(options.args === undefined ? {} : { args: options.args }),
+    ...(options.carry === undefined ? {} : { carry: options.carry }),
+    ...(options.launch === undefined ? {} : { launch: options.launch }),
     session,
     spawn: (_command, args) => spawnProc(args),
     clock,
@@ -773,4 +779,170 @@ test("stop ends without rejecting and closes stdin when omp answers neither abor
   } finally {
     mock.timers.reset();
   }
+});
+
+// --- launch bundle, catalog, background ---------------------------------------------------------------------------------
+
+const settle = async () => {
+  for (let i = 0; i < 12; i += 1) await flush();
+};
+const setModelOf = (sent: Frame[]) =>
+  sent
+    .filter((body) => body.type === "set_model")
+    .map((body) => `${body.provider}/${body.modelId}`);
+
+test("launch model, thinking and speed are sent to a new omp session, and explicit flags and carry come first", async () => {
+  const launched = await setup("models", {
+    launch: {
+      model: "anthropic/claude-3-5-sonnet-20240620",
+      options: { effort: "low", speed: "fast" },
+    },
+  });
+  await settle();
+  assert.deepEqual(setModelOf(launched.sent), [
+    "anthropic/claude-3-5-sonnet-20240620",
+  ]);
+  const thinking = launched.sent.filter(
+    (body) => body.type === "set_thinking_level",
+  );
+  assert.deepEqual(
+    thinking.map((body) => body.level),
+    ["low"],
+  );
+  assert.deepEqual(
+    launched.sent
+      .filter((body) => body.type === "set_fast_mode")
+      .map((body) => body.enabled),
+    [true],
+  );
+
+  // 명시 flag가 launch를 이긴다.
+  const flagged = await setup("models", {
+    args: ["--model", "anthropic/other", "--thinking=high"],
+    launch: { model: "anthropic/x", options: { effort: "low" } },
+  });
+  await settle();
+  assert.deepEqual(setModelOf(flagged.sent), []);
+  assert.equal(
+    flagged.sent.some((body) => body.type === "set_thinking_level"),
+    false,
+  );
+
+  // carry가 launch를 이긴다.
+  const carried = await setup("models", {
+    carry: { model: "anthropic/from-carry", effort: "medium" },
+    launch: { model: "anthropic/x", options: { effort: "low" } },
+  });
+  await settle();
+  assert.deepEqual(setModelOf(carried.sent), ["anthropic/from-carry"]);
+  assert.deepEqual(
+    carried.sent
+      .filter((body) => body.type === "set_thinking_level")
+      .map((body) => body.level),
+    ["medium"],
+  );
+});
+
+function catalogProc(options: { silent?: boolean } = {}) {
+  const answers: Record<string, unknown> = {
+    negotiate_protocol: {},
+    get_available_models: {
+      models: [
+        { id: "opus", name: "Opus", provider: "anthropic", reasoning: true },
+        { id: "flash", provider: "river", reasoning: false },
+      ],
+    },
+    get_available_thinking_levels: { levels: ["off", "low", "high"] },
+    get_state: {
+      sessionId: "s1",
+      thinkingLevel: "high",
+      model: { id: "opus", provider: "anthropic" },
+    },
+  };
+  const state = { ended: false, killed: false };
+  const spawned: { command: string; args: readonly string[] }[] = [];
+  let out: (text: string) => void = () => {};
+  let exit: (code: number | null) => void = () => {};
+  const proc: CliProcess = {
+    pid: 1,
+    write(text) {
+      const body = JSON.parse(text) as Frame;
+      setImmediate(() =>
+        out(
+          `${JSON.stringify({ type: "response", id: body.id, command: body.type, success: true, data: answers[body.type as string] })}\n`,
+        ),
+      );
+    },
+    end: () => void (state.ended = true),
+    kill() {
+      state.killed = true;
+      setImmediate(() => exit(null));
+    },
+    onStdout(fn) {
+      out = fn;
+      if (options.silent !== true)
+        setImmediate(() => out(`${JSON.stringify({ type: "ready" })}\n`));
+    },
+    onStderr() {},
+    onExit: (fn) => void (exit = fn),
+  };
+  return {
+    state,
+    spawned,
+    spawn: (command: string, args: readonly string[]) => {
+      spawned.push({ command, args });
+      return proc;
+    },
+  };
+}
+
+test("fetchCatalog reads models, thinking levels and the default from a session-less omp and shuts it down", async () => {
+  const fake = catalogProc();
+  const adapter = createOmpAdapter({ ...noDisk, home: "/home/test" });
+  assert.equal(adapter.catalogScope, "global");
+  const result = await adapter.fetchCatalog({
+    spawn: fake.spawn,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  // 단계는 추론하는 model에만 붙고, Speed는 지금(default) model에만 붙는다.
+  assert.deepEqual(
+    result.value.models.map((group) => [
+      group.id,
+      group.models.map((model) => [
+        model.id,
+        model.axes.map((axis) => axis.id),
+      ]),
+    ]),
+    [
+      ["anthropic", [["anthropic/opus", ["effort", "speed"]]]],
+      ["river", [["river/flash", []]]],
+    ],
+  );
+  assert.deepEqual(result.value.defaults, {
+    model: "anthropic/opus",
+    options: { effort: "high" },
+  });
+  // session file이 남지 않게 `--no-session`이다.
+  assert.equal(fake.spawned[0]?.command, "omp");
+  assert.ok(fake.spawned[0]?.args.includes("--no-session"));
+  assert.ok(fake.spawned[0]?.args.includes("rpc-ui"));
+  assert.equal(fake.state.ended, true);
+  assert.equal(fake.state.killed, true);
+});
+
+test("fetchCatalog aborted while omp never gets ready fails and kills the process", async () => {
+  const fake = catalogProc({ silent: true });
+  const controller = new AbortController();
+  const adapter = createOmpAdapter({ ...noDisk, home: "/home/test" });
+  const pending = adapter.fetchCatalog({
+    spawn: fake.spawn,
+    signal: controller.signal,
+  });
+  await flush();
+  controller.abort();
+  const result = await pending;
+  assert.equal(result.ok, false);
+  assert.equal(fake.state.killed, true);
 });

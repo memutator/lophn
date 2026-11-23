@@ -5,6 +5,8 @@
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
 import { t } from "@lophn/i18n";
 
+import type { HarnessCatalogView } from "../../../../protocol/acp/harness-catalog.ts";
+import type { HarnessSettingsView } from "../../../../protocol/coding-agent/coding-agents.ts";
 import {
   type AgentCard,
   type AgentRow,
@@ -38,6 +40,10 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
+import {
+  codingFromValue,
+  DEFAULT_QUICK_PREFS,
+} from "../../desktop/settings/quick-launch/source.ts";
 import { isAgentId, isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import {
   cancelMcpSignIn,
@@ -495,6 +501,9 @@ export function coreAgentsSource(
     const definition = read.value.definition ?? { body: "" };
     return {
       model: read.value.effective.model?.value ?? global,
+      ...(definition.harness_config === undefined
+        ? {}
+        : { harnessConfig: definition.harness_config }),
       instructions: definition.body.trim() !== "",
       apps: definition.apps?.length ?? 0,
       remoteApps: definition.remote_apps?.length ?? 0,
@@ -904,5 +913,50 @@ export function coreAgentsSource(
 
     writeMemory: (target, text, hash) =>
       writeInstructions(memory, files, memoryOpenOf(target), text, hash),
+
+    async harnessCatalog(harness, probe, workspace = null) {
+      return (await link.read("harness_catalog", "read", {
+        harness,
+        ...scopeInput(workspace),
+        ...(probe === undefined ? {} : { probe }),
+      })) as ReadResult<HarnessCatalogView>;
+    },
+
+    async refreshHarnessCatalog(harness, workspace = null) {
+      return (await link.memory("harness_catalog", "refresh", {
+        harness,
+        ...scopeInput(workspace),
+      })) as ReadResult<HarnessCatalogView>;
+    },
+
+    async codingChoices() {
+      type SettingsListOut = {
+        settings: { key: string; default?: unknown; chosen?: unknown }[];
+      };
+      type CodingAgentsListOut = { harnesses: HarnessSettingsView[] };
+      const [settings, harnesses] = await Promise.all([
+        link.memory("settings", "list", {
+          keys: ["shell.coding_agents"],
+        }) as Promise<ReadResult<SettingsListOut>>,
+        link.read("coding_agents", "list", {}) as Promise<
+          ReadResult<CodingAgentsListOut>
+        >,
+      ]);
+      const entry = settings.ok
+        ? settings.value.settings.find(
+            (one) => one.key === "shell.coding_agents",
+          )
+        : undefined;
+      const favorites =
+        entry === undefined
+          ? DEFAULT_QUICK_PREFS.coding.favorites
+          : codingFromValue(entry.chosen ?? entry.default).favorites;
+      const detected = harnesses.ok
+        ? harnesses.value.harnesses
+            .filter((one) => one.discovery === "detected")
+            .map((one) => one.harness_id)
+        : [];
+      return { ok: true, value: { favorites, detected } };
+    },
   };
 }

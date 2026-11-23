@@ -20,7 +20,11 @@ import type {
   SDKUserMessage,
   // biome-ignore lint/correctness/noUndeclaredDependencies: Agent SDK는 extension bundle에만 들어간다. core package.json에 두지 않는다(설치본 platform/이 OS별 claude 사본을 받게 된다).
 } from "@anthropic-ai/claude-agent-sdk";
-import { createClaudeAdapter, type ClaudeSdk } from "./claude.ts";
+import {
+  claudeDenyTools,
+  createClaudeAdapter,
+  type ClaudeSdk,
+} from "./claude.ts";
 
 // 녹화(fixtures/claude)로 adapter를 돌린다. 실제 `claude`는 띄우지 않고, SDK의 query()를 녹화 메시지를 내는
 // 대역으로 바꾸고 canUseTool은 test가 직접 부른다.
@@ -112,6 +116,9 @@ async function setup(
     emptyReopen?: boolean | "throw";
     /** lophn 팀원 탭이다. */
     member?: { deny: readonly string[] };
+    launch?: { model?: string; options?: Record<string, string> };
+    carry?: { model?: string; effort?: string };
+    args?: readonly string[];
     /** getSessionInfo가 돌려줄 metadata. */
     sessionInfo?: () => {
       customTitle?: string;
@@ -251,6 +258,9 @@ async function setup(
     cwd: "/work/test",
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     ...(options.member === undefined ? {} : { member: options.member }),
+    ...(options.launch === undefined ? {} : { launch: options.launch }),
+    ...(options.carry === undefined ? {} : { carry: options.carry }),
+    ...(options.args === undefined ? {} : { args: options.args }),
     session,
     spawn,
     clock,
@@ -259,6 +269,7 @@ async function setup(
 
   return {
     adapter,
+    spawn,
     started,
     queries,
     processes,
@@ -1478,4 +1489,87 @@ test("a member tab's `!` runs with the turn credential file cleared, and the CLI
   const plain = person.processes.find((one) => one.command === "/bin/sh");
   assert.equal(plain?.env, undefined);
   assert.equal(person.queries[0]?.options.allowedTools, undefined);
+});
+
+test("launch는 model·effort·fast를 SDK 옵션으로 넘기고 args와 carry가 launch보다 앞선다", async () => {
+  const launched = await setup({
+    launch: { model: "opus", options: { effort: "high", fast: "on" } },
+  });
+  assert.equal(launched.queryOptions?.model, "opus");
+  assert.equal(launched.queryOptions?.effort, "high");
+  assert.deepEqual(launched.queryOptions?.settings, { fastMode: true });
+
+  const off = await setup({ launch: { options: { effort: "off" } } });
+  assert.equal(off.queryOptions?.effort, undefined);
+  assert.deepEqual(off.queryOptions?.thinking, { type: "disabled" });
+
+  const carried = await setup({
+    launch: { model: "opus", options: { effort: "high" } },
+    carry: { model: "sonnet", effort: "low" },
+  });
+  assert.equal(carried.queryOptions?.model, "sonnet");
+  assert.equal(carried.queryOptions?.effort, "low");
+
+  const flagged = await setup({
+    launch: { model: "opus", options: { effort: "high" } },
+    carry: { model: "sonnet", effort: "low" },
+    args: ["--model", "haiku", "--effort", "max"],
+  });
+  assert.equal(flagged.queryOptions?.model, "haiku");
+  assert.equal(flagged.queryOptions?.effort, "max");
+});
+
+test("fetchCatalog는 메시지 없이 model 목록과 설정의 기본값을 읽고 query를 닫는다", async () => {
+  const t = await setup({
+    models: [
+      {
+        value: "default",
+        displayName: "Default",
+        description: "",
+        supportsEffort: true,
+        supportedEffortLevels: ["low", "high"],
+      },
+    ],
+    files: {
+      "/home/me/.claude/settings.json": JSON.stringify({
+        model: "opus",
+        effortLevel: "high",
+      }),
+    },
+  });
+  const before = t.queries.length;
+  const result = await t.adapter.fetchCatalog({
+    cwd: "/work/test",
+    spawn: t.spawn,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(result.value.defaults, {
+    model: "opus",
+    options: { effort: "high" },
+  });
+  assert.equal(result.value.models[0]?.models[0]?.id, "default");
+  const probe = t.queries[before];
+  assert.ok(probe);
+  assert.equal(probe.options.persistSession, false);
+  assert.deepEqual(probe.sent, []);
+  assert.equal(probe.closed, true);
+
+  const cancelled = new AbortController();
+  cancelled.abort();
+  const stopped = await t.adapter.fetchCatalog({
+    spawn: t.spawn,
+    signal: cancelled.signal,
+  });
+  assert.equal(stopped.ok, false);
+  assert.equal(t.queries.at(-1)?.closed, true);
+});
+
+test("claudeDenyTools는 lophn(<cmd>)만 Bash disallow 목록으로 옮기고 알 수 없는 규칙은 null을 낸다", () => {
+  assert.deepEqual(claudeDenyTools(["lophn(notes remove)"]), [
+    "Bash(lophn notes remove)",
+    "Bash(lophn notes remove *)",
+  ]);
+  assert.equal(claudeDenyTools(["Bash(rm *)"]), null);
 });

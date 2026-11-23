@@ -202,6 +202,9 @@ export const AgentSeesTabPage = () => editor(EVAL_ANALYST_ID, [SEES_TAB]);
 /** harness agent의 Works how. 지침은 고치고 skill과 memory 자리에는 Codex가 자기 것을 쓴다는 한 줄이 선다. */
 export const AgentHarnessWorksPage = () => editor(CODEX_RUNNER_ID, [WORKS_TAB]);
 
+/** harness agent의 Runs on. 즐겨찾기 기반 runtime 선택, More harnesses, Codex catalog의 model·effort picker가 있다. */
+export const AgentHarnessRunsPage = () => editor(CODEX_RUNNER_ID, [RUNS_TAB]);
+
 /** Agents 탭에서 agent를 열고 이름을 고친 상태. 위쪽 ← →가 목록으로 돌아가는 길이고, 저장하지 않은 편집은 탭 줄에 표시가 뜬다. */
 export const AgentsOpenedEditedPage = () =>
   agentsAt("project", "phroner · Agents", undefined, [

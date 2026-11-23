@@ -3,11 +3,7 @@
 // 설정과 login은 사람의 것을 쓴다. 사람 설정이 never·danger-full-access일 때만 on-request·workspace-write로 바꾼다.
 // 대화 하나의 도는 상태는 `Lane`이다: root가 탭의 thread이고 subagent thread는 자식 lane이라 그 갱신은 `child_update`로 싸서 낸다.
 // 흐름과 이유는 architecture/harness-gui.md의 Codex adapter 절이다.
-import {
-  PERSON_SHELL_PREFIX,
-  withoutPersonShell,
-} from "../../protocol/coding-agent/headless/env.ts";
-import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
+
 import { mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
@@ -23,6 +19,13 @@ import {
   type AcpToolBody,
   type AcpToolItem,
 } from "../../protocol/acp/items.ts";
+import type {
+  AcpTerminal,
+  CliSpawn,
+  HarnessCatalogResult,
+  HarnessLaunchConfig,
+} from "../../protocol/acp/mod.ts";
+import { GUI_HANDOFF } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type {
   AcpCapabilities,
@@ -39,16 +42,26 @@ import type {
   AcpTask,
   AcpUpdate,
 } from "../../protocol/acp/state.ts";
-import type { AcpTerminal } from "../../protocol/acp/mod.ts";
+import {
+  PERSON_SHELL_PREFIX,
+  withoutPersonShell,
+} from "../../protocol/coding-agent/credential-env.ts";
 import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
 import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyBlocks, type ReceivedText } from "./received.ts";
 
+export type { HarnessCatalogResult, HarnessLaunchConfig };
+
 // app-server 메시지에서 읽는 칸만 읽는다. 모양은 `codex app-server generate-ts --experimental`이 정한다.
 // biome-ignore lint/suspicious/noExplicitAny: wire JSON을 칸마다 타입으로 옮기지 않는다.
 type J = any;
 type Json = Record<string, J>;
+
+export type CodexAdapter = HarnessGuiAdapter & {
+  catalogScope: "global";
+  enforcesDeny: false;
+};
 
 /** app-server와 말하는 길과 file system. 기본은 실제 socket이고 test는 녹화를 재생하는 가짜를 넣는다. */
 export type CodexLink = {
@@ -705,9 +718,206 @@ function goalOf(goal: J | null): AcpGoal | null {
   };
 }
 
-export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
+// model/list의 한 줄이 고르는 칸: effort와 (tier가 있으면) speed.
+function codexModelGroups(models: J[]): AcpModelGroup[] {
+  return [
+    {
+      id: "codex",
+      label: "Codex",
+      models: models.map((one) => ({
+        id: one.model,
+        label: one.displayName || one.model,
+        axes: [
+          {
+            id: "effort",
+            label: "Effort",
+            kind: "choice" as const,
+            values: (one.supportedReasoningEfforts ?? []).map((effort: J) => ({
+              value: effort.reasoningEffort,
+              label: effort.reasoningEffort,
+            })),
+          },
+          // tier가 하나뿐이어도 choice다: model마다 tier 수가 달라 switch로 줄이면 ultrafast가 있는 model과 모양이 갈린다.
+          ...((one.serviceTiers ?? []).length === 0
+            ? []
+            : [
+                {
+                  id: "speed",
+                  label: "Speed",
+                  kind: "choice" as const,
+                  values: [
+                    { value: "default", label: "Standard" },
+                    ...(one.serviceTiers as J[]).map((tier) => ({
+                      value: tier.id as string,
+                      label: tier.name as string,
+                    })),
+                  ],
+                },
+              ]),
+        ],
+      })),
+    },
+  ];
+}
+
+// 모델 목록과 기본값은 app-server를 잠깐 띄워 읽는다. thread/start를 부르지 않아 대화 기록이 생기지 않는다.
+function fetchCatalog(io: CodexIo): CodexAdapter["fetchCatalog"] {
+  return async ({ cwd, spawn, signal }) => {
+    const dir = io.makeDir();
+    const socket = join(dir, "codex.sock");
+    const proc = spawn(
+      "codex",
+      ["app-server", "--listen", `unix://${socket}`],
+      {
+        ...(cwd === undefined ? {} : { cwd }),
+      },
+    );
+    if (proc.pid === undefined) {
+      io.removeDir(dir);
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message: "`codex` was not found on PATH.",
+        },
+      };
+    }
+    let exited = false;
+    let onExited: () => void = () => {};
+    const exit = new Promise<void>((done) => {
+      onExited = done;
+    });
+    let stderrTail = "";
+    proc.onExit(() => {
+      exited = true;
+      onExited();
+    });
+    proc.onStdout(() => {});
+    proc.onStderr((text) => {
+      stderrTail = (stderrTail + text).slice(-500);
+    });
+    let link: CodexLink | null = null;
+    let fail: (cause: Error) => void = () => {};
+    // 끊기거나 process가 죽으면 기다리는 요청이 모두 실패한다.
+    const broken = new Promise<never>((_, reject) => {
+      fail = reject;
+    });
+    broken.catch(() => {});
+    void exit.then(() => fail(new Error("The Codex app-server exited.")));
+    const onAbort = () => fail(new Error("The catalog read was cancelled."));
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+    try {
+      const connected = await Promise.race([
+        io.connect(socket, () => !exited && !signal.aborted),
+        broken,
+      ]);
+      link = connected;
+      const waiting = new Map<number, (message: Json) => void>();
+      connected.onMessage((text) => {
+        try {
+          const message = JSON.parse(text) as Json;
+          if (typeof message.id === "number" && message.method === undefined)
+            waiting.get(message.id)?.(message);
+        } catch {
+          // 읽을 수 없는 줄은 건너뛴다.
+        }
+      });
+      connected.onClose(() =>
+        fail(new Error("The Codex app-server closed the connection.")),
+      );
+      let nextId = 0;
+      const call = (method: string, params: Json) =>
+        Promise.race([
+          new Promise<Json>((resolve, reject) => {
+            const id = ++nextId;
+            const timer = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Codex did not answer ${method} in ${REQUEST_WAIT_MS / 1000} seconds.`,
+                  ),
+                ),
+              REQUEST_WAIT_MS,
+            );
+            timer.unref();
+            waiting.set(id, (message) => {
+              clearTimeout(timer);
+              waiting.delete(id);
+              if (message.error !== undefined)
+                reject(
+                  new Error(String(message.error.message ?? "request failed")),
+                );
+              else resolve(message.result ?? {});
+            });
+            connected.send(JSON.stringify({ id, method, params }));
+          }),
+          broken,
+        ]);
+      await call("initialize", {
+        clientInfo: { name: "lophn", title: "lophn", version: "0" },
+        capabilities: {
+          experimentalApi: true,
+          optOutNotificationMethods: OPT_OUT,
+        },
+      });
+      connected.send(JSON.stringify({ method: "initialized" }));
+      const listed = await call("model/list", {});
+      const loaded = await call(
+        "config/read",
+        cwd === undefined ? {} : { cwd },
+      ).catch(() => ({}) as Json);
+      const models = ((listed.data ?? []) as J[]).filter((one) => !one.hidden);
+      const config: Json = loaded.config ?? {};
+      const effort =
+        typeof config.model_reasoning_effort === "string"
+          ? config.model_reasoning_effort
+          : null;
+      const model =
+        typeof config.model === "string" && config.model !== ""
+          ? config.model
+          : ((models.find((one) => one.isDefault)?.model as
+              | string
+              | undefined) ?? null);
+      return {
+        ok: true,
+        value: {
+          models: codexModelGroups(models),
+          defaults: {
+            model,
+            options: (effort === null ? {} : { effort }) as Record<
+              string,
+              string
+            >,
+          },
+        },
+      };
+    } catch (cause) {
+      const message = redactCredentials((cause as Error).message);
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message:
+            stderrTail === "" ? message : `${message}\n${stderrTail.trim()}`,
+        },
+      };
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+      link?.close();
+      proc.kill();
+      await Promise.race([exit, sleep(5000)]);
+      io.removeDir(dir);
+    }
+  };
+}
+
+export function createCodexAdapter(io: CodexIo): CodexAdapter {
   return {
     handoff: GUI_HANDOFF.codex,
+    catalogScope: "global",
+    enforcesDeny: false,
+    fetchCatalog: fetchCatalog(io),
 
     // TUI는 빈 composer에서 Ctrl+C로 바로 끝난다(`DOUBLE_PRESS_QUIT_SHORTCUT_ENABLED = false`, tui/src/chatwidget/interaction.rs
     // `on_ctrl_c`). composer에 글이 있으면 먼저 지우고 일하는 중이면 먼저 멈추므로 끝날 때까지 몇 번 더 누른다.
@@ -742,8 +952,10 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
     async start({
       cwd,
       resume,
+      forkFrom,
       args: givenArgs,
       carry,
+      launch,
       member,
       session,
       spawn,
@@ -755,6 +967,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       const tuiExtra: string[] = [];
       const explicitPolicy: Json = {};
       let explicitModel: string | undefined;
+      let explicitEffort = false;
       for (let i = 0; i < launchArgs.length; i += 1) {
         const token = launchArgs[i]!;
         if (token === "--") break;
@@ -816,6 +1029,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           if (val !== undefined) {
             serverArgs.push(flag, val);
             tuiExtra.push(flag, val);
+            if (/^model_reasoning_effort\s*=/.test(val)) explicitEffort = true;
           }
           continue;
         }
@@ -998,46 +1212,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         if (metaSent) publish({ type: "session_changed", session: partial });
       }
       function modelMeta(): Partial<AcpSessionMeta> {
-        const groups: AcpModelGroup[] = [
-          {
-            id: "codex",
-            label: "Codex",
-            models: models.map((one) => ({
-              id: one.model,
-              label: one.displayName || one.model,
-              axes: [
-                {
-                  id: "effort",
-                  label: "Effort",
-                  kind: "choice" as const,
-                  values: (one.supportedReasoningEfforts ?? []).map(
-                    (effort: J) => ({
-                      value: effort.reasoningEffort,
-                      label: effort.reasoningEffort,
-                    }),
-                  ),
-                },
-                // tier가 하나뿐이어도 choice다: model마다 tier 수가 달라 switch로 줄이면 ultrafast가 있는 model과 모양이 갈린다.
-                ...((one.serviceTiers ?? []).length === 0
-                  ? []
-                  : [
-                      {
-                        id: "speed",
-                        label: "Speed",
-                        kind: "choice" as const,
-                        values: [
-                          { value: "default", label: "Standard" },
-                          ...(one.serviceTiers as J[]).map((tier) => ({
-                            value: tier.id as string,
-                            label: tier.name as string,
-                          })),
-                        ],
-                      },
-                    ]),
-              ],
-            })),
-          },
-        ];
+        const groups = codexModelGroups(models);
         const current = settings;
         const known = models.find((one) => one.model === current?.model);
         return {
@@ -2745,8 +2920,30 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         });
         write({ method: "initialized" });
         policy = hasExplicitPolicy ? explicitPolicy : await readPolicy();
-        const modelParam =
-          explicitModel === undefined ? {} : { model: explicitModel };
+        // 우선순위는 args > carry > launch > 기본값이다. 이어 연 session(resume)에는 launch를 덮지 않고 args·carry만 실는다.
+        const resumeModel = explicitModel ?? carry?.model;
+        const resumeEffort = explicitEffort ? undefined : carry?.effort;
+        const resumeModelParam = {
+          ...(resumeModel === undefined ? {} : { model: resumeModel }),
+          ...(resumeEffort === undefined
+            ? {}
+            : { config: { model_reasoning_effort: resumeEffort } }),
+        };
+        const startModel = explicitModel ?? carry?.model ?? launch?.model;
+        const startEffort = explicitEffort
+          ? undefined
+          : (carry?.effort ?? launch?.options?.effort);
+        const startSpeed =
+          launch?.options?.speed !== undefined &&
+          launch.options.speed !== "default"
+            ? launch.options.speed
+            : undefined;
+        const startModelParam = {
+          ...(startModel === undefined ? {} : { model: startModel }),
+          ...(startEffort === undefined
+            ? {}
+            : { config: { model_reasoning_effort: startEffort } }),
+        };
         // 첫 메시지 전의 TUI thread는 rollout이 없어 resume이 "no rollout found"로 실패한다. 조용히 새 thread를 연다.
         const resumed =
           resume === undefined
@@ -2756,15 +2953,38 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 cwd,
                 excludeTurns: true,
                 ...policy,
-                ...modelParam,
+                ...resumeModelParam,
               }).catch((cause: Error) => {
                 if (!/no rollout found/.test(cause.message)) throw cause;
                 return null;
               });
         if (resumed === null) {
+          const forked =
+            forkFrom === undefined
+              ? null
+              : await request("thread/fork", {
+                  threadId: forkFrom,
+                  excludeTurns: true,
+                  ...policy,
+                  ...startModelParam,
+                }).catch((cause: Error) => {
+                  if (!/no rollout found/.test(cause.message)) throw cause;
+                  return null;
+                });
           useThread(
-            await request("thread/start", { cwd, ...policy, ...modelParam }),
+            forked ??
+              (await request("thread/start", {
+                cwd,
+                ...policy,
+                ...startModelParam,
+              })),
           );
+          if (startSpeed !== undefined) {
+            await request("thread/settings/update", {
+              threadId,
+              serviceTier: startSpeed,
+            }).catch(() => {});
+          }
         } else {
           useThread(resumed);
           await replayThread(root);

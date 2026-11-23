@@ -97,7 +97,7 @@ modules:
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent
-    notes: runtime이 harness인 agent의 session은 run-loop가 돌리지 않는다. session/harness.ts(입력 transport, 외부 session id)와 wiring/harness.ts(queue, host route)가 core 쪽이고 실행은 core의 harness host(`packages/core/harness/host.ts`)가 한다(boundary harness-host-core).
+    notes: runtime이 harness인 agent의 session은 run-loop가 돌리지 않는다. session/harness.ts(입력 transport, 외부 session id)와 wiring/harness.ts(queue, turn·기록 port)가 core 쪽이고 실행은 단일 상주 어댑터(`packages/core/harness-gui`, `packages/core/terminal-agents/member.ts`·`background.ts`)가 한다(boundary harness-host-core).
 
   - path: packages/core/main
     boundary: core
@@ -109,7 +109,7 @@ modules:
 
   - path: packages/core/terminal-agents
     boundary: core
-    notes: 터미널 안 coding agent의 원본. tracker와 hook(socket, key), GUI handle(harness-gui가 연 ACP handle을 터미널마다 하나), coding session 목록과 대화(redaction을 지나 `acp/*`·`coding_sessions/*`로 낸다), 저장한 session(`<data root>/terminal-agents/sessions/`), resume으로 연 터미널의 hold, per-run 폴더(`core-<pid>`)와 `$BROWSER` bridge, harness 감지와 hook 설치. base, protocol과 core/terminals(port), core/extensions(ACP handle type)만 쓴다. Bus·attention·extension host·host queue는 deps이고 core/main의 wiring/terminal-agents.ts가 끼운다.
+    notes: 터미널 안 coding agent와 background harness 실행·model catalog cache의 원본. tracker와 hook(socket, key), GUI handle(harness-gui가 연 ACP handle), GUI 탭 팀원(`member.ts`)과 background 실행기(`background.ts`), daemon-level `HarnessCatalogManager`(`harness-catalog.ts`), coding session 목록과 대화(redaction을 지나 `acp/*`·`coding_sessions/*`로 낸다), 저장한 session(`<data root>/terminal-agents/sessions/`), resume으로 연 터미널의 hold, per-run 폴더(`core-<pid>`)와 `$BROWSER` bridge, harness 감지와 hook 설치. base, protocol과 core/terminals(port)만 쓴다. Bus·attention·host queue는 deps이고 core/main의 wiring/terminal-agents.ts·harness-runners.ts가 끼운다.
 
   - path: packages/core/terminal-view
     boundary: core
@@ -119,13 +119,9 @@ modules:
     boundary: core
     notes: 사람의 터미널. PTY host(host/, core가 자식으로 띄운다), 그 감독, 터미널 service(열기 순서, 출력 lease, route handler), 사람의 login env와 `lophn` 경로. 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `Terminals`·`PersonEnv`로 닿고 core/main의 wiring/terminals.ts가 끼운다.
 
-  - path: packages/core/harness
-    boundary: harness-host-core
-    notes: core 안 headless harness 실행기(Claude Code, Codex, OpenCode). harness queue의 입력을 가져가 CLI를 띄우고 출력을 session 기록으로 옮긴다. core/main의 wiring/harness-runners.ts가 띄운다.
-
   - path: packages/core/harness-gui
     boundary: harness-host-core
-    notes: core 안 터미널 `<harness> gui` 채팅 어댑터(Claude Code, Codex, OpenCode, omp, Antigravity). core/main의 wiring/harness-runners.ts가 띄운다.
+    notes: core 안 단일 상주 harness 런타임 어댑터(Claude Code, Codex, OpenCode, omp, Antigravity). 터미널 `<harness> --gui`(`tab` 모드), 터미널 없는 `background` 모드, `fetchCatalog` model discovery와 `launch` 번들 번역을 담당한다. core/main의 wiring/harness-runners.ts가 띄운다.
 
   - path: packages/core/projects
     boundary: projects

@@ -1,7 +1,7 @@
 id: local-tools
 version: 0.23.119
 title: "System Extension을 걷어내고 harness·harness-gui를 core에 내장하며 파일 기반 로컬 tool을 추가한다"
-modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/harness, packages/core/harness-gui, packages/core/terminal-agents, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/config, packages/core/main, packages/shell/main, packages/shell/renderer]
+modules: [packages/protocol, packages/cli, packages/coding-agent, packages/core/harness-gui, packages/core/terminal-agents, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/config, packages/core/main, packages/shell/main, packages/shell/renderer]
 checked: []
 change: |
   전: `harness`와 `harness-gui`가 System Extension(`packages/core/extensions/`, `manifest.json`, CJS 번들링, `extensions.harness.enabled`, Settings › System › Extensions)으로 분리돼 있었고, `ext__<id>__<tool>` extension tool 파이프라인은 실제 사용자가 없었다.

@@ -2,7 +2,9 @@
 // 화면을 연 자리가 skill·MCP·지침·model 층을 정한다. 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 
+import type { HarnessCatalogView } from "../../../../protocol/acp/harness-catalog.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
+import type { GuiHarness } from "../../../../protocol/coding-agent/gui-harness.ts";
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpOwnerWorkspace } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -36,7 +38,9 @@ import {
   CATALOG,
   EVAL_ANALYST_ID,
   FAKE_AGENTS,
+  FAKE_CODING_CHOICES,
   FAKE_GRANTS,
+  FAKE_HARNESS_CATALOGS,
   GLOBAL_MCP,
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
@@ -59,6 +63,7 @@ import type {
   AgentListRow,
   AgentsOverview,
   AgentsSource,
+  CodingChoices,
   GrantsView,
   ModelsView,
   SaveInput,
@@ -139,7 +144,9 @@ type FakeCall =
       target: MemoryTarget;
       text: string;
       hash: string | null;
-    };
+    }
+  | { method: "harnessCatalog"; harness: GuiHarness; probe?: boolean }
+  | { method: "refreshHarnessCatalog"; harness: GuiHarness };
 
 export interface FakeAgentsSource extends AgentsSource {
   changed(listener: () => void): () => void;
@@ -204,6 +211,12 @@ export interface FakeAgentsOptions {
   readonly brokenAgent?: boolean;
   /** 사람이 정보를 읽은 뒤 다른 창이 판을 바꾼 상태다. 읽은 판으로 보내는 첫 저장·지우기는 conflict가 된다. */
   readonly infoGoesStale?: boolean;
+  /** runtime 선택에 쓸 즐겨찾기와 감지 harness 목록. */
+  readonly codingChoices?: CodingChoices;
+  /** harness별 model catalog 응답 덮어쓰기(오류·빈 목록·stale 화면 확인용). */
+  readonly harnessCatalogs?: Readonly<
+    Partial<Record<GuiHarness, HarnessCatalogView>>
+  >;
 }
 
 export const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";
@@ -541,7 +554,19 @@ export function createFakeAgentsSource(
         : { description: definition.description }),
       runtime: definition.runtime ?? "lophn",
       ...(harness
-        ? {}
+        ? definition.harness_config?.model === undefined
+          ? {}
+          : {
+              model: {
+                provider: definition.runtime!,
+                model_name: definition.harness_config.model,
+                price: null,
+                ...(definition.harness_config.options !== undefined &&
+                Object.keys(definition.harness_config.options).length > 0
+                  ? { options: definition.harness_config.options }
+                  : {}),
+              },
+            }
         : {
             model: {
               provider:
@@ -642,6 +667,9 @@ export function createFakeAgentsSource(
       card: cardOf(key, item),
       glance: {
         model,
+        ...(definition.harness_config === undefined
+          ? {}
+          : { harnessConfig: definition.harness_config }),
         instructions: definition.body.trim() !== "",
         apps: (grants.get(key) ?? []).filter((one) => one.machine === undefined)
           .length,
@@ -1156,6 +1184,28 @@ export function createFakeAgentsSource(
       if (target.kind === "agent") agentMemories.set(target.agent, next);
       else layerOf(target.workspace).memory = next;
       return Promise.resolve(ok(next));
+    },
+
+    harnessCatalog(harness, probe) {
+      calls.push({ method: "harnessCatalog", harness, probe });
+      return Promise.resolve(
+        ok(
+          options.harnessCatalogs?.[harness] ?? FAKE_HARNESS_CATALOGS[harness],
+        ),
+      );
+    },
+
+    refreshHarnessCatalog(harness) {
+      calls.push({ method: "refreshHarnessCatalog", harness });
+      return Promise.resolve(
+        ok(
+          options.harnessCatalogs?.[harness] ?? FAKE_HARNESS_CATALOGS[harness],
+        ),
+      );
+    },
+
+    codingChoices() {
+      return Promise.resolve(ok(options.codingChoices ?? FAKE_CODING_CHOICES));
     },
   };
 }

@@ -1,5 +1,5 @@
 id: workflow-p3-core
-version: 0.23.144
+version: 0.23.148
 title: Workflow Phase 3 core 선언 inputs 검증, callable_agents 조회, StartWorkflow 입력 검증·redaction·저장, YAML Inputs 주입, CLI --inputs를 구현한다
 modules:
   - packages/core/workflows

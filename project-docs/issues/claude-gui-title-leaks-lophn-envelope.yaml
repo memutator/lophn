@@ -1,0 +1,15 @@
+id: claude-gui-title-leaks-lophn-envelope
+title: Claude Code GUI 팀원 탭의 제목에 <lophn-call>·<lophn-step> 봉투 태그가 그대로 표시된다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/core/harness-gui]
+now: |
+  `packages/core/harness-gui/claude.ts`의 `refreshTitle()`(및 `sessions()` 목록)은 `found?.customTitle ?? found?.firstPrompt ?? found?.summary ?? null` 순서로 세션 제목을 읽는다.
+
+  `lophn team spawn`이나 workflow step으로 열린 Claude Code 세션은 첫 user prompt가 `<lophn-call from="agent:..." call="..." reply="result">\n...` 또는 `<lophn-step instance="..." step="...">\n...` 봉투로 감싸져 있다. `customTitle`(aiTitle 포함)이 아직 없거나 생성되지 않은 상태에서 `firstPrompt`가 그대로 `title`로 발행되고, `packages/shell/renderer/workspace/kinds/terminal.tsx`가 이를 `agent_title`에 저장해 탭 이름이 `<lophn-call from="agent:..." ...>`로 보인다.
+impact: |
+  병렬로 여러 worker를 띄웠을 때 모든 조사 탭 이름이 `<lophn-call from=...>`로 똑같이 잘려 보여 어느 탭이 어떤 작업인지 사람이 구분할 수 없다.
+fix: |
+  - `claude.ts`의 `refreshTitle()`과 `sessions()`에서 `firstPrompt`/`summary`를 제목 fallback으로 쓸 때 `<lophn-call ...>`, `<lophn-step ...>`, `<lophn-reply ...>` 등 lophn 봉투 태그를 벗긴 본문의 첫 의미 있는 줄을 추출한다(core의 `session-title` 규칙과 맞춘다).
+  - 단위 test로 봉투가 감싼 `firstPrompt`에서 본문 첫 줄이 제목으로 나오고, `customTitle`이 생기면 그쪽으로 갱신되는 것을 검증한다.

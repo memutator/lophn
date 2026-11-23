@@ -1,0 +1,17 @@
+id: gui-member-opened-per-project-cap
+title: 프로젝트당 core가 연 GUI 팀원 탭 상한(8)을 넘으면 추가 spawn이 즉시 실패한다
+kind: defect
+status: open
+topic: terminal-agent
+modules: [packages/core/terminal-agents]
+now: |
+  `packages/core/terminal-agents/member.ts`의 `OPENED_PER_PROJECT = 8` 상한은 `coreOpened`에 등록된 프로젝트별 터미널 수를 센다. `openFor`에서 `busy >= OPENED_PER_PROJECT`이면 `"gui member: too many tabs opened in this project"` 로그만 남기고 `members.failQueued(session)`으로 대기 중인 call을 즉시 `receiver_ended`로 실패시킨다.
+
+  실사용에서 조사 lead(1)가 제품별 worker 8개를 한 번에 `team spawn`하자 7개(claude 6 + omp 1)까지만 열리고 9번째부터 전부 즉시 실패했다. 호출한 agent 입장에서는 탭 상한 때문인지, 상대 agent가 죽은 것인지 구분되지 않고 `receiver_ended`만 받는다.
+impact: |
+  병렬 조사가 많은 workflow에서 worker를 7~8개 이상 띄우면 나머지가 이유도 모른 채 실패해 누락되거나 불필요한 재시도를 반복한다. 또한 향후 Cross-workspace Workflow Desk로 한 workflow가 여러 project에 걸치게 되면 "프로젝트당 8개"가 정확히 무엇(동시 CLI 프로세스/메모리 vs 탭 수)을 지키는 상한인지 기준이 흐려진다.
+fix: |
+  - 상한이 지키는 자원이 무엇인지(동시 실행 중인 harness 프로세스 수 vs 열린 탭 수, 프로젝트 단위 vs 기계 전체)를 먼저 정한다.
+  - 상한 초과 시 `receiver_ended`로 즉시 튕기는 대신 대기 큐에 두고 앞선 팀원이 끝나면 순차 실행하거나, 거절해야 한다면 사유가 드러나는 오류를 돌려준다.
+decide: |
+  동시 GUI 팀원 상한을 어떤 기준(실행 중 프로세스 수 vs 열린 탭 수)으로 두고, 초과 시 대기 큐로 순차 실행할지 즉시 오류를 낼지 정한다.

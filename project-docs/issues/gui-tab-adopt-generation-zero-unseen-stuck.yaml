@@ -1,0 +1,17 @@
+id: gui-tab-adopt-generation-zero-unseen-stuck
+title: core가 연 GUI 터미널 탭을 확인해도 완료 indicator(unseen dot)가 사라지지 않는다
+kind: bug
+status: open
+topic: attention
+modules: [packages/shell/renderer]
+now: |
+  `packages/shell/renderer/workspace/kinds/terminal.tsx`의 `openTerminal`은 core가 연 터미널(`options.terminal`, `host:tab_...`)을 탭으로 열 때 `terminal.store.adopt(key, { terminalRef, generation: 0, folderRef: null })`로 `generation: 0`을 기록한다.
+
+  `entry.generation`이 1 이상으로 갱신되는 경로는 `TerminalTab`(xterm)이 mount되어 `displays.acquire()` 또는 `core.list()`를 탈 때뿐이다. 그런데 core가 띄운 GUI 팀원 탭은 처음부터 `showingGui === true`이므로 `packages/shell/renderer/terminal/terminal-gui.tsx`의 `GuiSwitch`가 `TerminalTab`을 렌더하지 않고 `<TerminalGui>`만 그린다. 그래서 `entry.generation`이 영영 `0`에 머문다.
+
+  `GuiSwitch`의 focus 보고 `useEffect`는 `generation < 1`이면 조기 return하므로 `bridge.focus({ terminal, generation, focused: true })`가 한 번도 호출되지 않는다. 결과적으로 `shell main`의 `presence/report` `looking`에 `term:<terminalRef>`가 실리지 않아 core `attention`의 `unseen`이 꺼지지 않는다. 앱 재시작 후 복원된 GUI 탭도 `store.get(tab.key)`가 `undefined`(`terminalRef === null`, `generation === 0`)라 같은 이유로 `unseen`이 꺼지지 않는다.
+impact: |
+  사용자가 완료된 GUI 팀원 탭을 클릭해 내용을 확인해도 탭의 완료 dot과 Inbox의 Finished 항목이 지워지지 않는다.
+fix: |
+  - `TerminalStore`가 `noteRuntime`으로 받은 live `TerminalRuntime`의 `generation`을 `terminalRef` 기준으로 보관·조회(`generationOf(tabKey)` 또는 `refOf(tabKey)` + runtime generation)하게 하거나, `GuiSwitch`가 `store.refOf(tab.key)`와 core runtime의 `generation`으로 `bridge.focus`를 보내게 고친다.
+  - `openTerminal`에서 `core.list()`로 기존 터미널 정보를 읽을 때 `store.update(key, { generation: found.generation })`도 함께 반영하고, 재시작 복원 시 `store.remember()`만 된 탭도 `GuiSwitch`가 `store.refOf(tab.key)`로 focus를 보고하도록 맞춘다.

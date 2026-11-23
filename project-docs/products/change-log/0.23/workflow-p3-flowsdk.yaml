@@ -1,5 +1,5 @@
 id: workflow-p3-flowsdk
-version: 0.23.144
+version: 0.23.147
 title: "@lophn/flow 1.1.0 inputs export, flow-host start inputs 전달, write-workflow skill과 migrate-sdk 메모를 더한다"
 modules:
   - packages/protocol

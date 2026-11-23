@@ -1,5 +1,5 @@
 id: workflow-p4-events
-version: 0.23.150
+version: 0.23.151
 title: job·flow 공용 event 도달·고리 정책을 추출하고 비영속 flow onEvent 메모리 구독 registry와 daemon bus 연결을 더한다
 modules:
   - packages/core/events

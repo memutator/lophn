@@ -1,5 +1,5 @@
 id: workspace-lifecycle-platform-update-cascade
-version: 0.23.155
+version: 0.23.156
 platform_note: durable-workflows-and-flow-2
 title: "작업 공간 통합 업데이트(/update)와 삭제·변경 연쇄 정리(cascade)를 구현한다"
 modules:

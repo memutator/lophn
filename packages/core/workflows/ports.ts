@@ -23,9 +23,44 @@ export type DefinitionFile = {
   artifacts: { static: boolean; instance: boolean };
 };
 
+// 설치된 @lophn/flow SDK의 최신 판과 지원 하한.
+export type FlowSdkInfo = {
+  current: string;
+  supported_from: string;
+};
+
 // 구현은 wf-decl-reader가 끼운다.
 export type WorkflowFiles = {
   list(project: Id<"prj">): Promise<Result<DefinitionFile[]>>;
+  flowSdkInfo?(): Promise<FlowSdkInfo>;
+  rename?(project: Id<"prj">, from: string, to: string): Promise<Result<void>>;
+  remove?(project: Id<"prj">, name: string): Promise<Result<void>>;
+};
+
+// workflow 이름 변경·삭제 시 ledger(workflow_instances·flow_sdk_reviews·jobs), 창 layout, event 반영 port.
+export type WorkflowLifecycle = {
+  renameLedger(
+    project: Id<"prj">,
+    from: string,
+    to: string,
+  ): Promise<Result<{ updated_jobs: number }>>;
+  deleteLedger(
+    project: Id<"prj">,
+    name: string,
+  ): Promise<Result<{ erased_jobs: number }>>;
+  updateLayoutOnRename?(
+    project: Id<"prj">,
+    from: string,
+    to: string,
+  ): Promise<void>;
+  updateLayoutOnDelete?(project: Id<"prj">, name: string): Promise<void>;
+  publishRenamed?(
+    project: Id<"prj">,
+    from: string,
+    to: string,
+    updatedJobs: number,
+  ): void;
+  publishRemoved?(project: Id<"prj">, name: string, erasedJobs: number): void;
 };
 
 export type WorkflowProjects = {

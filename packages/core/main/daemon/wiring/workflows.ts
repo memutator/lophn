@@ -1,5 +1,6 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
+import { type Id, parseActor } from "../../../../protocol/base/mod.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   DEFAULT_CALL_POLICY,
   isPrivate,
@@ -24,12 +25,14 @@ import {
   type WorkflowSoftOutput,
   workflowCheck,
   workflowCheckpointUpsert,
+  workflowDelete,
   workflowEdit,
   workflowFolder,
   workflowInstanceApply,
   workflowInstanceCreate,
   workflowInstanceRead,
   workflowList,
+  workflowRename,
   workflowReport,
   workflowResume,
   workflowRetry,
@@ -55,6 +58,7 @@ import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   type CommandEnvelope,
   type KnownSecretMatch,
+  openConnection,
   type Writer,
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
@@ -78,12 +82,20 @@ import {
   workflowsNoHarnessKindSteps,
 } from "../../../workflows/mod.ts";
 import { redactJsonValues } from "../../../workflows/plan.ts";
-import type { WorkflowAgents } from "../../../workflows/ports.ts";
+import type {
+  WorkflowAgents,
+  WorkflowLifecycle,
+} from "../../../workflows/ports.ts";
+import { hasTable } from "../../../workflows/store.ts";
 import { checkWorkflow } from "../../flow-host/check.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { prepareTexts } from "./router.ts";
 import { turnAnswer } from "./turn-answer.ts";
-import { createWorkflowFiles } from "./workflows-files.ts";
+import {
+  createWorkflowFiles,
+  updateWorkspaceLayoutForWorkflowDelete,
+  updateWorkspaceLayoutForWorkflowRename,
+} from "./workflows-files.ts";
 
 // workflow service가 상태를 읽고 쓰고 turn을 멈추는 core 안 machine 자격이다. step 메시지 본문 blob은 command를 부른
 // 자격의 이름으로 준비돼 있어야 받는 session 기록이 읽는다(agent-call.md). 기동 때 ledger에 기록한다.
@@ -710,6 +722,152 @@ export const workflowsWiring: WiringFactory = () => {
         },
       };
 
+      const lifecycle: WorkflowLifecycle = {
+        renameLedger(project, from, to) {
+          const opened = openConnection(ctx.ledgerPath);
+          if (!opened.ok) return Promise.resolve(opened);
+          try {
+            opened.value.exec("BEGIN IMMEDIATE");
+            const { sql } = opened.value;
+            sql.run(
+              "UPDATE workflow_instances SET workflow = ? WHERE project = ? AND workflow = ?",
+              [to, project, from],
+            );
+            if (hasTable(sql, "flow_sdk_reviews")) {
+              sql.run(
+                "UPDATE flow_sdk_reviews SET workflow = ? WHERE project = ? AND workflow = ?",
+                [to, project, from],
+              );
+            }
+            let updatedJobs = 0;
+            if (hasTable(sql, "jobs")) {
+              const res = sql.run(
+                `UPDATE jobs
+                 SET action = json_set(action, '$.workflow', ?1),
+                     updated_at = ?2
+                 WHERE json_extract(action, '$.kind') = 'workflow_start'
+                   AND json_extract(action, '$.project') = ?3
+                   AND json_extract(action, '$.workflow') = ?4`,
+                [to, ctx.clock.now(), project, from],
+              );
+              updatedJobs = Number(res.changes);
+            }
+            if (hasTable(sql, "sessions")) {
+              sql.run(
+                `UPDATE sessions
+                 SET workflow_origin = json_set(workflow_origin, '$.workflow', ?1)
+                 WHERE workflow_origin IS NOT NULL
+                   AND json_extract(workflow_origin, '$.project') = ?2
+                   AND json_extract(workflow_origin, '$.workflow') = ?3`,
+                [to, project, from],
+              );
+            }
+            opened.value.exec("COMMIT");
+            return Promise.resolve(ok({ updated_jobs: updatedJobs }));
+          } catch (thrown) {
+            try {
+              if (opened.value.inTransaction()) opened.value.exec("ROLLBACK");
+            } catch {
+              // ignore rollback error
+            }
+            return Promise.resolve(
+              err({
+                code: "unavailable" as const,
+                message: `could not update ledger for workflow rename: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
+              }),
+            );
+          } finally {
+            opened.value.close();
+          }
+        },
+        deleteLedger(project, name) {
+          const opened = openConnection(ctx.ledgerPath);
+          if (!opened.ok) return Promise.resolve(opened);
+          try {
+            opened.value.exec("BEGIN IMMEDIATE");
+            const { sql } = opened.value;
+            let erasedJobs = 0;
+            if (hasTable(sql, "jobs")) {
+              const rows = sql.all(
+                `SELECT id FROM jobs
+                 WHERE json_extract(action, '$.kind') = 'workflow_start'
+                   AND json_extract(action, '$.project') = ?1
+                   AND json_extract(action, '$.workflow') = ?2`,
+                [project, name],
+              );
+              const hasRuns = hasTable(sql, "job_runs");
+              for (const row of rows) {
+                const jobId = String(row["id"]);
+                if (hasRuns) {
+                  sql.run("DELETE FROM job_runs WHERE job = ?", [jobId]);
+                }
+                sql.run("DELETE FROM jobs WHERE id = ?", [jobId]);
+                erasedJobs += 1;
+              }
+            }
+            if (hasTable(sql, "flow_sdk_reviews")) {
+              sql.run(
+                "DELETE FROM flow_sdk_reviews WHERE project = ? AND workflow = ?",
+                [project, name],
+              );
+            }
+            opened.value.exec("COMMIT");
+            return Promise.resolve(ok({ erased_jobs: erasedJobs }));
+          } catch (thrown) {
+            try {
+              if (opened.value.inTransaction()) opened.value.exec("ROLLBACK");
+            } catch {
+              // ignore rollback error
+            }
+            return Promise.resolve(
+              err({
+                code: "unavailable" as const,
+                message: `could not update ledger for workflow delete: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
+              }),
+            );
+          } finally {
+            opened.value.close();
+          }
+        },
+        updateLayoutOnRename: (project, from, to) =>
+          updateWorkspaceLayoutForWorkflowRename(
+            ctx.root.path,
+            project,
+            from,
+            to,
+          ),
+        updateLayoutOnDelete: (project, name) =>
+          updateWorkspaceLayoutForWorkflowDelete(ctx.root.path, project, name),
+        publishRenamed(project, from, to, updatedJobs) {
+          const at = ctx.clock.now();
+          ctx.bus.publish({
+            type: "WorkflowRenamed",
+            subject: project,
+            at,
+            payload: { from, to },
+          } as never);
+          publishStateChanged(ctx.bus, at, [
+            { name: "projects", id: project },
+            { name: "workflow_instances", id: null },
+            ...(updatedJobs > 0 ? [{ name: "jobs" as const, id: null }] : []),
+          ]);
+        },
+        publishRemoved(project, name, erasedJobs) {
+          const at = ctx.clock.now();
+          ctx.bus.publish({
+            type: "WorkflowRemoved",
+            subject: project,
+            at,
+            payload: { name },
+          } as never);
+          publishStateChanged(ctx.bus, at, [
+            { name: "projects", id: project },
+            { name: "workflow_instances", id: null },
+            ...(erasedJobs > 0 ? [{ name: "jobs" as const, id: null }] : []),
+          ]);
+        },
+      };
+
       const built = createWorkflowService({
         files: createWorkflowFiles(ctx.root.path),
         projects,
@@ -719,6 +877,7 @@ export const workflowsWiring: WiringFactory = () => {
         flows,
         remote,
         snapshots,
+        lifecycle,
         clock: ctx.clock,
         ids,
         logger: ctx.telemetry.logger,
@@ -1027,6 +1186,56 @@ export const workflowsWiring: WiringFactory = () => {
         (who, input) =>
           call(input as never, who);
 
+      const resolveScopedProject = async (
+        who: AuthenticatedContext,
+        requested: string | undefined,
+      ): Promise<Result<string | null>> => {
+        if (parseActor(who.actor)?.kind !== "agent") {
+          return ok(requested ?? null);
+        }
+        const session = who.conditions.session;
+        if (session !== undefined) {
+          const found = await read<Output<typeof workspaceSessionRead>>(
+            workspaceSessionRead,
+            { session },
+          );
+          const workspace = found.ok ? found.value.session.workspace : null;
+          if (workspace?.kind === "app") {
+            return err({
+              code: "forbidden",
+              message: "an app agent cannot modify project workflows",
+            });
+          }
+          if (workspace?.kind === "project") {
+            if (requested !== undefined && requested !== workspace.id) {
+              return err({
+                code: "forbidden",
+                message:
+                  "an agent can only modify workflows in its own project",
+              });
+            }
+            return ok(workspace.id);
+          }
+          if (found.ok) return ok(requested ?? null);
+        }
+        if (who.conditions.app !== undefined) {
+          return err({
+            code: "forbidden",
+            message: "an app agent cannot modify project workflows",
+          });
+        }
+        if (who.conditions.project !== undefined) {
+          if (requested !== undefined && requested !== who.conditions.project) {
+            return err({
+              code: "forbidden",
+              message: "an agent can only modify workflows in its own project",
+            });
+          }
+          return ok(who.conditions.project);
+        }
+        return ok(requested ?? null);
+      };
+
       return ok({
         writer: (inner) =>
           withAfterCommit(
@@ -1094,6 +1303,22 @@ export const workflowsWiring: WiringFactory = () => {
             checkWorkflow({
               dataRoot: ctx.root.path,
               resolveProject: projects.resolve,
+            }),
+          ],
+          [
+            route(workflowRename),
+            handler(async (i: Parameters<typeof built.rename>[0], who) => {
+              const scoped = await resolveScopedProject(who, i.project);
+              if (!scoped.ok) return scoped;
+              return built.rename(i, scoped.value);
+            }),
+          ],
+          [
+            route(workflowDelete),
+            handler(async (i: Parameters<typeof built.remove>[0], who) => {
+              const scoped = await resolveScopedProject(who, i.project);
+              if (!scoped.ok) return scoped;
+              return built.remove(i, scoped.value);
             }),
           ],
         ],

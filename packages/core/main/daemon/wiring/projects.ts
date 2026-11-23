@@ -8,11 +8,17 @@ import {
   ok,
   type Result,
 } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/mod.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  isPrivate,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
 import {
   projectAdd,
   projectBrowse,
 } from "../../../../protocol/projects/add-api.ts";
 import {
+  artifactsDelete,
   artifactsFile,
   artifactsList,
   projectApi,
@@ -23,31 +29,26 @@ import {
   projectIdentityApi,
 } from "../../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
-import type { Id } from "../../../../protocol/base/mod.ts";
-import {
-  DEFAULT_CALL_POLICY,
-  isPrivate,
-} from "../../../../protocol/lophn-agent/call-policy.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
-import { openConnection } from "../../../storage/ledger/mod.ts";
-import { artifactHandlers } from "../../../projects/artifacts/mod.ts";
 import { addProject, type ProjectAddInput } from "../../../projects/add.ts";
+import { artifactHandlers } from "../../../projects/artifacts/mod.ts";
 import { browseFolders } from "../../../projects/browse.ts";
 import { projectFilesMutationHandlers } from "../../../projects/files/mod.ts";
 import {
   createGitReader,
   createIdentityService,
-  type IdentityService,
   createMatcher,
+  type IdentityService,
   nodeFolderProbe,
   sharedProjects,
 } from "../../../projects/identity/mod.ts";
 import {
   assignMissingIdentities,
   loadProjects,
-  type Project,
   PROJECT_IDENTITY_CONTEXT,
+  type Project,
 } from "../../../projects/registry/mod.ts";
+import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { DataStep, DataStepDeps } from "../../../storage/migration/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -303,6 +304,10 @@ export const projectsWiring: WiringFactory = () => {
         ],
         memory: [
           [`${artifactsList.resource}/${artifactsList.method}`, artifacts.list],
+          [
+            `${artifactsDelete.resource}/${artifactsDelete.method}`,
+            artifacts.remove,
+          ],
           [
             `${projectIdentityApi.identity.resource}/${projectIdentityApi.identity.method}`,
             (_who, body) =>

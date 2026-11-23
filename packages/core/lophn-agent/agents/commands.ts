@@ -1,5 +1,5 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
+import { type ErasedJobSpec, parseActor } from "../../../protocol/base/mod.ts";
 import {
   type AgentAvatar,
   type AgentId,
@@ -9,6 +9,7 @@ import {
   agentHandleKey,
   codingBuiltinOf,
   isLophn,
+  type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -27,7 +28,11 @@ import {
   openAgentContext,
   workspaceOfAgent,
 } from "./inspect.ts";
-import type { AgentDeps } from "./ports.ts";
+import {
+  type AgentDeps,
+  type AgentRemnantsEraser,
+  agentRemnantsEraser,
+} from "./ports.ts";
 import { LOPHN_AVATAR } from "./resolve.ts";
 import { agentMemoryFile, agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
@@ -84,6 +89,56 @@ function callerWorkspace(tx: Tx, ctx: RequestContext) {
   return session === undefined
     ? undefined
     : (workspaceOf(session) ?? undefined);
+}
+
+function remnantsEraserOf(tx: Tx): AgentRemnantsEraser | undefined {
+  if (typeof tx.port !== "function") return undefined;
+  try {
+    return tx.port(agentRemnantsEraser);
+  } catch {
+    return undefined;
+  }
+}
+
+type DeleteScope =
+  | { kind: "unrestricted" }
+  | { kind: "scoped"; workspace: Workspace }
+  | { kind: "denied" };
+
+// P12 경계: Home agent는 모든 비내장 agent를 지울 수 있고, project·app 범위 agent는 자기 workspace에 범위가 있는 agent만 지운다.
+function callerDeleteScope(tx: Tx, ctx: RequestContext): DeleteScope {
+  const actor = parseActor(ctx.actor);
+  if (
+    actor === undefined ||
+    actor.kind === "user" ||
+    actor.kind === "machine"
+  ) {
+    return { kind: "unrestricted" };
+  }
+  if (actor.kind !== "agent") return { kind: "denied" };
+  const session =
+    typeof tx.sql?.get === "function" ? loadSession(tx, actor.id) : undefined;
+  if (session !== undefined) {
+    const workspace = workspaceOf(session);
+    return workspace === null
+      ? { kind: "unrestricted" }
+      : { kind: "scoped", workspace };
+  }
+  const project = ctx.conditions?.project;
+  if (typeof project === "string") {
+    return {
+      kind: "scoped",
+      workspace: { kind: "project", id: project } as Workspace,
+    };
+  }
+  const app = ctx.conditions?.app;
+  if (typeof app === "string") {
+    return {
+      kind: "scoped",
+      workspace: { kind: "app", id: app } as Workspace,
+    };
+  }
+  return { kind: "denied" };
 }
 
 function same(left: unknown, right: unknown): boolean {
@@ -245,11 +300,13 @@ export function createAgentCommands(deps: AgentDeps): {
     },
     delete: {
       route: agentDelete,
+      // 대화와 job 기록을 같은 Tx에서 함께 지우므로 긴 대화가 있는 agent는 1000행을 넘을 수 있다.
+      unboundedRows: true,
       // app.delete가 같은 Tx에서 그 앱에 범위가 있는 agent 정의를 지운다.
       dispatchable: true,
       handle(
         tx: Tx,
-        _ctx: RequestContext,
+        ctx: RequestContext,
         input: Input<typeof agentDelete>,
         compare: Compare<typeof agentDelete>,
       ): Result<Output<typeof agentDelete>> {
@@ -262,6 +319,13 @@ export function createAgentCommands(deps: AgentDeps): {
             message: "a built-in coding agent cannot be deleted",
           });
         }
+        const scope = callerDeleteScope(tx, ctx);
+        if (scope.kind === "denied") {
+          return err({
+            code: "forbidden",
+            message: "the session is not permitted to delete agents",
+          });
+        }
         const context = open(deps, tx);
         if (!context.ok) return context;
         const found = loadAgent(context.value, input.agent);
@@ -269,8 +333,29 @@ export function createAgentCommands(deps: AgentDeps): {
         if (found.value === null) return notFound("agent");
         const loaded = found.value;
         if (loaded.file === null) return notFound("agent");
+        const targetWorkspace = workspaceOfAgent(loaded);
+        if (
+          scope.kind === "scoped" &&
+          !same(targetWorkspace, scope.workspace)
+        ) {
+          return err({
+            code: "forbidden",
+            message: "an agent can only delete agents in its own workspace",
+          });
+        }
         if (compare.hash !== loaded.file.hash) {
           return conflict("agent file");
+        }
+        let erasedJobs: ErasedJobSpec[] = [];
+        const eraser = remnantsEraserOf(tx);
+        if (eraser !== undefined) {
+          const erased = eraser.erase({
+            id: input.agent,
+            handle: handleOf(loaded),
+            workspace: targetWorkspace,
+          });
+          if (!erased.ok) return erased;
+          erasedJobs = erased.value.erased_jobs;
         }
         const removed = context.value.store.remove(loaded.slot);
         if (!removed.ok) return removed;
@@ -283,7 +368,13 @@ export function createAgentCommands(deps: AgentDeps): {
         } catch {
           // 이름 없는 고아로 남을 뿐이다. id는 다시 쓰이지 않는다.
         }
-        return ok({ agent: input.agent, hash: loaded.file.hash });
+        return ok({
+          agent: input.agent,
+          hash: loaded.file.hash,
+          erased_jobs: erasedJobs,
+          follow_ups: [],
+          handoff_session: null,
+        });
       },
     },
   };

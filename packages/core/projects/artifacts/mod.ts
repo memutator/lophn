@@ -1,23 +1,26 @@
 // 다른 컴퓨터가 읽는 artifact(`artifacts/*` route)의 core 쪽 처리. data root 아래 그릇의 `artifacts/<name>/`만 열고, 목록은
 // shell main의 목록 규칙과 같다(입구 `index.html`이 일반 file인 slug 폴더). 동기 file API는 core graph에 두지 않는다.
 import { constants } from "node:fs";
-import { lstat, open, readdir, realpath } from "node:fs/promises";
+import { lstat, open, readdir, realpath, rm } from "node:fs/promises";
 import { join, sep } from "node:path";
 
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   ARTIFACT_ENTRIES_PATH,
   ARTIFACT_ENTRY,
   type ArtifactWorkspace,
-  artifactWorkspaceOf,
   artifactsFolder,
+  artifactWorkspaceOf,
   parseArtifactMeta,
 } from "../../../protocol/projects/artifact.ts";
 import {
+  artifactsDelete,
   artifactsFile,
   artifactsList,
 } from "../../../protocol/projects/artifact-api.ts";
 import { artifactNameSchema } from "../../../protocol/projects/values.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   bytesFileStream,
   type FileStreamHandler,
@@ -155,9 +158,81 @@ export async function readArtifactFile(
   }
 }
 
+/** artifact 폴더 하나를 지운다. symlink 폴더와 artifacts 폴더 밖으로 나가는 경로는 거절한다. */
+export async function deleteArtifactFolder(
+  dataRoot: string,
+  input: { name: string } & ({ project: string } | { app: string }),
+): Promise<Result<null>> {
+  if (!artifactNameSchema.safeParse(input.name).success) {
+    return err({ code: "invalid_input", message: "invalid artifact name" });
+  }
+  const folder = artifactsFolder(dataRoot, artifactWorkspaceOf(input));
+  const target = join(folder, input.name);
+  let info: Awaited<ReturnType<typeof lstat>>;
+  try {
+    info = await lstat(target);
+  } catch {
+    return notFound("artifact not found");
+  }
+  if (info.isSymbolicLink()) {
+    return err({
+      code: "forbidden",
+      message: "artifact folder is a symbolic link",
+    });
+  }
+  if (!info.isDirectory()) return notFound("artifact not found");
+  try {
+    const real = await realpath(target);
+    if (!real.startsWith((await realpath(folder)) + sep)) {
+      return err({
+        code: "forbidden",
+        message: "artifact folder is outside artifacts",
+      });
+    }
+  } catch {
+    return notFound("artifact not found");
+  }
+  try {
+    await rm(target, { recursive: true });
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "could not delete the artifact",
+    });
+  }
+  return ok(null);
+}
+
+function authorizeArtifactDelete(
+  ctx: AuthenticatedContext,
+  input: { project: string } | { app: string },
+): Result<void> {
+  const actor = parseActor(ctx.actor);
+  if (actor?.kind !== "agent") return ok(undefined);
+  const boundProject = ctx.conditions?.project;
+  const boundApp = ctx.conditions?.app;
+  if (boundProject !== undefined) {
+    if (!("project" in input) || input.project !== boundProject) {
+      return err({
+        code: "forbidden",
+        message: "agent can only delete artifacts in its own project",
+      });
+    }
+  } else if (boundApp !== undefined) {
+    if (!("app" in input) || input.app !== boundApp) {
+      return err({
+        code: "forbidden",
+        message: "agent can only delete artifacts in its own app",
+      });
+    }
+  }
+  return ok(undefined);
+}
+
 export function artifactHandlers(dataRoot: string): {
   list: MemoryHandler;
   file: FileStreamHandler;
+  remove: MemoryHandler;
 } {
   return {
     list: async (_ctx, rawInput) => {
@@ -181,6 +256,21 @@ export function artifactHandlers(dataRoot: string): {
       return read.ok
         ? ok(bytesFileStream(read.value, artifactsFile.output.contentType))
         : read;
+    },
+    remove: async (ctx, rawInput) => {
+      const input = artifactsDelete.input.safeParse(rawInput);
+      if (!input.success) {
+        return err({ code: "invalid_input", message: "invalid delete input" });
+      }
+      const allowed = authorizeArtifactDelete(ctx, input.data);
+      if (!allowed.ok) return allowed;
+      const deleted = await deleteArtifactFolder(dataRoot, input.data);
+      if (!deleted.ok) return deleted;
+      return ok({
+        deleted: true as const,
+        follow_ups: [],
+        handoff_session: null,
+      });
     },
   };
 }

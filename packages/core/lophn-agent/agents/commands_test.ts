@@ -1,13 +1,32 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { LOPHN_HOME_ID } from "../../../protocol/lophn-agent/mod.ts";
+import { ok } from "../../../base/mod.ts";
+import { agentDelete } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import {
+  type AgentId,
+  LOPHN_HOME_ID,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
+import { callPolicySetting } from "../../config/setting-declarations.ts";
+import { jobsSchemaSteps } from "../../jobs/schema.ts";
+import {
+  AGENT_DELETED_CLEANUP_TOPIC,
+  agentDeleteWiring,
+  eraseAgentRemnants,
+} from "../../main/daemon/wiring/agent-delete.ts";
+import type { WiringContext } from "../../main/daemon/wiring/context.ts";
+import { createSql } from "../../storage/ledger/sqlite.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import { createAgentCommands } from "./commands.ts";
-import type { AgentLookups } from "./ports.ts";
+import {
+  type AgentLookups,
+  type AgentRemnantsEraser,
+  agentRemnantsEraser,
+} from "./ports.ts";
 import { agentSlotOf, createAgentStore } from "./store.ts";
 
 const AGENT = "agt_00000000000000000000000001";
@@ -394,5 +413,317 @@ test("agent 자격은 정의의 browser_profile을 넣거나 바꾸지 못하고
     assert.ok(stored.value.text.includes(`browser_profile: ${SHOP}`));
   } finally {
     await rm(root, { recursive: true });
+  }
+});
+
+test("agent.delete는 P12 범위(Home은 전체, workspace agent는 자기 범위만)를 지키고 agentRemnantsEraser 결과를 반환한다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-delete-p12-"));
+  try {
+    const files = createNodeAgentFiles();
+    const store = createAgentStore(files, root);
+    const PRJ_A = "prj_00000000000000000000000001";
+    const PRJ_B = "prj_00000000000000000000000002";
+    const AGT_GLOBAL = "agt_00000000000000000000000011" as AgentId;
+    const AGT_PRJ_A = "agt_00000000000000000000000012" as AgentId;
+    const AGT_PRJ_B = "agt_00000000000000000000000013" as AgentId;
+    const commands = createAgentCommands({
+      files,
+      lookups: () => ({ ...lookups, workspaceExists: () => true }),
+      dataRoot: root,
+    });
+    const createdGlobal = commands.create.handle(
+      tx,
+      user,
+      {
+        id: AGT_GLOBAL,
+        definition: { handle: "global-bot", name: "Global", body: "g" },
+      },
+      {} as never,
+    );
+    const createdA = commands.create.handle(
+      tx,
+      user,
+      {
+        id: AGT_PRJ_A,
+        definition: {
+          handle: "prj-a-bot",
+          name: "PrjA",
+          body: "a",
+          workspace: { kind: "project", id: PRJ_A },
+        },
+      } as never,
+      {} as never,
+    );
+    const createdB = commands.create.handle(
+      tx,
+      user,
+      {
+        id: AGT_PRJ_B,
+        definition: {
+          handle: "prj-b-bot",
+          name: "PrjB",
+          body: "b",
+          workspace: { kind: "project", id: PRJ_B },
+        },
+      } as never,
+      {} as never,
+    );
+    assert.ok(createdGlobal.ok && createdA.ok && createdB.ok);
+
+    const erasedCalls: string[] = [];
+    const eraser: AgentRemnantsEraser = {
+      erase(target) {
+        erasedCalls.push(target.id);
+        return ok({
+          sessions: ["ses_00000000000000000000000099"],
+          erased_jobs: [
+            {
+              id: "job_00000000000000000000000001",
+              title: "Daily check",
+              summary: "every 1d -> agent " + target.id,
+            },
+          ],
+        });
+      },
+    };
+    const makeTx = (wsKind: string | null, wsId: string | null) =>
+      ({
+        sql: {
+          get: () => ({
+            id: "ses_00000000000000000000000001",
+            agent: LOPHN_HOME_ID,
+            workspace_kind: wsKind,
+            workspace_id: wsId,
+            lifecycle: "open",
+            skip: 0,
+            created_seq: "1",
+            state_seq: "1",
+          }),
+        },
+        port: (key: unknown) => {
+          if (key === agentRemnantsEraser) return eraser;
+          throw new Error("unregistered");
+        },
+      }) as unknown as Tx;
+
+    // Project A agent cannot delete global agent or Project B agent -> forbidden.
+    const denyGlobal = commands.delete.handle(
+      makeTx("project", PRJ_A),
+      agent,
+      { agent: AGT_GLOBAL },
+      { hash: createdGlobal.value.hash },
+    );
+    assert.ok(!denyGlobal.ok);
+    assert.equal(denyGlobal.error.code, "forbidden");
+
+    const denyOtherPrj = commands.delete.handle(
+      makeTx("project", PRJ_A),
+      agent,
+      { agent: AGT_PRJ_B },
+      { hash: createdB.value.hash },
+    );
+    assert.ok(!denyOtherPrj.ok);
+    assert.equal(denyOtherPrj.error.code, "forbidden");
+
+    // Project A agent CAN delete Project A agent and gets erased_jobs from port.
+    const okOwnPrj = commands.delete.handle(
+      makeTx("project", PRJ_A),
+      agent,
+      { agent: AGT_PRJ_A },
+      { hash: createdA.value.hash },
+    );
+    assert.ok(okOwnPrj.ok);
+    assert.deepEqual(erasedCalls, [AGT_PRJ_A]);
+    assert.equal(okOwnPrj.value.erased_jobs?.length, 1);
+    assert.deepEqual(okOwnPrj.value.follow_ups, []);
+    assert.equal(okOwnPrj.value.handoff_session, null);
+
+    // Home agent CAN delete global agent AND Project B agent.
+    const okHomeGlobal = commands.delete.handle(
+      makeTx(null, null),
+      agent,
+      { agent: AGT_GLOBAL },
+      { hash: createdGlobal.value.hash },
+    );
+    const okHomePrjB = commands.delete.handle(
+      makeTx(null, null),
+      agent,
+      { agent: AGT_PRJ_B },
+      { hash: createdB.value.hash },
+    );
+    assert.ok(okHomeGlobal.ok && okHomePrjB.ok);
+    assert.deepEqual(erasedCalls, [AGT_PRJ_A, AGT_GLOBAL, AGT_PRJ_B]);
+    const remaining = store.agentIds();
+    assert.ok(remaining.ok && remaining.value.length === 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("agent-delete wiring은 agent의 job·MCP secret·callPolicy 규칙·session 디스크 흔적을 결정적으로 지운다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-delete-wiring-"));
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of jobsSchemaSteps) db.exec(step.sql);
+    db.exec("ALTER TABLE jobs ADD COLUMN trigger TEXT;");
+    const sql = createSql(db, () => true);
+
+    const GONE = "agt_00000000000000000000000021" as AgentId;
+    const KEPT = "agt_00000000000000000000000022" as AgentId;
+    const SES_GONE = "ses_00000000000000000000000021";
+    const AT = "2026-11-23T00:00:00.000Z";
+
+    // Seed jobs: one created by GONE, one targeting GONE, one unrelated for KEPT.
+    const seedJob = (
+      id: string,
+      title: string,
+      creator: string,
+      action: Record<string, unknown>,
+    ) => {
+      sql.run(
+        `INSERT INTO jobs (id, title, creator_agent, creator_workspace, every, at, trigger, action, missed_policy, enabled, created_at, updated_at)
+         VALUES (?, ?, ?, NULL, '1h', NULL, NULL, ?, 'run', 1, ?, ?)`,
+        [id, title, creator, JSON.stringify(action), AT, AT],
+      );
+      sql.run(
+        `INSERT INTO job_runs (id, job, due_at, missed_count, state, created_at)
+         VALUES (?, ?, ?, 0, 'done', ?)`,
+        [`jbr_${id.slice(4)}`, id, AT, AT],
+      );
+    };
+    seedJob("job_00000000000000000000000001", "Created by gone", GONE, {
+      kind: "agent_run",
+      agent: KEPT,
+      agent_workspace: null,
+      prompt: "hi",
+    });
+    seedJob("job_00000000000000000000000002", "Targets gone", KEPT, {
+      kind: "agent_run",
+      agent: GONE,
+      agent_workspace: null,
+      prompt: "run",
+    });
+    seedJob("job_00000000000000000000000003", "Unrelated", KEPT, {
+      kind: "agent_run",
+      agent: KEPT,
+      agent_workspace: null,
+      prompt: "keep",
+    });
+
+    const pushedActions: { topic: string; data: unknown }[] = [];
+    const fakeTx = {
+      sql,
+      port: () => ({
+        push: (topic: string, data: unknown) => {
+          pushedActions.push({ topic, data });
+        },
+      }),
+    } as unknown as Tx;
+
+    const erased = eraseAgentRemnants(fakeTx, {
+      id: GONE,
+      handle: "gone-bot",
+      workspace: null,
+    });
+    assert.ok(erased.ok);
+    assert.deepEqual(
+      erased.value.erased_jobs.map((j) => j.id),
+      ["job_00000000000000000000000001", "job_00000000000000000000000002"],
+    );
+    const leftJobs = sql.all("SELECT id FROM jobs ORDER BY id", []);
+    assert.deepEqual(
+      leftJobs.map((r) => String(r["id"])),
+      ["job_00000000000000000000000003"],
+    );
+    const leftRuns = sql.all("SELECT job FROM job_runs ORDER BY job", []);
+    assert.deepEqual(
+      leftRuns.map((r) => String(r["job"])),
+      ["job_00000000000000000000000003"],
+    );
+
+    // Prepare tool-results folder, secrets, and callPolicy setting for after-commit wiring check.
+    const toolDir = join(root, "tool-results", SES_GONE);
+    await mkdir(toolDir, { recursive: true });
+    await writeFile(join(toolDir, "out.txt"), "data");
+    const removedRewind: string[] = [];
+    const secrets = new Set([
+      `mcp.${GONE}.github.token`,
+      `mcp-oauth.${GONE}.notion.access`,
+      `mcp.${KEPT}.github.token`,
+      "mcp.global.docs.token",
+    ]);
+    let policy = {
+      private: [],
+      workspaces: [],
+      agents: [
+        { from: GONE, to: KEPT, allow: false },
+        { from: KEPT, to: GONE, allow: true },
+        { from: KEPT, to: LOPHN_HOME_ID, allow: true },
+      ],
+    };
+
+    const built = await agentDeleteWiring().build!({
+      telemetry: { logger: { error: () => {} } },
+      root: { path: root },
+      rewindFiles: {
+        store: {
+          removeSession: async (ses: string) => {
+            removedRewind.push(ses);
+          },
+        },
+      },
+      secretStore: {
+        names: () => ok([...secrets]),
+        delete: async (name: string) => {
+          secrets.delete(name);
+          return ok({ name, configured: false });
+        },
+      },
+      settings: {
+        get: (s: { key: string }) =>
+          s.key === callPolicySetting.key ? policy : undefined,
+      },
+      settingsUpdate: (
+        changes: { key: string; action: string; value: unknown }[],
+      ) => {
+        for (const change of changes) {
+          if (change.key === callPolicySetting.key) {
+            policy = change.value as typeof policy;
+          }
+        }
+        return ok({ rejected: [] });
+      },
+    } as unknown as WiringContext);
+    assert.ok(built.ok);
+    const writer = built.value.writer!({
+      command: async () =>
+        ok({
+          result: { agent: GONE, hash: "0".repeat(64) },
+          replayed: false,
+          after_commit: [
+            {
+              topic: AGENT_DELETED_CLEANUP_TOPIC,
+              data: { agent: GONE, sessions: [SES_GONE] },
+            },
+          ],
+        }),
+    } as never);
+    const done = await writer.command(
+      {} as never,
+      { command: agentDelete.name, input: { agent: GONE } } as never,
+    );
+    assert.ok(done.ok);
+    assert.deepEqual(removedRewind, [SES_GONE]);
+    await assert.rejects(() => stat(toolDir));
+    assert.deepEqual([...secrets].sort(), [
+      `mcp.${KEPT}.github.token`,
+      "mcp.global.docs.token",
+    ]);
+    assert.deepEqual(policy.agents, [
+      { from: KEPT, to: LOPHN_HOME_ID, allow: true },
+    ]);
+  } finally {
+    db.close();
+    await rm(root, { recursive: true, force: true });
   }
 });

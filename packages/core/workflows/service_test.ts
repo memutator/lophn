@@ -10,6 +10,10 @@ import type { Id } from "../../protocol/base/mod.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import { blocksText } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import {
+  removeWorkflowFromLayoutText,
+  renameWorkflowInLayoutText,
+} from "../main/daemon/wiring/workflows-files.ts";
 import { createRouter } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
@@ -785,6 +789,7 @@ test("StartWorkflow validates inputs (required, when-hidden, callable agent), in
     ].join("\n");
     const flowYaml = [
       "kind: flow",
+      'flow_sdk: "2.0.0"',
       "inputs:",
       "  token_note:",
       "    type: string",
@@ -1045,4 +1050,377 @@ test("redactJsonValues recursively redacts strings across nested objects/arrays 
     inputs: {},
   });
   assert.ok(!noInputsBody.includes("Inputs:"));
+});
+
+test("flow_sdk status blocks missing/old flow_sdk (< supported_from) in list and StartWorkflow while allowing available/current", async () => {
+  const filesList: DefinitionFile[] = [
+    {
+      name: "unstamped",
+      declaration: "agent: lophn\n",
+      flow: true,
+      artifacts: { static: false, instance: false },
+    },
+    {
+      name: "old-sdk",
+      declaration: 'flow_sdk: "1.0.0"\nagent: lophn\n',
+      flow: true,
+      artifacts: { static: false, instance: false },
+    },
+    {
+      name: "available-sdk",
+      declaration: 'flow_sdk: "2.0.0"\nagent: lophn\n',
+      flow: true,
+      artifacts: { static: false, instance: false },
+    },
+    {
+      name: "current-sdk",
+      declaration: 'flow_sdk: "2.1.0"\nagent: lophn\n',
+      flow: true,
+      artifacts: { static: false, instance: false },
+    },
+  ];
+  const service = createWorkflowService({
+    files: {
+      list: () => Promise.resolve(ok(filesList)),
+      flowSdkInfo: () =>
+        Promise.resolve({ current: "2.1.0", supported_from: "2.0.0" }),
+    },
+    projects: {
+      resolve: () =>
+        Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+      nameOf: () => Promise.resolve(ok("demo")),
+    },
+    turns: {} as never,
+    store: {} as never,
+    flows: {} as never,
+    remote: {} as never,
+    ids: createIdSource({
+      clock: { now: () => AT } as never,
+      random: {} as never,
+    }),
+    logger,
+  });
+
+  const listed = await service.list({ project: "demo" }, null);
+  assert.ok(listed.ok);
+  const byName = new Map(listed.value.workflows.map((w) => [w.name, w]));
+
+  const unstamped = byName.get("unstamped")!;
+  assert.equal(unstamped.flow_sdk, "1.0.0");
+  assert.equal(unstamped.flow_sdk_status, "required");
+  assert.equal(unstamped.startable, false);
+  assert.equal(unstamped.problem?.reason, "broken_flow");
+
+  const oldSdk = byName.get("old-sdk")!;
+  assert.equal(oldSdk.flow_sdk, "1.0.0");
+  assert.equal(oldSdk.flow_sdk_status, "required");
+  assert.equal(oldSdk.startable, false);
+
+  const availSdk = byName.get("available-sdk")!;
+  assert.equal(availSdk.flow_sdk, "2.0.0");
+  assert.equal(availSdk.flow_sdk_status, "available");
+  assert.equal(availSdk.startable, true);
+
+  const curSdk = byName.get("current-sdk")!;
+  assert.equal(curSdk.flow_sdk, "2.1.0");
+  assert.equal(curSdk.flow_sdk_status, "current");
+  assert.equal(curSdk.startable, true);
+
+  // StartWorkflow rejects required flow_sdk with conflict mentioning @lophn/flow migration.
+  for (const blockedName of ["unstamped", "old-sdk"]) {
+    const res = await service.start(
+      { workflow: `demo/${blockedName}`, text: "go" },
+      { kind: "user" },
+    );
+    assert.ok(!res.ok);
+    assert.equal(res.error.code, "conflict");
+    assert.match(res.error.message, /@lophn\/flow/);
+  }
+});
+
+test("WorkflowRename and WorkflowDelete enforce existence/conflicts, stop running instances, update ledger/layout, and emit events", async () => {
+  const h = makeHarness();
+  try {
+    // Seed a running instance of "old-wf" so WorkflowDelete must stop it.
+    const created = h.commands.create.handle(
+      h.tx,
+      h.ctx,
+      {
+        id: AGENT,
+        project: PRJ,
+        workflow: "old-wf",
+        input: "go",
+        participants: { worker: { agent: "lophn" } },
+        steps: [
+          {
+            name: "work",
+            by: "worker",
+            with: null,
+            prompt: "do work",
+            in: "",
+            out: "",
+            next: ["end"],
+          },
+        ],
+        started_by: { kind: "user" },
+        handoff: null,
+      },
+      {},
+    );
+    assert.ok(created.ok);
+
+    let wfNames = ["old-wf", "existing-wf"];
+    const events: unknown[] = [];
+    const layoutCalls: unknown[] = [];
+    const stoppedFlows: string[] = [];
+
+    const service = createWorkflowService({
+      files: {
+        list: () =>
+          Promise.resolve(
+            ok(
+              wfNames.map((name) => ({
+                name,
+                declaration: 'flow_sdk: "2.0.0"\nagent: lophn\n',
+                flow: true,
+                artifacts: { static: false, instance: false },
+              })),
+            ),
+          ),
+        rename: async (_prj, from, to) => {
+          wfNames = wfNames.map((n) => (n === from ? to : n));
+          return ok(undefined);
+        },
+        remove: async (_prj, name) => {
+          wfNames = wfNames.filter((n) => n !== name);
+          return ok(undefined);
+        },
+      },
+      projects: {
+        resolve: () =>
+          Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+        nameOf: () => Promise.resolve(ok("demo")),
+      },
+      turns: {
+        stopSession: () => Promise.resolve(ok(undefined)),
+        stepTurn: () => Promise.resolve(ok(null)),
+        openOutgoingCalls: () => Promise.resolve(ok(0)),
+      },
+      remote: {
+        computer: () => err({ code: "not_found", message: "none" }),
+        workspace: () => err({ code: "not_found", message: "none" }),
+        isPrivate: () => false,
+        receivedStep: () => Promise.resolve(ok(null)),
+        report: () => Promise.resolve(ok(undefined)),
+        handOf: () => ok(null),
+      },
+      flows: {
+        launch: () => Promise.resolve(ok(undefined)),
+        stop: (id) => {
+          stoppedFlows.push(id);
+          return Promise.resolve(ok(undefined));
+        },
+      },
+      store: {
+        create: (input) =>
+          Promise.resolve(h.commands.create.handle(h.tx, h.ctx, input, {})),
+        apply: (input, compare) =>
+          Promise.resolve(h.commands.apply.handle(h.tx, h.ctx, input, compare)),
+        read: (id) => {
+          const instance = loadInstance(h.sql, id);
+          const lines = loadLines(h.sql, id, { after: 0, limit: null });
+          const reports = lastReports(h.sql, id);
+          assert.ok(
+            instance.ok && instance.value !== null && lines.ok && reports.ok,
+          );
+          return Promise.resolve(
+            ok({
+              instance: instance.value,
+              lines: lines.value,
+              last_reports: reports.value,
+              remote_steps: [],
+              as_of_seq: "1",
+              next_cursor: null,
+            }),
+          );
+        },
+        running: () => Promise.resolve(runningInstances(h.sql)),
+      },
+      lifecycle: {
+        renameLedger: async (project, from, to) => {
+          h.sql.run(
+            "UPDATE workflow_instances SET workflow = ? WHERE project = ? AND workflow = ?",
+            [to, project, from],
+          );
+          return ok({ updated_jobs: 2 });
+        },
+        deleteLedger: async () => ok({ erased_jobs: 3 }),
+        updateLayoutOnRename: async (_p, from, to) => {
+          layoutCalls.push(["rename", from, to]);
+        },
+        updateLayoutOnDelete: async (_p, name) => {
+          layoutCalls.push(["delete", name]);
+        },
+        publishRenamed: (_p, from, to) => {
+          events.push(["WorkflowRenamed", from, to]);
+        },
+        publishRemoved: (_p, name) => {
+          events.push(["WorkflowRemoved", name]);
+        },
+      },
+      ids: createIdSource({
+        clock: { now: () => AT } as never,
+        random: {} as never,
+      }),
+      logger,
+    });
+
+    // Rename missing -> not_found; rename to existing -> conflict.
+    const missingRename = await service.rename(
+      { project: PRJ as Id<"prj">, from: "ghost", to: "new-wf" },
+      null,
+    );
+    assert.ok(!missingRename.ok);
+    assert.equal(missingRename.error.code, "not_found");
+
+    const conflictRename = await service.rename(
+      { project: PRJ as Id<"prj">, from: "old-wf", to: "existing-wf" },
+      null,
+    );
+    assert.ok(!conflictRename.ok);
+    assert.equal(conflictRename.error.code, "conflict");
+
+    // Rename succeeds, updates workflow_instances and emits WorkflowRenamed.
+    const renamed = await service.rename(
+      { project: PRJ as Id<"prj">, from: "old-wf", to: "renamed-wf" },
+      null,
+    );
+    assert.ok(renamed.ok);
+    assert.deepEqual(renamed.value, {
+      project: PRJ,
+      from: "old-wf",
+      to: "renamed-wf",
+      updated_jobs: 2,
+    });
+    const instAfterRename = loadInstance(h.sql, AGENT);
+    assert.ok(
+      instAfterRename.ok && instAfterRename.value?.workflow === "renamed-wf",
+    );
+
+    // Delete missing -> not_found.
+    const missingDelete = await service.remove(
+      { project: PRJ as Id<"prj">, name: "ghost" },
+      null,
+    );
+    assert.ok(!missingDelete.ok);
+    assert.equal(missingDelete.error.code, "not_found");
+
+    // Delete stops running instance of renamed-wf, erases jobs, removes folder, updates layout, emits WorkflowRemoved.
+    const deleted = await service.remove(
+      { project: PRJ as Id<"prj">, name: "renamed-wf" },
+      null,
+    );
+    assert.ok(deleted.ok);
+    assert.deepEqual(deleted.value, {
+      project: PRJ,
+      name: "renamed-wf",
+      erased_jobs: 3,
+      follow_ups: [],
+      handoff_session: null,
+    });
+    const instAfterDelete = loadInstance(h.sql, AGENT);
+    assert.ok(instAfterDelete.ok && instAfterDelete.value?.state === "stopped");
+    assert.deepEqual(stoppedFlows, [AGENT]);
+    assert.deepEqual(layoutCalls, [
+      ["rename", "old-wf", "renamed-wf"],
+      ["delete", "renamed-wf"],
+    ]);
+    assert.deepEqual(events, [
+      ["WorkflowRenamed", "old-wf", "renamed-wf"],
+      ["WorkflowRemoved", "renamed-wf"],
+    ]);
+  } finally {
+    h.db.close();
+  }
+});
+
+test("workspace layout JSON helpers rename and remove workflow desks and tabs cleanly without merging into _default", () => {
+  const initial = JSON.stringify({
+    schema_version: 13,
+    active_desk: "old-wf",
+    desks: {
+      _default: {
+        label: "Main",
+        tabs: [
+          { kind: "workflow", key: "workflow:old-wf", workflow: "old-wf" },
+          { kind: "terminal", key: "host:t1", terminal: "t1" },
+        ],
+        selected_tab: "workflow:old-wf",
+        groups: [
+          {
+            layout: {
+              dir: "row",
+              ratio: 0.5,
+              a: { tab: "workflow:old-wf" },
+              b: { tab: "host:t1" },
+            },
+            focus: "workflow:old-wf",
+          },
+        ],
+        floats: [],
+        detached: [],
+      },
+      "old-wf": {
+        label: "old-wf",
+        workflow: "old-wf",
+        tabs: [
+          { kind: "workflow", key: "workflow:old-wf", workflow: "old-wf" },
+          {
+            kind: "artifact",
+            key: `artifact-workflow:${PRJ}:old-wf:static`,
+            project: PRJ,
+            workflow: "old-wf",
+            view: "static",
+          },
+        ],
+        selected_tab: "workflow:old-wf",
+        groups: [],
+        floats: [],
+        detached: [],
+      },
+    },
+  });
+
+  const renamedText = renameWorkflowInLayoutText(initial, "old-wf", "new-wf");
+  assert.ok(renamedText !== null);
+  const renamed = JSON.parse(renamedText);
+  assert.equal(renamed.active_desk, "new-wf");
+  assert.equal("old-wf" in renamed.desks, false);
+  assert.equal(renamed.desks["new-wf"].workflow, "new-wf");
+  assert.equal(renamed.desks["new-wf"].label, "new-wf");
+  assert.equal(renamed.desks["new-wf"].selected_tab, "workflow:new-wf");
+  assert.equal(renamed.desks["new-wf"].tabs[0].key, "workflow:new-wf");
+  assert.equal(renamed.desks["new-wf"].tabs[0].workflow, "new-wf");
+  assert.equal(
+    renamed.desks["new-wf"].tabs[1].key,
+    `artifact-workflow:${PRJ}:new-wf:static`,
+  );
+  assert.equal(renamed.desks._default.selected_tab, "workflow:new-wf");
+  assert.equal(renamed.desks._default.groups[0].focus, "workflow:new-wf");
+  assert.equal(
+    renamed.desks._default.groups[0].layout.a.tab,
+    "workflow:new-wf",
+  );
+
+  const removedText = removeWorkflowFromLayoutText(renamedText, "new-wf");
+  assert.ok(removedText !== null);
+  const removed = JSON.parse(removedText);
+  assert.equal(removed.active_desk, "_default");
+  assert.equal("new-wf" in removed.desks, false);
+  assert.deepEqual(
+    removed.desks._default.tabs.map((t: { key: string }) => t.key),
+    ["host:t1"],
+  );
+  assert.equal(removed.desks._default.selected_tab, "host:t1");
+  assert.deepEqual(removed.desks._default.groups, []);
 });

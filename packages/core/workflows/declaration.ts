@@ -2,6 +2,7 @@ import { parse } from "yaml";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
   declarationStepSchema,
+  FLOW_SDK_VERSION,
   FLOW_STEP_BY,
   type InstanceStep,
   type Participant,
@@ -10,7 +11,32 @@ import {
   type WorkflowEntry,
   workflowDeclarationSchema,
 } from "../../protocol/workflows/mod.ts";
-import type { DefinitionFile } from "./ports.ts";
+import type { DefinitionFile, FlowSdkInfo } from "./ports.ts";
+
+export const DEFAULT_MISSING_FLOW_SDK = "1.0.0";
+export const DEFAULT_FLOW_SDK_INFO: FlowSdkInfo = {
+  current: FLOW_SDK_VERSION,
+  supported_from: FLOW_SDK_VERSION,
+};
+
+export function compareVersion(a: string, b: string): number {
+  const left = a.split(/[.+-]/).map(Number);
+  const right = b.split(/[.+-]/).map(Number);
+  for (let at = 0; at < 3; at += 1) {
+    const diff = (left[at] ?? 0) - (right[at] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+export function flowSdkStatusOf(
+  flowSdk: string,
+  info: FlowSdkInfo,
+): "current" | "available" | "required" {
+  if (compareVersion(flowSdk, info.supported_from) < 0) return "required";
+  if (compareVersion(flowSdk, info.current) < 0) return "available";
+  return "current";
+}
 
 // 선언 file(workflow.yaml)을 읽어 WorkflowEntry와 instance 칸으로 옮기는 순수 함수다.
 // 가리키는 이름이 있는지(by·with·next)는 보지 않는다. 시작할 때 넘길 줄에서 걸린다.
@@ -160,6 +186,7 @@ export function entryOf(
   project: Id<"prj">,
   key: string,
   file: DefinitionFile,
+  flowSdkInfo: FlowSdkInfo = DEFAULT_FLOW_SDK_INFO,
 ): WorkflowEntry {
   const base = { key, project, name: file.name, artifacts: file.artifacts };
   const parsed = parseDeclaration(file);
@@ -168,6 +195,8 @@ export function entryOf(
       ...base,
       state: "invalid",
       kind: null,
+      flow_sdk: null,
+      flow_sdk_status: null,
       startable: false,
       problem: parsed.problem,
       participants: null,
@@ -182,12 +211,23 @@ export function entryOf(
       : {}),
   };
   if (file.flow) {
+    const flowSdk = declaration.flow_sdk ?? DEFAULT_MISSING_FLOW_SDK;
+    const flowSdkStatus = flowSdkStatusOf(flowSdk, flowSdkInfo);
+    const problem =
+      flowSdkStatus === "required"
+        ? {
+            reason: "broken_flow" as const,
+            message: `@lophn/flow ${flowSdk} is below supported_from ${flowSdkInfo.supported_from}; migration is required before starting`,
+          }
+        : null;
     return {
       ...base,
       state: "ok",
       kind: "flow",
-      startable: true,
-      problem: null,
+      flow_sdk: flowSdk,
+      flow_sdk_status: flowSdkStatus,
+      startable: problem === null,
+      problem,
       ...io,
       participants:
         declaration.participants !== undefined
@@ -205,6 +245,8 @@ export function entryOf(
     ...base,
     state: "ok",
     kind: "agent",
+    flow_sdk: null,
+    flow_sdk_status: null,
     startable: true,
     problem: null,
     ...io,

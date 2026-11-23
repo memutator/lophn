@@ -378,7 +378,8 @@ test("durable replay returns completed/failed checkpoint without re-calling agen
     files: [
       {
         name: "pipeline",
-        declaration: "participants:\n  helper: { agent: lophn }\n",
+        declaration:
+          'flow_sdk: "2.0.0"\nparticipants:\n  helper: { agent: lophn }\n',
         flow: true,
         artifacts: { static: false, instance: false },
       },
@@ -512,13 +513,13 @@ test("reconcile marks interrupted agent/tool checkpoints without re-running whil
     files: [
       {
         name: "durable",
-        declaration: "agent: lophn\n",
+        declaration: 'flow_sdk: "2.0.0"\nagent: lophn\n',
         flow: true,
         artifacts: { static: false, instance: false },
       },
       {
         name: "human-only",
-        declaration: "agent: lophn\n",
+        declaration: 'flow_sdk: "2.0.0"\nagent: lophn\n',
         flow: true,
         artifacts: { static: false, instance: false },
       },
@@ -665,7 +666,10 @@ test("ResumeWorkflow updates code_snapshot with code_updated when use_latest_cod
   await mkdir(join(wfDir, "lib"), { recursive: true });
   await mkdir(join(wfDir, "artifacts", "instance"), { recursive: true });
   await mkdir(join(wfDir, "node_modules", "pkg"), { recursive: true });
-  await writeFile(join(wfDir, "workflow.yaml"), "agent: lophn\n");
+  await writeFile(
+    join(wfDir, "workflow.yaml"),
+    'flow_sdk: "2.0.0"\nagent: lophn\n',
+  );
   await writeFile(join(wfDir, "flow.ts"), "export const version = 1;\n");
   await writeFile(join(wfDir, "lib", "util.ts"), "export const x = 1;\n");
   await writeFile(join(wfDir, "artifacts", "instance", "index.html"), "<hi/>");
@@ -675,7 +679,7 @@ test("ResumeWorkflow updates code_snapshot with code_updated when use_latest_cod
     files: [
       {
         name: "release",
-        declaration: "agent: lophn\n",
+        declaration: 'flow_sdk: "2.0.0"\nagent: lophn\n',
         flow: true,
         artifacts: { static: false, instance: false },
       },
@@ -768,7 +772,7 @@ test("ResumeWorkflow updates code_snapshot with code_updated when use_latest_cod
 test("workflow() enforces same-project, cycle, depth 5, returns child SoftOutput, and StopWorkflow cascades to children", async () => {
   const flowDef = (name: string): DefinitionFile => ({
     name,
-    declaration: "agent: lophn\n",
+    declaration: 'flow_sdk: "2.0.0"\nagent: lophn\n',
     flow: true,
     artifacts: { static: false, instance: false },
   });
@@ -994,7 +998,7 @@ test("declaration detects mode solely by flow.ts and built-in YAML interpreter r
   // Legacy kind: agent WITH flow.ts and NO steps -> valid flow!
   const flowIgnoringKind = entryOf(PRJ_A, "alpha/code-wf", {
     name: "code-wf",
-    declaration: "kind: agent\nagent: lophn\n",
+    declaration: 'flow_sdk: "2.0.0"\nkind: agent\nagent: lophn\n',
     flow: true,
     artifacts: { static: false, instance: false },
   });

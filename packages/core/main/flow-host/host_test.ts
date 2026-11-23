@@ -28,6 +28,7 @@ import type {
   SpawnedPipe,
 } from "../../supervision/responsiveness/process.ts";
 import { createFlowEventRegistry } from "../../workflows/event-subscriptions.ts";
+import { stampFlowSdk } from "./check.ts";
 import {
   createFlowHost,
   type FlowHostWorkflows,
@@ -625,5 +626,40 @@ test("durable flow-host materializes codeSnapshot, routes all v2 wire frames, an
     await assert.rejects(() => stat(snapshotDir));
   } finally {
     await rm(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test("stampFlowSdk stamps flow_sdk into workflow.yaml while preserving comments and updates old version", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "flow-check-stamp-"));
+  try {
+    const yamlPath = join(dir, "workflow.yaml");
+    const original = [
+      "# Workflow header comment",
+      "agent: lophn # inline comment",
+      "steps:",
+      "  run: {}",
+      "",
+    ].join("\n");
+    await writeFile(yamlPath, original, "utf8");
+
+    await stampFlowSdk(yamlPath, "2.0.0");
+    const stamped = await readFile(yamlPath, "utf8");
+    assert.match(stamped, /# Workflow header comment/);
+    assert.match(stamped, /# inline comment/);
+    assert.match(stamped, /flow_sdk: "?2\.0\.0"?/);
+
+    // Updating from an older flow_sdk version replaces it cleanly while preserving comments.
+    await writeFile(
+      yamlPath,
+      '# Keep me\nflow_sdk: "1.0.0"\nagent: lophn\n',
+      "utf8",
+    );
+    await stampFlowSdk(yamlPath, "2.0.0");
+    const updated = await readFile(yamlPath, "utf8");
+    assert.match(updated, /# Keep me/);
+    assert.match(updated, /flow_sdk: "?2\.0\.0"?/);
+    assert.ok(!updated.includes("1.0.0"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 });

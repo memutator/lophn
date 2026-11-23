@@ -1,16 +1,18 @@
 // `workflow.check`. project workspace의 agent가 쓴 flow.ts를 실행하지 않고 type check만 한다. packageInstallPath를 쓰므로
 // apps를 import하지 않는 workflows module이 아니라 core/main에 둔다(layers.md).
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
+import { isMap, parseDocument } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   FLOW_SDK_NAME,
   FLOW_SDK_VERSION,
+  WORKFLOW_DECLARATION_FILE,
   WORKFLOW_FLOW_FILE,
   workflowFolder,
 } from "../../../protocol/workflows/mod.ts";
@@ -115,6 +117,44 @@ function runCheck(
   });
 }
 
+// check 통과 시 workflow.yaml의 주석·형식을 보존하며 flow_sdk 판 도장을 찍는다.
+export async function stampFlowSdk(
+  declarationPath: string,
+  version: string,
+): Promise<void> {
+  let text: string;
+  try {
+    text = await readFile(declarationPath, "utf8");
+  } catch {
+    return;
+  }
+  const doc = parseDocument(text);
+  if (doc.errors.length > 0 || !isMap(doc.contents)) return;
+  if (doc.get("flow_sdk") === version) return;
+  doc.set("flow_sdk", version);
+  await writeFile(declarationPath, doc.toString(), "utf8");
+}
+
+async function readInstalledFlowVersion(
+  dataRoot: string,
+  installPath: string,
+): Promise<string> {
+  try {
+    const manifest = JSON.parse(
+      await readFile(`${dataRoot}/${installPath}/package.json`, "utf8"),
+    ) as { version?: unknown };
+    if (
+      typeof manifest.version === "string" &&
+      /^\d+\.\d+\.\d+$/.test(manifest.version)
+    ) {
+      return manifest.version;
+    }
+  } catch {
+    // fallback to bundled constant
+  }
+  return FLOW_SDK_VERSION;
+}
+
 export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
   return async (_ctx, raw) => {
     const [projectRef, name] = (raw as { workflow: string }).workflow.split(
@@ -174,7 +214,14 @@ export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {
           message: "workflow check did not finish",
         });
       }
-      if (result.code === 0) return ok({ errors: [] });
+      if (result.code === 0) {
+        const version = await readInstalledFlowVersion(
+          deps.dataRoot,
+          installed.value,
+        );
+        await stampFlowSdk(`${folder}/${WORKFLOW_DECLARATION_FILE}`, version);
+        return ok({ errors: [] });
+      }
       return ok({ errors: parseErrors(result.output) });
     } finally {
       await rm(temp, { recursive: true }).catch(() => {});

@@ -1,4 +1,7 @@
+import type { Result } from "../../../base/mod.ts";
+import { definePort, type ErasedJobSpec } from "../../../protocol/base/mod.ts";
 import type {
+  AgentId,
   McpTool,
   ModelChoice,
   Workspace,
@@ -6,6 +9,20 @@ import type {
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { SharedFolder } from "../extensions/skills.ts";
 import type { AvailableSkill } from "./resolve.ts";
+
+// agent.delete가 같은 Tx에서 다른 module의 기록(session, 이 agent가 만들었거나 부르는 job)을 지우는 길이다.
+// core/main(wiring/agent-delete.ts)이 끼운다.
+export interface AgentRemnantsEraser {
+  erase(agent: {
+    id: AgentId;
+    handle: string;
+    workspace: Workspace | null;
+  }): Result<{ sessions: string[]; erased_jobs: ErasedJobSpec[] }>;
+}
+
+export const agentRemnantsEraser = definePort<AgentRemnantsEraser>(
+  "agents.AgentRemnantsEraser",
+);
 
 // agents가 바깥에서 받는 것들이다. 파일 IO와 다른 concern의 값은 모두 여기서 받아 시험이 바꿔 끼운다.
 // 읽기(snapshot)와 쓰기(Tx)가 같은 `lookups`를 쓰도록 sql만 받는 factory로 둔다.

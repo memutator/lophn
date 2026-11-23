@@ -4,6 +4,7 @@ import {
   mkdtemp,
   realpath,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -175,6 +176,112 @@ test("artifacts/file은 artifact 폴더 밖(.., symlink, 형제 폴더)과 크�
     });
     assert.equal(huge.ok, false);
     assert.equal(huge.error.code, "not_found");
+  } finally {
+    await rm(made.base, { recursive: true });
+  }
+});
+
+test("artifacts/delete는 project·app artifact 폴더를 지우고 symlink·권한 밖 작업 공간·없는 대상을 거절한다", async (t) => {
+  const made = await setup();
+  if (made === null) return t.skip(NO_FILE_SYMLINK);
+  try {
+    const handlers = artifactHandlers(made.dataRoot);
+    const OTHER_PROJECT = `prj_0${"9".repeat(25)}`;
+    const OTHER_APP = `app_0${"8".repeat(25)}`;
+    const userCtx = { actor: "user", conditions: {} } as AuthenticatedContext;
+    const homeAgentCtx = {
+      actor: "agent:ses_00000000000000000000000001",
+      conditions: {},
+    } as AuthenticatedContext;
+    const projectAgentCtx = {
+      actor: "agent:ses_00000000000000000000000002",
+      conditions: { project: PROJECT },
+    } as AuthenticatedContext;
+    const appAgentCtx = {
+      actor: "agent:ses_00000000000000000000000003",
+      conditions: { app: APP },
+    } as AuthenticatedContext;
+
+    // symlink artifact 폴더는 forbidden이고 바깥 폴더는 그대로 남는다.
+    const symRes = await handlers.remove(userCtx, {
+      project: PROJECT,
+      name: "escape-dir",
+    });
+    assert.equal(symRes.ok, false);
+    assert.equal(symRes.error.code, "forbidden");
+    assert.ok((await stat(join(made.outside, "secret.txt"))).isFile());
+
+    // 없는 artifact는 not_found, 잘못된 이름은 invalid_input.
+    const missing = await handlers.remove(userCtx, {
+      project: PROJECT,
+      name: "missing",
+    });
+    assert.equal(missing.ok, false);
+    assert.equal(missing.error.code, "not_found");
+
+    const invalid = await handlers.remove(userCtx, {
+      project: PROJECT,
+      name: "BAD_NAME",
+    });
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.error.code, "invalid_input");
+
+    // agent 범위 경계: 다른 project·app은 forbidden.
+    const crossPrj = await handlers.remove(projectAgentCtx, {
+      project: OTHER_PROJECT,
+      name: "report",
+    });
+    assert.equal(crossPrj.ok, false);
+    assert.equal(crossPrj.error.code, "forbidden");
+
+    const prjToApp = await handlers.remove(projectAgentCtx, {
+      app: APP,
+      name: "dash",
+    });
+    assert.equal(prjToApp.ok, false);
+    assert.equal(prjToApp.error.code, "forbidden");
+
+    const crossApp = await handlers.remove(appAgentCtx, {
+      app: OTHER_APP,
+      name: "dash",
+    });
+    assert.equal(crossApp.ok, false);
+    assert.equal(crossApp.error.code, "forbidden");
+
+    const appToPrj = await handlers.remove(appAgentCtx, {
+      project: PROJECT,
+      name: "report",
+    });
+    assert.equal(appToPrj.ok, false);
+    assert.equal(appToPrj.error.code, "forbidden");
+
+    // 자기 project의 artifact는 project agent가 지울 수 있다.
+    const deletedPrj = await handlers.remove(projectAgentCtx, {
+      project: PROJECT,
+      name: "report",
+    });
+    assert.equal(deletedPrj.ok, true);
+    assert.deepEqual(deletedPrj.value, {
+      deleted: true,
+      follow_ups: [],
+      handoff_session: null,
+    });
+    await assert.rejects(() => stat(made.good));
+
+    // Home agent는 어느 workspace(app 포함)의 artifact든 지울 수 있다.
+    const deletedApp = await handlers.remove(homeAgentCtx, {
+      app: APP,
+      name: "dash",
+    });
+    assert.equal(deletedApp.ok, true);
+    assert.deepEqual(deletedApp.value, {
+      deleted: true,
+      follow_ups: [],
+      handoff_session: null,
+    });
+    await assert.rejects(() =>
+      stat(join(made.dataRoot, "apps", APP, "artifacts", "dash")),
+    );
   } finally {
     await rm(made.base, { recursive: true });
   }

@@ -675,7 +675,10 @@ files:
       - artifacts-file:ok
       - artifacts-file:not-found
       - artifacts-file:invalid-input
-    note: "artifact 목록에서 symlink 폴더를 제외하고, file 읽기가 폴더 밖 symlink·형제 폴더·4 MiB 초과를 not_found로, ..·절대 path·잘못된 slug를 invalid_input으로 거절하며 data/_entries.json을 낸다"
+      - artifacts-delete:deleted
+      - artifacts-delete:not-found
+      - artifacts-delete:forbidden
+    note: "artifact 목록에서 symlink 폴더를 제외하고, file 읽기가 폴더 밖 symlink·형제 폴더·4 MiB 초과를 not_found로, ..·절대 path·잘못된 slug를 invalid_input으로 거절하며 data/_entries.json을 낸다. artifacts/delete는 project·app artifact 폴더를 지우고 symlink·권한 밖 workspace agent·없는 대상을 거절한다"
 
   - path: packages/core/projects/search/search_test.ts
     covers: [project-search:ok]
@@ -1053,8 +1056,14 @@ files:
     note: harness 참가자 저장 행이 step 뒤 새 schema로 읽힌다
 
   - path: packages/core/workflows/service_test.ts
-    covers: [workflow-restart:flow-closed]
-    note: 켤 때 running flow instance를 닫고 다시 띄우지 않는다. agent instance는 건드리지 않는다
+    covers:
+      - workflow-restart:flow-closed
+      - workflow-rename:renamed
+      - workflow-rename:conflict
+      - workflow-rename:not-found
+      - workflow-delete:deleted
+      - workflow-delete:not-found
+    note: "켤 때 running flow instance를 닫고 다시 띄우지 않는다. agent instance는 건드리지 않는다. flow_sdk 상태 판정·차단과 WorkflowRename·WorkflowDelete(폴더·ledger·layout·event)를 함께 본다"
 
   - path: packages/core/main/daemon/app-sender-migration_test.ts
     covers:

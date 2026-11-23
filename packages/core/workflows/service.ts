@@ -27,10 +27,12 @@ import {
   type WorkflowCheckpoint,
   type WorkflowSoftOutput,
   type workflowCheckpointUpsert,
+  type workflowDelete,
   type workflowEdit,
   type workflowInstanceApply,
   type workflowInstanceRead,
   type workflowList,
+  type workflowRename,
   type workflowReport,
   type workflowResume,
   type workflowRetry,
@@ -46,6 +48,7 @@ import {
 } from "./agent-primitive.ts";
 import { checkpointToOutcome } from "./checkpoints.ts";
 import {
+  DEFAULT_FLOW_SDK_INFO,
   entryOf,
   flowStepsOf,
   parseDeclaration,
@@ -54,9 +57,11 @@ import {
 } from "./declaration.ts";
 import { planHandoff, retryContinueBody } from "./plan.ts";
 import type {
+  FlowSdkInfo,
   WorkflowAgents,
   WorkflowFiles,
   WorkflowFlows,
+  WorkflowLifecycle,
   WorkflowProjects,
   WorkflowRemote,
   WorkflowSnapshots,
@@ -307,6 +312,7 @@ export function createWorkflowService(deps: {
   flows: WorkflowFlows;
   remote: WorkflowRemote;
   snapshots?: WorkflowSnapshots;
+  lifecycle?: WorkflowLifecycle;
   agentPorts?: AgentPrimitivePorts;
   clock?: Clock;
   ids: IdSource;
@@ -321,6 +327,7 @@ export function createWorkflowService(deps: {
     flows,
     remote,
     snapshots,
+    lifecycle,
     ids,
     logger,
   } = deps;
@@ -578,6 +585,13 @@ export function createWorkflowService(deps: {
     return done.ok ? ok(undefined) : done;
   }
 
+  async function resolveFlowSdkInfo(): Promise<FlowSdkInfo> {
+    if (files !== undefined && typeof files.flowSdkInfo === "function") {
+      return await files.flowSdkInfo();
+    }
+    return DEFAULT_FLOW_SDK_INFO;
+  }
+
   async function start(
     input: z.output<typeof workflowStart.input>,
     by: StartedBy,
@@ -591,7 +605,8 @@ export function createWorkflowService(deps: {
     if (file === undefined) {
       return fail("not_found", "workflow not found");
     }
-    const entry = entryOf(project.value.id, input.workflow, file);
+    const sdkInfo = await resolveFlowSdkInfo();
+    const entry = entryOf(project.value.id, input.workflow, file, sdkInfo);
     const parsed = parseDeclaration(file);
     if (!entry.startable || !parsed.ok) {
       return fail(
@@ -1693,8 +1708,14 @@ export function createWorkflowService(deps: {
       if (!project.ok) return project;
       const listed = await files.list(project.value.id);
       if (!listed.ok) return listed;
+      const sdkInfo = await resolveFlowSdkInfo();
       const workflows = listed.value.map((file) =>
-        entryOf(project.value.id, `${project.value.name}/${file.name}`, file),
+        entryOf(
+          project.value.id,
+          `${project.value.name}/${file.name}`,
+          file,
+          sdkInfo,
+        ),
       );
       if (agents === undefined) {
         return ok({ workflows });
@@ -1704,6 +1725,127 @@ export function createWorkflowService(deps: {
       return ok({
         workflows,
         callable_agents: callable.value,
+      });
+    },
+
+    async rename(
+      input: z.output<typeof workflowRename.input>,
+      defaultProject: string | null,
+    ): Promise<Result<z.output<typeof workflowRename.output>>> {
+      const ref = input.project ?? defaultProject;
+      if (ref === null) {
+        return fail("invalid_input", "give a project");
+      }
+      const project = await projects.resolve(ref);
+      if (!project.ok) return project;
+      if (input.from === input.to) {
+        return fail(
+          "conflict",
+          "target workflow name must differ from current name",
+        );
+      }
+      const listed = await files.list(project.value.id);
+      if (!listed.ok) return listed;
+      if (!listed.value.some((f) => f.name === input.from)) {
+        return fail("not_found", "workflow not found");
+      }
+      if (listed.value.some((f) => f.name === input.to)) {
+        return fail("conflict", `workflow '${input.to}' already exists`);
+      }
+      if (typeof files.rename !== "function") {
+        return fail("unavailable", "workflow rename is not configured");
+      }
+      const renamed = await files.rename(
+        project.value.id,
+        input.from,
+        input.to,
+      );
+      if (!renamed.ok) return renamed;
+      let updatedJobs = 0;
+      if (lifecycle !== undefined) {
+        const ledger = await lifecycle.renameLedger(
+          project.value.id,
+          input.from,
+          input.to,
+        );
+        if (!ledger.ok) {
+          await files
+            .rename(project.value.id, input.to, input.from)
+            .catch(() => {});
+          return ledger;
+        }
+        updatedJobs = ledger.value.updated_jobs;
+        await lifecycle.updateLayoutOnRename?.(
+          project.value.id,
+          input.from,
+          input.to,
+        );
+        lifecycle.publishRenamed?.(
+          project.value.id,
+          input.from,
+          input.to,
+          updatedJobs,
+        );
+      }
+      return ok({
+        project: project.value.id,
+        from: input.from,
+        to: input.to,
+        updated_jobs: updatedJobs,
+      });
+    },
+
+    async remove(
+      input: z.output<typeof workflowDelete.input>,
+      defaultProject: string | null,
+    ): Promise<Result<z.output<typeof workflowDelete.output>>> {
+      const ref = input.project ?? defaultProject;
+      if (ref === null) {
+        return fail("invalid_input", "give a project");
+      }
+      const project = await projects.resolve(ref);
+      if (!project.ok) return project;
+      const listed = await files.list(project.value.id);
+      if (!listed.ok) return listed;
+      if (!listed.value.some((f) => f.name === input.name)) {
+        return fail("not_found", "workflow not found");
+      }
+      if (typeof files.remove !== "function") {
+        return fail("unavailable", "workflow delete is not configured");
+      }
+      const running = await store.running();
+      if (!running.ok) return running;
+      for (const inst of running.value) {
+        if (inst.project === project.value.id && inst.workflow === input.name) {
+          const stopped = await stopRecursive(
+            inst.id as Id<"wfi">,
+            { kind: "user" },
+            new Set(),
+          );
+          if (!stopped.ok && stopped.error.code !== "conflict") {
+            return stopped;
+          }
+        }
+      }
+      let erasedJobs = 0;
+      if (lifecycle !== undefined) {
+        const ledger = await lifecycle.deleteLedger(
+          project.value.id,
+          input.name,
+        );
+        if (!ledger.ok) return ledger;
+        erasedJobs = ledger.value.erased_jobs;
+      }
+      const removed = await files.remove(project.value.id, input.name);
+      if (!removed.ok) return removed;
+      await lifecycle?.updateLayoutOnDelete?.(project.value.id, input.name);
+      lifecycle?.publishRemoved?.(project.value.id, input.name, erasedJobs);
+      return ok({
+        project: project.value.id,
+        name: input.name,
+        erased_jobs: erasedJobs,
+        follow_ups: [],
+        handoff_session: null,
       });
     },
 

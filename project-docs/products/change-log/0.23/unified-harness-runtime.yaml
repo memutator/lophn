@@ -1,5 +1,5 @@
 id: unified-harness-runtime
-version: 0.23.131
+version: 0.23.133
 title: 외부 harness 실행을 단일 상주 어댑터(tab·background)로 통합하고 model catalog·harness_config를 지원한다
 modules:
   - packages/protocol

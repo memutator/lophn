@@ -1484,7 +1484,7 @@ flows:
     actor: person
     entries: [route:impact/read]
     boundary: [agents, core-api, core]
-    code: [packages/protocol/lophn-agent/follow-ups.ts]
+    code: [packages/core/main/daemon/wiring/workspace-reader.ts]
     steps:
       - "앱·agent·artifact·workflow의 즉각 삭제 대상과 declared·mentioned 인계 대상을 조회한다 (P12, user와 Home agent만 호출)"
     outcomes:

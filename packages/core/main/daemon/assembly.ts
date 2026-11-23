@@ -2,63 +2,56 @@
 
 // 최상위 팀마다 등록 파일 하나.
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
-import { createCoreRegistration as createHostQueueRegistration } from "../../host-queue/register.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
+import { createCoreRegistration as createHostQueueRegistration } from "../../host-queue/register.ts";
 import { createLedgerRegistration as createJobsRegistration } from "../../jobs/register.ts";
 import { createLedgerRegistration } from "../../projects/register.ts";
 import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
 import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
+import { a2aListsWiring } from "./wiring/a2a-lists.ts";
+import { acpWiring } from "./wiring/acp.ts";
 import { createCoreRegistration as createAcpRegistration } from "./wiring/acp-registration.ts";
+import {
+  agentDeleteWiring,
+  createCoreRegistration as createAgentDeleteRegistration,
+} from "./wiring/agent-delete.ts";
+import { agentHandleWiring } from "./wiring/agent-handle.ts";
+import { alwaysOnWiring } from "./wiring/always-on.ts";
+import { annotationsWiring } from "./wiring/annotations.ts";
+import { appCallsWiring } from "./wiring/app-calls.ts";
+import { approvalsWiring } from "./wiring/approvals.ts";
+import { appsWiring } from "./wiring/apps.ts";
 import {
   appsDeleteWiring,
   createCoreRegistration as createAppsDeleteRegistration,
 } from "./wiring/apps-delete.ts";
-import { acpWiring } from "./wiring/acp.ts";
-import { annotationsWiring } from "./wiring/annotations.ts";
-import { artifactMoveWiring } from "./wiring/artifact-move.ts";
-import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
-import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
-import { globalFloatsTabsWiring } from "./wiring/global-floats-tabs.ts";
-import { shellAgentTabsWiring } from "./wiring/shell-agent-tabs.ts";
-import { approvalsWiring } from "./wiring/approvals.ts";
-import { customReplyWiring } from "./wiring/custom-reply.ts";
-import { harnessWiring } from "./wiring/harness.ts";
-import { harnessRunnersWiring } from "./wiring/harness-runners.ts";
-import { hostQueueWiring } from "./wiring/host-queue.ts";
-import { inputRequestWiring } from "./wiring/input-request.ts";
-import {
-  attentionWiring,
-  createCoreRegistration as createAttentionRegistration,
-} from "./wiring/attention.ts";
-import { appsWiring } from "./wiring/apps.ts";
-import { noticesWiring } from "./wiring/notices.ts";
-import { bundleFileSharingWiring } from "./wiring/bundle-file-sharing.ts";
-import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
+import { artifactMoveWiring } from "./wiring/artifact-move.ts";
 import {
   assignmentFileWiring,
   createCoreRegistration as createAssignmentRegistration,
 } from "./wiring/assignment-file.ts";
 import {
-  createCoreRegistration as createShareRequestsRegistration,
-  shareRequestsWiring,
-} from "./wiring/share-requests.ts";
+  attentionWiring,
+  createCoreRegistration as createAttentionRegistration,
+} from "./wiring/attention.ts";
+import { bundleFileSharingWiring } from "./wiring/bundle-file-sharing.ts";
 import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
+import { customReplyWiring } from "./wiring/custom-reply.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
-import { machineWiring } from "./wiring/machine.ts";
-import { mailWiring } from "./wiring/mail.ts";
-import { handoffWiring } from "./wiring/handoff.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
-import { lophnSplitWiring } from "./wiring/lophn-split.ts";
 import { eventsWiring } from "./wiring/events.ts";
-import { stateChangesWiring } from "./wiring/state-changes.ts";
 import { flowsWiring } from "./wiring/flows.ts";
+import { folderWiring } from "./wiring/folder.ts";
+import { globalFloatsTabsWiring } from "./wiring/global-floats-tabs.ts";
+import { handoffWiring } from "./wiring/handoff.ts";
+import { harnessWiring } from "./wiring/harness.ts";
+import { harnessRunnersWiring } from "./wiring/harness-runners.ts";
+import { hostQueueWiring } from "./wiring/host-queue.ts";
 import { idleWiring } from "./wiring/idle.ts";
-import { terminalsWiring } from "./wiring/terminals.ts";
-import { terminalAgentsWiring } from "./wiring/terminal-agents.ts";
-import { alwaysOnWiring } from "./wiring/always-on.ts";
+import { inputRequestWiring } from "./wiring/input-request.ts";
 import { jobsWiring } from "./wiring/jobs.ts";
 import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
 import {
@@ -76,6 +69,10 @@ import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
 } from "./wiring/lophn-agent-team.ts";
+import { lophnSplitWiring } from "./wiring/lophn-split.ts";
+import { machineWiring } from "./wiring/machine.ts";
+import { mailWiring } from "./wiring/mail.ts";
+import { noticesWiring } from "./wiring/notices.ts";
 import {
   createCoreRegistration as createProjectCloneRegistration,
   projectCloneWiring,
@@ -89,20 +86,28 @@ import { routerWiring } from "./wiring/router.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { runsWiring } from "./wiring/runs.ts";
 import { sdkInstallWiring } from "./wiring/sdk-install.ts";
+import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
 import { serverWiring } from "./wiring/server.ts";
-import { appCallsWiring } from "./wiring/app-calls.ts";
-import { a2aListsWiring } from "./wiring/a2a-lists.ts";
-import { folderWiring } from "./wiring/folder.ts";
 import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
-import { terminalViewWiring } from "./wiring/terminal-view.ts";
 import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
-import { agentHandleWiring } from "./wiring/agent-handle.ts";
+import {
+  createCoreRegistration as createShareRequestsRegistration,
+  shareRequestsWiring,
+} from "./wiring/share-requests.ts";
+import { shellAgentTabsWiring } from "./wiring/shell-agent-tabs.ts";
 import { createSkillsOffWiring } from "./wiring/skills-off.ts";
+import { stateChangesWiring } from "./wiring/state-changes.ts";
 import { storageWiring } from "./wiring/storage.ts";
 import { supervisionWiring } from "./wiring/supervision.ts";
+import { terminalAgentsWiring } from "./wiring/terminal-agents.ts";
+import { terminalViewWiring } from "./wiring/terminal-view.ts";
+import { terminalsWiring } from "./wiring/terminals.ts";
 import { workflowsWiring } from "./wiring/workflows.ts";
+import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
+import { workspaceReaderWiring } from "./wiring/workspace-reader.ts";
+import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
 
 export const TEAMS = [
   { createLedgerRegistration },
@@ -123,6 +128,7 @@ export const TEAMS = [
   { createCoreRegistration: createShareRequestsRegistration },
   { createCoreRegistration: createAcpRegistration },
   { createCoreRegistration: createAppsDeleteRegistration },
+  { createCoreRegistration: createAgentDeleteRegistration },
   { createCoreRegistration: createAttentionRegistration },
   { createCoreRegistration: createRemoteRegistration },
   { createCoreRegistration: createProjectCloneRegistration },
@@ -153,6 +159,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/share-requests.ts", import.meta.url).href,
   new URL("./wiring/acp-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-delete.ts", import.meta.url).href,
+  new URL("./wiring/agent-delete.ts", import.meta.url).href,
   new URL("./wiring/attention.ts", import.meta.url).href,
   new URL("./wiring/remote.ts", import.meta.url).href,
   new URL("./wiring/project-clone.ts", import.meta.url).href,
@@ -203,6 +210,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   appsWiring,
   // 쓰기 앞 처리기는 앞이 안쪽이다. lophn-agent의 session 정리(rewind files)보다 안쪽이라 app.delete의 session 정리도 이 위에서 한다.
   appsDeleteWiring,
+  agentDeleteWiring,
+  workspaceReaderWiring,
   sealedMarkerWiring,
   // 봉인 표지를 보고 사본을 고르므로 sealed-marker 뒤다.
   bundleFileSharingWiring,
